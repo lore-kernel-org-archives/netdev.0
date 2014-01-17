@@ -1,77 +1,81 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v2 net-next 05/12] bonding: extend arp_validate to be able to receive unvalidated arp-only traffic
-Date: Fri, 17 Jan 2014 17:58:53 +0100
-Message-ID: <1389977940-17084-6-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v2 net-next 06/12] bonding: document the new _arp options for arp_validate
+Date: Fri, 17 Jan 2014 17:58:54 +0100
+Message-ID: <1389977940-17084-7-git-send-email-vfalico@redhat.com>
 References: <1389977940-17084-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40324 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:9318 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752657AbaAQRER (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jan 2014 12:04:17 -0500
+	id S1752886AbaAQRET (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jan 2014 12:04:19 -0500
 In-Reply-To: <1389977940-17084-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
-
-Currently we can either receive any traffic as a proff of slave being up,
-or only *validated* arp traffic (i.e. with src/dst ip checked).
-
-Add an option to be able to specify if we want to receive non-validated arp
-traffic only.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_main.c |  3 +++
- drivers/net/bonding/bonding.h   | 11 +++++++++++
- 2 files changed, 14 insertions(+)
+ Documentation/networking/bonding.txt | 34 ++++++++++++++++++++++++++++++----
+ 1 file changed, 30 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 07ae82d..532a452 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -246,6 +246,9 @@ const struct bond_parm_tbl arp_validate_tbl[] = {
- {	"active",		BOND_ARP_VALIDATE_ACTIVE},
- {	"backup",		BOND_ARP_VALIDATE_BACKUP},
- {	"all",			BOND_ARP_VALIDATE_ALL},
-+{	"arp",			BOND_ARP_VALIDATE_ARP},
-+{	"active_arp",		BOND_ARP_VALIDATE_ACTIVE_ARP},
-+{	"backup_arp",		BOND_ARP_VALIDATE_BACKUP_ARP},
- {	NULL,			-1},
- };
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index 3620690..a0c1bca2 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -279,19 +279,45 @@ arp_validate
  
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 955dc48..1fbbf04 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -318,6 +318,11 @@ static inline bool bond_is_active_slave(struct slave *slave)
- #define BOND_ARP_VALIDATE_BACKUP	(1 << BOND_STATE_BACKUP)
- #define BOND_ARP_VALIDATE_ALL		(BOND_ARP_VALIDATE_ACTIVE | \
- 					 BOND_ARP_VALIDATE_BACKUP)
-+#define BOND_ARP_VALIDATE_ARP		(BOND_ARP_VALIDATE_ALL + 1)
-+#define BOND_ARP_VALIDATE_ACTIVE_ARP	(BOND_ARP_VALIDATE_ACTIVE | \
-+					 BOND_ARP_VALIDATE_ARP)
-+#define BOND_ARP_VALIDATE_BACKUP_ARP	(BOND_ARP_VALIDATE_BACKUP | \
-+					 BOND_ARP_VALIDATE_ARP)
+ 	none or 0
  
- static inline int slave_do_arp_validate(struct bonding *bond,
- 					struct slave *slave)
-@@ -325,6 +330,12 @@ static inline int slave_do_arp_validate(struct bonding *bond,
- 	return bond->params.arp_validate & (1 << bond_slave_state(slave));
- }
+-		No validation is performed.  This is the default.
++		No validation is performed.  This is the default. Any arriving
++		traffic (arp or non-arp) is considered a proof that the slave
++		is up.
  
-+static inline int slave_do_arp_validate_only(struct bonding *bond,
-+					     struct slave *slave)
-+{
-+	return bond->params.arp_validate & BOND_ARP_VALIDATE_ARP;
-+}
+ 	active or 1
+ 
+-		Validation is performed only for the active slave.
++		Validation is performed only for the active slave. Only ARPs
++		that arrive from any arp_ip_target are considered legit. The
++		backup slave still does no validation (as if arp_validate=0).
+ 
+ 	backup or 2
+ 
+-		Validation is performed only for backup slaves.
++		Validation is performed only for backup slaves. Only ARPs
++		that arrive from any arp_ip_target are considered legit. The
++		active slave still has no validation (as if arp_validate=0).
+ 
+ 	all or 3
+ 
+-		Validation is performed for all slaves.
++		Validation is performed for all slaves. Only ARPs
++		that arrive from any arp_ip_target are considered legit.
 +
- /* Get the oldest arp which we've received on this slave for bond's
-  * arp_targets.
-  */
++	arp or 4
++
++		Any arp packet is accepted as a proof that any slave is up,
++		but no IP-based validation is made.
++
++	active_arp or 5
++
++		Validation is performed only for the active slave. Only ARPs
++		that arrive from any arp_ip_target are considered legit. The
++		backup slave validates only arp packets, but doesn't check the
++		source (as if arp_validate=4).
++
++	backup_any or 6
++
++		Validation is performed only for backup slaves. Only ARPs
++		that arrive from any arp_ip_target are considered legit. The
++		active slave validates only arp packets, but doesn't check the
++		source (as if arp_validate=4).
+ 
+ 	For the active slave, the validation checks ARP replies to
+ 	confirm that they were generated by an arp_ip_target.  Since
 -- 
 1.8.4
