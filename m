@@ -1,33 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dm9000: fix a lot of checkpatch issues
-Date: Thu, 16 Jan 2014 16:23:11 -0800 (PST)
-Message-ID: <20140116.162311.588537816552009978.davem@davemloft.net>
-References: <1389799906-2260-1-git-send-email-21cnbao@gmail.com>
+Subject: Re: [PATCH net-next] bnad: code cleanup
+Date: Thu, 16 Jan 2014 16:23:17 -0800 (PST)
+Message-ID: <20140116.162317.2216687545785900839.davem@davemloft.net>
+References: <20140115082421.5d2fdfc3@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nikita@compulab.co.il, grinberg@compulab.co.il,
-	jg1.han@samsung.com, mugunthanvnm@ti.com, netdev@vger.kernel.org,
-	workgroup.linux@csr.com, Baohua.Song@csr.com
-To: 21cnbao@gmail.com
+Cc: rmody@brocade.com, netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55391 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55397 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751480AbaAQAXN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 19:23:13 -0500
-In-Reply-To: <1389799906-2260-1-git-send-email-21cnbao@gmail.com>
+	with ESMTP id S1751480AbaAQAXS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 19:23:18 -0500
+In-Reply-To: <20140115082421.5d2fdfc3@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Barry Song <21cnbao@gmail.com>
-Date: Wed, 15 Jan 2014 23:31:46 +0800
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Wed, 15 Jan 2014 08:24:21 -0800
 
-> From: Barry Song <Baohua.Song@csr.com>
+> Use 'make namespacecheck' to code that could be declared static.
+> After that remove code that is not being used.
 > 
-> recently, dm9000 codes have many checkpatch errors and warnings:
- ..
-> This patch fixes important errors in it.
+> Compile tested only.
 > 
-> Signed-off-by: Barry Song <Baohua.Song@csr.com>
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
 Applied.
