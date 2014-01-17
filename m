@@ -1,39 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH-next v2] net/ipv4: don't use module_init in non-modular
- gre_offload
-Date: Thu, 16 Jan 2014 16:09:17 -0800 (PST)
-Message-ID: <20140116.160917.355730401262312217.davem@davemloft.net>
-References: <1389802795-27442-1-git-send-email-paul.gortmaker@windriver.com>
-	<1389909911.31367.425.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: i40e sym version file
+Date: Thu, 16 Jan 2014 16:15:17 -0800 (PST)
+Message-ID: <20140116.161517.610025686781630913.davem@davemloft.net>
+References: <20140115081645.484c124d@nehalam.linuxnetplumber.net>
+	<FC41C24E35F18A40888AACA1A36F3E418A1C521E@FMSMSX102.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paul.gortmaker@windriver.com, netdev@vger.kernel.org,
-	edumazet@google.com
-To: eric.dumazet@gmail.com
+Cc: stephen@networkplumber.org, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org, aaron.f.brown@intel.com
+To: shannon.nelson@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55173 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55251 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751434AbaAQAJS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 19:09:18 -0500
-In-Reply-To: <1389909911.31367.425.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1751314AbaAQAPS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 19:15:18 -0500
+In-Reply-To: <FC41C24E35F18A40888AACA1A36F3E418A1C521E@FMSMSX102.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 16 Jan 2014 14:05:11 -0800
+From: "Nelson, Shannon" <shannon.nelson@intel.com>
+Date: Wed, 15 Jan 2014 16:22:07 +0000
 
-> On Wed, 2014-01-15 at 11:19 -0500, Paul Gortmaker wrote:
->> Recent commit 438e38fadca2f6e57eeecc08326c8a95758594d4
->> ("gre_offload: statically build GRE offloading support") added
->> new module_init/module_exit calls to the gre_offload.c file.
-> ...
->> Cc: Eric Dumazet <edumazet@google.com>
->> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
->> ---
->> 
->> v2: dump gre_offload_exit entirely as suggested by Eric.
-> 
-> Acked-by: Eric Dumazet <edumazet@google.com>
+> Ooo, ick, that shouldn't be there.  Jeff is on sabbatical and Aaron
+> is covering, I'll work with Aaron to find what happened and get it
+> straightened out.
 
-Applied, thank you.
+I've removed this file from the net-next tree.
