@@ -1,60 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: ftgmac100: use kfree_skb() where appropriate
-Date: Thu, 16 Jan 2014 23:38:24 -0800
-Message-ID: <1389944304.31367.476.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next v2 0/2] bonding: add slave netlink and sysfs
+ support
+Date: Fri, 17 Jan 2014 15:47:10 +0800
+Message-ID: <52D8DFFE.20603@huawei.com>
+References: <20140117065316.3194.94624.stgit@monster-03.cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: <netdev@vger.kernel.org>, <roopa@cumulusnetworks.com>,
+	<shm@cumulusnetworks.com>
+To: Scott Feldman <sfeldma@cumulusnetworks.com>, <vfalico@redhat.com>,
+	<fubar@us.ibm.com>, <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:40279 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751155AbaAQHi0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 02:38:26 -0500
-Received: by mail-pa0-f41.google.com with SMTP id fa1so1470037pad.0
-        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 23:38:25 -0800 (PST)
+Received: from szxga01-in.huawei.com ([119.145.14.64]:40533 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751155AbaAQHsB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 02:48:01 -0500
+In-Reply-To: <20140117065316.3194.94624.stgit@monster-03.cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
-
-In order to get correct drop monitor notifications for dropped
-packets, we should call kfree_skb() instead of dev_kfree_skb()
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- drivers/net/ethernet/faraday/ftgmac100.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index 24d87898209b..c11ecbc98149 100644
---- a/drivers/net/ethernet/faraday/ftgmac100.c
-+++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -766,7 +766,7 @@ static void ftgmac100_free_buffers(struct ftgmac100 *priv)
- 			continue;
- 
- 		dma_unmap_single(priv->dev, map, skb_headlen(skb), DMA_TO_DEVICE);
--		dev_kfree_skb(skb);
-+		kfree_skb(skb);
- 	}
- 
- 	dma_free_coherent(priv->dev, sizeof(struct ftgmac100_descs),
-@@ -1148,7 +1148,7 @@ static int ftgmac100_hard_start_xmit(struct sk_buff *skb,
- 			netdev_dbg(netdev, "tx packet too big\n");
- 
- 		netdev->stats.tx_dropped++;
--		dev_kfree_skb(skb);
-+		kfree_skb(skb);
- 		return NETDEV_TX_OK;
- 	}
- 
-@@ -1159,7 +1159,7 @@ static int ftgmac100_hard_start_xmit(struct sk_buff *skb,
- 			netdev_err(netdev, "map socket buffer failed\n");
- 
- 		netdev->stats.tx_dropped++;
--		dev_kfree_skb(skb);
-+		kfree_skb(skb);
- 		return NETDEV_TX_OK;
- 	}
- 
+On 2014/1/17 14:57, Scott Feldman wrote:
+> v2:
+> 
+>   - Address review comment from Ding (and Veacesiav): handle kobj cleanup
+>     if sysfs_create_file() fails when adding slave attribute nodes.
+> 
+> v1:
+> 
+>   The following series adds bonding slave netlink and sysfs interfaces.
+>   Slave interfaces get a new IFLA_SLAVE set of netlink attributes, along
+>   with RTM_NEWLINK notification when slave's active status changes.  The
+>   sysfs interface adds read-only nodes for slave attributes under a /slave
+>   dir, simliar to how bond interfaces get a /bonding dir for bonding
+>   attributes.
+> 
+> ---
+> 
+> Scott Feldman (2):
+>       bonding: add sysfs /slave dir for bond slave devices.
+>       bonding: add netlink attributes to slave link dev
+> 
+> 
+>  drivers/net/bonding/Makefile           |    2 
+>  drivers/net/bonding/bond_main.c        |   28 ++++++
+>  drivers/net/bonding/bond_netlink.c     |   36 ++++++++
+>  drivers/net/bonding/bond_procfs.c      |   12 ---
+>  drivers/net/bonding/bond_sysfs_slave.c |  144 ++++++++++++++++++++++++++++++++
+>  drivers/net/bonding/bonding.h          |   15 +++
+>  include/linux/netdevice.h              |    5 +
+>  include/uapi/linux/if_link.h           |   13 +++
+>  net/core/rtnetlink.c                   |   54 ++++++++++++
+>  9 files changed, 294 insertions(+), 15 deletions(-)
+>  create mode 100644 drivers/net/bonding/bond_sysfs_slave.c
+> 
+Reviewed-by: Ding Tianhong <dingtianhong@huawei.com>
