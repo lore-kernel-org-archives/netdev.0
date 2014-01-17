@@ -1,123 +1,114 @@
-From: chenweilong <chenweilong@huawei.com>
-Subject: Re: [PATCH] ipv6: don't call addrconf_dst_alloc again when enable
- lo
-Date: Fri, 17 Jan 2014 10:02:17 +0800
-Message-ID: <52D88F29.5010404@huawei.com>
-References: <20131231035718.GB27636@order.stressinduktion.org> <52C4FDBE.5030607@huawei.com> <20140102065429.GB22494@order.stressinduktion.org> <52C51C1E.9040603@huawei.com> <20140102082325.GC22494@order.stressinduktion.org> <52C5325B.8020900@huawei.com> <20140103065349.GK22494@order.stressinduktion.org> <52CD0331.8040204@cn.fujitsu.com> <20140108080528.GD9007@order.stressinduktion.org> <52CD0F86.30605@cn.fujitsu.com> <20140108085554.GF9007@order.stressinduktion.org>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: PANIC in vxlan <debugging now>
+Date: Thu, 16 Jan 2014 18:03:18 -0800
+Message-ID: <20140116180318.00004f53@unknown>
+References: <20140116171428.00004da1@unknown>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Gao feng <gaofeng@cn.fujitsu.com>,
-	David Miller <davem@davemloft.net>, <kumaran.4353@gmail.com>,
-	<netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>, dborkman@redhat.com
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:6896 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751770AbaAQCC1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 21:02:27 -0500
-In-Reply-To: <20140108085554.GF9007@order.stressinduktion.org>
+Received: from mga09.intel.com ([134.134.136.24]:40056 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751310AbaAQCDT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jan 2014 21:03:19 -0500
+In-Reply-To: <20140116171428.00004da1@unknown>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/1/8 16:55, Hannes Frederic Sowa wrote:
-> On Wed, Jan 08, 2014 at 04:42:46PM +0800, Gao feng wrote:
->> On 01/08/2014 04:05 PM, Hannes Frederic Sowa wrote:
->>> On Wed, Jan 08, 2014 at 03:50:09PM +0800, Gao feng wrote:
->>>> On 01/03/2014 02:53 PM, Hannes Frederic Sowa wrote:
->>>>> On Thu, Jan 02, 2014 at 05:33:15PM +0800, chenweilong wrote:
->>>>>> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
->>>>>> index 62d1799..d2f8c0a 100644
->>>>>> --- a/net/ipv6/addrconf.c
->>>>>> +++ b/net/ipv6/addrconf.c
->>>>>> @@ -2422,8 +2422,9 @@ static void init_loopback(struct net_device *dev)
->>>>>>  			if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
->>>>>>  				continue;
->>>>>>
->>>>>> -			if (sp_ifa->rt)
->>>>>> -				continue;
->>>>>> +			if (sp_ifa->rt && sp_ifa->rt->dst.dev == dev) {
->>>>>> +				ip6_del_rt(sp_ifa->rt);
->>>>>> +			}
->>>>>>
->>>>>>  			sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, 0);
->>>>>>
->>>>>
->>>>> Maybe this change would not be that bad after all, as those ifa attached dsts
->>>>> are already dead and queued up for gc and should not get inserted back.
->>>>
->>>> I like this idea, maybe the below patch is better. we only need to delete this
->>>> route when it has been added to garbage list.
->>>>
->>>> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
->>>> index 1a341f7..4dca886 100644
->>>> --- a/net/ipv6/addrconf.c
->>>> +++ b/net/ipv6/addrconf.c
->>>> @@ -2610,8 +2610,16 @@ static void init_loopback(struct net_device *dev)
->>>>                         if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
->>>>                                 continue;
->>>>
->>>> -                       if (sp_ifa->rt)
->>>> -                               continue;
->>>> +                       if (sp_ifa->rt) {
->>>> +                               /* This dst has been added to garbage list when
->>>> +                                * lo device down, delete this obsolete dst and
->>>> +                                * reallocate new router for ifa. */
->>>> +                               if (sp_ifa->rt->dst.obsolete > 0) {
->>>> +                                       ip6_del_rt(sp_ifa->rt);
->>>> +                                       sp_ifa->rt = NULL;
->>>> +                               } else
->>>> +                                       continue;
->>>> +                       }
->>>>
->>>>                         sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, false);
->>>
->>> It looks like it can work but I don't know if we should just fix this the
->>> clean way (see below).
->>>
->>>>> I'll try to just disable routes without removing them at all when we set an
->>>>> interface to down at the weekend.
->>>>>
->>>>
->>>> How do you decide which route should be disabled?  use rt6_flags? I don't know
->>>> if your way will cause miscarriage.
->>>
->>> What I did so far is that I added a new function next to rt6_ifdown that
->>> only gets called if interface gets shutdown but not unregistered (from
->>> addrconf_ifdown).
->>>
->>
->> rt6_ifdown has alreay put this device related routes to the garbage list.
->>
->>> fib6_clean_all then iterates over the whole routing table with a new predicate
->>> function which checks in the same way like fib6_ifdown, if it is a matching route
->>> (the interfaces match up) and if so, toggles a new "DEAD" flag in rt6i_flags.
->>>
->>> When bringing up the interface I distinguish between up and register and just
->>> clear this death flag from the routes on bringing it up.
->>>
->>> fib lookup code then does not honour those routes.
->>>
->>> I had no time to test this thoroughly at the weekend and still have some code
->>> paths were I am unsure. Do you see any problems with this so far? We could
->>> then delete the special cases on loopback interface init.
->>
->> So you add a special case in the general network interface down logic. I think this
->> is more complex...
++dborkman@redhat.com and left the full text of the message for him to
+see.  Bad commit below.
+
+On Thu, 16 Jan 2014 17:14:28 -0800
+Jesse Brandeburg <jesse.brandeburg@intel.com> wrote:
+
+> I'm currently debugging this but given where the kernel release cycle
+> is I wanted to let the list know.
 > 
-> The problem is, that we only have a reference to ifp->rt, the loopback
-> RTF_LOCAL route. Currently we silently remove all other routes this interface
-> has. Sure, they come back soon with RAs and such, but this is not the way this
-> should work.
+> It may well be a bug in our code, and if it is we'll find it, but here is 
+> the panic, it doesn't occur when vxlan is not enabled.
 > 
-> Greetings,
+> Jan 16 13:46:44 jbrandeb-cp2 kernel: [   17.331010] cgroup: libvirtd (1387) created nested cgroup for controller "memory" which has incomplete hierarchy supp
+> ort. Nested cgroups may change behavior in the future.
+> Jan 16 13:46:44 jbrandeb-cp2 kernel: [   17.331014] cgroup: "memory" requires setting use_hierarchy to 1 on the root.
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.576568] ------------[ cut here ]------------
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.586411] kernel BUG at include/net/netns/generic.h:45!
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.596336] invalid opcode: 0000 [#1] SMP
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.606268] Modules linked in: lockd sunrpc i40e igb iTCO_wdt iTCO_vendor_support sb_edac ioatdma ptp microcode lpc_ich edac_core i2c_i801 mfd_core dca pps_core wmi kvm uinput isci firewire_ohci libsas firewire_core crc_itu_t scsi_transport_sas mgag200 drm_kms_helper ttm
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.637923] CPU: 0 PID: 1387 Comm: libvirtd Not tainted 3.13.0-rc7+ #30
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.648599] Hardware name: Intel Corporation S2600CO ........../S2600CO, BIOS SE5C600.86B.01.08.6003.062420131549 06/24/2013
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.659612] task: ffff88063b5c6000 ti: ffff8806333ca000 task.ti: ffff8806333ca000
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.670661] RIP: 0010:[<ffffffff816df92f>]  [<ffffffff816df92f>] net_generic.isra.34.part.35+0x4/0x6
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.681738] RSP: 0018:ffff8806333cbb80  EFLAGS: 00010246
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.692536] RAX: 0000000000000000 RBX: 00000000ffffffed RCX: 0000000000000010
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.703577] RDX: ffff88063d03d380 RSI: 0000000000000010 RDI: ffffffff81cfd9f0
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.714612] RBP: ffff8806333cbb80 R08: 0000000000000000 R09: ffffffff81cfd9f0
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.725531] R10: 00000000000002cc R11: 0000000000000004 R12: 0000000000000000
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.736448] R13: ffff880639118000 R14: ffff8806333cbc68 R15: 0000000000000000
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.747292] FS:  00007f6381830700(0000) GS:ffff880647600000(0000) knlGS:0000000000000000
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.758248] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.769263] CR2: 00007f637c04b000 CR3: 0000000c3aa1f000 CR4: 00000000000407f0
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.780402] Stack:
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.791386]  ffff8806333cbbc0 ffffffff814d0865 ffff8806333cbc40 00000000ffffffef
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.802702]  00000000ffffffed ffffffff81cc67d0 0000000000000010 ffff8806333cbc68
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.814021]  ffff8806333cbc00 ffffffff816e9e5d 0000000000000004 ffff8806333cbc68
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.825185] Call Trace:
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.836106]  [<ffffffff814d0865>] vxlan_lowerdev_event+0xf5/0x100
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.847254]  [<ffffffff816e9e5d>] notifier_call_chain+0x4d/0x70
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.858457]  [<ffffffff810912be>] __raw_notifier_call_chain+0xe/0x10
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.869696]  [<ffffffff810912d6>] raw_notifier_call_chain+0x16/0x20
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.880896]  [<ffffffff815d9610>] call_netdevice_notifiers_info+0x40/0x70
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.892063]  [<ffffffff815d9656>] call_netdevice_notifiers+0x16/0x20
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.903107]  [<ffffffff815e1bce>] register_netdevice+0x1be/0x3a0
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.914128]  [<ffffffff815e1dce>] register_netdev+0x1e/0x30
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.925072]  [<ffffffff814cb94a>] loopback_net_init+0x4a/0xb0
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.936048]  [<ffffffffa016ed6e>] ? lockd_init_net+0x6e/0xb0 [lockd]
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.947081]  [<ffffffff815d6bac>] ops_init+0x4c/0x150
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.958070]  [<ffffffff815d6d23>] setup_net+0x73/0x110
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.969006]  [<ffffffff815d725b>] copy_net_ns+0x7b/0x100
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.979897]  [<ffffffff81090e11>] create_new_namespaces+0x101/0x1b0
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.990855]  [<ffffffff81090f45>] copy_namespaces+0x85/0xb0
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   18.001656]  [<ffffffff810693d5>] copy_process.part.26+0x935/0x1500
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   18.012370]  [<ffffffff811d5186>] ? mntput+0x26/0x40
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   18.022924]  [<ffffffff8106a15c>] do_fork+0xbc/0x2e0
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   18.033331]  [<ffffffff811b7f2e>] ? ____fput+0xe/0x10
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   18.043622]  [<ffffffff81089c5c>] ? task_work_run+0xac/0xe0
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   18.053905]  [<ffffffff8106a406>] SyS_clone+0x16/0x20
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   18.064265]  [<ffffffff816ee689>] stub_clone+0x69/0x90
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   18.074600]  [<ffffffff816ee329>] ? system_call_fastpath+0x16/0x1b
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   18.084879] Code: 00 75 1d 55 be 2f 00 00 00 48 c7 c7 65 93 a2 81 48 89 e5 e8 f4 b5 98 ff 5d c6 05 30 aa 5f 00 01 c3 55 48 89 e5 0f 0b 55 48 89 e5 <0f> 0b 55 48 89 e5 0f 0b 66 66 66 66 90 55 48 c7 c7 c0 4c cb 81
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   18.105818] RIP  [<ffffffff816df92f>] net_generic.isra.34.part.35+0x4/0x6
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   18.116106]  RSP <ffff8806333cbb80>
+> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   18.172366] ---[ end trace 0bb84cf9aa76a384 ]---
+> Jan 16 13:46:47 jbrandeb-cp2 systemd[1]: Startup finished in 4s 918ms 164us (kernel) + 3s 548ms 460us (initrd) + 11s 2ms 474us (userspace) = 19s 469ms 98us.
+> Jan 16 13:46:47 jbrandeb-cp2 dbus-daemon[989]: dbus[989]: [system] Activating via systemd: service name='org.freedesktop.Accounts' unit='accounts-daemon.service'
 > 
->   Hannes
-> 
-> 
-> .
+> code says:
+> (gdb) l *(vxlan_lowerdev_event+0xf5)
+> 0xffffffff814d0865 is at include/net/netns/generic.h:41.
+> 34      static inline void *net_generic(const struct net *net, int id)
+> 35      {
+> 36              struct net_generic *ng;
+> 37              void *ptr;
+> 38
+> 39              rcu_read_lock();
+> 40              ng = rcu_dereference(net->gen);
+> 41              BUG_ON(id == 0 || id > ng->len);
+> 42              ptr = ng->ptr[id - 1];
+> 43              rcu_read_unlock();
+> 44
+> >>>> 45              BUG_ON(!ptr);
+> 46              return ptr;
+> 47      }
+> 48      #endif
 > 
 
-Hi,
 
-It's quite a long time, How's your patch going on?
+It appears that the bug is in acaf4e70997f (net: vxlan: when lower dev
+unregisters remove vxlan dev as well).
+
+reverting that patch avoids the panic.  I wasn't able to see
+immediately what was wrong in the patch.
+-- 
+Jesse
