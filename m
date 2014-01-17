@@ -1,86 +1,65 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: [PATCH 17/41] net: Replace __this_cpu_inc in route.c with raw_cpu_inc
-Date: Fri, 17 Jan 2014 09:18:29 -0600
-Message-ID: <20140117151836.140608046@linux.com>
-References: <20140117151812.770437629@linux.com>
-Content-Type: text/plain; charset=UTF-8
-Cc: akpm@linuxfoundation.org, rostedt@goodmis.org,
-	linux-kernel@vger.kernel.org, Ingo Molnar <mingo@kernel.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	davem@davemloft.net, edumazet@google.com
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline; filename=preempt_rt_cache_stat
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next v2] xen-netfront: clean up code in
+ xennet_release_rx_bufs
+Date: Fri, 17 Jan 2014 15:40:14 +0000
+Message-ID: <52D94EDE.7000502@citrix.com>
+References: <1389830228-2381-1-git-send-email-Annie.li@oracle.com> <52D7BE19.2010009@citrix.com> <52D8CCE4.9010804@oracle.com> <20140117120810.GA11681@zion.uk.xensource.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: annie li <annie.li@oracle.com>, <ian.campbell@citrix.com>,
+	<netdev@vger.kernel.org>, <xen-devel@lists.xen.org>,
+	<andrew.bennieston@citrix.com>, <davem@davemloft.net>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:61703 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752032AbaAQPkT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jan 2014 10:40:19 -0500
+In-Reply-To: <20140117120810.GA11681@zion.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[Patch depends on another patch in this series that introduces raw_cpu_ops]
+On 17/01/14 12:08, Wei Liu wrote:
+> On Fri, Jan 17, 2014 at 02:25:40PM +0800, annie li wrote:
+>>
+>> On 2014/1/16 19:10, David Vrabel wrote:
+>>> On 15/01/14 23:57, Annie Li wrote:
+>>>> This patch implements two things:
+>>>>
+>>>> * release grant reference and skb for rx path, this fixex resource leaking.
+>>>> * clean up grant transfer code kept from old netfront(2.6.18) which grants
+>>>> pages for access/map and transfer. But grant transfer is deprecated in current
+>>>> netfront, so remove corresponding release code for transfer.
+>>>>
+>>>> gnttab_end_foreign_access_ref may fail when the grant entry is currently used
+>>>> for reading or writing. But this patch does not cover this and improvement for
+>>>> this failure may be implemented in a separate patch.
+>>> I don't think replacing a resource leak with a security bug is a good idea.
+>>>
+>>> If you would prefer not to fix the gnttab_end_foreign_access() call, I
+>>> think you can fix this in netfront by taking a reference to the page
+>>> before calling gnttab_end_foreign_access().  This will ensure the page
+>>> isn't freed until the subsequent kfree_skb(), or the gref is released by
+>>> the foreign domain (whichever is later).
+>>
+>> Taking a reference to the page before calling
+>> gnttab_end_foreign_access() delays the free work until kfree_skb().
+>> Simply adding put_page before kfree_skb() does not make things
+>> different from gnttab_end_foreign_access_ref(), and the pages will
+>> be freed by kfree_skb(), problem will be hit in
+>> gnttab_handle_deferred() when freeing pages which already be freed.
+>>
+> 
+> I think David's idea is:
+> 
+> 	get_page
+> 	gnttab_end_foreign_access
+> 	kfree_skb
+> 
+> The get_page is to offset put_page in gnttab_end_foreign_access. You
+> don't need to put page before kfree_skb.
 
-The RT_CACHE_STAT_INC macro triggers the new preemption checks
-for __this_cpu ops.
+Yes.
 
-I do not see any other synchronization that would allow the use
-of a __this_cpu operation here however in commit
-dbd2915ce87e811165da0717f8e159276ebb803e Andrew justifies
-the use of raw_smp_processor_id() here because "we do not care"
-about races. In the past we agreed that the price of disabling
-interrupts here to get consistent counters would be too high.
-These counters may be inaccurate due to race conditions.
-
-The use of __this_cpu op improves the situation already from what commit
-dbd2915ce87e811165da0717f8e159276ebb803e did since the single instruction
-emitted on x86 does not allow the race to occur anymore. However,
-non x86 platforms could still experience a race here.
-
-Trace:
-
-[ 1277.189084] __this_cpu_add operation in preemptible [00000000] code: avahi-daemon/1193
-[ 1277.189085] caller is __this_cpu_preempt_check+0x38/0x60
-[ 1277.189086] CPU: 1 PID: 1193 Comm: avahi-daemon Tainted: GF            3.12.0-rc4+ #187
-[ 1277.189087] Hardware name: FUJITSU CELSIUS W530 Power/D3227-A1, BIOS V4.6.5.4 R1.10.0 for D3227-A1x 09/16/2013
-[ 1277.189088]  0000000000000001 ffff8807ef78fa00 ffffffff816d5a57 ffff8807ef78ffd8
-[ 1277.189089]  ffff8807ef78fa30 ffffffff8137359c ffff8807ef78fba0 ffff88079f822b40
-[ 1277.189091]  0000000020000000 ffff8807ee32c800 ffff8807ef78fa70 ffffffff813735f8
-[ 1277.189093] Call Trace:
-[ 1277.189094]  [<ffffffff816d5a57>] dump_stack+0x4e/0x82
-[ 1277.189096]  [<ffffffff8137359c>] check_preemption_disabled+0xec/0x110
-[ 1277.189097]  [<ffffffff813735f8>] __this_cpu_preempt_check+0x38/0x60
-[ 1277.189098]  [<ffffffff81610d65>] __ip_route_output_key+0x575/0x8c0
-[ 1277.189100]  [<ffffffff816110d7>] ip_route_output_flow+0x27/0x70
-[ 1277.189101]  [<ffffffff81616c80>] ? ip_copy_metadata+0x1a0/0x1a0
-[ 1277.189102]  [<ffffffff81640b15>] udp_sendmsg+0x825/0xa20
-[ 1277.189104]  [<ffffffff811b4aa9>] ? do_sys_poll+0x449/0x5d0
-[ 1277.189105]  [<ffffffff8164c695>] inet_sendmsg+0x85/0xc0
-[ 1277.189106]  [<ffffffff815c6e3c>] sock_sendmsg+0x9c/0xd0
-[ 1277.189108]  [<ffffffff813735f8>] ? __this_cpu_preempt_check+0x38/0x60
-[ 1277.189109]  [<ffffffff815c7550>] ? move_addr_to_kernel+0x40/0xa0
-[ 1277.189111]  [<ffffffff815c71ec>] ___sys_sendmsg+0x37c/0x390
-[ 1277.189112]  [<ffffffff8136613a>] ? string.isra.3+0x3a/0xd0
-[ 1277.189113]  [<ffffffff8136613a>] ? string.isra.3+0x3a/0xd0
-[ 1277.189115]  [<ffffffff81367b54>] ? vsnprintf+0x364/0x650
-[ 1277.189116]  [<ffffffff81367ee9>] ? snprintf+0x39/0x40
-[ 1277.189118]  [<ffffffff813735f8>] ? __this_cpu_preempt_check+0x38/0x60
-[ 1277.189119]  [<ffffffff815c7ff9>] __sys_sendmsg+0x49/0x90
-[ 1277.189121]  [<ffffffff815c8052>] SyS_sendmsg+0x12/0x20
-[ 1277.189122]  [<ffffffff816e4fd3>] tracesys+0xe1/0xe6
-
-Cc: netdev@vger.kernel.org
-Cc: davem@davemloft.net
-Cc: edumazet@google.com
-Acked-by: Ingo Molnar <mingo@kernel.org>
-Signed-off-by: Christoph Lameter <cl@linux.com>
-
-Index: linux/net/ipv4/route.c
-===================================================================
---- linux.orig/net/ipv4/route.c	2013-12-02 16:07:51.964573250 -0600
-+++ linux/net/ipv4/route.c	2013-12-02 16:07:51.954573526 -0600
-@@ -197,7 +197,7 @@ const __u8 ip_tos2prio[16] = {
- EXPORT_SYMBOL(ip_tos2prio);
- 
- static DEFINE_PER_CPU(struct rt_cache_stat, rt_cache_stat);
--#define RT_CACHE_STAT_INC(field) __this_cpu_inc(rt_cache_stat.field)
-+#define RT_CACHE_STAT_INC(field) raw_cpu_inc(rt_cache_stat.field)
- 
- #ifdef CONFIG_PROC_FS
- static void *rt_cache_seq_start(struct seq_file *seq, loff_t *pos)
+David
