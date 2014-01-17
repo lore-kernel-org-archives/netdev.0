@@ -1,182 +1,46 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 5/5] tipc: standardize recvmsg
-	routine
-Date: Fri, 17 Jan 2014 09:50:07 +0800
-Message-ID: <1389923407-26969-6-git-send-email-ying.xue@windriver.com>
-References: <1389923407-26969-1-git-send-email-ying.xue@windriver.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next] net_sched: fix error return code in fw_change_attrs()
+Date: Fri, 17 Jan 2014 09:53:20 +0800
+Message-ID: <CAPgLHd_cjvdEcYZZNGg1rwKRBQcUS74vGvsdmTNkSWpPqR+fMQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
-	Paul.Gortmaker@windriver.com, tipc-discussion@lists.sourceforge.net
-To: <davem@davemloft.net>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1389923407-26969-1-git-send-email-ying.xue@windriver.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
+To: jhs@mojatatu.com, davem@davemloft.net, xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f53.google.com ([209.85.214.53]:40907 "EHLO
+	mail-bk0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751379AbaAQBxW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 20:53:22 -0500
+Received: by mail-bk0-f53.google.com with SMTP id na10so1444033bkb.26
+        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 17:53:21 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Standardize the behaviour of waiting for events in TIPC recvmsg()
-so that all variables of socket or port structures are protected
-within socket lock, allowing the process of calling recvmsg() to
-be woken up at appropriate time.
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+The error code was not set if change indev fail, so the error
+condition wasn't reflected in the return value. Fix to return a
+negative error code from this error handling case instead of 0.
+
+Fixes: 2519a602c273 ('net_sched: optimize tcf_match_indev()')
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 ---
- net/tipc/socket.c |   80 ++++++++++++++++++++++++++++-------------------------
- 1 file changed, 42 insertions(+), 38 deletions(-)
+ net/sched/cls_fw.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index c480310..eab17eb 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -55,9 +55,6 @@ struct tipc_sock {
- #define tipc_sk(sk) ((struct tipc_sock *)(sk))
- #define tipc_sk_port(sk) (tipc_sk(sk)->p)
- 
--#define tipc_rx_ready(sock) (!skb_queue_empty(&sock->sk->sk_receive_queue) || \
--			(sock->state == SS_DISCONNECTING))
--
- static int backlog_rcv(struct sock *sk, struct sk_buff *skb);
- static u32 dispatch(struct tipc_port *tport, struct sk_buff *buf);
- static void wakeupdispatch(struct tipc_port *tport);
-@@ -994,6 +991,37 @@ static int anc_data_recv(struct msghdr *m, struct tipc_msg *msg,
- 	return 0;
- }
- 
-+static int tipc_wait_for_rcvmsg(struct socket *sock, long timeo)
-+{
-+	struct sock *sk = sock->sk;
-+	DEFINE_WAIT(wait);
-+	int err;
-+
-+	for (;;) {
-+		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
-+		if (skb_queue_empty(&sk->sk_receive_queue)) {
-+			if (sock->state == SS_DISCONNECTING) {
-+				err = -ENOTCONN;
-+				break;
-+			}
-+			release_sock(sk);
-+			timeo = schedule_timeout(timeo);
-+			lock_sock(sk);
+diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
+index ed00e8c..a366537 100644
+--- a/net/sched/cls_fw.c
++++ b/net/sched/cls_fw.c
+@@ -209,8 +209,10 @@ fw_change_attrs(struct net *net, struct tcf_proto *tp, struct fw_filter *f,
+ 	if (tb[TCA_FW_INDEV]) {
+ 		int ret;
+ 		ret = tcf_change_indev(net, tb[TCA_FW_INDEV]);
+-		if (ret < 0)
++		if (ret < 0) {
++			err = ret;
+ 			goto errout;
 +		}
-+		err = 0;
-+		if (!skb_queue_empty(&sk->sk_receive_queue))
-+			break;
-+		err = sock_intr_errno(timeo);
-+		if (signal_pending(current))
-+			break;
-+		err = -EAGAIN;
-+		if (!timeo)
-+			break;
-+	}
-+	finish_wait(sk_sleep(sk), &wait);
-+	return err;
-+}
-+
- /**
-  * recv_msg - receive packet-oriented message
-  * @iocb: (unused)
-@@ -1013,7 +1041,7 @@ static int recv_msg(struct kiocb *iocb, struct socket *sock,
- 	struct tipc_port *tport = tipc_sk_port(sk);
- 	struct sk_buff *buf;
- 	struct tipc_msg *msg;
--	long timeout;
-+	long timeo;
- 	unsigned int sz;
- 	u32 err;
- 	int res;
-@@ -1029,25 +1057,13 @@ static int recv_msg(struct kiocb *iocb, struct socket *sock,
- 		goto exit;
+ 		f->ifindex = ret;
  	}
- 
--	timeout = sock_rcvtimeo(sk, flags & MSG_DONTWAIT);
-+	timeo = sock_rcvtimeo(sk, flags & MSG_DONTWAIT);
- restart:
- 
- 	/* Look for a message in receive queue; wait if necessary */
--	while (skb_queue_empty(&sk->sk_receive_queue)) {
--		if (sock->state == SS_DISCONNECTING) {
--			res = -ENOTCONN;
--			goto exit;
--		}
--		if (timeout <= 0L) {
--			res = timeout ? timeout : -EWOULDBLOCK;
--			goto exit;
--		}
--		release_sock(sk);
--		timeout = wait_event_interruptible_timeout(*sk_sleep(sk),
--							   tipc_rx_ready(sock),
--							   timeout);
--		lock_sock(sk);
--	}
-+	res = tipc_wait_for_rcvmsg(sock, timeo);
-+	if (res)
-+		goto exit;
- 
- 	/* Look at first message in receive queue */
- 	buf = skb_peek(&sk->sk_receive_queue);
-@@ -1119,7 +1135,7 @@ static int recv_stream(struct kiocb *iocb, struct socket *sock,
- 	struct tipc_port *tport = tipc_sk_port(sk);
- 	struct sk_buff *buf;
- 	struct tipc_msg *msg;
--	long timeout;
-+	long timeo;
- 	unsigned int sz;
- 	int sz_to_copy, target, needed;
- 	int sz_copied = 0;
-@@ -1132,31 +1148,19 @@ static int recv_stream(struct kiocb *iocb, struct socket *sock,
- 
- 	lock_sock(sk);
- 
--	if (unlikely((sock->state == SS_UNCONNECTED))) {
-+	if (unlikely(sock->state == SS_UNCONNECTED)) {
- 		res = -ENOTCONN;
- 		goto exit;
- 	}
- 
- 	target = sock_rcvlowat(sk, flags & MSG_WAITALL, buf_len);
--	timeout = sock_rcvtimeo(sk, flags & MSG_DONTWAIT);
-+	timeo = sock_rcvtimeo(sk, flags & MSG_DONTWAIT);
- 
- restart:
- 	/* Look for a message in receive queue; wait if necessary */
--	while (skb_queue_empty(&sk->sk_receive_queue)) {
--		if (sock->state == SS_DISCONNECTING) {
--			res = -ENOTCONN;
--			goto exit;
--		}
--		if (timeout <= 0L) {
--			res = timeout ? timeout : -EWOULDBLOCK;
--			goto exit;
--		}
--		release_sock(sk);
--		timeout = wait_event_interruptible_timeout(*sk_sleep(sk),
--							   tipc_rx_ready(sock),
--							   timeout);
--		lock_sock(sk);
--	}
-+	res = tipc_wait_for_rcvmsg(sock, timeo);
-+	if (res)
-+		goto exit;
- 
- 	/* Look at first message in receive queue */
- 	buf = skb_peek(&sk->sk_receive_queue);
--- 
-1.7.9.5
-
-
-------------------------------------------------------------------------------
-CenturyLink Cloud: The Leader in Enterprise Cloud Services.
-Learn Why More Businesses Are Choosing CenturyLink Cloud For
-Critical Workloads, Development Environments & Everything In Between.
-Get a Quote or Start a Free Trial Today. 
-http://pubads.g.doubleclick.net/gampad/clk?id=119420431&iu=/4140/ostg.clktrk
+ #endif /* CONFIG_NET_CLS_IND */
