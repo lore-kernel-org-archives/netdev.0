@@ -1,37 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Xen-devel][PATCH net-next v2] xen-netfront: clean up code in
- xennet_release_rx_bufs
-Date: Thu, 16 Jan 2014 17:25:45 -0800 (PST)
-Message-ID: <20140116.172545.698957643976308902.davem@davemloft.net>
-References: <1389830228-2381-1-git-send-email-Annie.li@oracle.com>
-	<52D7BE19.2010009@citrix.com>
-	<52D7E1BB.8000706@oracle.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH V3 net-next 1/3] ipv6: add the IPV6_FL_F_REFLECT flag to IPV6_FL_A_GET
+Date: Fri, 17 Jan 2014 02:27:22 +0100
+Message-ID: <20140117012722.GA24345@order.stressinduktion.org>
+References: <1389889158-1710-1-git-send-email-florent.fourcot@enst-bretagne.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: david.vrabel@citrix.com, xen-devel@lists.xen.org,
-	netdev@vger.kernel.org, konrad.wilk@oracle.com,
-	ian.campbell@citrix.com, wei.liu2@citrix.com,
-	andrew.bennieston@citrix.com
-To: annie.li@oracle.com
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55834 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751412AbaAQBZq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 20:25:46 -0500
-In-Reply-To: <52D7E1BB.8000706@oracle.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:44243 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750898AbaAQB1X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 20:27:23 -0500
+Content-Disposition: inline
+In-Reply-To: <1389889158-1710-1-git-send-email-florent.fourcot@enst-bretagne.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: annie li <annie.li@oracle.com>
-Date: Thu, 16 Jan 2014 21:42:19 +0800
+On Thu, Jan 16, 2014 at 05:19:16PM +0100, Florent Fourcot wrote:
+> @@ -1000,6 +1002,8 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+>  	ireq = inet_rsk(req);
+>  	ireq->ir_v6_rmt_addr = ipv6_hdr(skb)->saddr;
+>  	ireq->ir_v6_loc_addr = ipv6_hdr(skb)->daddr;
+> +	if (np->repflow)
+> +		np->flow_label = ip6_flowlabel(ipv6_hdr(skb));
+>  	if (!want_cookie || tmp_opt.tstamp_ok)
+>  		TCP_ECN_create_request(req, skb, sock_net(sk));
+>  
 
-> What I thought is to split the implementation into two patches, this
-> patch fixes the rx path resource leak(just like what tx path does),
-> then a separate patch fixes gnttab_end_foreign_access_ref failure
-> issue for both tx/rx through taking reference to the page before
-> gnttab_end_foreign_access.
-> If you'd like they are posted together, I will create new patch for
-> the latter and then post them.:-)
+I am not sure here, do you write the flow_label on the listening socket?
 
-That would probably work best.
+Greetings,
+
+  Hannes
