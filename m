@@ -1,77 +1,178 @@
-From: Harry Mason <harry.mason@smoothwall.net>
-Subject: [PATCH v3] sch_htb: let skb->priority refer to non-leaf class
-Date: Fri, 17 Jan 2014 13:22:32 +0000
-Message-ID: <1389964952.4698.20.camel@azathoth.dev.smoothwall.net>
-References: <1389883519.4703.5.camel@azathoth.dev.smoothwall.net>
-		 <1389889520.31367.403.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1389953999.4698.18.camel@azathoth.dev.smoothwall.net>
-	 <52D927CD.4080403@cogentembedded.com>
+From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+Subject: [PATCH net-next v3 2/8] net: stmmac: Add support for
+ optional reset control
+Date: Fri, 17 Jan 2014 21:24:41 +0800
+Message-ID: <1389965087-21971-3-git-send-email-wens@csie.org>
+References: <1389965087-21971-1-git-send-email-wens@csie.org>
+Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-netdev <netdev@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Jamal Hadi Salim <hadi@mojatatu.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og115.obsmtp.com ([64.18.2.217]:60568 "HELO
-	exprod7og115.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751401AbaAQNWq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 08:22:46 -0500
-Received: by mail-wg0-f51.google.com with SMTP id z12so4422771wgg.6
-        for <netdev@vger.kernel.org>; Fri, 17 Jan 2014 05:22:44 -0800 (PST)
-In-Reply-To: <52D927CD.4080403@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
+	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+	Srinivas Kandagatla <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-sunxi+bncBCMILY6JWQBBBKW64SLAKGQE3NNHNOY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+In-Reply-To: <1389965087-21971-1-git-send-email-wens-jdAy2FN1RRM@public.gmane.org>
+List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/linux-sunxi>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-If the class in skb->priority is not a leaf, apply filters from the
-selected class, not the qdisc. This lets netfilter or user space
-partially classify the packet.
+The DWMAC has a reset assert line, which is used on some SoCs. Add an
+optional reset control to stmmac driver core.
 
-Signed-off-by: Harry Mason <harry.mason@smoothwall.net>
+To support reset control deferred probing, this patch changes the driver
+probe function to return the actual error, instead of just -EINVAL.
+
+Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
 ---
+ Documentation/devicetree/bindings/net/stmmac.txt      |  3 +++
+ drivers/net/ethernet/stmicro/stmmac/Kconfig           |  1 +
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h          |  2 ++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c     | 19 ++++++++++++++++++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c      |  4 ++--
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c |  4 ++--
+ 6 files changed, 28 insertions(+), 5 deletions(-)
 
-On Fri, 2014-01-17 at 16:53 +0400, Sergei Shtylyov wrote:
-> On 17-01-2014 14:19, Harry Mason wrote:
-> > +	if (cl) {
-> > +		if (cl->level == 0)
-> > +			return cl;
-> > +		/* Start with inner filter chain if a non-leaf class is selected */
-> > +		tcf = cl->filter_list;
-> > +	} else
-> > +		tcf = q->filter_list;
-> 
->     There should be {} in the *else* arm, since it's in another arm of *if* 
-> already -- see Documentation/CodingStyle.
-
-Thanks, updated.
-
- net/sched/sch_htb.c |   11 ++++++++---
- 1 file changed, 8 insertions(+), 3 deletions(-)
-
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 717b210..e9c8c08 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -219,11 +219,16 @@ static struct htb_class *htb_classify(struct sk_buff *skb, struct Qdisc *sch,
- 	if (skb->priority == sch->handle)
- 		return HTB_DIRECT;	/* X:0 (direct flow) selected */
- 	cl = htb_find(skb->priority, sch);
--	if (cl && cl->level == 0)
--		return cl;
-+	if (cl) {
-+		if (cl->level == 0)
-+			return cl;
-+		/* Start with inner filter chain if a non-leaf class is selected */
-+		tcf = cl->filter_list;
-+	} else {
-+		tcf = q->filter_list;
-+	}
+diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+index eba0e5e..d132513 100644
+--- a/Documentation/devicetree/bindings/net/stmmac.txt
++++ b/Documentation/devicetree/bindings/net/stmmac.txt
+@@ -30,6 +30,9 @@ Required properties:
  
- 	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
--	tcf = q->filter_list;
- 	while (tcf && (result = tc_classify(skb, tcf, &res)) >= 0) {
- #ifdef CONFIG_NET_CLS_ACT
- 		switch (result) {
+ Optional properties:
+ - mac-address: 6 bytes, mac address
++- resets: Should contain a phandle to the STMMAC reset signal, if any
++- reset-names: Should contain the reset signal name "stmmaceth", if a
++	reset phandle is given
+ 
+ Examples:
+ 
+diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+index 6e52c0f..b59d1ef 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
++++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+@@ -5,6 +5,7 @@ config STMMAC_ETH
+ 	select PHYLIB
+ 	select CRC32
+ 	select PTP_1588_CLOCK
++	select RESET_CONTROLLER
+ 	---help---
+ 	  This is the driver for the Ethernet IPs are built around a
+ 	  Synopsys IP Core and only tested on the STMicroelectronics
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index 73709e9..c1c141f 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -32,6 +32,7 @@
+ #include <linux/pci.h>
+ #include "common.h"
+ #include <linux/ptp_clock_kernel.h>
++#include <linux/reset.h>
+ 
+ struct stmmac_priv {
+ 	/* Frequently used values are kept adjacent for cache effect */
+@@ -91,6 +92,7 @@ struct stmmac_priv {
+ 	int wolopts;
+ 	int wol_irq;
+ 	struct clk *stmmac_clk;
++	struct reset_control *stmmac_rst;
+ 	int clk_csr;
+ 	struct timer_list eee_ctrl_timer;
+ 	int lpi_irq;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 0d2c4cb..0c5c120 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -51,6 +51,7 @@
+ #include <linux/net_tstamp.h>
+ #include "stmmac_ptp.h"
+ #include "stmmac.h"
++#include <linux/reset.h>
+ 
+ #define STMMAC_ALIGN(x)	L1_CACHE_ALIGN(x)
+ #define JUMBO_LEN	9000
+@@ -2728,10 +2729,24 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
+ 	if (IS_ERR(priv->stmmac_clk)) {
+ 		dev_warn(priv->device, "%s: warning: cannot get CSR clock\n",
+ 			 __func__);
++		ret = PTR_ERR(priv->stmmac_clk);
+ 		goto error_clk_get;
+ 	}
+ 	clk_prepare_enable(priv->stmmac_clk);
+ 
++	priv->stmmac_rst = devm_reset_control_get(priv->device,
++						  STMMAC_RESOURCE_NAME);
++	if (IS_ERR(priv->stmmac_rst)) {
++		if (PTR_ERR(priv->stmmac_rst) == -EPROBE_DEFER) {
++			ret = -EPROBE_DEFER;
++			goto error_hw_init;
++		}
++		dev_info(priv->device, "no reset control found\n");
++		priv->stmmac_rst = NULL;
++	}
++	if (priv->stmmac_rst)
++		reset_control_deassert(priv->stmmac_rst);
++
+ 	/* Init MAC and get the capabilities */
+ 	ret = stmmac_hw_init(priv);
+ 	if (ret)
+@@ -2808,7 +2823,7 @@ error_hw_init:
+ error_clk_get:
+ 	free_netdev(ndev);
+ 
+-	return NULL;
++	return ERR_PTR(ret);
+ }
+ 
+ /**
+@@ -2832,6 +2847,8 @@ int stmmac_dvr_remove(struct net_device *ndev)
+ 		stmmac_mdio_unregister(ndev);
+ 	netif_carrier_off(ndev);
+ 	unregister_netdev(ndev);
++	if (priv->stmmac_rst)
++		reset_control_assert(priv->stmmac_rst);
+ 	clk_disable_unprepare(priv->stmmac_clk);
+ 	free_netdev(ndev);
+ 
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+index 37ba2e0..2916089 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+@@ -100,9 +100,9 @@ static int stmmac_pci_probe(struct pci_dev *pdev,
+ 	stmmac_default_data();
+ 
+ 	priv = stmmac_dvr_probe(&(pdev->dev), &plat_dat, addr);
+-	if (!priv) {
++	if (IS_ERR(priv)) {
+ 		pr_err("%s: main driver probe failed", __func__);
+-		ret = -ENODEV;
++		ret = PTR_ERR(priv);
+ 		goto err_out;
+ 	}
+ 	priv->dev->irq = pdev->irq;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 6d0bf22..cc6b89a7 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -152,9 +152,9 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	priv = stmmac_dvr_probe(&(pdev->dev), plat_dat, addr);
+-	if (!priv) {
++	if (IS_ERR(priv)) {
+ 		pr_err("%s: main driver probe failed", __func__);
+-		return -ENODEV;
++		return PTR_ERR(priv);
+ 	}
+ 
+ 	/* Get MAC address if available (DT) */
 -- 
-1.7.10.4
+1.8.5.2
