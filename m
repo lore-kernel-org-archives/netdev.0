@@ -1,110 +1,161 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [Xen-devel] [PATCH net-next v2] xen-netfront: clean up code in
- xennet_release_rx_bufs
-Date: Fri, 17 Jan 2014 23:43:08 +0800
-Message-ID: <52D94F8C.7060509@oracle.com>
-References: <1389830228-2381-1-git-send-email-Annie.li@oracle.com> <52D7BE19.2010009@citrix.com> <52D8CCE4.9010804@oracle.com> <20140117120810.GA11681@zion.uk.xensource.com> <52D922DD.2060407@oracle.com> <20140117140246.GB11681@zion.uk.xensource.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Vrabel <david.vrabel@citrix.com>, ian.campbell@citrix.com,
-	netdev@vger.kernel.org, xen-devel@lists.xen.org,
-	andrew.bennieston@citrix.com, davem@davemloft.net
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:45813 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752179AbaAQPpn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 10:45:43 -0500
-In-Reply-To: <20140117140246.GB11681@zion.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bruce Liu <damuzi000@gmail.com>
+Subject: [PATCH] [PATCH net-next v2] net: stmmac: fix NULL pointer dereference in stmmac_get_tx_hwtstamp
+Date: Fri, 17 Jan 2014 23:47:59 +0800
+Message-ID: <1389973679-2755-1-git-send-email-damuzi000@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Bruce Liu <damuzi000@gmail.com>
+To: peppe.cavallaro@st.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+When timestamping is enabled, stmmac_tx_clean will call
+stmmac_get_tx_hwtstamp to get tx TS.
+But the skb can be NULL because the last of its tx_skbuff is NULL
+if this packet frame is filled in more than one descriptors.
 
-On 2014-1-17 22:02, Wei Liu wrote:
-> On Fri, Jan 17, 2014 at 08:32:29PM +0800, annie li wrote:
->> On 2014-1-17 20:08, Wei Liu wrote:
->>> On Fri, Jan 17, 2014 at 02:25:40PM +0800, annie li wrote:
->>>> On 2014/1/16 19:10, David Vrabel wrote:
->>>>> On 15/01/14 23:57, Annie Li wrote:
->>>>>> This patch implements two things:
->>>>>>
->>>>>> * release grant reference and skb for rx path, this fixex resource leaking.
->>>>>> * clean up grant transfer code kept from old netfront(2.6.18) which grants
->>>>>> pages for access/map and transfer. But grant transfer is deprecated in current
->>>>>> netfront, so remove corresponding release code for transfer.
->>>>>>
->>>>>> gnttab_end_foreign_access_ref may fail when the grant entry is currently used
->>>>>> for reading or writing. But this patch does not cover this and improvement for
->>>>>> this failure may be implemented in a separate patch.
->>>>> I don't think replacing a resource leak with a security bug is a good idea.
->>>>>
->>>>> If you would prefer not to fix the gnttab_end_foreign_access() call, I
->>>>> think you can fix this in netfront by taking a reference to the page
->>>>> before calling gnttab_end_foreign_access().  This will ensure the page
->>>>> isn't freed until the subsequent kfree_skb(), or the gref is released by
->>>>> the foreign domain (whichever is later).
->>>> Taking a reference to the page before calling
->>>> gnttab_end_foreign_access() delays the free work until kfree_skb().
->>>> Simply adding put_page before kfree_skb() does not make things
->>>> different from gnttab_end_foreign_access_ref(), and the pages will
->>>> be freed by kfree_skb(), problem will be hit in
->>>> gnttab_handle_deferred() when freeing pages which already be freed.
->>>>
->>> I think David's idea is:
->>>
->>> 	get_page
->>> 	gnttab_end_foreign_access
->>> 	kfree_skb
->>>
->>> The get_page is to offset put_page in gnttab_end_foreign_access. You
->>> don't need to put page before kfree_skb.
->> Yes, this is what I described as following about David's patch.
->>
->>>> So put_page is required in gnttab_end_foreign_access(), this will
->>>> ensure either free is taken by kfree_skb or gnttab_handle_deferred.
->>>> This involves changes in blkfront/pcifront/tpmfront(just like your
->>>> patch), this way ensure page is released when ref is end.
->> But this would has some issue in netfront tx path. Netfront ends all
-> What issue with tx path? Your patch only touches rx skbs, doesn't it?
+To fix the issue, change the code:
+- Store TX skb to the tx_skbuff[] of frame's last segment.
+- Check skb is not NULL in stmmac_get_tx_hwtstamp.
 
-No, I am trying to implement 2 patches. One is my original patch which 
-fix rx leaking, another is to improve gnttab_end_foreign_access, it 
-would involve not only tx path, but also blkfront/pcifront/tpmfront 
-since they use gnttab_end_foreign_access in their source code.
+Signed-off-by: Bruce Liu <damuzi000@gmail.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/chain_mode.c  |    3 +-
+ drivers/net/ethernet/stmicro/stmmac/ring_mode.c   |    2 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   35 +++++++++++----------
+ 3 files changed, 21 insertions(+), 19 deletions(-)
 
->
->> grant reference of one skb first and then release this skb. If the
->> gnttab_end_foreign_access_ref fails in gnttab_end_foreign_access(),
->> this frag page and corresponding grant reference will be put in
->> entry and release work will be done in the timer routine. If some
-> I understand up to this point.
->
->> frag pages of one skb is free in this timer routine, then
->> dev_kfree_skb_irq will free pages which have been freed.
-> Why is dev_kfree_skb_irq involved? It is used in tx path not rx path.
-
-This is involved in second patch as David suggested, it ensures page 
-would be released when grant access is end and avoid situation where 
-page is released but grant reference is still mapped.
-
-> Even if we look at dev_kfree_skb_irq, it calls __kfree_skb for dropped
-> packet eventually, which should do the right thing if we don't mess up
-> ref counts.
-
-I think you are right, I mixed it with get_skb just now. Either 
-__kfree_skb or gnttab_end_foreign_access() does the free work.
-
-Thanks
-Annie
->
-> Wei.
->
->> So I prefer following way I mentioned, suggestions?
->>
->>>> Another solution I am thinking is calling
->>>> gnttab_end_foreign_access() with page parameter as NULL, then
->>>> gnttab_end_foreign_access will only do ending grant reference work
->>>> and releasing page work is done by kfree_skb().
->> Thanks
->> Annie
+diff --git a/drivers/net/ethernet/stmicro/stmmac/chain_mode.c b/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
+index d234ab5..72d282b 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
++++ b/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
+@@ -51,6 +51,7 @@ static unsigned int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 	priv->hw->desc->prepare_tx_desc(desc, 1, bmax, csum, STMMAC_CHAIN_MODE);
+ 
+ 	while (len != 0) {
++		priv->tx_skbuff[entry] = NULL;
+ 		entry = (++priv->cur_tx) % txsize;
+ 		desc = priv->dma_tx + entry;
+ 
+@@ -62,7 +63,6 @@ static unsigned int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 			priv->hw->desc->prepare_tx_desc(desc, 0, bmax, csum,
+ 							STMMAC_CHAIN_MODE);
+ 			priv->hw->desc->set_tx_owner(desc);
+-			priv->tx_skbuff[entry] = NULL;
+ 			len -= bmax;
+ 			i++;
+ 		} else {
+@@ -73,7 +73,6 @@ static unsigned int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 			priv->hw->desc->prepare_tx_desc(desc, 0, len, csum,
+ 							STMMAC_CHAIN_MODE);
+ 			priv->hw->desc->set_tx_owner(desc);
+-			priv->tx_skbuff[entry] = NULL;
+ 			len = 0;
+ 		}
+ 	}
+diff --git a/drivers/net/ethernet/stmicro/stmmac/ring_mode.c b/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
+index 1ef9d8a..a96c7c2 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
++++ b/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
+@@ -58,6 +58,7 @@ static unsigned int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 		priv->hw->desc->prepare_tx_desc(desc, 1, bmax, csum,
+ 						STMMAC_RING_MODE);
+ 		wmb();
++		priv->tx_skbuff[entry] = NULL;
+ 		entry = (++priv->cur_tx) % txsize;
+ 
+ 		if (priv->extend_desc)
+@@ -73,7 +74,6 @@ static unsigned int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 						STMMAC_RING_MODE);
+ 		wmb();
+ 		priv->hw->desc->set_tx_owner(desc);
+-		priv->tx_skbuff[entry] = NULL;
+ 	} else {
+ 		desc->des2 = dma_map_single(priv->device, skb->data,
+ 					    nopaged_len, DMA_TO_DEVICE);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 797b56a..5cf52ad 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -332,7 +332,7 @@ static void stmmac_get_tx_hwtstamp(struct stmmac_priv *priv,
+ 		return;
+ 
+ 	/* exit if skb doesn't support hw tstamp */
+-	if (likely(!(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS)))
++	if (likely(!skb || !(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS)))
+ 		return;
+ 
+ 	if (priv->adv_ts)
+@@ -1161,21 +1161,24 @@ static void dma_free_tx_skbufs(struct stmmac_priv *priv)
+ 	int i;
+ 
+ 	for (i = 0; i < priv->dma_tx_size; i++) {
+-		if (priv->tx_skbuff[i] != NULL) {
+-			struct dma_desc *p;
+-			if (priv->extend_desc)
+-				p = &((priv->dma_etx + i)->basic);
+-			else
+-				p = priv->dma_tx + i;
++		struct dma_desc *p;
+ 
+-			if (priv->tx_skbuff_dma[i])
+-				dma_unmap_single(priv->device,
+-						 priv->tx_skbuff_dma[i],
+-						 priv->hw->desc->get_tx_len(p),
+-						 DMA_TO_DEVICE);
++		if (priv->extend_desc)
++			p = &((priv->dma_etx + i)->basic);
++		else
++			p = priv->dma_tx + i;
++
++		if (priv->tx_skbuff_dma[i]) {
++			dma_unmap_single(priv->device,
++					 priv->tx_skbuff_dma[i],
++					 priv->hw->desc->get_tx_len(p),
++					 DMA_TO_DEVICE);
++			priv->tx_skbuff_dma[i] = 0;
++		}
++
++		if (priv->tx_skbuff[i] != NULL) {
+ 			dev_kfree_skb_any(priv->tx_skbuff[i]);
+ 			priv->tx_skbuff[i] = NULL;
+-			priv->tx_skbuff_dma[i] = 0;
+ 		}
+ 	}
+ }
+@@ -1844,8 +1847,6 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	first = desc;
+ 
+-	priv->tx_skbuff[entry] = skb;
+-
+ 	/* To program the descriptors according to the size of the frame */
+ 	if (priv->mode == STMMAC_RING_MODE) {
+ 		is_jumbo = priv->hw->ring->is_jumbo_frm(skb->len,
+@@ -1873,6 +1874,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		const skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+ 		int len = skb_frag_size(frag);
+ 
++		priv->tx_skbuff[entry] = NULL;
+ 		entry = (++priv->cur_tx) % txsize;
+ 		if (priv->extend_desc)
+ 			desc = (struct dma_desc *)(priv->dma_etx + entry);
+@@ -1882,7 +1884,6 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		desc->des2 = skb_frag_dma_map(priv->device, frag, 0, len,
+ 					      DMA_TO_DEVICE);
+ 		priv->tx_skbuff_dma[entry] = desc->des2;
+-		priv->tx_skbuff[entry] = NULL;
+ 		priv->hw->desc->prepare_tx_desc(desc, 0, len, csum_insertion,
+ 						priv->mode);
+ 		wmb();
+@@ -1890,6 +1891,8 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		wmb();
+ 	}
+ 
++	priv->tx_skbuff[entry] = skb;
++
+ 	/* Finalize the latest segment. */
+ 	priv->hw->desc->close_tx_desc(desc);
+ 
+-- 
+1.7.9.5
