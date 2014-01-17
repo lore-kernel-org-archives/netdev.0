@@ -1,9 +1,7 @@
 From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: [PATCH RFC 6/6] ARM: sun7i: cubietruck: enable
- bluetooth module
-Date: Fri, 17 Jan 2014 14:47:31 +0800
-Message-ID: <1389941251-32692-7-git-send-email-wens@csie.org>
-References: <1389941251-32692-1-git-send-email-wens@csie.org>
+Subject: [PATCH RFC 0/6] net: rfkill: gpio: Add device tree support
+Date: Fri, 17 Jan 2014 14:47:25 +0800
+Message-ID: <1389941251-32692-1-git-send-email-wens@csie.org>
 Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -18,7 +16,6 @@ Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
 To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
 	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <linux-sunxi+bncBCMILY6JWQBBBCNE4OLAKGQEBKPUNCA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <1389941251-32692-1-git-send-email-wens-jdAy2FN1RRM@public.gmane.org>
 List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Archive: <http://groups.google.com/group/linux-sunxi>
@@ -27,78 +24,66 @@ List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:
 List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-The CubieTruck has an AMPAK AP6210 WiFi+Bluetooth module. The
-Bluetooth part is a BCM20710 device connected to UART2 in the
-A20 SoC.
+Hi everyone,
 
-The IC also requires a 32.768 KHz low power clock input for
-proper auto-detection of the main clock, and power enable and
-wake signals via GPIO.
+This patch series adds device tree support to rfkill-gpio, and
+fixes some issues I ran into. This is so we can define and control
+RF devices through the device tree, such as the Broadcom BCM20710
+UART-based Bluetooth device found on the CubieTruck,
 
-Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
----
- arch/arm/boot/dts/sun7i-a20-cubietruck.dts | 37 ++++++++++++++++++++++++++++++
- 1 file changed, 37 insertions(+)
+The CubieTruck uses a non-default clock rate oscillator for the
+BCM20710 device. As the datasheet states, a precise 32.768 KHz
+low power clock must be provided at power on for the device to
+detect the correct clock rate of the main oscillator. Hence the
+need for the "clock-frequency" property.
 
-diff --git a/arch/arm/boot/dts/sun7i-a20-cubietruck.dts b/arch/arm/boot/dts/sun7i-a20-cubietruck.dts
-index c8b3ea9..f172a8f 100644
---- a/arch/arm/boot/dts/sun7i-a20-cubietruck.dts
-+++ b/arch/arm/boot/dts/sun7i-a20-cubietruck.dts
-@@ -78,6 +78,20 @@
- 					allwinner,drive = <0>;
- 					allwinner,pull = <2>;
- 			};
-+
-+			bt_pwr_pin: bt_pwr_pin@0 {
-+				allwinner,pins = "PH18";
-+				allwinner,function = "gpio_out";
-+				allwinner,drive = <0>;
-+				allwinner,pull = <0>;
-+			};
-+
-+			bt_wake_pin: bt_wake_pin@0 {
-+				allwinner,pins = "PH24";
-+				allwinner,function = "gpio_out";
-+				allwinner,drive = <0>;
-+				allwinner,pull = <0>;
-+			};
- 		};
- 
- 		uart0: serial@01c28000 {
-@@ -86,6 +100,12 @@
- 			status = "okay";
- 		};
- 
-+		uart2: serial@01c28800 {
-+			pinctrl-names = "default";
-+			pinctrl-0 = <&uart2_pins_a>;
-+			status = "okay";
-+		};
-+
- 		gmac: ethernet@01c50000 {
- 			pinctrl-names = "default";
- 			pinctrl-0 = <&gmac_pins_rgmii>;
-@@ -157,4 +177,21 @@
- 			gpio = <&pio 7 3 0>;
- 		};
- 	};
-+
-+	rfkill-switches {
-+		compatible = "simple-bus";
-+		pinctrl-names = "default";
-+
-+		rfkill_bt {
-+			compatible = "rfkill-gpio";
-+			pinctrl-names = "default";
-+			pinctrl-0 = <&bt_pwr_pin>, <&clk_out_a_pins>;
-+			rfkill-name = "bt";
-+			rfkill-type = <2>;
-+			bt_shutdown-gpios = <0>, <&pio 7 18 0>; /* PH18 */
-+			bt_reset-gpios = <&pio 7 24 0>; /* PH24 */
-+			clocks = <&clk_out_a>;
-+			clock-frequency = <32768>;
-+		};
-+	};
- };
+The device tree bindings aren't pretty. They are the result of how
+gpiod_find was implemented: of_gpiod_find includes con_id in the
+DT property name; acpi_gpiod_find ignores it and only uses the index.
+A more elegant DT binding would mean splitting the gpio lookup code
+path in rfkill-gpio, which would be more like rfkill-gpio prior to
+the descriptor-based GPIO patch.
+
+I am aware there is a need for similar functionality for SDIO devices,
+which the CubieTruck has as well. A mail thread [1] started yesterday
+indicated that generic SDIO DT support was the way to go. I don't know
+if that could be applied to UART-based devices though.
+
+[1] http://www.spinics.net/lists/arm-kernel/msg301182.html
+
+The series depends on
+
+    [PATCH v3 2/6] net: rfkill: gpio: convert to descriptor-based GPIO interface
+
+which has been applied through the GPIO tree.
+
+The last patch depends on
+
+    ARM: dts: sun7i: add pin muxing options for UART2
+
+which I sent earlier this week.
+
+
+Comments, please?
+
+
+Cheers,
+ChenYu
+
+
+Chen-Yu Tsai (6):
+  net: rfkill: gpio: fix gpio name buffer size off by 1
+  net: rfkill: gpio: use clk_prepare_enable/clk_disable_unprepare
+  net: rfkill: gpio: fix reversed clock enable state
+  net: rfkill: gpio: add device tree support
+  net: rfkill: gpio: add clock-frequency device tree property
+  ARM: sun7i: cubietruck: enable bluetooth module
+
+ .../devicetree/bindings/rfkill/rfkill-gpio.txt     | 28 ++++++++++++++++
+ arch/arm/boot/dts/sun7i-a20-cubietruck.dts         | 37 ++++++++++++++++++++++
+ net/rfkill/rfkill-gpio.c                           | 37 +++++++++++++++++++---
+ 3 files changed, 97 insertions(+), 5 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/rfkill/rfkill-gpio.txt
+
 -- 
 1.8.5.2
