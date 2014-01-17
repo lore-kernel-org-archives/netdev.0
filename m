@@ -1,8 +1,7 @@
 From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: [PATCH RFC 1/6] net: rfkill: gpio: fix gpio name buffer
- size off by 1
-Date: Fri, 17 Jan 2014 14:47:26 +0800
-Message-ID: <1389941251-32692-2-git-send-email-wens@csie.org>
+Subject: [PATCH RFC 2/6] net: rfkill: gpio: use clk_prepare_enable/clk_disable_unprepare
+Date: Fri, 17 Jan 2014 14:47:27 +0800
+Message-ID: <1389941251-32692-3-git-send-email-wens@csie.org>
 References: <1389941251-32692-1-git-send-email-wens@csie.org>
 Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
@@ -27,9 +26,9 @@ List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:
 List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-snprintf should be passed the complete size of the buffer, including
-the space for '\0'. The previous code resulted in the *_reset and
-*_shutdown strings being truncated.
+rfkill-gpio calls clk_enable() without first calling clk_prepare(),
+resulting in a warning and no effect. Switch to clk_prepare_enable()
+and clk_disable_unprepare.
 
 Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
 ---
@@ -37,19 +36,21 @@ Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
-index bd2a5b9..97ec12a 100644
+index 97ec12a..c7081b7 100644
 --- a/net/rfkill/rfkill-gpio.c
 +++ b/net/rfkill/rfkill-gpio.c
-@@ -117,8 +117,8 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
- 	if (!rfkill->shutdown_name)
- 		return -ENOMEM;
- 
--	snprintf(rfkill->reset_name, len + 6 , "%s_reset", rfkill->name);
--	snprintf(rfkill->shutdown_name, len + 9, "%s_shutdown", rfkill->name);
-+	snprintf(rfkill->reset_name, len + 7 , "%s_reset", rfkill->name);
-+	snprintf(rfkill->shutdown_name, len + 10, "%s_shutdown", rfkill->name);
- 
- 	rfkill->clk = devm_clk_get(&pdev->dev, clk_name);
- 
+@@ -51,10 +51,10 @@ static int rfkill_gpio_set_power(void *data, bool blocked)
+ 		gpiod_set_value(rfkill->shutdown_gpio, 0);
+ 		gpiod_set_value(rfkill->reset_gpio, 0);
+ 		if (!IS_ERR(rfkill->clk) && rfkill->clk_enabled)
+-			clk_disable(rfkill->clk);
++			clk_disable_unprepare(rfkill->clk);
+ 	} else {
+ 		if (!IS_ERR(rfkill->clk) && !rfkill->clk_enabled)
+-			clk_enable(rfkill->clk);
++			clk_prepare_enable(rfkill->clk);
+ 		gpiod_set_value(rfkill->reset_gpio, 1);
+ 		gpiod_set_value(rfkill->shutdown_gpio, 1);
+ 	}
 -- 
 1.8.5.2
