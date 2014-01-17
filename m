@@ -1,65 +1,57 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 2/2] reciprocal_divide: correction/update of
- the algorithm
-Date: Fri, 17 Jan 2014 10:05:37 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D45EB06@AcuExch.aculab.com>
-References: <1389828228-30312-1-git-send-email-dborkman@redhat.com>
- <1389828228-30312-3-git-send-email-dborkman@redhat.com>
- <alpine.DEB.2.10.1401161036110.29778@nuc>
- <20140116172406.GA17529@order.stressinduktion.org>
+From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 4/11]  use ether_addr_equal_64bits
+Date: Fri, 17 Jan 2014 13:18:35 +0300
+Message-ID: <20140117101835.GQ7444@mwanda>
+References: <1388427307-8691-1-git-send-email-Julia.Lawall@lip6.fr>
+ <1388427307-8691-5-git-send-email-Julia.Lawall@lip6.fr>
+ <1388429761.4410.1.camel@jlt4.sipsolutions.net>
+ <alpine.DEB.2.02.1312302057420.2209@localhost6.localdomain6>
+ <1388438724.4573.2.camel@jlt4.sipsolutions.net>
+ <20131230215701.GA4938@khazad-dum.debian.net>
+ <1388445188.18164.0.camel@jlt4.sipsolutions.net>
+ <20140106104802.GN30234@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Austin S Hemmelgarn <ahferroin7@gmail.com>,
-	"Jesse Gross" <jesse@nicira.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"Stephen Hemminger" <stephen@networkplumber.org>,
-	Matt Mackall <mpm@selenic.com>,
-	"Pekka Enberg" <penberg@kernel.org>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"Veaceslav Falico" <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Jakub Zawadzki <darkjames-ws@darkjames.pl>
-To: 'Hannes Frederic Sowa' <hannes@stressinduktion.org>,
-	Christoph Lameter <cl@linux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:39699 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752374AbaAQKHy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jan 2014 05:07:54 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 08492-03 for <netdev@vger.kernel.org>;
- Fri, 17 Jan 2014 10:07:50 +0000 (GMT)
-In-Reply-To: <20140116172406.GA17529@order.stressinduktion.org>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Henrique de Moraes Holschuh <hmh-N3TV7GIv+o9fyO9Q7EP/yw@public.gmane.org>,
+	Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20140106104802.GN30234@mwanda>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogSGFubmVzIEZyZWRlcmljIFNvd2ENCj4gT24gVGh1LCBKYW4gMTYsIDIwMTQgYXQgMTA6
-Mzc6MzdBTSAtMDYwMCwgQ2hyaXN0b3BoIExhbWV0ZXIgd3JvdGU6DQo+ID4gT24gVGh1LCAxNiBK
-YW4gMjAxNCwgRGFuaWVsIEJvcmttYW5uIHdyb3RlOg0KPiA+DQo+ID4gPiAtICogb3IgZWxzZSB0
-aGUgcGVyZm9ybWFuY2UgaXMgc2xvd2VyIHRoYW4gYSBub3JtYWwgZGl2aWRlLg0KPiA+ID4gLSAq
-Lw0KPiA+ID4gLWV4dGVybiB1MzIgcmVjaXByb2NhbF92YWx1ZSh1MzIgQik7DQo+ID4gPiArc3Ry
-dWN0IHJlY2lwcm9jYWxfdmFsdWUgew0KPiA+ID4gKwl1MzIgbTsNCj4gPiA+ICsJdTggc2gxLCBz
-aDI7DQo+ID4gPiArfTsNCj4gPiA+DQo+ID4gPiArI2RlZmluZSBSRUNJUFJPQ0FMX1ZBTFVFX1JF
-U1VMVF9UT19aRVJPICgoc3RydWN0IHJlY2lwcm9jYWxfdmFsdWUpey5zaDEgPSAzMn0pDQo+ID4g
-Pg0KPiA+ID4gLXN0YXRpYyBpbmxpbmUgdTMyIHJlY2lwcm9jYWxfZGl2aWRlKHUzMiBBLCB1MzIg
-UikNCj4gPiA+ICtzdHJ1Y3QgcmVjaXByb2NhbF92YWx1ZSByZWNpcHJvY2FsX3ZhbHVlKHUzMiBk
-KTsNCj4gPg0KPiA+IEEgZnVuY3Rpb24gdGhhdCByZXR1cm5zIGEgc3RydWN0PyBUaGF0IHdvcmtz
-PyBXaGljaCBnY2MgdmVyc2lvbnMgc3VwcG9ydA0KPiA+IGl0Pw0KPiANCj4gU3VyZSwgdGhhdCB3
-b3JrcyBhbmQgSSBhY3R1YWxseSBsaWtlIGl0LiBUaGlzIGlzIHN1cHBvcnRlZCBieSB0aGUgYyBz
-dGFuZGFyZCwNCj4gYnV0IHBsZWFzZSBkb24ndCBhc2sgbWUgc2luY2Ugd2hpY2ggb25lLiA7KQ0K
-DQpJIHRoaW5rIGl0IGhhcyBhbHdheXMgYmVlbiBzdXBwb3J0ZWQuDQpPcmlnaW5hbGx5IGJ5IGFk
-ZGluZyBhbiBleHRyYSBoaWRkZW4gYXJndW1lbnQgdGhhdCBwb2ludHMgdG8gYW4gb24tc3RhY2sN
-CnN0cnVjdHVyZS4NCk1vcmUgcmVjZW50IEFCSSB0ZW5kIHRvIGFsbG93ICdzbWFsbCcgc3RydWN0
-dXJlcyBiZSByZXR1cm5lZCBpbiByZWdpc3RlcnMuDQooVHlwaWNhbGx5IG9uZXMgdGhhdCB3b3Vs
-ZCBmaXQgaW4gdGhlIHJlZ2lzdGVyKHMpIHVzZWQgZm9yIGFuIGludGVncmFsIHJlc3VsdCkuDQoN
-ClRoaXMgZG9lc24ndCBtZWFuIHRoYXQgaXQgaXMgYSBnb29kIGlkZWEhDQoNCk9UT0ggaWYgdGhl
-IGZ1bmN0aW9uIGlzICdzdGF0aWMgaW5saW5lJyAoYW5kIGlubGluZWQpIGl0IHByb2JhYmx5IGRv
-ZXNuJ3QgbWF0dGVyLg0KDQoJRGF2aWQNCg0K
+We're worried about reading beyond the end of the array and it's a heap
+allocation and the last char of the eth addr is the last byte of the
+page.  This causes an oops.
+
+It's almost impossible to hit that bug.
+
+1) You would have to have the eth addr at the end of the array.
+2) It would have to be a packed struct.
+3) The struct size would have to be a multiple of 4 because otherwise we
+   can't put it at the end of the page.
+4) It would need to be allocated on the heap.
+
+You add all those up which is pretty rare so I wasn't able to find
+anything like that.  Then you have to get extremely unlucky.
+
+The closest thing I could find were a couple places like like:
+
+static struct mac_addr null_mac_addr = { { 0, 0, 0, 0, 0, 0 } };
+
+It meets criteria 1 and 2 but not 3 and 4.
+
+regards,
+dan carpenter
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
