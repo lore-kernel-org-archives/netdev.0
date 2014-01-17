@@ -1,100 +1,73 @@
-From: "Dr.David Ashton" <drdavidashton_ubsgroup@outlook.com>
-Subject: From  Dr.David Ashton
-Date: Sat, 18 Jan 2014 01:41:20 +0900
-Message-ID: <252c2e4aaa48c60d159e55b919e36eeb.squirrel@27.120.86.107>
-Reply-To: dr.davidashton49@outlook.com
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: linux-next: Tree for Jan 14 (lowpan, 802.15.4)
+Date: Fri, 17 Jan 2014 10:49:59 -0800
+Message-ID: <52D97B57.9000000@infradead.org>
+References: <20140114165128.0dd51f362e0f34a2ef4dc92f@canb.auug.org.au>	<52D578A7.8020000@infradead.org> <CALT56yPzfkz7=WdT0p6EYXdsQJUT+Ld9gdd72z6_czn0YaKUWA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from v-27-120-86-107.ub-freebit.net ([27.120.86.107]:48186 "EHLO
-	ns.cpanel.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752255AbaAQSqM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 13:46:12 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org,
+	kernel list <linux-kernel@vger.kernel.org>,
+	linux-zigbee-devel <linux-zigbee-devel@lists.sourceforge.net>,
+	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jukka Rissanen <jukka.rissanen@linux.intel.com>
+To: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Marcel Holtmann <marcel@holtmann.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <CALT56yPzfkz7=WdT0p6EYXdsQJUT+Ld9gdd72z6_czn0YaKUWA@mail.gmail.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Alkaen Dr.David Ashton
-Brondesbury , North West
-Lontoo Englanti
+On 01/14/2014 02:54 PM, Dmitry Eremin-Solenikov wrote:
+> Hello,
+> 
+> 
+> On Tue, Jan 14, 2014 at 9:49 PM, Randy Dunlap <rdunlap@infradead.org> wrote:
+>>
+>> On 01/13/2014 09:51 PM, Stephen Rothwell wrote:
+>>> Hi all,
+>>>
+>>> This tree fails (more than usual) the powerpc allyesconfig build.
+>>>
+>>> Changes since 20140113:
+>>>
+>>
+>>
+>> on i386:
+>>
+>> net/built-in.o: In function `header_create':
+>> 6lowpan.c:(.text+0x166149): undefined reference to `lowpan_header_compress'
+>> net/built-in.o: In function `bt_6lowpan_recv':
+>> (.text+0x166b3c): undefined reference to `lowpan_process_data'
+> 
+> Ah, nice Makefile hack there.
+> David, Marcel, could you please consider the attached patch.
+> 
+> 
 
-Rakas yst=E4v=E4 .
-
-
-Olen Dr.David Ashton Brondesbury , North West London , t=E4=E4ll=E4 Eng=
-lannissa
-=2E Ty=F6skentelen UBS Investment Bank London Branch . Olen kirjallises=
-ti
-sinua ty=F6huoneestani ett=E4 tulee olemaanvaltava hy=F6ty=E4 meille mo=
-lemmille .
-Minun osasto, on j=E4senen=E4konsernin johto-ryhm=E4 ja Chief Risk Offi=
-cer (
-Greater London Regional Office ) , sain tiet=E4=E4, hyl=E4tyss=E4 summa=
- =A3 15
-miljoonaa Great British punta ( viisitoista miljoonaa Ison- Britannian
-punta ) tilille , joka kuuluu yksi meid=E4n ulkomaisten asiakkaiden Lat=
-e Mr.
-Steve Allen , joka valitettavasti menetti henkens=E4auto-onnettomuudess=
-a
-my=F6s h=E4nen vaimonsa ja ainoa tyt=E4r .
-
-Valinta sinuun yhteytt=E4 on her=E4tt=E4nyt alkaenmaantieteellinen luon=
-ne miss=E4
-asut , erityisesti siit=E4 syyst=E4,herkkyyden t=E4m=E4n kaupan . Pankk=
-i
-virkamiehet ovat odottaneet mit=E4=E4n sukulaiset tulevat -up for v=E4i=
-te ,
-mutta kukaan ei ole tehnyt niin. Itse olen h=E4vinnyt
-sijoittamallasukulaisten 4 vuotta nyt , pyyd=E4n teilt=E4 lupaa esitell=
-=E4
-teille kuinl=E4hiomaiset / Will edunsaajaakuolleen t=E4m=E4n rahaston ,
-jottaetenee t=E4m=E4n tilin arvo on =A3 15 miljoonaa puntaa on siirret=E4=
-=E4n
-tilillesi kuinl=E4hiomaiset Late Mr. Steve Allen .
-
-T=E4m=E4 maksetaan tai jakaa n=E4it=E4 prosenttim=E4=E4ri=E4 , 60 % min=
-ulle ja 40 %
-sinulle . Olen saanut kaikki tarvittavat oikeudelliset asiakirjat , joi=
-ta
-voidaan k=E4ytt=E4=E4 varmuuskopiointiin t=E4m=E4 v=E4ite teemme . Kaik=
-ki mit=E4
-tarvitsee tehd=E4, on t=E4ytt=E4=E4 teid=E4n nimetasiakirjat ja laillis=
-taa
-setuomioistuin t=E4ss=E4 todistaa teit=E4laillinen edunsaajarahasto .
-
-All I vaatia nyt on rehellinen yhteisty=F6 , luottamuksellisuus ja Trus=
-t ,
-jotta voimme n=E4kee t=E4m=E4n tapahtuman kautta . Takaan , ett=E4 t=E4=
-m=E4
-toteutetaan allelaillinen j=E4rjestely , ett=E4 sinua suojataan rikottu=
- lakia.
-Haluan teid=E4n ymm=E4rt=E4v=E4n, ett=E4 olen ty=F6skennellyt t=E4m=E4n=
- pankin 17 vuotta ,
-ja olen voinut turvata kaikki oikeudelliset asiakirjat , jotta voit
-periv=E4t t=E4m=E4n rahaston
-
-Antakaa minulle seuraavat : koska meill=E4 on muutama p=E4iv=E4 aikaa a=
-jaa se
-l=E4pi t=E4m=E4 on eritt=E4in kiireellinen PLEASE .
+Hi,
+I guess that the Makefile hack is still causing problems.
+With today's linux-next (20140117), I see these build errors (or warnings
+in the case of loadable modules):
 
 
-1 . Koko nimi
-2 . Your suora matkapuhelinnumero
-3 . Olet Yhteystiedot Osoite
-4 . Syntym=E4aika
+when 802.15.4 and Bluetooth are built as loadable modules:
 
-Menty=E4=E4n l=E4pisuunnitelmallista haku , p=E4=E4tin ottaa sinuun yht=
-eytt=E4
-toivoen, ett=E4 l=F6yd=E4t t=E4m=E4n paljon mielenkiintoista . Ole hyv=E4=
- ja teid=E4n
-vahvistuksen t=E4h=E4n viestiin ja osoittaa kiinnostuksesi aion toimitt=
-aa
-sinulle lis=E4tietoja . Pyritt=E4v=E4 haluaisin tiet=E4=E4 p=E4=E4t=F6k=
-sen niin pian kuin
-mahdollista .
+WARNING: net/ieee802154/6lowpan_iphc: 'lowpan_header_compress' exported twice. Previous export was in net/bluetooth/bluetooth.ko
+WARNING: net/ieee802154/6lowpan_iphc: 'lowpan_process_data' exported twice. Previous export was in net/bluetooth/bluetooth.ko
+
+when they are builtin to the kernel image:
+
+net/ieee802154/built-in.o: In function `lowpan_header_compress':
+(.text+0x3d00): multiple definition of `lowpan_header_compress'
+net/bluetooth/built-in.o:(.text+0x2e8f0): first defined here
+net/ieee802154/built-in.o: In function `lowpan_process_data':
+(.text+0x3230): multiple definition of `lowpan_process_data'
+net/bluetooth/built-in.o:(.text+0x2de20): first defined here
 
 
-Yst=E4v=E4llisin terveisin,
-Dr.David Ashton
-Matkapuhelinnumero +447937425508
+-- 
+~Randy
