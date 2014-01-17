@@ -1,8 +1,8 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 1/5] tipc: standardize connect
-	routine
-Date: Fri, 17 Jan 2014 09:50:03 +0800
-Message-ID: <1389923407-26969-2-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net-next 4/5] tipc: standardize sendmsg
+	routine of connected socket
+Date: Fri, 17 Jan 2014 09:50:06 +0800
+Message-ID: <1389923407-26969-5-git-send-email-ying.xue@windriver.com>
 References: <1389923407-26969-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,39 +22,29 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Comparing the behaviour of how to wait for events in TIPC connect()
-with other stacks, the TIPC implementation might be perceived as
-different, and sometimes even incorrect. For instance, as both
-sock->state and sk_sleep() are directly fed to
-wait_event_interruptible_timeout() as its arguments, and socket lock
-has to be released before we call wait_event_interruptible_timeout(),
-the two variables associated with socket are exposed out of socket
-lock protection, thereby probably getting stale values so that the
-process of calling connect() cannot be woken up exactly even if
-correct event arrives or it is woken up improperly even if the wake
-condition is not satisfied in practice. Therefore, standardizing its
-behaviour with sk_stream_wait_connect routine can avoid these risks.
-
-Additionally the implementation of connect routine is simplified as a
-whole, allowing it to return correct values in all different cases.
+Standardize the behaviour of waiting for events in TIPC send_packet()
+so that all variables of socket or port structures are protected within
+socket lock, allowing the process of calling sendmsg() to be woken up
+at appropriate time.
 
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/socket.c |   63 ++++++++++++++++++++++++++++-------------------------
- 1 file changed, 33 insertions(+), 30 deletions(-)
+ net/tipc/socket.c |   60 ++++++++++++++++++++++++++++++++++++-----------------
+ 1 file changed, 41 insertions(+), 19 deletions(-)
 
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index c8341d1..b2ae25a 100644
+index 3e01973..c480310 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -1438,6 +1438,28 @@ static void wakeupdispatch(struct tipc_port *tport)
- 	sk->sk_write_space(sk);
+@@ -695,6 +695,34 @@ exit:
+ 	return res;
  }
  
-+static int tipc_wait_for_connect(struct socket *sock, long *timeo_p)
++static int tipc_wait_for_sndpkt(struct socket *sock, long *timeo_p)
 +{
 +	struct sock *sk = sock->sk;
++	struct tipc_port *tport = tipc_sk_port(sk);
 +	DEFINE_WAIT(wait);
 +	int done;
 +
@@ -62,90 +52,78 @@ index c8341d1..b2ae25a 100644
 +		int err = sock_error(sk);
 +		if (err)
 +			return err;
++		if (sock->state == SS_DISCONNECTING)
++			return -EPIPE;
++		else if (sock->state != SS_CONNECTED)
++			return -ENOTCONN;
 +		if (!*timeo_p)
-+			return -ETIMEDOUT;
++			return -EAGAIN;
 +		if (signal_pending(current))
 +			return sock_intr_errno(*timeo_p);
 +
 +		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
-+		done = sk_wait_event(sk, timeo_p, sock->state != SS_CONNECTING);
++		done = sk_wait_event(sk, timeo_p,
++				     (!tport->congested || !tport->connected));
 +		finish_wait(sk_sleep(sk), &wait);
 +	} while (!done);
 +	return 0;
 +}
 +
  /**
-  * connect - establish a connection to another TIPC port
-  * @sock: socket structure
-@@ -1453,7 +1475,8 @@ static int connect(struct socket *sock, struct sockaddr *dest, int destlen,
+  * send_packet - send a connection-oriented message
+  * @iocb: if NULL, indicates that socket lock is already held
+@@ -712,8 +740,8 @@ static int send_packet(struct kiocb *iocb, struct socket *sock,
  	struct sock *sk = sock->sk;
- 	struct sockaddr_tipc *dst = (struct sockaddr_tipc *)dest;
- 	struct msghdr m = {NULL,};
--	unsigned int timeout;
-+	long timeout = (flags & O_NONBLOCK) ? 0 : tipc_sk(sk)->conn_timeout;
-+	socket_state previous;
- 	int res;
+ 	struct tipc_port *tport = tipc_sk_port(sk);
+ 	struct sockaddr_tipc *dest = (struct sockaddr_tipc *)m->msg_name;
+-	long timeout_val;
+-	int res;
++	int res = -EINVAL;
++	long timeo;
  
- 	lock_sock(sk);
-@@ -1475,8 +1498,7 @@ static int connect(struct socket *sock, struct sockaddr *dest, int destlen,
- 		goto exit;
- 	}
+ 	/* Handle implied connection establishment */
+ 	if (unlikely(dest))
+@@ -725,30 +753,24 @@ static int send_packet(struct kiocb *iocb, struct socket *sock,
+ 	if (iocb)
+ 		lock_sock(sk);
  
--	timeout = (flags & O_NONBLOCK) ? 0 : tipc_sk(sk)->conn_timeout;
--
-+	previous = sock->state;
- 	switch (sock->state) {
- 	case SS_UNCONNECTED:
- 		/* Send a 'SYN-' to destination */
-@@ -1498,41 +1520,22 @@ static int connect(struct socket *sock, struct sockaddr *dest, int destlen,
- 		 * case is EINPROGRESS, rather than EALREADY.
- 		 */
- 		res = -EINPROGRESS;
--		break;
- 	case SS_CONNECTING:
--		res = -EALREADY;
-+		if (previous == SS_CONNECTING)
-+			res = -EALREADY;
-+		if (!timeout)
-+			goto exit;
-+		timeout = msecs_to_jiffies(timeout);
-+		/* Wait until an 'ACK' or 'RST' arrives, or a timeout occurs */
-+		res = tipc_wait_for_connect(sock, &timeout);
- 		break;
- 	case SS_CONNECTED:
- 		res = -EISCONN;
- 		break;
- 	default:
- 		res = -EINVAL;
--		goto exit;
--	}
--
--	if (sock->state == SS_CONNECTING) {
--		if (!timeout)
--			goto exit;
--
--		/* Wait until an 'ACK' or 'RST' arrives, or a timeout occurs */
--		release_sock(sk);
--		res = wait_event_interruptible_timeout(*sk_sleep(sk),
--				sock->state != SS_CONNECTING,
--				timeout ? (long)msecs_to_jiffies(timeout)
--					: MAX_SCHEDULE_TIMEOUT);
--		if (res <= 0) {
--			if (res == 0)
--				res = -ETIMEDOUT;
--			return res;
+-	timeout_val = sock_sndtimeo(sk, m->msg_flags & MSG_DONTWAIT);
++	if (unlikely(sock->state != SS_CONNECTED)) {
++		if (sock->state == SS_DISCONNECTING)
++			res = -EPIPE;
++		else
++			res = -ENOTCONN;
++		goto exit;
++	}
+ 
++	timeo = sock_sndtimeo(sk, m->msg_flags & MSG_DONTWAIT);
+ 	do {
+-		if (unlikely(sock->state != SS_CONNECTED)) {
+-			if (sock->state == SS_DISCONNECTING)
+-				res = -EPIPE;
+-			else
+-				res = -ENOTCONN;
+-			break;
 -		}
+-
+ 		res = tipc_send(tport->ref, m->msg_iov, total_len);
+ 		if (likely(res != -ELINKCONG))
+ 			break;
+-		if (timeout_val <= 0L) {
+-			res = timeout_val ? timeout_val : -EWOULDBLOCK;
++		res = tipc_wait_for_sndpkt(sock, &timeo);
++		if (res)
+ 			break;
+-		}
+-		release_sock(sk);
+-		timeout_val = wait_event_interruptible_timeout(*sk_sleep(sk),
+-			(!tport->congested || !tport->connected), timeout_val);
 -		lock_sock(sk);
-+		break;
- 	}
+ 	} while (1);
 -
--	if (unlikely(sock->state == SS_DISCONNECTING))
--		res = sock_error(sk);
--	else
--		res = 0;
--
- exit:
- 	release_sock(sk);
++exit:
+ 	if (iocb)
+ 		release_sock(sk);
  	return res;
 -- 
 1.7.9.5
