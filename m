@@ -1,102 +1,78 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH v2 net-next 05/12] bonding: extend arp_validate to be able to receive unvalidated arp-only traffic
-Date: Fri, 17 Jan 2014 12:41:29 -0800
-Message-ID: <32086.1389991289@death.nxdomain>
-References: <1389977940-17084-1-git-send-email-vfalico@redhat.com> <1389977940-17084-6-git-send-email-vfalico@redhat.com>
-Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>
-To: Veaceslav Falico <vfalico@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e8.ny.us.ibm.com ([32.97.182.138]:44255 "EHLO e8.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752926AbaAQUld (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jan 2014 15:41:33 -0500
-Received: from /spool/local
-	by e8.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Fri, 17 Jan 2014 15:41:33 -0500
-Received: from b01cxnp23033.gho.pok.ibm.com (b01cxnp23033.gho.pok.ibm.com [9.57.198.28])
-	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id E95676E8047
-	for <netdev@vger.kernel.org>; Fri, 17 Jan 2014 15:41:26 -0500 (EST)
-Received: from d01av05.pok.ibm.com (d01av05.pok.ibm.com [9.56.224.195])
-	by b01cxnp23033.gho.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s0HKfUFU8716772
-	for <netdev@vger.kernel.org>; Fri, 17 Jan 2014 20:41:30 GMT
-Received: from d01av05.pok.ibm.com (localhost [127.0.0.1])
-	by d01av05.pok.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s0HKfU5s015453
-	for <netdev@vger.kernel.org>; Fri, 17 Jan 2014 15:41:30 -0500
-In-reply-to: <1389977940-17084-6-git-send-email-vfalico@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Subject: Re: linux-next: Tree for Jan 14 (lowpan, 802.15.4)
+Date: Sat, 18 Jan 2014 00:59:29 +0400
+Message-ID: <CALT56yMiBks-mN1-tZujhX1jhZ8V3PCPcmOVcaFgC2UrxsZ6KA@mail.gmail.com>
+References: <20140114165128.0dd51f362e0f34a2ef4dc92f@canb.auug.org.au>
+	<52D578A7.8020000@infradead.org>
+	<CALT56yPzfkz7=WdT0p6EYXdsQJUT+Ld9gdd72z6_czn0YaKUWA@mail.gmail.com>
+	<52D980ED.6000603@wwwdotorg.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Randy Dunlap <rdunlap@infradead.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org,
+	kernel list <linux-kernel@vger.kernel.org>,
+	linux-zigbee-devel <linux-zigbee-devel@lists.sourceforge.net>,
+	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jukka Rissanen <jukka.rissanen@linux.intel.com>
+To: Stephen Warren <swarren@wwwdotorg.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <52D980ED.6000603@wwwdotorg.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Veaceslav Falico <vfalico@redhat.com> wrote:
+Hello,
 
->Currently we can either receive any traffic as a proff of slave being up,
->or only *validated* arp traffic (i.e. with src/dst ip checked).
+On Fri, Jan 17, 2014 at 11:13 PM, Stephen Warren <swarren@wwwdotorg.org> wrote:
+> On 01/14/2014 03:54 PM, Dmitry Eremin-Solenikov wrote:
+>> Hello,
+>>
+>>
+>> On Tue, Jan 14, 2014 at 9:49 PM, Randy Dunlap <rdunlap@infradead.org> wrote:
+>>>
+>>> On 01/13/2014 09:51 PM, Stephen Rothwell wrote:
+>>>> Hi all,
+>>>>
+>>>> This tree fails (more than usual) the powerpc allyesconfig build.
+>>>>
+>>>> Changes since 20140113:
+>>>>
+>>>
+>>>
+>>> on i386:
+>>>
+>>> net/built-in.o: In function `header_create':
+>>> 6lowpan.c:(.text+0x166149): undefined reference to `lowpan_header_compress'
+>>> net/built-in.o: In function `bt_6lowpan_recv':
+>>> (.text+0x166b3c): undefined reference to `lowpan_process_data'
+>>
+>> Ah, nice Makefile hack there.
+>> David, Marcel, could you please consider the attached patch.
 >
->Add an option to be able to specify if we want to receive non-validated arp
->traffic only.
+> I think you forgot to "git add net/bluetooth/Makefile" into that patch;
+> don't you need the following too (I certainly do, to build next-20140117)
 >
->CC: Jay Vosburgh <fubar@us.ibm.com>
->CC: Andy Gospodarek <andy@greyhouse.net>
->Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
->---
-> drivers/net/bonding/bond_main.c |  3 +++
-> drivers/net/bonding/bonding.h   | 11 +++++++++++
-> 2 files changed, 14 insertions(+)
+>> diff --git a/net/bluetooth/Makefile b/net/bluetooth/Makefile
+>> index cc6827e2ce68..80cb215826e8 100644
+>> --- a/net/bluetooth/Makefile
+>> +++ b/net/bluetooth/Makefile
+>> @@ -12,8 +12,4 @@ bluetooth-y := af_bluetooth.o hci_core.o hci_conn.o hci_event.o mgmt.o \
+>>       hci_sock.o hci_sysfs.o l2cap_core.o l2cap_sock.o smp.o sco.o lib.o \
+>>       a2mp.o amp.o 6lowpan.o
+>>
+>> -ifeq ($(CONFIG_IEEE802154_6LOWPAN),)
+>> -  bluetooth-y +=  ../ieee802154/6lowpan_iphc.o
+>> -endif
+>> -
+>>  subdir-ccflags-y += -D__CHECK_ENDIAN__
 >
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 07ae82d..532a452 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -246,6 +246,9 @@ const struct bond_parm_tbl arp_validate_tbl[] = {
-> {	"active",		BOND_ARP_VALIDATE_ACTIVE},
-> {	"backup",		BOND_ARP_VALIDATE_BACKUP},
-> {	"all",			BOND_ARP_VALIDATE_ALL},
->+{	"arp",			BOND_ARP_VALIDATE_ARP},
->+{	"active_arp",		BOND_ARP_VALIDATE_ACTIVE_ARP},
->+{	"backup_arp",		BOND_ARP_VALIDATE_BACKUP_ARP},
-> {	NULL,			-1},
-> };
->
->diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
->index 955dc48..1fbbf04 100644
->--- a/drivers/net/bonding/bonding.h
->+++ b/drivers/net/bonding/bonding.h
->@@ -318,6 +318,11 @@ static inline bool bond_is_active_slave(struct slave *slave)
-> #define BOND_ARP_VALIDATE_BACKUP	(1 << BOND_STATE_BACKUP)
-> #define BOND_ARP_VALIDATE_ALL		(BOND_ARP_VALIDATE_ACTIVE | \
-> 					 BOND_ARP_VALIDATE_BACKUP)
->+#define BOND_ARP_VALIDATE_ARP		(BOND_ARP_VALIDATE_ALL + 1)
->+#define BOND_ARP_VALIDATE_ACTIVE_ARP	(BOND_ARP_VALIDATE_ACTIVE | \
->+					 BOND_ARP_VALIDATE_ARP)
->+#define BOND_ARP_VALIDATE_BACKUP_ARP	(BOND_ARP_VALIDATE_BACKUP | \
->+					 BOND_ARP_VALIDATE_ARP)
+> Should I send this as a separate followup patch?
 
-	If you go with my suggestion to call the new thing "filtering,"
-I'd change these option names, labels, and the function
-"slave_do_arp_validate_only" names.  The function name seems kind of
-confusing in particular. I think it'd be clearer to replace the
-"validate" stuff with "filter."
+Yes, please. I forgot to add it to the patch.
 
-	-J
-
-> static inline int slave_do_arp_validate(struct bonding *bond,
-> 					struct slave *slave)
->@@ -325,6 +330,12 @@ static inline int slave_do_arp_validate(struct bonding *bond,
-> 	return bond->params.arp_validate & (1 << bond_slave_state(slave));
-> }
->
->+static inline int slave_do_arp_validate_only(struct bonding *bond,
->+					     struct slave *slave)
->+{
->+	return bond->params.arp_validate & BOND_ARP_VALIDATE_ARP;
->+}
->+
-> /* Get the oldest arp which we've received on this slave for bond's
->  * arp_targets.
->  */
->-- 
->1.8.4
->
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+-- 
+With best wishes
+Dmitry
