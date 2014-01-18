@@ -1,94 +1,68 @@
-From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: Re: [PATCH RFC 4/6] net: rfkill: gpio: add device tree support
-Date: Sat, 18 Jan 2014 12:41:28 +0800
-Message-ID: <CAGb2v66XGj+WPGY7tpPT-2f91XpLVsGeBw=Ne+1k9F=PzZjZDg@mail.gmail.com>
-References: <1389941251-32692-1-git-send-email-wens@csie.org>
- <1389941251-32692-5-git-send-email-wens@csie.org> <201401171747.46332.arnd@arndb.de>
- <CAGb2v67UKiyfJbKZ_Frk3OwZupMPoA2Ck3Hj2zsRFXBQPztavg@mail.gmail.com> <CACRpkdZOD4zeA8T5kbJ4c5NsnuzHCg1mw8rRMYNT9c4R-Qnc6A@mail.gmail.com>
-Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [RFC PATCH net-next 3/3] virtio-net: Add accelerated RFS support
+Date: Fri, 17 Jan 2014 20:59:15 -0800
+Message-ID: <CA+mtBx8eRuWpYkYoPbuCaO1h0Y+g96zJB96zP17ZixOwZ1_gmQ@mail.gmail.com>
+References: <1389795654-28381-1-git-send-email-zwu.kernel@gmail.com>
+	<1389795654-28381-4-git-send-email-zwu.kernel@gmail.com>
+	<1389907887.11912.87.camel@bwh-desktop.uk.level5networks.com>
+	<CAEH94LjHcxkXLvs6AMNop_yzKG0zaT2mAgsAb21i+RtMbkXbmQ@mail.gmail.com>
+	<1389914188.11912.146.camel@bwh-desktop.uk.level5networks.com>
+	<CAEH94LgKJ0qThGHS-hqXsYKqOe+ns2pRi-wfZy=af1RMejOZ5A@mail.gmail.com>
+	<1389979208.27141.11.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Mika Westerberg <mika.westerberg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-To: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <linux-sunxi+bncBCMILY6JWQBBBDUM5CLAKGQEELILM7A-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <CACRpkdZOD4zeA8T5kbJ4c5NsnuzHCg1mw8rRMYNT9c4R-Qnc6A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi>
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Zhi Yong Wu <zwu.kernel@gmail.com>,
+	Stefan Hajnoczi <stefanha@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f44.google.com ([209.85.219.44]:56924 "EHLO
+	mail-oa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752608AbaARE7P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 23:59:15 -0500
+Received: by mail-oa0-f44.google.com with SMTP id g12so5571234oah.3
+        for <netdev@vger.kernel.org>; Fri, 17 Jan 2014 20:59:15 -0800 (PST)
+In-Reply-To: <1389979208.27141.11.camel@bwh-desktop.uk.level5networks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 18, 2014 at 7:11 AM, Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org> wrote:
-> On Fri, Jan 17, 2014 at 6:43 PM, Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org> wrote:
->> On Sat, Jan 18, 2014 at 12:47 AM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
->
->>>> +- NAME_shutdown-gpios  : GPIO phandle to shutdown control
->>>> +                         (phandle must be the second)
->>>> +- NAME_reset-gpios     : GPIO phandle to reset control
->>>> +
->>>> +NAME must match the rfkill-name property. NAME_shutdown-gpios or
->>>> +NAME_reset-gpios, or both, must be defined.
->>>> +
->>>
->>> I don't understand this part. Why do you include the name in the
->>> gpios property, rather than just hardcoding the property strings
->>> to "shutdown-gpios" and "reset-gpios"?
->>
->> This quirk is a result of how gpiod_get_index implements device tree
->> lookup.
->
-> Why can't it just have a single property "gpios", where the first
-> element is the reset GPIO and the second is the shutdown GPIO?
->
-> rfkill-gpio does this:
->
-> gpio = devm_gpiod_get_index(&pdev->dev, rfkill->reset_name, 0);
-> gpio = devm_gpiod_get_index(&pdev->dev, rfkill->shutdown_name, 1);
->
-> The passed con ID name parameter is only there for the device
-> tree case it seems. (ACPI ignores it.) So what about you just
-> don't pass it at all and patch it to do like this instead:
->
-> gpio = devm_gpiod_get_index(&pdev->dev, NULL, 0);
-> gpio = devm_gpiod_get_index(&pdev->dev, NULL, 1);
+Ben,
 
-I'd like that. It's much cleaner.
+I've never quite understood why flow management in aRFS has to be done
+with separate messages, and if I recall this seems to mitigate
+performance gains to a large extent. It seems like we should be able
+to piggyback on a TX descriptor for a connection information about the
+RX side for that connection, namely the rxhash and queue mapping.
+State creation should be implicit by just seeing a new rxhash value,
+tear down might be accomplished with a separate flag on the final TX
+packet on the connection (this would need some additional logic in the
+stack). Is this method not feasible in either NICs or virtio-net?
 
-> Heikki, are you OK with this change?
+On Fri, Jan 17, 2014 at 9:20 AM, Ben Hutchings
+<bhutchings@solarflare.com> wrote:
+> On Sat, 2014-01-18 at 00:54 +0800, Zhi Yong Wu wrote:
+>> On Fri, Jan 17, 2014 at 7:16 AM, Ben Hutchings
+>> <bhutchings@solarflare.com> wrote:
+> [...]
+>> > However, to take advantage of ARFS on a physical net driver, it would be
+>> > necessary to send a control request for part 2.
+>> aRFS on a physical net driver? What is this physical net driver? I
+>> thought that in order to enable aRFS, guest virtio_net driver should
+>> send a control request to its emulated virtio_net NIC.
+> [...]
 >
-> I think this is actually necessary if the ACPI and DT unification
-> pipe dream shall limp forward, we cannot have arguments passed
-> that have a semantic effect on DT but not on ACPI... Drivers
-> that are supposed to use both ACPI and DT will always
-> have to pass NULL as con ID.
+> If the backend is connected to a macvlan device on top of a physical net
+> device that supports ARFS, then there is further potential for improving
+> performance by steering to the best physical RX queue and CPU as well as
+> the best virtio_net RX queue and vCPU.
 >
->> If con_id is given, it is prepended to "gpios" as the property string.
->> con_id is also used as the label passed to gpiod_request, which is
->> then shown in /sys/kernel/debug/gpio.
+> Ben.
 >
-> If your problem  is really what turns up in debugfs, then we need
-> to figure out a way to label gpios outside of the *gpiod_get* calls.
-
-Let's add a gpiod_set_label call. Currently there's a desc_set_label
-in gpiolib, which is static inlined. We can either rename and promote
-it to non-static, or add a new wrapping function.
-
-> The string passed in *gpiod_get* is a "connection ID" not a proper
-> name for the GPIO.
-
-I see. Perhaps we should not pass this to gpiod_request as the label,
-or add a comment stating consumers can use the new gpiod_set_label call
-to change it.
-
-
-Cheers,
-ChenYu
+> --
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+>
