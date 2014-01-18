@@ -1,69 +1,81 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv5 net-next 0/6] xfrm: Add ESN support for AH
-Date: Sat, 18 Jan 2014 09:54:22 +0800
-Message-ID: <1390010068-15715-1-git-send-email-fan.du@windriver.com>
+Subject: [PATCHv5 net-next 1/6] skbuff: Introduce skb_to_sgvec_nomark to map skb without mark new end
+Date: Sat, 18 Jan 2014 09:54:23 +0800
+Message-ID: <1390010068-15715-2-git-send-email-fan.du@windriver.com>
+References: <1390010068-15715-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
 To: <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:63060 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752848AbaARByd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 20:54:33 -0500
+Received: from mail1.windriver.com ([147.11.146.13]:33191 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752912AbaARByf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 20:54:35 -0500
+In-Reply-To: <1390010068-15715-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+As compared with skb_to_sgvec, skb_to_sgvec_nomark only map skb to given sglist
+without mark the sg which contain last skb data as the end. So the caller can
+mannipulate sg list as will when padding new data after the first call without
+calling sg_unmark_end to expend sg list.
 
-This is initial Extended Sequence Number support for AH based on IPv4/6.
-The rationale is totally by the RFC 4302, which states:
-
-3.3.3.2.2.  Implicit Packet Padding and ESN
-
-   If the ESN option is elected for an SA, then the high-order 32 bits
-   of the ESN must be included in the ICV computation.  For purposes of
-   ICV computation, these bits are appended (implicitly) immediately
-   after the end of the payload, and before any implicit packet padding.
-
-So we attach the high-order 32bits as a scatterlist right after the packet
-payload to compute ICV value. 
-
-Test:
-I add a knob in iproute2/ip/xfrm_state.c to enable esn when setting SA,
-which make it possible to test with-esn and without-esn scenarios, both
-cases works ok with ping using packetsize(-s) from default to 32768. 
-
-v2:
-  - Patch3/5 and Patch4/5 add IPv6 part as requested by Steffen.
-  - Patch5/5 restrict ESN feature only to ESP and AH.
-v3:
-  - Fix double parens spotted by Sergei, and thanks for reporting.
-v4:
-  - Incorperate feedbacks from Steffen by simplify the code flow.
-  - Add Patch1/6 to introduce skb_to_sgvec_nomark
-  - Patch2/6 remove rebundant inclusion crypto/scatterwalk.h
-v5:
-  - Before calling type 'input' method, XFRM_SKB_CB(skb)->seq.input.hi
-    has already been set in network byte order in xfrm_input, so no
-    need to change the byte once in type 'input' method. So fix
-    Patch3/6 and Patch5/6.
-
-
-Fan Du (6):
-  skbuff: Introduce skb_to_sgvec_nomark to map skb without mark new end
-  {IPv4,xfrm} Add ESN support for AH egress part
-  {IPv4,xfrm} Add ESN support for AH ingress part
-  {IPv6,xfrm} Add ESN support for AH egress part
-  {IPv6,xfrm} Add ESN support for AH ingress part
-  xfrm: Don't prohibit AH from using ESN feature
-
+Signed-off-by: Fan Du <fan.du@windriver.com>
+---
  include/linux/skbuff.h |    2 ++
- net/core/skbuff.c      |   26 ++++++++++++++++++++++
- net/ipv4/ah4.c         |   53 +++++++++++++++++++++++++++++++++++----------
- net/ipv6/ah6.c         |   56 ++++++++++++++++++++++++++++++++++++++----------
- net/xfrm/xfrm_user.c   |    3 ++-
- 5 files changed, 117 insertions(+), 23 deletions(-)
+ net/core/skbuff.c      |   26 ++++++++++++++++++++++++++
+ 2 files changed, 28 insertions(+)
 
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 1f689e6..4fd28cc 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -691,6 +691,8 @@ struct sk_buff *skb_realloc_headroom(struct sk_buff *skb,
+ 				     unsigned int headroom);
+ struct sk_buff *skb_copy_expand(const struct sk_buff *skb, int newheadroom,
+ 				int newtailroom, gfp_t priority);
++int skb_to_sgvec_nomark(struct sk_buff *skb, struct scatterlist *sg,
++			int offset, int len);
+ int skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset,
+ 		 int len);
+ int skb_cow_data(struct sk_buff *skb, int tailbits, struct sk_buff **trailer);
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 15057d2..19387c7 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3309,6 +3309,32 @@ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
+ 	return elt;
+ }
+ 
++/* As compared with skb_to_sgvec, skb_to_sgvec_nomark only map skb to given
++ * sglist without mark the sg which contain last skb data as the end.
++ * So the caller can mannipulate sg list as will when padding new data after
++ * the first call without calling sg_unmark_end to expend sg list.
++ *
++ * Scenario to use skb_to_sgvec_nomark:
++ * 1. sg_init_table
++ * 2. skb_to_sgvec_nomark(payload1)
++ * 3. skb_to_sgvec_nomark(payload2)
++ *
++ * This is equivalent to:
++ * 1. sg_init_table
++ * 2. skb_to_sgvec(payload1)
++ * 3. sg_unmark_end
++ * 4. skb_to_sgvec(payload2)
++ *
++ * When mapping mutilple payload conditionally, skb_to_sgvec_nomark
++ * is more preferable.
++ */
++int skb_to_sgvec_nomark(struct sk_buff *skb, struct scatterlist *sg,
++			int offset, int len)
++{
++	return __skb_to_sgvec(skb, sg, offset, len);
++}
++EXPORT_SYMBOL_GPL(skb_to_sgvec_nomark);
++
+ int skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
+ {
+ 	int nsg = __skb_to_sgvec(skb, sg, offset, len);
 -- 
 1.7.9.5
