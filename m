@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 24/41] net: Replace get_cpu_var through this_cpu_ptr
-Date: Fri, 17 Jan 2014 19:05:28 -0800 (PST)
-Message-ID: <20140117.190528.1133148899287145373.davem@davemloft.net>
-References: <20140117151812.770437629@linux.com>
-	<20140117151836.883704411@linux.com>
+Subject: Re: [PATCH] Bluetooth: remove direct compilation of 6lowpan_iphc.c
+Date: Fri, 17 Jan 2014 19:10:53 -0800 (PST)
+Message-ID: <20140117.191053.2165670259882490823.davem@davemloft.net>
+References: <1389986964-5177-1-git-send-email-swarren@wwwdotorg.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tj@kernel.org, akpm@linuxfoundation.org, rostedt@goodmis.org,
-	linux-kernel@vger.kernel.org, mingo@kernel.org,
-	peterz@infradead.org, tglx@linutronix.de, netdev@vger.kernel.org,
-	edumazet@google.com
-To: cl@linux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140117151836.883704411@linux.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: dbaryshkov@gmail.com, marcel@holtmann.org, sfr@canb.auug.org.au,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-zigbee-devel@lists.sourceforge.net,
+	alex.bluesman.smirnov@gmail.com, netdev@vger.kernel.org,
+	jukka.rissanen@linux.intel.com, swarren@nvidia.com
+To: swarren@wwwdotorg.org
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <1389986964-5177-1-git-send-email-swarren@wwwdotorg.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Christoph Lameter <cl@linux.com>
-Date: Fri, 17 Jan 2014 09:18:36 -0600
+From: Stephen Warren <swarren@wwwdotorg.org>
+Date: Fri, 17 Jan 2014 12:29:24 -0700
 
-> [Patch depends on another patch in this series that introduces raw_cpu_ops]
+> From: Stephen Warren <swarren@nvidia.com>
 > 
-> Replace uses of get_cpu_var for address calculation through this_cpu_ptr.
+> It's now built as a separate utility module, and enabling BT selects
+> that module in Kconfig. This fixes:
+ ...
+> (this change probably simply wasn't "git add"d to a53d34c3465b)
 > 
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: netdev@vger.kernel.org
-> Cc: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Christoph Lameter <cl@linux.com>
+> Fixes: a53d34c3465b ("net: move 6lowpan compression code to separate module")
+> Fixes: 18722c247023 ("Bluetooth: Enable 6LoWPAN support for BT LE devices")
+> Signed-off-by: Stephen Warren <swarren@nvidia.com>
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Applied to net-next, thanks a lot.
