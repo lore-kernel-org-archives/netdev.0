@@ -1,33 +1,60 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch v6 net-next 0/2] Intel Wired LAN Driver Updates
-Date: Fri, 17 Jan 2014 18:38:49 -0800 (PST)
-Message-ID: <20140117.183849.161810150934219942.davem@davemloft.net>
-References: <1389930065-3330-1-git-send-email-aaron.f.brown@intel.com>
+Subject: Re: [PATCH net-next] net: vxlan: do not use vxlan_net before
+ checking event type
+Date: Fri, 17 Jan 2014 18:50:30 -0800 (PST)
+Message-ID: <20140117.185030.1516625575623978541.davem@davemloft.net>
+References: <1389959706-30976-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	ethan.kernel@gmail.com
-To: aaron.f.brown@intel.com
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com,
+	jesse.brandeburg@intel.com, xiyou.wangcong@gmail.com
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41635 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41669 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751892AbaARCiu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 21:38:50 -0500
-In-Reply-To: <1389930065-3330-1-git-send-email-aaron.f.brown@intel.com>
+	with ESMTP id S1752165AbaARCub (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 21:50:31 -0500
+In-Reply-To: <1389959706-30976-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Aaron Brown <aaron.f.brown@intel.com>
-Date: Thu, 16 Jan 2014 19:41:03 -0800
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Fri, 17 Jan 2014 12:55:06 +0100
 
-> This series contains updates to ixgbe Ethan Zhao.  The first one replaces
-> the magic number "63" with a macro, IXGBE_MAX_VFS_DRV_LIMIT, the second 
-> moves the call to set driver_max_VFS to before SRIOV is enabled.
+> Jesse Brandeburg reported that commit acaf4e70997f caused a panic
+> when adding a network namespace while vxlan module was present in
+> the system:
+ ...
+> Apparently loopback device is being registered first and thus we
+> receive an event notification when vxlan_net is not ready. Hence,
+> when we call net_generic() and request vxlan_net_id, we seem to
+> access garbage at that point in time. In setup_net() where we set
+> up a newly allocated network namespace, we traverse the list of
+> pernet ops ...
 > 
-> The code of these patches match the v3 (1/2) and v2 (2/2) versions sent
-> to the e1000-devel and netdev mailing lists.  The intermediate versions
-> (v4, v5) are from sorting out style issues, mostly tabs to spaces and
-> split lines probably introduced via mailer.
+> list_for_each_entry(ops, &pernet_list, list) {
+> 	error = ops_init(ops, net);
+> 	if (error < 0)
+> 		goto out_undo;
+> }
+> 
+> ... and loopback_net_init() is invoked first here, so in the middle
+> of setup_net() we get this notification in vxlan. As currently we
+> only care about devices that unregister, move access through
+> net_generic() there. Fix is based on Cong Wang's proposal, but
+> only changes what is needed here. It sucks a bit as we only work
+> around the actual cure: right now it seems the only way to check if
+> a netns actually finished traversing all init ops would be to check
+> if it's part of net_namespace_list. But that I find quite expensive
+> each time we go through a notifier callback. Anyway, did a couple
+> of tests and it seems good for now.
+> 
+> Fixes: acaf4e70997f ("net: vxlan: when lower dev unregisters remove vxlan dev as well")
+> Reported-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+> Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-Series applied, thanks.
+Applied, thanks.
