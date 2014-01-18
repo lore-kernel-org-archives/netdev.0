@@ -1,53 +1,61 @@
 From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH] net: remove unnecessary initializations in net_dev_init
-Date: Sat, 18 Jan 2014 19:04:58 +0100
-Message-ID: <20140118180458.GB23364@kria>
-References: <1390057451-30807-1-git-send-email-sd@queasysnail.net>
- <1390066846.31367.538.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next v2] net: remove unnecessary initializations in net_dev_init
+Date: Sat, 18 Jan 2014 19:19:27 +0100
+Message-ID: <1390069167-14080-1-git-send-email-sd@queasysnail.net>
+Cc: netdev@vger.kernel.org, Sabrina Dubroca <sd@queasysnail.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6-g21.free.fr ([212.27.42.6]:52142 "EHLO smtp6-g21.free.fr"
+Received: from smtp3-g21.free.fr ([212.27.42.3]:37431 "EHLO smtp3-g21.free.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750933AbaARSFL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Jan 2014 13:05:11 -0500
-Content-Disposition: inline
-In-Reply-To: <1390066846.31367.538.camel@edumazet-glaptop2.roam.corp.google.com>
+	id S1751065AbaARSTq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Jan 2014 13:19:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-01-18, 09:40:46 -0800, Eric Dumazet wrote:
-> On Sat, 2014-01-18 at 16:04 +0100, Sabrina Dubroca wrote:
-> > softnet_data is set to 0 by memset, no need to initialize specific
-> > fields to 0 or NULL afterwards.
-> > 
-> > Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-> > ---
-> >  net/core/dev.c | 9 ---------
-> >  1 file changed, 9 deletions(-)
-> > 
-> > diff --git a/net/core/dev.c b/net/core/dev.c
-> > index 288df62..b57b44a2 100644
-> > --- a/net/core/dev.c
-> > +++ b/net/core/dev.c
-> > @@ -7000,25 +7000,16 @@ static int __init net_dev_init(void)
-> >  		memset(sd, 0, sizeof(*sd));
-> 
-> Hi Sabrina
-> 
-> Well, if you really want, you also can remove this memset(), percpu data
-> defined as :
-> 
-> DEFINE_PER_CPU_ALIGNED(struct softnet_data, softnet_data);
-> 
-> must also be zero at boot time.
-> 
-> Thanks !
+softnet_data is already set to 0, no need to use memset or initialize
+specific fields to 0 or NULL afterwards.
 
-Okay, I'll send a v2.
-Thanks!
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+---
 
+v2: remove memset as well, since as Eric said, percpu data is 0 at
+    boot time
+
+ net/core/dev.c | 10 ----------
+ 1 file changed, 10 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 288df62..36c0cc69 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6997,28 +6997,18 @@ static int __init net_dev_init(void)
+ 	for_each_possible_cpu(i) {
+ 		struct softnet_data *sd = &per_cpu(softnet_data, i);
+ 
+-		memset(sd, 0, sizeof(*sd));
+ 		skb_queue_head_init(&sd->input_pkt_queue);
+ 		skb_queue_head_init(&sd->process_queue);
+-		sd->completion_queue = NULL;
+ 		INIT_LIST_HEAD(&sd->poll_list);
+-		sd->output_queue = NULL;
+ 		sd->output_queue_tailp = &sd->output_queue;
+ #ifdef CONFIG_RPS
+ 		sd->csd.func = rps_trigger_softirq;
+ 		sd->csd.info = sd;
+-		sd->csd.flags = 0;
+ 		sd->cpu = i;
+ #endif
+ 
+ 		sd->backlog.poll = process_backlog;
+ 		sd->backlog.weight = weight_p;
+-		sd->backlog.gro_list = NULL;
+-		sd->backlog.gro_count = 0;
+-
+-#ifdef CONFIG_NET_FLOW_LIMIT
+-		sd->flow_limit = NULL;
+-#endif
+ 	}
+ 
+ 	dev_boot_phase = 0;
 -- 
-Sabrina
+1.8.5.3
