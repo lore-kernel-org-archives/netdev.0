@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: tcp: fix flowlabel value in ACK
- messages send from TIME_WAIT
-Date: Fri, 17 Jan 2014 17:57:24 -0800 (PST)
-Message-ID: <20140117.175724.1608375616732183823.davem@davemloft.net>
-References: <1389889282-2562-1-git-send-email-florent.fourcot@enst-bretagne.fr>
+Subject: Re: [PATCH net-next 1/2] qlcnic: make local functions static
+Date: Fri, 17 Jan 2014 18:04:34 -0800 (PST)
+Message-ID: <20140117.180434.398761529172058396.davem@davemloft.net>
+References: <20140116103127.121855af@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: florent.fourcot@enst-bretagne.fr
+Cc: himanshu.madhani@qlogic.com, rajesh.borundia@qlogic.com,
+	shahed.shaikh@qlogic.com, jitendra.kalsaria@qlogic.com,
+	sony.chacko@qlogic.com, sucheta.chakraborty@qlogic.com,
+	linux-driver@qlogic.com, netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41307 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41356 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751892AbaARB5Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 20:57:25 -0500
-In-Reply-To: <1389889282-2562-1-git-send-email-florent.fourcot@enst-bretagne.fr>
+	with ESMTP id S1753100AbaARCEf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 21:04:35 -0500
+In-Reply-To: <20140116103127.121855af@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
-Date: Thu, 16 Jan 2014 17:21:22 +0100
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Thu, 16 Jan 2014 10:31:27 -0800
 
-> This patch is following the commit b903d324bee262 (ipv6: tcp: fix TCLASS
-> value in ACK messages sent from TIME_WAIT).
+> Functions only used in one file should be static.
+> Found by running make namespacecheck
 > 
-> For the same reason than tclass, we have to store the flow label in the
-> inet_timewait_sock to provide consistency of flow label on the last ACK.
+> Compile tested only.
 > 
-> Signed-off-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Applied, thank you.
+Applied.
