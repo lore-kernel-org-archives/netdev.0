@@ -1,7 +1,7 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 3/7] ixgbevf: remove counters for Tx/Rx checksum offload
-Date: Fri, 17 Jan 2014 18:30:01 -0800
-Message-ID: <1390012205-21995-4-git-send-email-aaron.f.brown@intel.com>
+Subject: [net-next 2/7] ixgbevf: move ring specific stats into ring specific structure
+Date: Fri, 17 Jan 2014 18:30:00 -0800
+Message-ID: <1390012205-21995-3-git-send-email-aaron.f.brown@intel.com>
 References: <1390012205-21995-1-git-send-email-aaron.f.brown@intel.com>
 Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -9,165 +9,322 @@ Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	Aaron Brown <aaron.f.brown@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:24162 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:11462 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753229AbaARCaN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jan 2014 21:30:13 -0500
+	id S1752979AbaARCaL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jan 2014 21:30:11 -0500
 In-Reply-To: <1390012205-21995-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-This patch removes the Tx/Rx counters for checksum offload.
-
-The Tx counter was never updated and the Rx counter is of limited use.
-This is in effort to clean up the counters and make them consistent
-with the counters shown by ixgbe.
-
-Also this patch removes some members of the adapter structure that were
-never used and shuffles others to reduce number of holes.
-
-before:
-	/* size: 1568, cachelines: 25, members: 48 */
-	/* sum members: 1519, holes: 10, sum holes: 43 */
-	/* padding: 6 */
-	/* last cacheline: 32 bytes */
-
-after:
-	/* size: 1480, cachelines: 24, members: 43 */
-	/* sum members: 1479, holes: 1, sum holes: 1 */
-	/* last cacheline: 8 bytes */
+This patch moves hot-path specific statistics into the ring structure.
+This allows us to drop the adapter structure in some functions and should
+help with performance.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ethtool.c      |  2 --
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      | 23 +++++++++--------------
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  4 ----
- 3 files changed, 9 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c      | 12 +++---
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      | 44 +++++++++++++++-----
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 50 +++++++++++------------
+ 3 files changed, 62 insertions(+), 44 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-index 0769306..b48df78 100644
+index f4e0574..0769306 100644
 --- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
 +++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-@@ -79,9 +79,7 @@ static const struct ixgbe_stats ixgbe_gstrings_stats[] = {
- 	{"tx_busy", IXGBEVF_ZSTAT(tx_busy)},
- 	{"multicast", IXGBEVF_STAT(stats.vfmprc, stats.base_vfmprc,
- 				   stats.saved_reset_vfmprc)},
--	{"rx_csum_offload_good", IXGBEVF_ZSTAT(hw_csum_rx_good)},
- 	{"rx_csum_offload_errors", IXGBEVF_ZSTAT(hw_csum_rx_error)},
--	{"tx_csum_offload_ctxt", IXGBEVF_ZSTAT(hw_csum_tx_good)},
- #ifdef BP_EXTENDED_STATS
- 	{"rx_bp_poll_yield", IXGBEVF_ZSTAT(bp_rx_yields)},
- 	{"rx_bp_cleaned", IXGBEVF_ZSTAT(bp_rx_cleaned)},
+@@ -411,15 +411,15 @@ static void ixgbevf_get_ethtool_stats(struct net_device *netdev,
+ 	    tx_yields = 0, tx_cleaned = 0, tx_missed = 0;
+ 
+ 	for (i = 0; i < adapter->num_rx_queues; i++) {
+-		rx_yields += adapter->rx_ring[i]->bp_yields;
+-		rx_cleaned += adapter->rx_ring[i]->bp_cleaned;
+-		rx_yields += adapter->rx_ring[i]->bp_yields;
++		rx_yields += adapter->rx_ring[i]->stats.yields;
++		rx_cleaned += adapter->rx_ring[i]->stats.cleaned;
++		rx_yields += adapter->rx_ring[i]->stats.yields;
+ 	}
+ 
+ 	for (i = 0; i < adapter->num_tx_queues; i++) {
+-		tx_yields += adapter->tx_ring[i]->bp_yields;
+-		tx_cleaned += adapter->tx_ring[i]->bp_cleaned;
+-		tx_yields += adapter->tx_ring[i]->bp_yields;
++		tx_yields += adapter->tx_ring[i]->stats.yields;
++		tx_cleaned += adapter->tx_ring[i]->stats.cleaned;
++		tx_yields += adapter->tx_ring[i]->stats.yields;
+ 	}
+ 
+ 	adapter->bp_rx_yields = rx_yields;
 diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-index 0642bd2..0068428 100644
+index 59a7574..0642bd2 100644
 --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
 +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-@@ -106,7 +106,6 @@ struct ixgbevf_ring {
+@@ -59,6 +59,29 @@ struct ixgbevf_rx_buffer {
+ 	dma_addr_t dma;
+ };
+ 
++struct ixgbevf_stats {
++	u64 packets;
++	u64 bytes;
++#ifdef BP_EXTENDED_STATS
++	u64 yields;
++	u64 misses;
++	u64 cleaned;
++#endif
++};
++
++struct ixgbevf_tx_queue_stats {
++	u64 restart_queue;
++	u64 tx_busy;
++	u64 tx_done_old;
++};
++
++struct ixgbevf_rx_queue_stats {
++	u64 non_eop_descs;
++	u64 alloc_rx_page_failed;
++	u64 alloc_rx_buff_failed;
++	u64 csum_err;
++};
++
+ struct ixgbevf_ring {
+ 	struct ixgbevf_ring *next;
+ 	struct net_device *netdev;
+@@ -70,22 +93,20 @@ struct ixgbevf_ring {
+ 	unsigned int next_to_use;
+ 	unsigned int next_to_clean;
+ 
+-	int queue_index; /* needed for multiqueue queue management */
+ 	union {
+ 		struct ixgbevf_tx_buffer *tx_buffer_info;
+ 		struct ixgbevf_rx_buffer *rx_buffer_info;
  	};
  
+-	u64			total_bytes;
+-	u64			total_packets;
+-	struct u64_stats_sync	syncp;
++	struct ixgbevf_stats stats;
++	struct u64_stats_sync syncp;
++	union {
++		struct ixgbevf_tx_queue_stats tx_stats;
++		struct ixgbevf_rx_queue_stats rx_stats;
++	};
++
  	u64 hw_csum_rx_error;
--	u64 hw_csum_rx_good;
+ 	u64 hw_csum_rx_good;
+-#ifdef BP_EXTENDED_STATS
+-	u64 bp_yields;
+-	u64 bp_misses;
+-	u64 bp_cleaned;
+-#endif
  	u8 __iomem *tail;
  
  	u16 reg_idx; /* holds the special value that gets the hardware register
-@@ -336,7 +335,6 @@ static inline u16 ixgbevf_desc_unused(struct ixgbevf_ring *ring)
- struct ixgbevf_adapter {
- 	struct timer_list watchdog_timer;
- 	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
--	u16 bd_number;
- 	struct work_struct reset_task;
- 	struct ixgbevf_q_vector *q_vector[MAX_MSIX_Q_VECTORS];
+@@ -93,6 +114,7 @@ struct ixgbevf_ring {
+ 		      * for DCB and RSS modes */
  
-@@ -349,25 +347,18 @@ struct ixgbevf_adapter {
- 	u32 eims_other;
- 
- 	/* TX */
--	struct ixgbevf_ring *tx_ring[MAX_TX_QUEUES]; /* One per active queue */
- 	int num_tx_queues;
-+	struct ixgbevf_ring *tx_ring[MAX_TX_QUEUES]; /* One per active queue */
- 	u64 restart_queue;
--	u64 hw_csum_tx_good;
--	u64 lsc_int;
--	u64 hw_tso_ctxt;
--	u64 hw_tso6_ctxt;
- 	u32 tx_timeout_count;
- 
- 	/* RX */
--	struct ixgbevf_ring *rx_ring[MAX_TX_QUEUES]; /* One per active queue */
- 	int num_rx_queues;
-+	struct ixgbevf_ring *rx_ring[MAX_TX_QUEUES]; /* One per active queue */
- 	u64 hw_csum_rx_error;
- 	u64 hw_rx_no_dma_resources;
--	u64 hw_csum_rx_good;
- 	u64 non_eop_descs;
- 	int num_msix_vectors;
--	struct msix_entry *msix_entries;
--
- 	u32 alloc_rx_page_failed;
- 	u32 alloc_rx_buff_failed;
- 
-@@ -379,6 +370,8 @@ struct ixgbevf_adapter {
- #define IXGBE_FLAG_IN_NETPOLL                   (u32)(1 << 1)
- #define IXGBEVF_FLAG_QUEUE_RESET_REQUESTED	(u32)(1 << 2)
- 
-+	struct msix_entry *msix_entries;
-+
- 	/* OS defined structs */
- 	struct net_device *netdev;
- 	struct pci_dev *pdev;
-@@ -386,10 +379,12 @@ struct ixgbevf_adapter {
- 	/* structs defined in ixgbe_vf.h */
- 	struct ixgbe_hw hw;
- 	u16 msg_enable;
--	struct ixgbevf_hw_stats stats;
-+	u16 bd_number;
- 	/* Interrupt Throttle Rate */
- 	u32 eitr_param;
- 
-+	struct ixgbevf_hw_stats stats;
-+
- 	unsigned long state;
- 	u64 tx_busy;
- 	unsigned int tx_ring_count;
-@@ -408,9 +403,9 @@ struct ixgbevf_adapter {
- 	u32 link_speed;
- 	bool link_up;
- 
--	struct work_struct watchdog_task;
--
- 	spinlock_t mbx_lock;
-+
-+	struct work_struct watchdog_task;
+ 	u16 rx_buf_len;
++	int queue_index; /* needed for multiqueue queue management */
  };
  
- enum ixbgevf_state_t {
+ /* How many Rx Buffers do we bundle into one write to the hardware ? */
+@@ -186,7 +208,7 @@ static inline bool ixgbevf_qv_lock_napi(struct ixgbevf_q_vector *q_vector)
+ 		q_vector->state |= IXGBEVF_QV_STATE_NAPI_YIELD;
+ 		rc = false;
+ #ifdef BP_EXTENDED_STATS
+-		q_vector->tx.ring->bp_yields++;
++		q_vector->tx.ring->stats.yields++;
+ #endif
+ 	} else {
+ 		/* we don't care if someone yielded */
+@@ -221,7 +243,7 @@ static inline bool ixgbevf_qv_lock_poll(struct ixgbevf_q_vector *q_vector)
+ 		q_vector->state |= IXGBEVF_QV_STATE_POLL_YIELD;
+ 		rc = false;
+ #ifdef BP_EXTENDED_STATS
+-		q_vector->rx.ring->bp_yields++;
++		q_vector->rx.ring->stats.yields++;
+ #endif
+ 	} else {
+ 		/* preserve yield marks */
 diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 77ddda6..41b72ed 100644
+index ec60db0..77ddda6 100644
 --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
 +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -357,7 +357,6 @@ static inline void ixgbevf_rx_checksum(struct ixgbevf_ring *ring,
+@@ -268,8 +268,8 @@ static bool ixgbevf_clean_tx_irq(struct ixgbevf_q_vector *q_vector,
+ 	}
  
- 	/* It must be a TCP or UDP packet with a valid checksum */
- 	skb->ip_summed = CHECKSUM_UNNECESSARY;
--	ring->hw_csum_rx_good++;
+ 	u64_stats_update_begin(&tx_ring->syncp);
+-	tx_ring->total_bytes += total_bytes;
+-	tx_ring->total_packets += total_packets;
++	tx_ring->stats.bytes += total_bytes;
++	tx_ring->stats.packets += total_packets;
+ 	u64_stats_update_end(&tx_ring->syncp);
+ 	q_vector->tx.total_bytes += total_bytes;
+ 	q_vector->tx.total_packets += total_packets;
+@@ -343,7 +343,7 @@ static inline void ixgbevf_rx_checksum(struct ixgbevf_ring *ring,
+ 	/* if IP and error */
+ 	if ((status_err & IXGBE_RXD_STAT_IPCS) &&
+ 	    (status_err & IXGBE_RXDADV_ERR_IPE)) {
+-		ring->hw_csum_rx_error++;
++		ring->rx_stats.csum_err++;
+ 		return;
+ 	}
+ 
+@@ -351,7 +351,7 @@ static inline void ixgbevf_rx_checksum(struct ixgbevf_ring *ring,
+ 		return;
+ 
+ 	if (status_err & IXGBE_RXDADV_ERR_TCPE) {
+-		ring->hw_csum_rx_error++;
++		ring->rx_stats.csum_err++;
+ 		return;
+ 	}
+ 
+@@ -362,10 +362,9 @@ static inline void ixgbevf_rx_checksum(struct ixgbevf_ring *ring,
+ 
+ /**
+  * ixgbevf_alloc_rx_buffers - Replace used receive buffers; packet split
+- * @adapter: address of board private structure
++ * @rx_ring: rx descriptor ring (for a specific queue) to setup buffers on
+  **/
+-static void ixgbevf_alloc_rx_buffers(struct ixgbevf_adapter *adapter,
+-				     struct ixgbevf_ring *rx_ring,
++static void ixgbevf_alloc_rx_buffers(struct ixgbevf_ring *rx_ring,
+ 				     int cleaned_count)
+ {
+ 	union ixgbe_adv_rx_desc *rx_desc;
+@@ -404,7 +403,7 @@ static void ixgbevf_alloc_rx_buffers(struct ixgbevf_adapter *adapter,
+ 	}
+ 
+ no_buffers:
+-	adapter->alloc_rx_buff_failed++;
++	rx_ring->rx_stats.alloc_rx_buff_failed++;
+ 	if (rx_ring->next_to_use != i)
+ 		ixgbevf_release_rx_desc(rx_ring, i);
+ }
+@@ -421,7 +420,6 @@ static int ixgbevf_clean_rx_irq(struct ixgbevf_q_vector *q_vector,
+ 				struct ixgbevf_ring *rx_ring,
+ 				int budget)
+ {
+-	struct ixgbevf_adapter *adapter = q_vector->adapter;
+ 	union ixgbe_adv_rx_desc *rx_desc, *next_rxd;
+ 	struct ixgbevf_rx_buffer *rx_buffer_info, *next_buffer;
+ 	struct sk_buff *skb;
+@@ -467,7 +465,7 @@ static int ixgbevf_clean_rx_irq(struct ixgbevf_q_vector *q_vector,
+ 		if (!(staterr & IXGBE_RXD_STAT_EOP)) {
+ 			skb->next = next_buffer->skb;
+ 			IXGBE_CB(skb->next)->prev = skb;
+-			adapter->non_eop_descs++;
++			rx_ring->rx_stats.non_eop_descs++;
+ 			goto next_desc;
+ 		}
+ 
+@@ -499,7 +497,7 @@ static int ixgbevf_clean_rx_irq(struct ixgbevf_q_vector *q_vector,
+ 		 * source pruning.
+ 		 */
+ 		if ((skb->pkt_type & (PACKET_BROADCAST | PACKET_MULTICAST)) &&
+-		    ether_addr_equal(adapter->netdev->dev_addr,
++		    ether_addr_equal(rx_ring->netdev->dev_addr,
+ 				     eth_hdr(skb)->h_source)) {
+ 			dev_kfree_skb_irq(skb);
+ 			goto next_desc;
+@@ -512,8 +510,7 @@ next_desc:
+ 
+ 		/* return some buffers to hardware, one at a time is too slow */
+ 		if (cleaned_count >= IXGBEVF_RX_BUFFER_WRITE) {
+-			ixgbevf_alloc_rx_buffers(adapter, rx_ring,
+-						 cleaned_count);
++			ixgbevf_alloc_rx_buffers(rx_ring, cleaned_count);
+ 			cleaned_count = 0;
+ 		}
+ 
+@@ -528,11 +525,11 @@ next_desc:
+ 	cleaned_count = ixgbevf_desc_unused(rx_ring);
+ 
+ 	if (cleaned_count)
+-		ixgbevf_alloc_rx_buffers(adapter, rx_ring, cleaned_count);
++		ixgbevf_alloc_rx_buffers(rx_ring, cleaned_count);
+ 
+ 	u64_stats_update_begin(&rx_ring->syncp);
+-	rx_ring->total_packets += total_rx_packets;
+-	rx_ring->total_bytes += total_rx_bytes;
++	rx_ring->stats.packets += total_rx_packets;
++	rx_ring->stats.bytes += total_rx_bytes;
+ 	u64_stats_update_end(&rx_ring->syncp);
+ 	q_vector->rx.total_packets += total_rx_packets;
+ 	q_vector->rx.total_bytes += total_rx_bytes;
+@@ -637,9 +634,9 @@ static int ixgbevf_busy_poll_recv(struct napi_struct *napi)
+ 		found = ixgbevf_clean_rx_irq(q_vector, ring, 4);
+ #ifdef BP_EXTENDED_STATS
+ 		if (found)
+-			ring->bp_cleaned += found;
++			ring->stats.cleaned += found;
+ 		else
+-			ring->bp_misses++;
++			ring->stats.misses++;
+ #endif
+ 		if (found)
+ 			break;
+@@ -1313,7 +1310,7 @@ static void ixgbevf_configure_rx_ring(struct ixgbevf_adapter *adapter,
+ 	IXGBE_WRITE_REG(hw, IXGBE_VFRXDCTL(reg_idx), rxdctl);
+ 
+ 	ixgbevf_rx_desc_queue_enable(adapter, ring);
+-	ixgbevf_alloc_rx_buffers(adapter, ring, ixgbevf_desc_unused(ring));
++	ixgbevf_alloc_rx_buffers(ring, ixgbevf_desc_unused(ring));
  }
  
  /**
-@@ -2263,10 +2262,7 @@ void ixgbevf_update_stats(struct ixgbevf_adapter *adapter)
- 	for (i = 0;  i  < adapter->num_rx_queues;  i++) {
- 		adapter->hw_csum_rx_error +=
- 			adapter->rx_ring[i]->hw_csum_rx_error;
--		adapter->hw_csum_rx_good +=
--			adapter->rx_ring[i]->hw_csum_rx_good;
- 		adapter->rx_ring[i]->hw_csum_rx_error = 0;
--		adapter->rx_ring[i]->hw_csum_rx_good = 0;
- 	}
+@@ -3048,8 +3045,6 @@ static void ixgbevf_tx_queue(struct ixgbevf_ring *tx_ring, int tx_flags,
+ 
+ static int __ixgbevf_maybe_stop_tx(struct ixgbevf_ring *tx_ring, int size)
+ {
+-	struct ixgbevf_adapter *adapter = netdev_priv(tx_ring->netdev);
+-
+ 	netif_stop_subqueue(tx_ring->netdev, tx_ring->queue_index);
+ 	/* Herbert's original patch had:
+ 	 *  smp_mb__after_netif_stop_queue();
+@@ -3063,7 +3058,8 @@ static int __ixgbevf_maybe_stop_tx(struct ixgbevf_ring *tx_ring, int size)
+ 
+ 	/* A reprieve! - use start_queue because it doesn't call schedule */
+ 	netif_start_subqueue(tx_ring->netdev, tx_ring->queue_index);
+-	++adapter->restart_queue;
++	++tx_ring->tx_stats.restart_queue;
++
+ 	return 0;
  }
  
+@@ -3108,7 +3104,7 @@ static int ixgbevf_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 	count += skb_shinfo(skb)->nr_frags;
+ #endif
+ 	if (ixgbevf_maybe_stop_tx(tx_ring, count + 3)) {
+-		adapter->tx_busy++;
++		tx_ring->tx_stats.tx_busy++;
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
+@@ -3308,8 +3304,8 @@ static struct rtnl_link_stats64 *ixgbevf_get_stats(struct net_device *netdev,
+ 		ring = adapter->rx_ring[i];
+ 		do {
+ 			start = u64_stats_fetch_begin_bh(&ring->syncp);
+-			bytes = ring->total_bytes;
+-			packets = ring->total_packets;
++			bytes = ring->stats.bytes;
++			packets = ring->stats.packets;
+ 		} while (u64_stats_fetch_retry_bh(&ring->syncp, start));
+ 		stats->rx_bytes += bytes;
+ 		stats->rx_packets += packets;
+@@ -3319,8 +3315,8 @@ static struct rtnl_link_stats64 *ixgbevf_get_stats(struct net_device *netdev,
+ 		ring = adapter->tx_ring[i];
+ 		do {
+ 			start = u64_stats_fetch_begin_bh(&ring->syncp);
+-			bytes = ring->total_bytes;
+-			packets = ring->total_packets;
++			bytes = ring->stats.bytes;
++			packets = ring->stats.packets;
+ 		} while (u64_stats_fetch_retry_bh(&ring->syncp, start));
+ 		stats->tx_bytes += bytes;
+ 		stats->tx_packets += packets;
 -- 
 1.8.5.GIT
