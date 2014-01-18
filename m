@@ -1,109 +1,82 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH net-next] sch_netem: replace magic numbers with enumerate
-Date: Sat, 18 Jan 2014 18:13:31 +0800
-Message-ID: <1390040011-13296-1-git-send-email-yangyingliang@huawei.com>
+From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 1/6] cgroup: make CONFIG_NET_CLS_CGROUP and
+	CONFIG_NETPRIO_CGROUP bool instead of tristate
+Date: Sat, 18 Jan 2014 12:25:43 +0100
+Message-ID: <52DA64B7.3030909@redhat.com>
+References: <1389982317-22225-1-git-send-email-tj@kernel.org>
+	<1389982317-22225-2-git-send-email-tj@kernel.org>
+	<52D9D421.6040608@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <stephen@networkplumber.org>, <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:18126 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752492AbaARKNs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jan 2014 05:13:48 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <52D9D421.6040608-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Replace some magic numbers which describe states of 4-state model
-loss generator with enumerate.
+On 01/18/2014 02:08 AM, Li Zefan wrote:
+> Cc: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> 
+> On 2014/1/18 2:11, Tejun Heo wrote:
+>> net_cls and net_prio are the only cgroups which are allowed to be
+>> built as modules.  The savings from allowing the two controllers to be
+>> built as modules are tiny especially given that cgroup module support
+>> itself adds quite a bit of complexity.
+>>
+>> The following are the sizes of vmlinux with both built as module and
+>> both built as part of the kernel image with cgroup module support
+>> removed.
+>>
+>> 	text		data		bss		dec
+>> 	20292207	2411496		10784768	33488471
+>> 	20293421	2412568		10784768	33490757
+>>
+>> The total difference is 2286 bytes.  Given that none of other
+>> controllers has much chance of being made a module and that we're
+>> unlikely to add new modular controllers, the added complexity is
+>> simply not justifiable.
+>>
+>> As a first step to drop cgroup module support, this patch changes the
+>> two config options to bool from tristate and drops module related code
+>> from the two controllers.
+>>
+> 
+> I sugguested Daniel to do this for net_cls, and the change has been in
+> net-next.
+> 
+> https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=fe1217c4f3f7d7cbf8efdd8dd5fdc7204a1d65a8
+> 
+> I was planning to remove module support after that change goes into
+> upstream. :)
 
-Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
----
- net/sched/sch_netem.c | 47 ++++++++++++++++++++++++++++-------------------
- 1 file changed, 28 insertions(+), 19 deletions(-)
+I am fine with that, thanks Li.
 
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index 3019c10..a2bfc37 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -110,6 +110,13 @@ struct netem_sched_data {
- 		CLG_GILB_ELL,
- 	} loss_model;
- 
-+	enum {
-+		TX_IN_GAP_PERIOD = 1,
-+		TX_IN_BURST_PERIOD,
-+		LOST_IN_GAP_PERIOD,
-+		LOST_IN_BURST_PERIOD,
-+	} _4_state_model;
-+
- 	/* Correlated Loss Generation models */
- 	struct clgstate {
- 		/* state of the Markov chain */
-@@ -205,43 +212,45 @@ static bool loss_4state(struct netem_sched_data *q)
- 	 * probabilities outgoing from the current state, then decides the
- 	 * next state and if the next packet has to be transmitted or lost.
- 	 * The four states correspond to:
--	 *   1 => successfully transmitted packets within a gap period
--	 *   4 => isolated losses within a gap period
--	 *   3 => lost packets within a burst period
--	 *   2 => successfully transmitted packets within a burst period
-+	 *   TX_IN_GAP_PERIOD => successfully transmitted packets within a gap period
-+	 *   LOST_IN_BURST_PERIOD => isolated losses within a gap period
-+	 *   LOST_IN_GAP_PERIOD => lost packets within a burst period
-+	 *   TX_IN_GAP_PERIOD => successfully transmitted packets within a burst period
- 	 */
- 	switch (clg->state) {
--	case 1:
-+	case TX_IN_GAP_PERIOD:
- 		if (rnd < clg->a4) {
--			clg->state = 4;
-+			clg->state = LOST_IN_BURST_PERIOD;
- 			return true;
- 		} else if (clg->a4 < rnd && rnd < clg->a1 + clg->a4) {
--			clg->state = 3;
-+			clg->state = LOST_IN_GAP_PERIOD;
- 			return true;
--		} else if (clg->a1 + clg->a4 < rnd)
--			clg->state = 1;
-+		} else if (clg->a1 + clg->a4 < rnd) {
-+			clg->state = TX_IN_GAP_PERIOD;
-+		}
- 
- 		break;
--	case 2:
-+	case TX_IN_BURST_PERIOD:
- 		if (rnd < clg->a5) {
--			clg->state = 3;
-+			clg->state = LOST_IN_GAP_PERIOD;
- 			return true;
--		} else
--			clg->state = 2;
-+		} else {
-+			clg->state = TX_IN_BURST_PERIOD;
-+		}
- 
- 		break;
--	case 3:
-+	case LOST_IN_GAP_PERIOD:
- 		if (rnd < clg->a3)
--			clg->state = 2;
-+			clg->state = TX_IN_BURST_PERIOD;
- 		else if (clg->a3 < rnd && rnd < clg->a2 + clg->a3) {
--			clg->state = 1;
-+			clg->state = TX_IN_GAP_PERIOD;
- 		} else if (clg->a2 + clg->a3 < rnd) {
--			clg->state = 3;
-+			clg->state = LOST_IN_GAP_PERIOD;
- 			return true;
- 		}
- 		break;
--	case 4:
--		clg->state = 1;
-+	case LOST_IN_BURST_PERIOD:
-+		clg->state = TX_IN_GAP_PERIOD;
- 		break;
- 	}
- 
--- 
-1.8.0
+>> Signed-off-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+>> Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+>> Cc: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+>> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+>> ---
+>>   net/Kconfig               |  2 +-
+>>   net/core/netprio_cgroup.c | 32 ++------------------------------
+>>   net/sched/Kconfig         |  2 +-
+>>   net/sched/cls_cgroup.c    | 23 ++---------------------
+>>   4 files changed, 6 insertions(+), 53 deletions(-)
+>>
+> 
+> The modular version of task_netprioidx() in include/net/netprio_cgroup.h
+> can be removed.
+> 
