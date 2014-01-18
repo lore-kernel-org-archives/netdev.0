@@ -1,68 +1,116 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [RFC PATCH net-next 3/3] virtio-net: Add accelerated RFS support
-Date: Fri, 17 Jan 2014 20:59:15 -0800
-Message-ID: <CA+mtBx8eRuWpYkYoPbuCaO1h0Y+g96zJB96zP17ZixOwZ1_gmQ@mail.gmail.com>
-References: <1389795654-28381-1-git-send-email-zwu.kernel@gmail.com>
-	<1389795654-28381-4-git-send-email-zwu.kernel@gmail.com>
-	<1389907887.11912.87.camel@bwh-desktop.uk.level5networks.com>
-	<CAEH94LjHcxkXLvs6AMNop_yzKG0zaT2mAgsAb21i+RtMbkXbmQ@mail.gmail.com>
-	<1389914188.11912.146.camel@bwh-desktop.uk.level5networks.com>
-	<CAEH94LgKJ0qThGHS-hqXsYKqOe+ns2pRi-wfZy=af1RMejOZ5A@mail.gmail.com>
-	<1389979208.27141.11.camel@bwh-desktop.uk.level5networks.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net] net: core: orphan frags before queuing to slow qdisc
+Date: Sat, 18 Jan 2014 13:35:50 +0800
+Message-ID: <52DA12B6.7090102@redhat.com>
+References: <1389951734-13234-1-git-send-email-jasowang@redhat.com> <1389968897.31367.489.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Zhi Yong Wu <zwu.kernel@gmail.com>,
-	Stefan Hajnoczi <stefanha@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f44.google.com ([209.85.219.44]:56924 "EHLO
-	mail-oa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752608AbaARE7P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 23:59:15 -0500
-Received: by mail-oa0-f44.google.com with SMTP id g12so5571234oah.3
-        for <netdev@vger.kernel.org>; Fri, 17 Jan 2014 20:59:15 -0800 (PST)
-In-Reply-To: <1389979208.27141.11.camel@bwh-desktop.uk.level5networks.com>
+Received: from mx1.redhat.com ([209.132.183.28]:57843 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751602AbaARFfz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Jan 2014 00:35:55 -0500
+In-Reply-To: <1389968897.31367.489.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben,
+On 01/17/2014 10:28 PM, Eric Dumazet wrote:
+> On Fri, 2014-01-17 at 17:42 +0800, Jason Wang wrote:
+>> Many qdiscs can queue a packet for a long time, this will lead an issue
+>> with zerocopy skb. It means the frags will not be orphaned in an expected
+>> short time, this breaks the assumption that virtio-net will transmit the
+>> packet in time.
+>>
+>> So if guest packets were queued through such kind of qdisc and hit the
+>> limitation of the max pending packets for virtio/vhost. All packets that
+>> go to another destination from guest will also be blocked.
+>>
+>> A case for reproducing the issue:
+>>
+>> - Boot two VMs and connect them to the same bridge kvmbr.
+>> - Setup tbf with a very low rate/burst on eth0 which is a port of kvmbr.
+>> - Let VM1 send lots of packets thorugh eth0
+>> - After a while, VM1 is unable to send any packets out since the number of
+>>    pending packets (queued to tbf) were exceeds the limitation of vhost/virito
+> So whats the problem ? If the limit is low, you cannot sent packets.
 
-I've never quite understood why flow management in aRFS has to be done
-with separate messages, and if I recall this seems to mitigate
-performance gains to a large extent. It seems like we should be able
-to piggyback on a TX descriptor for a connection information about the
-RX side for that connection, namely the rxhash and queue mapping.
-State creation should be implicit by just seeing a new rxhash value,
-tear down might be accomplished with a separate flag on the final TX
-packet on the connection (this would need some additional logic in the
-stack). Is this method not feasible in either NICs or virtio-net?
+It was just an extreme case. The problem is if zercopy packets of vm1 
+were throttled by qdisc in eth0, probably all packets from vm1 were 
+throttled even if it was not go through eth0.
+> Solution : increase the limit, or tell the vm to lower its rate.
+>
+> Oh wait, are you bitten because you did some prior skb_orphan() to allow
+> the vm to send unlimited number of skbs ???
+>
 
-On Fri, Jan 17, 2014 at 9:20 AM, Ben Hutchings
-<bhutchings@solarflare.com> wrote:
-> On Sat, 2014-01-18 at 00:54 +0800, Zhi Yong Wu wrote:
->> On Fri, Jan 17, 2014 at 7:16 AM, Ben Hutchings
->> <bhutchings@solarflare.com> wrote:
-> [...]
->> > However, to take advantage of ARFS on a physical net driver, it would be
->> > necessary to send a control request for part 2.
->> aRFS on a physical net driver? What is this physical net driver? I
->> thought that in order to enable aRFS, guest virtio_net driver should
->> send a control request to its emulated virtio_net NIC.
-> [...]
+The problem is sndbuf were defaulted to INT_MAX to prevent a similar 
+issue for non-zerocopy packets. For zerocopy, only after the frags were 
+orphaned can vhost notify the completion of tx for virtio-net. So 
+INT_MAX sndbuf is not enough.
+>> Solve this issue by orphaning the frags before queuing it to a slow qdisc (the
+>> one without TCQ_F_CAN_BYPASS).
+> Why orphaning the frags only solves the problem ? A skb without zerocopy
+> frags should also be blocked for a while.
+
+It's ok for non-zerocopy packet to be blocked since VM1 thought the 
+packets has been sent instead of pending in the virtqueue. So VM1 can 
+still send packet to other destination.
+> Seriously, lets admit this zero copy stuff is utterly broken.
 >
-> If the backend is connected to a macvlan device on top of a physical net
-> device that supports ARFS, then there is further potential for improving
-> performance by steering to the best physical RX queue and CPU as well as
-> the best virtio_net RX queue and vCPU.
 >
-> Ben.
+> TCQ_F_CAN_BYPASS is not enough. Some NIC have separate queues with
+> strict priorities.
 >
-> --
-> Ben Hutchings, Staff Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
+
+Yes, but looks less serious than traffic shaping.
+> It seems to me that you are pushing to use FIFO (the only qdisc setting
+> TCQ_F_CAN_BYPASS), by adding yet another test in fast path (I do not
+> know how we can still call it a fast path), while we already have smart
+> qdisc to avoid the inherent HOL and unfairness problems of FIFO.
+>
+
+It was just a workaround like the case of sndbuf before we had a better 
+solution. So looks like using sfq or fq in guest can mitigate the issue?
+>> Cc: Michael S. Tsirkin<mst@redhat.com>
+>> Signed-off-by: Jason Wang<jasowang@redhat.com>
+>> ---
+>>   net/core/dev.c | 7 +++++++
+>>   1 file changed, 7 insertions(+)
+>>
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index 0ce469e..1209774 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -2700,6 +2700,12 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+>>   	contended = qdisc_is_running(q);
+>>   	if (unlikely(contended))
+>>   		spin_lock(&q->busylock);
+>> +	if (!(q->flags&  TCQ_F_CAN_BYPASS)&&
+>> +	    unlikely(skb_orphan_frags(skb, GFP_ATOMIC))) {
+>> +		kfree_skb(skb);
+>> +		rc = NET_XMIT_DROP;
+>> +		goto out;
+>> +	}
+> Are you aware that copying stuff takes time ?
+>
+> If yes, why is it done after taking the busylock spinlock ?
+>
+
+Yes and it should be done outside the spinlock.
+>>
+>>   	spin_lock(root_lock);
+>>   	if (unlikely(test_bit(__QDISC_STATE_DEACTIVATED,&q->state))) {
+>> @@ -2739,6 +2745,7 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+>>   		}
+>>   	}
+>>   	spin_unlock(root_lock);
+>> +out:
+>>   	if (unlikely(contended))
+>>   		spin_unlock(&q->busylock);
+>>   	return rc;
+>
 >
