@@ -1,54 +1,73 @@
-From: "Dr. Karen J. Shaw" <acantos@utm.edu.ec>
-Subject: Ihre Zahlung!
-Date: Sat, 18 Jan 2014 15:18:48 -0500 (ECT)
-Message-ID: <71a92361-3696-4ca4-83d4-b177f539249b@mail>
-Reply-To: "Dr. Karen J. Shaw" <drkarenjshaw@yahoo.com>
+From: Daniel Exner <dex@dragonslave.de>
+Subject: Re: 3.12.8 poor network performance x86_64
+Date: Sat, 18 Jan 2014 23:46:17 +0100
+Message-ID: <52DB0439.2060905@dragonslave.de>
+References: <52DAD66F.7080306@dragonslave.de> <20140118195026.GA15543@pd.tnic>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Borislav Petkov <bp@alien8.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.utm.edu.ec ([186.46.160.198]:48631 "EHLO mail.utm.edu.ec"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751305AbaARUPy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jan 2014 15:15:54 -0500
+Received: from mail-ee0-f43.google.com ([74.125.83.43]:37378 "EHLO
+	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751436AbaARWqV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jan 2014 17:46:21 -0500
+Received: by mail-ee0-f43.google.com with SMTP id c41so2728614eek.16
+        for <netdev@vger.kernel.org>; Sat, 18 Jan 2014 14:46:20 -0800 (PST)
+In-Reply-To: <20140118195026.GA15543@pd.tnic>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Die Vereinten Nationen in Zusammenarbeit mit
-THE UNITED STATES DEPARTMENT OF STATE
-Head Office : PM / DDTC , SA -1, 12th Floor
-2401 E Street , NW Washington , D. C. 20037
-SUB : - Ihre Ausstehend Ausgleichszahlung von $ 2.000.000,00 USD ( zwei=
- Millionen EUR) -
-Hinweis: Ref. Nr. 02096/UN.US/MAN/UK
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
 
-Die Unted NATIONEN in Zusammenarbeit mit dem US Department of Staaten a=
-uf der 12. Dezember 2013 , in einer Bewegung, Betrug , Krieg und Naturk=
-atastrophen Opfer zu entsch=C3=A4digen , und in der Regel wieder zu erw=
-ecken den gefallenen Weltwirtschaft , ausgezeichnet mit Kompensationen =
-Summe Preisen zu 10.000 Beg=C3=BCnstigten gezogen aus der ganzen Welt m=
-it $ 2.000.000,00 USD ( Zwei Millionen USD) jedem, und Sie geschehen, z=
-u den gl=C3=BCcklichen Empf=C3=A4ngern von Ihrem Land. Ihre E-Mail -ID =
-an den Ticket Nr. 0189 angebracht gewann Sie die Wertersatzpreissummevo=
-n $ 2.000.000,00 USD im 2. Batch .
+Hi again,
 
-Achtung: Bis jetzt Ihren Preis Zahlung steht noch aus , da wir gerade e=
-rst entdeckt , dass Sie noch f=C3=BCr die Abholung vorzulegen. 9992 hab=
-en andere bezahlt wurde , w=C3=A4hrend 7 weitere werden derzeit bezahlt=
-! Bitte leiten Sie Ihren Namen , Handy -Nummer, Adresse und Nationalit=C3=
-=A4t Kontakt zu unseren autorisierten Zahlung UK Abteilung:
+Am 18.01.2014 20:50, schrieb Borislav Petkov:
+> + netdev.
+Thx
 
-Zahlungsabteilung : Manchester, UK
-Treuh=C3=A4nder / Zahlung -Processing- Gesch=C3=A4ftsf=C3=BChrer: Dr. K=
-aren Shaw
-Direkt Offizielle E-mail: www.ustnfa@7mt.org
-Stelle Tel. : +44 ( 0) 70 2402 3856
-Bitte nicht diese E-Mail zu verteilen , wie diejenigen, die nicht aufge=
-f=C3=BChrt sind, k=C3=B6nnen wollen , um das System zu infiltrieren und=
- verursachen Chaos. Oben Senden Sie Ihre Daten per E - Mail an die oben=
- UK Payment -Division.
-Herzlichen Gl=C3=BCckwunsch!
+Am 18.01.2014 20:49, schrieb Holger Hoffst=C3=A4tte:> [This mail was al=
+so
+posted to gmane.linux.kernel.]
+>=20
+> On Sat, 18 Jan 2014 20:30:55 +0100, Daniel Exner wrote:
+>=20
+>> I recently upgraded the Kernel from version 3.10 to latest
+>> stable 3.12.8, did the usual "make oldconfig" (resulting config
+>> attached).
+>>=20
+>> But now I noticed some _really_ low network performance.
+>=20
+> Try: sysctl net.ipv4.tcp_limit_output_bytes=3D262144
 
-Bruce Moore
-U.N Werbesekret=C3=A4r
+Tried that. Even 10 times the value. Same effect.
+
+Is there something like that on a lower level of the network stack I
+might try to change?
+
+Could that be something in the cgroups layer?
+
+Should I send a dmesg or anything else?
+
+Greetings
+Daniel
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iQIcBAEBCgAGBQJS2wQtAAoJEPI6v6bI/QkfKakP/jsv7VG5bUuSbvXjLQklb8mY
+kGZvXRktpGMxHbUJe8NCLStbWcGLRoD+ilXh38e0U+icgU/f6uAa6a93cSaF+zi8
+imjkyutQqAlevV3Ab3SAaSho6SsWgfTkWZ7kkFooIXU6UwIlqq41923OTpR2bXL4
+qvYiYEOOO9Uzg/o0PXeV2VYcgxfnvTqRrpou3yQZK5YhLAZIHd8i9r1yqc+Un4dG
+7+Ju/45YpqynX2CJVMx5kP62f9uQbdA9sEKoEkYInVtja0UGUwFXzHgy8RZLHDiM
+Qhy/yZTzkjR4vai4N+dx2UizGBwgBtng5IzUiXX2HGd8TOMJRBcoPaa0ZBA4CsA+
+RjypqL9dOGpw1bxZ/87h9qpvjmZd3mPhb768VKXgzgdEVlp56u5rT1OQEBUju8aS
+Qprgtf6k1EkjJPWo3DVJrGr/Wk+k8cLASW5qm3wGS7V0k1H0EN+pw7UGvNY99kcf
+IllTKa6bTkKe15x1BaZjvAwFHR1Fdcdn3A+2WQwy+hha1CsjogHnbhzUjmxHDq+c
+8i92oZ1nw2788/ULPKc5hK2o8C4Zsp0JVGHd4Cy4Dy6tvCLSQveDneM/2U3JvCL2
+ViOdxh6LGGWFvDpe1w9x+e3QzvXYTFNEXawn/5OIEzbM1XP+VF8zIyHsLG4nNI88
++ICSvsTt86Zg8Zhm96YH
+=3DgsnO
+-----END PGP SIGNATURE-----
