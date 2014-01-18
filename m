@@ -1,39 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] virtio-net: fix build error when
-	CONFIG_AVERAGE is not enabled
-Date: Fri, 17 Jan 2014 18:58:50 -0800 (PST)
-Message-ID: <20140117.185850.1095687823504908045.davem@davemloft.net>
-References: <1389950828-24039-1-git-send-email-mwdalton@google.com>
+Subject: Re: [PATCH 0/4] Patchset - Support for configurable RSS hash key
+Date: Fri, 17 Jan 2014 19:01:15 -0800 (PST)
+Message-ID: <20140117.190115.1213172764234203288.davem@davemloft.net>
+References: <BF3270C86E8B1349A26C34E4EC1C44CB2C83D8B7@CMEXMB1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, edumazet@google.com
-To: mwdalton@google.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1389950828-24039-1-git-send-email-mwdalton@google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: VenkatKumar.Duvvuru@Emulex.Com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41744 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752026AbaARDBQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 22:01:16 -0500
+In-Reply-To: <BF3270C86E8B1349A26C34E4EC1C44CB2C83D8B7@CMEXMB1.ad.emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michael Dalton <mwdalton@google.com>
-Date: Fri, 17 Jan 2014 01:27:08 -0800
+From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
+Date: Fri, 17 Jan 2014 13:02:10 +0000
 
-> Commit ab7db91705e9 ("virtio-net: auto-tune mergeable rx buffer size for
-> improved performance") introduced a virtio-net dependency on EWMA.
-> The inclusion of EWMA is controlled by CONFIG_AVERAGE. Fix build error
-> when CONFIG_AVERAGE is not enabled by adding select AVERAGE to
-> virtio-net's Kconfig entry.
+> NIC drivers that support RSS use either a hard-coded value or a random value for the RSS hash key. Irrespective of the type of the key used, the user would want to change the hash key if he/she is not satisfied with the effectiveness of the default hash-key in spreading the incoming flows evenly across the RSS queues.
 > 
-> Build failure reported using config make ARCH=s390 defconfig.
+> This patch set provides support for configuring the RSS hash-key via the ethtool interface.
 > 
-> Signed-off-by: Michael Dalton <mwdalton@google.com>
+> The patch set consists of:
+> a) ethtool user-land patches
+> b) ethtool kernel patch
+> c) be2net patch that implements the ethtool hooks
 
-Applied.
+Your submission is confusing.
+
+Changes for the kernel side of things should be submitted as a separate
+series, and you do not need to mention where the tree was, via SHA ID,
+in the commit message.  It is sufficient to say that your patches are
+against the 'net-net' tree, but after the "---" delimiter.  It's not
+useful in the commit message proper.
