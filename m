@@ -1,81 +1,88 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv5 net-next 1/6] skbuff: Introduce skb_to_sgvec_nomark to map skb without mark new end
-Date: Sat, 18 Jan 2014 09:54:23 +0800
-Message-ID: <1390010068-15715-2-git-send-email-fan.du@windriver.com>
+Subject: [PATCHv5 net-next 2/6] {IPv4,xfrm} Add ESN support for AH egress part
+Date: Sat, 18 Jan 2014 09:54:24 +0800
+Message-ID: <1390010068-15715-3-git-send-email-fan.du@windriver.com>
 References: <1390010068-15715-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
 To: <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:33191 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752912AbaARByf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 20:54:35 -0500
+Received: from mail.windriver.com ([147.11.1.11]:63078 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753035AbaARByi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 20:54:38 -0500
 In-Reply-To: <1390010068-15715-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As compared with skb_to_sgvec, skb_to_sgvec_nomark only map skb to given sglist
-without mark the sg which contain last skb data as the end. So the caller can
-mannipulate sg list as will when padding new data after the first call without
-calling sg_unmark_end to expend sg list.
+This patch add esn support for AH output stage by attaching upper 32bits
+sequence number right after packet payload as specified by RFC 4302.
+
+Then the ICV value will guard upper 32bits sequence number as well when
+packet going out.
 
 Signed-off-by: Fan Du <fan.du@windriver.com>
 ---
- include/linux/skbuff.h |    2 ++
- net/core/skbuff.c      |   26 ++++++++++++++++++++++++++
- 2 files changed, 28 insertions(+)
+ net/ipv4/ah4.c |   26 ++++++++++++++++++++------
+ 1 file changed, 20 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 1f689e6..4fd28cc 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -691,6 +691,8 @@ struct sk_buff *skb_realloc_headroom(struct sk_buff *skb,
- 				     unsigned int headroom);
- struct sk_buff *skb_copy_expand(const struct sk_buff *skb, int newheadroom,
- 				int newtailroom, gfp_t priority);
-+int skb_to_sgvec_nomark(struct sk_buff *skb, struct scatterlist *sg,
-+			int offset, int len);
- int skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset,
- 		 int len);
- int skb_cow_data(struct sk_buff *skb, int tailbits, struct sk_buff **trailer);
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 15057d2..19387c7 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3309,6 +3309,32 @@ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
- 	return elt;
- }
+diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
+index 7179026..c6accac 100644
+--- a/net/ipv4/ah4.c
++++ b/net/ipv4/ah4.c
+@@ -155,6 +155,10 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	struct iphdr *iph, *top_iph;
+ 	struct ip_auth_hdr *ah;
+ 	struct ah_data *ahp;
++	int seqhi_len = 0;
++	__be32 *seqhi;
++	int sglists = 0;
++	struct scatterlist *seqhisg;
  
-+/* As compared with skb_to_sgvec, skb_to_sgvec_nomark only map skb to given
-+ * sglist without mark the sg which contain last skb data as the end.
-+ * So the caller can mannipulate sg list as will when padding new data after
-+ * the first call without calling sg_unmark_end to expend sg list.
-+ *
-+ * Scenario to use skb_to_sgvec_nomark:
-+ * 1. sg_init_table
-+ * 2. skb_to_sgvec_nomark(payload1)
-+ * 3. skb_to_sgvec_nomark(payload2)
-+ *
-+ * This is equivalent to:
-+ * 1. sg_init_table
-+ * 2. skb_to_sgvec(payload1)
-+ * 3. sg_unmark_end
-+ * 4. skb_to_sgvec(payload2)
-+ *
-+ * When mapping mutilple payload conditionally, skb_to_sgvec_nomark
-+ * is more preferable.
-+ */
-+int skb_to_sgvec_nomark(struct sk_buff *skb, struct scatterlist *sg,
-+			int offset, int len)
-+{
-+	return __skb_to_sgvec(skb, sg, offset, len);
-+}
-+EXPORT_SYMBOL_GPL(skb_to_sgvec_nomark);
-+
- int skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
- {
- 	int nsg = __skb_to_sgvec(skb, sg, offset, len);
+ 	ahp = x->data;
+ 	ahash = ahp->ahash;
+@@ -167,14 +171,19 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	ah = ip_auth_hdr(skb);
+ 	ihl = ip_hdrlen(skb);
+ 
++	if (x->props.flags & XFRM_STATE_ESN) {
++		sglists = 1;
++		seqhi_len = sizeof(*seqhi);
++	}
+ 	err = -ENOMEM;
+-	iph = ah_alloc_tmp(ahash, nfrags, ihl);
++	iph = ah_alloc_tmp(ahash, nfrags + sglists, ihl + seqhi_len);
+ 	if (!iph)
+ 		goto out;
+-
+-	icv = ah_tmp_icv(ahash, iph, ihl);
++	seqhi = (__be32 *)((char *)iph + ihl);
++	icv = ah_tmp_icv(ahash, seqhi, seqhi_len);
+ 	req = ah_tmp_req(ahash, icv);
+ 	sg = ah_req_sg(ahash, req);
++	seqhisg = sg + nfrags;
+ 
+ 	memset(ah->auth_data, 0, ahp->icv_trunc_len);
+ 
+@@ -210,10 +219,15 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	ah->spi = x->id.spi;
+ 	ah->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.low);
+ 
+-	sg_init_table(sg, nfrags);
+-	skb_to_sgvec(skb, sg, 0, skb->len);
++	sg_init_table(sg, nfrags + sglists);
++	skb_to_sgvec_nomark(skb, sg, 0, skb->len);
+ 
+-	ahash_request_set_crypt(req, sg, icv, skb->len);
++	if (x->props.flags & XFRM_STATE_ESN) {
++		/* Attach seqhi sg right after packet payload */
++		*seqhi = htonl(XFRM_SKB_CB(skb)->seq.output.hi);
++		sg_set_buf(seqhisg, seqhi, seqhi_len);
++	}
++	ahash_request_set_crypt(req, sg, icv, skb->len + seqhi_len);
+ 	ahash_request_set_callback(req, 0, ah_output_done, skb);
+ 
+ 	AH_SKB_CB(skb)->tmp = iph;
 -- 
 1.7.9.5
