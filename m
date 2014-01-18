@@ -1,39 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: simplify detection of first operational
- link-local address on interface
-Date: Fri, 17 Jan 2014 18:10:33 -0800 (PST)
-Message-ID: <20140117.181033.1283452444632089563.davem@davemloft.net>
-References: <20140116135323.GA7961@minipsycho.orion>
-	<20140116191304.GC17529@order.stressinduktion.org>
+Subject: Re: [PATCH] parisc: fix SO_MAX_PACING_RATE typo
+Date: Fri, 17 Jan 2014 18:11:23 -0800 (PST)
+Message-ID: <20140117.181123.1899249516684219420.davem@davemloft.net>
+References: <1389898146.31367.413.camel@edumazet-glaptop2.roam.corp.google.com>
+	<52D82A7A.3090106@redhat.com>
+	<1389899712.31367.419.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, netdev@vger.kernel.org, fbl@redhat.com
-To: hannes@stressinduktion.org
+Cc: dborkman@redhat.com, msekleta@redhat.com, netdev@vger.kernel.org,
+	mtk.manpages@gmail.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41396 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41402 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751892AbaARCKe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 21:10:34 -0500
-In-Reply-To: <20140116191304.GC17529@order.stressinduktion.org>
+	with ESMTP id S1752520AbaARCLX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 21:11:23 -0500
+In-Reply-To: <1389899712.31367.419.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Thu, 16 Jan 2014 20:13:04 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 16 Jan 2014 11:15:12 -0800
 
-> In commit 1ec047eb4751e3 ("ipv6: introduce per-interface counter for
-> dad-completed ipv6 addresses") I build the detection of the first
-> operational link-local address much to complex. Additionally this code
-> now has a race condition.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Replace it with a much simpler variant, which just scans the address
-> list when duplicate address detection completes, to check if this is
-> the first valid link local address and send RS and MLD reports then.
+> SO_MAX_PACING_RATE definition on parisc got a typo.
+> Its not too late to fix it, before 3.13 is official.
 > 
-> Fixes: 1ec047eb4751e3 ("ipv6: introduce per-interface counter for dad-completed ipv6 addresses")
-> Reported-by: Jiri Pirko <jiri@resnulli.us>
-> Cc: Flavio Leitner <fbl@redhat.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Fixes: 62748f32d501 ("net: introduce SO_MAX_PACING_RATE")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied and queued up for -stable, thanks.
+Applied, thanks.
