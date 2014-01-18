@@ -1,120 +1,56 @@
-From: Chen Gang <gang.chen.5i5j-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH linux-next] net: batman-adv: use "__packed __aligned(2)" for
- each structure instead of "__packed(2)" region
-Date: Sat, 18 Jan 2014 19:31:00 +0800
-Message-ID: <52DA65F4.5070501@gmail.com>
+From: Jonathan Cameron <jic23-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 3/7] staging,spear_adc: Add dependency on HAS_IOMEM
+Date: Sat, 18 Jan 2014 11:41:28 +0000
+Message-ID: <52DA6868.9020401@kernel.org>
+References: <1389714345-20165-1-git-send-email-richard@nod.at> <1389714345-20165-3-git-send-email-richard@nod.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, James Hogan <james.hogan-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
-To: mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org, sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org,
-	antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org
-Return-path: <linux-metag-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-metag-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, florian-p3rKhJxN3npAfugRpC6u6w@public.gmane.org,
+	thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, lars-Qo5EllUWu/uELgA04lAiVw@public.gmane.org,
+	marex-ynQEQJNshbs@public.gmane.org, acourbot-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	driverdev-devel-tBiZLqfeLfOHmIFyCCdPziST3g8Odh+X@public.gmane.org, devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org,
+	linux-iio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Richard Weinberger <richard-/L3Ra7n9ekc@public.gmane.org>, kishon-l0cyMroinI0@public.gmane.org,
+	anton-9xeibp6oKSgdnm+yROfE0A@public.gmane.org, dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	lidza.louina-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-iio-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1389714345-20165-3-git-send-email-richard-/L3Ra7n9ekc@public.gmane.org>
+Sender: linux-iio-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Unfortunately, not all compilers assumes the structures within a pack
-region also need be packed (e.g. metag), so need add a pack explicitly
-to satisfy all compilers.
+On 14/01/14 15:45, Richard Weinberger wrote:
+> On archs like S390 or um this driver cannot build nor work.
+> Make it depend on HAS_IOMEM to bypass build failures.
+>
+> drivers/staging/iio/adc/spear_adc.c: In function =E2=80=98spear_adc_p=
+robe=E2=80=99:
+> drivers/staging/iio/adc/spear_adc.c:393:2: error: implicit declaratio=
+n of function =E2=80=98iounmap=E2=80=99 [-Werror=3Dimplicit-function-de=
+claration
+>
+> Signed-off-by: Richard Weinberger <richard-/L3Ra7n9ekc@public.gmane.org>
+Applied to the fixes-togreg branch of iio.git
 
-The related error (under metag with allmodconfig):
-
-    MODPOST 2952 modules
-  ERROR: "__compiletime_assert_431" [net/batman-adv/batman-adv.ko] undefined!
-  ERROR: "__compiletime_assert_432" [net/batman-adv/batman-adv.ko] undefined!
-  ERROR: "__compiletime_assert_429" [net/batman-adv/batman-adv.ko] undefined!
-  ERROR: "__compiletime_assert_428" [net/batman-adv/batman-adv.ko] undefined!
-  ERROR: "__compiletime_assert_423" [net/batman-adv/batman-adv.ko] undefined!
-
-
-Signed-off-by: Chen Gang <gang.chen.5i5j-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- net/batman-adv/packet.h | 16 ++++++----------
- 1 file changed, 6 insertions(+), 10 deletions(-)
-
-diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
-index 0a381d1..9206b48 100644
---- a/net/batman-adv/packet.h
-+++ b/net/batman-adv/packet.h
-@@ -154,7 +154,6 @@ enum batadv_tvlv_type {
- 	BATADV_TVLV_ROAM	= 0x05,
- };
- 
--#pragma pack(2)
- /* the destination hardware field in the ARP frame is used to
-  * transport the claim type and the group id
-  */
-@@ -162,8 +161,7 @@ struct batadv_bla_claim_dst {
- 	uint8_t magic[3];	/* FF:43:05 */
- 	uint8_t type;		/* bla_claimframe */
- 	__be16 group;		/* group id */
--};
--#pragma pack()
-+} __packed __aligned(2);
- 
- /**
-  * struct batadv_ogm_packet - ogm (routing protocol) packet
-@@ -281,7 +279,6 @@ struct batadv_icmp_packet_rr {
-  * misalignment of the payload after the ethernet header. It may also lead to
-  * leakage of information when the padding it not initialized before sending.
-  */
--#pragma pack(2)
- 
- /**
-  * struct batadv_unicast_packet - unicast packet for network payload
-@@ -300,7 +297,7 @@ struct batadv_unicast_packet {
- 	/* "4 bytes boundary + 2 bytes" long to make the payload after the
- 	 * following ethernet header again 4 bytes boundary aligned
- 	 */
--};
-+}  __packed __aligned(2);
- 
- /**
-  * struct batadv_unicast_4addr_packet - extended unicast packet
-@@ -316,7 +313,7 @@ struct batadv_unicast_4addr_packet {
- 	/* "4 bytes boundary + 2 bytes" long to make the payload after the
- 	 * following ethernet header again 4 bytes boundary aligned
- 	 */
--};
-+}  __packed __aligned(2);
- 
- /**
-  * struct batadv_frag_packet - fragmented packet
-@@ -347,7 +344,7 @@ struct batadv_frag_packet {
- 	uint8_t orig[ETH_ALEN];
- 	__be16  seqno;
- 	__be16  total_size;
--};
-+}  __packed __aligned(2);
- 
- /**
-  * struct batadv_bcast_packet - broadcast packet for network payload
-@@ -368,7 +365,7 @@ struct batadv_bcast_packet {
- 	/* "4 bytes boundary + 2 bytes" long to make the payload after the
- 	 * following ethernet header again 4 bytes boundary aligned
- 	 */
--};
-+}  __packed __aligned(2);
- 
- /**
-  * struct batadv_coded_packet - network coded packet
-@@ -404,9 +401,8 @@ struct batadv_coded_packet {
- 	uint8_t  second_orig_dest[ETH_ALEN];
- 	__be32   second_crc;
- 	__be16   coded_len;
--};
-+}  __packed __aligned(2);
- 
--#pragma pack()
- 
- /**
-  * struct batadv_unicast_tvlv - generic unicast packet with tvlv payload
--- 
-1.7.11.7
---
-To unsubscribe from this list: send the line "unsubscribe linux-metag" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+> ---
+>   drivers/staging/iio/adc/Kconfig | 1 +
+>   1 file changed, 1 insertion(+)
+>
+> diff --git a/drivers/staging/iio/adc/Kconfig b/drivers/staging/iio/ad=
+c/Kconfig
+> index e3d6430..7d5d675 100644
+> --- a/drivers/staging/iio/adc/Kconfig
+> +++ b/drivers/staging/iio/adc/Kconfig
+> @@ -128,6 +128,7 @@ config MXS_LRADC
+>   config SPEAR_ADC
+>   	tristate "ST SPEAr ADC"
+>   	depends on PLAT_SPEAR || COMPILE_TEST
+> +	depends on HAS_IOMEM
+>   	help
+>   	  Say yes here to build support for the integrated ADC inside the
+>   	  ST SPEAr SoC. Provides direct access via sysfs.
+>
