@@ -1,40 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/9] Intel Wired LAN Driver Updates
-Date: Fri, 17 Jan 2014 19:17:50 -0800 (PST)
-Message-ID: <20140117.191750.492640836986884784.davem@davemloft.net>
-References: <1390001799-19425-1-git-send-email-aaron.f.brown@intel.com>
+Subject: Re: [net-next 0/7] Intel Wired LAN Driver Updates
+Date: Fri, 17 Jan 2014 19:18:01 -0800 (PST)
+Message-ID: <20140117.191801.664015483645532953.davem@davemloft.net>
+References: <1390012205-21995-1-git-send-email-aaron.f.brown@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
 To: aaron.f.brown@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41850 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41853 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752041AbaARDRv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 22:17:51 -0500
-In-Reply-To: <1390001799-19425-1-git-send-email-aaron.f.brown@intel.com>
+	with ESMTP id S1753124AbaARDSC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 22:18:02 -0500
+In-Reply-To: <1390012205-21995-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Aaron Brown <aaron.f.brown@intel.com>
-Date: Fri, 17 Jan 2014 15:36:30 -0800
+Date: Fri, 17 Jan 2014 18:29:58 -0800
 
-> This series contains updates to i40e.  
+> This series contains updates from Emil to ixgbevf.
 > 
-> Neerav implements DCB and DCBNL support and adds DCB options
-> to Kconfig.  DCB is disabled by default.
+> He cleans up the code by removing the adapter structure as a
+> parameter from multiple functions in favor of using the ixgbevf_ring
+> structure and moves hot-path specific statistic int the ring 
+> structure for anticipated performance gains.
 > 
-> Anjali refactors flow control director to fix inconsistencies
-> that were preventing clean unloads of the driver, move the
-> queues for handling flow director error into their own hardware
-> VSI and implement a corrected version of the basic ethtool add 
-> ntuple rule.
+> He also removes the Tx/Rx counters for checksum offload and adds 
+> counters for tx_restart_queue and tx_timeout_count.
 > 
-> Jesse provides fixes for a compiler warning, firmware workaround,
-> white space fixes and renames some defines.
+> Next he makes it so that the first tx_buffer structure acts as a
+> central storage location for most the skb info we are about to
+> transmit, then takes advantage of the dma buffer always being
+> present in the first descriptor and mapped as single allowing a 
+> call to dma_unmap_single which alleviates the need to check for
+> DMA mapping in ixgbevf_clean_tx_irq().  
 > 
-> Shannon reworks the device ID #defines to follow the
-> DEV_ID_ convention followed by our other drivers.
+> Finally he merges the ixgbevf_tx_map call and the ixgbevf_tx_queue
+> call into a single function.
 
-Series applied.
+Series applied, thanks.
