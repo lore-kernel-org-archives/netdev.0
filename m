@@ -1,47 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: remove unnecessary initializations in net_dev_init
-Date: Sat, 18 Jan 2014 09:40:46 -0800
-Message-ID: <1390066846.31367.538.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1390057451-30807-1-git-send-email-sd@queasysnail.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [RFC PATCH] tuntap: Fix for a race in accessing numqueue
+Date: Sat, 18 Jan 2014 21:43:17 +0400
+Message-ID: <52DABD35.3030408@cogentembedded.com>
+References: <1390004815-7052-1-git-send-email-dominic.curran@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Sabrina Dubroca <sd@queasysnail.net>
+Cc: Jason Wang <jasowang@redhat.com>,
+	Maxim Krasnyansky <maxk@qualcomm.com>
+To: Dominic Curran <dominic.curran@citrix.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:54869 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750933AbaARRks (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jan 2014 12:40:48 -0500
-Received: by mail-pd0-f173.google.com with SMTP id y10so1682050pdj.18
-        for <netdev@vger.kernel.org>; Sat, 18 Jan 2014 09:40:47 -0800 (PST)
-In-Reply-To: <1390057451-30807-1-git-send-email-sd@queasysnail.net>
+Received: from mail-la0-f53.google.com ([209.85.215.53]:59819 "EHLO
+	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751064AbaARRnJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jan 2014 12:43:09 -0500
+Received: by mail-la0-f53.google.com with SMTP id e16so4438456lan.26
+        for <netdev@vger.kernel.org>; Sat, 18 Jan 2014 09:43:06 -0800 (PST)
+In-Reply-To: <1390004815-7052-1-git-send-email-dominic.curran@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2014-01-18 at 16:04 +0100, Sabrina Dubroca wrote:
-> softnet_data is set to 0 by memset, no need to initialize specific
-> fields to 0 or NULL afterwards.
-> 
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-> ---
->  net/core/dev.c | 9 ---------
->  1 file changed, 9 deletions(-)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 288df62..b57b44a2 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -7000,25 +7000,16 @@ static int __init net_dev_init(void)
->  		memset(sd, 0, sizeof(*sd));
+Hello.
 
-Hi Sabrina
+On 18-01-2014 4:26, Dominic Curran wrote:
 
-Well, if you really want, you also can remove this memset(), percpu data
-defined as :
+> A patch for fixing a race between queue selection and changing queues
+> was introduced in commit 92bb73ea2c434618a68a5.
 
-DEFINE_PER_CPU_ALIGNED(struct softnet_data, softnet_data);
+    Please also specify that commit's summary line in parens.
 
-must also be zero at boot time.
+> The fix was to prevent the driver from re-reading the tun->numqueues
+> more than once within tun_select_queue().
 
-Thanks !
+> We have been experiancing  'Divide-by-zero' errors in
+> tun_net_xmit() since we moved from 3.6 to 3.10, and believe that they
+> come from a simular source where the value of tun->numqueues changes
+> to zero between the first and second read of tun->numqueues.
+
+> Signed-off-by: Dominic Curran <dominic.curran@citrix.com>
+> Cc: Jason Wang <jasowang@redhat.com>
+> Cc: Maxim Krasnyansky <maxk@qualcomm.com>
+
+WBR, Sergei
