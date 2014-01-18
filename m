@@ -1,64 +1,54 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: [PATCH net-next] ipcomp: Convert struct xt_ipcomp spis into 16bits
-Date: Sat, 18 Jan 2014 10:16:14 +0800
-Message-ID: <1390011374-21760-1-git-send-email-fan.du@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <steffen.klassert@secunet.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, <netfilter-devel@vger.kernel.org>
-To: <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Aaron Brown <aaron.f.brown@intel.com>
+Subject: [net-next 0/7] Intel Wired LAN Driver Updates
+Date: Fri, 17 Jan 2014 18:29:58 -0800
+Message-ID: <1390012205-21995-1-git-send-email-aaron.f.brown@intel.com>
+Cc: Aaron Brown <aaron.f.brown@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:24162 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752165AbaARCaK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jan 2014 21:30:10 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-sparse warnings: (new ones prefixed by >>)
+This series contains updates from Emil to ixgbevf.
 
->> >> net/netfilter/xt_ipcomp.c:63:26: sparse: restricted __be16 degrades to integer
->> >> net/netfilter/xt_ipcomp.c:63:26: sparse: cast to restricted __be32
+He cleans up the code by removing the adapter structure as a
+parameter from multiple functions in favor of using the ixgbevf_ring
+structure and moves hot-path specific statistic int the ring 
+structure for anticipated performance gains.
 
-Fix this by using 16bits long spi, as IPcomp CPI is only valid for 16bits.
+He also removes the Tx/Rx counters for checksum offload and adds 
+counters for tx_restart_queue and tx_timeout_count.
 
-Signed-off-by: Fan Du <fan.du@windriver.com>
----
- include/uapi/linux/netfilter/xt_ipcomp.h |    2 +-
- net/netfilter/xt_ipcomp.c                |    4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+Next he makes it so that the first tx_buffer structure acts as a
+central storage location for most the skb info we are about to
+transmit, then takes advantage of the dma buffer always being
+present in the first descriptor and mapped as single allowing a 
+call to dma_unmap_single which alleviates the need to check for
+DMA mapping in ixgbevf_clean_tx_irq().  
 
-diff --git a/include/uapi/linux/netfilter/xt_ipcomp.h b/include/uapi/linux/netfilter/xt_ipcomp.h
-index 45c7e40..ca82ebb 100644
---- a/include/uapi/linux/netfilter/xt_ipcomp.h
-+++ b/include/uapi/linux/netfilter/xt_ipcomp.h
-@@ -4,7 +4,7 @@
- #include <linux/types.h>
- 
- struct xt_ipcomp {
--	__u32 spis[2];	/* Security Parameter Index */
-+	__u16 spis[2];	/* Security Parameter Index */
- 	__u8 invflags;	/* Inverse flags */
- 	__u8 hdrres;	/* Test of the Reserved Filed */
- };
-diff --git a/net/netfilter/xt_ipcomp.c b/net/netfilter/xt_ipcomp.c
-index a4c7561..5542cb2 100644
---- a/net/netfilter/xt_ipcomp.c
-+++ b/net/netfilter/xt_ipcomp.c
-@@ -29,7 +29,7 @@ MODULE_DESCRIPTION("Xtables: IPv4/6 IPsec-IPComp SPI match");
- 
- /* Returns 1 if the spi is matched by the range, 0 otherwise */
- static inline bool
--spi_match(u_int32_t min, u_int32_t max, u_int32_t spi, bool invert)
-+spi_match(u_int16_t min, u_int16_t max, u_int16_t spi, bool invert)
- {
- 	bool r;
- 	pr_debug("spi_match:%c 0x%x <= 0x%x <= 0x%x\n",
-@@ -60,7 +60,7 @@ static bool comp_mt(const struct sk_buff *skb, struct xt_action_param *par)
- 	}
- 
- 	return spi_match(compinfo->spis[0], compinfo->spis[1],
--			 ntohl(chdr->cpi << 16),
-+			 ntohl(chdr->cpi),
- 			 !!(compinfo->invflags & XT_IPCOMP_INV_SPI));
- }
- 
+Finally he merges the ixgbevf_tx_map call and the ixgbevf_tx_queue
+call into a single function.
+
+Emil Tantilov (7):
+  ixgbevf: make use of the dev pointer in the ixgbevf_ring struct
+  ixgbevf: move ring specific stats into ring specific structure
+  ixgbevf: remove counters for Tx/Rx checksum offload
+  ixgbevf: add tx counters
+  ixgbevf: make the first tx_buffer a repository for most of the skb
+    info
+  ixgbevf: redo dma mapping using the tx buffer info
+  ixgbevf: merge ixgbevf_tx_map and ixgbevf_tx_queue into a single
+    function
+
+ drivers/net/ethernet/intel/ixgbevf/defines.h      |   1 +
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c      |  62 +--
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  90 ++--
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 620 +++++++++++-----------
+ 4 files changed, 403 insertions(+), 370 deletions(-)
+
 -- 
-1.7.9.5
-
+1.8.5.GIT
