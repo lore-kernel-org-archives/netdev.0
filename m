@@ -1,59 +1,95 @@
-From: Jonathan Cameron <jic23@kernel.org>
-Subject: Re: [PATCH 7/7] staging,lpc32xx_adc: Add dependency on HAS_IOMEM
-Date: Sat, 18 Jan 2014 11:50:16 +0000
-Message-ID: <52DA6A78.9040609@kernel.org>
-References: <1389714345-20165-1-git-send-email-richard@nod.at>
- <1389714345-20165-7-git-send-email-richard@nod.at>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next] bonding: move the netdev_add_tso_features() to
+ bonding module
+Date: Sat, 18 Jan 2014 12:48:01 +0100
+Message-ID: <20140118114801.GA30549@redhat.com>
+References: <52DA3BE5.5020500@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: marex@denx.de, lars@metafoo.de, linux-iio@vger.kernel.org,
- netdev@vger.kernel.org, driverdev-devel@linuxdriverproject.org,
- linux-kernel@vger.kernel.org, acourbot@nvidia.com, devel@driverdev.osuosl.org,
- florian@openwrt.org, sebastian.hesselbarth@gmail.com
-To: Richard Weinberger <richard@nod.at>, kishon@ti.com, anton@enomsg.org,
- dwmw2@infradead.org, richardcochran@gmail.com, lidza.louina@gmail.com,
- gregkh@linuxfoundation.org, davem@davemloft.net
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1389714345-20165-7-git-send-email-richard@nod.at>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:40963 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752774AbaARLvH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Jan 2014 06:51:07 -0500
+Content-Disposition: inline
+In-Reply-To: <52DA3BE5.5020500@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Sat, Jan 18, 2014 at 04:31:33PM +0800, Ding Tianhong wrote:
+>The function netdev_add_tso_features() was only be used for bonding,
+>so no need to export it in netdevice.h, move it to bonding module.
 
+Eric added it for a reason - like, other drivers might use it. Do you know
+if team, bridge, vlan etc. might use it?
 
-On 14/01/14 15:45, Richard Weinberger wrote:
-> On archs like S390 or um this driver cannot build nor work.
-> Make it depend on HAS_IOMEM to bypass build failures.
+Thanks.
+
 >
-> drivers/built-in.o: In function `lpc32xx_adc_probe':
-> drivers/staging/iio/adc/lpc32xx_adc.c:149: undefined reference to `devm_ioremap'
+>Cc: Eric Dumazet <edumazet@google.com>
+>Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>---
+> drivers/net/bonding/bond_main.c | 12 +++++++++++-
+> include/linux/netdevice.h       | 10 ----------
+> 2 files changed, 11 insertions(+), 11 deletions(-)
 >
-> Signed-off-by: Richard Weinberger <richard@nod.at>
-applied to the fixes-togreg branch of iio.git
-
-Thanks,
-> ---
->   drivers/staging/iio/adc/Kconfig | 1 +
->   1 file changed, 1 insertion(+)
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index e06c445..4cfe14e 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -1045,6 +1045,16 @@ static void bond_netpoll_cleanup(struct net_device *bond_dev)
 >
-> diff --git a/drivers/staging/iio/adc/Kconfig b/drivers/staging/iio/adc/Kconfig
-> index 7d5d675..3633298 100644
-> --- a/drivers/staging/iio/adc/Kconfig
-> +++ b/drivers/staging/iio/adc/Kconfig
-> @@ -103,6 +103,7 @@ config AD7280
->   config LPC32XX_ADC
->   	tristate "NXP LPC32XX ADC"
->   	depends on ARCH_LPC32XX || COMPILE_TEST
-> +	depends on HAS_IOMEM
->   	help
->   	  Say yes here to build support for the integrated ADC inside the
->   	  LPC32XX SoC. Note that this feature uses the same hardware as the
+> /*---------------------------------- IOCTL ----------------------------------*/
+>
+>+/* Allow TSO being used on stacked device:
+>+ * Performing the GSO segmentation before last device
+>+ * is a performance improvement.
+>+ */
+>+static netdev_features_t bond_add_tso_features(netdev_features_t features,
+>+					       netdev_features_t mask)
+>+{
+>+	return netdev_increment_features(features, NETIF_F_ALL_TSO, mask);
+>+}
+>+
+> static netdev_features_t bond_fix_features(struct net_device *dev,
+> 					   netdev_features_t features)
+> {
+>@@ -1068,7 +1078,7 @@ static netdev_features_t bond_fix_features(struct net_device *dev,
+> 						     slave->dev->features,
+> 						     mask);
+> 	}
+>-	features = netdev_add_tso_features(features, mask);
+>+	features = bond_add_tso_features(features, mask);
+>
+> 	return features;
+> }
+>diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>index a2a70cc..1be74ea 100644
+>--- a/include/linux/netdevice.h
+>+++ b/include/linux/netdevice.h
+>@@ -3010,16 +3010,6 @@ static inline netdev_features_t netdev_get_wanted_features(
+> netdev_features_t netdev_increment_features(netdev_features_t all,
+> 	netdev_features_t one, netdev_features_t mask);
+>
+>-/* Allow TSO being used on stacked device :
+>- * Performing the GSO segmentation before last device
+>- * is a performance improvement.
+>- */
+>-static inline netdev_features_t netdev_add_tso_features(netdev_features_t features,
+>-							netdev_features_t mask)
+>-{
+>-	return netdev_increment_features(features, NETIF_F_ALL_TSO, mask);
+>-}
+>-
+> int __netdev_update_features(struct net_device *dev);
+> void netdev_update_features(struct net_device *dev);
+> void netdev_change_features(struct net_device *dev);
+>-- 
+>1.8.0
+>
 >
