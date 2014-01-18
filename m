@@ -1,82 +1,120 @@
-From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 1/6] cgroup: make CONFIG_NET_CLS_CGROUP and
-	CONFIG_NETPRIO_CGROUP bool instead of tristate
-Date: Sat, 18 Jan 2014 12:25:43 +0100
-Message-ID: <52DA64B7.3030909@redhat.com>
-References: <1389982317-22225-1-git-send-email-tj@kernel.org>
-	<1389982317-22225-2-git-send-email-tj@kernel.org>
-	<52D9D421.6040608@huawei.com>
+From: Chen Gang <gang.chen.5i5j-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH linux-next] net: batman-adv: use "__packed __aligned(2)" for
+ each structure instead of "__packed(2)" region
+Date: Sat, 18 Jan 2014 19:31:00 +0800
+Message-ID: <52DA65F4.5070501@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <52D9D421.6040608-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, James Hogan <james.hogan-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
+To: mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org, sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org,
+	antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org
+Return-path: <linux-metag-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-metag-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 01/18/2014 02:08 AM, Li Zefan wrote:
-> Cc: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> 
-> On 2014/1/18 2:11, Tejun Heo wrote:
->> net_cls and net_prio are the only cgroups which are allowed to be
->> built as modules.  The savings from allowing the two controllers to be
->> built as modules are tiny especially given that cgroup module support
->> itself adds quite a bit of complexity.
->>
->> The following are the sizes of vmlinux with both built as module and
->> both built as part of the kernel image with cgroup module support
->> removed.
->>
->> 	text		data		bss		dec
->> 	20292207	2411496		10784768	33488471
->> 	20293421	2412568		10784768	33490757
->>
->> The total difference is 2286 bytes.  Given that none of other
->> controllers has much chance of being made a module and that we're
->> unlikely to add new modular controllers, the added complexity is
->> simply not justifiable.
->>
->> As a first step to drop cgroup module support, this patch changes the
->> two config options to bool from tristate and drops module related code
->> from the two controllers.
->>
-> 
-> I sugguested Daniel to do this for net_cls, and the change has been in
-> net-next.
-> 
-> https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=fe1217c4f3f7d7cbf8efdd8dd5fdc7204a1d65a8
-> 
-> I was planning to remove module support after that change goes into
-> upstream. :)
+Unfortunately, not all compilers assumes the structures within a pack
+region also need be packed (e.g. metag), so need add a pack explicitly
+to satisfy all compilers.
 
-I am fine with that, thanks Li.
+The related error (under metag with allmodconfig):
 
->> Signed-off-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
->> Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
->> Cc: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
->> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
->> ---
->>   net/Kconfig               |  2 +-
->>   net/core/netprio_cgroup.c | 32 ++------------------------------
->>   net/sched/Kconfig         |  2 +-
->>   net/sched/cls_cgroup.c    | 23 ++---------------------
->>   4 files changed, 6 insertions(+), 53 deletions(-)
->>
-> 
-> The modular version of task_netprioidx() in include/net/netprio_cgroup.h
-> can be removed.
-> 
+    MODPOST 2952 modules
+  ERROR: "__compiletime_assert_431" [net/batman-adv/batman-adv.ko] undefined!
+  ERROR: "__compiletime_assert_432" [net/batman-adv/batman-adv.ko] undefined!
+  ERROR: "__compiletime_assert_429" [net/batman-adv/batman-adv.ko] undefined!
+  ERROR: "__compiletime_assert_428" [net/batman-adv/batman-adv.ko] undefined!
+  ERROR: "__compiletime_assert_423" [net/batman-adv/batman-adv.ko] undefined!
+
+
+Signed-off-by: Chen Gang <gang.chen.5i5j-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ net/batman-adv/packet.h | 16 ++++++----------
+ 1 file changed, 6 insertions(+), 10 deletions(-)
+
+diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
+index 0a381d1..9206b48 100644
+--- a/net/batman-adv/packet.h
++++ b/net/batman-adv/packet.h
+@@ -154,7 +154,6 @@ enum batadv_tvlv_type {
+ 	BATADV_TVLV_ROAM	= 0x05,
+ };
+ 
+-#pragma pack(2)
+ /* the destination hardware field in the ARP frame is used to
+  * transport the claim type and the group id
+  */
+@@ -162,8 +161,7 @@ struct batadv_bla_claim_dst {
+ 	uint8_t magic[3];	/* FF:43:05 */
+ 	uint8_t type;		/* bla_claimframe */
+ 	__be16 group;		/* group id */
+-};
+-#pragma pack()
++} __packed __aligned(2);
+ 
+ /**
+  * struct batadv_ogm_packet - ogm (routing protocol) packet
+@@ -281,7 +279,6 @@ struct batadv_icmp_packet_rr {
+  * misalignment of the payload after the ethernet header. It may also lead to
+  * leakage of information when the padding it not initialized before sending.
+  */
+-#pragma pack(2)
+ 
+ /**
+  * struct batadv_unicast_packet - unicast packet for network payload
+@@ -300,7 +297,7 @@ struct batadv_unicast_packet {
+ 	/* "4 bytes boundary + 2 bytes" long to make the payload after the
+ 	 * following ethernet header again 4 bytes boundary aligned
+ 	 */
+-};
++}  __packed __aligned(2);
+ 
+ /**
+  * struct batadv_unicast_4addr_packet - extended unicast packet
+@@ -316,7 +313,7 @@ struct batadv_unicast_4addr_packet {
+ 	/* "4 bytes boundary + 2 bytes" long to make the payload after the
+ 	 * following ethernet header again 4 bytes boundary aligned
+ 	 */
+-};
++}  __packed __aligned(2);
+ 
+ /**
+  * struct batadv_frag_packet - fragmented packet
+@@ -347,7 +344,7 @@ struct batadv_frag_packet {
+ 	uint8_t orig[ETH_ALEN];
+ 	__be16  seqno;
+ 	__be16  total_size;
+-};
++}  __packed __aligned(2);
+ 
+ /**
+  * struct batadv_bcast_packet - broadcast packet for network payload
+@@ -368,7 +365,7 @@ struct batadv_bcast_packet {
+ 	/* "4 bytes boundary + 2 bytes" long to make the payload after the
+ 	 * following ethernet header again 4 bytes boundary aligned
+ 	 */
+-};
++}  __packed __aligned(2);
+ 
+ /**
+  * struct batadv_coded_packet - network coded packet
+@@ -404,9 +401,8 @@ struct batadv_coded_packet {
+ 	uint8_t  second_orig_dest[ETH_ALEN];
+ 	__be32   second_crc;
+ 	__be16   coded_len;
+-};
++}  __packed __aligned(2);
+ 
+-#pragma pack()
+ 
+ /**
+  * struct batadv_unicast_tvlv - generic unicast packet with tvlv payload
+-- 
+1.7.11.7
+--
+To unsubscribe from this list: send the line "unsubscribe linux-metag" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
