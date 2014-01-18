@@ -1,49 +1,81 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next] net: vxlan: do not use vxlan_net before checking
- event type
-Date: Sat, 18 Jan 2014 15:38:29 -0800
-Message-ID: <CAM_iQpXd_MCiD26cCGzMzamK+Uz3jm5-LOns1Pud-1j2GYXhQw@mail.gmail.com>
-References: <1389959706-30976-1-git-send-email-dborkman@redhat.com>
-	<CAM_iQpV4FGdbHo9UVFhN9yqhZuGEZdrynikvrTZ0YZJTPVCmLg@mail.gmail.com>
-	<52D97746.1040408@redhat.com>
-	<CAM_iQpUoQcHpQJn-nYp9mO+XXMmXSjFxy3ASwchAH-qECoz9OA@mail.gmail.com>
-	<1390065511.31367.535.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAM_iQpV5NO5YZkQ3dSj_GYhNE2jUdwcYgbX1uNaFua71a266HQ@mail.gmail.com>
-	<1390072047.31367.543.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next v3 0/3] reciprocal_divide update
+Date: Sun, 19 Jan 2014 00:40:28 +0100
+Message-ID: <1390088431-28657-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Transfer-Encoding: 8bit
+Cc: hannes@stressinduktion.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f181.google.com ([209.85.214.181]:35119 "EHLO
-	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751493AbaARXia (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jan 2014 18:38:30 -0500
-Received: by mail-ob0-f181.google.com with SMTP id va2so2221615obc.12
-        for <netdev@vger.kernel.org>; Sat, 18 Jan 2014 15:38:29 -0800 (PST)
-In-Reply-To: <1390072047.31367.543.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:58291 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751562AbaARXkg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Jan 2014 18:40:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cc'ing netdev back...
+This patch is on top of aee636c4809fa5 ("bpf: do not use reciprocal
+divide") from Eric that sits in net tree. It will not create a merge
+conflict, but it depends on this one, so we suggest, if possible, to
+merge net into net-next.
 
-On Sat, Jan 18, 2014 at 11:07 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> Daniel did the right thing and David agreed.
->
-> And I agreed.
+We are proposing this change with only small modifications from the
+v2 version, namely updating the name of trim to reciprocal_scale
+(as commented on by Ben Hutchings and Eric Dumazet, thanks!).
 
-If you mean the code, I don't even want to argue from the beginning.
+We thought about introducing the reciprocal_divide algorithm in
+parallel to the one already used by the kernel but faced organizational
+issues, leading us to the conclusion that it is best to just replace
+the old one: We could not come up with names for the different
+implementations and also with a way to describe the differences to
+guide developers which one to choose in which situation. This is
+because we cannot specify the correct semantics for the version
+which is currently used by the kernel. Altough it seems to not be
+causing problems in the kernel, we cannot surely say so in the
+case of flex_array for the future. Current usage seems ok, but
+future users could run into problems.
 
-If you mean the author of the patch, it is obviously wrong.
+Changelog:
 
->
-> So if you want to fight, feel free, but its going to be really hard.
->
+v1->v2:
+ - changed name to prandom_u32_max in p1
+ - changed name to trim in p2
+ - reworked code in p3
+v2->v3:
+ - p1 and p3 stays unchanged, only small update in commit
+   message in p3
+ - changed name to reciprocal_scale in p2
+ - fixed kernel doc format
 
-I see.
+Thanks !
 
-Next time, I will pick up your patch, change a very minor issue,
-and *steal* it as mine (a.k.a ignoring From:). So that in the changelog
-your patch will become mine.
+Daniel Borkmann (2):
+  random32: add prandom_u32_max and convert open coded users
+  net: introduce reciprocal_scale helper and convert users
 
-You don't mind, since you already agreed above...
+Hannes Frederic Sowa (1):
+  reciprocal_divide: update/correction of the algorithm
+
+ drivers/net/bonding/bond_main.c     | 24 ++++++++++++++++-------
+ drivers/net/bonding/bond_netlink.c  |  4 ----
+ drivers/net/bonding/bond_options.c  | 15 +++++++++-----
+ drivers/net/bonding/bond_sysfs.c    |  5 -----
+ drivers/net/bonding/bonding.h       |  3 +++
+ drivers/net/team/team_mode_random.c |  8 +-------
+ include/linux/flex_array.h          |  3 ++-
+ include/linux/kernel.h              | 19 ++++++++++++++++++
+ include/linux/random.h              | 18 ++++++++++++++++-
+ include/linux/reciprocal_div.h      | 39 ++++++++++++++++++++-----------------
+ include/linux/slab_def.h            |  4 +++-
+ include/net/codel.h                 |  4 +---
+ include/net/red.h                   |  3 ++-
+ lib/flex_array.c                    |  7 ++++++-
+ lib/reciprocal_div.c                | 24 +++++++++++++++++++----
+ net/packet/af_packet.c              |  5 ++---
+ net/sched/sch_choke.c               |  9 +--------
+ net/sched/sch_netem.c               |  6 ++++--
+ 18 files changed, 129 insertions(+), 71 deletions(-)
+
+-- 
+1.8.3.1
