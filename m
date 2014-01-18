@@ -1,50 +1,109 @@
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
-Subject: Re: [PATCH v2 net] bpf: do not use reciprocal divide
-Date: Sat, 18 Jan 2014 11:12:30 +0100
-Message-ID: <20140118101230.GA3462@osiris>
-References: <1389797407.31367.340.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140115.170230.640619926492650356.davem@davemloft.net>
- <20140117085916.GA4208@osiris>
- <20140117.185600.1405505573912550580.davem@davemloft.net>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH net-next] sch_netem: replace magic numbers with enumerate
+Date: Sat, 18 Jan 2014 18:13:31 +0800
+Message-ID: <1390040011-13296-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, schwidefsky@de.ibm.com,
-	hannes@stressinduktion.org, netdev@vger.kernel.org,
-	dborkman@redhat.com, darkjames-ws@darkjames.pl, mgherzan@gmail.com,
-	rmk+kernel@arm.linux.org.uk, matt@ozlabs.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <stephen@networkplumber.org>, <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:60260 "EHLO
-	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752363AbaARKMi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jan 2014 05:12:38 -0500
-Received: from /spool/local
-	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <heiko.carstens@de.ibm.com>;
-	Sat, 18 Jan 2014 10:12:36 -0000
-Received: from b06cxnps4075.portsmouth.uk.ibm.com (d06relay12.portsmouth.uk.ibm.com [9.149.109.197])
-	by d06dlp03.portsmouth.uk.ibm.com (Postfix) with ESMTP id 08B511B08061
-	for <netdev@vger.kernel.org>; Sat, 18 Jan 2014 10:11:56 +0000 (GMT)
-Received: from d06av09.portsmouth.uk.ibm.com (d06av09.portsmouth.uk.ibm.com [9.149.37.250])
-	by b06cxnps4075.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s0IACKDV64880728
-	for <netdev@vger.kernel.org>; Sat, 18 Jan 2014 10:12:20 GMT
-Received: from d06av09.portsmouth.uk.ibm.com (localhost [127.0.0.1])
-	by d06av09.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s0IACVHS003704
-	for <netdev@vger.kernel.org>; Sat, 18 Jan 2014 03:12:32 -0700
-Content-Disposition: inline
-In-Reply-To: <20140117.185600.1405505573912550580.davem@davemloft.net>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:18126 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752492AbaARKNs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jan 2014 05:13:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 17, 2014 at 06:56:00PM -0800, David Miller wrote:
-> From: Heiko Carstens <heiko.carstens@de.ibm.com>
-> Date: Fri, 17 Jan 2014 09:59:16 +0100
-> 
-> > Could you please also apply the patch below to your tree? It would only
-> > generate a merge conflict, that would need fixing, if it would sit in the
-> > s390 tree.
-> 
-> Applied and I queued it up for -stable so I can combine it with
-> Eric's original change when I submit it to -stable.
+Replace some magic numbers which describe states of 4-state model
+loss generator with enumerate.
 
-Great, thank you!
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+---
+ net/sched/sch_netem.c | 47 ++++++++++++++++++++++++++++-------------------
+ 1 file changed, 28 insertions(+), 19 deletions(-)
+
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index 3019c10..a2bfc37 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -110,6 +110,13 @@ struct netem_sched_data {
+ 		CLG_GILB_ELL,
+ 	} loss_model;
+ 
++	enum {
++		TX_IN_GAP_PERIOD = 1,
++		TX_IN_BURST_PERIOD,
++		LOST_IN_GAP_PERIOD,
++		LOST_IN_BURST_PERIOD,
++	} _4_state_model;
++
+ 	/* Correlated Loss Generation models */
+ 	struct clgstate {
+ 		/* state of the Markov chain */
+@@ -205,43 +212,45 @@ static bool loss_4state(struct netem_sched_data *q)
+ 	 * probabilities outgoing from the current state, then decides the
+ 	 * next state and if the next packet has to be transmitted or lost.
+ 	 * The four states correspond to:
+-	 *   1 => successfully transmitted packets within a gap period
+-	 *   4 => isolated losses within a gap period
+-	 *   3 => lost packets within a burst period
+-	 *   2 => successfully transmitted packets within a burst period
++	 *   TX_IN_GAP_PERIOD => successfully transmitted packets within a gap period
++	 *   LOST_IN_BURST_PERIOD => isolated losses within a gap period
++	 *   LOST_IN_GAP_PERIOD => lost packets within a burst period
++	 *   TX_IN_GAP_PERIOD => successfully transmitted packets within a burst period
+ 	 */
+ 	switch (clg->state) {
+-	case 1:
++	case TX_IN_GAP_PERIOD:
+ 		if (rnd < clg->a4) {
+-			clg->state = 4;
++			clg->state = LOST_IN_BURST_PERIOD;
+ 			return true;
+ 		} else if (clg->a4 < rnd && rnd < clg->a1 + clg->a4) {
+-			clg->state = 3;
++			clg->state = LOST_IN_GAP_PERIOD;
+ 			return true;
+-		} else if (clg->a1 + clg->a4 < rnd)
+-			clg->state = 1;
++		} else if (clg->a1 + clg->a4 < rnd) {
++			clg->state = TX_IN_GAP_PERIOD;
++		}
+ 
+ 		break;
+-	case 2:
++	case TX_IN_BURST_PERIOD:
+ 		if (rnd < clg->a5) {
+-			clg->state = 3;
++			clg->state = LOST_IN_GAP_PERIOD;
+ 			return true;
+-		} else
+-			clg->state = 2;
++		} else {
++			clg->state = TX_IN_BURST_PERIOD;
++		}
+ 
+ 		break;
+-	case 3:
++	case LOST_IN_GAP_PERIOD:
+ 		if (rnd < clg->a3)
+-			clg->state = 2;
++			clg->state = TX_IN_BURST_PERIOD;
+ 		else if (clg->a3 < rnd && rnd < clg->a2 + clg->a3) {
+-			clg->state = 1;
++			clg->state = TX_IN_GAP_PERIOD;
+ 		} else if (clg->a2 + clg->a3 < rnd) {
+-			clg->state = 3;
++			clg->state = LOST_IN_GAP_PERIOD;
+ 			return true;
+ 		}
+ 		break;
+-	case 4:
+-		clg->state = 1;
++	case LOST_IN_BURST_PERIOD:
++		clg->state = TX_IN_GAP_PERIOD;
+ 		break;
+ 	}
+ 
+-- 
+1.8.0
