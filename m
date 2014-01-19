@@ -1,76 +1,73 @@
 From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH] net: gre: don't pull skb if dealing with icmp message
-Date: Sun, 19 Jan 2014 16:35:22 +0800
-Message-ID: <52DB8E4A.7050809@cn.fujitsu.com>
+Subject: [PATCH v2] ipv4: remove the  useless argument from ip_tunnel_hash()
+Date: Sun, 19 Jan 2014 16:43:42 +0800
+Message-ID: <52DB903E.9050301@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:37794 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:3875 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750774AbaASIgS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Jan 2014 03:36:18 -0500
+	id S1750774AbaASIoU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Jan 2014 03:44:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-When dealing with icmp messages, the skb->data points the
-ip header that triggered the sending of the icmp message.
-
-In gre_cisco_err(), the parse_gre_header() is called, and the
-iptunnel_pull_header() is called to pull the skb at the end of
-the parse_gre_header(). Unfortunately, the ipgre_err still needs
-the skb->data points the ip header following the icmp layer,
-and those ip addresses in ip header will be used to look up
-tunnel by ip_tunnel_lookup().
+Since commit c544193214("GRE: Refactor GRE tunneling code")
+introduced function ip_tunnel_hash(), the argument itn is no 
+longer in use, so remove it.
 
 Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 ---
- net/ipv4/gre_demux.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/gre_demux.c b/net/ipv4/gre_demux.c
-index 5893e99..35bfba4 100644
---- a/net/ipv4/gre_demux.c
-+++ b/net/ipv4/gre_demux.c
-@@ -116,7 +116,7 @@ static __sum16 check_checksum(struct sk_buff *skb)
+v2: specify the commit's summary line in parens
+
+ net/ipv4/ip_tunnel.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index d3929a6..6f5a347 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -61,8 +61,7 @@
+ #include <net/ip6_route.h>
+ #endif
+ 
+-static unsigned int ip_tunnel_hash(struct ip_tunnel_net *itn,
+-				   __be32 key, __be32 remote)
++static unsigned int ip_tunnel_hash(__be32 key, __be32 remote)
+ {
+ 	return hash_32((__force u32)key ^ (__force u32)remote,
+ 			 IP_TNL_HASH_BITS);
+@@ -204,7 +203,7 @@ struct ip_tunnel *ip_tunnel_lookup(struct ip_tunnel_net *itn,
+ 	struct ip_tunnel *t, *cand = NULL;
+ 	struct hlist_head *head;
+ 
+-	hash = ip_tunnel_hash(itn, key, remote);
++	hash = ip_tunnel_hash(key, remote);
+ 	head = &itn->tunnels[hash];
+ 
+ 	hlist_for_each_entry_rcu(t, head, hash_node) {
+@@ -236,7 +235,7 @@ struct ip_tunnel *ip_tunnel_lookup(struct ip_tunnel_net *itn,
+ 			cand = t;
+ 	}
+ 
+-	hash = ip_tunnel_hash(itn, key, 0);
++	hash = ip_tunnel_hash(key, 0);
+ 	head = &itn->tunnels[hash];
+ 
+ 	hlist_for_each_entry_rcu(t, head, hash_node) {
+@@ -292,7 +291,7 @@ static struct hlist_head *ip_bucket(struct ip_tunnel_net *itn,
+ 	else
+ 		remote = 0;
+ 
+-	h = ip_tunnel_hash(itn, parms->i_key, remote);
++	h = ip_tunnel_hash(parms->i_key, remote);
+ 	return &itn->tunnels[h];
  }
  
- static int parse_gre_header(struct sk_buff *skb, struct tnl_ptk_info *tpi,
--			    bool *csum_err)
-+			    bool *csum_err, bool in_err)
- {
- 	unsigned int ip_hlen = ip_hdrlen(skb);
- 	const struct gre_base_hdr *greh;
-@@ -160,6 +160,9 @@ static int parse_gre_header(struct sk_buff *skb, struct tnl_ptk_info *tpi,
- 	} else
- 		tpi->seq = 0;
- 
-+	if (in_err)
-+		return 0;
-+
- 	/* WCCP version 1 and 2 protocol decoding.
- 	 * - Change protocol to IP
- 	 * - When dealing with WCCPv2, Skip extra 4 bytes in GRE header
-@@ -182,7 +185,7 @@ static int gre_cisco_rcv(struct sk_buff *skb)
- 	int i;
- 	bool csum_err = false;
- 
--	if (parse_gre_header(skb, &tpi, &csum_err) < 0)
-+	if (parse_gre_header(skb, &tpi, &csum_err, false) < 0)
- 		goto drop;
- 
- 	rcu_read_lock();
-@@ -229,7 +232,7 @@ static void gre_cisco_err(struct sk_buff *skb, u32 info)
- 	bool csum_err = false;
- 	int i;
- 
--	if (parse_gre_header(skb, &tpi, &csum_err)) {
-+	if (parse_gre_header(skb, &tpi, &csum_err, true)) {
- 		if (!csum_err)		/* ignore csum errors. */
- 			return;
- 	}
 -- 
 1.8.3.1
