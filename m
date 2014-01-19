@@ -1,86 +1,61 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [ PATCH net-next]  qlcnic: fix sparse warnings
-Date: Sat, 18 Jan 2014 17:21:13 -0800
-Message-ID: <20140118172113.16adb69f@nehalam.linuxnetplumber.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: vxlan: do not use vxlan_net before
+ checking event type
+Date: Sat, 18 Jan 2014 18:01:08 -0800
+Message-ID: <1390096868.31367.546.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1389959706-30976-1-git-send-email-dborkman@redhat.com>
+	 <CAM_iQpV4FGdbHo9UVFhN9yqhZuGEZdrynikvrTZ0YZJTPVCmLg@mail.gmail.com>
+	 <52D97746.1040408@redhat.com>
+	 <CAM_iQpUoQcHpQJn-nYp9mO+XXMmXSjFxy3ASwchAH-qECoz9OA@mail.gmail.com>
+	 <1390065511.31367.535.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAM_iQpV5NO5YZkQ3dSj_GYhNE2jUdwcYgbX1uNaFua71a266HQ@mail.gmail.com>
+	 <1390072047.31367.543.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAM_iQpXd_MCiD26cCGzMzamK+Uz3jm5-LOns1Pud-1j2GYXhQw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f43.google.com ([209.85.160.43]:54911 "EHLO
-	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751539AbaASBVQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jan 2014 20:21:16 -0500
-Received: by mail-pb0-f43.google.com with SMTP id md12so5555687pbc.16
-        for <netdev@vger.kernel.org>; Sat, 18 Jan 2014 17:21:15 -0800 (PST)
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:50952 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751712AbaASCBJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jan 2014 21:01:09 -0500
+Received: by mail-pd0-f178.google.com with SMTP id y13so5474988pdi.23
+        for <netdev@vger.kernel.org>; Sat, 18 Jan 2014 18:01:09 -0800 (PST)
+In-Reply-To: <CAM_iQpXd_MCiD26cCGzMzamK+Uz3jm5-LOns1Pud-1j2GYXhQw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fengguang Wu <fengguang.wu@intel.com>
+On Sat, 2014-01-18 at 15:38 -0800, Cong Wang wrote:
+> Cc'ing netdev back...
+> 
+> On Sat, Jan 18, 2014 at 11:07 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > Daniel did the right thing and David agreed.
+> >
+> > And I agreed.
+> 
+> If you mean the code, I don't even want to argue from the beginning.
+> 
+> If you mean the author of the patch, it is obviously wrong.
+> 
+> >
+> > So if you want to fight, feel free, but its going to be really hard.
+> >
+> 
+> I see.
+> 
+> Next time, I will pick up your patch, change a very minor issue,
+> and *steal* it as mine (a.k.a ignoring From:). So that in the changelog
+> your patch will become mine.
+> 
+> You don't mind, since you already agreed above...
 
-Previous patch changed prototypes, but forgot functions.
+You failed to the test I did with you.
 
-Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
-Acked-by: Stephen Hemminger <stephen@networkplumber.org>
+By adding netdev back to a mail I sent privately, you violated one very
+elementary rule of communication.
 
----
- qlcnic_83xx_hw.c |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+This is a huge mistake.
 
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c	2014-01-18 13:41:07.000000000 -0800
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c	2014-01-18 17:13:08.640658697 -0800
-@@ -2066,7 +2066,7 @@ void qlcnic_83xx_change_l2_filter(struct
- 	qlcnic_83xx_sre_macaddr_change(adapter, mac, vlan_id, QLCNIC_MAC_ADD);
- }
- 
--void qlcnic_83xx_configure_mac(struct qlcnic_adapter *adapter, u8 *mac,
-+static void qlcnic_83xx_configure_mac(struct qlcnic_adapter *adapter, u8 *mac,
- 			       u8 type, struct qlcnic_cmd_args *cmd)
- {
- 	switch (type) {
-@@ -2170,7 +2170,7 @@ static void qlcnic_83xx_handle_link_aen(
- 	qlcnic_advert_link_change(adapter, link_status);
- }
- 
--irqreturn_t qlcnic_83xx_handle_aen(int irq, void *data)
-+static irqreturn_t qlcnic_83xx_handle_aen(int irq, void *data)
- {
- 	struct qlcnic_adapter *adapter = data;
- 	struct qlcnic_mailbox *mbx;
-@@ -3517,7 +3517,7 @@ int qlcnic_83xx_flash_test(struct qlcnic
- 	return 0;
- }
- 
--int qlcnic_83xx_shutdown(struct pci_dev *pdev)
-+static int qlcnic_83xx_shutdown(struct pci_dev *pdev)
- {
- 	struct qlcnic_adapter *adapter = pci_get_drvdata(pdev);
- 	struct net_device *netdev = adapter->netdev;
-@@ -3892,7 +3892,7 @@ int qlcnic_83xx_init_mailbox_work(struct
- 	return 0;
- }
- 
--pci_ers_result_t qlcnic_83xx_io_error_detected(struct pci_dev *pdev,
-+static pci_ers_result_t qlcnic_83xx_io_error_detected(struct pci_dev *pdev,
- 					       pci_channel_state_t state)
- {
- 	struct qlcnic_adapter *adapter = pci_get_drvdata(pdev);
-@@ -3914,7 +3914,7 @@ pci_ers_result_t qlcnic_83xx_io_error_de
- 	return PCI_ERS_RESULT_NEED_RESET;
- }
- 
--pci_ers_result_t qlcnic_83xx_io_slot_reset(struct pci_dev *pdev)
-+static pci_ers_result_t qlcnic_83xx_io_slot_reset(struct pci_dev *pdev)
- {
- 	struct qlcnic_adapter *adapter = pci_get_drvdata(pdev);
- 	int err = 0;
-@@ -3937,7 +3937,7 @@ disconnect:
- 	return PCI_ERS_RESULT_DISCONNECT;
- }
- 
--void qlcnic_83xx_io_resume(struct pci_dev *pdev)
-+static void qlcnic_83xx_io_resume(struct pci_dev *pdev)
- {
- 	struct qlcnic_adapter *adapter = pci_get_drvdata(pdev);
- 
+I will never send you again a private mail.
