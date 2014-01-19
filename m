@@ -1,115 +1,189 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH 2/4 ethtool] ethtool: Support for configurable RSS hash
- key.
-Date: Sun, 19 Jan 2014 18:35:49 +0000
-Message-ID: <1390156549.16433.119.camel@deadeye.wl.decadent.org.uk>
-References: <BF3270C86E8B1349A26C34E4EC1C44CB2C83D8D4@CMEXMB1.ad.emulex.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: ping [PATCH v3] WAN: Adding support for Lantiq PEF2256 E1
+ chipset (FALC56)
+Date: Sun, 19 Jan 2014 11:34:55 -0800
+Message-ID: <1390160095.2290.9.camel@joe-AO722>
+References: <20140119180732.A1D99432AF@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-kv3A4LMu7S3qa7q5lHIS"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Rob Herring <rob.herring@calxeda.com>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Stephen Warren <swarren@wwwdotorg.org>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Rob Landley <rob@landley.net>,
+	Grant Likely <grant.likely@linaro.org>,
+	Krzysztof Halasa <khc@pm.waw.pl>, devicetree@vger.kernel.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, marc.balemboy@c-s.fr
+To: Christophe Leroy <christophe.leroy@c-s.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:60046 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751538AbaASSgB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 13:36:01 -0500
-In-Reply-To: <BF3270C86E8B1349A26C34E4EC1C44CB2C83D8D4@CMEXMB1.ad.emulex.com>
+Received: from smtprelay0125.hostedemail.com ([216.40.44.125]:45557 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751727AbaASTfB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 14:35:01 -0500
+In-Reply-To: <20140119180732.A1D99432AF@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sun, 2014-01-19 at 19:07 +0100, Christophe Leroy wrote:
+> Pinging this watch as we got no feedback since 22 Nov, although we have taken
+> into account reviews from v1 and v2.
+> 
+> The patch adds WAN support for Lantiq FALC56 - PEF2256 E1 Chipset.
 
---=-kv3A4LMu7S3qa7q5lHIS
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+trivia:
 
-On Fri, 2014-01-17 at 13:02 +0000, Venkata Duvvuru wrote:
-> This ethtool patch will primarily implement the parser for the options pr=
-ovided by the user for set and get hashkey before invoking the ioctl.
-> This patch also has Ethtool man page changes which describes the Usage of=
- set and get hashkey options.
-
-I'd prefer to have this combined with the -x/-X options (and add new
-long options to reflect that they cover the key as well).
-
-[...]
-> diff --git a/ethtool.c b/ethtool.c
-> index b06dfa3..4b05b0c 100644
-> --- a/ethtool.c
-> +++ b/ethtool.c
-> @@ -471,6 +471,59 @@ static int rxflow_str_to_type(const char *str)
->  	return flow_type;
->  }
-> =20
-> +static inline int is_hkey_char_valid(const char rss_hkey_string) {
-
-A char is not a string.
-
-> +	/* Are there any invalid characters in the string */
-> +	return ((rss_hkey_string >=3D '0' && rss_hkey_string <=3D '9') ||
-> +	       (rss_hkey_string >=3D 'a' && rss_hkey_string <=3D 'f') ||
-> +	       (rss_hkey_string >=3D 'A' && rss_hkey_string <=3D 'F')); }
-
-Braces are in the wrong places.  And the whole function is redundant
-with isxdigit() anyway.
-
-> +static int convert_string_to_hashkey(struct ethtool_rss_hkey *rss_hkey,
-> +				      const char *rss_hkey_string)
+> diff -urN a/drivers/net/wan/pef2256.c b/drivers/net/wan/pef2256.c
+[]
+> +static void config_hdlc_timeslot(struct pef2256_dev_priv *priv, int ts)
 > +{
-> +	int i =3D 0;
-> +	int hex_byte;
+> +	static struct {
+> +		u32 ttr;
+> +		u32 rtr;
+> +	} regs[] = {
+> +		{ TTR1, RTR1 },
+> +		{ TTR2, RTR2 },
+> +		{ TTR3, RTR3 },
+> +		{ TTR4, RTR4 },
+> +	};
+
+const
+
+> +	int cfg_bit = 1 << (31 - ts);
+> +	int reg_bit = 1 << (7 - (ts % 8));
+> +	int j = ts / 8;
+
+looks endian specific
+
 > +
-> +	do {
-> +		if (i > (RSS_HASH_KEY_LEN - 1)) {
+> +	if (j >= 4)
+> +		return;
+> +
+> +	if (priv->Tx_TS & cfg_bit)
+> +		pef2256_s8(priv, regs[j].ttr, 1 << reg_bit);
+> +
+> +	if (priv->Rx_TS & cfg_bit)
+> +		pef2256_s8(priv, regs[j].rtr, 1 << reg_bit);
+> +}
 
-Comparing with the wrong limit.
+> +static void init_falc(struct pef2256_dev_priv *priv)
+> +{
 
-[...]
-> +static int get_hashkey(struct cmd_context *ctx) {
+a lot of the below looks like it should use
+switch/case blocks.
 
-Brace in the wrong place.
-
-[...]
-> +	for (i =3D 0; i < RSS_HASH_KEY_LEN; i++) {
-> +		if (i =3D=3D (RSS_HASH_KEY_LEN - 1))
-
-Wrong length.
-
-> +			printf("%02x\n", rss_hkey->data[i]);
-> +		else
-> +			printf("%02x:", rss_hkey->data[i]);
+> +	/* Clocking rate for FALC56 */
+> +
+> +	/* Nothing to do for clocking rate 2M  */
+> +
+> +	/* clocking rate 4M  */
+> +	if (priv->clock_rate == CLOCK_RATE_4M)
+> +		pef2256_s8(priv, SIC1, SIC1_SSC0);
+> +
+> +	/* clocking rate 8M  */
+> +	if (priv->clock_rate == CLOCK_RATE_8M)
+> +		pef2256_s8(priv, SIC1, SIC1_SSC1);
+> +
+> +	/* clocking rate 16M  */
+> +	if (priv->clock_rate == CLOCK_RATE_16M) {
+> +		pef2256_s8(priv, SIC1, SIC1_SSC0);
+> +		pef2256_s8(priv, SIC1, SIC1_SSC1);
 > +	}
 > +
-> +done:
-> +	free(rss_hkey);
-> +	return rc;
-> +}
-[...]
+> +	/* data rate for FALC56 */
+> +
+> +	/* Nothing to do for data rate 2M on the system data bus */
+> +
+> +	/* data rate 4M on the system data bus */
+> +	if (priv->data_rate == DATA_RATE_4M)
+> +		pef2256_s8(priv, FMR1, FMR1_SSD0);
+> +
+> +	/* data rate 8M on the system data bus */
+> +	if (priv->data_rate == DATA_RATE_8M)
+> +		pef2256_s8(priv, SIC1, SIC1_SSD1);
+> +
+> +	/* data rate 16M on the system data bus */
+> +	if (priv->data_rate == DATA_RATE_16M) {
+> +		pef2256_s8(priv, FMR1, FMR1_SSD0);
+> +		pef2256_s8(priv, SIC1, SIC1_SSD1);
+> +	}
+> +
+> +	/* channel phase for FALC56 */
+> +
+> +	/* Nothing to do for channel phase 1 */
+> +
+> +	if (priv->channel_phase == CHANNEL_PHASE_2)
+> +		pef2256_s8(priv, SIC2, SIC2_SICS0);
+> +
+> +	if (priv->channel_phase == CHANNEL_PHASE_3)
+> +		pef2256_s8(priv, SIC2, SIC2_SICS1);
+> +
+> +	if (priv->channel_phase == CHANNEL_PHASE_4) {
+> +		pef2256_s8(priv, SIC2, SIC2_SICS0);
+> +		pef2256_s8(priv, SIC2, SIC2_SICS1);
+> +	}
+> +
+> +	if (priv->channel_phase == CHANNEL_PHASE_5)
+> +		pef2256_s8(priv, SIC2, SIC2_SICS2);
+> +
+> +	if (priv->channel_phase == CHANNEL_PHASE_6) {
+> +		pef2256_s8(priv, SIC2, SIC2_SICS0);
+> +		pef2256_s8(priv, SIC2, SIC2_SICS2);
+> +	}
+> +
+> +	if (priv->channel_phase == CHANNEL_PHASE_7) {
+> +		pef2256_s8(priv, SIC2, SIC2_SICS1);
+> +		pef2256_s8(priv, SIC2, SIC2_SICS2);
+> +	}
+> +
+> +	if (priv->channel_phase == CHANNEL_PHASE_8) {
+> +		pef2256_s8(priv, SIC2, SIC2_SICS0);
+> +		pef2256_s8(priv, SIC2, SIC2_SICS1);
+> +		pef2256_s8(priv, SIC2, SIC2_SICS2);
+> +	}
 
---=20
-Ben Hutchings
-friends: People who know you well, but like you anyway.
+> +static ssize_t fs_attr_mode_store(struct device *dev,
+> +			struct device_attribute *attr,  const char *buf,
+> +			size_t count)
+> +{
+> +	struct net_device *ndev = dev_get_drvdata(dev);
+> +	struct pef2256_dev_priv *priv = dev_to_hdlc(ndev)->priv;
+> +	long int value;
+> +	int ret = kstrtol(buf, 10, &value);
+> +	int reconfigure = (value != priv->mode);
 
---=-kv3A4LMu7S3qa7q5lHIS
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Ugly test and set before determining if the previous
+function was successful.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
+> +	if (value != MASTER_MODE && value != SLAVE_MODE)
+> +		ret = -EINVAL;
+> +
+> +	if (ret < 0)
+> +		netdev_info(ndev, "Invalid mode (0 or 1 expected\n");
+> +	else {
+> +		priv->mode = value;
+> +		if (reconfigure && netif_carrier_ok(ndev))
+> +			init_falc(priv);
+> +	}
+> +
+> +	return strnlen(buf, count);
 
-iQIVAwUAUtwbBee/yOyVhhEJAQquXg/+NheZ7G/Mk2hCSOCeK8O6RF/5u+4PqCn9
-JRBdvj1EZP7yv9jxdKYlcNwv45huc3iqWid1BCgJqqb1e0q4YuBue+kosYI5DeKU
-GKfij2MkVtmqUynsfARieKGO2uJhHdh4AQYHzy59RoUPMFYtavnttF25pias3Dar
-D2JcLM8GnSXrByHm3PI6Uvv9luPP7WqD8U+os3fkGAR8vm4ZX3H4At9KtTVth+2X
-iwRRzY3rhkXlA/Y9uJB0X4mIcrk/mOPXunoD1PFI+ooPILB1JeFzhJY6uUnKGJGd
-Q18gr/8if6yP3OpjtfsWJ3sS8+4WveGDfIuXtrFfKfMTaHRhuVRjaNXEZytXWdTX
-6n82N7GYZ7SwBmZKl/P5/CBbwlY2ln0ojkdq5CVU5zCQzGjLnVn8qWnjw+A9Xivx
-cPe2H+6nn8RGs6p30KKcZa/VJ9tffgqH6E35xi7Dj1mNSzIjAR2lCMPwjc7VVYwC
-aBc+t2jM9VjVjSEbUODtIpzGpsBqto0pEuxtcFVtKME2JweHwLx+lWBcTvmR1pBo
-N7Tb5YkbVJrQduoUbc5WFJLlEM1EMaW8p64yJGdoTv3F3U54Y47vRYXE6CZhrlPT
-wZQi3+EE9i3NH4OesSVXI3+EALyeYan7Wr0rcOEkQ46KnuWe1AoHbDNkO6dsfwLk
-LR3Y2yt38vo=
-=zjp3
------END PGP SIGNATURE-----
+odd that you set ret and then don't use it.
 
---=-kv3A4LMu7S3qa7q5lHIS--
+
+> +static ssize_t fs_attr_Tx_TS_store(struct device *dev,
+> +			struct device_attribute *attr,  const char *buf,
+> +			size_t count)
+> +{
+> +	struct net_device *ndev = dev_get_drvdata(dev);
+> +	struct pef2256_dev_priv *priv = dev_to_hdlc(ndev)->priv;
+> +	unsigned long value;
+> +	int ret = kstrtoul(buf, 16, (long int *)&value);
+
+unportable cast
+
+> +	int reconfigure = (value != priv->mode);
+
+again with the test/set before determining function success.
