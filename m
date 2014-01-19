@@ -1,54 +1,62 @@
-From: Weiping Pan <panweiping3@gmail.com>
-Subject: [PATCH net v2] tcp: delete redundant calls of tcp_mtup_init()
-Date: Sun, 19 Jan 2014 20:44:46 +0800
-Message-ID: <1a8e9e92721ef792aa017b89a4d6376dca5dc4f6.1390135376.git.panweiping3@gmail.com>
-References: <20140114.164105.524133214769947013.davem@davemloft.net>
-Cc: Weiping Pan <panweiping3@gmail.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: [PATCH net-next v3 1/3] random32: add prandom_u32_max and convert
+ open coded users
+Date: Sun, 19 Jan 2014 14:41:36 +0100
+Message-ID: <52DBD610.7050907@imap.cc>
+References: <1390088431-28657-1-git-send-email-dborkman@redhat.com> <1390088431-28657-2-git-send-email-dborkman@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, hannes@stressinduktion.org,
+	netdev@vger.kernel.org, Jakub Zawadzki <darkjames-ws@darkjames.pl>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:54767 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751614AbaASMox (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 07:44:53 -0500
-Received: by mail-pa0-f42.google.com with SMTP id kl14so5992817pab.1
-        for <netdev@vger.kernel.org>; Sun, 19 Jan 2014 04:44:53 -0800 (PST)
-In-Reply-To: <20140114.164105.524133214769947013.davem@davemloft.net>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:36139 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752086AbaASNs0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 08:48:26 -0500
+In-Reply-To: <1390088431-28657-2-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As tcp_rcv_state_process() has already calls tcp_mtup_init() for non-fastopen
-sock, we can delete the redundant calls of tcp_mtup_init() in
-tcp_{v4,v6}_syn_recv_sock().
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-Signed-off-by: Weiping Pan <panweiping3@gmail.com>
----
- net/ipv4/tcp_ipv4.c |    1 -
- net/ipv6/tcp_ipv6.c |    1 -
- 2 files changed, 0 insertions(+), 2 deletions(-)
+Am 19.01.2014 00:40, schrieb Daniel Borkmann:
 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 0672139..4176606 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1668,7 +1668,6 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 	}
- 	sk_setup_caps(newsk, dst);
- 
--	tcp_mtup_init(newsk);
- 	tcp_sync_mss(newsk, dst_mtu(dst));
- 	newtp->advmss = dst_metric_advmss(dst);
- 	if (tcp_sk(sk)->rx_opt.user_mss &&
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index f67033b..c5b0e1f 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1230,7 +1230,6 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 		inet_csk(newsk)->icsk_ext_hdr_len = (newnp->opt->opt_nflen +
- 						     newnp->opt->opt_flen);
- 
--	tcp_mtup_init(newsk);
- 	tcp_sync_mss(newsk, dst_mtu(dst));
- 	newtp->advmss = dst_metric_advmss(dst);
- 	if (tcp_sk(sk)->rx_opt.user_mss &&
--- 
-1.7.4.4
+> @@ -38,6 +37,23 @@ struct rnd_state { u32 prandom_u32_state(struct
+> rnd_state *state); void prandom_bytes_state(struct rnd_state
+> *state, void *buf, int nbytes);
+>=20
+> +/** + * prandom_u32_max - returns a pseduo-random number in
+> interval [0, ep_ro) + * @ep_ro: right open interval endpoint + * +
+> * Returns a pseduo-random number that is in interval [0, ep_ro).
+> Note + * that the result depends on PRNG being well distributed in
+> [0, ~0U] + * u32 space. Here we use maximally equidistributed
+> combined Tausworthe + * generator, that is, prandom_u32(). This is
+> useful when requesting a + * random index of an array containing
+> ep_ro elements, for example. + * + * Returns: pseduo-random number
+> in interval [0, ep_ro) + */
+
+The word "pseudo" is consistently mistyped as "pseduo" in this comment.
+(Three occurrences.) You may want to correct this before it gets merged=
+=2E
+
+Thanks,
+Tilman
+
+- --=20
+Tilman Schmidt                              E-Mail: tilman@imap.cc
+Bonn, Germany
+Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
+Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (MingW32)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iEYEARECAAYFAlLb1hAACgkQQ3+did9BuFt4gACeMe9m893fMIapXiZ/AC7BERai
+E/cAmgI6r1Uf1EE8reLA6nqd3T/FGWt6
+=3D5qOJ
+-----END PGP SIGNATURE-----
