@@ -1,102 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] ipv4: be friend with drop monitor
-Date: Sat, 18 Jan 2014 18:27:49 -0800
-Message-ID: <1390098469.27806.3.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3] net: introduce SO_BPF_EXTENSIONS
+Date: Sat, 18 Jan 2014 19:09:16 -0800 (PST)
+Message-ID: <20140118.190916.636296905840181243.davem@davemloft.net>
+References: <1389974985-21160-1-git-send-email-msekleta@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: msekleta@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:50618 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751700AbaASC1w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jan 2014 21:27:52 -0500
-Received: by mail-pa0-f44.google.com with SMTP id kq14so5649991pab.31
-        for <netdev@vger.kernel.org>; Sat, 18 Jan 2014 18:27:51 -0800 (PST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:54104 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752556AbaASDJU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jan 2014 22:09:20 -0500
+In-Reply-To: <1389974985-21160-1-git-send-email-msekleta@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Michal Sekletar <msekleta@redhat.com>
+Date: Fri, 17 Jan 2014 17:09:45 +0100
 
-Replace some dev_kfree_skb() with kfree_skb() calls when
-we drop one skb, this might help bug tracking.
+> For user space packet capturing libraries such as libpcap, there's
+> currently only one way to check which BPF extensions are supported
+> by the kernel, that is, commit aa1113d9f85d ("net: filter: return
+> -EINVAL if BPF_S_ANC* operation is not supported"). For querying all
+> extensions at once this might be rather inconvenient.
+> 
+> Therefore, this patch introduces a new option which can be used as
+> an argument for getsockopt(), and allows one to obtain information
+> about which BPF extensions are supported by the current kernel.
+> 
+> As David Miller suggests, we do not need to define any bits right
+> now and status quo can just return 0 in order to state that this
+> versions supports SKF_AD_PROTOCOL up to SKF_AD_PAY_OFFSET. Later
+> additions to BPF extensions need to add their bits to the
+> bpf_tell_extensions() function, as documented in the comment.
+> 
+> Signed-off-by: Michal Sekletar <msekleta@redhat.com>
+> Cc: David Miller <davem@davemloft.net>
+> Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/ip_gre.c    |    4 ++--
- net/ipv4/ip_tunnel.c |    4 ++--
- net/ipv4/ip_vti.c    |    2 +-
- net/ipv4/ipip.c      |    2 +-
- 4 files changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index e560ef34cf4b..e7a92fdb36f6 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -278,7 +278,7 @@ static netdev_tx_t ipgre_xmit(struct sk_buff *skb,
- 	return NETDEV_TX_OK;
- 
- free_skb:
--	dev_kfree_skb(skb);
-+	kfree_skb(skb);
- out:
- 	dev->stats.tx_dropped++;
- 	return NETDEV_TX_OK;
-@@ -301,7 +301,7 @@ static netdev_tx_t gre_tap_xmit(struct sk_buff *skb,
- 	return NETDEV_TX_OK;
- 
- free_skb:
--	dev_kfree_skb(skb);
-+	kfree_skb(skb);
- out:
- 	dev->stats.tx_dropped++;
- 	return NETDEV_TX_OK;
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index 432c28ab3197..83ede2e7ca42 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -716,7 +716,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
- 
- 	if (skb_cow_head(skb, dev->needed_headroom)) {
- 		dev->stats.tx_dropped++;
--		dev_kfree_skb(skb);
-+		kfree_skb(skb);
- 		return;
- 	}
- 
-@@ -732,7 +732,7 @@ tx_error_icmp:
- #endif
- tx_error:
- 	dev->stats.tx_errors++;
--	dev_kfree_skb(skb);
-+	kfree_skb(skb);
- }
- EXPORT_SYMBOL_GPL(ip_tunnel_xmit);
- 
-diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index 0783200ad8d2..48eafae51769 100644
---- a/net/ipv4/ip_vti.c
-+++ b/net/ipv4/ip_vti.c
-@@ -162,7 +162,7 @@ tx_error_icmp:
- 	dst_link_failure(skb);
- tx_error:
- 	dev->stats.tx_errors++;
--	dev_kfree_skb(skb);
-+	kfree_skb(skb);
- 	return NETDEV_TX_OK;
- }
- 
-diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-index fe3e9f7f1f0b..812b18351462 100644
---- a/net/ipv4/ipip.c
-+++ b/net/ipv4/ipip.c
-@@ -228,7 +228,7 @@ static netdev_tx_t ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 	return NETDEV_TX_OK;
- 
- tx_error:
--	dev_kfree_skb(skb);
-+	kfree_skb(skb);
- out:
- 	dev->stats.tx_errors++;
- 	return NETDEV_TX_OK;
+Applied, thanks.
