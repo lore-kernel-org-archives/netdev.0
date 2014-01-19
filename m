@@ -1,73 +1,75 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH v2] ipv4: remove the  useless argument from ip_tunnel_hash()
-Date: Sun, 19 Jan 2014 16:43:42 +0800
-Message-ID: <52DB903E.9050301@cn.fujitsu.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net] net: core: orphan frags before queuing to slow qdisc
+Date: Sun, 19 Jan 2014 11:21:40 +0200
+Message-ID: <20140119092140.GA2984@redhat.com>
+References: <1389951734-13234-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:3875 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750774AbaASIoU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Jan 2014 03:44:20 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1389951734-13234-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, Jan 17, 2014 at 05:42:14PM +0800, Jason Wang wrote:
+> Many qdiscs can queue a packet for a long time, this will lead an issue
+> with zerocopy skb. It means the frags will not be orphaned in an expected
+> short time, this breaks the assumption that virtio-net will transmit the
+> packet in time.
+> 
+> So if guest packets were queued through such kind of qdisc and hit the
+> limitation of the max pending packets for virtio/vhost. All packets that
+> go to another destination from guest will also be blocked.
+> 
+> A case for reproducing the issue:
+> 
+> - Boot two VMs and connect them to the same bridge kvmbr.
+> - Setup tbf with a very low rate/burst on eth0 which is a port of kvmbr.
+> - Let VM1 send lots of packets thorugh eth0
+> - After a while, VM1 is unable to send any packets out since the number of
+>   pending packets (queued to tbf) were exceeds the limitation of vhost/virito
+> 
+> Solve this issue by orphaning the frags before queuing it to a slow qdisc (the
+> one without TCQ_F_CAN_BYPASS).
 
-Since commit c544193214("GRE: Refactor GRE tunneling code")
-introduced function ip_tunnel_hash(), the argument itn is no 
-longer in use, so remove it.
+This seems too aggressive to me.
+The issue is that packet can stay queued indefinitely long.
+So I think we should only do this for tbf.
 
-Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
----
-
-v2: specify the commit's summary line in parens
-
- net/ipv4/ip_tunnel.c | 9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
-
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index d3929a6..6f5a347 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -61,8 +61,7 @@
- #include <net/ip6_route.h>
- #endif
- 
--static unsigned int ip_tunnel_hash(struct ip_tunnel_net *itn,
--				   __be32 key, __be32 remote)
-+static unsigned int ip_tunnel_hash(__be32 key, __be32 remote)
- {
- 	return hash_32((__force u32)key ^ (__force u32)remote,
- 			 IP_TNL_HASH_BITS);
-@@ -204,7 +203,7 @@ struct ip_tunnel *ip_tunnel_lookup(struct ip_tunnel_net *itn,
- 	struct ip_tunnel *t, *cand = NULL;
- 	struct hlist_head *head;
- 
--	hash = ip_tunnel_hash(itn, key, remote);
-+	hash = ip_tunnel_hash(key, remote);
- 	head = &itn->tunnels[hash];
- 
- 	hlist_for_each_entry_rcu(t, head, hash_node) {
-@@ -236,7 +235,7 @@ struct ip_tunnel *ip_tunnel_lookup(struct ip_tunnel_net *itn,
- 			cand = t;
- 	}
- 
--	hash = ip_tunnel_hash(itn, key, 0);
-+	hash = ip_tunnel_hash(key, 0);
- 	head = &itn->tunnels[hash];
- 
- 	hlist_for_each_entry_rcu(t, head, hash_node) {
-@@ -292,7 +291,7 @@ static struct hlist_head *ip_bucket(struct ip_tunnel_net *itn,
- 	else
- 		remote = 0;
- 
--	h = ip_tunnel_hash(itn, parms->i_key, remote);
-+	h = ip_tunnel_hash(parms->i_key, remote);
- 	return &itn->tunnels[h];
- }
- 
--- 
-1.8.3.1
+> 
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  net/core/dev.c | 7 +++++++
+>  1 file changed, 7 insertions(+)
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 0ce469e..1209774 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2700,6 +2700,12 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+>  	contended = qdisc_is_running(q);
+>  	if (unlikely(contended))
+>  		spin_lock(&q->busylock);
+> +	if (!(q->flags & TCQ_F_CAN_BYPASS) &&
+> +	    unlikely(skb_orphan_frags(skb, GFP_ATOMIC))) {
+> +		kfree_skb(skb);
+> +		rc = NET_XMIT_DROP;
+> +		goto out;
+> +	}
+>  
+>  	spin_lock(root_lock);
+>  	if (unlikely(test_bit(__QDISC_STATE_DEACTIVATED, &q->state))) {
+> @@ -2739,6 +2745,7 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+>  		}
+>  	}
+>  	spin_unlock(root_lock);
+> +out:
+>  	if (unlikely(contended))
+>  		spin_unlock(&q->busylock);
+>  	return rc;
+> -- 
+> 1.8.3.2
