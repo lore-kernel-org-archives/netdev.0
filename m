@@ -1,61 +1,102 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: vxlan: do not use vxlan_net before
- checking event type
-Date: Sat, 18 Jan 2014 18:01:08 -0800
-Message-ID: <1390096868.31367.546.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1389959706-30976-1-git-send-email-dborkman@redhat.com>
-	 <CAM_iQpV4FGdbHo9UVFhN9yqhZuGEZdrynikvrTZ0YZJTPVCmLg@mail.gmail.com>
-	 <52D97746.1040408@redhat.com>
-	 <CAM_iQpUoQcHpQJn-nYp9mO+XXMmXSjFxy3ASwchAH-qECoz9OA@mail.gmail.com>
-	 <1390065511.31367.535.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAM_iQpV5NO5YZkQ3dSj_GYhNE2jUdwcYgbX1uNaFua71a266HQ@mail.gmail.com>
-	 <1390072047.31367.543.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAM_iQpXd_MCiD26cCGzMzamK+Uz3jm5-LOns1Pud-1j2GYXhQw@mail.gmail.com>
+Subject: [PATCH net-next] ipv4: be friend with drop monitor
+Date: Sat, 18 Jan 2014 18:27:49 -0800
+Message-ID: <1390098469.27806.3.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:50952 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751712AbaASCBJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jan 2014 21:01:09 -0500
-Received: by mail-pd0-f178.google.com with SMTP id y13so5474988pdi.23
-        for <netdev@vger.kernel.org>; Sat, 18 Jan 2014 18:01:09 -0800 (PST)
-In-Reply-To: <CAM_iQpXd_MCiD26cCGzMzamK+Uz3jm5-LOns1Pud-1j2GYXhQw@mail.gmail.com>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:50618 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751700AbaASC1w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jan 2014 21:27:52 -0500
+Received: by mail-pa0-f44.google.com with SMTP id kq14so5649991pab.31
+        for <netdev@vger.kernel.org>; Sat, 18 Jan 2014 18:27:51 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2014-01-18 at 15:38 -0800, Cong Wang wrote:
-> Cc'ing netdev back...
-> 
-> On Sat, Jan 18, 2014 at 11:07 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > Daniel did the right thing and David agreed.
-> >
-> > And I agreed.
-> 
-> If you mean the code, I don't even want to argue from the beginning.
-> 
-> If you mean the author of the patch, it is obviously wrong.
-> 
-> >
-> > So if you want to fight, feel free, but its going to be really hard.
-> >
-> 
-> I see.
-> 
-> Next time, I will pick up your patch, change a very minor issue,
-> and *steal* it as mine (a.k.a ignoring From:). So that in the changelog
-> your patch will become mine.
-> 
-> You don't mind, since you already agreed above...
+From: Eric Dumazet <edumazet@google.com>
 
-You failed to the test I did with you.
+Replace some dev_kfree_skb() with kfree_skb() calls when
+we drop one skb, this might help bug tracking.
 
-By adding netdev back to a mail I sent privately, you violated one very
-elementary rule of communication.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/ip_gre.c    |    4 ++--
+ net/ipv4/ip_tunnel.c |    4 ++--
+ net/ipv4/ip_vti.c    |    2 +-
+ net/ipv4/ipip.c      |    2 +-
+ 4 files changed, 6 insertions(+), 6 deletions(-)
 
-This is a huge mistake.
-
-I will never send you again a private mail.
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index e560ef34cf4b..e7a92fdb36f6 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -278,7 +278,7 @@ static netdev_tx_t ipgre_xmit(struct sk_buff *skb,
+ 	return NETDEV_TX_OK;
+ 
+ free_skb:
+-	dev_kfree_skb(skb);
++	kfree_skb(skb);
+ out:
+ 	dev->stats.tx_dropped++;
+ 	return NETDEV_TX_OK;
+@@ -301,7 +301,7 @@ static netdev_tx_t gre_tap_xmit(struct sk_buff *skb,
+ 	return NETDEV_TX_OK;
+ 
+ free_skb:
+-	dev_kfree_skb(skb);
++	kfree_skb(skb);
+ out:
+ 	dev->stats.tx_dropped++;
+ 	return NETDEV_TX_OK;
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index 432c28ab3197..83ede2e7ca42 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -716,7 +716,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 
+ 	if (skb_cow_head(skb, dev->needed_headroom)) {
+ 		dev->stats.tx_dropped++;
+-		dev_kfree_skb(skb);
++		kfree_skb(skb);
+ 		return;
+ 	}
+ 
+@@ -732,7 +732,7 @@ tx_error_icmp:
+ #endif
+ tx_error:
+ 	dev->stats.tx_errors++;
+-	dev_kfree_skb(skb);
++	kfree_skb(skb);
+ }
+ EXPORT_SYMBOL_GPL(ip_tunnel_xmit);
+ 
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index 0783200ad8d2..48eafae51769 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -162,7 +162,7 @@ tx_error_icmp:
+ 	dst_link_failure(skb);
+ tx_error:
+ 	dev->stats.tx_errors++;
+-	dev_kfree_skb(skb);
++	kfree_skb(skb);
+ 	return NETDEV_TX_OK;
+ }
+ 
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index fe3e9f7f1f0b..812b18351462 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -228,7 +228,7 @@ static netdev_tx_t ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	return NETDEV_TX_OK;
+ 
+ tx_error:
+-	dev_kfree_skb(skb);
++	kfree_skb(skb);
+ out:
+ 	dev->stats.tx_errors++;
+ 	return NETDEV_TX_OK;
