@@ -1,43 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3] net: introduce SO_BPF_EXTENSIONS
-Date: Sat, 18 Jan 2014 19:09:16 -0800 (PST)
-Message-ID: <20140118.190916.636296905840181243.davem@davemloft.net>
-References: <1389974985-21160-1-git-send-email-msekleta@redhat.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next] bonding: move the netdev_add_tso_features()
+ to bonding module
+Date: Sun, 19 Jan 2014 13:34:21 +0800
+Message-ID: <52DB63DD.50203@huawei.com>
+References: <52DA3BE5.5020500@huawei.com>	 <20140118114801.GA30549@redhat.com> <1390064923.31367.531.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: msekleta@redhat.com
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54104 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752556AbaASDJU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jan 2014 22:09:20 -0500
-In-Reply-To: <1389974985-21160-1-git-send-email-msekleta@redhat.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:25204 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750739AbaASFe7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 00:34:59 -0500
+In-Reply-To: <1390064923.31367.531.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michal Sekletar <msekleta@redhat.com>
-Date: Fri, 17 Jan 2014 17:09:45 +0100
+On 2014/1/19 1:08, Eric Dumazet wrote:
+> On Sat, 2014-01-18 at 12:48 +0100, Veaceslav Falico wrote:
+>> On Sat, Jan 18, 2014 at 04:31:33PM +0800, Ding Tianhong wrote:
+>>> The function netdev_add_tso_features() was only be used for bonding,
+>>> so no need to export it in netdevice.h, move it to bonding module.
+>>
+>> Eric added it for a reason - like, other drivers might use it. Do you know
+>> if team, bridge, vlan etc. might use it?
+> 
+> A helper can be used once, this is fine. A car can have 4 seats, and can
+> even be used with no passenger.
+> 
+> I am quite bored by patches that break clean layering for wrong reasons.
+> 
+> 
+> static inline netdev_features_t netdev_add_tso_features(netdev_features_t features,
+>                                                       netdev_features_t mask)
+> {
+>       return netdev_increment_features(features, NETIF_F_ALL_TSO, mask);
+> }
+> 
+> There is _nothing_ in this helper that implies it should be private to bonding.
+> 
+> 
 
-> For user space packet capturing libraries such as libpcap, there's
-> currently only one way to check which BPF extensions are supported
-> by the kernel, that is, commit aa1113d9f85d ("net: filter: return
-> -EINVAL if BPF_S_ANC* operation is not supported"). For querying all
-> extensions at once this might be rather inconvenient.
-> 
-> Therefore, this patch introduces a new option which can be used as
-> an argument for getsockopt(), and allows one to obtain information
-> about which BPF extensions are supported by the current kernel.
-> 
-> As David Miller suggests, we do not need to define any bits right
-> now and status quo can just return 0 in order to state that this
-> versions supports SKF_AD_PROTOCOL up to SKF_AD_PAY_OFFSET. Later
-> additions to BPF extensions need to add their bits to the
-> bpf_tell_extensions() function, as documented in the comment.
-> 
-> Signed-off-by: Michal Sekletar <msekleta@redhat.com>
-> Cc: David Miller <davem@davemloft.net>
-> Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
+yep, it is look so fool that my patch said, thanks for reminding me.
 
-Applied, thanks.
+> 
+> 
+> 
