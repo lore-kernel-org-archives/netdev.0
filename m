@@ -1,75 +1,105 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net] net: core: orphan frags before queuing to slow qdisc
-Date: Sun, 19 Jan 2014 11:21:40 +0200
-Message-ID: <20140119092140.GA2984@redhat.com>
-References: <1389951734-13234-1-git-send-email-jasowang@redhat.com>
+From: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+Subject: Re: [PATCH linux-next] net: batman-adv: use
+ "__packed __aligned(2)" for each structure instead of "__packed(2)" region
+Date: Sun, 19 Jan 2014 10:30:33 +0100
+Message-ID: <52DB9B39.9090502@meshcoding.com>
+References: <52DA65F4.5070501@gmail.com> <52DA7B9E.4040202@meshcoding.com>
+ <4915262.qEFumRrH4p@radagast>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1389951734-13234-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="dwlJkL9EKIhSkSimllsEG6nT9F2A7dCAa"
+Cc: mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+ Chen Gang <gang.chen.5i5j-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: James Hogan <james.hogan-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <4915262.qEFumRrH4p@radagast>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 17, 2014 at 05:42:14PM +0800, Jason Wang wrote:
-> Many qdiscs can queue a packet for a long time, this will lead an issue
-> with zerocopy skb. It means the frags will not be orphaned in an expected
-> short time, this breaks the assumption that virtio-net will transmit the
-> packet in time.
-> 
-> So if guest packets were queued through such kind of qdisc and hit the
-> limitation of the max pending packets for virtio/vhost. All packets that
-> go to another destination from guest will also be blocked.
-> 
-> A case for reproducing the issue:
-> 
-> - Boot two VMs and connect them to the same bridge kvmbr.
-> - Setup tbf with a very low rate/burst on eth0 which is a port of kvmbr.
-> - Let VM1 send lots of packets thorugh eth0
-> - After a while, VM1 is unable to send any packets out since the number of
->   pending packets (queued to tbf) were exceeds the limitation of vhost/virito
-> 
-> Solve this issue by orphaning the frags before queuing it to a slow qdisc (the
-> one without TCQ_F_CAN_BYPASS).
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--dwlJkL9EKIhSkSimllsEG6nT9F2A7dCAa
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-This seems too aggressive to me.
-The issue is that packet can stay queued indefinitely long.
-So I think we should only do this for tbf.
+On 19/01/14 02:10, James Hogan wrote:
+>=20
+> It appears that the following gcc patch adds support for #pragma pack:
+> http://gcc.gnu.org/ml/gcc-patches/2006-10/msg01115.html
+>=20
+> I gave it a quick spin on metag gcc (which is unfortunately stuck on an=
+ old=20
+> version) and it seems to fix my simple test case so that #pragma pack(2=
+)=20
+> becomes equivalent to __packed __aligned(2) (for sizeof and __alignof__=
+).
+>=20
 
-> 
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  net/core/dev.c | 7 +++++++
->  1 file changed, 7 insertions(+)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 0ce469e..1209774 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2700,6 +2700,12 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
->  	contended = qdisc_is_running(q);
->  	if (unlikely(contended))
->  		spin_lock(&q->busylock);
-> +	if (!(q->flags & TCQ_F_CAN_BYPASS) &&
-> +	    unlikely(skb_orphan_frags(skb, GFP_ATOMIC))) {
-> +		kfree_skb(skb);
-> +		rc = NET_XMIT_DROP;
-> +		goto out;
-> +	}
->  
->  	spin_lock(root_lock);
->  	if (unlikely(test_bit(__QDISC_STATE_DEACTIVATED, &q->state))) {
-> @@ -2739,6 +2745,7 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
->  		}
->  	}
->  	spin_unlock(root_lock);
-> +out:
->  	if (unlikely(contended))
->  		spin_unlock(&q->busylock);
->  	return rc;
-> -- 
-> 1.8.3.2
+Then I personally think that it is better to fix metag gcc instead of
+changing the kernel.
+
+Actually there are many different spots where "#pragma pack" is used.
+batman-adv is just the only one having compile time checks for structure
+sizes.
+
+>=20
+> However, the __packed and __aligned are linux specific macros to abstra=
+ct=20
+> compiler details, whereas #pragma pack appears to be a compiler-specifi=
+c WIN32=20
+> style equivalent to GCC's __attribute__((packed)) and=20
+> __attribute__((aligned(2))) (these are what __packed and __aligned use =
+in=20
+> compiler-gcc.h).
+>=20
+> Therefore I believe using the Linux abstractions is still more correct =
+here.
+
+If you really think so, I'd suggest to grep in the kernel and catch all
+the other occurrences of "#pragma pack" and change them all (assuming
+that using __attribute__((aligned(2))) is the way to go).
+
+Cheers,
+
+
+--=20
+Antonio Quartulli
+
+
+--dwlJkL9EKIhSkSimllsEG6nT9F2A7dCAa
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJS25s8AAoJEEKTMo6mOh1VXCAP/A8qzEMtBis4jfr4qSBamy8P
+tGGhZYRnn8WnH+YPndVTmfXtao7A+lTk1LF1cmMNbk/Tsp6e4sAoIolB2xF4/kHh
+SDAwA4BOZfy0SyVnaDEHoJgfN9pBsGaxaogqcYRwvRpGGXbcI/QgU3nGB01MSDjm
+lfcUo+kPP0JLtAbGfqUYnxhWjhFauq12Csaf7eZ2yT3g8RmxliCCSD+YA4gMWfAl
+htSnBfd5mEb8FlGc8hfmON/zk9oiLkZ3doaISwbrEj1Bp5E6dr/ExkVrQmanV9Ln
+WbidBglTq0heM8Ym7HVkXdhSMNP2FWZyU/IC+wmwXAmL9YdYgLIaySfu7Wk/B/us
+tBqTBbEezUomOunLL0j2AQktlDB42AqSI390o70GgT9qgMenrMPXK4EG1LnUsby5
+RitJPvGgu2yKqIp9CYZ1RJYBig1Aom+aJNQo3wdACeqEIFpp3rUYay+eKjBCFCj5
+SzbJM7wYpmrRC1VnwL7WCyJRFqSVqAhuRF74euM9mrO76C5jBrTniwB7FQaf0+Ja
+QpMRSBr3rvXDnX9Wt5YECDOFdmR+QGATVbZG0T4ot06gB69ebHwbQKo+09K4CDpo
+vo1WU/pmd2E7zNTDlrJ1zgTTiBWg9AQ3pWZHbcHf7NOuJn1yThgLMD+wSVBu4mdQ
+ESx1DyVwg93m8HP0a6GL
+=JR3W
+-----END PGP SIGNATURE-----
+
+--dwlJkL9EKIhSkSimllsEG6nT9F2A7dCAa--
