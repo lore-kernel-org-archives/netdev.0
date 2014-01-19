@@ -1,115 +1,54 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] packet: fix a couple of cppcheck warnings
-Date: Sun, 19 Jan 2014 11:46:53 +0100
-Message-ID: <1390128413-7075-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Weiping Pan <panweiping3@gmail.com>
+Subject: [PATCH net v2] tcp: delete redundant calls of tcp_mtup_init()
+Date: Sun, 19 Jan 2014 20:44:46 +0800
+Message-ID: <1a8e9e92721ef792aa017b89a4d6376dca5dc4f6.1390135376.git.panweiping3@gmail.com>
+References: <20140114.164105.524133214769947013.davem@davemloft.net>
+Cc: Weiping Pan <panweiping3@gmail.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22624 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751664AbaASKq4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Jan 2014 05:46:56 -0500
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:54767 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751614AbaASMox (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 07:44:53 -0500
+Received: by mail-pa0-f42.google.com with SMTP id kl14so5992817pab.1
+        for <netdev@vger.kernel.org>; Sun, 19 Jan 2014 04:44:53 -0800 (PST)
+In-Reply-To: <20140114.164105.524133214769947013.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Doesn't bring much, but also doesn't hurt us to fix 'em:
+As tcp_rcv_state_process() has already calls tcp_mtup_init() for non-fastopen
+sock, we can delete the redundant calls of tcp_mtup_init() in
+tcp_{v4,v6}_syn_recv_sock().
 
-1) In tpacket_rcv() flush dcache page we can restirct the scope
-   for start and end and remove one layer of indent.
-
-2) In tpacket_destruct_skb() we can restirct the scope for ph.
-
-3) In alloc_one_pg_vec_page() we can remove the NULL assignment
-   and change spacing a bit.
-
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Weiping Pan <panweiping3@gmail.com>
 ---
- net/packet/af_packet.c | 37 +++++++++++++++----------------------
- 1 file changed, 15 insertions(+), 22 deletions(-)
+ net/ipv4/tcp_ipv4.c |    1 -
+ net/ipv6/tcp_ipv6.c |    1 -
+ 2 files changed, 0 insertions(+), 2 deletions(-)
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 12f2f72..aecae1b 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -2009,19 +2009,20 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
- 		sll->sll_ifindex = dev->ifindex;
- 
- 	smp_mb();
-+
- #if ARCH_IMPLEMENTS_FLUSH_DCACHE_PAGE == 1
--	{
-+	if (po->tp_version <= TPACKET_V2) {
- 		u8 *start, *end;
- 
--		if (po->tp_version <= TPACKET_V2) {
--			end = (u8 *)PAGE_ALIGN((unsigned long)h.raw
--				+ macoff + snaplen);
--			for (start = h.raw; start < end; start += PAGE_SIZE)
--				flush_dcache_page(pgv_to_page(start));
--		}
--		smp_wmb();
-+		end = (u8 *) PAGE_ALIGN((unsigned long) h.raw +
-+					macoff + snaplen);
-+
-+		for (start = h.raw; start < end; start += PAGE_SIZE)
-+			flush_dcache_page(pgv_to_page(start));
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 0672139..4176606 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1668,7 +1668,6 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
  	}
-+	smp_wmb();
- #endif
-+
- 	if (po->tp_version <= TPACKET_V2)
- 		__packet_set_status(po, h.raw, status);
- 	else
-@@ -2050,9 +2051,9 @@ ring_is_full:
- static void tpacket_destruct_skb(struct sk_buff *skb)
- {
- 	struct packet_sock *po = pkt_sk(skb->sk);
--	void *ph;
+ 	sk_setup_caps(newsk, dst);
  
- 	if (likely(po->tx_ring.pg_vec)) {
-+		void *ph;
- 		__u32 ts;
+-	tcp_mtup_init(newsk);
+ 	tcp_sync_mss(newsk, dst_mtu(dst));
+ 	newtp->advmss = dst_metric_advmss(dst);
+ 	if (tcp_sk(sk)->rx_opt.user_mss &&
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index f67033b..c5b0e1f 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1230,7 +1230,6 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 		inet_csk(newsk)->icsk_ext_hdr_len = (newnp->opt->opt_nflen +
+ 						     newnp->opt->opt_flen);
  
- 		ph = skb_shinfo(skb)->destructor_arg;
-@@ -3648,34 +3649,26 @@ static void free_pg_vec(struct pgv *pg_vec, unsigned int order,
- 
- static char *alloc_one_pg_vec_page(unsigned long order)
- {
--	char *buffer = NULL;
-+	char *buffer;
- 	gfp_t gfp_flags = GFP_KERNEL | __GFP_COMP |
- 			  __GFP_ZERO | __GFP_NOWARN | __GFP_NORETRY;
- 
- 	buffer = (char *) __get_free_pages(gfp_flags, order);
--
- 	if (buffer)
- 		return buffer;
- 
--	/*
--	 * __get_free_pages failed, fall back to vmalloc
--	 */
-+	/* __get_free_pages failed, fall back to vmalloc */
- 	buffer = vzalloc((1 << order) * PAGE_SIZE);
--
- 	if (buffer)
- 		return buffer;
- 
--	/*
--	 * vmalloc failed, lets dig into swap here
--	 */
-+	/* vmalloc failed, lets dig into swap here */
- 	gfp_flags &= ~__GFP_NORETRY;
--	buffer = (char *)__get_free_pages(gfp_flags, order);
-+	buffer = (char *) __get_free_pages(gfp_flags, order);
- 	if (buffer)
- 		return buffer;
- 
--	/*
--	 * complete and utter failure
--	 */
-+	/* complete and utter failure */
- 	return NULL;
- }
- 
+-	tcp_mtup_init(newsk);
+ 	tcp_sync_mss(newsk, dst_mtu(dst));
+ 	newtp->advmss = dst_metric_advmss(dst);
+ 	if (tcp_sk(sk)->rx_opt.user_mss &&
 -- 
-1.7.11.7
+1.7.4.4
