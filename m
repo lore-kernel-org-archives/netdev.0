@@ -1,64 +1,151 @@
-From: Chen Gang <gang.chen.5i5j@gmail.com>
-Subject: Re: [PATCH linux-next] net: batman-adv: use "__packed __aligned(2)"
- for each structure instead of "__packed(2)" region
-Date: Sun, 19 Jan 2014 17:51:25 +0800
-Message-ID: <52DBA01D.6040000@gmail.com>
-References: <52DA65F4.5070501@gmail.com> <52DA7B9E.4040202@meshcoding.com> <4915262.qEFumRrH4p@radagast> <52DB9B39.9090502@meshcoding.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net] net: core: orphan frags before queuing to slow qdisc
+Date: Sun, 19 Jan 2014 11:56:39 +0200
+Message-ID: <20140119095639.GB2984@redhat.com>
+References: <1389951734-13234-1-git-send-email-jasowang@redhat.com>
+ <1389968897.31367.489.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: James Hogan <james.hogan@imgtec.com>,
-	David Miller <davem@davemloft.net>, mareklindner@neomailbox.ch,
-	sw@simonwunderlich.de, b.a.t.m.a.n@lists.open-mesh.org,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	linux-metag@vger.kernel.org,
-	Dan Carpenter <dan.carpenter@oracle.com>,
-	Greg KH <gregkh@linuxfoundation.org>
-To: Antonio Quartulli <antonio@meshcoding.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52DB9B39.9090502@meshcoding.com>
+Content-Disposition: inline
+In-Reply-To: <1389968897.31367.489.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/19/2014 05:30 PM, Antonio Quartulli wrote:
-> On 19/01/14 02:10, James Hogan wrote:
->>
->> It appears that the following gcc patch adds support for #pragma pack:
->> http://gcc.gnu.org/ml/gcc-patches/2006-10/msg01115.html
->>
->> I gave it a quick spin on metag gcc (which is unfortunately stuck on an old 
->> version) and it seems to fix my simple test case so that #pragma pack(2) 
->> becomes equivalent to __packed __aligned(2) (for sizeof and __alignof__).
->>
+On Fri, Jan 17, 2014 at 06:28:17AM -0800, Eric Dumazet wrote:
+> On Fri, 2014-01-17 at 17:42 +0800, Jason Wang wrote:
+> > Many qdiscs can queue a packet for a long time, this will lead an issue
+> > with zerocopy skb. It means the frags will not be orphaned in an expected
+> > short time, this breaks the assumption that virtio-net will transmit the
+> > packet in time.
+> > 
+> > So if guest packets were queued through such kind of qdisc and hit the
+> > limitation of the max pending packets for virtio/vhost. All packets that
+> > go to another destination from guest will also be blocked.
+> > 
+> > A case for reproducing the issue:
+> > 
+> > - Boot two VMs and connect them to the same bridge kvmbr.
+> > - Setup tbf with a very low rate/burst on eth0 which is a port of kvmbr.
+> > - Let VM1 send lots of packets thorugh eth0
+> > - After a while, VM1 is unable to send any packets out since the number of
+> >   pending packets (queued to tbf) were exceeds the limitation of vhost/virito
 > 
-> Then I personally think that it is better to fix metag gcc instead of
-> changing the kernel.
-> 
-> Actually there are many different spots where "#pragma pack" is used.
-> batman-adv is just the only one having compile time checks for structure
-> sizes.
-> 
+> So whats the problem ? If the limit is low, you cannot sent packets.
 
-What Antonio said sounds reasonable to me.
+I think this isn't the main problem.
+Say VM1 is using tap1 and VM2 uses tap2, all connected to
+same bridge.
+Set up tbf on tap2 and have VM1 send packets to VM2.
+VM1 will get blocked and won't be able to talk to
+host or eth0 for a long while, even though the path
+from VM1 to host is idle.
 
->>
->> However, the __packed and __aligned are linux specific macros to abstract 
->> compiler details, whereas #pragma pack appears to be a compiler-specific WIN32 
->> style equivalent to GCC's __attribute__((packed)) and 
->> __attribute__((aligned(2))) (these are what __packed and __aligned use in 
->> compiler-gcc.h).
->>
->> Therefore I believe using the Linux abstractions is still more correct here.
-> 
-> If you really think so, I'd suggest to grep in the kernel and catch all
-> the other occurrences of "#pragma pack" and change them all (assuming
-> that using __attribute__((aligned(2))) is the way to go).
-> 
+The problem should appear with both zerocopy or with
+TUNSETSNDBUF used to set sndbuf to a finite value.
 
 
-Thanks.
--- 
-Chen Gang
+> Solution : increase the limit, or tell the vm to lower its rate.
 
-Open, share and attitude like air, water and life which God blessed
+The issue is that different links can have different policies.
+
+A VM that's unable to talk to host
+even though the path from this VM to the host is
+completely idle because some other VM's RX -
+which it used to talk to in the past - is throttled violates
+the principle of least surprise.
+
+>
+> Oh wait, are you bitten because you did some prior skb_orphan() to allow
+> the vm to send unlimited number of skbs ???
+
+I think it's because the limit on number
+of skbs per VM is INT_MAX by default, in any case -
+for compatibility reasons.
+
+Further, e.g. QEMU also had to stop using
+TUNSETSNDBUF because of these issues.
+It would be nice to fix this, yes.
+
+> > 
+> > Solve this issue by orphaning the frags before queuing it to a slow qdisc (the
+> > one without TCQ_F_CAN_BYPASS).
+> 
+> Why orphaning the frags only solves the problem ? A skb without zerocopy
+> frags should also be blocked for a while.
+
+I agree that if we want to fix behaviour for limited sndbuf,
+we have to orphan everything queued on tbf,
+possibly only if it's limit is set very low.
+Do you think it's reasonable?
+
+>
+> Seriously, lets admit this zero copy stuff is utterly broken.
+> 
+
+zero copy is simply newer, we didn't have compatibility to
+worry about so we set a finite limit there by default.
+As you point out the problem isn't specific to zero copy,
+it's happening whenever we try to limit # of skbs.
+
+
+So do you think the idea of limiting skbs is utterly
+broken, and we should just let it rip as fast as it can?
+
+> TCQ_F_CAN_BYPASS is not enough. Some NIC have separate queues with
+> strict priorities.
+> 
+> It seems to me that you are pushing to use FIFO (the only qdisc setting
+> TCQ_F_CAN_BYPASS), by adding yet another test in fast path (I do not
+> know how we can still call it a fast path), while we already have smart
+> qdisc to avoid the inherent HOL and unfairness problems of FIFO.
+
+TCQ_F_CAN_BYPASS doesn't look like a good idea to me either.
+
+I think the biggest problem is with tbf because it's not
+work-conserving, so a link can get
+throttled even in system which is mostly idle.
+
+
+> > 
+> > Cc: Michael S. Tsirkin <mst@redhat.com>
+> > Signed-off-by: Jason Wang <jasowang@redhat.com>
+> > ---
+> >  net/core/dev.c | 7 +++++++
+> >  1 file changed, 7 insertions(+)
+> > 
+> > diff --git a/net/core/dev.c b/net/core/dev.c
+> > index 0ce469e..1209774 100644
+> > --- a/net/core/dev.c
+> > +++ b/net/core/dev.c
+> > @@ -2700,6 +2700,12 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+> >  	contended = qdisc_is_running(q);
+> >  	if (unlikely(contended))
+> >  		spin_lock(&q->busylock);
+> > +	if (!(q->flags & TCQ_F_CAN_BYPASS) &&
+> > +	    unlikely(skb_orphan_frags(skb, GFP_ATOMIC))) {
+> > +		kfree_skb(skb);
+> > +		rc = NET_XMIT_DROP;
+> > +		goto out;
+> > +	}
+> 
+> Are you aware that copying stuff takes time ?
+> 
+> If yes, why is it done after taking the busylock spinlock ?
+> 
+> >  
+> >  	spin_lock(root_lock);
+> >  	if (unlikely(test_bit(__QDISC_STATE_DEACTIVATED, &q->state))) {
+> > @@ -2739,6 +2745,7 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+> >  		}
+> >  	}
+> >  	spin_unlock(root_lock);
+> > +out:
+> >  	if (unlikely(contended))
+> >  		spin_unlock(&q->busylock);
+> >  	return rc;
+> 
+> 
