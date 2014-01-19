@@ -1,151 +1,115 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net] net: core: orphan frags before queuing to slow qdisc
-Date: Sun, 19 Jan 2014 11:56:39 +0200
-Message-ID: <20140119095639.GB2984@redhat.com>
-References: <1389951734-13234-1-git-send-email-jasowang@redhat.com>
- <1389968897.31367.489.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1389968897.31367.489.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] packet: fix a couple of cppcheck warnings
+Date: Sun, 19 Jan 2014 11:46:53 +0100
+Message-ID: <1390128413-7075-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:22624 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751664AbaASKq4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Jan 2014 05:46:56 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 17, 2014 at 06:28:17AM -0800, Eric Dumazet wrote:
-> On Fri, 2014-01-17 at 17:42 +0800, Jason Wang wrote:
-> > Many qdiscs can queue a packet for a long time, this will lead an issue
-> > with zerocopy skb. It means the frags will not be orphaned in an expected
-> > short time, this breaks the assumption that virtio-net will transmit the
-> > packet in time.
-> > 
-> > So if guest packets were queued through such kind of qdisc and hit the
-> > limitation of the max pending packets for virtio/vhost. All packets that
-> > go to another destination from guest will also be blocked.
-> > 
-> > A case for reproducing the issue:
-> > 
-> > - Boot two VMs and connect them to the same bridge kvmbr.
-> > - Setup tbf with a very low rate/burst on eth0 which is a port of kvmbr.
-> > - Let VM1 send lots of packets thorugh eth0
-> > - After a while, VM1 is unable to send any packets out since the number of
-> >   pending packets (queued to tbf) were exceeds the limitation of vhost/virito
-> 
-> So whats the problem ? If the limit is low, you cannot sent packets.
+Doesn't bring much, but also doesn't hurt us to fix 'em:
 
-I think this isn't the main problem.
-Say VM1 is using tap1 and VM2 uses tap2, all connected to
-same bridge.
-Set up tbf on tap2 and have VM1 send packets to VM2.
-VM1 will get blocked and won't be able to talk to
-host or eth0 for a long while, even though the path
-from VM1 to host is idle.
+1) In tpacket_rcv() flush dcache page we can restirct the scope
+   for start and end and remove one layer of indent.
 
-The problem should appear with both zerocopy or with
-TUNSETSNDBUF used to set sndbuf to a finite value.
+2) In tpacket_destruct_skb() we can restirct the scope for ph.
 
+3) In alloc_one_pg_vec_page() we can remove the NULL assignment
+   and change spacing a bit.
 
-> Solution : increase the limit, or tell the vm to lower its rate.
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ net/packet/af_packet.c | 37 +++++++++++++++----------------------
+ 1 file changed, 15 insertions(+), 22 deletions(-)
 
-The issue is that different links can have different policies.
-
-A VM that's unable to talk to host
-even though the path from this VM to the host is
-completely idle because some other VM's RX -
-which it used to talk to in the past - is throttled violates
-the principle of least surprise.
-
->
-> Oh wait, are you bitten because you did some prior skb_orphan() to allow
-> the vm to send unlimited number of skbs ???
-
-I think it's because the limit on number
-of skbs per VM is INT_MAX by default, in any case -
-for compatibility reasons.
-
-Further, e.g. QEMU also had to stop using
-TUNSETSNDBUF because of these issues.
-It would be nice to fix this, yes.
-
-> > 
-> > Solve this issue by orphaning the frags before queuing it to a slow qdisc (the
-> > one without TCQ_F_CAN_BYPASS).
-> 
-> Why orphaning the frags only solves the problem ? A skb without zerocopy
-> frags should also be blocked for a while.
-
-I agree that if we want to fix behaviour for limited sndbuf,
-we have to orphan everything queued on tbf,
-possibly only if it's limit is set very low.
-Do you think it's reasonable?
-
->
-> Seriously, lets admit this zero copy stuff is utterly broken.
-> 
-
-zero copy is simply newer, we didn't have compatibility to
-worry about so we set a finite limit there by default.
-As you point out the problem isn't specific to zero copy,
-it's happening whenever we try to limit # of skbs.
-
-
-So do you think the idea of limiting skbs is utterly
-broken, and we should just let it rip as fast as it can?
-
-> TCQ_F_CAN_BYPASS is not enough. Some NIC have separate queues with
-> strict priorities.
-> 
-> It seems to me that you are pushing to use FIFO (the only qdisc setting
-> TCQ_F_CAN_BYPASS), by adding yet another test in fast path (I do not
-> know how we can still call it a fast path), while we already have smart
-> qdisc to avoid the inherent HOL and unfairness problems of FIFO.
-
-TCQ_F_CAN_BYPASS doesn't look like a good idea to me either.
-
-I think the biggest problem is with tbf because it's not
-work-conserving, so a link can get
-throttled even in system which is mostly idle.
-
-
-> > 
-> > Cc: Michael S. Tsirkin <mst@redhat.com>
-> > Signed-off-by: Jason Wang <jasowang@redhat.com>
-> > ---
-> >  net/core/dev.c | 7 +++++++
-> >  1 file changed, 7 insertions(+)
-> > 
-> > diff --git a/net/core/dev.c b/net/core/dev.c
-> > index 0ce469e..1209774 100644
-> > --- a/net/core/dev.c
-> > +++ b/net/core/dev.c
-> > @@ -2700,6 +2700,12 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
-> >  	contended = qdisc_is_running(q);
-> >  	if (unlikely(contended))
-> >  		spin_lock(&q->busylock);
-> > +	if (!(q->flags & TCQ_F_CAN_BYPASS) &&
-> > +	    unlikely(skb_orphan_frags(skb, GFP_ATOMIC))) {
-> > +		kfree_skb(skb);
-> > +		rc = NET_XMIT_DROP;
-> > +		goto out;
-> > +	}
-> 
-> Are you aware that copying stuff takes time ?
-> 
-> If yes, why is it done after taking the busylock spinlock ?
-> 
-> >  
-> >  	spin_lock(root_lock);
-> >  	if (unlikely(test_bit(__QDISC_STATE_DEACTIVATED, &q->state))) {
-> > @@ -2739,6 +2745,7 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
-> >  		}
-> >  	}
-> >  	spin_unlock(root_lock);
-> > +out:
-> >  	if (unlikely(contended))
-> >  		spin_unlock(&q->busylock);
-> >  	return rc;
-> 
-> 
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 12f2f72..aecae1b 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2009,19 +2009,20 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+ 		sll->sll_ifindex = dev->ifindex;
+ 
+ 	smp_mb();
++
+ #if ARCH_IMPLEMENTS_FLUSH_DCACHE_PAGE == 1
+-	{
++	if (po->tp_version <= TPACKET_V2) {
+ 		u8 *start, *end;
+ 
+-		if (po->tp_version <= TPACKET_V2) {
+-			end = (u8 *)PAGE_ALIGN((unsigned long)h.raw
+-				+ macoff + snaplen);
+-			for (start = h.raw; start < end; start += PAGE_SIZE)
+-				flush_dcache_page(pgv_to_page(start));
+-		}
+-		smp_wmb();
++		end = (u8 *) PAGE_ALIGN((unsigned long) h.raw +
++					macoff + snaplen);
++
++		for (start = h.raw; start < end; start += PAGE_SIZE)
++			flush_dcache_page(pgv_to_page(start));
+ 	}
++	smp_wmb();
+ #endif
++
+ 	if (po->tp_version <= TPACKET_V2)
+ 		__packet_set_status(po, h.raw, status);
+ 	else
+@@ -2050,9 +2051,9 @@ ring_is_full:
+ static void tpacket_destruct_skb(struct sk_buff *skb)
+ {
+ 	struct packet_sock *po = pkt_sk(skb->sk);
+-	void *ph;
+ 
+ 	if (likely(po->tx_ring.pg_vec)) {
++		void *ph;
+ 		__u32 ts;
+ 
+ 		ph = skb_shinfo(skb)->destructor_arg;
+@@ -3648,34 +3649,26 @@ static void free_pg_vec(struct pgv *pg_vec, unsigned int order,
+ 
+ static char *alloc_one_pg_vec_page(unsigned long order)
+ {
+-	char *buffer = NULL;
++	char *buffer;
+ 	gfp_t gfp_flags = GFP_KERNEL | __GFP_COMP |
+ 			  __GFP_ZERO | __GFP_NOWARN | __GFP_NORETRY;
+ 
+ 	buffer = (char *) __get_free_pages(gfp_flags, order);
+-
+ 	if (buffer)
+ 		return buffer;
+ 
+-	/*
+-	 * __get_free_pages failed, fall back to vmalloc
+-	 */
++	/* __get_free_pages failed, fall back to vmalloc */
+ 	buffer = vzalloc((1 << order) * PAGE_SIZE);
+-
+ 	if (buffer)
+ 		return buffer;
+ 
+-	/*
+-	 * vmalloc failed, lets dig into swap here
+-	 */
++	/* vmalloc failed, lets dig into swap here */
+ 	gfp_flags &= ~__GFP_NORETRY;
+-	buffer = (char *)__get_free_pages(gfp_flags, order);
++	buffer = (char *) __get_free_pages(gfp_flags, order);
+ 	if (buffer)
+ 		return buffer;
+ 
+-	/*
+-	 * complete and utter failure
+-	 */
++	/* complete and utter failure */
+ 	return NULL;
+ }
+ 
+-- 
+1.7.11.7
