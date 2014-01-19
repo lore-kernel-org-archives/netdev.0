@@ -1,103 +1,86 @@
-From: James Hogan <james.hogan@imgtec.com>
-Subject: Re: [PATCH linux-next] net: batman-adv: use "__packed __aligned(2)" for each structure instead of "__packed(2)" region
-Date: Sun, 19 Jan 2014 01:10:39 +0000
-Message-ID: <4915262.qEFumRrH4p@radagast>
-References: <52DA65F4.5070501@gmail.com> <52DA7B9E.4040202@meshcoding.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [ PATCH net-next]  qlcnic: fix sparse warnings
+Date: Sat, 18 Jan 2014 17:21:13 -0800
+Message-ID: <20140118172113.16adb69f@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart5248907.2zWhsaco1j"; micalg="pgp-sha1"; protocol="application/pgp-signature"
-Cc: Chen Gang <gang.chen.5i5j@gmail.com>,
-	David Miller <davem@davemloft.net>, mareklindner@neomailbox.ch,
-	sw@simonwunderlich.de, b.a.t.m.a.n@lists.open-mesh.org,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	linux-metag@vger.kernel.org
-To: Antonio Quartulli <antonio@meshcoding.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52DA7B9E.4040202@meshcoding.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f43.google.com ([209.85.160.43]:54911 "EHLO
+	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751539AbaASBVQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jan 2014 20:21:16 -0500
+Received: by mail-pb0-f43.google.com with SMTP id md12so5555687pbc.16
+        for <netdev@vger.kernel.org>; Sat, 18 Jan 2014 17:21:15 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Fengguang Wu <fengguang.wu@intel.com>
 
---nextPart5248907.2zWhsaco1j
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/plain; charset="us-ascii"
+Previous patch changed prototypes, but forgot functions.
 
-On Saturday 18 January 2014 14:03:26 Antonio Quartulli wrote:
-> On 18/01/14 12:31, Chen Gang wrote:
-> > Unfortunately, not all compilers assumes the structures within a pack
-> > region also need be packed (e.g. metag), so need add a pack explicitly
-> > to satisfy all compilers.
-> > 
-> > The related error (under metag with allmodconfig):
-> >     MODPOST 2952 modules
-> >   
-> >   ERROR: "__compiletime_assert_431" [net/batman-adv/batman-adv.ko]
-> >   undefined!
-> >   ERROR: "__compiletime_assert_432" [net/batman-adv/batman-adv.ko]
-> >   undefined!
-> >   ERROR: "__compiletime_assert_429" [net/batman-adv/batman-adv.ko]
-> >   undefined!
-> >   ERROR: "__compiletime_assert_428" [net/batman-adv/batman-adv.ko]
-> >   undefined!
-> >   ERROR: "__compiletime_assert_423" [net/batman-adv/batman-adv.ko]
-> >   undefined!
-> > 
-> > Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
-> 
-> David, what do you think about this change?
-> 
-> 
-> Can "__packed __aligned(2)" generate a different structure padding than
-> "#pragma pack(2)" ?
-> 
-> I am not really sure about the difference between the two. But if we
-> have the possibility that the padding may change then this patch should
-> go into net, otherwise we will have a protocol compatibility problem
-> between 3.13 and 3.14.
+Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+Acked-by: Stephen Hemminger <stephen@networkplumber.org>
 
-(Chen: sorry I didn't twig what you were referring to before about #pragma 
-pack not working)
+---
+ qlcnic_83xx_hw.c |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-It appears that the following gcc patch adds support for #pragma pack:
-http://gcc.gnu.org/ml/gcc-patches/2006-10/msg01115.html
-
-I gave it a quick spin on metag gcc (which is unfortunately stuck on an old 
-version) and it seems to fix my simple test case so that #pragma pack(2) 
-becomes equivalent to __packed __aligned(2) (for sizeof and __alignof__).
-
-
-However, the __packed and __aligned are linux specific macros to abstract 
-compiler details, whereas #pragma pack appears to be a compiler-specific WIN32 
-style equivalent to GCC's __attribute__((packed)) and 
-__attribute__((aligned(2))) (these are what __packed and __aligned use in 
-compiler-gcc.h).
-
-Therefore I believe using the Linux abstractions is still more correct here.
-
-Cheers
-James
-
---nextPart5248907.2zWhsaco1j
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
-Content-Transfer-Encoding: 7Bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAABAgAGBQJS2yYYAAoJEKHZs+irPybfwPgP/RpixtlwIvbQJQ29rTzabkgS
-deB6rN/4332leZtIX1REV3s5zFxRJ5iC+NstNMtV8gLZY8JiBPy+RPOU45m7O77X
-b/Ryey4NKy7A0X2fxM8GrR+xZAVSLEJ+N21Ra6QpLOIFdRwL6RL1pBZ7OBfW85Wr
-4tVt18bjZkeFMq2BRqC6xyik3RsXMyyKx4Rk1w8ruEJPJWFzqfSv1Q8G6EiV3lD5
-bJ7A6KHagjI717VmB1QkPQhXBZXQF4Xut4yuC/0yZ/5Ivgp31Ve8Siu+uapgIeGA
-q1QV/SVA6sIpwmpoAooDUhUMmR2e0N2RBGBWCD10B+oFZbJ/5WFwqOyGkqhwDLNL
-rFBgeXNE9jYZsr1wZz/rH9NudZImExhQF3wmcHo0y/hZ3f4Qb3s3AOZL4O6J5Nnx
-hMkW+F6ChZywLrr4QKOymLAQrVxykyB8Z3XS6io+1MmkiFrvMTxLS2sKDV03t5HW
-rgb+I3QCnS8s6TKGTula72cKX4nq3FQ1p3wIPib+08nc92eruTpXclwmHWGbQeyl
-7krH+toHGBMP0rK6ndeMkk4E42+LMuXalf182umFz1y/eweUP4mZtZkPNviAfrhR
-yQ/3cH46tv0DwDZfPtotCoLMZtZ58wjQOQR5CY5WFmTiRE197zApWvruOGGoKU27
-enJQ/rrackYEQQzkUP8e
-=wy98
------END PGP SIGNATURE-----
-
---nextPart5248907.2zWhsaco1j--
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c	2014-01-18 13:41:07.000000000 -0800
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c	2014-01-18 17:13:08.640658697 -0800
+@@ -2066,7 +2066,7 @@ void qlcnic_83xx_change_l2_filter(struct
+ 	qlcnic_83xx_sre_macaddr_change(adapter, mac, vlan_id, QLCNIC_MAC_ADD);
+ }
+ 
+-void qlcnic_83xx_configure_mac(struct qlcnic_adapter *adapter, u8 *mac,
++static void qlcnic_83xx_configure_mac(struct qlcnic_adapter *adapter, u8 *mac,
+ 			       u8 type, struct qlcnic_cmd_args *cmd)
+ {
+ 	switch (type) {
+@@ -2170,7 +2170,7 @@ static void qlcnic_83xx_handle_link_aen(
+ 	qlcnic_advert_link_change(adapter, link_status);
+ }
+ 
+-irqreturn_t qlcnic_83xx_handle_aen(int irq, void *data)
++static irqreturn_t qlcnic_83xx_handle_aen(int irq, void *data)
+ {
+ 	struct qlcnic_adapter *adapter = data;
+ 	struct qlcnic_mailbox *mbx;
+@@ -3517,7 +3517,7 @@ int qlcnic_83xx_flash_test(struct qlcnic
+ 	return 0;
+ }
+ 
+-int qlcnic_83xx_shutdown(struct pci_dev *pdev)
++static int qlcnic_83xx_shutdown(struct pci_dev *pdev)
+ {
+ 	struct qlcnic_adapter *adapter = pci_get_drvdata(pdev);
+ 	struct net_device *netdev = adapter->netdev;
+@@ -3892,7 +3892,7 @@ int qlcnic_83xx_init_mailbox_work(struct
+ 	return 0;
+ }
+ 
+-pci_ers_result_t qlcnic_83xx_io_error_detected(struct pci_dev *pdev,
++static pci_ers_result_t qlcnic_83xx_io_error_detected(struct pci_dev *pdev,
+ 					       pci_channel_state_t state)
+ {
+ 	struct qlcnic_adapter *adapter = pci_get_drvdata(pdev);
+@@ -3914,7 +3914,7 @@ pci_ers_result_t qlcnic_83xx_io_error_de
+ 	return PCI_ERS_RESULT_NEED_RESET;
+ }
+ 
+-pci_ers_result_t qlcnic_83xx_io_slot_reset(struct pci_dev *pdev)
++static pci_ers_result_t qlcnic_83xx_io_slot_reset(struct pci_dev *pdev)
+ {
+ 	struct qlcnic_adapter *adapter = pci_get_drvdata(pdev);
+ 	int err = 0;
+@@ -3937,7 +3937,7 @@ disconnect:
+ 	return PCI_ERS_RESULT_DISCONNECT;
+ }
+ 
+-void qlcnic_83xx_io_resume(struct pci_dev *pdev)
++static void qlcnic_83xx_io_resume(struct pci_dev *pdev)
+ {
+ 	struct qlcnic_adapter *adapter = pci_get_drvdata(pdev);
+ 
