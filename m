@@ -1,105 +1,47 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH V3] net/dt: Add support for overriding phy configuration
- from device tree
-Date: Sun, 19 Jan 2014 15:34:14 +0000
-Message-ID: <1390145654.16433.102.camel@deadeye.wl.decadent.org.uk>
-References: <7510122.cayuQ6qt8r@wuerfel>
-	 <1389999459-9483-1-git-send-email-matthew.garrett@nebula.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-g+jb+UpMZLok7E/iYvC5"
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kishon@ti.com
-To: Matthew Garrett <matthew.garrett@nebula.com>
+From: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+Subject: [PATCH net-next v2] ipv6: enable anycast addresses as source addresses in ICMPv6 error messages
+Date: Sun, 19 Jan 2014 17:00:36 +0100
+Message-ID: <1390147236-3660-1-git-send-email-fx.lebail@yahoo.com>
+Cc: David Stevens <dlstevens@us.ibm.com>,
+	Bill Fink <billfink@mindspring.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:59715 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752230AbaASPej (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 10:34:39 -0500
-In-Reply-To: <1389999459-9483-1-git-send-email-matthew.garrett@nebula.com>
+Received: from smtp01.smtpout.orange.fr ([80.12.242.123]:55662 "EHLO
+	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752337AbaASQUf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 11:20:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+- Uses ipv6_anycast_destination() in icmp6_send().
 
---=-g+jb+UpMZLok7E/iYvC5
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Suggested-by: Bill Fink <billfink@mindspring.com>
+Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+---
+v2: Consideration of a Hannes's concern : No sysctl is needed for this change.
+    No need for a new check function.
 
-On Fri, 2014-01-17 at 17:57 -0500, Matthew Garrett wrote:
-> Some hardware may be broken in interesting and board-specific ways, such
-> that various bits of functionality don't work. This patch provides a
-> mechanism for overriding mii registers during init based on the contents =
-of
-> the device tree data, allowing board-specific fixups without having to
-> pollute generic code.
-[...]
-> --- a/Documentation/devicetree/bindings/net/phy.txt
-> +++ b/Documentation/devicetree/bindings/net/phy.txt
-> @@ -23,6 +23,21 @@ Optional Properties:
->    assume clause 22. The compatible list may also contain other
->    elements.
-> =20
-> +The following properties may be added to either the phy node or the pare=
-nt
-> +ethernet device. If not present, the hardware defaults will be used.
-> +
-> +- phy-mii-advertise-10half: 1 to advertise half-duplex 10MBit, 0 to disa=
-ble
-> +- phy-mii-advertise-10full: 1 to advertise full-duplex 10MBit, 0 to disa=
-ble
-> +- phy-mii-advertise-100half: 1 to advertise half-duplex 100MBit, 0 to di=
-sable
-> +- phy-mii-advertise-100full: 1 to advertise full-duplex 100MBit, 0 to di=
-sable
-> +- phy-mii-advertise-100base4: 1 to advertise 100base4, 0 to disable
-> +- phy-mii-advertise-1000half: 1 to advertise half-duplex 1000MBit, 0 to =
-disable
-> +- phy-mii-advertise-1000full: 1 to advertise full-duplex 1000MBit, 0 to =
-disable
+ net/ipv6/icmp.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Are these really all needed?  Apparently there is a standard 'max-speed'
-property on Ethernet devices already, which I think is probably
-sufficient to express the actual restrictions of some boards.
-
-> +- phy-mii-manual-master: 1 to enable manual master/slave configuration, =
-0
-> +  to disable manual master/slave configuration
-[...]
-
-Although the standard calls this 'manual', if it's set in the DT it
-won't really be a manual setting.  The description should probably
-clarify that.
-
-I think the name should include 'master-slave' or 'clock-role' rather
-than just 'master', as currently it suggests only the master role can be
-forced.
-
-Ben.
-
---=20
-Ben Hutchings
-friends: People who know you well, but like you anyway.
-
---=-g+jb+UpMZLok7E/iYvC5
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
-
-iQIVAwUAUtvwdue/yOyVhhEJAQpktQ//QNzIw7A2wI0tIGy485xO5OH36N6VPO4e
-oS2bFp77f5bq5K4ycLnaL7/TYYBEOpoinlRk3EXhJAIfjf3OtwRviQcc2Uo6WQRk
-6tFMBMwMWtkqiSgBCdAp5l5lXwmrjsAcNO+8vNWajU8p0ZmbSxLiwjZL/umI5Mmh
-nqjEhg3Q/Akq3mZnwmbQX1MtpfeW/Apu6sr+k7X2Ey9xgzat6DE8CafkcZUEQKTc
-ptCPQ/ynWOUFYvXTvg/F+SKYE86vgbzroB1CyYUy9keFVvPTeHCVyjV/TTe93hoD
-ASDvy7JigZFTjwUYCsIyUmPY3T6s/cdDcPbp93SZKpqrb5Vq2iIaIOLnrlqjtBXG
-gvX6AMxtjPT/mx2ObqepVWxDzfDxQDFquwRaQc4J17Uk9CcU1464cMIPVyjvRRIu
-P8TJwoglYYslAkUoF/9acSEH1KdTqwKzjdpTsHtiH78fWf7xK0cB/PqFJUVO9z7G
-vjFWrBuHHujPG+XioK/ROD/nB6iy6wVrjsco3M4DViYfnMLvD7dTFMLu3RO3ao0o
-dnxbM/eUZ8mR4+nz7Z4onYq/2hAV+pZqQw/9E1YcoDB92ESESTatacVO1m+YP0Ii
-p7yNj4XMlvzv2LKUeiz76WGbkWtB4u0XxW2eUl3DSoAFJcrYpTG2UDw3gFfJcVf3
-LvokKbEz5fg=
-=JLlz
------END PGP SIGNATURE-----
-
---=-g+jb+UpMZLok7E/iYvC5--
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 902405d..f81f596 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -413,7 +413,8 @@ static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
+ 	 */
+ 	addr_type = ipv6_addr_type(&hdr->daddr);
+ 
+-	if (ipv6_chk_addr(net, &hdr->daddr, skb->dev, 0))
++	if (ipv6_chk_addr(net, &hdr->daddr, skb->dev, 0) ||
++	    ipv6_anycast_destination(skb))
+ 		saddr = &hdr->daddr;
+ 
+ 	/*
