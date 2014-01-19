@@ -1,189 +1,96 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: ping [PATCH v3] WAN: Adding support for Lantiq PEF2256 E1
- chipset (FALC56)
-Date: Sun, 19 Jan 2014 11:34:55 -0800
-Message-ID: <1390160095.2290.9.camel@joe-AO722>
-References: <20140119180732.A1D99432AF@localhost.localdomain>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [ PATCH net-next vw] qlcnic: fix sparse warnings
+Date: Sun, 19 Jan 2014 11:37:12 -0800
+Message-ID: <20140119113712.18f75ba9@nehalam.linuxnetplumber.net>
+References: <20140118172113.16adb69f@nehalam.linuxnetplumber.net>
+	<20140118.230924.161581406065831782.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Rob Herring <rob.herring@calxeda.com>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Stephen Warren <swarren@wwwdotorg.org>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Rob Landley <rob@landley.net>,
-	Grant Likely <grant.likely@linaro.org>,
-	Krzysztof Halasa <khc@pm.waw.pl>, devicetree@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, marc.balemboy@c-s.fr
-To: Christophe Leroy <christophe.leroy@c-s.fr>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0125.hostedemail.com ([216.40.44.125]:45557 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751727AbaASTfB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 14:35:01 -0500
-In-Reply-To: <20140119180732.A1D99432AF@localhost.localdomain>
+Received: from mail-pb0-f42.google.com ([209.85.160.42]:57383 "EHLO
+	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751727AbaASThQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 14:37:16 -0500
+Received: by mail-pb0-f42.google.com with SMTP id jt11so4080918pbb.29
+        for <netdev@vger.kernel.org>; Sun, 19 Jan 2014 11:37:14 -0800 (PST)
+In-Reply-To: <20140118.230924.161581406065831782.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-01-19 at 19:07 +0100, Christophe Leroy wrote:
-> Pinging this watch as we got no feedback since 22 Nov, although we have taken
-> into account reviews from v1 and v2.
-> 
-> The patch adds WAN support for Lantiq FALC56 - PEF2256 E1 Chipset.
+From: Fengguang Wu <fengguang.wu@intel.com>
+Subject: [PATCH net-next] qlcnic: fix sparse warnings
 
-trivia:
+Previous patch changed prototypes, but forgot functions.
 
-> diff -urN a/drivers/net/wan/pef2256.c b/drivers/net/wan/pef2256.c
-[]
-> +static void config_hdlc_timeslot(struct pef2256_dev_priv *priv, int ts)
-> +{
-> +	static struct {
-> +		u32 ttr;
-> +		u32 rtr;
-> +	} regs[] = {
-> +		{ TTR1, RTR1 },
-> +		{ TTR2, RTR2 },
-> +		{ TTR3, RTR3 },
-> +		{ TTR4, RTR4 },
-> +	};
+Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+Acked-by: Stephen Hemminger <stephen@networkplumber.org>
 
-const
+---
+v2 - fix indentation
 
-> +	int cfg_bit = 1 << (31 - ts);
-> +	int reg_bit = 1 << (7 - (ts % 8));
-> +	int j = ts / 8;
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c |   16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-looks endian specific
-
-> +
-> +	if (j >= 4)
-> +		return;
-> +
-> +	if (priv->Tx_TS & cfg_bit)
-> +		pef2256_s8(priv, regs[j].ttr, 1 << reg_bit);
-> +
-> +	if (priv->Rx_TS & cfg_bit)
-> +		pef2256_s8(priv, regs[j].rtr, 1 << reg_bit);
-> +}
-
-> +static void init_falc(struct pef2256_dev_priv *priv)
-> +{
-
-a lot of the below looks like it should use
-switch/case blocks.
-
-> +	/* Clocking rate for FALC56 */
-> +
-> +	/* Nothing to do for clocking rate 2M  */
-> +
-> +	/* clocking rate 4M  */
-> +	if (priv->clock_rate == CLOCK_RATE_4M)
-> +		pef2256_s8(priv, SIC1, SIC1_SSC0);
-> +
-> +	/* clocking rate 8M  */
-> +	if (priv->clock_rate == CLOCK_RATE_8M)
-> +		pef2256_s8(priv, SIC1, SIC1_SSC1);
-> +
-> +	/* clocking rate 16M  */
-> +	if (priv->clock_rate == CLOCK_RATE_16M) {
-> +		pef2256_s8(priv, SIC1, SIC1_SSC0);
-> +		pef2256_s8(priv, SIC1, SIC1_SSC1);
-> +	}
-> +
-> +	/* data rate for FALC56 */
-> +
-> +	/* Nothing to do for data rate 2M on the system data bus */
-> +
-> +	/* data rate 4M on the system data bus */
-> +	if (priv->data_rate == DATA_RATE_4M)
-> +		pef2256_s8(priv, FMR1, FMR1_SSD0);
-> +
-> +	/* data rate 8M on the system data bus */
-> +	if (priv->data_rate == DATA_RATE_8M)
-> +		pef2256_s8(priv, SIC1, SIC1_SSD1);
-> +
-> +	/* data rate 16M on the system data bus */
-> +	if (priv->data_rate == DATA_RATE_16M) {
-> +		pef2256_s8(priv, FMR1, FMR1_SSD0);
-> +		pef2256_s8(priv, SIC1, SIC1_SSD1);
-> +	}
-> +
-> +	/* channel phase for FALC56 */
-> +
-> +	/* Nothing to do for channel phase 1 */
-> +
-> +	if (priv->channel_phase == CHANNEL_PHASE_2)
-> +		pef2256_s8(priv, SIC2, SIC2_SICS0);
-> +
-> +	if (priv->channel_phase == CHANNEL_PHASE_3)
-> +		pef2256_s8(priv, SIC2, SIC2_SICS1);
-> +
-> +	if (priv->channel_phase == CHANNEL_PHASE_4) {
-> +		pef2256_s8(priv, SIC2, SIC2_SICS0);
-> +		pef2256_s8(priv, SIC2, SIC2_SICS1);
-> +	}
-> +
-> +	if (priv->channel_phase == CHANNEL_PHASE_5)
-> +		pef2256_s8(priv, SIC2, SIC2_SICS2);
-> +
-> +	if (priv->channel_phase == CHANNEL_PHASE_6) {
-> +		pef2256_s8(priv, SIC2, SIC2_SICS0);
-> +		pef2256_s8(priv, SIC2, SIC2_SICS2);
-> +	}
-> +
-> +	if (priv->channel_phase == CHANNEL_PHASE_7) {
-> +		pef2256_s8(priv, SIC2, SIC2_SICS1);
-> +		pef2256_s8(priv, SIC2, SIC2_SICS2);
-> +	}
-> +
-> +	if (priv->channel_phase == CHANNEL_PHASE_8) {
-> +		pef2256_s8(priv, SIC2, SIC2_SICS0);
-> +		pef2256_s8(priv, SIC2, SIC2_SICS1);
-> +		pef2256_s8(priv, SIC2, SIC2_SICS2);
-> +	}
-
-> +static ssize_t fs_attr_mode_store(struct device *dev,
-> +			struct device_attribute *attr,  const char *buf,
-> +			size_t count)
-> +{
-> +	struct net_device *ndev = dev_get_drvdata(dev);
-> +	struct pef2256_dev_priv *priv = dev_to_hdlc(ndev)->priv;
-> +	long int value;
-> +	int ret = kstrtol(buf, 10, &value);
-> +	int reconfigure = (value != priv->mode);
-
-Ugly test and set before determining if the previous
-function was successful.
-
-> +	if (value != MASTER_MODE && value != SLAVE_MODE)
-> +		ret = -EINVAL;
-> +
-> +	if (ret < 0)
-> +		netdev_info(ndev, "Invalid mode (0 or 1 expected\n");
-> +	else {
-> +		priv->mode = value;
-> +		if (reconfigure && netif_carrier_ok(ndev))
-> +			init_falc(priv);
-> +	}
-> +
-> +	return strnlen(buf, count);
-
-odd that you set ret and then don't use it.
-
-
-> +static ssize_t fs_attr_Tx_TS_store(struct device *dev,
-> +			struct device_attribute *attr,  const char *buf,
-> +			size_t count)
-> +{
-> +	struct net_device *ndev = dev_get_drvdata(dev);
-> +	struct pef2256_dev_priv *priv = dev_to_hdlc(ndev)->priv;
-> +	unsigned long value;
-> +	int ret = kstrtoul(buf, 16, (long int *)&value);
-
-unportable cast
-
-> +	int reconfigure = (value != priv->mode);
-
-again with the test/set before determining function success.
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c	2014-01-18 13:41:07.000000000 -0800
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c	2014-01-19 10:55:19.207423506 -0800
+@@ -2066,8 +2066,8 @@ void qlcnic_83xx_change_l2_filter(struct
+ 	qlcnic_83xx_sre_macaddr_change(adapter, mac, vlan_id, QLCNIC_MAC_ADD);
+ }
+ 
+-void qlcnic_83xx_configure_mac(struct qlcnic_adapter *adapter, u8 *mac,
+-			       u8 type, struct qlcnic_cmd_args *cmd)
++static void qlcnic_83xx_configure_mac(struct qlcnic_adapter *adapter, u8 *mac,
++				      u8 type, struct qlcnic_cmd_args *cmd)
+ {
+ 	switch (type) {
+ 	case QLCNIC_SET_STATION_MAC:
+@@ -2170,7 +2170,7 @@ static void qlcnic_83xx_handle_link_aen(
+ 	qlcnic_advert_link_change(adapter, link_status);
+ }
+ 
+-irqreturn_t qlcnic_83xx_handle_aen(int irq, void *data)
++static irqreturn_t qlcnic_83xx_handle_aen(int irq, void *data)
+ {
+ 	struct qlcnic_adapter *adapter = data;
+ 	struct qlcnic_mailbox *mbx;
+@@ -3517,7 +3517,7 @@ int qlcnic_83xx_flash_test(struct qlcnic
+ 	return 0;
+ }
+ 
+-int qlcnic_83xx_shutdown(struct pci_dev *pdev)
++static int qlcnic_83xx_shutdown(struct pci_dev *pdev)
+ {
+ 	struct qlcnic_adapter *adapter = pci_get_drvdata(pdev);
+ 	struct net_device *netdev = adapter->netdev;
+@@ -3892,8 +3892,8 @@ int qlcnic_83xx_init_mailbox_work(struct
+ 	return 0;
+ }
+ 
+-pci_ers_result_t qlcnic_83xx_io_error_detected(struct pci_dev *pdev,
+-					       pci_channel_state_t state)
++static pci_ers_result_t qlcnic_83xx_io_error_detected(struct pci_dev *pdev,
++						      pci_channel_state_t state)
+ {
+ 	struct qlcnic_adapter *adapter = pci_get_drvdata(pdev);
+ 
+@@ -3914,7 +3914,7 @@ pci_ers_result_t qlcnic_83xx_io_error_de
+ 	return PCI_ERS_RESULT_NEED_RESET;
+ }
+ 
+-pci_ers_result_t qlcnic_83xx_io_slot_reset(struct pci_dev *pdev)
++static pci_ers_result_t qlcnic_83xx_io_slot_reset(struct pci_dev *pdev)
+ {
+ 	struct qlcnic_adapter *adapter = pci_get_drvdata(pdev);
+ 	int err = 0;
+@@ -3937,7 +3937,7 @@ disconnect:
+ 	return PCI_ERS_RESULT_DISCONNECT;
+ }
+ 
+-void qlcnic_83xx_io_resume(struct pci_dev *pdev)
++static void qlcnic_83xx_io_resume(struct pci_dev *pdev)
+ {
+ 	struct qlcnic_adapter *adapter = pci_get_drvdata(pdev);
+ 
