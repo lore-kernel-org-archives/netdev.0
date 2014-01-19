@@ -1,71 +1,37 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next] ipv6: optimize link local address search
-Date: Sun, 19 Jan 2014 21:58:19 +0100
-Message-ID: <20140119205819.GD16462@order.stressinduktion.org>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH] net: gre: don't pull skb if dealing with icmp message
+Date: Sun, 19 Jan 2014 13:08:58 -0800
+Message-ID: <CALnjE+qtB4fEw4HdUZy6nXU6gSAjeSCiBn0EaQR9o_d2SY3yNQ@mail.gmail.com>
+References: <52DB8E4A.7050809@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: brian.haley@hp.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	netdev <netdev@vger.kernel.org>
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:50129 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751956AbaASU6U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 15:58:20 -0500
-Content-Disposition: inline
+Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:46926 "HELO
+	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752007AbaASVPi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 16:15:38 -0500
+Received: by mail-ie0-f176.google.com with SMTP id tp5so1148827ieb.7
+        for <netdev@vger.kernel.org>; Sun, 19 Jan 2014 13:15:38 -0800 (PST)
+In-Reply-To: <52DB8E4A.7050809@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ipv6_link_dev_addr sorts newly added addresses by scope in
-ifp->addr_list. Smaller scope addresses are added to the tail of the
-list. Use this fact to iterate in reverse over addr_list and break out
-as soon as a higher scoped one showes up, so we can spare some cycles
-on machines with lot's of addresses.
-
-The ordering of the addresses is not relevant and we are more likely to
-get the eui64 generated address with this change anyway.
-
-Suggested-by: Brian Haley <brian.haley@hp.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv6/addrconf.c | 12 +++++++++---
- 1 file changed, 9 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index f91e107..31bdedc 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1437,7 +1437,9 @@ int __ipv6_get_lladdr(struct inet6_dev *idev, struct in6_addr *addr,
- 	struct inet6_ifaddr *ifp;
- 	int err = -EADDRNOTAVAIL;
- 
--	list_for_each_entry(ifp, &idev->addr_list, if_list) {
-+	list_for_each_entry_reverse(ifp, &idev->addr_list, if_list) {
-+		if (ifp->scope > IFA_LINK)
-+			break;
- 		if (ifp->scope == IFA_LINK &&
- 		    !(ifp->flags & banned_flags)) {
- 			*addr = ifp->addr;
-@@ -1858,7 +1860,9 @@ static int ipv6_inherit_eui64(u8 *eui, struct inet6_dev *idev)
- 	struct inet6_ifaddr *ifp;
- 
- 	read_lock_bh(&idev->lock);
--	list_for_each_entry(ifp, &idev->addr_list, if_list) {
-+	list_for_each_entry_reverse(ifp, &idev->addr_list, if_list) {
-+		if (ifp->scope > IFA_LINK)
-+			break;
- 		if (ifp->scope == IFA_LINK && !(ifp->flags&IFA_F_TENTATIVE)) {
- 			memcpy(eui, ifp->addr.s6_addr+8, 8);
- 			err = 0;
-@@ -3239,7 +3243,9 @@ static bool ipv6_lonely_lladdr(struct inet6_ifaddr *ifp)
- 	struct inet6_ifaddr *ifpiter;
- 	struct inet6_dev *idev = ifp->idev;
- 
--	list_for_each_entry(ifpiter, &idev->addr_list, if_list) {
-+	list_for_each_entry_reverse(ifpiter, &idev->addr_list, if_list) {
-+		if (ifpiter->scope > IFA_LINK)
-+			break;
- 		if (ifp != ifpiter && ifpiter->scope == IFA_LINK &&
- 		    (ifpiter->flags & (IFA_F_PERMANENT|IFA_F_TENTATIVE|
- 				       IFA_F_OPTIMISTIC|IFA_F_DADFAILED)) ==
--- 
-1.8.4.2
+On Sun, Jan 19, 2014 at 12:35 AM, Duan Jiong <duanj.fnst@cn.fujitsu.com> wrote:
+>
+> When dealing with icmp messages, the skb->data points the
+> ip header that triggered the sending of the icmp message.
+>
+> In gre_cisco_err(), the parse_gre_header() is called, and the
+> iptunnel_pull_header() is called to pull the skb at the end of
+> the parse_gre_header(). Unfortunately, the ipgre_err still needs
+> the skb->data points the ip header following the icmp layer,
+> and those ip addresses in ip header will be used to look up
+> tunnel by ip_tunnel_lookup().
+>
+This looks like bug.
+Can you use ip_hdr() rather than skb->data in ipgre_err().
+Same is done in ipgre_rcv().
