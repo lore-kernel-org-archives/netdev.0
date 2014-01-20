@@ -1,40 +1,36 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net] net: document accel_priv parameter for __dev_queue_xmit()
-Date: Mon, 20 Jan 2014 11:25:13 +0800
-Message-ID: <1390188313-9275-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] tun: handle copy failure in tun_put_user()
+Date: Sun, 19 Jan 2014 19:48:56 -0800 (PST)
+Message-ID: <20140119.194856.491294439635992592.davem@davemloft.net>
+References: <1390187808-5462-1-git-send-email-jasowang@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	mst@redhat.com
+To: jasowang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51508 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752166AbaATDZi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Jan 2014 22:25:38 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:41008 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752166AbaATDs7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 22:48:59 -0500
+In-Reply-To: <1390187808-5462-1-git-send-email-jasowang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To silent "make htmldocs" warning.
+From: Jason Wang <jasowang@redhat.com>
+Date: Mon, 20 Jan 2014 11:16:48 +0800
 
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- net/core/dev.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+> This patch return the error code of copy helpers in tun_put_user() instead of
+> ignoring them.
+> 
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 0ce469e..d78dc62 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2781,8 +2781,9 @@ int dev_loopback_xmit(struct sk_buff *skb)
- EXPORT_SYMBOL(dev_loopback_xmit);
- 
- /**
-- *	dev_queue_xmit - transmit a buffer
-+ *	__dev_queue_xmit - transmit a buffer
-  *	@skb: buffer to transmit
-+ *	@accel_priv: private data used for L2 forwarding offload
-  *
-  *	Queue a buffer for transmission to a network device. The caller must
-  *	have set the device and priority and built the buffer before calling
--- 
-1.8.3.2
+If you perform some of the copy successfully, you have to report that
+length rather than just an error.
+
+Otherwise userland has no way to determine how much of the data was
+successfully sourced.
+
+I'm not applying this, sorry.
