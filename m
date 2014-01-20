@@ -1,29 +1,51 @@
-From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH net-next] sch_netem: replace magic numbers with
- enumerate
-Date: Sun, 19 Jan 2014 17:17:55 -0800 (PST)
-Message-ID: <20140119.171755.1861549969369985148.davem@redhat.com>
-References: <1390040011-13296-1-git-send-email-yangyingliang@huawei.com>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: Re: [PATCH] net: gre: don't pull skb if dealing with icmp message
+Date: Mon, 20 Jan 2014 09:37:40 +0800
+Message-ID: <52DC7DE4.1050108@cn.fujitsu.com>
+References: <52DB8E4A.7050809@cn.fujitsu.com> <CALnjE+qtB4fEw4HdUZy6nXU6gSAjeSCiBn0EaQR9o_d2SY3yNQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-To: yangyingliang@huawei.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	netdev <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41978 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752166AbaATBSA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Jan 2014 20:18:00 -0500
-In-Reply-To: <1390040011-13296-1-git-send-email-yangyingliang@huawei.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:2956 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752166AbaATBiX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 20:38:23 -0500
+In-Reply-To: <CALnjE+qtB4fEw4HdUZy6nXU6gSAjeSCiBn0EaQR9o_d2SY3yNQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yang Yingliang <yangyingliang@huawei.com>
-Date: Sat, 18 Jan 2014 18:13:31 +0800
+=E4=BA=8E 2014=E5=B9=B401=E6=9C=8820=E6=97=A5 05:08, Pravin Shelar =E5=86=
+=99=E9=81=93:
+> On Sun, Jan 19, 2014 at 12:35 AM, Duan Jiong <duanj.fnst@cn.fujitsu.c=
+om> wrote:
+>>
+>> When dealing with icmp messages, the skb->data points the
+>> ip header that triggered the sending of the icmp message.
+>>
+>> In gre_cisco_err(), the parse_gre_header() is called, and the
+>> iptunnel_pull_header() is called to pull the skb at the end of
+>> the parse_gre_header(). Unfortunately, the ipgre_err still needs
+>> the skb->data points the ip header following the icmp layer,
+>> and those ip addresses in ip header will be used to look up
+>> tunnel by ip_tunnel_lookup().
+>>
+> This looks like bug.
+> Can you use ip_hdr() rather than skb->data in ipgre_err().
+> Same is done in ipgre_rcv().
 
-> Replace some magic numbers which describe states of 4-state model
-> loss generator with enumerate.
-> 
-> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+That's maybe not a good idea. The ip_hdr() will the return the outmost
+ip header, but we need inner ip header following the icmp layer.
 
-Applied, thank you.
+Thanks,
+  Duan
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
