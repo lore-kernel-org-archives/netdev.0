@@ -1,61 +1,40 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net] tun: handle copy failure in tun_put_user()
-Date: Mon, 20 Jan 2014 11:16:48 +0800
-Message-ID: <1390187808-5462-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH net] net: document accel_priv parameter for __dev_queue_xmit()
+Date: Mon, 20 Jan 2014 11:25:13 +0800
+Message-ID: <1390188313-9275-1-git-send-email-jasowang@redhat.com>
+Cc: Jason Wang <jasowang@redhat.com>
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51508 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752166AbaATDZi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Jan 2014 22:25:38 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch return the error code of copy helpers in tun_put_user() instead of
-ignoring them.
+To silent "make htmldocs" warning.
 
-Cc: Michael S. Tsirkin <mst@redhat.com>
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/tun.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ net/core/dev.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index ecec802..4ec8f28 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1185,7 +1185,7 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- {
- 	struct tun_pi pi = { 0, skb->protocol };
- 	ssize_t total = 0;
--	int vlan_offset = 0, copied;
-+	int vlan_offset = 0, copied, ret;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 0ce469e..d78dc62 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2781,8 +2781,9 @@ int dev_loopback_xmit(struct sk_buff *skb)
+ EXPORT_SYMBOL(dev_loopback_xmit);
  
- 	if (!(tun->flags & TUN_NO_PI)) {
- 		if ((len -= sizeof(pi)) < 0)
-@@ -1254,7 +1254,7 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 	if (!vlan_tx_tag_present(skb)) {
- 		len = min_t(int, skb->len, len);
- 	} else {
--		int copy, ret;
-+		int copy;
- 		struct {
- 			__be16 h_vlan_proto;
- 			__be16 h_vlan_TCI;
-@@ -1282,13 +1282,13 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 			goto done;
- 	}
- 
--	skb_copy_datagram_const_iovec(skb, vlan_offset, iv, copied, len);
-+	ret = skb_copy_datagram_const_iovec(skb, vlan_offset, iv, copied, len);
- 
- done:
- 	tun->dev->stats.tx_packets++;
- 	tun->dev->stats.tx_bytes += len;
- 
--	return total;
-+	return ret ? ret : total;
- }
- 
- static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
+ /**
+- *	dev_queue_xmit - transmit a buffer
++ *	__dev_queue_xmit - transmit a buffer
+  *	@skb: buffer to transmit
++ *	@accel_priv: private data used for L2 forwarding offload
+  *
+  *	Queue a buffer for transmission to a network device. The caller must
+  *	have set the device and priority and built the buffer before calling
 -- 
 1.8.3.2
