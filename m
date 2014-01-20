@@ -1,313 +1,219 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next] ipv6: make IPV6_RECVPKTINFO work for ipv4 datagrams
-Date: Mon, 20 Jan 2014 03:43:08 +0100
-Message-ID: <20140120024308.GE16462@order.stressinduktion.org>
+From: dormando <dormando@rydia.net>
+Subject: Re: ipv4_dst_destroy panic regression after 3.10.15
+Date: Sun, 19 Jan 2014 18:56:01 -0800 (PST)
+Message-ID: <alpine.DEB.2.10.1401191854140.22661@dinf>
+References: <alpine.DEB.2.10.1401171720560.15759@dinf> <1390027758.31367.505.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: gert@space.net
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:50560 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752217AbaATCnK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 21:43:10 -0500
-Content-Disposition: inline
+Received: from rydia.net ([69.46.88.68]:56790 "EHLO mail.rydia.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752641AbaATC4K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Jan 2014 21:56:10 -0500
+In-Reply-To: <1390027758.31367.505.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We currently don't report IPV6_RECVPKTINFO in cmsg access ancillary data
-for IPv4 datagrams on IPv6 sockets.
+> On Fri, 2014-01-17 at 17:25 -0800, dormando wrote:
+> > Hi,
+> >
+> > Upgraded a few kernels to the latest 3.10 stable tree while tracking down
+> > a rare kernel panic, seems to have introduced a much more frequent kernel
+> > panic. Takes anywhere from 4 hours to 2 days to trigger:
+> >
+> > <4>[196727.311203] general protection fault: 0000 [#1] SMP
+> > <4>[196727.311224] Modules linked in: xt_TEE xt_dscp xt_DSCP macvlan bridge coretemp crc32_pclmul ghash_clmulni_intel gpio_ich microcode ipmi_watchdog ipmi_devintf sb_edac edac_core lpc_ich mfd_core tpm_tis tpm tpm_bios ipmi_si ipmi_msghandler isci igb libsas i2c_algo_bit ixgbe ptp pps_core mdio
+> > <4>[196727.311333] CPU: 17 PID: 0 Comm: swapper/17 Not tainted 3.10.26 #1
+> > <4>[196727.311344] Hardware name: Supermicro X9DRi-LN4+/X9DR3-LN4+/X9DRi-LN4+/X9DR3-LN4+, BIOS 3.0 07/05/2013
+> > <4>[196727.311364] task: ffff885e6f069700 ti: ffff885e6f072000 task.ti: ffff885e6f072000
+> > <4>[196727.311377] RIP: 0010:[<ffffffff815f8c7f>]  [<ffffffff815f8c7f>] ipv4_dst_destroy+0x4f/0x80
+> > <4>[196727.311399] RSP: 0018:ffff885effd23a70  EFLAGS: 00010282
+> > <4>[196727.311409] RAX: dead000000200200 RBX: ffff8854c398ecc0 RCX: 0000000000000040
+> > <4>[196727.311423] RDX: dead000000100100 RSI: dead000000100100 RDI: dead000000200200
+> > <4>[196727.311437] RBP: ffff885effd23a80 R08: ffffffff815fd9e0 R09: ffff885d5a590800
+> > <4>[196727.311451] R10: 0000000000000000 R11: 0000000000000000 R12: 0000000000000000
+> > <4>[196727.311464] R13: ffffffff81c8c280 R14: 0000000000000000 R15: ffff880e85ee16ce
+> > <4>[196727.311510] FS:  0000000000000000(0000) GS:ffff885effd20000(0000) knlGS:0000000000000000
+> > <4>[196727.311554] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> > <4>[196727.311581] CR2: 00007a46751eb000 CR3: 0000005e65688000 CR4: 00000000000407e0
+> > <4>[196727.311625] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+> > <4>[196727.311669] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+> > <4>[196727.311713] Stack:
+> > <4>[196727.311733]  ffff8854c398ecc0 ffff8854c398ecc0 ffff885effd23ab0 ffffffff815b7f42
+> > <4>[196727.311784]  ffff88be6595bc00 ffff8854c398ecc0 0000000000000000 ffff8854c398ecc0
+> > <4>[196727.311834]  ffff885effd23ad0 ffffffff815b86c6 ffff885d5a590800 ffff8816827821c0
+> > <4>[196727.311885] Call Trace:
+> > <4>[196727.311907]  <IRQ>
+> > <4>[196727.311912]  [<ffffffff815b7f42>] dst_destroy+0x32/0xe0
+> > <4>[196727.311959]  [<ffffffff815b86c6>] dst_release+0x56/0x80
+> > <4>[196727.311986]  [<ffffffff81620bd5>] tcp_v4_do_rcv+0x2a5/0x4a0
+> > <4>[196727.312013]  [<ffffffff81622b5a>] tcp_v4_rcv+0x7da/0x820
+> > <4>[196727.312041]  [<ffffffff815fd9e0>] ? ip_rcv_finish+0x360/0x360
+> > <4>[196727.312070]  [<ffffffff815de02d>] ? nf_hook_slow+0x7d/0x150
+> > <4>[196727.312097]  [<ffffffff815fd9e0>] ? ip_rcv_finish+0x360/0x360
+> > <4>[196727.312125]  [<ffffffff815fda92>] ip_local_deliver_finish+0xb2/0x230
+> > <4>[196727.312154]  [<ffffffff815fdd9a>] ip_local_deliver+0x4a/0x90
+> > <4>[196727.312183]  [<ffffffff815fd799>] ip_rcv_finish+0x119/0x360
+> > <4>[196727.312212]  [<ffffffff815fe00b>] ip_rcv+0x22b/0x340
+> > <4>[196727.312242]  [<ffffffffa0339680>] ? macvlan_broadcast+0x160/0x160 [macvlan]
+> > <4>[196727.312275]  [<ffffffff815b0c62>] __netif_receive_skb_core+0x512/0x640
+> > <4>[196727.312308]  [<ffffffff811427fb>] ? kmem_cache_alloc+0x13b/0x150
+> > <4>[196727.312338]  [<ffffffff815b0db1>] __netif_receive_skb+0x21/0x70
+> > <4>[196727.312368]  [<ffffffff815b0fa1>] netif_receive_skb+0x31/0xa0
+> > <4>[196727.312397]  [<ffffffff815b1ae8>] napi_gro_receive+0xe8/0x140
+> > <4>[196727.312433]  [<ffffffffa00274f1>] ixgbe_poll+0x551/0x11f0 [ixgbe]
+> > <4>[196727.312463]  [<ffffffff815fe00b>] ? ip_rcv+0x22b/0x340
+> > <4>[196727.312491]  [<ffffffff815b1691>] net_rx_action+0x111/0x210
+> > <4>[196727.312521]  [<ffffffff815b0db1>] ? __netif_receive_skb+0x21/0x70
+> > <4>[196727.312552]  [<ffffffff810519d0>] __do_softirq+0xd0/0x270
+> > <4>[196727.312583]  [<ffffffff816cef3c>] call_softirq+0x1c/0x30
+> > <4>[196727.312613]  [<ffffffff81004205>] do_softirq+0x55/0x90
+> > <4>[196727.312640]  [<ffffffff81051c85>] irq_exit+0x55/0x60
+> > <4>[196727.312668]  [<ffffffff816cf5c3>] do_IRQ+0x63/0xe0
+> > <4>[196727.312696]  [<ffffffff816c5aaa>] common_interrupt+0x6a/0x6a
+> > <4>[196727.312722]  <EOI>
+> > <4>[196727.312727]  [<ffffffff8100a150>] ? default_idle+0x20/0xe0
+> > <4>[196727.312775]  [<ffffffff8100a8ff>] arch_cpu_idle+0xf/0x20
+> > <4>[196727.312803]  [<ffffffff8108d330>] cpu_startup_entry+0xc0/0x270
+> > <4>[196727.312833]  [<ffffffff816b276e>] start_secondary+0x1f9/0x200
+> > <4>[196727.312860] Code: 4a 9f e9 81 e8 13 cb 0c 00 48 8b 93 b0 00 00 00 48 bf 00 02 20 00 00 00 ad de 48 8b 83 b8 00 00 00 48 be 00 01 10 00 00 00 ad de <48> 89 42 08 48 89 10 48 89 bb b8 00 00 00 48 c7 c7 4a 9f e9 81
+> > <1>[196727.313071] RIP  [<ffffffff815f8c7f>] ipv4_dst_destroy+0x4f/0x80
+> > <4>[196727.313100]  RSP <ffff885effd23a70>
+> > <4>[196727.313377] ---[ end trace 64b3f14fae0f2e29 ]---
+> > <0>[196727.380908] Kernel panic - not syncing: Fatal exception in interrupt
+> >
+> >
+> > ... bisecting it's going to be a pain... I tried eyeballing the diffs and
+> > am trying a revert or two.
+> >
+> > We've hit it in .25, .26 so far. I have .27 running but not sure if it
+> > crashed, so the change exists between .15 and .25.
+>
+> Please try following fix, thanks for the report !
+>
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 25071b48921c..78a50a22298a 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -1333,7 +1333,7 @@ static void ipv4_dst_destroy(struct dst_entry
+> *dst)
+>
+>  	if (!list_empty(&rt->rt_uncached)) {
+>  		spin_lock_bh(&rt_uncached_lock);
+> -		list_del(&rt->rt_uncached);
+> +		list_del_init(&rt->rt_uncached);
+>  		spin_unlock_bh(&rt_uncached_lock);
+>  	}
+>  }
 
-This patch splits the ip6_datagram_recv_ctl into two functions, one
-which handles both protocol families, AF_INET and AF_INET6, while the
-ip6_datagram_recv_specific_ctl only handles IPv6 cmsg data.
+This one crashed after a day and a half with a new-to-me trace. The other
+machine running 3.10.27 + the reversion of the other patch is still going.
+I now have two machines on that kernel to see if they're stable for more
+than two days.
 
-ip6_datagram_recv_*_ctl never reported back any errors, so we can make
-them return void. Also provide a helper for protocols which don't offer dual
-personality to further use ip6_datagram_recv_ctl, which is exported to
-modules.
-
-I needed to shuffle the code for ping around a bit to make it easier to
-implement dual personality for ping ipv6 sockets in future.
-
-Reported-by: Gert Doering <gert@space.net>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- include/linux/ipv6.h     |  3 +++
- include/net/ip.h         |  1 +
- include/net/ping.h       |  8 ++++++--
- include/net/transp_v6.h  |  9 +++++++--
- net/ipv4/ip_sockglue.c   |  6 +++---
- net/ipv4/ping.c          |  7 ++++++-
- net/ipv6/datagram.c      | 38 ++++++++++++++++++++++++++++++--------
- net/ipv6/ipv6_sockglue.c |  4 +---
- net/ipv6/ping.c          | 10 ++++++----
- net/ipv6/udp.c           |  6 +++++-
- 10 files changed, 68 insertions(+), 24 deletions(-)
-
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 7e1ded0..ea81e7a 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -283,6 +283,8 @@ static inline void inet_sk_copy_descendant(struct sock *sk_to,
- 
- #define __ipv6_only_sock(sk)	(inet6_sk(sk)->ipv6only)
- #define ipv6_only_sock(sk)	((sk)->sk_family == PF_INET6 && __ipv6_only_sock(sk))
-+#define ipv6_sk_rxinfo(sk)	((sk)->sk_family == PF_INET6 && \
-+				 inet6_sk(sk)->rxopt.bits.rxinfo)
- 
- static inline const struct in6_addr *inet6_rcv_saddr(const struct sock *sk)
- {
-@@ -299,6 +301,7 @@ static inline int inet_v6_ipv6only(const struct sock *sk)
- #else
- #define __ipv6_only_sock(sk)	0
- #define ipv6_only_sock(sk)	0
-+#define ipv6_sk_rxinfo(sk)	0
- 
- static inline struct ipv6_pinfo * inet6_sk(const struct sock *__sk)
- {
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 7876e3b..23be0fd 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -63,6 +63,7 @@ struct ipcm_cookie {
- };
- 
- #define IPCB(skb) ((struct inet_skb_parm*)((skb)->cb))
-+#define PKTINFO_SKB_CB(skb) ((struct in_pktinfo *)((skb)->cb))
- 
- struct ip_ra_chain {
- 	struct ip_ra_chain __rcu *next;
-diff --git a/include/net/ping.h b/include/net/ping.h
-index 7601365..026479b 100644
---- a/include/net/ping.h
-+++ b/include/net/ping.h
-@@ -33,8 +33,12 @@
- struct pingv6_ops {
- 	int (*ipv6_recv_error)(struct sock *sk, struct msghdr *msg, int len,
- 			       int *addr_len);
--	int (*ip6_datagram_recv_ctl)(struct sock *sk, struct msghdr *msg,
--				     struct sk_buff *skb);
-+	void (*ip6_datagram_recv_common_ctl)(struct sock *sk,
-+					     struct msghdr *msg,
-+					     struct sk_buff *skb);
-+	void (*ip6_datagram_recv_specific_ctl)(struct sock *sk,
-+					       struct msghdr *msg,
-+					       struct sk_buff *skb);
- 	int (*icmpv6_err_convert)(u8 type, u8 code, int *err);
- 	void (*ipv6_icmp_error)(struct sock *sk, struct sk_buff *skb, int err,
- 				__be16 port, u32 info, u8 *payload);
-diff --git a/include/net/transp_v6.h b/include/net/transp_v6.h
-index 48660e5..b927413 100644
---- a/include/net/transp_v6.h
-+++ b/include/net/transp_v6.h
-@@ -32,8 +32,13 @@ void tcpv6_exit(void);
- 
- int udpv6_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len);
- 
--int ip6_datagram_recv_ctl(struct sock *sk, struct msghdr *msg,
--			  struct sk_buff *skb);
-+/* this does all the common and the specific ctl work */
-+void ip6_datagram_recv_ctl(struct sock *sk, struct msghdr *msg,
-+			   struct sk_buff *skb);
-+void ip6_datagram_recv_common_ctl(struct sock *sk, struct msghdr *msg,
-+				  struct sk_buff *skb);
-+void ip6_datagram_recv_specific_ctl(struct sock *sk, struct msghdr *msg,
-+				    struct sk_buff *skb);
- 
- int ip6_datagram_send_ctl(struct net *net, struct sock *sk, struct msghdr *msg,
- 			  struct flowi6 *fl6, struct ipv6_txoptions *opt,
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index 22f15eb..580dd96 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -56,7 +56,6 @@
- /*
-  *	SOL_IP control messages.
-  */
--#define PKTINFO_SKB_CB(__skb) ((struct in_pktinfo *)((__skb)->cb))
- 
- static void ip_cmsg_recv_pktinfo(struct msghdr *msg, struct sk_buff *skb)
- {
-@@ -1055,9 +1054,10 @@ e_inval:
- void ipv4_pktinfo_prepare(const struct sock *sk, struct sk_buff *skb)
- {
- 	struct in_pktinfo *pktinfo = PKTINFO_SKB_CB(skb);
-+	bool prepare = (inet_sk(sk)->cmsg_flags & IP_CMSG_PKTINFO) ||
-+		       ipv6_sk_rxinfo(sk);
- 
--	if ((inet_sk(sk)->cmsg_flags & IP_CMSG_PKTINFO) &&
--	    skb_rtable(skb)) {
-+	if (prepare && skb_rtable(skb)) {
- 		pktinfo->ipi_ifindex = inet_iif(skb);
- 		pktinfo->ipi_spec_dst.s_addr = fib_compute_spec_dst(skb);
- 	} else {
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index e09e883..4a9e426 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -906,7 +906,12 @@ int ping_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		}
- 
- 		if (inet6_sk(sk)->rxopt.all)
--			pingv6_ops.ip6_datagram_recv_ctl(sk, msg, skb);
-+			pingv6_ops.ip6_datagram_recv_common_ctl(sk, msg, skb);
-+		if (skb->protocol == htons(ETH_P_IPV6) &&
-+		    inet6_sk(sk)->rxopt.all)
-+			pingv6_ops.ip6_datagram_recv_specific_ctl(sk, msg, skb);
-+		else if (skb->protocol == htons(ETH_P_IP) && isk->cmsg_flags)
-+			ip_cmsg_recv(msg, skb);
- #endif
- 	} else {
- 		BUG();
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index bce73cb..cd8699b 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -377,10 +377,12 @@ int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
- 		sin->sin6_family = AF_INET6;
- 		sin->sin6_flowinfo = 0;
- 		sin->sin6_port = 0;
-+		if (np->rxopt.all)
-+			ip6_datagram_recv_common_ctl(sk, msg, skb);
- 		if (skb->protocol == htons(ETH_P_IPV6)) {
- 			sin->sin6_addr = ipv6_hdr(skb)->saddr;
- 			if (np->rxopt.all)
--				ip6_datagram_recv_ctl(sk, msg, skb);
-+				ip6_datagram_recv_specific_ctl(sk, msg, skb);
- 			sin->sin6_scope_id =
- 				ipv6_iface_scope_id(&sin->sin6_addr,
- 						    IP6CB(skb)->iif);
-@@ -471,20 +473,34 @@ out:
- }
- 
- 
--int ip6_datagram_recv_ctl(struct sock *sk, struct msghdr *msg,
--			  struct sk_buff *skb)
-+void ip6_datagram_recv_common_ctl(struct sock *sk, struct msghdr *msg,
-+				 struct sk_buff *skb)
- {
- 	struct ipv6_pinfo *np = inet6_sk(sk);
--	struct inet6_skb_parm *opt = IP6CB(skb);
--	unsigned char *nh = skb_network_header(skb);
-+	bool is_ipv6 = skb->protocol == htons(ETH_P_IPV6);
- 
- 	if (np->rxopt.bits.rxinfo) {
- 		struct in6_pktinfo src_info;
- 
--		src_info.ipi6_ifindex = opt->iif;
--		src_info.ipi6_addr = ipv6_hdr(skb)->daddr;
-+		if (is_ipv6) {
-+			src_info.ipi6_ifindex = IP6CB(skb)->iif;
-+			src_info.ipi6_addr = ipv6_hdr(skb)->daddr;
-+		} else {
-+			src_info.ipi6_ifindex =
-+				PKTINFO_SKB_CB(skb)->ipi_ifindex;
-+			ipv6_addr_set_v4mapped(ip_hdr(skb)->daddr,
-+					       &src_info.ipi6_addr);
-+		}
- 		put_cmsg(msg, SOL_IPV6, IPV6_PKTINFO, sizeof(src_info), &src_info);
- 	}
-+}
-+
-+void ip6_datagram_recv_specific_ctl(struct sock *sk, struct msghdr *msg,
-+				    struct sk_buff *skb)
-+{
-+	struct ipv6_pinfo *np = inet6_sk(sk);
-+	struct inet6_skb_parm *opt = IP6CB(skb);
-+	unsigned char *nh = skb_network_header(skb);
- 
- 	if (np->rxopt.bits.rxhlim) {
- 		int hlim = ipv6_hdr(skb)->hop_limit;
-@@ -602,7 +618,13 @@ int ip6_datagram_recv_ctl(struct sock *sk, struct msghdr *msg,
- 			put_cmsg(msg, SOL_IPV6, IPV6_ORIGDSTADDR, sizeof(sin6), &sin6);
- 		}
- 	}
--	return 0;
-+}
-+
-+void ip6_datagram_recv_ctl(struct sock *sk, struct msghdr *msg,
-+			  struct sk_buff *skb)
-+{
-+	ip6_datagram_recv_common_ctl(sk, msg, skb);
-+	ip6_datagram_recv_specific_ctl(sk, msg, skb);
- }
- EXPORT_SYMBOL_GPL(ip6_datagram_recv_ctl);
- 
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index 2855b00..663b731 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -1002,10 +1002,8 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
- 		release_sock(sk);
- 
- 		if (skb) {
--			int err = ip6_datagram_recv_ctl(sk, &msg, skb);
-+			ip6_datagram_recv_ctl(sk, &msg, skb);
- 			kfree_skb(skb);
--			if (err)
--				return err;
- 		} else {
- 			if (np->rxopt.bits.rxinfo) {
- 				struct in6_pktinfo src_info;
-diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
-index cd71f3a..94a3d04 100644
---- a/net/ipv6/ping.c
-+++ b/net/ipv6/ping.c
-@@ -62,10 +62,9 @@ static int dummy_ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len,
- {
- 	return -EAFNOSUPPORT;
- }
--static int dummy_ip6_datagram_recv_ctl(struct sock *sk, struct msghdr *msg,
-+static void dummy_ip6_datagram_recv_ctl(struct sock *sk, struct msghdr *msg,
- 				       struct sk_buff *skb)
- {
--	return -EAFNOSUPPORT;
- }
- static int dummy_icmpv6_err_convert(u8 type, u8 code, int *err)
- {
-@@ -254,7 +253,9 @@ int __init pingv6_init(void)
- 		return ret;
- #endif
- 	pingv6_ops.ipv6_recv_error = ipv6_recv_error;
--	pingv6_ops.ip6_datagram_recv_ctl = ip6_datagram_recv_ctl;
-+	pingv6_ops.ip6_datagram_recv_common_ctl = ip6_datagram_recv_common_ctl;
-+	pingv6_ops.ip6_datagram_recv_specific_ctl =
-+		ip6_datagram_recv_specific_ctl;
- 	pingv6_ops.icmpv6_err_convert = icmpv6_err_convert;
- 	pingv6_ops.ipv6_icmp_error = ipv6_icmp_error;
- 	pingv6_ops.ipv6_chk_addr = ipv6_chk_addr;
-@@ -267,7 +268,8 @@ int __init pingv6_init(void)
- void pingv6_exit(void)
- {
- 	pingv6_ops.ipv6_recv_error = dummy_ipv6_recv_error;
--	pingv6_ops.ip6_datagram_recv_ctl = dummy_ip6_datagram_recv_ctl;
-+	pingv6_ops.ip6_datagram_recv_common_ctl = dummy_ip6_datagram_recv_ctl;
-+	pingv6_ops.ip6_datagram_recv_specific_ctl = dummy_ip6_datagram_recv_ctl;
- 	pingv6_ops.icmpv6_err_convert = dummy_icmpv6_err_convert;
- 	pingv6_ops.ipv6_icmp_error = dummy_ipv6_icmp_error;
- 	pingv6_ops.ipv6_chk_addr = dummy_ipv6_chk_addr;
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 233c3ab..1e586d9 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -477,12 +477,16 @@ try_again:
- 		}
- 		*addr_len = sizeof(*sin6);
- 	}
-+
-+	if (np->rxopt.all)
-+		ip6_datagram_recv_common_ctl(sk, msg, skb);
-+
- 	if (is_udp4) {
- 		if (inet->cmsg_flags)
- 			ip_cmsg_recv(msg, skb);
- 	} else {
- 		if (np->rxopt.all)
--			ip6_datagram_recv_ctl(sk, msg, skb);
-+			ip6_datagram_recv_specific_ctl(sk, msg, skb);
- 	}
- 
- 	err = copied;
--- 
-1.8.4.2
+Panic#2 Part1
+<4>[116124.368440] ------------[ cut here ]------------
+<4>[116124.368450] WARNING: at net/core/dst.c:276 dst_release+0x7e/0x80()
+<4>[116124.368451] Modules linked in: xt_TEE xt_dscp xt_DSCP macvlan bridge coretemp crc32_pclmul ghash_clmulni_intel gpio_ich isci ipmi_watchdog ipmi_devintf ixgbe microcode igb sb_edac edac_core libsas lpc_ich i2c_algo_bit mfd_core ptp pps_core tpm_tis mdio tpm tpm_bios ipmi_si ipmi_msghandler
+<4>[116124.368470] CPU: 1 PID: 166084 Comm: cache-worker Tainted: G        W    3.10.27 #1
+<4>[116124.368471] Hardware name: Supermicro X9DRi-LN4+/X9DR3-LN4+/X9DRi-LN4+/X9DR3-LN4+, BIOS 3.0 07/05/2013
+<4>[116124.368473]  ffffffff81a86f96 ffff885effc23b30 ffffffff816c045e ffff885effc23b70
+<4>[116124.368475]  ffffffff81049930 ffff88be64ed4000 ffff88531e227980 00000000fffffff9
+<4>[116124.368477]  ffffffff81c876c0 ffff8852ef21ec00 ffff882dffaaa5e2 ffff885effc23b80
+<4>[116124.368479] Call Trace:
+<4>[116124.368480]  <IRQ>  [<ffffffff816c045e>] dump_stack+0x19/0x1b
+<4>[116124.368490]  [<ffffffff81049930>] warn_slowpath_common+0x70/0xa0
+<4>[116124.368492]  [<ffffffff8104997a>] warn_slowpath_null+0x1a/0x20
+<4>[116124.368494]  [<ffffffff815b870e>] dst_release+0x7e/0x80
+<4>[116124.368497]  [<ffffffff816351f9>] inet_sock_destruct+0x129/0x1d0
+<4>[116124.368500]  [<ffffffff8159d4bd>] __sk_free+0x1d/0x140
+<4>[116124.368502]  [<ffffffff8159d675>] sk_free+0x25/0x30
+<4>[116124.368506]  [<ffffffff8161e3fd>] sock_put+0x1d/0x30
+<4>[116124.368508]  [<ffffffff81622afb>] tcp_v4_rcv+0x77b/0x820
+<4>[116124.368511]  [<ffffffff815fd9e0>] ? ip_rcv_finish+0x360/0x360
+<4>[116124.368515]  [<ffffffff815de03d>] ? nf_hook_slow+0x7d/0x150
+<4>[116124.368517]  [<ffffffff815fd9e0>] ? ip_rcv_finish+0x360/0x360
+<4>[116124.368519]  [<ffffffff815fda92>] ip_local_deliver_finish+0xb2/0x230
+<4>[116124.368521]  [<ffffffff815fdd9a>] ip_local_deliver+0x4a/0x90
+<4>[116124.368523]  [<ffffffff815fd799>] ip_rcv_finish+0x119/0x360
+<4>[116124.368526]  [<ffffffff815fe00b>] ip_rcv+0x22b/0x340
+<4>[116124.368529]  [<ffffffff815b0c82>] __netif_receive_skb_core+0x512/0x640
+<4>[116124.368531]  [<ffffffff815b0dd1>] __netif_receive_skb+0x21/0x70
+<4>[116124.368533]  [<ffffffff815b0ebb>] process_backlog+0x9b/0x170
+<4>[116124.368535]  [<ffffffff815b16b1>] net_rx_action+0x111/0x210
+<4>[116124.368538]  [<ffffffff810519d0>] __do_softirq+0xd0/0x270
+<4>[116124.368542]  [<ffffffff816cf03c>] call_softirq+0x1c/0x30
+<4>[116124.368546]  [<ffffffff81004215>] do_softirq+0x55/0x90
+<4>[116124.368548]  [<ffffffff81051c85>] irq_exit+0x55/0x60
+<4>[116124.368550]  [<ffffffff816cf6c3>] do_IRQ+0x63/0xe0
+<4>[116124.368553]  [<ffffffff816c5baa>] common_interrupt+0x6a/0x6a
+<4>[116124.368554]  <EOI>  [<ffffffff816cde02>] ? system_call_fastpath+0x16/0x1b
+<4>[116124.368558] ---[ end trace 3ed2370f32f77a53 ]---
+<7>[116125.177470] Peer 88.153.144.82:50962/80 unexpectedly shrunk window 2770172661:2770430920 (repaired)
+<7>[116127.452869] Peer 88.153.144.82:50962/80 unexpectedly shrunk window 2770172661:2770430920 (repaired)
+<7>[116132.003660] Peer 88.153.144.82:50962/80 unexpectedly shrunk window 2770172661:2770430920 (repaired)
+<4>[116133.987013] general protection fault: 0000 [#1] SMP
+<4>[116133.987033] Modules linked in: xt_TEE xt_dscp xt_DSCP macvlan bridge coretemp crc32_pclmul ghash_clmulni_intel gpio_ich isci ipmi_watchdog ipmi_devintf ixgbe microcode igb sb_edac edac_core libsas lpc_ich i2c_algo_bit mfd_core ptp pps_core tpm_tis mdio tpm tpm_bios ipmi_si ipmi_msghandler
+<4>[116133.987137] CPU: 5 PID: 0 Comm: swapper/5 Tainted: G        W    3.10.27 #1
+<4>[116133.987150] Hardware name: Supermicro X9DRi-LN4+/X9DR3-LN4+/X9DRi-LN4+/X9DR3-LN4+, BIOS 3.0 07/05/2013
+<4>[116133.987168] task: ffff885e6f7edc00 ti: ffff885e6f7f4000 task.ti: ffff885e6f7f4000
+<4>[116133.987182] RIP: 0010:[<ffffffff8164f120>]  [<ffffffff8164f120>] iptable_raw_hook+0x20/0x70
+<4>[116133.987202] RSP: 0018:ffff885effca38f0  EFLAGS: 00010246
+<4>[116133.987212] RAX: ffca3aa0ffff885e RBX: ffca3aa0ffff885e RCX: ffca3aa0ffff885e
+<4>[116133.987226] RDX: 0000000000000000 RSI: 0000000000000003 RDI: ffff885e3b447100
+<4>[116133.987240] RBP: ffff885effca38f0 R08: ffff884b3183fc00 R09: ffff885e3b447100
+<4>[116133.987254] R10: ffff88be6df7be80 R11: 0000000000000013 R12: ffff885effca3990
+<4>[116133.987285] R13: 0000000000000000 R14: 0000000000000003 R15: ffff885e3b447100
+<4>[116133.987328] FS:  0000000000000000(0000) GS:ffff885effca0000(0000) knlGS:0000000000000000
+<4>[116133.987372] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+<4>[116133.987399] CR2: 00007a306991d000 CR3: 0000005e0e44f000 CR4: 00000000000407e0
+<4>[116133.987441] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+<4>[116133.987484] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+<4>[116133.987526] Stack:
+<4>[116133.987546]  ffff885effca3950 ffffffff815ddf7f ffff885effca3910 ffffffff81cb4c90
+<4>[116133.987596]  ffff885effca3930 ffff885e66024f30 0000000000000020 ffff885e3b447100
+<4>[116133.987645]  ffffffff81600e90 0000000000000003 ffff885e3b447100 0000000000000000
+<4>[116133.987695] Call Trace:
+<4>[116133.987716]  <IRQ>
+<4>[116133.987721]  [<ffffffff815ddf7f>] nf_iterate+0x8f/0xd0
+<4>[116133.987770]  [<ffffffff81600e90>] ? ip_forward_options+0x200/0x200
+<4>[116133.987798]  [<ffffffff815de03d>] nf_hook_slow+0x7d/0x150
+<4>[116133.987825]  [<ffffffff81600e90>] ? ip_forward_options+0x200/0x200
+<4>[116133.987853]  [<ffffffff81602c22>] __ip_local_out+0x72/0x80
+<4>[116133.987880]  [<ffffffff81602c46>] ip_local_out+0x16/0x30
+<4>[116133.987906]  [<ffffffff81603f39>] ip_send_skb+0x19/0x50
+<4>[116133.987932]  [<ffffffff81603fa7>] ip_push_pending_frames+0x37/0x40
+<4>[116133.987960]  [<ffffffff8160438f>] ip_send_unicast_reply+0x29f/0x2f0
+<4>[116133.987989]  [<ffffffff8161a5b6>] ? tcp_write_xmit+0x2b6/0xa90
+<4>[116133.988019]  [<ffffffff8161e2ba>] tcp_v4_send_ack+0x1ba/0x210
+<4>[116133.988048]  [<ffffffff816226f5>] tcp_v4_rcv+0x375/0x820
+<4>[116133.988075]  [<ffffffff815de03d>] ? nf_hook_slow+0x7d/0x150
+<4>[116133.988103]  [<ffffffff815fd9e0>] ? ip_rcv_finish+0x360/0x360
+<4>[116133.988131]  [<ffffffff815fda92>] ip_local_deliver_finish+0xb2/0x230
+<4>[116133.988159]  [<ffffffff815fdd9a>] ip_local_deliver+0x4a/0x90
+<4>[116133.988187]  [<ffffffff815fd799>] ip_rcv_finish+0x119/0x360
+<4>[116133.988214]  [<ffffffff815fe00b>] ip_rcv+0x22b/0x340
+<4>[116133.988242]  [<ffffffff815b0c82>] __netif_receive_skb_core+0x512/0x640
+<4>[116133.988272]  [<ffffffff81079b00>] ? resched_task+0x60/0x70
+<4>[116133.988299]  [<ffffffff815b0dd1>] __netif_receive_skb+0x21/0x70
+<4>[116133.988326]  [<ffffffff815b0ebb>] process_backlog+0x9b/0x170
+<4>[116133.988354]  [<ffffffff8107a1a6>] ? ttwu_do_activate.constprop.91+0x66/0x70
+<4>[116133.988384]  [<ffffffff815b16b1>] net_rx_action+0x111/0x210
+<4>[116133.988412]  [<ffffffff810519d0>] __do_softirq+0xd0/0x270
+<4>[116133.988441]  [<ffffffff816cf03c>] call_softirq+0x1c/0x30
+<4>[116133.988470]  [<ffffffff81004215>] do_softirq+0x55/0x90
+<4>[116133.988495]  [<ffffffff81051c85>] irq_exit+0x55/0x60
+<4>[116133.988521]  [<ffffffff816cf6c3>] do_IRQ+0x63/0xe0
+<4>[116133.988548]  [<ffffffff816c5baa>] common_interrupt+0x6a/0x6a
+<4>[116133.988574]  <EOI>
+<4>[116133.988578]  [<ffffffff8100a160>] ? default_idle+0x20/0xe0
+<4>[116133.988624]  [<ffffffff8100a90f>] arch_cpu_idle+0xf/0x20
+<4>[116133.988652]  [<ffffffff8108d330>] cpu_startup_entry+0xc0/0x270
+<4>[116133.988681]  [<ffffffff816b288e>] start_secondary+0x1f9/0x200
+<4>[116133.988708] Code: eb f2 66 0f 1f 84 00 00 00 00 00 66 66 66 66 90 55 83 ff 03 49 89 f1 48 89 e5 74 27 48 85 d2 48 89 d0 89 fe 48 0f 44 c1 4c 89 cf <48> 8b 80 e8 03 00 00 4c 8b 80 50 03 00 00 e8 6d d8 ff ff 5d c3
+<1>[116133.988905] RIP  [<ffffffff8164f120>] iptable_raw_hook+0x20/0x70
+<4>[116133.988934]  RSP <ffff885effca38f0>
+<4>[116133.989217] ---[ end trace 3ed2370f32f77a54 ]---
+<0>[116134.851050] Kernel panic - not syncing: Fatal exception in interrupt
