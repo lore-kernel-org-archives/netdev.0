@@ -1,244 +1,126 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next v5 3/9] xen-netback: Remove old TX
-	grant copy definitons and fix indentations
-Date: Mon, 20 Jan 2014 21:24:23 +0000
-Message-ID: <1390253069-25507-4-git-send-email-zoltan.kiss@citrix.com>
-References: <1390253069-25507-1-git-send-email-zoltan.kiss@citrix.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next] net: vxlan: do not use vxlan_net before checking event type
+Date: Mon, 20 Jan 2014 13:51:22 -0800
+Message-ID: <87eh428gpx.fsf@xmission.com>
+References: <1389959706-30976-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>
-To: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1390253069-25507-1-git-send-email-zoltan.kiss@citrix.com>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:49032 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750743AbaATVvi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 16:51:38 -0500
+In-Reply-To: <1389959706-30976-1-git-send-email-dborkman@redhat.com> (Daniel
+	Borkmann's message of "Fri, 17 Jan 2014 12:55:06 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-These became obsolete with grant mapping. I've left intentionally the
-indentations in this way, to improve readability of previous patches.
+Daniel Borkmann <dborkman@redhat.com> writes:
 
-v2:
-- move the indentation fixup patch here
+> Jesse Brandeburg reported that commit acaf4e70997f caused a panic
+> when adding a network namespace while vxlan module was present in
+> the system:
+>
+> [<ffffffff814d0865>] vxlan_lowerdev_event+0xf5/0x100
+> [<ffffffff816e9e5d>] notifier_call_chain+0x4d/0x70
+> [<ffffffff810912be>] __raw_notifier_call_chain+0xe/0x10
+> [<ffffffff810912d6>] raw_notifier_call_chain+0x16/0x20
+> [<ffffffff815d9610>] call_netdevice_notifiers_info+0x40/0x70
+> [<ffffffff815d9656>] call_netdevice_notifiers+0x16/0x20
+> [<ffffffff815e1bce>] register_netdevice+0x1be/0x3a0
+> [<ffffffff815e1dce>] register_netdev+0x1e/0x30
+> [<ffffffff814cb94a>] loopback_net_init+0x4a/0xb0
+> [<ffffffffa016ed6e>] ? lockd_init_net+0x6e/0xb0 [lockd]
+> [<ffffffff815d6bac>] ops_init+0x4c/0x150
+> [<ffffffff815d6d23>] setup_net+0x73/0x110
+> [<ffffffff815d725b>] copy_net_ns+0x7b/0x100
+> [<ffffffff81090e11>] create_new_namespaces+0x101/0x1b0
+> [<ffffffff81090f45>] copy_namespaces+0x85/0xb0
+> [<ffffffff810693d5>] copy_process.part.26+0x935/0x1500
+> [<ffffffff811d5186>] ? mntput+0x26/0x40
+> [<ffffffff8106a15c>] do_fork+0xbc/0x2e0
+> [<ffffffff811b7f2e>] ? ____fput+0xe/0x10
+> [<ffffffff81089c5c>] ? task_work_run+0xac/0xe0
+> [<ffffffff8106a406>] SyS_clone+0x16/0x20
+> [<ffffffff816ee689>] stub_clone+0x69/0x90
+> [<ffffffff816ee329>] ? system_call_fastpath+0x16/0x1b
+>
+> Apparently loopback device is being registered first and thus we
+> receive an event notification when vxlan_net is not ready. Hence,
+> when we call net_generic() and request vxlan_net_id, we seem to
+> access garbage at that point in time. In setup_net() where we set
+> up a newly allocated network namespace, we traverse the list of
+> pernet ops ...
+>
+> list_for_each_entry(ops, &pernet_list, list) {
+> 	error = ops_init(ops, net);
+> 	if (error < 0)
+> 		goto out_undo;
+> }
+>
+> ... and loopback_net_init() is invoked first here, so in the middle
+> of setup_net() we get this notification in vxlan. As currently we
+> only care about devices that unregister, move access through
+> net_generic() there. Fix is based on Cong Wang's proposal, but
+> only changes what is needed here. It sucks a bit as we only work
+> around the actual cure: right now it seems the only way to check if
+> a netns actually finished traversing all init ops would be to check
+> if it's part of net_namespace_list. But that I find quite expensive
+> each time we go through a notifier callback. Anyway, did a couple
+> of tests and it seems good for now.
 
-v4:
-- indentation fixes
+I am not going to argue against this patch as an immediate bug fix but
+something smells here, that bears deeper investigation.  It looks like
+the symptom is being patched rather than the actual problem.
 
-Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
----
- drivers/net/xen-netback/common.h  |   37 +------------------
- drivers/net/xen-netback/netback.c |   72 ++++++++-----------------------------
- 2 files changed, 15 insertions(+), 94 deletions(-)
+In particular net_generic(dev_net(dev), vxlan_net_id) is valid at the
+point that it is being called.  As the pointers are allocated in
+copy_net_ns in net_alloc prior to setup_net being called.
 
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index f35a3ce..2b1cd83 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -46,39 +46,9 @@
- #include <xen/xenbus.h>
- 
- typedef unsigned int pending_ring_idx_t;
--#define INVALID_PENDING_RING_IDX (~0U)
- 
--/* For the head field in pending_tx_info: it is used to indicate
-- * whether this tx info is the head of one or more coalesced requests.
-- *
-- * When head != INVALID_PENDING_RING_IDX, it means the start of a new
-- * tx requests queue and the end of previous queue.
-- *
-- * An example sequence of head fields (I = INVALID_PENDING_RING_IDX):
-- *
-- * ...|0 I I I|5 I|9 I I I|...
-- * -->|<-INUSE----------------
-- *
-- * After consuming the first slot(s) we have:
-- *
-- * ...|V V V V|5 I|9 I I I|...
-- * -----FREE->|<-INUSE--------
-- *
-- * where V stands for "valid pending ring index". Any number other
-- * than INVALID_PENDING_RING_IDX is OK. These entries are considered
-- * free and can contain any number other than
-- * INVALID_PENDING_RING_IDX. In practice we use 0.
-- *
-- * The in use non-INVALID_PENDING_RING_IDX (say 0, 5 and 9 in the
-- * above example) number is the index into pending_tx_info and
-- * mmap_pages arrays.
-- */
- struct pending_tx_info {
--	struct xen_netif_tx_request req; /* coalesced tx request */
--	pending_ring_idx_t head; /* head != INVALID_PENDING_RING_IDX
--				  * if it is head of one or more tx
--				  * reqs
--				  */
-+	struct xen_netif_tx_request req; /* tx request */
- 	/* callback data for released SKBs. The	callback is always
- 	 * xenvif_zerocopy_callback, ctx points to the next fragment, desc
- 	 * contains the pending_idx
-@@ -135,11 +105,6 @@ struct xenvif {
- 	struct pending_tx_info pending_tx_info[MAX_PENDING_REQS];
- 	grant_handle_t grant_tx_handle[MAX_PENDING_REQS];
- 
--	/* Coalescing tx requests before copying makes number of grant
--	 * copy ops greater or equal to number of slots required. In
--	 * worst case a tx request consumes 2 gnttab_copy.
--	 */
--	struct gnttab_copy tx_copy_ops[2*MAX_PENDING_REQS];
- 	struct gnttab_map_grant_ref tx_map_ops[MAX_PENDING_REQS];
- 	struct gnttab_unmap_grant_ref tx_unmap_ops[MAX_PENDING_REQS];
- 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 5724468..f74fa92 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -71,16 +71,6 @@ module_param(fatal_skb_slots, uint, 0444);
-  */
- #define XEN_NETBK_LEGACY_SLOTS_MAX XEN_NETIF_NR_SLOTS_MIN
- 
--/*
-- * If head != INVALID_PENDING_RING_IDX, it means this tx request is head of
-- * one or more merged tx requests, otherwise it is the continuation of
-- * previous tx request.
-- */
--static inline int pending_tx_is_head(struct xenvif *vif, RING_IDX idx)
--{
--	return vif->pending_tx_info[idx].head != INVALID_PENDING_RING_IDX;
--}
--
- static void xenvif_idx_release(struct xenvif *vif, u16 pending_idx,
- 			       u8 status);
- 
-@@ -762,19 +752,6 @@ static int xenvif_count_requests(struct xenvif *vif,
- 	return slots;
- }
- 
--static struct page *xenvif_alloc_page(struct xenvif *vif,
--				      u16 pending_idx)
--{
--	struct page *page;
--
--	page = alloc_page(GFP_ATOMIC|__GFP_COLD);
--	if (!page)
--		return NULL;
--	vif->mmap_pages[pending_idx] = page;
--
--	return page;
--}
--
- static inline void xenvif_tx_create_gop(struct xenvif *vif,
- 					u16 pending_idx,
- 					struct xen_netif_tx_request *txp,
-@@ -797,13 +774,9 @@ static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif *vif,
- 	struct skb_shared_info *shinfo = skb_shinfo(skb);
- 	skb_frag_t *frags = shinfo->frags;
- 	u16 pending_idx = *((u16 *)skb->data);
--	u16 head_idx = 0;
--	int slot, start;
--	struct page *page;
--	pending_ring_idx_t index, start_idx = 0;
--	uint16_t dst_offset;
-+	int start;
-+	pending_ring_idx_t index;
- 	unsigned int nr_slots;
--	struct pending_tx_info *first = NULL;
- 
- 	/* At this point shinfo->nr_frags is in fact the number of
- 	 * slots, which can be as large as XEN_NETBK_LEGACY_SLOTS_MAX.
-@@ -815,8 +788,8 @@ static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif *vif,
- 
- 	for (shinfo->nr_frags = start; shinfo->nr_frags < nr_slots;
- 	     shinfo->nr_frags++, txp++, gop++) {
--				index = pending_index(vif->pending_cons++);
--				pending_idx = vif->pending_ring[index];
-+		index = pending_index(vif->pending_cons++);
-+		pending_idx = vif->pending_ring[index];
- 		xenvif_tx_create_gop(vif, pending_idx, txp, gop);
- 		frag_set_pending_idx(&frags[shinfo->nr_frags], pending_idx);
- 	}
-@@ -824,18 +797,6 @@ static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif *vif,
- 	BUG_ON(shinfo->nr_frags > MAX_SKB_FRAGS);
- 
- 	return gop;
--err:
--	/* Unwind, freeing all pages and sending error responses. */
--	while (shinfo->nr_frags-- > start) {
--		xenvif_idx_release(vif,
--				frag_get_pending_idx(&frags[shinfo->nr_frags]),
--				XEN_NETIF_RSP_ERROR);
--	}
--	/* The head too, if necessary. */
--	if (start)
--		xenvif_idx_release(vif, pending_idx, XEN_NETIF_RSP_ERROR);
--
--	return NULL;
- }
- 
- static int xenvif_tx_check_gop(struct xenvif *vif,
-@@ -848,7 +809,6 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
- 	struct pending_tx_info *tx_info;
- 	int nr_frags = shinfo->nr_frags;
- 	int i, err, start;
--	u16 peek; /* peek into next tx request */
- 
- 	/* Check status of header. */
- 	err = gop->status;
-@@ -873,14 +833,12 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
- 
- 	for (i = start; i < nr_frags; i++) {
- 		int j, newerr;
--		pending_ring_idx_t head;
- 
- 		pending_idx = frag_get_pending_idx(&shinfo->frags[i]);
- 		tx_info = &vif->pending_tx_info[pending_idx];
--		head = tx_info->head;
- 
- 		/* Check error status: if okay then remember grant handle. */
--			newerr = (++gop)->status;
-+		newerr = (++gop)->status;
- 
- 		if (likely(!newerr)) {
- 			if (vif->grant_tx_handle[pending_idx] !=
-@@ -1353,7 +1311,6 @@ static unsigned xenvif_tx_build_gops(struct xenvif *vif, int budget)
- 	       (skb_queue_len(&vif->tx_queue) < budget)) {
- 		struct xen_netif_tx_request txreq;
- 		struct xen_netif_tx_request txfrags[XEN_NETBK_LEGACY_SLOTS_MAX];
--		struct page *page;
- 		struct xen_netif_extra_info extras[XEN_NETIF_EXTRA_TYPE_MAX-1];
- 		u16 pending_idx;
- 		RING_IDX idx;
-@@ -1728,18 +1685,17 @@ static void xenvif_idx_release(struct xenvif *vif, u16 pending_idx,
- {
- 	struct pending_tx_info *pending_tx_info;
- 	pending_ring_idx_t index;
--	u16 peek; /* peek into next tx request */
- 	unsigned long flags;
- 
--		pending_tx_info = &vif->pending_tx_info[pending_idx];
--		spin_lock_irqsave(&vif->response_lock, flags);
--		make_tx_response(vif, &pending_tx_info->req, status);
--		index = pending_index(vif->pending_prod);
--		vif->pending_ring[index] = pending_idx;
--		/* TX shouldn't use the index before we give it back here */
--		mb();
--		vif->pending_prod++;
--		spin_unlock_irqrestore(&vif->response_lock, flags);
-+	pending_tx_info = &vif->pending_tx_info[pending_idx];
-+	spin_lock_irqsave(&vif->response_lock, flags);
-+	make_tx_response(vif, &pending_tx_info->req, status);
-+	index = pending_index(vif->pending_prod);
-+	vif->pending_ring[index] = pending_idx;
-+	/* TX shouldn't use the index before we give it back here */
-+	mb();
-+	vif->pending_prod++;
-+	spin_unlock_irqrestore(&vif->response_lock, flags);
- }
- 
- void xenvif_idx_unmap(struct xenvif *vif, u16 pending_idx)
+On the flip side it is the responsibility of code that uses both
+register_netdev_notifier and register_pernet_xxx to be ready to handle
+events from any namespace as soon as they happen.  vxlan should be using
+register_pernet_subsys instead of register_pernet_device to ensure the
+vxlan_net structure is initialized before and cleaned up after all
+network devices in a given network namespace.  The vlan devices with a
+similar problem already do this.
+
+So in summary.  Something smells and I don't believe this patch fixes
+the underlying issue.  Please take a deeper look into what vxlan is doing.
+
+Eric
+
+
+> Fixes: acaf4e70997f ("net: vxlan: when lower dev unregisters remove vxlan dev as well")
+> Reported-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+> Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> ---
+>  drivers/net/vxlan.c | 6 ++++--
+>  1 file changed, 4 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index a2dee80..d6ec71f 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -2681,10 +2681,12 @@ static int vxlan_lowerdev_event(struct notifier_block *unused,
+>  				unsigned long event, void *ptr)
+>  {
+>  	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+> -	struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
+> +	struct vxlan_net *vn;
+>  
+> -	if (event == NETDEV_UNREGISTER)
+> +	if (event == NETDEV_UNREGISTER) {
+> +		vn = net_generic(dev_net(dev), vxlan_net_id);
+>  		vxlan_handle_lowerdev_unregister(vn, dev);
+> +	}
+>  
+>  	return NOTIFY_DONE;
+>  }
