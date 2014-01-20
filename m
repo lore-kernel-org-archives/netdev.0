@@ -1,8 +1,8 @@
 From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next v5 5/9] xen-netback: Add stat counters
-	for zerocopy
-Date: Mon, 20 Jan 2014 21:24:25 +0000
-Message-ID: <1390253069-25507-6-git-send-email-zoltan.kiss@citrix.com>
+Subject: [PATCH net-next v5 7/9] xen-netback: Add stat counters
+	for frag_list skbs
+Date: Mon, 20 Jan 2014 21:24:27 +0000
+Message-ID: <1390253069-25507-8-git-send-email-zoltan.kiss@citrix.com>
 References: <1390253069-25507-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,82 +23,55 @@ Sender: xen-devel-bounces@lists.xen.org
 Errors-To: xen-devel-bounces@lists.xen.org
 List-Id: netdev.vger.kernel.org
 
-These counters help determine how often the buffers had to be copied. Also
-they help find out if packets are leaked, as if "sent != success + fail",
-there are probably packets never freed up properly.
+These counters help determine how often the guest sends a packet with more
+than MAX_SKB_FRAGS frags.
 
 Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 ---
- drivers/net/xen-netback/common.h    |    3 +++
- drivers/net/xen-netback/interface.c |   15 +++++++++++++++
- drivers/net/xen-netback/netback.c   |    9 ++++++++-
- 3 files changed, 26 insertions(+), 1 deletion(-)
+ drivers/net/xen-netback/common.h    |    1 +
+ drivers/net/xen-netback/interface.c |    7 +++++++
+ drivers/net/xen-netback/netback.c   |    1 +
+ 3 files changed, 9 insertions(+)
 
 diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index 419e63c..e3c28ff 100644
+index e3c28ff..c037efb 100644
 --- a/drivers/net/xen-netback/common.h
 +++ b/drivers/net/xen-netback/common.h
-@@ -155,6 +155,9 @@ struct xenvif {
- 
- 	/* Statistics */
- 	unsigned long rx_gso_checksum_fixup;
-+	unsigned long tx_zerocopy_sent;
-+	unsigned long tx_zerocopy_success;
-+	unsigned long tx_zerocopy_fail;
+@@ -158,6 +158,7 @@ struct xenvif {
+ 	unsigned long tx_zerocopy_sent;
+ 	unsigned long tx_zerocopy_success;
+ 	unsigned long tx_zerocopy_fail;
++	unsigned long tx_frag_overflow;
  
  	/* Miscellaneous private stuff. */
  	struct net_device *dev;
 diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index af5216f..75fe683 100644
+index ac27af3..b7daf8d 100644
 --- a/drivers/net/xen-netback/interface.c
 +++ b/drivers/net/xen-netback/interface.c
-@@ -239,6 +239,21 @@ static const struct xenvif_stat {
- 		"rx_gso_checksum_fixup",
- 		offsetof(struct xenvif, rx_gso_checksum_fixup)
+@@ -254,6 +254,13 @@ static const struct xenvif_stat {
+ 		"tx_zerocopy_fail",
+ 		offsetof(struct xenvif, tx_zerocopy_fail)
  	},
-+	/* If (sent != success + fail), there are probably packets never
-+	 * freed up properly!
++	/* Number of packets exceeding MAX_SKB_FRAG slots. You should use
++	 * a guest with the same MAX_SKB_FRAG
 +	 */
 +	{
-+		"tx_zerocopy_sent",
-+		offsetof(struct xenvif, tx_zerocopy_sent),
-+	},
-+	{
-+		"tx_zerocopy_success",
-+		offsetof(struct xenvif, tx_zerocopy_success),
-+	},
-+	{
-+		"tx_zerocopy_fail",
-+		offsetof(struct xenvif, tx_zerocopy_fail)
++		"tx_frag_overflow",
++		offsetof(struct xenvif, tx_frag_overflow)
 +	},
  };
  
  static int xenvif_get_sset_count(struct net_device *dev, int string_set)
 diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index a1b03e4..e2dd565 100644
+index 9841429..4305965 100644
 --- a/drivers/net/xen-netback/netback.c
 +++ b/drivers/net/xen-netback/netback.c
-@@ -1611,8 +1611,10 @@ static int xenvif_tx_submit(struct xenvif *vif, int budget)
- 		 * skb_copy_ubufs while we are still in control of the skb. E.g.
- 		 * the __pskb_pull_tail earlier can do such thing.
- 		 */
--		if (skb_shinfo(skb)->destructor_arg)
-+		if (skb_shinfo(skb)->destructor_arg) {
+@@ -1656,6 +1656,7 @@ static int xenvif_tx_submit(struct xenvif *vif, int budget)
  			skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
-+			vif->tx_zerocopy_sent++;
-+		}
+ 			skb_shinfo(nskb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
+ 			vif->tx_zerocopy_sent += 2;
++			vif->tx_frag_overflow++;
+ 			nskb = skb;
  
- 		netif_receive_skb(skb);
- 	}
-@@ -1645,6 +1647,11 @@ void xenvif_zerocopy_callback(struct ubuf_info *ubuf, bool zerocopy_success)
- 		napi_schedule(&vif->napi);
- 	} while (ubuf);
- 	spin_unlock_irqrestore(&vif->dealloc_lock, flags);
-+
-+	if (likely(zerocopy_success))
-+		vif->tx_zerocopy_success++;
-+	else
-+		vif->tx_zerocopy_fail++;
- }
- 
- static inline void xenvif_tx_action_dealloc(struct xenvif *vif)
+ 			skb = skb_copy_expand(skb, 0, 0, GFP_ATOMIC | __GFP_NOWARN);
