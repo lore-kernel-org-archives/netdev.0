@@ -1,33 +1,32 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next v3 0/8] net: stmmac: Add Allwinner
- A20 GMAC ethernet
-Date: Sun, 19 Jan 2014 20:03:33 -0800 (PST)
-Message-ID: <20140119.200333.695302698969720789.davem@davemloft.net>
-References: <1389965087-21971-1-git-send-email-wens@csie.org>
-Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [PATCH net-next v2] net: stmmac: fix NULL pointer
+ dereference in stmmac_get_tx_hwtstamp
+Date: Sun, 19 Jan 2014 20:03:52 -0800 (PST)
+Message-ID: <20140119.200352.719528361166763885.davem@davemloft.net>
+References: <1389973679-2755-1-git-send-email-damuzi000@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=ISO-8859-1
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
- srinivas.kandagatla-qxv4g6HH51o@public.gmane.org, vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org,
- uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org,
- linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: wens-jdAy2FN1RRM@public.gmane.org
-Return-path: <linux-sunxi+bncBDCIDJ4RTAOBBF6A6KLAKGQED74NOLY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <1389965087-21971-1-git-send-email-wens-jdAy2FN1RRM@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: damuzi000@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1389973679-2755-1-git-send-email-damuzi000@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Date: Fri, 17 Jan 2014 21:24:39 +0800
+From: Bruce Liu <damuzi000@gmail.com>
+Date: Fri, 17 Jan 2014 23:47:59 +0800
 
-> This is v3 of the  Allwinner A20 GMAC glue layer for stmmac.
-> I have split the series into stmmac driver changes for net-next,
-> and clock and DT patches for their respective trees.
+> When timestamping is enabled, stmmac_tx_clean will call
+> stmmac_get_tx_hwtstamp to get tx TS.
+> But the skb can be NULL because the last of its tx_skbuff is NULL
+> if this packet frame is filled in more than one descriptors.
+> 
+> To fix the issue, change the code:
+> - Store TX skb to the tx_skbuff[] of frame's last segment.
+> - Check skb is not NULL in stmmac_get_tx_hwtstamp.
+> 
+> Signed-off-by: Bruce Liu <damuzi000@gmail.com>
 
-Series applied, thanks.
+Looks a lot better, applied, thanks.
