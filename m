@@ -1,26 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: document accel_priv parameter for
- __dev_queue_xmit()
-Date: Sun, 19 Jan 2014 19:49:50 -0800 (PST)
-Message-ID: <20140119.194950.1783573143714328209.davem@davemloft.net>
-References: <1390188313-9275-1-git-send-email-jasowang@redhat.com>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: [PATCH] ipv6: udp: check sk->sk_no_check when sending udpv6 packet
+Date: Mon, 20 Jan 2014 11:51:01 +0800
+Message-ID: <52DC9D25.9070809@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jasowang@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1390188313-9275-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:39115 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752430AbaATDvi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Jan 2014 22:51:38 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Mon, 20 Jan 2014 11:25:13 +0800
 
-> To silent "make htmldocs" warning.
-> 
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+According to the user's intention, if SO_NO_CHECK option is
+set to true, the udpv6 packet should be out with no checksum.
 
-This is certainly not such a catastrophic error that it should be
-targetted at the 'net' tree.
+Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+---
+ net/ipv6/udp.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 089c741..8808c69 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1001,6 +1001,10 @@ static int udp_v6_push_pending_frames(struct sock *sk)
+ 
+ 	if (is_udplite)
+ 		csum = udplite_csum_outgoing(sk, skb);
++	else if (sk->sk_no_check == UDP_CSUM_NOXMIT) {
++		skb->ip_summed = CHECKSUM_NONE;
++		goto send;
++	}
+ 	else if (skb->ip_summed == CHECKSUM_PARTIAL) { /* UDP hardware csum */
+ 		udp6_hwcsum_outgoing(sk, skb, &fl6->saddr, &fl6->daddr,
+ 				     up->len);
+-- 
+1.8.3.1
