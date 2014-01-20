@@ -1,33 +1,35 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next v5 0/2] stmmac: fix kernel crashes for jumbo
- frames
-Date: Sun, 19 Jan 2014 20:04:31 -0800 (PST)
-Message-ID: <20140119.200431.44766674079788350.davem@davemloft.net>
-References: <1389903026-12064-1-git-send-email-vbridgers2013@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: fix "queues" uevent between network namespaces
+Date: Sun, 19 Jan 2014 20:04:42 -0800 (PST)
+Message-ID: <20140119.200442.627716770426396484.davem@davemloft.net>
+References: <1389864271-24212-1-git-send-email-chenweilong@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	peppe.cavallaro-qxv4g6HH51o@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org,
-	mark.rutland-5wv7dgnIgG8@public.gmane.org, ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org,
-	galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, dinguyen-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org, rayagond-AmucfkJibqKGw+nKnLezzg@public.gmane.org
-To: vbridgers2013-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1389903026-12064-1-git-send-email-vbridgers2013-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org
+To: chenweilong@huawei.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41162 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752990AbaATEEm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 23:04:42 -0500
+In-Reply-To: <1389864271-24212-1-git-send-email-chenweilong@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vince Bridgers <vbridgers2013-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Thu, 16 Jan 2014 14:10:24 -0600
+From: Chen Weilong <chenweilong@huawei.com>
+Date: Thu, 16 Jan 2014 17:24:31 +0800
 
-> These patches address two kernel crashes seen when using jumbo frames on 
-> the Synopsys stmmac driver, and adds device tree configurability for the 
-> maximum mtu. The Synopsys emac fifo sizes can be configured when a logic
-> design is synthesized, but does not provide a way for a driver to query the
-> exact fifo size. 
+> From: Weilong Chen <chenweilong@huawei.com>
+> 
+> When I create a new namespace with 'ip netns add net0', or add/remove
+> new links in a namespace with 'ip link add/delete type veth', rx/tx
+> queues events can be got in all namespaces. That is because rx/tx queue
+> ktypes do not have namespace support, and their kobj parents are setted to
+> NULL. This patch is to fix it.
+> 
+> Reported-by: Libo Chen <chenlibo@huawei.com>
+> Signed-off-by: Libo Chen <chenlibo@huawei.com>
+> Signed-off-by: Weilong Chen <chenweilong@huawei.com>
 
-These patches do not apply to the current net-next tree, please respin.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied to net-next, thanks.
