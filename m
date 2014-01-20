@@ -1,73 +1,58 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] rtlwifi: Add firmware for r8723au
-Date: Sun, 19 Jan 2014 23:35:19 +0000
-Message-ID: <1390174519.3651.3.camel@deadeye.wl.decadent.org.uk>
-References: <1388709729-28496-1-git-send-email-Larry.Finger@lwfinger.net>
+From: Rob Landley <rob-VoJi6FS/r0vR7s880joybQ@public.gmane.org>
+Subject: Re: ping [PATCH v3] WAN: Adding support for Lantiq PEF2256 E1 chipset
+ (FALC56)
+Date: Sun, 19 Jan 2014 18:50:18 -0600
+Message-ID: <52DC72CA.3090403@landley.net>
+References: <20140119180732.A1D99432AF@localhost.localdomain> <1390160095.2290.9.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Cz78EAnih53cvC7uAKgq"
-Cc: dwmw2@infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:60643 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752233AbaASXfb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 18:35:31 -0500
-In-Reply-To: <1388709729-28496-1-git-send-email-Larry.Finger@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>,
+	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>,
+	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, marc.balemboy-GgN8y9CXRhA@public.gmane.org
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	Christophe Leroy <christophe.leroy-GgN8y9CXRhA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1390160095.2290.9.camel@joe-AO722>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On 01/19/14 13:34, Joe Perches wrote:
+> On Sun, 2014-01-19 at 19:07 +0100, Christophe Leroy wrote:
+>> Pinging this watch as we got no feedback since 22 Nov, although we have taken
+>> into account reviews from v1 and v2.
+>>
+>> The patch adds WAN support for Lantiq FALC56 - PEF2256 E1 Chipset.
+...
+>> +static ssize_t fs_attr_Tx_TS_store(struct device *dev,
+>> +			struct device_attribute *attr,  const char *buf,
+>> +			size_t count)
+>> +{
+>> +	struct net_device *ndev = dev_get_drvdata(dev);
+>> +	struct pef2256_dev_priv *priv = dev_to_hdlc(ndev)->priv;
+>> +	unsigned long value;
+>> +	int ret = kstrtoul(buf, 16, (long int *)&value);
+>
+> unportable cast
 
---=-Cz78EAnih53cvC7uAKgq
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+How is that not portable? It's long == pointer on Linux, which supports 
+LP64 on all targets. (As do BSD, MacOSX, android, and iOS.)
 
-On Thu, 2014-01-02 at 18:42 -0600, Larry Finger wrote:
-> This firmware is for a driver that will soon be submitted to the kernel.
-> It occurs as data statements in Realtek driver rtl8723A_WiFi_linux_v4.1.3=
-_6044.20121224.
->=20
-> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-> ---
->  WHENCE                         |  13 +++++++++++++
->  rtlwifi/rtl8723aufw_A.bin      | Bin 0 -> 22172 bytes
->  rtlwifi/rtl8723aufw_B.bin      | Bin 0 -> 24118 bytes
->  rtlwifi/rtl8723aufw_B_NoBT.bin | Bin 0 -> 19200 bytes
->  4 files changed, 13 insertions(+)
->  create mode 100644 rtlwifi/rtl8723aufw_A.bin
->  create mode 100644 rtlwifi/rtl8723aufw_B.bin
->  create mode 100644 rtlwifi/rtl8723aufw_B_NoBT.bin
-[...]
+   http://www.unix.org/whitepapers/64bit.html
+   http://www.unix.org/version2/whatsnew/lp64_wp.html
 
-Applied, thanks.
+Do you mean it's not portable to Windows?
 
-Ben.
+   http://blogs.msdn.com/oldnewthing/archive/2005/01/31/363790.aspx
 
---=20
-Ben Hutchings
-friends: People who know you well, but like you anyway.
-
---=-Cz78EAnih53cvC7uAKgq
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
-
-iQIVAwUAUtxhN+e/yOyVhhEJAQq2rRAAo6ayOFFeVCcmaBlGUJna+3B2Ao1cQ9f5
-dfPTwDogCfqecyI3HtzDY3BIKkHaS/zFQj6xOpcHPaAlzamfUr96DVN+Ywmn9Ym8
-5bQ99s5qD09zbIlpGU3IXEvL8VES3T2ofaslnV4HLYfRkhfvPTDfAQtnVBo0kuVb
-4+juLZ+zR34JTd4wHDdTxcjP1FqveLgKrLKfcgs4ExdX/Gf4vsmtTzgFd8XmrUXE
-lrhmIN40b4CMtZ6nN6ULtRbyG4qIUkl5VFNdWLCCP2Q10PQrx1n/mjXo4CRziced
-60469Dhytv9cbYNDjtjEB4UE4py3yniddAsNVUgACHgpxCorNMRoyZce8gOHh/DP
-1hpU7AyB6go9kXxtUO7eOEdMWIYpepaO9OdBCSNcEotd8QWPnmOsn/H7wyp36BM/
-z0pXRcXGtt2NRn1onGeSsX5yFR7nDEB+w3u2IpUWGPADZdZhJd6VWeAUzRwZ0i+2
-V3lUbSJ5J+8nZmCoMXUd29Vw7l8UHqa0xvZ3JTgOXztAM2usPi/gdKhggHqM+w9j
-bPFWNZnJWT8cArXF8qyawSNDH4+4DisO+mMtkX1yuLFyktadBU5UxhZaxvfv6U1U
-75cRbp78ljPw0n7LzJdtOcGU7wQHbaBKOBpWVZHGhNb7HJTnp+Njm3CWmZwmRnZP
-fyFU8VvFlo8=
-=Oclt
------END PGP SIGNATURE-----
-
---=-Cz78EAnih53cvC7uAKgq--
+Rob
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
