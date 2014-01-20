@@ -1,58 +1,36 @@
-From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
-Subject: RE: [PATCH net-next 3/4] ethtool: Support for configurable RSS hash
- key.
-Date: Mon, 20 Jan 2014 12:23:33 +0000
-Message-ID: <BF3270C86E8B1349A26C34E4EC1C44CB2C84C327@CMEXMB1.ad.emulex.com>
-References: <BF3270C86E8B1349A26C34E4EC1C44CB2C83D8E5@CMEXMB1.ad.emulex.com>
- <1390156048.16433.114.camel@deadeye.wl.decadent.org.uk>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [Patch net-next 2/6] net_sched: act: export tcf_hash_search()
+ instead of tcf_hash_lookup()
+Date: Mon, 20 Jan 2014 07:28:15 -0500
+Message-ID: <52DD165F.8000106@mojatatu.com>
+References: <1389987427-14085-1-git-send-email-xiyou.wangcong@gmail.com> <1389987427-14085-3-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:47049 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751832AbaATMXf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 07:23:35 -0500
-In-Reply-To: <1390156048.16433.114.camel@deadeye.wl.decadent.org.uk>
-Content-Language: en-US
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:63173 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752496AbaATM2T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 07:28:19 -0500
+Received: by mail-ie0-f174.google.com with SMTP id tp5so1844826ieb.19
+        for <netdev@vger.kernel.org>; Mon, 20 Jan 2014 04:28:18 -0800 (PST)
+In-Reply-To: <1389987427-14085-3-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
-bWFpbHRvOmJlbkBkZWNhZGVudC5vcmcudWtdDQo+IFNlbnQ6IFN1bmRheSwgSmFudWFyeSAxOSwg
-MjAxNCAxMTo1NyBQTQ0KPiBUbzogVmVua2F0YSBEdXZ2dXJ1DQo+IENjOiBuZXRkZXZAdmdlci5r
-ZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0LW5leHQgMy80XSBldGh0b29sOiBT
-dXBwb3J0IGZvciBjb25maWd1cmFibGUgUlNTIGhhc2gNCj4ga2V5Lg0KPiANCj4gT24gRnJpLCAy
-MDE0LTAxLTE3IGF0IDEzOjAyICswMDAwLCBWZW5rYXRhIER1dnZ1cnUgd3JvdGU6DQo+ID4gVGhp
-cyBldGh0b29sIHBhdGNoIHByaW1hcmlseSBjb3BpZXMgdGhlIGlvY3RsIGNvbW1hbmQgZGF0YSBz
-dHJ1Y3R1cmVzDQo+IGZyb20vdG8gdGhlIFVzZXIgc3BhY2UgYW5kIGludm9rZXMgdGhlIGRyaXZl
-ciBob29rLg0KPiBbLi4uXQ0KPiA+IC0tLSBhL2luY2x1ZGUvdWFwaS9saW51eC9ldGh0b29sLmgN
-Cj4gPiArKysgYi9pbmNsdWRlL3VhcGkvbGludXgvZXRodG9vbC5oDQo+ID4gQEAgLTY3OCw2ICs2
-NzgsMjIgQEAgc3RydWN0IGV0aHRvb2xfcnhfbnR1cGxlIHsNCj4gPiAgCXN0cnVjdCBldGh0b29s
-X3J4X250dXBsZV9mbG93X3NwZWMJZnM7DQo+ID4gIH07DQo+ID4NCj4gPiArDQo+ID4gKy8qKg0K
-PiA+ICsgKiBzdHJ1Y3QgZXRodG9vbF9yc3NfaGtleSAtIGNvbW1hbmQgdG8gc2V0L2dldCBSU1Mg
-aGFzaCBrZXkgb2YgdGhlDQo+IGRldmljZS4NCj4gPiArICogQGNtZDogQ29tbWFuZCBudW1iZXIg
-LQ0KPiAlRVRIVE9PTF9TRVRfUlNTX0hLRVkvRVRIVE9PTF9HRVRfUlNTX0hLRVkNCj4gPiArICog
-QGRhdGE6IDQwIG9yIDE2IGJ5dGUgcnNzIGhhc2gga2V5DQo+ID4gKyAqIEBkYXRhX2xlbjogcnNz
-IGhhc2gga2V5IGxlbmd0aA0KPiA+ICsgKi8NCj4gPiArDQo+ID4gKyNkZWZpbmUgUlNTX0hBU0hf
-S0VZX0xFTgk0MA0KPiANCj4gVGhpcyBzaG91bGQgaGF2ZSBhbiAnRVRIVE9PTF8nIG9yICdFVEhf
-JyBwcmVmaXguICBCdXQgSSB3b25kZXIgd2hldGhlciB0aGVyZQ0KPiBzaG91bGQgYWN0dWFsbHkg
-YmUgYSBzdGF0aWMgbWF4aW11bSBsZW5ndGguDQo+IA0KPiA+ICsvKiBSU1MgSGFzaCBrZXkgKi8N
-Cj4gPiArc3RydWN0IGV0aHRvb2xfcnNzX2hrZXkgew0KPiA+ICsJX191MzIgICBjbWQ7ICAgICAg
-ICAgICAgLyogRVRIVE9PTF9TRVQvR0VUX1JTU19IS0VZICovDQo+ID4gKwlfX3U4ICAgIGRhdGFb
-UlNTX0hBU0hfS0VZX0xFTl07DQo+ID4gKwlfX3UzMglkYXRhX2xlbjsNCj4gPiArfTsNCj4gWy4u
-Ll0NCj4gDQo+IEhvdyBhYm91dCBwdXR0aW5nIGRhdGEgYWZ0ZXIgdGhlIGRhdGFfbGVuIGFuZCBn
-aXZpbmcgaXQgYSBsZW5ndGggb2YgMCwgc28gdGhpcyBpcw0KPiBleHRlbnNpYmxlIHRvIGFuIGFy
-Yml0cmFyeSBsZW5ndGgga2V5Pw0KPiANCj4gSWYgd2UncmUgZXh0ZW5kaW5nIHRoZSBSU1MgY29u
-ZmlndXJhdGlvbiBpbnRlcmZhY2UsIHRoZXJlIGFyZSBhIGZldyBvdGhlcg0KPiB0aGluZ3MgdGhh
-dCBtaWdodCBiZSB3b3J0aCBkb2luZyBhdCB0aGUgc2FtZSB0aW1lOg0KPiANCj4gLSBTaW5nbGUg
-Y29tbWFuZHMgdG8gZ2V0L3NldCBib3RoIHRoZSBrZXkgYW5kIHRoZSBpbmRpcmVjdGlvbiB0YWJs
-ZSBhdCB0aGUNCj4gc2FtZSB0aW1lDQo+IC0gQWRkIGEgZmllbGQgdG8gZGlzdGluZ3Vpc2ggbXVs
-dGlwbGUgUlNTIGNvbnRleHRzIChzb21lIGhhcmR3YXJlIGNhbiB1c2UgUlNTDQo+IGNvbnRleHRz
-IHRvZ2V0aGVyIHdpdGggZmlsdGVycywgdGhvdWdoIFJYIE5GQyBkb2VzIG5vdCBzdXBwb3J0IHRo
-YXQgeWV0KQ0KQXJlIHlvdSByZWZlcnJpbmcgdG8gdGhlIGZpbHRlci1pZCB0aGF0IGlzIGNyZWF0
-ZWQgYXQgdGhlIHRpbWUgb2YgY29uZmlnLW5mYz8gUGxzIGNsYXJpZnkuDQo+IA0KPiBCZW4uDQo+
-IA0KPiAtLQ0KPiBCZW4gSHV0Y2hpbmdzDQo+IGZyaWVuZHM6IFBlb3BsZSB3aG8ga25vdyB5b3Ug
-d2VsbCwgYnV0IGxpa2UgeW91IGFueXdheS4NCg==
+On 01/17/14 14:37, Cong Wang wrote:
+> So that we will not expose struct tcf_common to modules.
+>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>
+
+
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+
+
+cheers,
+jamal
