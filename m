@@ -1,79 +1,77 @@
-From: Trond Myklebust <trond.myklebust@primarydata.com>
-Subject: Re: [PATCH] SUNRPC: Allow one callback request to be received from
- two sk_buff
-Date: Mon, 20 Jan 2014 16:17:23 -0700
-Message-ID: <1390259843.2501.2.camel@leira.trondhjem.org>
-References: <n>
-	 <1390201154-20815-1-git-send-email-shaobingqing@bwstor.com.cn>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: bfields@redhat.com, davem@davemloft.net, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: shaobingqing <shaobingqing@bwstor.com.cn>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1390201154-20815-1-git-send-email-shaobingqing@bwstor.com.cn>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] net: filter: let bpf_tell_extensions return SKF_AD_MAX
+Date: Tue, 21 Jan 2014 00:19:37 +0100
+Message-ID: <1390259977-28770-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, Michal Sekletar <msekleta@redhat.com>,
+	Eric Dumazet <edumazet@google.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:43703 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752475AbaATXTm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Jan 2014 18:19:42 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-01-20 at 14:59 +0800, shaobingqing wrote:
-> In current code, there only one struct rpc_rqst is prealloced. If one 
-> callback request is received from two sk_buff, the xprt_alloc_bc_request
-> would be execute two times with the same transport->xid. The first time
-> xprt_alloc_bc_request will alloc one struct rpc_rqst and the TCP_RCV_COPY_DATA
-> bit of transport->tcp_flags will not be cleared. The second time 
-> xprt_alloc_bc_request could not alloc struct rpc_rqst any more and NULL
-> pointer will be returned, then xprt_force_disconnect occur. I think one 
-> callback request can be allowed to be received from two sk_buff.
-> 
-> Signed-off-by: shaobingqing <shaobingqing@bwstor.com.cn>
-> ---
->  net/sunrpc/xprtsock.c |   11 +++++++++--
->  1 files changed, 9 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-> index ee03d35..606950d 100644
-> --- a/net/sunrpc/xprtsock.c
-> +++ b/net/sunrpc/xprtsock.c
-> @@ -1271,8 +1271,13 @@ static inline int xs_tcp_read_callback(struct rpc_xprt *xprt,
->  	struct sock_xprt *transport =
->  				container_of(xprt, struct sock_xprt, xprt);
->  	struct rpc_rqst *req;
-> +	static struct rpc_rqst *req_partial;
-> +
-> +	if (req_partial == NULL)
-> +		req = xprt_alloc_bc_request(xprt);
-> +	else if (req_partial->rq_xid == transport->tcp_xid)
-> +		req = req_partial;
+Michal Sekletar added in commit ea02f9411d9f ("net: introduce
+SO_BPF_EXTENSIONS") a facility where user space can enquire
+the BPF ancillary instruction set, which is imho a step into
+the right direction for letting user space high-level to BPF
+optimizers make an informed decision for possibly using these
+extensions.
 
-What happens here if req_partial->rq_xid != transport->tcp_xid? AFAICS,
-req will be undefined. Either way, you cannot use a static variable for
-storage here: that isn't re-entrant.
+The original rationale was to return through a getsockopt(2)
+a bitfield of which instructions are supported and which
+are not, as of right now, we just return 0 to indicate a
+base support for SKF_AD_PROTOCOL up to SKF_AD_PAY_OFFSET.
+Limitations of this approach are that this API which we need
+to maintain for a long time can only support a maximum of 32
+extensions, and needs to be additionally maintained/updated
+when each new extension that comes in.
 
-> -	req = xprt_alloc_bc_request(xprt);
->  	if (req == NULL) {
->  		printk(KERN_WARNING "Callback slot table overflowed\n");
->  		xprt_force_disconnect(xprt);
-> @@ -1285,6 +1290,7 @@ static inline int xs_tcp_read_callback(struct rpc_xprt *xprt,
->  
->  	if (!(transport->tcp_flags & TCP_RCV_COPY_DATA)) {
->  		struct svc_serv *bc_serv = xprt->bc_serv;
-> +		req_partial = NULL;
->  
->  		/*
->  		 * Add callback request to callback list.  The callback
-> @@ -1297,7 +1303,8 @@ static inline int xs_tcp_read_callback(struct rpc_xprt *xprt,
->  		list_add(&req->rq_bc_list, &bc_serv->sv_cb_list);
->  		spin_unlock(&bc_serv->sv_cb_lock);
->  		wake_up(&bc_serv->sv_cb_waitq);
-> -	}
-> +	} else
-> +		req_partial = req;
->  
->  	req->rq_private_buf.len = transport->tcp_copied;
->  
+I thought about this a bit more and what we can do here to
+overcome this is to just return SKF_AD_MAX. Since we never
+remove any extension since we cannot break user space and
+always linearly increase SKF_AD_MAX on each newly added
+extension, user space can make a decision on what extensions
+are supported in the whole set of extensions and which aren't,
+by just checking which of them from the whole set have an
+offset < SKF_AD_MAX of the underlying kernel.
 
+Since SKF_AD_MAX must be updated each time we add new ones,
+we don't need to introduce an additional enum and got
+maintenance for free. At some point in time when
+SO_BPF_EXTENSIONS becomes ubiquitous for most kernels, then
+an application can simply make use of this and easily be run
+on newer or older underlying kernels without needing to be
+recompiled, of course. Since that is for 3.14, it's not too
+late to do this change.
 
+Cc: Michal Sekletar <msekleta@redhat.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ include/linux/filter.h | 8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
+
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 1a95a2d..e568c8e 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -85,13 +85,7 @@ static inline void bpf_jit_free(struct sk_filter *fp)
+ 
+ static inline int bpf_tell_extensions(void)
+ {
+-	/* When adding new BPF extension it is necessary to enumerate
+-	 * it here, so userspace software which wants to know what is
+-	 * supported can do so by inspecting return value of this
+-	 * function
+-	 */
+-
+-	return 0;
++	return SKF_AD_MAX;
+ }
+ 
+ enum {
 -- 
-Trond Myklebust
-Linux NFS client maintainer
+1.8.3.1
