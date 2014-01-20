@@ -1,89 +1,45 @@
-From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v2] socket.7: add description for SO_BUSY_POLL
-Date: Mon, 20 Jan 2014 17:28:54 +0100
-Message-ID: <52DD4EC6.7080208@gmail.com>
-References: <20130710141835.15799.61657.stgit@ladj378.jer.intel.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net-next v2] xen-netback: Rework rx_work_todo
+Date: Mon, 20 Jan 2014 16:38:14 +0000
+Message-ID: <20140120163814.GE11681@zion.uk.xensource.com>
+References: <1389805867-22409-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Eliezer Tamir <eliezer-rsSRdLmRgNEQhDRD3CWCHA@public.gmane.org>
-To: Eliezer Tamir <eliezer.tamir-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20130710141835.15799.61657.stgit-vd+Q285fAQQAP1VksDEriRL4W9x8LtSr@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1389805867-22409-1-git-send-email-zoltan.kiss@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/10/2013 04:18 PM, Eliezer Tamir wrote:
-> Add description for the SO_BUSY_POLL socket option to the socket(7) manpage.
-
-Long after the fact, I've applied this. Thanks, Eliezer.
-
-Would you be willing also to write a patch for the POLL_BUSY_LOOP flag of 
-poll()?
-
-Cheers,
-
-Michael
-
-
-> v2
-> fixed typos reported by Rasmus Villemoes
+On Wed, Jan 15, 2014 at 05:11:07PM +0000, Zoltan Kiss wrote:
+> The recent patch to fix receive side flow control (11b57f) solved the spinning
+> thread problem, however caused an another one. The receive side can stall, if:
+> - [THREAD] xenvif_rx_action sets rx_queue_stopped to true
+> - [INTERRUPT] interrupt happens, and sets rx_event to true
+> - [THREAD] then xenvif_kthread sets rx_event to false
+> - [THREAD] rx_work_todo doesn't return true anymore
 > 
-> Signed-off-by: Eliezer Tamir <eliezer.tamir-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-> ---
+> Also, if interrupt sent but there is still no room in the ring, it take quite a
+> long time until xenvif_rx_action realize it. This patch ditch that two variable,
+> and rework rx_work_todo. If the thread finds it can't fit more skb's into the
+> ring, it saves the last slot estimation into rx_last_skb_slots, otherwise it's
+> kept as 0. Then rx_work_todo will check if:
+> - there is something to send to the ring (like before)
+> - there is space for the topmost packet in the queue
 > 
->  man7/socket.7 |   25 +++++++++++++++++++++++++
->  1 files changed, 25 insertions(+), 0 deletions(-)
+> I think that's more natural and optimal thing to test than two bool which are
+> set somewhere else.
 > 
-> diff --git a/man7/socket.7 b/man7/socket.7
-> index f2213eb..5edcb09 100644
-> --- a/man7/socket.7
-> +++ b/man7/socket.7
-> @@ -694,6 +694,31 @@ for details on control messages.
->  Gets the socket type as an integer (e.g.,
->  .BR SOCK_STREAM ).
->  This socket option is read-only.
-> +.TP
-> +.B SO_BUSY_POLL
-> +Sets the approximate time in microseconds to busy poll on a blocking receive
-> +when there is no data. Increasing this value requires
-> +.BR CAP_NET_ADMIN . 
-> +The default for this option is controlled by the
-> +.I /proc/sys/net/core/busy_read
-> +file. 
-> +
-> +The value in the  
-> +.I /proc/sys/net/core/busy_poll
-> +file determines how long 
-> +.BR select (2)
-> +and 
-> +.BR poll (2)
-> +will busy poll when they operate on sockets with 
-> +.BR SO_BUSY_POLL
-> +set and no events to report are found.
-> +
-> +In both cases busy polling will only be done when the socket last received data
-> +from a network device that supports this option.
-> +
-> +While busy polling may improve latency of some applications, care must be
-> +taken when using it since this will increase both CPU utilization and power usage.
-> +
->  .SS Signals
->  When writing onto a connection-oriented socket that has been shut down
->  (by the local or the remote end)
-> 
-> 
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 
+Sorry for the delay.
 
--- 
-Michael Kerrisk
-Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-Linux/UNIX System Programming Training: http://man7.org/training/
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Paul, thanks for reviewing.
+
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+
+Wei.
