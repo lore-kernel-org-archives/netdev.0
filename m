@@ -1,159 +1,86 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH net-next 2/2] sctp: use sctp_read_[un]lock instead of read_[un]lock
-Date: Mon, 20 Jan 2014 19:27:27 +0800
-Message-ID: <1390217247-9408-3-git-send-email-wangweidong1@huawei.com>
-References: <1390217247-9408-1-git-send-email-wangweidong1@huawei.com>
+From: James Hogan <james.hogan@imgtec.com>
+Subject: Re: [PATCH linux-next] net: batman-adv: use "__packed __aligned(2)"
+ for each structure instead of "__packed(2)" region
+Date: Mon, 20 Jan 2014 11:28:41 +0000
+Message-ID: <52DD0869.10803@imgtec.com>
+References: <52DA65F4.5070501@gmail.com> <52DA7B9E.4040202@meshcoding.com> <4915262.qEFumRrH4p@radagast> <52DB9B39.9090502@meshcoding.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <dborkman@redhat.com>, <netdev@vger.kernel.org>,
-	<linux-sctp@vger.kernel.org>
-To: <nhorman@tuxdriver.com>, <davem@davemloft.net>,
-	<vyasevich@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:38632 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752035AbaATL2J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 06:28:09 -0500
-In-Reply-To: <1390217247-9408-1-git-send-email-wangweidong1@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature";
+	boundary="7Io76bbmjhjPP46d6rdkmNvaLnFt81GA6"
+Cc: Chen Gang <gang.chen.5i5j@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	<mareklindner@neomailbox.ch>, <sw@simonwunderlich.de>,
+	<b.a.t.m.a.n@lists.open-mesh.org>, netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	<linux-metag@vger.kernel.org>
+To: Antonio Quartulli <antonio@meshcoding.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52DB9B39.9090502@meshcoding.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-While we have the macros sctp_read_[un]lock, so use them.
+--7Io76bbmjhjPP46d6rdkmNvaLnFt81GA6
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
----
- net/sctp/endpointola.c |  4 ++--
- net/sctp/input.c       | 10 +++++-----
- net/sctp/proc.c        | 12 ++++++------
- 3 files changed, 13 insertions(+), 13 deletions(-)
+Hi Antonio,
 
-diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
-index 6ffb6c1..68e1f91 100644
---- a/net/sctp/endpointola.c
-+++ b/net/sctp/endpointola.c
-@@ -342,7 +342,7 @@ static struct sctp_association *__sctp_endpoint_lookup_assoc(
- 	hash = sctp_assoc_hashfn(sock_net(ep->base.sk), ep->base.bind_addr.port,
- 				 rport);
- 	head = &sctp_assoc_hashtable[hash];
--	read_lock(&head->lock);
-+	sctp_read_lock(&head->lock);
- 	sctp_for_each_hentry(epb, &head->chain) {
- 		tmp = sctp_assoc(epb);
- 		if (tmp->ep != ep || rport != tmp->peer.port)
-@@ -355,7 +355,7 @@ static struct sctp_association *__sctp_endpoint_lookup_assoc(
- 			break;
- 		}
- 	}
--	read_unlock(&head->lock);
-+	sctp_read_unlock(&head->lock);
- out:
- 	return asoc;
- }
-diff --git a/net/sctp/input.c b/net/sctp/input.c
-index 1f4eeb4..f22669c 100644
---- a/net/sctp/input.c
-+++ b/net/sctp/input.c
-@@ -768,7 +768,7 @@ static struct sctp_endpoint *__sctp_rcv_lookup_endpoint(struct net *net,
- 
- 	hash = sctp_ep_hashfn(net, ntohs(laddr->v4.sin_port));
- 	head = &sctp_ep_hashtable[hash];
--	read_lock(&head->lock);
-+	sctp_read_lock(&head->lock);
- 	sctp_for_each_hentry(epb, &head->chain) {
- 		ep = sctp_ep(epb);
- 		if (sctp_endpoint_is_match(ep, net, laddr))
-@@ -779,7 +779,7 @@ static struct sctp_endpoint *__sctp_rcv_lookup_endpoint(struct net *net,
- 
- hit:
- 	sctp_endpoint_hold(ep);
--	read_unlock(&head->lock);
-+	sctp_read_unlock(&head->lock);
- 	return ep;
- }
- 
-@@ -863,7 +863,7 @@ static struct sctp_association *__sctp_lookup_association(
- 	hash = sctp_assoc_hashfn(net, ntohs(local->v4.sin_port),
- 				 ntohs(peer->v4.sin_port));
- 	head = &sctp_assoc_hashtable[hash];
--	read_lock(&head->lock);
-+	sctp_read_lock(&head->lock);
- 	sctp_for_each_hentry(epb, &head->chain) {
- 		asoc = sctp_assoc(epb);
- 		transport = sctp_assoc_is_match(asoc, net, local, peer);
-@@ -871,14 +871,14 @@ static struct sctp_association *__sctp_lookup_association(
- 			goto hit;
- 	}
- 
--	read_unlock(&head->lock);
-+	sctp_read_unlock(&head->lock);
- 
- 	return NULL;
- 
- hit:
- 	*pt = transport;
- 	sctp_association_hold(asoc);
--	read_unlock(&head->lock);
-+	sctp_read_unlock(&head->lock);
- 	return asoc;
- }
- 
-diff --git a/net/sctp/proc.c b/net/sctp/proc.c
-index 63ba0bd..bbba718 100644
---- a/net/sctp/proc.c
-+++ b/net/sctp/proc.c
-@@ -219,7 +219,7 @@ static int sctp_eps_seq_show(struct seq_file *seq, void *v)
- 
- 	head = &sctp_ep_hashtable[hash];
- 	sctp_local_bh_disable();
--	read_lock(&head->lock);
-+	sctp_read_lock(&head->lock);
- 	sctp_for_each_hentry(epb, &head->chain) {
- 		ep = sctp_ep(epb);
- 		sk = epb->sk;
-@@ -234,7 +234,7 @@ static int sctp_eps_seq_show(struct seq_file *seq, void *v)
- 		sctp_seq_dump_local_addrs(seq, epb);
- 		seq_printf(seq, "\n");
- 	}
--	read_unlock(&head->lock);
-+	sctp_read_unlock(&head->lock);
- 	sctp_local_bh_enable();
- 
- 	return 0;
-@@ -327,7 +327,7 @@ static int sctp_assocs_seq_show(struct seq_file *seq, void *v)
- 
- 	head = &sctp_assoc_hashtable[hash];
- 	sctp_local_bh_disable();
--	read_lock(&head->lock);
-+	sctp_read_lock(&head->lock);
- 	sctp_for_each_hentry(epb, &head->chain) {
- 		assoc = sctp_assoc(epb);
- 		sk = epb->sk;
-@@ -361,7 +361,7 @@ static int sctp_assocs_seq_show(struct seq_file *seq, void *v)
- 			sk->sk_rcvbuf);
- 		seq_printf(seq, "\n");
- 	}
--	read_unlock(&head->lock);
-+	sctp_read_unlock(&head->lock);
- 	sctp_local_bh_enable();
- 
- 	return 0;
-@@ -447,7 +447,7 @@ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
- 
- 	head = &sctp_assoc_hashtable[hash];
- 	sctp_local_bh_disable();
--	read_lock(&head->lock);
-+	sctp_read_lock(&head->lock);
- 	rcu_read_lock();
- 	sctp_for_each_hentry(epb, &head->chain) {
- 		if (!net_eq(sock_net(epb->sk), seq_file_net(seq)))
-@@ -504,7 +504,7 @@ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
- 	}
- 
- 	rcu_read_unlock();
--	read_unlock(&head->lock);
-+	sctp_read_unlock(&head->lock);
- 	sctp_local_bh_enable();
- 
- 	return 0;
--- 
-1.7.12
+On 19/01/14 09:30, Antonio Quartulli wrote:
+> On 19/01/14 02:10, James Hogan wrote:
+>> It appears that the following gcc patch adds support for #pragma pack:=
+
+>> http://gcc.gnu.org/ml/gcc-patches/2006-10/msg01115.html
+>>
+>> I gave it a quick spin on metag gcc (which is unfortunately stuck on a=
+n old=20
+>> version) and it seems to fix my simple test case so that #pragma pack(=
+2)=20
+>> becomes equivalent to __packed __aligned(2) (for sizeof and __alignof_=
+_).
+>>
+>=20
+> Then I personally think that it is better to fix metag gcc instead of
+> changing the kernel.
+
+Indeed it makes sense to patch metag gcc to be safe in the presence of
+unportable code like this.
+
+> Actually there are many different spots where "#pragma pack" is used.
+> batman-adv is just the only one having compile time checks for structur=
+e
+> sizes.
+
+Well the only vaguely interesting one I can find outside of drivers is
+in fs/udf, and even that seems specific to CD-ROMs and DVDs.
+
+If you care about portability then Chen's patch looks reasonable to me.
+
+Cheers
+James
+
+
+--7Io76bbmjhjPP46d6rdkmNvaLnFt81GA6
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.13 (GNU/Linux)
+
+iQIcBAEBAgAGBQJS3QhxAAoJEKHZs+irPybf8XUQALMq71nsIxtg+4blW6SX3b4D
+/5+lIHezcn7fExlExW4LjnjJb3t1jfYNZGeAW6Ek9Y58EyXHmloPfytkJ+BM2saB
+WTzRTGn0uKlxAITVvR52QH2pZp6mS/5J0hcVaABf/hq85iq+sSKjtveMiopdJKoY
+vUr4hRdQH01r7nOVsM9hTJZKMxXmAvcr1tTaKv65pZD78GWvXSws+oscUqdSe8uw
+koHAO0hroC8HYT5ZGthpIXFL4/WT3c0CyRvR2oFPdO0OB/zEj2X4RtkitBHL6B+Y
+ps/66uTU/zkljqtQ7lxujGdZ4iFL65GmkFoHiTnEt2ulWneMt5FI3KWG1kMC9+rI
+9QRFbpJauo93Gw/xzFBL3rQvRY+WWhh3gWiSJ+tL2Q9eNmjwCJfKRmIVXArVugSJ
+a6s1lMhA8Wabk0mVx2tfFyKoB5kSymzNunDjjslo40jlTWyHIMtBGZeHw4/KLGzA
+sX+zlv2bjWfkrXhIYctorbybQslbc8lXPtcZVdaQcZCO+r0eT66wIxOXoFNSzBh8
+HY7T68URxz3Wm4bdbkExk9dZqyK2Db6ejEcApHUn1TOpscoeWWwtpyd2xM+6j1eR
++FVcujHzl3ReYA7RyQfnR3xkVUHkONfQzkrxSeNuvE1bdrY8qcz3dBjJlLC+GMhA
+TWxGDvU610FPo7Dx85qo
+=dYNL
+-----END PGP SIGNATURE-----
+
+--7Io76bbmjhjPP46d6rdkmNvaLnFt81GA6--
