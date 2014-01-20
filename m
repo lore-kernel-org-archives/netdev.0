@@ -1,35 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: optimize link local address search
-Date: Sun, 19 Jan 2014 19:56:19 -0800 (PST)
-Message-ID: <20140119.195619.1026706031576275995.davem@davemloft.net>
-References: <20140119205819.GD16462@order.stressinduktion.org>
+Subject: Re: [PATCH net-next] sctp: fix missing SCTP mailing list address
+ update
+Date: Sun, 19 Jan 2014 19:56:35 -0800 (PST)
+Message-ID: <20140119.195635.870157965803222760.davem@davemloft.net>
+References: <1390170293-15851-1-git-send-email-sakiwit@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, brian.haley@hp.com
-To: hannes@stressinduktion.org
+Cc: vyasevich@gmail.com, nhorman@tuxdriver.com,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	dborkman@redhat.com
+To: sakiwit@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41084 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41092 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752757AbaATD4U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 22:56:20 -0500
-In-Reply-To: <20140119205819.GD16462@order.stressinduktion.org>
+	with ESMTP id S1752585AbaATD4g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 22:56:36 -0500
+In-Reply-To: <1390170293-15851-1-git-send-email-sakiwit@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Sun, 19 Jan 2014 21:58:19 +0100
+From: Jean Sacren <sakiwit@gmail.com>
+Date: Sun, 19 Jan 2014 15:24:53 -0700
 
-> ipv6_link_dev_addr sorts newly added addresses by scope in
-> ifp->addr_list. Smaller scope addresses are added to the tail of the
-> list. Use this fact to iterate in reverse over addr_list and break out
-> as soon as a higher scoped one showes up, so we can spare some cycles
-> on machines with lot's of addresses.
+> The commit 91705c61b5202 ("net: sctp: trivial: update mailing list
+> address") updated almost all the SCTP mailing list address from
 > 
-> The ordering of the addresses is not relevant and we are more likely to
-> get the eui64 generated address with this change anyway.
+> 	"lksctp-developers@lists.sourceforge.net"
+> to
+> 	"linux-sctp@vger.kernel.org"
 > 
-> Suggested-by: Brian Haley <brian.haley@hp.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> except for the one in include/linux/sctp.h file. Fix this way trivial
+> one so that all is updated.
+> 
+> Signed-off-by: Jean Sacren <sakiwit@gmail.com>
 
 Applied.
