@@ -1,48 +1,72 @@
-From: yegorslists@googlemail.com
-Subject: [PATCH] 8021q: update description
-Date: Mon, 20 Jan 2014 10:49:39 +0100
-Message-ID: <1390211379-3374-1-git-send-email-yegorslists@googlemail.com>
-Cc: davem@davemloft.net, Yegor Yefremov <yegorslists@googlemail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.vscom.de ([62.145.30.242]:48453 "EHLO mail.visionsystems.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751380AbaATKMQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Jan 2014 05:12:16 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] rxrpc: out of bound read in debug code
+Date: Mon, 20 Jan 2014 13:28:59 +0300
+Message-ID: <20140120102859.GA14233@elgon.mountain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yegor Yefremov <yegorslists@googlemail.com>
+Smatch complains because we are using an untrusted index into the
+rxrpc_acks[] array.  It's just a read and it's only in the debug code,
+but it's simple enough to add a check and fix it.
 
-Replace deprecated 'vconfig' tool with 'ip' from 'iproute2'. Add
-some beautifications like replacing 'ethernet' with 'Ethernet' and
-removing unneeded spaces.
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
----
- net/8021q/Kconfig |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/net/8021q/Kconfig b/net/8021q/Kconfig
-index b85a91f..4232018 100644
---- a/net/8021q/Kconfig
-+++ b/net/8021q/Kconfig
-@@ -6,11 +6,11 @@ config VLAN_8021Q
- 	tristate "802.1Q/802.1ad VLAN Support"
- 	---help---
- 	  Select this and you will be able to create 802.1Q VLAN interfaces
--	  on your ethernet interfaces.  802.1Q VLAN supports almost
--	  everything a regular ethernet interface does, including
--	  firewalling, bridging, and of course IP traffic.  You will need
--	  the 'vconfig' tool from the VLAN project in order to effectively
--	  use VLANs.  See the VLAN web page for more information:
-+	  on your Ethernet interfaces. 802.1Q VLAN supports almost
-+	  everything a regular Ethernet interface does, including
-+	  firewalling, bridging, and of course IP traffic. You will need
-+	  the 'ip' utility in order to effectively use VLANs.
-+	  See the VLAN web page for more information:
- 	  <http://www.candelatech.com/~greear/vlan.html>
+diff --git a/net/rxrpc/ar-ack.c b/net/rxrpc/ar-ack.c
+index e4d9cbcff402..cd97a0ce48d8 100644
+--- a/net/rxrpc/ar-ack.c
++++ b/net/rxrpc/ar-ack.c
+@@ -21,10 +21,17 @@
  
- 	  To compile this code as a module, choose M here: the module
--- 
-1.7.7
+ static unsigned int rxrpc_ack_defer = 1;
+ 
+-static const char *const rxrpc_acks[] = {
+-	"---", "REQ", "DUP", "OOS", "WIN", "MEM", "PNG", "PNR", "DLY", "IDL",
+-	"-?-"
+-};
++static const char *rxrpc_acks(u8 reason)
++{
++	static const char *const str[] = {
++		"---", "REQ", "DUP", "OOS", "WIN", "MEM", "PNG", "PNR", "DLY",
++		"IDL", "-?-"
++	};
++
++	if (reason >= ARRAY_SIZE(str))
++		reason = ARRAY_SIZE(str) - 1;
++	return str[reason];
++}
+ 
+ static const s8 rxrpc_ack_priority[] = {
+ 	[0]				= 0,
+@@ -50,7 +57,7 @@ void __rxrpc_propose_ACK(struct rxrpc_call *call, u8 ack_reason,
+ 	ASSERTCMP(prior, >, 0);
+ 
+ 	_enter("{%d},%s,%%%x,%u",
+-	       call->debug_id, rxrpc_acks[ack_reason], ntohl(serial),
++	       call->debug_id, rxrpc_acks(ack_reason), ntohl(serial),
+ 	       immediate);
+ 
+ 	if (prior < rxrpc_ack_priority[call->ackr_reason]) {
+@@ -637,7 +644,7 @@ process_further:
+ 		       hard,
+ 		       ntohl(ack.previousPacket),
+ 		       ntohl(ack.serial),
+-		       rxrpc_acks[ack.reason],
++		       rxrpc_acks(ack.reason),
+ 		       ack.nAcks);
+ 
+ 		rxrpc_extract_ackinfo(call, skb, latest, ack.nAcks);
+@@ -1180,7 +1187,7 @@ send_ACK:
+ 	       ntohl(ack.firstPacket),
+ 	       ntohl(ack.previousPacket),
+ 	       ntohl(ack.serial),
+-	       rxrpc_acks[ack.reason],
++	       rxrpc_acks(ack.reason),
+ 	       ack.nAcks);
+ 
+ 	del_timer_sync(&call->ack_timer);
