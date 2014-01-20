@@ -1,156 +1,74 @@
-From: Scott Feldman <sfeldma@cumulusnetworks.com>
-Subject: [PATCH iproute2] Add IFLA_SLAVE support.
-Date: Mon, 20 Jan 2014 14:25:05 -0800
-Message-ID: <20140120222505.6206.85084.stgit@debian>
+From: Daniel Exner <dex@dragonslave.de>
+Subject: Poor network performance x86_64.. also with 3.13
+Date: Mon, 20 Jan 2014 23:27:25 +0100
+Message-ID: <52DDA2CD.9040001@dragonslave.de>
+References: <52DAD66F.7080306@dragonslave.de> <20140118195026.GA15543@pd.tnic> <52DB0439.2060905@dragonslave.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	shm@cumulusnetworks.com
-To: stephen@networkplumber.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Borislav Petkov <bp@alien8.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:54306 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751380AbaATWZJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 17:25:09 -0500
+Received: from mail-ea0-f172.google.com ([209.85.215.172]:51878 "EHLO
+	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751452AbaATW1b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 17:27:31 -0500
+Received: by mail-ea0-f172.google.com with SMTP id g15so2791928eak.31
+        for <netdev@vger.kernel.org>; Mon, 20 Jan 2014 14:27:30 -0800 (PST)
+In-Reply-To: <52DB0439.2060905@dragonslave.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Show slave details for link when slave has IFLA_SLAVE attributes, e.g.:
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
 
-ip -d link show eth4
-6: eth4: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master bond1 state UP mode DEFAULT group default qlen 1000
-    link/ether 00:02:00:00:04:03 brd ff:ff:ff:ff:ff:ff promiscuity 1
-    slave state ACTIVE mii_status UP link_failure_count 0 perm_hwaddr 00:02:00:00:04:03 queue_id 0 ad_aggregator_id 1
----
- include/linux/if_link.h |   13 +++++++++
- ip/ipaddress.c          |   71 +++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 84 insertions(+)
+Hi,
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 098be3d..7f956f6 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -144,6 +144,7 @@ enum {
- 	IFLA_NUM_RX_QUEUES,
- 	IFLA_CARRIER,
- 	IFLA_PHYS_PORT_ID,
-+	IFLA_SLAVE,
- 	__IFLA_MAX
- };
- 
-@@ -366,6 +367,18 @@ enum {
- 
- #define IFLA_BOND_AD_INFO_MAX   (__IFLA_BOND_AD_INFO_MAX - 1)
- 
-+enum {
-+	IFLA_SLAVE_STATE,
-+	IFLA_SLAVE_MII_STATUS,
-+	IFLA_SLAVE_LINK_FAILURE_COUNT,
-+	IFLA_SLAVE_PERM_HWADDR,
-+	IFLA_SLAVE_QUEUE_ID,
-+	IFLA_SLAVE_AD_AGGREGATOR_ID,
-+	__IFLA_SLAVE_MAX,
-+};
-+
-+#define IFLA_SLAVE_MAX  (__IFLA_SLAVE_MAX - 1)
-+
- /* SR-IOV virtual function management section */
- 
- enum {
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index d02eaaf..a0d3ab8 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -27,6 +27,7 @@
- 
- #include <linux/netdevice.h>
- #include <linux/if_arp.h>
-+#include <linux/if_bonding.h>
- #include <linux/sockios.h>
- 
- #include "rt_names.h"
-@@ -223,6 +224,73 @@ static void print_linktype(FILE *fp, struct rtattr *tb)
- 	}
- }
- 
-+static const char *slave_states[] = {
-+	[BOND_STATE_ACTIVE] = "ACTIVE",
-+	[BOND_STATE_BACKUP] = "BACKUP",
-+};
-+
-+static void print_slave_state(FILE *f, struct rtattr *tb)
-+{
-+	unsigned int state = rta_getattr_u8(tb);
-+
-+	if (state >= sizeof(slave_states) / sizeof(slave_states[0]))
-+		fprintf(f, "state %d ", state);
-+	else
-+		fprintf(f, "state %s ", slave_states[state]);
-+}
-+
-+static const char *slave_mii_status[] = {
-+	[BOND_LINK_UP] = "UP",
-+	[BOND_LINK_FAIL] = "GOING_DOWN",
-+	[BOND_LINK_DOWN] = "DOWN",
-+	[BOND_LINK_BACK] = "GOING_BACK",
-+};
-+
-+static void print_slave_mii_status(FILE *f, struct rtattr *tb)
-+{
-+	unsigned int status = rta_getattr_u8(tb);
-+
-+	if (status >= sizeof(slave_mii_status) / sizeof(slave_mii_status[0]))
-+		fprintf(f, "mii_status %d ", status);
-+	else
-+		fprintf(f, "mii_status %s ", slave_mii_status[status]);
-+}
-+
-+static void print_slave(FILE *fp, struct rtattr *tb)
-+{
-+	struct rtattr *slave[IFLA_SLAVE_MAX+1];
-+	SPRINT_BUF(b1);
-+
-+	parse_rtattr_nested(slave, IFLA_SLAVE_MAX, tb);
-+
-+	if (!slave[IFLA_SLAVE_STATE])
-+		return;
-+
-+	fprintf(fp, "%s    slave ", _SL_);
-+	print_slave_state(fp, slave[IFLA_SLAVE_STATE]);
-+
-+	if (slave[IFLA_SLAVE_MII_STATUS])
-+		print_slave_mii_status(fp, slave[IFLA_SLAVE_MII_STATUS]);
-+
-+	if (slave[IFLA_SLAVE_LINK_FAILURE_COUNT])
-+		fprintf(fp, "link_failure_count %d ",
-+			rta_getattr_u32(slave[IFLA_SLAVE_LINK_FAILURE_COUNT]));
-+
-+	if (slave[IFLA_SLAVE_PERM_HWADDR])
-+		fprintf(fp, "perm_hwaddr %s ",
-+			ll_addr_n2a(RTA_DATA(slave[IFLA_SLAVE_PERM_HWADDR]),
-+				    RTA_PAYLOAD(slave[IFLA_SLAVE_PERM_HWADDR]),
-+				    0, b1, sizeof(b1)));
-+
-+	if (slave[IFLA_SLAVE_QUEUE_ID])
-+		fprintf(fp, "queue_id %d ",
-+			rta_getattr_u16(slave[IFLA_SLAVE_QUEUE_ID]));
-+
-+	if (slave[IFLA_SLAVE_AD_AGGREGATOR_ID])
-+		fprintf(fp, "ad_aggregator_id %d ",
-+			rta_getattr_u16(slave[IFLA_SLAVE_AD_AGGREGATOR_ID]));
-+}
-+
- static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
- {
- 	struct ifla_vf_mac *vf_mac;
-@@ -516,6 +584,9 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 			print_vfinfo(fp, i);
- 	}
- 
-+	if (do_link && tb[IFLA_SLAVE] && show_details)
-+		print_slave(fp, tb[IFLA_SLAVE]);
-+
- 	fprintf(fp, "\n");
- 	fflush(fp);
- 	return 0;
+Am 18.01.2014 23:46, schrieb Daniel Exner:
+> Hi again,
+>=20
+> Am 18.01.2014 20:50, schrieb Borislav Petkov:
+>> + netdev.
+> Thx
+>=20
+> Am 18.01.2014 20:49, schrieb Holger Hoffst=C3=A4tte:> [This mail was
+> also posted to gmane.linux.kernel.]
+>=20
+>> On Sat, 18 Jan 2014 20:30:55 +0100, Daniel Exner wrote:
+>=20
+>>> I recently upgraded the Kernel from version 3.10 to latest=20
+>>> stable 3.12.8, did the usual "make oldconfig" (resulting
+>>> config attached).
+>>>=20
+>>> But now I noticed some _really_ low network performance.
+>=20
+>> Try: sysctl net.ipv4.tcp_limit_output_bytes=3D262144
+>=20
+> Tried that. Even 10 times the value. Same effect.
+
+
+I just did the same procedure with Kernel Version 3.13: same poor rates=
+=2E
+
+I think I will try to see of 3.12.6 was still ok and bisect from there.
+
+Greetings
+Daniel
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iQIcBAEBCgAGBQJS3aLFAAoJEPI6v6bI/Qkf9+4QAJkfljUsRQn6DA6gWy3XYsn4
+ZB3F2Mu8kLsCMVjpASsi7+km2qTiFv4qGOgezHCJmqMcdCFszBweGQrnYBLA5PCD
+XSZ7G4S0U71aHWtY6iQd1q4ywnA21pfnGRqIpc5+OuIiIOm+YY+RXpJAHC5y1OVo
+MxsPL1ZVp/enJoZuvblw6i+JT+soAbSypPWcNQ78qb+CYzLVMLZHcqQvMwpAsRvQ
+LNKx8nyj8p32CdZo1GoT3f/nWvBeh/V/ViLrtt64u/oXMJyk5INVRFpSNUUviP8c
+42y+r2K31+nY11K2dHsdJYbv5lZ8p8g0SNoLG1SrjgDspaptnT8jptxxn7GcQqdL
+PZ3waUB7qYU15IxCA2iXwNPqjtsv8V5l55H/cunKQgxNbb318ui/a3cW7+R++CeL
+onv9HFNUkHJiP/MvZJ1/FXE0AsjX70un9NuQ0+xFjCRwJ/YLZzCHkWMERcev500O
+vS1yFTGiVY1HndoA4VFYzEkjOyHgDHHQA+0JkfBspVlhL7ow9hccmULZtEn9LzwU
+9rooQHyXwdKr6KIbsjHECyjIsBhW4Jfj6195bZ9ddBDBXSqYyGqjiuy7l7TjlZVa
+YmPNTlkEfMeXkO2h3km8TD2f+MPntYXkYjZVVUcK8NucgnIdLuWDk/GLrt73VTd8
+Cww6B/u4YnGJSF5v/nit
+=3DxCa3
+-----END PGP SIGNATURE-----
