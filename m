@@ -1,72 +1,43 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] rxrpc: out of bound read in debug code
-Date: Mon, 20 Jan 2014 13:28:59 +0300
-Message-ID: <20140120102859.GA14233@elgon.mountain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
+From: Jonas Jensen <jonas.jensen@gmail.com>
+Subject: [PATCH v3 1/7] net: moxa: clear TX descriptor length bits between sends
+Date: Mon, 20 Jan 2014 12:13:13 +0100
+Message-ID: <1390216399-27028-1-git-send-email-jonas.jensen@gmail.com>
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, f.fainelli@gmail.com,
+	bhutchings@solarflare.com, Jonas Jensen <jonas.jensen@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Smatch complains because we are using an untrusted index into the
-rxrpc_acks[] array.  It's just a read and it's only in the debug code,
-but it's simple enough to add a check and fix it.
+Add TX_DESC1_BUF_SIZE_MASK to bits that are cleared, before the TX buffer
+length is set. Failing to do so can cause the controller to drop dead
+i.e. all TX interrupts stop, resulting in complete communication failure.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Addresses https://bugzilla.kernel.org/show_bug.cgi?id=69031
 
-diff --git a/net/rxrpc/ar-ack.c b/net/rxrpc/ar-ack.c
-index e4d9cbcff402..cd97a0ce48d8 100644
---- a/net/rxrpc/ar-ack.c
-+++ b/net/rxrpc/ar-ack.c
-@@ -21,10 +21,17 @@
+Signed-off-by: Jonas Jensen <jonas.jensen@gmail.com>
+---
+
+Notes:
+    Applies to next-20140120
+
+ drivers/net/ethernet/moxa/moxart_ether.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
+index 5020fd4..aa45607 100644
+--- a/drivers/net/ethernet/moxa/moxart_ether.c
++++ b/drivers/net/ethernet/moxa/moxart_ether.c
+@@ -348,7 +348,8 @@ static int moxart_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
  
- static unsigned int rxrpc_ack_defer = 1;
- 
--static const char *const rxrpc_acks[] = {
--	"---", "REQ", "DUP", "OOS", "WIN", "MEM", "PNG", "PNR", "DLY", "IDL",
--	"-?-"
--};
-+static const char *rxrpc_acks(u8 reason)
-+{
-+	static const char *const str[] = {
-+		"---", "REQ", "DUP", "OOS", "WIN", "MEM", "PNG", "PNR", "DLY",
-+		"IDL", "-?-"
-+	};
-+
-+	if (reason >= ARRAY_SIZE(str))
-+		reason = ARRAY_SIZE(str) - 1;
-+	return str[reason];
-+}
- 
- static const s8 rxrpc_ack_priority[] = {
- 	[0]				= 0,
-@@ -50,7 +57,7 @@ void __rxrpc_propose_ACK(struct rxrpc_call *call, u8 ack_reason,
- 	ASSERTCMP(prior, >, 0);
- 
- 	_enter("{%d},%s,%%%x,%u",
--	       call->debug_id, rxrpc_acks[ack_reason], ntohl(serial),
-+	       call->debug_id, rxrpc_acks(ack_reason), ntohl(serial),
- 	       immediate);
- 
- 	if (prior < rxrpc_ack_priority[call->ackr_reason]) {
-@@ -637,7 +644,7 @@ process_further:
- 		       hard,
- 		       ntohl(ack.previousPacket),
- 		       ntohl(ack.serial),
--		       rxrpc_acks[ack.reason],
-+		       rxrpc_acks(ack.reason),
- 		       ack.nAcks);
- 
- 		rxrpc_extract_ackinfo(call, skb, latest, ack.nAcks);
-@@ -1180,7 +1187,7 @@ send_ACK:
- 	       ntohl(ack.firstPacket),
- 	       ntohl(ack.previousPacket),
- 	       ntohl(ack.serial),
--	       rxrpc_acks[ack.reason],
-+	       rxrpc_acks(ack.reason),
- 	       ack.nAcks);
- 
- 	del_timer_sync(&call->ack_timer);
+ 	txdes1 = readl(desc + TX_REG_OFFSET_DESC1);
+ 	txdes1 |= TX_DESC1_LTS | TX_DESC1_FTS;
+-	txdes1 &= ~(TX_DESC1_FIFO_COMPLETE | TX_DESC1_INTR_COMPLETE);
++	txdes1 &= ~(TX_DESC1_FIFO_COMPLETE | TX_DESC1_INTR_COMPLETE |
++		    TX_DESC1_BUF_SIZE_MASK);
+ 	txdes1 |= (len & TX_DESC1_BUF_SIZE_MASK);
+ 	writel(txdes1, desc + TX_REG_OFFSET_DESC1);
+ 	writel(TX_DESC0_DMA_OWN, desc + TX_REG_OFFSET_DESC0);
+-- 
+1.8.2.1
