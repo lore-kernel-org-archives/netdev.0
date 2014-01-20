@@ -1,68 +1,79 @@
-From: shaobingqing <shaobingqing@bwstor.com.cn>
-Subject: [PATCH] SUNRPC: Allow one callback request to be received from two sk_buff
-Date: Mon, 20 Jan 2014 14:59:14 +0800
-Message-ID: <1390201154-20815-1-git-send-email-shaobingqing@bwstor.com.cn>
-References: <n>
-Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	shaobingqing <shaobingqing@bwstor.com.cn>
-To: trond.myklebust@primarydata.com, bfields@redhat.com,
-	davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <n>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: Re: [PATCH RFC 4/6] net: rfkill: gpio: add device tree support
+Date: Mon, 20 Jan 2014 10:10:07 +0200
+Message-ID: <20140120081007.GA19123@xps8300>
+References: <1389941251-32692-1-git-send-email-wens@csie.org>
+ <1389941251-32692-5-git-send-email-wens@csie.org>
+ <201401171747.46332.arnd@arndb.de>
+ <CAGb2v67UKiyfJbKZ_Frk3OwZupMPoA2Ck3Hj2zsRFXBQPztavg@mail.gmail.com>
+ <CACRpkdZOD4zeA8T5kbJ4c5NsnuzHCg1mw8rRMYNT9c4R-Qnc6A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
+	Mika Westerberg <mika.westerberg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+To: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CACRpkdZOD4zeA8T5kbJ4c5NsnuzHCg1mw8rRMYNT9c4R-Qnc6A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-In current code, there only one struct rpc_rqst is prealloced. If one 
-callback request is received from two sk_buff, the xprt_alloc_bc_request
-would be execute two times with the same transport->xid. The first time
-xprt_alloc_bc_request will alloc one struct rpc_rqst and the TCP_RCV_COPY_DATA
-bit of transport->tcp_flags will not be cleared. The second time 
-xprt_alloc_bc_request could not alloc struct rpc_rqst any more and NULL
-pointer will be returned, then xprt_force_disconnect occur. I think one 
-callback request can be allowed to be received from two sk_buff.
+Hi,
 
-Signed-off-by: shaobingqing <shaobingqing@bwstor.com.cn>
----
- net/sunrpc/xprtsock.c |   11 +++++++++--
- 1 files changed, 9 insertions(+), 2 deletions(-)
+On Sat, Jan 18, 2014 at 12:11:56AM +0100, Linus Walleij wrote:
+> On Fri, Jan 17, 2014 at 6:43 PM, Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org> wrote:
+> > On Sat, Jan 18, 2014 at 12:47 AM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
+> 
+> >>> +- NAME_shutdown-gpios  : GPIO phandle to shutdown control
+> >>> +                         (phandle must be the second)
+> >>> +- NAME_reset-gpios     : GPIO phandle to reset control
+> >>> +
+> >>> +NAME must match the rfkill-name property. NAME_shutdown-gpios or
+> >>> +NAME_reset-gpios, or both, must be defined.
+> >>> +
+> >>
+> >> I don't understand this part. Why do you include the name in the
+> >> gpios property, rather than just hardcoding the property strings
+> >> to "shutdown-gpios" and "reset-gpios"?
+> >
+> > This quirk is a result of how gpiod_get_index implements device tree
+> > lookup.
+> 
+> Why can't it just have a single property "gpios", where the first
+> element is the reset GPIO and the second is the shutdown GPIO?
+> 
+> rfkill-gpio does this:
+> 
+> gpio = devm_gpiod_get_index(&pdev->dev, rfkill->reset_name, 0);
+> gpio = devm_gpiod_get_index(&pdev->dev, rfkill->shutdown_name, 1);
+> 
+> The passed con ID name parameter is only there for the device
+> tree case it seems. (ACPI ignores it.) So what about you just
+> don't pass it at all and patch it to do like this instead:
+> 
+> gpio = devm_gpiod_get_index(&pdev->dev, NULL, 0);
+> gpio = devm_gpiod_get_index(&pdev->dev, NULL, 1);
+> 
+> Heikki, are you OK with this change?
 
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index ee03d35..606950d 100644
---- a/net/sunrpc/xprtsock.c
-+++ b/net/sunrpc/xprtsock.c
-@@ -1271,8 +1271,13 @@ static inline int xs_tcp_read_callback(struct rpc_xprt *xprt,
- 	struct sock_xprt *transport =
- 				container_of(xprt, struct sock_xprt, xprt);
- 	struct rpc_rqst *req;
-+	static struct rpc_rqst *req_partial;
-+
-+	if (req_partial == NULL)
-+		req = xprt_alloc_bc_request(xprt);
-+	else if (req_partial->rq_xid == transport->tcp_xid)
-+		req = req_partial;
- 
--	req = xprt_alloc_bc_request(xprt);
- 	if (req == NULL) {
- 		printk(KERN_WARNING "Callback slot table overflowed\n");
- 		xprt_force_disconnect(xprt);
-@@ -1285,6 +1290,7 @@ static inline int xs_tcp_read_callback(struct rpc_xprt *xprt,
- 
- 	if (!(transport->tcp_flags & TCP_RCV_COPY_DATA)) {
- 		struct svc_serv *bc_serv = xprt->bc_serv;
-+		req_partial = NULL;
- 
- 		/*
- 		 * Add callback request to callback list.  The callback
-@@ -1297,7 +1303,8 @@ static inline int xs_tcp_read_callback(struct rpc_xprt *xprt,
- 		list_add(&req->rq_bc_list, &bc_serv->sv_cb_list);
- 		spin_unlock(&bc_serv->sv_cb_lock);
- 		wake_up(&bc_serv->sv_cb_waitq);
--	}
-+	} else
-+		req_partial = req;
- 
- 	req->rq_private_buf.len = transport->tcp_copied;
- 
+Yes, definitely. That is much cleaner.
+
+Thanks,
+
 -- 
-1.7.4.2
+heikki
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
