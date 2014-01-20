@@ -1,67 +1,101 @@
-From: Jonas Jensen <jonas.jensen@gmail.com>
-Subject: [PATCH v3 2/7] net: moxa: fix build_skb() memory corruption
-Date: Mon, 20 Jan 2014 12:13:14 +0100
-Message-ID: <1390216399-27028-2-git-send-email-jonas.jensen@gmail.com>
-References: <1390216399-27028-1-git-send-email-jonas.jensen@gmail.com>
-Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, f.fainelli@gmail.com,
-	bhutchings@solarflare.com, Jonas Jensen <jonas.jensen@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1390216399-27028-1-git-send-email-jonas.jensen@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: [PATCH net-next 1/2] sctp: use sctp_local_bh_{disable|enable} instead local_bh_{disable|enable}
+Date: Mon, 20 Jan 2014 19:27:26 +0800
+Message-ID: <1390217247-9408-2-git-send-email-wangweidong1@huawei.com>
+References: <1390217247-9408-1-git-send-email-wangweidong1@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <dborkman@redhat.com>, <netdev@vger.kernel.org>,
+	<linux-sctp@vger.kernel.org>
+To: <nhorman@tuxdriver.com>, <davem@davemloft.net>,
+	<vyasevich@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:29311 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750917AbaATL1z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 06:27:55 -0500
+In-Reply-To: <1390217247-9408-1-git-send-email-wangweidong1@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DMA buffer memory must be synchronized and copied before passing skb to
-napi_gro_receive(). The use of build_skb() can lead to memory corruption,
-replace it with netdev_alloc_skb_ip_align() and memcpy().
+While we have the macros sctp_local_bh_{disable|enable}, so use them.
 
-Addresses https://bugzilla.kernel.org/show_bug.cgi?id=69041
-
-Signed-off-by: Jonas Jensen <jonas.jensen@gmail.com>
+Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
 ---
+ net/sctp/sm_make_chunk.c | 8 ++++----
+ net/sctp/socket.c        | 8 ++++----
+ 2 files changed, 8 insertions(+), 8 deletions(-)
 
-Notes:
-    This fixes the following error on wget download (or ncftp),
-    usually after only a few seconds:
-    
-    "read error: Bad address"
-    
-    On receiving this error, wget exits. The download is not resumed (busybox default).
-    
-    Applies to next-20140120
-
- drivers/net/ethernet/moxa/moxart_ether.c | 13 ++++++++++---
- 1 file changed, 10 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
-index aa45607..17c9f0e 100644
---- a/drivers/net/ethernet/moxa/moxart_ether.c
-+++ b/drivers/net/ethernet/moxa/moxart_ether.c
-@@ -226,14 +226,21 @@ static int moxart_rx_poll(struct napi_struct *napi, int budget)
- 		if (len > RX_BUF_SIZE)
- 			len = RX_BUF_SIZE;
- 
--		skb = build_skb(priv->rx_buf[rx_head], priv->rx_buf_size);
-+		dma_sync_single_for_cpu(&ndev->dev,
-+					priv->rx_mapping[rx_head],
-+					priv->rx_buf_size, DMA_FROM_DEVICE);
-+		skb = netdev_alloc_skb_ip_align(ndev, len);
- 		if (unlikely(!skb)) {
--			net_dbg_ratelimited("build_skb failed\n");
-+			net_dbg_ratelimited("netdev_alloc_skb_ip_align failed\n");
- 			priv->stats.rx_dropped++;
- 			priv->stats.rx_errors++;
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index 632090b..1bbac08 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -3266,12 +3266,12 @@ static void sctp_asconf_param_success(struct sctp_association *asoc,
+ 		/* This is always done in BH context with a socket lock
+ 		 * held, so the list can not change.
+ 		 */
+-		local_bh_disable();
++		sctp_local_bh_disable();
+ 		list_for_each_entry(saddr, &bp->address_list, list) {
+ 			if (sctp_cmp_addr_exact(&saddr->a, &addr))
+ 				saddr->state = SCTP_ADDR_SRC;
  		}
--
-+		memcpy(skb->data, priv->rx_buf[rx_head], len);
- 		skb_put(skb, len);
-+		dma_sync_single_for_device(&ndev->dev,
-+					   priv->rx_mapping[rx_head],
-+					   priv->rx_buf_size, DMA_FROM_DEVICE);
-+
- 		skb->protocol = eth_type_trans(skb, ndev);
- 		napi_gro_receive(&priv->napi, skb);
- 		rx++;
+-		local_bh_enable();
++		sctp_local_bh_enable();
+ 		list_for_each_entry(transport, &asoc->peer.transport_addr_list,
+ 				transports) {
+ 			dst_release(transport->dst);
+@@ -3279,14 +3279,14 @@ static void sctp_asconf_param_success(struct sctp_association *asoc,
+ 		}
+ 		break;
+ 	case SCTP_PARAM_DEL_IP:
+-		local_bh_disable();
++		sctp_local_bh_disable();
+ 		sctp_del_bind_addr(bp, &addr);
+ 		if (asoc->asconf_addr_del_pending != NULL &&
+ 		    sctp_cmp_addr_exact(asoc->asconf_addr_del_pending, &addr)) {
+ 			kfree(asoc->asconf_addr_del_pending);
+ 			asoc->asconf_addr_del_pending = NULL;
+ 		}
+-		local_bh_enable();
++		sctp_local_bh_enable();
+ 		list_for_each_entry(transport, &asoc->peer.transport_addr_list,
+ 				transports) {
+ 			dst_release(transport->dst);
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index fd7337a..f73918c 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -3985,7 +3985,7 @@ static int sctp_init_sock(struct sock *sk)
+ 
+ 	SCTP_DBG_OBJCNT_INC(sock);
+ 
+-	local_bh_disable();
++	sctp_local_bh_disable();
+ 	percpu_counter_inc(&sctp_sockets_allocated);
+ 	sock_prot_inuse_add(net, sk->sk_prot, 1);
+ 	if (net->sctp.default_auto_asconf) {
+@@ -3994,7 +3994,7 @@ static int sctp_init_sock(struct sock *sk)
+ 		sp->do_auto_asconf = 1;
+ 	} else
+ 		sp->do_auto_asconf = 0;
+-	local_bh_enable();
++	sctp_local_bh_enable();
+ 
+ 	return 0;
+ }
+@@ -4019,10 +4019,10 @@ static void sctp_destroy_sock(struct sock *sk)
+ 		list_del(&sp->auto_asconf_list);
+ 	}
+ 	sctp_endpoint_free(sp->ep);
+-	local_bh_disable();
++	sctp_local_bh_disable();
+ 	percpu_counter_dec(&sctp_sockets_allocated);
+ 	sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
+-	local_bh_enable();
++	sctp_local_bh_enable();
+ }
+ 
+ /* Triggered when there are no references on the socket anymore */
 -- 
-1.8.2.1
+1.7.12
