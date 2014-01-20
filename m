@@ -1,48 +1,78 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH v5] can: add Renesas R-Car CAN driver
-Date: Mon, 20 Jan 2014 12:43:40 +0100
-Message-ID: <CAMuHMdWZJUvcW9OzM39aB2m+VdKqmZ6EOGR_rZcAdV7Cmwx3kg@mail.gmail.com>
-References: <201312270037.15822.sergei.shtylyov@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	wg@grandegger.com, mkl@pengutronix.de, linux-can@vger.kernel.org,
-	Linux-sh list <linux-sh@vger.kernel.org>, vksavl@gmail.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <201312270037.15822.sergei.shtylyov@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vince Bridgers <vbridgers2013@gmail.com>
+Subject: [PATCH net-next v6 0/2] stmmac: fix kernel crashes for jumbo frames
+Date: Mon, 20 Jan 2014 05:38:59 -0600
+Message-ID: <1390217941-22967-1-git-send-email-vbridgers2013@gmail.com>
+Cc: peppe.cavallaro@st.com, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, dinguyen@altera.com,
+	rayagond@vayavyalabs.com, vbridgers2013@gmail.com
+To: devicetree@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:50932 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751825AbaATLoC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 06:44:02 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sergei,
+v6:
+* no changes since v5, respin for updated net-next
 
-On Thu, Dec 26, 2013 at 10:37 PM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> Changes in version 3:
+v5:
+* Simplify use notes for max-frame-size in stmmac.txt, in the
+  devicetree patch. No change to the stmmac driver patch
+  from v4.
 
-> - added '__packed' to 'struct rcar_can_mbox_regs' and 'struct rcar_can_regs';
-> - removed unneeded type cast in the probe() method.
+v4:
+* Address inconsistent comment with use, add comments about inconsistency
+  of max-frame-size definition and use in the ePAPR v1.1 specification.
 
-> +/* Mailbox registers structure */
-> +struct rcar_can_mbox_regs {
-> +       u32 id;         /* IDE and RTR bits, SID and EID */
-> +       u8 stub;        /* Not used */
-> +       u8 dlc;         /* Data Length Code - bits [0..3] */
-> +       u8 data[8];     /* Data Bytes */
-> +       u8 tsh;         /* Time Stamp Higher Byte */
-> +       u8 tsl;         /* Time Stamp Lower Byte */
-> +} __packed;
+v3:
+* change snps,max-frame-size to max-frame-size
 
-Sorry, I missed the earlier discussion, but why the _packed?
-One u32 and 12 bytes makes a nice multiple of 4.
+v2:
+* change snps,max-mtu to snps,max-frame-size
 
-Gr{oetje,eeting}s,
+These patches address two kernel crashes seen when using jumbo frames on 
+the Synopsys stmmac driver, and adds device tree configurability for the 
+maximum mtu. The Synopsys emac fifo sizes can be configured when a logic
+design is synthesized, but does not provide a way for a driver to query the
+exact fifo size. 
 
-                        Geert
+The crashes seen were due to two issues. 
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+1) The dma buffer size was being set after the dma buffers were allocated.
+This caused a crash when changing the mtu since it was possible the buffers
+would subsequently be freed using an incorrect dma buffer size. This could
+also cause kernel panics due to memory corruption since a large mtu size could
+have been configured, but the dma buffers were not sized accordingly. 
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+2) Jumbo frames were being enabled by default, but the dma buffers were not
+sized accordingly. This caused memory corruption in the context of certain
+types of network traffic, leading to kernel panics. 
+
+I've tested these changes using automated, reproducible testware. I can
+demonstrate the panics described before the fixes and show that the fixes
+address the problems described. 
+
+Testing and improvements continue through the use of the mentioned automated
+and reproducible testware. 
+
+Vince Bridgers
+
+Vince Bridgers (2):
+  dts: Add a binding for Synopsys emac max-frame-size
+  stmmac: Fix kernel crashes for jumbo frames
+
+ Documentation/devicetree/bindings/net/stmmac.txt   |    3 +++
+ drivers/net/ethernet/stmicro/stmmac/common.h       |    4 +++-
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |    7 ++-----
+ .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |    7 ++++++-
+ .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |    2 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   11 +++++++----
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   13 +++++++++++++
+ include/linux/stmmac.h                             |    1 +
+ 8 files changed, 36 insertions(+), 12 deletions(-)
+
+-- 
+1.7.9.5
