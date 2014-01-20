@@ -1,42 +1,66 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next 0/2] sctp: some small clean ups
-Date: Mon, 20 Jan 2014 12:37:06 +0100
-Message-ID: <52DD0A62.9050807@redhat.com>
-References: <1390217247-9408-1-git-send-email-wangweidong1@huawei.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH net-next V4 3/3] net: Add GRO support for vxlan traffic
+Date: Mon, 20 Jan 2014 13:40:38 +0200
+Message-ID: <CAJZOPZLzuCzcUmoc4ThM==rRAYywbdhECF72LAG_RPpq2WbOyw@mail.gmail.com>
+References: <1389715212-14504-1-git-send-email-ogerlitz@mellanox.com>
+	<1389715212-14504-4-git-send-email-ogerlitz@mellanox.com>
+	<CA+mtBx_HSwucbA-8v9rENBATSpk+o4gUnNuyortkKRzGffjN7w@mail.gmail.com>
+	<CAJZOPZJP7NGdQnHs1tVXny19w4mstEaEBi5WEvktZ4MumCfy0w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, davem@davemloft.net, vyasevich@gmail.com,
-	netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: Wang Weidong <wangweidong1@huawei.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Jerry Chu <hkchu@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Yan Burman <yanb@mellanox.com>,
+	Shlomo Pongratz <shlomop@mellanox.com>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49984 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750744AbaATLhd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Jan 2014 06:37:33 -0500
-In-Reply-To: <1390217247-9408-1-git-send-email-wangweidong1@huawei.com>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:56364 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753542AbaATLkj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 06:40:39 -0500
+Received: by mail-pd0-f174.google.com with SMTP id z10so1512417pdj.33
+        for <netdev@vger.kernel.org>; Mon, 20 Jan 2014 03:40:38 -0800 (PST)
+In-Reply-To: <CAJZOPZJP7NGdQnHs1tVXny19w4mstEaEBi5WEvktZ4MumCfy0w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/20/2014 12:27 PM, Wang Weidong wrote:
-> We have the macros in sctp.h, so use them for coding accordance
-> in sctp.
-
-Thanks for doing this Wang.
-
-I am actually wondering why we have these macro locking wrappers
-and not use these functions directly? Hm, any reasons? Maybe we
-should rather go in the other direction with this?
-
-> Wang Weidong (2):
->    sctp: use sctp_local_bh_{disable|enable} instead
->      local_bh_{disable|enable}
->    sctp: use sctp_read_[un]lock instead of read_[un]lock
+On Tue, Jan 14, 2014 at 11:47 PM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
+> On Tue, Jan 14, 2014 at 7:59 PM, Tom Herbert <therbert@google.com> wrote:
+>> On Tue, Jan 14, 2014 at 8:00 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
+>> > Add GRO handlers for vxlann, by using the UDP GRO infrastructure.
 >
->   net/sctp/endpointola.c   |  4 ++--
->   net/sctp/input.c         | 10 +++++-----
->   net/sctp/proc.c          | 12 ++++++------
->   net/sctp/sm_make_chunk.c |  8 ++++----
->   net/sctp/socket.c        |  8 ++++----
->   5 files changed, 21 insertions(+), 21 deletions(-)
+> [...]
+>>
+>> >  /* Notify netdevs that UDP port started listening */
+>> > -static void vxlan_notify_add_rx_port(struct sock *sk)
+>> > +static void vxlan_notify_add_rx_port(struct vxlan_sock *vs)
+>> >  {
+>> >         struct net_device *dev;
+>> > +       struct sock *sk = vs->sock->sk;
+>> >         struct net *net = sock_net(sk);
+>> >         sa_family_t sa_family = sk->sk_family;
+>> >         __be16 port = inet_sk(sk)->inet_sport;
+>> > +       int err;
+>> > +
+>> > +       if (sa_family == AF_INET) {
 >
+>> Is this necessary? What about support for AF_INET6?
+>
+> Point taken -- the UDP GRO code for both ipv4 and ipv6 would work the same.
+>
+> So we can export udp_gro_receive/complete from net/ipv4/udp_offload.c
+> such that they can be referred from net/ipv6/udp_offload.c
+
+Hi Tom,
+
+Spinning heads on this little more, it seems that the extension to IPv6 is
+pretty much doable but needs little more work.  I would prefer it to
+be carried out
+incrementally once the basic concept + IPv4 support, is merged.
+So posting V5 now with the RCU directives set by Eric fixed.
+
+Or.
