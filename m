@@ -1,29 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: document accel_priv parameter for
- __dev_queue_xmit()
-Date: Sun, 19 Jan 2014 19:56:42 -0800 (PST)
-Message-ID: <20140119.195642.2067897908175374204.davem@davemloft.net>
-References: <1390188313-9275-1-git-send-email-jasowang@redhat.com>
+Subject: Re: [Patch net-next] net_sched: act: remove capab from struct
+ tc_action_ops
+Date: Sun, 19 Jan 2014 19:58:40 -0800 (PST)
+Message-ID: <20140119.195840.446123973040005322.davem@davemloft.net>
+References: <1389829770-811-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jasowang@redhat.com
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41095 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41099 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752726AbaATD4n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 22:56:43 -0500
-In-Reply-To: <1390188313-9275-1-git-send-email-jasowang@redhat.com>
+	with ESMTP id S1752602AbaATD6l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 22:58:41 -0500
+In-Reply-To: <1389829770-811-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Mon, 20 Jan 2014 11:25:13 +0800
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Wed, 15 Jan 2014 15:49:30 -0800
 
-> To silent "make htmldocs" warning.
+> It is not actually implemented.
 > 
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Applied to net-next.
+Applied, we shouldn't keep something around which was added more than
+a decade ago but never actually used.
+
+If we find a use for it, we can add it back.
