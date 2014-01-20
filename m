@@ -1,82 +1,117 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Fwd: [RFC PATCH net-next 0/3] virtio_net: add aRFS support
-Date: Mon, 20 Jan 2014 14:36:13 +0000
-Message-ID: <1390228573.1565.2.camel@bwh-desktop.uk.level5networks.com>
-References: <1389795654-28381-1-git-send-email-zwu.kernel@gmail.com>
-	 <52D75EA5.1050000@redhat.com>
-	 <CAEH94Lg7ygXgHqE8ubE+nuunicDqgmnCfO2AuDSS2nXgv5GikQ@mail.gmail.com>
-	 <20140116085253.GA32073@stefanha-thinkpad.redhat.com>
-	 <CA+mtBx9PBtYurdnhCKL0MLL8i+_+3yPNWFVj5h6SPJH+YDBCjw@mail.gmail.com>
-	 <20140117052229.GE16061@stefanha-thinkpad.redhat.com>
+From: Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v3 3/7] net: moxa: connect to PHY
+Date: Mon, 20 Jan 2014 08:57:53 -0600
+Message-ID: <CAL_JsqKs-snsRaD1JQRVUrg+WBDd9cYxPhtfKf9m5HeJ6df3Pw@mail.gmail.com>
+References: <1390216399-27028-1-git-send-email-jonas.jensen@gmail.com>
+	<1390216399-27028-3-git-send-email-jonas.jensen@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>,
-	Zhi Yong Wu <zwu.kernel@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	"Rusty Russell" <rusty@rustcorp.com.au>,
-	Jason Wang <jasowang@redhat.com>
-To: Stefan Hajnoczi <stefanha@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:8178 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751627AbaATOgW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 09:36:22 -0500
-In-Reply-To: <20140117052229.GE16061@stefanha-thinkpad.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jonas Jensen <jonas.jensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1390216399-27028-3-git-send-email-jonas.jensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-01-17 at 13:22 +0800, Stefan Hajnoczi wrote:
-> On Thu, Jan 16, 2014 at 09:12:29AM -0800, Tom Herbert wrote:
-> > On Thu, Jan 16, 2014 at 12:52 AM, Stefan Hajnoczi <stefanha@redhat.com> wrote:
-[...]
-> > > If it's not possible or too hard to implement aRFS down the entire
-> > > stack, we won't be able to process the packet on the right CPU.
-> > > Then we might as well not bother with aRFS and just distribute uniformly
-> > > across the rx virtqueues.
-> > >
-> > > Please post an outline of how rx packets will be steered up the stack so
-> > > we can discuss whether aRFS can bring any benefit.
-> > >
-> > 1. The aRFS interface for the guest to specify which virtual queue to
-> > receive a packet on is fairly straight forward.
-> > 2. To hook into RFS, we need to match the virtual queue to the real
-> > CPU it will processed on, and then program the RFS table for that flow
-> > and CPU.
-> > 3. NIC aRFS keys off the RFS tables so it can program the HW with the
-> > correct queue for the CPU.
-> 
-> There are a lot of details that are not yet worked out:
-> 
-> If you want to implement aRFS down the vhost_net + macvtap path
-> (probably easiest?) how will Step 2 work?  Do the necessary kernel
-> interfaces exist to take the flow information in vhost_net, give them to
-> macvtap, and finally push them down to the physical NIC?
+On Mon, Jan 20, 2014 at 5:13 AM, Jonas Jensen <jonas.jensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> The kernel now has a MDIO bus driver and a phy_driver (RTL8201CP),
+> connect to this PHY using OF.
 >
-> Not sure if aRFS will work down the full stack with vhost_net + tap +
-> bridge.  Any ideas?
-[...]
+> Signed-off-by: Jonas Jensen <jonas.jensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>
+> Notes:
+>     Applies to next-20140120
+>
+>  .../devicetree/bindings/net/moxa,moxart-mac.txt    | 47 ++++++++++-
+>  drivers/net/ethernet/moxa/moxart_ether.c           | 92 +++++++++++++++++++++-
+>  drivers/net/ethernet/moxa/moxart_ether.h           |  2 +
+>  3 files changed, 138 insertions(+), 3 deletions(-)
+>
+> diff --git a/Documentation/devicetree/bindings/net/moxa,moxart-mac.txt b/Documentation/devicetree/bindings/net/moxa,moxart-mac.txt
+> index 583418b..94c1f3b 100644
+> --- a/Documentation/devicetree/bindings/net/moxa,moxart-mac.txt
+> +++ b/Documentation/devicetree/bindings/net/moxa,moxart-mac.txt
+> @@ -1,21 +1,64 @@
+>  MOXA ART Ethernet Controller
+>
+> +Integrated MDIO bus node:
+> +
+> +- compatible: "moxa,moxart-mdio"
+> +- Inherits from MDIO bus node binding[1]
+> +
+> +[1] Documentation/devicetree/bindings/net/phy.txt
+> +
+> +
+> +Ethernet node:
+> +
+>  Required properties:
+>
+>  - compatible : Must be "moxa,moxart-mac"
+>  - reg : Should contain register location and length
+>  - interrupts : Should contain the mac interrupt number
+>
+> +Optional Properties:
+> +
+> +- phy-handle : the phandle to a PHY node
+> +
+> +
+>  Example:
+>
+> +       mdio0: mdio@90900090 {
+> +               compatible = "moxa,moxart-mdio";
+> +               reg = <0x90900090 0x8>;
+> +               #address-cells = <1>;
+> +               #size-cells = <0>;
+> +
+> +               ethphy0: ethernet-phy@1 {
+> +                       device_type = "ethernet-phy";
 
-Currently ARFS identifies the flow to be steered by passing an skb from
-that flow to the driver, not just a hash.  This is important for the sfc
-driver because we're using perfect filters for ARFS and we need to pick
-out the relevant header fields instead of the RSS hash.
+Drop this. device_type is only for real OpenFirmware.
 
-If you try to set an ARFS filter synchronously from the guest, this
-would require a different driver operation, and if the guest only
-provides a hash then sfc probably would not be able to support it.
+> +                       compatible = "moxa,moxart-rtl8201cp", "ethernet-phy-ieee802.3-c22";
+> +                       reg = <1>;
+> +               };
+> +       };
+> +
+> +       mdio1: mdio@92000090 {
+> +               compatible = "moxa,moxart-mdio";
+> +               reg = <0x92000090 0x8>;
+> +               #address-cells = <1>;
+> +               #size-cells = <0>;
+> +
+> +               ethphy1: ethernet-phy@1 {
+> +                       device_type = "ethernet-phy";
+> +                       compatible = "moxa,moxart-rtl8201cp", "ethernet-phy-ieee802.3-c22";
+> +                       reg = <1>;
+> +               };
+> +       };
+> +
+>         mac0: mac@90900000 {
 
-An alternative would be that the hash is used to update the
-rps_flow_table for the physical RX queue and then ARFS on the host can
-insert a filter after the *next* packet.
+Not part of this patch, but this should really be ethernet@...
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+>                 compatible = "moxa,moxart-mac";
+> -               reg =   <0x90900000 0x100>;
+> +               reg = <0x90900000 0x90>;
+>                 interrupts = <25 0>;
+> +               phy-handle = <&ethphy0>;
+>         };
+>
+>         mac1: mac@92000000 {
+>                 compatible = "moxa,moxart-mac";
+> -               reg =   <0x92000000 0x100>;
+> +               reg = <0x92000000 0x90>;
+>                 interrupts = <27 0>;
+> +               phy-handle = <&ethphy1>;
+>         };
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
