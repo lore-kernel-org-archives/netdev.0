@@ -1,89 +1,71 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v5] can: add Renesas R-Car CAN driver
-Date: Mon, 20 Jan 2014 12:58:42 +0100
-Message-ID: <52DD0F72.1000005@pengutronix.de>
-References: <201312270037.15822.sergei.shtylyov@cogentembedded.com>	<CAMuHMdWZJUvcW9OzM39aB2m+VdKqmZ6EOGR_rZcAdV7Cmwx3kg@mail.gmail.com>	<52DD0CC1.70205@pengutronix.de> <CAMuHMdV5sMUnXb1Z1HeRk9+_dCGWrbD-DS62S7T4Be-77HvsvA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="kgDSoo8CwiBQwOnOPDfda7rFU0pXa6oCG"
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	wg@grandegger.com, linux-can@vger.kernel.org,
-	Linux-sh list <linux-sh@vger.kernel.org>, vksavl@gmail.com
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdV5sMUnXb1Z1HeRk9+_dCGWrbD-DS62S7T4Be-77HvsvA@mail.gmail.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next V5 0/3] net: Add GRO support for UDP encapsulating protocols
+Date: Mon, 20 Jan 2014 13:59:18 +0200
+Message-ID: <1390219161-9881-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, hkchu@google.com, edumazet@google.com,
+	herbert@gondor.apana.org.au, yanb@mellanox.com,
+	shlomop@mellanox.com, therbert@google.com,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailp.voltaire.com ([193.47.165.129]:34346 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751665AbaATL7a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Jan 2014 06:59:30 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---kgDSoo8CwiBQwOnOPDfda7rFU0pXa6oCG
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+This series adds GRO handlers for protocols that do UDP encapsulation, with the
+intent of being able to coalesce packets which encapsulate packets belonging to
+the same TCP session.
 
-On 01/20/2014 12:52 PM, Geert Uytterhoeven wrote:
-> On Mon, Jan 20, 2014 at 12:47 PM, Marc Kleine-Budde <mkl@pengutronix.de=
-> wrote:
->> On 01/20/2014 12:43 PM, Geert Uytterhoeven wrote:
->>> On Thu, Dec 26, 2013 at 10:37 PM, Sergei Shtylyov
->>> <sergei.shtylyov@cogentembedded.com> wrote:
->>>> Changes in version 3:
->>>
->>>> - added '__packed' to 'struct rcar_can_mbox_regs' and 'struct rcar_c=
-an_regs';
->>>> - removed unneeded type cast in the probe() method.
->>>
->>>> +/* Mailbox registers structure */
->>>> +struct rcar_can_mbox_regs {
->>>> +       u32 id;         /* IDE and RTR bits, SID and EID */
->>>> +       u8 stub;        /* Not used */
->>>> +       u8 dlc;         /* Data Length Code - bits [0..3] */
->>>> +       u8 data[8];     /* Data Bytes */
->>>> +       u8 tsh;         /* Time Stamp Higher Byte */
->>>> +       u8 tsl;         /* Time Stamp Lower Byte */
->>>> +} __packed;
->>>
->>> Sorry, I missed the earlier discussion, but why the _packed?
->>> One u32 and 12 bytes makes a nice multiple of 4.
->>
->> Better safe than sorry, it's the layout of the registers in hardware,
->> don't let the compiler optimize here.
->=20
-> Actually __packed makes it less safe, as the compiler now assumes
-> the u32 id member is unaligned, and thus may turn 32-bit accesses into =
-4
-> byte accesses.
->=20
-> Fortunately it won't happen in this case as the code uses writel/readl =
-to
-> acces the id member.
+For GRO purposes, the destination UDP port takes the role of the ether type
+field in the ethernet header or the next protocol in the IP header.
 
-Yes, as this are registers they must not be accessed directly. However
-we can use "__attribute__ ((packed, aligned(4)))" to tell the compiler
-that the base address of this struct is always aligned to 4 bytes.
+The UDP GRO handler will only attempt to coalesce packets whose destination
+port is registered to have gro handler.
 
-Marc
+The patches done against net-next 75e4364f67 "net: stmmac: fix NULL pointer 
+dereference in stmmac_get_tx_hwtstamp"
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+Or.
+
+v4 --> v5 changes:
+  - followed Eric's directives to avoid using atomic get/put ops on the
+    udp gro receive and complete callbacks and instead keep the rcu_read_lock
+    when calling the next handler on the chain.
+
+v3 --> v4 changes:
+
+  - applied feedback from Tom on some micro-optimizations that save 
+    branches and goto directives in the udp gro logic
+
+ - applied feedback from Eric on correct RCU programming for the 
+   add/remove flow of the upper protocols udp gro handlers
 
 
---kgDSoo8CwiBQwOnOPDfda7rFU0pXa6oCG
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+v2 --> v3 changes:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+ - moved to use linked list to store the udp gro handlers, this solves the
+   problem of consuming 512KB of memory for the handlers.
 
-iEYEARECAAYFAlLdD3IACgkQjTAFq1RaXHPk5gCgh0O/Wc8bVK+ye3hF/vX1a15k
-edUAoIRfxWip/fvVOWsdykUirarksgkr
-=2cWM
------END PGP SIGNATURE-----
+ - use a mark on the skb GRO CB data to disallow running the udp gro_receive twice
+   on a packet, this solves the problem of udp encapsulated packets whose inner VM
+   packet is udp and happen to carry a port which has registered offloads - and flush it.
 
---kgDSoo8CwiBQwOnOPDfda7rFU0pXa6oCG--
+ - invoke the udp offload protocol registration and de-registration from the vxlan driver
+   in a sleepable context 
+
+
+Or Gerlitz (3):
+  net: Add GRO support for UDP encapsulating protocols
+  net: Export gro_find_by_type helpers
+  net: Add GRO support for vxlan traffic
+
+ drivers/net/vxlan.c       |  117 ++++++++++++++++++++++++++++++++++--
+ include/linux/netdevice.h |   10 +++-
+ include/net/protocol.h    |    3 +
+ include/net/vxlan.h       |    1 +
+ net/core/dev.c            |    3 +
+ net/ipv4/udp_offload.c    |  143 +++++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 269 insertions(+), 8 deletions(-)
