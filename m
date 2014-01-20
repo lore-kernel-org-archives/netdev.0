@@ -1,29 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: udp: check sk->sk_no_check when sending udpv6
- packet
-Date: Sun, 19 Jan 2014 19:54:01 -0800 (PST)
-Message-ID: <20140119.195401.51911668875807486.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] ipv6: udp: check sk->sk_no_check when sending udpv6 packet
+Date: Mon, 20 Jan 2014 04:54:53 +0100
+Message-ID: <20140120035453.GA26622@order.stressinduktion.org>
 References: <52DC9D25.9070809@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: duanj.fnst@cn.fujitsu.com
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41051 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752430AbaATDyC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 22:54:02 -0500
+Received: from order.stressinduktion.org ([87.106.68.36]:50618 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752430AbaATDyz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 22:54:55 -0500
+Content-Disposition: inline
 In-Reply-To: <52DC9D25.9070809@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Date: Mon, 20 Jan 2014 11:51:01 +0800
-
+On Mon, Jan 20, 2014 at 11:51:01AM +0800, Duan Jiong wrote:
+> 
 > According to the user's intention, if SO_NO_CHECK option is
 > set to true, the udpv6 packet should be out with no checksum.
-> 
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 
-This is intentionally not supported in ipv6.
+Nak, UDP checksumming is mandatory when used with IPv6.
+
+Greetings,
+
+  Hannes
