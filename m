@@ -1,61 +1,75 @@
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net-next v6 1/2] dts: Add a binding for Synopsys emac max-frame-size
-Date: Mon, 20 Jan 2014 05:39:00 -0600
-Message-ID: <1390217941-22967-2-git-send-email-vbridgers2013@gmail.com>
-References: <1390217941-22967-1-git-send-email-vbridgers2013@gmail.com>
-Cc: peppe.cavallaro@st.com, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, dinguyen@altera.com,
-	rayagond@vayavyalabs.com, vbridgers2013@gmail.com
-To: devicetree@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:38195 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750822AbaATLoG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 06:44:06 -0500
-In-Reply-To: <1390217941-22967-1-git-send-email-vbridgers2013@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v5] can: add Renesas R-Car CAN driver
+Date: Mon, 20 Jan 2014 12:47:13 +0100
+Message-ID: <52DD0CC1.70205@pengutronix.de>
+References: <201312270037.15822.sergei.shtylyov@cogentembedded.com> <CAMuHMdWZJUvcW9OzM39aB2m+VdKqmZ6EOGR_rZcAdV7Cmwx3kg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="5pvnuu9f5L2gjpckVidOAb2fF86L26aNW"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	wg@grandegger.com, linux-can@vger.kernel.org,
+	Linux-sh list <linux-sh@vger.kernel.org>, vksavl@gmail.com
+To: Geert Uytterhoeven <geert@linux-m68k.org>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdWZJUvcW9OzM39aB2m+VdKqmZ6EOGR_rZcAdV7Cmwx3kg@mail.gmail.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This change adds a parameter for the Synopsys 10/100/1000
-stmmac Ethernet driver to configure the maximum frame
-size supported by the EMAC driver. Synopsys allows the FIFO
-sizes to be configured when the cores are built for a particular
-device, but do not provide a way for the driver to read
-information from the device about the maximum MTU size
-supported as limited by the device's FIFO size.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--5pvnuu9f5L2gjpckVidOAb2fF86L26aNW
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
----
-V6: respin for updated net-next
-V5: simplify comment on use of max-frame-size
-V4: add comments to explain use of max-frame-size with respect
-    to inconsistent definition and use in the ePAPR v1.1 spec
-V3: change snps,max-frame-size to max-frame-size
-V2: change snps,max-mtu to snps,max-frame-size
----
- Documentation/devicetree/bindings/net/stmmac.txt |    3 +++
- 1 file changed, 3 insertions(+)
+On 01/20/2014 12:43 PM, Geert Uytterhoeven wrote:
+> Hi Sergei,
+>=20
+> On Thu, Dec 26, 2013 at 10:37 PM, Sergei Shtylyov
+> <sergei.shtylyov@cogentembedded.com> wrote:
+>> Changes in version 3:
+>=20
+>> - added '__packed' to 'struct rcar_can_mbox_regs' and 'struct rcar_can=
+_regs';
+>> - removed unneeded type cast in the probe() method.
+>=20
+>> +/* Mailbox registers structure */
+>> +struct rcar_can_mbox_regs {
+>> +       u32 id;         /* IDE and RTR bits, SID and EID */
+>> +       u8 stub;        /* Not used */
+>> +       u8 dlc;         /* Data Length Code - bits [0..3] */
+>> +       u8 data[8];     /* Data Bytes */
+>> +       u8 tsh;         /* Time Stamp Higher Byte */
+>> +       u8 tsl;         /* Time Stamp Lower Byte */
+>> +} __packed;
+>=20
+> Sorry, I missed the earlier discussion, but why the _packed?
+> One u32 and 12 bytes makes a nice multiple of 4.
 
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index aefb639..9d92d42 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -32,6 +32,8 @@ Optional properties:
- - resets: Should contain a phandle to the STMMAC reset signal, if any
- - reset-names: Should contain the reset signal name "stmmaceth", if a
- 	reset phandle is given
-+- max-frame-size:	Maximum Transfer Unit (IEEE defined MTU), rather
-+			than the maximum frame size.
- 
- Examples:
- 
-@@ -42,5 +44,6 @@ Examples:
- 		interrupts = <24 23>;
- 		interrupt-names = "macirq", "eth_wake_irq";
- 		mac-address = [000000000000]; /* Filled in by U-Boot */
-+		max-frame-size = <3800>;
- 		phy-mode = "gmii";
- 	};
--- 
-1.7.9.5
+Better safe than sorry, it's the layout of the registers in hardware,
+don't let the compiler optimize here.
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--5pvnuu9f5L2gjpckVidOAb2fF86L26aNW
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlLdDMEACgkQjTAFq1RaXHO+dQCfQzgPHEgMko9Aqv6jet1CwdU9
+qfEAn1lwT8tai+Ary25PpCuOLgUZs8I4
+=rDFG
+-----END PGP SIGNATURE-----
+
+--5pvnuu9f5L2gjpckVidOAb2fF86L26aNW--
