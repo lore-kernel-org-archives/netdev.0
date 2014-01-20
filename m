@@ -1,64 +1,45 @@
-From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
-Subject: RE: [PATCH 2/4 ethtool] ethtool: Support for configurable RSS hash
- key.
-Date: Mon, 20 Jan 2014 11:15:10 +0000
-Message-ID: <BF3270C86E8B1349A26C34E4EC1C44CB2C84C261@CMEXMB1.ad.emulex.com>
-References: <BF3270C86E8B1349A26C34E4EC1C44CB2C83D8D4@CMEXMB1.ad.emulex.com>
- <1390156549.16433.119.camel@deadeye.wl.decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:13323 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753150AbaATLPM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 06:15:12 -0500
-In-Reply-To: <1390156549.16433.119.camel@deadeye.wl.decadent.org.uk>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jonas Jensen <jonas.jensen@gmail.com>
+Subject: [PATCH v3 6/7] net: moxa: generate random address
+Date: Mon, 20 Jan 2014 12:13:18 +0100
+Message-ID: <1390216399-27028-6-git-send-email-jonas.jensen@gmail.com>
+References: <1390216399-27028-1-git-send-email-jonas.jensen@gmail.com>
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, f.fainelli@gmail.com,
+	bhutchings@solarflare.com, Jonas Jensen <jonas.jensen@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1390216399-27028-1-git-send-email-jonas.jensen@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-QmVuLCBUaGFua3MgZm9yIHRoZSBmZWVkYmFjay4NCg0KLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0t
-LS0NCkZyb206IEJlbiBIdXRjaGluZ3MgW21haWx0bzpiZW5AZGVjYWRlbnQub3JnLnVrXSANClNl
-bnQ6IE1vbmRheSwgSmFudWFyeSAyMCwgMjAxNCAxMjowNiBBTQ0KVG86IFZlbmthdGEgRHV2dnVy
-dQ0KQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNClN1YmplY3Q6IFJlOiBbUEFUQ0ggMi80IGV0
-aHRvb2xdIGV0aHRvb2w6IFN1cHBvcnQgZm9yIGNvbmZpZ3VyYWJsZSBSU1MgaGFzaCBrZXkuDQoN
-Ck9uIEZyaSwgMjAxNC0wMS0xNyBhdCAxMzowMiArMDAwMCwgVmVua2F0YSBEdXZ2dXJ1IHdyb3Rl
-Og0KPiBUaGlzIGV0aHRvb2wgcGF0Y2ggd2lsbCBwcmltYXJpbHkgaW1wbGVtZW50IHRoZSBwYXJz
-ZXIgZm9yIHRoZSBvcHRpb25zIHByb3ZpZGVkIGJ5IHRoZSB1c2VyIGZvciBzZXQgYW5kIGdldCBo
-YXNoa2V5IGJlZm9yZSBpbnZva2luZyB0aGUgaW9jdGwuDQo+IFRoaXMgcGF0Y2ggYWxzbyBoYXMg
-RXRodG9vbCBtYW4gcGFnZSBjaGFuZ2VzIHdoaWNoIGRlc2NyaWJlcyB0aGUgVXNhZ2Ugb2Ygc2V0
-IGFuZCBnZXQgaGFzaGtleSBvcHRpb25zLg0KDQpJJ2QgcHJlZmVyIHRvIGhhdmUgdGhpcyBjb21i
-aW5lZCB3aXRoIHRoZSAteC8tWCBvcHRpb25zIChhbmQgYWRkIG5ldyBsb25nIG9wdGlvbnMgdG8g
-cmVmbGVjdCB0aGF0IHRoZXkgY292ZXIgdGhlIGtleSBhcyB3ZWxsKS4NCg0KaWYgd2UgYWRkIGhh
-c2hrZXkgb3B0aW9ucyB0byB0aGUgZXhpc3RpbmcgLXgvLVggKC0tc2hvdy1yeGZoLWluZGlyLyAt
-LXNldC1yeGZoLWluZGlyKSwgSSB0aGluayBpdCB3b24ndCBiZSBhcHByb3ByaWF0ZSBnb2luZyBi
-eSB0aGUgY29tbWFuZCBuYW1lLg0KV2UgY291bGQgY2hhbmdlIHRoZSBjb21tYW5kIG5hbWUgdG8g
-c29tZXRoaW5nIGxpa2UgLS1zaG93LXJzc2NvbmZpZyAvLS1yc3MtY29uZmlnIGJ1dCBJJ20gYWZy
-YWlkIHdvdWxkIHRoYXQgYmUgYmFja3dhcmQgY29tcGF0aWJsZT8NCg0KWy4uLl0NCj4gZGlmZiAt
-LWdpdCBhL2V0aHRvb2wuYyBiL2V0aHRvb2wuYw0KPiBpbmRleCBiMDZkZmEzLi40YjA1YjBjIDEw
-MDY0NA0KPiAtLS0gYS9ldGh0b29sLmMNCj4gKysrIGIvZXRodG9vbC5jDQo+IEBAIC00NzEsNiAr
-NDcxLDU5IEBAIHN0YXRpYyBpbnQgcnhmbG93X3N0cl90b190eXBlKGNvbnN0IGNoYXIgKnN0cikN
-Cj4gIAlyZXR1cm4gZmxvd190eXBlOw0KPiAgfQ0KPiAgDQo+ICtzdGF0aWMgaW5saW5lIGludCBp
-c19oa2V5X2NoYXJfdmFsaWQoY29uc3QgY2hhciByc3NfaGtleV9zdHJpbmcpIHsNCg0KQSBjaGFy
-IGlzIG5vdCBhIHN0cmluZy4NCg0KPiArCS8qIEFyZSB0aGVyZSBhbnkgaW52YWxpZCBjaGFyYWN0
-ZXJzIGluIHRoZSBzdHJpbmcgKi8NCj4gKwlyZXR1cm4gKChyc3NfaGtleV9zdHJpbmcgPj0gJzAn
-ICYmIHJzc19oa2V5X3N0cmluZyA8PSAnOScpIHx8DQo+ICsJICAgICAgIChyc3NfaGtleV9zdHJp
-bmcgPj0gJ2EnICYmIHJzc19oa2V5X3N0cmluZyA8PSAnZicpIHx8DQo+ICsJICAgICAgIChyc3Nf
-aGtleV9zdHJpbmcgPj0gJ0EnICYmIHJzc19oa2V5X3N0cmluZyA8PSAnRicpKTsgfQ0KDQpCcmFj
-ZXMgYXJlIGluIHRoZSB3cm9uZyBwbGFjZXMuICBBbmQgdGhlIHdob2xlIGZ1bmN0aW9uIGlzIHJl
-ZHVuZGFudCB3aXRoIGlzeGRpZ2l0KCkgYW55d2F5Lg0KDQo+ICtzdGF0aWMgaW50IGNvbnZlcnRf
-c3RyaW5nX3RvX2hhc2hrZXkoc3RydWN0IGV0aHRvb2xfcnNzX2hrZXkgKnJzc19oa2V5LA0KPiAr
-CQkJCSAgICAgIGNvbnN0IGNoYXIgKnJzc19oa2V5X3N0cmluZykgew0KPiArCWludCBpID0gMDsN
-Cj4gKwlpbnQgaGV4X2J5dGU7DQo+ICsNCj4gKwlkbyB7DQo+ICsJCWlmIChpID4gKFJTU19IQVNI
-X0tFWV9MRU4gLSAxKSkgew0KDQpDb21wYXJpbmcgd2l0aCB0aGUgd3JvbmcgbGltaXQuDQoNClsu
-Li5dDQo+ICtzdGF0aWMgaW50IGdldF9oYXNoa2V5KHN0cnVjdCBjbWRfY29udGV4dCAqY3R4KSB7
-DQoNCkJyYWNlIGluIHRoZSB3cm9uZyBwbGFjZS4NCg0KWy4uLl0NCj4gKwlmb3IgKGkgPSAwOyBp
-IDwgUlNTX0hBU0hfS0VZX0xFTjsgaSsrKSB7DQo+ICsJCWlmIChpID09IChSU1NfSEFTSF9LRVlf
-TEVOIC0gMSkpDQoNCldyb25nIGxlbmd0aC4NCg0KPiArCQkJcHJpbnRmKCIlMDJ4XG4iLCByc3Nf
-aGtleS0+ZGF0YVtpXSk7DQo+ICsJCWVsc2UNCj4gKwkJCXByaW50ZigiJTAyeDoiLCByc3NfaGtl
-eS0+ZGF0YVtpXSk7DQo+ICsJfQ0KPiArDQo+ICtkb25lOg0KPiArCWZyZWUocnNzX2hrZXkpOw0K
-PiArCXJldHVybiByYzsNCj4gK30NClsuLi5dDQoNCi0tDQpCZW4gSHV0Y2hpbmdzDQpmcmllbmRz
-OiBQZW9wbGUgd2hvIGtub3cgeW91IHdlbGwsIGJ1dCBsaWtlIHlvdSBhbnl3YXkuDQo=
+The address register is zero:ed on boot, fill it with a randomly generated
+address on probe.
+
+Signed-off-by: Jonas Jensen <jonas.jensen@gmail.com>
+---
+
+Notes:
+    Applies to next-20140120
+
+ drivers/net/ethernet/moxa/moxart_ether.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
+index 6df372f..0f25f4dc 100644
+--- a/drivers/net/ethernet/moxa/moxart_ether.c
++++ b/drivers/net/ethernet/moxa/moxart_ether.c
+@@ -740,6 +740,12 @@ static int moxart_mac_probe(struct platform_device *pdev)
+ 		goto init_fail;
+ 	}
+ 
++	if (!is_valid_ether_addr(ndev->dev_addr)) {
++		eth_hw_addr_random(ndev);
++		netdev_info(ndev, "generated random MAC address %pM\n",
++			    ndev->dev_addr);
++	}
++
+ 	netdev_dbg(ndev, "%s: IRQ=%d address=%pM\n",
+ 		   __func__, ndev->irq, ndev->dev_addr);
+ 
+-- 
+1.8.2.1
