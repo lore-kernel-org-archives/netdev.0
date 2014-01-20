@@ -1,40 +1,38 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 7/7] dsa: Use ether_addr_copy
-Date: Mon, 20 Jan 2014 09:52:20 -0800
-Message-ID: <3c33df937d3cf83447bad0d6d219bdf66b629735.1390239869.git.joe@perches.com>
+Subject: [PATCH 5/7] netpoll: Use ether_addr_copy
+Date: Mon, 20 Jan 2014 09:52:18 -0800
+Message-ID: <3e26b62d1ec7cc3de34efc4ca7651baed7e7f1e3.1390239869.git.joe@perches.com>
 References: <cover.1390239869.git.joe@perches.com>
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0101.hostedemail.com ([216.40.44.101]:36064 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753568AbaATRwr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 12:52:47 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1390239869.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Use ether_addr_copy instead of memcpy(a, b, ETH_ALEN) to
 save some cycles on arm and powerpc.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/dsa/slave.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/core/netpoll.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 29d684e..02c0e17 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -156,7 +156,7 @@ static int dsa_slave_set_mac_address(struct net_device *dev, void *a)
- 		dev_uc_del(master, dev->dev_addr);
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 19fe9c7..c03f3de 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -520,8 +520,8 @@ void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
+ 		skb->protocol = eth->h_proto = htons(ETH_P_IP);
+ 	}
  
- out:
--	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
-+	ether_addr_copy(dev->dev_addr, addr->sa_data);
+-	memcpy(eth->h_source, np->dev->dev_addr, ETH_ALEN);
+-	memcpy(eth->h_dest, np->remote_mac, ETH_ALEN);
++	ether_addr_copy(eth->h_source, np->dev->dev_addr);
++	ether_addr_copy(eth->h_dest, np->remote_mac);
  
- 	return 0;
- }
+ 	skb->dev = np->dev;
+ 
 -- 
 1.8.1.2.459.gbcd45b4.dirty
