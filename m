@@ -1,113 +1,93 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCH net-next] ipcomp: Convert struct xt_ipcomp spis into 16bits
-Date: Mon, 20 Jan 2014 09:55:42 +0800
-Message-ID: <52DC821E.3000309@windriver.com>
-References: <1390011374-21760-1-git-send-email-fan.du@windriver.com> <20140118122437.GA4309@localhost>
+From: annie li <annie.li@oracle.com>
+Subject: Re: [Xen-devel] [PATCH net-next v2] xen-netfront: clean up code in
+ xennet_release_rx_bufs
+Date: Mon, 20 Jan 2014 10:33:29 +0800
+Message-ID: <52DC8AF9.3040807@oracle.com>
+References: <1389830228-2381-1-git-send-email-Annie.li@oracle.com> <52D7BE19.2010009@citrix.com> <52D8CCE4.9010804@oracle.com> <20140117120810.GA11681@zion.uk.xensource.com> <52D922DD.2060407@oracle.com> <20140117140246.GB11681@zion.uk.xensource.com> <52D94F8C.7060509@oracle.com> <52D96D73.1030803@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <steffen.klassert@secunet.com>, <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	<netfilter-devel@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Wei Liu <wei.liu2@citrix.com>, ian.campbell@citrix.com,
+	netdev@vger.kernel.org, xen-devel@lists.xen.org,
+	andrew.bennieston@citrix.com, davem@davemloft.net
+To: David Vrabel <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:45984 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752264AbaATBzq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 20:55:46 -0500
-In-Reply-To: <20140118122437.GA4309@localhost>
+Received: from userp1040.oracle.com ([156.151.31.81]:35781 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752484AbaATCdj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jan 2014 21:33:39 -0500
+In-Reply-To: <52D96D73.1030803@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+On 2014/1/18 1:50, David Vrabel wrote:
+> On 17/01/14 15:43, annie li wrote:
+>> No, I am trying to implement 2 patches.
+> I don't understand the need for two patches here, particularly when
+> the first patch introduces a security issue.
 
-On 2014=E5=B9=B401=E6=9C=8818=E6=97=A5 20:24, Pablo Neira Ayuso wrote:
-> On Sat, Jan 18, 2014 at 10:16:14AM +0800, Fan Du wrote:
->> >  sparse warnings: (new ones prefixed by>>)
->> >
->>>>>> >  >>  >>  net/netfilter/xt_ipcomp.c:63:26: sparse: restricted _=
-_be16 degrades to integer
->>>>>> >  >>  >>  net/netfilter/xt_ipcomp.c:63:26: sparse: cast to rest=
-ricted __be32
->> >
->> >  Fix this by using 16bits long spi, as IPcomp CPI is only valid fo=
-r 16bits.
->> >
->> >  Signed-off-by: Fan Du<fan.du@windriver.com>
->> >  ---
->> >    include/uapi/linux/netfilter/xt_ipcomp.h |    2 +-
->> >    net/netfilter/xt_ipcomp.c                |    4 ++--
->> >    2 files changed, 3 insertions(+), 3 deletions(-)
->> >
->> >  diff --git a/include/uapi/linux/netfilter/xt_ipcomp.h b/include/u=
-api/linux/netfilter/xt_ipcomp.h
->> >  index 45c7e40..ca82ebb 100644
->> >  --- a/include/uapi/linux/netfilter/xt_ipcomp.h
->> >  +++ b/include/uapi/linux/netfilter/xt_ipcomp.h
->> >  @@ -4,7 +4,7 @@
->> >    #include<linux/types.h>
->> >
->> >    struct xt_ipcomp {
->> >  -	__u32 spis[2];	/* Security Parameter Index */
->> >  +	__u16 spis[2];	/* Security Parameter Index */
-> This changes the binary interface so it break userspace (iptables
-> needs to be recompiled), we're still in time to make such change as
-> this is net-next stuff, but what I understand from the patch
-> description is that this aims to fix a sparse warning, which is a bit
-> of intrusive change.
+This is basically connected with personal taste. I am thinking that my 
+original patch is removing unnecessary code for grant transfer and then 
+keep rx release consistent with tx path, the security issue you 
+mentioned exist in current tx too. The second one is to change 
+gnttab_end_foreign_access and netfront tx/rx, blkfront, etc. But if you 
+like to merge them together, I can do that.
+
+Thanks
+Annie
+> You can fold the following
+> (untested) patch into your v2 patch and give it a try?
 >
-> Didn't you find any way to fix this without change the layout of
-> xt_ipcomp?
+> Thanks.
 >
-
-My bad for not catching this in the initial ipcomp version.
-It would be easier to just use ntohs here to ease sparse checking.
-
-
- From dbf796e63d600256fd40000669b83227ddccebc4 Mon Sep 17 00:00:00 2001
-=46rom: Fan Du <fan.du@windriver.com>
-Date: Mon, 20 Jan 2014 09:42:12 +0800
-Subject: [PATCHv2 net-next] ipcomp: Use ntohs to ease sparse warning
-
-0-DAY kernel build testing backend reported:
-
-sparse warnings: (new ones prefixed by >>)
-
- >> >> net/netfilter/xt_ipcomp.c:63:26: sparse: restricted __be16 degra=
-des to integer
- >> >> net/netfilter/xt_ipcomp.c:63:26: sparse: cast to restricted __be=
-32
-
-=46ix this by using ntohs without shifting.
-
-Tested with: make C=3D1 CF=3D-D__CHECK_ENDIAN__
-
-Signed-off-by: Fan Du <fan.du@windriver.com>
----
-  net/netfilter/xt_ipcomp.c |    2 +-
-  1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/netfilter/xt_ipcomp.c b/net/netfilter/xt_ipcomp.c
-index a4c7561..89d5310 100644
---- a/net/netfilter/xt_ipcomp.c
-+++ b/net/netfilter/xt_ipcomp.c
-@@ -60,7 +60,7 @@ static bool comp_mt(const struct sk_buff *skb, struct=
- xt_action_param *par)
-  	}
-
-  	return spi_match(compinfo->spis[0], compinfo->spis[1],
--			 ntohl(chdr->cpi << 16),
-+			 ntohs(chdr->cpi),
-  			 !!(compinfo->invflags & XT_IPCOMP_INV_SPI));
-  }
-
---=20
-1.7.9.5
-
-
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
-
---fan
+> David
+>
+> 8<----------------------
+> xen-netfront: prevent unsafe reuse of rx buf pages after uninit
+>
+> ---
+>   drivers/net/xen-netfront.c |   21 +++++++++++++++++----
+>   1 files changed, 17 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index 692589e..47aa599 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -1134,19 +1134,32 @@ static void xennet_release_tx_bufs(struct netfront_info *np)
+>   
+>   static void xennet_release_rx_bufs(struct netfront_info *np)
+>   {
+> -	struct sk_buff *skb;
+>   	int id, ref;
+>   
+>   	spin_lock_bh(&np->rx_lock);
+>   
+>   	for (id = 0; id < NET_RX_RING_SIZE; id++) {
+> +		struct sk_buff *skb;
+> +		skb_frag_t *frag;
+> +		const struct page *page;
+> +
+> +		skb = np->rx_skbs[id];
+> +		if (!skb)
+> +			continue;
+> +
+>   		ref = np->grant_rx_ref[id];
+>   		if (ref == GRANT_INVALID_REF)
+>   			continue;
+>   
+> -		skb = np->rx_skbs[id];
+> -		gnttab_end_foreign_access_ref(ref, 0);
+> -		gnttab_release_grant_reference(&np->gref_rx_head, ref);
+> +		frag = &skb_shinfo(skb)->frags[0];
+> +		page = skb_frag_page(frag);
+> +
+> +		/* gnttab_end_foreign_access() needs a page ref until
+> +		 * foreign access is ended (which may be deferred).
+> +		 */
+> +		get_page(page);
+> +
+> +		gnttab_end_foreign_access(ref, 0, page);
+>   		np->grant_rx_ref[id] = GRANT_INVALID_REF;
+>   
+>   		kfree_skb(skb);
