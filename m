@@ -1,34 +1,63 @@
-From: Eliezer Tamir <eliezer.tamir-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: [PATCH v2] socket.7: add description for SO_BUSY_POLL
-Date: Mon, 20 Jan 2014 19:28:36 +0200
-Message-ID: <52DD5CC4.3010708@linux.intel.com>
-References: <20130710141835.15799.61657.stgit@ladj378.jer.intel.com> <52DD4EC6.7080208@gmail.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next v4 8/9] xen-netback: Timeout packets in RX path
+Date: Mon, 20 Jan 2014 17:47:57 +0000
+Message-ID: <52DD614D.5080604@citrix.com>
+References: <1389731995-9887-1-git-send-email-zoltan.kiss@citrix.com> <1389731995-9887-9-git-send-email-zoltan.kiss@citrix.com> <20140116000334.GE5331@zion.uk.xensource.com> <52D98427.1060103@citrix.com> <20140120165356.GF11681@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Eliezer Tamir <eliezer-rsSRdLmRgNEQhDRD3CWCHA@public.gmane.org>
-To: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <52DD4EC6.7080208-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: <ian.campbell@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<jonathan.davies@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140120165356.GF11681@zion.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 20/01/2014 18:28, Michael Kerrisk (man-pages) wrote:
-> On 07/10/2013 04:18 PM, Eliezer Tamir wrote:
->> Add description for the SO_BUSY_POLL socket option to the socket(7) manpage.
-> 
-> Long after the fact, I've applied this. Thanks, Eliezer.
-> 
-> Would you be willing also to write a patch for the POLL_BUSY_LOOP flag of 
-> poll()?
+On 20/01/14 16:53, Wei Liu wrote:
+>>>> @@ -559,7 +579,7 @@ void xenvif_free(struct xenvif *vif)
+>>>>   		if (vif->grant_tx_handle[i] != NETBACK_INVALID_HANDLE) {
+>>>>   			unmap_timeout++;
+>>>>   			schedule_timeout(msecs_to_jiffies(1000));
+>>>> -			if (unmap_timeout > 9 &&
+>>>> +			if (unmap_timeout > ((rx_drain_timeout_msecs/1000) * DIV_ROUND_UP(XENVIF_QUEUE_LENGTH, (XEN_NETIF_RX_RING_SIZE / MAX_SKB_FRAGS))) &&
+>>>
+>>> This line is really too long. And what's the rationale behind this long
+>>> expression?
+>> It calculates how many times you should ditch the internal queue of
+>> an another (maybe stucked) vif before Qdisc empties it's actual
+>> content. After that there shouldn't be any mapped handle left, so we
+>> should start printing these messages. Actually it should use
+>> vif->dev->tx_queue_len, and yes, it is probably better to move it to
+>> the beginning of the function into a new variable, and use that
+>> here.
+>>
+>
+> Why is relative to tx queue length?
+>
+> What's the meaning of drain_timeout multipled by the last part
+> (DIV_ROUND_UP)?
+>
+> If you proposed to use vif->dev->tx_queue_len to replace DIV_ROUND_UP
+> then ignore the above question. But I still don't understand the
+> rationale behind this. Could you elaborate a bit more? Wouldn't
+> rx_drain_timeout_msecs/1000 along suffice?
 
-Yes, Me or someone from our team will do that.
+Here we want to avoid timeout messages if an skb can be legitimatly 
+stucked somewhere else. As we discussed earlier, realisticly this could 
+be an another vif's internal or QDisc queue. That another vif also has 
+this rx_drain_timeout_msecs timeout, but now with Paul's recent changes 
+the timer only ditches the internal queue. After that, the QDisc queue 
+can put in worst case XEN_NETIF_RX_RING_SIZE / MAX_SKB_FRAGS skbs into 
+that another vif's internal queue, so we need several rounds of such 
+timeouts until we can be sure that no another vif should have skb's from 
+us. We are not sending more skb's, so newly stucked packets are not 
+interesting for us here.
+But actually using the current vif's queue length is not relevant in 
+this calculation, as it doesn't mean other vif's has the same. I think 
+it is better to stick with XENVIF_QUEUE_LENGTH.
+I've added this explanation as a comment and moved the calculation into 
+a separate variable, so it doesn't cause such long lines.
 
--Eliezer
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Zoli
