@@ -1,96 +1,165 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [Patch net-next 3/6] net_sched: act: hide struct tcf_common from
- API
-Date: Mon, 20 Jan 2014 08:01:09 -0500
-Message-ID: <52DD1E15.2040400@mojatatu.com>
-References: <1389987427-14085-1-git-send-email-xiyou.wangcong@gmail.com> <1389987427-14085-4-git-send-email-xiyou.wangcong@gmail.com>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH net-next v2] xen-netback: Rework rx_work_todo
+Date: Mon, 20 Jan 2014 13:02:04 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD020BC91@AMSPEX01CL01.citrite.net>
+References: <1389805867-22409-1-git-send-email-zoltan.kiss@citrix.com>
+ <52DD1540.7000503@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:61978 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751832AbaATNBN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 08:01:13 -0500
-Received: by mail-ie0-f173.google.com with SMTP id e14so8192631iej.32
-        for <netdev@vger.kernel.org>; Mon, 20 Jan 2014 05:01:12 -0800 (PST)
-In-Reply-To: <1389987427-14085-4-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Zoltan Kiss <zoltan.kiss@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Jonathan Davies" <Jonathan.Davies@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52DD1540.7000503@citrix.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/17/14 14:37, Cong Wang wrote:
-> Now we can totally hide it from modules. tcf_hash_*() API's
-> will operate on struct tc_action, modules don't need to care about
-> the details.
->
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> -----Original Message-----
+> From: Zoltan Kiss
+> Sent: 20 January 2014 12:23
+> To: Ian Campbell; Wei Liu; xen-devel@lists.xenproject.org;
+> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Jonathan Davies
+> Cc: Paul Durrant
+> Subject: Re: [PATCH net-next v2] xen-netback: Rework rx_work_todo
+> 
+> Any reviews on this one? It fixes an important lockup situation, so
+> either this or some other fix should go in soon.
+> 
+> On 15/01/14 17:11, Zoltan Kiss wrote:
+> > The recent patch to fix receive side flow control (11b57f) solved the
+> spinning
+> > thread problem, however caused an another one. The receive side can
+> stall, if:
+> > - [THREAD] xenvif_rx_action sets rx_queue_stopped to true
+> > - [INTERRUPT] interrupt happens, and sets rx_event to true
+> > - [THREAD] then xenvif_kthread sets rx_event to false
+> > - [THREAD] rx_work_todo doesn't return true anymore
+> >
+> > Also, if interrupt sent but there is still no room in the ring, it take quite a
+> > long time until xenvif_rx_action realize it. This patch ditch that two variable,
+> > and rework rx_work_todo. If the thread finds it can't fit more skb's into the
+> > ring, it saves the last slot estimation into rx_last_skb_slots, otherwise it's
+> > kept as 0. Then rx_work_todo will check if:
+> > - there is something to send to the ring (like before)
+> > - there is space for the topmost packet in the queue
+> >
+> > I think that's more natural and optimal thing to test than two bool which are
+> > set somewhere else.
+> >
+> > Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> > ---
+> >   drivers/net/xen-netback/common.h    |    6 +-----
+> >   drivers/net/xen-netback/interface.c |    1 -
+> >   drivers/net/xen-netback/netback.c   |   16 ++++++----------
+> >   3 files changed, 7 insertions(+), 16 deletions(-)
+> >
+> > diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-
+> netback/common.h
+> > index 4c76bcb..ae413a2 100644
+> > --- a/drivers/net/xen-netback/common.h
+> > +++ b/drivers/net/xen-netback/common.h
+> > @@ -143,11 +143,7 @@ struct xenvif {
+> >   	char rx_irq_name[IFNAMSIZ+4]; /* DEVNAME-rx */
+> >   	struct xen_netif_rx_back_ring rx;
+> >   	struct sk_buff_head rx_queue;
+> > -	bool rx_queue_stopped;
+> > -	/* Set when the RX interrupt is triggered by the frontend.
+> > -	 * The worker thread may need to wake the queue.
+> > -	 */
+> > -	bool rx_event;
+> > +	RING_IDX rx_last_skb_slots;
+> >
+> >   	/* This array is allocated seperately as it is large */
+> >   	struct gnttab_copy *grant_copy_op;
+> > diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-
+> netback/interface.c
+> > index b9de31e..7669d49 100644
+> > --- a/drivers/net/xen-netback/interface.c
+> > +++ b/drivers/net/xen-netback/interface.c
+> > @@ -100,7 +100,6 @@ static irqreturn_t xenvif_rx_interrupt(int irq, void
+> *dev_id)
+> >   {
+> >   	struct xenvif *vif = dev_id;
+> >
+> > -	vif->rx_event = true;
+> >   	xenvif_kick_thread(vif);
+> >
+> >   	return IRQ_HANDLED;
+> > diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-
+> netback/netback.c
+> > index 2738563..bb241d0 100644
+> > --- a/drivers/net/xen-netback/netback.c
+> > +++ b/drivers/net/xen-netback/netback.c
+> > @@ -477,7 +477,6 @@ static void xenvif_rx_action(struct xenvif *vif)
+> >   	unsigned long offset;
+> >   	struct skb_cb_overlay *sco;
+> >   	bool need_to_notify = false;
+> > -	bool ring_full = false;
+> >
+> >   	struct netrx_pending_operations npo = {
+> >   		.copy  = vif->grant_copy_op,
+> > @@ -487,7 +486,7 @@ static void xenvif_rx_action(struct xenvif *vif)
+> >   	skb_queue_head_init(&rxq);
+> >
+> >   	while ((skb = skb_dequeue(&vif->rx_queue)) != NULL) {
+> > -		int max_slots_needed;
+> > +		RING_IDX max_slots_needed;
+> >   		int i;
+> >
+> >   		/* We need a cheap worse case estimate for the number of
+> > @@ -510,9 +509,10 @@ static void xenvif_rx_action(struct xenvif *vif)
+> >   		if (!xenvif_rx_ring_slots_available(vif, max_slots_needed)) {
+> >   			skb_queue_head(&vif->rx_queue, skb);
+> >   			need_to_notify = true;
+> > -			ring_full = true;
+> > +			vif->rx_last_skb_slots = max_slots_needed;
+> >   			break;
+> > -		}
+> > +		} else
+> > +			vif->rx_last_skb_slots = 0;
+> >
+> >   		sco = (struct skb_cb_overlay *)skb->cb;
+> >   		sco->meta_slots_used = xenvif_gop_skb(skb, &npo);
+> > @@ -523,8 +523,6 @@ static void xenvif_rx_action(struct xenvif *vif)
+> >
+> >   	BUG_ON(npo.meta_prod > ARRAY_SIZE(vif->meta));
+> >
+> > -	vif->rx_queue_stopped = !npo.copy_prod && ring_full;
+> > -
+> >   	if (!npo.copy_prod)
+> >   		goto done;
+> >
+> > @@ -1727,8 +1725,8 @@ static struct xen_netif_rx_response
+> *make_rx_response(struct xenvif *vif,
+> >
+> >   static inline int rx_work_todo(struct xenvif *vif)
+> >   {
+> > -	return (!skb_queue_empty(&vif->rx_queue) && !vif-
+> >rx_queue_stopped) ||
+> > -		vif->rx_event;
+> > +	return !skb_queue_empty(&vif->rx_queue) &&
+> > +	       xenvif_rx_ring_slots_available(vif, vif->rx_last_skb_slots);
+> >   }
+> >
+> >   static inline int tx_work_todo(struct xenvif *vif)
+> > @@ -1814,8 +1812,6 @@ int xenvif_kthread(void *data)
+> >   		if (!skb_queue_empty(&vif->rx_queue))
+> >   			xenvif_rx_action(vif);
+> >
+> > -		vif->rx_event = false;
+> > -
 
-Had to stare at this a bit longer - I am afraid
-this and rest look a little suspect.
-Can you run some tests for me after your patches?
-I could do it in about 1 day if you dont have time.
+The minimal patch is to simply move this line up above the previous if clause, but I'm happy with your patch as it stands so
 
----
-#add a couple of tests
-sudo tc actions add action drop index 10
-sudo tc actions add action drop index 12
-# now list them - should see both.
-sudo tc actions ls action gact
-#now flush them
-sudo tc actions flush action gact
-# now list them - should see them gone
-sudo tc actions ls action gact
----
+Reviewed-by: Paul Durrant <paul.durrant@citrix.com>
 
-And for the last patch, in particular
----
-#add two actions by index
-sudo tc actions add action drop index 10
-sudo tc actions add action ok index 12
-# we need an ingress qdisc to attach filter to
-sudo tc qdisc del dev lo parent ffff:
-sudo tc qdisc add dev lo ingress
-#use existing action index 10
-sudo tc filter add dev lo parent ffff: protocol ip prio 8 \
-u32 match ip dst 127.0.0.8/32 flowid 1:10 action gact index 10
-#double bind
-sudo tc filter add dev lo parent ffff: protocol ip prio 7 \
-u32 match ip src 127.0.0.10/32 flowid 1:11 action gact index 10
-# now lets see the filters..
-sudo tc filter ls dev lo parent ffff: protocol ip
-#display the actions and pay attention to the bind count
-sudo tc actions ls action gact
-#try to readd an existing action
-sudo tc actions add action ok index 12
-#it should be rejected - now list it and make sure refcnt doesnt go up
-sudo tc actions ls action gact
-#delete action index 12 (which is not bound)
-sudo tc actions del action gact index 12
-#list and make sure index 12 is gone
-sudo tc actions ls action gact
-#delete action index 10 (which is bound)
-sudo tc actions del action gact index 10
-#display to see it is still there ..
-sudo tc actions ls action gact
-#Repeat above two steps several times and make sure action 10 stays
-# action should not be deleted...
-#
-# delete qdisc - which should delete all filters but not
-# action that were not created by filters
-sudo tc qdisc del dev lo parent ffff:
-#ok now that filter is gone, lets see the actions ..
-#pay attention to binds and references
-sudo tc actions ls action gact
-#
-#delete action index 10 (which is no longer bound)
-sudo tc actions del action gact index 10
-#display to see it is gone
-sudo tc actions ls action gact
-
-
-cheers,
-jamal
+> >   		if (skb_queue_empty(&vif->rx_queue) &&
+> >   		    netif_queue_stopped(vif->dev))
+> >   			xenvif_start_queue(vif);
+> >
