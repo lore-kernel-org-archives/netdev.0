@@ -1,77 +1,118 @@
 From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next v5 7/9] xen-netback: Add stat counters
-	for frag_list skbs
-Date: Mon, 20 Jan 2014 21:24:27 +0000
-Message-ID: <1390253069-25507-8-git-send-email-zoltan.kiss@citrix.com>
+Subject: [PATCH net-next v5 9/9] xen-netback: Aggregate TX unmap operations
+Date: Mon, 20 Jan 2014 21:24:29 +0000
+Message-ID: <1390253069-25507-10-git-send-email-zoltan.kiss@citrix.com>
 References: <1390253069-25507-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain
 Cc: Zoltan Kiss <zoltan.kiss@citrix.com>
 To: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
 	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
 	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1390253069-25507-1-git-send-email-zoltan.kiss@citrix.com>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-These counters help determine how often the guest sends a packet with more
-than MAX_SKB_FRAGS frags.
+Unmapping causes TLB flushing, therefore we should make it in the largest
+possible batches. However we shouldn't starve the guest for too long. So if
+the guest has space for at least two big packets and we don't have at least a
+quarter ring to unmap, delay it for at most 1 milisec.
+
+v4:
+- use bool for tx_dealloc_work_todo
 
 Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 ---
- drivers/net/xen-netback/common.h    |    1 +
- drivers/net/xen-netback/interface.c |    7 +++++++
- drivers/net/xen-netback/netback.c   |    1 +
- 3 files changed, 9 insertions(+)
+ drivers/net/xen-netback/common.h    |    2 ++
+ drivers/net/xen-netback/interface.c |    2 ++
+ drivers/net/xen-netback/netback.c   |   34 +++++++++++++++++++++++++++++++++-
+ 3 files changed, 37 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index e3c28ff..c037efb 100644
+index d1cd8ce..95498c8 100644
 --- a/drivers/net/xen-netback/common.h
 +++ b/drivers/net/xen-netback/common.h
-@@ -158,6 +158,7 @@ struct xenvif {
- 	unsigned long tx_zerocopy_sent;
- 	unsigned long tx_zerocopy_success;
- 	unsigned long tx_zerocopy_fail;
-+	unsigned long tx_frag_overflow;
+@@ -118,6 +118,8 @@ struct xenvif {
+ 	u16 dealloc_ring[MAX_PENDING_REQS];
+ 	struct task_struct *dealloc_task;
+ 	wait_queue_head_t dealloc_wq;
++	struct timer_list dealloc_delay;
++	bool dealloc_delay_timed_out;
  
- 	/* Miscellaneous private stuff. */
- 	struct net_device *dev;
+ 	/* Use kthread for guest RX */
+ 	struct task_struct *task;
 diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index ac27af3..b7daf8d 100644
+index 40aa500..f925af5 100644
 --- a/drivers/net/xen-netback/interface.c
 +++ b/drivers/net/xen-netback/interface.c
-@@ -254,6 +254,13 @@ static const struct xenvif_stat {
- 		"tx_zerocopy_fail",
- 		offsetof(struct xenvif, tx_zerocopy_fail)
- 	},
-+	/* Number of packets exceeding MAX_SKB_FRAG slots. You should use
-+	 * a guest with the same MAX_SKB_FRAG
-+	 */
-+	{
-+		"tx_frag_overflow",
-+		offsetof(struct xenvif, tx_frag_overflow)
-+	},
- };
+@@ -407,6 +407,7 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+ 			  .desc = i };
+ 		vif->grant_tx_handle[i] = NETBACK_INVALID_HANDLE;
+ 	}
++	init_timer(&vif->dealloc_delay);
  
- static int xenvif_get_sset_count(struct net_device *dev, int string_set)
+ 	/*
+ 	 * Initialise a dummy MAC address. We choose the numerically
+@@ -557,6 +558,7 @@ void xenvif_disconnect(struct xenvif *vif)
+ 	}
+ 
+ 	if (vif->dealloc_task) {
++		del_timer_sync(&vif->dealloc_delay);
+ 		kthread_stop(vif->dealloc_task);
+ 		vif->dealloc_task = NULL;
+ 	}
 diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 9841429..4305965 100644
+index bb65c7c..c098276 100644
 --- a/drivers/net/xen-netback/netback.c
 +++ b/drivers/net/xen-netback/netback.c
-@@ -1656,6 +1656,7 @@ static int xenvif_tx_submit(struct xenvif *vif, int budget)
- 			skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
- 			skb_shinfo(nskb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
- 			vif->tx_zerocopy_sent += 2;
-+			vif->tx_frag_overflow++;
- 			nskb = skb;
+@@ -135,6 +135,11 @@ static inline pending_ring_idx_t nr_pending_reqs(struct xenvif *vif)
+ 		vif->pending_prod + vif->pending_cons;
+ }
  
- 			skb = skb_copy_expand(skb, 0, 0, GFP_ATOMIC | __GFP_NOWARN);
++static inline pending_ring_idx_t nr_free_slots(struct xen_netif_tx_back_ring *ring)
++{
++	return ring->nr_ents -	(ring->sring->req_prod - ring->rsp_prod_pvt);
++}
++
+ bool xenvif_rx_ring_slots_available(struct xenvif *vif, int needed)
+ {
+ 	RING_IDX prod, cons;
+@@ -1932,9 +1937,36 @@ static inline int tx_work_todo(struct xenvif *vif)
+ 	return 0;
+ }
+ 
++static void xenvif_dealloc_delay(unsigned long data)
++{
++	struct xenvif *vif = (struct xenvif *)data;
++
++	vif->dealloc_delay_timed_out = true;
++	wake_up(&vif->dealloc_wq);
++}
++
+ static inline bool tx_dealloc_work_todo(struct xenvif *vif)
+ {
+-	return vif->dealloc_cons != vif->dealloc_prod
++	if (vif->dealloc_cons != vif->dealloc_prod) {
++		if ((nr_free_slots(&vif->tx) > 2 * XEN_NETBK_LEGACY_SLOTS_MAX) &&
++		    (vif->dealloc_prod - vif->dealloc_cons < MAX_PENDING_REQS / 4) &&
++		    !vif->dealloc_delay_timed_out) {
++			if (!timer_pending(&vif->dealloc_delay)) {
++				vif->dealloc_delay.function =
++					xenvif_dealloc_delay;
++				vif->dealloc_delay.data = (unsigned long)vif;
++				mod_timer(&vif->dealloc_delay,
++					  jiffies + msecs_to_jiffies(1));
++
++			}
++			return false;
++		}
++		del_timer_sync(&vif->dealloc_delay);
++		vif->dealloc_delay_timed_out = false;
++		return true;
++	}
++
++	return false;
+ }
+ 
+ void xenvif_unmap_frontend_rings(struct xenvif *vif)
