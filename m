@@ -1,165 +1,447 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net-next v2] xen-netback: Rework rx_work_todo
-Date: Mon, 20 Jan 2014 13:02:04 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD020BC91@AMSPEX01CL01.citrite.net>
-References: <1389805867-22409-1-git-send-email-zoltan.kiss@citrix.com>
- <52DD1540.7000503@citrix.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [ANNOUNCE]: Release of nftables 0.099
+Date: Mon, 20 Jan 2014 13:11:33 +0000
+Message-ID: <20140120131132.GA32427@macbook.localnet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Zoltan Kiss <zoltan.kiss@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Jonathan Davies" <Jonathan.Davies@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52DD1540.7000503@citrix.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="gBBFr7Ir9EOA20Yy"
+Content-Transfer-Encoding: 8bit
+Cc: netfilter@vger.kernel.org, announce@lists.netfilter.org,
+	netdev@vger.kernel.org, coreteam@netfilter.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: netfilter-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Zoltan Kiss
-> Sent: 20 January 2014 12:23
-> To: Ian Campbell; Wei Liu; xen-devel@lists.xenproject.org;
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Jonathan Davies
-> Cc: Paul Durrant
-> Subject: Re: [PATCH net-next v2] xen-netback: Rework rx_work_todo
-> 
-> Any reviews on this one? It fixes an important lockup situation, so
-> either this or some other fix should go in soon.
-> 
-> On 15/01/14 17:11, Zoltan Kiss wrote:
-> > The recent patch to fix receive side flow control (11b57f) solved the
-> spinning
-> > thread problem, however caused an another one. The receive side can
-> stall, if:
-> > - [THREAD] xenvif_rx_action sets rx_queue_stopped to true
-> > - [INTERRUPT] interrupt happens, and sets rx_event to true
-> > - [THREAD] then xenvif_kthread sets rx_event to false
-> > - [THREAD] rx_work_todo doesn't return true anymore
-> >
-> > Also, if interrupt sent but there is still no room in the ring, it take quite a
-> > long time until xenvif_rx_action realize it. This patch ditch that two variable,
-> > and rework rx_work_todo. If the thread finds it can't fit more skb's into the
-> > ring, it saves the last slot estimation into rx_last_skb_slots, otherwise it's
-> > kept as 0. Then rx_work_todo will check if:
-> > - there is something to send to the ring (like before)
-> > - there is space for the topmost packet in the queue
-> >
-> > I think that's more natural and optimal thing to test than two bool which are
-> > set somewhere else.
-> >
-> > Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-> > ---
-> >   drivers/net/xen-netback/common.h    |    6 +-----
-> >   drivers/net/xen-netback/interface.c |    1 -
-> >   drivers/net/xen-netback/netback.c   |   16 ++++++----------
-> >   3 files changed, 7 insertions(+), 16 deletions(-)
-> >
-> > diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-
-> netback/common.h
-> > index 4c76bcb..ae413a2 100644
-> > --- a/drivers/net/xen-netback/common.h
-> > +++ b/drivers/net/xen-netback/common.h
-> > @@ -143,11 +143,7 @@ struct xenvif {
-> >   	char rx_irq_name[IFNAMSIZ+4]; /* DEVNAME-rx */
-> >   	struct xen_netif_rx_back_ring rx;
-> >   	struct sk_buff_head rx_queue;
-> > -	bool rx_queue_stopped;
-> > -	/* Set when the RX interrupt is triggered by the frontend.
-> > -	 * The worker thread may need to wake the queue.
-> > -	 */
-> > -	bool rx_event;
-> > +	RING_IDX rx_last_skb_slots;
-> >
-> >   	/* This array is allocated seperately as it is large */
-> >   	struct gnttab_copy *grant_copy_op;
-> > diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-
-> netback/interface.c
-> > index b9de31e..7669d49 100644
-> > --- a/drivers/net/xen-netback/interface.c
-> > +++ b/drivers/net/xen-netback/interface.c
-> > @@ -100,7 +100,6 @@ static irqreturn_t xenvif_rx_interrupt(int irq, void
-> *dev_id)
-> >   {
-> >   	struct xenvif *vif = dev_id;
-> >
-> > -	vif->rx_event = true;
-> >   	xenvif_kick_thread(vif);
-> >
-> >   	return IRQ_HANDLED;
-> > diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-
-> netback/netback.c
-> > index 2738563..bb241d0 100644
-> > --- a/drivers/net/xen-netback/netback.c
-> > +++ b/drivers/net/xen-netback/netback.c
-> > @@ -477,7 +477,6 @@ static void xenvif_rx_action(struct xenvif *vif)
-> >   	unsigned long offset;
-> >   	struct skb_cb_overlay *sco;
-> >   	bool need_to_notify = false;
-> > -	bool ring_full = false;
-> >
-> >   	struct netrx_pending_operations npo = {
-> >   		.copy  = vif->grant_copy_op,
-> > @@ -487,7 +486,7 @@ static void xenvif_rx_action(struct xenvif *vif)
-> >   	skb_queue_head_init(&rxq);
-> >
-> >   	while ((skb = skb_dequeue(&vif->rx_queue)) != NULL) {
-> > -		int max_slots_needed;
-> > +		RING_IDX max_slots_needed;
-> >   		int i;
-> >
-> >   		/* We need a cheap worse case estimate for the number of
-> > @@ -510,9 +509,10 @@ static void xenvif_rx_action(struct xenvif *vif)
-> >   		if (!xenvif_rx_ring_slots_available(vif, max_slots_needed)) {
-> >   			skb_queue_head(&vif->rx_queue, skb);
-> >   			need_to_notify = true;
-> > -			ring_full = true;
-> > +			vif->rx_last_skb_slots = max_slots_needed;
-> >   			break;
-> > -		}
-> > +		} else
-> > +			vif->rx_last_skb_slots = 0;
-> >
-> >   		sco = (struct skb_cb_overlay *)skb->cb;
-> >   		sco->meta_slots_used = xenvif_gop_skb(skb, &npo);
-> > @@ -523,8 +523,6 @@ static void xenvif_rx_action(struct xenvif *vif)
-> >
-> >   	BUG_ON(npo.meta_prod > ARRAY_SIZE(vif->meta));
-> >
-> > -	vif->rx_queue_stopped = !npo.copy_prod && ring_full;
-> > -
-> >   	if (!npo.copy_prod)
-> >   		goto done;
-> >
-> > @@ -1727,8 +1725,8 @@ static struct xen_netif_rx_response
-> *make_rx_response(struct xenvif *vif,
-> >
-> >   static inline int rx_work_todo(struct xenvif *vif)
-> >   {
-> > -	return (!skb_queue_empty(&vif->rx_queue) && !vif-
-> >rx_queue_stopped) ||
-> > -		vif->rx_event;
-> > +	return !skb_queue_empty(&vif->rx_queue) &&
-> > +	       xenvif_rx_ring_slots_available(vif, vif->rx_last_skb_slots);
-> >   }
-> >
-> >   static inline int tx_work_todo(struct xenvif *vif)
-> > @@ -1814,8 +1812,6 @@ int xenvif_kthread(void *data)
-> >   		if (!skb_queue_empty(&vif->rx_queue))
-> >   			xenvif_rx_action(vif);
-> >
-> > -		vif->rx_event = false;
-> > -
 
-The minimal patch is to simply move this line up above the previous if clause, but I'm happy with your patch as it stands so
+--gBBFr7Ir9EOA20Yy
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: 8bit
 
-Reviewed-by: Paul Durrant <paul.durrant@citrix.com>
+The Netfilter project presents:
 
-> >   		if (skb_queue_empty(&vif->rx_queue) &&
-> >   		    netif_queue_stopped(vif->dev))
-> >   			xenvif_start_queue(vif);
-> >
+        nftables 0.099
+
+With the release of Linux 3.13 and almost 5 years after the last nftables
+release, the time has come to finally get this code out to our users.
+
+Since this is the first regular release intended for users, I'm including
+a bit of extra information.
+
+Overview
+========
+
+nf_tables is the new firewalling infrastructure in the Linux kernel,
+intended to replace ip_tables, ip6_tables, arp_tables and ebtables
+in the long term. nftables is the corresponsing userspace frontend,
+replacing their respective userspace utilities.
+
+nftables features native support for sets and dictionaries of arbitrary
+types, support for many different protocols, meta data types, connection
+tracking, NAT, logging, atomic incremental and full ruleset updates,
+a netlink API with notification support, a format grammar, a compatiblity
+layer for iptables/ip6tables and more.
+
+While the internal architecture is fundamentally different from
+ip_tables etc, many of the well proven concepts like tables and chains
+have been retained. The syntax differs significantly from iptables
+and friends, most notable, the options style parsing has been replaced
+by a formal grammar and a set of keywords. For anyone familiar with
+BPF the syntax should be quite easy to learn.
+
+Architecture
+============
+
+As mentioned previously, the architecture differs significantly from
+the existing packet filtering mechanisms. While ip_tables etc. include
+special modules for each and every protocol they support, for each meta
+data type etc and each each of these modules implement a set of usually
+similar operations on this data, nftables contains a small evaluation
+engine (sometimes called a virtual machine) with extensions to support
+getting packet payload data, meta data, ... and performing operations
+with this data, altering flow control and so on.
+
+The userspace frontend performs parsing of the ruleset and compiles it
+into instructions for the virtual machine. F.i. while an iptables tcp
+dport match would instruct the xt_tcpudp module to compare the TCP port
+number, nftables userspace emits instructions to load 2 bytes at the
+position network header + 2 into a so called register and a second
+instruction to compare that register to a given value. IOW, the kernel
+doesn't require knowledge of particular protocols, support for them
+can in most cases be added completely in the nftables frontend.
+
+Data gathered from the packet (or elsewhere) can not only be used for
+matches (called relational expressions in nftables), but for dynamically
+parameterizing other extensions. F.i. the following expression would
+select the DNAT destination address based on the source address of the
+packet:
+
+... dnat ip saddr map {
+	192.168.0.0/24 : 10.0.0.1,
+	192.168.1.0/24 : 10.0.0.2,
+	* : 10.0.0.3 
+    }
+
+while the following expression would store the input interface index
+in the upper 8 bits of the packet mark to be used in the POSTROUTING 
+hook where it is not available anymore:
+
+... mark set iif
+
+Similar to ip_tables, rules are organized in address family specific
+tables and chains. The kernel doesn't include any pre-defined tables
+anymore, they can be created at will from userspace. Special features
+of tables like the NAT table and mangle table are available as so
+called "chain types", which instruct nftables to perform operations
+like setting up NAT mappings or rerouting packets after remarking.
+A set of predefined tables corresponding to the tables existing in
+ip_tables etc is contained in nftables.
+
+Dictionaries, as shown in the previous dnat example, can not only
+be used for parameterizing different extensions, but also to alter
+control flow, allowing to build match trees with efficient branching:
+
+... iif vmap {
+	eth0 : jump from_lan,
+	eth1 : jump from_dmz,
+	eth2 : jump from_wan,
+	*    : drop,
+    }
+
+Status
+======
+
+There are still a few rough edges, but we believe the code is ready
+to be used for testing and personal usage. It is not ready for
+production use, but we should be getting there quickly. Userspace
+may occasionally produce an unexpected error for uncommon cases,
+the kernel side is expected to be pretty much solid. Any bugs
+reported will be fixed quickly.
+
+While trying to avoid it when possible, until the 0.1 release we may
+still change the grammar or other things in incompatible ways. This
+should result in only small impact though, most of the grammar is
+expected to stay as it is.
+
+Naming
+======
+
+nftables releases have names. The last release v0.01-alpha1 was named
+schäublefilter, honoring the minister of the interieur of Germany,
+Wolfgang Schäuble, and his attempts to introduce legislation to allow
+the state to crack computers.
+
+Owing to the fact that his term is over since over four years and that
+in retrospective his attempts really seem only alpha, the new release
+is named keith-alexander-filter, in celebration of not being backdoored
+by the NSA so far.
+
+Resources
+=========
+
+The nftables code can be obtained from:
+
+* http://netfilter.org/projects/nftables/downloads.html
+* ftp://ftp.netfilter.org/pub/nftables
+* git://git.netfilter.org/nftables
+
+To build the code, you libnftnl and libmnl are required:
+
+* http://netfilter.org/projects/libnftnl/index.html
+* http://netfilter.org/projects/libmnl/index.html
+
+The iptables compatibility layer is available at:
+
+* git://git.netfilter.org/iptables-nftables
+
+The code should appear on the website and FTP shortly.
+
+Further reading
+===============
+
+While documentation is still scarce at the moment, the next release
+will include a full command reference and further documentation.
+
+The project page on netfilter.org contains some further pointers:
+
+  http://netfilter.org/projects/nftables/index.html
+
+Eric Leblond has written a short howto:
+
+  https://home.regit.org/netfilter-en/nftables-quick-howto/
+
+and has given a presentation on nftables:
+
+  https://home.regit.org/wp-content/uploads/2013/09/2013_kernel_recipes_nftables.pdf
+
+My first presentation on nftables during NFWS 2008 in Paris:
+
+  http://people.netfilter.org/kaber/nfws2008/nftables.odp
+
+And there's a Wiki-page with some further information on the basic
+building blocks, the syntax ...:
+
+  http://people.netfilter.org/wiki-nftables/index.php/Main_Page
+
+Thanks
+======
+
+A lot of people have started contributing to nftables during the past
+1.5 years and helped to get both the kernel and userspace components in
+shape for merging and release. Pablo revived the project after I stopped
+working on it for quite a while, Eric Leblond, Tomasz Burstyka, Arturo 
+Borrero, Alvaro Neira and Giuseppe Longo all made important contributions
+to nftables and the surrounding infrastructure.
+
+
+On behalf of the Netfilter Core Team,
+Happy bytecode execution :)
+
+
+
+--gBBFr7Ir9EOA20Yy
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="changes.txt"
+
+Ana Rey (1):
+      nft: scanner: fixed problem with ipv6 address
+
+Arturo Borrero (2):
+      nftables: delete debian/ directory
+      mnl: fix inconsistent name usage in nft_*_nlmsg_build_hdr calls
+
+Arturo Borrero Gonzalez (2):
+      src: fix return code
+      files: replace interpreter during installation
+
+Eric Leblond (23):
+      rule: add flag to display rule handle as comment
+      doc: fix inversion of operator and object.
+      rule: list elements in set in any case
+      cli: add quit command
+      cli: reset terminal when CTRL+d is pressed
+      rule: display hook info
+      src: fix counter restoration
+      src: Add support for insertion inside rule list
+      src: Add icmpv6 support
+      nat: add mandatory family attribute
+      Suppress non working examples.
+      Update chain creation format.
+      display family in table listing
+      netlink: fix IPv6 prefix computation
+      src: Add support for IPv6 NAT
+      mnl: fix typo in comment
+      netlink: suppress useless variable
+      netlink: only flush asked table/chain
+      netlink: fix nft flush operation
+      expression: fix indent
+      jump: fix logic in netlink linearize
+      verdict: fix delinearize in case of jump
+      netlink: only display wanted chain in listing
+
+Florian Westphal (3):
+      log: s/threshold/queue-threshold/
+      meta: iif/oifname should be host byte order
+      statement: avoid huge rodata array
+
+Kevin Fenzi (1):
+      nftables: drop hard coded install using root user owner and group
+
+Pablo Neira (1):
+      expression: fix output of verdict maps
+
+Pablo Neira Ayuso (63):
+      tests: fix test, commands now comes before the family and table name
+      rule: allow to list of existing tables
+      rule: fix nft list chain
+      netlink: return error if chain not found
+      main: fix error checking in nft_parse
+      tests: family-ipv4: update test to use current syntax
+      tests: expr-ct: update examples to use the current syntax
+      src: fix crash if nft -f wrong_file is passed
+      tests: family-ipv6: update to use the current syntax
+      payload: accept ethertype in hexadecimal
+      tests: family-bridge: update to use the current syntax
+      tests: feat-adjancent-load-merging: remove ip protocol from rule
+      meta: accept uid/gid in numerical
+      tests: expr-meta: update examples to use the current syntax
+      tests: obj-chain: update examples to use the current syntax
+      tests: dictionary: update examples to use the current syntax
+      tests: set: update examples to use the current syntax
+      tests: obj-table: update examples to use the current syntax
+      cli: complete basic functionality of the interactive mode
+      datatype: concat expression only releases dynamically allocated datatype
+      evaluate: fix range and comparison evaluation
+      src: get it sync with current include/linux/netfilter/nf_tables.h
+      rule: family field in struct handle is unsigned
+      meta: use if_nametoindex and if_indextoname
+      meta: replace rtnl_tc_handle2str and rtnl_tc_str2handle
+      src: use libnftables
+      netlink: fix network address prefix
+      datatype: fix table listing if name resolution is not available
+      mnl: use nft_*_list_add_tail
+      datatype: fix crash if wrong integer type is passed
+      log: convert group and qthreshold to use u16
+      datatype: fix wrong endianess in numeric ports
+      src: allow to specify the base chain type
+      meta: fix output display of meta length
+      datatype: fix mark parsing if string is used
+      payload: fix endianess of ARP operation code
+      netlink: use uint32_t instead of size_t for attribute length
+      src: add rule batching support
+      netlink_linearize: finish reject support
+      payload: fix ethernet type protocol matching
+      parser: fix warning on deprecated directive in bison
+      build: relax compilation not to break on warning
+      datatype: fix missing nul-terminated string in string_type_print
+      netlink: improve rule deletion per chain
+      meta: fix endianness in UID/GID
+      meta: relax restriction on UID/GID parsing
+      src: fix rule flushing atomically
+      mnl: don't set NLM_F_ACK flag in mnl_nft_rule_batch_[add|del]
+      mnl: print netlink message if if --debug=netlink in mnl_talk()
+      netlink: fix dictionary feature with data mappings
+      netlink: fix wrong type in attributes
+      scanner: rename address selector from 'eth' to 'ether'
+      scanner: add aliases to symbols for easier interaction with most shells
+      segtree: add new segtree debugging option
+      netlink: use stdout for debugging
+      parser: fix parsing of ethernet protocol types
+      payload: fix crash when wrong ethernet protocol type is used
+      payload: fix inconsistency in ethertype output
+      src: add new --debug=mnl option to enable libmnl debugging
+      src: use ':' instead of '=>' in dictionaries
+      datatype: add time type parser and adapt output
+      mnl: fix chain type autoloading
+      use new libnftnl library name
+
+Patrick McHardy (96):
+      build: work around docbook2x-man inability to specify output file
+      templates: add IPv6 raw table template
+      netlink: wrap libnl object dumping in #ifdef DEBUG
+      lexer: fix some whitespace errors
+      Fix use of reserved names in header sandwich
+      kill obsolete TODO item
+      Allow newlines in sets and maps
+      Allow newlines in regular maps
+      build: remove double subdir in build output
+      build: fix installation when docs are not built
+      Add installation instructions
+      parser: fix common_block usage in chain and table blocks
+      parser: consistently use $@ for location of entire grouping
+      Add support for scoping and symbol binding
+      Add support for user-defined symbolic constants
+      Add more notes to INSTALL
+      expr: add support for cloning expressions
+      Fix multiple references to the same user defined symbolic expression
+      Release scopes during cleanup
+      Fix some memory leaks
+      netlink_linearize: remove two debugging printfs
+      ct: resync netlink header and properly add ct l3protocol support
+      netlink: add helper function for socket callback modification
+      netlink: consistent naming fixes
+      netlink: use libnl OBJ_CAST macro
+      netlink: move data related functions to netlink.c
+      datatype: maintain table of all datatypes and add registration/lookup function
+      datatype: add/move size and byte order information into data types
+      expressions: kill seperate sym_type datatype for symbols
+      add support for new set API and standalone sets
+      debug: allow runtime control of debugging output
+      netlink: fix bitmask element reconstruction
+      netlink: dump all chains when listing rules
+      netlink: fix binop RHS byteorder
+      payload: add DCCP packet type definitions
+      payload: fix two datatypes
+      parser: support bison >= 2.4
+      build: add 'archive' target
+      build: fix endless recursion with SUBDIRS=...
+      debug: properly parse debug levels
+      netlink: fix byteorder of RHS of relational meta expression
+      utils: fix invalid assertion in xrealloc()
+      netlink: fix creation of base chains with hooknum and priority 0
+      payload: fix crash with uncombinable protocols
+      netlink: fix nat stmt linearization/parsing
+      nat: validate protocol context when performing transport protocol mappings
+      netlink: add debugging for missing objects
+      don't use internal_location for files specified on command line
+      datatype: reject incompletely parsed integers in integer_type_parse()
+      add bridge filter table definitions
+      parser: fix parsing protocol names for protocols which are also keywords
+      evaluate: reintroduce type chekcs for relational expressions
+      segtree: fix segtree to properly support mappings
+      tests: add verdict map test
+      seqtree: update mapping data when keeping the base
+      payload: kill redundant payload protocol expressions during netlink postprocessing
+      expression: fix constant expression splicing
+      rules: change rule handle to 64 bit
+      netlink: fix endless loop on 64 bit when parsing binops
+      sets: fix sets using intervals
+      rule: reenable adjacent payload merging
+      cmd: fix handle use after free for implicit set declarations
+      tests: add loop detection tests
+      netlink: fix query requests
+      chains: add chain rename support
+      rule: add rule insertion (prepend) support
+      chains: add rename testcases
+      netlink_delinearize: don't reset source register after read
+      expr: kill EXPR_F_PRIMARY
+      datatype: parse/print in all basetypes subsequently
+      types: add ethernet address type
+      expr: fix concat expression type propagation
+      cmd/netlink: make sure we always have a location in netlink operations
+      mark: fix numeric mark value parsing
+      expr: catch missing and excess elements in concatenations
+      parser: include leading '.' in concat subexpression location
+      parser: fix size of internet protocol expressions matching keywords
+      nftables: fix supression of "permission denied" errors
+      nftables: shorten "could not process rule in batch" message
+      erec: fix error markup for errors starting at column 0
+      datatype: revert "fix crash if wrong integer type is passed"
+      meta: fix crash when parsing unresolvable mark values
+      parser: replace "vmap" keyword by "map"
+      Revert "parser: replace "vmap" keyword by "map""
+      expr: remove secmark from ct and meta expression
+      meta: don't require "meta" keyword for a subset of meta expressions
+      meta: fix mismerge
+      payload: fix name of eth_proto
+      expr: relational: don't surpress '==' for LHS binops in output
+      parser: fix compilation breakage
+      segtree: only use prefix expressions for ranges for selected datatypes
+      segtree: fix decomposition of unclosed intervals
+      build: fix recursive parser.h inclusion
+      set: make set flags output parsable
+      set: make set initializer parsable
+      nftables: version 0.099
+
+Phil Oester (8):
+      datatype: validate port number in inet_service_type_parse
+      datatype: allow protocols by number in inet_protocol_type_parse
+      nftables: add additional --numeric level
+      src: operational limit match
+      parser: segfault in top scope define
+      examples: adjust new chain type syntax in sets_and_maps file
+      rule: missing set cleanup in do_command_list
+      parser: add 'delete map' syntax
+
+Romain Bignon (1):
+      help: fix of the -I option in help display
+
+Tomasz Bursztyka (11):
+      netlink: Use the right datatype for verdict
+      evaluate: Remove useless variable in expr_evaluate_bitwise()
+      erec: Handle returned value properly in erec_print
+      expression: Differentiate expr among anonymous structures in struct expr
+      src: Fix base chain printing
+      INSTALL: Update dependency list and repository URLs
+      src: Wrap netfilter hooks around human readable strings
+      src: Add priority keyword on base chain description
+      tests: Update bate chain creation according to latest syntax changes
+      src: Better error reporting if chain type is invalid
+      include: cache a copy of nfnetlink.h
+
+root (1):
+      debug: include verbose message in all BUG statements
+
+
+--gBBFr7Ir9EOA20Yy--
