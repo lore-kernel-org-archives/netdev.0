@@ -1,79 +1,60 @@
-From: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: [PATCH RFC 4/6] net: rfkill: gpio: add device tree support
-Date: Mon, 20 Jan 2014 10:10:07 +0200
-Message-ID: <20140120081007.GA19123@xps8300>
-References: <1389941251-32692-1-git-send-email-wens@csie.org>
- <1389941251-32692-5-git-send-email-wens@csie.org>
- <201401171747.46332.arnd@arndb.de>
- <CAGb2v67UKiyfJbKZ_Frk3OwZupMPoA2Ck3Hj2zsRFXBQPztavg@mail.gmail.com>
- <CACRpkdZOD4zeA8T5kbJ4c5NsnuzHCg1mw8rRMYNT9c4R-Qnc6A@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net] tun: handle copy failure in tun_put_user()
+Date: Mon, 20 Jan 2014 10:43:49 +0200
+Message-ID: <20140120084349.GA7677@redhat.com>
+References: <1390187808-5462-1-git-send-email-jasowang@redhat.com>
+ <20140119.194856.491294439635992592.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
-	Mika Westerberg <mika.westerberg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-To: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <CACRpkdZOD4zeA8T5kbJ4c5NsnuzHCg1mw8rRMYNT9c4R-Qnc6A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20140119.194856.491294439635992592.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Sun, Jan 19, 2014 at 07:48:56PM -0800, David Miller wrote:
+> From: Jason Wang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> Date: Mon, 20 Jan 2014 11:16:48 +0800
+> 
+> > This patch return the error code of copy helpers in tun_put_user() instead of
+> > ignoring them.
+> > 
+> > Cc: Michael S. Tsirkin <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> > Signed-off-by: Jason Wang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
-On Sat, Jan 18, 2014 at 12:11:56AM +0100, Linus Walleij wrote:
-> On Fri, Jan 17, 2014 at 6:43 PM, Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org> wrote:
-> > On Sat, Jan 18, 2014 at 12:47 AM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
-> 
-> >>> +- NAME_shutdown-gpios  : GPIO phandle to shutdown control
-> >>> +                         (phandle must be the second)
-> >>> +- NAME_reset-gpios     : GPIO phandle to reset control
-> >>> +
-> >>> +NAME must match the rfkill-name property. NAME_shutdown-gpios or
-> >>> +NAME_reset-gpios, or both, must be defined.
-> >>> +
-> >>
-> >> I don't understand this part. Why do you include the name in the
-> >> gpios property, rather than just hardcoding the property strings
-> >> to "shutdown-gpios" and "reset-gpios"?
-> >
-> > This quirk is a result of how gpiod_get_index implements device tree
-> > lookup.
-> 
-> Why can't it just have a single property "gpios", where the first
-> element is the reset GPIO and the second is the shutdown GPIO?
-> 
-> rfkill-gpio does this:
-> 
-> gpio = devm_gpiod_get_index(&pdev->dev, rfkill->reset_name, 0);
-> gpio = devm_gpiod_get_index(&pdev->dev, rfkill->shutdown_name, 1);
-> 
-> The passed con ID name parameter is only there for the device
-> tree case it seems. (ACPI ignores it.) So what about you just
-> don't pass it at all and patch it to do like this instead:
-> 
-> gpio = devm_gpiod_get_index(&pdev->dev, NULL, 0);
-> gpio = devm_gpiod_get_index(&pdev->dev, NULL, 1);
-> 
-> Heikki, are you OK with this change?
+I'm not sure we need to worry about this too much.
+But if yes, a bunch of places besides tun should be
+changed. Consider for example udp_recvmsg: it
+never seems to return any error except -EAGAIN.
 
-Yes, definitely. That is much cleaner.
+Is this a bug? Man page for recvmsg says:
+     EFAULT The receive buffer pointer(s)  point  outside  the process's  address
+              space.
 
-Thanks,
+this isn't very clear: does this mean "all pointers are invalid"
+or "some pointers are invalid"?
+Also, what if pointers themselves are valid but length
+makes us go outside the address space?
 
--- 
-heikki
+I'm guessing the simplest way is to clarify in the man page that
+passing invalid pointers / lengths is not guaranteed
+to result in EFAULT and that Linux makes no guarantees
+about the returned length in this case.
+
+Cc linux-man in case they can suggest some insights on this.
+
+> If you perform some of the copy successfully, you have to report that
+> length rather than just an error.
+> 
+> Otherwise userland has no way to determine how much of the data was
+> successfully sourced.
+>
+> I'm not applying this, sorry.
 --
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
