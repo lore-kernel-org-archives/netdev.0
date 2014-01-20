@@ -1,54 +1,61 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] SUNRPC: Allow one callback request to be received from
- two sk_buff
-Date: Mon, 20 Jan 2014 18:27:19 +0400
-Message-ID: <52DD3247.6090108@cogentembedded.com>
-References: <n> <1390201154-20815-1-git-send-email-shaobingqing@bwstor.com.cn>
+Subject: Re: [PATCH 2/2] net/cxgb4: Don't retrieve stats during recovery
+Date: Mon, 20 Jan 2014 18:35:51 +0400
+Message-ID: <52DD3447.7000504@cogentembedded.com>
+References: <1390187144-15495-1-git-send-email-shangw@linux.vnet.ibm.com> <1390187144-15495-2-git-send-email-shangw@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: shaobingqing <shaobingqing@bwstor.com.cn>,
-	trond.myklebust@primarydata.com, bfields@redhat.com,
-	davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1390201154-20815-1-git-send-email-shaobingqing@bwstor.com.cn>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dm@chelsio.com
+To: Gavin Shan <shangw@linux.vnet.ibm.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f45.google.com ([209.85.215.45]:53595 "EHLO
+	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752035AbaATOfz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 09:35:55 -0500
+Received: by mail-la0-f45.google.com with SMTP id b8so5664810lan.32
+        for <netdev@vger.kernel.org>; Mon, 20 Jan 2014 06:35:54 -0800 (PST)
+In-Reply-To: <1390187144-15495-2-git-send-email-shangw@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hello.
 
-On 20-01-2014 10:59, shaobingqing wrote:
+On 20-01-2014 7:05, Gavin Shan wrote:
 
-> In current code, there only one struct rpc_rqst is prealloced. If one
-> callback request is received from two sk_buff, the xprt_alloc_bc_request
-> would be execute two times with the same transport->xid. The first time
-> xprt_alloc_bc_request will alloc one struct rpc_rqst and the TCP_RCV_COPY_DATA
-> bit of transport->tcp_flags will not be cleared. The second time
-> xprt_alloc_bc_request could not alloc struct rpc_rqst any more and NULL
-> pointer will be returned, then xprt_force_disconnect occur. I think one
-> callback request can be allowed to be received from two sk_buff.
+> We possiblly retrieve the adapter's statistics during EEH recovery
 
-> Signed-off-by: shaobingqing <shaobingqing@bwstor.com.cn>
+    Only "possibly".
+
+> and that should be disallowed. Otherwise, it would possibly incur
+> replicate EEH error and EEH recovery is going to fail eventually.
+> The patch checks if the PCI device is off-line before statistic
+> retrieval.
+
+> Signed-off-by: Gavin Shan <shangw@linux.vnet.ibm.com>
 > ---
->   net/sunrpc/xprtsock.c |   11 +++++++++--
->   1 files changed, 9 insertions(+), 2 deletions(-)
+>   drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   11 +++++++++++
+>   1 file changed, 11 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> index c8eafbf..b0e72fb 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> @@ -4288,6 +4288,17 @@ static struct rtnl_link_stats64 *cxgb_get_stats(struct net_device *dev,
+>   	struct port_info *p = netdev_priv(dev);
+>   	struct adapter *adapter = p->adapter;
+>
+> +	/*
+> +	 * We possibly retrieve the statistics while the PCI
+> +	 * device is off-line. That would cause the recovery
+> +	 * on off-lined PCI device going to fail. So it's
+> +	 * reasonable to block it during the recovery period.
+> +	 */
 
-> diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-> index ee03d35..606950d 100644
-> --- a/net/sunrpc/xprtsock.c
-> +++ b/net/sunrpc/xprtsock.c
-[...]
-> @@ -1297,7 +1303,8 @@ static inline int xs_tcp_read_callback(struct rpc_xprt *xprt,
->   		list_add(&req->rq_bc_list, &bc_serv->sv_cb_list);
->   		spin_unlock(&bc_serv->sv_cb_lock);
->   		wake_up(&bc_serv->sv_cb_waitq);
-> -	}
-> +	} else
-> +		req_partial = req;
+    The multi-line comment style in the networking code is somewhat special:
 
-    {} is needed in the *else* branch since it's already used in another 
-branch of *if* -- see Documentation/CodingStyle.
+/* bla
+  * bla
+  */
 
 WBR, Sergei
