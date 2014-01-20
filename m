@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [PATCH net-next v2] net: stmmac: fix NULL pointer
- dereference in stmmac_get_tx_hwtstamp
-Date: Sun, 19 Jan 2014 20:03:52 -0800 (PST)
-Message-ID: <20140119.200352.719528361166763885.davem@davemloft.net>
-References: <1389973679-2755-1-git-send-email-damuzi000@gmail.com>
+Subject: Re: [PATCH] DT: net: davinci_emac: "phy-handle" property is
+ actually optional
+Date: Sun, 19 Jan 2014 20:04:11 -0800 (PST)
+Message-ID: <20140119.200411.1357790885368672921.davem@davemloft.net>
+References: <201401170132.14479.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: damuzi000@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1389973679-2755-1-git-send-email-damuzi000@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, rob@landley.net, devicetree@vger.kernel.org,
+	linux-doc@vger.kernel.org,
+	davinci-linux-open-source@linux.davincidsp.com
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <201401170132.14479.sergei.shtylyov@cogentembedded.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Bruce Liu <damuzi000@gmail.com>
-Date: Fri, 17 Jan 2014 23:47:59 +0800
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Fri, 17 Jan 2014 01:32:13 +0300
 
-> When timestamping is enabled, stmmac_tx_clean will call
-> stmmac_get_tx_hwtstamp to get tx TS.
-> But the skb can be NULL because the last of its tx_skbuff is NULL
-> if this packet frame is filled in more than one descriptors.
+> Though described as required, the "phy-handle" property for the DaVinci EMAC
+> binding is actually optional, as the driver will happily function without it,
+> assuming 100/FULL link; the property is not specified  either in the example
+> device node,  or in the actual EMAC device nodes for DA850 and AM3517 device
+> trees.
 > 
-> To fix the issue, change the code:
-> - Store TX skb to the tx_skbuff[] of frame's last segment.
-> - Check skb is not NULL in stmmac_get_tx_hwtstamp.
-> 
-> Signed-off-by: Bruce Liu <damuzi000@gmail.com>
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-Looks a lot better, applied, thanks.
+Applied.
