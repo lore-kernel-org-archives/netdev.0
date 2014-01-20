@@ -1,74 +1,128 @@
-From: Daniel Exner <dex@dragonslave.de>
-Subject: Poor network performance x86_64.. also with 3.13
-Date: Mon, 20 Jan 2014 23:27:25 +0100
-Message-ID: <52DDA2CD.9040001@dragonslave.de>
-References: <52DAD66F.7080306@dragonslave.de> <20140118195026.GA15543@pd.tnic> <52DB0439.2060905@dragonslave.de>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] DT: net: document Ethernet bindings in one place
+Date: Tue, 21 Jan 2014 02:33:08 +0300
+Message-ID: <52DDB234.5080206@cogentembedded.com>
+References: <201401180405.07859.sergei.shtylyov@cogentembedded.com>	<CAL_Jsq+oa9P=rh+p-dMZyGP8TcmpX7bTnMU0ynLvFxjxFDYbRg@mail.gmail.com>	<52DD98F7.4090202@cogentembedded.com> <CAL_JsqJXbF1-PcPHR2VP+Vi9A1aWizdsG_r3kDvRt3itXDhCGQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Borislav Petkov <bp@alien8.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f172.google.com ([209.85.215.172]:51878 "EHLO
-	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751452AbaATW1b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 17:27:31 -0500
-Received: by mail-ea0-f172.google.com with SMTP id g15so2791928eak.31
-        for <netdev@vger.kernel.org>; Mon, 20 Jan 2014 14:27:30 -0800 (PST)
-In-Reply-To: <52DB0439.2060905@dragonslave.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Rob Landley <rob@landley.net>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
+To: Rob Herring <robherring2@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <CAL_JsqJXbF1-PcPHR2VP+Vi9A1aWizdsG_r3kDvRt3itXDhCGQ@mail.gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA512
+On 01/21/2014 12:20 AM, Rob Herring wrote:
 
-Hi,
+>>>> This patch is an attempt to gather the Ethernet related bindings in one
+>>>> file,
+>>>> like it's done in the MMC and some other subsystems. It should save the
+>>>> trouble
+>>>> of documenting several properties over and over in each binding document.
 
-Am 18.01.2014 23:46, schrieb Daniel Exner:
-> Hi again,
->=20
-> Am 18.01.2014 20:50, schrieb Borislav Petkov:
->> + netdev.
-> Thx
->=20
-> Am 18.01.2014 20:49, schrieb Holger Hoffst=C3=A4tte:> [This mail was
-> also posted to gmane.linux.kernel.]
->=20
->> On Sat, 18 Jan 2014 20:30:55 +0100, Daniel Exner wrote:
->=20
->>> I recently upgraded the Kernel from version 3.10 to latest=20
->>> stable 3.12.8, did the usual "make oldconfig" (resulting
->>> config attached).
->>>=20
->>> But now I noticed some _really_ low network performance.
->=20
->> Try: sysctl net.ipv4.tcp_limit_output_bytes=3D262144
->=20
-> Tried that. Even 10 times the value. Same effect.
+>>>> I have used the Embedded Power Architecture(TM) Platform Requirements
+>>>> (ePAPR)
+>>>> standard as a base for the properties description, also documenting some
+>>>> ad-hoc
+>>>> properties that have been introduced over time despite having direct
+>>>> analogs in
+>>>> ePAPR.
 
+>>>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-I just did the same procedure with Kernel Version 3.13: same poor rates=
-=2E
+>>>> ---
+>>>> The patch is against DaveM's 'net-next.git' repo and the DaVinci EMAC
+>>>> bindings
+>>>> fix I've posted yesterday:
 
-I think I will try to see of 3.12.6 was still ok and bisect from there.
+>>>> http://patchwork.ozlabs.org/patch/311854/
 
-Greetings
-Daniel
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+>> [...]
 
-iQIcBAEBCgAGBQJS3aLFAAoJEPI6v6bI/Qkf9+4QAJkfljUsRQn6DA6gWy3XYsn4
-ZB3F2Mu8kLsCMVjpASsi7+km2qTiFv4qGOgezHCJmqMcdCFszBweGQrnYBLA5PCD
-XSZ7G4S0U71aHWtY6iQd1q4ywnA21pfnGRqIpc5+OuIiIOm+YY+RXpJAHC5y1OVo
-MxsPL1ZVp/enJoZuvblw6i+JT+soAbSypPWcNQ78qb+CYzLVMLZHcqQvMwpAsRvQ
-LNKx8nyj8p32CdZo1GoT3f/nWvBeh/V/ViLrtt64u/oXMJyk5INVRFpSNUUviP8c
-42y+r2K31+nY11K2dHsdJYbv5lZ8p8g0SNoLG1SrjgDspaptnT8jptxxn7GcQqdL
-PZ3waUB7qYU15IxCA2iXwNPqjtsv8V5l55H/cunKQgxNbb318ui/a3cW7+R++CeL
-onv9HFNUkHJiP/MvZJ1/FXE0AsjX70un9NuQ0+xFjCRwJ/YLZzCHkWMERcev500O
-vS1yFTGiVY1HndoA4VFYzEkjOyHgDHHQA+0JkfBspVlhL7ow9hccmULZtEn9LzwU
-9rooQHyXwdKr6KIbsjHECyjIsBhW4Jfj6195bZ9ddBDBXSqYyGqjiuy7l7TjlZVa
-YmPNTlkEfMeXkO2h3km8TD2f+MPntYXkYjZVVUcK8NucgnIdLuWDk/GLrt73VTd8
-Cww6B/u4YnGJSF5v/nit
-=3DxCa3
------END PGP SIGNATURE-----
+>>>> Index: net-next/Documentation/devicetree/bindings/net/ethernet.txt
+>>>> ===================================================================
+>>>> --- /dev/null
+>>>> +++ net-next/Documentation/devicetree/bindings/net/ethernet.txt
+>>>> @@ -0,0 +1,20 @@
+>>>> +The following properties are common to the Ethernet controllers:
+>>>> +
+>>>> +- local-mac-address: array of 6 bytes, specifies the MAC address that
+>>>> was
+>>>> +  assigned to the network device;
+>>>> +- mac-address: array of 6 bytes, specifies the MAC address that was last
+>>>> used by
+>>>> +  the boot program; should be used in cases where the MAC address
+>>>> assigned to
+>>>> +  the device by the boot program is different from the
+>>>> "local-mac-address"
+>>>> +  property;
+>>>> +- max-speed: number, specifies maximum speed in Mbit/s supported by the
+>>>> device;
+>>>> +- phy-mode: string, operation mode of the PHY interface; supported
+>>>> values are
+>>>> +  "mii", "gmii", "sgmii", "tbi", "rev-mii", "rmii", "rgmii", "rgmii-id",
+>>>> +  "rgmii-rxid", "rgmii-txid", "rtbi", "smii", "xgmii";
+
+>>> Mark this as deprecated
+
+>>     That's kind of wishful thinking at this point, as that's what the
+>> majority of drivers use. I'm unsure of the reasons why that was done,
+>> probably people just didn't read the proper specs...
+
+> Or the spec was defined after those bindings.
+
+    No, that's not likely as "phy-connection-type" prop seems very old, most 
+probably predating ePAPR. ePAPR exists since 2008, kernel support for 
+"phy-mode" prop dates back only to 2011.
+
+> Deprecating does not
+> matter for existing bindings. It's only defining new ones that are
+> affected. I was more concerned with giving people guidance on which
+> one to use for new bindings.
+
+    If "phy-connection-type" is to be used, it makes sense to modify 
+of_get_phy_mode() to also look for that prop, right?
+
+>>> in favor of phy-connection-type
+
+>>     That one is only used by the oldish PowerPC 'gianfar' driver.
+
+>>> so it's use does not spread.
+
+>>     I'm afraid that's too late, it has spread very far, so that
+>> of_get_phy_mode() handles that property, not "phy-connection-type".
+
+> Uggg, I guess this is a case of a defacto standard then if the kernel
+> doesn't even support it.
+
+    What's your guess on what to do on these 2 props then? Still deprecate 
+"phy-mode"?
+
+>>>> +- phy-connection-type: the same as "phy-mode" property (but described in
+>>>> ePAPR);
+>>>> +- phy-handle: phandle, specifies a reference to a node representing a
+>>>> PHY
+>>>> +  device (this property is described in ePAPR);
+>>>> +- phy: the same as "phy-handle" property (but actually ad-hoc one).
+
+>>> Mark this as deprecated in favor of phy-handle.
+
+>>     Here situation is more optimistic. Quite many drivers still use
+>> "phy-handle", though some use even more exotic props I didn't document here.
+
+> Perhaps flagging as "Not recommended for new bindings" would be nicer wording...
+
+    Perhaps.
+
+> Rob
+
+WBR, Sergei
+
