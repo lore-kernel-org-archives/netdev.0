@@ -1,7 +1,7 @@
 From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next v5 1/9] xen-netback: Introduce TX grant map definitions
-Date: Mon, 20 Jan 2014 21:24:21 +0000
-Message-ID: <1390253069-25507-2-git-send-email-zoltan.kiss@citrix.com>
+Subject: [PATCH net-next v5 8/9] xen-netback: Timeout packets in RX path
+Date: Mon, 20 Jan 2014 21:24:28 +0000
+Message-ID: <1390253069-25507-9-git-send-email-zoltan.kiss@citrix.com>
 References: <1390253069-25507-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,324 +14,195 @@ In-Reply-To: <1390253069-25507-1-git-send-email-zoltan.kiss@citrix.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch contains the new definitions necessary for grant mapping.
-
-v2:
-- move unmapping to separate thread. The NAPI instance has to be scheduled
-  even from thread context, which can cause huge delays
-- that causes unfortunately bigger struct xenvif
-- store grant handle after checking validity
+A malicious or buggy guest can leave its queue filled indefinitely, in which
+case qdisc start to queue packets for that VIF. If those packets came from an
+another guest, it can block its slots and prevent shutdown. To avoid that, we
+make sure the queue is drained in every 10 seconds.
+The QDisc queue in worst case takes 3 round to flush usually.
 
 v3:
-- fix comment in xenvif_tx_dealloc_action()
-- call unmap hypercall directly instead of gnttab_unmap_refs(), which does
-  unnecessary m2p_override. Also remove pages_to_[un]map members
-- BUG() if grant_tx_handle corrupted
+- remove stale debug log
+- tie unmap timeout in xenvif_free to this timeout
 
 v4:
-- fix indentations and comments
-- use bool for tx_dealloc_work_todo
-- BUG() if grant_tx_handle corrupted - now really :)
-- go back to gnttab_unmap_refs, now we rely on API changes
+- due to RX flow control changes now start_xmit doesn't drop the packets but
+  place them on the internal queue. So the timer set rx_queue_purge and kick in
+  the thread to drop the packets there
+- we shoot down the timer if a previously filled internal queue drains
+- adjust the teardown timeout as in worst case it can take more time now
 
 v5:
-- remove hypercall from xenvif_idx_unmap
-- remove stray line in xenvif_tx_create_gop
-- simplify tx_dealloc_work_todo
-- BUG() in xenvif_idx_unmap
+- create separate variable worst_case_skb_lifetime and add an explanation about
+  why is it so long
 
 Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-
 ---
- drivers/net/xen-netback/common.h    |   30 ++++++-
- drivers/net/xen-netback/interface.c |    1 +
- drivers/net/xen-netback/netback.c   |  161 +++++++++++++++++++++++++++++++++++
- 3 files changed, 191 insertions(+), 1 deletion(-)
+ drivers/net/xen-netback/common.h    |    6 ++++++
+ drivers/net/xen-netback/interface.c |   37 +++++++++++++++++++++++++++++++++--
+ drivers/net/xen-netback/netback.c   |   23 +++++++++++++++++++---
+ 3 files changed, 61 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index ae413a2..66b4696 100644
+index 109c29f..d1cd8ce 100644
 --- a/drivers/net/xen-netback/common.h
 +++ b/drivers/net/xen-netback/common.h
-@@ -79,6 +79,11 @@ struct pending_tx_info {
- 				  * if it is head of one or more tx
- 				  * reqs
- 				  */
-+	/* callback data for released SKBs. The	callback is always
-+	 * xenvif_zerocopy_callback, ctx points to the next fragment, desc
-+	 * contains the pending_idx
-+	 */
-+	struct ubuf_info callback_struct;
- };
- 
- #define XEN_NETIF_TX_RING_SIZE __CONST_RING_SIZE(xen_netif_tx, PAGE_SIZE)
-@@ -108,6 +113,8 @@ struct xenvif_rx_meta {
-  */
- #define MAX_GRANT_COPY_OPS (MAX_SKB_FRAGS * XEN_NETIF_RX_RING_SIZE)
- 
-+#define NETBACK_INVALID_HANDLE -1
+@@ -129,6 +129,9 @@ struct xenvif {
+ 	struct xen_netif_rx_back_ring rx;
+ 	struct sk_buff_head rx_queue;
+ 	RING_IDX rx_last_skb_slots;
++	bool rx_queue_purge;
 +
- struct xenvif {
- 	/* Unique identifier for this interface. */
- 	domid_t          domid;
-@@ -126,13 +133,26 @@ struct xenvif {
- 	pending_ring_idx_t pending_cons;
- 	u16 pending_ring[MAX_PENDING_REQS];
- 	struct pending_tx_info pending_tx_info[MAX_PENDING_REQS];
-+	grant_handle_t grant_tx_handle[MAX_PENDING_REQS];
++	struct timer_list wake_queue;
  
- 	/* Coalescing tx requests before copying makes number of grant
- 	 * copy ops greater or equal to number of slots required. In
- 	 * worst case a tx request consumes 2 gnttab_copy.
- 	 */
- 	struct gnttab_copy tx_copy_ops[2*MAX_PENDING_REQS];
--
-+	struct gnttab_map_grant_ref tx_map_ops[MAX_PENDING_REQS];
-+	struct gnttab_unmap_grant_ref tx_unmap_ops[MAX_PENDING_REQS];
-+	/* passed to gnttab_[un]map_refs with pages under (un)mapping */
-+	struct page *pages_to_map[MAX_PENDING_REQS];
-+	struct page *pages_to_unmap[MAX_PENDING_REQS];
-+
-+	spinlock_t dealloc_lock;
-+	spinlock_t response_lock;
-+	pending_ring_idx_t dealloc_prod;
-+	pending_ring_idx_t dealloc_cons;
-+	u16 dealloc_ring[MAX_PENDING_REQS];
-+	struct task_struct *dealloc_task;
-+	wait_queue_head_t dealloc_wq;
+ 	/* This array is allocated seperately as it is large */
+ 	struct gnttab_copy *grant_copy_op;
+@@ -225,4 +228,7 @@ void xenvif_idx_unmap(struct xenvif *vif, u16 pending_idx);
  
- 	/* Use kthread for guest RX */
- 	struct task_struct *task;
-@@ -219,6 +239,8 @@ int xenvif_tx_action(struct xenvif *vif, int budget);
- int xenvif_kthread(void *data);
- void xenvif_kick_thread(struct xenvif *vif);
- 
-+int xenvif_dealloc_kthread(void *data);
-+
- /* Determine whether the needed number of slots (req) are available,
-  * and set req_event if not.
-  */
-@@ -226,6 +248,12 @@ bool xenvif_rx_ring_slots_available(struct xenvif *vif, int needed);
- 
- void xenvif_stop_queue(struct xenvif *vif);
- 
-+/* Callback from stack when TX packet can be released */
-+void xenvif_zerocopy_callback(struct ubuf_info *ubuf, bool zerocopy_success);
-+
-+/* Unmap a pending page, usually has to be called before xenvif_idx_release */
-+void xenvif_idx_unmap(struct xenvif *vif, u16 pending_idx);
-+
  extern bool separate_tx_rx_irq;
  
++extern unsigned int rx_drain_timeout_msecs;
++extern unsigned int rx_drain_timeout_jiffies;
++
  #endif /* __XEN_NETBACK__COMMON_H__ */
 diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 7669d49..f0f0c3d 100644
+index af6b3e1..40aa500 100644
 --- a/drivers/net/xen-netback/interface.c
 +++ b/drivers/net/xen-netback/interface.c
-@@ -38,6 +38,7 @@
+@@ -114,6 +114,18 @@ static irqreturn_t xenvif_interrupt(int irq, void *dev_id)
+ 	return IRQ_HANDLED;
+ }
  
- #include <xen/events.h>
- #include <asm/xen/hypercall.h>
-+#include <xen/balloon.h>
++static void xenvif_wake_queue(unsigned long data)
++{
++	struct xenvif *vif = (struct xenvif *)data;
++
++	if (netif_queue_stopped(vif->dev)) {
++		netdev_err(vif->dev, "draining TX queue\n");
++		vif->rx_queue_purge = true;
++		xenvif_kick_thread(vif);
++		netif_wake_queue(vif->dev);
++	}
++}
++
+ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct xenvif *vif = netdev_priv(dev);
+@@ -143,8 +155,13 @@ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 * then turn off the queue to give the ring a chance to
+ 	 * drain.
+ 	 */
+-	if (!xenvif_rx_ring_slots_available(vif, min_slots_needed))
++	if (!xenvif_rx_ring_slots_available(vif, min_slots_needed)) {
++		vif->wake_queue.function = xenvif_wake_queue;
++		vif->wake_queue.data = (unsigned long)vif;
+ 		xenvif_stop_queue(vif);
++		mod_timer(&vif->wake_queue,
++			jiffies + rx_drain_timeout_jiffies);
++	}
  
- #define XENVIF_QUEUE_LENGTH 32
- #define XENVIF_NAPI_WEIGHT  64
+ 	skb_queue_tail(&vif->rx_queue, skb);
+ 	xenvif_kick_thread(vif);
+@@ -352,6 +369,8 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+ 	init_timer(&vif->credit_timeout);
+ 	vif->credit_window_start = get_jiffies_64();
+ 
++	init_timer(&vif->wake_queue);
++
+ 	dev->netdev_ops	= &xenvif_netdev_ops;
+ 	dev->hw_features = NETIF_F_SG |
+ 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+@@ -532,6 +551,7 @@ void xenvif_disconnect(struct xenvif *vif)
+ 		xenvif_carrier_off(vif);
+ 
+ 	if (vif->task) {
++		del_timer_sync(&vif->wake_queue);
+ 		kthread_stop(vif->task);
+ 		vif->task = NULL;
+ 	}
+@@ -557,12 +577,25 @@ void xenvif_disconnect(struct xenvif *vif)
+ void xenvif_free(struct xenvif *vif)
+ {
+ 	int i, unmap_timeout = 0;
++	/* Here we want to avoid timeout messages if an skb can be legitimatly
++	 * stucked somewhere else. Realisticly this could be an another vif's
++	 * internal or QDisc queue. That another vif also has this
++	 * rx_drain_timeout_msecs timeout, but the timer only ditches the
++	 * internal queue. After that, the QDisc queue can put in worst case
++	 * XEN_NETIF_RX_RING_SIZE / MAX_SKB_FRAGS skbs into that another vif's
++	 * internal queue, so we need several rounds of such timeouts until we
++	 * can be sure that no another vif should have skb's from us. We are
++	 * not sending more skb's, so newly stucked packets are not interesting
++	 * for us here.
++	 */
++	unsigned int worst_case_skb_lifetime = (rx_drain_timeout_msecs/1000) *
++		DIV_ROUND_UP(XENVIF_QUEUE_LENGTH, (XEN_NETIF_RX_RING_SIZE / MAX_SKB_FRAGS));
+ 
+ 	for (i = 0; i < MAX_PENDING_REQS; ++i) {
+ 		if (vif->grant_tx_handle[i] != NETBACK_INVALID_HANDLE) {
+ 			unmap_timeout++;
+ 			schedule_timeout(msecs_to_jiffies(1000));
+-			if (unmap_timeout > 9 &&
++			if (unmap_timeout > worst_case_skb_lifetime &&
+ 			    net_ratelimit())
+ 				netdev_err(vif->dev,
+ 					   "Page still granted! Index: %x\n",
 diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index bb241d0..195602f 100644
+index 560950e..bb65c7c 100644
 --- a/drivers/net/xen-netback/netback.c
 +++ b/drivers/net/xen-netback/netback.c
-@@ -773,6 +773,20 @@ static struct page *xenvif_alloc_page(struct xenvif *vif,
- 	return page;
+@@ -63,6 +63,13 @@ module_param(separate_tx_rx_irq, bool, 0644);
+ static unsigned int fatal_skb_slots = FATAL_SKB_SLOTS_DEFAULT;
+ module_param(fatal_skb_slots, uint, 0444);
+ 
++/* When guest ring is filled up, qdisc queues the packets for us, but we have
++ * to timeout them, otherwise other guests' packets can get stucked there
++ */
++unsigned int rx_drain_timeout_msecs = 10000;
++module_param(rx_drain_timeout_msecs, uint, 0444);
++unsigned int rx_drain_timeout_jiffies;
++
+ /*
+  * To avoid confusion, we define XEN_NETBK_LEGACY_SLOTS_MAX indicating
+  * the maximum slots a valid packet can use. Now this value is defined
+@@ -1909,8 +1916,9 @@ static struct xen_netif_rx_response *make_rx_response(struct xenvif *vif,
+ 
+ static inline int rx_work_todo(struct xenvif *vif)
+ {
+-	return !skb_queue_empty(&vif->rx_queue) &&
+-	       xenvif_rx_ring_slots_available(vif, vif->rx_last_skb_slots);
++	return (!skb_queue_empty(&vif->rx_queue) &&
++	       xenvif_rx_ring_slots_available(vif, vif->rx_last_skb_slots)) ||
++	       vif->rx_queue_purge;
  }
  
-+static inline void xenvif_tx_create_gop(struct xenvif *vif,
-+					u16 pending_idx,
-+					struct xen_netif_tx_request *txp,
-+					struct gnttab_map_grant_ref *gop)
-+{
-+	vif->pages_to_map[gop-vif->tx_map_ops] = vif->mmap_pages[pending_idx];
-+	gnttab_set_map_op(gop, idx_to_kaddr(vif, pending_idx),
-+			  GNTMAP_host_map | GNTMAP_readonly,
-+			  txp->gref, vif->domid);
-+
-+	memcpy(&vif->pending_tx_info[pending_idx].req, txp,
-+	       sizeof(*txp));
-+}
-+
- static struct gnttab_copy *xenvif_get_requests(struct xenvif *vif,
- 					       struct sk_buff *skb,
- 					       struct xen_netif_tx_request *txp,
-@@ -1612,6 +1626,107 @@ static int xenvif_tx_submit(struct xenvif *vif)
- 	return work_done;
- }
+ static inline int tx_work_todo(struct xenvif *vif)
+@@ -1998,12 +2006,19 @@ int xenvif_kthread(void *data)
+ 		if (kthread_should_stop())
+ 			break;
  
-+void xenvif_zerocopy_callback(struct ubuf_info *ubuf, bool zerocopy_success)
-+{
-+	unsigned long flags;
-+	pending_ring_idx_t index;
-+	u16 pending_idx = ubuf->desc;
-+	struct pending_tx_info *temp =
-+		container_of(ubuf, struct pending_tx_info, callback_struct);
-+	struct xenvif *vif = container_of(temp - pending_idx,
-+					  struct xenvif,
-+					  pending_tx_info[0]);
-+
-+	spin_lock_irqsave(&vif->dealloc_lock, flags);
-+	do {
-+		pending_idx = ubuf->desc;
-+		ubuf = (struct ubuf_info *) ubuf->ctx;
-+		index = pending_index(vif->dealloc_prod);
-+		vif->dealloc_ring[index] = pending_idx;
-+		/* Sync with xenvif_tx_dealloc_action:
-+		 * insert idx then incr producer.
-+		 */
-+		smp_wmb();
-+		vif->dealloc_prod++;
-+	} while (ubuf);
-+	wake_up(&vif->dealloc_wq);
-+	spin_unlock_irqrestore(&vif->dealloc_lock, flags);
-+}
-+
-+static inline void xenvif_tx_dealloc_action(struct xenvif *vif)
-+{
-+	struct gnttab_unmap_grant_ref *gop;
-+	pending_ring_idx_t dc, dp;
-+	u16 pending_idx, pending_idx_release[MAX_PENDING_REQS];
-+	unsigned int i = 0;
-+
-+	dc = vif->dealloc_cons;
-+	gop = vif->tx_unmap_ops;
-+
-+	/* Free up any grants we have finished using */
-+	do {
-+		dp = vif->dealloc_prod;
-+
-+		/* Ensure we see all indices enqueued by all
-+		 * xenvif_zerocopy_callback().
-+		 */
-+		smp_rmb();
-+
-+		while (dc != dp) {
-+			pending_idx =
-+				vif->dealloc_ring[pending_index(dc++)];
-+
-+			/* Already unmapped? */
-+			if (vif->grant_tx_handle[pending_idx] ==
-+				NETBACK_INVALID_HANDLE) {
-+				netdev_err(vif->dev,
-+					   "Trying to unmap invalid handle! "
-+					   "pending_idx: %x\n", pending_idx);
-+				BUG();
-+			}
-+
-+			pending_idx_release[gop-vif->tx_unmap_ops] =
-+				pending_idx;
-+			vif->pages_to_unmap[gop-vif->tx_unmap_ops] =
-+				vif->mmap_pages[pending_idx];
-+			gnttab_set_unmap_op(gop,
-+					    idx_to_kaddr(vif, pending_idx),
-+					    GNTMAP_host_map,
-+					    vif->grant_tx_handle[pending_idx]);
-+			vif->grant_tx_handle[pending_idx] =
-+				NETBACK_INVALID_HANDLE;
-+			++gop;
++		if (vif->rx_queue_purge) {
++			skb_queue_purge(&vif->rx_queue);
++			vif->rx_queue_purge = false;
 +		}
 +
-+	} while (dp != vif->dealloc_prod);
-+
-+	vif->dealloc_cons = dc;
-+
-+	if (gop - vif->tx_unmap_ops > 0) {
-+		int ret;
-+		ret = gnttab_unmap_refs(vif->tx_unmap_ops,
-+					vif->pages_to_unmap,
-+					gop - vif->tx_unmap_ops);
-+		if (ret) {
-+			netdev_err(vif->dev, "Unmap fail: nr_ops %x ret %d\n",
-+				   gop - vif->tx_unmap_ops, ret);
-+			for (i = 0; i < gop - vif->tx_unmap_ops; ++i) {
-+				netdev_err(vif->dev,
-+					   " host_addr: %llx handle: %x status: %d\n",
-+					   gop[i].host_addr,
-+					   gop[i].handle,
-+					   gop[i].status);
-+			}
-+			BUG();
+ 		if (!skb_queue_empty(&vif->rx_queue))
+ 			xenvif_rx_action(vif);
+ 
+ 		if (skb_queue_empty(&vif->rx_queue) &&
+-		    netif_queue_stopped(vif->dev))
++		    netif_queue_stopped(vif->dev)) {
++			del_timer_sync(&vif->wake_queue);
+ 			xenvif_start_queue(vif);
 +		}
-+	}
-+
-+	for (i = 0; i < gop - vif->tx_unmap_ops; ++i)
-+		xenvif_idx_release(vif, pending_idx_release[i],
-+				   XEN_NETIF_RSP_OKAY);
-+}
-+
-+
- /* Called after netfront has transmitted */
- int xenvif_tx_action(struct xenvif *vif, int budget)
- {
-@@ -1678,6 +1793,25 @@ static void xenvif_idx_release(struct xenvif *vif, u16 pending_idx,
- 	vif->mmap_pages[pending_idx] = NULL;
- }
  
-+void xenvif_idx_unmap(struct xenvif *vif, u16 pending_idx)
-+{
-+	int ret;
-+	struct gnttab_unmap_grant_ref tx_unmap_op;
-+
-+	if (vif->grant_tx_handle[pending_idx] == NETBACK_INVALID_HANDLE) {
-+		netdev_err(vif->dev,
-+			   "Trying to unmap invalid handle! pending_idx: %x\n",
-+			   pending_idx);
-+		BUG();
-+	}
-+	gnttab_set_unmap_op(&tx_unmap_op,
-+			    idx_to_kaddr(vif, pending_idx),
-+			    GNTMAP_host_map,
-+			    vif->grant_tx_handle[pending_idx]);
-+	ret = gnttab_unmap_refs(&tx_unmap_op, &vif->mmap_pages[pending_idx], 1);
-+	BUG_ON(ret);
-+	vif->grant_tx_handle[pending_idx] = NETBACK_INVALID_HANDLE;
-+}
+ 		cond_resched();
+ 	}
+@@ -2054,6 +2069,8 @@ static int __init netback_init(void)
+ 	if (rc)
+ 		goto failed_init;
  
- static void make_tx_response(struct xenvif *vif,
- 			     struct xen_netif_tx_request *txp,
-@@ -1740,6 +1874,11 @@ static inline int tx_work_todo(struct xenvif *vif)
++	rx_drain_timeout_jiffies = msecs_to_jiffies(rx_drain_timeout_msecs);
++
  	return 0;
- }
  
-+static inline bool tx_dealloc_work_todo(struct xenvif *vif)
-+{
-+	return vif->dealloc_cons != vif->dealloc_prod
-+}
-+
- void xenvif_unmap_frontend_rings(struct xenvif *vif)
- {
- 	if (vif->tx.sring)
-@@ -1826,6 +1965,28 @@ int xenvif_kthread(void *data)
- 	return 0;
- }
- 
-+int xenvif_dealloc_kthread(void *data)
-+{
-+	struct xenvif *vif = data;
-+
-+	while (!kthread_should_stop()) {
-+		wait_event_interruptible(vif->dealloc_wq,
-+					 tx_dealloc_work_todo(vif) ||
-+					 kthread_should_stop());
-+		if (kthread_should_stop())
-+			break;
-+
-+		xenvif_tx_dealloc_action(vif);
-+		cond_resched();
-+	}
-+
-+	/* Unmap anything remaining*/
-+	if (tx_dealloc_work_todo(vif))
-+		xenvif_tx_dealloc_action(vif);
-+
-+	return 0;
-+}
-+
- static int __init netback_init(void)
- {
- 	int rc = 0;
+ failed_init:
