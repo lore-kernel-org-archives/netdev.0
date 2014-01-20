@@ -1,116 +1,65 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] DT: net: document Ethernet bindings in one place
-Date: Tue, 21 Jan 2014 00:45:27 +0300
-Message-ID: <52DD98F7.4090202@cogentembedded.com>
-References: <201401180405.07859.sergei.shtylyov@cogentembedded.com> <CAL_Jsq+oa9P=rh+p-dMZyGP8TcmpX7bTnMU0ynLvFxjxFDYbRg@mail.gmail.com>
+Subject: Re: [PATCH v5] can: add Renesas R-Car CAN driver
+Date: Tue, 21 Jan 2014 01:12:12 +0300
+Message-ID: <52DD9F3C.7000408@cogentembedded.com>
+References: <52DD0CC1.70205@pengutronix.de>	<CAMuHMdV5sMUnXb1Z1HeRk9+_dCGWrbD-DS62S7T4Be-77HvsvA@mail.gmail.com>	<52DD0F72.1000005@pengutronix.de> <20140120.111614.394228612374217980.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Rob Landley <rob@landley.net>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
-To: Rob Herring <robherring2@gmail.com>
+Cc: geert@linux-m68k.org, netdev@vger.kernel.org, wg@grandegger.com,
+	linux-can@vger.kernel.org, linux-sh@vger.kernel.org,
+	vksavl@gmail.com
+To: David Miller <davem@davemloft.net>, mkl@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:46603 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750758AbaATUpb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 15:45:31 -0500
-Received: by mail-la0-f46.google.com with SMTP id b8so5906598lan.19
-        for <netdev@vger.kernel.org>; Mon, 20 Jan 2014 12:45:29 -0800 (PST)
-In-Reply-To: <CAL_Jsq+oa9P=rh+p-dMZyGP8TcmpX7bTnMU0ynLvFxjxFDYbRg@mail.gmail.com>
+Received: from mail-la0-f52.google.com ([209.85.215.52]:47079 "EHLO
+	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750743AbaATVMP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 16:12:15 -0500
+Received: by mail-la0-f52.google.com with SMTP id c6so5817370lan.25
+        for <netdev@vger.kernel.org>; Mon, 20 Jan 2014 13:12:13 -0800 (PST)
+In-Reply-To: <20140120.111614.394228612374217980.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/20/2014 05:06 PM, Rob Herring wrote:
+Hello.
 
->> This patch is an attempt to gather the Ethernet related bindings in one file,
->> like it's done in the MMC and some other subsystems. It should save the trouble
->> of documenting several properties over and over in each binding document.
+On 01/20/2014 10:16 PM, David Miller wrote:
 
->> I have used the Embedded Power Architecture(TM) Platform Requirements (ePAPR)
->> standard as a base for the properties description, also documenting some ad-hoc
->> properties that have been introduced over time despite having direct analogs in
->> ePAPR.
+>>>>>> - added '__packed' to 'struct rcar_can_mbox_regs' and 'struct rcar_can_regs';
+>>>>>> - removed unneeded type cast in the probe() method.
 
->> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>>>>>> +/* Mailbox registers structure */
+>>>>>> +struct rcar_can_mbox_regs {
+>>>>>> +       u32 id;         /* IDE and RTR bits, SID and EID */
+>>>>>> +       u8 stub;        /* Not used */
+>>>>>> +       u8 dlc;         /* Data Length Code - bits [0..3] */
+>>>>>> +       u8 data[8];     /* Data Bytes */
+>>>>>> +       u8 tsh;         /* Time Stamp Higher Byte */
+>>>>>> +       u8 tsl;         /* Time Stamp Lower Byte */
+>>>>>> +} __packed;
 
->> ---
->> The patch is against DaveM's 'net-next.git' repo and the DaVinci EMAC bindings
->> fix I've posted yesterday:
+>>>>> Sorry, I missed the earlier discussion, but why the _packed?
+>>>>> One u32 and 12 bytes makes a nice multiple of 4.
 
->> http://patchwork.ozlabs.org/patch/311854/
+>>>> Better safe than sorry, it's the layout of the registers in hardware,
+>>>> don't let the compiler optimize here.
 
-[...]
+>>> Actually __packed makes it less safe, as the compiler now assumes
+>>> the u32 id member is unaligned, and thus may turn 32-bit accesses into 4
+>>> byte accesses.
 
->> Index: net-next/Documentation/devicetree/bindings/net/allwinner,sun4i-emac.txt
->> ===================================================================
->> --- net-next.orig/Documentation/devicetree/bindings/net/allwinner,sun4i-emac.txt
->> +++ net-next/Documentation/devicetree/bindings/net/allwinner,sun4i-emac.txt
->> @@ -4,13 +4,8 @@ Required properties:
->>   - compatible: should be "allwinner,sun4i-emac".
->>   - reg: address and length of the register set for the device.
->>   - interrupts: interrupt for the device
->> -- phy: A phandle to a phy node defining the PHY address (as the reg
->> -  property, a single integer).
->>   - clocks: A phandle to the reference clock for this device
+>>> Fortunately it won't happen in this case as the code uses writel/readl to
+>>> acces the id member.
 
->> -Optional properties:
->> -- (local-)mac-address: mac address to be used by this driver
->> -
+>> Yes, as this are registers they must not be accessed directly. However
+>> we can use "__attribute__ ((packed, aligned(4)))" to tell the compiler
+>> that the base address of this struct is always aligned to 4 bytes.
 
-> You should reference that this binding uses the common ethernet binding doc.
+> I truly think using packed here is rediculous, please remove it unless
+> you can prove that things won't work without it.
 
-    Oh, I was hoping to avoid that like MMC subsys mostly managed to do (most 
-MMC specific properties are only described once, without outside references to 
-mmc.txt). OTOH, the MMC bindings handling is mostly centralized in the core 
-code, while the Ethernet one is not, so you're probably right here...
+    They will. But how about the following 'struct rcar_can_regs'?
 
->> Index: net-next/Documentation/devicetree/bindings/net/ethernet.txt
->> ===================================================================
->> --- /dev/null
->> +++ net-next/Documentation/devicetree/bindings/net/ethernet.txt
->> @@ -0,0 +1,20 @@
->> +The following properties are common to the Ethernet controllers:
->> +
->> +- local-mac-address: array of 6 bytes, specifies the MAC address that was
->> +  assigned to the network device;
->> +- mac-address: array of 6 bytes, specifies the MAC address that was last used by
->> +  the boot program; should be used in cases where the MAC address assigned to
->> +  the device by the boot program is different from the "local-mac-address"
->> +  property;
->> +- max-speed: number, specifies maximum speed in Mbit/s supported by the device;
->> +- phy-mode: string, operation mode of the PHY interface; supported values are
->> +  "mii", "gmii", "sgmii", "tbi", "rev-mii", "rmii", "rgmii", "rgmii-id",
->> +  "rgmii-rxid", "rgmii-txid", "rtbi", "smii", "xgmii";
-
-> Mark this as deprecated
-
-    That's kind of wishful thinking at this point, as that's what the majority 
-of drivers use. I'm unsure of the reasons why that was done, probably people 
-just didn't read the proper specs...
-
-> in favor of phy-connection-type
-
-    That one is only used by the oldish PowerPC 'gianfar' driver.
-
-> so it's use does not spread.
-
-    I'm afraid that's too late, it has spread very far, so that 
-of_get_phy_mode() handles that property, not "phy-connection-type".
-
->> +- phy-connection-type: the same as "phy-mode" property (but described in ePAPR);
->> +- phy-handle: phandle, specifies a reference to a node representing a PHY
->> +  device (this property is described in ePAPR);
->> +- phy: the same as "phy-handle" property (but actually ad-hoc one).
-
-> Mark this as deprecated in favor of phy-handle.
-
-    Here situation is more optimistic. Quite many drivers still use 
-"phy-handle", though some use even more exotic props I didn't document here.
+> Thanks.
 
 WBR, Sergei
