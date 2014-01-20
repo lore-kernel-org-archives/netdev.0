@@ -1,123 +1,215 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v5] can: add Renesas R-Car CAN driver
-Date: Mon, 20 Jan 2014 13:08:17 +0100
-Message-ID: <52DD11B1.6020301@pengutronix.de>
-References: <201312270037.15822.sergei.shtylyov@cogentembedded.com>	<CAMuHMdWZJUvcW9OzM39aB2m+VdKqmZ6EOGR_rZcAdV7Cmwx3kg@mail.gmail.com>	<52DD0CC1.70205@pengutronix.de>	<CAMuHMdV5sMUnXb1Z1HeRk9+_dCGWrbD-DS62S7T4Be-77HvsvA@mail.gmail.com>	<52DD0F72.1000005@pengutronix.de>	<52DD1058.4090205@codethink.co.uk> <CAMuHMdUYcGRRg_XWQKVJMqcUHBLGCRJvtqXH1Uvz0odgoYydOg@mail.gmail.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net-next PATCH 1/1] drivers: net: cpsw: enable promiscuous mode support
+Date: Mon, 20 Jan 2014 17:38:38 +0530
+Message-ID: <1390219718-31749-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="6qLbDvKgE3JlAQk3Ka588p3QuIwWd0D1m"
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	wg@grandegger.com, linux-can@vger.kernel.org,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	Pavel Kiryukhin <vksavl@gmail.com>
-To: Geert Uytterhoeven <geert@linux-m68k.org>,
-	Ben Dooks <ben.dooks@codethink.co.uk>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdUYcGRRg_XWQKVJMqcUHBLGCRJvtqXH1Uvz0odgoYydOg@mail.gmail.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <linux-omap@vger.kernel.org>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:43025 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752094AbaATMIo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Jan 2014 07:08:44 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---6qLbDvKgE3JlAQk3Ka588p3QuIwWd0D1m
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Enable promiscuous mode support for CPSW.
 
-On 01/20/2014 01:05 PM, Geert Uytterhoeven wrote:
-> On Mon, Jan 20, 2014 at 1:02 PM, Ben Dooks <ben.dooks@codethink.co.uk> =
-wrote:
->> On 20/01/14 11:58, Marc Kleine-Budde wrote:
->>>
->>> On 01/20/2014 12:52 PM, Geert Uytterhoeven wrote:
->>>>
->>>> On Mon, Jan 20, 2014 at 12:47 PM, Marc Kleine-Budde <mkl@pengutronix=
-=2Ede>
->>>> wrote:
->>>>>
->>>>> On 01/20/2014 12:43 PM, Geert Uytterhoeven wrote:
->>>>>>
->>>>>> On Thu, Dec 26, 2013 at 10:37 PM, Sergei Shtylyov
->>>>>> <sergei.shtylyov@cogentembedded.com> wrote:
->>>>>>>
->>>>>>> Changes in version 3:
->>>>>>
->>>>>>
->>>>>>> - added '__packed' to 'struct rcar_can_mbox_regs' and 'struct
->>>>>>> rcar_can_regs';
->>>>>>> - removed unneeded type cast in the probe() method.
->>>>>>
->>>>>>
->>>>>>> +/* Mailbox registers structure */
->>>>>>> +struct rcar_can_mbox_regs {
->>>>>>> +       u32 id;         /* IDE and RTR bits, SID and EID */
->>>>>>> +       u8 stub;        /* Not used */
->>>>>>> +       u8 dlc;         /* Data Length Code - bits [0..3] */
->>>>>>> +       u8 data[8];     /* Data Bytes */
->>>>>>> +       u8 tsh;         /* Time Stamp Higher Byte */
->>>>>>> +       u8 tsl;         /* Time Stamp Lower Byte */
->>>>>>> +} __packed;
->>>>>>
->>>>>>
->>>>>> Sorry, I missed the earlier discussion, but why the _packed?
->>>>>> One u32 and 12 bytes makes a nice multiple of 4.
->>>>>
->>>>>
->>>>> Better safe than sorry, it's the layout of the registers in hardwar=
-e,
->>>>> don't let the compiler optimize here.
->>>>
->>>>
->>>> Actually __packed makes it less safe, as the compiler now assumes
->>>> the u32 id member is unaligned, and thus may turn 32-bit accesses in=
-to 4
->>>> byte accesses.
->>>>
->>>> Fortunately it won't happen in this case as the code uses writel/rea=
-dl to
->>>> acces the id member.
->>>
->>>
->>> Yes, as this are registers they must not be accessed directly. Howeve=
-r
->>> we can use "__attribute__ ((packed, aligned(4)))" to tell the compile=
-r
->>> that the base address of this struct is always aligned to 4 bytes.
->>
->> I thought we'd gotten past the stage of ever writing register
->> definitions as structures?
->=20
-> It allows to use e.g. "readl(&base->field)", which is used all over the=
- place.
->=20
-> And sparse will inform you (read: the person who runs it) if you access=
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+---
+ drivers/net/ethernet/ti/cpsw.c     | 101 ++++++++++++++++++++++++++++---------
+ drivers/net/ethernet/ti/cpsw_ale.c |  16 ++++++
+ drivers/net/ethernet/ti/cpsw_ale.h |   2 +
+ 3 files changed, 94 insertions(+), 25 deletions(-)
 
-> it directly.
-
-I'm doing this (however just started using additional -D__CHECK_FOO___),
-before applying patches to my tree.
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---6qLbDvKgE3JlAQk3Ka588p3QuIwWd0D1m
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlLdEbEACgkQjTAFq1RaXHN+aACfTCCRX/fnfMQTfC6QUF9MjEjo
-KvYAn0InJ8rYc0rpJLbwYloauc6KUc3n
-=+k1u
------END PGP SIGNATURE-----
-
---6qLbDvKgE3JlAQk3Ka588p3QuIwWd0D1m--
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index e8bb77d..21bbdcb 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -541,14 +541,89 @@ static inline int cpsw_get_slave_port(struct cpsw_priv *priv, u32 slave_num)
+ 		return slave_num;
+ }
+ 
++static void cpsw_set_promiscious(struct net_device *ndev, bool enable)
++{
++	struct cpsw_priv *priv = netdev_priv(ndev);
++	struct cpsw_ale *ale = priv->ale;
++
++	if (priv->data.dual_emac) {
++		/* Enabling promiscuous mode for one interface will be
++		 * common for both the interface as the interface shares
++		 * the same hardware resource.
++		 */
++		if (!enable && ((priv->slaves[0].ndev->flags & IFF_PROMISC) ||
++				(priv->slaves[1].ndev->flags & IFF_PROMISC))) {
++			enable = true;
++			dev_err(&ndev->dev, "promiscuity not disabled as the other interface is still in promiscuity mode\n");
++		}
++
++		if (enable) {
++			/* Enable Bypass */
++			cpsw_ale_control_set(ale, 0, ALE_BYPASS, 1);
++
++			dev_dbg(&ndev->dev, "promiscuity enabled\n");
++		} else {
++			/* Disable Bypass */
++			cpsw_ale_control_set(ale, 0, ALE_BYPASS, 0);
++			dev_dbg(&ndev->dev, "promiscuity disabled\n");
++		}
++	} else {
++		int i;
++
++		if (enable) {
++			unsigned long timeout = jiffies + HZ;
++
++			/* Disable Learn for all ports */
++			for (i = 0; i <= priv->data.slaves; i++) {
++				cpsw_ale_control_set(ale, i,
++						     ALE_PORT_NOLEARN, 1);
++				cpsw_ale_control_set(ale, i,
++						     ALE_PORT_NO_SA_UPDATE, 1);
++			}
++
++			/* Clear All Untouched entries */
++			cpsw_ale_control_set(ale, 0, ALE_AGEOUT, 1);
++			do {
++				cpu_relax();
++				if (cpsw_ale_control_get(ale, 0, ALE_AGEOUT))
++					break;
++			} while (time_after(timeout, jiffies));
++			cpsw_ale_control_set(ale, 0, ALE_AGEOUT, 1);
++
++			/* Clear all mcast from ALE */
++			cpsw_ale_flush_multicast(ale, ALE_ALL_PORTS <<
++						 priv->host_port);
++
++			/* Flood All Unicast Packets to Host port */
++			cpsw_ale_control_set(ale, 0, ALE_P0_UNI_FLOOD, 1);
++			dev_dbg(&ndev->dev, "promiscuity enabled\n");
++		} else {
++			/* Flood All Unicast Packets to Host port */
++			cpsw_ale_control_set(ale, 0, ALE_P0_UNI_FLOOD, 0);
++
++			/* Enable Learn for all ports */
++			for (i = 0; i <= priv->data.slaves; i++) {
++				cpsw_ale_control_set(ale, i,
++						     ALE_PORT_NOLEARN, 0);
++				cpsw_ale_control_set(ale, i,
++						     ALE_PORT_NO_SA_UPDATE, 0);
++			}
++			dev_dbg(&ndev->dev, "promiscuity disabled\n");
++		}
++	}
++}
++
+ static void cpsw_ndo_set_rx_mode(struct net_device *ndev)
+ {
+ 	struct cpsw_priv *priv = netdev_priv(ndev);
+ 
+ 	if (ndev->flags & IFF_PROMISC) {
+ 		/* Enable promiscuous mode */
+-		dev_err(priv->dev, "Ignoring Promiscuous mode\n");
++		cpsw_set_promiscious(ndev, true);
+ 		return;
++	} else {
++		/* Disable promiscuous mode */
++		cpsw_set_promiscious(ndev, false);
+ 	}
+ 
+ 	/* Clear all mcast from ALE */
+@@ -1257,29 +1332,6 @@ fail:
+ 	return NETDEV_TX_BUSY;
+ }
+ 
+-static void cpsw_ndo_change_rx_flags(struct net_device *ndev, int flags)
+-{
+-	/*
+-	 * The switch cannot operate in promiscuous mode without substantial
+-	 * headache.  For promiscuous mode to work, we would need to put the
+-	 * ALE in bypass mode and route all traffic to the host port.
+-	 * Subsequently, the host will need to operate as a "bridge", learn,
+-	 * and flood as needed.  For now, we simply complain here and
+-	 * do nothing about it :-)
+-	 */
+-	if ((flags & IFF_PROMISC) && (ndev->flags & IFF_PROMISC))
+-		dev_err(&ndev->dev, "promiscuity ignored!\n");
+-
+-	/*
+-	 * The switch cannot filter multicast traffic unless it is configured
+-	 * in "VLAN Aware" mode.  Unfortunately, VLAN awareness requires a
+-	 * whole bunch of additional logic that this driver does not implement
+-	 * at present.
+-	 */
+-	if ((flags & IFF_ALLMULTI) && !(ndev->flags & IFF_ALLMULTI))
+-		dev_err(&ndev->dev, "multicast traffic cannot be filtered!\n");
+-}
+-
+ #ifdef CONFIG_TI_CPTS
+ 
+ static void cpsw_hwtstamp_v1(struct cpsw_priv *priv)
+@@ -1575,7 +1627,6 @@ static const struct net_device_ops cpsw_netdev_ops = {
+ 	.ndo_open		= cpsw_ndo_open,
+ 	.ndo_stop		= cpsw_ndo_stop,
+ 	.ndo_start_xmit		= cpsw_ndo_start_xmit,
+-	.ndo_change_rx_flags	= cpsw_ndo_change_rx_flags,
+ 	.ndo_set_mac_address	= cpsw_ndo_set_mac_address,
+ 	.ndo_do_ioctl		= cpsw_ndo_ioctl,
+ 	.ndo_validate_addr	= eth_validate_addr,
+diff --git a/drivers/net/ethernet/ti/cpsw_ale.c b/drivers/net/ethernet/ti/cpsw_ale.c
+index 63e9819..7f89306 100644
+--- a/drivers/net/ethernet/ti/cpsw_ale.c
++++ b/drivers/net/ethernet/ti/cpsw_ale.c
+@@ -477,6 +477,14 @@ static const struct ale_control_info ale_controls[ALE_NUM_CONTROLS] = {
+ 		.port_shift	= 0,
+ 		.bits		= 1,
+ 	},
++	[ALE_P0_UNI_FLOOD]	= {
++		.name		= "port0_unicast_flood",
++		.offset		= ALE_CONTROL,
++		.port_offset	= 0,
++		.shift		= 8,
++		.port_shift	= 0,
++		.bits		= 1,
++	},
+ 	[ALE_VLAN_NOLEARN]	= {
+ 		.name		= "vlan_nolearn",
+ 		.offset		= ALE_CONTROL,
+@@ -573,6 +581,14 @@ static const struct ale_control_info ale_controls[ALE_NUM_CONTROLS] = {
+ 		.port_shift	= 0,
+ 		.bits		= 1,
+ 	},
++	[ALE_PORT_NO_SA_UPDATE]	= {
++		.name		= "no_source_update",
++		.offset		= ALE_PORTCTL,
++		.port_offset	= 4,
++		.shift		= 5,
++		.port_shift	= 0,
++		.bits		= 1,
++	},
+ 	[ALE_PORT_MCAST_LIMIT]	= {
+ 		.name		= "mcast_limit",
+ 		.offset		= ALE_PORTCTL,
+diff --git a/drivers/net/ethernet/ti/cpsw_ale.h b/drivers/net/ethernet/ti/cpsw_ale.h
+index 30daa12..de409c3 100644
+--- a/drivers/net/ethernet/ti/cpsw_ale.h
++++ b/drivers/net/ethernet/ti/cpsw_ale.h
+@@ -34,6 +34,7 @@ enum cpsw_ale_control {
+ 	ALE_ENABLE,
+ 	ALE_CLEAR,
+ 	ALE_AGEOUT,
++	ALE_P0_UNI_FLOOD,
+ 	ALE_VLAN_NOLEARN,
+ 	ALE_NO_PORT_VLAN,
+ 	ALE_OUI_DENY,
+@@ -47,6 +48,7 @@ enum cpsw_ale_control {
+ 	ALE_PORT_DROP_UNTAGGED,
+ 	ALE_PORT_DROP_UNKNOWN_VLAN,
+ 	ALE_PORT_NOLEARN,
++	ALE_PORT_NO_SA_UPDATE,
+ 	ALE_PORT_UNKNOWN_VLAN_MEMBER,
+ 	ALE_PORT_UNKNOWN_MCAST_FLOOD,
+ 	ALE_PORT_UNKNOWN_REG_MCAST_FLOOD,
+-- 
+1.8.5.2.233.g932f7e4
