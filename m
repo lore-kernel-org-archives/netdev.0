@@ -1,76 +1,46 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v5] can: add Renesas R-Car CAN driver
-Date: Mon, 20 Jan 2014 12:13:23 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D460082@AcuExch.aculab.com>
-References: <201312270037.15822.sergei.shtylyov@cogentembedded.com>
-	<CAMuHMdWZJUvcW9OzM39aB2m+VdKqmZ6EOGR_rZcAdV7Cmwx3kg@mail.gmail.com>
-	<52DD0CC1.70205@pengutronix.de>
- <CAMuHMdV5sMUnXb1Z1HeRk9+_dCGWrbD-DS62S7T4Be-77HvsvA@mail.gmail.com>
- <52DD0F72.1000005@pengutronix.de> <52DD1058.4090205@codethink.co.uk>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [Patch net-next 1/6] net_sched: act: fetch hinfo from a->ops->hinfo
+Date: Mon, 20 Jan 2014 07:16:37 -0500
+Message-ID: <52DD13A5.6070502@mojatatu.com>
+References: <1389987427-14085-1-git-send-email-xiyou.wangcong@gmail.com> <1389987427-14085-2-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"wg@grandegger.com" <wg@grandegger.com>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	"vksavl@gmail.com" <vksavl@gmail.com>
-To: 'Ben Dooks' <ben.dooks@codethink.co.uk>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <52DD1058.4090205@codethink.co.uk>
-Content-Language: en-US
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f174.google.com ([209.85.213.174]:43260 "EHLO
+	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750758AbaATMQv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 07:16:51 -0500
+Received: by mail-ig0-f174.google.com with SMTP id hl1so7770719igb.1
+        for <netdev@vger.kernel.org>; Mon, 20 Jan 2014 04:16:51 -0800 (PST)
+In-Reply-To: <1389987427-14085-2-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogDQo+IE9uIDIwLzAxLzE0IDExOjU4LCBNYXJjIEtsZWluZS1CdWRkZSB3cm90ZToNCj4g
-PiBPbiAwMS8yMC8yMDE0IDEyOjUyIFBNLCBHZWVydCBVeXR0ZXJob2V2ZW4gd3JvdGU6DQo+ID4+
-IE9uIE1vbiwgSmFuIDIwLCAyMDE0IGF0IDEyOjQ3IFBNLCBNYXJjIEtsZWluZS1CdWRkZSA8bWts
-QHBlbmd1dHJvbml4LmRlPiB3cm90ZToNCj4gPj4+IE9uIDAxLzIwLzIwMTQgMTI6NDMgUE0sIEdl
-ZXJ0IFV5dHRlcmhvZXZlbiB3cm90ZToNCj4gPj4+PiBPbiBUaHUsIERlYyAyNiwgMjAxMyBhdCAx
-MDozNyBQTSwgU2VyZ2VpIFNodHlseW92DQo+ID4+Pj4gPHNlcmdlaS5zaHR5bHlvdkBjb2dlbnRl
-bWJlZGRlZC5jb20+IHdyb3RlOg0KPiA+Pj4+PiBDaGFuZ2VzIGluIHZlcnNpb24gMzoNCj4gPj4+
-Pg0KPiA+Pj4+PiAtIGFkZGVkICdfX3BhY2tlZCcgdG8gJ3N0cnVjdCByY2FyX2Nhbl9tYm94X3Jl
-Z3MnIGFuZCAnc3RydWN0IHJjYXJfY2FuX3JlZ3MnOw0KPiA+Pj4+PiAtIHJlbW92ZWQgdW5uZWVk
-ZWQgdHlwZSBjYXN0IGluIHRoZSBwcm9iZSgpIG1ldGhvZC4NCj4gPj4+Pg0KPiA+Pj4+PiArLyog
-TWFpbGJveCByZWdpc3RlcnMgc3RydWN0dXJlICovDQo+ID4+Pj4+ICtzdHJ1Y3QgcmNhcl9jYW5f
-bWJveF9yZWdzIHsNCj4gPj4+Pj4gKyAgICAgICB1MzIgaWQ7ICAgICAgICAgLyogSURFIGFuZCBS
-VFIgYml0cywgU0lEIGFuZCBFSUQgKi8NCj4gPj4+Pj4gKyAgICAgICB1OCBzdHViOyAgICAgICAg
-LyogTm90IHVzZWQgKi8NCj4gPj4+Pj4gKyAgICAgICB1OCBkbGM7ICAgICAgICAgLyogRGF0YSBM
-ZW5ndGggQ29kZSAtIGJpdHMgWzAuLjNdICovDQo+ID4+Pj4+ICsgICAgICAgdTggZGF0YVs4XTsg
-ICAgIC8qIERhdGEgQnl0ZXMgKi8NCj4gPj4+Pj4gKyAgICAgICB1OCB0c2g7ICAgICAgICAgLyog
-VGltZSBTdGFtcCBIaWdoZXIgQnl0ZSAqLw0KPiA+Pj4+PiArICAgICAgIHU4IHRzbDsgICAgICAg
-ICAvKiBUaW1lIFN0YW1wIExvd2VyIEJ5dGUgKi8NCj4gPj4+Pj4gK30gX19wYWNrZWQ7DQo+ID4+
-Pj4NCj4gPj4+PiBTb3JyeSwgSSBtaXNzZWQgdGhlIGVhcmxpZXIgZGlzY3Vzc2lvbiwgYnV0IHdo
-eSB0aGUgX3BhY2tlZD8NCj4gPj4+PiBPbmUgdTMyIGFuZCAxMiBieXRlcyBtYWtlcyBhIG5pY2Ug
-bXVsdGlwbGUgb2YgNC4NCj4gPj4+DQo+ID4+PiBCZXR0ZXIgc2FmZSB0aGFuIHNvcnJ5LCBpdCdz
-IHRoZSBsYXlvdXQgb2YgdGhlIHJlZ2lzdGVycyBpbiBoYXJkd2FyZSwNCj4gPj4+IGRvbid0IGxl
-dCB0aGUgY29tcGlsZXIgb3B0aW1pemUgaGVyZS4NCg0KV2h5IG5vdCBqdXN0IGFkZCBhIGNvbXBp
-bGUgdGltZSBjaGVjayBhZ2FpbnN0IHRoZSBzaXplIG9mIHRoZQ0Kc3RydWN0dXJlIC0gdGhhdCB3
-aWxsIGVuc3VyZSB0aGF0IG5vIHBhZGRpbmcgaXMgYWNjaWRlbnRhbGx5IGFkZGVkLg0KDQo+ID4+
-IEFjdHVhbGx5IF9fcGFja2VkIG1ha2VzIGl0IGxlc3Mgc2FmZSwgYXMgdGhlIGNvbXBpbGVyIG5v
-dyBhc3N1bWVzDQo+ID4+IHRoZSB1MzIgaWQgbWVtYmVyIGlzIHVuYWxpZ25lZCwgYW5kIHRodXMg
-bWF5IHR1cm4gMzItYml0IGFjY2Vzc2VzIGludG8gNA0KPiA+PiBieXRlIGFjY2Vzc2VzLg0KPiA+
-Pg0KPiA+PiBGb3J0dW5hdGVseSBpdCB3b24ndCBoYXBwZW4gaW4gdGhpcyBjYXNlIGFzIHRoZSBj
-b2RlIHVzZXMgd3JpdGVsL3JlYWRsIHRvDQo+ID4+IGFjY2VzIHRoZSBpZCBtZW1iZXIuDQoNCldo
-aWNoIG1lYW5zIHRoYXQgaXQgd2lsbCBiZSBhbGlnbmVkIChhbmQgbXVzdCBiZSBhbGlnbmVkKS4N
-ClNvIHRoZSBwYWNrZWQgaXMgY29tcGxldGVseSB1c2VsZXNzIGFuZCBwb2ludGxlc3MuDQoNCj4g
-PiBZZXMsIGFzIHRoaXMgYXJlIHJlZ2lzdGVycyB0aGV5IG11c3Qgbm90IGJlIGFjY2Vzc2VkIGRp
-cmVjdGx5LiBIb3dldmVyDQo+ID4gd2UgY2FuIHVzZSAiX19hdHRyaWJ1dGVfXyAoKHBhY2tlZCwg
-YWxpZ25lZCg0KSkpIiB0byB0ZWxsIHRoZSBjb21waWxlcg0KPiA+IHRoYXQgdGhlIGJhc2UgYWRk
-cmVzcyBvZiB0aGlzIHN0cnVjdCBpcyBhbHdheXMgYWxpZ25lZCB0byA0IGJ5dGVzLg0KPiANCj4g
-SSB0aG91Z2h0IHdlJ2QgZ290dGVuIHBhc3QgdGhlIHN0YWdlIG9mIGV2ZXIgd3JpdGluZyByZWdp
-c3Rlcg0KPiBkZWZpbml0aW9ucyBhcyBzdHJ1Y3R1cmVzPw0KDQpBbnkgb3RoZXIgd2F5IGlzIGxp
-a2VseSB0byBiZSBtb3JlIGVycm9yIHByb25lIHNpbmNlIG5vdGhpbmcNCnRpZXMgdGhlIG9mZnNl
-dHMgd2l0aCB0aGUgY29ycmVjdCBiYXNlIGFkZHJlc3MuDQoNCklNSE8gaXQgaXMgYmVzdCB0byBv
-bmx5IHNwZWNpZnkgcGFja2VkIGlmIHRoZSBzdHJ1Y3R1cmUgaXMgZXhwZWN0ZWQNCnRvIGJlIG1p
-c2FsaWduZWQuIE1pc2FsaWduZWQgbWVtYmVycyBjYW4gYmUgJ2ZpeGVkJyBieSBtYXJraW5nIHRo
-ZW0NCmFsaWduZWQoKS4NCg0KRXZlbiB0aGVuIHlvdSBtaWdodCB3YW50IHRvIGRlZmluZSB0aGUg
-c3RydWN0dXJlIGl0c2VsZiB3aXRob3V0DQp0aGUgJ3BhY2tlZCcgYW5kIHRoZSBkZWZpbmUgYSBz
-ZWNvbmQgcGFja2VkIHN0cnVjdHVyZSBjb250YWluaW5nDQphIHNpbmdsZSBtZW1iZXIuDQoNCmVn
-OiB5b3UgbWlnaHQgaGF2ZToNCg0Kc3RydWN0IGEgew0KCXUzMglhXzE7DQoJdTY0CWFfMiBfX2F0
-dHJpYnV0ZV9fKChhbGlnbmVkKDQpKSk7DQoJdTMyCWFfMzsNCn07DQoNCnN0cnVjdCBhX3BhY2tl
-ZCB7DQoJc3RydWN0IGEgcDsNCn0gX19hdHRyaWJ1dGVfXygocGFja2VkKSk7DQoNCllvdSBtaWdo
-dCBldmVuIG5lZWQgYSB1bmlvbiBvZiB0aGUgdHdvIHR5cGVzIQ0KDQoJRGF2aWQNCg0K
+On 01/17/14 14:37, Cong Wang wrote:
+> Every action ops has a pointer to hash info, so we don't need to
+> hard-code it in each module.
+>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+
+Although changes like the one below (which are in a few places)
+are necessary i.e it was more readable before.
+
+
+> diff --git a/net/sched/act_csum.c b/net/sched/act_csum.c
+> index ee28e1c..a9a3185 100644
+> --- a/net/sched/act_csum.c
+> +++ b/net/sched/act_csum.c
+
+> -		tcf_hash_release(pc, bind, &csum_hash_info);
+> +		tcf_hash_release(pc, bind, a->ops->hinfo);
+>   		if (!ovr)
+
+cheers,
+jamal
