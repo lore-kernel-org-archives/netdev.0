@@ -1,36 +1,66 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [Patch net-next 2/6] net_sched: act: export tcf_hash_search()
- instead of tcf_hash_lookup()
-Date: Mon, 20 Jan 2014 07:28:15 -0500
-Message-ID: <52DD165F.8000106@mojatatu.com>
-References: <1389987427-14085-1-git-send-email-xiyou.wangcong@gmail.com> <1389987427-14085-3-git-send-email-xiyou.wangcong@gmail.com>
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: Re: [PATCH net-next 0/2] sctp: some small clean ups
+Date: Mon, 20 Jan 2014 20:32:12 +0800
+Message-ID: <52DD174C.7010608@huawei.com>
+References: <1390217247-9408-1-git-send-email-wangweidong1@huawei.com> <52DD0A62.9050807@redhat.com> <20140120122055.GA22690@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+Cc: <davem@davemloft.net>, <vyasevich@gmail.com>,
+	<netdev@vger.kernel.org>, <linux-sctp@vger.kernel.org>
+To: Neil Horman <nhorman@tuxdriver.com>,
+	Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:63173 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752496AbaATM2T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 07:28:19 -0500
-Received: by mail-ie0-f174.google.com with SMTP id tp5so1844826ieb.19
-        for <netdev@vger.kernel.org>; Mon, 20 Jan 2014 04:28:18 -0800 (PST)
-In-Reply-To: <1389987427-14085-3-git-send-email-xiyou.wangcong@gmail.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:65040 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751606AbaATMcx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 07:32:53 -0500
+In-Reply-To: <20140120122055.GA22690@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/17/14 14:37, Cong Wang wrote:
-> So that we will not expose struct tcf_common to modules.
->
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->
+On 2014/1/20 20:20, Neil Horman wrote:
+> On Mon, Jan 20, 2014 at 12:37:06PM +0100, Daniel Borkmann wrote:
+>> On 01/20/2014 12:27 PM, Wang Weidong wrote:
+>>> We have the macros in sctp.h, so use them for coding accordance
+>>> in sctp.
+>>
+>> Thanks for doing this Wang.
+>>
+>> I am actually wondering why we have these macro locking wrappers
+>> and not use these functions directly? Hm, any reasons? Maybe we
+>> should rather go in the other direction with this?
+>>
+> Its because in the origional implementation of the sctp protocol, there was a
+> user space test harness which built the kernel module for userspace execution to
+> cary our some unit testing on the code.  It did so by redefining some of those
+> locking macros to user space friendly code.  IIRC we haven't use those unit
+> tests in years, and so should be removing them, not adding them to other
+> locations.
+> 
 
+Thanks for your answers.
 
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+I will send the patches with removing these macros soon.
 
+Regards,
+Wang
 
-cheers,
-jamal
+> Neil
+> 
+>>> Wang Weidong (2):
+>>>   sctp: use sctp_local_bh_{disable|enable} instead
+>>>     local_bh_{disable|enable}
+>>>   sctp: use sctp_read_[un]lock instead of read_[un]lock
+>>>
+>>>  net/sctp/endpointola.c   |  4 ++--
+>>>  net/sctp/input.c         | 10 +++++-----
+>>>  net/sctp/proc.c          | 12 ++++++------
+>>>  net/sctp/sm_make_chunk.c |  8 ++++----
+>>>  net/sctp/socket.c        |  8 ++++----
+>>>  5 files changed, 21 insertions(+), 21 deletions(-)
+>>>
+>>
+> 
+> .
+> 
