@@ -1,60 +1,79 @@
-From: Dimitris Michailidis <dm@chelsio.com>
-Subject: Re: [PATCH 2/2] net/cxgb4: Don't retrieve stats during recovery
-Date: Mon, 20 Jan 2014 14:05:18 -0800
-Message-ID: <52DD9D9E.3010205@chelsio.com>
-References: <1390187144-15495-1-git-send-email-shangw@linux.vnet.ibm.com> <1390187144-15495-2-git-send-email-shangw@linux.vnet.ibm.com>
+From: Trond Myklebust <trond.myklebust@primarydata.com>
+Subject: Re: [PATCH] SUNRPC: Allow one callback request to be received from
+ two sk_buff
+Date: Mon, 20 Jan 2014 16:17:23 -0700
+Message-ID: <1390259843.2501.2.camel@leira.trondhjem.org>
+References: <n>
+	 <1390201154-20815-1-git-send-email-shaobingqing@bwstor.com.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Gavin Shan <shangw@linux.vnet.ibm.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:38109
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751517AbaATXAM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 18:00:12 -0500
-In-Reply-To: <1390187144-15495-2-git-send-email-shangw@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bfields@redhat.com, davem@davemloft.net, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: shaobingqing <shaobingqing@bwstor.com.cn>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1390201154-20815-1-git-send-email-shaobingqing@bwstor.com.cn>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/19/2014 07:05 PM, Gavin Shan wrote:
-> We possiblly retrieve the adapter's statistics during EEH recovery
-> and that should be disallowed. Otherwise, it would possibly incur
-> replicate EEH error and EEH recovery is going to fail eventually.
-> The patch checks if the PCI device is off-line before statistic
-> retrieval.
-
-The net_devices are detached during EEH so I think netif_device_present 
-is a better check than pci_channel_offline.  I am not sure such a test 
-should be left to each driver though.  If you do end up putting it in 
-the driver it needs better synchronization with the EEH handlers as Ben 
-mentioned.
-
->
-> Signed-off-by: Gavin Shan <shangw@linux.vnet.ibm.com>
+On Mon, 2014-01-20 at 14:59 +0800, shaobingqing wrote:
+> In current code, there only one struct rpc_rqst is prealloced. If one 
+> callback request is received from two sk_buff, the xprt_alloc_bc_request
+> would be execute two times with the same transport->xid. The first time
+> xprt_alloc_bc_request will alloc one struct rpc_rqst and the TCP_RCV_COPY_DATA
+> bit of transport->tcp_flags will not be cleared. The second time 
+> xprt_alloc_bc_request could not alloc struct rpc_rqst any more and NULL
+> pointer will be returned, then xprt_force_disconnect occur. I think one 
+> callback request can be allowed to be received from two sk_buff.
+> 
+> Signed-off-by: shaobingqing <shaobingqing@bwstor.com.cn>
 > ---
->   drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   11 +++++++++++
->   1 file changed, 11 insertions(+)
->
-> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-> index c8eafbf..b0e72fb 100644
-> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-> @@ -4288,6 +4288,17 @@ static struct rtnl_link_stats64 *cxgb_get_stats(struct net_device *dev,
->   	struct port_info *p = netdev_priv(dev);
->   	struct adapter *adapter = p->adapter;
->
-> +	/*
-> +	 * We possibly retrieve the statistics while the PCI
-> +	 * device is off-line. That would cause the recovery
-> +	 * on off-lined PCI device going to fail. So it's
-> +	 * reasonable to block it during the recovery period.
-> +	 */
-> +	if (pci_channel_offline(adapter->pdev)) {
-> +		memset(ns, 0, sizeof(*ns));
-> +		return ns;
-> +	}
+>  net/sunrpc/xprtsock.c |   11 +++++++++--
+>  1 files changed, 9 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+> index ee03d35..606950d 100644
+> --- a/net/sunrpc/xprtsock.c
+> +++ b/net/sunrpc/xprtsock.c
+> @@ -1271,8 +1271,13 @@ static inline int xs_tcp_read_callback(struct rpc_xprt *xprt,
+>  	struct sock_xprt *transport =
+>  				container_of(xprt, struct sock_xprt, xprt);
+>  	struct rpc_rqst *req;
+> +	static struct rpc_rqst *req_partial;
 > +
->   	spin_lock(&adapter->stats_lock);
->   	t4_get_port_stats(adapter, p->tx_chan, &stats);
->   	spin_unlock(&adapter->stats_lock);
->
+> +	if (req_partial == NULL)
+> +		req = xprt_alloc_bc_request(xprt);
+> +	else if (req_partial->rq_xid == transport->tcp_xid)
+> +		req = req_partial;
+
+What happens here if req_partial->rq_xid != transport->tcp_xid? AFAICS,
+req will be undefined. Either way, you cannot use a static variable for
+storage here: that isn't re-entrant.
+
+> -	req = xprt_alloc_bc_request(xprt);
+>  	if (req == NULL) {
+>  		printk(KERN_WARNING "Callback slot table overflowed\n");
+>  		xprt_force_disconnect(xprt);
+> @@ -1285,6 +1290,7 @@ static inline int xs_tcp_read_callback(struct rpc_xprt *xprt,
+>  
+>  	if (!(transport->tcp_flags & TCP_RCV_COPY_DATA)) {
+>  		struct svc_serv *bc_serv = xprt->bc_serv;
+> +		req_partial = NULL;
+>  
+>  		/*
+>  		 * Add callback request to callback list.  The callback
+> @@ -1297,7 +1303,8 @@ static inline int xs_tcp_read_callback(struct rpc_xprt *xprt,
+>  		list_add(&req->rq_bc_list, &bc_serv->sv_cb_list);
+>  		spin_unlock(&bc_serv->sv_cb_lock);
+>  		wake_up(&bc_serv->sv_cb_waitq);
+> -	}
+> +	} else
+> +		req_partial = req;
+>  
+>  	req->rq_private_buf.len = transport->tcp_copied;
+>  
+
+
+-- 
+Trond Myklebust
+Linux NFS client maintainer
