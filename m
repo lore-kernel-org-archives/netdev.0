@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sctp: Fix a_rwnd/rwnd management to reflect real
- state of the receiver's buffer
-Date: Tue, 21 Jan 2014 14:36:20 -0800 (PST)
-Message-ID: <20140121.143620.1777441472756091252.davem@davemloft.net>
-References: <52D8D544.5050501@nsn.com>
+Subject: Re: [PATCH v3] sch_htb: let skb->priority refer to non-leaf class
+Date: Tue, 21 Jan 2014 14:36:41 -0800 (PST)
+Message-ID: <20140121.143641.295542315649549669.davem@davemloft.net>
+References: <1389953999.4698.18.camel@azathoth.dev.smoothwall.net>
+	<52D927CD.4080403@cogentembedded.com>
+	<1389964952.4698.20.camel@azathoth.dev.smoothwall.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, alexander.sverdlin@nsn.com,
-	netdev@vger.kernel.org
-To: matija.glavinic-pecotic.ext@nsn.com
+Cc: sergei.shtylyov@cogentembedded.com, hadi@mojatatu.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: harry.mason@smoothwall.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37703 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37707 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752067AbaAUWgV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 17:36:21 -0500
-In-Reply-To: <52D8D544.5050501@nsn.com>
+	with ESMTP id S1752067AbaAUWgm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 17:36:42 -0500
+In-Reply-To: <1389964952.4698.20.camel@azathoth.dev.smoothwall.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
-Date: Fri, 17 Jan 2014 08:01:24 +0100
+From: Harry Mason <harry.mason@smoothwall.net>
+Date: Fri, 17 Jan 2014 13:22:32 +0000
 
-> Implementation of (a)rwnd calculation might lead to severe performance issues
-> and associations completely stalling. These problems are described and solution
-> is proposed which improves lksctp's robustness in congestion state.
+> If the class in skb->priority is not a leaf, apply filters from the
+> selected class, not the qdisc. This lets netfilter or user space
+> partially classify the packet.
+> 
+> Signed-off-by: Harry Mason <harry.mason@smoothwall.net>
 
-It would be fantastic if an SCTP expert would review this patch, it's
-been rotting in patchwork for 4 days.
+Can I please get some reviews of this patch?
 
 Thanks.
