@@ -1,232 +1,205 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next 12/25] bonding: convert lacp_rate to use the new option API
-Date: Tue, 21 Jan 2014 15:55:01 +0100
-Message-ID: <1390316114-17815-13-git-send-email-nikolay@redhat.com>
+Subject: [PATCH net-next 16/25] bonding: convert miimon to use the new option API
+Date: Tue, 21 Jan 2014 15:55:05 +0100
+Message-ID: <1390316114-17815-17-git-send-email-nikolay@redhat.com>
 References: <1390316114-17815-1-git-send-email-nikolay@redhat.com>
 Cc: Nikolay Aleksandrov <nikolay@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:18967 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:10228 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754855AbaAUOz6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jan 2014 09:55:58 -0500
+	id S1754858AbaAUO4B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jan 2014 09:56:01 -0500
 Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s0LEtuCZ030973
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s0LEu0ud031007
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Tue, 21 Jan 2014 09:55:57 -0500
+	for <netdev@vger.kernel.org>; Tue, 21 Jan 2014 09:56:01 -0500
 In-Reply-To: <1390316114-17815-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the necessary changes so lacp_rate would use
-the new bonding option API. Also some trivial/style error fixes.
+This patch adds the necessary changes so miimon would use
+the new bonding option API. The "default" definition has been removed as
+it was 0.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- drivers/net/bonding/bond_main.c    | 15 ++++++-------
+ drivers/net/bonding/bond_main.c    |  9 ++++-----
  drivers/net/bonding/bond_netlink.c |  3 ++-
- drivers/net/bonding/bond_options.c | 44 +++++++++++++++++---------------------
- drivers/net/bonding/bond_options.h |  3 +++
- drivers/net/bonding/bond_sysfs.c   | 22 ++++++-------------
+ drivers/net/bonding/bond_options.c | 25 ++++++++++++++-----------
+ drivers/net/bonding/bond_options.h |  2 ++
+ drivers/net/bonding/bond_sysfs.c   | 14 ++------------
  drivers/net/bonding/bonding.h      |  1 -
- 6 files changed, 37 insertions(+), 51 deletions(-)
+ 6 files changed, 24 insertions(+), 30 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 9de3d35..dd0778c 100644
+index 7335adf..5df75fc 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -208,12 +208,6 @@ static int bond_mode	= BOND_MODE_ROUNDROBIN;
- static int xmit_hashtype = BOND_XMIT_POLICY_LAYER2;
- static int lacp_fast;
+@@ -87,12 +87,11 @@
+ /*---------------------------- Module parameters ----------------------------*/
  
--const struct bond_parm_tbl bond_lacp_tbl[] = {
--{	"slow",		AD_LACP_SLOW},
--{	"fast",		AD_LACP_FAST},
--{	NULL,		-1},
--};
--
- const struct bond_parm_tbl pri_reselect_tbl[] = {
- {	"always",		BOND_PRI_RESELECT_ALWAYS},
- {	"better",		BOND_PRI_RESELECT_BETTER},
-@@ -4023,12 +4017,15 @@ static int bond_check_params(struct bond_params *params)
- 			pr_info("lacp_rate param is irrelevant in mode %s\n",
- 				bond_mode_name(bond_mode));
- 		} else {
--			lacp_fast = bond_parse_parm(lacp_rate, bond_lacp_tbl);
--			if (lacp_fast == -1) {
-+			bond_opt_initstr(&newval, lacp_rate);
-+			valptr = bond_opt_parse(bond_opt_get(BOND_OPT_LACP_RATE),
-+						&newval);
-+			if (!valptr) {
- 				pr_err("Error: Invalid lacp rate \"%s\"\n",
--				       lacp_rate == NULL ? "NULL" : lacp_rate);
-+				       lacp_rate);
- 				return -EINVAL;
- 			}
-+			lacp_fast = valptr->value;
- 		}
+ /* monitor all links that often (in milliseconds). <=0 disables monitoring */
+-#define BOND_LINK_MON_INTERV	0
+ 
+ static int max_bonds	= BOND_DEFAULT_MAX_BONDS;
+ static int tx_queues	= BOND_DEFAULT_TX_QUEUES;
+ static int num_peer_notif = 1;
+-static int miimon	= BOND_LINK_MON_INTERV;
++static int miimon;
+ static int updelay;
+ static int downdelay;
+ static int use_carrier	= 1;
+@@ -4044,9 +4043,9 @@ static int bond_check_params(struct bond_params *params)
  	}
  
+ 	if (miimon < 0) {
+-		pr_warning("Warning: miimon module parameter (%d), not in range 0-%d, so it was reset to %d\n",
+-			   miimon, INT_MAX, BOND_LINK_MON_INTERV);
+-		miimon = BOND_LINK_MON_INTERV;
++		pr_warning("Warning: miimon module parameter (%d), not in range 0-%d, so it was reset to 0\n",
++			   miimon, INT_MAX);
++		miimon = 0;
+ 	}
+ 
+ 	if (updelay < 0) {
 diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
-index a40a2ec..7737a91 100644
+index cbf1bb0..d6d4aa7 100644
 --- a/drivers/net/bonding/bond_netlink.c
 +++ b/drivers/net/bonding/bond_netlink.c
-@@ -311,7 +311,8 @@ static int bond_changelink(struct net_device *bond_dev,
- 		int lacp_rate =
- 			nla_get_u8(data[IFLA_BOND_AD_LACP_RATE]);
+@@ -133,7 +133,8 @@ static int bond_changelink(struct net_device *bond_dev,
+ 	if (data[IFLA_BOND_MIIMON]) {
+ 		miimon = nla_get_u32(data[IFLA_BOND_MIIMON]);
  
--		err = bond_option_lacp_rate_set(bond, lacp_rate);
-+		bond_opt_initval(&newval, lacp_rate);
-+		err = __bond_opt_set(bond, BOND_OPT_LACP_RATE, &newval);
+-		err = bond_option_miimon_set(bond, miimon);
++		bond_opt_initval(&newval, miimon);
++		err = __bond_opt_set(bond, BOND_OPT_MIIMON, &newval);
  		if (err)
  			return err;
  	}
 diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index abf6a0d..01cbc7f 100644
+index 4a10a93..b48c9b6 100644
 --- a/drivers/net/bonding/bond_options.c
 +++ b/drivers/net/bonding/bond_options.c
-@@ -73,6 +73,12 @@ static struct bond_opt_value bond_intmax_tbl[] = {
- 	{ "maxval",  INT_MAX, BOND_VALFLAG_MAX},
- };
- 
-+static struct bond_opt_value bond_lacp_rate_tbl[] = {
-+	{ "slow", AD_LACP_SLOW, 0},
-+	{ "fast", AD_LACP_FAST, 0},
-+	{ NULL,   -1,           0},
-+};
-+
- static struct bond_option bond_opts[] = {
- 	[BOND_OPT_MODE] = {
- 		.id = BOND_OPT_MODE,
-@@ -150,7 +156,15 @@ static struct bond_option bond_opts[] = {
- 		.values = bond_intmax_tbl,
- 		.set = bond_option_updelay_set
+@@ -201,6 +201,13 @@ static struct bond_option bond_opts[] = {
+ 		.values = bond_num_peer_notif_tbl,
+ 		.set = bond_option_num_peer_notif_set
  	},
--
-+	[BOND_OPT_LACP_RATE] = {
-+		.id = BOND_OPT_LACP_RATE,
-+		.name = "lacp_rate",
-+		.desc = "LACPDU tx rate to request from 802.3ad partner",
-+		.flags = BOND_OPTFLAG_IFDOWN,
-+		.unsuppmodes = BOND_MODE_ALL_EX(BIT(BOND_MODE_8023AD)),
-+		.values = bond_lacp_rate_tbl,
-+		.set = bond_option_lacp_rate_set
++	[BOND_OPT_MIIMON] = {
++		.id = BOND_OPT_MIIMON,
++		.name = "miimon",
++		.desc = "Link check interval in milliseconds",
++		.values = bond_intmax_tbl,
++		.set = bond_option_miimon_set
 +	},
  	{ }
  };
  
-@@ -999,31 +1013,13 @@ int bond_option_lp_interval_set(struct bonding *bond, int lp_interval)
- 	return 0;
+@@ -576,16 +583,11 @@ int bond_option_active_slave_set(struct bonding *bond,
+ 	return ret;
  }
  
--int bond_option_lacp_rate_set(struct bonding *bond, int lacp_rate)
-+int bond_option_lacp_rate_set(struct bonding *bond,
-+			      struct bond_opt_value *newval)
+-int bond_option_miimon_set(struct bonding *bond, int miimon)
++int bond_option_miimon_set(struct bonding *bond, struct bond_opt_value *newval)
  {
--	if (bond_parm_tbl_lookup(lacp_rate, bond_lacp_tbl) < 0) {
--		pr_err("%s: Ignoring invalid LACP rate value %d.\n",
--		       bond->dev->name, lacp_rate);
+-	if (miimon < 0) {
+-		pr_err("%s: Invalid miimon value %d not in range %d-%d; rejected.\n",
+-		       bond->dev->name, miimon, 0, INT_MAX);
 -		return -EINVAL;
 -	}
--
--	if (bond->dev->flags & IFF_UP) {
--		pr_err("%s: Unable to update LACP rate because interface is up.\n",
--		       bond->dev->name);
--		return -EPERM;
--	}
--
--	if (bond->params.mode != BOND_MODE_8023AD) {
--		pr_err("%s: Unable to update LACP rate because bond is not in 802.3ad mode.\n",
--		       bond->dev->name);
--		return -EPERM;
--	}
--
--	bond->params.lacp_fast = lacp_rate;
-+	pr_info("%s: Setting LACP rate to %s (%llu).\n",
-+		bond->dev->name, newval->string, newval->value);
-+	bond->params.lacp_fast = newval->value;
- 	bond_3ad_update_lacp_rate(bond);
--	pr_info("%s: Setting LACP rate to %s (%d).\n",
--		bond->dev->name, bond_lacp_tbl[lacp_rate].modename,
--		lacp_rate);
- 
+-	pr_info("%s: Setting MII monitoring interval to %d.\n",
+-		bond->dev->name, miimon);
+-	bond->params.miimon = miimon;
++	pr_info("%s: Setting MII monitoring interval to %llu.\n",
++		bond->dev->name, newval->value);
++	bond->params.miimon = newval->value;
+ 	if (bond->params.updelay)
+ 		pr_info("%s: Note: Updating updelay (to %d) since it is a multiple of the miimon value.\n",
+ 			bond->dev->name,
+@@ -594,7 +596,7 @@ int bond_option_miimon_set(struct bonding *bond, int miimon)
+ 		pr_info("%s: Note: Updating downdelay (to %d) since it is a multiple of the miimon value.\n",
+ 			bond->dev->name,
+ 			bond->params.downdelay * bond->params.miimon);
+-	if (miimon && bond->params.arp_interval) {
++	if (newval->value && bond->params.arp_interval) {
+ 		pr_info("%s: MII monitoring cannot be used with ARP monitoring. Disabling ARP monitoring...\n",
+ 			bond->dev->name);
+ 		bond->params.arp_interval = 0;
+@@ -607,13 +609,14 @@ int bond_option_miimon_set(struct bonding *bond, int miimon)
+ 		 * timer will get fired off when the open function
+ 		 * is called.
+ 		 */
+-		if (!miimon) {
++		if (!newval->value) {
+ 			cancel_delayed_work_sync(&bond->mii_work);
+ 		} else {
+ 			cancel_delayed_work_sync(&bond->arp_work);
+ 			queue_delayed_work(bond->wq, &bond->mii_work, 0);
+ 		}
+ 	}
++
  	return 0;
  }
+ 
 diff --git a/drivers/net/bonding/bond_options.h b/drivers/net/bonding/bond_options.h
-index 594046c..7ee1a78 100644
+index 014a359..90f00c6 100644
 --- a/drivers/net/bonding/bond_options.h
 +++ b/drivers/net/bonding/bond_options.h
-@@ -48,6 +48,7 @@ enum {
- 	BOND_OPT_ARP_TARGETS,
- 	BOND_OPT_DOWNDELAY,
- 	BOND_OPT_UPDELAY,
-+	BOND_OPT_LACP_RATE,
+@@ -52,6 +52,7 @@ enum {
+ 	BOND_OPT_MINLINKS,
+ 	BOND_OPT_AD_SELECT,
+ 	BOND_OPT_NUM_PEER_NOTIF,
++	BOND_OPT_MIIMON,
  	BOND_OPT_LAST
  };
  
-@@ -127,4 +128,6 @@ int bond_option_downdelay_set(struct bonding *bond,
+@@ -139,4 +140,5 @@ int bond_option_ad_select_set(struct bonding *bond,
  			      struct bond_opt_value *newval);
- int bond_option_updelay_set(struct bonding *bond,
- 			    struct bond_opt_value *newval);
-+int bond_option_lacp_rate_set(struct bonding *bond,
-+			      struct bond_opt_value *newval);
+ int bond_option_num_peer_notif_set(struct bonding *bond,
+ 				   struct bond_opt_value *newval);
++int bond_option_miimon_set(struct bonding *bond, struct bond_opt_value *newval);
  #endif /* _BOND_OPTIONS_H */
 diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 7acc1bb..98288dc 100644
+index 3c0ce6f..029e323 100644
 --- a/drivers/net/bonding/bond_sysfs.c
 +++ b/drivers/net/bonding/bond_sysfs.c
-@@ -549,10 +549,11 @@ static ssize_t bonding_show_lacp(struct device *d,
- 				 char *buf)
+@@ -674,23 +674,13 @@ static ssize_t bonding_store_miimon(struct device *d,
+ 				    struct device_attribute *attr,
+ 				    const char *buf, size_t count)
  {
- 	struct bonding *bond = to_bond(d);
-+	struct bond_opt_value *val;
- 
--	return sprintf(buf, "%s %d\n",
--		bond_lacp_tbl[bond->params.lacp_fast].modename,
--		bond->params.lacp_fast);
-+	val = bond_opt_get_val(BOND_OPT_LACP_RATE, bond->params.lacp_fast);
-+
-+	return sprintf(buf, "%s %d\n", val->string, bond->params.lacp_fast);
- }
- 
- static ssize_t bonding_store_lacp(struct device *d,
-@@ -560,23 +561,12 @@ static ssize_t bonding_store_lacp(struct device *d,
- 				  const char *buf, size_t count)
- {
- 	struct bonding *bond = to_bond(d);
 -	int new_value, ret;
--
--	new_value = bond_parse_parm(buf, bond_lacp_tbl);
--	if (new_value < 0) {
--		pr_err("%s: Ignoring invalid LACP rate value %.*s.\n",
--		       bond->dev->name, (int)strlen(buf) - 1, buf);
+ 	struct bonding *bond = to_bond(d);
++	int ret;
+ 
+-	if (sscanf(buf, "%d", &new_value) != 1) {
+-		pr_err("%s: no miimon value specified.\n",
+-		       bond->dev->name);
 -		return -EINVAL;
 -	}
 -
 -	if (!rtnl_trylock())
 -		return restart_syscall();
-+	int ret;
- 
--	ret = bond_option_lacp_rate_set(bond, new_value);
-+	ret = bond_opt_tryset_rtnl(bond, BOND_OPT_LACP_RATE, (char *)buf);
+-
+-	ret = bond_option_miimon_set(bond, new_value);
++	ret = bond_opt_tryset_rtnl(bond, BOND_OPT_MIIMON, (char *)buf);
  	if (!ret)
  		ret = count;
  
 -	rtnl_unlock();
  	return ret;
  }
- static DEVICE_ATTR(lacp_rate, S_IRUGO | S_IWUSR,
+ static DEVICE_ATTR(miimon, S_IRUGO | S_IWUSR,
 diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index e8d4e11..05f4aa0 100644
+index 52ec73f..56d5510 100644
 --- a/drivers/net/bonding/bonding.h
 +++ b/drivers/net/bonding/bonding.h
-@@ -463,7 +463,6 @@ int bond_option_all_slaves_active_set(struct bonding *bond,
- 				      int all_slaves_active);
- int bond_option_min_links_set(struct bonding *bond, int min_links);
- int bond_option_lp_interval_set(struct bonding *bond, int min_links);
--int bond_option_lacp_rate_set(struct bonding *bond, int lacp_rate);
- int bond_option_ad_select_set(struct bonding *bond, int ad_select);
- struct net_device *bond_option_active_slave_get_rcu(struct bonding *bond);
- struct net_device *bond_option_active_slave_get(struct bonding *bond);
+@@ -450,7 +450,6 @@ unsigned int bond_get_num_tx_queues(void);
+ int bond_netlink_init(void);
+ void bond_netlink_fini(void);
+ int bond_option_active_slave_set(struct bonding *bond, struct net_device *slave_dev);
+-int bond_option_miimon_set(struct bonding *bond, int miimon);
+ int bond_option_use_carrier_set(struct bonding *bond, int use_carrier);
+ int bond_option_arp_ip_target_add(struct bonding *bond, __be32 target);
+ int bond_option_arp_ip_target_rem(struct bonding *bond, __be32 target);
 -- 
 1.8.4.2
