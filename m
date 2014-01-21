@@ -1,138 +1,93 @@
-From: shaobingqing <shaobingqing-Gb3srWounXyPt1CcHtbs0g@public.gmane.org>
-Subject: Re: [PATCH] SUNRPC: Allow one callback request to be received from
- two sk_buff
-Date: Tue, 21 Jan 2014 18:08:05 +0800
-Message-ID: <CALrKORrZ3Kcuqc1RajQKkZcot0yiswh4VR_WuXHqfRTjn9oGQQ@mail.gmail.com>
-References: <1390201154-20815-1-git-send-email-shaobingqing@bwstor.com.cn>
-	<1390259843.2501.2.camel@leira.trondhjem.org>
+From: Somnath Kotur <somnath.kotur@emulex.com>
+Subject: [PATCH net] be2net: Fix be_vlan_add/rem_vid() routines
+Date: Tue, 21 Jan 2014 15:50:55 +0530
+Message-ID: <e4c76822-2f55-4a40-a0fa-c4cacb2a480f@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: bfields-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1390259843.2501.2.camel-5lNtUQgoD8Pfa3cDbr2K10B+6BGkLq7r@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, Somnath Kotur <somnath.kotur@emulex.com>,
+	Kalesh AP <kalesh.purayil@emulex.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:12670 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754167AbaAUKWe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 05:22:34 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2014/1/21 Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>:
-> On Mon, 2014-01-20 at 14:59 +0800, shaobingqing wrote:
->> In current code, there only one struct rpc_rqst is prealloced. If one
->> callback request is received from two sk_buff, the xprt_alloc_bc_request
->> would be execute two times with the same transport->xid. The first time
->> xprt_alloc_bc_request will alloc one struct rpc_rqst and the TCP_RCV_COPY_DATA
->> bit of transport->tcp_flags will not be cleared. The second time
->> xprt_alloc_bc_request could not alloc struct rpc_rqst any more and NULL
->> pointer will be returned, then xprt_force_disconnect occur. I think one
->> callback request can be allowed to be received from two sk_buff.
->>
->> Signed-off-by: shaobingqing <shaobingqing-Gb3srWounXyPt1CcHtbs0g@public.gmane.org>
->> ---
->>  net/sunrpc/xprtsock.c |   11 +++++++++--
->>  1 files changed, 9 insertions(+), 2 deletions(-)
->>
->> diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
->> index ee03d35..606950d 100644
->> --- a/net/sunrpc/xprtsock.c
->> +++ b/net/sunrpc/xprtsock.c
->> @@ -1271,8 +1271,13 @@ static inline int xs_tcp_read_callback(struct rpc_xprt *xprt,
->>       struct sock_xprt *transport =
->>                               container_of(xprt, struct sock_xprt, xprt);
->>       struct rpc_rqst *req;
->> +     static struct rpc_rqst *req_partial;
->> +
->> +     if (req_partial == NULL)
->> +             req = xprt_alloc_bc_request(xprt);
->> +     else if (req_partial->rq_xid == transport->tcp_xid)
->> +             req = req_partial;
->
-> What happens here if req_partial->rq_xid != transport->tcp_xid? AFAICS,
-> req will be undefined. Either way, you cannot use a static variable for
-> storage here: that isn't re-entrant.
+The current logic to put interface into VLAN Promiscous mode is not correct.
+We should increment "adapter->vlans_added" before calling be_vid_config().
+Also removed some unwanted log messages.
 
-Because metadata sever only have one slot for backchannel request,
-req_partial->rq_xid == transport->tcp_xid always happens, if the callback
-request just being splited in two sk_buffs. But req_partial->rq_xid !=
-transport->tcp_xid may also happens in some special cases, such as
-retransmission occurs?
-If one callback request is splited in two sk_buffs, xs_tcp_read_callback
-will be execute two times. The req_partial should be a static variable,
-because  the second execution of xs_tcp_read_callback should use
-the rpc_rqst allocated for the first execution, which saves information
-copies from the first sk_buff.
-I think perhaps the code should be modified like bellows:
+Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
+Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be_main.c |   21 ++++++++-------------
+ 1 files changed, 8 insertions(+), 13 deletions(-)
 
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index 606950d..02dbb82 100644
---- a/net/sunrpc/xprtsock.c
-+++ b/net/sunrpc/xprtsock.c
-@@ -1273,10 +1273,14 @@ static inline int xs_tcp_read_callback(struct
-rpc_xprt *xprt,
-        struct rpc_rqst *req;
-        static struct rpc_rqst *req_partial;
-
--       if (req_partial == NULL)
-+       if (req_partial == NULL) {
-                req = xprt_alloc_bc_request(xprt);
--       else if (req_partial->rq_xid == transport->tcp_xid)
-+       } else if (req_partial->rq_xid == transport->tcp_xid) {
-                req = req_partial;
-+       } else {
-+               xprt_free_bc_request(req_partial);
-+               req = xprt_alloc_bc_request(xprt);
-+       }
-
-        if (req == NULL) {
-                printk(KERN_WARNING "Callback slot table overflowed\n");
-@@ -1303,8 +1307,9 @@ static inline int xs_tcp_read_callback(struct
-rpc_xprt *xprt,
-                list_add(&req->rq_bc_list, &bc_serv->sv_cb_list);
-                spin_unlock(&bc_serv->sv_cb_lock);
-                wake_up(&bc_serv->sv_cb_waitq);
--       } else
-+       } else {
-                req_partial = req;
-+       }
-
-        req->rq_private_buf.len = transport->tcp_copied;
-
-
->
->> -     req = xprt_alloc_bc_request(xprt);
->>       if (req == NULL) {
->>               printk(KERN_WARNING "Callback slot table overflowed\n");
->>               xprt_force_disconnect(xprt);
->> @@ -1285,6 +1290,7 @@ static inline int xs_tcp_read_callback(struct rpc_xprt *xprt,
->>
->>       if (!(transport->tcp_flags & TCP_RCV_COPY_DATA)) {
->>               struct svc_serv *bc_serv = xprt->bc_serv;
->> +             req_partial = NULL;
->>
->>               /*
->>                * Add callback request to callback list.  The callback
->> @@ -1297,7 +1303,8 @@ static inline int xs_tcp_read_callback(struct rpc_xprt *xprt,
->>               list_add(&req->rq_bc_list, &bc_serv->sv_cb_list);
->>               spin_unlock(&bc_serv->sv_cb_lock);
->>               wake_up(&bc_serv->sv_cb_waitq);
->> -     }
->> +     } else
->> +             req_partial = req;
->>
->>       req->rq_private_buf.len = transport->tcp_copied;
->>
->
->
-> --
-> Trond Myklebust
-> Linux NFS client maintainer
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index bf40fda..2fada24 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -1096,8 +1096,6 @@ static int be_vid_config(struct be_adapter *adapter)
+ 				dev_info(&adapter->pdev->dev,
+ 					 "Disabling VLAN Promiscuous mode.\n");
+ 				adapter->flags &= ~BE_FLAGS_VLAN_PROMISC;
+-				dev_info(&adapter->pdev->dev,
+-					 "Re-Enabling HW VLAN filtering\n");
+ 			}
+ 		}
+ 	}
+@@ -1105,12 +1103,12 @@ static int be_vid_config(struct be_adapter *adapter)
+ 	return status;
+ 
+ set_vlan_promisc:
+-	dev_warn(&adapter->pdev->dev, "Exhausted VLAN HW filters.\n");
++	if (adapter->flags & BE_FLAGS_VLAN_PROMISC)
++		return 0;
+ 
+ 	status = be_cmd_rx_filter(adapter, BE_FLAGS_VLAN_PROMISC, ON);
+ 	if (!status) {
+ 		dev_info(&adapter->pdev->dev, "Enable VLAN Promiscuous mode\n");
+-		dev_info(&adapter->pdev->dev, "Disabling HW VLAN filtering\n");
+ 		adapter->flags |= BE_FLAGS_VLAN_PROMISC;
+ 	} else
+ 		dev_err(&adapter->pdev->dev,
+@@ -1123,19 +1121,18 @@ static int be_vlan_add_vid(struct net_device *netdev, __be16 proto, u16 vid)
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+ 	int status = 0;
+ 
+-
+ 	/* Packets with VID 0 are always received by Lancer by default */
+ 	if (lancer_chip(adapter) && vid == 0)
+ 		goto ret;
+ 
+ 	adapter->vlan_tag[vid] = 1;
+-	if (adapter->vlans_added <= (be_max_vlans(adapter) + 1))
+-		status = be_vid_config(adapter);
++	adapter->vlans_added++;
+ 
+-	if (!status)
+-		adapter->vlans_added++;
+-	else
++	status = be_vid_config(adapter);
++	if (status) {
++		adapter->vlans_added--;
+ 		adapter->vlan_tag[vid] = 0;
++	}
+ ret:
+ 	return status;
+ }
+@@ -1150,9 +1147,7 @@ static int be_vlan_rem_vid(struct net_device *netdev, __be16 proto, u16 vid)
+ 		goto ret;
+ 
+ 	adapter->vlan_tag[vid] = 0;
+-	if (adapter->vlans_added <= be_max_vlans(adapter))
+-		status = be_vid_config(adapter);
+-
++	status = be_vid_config(adapter);
+ 	if (!status)
+ 		adapter->vlans_added--;
+ 	else
+-- 
+1.6.0.2
