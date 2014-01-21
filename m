@@ -1,61 +1,67 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: [net-next] [patch v2] i40e: potential array underflow in
- i40e_vc_process_vf_msg()]
-Date: Tue, 21 Jan 2014 00:15:32 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B73140CF2@ORSMSX101.amr.corp.intel.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next v5 8/9] xen-netback: Timeout packets in RX path
+Date: Tue, 21 Jan 2014 00:24:29 +0000
+Message-ID: <52DDBE3D.4060406@citrix.com>
+References: <1390253069-25507-1-git-send-email-zoltan.kiss@citrix.com> <1390253069-25507-9-git-send-email-zoltan.kiss@citrix.com> <20140120220348.GA5058@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:33216 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750993AbaAUAPj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Jan 2014 19:15:39 -0500
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <ian.campbell@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<jonathan.davies@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140120220348.GA5058@zion.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-SSBkaWQgbm90IHNlZSB0aGlzIG9uIHRoZSBuZXRkZXYgbGlzdCBzbyBmb3J3YXJkaW5nIGZyb20g
-ZTEwMDAtZGV2ZWwKd2l0aCBzdWJqZWN0IGxpbmUgY2hhbmdlZCwgYSBUZXN0ZWQtYnk6IGFuZCBT
-aWduZWQtb2ZmLWJ5IGFkZGVkLgoKRnJvbTogRGFuIENhcnBlbnRlciA8ZGFuLmNhcnBlbnRlckBv
-cmFjbGUuY29tPgpSZXBseS10bzogRGFuIENhcnBlbnRlciA8ZGFuLmNhcnBlbnRlckBvcmFjbGUu
-Y29tPgpUbzogSmVmZiBLaXJzaGVyIDxqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5jb20+CkNjOiBr
-ZXJuZWwtamFuaXRvcnNAdmdlci5rZXJuZWwub3JnLCBlMTAwMC1kZXZlbEBsaXN0cy5zb3VyY2Vm
-b3JnZS5uZXQsCkJydWNlIEFsbGFuIDxicnVjZS53LmFsbGFuQGludGVsLmNvbT4sIEplc3NlIEJy
-YW5kZWJ1cmcKPGplc3NlLmJyYW5kZWJ1cmdAaW50ZWwuY29tPiwgV2VpIFlvbmdqdW4KPHlvbmdq
-dW5fd2VpQHRyZW5kbWljcm8uY29tLmNuPiwgSm9obiBSb25jaWFrIDxqb2huLnJvbmNpYWtAaW50
-ZWwuY29tPgpTdWJqZWN0OiBbRTEwMDAtZGV2ZWxdIFtwYXRjaCB2Ml0gaTQwZTogcG90ZW50aWFs
-IGFycmF5IHVuZGVyZmxvdyBpbgppNDBlX3ZjX3Byb2Nlc3NfdmZfbXNnKCkKRGF0ZTogU2F0LCAx
-MSBKYW4gMjAxNCAxMjo1ODo0MiArMDMwMAoKSWYgInZmX2lkIiBpcyBzbWFsbGVyIHRoYW4gaHct
-PmZ1bmNfY2Fwcy52Zl9iYXNlX2lkIHRoZW4gaXQgbGVhZHMgdG8KYW4gYXJyYXkgdW5kZXJmbG93
-IG9mIHRoZSBwZi0+dmZbXSBhcnJheS4gIFRoaXMgaXMgdW5saWtlbHkgdG8gaGFwcGVuCnVubGVz
-cyB0aGUgaGFyZHdhcmUgaXMgYmFkLCBidXQgaXQncyBhIHNtYWxsIGNoYW5nZSBhbmQgaXQgc2ls
-ZW5jZXMgYQpzdGF0aWMgY2hlY2tlciB3YXJuaW5nLgoKRml4ZXM6IDdlZmE4NGI3YWJjMSAoJ2k0
-MGU6IHN1cHBvcnQgVkZzIG9uIFBGcyBvdGhlciB0aGFuIDAnKQpTaWduZWQtb2ZmLWJ5OiBEYW4g
-Q2FycGVudGVyIDxkYW4uY2FycGVudGVyQG9yYWNsZS5jb20+ClRlc3RlZC1ieTogU2liYWkgTGkg
-PHNpYmFpLmxpQGludGVsLmNvbT4KU2lnbmVkLW9mZi1ieTogQWFyb24gQnJvd24gPGFhcm9uLmYu
-YnJvd25AaW50ZWwuY29tPgotLS0KdjI6IHJlYmFzZWQuICBjb21taXQgbWVzc2FnZSB1cGRhdGVk
-LgoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZV92aXJ0
-Y2hubF9wZi5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX3ZpcnRjaG5s
-X3BmLmMKaW5kZXggNTFhNGY2MTI1NDM3Li5iNzdkN2U3OWQ5NzcgMTAwNjQ0Ci0tLSBhL2RyaXZl
-cnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZV92aXJ0Y2hubF9wZi5jCisrKyBiL2RyaXZl
-cnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZV92aXJ0Y2hubF9wZi5jCkBAIC0xNzcyLDcg
-KzE3NzIsNyBAQCBpbnQgaTQwZV92Y19wcm9jZXNzX3ZmX21zZyhzdHJ1Y3QgaTQwZV9wZiAqcGYs
-IHUxNiB2Zl9pZCwgdTMyIHZfb3Bjb2RlLAogCQkJICAgdTMyIHZfcmV0dmFsLCB1OCAqbXNnLCB1
-MTYgbXNnbGVuKQogewogCXN0cnVjdCBpNDBlX2h3ICpodyA9ICZwZi0+aHc7Ci0JaW50IGxvY2Fs
-X3ZmX2lkID0gdmZfaWQgLSBody0+ZnVuY19jYXBzLnZmX2Jhc2VfaWQ7CisJdW5zaWduZWQgaW50
-IGxvY2FsX3ZmX2lkID0gdmZfaWQgLSBody0+ZnVuY19jYXBzLnZmX2Jhc2VfaWQ7CiAJc3RydWN0
-IGk0MGVfdmYgKnZmOwogCWludCByZXQ7CiAKCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpDZW50dXJ5
-TGluayBDbG91ZDogVGhlIExlYWRlciBpbiBFbnRlcnByaXNlIENsb3VkIFNlcnZpY2VzLgpMZWFy
-biBXaHkgTW9yZSBCdXNpbmVzc2VzIEFyZSBDaG9vc2luZyBDZW50dXJ5TGluayBDbG91ZCBGb3IK
-Q3JpdGljYWwgV29ya2xvYWRzLCBEZXZlbG9wbWVudCBFbnZpcm9ubWVudHMgJiBFdmVyeXRoaW5n
-IEluIEJldHdlZW4uCkdldCBhIFF1b3RlIG9yIFN0YXJ0IGEgRnJlZSBUcmlhbCBUb2RheS4gCmh0
-dHA6Ly9wdWJhZHMuZy5kb3VibGVjbGljay5uZXQvZ2FtcGFkL2Nsaz9pZD0xMTk0MjA0MzEmaXU9
-LzQxNDAvb3N0Zy5jbGt0cmsKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX18KRTEwMDAtZGV2ZWwgbWFpbGluZyBsaXN0CkUxMDAwLWRldmVsQGxpc3RzLnNvdXJj
-ZWZvcmdlLm5ldApodHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5mby9l
-MTAwMC1kZXZlbApUbyBsZWFybiBtb3JlIGFib3V0IEludGVsJiMxNzQ7IEV0aGVybmV0LCB2aXNp
-dCBodHRwOi8vY29tbXVuaXRpZXMuaW50ZWwuY29tL2NvbW11bml0eS93aXJlZAoK
+On 20/01/14 22:03, Wei Liu wrote:
+> On Mon, Jan 20, 2014 at 09:24:28PM +0000, Zoltan Kiss wrote:
+>> @@ -557,12 +577,25 @@ void xenvif_disconnect(struct xenvif *vif)
+>>   void xenvif_free(struct xenvif *vif)
+>>   {
+>>   	int i, unmap_timeout = 0;
+>> +	/* Here we want to avoid timeout messages if an skb can be legitimatly
+>> +	 * stucked somewhere else. Realisticly this could be an another vif's
+>> +	 * internal or QDisc queue. That another vif also has this
+>> +	 * rx_drain_timeout_msecs timeout, but the timer only ditches the
+>> +	 * internal queue. After that, the QDisc queue can put in worst case
+>> +	 * XEN_NETIF_RX_RING_SIZE / MAX_SKB_FRAGS skbs into that another vif's
+>> +	 * internal queue, so we need several rounds of such timeouts until we
+>> +	 * can be sure that no another vif should have skb's from us. We are
+>> +	 * not sending more skb's, so newly stucked packets are not interesting
+>> +	 * for us here.
+>> +	 */
+> You beat me to this. Was about to reply to your other email. :-)
+>
+> It's also worth mentioning that DIV_ROUND_UP part is merely estimation,
+> as you cannot possible know the maximum / miminum queue length of all
+> other vifs (as they can be changed during runtime). In practice most
+> users will stick with the default, but some advanced users might want to
+> tune this value for individual vif (whether that's a good idea or not is
+> another topic).
+>
+> So, in order to convince myself this is safe. I also did some analysis
+> on the impact of having queue length other than default value.  If
+> queue_len < XENVIF_QUEUE_LENGTH, that means you can queue less packets
+> in qdisc than default and drain it faster than calculated, which is
+> safe. On the other hand if queue_len > XENVIF_QUEUE_LENGTH, it means
+> actually you need more time than calculated. I'm in two minded here. The
+> default value seems sensible to me but I'm still a bit worried about the
+> queue_len > XENVIF_QUEUE_LENGTH case.
+>
+> An idea is to book-keep maximum tx queue len among all vifs and use that
+> to calculate worst scenario.
+I don't think it should be that perfect. This is just a best effort 
+estimation, if someone changes the vif queue length and see this message 
+because of that, nothing very drastic will happen. It is just a rate 
+limited warning message. Well, it is marked as error, because it is a 
+serious condition.
+And also, the odds of seeing this message unnecessarily are quite low. 
+With default settings (256 slots, max 17 per skb, 32 queue length, 10 
+secs queue drain timeout) this delay is 20 seconds. You can raise the 
+queue length to 64 before getting warning (see netif_napi_add), so it 
+would go up to 40 seconds, but anyway, if your vif is sitting on a 
+packet more than 20 seconds, you deserve this message :)
+
+Zoli
