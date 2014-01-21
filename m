@@ -1,63 +1,78 @@
-From: tingwei liu <tingw.liu@gmail.com>
-Subject: Re: Fwd: Linux bridge for route
-Date: Tue, 21 Jan 2014 09:26:44 +0800
-Message-ID: <CA+qZnSSAKdoEFJMak1kS95EJE+oHcvnKrOvLhUMGAU9vZANKVw@mail.gmail.com>
-References: <CA+qZnSRGKiFh8FiKMpVQku7CiWCMPq47FpPwrawvTC6KBPwz7A@mail.gmail.com>
-	<CA+qZnSQY9dpZDdULtH3GNDEbB0fgoEJ=pa4gOOtwFhrGTgj4bg@mail.gmail.com>
-	<52D992F4.8070500@pandora.be>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net v2] tuntap: Fix for a race in accessing numqueues
+Date: Tue, 21 Jan 2014 10:41:07 +0800
+Message-ID: <52DDDE43.7060009@redhat.com>
+References: <1390255158-9058-1-git-send-email-dominic.curran@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Bart De Schuymer <bdschuym@pandora.be>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <52D992F4.8070500@pandora.be>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Maxim Krasnyansky <maxk@qti.qualcomm.com>
+To: Dominic Curran <dominic.curran@citrix.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:30286 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751859AbaAUCld (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Jan 2014 21:41:33 -0500
+In-Reply-To: <1390255158-9058-1-git-send-email-dominic.curran@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 18, 2014 at 4:30 AM, Bart De Schuymer <bdschuym@pandora.be> wrote:
-> tingwei liu schreef op 17/01/2014 10:14:
+On 01/21/2014 05:59 AM, Dominic Curran wrote:
+> A patch for fixing a race between queue selection and changing queues
+> was introduced in commit 92bb73ea2("tuntap: fix a possible race between
+> queue selection and changing queues").
 >
->> Dear all,
->>
->>         There is  a question has puzzled me for a long time.
->>         You can find the topology from attachment.
->>
->>         Normal traffic is:
->>
->>                 PC(192.168.1.8)--->Bridge(eth0)--->Bridget(eth1)--->NAT
->> server-->switch--->Server(192.168.5.3)
->>
->>         Now I want the ssh traffic like this:
->>                PC(182.168.1.8)--->Bridge(eth0)--->eth2--->NAT
->> server--->switch--->Server(192.168.5.3)
->>
->>
->>        What I have done on LINUX Server:
->>                #net.bridge.bridge-nf-call-iptables = 1
->>                #iptables -t nat -A POSTROUTING -s 192.168.1.8 -p tcp
->> --dport 22 -j SNAT --to-source 192.168.5.2
->>
->>        I have find the rule matched through command "iptables -t nat
->> -nvL", but the packets doesn't sent to 192.168.5.3.
->>        and "tcpdump -i eth2 tcp port 22" can not capture any packet!
+> The fix was to prevent the driver from re-reading the tun->numqueues
+> more than once within tun_select_queue() using ACCESS_ONCE().
 >
+> We have been experiancing 'Divide-by-zero' errors in tun_net_xmit() 
+> since we moved from 3.6 to 3.10, and believe that they come from a 
+> simular source where the value of tun->numqueues changes to zero 
+> between the first and a subsequent read of tun->numqueues.
 >
-> You are trying to make a brouter. You don't need to set
-> net.bridge.bridge-nf-call-iptables to 1, instead you need to add an ebtables
-> rule in the BROUTING chain, see:
-> http://ebtables.sourceforge.net/examples/basic.html#ex_brouter
+> The fix is a simular use of ACCESS_ONCE(), as well as a multiply
+> instead of a divide in the if statement.
 >
-> Something like this (in combination with your existing iptables rules):
-> ebtables -t broute -A BROUTING -p ipv4 --ip-source 192.168.1.8 \
-> --ip-protocol tcp --ip-destination-port 22 \
-> -j redirect --redirect-target DROP
+> Signed-off-by: Dominic Curran <dominic.curran@citrix.com>
+> Cc: Jason Wang <jasowang@redhat.com>
+> Cc: Maxim Krasnyansky <maxk@qti.qualcomm.com>
+> ---
+> V2: Use multiply instead of divide. Suggested by Eric Dumazet.
+>     Fixed email address for maxk. Rebase against net tree.
+> ---
+>  drivers/net/tun.c |    8 +++++---
+>  1 file changed, 5 insertions(+), 3 deletions(-)
 >
-Dear man,
-      This is bad news. It does _not_ work!
-      Is there any idea?
-Thanks for your reply!
+> Index: net/drivers/net/tun.c
+> ===================================================================
+> --- net.orig/drivers/net/tun.c	2014-01-20 20:22:06.000000000 +0000
+> +++ net/drivers/net/tun.c	2014-01-20 20:54:54.000000000 +0000
+> @@ -721,12 +721,14 @@ static netdev_tx_t tun_net_xmit(struct s
+>  	struct tun_struct *tun = netdev_priv(dev);
+>  	int txq = skb->queue_mapping;
+>  	struct tun_file *tfile;
+> +	u32 numqueues = 0;
+>  
+>  	rcu_read_lock();
+>  	tfile = rcu_dereference(tun->tfiles[txq]);
+> +	numqueues = ACCESS_ONCE(tun->numqueues);
+>  
+>  	/* Drop packet if interface is not attached */
+> -	if (txq >= tun->numqueues)
+> +	if (txq >= numqueues)
+>  		goto drop;
+>  
+>  	tun_debug(KERN_INFO, tun, "tun_net_xmit %d\n", skb->len);
+> @@ -746,8 +748,8 @@ static netdev_tx_t tun_net_xmit(struct s
+>  	/* Limit the number of packets queued by dividing txq length with the
+>  	 * number of queues.
+>  	 */
+> -	if (skb_queue_len(&tfile->socket.sk->sk_receive_queue)
+> -			  >= dev->tx_queue_len / tun->numqueues)
+> +	if (skb_queue_len(&tfile->socket.sk->sk_receive_queue) * numqueues
+> +			  >= dev->tx_queue_len)
+>  		goto drop;
+>  
+>  	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
 
-> cheers,
-> Bart
->
+Acked-by: Jason Wang <jasowang@redhat.com>
