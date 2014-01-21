@@ -1,51 +1,54 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: Re: [PATCH] ixgbevf: delete unneeded call to pci_set_power_state
-Date: Tue, 21 Jan 2014 20:47:17 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B7314262D@ORSMSX101.amr.corp.intel.com>
-References: <1389114026-27854-1-git-send-email-Julia.Lawall@lip6.fr>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: issues with vxlan RX checksum offload under OVS datapath
+Date: Tue, 21 Jan 2014 22:55:19 +0200
+Message-ID: <CAJZOPZJ6xj=fOAY9rkXZZs99ONkHwcW8RMXb+H2FjJzV3eoAPg@mail.gmail.com>
+References: <52DC4C1B.5000309@mellanox.com>
+	<CALnjE+rUTejbU_d39G7WSn=k0aY2xELCE3UxjDr_Zdq3iwHbNA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Julia.Lawall@lip6.fr" <Julia.Lawall@lip6.fr>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <1389114026-27854-1-git-send-email-Julia.Lawall@lip6.fr>
-Content-Language: en-US
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	netdev <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:50045 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750824AbaAUUzU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 15:55:20 -0500
+Received: by mail-pa0-f45.google.com with SMTP id lf10so6677960pab.32
+        for <netdev@vger.kernel.org>; Tue, 21 Jan 2014 12:55:19 -0800 (PST)
+In-Reply-To: <CALnjE+rUTejbU_d39G7WSn=k0aY2xELCE3UxjDr_Zdq3iwHbNA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCAyMDE0LTAxLTA3IGF0IDE4OjAwICswMTAwLCBKdWxpYSBMYXdhbGwgd3JvdGU6Cj4g
-RnJvbTogSnVsaWEgTGF3YWxsIDxKdWxpYS5MYXdhbGxAbGlwNi5mcj4KPiAKPiBUaGlzIGRyaXZl
-ciBkb2VzIG5vdCBuZWVkIHRvIGFkanVzdCB0aGUgcG93ZXIgc3RhdGUgb24gc3VzcGVuZCwgc28g
-dGhlCj4gY2FsbCB0byBwY2lfc2V0X3Bvd2VyX3N0YXRlIGluIHRoZSByZXN1bWUgZnVuY3Rpb24g
-aXMgYSBuby1vcC4gIERyb3AgaXQsIHRvCj4gbWFrZSB0aGUgY29kZSBtb3JlIHVuZGVyc3RhbmRh
-YmxlLgo+IAo+IFNpZ25lZC1vZmYtYnk6IEp1bGlhIExhd2FsbCA8SnVsaWEuTGF3YWxsQGxpcDYu
-ZnI+ClRlc3RlZC1ieTogUGhpbCBTY2htaXR0IDxwaGlsbGlwLmouc2NobWl0dEBpbnRlbC5jb20+
-ClNpZ25lZC1vZmYtYnk6IEFhcm9uIEJyb3duIDxhYXJvbi5mLmJyb3duQGludGVsLmNvbT4KCj4g
-LS0tCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JldmYvaXhnYmV2Zl9tYWluLmMg
-fCAgICAxIC0KPiAgMSBmaWxlIGNoYW5nZWQsIDEgZGVsZXRpb24oLSkKPiAKPiBkaWZmIC0tZ2l0
-IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmV2Zi9peGdiZXZmX21haW4uYyBiL2Ry
-aXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JldmYvaXhnYmV2Zl9tYWluLmMKPiBpbmRleCBh
-NWQzMTY3Li41NzA5ZmIwIDEwMDY0NAo+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
-L2l4Z2JldmYvaXhnYmV2Zl9tYWluLmMKPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRl
-bC9peGdiZXZmL2l4Z2JldmZfbWFpbi5jCj4gQEAgLTMyMjYsNyArMzIyNiw2IEBAIHN0YXRpYyBp
-bnQgaXhnYmV2Zl9yZXN1bWUoc3RydWN0IHBjaV9kZXYgKnBkZXYpCj4gIAlzdHJ1Y3QgbmV0X2Rl
-dmljZSAqbmV0ZGV2ID0gYWRhcHRlci0+bmV0ZGV2Owo+ICAJdTMyIGVycjsKPiAgCj4gLQlwY2lf
-c2V0X3Bvd2VyX3N0YXRlKHBkZXYsIFBDSV9EMCk7Cj4gIAlwY2lfcmVzdG9yZV9zdGF0ZShwZGV2
-KTsKPiAgCS8qCj4gIAkgKiBwY2lfcmVzdG9yZV9zdGF0ZSBjbGVhcnMgZGV2LT5zdGF0ZV9zYXZl
-ZCBzbyBjYWxsCj4gCj4gLS0KPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0
-aGUgbGluZSAidW5zdWJzY3JpYmUgbmV0ZGV2IiBpbgo+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0
-byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnCj4gTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0
-cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sCgoK
+On Tue, Jan 21, 2014 at 7:30 PM, Pravin Shelar <pshelar@nicira.com> wrote:
+> On Sun, Jan 19, 2014 at 2:05 PM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
+
+>> While testing the gro udp patches over a setup with openvswitch I noted that
+>> the RX checksum offload support introduced by Joseph's commit 0afb166
+>> "vxlan: Add capability of Rx checksum offload for inner packet" works fine
+>> when you use a setup made of
+>> NIC --> IP stack --> vxlan device --> bridge --> tap
+>> but not when its
+>> NIC --> IP stack --> ovs vxlan port --> OVS DP --> tap
+>> I narrowed it down to the fact the when going the OVS pathskb->encapsulation
+>> remains true also after the decap is done. Basically, this is the original hunk
+[...]
+>>> +       skb->encapsulation = 0;
+[...]
+
+>> Moving this to shared code (while removing the check for
+>> vxlan->dev->features) made things to work on my setup, but this misses one
+>> of the original conditions, ideas?
+
+> I kept csum check in vxlan-device recv path for same reason. As of now
+> there is no efficient way to get ovs-dev features.
+> May be we can cache device features in struct datapath from datapath-netdev.
+
+To be a bit more precise/concrete here, do we agree that the both paths must do
+
+   skb->encapsulation = 0;
+
+which is done now only by the non-ovs path
+
+Or.
