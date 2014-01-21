@@ -1,84 +1,51 @@
-From: "gregory hoggarth" <gregory.hoggarth@alliedtelesis.co.nz>
-Subject: Kernel fails to drop packet with martian source address
- (subnet broadcast)
-Date: Wed, 22 Jan 2014 09:45:10 +1300
-Message-ID: <52DF93260200005D00047B14@gwia2.atlnz.lc>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: Re: [PATCH] ixgbevf: delete unneeded call to pci_set_power_state
+Date: Tue, 21 Jan 2014 20:47:17 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B7314262D@ORSMSX101.amr.corp.intel.com>
+References: <1389114026-27854-1-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.alliedtelesis.co.nz ([202.36.163.21]:56846 "EHLO
-	gate.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753303AbaAUUpS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 15:45:18 -0500
-Received: from mmarshal3.atlnz.lc (mmarshal3.atlnz.lc [10.32.18.43])
-	(using TLSv1 with cipher ECDHE-RSA-AES256-SHA (256/256 bits))
-	(Client did not present a certificate)
-	by gate.alliedtelesis.co.nz (Postfix) with ESMTPS id 127AB6112F
-	for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 09:45:14 +1300 (NZDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Julia.Lawall@lip6.fr" <Julia.Lawall@lip6.fr>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <1389114026-27854-1-git-send-email-Julia.Lawall@lip6.fr>
+Content-Language: en-US
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-
-This is my second mail to the list about this issue, since I didn't get much of
-a response for my first one.
-
-Earlier in the year we upgraded the linux kernel on our L3 switch firmware to 
-v3.6.2 which includes the "ipv4: Elidge fib_validate_source() completely when 
-possible" patch. Our testers have picked up a change in behaviour which I have 
-traced back to this patch and I'd like to get comments on whether this is a bug
-or not. Here's the patch: 
-https://github.com/torvalds/linux/commit/7a9bc9b81a5bc6e44ebc80ef781332e4385083f2
-
-We found that in a configuration with a device under test (DUT) that has an IP 
-address 192.168.0.1 / 24, when it is sent an ICMP echo request with a source IP 
-address of 192.168.0.255 will now be accepted by the DUT, which will send an 
-ICMP echo reply back to the 192.168.0.255 address with a broadcast MAC address 
-of FFFF.FFFF.FFFF, meaning any other devices in the L2 domain will pick up and 
-process the ICMP reply.
-
-Prior to the upgrade, our device was running on linux kernel 2.6.38.2, and in 
-that version the DUT would reject the packet with a martian source address 
-error:
-11:20:54 awplus kernel: RxPkt(00001) Q:1 dev:8 lport:00000a00 cpuC:154 encap:0 
-len:98 bufs:1
-11:20:54 awplus kernel: RxPkt(00001) vid:1 port2.0.23
-11:20:54 awplus kernel: <7>   0000cd29 980d0000 cd27c1eb 08004500 
-11:20:54 awplus kernel: <7>   00540000 40004001 b858c0a8 00ffc0a8 
-11:20:54 awplus kernel: <7>   00010800 a4cf588c 000552dd c9990000 
-11:20:54 awplus kernel: <7>   f3240809 0a0b0c0d 0e0f1011 12131415 
-11:20:54 awplus kernel: <7>   (...)
-11:20:54 awplus kernel: martian source 192.168.0.1 from 192.168.0.255, on dev 
-vlan1
-11:20:54 awplus kernel: ll header: 
-00:00:cd:29:98:0d:00:00:cd:27:c1:eb:08:00:45:00
-
-
-Initially we were thinking that a device configured with 192.168.0.255 / 23 
-sending a ping to 192.168.0.1 / 24 should expect to get a reply, even though 
-this is somewhat of a misconfiguration in that the subnets aren't matching and 
-that some things may not work properly. For example ping from a device with IP 
-address 192.168.0.254 would behave correctly, so it seemed correct that a ping 
-from 192.168.0.255 should also work properly. However it appears that some 
-other part of the kernel is detecting that the echo reply packet sent by the 
-DUT has a destination IP address of the subnet broadcast, so instead of sending 
-it with a unicast MAC address it sends it with the broadcast MAC address, which 
-means all other devices on the subnet would process the ICMP echo reply. This 
-therefore makes it seem like the ICMP echo request should have been dropped in 
-the first place.
-
-The patch added the "if (!r && !fib_num_tclassid_users)" check to 
-fib_validate_source, which for our devices evaluates to true, hence returning 
-early and the source address check inside __fib_validate_source is not carried 
-out.
-
-
-Does anyone have comments as to what the correct behaviour should be in this 
-case, and whether this is an unexpected side-effect from the patch or not?
-
-Thanks,
-Greg
+T24gVHVlLCAyMDE0LTAxLTA3IGF0IDE4OjAwICswMTAwLCBKdWxpYSBMYXdhbGwgd3JvdGU6Cj4g
+RnJvbTogSnVsaWEgTGF3YWxsIDxKdWxpYS5MYXdhbGxAbGlwNi5mcj4KPiAKPiBUaGlzIGRyaXZl
+ciBkb2VzIG5vdCBuZWVkIHRvIGFkanVzdCB0aGUgcG93ZXIgc3RhdGUgb24gc3VzcGVuZCwgc28g
+dGhlCj4gY2FsbCB0byBwY2lfc2V0X3Bvd2VyX3N0YXRlIGluIHRoZSByZXN1bWUgZnVuY3Rpb24g
+aXMgYSBuby1vcC4gIERyb3AgaXQsIHRvCj4gbWFrZSB0aGUgY29kZSBtb3JlIHVuZGVyc3RhbmRh
+YmxlLgo+IAo+IFNpZ25lZC1vZmYtYnk6IEp1bGlhIExhd2FsbCA8SnVsaWEuTGF3YWxsQGxpcDYu
+ZnI+ClRlc3RlZC1ieTogUGhpbCBTY2htaXR0IDxwaGlsbGlwLmouc2NobWl0dEBpbnRlbC5jb20+
+ClNpZ25lZC1vZmYtYnk6IEFhcm9uIEJyb3duIDxhYXJvbi5mLmJyb3duQGludGVsLmNvbT4KCj4g
+LS0tCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JldmYvaXhnYmV2Zl9tYWluLmMg
+fCAgICAxIC0KPiAgMSBmaWxlIGNoYW5nZWQsIDEgZGVsZXRpb24oLSkKPiAKPiBkaWZmIC0tZ2l0
+IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmV2Zi9peGdiZXZmX21haW4uYyBiL2Ry
+aXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JldmYvaXhnYmV2Zl9tYWluLmMKPiBpbmRleCBh
+NWQzMTY3Li41NzA5ZmIwIDEwMDY0NAo+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
+L2l4Z2JldmYvaXhnYmV2Zl9tYWluLmMKPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRl
+bC9peGdiZXZmL2l4Z2JldmZfbWFpbi5jCj4gQEAgLTMyMjYsNyArMzIyNiw2IEBAIHN0YXRpYyBp
+bnQgaXhnYmV2Zl9yZXN1bWUoc3RydWN0IHBjaV9kZXYgKnBkZXYpCj4gIAlzdHJ1Y3QgbmV0X2Rl
+dmljZSAqbmV0ZGV2ID0gYWRhcHRlci0+bmV0ZGV2Owo+ICAJdTMyIGVycjsKPiAgCj4gLQlwY2lf
+c2V0X3Bvd2VyX3N0YXRlKHBkZXYsIFBDSV9EMCk7Cj4gIAlwY2lfcmVzdG9yZV9zdGF0ZShwZGV2
+KTsKPiAgCS8qCj4gIAkgKiBwY2lfcmVzdG9yZV9zdGF0ZSBjbGVhcnMgZGV2LT5zdGF0ZV9zYXZl
+ZCBzbyBjYWxsCj4gCj4gLS0KPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0
+aGUgbGluZSAidW5zdWJzY3JpYmUgbmV0ZGV2IiBpbgo+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0
+byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnCj4gTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0
+cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sCgoK
