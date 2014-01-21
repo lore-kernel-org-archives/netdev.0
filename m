@@ -1,57 +1,66 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH RFC 4/6] net: rfkill: gpio: add device tree support
-Date: Tue, 21 Jan 2014 19:50:06 +0100
-Message-ID: <201401211950.07011.arnd@arndb.de>
-References: <1389941251-32692-1-git-send-email-wens@csie.org> <201401211335.16885.arnd@arndb.de> <CAAVeFuKFfAvSPYLmvWV5jjT-peZFJ8sJ2bbh4F=JAYoWLhjZpA@mail.gmail.com>
-Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [Xen-devel] [PATCH v3] xen/grant-table: Avoid m2p_override during
+ mapping
+Date: Tue, 21 Jan 2014 19:43:48 +0000
+Message-ID: <52DECDF4.2060301@citrix.com>
+References: <1390244288-3186-1-git-send-email-zoltan.kiss@citrix.com> <alpine.DEB.2.02.1401211217510.21510@kaball.uk.xensource.com> <52DE78BF.2070909@citrix.com> <alpine.DEB.2.02.1401211416420.21510@kaball.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=UTF-8
-Cc: "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org" <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
- Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
- "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- "linux-wireless" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- "linux-sunxi" <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- "linux-kernel" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
- "Chen-Yu Tsai" <wens-jdAy2FN1RRM@public.gmane.org>,
- Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
- Mika Westerberg <mika.westerberg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
- "linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-sunxi+bncBDEKVJM7XAHRB2EC7OLAKGQEZA6F2OQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <CAAVeFuKFfAvSPYLmvWV5jjT-peZFJ8sJ2bbh4F=JAYoWLhjZpA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <jonathan.davies@citrix.com>, <wei.liu2@citrix.com>,
+	<ian.campbell@citrix.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <xen-devel@lists.xenproject.org>
+To: Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.02.1401211416420.21510@kaball.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 21 January 2014, Alexandre Courbot wrote:
-> >> As discussed earlier in this thread I'm not sure the con_id is
-> >> suitable for labelling GPIOs. It'd be better to have a proper name
-> >> specified in DT/ACPI instead.
-> >
-> > +1
-> 
-> I wonder why you guys prefer to have the name defined in the GPIO
-> mapping. Having the driver decide the label makes it easier to look up
-> which GPIO does what in debugfs, whereas nothing prevents people to
-> name GPIOs whatever inadequate name they want in the device DT node.
-> What am I overlooking here?
+On 21/01/14 14:22, Stefano Stabellini wrote:
+> On Tue, 21 Jan 2014, David Vrabel wrote:
+>> On 21/01/14 12:26, Stefano Stabellini wrote:
+>>> On Mon, 20 Jan 2014, Zoltan Kiss wrote:
+>>>
+>>>> -		ret = m2p_add_override(mfn, pages[i], kmap_ops ?
+>>>> -				       &kmap_ops[i] : NULL);
+>>>> +		if (m2p_override)
+>>>> +			ret = m2p_add_override(mfn, pages[i], kmap_ops ?
+>>>> +					       &kmap_ops[i] : NULL);
+>>>> +		else {
+>>>> +			unsigned long pfn = page_to_pfn(pages[i]);
+>>>> +			WARN_ON(PagePrivate(pages[i]));
+>>>> +			SetPagePrivate(pages[i]);
+>>>> +			set_page_private(pages[i], mfn);
+>>>> +			pages[i]->index = pfn_to_mfn(pfn);
+>>>> +			if (unlikely(!set_phys_to_machine(pfn, FOREIGN_FRAME(mfn))))
+>>>> +				return -ENOMEM;
+>>>
+>>> What happens if the page is PageHighMem?
+>>>
+>>> This looks like a subset of m2p_add_override, but it is missing some
+>>> relevant bits, like the PageHighMem check, or the p2m(m2p(mfn)) == mfn
+>>> check.  Maybe we can find a way to avoid duplicating the code.
+>>> We could split m2p_add_override in two functions or add yet another
+>>> parameter to it.
+>>
+>> The PageHighMem() check isn't relevant as we're not mapping anything
+>> here.  Also, a page for a kernel grant mapping only cannot be highmem.
+>>
+>> The check for a local mfn and the additional set_phys_to_machine() is
+>> only necessary if something tries an mfn_to_pfn() on the local mfn.  We
+>> can only omit adding an m2p override if we know thing will try
+>> mfn_to_pfn(), therefore the check and set_phys_to_machine() is unnecessary.
+>
+> OK, you convinced me that the two checks are superfluous for this case.
+>
+> Can we still avoid the code duplication by removing the corresponding
+> code from m2p_add_override and m2p_remove_override and doing the
+> set_page_private thing uniquely in grant-table.c?
+Yes, I moved these parts out from the m2p* funcions to the gntmap 
+functions. One change is that now we pass pfn/mfn to m2p* functions as 
+they are changing right before the call. Also, to avoid racing I clear 
+the page->private value before calling m2p_remove_override. I'll send in 
+the patch soon.
 
-I should have another look at the debugfs representation, but isn't
-there a global namespace that gets used for all gpios?  Neither the
-con_id nor the name that the driver picks would be globally unique
-and stable across kernel versions, so they don't make a good user
-interface.
-
-I think what we want here is a system-wide unique identifier for
-each gpio line that may get represented in debugfs, and use a new
-DT mechanism to communicate that.
-
-	Arnd
+Zoli
