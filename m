@@ -1,43 +1,58 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: Re: [PATCH] [trivial] ixgbe: Fix format string in ixgbe_fcoe.c
-Date: Tue, 21 Jan 2014 23:04:53 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B73142908@ORSMSX101.amr.corp.intel.com>
-References: <1389716082-23395-1-git-send-email-standby24x7@gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 won't transmit with 3.12
+Date: Wed, 22 Jan 2014 00:36:30 +0100
+Message-ID: <20140121233630.GA3214@electric-eye.fr.zoreil.com>
+References: <20140121000615.GA30495@enc.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"trivial@kernel.org" <trivial@kernel.org>
-To: "standby24x7@gmail.com" <standby24x7@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1389716082-23395-1-git-send-email-standby24x7@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>,
+	netdev@vger.kernel.org
+To: Craig Small <csmall@enc.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:34868 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754151AbaAUXgo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 18:36:44 -0500
+Content-Disposition: inline
+In-Reply-To: <20140121000615.GA30495@enc.com.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCAyMDE0LTAxLTE1IGF0IDAxOjE0ICswOTAwLCBNYXNhbmFyaSBJaWRhIHdyb3RlOgo+
-IGNwcGNoZWNrIGRldGVjdGVkIGZvbGxvd2luZyB3YXJuaW5nIGluIGl4Z2JlX2Zjb2UuYwo+ICh3
-YXJuaW5nKSAlZCBpbiBmb3JtYXQgc3RyaW5nIChuby4gMSkgcmVxdWlyZXMgJ2ludCcgYnV0IHRo
-ZQo+IGFyZ3VtZW50IHR5cGUgaXMgJ3Vuc2lnbmVkIGludCcuCj4gCj4gU2lnbmVkLW9mZi1ieTog
-TWFzYW5hcmkgSWlkYSA8c3RhbmRieTI0eDdAZ21haWwuY29tPgpUZXN0ZWQtQnk6IEphY2sgTW9y
-Z2FuIDxqYWNrLm1vcmdhbkBpbnRlbC5jb20+ClNpZ25lZC1vZmYtYnk6IEFhcm9uIEJyb3duIDxh
-YXJvbi5mLmJyb3duQGludGVsLmNvbT4KCj4gLS0tCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2lu
-dGVsL2l4Z2JlL2l4Z2JlX2Zjb2UuYyB8IDIgKy0KPiAgMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0
-aW9uKCspLCAxIGRlbGV0aW9uKC0pCj4gCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVy
-bmV0L2ludGVsL2l4Z2JlL2l4Z2JlX2Zjb2UuYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
-L2l4Z2JlL2l4Z2JlX2Zjb2UuYwo+IGluZGV4IGY1OGRiNDUuLjA4NzI2MTcgMTAwNjQ0Cj4gLS0t
-IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfZmNvZS5jCj4gKysrIGIv
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfZmNvZS5jCj4gQEAgLTU4NSw3
-ICs1ODUsNyBAQCBzdGF0aWMgaW50IGl4Z2JlX2Zjb2VfZG1hX3Bvb2xfYWxsb2Moc3RydWN0IGl4
-Z2JlX2Zjb2UgKmZjb2UsCj4gIAlzdHJ1Y3QgZG1hX3Bvb2wgKnBvb2w7Cj4gIAljaGFyIHBvb2xf
-bmFtZVszMl07Cj4gIAo+IC0Jc25wcmludGYocG9vbF9uYW1lLCAzMiwgIml4Z2JlX2Zjb2VfZGRw
-XyVkIiwgY3B1KTsKPiArCXNucHJpbnRmKHBvb2xfbmFtZSwgMzIsICJpeGdiZV9mY29lX2RkcF8l
-dSIsIGNwdSk7Cj4gIAo+ICAJcG9vbCA9IGRtYV9wb29sX2NyZWF0ZShwb29sX25hbWUsIGRldiwg
-SVhHQkVfRkNQVFJfTUFYLAo+ICAJCQkgICAgICAgSVhHQkVfRkNQVFJfQUxJR04sIFBBR0VfU0la
-RSk7CgoK
+Craig Small <csmall@enc.com.au> :
+[...]
+> It's a new setup so it might of never worked. It's not likely to be a
+> hardware problem as its three different devices.
+
+You may check that the onboard nic device does not even work when the
+extra PCI-e card aren't plugged.
+
+> I've sent what I think you might need for starters, but if there
+> is extra stuff you'd like to see, let me know.
+
+A complete dmesg including the XID lines that the r8169 driver prints
+would be welcome.
+
+> The problem shows up the same, the TX dropped counter increments.
+> I'm not sure why 42 packets made it out (or even if they really did)
+> Receive works fine, I can even start up wireshark and see packets
+> pass by.
+> 
+> eth0      Link encap:Ethernet  HWaddr 00:e0:4c:80:66:57  
+>           inet addr:192.168.1.222  Bcast:192.168.1.255  Mask:255.255.255.0
+>           inet6 addr: fe80::2e0:4cff:fe80:6657/64 Scope:Link
+>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>           RX packets:8252 errors:0 dropped:0 overruns:0 frame:0
+>           TX packets:42 errors:0 dropped:8029 overruns:0 carrier:0
+
+There are very few places where the r8169 driver modifies tx_dropped.
+
+Please increase the driver verbosity with the 'msglvl' option of ethtool.
+
+[...]
+> ethtool -S shows a similar story, not sure if the rx_missed counter
+> is another problem:
+
+It seems safe to ignore as long as it does not change after startup.
+
+-- 
+Ueimor
