@@ -1,60 +1,58 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH net-next 1/7] sctp: remove macros sctp_spin_[un]lock_irqrestore
-Date: Tue, 21 Jan 2014 15:44:06 +0800
-Message-ID: <1390290252-16080-2-git-send-email-wangweidong1@huawei.com>
-References: <1390290252-16080-1-git-send-email-wangweidong1@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <dborkman@redhat.com>, <netdev@vger.kernel.org>,
-	<linux-sctp@vger.kernel.org>
-To: <nhorman@tuxdriver.com>, <davem@davemloft.net>,
-	<vyasevich@gmail.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next] net/mlx4_core: Remove unnecessary validation for port number
+Date: Tue, 21 Jan 2014 10:19:37 +0200
+Message-ID: <1390292377-11806-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Moni Shoua <monis@mellanox.co.il>,
+	Matan Barak <matanb@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:29299 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752285AbaAUHul (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 02:50:41 -0500
-In-Reply-To: <1390290252-16080-1-git-send-email-wangweidong1@huawei.com>
+Received: from mailp.voltaire.com ([193.47.165.129]:44885 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751226AbaAUIUI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jan 2014 03:20:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Redefined spin_[un]lock_irqstore to sctp_spin_[un]lock_irqrestore for user
-space friendly code which we haven't use in years, so removing them.
+From: Moni Shoua <monis@mellanox.co.il>
 
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+This is a fix to a regression introduced by commit:
+"982290a net/mlx4_core: Check port number for validity
+before accessing data"
+
+IPoIB could not attach to multicast group and we get this in dmesg:
+[144214.145008] ib0: failed to attach to multicast group, ret = -22
+[144214.145016] ib0: couldn't attach QP to multicast group ff12:401b:ffff:0000:0000:0000:ffff:ffff
+[144214.145019] ib0: multicast join failed for ff12:401b:ffff:0000:0000:0000:ffff:ffff, status -22
+
+The cause to the problem is because port is extracted from gid[5].
+Which is only valid for Ethernet.
+Removed this validation in mlx4_qp_attach_common(), which is accessed
+from both Ethernet and IB flows.
+Error flow for bad port value in Ethernet is already exists in that
+function.
+
+Signed-off-by: Moni Shoua <monis@mellanox.co.il>
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- include/net/sctp/sctp.h | 7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/mcg.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-index 610a8c8..b180a8f 100644
---- a/include/net/sctp/sctp.h
-+++ b/include/net/sctp/sctp.h
-@@ -171,9 +171,6 @@ extern struct kmem_cache *sctp_bucket_cachep __read_mostly;
-  */
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+index bfe65f7..aefb74f 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
++++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+@@ -943,9 +943,6 @@ int mlx4_qp_attach_common(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
+ 	u8 port = gid[5];
+ 	u8 new_entry = 0;
  
- /* spin lock wrappers. */
--#define sctp_spin_lock_irqsave(lock, flags) spin_lock_irqsave(lock, flags)
--#define sctp_spin_unlock_irqrestore(lock, flags)  \
--       spin_unlock_irqrestore(lock, flags)
- #define sctp_local_bh_disable() local_bh_disable()
- #define sctp_local_bh_enable()  local_bh_enable()
- #define sctp_spin_lock(lock)    spin_lock(lock)
-@@ -353,13 +350,13 @@ static inline void sctp_skb_list_tail(struct sk_buff_head *list,
- {
- 	unsigned long flags;
- 
--	sctp_spin_lock_irqsave(&head->lock, flags);
-+	spin_lock_irqsave(&head->lock, flags);
- 	sctp_spin_lock(&list->lock);
- 
- 	skb_queue_splice_tail_init(list, head);
- 
- 	sctp_spin_unlock(&list->lock);
--	sctp_spin_unlock_irqrestore(&head->lock, flags);
-+	spin_unlock_irqrestore(&head->lock, flags);
- }
- 
- /**
+-	if (port < 1 || port > dev->caps.num_ports)
+-		return -EINVAL;
+-
+ 	mailbox = mlx4_alloc_cmd_mailbox(dev);
+ 	if (IS_ERR(mailbox))
+ 		return PTR_ERR(mailbox);
 -- 
-1.7.12
+1.8.3.4
