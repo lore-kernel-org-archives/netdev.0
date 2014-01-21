@@ -1,78 +1,96 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net v2] tuntap: Fix for a race in accessing numqueues
-Date: Tue, 21 Jan 2014 10:41:07 +0800
-Message-ID: <52DDDE43.7060009@redhat.com>
-References: <1390255158-9058-1-git-send-email-dominic.curran@citrix.com>
+From: Alexandre Courbot <gnurou@gmail.com>
+Subject: Re: [PATCH RFC 4/6] net: rfkill: gpio: add device tree support
+Date: Tue, 21 Jan 2014 12:11:06 +0900
+Message-ID: <CAAVeFuLP4MkfXGG1FMauvUw_J63zRXdhGwxqYy5W98L1wCQNbw@mail.gmail.com>
+References: <1389941251-32692-1-git-send-email-wens@csie.org>
+ <1389941251-32692-5-git-send-email-wens@csie.org> <201401171747.46332.arnd@arndb.de>
+ <CAGb2v67UKiyfJbKZ_Frk3OwZupMPoA2Ck3Hj2zsRFXBQPztavg@mail.gmail.com> <CACRpkdZOD4zeA8T5kbJ4c5NsnuzHCg1mw8rRMYNT9c4R-Qnc6A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Maxim Krasnyansky <maxk@qti.qualcomm.com>
-To: Dominic Curran <dominic.curran@citrix.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Chen-Yu Tsai <wens@csie.org>,
+	Mika Westerberg <mika.westerberg@linux.intel.com>,
+	Heikki Krogerus <heikki.krogerus@linux.intel.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	devicetree <devicetree@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	linux-sunxi <linux-sunxi@googlegroups.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Maxime Ripard <maxime.ripard@free-electrons.com>
+To: Linus Walleij <linus.walleij@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30286 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751859AbaAUCld (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Jan 2014 21:41:33 -0500
-In-Reply-To: <1390255158-9058-1-git-send-email-dominic.curran@citrix.com>
+Received: from mail-vc0-f172.google.com ([209.85.220.172]:62145 "EHLO
+	mail-vc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752736AbaAUDL1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 22:11:27 -0500
+In-Reply-To: <CACRpkdZOD4zeA8T5kbJ4c5NsnuzHCg1mw8rRMYNT9c4R-Qnc6A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/21/2014 05:59 AM, Dominic Curran wrote:
-> A patch for fixing a race between queue selection and changing queues
-> was introduced in commit 92bb73ea2("tuntap: fix a possible race between
-> queue selection and changing queues").
+On Sat, Jan 18, 2014 at 8:11 AM, Linus Walleij <linus.walleij@linaro.org> wrote:
+> On Fri, Jan 17, 2014 at 6:43 PM, Chen-Yu Tsai <wens@csie.org> wrote:
+>> On Sat, Jan 18, 2014 at 12:47 AM, Arnd Bergmann <arnd@arndb.de> wrote:
 >
-> The fix was to prevent the driver from re-reading the tun->numqueues
-> more than once within tun_select_queue() using ACCESS_ONCE().
+>>>> +- NAME_shutdown-gpios  : GPIO phandle to shutdown control
+>>>> +                         (phandle must be the second)
+>>>> +- NAME_reset-gpios     : GPIO phandle to reset control
+>>>> +
+>>>> +NAME must match the rfkill-name property. NAME_shutdown-gpios or
+>>>> +NAME_reset-gpios, or both, must be defined.
+>>>> +
+>>>
+>>> I don't understand this part. Why do you include the name in the
+>>> gpios property, rather than just hardcoding the property strings
+>>> to "shutdown-gpios" and "reset-gpios"?
+>>
+>> This quirk is a result of how gpiod_get_index implements device tree
+>> lookup.
 >
-> We have been experiancing 'Divide-by-zero' errors in tun_net_xmit() 
-> since we moved from 3.6 to 3.10, and believe that they come from a 
-> simular source where the value of tun->numqueues changes to zero 
-> between the first and a subsequent read of tun->numqueues.
+> Why can't it just have a single property "gpios", where the first
+> element is the reset GPIO and the second is the shutdown GPIO?
 >
-> The fix is a simular use of ACCESS_ONCE(), as well as a multiply
-> instead of a divide in the if statement.
+> rfkill-gpio does this:
 >
-> Signed-off-by: Dominic Curran <dominic.curran@citrix.com>
-> Cc: Jason Wang <jasowang@redhat.com>
-> Cc: Maxim Krasnyansky <maxk@qti.qualcomm.com>
-> ---
-> V2: Use multiply instead of divide. Suggested by Eric Dumazet.
->     Fixed email address for maxk. Rebase against net tree.
-> ---
->  drivers/net/tun.c |    8 +++++---
->  1 file changed, 5 insertions(+), 3 deletions(-)
+> gpio = devm_gpiod_get_index(&pdev->dev, rfkill->reset_name, 0);
+> gpio = devm_gpiod_get_index(&pdev->dev, rfkill->shutdown_name, 1);
 >
-> Index: net/drivers/net/tun.c
-> ===================================================================
-> --- net.orig/drivers/net/tun.c	2014-01-20 20:22:06.000000000 +0000
-> +++ net/drivers/net/tun.c	2014-01-20 20:54:54.000000000 +0000
-> @@ -721,12 +721,14 @@ static netdev_tx_t tun_net_xmit(struct s
->  	struct tun_struct *tun = netdev_priv(dev);
->  	int txq = skb->queue_mapping;
->  	struct tun_file *tfile;
-> +	u32 numqueues = 0;
->  
->  	rcu_read_lock();
->  	tfile = rcu_dereference(tun->tfiles[txq]);
-> +	numqueues = ACCESS_ONCE(tun->numqueues);
->  
->  	/* Drop packet if interface is not attached */
-> -	if (txq >= tun->numqueues)
-> +	if (txq >= numqueues)
->  		goto drop;
->  
->  	tun_debug(KERN_INFO, tun, "tun_net_xmit %d\n", skb->len);
-> @@ -746,8 +748,8 @@ static netdev_tx_t tun_net_xmit(struct s
->  	/* Limit the number of packets queued by dividing txq length with the
->  	 * number of queues.
->  	 */
-> -	if (skb_queue_len(&tfile->socket.sk->sk_receive_queue)
-> -			  >= dev->tx_queue_len / tun->numqueues)
-> +	if (skb_queue_len(&tfile->socket.sk->sk_receive_queue) * numqueues
-> +			  >= dev->tx_queue_len)
->  		goto drop;
->  
->  	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
+> The passed con ID name parameter is only there for the device
+> tree case it seems. (ACPI ignores it.) So what about you just
+> don't pass it at all and patch it to do like this instead:
+>
+> gpio = devm_gpiod_get_index(&pdev->dev, NULL, 0);
+> gpio = devm_gpiod_get_index(&pdev->dev, NULL, 1);
+>
+> Heikki, are you OK with this change?
+>
+> I think this is actually necessary if the ACPI and DT unification
+> pipe dream shall limp forward, we cannot have arguments passed
+> that have a semantic effect on DT but not on ACPI... Drivers
+> that are supposed to use both ACPI and DT will always
+> have to pass NULL as con ID.
 
-Acked-by: Jason Wang <jasowang@redhat.com>
+I agree that's how it should be be done with the current API if your
+driver can obtain GPIOs from both ACPI and DT. This is a potential
+issue, as drivers are not supposed to make assumptions about who is
+going to be their GPIO provider. Let's say you started a driver with
+only DT in mind, and used gpio_get(dev, con_id) to get your GPIOs. DT
+bindings are thus of the form "con_id-gpio = <phandle>", and set in
+stone. Then later, someone wants to use your driver with ACPI. How do
+you handle that gracefully?
+
+I'm starting to wonder, now that ACPI is a first-class GPIO provider,
+whether we should not start to encourage the deprecation of the
+"con_id-gpio = <phandle>" binding form in DT and only use a single
+indexed GPIO property per device. The con_id parameter would then only
+be used as a label, which would also have the nice side-effect that
+all GPIOs used for a given function will be reported under the same
+name no matter what the GPIO provider is.
+
+>From an aesthetic point of view, I definitely prefer using con_id to
+identify GPIOs instead of indexes, but I don't see how we can make it
+play nice with ACPI. Thoughts?
+
+Alex.
