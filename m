@@ -1,241 +1,248 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next 09/25] bonding: convert arp_ip_target to use the new option API
-Date: Tue, 21 Jan 2014 15:54:58 +0100
-Message-ID: <1390316114-17815-10-git-send-email-nikolay@redhat.com>
+Subject: [PATCH net-next 07/25] bonding: convert fail_over_mac to use the new option API
+Date: Tue, 21 Jan 2014 15:54:56 +0100
+Message-ID: <1390316114-17815-8-git-send-email-nikolay@redhat.com>
 References: <1390316114-17815-1-git-send-email-nikolay@redhat.com>
 Cc: Nikolay Aleksandrov <nikolay@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:64813 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:3003 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754842AbaAUOzx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jan 2014 09:55:53 -0500
+	id S1754839AbaAUOzw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jan 2014 09:55:52 -0500
 Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s0LEtrTY027142
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s0LEtpZZ013285
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Tue, 21 Jan 2014 09:55:53 -0500
+	for <netdev@vger.kernel.org>; Tue, 21 Jan 2014 09:55:52 -0500
 In-Reply-To: <1390316114-17815-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the necessary changes so arp_ip_target would use
-the new bonding option API. This option is an exception because of
-the way it's currently implemented that's why its netlink code is
-a bit different from the other options to keep the functionality as
-before and at the same time to have a single set function.
-
-This patch also fixes a few stylistic errors.
+This patch adds the necessary changes so fail_over_mac would use
+the new bonding option API.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- drivers/net/bonding/bond_netlink.c | 15 ++++++++----
- drivers/net/bonding/bond_options.c | 48 +++++++++++++++++++++++++++-----------
- drivers/net/bonding/bond_options.h |  4 ++++
- drivers/net/bonding/bond_sysfs.c   | 25 ++++----------------
- drivers/net/bonding/bonding.h      |  2 --
- 5 files changed, 53 insertions(+), 41 deletions(-)
+ drivers/net/bonding/bond_main.c    | 18 ++++++------------
+ drivers/net/bonding/bond_netlink.c |  3 ++-
+ drivers/net/bonding/bond_options.c | 37 ++++++++++++++++++++-----------------
+ drivers/net/bonding/bond_options.h |  3 +++
+ drivers/net/bonding/bond_procfs.c  |  8 +++++---
+ drivers/net/bonding/bond_sysfs.c   | 23 +++++++----------------
+ drivers/net/bonding/bonding.h      |  1 -
+ 7 files changed, 43 insertions(+), 50 deletions(-)
 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 1ad837b..f4da76e 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -215,13 +215,6 @@ const struct bond_parm_tbl bond_lacp_tbl[] = {
+ {	NULL,		-1},
+ };
+ 
+-const struct bond_parm_tbl fail_over_mac_tbl[] = {
+-{	"none",			BOND_FOM_NONE},
+-{	"active",		BOND_FOM_ACTIVE},
+-{	"follow",		BOND_FOM_FOLLOW},
+-{	NULL,			-1},
+-};
+-
+ const struct bond_parm_tbl pri_reselect_tbl[] = {
+ {	"always",		BOND_PRI_RESELECT_ALWAYS},
+ {	"better",		BOND_PRI_RESELECT_BETTER},
+@@ -4278,14 +4271,15 @@ static int bond_check_params(struct bond_params *params)
+ 	}
+ 
+ 	if (fail_over_mac) {
+-		fail_over_mac_value = bond_parse_parm(fail_over_mac,
+-						      fail_over_mac_tbl);
+-		if (fail_over_mac_value == -1) {
++		bond_opt_initstr(&newval, fail_over_mac);
++		valptr = bond_opt_parse(bond_opt_get(BOND_OPT_FAIL_OVER_MAC),
++					&newval);
++		if (!valptr) {
+ 			pr_err("Error: invalid fail_over_mac \"%s\"\n",
+-			       arp_validate == NULL ? "NULL" : arp_validate);
++			       fail_over_mac);
+ 			return -EINVAL;
+ 		}
+-
++		fail_over_mac_value = valptr->value;
+ 		if (bond_mode != BOND_MODE_ACTIVEBACKUP)
+ 			pr_warning("Warning: fail_over_mac only affects active-backup mode.\n");
+ 	} else {
 diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
-index c9264107..3aab730 100644
+index 37dce38..a1b72ac 100644
 --- a/drivers/net/bonding/bond_netlink.c
 +++ b/drivers/net/bonding/bond_netlink.c
-@@ -173,16 +173,23 @@ static int bond_changelink(struct net_device *bond_dev,
- 			return err;
- 	}
- 	if (data[IFLA_BOND_ARP_IP_TARGET]) {
--		__be32 targets[BOND_MAX_ARP_TARGETS] = { 0, };
- 		struct nlattr *attr;
- 		int i = 0, rem;
+@@ -233,7 +233,8 @@ static int bond_changelink(struct net_device *bond_dev,
+ 		int fail_over_mac =
+ 			nla_get_u8(data[IFLA_BOND_FAIL_OVER_MAC]);
  
-+		bond_option_arp_ip_targets_clear(bond);
- 		nla_for_each_nested(attr, data[IFLA_BOND_ARP_IP_TARGET], rem) {
- 			__be32 target = nla_get_be32(attr);
--			targets[i++] = target;
--		}
- 
--		err = bond_option_arp_ip_targets_set(bond, targets, i);
-+			bond_opt_initval(&newval, target);
-+			err = __bond_opt_set(bond, BOND_OPT_ARP_TARGETS,
-+					     &newval);
-+			if (err)
-+				break;
-+			i++;
-+		}
-+		if (i == 0 && bond->params.arp_interval)
-+			pr_warn("%s: removing last arp target with arp_interval on\n",
-+				bond->dev->name);
+-		err = bond_option_fail_over_mac_set(bond, fail_over_mac);
++		bond_opt_initval(&newval, fail_over_mac);
++		err = __bond_opt_set(bond, BOND_OPT_FAIL_OVER_MAC, &newval);
  		if (err)
  			return err;
  	}
 diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index c3eb617..5f6b064 100644
+index d993639..7e082e0 100644
 --- a/drivers/net/bonding/bond_options.c
 +++ b/drivers/net/bonding/bond_options.c
-@@ -18,6 +18,7 @@
- #include <linux/rcupdate.h>
- #include <linux/reciprocal_div.h>
- #include <linux/ctype.h>
-+#include <linux/inet.h>
- #include "bonding.h"
+@@ -60,6 +60,13 @@ static struct bond_opt_value bond_arp_all_targets_tbl[] = {
+ 	{ NULL,  -1,                   0},
+ };
  
- static struct bond_opt_value bond_mode_tbl[] = {
-@@ -128,6 +129,13 @@ static struct bond_option bond_opts[] = {
- 		.values = bond_intmax_tbl,
- 		.set = bond_option_arp_interval_set
++static struct bond_opt_value bond_fail_over_mac_tbl[] = {
++	{ "none",   BOND_FOM_NONE,   BOND_VALFLAG_DEFAULT},
++	{ "active", BOND_FOM_ACTIVE, 0},
++	{ "follow", BOND_FOM_FOLLOW, 0},
++	{ NULL,     -1,              0},
++};
++
+ static struct bond_option bond_opts[] = {
+ 	[BOND_OPT_MODE] = {
+ 		.id = BOND_OPT_MODE,
+@@ -99,6 +106,14 @@ static struct bond_option bond_opts[] = {
+ 		.values = bond_arp_all_targets_tbl,
+ 		.set = bond_option_arp_all_targets_set
  	},
-+	[BOND_OPT_ARP_TARGETS] = {
-+		.id = BOND_OPT_ARP_TARGETS,
-+		.name = "arp_ip_target",
-+		.desc = "arp targets in n.n.n.n form",
-+		.flags = BOND_OPTFLAG_RAWVAL,
-+		.set = bond_option_arp_ip_targets_set
++	[BOND_OPT_FAIL_OVER_MAC] = {
++		.id = BOND_OPT_FAIL_OVER_MAC,
++		.name = "fail_over_mac",
++		.desc = "For active-backup, do not set all slaves to the same MAC",
++		.flags = BOND_OPTFLAG_NOSLAVES,
++		.values = bond_fail_over_mac_tbl,
++		.set = bond_option_fail_over_mac_set
 +	},
  	{ }
  };
  
-@@ -758,29 +766,41 @@ int bond_option_arp_ip_target_rem(struct bonding *bond, __be32 target)
+@@ -865,24 +880,12 @@ int bond_option_primary_reselect_set(struct bonding *bond, int primary_reselect)
  	return 0;
  }
  
--int bond_option_arp_ip_targets_set(struct bonding *bond, __be32 *targets,
--				   int count)
-+void bond_option_arp_ip_targets_clear(struct bonding *bond)
+-int bond_option_fail_over_mac_set(struct bonding *bond, int fail_over_mac)
++int bond_option_fail_over_mac_set(struct bonding *bond,
++				  struct bond_opt_value *newval)
  {
--	int i, ret = 0;
-+	int i;
- 
- 	/* not to race with bond_arp_rcv */
- 	write_lock_bh(&bond->lock);
+-	if (bond_parm_tbl_lookup(fail_over_mac, fail_over_mac_tbl) < 0) {
+-		pr_err("%s: Ignoring invalid fail_over_mac value %d.\n",
+-		       bond->dev->name, fail_over_mac);
+-		return -EINVAL;
+-	}
 -
--	/* clear table */
- 	for (i = 0; i < BOND_MAX_ARP_TARGETS; i++)
- 		_bond_options_arp_ip_target_set(bond, i, 0, 0);
-+	write_unlock_bh(&bond->lock);
-+}
- 
--	if (count == 0 && bond->params.arp_interval)
--		pr_warn("%s: removing last arp target with arp_interval on\n",
--			bond->dev->name);
+-	if (bond_has_slaves(bond)) {
+-		pr_err("%s: Can't alter fail_over_mac with slaves in bond.\n",
+-		       bond->dev->name);
+-		return -EPERM;
+-	}
 -
--	for (i = 0; i < count; i++) {
--		ret = _bond_option_arp_ip_target_add(bond, targets[i]);
--		if (ret)
--			break;
-+int bond_option_arp_ip_targets_set(struct bonding *bond,
-+				   struct bond_opt_value *newval)
-+{
-+	int ret = -EPERM;
-+	__be32 target;
-+
-+	if (newval->string) {
-+		if (!in4_pton(newval->string+1, -1, (u8 *)&target, -1, NULL)) {
-+			pr_err("%s: invalid ARP target %pI4 specified\n",
-+			       bond->dev->name, &target);
-+			return ret;
-+		}
-+		if (newval->string[0] == '+')
-+			ret = bond_option_arp_ip_target_add(bond, target);
-+		else if (newval->string[0] == '-')
-+			ret = bond_option_arp_ip_target_rem(bond, target);
-+		else
-+			pr_err("no command found in arp_ip_targets file for bond %s. Use +<addr> or -<addr>.\n",
-+			       bond->dev->name);
-+	} else {
-+		target = newval->value;
-+		ret = bond_option_arp_ip_target_add(bond, target);
- 	}
+-	bond->params.fail_over_mac = fail_over_mac;
+-	pr_info("%s: Setting fail_over_mac to %s (%d).\n",
+-		bond->dev->name, fail_over_mac_tbl[fail_over_mac].modename,
+-		fail_over_mac);
++	pr_info("%s: Setting fail_over_mac to %s (%llu).\n",
++		bond->dev->name, newval->string, newval->value);
++	bond->params.fail_over_mac = newval->value;
  
--	write_unlock_bh(&bond->lock);
- 	return ret;
+ 	return 0;
  }
- 
 diff --git a/drivers/net/bonding/bond_options.h b/drivers/net/bonding/bond_options.h
-index f02b857..da35148 100644
+index 88f8c17..e80a031 100644
 --- a/drivers/net/bonding/bond_options.h
 +++ b/drivers/net/bonding/bond_options.h
-@@ -45,6 +45,7 @@ enum {
+@@ -43,6 +43,7 @@ enum {
+ 	BOND_OPT_XMIT_HASH,
+ 	BOND_OPT_ARP_VALIDATE,
  	BOND_OPT_ARP_ALL_TARGETS,
- 	BOND_OPT_FAIL_OVER_MAC,
- 	BOND_OPT_ARP_INTERVAL,
-+	BOND_OPT_ARP_TARGETS,
++	BOND_OPT_FAIL_OVER_MAC,
  	BOND_OPT_LAST
  };
  
-@@ -117,4 +118,7 @@ int bond_option_fail_over_mac_set(struct bonding *bond,
- 				  struct bond_opt_value *newval);
- int bond_option_arp_interval_set(struct bonding *bond,
+@@ -111,4 +112,6 @@ int bond_option_arp_validate_set(struct bonding *bond,
  				 struct bond_opt_value *newval);
-+int bond_option_arp_ip_targets_set(struct bonding *bond,
-+				   struct bond_opt_value *newval);
-+void bond_option_arp_ip_targets_clear(struct bonding *bond);
+ int bond_option_arp_all_targets_set(struct bonding *bond,
+ 				    struct bond_opt_value *newval);
++int bond_option_fail_over_mac_set(struct bonding *bond,
++				  struct bond_opt_value *newval);
  #endif /* _BOND_OPTIONS_H */
+diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
+index edb7c18..1a66310 100644
+--- a/drivers/net/bonding/bond_procfs.c
++++ b/drivers/net/bonding/bond_procfs.c
+@@ -77,9 +77,11 @@ static void bond_info_show_master(struct seq_file *seq)
+ 		   bond_mode_name(bond->params.mode));
+ 
+ 	if (bond->params.mode == BOND_MODE_ACTIVEBACKUP &&
+-	    bond->params.fail_over_mac)
+-		seq_printf(seq, " (fail_over_mac %s)",
+-		   fail_over_mac_tbl[bond->params.fail_over_mac].modename);
++	    bond->params.fail_over_mac) {
++		optval = bond_opt_get_val(BOND_OPT_FAIL_OVER_MAC,
++					  bond->params.fail_over_mac);
++		seq_printf(seq, " (fail_over_mac %s)", optval->string);
++	}
+ 
+ 	seq_printf(seq, "\n");
+ 
 diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 414d713..14cc9fe 100644
+index 500f7df..e300190 100644
 --- a/drivers/net/bonding/bond_sysfs.c
 +++ b/drivers/net/bonding/bond_sysfs.c
-@@ -455,8 +455,8 @@ static ssize_t bonding_show_arp_targets(struct device *d,
- 					struct device_attribute *attr,
- 					char *buf)
+@@ -392,34 +392,25 @@ static ssize_t bonding_show_fail_over_mac(struct device *d,
+ 					  char *buf)
  {
--	int i, res = 0;
  	struct bonding *bond = to_bond(d);
-+	int i, res = 0;
++	struct bond_opt_value *val;
  
- 	for (i = 0; i < BOND_MAX_ARP_TARGETS; i++) {
- 		if (bond->params.arp_targets[i])
-@@ -465,6 +465,7 @@ static ssize_t bonding_show_arp_targets(struct device *d,
- 	}
- 	if (res)
- 		buf[res-1] = '\n'; /* eat the leftover space */
+-	return sprintf(buf, "%s %d\n",
+-		       fail_over_mac_tbl[bond->params.fail_over_mac].modename,
+-		       bond->params.fail_over_mac);
++	val = bond_opt_get_val(BOND_OPT_FAIL_OVER_MAC,
++			       bond->params.fail_over_mac);
 +
- 	return res;
++	return sprintf(buf, "%s %d\n", val->string, bond->params.fail_over_mac);
  }
  
-@@ -473,30 +474,12 @@ static ssize_t bonding_store_arp_targets(struct device *d,
- 					 const char *buf, size_t count)
+ static ssize_t bonding_store_fail_over_mac(struct device *d,
+ 					   struct device_attribute *attr,
+ 					   const char *buf, size_t count)
  {
+-	int new_value, ret;
  	struct bonding *bond = to_bond(d);
--	__be32 target;
--	int ret = -EPERM;
--
--	if (!in4_pton(buf + 1, -1, (u8 *)&target, -1, NULL)) {
--		pr_err("%s: invalid ARP target %pI4 specified\n",
--		       bond->dev->name, &target);
--		return -EPERM;
++	int ret;
+ 
+-	new_value = bond_parse_parm(buf, fail_over_mac_tbl);
+-	if (new_value < 0) {
+-		pr_err("%s: Ignoring invalid fail_over_mac value %s.\n",
+-		       bond->dev->name, buf);
+-		return -EINVAL;
 -	}
 -
 -	if (!rtnl_trylock())
 -		return restart_syscall();
 -
--	if (buf[0] == '+')
--		ret = bond_option_arp_ip_target_add(bond, target);
--	else if (buf[0] == '-')
--		ret = bond_option_arp_ip_target_rem(bond, target);
--	else
--		pr_err("no command found in arp_ip_targets file for bond %s. Use +<addr> or -<addr>.\n",
--		       bond->dev->name);
-+	int ret;
- 
-+	ret = bond_opt_tryset_rtnl(bond, BOND_OPT_ARP_TARGETS, (char *)buf);
+-	ret = bond_option_fail_over_mac_set(bond, new_value);
++	ret = bond_opt_tryset_rtnl(bond, BOND_OPT_FAIL_OVER_MAC, (char *)buf);
  	if (!ret)
  		ret = count;
  
 -	rtnl_unlock();
  	return ret;
  }
- static DEVICE_ATTR(arp_ip_target, S_IRUGO | S_IWUSR , bonding_show_arp_targets, bonding_store_arp_targets);
+ 
 diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index af065af..85a32e3 100644
+index e240b2f..0550615 100644
 --- a/drivers/net/bonding/bonding.h
 +++ b/drivers/net/bonding/bonding.h
-@@ -454,8 +454,6 @@ int bond_option_miimon_set(struct bonding *bond, int miimon);
- int bond_option_updelay_set(struct bonding *bond, int updelay);
- int bond_option_downdelay_set(struct bonding *bond, int downdelay);
- int bond_option_use_carrier_set(struct bonding *bond, int use_carrier);
--int bond_option_arp_ip_targets_set(struct bonding *bond, __be32 *targets,
--				   int count);
- int bond_option_arp_ip_target_add(struct bonding *bond, __be32 target);
- int bond_option_arp_ip_target_rem(struct bonding *bond, __be32 target);
+@@ -462,7 +462,6 @@ int bond_option_arp_ip_target_rem(struct bonding *bond, __be32 target);
  int bond_option_primary_set(struct bonding *bond, const char *primary);
+ int bond_option_primary_reselect_set(struct bonding *bond,
+ 				     int primary_reselect);
+-int bond_option_fail_over_mac_set(struct bonding *bond, int fail_over_mac);
+ int bond_option_resend_igmp_set(struct bonding *bond, int resend_igmp);
+ int bond_option_num_peer_notif_set(struct bonding *bond, int num_peer_notif);
+ int bond_option_all_slaves_active_set(struct bonding *bond,
 -- 
 1.8.4.2
