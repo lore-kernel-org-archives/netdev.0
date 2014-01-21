@@ -1,54 +1,58 @@
 From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH] net: gre: don't pull skb if dealing with icmp message
-Date: Tue, 21 Jan 2014 10:27:37 -0800
-Message-ID: <CALnjE+rkN5Nsoq0sOYaTH5gncPKUiK+ppBRc68ap7Vs-kYfqbw@mail.gmail.com>
-References: <52DB8E4A.7050809@cn.fujitsu.com>
-	<CALnjE+qtB4fEw4HdUZy6nXU6gSAjeSCiBn0EaQR9o_d2SY3yNQ@mail.gmail.com>
-	<52DC7DE4.1050108@cn.fujitsu.com>
+Subject: Re: [PATCH] ip_tunnel: clear IPCB in ip_tunnel_xmit() in case
+ dst_link_failure() is called
+Date: Tue, 21 Jan 2014 10:33:36 -0800
+Message-ID: <CALnjE+qFPoK_0EnZ_TWe1sx4s166iSjAH_+1r2uENeS4aRBckQ@mail.gmail.com>
+References: <52DE1F60.2060109@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=ISO-8859-1
 Cc: David Miller <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
+	Daniel Petre <daniel.petre@rcs-rds.ro>,
+	Eric Dumazet <edumazet@google.com>,
 	netdev <netdev@vger.kernel.org>
 To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog120.obsmtp.com ([74.125.149.140]:50292 "HELO
-	na3sys009aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754900AbaAUS1p convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jan 2014 13:27:45 -0500
-Received: by mail-vc0-f170.google.com with SMTP id hu8so3780236vcb.15
-        for <netdev@vger.kernel.org>; Tue, 21 Jan 2014 10:27:37 -0800 (PST)
-In-Reply-To: <52DC7DE4.1050108@cn.fujitsu.com>
+Received: from na3sys009aog123.obsmtp.com ([74.125.149.149]:36152 "HELO
+	na3sys009aog123.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755124AbaAUSdi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 13:33:38 -0500
+Received: by mail-vb0-f46.google.com with SMTP id o19so3755232vbm.33
+        for <netdev@vger.kernel.org>; Tue, 21 Jan 2014 10:33:37 -0800 (PST)
+In-Reply-To: <52DE1F60.2060109@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 19, 2014 at 5:37 PM, Duan Jiong <duanj.fnst@cn.fujitsu.com>=
- wrote:
-> =D3=DA 2014=C4=EA01=D4=C220=C8=D5 05:08, Pravin Shelar =D0=B4=B5=C0:
->> On Sun, Jan 19, 2014 at 12:35 AM, Duan Jiong <duanj.fnst@cn.fujitsu.=
-com> wrote:
->>>
->>> When dealing with icmp messages, the skb->data points the
->>> ip header that triggered the sending of the icmp message.
->>>
->>> In gre_cisco_err(), the parse_gre_header() is called, and the
->>> iptunnel_pull_header() is called to pull the skb at the end of
->>> the parse_gre_header(). Unfortunately, the ipgre_err still needs
->>> the skb->data points the ip header following the icmp layer,
->>> and those ip addresses in ip header will be used to look up
->>> tunnel by ip_tunnel_lookup().
->>>
->> This looks like bug.
->> Can you use ip_hdr() rather than skb->data in ipgre_err().
->> Same is done in ipgre_rcv().
+On Mon, Jan 20, 2014 at 11:18 PM, Duan Jiong <duanj.fnst@cn.fujitsu.com> wrote:
 >
-> That's maybe not a good idea. The ip_hdr() will the return the outmos=
-t
-> ip header, but we need inner ip header following the icmp layer.
+> commit a622260254ee48("ip_tunnel: fix kernel panic with icmp_dest_unreach")
+> clear IPCB in ip_tunnel_xmit()  , or else skb->cb[] may contain garbage from
+> GSO segmentation layer.
 >
-Why do you want to use inner ip header?
-If you want to really look at original packet header, you can
-calculate it from outer iph header rather than changing fast path
-parse_gre_header() function.
+> But commit 0e6fbc5b6c621("ip_tunnels: extend iptunnel_xmit()") refactor codes,
+> and it clear IPCB behind the dst_link_failure().
+>
+ok.
+
+> So clear IPCB in ip_tunnel_xmit() just like commti a622260254ee48("ip_tunnel:
+> fix kernel panic with icmp_dest_unreach").
+>
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> ---
+>  net/ipv4/ip_tunnel.c | 1 +
+>  1 file changed, 1 insertion(+)
+>
+> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+> index 90ff957..dda1e9a 100644
+> --- a/net/ipv4/ip_tunnel.c
+> +++ b/net/ipv4/ip_tunnel.c
+> @@ -535,6 +535,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+>
+>         inner_iph = (const struct iphdr *)skb_inner_network_header(skb);
+>
+> +       memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
+>         dst = tnl_params->daddr;
+>         if (dst == 0) {
+>                 /* NBMA tunnel */
+
+Can you clear IPCB in error path for dst_link_failure(). So that we do
+not clear it twice in fast path.
