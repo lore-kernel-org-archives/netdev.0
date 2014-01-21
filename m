@@ -1,425 +1,84 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH v4] xen/grant-table: Avoid m2p_override during mapping
-Date: Tue, 21 Jan 2014 20:22:35 +0000
-Message-ID: <1390335755-29328-1-git-send-email-zoltan.kiss@citrix.com>
+From: "gregory hoggarth" <gregory.hoggarth@alliedtelesis.co.nz>
+Subject: Kernel fails to drop packet with martian source address
+ (subnet broadcast)
+Date: Wed, 22 Jan 2014 09:45:10 +1300
+Message-ID: <52DF93260200005D00047B14@gwia2.atlnz.lc>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>
-To: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.alliedtelesis.co.nz ([202.36.163.21]:56846 "EHLO
+	gate.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753303AbaAUUpS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 15:45:18 -0500
+Received: from mmarshal3.atlnz.lc (mmarshal3.atlnz.lc [10.32.18.43])
+	(using TLSv1 with cipher ECDHE-RSA-AES256-SHA (256/256 bits))
+	(Client did not present a certificate)
+	by gate.alliedtelesis.co.nz (Postfix) with ESMTPS id 127AB6112F
+	for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 09:45:14 +1300 (NZDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The grant mapping API does m2p_override unnecessarily: only gntdev needs it,
-for blkback and future netback patches it just cause a lock contention, as
-those pages never go to userspace. Therefore this series does the following:
-- the original functions were renamed to __gnttab_[un]map_refs, with a new
-  parameter m2p_override
-- based on m2p_override either they follow the original behaviour, or just set
-  the private flag and call set_phys_to_machine
-- gnttab_[un]map_refs are now a wrapper to call __gnttab_[un]map_refs with
-  m2p_override false
-- a new function gnttab_[un]map_refs_userspace provides the old behaviour
+Hi,
 
-v2:
-- move the storing of the old mfn in page->index to gnttab_map_refs
-- move the function header update to a separate patch
+This is my second mail to the list about this issue, since I didn't get much of
+a response for my first one.
 
-v3:
-- a new approach to retain old behaviour where it needed
-- squash the patches into one
+Earlier in the year we upgraded the linux kernel on our L3 switch firmware to 
+v3.6.2 which includes the "ipv4: Elidge fib_validate_source() completely when 
+possible" patch. Our testers have picked up a change in behaviour which I have 
+traced back to this patch and I'd like to get comments on whether this is a bug
+or not. Here's the patch: 
+https://github.com/torvalds/linux/commit/7a9bc9b81a5bc6e44ebc80ef781332e4385083f2
 
-v4:
-- move out the common bits from m2p* functions, and pass pfn/mfn as parameter
-- clear page->private before doing anything with the page, so m2p_find_override
-  won't race with this
+We found that in a configuration with a device under test (DUT) that has an IP 
+address 192.168.0.1 / 24, when it is sent an ICMP echo request with a source IP 
+address of 192.168.0.255 will now be accepted by the DUT, which will send an 
+ICMP echo reply back to the 192.168.0.255 address with a broadcast MAC address 
+of FFFF.FFFF.FFFF, meaning any other devices in the L2 domain will pick up and 
+process the ICMP reply.
 
-Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-Suggested-by: David Vrabel <david.vrabel@citrix.com>
----
- arch/x86/include/asm/xen/page.h     |   12 +++--
- arch/x86/xen/p2m.c                  |   25 ++--------
- drivers/block/xen-blkback/blkback.c |   15 +++---
- drivers/xen/gntdev.c                |   13 +++--
- drivers/xen/grant-table.c           |   90 +++++++++++++++++++++++++++++------
- include/xen/grant_table.h           |    8 +++-
- 6 files changed, 107 insertions(+), 56 deletions(-)
+Prior to the upgrade, our device was running on linux kernel 2.6.38.2, and in 
+that version the DUT would reject the packet with a martian source address 
+error:
+11:20:54 awplus kernel: RxPkt(00001) Q:1 dev:8 lport:00000a00 cpuC:154 encap:0 
+len:98 bufs:1
+11:20:54 awplus kernel: RxPkt(00001) vid:1 port2.0.23
+11:20:54 awplus kernel: <7>   0000cd29 980d0000 cd27c1eb 08004500 
+11:20:54 awplus kernel: <7>   00540000 40004001 b858c0a8 00ffc0a8 
+11:20:54 awplus kernel: <7>   00010800 a4cf588c 000552dd c9990000 
+11:20:54 awplus kernel: <7>   f3240809 0a0b0c0d 0e0f1011 12131415 
+11:20:54 awplus kernel: <7>   (...)
+11:20:54 awplus kernel: martian source 192.168.0.1 from 192.168.0.255, on dev 
+vlan1
+11:20:54 awplus kernel: ll header: 
+00:00:cd:29:98:0d:00:00:cd:27:c1:eb:08:00:45:00
 
-diff --git a/arch/x86/include/asm/xen/page.h b/arch/x86/include/asm/xen/page.h
-index b913915..68a1438 100644
---- a/arch/x86/include/asm/xen/page.h
-+++ b/arch/x86/include/asm/xen/page.h
-@@ -49,10 +49,14 @@ extern bool __set_phys_to_machine(unsigned long pfn, unsigned long mfn);
- extern unsigned long set_phys_range_identity(unsigned long pfn_s,
- 					     unsigned long pfn_e);
- 
--extern int m2p_add_override(unsigned long mfn, struct page *page,
--			    struct gnttab_map_grant_ref *kmap_op);
-+extern int m2p_add_override(unsigned long mfn,
-+			    struct page *page,
-+			    struct gnttab_map_grant_ref *kmap_op,
-+			    unsigned long pfn);
- extern int m2p_remove_override(struct page *page,
--				struct gnttab_map_grant_ref *kmap_op);
-+			       struct gnttab_map_grant_ref *kmap_op,
-+			       unsigned long pfn,
-+			       unsigned long mfn);
- extern struct page *m2p_find_override(unsigned long mfn);
- extern unsigned long m2p_find_override_pfn(unsigned long mfn, unsigned long pfn);
- 
-@@ -121,7 +125,7 @@ static inline unsigned long mfn_to_pfn(unsigned long mfn)
- 		pfn = m2p_find_override_pfn(mfn, ~0);
- 	}
- 
--	/* 
-+	/*
- 	 * pfn is ~0 if there are no entries in the m2p for mfn or if the
- 	 * entry doesn't map back to the mfn and m2p_override doesn't have a
- 	 * valid entry for it.
-diff --git a/arch/x86/xen/p2m.c b/arch/x86/xen/p2m.c
-index 2ae8699..0060178 100644
---- a/arch/x86/xen/p2m.c
-+++ b/arch/x86/xen/p2m.c
-@@ -872,15 +872,13 @@ static unsigned long mfn_hash(unsigned long mfn)
- 
- /* Add an MFN override for a particular page */
- int m2p_add_override(unsigned long mfn, struct page *page,
--		struct gnttab_map_grant_ref *kmap_op)
-+		struct gnttab_map_grant_ref *kmap_op, unsigned long pfn)
- {
- 	unsigned long flags;
--	unsigned long pfn;
- 	unsigned long uninitialized_var(address);
- 	unsigned level;
- 	pte_t *ptep = NULL;
- 
--	pfn = page_to_pfn(page);
- 	if (!PageHighMem(page)) {
- 		address = (unsigned long)__va(pfn << PAGE_SHIFT);
- 		ptep = lookup_address(address, &level);
-@@ -888,13 +886,6 @@ int m2p_add_override(unsigned long mfn, struct page *page,
- 					"m2p_add_override: pfn %lx not mapped", pfn))
- 			return -EINVAL;
- 	}
--	WARN_ON(PagePrivate(page));
--	SetPagePrivate(page);
--	set_page_private(page, mfn);
--	page->index = pfn_to_mfn(pfn);
--
--	if (unlikely(!set_phys_to_machine(pfn, FOREIGN_FRAME(mfn))))
--		return -ENOMEM;
- 
- 	if (kmap_op != NULL) {
- 		if (!PageHighMem(page)) {
-@@ -933,20 +924,15 @@ int m2p_add_override(unsigned long mfn, struct page *page,
- }
- EXPORT_SYMBOL_GPL(m2p_add_override);
- int m2p_remove_override(struct page *page,
--		struct gnttab_map_grant_ref *kmap_op)
-+			struct gnttab_map_grant_ref *kmap_op,
-+			unsigned long pfn,
-+			unsigned long mfn)
- {
- 	unsigned long flags;
--	unsigned long mfn;
--	unsigned long pfn;
- 	unsigned long uninitialized_var(address);
- 	unsigned level;
- 	pte_t *ptep = NULL;
- 
--	pfn = page_to_pfn(page);
--	mfn = get_phys_to_machine(pfn);
--	if (mfn == INVALID_P2M_ENTRY || !(mfn & FOREIGN_FRAME_BIT))
--		return -EINVAL;
--
- 	if (!PageHighMem(page)) {
- 		address = (unsigned long)__va(pfn << PAGE_SHIFT);
- 		ptep = lookup_address(address, &level);
-@@ -959,10 +945,7 @@ int m2p_remove_override(struct page *page,
- 	spin_lock_irqsave(&m2p_override_lock, flags);
- 	list_del(&page->lru);
- 	spin_unlock_irqrestore(&m2p_override_lock, flags);
--	WARN_ON(!PagePrivate(page));
--	ClearPagePrivate(page);
- 
--	set_phys_to_machine(pfn, page->index);
- 	if (kmap_op != NULL) {
- 		if (!PageHighMem(page)) {
- 			struct multicall_space mcs;
-diff --git a/drivers/block/xen-blkback/blkback.c b/drivers/block/xen-blkback/blkback.c
-index 6620b73..875025f 100644
---- a/drivers/block/xen-blkback/blkback.c
-+++ b/drivers/block/xen-blkback/blkback.c
-@@ -285,8 +285,7 @@ static void free_persistent_gnts(struct xen_blkif *blkif, struct rb_root *root,
- 
- 		if (++segs_to_unmap == BLKIF_MAX_SEGMENTS_PER_REQUEST ||
- 			!rb_next(&persistent_gnt->node)) {
--			ret = gnttab_unmap_refs(unmap, NULL, pages,
--				segs_to_unmap);
-+			ret = gnttab_unmap_refs(unmap, pages, segs_to_unmap);
- 			BUG_ON(ret);
- 			put_free_pages(blkif, pages, segs_to_unmap);
- 			segs_to_unmap = 0;
-@@ -321,8 +320,7 @@ static void unmap_purged_grants(struct work_struct *work)
- 		pages[segs_to_unmap] = persistent_gnt->page;
- 
- 		if (++segs_to_unmap == BLKIF_MAX_SEGMENTS_PER_REQUEST) {
--			ret = gnttab_unmap_refs(unmap, NULL, pages,
--				segs_to_unmap);
-+			ret = gnttab_unmap_refs(unmap, pages, segs_to_unmap);
- 			BUG_ON(ret);
- 			put_free_pages(blkif, pages, segs_to_unmap);
- 			segs_to_unmap = 0;
-@@ -330,7 +328,7 @@ static void unmap_purged_grants(struct work_struct *work)
- 		kfree(persistent_gnt);
- 	}
- 	if (segs_to_unmap > 0) {
--		ret = gnttab_unmap_refs(unmap, NULL, pages, segs_to_unmap);
-+		ret = gnttab_unmap_refs(unmap, pages, segs_to_unmap);
- 		BUG_ON(ret);
- 		put_free_pages(blkif, pages, segs_to_unmap);
- 	}
-@@ -670,15 +668,14 @@ static void xen_blkbk_unmap(struct xen_blkif *blkif,
- 				    GNTMAP_host_map, pages[i]->handle);
- 		pages[i]->handle = BLKBACK_INVALID_HANDLE;
- 		if (++invcount == BLKIF_MAX_SEGMENTS_PER_REQUEST) {
--			ret = gnttab_unmap_refs(unmap, NULL, unmap_pages,
--			                        invcount);
-+			ret = gnttab_unmap_refs(unmap, unmap_pages, invcount);
- 			BUG_ON(ret);
- 			put_free_pages(blkif, unmap_pages, invcount);
- 			invcount = 0;
- 		}
- 	}
- 	if (invcount) {
--		ret = gnttab_unmap_refs(unmap, NULL, unmap_pages, invcount);
-+		ret = gnttab_unmap_refs(unmap, unmap_pages, invcount);
- 		BUG_ON(ret);
- 		put_free_pages(blkif, unmap_pages, invcount);
- 	}
-@@ -740,7 +737,7 @@ again:
- 	}
- 
- 	if (segs_to_map) {
--		ret = gnttab_map_refs(map, NULL, pages_to_gnt, segs_to_map);
-+		ret = gnttab_map_refs(map, pages_to_gnt, segs_to_map);
- 		BUG_ON(ret);
- 	}
- 
-diff --git a/drivers/xen/gntdev.c b/drivers/xen/gntdev.c
-index e41c79c..e652c0e 100644
---- a/drivers/xen/gntdev.c
-+++ b/drivers/xen/gntdev.c
-@@ -284,8 +284,10 @@ static int map_grant_pages(struct grant_map *map)
- 	}
- 
- 	pr_debug("map %d+%d\n", map->index, map->count);
--	err = gnttab_map_refs(map->map_ops, use_ptemod ? map->kmap_ops : NULL,
--			map->pages, map->count);
-+	err = gnttab_map_refs_userspace(map->map_ops,
-+					use_ptemod ? map->kmap_ops : NULL,
-+					map->pages,
-+					map->count);
- 	if (err)
- 		return err;
- 
-@@ -315,9 +317,10 @@ static int __unmap_grant_pages(struct grant_map *map, int offset, int pages)
- 		}
- 	}
- 
--	err = gnttab_unmap_refs(map->unmap_ops + offset,
--			use_ptemod ? map->kmap_ops + offset : NULL, map->pages + offset,
--			pages);
-+	err = gnttab_unmap_refs_userspace(map->unmap_ops + offset,
-+					  use_ptemod ? map->kmap_ops + offset : NULL,
-+					  map->pages + offset,
-+					  pages);
- 	if (err)
- 		return err;
- 
-diff --git a/drivers/xen/grant-table.c b/drivers/xen/grant-table.c
-index aa846a4..1f97fa0 100644
---- a/drivers/xen/grant-table.c
-+++ b/drivers/xen/grant-table.c
-@@ -880,15 +880,17 @@ void gnttab_batch_copy(struct gnttab_copy *batch, unsigned count)
- }
- EXPORT_SYMBOL_GPL(gnttab_batch_copy);
- 
--int gnttab_map_refs(struct gnttab_map_grant_ref *map_ops,
-+int __gnttab_map_refs(struct gnttab_map_grant_ref *map_ops,
- 		    struct gnttab_map_grant_ref *kmap_ops,
--		    struct page **pages, unsigned int count)
-+		    struct page **pages, unsigned int count,
-+		    bool m2p_override)
- {
- 	int i, ret;
- 	bool lazy = false;
- 	pte_t *pte;
--	unsigned long mfn;
-+	unsigned long mfn, pfn;
- 
-+	BUG_ON(kmap_ops && !m2p_override);
- 	ret = HYPERVISOR_grant_table_op(GNTTABOP_map_grant_ref, map_ops, count);
- 	if (ret)
- 		return ret;
-@@ -907,10 +909,12 @@ int gnttab_map_refs(struct gnttab_map_grant_ref *map_ops,
- 			set_phys_to_machine(map_ops[i].host_addr >> PAGE_SHIFT,
- 					map_ops[i].dev_bus_addr >> PAGE_SHIFT);
- 		}
--		return ret;
-+		return 0;
- 	}
- 
--	if (!in_interrupt() && paravirt_get_lazy_mode() == PARAVIRT_LAZY_NONE) {
-+	if (m2p_override &&
-+	    !in_interrupt() &&
-+	    paravirt_get_lazy_mode() == PARAVIRT_LAZY_NONE) {
- 		arch_enter_lazy_mmu_mode();
- 		lazy = true;
- 	}
-@@ -927,8 +931,18 @@ int gnttab_map_refs(struct gnttab_map_grant_ref *map_ops,
- 		} else {
- 			mfn = PFN_DOWN(map_ops[i].dev_bus_addr);
- 		}
--		ret = m2p_add_override(mfn, pages[i], kmap_ops ?
--				       &kmap_ops[i] : NULL);
-+		pfn = page_to_pfn(pages[i]);
-+
-+		WARN_ON(PagePrivate(pages[i]));
-+		SetPagePrivate(pages[i]);
-+		set_page_private(pages[i], mfn);
-+
-+		pages[i]->index = pfn_to_mfn(pfn);
-+		if (unlikely(!set_phys_to_machine(pfn, FOREIGN_FRAME(mfn))))
-+			return -ENOMEM;
-+		if (m2p_override)
-+			ret = m2p_add_override(mfn, pages[i], kmap_ops ?
-+					       &kmap_ops[i] : NULL, pfn);
- 		if (ret)
- 			goto out;
- 	}
-@@ -937,17 +951,34 @@ int gnttab_map_refs(struct gnttab_map_grant_ref *map_ops,
- 	if (lazy)
- 		arch_leave_lazy_mmu_mode();
- 
--	return ret;
-+	return 0;
-+}
-+
-+int gnttab_map_refs(struct gnttab_map_grant_ref *map_ops,
-+		    struct page **pages, unsigned int count)
-+{
-+	return __gnttab_map_refs(map_ops, NULL, pages, count, false);
- }
- EXPORT_SYMBOL_GPL(gnttab_map_refs);
- 
--int gnttab_unmap_refs(struct gnttab_unmap_grant_ref *unmap_ops,
-+int gnttab_map_refs_userspace(struct gnttab_map_grant_ref *map_ops,
-+			      struct gnttab_map_grant_ref *kmap_ops,
-+			      struct page **pages, unsigned int count)
-+{
-+	return __gnttab_map_refs(map_ops, kmap_ops, pages, count, true);
-+}
-+EXPORT_SYMBOL_GPL(gnttab_map_refs_userspace);
-+
-+int __gnttab_unmap_refs(struct gnttab_unmap_grant_ref *unmap_ops,
- 		      struct gnttab_map_grant_ref *kmap_ops,
--		      struct page **pages, unsigned int count)
-+		      struct page **pages, unsigned int count,
-+		      bool m2p_override)
- {
- 	int i, ret;
- 	bool lazy = false;
-+	unsigned long pfn, mfn;
- 
-+	BUG_ON(kmap_ops && !m2p_override);
- 	ret = HYPERVISOR_grant_table_op(GNTTABOP_unmap_grant_ref, unmap_ops, count);
- 	if (ret)
- 		return ret;
-@@ -958,17 +989,32 @@ int gnttab_unmap_refs(struct gnttab_unmap_grant_ref *unmap_ops,
- 			set_phys_to_machine(unmap_ops[i].host_addr >> PAGE_SHIFT,
- 					INVALID_P2M_ENTRY);
- 		}
--		return ret;
-+		return 0;
- 	}
- 
--	if (!in_interrupt() && paravirt_get_lazy_mode() == PARAVIRT_LAZY_NONE) {
-+	if (m2p_override &&
-+	    !in_interrupt() &&
-+	    paravirt_get_lazy_mode() == PARAVIRT_LAZY_NONE) {
- 		arch_enter_lazy_mmu_mode();
- 		lazy = true;
- 	}
- 
- 	for (i = 0; i < count; i++) {
--		ret = m2p_remove_override(pages[i], kmap_ops ?
--				       &kmap_ops[i] : NULL);
-+		pfn = page_to_pfn(pages[i]);
-+		mfn = get_phys_to_machine(pfn);
-+		if (mfn == INVALID_P2M_ENTRY || !(mfn & FOREIGN_FRAME_BIT))
-+			return -EINVAL;
-+
-+		set_page_private(pages[i], INVALID_P2M_ENTRY);
-+		WARN_ON(!PagePrivate(pages[i]));
-+		ClearPagePrivate(pages[i]);
-+		set_phys_to_machine(pfn, pages[i]->index);
-+		if (m2p_override)
-+			ret = m2p_remove_override(pages[i],
-+						  kmap_ops ?
-+						   &kmap_ops[i] : NULL,
-+						  pfn,
-+						  mfn);
- 		if (ret)
- 			goto out;
- 	}
-@@ -977,10 +1023,24 @@ int gnttab_unmap_refs(struct gnttab_unmap_grant_ref *unmap_ops,
- 	if (lazy)
- 		arch_leave_lazy_mmu_mode();
- 
--	return ret;
-+	return 0;
-+}
-+
-+int gnttab_unmap_refs(struct gnttab_unmap_grant_ref *map_ops,
-+		    struct page **pages, unsigned int count)
-+{
-+	return __gnttab_unmap_refs(map_ops, NULL, pages, count, false);
- }
- EXPORT_SYMBOL_GPL(gnttab_unmap_refs);
- 
-+int gnttab_unmap_refs_userspace(struct gnttab_unmap_grant_ref *map_ops,
-+				struct gnttab_map_grant_ref *kmap_ops,
-+				struct page **pages, unsigned int count)
-+{
-+	return __gnttab_unmap_refs(map_ops, kmap_ops, pages, count, true);
-+}
-+EXPORT_SYMBOL_GPL(gnttab_unmap_refs_userspace);
-+
- static unsigned nr_status_frames(unsigned nr_grant_frames)
- {
- 	BUG_ON(grefs_per_grant_frame == 0);
-diff --git a/include/xen/grant_table.h b/include/xen/grant_table.h
-index 694dcaf..9a919b1 100644
---- a/include/xen/grant_table.h
-+++ b/include/xen/grant_table.h
-@@ -184,11 +184,15 @@ unsigned int gnttab_max_grant_frames(void);
- #define gnttab_map_vaddr(map) ((void *)(map.host_virt_addr))
- 
- int gnttab_map_refs(struct gnttab_map_grant_ref *map_ops,
--		    struct gnttab_map_grant_ref *kmap_ops,
- 		    struct page **pages, unsigned int count);
-+int gnttab_map_refs_userspace(struct gnttab_map_grant_ref *map_ops,
-+			      struct gnttab_map_grant_ref *kmap_ops,
-+			      struct page **pages, unsigned int count);
- int gnttab_unmap_refs(struct gnttab_unmap_grant_ref *unmap_ops,
--		      struct gnttab_map_grant_ref *kunmap_ops,
- 		      struct page **pages, unsigned int count);
-+int gnttab_unmap_refs_userspace(struct gnttab_unmap_grant_ref *unmap_ops,
-+				struct gnttab_map_grant_ref *kunmap_ops,
-+				struct page **pages, unsigned int count);
- 
- /* Perform a batch of grant map/copy operations. Retry every batch slot
-  * for which the hypervisor returns GNTST_eagain. This is typically due
+
+Initially we were thinking that a device configured with 192.168.0.255 / 23 
+sending a ping to 192.168.0.1 / 24 should expect to get a reply, even though 
+this is somewhat of a misconfiguration in that the subnets aren't matching and 
+that some things may not work properly. For example ping from a device with IP 
+address 192.168.0.254 would behave correctly, so it seemed correct that a ping 
+from 192.168.0.255 should also work properly. However it appears that some 
+other part of the kernel is detecting that the echo reply packet sent by the 
+DUT has a destination IP address of the subnet broadcast, so instead of sending 
+it with a unicast MAC address it sends it with the broadcast MAC address, which 
+means all other devices on the subnet would process the ICMP echo reply. This 
+therefore makes it seem like the ICMP echo request should have been dropped in 
+the first place.
+
+The patch added the "if (!r && !fib_num_tclassid_users)" check to 
+fib_validate_source, which for our devices evaluates to true, hence returning 
+early and the source address check inside __fib_validate_source is not carried 
+out.
+
+
+Does anyone have comments as to what the correct behaviour should be in this 
+case, and whether this is an unexpected side-effect from the patch or not?
+
+Thanks,
+Greg
