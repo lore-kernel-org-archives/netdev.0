@@ -1,93 +1,40 @@
-From: Somnath Kotur <somnath.kotur@emulex.com>
-Subject: [PATCH net] be2net: Fix be_vlan_add/rem_vid() routines
-Date: Tue, 21 Jan 2014 15:50:55 +0530
-Message-ID: <e4c76822-2f55-4a40-a0fa-c4cacb2a480f@CMEXHTCAS2.ad.emulex.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, Somnath Kotur <somnath.kotur@emulex.com>,
-	Kalesh AP <kalesh.purayil@emulex.com>
-To: <netdev@vger.kernel.org>
+From: Sergey Popovich <popovich_sergei@mail.ru>
+Subject: [PATCH 0/4] ipv4: small set of fixes
+Date: Tue, 21 Jan 2014 13:48:47 +0200
+Message-ID: <cover.1390304505.git.popovich_sergei@mail.ru>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:12670 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754167AbaAUKWe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 05:22:34 -0500
+Received: from fallback5.mail.ru ([94.100.176.59]:59473 "EHLO
+	fallback5.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754099AbaAULtT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 06:49:19 -0500
+Received: from smtp11.mail.ru (smtp11.mail.ru [94.100.176.85])
+	by fallback5.mail.ru (mPOP.Fallback_MX) with ESMTP id 8ABD610A38E05
+	for <netdev@vger.kernel.org>; Tue, 21 Jan 2014 15:49:17 +0400 (MSK)
+Received: from [2a01:6d80:103:13::c3ea:4404] (port=42200 helo=tuxracer.localdomain)
+	by smtp11.mail.ru with esmtpa (envelope-from <popovich_sergei@mail.ru>)
+	id 1W5Zp9-0006Kt-U3
+	for netdev@vger.kernel.org; Tue, 21 Jan 2014 15:48:56 +0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current logic to put interface into VLAN Promiscous mode is not correct.
-We should increment "adapter->vlans_added" before calling be_vid_config().
-Also removed some unwanted log messages.
+In this patch series I present my attempt to address
+some issues in IPv4 implementation.
 
-Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
-Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c |   21 ++++++++-------------
- 1 files changed, 8 insertions(+), 13 deletions(-)
+Please take time to review my patches.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index bf40fda..2fada24 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1096,8 +1096,6 @@ static int be_vid_config(struct be_adapter *adapter)
- 				dev_info(&adapter->pdev->dev,
- 					 "Disabling VLAN Promiscuous mode.\n");
- 				adapter->flags &= ~BE_FLAGS_VLAN_PROMISC;
--				dev_info(&adapter->pdev->dev,
--					 "Re-Enabling HW VLAN filtering\n");
- 			}
- 		}
- 	}
-@@ -1105,12 +1103,12 @@ static int be_vid_config(struct be_adapter *adapter)
- 	return status;
- 
- set_vlan_promisc:
--	dev_warn(&adapter->pdev->dev, "Exhausted VLAN HW filters.\n");
-+	if (adapter->flags & BE_FLAGS_VLAN_PROMISC)
-+		return 0;
- 
- 	status = be_cmd_rx_filter(adapter, BE_FLAGS_VLAN_PROMISC, ON);
- 	if (!status) {
- 		dev_info(&adapter->pdev->dev, "Enable VLAN Promiscuous mode\n");
--		dev_info(&adapter->pdev->dev, "Disabling HW VLAN filtering\n");
- 		adapter->flags |= BE_FLAGS_VLAN_PROMISC;
- 	} else
- 		dev_err(&adapter->pdev->dev,
-@@ -1123,19 +1121,18 @@ static int be_vlan_add_vid(struct net_device *netdev, __be16 proto, u16 vid)
- 	struct be_adapter *adapter = netdev_priv(netdev);
- 	int status = 0;
- 
--
- 	/* Packets with VID 0 are always received by Lancer by default */
- 	if (lancer_chip(adapter) && vid == 0)
- 		goto ret;
- 
- 	adapter->vlan_tag[vid] = 1;
--	if (adapter->vlans_added <= (be_max_vlans(adapter) + 1))
--		status = be_vid_config(adapter);
-+	adapter->vlans_added++;
- 
--	if (!status)
--		adapter->vlans_added++;
--	else
-+	status = be_vid_config(adapter);
-+	if (status) {
-+		adapter->vlans_added--;
- 		adapter->vlan_tag[vid] = 0;
-+	}
- ret:
- 	return status;
- }
-@@ -1150,9 +1147,7 @@ static int be_vlan_rem_vid(struct net_device *netdev, __be16 proto, u16 vid)
- 		goto ret;
- 
- 	adapter->vlan_tag[vid] = 0;
--	if (adapter->vlans_added <= be_max_vlans(adapter))
--		status = be_vid_config(adapter);
--
-+	status = be_vid_config(adapter);
- 	if (!status)
- 		adapter->vlans_added--;
- 	else
+Thanks.
+
+Sergey Popovich (4):
+  ipv4: don't disable interface if last ipv4 address is removed
+  ipv4: fib_semantics: increment fib_info_cnt after fib_info allocation
+  ipv4: use SNMP macro assuming softirq context in ip_forward().
+  ipv4: mark nexthop as dead when it's subnet becomes unreachable
+
+ net/ipv4/fib_frontend.c  | 14 ++++----------
+ net/ipv4/fib_semantics.c | 38 +++++++++++++++++++++-----------------
+ net/ipv4/ip_forward.c    |  2 +-
+ 3 files changed, 26 insertions(+), 28 deletions(-)
+
 -- 
-1.6.0.2
+1.8.3.4
