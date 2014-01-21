@@ -1,96 +1,113 @@
-From: Alexandre Courbot <gnurou@gmail.com>
-Subject: Re: [PATCH RFC 4/6] net: rfkill: gpio: add device tree support
-Date: Tue, 21 Jan 2014 12:11:06 +0900
-Message-ID: <CAAVeFuLP4MkfXGG1FMauvUw_J63zRXdhGwxqYy5W98L1wCQNbw@mail.gmail.com>
-References: <1389941251-32692-1-git-send-email-wens@csie.org>
- <1389941251-32692-5-git-send-email-wens@csie.org> <201401171747.46332.arnd@arndb.de>
- <CAGb2v67UKiyfJbKZ_Frk3OwZupMPoA2Ck3Hj2zsRFXBQPztavg@mail.gmail.com> <CACRpkdZOD4zeA8T5kbJ4c5NsnuzHCg1mw8rRMYNT9c4R-Qnc6A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Chen-Yu Tsai <wens@csie.org>,
-	Mika Westerberg <mika.westerberg@linux.intel.com>,
-	Heikki Krogerus <heikki.krogerus@linux.intel.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	devicetree <devicetree@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	linux-sunxi <linux-sunxi@googlegroups.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Maxime Ripard <maxime.ripard@free-electrons.com>
-To: Linus Walleij <linus.walleij@linaro.org>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: [PATCH net] tcp: metrics: Handle v6/v4-mapped sockets in tcp-metrics
+Date: Tue, 21 Jan 2014 08:17:12 +0100
+Message-ID: <1390288632-28729-1-git-send-email-christoph.paasch@uclouvain.be>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f172.google.com ([209.85.220.172]:62145 "EHLO
-	mail-vc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752736AbaAUDL1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 22:11:27 -0500
-In-Reply-To: <CACRpkdZOD4zeA8T5kbJ4c5NsnuzHCg1mw8rRMYNT9c4R-Qnc6A@mail.gmail.com>
+Received: from mail-ea0-f178.google.com ([209.85.215.178]:49850 "EHLO
+	mail-ea0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750813AbaAUHRV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 02:17:21 -0500
+Received: by mail-ea0-f178.google.com with SMTP id a15so2369758eae.23
+        for <netdev@vger.kernel.org>; Mon, 20 Jan 2014 23:17:20 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 18, 2014 at 8:11 AM, Linus Walleij <linus.walleij@linaro.org> wrote:
-> On Fri, Jan 17, 2014 at 6:43 PM, Chen-Yu Tsai <wens@csie.org> wrote:
->> On Sat, Jan 18, 2014 at 12:47 AM, Arnd Bergmann <arnd@arndb.de> wrote:
->
->>>> +- NAME_shutdown-gpios  : GPIO phandle to shutdown control
->>>> +                         (phandle must be the second)
->>>> +- NAME_reset-gpios     : GPIO phandle to reset control
->>>> +
->>>> +NAME must match the rfkill-name property. NAME_shutdown-gpios or
->>>> +NAME_reset-gpios, or both, must be defined.
->>>> +
->>>
->>> I don't understand this part. Why do you include the name in the
->>> gpios property, rather than just hardcoding the property strings
->>> to "shutdown-gpios" and "reset-gpios"?
->>
->> This quirk is a result of how gpiod_get_index implements device tree
->> lookup.
->
-> Why can't it just have a single property "gpios", where the first
-> element is the reset GPIO and the second is the shutdown GPIO?
->
-> rfkill-gpio does this:
->
-> gpio = devm_gpiod_get_index(&pdev->dev, rfkill->reset_name, 0);
-> gpio = devm_gpiod_get_index(&pdev->dev, rfkill->shutdown_name, 1);
->
-> The passed con ID name parameter is only there for the device
-> tree case it seems. (ACPI ignores it.) So what about you just
-> don't pass it at all and patch it to do like this instead:
->
-> gpio = devm_gpiod_get_index(&pdev->dev, NULL, 0);
-> gpio = devm_gpiod_get_index(&pdev->dev, NULL, 1);
->
-> Heikki, are you OK with this change?
->
-> I think this is actually necessary if the ACPI and DT unification
-> pipe dream shall limp forward, we cannot have arguments passed
-> that have a semantic effect on DT but not on ACPI... Drivers
-> that are supposed to use both ACPI and DT will always
-> have to pass NULL as con ID.
+A socket may be v6/v4-mapped. In that case sk->sk_family is AF_INET6,
+but the IP being used is actually an IPv4-address.
+Current's tcp-metrics will thus represent it as an IPv6-address:
 
-I agree that's how it should be be done with the current API if your
-driver can obtain GPIOs from both ACPI and DT. This is a potential
-issue, as drivers are not supposed to make assumptions about who is
-going to be their GPIO provider. Let's say you started a driver with
-only DT in mind, and used gpio_get(dev, con_id) to get your GPIOs. DT
-bindings are thus of the form "con_id-gpio = <phandle>", and set in
-stone. Then later, someone wants to use your driver with ACPI. How do
-you handle that gracefully?
+root@server:~# ip tcp_metrics
+::ffff:10.1.1.2 age 22.920sec rtt 18750us rttvar 15000us cwnd 10
+10.1.1.2 age 47.970sec rtt 16250us rttvar 10000us cwnd 10
 
-I'm starting to wonder, now that ACPI is a first-class GPIO provider,
-whether we should not start to encourage the deprecation of the
-"con_id-gpio = <phandle>" binding form in DT and only use a single
-indexed GPIO property per device. The con_id parameter would then only
-be used as a label, which would also have the nice side-effect that
-all GPIOs used for a given function will be reported under the same
-name no matter what the GPIO provider is.
+This patch modifies the tcp-metrics so that they are able to handle the
+v6/v4-mapped sockets correctly.
 
->From an aesthetic point of view, I definitely prefer using con_id to
-identify GPIOs instead of indexes, but I don't see how we can make it
-play nice with ACPI. Thoughts?
+Fixes: 51c5d0c4b169b (tcp: Maintain dynamic metrics in local cache.)
+Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+---
+ net/ipv4/tcp_metrics.c | 50 ++++++++++++++++++++++++++++++--------------------
+ 1 file changed, 30 insertions(+), 20 deletions(-)
 
-Alex.
+diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
+index 098b3a29f6f3..3144524fe20f 100644
+--- a/net/ipv4/tcp_metrics.c
++++ b/net/ipv4/tcp_metrics.c
+@@ -264,21 +264,26 @@ static struct tcp_metrics_block *__tcp_get_metrics_tw(struct inet_timewait_sock
+ 	unsigned int hash;
+ 	struct net *net;
+ 
+-	addr.family = tw->tw_family;
+-	switch (addr.family) {
+-	case AF_INET:
++	if (tw->tw_family == AF_INET) {
++		addr.family = AF_INET;
+ 		addr.addr.a4 = tw->tw_daddr;
+ 		hash = (__force unsigned int) addr.addr.a4;
+-		break;
++	}
+ #if IS_ENABLED(CONFIG_IPV6)
+-	case AF_INET6:
+-		*(struct in6_addr *)addr.addr.a6 = tw->tw_v6_daddr;
+-		hash = ipv6_addr_hash(&tw->tw_v6_daddr);
+-		break;
++	else if (tw->tw_family == AF_INET6) {
++		if (ipv6_addr_v4mapped(&tw->tw_v6_daddr)) {
++			addr.family = AF_INET;
++			addr.addr.a4 = tw->tw_daddr;
++			hash = (__force unsigned int) addr.addr.a4;
++		} else {
++			addr.family = AF_INET6;
++			*(struct in6_addr *)addr.addr.a6 = tw->tw_v6_daddr;
++			hash = ipv6_addr_hash(&tw->tw_v6_daddr);
++		}
++	}
+ #endif
+-	default:
++	else
+ 		return NULL;
+-	}
+ 
+ 	net = twsk_net(tw);
+ 	hash = hash_32(hash, net->ipv4.tcp_metrics_hash_log);
+@@ -300,21 +305,26 @@ static struct tcp_metrics_block *tcp_get_metrics(struct sock *sk,
+ 	unsigned int hash;
+ 	struct net *net;
+ 
+-	addr.family = sk->sk_family;
+-	switch (addr.family) {
+-	case AF_INET:
++	if (sk->sk_family == AF_INET) {
++		addr.family = AF_INET;
+ 		addr.addr.a4 = inet_sk(sk)->inet_daddr;
+ 		hash = (__force unsigned int) addr.addr.a4;
+-		break;
++	}
+ #if IS_ENABLED(CONFIG_IPV6)
+-	case AF_INET6:
+-		*(struct in6_addr *)addr.addr.a6 = sk->sk_v6_daddr;
+-		hash = ipv6_addr_hash(&sk->sk_v6_daddr);
+-		break;
++	else if (sk->sk_family == AF_INET6) {
++		if (ipv6_addr_v4mapped(&sk->sk_v6_daddr)) {
++			addr.family = AF_INET;
++			addr.addr.a4 = inet_sk(sk)->inet_daddr;
++			hash = (__force unsigned int) addr.addr.a4;
++		} else {
++			addr.family = AF_INET6;
++			*(struct in6_addr *)addr.addr.a6 = sk->sk_v6_daddr;
++			hash = ipv6_addr_hash(&sk->sk_v6_daddr);
++		}
++	}
+ #endif
+-	default:
++	else
+ 		return NULL;
+-	}
+ 
+ 	net = dev_net(dst->dev);
+ 	hash = hash_32(hash, net->ipv4.tcp_metrics_hash_log);
+-- 
+1.8.3.2
