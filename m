@@ -1,58 +1,57 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH] ip_tunnel: clear IPCB in ip_tunnel_xmit() in case
- dst_link_failure() is called
-Date: Tue, 21 Jan 2014 10:33:36 -0800
-Message-ID: <CALnjE+qFPoK_0EnZ_TWe1sx4s166iSjAH_+1r2uENeS4aRBckQ@mail.gmail.com>
-References: <52DE1F60.2060109@cn.fujitsu.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH RFC 4/6] net: rfkill: gpio: add device tree support
+Date: Tue, 21 Jan 2014 19:50:06 +0100
+Message-ID: <201401211950.07011.arnd@arndb.de>
+References: <1389941251-32692-1-git-send-email-wens@csie.org> <201401211335.16885.arnd@arndb.de> <CAAVeFuKFfAvSPYLmvWV5jjT-peZFJ8sJ2bbh4F=JAYoWLhjZpA@mail.gmail.com>
+Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Daniel Petre <daniel.petre@rcs-rds.ro>,
-	Eric Dumazet <edumazet@google.com>,
-	netdev <netdev@vger.kernel.org>
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog123.obsmtp.com ([74.125.149.149]:36152 "HELO
-	na3sys009aog123.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755124AbaAUSdi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 13:33:38 -0500
-Received: by mail-vb0-f46.google.com with SMTP id o19so3755232vbm.33
-        for <netdev@vger.kernel.org>; Tue, 21 Jan 2014 10:33:37 -0800 (PST)
-In-Reply-To: <52DE1F60.2060109@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=UTF-8
+Cc: "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org" <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+ Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+ "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ "linux-wireless" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ "linux-sunxi" <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ "linux-kernel" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+ "Chen-Yu Tsai" <wens-jdAy2FN1RRM@public.gmane.org>,
+ Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+ Mika Westerberg <mika.westerberg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+ "linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-sunxi+bncBDEKVJM7XAHRB2EC7OLAKGQEZA6F2OQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+In-Reply-To: <CAAVeFuKFfAvSPYLmvWV5jjT-peZFJ8sJ2bbh4F=JAYoWLhjZpA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/linux-sunxi>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 20, 2014 at 11:18 PM, Duan Jiong <duanj.fnst@cn.fujitsu.com> wrote:
->
-> commit a622260254ee48("ip_tunnel: fix kernel panic with icmp_dest_unreach")
-> clear IPCB in ip_tunnel_xmit()  , or else skb->cb[] may contain garbage from
-> GSO segmentation layer.
->
-> But commit 0e6fbc5b6c621("ip_tunnels: extend iptunnel_xmit()") refactor codes,
-> and it clear IPCB behind the dst_link_failure().
->
-ok.
+On Tuesday 21 January 2014, Alexandre Courbot wrote:
+> >> As discussed earlier in this thread I'm not sure the con_id is
+> >> suitable for labelling GPIOs. It'd be better to have a proper name
+> >> specified in DT/ACPI instead.
+> >
+> > +1
+> 
+> I wonder why you guys prefer to have the name defined in the GPIO
+> mapping. Having the driver decide the label makes it easier to look up
+> which GPIO does what in debugfs, whereas nothing prevents people to
+> name GPIOs whatever inadequate name they want in the device DT node.
+> What am I overlooking here?
 
-> So clear IPCB in ip_tunnel_xmit() just like commti a622260254ee48("ip_tunnel:
-> fix kernel panic with icmp_dest_unreach").
->
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-> ---
->  net/ipv4/ip_tunnel.c | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-> index 90ff957..dda1e9a 100644
-> --- a/net/ipv4/ip_tunnel.c
-> +++ b/net/ipv4/ip_tunnel.c
-> @@ -535,6 +535,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
->
->         inner_iph = (const struct iphdr *)skb_inner_network_header(skb);
->
-> +       memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
->         dst = tnl_params->daddr;
->         if (dst == 0) {
->                 /* NBMA tunnel */
+I should have another look at the debugfs representation, but isn't
+there a global namespace that gets used for all gpios?  Neither the
+con_id nor the name that the driver picks would be globally unique
+and stable across kernel versions, so they don't make a good user
+interface.
 
-Can you clear IPCB in error path for dst_link_failure(). So that we do
-not clear it twice in fast path.
+I think what we want here is a system-wide unique identifier for
+each gpio line that may get represented in debugfs, and use a new
+DT mechanism to communicate that.
+
+	Arnd
