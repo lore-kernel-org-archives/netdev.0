@@ -1,145 +1,104 @@
 From: Sergey Popovich <popovich_sergei@mail.ru>
-Subject: [PATCH 4/4] ipv4: mark nexthop as dead when it's subnet becomes unreachable
-Date: Tue, 21 Jan 2014 13:48:51 +0200
-Message-ID: <40044b636dbf7ae5bba5fe2873451e14438ec170.1390304505.git.popovich_sergei@mail.ru>
+Subject: [PATCH 1/4] ipv4: don't disable interface if last ipv4 address is removed
+Date: Tue, 21 Jan 2014 13:48:48 +0200
+Message-ID: <2748ead3b814852075f954ea157fe5d7288531e2.1390304505.git.popovich_sergei@mail.ru>
 References: <cover.1390304505.git.popovich_sergei@mail.ru>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback7.mail.ru ([94.100.176.135]:50988 "EHLO
-	fallback7.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754099AbaAULtV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 06:49:21 -0500
+Received: from fallback4.mail.ru ([94.100.176.42]:59224 "EHLO
+	fallback4.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754134AbaAULwr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 06:52:47 -0500
 Received: from smtp11.mail.ru (smtp11.mail.ru [94.100.176.85])
-	by fallback7.mail.ru (mPOP.Fallback_MX) with ESMTP id 99339F5DF777
-	for <netdev@vger.kernel.org>; Tue, 21 Jan 2014 15:49:18 +0400 (MSK)
+	by fallback4.mail.ru (mPOP.Fallback_MX) with ESMTP id 2EEB214C62D
+	for <netdev@vger.kernel.org>; Tue, 21 Jan 2014 15:49:07 +0400 (MSK)
 Received: from [2a01:6d80:103:13::c3ea:4404] (port=42200 helo=tuxracer.localdomain)
 	by smtp11.mail.ru with esmtpa (envelope-from <popovich_sergei@mail.ru>)
-	id 1W5ZpB-0006Kt-DN
-	for netdev@vger.kernel.org; Tue, 21 Jan 2014 15:48:57 +0400
+	id 1W5ZpA-0006Kt-8x
+	for netdev@vger.kernel.org; Tue, 21 Jan 2014 15:48:56 +0400
 In-Reply-To: <cover.1390304505.git.popovich_sergei@mail.ru>
 In-Reply-To: <cover.1390304505.git.popovich_sergei@mail.ru>
 References: <cover.1390304505.git.popovich_sergei@mail.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Removing ip address and it's subnet route using fib_del_ifaddr() does
-not purge routes with nexthop in such subnet.
+Since
 
-This could be easily reproduced with the following config:
+  commit 876fd05ddbae03166e7037fca957b55bb3be6594
+  Author: Hannes Frederic Sowa <>
+  Date:   Mon Jun 24 00:22:20 2013 +0200
+
+    ipv6: don't disable interface if last ipv6 address is removed
+
+we have disabled this behavior for IPv6. Adjust behavior for IPv4.
+
+There is at least one additional reason to do the same for IPv4.
+Suppose we have following configuration:
 
   # ip link add dev dummy1 type dummy
+  # ip -4 addr add 192.168.1.254/24 dev dummy1
   # ip link set up dev dummy1
-  # ip -4 addr add 10.0.10.1/24 dev dummy1
-  # ip -4 addr add 10.0.20.1/24 dev dummy1
 
-  # ip -4 route add 172.16.0.0/12 proto static via 10.0.10.5
-  # ip -4 route show exact 172.16.0.0/12
-  172.16.0.0/12 via 10.0.10.5 dev dummy1  proto static
+  # ip link add dev veth1a type veth peer name veth1b
+  # ip link set up dev veth1a
+  # ip -4 route add 192.168.1.1/32 dev veth1a src 192.168.1.254 proto static
 
-  # ip -4 addr del 10.0.10.1/24 dev dummy1
+  # ip netns add pc1
+  # ip link set netns pc1 dev veth1b
+  # ip netns exec pc1 ip -4 addr add 192.168.1.1/24 dev veth1b
+  # ip netns exec pc1 ip link set up dev veth1b
+  # ip netns exec pc1 ip link set up dev lo
 
-  # ip -4 route show exact 172.16.0.0/12
-  172.16.0.0/12 via 10.0.10.5 dev dummy1  proto static
+  # ip -4 addr add 10.0.1.1/30 dev veth1a
+  # ip -4 addr sh dev veth1a
+  32: veth1a: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    inet 10.0.1.1/30 scope global veth1a
+       valid_lft forever preferred_lft forever
+  # ip -4 route show dev veth1a
+  10.0.1.0/30  proto kernel  scope link  src 10.0.1.1
+  192.168.1.1  proto static  scope link  src 192.168.1.254
 
-Add interface address (ifa) parameter to fib_sync_down_dev()
-and use it to match nexthop against it's subnet.
+  # ping -I192.168.1.254 192.168.1.1 -c1
+  PING 192.168.1.1 (192.168.1.1) 56(84) bytes of data.
+  64 bytes from 192.168.1.1: icmp_req=1 ttl=64 time=0.039 ms
 
-Use fib_sync_down_dev() in fib_del_ifaddr() among with fib_sync_down_addr()
-to mark as dead routes with nexthop in ifa.
+  --- 192.168.1.1 ping statistics ---
+  1 packets transmitted, 1 received, 0% packet loss, time 0ms
+  rtt min/avg/max/mdev = 0.039/0.039/0.039/0.000 ms
+  # ip -4 neigh sh dev veth1a
+  192.168.1.1 lladdr 9a:7e:a5:aa:1b:a0 REACHABLE
 
-Also optimize loop a bit:
-  move handling of force > 1 out of the change_nexthops() loop.
+  and after removing last ipv4 address from veth1a
+  ------------------------------------------------
+
+  # ip -4 addr del 10.0.1.1/30 dev veth1a
+  # ip -4 neigh sh dev veth1a
+  # ip -4 route show dev veth1a
 
 Signed-off-by: Sergey Popovich <popovich_sergei@mail.ru>
 ---
- net/ipv4/fib_frontend.c  |  5 +++--
- net/ipv4/fib_semantics.c | 36 ++++++++++++++++++++----------------
- 2 files changed, 23 insertions(+), 18 deletions(-)
+ net/ipv4/fib_frontend.c | 9 +--------
+ 1 file changed, 1 insertion(+), 8 deletions(-)
 
 diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index ae5f35f..fd3445e 100644
+index d846304..ae5f35f 100644
 --- a/net/ipv4/fib_frontend.c
 +++ b/net/ipv4/fib_frontend.c
-@@ -907,7 +907,8 @@ void fib_del_ifaddr(struct in_ifaddr *ifa, struct in_ifaddr *iprim)
- 			 * First of all, we scan fib_info list searching
- 			 * for stray nexthop entries, then ignite fib_flush.
- 			 */
--			if (fib_sync_down_addr(dev_net(dev), ifa->ifa_local))
-+			if (fib_sync_down_addr(dev_net(dev), ifa->ifa_local) +
-+			    fib_sync_down_dev(dev, ifa, 0))
- 				fib_flush(dev_net(dev));
- 		}
+@@ -1021,14 +1021,7 @@ static int fib_inetaddr_event(struct notifier_block *this, unsigned long event,
+ 	case NETDEV_DOWN:
+ 		fib_del_ifaddr(ifa, NULL);
+ 		atomic_inc(&net->ipv4.dev_addr_genid);
+-		if (ifa->ifa_dev->ifa_list == NULL) {
+-			/* Last address was deleted from this interface.
+-			 * Disable IP.
+-			 */
+-			fib_disable_ip(dev, 1);
+-		} else {
+-			rt_cache_flush(dev_net(dev));
+-		}
++		rt_cache_flush(dev_net(dev));
+ 		break;
  	}
-@@ -997,7 +998,7 @@ static void nl_fib_lookup_exit(struct net *net)
- 
- static void fib_disable_ip(struct net_device *dev, int force)
- {
--	if (fib_sync_down_dev(dev, force))
-+	if (fib_sync_down_dev(dev, NULL, force))
- 		fib_flush(dev_net(dev));
- 	rt_cache_flush(dev_net(dev));
- 	arp_ifdown(dev);
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 9d43468..ca920df 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -1112,7 +1112,7 @@ int fib_sync_down_addr(struct net *net, __be32 local)
- 	return ret;
- }
- 
--int fib_sync_down_dev(struct net_device *dev, int force)
-+int fib_sync_down_dev(struct net_device *dev, struct in_ifaddr *ifa, int force)
- {
- 	int ret = 0;
- 	int scope = RT_SCOPE_NOWHERE;
-@@ -1132,29 +1132,33 @@ int fib_sync_down_dev(struct net_device *dev, int force)
- 		if (nh->nh_dev != dev || fi == prev_fi)
- 			continue;
- 		prev_fi = fi;
--		dead = 0;
--		change_nexthops(fi) {
--			if (nexthop_nh->nh_flags & RTNH_F_DEAD)
--				dead++;
--			else if (nexthop_nh->nh_dev == dev &&
--				 nexthop_nh->nh_scope != scope) {
--				nexthop_nh->nh_flags |= RTNH_F_DEAD;
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
--				spin_lock_bh(&fib_multipath_lock);
--				fi->fib_power -= nexthop_nh->nh_power;
--				nexthop_nh->nh_power = 0;
--				spin_unlock_bh(&fib_multipath_lock);
-+		if (force > 1)
-+			goto fi_dead;
- #endif
-+		dead = 0;
-+		change_nexthops(fi) {
-+			if (nexthop_nh->nh_flags & RTNH_F_DEAD) {
- 				dead++;
-+				continue;
- 			}
-+			if (nexthop_nh->nh_dev != dev ||
-+			    nexthop_nh->nh_scope == scope ||
-+			    (ifa && !inet_ifa_match(nexthop_nh->nh_gw, ifa)))
-+				continue;
-+			nexthop_nh->nh_flags |= RTNH_F_DEAD;
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
--			if (force > 1 && nexthop_nh->nh_dev == dev) {
--				dead = fi->fib_nhs;
--				break;
--			}
-+			spin_lock_bh(&fib_multipath_lock);
-+			fi->fib_power -= nexthop_nh->nh_power;
-+			nexthop_nh->nh_power = 0;
-+			spin_unlock_bh(&fib_multipath_lock);
- #endif
-+			dead++;
- 		} endfor_nexthops(fi)
- 		if (dead == fi->fib_nhs) {
-+#ifdef CONFIG_IP_ROUTE_MULTIPATH
-+fi_dead:
-+#endif
- 			fi->fib_flags |= RTNH_F_DEAD;
- 			ret++;
- 		}
+ 	return NOTIFY_DONE;
 -- 
 1.8.3.4
