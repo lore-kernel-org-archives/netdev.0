@@ -1,50 +1,63 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [netfilter-core] Release of nftables-plus 0.099
-Date: Tue, 21 Jan 2014 00:26:54 +0000
-Message-ID: <20140121002646.GB17545@macbook.localnet>
-References: <20140120131132.GA32427@macbook.localnet>
- <alpine.LSU.2.11.1401202336140.22927@nerf08.vanv.qr>
- <20140120234150.GA17224@macbook.localnet>
- <alpine.LSU.2.11.1401210056010.18315@nerf08.vanv.qr>
+From: tingwei liu <tingw.liu@gmail.com>
+Subject: Re: Fwd: Linux bridge for route
+Date: Tue, 21 Jan 2014 09:26:44 +0800
+Message-ID: <CA+qZnSSAKdoEFJMak1kS95EJE+oHcvnKrOvLhUMGAU9vZANKVw@mail.gmail.com>
+References: <CA+qZnSRGKiFh8FiKMpVQku7CiWCMPq47FpPwrawvTC6KBPwz7A@mail.gmail.com>
+	<CA+qZnSQY9dpZDdULtH3GNDEbB0fgoEJ=pa4gOOtwFhrGTgj4bg@mail.gmail.com>
+	<52D992F4.8070500@pandora.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Networking Developer Mailing List <netdev@vger.kernel.org>,
-	Netfilter user mailing list <netfilter@vger.kernel.org>,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>, coreteam@netfilter.org,
-	announce@lists.netfilter.org
-To: Jan Engelhardt <jengelh@inai.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33710 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753810AbaAUA07 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jan 2014 19:26:59 -0500
-Content-Disposition: inline
-In-Reply-To: <alpine.LSU.2.11.1401210056010.18315@nerf08.vanv.qr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Bart De Schuymer <bdschuym@pandora.be>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <52D992F4.8070500@pandora.be>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 21, 2014 at 01:00:05AM +0100, Jan Engelhardt wrote:
-> On Tuesday 2014-01-21 00:41, Patrick McHardy wrote:
-> 
-> >On Tue, Jan 21, 2014 at 12:38:41AM +0100, Jan Engelhardt wrote:
-> >> 
-> >> My lone self presents:
-> >> 
-> >> 	nftables-plus 0.099
-> >
-> >Jan, there's no need to CC the netfilter-core list, we're not interested
-> >in your ego trips.
-> 
-> Well thanks for spelling out so clearly that I am not welcome anymore.
+On Sat, Jan 18, 2014 at 4:30 AM, Bart De Schuymer <bdschuym@pandora.be> wrote:
+> tingwei liu schreef op 17/01/2014 10:14:
+>
+>> Dear all,
+>>
+>>         There is  a question has puzzled me for a long time.
+>>         You can find the topology from attachment.
+>>
+>>         Normal traffic is:
+>>
+>>                 PC(192.168.1.8)--->Bridge(eth0)--->Bridget(eth1)--->NAT
+>> server-->switch--->Server(192.168.5.3)
+>>
+>>         Now I want the ssh traffic like this:
+>>                PC(182.168.1.8)--->Bridge(eth0)--->eth2--->NAT
+>> server--->switch--->Server(192.168.5.3)
+>>
+>>
+>>        What I have done on LINUX Server:
+>>                #net.bridge.bridge-nf-call-iptables = 1
+>>                #iptables -t nat -A POSTROUTING -s 192.168.1.8 -p tcp
+>> --dport 22 -j SNAT --to-source 192.168.5.2
+>>
+>>        I have find the rule matched through command "iptables -t nat
+>> -nvL", but the packets doesn't sent to 192.168.5.3.
+>>        and "tcpdump -i eth2 tcp port 22" can not capture any packet!
+>
+>
+> You are trying to make a brouter. You don't need to set
+> net.bridge.bridge-nf-call-iptables to 1, instead you need to add an ebtables
+> rule in the BROUTING chain, see:
+> http://ebtables.sourceforge.net/examples/basic.html#ex_brouter
+>
+> Something like this (in combination with your existing iptables rules):
+> ebtables -t broute -A BROUTING -p ipv4 --ip-source 192.168.1.8 \
+> --ip-protocol tcp --ip-destination-port 22 \
+> -j redirect --redirect-target DROP
+>
+Dear man,
+      This is bad news. It does _not_ work!
+      Is there any idea?
+Thanks for your reply!
 
-Indeed, and you have your own antisocial and disruptive behaviour to thank
-for that. Besides you, everyone else here is trying to work together.
-
-For all I care, you can go play on netfilter2.org or something.
-
-I'd also ask you to refrain from abusing the nftables name in this way.
-You can use nftables in a descriptive fashion if you like, as with
-xtables-addons.
-
-Knowing your difficult personality, I'll register the name, just in case.
+> cheers,
+> Bart
+>
