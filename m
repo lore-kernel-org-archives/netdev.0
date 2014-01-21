@@ -1,98 +1,138 @@
-From: Dan Williams <dan.j.williams@intel.com>
-Subject: Re: [PATCH v3 1/4] net_dma: simple removal
-Date: Tue, 21 Jan 2014 01:44:34 -0800
-Message-ID: <CAPcyv4h10vAw3rwNo25+RaZwFsnrjWrpoktj+Yg8eR1QDDW2tw@mail.gmail.com>
-References: <20140114004509.27138.50345.stgit@viggo.jf.intel.com>
-	<20140114004622.27138.54103.stgit@viggo.jf.intel.com>
-	<CAMAG_eduH4M2OPVh-R4Q6KG1DDcinEDzC-fQyXj1mLdZG=49hw@mail.gmail.com>
-	<CAPcyv4hzNT15R41zSOM98f-0aQ60HBZoD_DAvf6VED7iXoCZ8w@mail.gmail.com>
-	<CAPcyv4ixMVV5-9NPR_Nx-hgwAGBS8uh1DQabjimCaNfYt30kiA@mail.gmail.com>
-	<CAMAG_efOD03wLtetfNAfymsCs6kVEqoJx6e7qY2txBBMDgbmfQ@mail.gmail.com>
+From: shaobingqing <shaobingqing-Gb3srWounXyPt1CcHtbs0g@public.gmane.org>
+Subject: Re: [PATCH] SUNRPC: Allow one callback request to be received from
+ two sk_buff
+Date: Tue, 21 Jan 2014 18:08:05 +0800
+Message-ID: <CALrKORrZ3Kcuqc1RajQKkZcot0yiswh4VR_WuXHqfRTjn9oGQQ@mail.gmail.com>
+References: <1390201154-20815-1-git-send-email-shaobingqing@bwstor.com.cn>
+	<1390259843.2501.2.camel@leira.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "dmaengine@vger.kernel.org" <dmaengine@vger.kernel.org>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Dave Jiang <dave.jiang@intel.com>,
-	Vinod Koul <vinod.koul@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Whipple <whipple@securedatainnovations.ch>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: saeed bishara <saeed.bishara@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f172.google.com ([209.85.128.172]:49452 "EHLO
-	mail-ve0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754090AbaAUJof (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 04:44:35 -0500
-Received: by mail-ve0-f172.google.com with SMTP id c14so1142452vea.31
-        for <netdev@vger.kernel.org>; Tue, 21 Jan 2014 01:44:34 -0800 (PST)
-In-Reply-To: <CAMAG_efOD03wLtetfNAfymsCs6kVEqoJx6e7qY2txBBMDgbmfQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: bfields-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1390259843.2501.2.camel-5lNtUQgoD8Pfa3cDbr2K10B+6BGkLq7r@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 17, 2014 at 12:16 PM, saeed bishara <saeed.bishara@gmail.com> wrote:
-> Dan,
->
-> isn't this issue similar to direct io case?
-> can you please look at the following article
-> http://lwn.net/Articles/322795/
-
-I guess it's similar, but the NET_DMA dma api violation is more
-blatant.  The same thread that requested DMA is also writing to those
-same pages with the cpu.  The fix is either guaranteeing that only the
-dma engine ever touches the gup'd pages or synchronizing dma before
-every cpu fallback.
-
-> regarding performance improvement using NET_DMA, I don't have concrete
-> numbers, but it should be around 15-20%. my system is i/o coherent.
-
-That sounds too high... is that throughput or cpu utilization?  It
-sounds high because NET_DMA also makes the data cache cold while the
-cpu copy warms the data before handing it to the application.
-
-Can you measure relative numbers and share your testing details?  You
-will need to fix the data corruption and verify that the performance
-advantage is still there before proposing NET_DMA be restored.
-
-I have a new dma_debug capability in Andrew's tree that can you help
-you identify holes in the implementation.
-
-http://ozlabs.org/~akpm/mmots/broken-out/dma-debug-introduce-debug_dma_assert_idle.patch
-
---
-Dan
-
->
-> saeed
->
-> On Wed, Jan 15, 2014 at 11:33 PM, Dan Williams <dan.j.williams@intel.com> wrote:
->> On Wed, Jan 15, 2014 at 1:31 PM, Dan Williams <dan.j.williams@intel.com> wrote:
->>> On Wed, Jan 15, 2014 at 1:20 PM, saeed bishara <saeed.bishara@gmail.com> wrote:
->>>> Hi Dan,
->>>>
->>>> I'm using net_dma on my system and I achieve meaningful performance
->>>> boost when running Iperf receive.
->>>>
->>>> As far as I know the net_dma is used by many embedded systems out
->>>> there and might effect their performance.
->>>> Can you please elaborate on the exact scenario that cause the memory corruption?
->>>>
->>>> Is the scenario mentioned here caused by "real life" application or
->>>> this is more of theoretical issue found through manual testing, I was
->>>> trying to find the thread describing the failing scenario and couldn't
->>>> find it, any pointer will be appreciated.
->>>
->>> Did you see the referenced commit?
->>>
->>> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=77873803363c
->>>
->>> This is a real issue in that any app that forks() while receiving data
->>> can cause the dma data to be lost.  The problem is that the copy
->>> operation falls back to cpu at many locations.  Any one of those
->>> instance could touch a mapped page and trigger a copy-on-write event.
->>> The dma completes to the wrong location.
->>>
+2014/1/21 Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>:
+> On Mon, 2014-01-20 at 14:59 +0800, shaobingqing wrote:
+>> In current code, there only one struct rpc_rqst is prealloced. If one
+>> callback request is received from two sk_buff, the xprt_alloc_bc_request
+>> would be execute two times with the same transport->xid. The first time
+>> xprt_alloc_bc_request will alloc one struct rpc_rqst and the TCP_RCV_COPY_DATA
+>> bit of transport->tcp_flags will not be cleared. The second time
+>> xprt_alloc_bc_request could not alloc struct rpc_rqst any more and NULL
+>> pointer will be returned, then xprt_force_disconnect occur. I think one
+>> callback request can be allowed to be received from two sk_buff.
 >>
->> Btw, do you have benchmark data showing that NET_DMA is beneficial on
->> these platforms?  I would have expected worse performance on platforms
->> without i/o coherent caches.
+>> Signed-off-by: shaobingqing <shaobingqing-Gb3srWounXyPt1CcHtbs0g@public.gmane.org>
+>> ---
+>>  net/sunrpc/xprtsock.c |   11 +++++++++--
+>>  1 files changed, 9 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+>> index ee03d35..606950d 100644
+>> --- a/net/sunrpc/xprtsock.c
+>> +++ b/net/sunrpc/xprtsock.c
+>> @@ -1271,8 +1271,13 @@ static inline int xs_tcp_read_callback(struct rpc_xprt *xprt,
+>>       struct sock_xprt *transport =
+>>                               container_of(xprt, struct sock_xprt, xprt);
+>>       struct rpc_rqst *req;
+>> +     static struct rpc_rqst *req_partial;
+>> +
+>> +     if (req_partial == NULL)
+>> +             req = xprt_alloc_bc_request(xprt);
+>> +     else if (req_partial->rq_xid == transport->tcp_xid)
+>> +             req = req_partial;
+>
+> What happens here if req_partial->rq_xid != transport->tcp_xid? AFAICS,
+> req will be undefined. Either way, you cannot use a static variable for
+> storage here: that isn't re-entrant.
+
+Because metadata sever only have one slot for backchannel request,
+req_partial->rq_xid == transport->tcp_xid always happens, if the callback
+request just being splited in two sk_buffs. But req_partial->rq_xid !=
+transport->tcp_xid may also happens in some special cases, such as
+retransmission occurs?
+If one callback request is splited in two sk_buffs, xs_tcp_read_callback
+will be execute two times. The req_partial should be a static variable,
+because  the second execution of xs_tcp_read_callback should use
+the rpc_rqst allocated for the first execution, which saves information
+copies from the first sk_buff.
+I think perhaps the code should be modified like bellows:
+
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+index 606950d..02dbb82 100644
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -1273,10 +1273,14 @@ static inline int xs_tcp_read_callback(struct
+rpc_xprt *xprt,
+        struct rpc_rqst *req;
+        static struct rpc_rqst *req_partial;
+
+-       if (req_partial == NULL)
++       if (req_partial == NULL) {
+                req = xprt_alloc_bc_request(xprt);
+-       else if (req_partial->rq_xid == transport->tcp_xid)
++       } else if (req_partial->rq_xid == transport->tcp_xid) {
+                req = req_partial;
++       } else {
++               xprt_free_bc_request(req_partial);
++               req = xprt_alloc_bc_request(xprt);
++       }
+
+        if (req == NULL) {
+                printk(KERN_WARNING "Callback slot table overflowed\n");
+@@ -1303,8 +1307,9 @@ static inline int xs_tcp_read_callback(struct
+rpc_xprt *xprt,
+                list_add(&req->rq_bc_list, &bc_serv->sv_cb_list);
+                spin_unlock(&bc_serv->sv_cb_lock);
+                wake_up(&bc_serv->sv_cb_waitq);
+-       } else
++       } else {
+                req_partial = req;
++       }
+
+        req->rq_private_buf.len = transport->tcp_copied;
+
+
+>
+>> -     req = xprt_alloc_bc_request(xprt);
+>>       if (req == NULL) {
+>>               printk(KERN_WARNING "Callback slot table overflowed\n");
+>>               xprt_force_disconnect(xprt);
+>> @@ -1285,6 +1290,7 @@ static inline int xs_tcp_read_callback(struct rpc_xprt *xprt,
+>>
+>>       if (!(transport->tcp_flags & TCP_RCV_COPY_DATA)) {
+>>               struct svc_serv *bc_serv = xprt->bc_serv;
+>> +             req_partial = NULL;
+>>
+>>               /*
+>>                * Add callback request to callback list.  The callback
+>> @@ -1297,7 +1303,8 @@ static inline int xs_tcp_read_callback(struct rpc_xprt *xprt,
+>>               list_add(&req->rq_bc_list, &bc_serv->sv_cb_list);
+>>               spin_unlock(&bc_serv->sv_cb_lock);
+>>               wake_up(&bc_serv->sv_cb_waitq);
+>> -     }
+>> +     } else
+>> +             req_partial = req;
+>>
+>>       req->rq_private_buf.len = transport->tcp_copied;
+>>
+>
+>
+> --
+> Trond Myklebust
+> Linux NFS client maintainer
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
