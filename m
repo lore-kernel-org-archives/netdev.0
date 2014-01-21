@@ -1,39 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Correctly sync addresses from multiple sources to
- single device
-Date: Tue, 21 Jan 2014 14:53:55 -0800 (PST)
-Message-ID: <20140121.145355.1406240839568386348.davem@davemloft.net>
-References: <1389988332-22472-1-git-send-email-vyasevic@redhat.com>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: Re: [PATCH] [trivial] ixgbe: Fix format string in ixgbe_fcoe.c
+Date: Tue, 21 Jan 2014 23:04:53 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B73142908@ORSMSX101.amr.corp.intel.com>
+References: <1389716082-23395-1-git-send-email-standby24x7@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, andrey.dmitrov@oktetlabs.ru
-To: vyasevic@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37872 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750862AbaAUWx4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 17:53:56 -0500
-In-Reply-To: <1389988332-22472-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"trivial@kernel.org" <trivial@kernel.org>
+To: "standby24x7@gmail.com" <standby24x7@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1389716082-23395-1-git-send-email-standby24x7@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogVmxhZCBZYXNldmljaCA8dnlhc2V2aWNAcmVkaGF0LmNvbT4NCkRhdGU6IEZyaSwgMTcg
-SmFuIDIwMTQgMTQ6NTI6MTIgLTA1MDANCg0KPiBXaGVuIHdlIGhhdmUgbXVsdGlwbGUgZGV2aWNl
-cyBhdHRlbXB0aW5nIHRvIHN5bmMgdGhlIHNhbWUgYWRkcmVzcw0KPiB0byBhIHNpbmdsZSBkZXN0
-aW5hdGlvbiwgZWFjaCBkZXZpY2Ugc2hvdWxkIGJlIHBlcm1pdHRlZCB0byBzeW5jDQo+IGl0IG9u
-Y2UuICBUbyBhY2NvbXBsaXNoIHRoaXMsIHBhc3MgdGhlIHN5bmMgY291bnQgb2YgdGhlIHNvdXJj
-ZQ0KPiBhZGRyZXNzIHRvIF9faHdfYWRkcl9hZGRfZXgoKS4gICdzeW5jX2NudCcgdHJhY2tzIGhv
-dyBtYW55IHRpbWUNCj4gYSBnaXZlbiBhZGRyZXNzIGhhcyBiZWVuIHN1Y2Nlc3NmdWxseSBzeW5j
-ZWQuICBJZiB0aGUgYWRkcmVzcw0KPiBpcyBmb3VuZCBpbiB0aGUgZGVzdGluYXRpb24gbGlzdCwg
-YnV0IHRoZSAnc3luY19jbnQnIG9mIHRoZSBzb3VyY2UNCj4gaXMgMCwgdGhlbiB0aGlzIGFkZHJl
-c3MgaGFzIG5vdCBiZWVuIHN5bmNlZCBmcm9tIHRoaXMgaW50ZXJmYWNlDQo+IGFuZCB3ZSBuZWVk
-IHRvIGFsbG93IHRoZSBzeW5jIG9wZXJhdGlvbiB0byBzdWNjZWVkIHRodXMgaW5jcmVtZW50aW5n
-DQo+IHJlZmVyZW5jZSBjb3VudHMuDQo+IA0KPiBSZXBvcnRlZC1ieTogQW5kcmV5IERtaXRyb3Yg
-PGFuZHJleS5kbWl0cm92QG9rdGV0bGFicy5ydT4NCj4gQ0M6IEFuZHJleSBEbWl0cm92IDxhbmRy
-ZXkuZG1pdHJvdkBva3RldGxhYnMucnU+DQo+IFNpZ25lZC1vZmYtYnk6IFZsYWQgWWFzZXZpY2gg
-PHZ5YXNldmljQHJlZGhhdC5jb20+DQoNCkkgYXBwbGllZCB0aGlzIHRvIG5ldC1uZXh0IHNpbmNl
-IDMuMTMganVzdCBnb3QgcmVsZWFzZWQsIGFuZCBpdCBkb2Vzbid0DQpjb21waWxlLg0KDQpuZXQv
-Y29yZS9kZXZfYWRkcl9saXN0cy5jOiBJbiBmdW5jdGlvbiChX19od19hZGRyX3N5bmNfb25lojoN
-Cm5ldC9jb3JlL2Rldl9hZGRyX2xpc3RzLmM6MTQ0OjI2OiBlcnJvcjogoXN0cnVjdCBuZXRkZXZf
-aHdfYWRkcqIgaGFzIG5vIG1lbWJlciBuYW1lZCChc3luY19jb3VudKINCg==
+T24gV2VkLCAyMDE0LTAxLTE1IGF0IDAxOjE0ICswOTAwLCBNYXNhbmFyaSBJaWRhIHdyb3RlOgo+
+IGNwcGNoZWNrIGRldGVjdGVkIGZvbGxvd2luZyB3YXJuaW5nIGluIGl4Z2JlX2Zjb2UuYwo+ICh3
+YXJuaW5nKSAlZCBpbiBmb3JtYXQgc3RyaW5nIChuby4gMSkgcmVxdWlyZXMgJ2ludCcgYnV0IHRo
+ZQo+IGFyZ3VtZW50IHR5cGUgaXMgJ3Vuc2lnbmVkIGludCcuCj4gCj4gU2lnbmVkLW9mZi1ieTog
+TWFzYW5hcmkgSWlkYSA8c3RhbmRieTI0eDdAZ21haWwuY29tPgpUZXN0ZWQtQnk6IEphY2sgTW9y
+Z2FuIDxqYWNrLm1vcmdhbkBpbnRlbC5jb20+ClNpZ25lZC1vZmYtYnk6IEFhcm9uIEJyb3duIDxh
+YXJvbi5mLmJyb3duQGludGVsLmNvbT4KCj4gLS0tCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2lu
+dGVsL2l4Z2JlL2l4Z2JlX2Zjb2UuYyB8IDIgKy0KPiAgMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0
+aW9uKCspLCAxIGRlbGV0aW9uKC0pCj4gCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVy
+bmV0L2ludGVsL2l4Z2JlL2l4Z2JlX2Zjb2UuYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
+L2l4Z2JlL2l4Z2JlX2Zjb2UuYwo+IGluZGV4IGY1OGRiNDUuLjA4NzI2MTcgMTAwNjQ0Cj4gLS0t
+IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfZmNvZS5jCj4gKysrIGIv
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfZmNvZS5jCj4gQEAgLTU4NSw3
+ICs1ODUsNyBAQCBzdGF0aWMgaW50IGl4Z2JlX2Zjb2VfZG1hX3Bvb2xfYWxsb2Moc3RydWN0IGl4
+Z2JlX2Zjb2UgKmZjb2UsCj4gIAlzdHJ1Y3QgZG1hX3Bvb2wgKnBvb2w7Cj4gIAljaGFyIHBvb2xf
+bmFtZVszMl07Cj4gIAo+IC0Jc25wcmludGYocG9vbF9uYW1lLCAzMiwgIml4Z2JlX2Zjb2VfZGRw
+XyVkIiwgY3B1KTsKPiArCXNucHJpbnRmKHBvb2xfbmFtZSwgMzIsICJpeGdiZV9mY29lX2RkcF8l
+dSIsIGNwdSk7Cj4gIAo+ICAJcG9vbCA9IGRtYV9wb29sX2NyZWF0ZShwb29sX25hbWUsIGRldiwg
+SVhHQkVfRkNQVFJfTUFYLAo+ICAJCQkgICAgICAgSVhHQkVfRkNQVFJfQUxJR04sIFBBR0VfU0la
+RSk7CgoK
