@@ -1,53 +1,88 @@
-From: "Mr.Baszm Hamza" <mariamkip1@gmail.com>
-Subject: Re: Reply Very Urgent.
-Date: Tue, 21 Jan 2014 01:32:56 -0800
-Message-ID: <CAHONF70aHrZLZWM0UyOwV4E3o9h-2-ApHJr2M90P4+sNM5mWqg@mail.gmail.com>
-Reply-To: rve.garvejulius12@yahoo.com
+From: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH RFC 4/6] net: rfkill: gpio: add device tree support
+Date: Tue, 21 Jan 2014 10:35:10 +0100
+Message-ID: <CACRpkdYiy+sya6NqRfAmsrFOXvaa3qX=qjRuTDW1vZVSaG1+Gg@mail.gmail.com>
+References: <1389941251-32692-1-git-send-email-wens@csie.org>
+	<1389941251-32692-5-git-send-email-wens@csie.org>
+	<201401171747.46332.arnd@arndb.de>
+	<CAGb2v67UKiyfJbKZ_Frk3OwZupMPoA2Ck3Hj2zsRFXBQPztavg@mail.gmail.com>
+	<CACRpkdZOD4zeA8T5kbJ4c5NsnuzHCg1mw8rRMYNT9c4R-Qnc6A@mail.gmail.com>
+	<CAAVeFuLP4MkfXGG1FMauvUw_J63zRXdhGwxqYy5W98L1wCQNbw@mail.gmail.com>
+Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f67.google.com ([209.85.214.67]:51550 "EHLO
-	mail-bk0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753871AbaAUJc6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 04:32:58 -0500
-Received: by mail-bk0-f67.google.com with SMTP id v16so1035256bkz.2
-        for <netdev@vger.kernel.org>; Tue, 21 Jan 2014 01:32:56 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, Mika Westerberg <mika.westerberg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>, linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+To: Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-sunxi+bncBDE6RCFOWIARBT767CLAKGQEXDU27VI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+In-Reply-To: <CAAVeFuLP4MkfXGG1FMauvUw_J63zRXdhGwxqYy5W98L1wCQNbw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/linux-sunxi>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Dear Friend,
+On Tue, Jan 21, 2014 at 4:11 AM, Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> On Sat, Jan 18, 2014 at 8:11 AM, Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org> wrote:
 
-I'm happy to inform you about my success in getting the fund
-transferred under the cooperation of a new partner from China .
-Presently I=92m in China for investment projects with my own share of
-the total sum, I have limited access to internet, but I will get back
-to you as soon I finished my project. Meanwhile, I didn't forget your
-past efforts and attempts to assist me in transferring those funds
-despite that it failed us some how.
+>> gpio = devm_gpiod_get_index(&pdev->dev, NULL, 0);
+>> gpio = devm_gpiod_get_index(&pdev->dev, NULL, 1);
+>>
+>> Heikki, are you OK with this change?
+>>
+>> I think this is actually necessary if the ACPI and DT unification
+>> pipe dream shall limp forward, we cannot have arguments passed
+>> that have a semantic effect on DT but not on ACPI... Drivers
+>> that are supposed to use both ACPI and DT will always
+>> have to pass NULL as con ID.
+>
+> I agree that's how it should be be done with the current API if your
+> driver can obtain GPIOs from both ACPI and DT. This is a potential
+> issue, as drivers are not supposed to make assumptions about who is
+> going to be their GPIO provider. Let's say you started a driver with
+> only DT in mind, and used gpio_get(dev, con_id) to get your GPIOs. DT
+> bindings are thus of the form "con_id-gpio = <phandle>", and set in
+> stone. Then later, someone wants to use your driver with ACPI. How do
+> you handle that gracefully?
 
+Short answer is you can't. You have to pour backward-compatibility
+code into the driver first checking for that property and then falling
+back to the new binding if it doesn't exist.
 
-Now contact my secretary, his name is Rve.Garvey Julius and his Email
-Address is as follows: (rve.garvejulius12@hotmail.fr) Ask him to send
-you the sum of $500,000.00 token gift which I kept for you as
-compensation for all the past efforts and attempts to assist me in
-this matter but it was decided by all Might God. I appreciated your
-efforts at that time very much. So feel free and get in touched with
-my secretary Rve.Garvey Julius  and instruct him where to send the
-amount to you.
+> I'm starting to wonder, now that ACPI is a first-class GPIO provider,
+> whether we should not start to encourage the deprecation of the
+> "con_id-gpio = <phandle>" binding form in DT and only use a single
+> indexed GPIO property per device.
 
+You have a valid point.
 
-Please do let me know immediately you receive it so that we can share
-the joy after all the sufferness at that time. In the moment, I am
-very busy here because of the investment projects which me and the new
-partner are having at hand, finally, remember that I had forwarded
-instruction to the secretary on your behalf to receive that money, so
-feel free to get in touch with Rve.Garvey Julius and he will send the
-amount to you without any delay.
+> The con_id parameter would then only
+> be used as a label, which would also have the nice side-effect that
+> all GPIOs used for a given function will be reported under the same
+> name no matter what the GPIO provider is.
 
-Contact him through email and also call him on his cell phone +226 76 3=
-2 26 98.
+As discussed earlier in this thread I'm not sure the con_id is
+suitable for labelling GPIOs. It'd be better to have a proper name
+specified in DT/ACPI instead.
 
-With best regards
-Mr.Baszm Hamza
+> From an aesthetic point of view, I definitely prefer using con_id to
+> identify GPIOs instead of indexes, but I don't see how we can make it
+> play nice with ACPI. Thoughts?
+
+Let's ask the DT maintainers...
+
+I'm a bit sceptic to the whole ACPI-DT-API-should-be-unified
+just-one-function-call business, as this was just a very simple example
+of what can happen to something as simple as
+devm_gpiod_get[_index]().
+
+Yours,
+Linus Walleij
