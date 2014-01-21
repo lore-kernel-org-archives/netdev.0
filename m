@@ -1,94 +1,83 @@
-From: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
-Subject: [PATCH net-next v2] ipv6: enable anycast addresses as source addresses for datagrams
-Date: Tue, 21 Jan 2014 17:01:10 +0100
-Message-ID: <1390320070-12735-1-git-send-email-fx.lebail@yahoo.com>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Stevens <dlstevens@us.ibm.com>,
-	David Miller <davem@davemloft.net>
-To: netdev <netdev@vger.kernel.org>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: issues with vxlan RX checksum offload under OVS datapath
+Date: Tue, 21 Jan 2014 09:30:53 -0800
+Message-ID: <CALnjE+rUTejbU_d39G7WSn=k0aY2xELCE3UxjDr_Zdq3iwHbNA@mail.gmail.com>
+References: <52DC4C1B.5000309@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	netdev <netdev@vger.kernel.org>
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp06.smtpout.orange.fr ([80.12.242.128]:19340 "EHLO
-	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752730AbaAUQV4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 11:21:56 -0500
+Received: from na3sys009aog131.obsmtp.com ([74.125.149.247]:50719 "HELO
+	na3sys009aog131.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754836AbaAURay (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 12:30:54 -0500
+Received: by mail-ve0-f176.google.com with SMTP id oz11so2582598veb.7
+        for <netdev@vger.kernel.org>; Tue, 21 Jan 2014 09:30:54 -0800 (PST)
+In-Reply-To: <52DC4C1B.5000309@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change allows to consider an anycast address valid as source address
-when given via an IPV6_PKTINFO or IPV6_2292PKTINFO ancillary data item.
-So, when sending a datagram with ancillary data, the unicast and anycast
-addresses are handled in the same way.
+On Sun, Jan 19, 2014 at 2:05 PM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
+> Hi Pravin,
+>
+> While testing the gro udp patches over a setup with openvswitch I noted that
+> the RX checksum offload support introduced by Joseph's commit 0afb166
+> "vxlan: Add capability of Rx checksum offload for inner packet" works fine
+> when you use a setup made of
+>
+> NIC --> IP stack --> vxlan device --> bridge --> tap
+>
+> but not when its
+>
+> NIC --> IP stack --> ovs vxlan port --> OVS DP --> tap
+>
+> I narrowed it down to the fact the when going the OVS pathskb->encapsulation
+> remains true also after the decap is done. Basically, this is the original
+> hunk
+>
+>
+>> @@ -607,7 +607,17 @@ static int vxlan_udp_encap_recv(struct sock *sk,
+>> struct sk_buff *skb)
+>>
+>>         __skb_tunnel_rx(skb, vxlan->dev);
+>>         skb_reset_network_header(skb);
+>> -       skb->ip_summed = CHECKSUM_NONE;
+>> +
+>> +       /* If the NIC driver gave us an encapsulated packet with
+>> +        * CHECKSUM_UNNECESSARY and Rx checksum feature is enabled,
+>> +        * leave the CHECKSUM_UNNECESSARY, the device checksummed it
+>> +        * for us. Otherwise force the upper layers to verify it.
+>> +        */
+>> +       if (skb->ip_summed != CHECKSUM_UNNECESSARY || !skb->encapsulation
+>> ||
+>> +           !(vxlan->dev->features & NETIF_F_RXCSUM))
+>> +               skb->ip_summed = CHECKSUM_NONE;
+>> +
+>> +       skb->encapsulation = 0;
+>
+>
+> which was moved by your commits
+>
+> 5cfccc5 vxlan: Add vxlan recv demux.
+> 7ce0475 vxlan: Restructure vxlan receive.
+>
+> to a code which isn't shared by the vxlan driver and ovs vxlan datapath
+> code, and I was thinking lets just move it back to vxlan_udp_encap_recv.
+> However, we can't really make the "vxlan->dev->features & NETIF_F_RXCSUM"
+> check - since there's no vxlan device for ovs datapath, any idea how to
+> overcome this.
+>
+> Moving this to shared code (while removing the check for
+> vxlan->dev->features) made things to work on my setup, but this misses one
+> of the original conditions, ideas?
+>
+I kept csum check in vxlan-device recv path for same reason. As of now
+there is no efficient way to get ovs-dev features.
+May be we can cache device features in struct datapath from datapath-netdev.
 
-- Adds ipv6_chk_acast_addr_src() to check if an anycast address is link-local
-  on given interface or is global.
-- Uses it in ip6_datagram_send_ctl().
-
-Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
----
-v2: Consideration of Hannes's review:
-    - Same behaviour for anycast and unicast.
-    - No need for a new socket option.
-
-Typical usage :
-A server uses IPV6_RECVPKTINFO socket option to get ancillary data with
-recvmsg() and can use sendmsg() to reply with anycast adress as source address
-in the same way it does for unicast.
-
- include/net/addrconf.h |    5 +++--
- net/ipv6/anycast.c     |   11 +++++++++++
- net/ipv6/datagram.c    |    4 +++-
- 3 files changed, 17 insertions(+), 3 deletions(-)
-
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index 66c4a44..50e39a8 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -205,8 +205,9 @@ void ipv6_sock_ac_close(struct sock *sk);
- int ipv6_dev_ac_inc(struct net_device *dev, const struct in6_addr *addr);
- int __ipv6_dev_ac_dec(struct inet6_dev *idev, const struct in6_addr *addr);
- bool ipv6_chk_acast_addr(struct net *net, struct net_device *dev,
--				const struct in6_addr *addr);
--
-+			 const struct in6_addr *addr);
-+bool ipv6_chk_acast_addr_src(struct net *net, struct net_device *dev,
-+			     const struct in6_addr *addr);
- 
- /* Device notifier */
- int register_inet6addr_notifier(struct notifier_block *nb);
-diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
-index 5a80f15..d3a6e2d 100644
---- a/net/ipv6/anycast.c
-+++ b/net/ipv6/anycast.c
-@@ -383,6 +383,17 @@ bool ipv6_chk_acast_addr(struct net *net, struct net_device *dev,
- 	return found;
- }
- 
-+/*	check if this anycast address is link-local on given interface or
-+ *	is global
-+ */
-+bool ipv6_chk_acast_addr_src(struct net *net, struct net_device *dev,
-+			     const struct in6_addr *addr)
-+{
-+	if (ipv6_addr_type(addr) & IPV6_ADDR_LINKLOCAL)
-+		return ipv6_chk_acast_dev(dev, addr);
-+	else
-+		return ipv6_chk_acast_addr(net, NULL, addr);
-+}
- 
- #ifdef CONFIG_PROC_FS
- struct ac6_iter_state {
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index cd8699b..2615197 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -689,7 +689,9 @@ int ip6_datagram_send_ctl(struct net *net, struct sock *sk,
- 				int strict = __ipv6_addr_src_scope(addr_type) <= IPV6_ADDR_SCOPE_LINKLOCAL;
- 				if (!(inet_sk(sk)->freebind || inet_sk(sk)->transparent) &&
- 				    !ipv6_chk_addr(net, &src_info->ipi6_addr,
--						   strict ? dev : NULL, 0))
-+						   strict ? dev : NULL, 0) &&
-+				    !ipv6_chk_acast_addr_src(net, dev,
-+							     &src_info->ipi6_addr))
- 					err = -EINVAL;
- 				else
- 					fl6->saddr = src_info->ipi6_addr;
+> I believe its too late for 3.13 unless there is going to be -rc9, but lets
+> first see what's the right fix.
+>
+> Or.
