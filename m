@@ -1,80 +1,136 @@
-From: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-Subject: Re: [PATCH] SUNRPC: Allow one callback request to be received from two sk_buff
-Date: Tue, 21 Jan 2014 08:35:36 -0700
-Message-ID: <1BFACA51-087E-4945-851A-FBF0F108604C@primarydata.com>
-References: <1390201154-20815-1-git-send-email-shaobingqing@bwstor.com.cn> <1390259843.2501.2.camel@leira.trondhjem.org> <CALrKORrZ3Kcuqc1RajQKkZcot0yiswh4VR_WuXHqfRTjn9oGQQ@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.1 \(1827\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Dr Fields James Bruce <bfields-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"Miller David S." <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linuxnfs <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: shaobingqing <shaobingqing-Gb3srWounXyPt1CcHtbs0g@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CALrKORrZ3Kcuqc1RajQKkZcot0yiswh4VR_WuXHqfRTjn9oGQQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH net-next 00/25] bonding: introduce new option API
+Date: Tue, 21 Jan 2014 09:59:43 -0600
+Message-ID: <1390319983.26902.4.camel@dcbw.local>
+References: <1390316114-17815-1-git-send-email-nikolay@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:8874 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754606AbaAUP7e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jan 2014 10:59:34 -0500
+In-Reply-To: <1390316114-17815-1-git-send-email-nikolay@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On Jan 21, 2014, at 3:08, shaobingqing <shaobingqing-Gb3srWounXyPt1CcHtbs0g@public.gmane.org> wrote:
-
-> 2014/1/21 Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>:
->> On Mon, 2014-01-20 at 14:59 +0800, shaobingqing wrote:
->>> In current code, there only one struct rpc_rqst is prealloced. If one
->>> callback request is received from two sk_buff, the xprt_alloc_bc_request
->>> would be execute two times with the same transport->xid. The first time
->>> xprt_alloc_bc_request will alloc one struct rpc_rqst and the TCP_RCV_COPY_DATA
->>> bit of transport->tcp_flags will not be cleared. The second time
->>> xprt_alloc_bc_request could not alloc struct rpc_rqst any more and NULL
->>> pointer will be returned, then xprt_force_disconnect occur. I think one
->>> callback request can be allowed to be received from two sk_buff.
->>> 
->>> Signed-off-by: shaobingqing <shaobingqing-Gb3srWounXyPt1CcHtbs0g@public.gmane.org>
->>> ---
->>> net/sunrpc/xprtsock.c |   11 +++++++++--
->>> 1 files changed, 9 insertions(+), 2 deletions(-)
->>> 
->>> diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
->>> index ee03d35..606950d 100644
->>> --- a/net/sunrpc/xprtsock.c
->>> +++ b/net/sunrpc/xprtsock.c
->>> @@ -1271,8 +1271,13 @@ static inline int xs_tcp_read_callback(struct rpc_xprt *xprt,
->>>      struct sock_xprt *transport =
->>>                              container_of(xprt, struct sock_xprt, xprt);
->>>      struct rpc_rqst *req;
->>> +     static struct rpc_rqst *req_partial;
->>> +
->>> +     if (req_partial == NULL)
->>> +             req = xprt_alloc_bc_request(xprt);
->>> +     else if (req_partial->rq_xid == transport->tcp_xid)
->>> +             req = req_partial;
->> 
->> What happens here if req_partial->rq_xid != transport->tcp_xid? AFAICS,
->> req will be undefined. Either way, you cannot use a static variable for
->> storage here: that isn't re-entrant.
+On Tue, 2014-01-21 at 15:54 +0100, Nikolay Aleksandrov wrote:
+> Hi,
+> This patchset's goal is to introduce a new option API which should be used
+> to properly describe the bonding options with their mode dependcies and
+> requirements. With this patchset applied we get centralized option
+> manipulation, automatic RTNL acquire per option setting, automatic option
+> range checking, mode dependcy checking and other various flags which are
+> described in detail in patch 01's commit message and comments.
+> Also the parameter passing is changed to use a specialized structure which
+> is initialized to a value depending on the needs.
+> The main exported functions are:
+>  __bond_opt_set() - set an option (RTNL should be acquired prior)
+>  bond_opt_init(val|str) - init a bond_opt_value struct for value or string
+>                           parameter passing
+>  bond_opt_tryset_rtnl() - function which tries to acquire rtnl, mainly used
+>                           for sysfs
+>  bond_opt_parse - used to parse or check for valid values
+>  bond_opt_get - retrieve a pointer to bond_option struct for some option
+>  bond_opt_get_val - retrieve a pointer to a bond_opt_value struct for
+>                     some value
 > 
-> Because metadata sever only have one slot for backchannel request,
-> req_partial->rq_xid == transport->tcp_xid always happens, if the callback
-> request just being splited in two sk_buffs. But req_partial->rq_xid !=
-> transport->tcp_xid may also happens in some special cases, such as
-> retransmission occurs?
+> The same functions are used to set an option via sysfs and netlink, just
+> the parameter that's passed is usually initialized in a different way.
+> The converted options have multiple style fixes, there're some longer
+> lines but they looked either ugly or were strings/pr_warnings, if you
+> think some line would be better broken just let me know :-) there're
+> also a few sscanf false-positive warnings.
+> I decided to keep the "unsuppmodes" way of mode dep checking since it's
+> straight forward, if we make a more general way for checking dependencies
+> it'll be easy to change it.
+> 
+> Future plans for this work include:
+>  - Automatic sysfs generation from the bond_opts[].
+>  - Use of the API in bond_check_params() and thus cleaning it up (this has
+>    actually started, I'll take care of the rest in a separate patch)
+>  - Clean up all option-unrelated files of option definitions and functions
+> 
+> I've tried to leave as much documentation as possible, if there's anything
+> unclear please let me know. One more thing, I haven't moved all
+> option-related functions from bonding.h to the new bond_options.h, this
+> will be done in a separate patch, it's in my todo list.
+> 
+> This patchset has been tested by setting each converted option via sysfs
+> and netlink to a couple of wrong values, a couple of correct values and
+> some random values, also for the opts that have flags they have been
+> tested as well.
 
-If the server retransmits, then it is broken. The NFSv4.1 protocol does not allow it to retransmit unless the connection breaks.
+Currently userspace has to encode a lot of the same logic the kernel has
+for option validation, for example when creating a user interface for
+this stuff, you have to know that miimon and arp are incompatible, and
+that certain options are only relevant with certain bond modes, and it's
+a mess.  And this also sometimes changes when new kernel options or
+capabilities are added.
 
-> If one callback request is splited in two sk_buffs, xs_tcp_read_callback
-> will be execute two times. The req_partial should be a static variable,
-> because  the second execution of xs_tcp_read_callback should use
-> the rpc_rqst allocated for the first execution, which saves information
-> copies from the first sk_buff.
+So, is there any good way to describe the valid value ranges or
+capabilities for userspace?  One idea is to send a package of bond
+options to the kernel and see if they validate before actually applying
+them, though this only works when actually configuring the interface.
+An additional idea would be to somehow describe the available options
+(eg, value ranges for numeric values, list-of-strings for bond modes,
+etc) that the kernel supports before any bonds are even created (thus
+probably through netlink, not sysfs).
 
-No! This is a multi-threaded/process environment which can support multiple connection. It is a bug to use a static variable.
+Thoughts?
 
---
-Trond Myklebust
-Linux NFS client maintainer
+Dan
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Best regards,
+>  Nikolay Aleksandrov
+> 
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> CC: Jay Vosburgh <fubar@us.ibm.com>
+> CC: Veaceslav Falico <vfalico@redhat.com>
+> CC: Scott Feldman <sfeldma@cumulusnetworks.com>
+> CC: David S. Miller <davem@davemloft.net>
+> 
+> Nikolay Aleksandrov (25):
+>   bonding: add infrastructure for an option API
+>   bonding: convert mode setting to use the new option API
+>   bonding: convert packets_per_slave to use the new option API
+>   bonding: convert xmit_hash_policy to use the new option API
+>   bonding: convert arp_validate to use the new option API
+>   bonding: convert arp_all_targets to use the new option API
+>   bonding: convert fail_over_mac to use the new option API
+>   bonding: convert arp_interval to use the new option API
+>   bonding: convert arp_ip_target to use the new option API
+>   bonding: convert downdelay to use the new option API
+>   bonding: convert updelay to use the new option API
+>   bonding: convert lacp_rate to use the new option API
+>   bonding: convert min_links to use the new option API
+>   bonding: convert ad_select to use the new option API
+>   bonding: convert num_peer_notif to use the new option API
+>   bonding: convert miimon to use the new option API
+>   bonding: convert primary to use the new option API
+>   bonding: convert primary_reselect to use the new option API
+>   bonding: convert use_carrier to use the new option API
+>   bonding: convert active_slave to use the new option API
+>   bonding: convert queue_id to use the new option API
+>   bonding: convert all_slaves_active to use the new option API
+>   bonding: convert resend_igmp to use the new option API
+>   bonding: convert lp_interval to use the new option API
+>   bonding: convert slaves to use the new option API
+> 
+>  drivers/net/bonding/bond_main.c    |  179 +++---
+>  drivers/net/bonding/bond_netlink.c |   87 ++-
+>  drivers/net/bonding/bond_options.c | 1086 +++++++++++++++++++++++++++---------
+>  drivers/net/bonding/bond_options.h |  170 ++++++
+>  drivers/net/bonding/bond_procfs.c  |   25 +-
+>  drivers/net/bonding/bond_sysfs.c   |  519 +++--------------
+>  drivers/net/bonding/bonding.h      |   29 +-
+>  7 files changed, 1214 insertions(+), 881 deletions(-)
+>  create mode 100644 drivers/net/bonding/bond_options.h
+> 
