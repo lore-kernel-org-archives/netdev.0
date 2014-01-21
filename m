@@ -1,135 +1,488 @@
-From: Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH RFC 4/6] net: rfkill: gpio: add device tree support
-Date: Tue, 21 Jan 2014 23:53:13 +0900
-Message-ID: <CAAVeFuKFfAvSPYLmvWV5jjT-peZFJ8sJ2bbh4F=JAYoWLhjZpA@mail.gmail.com>
-References: <1389941251-32692-1-git-send-email-wens@csie.org>
- <CAAVeFuLP4MkfXGG1FMauvUw_J63zRXdhGwxqYy5W98L1wCQNbw@mail.gmail.com>
- <CACRpkdYiy+sya6NqRfAmsrFOXvaa3qX=qjRuTDW1vZVSaG1+Gg@mail.gmail.com> <201401211335.16885.arnd@arndb.de>
-Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org" <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>, Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Mika Westerberg <mika.westerberg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <linux-sunxi+bncBDE4FPUCVULRB3MT7KLAKGQEJ5SSW4I-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <201401211335.16885.arnd-r2nGTMty4D4@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH net-next 01/25] bonding: add infrastructure for an option API
+Date: Tue, 21 Jan 2014 15:54:50 +0100
+Message-ID: <1390316114-17815-2-git-send-email-nikolay@redhat.com>
+References: <1390316114-17815-1-git-send-email-nikolay@redhat.com>
+Cc: Nikolay Aleksandrov <nikolay@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44088 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754601AbaAUOzp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jan 2014 09:55:45 -0500
+Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s0LEtjKq027105
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Tue, 21 Jan 2014 09:55:45 -0500
+In-Reply-To: <1390316114-17815-1-git-send-email-nikolay@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 21, 2014 at 9:35 PM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
-> On Tuesday 21 January 2014, Linus Walleij wrote:
->> On Tue, Jan 21, 2014 at 4:11 AM, Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->> > On Sat, Jan 18, 2014 at 8:11 AM, Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org> wrote:
->> >
->> > I agree that's how it should be be done with the current API if your
->> > driver can obtain GPIOs from both ACPI and DT. This is a potential
->> > issue, as drivers are not supposed to make assumptions about who is
->> > going to be their GPIO provider. Let's say you started a driver with
->> > only DT in mind, and used gpio_get(dev, con_id) to get your GPIOs. DT
->> > bindings are thus of the form "con_id-gpio = <phandle>", and set in
->> > stone. Then later, someone wants to use your driver with ACPI. How do
->> > you handle that gracefully?
->>
->> Short answer is you can't. You have to pour backward-compatibility
->> code into the driver first checking for that property and then falling
->> back to the new binding if it doesn't exist.
->
-> With the ACPI named properties extension, it should be possible to have
-> something akin to a "gpio-names" list that can be attached to an indexed
-> array of gpio descriptors. I assume that Intel is going to need this
-> for named irqs, clocks, regulators, dmas as well, so I think it will
-> eventually get there. It's not something that can be done today though,
-> or that is standardized in APCI-5.0.
+This patch adds the necessary basic infrastructure to support
+centralized and unified option manipulation API for the bonding. The new
+structure bond_option will be used to describe each option with its
+dependencies on modes which will be checked automatically thus removing a
+lot of duplicated code. Also automatic range checking is added for
+some options. Currently the option setting function requires RTNL to
+be acquired prior to calling it, since many options already rely on RTNL
+it seemed like the best choice to protect all against common race
+conditions.
+In order to add an option the following steps need to be done:
+1. Add an entry BOND_OPT_<option> to bond_options.h so it gets a unique id
+   and a bit corresponding to the id
+2. Add a bond_option entry to the bond_opts[] array in bond_options.c which
+   describes the option, its dependencies and its manipulation function
+3. Add code to export the option through sysfs and/or as a module parameter
+   (the sysfs export will be made automatically in the future)
 
-Good to know. I'm not sure this would help with the named GPIO
-resolution issue however. I assume that contrary to DT we will have no
-control over the naming of ACPI-defined GPIOs, and thus there is
-little chance that a GPIO serving a function will end up having the
-same name as the one we chose for the DT binding...
+The options can have different flags set, currently the following are
+supported:
+BOND_OPTFLAG_NOSLAVES - require that the bond device has no slaves prior
+                        to setting the option
+BOND_OPTFLAG_IFDOWN - require that the bond device is down prior to
+                      setting the option
+BOND_OPTFLAG_RAWVAL - don't parse the value but return it raw for the
+                      option to parse
 
->
-> My guess is that named GPIOs are going to make more sense on x86 embedded
-> than on arm64 server.
->
->> > I'm starting to wonder, now that ACPI is a first-class GPIO provider,
->> > whether we should not start to encourage the deprecation of the
->> > "con_id-gpio = <phandle>" binding form in DT and only use a single
->> > indexed GPIO property per device.
->>
->> You have a valid point.
->
-> Independent of ACPI, I prefer indexed "gpios" properties over "con_id-gpio"
-> properties anyway, because it's more consistent with some of the other
-> subsystems. I don't have an opinion though on whether we should also
-> allow a "gpios"/"gpio-names" pair, or whether we should keep the indexed
-> "gpios" list for the anonymous case.
->
->> > The con_id parameter would then only
->> > be used as a label, which would also have the nice side-effect that
->> > all GPIOs used for a given function will be reported under the same
->> > name no matter what the GPIO provider is.
->>
->> As discussed earlier in this thread I'm not sure the con_id is
->> suitable for labelling GPIOs. It'd be better to have a proper name
->> specified in DT/ACPI instead.
->
-> +1
+There's a new value structure to describe different types of values
+which can have the following flags:
+BOND_VALFLAG_DEFAULT - marks the default option (permanent string alias
+                       to this option is "default")
+BOND_VALFLAG_MIN - the minimum value that this option can have
+BOND_VALFLAG_MAX - the maximum value that this option can have
 
-I wonder why you guys prefer to have the name defined in the GPIO
-mapping. Having the driver decide the label makes it easier to look up
-which GPIO does what in debugfs, whereas nothing prevents people to
-name GPIOs whatever inadequate name they want in the device DT node.
-What am I overlooking here?
+An example would be nice here, so if we have an option which can have
+the values "off"(2), "special"(4, default) and supports a range, say
+16 - 32, it should be defined as follows:
+"off", 2,
+"special", 4, BOND_VALFLAG_DEFAULT,
+"rangemin", 16, BOND_VALFLAG_MIN,
+"rangemax", 32, BOND_VALFLAG_MAX
+So we have the valid intervals: [2, 2], [4, 4], [16, 32]
+Also the valid strings: "off" = 2, "special" and "default" = 4
+                        "rangemin" = 16, "rangemax" = 32
 
->
->> > From an aesthetic point of view, I definitely prefer using con_id to
->> > identify GPIOs instead of indexes, but I don't see how we can make it
->> > play nice with ACPI. Thoughts?
->>
->> Let's ask the DT maintainers...
->>
->> I'm a bit sceptic to the whole ACPI-DT-API-should-be-unified
->> just-one-function-call business, as this was just a very simple example
->> of what can happen to something as simple as
->> devm_gpiod_get[_index]().
->
-> I think a unified kernel API makes more sense for some subsystems than
-> others, and it depends a bit on the rate of adoption of APCI for drivers
-> that already have a DT binding (or vice versa, if that happens).
->
-> GPIO might actually be in the first category since it's commonly used
-> for off-chip components that will get shared across ARM and x86 (as
-> well as everything else), while a common kernel API would be less
-> important for things that are internal to an SoC where Intel is the
-> only company needing ACPI support.
+BOND_VALFLAG_(MIN|MAX) can be used to specify a valid range for an
+option, if MIN is omitted then 0 is considered as a minimum. If an
+exact match is found in the values[] table it will be returned,
+otherwise the range is tried (if available).
 
-I am afraid I don't have a good enough view of the ACPI landscape to
-understand how often drivers might be reused on both ACPI and DT. But
-I suppose nothing speaks against that, technically speaking. Maybe
-Mika would have comments to make here?
+The option parameter passing is done by using a special structure called
+bond_opt_value which can take either a string or a value to parse. One
+of the bond_opt_init(val|str) macros should be used depending on which
+one does the user want to parse (string or value). Then a call to
+__bond_opt_set should be done under RTNL.
 
-The good (or bad, rather) thing about DT is that we can do whatever we
-please with the new bindings: decide which name or which index
-(doesn't matter here) a GPIO should have. However we don't have this
-control over ACPI, where nothing guarantees that the same index will
-be used for the same GPIO function. And there goes our unified GPIO
-mapping. Workarounds would imply additional layers of mapping, or
-using different probe functions depending on whether we rely on DT or
-ACPI (I don't want to imagine there will be systems that use *both*).
-Considering that we already have drivers using that trick (e.g. to
-choose between SPI or I2C), the latter might be acceptable.
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+---
+ drivers/net/bonding/bond_options.c | 272 +++++++++++++++++++++++++++++++++++++
+ drivers/net/bonding/bond_options.h | 100 ++++++++++++++
+ drivers/net/bonding/bonding.h      |   1 +
+ 3 files changed, 373 insertions(+)
+ create mode 100644 drivers/net/bonding/bond_options.h
 
-Alex.
+diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+index 945a666..edc2941 100644
+--- a/drivers/net/bonding/bond_options.c
++++ b/drivers/net/bonding/bond_options.c
+@@ -17,8 +17,280 @@
+ #include <linux/rwlock.h>
+ #include <linux/rcupdate.h>
+ #include <linux/reciprocal_div.h>
++#include <linux/ctype.h>
+ #include "bonding.h"
+ 
++static struct bond_option bond_opts[] = {
++	{ }
++};
++
++/* Searches for a value in opt's values[] table */
++struct bond_opt_value *bond_opt_get_val(unsigned int option, u64 val)
++{
++	struct bond_option *opt;
++	int i;
++
++	opt = bond_opt_get(option);
++	if (WARN_ON(!opt))
++		return NULL;
++	for (i = 0; opt->values && opt->values[i].string; i++)
++		if (opt->values[i].value == val)
++			return &opt->values[i];
++
++	return NULL;
++}
++
++/* Searches for a value in opt's values[] table which matches the flagmask */
++static struct bond_opt_value *bond_opt_get_flags(const struct bond_option *opt,
++						 u32 flagmask)
++{
++	int i;
++
++	for (i = 0; opt->values && opt->values[i].string; i++)
++		if (opt->values[i].flags & flagmask)
++			return &opt->values[i];
++
++	return NULL;
++}
++
++/* If maxval is missing then there's no range to check. In case minval is
++ * missing then it's considered to be 0.
++ */
++static bool bond_opt_check_range(const struct bond_option *opt, u64 val)
++{
++	struct bond_opt_value *minval, *maxval;
++
++	minval = bond_opt_get_flags(opt, BOND_VALFLAG_MIN);
++	maxval = bond_opt_get_flags(opt, BOND_VALFLAG_MAX);
++	if (!maxval || (minval && val < minval->value) || val > maxval->value)
++		return false;
++
++	return true;
++}
++
++/**
++ * bond_opt_parse - parse option value
++ * @opt: the option to parse against
++ * @val: value to parse
++ *
++ * This function tries to extract the value from @val and check if it's
++ * a possible match for the option and returns NULL if a match isn't found,
++ * or the struct_opt_value that matched. It also strips the new line from
++ * @val->string if it's present.
++ */
++struct bond_opt_value *bond_opt_parse(const struct bond_option *opt,
++				      struct bond_opt_value *val)
++{
++	char *p, valstr[BOND_OPT_MAX_NAMELEN + 1] = { 0, };
++	struct bond_opt_value *tbl, *ret = NULL;
++	bool checkval;
++	int i, rv;
++
++	/* No parsing if the option wants a raw val */
++	if (opt->flags & BOND_OPTFLAG_RAWVAL)
++		return val;
++
++	tbl = opt->values;
++	if (!tbl)
++		goto out;
++
++	/* ULLONG_MAX is used to bypass string processing */
++	checkval = val->value != ULLONG_MAX;
++	if (!checkval) {
++		if (!val->string)
++			goto out;
++		p = strchr(val->string, '\n');
++		if (p)
++			*p = '\0';
++		for (p = val->string; *p; p++)
++			if (!(isdigit(*p) || isspace(*p)))
++				break;
++		/* The following code extracts the string to match or the value
++		 * and sets checkval appropriately
++		 */
++		if (*p) {
++			rv = sscanf(val->string, "%32s", valstr);
++		} else {
++			rv = sscanf(val->string, "%llu", &val->value);
++			checkval = true;
++		}
++		if (!rv)
++			goto out;
++	}
++
++	for (i = 0; tbl[i].string; i++) {
++		/* Check for exact match */
++		if (checkval) {
++			if (val->value == tbl[i].value)
++				ret = &tbl[i];
++		} else {
++			if (!strcmp(valstr, "default") &&
++			    (tbl[i].flags & BOND_VALFLAG_DEFAULT))
++				ret = &tbl[i];
++
++			if (!strcmp(valstr, tbl[i].string))
++				ret = &tbl[i];
++		}
++		/* Found an exact match */
++		if (ret)
++			goto out;
++	}
++	/* Possible range match */
++	if (checkval && bond_opt_check_range(opt, val->value))
++		ret = val;
++out:
++	return ret;
++}
++
++/* Check opt's dependencies against bond mode and currently set options */
++static int bond_opt_check_deps(struct bonding *bond,
++			       const struct bond_option *opt)
++{
++	struct bond_params *params = &bond->params;
++
++	if (test_bit(params->mode, &opt->unsuppmodes))
++		return -EACCES;
++	if ((opt->flags & BOND_OPTFLAG_NOSLAVES) && bond_has_slaves(bond))
++		return -ENOTEMPTY;
++	if ((opt->flags & BOND_OPTFLAG_IFDOWN) && (bond->dev->flags & IFF_UP))
++		return -EBUSY;
++
++	return 0;
++}
++
++static void bond_opt_dep_print(struct bonding *bond,
++			       const struct bond_option *opt)
++{
++	struct bond_params *params;
++
++	params = &bond->params;
++	if (test_bit(params->mode, &opt->unsuppmodes))
++		pr_err("%s: option %s: mode dependency failed\n",
++		       bond->dev->name, opt->name);
++}
++
++static void bond_opt_error_interpret(struct bonding *bond,
++				     const struct bond_option *opt,
++				     int error, struct bond_opt_value *val)
++{
++	struct bond_opt_value *minval, *maxval;
++	char *p;
++
++	switch (error) {
++	case -EINVAL:
++		if (val) {
++			if (val->string) {
++				/* sometimes RAWVAL opts may have new lines */
++				p = strchr(val->string, '\n');
++				if (p)
++					*p = '\0';
++				pr_err("%s: option %s: invalid value (%s).\n",
++				       bond->dev->name, opt->name, val->string);
++			} else {
++				pr_err("%s: option %s: invalid value (%llu).\n",
++				       bond->dev->name, opt->name, val->value);
++			}
++		}
++		minval = bond_opt_get_flags(opt, BOND_VALFLAG_MIN);
++		maxval = bond_opt_get_flags(opt, BOND_VALFLAG_MAX);
++		if (!maxval)
++			break;
++		pr_err("%s: option %s: allowed values %llu - %llu.\n",
++		       bond->dev->name, opt->name, minval ? minval->value : 0,
++		       maxval->value);
++		break;
++	case -EACCES:
++		bond_opt_dep_print(bond, opt);
++		break;
++	case -ENOTEMPTY:
++		pr_err("%s: option %s: unable to set because the bond device has slaves.\n",
++		       bond->dev->name, opt->name);
++		break;
++	case -EBUSY:
++		pr_err("%s: option %s: unable to set because the bond device is up.\n",
++		       bond->dev->name, opt->name);
++		break;
++	default:
++		break;
++	}
++}
++
++/**
++ * __bond_opt_set - set a bonding option
++ * @bond: target bond device
++ * @option: option to set
++ * @val: value to set it to
++ *
++ * This function is used to change the bond's option value, it can be
++ * used for both enabling/changing an option and for disabling it. RTNL lock
++ * must be obtained before calling this function.
++ */
++int __bond_opt_set(struct bonding *bond,
++		   unsigned int option, struct bond_opt_value *val)
++{
++	struct bond_opt_value *retval = NULL;
++	const struct bond_option *opt;
++	int ret = -ENOENT;
++
++	ASSERT_RTNL();
++
++	opt = bond_opt_get(option);
++	if (WARN_ON(!val) || WARN_ON(!opt))
++		goto out;
++	ret = bond_opt_check_deps(bond, opt);
++	if (ret)
++		goto out;
++	retval = bond_opt_parse(opt, val);
++	if (!retval) {
++		ret = -EINVAL;
++		goto out;
++	}
++	ret = opt->set(bond, retval);
++out:
++	if (ret)
++		bond_opt_error_interpret(bond, opt, ret, val);
++
++	return ret;
++}
++
++/**
++ * bond_opt_tryset_rtnl - try to acquire rtnl and call __bond_opt_set
++ * @bond: target bond device
++ * @option: option to set
++ * @buf: value to set it to
++ *
++ * This function tries to acquire RTNL without blocking and if successful
++ * calls __bond_opt_set. It is mainly used for sysfs option manipulation.
++ */
++int bond_opt_tryset_rtnl(struct bonding *bond, unsigned int option, char *buf)
++{
++	struct bond_opt_value optval;
++	int ret;
++
++	if (!rtnl_trylock())
++		return restart_syscall();
++	bond_opt_initstr(&optval, buf);
++	ret = __bond_opt_set(bond, option, &optval);
++	rtnl_unlock();
++
++	return ret;
++}
++
++/**
++ * bond_opt_get - get a pointer to an option
++ * @option: option for which to return a pointer
++ *
++ * This function checks if option is valid and if so returns a pointer
++ * to its entry in the bond_opts[] option array.
++ */
++struct bond_option *bond_opt_get(unsigned int option)
++{
++	if (!BOND_OPT_VALID(option))
++		return NULL;
++
++	return &bond_opts[option];
++}
++
+ int bond_option_mode_set(struct bonding *bond, int mode)
+ {
+ 	if (bond_parm_tbl_lookup(mode, bond_mode_tbl) < 0) {
+diff --git a/drivers/net/bonding/bond_options.h b/drivers/net/bonding/bond_options.h
+new file mode 100644
+index 0000000..e20f2eb
+--- /dev/null
++++ b/drivers/net/bonding/bond_options.h
+@@ -0,0 +1,100 @@
++/*
++ * drivers/net/bond/bond_options.h - bonding options
++ * Copyright (c) 2013 Nikolay Aleksandrov <nikolay@redhat.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef _BOND_OPTIONS_H
++#define _BOND_OPTIONS_H
++
++#define BOND_OPT_MAX_NAMELEN 32
++#define BOND_OPT_VALID(opt) ((opt) < BOND_OPT_LAST)
++#define BOND_MODE_ALL_EX(x) (~(x))
++
++/* Option flags:
++ * BOND_OPTFLAG_NOSLAVES - check if the bond device is empty before setting
++ * BOND_OPTFLAG_IFDOWN - check if the bond device is down before setting
++ * BOND_OPTFLAG_RAWVAL - the option parses the value itself
++ */
++enum {
++	BOND_OPTFLAG_NOSLAVES	= BIT(0),
++	BOND_OPTFLAG_IFDOWN	= BIT(1),
++	BOND_OPTFLAG_RAWVAL	= BIT(2)
++};
++
++/* Value type flags:
++ * BOND_VALFLAG_DEFAULT - mark the value as default
++ * BOND_VALFLAG_(MIN|MAX) - mark the value as min/max
++ */
++enum {
++	BOND_VALFLAG_DEFAULT	= BIT(0),
++	BOND_VALFLAG_MIN	= BIT(1),
++	BOND_VALFLAG_MAX	= BIT(2)
++};
++
++/* Option IDs, their bit positions correspond to their IDs */
++enum {
++	BOND_OPT_LAST
++};
++
++/* This structure is used for storing option values and for passing option
++ * values when changing an option. The logic when used as an arg is as follows:
++ * - if string != NULL -> parse it, if the opt is RAW type then return it, else
++ *   return the parse result
++ * - if string == NULL -> parse value
++ */
++struct bond_opt_value {
++	char *string;
++	u64 value;
++	u32 flags;
++};
++
++struct bonding;
++
++struct bond_option {
++	int id;
++	char *name;
++	char *desc;
++	u32 flags;
++
++	/* unsuppmodes is used to denote modes in which the option isn't
++	 * supported.
++	 */
++	unsigned long unsuppmodes;
++	/* supported values which this option can have, can be a subset of
++	 * BOND_OPTVAL_RANGE's value range
++	 */
++	struct bond_opt_value *values;
++
++	int (*set)(struct bonding *bond, struct bond_opt_value *val);
++};
++
++int __bond_opt_set(struct bonding *bond, unsigned int option,
++		   struct bond_opt_value *val);
++int bond_opt_tryset_rtnl(struct bonding *bond, unsigned int option, char *buf);
++struct bond_opt_value *bond_opt_parse(const struct bond_option *opt,
++				      struct bond_opt_value *val);
++struct bond_option *bond_opt_get(unsigned int option);
++struct bond_opt_value *bond_opt_get_val(unsigned int option, u64 val);
++
++/* This helper is used to initialize a bond_opt_value structure for parameter
++ * passing. There should be either a valid string or value, but not both.
++ * When value is ULLONG_MAX then string will be used.
++ */
++static inline void __bond_opt_init(struct bond_opt_value *optval,
++				   char *string, u64 value)
++{
++	memset(optval, 0, sizeof(*optval));
++	optval->value = ULLONG_MAX;
++	if (value == ULLONG_MAX)
++		optval->string = string;
++	else
++		optval->value = value;
++}
++#define bond_opt_initval(optval, value) __bond_opt_init(optval, NULL, value)
++#define bond_opt_initstr(optval, str) __bond_opt_init(optval, str, ULLONG_MAX)
++#endif /* _BOND_OPTIONS_H */
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 8a935f8..92ee557 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -25,6 +25,7 @@
+ #include <linux/etherdevice.h>
+ #include "bond_3ad.h"
+ #include "bond_alb.h"
++#include "bond_options.h"
+ 
+ #define DRV_VERSION	"3.7.1"
+ #define DRV_RELDATE	"April 27, 2011"
+-- 
+1.8.4.2
