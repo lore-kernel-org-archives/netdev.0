@@ -1,88 +1,58 @@
-From: Michal Sekletar <msekleta@redhat.com>
-Subject: Re: [PATCH net-next] net: filter: let bpf_tell_extensions return
- SKF_AD_MAX
-Date: Tue, 21 Jan 2014 15:25:42 +0100
-Message-ID: <20140121142542.GI5206@loki.brq.redhat.com>
-References: <1390259977-28770-1-git-send-email-dborkman@redhat.com>
+From: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
+Subject: Re: [Xen-devel] [PATCH v3] xen/grant-table: Avoid m2p_override during
+ mapping
+Date: Tue, 21 Jan 2014 14:22:53 +0000
+Message-ID: <alpine.DEB.2.02.1401211416420.21510@kaball.uk.xensource.com>
+References: <1390244288-3186-1-git-send-email-zoltan.kiss@citrix.com> <alpine.DEB.2.02.1401211217510.21510@kaball.uk.xensource.com> <52DE78BF.2070909@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14767 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754472AbaAUOZs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jan 2014 09:25:48 -0500
-Content-Disposition: inline
-In-Reply-To: <1390259977-28770-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>,
+	<jonathan.davies@citrix.com>, <wei.liu2@citrix.com>,
+	<ian.campbell@citrix.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <xen-devel@lists.xenproject.org>
+To: David Vrabel <david.vrabel@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52DE78BF.2070909@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 21, 2014 at 12:19:37AM +0100, Daniel Borkmann wrote:
-> Michal Sekletar added in commit ea02f9411d9f ("net: introduce
-> SO_BPF_EXTENSIONS") a facility where user space can enquire
-> the BPF ancillary instruction set, which is imho a step into
-> the right direction for letting user space high-level to BPF
-> optimizers make an informed decision for possibly using these
-> extensions.
+On Tue, 21 Jan 2014, David Vrabel wrote:
+> On 21/01/14 12:26, Stefano Stabellini wrote:
+> > On Mon, 20 Jan 2014, Zoltan Kiss wrote:
+> >
+> >> -		ret = m2p_add_override(mfn, pages[i], kmap_ops ?
+> >> -				       &kmap_ops[i] : NULL);
+> >> +		if (m2p_override)
+> >> +			ret = m2p_add_override(mfn, pages[i], kmap_ops ?
+> >> +					       &kmap_ops[i] : NULL);
+> >> +		else {
+> >> +			unsigned long pfn = page_to_pfn(pages[i]);
+> >> +			WARN_ON(PagePrivate(pages[i]));
+> >> +			SetPagePrivate(pages[i]);
+> >> +			set_page_private(pages[i], mfn);
+> >> +			pages[i]->index = pfn_to_mfn(pfn);
+> >> +			if (unlikely(!set_phys_to_machine(pfn, FOREIGN_FRAME(mfn))))
+> >> +				return -ENOMEM;
+> > 
+> > What happens if the page is PageHighMem?
+> > 
+> > This looks like a subset of m2p_add_override, but it is missing some
+> > relevant bits, like the PageHighMem check, or the p2m(m2p(mfn)) == mfn
+> > check.  Maybe we can find a way to avoid duplicating the code.
+> > We could split m2p_add_override in two functions or add yet another
+> > parameter to it.
 > 
-> The original rationale was to return through a getsockopt(2)
-> a bitfield of which instructions are supported and which
-> are not, as of right now, we just return 0 to indicate a
-> base support for SKF_AD_PROTOCOL up to SKF_AD_PAY_OFFSET.
-> Limitations of this approach are that this API which we need
-> to maintain for a long time can only support a maximum of 32
-> extensions, and needs to be additionally maintained/updated
-> when each new extension that comes in.
+> The PageHighMem() check isn't relevant as we're not mapping anything
+> here.  Also, a page for a kernel grant mapping only cannot be highmem.
 > 
-> I thought about this a bit more and what we can do here to
-> overcome this is to just return SKF_AD_MAX. Since we never
-> remove any extension since we cannot break user space and
-> always linearly increase SKF_AD_MAX on each newly added
-> extension, user space can make a decision on what extensions
-> are supported in the whole set of extensions and which aren't,
-> by just checking which of them from the whole set have an
-> offset < SKF_AD_MAX of the underlying kernel.
-> 
-> Since SKF_AD_MAX must be updated each time we add new ones,
-> we don't need to introduce an additional enum and got
-> maintenance for free. At some point in time when
-> SO_BPF_EXTENSIONS becomes ubiquitous for most kernels, then
-> an application can simply make use of this and easily be run
-> on newer or older underlying kernels without needing to be
-> recompiled, of course. Since that is for 3.14, it's not too
-> late to do this change.
-> 
-> Cc: Michal Sekletar <msekleta@redhat.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> ---
->  include/linux/filter.h | 8 +-------
->  1 file changed, 1 insertion(+), 7 deletions(-)
-> 
-> diff --git a/include/linux/filter.h b/include/linux/filter.h
-> index 1a95a2d..e568c8e 100644
-> --- a/include/linux/filter.h
-> +++ b/include/linux/filter.h
-> @@ -85,13 +85,7 @@ static inline void bpf_jit_free(struct sk_filter *fp)
->  
->  static inline int bpf_tell_extensions(void)
->  {
-> -	/* When adding new BPF extension it is necessary to enumerate
-> -	 * it here, so userspace software which wants to know what is
-> -	 * supported can do so by inspecting return value of this
-> -	 * function
-> -	 */
-> -
-> -	return 0;
-> +	return SKF_AD_MAX;
->  }
->  
->  enum {
-> -- 
-> 1.8.3.1
-> 
-Acked-by: Michal Sekletar <msekleta@redhat.com>
+> The check for a local mfn and the additional set_phys_to_machine() is
+> only necessary if something tries an mfn_to_pfn() on the local mfn.  We
+> can only omit adding an m2p override if we know thing will try
+> mfn_to_pfn(), therefore the check and set_phys_to_machine() is unnecessary.
 
-Thanks!
+OK, you convinced me that the two checks are superfluous for this case.
+
+Can we still avoid the code duplication by removing the corresponding
+code from m2p_add_override and m2p_remove_override and doing the
+set_page_private thing uniquely in grant-table.c?
