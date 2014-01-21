@@ -1,89 +1,103 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: issues with vxlan RX checksum offload under OVS datapath
-Date: Tue, 21 Jan 2014 09:37:50 -0800
-Message-ID: <CAEP_g=-AP0E4_mFXLVvE3ha0T84rLD6EnDYXNPwzhywtuti1wQ@mail.gmail.com>
-References: <52DC4C1B.5000309@mellanox.com> <CALnjE+rUTejbU_d39G7WSn=k0aY2xELCE3UxjDr_Zdq3iwHbNA@mail.gmail.com>
+From: Marek Vasut <marex@denx.de>
+Subject: Re: FEC performance degradation with certain packet sizes
+Date: Tue, 21 Jan 2014 18:49:10 +0100
+Message-ID: <201401211849.10113.marex@denx.de>
+References: <528F50AE.3030804@digi.com> <52B45BD2.2060306@digi.com> <45804b55ce704164bc054d4275801153@BLUPR03MB373.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	netdev <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@nicira.com>
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Hector Palacios <hector.palacios@digi.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Fabio.Estevam@freescale.com" <Fabio.Estevam@freescale.com>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"l.stach@pengutronix.de" <l.stach@pengutronix.de>,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog124.obsmtp.com ([74.125.149.151]:42900 "HELO
-	na3sys009aog124.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755115AbaAURiL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 12:38:11 -0500
-Received: by mail-ie0-f176.google.com with SMTP id tp5so3861418ieb.21
-        for <netdev@vger.kernel.org>; Tue, 21 Jan 2014 09:38:11 -0800 (PST)
-In-Reply-To: <CALnjE+rUTejbU_d39G7WSn=k0aY2xELCE3UxjDr_Zdq3iwHbNA@mail.gmail.com>
+Received: from mail-out.m-online.net ([212.18.0.9]:56648 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754942AbaAURtO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 12:49:14 -0500
+In-Reply-To: <45804b55ce704164bc054d4275801153@BLUPR03MB373.namprd03.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 21, 2014 at 9:30 AM, Pravin Shelar <pshelar@nicira.com> wrote:
-> On Sun, Jan 19, 2014 at 2:05 PM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
->> Hi Pravin,
->>
->> While testing the gro udp patches over a setup with openvswitch I noted that
->> the RX checksum offload support introduced by Joseph's commit 0afb166
->> "vxlan: Add capability of Rx checksum offload for inner packet" works fine
->> when you use a setup made of
->>
->> NIC --> IP stack --> vxlan device --> bridge --> tap
->>
->> but not when its
->>
->> NIC --> IP stack --> ovs vxlan port --> OVS DP --> tap
->>
->> I narrowed it down to the fact the when going the OVS pathskb->encapsulation
->> remains true also after the decap is done. Basically, this is the original
->> hunk
->>
->>
->>> @@ -607,7 +607,17 @@ static int vxlan_udp_encap_recv(struct sock *sk,
->>> struct sk_buff *skb)
->>>
->>>         __skb_tunnel_rx(skb, vxlan->dev);
->>>         skb_reset_network_header(skb);
->>> -       skb->ip_summed = CHECKSUM_NONE;
->>> +
->>> +       /* If the NIC driver gave us an encapsulated packet with
->>> +        * CHECKSUM_UNNECESSARY and Rx checksum feature is enabled,
->>> +        * leave the CHECKSUM_UNNECESSARY, the device checksummed it
->>> +        * for us. Otherwise force the upper layers to verify it.
->>> +        */
->>> +       if (skb->ip_summed != CHECKSUM_UNNECESSARY || !skb->encapsulation
->>> ||
->>> +           !(vxlan->dev->features & NETIF_F_RXCSUM))
->>> +               skb->ip_summed = CHECKSUM_NONE;
->>> +
->>> +       skb->encapsulation = 0;
->>
->>
->> which was moved by your commits
->>
->> 5cfccc5 vxlan: Add vxlan recv demux.
->> 7ce0475 vxlan: Restructure vxlan receive.
->>
->> to a code which isn't shared by the vxlan driver and ovs vxlan datapath
->> code, and I was thinking lets just move it back to vxlan_udp_encap_recv.
->> However, we can't really make the "vxlan->dev->features & NETIF_F_RXCSUM"
->> check - since there's no vxlan device for ovs datapath, any idea how to
->> overcome this.
->>
->> Moving this to shared code (while removing the check for
->> vxlan->dev->features) made things to work on my setup, but this misses one
->> of the original conditions, ideas?
->>
-> I kept csum check in vxlan-device recv path for same reason. As of now
-> there is no efficient way to get ovs-dev features.
-> May be we can cache device features in struct datapath from datapath-netdev.\
+On Monday, December 23, 2013 at 03:52:20 AM, fugang.duan@freescale.com wrote:
+> From: Hector Palacios <hector.palacios@digi.com>
+> Sent: Friday, December 20, 2013 11:02 PM
+> 
+> >To: Duan Fugang-B38611; Marek Vasut; netdev@vger.kernel.org
+> >Cc: Estevam Fabio-R49496; shawn.guo@linaro.org; l.stach@pengutronix.de; Li
+> >Frank-B20596; bhutchings@solarflare.com; davem@davemloft.net
+> >Subject: Re: FEC performance degradation with certain packet sizes
+> >
+> >Dear Andy,
+> >
+> >On 12/20/2013 04:35 AM, fugang.duan@freescale.com wrote:
+> >> [...]
+> >> 
+> >> I can reproduce the issue on imx6q/dl platform with freescale internal
+> >> kernel
+> >
+> >tree.
+> >
+> >> This issue must be related to cpufreq, when set scaling_governor to
+> >
+> >performance:
+> >> echo performance >
+> >> /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+> >> 
+> >> And then do NPtcp test, the result as below:
+> >>   24:      99 bytes      5 times -->      9.89 Mbps in      76.40 usec
+> >>   25:     125 bytes      5 times -->     12.10 Mbps in      78.80 usec
+> >>   26:     128 bytes      5 times -->     12.27 Mbps in      79.60 usec
+> >>   27:     131 bytes      5 times -->     12.80 Mbps in      78.10 usec
+> >>   28:     189 bytes      5 times -->     18.00 Mbps in      80.10 usec
+> >>   29:     192 bytes      5 times -->     18.31 Mbps in      80.00 usec
+> >>   30:     195 bytes      5 times -->     18.41 Mbps in      80.80 usec
+> >>   31:     253 bytes      5 times -->     23.34 Mbps in      82.70 usec
+> >>   32:     256 bytes      5 times -->     23.91 Mbps in      81.70 usec
+> >>   33:     259 bytes      5 times -->     24.19 Mbps in      81.70 usec
+> >>   34:     381 bytes      5 times -->     33.18 Mbps in      87.60 usec
+> >>   35:     384 bytes      5 times -->     33.87 Mbps in      86.50 usec
+> >>   36:     387 bytes      5 times -->     34.41 Mbps in      85.80 usec
+> >>   37:     509 bytes      5 times -->     42.72 Mbps in      90.90 usec
+> >>   38:     512 bytes      5 times -->     42.60 Mbps in      91.70 usec
+> >>   39:     515 bytes      5 times -->     42.80 Mbps in      91.80 usec
+> >>   40:     765 bytes      5 times -->     56.45 Mbps in     103.40 usec
+> >>   41:     768 bytes      5 times -->     57.11 Mbps in     102.60 usec
+> >>   42:     771 bytes      5 times -->     57.22 Mbps in     102.80 usec
+> >>   43:    1021 bytes      5 times -->     70.69 Mbps in     110.20 usec
+> >>   44:    1024 bytes      5 times -->     70.70 Mbps in     110.50 usec
+> >>   45:    1027 bytes      5 times -->     69.59 Mbps in     112.60 usec
+> >>   46:    1533 bytes      5 times -->     73.56 Mbps in     159.00 usec
+> >>   47:    1536 bytes      5 times -->     72.92 Mbps in     160.70 usec
+> >>   48:    1539 bytes      5 times -->     73.80 Mbps in     159.10 usec
+> >>   49:    2045 bytes      5 times -->     93.59 Mbps in     166.70 usec
+> >>   50:    2048 bytes      5 times -->     94.07 Mbps in     166.10 usec
+> >>   51:    2051 bytes      5 times -->     92.92 Mbps in     168.40 usec
+> >>   52:    3069 bytes      5 times -->    123.43 Mbps in     189.70 usec
+> >>   53:    3072 bytes      5 times -->    123.68 Mbps in     189.50 usec
+> >
+> >You are right. Unfortunately, this does not work on i.MX28 (at least for
+> >me). Couldn't it be that the cpufreq is masking the problem on the i.MX6?
+> >
+> >Best regards,
+> >--
+> >Hector Palacios
+> 
+> I reproduce the issue on imx28 evk platform, imx28 has no specific cpufreq
+> driver. In kernel 3.13, the ethernet driver is almost the same for imx28
+> and imx6 since they use the Same enet IP, but imx6 enet IP have some
+> evolution.
+> 
+> Now I don't know the cause. When I am free, I will dig out it.
 
-I don't think that getting the features from the internal device makes
-sense - a packet could be destined to a VM instead.
+Hi! Is there any progress on this issue ? Did you manage to find anything out 
+please?
 
-I think that controlling RX checksum on the device that physically
-received it should be enough to be able to check for broken devices.
-It's not clear what the benefit to turning it off at the VXLAN layer
-is - if you really don't want it for some reason, you can always throw
-away the checksum later.
+Best regards,
+Marek Vasut
