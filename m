@@ -1,152 +1,224 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next 22/25] bonding: convert all_slaves_active to use the new option API
-Date: Tue, 21 Jan 2014 15:55:11 +0100
-Message-ID: <1390316114-17815-23-git-send-email-nikolay@redhat.com>
+Subject: [PATCH net-next 18/25] bonding: convert primary_reselect to use the new option API
+Date: Tue, 21 Jan 2014 15:55:07 +0100
+Message-ID: <1390316114-17815-19-git-send-email-nikolay@redhat.com>
 References: <1390316114-17815-1-git-send-email-nikolay@redhat.com>
 Cc: Nikolay Aleksandrov <nikolay@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55275 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:29197 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754892AbaAUO4V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jan 2014 09:56:21 -0500
+	id S1754864AbaAUO4E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jan 2014 09:56:04 -0500
 Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s0LEu7QF013721
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s0LEu3n0013443
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Tue, 21 Jan 2014 09:56:07 -0500
+	for <netdev@vger.kernel.org>; Tue, 21 Jan 2014 09:56:03 -0500
 In-Reply-To: <1390316114-17815-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the necessary changes so all_slaves_active would use
+This patch adds the necessary changes so primary_reselect would use
 the new bonding option API.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- drivers/net/bonding/bond_netlink.c |  4 ++--
- drivers/net/bonding/bond_options.c | 29 +++++++++++++++++------------
+ drivers/net/bonding/bond_main.c    | 18 ++++++------------
+ drivers/net/bonding/bond_netlink.c |  3 ++-
+ drivers/net/bonding/bond_options.c | 30 +++++++++++++++++++-----------
  drivers/net/bonding/bond_options.h |  3 +++
- drivers/net/bonding/bond_sysfs.c   | 15 +++------------
+ drivers/net/bonding/bond_procfs.c  |  7 +++++--
+ drivers/net/bonding/bond_sysfs.c   | 24 ++++++++----------------
  drivers/net/bonding/bonding.h      |  2 --
- 5 files changed, 25 insertions(+), 28 deletions(-)
+ 7 files changed, 43 insertions(+), 44 deletions(-)
 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 5df75fc..fc2e2ef 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -207,13 +207,6 @@ static int bond_mode	= BOND_MODE_ROUNDROBIN;
+ static int xmit_hashtype = BOND_XMIT_POLICY_LAYER2;
+ static int lacp_fast;
+ 
+-const struct bond_parm_tbl pri_reselect_tbl[] = {
+-{	"always",		BOND_PRI_RESELECT_ALWAYS},
+-{	"better",		BOND_PRI_RESELECT_BETTER},
+-{	"failure",		BOND_PRI_RESELECT_FAILURE},
+-{	NULL,			-1},
+-};
+-
+ /*-------------------------- Forward declarations ---------------------------*/
+ 
+ static int bond_init(struct net_device *bond_dev);
+@@ -4246,14 +4239,15 @@ static int bond_check_params(struct bond_params *params)
+ 	}
+ 
+ 	if (primary && primary_reselect) {
+-		primary_reselect_value = bond_parse_parm(primary_reselect,
+-							 pri_reselect_tbl);
+-		if (primary_reselect_value == -1) {
++		bond_opt_initstr(&newval, primary_reselect);
++		valptr = bond_opt_parse(bond_opt_get(BOND_OPT_PRIMARY_RESELECT),
++					&newval);
++		if (!valptr) {
+ 			pr_err("Error: Invalid primary_reselect \"%s\"\n",
+-			       primary_reselect ==
+-					NULL ? "NULL" : primary_reselect);
++			       primary_reselect);
+ 			return -EINVAL;
+ 		}
++		primary_reselect_value = valptr->value;
+ 	} else {
+ 		primary_reselect_value = BOND_PRI_RESELECT_ALWAYS;
+ 	}
 diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
-index bd26d1c..d0f22ff 100644
+index 55f9aad..367974b 100644
 --- a/drivers/net/bonding/bond_netlink.c
 +++ b/drivers/net/bonding/bond_netlink.c
-@@ -283,8 +283,8 @@ static int bond_changelink(struct net_device *bond_dev,
- 		int all_slaves_active =
- 			nla_get_u8(data[IFLA_BOND_ALL_SLAVES_ACTIVE]);
+@@ -237,7 +237,8 @@ static int bond_changelink(struct net_device *bond_dev,
+ 		int primary_reselect =
+ 			nla_get_u8(data[IFLA_BOND_PRIMARY_RESELECT]);
  
--		err = bond_option_all_slaves_active_set(bond,
--							all_slaves_active);
-+		bond_opt_initval(&newval, all_slaves_active);
-+		err = __bond_opt_set(bond, BOND_OPT_ALL_SLAVES_ACTIVE, &newval);
+-		err = bond_option_primary_reselect_set(bond, primary_reselect);
++		bond_opt_initval(&newval, primary_reselect);
++		err = __bond_opt_set(bond, BOND_OPT_PRIMARY_RESELECT, &newval);
  		if (err)
  			return err;
  	}
 diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 3fc2730..8309d51 100644
+index e713abf..ebcf5aa 100644
 --- a/drivers/net/bonding/bond_options.c
 +++ b/drivers/net/bonding/bond_options.c
-@@ -106,6 +106,12 @@ static struct bond_opt_value bond_use_carrier_tbl[] = {
- 	{ NULL,  -1, 0}
+@@ -93,6 +93,13 @@ static struct bond_opt_value bond_num_peer_notif_tbl[] = {
+ 	{ NULL,      -1,  0}
  };
  
-+static struct bond_opt_value bond_all_slaves_active_tbl[] = {
-+	{ "off", 0,  BOND_VALFLAG_DEFAULT},
-+	{ "on",  1,  0},
-+	{ NULL,  -1, 0}
++static struct bond_opt_value bond_primary_reselect_tbl[] = {
++	{ "always",  BOND_PRI_RESELECT_ALWAYS,  BOND_VALFLAG_DEFAULT},
++	{ "better",  BOND_PRI_RESELECT_BETTER,  0},
++	{ "failure", BOND_PRI_RESELECT_FAILURE, 0},
++	{ NULL,      -1},
 +};
 +
  static struct bond_option bond_opts[] = {
  	[BOND_OPT_MODE] = {
  		.id = BOND_OPT_MODE,
-@@ -262,6 +268,13 @@ static struct bond_option bond_opts[] = {
- 		.flags = BOND_OPTFLAG_RAWVAL,
- 		.set = bond_option_queue_id_set
+@@ -218,6 +225,13 @@ static struct bond_option bond_opts[] = {
+ 						BIT(BOND_MODE_ALB)),
+ 		.set = bond_option_primary_set
  	},
-+	[BOND_OPT_ALL_SLAVES_ACTIVE] = {
-+		.id = BOND_OPT_ALL_SLAVES_ACTIVE,
-+		.name = "all_slaves_active",
-+		.desc = "Keep all frames received on an interface by setting active flag for all slaves",
-+		.values = bond_all_slaves_active_tbl,
-+		.set = bond_option_all_slaves_active_set
++	[BOND_OPT_PRIMARY_RESELECT] = {
++		.id = BOND_OPT_PRIMARY_RESELECT,
++		.name = "primary_reselect",
++		.desc = "Reselect primary slave once it comes up",
++		.values = bond_primary_reselect_tbl,
++		.set = bond_option_primary_reselect_set
 +	},
  	{ }
  };
  
-@@ -1050,25 +1063,17 @@ int bond_option_num_peer_notif_set(struct bonding *bond,
+@@ -944,18 +958,12 @@ out:
+ 	return 0;
  }
  
- int bond_option_all_slaves_active_set(struct bonding *bond,
--				      int all_slaves_active)
-+				      struct bond_opt_value *newval)
+-int bond_option_primary_reselect_set(struct bonding *bond, int primary_reselect)
++int bond_option_primary_reselect_set(struct bonding *bond,
++				     struct bond_opt_value *newval)
  {
- 	struct list_head *iter;
- 	struct slave *slave;
- 
--	if (all_slaves_active == bond->params.all_slaves_active)
-+	if (newval->value == bond->params.all_slaves_active)
- 		return 0;
--
--	if ((all_slaves_active == 0) || (all_slaves_active == 1)) {
--		bond->params.all_slaves_active = all_slaves_active;
--	} else {
--		pr_info("%s: Ignoring invalid all_slaves_active value %d.\n",
--			bond->dev->name, all_slaves_active);
+-	if (bond_parm_tbl_lookup(primary_reselect, pri_reselect_tbl) < 0) {
+-		pr_err("%s: Ignoring invalid primary_reselect value %d.\n",
+-		       bond->dev->name, primary_reselect);
 -		return -EINVAL;
 -	}
 -
-+	bond->params.all_slaves_active = newval->value;
- 	bond_for_each_slave(bond, slave, iter) {
- 		if (!bond_is_active_slave(slave)) {
--			if (all_slaves_active)
-+			if (newval->value)
- 				slave->inactive = 0;
- 			else
- 				slave->inactive = 1;
+-	bond->params.primary_reselect = primary_reselect;
+-	pr_info("%s: setting primary_reselect to %s (%d).\n",
+-		bond->dev->name, pri_reselect_tbl[primary_reselect].modename,
+-		primary_reselect);
++	pr_info("%s: setting primary_reselect to %s (%llu).\n",
++		bond->dev->name, newval->string, newval->value);
++	bond->params.primary_reselect = newval->value;
+ 
+ 	block_netpoll_tx();
+ 	write_lock_bh(&bond->curr_slave_lock);
 diff --git a/drivers/net/bonding/bond_options.h b/drivers/net/bonding/bond_options.h
-index 396d504..09ee8c8 100644
+index 6ff83103..1de315c 100644
 --- a/drivers/net/bonding/bond_options.h
 +++ b/drivers/net/bonding/bond_options.h
-@@ -58,6 +58,7 @@ enum {
- 	BOND_OPT_USE_CARRIER,
- 	BOND_OPT_ACTIVE_SLAVE,
- 	BOND_OPT_QUEUE_ID,
-+	BOND_OPT_ALL_SLAVES_ACTIVE,
+@@ -54,6 +54,7 @@ enum {
+ 	BOND_OPT_NUM_PEER_NOTIF,
+ 	BOND_OPT_MIIMON,
+ 	BOND_OPT_PRIMARY,
++	BOND_OPT_PRIMARY_RESELECT,
  	BOND_OPT_LAST
  };
  
-@@ -156,4 +157,6 @@ int bond_option_active_slave_set(struct bonding *bond,
- 				 struct bond_opt_value *newval);
- int bond_option_queue_id_set(struct bonding *bond,
- 			     struct bond_opt_value *newval);
-+int bond_option_all_slaves_active_set(struct bonding *bond,
-+				      struct bond_opt_value *newval);
+@@ -144,4 +145,6 @@ int bond_option_num_peer_notif_set(struct bonding *bond,
+ int bond_option_miimon_set(struct bonding *bond, struct bond_opt_value *newval);
+ int bond_option_primary_set(struct bonding *bond,
+ 			    struct bond_opt_value *newval);
++int bond_option_primary_reselect_set(struct bonding *bond,
++				     struct bond_opt_value *newval);
  #endif /* _BOND_OPTIONS_H */
+diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
+index d28c3d7..3ac20e7 100644
+--- a/drivers/net/bonding/bond_procfs.c
++++ b/drivers/net/bonding/bond_procfs.c
+@@ -97,9 +97,12 @@ static void bond_info_show_master(struct seq_file *seq)
+ 		seq_printf(seq, "Primary Slave: %s",
+ 			   (bond->primary_slave) ?
+ 			   bond->primary_slave->dev->name : "None");
+-		if (bond->primary_slave)
++		if (bond->primary_slave) {
++			optval = bond_opt_get_val(BOND_OPT_PRIMARY_RESELECT,
++						  bond->params.primary_reselect);
+ 			seq_printf(seq, " (primary_reselect %s)",
+-		   pri_reselect_tbl[bond->params.primary_reselect].modename);
++				   optval->string);
++		}
+ 
+ 		seq_printf(seq, "\nCurrently Active Slave: %s\n",
+ 			   (curr) ? curr->dev->name : "None");
 diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 2da37bd..a403345 100644
+index 0d5248e..6056ac9 100644
 --- a/drivers/net/bonding/bond_sysfs.c
 +++ b/drivers/net/bonding/bond_sysfs.c
-@@ -1016,22 +1016,13 @@ static ssize_t bonding_store_slaves_active(struct device *d,
- 					   const char *buf, size_t count)
+@@ -730,35 +730,27 @@ static ssize_t bonding_show_primary_reselect(struct device *d,
+ 					     char *buf)
  {
  	struct bonding *bond = to_bond(d);
++	struct bond_opt_value *val;
++
++	val = bond_opt_get_val(BOND_OPT_PRIMARY_RESELECT,
++			       bond->params.primary_reselect);
+ 
+ 	return sprintf(buf, "%s %d\n",
+-		       pri_reselect_tbl[bond->params.primary_reselect].modename,
+-		       bond->params.primary_reselect);
++		       val->string, bond->params.primary_reselect);
+ }
+ 
+ static ssize_t bonding_store_primary_reselect(struct device *d,
+ 					      struct device_attribute *attr,
+ 					      const char *buf, size_t count)
+ {
 -	int new_value, ret;
--
--	if (sscanf(buf, "%d", &new_value) != 1) {
--		pr_err("%s: no all_slaves_active value specified.\n",
--		       bond->dev->name);
+ 	struct bonding *bond = to_bond(d);
++	int ret;
+ 
+-	new_value = bond_parse_parm(buf, pri_reselect_tbl);
+-	if (new_value < 0)  {
+-		pr_err("%s: Ignoring invalid primary_reselect value %.*s.\n",
+-		       bond->dev->name,
+-		       (int) strlen(buf) - 1, buf);
 -		return -EINVAL;
 -	}
 -
 -	if (!rtnl_trylock())
 -		return restart_syscall();
-+	int ret;
- 
--	ret = bond_option_all_slaves_active_set(bond, new_value);
-+	ret = bond_opt_tryset_rtnl(bond, BOND_OPT_ALL_SLAVES_ACTIVE,
+-
+-	ret = bond_option_primary_reselect_set(bond, new_value);
++	ret = bond_opt_tryset_rtnl(bond, BOND_OPT_PRIMARY_RESELECT,
 +				   (char *)buf);
  	if (!ret)
  		ret = count;
@@ -154,19 +226,19 @@ index 2da37bd..a403345 100644
 -	rtnl_unlock();
  	return ret;
  }
- static DEVICE_ATTR(all_slaves_active, S_IRUGO | S_IWUSR,
+ static DEVICE_ATTR(primary_reselect, S_IRUGO | S_IWUSR,
 diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 014605d..c021d54 100644
+index 9afbe0a..532c4ce 100644
 --- a/drivers/net/bonding/bonding.h
 +++ b/drivers/net/bonding/bonding.h
-@@ -452,8 +452,6 @@ void bond_netlink_fini(void);
+@@ -453,8 +453,6 @@ int bond_option_active_slave_set(struct bonding *bond, struct net_device *slave_
+ int bond_option_use_carrier_set(struct bonding *bond, int use_carrier);
  int bond_option_arp_ip_target_add(struct bonding *bond, __be32 target);
  int bond_option_arp_ip_target_rem(struct bonding *bond, __be32 target);
+-int bond_option_primary_reselect_set(struct bonding *bond,
+-				     int primary_reselect);
  int bond_option_resend_igmp_set(struct bonding *bond, int resend_igmp);
--int bond_option_all_slaves_active_set(struct bonding *bond,
--				      int all_slaves_active);
- int bond_option_lp_interval_set(struct bonding *bond, int min_links);
- struct net_device *bond_option_active_slave_get_rcu(struct bonding *bond);
- struct net_device *bond_option_active_slave_get(struct bonding *bond);
+ int bond_option_all_slaves_active_set(struct bonding *bond,
+ 				      int all_slaves_active);
 -- 
 1.8.4.2
