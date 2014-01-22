@@ -1,43 +1,93 @@
 From: Chris Ruehl <chris.ruehl@gtsys.com.hk>
-Subject: [PATCH 2/2] net: dm9000: Only call PHY reset for TYPE-B on shutdown
-Date: Wed, 22 Jan 2014 11:20:13 +0800
-Message-ID: <1390360813-29185-2-git-send-email-chris.ruehl@gtsys.com.hk>
-References: <1390360813-29185-1-git-send-email-chris.ruehl@gtsys.com.hk>
+Subject: [PATCH 1/2] net: dm9000: Read GPR, modify and write
+Date: Wed, 22 Jan 2014 11:20:12 +0800
+Message-ID: <1390360813-29185-1-git-send-email-chris.ruehl@gtsys.com.hk>
 Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
 	Chris Ruehl <chris.ruehl@gtsys.com.hk>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.fpasia.hk ([202.130.89.98]:56881 "EHLO fpa01n0.fpasia.hk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753338AbaAVDU0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jan 2014 22:20:26 -0500
-In-Reply-To: <1390360813-29185-1-git-send-email-chris.ruehl@gtsys.com.hk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Unconditional call of PHY reset can triggers a fault to detect
-the link for DM9000A on reboot, only a hard reset can solve it.
-This patch check the version of the chip and call the PHY reset
-only for the B version of the chip.
+The GPR register should be read, modified and write to
+activate the PHY. A simple write 0 to the GPR might override
+other register values with needs to keep.
+Some codestyle fixes (mostly leading spaces)
 
 Signed-off-by: Chris Ruehl <chris.ruehl@gtsys.com.hk>
 ---
- drivers/net/ethernet/davicom/dm9000.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/davicom/dm9000.c |   23 +++++++++++++++--------
+ 1 file changed, 15 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
-index 0349b91..55a2e9c 100644
+index 7080ad6..0349b91 100644
 --- a/drivers/net/ethernet/davicom/dm9000.c
 +++ b/drivers/net/ethernet/davicom/dm9000.c
-@@ -1333,7 +1333,8 @@ dm9000_shutdown(struct net_device *dev)
- 	board_info_t *db = netdev_priv(dev);
+@@ -745,9 +745,9 @@ static const struct ethtool_ops dm9000_ethtool_ops = {
+ 	.get_link		= dm9000_get_link,
+ 	.get_wol		= dm9000_get_wol,
+ 	.set_wol		= dm9000_set_wol,
+- 	.get_eeprom_len		= dm9000_get_eeprom_len,
+- 	.get_eeprom		= dm9000_get_eeprom,
+- 	.set_eeprom		= dm9000_set_eeprom,
++	.get_eeprom_len		= dm9000_get_eeprom_len,
++	.get_eeprom		= dm9000_get_eeprom,
++	.set_eeprom		= dm9000_set_eeprom,
+ };
  
- 	/* RESET device */
--	dm9000_phy_write(dev, 0, MII_BMCR, BMCR_RESET);	/* PHY RESET */
-+	if (db->type == TYPE_DM9000B)
-+		dm9000_phy_write(dev, 0, MII_BMCR, BMCR_RESET);	/* PHY RESET */
- 	iow(db, DM9000_GPR, 0x01);	/* Power-Down PHY */
- 	iow(db, DM9000_IMR, IMR_PAR);	/* Disable all interrupt */
- 	iow(db, DM9000_RCR, 0x00);	/* Disable RX */
+ static void dm9000_show_carrier(board_info_t *db,
+@@ -795,7 +795,7 @@ dm9000_poll_work(struct work_struct *w)
+ 		}
+ 	} else
+ 		mii_check_media(&db->mii, netif_msg_link(db), 0);
+-	
++
+ 	if (netif_running(ndev))
+ 		dm9000_schedule_poll(db);
+ }
+@@ -1286,6 +1286,7 @@ dm9000_open(struct net_device *dev)
+ {
+ 	board_info_t *db = netdev_priv(dev);
+ 	unsigned long irqflags = db->irq_res->flags & IRQF_TRIGGER_MASK;
++	int gprval;
+ 
+ 	if (netif_msg_ifup(db))
+ 		dev_dbg(db->dev, "enabling %s\n", dev->name);
+@@ -1298,9 +1299,15 @@ dm9000_open(struct net_device *dev)
+ 
+ 	irqflags |= IRQF_SHARED;
+ 
++	gprval = ior(db, DM9000_GPR);
++
+ 	/* GPIO0 on pre-activate PHY, Reg 1F is not set by reset */
+-	iow(db, DM9000_GPR, 0);	/* REG_1F bit0 activate phyxcer */
+-	mdelay(1); /* delay needs by DM9000B */
++	if (gprval & (1<<0)) {
++		dev_dbg(db->dev, "Activate PHY GPR: 0x%x\n", gprval);
++		gprval = gprval & ~(1<<0);
++		iow(db, DM9000_GPR, gprval);	/* REG_1F bit0 activate phyxcer */
++		mdelay(1); /* delay needs by DM9000B */
++	}
+ 
+ 	/* Initialize DM9000 board */
+ 	dm9000_reset(db);
+@@ -1314,7 +1321,7 @@ dm9000_open(struct net_device *dev)
+ 
+ 	mii_check_media(&db->mii, netif_msg_link(db), 1);
+ 	netif_start_queue(dev);
+-	
++
+ 	dm9000_schedule_poll(db);
+ 
+ 	return 0;
+@@ -1628,7 +1635,7 @@ dm9000_probe(struct platform_device *pdev)
+ 
+ 	if (!is_valid_ether_addr(ndev->dev_addr)) {
+ 		/* try reading from mac */
+-		
++
+ 		mac_src = "chip";
+ 		for (i = 0; i < 6; i++)
+ 			ndev->dev_addr[i] = ior(db, i+DM9000_PAR);
 -- 
 1.7.10.4
