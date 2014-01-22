@@ -1,56 +1,38 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: IPV6 routing problem
-Date: Wed, 22 Jan 2014 08:07:59 +0100
-Message-ID: <20140122070759.GB28225@order.stressinduktion.org>
-References: <CAJzFV37rPo6trvCwWyErchen_MvTzqabSU+BE3JZjNXT5-5H7Q@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] tcp: metrics: Handle v6/v4-mapped sockets in
+ tcp-metrics
+Date: Tue, 21 Jan 2014 23:09:56 -0800 (PST)
+Message-ID: <20140121.230956.767376113999056606.davem@davemloft.net>
+References: <1390288632-28729-1-git-send-email-christoph.paasch@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Sharat Masetty <sharat04@gmail.com>
+To: christoph.paasch@uclouvain.be
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:57130 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750853AbaAVHIO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 02:08:14 -0500
-Content-Disposition: inline
-In-Reply-To: <CAJzFV37rPo6trvCwWyErchen_MvTzqabSU+BE3JZjNXT5-5H7Q@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40521 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750853AbaAVHJ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 02:09:57 -0500
+In-Reply-To: <1390288632-28729-1-git-send-email-christoph.paasch@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Date: Tue, 21 Jan 2014 08:17:12 +0100
 
-On Tue, Jan 21, 2014 at 06:41:58PM -0700, Sharat Masetty wrote:
->  I have an IPV6 routing problem that has only surfaced on a 3.10
-> kernel version. This problem is not seen on 3.4 kernel. I will keep
-> the problem statement as brief as possible.
-
-Could you do me a favor and test this on a recent 3.13 kernel? Thanks!
-Please also state the specific kernel version (I guess you use one).
-
-> I have two interfaces say eth0 and eth1. I have a host route to a
-> destination over eth1, but this route has a global gateway
-> address(via) of the router on the link. When this global gateway is
-> present in the route, the kernel does not seem to pick up the route,
-> but falls back to the default route which is eth0. When this gateway
-> is removed from the route or if the gateway is changed to a link local
-> address of the router, instead of the global address, then routing
-> seems to work as expected and kernel picks up interface eth1.
+> A socket may be v6/v4-mapped. In that case sk->sk_family is AF_INET6,
+> but the IP being used is actually an IPv4-address.
+> Current's tcp-metrics will thus represent it as an IPv6-address:
 > 
-> == does not work ==
-> <dest-addr> via <global scope -gateway addr>dev eth1 metric 1024
-> <global scope -gateway addr> dev eth1  metric 1024
-
-Do you have CONFIG_IPV6_ROUTER_PREF activated?
-
+> root@server:~# ip tcp_metrics
+> ::ffff:10.1.1.2 age 22.920sec rtt 18750us rttvar 15000us cwnd 10
+> 10.1.1.2 age 47.970sec rtt 16250us rttvar 10000us cwnd 10
 > 
-> I checked the git commits diff between 3.4 and 3.10 for ipv6/route.c
-> and ipv6/ip6_fib.c, but looks like they are close to an year apart
-> with lots of changes. Hence I wanted to reach out to you to see if any
-> recent changes in IPV6 routing is causing this difference in behavior.
+> This patch modifies the tcp-metrics so that they are able to handle the
+> v6/v4-mapped sockets correctly.
+> 
+> Fixes: 51c5d0c4b169b (tcp: Maintain dynamic metrics in local cache.)
+> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
 
-It should be a problem in ipv6/route.c, ip6_fib.c does not really care about
-interfaces that much.
-
-Thanks,
-
-  Hannes
+Please respin this against net-next, thanks.
