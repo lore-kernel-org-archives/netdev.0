@@ -1,186 +1,162 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next v2 25/25] bonding: convert slaves to use the new option API
-Date: Wed, 22 Jan 2014 14:53:40 +0100
-Message-ID: <1390398820-5355-26-git-send-email-nikolay@redhat.com>
+Subject: [PATCH net-next v2 19/25] bonding: convert use_carrier to use the new option API
+Date: Wed, 22 Jan 2014 14:53:34 +0100
+Message-ID: <1390398820-5355-20-git-send-email-nikolay@redhat.com>
 References: <1390398820-5355-1-git-send-email-nikolay@redhat.com>
 Cc: Nikolay Aleksandrov <nikolay@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57485 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:11225 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755986AbaAVNyS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jan 2014 08:54:18 -0500
+	id S1755856AbaAVNyL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jan 2014 08:54:11 -0500
 Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s0MDsHFE022544
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s0MDsB4M006641
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 08:54:18 -0500
+	for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 08:54:11 -0500
 In-Reply-To: <1390398820-5355-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the necessary changes so slaves would use
-the new bonding option API. Also move the option to its own set function
-in bond_options.c and fix some style errors.
+This patch adds the necessary changes so use_carrier would use
+the new bonding option API.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- drivers/net/bonding/bond_options.c | 53 ++++++++++++++++++++++++++++++++++++++
- drivers/net/bonding/bond_options.h |  2 ++
- drivers/net/bonding/bond_sysfs.c   | 51 +++---------------------------------
- 3 files changed, 59 insertions(+), 47 deletions(-)
+ drivers/net/bonding/bond_netlink.c |  3 ++-
+ drivers/net/bonding/bond_options.c | 27 ++++++++++++++++++---------
+ drivers/net/bonding/bond_options.h |  3 +++
+ drivers/net/bonding/bond_sysfs.c   | 14 ++------------
+ drivers/net/bonding/bonding.h      |  1 -
+ 5 files changed, 25 insertions(+), 23 deletions(-)
 
+diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
+index 709e938..2175e19 100644
+--- a/drivers/net/bonding/bond_netlink.c
++++ b/drivers/net/bonding/bond_netlink.c
+@@ -156,7 +156,8 @@ static int bond_changelink(struct net_device *bond_dev,
+ 	if (data[IFLA_BOND_USE_CARRIER]) {
+ 		int use_carrier = nla_get_u8(data[IFLA_BOND_USE_CARRIER]);
+ 
+-		err = bond_option_use_carrier_set(bond, use_carrier);
++		bond_opt_initval(&newval, use_carrier);
++		err = __bond_opt_set(bond, BOND_OPT_USE_CARRIER, &newval);
+ 		if (err)
+ 			return err;
+ 	}
 diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 60d7001..05a402c 100644
+index eaa3d40..18b1cc0 100644
 --- a/drivers/net/bonding/bond_options.c
 +++ b/drivers/net/bonding/bond_options.c
-@@ -300,6 +300,13 @@ static struct bond_option bond_opts[] = {
- 		.values = bond_lp_interval_tbl,
- 		.set = bond_option_lp_interval_set
+@@ -99,6 +99,12 @@ static struct bond_opt_value bond_primary_reselect_tbl[] = {
+ 	{ NULL,      -1},
+ };
+ 
++static struct bond_opt_value bond_use_carrier_tbl[] = {
++	{ "off", 0,  0},
++	{ "on",  1,  BOND_VALFLAG_DEFAULT},
++	{ NULL,  -1, 0}
++};
++
+ static struct bond_option bond_opts[] = {
+ 	[BOND_OPT_MODE] = {
+ 		.id = BOND_OPT_MODE,
+@@ -231,6 +237,13 @@ static struct bond_option bond_opts[] = {
+ 		.values = bond_primary_reselect_tbl,
+ 		.set = bond_option_primary_reselect_set
  	},
-+	[BOND_OPT_SLAVES] = {
-+		.id = BOND_OPT_SLAVES,
-+		.name = "slaves",
-+		.desc = "Slave membership management",
-+		.flags = BOND_OPTFLAG_RAWVAL,
-+		.set = bond_option_slaves_set
++	[BOND_OPT_USE_CARRIER] = {
++		.id = BOND_OPT_USE_CARRIER,
++		.name = "use_carrier",
++		.desc = "Use netif_carrier_ok (vs MII ioctls) in miimon",
++		.values = bond_use_carrier_tbl,
++		.set = bond_option_use_carrier_set
 +	},
  	{ }
  };
  
-@@ -1221,3 +1228,49 @@ err_no_cmd:
- 	goto out;
- 
+@@ -688,16 +701,12 @@ int bond_option_downdelay_set(struct bonding *bond,
+ 	return 0;
  }
-+
-+int bond_option_slaves_set(struct bonding *bond, struct bond_opt_value *newval)
-+{
-+	char command[IFNAMSIZ + 1] = { 0, };
-+	struct net_device *dev;
-+	char *ifname;
-+	int ret;
-+
-+	sscanf(newval->string, "%16s", command); /* IFNAMSIZ*/
-+	ifname = command + 1;
-+	if ((strlen(command) <= 1) ||
-+	    !dev_valid_name(ifname))
-+		goto err_no_cmd;
-+
-+	dev = __dev_get_by_name(dev_net(bond->dev), ifname);
-+	if (!dev) {
-+		pr_info("%s: Interface %s does not exist!\n",
-+			bond->dev->name, ifname);
-+		ret = -ENODEV;
-+		goto out;
-+	}
-+
-+	switch (command[0]) {
-+	case '+':
-+		pr_info("%s: Adding slave %s.\n", bond->dev->name, dev->name);
-+		ret = bond_enslave(bond->dev, dev);
-+		break;
-+
-+	case '-':
-+		pr_info("%s: Removing slave %s.\n", bond->dev->name, dev->name);
-+		ret = bond_release(bond->dev, dev);
-+		break;
-+
-+	default:
-+		goto err_no_cmd;
-+	}
-+
-+out:
-+	return ret;
-+
-+err_no_cmd:
-+	pr_err("no command found in slaves file for bond %s. Use +ifname or -ifname.\n",
-+	       bond->dev->name);
-+	ret = -EPERM;
-+	goto out;
-+}
+ 
+-int bond_option_use_carrier_set(struct bonding *bond, int use_carrier)
++int bond_option_use_carrier_set(struct bonding *bond,
++				struct bond_opt_value *newval)
+ {
+-	if ((use_carrier == 0) || (use_carrier == 1)) {
+-		bond->params.use_carrier = use_carrier;
+-		pr_info("%s: Setting use_carrier to %d.\n",
+-			bond->dev->name, use_carrier);
+-	} else {
+-		pr_info("%s: Ignoring invalid use_carrier value %d.\n",
+-			bond->dev->name, use_carrier);
+-	}
++	pr_info("%s: Setting use_carrier to %llu.\n",
++		bond->dev->name, newval->value);
++	bond->params.use_carrier = newval->value;
+ 
+ 	return 0;
+ }
 diff --git a/drivers/net/bonding/bond_options.h b/drivers/net/bonding/bond_options.h
-index eb3a773..433d37f 100644
+index 1de315c..229f5c1 100644
 --- a/drivers/net/bonding/bond_options.h
 +++ b/drivers/net/bonding/bond_options.h
-@@ -61,6 +61,7 @@ enum {
- 	BOND_OPT_ALL_SLAVES_ACTIVE,
- 	BOND_OPT_RESEND_IGMP,
- 	BOND_OPT_LP_INTERVAL,
-+	BOND_OPT_SLAVES,
+@@ -55,6 +55,7 @@ enum {
+ 	BOND_OPT_MIIMON,
+ 	BOND_OPT_PRIMARY,
+ 	BOND_OPT_PRIMARY_RESELECT,
++	BOND_OPT_USE_CARRIER,
  	BOND_OPT_LAST
  };
  
-@@ -165,4 +166,5 @@ int bond_option_resend_igmp_set(struct bonding *bond,
- 				struct bond_opt_value *newval);
- int bond_option_lp_interval_set(struct bonding *bond,
- 				struct bond_opt_value *newval);
-+int bond_option_slaves_set(struct bonding *bond, struct bond_opt_value *newval);
+@@ -147,4 +148,6 @@ int bond_option_primary_set(struct bonding *bond,
+ 			    struct bond_opt_value *newval);
+ int bond_option_primary_reselect_set(struct bonding *bond,
+ 				     struct bond_opt_value *newval);
++int bond_option_use_carrier_set(struct bonding *bond,
++				struct bond_opt_value *newval);
  #endif /* _BOND_OPTIONS_H */
 diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index f7bc791..643fcc1 100644
+index 7f307bf..0040482 100644
 --- a/drivers/net/bonding/bond_sysfs.c
 +++ b/drivers/net/bonding/bond_sysfs.c
-@@ -200,58 +200,15 @@ static ssize_t bonding_store_slaves(struct device *d,
- 				    struct device_attribute *attr,
- 				    const char *buffer, size_t count)
+@@ -772,23 +772,13 @@ static ssize_t bonding_store_carrier(struct device *d,
+ 				     struct device_attribute *attr,
+ 				     const char *buf, size_t count)
  {
--	char command[IFNAMSIZ + 1] = { 0, };
--	char *ifname;
--	int res, ret = count;
--	struct net_device *dev;
+-	int new_value, ret;
  	struct bonding *bond = to_bond(d);
 +	int ret;
  
+-	if (sscanf(buf, "%d", &new_value) != 1) {
+-		pr_err("%s: no use_carrier value specified.\n",
+-		       bond->dev->name);
+-		return -EINVAL;
+-	}
+-
 -	if (!rtnl_trylock())
 -		return restart_syscall();
 -
--	sscanf(buffer, "%16s", command); /* IFNAMSIZ*/
--	ifname = command + 1;
--	if ((strlen(command) <= 1) ||
--	    !dev_valid_name(ifname))
--		goto err_no_cmd;
--
--	dev = __dev_get_by_name(dev_net(bond->dev), ifname);
--	if (!dev) {
--		pr_info("%s: Interface %s does not exist!\n",
--			bond->dev->name, ifname);
--		ret = -ENODEV;
--		goto out;
--	}
--
--	switch (command[0]) {
--	case '+':
--		pr_info("%s: Adding slave %s.\n", bond->dev->name, dev->name);
--		res = bond_enslave(bond->dev, dev);
--		break;
--
--	case '-':
--		pr_info("%s: Removing slave %s.\n", bond->dev->name, dev->name);
--		res = bond_release(bond->dev, dev);
--		break;
--
--	default:
--		goto err_no_cmd;
--	}
--
--	if (res)
--		ret = res;
--	goto out;
--
--err_no_cmd:
--	pr_err("no command found in slaves file for bond %s. Use +ifname or -ifname.\n",
--	       bond->dev->name);
--	ret = -EPERM;
-+	ret = bond_opt_tryset_rtnl(bond, BOND_OPT_SLAVES, (char *)buffer);
-+	if (!ret)
-+		ret = count;
+-	ret = bond_option_use_carrier_set(bond, new_value);
++	ret = bond_opt_tryset_rtnl(bond, BOND_OPT_USE_CARRIER, (char *)buf);
+ 	if (!ret)
+ 		ret = count;
  
--out:
 -	rtnl_unlock();
  	return ret;
  }
--
- static DEVICE_ATTR(slaves, S_IRUGO | S_IWUSR, bonding_show_slaves,
- 		   bonding_store_slaves);
- 
+ static DEVICE_ATTR(use_carrier, S_IRUGO | S_IWUSR,
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index afa443d..51f3b0a 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -453,7 +453,6 @@ unsigned int bond_get_num_tx_queues(void);
+ int bond_netlink_init(void);
+ void bond_netlink_fini(void);
+ int bond_option_active_slave_set(struct bonding *bond, struct net_device *slave_dev);
+-int bond_option_use_carrier_set(struct bonding *bond, int use_carrier);
+ int bond_option_arp_ip_target_add(struct bonding *bond, __be32 target);
+ int bond_option_arp_ip_target_rem(struct bonding *bond, __be32 target);
+ int bond_option_resend_igmp_set(struct bonding *bond, int resend_igmp);
 -- 
 1.8.4.2
