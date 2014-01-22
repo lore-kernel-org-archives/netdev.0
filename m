@@ -1,92 +1,75 @@
-From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH] SUNRPC: Allow one callback request to be received from
- two sk_buff
-Date: Wed, 22 Jan 2014 18:52:33 -0500
-Message-ID: <20140122235233.GA17155@fieldses.org>
-References: <1390201154-20815-1-git-send-email-shaobingqing@bwstor.com.cn>
- <1390259843.2501.2.camel@leira.trondhjem.org>
- <CALrKORrZ3Kcuqc1RajQKkZcot0yiswh4VR_WuXHqfRTjn9oGQQ@mail.gmail.com>
- <1BFACA51-087E-4945-851A-FBF0F108604C@primarydata.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [BUG] null pointer dereference in tcp_gso_segment()
+Date: Thu, 23 Jan 2014 00:56:51 +0100
+Message-ID: <20140122235651.GA20227@1wt.eu>
+References: <87r47z7kqo.fsf@natisbad.org> <1390427824.27806.36.camel@edumazet-glaptop2.roam.corp.google.com> <8761pb7jzq.fsf@natisbad.org> <1390429125.27806.40.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: shaobingqing <shaobingqing-Gb3srWounXyPt1CcHtbs0g@public.gmane.org>,
-	Dr Fields James Bruce <bfields-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"Miller David S." <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linuxnfs <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Arnaud Ebalard <arno@natisbad.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 1wt.eu ([62.212.114.60]:55722 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753734AbaAVX5J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jan 2014 18:57:09 -0500
 Content-Disposition: inline
-In-Reply-To: <1BFACA51-087E-4945-851A-FBF0F108604C-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1390429125.27806.40.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 21, 2014 at 08:35:36AM -0700, Trond Myklebust wrote:
-> 
-> On Jan 21, 2014, at 3:08, shaobingqing <shaobingqing-Gb3srWounXyPt1CcHtbs0g@public.gmane.org> wrote:
-> 
-> > 2014/1/21 Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>:
-> >> On Mon, 2014-01-20 at 14:59 +0800, shaobingqing wrote:
-> >>> In current code, there only one struct rpc_rqst is prealloced. If one
-> >>> callback request is received from two sk_buff, the xprt_alloc_bc_request
-> >>> would be execute two times with the same transport->xid. The first time
-> >>> xprt_alloc_bc_request will alloc one struct rpc_rqst and the TCP_RCV_COPY_DATA
-> >>> bit of transport->tcp_flags will not be cleared. The second time
-> >>> xprt_alloc_bc_request could not alloc struct rpc_rqst any more and NULL
-> >>> pointer will be returned, then xprt_force_disconnect occur. I think one
-> >>> callback request can be allowed to be received from two sk_buff.
-> >>> 
-> >>> Signed-off-by: shaobingqing <shaobingqing-Gb3srWounXyPt1CcHtbs0g@public.gmane.org>
-> >>> ---
-> >>> net/sunrpc/xprtsock.c |   11 +++++++++--
-> >>> 1 files changed, 9 insertions(+), 2 deletions(-)
-> >>> 
-> >>> diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-> >>> index ee03d35..606950d 100644
-> >>> --- a/net/sunrpc/xprtsock.c
-> >>> +++ b/net/sunrpc/xprtsock.c
-> >>> @@ -1271,8 +1271,13 @@ static inline int xs_tcp_read_callback(struct rpc_xprt *xprt,
-> >>>      struct sock_xprt *transport =
-> >>>                              container_of(xprt, struct sock_xprt, xprt);
-> >>>      struct rpc_rqst *req;
-> >>> +     static struct rpc_rqst *req_partial;
-> >>> +
-> >>> +     if (req_partial == NULL)
-> >>> +             req = xprt_alloc_bc_request(xprt);
-> >>> +     else if (req_partial->rq_xid == transport->tcp_xid)
-> >>> +             req = req_partial;
-> >> 
-> >> What happens here if req_partial->rq_xid != transport->tcp_xid? AFAICS,
-> >> req will be undefined. Either way, you cannot use a static variable for
-> >> storage here: that isn't re-entrant.
+On Wed, Jan 22, 2014 at 02:18:45PM -0800, Eric Dumazet wrote:
+> On Wed, 2014-01-22 at 23:02 +0100, Arnaud Ebalard wrote:
+> > Hi Eric,
 > > 
-> > Because metadata sever only have one slot for backchannel request,
-> > req_partial->rq_xid == transport->tcp_xid always happens, if the callback
-> > request just being splited in two sk_buffs. But req_partial->rq_xid !=
-> > transport->tcp_xid may also happens in some special cases, such as
-> > retransmission occurs?
+> > Eric Dumazet <eric.dumazet@gmail.com> writes:
+> > 
+> > >> Unless there is an assumption I missed somewhere in the function, the
+> > >> problem may occur during the first round of the loop, because (unlike
+> > >> the 'while' condition does at line 21) skb->next is not checked against
+> > >> null at lines 17 above before it is passed to tcp_hdr() at line 18.
+> > >> 
+> > >> To be honest, I am asking because I am not familiar w/ the code and it
+> > >> is somewhat old so I wonder why noone got hit before. AFAICT,
+> > >> f4c50d990dcf ([NET]: Add software TSOv4) added TSOv4 support in 2006 via
+> > >> introduction of tcp_tso_segmen() (with the same kind of deref but
+> > >> possibly different assumptions) which was more recently modified via
+> > >> 28850dc7c7 (net: tcp: move GRO/GSO functions to tcp_offload) to become
+> > >> tcp_gso_segment().
+> > >> 
+> > >> David, can you confirm the analysis and possibly comment on the
+> > >> conditions needed for the bug to manifest?
+> > >
+> > > A gso packet contains at least 2 segments.
+> > 
+> > By whom / where is it enforced?
 > 
-> If the server retransmits, then it is broken. The NFSv4.1 protocol does not allow it to retransmit unless the connection breaks.
+> For example, tcp_gso_segment() does the following check :
+> 
+> if (unlikely(skb->len <= mss))
+> 	goto out;
+> 
+> If there was one segment, then skb->len should also be smaller than mss
+> 
+> Since TCP stack seemed to be the provider of the packet in your stack
+> trace, check tcp_set_skb_tso_segs()
 
-shaobingqing, are you actually seeing retransmission?  (If so, are we
-setting up the callback client wrong?)
+Thanks Eric for the explanation. From Arnaud's trace, I suspect that he's
+received an ACK which has released some pending data, so it's very likely
+indeed that at least two segments were released at once given that the
+receiver is likely to ACK every two segments.
 
---b.
+Also we can expect that the received ACK was copy-breaked. I don't know
+if some sort of skb recycling may happen at this stage and reveal some
+bad corner cases (eg: improperly initialized skb during the rx path that
+causes everything to break when it's recycled for the tx path), but Arnaud
+you can easily disable the rx_copybreak feature by setting the rx_copybreak
+module argument to zero. You can change it at run time in /sys/module. At
+least it will tell us if it could be related or not.
 
-> 
-> > If one callback request is splited in two sk_buffs, xs_tcp_read_callback
-> > will be execute two times. The req_partial should be a static variable,
-> > because  the second execution of xs_tcp_read_callback should use
-> > the rpc_rqst allocated for the first execution, which saves information
-> > copies from the first sk_buff.
-> 
-> No! This is a multi-threaded/process environment which can support multiple connection. It is a bug to use a static variable.
-> 
-> --
-> Trond Myklebust
-> Linux NFS client maintainer
-> 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards,
+Willy
