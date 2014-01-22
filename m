@@ -1,61 +1,167 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [BUG] null pointer dereference in tcp_gso_segment()
-Date: Wed, 22 Jan 2014 14:18:45 -0800
-Message-ID: <1390429125.27806.40.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <87r47z7kqo.fsf@natisbad.org>
-	 <1390427824.27806.36.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <8761pb7jzq.fsf@natisbad.org>
+From: Dave Jones <davej@redhat.com>
+Subject: packet mmap related oops (with reproducer)
+Date: Wed, 22 Jan 2014 17:39:20 -0500
+Message-ID: <20140122223920.GA18162@redhat.com>
+References: <bug-1054537-176318@bugzilla.redhat.com>
+ <bug-1054537-176318-JYaNmE5vAr@bugzilla.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Willy Tarreau <w@1wt.eu>, netdev@vger.kernel.org
-To: Arnaud Ebalard <arno@natisbad.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Fedora Kernel Team <kernel-team@fedoraproject.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f170.google.com ([209.85.161.170]:43961 "EHLO
-	mail-gg0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752360AbaAVWSs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 17:18:48 -0500
-Received: by mail-gg0-f170.google.com with SMTP id l4so64739ggi.29
-        for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 14:18:48 -0800 (PST)
-In-Reply-To: <8761pb7jzq.fsf@natisbad.org>
+Received: from mx1.redhat.com ([209.132.183.28]:14664 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752130AbaAVWj1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jan 2014 17:39:27 -0500
+Content-Disposition: inline
+In-Reply-To: <bug-1054537-176318-JYaNmE5vAr@bugzilla.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-01-22 at 23:02 +0100, Arnaud Ebalard wrote:
-> Hi Eric,
-> 
-> Eric Dumazet <eric.dumazet@gmail.com> writes:
-> 
-> >> Unless there is an assumption I missed somewhere in the function, the
-> >> problem may occur during the first round of the loop, because (unlike
-> >> the 'while' condition does at line 21) skb->next is not checked against
-> >> null at lines 17 above before it is passed to tcp_hdr() at line 18.
-> >> 
-> >> To be honest, I am asking because I am not familiar w/ the code and it
-> >> is somewhat old so I wonder why noone got hit before. AFAICT,
-> >> f4c50d990dcf ([NET]: Add software TSOv4) added TSOv4 support in 2006 via
-> >> introduction of tcp_tso_segmen() (with the same kind of deref but
-> >> possibly different assumptions) which was more recently modified via
-> >> 28850dc7c7 (net: tcp: move GRO/GSO functions to tcp_offload) to become
-> >> tcp_gso_segment().
-> >> 
-> >> David, can you confirm the analysis and possibly comment on the
-> >> conditions needed for the bug to manifest?
-> >
-> > A gso packet contains at least 2 segments.
-> 
-> By whom / where is it enforced?
+We had a Fedora user report this bug, with a reproducer (below).
 
-For example, tcp_gso_segment() does the following check :
+On Fri, Jan 17, 2014 at 06:52:06AM +0000, bugzilla@redhat.com wrote:
+ > https://bugzilla.redhat.com/show_bug.cgi?id=1054537
+ > 
+ > 
+ > 
+ > --- Comment #2 from Karl Auerbach <karl@iwl.com> ---
+ >   --> https://bugzilla.redhat.com/attachment.cgi?id=851413
+ > Simple program to cause this kernel issue
+ > 
+ > This is a C program that must be run with root privilege.  It runs fine on
+ > older kernels but causes a kernel problem on the most recent one.
+ > 
+ > The code creates a raw socket with transmit and receive ring buffers.
+ > 
+ > The rings are then made visible via mmap().
+ > 
+ > When munmap() is called things go awry.
+ > 
+ > The code in this example was quickly lifted from a larger body of code that has
+ > been running for several years.
 
-if (unlikely(skb->len <= mss))
-	goto out;
 
-If there was one segment, then skb->len should also be smaller than mss
+#include <assert.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <unistd.h>
 
-Since TCP stack seemed to be the provider of the packet in your stack
-trace, check tcp_set_skb_tso_segs()
+#include <arpa/inet.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/user.h>
+
+#include <features.h>    /* for the glibc version number */
+#include <net/ethernet.h>
+#include <linux/if_packet.h>
+#include <linux/if_ether.h>
+
+#include <net/if.h>
+#include <netinet/in.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <linux/if_tun.h>
+
+#define NIL   0
+
+typedef int SOCKET;
+
+int main(int argc, char *argv)
+{
+size_t              RxMmap_Size;
+size_t              TxMmap_Size;
+unsigned int        Ether_Sz;
+unsigned int        Block_Sz_Order;
+unsigned int        Block_Sz;
+unsigned int        Block_Cnt;
+unsigned int        Frame_Sz;
+unsigned int        Frame_Cnt;
+unsigned int        Frames_Per_Block;
+
+void *              Mmap_Addr;
+size_t              Mmap_Size;
+size_t		    TXDataOffset;
+
+SOCKET              Socket;
+
+struct tpacket_req ring_req;
+
+Ether_Sz = 1518;
+Block_Sz = Ether_Sz;
+Block_Sz_Order = 2; // 16384 byte blocks 
+Block_Cnt = 1000;
+
+Socket = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+if (Socket == -1)
+  {
+  perror("socket failed");
+  return 1;
+  }
+
+Frame_Sz = TPACKET_ALIGN(TPACKET_ALIGN(TPACKET2_HDRLEN) + Ether_Sz);
+TXDataOffset = TPACKET2_HDRLEN - sizeof(struct sockaddr_ll);
+
+Block_Sz = getpagesize() << Block_Sz_Order;
+
+Frames_Per_Block = Block_Sz / Frame_Sz;
+Frame_Cnt = Frames_Per_Block * Block_Cnt;
+
+RxMmap_Size = Block_Sz * Block_Cnt;
+TxMmap_Size = RxMmap_Size;
+
+Mmap_Size = RxMmap_Size + TxMmap_Size;
+
+// Establish receive ring
+// For convenience we will let it be the same size as the TX ring
+// The mmap size calculations, far above, assume that the
+// rings are the same size.
+ring_req.tp_block_nr = Block_Cnt;
+ring_req.tp_frame_size = Frame_Sz;
+ring_req.tp_block_size = Block_Sz;
+ring_req.tp_frame_nr = Frame_Cnt;
+if (setsockopt(Socket, SOL_PACKET, PACKET_RX_RING,
+               (char *)&ring_req, sizeof(ring_req)) < 0)
+  {
+  perror("Setsockopt RX_RING failed");
+  close(Socket);
+  return -1;
+  }
+
+// Establish transmit ring
+// For convenience we will let it be the same size as the RX ring
+// The mmap size calculations, far above, assume that the
+// rings are the same size.
+ring_req.tp_block_nr = Block_Cnt;
+ring_req.tp_frame_size = Frame_Sz;
+ring_req.tp_block_size = Block_Sz;
+ring_req.tp_frame_nr = Frame_Cnt;
+if (setsockopt(Socket, SOL_PACKET, PACKET_TX_RING,
+               (char *)&ring_req, sizeof(ring_req)) < 0)
+  {
+  perror("Setsockopt TX_RING failed");
+  close(Socket);
+  return -1;
+  }
+
+Mmap_Addr = mmap(NIL, Mmap_Size, PROT_READ | PROT_WRITE,
+                 MAP_SHARED | MAP_LOCKED, Socket, 0);
+
+if (Mmap_Addr == MAP_FAILED)
+  {
+  perror("mmap failed");
+  return 1;
+  }
+
+if (Mmap_Addr != MAP_FAILED)
+  {
+  (void)munmap(Mmap_Addr, Mmap_Size);
+  }
+
+close(Socket);
+return 0;
+}
