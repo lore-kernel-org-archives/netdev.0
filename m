@@ -1,52 +1,47 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH] net: Fix some fallout from the etner_addr_copy()
- changes.
-Date: Tue, 21 Jan 2014 23:23:31 -0500
-Message-ID: <20140121232331.130f34fc.billfink@mindspring.com>
-References: <20140121.190348.1653034020095660800.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+Subject: [PATCH net-next] net: update comments of "struct msghdr" with the more accurate RFC3542 ones
+Date: Wed, 22 Jan 2014 05:39:46 +0100
+Message-ID: <1390365586-4149-1-git-send-email-fx.lebail@yahoo.com>
+Cc: David Miller <davem@davemloft.net>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-curtail.atl.sa.earthlink.net ([209.86.89.64]:36902 "EHLO
-	elasmtp-curtail.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752553AbaAVEYA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 23:24:00 -0500
-In-Reply-To: <20140121.190348.1653034020095660800.davem@davemloft.net>
+Received: from smtp05.smtpout.orange.fr ([80.12.242.127]:42348 "EHLO
+	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750719AbaAVFA2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 00:00:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 21 Jan 2014, David Miller wrote:
 
-> net/appletalk/aarp.c: In function =E2=80=98__aarp_send_query=E2=80=99=
-:
-> net/appletalk/aarp.c:137:2: error: implicit declaration of function =E2=
-=80=98ether_addr_copy=E2=80=99 [-Werror=3Dimplicit-function-declaration=
-]
->  ...
-> net/atm/lec.c: In function =E2=80=98send_to_lecd=E2=80=99:
-> net/atm/lec.c:524:3: warning: passing argument 1 of =E2=80=98ether_ad=
-dr_copy=E2=80=99 from incompatible pointer type [enabled by default]
-> In file included from net/atm/lec.c:17:0:
-> include/linux/etherdevice.h:227:20: note: expected =E2=80=98u8 *=E2=80=
-=99 but argument is of type =E2=80=98unsigned char (*)[6]=E2=80=99
->  ...
-> net/caif/caif_usb.c: In function =E2=80=98cfusbl_create=E2=80=99:
-> net/caif/caif_usb.c:108:2: error: implicit declaration of function =E2=
-=80=98ether_addr_copy=E2=80=99 [-Werror=3Dimplicit-function-declaration=
-]
->=20
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->  net/appletalk/aarp.c | 1 +
->  net/atm/lec.c        | 2 +-
->  2 files changed, 2 insertions(+), 1 deletion(-)
+Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+---
+ include/linux/socket.h |   14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-The commit message indicates problems with appletalk/aarp.c,
-atm/lec.c, and caif/caif_usb.c, but the diffstat and patch only
-address the first two and not caif/caif_usb.c.  Is that intended
-or am I missing something.
-
-					-Bill
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index 5d488a6..8e98297 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -45,13 +45,13 @@ struct linger {
+  */
+  
+ struct msghdr {
+-	void	*	msg_name;	/* Socket name			*/
+-	int		msg_namelen;	/* Length of name		*/
+-	struct iovec *	msg_iov;	/* Data blocks			*/
+-	__kernel_size_t	msg_iovlen;	/* Number of blocks		*/
+-	void 	*	msg_control;	/* Per protocol magic (eg BSD file descriptor passing) */
+-	__kernel_size_t	msg_controllen;	/* Length of cmsg list */
+-	unsigned int	msg_flags;
++	void		*msg_name;	/* ptr to socket address structure */
++	int		msg_namelen;	/* size of socket address structure */
++	struct iovec	*msg_iov;	/* scatter/gather array */
++	__kernel_size_t	msg_iovlen;	/* # elements in msg_iov */
++	void		*msg_control;	/* ancillary data */
++	__kernel_size_t	msg_controllen;	/* ancillary data buffer length */
++	unsigned int	msg_flags;	/* flags on received message */
+ };
+ 
+ /* For recvmmsg/sendmmsg */
+-- 
+1.7.10.4
