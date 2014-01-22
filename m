@@ -1,79 +1,51 @@
-From: Dominic Curran <dominic.curran@citrix.com>
-Subject: [PATCH net-next v3] tuntap: Fix for a race in accessing numqueues
-Date: Wed, 22 Jan 2014 03:03:23 +0000
-Message-ID: <1390359803-27989-1-git-send-email-dominic.curran@citrix.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] net: Fix some fallout from the etner_addr_copy() changes.
+Date: Tue, 21 Jan 2014 19:03:48 -0800 (PST)
+Message-ID: <20140121.190348.1653034020095660800.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Dominic Curran <dominic.curran@citrix.com>,
-	Jason Wang <jasowang@redhat.com>,
-	Maxim Krasnyansky <maxk@qti.qualcomm.com>
-To: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:46755 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753497AbaAVDDj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jan 2014 22:03:39 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:39469 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755054AbaAVDDt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 22:03:49 -0500
+Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
+	(Authenticated sender: davem-davemloft)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 4031D581ABB
+	for <netdev@vger.kernel.org>; Tue, 21 Jan 2014 19:03:49 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A patch for fixing a race between queue selection and changing queues
-was introduced in commit 92bb73ea2("tuntap: fix a possible race between
-queue selection and changing queues").
-
-The fix was to prevent the driver from re-reading the tun->numqueues
-more than once within tun_select_queue() using ACCESS_ONCE().
-
-We have been experiancing 'Divide-by-zero' errors in tun_net_xmit() 
-since we moved from 3.6 to 3.10, and believe that they come from a 
-simular source where the value of tun->numqueues changes to zero 
-between the first and a subsequent read of tun->numqueues.
-
-The fix is a simular use of ACCESS_ONCE(), as well as a multiply
-instead of a divide in the if statement.
-
-Signed-off-by: Dominic Curran <dominic.curran@citrix.com>
-Cc: Jason Wang <jasowang@redhat.com>
-Cc: Maxim Krasnyansky <maxk@qti.qualcomm.com>
----
-V3: Rebase against net-next. Include all numqueues in function.
-V2: Use multiply instead of divide. Suggested by Eric Dumazet.
-    Fixed email address for maxk. Rebase against net tree.
----
- drivers/net/tun.c |   10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
-
-Index: net-next/drivers/net/tun.c
-===================================================================
---- net-next.orig/drivers/net/tun.c	2014-01-22 02:50:01.000000000 +0000
-+++ net-next/drivers/net/tun.c	2014-01-22 02:59:42.000000000 +0000
-@@ -738,15 +738,17 @@ static netdev_tx_t tun_net_xmit(struct s
- 	struct tun_struct *tun = netdev_priv(dev);
- 	int txq = skb->queue_mapping;
- 	struct tun_file *tfile;
-+	u32 numqueues = 0;
- 
- 	rcu_read_lock();
- 	tfile = rcu_dereference(tun->tfiles[txq]);
-+	numqueues = ACCESS_ONCE(tun->numqueues);
- 
- 	/* Drop packet if interface is not attached */
--	if (txq >= tun->numqueues)
-+	if (txq >= numqueues)
- 		goto drop;
- 
--	if (tun->numqueues == 1) {
-+	if (numqueues == 1) {
- 		/* Select queue was not called for the skbuff, so we extract the
- 		 * RPS hash and save it into the flow_table here.
- 		 */
-@@ -779,8 +781,8 @@ static netdev_tx_t tun_net_xmit(struct s
- 	/* Limit the number of packets queued by dividing txq length with the
- 	 * number of queues.
- 	 */
--	if (skb_queue_len(&tfile->socket.sk->sk_receive_queue)
--			  >= dev->tx_queue_len / tun->numqueues)
-+	if (skb_queue_len(&tfile->socket.sk->sk_receive_queue) * numqueues
-+			  >= dev->tx_queue_len)
- 		goto drop;
- 
- 	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
+DQpuZXQvYXBwbGV0YWxrL2FhcnAuYzogSW4gZnVuY3Rpb24goV9fYWFycF9zZW5kX3F1ZXJ5ojoN
+Cm5ldC9hcHBsZXRhbGsvYWFycC5jOjEzNzoyOiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24g
+b2YgZnVuY3Rpb24goWV0aGVyX2FkZHJfY29weaIgWy1XZXJyb3I9aW1wbGljaXQtZnVuY3Rpb24t
+ZGVjbGFyYXRpb25dDQogLi4uDQpuZXQvYXRtL2xlYy5jOiBJbiBmdW5jdGlvbiChc2VuZF90b19s
+ZWNkojoNCm5ldC9hdG0vbGVjLmM6NTI0OjM6IHdhcm5pbmc6IHBhc3NpbmcgYXJndW1lbnQgMSBv
+ZiChZXRoZXJfYWRkcl9jb3B5oiBmcm9tIGluY29tcGF0aWJsZSBwb2ludGVyIHR5cGUgW2VuYWJs
+ZWQgYnkgZGVmYXVsdF0NCkluIGZpbGUgaW5jbHVkZWQgZnJvbSBuZXQvYXRtL2xlYy5jOjE3OjA6
+DQppbmNsdWRlL2xpbnV4L2V0aGVyZGV2aWNlLmg6MjI3OjIwOiBub3RlOiBleHBlY3RlZCChdTgg
+KqIgYnV0IGFyZ3VtZW50IGlzIG9mIHR5cGUgoXVuc2lnbmVkIGNoYXIgKCopWzZdog0KIC4uLg0K
+bmV0L2NhaWYvY2FpZl91c2IuYzogSW4gZnVuY3Rpb24goWNmdXNibF9jcmVhdGWiOg0KbmV0L2Nh
+aWYvY2FpZl91c2IuYzoxMDg6MjogZXJyb3I6IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0
+aW9uIKFldGhlcl9hZGRyX2NvcHmiIFstV2Vycm9yPWltcGxpY2l0LWZ1bmN0aW9uLWRlY2xhcmF0
+aW9uXQ0KDQpTaWduZWQtb2ZmLWJ5OiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5u
+ZXQ+DQotLS0NCiBuZXQvYXBwbGV0YWxrL2FhcnAuYyB8IDEgKw0KIG5ldC9hdG0vbGVjLmMgICAg
+ICAgIHwgMiArLQ0KIDIgZmlsZXMgY2hhbmdlZCwgMiBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9u
+KC0pDQoNCmRpZmYgLS1naXQgYS9uZXQvYXBwbGV0YWxrL2FhcnAuYyBiL25ldC9hcHBsZXRhbGsv
+YWFycC5jDQppbmRleCBkMGI3YmUxLi5kMjdiODZkIDEwMDY0NA0KLS0tIGEvbmV0L2FwcGxldGFs
+ay9hYXJwLmMNCisrKyBiL25ldC9hcHBsZXRhbGsvYWFycC5jDQpAQCAtNDAsNiArNDAsNyBAQA0K
+ICNpbmNsdWRlIDxsaW51eC9wcm9jX2ZzLmg+DQogI2luY2x1ZGUgPGxpbnV4L3NlcV9maWxlLmg+
+DQogI2luY2x1ZGUgPGxpbnV4L2V4cG9ydC5oPg0KKyNpbmNsdWRlIDxsaW51eC9ldGhlcmRldmlj
+ZS5oPg0KIA0KIGludCBzeXNjdGxfYWFycF9leHBpcnlfdGltZSA9IEFBUlBfRVhQSVJZX1RJTUU7
+DQogaW50IHN5c2N0bF9hYXJwX3RpY2tfdGltZSA9IEFBUlBfVElDS19USU1FOw0KZGlmZiAtLWdp
+dCBhL25ldC9hdG0vbGVjLmMgYi9uZXQvYXRtL2xlYy5jDQppbmRleCAwYjczYWU5Li41YTJmNjAy
+IDEwMDY0NA0KLS0tIGEvbmV0L2F0bS9sZWMuYw0KKysrIGIvbmV0L2F0bS9sZWMuYw0KQEAgLTUy
+MSw3ICs1MjEsNyBAQCBzZW5kX3RvX2xlY2Qoc3RydWN0IGxlY19wcml2ICpwcml2LCBhdG1sZWNf
+bXNnX3R5cGUgdHlwZSwNCiAJaWYgKGRhdGEgIT0gTlVMTCkNCiAJCW1lc2ctPnNpemVvZnRsdnMg
+PSBkYXRhLT5sZW47DQogCWlmIChtYWNfYWRkcikNCi0JCWV0aGVyX2FkZHJfY29weSgmbWVzZy0+
+Y29udGVudC5ub3JtYWwubWFjX2FkZHIsIG1hY19hZGRyKTsNCisJCWV0aGVyX2FkZHJfY29weSht
+ZXNnLT5jb250ZW50Lm5vcm1hbC5tYWNfYWRkciwgbWFjX2FkZHIpOw0KIAllbHNlDQogCQltZXNn
+LT5jb250ZW50Lm5vcm1hbC50YXJnZXRsZXNzX2xlX2FycCA9IDE7DQogCWlmIChhdG1fYWRkcikN
+Ci0tIA0KMS43LjExLjcNCg0K
