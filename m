@@ -1,60 +1,85 @@
-From: Yann Droneaud <ydroneaud@opteya.com>
-Subject: [PATCH] 6lowpan: add a license to 6lowpan_iphc module
-Date: Wed, 22 Jan 2014 20:25:24 +0100
-Message-ID: <1390418724-9804-1-git-send-email-ydroneaud@opteya.com>
-Cc: Yann Droneaud <ydroneaud@opteya.com>,
-	linux-zigbee-devel@lists.sourceforge.net,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Jukka Rissanen <jukka.rissanen@linux.intel.com>,
-	Alexander Aring <alex.aring@gmail.com>
-To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Gustavo Padovan <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Max Krasnyansky <maxk@qti.qualcomm.com>
+Subject: Re: [PATCH net-next v3] tuntap: Fix for a race in accessing numqueues
+Date: Wed, 22 Jan 2014 11:44:22 -0800
+Message-ID: <52E01F96.90201@qti.qualcomm.com>
+References: <1390359803-27989-1-git-send-email-dominic.curran@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jason Wang <jasowang@redhat.com>
+To: Dominic Curran <dominic.curran@citrix.com>,
+	<netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wolverine01.qualcomm.com ([199.106.114.254]:38885 "EHLO
+	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752861AbaAVToX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 14:44:23 -0500
+In-Reply-To: <1390359803-27989-1-git-send-email-dominic.curran@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Since commit 8df8c56a5abc, 6lowpan_iphc is a module of its own.
+On 01/21/2014 07:03 PM, Dominic Curran wrote:
+> A patch for fixing a race between queue selection and changing queues
+> was introduced in commit 92bb73ea2("tuntap: fix a possible race between
+> queue selection and changing queues").
+> 
+> The fix was to prevent the driver from re-reading the tun->numqueues
+> more than once within tun_select_queue() using ACCESS_ONCE().
+> 
+> We have been experiancing 'Divide-by-zero' errors in tun_net_xmit() 
+> since we moved from 3.6 to 3.10, and believe that they come from a 
+> simular source where the value of tun->numqueues changes to zero 
+> between the first and a subsequent read of tun->numqueues.
+> 
+> The fix is a simular use of ACCESS_ONCE(), as well as a multiply
+> instead of a divide in the if statement.
+> 
+> Signed-off-by: Dominic Curran <dominic.curran@citrix.com>
+> Cc: Jason Wang <jasowang@redhat.com>
+> Cc: Maxim Krasnyansky <maxk@qti.qualcomm.com>
+> ---
+> V3: Rebase against net-next. Include all numqueues in function.
+> V2: Use multiply instead of divide. Suggested by Eric Dumazet.
+>     Fixed email address for maxk. Rebase against net tree.
+> ---
+>  drivers/net/tun.c |   10 ++++++----
+>  1 file changed, 6 insertions(+), 4 deletions(-)
+> 
+> Index: net-next/drivers/net/tun.c
+> ===================================================================
+> --- net-next.orig/drivers/net/tun.c	2014-01-22 02:50:01.000000000 +0000
+> +++ net-next/drivers/net/tun.c	2014-01-22 02:59:42.000000000 +0000
+> @@ -738,15 +738,17 @@ static netdev_tx_t tun_net_xmit(struct s
+>  	struct tun_struct *tun = netdev_priv(dev);
+>  	int txq = skb->queue_mapping;
+>  	struct tun_file *tfile;
+> +	u32 numqueues = 0;
+>  
+>  	rcu_read_lock();
+>  	tfile = rcu_dereference(tun->tfiles[txq]);
+> +	numqueues = ACCESS_ONCE(tun->numqueues);
+>  
+>  	/* Drop packet if interface is not attached */
+> -	if (txq >= tun->numqueues)
+> +	if (txq >= numqueues)
+>  		goto drop;
+>  
+> -	if (tun->numqueues == 1) {
+> +	if (numqueues == 1) {
+>  		/* Select queue was not called for the skbuff, so we extract the
+>  		 * RPS hash and save it into the flow_table here.
+>  		 */
+> @@ -779,8 +781,8 @@ static netdev_tx_t tun_net_xmit(struct s
+>  	/* Limit the number of packets queued by dividing txq length with the
+>  	 * number of queues.
+>  	 */
+> -	if (skb_queue_len(&tfile->socket.sk->sk_receive_queue)
+> -			  >= dev->tx_queue_len / tun->numqueues)
+> +	if (skb_queue_len(&tfile->socket.sk->sk_receive_queue) * numqueues
+> +			  >= dev->tx_queue_len)
+>  		goto drop;
+>  
+>  	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
+> 
 
-Unfortunately, it lacks some infrastructure to behave like a
-good kernel citizen:
-
-  kernel: 6lowpan_iphc: module license 'unspecified' taints kernel.
-  kernel: Disabling lock debugging due to kernel taint
-
-This patch adds the basic MODULE_LICENSE(); with GPL license:
-the code was copied from net/ieee802154/6lowpan.c which is GPL
-and the module exports symbol with EXPORT_SYMBOL_GPL();.
-
-Cc: Jukka Rissanen <jukka.rissanen@linux.intel.com>
-Cc: Alexander Aring <alex.aring@gmail.com>
-Cc: Marcel Holtmann <marcel@holtmann.org>
-Signed-off-by: Yann Droneaud <ydroneaud@opteya.com>
----
- net/ieee802154/6lowpan_iphc.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/net/ieee802154/6lowpan_iphc.c b/net/ieee802154/6lowpan_iphc.c
-index e14fe8b2c054..860aa2d445ba 100644
---- a/net/ieee802154/6lowpan_iphc.c
-+++ b/net/ieee802154/6lowpan_iphc.c
-@@ -52,6 +52,7 @@
- 
- #include <linux/bitops.h>
- #include <linux/if_arp.h>
-+#include <linux/module.h>
- #include <linux/netdevice.h>
- #include <net/ipv6.h>
- #include <net/af_ieee802154.h>
-@@ -797,3 +798,5 @@ int lowpan_header_compress(struct sk_buff *skb, struct net_device *dev,
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(lowpan_header_compress);
-+
-+MODULE_LICENSE("GPL");
--- 
-1.8.4.2
+Acked-by: Max Krasnyansky <maxk@kernel.org>
