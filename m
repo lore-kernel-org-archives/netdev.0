@@ -1,78 +1,67 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] net: phy: use network device in phy_print_status
-Date: Wed, 22 Jan 2014 10:52:09 -0800
-Message-ID: <CAGVrzcaDTOxBHNgSF1wme8JgnYV-KjpNfqqcNLdebqR0hjnWJg@mail.gmail.com>
-References: <1390415553-4961-1-git-send-email-f.fainelli@gmail.com> <1390416584.31946.84.camel@joe-AO722>
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Subject: Re: [PATCH] net/openvswitch: Remove the skb encapsulation mark after
+ decapsulation
+Date: Wed, 22 Jan 2014 11:17:16 -0800 (PST)
+Message-ID: <alpine.LFD.2.03.1401221116320.15150@intel.com>
+References: <1390403705-28690-1-git-send-email-ogerlitz@mellanox.com> <CAEP_g=9_8aPyve-obKCLo9ByFPvSNEtNBpaUKCw7X8Tcc3U1yA@mail.gmail.com> <CAJZOPZ+oRD=76JUELo51yZTTvjnc=4HYy0EPWtR1HH1CY870cA@mail.gmail.com> <CAEP_g=9n5=a28-AOJYVt56OQLvO2X6nA+nVbOqhWEQK9jQqMGw@mail.gmail.com>
+ <CAJZOPZLURFDYJ+4WBTQKEsc0MGhPZTPYahTUN+nS8KFispaWoA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Joe Perches <joe@perches.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jesse Gross <jesse@nicira.com>,
+	Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Pravin B Shelar <pshelar@nicira.com>
+To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:59834 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751379AbaAVSwu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 13:52:50 -0500
-Received: by mail-pa0-f53.google.com with SMTP id lj1so763188pab.26
-        for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 10:52:50 -0800 (PST)
-In-Reply-To: <1390416584.31946.84.camel@joe-AO722>
+Received: from mga02.intel.com ([134.134.136.20]:39184 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751379AbaAVS6i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jan 2014 13:58:38 -0500
+In-Reply-To: <CAJZOPZLURFDYJ+4WBTQKEsc0MGhPZTPYahTUN+nS8KFispaWoA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014/1/22 Joe Perches <joe@perches.com>:
-> On Wed, 2014-01-22 at 10:32 -0800, Florian Fainelli wrote:
->> phy_print_status() currently uses dev_name(&phydev->dev) which will
->> usually result in printing something along those lines for Device Tree
->> aware drivers:
->>
->> libphy: f0b60000.etherne:0a - Link is Down
->> libphy: f0ba0000.etherne:00 - Link is Up - 1000/Full
->>
->> This is not terribly useful for network administrators or users since we
->> expect a network interface name to be able to correlate link events with
->> interfaces. Update phy_print_status() to use netdev_info() with
->> phydev->attached_dev which is the backing network device for our PHY
->> device.
-> []
->> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-> []
->> @@ -45,12 +45,11 @@
->>  void phy_print_status(struct phy_device *phydev)
->>  {
->>       if (phydev->link) {
->> -             pr_info("%s - Link is Up - %d/%s\n",
->> -                     dev_name(&phydev->dev),
->> +             netdev_info(phydev->attached_dev, "- Link is Up - %d/%s\n",
->>                       phydev->speed,
->>                       DUPLEX_FULL == phydev->duplex ? "Full" : "Half");
->>       } else  {
->> -             pr_info("%s - Link is Down\n", dev_name(&phydev->dev));
->> +             netdev_info(phydev->attached_dev, "- Link is Down\n");
->>       }
->
-> The leading "- "'s now aren't useful and these could be
 
-I did not want to remove the leading "- " since this would sort of
-produce a very different message now, that said, I have no strong
-feeling removing it.
 
->
->         if (phydev->link)
->                 netdev_info(phydev->attached_dev, "Link is Up - %d/%s\n",
->                             phydev->speed,
->                             phydev->duplex == DUPLEX_FULL ? "Full" : "Half");
->         else
->                 netdev_info(phydev->attached_dev, "Link is Down\n");
->
-> Is is possible that phydev->attached_dev is NULL?
+On Wed, 22 Jan 2014, Or Gerlitz wrote:
 
-Not when this is called, it is safe to use phydev->attached_dev.
+> On Wed, Jan 22, 2014 at 8:02 PM, Jesse Gross <jesse@nicira.com> wrote:
+> > On Wed, Jan 22, 2014 at 9:23 AM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
+> >> On Wed, Jan 22, 2014 at 7:02 PM, Jesse Gross <jesse@nicira.com> wrote:
+> >>> On Wed, Jan 22, 2014 at 7:15 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
+> >>>> We must unset the skb encapsulation mark before injecting the
+> >>>> decapsulated packet into ovs for the rest of its journey.
+> >>>>
+> >>>> This follows the practice set by 0afb166 "vxlan: Add capability of Rx
+> >>>> checksum offload for inner packet" and the overall idea behind the
+> >>>> skb encapsulation field.
+> >>>>
+> >>>> Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>
+> >>>> Cc: Pravin B Shelar <pshelar@nicira.com>
+> >>>> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> >>>
+> >>> This should be in the common decapsulation code. It doesn't make sense
+> >>> to do this here when we set the layer pointers, encap bit, etc. in
+> >>> common code on transmit.
+> >>
+> >> well that's a bit problematic, since the code in the vxlan driver vxlan_rcv()
+> >> which has the potential to be common refers to vxlan->dev-> which is
+> >> irrelevant for ovs, thoughts?
+> >
+> > Well, as I said before, I don't really see the value in the
+> > NETIF_F_RXCSUM flag on a VXLAN device
+> 
+> I am OK with that too, Joseph?
 
->
-> It may also be possible to slightly improve the output by
-> reducing the number of 0's in the speed block and emitting
-> Kb/Mb/Gb (or Kbps/Mbps/Gbps) and maybe flow control if it's
-> available.
+Yes, looks good to me, too.
 
-Sure thing, that calls for a follow-up patch though.
--- 
-Florian
+> 
+> > but in any case you could break that if statement in half and
+> > move the part that doesn't refer to vxlan->dev into common code.
+> 
+> So if Joseph is OK with the above I'll just remove the check and move
+> the code to common  code and if not, I'll have most of it common and
+> this one separately, good, we have a plan.
+> 
