@@ -1,57 +1,78 @@
-From: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
-Subject: Re: [Xen-devel] [PATCH v4] xen/grant-table: Avoid m2p_override during
- mapping
-Date: Wed, 22 Jan 2014 18:50:20 +0000
-Message-ID: <alpine.DEB.2.02.1401221848080.21510@kaball.uk.xensource.com>
-References: <1390335755-29328-1-git-send-email-zoltan.kiss@citrix.com> <alpine.DEB.2.02.1401221618340.21510@kaball.uk.xensource.com> <52E00FB7.3040508@citrix.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] net: phy: use network device in phy_print_status
+Date: Wed, 22 Jan 2014 10:52:09 -0800
+Message-ID: <CAGVrzcaDTOxBHNgSF1wme8JgnYV-KjpNfqqcNLdebqR0hjnWJg@mail.gmail.com>
+References: <1390415553-4961-1-git-send-email-f.fainelli@gmail.com> <1390416584.31946.84.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
-	<ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52E00FB7.3040508@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:59834 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751379AbaAVSwu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 13:52:50 -0500
+Received: by mail-pa0-f53.google.com with SMTP id lj1so763188pab.26
+        for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 10:52:50 -0800 (PST)
+In-Reply-To: <1390416584.31946.84.camel@joe-AO722>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 22 Jan 2014, Zoltan Kiss wrote:
-> On 22/01/14 16:39, Stefano Stabellini wrote:
-> > On Tue, 21 Jan 2014, Zoltan Kiss wrote:
-> > > @@ -121,7 +125,7 @@ static inline unsigned long mfn_to_pfn(unsigned long
-> > > mfn)
-> > >   		pfn = m2p_find_override_pfn(mfn, ~0);
-> > >   	}
-> > > 
-> > > -	/*
-> > > +	/*
-> > 
-> > Spurious change?
-> It removes a stray space from the original code. Not necessary, but if it's
-> there, I think we can keep it.
+2014/1/22 Joe Perches <joe@perches.com>:
+> On Wed, 2014-01-22 at 10:32 -0800, Florian Fainelli wrote:
+>> phy_print_status() currently uses dev_name(&phydev->dev) which will
+>> usually result in printing something along those lines for Device Tree
+>> aware drivers:
+>>
+>> libphy: f0b60000.etherne:0a - Link is Down
+>> libphy: f0ba0000.etherne:00 - Link is Up - 1000/Full
+>>
+>> This is not terribly useful for network administrators or users since we
+>> expect a network interface name to be able to correlate link events with
+>> interfaces. Update phy_print_status() to use netdev_info() with
+>> phydev->attached_dev which is the backing network device for our PHY
+>> device.
+> []
+>> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+> []
+>> @@ -45,12 +45,11 @@
+>>  void phy_print_status(struct phy_device *phydev)
+>>  {
+>>       if (phydev->link) {
+>> -             pr_info("%s - Link is Up - %d/%s\n",
+>> -                     dev_name(&phydev->dev),
+>> +             netdev_info(phydev->attached_dev, "- Link is Up - %d/%s\n",
+>>                       phydev->speed,
+>>                       DUPLEX_FULL == phydev->duplex ? "Full" : "Half");
+>>       } else  {
+>> -             pr_info("%s - Link is Down\n", dev_name(&phydev->dev));
+>> +             netdev_info(phydev->attached_dev, "- Link is Down\n");
+>>       }
+>
+> The leading "- "'s now aren't useful and these could be
 
-Usually cosmetic changes are done in a separate patch, or at the very
-least they are mentioned in the commit message.
+I did not want to remove the leading "- " since this would sort of
+produce a very different message now, that said, I have no strong
+feeling removing it.
 
+>
+>         if (phydev->link)
+>                 netdev_info(phydev->attached_dev, "Link is Up - %d/%s\n",
+>                             phydev->speed,
+>                             phydev->duplex == DUPLEX_FULL ? "Full" : "Half");
+>         else
+>                 netdev_info(phydev->attached_dev, "Link is Down\n");
+>
+> Is is possible that phydev->attached_dev is NULL?
 
-> > > diff --git a/arch/x86/xen/p2m.c b/arch/x86/xen/p2m.c
-> > > index 2ae8699..0060178 100644
-> > > --- a/arch/x86/xen/p2m.c
-> > > +++ b/arch/x86/xen/p2m.c
-> > > @@ -872,15 +872,13 @@ static unsigned long mfn_hash(unsigned long mfn)
-> > > 
-> > >   /* Add an MFN override for a particular page */
-> > >   int m2p_add_override(unsigned long mfn, struct page *page,
-> > > -		struct gnttab_map_grant_ref *kmap_op)
-> > > +		struct gnttab_map_grant_ref *kmap_op, unsigned long pfn)
-> > 
-> > Do we really need to add another additional parameter to
-> > m2p_add_override?
-> > I would just let m2p_add_override and m2p_remove_override call
-> > page_to_pfn again. It is not that expensive.
-> Yes, because that page_to_pfn can return something different. That's why the
-> v2 patches failed.
+Not when this is called, it is safe to use phydev->attached_dev.
 
-I am really curious: how can page_to_pfn return something different?
-I don't think is supposed to happen.
+>
+> It may also be possible to slightly improve the output by
+> reducing the number of 0's in the speed block and emitting
+> Kb/Mb/Gb (or Kbps/Mbps/Gbps) and maybe flow control if it's
+> available.
+
+Sure thing, that calls for a follow-up patch though.
+-- 
+Florian
