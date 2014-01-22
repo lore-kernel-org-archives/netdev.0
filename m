@@ -1,54 +1,155 @@
-From: Daniel Andersson Tenninge <daniel.andersson.tenninge@ericsson.com>
-Subject: virtio_net: doesn't free last skb in tx buffer
-Date: Wed, 22 Jan 2014 15:02:20 +0100
-Message-ID: <52DFCF6C.2080004@ericsson.com>
+From: Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>
+Subject: Re: [PATCH] net: Correctly sync addresses from multiple sources to
+ single device
+Date: Wed, 22 Jan 2014 18:18:21 +0400
+Message-ID: <52DFD32D.4060805@oktetlabs.ru>
+References: <1389988332-22472-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Patrick McHardy <kaber@trash.net>,
-	UABFRA <anders.franzen@ericsson.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>,
+	Konstantin Ushakov <Konstantin.Ushakov@oktetlabs.ru>
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg20.ericsson.net ([193.180.251.50]:54405 "EHLO
-	sessmg20.mgmt.ericsson.se" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752549AbaAVORY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 09:17:24 -0500
+Received: from shelob.oktetlabs.ru ([195.131.132.186]:56114 "EHLO
+	shelob.oktetlabs.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754553AbaAVOSe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 09:18:34 -0500
+In-Reply-To: <1389988332-22472-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 01/17/2014 11:52 PM, Vlad Yasevich wrote:
+> When we have multiple devices attempting to sync the same address
+> to a single destination, each device should be permitted to sync
+> it once.  To accomplish this, pass the sync count of the source
+> address to __hw_addr_add_ex().  'sync_cnt' tracks how many time
+> a given address has been successfully synced.  If the address
+> is found in the destination list, but the 'sync_cnt' of the source
+> is 0, then this address has not been synced from this interface
+> and we need to allow the sync operation to succeed thus incrementing
+> reference counts.
+>
+> Reported-by: Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>
+> CC: Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> ---
+>   net/core/dev_addr_lists.c | 12 +++++++-----
+>   1 file changed, 7 insertions(+), 5 deletions(-)
+>
+> diff --git a/net/core/dev_addr_lists.c b/net/core/dev_addr_lists.c
+> index ec40a84..bd1b880 100644
+> --- a/net/core/dev_addr_lists.c
+> +++ b/net/core/dev_addr_lists.c
+> @@ -48,7 +48,8 @@ static int __hw_addr_create_ex(struct netdev_hw_add=
+r_list *list,
+>  =20
+>   static int __hw_addr_add_ex(struct netdev_hw_addr_list *list,
+>   			    const unsigned char *addr, int addr_len,
+> -			    unsigned char addr_type, bool global, bool sync)
+> +			    unsigned char addr_type, bool global, bool sync,
+> +			    int sync_count)
+>   {
+>   	struct netdev_hw_addr *ha;
+>  =20
+> @@ -66,7 +67,7 @@ static int __hw_addr_add_ex(struct netdev_hw_addr_l=
+ist *list,
+>   					ha->global_use =3D true;
+>   			}
+>   			if (sync) {
+> -				if (ha->synced)
+> +				if (ha->synced && sync_count)
+>   					return -EEXIST;
+>   				else
+>   					ha->synced =3D true;
+> @@ -84,7 +85,8 @@ static int __hw_addr_add(struct netdev_hw_addr_list=
+ *list,
+>   			 const unsigned char *addr, int addr_len,
+>   			 unsigned char addr_type)
+>   {
+> -	return __hw_addr_add_ex(list, addr, addr_len, addr_type, false, fal=
+se);
+> +	return __hw_addr_add_ex(list, addr, addr_len, addr_type, false, fal=
+se,
+> +				0);
+>   }
+>  =20
+>   static int __hw_addr_del_entry(struct netdev_hw_addr_list *list,
+> @@ -139,7 +141,7 @@ static int __hw_addr_sync_one(struct netdev_hw_ad=
+dr_list *to_list,
+>   	int err;
+>  =20
+>   	err =3D __hw_addr_add_ex(to_list, ha->addr, addr_len, ha->type,
+> -			       false, true);
+> +			       false, true, ha->sync_count);
+>   	if (err && err !=3D -EEXIST)
+>   		return err;
+>  =20
+> @@ -676,7 +678,7 @@ static int __dev_mc_add(struct net_device *dev, c=
+onst unsigned char *addr,
+>  =20
+>   	netif_addr_lock_bh(dev);
+>   	err =3D __hw_addr_add_ex(&dev->mc, addr, dev->addr_len,
+> -			       NETDEV_HW_ADDR_T_MULTICAST, global, false);
+> +			       NETDEV_HW_ADDR_T_MULTICAST, global, false, 0);
+>   	if (!err)
+>   		__dev_set_rx_mode(dev);
+>   	netif_addr_unlock_bh(dev);
 
-I have been chasing a fault when closing a network namespace with a soft 
-device in (vlan, macvlan, ...) and the "real" device is a virtio device. 
-I couldn't decide if I should email the netdev or virtualization list 
-but I hope it is sent right.
+Thanks. The patch was tested with linux-3.12.6.
 
-The problem is that the namespace can never close because there is a 
-neighbour entry holding a reference to the device. This neighbour entry 
-is not free:d since a dst_entry is left with a reference to it and this 
-dst_entry is referenced from the last sk_buff sent on the virtio device.
+However, while building the kernel I got complains on:
 
- From the code it looks like whenever a sk_buff should be sent in the 
-start_xmit (driver/net/virtio_net.c) function the driver checks the tx 
-ring buffer if there are any old sk_buff there that should be free:d. 
-When the network namespace is closed down the last sk_buff cannot be 
-free:d until another is sent and if this doesn't happen the namespace 
-will hang forever.
+> 	err =3D __hw_addr_add_ex(to_list, ha->addr, addr_len, ha->type,
+> -			       false, true);
+> +			       false, true, ha->sync_count);
 
-Now this could be done in the net_device_ops ndo_uninit, but it seems 
-like if the there is a device on top of the virtio device, e.g. a vlan 
-device, the ndo_uninit is called for the vlan but the vlan never passes 
-it down to the real_dev. The same can be seen in the macvlan driver as 
-well. Is it made like this intentional and in that case what is the 
-preferred way for a device driver to clean up stuff during network 
-namespace shutdown?
+Namely ha (struct netdev_hw_addr) has no field sync_count. It has sync_=
+cnt.
+So I=E2=80=99ve fixed this when testing the patch. Is it a typo or some=
+thing intentional?
 
-Wouldn't this cause a more generic problem for network device drivers 
-that expect to be able to clean up stuff in ndo_uninit or is this not 
-meant to be used for this and the problem is specific to the virtio_net 
-leaving data after start_xmit returns?
+Your patch solves the initial problem, but it looks like it introduces =
+a new one.
 
-BR,
---Daniel
+When interface joins multicast group corresponding MAC address is added=
+ to the interface maddr list. It should be removed when socket explicit=
+ly leaves the group or is just closed. It=E2=80=99s the case without yo=
+ur patch. However, with the patched kernel address is still there after=
+ socket is closed.
+
+You can reproduce it with mcast_client binary (mcast_client.c was attac=
+hed to the first letter in the thread). To be specific:
+
+$ ip maddr show eth3
+9:  eth3
+  link  33:33:00:00:00:01 users 3
+  link  01:00:5e:00:00:01 users 3
+  link  33:33:ff:01:39:7c users 3
+  link  01:80:c2:00:00:21 users 2
+  inet  224.0.0.1
+  inet6 ff02::1:ff01:397c
+  inet6 ff02::1
+  inet6 ff01::1
+
+$ gcc mcast_client.c -o cl
+$ sudo ./cl
+Abort it with Ctrl+c
+$ ip maddr show eth3
+9:  eth3
+  link  33:33:00:00:00:01 users 3
+  link  01:00:5e:00:00:01 users 3
+  link  33:33:ff:01:39:7c users 3
+  link  01:80:c2:00:00:21 users 2
+  link  01:00:5e:11:58:a8
+  inet  224.0.0.1
+  inet6 ff02::1:ff01:397c
+  inet6 ff02::1
+  inet6 ff01::1
+
+'link 01:00:5e:11:58:a8=E2=80=99 address is still there. Should=E2=80=99=
+ve been removed.
+
+Andrey
