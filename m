@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] packet: fix a couple of cppcheck warnings
-Date: Tue, 21 Jan 2014 16:52:03 -0800 (PST)
-Message-ID: <20140121.165203.304954372532831580.davem@davemloft.net>
-References: <1390128413-7075-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH net v2] tcp: delete redundant calls of tcp_mtup_init()
+Date: Tue, 21 Jan 2014 16:52:57 -0800 (PST)
+Message-ID: <20140121.165257.1474926702945114111.davem@davemloft.net>
+References: <20140114.164105.524133214769947013.davem@davemloft.net>
+	<1a8e9e92721ef792aa017b89a4d6376dca5dc4f6.1390135376.git.panweiping3@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: dborkman@redhat.com
+To: panweiping3@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38706 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38709 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750862AbaAVAwE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 19:52:04 -0500
-In-Reply-To: <1390128413-7075-1-git-send-email-dborkman@redhat.com>
+	with ESMTP id S1752677AbaAVAw5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 19:52:57 -0500
+In-Reply-To: <1a8e9e92721ef792aa017b89a4d6376dca5dc4f6.1390135376.git.panweiping3@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Sun, 19 Jan 2014 11:46:53 +0100
+From: Weiping Pan <panweiping3@gmail.com>
+Date: Sun, 19 Jan 2014 20:44:46 +0800
 
-> Doesn't bring much, but also doesn't hurt us to fix 'em:
+> As tcp_rcv_state_process() has already calls tcp_mtup_init() for non-fastopen
+> sock, we can delete the redundant calls of tcp_mtup_init() in
+> tcp_{v4,v6}_syn_recv_sock().
 > 
-> 1) In tpacket_rcv() flush dcache page we can restirct the scope
->    for start and end and remove one layer of indent.
-> 
-> 2) In tpacket_destruct_skb() we can restirct the scope for ph.
-> 
-> 3) In alloc_one_pg_vec_page() we can remove the NULL assignment
->    and change spacing a bit.
-> 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Signed-off-by: Weiping Pan <panweiping3@gmail.com>
 
-Applied, thanks.
+Looks good, applied.
