@@ -1,114 +1,121 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] net: vxlan: convert to act as a pernet subsystem
-Date: Wed, 22 Jan 2014 21:07:53 +0100
-Message-ID: <1390421273-20152-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: davem@davemloft.net
+From: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
+Subject: Re: [PATCH] net: sctp: Fix a_rwnd/rwnd management to reflect real
+ state of the receiver's buffer
+Date: Wed, 22 Jan 2014 20:34:07 +0100
+Message-ID: <52E01D2F.5020305@nsn.com>
+References: <52D8D544.5050501@nsn.com> <20140122123059.GA9393@hmsreliant.think-freely.org> <52DFD334.7030507@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-sctp@vger.kernel.org,
+	Alexander Sverdlin <alexander.sverdlin@nsn.com>,
+	netdev@vger.kernel.org
+To: ext Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12701 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752852AbaAVUH7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jan 2014 15:07:59 -0500
+Received: from demumfd001.nsn-inter.net ([93.183.12.32]:12767 "EHLO
+	demumfd001.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756093AbaAVUN4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 15:13:56 -0500
+In-Reply-To: <52DFD334.7030507@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As per suggestion from Eric W. Biederman, vxlan should be using
-{un,}register_pernet_subsys() instead of {un,}register_pernet_device()
-to ensure the vxlan_net structure is initialized before and cleaned
-up after all network devices in a given network namespace i.e. when
-dealing with network notifiers. This is similarly handeled already in
-commit 91e2ff3528ac ("net: Teach vlans to cleanup as a pernet subsystem")
-and, thus, improves upon fd27e0d44a89 ("net: vxlan: do not use vxlan_net
-before checking event type"). Just as in 91e2ff3528ac, we do not need
-to explicitly handle deletion of vxlan devices as network namespace
-exit calls dellink on all remaining virtual devices, and
-rtnl_link_unregister() calls dellink on all outstanding devices in that
-network namespace, so we can entirely drop the pernet exit operation
-as well. Moreover, on vxlan module exit, rcu_barrier() is called by
-netns since commit 3a765edadb28 ("netns: Add an explicit rcu_barrier
-to unregister_pernet_{device|subsys}"), so this may be omitted. Tested
-with various scenarios and works well on my side.
+Hello Neil, Vlad,
 
-Suggested-by: Eric W. Biederman <ebiederm@xmission.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Cc: Eric W. Biederman <ebiederm@xmission.com>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- drivers/net/vxlan.c | 28 ++++++----------------------
- 1 file changed, 6 insertions(+), 22 deletions(-)
+On 01/22/2014 03:18 PM, ext Vlad Yasevich wrote:
+> On 01/22/2014 07:30 AM, Neil Horman wrote:
+>> On Fri, Jan 17, 2014 at 08:01:24AM +0100, Matija Glavinic Pecotic wrote:
+>>>
+>>> Proposed solution simplifies whole algorithm having on mind
+> definition from rfc:
+>>>
+>>> o  Receiver Window (rwnd): This gives the sender an indication of the
+> space
+>>>    available in the receiver's inbound buffer.
+>>>
+>>> Core of the proposed solution is given with these lines:
+>>>
+>>> sctp_assoc_rwnd_account:
+>>> 	if ((asoc->base.sk->sk_rcvbuf - rx_count) > 0)
+>>> 		asoc->rwnd = (asoc->base.sk->sk_rcvbuf - rx_count) >> 1;
+>>> 	else
+>>> 		asoc->rwnd = 0;
+>>>
+>>> We advertise to sender (half of) actual space we have. Half is in the
+> braces
+>>> depending whether you would like to observe size of socket buffer as
+> SO_RECVBUF
+>>> or twice the amount, i.e. size is the one visible from userspace,
+> that is,
+>>> from kernelspace.
+>>> In this way sender is given with good approximation of our buffer space,
+>>> regardless of the buffer policy - we always advertise what we have.
+> Proposed
+>>> solution fixes described problems and removes necessity for rwnd
+> restoration
+>>> algorithm. Finally, as proposed solution is simplification, some
+> lines of code,
+>>> along with some bytes in struct sctp_association are saved.
+>>>
+>>> Signed-off-by: Matija Glavinic Pecotic
+> <matija.glavinic-pecotic.ext@nsn.com>
+>>> Reviewed-by: Alexander Sverdlin <alexander.sverdlin@nsn.com>
+>>>
+>>
+>>
+>> General comment - While this seems to make sense to me generally speaking,
+>> doesn't it currently violate section 6 of the RFC?
+>>
+>>
+>> A SCTP receiver MUST be able to receive a minimum of 1500 bytes in
+>>    one SCTP packet.  This means that a SCTP endpoint MUST NOT indicate
+>>    less than 1500 bytes in its Initial a_rwnd sent in the INIT or INIT
+>>    ACK.
+>>
+>> Since we set the initial rwnd value to the larger of sk->sk_rcvbuf/2 or
+>> SCTP_MIN_RWND (1500 bytes), won't we potentially advertize half that
+> amount?
+> 
+> Not initially.  Initial window will still be advertized properly.  Once
+> we receive the first packet and consumed some space, we'll advertize
+> half of available receive buffer.  It is perfectly OK to advertize a
+> window smaller the MIN_WINDOW in the middle of the transfer.
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 942acc2..e1bc925 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -2784,12 +2784,10 @@ static int vxlan_lowerdev_event(struct notifier_block *unused,
- 				unsigned long event, void *ptr)
- {
- 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
--	struct vxlan_net *vn;
-+	struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
- 
--	if (event == NETDEV_UNREGISTER) {
--		vn = net_generic(dev_net(dev), vxlan_net_id);
-+	if (event == NETDEV_UNREGISTER)
- 		vxlan_handle_lowerdev_unregister(vn, dev);
--	}
- 
- 	return NOTIFY_DONE;
- }
-@@ -2812,22 +2810,8 @@ static __net_init int vxlan_init_net(struct net *net)
- 	return 0;
- }
- 
--static __net_exit void vxlan_exit_net(struct net *net)
--{
--	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
--	struct vxlan_dev *vxlan, *next;
--	LIST_HEAD(list_kill);
--
--	rtnl_lock();
--	list_for_each_entry_safe(vxlan, next, &vn->vxlan_list, next)
--		vxlan_dellink(vxlan->dev, &list_kill);
--	unregister_netdevice_many(&list_kill);
--	rtnl_unlock();
--}
--
- static struct pernet_operations vxlan_net_ops = {
- 	.init = vxlan_init_net,
--	.exit = vxlan_exit_net,
- 	.id   = &vxlan_net_id,
- 	.size = sizeof(struct vxlan_net),
- };
-@@ -2842,7 +2826,7 @@ static int __init vxlan_init_module(void)
- 
- 	get_random_bytes(&vxlan_salt, sizeof(vxlan_salt));
- 
--	rc = register_pernet_device(&vxlan_net_ops);
-+	rc = register_pernet_subsys(&vxlan_net_ops);
- 	if (rc)
- 		goto out1;
- 
-@@ -2858,7 +2842,7 @@ static int __init vxlan_init_module(void)
- out3:
- 	unregister_netdevice_notifier(&vxlan_notifier_block);
- out2:
--	unregister_pernet_device(&vxlan_net_ops);
-+	unregister_pernet_subsys(&vxlan_net_ops);
- out1:
- 	destroy_workqueue(vxlan_wq);
- 	return rc;
-@@ -2870,8 +2854,8 @@ static void __exit vxlan_cleanup_module(void)
- 	rtnl_link_unregister(&vxlan_link_ops);
- 	unregister_netdevice_notifier(&vxlan_notifier_block);
- 	destroy_workqueue(vxlan_wq);
--	unregister_pernet_device(&vxlan_net_ops);
--	rcu_barrier();
-+	unregister_pernet_subsys(&vxlan_net_ops);
-+	/* rcu_barrier() is called by netns */
- }
- module_exit(vxlan_cleanup_module);
- 
--- 
-1.7.11.7
+I agree to this, although we might be in gray area here:
+
+   Advertised Receiver Window Credit (a_rwnd): 32 bits (unsigned
+   integer)
+
+      This value represents the dedicated buffer space, in number of
+      bytes, the sender of the INIT has reserved in association with
+      this window.  During the life of the association, this buffer
+      space SHOULD NOT be lessened (i.e., dedicated buffers taken away
+      from this association); however, an endpoint MAY change the value
+      of a_rwnd it sends in SACK chunks.
+
+this might be considered as taking away buffer space, although I would agree with point below about doubling.
+
+This however opens another question which you should be aware of. This patch brakes regression, two TCs:
+
+test_timetolive and test_sctp_sendrcvmsg.
+
+This is simply due to 'honest' rwnd reporting. Both of these TCs share code in which initial rwnd is set very low, later socket buffer is increased but with counting on the fact that rwnd will stay as initially set. In TCs, this latter rwnd is fetched from the socket and used as value for the message size which in the end breaks it as message to be sent is too big.
+What is important difference to current implementation is that changes of SO_RECVBUF will also change a_rwnd. It is not a big problem to add code which will keep the idea, but bound rwnd to initially set rwnd, but we haven't found it mandated by rfc.
+
+Thanks,
+
+Matija 
+
+>> It seems we need to double the minimum socket receive buffer here.
+> 
+> Not here specifically, but yes.  It is already broken and this patch
+> doesn't change current behavior.  This is something SCTP may need to do
+> separately.
+> 
+> -vlad
+> 
+>>
+>> Neil
+>>
+>>
