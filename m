@@ -1,65 +1,60 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next 3/3] bonding: cleanup some redundant code and wrong
- variables
-Date: Wed, 22 Jan 2014 17:22:10 +0800
-Message-ID: <52DF8DC2.2030609@huawei.com>
+Subject: [PATCH net-next 2/3] bonding: only affect active-backup mode when
+ fail_over_mac is not none
+Date: Wed, 22 Jan 2014 17:22:05 +0800
+Message-ID: <52DF8DBD.4030803@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 To: Jay Vosburgh <fubar@us.ibm.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
 	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
+	Netdev <netdev@vger.kernel.org>,
+	Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:17255 "EHLO
+Received: from szxga01-in.huawei.com ([119.145.14.64]:17408 "EHLO
 	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751217AbaAVJWt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 04:22:49 -0500
+	with ESMTP id S1751805AbaAVJWu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 04:22:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The dev_set_mac_address() will check the dev->netdev_ops->ndo_set_mac_address,
-so no need to check it in bond_set_mac_address().
+According bonding.txt, the fail_over_mac only affect active-backup mode,
+but now the fail_over_mac could be set to active or follow in every mode,
+this will make the new slave could not be set to bond's MAC address at
+enslavement for several modes, such as RR or XOR.
 
-Fix the wrong variables for pr_err().
+So this patch fix two problems:
+1). If the fail_over_mac is active or follow and the mode is not active-backup,
+    the new slave could be set to the bond's MAC address,
+
+2). The first slave could work normally regardless it could support setting MAC
+    address or not, and the bonding always be set to first slave's MAC address,
+    so no need to set the first slave to bond's MAC address again when fail_over_mac
+    is none at enslavement.
 
 Cc: Jay Vosburgh <fubar@us.ibm.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>
 Cc: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/bonding/bond_main.c | 10 +---------
- 1 file changed, 1 insertion(+), 9 deletions(-)
+ drivers/net/bonding/bond_main.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index ce0f5c0..9d92f46 100644
+index 598f100..ce0f5c0 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -3509,15 +3509,7 @@ static int bond_set_mac_address(struct net_device *bond_dev, void *addr)
+@@ -1387,7 +1387,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
  	 */
+ 	memcpy(new_slave->perm_hwaddr, slave_dev->dev_addr, ETH_ALEN);
  
- 	bond_for_each_slave(bond, slave, iter) {
--		const struct net_device_ops *slave_ops = slave->dev->netdev_ops;
- 		pr_debug("slave %p %s\n", slave, slave->dev->name);
--
--		if (slave_ops->ndo_set_mac_address == NULL) {
--			res = -EOPNOTSUPP;
--			pr_debug("EOPNOTSUPP %s\n", slave->dev->name);
--			goto unwind;
--		}
--
- 		res = dev_set_mac_address(slave->dev, addr);
- 		if (res) {
- 			/* TODO: consider downing the slave
-@@ -4317,7 +4309,7 @@ static int bond_check_params(struct bond_params *params)
- 						      fail_over_mac_tbl);
- 		if (fail_over_mac_value == -1) {
- 			pr_err("Error: invalid fail_over_mac \"%s\"\n",
--			       arp_validate == NULL ? "NULL" : arp_validate);
-+			       fail_over_mac == NULL ? "NULL" : fail_over_mac);
- 			return -EINVAL;
- 		}
- 
+-	if (!bond->params.fail_over_mac) {
++	if (bond_has_slaves(bond) &&
++	    (!bond->params.fail_over_mac ||
++	     bond->params.mode != BOND_MODE_ACTIVEBACKUP)) {
+ 		/*
+ 		 * Set slave to master's mac address.  The application already
+ 		 * set the master's mac address to that of the first slave
 -- 
 1.8.0
