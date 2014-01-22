@@ -1,47 +1,61 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next 0/3] bonding: Fix some issues for fail_over_mac
-Date: Wed, 22 Jan 2014 17:21:56 +0800
-Message-ID: <52DF8DB4.20104@huawei.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] bonding: Don't allow bond devices to change network
+ namespaces.
+Date: Wed, 22 Jan 2014 10:41:06 +0100
+Message-ID: <20140122094106.GB2814@minipsycho.orion>
+References: <1390382190-1604-1-git-send-email-chenweilong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Andy Gospodarek <andy@greyhouse.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: fubar@us.ibm.com, vfalico@redhat.com, andy@greyhouse.net,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Chen Weilong <chenweilong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:17637 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754737AbaAVJXC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 04:23:02 -0500
+Received: from mail-ee0-f52.google.com ([74.125.83.52]:34181 "EHLO
+	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755040AbaAVJlJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 04:41:09 -0500
+Received: by mail-ee0-f52.google.com with SMTP id e53so4724790eek.11
+        for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 01:41:08 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1390382190-1604-1-git-send-email-chenweilong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The parameter fail_over_mac only affect active-backup mode, if it was
-set to active or follow and works with other modes, just like RR or XOR
-mode, the bonding could not set all slaves to the master's address, it
-will cause the slave could not work well with master.
+Wed, Jan 22, 2014 at 10:16:30AM CET, chenweilong@huawei.com wrote:
+>From: Weilong Chen <chenweilong@huawei.com>
+>
+>Like bridge, bonding as netdevice doesn't cross netns boundaries.
+>
+>Bonding ports and bonding itself live in same netns.
 
-So set the fail_over_mac to none if the mode is not active-backup and
-slight optimization for bond_set_mac_address().
+I think should should be done for team as well. Openvs already
+has this. I believe that for vlans it is ok to change ns, right?
 
-v1->v2: According Jay's suggestion, that we should permit setting an option
-	at any time, but only have it take effect in active-backup mode, so
-	I add mode checking together with fail_over_mac during enslavement and
-	rebuild the patches.
-
-Regards
-Ding
-
-Ding Tianhong (3):
-  bonding: Set the correct value to fail_over_mac at enslavement
-  bonding: only affect active-backup mode when fail_over_mac is not
-    none
-  bonding: cleanup some redundant code and wrong variables
-
- drivers/net/bonding/bond_main.c | 26 ++++++++++++++------------
- 1 file changed, 14 insertions(+), 12 deletions(-)
-
--- 
-1.8.0
+>
+>Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+>---
+> drivers/net/bonding/bond_main.c | 3 +++
+> 1 file changed, 3 insertions(+)
+>
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index f00dd45..897d153 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -3916,6 +3916,9 @@ void bond_setup(struct net_device *bond_dev)
+> 	 * capable
+> 	 */
+> 
+>+	/* Don't allow bond devices to change network namespaces. */
+>+	bond_dev->features |= NETIF_F_NETNS_LOCAL;
+>+
+> 	bond_dev->hw_features = BOND_VLAN_FEATURES |
+> 				NETIF_F_HW_VLAN_CTAG_TX |
+> 				NETIF_F_HW_VLAN_CTAG_RX |
+>-- 
+>1.7.12
+>
+>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
