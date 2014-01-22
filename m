@@ -1,46 +1,88 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH v5] can: add Renesas R-Car CAN driver
-Date: Wed, 22 Jan 2014 12:54:53 +0100
-Message-ID: <CAMuHMdWYYh=N-ApUV0tFZW4iHXun_yfuUjqZGVsZ1vjZTDqXMg@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v5] can: add Renesas R-Car CAN driver
+Date: Wed, 22 Jan 2014 11:58:50 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D463994@AcuExch.aculab.com>
 References: <52DD0CC1.70205@pengutronix.de>
 	<CAMuHMdV5sMUnXb1Z1HeRk9+_dCGWrbD-DS62S7T4Be-77HvsvA@mail.gmail.com>
 	<52DD0F72.1000005@pengutronix.de>
-	<20140120.111614.394228612374217980.davem@davemloft.net>
-	<52DD9F3C.7000408@cogentembedded.com>
-	<52DD927B.2060500@pengutronix.de>
-	<52DFB101.8040907@codethink.co.uk>
+ <20140120.111614.394228612374217980.davem@davemloft.net>
+ <52DD9F3C.7000408@cogentembedded.com> <52DD927B.2060500@pengutronix.de>
+ <52DFB101.8040907@codethink.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	David Miller <davem@davemloft.net>,
+	"geert@linux-m68k.org" <geert@linux-m68k.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	wg@grandegger.com, linux-can@vger.kernel.org,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	Pavel Kiryukhin <vksavl@gmail.com>
-To: Ben Dooks <ben.dooks@codethink.co.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:62083 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755238AbaAVLyy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 06:54:54 -0500
+	"wg@grandegger.com" <wg@grandegger.com>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
+	"vksavl@gmail.com" <vksavl@gmail.com>
+To: 'Ben Dooks' <ben.dooks@codethink.co.uk>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-sh-owner@vger.kernel.org>
 In-Reply-To: <52DFB101.8040907@codethink.co.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Language: en-US
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 22, 2014 at 12:52 PM, Ben Dooks <ben.dooks@codethink.co.uk> wrote:
-> IIRC, a compiler has the right to pad, or re-order structure
-> elements as it sees fit depending on the architecture and options.
-
-Pad: yes, reorder: no.
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+RnJvbTogQmVuIERvb2tzDQo+IE9uIDIwLzAxLzE0IDIxOjE3LCBNYXJjIEtsZWluZS1CdWRkZSB3
+cm90ZToNCj4gPiBPbiAwMS8yMC8yMDE0IDExOjEyIFBNLCBTZXJnZWkgU2h0eWx5b3Ygd3JvdGU6
+DQo+ID4gWy4uLl0NCj4gPg0KPiA+Pj4gSSB0cnVseSB0aGluayB1c2luZyBwYWNrZWQgaGVyZSBp
+cyByZWRpY3Vsb3VzLCBwbGVhc2UgcmVtb3ZlIGl0IHVubGVzcw0KPiA+Pj4geW91IGNhbiBwcm92
+ZSB0aGF0IHRoaW5ncyB3b24ndCB3b3JrIHdpdGhvdXQgaXQuDQo+ID4+DQo+ID4+ICAgICBUaGV5
+IHdpbGwuIEJ1dCBob3cgYWJvdXQgdGhlIGZvbGxvd2luZyAnc3RydWN0IHJjYXJfY2FuX3JlZ3Mn
+Pw0KPiA+DQo+ID4gVGhlIHN0cmN1dHMgaW4gcXVlc3Rpb24gYXJlOg0KPiA+DQo+ID4+ICsvKiBN
+YWlsYm94IHJlZ2lzdGVycyBzdHJ1Y3R1cmUgKi8NCj4gPj4gK3N0cnVjdCByY2FyX2Nhbl9tYm94
+X3JlZ3Mgew0KPiA+PiArCXUzMiBpZDsJCS8qIElERSBhbmQgUlRSIGJpdHMsIFNJRCBhbmQgRUlE
+ICovDQo+ID4+ICsJdTggc3R1YjsJLyogTm90IHVzZWQgKi8NCj4gPj4gKwl1OCBkbGM7CQkvKiBE
+YXRhIExlbmd0aCBDb2RlIC0gYml0cyBbMC4uM10gKi8NCj4gPj4gKwl1OCBkYXRhWzhdOwkvKiBE
+YXRhIEJ5dGVzICovDQo+ID4+ICsJdTggdHNoOwkJLyogVGltZSBTdGFtcCBIaWdoZXIgQnl0ZSAq
+Lw0KPiA+PiArCXU4IHRzbDsJCS8qIFRpbWUgU3RhbXAgTG93ZXIgQnl0ZSAqLw0KPiA+PiArfSBf
+X3BhY2tlZDsNCj4gPj4gKw0KPiA+PiArc3RydWN0IHJjYXJfY2FuX3JlZ3Mgew0KPiA+PiArCXN0
+cnVjdCByY2FyX2Nhbl9tYm94X3JlZ3MgbWJbUkNBUl9DQU5fTl9NQlhdOyAvKiBNYWlsYm94IHJl
+Z2lzdGVycyAqLw0KPiA+PiArCXUzMiBta3JfMl85WzhdOwkvKiBNYXNrIFJlZ2lzdGVycyAyLTkg
+Ki8NCj4gPj4gKwl1MzIgZmlkY3JbMl07CS8qIEZJRk8gUmVjZWl2ZWQgSUQgQ29tcGFyZSBSZWdp
+c3RlciAqLw0KPiA+PiArCXUzMiBta2l2bHIxOwkvKiBNYXNrIEludmFsaWQgUmVnaXN0ZXIgMSAq
+Lw0KPiA+PiArCXUzMiBtaWVyMTsJLyogTWFpbGJveCBJbnRlcnJ1cHQgRW5hYmxlIFJlZ2lzdGVy
+IDEgKi8NCj4gPj4gKwl1MzIgbWtyXzBfMVsyXTsJLyogTWFzayBSZWdpc3RlcnMgMC0xICovDQo+
+ID4+ICsJdTMyIG1raXZscjA7ICAgIC8qIE1hc2sgSW52YWxpZCBSZWdpc3RlciAwKi8NCj4gPj4g
+Kwl1MzIgbWllcjA7ICAgICAgLyogTWFpbGJveCBJbnRlcnJ1cHQgRW5hYmxlIFJlZ2lzdGVyIDAg
+Ki8NCj4gPj4gKwl1OCBwYWRfNDQwWzB4M2MwXTsNCj4gPj4gKwl1OCBtY3RsWzY0XTsJLyogTWVz
+c2FnZSBDb250cm9sIFJlZ2lzdGVycyAqLw0KPiA+PiArCXUxNiBjdGxyOwkvKiBDb250cm9sIFJl
+Z2lzdGVyICovDQo+ID4+ICsJdTE2IHN0cjsJLyogU3RhdHVzIHJlZ2lzdGVyICovDQo+ID4+ICsJ
+dTggYmNyWzNdOwkvKiBCaXQgQ29uZmlndXJhdGlvbiBSZWdpc3RlciAqLw0KPiA+PiArCXU4IGNs
+a3I7CS8qIENsb2NrIFNlbGVjdCBSZWdpc3RlciAqLw0KPiA+PiArCXU4IHJmY3I7CS8qIFJlY2Vp
+dmUgRklGTyBDb250cm9sIFJlZ2lzdGVyICovDQo+ID4+ICsJdTggcmZwY3I7CS8qIFJlY2VpdmUg
+RklGTyBQb2ludGVyIENvbnRyb2wgUmVnaXN0ZXIgKi8NCj4gPj4gKwl1OCB0ZmNyOwkvKiBUcmFu
+c21pdCBGSUZPIENvbnRyb2wgUmVnaXN0ZXIgKi8NCj4gPj4gKwl1OCB0ZnBjcjsgICAgICAgLyog
+VHJhbnNtaXQgRklGTyBQb2ludGVyIENvbnRyb2wgUmVnaXN0ZXIgKi8NCj4gPj4gKwl1OCBlaWVy
+OwkvKiBFcnJvciBJbnRlcnJ1cHQgRW5hYmxlIFJlZ2lzdGVyICovDQo+ID4+ICsJdTggZWlmcjsJ
+LyogRXJyb3IgSW50ZXJydXB0IEZhY3RvciBKdWRnZSBSZWdpc3RlciAqLw0KPiA+PiArCXU4IHJl
+Y3I7CS8qIFJlY2VpdmUgRXJyb3IgQ291bnQgUmVnaXN0ZXIgKi8NCj4gPj4gKwl1OCB0ZWNyOyAg
+ICAgICAgLyogVHJhbnNtaXQgRXJyb3IgQ291bnQgUmVnaXN0ZXIgKi8NCj4gPj4gKwl1OCBlY3Ny
+OwkvKiBFcnJvciBDb2RlIFN0b3JlIFJlZ2lzdGVyICovDQo+ID4+ICsJdTggY3NzcjsJLyogQ2hh
+bm5lbCBTZWFyY2ggU3VwcG9ydCBSZWdpc3RlciAqLw0KPiA+PiArCXU4IG1zc3I7CS8qIE1haWxi
+b3ggU2VhcmNoIFN0YXR1cyBSZWdpc3RlciAqLw0KPiA+PiArCXU4IG1zbXI7CS8qIE1haWxib3gg
+U2VhcmNoIE1vZGUgUmVnaXN0ZXIgKi8NCj4gPj4gKwl1MTYgdHNyOwkvKiBUaW1lIFN0YW1wIFJl
+Z2lzdGVyICovDQo+ID4+ICsJdTggYWZzcjsJLyogQWNjZXB0YW5jZSBGaWx0ZXIgU3VwcG9ydCBS
+ZWdpc3RlciAqLw0KPiA+PiArCXU4IHBhZF84NTc7DQo+ID4+ICsJdTggdGNyOwkJLyogVGVzdCBD
+b250cm9sIFJlZ2lzdGVyICovDQo+ID4+ICsJdTggcGFkXzg1OVs3XTsNCj4gPj4gKwl1OCBpZXI7
+CQkvKiBJbnRlcnJ1cHQgRW5hYmxlIFJlZ2lzdGVyICovDQo+ID4+ICsJdTggaXNyOwkJLyogSW50
+ZXJydXB0IFN0YXR1cyBSZWdpc3RlciAqLw0KPiA+PiArCXU4IHBhZF84NjI7DQo+ID4+ICsJdTgg
+bWJzbXI7CS8qIE1haWxib3ggU2VhcmNoIE1hc2sgUmVnaXN0ZXIgKi8NCj4gPj4gK30gX19wYWNr
+ZWQ7DQo+ID4NCj4gPiBJIHRoaW5rIHRoZXkgc2hvdWxkIHdvcmsgd2l0aG91dCBwYWNrZWQsIHRv
+by4NCj4gDQo+IEkgdGhpbmsgdGhpcyBkaXNjdXNzaW9uIHByb3ZlcyB3aHkgdGhpcyBpcyBub3Qg
+YSBnb29kIGlkZWEuDQoNCllvdSBuZWVkIHRoZSBzZWNvbmQgc3RydWN0dXJlIHRvIGJlIHRoZSBj
+b3JyZWN0IHNpemUsIHdpdGggb3Igd2l0aG91dA0KX19wYWNrZWQgdGhlcmUgY291bGQgZWFzaWx5
+IGJlIGEgdHlwbyAtIHNvIGFkZCBhIGNvbXBpbGUtdHlwZSBhc3NlcnQNCm9uIHRoZSBzaXplLg0K
+DQpJZiB0aGlzIG1hdGNoZXMgc29tZSBoYXJkd2FyZSBzcGVjLCBhbmQgdGhlIGhhcmR3YXJlIHNw
+ZWMgZG9lc24ndA0KaGF2ZSBhbnl0aGluZyBtaXNhbGlnbmVkLCB0aGVuIHlvdSBkb24ndCB3YW50
+IHRvIHNwZWNpZnkgX19wYWNrZWQuDQpXaXRob3V0IHRoZSBfX3BhY2tlZCB0aGUgc2l6ZSBjaGVj
+ayB3aWxsIGRldGVjdCBtb3JlIHR5cG9zLg0KDQo+IElJUkMsIGEgY29tcGlsZXIgaGFzIHRoZSBy
+aWdodCB0byBwYWQsIG9yIHJlLW9yZGVyIHN0cnVjdHVyZQ0KPiBlbGVtZW50cyBhcyBpdCBzZWVz
+IGZpdCBkZXBlbmRpbmcgb24gdGhlIGFyY2hpdGVjdHVyZSBhbmQgb3B0aW9ucy4NCg0KVGhlIGxh
+bmd1YWdlIG1pZ2h0IGFsbG93IG1hbnkgdGhpbmdzLCB0aGUgQUJJIGlzIG11Y2ggbW9yZSBleHBs
+aWNpdC4NCkluIHRoaXMgY2FzZSB5b3UgcmVhbGx5IGNhcmUgYWJvdXQgdGhlIEFCSS4NCg0KCURh
+dmlkDQoNCg==
