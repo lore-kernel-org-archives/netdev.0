@@ -1,69 +1,83 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: Linux kernel patch: elide fib_validate_source() completely when
- possible - bad side effect?
-Date: Wed, 22 Jan 2014 23:04:52 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1401222222010.1855@ja.home.ssi.bg>
-References: <52D945400200005D00047758@gwia2.atlnz.lc> <alpine.LFD.2.11.1401170953370.1827@ja.home.ssi.bg> <52DCF1440200005D000477FD@gwia2.atlnz.lc>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH net-next] IPv6: enable TCP to use an anycast address
+Date: Thu, 23 Jan 2014 01:11:52 +0400
+Message-ID: <CAMrnHh5od13Ydo12Dt4OTa3nw+5om5LYO53iu9nQYqWeBxMPAw@mail.gmail.com>
+References: <1390401156.61208.YahooMailBasic@web125501.mail.ne1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: gregory hoggarth <gregory.hoggarth@alliedtelesis.co.nz>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	David Miller <davem@davemloft.net>,
+	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>
+To: =?ISO-8859-1?Q?Fran=E7ois=2DXavier_Le_Bail?= <fx.lebail@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:49136 "EHLO ja.home.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752578AbaAVVGO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jan 2014 16:06:14 -0500
-In-Reply-To: <52DCF1440200005D000477FD@gwia2.atlnz.lc>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:54179 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751876AbaAVVLw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 16:11:52 -0500
+Received: by mail-ie0-f179.google.com with SMTP id ar20so121477iec.38
+        for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 13:11:52 -0800 (PST)
+In-Reply-To: <1390401156.61208.YahooMailBasic@web125501.mail.ne1.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello!
 
-	Hello,
+On Wed, Jan 22, 2014 at 6:32 PM, Fran=E7ois-Xavier Le Bail
+<fx.lebail@yahoo.com> wrote:
+>> Actually, I was alerted by reset processing in your patch, it cannot=
+ be right.
+>
+> Perhaps, I missed something.
 
-On Mon, 20 Jan 2014, gregory hoggarth wrote:
+Perhaps, I missed something. According to my old knowledge, tcp cannot
+be used with anycasts
+by many reasons and I have no idea what could change to the moment.
 
-> >>> Julian Anastasov <ja@ssi.bg> 17/1/14 09:24 PM >>> 
-> >
-> >	It seems only __fib_validate_source can reject all kind
-> > of broadcast addresses in saddr. ip_route_input_slow() rejects
-> > only the well known broadcasts. Without rp_filter may be we
-> > can at least drop attempts to send replies back to broadcast
-> > addresses? For example, checking result of ip_route_output_key() in
-> > icmp_reply():
-> >
-> >	if (rt->rt_flags & (RTCF_BROADCAST | RTCF_MULTICAST))
-> >		=> ip_rt_put()
+=46.e. what do you do when a segment arrives on listening socket w/o
+connection associated?
+If you sent reset, you could reset someone's valid connection (I mean
+this, saying "it cannot be right").
+If you do not, you violate protocol, those resets are required to
+clean up stale states.
 
-> Thank you for your reply.
-> 
-> While I think your solution may work, isn't the proper approach to drop these 
-> rogue packets, rather than wasting CPU and other resources processing them, 
-> and then beginning to craft responses which are in turn dropped?
+>> Do not you think this must not be enabled for common use? At least
+>> some separate sysctl disabled by default.
+>
+> We could indeed use a sysctl, disabled by default.
+>
+> But my goal was to enable anycast address usage transparently, if pos=
+sible.
 
-	The problem is that it is __fib_validate_source that
-takes time for every packet. And it is a rare case to see
-traffic from broadcast addresses. rp_filter set on external
-interface will drop such packets. It is an option that one
-can use even for internal interface, if needed.
+IMHO it is logically impossible. That's why my first question was
+about a document which
+allowed anycasts with TCP. (BTW I found your answer unconvincing, at le=
+ast.)
+Traditional anycasting used to be stateless and it was impossible to
+use with TCP
+because unsynchronized TCP connections would be unavoidable.
+AFAIK only suggestion from ancient RFC1546 could cure this problem,
+but it is very tricky and implies client knows that destination is anyc=
+ast.
 
-> Also seems better to drop the initial rogue packet, as that should cover all 
-> (?) different types of packets, rather than having to add small patches into 
-> ICMP, TCP and any other places that may need it.
+Actually, I do not even understand how the idea of use of anycast with =
+TCP
+emerged. The only situation I can imagine: the router is expected to
+do full scale
+connection tracking and to bind connections to anycast destinations to
+correct nodes.
+(And the same moment you understand that the notion of anycast is
+completely lost
+in this picture: the same thing is done by load balancers in IPv4 for
+unicast addresses
+for ages) I still have no idea how it is going to work when both
+client and servers bound
+to anycasts are on the same link.
 
-	Small check looks better compared to FIB lookup for
-every received packet. Note that output route can be cached
-for sockets, eg. TCP, so such small checks do not occur for
-every reply packet.
+So, it looks like you need this sysctl to announce: "someone cares
+about proper routing
+on this network and tcp should work". It looks obvious this mode
+cannot be enabled by default.
 
-> So my question really is was the original patch correct and there's something
-> wrong with our device configuration, or is this an overlooked / untested side-
-> effect from that patch that as a result means the patch should be re-worked?
-
-	I don't remember someone mentioning about such
-side-effect, I guess it is overlooked. IMHO, it is not a good
-reason to restore the old behavior. Lets see other opinions.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Alexey
