@@ -1,85 +1,63 @@
-From: Max Krasnyansky <maxk@qti.qualcomm.com>
-Subject: Re: [PATCH net-next v3] tuntap: Fix for a race in accessing numqueues
-Date: Wed, 22 Jan 2014 11:44:22 -0800
-Message-ID: <52E01F96.90201@qti.qualcomm.com>
-References: <1390359803-27989-1-git-send-email-dominic.curran@citrix.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] net: phy: use network device in phy_print_status
+Date: Wed, 22 Jan 2014 11:45:36 -0800
+Message-ID: <CAGVrzcYUrctOhomjO-iGK_jsJOCtdALrhjDPcZvdZ5LDTd8mvA@mail.gmail.com>
+References: <1390415553-4961-1-git-send-email-f.fainelli@gmail.com>
+ <1390416584.31946.84.camel@joe-AO722> <CAGVrzcaDTOxBHNgSF1wme8JgnYV-KjpNfqqcNLdebqR0hjnWJg@mail.gmail.com>
+ <1390417506.31946.89.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Jason Wang <jasowang@redhat.com>
-To: Dominic Curran <dominic.curran@citrix.com>,
-	<netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:38885 "EHLO
-	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752861AbaAVToX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 14:44:23 -0500
-In-Reply-To: <1390359803-27989-1-git-send-email-dominic.curran@citrix.com>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:57455 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752358AbaAVTqR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 14:46:17 -0500
+Received: by mail-pd0-f177.google.com with SMTP id x10so788934pdj.22
+        for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 11:46:16 -0800 (PST)
+In-Reply-To: <1390417506.31946.89.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/21/2014 07:03 PM, Dominic Curran wrote:
-> A patch for fixing a race between queue selection and changing queues
-> was introduced in commit 92bb73ea2("tuntap: fix a possible race between
-> queue selection and changing queues").
-> 
-> The fix was to prevent the driver from re-reading the tun->numqueues
-> more than once within tun_select_queue() using ACCESS_ONCE().
-> 
-> We have been experiancing 'Divide-by-zero' errors in tun_net_xmit() 
-> since we moved from 3.6 to 3.10, and believe that they come from a 
-> simular source where the value of tun->numqueues changes to zero 
-> between the first and a subsequent read of tun->numqueues.
-> 
-> The fix is a simular use of ACCESS_ONCE(), as well as a multiply
-> instead of a divide in the if statement.
-> 
-> Signed-off-by: Dominic Curran <dominic.curran@citrix.com>
-> Cc: Jason Wang <jasowang@redhat.com>
-> Cc: Maxim Krasnyansky <maxk@qti.qualcomm.com>
-> ---
-> V3: Rebase against net-next. Include all numqueues in function.
-> V2: Use multiply instead of divide. Suggested by Eric Dumazet.
->     Fixed email address for maxk. Rebase against net tree.
-> ---
->  drivers/net/tun.c |   10 ++++++----
->  1 file changed, 6 insertions(+), 4 deletions(-)
-> 
-> Index: net-next/drivers/net/tun.c
-> ===================================================================
-> --- net-next.orig/drivers/net/tun.c	2014-01-22 02:50:01.000000000 +0000
-> +++ net-next/drivers/net/tun.c	2014-01-22 02:59:42.000000000 +0000
-> @@ -738,15 +738,17 @@ static netdev_tx_t tun_net_xmit(struct s
->  	struct tun_struct *tun = netdev_priv(dev);
->  	int txq = skb->queue_mapping;
->  	struct tun_file *tfile;
-> +	u32 numqueues = 0;
->  
->  	rcu_read_lock();
->  	tfile = rcu_dereference(tun->tfiles[txq]);
-> +	numqueues = ACCESS_ONCE(tun->numqueues);
->  
->  	/* Drop packet if interface is not attached */
-> -	if (txq >= tun->numqueues)
-> +	if (txq >= numqueues)
->  		goto drop;
->  
-> -	if (tun->numqueues == 1) {
-> +	if (numqueues == 1) {
->  		/* Select queue was not called for the skbuff, so we extract the
->  		 * RPS hash and save it into the flow_table here.
->  		 */
-> @@ -779,8 +781,8 @@ static netdev_tx_t tun_net_xmit(struct s
->  	/* Limit the number of packets queued by dividing txq length with the
->  	 * number of queues.
->  	 */
-> -	if (skb_queue_len(&tfile->socket.sk->sk_receive_queue)
-> -			  >= dev->tx_queue_len / tun->numqueues)
-> +	if (skb_queue_len(&tfile->socket.sk->sk_receive_queue) * numqueues
-> +			  >= dev->tx_queue_len)
->  		goto drop;
->  
->  	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
-> 
+2014/1/22 Joe Perches <joe@perches.com>:
+> On Wed, 2014-01-22 at 10:52 -0800, Florian Fainelli wrote:
+>> 2014/1/22 Joe Perches <joe@perches.com>:
+>> > On Wed, 2014-01-22 at 10:32 -0800, Florian Fainelli wrote:
+>> >> phy_print_status() currently uses dev_name(&phydev->dev) which will
+>> >> usually result in printing something along those lines for Device Tree
+>> >> aware drivers:
+>> >>
+>> >> libphy: f0b60000.etherne:0a - Link is Down
+>> >> libphy: f0ba0000.etherne:00 - Link is Up - 1000/Full
+> []
+>> > The leading "- "'s now aren't useful and these could be
+>>
+>> I did not want to remove the leading "- " since this would sort of
+>> produce a very different message now, that said, I have no strong
+>> feeling removing it.
+>
+> The output would already be different as it's no longer
+> prefixed by "phylib: ".
+>
+> With the dash it'll look like:
+>
+> r8169 0000:01:00.0 eth3: - Link is Up
+>
+> when all the other netdev_info link messages
+> don't use the - separator after the "ethX: "
 
-Acked-by: Max Krasnyansky <maxk@kernel.org>
+You are right, thanks for spotting that, I will re-submit.
+
+>
+>> > It may also be possible to slightly improve the output by
+>> > reducing the number of 0's in the speed block and emitting
+>> > Kb/Mb/Gb (or Kbps/Mbps/Gbps) and maybe flow control if it's
+>> > available.
+>>
+>> Sure thing, that calls for a follow-up patch though.
+>
+> Thanks.
+>
+-- 
+Florian
