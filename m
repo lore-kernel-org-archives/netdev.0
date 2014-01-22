@@ -1,218 +1,172 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next v2 21/25] bonding: convert queue_id to use the new option API
-Date: Wed, 22 Jan 2014 14:53:36 +0100
-Message-ID: <1390398820-5355-22-git-send-email-nikolay@redhat.com>
+Subject: [PATCH net-next v2 11/25] bonding: convert updelay to use the new option API
+Date: Wed, 22 Jan 2014 14:53:26 +0100
+Message-ID: <1390398820-5355-12-git-send-email-nikolay@redhat.com>
 References: <1390398820-5355-1-git-send-email-nikolay@redhat.com>
 Cc: Nikolay Aleksandrov <nikolay@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46920 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:12067 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755982AbaAVNyN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jan 2014 08:54:13 -0500
+	id S1755811AbaAVNyD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jan 2014 08:54:03 -0500
 Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s0MDsD57020812
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s0MDs35H001407
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 08:54:13 -0500
+	for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 08:54:03 -0500
 In-Reply-To: <1390398820-5355-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the necessary changes so queue_id would use
-the new bonding option API. Also move it to its own set function in
-bond_options.c and fix some style errors.
+This patch adds the necessary changes so updelay would use
+the new bonding option API. Also some trivial style fixes.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- drivers/net/bonding/bond_options.c | 70 ++++++++++++++++++++++++++++++++++++++
- drivers/net/bonding/bond_options.h |  3 ++
- drivers/net/bonding/bond_sysfs.c   | 65 +++--------------------------------
- 3 files changed, 77 insertions(+), 61 deletions(-)
+ drivers/net/bonding/bond_netlink.c |  3 ++-
+ drivers/net/bonding/bond_options.c | 39 +++++++++++++++++++-------------------
+ drivers/net/bonding/bond_options.h |  3 +++
+ drivers/net/bonding/bond_sysfs.c   | 14 ++------------
+ drivers/net/bonding/bonding.h      |  1 -
+ 5 files changed, 27 insertions(+), 33 deletions(-)
 
+diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
+index f30397e..9629088 100644
+--- a/drivers/net/bonding/bond_netlink.c
++++ b/drivers/net/bonding/bond_netlink.c
+@@ -139,7 +139,8 @@ static int bond_changelink(struct net_device *bond_dev,
+ 	if (data[IFLA_BOND_UPDELAY]) {
+ 		int updelay = nla_get_u32(data[IFLA_BOND_UPDELAY]);
+ 
+-		err = bond_option_updelay_set(bond, updelay);
++		bond_opt_initval(&newval, updelay);
++		err = __bond_opt_set(bond, BOND_OPT_UPDELAY, &newval);
+ 		if (err)
+ 			return err;
+ 	}
 diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 2315104d..8775c72 100644
+index 03514f7..9cc2162 100644
 --- a/drivers/net/bonding/bond_options.c
 +++ b/drivers/net/bonding/bond_options.c
-@@ -254,6 +254,13 @@ static struct bond_option bond_opts[] = {
- 						BIT(BOND_MODE_ALB)),
- 		.set = bond_option_active_slave_set
+@@ -142,6 +142,14 @@ static struct bond_option bond_opts[] = {
+ 		.values = bond_intmax_tbl,
+ 		.set = bond_option_downdelay_set
  	},
-+	[BOND_OPT_QUEUE_ID] = {
-+		.id = BOND_OPT_QUEUE_ID,
-+		.name = "queue_id",
-+		.desc = "Set queue id of a slave",
-+		.flags = BOND_OPTFLAG_RAWVAL,
-+		.set = bond_option_queue_id_set
++	[BOND_OPT_UPDELAY] = {
++		.id = BOND_OPT_UPDELAY,
++		.name = "updelay",
++		.desc = "Delay before considering link up, in milliseconds",
++		.values = bond_intmax_tbl,
++		.set = bond_option_updelay_set
 +	},
++
  	{ }
  };
  
-@@ -1130,3 +1137,66 @@ int bond_option_ad_select_set(struct bonding *bond,
+@@ -558,31 +566,24 @@ int bond_option_miimon_set(struct bonding *bond, int miimon)
+ 	return 0;
+ }
+ 
+-int bond_option_updelay_set(struct bonding *bond, int updelay)
++int bond_option_updelay_set(struct bonding *bond, struct bond_opt_value *newval)
+ {
+-	if (!(bond->params.miimon)) {
++	if (!bond->params.miimon) {
+ 		pr_err("%s: Unable to set up delay as MII monitoring is disabled\n",
+ 		       bond->dev->name);
+ 		return -EPERM;
+ 	}
+-
+-	if (updelay < 0) {
+-		pr_err("%s: Invalid up delay value %d not in range %d-%d; rejected.\n",
+-		       bond->dev->name, updelay, 0, INT_MAX);
+-		return -EINVAL;
+-	} else {
+-		if ((updelay % bond->params.miimon) != 0) {
+-			pr_warn("%s: Warning: up delay (%d) is not a multiple of miimon (%d), updelay rounded to %d ms\n",
+-				bond->dev->name, updelay,
+-				bond->params.miimon,
+-				(updelay / bond->params.miimon) *
+-				bond->params.miimon);
+-		}
+-		bond->params.updelay = updelay / bond->params.miimon;
+-		pr_info("%s: Setting up delay to %d.\n",
+-			bond->dev->name,
+-			bond->params.updelay * bond->params.miimon);
++	if ((newval->value % bond->params.miimon) != 0) {
++		pr_warn("%s: Warning: up delay (%llu) is not a multiple of miimon (%d), updelay rounded to %llu ms\n",
++			bond->dev->name, newval->value,
++			bond->params.miimon,
++			(newval->value / bond->params.miimon) *
++			bond->params.miimon);
+ 	}
++	bond->params.updelay = newval->value / bond->params.miimon;
++	pr_info("%s: Setting up delay to %d.\n",
++		bond->dev->name,
++		bond->params.updelay * bond->params.miimon);
  
  	return 0;
  }
-+
-+int bond_option_queue_id_set(struct bonding *bond,
-+			     struct bond_opt_value *newval)
-+{
-+	struct slave *slave, *update_slave;
-+	struct net_device *sdev;
-+	struct list_head *iter;
-+	char *delim;
-+	int ret = 0;
-+	u16 qid;
-+
-+	/* delim will point to queue id if successful */
-+	delim = strchr(newval->string, ':');
-+	if (!delim)
-+		goto err_no_cmd;
-+
-+	/* Terminate string that points to device name and bump it
-+	 * up one, so we can read the queue id there.
-+	 */
-+	*delim = '\0';
-+	if (sscanf(++delim, "%hd\n", &qid) != 1)
-+		goto err_no_cmd;
-+
-+	/* Check buffer length, valid ifname and queue id */
-+	if (strlen(newval->string) > IFNAMSIZ ||
-+	    !dev_valid_name(newval->string) ||
-+	    qid > bond->dev->real_num_tx_queues)
-+		goto err_no_cmd;
-+
-+	/* Get the pointer to that interface if it exists */
-+	sdev = __dev_get_by_name(dev_net(bond->dev), newval->string);
-+	if (!sdev)
-+		goto err_no_cmd;
-+
-+	/* Search for thes slave and check for duplicate qids */
-+	update_slave = NULL;
-+	bond_for_each_slave(bond, slave, iter) {
-+		if (sdev == slave->dev)
-+			/* We don't need to check the matching
-+			 * slave for dups, since we're overwriting it
-+			 */
-+			update_slave = slave;
-+		else if (qid && qid == slave->queue_id) {
-+			goto err_no_cmd;
-+		}
-+	}
-+
-+	if (!update_slave)
-+		goto err_no_cmd;
-+
-+	/* Actually set the qids for the slave */
-+	update_slave->queue_id = qid;
-+
-+out:
-+	return ret;
-+
-+err_no_cmd:
-+	pr_info("invalid input for queue_id set for %s.\n",
-+		bond->dev->name);
-+	ret = -EPERM;
-+	goto out;
-+
-+}
 diff --git a/drivers/net/bonding/bond_options.h b/drivers/net/bonding/bond_options.h
-index 1f486a7..396d504 100644
+index 5a3f405..594046c 100644
 --- a/drivers/net/bonding/bond_options.h
 +++ b/drivers/net/bonding/bond_options.h
-@@ -57,6 +57,7 @@ enum {
- 	BOND_OPT_PRIMARY_RESELECT,
- 	BOND_OPT_USE_CARRIER,
- 	BOND_OPT_ACTIVE_SLAVE,
-+	BOND_OPT_QUEUE_ID,
+@@ -47,6 +47,7 @@ enum {
+ 	BOND_OPT_ARP_INTERVAL,
+ 	BOND_OPT_ARP_TARGETS,
+ 	BOND_OPT_DOWNDELAY,
++	BOND_OPT_UPDELAY,
  	BOND_OPT_LAST
  };
  
-@@ -153,4 +154,6 @@ int bond_option_use_carrier_set(struct bonding *bond,
- 				struct bond_opt_value *newval);
- int bond_option_active_slave_set(struct bonding *bond,
- 				 struct bond_opt_value *newval);
-+int bond_option_queue_id_set(struct bonding *bond,
-+			     struct bond_opt_value *newval);
+@@ -124,4 +125,6 @@ int bond_option_arp_ip_targets_set(struct bonding *bond,
+ void bond_option_arp_ip_targets_clear(struct bonding *bond);
+ int bond_option_downdelay_set(struct bonding *bond,
+ 			      struct bond_opt_value *newval);
++int bond_option_updelay_set(struct bonding *bond,
++			    struct bond_opt_value *newval);
  #endif /* _BOND_OPTIONS_H */
 diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 181a59d..a9cd3f5 100644
+index b4f6713..b873a88 100644
 --- a/drivers/net/bonding/bond_sysfs.c
 +++ b/drivers/net/bonding/bond_sysfs.c
-@@ -985,72 +985,15 @@ static ssize_t bonding_store_queue_id(struct device *d,
- 				      struct device_attribute *attr,
- 				      const char *buffer, size_t count)
+@@ -527,23 +527,13 @@ static ssize_t bonding_store_updelay(struct device *d,
+ 				     struct device_attribute *attr,
+ 				     const char *buf, size_t count)
  {
--	struct slave *slave, *update_slave;
+-	int new_value, ret;
  	struct bonding *bond = to_bond(d);
--	struct list_head *iter;
--	u16 qid;
--	int ret = count;
--	char *delim;
--	struct net_device *sdev = NULL;
++	int ret;
+ 
+-	if (sscanf(buf, "%d", &new_value) != 1) {
+-		pr_err("%s: no up delay value specified.\n",
+-		bond->dev->name);
+-		return -EINVAL;
+-	}
 -
 -	if (!rtnl_trylock())
 -		return restart_syscall();
 -
--	/* delim will point to queue id if successful */
--	delim = strchr(buffer, ':');
--	if (!delim)
--		goto err_no_cmd;
--
--	/*
--	 * Terminate string that points to device name and bump it
--	 * up one, so we can read the queue id there.
--	 */
--	*delim = '\0';
--	if (sscanf(++delim, "%hd\n", &qid) != 1)
--		goto err_no_cmd;
--
--	/* Check buffer length, valid ifname and queue id */
--	if (strlen(buffer) > IFNAMSIZ ||
--	    !dev_valid_name(buffer) ||
--	    qid > bond->dev->real_num_tx_queues)
--		goto err_no_cmd;
--
--	/* Get the pointer to that interface if it exists */
--	sdev = __dev_get_by_name(dev_net(bond->dev), buffer);
--	if (!sdev)
--		goto err_no_cmd;
--
--	/* Search for thes slave and check for duplicate qids */
--	update_slave = NULL;
--	bond_for_each_slave(bond, slave, iter) {
--		if (sdev == slave->dev)
--			/*
--			 * We don't need to check the matching
--			 * slave for dups, since we're overwriting it
--			 */
--			update_slave = slave;
--		else if (qid && qid == slave->queue_id) {
--			goto err_no_cmd;
--		}
--	}
--
--	if (!update_slave)
--		goto err_no_cmd;
-+	int ret;
+-	ret = bond_option_updelay_set(bond, new_value);
++	ret = bond_opt_tryset_rtnl(bond, BOND_OPT_UPDELAY, (char *)buf);
+ 	if (!ret)
+ 		ret = count;
  
--	/* Actually set the qids for the slave */
--	update_slave->queue_id = qid;
-+	ret = bond_opt_tryset_rtnl(bond, BOND_OPT_QUEUE_ID, (char *)buffer);
-+	if (!ret)
-+		ret = count;
- 
--out:
 -	rtnl_unlock();
  	return ret;
--
--err_no_cmd:
--	pr_info("invalid input for queue_id set for %s.\n",
--		bond->dev->name);
--	ret = -EPERM;
--	goto out;
  }
--
- static DEVICE_ATTR(queue_id, S_IRUGO | S_IWUSR, bonding_show_queue_id,
- 		   bonding_store_queue_id);
- 
+ static DEVICE_ATTR(updelay, S_IRUGO | S_IWUSR,
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 6286bb7..f2b1270 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -454,7 +454,6 @@ int bond_netlink_init(void);
+ void bond_netlink_fini(void);
+ int bond_option_active_slave_set(struct bonding *bond, struct net_device *slave_dev);
+ int bond_option_miimon_set(struct bonding *bond, int miimon);
+-int bond_option_updelay_set(struct bonding *bond, int updelay);
+ int bond_option_use_carrier_set(struct bonding *bond, int use_carrier);
+ int bond_option_arp_ip_target_add(struct bonding *bond, __be32 target);
+ int bond_option_arp_ip_target_rem(struct bonding *bond, __be32 target);
 -- 
 1.8.4.2
