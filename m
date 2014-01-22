@@ -1,156 +1,68 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v5 1/3] random32: add prandom_u32_max and convert open coded users
-Date: Wed, 22 Jan 2014 02:29:39 +0100
-Message-ID: <1390354181-5080-2-git-send-email-hannes@stressinduktion.org>
-References: <1390354181-5080-1-git-send-email-hannes@stressinduktion.org>
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	Jakub Zawadzki <darkjames-ws@darkjames.pl>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1390354181-5080-1-git-send-email-hannes@stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Rob Herring <robherring2@gmail.com>
+Subject: Re: [PATCH] DT: net: document Ethernet bindings in one place
+Date: Tue, 21 Jan 2014 19:30:39 -0600
+Message-ID: <CAL_JsqJF4m5ny5v_G1nEaNbH3Esdw8kuz__JpiJbkF=2ciY=9g@mail.gmail.com>
+References: <201401180405.07859.sergei.shtylyov@cogentembedded.com>
+	<CAL_Jsq+oa9P=rh+p-dMZyGP8TcmpX7bTnMU0ynLvFxjxFDYbRg@mail.gmail.com>
+	<52DD98F7.4090202@cogentembedded.com>
+	<CAL_JsqJXbF1-PcPHR2VP+Vi9A1aWizdsG_r3kDvRt3itXDhCGQ@mail.gmail.com>
+	<CAGVrzcb3X3soJNJCE5+YSpQrr+EdycCRFkptPvBCgFg4CbGJ4Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev <netdev@vger.kernel.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Rob Landley <rob@landley.net>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <CAGVrzcb3X3soJNJCE5+YSpQrr+EdycCRFkptPvBCgFg4CbGJ4Q@mail.gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
+On Tue, Jan 21, 2014 at 1:56 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> 2014/1/20 Rob Herring <robherring2@gmail.com>:
+>> On Mon, Jan 20, 2014 at 3:45 PM, Sergei Shtylyov
+>> <sergei.shtylyov@cogentembedded.com> wrote:
+>>> On 01/20/2014 05:06 PM, Rob Herring wrote:
 
-Many functions have open coded a function that returns a random
-number in range [0,N-1]. Under the assumption that we have a PRNG
-such as taus113 with being well distributed in [0, ~0U] space,
-we can implement such a function as uword t = (n*m')>>32, where
-m' is a random number obtained from PRNG, n the right open interval
-border and t our resulting random number, with n,m',t in u32 universe.
+[snip]
 
-Lets go with Joe and simply call it prandom_u32_max(), although
-technically we have an right open interval endpoint, but that we
-have documented. Other users can further be migrated to the new
-prandom_u32_max() function later on; for now, we need to make sure
-to migrate reciprocal_divide() users for the reciprocal_divide()
-follow-up fixup since their function signatures are going to change.
+>>>>> +- phy-connection-type: the same as "phy-mode" property (but described in
+>>>>> ePAPR);
+>>>>> +- phy-handle: phandle, specifies a reference to a node representing a
+>>>>> PHY
+>>>>> +  device (this property is described in ePAPR);
+>>>>> +- phy: the same as "phy-handle" property (but actually ad-hoc one).
+>>>
+>>>
+>>>> Mark this as deprecated in favor of phy-handle.
+>>>
+>>>
+>>>    Here situation is more optimistic. Quite many drivers still use
+>>> "phy-handle", though some use even more exotic props I didn't document here.
+>>
+>> Perhaps flagging as "Not recommended for new bindings" would be nicer wording...
+>
+> Ok, so what's the deal here, can't we use phy-handle? There is
+> currently no infrastructure in drivers/net/ or drivers/of/ to look for
+> the "phy-handle" nor "phy" properties as phandles to fetch an Ethernet
+> PHY device tree node. If we are to provide one common place where we
+> want to do this, we will have to look for both properties, why can't
+> we mandate the use of "phy-handle" since this is the ePAPR compliant
+> one?
 
-Joint work with Hannes Frederic Sowa.
+My count is 3 using "phy" and 11 using "phy-handle". Even if we
+mandate phy-handle, we still have to support both properties to
+maintain compatibility with existing DTs. But nothing new should use
+"phy".  I'm not sure that something common really helps here. Drivers
+using "phy" can continue to and new ones use "phy-handle". After a
+quick scan, there doesn't appear to be any multi-line pattern in the
+drivers we could factor out.
 
-Cc: Jakub Zawadzki <darkjames-ws@darkjames.pl>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- drivers/net/team/team_mode_random.c |  8 +-------
- include/linux/random.h              | 18 +++++++++++++++++-
- net/packet/af_packet.c              |  2 +-
- net/sched/sch_choke.c               |  9 +--------
- 4 files changed, 20 insertions(+), 17 deletions(-)
-
-diff --git a/drivers/net/team/team_mode_random.c b/drivers/net/team/team_mode_random.c
-index 7f032e2..cd2f692 100644
---- a/drivers/net/team/team_mode_random.c
-+++ b/drivers/net/team/team_mode_random.c
-@@ -13,20 +13,14 @@
- #include <linux/module.h>
- #include <linux/init.h>
- #include <linux/skbuff.h>
--#include <linux/reciprocal_div.h>
- #include <linux/if_team.h>
- 
--static u32 random_N(unsigned int N)
--{
--	return reciprocal_divide(prandom_u32(), N);
--}
--
- static bool rnd_transmit(struct team *team, struct sk_buff *skb)
- {
- 	struct team_port *port;
- 	int port_index;
- 
--	port_index = random_N(team->en_port_count);
-+	port_index = prandom_u32_max(team->en_port_count);
- 	port = team_get_port_by_index_rcu(team, port_index);
- 	if (unlikely(!port))
- 		goto drop;
-diff --git a/include/linux/random.h b/include/linux/random.h
-index 4002b3d..1cfce0e 100644
---- a/include/linux/random.h
-+++ b/include/linux/random.h
-@@ -8,7 +8,6 @@
- 
- #include <uapi/linux/random.h>
- 
--
- extern void add_device_randomness(const void *, unsigned int);
- extern void add_input_randomness(unsigned int type, unsigned int code,
- 				 unsigned int value);
-@@ -38,6 +37,23 @@ struct rnd_state {
- u32 prandom_u32_state(struct rnd_state *state);
- void prandom_bytes_state(struct rnd_state *state, void *buf, int nbytes);
- 
-+/**
-+ * prandom_u32_max - returns a pseudo-random number in interval [0, ep_ro)
-+ * @ep_ro: right open interval endpoint
-+ *
-+ * Returns a pseudo-random number that is in interval [0, ep_ro). Note
-+ * that the result depends on PRNG being well distributed in [0, ~0U]
-+ * u32 space. Here we use maximally equidistributed combined Tausworthe
-+ * generator, that is, prandom_u32(). This is useful when requesting a
-+ * random index of an array containing ep_ro elements, for example.
-+ *
-+ * Returns: pseudo-random number in interval [0, ep_ro)
-+ */
-+static inline u32 prandom_u32_max(u32 ep_ro)
-+{
-+	return (u32)(((u64) prandom_u32() * ep_ro) >> 32);
-+}
-+
- /*
-  * Handle minimum values for seeds
-  */
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 59fb3db..df3cbdd 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1289,7 +1289,7 @@ static unsigned int fanout_demux_rnd(struct packet_fanout *f,
- 				     struct sk_buff *skb,
- 				     unsigned int num)
- {
--	return reciprocal_divide(prandom_u32(), num);
-+	return prandom_u32_max(num);
- }
- 
- static unsigned int fanout_demux_rollover(struct packet_fanout *f,
-diff --git a/net/sched/sch_choke.c b/net/sched/sch_choke.c
-index ddd73cb..2aee028 100644
---- a/net/sched/sch_choke.c
-+++ b/net/sched/sch_choke.c
-@@ -14,7 +14,6 @@
- #include <linux/types.h>
- #include <linux/kernel.h>
- #include <linux/skbuff.h>
--#include <linux/reciprocal_div.h>
- #include <linux/vmalloc.h>
- #include <net/pkt_sched.h>
- #include <net/inet_ecn.h>
-@@ -77,12 +76,6 @@ struct choke_sched_data {
- 	struct sk_buff **tab;
- };
- 
--/* deliver a random number between 0 and N - 1 */
--static u32 random_N(unsigned int N)
--{
--	return reciprocal_divide(prandom_u32(), N);
--}
--
- /* number of elements in queue including holes */
- static unsigned int choke_len(const struct choke_sched_data *q)
- {
-@@ -233,7 +226,7 @@ static struct sk_buff *choke_peek_random(const struct choke_sched_data *q,
- 	int retrys = 3;
- 
- 	do {
--		*pidx = (q->head + random_N(choke_len(q))) & q->tab_mask;
-+		*pidx = (q->head + prandom_u32_max(choke_len(q))) & q->tab_mask;
- 		skb = q->tab[*pidx];
- 		if (skb)
- 			return skb;
--- 
-1.8.4.2
+Rob
