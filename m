@@ -1,38 +1,47 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net: Fix some fallout from the etner_addr_copy()
- changes.
-Date: Wed, 22 Jan 2014 14:56:36 -0800
-Message-ID: <1390431396.31946.95.camel@joe-AO722>
-References: <20140121.190348.1653034020095660800.davem@davemloft.net>
-	 <20140121232331.130f34fc.billfink@mindspring.com>
-	 <20140121.225431.117378955801559296.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: billfink@mindspring.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Scott Feldman <sfeldma@cumulusnetworks.com>
+Subject: Re: [patch net-next 0/5] fix bonding slave info API (sysfs and netlink)
+Date: Wed, 22 Jan 2014 15:06:22 -0800
+Message-ID: <8C35F74B-5760-4EB1-80AA-88E9B701ABD1@cumulusnetworks.com>
+References: <1390377957-31466-1-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0 (Mac OS X Mail 7.1 \(1827\))
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	vyasevic@redhat.com, nicolas.dichtel@6wind.com,
+	john.r.fastabend@intel.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0233.hostedemail.com ([216.40.44.233]:48391 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752711AbaAVW4k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 17:56:40 -0500
-In-Reply-To: <20140121.225431.117378955801559296.davem@davemloft.net>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:45596 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753330AbaAVXGb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 18:06:31 -0500
+In-Reply-To: <1390377957-31466-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-01-21 at 22:54 -0800, David Miller wrote:
-> From: Bill Fink <billfink@mindspring.com>
-> Date: Tue, 21 Jan 2014 23:23:31 -0500
-> 
-> > The commit message indicates problems with appletalk/aarp.c,
-> > atm/lec.c, and caif/caif_usb.c, but the diffstat and patch only
-> > address the first two and not caif/caif_usb.c.  Is that intended
-> > or am I missing something.
-> 
-> Thanks for catching that, I just pushed the missing change.
 
-My apologies for my stupid carelessness in the
-patches I sent here.
+On Jan 22, 2014, at 12:05 AM, Jiri Pirko <jiri@resnulli.us> wrote:
 
-I thought #define ETH_ALEN was in the same #include
-as ether_addr_copy and I didn't bother compiling.
+> The main part of this patchset is the introduction of a generic way h=
+ow
+> to get/set info of slaves unsing rtnl_link_ops.
+>=20
+> Jiri Pirko (5):
+>  bonding: change name of sysfs dir for bonding slaves
+>  rtnetlink: put "BOND" into nl attribute names which are related to
+>    bonding
+>  rtnetlink: provide api for getting and setting slave info
+>  bonding: convert netlink to use slave data info api
+>  rtnetlink: remove ndo_get_slave
+
+Looks good.  You=92ll need to update iproute2 patch I posted to Stephen=
+ to reflect the IFLA_BOND_SLAVE_xx renames and nesting.
+
+(patch 6/6 was part of this, correct)?
+
+Acked-by: Scott Feldman <sfeldma@cumulusnetworks.com>
