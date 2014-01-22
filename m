@@ -1,30 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Fix some fallout from the etner_addr_copy()
- changes.
-Date: Tue, 21 Jan 2014 22:54:31 -0800 (PST)
-Message-ID: <20140121.225431.117378955801559296.davem@davemloft.net>
-References: <20140121.190348.1653034020095660800.davem@davemloft.net>
-	<20140121232331.130f34fc.billfink@mindspring.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: billfink@mindspring.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40443 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752549AbaAVGye (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 01:54:34 -0500
-In-Reply-To: <20140121232331.130f34fc.billfink@mindspring.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Viresh Kumar <viresh.kumar@linaro.org>
+Subject: [PATCH 2/2] net/neighbour: queue work on power efficient wq
+Date: Wed, 22 Jan 2014 12:23:33 +0530
+Message-ID: <faa5b965e81fcb4c3261561e58a8ab1194ecf562.1390373223.git.viresh.kumar@linaro.org>
+References: <c24546776d8ec32afd1c084dd1d2a72fc96c6519.1390373223.git.viresh.kumar@linaro.org>
+Cc: linaro-kernel@lists.linaro.org, patches@linaro.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Viresh Kumar <viresh.kumar@linaro.org>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <c24546776d8ec32afd1c084dd1d2a72fc96c6519.1390373223.git.viresh.kumar@linaro.org>
+In-Reply-To: <c24546776d8ec32afd1c084dd1d2a72fc96c6519.1390373223.git.viresh.kumar@linaro.org>
+References: <c24546776d8ec32afd1c084dd1d2a72fc96c6519.1390373223.git.viresh.kumar@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Bill Fink <billfink@mindspring.com>
-Date: Tue, 21 Jan 2014 23:23:31 -0500
+Workqueue used in neighbour layer have no real dependency of scheduling these on
+the cpu which scheduled them.
 
-> The commit message indicates problems with appletalk/aarp.c,
-> atm/lec.c, and caif/caif_usb.c, but the diffstat and patch only
-> address the first two and not caif/caif_usb.c.  Is that intended
-> or am I missing something.
+On a idle system, it is observed that an idle cpu wakes up many times just to
+service this work. It would be better if we can schedule it on a cpu which the
+scheduler believes to be the most appropriate one.
 
-Thanks for catching that, I just pushed the missing change.
+This patch replaces normal workqueues with power efficient versions. This
+doesn't change existing behavior of code unless CONFIG_WQ_POWER_EFFICIENT is
+enabled.
+
+Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
+---
+ net/core/neighbour.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index f8012fe..b9e9e0d 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -828,7 +828,7 @@ out:
+ 	 * ARP entry timeouts range from 1/2 BASE_REACHABLE_TIME to 3/2
+ 	 * BASE_REACHABLE_TIME.
+ 	 */
+-	schedule_delayed_work(&tbl->gc_work,
++	queue_delayed_work(system_power_efficient_wq, &tbl->gc_work,
+ 			      NEIGH_VAR(&tbl->parms, BASE_REACHABLE_TIME) >> 1);
+ 	write_unlock_bh(&tbl->lock);
+ }
+@@ -1565,7 +1565,8 @@ static void neigh_table_init_no_netlink(struct neigh_table *tbl)
+ 
+ 	rwlock_init(&tbl->lock);
+ 	INIT_DEFERRABLE_WORK(&tbl->gc_work, neigh_periodic_work);
+-	schedule_delayed_work(&tbl->gc_work, tbl->parms.reachable_time);
++	queue_delayed_work(system_power_efficient_wq, &tbl->gc_work,
++			tbl->parms.reachable_time);
+ 	setup_timer(&tbl->proxy_timer, neigh_proxy_process, (unsigned long)tbl);
+ 	skb_queue_head_init_class(&tbl->proxy_queue,
+ 			&neigh_table_proxy_queue_class);
+-- 
+1.7.12.rc2.18.g61b472e
