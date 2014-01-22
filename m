@@ -1,57 +1,106 @@
-From: Viresh Kumar <viresh.kumar@linaro.org>
-Subject: [PATCH 2/2] net/neighbour: queue work on power efficient wq
-Date: Wed, 22 Jan 2014 12:23:33 +0530
-Message-ID: <faa5b965e81fcb4c3261561e58a8ab1194ecf562.1390373223.git.viresh.kumar@linaro.org>
-References: <c24546776d8ec32afd1c084dd1d2a72fc96c6519.1390373223.git.viresh.kumar@linaro.org>
-Cc: linaro-kernel@lists.linaro.org, patches@linaro.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Viresh Kumar <viresh.kumar@linaro.org>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <c24546776d8ec32afd1c084dd1d2a72fc96c6519.1390373223.git.viresh.kumar@linaro.org>
-In-Reply-To: <c24546776d8ec32afd1c084dd1d2a72fc96c6519.1390373223.git.viresh.kumar@linaro.org>
-References: <c24546776d8ec32afd1c084dd1d2a72fc96c6519.1390373223.git.viresh.kumar@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [PATCH RFC 00/73] tree-wide: clean up some no longer required
+ #include <linux/init.h>
+Date: Wed, 22 Jan 2014 18:00:23 +1100
+Message-ID: <20140122180023.dd90d34cba38d9f9ac516349@canb.auug.org.au>
+References: <1390339396-3479-1-git-send-email-paul.gortmaker@windriver.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Wed__22_Jan_2014_18_00_23_+1100_zcOtMRV1NI/h=88n"
+Cc: <linux-kernel@vger.kernel.org>, <linux-arch@vger.kernel.org>,
+	<linux-alpha@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-ia64@vger.kernel.org>, <linux-m68k@vger.kernel.org>,
+	<linux-mips@linux-mips.org>, <linuxppc-dev@lists.ozlabs.org>,
+	<linux-s390@vger.kernel.org>, <sparclinux@vger.kernel.org>,
+	<x86@kernel.org>, <netdev@vger.kernel.org>, <kvm@vger.kernel.org>,
+	<rusty@rustcorp.com.au>, <gregkh@linuxfoundation.org>,
+	<akpm@linux-foundation.org>, <torvalds@linux-foundation.org>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <linux-alpha-owner@vger.kernel.org>
+In-Reply-To: <1390339396-3479-1-git-send-email-paul.gortmaker@windriver.com>
+Sender: linux-alpha-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Workqueue used in neighbour layer have no real dependency of scheduling these on
-the cpu which scheduled them.
+--Signature=_Wed__22_Jan_2014_18_00_23_+1100_zcOtMRV1NI/h=88n
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-On a idle system, it is observed that an idle cpu wakes up many times just to
-service this work. It would be better if we can schedule it on a cpu which the
-scheduler believes to be the most appropriate one.
+Hi Paul,
 
-This patch replaces normal workqueues with power efficient versions. This
-doesn't change existing behavior of code unless CONFIG_WQ_POWER_EFFICIENT is
-enabled.
+On Tue, 21 Jan 2014 16:22:03 -0500 Paul Gortmaker <paul.gortmaker@windriver=
+.com> wrote:
+>
+> Where: This work exists as a queue of patches that I apply to
+> linux-next; since the changes are fixing some things that currently
+> can only be found there.  The patch series can be found at:
+>=20
+>    http://git.kernel.org/cgit/linux/kernel/git/paulg/init.git
+>    git://git.kernel.org/pub/scm/linux/kernel/git/paulg/init.git
+>=20
+> I've avoided annoying Stephen with another queue of patches for
+> linux-next while the development content was in flux, but now that
+> the merge window has opened, and new additions are fewer, perhaps he
+> wouldn't mind tacking it on the end...  Stephen?
 
-Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
----
- net/core/neighbour.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+OK, I have added this to the end of linux-next today - we will see how we
+go.  It is called "init".
 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index f8012fe..b9e9e0d 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -828,7 +828,7 @@ out:
- 	 * ARP entry timeouts range from 1/2 BASE_REACHABLE_TIME to 3/2
- 	 * BASE_REACHABLE_TIME.
- 	 */
--	schedule_delayed_work(&tbl->gc_work,
-+	queue_delayed_work(system_power_efficient_wq, &tbl->gc_work,
- 			      NEIGH_VAR(&tbl->parms, BASE_REACHABLE_TIME) >> 1);
- 	write_unlock_bh(&tbl->lock);
- }
-@@ -1565,7 +1565,8 @@ static void neigh_table_init_no_netlink(struct neigh_table *tbl)
- 
- 	rwlock_init(&tbl->lock);
- 	INIT_DEFERRABLE_WORK(&tbl->gc_work, neigh_periodic_work);
--	schedule_delayed_work(&tbl->gc_work, tbl->parms.reachable_time);
-+	queue_delayed_work(system_power_efficient_wq, &tbl->gc_work,
-+			tbl->parms.reachable_time);
- 	setup_timer(&tbl->proxy_timer, neigh_proxy_process, (unsigned long)tbl);
- 	skb_queue_head_init_class(&tbl->proxy_queue,
- 			&neigh_table_proxy_queue_class);
--- 
-1.7.12.rc2.18.g61b472e
+Thanks for adding your subsystem tree as a participant of linux-next.  As
+you may know, this is not a judgment of your code.  The purpose of
+linux-next is for integration testing and to lower the impact of
+conflicts between subsystems in the next merge window.=20
+
+You will need to ensure that the patches/commits in your tree/series have
+been:
+     * submitted under GPL v2 (or later) and include the Contributor's
+	Signed-off-by,
+     * posted to the relevant mailing list,
+     * reviewed by you (or another maintainer of your subsystem tree),
+     * successfully unit tested, and=20
+     * destined for the current or next Linux merge window.
+
+Basically, this should be just what you would send to Linus (or ask him
+to fetch).  It is allowed to be rebased if you deem it necessary.
+
+--=20
+Cheers,
+Stephen Rothwell=20
+sfr@canb.auug.org.au
+
+Legal Stuff:
+By participating in linux-next, your subsystem tree contributions are
+public and will be included in the linux-next trees.  You may be sent
+e-mail messages indicating errors or other issues when the
+patches/commits from your subsystem tree are merged and tested in
+linux-next.  These messages may also be cross-posted to the linux-next
+mailing list, the linux-kernel mailing list, etc.  The linux-next tree
+project and IBM (my employer) make no warranties regarding the linux-next
+project, the testing procedures, the results, the e-mails, etc.  If you
+don't agree to these ground rules, let me know and I'll remove your tree
+from participation in linux-next.
+
+--Signature=_Wed__22_Jan_2014_18_00_23_+1100_zcOtMRV1NI/h=88n
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJS32yLAAoJEMDTa8Ir7ZwVm18P/i9+tdEJe4LadVgjePUgRka0
+guzWVBgQs96hVeg/7h+LJWNRsMgu90m1S6n0BhoA/maJqSb1zHJ5VhWbPuDkCdRo
+EEB1J/lW35ziCkBg+ejAQm1c+5QIsoyi0MbuFEGyX7a8FgFJrzC3bJCQCysNHsxR
+mKYtXKdpPzpluxSzjCdecZyfWA6SU3Lbvgh6Th3yyQaAlm/QOk/k3wGGvQND/ODS
+37ktKXITCAnhCZ6HvVanJvim6pK78dDJPL1h7yVZ/heYJbEqEONfFuHeg+j1RVZg
+ilcnhvmkg6jEJoQkHB+ZopLVwv+QEnkPxzDPwmNNcAIexxvHXXpOkc3geeWtNsHp
+NNvJFXIWMbzemktgVNM3r5uxgnPmAcHCU6vaZTv/kodSZDuGrkvbOscwEpNyr1Bw
+rVm5gSiLyfA8eecFymGhPXvPvrAbmcA11lxZCh0V4gmgC5eKrUwiTIFGhm6n9WCy
+FartKLucuqCzLOgLujCC+c+7BOwTjc1vyMBbQtBwSCfPc/tyZZLvI9QTyv3tJKro
+G4Jimb7wth9sm93N7n9uplshLbNrNvTbE3Q9OU+mOKMzj0uD9ck/htxfh1vEZKWd
+vfuOCJrgnQdOA/TeZQmlKfIy/t2hkJXAV/oipKVrGg45oJZB72Tt7BA4FhUi/PeE
+2qfphmmDreRrUP/I4bqp
+=j4pk
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__22_Jan_2014_18_00_23_+1100_zcOtMRV1NI/h=88n--
