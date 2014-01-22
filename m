@@ -1,59 +1,36 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-Subject: Re: [PATCH net-next] IPv6: enable TCP to use an anycast address
-Date: Wed, 22 Jan 2014 06:32:36 -0800 (PST)
-Message-ID: <1390401156.61208.YahooMailBasic@web125501.mail.ne1.yahoo.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3] sch_htb: let skb->priority refer to non-leaf class
+Date: Wed, 22 Jan 2014 06:47:48 -0800
+Message-ID: <1390402068.27806.19.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1389883519.4703.5.camel@azathoth.dev.smoothwall.net>
+	 <1389889520.31367.403.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1389953999.4698.18.camel@azathoth.dev.smoothwall.net>
+	 <52D927CD.4080403@cogentembedded.com>
+	 <1389964952.4698.20.camel@azathoth.dev.smoothwall.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Miller <davem@davemloft.net>,
-	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Jamal Hadi Salim <hadi@mojatatu.com>,
+	linux-netdev <netdev@vger.kernel.org>
+To: Harry Mason <harry.mason@smoothwall.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm41.bullet.mail.ne1.yahoo.com ([98.138.120.48]:44695 "EHLO
-	nm41.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755695AbaAVOfW convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jan 2014 09:35:22 -0500
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:58090 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754455AbaAVOru (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 09:47:50 -0500
+Received: by mail-pd0-f176.google.com with SMTP id w10so451141pde.21
+        for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 06:47:49 -0800 (PST)
+In-Reply-To: <1389964952.4698.20.camel@azathoth.dev.smoothwall.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Fri, 2014-01-17 at 13:22 +0000, Harry Mason wrote:
+> If the class in skb->priority is not a leaf, apply filters from the
+> selected class, not the qdisc. This lets netfilter or user space
+> partially classify the packet.
+> 
+> Signed-off-by: Harry Mason <harry.mason@smoothwall.net>
+> ---
 
-> Actually, I was alerted by reset processing in your patch, it cannot be right.
-
-Perhaps, I missed something.
-
-My tests were:
-1) enable anycast in tcp_v6_conn_request().
-So, a client-serveur exchange with anycast destination address is possible.
-
-2) try to connect with a port not listen by the server.
-With unicast destination address, the client got a reset.
-With anycast destination address, no reset, the client try several syn and give up.
-
-3) enable anycast in tcp_v6_send_reset().
-With anycast destination address, the client got a reset.
-So unicast and anycast behave the same.
-
-Do you see any problem with this behaviour ?
-
-> Do not you think this must not be enabled for common use? At least
-> some separate sysctl disabled by default.
-
-We could indeed use a sysctl, disabled by default.
-
-But my goal was to enable anycast address usage transparently, if possible.
-
-It's only a possibility for some use cases and if it's dont break unicast TCP usage,
-like I think it, I propose to enable this change without sysctl.
-
-So, my proposals for the TCP case, in descending order of preference are:
-
-1) No sysctl.
-2) A sysctl disabled par default, used in tcp_v6_conn_request() and tcp_v6_send_reset().
-3) A sysctl disabled par default, used in tcp_v6_send_reset(), if problem only here.
-
-Greetings,
-Francois-Xavier
+Acked-by: Eric Dumazet <edumazet@google.com>
