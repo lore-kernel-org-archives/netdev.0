@@ -1,129 +1,97 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next 00/25] bonding: introduce new option API
-Date: Wed, 22 Jan 2014 14:23:48 +0100
-Message-ID: <52DFC664.6010008@redhat.com>
-References: <1390316114-17815-1-git-send-email-nikolay@redhat.com> <52DF2692.9000909@huawei.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] net: sctp: Fix a_rwnd/rwnd management to reflect real
+ state of the receiver's buffer
+Date: Wed, 22 Jan 2014 13:41:01 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D463A0F@AcuExch.aculab.com>
+References: <52D8D544.5050501@nsn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Ding Tianhong <dingtianhong@huawei.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Alexander Sverdlin <alexander.sverdlin@nsn.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Matija Glavinic Pecotic' <matija.glavinic-pecotic.ext@nsn.com>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16204 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755462AbaAVN2f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jan 2014 08:28:35 -0500
-In-Reply-To: <52DF2692.9000909@huawei.com>
+Received: from mx0.aculab.com ([213.249.233.131]:58705 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1755638AbaAVNmi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jan 2014 08:42:38 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 12779-03 for <netdev@vger.kernel.org>;
+ Wed, 22 Jan 2014 13:42:33 +0000 (GMT)
+In-Reply-To: <52D8D544.5050501@nsn.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/22/2014 03:01 AM, Ding Tianhong wrote:
-> On 2014/1/21 22:54, Nikolay Aleksandrov wrote:
->> Hi,
->> This patchset's goal is to introduce a new option API which should be used
->> to properly describe the bonding options with their mode dependcies and
->> requirements. With this patchset applied we get centralized option
->> manipulation, automatic RTNL acquire per option setting, automatic option
->> range checking, mode dependcy checking and other various flags which are
->> described in detail in patch 01's commit message and comments.
->> Also the parameter passing is changed to use a specialized structure which
->> is initialized to a value depending on the needs.
->> The main exported functions are:
->>  __bond_opt_set() - set an option (RTNL should be acquired prior)
->>  bond_opt_init(val|str) - init a bond_opt_value struct for value or string
->>                           parameter passing
->>  bond_opt_tryset_rtnl() - function which tries to acquire rtnl, mainly used
->>                           for sysfs
->>  bond_opt_parse - used to parse or check for valid values
->>  bond_opt_get - retrieve a pointer to bond_option struct for some option
->>  bond_opt_get_val - retrieve a pointer to a bond_opt_value struct for
->>                     some value
->>
->> The same functions are used to set an option via sysfs and netlink, just
->> the parameter that's passed is usually initialized in a different way.
->> The converted options have multiple style fixes, there're some longer
->> lines but they looked either ugly or were strings/pr_warnings, if you
->> think some line would be better broken just let me know :-) there're
->> also a few sscanf false-positive warnings.
->> I decided to keep the "unsuppmodes" way of mode dep checking since it's
->> straight forward, if we make a more general way for checking dependencies
->> it'll be easy to change it.
->>
->> Future plans for this work include:
->>  - Automatic sysfs generation from the bond_opts[].
->>  - Use of the API in bond_check_params() and thus cleaning it up (this has
->>    actually started, I'll take care of the rest in a separate patch)
->>  - Clean up all option-unrelated files of option definitions and functions
->>
->> I've tried to leave as much documentation as possible, if there's anything
->> unclear please let me know. One more thing, I haven't moved all
->> option-related functions from bonding.h to the new bond_options.h, this
->> will be done in a separate patch, it's in my todo list.
->>
->> This patchset has been tested by setting each converted option via sysfs
->> and netlink to a couple of wrong values, a couple of correct values and
->> some random values, also for the opts that have flags they have been
->> tested as well.
->>
->> Best regards,
->>  Nikolay Aleksandrov
->>
-> 
-> cool work, I think I can applied and test them, but it is really a hard work.:)
-> 
-> Ding
-> 
-
-Thanks Ding, any testing would be appreciated!
-I'm about to post a v2 on top of net-next with the reciprocal_divide changes
-that got in while waiting, it should apply cleanly now.
-
->> CC: Andy Gospodarek <andy@greyhouse.net>
->> CC: Jay Vosburgh <fubar@us.ibm.com>
->> CC: Veaceslav Falico <vfalico@redhat.com>
->> CC: Scott Feldman <sfeldma@cumulusnetworks.com>
->> CC: David S. Miller <davem@davemloft.net>
->>
->> Nikolay Aleksandrov (25):
->>   bonding: add infrastructure for an option API
->>   bonding: convert mode setting to use the new option API
->>   bonding: convert packets_per_slave to use the new option API
->>   bonding: convert xmit_hash_policy to use the new option API
->>   bonding: convert arp_validate to use the new option API
->>   bonding: convert arp_all_targets to use the new option API
->>   bonding: convert fail_over_mac to use the new option API
->>   bonding: convert arp_interval to use the new option API
->>   bonding: convert arp_ip_target to use the new option API
->>   bonding: convert downdelay to use the new option API
->>   bonding: convert updelay to use the new option API
->>   bonding: convert lacp_rate to use the new option API
->>   bonding: convert min_links to use the new option API
->>   bonding: convert ad_select to use the new option API
->>   bonding: convert num_peer_notif to use the new option API
->>   bonding: convert miimon to use the new option API
->>   bonding: convert primary to use the new option API
->>   bonding: convert primary_reselect to use the new option API
->>   bonding: convert use_carrier to use the new option API
->>   bonding: convert active_slave to use the new option API
->>   bonding: convert queue_id to use the new option API
->>   bonding: convert all_slaves_active to use the new option API
->>   bonding: convert resend_igmp to use the new option API
->>   bonding: convert lp_interval to use the new option API
->>   bonding: convert slaves to use the new option API
->>
->>  drivers/net/bonding/bond_main.c    |  179 +++---
->>  drivers/net/bonding/bond_netlink.c |   87 ++-
->>  drivers/net/bonding/bond_options.c | 1086 +++++++++++++++++++++++++++---------
->>  drivers/net/bonding/bond_options.h |  170 ++++++
->>  drivers/net/bonding/bond_procfs.c  |   25 +-
->>  drivers/net/bonding/bond_sysfs.c   |  519 +++--------------
->>  drivers/net/bonding/bonding.h      |   29 +-
->>  7 files changed, 1214 insertions(+), 881 deletions(-)
->>  create mode 100644 drivers/net/bonding/bond_options.h
->>
-> 
-> 
+RnJvbTogTWF0aWphIEdsYXZpbmljIFBlY290aWMNCj4gSW1wbGVtZW50YXRpb24gb2YgKGEpcndu
+ZCBjYWxjdWxhdGlvbiBtaWdodCBsZWFkIHRvIHNldmVyZSBwZXJmb3JtYW5jZSBpc3N1ZXMNCj4g
+YW5kIGFzc29jaWF0aW9ucyBjb21wbGV0ZWx5IHN0YWxsaW5nLiBUaGVzZSBwcm9ibGVtcyBhcmUg
+ZGVzY3JpYmVkIGFuZCBzb2x1dGlvbg0KPiBpcyBwcm9wb3NlZCB3aGljaCBpbXByb3ZlcyBsa3Nj
+dHAncyByb2J1c3RuZXNzIGluIGNvbmdlc3Rpb24gc3RhdGUuDQo+IA0KPiAxKSBTdWRkZW4gZHJv
+cCBvZiBhX3J3bmQgYW5kIGluY29tcGxldGUgd2luZG93IHJlY292ZXJ5IGFmdGVyd2FyZHMNCj4g
+DQo+IERhdGEgYWNjb3VudGVkIGluIHNjdHBfYXNzb2NfcnduZF9kZWNyZWFzZSB0YWtlcyBvbmx5
+IHBheWxvYWQgc2l6ZSAoc2N0cCBkYXRhKSwNCj4gYnV0IHNpemUgb2Ygc2tfYnVmZiwgd2hpY2gg
+aXMgYmxhbWVkIGFnYWluc3QgcmVjZWl2ZXIgYnVmZmVyLCBpcyBub3QgYWNjb3VudGVkDQo+IGlu
+IHJ3bmQuIFRoZW9yZXRpY2FsbHksIHRoaXMgc2hvdWxkIG5vdCBiZSB0aGUgcHJvYmxlbSBhcyBh
+Y3R1YWwgc2l6ZSBvZiBidWZmZXINCj4gaXMgZG91YmxlIHRoZSBhbW91bnQgcmVxdWVzdGVkIG9u
+IHRoZSBzb2NrZXQgKFNPX1JFQ1ZCVUYpLiBQcm9ibGVtIGhlcmUgaXMNCj4gdGhhdCB0aGlzIHdp
+bGwgaGF2ZSBiYWQgc2NhbGluZyBmb3IgZGF0YSB3aGljaCBpcyBsZXNzIHRoZW4gc2l6ZW9mIHNr
+X2J1ZmYuDQo+IEUuZy4gaW4gNEcgKExURSkgbmV0d29ya3MsIGxpbmsgaW50ZXJmYWNpbmcgcmFk
+aW8gc2lkZSB3aWxsIGhhdmUgYSBsYXJnZSBwb3J0aW9uDQo+IG9mIHRyYWZmaWMgb2YgdGhpcyBz
+aXplIChsZXNzIHRoZW4gMTAwQikuDQouLi4NCj4gDQo+IFByb3Bvc2VkIHNvbHV0aW9uOg0KPiAN
+Cj4gQm90aCBwcm9ibGVtcyBzaGFyZSB0aGUgc2FtZSByb290IGNhdXNlLCBhbmQgdGhhdCBpcyBp
+bXByb3BlciBzY2FsaW5nIG9mIHNvY2tldA0KPiBidWZmZXIgd2l0aCByd25kLiBTb2x1dGlvbiBp
+biB3aGljaCBzaXplb2Yoc2tfYnVmZikgaXMgdGFrZW4gaW50byBjb25jZXJuIHdoaWxlDQo+IGNh
+bGN1bGF0aW5nIHJ3bmQgaXMgbm90IHBvc3NpYmxlIGR1ZSB0byBmYWN0IHRoYXQgdGhlcmUgaXMg
+bm8gbGluZWFyDQo+IHJlbGF0aW9uc2hpcCBiZXR3ZWVuIGFtb3VudCBvZiBkYXRhIGJsYW1lZCBp
+biBpbmNyZWFzZS9kZWNyZWFzZSB3aXRoIElQIHBhY2tldA0KPiBpbiB3aGljaCBwYXlsb2FkIGFy
+cml2ZWQuIEV2ZW4gaW4gY2FzZSBzdWNoIHNvbHV0aW9uIHdvdWxkIGJlIGZvbGxvd2VkLA0KPiBj
+b21wbGV4aXR5IG9mIHRoZSBjb2RlIHdvdWxkIGluY3JlYXNlLiBEdWUgdG8gbmF0dXJlIG9mIGN1
+cnJlbnQgcnduZCBoYW5kbGluZywNCj4gc2xvdyBpbmNyZWFzZSAoaW4gc2N0cF9hc3NvY19yd25k
+X2luY3JlYXNlKSBvZiByd25kIGFmdGVyIHByZXNzdXJlIHN0YXRlIGlzDQo+IGVudGVyZWQgaXMg
+cmF0aW9uYWxlLCBidXQgaXQgZ2l2ZXMgZmFsc2UgcmVwcmVzZW50YXRpb24gdG8gdGhlIHNlbmRl
+ciBvZiBjdXJyZW50DQo+IGJ1ZmZlciBzcGFjZS4gRnVydGhlcm1vcmUsIGl0IGltcGxlbWVudHMg
+YWRkaXRpb25hbCBjb25nZXN0aW9uIGNvbnRyb2wgbWVjaGFuaXNtDQo+IHdoaWNoIGlzIGRlZmlu
+ZWQgb24gaW1wbGVtZW50YXRpb24sIGFuZCBub3Qgb24gc3RhbmRhcmQgYmFzaXMuDQo+IA0KPiBQ
+cm9wb3NlZCBzb2x1dGlvbiBzaW1wbGlmaWVzIHdob2xlIGFsZ29yaXRobSBoYXZpbmcgb24gbWlu
+ZCBkZWZpbml0aW9uIGZyb20gcmZjOg0KPiANCj4gbyAgUmVjZWl2ZXIgV2luZG93IChyd25kKTog
+VGhpcyBnaXZlcyB0aGUgc2VuZGVyIGFuIGluZGljYXRpb24gb2YgdGhlIHNwYWNlDQo+ICAgIGF2
+YWlsYWJsZSBpbiB0aGUgcmVjZWl2ZXIncyBpbmJvdW5kIGJ1ZmZlci4NCj4gDQo+IENvcmUgb2Yg
+dGhlIHByb3Bvc2VkIHNvbHV0aW9uIGlzIGdpdmVuIHdpdGggdGhlc2UgbGluZXM6DQo+IA0KPiBz
+Y3RwX2Fzc29jX3J3bmRfYWNjb3VudDoNCj4gCWlmICgoYXNvYy0+YmFzZS5zay0+c2tfcmN2YnVm
+IC0gcnhfY291bnQpID4gMCkNCj4gCQlhc29jLT5yd25kID0gKGFzb2MtPmJhc2Uuc2stPnNrX3Jj
+dmJ1ZiAtIHJ4X2NvdW50KSA+PiAxOw0KPiAJZWxzZQ0KPiAJCWFzb2MtPnJ3bmQgPSAwOw0KPiAN
+Cj4gV2UgYWR2ZXJ0aXNlIHRvIHNlbmRlciAoaGFsZiBvZikgYWN0dWFsIHNwYWNlIHdlIGhhdmUu
+IEhhbGYgaXMgaW4gdGhlIGJyYWNlcw0KPiBkZXBlbmRpbmcgd2hldGhlciB5b3Ugd291bGQgbGlr
+ZSB0byBvYnNlcnZlIHNpemUgb2Ygc29ja2V0IGJ1ZmZlciBhcyBTT19SRUNWQlVGDQo+IG9yIHR3
+aWNlIHRoZSBhbW91bnQsIGkuZS4gc2l6ZSBpcyB0aGUgb25lIHZpc2libGUgZnJvbSB1c2Vyc3Bh
+Y2UsIHRoYXQgaXMsDQo+IGZyb20ga2VybmVsc3BhY2UuDQo+IEluIHRoaXMgd2F5IHNlbmRlciBp
+cyBnaXZlbiB3aXRoIGdvb2QgYXBwcm94aW1hdGlvbiBvZiBvdXIgYnVmZmVyIHNwYWNlLA0KPiBy
+ZWdhcmRsZXNzIG9mIHRoZSBidWZmZXIgcG9saWN5IC0gd2UgYWx3YXlzIGFkdmVydGlzZSB3aGF0
+IHdlIGhhdmUuIFByb3Bvc2VkDQo+IHNvbHV0aW9uIGZpeGVzIGRlc2NyaWJlZCBwcm9ibGVtcyBh
+bmQgcmVtb3ZlcyBuZWNlc3NpdHkgZm9yIHJ3bmQgcmVzdG9yYXRpb24NCj4gYWxnb3JpdGhtLiBG
+aW5hbGx5LCBhcyBwcm9wb3NlZCBzb2x1dGlvbiBpcyBzaW1wbGlmaWNhdGlvbiwgc29tZSBsaW5l
+cyBvZiBjb2RlLA0KPiBhbG9uZyB3aXRoIHNvbWUgYnl0ZXMgaW4gc3RydWN0IHNjdHBfYXNzb2Np
+YXRpb24gYXJlIHNhdmVkLg0KDQpJSVJDIHRoZSAnc2l6ZScgdGFrZW4gb2YgdGhlIHNvY2tldCBi
+dWZmZXIgaXMgdGhlIHNrYidzICd0cnVlIHNpemUnIGFuZCB0aGF0DQppbmNsdWRlcyBhbnkgcGFk
+ZGluZyBiZWZvcmUgYW5kIGFmdGVyIHRoZSBhY3R1YWwgcnggZGF0YS4gRm9yIHNob3J0IHBhY2tl
+dHMNCnRoZSBkcml2ZXIgbWF5IGhhdmUgY29waWVkIHRoZSBkYXRhIGludG8gYSBzbWFsbGVyIHNr
+YiwgZm9yIGxvbmcgcGFja2V0cyBpdA0KaXMgbGlrZWx5IHRvIGJlIG1vcmUgdGhhbiB0aGF0IG9m
+IGEgZnVsbCBsZW5ndGggZXRoZXJuZXQgcGFja2V0Lg0KSW4gZWl0aGVyIGNhc2UgaXQgY2FuIGJl
+IHNpZ25pZmljYW50bHkgbW9yZSB0aGFuIHNpemVvZihza19idWZmKSAoMTkwPykgcGx1cw0KdGhl
+IHNpemUgb2YgdGhlIGFjdHVhbCBkYXRhLg0KDQpJJ20gYWxzbyBub3Qgc3VyZSB0aGF0IGNvbnRp
+bnVvdXNseSByZW1vdmluZyAnY3JlZGl0JyBpcyBhIGdvb2QgaWRlYS4NCkkndmUgZG9uZSBhIGxv
+dCBvZiBjb21tcyBwcm90b2NvbCBjb2RlLCByZW1vdmluZyBjcmVkaXQgYW5kICd3aW5kb3cNCnNs
+YW1taW5nJyBhY2tzIGFyZSBub3QgZ29vZCBpZGVhcy4NCg0KUGVyaGFwcyB0aGUgYWR2ZXJ0aXNl
+ZCB3aW5kb3cgc2hvdWxkIGJlIGJvdW5kZWQgYnkgdGhlIGNvbmZpZ3VyZWQgc29ja2V0DQpidWZm
+ZXIgc2l6ZSwgYW5kIG9ubHkgcmVkdWNlZCBpZiB0aGUgYWN0dWFsIHNwYWNlIGlzbid0IGxpa2Vs
+eSB0byBiZSBsYXJnZQ0KZW5vdWdoIGdpdmVuIHRoZSB0eXBpY2FsIG92ZXJoZWFkIG9mIHRoZSBy
+ZWNlaXZlZCBkYXRhLg0KDQpTaW1pbGFybHksIGFzIHRoZSB3aW5kb3cgaXMgb3BlbmVkIGFmdGVy
+IGNvbmdlc3Rpb24gaXQgc2hvdWxkIGJlIGluY3JlYXNlZA0KYnkgdGhlIGFtb3VudCBvZiBkYXRh
+IGFjdHVhbGx5IHJlbW92ZWQgKG5vdCB0aGUgbnVtYmVyIG9mIGZyZWUgYnl0ZXMpLg0KV2hlbiB0
+aGVyZSBpcyBhIHNpZ25pZmljYW50IGFtb3VudCBvZiBzcGFjZSB0aGUgd2luZG93IGNvdWxkIGJl
+IGluY3JlYXNlZA0KZmFzdGVyIC0gYWxsb3dpbmcgYSBzbWFsbGVyIG51bWJlciBvZiBsYXJnZXIg
+c2tiIGNhcnJ5aW5nIG1vcmUgZGF0YSBiZSBxdWV1ZWQuDQoNCkFzIGEgbWF0dGVyIG9mIGludGVy
+ZXN0LCBob3cgZG9lcyBUQ1AgaGFuZGxlIHRoaXM/DQoNCglEYXZpZA0KDQo=
