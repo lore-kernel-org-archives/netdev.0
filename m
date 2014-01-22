@@ -1,155 +1,93 @@
-From: Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>
-Subject: Re: [PATCH] net: Correctly sync addresses from multiple sources to
- single device
-Date: Wed, 22 Jan 2014 18:18:21 +0400
-Message-ID: <52DFD32D.4060805@oktetlabs.ru>
-References: <1389988332-22472-1-git-send-email-vyasevic@redhat.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH] net: sctp: Fix a_rwnd/rwnd management to reflect real
+ state of the receiver's buffer
+Date: Wed, 22 Jan 2014 09:18:28 -0500
+Message-ID: <52DFD334.7030507@gmail.com>
+References: <52D8D544.5050501@nsn.com> <20140122123059.GA9393@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>,
-	Konstantin Ushakov <Konstantin.Ushakov@oktetlabs.ru>
-To: Vlad Yasevich <vyasevic@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-sctp@vger.kernel.org,
+	Alexander Sverdlin <alexander.sverdlin@nsn.com>,
+	netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>,
+	Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shelob.oktetlabs.ru ([195.131.132.186]:56114 "EHLO
-	shelob.oktetlabs.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754553AbaAVOSe (ORCPT
+Received: from mail-qc0-f177.google.com ([209.85.216.177]:62547 "EHLO
+	mail-qc0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755334AbaAVOSe (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 09:18:34 -0500
-In-Reply-To: <1389988332-22472-1-git-send-email-vyasevic@redhat.com>
+In-Reply-To: <20140122123059.GA9393@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/17/2014 11:52 PM, Vlad Yasevich wrote:
-> When we have multiple devices attempting to sync the same address
-> to a single destination, each device should be permitted to sync
-> it once.  To accomplish this, pass the sync count of the source
-> address to __hw_addr_add_ex().  'sync_cnt' tracks how many time
-> a given address has been successfully synced.  If the address
-> is found in the destination list, but the 'sync_cnt' of the source
-> is 0, then this address has not been synced from this interface
-> and we need to allow the sync operation to succeed thus incrementing
-> reference counts.
+On 01/22/2014 07:30 AM, Neil Horman wrote:
+> On Fri, Jan 17, 2014 at 08:01:24AM +0100, Matija Glavinic Pecotic wrote:
+>>
+>> Proposed solution simplifies whole algorithm having on mind
+definition from rfc:
+>>
+>> o  Receiver Window (rwnd): This gives the sender an indication of the
+space
+>>    available in the receiver's inbound buffer.
+>>
+>> Core of the proposed solution is given with these lines:
+>>
+>> sctp_assoc_rwnd_account:
+>> 	if ((asoc->base.sk->sk_rcvbuf - rx_count) > 0)
+>> 		asoc->rwnd = (asoc->base.sk->sk_rcvbuf - rx_count) >> 1;
+>> 	else
+>> 		asoc->rwnd = 0;
+>>
+>> We advertise to sender (half of) actual space we have. Half is in the
+braces
+>> depending whether you would like to observe size of socket buffer as
+SO_RECVBUF
+>> or twice the amount, i.e. size is the one visible from userspace,
+that is,
+>> from kernelspace.
+>> In this way sender is given with good approximation of our buffer space,
+>> regardless of the buffer policy - we always advertise what we have.
+Proposed
+>> solution fixes described problems and removes necessity for rwnd
+restoration
+>> algorithm. Finally, as proposed solution is simplification, some
+lines of code,
+>> along with some bytes in struct sctp_association are saved.
+>>
+>> Signed-off-by: Matija Glavinic Pecotic
+<matija.glavinic-pecotic.ext@nsn.com>
+>> Reviewed-by: Alexander Sverdlin <alexander.sverdlin@nsn.com>
+>>
 >
-> Reported-by: Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>
-> CC: Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-> ---
->   net/core/dev_addr_lists.c | 12 +++++++-----
->   1 file changed, 7 insertions(+), 5 deletions(-)
 >
-> diff --git a/net/core/dev_addr_lists.c b/net/core/dev_addr_lists.c
-> index ec40a84..bd1b880 100644
-> --- a/net/core/dev_addr_lists.c
-> +++ b/net/core/dev_addr_lists.c
-> @@ -48,7 +48,8 @@ static int __hw_addr_create_ex(struct netdev_hw_add=
-r_list *list,
->  =20
->   static int __hw_addr_add_ex(struct netdev_hw_addr_list *list,
->   			    const unsigned char *addr, int addr_len,
-> -			    unsigned char addr_type, bool global, bool sync)
-> +			    unsigned char addr_type, bool global, bool sync,
-> +			    int sync_count)
->   {
->   	struct netdev_hw_addr *ha;
->  =20
-> @@ -66,7 +67,7 @@ static int __hw_addr_add_ex(struct netdev_hw_addr_l=
-ist *list,
->   					ha->global_use =3D true;
->   			}
->   			if (sync) {
-> -				if (ha->synced)
-> +				if (ha->synced && sync_count)
->   					return -EEXIST;
->   				else
->   					ha->synced =3D true;
-> @@ -84,7 +85,8 @@ static int __hw_addr_add(struct netdev_hw_addr_list=
- *list,
->   			 const unsigned char *addr, int addr_len,
->   			 unsigned char addr_type)
->   {
-> -	return __hw_addr_add_ex(list, addr, addr_len, addr_type, false, fal=
-se);
-> +	return __hw_addr_add_ex(list, addr, addr_len, addr_type, false, fal=
-se,
-> +				0);
->   }
->  =20
->   static int __hw_addr_del_entry(struct netdev_hw_addr_list *list,
-> @@ -139,7 +141,7 @@ static int __hw_addr_sync_one(struct netdev_hw_ad=
-dr_list *to_list,
->   	int err;
->  =20
->   	err =3D __hw_addr_add_ex(to_list, ha->addr, addr_len, ha->type,
-> -			       false, true);
-> +			       false, true, ha->sync_count);
->   	if (err && err !=3D -EEXIST)
->   		return err;
->  =20
-> @@ -676,7 +678,7 @@ static int __dev_mc_add(struct net_device *dev, c=
-onst unsigned char *addr,
->  =20
->   	netif_addr_lock_bh(dev);
->   	err =3D __hw_addr_add_ex(&dev->mc, addr, dev->addr_len,
-> -			       NETDEV_HW_ADDR_T_MULTICAST, global, false);
-> +			       NETDEV_HW_ADDR_T_MULTICAST, global, false, 0);
->   	if (!err)
->   		__dev_set_rx_mode(dev);
->   	netif_addr_unlock_bh(dev);
+> General comment - While this seems to make sense to me generally speaking,
+> doesn't it currently violate section 6 of the RFC?
+>
+>
+> A SCTP receiver MUST be able to receive a minimum of 1500 bytes in
+>    one SCTP packet.  This means that a SCTP endpoint MUST NOT indicate
+>    less than 1500 bytes in its Initial a_rwnd sent in the INIT or INIT
+>    ACK.
+>
+> Since we set the initial rwnd value to the larger of sk->sk_rcvbuf/2 or
+> SCTP_MIN_RWND (1500 bytes), won't we potentially advertize half that
+amount?
 
-Thanks. The patch was tested with linux-3.12.6.
+Not initially.  Initial window will still be advertized properly.  Once
+we receive the first packet and consumed some space, we'll advertize
+half of available receive buffer.  It is perfectly OK to advertize a
+window smaller the MIN_WINDOW in the middle of the transfer.
 
-However, while building the kernel I got complains on:
+> It seems we need to double the minimum socket receive buffer here.
 
-> 	err =3D __hw_addr_add_ex(to_list, ha->addr, addr_len, ha->type,
-> -			       false, true);
-> +			       false, true, ha->sync_count);
+Not here specifically, but yes.  It is already broken and this patch
+doesn't change current behavior.  This is something SCTP may need to do
+separately.
 
-Namely ha (struct netdev_hw_addr) has no field sync_count. It has sync_=
-cnt.
-So I=E2=80=99ve fixed this when testing the patch. Is it a typo or some=
-thing intentional?
+-vlad
 
-Your patch solves the initial problem, but it looks like it introduces =
-a new one.
-
-When interface joins multicast group corresponding MAC address is added=
- to the interface maddr list. It should be removed when socket explicit=
-ly leaves the group or is just closed. It=E2=80=99s the case without yo=
-ur patch. However, with the patched kernel address is still there after=
- socket is closed.
-
-You can reproduce it with mcast_client binary (mcast_client.c was attac=
-hed to the first letter in the thread). To be specific:
-
-$ ip maddr show eth3
-9:  eth3
-  link  33:33:00:00:00:01 users 3
-  link  01:00:5e:00:00:01 users 3
-  link  33:33:ff:01:39:7c users 3
-  link  01:80:c2:00:00:21 users 2
-  inet  224.0.0.1
-  inet6 ff02::1:ff01:397c
-  inet6 ff02::1
-  inet6 ff01::1
-
-$ gcc mcast_client.c -o cl
-$ sudo ./cl
-Abort it with Ctrl+c
-$ ip maddr show eth3
-9:  eth3
-  link  33:33:00:00:00:01 users 3
-  link  01:00:5e:00:00:01 users 3
-  link  33:33:ff:01:39:7c users 3
-  link  01:80:c2:00:00:21 users 2
-  link  01:00:5e:11:58:a8
-  inet  224.0.0.1
-  inet6 ff02::1:ff01:397c
-  inet6 ff02::1
-  inet6 ff01::1
-
-'link 01:00:5e:11:58:a8=E2=80=99 address is still there. Should=E2=80=99=
-ve been removed.
-
-Andrey
+>
+> Neil
+>
+>
