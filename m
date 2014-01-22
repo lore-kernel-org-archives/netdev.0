@@ -1,95 +1,114 @@
-From: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
-Subject: Re: [PATCH] net: sctp: Fix a_rwnd/rwnd management to reflect real
- state of the receiver's buffer
-Date: Wed, 22 Jan 2014 20:48:47 +0100
-Message-ID: <52E0209F.4020200@nsn.com>
-References: <52D8D544.5050501@nsn.com> <063D6719AE5E284EB5DD2968C1650D6D463A0F@AcuExch.aculab.com> <52DFDB1E.7070701@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D463CC4@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "'Vlad Yasevich'" <vyasevich@gmail.com>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-	Alexander Sverdlin <alexander.sverdlin@nsn.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: ext David Laight <David.Laight@ACULAB.COM>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] net: vxlan: convert to act as a pernet subsystem
+Date: Wed, 22 Jan 2014 21:07:53 +0100
+Message-ID: <1390421273-20152-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from demumfd001.nsn-inter.net ([93.183.12.32]:14276 "EHLO
-	demumfd001.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752358AbaAVTt3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 14:49:29 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D463CC4@AcuExch.aculab.com>
+Received: from mx1.redhat.com ([209.132.183.28]:12701 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752852AbaAVUH7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jan 2014 15:07:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+As per suggestion from Eric W. Biederman, vxlan should be using
+{un,}register_pernet_subsys() instead of {un,}register_pernet_device()
+to ensure the vxlan_net structure is initialized before and cleaned
+up after all network devices in a given network namespace i.e. when
+dealing with network notifiers. This is similarly handeled already in
+commit 91e2ff3528ac ("net: Teach vlans to cleanup as a pernet subsystem")
+and, thus, improves upon fd27e0d44a89 ("net: vxlan: do not use vxlan_net
+before checking event type"). Just as in 91e2ff3528ac, we do not need
+to explicitly handle deletion of vxlan devices as network namespace
+exit calls dellink on all remaining virtual devices, and
+rtnl_link_unregister() calls dellink on all outstanding devices in that
+network namespace, so we can entirely drop the pernet exit operation
+as well. Moreover, on vxlan module exit, rcu_barrier() is called by
+netns since commit 3a765edadb28 ("netns: Add an explicit rcu_barrier
+to unregister_pernet_{device|subsys}"), so this may be omitted. Tested
+with various scenarios and works well on my side.
 
-On 01/22/2014 04:30 PM, ext David Laight wrote:
-> From: Vlad Yasevich 
-> ...
->>> IIRC the 'size' taken of the socket buffer is the skb's 'true size'
->>> and that includes any padding before and after the actual rx data.
->>> For short packets the driver may have copied the data into a smaller
->>> skb, for long packets it is likely to be more than that of a full
->>> length ethernet packet.
->>> In either case it can be significantly more than sizeof(sk_buff)
->>> (190?) plus the size of the actual data.
->>
->> SCTP currently doesn't support GRO, so each packet is limited to
->> ethernet packet plus sk_buff overhead.
-> 
-> The ethernet driver might still pass up a 2k buffer, or even a 4k one.
-> Especially if it supports GRO for TCP.
-> 
->> What throws a real monkey
->> wrench into this whole accounting business is SCTP bundling.  If you
->> bundle multiple messages into the single packet, accounting for it
->> is a mess.
-> 
-> How about dividing the 'truesize' by the reference count?
-> (except that isn't quite right...)
-> I assume there are multiple skb headers but only one data buffer?
-> At least the chunks are all for the same connection so end up on
-> one socket (except I remember some other horrid stuff for datagrams).
->  
->>> I'm also not sure that continuously removing 'credit' is a good idea.
->>> I've done a lot of comms protocol code, removing credit and 'window
->>> slamming' acks are not good ideas.
->>
->> This patch doesn't continuously remove 'credit'.  It advertises the
->> closest approximation of the window that we support and computes it
->> the same way as we do for Initial Window (available sk_rcvbuff >> 1).
->> As the receiver drains the receive queue, available buffer will increase
->> and the available window will grow.
-> 
-> Let's assume the socket buffer size is 100k.
-> We advertise a window of 50k.
-> We now receive 100 bytes of data, the remote has 49900 window left.
-> The 'truesize' is something like 190+64(ish)+100+tail_pad, say 400.
-> Socket buffer space is reduced to 99600 and any ack would give 49800.
-> So we have reduced the window by 100 bytes.
-> With that much space it probably doesn't matter much.
-> 
-> However if the connection is receive limited then the remote system
-> will have a second packet in flight that uses the rest of the window.
-> We then receive an in-sequence but out-of-window packet that refers
-> to window that we had previously given to the remote system.
+Suggested-by: Eric W. Biederman <ebiederm@xmission.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Cc: Eric W. Biederman <ebiederm@xmission.com>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ drivers/net/vxlan.c | 28 ++++++----------------------
+ 1 file changed, 6 insertions(+), 22 deletions(-)
 
-AFAIK, if the packet is not discarded due to depleted buffer, it will normally be processed.
-In case its discarded, sender will have to resend it since it wont be acked.
-
-> I don't know what the sctp (or tcp) code does with such packets.
-> In my experience it is best to treat them as valid data (unless
-> there are larger free memory issues) and ack them at some point.
-> Hopefully the rules of the underlying protocol let you do this!
-> 
-> If you discard these packets then every packet gets sent twice
-> (or even more often if the data is very short).
-
-For small packets we will not get into trouble since sctp has same as tcp sws avoidance algorithm
-
-Regards,
-
-Matija
-
-> 	David
-> 
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 942acc2..e1bc925 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -2784,12 +2784,10 @@ static int vxlan_lowerdev_event(struct notifier_block *unused,
+ 				unsigned long event, void *ptr)
+ {
+ 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+-	struct vxlan_net *vn;
++	struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
+ 
+-	if (event == NETDEV_UNREGISTER) {
+-		vn = net_generic(dev_net(dev), vxlan_net_id);
++	if (event == NETDEV_UNREGISTER)
+ 		vxlan_handle_lowerdev_unregister(vn, dev);
+-	}
+ 
+ 	return NOTIFY_DONE;
+ }
+@@ -2812,22 +2810,8 @@ static __net_init int vxlan_init_net(struct net *net)
+ 	return 0;
+ }
+ 
+-static __net_exit void vxlan_exit_net(struct net *net)
+-{
+-	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
+-	struct vxlan_dev *vxlan, *next;
+-	LIST_HEAD(list_kill);
+-
+-	rtnl_lock();
+-	list_for_each_entry_safe(vxlan, next, &vn->vxlan_list, next)
+-		vxlan_dellink(vxlan->dev, &list_kill);
+-	unregister_netdevice_many(&list_kill);
+-	rtnl_unlock();
+-}
+-
+ static struct pernet_operations vxlan_net_ops = {
+ 	.init = vxlan_init_net,
+-	.exit = vxlan_exit_net,
+ 	.id   = &vxlan_net_id,
+ 	.size = sizeof(struct vxlan_net),
+ };
+@@ -2842,7 +2826,7 @@ static int __init vxlan_init_module(void)
+ 
+ 	get_random_bytes(&vxlan_salt, sizeof(vxlan_salt));
+ 
+-	rc = register_pernet_device(&vxlan_net_ops);
++	rc = register_pernet_subsys(&vxlan_net_ops);
+ 	if (rc)
+ 		goto out1;
+ 
+@@ -2858,7 +2842,7 @@ static int __init vxlan_init_module(void)
+ out3:
+ 	unregister_netdevice_notifier(&vxlan_notifier_block);
+ out2:
+-	unregister_pernet_device(&vxlan_net_ops);
++	unregister_pernet_subsys(&vxlan_net_ops);
+ out1:
+ 	destroy_workqueue(vxlan_wq);
+ 	return rc;
+@@ -2870,8 +2854,8 @@ static void __exit vxlan_cleanup_module(void)
+ 	rtnl_link_unregister(&vxlan_link_ops);
+ 	unregister_netdevice_notifier(&vxlan_notifier_block);
+ 	destroy_workqueue(vxlan_wq);
+-	unregister_pernet_device(&vxlan_net_ops);
+-	rcu_barrier();
++	unregister_pernet_subsys(&vxlan_net_ops);
++	/* rcu_barrier() is called by netns */
+ }
+ module_exit(vxlan_cleanup_module);
+ 
+-- 
+1.7.11.7
