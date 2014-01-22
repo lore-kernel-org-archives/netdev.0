@@ -1,52 +1,79 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH] net: Correctly sync addresses from multiple sources to
- single device
-Date: Wed, 22 Jan 2014 10:30:45 -0500
-Message-ID: <52DFE425.2090404@redhat.com>
-References: <1389988332-22472-1-git-send-email-vyasevic@redhat.com> <20140121.145355.1406240839568386348.davem@davemloft.net>
-Reply-To: vyasevic@redhat.com
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] net: sctp: Fix a_rwnd/rwnd management to reflect real
+ state of the receiver's buffer
+Date: Wed, 22 Jan 2014 15:30:48 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D463CC4@AcuExch.aculab.com>
+References: <52D8D544.5050501@nsn.com>
+ <063D6719AE5E284EB5DD2968C1650D6D463A0F@AcuExch.aculab.com>
+ <52DFDB1E.7070701@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-7
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, andrey.dmitrov@oktetlabs.ru
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Alexander Sverdlin <alexander.sverdlin@nsn.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Vlad Yasevich' <vyasevich@gmail.com>,
+	'Matija Glavinic Pecotic' <matija.glavinic-pecotic.ext@nsn.com>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34246 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755550AbaAVPay (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jan 2014 10:30:54 -0500
-In-Reply-To: <20140121.145355.1406240839568386348.davem@davemloft.net>
+Received: from mx0.aculab.com ([213.249.233.131]:35122 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1755223AbaAVPcX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jan 2014 10:32:23 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 06158-10 for <netdev@vger.kernel.org>;
+ Wed, 22 Jan 2014 15:32:20 +0000 (GMT)
+In-Reply-To: <52DFDB1E.7070701@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/21/2014 05:53 PM, David Miller wrote:
-> From: Vlad Yasevich <vyasevic@redhat.com>
-> Date: Fri, 17 Jan 2014 14:52:12 -0500
->=20
->> When we have multiple devices attempting to sync the same address
->> to a single destination, each device should be permitted to sync
->> it once.  To accomplish this, pass the sync count of the source
->> address to __hw_addr_add_ex().  'sync_cnt' tracks how many time
->> a given address has been successfully synced.  If the address
->> is found in the destination list, but the 'sync_cnt' of the source
->> is 0, then this address has not been synced from this interface
->> and we need to allow the sync operation to succeed thus incrementing
->> reference counts.
->>
->> Reported-by: Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>
->> CC: Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>
->> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->=20
-> I applied this to net-next since 3.13 just got released, and it doesn=
-'t
-> compile.
->=20
-> net/core/dev_addr_lists.c: In function =A1__hw_addr_sync_one=A2:
-> net/core/dev_addr_lists.c:144:26: error: =A1struct netdev_hw_addr=A2 =
-has no member named =A1sync_count=A2
->=20
-
-That does it...  Time to add a hook to format_patch to check for dirty
-index.
-
--vlad
+RnJvbTogVmxhZCBZYXNldmljaCANCi4uLg0KPiA+IElJUkMgdGhlICdzaXplJyB0YWtlbiBvZiB0
+aGUgc29ja2V0IGJ1ZmZlciBpcyB0aGUgc2tiJ3MgJ3RydWUgc2l6ZScNCj4gPiBhbmQgdGhhdCBp
+bmNsdWRlcyBhbnkgcGFkZGluZyBiZWZvcmUgYW5kIGFmdGVyIHRoZSBhY3R1YWwgcnggZGF0YS4N
+Cj4gPiBGb3Igc2hvcnQgcGFja2V0cyB0aGUgZHJpdmVyIG1heSBoYXZlIGNvcGllZCB0aGUgZGF0
+YSBpbnRvIGEgc21hbGxlcg0KPiA+IHNrYiwgZm9yIGxvbmcgcGFja2V0cyBpdCBpcyBsaWtlbHkg
+dG8gYmUgbW9yZSB0aGFuIHRoYXQgb2YgYSBmdWxsDQo+ID4gbGVuZ3RoIGV0aGVybmV0IHBhY2tl
+dC4NCj4gPiBJbiBlaXRoZXIgY2FzZSBpdCBjYW4gYmUgc2lnbmlmaWNhbnRseSBtb3JlIHRoYW4g
+c2l6ZW9mKHNrX2J1ZmYpDQo+ID4gKDE5MD8pIHBsdXMgdGhlIHNpemUgb2YgdGhlIGFjdHVhbCBk
+YXRhLg0KPiANCj4gU0NUUCBjdXJyZW50bHkgZG9lc24ndCBzdXBwb3J0IEdSTywgc28gZWFjaCBw
+YWNrZXQgaXMgbGltaXRlZCB0bw0KPiBldGhlcm5ldCBwYWNrZXQgcGx1cyBza19idWZmIG92ZXJo
+ZWFkLg0KDQpUaGUgZXRoZXJuZXQgZHJpdmVyIG1pZ2h0IHN0aWxsIHBhc3MgdXAgYSAyayBidWZm
+ZXIsIG9yIGV2ZW4gYSA0ayBvbmUuDQpFc3BlY2lhbGx5IGlmIGl0IHN1cHBvcnRzIEdSTyBmb3Ig
+VENQLg0KDQo+IFdoYXQgdGhyb3dzIGEgcmVhbCBtb25rZXkNCj4gd3JlbmNoIGludG8gdGhpcyB3
+aG9sZSBhY2NvdW50aW5nIGJ1c2luZXNzIGlzIFNDVFAgYnVuZGxpbmcuICBJZiB5b3UNCj4gYnVu
+ZGxlIG11bHRpcGxlIG1lc3NhZ2VzIGludG8gdGhlIHNpbmdsZSBwYWNrZXQsIGFjY291bnRpbmcg
+Zm9yIGl0DQo+IGlzIGEgbWVzcy4NCg0KSG93IGFib3V0IGRpdmlkaW5nIHRoZSAndHJ1ZXNpemUn
+IGJ5IHRoZSByZWZlcmVuY2UgY291bnQ/DQooZXhjZXB0IHRoYXQgaXNuJ3QgcXVpdGUgcmlnaHQu
+Li4pDQpJIGFzc3VtZSB0aGVyZSBhcmUgbXVsdGlwbGUgc2tiIGhlYWRlcnMgYnV0IG9ubHkgb25l
+IGRhdGEgYnVmZmVyPw0KQXQgbGVhc3QgdGhlIGNodW5rcyBhcmUgYWxsIGZvciB0aGUgc2FtZSBj
+b25uZWN0aW9uIHNvIGVuZCB1cCBvbg0Kb25lIHNvY2tldCAoZXhjZXB0IEkgcmVtZW1iZXIgc29t
+ZSBvdGhlciBob3JyaWQgc3R1ZmYgZm9yIGRhdGFncmFtcykuDQogDQo+ID4gSSdtIGFsc28gbm90
+IHN1cmUgdGhhdCBjb250aW51b3VzbHkgcmVtb3ZpbmcgJ2NyZWRpdCcgaXMgYSBnb29kIGlkZWEu
+DQo+ID4gSSd2ZSBkb25lIGEgbG90IG9mIGNvbW1zIHByb3RvY29sIGNvZGUsIHJlbW92aW5nIGNy
+ZWRpdCBhbmQgJ3dpbmRvdw0KPiA+IHNsYW1taW5nJyBhY2tzIGFyZSBub3QgZ29vZCBpZGVhcy4N
+Cj4gDQo+IFRoaXMgcGF0Y2ggZG9lc24ndCBjb250aW51b3VzbHkgcmVtb3ZlICdjcmVkaXQnLiAg
+SXQgYWR2ZXJ0aXNlcyB0aGUNCj4gY2xvc2VzdCBhcHByb3hpbWF0aW9uIG9mIHRoZSB3aW5kb3cg
+dGhhdCB3ZSBzdXBwb3J0IGFuZCBjb21wdXRlcyBpdA0KPiB0aGUgc2FtZSB3YXkgYXMgd2UgZG8g
+Zm9yIEluaXRpYWwgV2luZG93IChhdmFpbGFibGUgc2tfcmN2YnVmZiA+PiAxKS4NCj4gQXMgdGhl
+IHJlY2VpdmVyIGRyYWlucyB0aGUgcmVjZWl2ZSBxdWV1ZSwgYXZhaWxhYmxlIGJ1ZmZlciB3aWxs
+IGluY3JlYXNlDQo+IGFuZCB0aGUgYXZhaWxhYmxlIHdpbmRvdyB3aWxsIGdyb3cuDQoNCkxldCdz
+IGFzc3VtZSB0aGUgc29ja2V0IGJ1ZmZlciBzaXplIGlzIDEwMGsuDQpXZSBhZHZlcnRpc2UgYSB3
+aW5kb3cgb2YgNTBrLg0KV2Ugbm93IHJlY2VpdmUgMTAwIGJ5dGVzIG9mIGRhdGEsIHRoZSByZW1v
+dGUgaGFzIDQ5OTAwIHdpbmRvdyBsZWZ0Lg0KVGhlICd0cnVlc2l6ZScgaXMgc29tZXRoaW5nIGxp
+a2UgMTkwKzY0KGlzaCkrMTAwK3RhaWxfcGFkLCBzYXkgNDAwLg0KU29ja2V0IGJ1ZmZlciBzcGFj
+ZSBpcyByZWR1Y2VkIHRvIDk5NjAwIGFuZCBhbnkgYWNrIHdvdWxkIGdpdmUgNDk4MDAuDQpTbyB3
+ZSBoYXZlIHJlZHVjZWQgdGhlIHdpbmRvdyBieSAxMDAgYnl0ZXMuDQpXaXRoIHRoYXQgbXVjaCBz
+cGFjZSBpdCBwcm9iYWJseSBkb2Vzbid0IG1hdHRlciBtdWNoLg0KDQpIb3dldmVyIGlmIHRoZSBj
+b25uZWN0aW9uIGlzIHJlY2VpdmUgbGltaXRlZCB0aGVuIHRoZSByZW1vdGUgc3lzdGVtDQp3aWxs
+IGhhdmUgYSBzZWNvbmQgcGFja2V0IGluIGZsaWdodCB0aGF0IHVzZXMgdGhlIHJlc3Qgb2YgdGhl
+IHdpbmRvdy4NCldlIHRoZW4gcmVjZWl2ZSBhbiBpbi1zZXF1ZW5jZSBidXQgb3V0LW9mLXdpbmRv
+dyBwYWNrZXQgdGhhdCByZWZlcnMNCnRvIHdpbmRvdyB0aGF0IHdlIGhhZCBwcmV2aW91c2x5IGdp
+dmVuIHRvIHRoZSByZW1vdGUgc3lzdGVtLg0KDQpJIGRvbid0IGtub3cgd2hhdCB0aGUgc2N0cCAo
+b3IgdGNwKSBjb2RlIGRvZXMgd2l0aCBzdWNoIHBhY2tldHMuDQpJbiBteSBleHBlcmllbmNlIGl0
+IGlzIGJlc3QgdG8gdHJlYXQgdGhlbSBhcyB2YWxpZCBkYXRhICh1bmxlc3MNCnRoZXJlIGFyZSBs
+YXJnZXIgZnJlZSBtZW1vcnkgaXNzdWVzKSBhbmQgYWNrIHRoZW0gYXQgc29tZSBwb2ludC4NCkhv
+cGVmdWxseSB0aGUgcnVsZXMgb2YgdGhlIHVuZGVybHlpbmcgcHJvdG9jb2wgbGV0IHlvdSBkbyB0
+aGlzIQ0KDQpJZiB5b3UgZGlzY2FyZCB0aGVzZSBwYWNrZXRzIHRoZW4gZXZlcnkgcGFja2V0IGdl
+dHMgc2VudCB0d2ljZQ0KKG9yIGV2ZW4gbW9yZSBvZnRlbiBpZiB0aGUgZGF0YSBpcyB2ZXJ5IHNo
+b3J0KS4NCg0KCURhdmlkDQoNCg==
