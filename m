@@ -1,28 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: add vxlan description
-Date: Tue, 21 Jan 2014 16:28:23 -0800 (PST)
-Message-ID: <20140121.162823.1108242285064360090.davem@davemloft.net>
-References: <1389985233-8097-1-git-send-email-jesse.brandeburg@intel.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-To: jesse.brandeburg@intel.com
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH net-next] bridge: Remove unnecessary vlan_put_tag in br_handle_vlan
+Date: Wed, 22 Jan 2014 09:29:37 +0900
+Message-ID: <1390350577-4122-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+To: "David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38538 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751071AbaAVA2Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 19:28:24 -0500
-In-Reply-To: <1389985233-8097-1-git-send-email-jesse.brandeburg@intel.com>
+Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:54438 "EHLO
+	tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752268AbaAVA37 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 19:29:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Date: Fri, 17 Jan 2014 11:00:33 -0800
+br_handle_vlan() pushes HW accelerated vlan tag into skbuff when outgoing
+port is the bridge device.
+This is unnecessary because __netif_receive_skb_core() can handle skbs
+with HW accelerated vlan tag. In current implementation,
+__netif_receive_skb_core() needs to extract the vlan tag embedded in skb
+data. This could cause low network performance especially when receiving
+frames at a high frame rate on the bridge device.
 
-> Add a description to the vxlan module, helping save the world
-> from the minions of destruction and confusion.
-> 
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+---
+ net/bridge/br_vlan.c | 21 ---------------------
+ 1 file changed, 21 deletions(-)
 
-Applied, thanks Jesse.
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index 7ffc801..4ca4d0a 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -151,27 +151,6 @@ struct sk_buff *br_handle_vlan(struct net_bridge *br,
+ 	br_vlan_get_tag(skb, &vid);
+ 	if (test_bit(vid, pv->untagged_bitmap))
+ 		skb = br_vlan_untag(skb);
+-	else {
+-		/* Egress policy says "send tagged".  If output device
+-		 * is the  bridge, we need to add the VLAN header
+-		 * ourselves since we'll be going through the RX path.
+-		 * Sending to ports puts the frame on the TX path and
+-		 * we let dev_hard_start_xmit() add the header.
+-		 */
+-		if (skb->protocol != htons(ETH_P_8021Q) &&
+-		    pv->port_idx == 0) {
+-			/* vlan_put_tag expects skb->data to point to
+-			 * mac header.
+-			 */
+-			skb_push(skb, ETH_HLEN);
+-			skb = __vlan_put_tag(skb, skb->vlan_proto, skb->vlan_tci);
+-			if (!skb)
+-				goto out;
+-			/* put skb->data back to where it was */
+-			skb_pull(skb, ETH_HLEN);
+-			skb->vlan_tci = 0;
+-		}
+-	}
+ 
+ out:
+ 	return skb;
+-- 
+1.8.1.2
