@@ -1,44 +1,65 @@
-From: Chen Weilong <chenweilong@huawei.com>
-Subject: [PATCH] bonding: Don't allow bond devices to change network namespaces.
-Date: Wed, 22 Jan 2014 17:16:30 +0800
-Message-ID: <1390382190-1604-1-git-send-email-chenweilong@huawei.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next 3/3] bonding: cleanup some redundant code and wrong
+ variables
+Date: Wed, 22 Jan 2014 17:22:10 +0800
+Message-ID: <52DF8DC2.2030609@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <fubar@us.ibm.com>, <vfalico@redhat.com>, <andy@greyhouse.net>,
-	<davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:47333 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751979AbaAVJRN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 04:17:13 -0500
+Received: from szxga01-in.huawei.com ([119.145.14.64]:17255 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751217AbaAVJWt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 04:22:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Weilong Chen <chenweilong@huawei.com>
+The dev_set_mac_address() will check the dev->netdev_ops->ndo_set_mac_address,
+so no need to check it in bond_set_mac_address().
 
-Like bridge, bonding as netdevice doesn't cross netns boundaries.
+Fix the wrong variables for pr_err().
 
-Bonding ports and bonding itself live in same netns.
-
-Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/bonding/bond_main.c | 3 +++
- 1 file changed, 3 insertions(+)
+ drivers/net/bonding/bond_main.c | 10 +---------
+ 1 file changed, 1 insertion(+), 9 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index f00dd45..897d153 100644
+index ce0f5c0..9d92f46 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -3916,6 +3916,9 @@ void bond_setup(struct net_device *bond_dev)
- 	 * capable
+@@ -3509,15 +3509,7 @@ static int bond_set_mac_address(struct net_device *bond_dev, void *addr)
  	 */
  
-+	/* Don't allow bond devices to change network namespaces. */
-+	bond_dev->features |= NETIF_F_NETNS_LOCAL;
-+
- 	bond_dev->hw_features = BOND_VLAN_FEATURES |
- 				NETIF_F_HW_VLAN_CTAG_TX |
- 				NETIF_F_HW_VLAN_CTAG_RX |
+ 	bond_for_each_slave(bond, slave, iter) {
+-		const struct net_device_ops *slave_ops = slave->dev->netdev_ops;
+ 		pr_debug("slave %p %s\n", slave, slave->dev->name);
+-
+-		if (slave_ops->ndo_set_mac_address == NULL) {
+-			res = -EOPNOTSUPP;
+-			pr_debug("EOPNOTSUPP %s\n", slave->dev->name);
+-			goto unwind;
+-		}
+-
+ 		res = dev_set_mac_address(slave->dev, addr);
+ 		if (res) {
+ 			/* TODO: consider downing the slave
+@@ -4317,7 +4309,7 @@ static int bond_check_params(struct bond_params *params)
+ 						      fail_over_mac_tbl);
+ 		if (fail_over_mac_value == -1) {
+ 			pr_err("Error: invalid fail_over_mac \"%s\"\n",
+-			       arp_validate == NULL ? "NULL" : arp_validate);
++			       fail_over_mac == NULL ? "NULL" : fail_over_mac);
+ 			return -EINVAL;
+ 		}
+ 
 -- 
-1.7.12
+1.8.0
