@@ -1,26 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bond: make slave_sysfs_ops static
-Date: Tue, 21 Jan 2014 16:46:00 -0800 (PST)
-Message-ID: <20140121.164600.686553520149555474.davem@davemloft.net>
-References: <20140118145418.4b439f15@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH] net: gre: don't pull skb if dealing with icmp message
+Date: Tue, 21 Jan 2014 16:49:04 -0800 (PST)
+Message-ID: <20140121.164904.1559727284192286374.davem@davemloft.net>
+References: <52DB8E4A.7050809@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, vfalico@redhat.com, andy@greyhouse.net,
-	sfeldma@cumulusnetworks.com, netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Cc: dborkman@redhat.com, netdev@vger.kernel.org
+To: duanj.fnst@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38645 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38658 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754078AbaAVAqA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 19:46:00 -0500
-In-Reply-To: <20140118145418.4b439f15@nehalam.linuxnetplumber.net>
+	with ESMTP id S1752268AbaAVAtF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 19:49:05 -0500
+In-Reply-To: <52DB8E4A.7050809@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Sat, 18 Jan 2014 14:54:18 -0800
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Date: Sun, 19 Jan 2014 16:35:22 +0800
 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> 
+> When dealing with icmp messages, the skb->data points the
+> ip header that triggered the sending of the icmp message.
+> 
+> In gre_cisco_err(), the parse_gre_header() is called, and the
+> iptunnel_pull_header() is called to pull the skb at the end of
+> the parse_gre_header(). Unfortunately, the ipgre_err still needs
+> the skb->data points the ip header following the icmp layer,
+> and those ip addresses in ip header will be used to look up
+> tunnel by ip_tunnel_lookup().
+> 
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 
-Applied.
+Conditional pulling of headers based upon caller context leads to
+impossible to maintain code.
+
+Please find another way to fix this.
