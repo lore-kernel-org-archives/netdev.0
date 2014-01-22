@@ -1,80 +1,69 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] af_packet: Add Queue mapping mode to af_packet fanout operation
-Date: Wed, 22 Jan 2014 16:01:44 -0500
-Message-ID: <1390424504-18543-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: Linux kernel patch: elide fib_validate_source() completely when
+ possible - bad side effect?
+Date: Wed, 22 Jan 2014 23:04:52 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1401222222010.1855@ja.home.ssi.bg>
+References: <52D945400200005D00047758@gwia2.atlnz.lc> <alpine.LFD.2.11.1401170953370.1827@ja.home.ssi.bg> <52DCF1440200005D000477FD@gwia2.atlnz.lc>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: gregory hoggarth <gregory.hoggarth@alliedtelesis.co.nz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:51991 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752618AbaAVVCG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 16:02:06 -0500
+Received: from ja.ssi.bg ([178.16.129.10]:49136 "EHLO ja.home.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752578AbaAVVGO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jan 2014 16:06:14 -0500
+In-Reply-To: <52DCF1440200005D000477FD@gwia2.atlnz.lc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a queue mapping mode to the fanout operation of af_packet
-sockets.  This allows user space af_packet users to better filter on flows
-ingressing and egressing via a specific hardware queue, and avoids the potential
-packet reordering that can occur when FANOUT_CPU is being used and irq affinity
-varies.
 
-Tested successfully by myself.  applies to net-next
+	Hello,
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: "David S. Miller" <davem@davemloft.net>
----
- include/uapi/linux/if_packet.h |  1 +
- net/packet/af_packet.c         | 11 +++++++++++
- 2 files changed, 12 insertions(+)
+On Mon, 20 Jan 2014, gregory hoggarth wrote:
 
-diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
-index 1988a02..bac27fa 100644
---- a/include/uapi/linux/if_packet.h
-+++ b/include/uapi/linux/if_packet.h
-@@ -60,6 +60,7 @@ struct sockaddr_ll {
- #define PACKET_FANOUT_CPU		2
- #define PACKET_FANOUT_ROLLOVER		3
- #define PACKET_FANOUT_RND		4
-+#define PACKET_FANOUT_QM		5
- #define PACKET_FANOUT_FLAG_ROLLOVER	0x1000
- #define PACKET_FANOUT_FLAG_DEFRAG	0x8000
- 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index d711ecb..bd90a87 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1313,6 +1313,13 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
- 	return idx;
- }
- 
-+static unsigned int fanout_demux_qm(struct packet_fanout *f,
-+				    struct sk_buff *skb,
-+				    unsigned int num)
-+{
-+	return skb_get_queue_mapping(skb) % num;
-+}
-+
- static bool fanout_has_flag(struct packet_fanout *f, u16 flag)
- {
- 	return f->flags & (flag >> 8);
-@@ -1352,6 +1359,9 @@ static int packet_rcv_fanout(struct sk_buff *skb, struct net_device *dev,
- 	case PACKET_FANOUT_RND:
- 		idx = fanout_demux_rnd(f, skb, num);
- 		break;
-+	case PACKET_FANOUT_QM:
-+		idx = fanout_demux_qm(f, skb, num);
-+		break;
- 	case PACKET_FANOUT_ROLLOVER:
- 		idx = fanout_demux_rollover(f, skb, 0, (unsigned int) -1, num);
- 		break;
-@@ -1422,6 +1432,7 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
- 	case PACKET_FANOUT_LB:
- 	case PACKET_FANOUT_CPU:
- 	case PACKET_FANOUT_RND:
-+	case PACKET_FANOUT_QM:
- 		break;
- 	default:
- 		return -EINVAL;
--- 
-1.8.3.1
+> >>> Julian Anastasov <ja@ssi.bg> 17/1/14 09:24 PM >>> 
+> >
+> >	It seems only __fib_validate_source can reject all kind
+> > of broadcast addresses in saddr. ip_route_input_slow() rejects
+> > only the well known broadcasts. Without rp_filter may be we
+> > can at least drop attempts to send replies back to broadcast
+> > addresses? For example, checking result of ip_route_output_key() in
+> > icmp_reply():
+> >
+> >	if (rt->rt_flags & (RTCF_BROADCAST | RTCF_MULTICAST))
+> >		=> ip_rt_put()
+
+> Thank you for your reply.
+> 
+> While I think your solution may work, isn't the proper approach to drop these 
+> rogue packets, rather than wasting CPU and other resources processing them, 
+> and then beginning to craft responses which are in turn dropped?
+
+	The problem is that it is __fib_validate_source that
+takes time for every packet. And it is a rare case to see
+traffic from broadcast addresses. rp_filter set on external
+interface will drop such packets. It is an option that one
+can use even for internal interface, if needed.
+
+> Also seems better to drop the initial rogue packet, as that should cover all 
+> (?) different types of packets, rather than having to add small patches into 
+> ICMP, TCP and any other places that may need it.
+
+	Small check looks better compared to FIB lookup for
+every received packet. Note that output route can be cached
+for sockets, eg. TCP, so such small checks do not occur for
+every reply packet.
+
+> So my question really is was the original patch correct and there's something
+> wrong with our device configuration, or is this an overlooked / untested side-
+> effect from that patch that as a result means the patch should be re-worked?
+
+	I don't remember someone mentioning about such
+side-effect, I guess it is overlooked. IMHO, it is not a good
+reason to restore the old behavior. Lets see other opinions.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
