@@ -1,27 +1,75 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-Subject: Re: [PATCH net-next v3] ipv6: enable anycast addresses as source addresses for datagrams
-Date: Tue, 21 Jan 2014 22:46:14 -0800 (PST)
-Message-ID: <1390373174.15853.YahooMailBasic@web125502.mail.ne1.yahoo.com>
-References: <1390361450-3198-1-git-send-email-fx.lebail@yahoo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Stevens <dlstevens@us.ibm.com>,
-	David Miller <davem@davemloft.net>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm38.bullet.mail.ne1.yahoo.com ([98.138.229.31]:24724 "EHLO
-	nm38.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750719AbaAVGtJ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jan 2014 01:49:09 -0500
-In-Reply-To: <1390361450-3198-1-git-send-email-fx.lebail@yahoo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Viresh Kumar <viresh.kumar@linaro.org>
+Subject: [PATCH 1/2] net/ipv4: queue work on power efficient wq
+Date: Wed, 22 Jan 2014 12:23:32 +0530
+Message-ID: <c24546776d8ec32afd1c084dd1d2a72fc96c6519.1390373223.git.viresh.kumar@linaro.org>
+Cc: linaro-kernel@lists.linaro.org, patches@linaro.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Viresh Kumar <viresh.kumar@linaro.org>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 1/21/14, Francois-Xavier Le Bail <fx.lebail@yahoo.com> wrote:
+Workqueue used in ipv4 layer have no real dependency of scheduling these on the
+cpu which scheduled them.
 
-> Subject: [PATCH net-next v3] ipv6: enable anycast addresses as source addresses for datagrams
+On a idle system, it is observed that an idle cpu wakes up many times just to
+service this work. It would be better if we can schedule it on a cpu which the
+scheduler believes to be the most appropriate one.
 
-I am going to send a v4 (better style).
+This patch replaces normal workqueues with power efficient versions. This
+doesn't change existing behavior of code unless CONFIG_WQ_POWER_EFFICIENT is
+enabled.
+
+Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
+---
+Initial support for power-efficient workqueues was added here:
+https://lkml.org/lkml/2013/4/24/215
+
+ net/ipv4/devinet.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 646023b..ac2dff3 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -474,7 +474,7 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
+ 	inet_hash_insert(dev_net(in_dev->dev), ifa);
+ 
+ 	cancel_delayed_work(&check_lifetime_work);
+-	schedule_delayed_work(&check_lifetime_work, 0);
++	queue_delayed_work(system_power_efficient_wq, &check_lifetime_work, 0);
+ 
+ 	/* Send message first, then call notifier.
+ 	   Notifier will trigger FIB update, so that
+@@ -684,7 +684,8 @@ static void check_lifetime(struct work_struct *work)
+ 	if (time_before(next_sched, now + ADDRCONF_TIMER_FUZZ_MAX))
+ 		next_sched = now + ADDRCONF_TIMER_FUZZ_MAX;
+ 
+-	schedule_delayed_work(&check_lifetime_work, next_sched - now);
++	queue_delayed_work(system_power_efficient_wq, &check_lifetime_work,
++			next_sched - now);
+ }
+ 
+ static void set_ifa_lifetime(struct in_ifaddr *ifa, __u32 valid_lft,
+@@ -842,7 +843,8 @@ static int inet_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		ifa = ifa_existing;
+ 		set_ifa_lifetime(ifa, valid_lft, prefered_lft);
+ 		cancel_delayed_work(&check_lifetime_work);
+-		schedule_delayed_work(&check_lifetime_work, 0);
++		queue_delayed_work(system_power_efficient_wq,
++				&check_lifetime_work, 0);
+ 		rtmsg_ifa(RTM_NEWADDR, ifa, nlh, NETLINK_CB(skb).portid);
+ 		blocking_notifier_call_chain(&inetaddr_chain, NETDEV_UP, ifa);
+ 	}
+@@ -2322,7 +2324,7 @@ void __init devinet_init(void)
+ 	register_gifconf(PF_INET, inet_gifconf);
+ 	register_netdevice_notifier(&ip_netdev_notifier);
+ 
+-	schedule_delayed_work(&check_lifetime_work, 0);
++	queue_delayed_work(system_power_efficient_wq, &check_lifetime_work, 0);
+ 
+ 	rtnl_af_register(&inet_af_ops);
+ 
+-- 
+1.7.12.rc2.18.g61b472e
