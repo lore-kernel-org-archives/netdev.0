@@ -1,83 +1,89 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [PATCH net-next] IPv6: enable TCP to use an anycast address
-Date: Thu, 23 Jan 2014 01:11:52 +0400
-Message-ID: <CAMrnHh5od13Ydo12Dt4OTa3nw+5om5LYO53iu9nQYqWeBxMPAw@mail.gmail.com>
-References: <1390401156.61208.YahooMailBasic@web125501.mail.ne1.yahoo.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC PATCH net] IPv6: Fix broken IPv6 routing table after loopback down-up
+Date: Wed, 22 Jan 2014 22:34:46 +0100
+Message-ID: <20140122213446.GD7269@order.stressinduktion.org>
+References: <1390404908-3914-1-git-send-email-sd@queasysnail.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Miller <davem@davemloft.net>,
-	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>
-To: =?ISO-8859-1?Q?Fran=E7ois=2DXavier_Le_Bail?= <fx.lebail@yahoo.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, gaofeng@cn.fujitsu.com
+To: Sabrina Dubroca <sd@queasysnail.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:54179 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751876AbaAVVLw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 16:11:52 -0500
-Received: by mail-ie0-f179.google.com with SMTP id ar20so121477iec.38
-        for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 13:11:52 -0800 (PST)
-In-Reply-To: <1390401156.61208.YahooMailBasic@web125501.mail.ne1.yahoo.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:58916 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752748AbaAVVes (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 16:34:48 -0500
+Content-Disposition: inline
+In-Reply-To: <1390404908-3914-1-git-send-email-sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+On Wed, Jan 22, 2014 at 04:35:08PM +0100, Sabrina Dubroca wrote:
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 4b6b720..b2eb653 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -2578,6 +2578,23 @@ static void sit_add_v4_addrs(struct inet6_dev *idev)
+>  }
+>  #endif
+>  
+> +struct rt6_info *addrconf_dst_alloc_once(struct inet6_dev *idev,
+> +					 const struct in6_addr *addr,
+> +					 bool anycast)
+> +{
+> +	struct net *net = dev_net(idev->dev);
+> +	struct rt6_info *rt = rt6_lookup(net, addr, NULL, 0, 0);
 
-On Wed, Jan 22, 2014 at 6:32 PM, Fran=E7ois-Xavier Le Bail
-<fx.lebail@yahoo.com> wrote:
->> Actually, I was alerted by reset processing in your patch, it cannot=
- be right.
->
-> Perhaps, I missed something.
+We should use addrconf_get_prefix_route here. Eric's comment applies
+here, too, we do a dst_hold in addrconf_get_prefix_route and thus must
+decrease the reference counter with ip6_rt_put then, too.
 
-Perhaps, I missed something. According to my old knowledge, tcp cannot
-be used with anycasts
-by many reasons and I have no idea what could change to the moment.
+> +	if (rt == NULL)
+> +		return addrconf_dst_alloc(idev, addr, anycast);
+> +	else if (!(rt->rt6i_flags & RTF_NONEXTHOP &&
+> +		   ((anycast && rt->rt6i_flags & RTF_ANYCAST) ||
+> +		    (!anycast && rt->rt6i_flags & RTF_LOCAL))))
+> +		return addrconf_dst_alloc(idev, addr, anycast);
 
-=46.e. what do you do when a segment arrives on listening socket w/o
-connection associated?
-If you sent reset, you could reset someone's valid connection (I mean
-this, saying "it cannot be right").
-If you do not, you violate protocol, those resets are required to
-clean up stale states.
+The necessary flags can be given to addrconf_get_prefix_route, then.
 
->> Do not you think this must not be enabled for common use? At least
->> some separate sysctl disabled by default.
->
-> We could indeed use a sysctl, disabled by default.
->
-> But my goal was to enable anycast address usage transparently, if pos=
-sible.
+> +	return ERR_PTR(-EEXIST);
+> +}
+> +
+>  static void init_loopback(struct net_device *dev)
+>  {
+>  	struct inet6_dev  *idev;
+> @@ -2611,10 +2628,7 @@ static void init_loopback(struct net_device *dev)
+>  			if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
+>  				continue;
+>  
+> -			if (sp_ifa->rt)
+> -				continue;
 
-IMHO it is logically impossible. That's why my first question was
-about a document which
-allowed anycasts with TCP. (BTW I found your answer unconvincing, at le=
-ast.)
-Traditional anycasting used to be stateless and it was impossible to
-use with TCP
-because unsynchronized TCP connections would be unavoidable.
-AFAIK only suggestion from ancient RFC1546 could cure this problem,
-but it is very tricky and implies client knows that destination is anyc=
-ast.
+We should try to clean sp_ifa->rt on ifdown so we don't have dangling
+pointer to it if it is already in dst gc queue and obsolete. So even if
+we leave this code in there we would never hit the continue (it seems we
+have to decrease the reference counter in addrconf_ifdown before setting
+sp_ifa->rt to NULL).
 
-Actually, I do not even understand how the idea of use of anycast with =
-TCP
-emerged. The only situation I can imagine: the router is expected to
-do full scale
-connection tracking and to bind connections to anycast destinations to
-correct nodes.
-(And the same moment you understand that the notion of anycast is
-completely lost
-in this picture: the same thing is done by load balancers in IPv4 for
-unicast addresses
-for ages) I still have no idea how it is going to work when both
-client and servers bound
-to anycasts are on the same link.
+> -
+> -			sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, false);
+> +			sp_rt = addrconf_dst_alloc_once(idev, &sp_ifa->addr, false);
+>  
+>  			/* Failure cases are ignored */
+>  			if (!IS_ERR(sp_rt)) {
 
-So, it looks like you need this sysctl to announce: "someone cares
-about proper routing
-on this network and tcp should work". It looks obvious this mode
-cannot be enabled by default.
+I am fine if we get this fix in for 3.14 because it solves a real problem.
+I'll already work on the full route preserving logic on ifdown/up and
+would build this on this patch then.
 
-Alexey
+I currently wonder if we need the relookup logic at all as we currently
+remove the prefix routes in all cases (in rt6_ifdown, which iterates
+over all routing tables). So we always have a obsolete dst which we
+just need to clean up in addrconf_ifdown and just allocate the prefix
+route in init_loopback in all cases. We just have to steal some code
+from inet6_rtm_newaddr to calculate the appropriate flags from the
+inet6_ifaddr's ifa_flags (e.g. RTF_EXPIRES).
+
+Thanks a lot,
+
+  Hannes
