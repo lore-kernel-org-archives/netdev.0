@@ -1,58 +1,37 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 won't transmit with 3.12
-Date: Wed, 22 Jan 2014 00:36:30 +0100
-Message-ID: <20140121233630.GA3214@electric-eye.fr.zoreil.com>
-References: <20140121000615.GA30495@enc.com.au>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH] net: sctp: Fix a_rwnd/rwnd management to reflect real
+ state of the receiver's buffer
+Date: Tue, 21 Jan 2014 19:08:20 -0500
+Message-ID: <52DF0BF4.8080905@gmail.com>
+References: <52D8D544.5050501@nsn.com> <20140121.143620.1777441472756091252.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-sctp@vger.kernel.org, alexander.sverdlin@nsn.com,
 	netdev@vger.kernel.org
-To: Craig Small <csmall@enc.com.au>
+To: David Miller <davem@davemloft.net>,
+	matija.glavinic-pecotic.ext@nsn.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:34868 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754151AbaAUXgo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 18:36:44 -0500
-Content-Disposition: inline
-In-Reply-To: <20140121000615.GA30495@enc.com.au>
+Received: from mail-qc0-f181.google.com ([209.85.216.181]:54182 "EHLO
+	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750824AbaAVAIX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 19:08:23 -0500
+In-Reply-To: <20140121.143620.1777441472756091252.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Craig Small <csmall@enc.com.au> :
-[...]
-> It's a new setup so it might of never worked. It's not likely to be a
-> hardware problem as its three different devices.
-
-You may check that the onboard nic device does not even work when the
-extra PCI-e card aren't plugged.
-
-> I've sent what I think you might need for starters, but if there
-> is extra stuff you'd like to see, let me know.
-
-A complete dmesg including the XID lines that the r8169 driver prints
-would be welcome.
-
-> The problem shows up the same, the TX dropped counter increments.
-> I'm not sure why 42 packets made it out (or even if they really did)
-> Receive works fine, I can even start up wireshark and see packets
-> pass by.
+On 01/21/2014 05:36 PM, David Miller wrote:
+> From: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
+> Date: Fri, 17 Jan 2014 08:01:24 +0100
 > 
-> eth0      Link encap:Ethernet  HWaddr 00:e0:4c:80:66:57  
->           inet addr:192.168.1.222  Bcast:192.168.1.255  Mask:255.255.255.0
->           inet6 addr: fe80::2e0:4cff:fe80:6657/64 Scope:Link
->           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
->           RX packets:8252 errors:0 dropped:0 overruns:0 frame:0
->           TX packets:42 errors:0 dropped:8029 overruns:0 carrier:0
+>> Implementation of (a)rwnd calculation might lead to severe performance issues
+>> and associations completely stalling. These problems are described and solution
+>> is proposed which improves lksctp's robustness in congestion state.
+> 
+> It would be fantastic if an SCTP expert would review this patch, it's
+> been rotting in patchwork for 4 days.
+> 
 
-There are very few places where the r8169 driver modifies tx_dropped.
+Apologies.  It's been on my to do list.
 
-Please increase the driver verbosity with the 'msglvl' option of ethtool.
-
-[...]
-> ethtool -S shows a similar story, not sure if the rx_missed counter
-> is another problem:
-
-It seems safe to ignore as long as it does not change after startup.
-
--- 
-Ueimor
+-vlad
