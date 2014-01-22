@@ -1,43 +1,104 @@
-From: Sharat Masetty <sharat04@gmail.com>
-Subject: IPV6 routing problem
-Date: Tue, 21 Jan 2014 18:41:58 -0700
-Message-ID: <CAJzFV37rPo6trvCwWyErchen_MvTzqabSU+BE3JZjNXT5-5H7Q@mail.gmail.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next 1/5] bonding: The fail_over_mac should be set
+ only in ACTIVE_BACKUP mode
+Date: Wed, 22 Jan 2014 09:59:06 +0800
+Message-ID: <52DF25EA.90405@huawei.com>
+References: <52DE4161.3050801@huawei.com> <20332.1390350326@death.nxdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f174.google.com ([209.85.128.174]:60384 "EHLO
-	mail-ve0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751856AbaAVBl6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 20:41:58 -0500
-Received: by mail-ve0-f174.google.com with SMTP id pa12so2050655veb.19
-        for <netdev@vger.kernel.org>; Tue, 21 Jan 2014 17:41:58 -0800 (PST)
+Received: from szxga01-in.huawei.com ([119.145.14.64]:11507 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750858AbaAVB7d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 20:59:33 -0500
+In-Reply-To: <20332.1390350326@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- I have an IPV6 routing problem that has only surfaced on a 3.10
-kernel version. This problem is not seen on 3.4 kernel. I will keep
-the problem statement as brief as possible.
+On 2014/1/22 8:25, Jay Vosburgh wrote:
+> Ding Tianhong <dingtianhong@huawei.com> wrote:
+> 
+>> According the bonding.txt, the option fail_over_mac only affect for
+>> AB mode, but in currect code, the parameter could be set to active
+>> or follow in every mode, this will cause bonding could not set all
+>> slaves of an RR or XOR mode to the same MAC address at enslavement
+>> time, so reset fail_over_mac to 0 if the mode is not ACTIVE_BACKUP.
+> 
+> 	The correct way to fix this in general is to permit setting an
+> option at any time, but only have it take effect in active-backup mode.
+> This minimizes ordering requirements when setting options.
+> 
+ok
 
-I have two interfaces say eth0 and eth1. I have a host route to a
-destination over eth1, but this route has a global gateway
-address(via) of the router on the link. When this global gateway is
-present in the route, the kernel does not seem to pick up the route,
-but falls back to the default route which is eth0. When this gateway
-is removed from the route or if the gateway is changed to a link local
-address of the router, instead of the global address, then routing
-seems to work as expected and kernel picks up interface eth1.
+> 	I would instead modify the bond enslave and removal processing
+> to check the mode in addition to fail_over_mac when setting a slave's
+> MAC during enslavement.  The change active slave processing already only
+> calls the fail_over_mac function when in active-backup mode.  This
+> should also be a simpler change set.
+> 
+agree, the current modify actually more redundant.
 
-== does not work ==
-<dest-addr> via <global scope -gateway addr>dev eth1 metric 1024
-<global scope -gateway addr> dev eth1  metric 1024
+>> Fix the wrong variables for pr_err().
+>>
+>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>> ---
+>> drivers/net/bonding/bond_main.c | 8 +++++---
+>> 1 file changed, 5 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>> index 3220b48..ecff04e 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -4307,12 +4307,14 @@ static int bond_check_params(struct bond_params *params)
+>> 						      fail_over_mac_tbl);
+>> 		if (fail_over_mac_value == -1) {
+>> 			pr_err("Error: invalid fail_over_mac \"%s\"\n",
+>> -			       arp_validate == NULL ? "NULL" : arp_validate);
+>> +			       fail_over_mac == NULL ? "NULL" : fail_over_mac);
+> 
+> 	This part is ok.
+> 
+>> 			return -EINVAL;
+>> 		}
+>>
+>> -		if (bond_mode != BOND_MODE_ACTIVEBACKUP)
+>> -			pr_warning("Warning: fail_over_mac only affects active-backup mode.\n");
+>> +		if (bond_mode != BOND_MODE_ACTIVEBACKUP) {
+>> +			pr_warning("Warning: fail_over_mac only affects active-backup mode, set it to 0.\n");
+>> +			fail_over_mac_value = BOND_FOM_NONE;
+>> +		}
+> 
+> 	This part is not.
+> 
+> 	I would additionally NAK patches 2, 3, and 4 (noting that 4
+> inhibits the change to fail_over_mac, but not the warning message that
+> we're changing it).
+> 
+> 	Patch 5 is ok, although it really has nothing to do with
+> fail_over_mac.
+> 
+> 	-J
+> 
 
-I checked the git commits diff between 3.4 and 3.10 for ipv6/route.c
-and ipv6/ip6_fib.c, but looks like they are close to an year apart
-with lots of changes. Hence I wanted to reach out to you to see if any
-recent changes in IPV6 routing is causing this difference in behavior.
+The whole patchset need to be rebuild, thanks for reviewing.
 
-Any help would be greatly appreciated.
+Regards
+Ding
 
-Thanks
-Sharat
+>> 	} else {
+>> 		fail_over_mac_value = BOND_FOM_NONE;
+>> 	}
+>> -- 
+>> 1.8.0
+> 
+> ---
+> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+> 
+> 
+> 
