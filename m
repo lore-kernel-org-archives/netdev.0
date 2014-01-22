@@ -1,255 +1,251 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next v2 05/25] bonding: convert arp_validate to use the new option API
-Date: Wed, 22 Jan 2014 14:53:20 +0100
-Message-ID: <1390398820-5355-6-git-send-email-nikolay@redhat.com>
+Subject: [PATCH net-next v2 04/25] bonding: convert xmit_hash_policy to use the new option API
+Date: Wed, 22 Jan 2014 14:53:19 +0100
+Message-ID: <1390398820-5355-5-git-send-email-nikolay@redhat.com>
 References: <1390398820-5355-1-git-send-email-nikolay@redhat.com>
 Cc: Nikolay Aleksandrov <nikolay@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11996 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:54793 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755572AbaAVNx4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jan 2014 08:53:56 -0500
+	id S1755556AbaAVNxz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jan 2014 08:53:55 -0500
 Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s0MDruxa018562
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s0MDrtDj001386
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 08:53:56 -0500
+	for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 08:53:55 -0500
 In-Reply-To: <1390398820-5355-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the necessary changes so arp_validate would use the
+This patch adds the necessary changes so xmit_hash_policy would use the
 new bonding option API. Also fix some trivial/style errors.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- drivers/net/bonding/bond_main.c    | 27 +++++++++++--------------
+ drivers/net/bonding/bond_main.c    | 18 +++++-------------
  drivers/net/bonding/bond_netlink.c |  3 ++-
- drivers/net/bonding/bond_options.c | 40 +++++++++++++++++++++-----------------
+ drivers/net/bonding/bond_options.c | 32 +++++++++++++++++++++-----------
  drivers/net/bonding/bond_options.h |  3 +++
- drivers/net/bonding/bond_sysfs.c   | 23 +++++++---------------
- drivers/net/bonding/bonding.h      |  1 -
- 6 files changed, 45 insertions(+), 52 deletions(-)
+ drivers/net/bonding/bond_procfs.c  |  6 ++++--
+ drivers/net/bonding/bond_sysfs.c   | 23 ++++++-----------------
+ drivers/net/bonding/bonding.h      |  2 --
+ 7 files changed, 41 insertions(+), 46 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 6aacb49..3903c87 100644
+index a50577b..6aacb49 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -220,14 +220,6 @@ const struct bond_parm_tbl arp_all_targets_tbl[] = {
- {	NULL,			-1},
+@@ -214,15 +214,6 @@ const struct bond_parm_tbl bond_lacp_tbl[] = {
+ {	NULL,		-1},
  };
  
--const struct bond_parm_tbl arp_validate_tbl[] = {
--{	"none",			BOND_ARP_VALIDATE_NONE},
--{	"active",		BOND_ARP_VALIDATE_ACTIVE},
--{	"backup",		BOND_ARP_VALIDATE_BACKUP},
--{	"all",			BOND_ARP_VALIDATE_ALL},
+-const struct bond_parm_tbl xmit_hashtype_tbl[] = {
+-{	"layer2",		BOND_XMIT_POLICY_LAYER2},
+-{	"layer3+4",		BOND_XMIT_POLICY_LAYER34},
+-{	"layer2+3",		BOND_XMIT_POLICY_LAYER23},
+-{	"encap2+3",		BOND_XMIT_POLICY_ENCAP23},
+-{	"encap3+4",		BOND_XMIT_POLICY_ENCAP34},
 -{	NULL,			-1},
 -};
 -
- const struct bond_parm_tbl fail_over_mac_tbl[] = {
- {	"none",			BOND_FOM_NONE},
- {	"active",		BOND_FOM_ACTIVE},
-@@ -4224,15 +4216,18 @@ static int bond_check_params(struct bond_params *params)
- 			return -EINVAL;
+ const struct bond_parm_tbl arp_all_targets_tbl[] = {
+ {	"any",			BOND_ARP_TARGETS_ANY},
+ {	"all",			BOND_ARP_TARGETS_ALL},
+@@ -4039,14 +4030,15 @@ static int bond_check_params(struct bond_params *params)
+ 			pr_info("xmit_hash_policy param is irrelevant in mode %s\n",
+ 			       bond_mode_name(bond_mode));
+ 		} else {
+-			xmit_hashtype = bond_parse_parm(xmit_hash_policy,
+-							xmit_hashtype_tbl);
+-			if (xmit_hashtype == -1) {
++			bond_opt_initstr(&newval, xmit_hash_policy);
++			valptr = bond_opt_parse(bond_opt_get(BOND_OPT_XMIT_HASH),
++						&newval);
++			if (!valptr) {
+ 				pr_err("Error: Invalid xmit_hash_policy \"%s\"\n",
+-				       xmit_hash_policy == NULL ? "NULL" :
+ 				       xmit_hash_policy);
+ 				return -EINVAL;
+ 			}
++			xmit_hashtype = valptr->value;
  		}
+ 	}
  
--		arp_validate_value = bond_parse_parm(arp_validate,
--						     arp_validate_tbl);
--		if (arp_validate_value == -1) {
-+		bond_opt_initstr(&newval, arp_validate);
-+		valptr = bond_opt_parse(bond_opt_get(BOND_OPT_ARP_VALIDATE),
-+					&newval);
-+		if (!valptr) {
- 			pr_err("Error: invalid arp_validate \"%s\"\n",
--			       arp_validate == NULL ? "NULL" : arp_validate);
-+			       arp_validate);
- 			return -EINVAL;
- 		}
--	} else
-+		arp_validate_value = valptr->value;
-+	} else {
- 		arp_validate_value = 0;
-+	}
- 
- 	arp_all_targets_value = 0;
- 	if (arp_all_targets) {
-@@ -4249,10 +4244,10 @@ static int bond_check_params(struct bond_params *params)
- 	if (miimon) {
- 		pr_info("MII link monitoring set to %d ms\n", miimon);
- 	} else if (arp_interval) {
-+		valptr = bond_opt_get_val(BOND_OPT_ARP_VALIDATE,
-+					  arp_validate_value);
- 		pr_info("ARP monitoring set to %d ms, validate %s, with %d target(s):",
--			arp_interval,
--			arp_validate_tbl[arp_validate_value].modename,
--			arp_ip_count);
-+			arp_interval, valptr->string, arp_ip_count);
- 
- 		for (i = 0; i < arp_ip_count; i++)
- 			pr_info(" %s", arp_ip_target[i]);
 diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
-index 8474af1..588730c 100644
+index 8936a91..8474af1 100644
 --- a/drivers/net/bonding/bond_netlink.c
 +++ b/drivers/net/bonding/bond_netlink.c
-@@ -193,7 +193,8 @@ static int bond_changelink(struct net_device *bond_dev,
- 			return -EINVAL;
- 		}
+@@ -238,7 +238,8 @@ static int bond_changelink(struct net_device *bond_dev,
+ 		int xmit_hash_policy =
+ 			nla_get_u8(data[IFLA_BOND_XMIT_HASH_POLICY]);
  
--		err = bond_option_arp_validate_set(bond, arp_validate);
-+		bond_opt_initval(&newval, arp_validate);
-+		err = __bond_opt_set(bond, BOND_OPT_ARP_VALIDATE, &newval);
+-		err = bond_option_xmit_hash_policy_set(bond, xmit_hash_policy);
++		bond_opt_initval(&newval, xmit_hash_policy);
++		err = __bond_opt_set(bond, BOND_OPT_XMIT_HASH, &newval);
  		if (err)
  			return err;
  	}
 diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 71e8c527..eff68a0 100644
+index 6d2a7d9..71e8c527 100644
 --- a/drivers/net/bonding/bond_options.c
 +++ b/drivers/net/bonding/bond_options.c
-@@ -45,6 +45,14 @@ static struct bond_opt_value bond_xmit_hashtype_tbl[] = {
- 	{ NULL,       -1,                       0},
+@@ -36,6 +36,15 @@ static struct bond_opt_value bond_pps_tbl[] = {
+ 	{ NULL,      -1,        0},
  };
  
-+static struct bond_opt_value bond_arp_validate_tbl[] = {
-+	{ "none",   BOND_ARP_VALIDATE_NONE,   BOND_VALFLAG_DEFAULT},
-+	{ "active", BOND_ARP_VALIDATE_ACTIVE, 0},
-+	{ "backup", BOND_ARP_VALIDATE_BACKUP, 0},
-+	{ "all",    BOND_ARP_VALIDATE_ALL,    0},
-+	{ NULL,     -1,                       0},
++static struct bond_opt_value bond_xmit_hashtype_tbl[] = {
++	{ "layer2",   BOND_XMIT_POLICY_LAYER2, BOND_VALFLAG_DEFAULT},
++	{ "layer3+4", BOND_XMIT_POLICY_LAYER34, 0},
++	{ "layer2+3", BOND_XMIT_POLICY_LAYER23, 0},
++	{ "encap2+3", BOND_XMIT_POLICY_ENCAP23, 0},
++	{ "encap3+4", BOND_XMIT_POLICY_ENCAP34, 0},
++	{ NULL,       -1,                       0},
 +};
 +
  static struct bond_option bond_opts[] = {
  	[BOND_OPT_MODE] = {
  		.id = BOND_OPT_MODE,
-@@ -69,6 +77,14 @@ static struct bond_option bond_opts[] = {
- 		.values = bond_xmit_hashtype_tbl,
- 		.set = bond_option_xmit_hash_policy_set
+@@ -53,6 +62,13 @@ static struct bond_option bond_opts[] = {
+ 		.values = bond_pps_tbl,
+ 		.set = bond_option_pps_set
  	},
-+	[BOND_OPT_ARP_VALIDATE] = {
-+		.id = BOND_OPT_ARP_VALIDATE,
-+		.name = "arp_validate",
-+		.desc = "validate src/dst of ARP probes",
-+		.unsuppmodes = BOND_MODE_ALL_EX(BIT(BOND_MODE_ACTIVEBACKUP)),
-+		.values = bond_arp_validate_tbl,
-+		.set = bond_option_arp_validate_set
++	[BOND_OPT_XMIT_HASH] = {
++		.id = BOND_OPT_XMIT_HASH,
++		.name = "xmit_hash_policy",
++		.desc = "balance-xor and 802.3ad hashing method",
++		.values = bond_xmit_hashtype_tbl,
++		.set = bond_option_xmit_hash_policy_set
 +	},
  	{ }
  };
  
-@@ -734,31 +750,19 @@ int bond_option_arp_ip_targets_set(struct bonding *bond, __be32 *targets,
- 	return ret;
+@@ -860,18 +876,12 @@ int bond_option_fail_over_mac_set(struct bonding *bond, int fail_over_mac)
+ 	return 0;
  }
  
--int bond_option_arp_validate_set(struct bonding *bond, int arp_validate)
-+int bond_option_arp_validate_set(struct bonding *bond,
-+				 struct bond_opt_value *newval)
+-int bond_option_xmit_hash_policy_set(struct bonding *bond, int xmit_hash_policy)
++int bond_option_xmit_hash_policy_set(struct bonding *bond,
++				     struct bond_opt_value *newval)
  {
--	if (bond_parm_tbl_lookup(arp_validate, arp_validate_tbl) < 0) {
--		pr_err("%s: Ignoring invalid arp_validate value %d.\n",
--		       bond->dev->name, arp_validate);
+-	if (bond_parm_tbl_lookup(xmit_hash_policy, xmit_hashtype_tbl) < 0) {
+-		pr_err("%s: Ignoring invalid xmit_hash_policy value %d.\n",
+-		       bond->dev->name, xmit_hash_policy);
 -		return -EINVAL;
 -	}
 -
--	if (bond->params.mode != BOND_MODE_ACTIVEBACKUP) {
--		pr_err("%s: arp_validate only supported in active-backup mode.\n",
--		       bond->dev->name);
--		return -EINVAL;
--	}
--
--	pr_info("%s: setting arp_validate to %s (%d).\n",
--		bond->dev->name, arp_validate_tbl[arp_validate].modename,
--		arp_validate);
-+	pr_info("%s: setting arp_validate to %s (%llu).\n",
+-	bond->params.xmit_policy = xmit_hash_policy;
+-	pr_info("%s: setting xmit hash policy to %s (%d).\n",
+-		bond->dev->name,
+-		xmit_hashtype_tbl[xmit_hash_policy].modename, xmit_hash_policy);
++	pr_info("%s: setting xmit hash policy to %s (%llu).\n",
 +		bond->dev->name, newval->string, newval->value);
- 
- 	if (bond->dev->flags & IFF_UP) {
--		if (!arp_validate)
-+		if (!newval->value)
- 			bond->recv_probe = NULL;
- 		else if (bond->params.arp_interval)
- 			bond->recv_probe = bond_arp_rcv;
- 	}
--	bond->params.arp_validate = arp_validate;
-+	bond->params.arp_validate = newval->value;
++	bond->params.xmit_policy = newval->value;
  
  	return 0;
  }
 diff --git a/drivers/net/bonding/bond_options.h b/drivers/net/bonding/bond_options.h
-index 2578f1b..15c6c01 100644
+index f859076..2578f1b 100644
 --- a/drivers/net/bonding/bond_options.h
 +++ b/drivers/net/bonding/bond_options.h
-@@ -41,6 +41,7 @@ enum {
+@@ -40,6 +40,7 @@ enum {
+ enum {
  	BOND_OPT_MODE,
  	BOND_OPT_PACKETS_PER_SLAVE,
- 	BOND_OPT_XMIT_HASH,
-+	BOND_OPT_ARP_VALIDATE,
++	BOND_OPT_XMIT_HASH,
  	BOND_OPT_LAST
  };
  
-@@ -105,4 +106,6 @@ int bond_option_mode_set(struct bonding *bond, struct bond_opt_value *newval);
+@@ -102,4 +103,6 @@ static inline void __bond_opt_init(struct bond_opt_value *optval,
+ 
+ int bond_option_mode_set(struct bonding *bond, struct bond_opt_value *newval);
  int bond_option_pps_set(struct bonding *bond, struct bond_opt_value *newval);
- int bond_option_xmit_hash_policy_set(struct bonding *bond,
- 				     struct bond_opt_value *newval);
-+int bond_option_arp_validate_set(struct bonding *bond,
-+				 struct bond_opt_value *newval);
++int bond_option_xmit_hash_policy_set(struct bonding *bond,
++				     struct bond_opt_value *newval);
  #endif /* _BOND_OPTIONS_H */
+diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
+index 8515b344..edb7c18 100644
+--- a/drivers/net/bonding/bond_procfs.c
++++ b/drivers/net/bonding/bond_procfs.c
+@@ -65,6 +65,7 @@ static void bond_info_seq_stop(struct seq_file *seq, void *v)
+ static void bond_info_show_master(struct seq_file *seq)
+ {
+ 	struct bonding *bond = seq->private;
++	struct bond_opt_value *optval;
+ 	struct slave *curr;
+ 	int i;
+ 
+@@ -84,9 +85,10 @@ static void bond_info_show_master(struct seq_file *seq)
+ 
+ 	if (bond->params.mode == BOND_MODE_XOR ||
+ 		bond->params.mode == BOND_MODE_8023AD) {
++		optval = bond_opt_get_val(BOND_OPT_XMIT_HASH,
++					  bond->params.xmit_policy);
+ 		seq_printf(seq, "Transmit Hash Policy: %s (%d)\n",
+-			xmit_hashtype_tbl[bond->params.xmit_policy].modename,
+-			bond->params.xmit_policy);
++			   optval->string, bond->params.xmit_policy);
+ 	}
+ 
+ 	if (USES_PRIMARY(bond->params.mode)) {
 diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index d81638c..e1a4b63 100644
+index 3481584..d81638c 100644
 --- a/drivers/net/bonding/bond_sysfs.c
 +++ b/drivers/net/bonding/bond_sysfs.c
-@@ -325,10 +325,12 @@ static ssize_t bonding_show_arp_validate(struct device *d,
- 					 char *buf)
+@@ -294,35 +294,24 @@ static ssize_t bonding_show_xmit_hash(struct device *d,
+ 				      char *buf)
  {
  	struct bonding *bond = to_bond(d);
 +	struct bond_opt_value *val;
  
 -	return sprintf(buf, "%s %d\n",
--		       arp_validate_tbl[bond->params.arp_validate].modename,
--		       bond->params.arp_validate);
-+	val = bond_opt_get_val(BOND_OPT_ARP_VALIDATE,
-+			       bond->params.arp_validate);
+-		       xmit_hashtype_tbl[bond->params.xmit_policy].modename,
+-		       bond->params.xmit_policy);
++	val = bond_opt_get_val(BOND_OPT_XMIT_HASH, bond->params.xmit_policy);
 +
-+	return sprintf(buf, "%s %d\n", val->string, bond->params.arp_validate);
++	return sprintf(buf, "%s %d\n", val->string, bond->params.xmit_policy);
  }
  
- static ssize_t bonding_store_arp_validate(struct device *d,
-@@ -336,23 +338,12 @@ static ssize_t bonding_store_arp_validate(struct device *d,
- 					  const char *buf, size_t count)
+ static ssize_t bonding_store_xmit_hash(struct device *d,
+ 				       struct device_attribute *attr,
+ 				       const char *buf, size_t count)
  {
- 	struct bonding *bond = to_bond(d);
 -	int new_value, ret;
--
--	new_value = bond_parse_parm(buf, arp_validate_tbl);
--	if (new_value < 0) {
--		pr_err("%s: Ignoring invalid arp_validate value %s\n",
--		       bond->dev->name, buf);
--		return -EINVAL;
--	}
--	if (!rtnl_trylock())
--		return restart_syscall();
+ 	struct bonding *bond = to_bond(d);
 +	int ret;
  
--	ret = bond_option_arp_validate_set(bond, new_value);
-+	ret = bond_opt_tryset_rtnl(bond, BOND_OPT_ARP_VALIDATE, (char *)buf);
+-	new_value = bond_parse_parm(buf, xmit_hashtype_tbl);
+-	if (new_value < 0)  {
+-		pr_err("%s: Ignoring invalid xmit hash policy value %.*s.\n",
+-		       bond->dev->name,
+-		       (int)strlen(buf) - 1, buf);
+-		return -EINVAL;
+-	}
+-
+-	if (!rtnl_trylock())
+-		return restart_syscall();
+-
+-	ret = bond_option_xmit_hash_policy_set(bond, new_value);
++	ret = bond_opt_tryset_rtnl(bond, BOND_OPT_XMIT_HASH, (char *)buf);
  	if (!ret)
  		ret = count;
  
 -	rtnl_unlock();
--
  	return ret;
  }
- 
+ static DEVICE_ATTR(xmit_hash_policy, S_IRUGO | S_IWUSR,
 diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 9e76604..9af6171 100644
+index f9c8a7a..9e76604 100644
 --- a/drivers/net/bonding/bonding.h
 +++ b/drivers/net/bonding/bonding.h
-@@ -462,7 +462,6 @@ int bond_option_arp_ip_targets_set(struct bonding *bond, __be32 *targets,
- 				   int count);
- int bond_option_arp_ip_target_add(struct bonding *bond, __be32 target);
- int bond_option_arp_ip_target_rem(struct bonding *bond, __be32 target);
--int bond_option_arp_validate_set(struct bonding *bond, int arp_validate);
- int bond_option_arp_all_targets_set(struct bonding *bond, int arp_all_targets);
- int bond_option_primary_set(struct bonding *bond, const char *primary);
+@@ -468,8 +468,6 @@ int bond_option_primary_set(struct bonding *bond, const char *primary);
  int bond_option_primary_reselect_set(struct bonding *bond,
+ 				     int primary_reselect);
+ int bond_option_fail_over_mac_set(struct bonding *bond, int fail_over_mac);
+-int bond_option_xmit_hash_policy_set(struct bonding *bond,
+-				     int xmit_hash_policy);
+ int bond_option_resend_igmp_set(struct bonding *bond, int resend_igmp);
+ int bond_option_num_peer_notif_set(struct bonding *bond, int num_peer_notif);
+ int bond_option_all_slaves_active_set(struct bonding *bond,
 -- 
 1.8.4.2
