@@ -1,51 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] net: Fix some fallout from the etner_addr_copy() changes.
-Date: Tue, 21 Jan 2014 19:03:48 -0800 (PST)
-Message-ID: <20140121.190348.1653034020095660800.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
+From: Chris Ruehl <chris.ruehl@gtsys.com.hk>
+Subject: [PATCH 2/2] net: dm9000: Only call PHY reset for TYPE-B on shutdown
+Date: Wed, 22 Jan 2014 11:20:13 +0800
+Message-ID: <1390360813-29185-2-git-send-email-chris.ruehl@gtsys.com.hk>
+References: <1390360813-29185-1-git-send-email-chris.ruehl@gtsys.com.hk>
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	Chris Ruehl <chris.ruehl@gtsys.com.hk>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39469 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755054AbaAVDDt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 22:03:49 -0500
-Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	(Authenticated sender: davem-davemloft)
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id 4031D581ABB
-	for <netdev@vger.kernel.org>; Tue, 21 Jan 2014 19:03:49 -0800 (PST)
+Received: from mail.fpasia.hk ([202.130.89.98]:56881 "EHLO fpa01n0.fpasia.hk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753338AbaAVDU0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jan 2014 22:20:26 -0500
+In-Reply-To: <1390360813-29185-1-git-send-email-chris.ruehl@gtsys.com.hk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpuZXQvYXBwbGV0YWxrL2FhcnAuYzogSW4gZnVuY3Rpb24goV9fYWFycF9zZW5kX3F1ZXJ5ojoN
-Cm5ldC9hcHBsZXRhbGsvYWFycC5jOjEzNzoyOiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24g
-b2YgZnVuY3Rpb24goWV0aGVyX2FkZHJfY29weaIgWy1XZXJyb3I9aW1wbGljaXQtZnVuY3Rpb24t
-ZGVjbGFyYXRpb25dDQogLi4uDQpuZXQvYXRtL2xlYy5jOiBJbiBmdW5jdGlvbiChc2VuZF90b19s
-ZWNkojoNCm5ldC9hdG0vbGVjLmM6NTI0OjM6IHdhcm5pbmc6IHBhc3NpbmcgYXJndW1lbnQgMSBv
-ZiChZXRoZXJfYWRkcl9jb3B5oiBmcm9tIGluY29tcGF0aWJsZSBwb2ludGVyIHR5cGUgW2VuYWJs
-ZWQgYnkgZGVmYXVsdF0NCkluIGZpbGUgaW5jbHVkZWQgZnJvbSBuZXQvYXRtL2xlYy5jOjE3OjA6
-DQppbmNsdWRlL2xpbnV4L2V0aGVyZGV2aWNlLmg6MjI3OjIwOiBub3RlOiBleHBlY3RlZCChdTgg
-KqIgYnV0IGFyZ3VtZW50IGlzIG9mIHR5cGUgoXVuc2lnbmVkIGNoYXIgKCopWzZdog0KIC4uLg0K
-bmV0L2NhaWYvY2FpZl91c2IuYzogSW4gZnVuY3Rpb24goWNmdXNibF9jcmVhdGWiOg0KbmV0L2Nh
-aWYvY2FpZl91c2IuYzoxMDg6MjogZXJyb3I6IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0
-aW9uIKFldGhlcl9hZGRyX2NvcHmiIFstV2Vycm9yPWltcGxpY2l0LWZ1bmN0aW9uLWRlY2xhcmF0
-aW9uXQ0KDQpTaWduZWQtb2ZmLWJ5OiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5u
-ZXQ+DQotLS0NCiBuZXQvYXBwbGV0YWxrL2FhcnAuYyB8IDEgKw0KIG5ldC9hdG0vbGVjLmMgICAg
-ICAgIHwgMiArLQ0KIDIgZmlsZXMgY2hhbmdlZCwgMiBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9u
-KC0pDQoNCmRpZmYgLS1naXQgYS9uZXQvYXBwbGV0YWxrL2FhcnAuYyBiL25ldC9hcHBsZXRhbGsv
-YWFycC5jDQppbmRleCBkMGI3YmUxLi5kMjdiODZkIDEwMDY0NA0KLS0tIGEvbmV0L2FwcGxldGFs
-ay9hYXJwLmMNCisrKyBiL25ldC9hcHBsZXRhbGsvYWFycC5jDQpAQCAtNDAsNiArNDAsNyBAQA0K
-ICNpbmNsdWRlIDxsaW51eC9wcm9jX2ZzLmg+DQogI2luY2x1ZGUgPGxpbnV4L3NlcV9maWxlLmg+
-DQogI2luY2x1ZGUgPGxpbnV4L2V4cG9ydC5oPg0KKyNpbmNsdWRlIDxsaW51eC9ldGhlcmRldmlj
-ZS5oPg0KIA0KIGludCBzeXNjdGxfYWFycF9leHBpcnlfdGltZSA9IEFBUlBfRVhQSVJZX1RJTUU7
-DQogaW50IHN5c2N0bF9hYXJwX3RpY2tfdGltZSA9IEFBUlBfVElDS19USU1FOw0KZGlmZiAtLWdp
-dCBhL25ldC9hdG0vbGVjLmMgYi9uZXQvYXRtL2xlYy5jDQppbmRleCAwYjczYWU5Li41YTJmNjAy
-IDEwMDY0NA0KLS0tIGEvbmV0L2F0bS9sZWMuYw0KKysrIGIvbmV0L2F0bS9sZWMuYw0KQEAgLTUy
-MSw3ICs1MjEsNyBAQCBzZW5kX3RvX2xlY2Qoc3RydWN0IGxlY19wcml2ICpwcml2LCBhdG1sZWNf
-bXNnX3R5cGUgdHlwZSwNCiAJaWYgKGRhdGEgIT0gTlVMTCkNCiAJCW1lc2ctPnNpemVvZnRsdnMg
-PSBkYXRhLT5sZW47DQogCWlmIChtYWNfYWRkcikNCi0JCWV0aGVyX2FkZHJfY29weSgmbWVzZy0+
-Y29udGVudC5ub3JtYWwubWFjX2FkZHIsIG1hY19hZGRyKTsNCisJCWV0aGVyX2FkZHJfY29weSht
-ZXNnLT5jb250ZW50Lm5vcm1hbC5tYWNfYWRkciwgbWFjX2FkZHIpOw0KIAllbHNlDQogCQltZXNn
-LT5jb250ZW50Lm5vcm1hbC50YXJnZXRsZXNzX2xlX2FycCA9IDE7DQogCWlmIChhdG1fYWRkcikN
-Ci0tIA0KMS43LjExLjcNCg0K
+Unconditional call of PHY reset can triggers a fault to detect
+the link for DM9000A on reboot, only a hard reset can solve it.
+This patch check the version of the chip and call the PHY reset
+only for the B version of the chip.
+
+Signed-off-by: Chris Ruehl <chris.ruehl@gtsys.com.hk>
+---
+ drivers/net/ethernet/davicom/dm9000.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
+index 0349b91..55a2e9c 100644
+--- a/drivers/net/ethernet/davicom/dm9000.c
++++ b/drivers/net/ethernet/davicom/dm9000.c
+@@ -1333,7 +1333,8 @@ dm9000_shutdown(struct net_device *dev)
+ 	board_info_t *db = netdev_priv(dev);
+ 
+ 	/* RESET device */
+-	dm9000_phy_write(dev, 0, MII_BMCR, BMCR_RESET);	/* PHY RESET */
++	if (db->type == TYPE_DM9000B)
++		dm9000_phy_write(dev, 0, MII_BMCR, BMCR_RESET);	/* PHY RESET */
+ 	iow(db, DM9000_GPR, 0x01);	/* Power-Down PHY */
+ 	iow(db, DM9000_IMR, IMR_PAR);	/* Disable all interrupt */
+ 	iow(db, DM9000_RCR, 0x00);	/* Disable RX */
+-- 
+1.7.10.4
