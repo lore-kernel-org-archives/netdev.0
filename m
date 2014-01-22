@@ -1,35 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bnx2x: Fix VF flr flow
-Date: Tue, 21 Jan 2014 23:13:26 -0800 (PST)
-Message-ID: <20140121.231326.564835234426557051.davem@davemloft.net>
-References: <1390293080-21276-1-git-send-email-yuvalmin@broadcom.com>
+Subject: Re: [PATCH net-next] net/mlx4_core: Remove unnecessary validation
+ for port number
+Date: Tue, 21 Jan 2014 23:14:48 -0800 (PST)
+Message-ID: <20140121.231448.93291561692199367.davem@davemloft.net>
+References: <1390292377-11806-1-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ariele@broadcom.com
-To: yuvalmin@broadcom.com
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
+	monis@mellanox.co.il, matanb@mellanox.com
+To: amirv@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40528 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40542 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753497AbaAVHN1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 02:13:27 -0500
-In-Reply-To: <1390293080-21276-1-git-send-email-yuvalmin@broadcom.com>
+	with ESMTP id S1751059AbaAVHOs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 02:14:48 -0500
+In-Reply-To: <1390292377-11806-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <yuvalmin@broadcom.com>
-Date: Tue, 21 Jan 2014 10:31:20 +0200
+From: Amir Vadai <amirv@mellanox.com>
+Date: Tue, 21 Jan 2014 10:19:37 +0200
 
-> From: Ariel Elior <ariele@broadcom.com>
+> From: Moni Shoua <monis@mellanox.co.il>
 > 
-> When a VF originating from a given PF is flr-ed, that PF gets an interrupt
-> from the chip management and takes a part in the flr process.
+> This is a fix to a regression introduced by commit:
+> "982290a net/mlx4_core: Check port number for validity
+> before accessing data"
 > 
-> This patch fixes several corner cases in which the driver performs its part
-> of the flr flow out-of-order, causing the FW to assert due to badly timed
-> messages received from the driver.
+> IPoIB could not attach to multicast group and we get this in dmesg:
+> [144214.145008] ib0: failed to attach to multicast group, ret = -22
+> [144214.145016] ib0: couldn't attach QP to multicast group ff12:401b:ffff:0000:0000:0000:ffff:ffff
+> [144214.145019] ib0: multicast join failed for ff12:401b:ffff:0000:0000:0000:ffff:ffff, status -22
 > 
-> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-> Signed-off-by: Ariel Elior <ariele@broadcom.com>
+> The cause to the problem is because port is extracted from gid[5].
+> Which is only valid for Ethernet.
+> Removed this validation in mlx4_qp_attach_common(), which is accessed
+> from both Ethernet and IB flows.
+> Error flow for bad port value in Ethernet is already exists in that
+> function.
+> 
+> Signed-off-by: Moni Shoua <monis@mellanox.co.il>
+> Signed-off-by: Matan Barak <matanb@mellanox.com>
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
 
-Applied.
+Applied, thank you.
