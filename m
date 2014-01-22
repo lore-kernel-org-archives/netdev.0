@@ -1,87 +1,87 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v2 2/2] bonding: add netlink attributes to slave
- link dev
-Date: Wed, 22 Jan 2014 09:22:15 +0100
-Message-ID: <20140122082215.GA2814@minipsycho.orion>
-References: <20140117065756.3194.70179.stgit@monster-03.cumulusnetworks.com>
- <20140121133426.GC3015@minipsycho.orion>
- <0A99CC69-DBFF-46DF-9300-D2C6DF10A965@cumulusnetworks.com>
- <20140121220016.GF3015@minipsycho.orion>
- <C5AA1F6D-4FC7-42F6-A59F-A0114E1B2E8B@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-	Ding Tianhong <dingtianhong@huawei.com>
-To: Scott Feldman <sfeldma@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f52.google.com ([74.125.83.52]:64708 "EHLO
-	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750873AbaAVIWT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 03:22:19 -0500
-Received: by mail-ee0-f52.google.com with SMTP id e53so4634962eek.39
-        for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 00:22:18 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <C5AA1F6D-4FC7-42F6-A59F-A0114E1B2E8B@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Sojka <sojkam1@fel.cvut.cz>
+Subject: [PATCH v2 1/2] can: Decrease default size of CAN_RAW socket send queue
+Date: Wed, 22 Jan 2014 09:27:36 +0100
+Message-ID: <1390379257-9040-1-git-send-email-sojkam1@fel.cvut.cz>
+Cc: netdev@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>,
+	Michal Sojka <sojkam1@fel.cvut.cz>
+To: linux-can@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Jan 21, 2014 at 11:42:58PM CET, sfeldma@cumulusnetworks.com wrote:
->
->On Jan 21, 2014, at 2:00 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->
->> Tue, Jan 21, 2014 at 10:36:58PM CET, sfeldma@cumulusnetworks.com wro=
-te:
->>>=20
->>> On Jan 21, 2014, at 5:34 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>=20
->>>>> +	if (rtnl_bond_slave_fill(skb, dev))
->>>>> +		goto nla_put_failure;
->>>>> +
->>>>=20
->>>> I must say I do not like this at all. This should be done in a gen=
-eric
->>>> way. By a callback registered by bonding and possibly other master=
--slave
->>>> device types.
->>>=20
->>> The bond was registered with the ndo_get_slave op.  ndo_get_slave c=
-ould be used for other master-slave device types.  I=E2=80=99ll agree t=
-hat rtnl_bond_slave_fill() could have been written more generically.  I=
-s that the objection?
->>=20
->> I think is should be done rather in rtnl_link_ops. It's the natural =
-point
->> for this ops. I have patchset prepared. Will send it very soon.
->
->Ok, cool.
->
->Also, right now I have IFLA_SLAVE as a nest for IFLA_SLAVE_xxx attrs. =
- Do you think we should have a two-layer nest so we can capture other m=
-aster-slave devices rather than just bond slaves?  I.e.:
->
->	IFLA_SLAVE
->		IFLA_BOND_SLAVE
->			IFLA_BOND_SLAVE_xxx
->			IFLA_BOND_SLAVE_yyy
->			IFLA_BOND_SLAVE_zzz
->		IFLA_FOO_SLAVE			// FOO is some other non-bond master
->			IFLA_FOO_SLAVE_xxx
->			IFLA_FOO_SLAVE_yyy
->			IFLA_FOO_SLAVE_zzz
->
->(Of course, slave wouldn=E2=80=99t be bond and foo slave at same time)=
-=2E
+This fixes the infamous ENOBUFS problem, which appears when an
+application sends CAN frames faster than they leave the interface.
 
-I would rather do this in LINKINFO nest the same way IFLA_BOND_* are
-done. Please see following patch:
+Packets for sending can be queued at queueing discipline. Qdisc queue
+has two limits: maximum length and per-socket byte limit (SO_SNDBUF).
+Only the later limit can cause the sender to block. If maximum queue
+length limit is reached before the per-socket limit, the application
+receives ENOBUFS and there is no way how it can wait for the queue to
+become free again. Since the length of the qdisc queue was set by
+default to 10 packets, this is exactly what was happening.
 
-http://patchwork.ozlabs.org/patch/313156/
+This patch decreases the default per-socket limit to approximately 3
+CAN frames and increases the length of the qdisc queue to 100 frames.
+This setting allows for at least 33 CAN_RAW sockets to send
+simultaneously to the same CAN interface without getting ENOBUFS
+errors.
 
->
->-scott
+The exact maximum number of CAN frames that fit into the per-socket
+limit is: 1+floor(sk_sndbuf/skb->truesize)
+
+The calculation of the default sk_sndbuf value in the patch is only
+approximate, because skb->truesize can be slightly greater than
+SKB_TRUESIZE(). For example, for CAN frames on my 32 bit PowerPC
+system, SKB_TRUESIZE() = 408, but skb->truesize = 448. Therefore, on
+my system the per-socket limit allows 1+floor(3*408/448) =
+1+floor(2.73) = 3 CAN frames to be queued.
+
+Without this patch, the default per-socket limit is
+/proc/sys/net/core/wmem_default, which is 163840 on my system. This
+limit allows for queuing of 1+163840/448 = 366 CAN frames, which is
+clearly more than the queue length (10 frames).
+
+Since the per-socket limit is expressed in bytes, the number of queued
+CANFD frames, which are bigger than CAN frames, may be lower. This is
+not a big problem, because at least one frame could be always queued.
+
+Changes since v1:
+- Improved the commit message, added some number from my system.
+
+Signed-off-by: Michal Sojka <sojkam1@fel.cvut.cz>
+---
+ drivers/net/can/dev.c | 2 +-
+ net/can/raw.c         | 4 ++++
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
+index 1870c47..a0bce83 100644
+--- a/drivers/net/can/dev.c
++++ b/drivers/net/can/dev.c
+@@ -492,7 +492,7 @@ static void can_setup(struct net_device *dev)
+ 	dev->mtu = CAN_MTU;
+ 	dev->hard_header_len = 0;
+ 	dev->addr_len = 0;
+-	dev->tx_queue_len = 10;
++	dev->tx_queue_len = 100;
+ 
+ 	/* New-style flags. */
+ 	dev->flags = IFF_NOARP;
+diff --git a/net/can/raw.c b/net/can/raw.c
+index fdda5f6..4ad0bb2 100644
+--- a/net/can/raw.c
++++ b/net/can/raw.c
+@@ -291,6 +291,10 @@ static int raw_init(struct sock *sk)
+ {
+ 	struct raw_sock *ro = raw_sk(sk);
+ 
++	/* allow at most 3 frames to wait for transmission in socket queue */
++	sk->sk_sndbuf = 3 * SKB_TRUESIZE(sizeof(struct can_frame) +
++					 sizeof(struct can_skb_priv));
++
+ 	ro->bound            = 0;
+ 	ro->ifindex          = 0;
+ 
+-- 
+1.8.5.2
+
