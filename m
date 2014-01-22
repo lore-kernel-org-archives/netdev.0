@@ -1,75 +1,38 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] 6lowpan: add a license to 6lowpan_iphc module
-Date: Wed, 22 Jan 2014 14:49:09 -0800
-Message-ID: <54C711A5-F3BA-4327-B070-3DBE884543D1@holtmann.org>
-References: <1390418724-9804-1-git-send-email-ydroneaud@opteya.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.1 \(1827\))
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	"Gustavo F. Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-zigbee-devel@lists.sourceforge.net,
-	BlueZ development <linux-bluetooth@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Jukka Rissanen <jukka.rissanen@linux.intel.com>,
-	Alexander Aring <alex.aring@gmail.com>
-To: Yann Droneaud <ydroneaud@opteya.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1390418724-9804-1-git-send-email-ydroneaud@opteya.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net: Fix some fallout from the etner_addr_copy()
+ changes.
+Date: Wed, 22 Jan 2014 14:56:36 -0800
+Message-ID: <1390431396.31946.95.camel@joe-AO722>
+References: <20140121.190348.1653034020095660800.davem@davemloft.net>
+	 <20140121232331.130f34fc.billfink@mindspring.com>
+	 <20140121.225431.117378955801559296.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: billfink@mindspring.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0233.hostedemail.com ([216.40.44.233]:48391 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752711AbaAVW4k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 17:56:40 -0500
+In-Reply-To: <20140121.225431.117378955801559296.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Yann,
+On Tue, 2014-01-21 at 22:54 -0800, David Miller wrote:
+> From: Bill Fink <billfink@mindspring.com>
+> Date: Tue, 21 Jan 2014 23:23:31 -0500
+> 
+> > The commit message indicates problems with appletalk/aarp.c,
+> > atm/lec.c, and caif/caif_usb.c, but the diffstat and patch only
+> > address the first two and not caif/caif_usb.c.  Is that intended
+> > or am I missing something.
+> 
+> Thanks for catching that, I just pushed the missing change.
 
-> Since commit 8df8c56a5abc, 6lowpan_iphc is a module of its own.
->=20
-> Unfortunately, it lacks some infrastructure to behave like a
-> good kernel citizen:
->=20
->  kernel: 6lowpan_iphc: module license 'unspecified' taints kernel.
->  kernel: Disabling lock debugging due to kernel taint
->=20
-> This patch adds the basic MODULE_LICENSE(); with GPL license:
-> the code was copied from net/ieee802154/6lowpan.c which is GPL
-> and the module exports symbol with EXPORT_SYMBOL_GPL();.
->=20
-> Cc: Jukka Rissanen <jukka.rissanen@linux.intel.com>
-> Cc: Alexander Aring <alex.aring@gmail.com>
-> Cc: Marcel Holtmann <marcel@holtmann.org>
-> Signed-off-by: Yann Droneaud <ydroneaud@opteya.com>
-> ---
-> net/ieee802154/6lowpan_iphc.c | 3 +++
-> 1 file changed, 3 insertions(+)
->=20
-> diff --git a/net/ieee802154/6lowpan_iphc.c b/net/ieee802154/6lowpan_i=
-phc.c
-> index e14fe8b2c054..860aa2d445ba 100644
-> --- a/net/ieee802154/6lowpan_iphc.c
-> +++ b/net/ieee802154/6lowpan_iphc.c
-> @@ -52,6 +52,7 @@
->=20
-> #include <linux/bitops.h>
-> #include <linux/if_arp.h>
-> +#include <linux/module.h>
-> #include <linux/netdevice.h>
-> #include <net/ipv6.h>
-> #include <net/af_ieee802154.h>
-> @@ -797,3 +798,5 @@ int lowpan_header_compress(struct sk_buff *skb, s=
-truct net_device *dev,
-> 	return 0;
-> }
-> EXPORT_SYMBOL_GPL(lowpan_header_compress);
-> +
-> +MODULE_LICENSE("GPL=94);
+My apologies for my stupid carelessness in the
+patches I sent here.
 
-looks good to me.
-
-Acked-by: Marcel Holtmann <marcel@holtmann.org>
-
-Regards
-
-Marcel
+I thought #define ETH_ALEN was in the same #include
+as ether_addr_copy and I didn't bother compiling.
