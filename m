@@ -1,241 +1,244 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next v2 09/25] bonding: convert arp_ip_target to use the new option API
-Date: Wed, 22 Jan 2014 14:53:24 +0100
-Message-ID: <1390398820-5355-10-git-send-email-nikolay@redhat.com>
+Subject: [PATCH net-next v2 18/25] bonding: convert primary_reselect to use the new option API
+Date: Wed, 22 Jan 2014 14:53:33 +0100
+Message-ID: <1390398820-5355-19-git-send-email-nikolay@redhat.com>
 References: <1390398820-5355-1-git-send-email-nikolay@redhat.com>
 Cc: Nikolay Aleksandrov <nikolay@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47531 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:43551 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755682AbaAVNyB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jan 2014 08:54:01 -0500
+	id S1755923AbaAVNyK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jan 2014 08:54:10 -0500
 Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s0MDs0Et018581
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s0MDsAbl001423
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 08:54:01 -0500
+	for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 08:54:10 -0500
 In-Reply-To: <1390398820-5355-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the necessary changes so arp_ip_target would use
-the new bonding option API. This option is an exception because of
-the way it's currently implemented that's why its netlink code is
-a bit different from the other options to keep the functionality as
-before and at the same time to have a single set function.
-
-This patch also fixes a few stylistic errors.
+This patch adds the necessary changes so primary_reselect would use
+the new bonding option API.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- drivers/net/bonding/bond_netlink.c | 15 ++++++++----
- drivers/net/bonding/bond_options.c | 48 +++++++++++++++++++++++++++-----------
- drivers/net/bonding/bond_options.h |  4 ++++
- drivers/net/bonding/bond_sysfs.c   | 25 ++++----------------
+ drivers/net/bonding/bond_main.c    | 18 ++++++------------
+ drivers/net/bonding/bond_netlink.c |  3 ++-
+ drivers/net/bonding/bond_options.c | 30 +++++++++++++++++++-----------
+ drivers/net/bonding/bond_options.h |  3 +++
+ drivers/net/bonding/bond_procfs.c  |  7 +++++--
+ drivers/net/bonding/bond_sysfs.c   | 24 ++++++++----------------
  drivers/net/bonding/bonding.h      |  2 --
- 5 files changed, 53 insertions(+), 41 deletions(-)
+ 7 files changed, 43 insertions(+), 44 deletions(-)
 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index f606e2c..59edf18 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -206,13 +206,6 @@ static int bond_mode	= BOND_MODE_ROUNDROBIN;
+ static int xmit_hashtype = BOND_XMIT_POLICY_LAYER2;
+ static int lacp_fast;
+ 
+-const struct bond_parm_tbl pri_reselect_tbl[] = {
+-{	"always",		BOND_PRI_RESELECT_ALWAYS},
+-{	"better",		BOND_PRI_RESELECT_BETTER},
+-{	"failure",		BOND_PRI_RESELECT_FAILURE},
+-{	NULL,			-1},
+-};
+-
+ /*-------------------------- Forward declarations ---------------------------*/
+ 
+ static int bond_init(struct net_device *bond_dev);
+@@ -4248,14 +4241,15 @@ static int bond_check_params(struct bond_params *params)
+ 	}
+ 
+ 	if (primary && primary_reselect) {
+-		primary_reselect_value = bond_parse_parm(primary_reselect,
+-							 pri_reselect_tbl);
+-		if (primary_reselect_value == -1) {
++		bond_opt_initstr(&newval, primary_reselect);
++		valptr = bond_opt_parse(bond_opt_get(BOND_OPT_PRIMARY_RESELECT),
++					&newval);
++		if (!valptr) {
+ 			pr_err("Error: Invalid primary_reselect \"%s\"\n",
+-			       primary_reselect ==
+-					NULL ? "NULL" : primary_reselect);
++			       primary_reselect);
+ 			return -EINVAL;
+ 		}
++		primary_reselect_value = valptr->value;
+ 	} else {
+ 		primary_reselect_value = BOND_PRI_RESELECT_ALWAYS;
+ 	}
 diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
-index 74463f3..9164a5a 100644
+index b27e09d..709e938 100644
 --- a/drivers/net/bonding/bond_netlink.c
 +++ b/drivers/net/bonding/bond_netlink.c
-@@ -172,16 +172,23 @@ static int bond_changelink(struct net_device *bond_dev,
- 			return err;
- 	}
- 	if (data[IFLA_BOND_ARP_IP_TARGET]) {
--		__be32 targets[BOND_MAX_ARP_TARGETS] = { 0, };
- 		struct nlattr *attr;
- 		int i = 0, rem;
+@@ -236,7 +236,8 @@ static int bond_changelink(struct net_device *bond_dev,
+ 		int primary_reselect =
+ 			nla_get_u8(data[IFLA_BOND_PRIMARY_RESELECT]);
  
-+		bond_option_arp_ip_targets_clear(bond);
- 		nla_for_each_nested(attr, data[IFLA_BOND_ARP_IP_TARGET], rem) {
- 			__be32 target = nla_get_be32(attr);
--			targets[i++] = target;
--		}
- 
--		err = bond_option_arp_ip_targets_set(bond, targets, i);
-+			bond_opt_initval(&newval, target);
-+			err = __bond_opt_set(bond, BOND_OPT_ARP_TARGETS,
-+					     &newval);
-+			if (err)
-+				break;
-+			i++;
-+		}
-+		if (i == 0 && bond->params.arp_interval)
-+			pr_warn("%s: removing last arp target with arp_interval on\n",
-+				bond->dev->name);
+-		err = bond_option_primary_reselect_set(bond, primary_reselect);
++		bond_opt_initval(&newval, primary_reselect);
++		err = __bond_opt_set(bond, BOND_OPT_PRIMARY_RESELECT, &newval);
  		if (err)
  			return err;
  	}
 diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index df693af..df5f007 100644
+index f094a31..eaa3d40 100644
 --- a/drivers/net/bonding/bond_options.c
 +++ b/drivers/net/bonding/bond_options.c
-@@ -17,6 +17,7 @@
- #include <linux/rwlock.h>
- #include <linux/rcupdate.h>
- #include <linux/ctype.h>
-+#include <linux/inet.h>
- #include "bonding.h"
+@@ -92,6 +92,13 @@ static struct bond_opt_value bond_num_peer_notif_tbl[] = {
+ 	{ NULL,      -1,  0}
+ };
  
- static struct bond_opt_value bond_mode_tbl[] = {
-@@ -127,6 +128,13 @@ static struct bond_option bond_opts[] = {
- 		.values = bond_intmax_tbl,
- 		.set = bond_option_arp_interval_set
++static struct bond_opt_value bond_primary_reselect_tbl[] = {
++	{ "always",  BOND_PRI_RESELECT_ALWAYS,  BOND_VALFLAG_DEFAULT},
++	{ "better",  BOND_PRI_RESELECT_BETTER,  0},
++	{ "failure", BOND_PRI_RESELECT_FAILURE, 0},
++	{ NULL,      -1},
++};
++
+ static struct bond_option bond_opts[] = {
+ 	[BOND_OPT_MODE] = {
+ 		.id = BOND_OPT_MODE,
+@@ -217,6 +224,13 @@ static struct bond_option bond_opts[] = {
+ 						BIT(BOND_MODE_ALB)),
+ 		.set = bond_option_primary_set
  	},
-+	[BOND_OPT_ARP_TARGETS] = {
-+		.id = BOND_OPT_ARP_TARGETS,
-+		.name = "arp_ip_target",
-+		.desc = "arp targets in n.n.n.n form",
-+		.flags = BOND_OPTFLAG_RAWVAL,
-+		.set = bond_option_arp_ip_targets_set
++	[BOND_OPT_PRIMARY_RESELECT] = {
++		.id = BOND_OPT_PRIMARY_RESELECT,
++		.name = "primary_reselect",
++		.desc = "Reselect primary slave once it comes up",
++		.values = bond_primary_reselect_tbl,
++		.set = bond_option_primary_reselect_set
 +	},
  	{ }
  };
  
-@@ -757,29 +765,41 @@ int bond_option_arp_ip_target_rem(struct bonding *bond, __be32 target)
+@@ -943,18 +957,12 @@ out:
  	return 0;
  }
  
--int bond_option_arp_ip_targets_set(struct bonding *bond, __be32 *targets,
--				   int count)
-+void bond_option_arp_ip_targets_clear(struct bonding *bond)
+-int bond_option_primary_reselect_set(struct bonding *bond, int primary_reselect)
++int bond_option_primary_reselect_set(struct bonding *bond,
++				     struct bond_opt_value *newval)
  {
--	int i, ret = 0;
-+	int i;
- 
- 	/* not to race with bond_arp_rcv */
- 	write_lock_bh(&bond->lock);
+-	if (bond_parm_tbl_lookup(primary_reselect, pri_reselect_tbl) < 0) {
+-		pr_err("%s: Ignoring invalid primary_reselect value %d.\n",
+-		       bond->dev->name, primary_reselect);
+-		return -EINVAL;
+-	}
 -
--	/* clear table */
- 	for (i = 0; i < BOND_MAX_ARP_TARGETS; i++)
- 		_bond_options_arp_ip_target_set(bond, i, 0, 0);
-+	write_unlock_bh(&bond->lock);
-+}
+-	bond->params.primary_reselect = primary_reselect;
+-	pr_info("%s: setting primary_reselect to %s (%d).\n",
+-		bond->dev->name, pri_reselect_tbl[primary_reselect].modename,
+-		primary_reselect);
++	pr_info("%s: setting primary_reselect to %s (%llu).\n",
++		bond->dev->name, newval->string, newval->value);
++	bond->params.primary_reselect = newval->value;
  
--	if (count == 0 && bond->params.arp_interval)
--		pr_warn("%s: removing last arp target with arp_interval on\n",
--			bond->dev->name);
--
--	for (i = 0; i < count; i++) {
--		ret = _bond_option_arp_ip_target_add(bond, targets[i]);
--		if (ret)
--			break;
-+int bond_option_arp_ip_targets_set(struct bonding *bond,
-+				   struct bond_opt_value *newval)
-+{
-+	int ret = -EPERM;
-+	__be32 target;
-+
-+	if (newval->string) {
-+		if (!in4_pton(newval->string+1, -1, (u8 *)&target, -1, NULL)) {
-+			pr_err("%s: invalid ARP target %pI4 specified\n",
-+			       bond->dev->name, &target);
-+			return ret;
-+		}
-+		if (newval->string[0] == '+')
-+			ret = bond_option_arp_ip_target_add(bond, target);
-+		else if (newval->string[0] == '-')
-+			ret = bond_option_arp_ip_target_rem(bond, target);
-+		else
-+			pr_err("no command found in arp_ip_targets file for bond %s. Use +<addr> or -<addr>.\n",
-+			       bond->dev->name);
-+	} else {
-+		target = newval->value;
-+		ret = bond_option_arp_ip_target_add(bond, target);
- 	}
- 
--	write_unlock_bh(&bond->lock);
- 	return ret;
- }
- 
+ 	block_netpoll_tx();
+ 	write_lock_bh(&bond->curr_slave_lock);
 diff --git a/drivers/net/bonding/bond_options.h b/drivers/net/bonding/bond_options.h
-index f02b857..da35148 100644
+index 6ff83103..1de315c 100644
 --- a/drivers/net/bonding/bond_options.h
 +++ b/drivers/net/bonding/bond_options.h
-@@ -45,6 +45,7 @@ enum {
- 	BOND_OPT_ARP_ALL_TARGETS,
- 	BOND_OPT_FAIL_OVER_MAC,
- 	BOND_OPT_ARP_INTERVAL,
-+	BOND_OPT_ARP_TARGETS,
+@@ -54,6 +54,7 @@ enum {
+ 	BOND_OPT_NUM_PEER_NOTIF,
+ 	BOND_OPT_MIIMON,
+ 	BOND_OPT_PRIMARY,
++	BOND_OPT_PRIMARY_RESELECT,
  	BOND_OPT_LAST
  };
  
-@@ -117,4 +118,7 @@ int bond_option_fail_over_mac_set(struct bonding *bond,
- 				  struct bond_opt_value *newval);
- int bond_option_arp_interval_set(struct bonding *bond,
- 				 struct bond_opt_value *newval);
-+int bond_option_arp_ip_targets_set(struct bonding *bond,
-+				   struct bond_opt_value *newval);
-+void bond_option_arp_ip_targets_clear(struct bonding *bond);
+@@ -144,4 +145,6 @@ int bond_option_num_peer_notif_set(struct bonding *bond,
+ int bond_option_miimon_set(struct bonding *bond, struct bond_opt_value *newval);
+ int bond_option_primary_set(struct bonding *bond,
+ 			    struct bond_opt_value *newval);
++int bond_option_primary_reselect_set(struct bonding *bond,
++				     struct bond_opt_value *newval);
  #endif /* _BOND_OPTIONS_H */
+diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
+index d28c3d7..3ac20e7 100644
+--- a/drivers/net/bonding/bond_procfs.c
++++ b/drivers/net/bonding/bond_procfs.c
+@@ -97,9 +97,12 @@ static void bond_info_show_master(struct seq_file *seq)
+ 		seq_printf(seq, "Primary Slave: %s",
+ 			   (bond->primary_slave) ?
+ 			   bond->primary_slave->dev->name : "None");
+-		if (bond->primary_slave)
++		if (bond->primary_slave) {
++			optval = bond_opt_get_val(BOND_OPT_PRIMARY_RESELECT,
++						  bond->params.primary_reselect);
+ 			seq_printf(seq, " (primary_reselect %s)",
+-		   pri_reselect_tbl[bond->params.primary_reselect].modename);
++				   optval->string);
++		}
+ 
+ 		seq_printf(seq, "\nCurrently Active Slave: %s\n",
+ 			   (curr) ? curr->dev->name : "None");
 diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 585c38c..5eeb3a2 100644
+index 10c58ef..7f307bf 100644
 --- a/drivers/net/bonding/bond_sysfs.c
 +++ b/drivers/net/bonding/bond_sysfs.c
-@@ -454,8 +454,8 @@ static ssize_t bonding_show_arp_targets(struct device *d,
- 					struct device_attribute *attr,
- 					char *buf)
+@@ -729,35 +729,27 @@ static ssize_t bonding_show_primary_reselect(struct device *d,
+ 					     char *buf)
  {
--	int i, res = 0;
  	struct bonding *bond = to_bond(d);
-+	int i, res = 0;
- 
- 	for (i = 0; i < BOND_MAX_ARP_TARGETS; i++) {
- 		if (bond->params.arp_targets[i])
-@@ -464,6 +464,7 @@ static ssize_t bonding_show_arp_targets(struct device *d,
- 	}
- 	if (res)
- 		buf[res-1] = '\n'; /* eat the leftover space */
++	struct bond_opt_value *val;
 +
- 	return res;
++	val = bond_opt_get_val(BOND_OPT_PRIMARY_RESELECT,
++			       bond->params.primary_reselect);
+ 
+ 	return sprintf(buf, "%s %d\n",
+-		       pri_reselect_tbl[bond->params.primary_reselect].modename,
+-		       bond->params.primary_reselect);
++		       val->string, bond->params.primary_reselect);
  }
  
-@@ -472,30 +473,12 @@ static ssize_t bonding_store_arp_targets(struct device *d,
- 					 const char *buf, size_t count)
+ static ssize_t bonding_store_primary_reselect(struct device *d,
+ 					      struct device_attribute *attr,
+ 					      const char *buf, size_t count)
  {
+-	int new_value, ret;
  	struct bonding *bond = to_bond(d);
--	__be32 target;
--	int ret = -EPERM;
--
--	if (!in4_pton(buf + 1, -1, (u8 *)&target, -1, NULL)) {
--		pr_err("%s: invalid ARP target %pI4 specified\n",
--		       bond->dev->name, &target);
--		return -EPERM;
++	int ret;
+ 
+-	new_value = bond_parse_parm(buf, pri_reselect_tbl);
+-	if (new_value < 0)  {
+-		pr_err("%s: Ignoring invalid primary_reselect value %.*s.\n",
+-		       bond->dev->name,
+-		       (int) strlen(buf) - 1, buf);
+-		return -EINVAL;
 -	}
 -
 -	if (!rtnl_trylock())
 -		return restart_syscall();
 -
--	if (buf[0] == '+')
--		ret = bond_option_arp_ip_target_add(bond, target);
--	else if (buf[0] == '-')
--		ret = bond_option_arp_ip_target_rem(bond, target);
--	else
--		pr_err("no command found in arp_ip_targets file for bond %s. Use +<addr> or -<addr>.\n",
--		       bond->dev->name);
-+	int ret;
- 
-+	ret = bond_opt_tryset_rtnl(bond, BOND_OPT_ARP_TARGETS, (char *)buf);
+-	ret = bond_option_primary_reselect_set(bond, new_value);
++	ret = bond_opt_tryset_rtnl(bond, BOND_OPT_PRIMARY_RESELECT,
++				   (char *)buf);
  	if (!ret)
  		ret = count;
  
 -	rtnl_unlock();
  	return ret;
  }
- static DEVICE_ATTR(arp_ip_target, S_IRUGO | S_IWUSR , bonding_show_arp_targets, bonding_store_arp_targets);
+ static DEVICE_ATTR(primary_reselect, S_IRUGO | S_IWUSR,
 diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 7d39588..5a63c0e 100644
+index 8916854..afa443d 100644
 --- a/drivers/net/bonding/bonding.h
 +++ b/drivers/net/bonding/bonding.h
-@@ -457,8 +457,6 @@ int bond_option_miimon_set(struct bonding *bond, int miimon);
- int bond_option_updelay_set(struct bonding *bond, int updelay);
- int bond_option_downdelay_set(struct bonding *bond, int downdelay);
+@@ -456,8 +456,6 @@ int bond_option_active_slave_set(struct bonding *bond, struct net_device *slave_
  int bond_option_use_carrier_set(struct bonding *bond, int use_carrier);
--int bond_option_arp_ip_targets_set(struct bonding *bond, __be32 *targets,
--				   int count);
  int bond_option_arp_ip_target_add(struct bonding *bond, __be32 target);
  int bond_option_arp_ip_target_rem(struct bonding *bond, __be32 target);
- int bond_option_primary_set(struct bonding *bond, const char *primary);
+-int bond_option_primary_reselect_set(struct bonding *bond,
+-				     int primary_reselect);
+ int bond_option_resend_igmp_set(struct bonding *bond, int resend_igmp);
+ int bond_option_all_slaves_active_set(struct bonding *bond,
+ 				      int all_slaves_active);
 -- 
 1.8.4.2
