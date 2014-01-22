@@ -1,60 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: filter: let bpf_tell_extensions return
- SKF_AD_MAX
-Date: Tue, 21 Jan 2014 18:55:56 -0800 (PST)
-Message-ID: <20140121.185556.583331457644438783.davem@davemloft.net>
-References: <1390259977-28770-1-git-send-email-dborkman@redhat.com>
+From: Dominic Curran <dominic.curran@citrix.com>
+Subject: [PATCH net-next v3] tuntap: Fix for a race in accessing numqueues
+Date: Wed, 22 Jan 2014 03:03:23 +0000
+Message-ID: <1390359803-27989-1-git-send-email-dominic.curran@citrix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, msekleta@redhat.com, edumazet@google.com
-To: dborkman@redhat.com
+Content-Type: text/plain
+Cc: Dominic Curran <dominic.curran@citrix.com>,
+	Jason Wang <jasowang@redhat.com>,
+	Maxim Krasnyansky <maxk@qti.qualcomm.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39433 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752440AbaAVCz5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 21:55:57 -0500
-In-Reply-To: <1390259977-28770-1-git-send-email-dborkman@redhat.com>
+Received: from smtp.citrix.com ([66.165.176.89]:46755 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753497AbaAVDDj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jan 2014 22:03:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Tue, 21 Jan 2014 00:19:37 +0100
+A patch for fixing a race between queue selection and changing queues
+was introduced in commit 92bb73ea2("tuntap: fix a possible race between
+queue selection and changing queues").
 
-> Michal Sekletar added in commit ea02f9411d9f ("net: introduce
-> SO_BPF_EXTENSIONS") a facility where user space can enquire
-> the BPF ancillary instruction set, which is imho a step into
-> the right direction for letting user space high-level to BPF
-> optimizers make an informed decision for possibly using these
-> extensions.
-> 
-> The original rationale was to return through a getsockopt(2)
-> a bitfield of which instructions are supported and which
-> are not, as of right now, we just return 0 to indicate a
-> base support for SKF_AD_PROTOCOL up to SKF_AD_PAY_OFFSET.
-> Limitations of this approach are that this API which we need
-> to maintain for a long time can only support a maximum of 32
-> extensions, and needs to be additionally maintained/updated
-> when each new extension that comes in.
-> 
-> I thought about this a bit more and what we can do here to
-> overcome this is to just return SKF_AD_MAX. Since we never
-> remove any extension since we cannot break user space and
-> always linearly increase SKF_AD_MAX on each newly added
-> extension, user space can make a decision on what extensions
-> are supported in the whole set of extensions and which aren't,
-> by just checking which of them from the whole set have an
-> offset < SKF_AD_MAX of the underlying kernel.
-> 
-> Since SKF_AD_MAX must be updated each time we add new ones,
-> we don't need to introduce an additional enum and got
-> maintenance for free. At some point in time when
-> SO_BPF_EXTENSIONS becomes ubiquitous for most kernels, then
-> an application can simply make use of this and easily be run
-> on newer or older underlying kernels without needing to be
-> recompiled, of course. Since that is for 3.14, it's not too
-> late to do this change.
-> 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+The fix was to prevent the driver from re-reading the tun->numqueues
+more than once within tun_select_queue() using ACCESS_ONCE().
 
-Completely agreed, applied, thanks Daniel.
+We have been experiancing 'Divide-by-zero' errors in tun_net_xmit() 
+since we moved from 3.6 to 3.10, and believe that they come from a 
+simular source where the value of tun->numqueues changes to zero 
+between the first and a subsequent read of tun->numqueues.
+
+The fix is a simular use of ACCESS_ONCE(), as well as a multiply
+instead of a divide in the if statement.
+
+Signed-off-by: Dominic Curran <dominic.curran@citrix.com>
+Cc: Jason Wang <jasowang@redhat.com>
+Cc: Maxim Krasnyansky <maxk@qti.qualcomm.com>
+---
+V3: Rebase against net-next. Include all numqueues in function.
+V2: Use multiply instead of divide. Suggested by Eric Dumazet.
+    Fixed email address for maxk. Rebase against net tree.
+---
+ drivers/net/tun.c |   10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+Index: net-next/drivers/net/tun.c
+===================================================================
+--- net-next.orig/drivers/net/tun.c	2014-01-22 02:50:01.000000000 +0000
++++ net-next/drivers/net/tun.c	2014-01-22 02:59:42.000000000 +0000
+@@ -738,15 +738,17 @@ static netdev_tx_t tun_net_xmit(struct s
+ 	struct tun_struct *tun = netdev_priv(dev);
+ 	int txq = skb->queue_mapping;
+ 	struct tun_file *tfile;
++	u32 numqueues = 0;
+ 
+ 	rcu_read_lock();
+ 	tfile = rcu_dereference(tun->tfiles[txq]);
++	numqueues = ACCESS_ONCE(tun->numqueues);
+ 
+ 	/* Drop packet if interface is not attached */
+-	if (txq >= tun->numqueues)
++	if (txq >= numqueues)
+ 		goto drop;
+ 
+-	if (tun->numqueues == 1) {
++	if (numqueues == 1) {
+ 		/* Select queue was not called for the skbuff, so we extract the
+ 		 * RPS hash and save it into the flow_table here.
+ 		 */
+@@ -779,8 +781,8 @@ static netdev_tx_t tun_net_xmit(struct s
+ 	/* Limit the number of packets queued by dividing txq length with the
+ 	 * number of queues.
+ 	 */
+-	if (skb_queue_len(&tfile->socket.sk->sk_receive_queue)
+-			  >= dev->tx_queue_len / tun->numqueues)
++	if (skb_queue_len(&tfile->socket.sk->sk_receive_queue) * numqueues
++			  >= dev->tx_queue_len)
+ 		goto drop;
+ 
+ 	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
