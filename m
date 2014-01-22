@@ -1,93 +1,73 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] net: sctp: Fix a_rwnd/rwnd management to reflect real
- state of the receiver's buffer
-Date: Wed, 22 Jan 2014 09:18:28 -0500
-Message-ID: <52DFD334.7030507@gmail.com>
-References: <52D8D544.5050501@nsn.com> <20140122123059.GA9393@hmsreliant.think-freely.org>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH net-next 1/3] bonding: Set the correct value to fail_over_mac
+ at enslavement
+Date: Wed, 22 Jan 2014 15:20:43 +0100
+Message-ID: <52DFD3BB.5010708@redhat.com>
+References: <52DF8DB8.9000006@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org,
-	Alexander Sverdlin <alexander.sverdlin@nsn.com>,
-	netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>,
-	Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
+To: Ding Tianhong <dingtianhong@huawei.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f177.google.com ([209.85.216.177]:62547 "EHLO
-	mail-qc0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755334AbaAVOSe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 09:18:34 -0500
-In-Reply-To: <20140122123059.GA9393@hmsreliant.think-freely.org>
+Received: from mx1.redhat.com ([209.132.183.28]:23020 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752549AbaAVOZR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jan 2014 09:25:17 -0500
+In-Reply-To: <52DF8DB8.9000006@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/22/2014 07:30 AM, Neil Horman wrote:
-> On Fri, Jan 17, 2014 at 08:01:24AM +0100, Matija Glavinic Pecotic wrote:
->>
->> Proposed solution simplifies whole algorithm having on mind
-definition from rfc:
->>
->> o  Receiver Window (rwnd): This gives the sender an indication of the
-space
->>    available in the receiver's inbound buffer.
->>
->> Core of the proposed solution is given with these lines:
->>
->> sctp_assoc_rwnd_account:
->> 	if ((asoc->base.sk->sk_rcvbuf - rx_count) > 0)
->> 		asoc->rwnd = (asoc->base.sk->sk_rcvbuf - rx_count) >> 1;
->> 	else
->> 		asoc->rwnd = 0;
->>
->> We advertise to sender (half of) actual space we have. Half is in the
-braces
->> depending whether you would like to observe size of socket buffer as
-SO_RECVBUF
->> or twice the amount, i.e. size is the one visible from userspace,
-that is,
->> from kernelspace.
->> In this way sender is given with good approximation of our buffer space,
->> regardless of the buffer policy - we always advertise what we have.
-Proposed
->> solution fixes described problems and removes necessity for rwnd
-restoration
->> algorithm. Finally, as proposed solution is simplification, some
-lines of code,
->> along with some bytes in struct sctp_association are saved.
->>
->> Signed-off-by: Matija Glavinic Pecotic
-<matija.glavinic-pecotic.ext@nsn.com>
->> Reviewed-by: Alexander Sverdlin <alexander.sverdlin@nsn.com>
->>
->
->
-> General comment - While this seems to make sense to me generally speaking,
-> doesn't it currently violate section 6 of the RFC?
->
->
-> A SCTP receiver MUST be able to receive a minimum of 1500 bytes in
->    one SCTP packet.  This means that a SCTP endpoint MUST NOT indicate
->    less than 1500 bytes in its Initial a_rwnd sent in the INIT or INIT
->    ACK.
->
-> Since we set the initial rwnd value to the larger of sk->sk_rcvbuf/2 or
-> SCTP_MIN_RWND (1500 bytes), won't we potentially advertize half that
-amount?
+On 01/22/2014 10:22 AM, Ding Tianhong wrote:
+> If the new slave don't support setting the MAC address, there are
+> two ways to handle this situation:
+> 
+> 1). If the new slave is the first slave, set bond to the new slave's
+>     MAC address, if the mode is active-backup, set fail_over_mac to
+>     active, otherwise set fail_over_mac to none.
+> 2). If the new slave is not the first slave and the fail_over_mac is
+>     active, it means that the slave could work normally in active-backup
+>     mode, otherwise if the fail_over_mac is none, the slave could not
+>     work normally for no active-backup mode, so bond could not ensalve
+>     the new dev.
+> 
+> Cc: Jay Vosburgh <fubar@us.ibm.com>
+> Cc: Veaceslav Falico <vfalico@redhat.com>
+> Cc: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> ---
+>  drivers/net/bonding/bond_main.c | 12 ++++++++++--
+>  1 file changed, 10 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 3220b48..598f100 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -1334,9 +1334,17 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+>  
+>  	if (slave_ops->ndo_set_mac_address == NULL) {
+>  		if (!bond_has_slaves(bond)) {
+> -			pr_warning("%s: Warning: The first slave device specified does not support setting the MAC address. Setting fail_over_mac to active.",
+> +			pr_warning("%s: Warning: The first slave device specified does not support setting the MAC address.\n",
+>  				   bond_dev->name);
+> -			bond->params.fail_over_mac = BOND_FOM_ACTIVE;
+> +			if (bond->params.mode == BOND_MODE_ACTIVEBACKUP) {
+> +				bond->params.fail_over_mac = BOND_FOM_ACTIVE;
+> +				pr_warning("%s: Setting fail_over_mac to active for active-backup mode.\n",
+> +					   bond_dev->name);
+> +			} else {
+> +				bond->params.fail_over_mac = BOND_FOM_NONE;
+> +				pr_warning("%s: Setting fail_over_mac to none for no active-backup modes",
+At least make the warnings consistent: "... for no active-backup mode.\n".
+Also you might consider switching to pr_warn.
 
-Not initially.  Initial window will still be advertized properly.  Once
-we receive the first packet and consumed some space, we'll advertize
-half of available receive buffer.  It is perfectly OK to advertize a
-window smaller the MIN_WINDOW in the middle of the transfer.
-
-> It seems we need to double the minimum socket receive buffer here.
-
-Not here specifically, but yes.  It is already broken and this patch
-doesn't change current behavior.  This is something SCTP may need to do
-separately.
-
--vlad
-
->
-> Neil
->
->
+> +					   bond_dev->name);
+> +			}
+>  		} else if (bond->params.fail_over_mac != BOND_FOM_ACTIVE) {
+>  			pr_err("%s: Error: The slave device specified does not support setting the MAC address, but fail_over_mac is not set to active.\n",
+>  			       bond_dev->name);
+> 
