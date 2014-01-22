@@ -1,45 +1,34 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH] net/openvswitch: Remove the skb encapsulation mark after decapsulation
-Date: Wed, 22 Jan 2014 19:23:16 +0200
-Message-ID: <CAJZOPZ+oRD=76JUELo51yZTTvjnc=4HYy0EPWtR1HH1CY870cA@mail.gmail.com>
-References: <1390403705-28690-1-git-send-email-ogerlitz@mellanox.com>
-	<CAEP_g=9_8aPyve-obKCLo9ByFPvSNEtNBpaUKCw7X8Tcc3U1yA@mail.gmail.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [net-next PATCH 1/1] drivers: net: cpsw: enable promiscuous mode
+ support
+Date: Wed, 22 Jan 2014 22:53:24 +0530
+Message-ID: <52DFFE8C.3020509@ti.com>
+References: <1390219718-31749-1-git-send-email-mugunthanvnm@ti.com> <20140121.181137.840971123475894969.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:45039 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752311AbaAVRXR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 12:23:17 -0500
-Received: by mail-pa0-f49.google.com with SMTP id hz1so663064pad.36
-        for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 09:23:17 -0800 (PST)
-In-Reply-To: <CAEP_g=9_8aPyve-obKCLo9ByFPvSNEtNBpaUKCw7X8Tcc3U1yA@mail.gmail.com>
+Received: from bear.ext.ti.com ([192.94.94.41]:57896 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752510AbaAVRX2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jan 2014 12:23:28 -0500
+In-Reply-To: <20140121.181137.840971123475894969.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 22, 2014 at 7:02 PM, Jesse Gross <jesse@nicira.com> wrote:
-> On Wed, Jan 22, 2014 at 7:15 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
->> We must unset the skb encapsulation mark before injecting the
->> decapsulated packet into ovs for the rest of its journey.
->>
->> This follows the practice set by 0afb166 "vxlan: Add capability of Rx
->> checksum offload for inner packet" and the overall idea behind the
->> skb encapsulation field.
->>
->> Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>
->> Cc: Pravin B Shelar <pshelar@nicira.com>
->> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+On Wednesday 22 January 2014 07:41 AM, David Miller wrote:
+> From: Mugunthan V N <mugunthanvnm@ti.com>
+> Date: Mon, 20 Jan 2014 17:38:38 +0530
 >
-> This should be in the common decapsulation code. It doesn't make sense
-> to do this here when we set the layer pointers, encap bit, etc. in
-> common code on transmit.
+>> +		if (!enable && ((priv->slaves[0].ndev->flags & IFF_PROMISC) ||
+>> +				(priv->slaves[1].ndev->flags & IFF_PROMISC))) {
+> This assumption that there are exactly 2 slaves is not valid.
+>
+> Use the appropriate for_each_slave() et al. abstractions to access
+> the slaves.
+Will fix this in next version.
 
-well that's a bit problematic, since the code in the vxlan driver vxlan_rcv()
-which has the potential to be common refers to vxlan->dev-> which is
-irrelevant for ovs, thoughts?
+Regards
+Mugunthan V N
