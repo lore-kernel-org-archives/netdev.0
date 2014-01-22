@@ -1,61 +1,57 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH] net/openvswitch: Remove the skb encapsulation mark after decapsulation
-Date: Wed, 22 Jan 2014 20:49:52 +0200
-Message-ID: <CAJZOPZLURFDYJ+4WBTQKEsc0MGhPZTPYahTUN+nS8KFispaWoA@mail.gmail.com>
-References: <1390403705-28690-1-git-send-email-ogerlitz@mellanox.com>
-	<CAEP_g=9_8aPyve-obKCLo9ByFPvSNEtNBpaUKCw7X8Tcc3U1yA@mail.gmail.com>
-	<CAJZOPZ+oRD=76JUELo51yZTTvjnc=4HYy0EPWtR1HH1CY870cA@mail.gmail.com>
-	<CAEP_g=9n5=a28-AOJYVt56OQLvO2X6nA+nVbOqhWEQK9jQqMGw@mail.gmail.com>
+From: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
+Subject: Re: [Xen-devel] [PATCH v4] xen/grant-table: Avoid m2p_override during
+ mapping
+Date: Wed, 22 Jan 2014 18:50:20 +0000
+Message-ID: <alpine.DEB.2.02.1401221848080.21510@kaball.uk.xensource.com>
+References: <1390335755-29328-1-git-send-email-zoltan.kiss@citrix.com> <alpine.DEB.2.02.1401221618340.21510@kaball.uk.xensource.com> <52E00FB7.3040508@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: Jesse Gross <jesse@nicira.com>,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:42036 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752767AbaAVStz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 13:49:55 -0500
-Received: by mail-pb0-f42.google.com with SMTP id jt11so763825pbb.29
-        for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 10:49:53 -0800 (PST)
-In-Reply-To: <CAEP_g=9n5=a28-AOJYVt56OQLvO2X6nA+nVbOqhWEQK9jQqMGw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
+	<ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52E00FB7.3040508@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 22, 2014 at 8:02 PM, Jesse Gross <jesse@nicira.com> wrote:
-> On Wed, Jan 22, 2014 at 9:23 AM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
->> On Wed, Jan 22, 2014 at 7:02 PM, Jesse Gross <jesse@nicira.com> wrote:
->>> On Wed, Jan 22, 2014 at 7:15 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
->>>> We must unset the skb encapsulation mark before injecting the
->>>> decapsulated packet into ovs for the rest of its journey.
->>>>
->>>> This follows the practice set by 0afb166 "vxlan: Add capability of Rx
->>>> checksum offload for inner packet" and the overall idea behind the
->>>> skb encapsulation field.
->>>>
->>>> Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>
->>>> Cc: Pravin B Shelar <pshelar@nicira.com>
->>>> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
->>>
->>> This should be in the common decapsulation code. It doesn't make sense
->>> to do this here when we set the layer pointers, encap bit, etc. in
->>> common code on transmit.
->>
->> well that's a bit problematic, since the code in the vxlan driver vxlan_rcv()
->> which has the potential to be common refers to vxlan->dev-> which is
->> irrelevant for ovs, thoughts?
->
-> Well, as I said before, I don't really see the value in the
-> NETIF_F_RXCSUM flag on a VXLAN device
+On Wed, 22 Jan 2014, Zoltan Kiss wrote:
+> On 22/01/14 16:39, Stefano Stabellini wrote:
+> > On Tue, 21 Jan 2014, Zoltan Kiss wrote:
+> > > @@ -121,7 +125,7 @@ static inline unsigned long mfn_to_pfn(unsigned long
+> > > mfn)
+> > >   		pfn = m2p_find_override_pfn(mfn, ~0);
+> > >   	}
+> > > 
+> > > -	/*
+> > > +	/*
+> > 
+> > Spurious change?
+> It removes a stray space from the original code. Not necessary, but if it's
+> there, I think we can keep it.
 
-I am OK with that too, Joseph?
+Usually cosmetic changes are done in a separate patch, or at the very
+least they are mentioned in the commit message.
 
-> but in any case you could break that if statement in half and
-> move the part that doesn't refer to vxlan->dev into common code.
 
-So if Joseph is OK with the above I'll just remove the check and move
-the code to common  code and if not, I'll have most of it common and
-this one separately, good, we have a plan.
+> > > diff --git a/arch/x86/xen/p2m.c b/arch/x86/xen/p2m.c
+> > > index 2ae8699..0060178 100644
+> > > --- a/arch/x86/xen/p2m.c
+> > > +++ b/arch/x86/xen/p2m.c
+> > > @@ -872,15 +872,13 @@ static unsigned long mfn_hash(unsigned long mfn)
+> > > 
+> > >   /* Add an MFN override for a particular page */
+> > >   int m2p_add_override(unsigned long mfn, struct page *page,
+> > > -		struct gnttab_map_grant_ref *kmap_op)
+> > > +		struct gnttab_map_grant_ref *kmap_op, unsigned long pfn)
+> > 
+> > Do we really need to add another additional parameter to
+> > m2p_add_override?
+> > I would just let m2p_add_override and m2p_remove_override call
+> > page_to_pfn again. It is not that expensive.
+> Yes, because that page_to_pfn can return something different. That's why the
+> v2 patches failed.
+
+I am really curious: how can page_to_pfn return something different?
+I don't think is supposed to happen.
