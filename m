@@ -1,47 +1,62 @@
-From: Scott Feldman <sfeldma@cumulusnetworks.com>
-Subject: Re: [patch net-next 0/5] fix bonding slave info API (sysfs and netlink)
-Date: Wed, 22 Jan 2014 15:06:22 -0800
-Message-ID: <8C35F74B-5760-4EB1-80AA-88E9B701ABD1@cumulusnetworks.com>
-References: <1390377957-31466-1-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0 (Mac OS X Mail 7.1 \(1827\))
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	vyasevic@redhat.com, nicolas.dichtel@6wind.com,
-	john.r.fastabend@intel.com
-To: Jiri Pirko <jiri@resnulli.us>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 won't transmit with 3.12
+Date: Thu, 23 Jan 2014 00:31:35 +0100
+Message-ID: <20140122233135.GA800@electric-eye.fr.zoreil.com>
+References: <20140121000615.GA30495@enc.com.au>
+ <20140121233630.GA3214@electric-eye.fr.zoreil.com>
+ <20140122004119.GA28174@enc.com.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>,
+	netdev@vger.kernel.org
+To: Craig Small <csmall@enc.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:45596 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753330AbaAVXGb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 18:06:31 -0500
-In-Reply-To: <1390377957-31466-1-git-send-email-jiri@resnulli.us>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:38851 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752960AbaAVXbu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 18:31:50 -0500
+Content-Disposition: inline
+In-Reply-To: <20140122004119.GA28174@enc.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Craig Small <csmall@enc.com.au> :
+> On Wed, Jan 22, 2014 at 12:36:30AM +0100, Francois Romieu wrote:
+> > You may check that the onboard nic device does not even work when the
+> > extra PCI-e card aren't plugged.
+> It definitely doesn't. I've tried with only the onboard device
+> and no other NIC device (r8169 or not) installed and its the same
+> problem.
 
-On Jan 22, 2014, at 12:05 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+Should I understand that the LOM fails on Linux with a naked motherboard ?
 
-> The main part of this patchset is the introduction of a generic way h=
-ow
-> to get/set info of slaves unsing rtnl_link_ops.
->=20
-> Jiri Pirko (5):
->  bonding: change name of sysfs dir for bonding slaves
->  rtnetlink: put "BOND" into nl attribute names which are related to
->    bonding
->  rtnetlink: provide api for getting and setting slave info
->  bonding: convert netlink to use slave data info api
->  rtnetlink: remove ndo_get_slave
+> > A complete dmesg including the XID lines that the r8169 driver prints
+> > would be welcome.
+> See attached text file. I'm not sure why I get so many interface up
+> messages.
 
-Looks good.  You=92ll need to update iproute2 patch I posted to Stephen=
- to reflect the IFLA_BOND_SLAVE_xx renames and nesting.
+Please check if runtime resume is disabled (/sys/bus/pci/devices/.../power/control
+should be 'on'). If so and you do not see many netdev watchdog messages either,
+these could be real link status change events.
 
-(patch 6/6 was part of this, correct)?
+> This is for the two NIC cards. I can pull them out and go back to the
+> onboard one if you like.
 
-Acked-by: Scott Feldman <sfeldma@cumulusnetworks.com>
+Please do (and send a complete dmesg).
+
+Your previous posting suggests that the LOM board is a 8168b but I haven't
+seen its XID.
+
+It could help to check the add-on 8168c in a different computer whose
+motherboard does not include any networking chipset from Realtek (nor
+any bios that could confuse different revisions of those).
+
+Please don't switch between the r8168 and the r8169 modules at runtime.
+I saw it in your dmesg and I won't claim it's supported.
+
+I'll be out for work during two days.
+
+Thanks.
+
+-- 
+Ueimor
