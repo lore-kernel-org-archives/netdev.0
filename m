@@ -1,51 +1,90 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH] net/openvswitch: Remove the skb encapsulation mark after decapsulation
-Date: Wed, 22 Jan 2014 10:02:54 -0800
-Message-ID: <CAEP_g=9n5=a28-AOJYVt56OQLvO2X6nA+nVbOqhWEQK9jQqMGw@mail.gmail.com>
-References: <1390403705-28690-1-git-send-email-ogerlitz@mellanox.com>
- <CAEP_g=9_8aPyve-obKCLo9ByFPvSNEtNBpaUKCw7X8Tcc3U1yA@mail.gmail.com> <CAJZOPZ+oRD=76JUELo51yZTTvjnc=4HYy0EPWtR1HH1CY870cA@mail.gmail.com>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH] gss_krb5: use lcm from kernel lib
+Date: Wed, 22 Jan 2014 13:12:42 -0500
+Message-ID: <20140122181242.GB13704@fieldses.org>
+References: <20140119215040.GA7978@hercules>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog134.obsmtp.com ([74.125.149.83]:37145 "HELO
-	na3sys009aog134.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752310AbaAVSDP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 13:03:15 -0500
-Received: by mail-ig0-f175.google.com with SMTP id uq10so14577021igb.2
-        for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 10:03:14 -0800 (PST)
-In-Reply-To: <CAJZOPZ+oRD=76JUELo51yZTTvjnc=4HYy0EPWtR1HH1CY870cA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Luis Henriques <luis.henriques-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20140119215040.GA7978@hercules>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 22, 2014 at 9:23 AM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
-> On Wed, Jan 22, 2014 at 7:02 PM, Jesse Gross <jesse@nicira.com> wrote:
->> On Wed, Jan 22, 2014 at 7:15 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
->>> We must unset the skb encapsulation mark before injecting the
->>> decapsulated packet into ovs for the rest of its journey.
->>>
->>> This follows the practice set by 0afb166 "vxlan: Add capability of Rx
->>> checksum offload for inner packet" and the overall idea behind the
->>> skb encapsulation field.
->>>
->>> Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>
->>> Cc: Pravin B Shelar <pshelar@nicira.com>
->>> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
->>
->> This should be in the common decapsulation code. It doesn't make sense
->> to do this here when we set the layer pointers, encap bit, etc. in
->> common code on transmit.
->
-> well that's a bit problematic, since the code in the vxlan driver vxlan_rcv()
-> which has the potential to be common refers to vxlan->dev-> which is
-> irrelevant for ovs, thoughts?
+On Sun, Jan 19, 2014 at 09:50:51PM +0000, Luis Henriques wrote:
+> Replace hardcoded lowest common multiple algorithm by the lcm()
+> function in kernel lib.
 
-Well, as I said before, I don't really see the value in the
-NETIF_F_RXCSUM flag on a VXLAN device but in any case you could break
-that if statement in half and move the part that doesn't refer to
-vxlan->dev into common code.
+Looks OK to me.  Applying for 3.14 if Trond hasn't already picked it up.
+
+--b.
+
+> 
+> Signed-off-by: Luis Henriques <luis.henriques-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> ---
+>  net/sunrpc/auth_gss/gss_krb5_keys.c | 17 ++++-------------
+>  1 file changed, 4 insertions(+), 13 deletions(-)
+> 
+> diff --git a/net/sunrpc/auth_gss/gss_krb5_keys.c b/net/sunrpc/auth_gss/gss_krb5_keys.c
+> index 76e42e6..a16c5b6 100644
+> --- a/net/sunrpc/auth_gss/gss_krb5_keys.c
+> +++ b/net/sunrpc/auth_gss/gss_krb5_keys.c
+> @@ -59,6 +59,7 @@
+>  #include <linux/crypto.h>
+>  #include <linux/sunrpc/gss_krb5.h>
+>  #include <linux/sunrpc/xdr.h>
+> +#include <linux/lcm.h>
+>  
+>  #ifdef RPC_DEBUG
+>  # define RPCDBG_FACILITY        RPCDBG_AUTH
+> @@ -72,7 +73,7 @@
+>  static void krb5_nfold(u32 inbits, const u8 *in,
+>  		       u32 outbits, u8 *out)
+>  {
+> -	int a, b, c, lcm;
+> +	unsigned long ulcm;
+>  	int byte, i, msbit;
+>  
+>  	/* the code below is more readable if I make these bytes
+> @@ -82,17 +83,7 @@ static void krb5_nfold(u32 inbits, const u8 *in,
+>  	outbits >>= 3;
+>  
+>  	/* first compute lcm(n,k) */
+> -
+> -	a = outbits;
+> -	b = inbits;
+> -
+> -	while (b != 0) {
+> -		c = b;
+> -		b = a%b;
+> -		a = c;
+> -	}
+> -
+> -	lcm = outbits*inbits/a;
+> +	ulcm = lcm(inbits, outbits);
+>  
+>  	/* now do the real work */
+>  
+> @@ -101,7 +92,7 @@ static void krb5_nfold(u32 inbits, const u8 *in,
+>  
+>  	/* this will end up cycling through k lcm(k,n)/k times, which
+>  	   is correct */
+> -	for (i = lcm-1; i >= 0; i--) {
+> +	for (i = ulcm-1; i >= 0; i--) {
+>  		/* compute the msbit in k which gets added into this byte */
+>  		msbit = (
+>  			/* first, start with the msbit in the first,
+> -- 
+> 1.8.3.2
+> 
+> Cheers,
+> --
+> Luis
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
