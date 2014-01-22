@@ -1,131 +1,65 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [Xen-devel] [PATCH v4] xen/grant-table: Avoid m2p_override during
- mapping
-Date: Wed, 22 Jan 2014 18:36:39 +0000
-Message-ID: <52E00FB7.3040508@citrix.com>
-References: <1390335755-29328-1-git-send-email-zoltan.kiss@citrix.com> <alpine.DEB.2.02.1401221618340.21510@kaball.uk.xensource.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] net: phy: use network device in
+ phy_print_status
+Date: Wed, 22 Jan 2014 10:49:44 -0800
+Message-ID: <1390416584.31946.84.camel@joe-AO722>
+References: <1390415553-4961-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
-To: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.02.1401221618340.21510@kaball.uk.xensource.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0079.hostedemail.com ([216.40.44.79]:52948 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752767AbaAVStr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 13:49:47 -0500
+In-Reply-To: <1390415553-4961-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 22/01/14 16:39, Stefano Stabellini wrote:
-> On Tue, 21 Jan 2014, Zoltan Kiss wrote:
->> @@ -121,7 +125,7 @@ static inline unsigned long mfn_to_pfn(unsigned long mfn)
->>   		pfn = m2p_find_override_pfn(mfn, ~0);
->>   	}
->>
->> -	/*
->> +	/*
->
-> Spurious change?
-It removes a stray space from the original code. Not necessary, but if 
-it's there, I think we can keep it.
+On Wed, 2014-01-22 at 10:32 -0800, Florian Fainelli wrote:
+> phy_print_status() currently uses dev_name(&phydev->dev) which will
+> usually result in printing something along those lines for Device Tree
+> aware drivers:
+> 
+> libphy: f0b60000.etherne:0a - Link is Down
+> libphy: f0ba0000.etherne:00 - Link is Up - 1000/Full
+> 
+> This is not terribly useful for network administrators or users since we
+> expect a network interface name to be able to correlate link events with
+> interfaces. Update phy_print_status() to use netdev_info() with
+> phydev->attached_dev which is the backing network device for our PHY
+> device.
+[]
+> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+[]
+> @@ -45,12 +45,11 @@
+>  void phy_print_status(struct phy_device *phydev)
+>  {
+>  	if (phydev->link) {
+> -		pr_info("%s - Link is Up - %d/%s\n",
+> -			dev_name(&phydev->dev),
+> +		netdev_info(phydev->attached_dev, "- Link is Up - %d/%s\n",
+>  			phydev->speed,
+>  			DUPLEX_FULL == phydev->duplex ? "Full" : "Half");
+>  	} else	{
+> -		pr_info("%s - Link is Down\n", dev_name(&phydev->dev));
+> +		netdev_info(phydev->attached_dev, "- Link is Down\n");
+>  	}
 
->> diff --git a/arch/x86/xen/p2m.c b/arch/x86/xen/p2m.c
->> index 2ae8699..0060178 100644
->> --- a/arch/x86/xen/p2m.c
->> +++ b/arch/x86/xen/p2m.c
->> @@ -872,15 +872,13 @@ static unsigned long mfn_hash(unsigned long mfn)
->>
->>   /* Add an MFN override for a particular page */
->>   int m2p_add_override(unsigned long mfn, struct page *page,
->> -		struct gnttab_map_grant_ref *kmap_op)
->> +		struct gnttab_map_grant_ref *kmap_op, unsigned long pfn)
->
-> Do we really need to add another additional parameter to
-> m2p_add_override?
-> I would just let m2p_add_override and m2p_remove_override call
-> page_to_pfn again. It is not that expensive.
-Yes, because that page_to_pfn can return something different. That's why 
-the v2 patches failed.
+The leading "- "'s now aren't useful and these could be
 
->> @@ -933,20 +924,15 @@ int m2p_add_override(unsigned long mfn, struct page *page,
->>   }
->>   EXPORT_SYMBOL_GPL(m2p_add_override);
->>   int m2p_remove_override(struct page *page,
->> -		struct gnttab_map_grant_ref *kmap_op)
->> +			struct gnttab_map_grant_ref *kmap_op,
->> +			unsigned long pfn,
->> +			unsigned long mfn)
->
-> Same here
-Same as above.
+	if (phydev->link)
+		netdev_info(phydev->attached_dev, "Link is Up - %d/%s\n",
+			    phydev->speed,
+			    phydev->duplex == DUPLEX_FULL ? "Full" : "Half");
+	else
+		netdev_info(phydev->attached_dev, "Link is Down\n");
 
->> @@ -927,8 +931,18 @@ int gnttab_map_refs(struct gnttab_map_grant_ref *map_ops,
->>   		} else {
->>   			mfn = PFN_DOWN(map_ops[i].dev_bus_addr);
->>   		}
->> -		ret = m2p_add_override(mfn, pages[i], kmap_ops ?
->> -				       &kmap_ops[i] : NULL);
->> +		pfn = page_to_pfn(pages[i]);
->> +
->> +		WARN_ON(PagePrivate(pages[i]));
->> +		SetPagePrivate(pages[i]);
->> +		set_page_private(pages[i], mfn);
->> +
->> +		pages[i]->index = pfn_to_mfn(pfn);
->> +		if (unlikely(!set_phys_to_machine(pfn, FOREIGN_FRAME(mfn))))
->> +			return -ENOMEM;
->
-> goto out
-And ret = -ENOMEM
->
->
->> +		if (m2p_override)
->> +			ret = m2p_add_override(mfn, pages[i], kmap_ops ?
->> +					       &kmap_ops[i] : NULL, pfn);
->>   		if (ret)
->>   			goto out;
->>   	}
->> @@ -937,17 +951,34 @@ int gnttab_map_refs(struct gnttab_map_grant_ref *map_ops,
->>   	if (lazy)
->>   		arch_leave_lazy_mmu_mode();
->>
->> -	return ret;
->> +	return 0;
->
-> We are loosing the error code possibly returned by m2p_add_override and
-> the previous check.
-I'll fix that. Also in unmap.
+Is is possible that phydev->attached_dev is NULL?
 
-		return ret;
->> @@ -958,17 +989,32 @@ int gnttab_unmap_refs(struct gnttab_unmap_grant_ref *unmap_ops,
->>   			set_phys_to_machine(unmap_ops[i].host_addr >> PAGE_SHIFT,
->>   					INVALID_P2M_ENTRY);
->>   		}
->> -		return ret;
->> +		return 0;
->>   	}
->>
->> -	if (!in_interrupt() && paravirt_get_lazy_mode() == PARAVIRT_LAZY_NONE) {
->> +	if (m2p_override &&
->> +	    !in_interrupt() &&
->> +	    paravirt_get_lazy_mode() == PARAVIRT_LAZY_NONE) {
->>   		arch_enter_lazy_mmu_mode();
->>   		lazy = true;
->>   	}
->>
->>   	for (i = 0; i < count; i++) {
->> -		ret = m2p_remove_override(pages[i], kmap_ops ?
->> -				       &kmap_ops[i] : NULL);
->> +		pfn = page_to_pfn(pages[i]);
->> +		mfn = get_phys_to_machine(pfn);
->> +		if (mfn == INVALID_P2M_ENTRY || !(mfn & FOREIGN_FRAME_BIT))
->> +			return -EINVAL;
->
-> goto out
-And ret = -EINVAL
-
-The above are the the result of the fact that I've based this originally 
-on 3.10, where the out label haven't existed. I'll send the next version 
-when the tests pass.
-
-Zoli
+It may also be possible to slightly improve the output by
+reducing the number of 0's in the speed block and emitting
+Kb/Mb/Gb (or Kbps/Mbps/Gbps) and maybe flow control if it's
+available.
