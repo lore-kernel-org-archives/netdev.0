@@ -1,205 +1,192 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next v2 12/25] bonding: convert lacp_rate to use the new option API
-Date: Wed, 22 Jan 2014 14:53:27 +0100
-Message-ID: <1390398820-5355-13-git-send-email-nikolay@redhat.com>
+Subject: [PATCH net-next v2 06/25] bonding: convert arp_all_targets to use the new option API
+Date: Wed, 22 Jan 2014 14:53:21 +0100
+Message-ID: <1390398820-5355-7-git-send-email-nikolay@redhat.com>
 References: <1390398820-5355-1-git-send-email-nikolay@redhat.com>
 Cc: Nikolay Aleksandrov <nikolay@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57413 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:10697 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755592AbaAVNyE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jan 2014 08:54:04 -0500
+	id S1755581AbaAVNx6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jan 2014 08:53:58 -0500
 Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s0MDs4vh018585
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s0MDrvHH013339
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 08:54:04 -0500
+	for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 08:53:57 -0500
 In-Reply-To: <1390398820-5355-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the necessary changes so lacp_rate would use
-the new bonding option API. Also some trivial/style error fixes.
+This patch adds the necessary changes so arp_all_targets would use the
+new bonding option API.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- drivers/net/bonding/bond_main.c    | 15 ++++++-------
+ drivers/net/bonding/bond_main.c    | 16 ++++++----------
  drivers/net/bonding/bond_netlink.c |  3 ++-
- drivers/net/bonding/bond_options.c | 44 +++++++++++++++++---------------------
+ drivers/net/bonding/bond_options.c | 30 ++++++++++++++++++------------
  drivers/net/bonding/bond_options.h |  3 +++
- drivers/net/bonding/bond_sysfs.c   | 22 ++++++-------------
+ drivers/net/bonding/bond_sysfs.c   | 24 +++++++-----------------
  drivers/net/bonding/bonding.h      |  1 -
- 6 files changed, 37 insertions(+), 51 deletions(-)
+ 6 files changed, 36 insertions(+), 41 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 6d1515d..f3bfcaf 100644
+index 3903c87..103b6af 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -207,12 +207,6 @@ static int bond_mode	= BOND_MODE_ROUNDROBIN;
- static int xmit_hashtype = BOND_XMIT_POLICY_LAYER2;
- static int lacp_fast;
+@@ -214,12 +214,6 @@ const struct bond_parm_tbl bond_lacp_tbl[] = {
+ {	NULL,		-1},
+ };
  
--const struct bond_parm_tbl bond_lacp_tbl[] = {
--{	"slow",		AD_LACP_SLOW},
--{	"fast",		AD_LACP_FAST},
--{	NULL,		-1},
+-const struct bond_parm_tbl arp_all_targets_tbl[] = {
+-{	"any",			BOND_ARP_TARGETS_ANY},
+-{	"all",			BOND_ARP_TARGETS_ALL},
+-{	NULL,			-1},
 -};
 -
- const struct bond_parm_tbl pri_reselect_tbl[] = {
- {	"always",		BOND_PRI_RESELECT_ALWAYS},
- {	"better",		BOND_PRI_RESELECT_BETTER},
-@@ -4025,12 +4019,15 @@ static int bond_check_params(struct bond_params *params)
- 			pr_info("lacp_rate param is irrelevant in mode %s\n",
- 				bond_mode_name(bond_mode));
- 		} else {
--			lacp_fast = bond_parse_parm(lacp_rate, bond_lacp_tbl);
--			if (lacp_fast == -1) {
-+			bond_opt_initstr(&newval, lacp_rate);
-+			valptr = bond_opt_parse(bond_opt_get(BOND_OPT_LACP_RATE),
-+						&newval);
-+			if (!valptr) {
- 				pr_err("Error: Invalid lacp rate \"%s\"\n",
--				       lacp_rate == NULL ? "NULL" : lacp_rate);
-+				       lacp_rate);
- 				return -EINVAL;
- 			}
-+			lacp_fast = valptr->value;
+ const struct bond_parm_tbl fail_over_mac_tbl[] = {
+ {	"none",			BOND_FOM_NONE},
+ {	"active",		BOND_FOM_ACTIVE},
+@@ -4231,13 +4225,15 @@ static int bond_check_params(struct bond_params *params)
+ 
+ 	arp_all_targets_value = 0;
+ 	if (arp_all_targets) {
+-		arp_all_targets_value = bond_parse_parm(arp_all_targets,
+-							arp_all_targets_tbl);
+-
+-		if (arp_all_targets_value == -1) {
++		bond_opt_initstr(&newval, arp_all_targets);
++		valptr = bond_opt_parse(bond_opt_get(BOND_OPT_ARP_ALL_TARGETS),
++					&newval);
++		if (!valptr) {
+ 			pr_err("Error: invalid arp_all_targets_value \"%s\"\n",
+ 			       arp_all_targets);
+ 			arp_all_targets_value = 0;
++		} else {
++			arp_all_targets_value = valptr->value;
  		}
  	}
  
 diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
-index 9629088..508f2f5 100644
+index 588730c..ff1e3d3 100644
 --- a/drivers/net/bonding/bond_netlink.c
 +++ b/drivers/net/bonding/bond_netlink.c
-@@ -310,7 +310,8 @@ static int bond_changelink(struct net_device *bond_dev,
- 		int lacp_rate =
- 			nla_get_u8(data[IFLA_BOND_AD_LACP_RATE]);
+@@ -202,7 +202,8 @@ static int bond_changelink(struct net_device *bond_dev,
+ 		int arp_all_targets =
+ 			nla_get_u32(data[IFLA_BOND_ARP_ALL_TARGETS]);
  
--		err = bond_option_lacp_rate_set(bond, lacp_rate);
-+		bond_opt_initval(&newval, lacp_rate);
-+		err = __bond_opt_set(bond, BOND_OPT_LACP_RATE, &newval);
+-		err = bond_option_arp_all_targets_set(bond, arp_all_targets);
++		bond_opt_initval(&newval, arp_all_targets);
++		err = __bond_opt_set(bond, BOND_OPT_ARP_ALL_TARGETS, &newval);
  		if (err)
  			return err;
  	}
 diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 9cc2162..680296c 100644
+index eff68a0..e136e75 100644
 --- a/drivers/net/bonding/bond_options.c
 +++ b/drivers/net/bonding/bond_options.c
-@@ -72,6 +72,12 @@ static struct bond_opt_value bond_intmax_tbl[] = {
- 	{ "maxval",  INT_MAX, BOND_VALFLAG_MAX},
+@@ -53,6 +53,12 @@ static struct bond_opt_value bond_arp_validate_tbl[] = {
+ 	{ NULL,     -1,                       0},
  };
  
-+static struct bond_opt_value bond_lacp_rate_tbl[] = {
-+	{ "slow", AD_LACP_SLOW, 0},
-+	{ "fast", AD_LACP_FAST, 0},
-+	{ NULL,   -1,           0},
++static struct bond_opt_value bond_arp_all_targets_tbl[] = {
++	{ "any", BOND_ARP_TARGETS_ANY, BOND_VALFLAG_DEFAULT},
++	{ "all", BOND_ARP_TARGETS_ALL, 0},
++	{ NULL,  -1,                   0},
 +};
 +
  static struct bond_option bond_opts[] = {
  	[BOND_OPT_MODE] = {
  		.id = BOND_OPT_MODE,
-@@ -149,7 +155,15 @@ static struct bond_option bond_opts[] = {
- 		.values = bond_intmax_tbl,
- 		.set = bond_option_updelay_set
+@@ -85,6 +91,13 @@ static struct bond_option bond_opts[] = {
+ 		.values = bond_arp_validate_tbl,
+ 		.set = bond_option_arp_validate_set
  	},
--
-+	[BOND_OPT_LACP_RATE] = {
-+		.id = BOND_OPT_LACP_RATE,
-+		.name = "lacp_rate",
-+		.desc = "LACPDU tx rate to request from 802.3ad partner",
-+		.flags = BOND_OPTFLAG_IFDOWN,
-+		.unsuppmodes = BOND_MODE_ALL_EX(BIT(BOND_MODE_8023AD)),
-+		.values = bond_lacp_rate_tbl,
-+		.set = bond_option_lacp_rate_set
++	[BOND_OPT_ARP_ALL_TARGETS] = {
++		.id = BOND_OPT_ARP_ALL_TARGETS,
++		.name = "arp_all_targets",
++		.desc = "fail on any/all arp targets timeout",
++		.values = bond_arp_all_targets_tbl,
++		.set = bond_option_arp_all_targets_set
 +	},
  	{ }
  };
  
-@@ -1015,31 +1029,13 @@ int bond_option_pps_set(struct bonding *bond, struct bond_opt_value *newval)
+@@ -767,19 +780,12 @@ int bond_option_arp_validate_set(struct bonding *bond,
  	return 0;
  }
  
--int bond_option_lacp_rate_set(struct bonding *bond, int lacp_rate)
-+int bond_option_lacp_rate_set(struct bonding *bond,
-+			      struct bond_opt_value *newval)
+-int bond_option_arp_all_targets_set(struct bonding *bond, int arp_all_targets)
++int bond_option_arp_all_targets_set(struct bonding *bond,
++				    struct bond_opt_value *newval)
  {
--	if (bond_parm_tbl_lookup(lacp_rate, bond_lacp_tbl) < 0) {
--		pr_err("%s: Ignoring invalid LACP rate value %d.\n",
--		       bond->dev->name, lacp_rate);
+-	if (bond_parm_tbl_lookup(arp_all_targets, arp_all_targets_tbl) < 0) {
+-		pr_err("%s: Ignoring invalid arp_all_targets value %d.\n",
+-		       bond->dev->name, arp_all_targets);
 -		return -EINVAL;
 -	}
 -
--	if (bond->dev->flags & IFF_UP) {
--		pr_err("%s: Unable to update LACP rate because interface is up.\n",
--		       bond->dev->name);
--		return -EPERM;
--	}
+-	pr_info("%s: setting arp_all_targets to %s (%d).\n",
+-		bond->dev->name, arp_all_targets_tbl[arp_all_targets].modename,
+-		arp_all_targets);
 -
--	if (bond->params.mode != BOND_MODE_8023AD) {
--		pr_err("%s: Unable to update LACP rate because bond is not in 802.3ad mode.\n",
--		       bond->dev->name);
--		return -EPERM;
--	}
--
--	bond->params.lacp_fast = lacp_rate;
-+	pr_info("%s: Setting LACP rate to %s (%llu).\n",
+-	bond->params.arp_all_targets = arp_all_targets;
++	pr_info("%s: setting arp_all_targets to %s (%llu).\n",
 +		bond->dev->name, newval->string, newval->value);
-+	bond->params.lacp_fast = newval->value;
- 	bond_3ad_update_lacp_rate(bond);
--	pr_info("%s: Setting LACP rate to %s (%d).\n",
--		bond->dev->name, bond_lacp_tbl[lacp_rate].modename,
--		lacp_rate);
++	bond->params.arp_all_targets = newval->value;
  
  	return 0;
  }
 diff --git a/drivers/net/bonding/bond_options.h b/drivers/net/bonding/bond_options.h
-index 594046c..7ee1a78 100644
+index 15c6c01..88f8c17 100644
 --- a/drivers/net/bonding/bond_options.h
 +++ b/drivers/net/bonding/bond_options.h
-@@ -48,6 +48,7 @@ enum {
- 	BOND_OPT_ARP_TARGETS,
- 	BOND_OPT_DOWNDELAY,
- 	BOND_OPT_UPDELAY,
-+	BOND_OPT_LACP_RATE,
+@@ -42,6 +42,7 @@ enum {
+ 	BOND_OPT_PACKETS_PER_SLAVE,
+ 	BOND_OPT_XMIT_HASH,
+ 	BOND_OPT_ARP_VALIDATE,
++	BOND_OPT_ARP_ALL_TARGETS,
  	BOND_OPT_LAST
  };
  
-@@ -127,4 +128,6 @@ int bond_option_downdelay_set(struct bonding *bond,
- 			      struct bond_opt_value *newval);
- int bond_option_updelay_set(struct bonding *bond,
- 			    struct bond_opt_value *newval);
-+int bond_option_lacp_rate_set(struct bonding *bond,
-+			      struct bond_opt_value *newval);
+@@ -108,4 +109,6 @@ int bond_option_xmit_hash_policy_set(struct bonding *bond,
+ 				     struct bond_opt_value *newval);
+ int bond_option_arp_validate_set(struct bonding *bond,
+ 				 struct bond_opt_value *newval);
++int bond_option_arp_all_targets_set(struct bonding *bond,
++				    struct bond_opt_value *newval);
  #endif /* _BOND_OPTIONS_H */
 diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index b873a88..a0a54d0 100644
+index e1a4b63..83463fc 100644
 --- a/drivers/net/bonding/bond_sysfs.c
 +++ b/drivers/net/bonding/bond_sysfs.c
-@@ -548,10 +548,11 @@ static ssize_t bonding_show_lacp(struct device *d,
- 				 char *buf)
+@@ -357,10 +357,12 @@ static ssize_t bonding_show_arp_all_targets(struct device *d,
+ 					 char *buf)
  {
  	struct bonding *bond = to_bond(d);
+-	int value = bond->params.arp_all_targets;
 +	struct bond_opt_value *val;
  
--	return sprintf(buf, "%s %d\n",
--		bond_lacp_tbl[bond->params.lacp_fast].modename,
--		bond->params.lacp_fast);
-+	val = bond_opt_get_val(BOND_OPT_LACP_RATE, bond->params.lacp_fast);
-+
-+	return sprintf(buf, "%s %d\n", val->string, bond->params.lacp_fast);
+-	return sprintf(buf, "%s %d\n", arp_all_targets_tbl[value].modename,
+-		       value);
++	val = bond_opt_get_val(BOND_OPT_ARP_ALL_TARGETS,
++			       bond->params.arp_all_targets);
++	return sprintf(buf, "%s %d\n",
++		       val->string, bond->params.arp_all_targets);
  }
  
- static ssize_t bonding_store_lacp(struct device *d,
-@@ -559,23 +560,12 @@ static ssize_t bonding_store_lacp(struct device *d,
- 				  const char *buf, size_t count)
+ static ssize_t bonding_store_arp_all_targets(struct device *d,
+@@ -368,24 +370,12 @@ static ssize_t bonding_store_arp_all_targets(struct device *d,
+ 					  const char *buf, size_t count)
  {
  	struct bonding *bond = to_bond(d);
 -	int new_value, ret;
 -
--	new_value = bond_parse_parm(buf, bond_lacp_tbl);
+-	new_value = bond_parse_parm(buf, arp_all_targets_tbl);
 -	if (new_value < 0) {
--		pr_err("%s: Ignoring invalid LACP rate value %.*s.\n",
--		       bond->dev->name, (int)strlen(buf) - 1, buf);
+-		pr_err("%s: Ignoring invalid arp_all_targets value %s\n",
+-		       bond->dev->name, buf);
 -		return -EINVAL;
 -	}
 -
@@ -207,26 +194,27 @@ index b873a88..a0a54d0 100644
 -		return restart_syscall();
 +	int ret;
  
--	ret = bond_option_lacp_rate_set(bond, new_value);
-+	ret = bond_opt_tryset_rtnl(bond, BOND_OPT_LACP_RATE, (char *)buf);
+-	ret = bond_option_arp_all_targets_set(bond, new_value);
++	ret = bond_opt_tryset_rtnl(bond, BOND_OPT_ARP_ALL_TARGETS, (char *)buf);
  	if (!ret)
  		ret = count;
  
 -	rtnl_unlock();
+-
  	return ret;
  }
- static DEVICE_ATTR(lacp_rate, S_IRUGO | S_IWUSR,
+ 
 diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index f2b1270..da03ede 100644
+index 9af6171..18b948a 100644
 --- a/drivers/net/bonding/bonding.h
 +++ b/drivers/net/bonding/bonding.h
-@@ -466,7 +466,6 @@ int bond_option_all_slaves_active_set(struct bonding *bond,
- 				      int all_slaves_active);
- int bond_option_min_links_set(struct bonding *bond, int min_links);
- int bond_option_lp_interval_set(struct bonding *bond, int min_links);
--int bond_option_lacp_rate_set(struct bonding *bond, int lacp_rate);
- int bond_option_ad_select_set(struct bonding *bond, int ad_select);
- struct net_device *bond_option_active_slave_get_rcu(struct bonding *bond);
- struct net_device *bond_option_active_slave_get(struct bonding *bond);
+@@ -462,7 +462,6 @@ int bond_option_arp_ip_targets_set(struct bonding *bond, __be32 *targets,
+ 				   int count);
+ int bond_option_arp_ip_target_add(struct bonding *bond, __be32 target);
+ int bond_option_arp_ip_target_rem(struct bonding *bond, __be32 target);
+-int bond_option_arp_all_targets_set(struct bonding *bond, int arp_all_targets);
+ int bond_option_primary_set(struct bonding *bond, const char *primary);
+ int bond_option_primary_reselect_set(struct bonding *bond,
+ 				     int primary_reselect);
 -- 
 1.8.4.2
