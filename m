@@ -1,79 +1,115 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v4 0/3] reciprocal_divide update
-Date: Wed, 22 Jan 2014 02:02:27 +0100
-Message-ID: <1390352550-4511-1-git-send-email-hannes@stressinduktion.org>
+Subject: [PATCH net-next v4 2/3] net: introduce reciprocal_scale helper and convert users
+Date: Wed, 22 Jan 2014 02:02:29 +0100
+Message-ID: <1390352550-4511-3-git-send-email-hannes@stressinduktion.org>
+References: <1390352550-4511-1-git-send-email-hannes@stressinduktion.org>
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	Jakub Zawadzki <darkjames-ws@darkjames.pl>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:56665 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753575AbaAVBCh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 20:02:37 -0500
-Received: from stressinduktion.org (localhost.localdomain [127.0.0.1])
-	by order.stressinduktion.org (Postfix) with ESMTP id 5C13A1A0C277
-	for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 02:02:36 +0100 (CET)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1390352550-4511-1-git-send-email-hannes@stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch is on top of aee636c4809fa5 ("bpf: do not use reciprocal
-divide") from Eric that sits in net tree. It will not create a merge
-conflict, but it depends on this one, so we suggest, if possible, to
-merge net into net-next.
+From: Daniel Borkmann <dborkman@redhat.com>
 
-We are proposing this change with only small modifications from the
-v2 version, namely updating the name of trim to reciprocal_scale
-(as commented on by Ben Hutchings and Eric Dumazet, thanks!).
+As David Laight suggests, we shouldn't necessarily call this
+reciprocal_divide() when users didn't requested a reciprocal_value();
+lets keep the basic idea and call it reciprocal_scale(). More
+background information on this topic can be found in [1].
 
-We thought about introducing the reciprocal_divide algorithm in
-parallel to the one already used by the kernel but faced organizational
-issues, leading us to the conclusion that it is best to just replace
-the old one: We could not come up with names for the different
-implementations and also with a way to describe the differences to
-guide developers which one to choose in which situation. This is
-because we cannot specify the correct semantics for the version
-which is currently used by the kernel. Altough it seems to not be
-causing problems in the kernel, we cannot surely say so in the
-case of flex_array for the future. Current usage seems ok, but
-future users could run into problems.
+Joint work with Hannes Frederic Sowa.
 
-Changelog:
+  [1] http://homepage.cs.uiowa.edu/~jones/bcd/divide.html
 
-v1->v2:
- - changed name to prandom_u32_max in p1
- - changed name to trim in p2
- - reworked code in p3
-v2->v3:
- - p1 and p3 stays unchanged, only small update in commit
-   message in p3
- - changed name to reciprocal_scale in p2
- - fixed kernel doc format
-v3->v4:
- - pseduo -> pseudo (thanks to Tilman Schmidt)
+Suggested-by: David Laight <david.laight@aculab.com>
+Cc: Jakub Zawadzki <darkjames-ws@darkjames.pl>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ include/linux/kernel.h | 19 +++++++++++++++++++
+ include/net/codel.h    |  4 +---
+ net/packet/af_packet.c |  3 +--
+ 3 files changed, 21 insertions(+), 5 deletions(-)
 
-Thanks !
-
-Daniel Borkmann (2):
-  random32: add prandom_u32_max and convert open coded users
-  net: introduce reciprocal_scale helper and convert users
-
-Hannes Frederic Sowa (1):
-  reciprocal_divide: update/correction of the algorithm
-
- drivers/net/bonding/bond_main.c     | 24 ++++++++++++++++-------
- drivers/net/bonding/bond_netlink.c  |  4 ----
- drivers/net/bonding/bond_options.c  | 15 +++++++++----- 
- drivers/net/bonding/bond_sysfs.c    |  5 -----
- drivers/net/bonding/bonding.h       |  3 +++
- drivers/net/team/team_mode_random.c |  8 +-------
- include/linux/flex_array.h          |  3 ++-
- include/linux/kernel.h              | 19 ++++++++++++++++++
- include/linux/random.h              | 18 ++++++++++++++++-
- include/linux/reciprocal_div.h      | 39 ++++++++++++++++++++-----------------
- include/linux/slab_def.h            |  4 +++-
- include/net/codel.h                 |  4 +---
- include/net/red.h                   |  3 ++-
- lib/flex_array.c                    |  7 ++++++-
- lib/reciprocal_div.c                | 24 +++++++++++++++++++----
- net/packet/af_packet.c              |  5 ++---
- net/sched/sch_choke.c               |  9 +--------
- net/sched/sch_netem.c               |  6 ++++--
- 18 files changed, 129 insertions(+), 71 deletions(-)
+diff --git a/include/linux/kernel.h b/include/linux/kernel.h
+index ecb8754..03d8a6b 100644
+--- a/include/linux/kernel.h
++++ b/include/linux/kernel.h
+@@ -193,6 +193,25 @@ extern int _cond_resched(void);
+ 		(__x < 0) ? -__x : __x;		\
+ 	})
+ 
++/**
++ * reciprocal_scale - "scale" a value into range [0, ep_ro)
++ * @val: value
++ * @ep_ro: right open interval endpoint
++ *
++ * Perform a "reciprocal multiplication" in order to "scale" a value into
++ * range [0, ep_ro), where the upper interval endpoint is right-open.
++ * This is useful, e.g. for accessing a index of an array containing
++ * ep_ro elements, for example. Think of it as sort of modulus, only that
++ * the result isn't that of modulo. ;) Note that if initial input is a
++ * small value, then result will return 0.
++ *
++ * Return: a result based on val in interval [0, ep_ro).
++ */
++static inline u32 reciprocal_scale(u32 val, u32 ep_ro)
++{
++	return (u32)(((u64) val * ep_ro) >> 32);
++}
++
+ #if defined(CONFIG_MMU) && \
+ 	(defined(CONFIG_PROVE_LOCKING) || defined(CONFIG_DEBUG_ATOMIC_SLEEP))
+ void might_fault(void);
+diff --git a/include/net/codel.h b/include/net/codel.h
+index 3b04ff5..fe0eab3 100644
+--- a/include/net/codel.h
++++ b/include/net/codel.h
+@@ -46,7 +46,6 @@
+ #include <linux/skbuff.h>
+ #include <net/pkt_sched.h>
+ #include <net/inet_ecn.h>
+-#include <linux/reciprocal_div.h>
+ 
+ /* Controlling Queue Delay (CoDel) algorithm
+  * =========================================
+@@ -211,10 +210,9 @@ static codel_time_t codel_control_law(codel_time_t t,
+ 				      codel_time_t interval,
+ 				      u32 rec_inv_sqrt)
+ {
+-	return t + reciprocal_divide(interval, rec_inv_sqrt << REC_INV_SQRT_SHIFT);
++	return t + reciprocal_scale(interval, rec_inv_sqrt << REC_INV_SQRT_SHIFT);
+ }
+ 
+-
+ static bool codel_should_drop(const struct sk_buff *skb,
+ 			      struct Qdisc *sch,
+ 			      struct codel_vars *vars,
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index df3cbdd..9734616 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -88,7 +88,6 @@
+ #include <linux/virtio_net.h>
+ #include <linux/errqueue.h>
+ #include <linux/net_tstamp.h>
+-#include <linux/reciprocal_div.h>
+ #include <linux/percpu.h>
+ #ifdef CONFIG_INET
+ #include <net/inet_common.h>
+@@ -1262,7 +1261,7 @@ static unsigned int fanout_demux_hash(struct packet_fanout *f,
+ 				      struct sk_buff *skb,
+ 				      unsigned int num)
+ {
+-	return reciprocal_divide(skb->rxhash, num);
++	return reciprocal_scale(skb->rxhash, num);
+ }
+ 
+ static unsigned int fanout_demux_lb(struct packet_fanout *f,
+-- 
+1.8.4.2
