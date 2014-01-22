@@ -1,46 +1,45 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH] net/openvswitch: Remove the skb encapsulation mark after decapsulation
-Date: Wed, 22 Jan 2014 17:15:05 +0200
-Message-ID: <1390403705-28690-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:46445 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932122AbaAVPPO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jan 2014 10:15:14 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH 1/1] Per socket value for max datagram queue length
+Date: Wed, 22 Jan 2014 16:20:36 +0100
+Message-ID: <20140122152036.GB7269@order.stressinduktion.org>
+References: <13e8aad86903481261581de7c29444e3@mindstab.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: Lennart Poettering <lennart@poettering.net>, kay.sievers@vrfy.org,
+	Arnd Bergmann <arnd@arndb.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Eliezer Tamir <eliezer.tamir@linux.intel.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Li Zefan <lizefan@huawei.com>, linux-arch@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Dan Ballard <dan@mindstab.net>
+Return-path: <linux-arch-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <13e8aad86903481261581de7c29444e3@mindstab.net>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We must unset the skb encapsulation mark before injecting the
-decapsulated packet into ovs for the rest of its journey.
+On Wed, Jan 22, 2014 at 07:11:20AM -0800, Dan Ballard wrote:
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index 5393b4b..1ff69d1 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -915,6 +915,10 @@ set_rcvbuf:
+>                                          sk->sk_max_pacing_rate);
+>                 break;
+> 
+> +       case SO_MAX_DGRAM_QLEN:
+> +               sk->sk_max_ack_backlog = val;
+> +               break;
+> +
 
-This follows the practice set by 0afb166 "vxlan: Add capability of Rx
-checksum offload for inner packet" and the overall idea behind the
-skb encapsulation field.
+Shouldn't the backlog be capped for unprivileged users to some configurable
+value? I even think that max_dgram_qlen should be the upper bound.
 
-Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Cc: Pravin B Shelar <pshelar@nicira.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- net/openvswitch/vport-vxlan.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+I guess it is not that serious as socket read accounting does account all
+packets which sit in the backlog queue.
 
-diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
-index e797a50..3742c71 100644
---- a/net/openvswitch/vport-vxlan.c
-+++ b/net/openvswitch/vport-vxlan.c
-@@ -68,6 +68,9 @@ static void vxlan_rcv(struct vxlan_sock *vs, struct sk_buff *skb, __be32 vx_vni)
- 	key = cpu_to_be64(ntohl(vx_vni) >> 8);
- 	ovs_flow_tun_key_init(&tun_key, iph, key, TUNNEL_KEY);
- 
-+	/* we must unset the encapsulation mark after decapsulation */
-+	skb->encapsulation = 0;
-+
- 	ovs_vport_receive(vport, skb, &tun_key);
- }
- 
--- 
-1.7.1
+Greetings,
+
+  Hannes
