@@ -1,48 +1,99 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v2] ipv6: enable anycast addresses as source addresses for datagrams
-Date: Wed, 22 Jan 2014 01:16:07 +0100
-Message-ID: <20140122001607.GA20565@order.stressinduktion.org>
-References: <1390320070-12735-1-git-send-email-fx.lebail@yahoo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Stevens <dlstevens@us.ibm.com>,
-	David Miller <davem@davemloft.net>
-To: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH net-next 1/5] bonding: The fail_over_mac should be set only in ACTIVE_BACKUP mode
+Date: Tue, 21 Jan 2014 16:25:26 -0800
+Message-ID: <20332.1390350326@death.nxdomain>
+References: <52DE4161.3050801@huawei.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:56600 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750862AbaAVAQI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 19:16:08 -0500
-Content-Disposition: inline
-In-Reply-To: <1390320070-12735-1-git-send-email-fx.lebail@yahoo.com>
+Received: from e37.co.us.ibm.com ([32.97.110.158]:33368 "EHLO
+	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751996AbaAVAZc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 19:25:32 -0500
+Received: from /spool/local
+	by e37.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Tue, 21 Jan 2014 17:25:32 -0700
+Received: from b03cxnp08025.gho.boulder.ibm.com (b03cxnp08025.gho.boulder.ibm.com [9.17.130.17])
+	by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id D4E9C1FF001A
+	for <netdev@vger.kernel.org>; Tue, 21 Jan 2014 17:24:57 -0700 (MST)
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by b03cxnp08025.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s0M0PTe28519986
+	for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 01:25:29 +0100
+Received: from d03av02.boulder.ibm.com (localhost [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s0M0PTBJ025191
+	for <netdev@vger.kernel.org>; Tue, 21 Jan 2014 17:25:29 -0700
+In-reply-to: <52DE4161.3050801@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 21, 2014 at 05:01:10PM +0100, Francois-Xavier Le Bail wrote:
-> diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
-> index 5a80f15..d3a6e2d 100644
-> --- a/net/ipv6/anycast.c
-> +++ b/net/ipv6/anycast.c
-> @@ -383,6 +383,17 @@ bool ipv6_chk_acast_addr(struct net *net, struct net_device *dev,
->  	return found;
->  }
->  
-> +/*	check if this anycast address is link-local on given interface or
-> + *	is global
-> + */
-> +bool ipv6_chk_acast_addr_src(struct net *net, struct net_device *dev,
-> +			     const struct in6_addr *addr)
-> +{
-> +	if (ipv6_addr_type(addr) & IPV6_ADDR_LINKLOCAL)
-> +		return ipv6_chk_acast_dev(dev, addr);
-> +	else
-> +		return ipv6_chk_acast_addr(net, NULL, addr);
-> +}
+Ding Tianhong <dingtianhong@huawei.com> wrote:
 
-You need to do the check with ipv6_chk_acast_addr in both cases, as only
-ipv6_chk_acast_addr does a rcu_read_lock and it is needed for the dereference
-of inet6_dev (__in6_dev_get is not safe in ipv6_chk_acast_dev without
-rcu_read_lock).
+>According the bonding.txt, the option fail_over_mac only affect for
+>AB mode, but in currect code, the parameter could be set to active
+>or follow in every mode, this will cause bonding could not set all
+>slaves of an RR or XOR mode to the same MAC address at enslavement
+>time, so reset fail_over_mac to 0 if the mode is not ACTIVE_BACKUP.
 
-Otherwise I am fine with this patch, thanks!
+	The correct way to fix this in general is to permit setting an
+option at any time, but only have it take effect in active-backup mode.
+This minimizes ordering requirements when setting options.
+
+	I would instead modify the bond enslave and removal processing
+to check the mode in addition to fail_over_mac when setting a slave's
+MAC during enslavement.  The change active slave processing already only
+calls the fail_over_mac function when in active-backup mode.  This
+should also be a simpler change set.
+
+>Fix the wrong variables for pr_err().
+>
+>Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>---
+> drivers/net/bonding/bond_main.c | 8 +++++---
+> 1 file changed, 5 insertions(+), 3 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index 3220b48..ecff04e 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -4307,12 +4307,14 @@ static int bond_check_params(struct bond_params *params)
+> 						      fail_over_mac_tbl);
+> 		if (fail_over_mac_value == -1) {
+> 			pr_err("Error: invalid fail_over_mac \"%s\"\n",
+>-			       arp_validate == NULL ? "NULL" : arp_validate);
+>+			       fail_over_mac == NULL ? "NULL" : fail_over_mac);
+
+	This part is ok.
+
+> 			return -EINVAL;
+> 		}
+>
+>-		if (bond_mode != BOND_MODE_ACTIVEBACKUP)
+>-			pr_warning("Warning: fail_over_mac only affects active-backup mode.\n");
+>+		if (bond_mode != BOND_MODE_ACTIVEBACKUP) {
+>+			pr_warning("Warning: fail_over_mac only affects active-backup mode, set it to 0.\n");
+>+			fail_over_mac_value = BOND_FOM_NONE;
+>+		}
+
+	This part is not.
+
+	I would additionally NAK patches 2, 3, and 4 (noting that 4
+inhibits the change to fail_over_mac, but not the warning message that
+we're changing it).
+
+	Patch 5 is ok, although it really has nothing to do with
+fail_over_mac.
+
+	-J
+
+> 	} else {
+> 		fail_over_mac_value = BOND_FOM_NONE;
+> 	}
+>-- 
+>1.8.0
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
