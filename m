@@ -1,38 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] 8021q: update description
-Date: Tue, 21 Jan 2014 17:02:13 -0800 (PST)
-Message-ID: <20140121.170213.1340386947684240946.davem@davemloft.net>
-References: <1390211379-3374-1-git-send-email-yegorslists@googlemail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yegorslists@googlemail.com
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net-next v4 0/3] reciprocal_divide update
+Date: Wed, 22 Jan 2014 02:02:27 +0100
+Message-ID: <1390352550-4511-1-git-send-email-hannes@stressinduktion.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38765 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752819AbaAVBCO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 20:02:14 -0500
-In-Reply-To: <1390211379-3374-1-git-send-email-yegorslists@googlemail.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:56665 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753575AbaAVBCh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jan 2014 20:02:37 -0500
+Received: from stressinduktion.org (localhost.localdomain [127.0.0.1])
+	by order.stressinduktion.org (Postfix) with ESMTP id 5C13A1A0C277
+	for <netdev@vger.kernel.org>; Wed, 22 Jan 2014 02:02:36 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: yegorslists@googlemail.com
-Date: Mon, 20 Jan 2014 10:49:39 +0100
+This patch is on top of aee636c4809fa5 ("bpf: do not use reciprocal
+divide") from Eric that sits in net tree. It will not create a merge
+conflict, but it depends on this one, so we suggest, if possible, to
+merge net into net-next.
 
-> From: Yegor Yefremov <yegorslists@googlemail.com>
-> 
-> Replace deprecated 'vconfig' tool with 'ip' from 'iproute2'. Add
-> some beautifications like replacing 'ethernet' with 'Ethernet' and
-> removing unneeded spaces.
-> 
-> Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
+We are proposing this change with only small modifications from the
+v2 version, namely updating the name of trim to reciprocal_scale
+(as commented on by Ben Hutchings and Eric Dumazet, thanks!).
 
-Applied.
+We thought about introducing the reciprocal_divide algorithm in
+parallel to the one already used by the kernel but faced organizational
+issues, leading us to the conclusion that it is best to just replace
+the old one: We could not come up with names for the different
+implementations and also with a way to describe the differences to
+guide developers which one to choose in which situation. This is
+because we cannot specify the correct semantics for the version
+which is currently used by the kernel. Altough it seems to not be
+causing problems in the kernel, we cannot surely say so in the
+case of flex_array for the future. Current usage seems ok, but
+future users could run into problems.
 
- ...
->  	  <http://www.candelatech.com/~greear/vlan.html>
+Changelog:
 
-We should also probably get rid of this URL reference, it hasn't been
-updated in almost 9 years, talks about 2.2 and 2.4.x kernels, and
-recommends using vconfig.
+v1->v2:
+ - changed name to prandom_u32_max in p1
+ - changed name to trim in p2
+ - reworked code in p3
+v2->v3:
+ - p1 and p3 stays unchanged, only small update in commit
+   message in p3
+ - changed name to reciprocal_scale in p2
+ - fixed kernel doc format
+v3->v4:
+ - pseduo -> pseudo (thanks to Tilman Schmidt)
+
+Thanks !
+
+Daniel Borkmann (2):
+  random32: add prandom_u32_max and convert open coded users
+  net: introduce reciprocal_scale helper and convert users
+
+Hannes Frederic Sowa (1):
+  reciprocal_divide: update/correction of the algorithm
+
+ drivers/net/bonding/bond_main.c     | 24 ++++++++++++++++-------
+ drivers/net/bonding/bond_netlink.c  |  4 ----
+ drivers/net/bonding/bond_options.c  | 15 +++++++++----- 
+ drivers/net/bonding/bond_sysfs.c    |  5 -----
+ drivers/net/bonding/bonding.h       |  3 +++
+ drivers/net/team/team_mode_random.c |  8 +-------
+ include/linux/flex_array.h          |  3 ++-
+ include/linux/kernel.h              | 19 ++++++++++++++++++
+ include/linux/random.h              | 18 ++++++++++++++++-
+ include/linux/reciprocal_div.h      | 39 ++++++++++++++++++++-----------------
+ include/linux/slab_def.h            |  4 +++-
+ include/net/codel.h                 |  4 +---
+ include/net/red.h                   |  3 ++-
+ lib/flex_array.c                    |  7 ++++++-
+ lib/reciprocal_div.c                | 24 +++++++++++++++++++----
+ net/packet/af_packet.c              |  5 ++---
+ net/sched/sch_choke.c               |  9 +--------
+ net/sched/sch_netem.c               |  6 ++++--
+ 18 files changed, 129 insertions(+), 71 deletions(-)
