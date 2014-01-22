@@ -1,74 +1,59 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next 3/3] bonding: cleanup some redundant code and
- wrong variables
-Date: Wed, 22 Jan 2014 15:28:23 +0100
-Message-ID: <52DFD587.4070109@redhat.com>
-References: <52DF8DC2.2030609@huawei.com>
+From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
+Subject: Re: [PATCH net-next] IPv6: enable TCP to use an anycast address
+Date: Wed, 22 Jan 2014 06:32:36 -0800 (PST)
+Message-ID: <1390401156.61208.YahooMailBasic@web125501.mail.ne1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: Ding Tianhong <dingtianhong@huawei.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	David Miller <davem@davemloft.net>,
+	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:31628 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755319AbaAVOc5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jan 2014 09:32:57 -0500
-In-Reply-To: <52DF8DC2.2030609@huawei.com>
+Received: from nm41.bullet.mail.ne1.yahoo.com ([98.138.120.48]:44695 "EHLO
+	nm41.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755695AbaAVOfW convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jan 2014 09:35:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/22/2014 10:22 AM, Ding Tianhong wrote:
-> The dev_set_mac_address() will check the dev->netdev_ops->ndo_set_mac_address,
-> so no need to check it in bond_set_mac_address().
-> 
-> Fix the wrong variables for pr_err().
-> 
-> Cc: Jay Vosburgh <fubar@us.ibm.com>
-> Cc: Veaceslav Falico <vfalico@redhat.com>
-> Cc: Andy Gospodarek <andy@greyhouse.net>
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> ---
->  drivers/net/bonding/bond_main.c | 10 +---------
->  1 file changed, 1 insertion(+), 9 deletions(-)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index ce0f5c0..9d92f46 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -3509,15 +3509,7 @@ static int bond_set_mac_address(struct net_device *bond_dev, void *addr)
->  	 */
->  
->  	bond_for_each_slave(bond, slave, iter) {
-> -		const struct net_device_ops *slave_ops = slave->dev->netdev_ops;
->  		pr_debug("slave %p %s\n", slave, slave->dev->name);
-> -
-> -		if (slave_ops->ndo_set_mac_address == NULL) {
-> -			res = -EOPNOTSUPP;
-> -			pr_debug("EOPNOTSUPP %s\n", slave->dev->name);
-> -			goto unwind;
-> -		}
-> -
->  		res = dev_set_mac_address(slave->dev, addr);
->  		if (res) {
->  			/* TODO: consider downing the slave
-> @@ -4317,7 +4309,7 @@ static int bond_check_params(struct bond_params *params)
->  						      fail_over_mac_tbl);
->  		if (fail_over_mac_value == -1) {
->  			pr_err("Error: invalid fail_over_mac \"%s\"\n",
-> -			       arp_validate == NULL ? "NULL" : arp_validate);
-> +			       fail_over_mac == NULL ? "NULL" : fail_over_mac);
->  			return -EINVAL;
->  		}
-My option API changes include a fix for this which also removes the NULL check
-as it's already checked earlier if fail_over_mac is != NULL. If you'd like to
-fix this yourself I think you can also skip the NULL check when printing the error.
+Hello,
 
-Cheers,
- Nik
->  
-> 
+> Actually, I was alerted by reset processing in your patch, it cannot be right.
+
+Perhaps, I missed something.
+
+My tests were:
+1) enable anycast in tcp_v6_conn_request().
+So, a client-serveur exchange with anycast destination address is possible.
+
+2) try to connect with a port not listen by the server.
+With unicast destination address, the client got a reset.
+With anycast destination address, no reset, the client try several syn and give up.
+
+3) enable anycast in tcp_v6_send_reset().
+With anycast destination address, the client got a reset.
+So unicast and anycast behave the same.
+
+Do you see any problem with this behaviour ?
+
+> Do not you think this must not be enabled for common use? At least
+> some separate sysctl disabled by default.
+
+We could indeed use a sysctl, disabled by default.
+
+But my goal was to enable anycast address usage transparently, if possible.
+
+It's only a possibility for some use cases and if it's dont break unicast TCP usage,
+like I think it, I propose to enable this change without sysctl.
+
+So, my proposals for the TCP case, in descending order of preference are:
+
+1) No sysctl.
+2) A sysctl disabled par default, used in tcp_v6_conn_request() and tcp_v6_send_reset().
+3) A sysctl disabled par default, used in tcp_v6_send_reset(), if problem only here.
+
+Greetings,
+Francois-Xavier
