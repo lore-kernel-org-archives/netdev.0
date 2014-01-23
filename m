@@ -1,44 +1,92 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] rtnetlink: remove check for fill_slave_info in rtnl_have_link_slave_info
-Date: Thu, 23 Jan 2014 19:19:21 +0100
-Message-ID: <1390501161-7890-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, sfeldma@cumulusnetworks.com,
-	nicolas.dichtel@6wind.com, john.r.fastabend@intel.com,
-	vyasevich@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f54.google.com ([74.125.82.54]:46380 "EHLO
-	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932138AbaAWST0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 13:19:26 -0500
-Received: by mail-wg0-f54.google.com with SMTP id x13so1902237wgg.33
-        for <netdev@vger.kernel.org>; Thu, 23 Jan 2014 10:19:25 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: [PATCH net-next] bonding: Use do_div to divide 64 bit numbers
+Date: Thu, 23 Jan 2014 18:47:18 +0000
+Message-ID: <1390502838-21581-1-git-send-email-zoltan.kiss@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Zoltan Kiss <zoltan.kiss@citrix.com>
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	Nikolay Aleksandrov <nikolay@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This check is not needed because the same check is done before
-fill_slave_info is used in rtnl_link_slave_info_fill.
-Also, by removing this check, kernel will fillup IFLA_INFO_SLAVE_KIND
-even for slaves of masters which does not implement fill_slave_info.
+Nikolay Aleksandrov's recent bonding option API changes (25a9b54a and e4994612)
+introduced u64 as the type of downdelay and updelay. On 32 bit the division and
+modulo operations cause compile errors:
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+ERROR: "__udivdi3" [drivers/net/bonding/bonding.ko] undefined!
+ERROR: "__umoddi3" [drivers/net/bonding/bonding.ko] undefined!
+
+This patch use the do_div macro, which guaranteed to do the right thing.
+
+Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 ---
- net/core/rtnetlink.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/bonding/bond_options.c |   19 +++++++++++--------
+ 1 file changed, 11 insertions(+), 8 deletions(-)
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index db6a239..393b1bc 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -482,8 +482,7 @@ static bool rtnl_have_link_slave_info(const struct net_device *dev)
- 	struct net_device *master_dev;
+diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+index 4cee04a..4f94907 100644
+--- a/drivers/net/bonding/bond_options.c
++++ b/drivers/net/bonding/bond_options.c
+@@ -18,6 +18,7 @@
+ #include <linux/rcupdate.h>
+ #include <linux/ctype.h>
+ #include <linux/inet.h>
++#include <asm/div64.h>
+ #include "bonding.h"
  
- 	master_dev = netdev_master_upper_dev_get((struct net_device *) dev);
--	if (master_dev && master_dev->rtnl_link_ops &&
--	    master_dev->rtnl_link_ops->fill_slave_info)
-+	if (master_dev && master_dev->rtnl_link_ops)
- 		return true;
- 	return false;
- }
--- 
-1.8.3.1
+ static struct bond_opt_value bond_mode_tbl[] = {
+@@ -727,19 +728,20 @@ int bond_option_miimon_set(struct bonding *bond, struct bond_opt_value *newval)
+ 
+ int bond_option_updelay_set(struct bonding *bond, struct bond_opt_value *newval)
+ {
++	u64 quotient = newval->value;
++	u64 remainder = do_div(quotient, bond->params.miimon);
+ 	if (!bond->params.miimon) {
+ 		pr_err("%s: Unable to set up delay as MII monitoring is disabled\n",
+ 		       bond->dev->name);
+ 		return -EPERM;
+ 	}
+-	if ((newval->value % bond->params.miimon) != 0) {
++	if (remainder != 0) {
+ 		pr_warn("%s: Warning: up delay (%llu) is not a multiple of miimon (%d), updelay rounded to %llu ms\n",
+ 			bond->dev->name, newval->value,
+ 			bond->params.miimon,
+-			(newval->value / bond->params.miimon) *
+-			bond->params.miimon);
++			quotient * bond->params.miimon);
+ 	}
+-	bond->params.updelay = newval->value / bond->params.miimon;
++	bond->params.updelay = quotient;
+ 	pr_info("%s: Setting up delay to %d.\n",
+ 		bond->dev->name,
+ 		bond->params.updelay * bond->params.miimon);
+@@ -750,19 +752,20 @@ int bond_option_updelay_set(struct bonding *bond, struct bond_opt_value *newval)
+ int bond_option_downdelay_set(struct bonding *bond,
+ 			      struct bond_opt_value *newval)
+ {
++	u64 quotient = newval->value;
++	u64 remainder = do_div(quotient, bond->params.miimon);
+ 	if (!bond->params.miimon) {
+ 		pr_err("%s: Unable to set down delay as MII monitoring is disabled\n",
+ 		       bond->dev->name);
+ 		return -EPERM;
+ 	}
+-	if ((newval->value % bond->params.miimon) != 0) {
++	if (remainder != 0) {
+ 		pr_warn("%s: Warning: down delay (%llu) is not a multiple of miimon (%d), delay rounded to %llu ms\n",
+ 			bond->dev->name, newval->value,
+ 			bond->params.miimon,
+-			(newval->value / bond->params.miimon) *
+-			bond->params.miimon);
++			quotient * bond->params.miimon);
+ 	}
+-	bond->params.downdelay = newval->value / bond->params.miimon;
++	bond->params.downdelay = quotient;
+ 	pr_info("%s: Setting down delay to %d.\n",
+ 		bond->dev->name,
+ 		bond->params.downdelay * bond->params.miimon);
