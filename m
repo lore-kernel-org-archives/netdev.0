@@ -1,80 +1,103 @@
-From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next] sfc: Use the correct maximum TX DMA ring size for
- SFC9100
-Date: Thu, 23 Jan 2014 14:35:48 +0000
-Message-ID: <52E128C4.7010806@solarflare.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH v2] bridge: Fix crash with vlan filtering and tcpdump
+Date: Thu, 23 Jan 2014 09:57:34 -0500
+Message-ID: <52E12DDE.5090203@redhat.com>
+References: <1390415070-1884-1-git-send-email-vyasevic@redhat.com> <1390480711.5347.8.camel@ubuntu-vm-makita>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:25848 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753528AbaAWOfw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 09:35:52 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:51329 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754801AbaAWO5i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jan 2014 09:57:38 -0500
+In-Reply-To: <1390480711.5347.8.camel@ubuntu-vm-makita>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
+On 01/23/2014 07:38 AM, Toshiaki Makita wrote:
+> On Wed, 2014-01-22 at 13:24 -0500, Vlad Yasevich wrote:
+>> When the vlan filtering is enabled on the bridge, but
+>> the filter is not configured on the bridge device itself,
+>> running tcpdump on the bridge device will result in a
+>> an Oops with NULL pointer dereference.  The reason
+>> is that br_pass_frame_up() will bypass the vlan
+>> check because promisc flag is set.  It will then try
+>> to get the table pointer and process the packet based
+>> on the table.  Since the table pointer is NULL, we oops.
+>> Catch this special condition in br_handle_vlan().
+>>
+>> Reported-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>> CC: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+>> ---
+>> Changes since v1:
+>>   - Do not use a BUG or BUG_ON as it is possible to trigger the
+>>     false BUG condition when thrashing the vlan_enable toggle.
+>>     Instead just drop the skb.
+> 
+> Maybe that frame went through should_deliver() while vlan_filtering was
+> disabled?
 
-As part of a workaround for a hardware erratum in the SFC9100 family
-(SF bug 35388), the TX_DESC_UPD_DWORD register address is also used
-for communicating with the event block, and only descriptor pointer
-values < 2048 are valid.
+yes.  That's what happend.
 
-If the TX DMA ring size is increased to 4096 descriptors (which the
-firmware still allows) then we may write a descriptor pointer 
-value >= 2048, which has entirely different and undesirable effects!
+> I hope it doesn't affect other codes in an adverse way...
 
-Limit the TX DMA ring size correctly when this workaround is in
-effect.
+I didn't see any adverse conditions while running the while(1) loop
+changing vlan_flitering, but I didn't run it for all that long (about a
+minute).
 
-Fixes: 8127d661e77f ('sfc: Add support for Solarflare SFC9100 family')
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-Signed-off-by: Shradha Shah <sshah@solarflare.com>
----
-This patch limits the TX DMA ring size to <= 2048.
-This bug fix is needed for all versions supporting EF10
-i.e all versions including and after 3.12.
+I am working on a series to reduce the possible races that involves
+marking the skb (in the cb) and using that marking in later invocations.
 
- drivers/net/ethernet/sfc/efx.h     |    3 +++
- drivers/net/ethernet/sfc/ethtool.c |    4 ++--
- 2 files changed, 5 insertions(+), 2 deletions(-)
+> 
+>>
+>>  net/bridge/br_input.c | 11 ++++++-----
+>>  net/bridge/br_vlan.c  | 14 ++++++++++++++
+>>  2 files changed, 20 insertions(+), 5 deletions(-)
+>>
+> ...
+>> diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+>> index af5ebd1..abc841c 100644
+>> --- a/net/bridge/br_vlan.c
+>> +++ b/net/bridge/br_vlan.c
+>> @@ -144,6 +144,20 @@ struct sk_buff *br_handle_vlan(struct net_bridge *br,
+>>  	if (!br->vlan_enabled)
+>>  		goto out;
+>>  
+>> +	/* Vlan filter table must be configured at this point.  The
+>> +	 * only exception is the bridge is set in promisc mode and the
+>> +	 * packet is destined for the bridge device.  In this case
+>> +	 * pass the packet as is.
+>> +	 */
+>> +	if (!pv) {
+>> +		if ((br->dev->flags & IFF_PROMISC) && skb->dev == br->dev)
+>> +			goto out;
+>> +		else {
+>> +			kfree_skb_list(skb);
+> 
+> Why is this not kfree_skb() but kfree_skb_list()?
+> I haven't seen kfree_skb_list() in the bridge code.
 
-diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
-index 6012247..dbd7b78 100644
---- a/drivers/net/ethernet/sfc/efx.h
-+++ b/drivers/net/ethernet/sfc/efx.h
-@@ -66,6 +66,9 @@ void efx_schedule_slow_fill(struct efx_rx_queue *rx_queue);
- #define EFX_RXQ_MIN_ENT		128U
- #define EFX_TXQ_MIN_ENT(efx)	(2 * efx_tx_max_skb_descs(efx))
- 
-+#define EFX_TXQ_MAX_ENT(efx)	(EFX_WORKAROUND_35388(efx) ? \
-+				 EFX_MAX_DMAQ_SIZE / 2 : EFX_MAX_DMAQ_SIZE)
-+
- /* Filters */
- 
- /**
-diff --git a/drivers/net/ethernet/sfc/ethtool.c b/drivers/net/ethernet/sfc/ethtool.c
-index f181522..2294289 100644
---- a/drivers/net/ethernet/sfc/ethtool.c
-+++ b/drivers/net/ethernet/sfc/ethtool.c
-@@ -591,7 +591,7 @@ static void efx_ethtool_get_ringparam(struct net_device *net_dev,
- 	struct efx_nic *efx = netdev_priv(net_dev);
- 
- 	ring->rx_max_pending = EFX_MAX_DMAQ_SIZE;
--	ring->tx_max_pending = EFX_MAX_DMAQ_SIZE;
-+	ring->tx_max_pending = EFX_TXQ_MAX_ENT(efx);
- 	ring->rx_pending = efx->rxq_entries;
- 	ring->tx_pending = efx->txq_entries;
- }
-@@ -604,7 +604,7 @@ static int efx_ethtool_set_ringparam(struct net_device *net_dev,
- 
- 	if (ring->rx_mini_pending || ring->rx_jumbo_pending ||
- 	    ring->rx_pending > EFX_MAX_DMAQ_SIZE ||
--	    ring->tx_pending > EFX_MAX_DMAQ_SIZE)
-+	    ring->tx_pending > EFX_TXQ_MAX_ENT(efx))
- 		return -EINVAL;
- 
- 	if (ring->rx_pending < EFX_RXQ_MIN_ENT) {
+I thought it is possible to get a list here, but upon further inspection
+I don't see that happening.   I'll change that to kfree_skb().
+
+Thanks
+-vlad
+
+> 
+> Thanks,
+> Toshiaki Makita
+> 
+>> +			return NULL;
+>> +		}
+>> +	}
+>> +
+>>  	/* At this point, we know that the frame was filtered and contains
+>>  	 * a valid vlan id.  If the vlan id is set in the untagged bitmap,
+>>  	 * send untagged; otherwise, send taged.
+> 
+> 
