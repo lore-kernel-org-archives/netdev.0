@@ -1,54 +1,89 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH v2] ip_tunnel: clear IPCB in ip_tunnel_xmit() in case dst_link_failure()
- is called
-Date: Thu, 23 Jan 2014 14:00:25 +0800
-Message-ID: <52E0AFF9.6050803@cn.fujitsu.com>
-References: <52DE1F60.2060109@cn.fujitsu.com>	<CALnjE+qFPoK_0EnZ_TWe1sx4s166iSjAH_+1r2uENeS4aRBckQ@mail.gmail.com> <20140122.212445.2236898585371895394.davem@davemloft.net>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [RFC PATCH net] IPv6: Fix broken IPv6 routing table after loopback
+ down-up
+Date: Thu, 23 Jan 2014 14:23:27 +0800
+Message-ID: <52E0B55F.4070501@cn.fujitsu.com>
+References: <1390404908-3914-1-git-send-email-sd@queasysnail.net> <20140122213446.GD7269@order.stressinduktion.org> <52E068C5.2050405@cn.fujitsu.com> <20140123010123.GF7269@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: daniel.petre@rcs-rds.ro, edumazet@google.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, pshelar@nicira.com
+To: Sabrina Dubroca <sd@queasysnail.net>, netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:38066 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:15767 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751157AbaAWGBG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Jan 2014 01:01:06 -0500
-In-Reply-To: <20140122.212445.2236898585371895394.davem@davemloft.net>
+	id S1750969AbaAWGWn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jan 2014 01:22:43 -0500
+In-Reply-To: <20140123010123.GF7269@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 01/23/2014 09:01 AM, Hannes Frederic Sowa wrote:
+> On Thu, Jan 23, 2014 at 08:56:37AM +0800, Gao feng wrote:
+>> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+>> index 1a341f7..4dca886 100644
+>> --- a/net/ipv6/addrconf.c
+>> +++ b/net/ipv6/addrconf.c
+>> @@ -2610,8 +2610,16 @@ static void init_loopback(struct net_device *dev)
+>>                         if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
+>>                                 continue;
+>>
+>> -                       if (sp_ifa->rt)
+>> -                               continue;
+>> +                       if (sp_ifa->rt) {
+>> +                               /* This dst has been added to garbage list when
+>> +                                * lo device down, delete this obsolete dst and
+>> +                                * reallocate new router for ifa. */
+>> +                               if (sp_ifa->rt->dst.obsolete > 0) {
+>> +                                       ip6_del_rt(sp_ifa->rt);
+>> +                                       sp_ifa->rt = NULL;
+>> +                               } else
+>> +                                       continue;
+>> +                       }
+>>
+>>                         sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, false);
+> 
+> I agree, this seems a lot simpler. 
 
-commit a622260254ee48("ip_tunnel: fix kernel panic with icmp_dest_unreach")
-clear IPCB in ip_tunnel_xmit()  , or else skb->cb[] may contain garbage from
-GSO segmentation layer.
+I will post a official version.
 
-But commit 0e6fbc5b6c621("ip_tunnels: extend iptunnel_xmit()") refactor codes,
-and it clear IPCB behind the dst_link_failure().
+> In the end I would like to replace this
+> conditional loopback up/down thing with something like below. I haven't done
+> the correct hookups into the relevant places, but I hope you get the idea:
+> 
 
-So clear IPCB in ip_tunnel_xmit() just like commti a622260254ee48("ip_tunnel:
-fix kernel panic with icmp_dest_unreach").
+The code explains everything. the routers will be invalid when device is down
+and be enabled when device is up.
 
-Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
----
+look forward to your patch.
 
-v2: add the memset() before the dst_link_failure() call
+> diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+> index 017badb..1648a59a 100644
+> --- a/include/net/ip6_route.h
+> +++ b/include/net/ip6_route.h
 
- net/ipv4/ip_tunnel.c | 1 +
- 1 file changed, 1 insertion(+)
+[...]
+>  
+> -static int fib6_ifdown(struct rt6_info *rt, void *arg)
+> +static int __fib6_match_or_update_if(struct rt6_info *rt, void *arg)
+>  {
+>  	const struct arg_dev_net *adn = arg;
+>  	const struct net_device *dev = adn->dev;
+>  
+>  	if ((rt->dst.dev == dev || !dev) &&
+> -	    rt != adn->net->ipv6.ip6_null_entry)
+> -		return -1;
+> +	    rt != adn->net->ipv6.ip6_null_entry) {
+> +		switch (adn->action) {
+> +		case ARG_DEV_NET_REMOVE:
+> +			/* remove rt */
+> +			return -1;
+> +		case ARG_DEV_NET_DISABLE:
+> +			WARN_ON(rt->rt6i_flags & RTF_DEAD);
+> +			rt->rt6i_flags |= RTF_DEAD;
+> +			return 0;
+> +		case ARG_DEV_NET_ENABLE:
+> +			WARN_ON(!(rt->rt6i_flags & RTF_DEAD));
 
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index 90ff957..471c8c1 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -618,6 +618,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
- 				tunnel->err_time + IPTUNNEL_ERR_TIMEO)) {
- 			tunnel->err_count--;
- 
-+			memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
- 			dst_link_failure(skb);
- 		} else
- 			tunnel->err_count = 0;
--- 
-1.8.3.1
+I think this may happen, think a new router is cloned from this rt but hasn't been inserted
+into the router tree on other CPU at the same time.
