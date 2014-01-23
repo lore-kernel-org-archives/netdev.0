@@ -1,71 +1,49 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v2 net-next 1/2] bonding: RCUify bond_ab_arp_probe
-Date: Thu, 23 Jan 2014 14:08:30 +0100
-Message-ID: <1390482511-14884-2-git-send-email-vfalico@redhat.com>
-References: <1390482511-14884-1-git-send-email-vfalico@redhat.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56084 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751490AbaAWNNG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Jan 2014 08:13:06 -0500
-In-Reply-To: <1390482511-14884-1-git-send-email-vfalico@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next v5 0/9] xen-netback: TX grant mapping with SKBTX_DEV_ZEROCOPY
+ instead of copy
+Date: Thu, 23 Jan 2014 13:13:07 +0000
+Message-ID: <52E11563.1090707@citrix.com>
+References: <1390253069-25507-1-git-send-email-zoltan.kiss@citrix.com> <20140122.175031.873909526743971037.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140122.175031.873909526743971037.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently bond_ab_arp_probe() is always called under rcu_read_lock(),
-however to work with curr_active_slave we're still holding the
-curr_slave_lock.
+On 23/01/14 01:50, David Miller wrote:
+> From: Zoltan Kiss <zoltan.kiss@citrix.com>
+> Date: Mon, 20 Jan 2014 21:24:20 +0000
+>
+>> A long known problem of the upstream netback implementation that on the TX
+>> path (from guest to Dom0) it copies the whole packet from guest memory into
+>> Dom0. That simply became a bottleneck with 10Gb NICs, and generally it's a
+>> huge perfomance penalty. The classic kernel version of netback used grant
+>> mapping, and to get notified when the page can be unmapped, it used page
+>> destructors. Unfortunately that destructor is not an upstreamable solution.
+>> Ian Campbell's skb fragment destructor patch series [1] tried to solve this
+>> problem, however it seems to be very invasive on the network stack's code,
+>> and therefore haven't progressed very well.
+>> This patch series use SKBTX_DEV_ZEROCOPY flags to tell the stack it needs to
+>> know when the skb is freed up.
+>
+> This series does not apply to net-next due to some other recent changes.
+>
+> Please respin, thanks.
 
-To remove that curr_slave_lock - rcu_dereference the bond's
-curr_active_slave and use it further - so that we're sure the slave won't
-go away, and we don't care if it will change in the meanwhile.
+It is already based on two predecessor patches, one which is already 
+accepted but not applied yet:
 
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
----
- drivers/net/bonding/bond_main.c | 16 ++++++----------
- 1 file changed, 6 insertions(+), 10 deletions(-)
+[PATCH net-next v2] xen-netback: Rework rx_work_todo
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index f9e0c8b..22d8b69 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2605,25 +2605,21 @@ do_failover:
- static void bond_ab_arp_probe(struct bonding *bond)
- {
- 	struct slave *slave, *before = NULL, *new_slave = NULL,
--		     *curr_arp_slave = rcu_dereference(bond->current_arp_slave);
-+		     *curr_arp_slave = rcu_dereference(bond->current_arp_slave),
-+		     *curr_active_slave = rcu_dereference(bond->curr_active_slave);
- 	struct list_head *iter;
- 	bool found = false;
- 
--	read_lock(&bond->curr_slave_lock);
--
--	if (curr_arp_slave && bond->curr_active_slave)
-+	if (curr_arp_slave && curr_active_slave)
- 		pr_info("PROBE: c_arp %s && cas %s BAD\n",
- 			curr_arp_slave->dev->name,
--			bond->curr_active_slave->dev->name);
-+			curr_active_slave->dev->name);
- 
--	if (bond->curr_active_slave) {
--		bond_arp_send_all(bond, bond->curr_active_slave);
--		read_unlock(&bond->curr_slave_lock);
-+	if (curr_active_slave) {
-+		bond_arp_send_all(bond, curr_active_slave);
- 		return;
- 	}
- 
--	read_unlock(&bond->curr_slave_lock);
--
- 	/* if we don't have a curr_active_slave, search for the next available
- 	 * backup slave from the current_arp_slave and make it the candidate
- 	 * for becoming the curr_active_slave
--- 
-1.8.4
+And the other one is hopefully will be accepted very soon:
+
+[PATCH v5] xen/grant-table: Avoid m2p_override during mapping
+
+Zoli
