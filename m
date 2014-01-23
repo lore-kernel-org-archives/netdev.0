@@ -1,49 +1,103 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Linux kernel patch: elide fib_validate_source() completely when possible - bad side effect?
-Date: Thu, 23 Jan 2014 15:20:58 +0100
-Message-ID: <20140123142058.GK7269@order.stressinduktion.org>
-References: <52DCF1440200005D000477FD@gwia2.atlnz.lc> <alpine.LFD.2.11.1401222222010.1855@ja.home.ssi.bg> <20140123020224.GG7269@order.stressinduktion.org> <20140122.185305.1125981867482223830.davem@davemloft.net> <20140123030329.GI7269@order.stressinduktion.org> <alpine.LFD.2.11.1401231056530.2682@ja.home.ssi.bg>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH net-next 0/3] virtio_net: add aRFS support
+Date: Thu, 23 Jan 2014 16:26:09 +0200
+Message-ID: <20140123142609.GD21572@redhat.com>
+References: <1389795654-28381-1-git-send-email-zwu.kernel@gmail.com>
+ <52D75EA5.1050000@redhat.com>
+ <CAEH94Lg8aL2UcrdgSW6ahtiSYTE0=z1o8Q0hHf0t9RpPVvGiDQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>,
-	gregory.hoggarth@alliedtelesis.co.nz, netdev@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
+	Stefan Hajnoczi <stefanha@redhat.com>,
+	Rusty Russell <rusty@rustcorp.com.au>
+To: Zhi Yong Wu <zwu.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:60479 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932095AbaAWOU7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 09:20:59 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:41110 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932095AbaAWOVb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jan 2014 09:21:31 -0500
 Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.11.1401231056530.2682@ja.home.ssi.bg>
+In-Reply-To: <CAEH94Lg8aL2UcrdgSW6ahtiSYTE0=z1o8Q0hHf0t9RpPVvGiDQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Julian,
+On Thu, Jan 16, 2014 at 04:48:43PM +0800, Zhi Yong Wu wrote:
+> On Thu, Jan 16, 2014 at 12:23 PM, Jason Wang <jasowang@redhat.com> wrote:
+> > On 01/15/2014 10:20 PM, Zhi Yong Wu wrote:
+> >>
+> >> From: Zhi Yong Wu<wuzhy@linux.vnet.ibm.com>
+> >>
+> >> HI, folks
+> >>
+> >> The patchset is trying to integrate aRFS support to virtio_net. In this
+> >> case,
+> >> aRFS will be used to select the RX queue. To make sure that it's going
+> >> ahead
+> >> in the correct direction, although it is still one RFC and isn't tested,
+> >> it's
+> >> post out ASAP. Any comment are appreciated, thanks.
+> >>
+> >> If anyone is interested in playing with it, you can get this patchset from
+> >> my
+> >> dev git on github:
+> >>    git://github.com/wuzhy/kernel.git virtnet_rfs
+> >>
+> >> Zhi Yong Wu (3):
+> >>    virtio_pci: Introduce one new config api vp_get_vq_irq()
+> >>    virtio_net: Introduce one dummy function virtnet_filter_rfs()
+> >>    virtio-net: Add accelerated RFS support
+> >>
+> >>   drivers/net/virtio_net.c      |   67
+> >> ++++++++++++++++++++++++++++++++++++++++-
+> >>   drivers/virtio/virtio_pci.c   |   11 +++++++
+> >>   include/linux/virtio_config.h |   12 +++++++
+> >>   3 files changed, 89 insertions(+), 1 deletions(-)
+> >>
+> >
+> > Please run get_maintainter.pl before sending the patch. You'd better at
+> > least cc virtio maintainer/list for this.
+> Is this one must for virtio stuff?
 
-On Thu, Jan 23, 2014 at 11:47:33AM +0200, Julian Anastasov wrote:
-> On Thu, 23 Jan 2014, Hannes Frederic Sowa wrote:
+See Documentation/SubmittingPatches
+
+> >
+> > The core aRFS method is a noop in this RFC which make this series no much
+> > sense to discuss. You should at least mention the big picture here in the
+> > cover letter. I suggest you should post a RFC which can run and has expected
+> > result or you can just raise a thread for the design discussion.
+> Yes, it currently miss some important stuff as i said in another mail
+> of this series.
 > 
-> > E.g. we register all local registered broadcast addresses in a structure
-> > like inet_addr_lst so we only need to check if the packet would leave
-> > this host with a broadcast hardware address. If the packet is forwarded
-> > the router must do the same check as only it knows the local broadcast
-> > addresses. I hope this is correct. ;)
+> >
+> > And this method has been discussed before, you can search "[net-next RFC
+> > PATCH 5/5] virtio-net: flow director support" in netdev archive for a very
+> > old prototype implemented by me. It can work and looks like most of this RFC
+> > have already done there.
+> ah? Can you let me know the result of your discussion? Will checked
+> it, thanks for your pointer.
+> >
+> > A basic question is whether or not we need this, not all the mq cards use
+> > aRFS (see ixgbe ATR). And whether or not it can bring extra overheads? For
+> > virtio, we want to reduce the vmexits as much as possible but this aRFS
+> Good question, i also have concern about this, and don't know if Tom
+> has good explanation.
+> > seems introduce a lot of more of this. Making a complex interfaces just for
+> > an virtual device may not be good, simple method may works for most of the
+> > cases.
+> >
+> > We really should consider to offload this to real nic. VMDq and L2
+> > forwarding offload may help in this case.
 > 
-> 	Now when we can override the local table with ip
-> rules or to prepend route in local table, we can not be
-> sure that the broadcast routes are returned in all cases,
-> users can add unicast routes for such addresses.
+> By the way, Stefan, can you let us know your concerns here? as we
+> talked in irc channel. :)
 > 
-> 	I don't remember for useful case where one may need to
-> override broadcast routes but adding such exceptions looks
-> risky.
-
-The check I envisioned would only actually block the ifa_broadcast of only the
-incoming interface as source address. So we wouldn't depend on the view of the
-routing tables at all.
-
-But I have no strong opinion on that.
-
-Greetings,
-
-  Hannes
+> 
+> -- 
+> Regards,
+> 
+> Zhi Yong Wu
