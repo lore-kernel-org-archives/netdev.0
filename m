@@ -1,45 +1,44 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Linux kernel patch: elide fib_validate_source() completely when possible - bad side effect?
-Date: Thu, 23 Jan 2014 04:03:29 +0100
-Message-ID: <20140123030329.GI7269@order.stressinduktion.org>
-References: <52DCF1440200005D000477FD@gwia2.atlnz.lc> <alpine.LFD.2.11.1401222222010.1855@ja.home.ssi.bg> <20140123020224.GG7269@order.stressinduktion.org> <20140122.185305.1125981867482223830.davem@davemloft.net>
+From: Chen Weilong <chenweilong@huawei.com>
+Subject: [PATCH] team: Don't allow team devices to change network namespaces.
+Date: Thu, 23 Jan 2014 11:07:22 +0800
+Message-ID: <1390446442-12768-1-git-send-email-chenweilong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: ja@ssi.bg, gregory.hoggarth@alliedtelesis.co.nz,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: <jiri@resnulli.us>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:59435 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752856AbaAWDDb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 22:03:31 -0500
-Content-Disposition: inline
-In-Reply-To: <20140122.185305.1125981867482223830.davem@davemloft.net>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:20278 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751876AbaAWDII (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 22:08:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 22, 2014 at 06:53:05PM -0800, David Miller wrote:
-> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Thu, 23 Jan 2014 03:02:24 +0100
-> 
-> > On Wed, Jan 22, 2014 at 11:04:52PM +0200, Julian Anastasov wrote:
-> >> 	I don't remember someone mentioning about such
-> >> side-effect, I guess it is overlooked. IMHO, it is not a good
-> >> reason to restore the old behavior. Lets see other opinions.
-> > 
-> > A routing lookup to check for broadcast is much too expansive, I agree. But
-> > can't we just check skb->pkt_type == PACKET_BROADCAST?
-> 
-> We can't universally know what a broadcast is, because the prefix of
-> every network is a local piece of information.
-> 
-> We might not have the route necessary to know the source address is
-> a broadcast if the packet came through more than 1 hop already.
+From: Weilong Chen <chenweilong@huawei.com>
 
-But in this case we only need those local pieces.
+Like bonding, team as netdevice doesn't cross netns boundaries.
 
-E.g. we register all local registered broadcast addresses in a structure
-like inet_addr_lst so we only need to check if the packet would leave
-this host with a broadcast hardware address. If the packet is forwarded
-the router must do the same check as only it knows the local broadcast
-addresses. I hope this is correct. ;)
+Team ports and team itself live in same netns.
+
+Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+---
+ drivers/net/team/team.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index dff24e3..2840742 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -2034,6 +2034,10 @@ static void team_setup(struct net_device *dev)
+ 
+ 	dev->features |= NETIF_F_LLTX;
+ 	dev->features |= NETIF_F_GRO;
++
++	/* Don't allow team devices to change network namespaces. */
++	dev->features |= NETIF_F_NETNS_LOCAL;
++
+ 	dev->hw_features = TEAM_VLAN_FEATURES |
+ 			   NETIF_F_HW_VLAN_CTAG_TX |
+ 			   NETIF_F_HW_VLAN_CTAG_RX |
+-- 
+1.7.12
