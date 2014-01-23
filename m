@@ -1,93 +1,83 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next] bonding: fix u64 division
-Date: Thu, 23 Jan 2014 23:43:43 +0100
-Message-ID: <1390517023-31950-1-git-send-email-nikolay@redhat.com>
-References: <52E18720.4060008@redhat.com>
-Cc: davem@davemloft.net, zoltan.kiss@citrix.com, andy@greyhouse.net,
-	vfalico@redhat.com, fubar@us.ibm.com, nikolay@redhat.com
-To: netdev@vger.kernel.org
+From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+Subject: [PATCH net-next 4/7] qlcnic: Update poll controller code path
+Date: Thu, 23 Jan 2014 17:18:31 -0500
+Message-ID: <007aef3c1d4ed16bccdb9def80963b186548e6e7.1390491376.git.himanshu.madhani@qlogic.com>
+References: <cover.1390491376.git.himanshu.madhani@qlogic.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Manish chopra <manish.chopra@qlogic.com>,
+	<himanshu.madhani@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30299 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751979AbaAWWo1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Jan 2014 17:44:27 -0500
-In-Reply-To: <52E18720.4060008@redhat.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:36273 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755604AbaAWWww (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 17:52:52 -0500
+In-Reply-To: <cover.1390491376.git.himanshu.madhani@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After the option conversion downdelay and updelay divide a u64
-and on a 32 bit this causes the following errors:
-ERROR: "__udivdi3" [drivers/net/bonding/bonding.ko] undefined!
-ERROR: "__umoddi3" [drivers/net/bonding/bonding.ko] undefined!
+From: Manish chopra <manish.chopra@qlogic.com>
 
-Fix it by using a normal int instead because newval->value is capped
-at INT_MAX by the way the option is defined.
+Add support for MSI/MSI-X mode in poll controller routine.
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
+Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
 ---
-This is what I meant, but it's only compile-tested, I can't
-test it until tomorrow.
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c | 34 +++++++++++++++++++-----
+ 1 file changed, 28 insertions(+), 6 deletions(-)
 
- drivers/net/bonding/bond_options.c | 24 ++++++++++++++----------
- 1 file changed, 14 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 4cee04a..11cb943 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -727,19 +727,21 @@ int bond_option_miimon_set(struct bonding *bond, struct bond_opt_value *newval)
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index b9c1e37..0cfa8a3 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -2925,17 +2925,39 @@ static irqreturn_t qlcnic_msix_tx_intr(int irq, void *data)
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void qlcnic_poll_controller(struct net_device *netdev)
+ {
+-	int ring;
+-	struct qlcnic_host_sds_ring *sds_ring;
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+-	struct qlcnic_recv_context *recv_ctx = adapter->recv_ctx;
++	struct qlcnic_host_sds_ring *sds_ring;
++	struct qlcnic_recv_context *recv_ctx;
++	struct qlcnic_host_tx_ring *tx_ring;
++	int ring;
++
++	if (!test_bit(__QLCNIC_DEV_UP, &adapter->state))
++		return;
++
++	recv_ctx = adapter->recv_ctx;
  
- int bond_option_updelay_set(struct bonding *bond, struct bond_opt_value *newval)
- {
-+	int value = newval->value;
+-	disable_irq(adapter->irq);
+ 	for (ring = 0; ring < adapter->drv_sds_rings; ring++) {
+ 		sds_ring = &recv_ctx->sds_rings[ring];
+-		qlcnic_intr(adapter->irq, sds_ring);
++		qlcnic_disable_sds_intr(adapter, sds_ring);
++		napi_schedule(&sds_ring->napi);
++	}
 +
- 	if (!bond->params.miimon) {
- 		pr_err("%s: Unable to set up delay as MII monitoring is disabled\n",
- 		       bond->dev->name);
- 		return -EPERM;
- 	}
--	if ((newval->value % bond->params.miimon) != 0) {
--		pr_warn("%s: Warning: up delay (%llu) is not a multiple of miimon (%d), updelay rounded to %llu ms\n",
--			bond->dev->name, newval->value,
-+	if ((value % bond->params.miimon) != 0) {
-+		pr_warn("%s: Warning: up delay (%d) is not a multiple of miimon (%d), updelay rounded to %d ms\n",
-+			bond->dev->name, value,
- 			bond->params.miimon,
--			(newval->value / bond->params.miimon) *
-+			(value / bond->params.miimon) *
- 			bond->params.miimon);
- 	}
--	bond->params.updelay = newval->value / bond->params.miimon;
-+	bond->params.updelay = value / bond->params.miimon;
- 	pr_info("%s: Setting up delay to %d.\n",
- 		bond->dev->name,
- 		bond->params.updelay * bond->params.miimon);
-@@ -750,19 +752,21 @@ int bond_option_updelay_set(struct bonding *bond, struct bond_opt_value *newval)
- int bond_option_downdelay_set(struct bonding *bond,
- 			      struct bond_opt_value *newval)
- {
-+	int value = newval->value;
++	if (adapter->flags & QLCNIC_MSIX_ENABLED) {
++		/* Only Multi-Tx queue capable devices need to
++		 * schedule NAPI for TX rings
++		 */
++		if ((qlcnic_83xx_check(adapter) &&
++		     (adapter->flags & QLCNIC_TX_INTR_SHARED)) ||
++		    (qlcnic_82xx_check(adapter) &&
++		     !qlcnic_check_multi_tx(adapter)))
++			return;
 +
- 	if (!bond->params.miimon) {
- 		pr_err("%s: Unable to set down delay as MII monitoring is disabled\n",
- 		       bond->dev->name);
- 		return -EPERM;
++		for (ring = 0; ring < adapter->drv_tx_rings; ring++) {
++			tx_ring = &adapter->tx_ring[ring];
++			qlcnic_disable_tx_intr(adapter, tx_ring);
++			napi_schedule(&tx_ring->napi);
++		}
  	}
--	if ((newval->value % bond->params.miimon) != 0) {
--		pr_warn("%s: Warning: down delay (%llu) is not a multiple of miimon (%d), delay rounded to %llu ms\n",
--			bond->dev->name, newval->value,
-+	if ((value % bond->params.miimon) != 0) {
-+		pr_warn("%s: Warning: down delay (%d) is not a multiple of miimon (%d), delay rounded to %d ms\n",
-+			bond->dev->name, value,
- 			bond->params.miimon,
--			(newval->value / bond->params.miimon) *
-+			(value / bond->params.miimon) *
- 			bond->params.miimon);
- 	}
--	bond->params.downdelay = newval->value / bond->params.miimon;
-+	bond->params.downdelay = value / bond->params.miimon;
- 	pr_info("%s: Setting down delay to %d.\n",
- 		bond->dev->name,
- 		bond->params.downdelay * bond->params.miimon);
+-	enable_irq(adapter->irq);
+ }
+ #endif
+ 
 -- 
-1.8.4.2
+1.8.1.4
