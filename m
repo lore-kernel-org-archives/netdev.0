@@ -1,78 +1,79 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next 1/3] bonding: Set the correct value to fail_over_mac
- at enslavement
-Date: Thu, 23 Jan 2014 10:31:50 +0800
-Message-ID: <52E07F16.707@huawei.com>
-References: <52DF8DB8.9000006@huawei.com> <52DFD3BB.5010708@redhat.com>
+Subject: Re: [PATCH net-next 3/3] bonding: cleanup some redundant code and
+ wrong variables
+Date: Thu, 23 Jan 2014 10:32:32 +0800
+Message-ID: <52E07F40.30305@huawei.com>
+References: <52DF8DC2.2030609@huawei.com> <52DFD587.4070109@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 To: Nikolay Aleksandrov <nikolay@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
 	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Andy Gospodarek <andy@greyhouse.net>
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:2649 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752201AbaAWCci (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 21:32:38 -0500
-In-Reply-To: <52DFD3BB.5010708@redhat.com>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:17258 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752516AbaAWCdm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 21:33:42 -0500
+In-Reply-To: <52DFD587.4070109@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/1/22 22:20, Nikolay Aleksandrov wrote:
+On 2014/1/22 22:28, Nikolay Aleksandrov wrote:
 > On 01/22/2014 10:22 AM, Ding Tianhong wrote:
->> If the new slave don't support setting the MAC address, there are
->> two ways to handle this situation:
+>> The dev_set_mac_address() will check the dev->netdev_ops->ndo_set_mac_address,
+>> so no need to check it in bond_set_mac_address().
 >>
->> 1). If the new slave is the first slave, set bond to the new slave's
->>     MAC address, if the mode is active-backup, set fail_over_mac to
->>     active, otherwise set fail_over_mac to none.
->> 2). If the new slave is not the first slave and the fail_over_mac is
->>     active, it means that the slave could work normally in active-backup
->>     mode, otherwise if the fail_over_mac is none, the slave could not
->>     work normally for no active-backup mode, so bond could not ensalve
->>     the new dev.
+>> Fix the wrong variables for pr_err().
 >>
 >> Cc: Jay Vosburgh <fubar@us.ibm.com>
 >> Cc: Veaceslav Falico <vfalico@redhat.com>
 >> Cc: Andy Gospodarek <andy@greyhouse.net>
 >> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 >> ---
->>  drivers/net/bonding/bond_main.c | 12 ++++++++++--
->>  1 file changed, 10 insertions(+), 2 deletions(-)
+>>  drivers/net/bonding/bond_main.c | 10 +---------
+>>  1 file changed, 1 insertion(+), 9 deletions(-)
 >>
 >> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->> index 3220b48..598f100 100644
+>> index ce0f5c0..9d92f46 100644
 >> --- a/drivers/net/bonding/bond_main.c
 >> +++ b/drivers/net/bonding/bond_main.c
->> @@ -1334,9 +1334,17 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+>> @@ -3509,15 +3509,7 @@ static int bond_set_mac_address(struct net_device *bond_dev, void *addr)
+>>  	 */
 >>  
->>  	if (slave_ops->ndo_set_mac_address == NULL) {
->>  		if (!bond_has_slaves(bond)) {
->> -			pr_warning("%s: Warning: The first slave device specified does not support setting the MAC address. Setting fail_over_mac to active.",
->> +			pr_warning("%s: Warning: The first slave device specified does not support setting the MAC address.\n",
->>  				   bond_dev->name);
->> -			bond->params.fail_over_mac = BOND_FOM_ACTIVE;
->> +			if (bond->params.mode == BOND_MODE_ACTIVEBACKUP) {
->> +				bond->params.fail_over_mac = BOND_FOM_ACTIVE;
->> +				pr_warning("%s: Setting fail_over_mac to active for active-backup mode.\n",
->> +					   bond_dev->name);
->> +			} else {
->> +				bond->params.fail_over_mac = BOND_FOM_NONE;
->> +				pr_warning("%s: Setting fail_over_mac to none for no active-backup modes",
-> At least make the warnings consistent: "... for no active-backup mode.\n".
-> Also you might consider switching to pr_warn.
+>>  	bond_for_each_slave(bond, slave, iter) {
+>> -		const struct net_device_ops *slave_ops = slave->dev->netdev_ops;
+>>  		pr_debug("slave %p %s\n", slave, slave->dev->name);
+>> -
+>> -		if (slave_ops->ndo_set_mac_address == NULL) {
+>> -			res = -EOPNOTSUPP;
+>> -			pr_debug("EOPNOTSUPP %s\n", slave->dev->name);
+>> -			goto unwind;
+>> -		}
+>> -
+>>  		res = dev_set_mac_address(slave->dev, addr);
+>>  		if (res) {
+>>  			/* TODO: consider downing the slave
+>> @@ -4317,7 +4309,7 @@ static int bond_check_params(struct bond_params *params)
+>>  						      fail_over_mac_tbl);
+>>  		if (fail_over_mac_value == -1) {
+>>  			pr_err("Error: invalid fail_over_mac \"%s\"\n",
+>> -			       arp_validate == NULL ? "NULL" : arp_validate);
+>> +			       fail_over_mac == NULL ? "NULL" : fail_over_mac);
+>>  			return -EINVAL;
+>>  		}
+> My option API changes include a fix for this which also removes the NULL check
+> as it's already checked earlier if fail_over_mac is != NULL. If you'd like to
+> fix this yourself I think you can also skip the NULL check when printing the error.
 > 
-ok, thanks.
+yes, it exist a long time, need to update. thanks.
 
->> +					   bond_dev->name);
->> +			}
->>  		} else if (bond->params.fail_over_mac != BOND_FOM_ACTIVE) {
->>  			pr_err("%s: Error: The slave device specified does not support setting the MAC address, but fail_over_mac is not set to active.\n",
->>  			       bond_dev->name);
+> Cheers,
+>  Nik
+>>  
 >>
 > 
 > 
