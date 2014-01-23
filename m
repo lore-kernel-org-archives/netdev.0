@@ -1,59 +1,30 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 1/4] net: phy: use network device in phy_print_status
-Date: Thu, 23 Jan 2014 12:17:46 -0800
-Message-ID: <1390508269-28769-2-git-send-email-f.fainelli@gmail.com>
-References: <1390508269-28769-1-git-send-email-f.fainelli@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 1/2] can: Decrease default size of CAN_RAW socket
+ send queue
+Date: Thu, 23 Jan 2014 12:41:08 -0800 (PST)
+Message-ID: <20140123.124108.891860564230946746.davem@davemloft.net>
+References: <1390379257-9040-1-git-send-email-sojkam1@fel.cvut.cz>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <joe@perches.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:41025 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753088AbaAWUSK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 15:18:10 -0500
-In-Reply-To: <1390508269-28769-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	mkl@pengutronix.de
+To: sojkam1@fel.cvut.cz
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1390379257-9040-1-git-send-email-sojkam1@fel.cvut.cz>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-phy_print_status() currently uses dev_name(&phydev->dev) which will
-usually result in printing something along those lines for Device Tree
-aware drivers:
+From: Michal Sojka <sojkam1@fel.cvut.cz>
+Date: Wed, 22 Jan 2014 09:27:36 +0100
 
-libphy: f0b60000.etherne:0a - Link is Down
-libphy: f0ba0000.etherne:00 - Link is Up - 1000/Full
+> Since the length of the qdisc queue was set by default to 10
+> packets, this is exactly what was happening.
 
-This is not terribly useful for network administrators or users since we
-expect a network interface name to be able to correlate link events with
-interfaces. Update phy_print_status() to use netdev_info() with
-phydev->attached_dev which is the backing network device for our PHY
-device. The leading dash is removed since netdev_info() prefixes the
-messages with "<interface>: " already.
+This is your bug, set the qdisc limit to something more reasonable.
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/phy/phy.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+Something large enough to absorb the traffic wrt. the speed at which
+the CAN device can sink the data.
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 19c9eca..c35b2e7 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -45,12 +45,11 @@
- void phy_print_status(struct phy_device *phydev)
- {
- 	if (phydev->link) {
--		pr_info("%s - Link is Up - %d/%s\n",
--			dev_name(&phydev->dev),
-+		netdev_info(phydev->attached_dev, "Link is Up - %d/%s\n",
- 			phydev->speed,
- 			DUPLEX_FULL == phydev->duplex ? "Full" : "Half");
- 	} else	{
--		pr_info("%s - Link is Down\n", dev_name(&phydev->dev));
-+		netdev_info(phydev->attached_dev, "Link is Down\n");
- 	}
- }
- EXPORT_SYMBOL(phy_print_status);
--- 
-1.8.3.2
+These two patches are something I am not willing to apply to my
+tree, this is not how you solve this problem, sorry.
