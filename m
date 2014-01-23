@@ -1,32 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] team: Don't allow team devices to change network
- namespaces.
-Date: Wed, 22 Jan 2014 21:59:33 -0800 (PST)
-Message-ID: <20140122.215933.488434196268367900.davem@davemloft.net>
-References: <1390446442-12768-1-git-send-email-chenweilong@huawei.com>
+Subject: Re: [PATCH] 6lowpan: add a license to 6lowpan_iphc module
+Date: Wed, 22 Jan 2014 21:59:44 -0800 (PST)
+Message-ID: <20140122.215944.1857286066071533638.davem@davemloft.net>
+References: <1390418724-9804-1-git-send-email-ydroneaud@opteya.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, netdev@vger.kernel.org
-To: chenweilong@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54150 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751454AbaAWF7e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 00:59:34 -0500
-In-Reply-To: <1390446442-12768-1-git-send-email-chenweilong@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	marcel@holtmann.org, gustavo@padovan.org, johan.hedberg@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jukka.rissanen@linux.intel.com,
+	alex.aring@gmail.com
+To: ydroneaud@opteya.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1390418724-9804-1-git-send-email-ydroneaud@opteya.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Chen Weilong <chenweilong@huawei.com>
-Date: Thu, 23 Jan 2014 11:07:22 +0800
+From: Yann Droneaud <ydroneaud@opteya.com>
+Date: Wed, 22 Jan 2014 20:25:24 +0100
 
-> From: Weilong Chen <chenweilong@huawei.com>
+> Since commit 8df8c56a5abc, 6lowpan_iphc is a module of its own.
 > 
-> Like bonding, team as netdevice doesn't cross netns boundaries.
+> Unfortunately, it lacks some infrastructure to behave like a
+> good kernel citizen:
 > 
-> Team ports and team itself live in same netns.
+>   kernel: 6lowpan_iphc: module license 'unspecified' taints kernel.
+>   kernel: Disabling lock debugging due to kernel taint
 > 
-> Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+> This patch adds the basic MODULE_LICENSE(); with GPL license:
+> the code was copied from net/ieee802154/6lowpan.c which is GPL
+> and the module exports symbol with EXPORT_SYMBOL_GPL();.
+> 
+> Cc: Jukka Rissanen <jukka.rissanen@linux.intel.com>
+> Cc: Alexander Aring <alex.aring@gmail.com>
+> Cc: Marcel Holtmann <marcel@holtmann.org>
+> Signed-off-by: Yann Droneaud <ydroneaud@opteya.com>
 
 Applied.
