@@ -1,72 +1,42 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: How to identify different ip tunnels
-Date: Thu, 23 Jan 2014 16:54:48 +0800
-Message-ID: <52E0D8D8.8040902@gmail.com>
-References: <52E0C5B7.7040908@gmail.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: [PATCH stable 3.7+] fib_frontend: fix possible NULL pointer dereference
+Date: Thu, 23 Jan 2014 10:19:34 +0100
+Message-ID: <52E0DEA6.3060803@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, linux-kernel@vger.kernel.org,
-	zhuyj <zyjzyj2000@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52E0C5B7.7040908@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.217]:24674 "EHLO
+	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751645AbaAWJTh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 04:19:37 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The version of the kernel is 3.4.43.
+The two commits 0115e8e30d (net: remove delay at device dismantle) and
+748e2d9396a (net: reinstate rtnl in call_netdevice_notifiers()) silently
+removed a NULL pointer check for in_dev since Linux 3.7.
 
-Any reply is appreciated.
+This patch re-introduces this check as it causes crashing the kernel when
+setting small mtu values on non-ip capable netdevices.
 
-Best Regards!
-Zhu Yanjun
-On 01/23/2014 03:33 PM, zhuyj wrote:
-> Hi, Maintainers
->
-> We want to identify different ip tunnels.
->
-> For example, we use =93ip tunnel add xxx=94 command in linux to creat=
-e an=20
-> ipv4/6 tunnel interface,then,we can receive a RTM_NEWLINK message fro=
-m=20
-> linux for the new tunnel interface.
-> We will parse the struct ifinfomsg message and get the ifi->ifi_type=20
-> attribute. We need to do somethings depend on the tunnel type here.
-> I checked the linux source code and list all the tunnel types here:
->
-> #define ARPHRD_TUNNEL 768 /* IPIP tunnel */
-> #define ARPHRD_TUNNEL6 769 /* IP6IP6 tunnel */
-> #define ARPHRD_SIT 776 /* sit0 device - IPv6-in-IPv4 */
-> #define ARPHRD_IPGRE 778 /* GRE over IP */
->
-> It means that the linux will report the new link for any ipv4/6 tunne=
-l=20
-> interface with type only within these four types. However, We need=20
-> more tunnel types for ipv4/6 tunnel.
-> For example, 4IN4/6IN4/6TO4/GRE/ISATAP for ipv4 tunnel and=20
-> 4IN6/6IN6/IPIN6 for ipv6 tunnel.
->
-> Here are the result that we have got:
->
-> Actual Tunnel type ifi->ifi_type
-> 4IN4 768
-> GRE4 778
-> 6IN4/6TO4/ISATAP 776
-> 4IN6/6IN6/IPIN6 769
->
-> So, we can NOT distinguish the actual tunnel type via ifi_type=20
-> attribute except the GRE4 and 4IN4 tunnel. However we need the actual=
-=20
-> type. That is our question.
->
-> BTW, for the 6IN4 and 6TO4 tunnel, Can we distinguish them before the=
-=20
-> interface ip address configured? Because we need to do different=20
-> things for them when we received the new link message and the tunnel=20
-> has NOT any ip address in this time.
->
-> Best Regards!
-> Zhu Yanjun
->
+Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+
+---
+
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index d846304..c7539e2 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -1047,6 +1047,8 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
+ 	}
+ 
+ 	in_dev = __in_dev_get_rtnl(dev);
++	if (!in_dev)
++		return NOTIFY_DONE;
+ 
+ 	switch (event) {
+ 	case NETDEV_UP:
