@@ -1,78 +1,48 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v2 4/4] net: phy: remove unneeded parenthesis
-Date: Thu, 23 Jan 2014 14:39:13 -0800
-Message-ID: <CAGVrzcan4pJ7=TxTf26c08ct1q9SpdLNm_DyyHTe_=3EW3pjEw@mail.gmail.com>
-References: <1390508269-28769-1-git-send-email-f.fainelli@gmail.com>
- <1390508269-28769-5-git-send-email-f.fainelli@gmail.com> <52E199AA.7020200@cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 1/2] can: Decrease default size of CAN_RAW socket
+ send queue
+Date: Thu, 23 Jan 2014 14:42:43 -0800 (PST)
+Message-ID: <20140123.144243.998328685775607324.davem@davemloft.net>
+References: <1390379257-9040-1-git-send-email-sojkam1@fel.cvut.cz>
+	<20140123.124108.891860564230946746.davem@davemloft.net>
+	<52E18331.6050607@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Joe Perches <joe@perches.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:41702 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751490AbaAWWjy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 17:39:54 -0500
-Received: by mail-pb0-f48.google.com with SMTP id rr13so2432227pbb.35
-        for <netdev@vger.kernel.org>; Thu, 23 Jan 2014 14:39:53 -0800 (PST)
-In-Reply-To: <52E199AA.7020200@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sojkam1@fel.cvut.cz, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <52E18331.6050607@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2014/1/23 Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>:
-> Hello.
->
->
-> On 24-01-2014 0:17, Florian Fainelli wrote:
->
->> Our if/else statement in phy_print_status() is only comprised of one
->> line for each, remove the parenthesis.
->
->
->    I protest, the *if* arm is multi-line, though single statement. :-)
-> Could we avoid changing that code to and fro during 3.14-rc1?
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Thu, 23 Jan 2014 22:01:37 +0100
 
-Is it that big of a problem? Does that make checkpatch.pl unhappy,
-does that make you unhappy? Since this is intentionally the last patch
-in the series, it would be trivial for David to ignore it I suppose.
+> On 01/23/2014 09:41 PM, David Miller wrote:
+>> From: Michal Sojka <sojkam1@fel.cvut.cz>
+>> Date: Wed, 22 Jan 2014 09:27:36 +0100
+>> 
+>>> Since the length of the qdisc queue was set by default to 10
+>>> packets, this is exactly what was happening.
+>> 
+>> This is your bug, set the qdisc limit to something more reasonable.
+>> 
+>> Something large enough to absorb the traffic wrt. the speed at which
+>> the CAN device can sink the data.
+> 
+> Hmmm, the problem is on i686 I have to increase the txqueuelen to 366
+> before the socket works as expected (writes are blocking). This means if
+> there are two processes one sending a stream of bulk data and the other
+> one occasionally more important data there will be a lot of frames in
+> front of the important ones.
+> 
+> With Michal's patch we can limit the number of frames in flight to a
+> reasonably low amount.
 
->
->
->> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
->> ---
->>   drivers/net/phy/phy.c | 5 ++---
->>   1 file changed, 2 insertions(+), 3 deletions(-)
->
->
->> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
->> index 36fc6e1..59aa85e 100644
->> --- a/drivers/net/phy/phy.c
->> +++ b/drivers/net/phy/phy.c
->> @@ -64,15 +64,14 @@ static const char *phy_speed_to_str(int speed)
->>    */
->>   void phy_print_status(struct phy_device *phydev)
->>   {
->> -       if (phydev->link) {
->> +       if (phydev->link)
->>                 netdev_info(phydev->attached_dev,
->>                         "Link is Up - %s/%s - flow control %s\n",
->>                         phy_speed_to_str(phydev->speed),
->>                         DUPLEX_FULL == phydev->duplex ? "Full" : "Half",
->>                         phydev->pause ? "rx/tx" : "off");
->> -       } else  {
->> +       else
->>                 netdev_info(phydev->attached_dev, "Link is Down\n");
->> -       }
->>   }
->>   EXPORT_SYMBOL(phy_print_status);
->
->
-> WBR, Sergei
->
+What do you think UDP applications have to do on slow interfaces?
+If they care about overrunning the device queue and getting packet
+drops, they themselves set a smaller socket send buffer size.
 
-
-
--- 
-Florian
+CAN is not special in this regard, please stop treating it as such.
