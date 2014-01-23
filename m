@@ -1,47 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: vxlan: convert to act as a pernet
- subsystem
-Date: Wed, 22 Jan 2014 17:44:03 -0800 (PST)
-Message-ID: <20140122.174403.589765636868016392.davem@davemloft.net>
-References: <1390421273-20152-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH net-next v3 0/2] bonding: fix primary problem for
+ bonding
+Date: Wed, 22 Jan 2014 17:46:26 -0800 (PST)
+Message-ID: <20140122.174626.1807653611284621368.davem@davemloft.net>
+References: <52DA3B3F.5090004@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jesse.brandeburg@intel.com,
-	ebiederm@xmission.com
-To: dborkman@redhat.com
+Cc: fubar@us.ibm.com, vfalico@redhat.com, netdev@vger.kernel.org
+To: dingtianhong@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52511 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52544 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752331AbaAWBoD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 20:44:03 -0500
-In-Reply-To: <1390421273-20152-1-git-send-email-dborkman@redhat.com>
+	with ESMTP id S1752097AbaAWBq1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jan 2014 20:46:27 -0500
+In-Reply-To: <52DA3B3F.5090004@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Wed, 22 Jan 2014 21:07:53 +0100
+From: Ding Tianhong <dingtianhong@huawei.com>
+Date: Sat, 18 Jan 2014 16:28:47 +0800
 
-> As per suggestion from Eric W. Biederman, vxlan should be using
-> {un,}register_pernet_subsys() instead of {un,}register_pernet_device()
-> to ensure the vxlan_net structure is initialized before and cleaned
-> up after all network devices in a given network namespace i.e. when
-> dealing with network notifiers. This is similarly handeled already in
-> commit 91e2ff3528ac ("net: Teach vlans to cleanup as a pernet subsystem")
-> and, thus, improves upon fd27e0d44a89 ("net: vxlan: do not use vxlan_net
-> before checking event type"). Just as in 91e2ff3528ac, we do not need
-> to explicitly handle deletion of vxlan devices as network namespace
-> exit calls dellink on all remaining virtual devices, and
-> rtnl_link_unregister() calls dellink on all outstanding devices in that
-> network namespace, so we can entirely drop the pernet exit operation
-> as well. Moreover, on vxlan module exit, rcu_barrier() is called by
-> netns since commit 3a765edadb28 ("netns: Add an explicit rcu_barrier
-> to unregister_pernet_{device|subsys}"), so this may be omitted. Tested
-> with various scenarios and works well on my side.
+> If the slave's name changed, and the bond params primary is exist,
+> the bond should deal with the situation in two ways:
 > 
-> Suggested-by: Eric W. Biederman <ebiederm@xmission.com>
-> Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Cc: Eric W. Biederman <ebiederm@xmission.com>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> 1) If the slave was the primary slave yet, clean the primary slave
+>    and reselect active slave.
+> 2) If the slave's new name is as same as bond primary, set the slave
+>    as primary slave and reselect active slave.
+> 
+> If the new primary is not matching any slave in the bond, the bond should
+> record it to params, clean the primary slave and select a new active slave.
+> 
+> Update bonding.txt for primary description.
 
-Applied, thanks.
+Series applied, thanks.
