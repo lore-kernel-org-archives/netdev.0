@@ -1,63 +1,71 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next 2/2] bonding: lock RTNL when setting (in)active slave flags
-Date: Thu, 23 Jan 2014 12:16:04 +0100
-Message-ID: <1390475764-7675-3-git-send-email-vfalico@redhat.com>
+Subject: [PATCH net-next 1/2] bonding: RCUify bond_ab_arp_probe
+Date: Thu, 23 Jan 2014 12:16:03 +0100
+Message-ID: <1390475764-7675-2-git-send-email-vfalico@redhat.com>
 References: <1390475764-7675-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21334 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:53850 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752752AbaAWLU2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Jan 2014 06:20:28 -0500
+	id S1751574AbaAWLU1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jan 2014 06:20:27 -0500
 In-Reply-To: <1390475764-7675-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, on (in)active slave flag change, we notify the stack via
-rtmsg_ifinfo(), which implies that we should hold the RTNL lock.
+Currently bond_ab_arp_probe() is always called under rcu_read_lock(),
+however to work with curr_active_slave we're still holding the
+curr_slave_lock.
 
-However, in bond_ab_arp_probe(), in case we don't have curr_active_slave -
-we don't hold it, which issues a warning and might race with other slave
-flags modifications.
-
-Fix this by wrapping the changing in RTNL lock - it's not a hot path (runs
-every arp_interval) - so no speed issues should arrive.
+To remove that curr_slave_lock - rcu_dereference the bond's
+curr_active_slave and use it further - so that we're sure the slave won't
+go away, and we don't care if it will change in the meanwhile.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_main.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ drivers/net/bonding/bond_main.c | 16 ++++++----------
+ 1 file changed, 6 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 22d8b69..50cddb9 100644
+index f9e0c8b..22d8b69 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -2631,9 +2631,11 @@ static void bond_ab_arp_probe(struct bonding *bond)
- 			return;
+@@ -2605,25 +2605,21 @@ do_failover:
+ static void bond_ab_arp_probe(struct bonding *bond)
+ {
+ 	struct slave *slave, *before = NULL, *new_slave = NULL,
+-		     *curr_arp_slave = rcu_dereference(bond->current_arp_slave);
++		     *curr_arp_slave = rcu_dereference(bond->current_arp_slave),
++		     *curr_active_slave = rcu_dereference(bond->curr_active_slave);
+ 	struct list_head *iter;
+ 	bool found = false;
+ 
+-	read_lock(&bond->curr_slave_lock);
+-
+-	if (curr_arp_slave && bond->curr_active_slave)
++	if (curr_arp_slave && curr_active_slave)
+ 		pr_info("PROBE: c_arp %s && cas %s BAD\n",
+ 			curr_arp_slave->dev->name,
+-			bond->curr_active_slave->dev->name);
++			curr_active_slave->dev->name);
+ 
+-	if (bond->curr_active_slave) {
+-		bond_arp_send_all(bond, bond->curr_active_slave);
+-		read_unlock(&bond->curr_slave_lock);
++	if (curr_active_slave) {
++		bond_arp_send_all(bond, curr_active_slave);
+ 		return;
  	}
  
-+	rtnl_lock();
-+
- 	bond_set_slave_inactive_flags(curr_arp_slave);
- 
--	bond_for_each_slave_rcu(bond, slave, iter) {
-+	bond_for_each_slave(bond, slave, iter) {
- 		if (!found && !before && IS_UP(slave->dev))
- 			before = slave;
- 
-@@ -2660,6 +2662,8 @@ static void bond_ab_arp_probe(struct bonding *bond)
- 			found = true;
- 	}
- 
-+	rtnl_unlock();
-+
- 	if (!new_slave && before)
- 		new_slave = before;
- 
+-	read_unlock(&bond->curr_slave_lock);
+-
+ 	/* if we don't have a curr_active_slave, search for the next available
+ 	 * backup slave from the current_arp_slave and make it the candidate
+ 	 * for becoming the curr_active_slave
 -- 
 1.8.4
