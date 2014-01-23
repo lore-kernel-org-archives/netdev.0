@@ -1,83 +1,530 @@
 From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: [PATCH net-next 4/7] qlcnic: Update poll controller code path
-Date: Thu, 23 Jan 2014 17:18:31 -0500
-Message-ID: <007aef3c1d4ed16bccdb9def80963b186548e6e7.1390491376.git.himanshu.madhani@qlogic.com>
+Subject: [PATCH net-next 6/7] qlcnic: Enhance logic to calculate msix vectors.
+Date: Thu, 23 Jan 2014 17:18:33 -0500
+Message-ID: <49baabeff375e3e2c763957d5fb1f9e877a6c07a.1390491376.git.himanshu.madhani@qlogic.com>
 References: <cover.1390491376.git.himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Manish chopra <manish.chopra@qlogic.com>,
-	<himanshu.madhani@qlogic.com>
+	Himanshu Madhani <himanshu.madhani@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:36273 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755604AbaAWWww (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 17:52:52 -0500
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:33520 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755659AbaAWWw4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 17:52:56 -0500
 In-Reply-To: <cover.1390491376.git.himanshu.madhani@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Manish chopra <manish.chopra@qlogic.com>
+From: Himanshu Madhani <himanshu.madhani@qlogic.com>
 
-Add support for MSI/MSI-X mode in poll controller routine.
+o Refactored MSI-x vector calculation for All adapters.
+  Decoupled logic in the code which was using same call to
+  request MSI-x vectors in default driver load, as well as
+  during set_channel() operation for TSS/RSS. This refactoring
+  simplifies code for TSS/RSS code path as well as probe path
+  of the driver load for all adapters.
 
-Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
-Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c | 34 +++++++++++++++++++-----
- 1 file changed, 28 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |  17 +-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |  75 +++++---
+ .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |   7 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   | 190 ++++++++++++++-------
+ 4 files changed, 192 insertions(+), 97 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index b9c1e37..0cfa8a3 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -2925,17 +2925,39 @@ static irqreturn_t qlcnic_msix_tx_intr(int irq, void *data)
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void qlcnic_poll_controller(struct net_device *netdev)
- {
--	int ring;
--	struct qlcnic_host_sds_ring *sds_ring;
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
--	struct qlcnic_recv_context *recv_ctx = adapter->recv_ctx;
-+	struct qlcnic_host_sds_ring *sds_ring;
-+	struct qlcnic_recv_context *recv_ctx;
-+	struct qlcnic_host_tx_ring *tx_ring;
-+	int ring;
-+
-+	if (!test_bit(__QLCNIC_DEV_UP, &adapter->state))
-+		return;
-+
-+	recv_ctx = adapter->recv_ctx;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+index eb6df4a..e55098f 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+@@ -105,6 +105,8 @@
+ #define QLCNIC_DEF_TX_RINGS		4
+ #define QLCNIC_MAX_VNIC_TX_RINGS	4
+ #define QLCNIC_MAX_VNIC_SDS_RINGS	4
++#define QLCNIC_83XX_MINIMUM_VECTOR	3
++#define QLCNIC_82XX_MINIMUM_VECTOR	2
  
--	disable_irq(adapter->irq);
- 	for (ring = 0; ring < adapter->drv_sds_rings; ring++) {
- 		sds_ring = &recv_ctx->sds_rings[ring];
--		qlcnic_intr(adapter->irq, sds_ring);
-+		qlcnic_disable_sds_intr(adapter, sds_ring);
-+		napi_schedule(&sds_ring->napi);
-+	}
+ enum qlcnic_queue_type {
+ 	QLCNIC_TX_QUEUE = 1,
+@@ -962,6 +964,7 @@ struct qlcnic_ipaddr {
+ #define QLCNIC_TX_INTR_SHARED		0x10000
+ #define QLCNIC_APP_CHANGED_FLAGS	0x20000
+ #define QLCNIC_HAS_PHYS_PORT_ID		0x40000
++#define QLCNIC_TSS_RSS			0x80000
+ 
+ #define QLCNIC_IS_MSI_FAMILY(adapter) \
+ 	((adapter)->flags & (QLCNIC_MSI_ENABLED | QLCNIC_MSIX_ENABLED))
+@@ -1058,6 +1061,9 @@ struct qlcnic_adapter {
+ 	u8 drv_tx_rings;  /* max tx rings supported by driver */
+ 	u8 drv_sds_rings; /* max sds rings supported by driver */
+ 
++	u8 drv_tss_rings; /* tss ring input */
++	u8 drv_rss_rings; /* rss ring input */
 +
-+	if (adapter->flags & QLCNIC_MSIX_ENABLED) {
-+		/* Only Multi-Tx queue capable devices need to
-+		 * schedule NAPI for TX rings
-+		 */
-+		if ((qlcnic_83xx_check(adapter) &&
-+		     (adapter->flags & QLCNIC_TX_INTR_SHARED)) ||
-+		    (qlcnic_82xx_check(adapter) &&
-+		     !qlcnic_check_multi_tx(adapter)))
-+			return;
+ 	u8 rx_csum;
+ 	u8 portnum;
+ 
+@@ -1574,7 +1580,7 @@ int qlcnic_diag_alloc_res(struct net_device *netdev, int);
+ netdev_tx_t qlcnic_xmit_frame(struct sk_buff *, struct net_device *);
+ void qlcnic_set_tx_ring_count(struct qlcnic_adapter *, u8);
+ void qlcnic_set_sds_ring_count(struct qlcnic_adapter *, u8);
+-int qlcnic_setup_rings(struct qlcnic_adapter *, u8, u8);
++int qlcnic_setup_rings(struct qlcnic_adapter *);
+ int qlcnic_validate_rings(struct qlcnic_adapter *, __u32, int);
+ void qlcnic_alloc_lb_filters_mem(struct qlcnic_adapter *adapter);
+ int qlcnic_enable_msix(struct qlcnic_adapter *, u32);
+@@ -1614,7 +1620,7 @@ void qlcnic_set_vlan_config(struct qlcnic_adapter *,
+ 			    struct qlcnic_esw_func_cfg *);
+ void qlcnic_set_eswitch_port_features(struct qlcnic_adapter *,
+ 				      struct qlcnic_esw_func_cfg *);
+-
++int qlcnic_setup_tss_rss_intr(struct qlcnic_adapter  *);
+ void qlcnic_down(struct qlcnic_adapter *, struct net_device *);
+ int qlcnic_up(struct qlcnic_adapter *, struct net_device *);
+ void __qlcnic_down(struct qlcnic_adapter *, struct net_device *);
+@@ -1671,11 +1677,8 @@ static inline int qlcnic_set_real_num_queues(struct qlcnic_adapter *adapter,
+ 
+ 	err = netif_set_real_num_tx_queues(netdev, adapter->drv_tx_rings);
+ 	if (err)
+-		dev_err(&adapter->pdev->dev, "failed to set %d Tx queues\n",
+-			adapter->drv_tx_rings);
+-	else
+-		dev_info(&adapter->pdev->dev, "Set %d Tx queues\n",
+-			 adapter->drv_tx_rings);
++		netdev_err(netdev, "failed to set %d Tx queues\n",
++			   adapter->drv_tx_rings);
+ 
+ 	return err;
+ }
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+index f320eb8..4146664 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+@@ -290,11 +290,22 @@ int qlcnic_83xx_wrt_reg_indirect(struct qlcnic_adapter *adapter, ulong addr,
+ 	}
+ }
+ 
+-int qlcnic_83xx_setup_intr(struct qlcnic_adapter *adapter)
++static void qlcnic_83xx_enable_legacy(struct qlcnic_adapter *adapter)
+ {
+-	int err, i, num_msix;
+ 	struct qlcnic_hardware_context *ahw = adapter->ahw;
+ 
++	/* MSI-X enablement failed, use legacy interrupt */
++	adapter->tgt_status_reg = ahw->pci_base0 + QLC_83XX_INTX_PTR;
++	adapter->tgt_mask_reg = ahw->pci_base0 + QLC_83XX_INTX_MASK;
++	adapter->isr_int_vec = ahw->pci_base0 + QLC_83XX_INTX_TRGR;
++	adapter->msix_entries[0].vector = adapter->pdev->irq;
++	dev_info(&adapter->pdev->dev, "using legacy interrupt\n");
++}
 +
-+		for (ring = 0; ring < adapter->drv_tx_rings; ring++) {
-+			tx_ring = &adapter->tx_ring[ring];
-+			qlcnic_disable_tx_intr(adapter, tx_ring);
-+			napi_schedule(&tx_ring->napi);
++static int qlcnic_83xx_calculate_msix_vector(struct qlcnic_adapter *adapter)
++{
++	int num_msix;
++
+ 	num_msix = adapter->drv_sds_rings;
+ 
+ 	/* account for AEN interrupt MSI-X based interrupts */
+@@ -303,30 +314,44 @@ int qlcnic_83xx_setup_intr(struct qlcnic_adapter *adapter)
+ 	if (!(adapter->flags & QLCNIC_TX_INTR_SHARED))
+ 		num_msix += adapter->drv_tx_rings;
+ 
+-	err = qlcnic_enable_msix(adapter, num_msix);
+-	if (err == -ENOMEM)
+-		return err;
+-	if (adapter->flags & QLCNIC_MSIX_ENABLED)
+-		num_msix = adapter->ahw->num_msix;
+-	else {
+-		if (qlcnic_sriov_vf_check(adapter))
+-			return -EINVAL;
+-		num_msix = 1;
+-		adapter->drv_tx_rings = QLCNIC_SINGLE_RING;
++	return num_msix;
++}
++
++int qlcnic_83xx_setup_intr(struct qlcnic_adapter *adapter)
++{
++	struct qlcnic_hardware_context *ahw = adapter->ahw;
++	int err, i, num_msix;
++
++	if (adapter->flags & QLCNIC_TSS_RSS) {
++		err = qlcnic_setup_tss_rss_intr(adapter);
++		if (err < 0)
++			return err;
++		num_msix = ahw->num_msix;
++	} else {
++		num_msix = qlcnic_83xx_calculate_msix_vector(adapter);
++
++		err = qlcnic_enable_msix(adapter, num_msix);
++		if (err == -ENOMEM)
++			return err;
++
++		if (adapter->flags & QLCNIC_MSIX_ENABLED) {
++			num_msix = ahw->num_msix;
++		} else {
++			if (qlcnic_sriov_vf_check(adapter))
++				return -EINVAL;
++			num_msix = 1;
++			adapter->drv_tx_rings = QLCNIC_SINGLE_RING;
 +		}
  	}
--	enable_irq(adapter->irq);
- }
- #endif
++
+ 	/* setup interrupt mapping table for fw */
+ 	ahw->intr_tbl = vzalloc(num_msix *
+ 				sizeof(struct qlcnic_intrpt_config));
+ 	if (!ahw->intr_tbl)
+ 		return -ENOMEM;
+-	if (!(adapter->flags & QLCNIC_MSIX_ENABLED)) {
+-		/* MSI-X enablement failed, use legacy interrupt */
+-		adapter->tgt_status_reg = ahw->pci_base0 + QLC_83XX_INTX_PTR;
+-		adapter->tgt_mask_reg = ahw->pci_base0 + QLC_83XX_INTX_MASK;
+-		adapter->isr_int_vec = ahw->pci_base0 + QLC_83XX_INTX_TRGR;
+-		adapter->msix_entries[0].vector = adapter->pdev->irq;
+-		dev_info(&adapter->pdev->dev, "using legacy interrupt\n");
+-	}
++
++	if (!(adapter->flags & QLCNIC_MSIX_ENABLED))
++		qlcnic_83xx_enable_legacy(adapter);
  
+ 	for (i = 0; i < num_msix; i++) {
+ 		if (adapter->flags & QLCNIC_MSIX_ENABLED)
+@@ -336,6 +361,7 @@ int qlcnic_83xx_setup_intr(struct qlcnic_adapter *adapter)
+ 		ahw->intr_tbl[i].id = i;
+ 		ahw->intr_tbl[i].src = 0;
+ 	}
++
+ 	return 0;
+ }
+ 
+@@ -1286,8 +1312,8 @@ int qlcnic_83xx_create_tx_ctx(struct qlcnic_adapter *adapter,
+ 	/* send the mailbox command*/
+ 	err = qlcnic_issue_cmd(adapter, &cmd);
+ 	if (err) {
+-		dev_err(&adapter->pdev->dev,
+-			"Failed to create Tx ctx in firmware 0x%x\n", err);
++		netdev_err(adapter->netdev,
++			   "Failed to create Tx ctx in firmware 0x%x\n", err);
+ 		goto out;
+ 	}
+ 	mbx_out = (struct qlcnic_tx_mbx_out *)&cmd.rsp.arg[2];
+@@ -1298,8 +1324,9 @@ int qlcnic_83xx_create_tx_ctx(struct qlcnic_adapter *adapter,
+ 		intr_mask = ahw->intr_tbl[adapter->drv_sds_rings + ring].src;
+ 		tx->crb_intr_mask = ahw->pci_base0 + intr_mask;
+ 	}
+-	dev_info(&adapter->pdev->dev, "Tx Context[0x%x] Created, state:0x%x\n",
+-		 tx->ctx_id, mbx_out->state);
++	netdev_info(adapter->netdev,
++		    "Tx Context[0x%x] Created, state:0x%x\n",
++		    tx->ctx_id, mbx_out->state);
+ out:
+ 	qlcnic_free_mbx_args(&cmd);
+ 	return err;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+index 6d0f518..acee1a5 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+@@ -736,6 +736,7 @@ static int qlcnic_set_channels(struct net_device *dev,
+ 				   channel->rx_count);
+ 			return err;
+ 		}
++		adapter->drv_rss_rings = channel->rx_count;
+ 	}
+ 
+ 	if (channel->tx_count) {
+@@ -746,10 +747,12 @@ static int qlcnic_set_channels(struct net_device *dev,
+ 				   channel->tx_count);
+ 			return err;
+ 		}
++		adapter->drv_tss_rings = channel->tx_count;
+ 	}
+ 
+-	err = qlcnic_setup_rings(adapter, channel->rx_count,
+-				 channel->tx_count);
++	adapter->flags |= QLCNIC_TSS_RSS;
++
++	err = qlcnic_setup_rings(adapter);
+ 	netdev_info(dev, "Allocated %d SDS rings and %d Tx rings\n",
+ 		    adapter->drv_sds_rings, adapter->drv_tx_rings);
+ 
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 68f792a..1f79d47 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -603,9 +603,6 @@ void qlcnic_set_tx_ring_count(struct qlcnic_adapter *adapter, u8 tx_cnt)
+ 							 QLCNIC_TX_QUEUE);
+ 	else
+ 		adapter->drv_tx_rings = tx_cnt;
+-
+-	dev_info(&adapter->pdev->dev, "Set %d Tx rings\n",
+-		 adapter->drv_tx_rings);
+ }
+ 
+ void qlcnic_set_sds_ring_count(struct qlcnic_adapter *adapter, u8 rx_cnt)
+@@ -616,25 +613,79 @@ void qlcnic_set_sds_ring_count(struct qlcnic_adapter *adapter, u8 rx_cnt)
+ 							  QLCNIC_RX_QUEUE);
+ 	else
+ 		adapter->drv_sds_rings = rx_cnt;
+-
+-	dev_info(&adapter->pdev->dev, "Set %d SDS rings\n",
+-		 adapter->drv_sds_rings);
+ }
+ 
+-int qlcnic_enable_msix(struct qlcnic_adapter *adapter, u32 num_msix)
++int qlcnic_setup_tss_rss_intr(struct qlcnic_adapter *adapter)
+ {
+ 	struct pci_dev *pdev = adapter->pdev;
+-	int drv_tx_rings, drv_sds_rings, tx_vector;
+-	int err = -1, i;
++	int num_msix = 0, err = 0, vector;
++
++	adapter->flags &= ~QLCNIC_TSS_RSS;
++
++	if (adapter->drv_tss_rings > 0)
++		num_msix += adapter->drv_tss_rings;
++	else
++		num_msix += adapter->drv_tx_rings;
++
++	if (adapter->drv_rss_rings  > 0)
++		num_msix += adapter->drv_rss_rings;
++	else
++		num_msix += adapter->drv_sds_rings;
++
++	if (qlcnic_83xx_check(adapter))
++		num_msix += 1;
++
++	if (!adapter->msix_entries) {
++		adapter->msix_entries = kcalloc(num_msix,
++						sizeof(struct msix_entry),
++						GFP_KERNEL);
++		if (!adapter->msix_entries)
++			return -ENOMEM;
++	}
++
++restore:
++	for (vector = 0; vector < num_msix; vector++)
++		adapter->msix_entries[vector].entry = vector;
++
++	err = pci_enable_msix(pdev, adapter->msix_entries, num_msix);
++	if (err == 0) {
++		adapter->ahw->num_msix = num_msix;
++		if (adapter->drv_tss_rings > 0)
++			adapter->drv_tx_rings = adapter->drv_tss_rings;
+ 
+-	if (adapter->flags & QLCNIC_TX_INTR_SHARED) {
+-		drv_tx_rings = 0;
+-		tx_vector = 0;
++		if (adapter->drv_rss_rings > 0)
++			adapter->drv_sds_rings = adapter->drv_rss_rings;
+ 	} else {
+-		drv_tx_rings = adapter->drv_tx_rings;
+-		tx_vector = 1;
++		netdev_info(adapter->netdev,
++			    "Unable to allocate %d MSI-X vectors, Available vectors %d\n",
++			    num_msix, err);
++
++		num_msix = adapter->drv_tx_rings + adapter->drv_sds_rings;
++
++		/* Set rings to 0 so we can restore original TSS/RSS count */
++		adapter->drv_tss_rings = 0;
++		adapter->drv_rss_rings = 0;
++
++		if (qlcnic_83xx_check(adapter))
++			num_msix += 1;
++
++		netdev_info(adapter->netdev,
++			    "Restoring %d Tx, %d SDS rings for total %d vectors.\n",
++			    adapter->drv_tx_rings, adapter->drv_sds_rings,
++			    num_msix);
++		goto restore;
++
++		err = -EIO;
+ 	}
+ 
++	return err;
++}
++
++int qlcnic_enable_msix(struct qlcnic_adapter *adapter, u32 num_msix)
++{
++	struct pci_dev *pdev = adapter->pdev;
++	int err = -1, vector;
++
+ 	if (!adapter->msix_entries) {
+ 		adapter->msix_entries = kcalloc(num_msix,
+ 						sizeof(struct msix_entry),
+@@ -643,47 +694,43 @@ int qlcnic_enable_msix(struct qlcnic_adapter *adapter, u32 num_msix)
+ 			return -ENOMEM;
+ 	}
+ 
+-	adapter->drv_sds_rings = QLCNIC_SINGLE_RING;
+ 	adapter->flags &= ~(QLCNIC_MSI_ENABLED | QLCNIC_MSIX_ENABLED);
+ 
+ 	if (adapter->ahw->msix_supported) {
+- enable_msix:
+-		for (i = 0; i < num_msix; i++)
+-			adapter->msix_entries[i].entry = i;
++enable_msix:
++		for (vector = 0; vector < num_msix; vector++)
++			adapter->msix_entries[vector].entry = vector;
++
+ 		err = pci_enable_msix(pdev, adapter->msix_entries, num_msix);
+ 		if (err == 0) {
+ 			adapter->flags |= QLCNIC_MSIX_ENABLED;
+-			if (qlcnic_83xx_check(adapter)) {
+-				adapter->ahw->num_msix = num_msix;
+-				/* subtract mail box and tx ring vectors */
+-				adapter->drv_sds_rings = num_msix -
+-							 drv_tx_rings - 1;
+-			} else {
+-				adapter->ahw->num_msix = num_msix;
+-				if (qlcnic_check_multi_tx(adapter) &&
+-				    !adapter->ahw->diag_test)
+-					drv_sds_rings = num_msix - drv_tx_rings;
+-				else
+-					drv_sds_rings = num_msix;
+-
+-				adapter->drv_sds_rings = drv_sds_rings;
+-			}
++			adapter->ahw->num_msix = num_msix;
+ 			dev_info(&pdev->dev, "using msi-x interrupts\n");
+ 			return err;
+ 		} else if (err > 0) {
+ 			dev_info(&pdev->dev,
+-				 "Unable to allocate %d MSI-X interrupt vectors\n",
+-				 num_msix);
+-			if (qlcnic_83xx_check(adapter)) {
+-				if (err < (QLC_83XX_MINIMUM_VECTOR - tx_vector))
+-					return err;
+-				err -= drv_tx_rings + 1;
++				 "Unable to allocate %d MSI-X vectors, Available vectors %d\n",
++				 num_msix, err);
++
++			if (qlcnic_82xx_check(adapter)) {
+ 				num_msix = rounddown_pow_of_two(err);
+-				num_msix += drv_tx_rings + 1;
++				if (err < QLCNIC_82XX_MINIMUM_VECTOR)
++					return -EIO;
+ 			} else {
+-				num_msix = rounddown_pow_of_two(err);
+-				if (qlcnic_check_multi_tx(adapter))
+-					num_msix += drv_tx_rings;
++				num_msix = rounddown_pow_of_two(err - 1);
++				num_msix += 1;
++				if (err < QLCNIC_83XX_MINIMUM_VECTOR)
++					return -EIO;
++			}
++
++			if (qlcnic_82xx_check(adapter) &&
++			    !qlcnic_check_multi_tx(adapter)) {
++				adapter->drv_sds_rings = num_msix;
++				adapter->drv_tx_rings = QLCNIC_SINGLE_RING;
++			} else {
++				/* Distribute vectors equally */
++				adapter->drv_tx_rings = num_msix / 2;
++				adapter->drv_sds_rings = adapter->drv_tx_rings;
+ 			}
+ 
+ 			if (num_msix) {
+@@ -694,14 +741,29 @@ int qlcnic_enable_msix(struct qlcnic_adapter *adapter, u32 num_msix)
+ 			}
+ 		} else {
+ 			dev_info(&pdev->dev,
+-				 "Unable to allocate %d MSI-X interrupt vectors\n",
+-				 num_msix);
++				 "Unable to allocate %d MSI-X vectors, err=%d\n",
++				 num_msix, err);
++			return err;
+ 		}
+ 	}
+ 
+ 	return err;
+ }
+ 
++static int qlcnic_82xx_calculate_msix_vector(struct qlcnic_adapter *adapter)
++{
++	int num_msix;
++
++	num_msix = adapter->drv_sds_rings;
++
++	if (qlcnic_check_multi_tx(adapter))
++		num_msix += adapter->drv_tx_rings;
++	else
++		num_msix += QLCNIC_SINGLE_RING;
++
++	return num_msix;
++}
++
+ static int qlcnic_enable_msi_legacy(struct qlcnic_adapter *adapter)
+ {
+ 	int err = 0;
+@@ -740,21 +802,25 @@ static int qlcnic_82xx_setup_intr(struct qlcnic_adapter *adapter)
+ {
+ 	int num_msix, err = 0;
+ 
+-	num_msix = adapter->drv_sds_rings;
+-
+-	if (qlcnic_check_multi_tx(adapter))
+-		num_msix += adapter->drv_tx_rings;
++	if (adapter->flags & QLCNIC_TSS_RSS) {
++		err = qlcnic_setup_tss_rss_intr(adapter);
++		if (err < 0)
++			return err;
++		num_msix = adapter->ahw->num_msix;
++	} else {
++		num_msix = qlcnic_82xx_calculate_msix_vector(adapter);
+ 
+-	err = qlcnic_enable_msix(adapter, num_msix);
+-	if (err == -ENOMEM)
+-		return err;
++		err = qlcnic_enable_msix(adapter, num_msix);
++		if (err == -ENOMEM)
++			return err;
+ 
+-	if (!(adapter->flags & QLCNIC_MSIX_ENABLED)) {
+-		qlcnic_disable_multi_tx(adapter);
++		if (!(adapter->flags & QLCNIC_MSIX_ENABLED)) {
++			qlcnic_disable_multi_tx(adapter);
+ 
+-		err = qlcnic_enable_msi_legacy(adapter);
+-		if (!err)
+-			return err;
++			err = qlcnic_enable_msi_legacy(adapter);
++			if (!err)
++				return err;
++		}
+ 	}
+ 
+ 	return 0;
+@@ -3834,7 +3900,7 @@ int qlcnic_validate_rings(struct qlcnic_adapter *adapter, __u32 ring_cnt,
+ 	return 0;
+ }
+ 
+-int qlcnic_setup_rings(struct qlcnic_adapter *adapter, u8 rx_cnt, u8 tx_cnt)
++int qlcnic_setup_rings(struct qlcnic_adapter *adapter)
+ {
+ 	struct net_device *netdev = adapter->netdev;
+ 	int err;
+@@ -3855,12 +3921,6 @@ int qlcnic_setup_rings(struct qlcnic_adapter *adapter, u8 rx_cnt, u8 tx_cnt)
+ 
+ 	qlcnic_teardown_intr(adapter);
+ 
+-	/* compute and set default and max tx/sds rings */
+-	qlcnic_set_tx_ring_count(adapter, tx_cnt);
+-	qlcnic_set_sds_ring_count(adapter, rx_cnt);
+-
+-	netif_set_real_num_tx_queues(netdev, adapter->drv_tx_rings);
+-
+ 	err = qlcnic_setup_intr(adapter);
+ 	if (err) {
+ 		kfree(adapter->msix_entries);
+@@ -3868,6 +3928,8 @@ int qlcnic_setup_rings(struct qlcnic_adapter *adapter, u8 rx_cnt, u8 tx_cnt)
+ 		return err;
+ 	}
+ 
++	netif_set_real_num_tx_queues(netdev, adapter->drv_tx_rings);
++
+ 	if (qlcnic_83xx_check(adapter)) {
+ 		qlcnic_83xx_initialize_nic(adapter, 1);
+ 		err = qlcnic_83xx_setup_mbx_intr(adapter);
 -- 
 1.8.1.4
