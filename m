@@ -1,48 +1,56 @@
-From: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
-Subject: Re: [Xen-devel] [PATCH v4] xen/grant-table: Avoid m2p_override during
- mapping
-Date: Thu, 23 Jan 2014 13:59:07 +0000
-Message-ID: <alpine.DEB.2.02.1401231355340.15917@kaball.uk.xensource.com>
-References: <1390335755-29328-1-git-send-email-zoltan.kiss@citrix.com> <alpine.DEB.2.02.1401221618340.21510@kaball.uk.xensource.com> <52E00FB7.3040508@citrix.com> <alpine.DEB.2.02.1401221848080.21510@kaball.uk.xensource.com> <52E015F5.70408@citrix.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC PATCH net] IPv6: Fix broken IPv6 routing table after loopback down-up
+Date: Thu, 23 Jan 2014 15:11:24 +0100
+Message-ID: <20140123141124.GJ7269@order.stressinduktion.org>
+References: <1390404908-3914-1-git-send-email-sd@queasysnail.net> <20140122213446.GD7269@order.stressinduktion.org> <52E068C5.2050405@cn.fujitsu.com> <20140123010123.GF7269@order.stressinduktion.org> <52E0B55F.4070501@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
-	<ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52E015F5.70408@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: Sabrina Dubroca <sd@queasysnail.net>, netdev@vger.kernel.org
+To: Gao feng <gaofeng@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:60448 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753250AbaAWOLZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 09:11:25 -0500
+Content-Disposition: inline
+In-Reply-To: <52E0B55F.4070501@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 22 Jan 2014, Zoltan Kiss wrote:
-> > > > > diff --git a/arch/x86/xen/p2m.c b/arch/x86/xen/p2m.c
-> > > > > index 2ae8699..0060178 100644
-> > > > > --- a/arch/x86/xen/p2m.c
-> > > > > +++ b/arch/x86/xen/p2m.c
-> > > > > @@ -872,15 +872,13 @@ static unsigned long mfn_hash(unsigned long mfn)
-> > > > > 
-> > > > >    /* Add an MFN override for a particular page */
-> > > > >    int m2p_add_override(unsigned long mfn, struct page *page,
-> > > > > -		struct gnttab_map_grant_ref *kmap_op)
-> > > > > +		struct gnttab_map_grant_ref *kmap_op, unsigned long
-> > > > > pfn)
-> > > > 
-> > > > Do we really need to add another additional parameter to
-> > > > m2p_add_override?
-> > > > I would just let m2p_add_override and m2p_remove_override call
-> > > > page_to_pfn again. It is not that expensive.
-> > > Yes, because that page_to_pfn can return something different. That's why
-> > > the
-> > > v2 patches failed.
-> > 
-> > I am really curious: how can page_to_pfn return something different?
-> > I don't think is supposed to happen.
-> You call set_phys_to_machine before calling m2p* functions.
+On Thu, Jan 23, 2014 at 02:23:27PM +0800, Gao feng wrote:
+> >  
+> > -static int fib6_ifdown(struct rt6_info *rt, void *arg)
+> > +static int __fib6_match_or_update_if(struct rt6_info *rt, void *arg)
+> >  {
+> >  	const struct arg_dev_net *adn = arg;
+> >  	const struct net_device *dev = adn->dev;
+> >  
+> >  	if ((rt->dst.dev == dev || !dev) &&
+> > -	    rt != adn->net->ipv6.ip6_null_entry)
+> > -		return -1;
+> > +	    rt != adn->net->ipv6.ip6_null_entry) {
+> > +		switch (adn->action) {
+> > +		case ARG_DEV_NET_REMOVE:
+> > +			/* remove rt */
+> > +			return -1;
+> > +		case ARG_DEV_NET_DISABLE:
+> > +			WARN_ON(rt->rt6i_flags & RTF_DEAD);
+> > +			rt->rt6i_flags |= RTF_DEAD;
+> > +			return 0;
+> > +		case ARG_DEV_NET_ENABLE:
+> > +			WARN_ON(!(rt->rt6i_flags & RTF_DEAD));
+> 
+> I think this may happen, think a new router is cloned from this rt but hasn't been inserted
+> into the router tree on other CPU at the same time.
 
-set_phys_to_machine changes the physical to machine mapping, that would
-be the mfn corresponding to a given pfn. It shouldn't affect the output
-of page_to_pfn that returns the pfn corresponding to a given struct
-page. The calculation of which is based on address offsets and should be
-static and unaffected by things like set_phys_to_machine.
+Yes, there are still some problems with this patch. I actually shuffeled
+the code around to purge all those RTF_CACHE RTF_DEAD routes yesterday
+while holding the same write_lock on the table.
+
+Regarding the problem you addressed, I tried to validate the route
+using dst.from on insert while holding write_lock, somehow like we do
+for checking expire time. But I really dislike this.
+
+Thanks,
+
+  Hannes
