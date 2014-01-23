@@ -1,37 +1,44 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: How to identify different ip tunnels
-Date: Thu, 23 Jan 2014 10:16:08 -0800
-Message-ID: <CAHA+R7MGzxYGkNYrBmENcsaY_0de79xA4fHu+hPDGQK9bf21QA@mail.gmail.com>
-References: <52E0C5B7.7040908@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	linux-kernel@vger.kernel.org
-To: zhuyj <zyjzyj2000@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] rtnetlink: remove check for fill_slave_info in rtnl_have_link_slave_info
+Date: Thu, 23 Jan 2014 19:19:21 +0100
+Message-ID: <1390501161-7890-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, sfeldma@cumulusnetworks.com,
+	nicolas.dichtel@6wind.com, john.r.fastabend@intel.com,
+	vyasevich@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:50252 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754455AbaAWSQK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 13:16:10 -0500
-Received: by mail-lb0-f176.google.com with SMTP id w7so1712695lbi.7
-        for <netdev@vger.kernel.org>; Thu, 23 Jan 2014 10:16:08 -0800 (PST)
-In-Reply-To: <52E0C5B7.7040908@gmail.com>
+Received: from mail-wg0-f54.google.com ([74.125.82.54]:46380 "EHLO
+	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932138AbaAWST0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 13:19:26 -0500
+Received: by mail-wg0-f54.google.com with SMTP id x13so1902237wgg.33
+        for <netdev@vger.kernel.org>; Thu, 23 Jan 2014 10:19:25 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 22, 2014 at 11:33 PM, zhuyj <zyjzyj2000@gmail.com> wrote:
-> Here are the result that we have got:
->
-> Actual Tunnel type ifi->ifi_type
-> 4IN4 768
-> GRE4 778
-> 6IN4/6TO4/ISATAP 776
-> 4IN6/6IN6/IPIN6 769
->
-> So, we can NOT distinguish the actual tunnel type via ifi_type attribute
-> except the GRE4 and 4IN4 tunnel. However we need the actual type. That is
-> our question.
+This check is not needed because the same check is done before
+fill_slave_info is used in rtnl_link_slave_info_fill.
+Also, by removing this check, kernel will fillup IFLA_INFO_SLAVE_KIND
+even for slaves of masters which does not implement fill_slave_info.
 
-Try to search IFLA_IPTUN_PROTO. They are distinguished by protocol.
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ net/core/rtnetlink.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index db6a239..393b1bc 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -482,8 +482,7 @@ static bool rtnl_have_link_slave_info(const struct net_device *dev)
+ 	struct net_device *master_dev;
+ 
+ 	master_dev = netdev_master_upper_dev_get((struct net_device *) dev);
+-	if (master_dev && master_dev->rtnl_link_ops &&
+-	    master_dev->rtnl_link_ops->fill_slave_info)
++	if (master_dev && master_dev->rtnl_link_ops)
+ 		return true;
+ 	return false;
+ }
+-- 
+1.8.3.1
