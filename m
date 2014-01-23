@@ -1,64 +1,62 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] bonding: Use do_div to divide 64 bit numbers
-Date: Fri, 24 Jan 2014 02:25:28 +0400
-Message-ID: <52E196D8.5060103@cogentembedded.com>
-References: <1390502838-21581-1-git-send-email-zoltan.kiss@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Zoltan Kiss <zoltan.kiss@citrix.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Nikolay Aleksandrov <nikolay@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1390502838-21581-1-git-send-email-zoltan.kiss@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next v2 0/5] net_sched: act: more cleanup and improvement
+Date: Thu, 23 Jan 2014 14:35:20 -0800
+Message-ID: <1390516525-8556-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:58714 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752137AbaAWWfb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 17:35:31 -0500
+Received: by mail-pb0-f51.google.com with SMTP id un15so2416963pbc.24
+        for <netdev@vger.kernel.org>; Thu, 23 Jan 2014 14:35:30 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+v1 -> v2:
+* Fix a bug noticed by Jamal
+* Drop patches already merged into net-next
+* Add patch 5/5
 
-On 23-01-2014 22:47, Zoltan Kiss wrote:
+Patches are cleanup's for the structures of tc actions, except patch 4
+which is an improvement.
 
-> Nikolay Aleksandrov's recent bonding option API changes (25a9b54a and e4994612)
+See each patch for details.
 
-    You should also specify those commits' summary lines.
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-> introduced u64 as the type of downdelay and updelay. On 32 bit the division and
-> modulo operations cause compile errors:
+Cong Wang (5):
+  net_sched: act: hide struct tcf_common from API
+  net_sched: act: refactor cleanup ops
+  net_sched: act: move tcf_hashinfo_init() into tcf_register_action()
+  net_sched: act: refuse to remove bound action outside
+  net_sched: act: clean up tca_action_flush()
 
-> ERROR: "__udivdi3" [drivers/net/bonding/bonding.ko] undefined!
-> ERROR: "__umoddi3" [drivers/net/bonding/bonding.ko] undefined!
+ include/net/act_api.h           |  26 ++++----
+ include/net/tc_act/tc_csum.h    |   4 +-
+ include/net/tc_act/tc_defact.h  |   4 +-
+ include/net/tc_act/tc_gact.h    |   4 +-
+ include/net/tc_act/tc_ipt.h     |   4 +-
+ include/net/tc_act/tc_mirred.h  |   4 +-
+ include/net/tc_act/tc_nat.h     |   4 +-
+ include/net/tc_act/tc_pedit.h   |   4 +-
+ include/net/tc_act/tc_skbedit.h |   4 +-
+ net/sched/act_api.c             | 144 ++++++++++++++++++++++++----------------
+ net/sched/act_csum.c            |  31 +++------
+ net/sched/act_gact.c            |  34 +++-------
+ net/sched/act_ipt.c             |  68 ++++++-------------
+ net/sched/act_mirred.c          |  56 ++++------------
+ net/sched/act_nat.c             |  33 +++------
+ net/sched/act_pedit.c           |  45 ++++---------
+ net/sched/act_police.c          |  26 ++------
+ net/sched/act_simple.c          |  64 +++++-------------
+ net/sched/act_skbedit.c         |  36 +++-------
+ 19 files changed, 214 insertions(+), 381 deletions(-)
 
-> This patch use the do_div macro, which guaranteed to do the right thing.
-
-> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-> ---
->   drivers/net/bonding/bond_options.c |   19 +++++++++++--------
->   1 file changed, 11 insertions(+), 8 deletions(-)
-
-> diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-> index 4cee04a..4f94907 100644
-> --- a/drivers/net/bonding/bond_options.c
-> +++ b/drivers/net/bonding/bond_options.c
-[...]
-> @@ -727,19 +728,20 @@ int bond_option_miimon_set(struct bonding *bond, struct bond_opt_value *newval)
->
->   int bond_option_updelay_set(struct bonding *bond, struct bond_opt_value *newval)
->   {
-> +	u64 quotient = newval->value;
-> +	u64 remainder = do_div(quotient, bond->params.miimon);
-
-    Empty line after declarations wouldn't hurt here.
-
-> @@ -750,19 +752,20 @@ int bond_option_updelay_set(struct bonding *bond, struct bond_opt_value *newval)
->   int bond_option_downdelay_set(struct bonding *bond,
->   			      struct bond_opt_value *newval)
->   {
-> +	u64 quotient = newval->value;
-> +	u64 remainder = do_div(quotient, bond->params.miimon);
-
-    And here.
-
-WBR, Sergei
+-- 
+1.8.3.1
