@@ -1,61 +1,39 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: How to identify different ip tunnels
-Date: Thu, 23 Jan 2014 15:33:11 +0800
-Message-ID: <52E0C5B7.7040908@gmail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH] af_packet: Add Queue mapping mode to af_packet fanout
+ operation
+Date: Thu, 23 Jan 2014 08:56:21 +0100
+Message-ID: <52E0CB25.2040803@redhat.com>
+References: <1390424504-18543-1-git-send-email-nhorman@tuxdriver.com>  <52E03F80.8020803@redhat.com> <1390439292.27806.48.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, linux-kernel@vger.kernel.org,
-	zhuyj <zyjzyj2000@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52486 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751635AbaAWH4e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jan 2014 02:56:34 -0500
+In-Reply-To: <1390439292.27806.48.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi, Maintainers
+n 01/23/2014 02:08 AM, Eric Dumazet wrote:
+> On Wed, 2014-01-22 at 23:00 +0100, Daniel Borkmann wrote:
+>> On 01/22/2014 10:01 PM, Neil Horman wrote:
+>>> This patch adds a queue mapping mode to the fanout operation of af_packet
+>>> sockets.  This allows user space af_packet users to better filter on flows
+>>> ingressing and egressing via a specific hardware queue, and avoids the potential
+>>
+>> Maybe I'm missing something, but I currently cannot find where this is
+>> being filled out for ingress path? Egress, ok, this gets filled out
+>> somewhere in protocol layers or elsewhere and is being locally pushed
+>> back through dev_queue_xmit_nit(), but I think main use case is ingress
+>> through packet fanout. In driver layer I can find skb->rxhash filled out
+>> which would then be PACKET_FANOUT_HASH.
+>> (Otherwise patch looks good.)
+>
+> Check for various multiqueue drivers calling skb_record_rx_queue()
 
-We want to identify different ip tunnels.
-
-=46or example, we use =93ip tunnel add xxx=94 command in linux to creat=
-e an=20
-ipv4/6 tunnel interface,then,we can receive a RTM_NEWLINK message from=20
-linux for the new tunnel interface.
-We will parse the struct ifinfomsg message and get the ifi->ifi_type=20
-attribute. We need to do somethings depend on the tunnel type here.
-I checked the linux source code and list all the tunnel types here:
-
-#define ARPHRD_TUNNEL 768 /* IPIP tunnel */
-#define ARPHRD_TUNNEL6 769 /* IP6IP6 tunnel */
-#define ARPHRD_SIT 776 /* sit0 device - IPv6-in-IPv4 */
-#define ARPHRD_IPGRE 778 /* GRE over IP */
-
-It means that the linux will report the new link for any ipv4/6 tunnel=20
-interface with type only within these four types. However, We need more=
-=20
-tunnel types for ipv4/6 tunnel.
-=46or example, 4IN4/6IN4/6TO4/GRE/ISATAP for ipv4 tunnel and=20
-4IN6/6IN6/IPIN6 for ipv6 tunnel.
-
-Here are the result that we have got:
-
-Actual Tunnel type ifi->ifi_type
-4IN4 768
-GRE4 778
-6IN4/6TO4/ISATAP 776
-4IN6/6IN6/IPIN6 769
-
-So, we can NOT distinguish the actual tunnel type via ifi_type attribut=
-e=20
-except the GRE4 and 4IN4 tunnel. However we need the actual type. That=20
-is our question.
-
-BTW, for the 6IN4 and 6TO4 tunnel, Can we distinguish them before the=20
-interface ip address configured? Because we need to do different things=
-=20
-for them when we received the new link message and the tunnel has NOT=20
-any ip address in this time.
-
-Best Regards!
-Zhu Yanjun
+Okay, thanks for the clarification Eric, patch looks good then.
