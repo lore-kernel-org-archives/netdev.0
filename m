@@ -1,76 +1,114 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] ipv6: reallocate addrconf router for ipv6 address when
- lo device up
-Date: Fri, 24 Jan 2014 01:13:56 +0400
-Message-ID: <52E18614.6040104@cogentembedded.com>
-References: <1390460277-23451-1-git-send-email-gaofeng@cn.fujitsu.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH net-next] bonding: Use do_div to divide 64 bit numbers
+Date: Thu, 23 Jan 2014 22:18:24 +0100
+Message-ID: <52E18720.4060008@redhat.com>
+References: <1390502838-21581-1-git-send-email-zoltan.kiss@citrix.com> <52E17F40.4040004@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Sabrina Dubroca <sd@queasysnail.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Weilong Chen <chenweilong@huawei.com>
-To: Gao feng <gaofeng@cn.fujitsu.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f52.google.com ([209.85.215.52]:55708 "EHLO
-	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750826AbaAWVN4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 16:13:56 -0500
-Received: by mail-la0-f52.google.com with SMTP id c6so1939719lan.11
-        for <netdev@vger.kernel.org>; Thu, 23 Jan 2014 13:13:54 -0800 (PST)
-In-Reply-To: <1390460277-23451-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52E17F40.4040004@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On 01/23/2014 09:44 PM, Nikolay Aleksandrov wrote:
+> On 01/23/2014 07:47 PM, Zoltan Kiss wrote:
+>> Nikolay Aleksandrov's recent bonding option API changes (25a9b54a and e4994612)
+>> introduced u64 as the type of downdelay and updelay. On 32 bit the division and
+>> modulo operations cause compile errors:
+>>
+>> ERROR: "__udivdi3" [drivers/net/bonding/bonding.ko] undefined!
+>> ERROR: "__umoddi3" [drivers/net/bonding/bonding.ko] undefined!
+>>
+>> This patch use the do_div macro, which guaranteed to do the right thing.
+>>
+>> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+>> ---
+>>  drivers/net/bonding/bond_options.c |   19 +++++++++++--------
+>>  1 file changed, 11 insertions(+), 8 deletions(-)
+>>
+>> diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+>> index 4cee04a..4f94907 100644
+>> --- a/drivers/net/bonding/bond_options.c
+>> +++ b/drivers/net/bonding/bond_options.c
+>> @@ -18,6 +18,7 @@
+>>  #include <linux/rcupdate.h>
+>>  #include <linux/ctype.h>
+>>  #include <linux/inet.h>
+>> +#include <asm/div64.h>
+>>  #include "bonding.h"
+>>  
+>>  static struct bond_opt_value bond_mode_tbl[] = {
+>> @@ -727,19 +728,20 @@ int bond_option_miimon_set(struct bonding *bond, struct bond_opt_value *newval)
+>>  
+>>  int bond_option_updelay_set(struct bonding *bond, struct bond_opt_value *newval)
+>>  {
+>> +	u64 quotient = newval->value;
+>> +	u64 remainder = do_div(quotient, bond->params.miimon);
+> Hi Zoltan,
+> Thanks for fixing this, a few comments though:
+> bond->params.miimon can be 0 here that's why there's a check afterwards,
+> also please separate the local variable definitions from the body with a
+> new line.
+> The same applies for downdelay.
+> 
+> Nik
+In fact since we don't need the u64 and newval->value is limited to
+INT_MAX, can't we simply cast it to (int) and avoid the do_div entirely ?
 
-On 23-01-2014 10:57, Gao feng wrote:
-
-> commit 25fb6ca4ed9cad72f14f61629b68dc03c0d9713f
-> "net IPv6 : Fix broken IPv6 routing table after loopback down-up"
-> allocates addrconf router for ipv6 address when lo device up.
-> but commit a881ae1f625c599b460cc8f8a7fcb1c438f699ad
-> "ipv6:don't call addrconf_dst_alloc again when enable lo" breaks
-> this behavior.
-
-> Since the addrconf router is moved to the garbage list when
-> lo device down, we should delete this router and rellocate
-> a new one for ipv6 address when lo device up.
-
-> This patch solves bug 67951 on bugzilla
-> https://bugzilla.kernel.org/show_bug.cgi?id=67951
-
-> CC: Sabrina Dubroca <sd@queasysnail.net>
-> CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Reported-by: Weilong Chen <chenweilong@huawei.com>
-> Signed-off-by: Weilong Chen <chenweilong@huawei.com>
-> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
-> ---
->   net/ipv6/addrconf.c | 13 +++++++++++--
->   1 file changed, 11 insertions(+), 2 deletions(-)
-
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index 4b6b720..6eecd9d 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -2611,8 +2611,17 @@ static void init_loopback(struct net_device *dev)
->   			if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
->   				continue;
->
-> -			if (sp_ifa->rt)
-> -				continue;
-> +			if (sp_ifa->rt) {
-> +				/* This dst has been added to garbage list when
-> +				 * lo device down, delete this obsolete dst and
-> +				 * reallocate a new router for ifa.
-> +				 */
-> +				if (sp_ifa->rt->dst.obsolete > 0) {
-> +					ip6_del_rt(sp_ifa->rt);
-> +					sp_ifa->rt = NULL;
-> +				} else
-> +					continue;
-
-    *else* arm should have {} when the other arm of *if* statement has it -- 
-see Documentation/CodingStyle.
-
-WBR, Sergei
+>>  	if (!bond->params.miimon) {
+>>  		pr_err("%s: Unable to set up delay as MII monitoring is disabled\n",
+>>  		       bond->dev->name);
+>>  		return -EPERM;
+>>  	}
+>> -	if ((newval->value % bond->params.miimon) != 0) {
+>> +	if (remainder != 0) {
+>>  		pr_warn("%s: Warning: up delay (%llu) is not a multiple of miimon (%d), updelay rounded to %llu ms\n",
+>>  			bond->dev->name, newval->value,
+>>  			bond->params.miimon,
+>> -			(newval->value / bond->params.miimon) *
+>> -			bond->params.miimon);
+>> +			quotient * bond->params.miimon);
+>>  	}
+>> -	bond->params.updelay = newval->value / bond->params.miimon;
+>> +	bond->params.updelay = quotient;
+>>  	pr_info("%s: Setting up delay to %d.\n",
+>>  		bond->dev->name,
+>>  		bond->params.updelay * bond->params.miimon);
+>> @@ -750,19 +752,20 @@ int bond_option_updelay_set(struct bonding *bond, struct bond_opt_value *newval)
+>>  int bond_option_downdelay_set(struct bonding *bond,
+>>  			      struct bond_opt_value *newval)
+>>  {
+>> +	u64 quotient = newval->value;
+>> +	u64 remainder = do_div(quotient, bond->params.miimon);
+>>  	if (!bond->params.miimon) {
+>>  		pr_err("%s: Unable to set down delay as MII monitoring is disabled\n",
+>>  		       bond->dev->name);
+>>  		return -EPERM;
+>>  	}
+>> -	if ((newval->value % bond->params.miimon) != 0) {
+>> +	if (remainder != 0) {
+>>  		pr_warn("%s: Warning: down delay (%llu) is not a multiple of miimon (%d), delay rounded to %llu ms\n",
+>>  			bond->dev->name, newval->value,
+>>  			bond->params.miimon,
+>> -			(newval->value / bond->params.miimon) *
+>> -			bond->params.miimon);
+>> +			quotient * bond->params.miimon);
+>>  	}
+>> -	bond->params.downdelay = newval->value / bond->params.miimon;
+>> +	bond->params.downdelay = quotient;
+>>  	pr_info("%s: Setting down delay to %d.\n",
+>>  		bond->dev->name,
+>>  		bond->params.downdelay * bond->params.miimon);
+>>
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
