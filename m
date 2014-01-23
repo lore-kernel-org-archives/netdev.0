@@ -1,101 +1,111 @@
-From: Sergey Popovich <popovich_sergei@mail.ru>
-Subject: Re: [PATCH 4/4] ipv4: mark nexthop as dead when it's subnet becomes unreachable
-Date: Thu, 23 Jan 2014 17:05:27 +0200
-Message-ID: <2208170.gq1LW14mJ5@tuxracer>
-References: <cover.1390304505.git.popovich_sergei@mail.ru> <40044b636dbf7ae5bba5fe2873451e14438ec170.1390304505.git.popovich_sergei@mail.ru> <alpine.LFD.2.11.1401231158510.2682@ja.home.ssi.bg>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH net-next 3/4] ethtool: Support for configurable RSS hash
+ key.
+Date: Thu, 23 Jan 2014 15:09:16 +0000
+Message-ID: <1390489756.1547.13.camel@deadeye.wl.decadent.org.uk>
+References: <BF3270C86E8B1349A26C34E4EC1C44CB2C83D8E5@CMEXMB1.ad.emulex.com>
+	 <1390156048.16433.114.camel@deadeye.wl.decadent.org.uk>
+	 <BF3270C86E8B1349A26C34E4EC1C44CB2C84C327@CMEXMB1.ad.emulex.com>
+	 <1390224028.3651.72.camel@deadeye.wl.decadent.org.uk>
+	 <BF3270C86E8B1349A26C34E4EC1C44CB2C84CFAE@CMEXMB1.ad.emulex.com>
+	 <1390455540.3651.136.camel@deadeye.wl.decadent.org.uk>
+	 <BF3270C86E8B1349A26C34E4EC1C44CB2C84D71E@CMEXMB1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-Qc6B9jrG3jLjYUaut/c5"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback2.mail.ru ([94.100.176.87]:42381 "EHLO
-	fallback2.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754497AbaAWPIQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 10:08:16 -0500
-Received: from smtp37.i.mail.ru (smtp37.i.mail.ru [94.100.177.97])
-	by fallback2.mail.ru (mPOP.Fallback_MX) with ESMTP id 17843FC68254
-	for <netdev@vger.kernel.org>; Thu, 23 Jan 2014 19:05:43 +0400 (MSK)
-Received: from [2a01:6d80:103:13::c3ea:4404] (port=47837 helo=tuxracer.localnet)
-	by smtp37.i.mail.ru with esmtpa (envelope-from <popovich_sergei@mail.ru>)
-	id 1W6LqV-0003fe-1s
-	for netdev@vger.kernel.org; Thu, 23 Jan 2014 19:05:31 +0400
-In-Reply-To: <alpine.LFD.2.11.1401231158510.2682@ja.home.ssi.bg>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:44443 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932082AbaAWPJa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 10:09:30 -0500
+In-Reply-To: <BF3270C86E8B1349A26C34E4EC1C44CB2C84D71E@CMEXMB1.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=D0=92 =D0=BF=D0=B8=D1=81=D1=8C=D0=BC=D0=B5 =D0=BE=D1=82 23 =D1=8F=D0=BD=
-=D0=B2=D0=B0=D1=80=D1=8F 2014 12:06:30 =D0=BF=D0=BE=D0=BB=D1=8C=D0=B7=D0=
-=BE=D0=B2=D0=B0=D1=82=D0=B5=D0=BB=D1=8C Julian Anastasov =D0=BD=D0=B0=D0=
-=BF=D0=B8=D1=81=D0=B0=D0=BB:
-> 	Hello,
+
+--=-Qc6B9jrG3jLjYUaut/c5
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, 2014-01-23 at 13:47 +0000, Venkata Duvvuru wrote:
+> > -----Original Message-----
+> > From: Ben Hutchings [mailto:ben@decadent.org.uk]
+> > Sent: Thursday, January 23, 2014 11:09 AM
+> > To: Venkata Duvvuru
+> > Cc: netdev@vger.kernel.org
+> > Subject: Re: [PATCH net-next 3/4] ethtool: Support for configurable RSS=
+ hash
+> > key.
+> >=20
+> > On Wed, 2014-01-22 at 12:12 +0000, Venkata Duvvuru wrote:
+> > [...]
+> > > > No, what I mean is:
+> > > >
+> > > > 1. An RX flow steering filter can specify use of RSS, in which case
+> > > > the value looked up in the indirection is added to the queue number
+> > > > specified in the filter.  This is not yet controllable through RX
+> > > > NFC though there is room for extension there.
+> > > >
+> > > > 2. Multi-function controllers need multiple RSS contexts (key +
+> > > > indirection
+> > > > table) to support independent use of RSS on each function.
+> > > > But it may also be possible to allocate multiple contexts to a sing=
+le
+> > function.
+> > > > This could be useful in conjunction with 1.  But there would need t=
+o
+> > > > be a way to allocate and configure extra contexts first.
+> > > The proposed changes will be incremental so I think this can be done
+> > > in a separate patch. Thoughts?
+> >=20
+> > The ethtool ABI (to userland) has to remain backward-compatible, and it=
+ is
+> > preferable if we don't add lots of different structures for this.
+> >=20
+> > So please define the new command structure to include both the key and
+> > indirection table, and some reserved space (documented as 'userland mus=
+t
+> > set to 0') for future extensions.
 >=20
-> On Tue, 21 Jan 2014, Sergey Popovich wrote:
-> > +			if (nexthop_nh->nh_dev !=3D dev ||
-> > +			    nexthop_nh->nh_scope =3D=3D scope ||
-> > +			    (ifa && !inet_ifa_match(nexthop_nh->nh_gw, ifa)))
->=20
-> 	What if nh_gw is part from another smaller/larger subnet?
-> For example, what if we still have 10.0.0.200/8 ? 10.0.10.5 is
-> still reachable, i.e. fib_check_nh() would create such NH.
+> I think it=E2=80=99s better to keep key and indirection table settings as
+> different ethtool commands. We can probably add rss contexts (reserved
+> space) to both the command structures.
+> If we mix key and indirection table into one command structure then it
+> will hamper the compatibility.
+[...]
 
+Right, there is no compatible way to extend struct ethtool_rxfh_indir.
+I should have thought ahead when defining it!  But the new structure
+doesn't need to have that problem.
 
-Please correct me if I dont understand something:
-
-1. fib_sync_down_dev() is used when interface is going down
-to remove entires with stray nexthops (including multipath routes).
-
-2. It takes as its argument device on which event (DOWN for short) is r=
-eceived
-and force argument to force fib info entry deletion (which is true when
-fib_sync_down_dev() called from fib_disable_ip() with 2 on UNREGISTER e=
-vent.
-
-Case, that patch is tries to address happens when we have two
-or more addresses on interface, and NH exists in one of such subnet.
-
-With two or more address on iface, fib_disable_ip() is not called on si=
-ngle=20
-address removal, so fib_sync_down_dev() also not called, and we end wit=
-h=20
-routes with stray nexthop.
-
-There is no problem with single address and NH in its subnet, as=20
-fib_sync_down_dev() called from fib_disable_ip().
-
-When deleting IP address, we have net_device where address deleted
-and deleted ifa entry.
-
-Only thing that I miss is RTNH_F_ONLINK NH flag, should be consulted
-before marking nexthop as dead. I will fix this in v2.
-
-
-> IMHO, marking NH by exact nh_gw looks more acceptable because
-> the exact GW becomes unreachable. Otherwise, you will need
-> fib_lookup() as in fib_check_nh() to check that NH becomes
-> unreachable.
-
-Not sure that I fully understand you.
-
-When deleting address and removing its subnet, instead of removing rout=
-e from=20
-the FIB, resolve new NH with fib_lookup() if possible, as this done in=20
-fib_check_nh(), and leave route with modified NH?
-
-Well, sounds good, but what to do with multipath routes?
-Is this correct at all?
-
-Thanks revieving my patches.
-
->=20
-> Regards
->=20
-> --
-> Julian Anastasov <ja@ssi.bg>
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ben.
 
 --=20
-SP5474-RIPE
-Sergey Popovich
+Ben Hutchings
+compatible: Gracefully accepts erroneous data from any source
+
+--=-Qc6B9jrG3jLjYUaut/c5
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.15 (GNU/Linux)
+
+iQIVAwUAUuEwnOe/yOyVhhEJAQrogg//djKvaD1BljAiOz/+v9TPmAY+ZHHonLLC
+q6WtK7Jpb+PFusYMg3XjpgQfa2IbyFxLAcyazVNUDHjnRp8Q+FOlc98sA3xG6B55
+KcZifWBBjQ08L/GpaJdR11xroH5+0+D+JaRc96HUxxmqDtrHqQGolCjFVbhE9uNI
+taz4e44oYIbzmKTcG4ThOHLEKfgAp/4clZbS3vg3wkDoHdb1tRvd1JLvsJm42eud
+mC8qRSvLSeqbKl4NDOvfSg7eQw0HVOx/9XLrNocFeSOfbcOg/VDpymNQFwaHqX9X
+FXYjY2dWp7nRWLQ1EuhY8sljF2w1MWjXq0nghVlqSKHYoHhbZVyS8/nTfBdlOHrZ
+BipBeuWdGRlgQWPMfTxyAiULpLuzWGXIyZ4whms+YfB5jVBfdFEwg57QRguZsrw1
+21MqAfhI1wxJY6x1W/BRRnGRztgDHToQMHtH4Vt2Pqjsd+Pk7qP7bE2WVDhXEmms
+S/wUqrNOUe8sNksjBlJiLLCO9IYPezcm1468EP/J6KtQmDK6bjBYY+ydyTfnN5ZA
+ozOrAyF7+rbDlKRx4RHjCtruaJpGijzdS5xAHq6hNoQphZZoaVH8Mp0HvJWe8aR2
+pYQepcx/HAR/SDCE/c7y5hjLgtHg1rVqcdtTI5LBcLI+s4YRucQijf+TWshiG/Ns
+fG7kxubDPDU=
+=9Aq/
+-----END PGP SIGNATURE-----
+
+--=-Qc6B9jrG3jLjYUaut/c5--
