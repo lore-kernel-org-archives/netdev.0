@@ -1,178 +1,68 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH v2 net-next 2/2] bonding: restructure locking of bond_ab_arp_probe()
-Date: Thu, 23 Jan 2014 11:25:38 -0800
-Message-ID: <1071.1390505138@death.nxdomain>
-References: <1390482511-14884-1-git-send-email-vfalico@redhat.com> <1390482511-14884-3-git-send-email-vfalico@redhat.com>
-Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>
-To: Veaceslav Falico <vfalico@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:42156 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932111AbaAWTZn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 14:25:43 -0500
-Received: from /spool/local
-	by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Thu, 23 Jan 2014 12:25:42 -0700
-Received: from b03cxnp08025.gho.boulder.ibm.com (b03cxnp08025.gho.boulder.ibm.com [9.17.130.17])
-	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id 731D33E4003F
-	for <netdev@vger.kernel.org>; Thu, 23 Jan 2014 12:25:41 -0700 (MST)
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by b03cxnp08025.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s0NJPfl89503088
-	for <netdev@vger.kernel.org>; Thu, 23 Jan 2014 20:25:41 +0100
-Received: from d03av03.boulder.ibm.com (localhost [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s0NJPe2n013195
-	for <netdev@vger.kernel.org>; Thu, 23 Jan 2014 12:25:41 -0700
-In-reply-to: <1390482511-14884-3-git-send-email-vfalico@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kay Sievers <kay-tD+1rO4QERM@public.gmane.org>
+Subject: Re: [PATCH v4 0/3] Send audit/procinfo/cgroup data in socket-level
+ control message
+Date: Thu, 23 Jan 2014 20:31:24 +0100
+Message-ID: <CAPXgP11hxVLd7=OJ0-uapLUnQ4P+gsY8dcmfSi2FrenCEg7AFw@mail.gmail.com>
+References: <1377614400-27122-1-git-send-email-jkaluza@redhat.com>
+ <1389600109-30739-1-git-send-email-jkaluza@redhat.com> <20140115.121730.1984913330507219167.davem@davemloft.net>
+ <1389828103.681.34.camel@flatline.rdu.redhat.com> <20140115232345.GA22237@mtj.dyndns.org>
+ <52D7A68F.5030700@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Eric Paris <eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org
+To: =?UTF-8?Q?Jan_Kalu=C5=BEa?= <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <52D7A68F.5030700-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Veaceslav Falico <vfalico@redhat.com> wrote:
+On Thu, Jan 16, 2014 at 10:29 AM, Jan Kalu=C5=BEa <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> =
+wrote:
+> On 01/16/2014 12:23 AM, Tejun Heo wrote:
+>> On Wed, Jan 15, 2014 at 06:21:43PM -0500, Eric Paris wrote:
+>>>
+>>> Reliably being able to audit what process requested an action is
+>>> extremely useful.  And I like the audit patch, as it is a couple of=
+ ints
+>>> we are storing.
+>>>
+>>> procinfo and cgroup can both be up to 4k of data.
+>>>
+>>> Is there an alternative he should consider?  Some way to grab a
+>>> reference on task_struct and just attach that to the message?
+>>
+>> Or maybe it can be made separately optional instead of tagging along
+>> on an existing option so that it doesn't tax use cases which don't
+>> care about the new stuff?
+>
+> Right, I could add new option next to SOCK_PASSCRED which could be us=
+ed to
+> send newly added stuff. Would this be acceptable?
+>
+> I would still vote for SCM_AUDIT to be part of SOCK_PASSCRED and move
+> SCM_CGROUP and SCM_PROCINFO into new option.
 
->Currently we're calling it from under RCU context, however we're using some
->functions that require rtnl to be held.
->
->Fix this by restructuring the locking - don't call it under any locks,
->aquire rcu_read_lock() if we're sending _only_ (i.e. we have the active
->slave present), and use rtnl locking otherwise - if we need to modify
->(in)active flags of a slave.
->
->CC: Jay Vosburgh <fubar@us.ibm.com>
->CC: Andy Gospodarek <andy@greyhouse.net>
->Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
->---
-> drivers/net/bonding/bond_main.c | 38 ++++++++++++++++++++++++--------------
-> 1 file changed, 24 insertions(+), 14 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 22d8b69..f879e9e 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -2605,11 +2605,14 @@ do_failover:
-> static void bond_ab_arp_probe(struct bonding *bond)
-> {
-> 	struct slave *slave, *before = NULL, *new_slave = NULL,
->-		     *curr_arp_slave = rcu_dereference(bond->current_arp_slave),
->-		     *curr_active_slave = rcu_dereference(bond->curr_active_slave);
->+		     *curr_arp_slave, *curr_active_slave;
-> 	struct list_head *iter;
-> 	bool found = false;
->
->+	rcu_read_lock();
->+	curr_arp_slave = rcu_dereference(bond->current_arp_slave);
->+	curr_active_slave = rcu_dereference(bond->curr_active_slave);
->+
-> 	if (curr_arp_slave && curr_active_slave)
-> 		pr_info("PROBE: c_arp %s && cas %s BAD\n",
-> 			curr_arp_slave->dev->name,
->@@ -2617,23 +2620,31 @@ static void bond_ab_arp_probe(struct bonding *bond)
->
-> 	if (curr_active_slave) {
-> 		bond_arp_send_all(bond, curr_active_slave);
->+		rcu_read_unlock();
-> 		return;
-> 	}
->+	rcu_read_unlock();
->
-> 	/* if we don't have a curr_active_slave, search for the next available
-> 	 * backup slave from the current_arp_slave and make it the candidate
-> 	 * for becoming the curr_active_slave
-> 	 */
->
->+	rtnl_lock();
+Maybe we could just add a new SOCK_PASS_TASKINFO bit to set in
+socket->flags. Set that bit with a new SO_PASS_TASKINFO sockoption.
 
-	I don't believe we can unconditionally acquire RTNL here, as it
-may deadlock with bond_close's cancel_delayed_work_sync() calls (which
-occur under RTNL).
+The SOCK_PASS_TASKINFO can carry all sorts of "struct task" related
+stuff, also include the audit data. It is all fully conditional, so
+users which do not explicitly subscribe to TASKINFO will never see the
+data or needlessly pay for the overhead.
 
-	I think I'd make this a rtnl_trylock, and if that fails, have
-the bond_ab_arp_probe function return non-zero as an indication for
-activebackup_arp_mon to change delta_in_ticks to 1.  Changing the delta
-is just an optimization; without it, things will still work, but it will
-take longer to run the curr_arp_slave probe cycle.
+A TASKINFO sounds generic enough to be possibly extended with new data
+in the future, without wasting extra bits in the socket flags.
 
-	-J
+Users which subscribe with SO_PASS_TASKINFO expect some overhead
+anyway. In the end it's still a lot cheaper than parsing /proc for the
+data; which is also racy and does therefore not work for any
+short-living program.
 
->+	/* curr_arp_slave might have gone away */
->+	curr_arp_slave = rcu_dereference(bond->current_arp_slave);
->+
-> 	if (!curr_arp_slave) {
->-		curr_arp_slave = bond_first_slave_rcu(bond);
->-		if (!curr_arp_slave)
->+		curr_arp_slave = bond_first_slave(bond);
->+		if (!curr_arp_slave) {
->+			rtnl_unlock();
-> 			return;
->+		}
-> 	}
->
-> 	bond_set_slave_inactive_flags(curr_arp_slave);
->
->-	bond_for_each_slave_rcu(bond, slave, iter) {
->+	bond_for_each_slave(bond, slave, iter) {
-> 		if (!found && !before && IS_UP(slave->dev))
-> 			before = slave;
->
->@@ -2663,21 +2674,24 @@ static void bond_ab_arp_probe(struct bonding *bond)
-> 	if (!new_slave && before)
-> 		new_slave = before;
->
->-	if (!new_slave)
->+	if (!new_slave) {
->+		rtnl_unlock();
-> 		return;
->+	}
->
-> 	new_slave->link = BOND_LINK_BACK;
-> 	bond_set_slave_active_flags(new_slave);
-> 	bond_arp_send_all(bond, new_slave);
-> 	new_slave->jiffies = jiffies;
-> 	rcu_assign_pointer(bond->current_arp_slave, new_slave);
->+	rtnl_unlock();
-> }
->
-> static void bond_activebackup_arp_mon(struct work_struct *work)
-> {
-> 	struct bonding *bond = container_of(work, struct bonding,
-> 					    arp_work.work);
->-	bool should_notify_peers = false;
->+	bool should_notify_peers = false, should_commit = false;
-> 	int delta_in_ticks;
->
-> 	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
->@@ -2686,12 +2700,11 @@ static void bond_activebackup_arp_mon(struct work_struct *work)
-> 		goto re_arm;
->
-> 	rcu_read_lock();
->-
-> 	should_notify_peers = bond_should_notify_peers(bond);
->+	should_commit = bond_ab_arp_inspect(bond);
->+	rcu_read_unlock();
->
->-	if (bond_ab_arp_inspect(bond)) {
->-		rcu_read_unlock();
->-
->+	if (should_commit) {
-> 		/* Race avoidance with bond_close flush of workqueue */
-> 		if (!rtnl_trylock()) {
-> 			delta_in_ticks = 1;
->@@ -2700,13 +2713,10 @@ static void bond_activebackup_arp_mon(struct work_struct *work)
-> 		}
->
-> 		bond_ab_arp_commit(bond);
->-
-> 		rtnl_unlock();
->-		rcu_read_lock();
-> 	}
->
-> 	bond_ab_arp_probe(bond);
->-	rcu_read_unlock();
->
-> re_arm:
-> 	if (bond->params.arp_interval)
->-- 
->1.8.4
->
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+Thanks,
+Kay
