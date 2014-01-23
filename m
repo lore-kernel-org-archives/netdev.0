@@ -1,56 +1,78 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC PATCH net] IPv6: Fix broken IPv6 routing table after loopback down-up
-Date: Thu, 23 Jan 2014 15:11:24 +0100
-Message-ID: <20140123141124.GJ7269@order.stressinduktion.org>
-References: <1390404908-3914-1-git-send-email-sd@queasysnail.net> <20140122213446.GD7269@order.stressinduktion.org> <52E068C5.2050405@cn.fujitsu.com> <20140123010123.GF7269@order.stressinduktion.org> <52E0B55F.4070501@cn.fujitsu.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: Fwd: [RFC PATCH net-next 0/3] virtio_net: add aRFS support
+Date: Thu, 23 Jan 2014 16:23:57 +0200
+Message-ID: <20140123142357.GC21572@redhat.com>
+References: <1389795654-28381-1-git-send-email-zwu.kernel@gmail.com>
+ <52D75EA5.1050000@redhat.com>
+ <CAEH94Lg7ygXgHqE8ubE+nuunicDqgmnCfO2AuDSS2nXgv5GikQ@mail.gmail.com>
+ <20140116085253.GA32073@stefanha-thinkpad.redhat.com>
+ <CA+mtBx9PBtYurdnhCKL0MLL8i+_+3yPNWFVj5h6SPJH+YDBCjw@mail.gmail.com>
+ <CAEH94LiqVpXUp3myHvTPVHaqrDpK2V6ii+w8Gip61PA+QF2apw@mail.gmail.com>
+ <CA+mtBx-Xv6xp3VCq=PKMyboAmDjUWzVrbUhr4WdKQRi1PCansg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Sabrina Dubroca <sd@queasysnail.net>, netdev@vger.kernel.org
-To: Gao feng <gaofeng@cn.fujitsu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Zhi Yong Wu <zwu.kernel@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Stefan Hajnoczi <stefanha@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Jason Wang <jasowang@redhat.com>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:60448 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753250AbaAWOLZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 09:11:25 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:31204 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932104AbaAWOTW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jan 2014 09:19:22 -0500
 Content-Disposition: inline
-In-Reply-To: <52E0B55F.4070501@cn.fujitsu.com>
+In-Reply-To: <CA+mtBx-Xv6xp3VCq=PKMyboAmDjUWzVrbUhr4WdKQRi1PCansg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 23, 2014 at 02:23:27PM +0800, Gao feng wrote:
-> >  
-> > -static int fib6_ifdown(struct rt6_info *rt, void *arg)
-> > +static int __fib6_match_or_update_if(struct rt6_info *rt, void *arg)
-> >  {
-> >  	const struct arg_dev_net *adn = arg;
-> >  	const struct net_device *dev = adn->dev;
-> >  
-> >  	if ((rt->dst.dev == dev || !dev) &&
-> > -	    rt != adn->net->ipv6.ip6_null_entry)
-> > -		return -1;
-> > +	    rt != adn->net->ipv6.ip6_null_entry) {
-> > +		switch (adn->action) {
-> > +		case ARG_DEV_NET_REMOVE:
-> > +			/* remove rt */
-> > +			return -1;
-> > +		case ARG_DEV_NET_DISABLE:
-> > +			WARN_ON(rt->rt6i_flags & RTF_DEAD);
-> > +			rt->rt6i_flags |= RTF_DEAD;
-> > +			return 0;
-> > +		case ARG_DEV_NET_ENABLE:
-> > +			WARN_ON(!(rt->rt6i_flags & RTF_DEAD));
+On Wed, Jan 22, 2014 at 10:00:37AM -0800, Tom Herbert wrote:
+> >> 1. The aRFS interface for the guest to specify which virtual queue to
+> >> receive a packet on is fairly straight forward.
+> >> 2. To hook into RFS, we need to match the virtual queue to the real
+> >> CPU it will processed on, and then program the RFS table for that flow
+> >> and CPU.
+> >> 3. NIC aRFS keys off the RFS tables so it can program the HW with the
+> >> correct queue for the CPU.
+> > Does anyone have time to make one conclusion for this discussion? in
+> > particular, how will rx packet be steered up the stack from guest
+> > virtio_net driver, virtio_net NIC, vhost_net, tun driver, host network
+> > stack, to physical NIC with more details?
+> > What is the role of each path units? otherwise this discussion wont
+> > get any meanful result, which is not what we expect.
+> >
+> Working code outweighs theoretical discussion :-).
+
+So far all that was posted was an untested patchset.
+Zhi Yong Wu did this intentionally to get early feedback, so
+it's not surprising we got a theoretical discussion
+as opposed to working code out of this.
+
+> I think you started
+> on a good track with original patches, and I believe the tun path
+> should work pretty well (some performance numbers would still be good
+> to validate).
+
+Yes, merging performance-oriented patches without any
+performance numbers to show for it is strange.
+
+> Seems like there's enough hooks in the virtio_net path
+> to implement something meaningful and maybe get some numbers (maybe
+> ignore NIC aRFS in the first pass).
 > 
-> I think this may happen, think a new router is cloned from this rt but hasn't been inserted
-> into the router tree on other CPU at the same time.
-
-Yes, there are still some problems with this patch. I actually shuffeled
-the code around to purge all those RTF_CACHE RTF_DEAD routes yesterday
-while holding the same write_lock on the table.
-
-Regarding the problem you addressed, I tried to validate the route
-using dst.from on insert while holding write_lock, somehow like we do
-for checking expire time. But I really dislike this.
-
-Thanks,
-
-  Hannes
+> Tom
+> 
+> >>
+> >>> Stefan
+> >
+> >
+> >
+> > --
+> > Regards,
+> >
+> > Zhi Yong Wu
