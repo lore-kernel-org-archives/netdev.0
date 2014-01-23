@@ -1,38 +1,93 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 6/6] rtnetlink: remove IFLA_SLAVES definition
-Date: Thu, 23 Jan 2014 14:43:47 -0800 (PST)
-Message-ID: <20140123.144347.115158262468644462.davem@davemloft.net>
-References: <1390387435-23918-1-git-send-email-jiri@resnulli.us>
-	<20140123.124716.330893227222440804.davem@davemloft.net>
-	<20140123213345.GA2764@minipsycho.orion>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, vfalico@redhat.com,
-	andy@greyhouse.net, sfeldma@cumulusnetworks.com,
-	stephen@networkplumber.org, vyasevic@redhat.com,
-	nicolas.dichtel@6wind.com, john.r.fastabend@intel.com
-To: jiri@resnulli.us
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH net-next] bonding: fix u64 division
+Date: Thu, 23 Jan 2014 23:43:43 +0100
+Message-ID: <1390517023-31950-1-git-send-email-nikolay@redhat.com>
+References: <52E18720.4060008@redhat.com>
+Cc: davem@davemloft.net, zoltan.kiss@citrix.com, andy@greyhouse.net,
+	vfalico@redhat.com, fubar@us.ibm.com, nikolay@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33254 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752905AbaAWWns (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 17:43:48 -0500
-In-Reply-To: <20140123213345.GA2764@minipsycho.orion>
+Received: from mx1.redhat.com ([209.132.183.28]:30299 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751979AbaAWWo1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jan 2014 17:44:27 -0500
+In-Reply-To: <52E18720.4060008@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Thu, 23 Jan 2014 22:33:45 +0100
+After the option conversion downdelay and updelay divide a u64
+and on a 32 bit this causes the following errors:
+ERROR: "__udivdi3" [drivers/net/bonding/bonding.ko] undefined!
+ERROR: "__umoddi3" [drivers/net/bonding/bonding.ko] undefined!
 
-> Thu, Jan 23, 2014 at 09:47:16PM CET, davem@davemloft.net wrote:
->>From: Jiri Pirko <jiri@resnulli.us>
->>Date: Wed, 22 Jan 2014 11:43:55 +0100
->>
->>Secondly, you can't remove this, otherwise the next IFLA_* value added
->>here will reuse that old number potentially breaking userland apps.
-> 
-> This has been in net-next tree for 3 days. It was a mistake, I think
-> there is very legit to remove this now, isn't it?
+Fix it by using a normal int instead because newval->value is capped
+at INT_MAX by the way the option is defined.
 
-Fair enough, please resend with fixed Subj.
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+---
+This is what I meant, but it's only compile-tested, I can't
+test it until tomorrow.
+
+ drivers/net/bonding/bond_options.c | 24 ++++++++++++++----------
+ 1 file changed, 14 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+index 4cee04a..11cb943 100644
+--- a/drivers/net/bonding/bond_options.c
++++ b/drivers/net/bonding/bond_options.c
+@@ -727,19 +727,21 @@ int bond_option_miimon_set(struct bonding *bond, struct bond_opt_value *newval)
+ 
+ int bond_option_updelay_set(struct bonding *bond, struct bond_opt_value *newval)
+ {
++	int value = newval->value;
++
+ 	if (!bond->params.miimon) {
+ 		pr_err("%s: Unable to set up delay as MII monitoring is disabled\n",
+ 		       bond->dev->name);
+ 		return -EPERM;
+ 	}
+-	if ((newval->value % bond->params.miimon) != 0) {
+-		pr_warn("%s: Warning: up delay (%llu) is not a multiple of miimon (%d), updelay rounded to %llu ms\n",
+-			bond->dev->name, newval->value,
++	if ((value % bond->params.miimon) != 0) {
++		pr_warn("%s: Warning: up delay (%d) is not a multiple of miimon (%d), updelay rounded to %d ms\n",
++			bond->dev->name, value,
+ 			bond->params.miimon,
+-			(newval->value / bond->params.miimon) *
++			(value / bond->params.miimon) *
+ 			bond->params.miimon);
+ 	}
+-	bond->params.updelay = newval->value / bond->params.miimon;
++	bond->params.updelay = value / bond->params.miimon;
+ 	pr_info("%s: Setting up delay to %d.\n",
+ 		bond->dev->name,
+ 		bond->params.updelay * bond->params.miimon);
+@@ -750,19 +752,21 @@ int bond_option_updelay_set(struct bonding *bond, struct bond_opt_value *newval)
+ int bond_option_downdelay_set(struct bonding *bond,
+ 			      struct bond_opt_value *newval)
+ {
++	int value = newval->value;
++
+ 	if (!bond->params.miimon) {
+ 		pr_err("%s: Unable to set down delay as MII monitoring is disabled\n",
+ 		       bond->dev->name);
+ 		return -EPERM;
+ 	}
+-	if ((newval->value % bond->params.miimon) != 0) {
+-		pr_warn("%s: Warning: down delay (%llu) is not a multiple of miimon (%d), delay rounded to %llu ms\n",
+-			bond->dev->name, newval->value,
++	if ((value % bond->params.miimon) != 0) {
++		pr_warn("%s: Warning: down delay (%d) is not a multiple of miimon (%d), delay rounded to %d ms\n",
++			bond->dev->name, value,
+ 			bond->params.miimon,
+-			(newval->value / bond->params.miimon) *
++			(value / bond->params.miimon) *
+ 			bond->params.miimon);
+ 	}
+-	bond->params.downdelay = newval->value / bond->params.miimon;
++	bond->params.downdelay = value / bond->params.miimon;
+ 	pr_info("%s: Setting down delay to %d.\n",
+ 		bond->dev->name,
+ 		bond->params.downdelay * bond->params.miimon);
+-- 
+1.8.4.2
