@@ -1,40 +1,77 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH 4/4] ipv4: mark nexthop as dead when it's subnet becomes
- unreachable
-Date: Thu, 23 Jan 2014 12:06:30 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1401231158510.2682@ja.home.ssi.bg>
-References: <cover.1390304505.git.popovich_sergei@mail.ru> <40044b636dbf7ae5bba5fe2873451e14438ec170.1390304505.git.popovich_sergei@mail.ru>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH v2 net-next 05/12] bonding: extend arp_validate to be
+ able to receive unvalidated arp-only traffic
+Date: Thu, 23 Jan 2014 11:25:29 +0100
+Message-ID: <20140123102529.GA15320@redhat.com>
+References: <1389977940-17084-1-git-send-email-vfalico@redhat.com>
+ <1389977940-17084-6-git-send-email-vfalico@redhat.com>
+ <32086.1389991289@death.nxdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Sergey Popovich <popovich_sergei@mail.ru>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:40688 "EHLO ja.home.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751468AbaAWKGv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Jan 2014 05:06:51 -0500
-In-Reply-To: <40044b636dbf7ae5bba5fe2873451e14438ec170.1390304505.git.popovich_sergei@mail.ru>
+Received: from mx1.redhat.com ([209.132.183.28]:56993 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752880AbaAWK2b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jan 2014 05:28:31 -0500
+Content-Disposition: inline
+In-Reply-To: <32086.1389991289@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Jan 17, 2014 at 12:41:29PM -0800, Jay Vosburgh wrote:
+>Veaceslav Falico <vfalico@redhat.com> wrote:
+...snip...
+>>--- a/drivers/net/bonding/bonding.h
+>>+++ b/drivers/net/bonding/bonding.h
+>>@@ -318,6 +318,11 @@ static inline bool bond_is_active_slave(struct slave *slave)
+>> #define BOND_ARP_VALIDATE_BACKUP	(1 << BOND_STATE_BACKUP)
+>> #define BOND_ARP_VALIDATE_ALL		(BOND_ARP_VALIDATE_ACTIVE | \
+>> 					 BOND_ARP_VALIDATE_BACKUP)
+>>+#define BOND_ARP_VALIDATE_ARP		(BOND_ARP_VALIDATE_ALL + 1)
+>>+#define BOND_ARP_VALIDATE_ACTIVE_ARP	(BOND_ARP_VALIDATE_ACTIVE | \
+>>+					 BOND_ARP_VALIDATE_ARP)
+>>+#define BOND_ARP_VALIDATE_BACKUP_ARP	(BOND_ARP_VALIDATE_BACKUP | \
+>>+					 BOND_ARP_VALIDATE_ARP)
+>
+>	If you go with my suggestion to call the new thing "filtering,"
+>I'd change these option names, labels, and the function
+>"slave_do_arp_validate_only" names.  The function name seems kind of
+>confusing in particular. I think it'd be clearer to replace the
+>"validate" stuff with "filter."
 
-	Hello,
+Hi Jay,
 
-On Tue, 21 Jan 2014, Sergey Popovich wrote:
+Sorry for the delay. Yep, completely agree, I'll change the doc/rename the
+functions/defines to use "filtering" instead of double-arp.
 
-> +			if (nexthop_nh->nh_dev != dev ||
-> +			    nexthop_nh->nh_scope == scope ||
-> +			    (ifa && !inet_ifa_match(nexthop_nh->nh_gw, ifa)))
+I'll re-send it once I'll fix the current bonding state...
 
-	What if nh_gw is part from another smaller/larger subnet?
-For example, what if we still have 10.0.0.200/8 ? 10.0.10.5 is
-still reachable, i.e. fib_check_nh() would create such NH.
-IMHO, marking NH by exact nh_gw looks more acceptable because
-the exact GW becomes unreachable. Otherwise, you will need
-fib_lookup() as in fib_check_nh() to check that NH becomes
-unreachable.
+Thank you!
 
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+>
+>	-J
+>
+>> static inline int slave_do_arp_validate(struct bonding *bond,
+>> 					struct slave *slave)
+>>@@ -325,6 +330,12 @@ static inline int slave_do_arp_validate(struct bonding *bond,
+>> 	return bond->params.arp_validate & (1 << bond_slave_state(slave));
+>> }
+>>
+>>+static inline int slave_do_arp_validate_only(struct bonding *bond,
+>>+					     struct slave *slave)
+>>+{
+>>+	return bond->params.arp_validate & BOND_ARP_VALIDATE_ARP;
+>>+}
+>>+
+>> /* Get the oldest arp which we've received on this slave for bond's
+>>  * arp_targets.
+>>  */
+>>--
+>>1.8.4
+>>
+>
+>---
+>	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+>
