@@ -1,33 +1,72 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] tulip: cleanup by using ARRAY_SIZE()
-Date: Thu, 23 Jan 2014 11:26:37 +0300
-Message-ID: <20140123082637.GC28688@elgon.mountain>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: How to identify different ip tunnels
+Date: Thu, 23 Jan 2014 16:54:48 +0800
+Message-ID: <52E0D8D8.8040902@gmail.com>
+References: <52E0C5B7.7040908@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	kernel-janitors@vger.kernel.org
-To: Grant Grundler <grundler@parisc-linux.org>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, linux-kernel@vger.kernel.org,
+	zhuyj <zyjzyj2000@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52E0C5B7.7040908@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In this situation then ARRAY_SIZE() and sizeof() are the same, but we're
-really dealing with array indexes and not byte offsets so ARRAY_SIZE()
-is cleaner.
+The version of the kernel is 3.4.43.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Any reply is appreciated.
 
-diff --git a/drivers/net/ethernet/dec/tulip/media.c b/drivers/net/ethernet/dec/tulip/media.c
-index 0d0ba725341a..dcf21a36a9cf 100644
---- a/drivers/net/ethernet/dec/tulip/media.c
-+++ b/drivers/net/ethernet/dec/tulip/media.c
-@@ -457,7 +457,7 @@ void tulip_find_mii(struct net_device *dev, int board_idx)
- 	/* Find the connected MII xcvrs.
- 	   Doing this in open() would allow detecting external xcvrs later,
- 	   but takes much time. */
--	for (phyn = 1; phyn <= 32 && phy_idx < sizeof (tp->phys); phyn++) {
-+	for (phyn = 1; phyn <= 32 && phy_idx < ARRAY_SIZE(tp->phys); phyn++) {
- 		int phy = phyn & 0x1f;
- 		int mii_status = tulip_mdio_read (dev, phy, MII_BMSR);
- 		if ((mii_status & 0x8301) == 0x8001 ||
+Best Regards!
+Zhu Yanjun
+On 01/23/2014 03:33 PM, zhuyj wrote:
+> Hi, Maintainers
+>
+> We want to identify different ip tunnels.
+>
+> For example, we use =93ip tunnel add xxx=94 command in linux to creat=
+e an=20
+> ipv4/6 tunnel interface,then,we can receive a RTM_NEWLINK message fro=
+m=20
+> linux for the new tunnel interface.
+> We will parse the struct ifinfomsg message and get the ifi->ifi_type=20
+> attribute. We need to do somethings depend on the tunnel type here.
+> I checked the linux source code and list all the tunnel types here:
+>
+> #define ARPHRD_TUNNEL 768 /* IPIP tunnel */
+> #define ARPHRD_TUNNEL6 769 /* IP6IP6 tunnel */
+> #define ARPHRD_SIT 776 /* sit0 device - IPv6-in-IPv4 */
+> #define ARPHRD_IPGRE 778 /* GRE over IP */
+>
+> It means that the linux will report the new link for any ipv4/6 tunne=
+l=20
+> interface with type only within these four types. However, We need=20
+> more tunnel types for ipv4/6 tunnel.
+> For example, 4IN4/6IN4/6TO4/GRE/ISATAP for ipv4 tunnel and=20
+> 4IN6/6IN6/IPIN6 for ipv6 tunnel.
+>
+> Here are the result that we have got:
+>
+> Actual Tunnel type ifi->ifi_type
+> 4IN4 768
+> GRE4 778
+> 6IN4/6TO4/ISATAP 776
+> 4IN6/6IN6/IPIN6 769
+>
+> So, we can NOT distinguish the actual tunnel type via ifi_type=20
+> attribute except the GRE4 and 4IN4 tunnel. However we need the actual=
+=20
+> type. That is our question.
+>
+> BTW, for the 6IN4 and 6TO4 tunnel, Can we distinguish them before the=
+=20
+> interface ip address configured? Because we need to do different=20
+> things for them when we received the new link message and the tunnel=20
+> has NOT any ip address in this time.
+>
+> Best Regards!
+> Zhu Yanjun
+>
