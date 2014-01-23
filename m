@@ -1,110 +1,78 @@
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: [PATCH net-next 1/7] qlcnic: Use bool for rx_mac_learn.
-Date: Thu, 23 Jan 2014 17:18:28 -0500
-Message-ID: <eae4e19d3ffc344f833f2afe7a67217d9d2e6893.1390491376.git.himanshu.madhani@qlogic.com>
-References: <cover.1390491376.git.himanshu.madhani@qlogic.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next v2 4/4] net: phy: remove unneeded parenthesis
+Date: Fri, 24 Jan 2014 02:59:02 +0400
+Message-ID: <52E19EB6.5030302@cogentembedded.com>
+References: <1390508269-28769-1-git-send-email-f.fainelli@gmail.com> <1390508269-28769-5-git-send-email-f.fainelli@gmail.com> <52E199AA.7020200@cogentembedded.com> <CAGVrzcan4pJ7=TxTf26c08ct1q9SpdLNm_DyyHTe_=3EW3pjEw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
-	<himanshu.madhani@qlogic.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Joe Perches <joe@perches.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:45906 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755623AbaAWWwx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 17:52:53 -0500
-In-Reply-To: <cover.1390491376.git.himanshu.madhani@qlogic.com>
+Received: from mail-la0-f51.google.com ([209.85.215.51]:42369 "EHLO
+	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755582AbaAWW7A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 17:59:00 -0500
+Received: by mail-la0-f51.google.com with SMTP id c6so1991647lan.38
+        for <netdev@vger.kernel.org>; Thu, 23 Jan 2014 14:58:59 -0800 (PST)
+In-Reply-To: <CAGVrzcan4pJ7=TxTf26c08ct1q9SpdLNm_DyyHTe_=3EW3pjEw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Hello.
 
-o Use boolean type instead of u8.
+On 24-01-2014 2:39, Florian Fainelli wrote:
 
-Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h           | 2 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c   | 2 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c | 2 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c | 4 ++--
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c        | 4 ++--
- 5 files changed, 7 insertions(+), 7 deletions(-)
+>>> Our if/else statement in phy_print_status() is only comprised of one
+>>> line for each, remove the parenthesis.
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 69a6ca0..c85cb84 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -1082,7 +1082,7 @@ struct qlcnic_adapter {
- 	u64 dev_rst_time;
- 	bool drv_mac_learn;
- 	bool fdb_mac_learn;
--	u8 rx_mac_learn;
-+	bool rx_mac_learn;
- 	unsigned long vlans[BITS_TO_LONGS(VLAN_N_VID)];
- 	u8 flash_mfg_id;
- 	struct qlcnic_npar_info *npars;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index 2949845..b66b199 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -1637,7 +1637,7 @@ static void qlcnic_83xx_set_interface_id_promisc(struct qlcnic_adapter *adapter,
- 	if (qlcnic_sriov_pf_check(adapter)) {
- 		qlcnic_alloc_lb_filters_mem(adapter);
- 		qlcnic_pf_set_interface_id_promisc(adapter, interface_id);
--		adapter->rx_mac_learn = 1;
-+		adapter->rx_mac_learn = true;
- 	} else {
- 		if (!qlcnic_sriov_vf_check(adapter))
- 			*interface_id = adapter->recv_ctx->context_id << 16;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-index 6d7f6a1..f19cec8 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-@@ -2217,7 +2217,7 @@ int qlcnic_83xx_init(struct qlcnic_adapter *adapter, int pci_using_dac)
- 	struct qlcnic_hardware_context *ahw = adapter->ahw;
- 	int err = 0;
- 
--	adapter->rx_mac_learn = 0;
-+	adapter->rx_mac_learn = false;
- 	ahw->msix_supported = !!qlcnic_use_msi_x;
- 
- 	qlcnic_83xx_init_rings(adapter);
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
-index e26c49f..be7d7a6 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
-@@ -227,10 +227,10 @@ int qlcnic_83xx_config_vnic_opmode(struct qlcnic_adapter *adapter)
- 	if (ahw->capabilities & QLC_83XX_ESWITCH_CAPABILITY) {
- 		adapter->flags |= QLCNIC_ESWITCH_ENABLED;
- 		if (adapter->drv_mac_learn)
--			adapter->rx_mac_learn = 1;
-+			adapter->rx_mac_learn = true;
- 	} else {
- 		adapter->flags &= ~QLCNIC_ESWITCH_ENABLED;
--		adapter->rx_mac_learn = 0;
-+		adapter->rx_mac_learn = false;
- 	}
- 
- 	ahw->idc.vnic_state = QLCNIC_DEV_NPAR_NON_OPER;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-index e861479..d012e83 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-@@ -547,10 +547,10 @@ static void __qlcnic_set_multi(struct net_device *netdev, u16 vlan)
- 		qlcnic_alloc_lb_filters_mem(adapter);
- 		adapter->drv_mac_learn = 1;
- 		if (adapter->flags & QLCNIC_ESWITCH_ENABLED)
--			adapter->rx_mac_learn = 1;
-+			adapter->rx_mac_learn = true;
- 	} else {
- 		adapter->drv_mac_learn = 0;
--		adapter->rx_mac_learn = 0;
-+		adapter->rx_mac_learn = false;
- 	}
- 
- 	qlcnic_nic_set_promisc(adapter, mode);
--- 
-1.8.1.4
+>>     I protest, the *if* arm is multi-line, though single statement. :-)
+>> Could we avoid changing that code to and fro during 3.14-rc1?
+
+> Is it that big of a problem?
+
+    You should be clearer in the changelog, at least. :-)
+
+> Does that make checkpatch.pl unhappy,
+
+    No, it doesn't.
+
+> does that make you unhappy?
+
+    Kind of, as it was me who added {} in net-next, IIRC.
+
+> Since this is intentionally the last patch
+> in the series, it would be trivial for David to ignore it I suppose.
+
+    Would be fine...
+
+>>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>>> ---
+>>>    drivers/net/phy/phy.c | 5 ++---
+>>>    1 file changed, 2 insertions(+), 3 deletions(-)
+
+>>> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+>>> index 36fc6e1..59aa85e 100644
+>>> --- a/drivers/net/phy/phy.c
+>>> +++ b/drivers/net/phy/phy.c
+>>> @@ -64,15 +64,14 @@ static const char *phy_speed_to_str(int speed)
+>>>     */
+>>>    void phy_print_status(struct phy_device *phydev)
+>>>    {
+>>> -       if (phydev->link) {
+>>> +       if (phydev->link)
+>>>                  netdev_info(phydev->attached_dev,
+>>>                          "Link is Up - %s/%s - flow control %s\n",
+>>>                          phy_speed_to_str(phydev->speed),
+>>>                          DUPLEX_FULL == phydev->duplex ? "Full" : "Half",
+>>>                          phydev->pause ? "rx/tx" : "off");
+>>> -       } else  {
+>>> +       else
+>>>                  netdev_info(phydev->attached_dev, "Link is Down\n");
+>>> -       }
+>>>    }
+>>>    EXPORT_SYMBOL(phy_print_status);
+
+WBR, Sergei
