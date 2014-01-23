@@ -1,78 +1,58 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next v2 4/4] net: phy: remove unneeded parenthesis
-Date: Fri, 24 Jan 2014 02:59:02 +0400
-Message-ID: <52E19EB6.5030302@cogentembedded.com>
-References: <1390508269-28769-1-git-send-email-f.fainelli@gmail.com> <1390508269-28769-5-git-send-email-f.fainelli@gmail.com> <52E199AA.7020200@cogentembedded.com> <CAGVrzcan4pJ7=TxTf26c08ct1q9SpdLNm_DyyHTe_=3EW3pjEw@mail.gmail.com>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: Re: [PATCH net-next v2] tcp: metrics: Handle v6/v4-mapped sockets in
+ tcp-metrics
+Date: Fri, 24 Jan 2014 00:26:38 +0100
+Message-ID: <20140123232638.GA5520@cpaasch-mac>
+References: <1390395524-27930-1-git-send-email-christoph.paasch@uclouvain.be>
+ <20140123.124926.313254281273203545.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Joe Perches <joe@perches.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f51.google.com ([209.85.215.51]:42369 "EHLO
-	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755582AbaAWW7A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 17:59:00 -0500
-Received: by mail-la0-f51.google.com with SMTP id c6so1991647lan.38
-        for <netdev@vger.kernel.org>; Thu, 23 Jan 2014 14:58:59 -0800 (PST)
-In-Reply-To: <CAGVrzcan4pJ7=TxTf26c08ct1q9SpdLNm_DyyHTe_=3EW3pjEw@mail.gmail.com>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:47423 "EHLO
+	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752966AbaAWX0q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 18:26:46 -0500
+Content-Disposition: inline
+In-Reply-To: <20140123.124926.313254281273203545.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On 23/01/14 - 12:49:26, David Miller wrote:
+> From: Christoph Paasch <christoph.paasch@uclouvain.be>
+> Date: Wed, 22 Jan 2014 13:58:44 +0100
+> 
+> > A socket may be v6/v4-mapped. In that case sk->sk_family is AF_INET6,
+> > but the IP being used is actually an IPv4-address.
+> > Current's tcp-metrics will thus represent it as an IPv6-address:
+> > 
+> > root@server:~# ip tcp_metrics
+> > ::ffff:10.1.1.2 age 22.920sec rtt 18750us rttvar 15000us cwnd 10
+> > 10.1.1.2 age 47.970sec rtt 16250us rttvar 10000us cwnd 10
+> > 
+> > This patch modifies the tcp-metrics so that they are able to handle the
+> > v6/v4-mapped sockets correctly.
+> > 
+> > Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+> 
+> Applied, but I guess you didn't look at the build warnings, nor thoroughly
+> test this:
+> 
+> > +	else if (sk->sk_family = AF_INET6) {
+> 
+> That's an assignment, not a straight test, and the compiler warns
+> about it.
+> 
+> I fixed it when I applied this, but please don't be so sloppy in the
+> future.
 
-On 24-01-2014 2:39, Florian Fainelli wrote:
+Ouch, I'm really sorry. Thanks for fixing it.
 
->>> Our if/else statement in phy_print_status() is only comprised of one
->>> line for each, remove the parenthesis.
+I did actually test it and it worked, because if sk_family is not AF_INET
+then it can only be AF_INET6 and so the assignment won't change sk_family
+and the if condition will be true.
 
->>     I protest, the *if* arm is multi-line, though single statement. :-)
->> Could we avoid changing that code to and fro during 3.14-rc1?
+Anyways, I will pay more attention in the future.
 
-> Is it that big of a problem?
-
-    You should be clearer in the changelog, at least. :-)
-
-> Does that make checkpatch.pl unhappy,
-
-    No, it doesn't.
-
-> does that make you unhappy?
-
-    Kind of, as it was me who added {} in net-next, IIRC.
-
-> Since this is intentionally the last patch
-> in the series, it would be trivial for David to ignore it I suppose.
-
-    Would be fine...
-
->>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
->>> ---
->>>    drivers/net/phy/phy.c | 5 ++---
->>>    1 file changed, 2 insertions(+), 3 deletions(-)
-
->>> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
->>> index 36fc6e1..59aa85e 100644
->>> --- a/drivers/net/phy/phy.c
->>> +++ b/drivers/net/phy/phy.c
->>> @@ -64,15 +64,14 @@ static const char *phy_speed_to_str(int speed)
->>>     */
->>>    void phy_print_status(struct phy_device *phydev)
->>>    {
->>> -       if (phydev->link) {
->>> +       if (phydev->link)
->>>                  netdev_info(phydev->attached_dev,
->>>                          "Link is Up - %s/%s - flow control %s\n",
->>>                          phy_speed_to_str(phydev->speed),
->>>                          DUPLEX_FULL == phydev->duplex ? "Full" : "Half",
->>>                          phydev->pause ? "rx/tx" : "off");
->>> -       } else  {
->>> +       else
->>>                  netdev_info(phydev->attached_dev, "Link is Down\n");
->>> -       }
->>>    }
->>>    EXPORT_SYMBOL(phy_print_status);
-
-WBR, Sergei
+Thanks!
