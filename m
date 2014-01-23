@@ -1,202 +1,169 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch iproute2 net-next-for-3.13 1/2] introduce support for slave info data
-Date: Thu, 23 Jan 2014 17:52:53 +0100
-Message-ID: <1390495974-11234-2-git-send-email-jiri@resnulli.us>
+Subject: [patch iproute2 net-next-for-3.13 2/2] iplink: add support for bonding slave
+Date: Thu, 23 Jan 2014 17:52:54 +0100
+Message-ID: <1390495974-11234-3-git-send-email-jiri@resnulli.us>
 References: <1390495974-11234-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, fubar@us.ibm.com, vfalico@redhat.com,
 	andy@greyhouse.net, sfeldma@cumulusnetworks.com,
 	stephen@networkplumber.org, john.r.fastabend@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f175.google.com ([74.125.82.175]:49623 "EHLO
-	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752351AbaAWQxA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 11:53:00 -0500
-Received: by mail-we0-f175.google.com with SMTP id p61so1461913wes.20
-        for <netdev@vger.kernel.org>; Thu, 23 Jan 2014 08:52:59 -0800 (PST)
+Received: from mail-wg0-f50.google.com ([74.125.82.50]:44211 "EHLO
+	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753459AbaAWQxD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 11:53:03 -0500
+Received: by mail-wg0-f50.google.com with SMTP id l18so1777541wgh.17
+        for <netdev@vger.kernel.org>; Thu, 23 Jan 2014 08:53:01 -0800 (PST)
 In-Reply-To: <1390495974-11234-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- include/linux/if_link.h |  2 ++
- ip/ip_common.h          |  4 ++++
- ip/ipaddress.c          | 54 ++++++++++++++++++++++++++++++++-----------------
- ip/iplink.c             | 21 ++++++++++++++++---
- 4 files changed, 60 insertions(+), 21 deletions(-)
+ include/linux/if_link.h | 17 +++++-----
+ ip/Makefile             |  2 +-
+ ip/iplink_bond_slave.c  | 90 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 100 insertions(+), 9 deletions(-)
+ create mode 100644 ip/iplink_bond_slave.c
 
 diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 9cb5909..d59f05e 100644
+index d59f05e..3b6e1c9 100644
 --- a/include/linux/if_link.h
 +++ b/include/linux/if_link.h
-@@ -239,6 +239,8 @@ enum {
- 	IFLA_INFO_KIND,
- 	IFLA_INFO_DATA,
- 	IFLA_INFO_XSTATS,
-+	IFLA_INFO_SLAVE_KIND,
-+	IFLA_INFO_SLAVE_DATA,
- 	__IFLA_INFO_MAX,
+@@ -370,16 +370,17 @@ enum {
+ #define IFLA_BOND_AD_INFO_MAX	(__IFLA_BOND_AD_INFO_MAX - 1)
+ 
+ enum {
+-	IFLA_SLAVE_STATE,
+-	IFLA_SLAVE_MII_STATUS,
+-	IFLA_SLAVE_LINK_FAILURE_COUNT,
+-	IFLA_SLAVE_PERM_HWADDR,
+-	IFLA_SLAVE_QUEUE_ID,
+-	IFLA_SLAVE_AD_AGGREGATOR_ID,
+-	__IFLA_SLAVE_MAX,
++	IFLA_BOND_SLAVE_UNSPEC,
++	IFLA_BOND_SLAVE_STATE,
++	IFLA_BOND_SLAVE_MII_STATUS,
++	IFLA_BOND_SLAVE_LINK_FAILURE_COUNT,
++	IFLA_BOND_SLAVE_PERM_HWADDR,
++	IFLA_BOND_SLAVE_QUEUE_ID,
++	IFLA_BOND_SLAVE_AD_AGGREGATOR_ID,
++	__IFLA_BOND_SLAVE_MAX,
  };
  
-diff --git a/ip/ip_common.h b/ip/ip_common.h
-index f9b4734..698dc7a 100644
---- a/ip/ip_common.h
-+++ b/ip/ip_common.h
-@@ -61,6 +61,8 @@ static inline int rtm_get_table(struct rtmsg *r, struct rtattr **tb)
+-#define IFLA_SLAVE_MAX	(__IFLA_SLAVE_MAX - 1)
++#define IFLA_BOND_SLAVE_MAX	(__IFLA_BOND_SLAVE_MAX - 1)
  
- extern struct rtnl_handle rth;
+ /* SR-IOV virtual function management section */
  
-+#include <stdbool.h>
+diff --git a/ip/Makefile b/ip/Makefile
+index 6b08cb5..713adf5 100644
+--- a/ip/Makefile
++++ b/ip/Makefile
+@@ -5,7 +5,7 @@ IPOBJ=ip.o ipaddress.o ipaddrlabel.o iproute.o iprule.o ipnetns.o \
+     iplink_vlan.o link_veth.o link_gre.o iplink_can.o \
+     iplink_macvlan.o iplink_macvtap.o ipl2tp.o link_vti.o \
+     iplink_vxlan.o tcp_metrics.o iplink_ipoib.o ipnetconf.o link_ip6tnl.o \
+-    link_iptnl.o link_gre6.o iplink_bond.o iplink_hsr.o
++    link_iptnl.o link_gre6.o iplink_bond.o iplink_bond_slave.o iplink_hsr.o
+ 
+ RTMONOBJ=rtmon.o
+ 
+diff --git a/ip/iplink_bond_slave.c b/ip/iplink_bond_slave.c
+new file mode 100644
+index 0000000..bb4e1d6
+--- /dev/null
++++ b/ip/iplink_bond_slave.c
+@@ -0,0 +1,90 @@
++/*
++ * iplink_bond_slave.c	Bonding slave device support
++ *
++ *              This program is free software; you can redistribute it and/or
++ *              modify it under the terms of the GNU General Public License
++ *              as published by the Free Software Foundation; either version
++ *              2 of the License, or (at your option) any later version.
++ *
++ * Authors:     Jiri Pirko <jiri@resnulli.us>
++ */
 +
- struct link_util
- {
- 	struct link_util	*next;
-@@ -72,9 +74,11 @@ struct link_util
- 					     struct rtattr *[]);
- 	void			(*print_xstats)(struct link_util *, FILE *,
- 					     struct rtattr *);
-+	bool			slave;
- };
- 
- struct link_util *get_link_kind(const char *kind);
-+struct link_util *get_link_slave_kind(const char *slave_kind);
- int get_netns_fd(const char *name);
- 
- #ifndef	INFINITY_LIFE_TIME
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index f794fa1..33698ae 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -192,34 +192,52 @@ static void print_linktype(FILE *fp, struct rtattr *tb)
- {
- 	struct rtattr *linkinfo[IFLA_INFO_MAX+1];
- 	struct link_util *lu;
-+	struct link_util *slave_lu;
- 	char *kind;
-+	char *slave_kind;
- 
- 	parse_rtattr_nested(linkinfo, IFLA_INFO_MAX, tb);
- 
--	if (!linkinfo[IFLA_INFO_KIND])
--		return;
--	kind = RTA_DATA(linkinfo[IFLA_INFO_KIND]);
-+	if (linkinfo[IFLA_INFO_KIND]) {
-+		kind = RTA_DATA(linkinfo[IFLA_INFO_KIND]);
- 
--	fprintf(fp, "%s", _SL_);
--	fprintf(fp, "    %s ", kind);
-+		fprintf(fp, "%s", _SL_);
-+		fprintf(fp, "    %s ", kind);
- 
--	lu = get_link_kind(kind);
--	if (!lu || !lu->print_opt)
--		return;
-+		lu = get_link_kind(kind);
-+		if (lu && lu->print_opt) {
-+			struct rtattr *attr[lu->maxattr+1], **data = NULL;
- 
--	if (1) {
--		struct rtattr *attr[lu->maxattr+1], **data = NULL;
-+			if (linkinfo[IFLA_INFO_DATA]) {
-+				parse_rtattr_nested(attr, lu->maxattr,
-+						    linkinfo[IFLA_INFO_DATA]);
-+				data = attr;
-+			}
-+			lu->print_opt(lu, fp, data);
- 
--		if (linkinfo[IFLA_INFO_DATA]) {
--			parse_rtattr_nested(attr, lu->maxattr,
--					    linkinfo[IFLA_INFO_DATA]);
--			data = attr;
-+			if (linkinfo[IFLA_INFO_XSTATS] && show_stats &&
-+			    lu->print_xstats)
-+				lu->print_xstats(lu, fp, linkinfo[IFLA_INFO_XSTATS]);
- 		}
--		lu->print_opt(lu, fp, data);
-+	}
- 
--		if (linkinfo[IFLA_INFO_XSTATS] && show_stats &&
--		    lu->print_xstats)
--			lu->print_xstats(lu, fp, linkinfo[IFLA_INFO_XSTATS]);
-+	if (linkinfo[IFLA_INFO_SLAVE_KIND]) {
-+		slave_kind = RTA_DATA(linkinfo[IFLA_INFO_SLAVE_KIND]);
++#include <stdio.h>
++#include <sys/socket.h>
++#include <linux/if_bonding.h>
 +
-+		fprintf(fp, "%s", _SL_);
-+		fprintf(fp, "    %s_slave ", slave_kind);
++#include "rt_names.h"
++#include "utils.h"
++#include "ip_common.h"
 +
-+		slave_lu = get_link_slave_kind(slave_kind);
-+		if (slave_lu && slave_lu->print_opt) {
-+			struct rtattr *attr[slave_lu->maxattr+1], **data = NULL;
++static const char *slave_states[] = {
++	[BOND_STATE_ACTIVE] = "ACTIVE",
++	[BOND_STATE_BACKUP] = "BACKUP",
++};
 +
-+			if (linkinfo[IFLA_INFO_SLAVE_DATA]) {
-+				parse_rtattr_nested(attr, slave_lu->maxattr,
-+						    linkinfo[IFLA_INFO_SLAVE_DATA]);
-+				data = attr;
-+			}
-+			slave_lu->print_opt(slave_lu, fp, data);
-+		}
- 	}
- }
- 
-diff --git a/ip/iplink.c b/ip/iplink.c
-index 343b29f..6a62cc0 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -27,6 +27,7 @@
- #include <string.h>
- #include <sys/ioctl.h>
- #include <linux/sockios.h>
-+#include <stdbool.h>
- 
- #include "rt_names.h"
- #include "utils.h"
-@@ -105,14 +106,15 @@ static int on_off(const char *msg, const char *realval)
- static void *BODY;		/* cached dlopen(NULL) handle */
- static struct link_util *linkutil_list;
- 
--struct link_util *get_link_kind(const char *id)
-+static struct link_util *__get_link_kind(const char *id, bool slave)
- {
- 	void *dlh;
- 	char buf[256];
- 	struct link_util *l;
- 
- 	for (l = linkutil_list; l; l = l->next)
--		if (strcmp(l->id, id) == 0)
-+		if (strcmp(l->id, id) == 0 &&
-+		    l->slave == slave)
- 			return l;
- 
- 	snprintf(buf, sizeof(buf), LIBDIR "/ip/link_%s.so", id);
-@@ -127,7 +129,10 @@ struct link_util *get_link_kind(const char *id)
- 		}
- 	}
- 
--	snprintf(buf, sizeof(buf), "%s_link_util", id);
-+	if (slave)
-+		snprintf(buf, sizeof(buf), "%s_slave_link_util", id);
++static void print_slave_state(FILE *f, struct rtattr *tb)
++{
++	unsigned int state = rta_getattr_u8(tb);
++
++	if (state >= sizeof(slave_states) / sizeof(slave_states[0]))
++		fprintf(f, "state %d ", state);
 +	else
-+		snprintf(buf, sizeof(buf), "%s_link_util", id);
- 	l = dlsym(dlh, buf);
- 	if (l == NULL)
- 		return NULL;
-@@ -137,6 +142,16 @@ struct link_util *get_link_kind(const char *id)
- 	return l;
- }
- 
-+struct link_util *get_link_kind(const char *id)
-+{
-+	return __get_link_kind(id, false);
++		fprintf(f, "state %s ", slave_states[state]);
 +}
 +
-+struct link_util *get_link_slave_kind(const char *id)
++static const char *slave_mii_status[] = {
++	[BOND_LINK_UP] = "UP",
++	[BOND_LINK_FAIL] = "GOING_DOWN",
++	[BOND_LINK_DOWN] = "DOWN",
++	[BOND_LINK_BACK] = "GOING_BACK",
++};
++
++static void print_slave_mii_status(FILE *f, struct rtattr *tb)
 +{
-+	return __get_link_kind(id, true);
++	unsigned int status = rta_getattr_u8(tb);
++
++	fprintf(f, "mii_status %d ", status);
++	if (status >= sizeof(slave_mii_status) / sizeof(slave_mii_status[0]))
++		fprintf(f, "mii_status %d ", status);
++	else
++		fprintf(f, "mii_status %s ", slave_mii_status[status]);
 +}
 +
- static int get_link_mode(const char *mode)
- {
- 	if (strcasecmp(mode, "default") == 0)
++static void bond_slave_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
++{
++	SPRINT_BUF(b1);
++	if (!tb)
++		return;
++
++	if (tb[IFLA_BOND_SLAVE_STATE])
++		print_slave_state(f, tb[IFLA_BOND_SLAVE_STATE]);
++
++	if (tb[IFLA_BOND_SLAVE_MII_STATUS])
++		print_slave_mii_status(f, tb[IFLA_BOND_SLAVE_MII_STATUS]);
++
++	if (tb[IFLA_BOND_SLAVE_LINK_FAILURE_COUNT])
++		fprintf(f, "link_failure_count %d ",
++			rta_getattr_u32(tb[IFLA_BOND_SLAVE_LINK_FAILURE_COUNT]));
++
++	if (tb[IFLA_BOND_SLAVE_PERM_HWADDR])
++		fprintf(f, "perm_hwaddr %s ",
++			ll_addr_n2a(RTA_DATA(tb[IFLA_BOND_SLAVE_PERM_HWADDR]),
++				    RTA_PAYLOAD(tb[IFLA_BOND_SLAVE_PERM_HWADDR]),
++				    0, b1, sizeof(b1)));
++
++	if (tb[IFLA_BOND_SLAVE_QUEUE_ID])
++		fprintf(f, "queue_id %d ",
++			rta_getattr_u16(tb[IFLA_BOND_SLAVE_QUEUE_ID]));
++
++	if (tb[IFLA_BOND_SLAVE_AD_AGGREGATOR_ID])
++		fprintf(f, "ad_aggregator_id %d ",
++			rta_getattr_u16(tb[IFLA_BOND_SLAVE_AD_AGGREGATOR_ID]));
++}
++
++struct link_util bond_slave_link_util = {
++	.id		= "bond",
++	.maxattr	= IFLA_BOND_SLAVE_MAX,
++	.print_opt	= bond_slave_print_opt,
++	.slave		= true,
++};
++
 -- 
 1.8.3.1
