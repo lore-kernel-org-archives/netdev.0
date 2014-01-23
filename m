@@ -1,158 +1,129 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next v2 5/5] net_sched: act: clean up tca_action_flush()
-Date: Thu, 23 Jan 2014 14:35:25 -0800
-Message-ID: <1390516525-8556-6-git-send-email-xiyou.wangcong@gmail.com>
+Subject: [Patch net-next v2 4/5] net_sched: act: refuse to remove bound action outside
+Date: Thu, 23 Jan 2014 14:35:24 -0800
+Message-ID: <1390516525-8556-5-git-send-email-xiyou.wangcong@gmail.com>
 References: <1390516525-8556-1-git-send-email-xiyou.wangcong@gmail.com>
 Cc: Cong Wang <xiyou.wangcong@gmail.com>,
 	Jamal Hadi Salim <jhs@mojatatu.com>,
 	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f52.google.com ([209.85.160.52]:63420 "EHLO
-	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755086AbaAWWfi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 17:35:38 -0500
-Received: by mail-pb0-f52.google.com with SMTP id jt11so2443180pbb.11
-        for <netdev@vger.kernel.org>; Thu, 23 Jan 2014 14:35:38 -0800 (PST)
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:41511 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754865AbaAWWfh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 17:35:37 -0500
+Received: by mail-pa0-f52.google.com with SMTP id bj1so2460815pad.11
+        for <netdev@vger.kernel.org>; Thu, 23 Jan 2014 14:35:36 -0800 (PST)
 In-Reply-To: <1390516525-8556-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We could allocate tc_action on stack in tca_action_flush(),
-since it is not large.
-
-Also, we could use create_a() in tcf_action_get_1().
+When an action is bonnd to a filter, there is no point to
+remove it outside. Currently we just silently decrease the refcnt,
+we should reject this explicitly with EPERM.
 
 Cc: Jamal Hadi Salim <jhs@mojatatu.com>
 Cc: David S. Miller <davem@davemloft.net>
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- net/sched/act_api.c | 53 +++++++++++++++++++++++------------------------------
- 1 file changed, 23 insertions(+), 30 deletions(-)
+ include/net/act_api.h |  2 +-
+ net/sched/act_api.c   | 26 ++++++++++++++++++++------
+ 2 files changed, 21 insertions(+), 7 deletions(-)
 
+diff --git a/include/net/act_api.h b/include/net/act_api.h
+index 0974543..9f29706 100644
+--- a/include/net/act_api.h
++++ b/include/net/act_api.h
+@@ -109,7 +109,7 @@ void tcf_hash_insert(struct tc_action *a);
+ 
+ int tcf_register_action(struct tc_action_ops *a, unsigned int mask);
+ int tcf_unregister_action(struct tc_action_ops *a);
+-void tcf_action_destroy(struct list_head *actions, int bind);
++int tcf_action_destroy(struct list_head *actions, int bind);
+ int tcf_action_exec(struct sk_buff *skb, const struct list_head *actions,
+ 		    struct tcf_result *res);
+ int tcf_action_init(struct net *net, struct nlattr *nla,
 diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index 4640ad3..38b0e36 100644
+index af4345c..4640ad3 100644
 --- a/net/sched/act_api.c
 +++ b/net/sched/act_api.c
-@@ -677,6 +677,20 @@ act_get_notify(struct net *net, u32 portid, struct nlmsghdr *n,
- 	return rtnl_unicast(skb, net, portid);
- }
+@@ -53,6 +53,8 @@ int tcf_hash_release(struct tc_action *a, int bind)
+ 	if (p) {
+ 		if (bind)
+ 			p->tcfc_bindcnt--;
++		else if (p->tcfc_bindcnt > 0)
++			return -EPERM;
  
-+static struct tc_action *create_a(int i)
-+{
-+	struct tc_action *act;
-+
-+	act = kzalloc(sizeof(*act), GFP_KERNEL);
-+	if (act == NULL) {
-+		pr_debug("create_a: failed to alloc!\n");
-+		return NULL;
-+	}
-+	act->order = i;
-+	INIT_LIST_HEAD(&act->list);
-+	return act;
-+}
-+
- static struct tc_action *
- tcf_action_get_1(struct nlattr *nla, struct nlmsghdr *n, u32 portid)
- {
-@@ -696,11 +710,10 @@ tcf_action_get_1(struct nlattr *nla, struct nlmsghdr *n, u32 portid)
- 	index = nla_get_u32(tb[TCA_ACT_INDEX]);
- 
- 	err = -ENOMEM;
--	a = kzalloc(sizeof(struct tc_action), GFP_KERNEL);
-+	a = create_a(0);
- 	if (a == NULL)
- 		goto err_out;
- 
--	INIT_LIST_HEAD(&a->list);
- 	err = -EINVAL;
- 	a->ops = tc_lookup_action(tb[TCA_ACT_KIND]);
- 	if (a->ops == NULL) /* could happen in batch of actions */
-@@ -730,20 +743,6 @@ static void cleanup_a(struct list_head *actions)
- 	}
- }
- 
--static struct tc_action *create_a(int i)
--{
--	struct tc_action *act;
--
--	act = kzalloc(sizeof(*act), GFP_KERNEL);
--	if (act == NULL) {
--		pr_debug("create_a: failed to alloc!\n");
--		return NULL;
--	}
--	act->order = i;
--	INIT_LIST_HEAD(&act->list);
--	return act;
--}
--
- static int tca_action_flush(struct net *net, struct nlattr *nla,
- 			    struct nlmsghdr *n, u32 portid)
- {
-@@ -755,18 +754,12 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
+ 		p->tcfc_refcnt--;
+ 		if (p->tcfc_bindcnt <= 0 && p->tcfc_refcnt <= 0) {
+@@ -123,6 +125,7 @@ static int tcf_del_walker(struct sk_buff *skb, struct tc_action *a)
+ 	struct tcf_common *p;
  	struct nlattr *nest;
- 	struct nlattr *tb[TCA_ACT_MAX + 1];
- 	struct nlattr *kind;
--	struct tc_action *a = create_a(0);
-+	struct tc_action a;
- 	int err = -ENOMEM;
+ 	int i = 0, n_i = 0;
++	int ret = -EINVAL;
  
--	if (a == NULL) {
--		pr_debug("tca_action_flush: couldnt create tc_action\n");
--		return err;
--	}
--
- 	skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
- 	if (!skb) {
- 		pr_debug("tca_action_flush: failed skb alloc\n");
--		kfree(a);
- 		return err;
- 	}
- 
-@@ -778,8 +771,10 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
- 
- 	err = -EINVAL;
- 	kind = tb[TCA_ACT_KIND];
--	a->ops = tc_lookup_action(kind);
--	if (a->ops == NULL) /*some idjot trying to flush unknown action */
-+	memset(&a, 0, sizeof(struct tc_action));
-+	INIT_LIST_HEAD(&a.list);
-+	a.ops = tc_lookup_action(kind);
-+	if (a.ops == NULL) /*some idjot trying to flush unknown action */
- 		goto err_out;
- 
- 	nlh = nlmsg_put(skb, portid, n->nlmsg_seq, RTM_DELACTION, sizeof(*t), 0);
-@@ -794,7 +789,7 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
+ 	nest = nla_nest_start(skb, a->order);
  	if (nest == NULL)
- 		goto out_module_put;
- 
--	err = a->ops->walk(skb, &dcb, RTM_DELACTION, a);
-+	err = a.ops->walk(skb, &dcb, RTM_DELACTION, &a);
- 	if (err < 0)
- 		goto out_module_put;
- 	if (err == 0)
-@@ -804,8 +799,7 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
- 
- 	nlh->nlmsg_len = skb_tail_pointer(skb) - b;
- 	nlh->nlmsg_flags |= NLM_F_ROOT;
--	module_put(a->ops->owner);
--	kfree(a);
-+	module_put(a.ops->owner);
- 	err = rtnetlink_send(skb, net, portid, RTNLGRP_TC,
- 			     n->nlmsg_flags & NLM_F_ECHO);
- 	if (err > 0)
-@@ -814,11 +808,10 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
- 	return err;
- 
- out_module_put:
--	module_put(a->ops->owner);
-+	module_put(a.ops->owner);
- err_out:
- noflush_out:
- 	kfree_skb(skb);
--	kfree(a);
- 	return err;
+@@ -133,10 +136,12 @@ static int tcf_del_walker(struct sk_buff *skb, struct tc_action *a)
+ 		head = &hinfo->htab[tcf_hash(i, hinfo->hmask)];
+ 		hlist_for_each_entry_safe(p, n, head, tcfc_head) {
+ 			a->priv = p;
+-			if (ACT_P_DELETED == tcf_hash_release(a, 0)) {
++			ret = tcf_hash_release(a, 0);
++			if (ret == ACT_P_DELETED) {
+ 				module_put(a->ops->owner);
+ 				n_i++;
+-			}
++			} else if (ret < 0)
++				goto nla_put_failure;
+ 		}
+ 	}
+ 	if (nla_put_u32(skb, TCA_FCNT, n_i))
+@@ -146,7 +151,7 @@ static int tcf_del_walker(struct sk_buff *skb, struct tc_action *a)
+ 	return n_i;
+ nla_put_failure:
+ 	nla_nest_cancel(skb, nest);
+-	return -EINVAL;
++	return ret;
  }
  
+ static int tcf_generic_walker(struct sk_buff *skb, struct netlink_callback *cb,
+@@ -393,16 +398,21 @@ exec_done:
+ }
+ EXPORT_SYMBOL(tcf_action_exec);
+ 
+-void tcf_action_destroy(struct list_head *actions, int bind)
++int tcf_action_destroy(struct list_head *actions, int bind)
+ {
+ 	struct tc_action *a, *tmp;
++	int ret = 0;
+ 
+ 	list_for_each_entry_safe(a, tmp, actions, list) {
+-		if (tcf_hash_release(a, bind) == ACT_P_DELETED)
++		ret = tcf_hash_release(a, bind);
++		if (ret == ACT_P_DELETED)
+ 			module_put(a->ops->owner);
++		else if (ret < 0)
++			return ret;
+ 		list_del(&a->list);
+ 		kfree(a);
+ 	}
++	return ret;
+ }
+ 
+ int
+@@ -830,7 +840,11 @@ tcf_del_notify(struct net *net, struct nlmsghdr *n, struct list_head *actions,
+ 	}
+ 
+ 	/* now do the delete */
+-	tcf_action_destroy(actions, 0);
++	ret = tcf_action_destroy(actions, 0);
++	if (ret < 0) {
++		kfree_skb(skb);
++		return ret;
++	}
+ 
+ 	ret = rtnetlink_send(skb, net, portid, RTNLGRP_TC,
+ 			     n->nlmsg_flags & NLM_F_ECHO);
 -- 
 1.8.3.1
