@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net/neighbour: queue work on power efficient wq
-Date: Wed, 22 Jan 2014 21:58:12 -0800 (PST)
-Message-ID: <20140122.215812.1717276844524835080.davem@davemloft.net>
-References: <c24546776d8ec32afd1c084dd1d2a72fc96c6519.1390373223.git.viresh.kumar@linaro.org>
-	<c24546776d8ec32afd1c084dd1d2a72fc96c6519.1390373223.git.viresh.kumar@linaro.org>
-	<faa5b965e81fcb4c3261561e58a8ab1194ecf562.1390373223.git.viresh.kumar@linaro.org>
+Subject: Re: [patch net-next 0/5] fix bonding slave info API (sysfs and
+ netlink)
+Date: Wed, 22 Jan 2014 21:58:22 -0800 (PST)
+Message-ID: <20140122.215822.1124845121926313026.davem@davemloft.net>
+References: <1390377957-31466-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linaro-kernel@lists.linaro.org, patches@linaro.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: viresh.kumar@linaro.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <faa5b965e81fcb4c3261561e58a8ab1194ecf562.1390373223.git.viresh.kumar@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, vfalico@redhat.com,
+	andy@greyhouse.net, sfeldma@cumulusnetworks.com,
+	stephen@networkplumber.org, vyasevic@redhat.com,
+	nicolas.dichtel@6wind.com, john.r.fastabend@intel.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54130 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932154AbaAWF6X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 00:58:23 -0500
+In-Reply-To: <1390377957-31466-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Viresh Kumar <viresh.kumar@linaro.org>
-Date: Wed, 22 Jan 2014 12:23:33 +0530
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed, 22 Jan 2014 09:05:52 +0100
 
-> Workqueue used in neighbour layer have no real dependency of scheduling these on
-> the cpu which scheduled them.
-> 
-> On a idle system, it is observed that an idle cpu wakes up many times just to
-> service this work. It would be better if we can schedule it on a cpu which the
-> scheduler believes to be the most appropriate one.
-> 
-> This patch replaces normal workqueues with power efficient versions. This
-> doesn't change existing behavior of code unless CONFIG_WQ_POWER_EFFICIENT is
-> enabled.
-> 
-> Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
+> The main part of this patchset is the introduction of a generic way how
+> to get/set info of slaves unsing rtnl_link_ops.
 
-Applied.
+Series applied.
