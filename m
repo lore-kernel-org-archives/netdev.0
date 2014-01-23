@@ -1,129 +1,178 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH 4/4] ipv4: mark nexthop as dead when it's subnet becomes
- unreachable
-Date: Thu, 23 Jan 2014 23:58:24 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1401232221010.1667@ja.home.ssi.bg>
-References: <cover.1390304505.git.popovich_sergei@mail.ru> <40044b636dbf7ae5bba5fe2873451e14438ec170.1390304505.git.popovich_sergei@mail.ru> <alpine.LFD.2.11.1401231158510.2682@ja.home.ssi.bg> <2208170.gq1LW14mJ5@tuxracer>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH v2 net-next 2/2] bonding: restructure locking of
+ bond_ab_arp_probe()
+Date: Thu, 23 Jan 2014 22:56:15 +0100
+Message-ID: <20140123215615.GA3932@redhat.com>
+References: <1390482511-14884-1-git-send-email-vfalico@redhat.com>
+ <1390482511-14884-3-git-send-email-vfalico@redhat.com>
+ <1071.1390505138@death.nxdomain>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811672-450474163-1390514309=:1667"
-Cc: netdev@vger.kernel.org
-To: Sergey Popovich <popovich_sergei@mail.ru>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:36561 "EHLO ja.home.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753913AbaAWV6t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Jan 2014 16:58:49 -0500
-In-Reply-To: <2208170.gq1LW14mJ5@tuxracer>
+Received: from mx1.redhat.com ([209.132.183.28]:52461 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753817AbaAWV7T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jan 2014 16:59:19 -0500
+Content-Disposition: inline
+In-Reply-To: <1071.1390505138@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Thu, Jan 23, 2014 at 11:25:38AM -0800, Jay Vosburgh wrote:
+>Veaceslav Falico <vfalico@redhat.com> wrote:
+>
+>>Currently we're calling it from under RCU context, however we're using some
+>>functions that require rtnl to be held.
+>>
+>>Fix this by restructuring the locking - don't call it under any locks,
+>>aquire rcu_read_lock() if we're sending _only_ (i.e. we have the active
+>>slave present), and use rtnl locking otherwise - if we need to modify
+>>(in)active flags of a slave.
+>>
+>>CC: Jay Vosburgh <fubar@us.ibm.com>
+>>CC: Andy Gospodarek <andy@greyhouse.net>
+>>Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+>>---
+>> drivers/net/bonding/bond_main.c | 38 ++++++++++++++++++++++++--------------
+>> 1 file changed, 24 insertions(+), 14 deletions(-)
+>>
+>>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>>index 22d8b69..f879e9e 100644
+>>--- a/drivers/net/bonding/bond_main.c
+>>+++ b/drivers/net/bonding/bond_main.c
+>>@@ -2605,11 +2605,14 @@ do_failover:
+>> static void bond_ab_arp_probe(struct bonding *bond)
+>> {
+>> 	struct slave *slave, *before = NULL, *new_slave = NULL,
+>>-		     *curr_arp_slave = rcu_dereference(bond->current_arp_slave),
+>>-		     *curr_active_slave = rcu_dereference(bond->curr_active_slave);
+>>+		     *curr_arp_slave, *curr_active_slave;
+>> 	struct list_head *iter;
+>> 	bool found = false;
+>>
+>>+	rcu_read_lock();
+>>+	curr_arp_slave = rcu_dereference(bond->current_arp_slave);
+>>+	curr_active_slave = rcu_dereference(bond->curr_active_slave);
+>>+
+>> 	if (curr_arp_slave && curr_active_slave)
+>> 		pr_info("PROBE: c_arp %s && cas %s BAD\n",
+>> 			curr_arp_slave->dev->name,
+>>@@ -2617,23 +2620,31 @@ static void bond_ab_arp_probe(struct bonding *bond)
+>>
+>> 	if (curr_active_slave) {
+>> 		bond_arp_send_all(bond, curr_active_slave);
+>>+		rcu_read_unlock();
+>> 		return;
+>> 	}
+>>+	rcu_read_unlock();
+>>
+>> 	/* if we don't have a curr_active_slave, search for the next available
+>> 	 * backup slave from the current_arp_slave and make it the candidate
+>> 	 * for becoming the curr_active_slave
+>> 	 */
+>>
+>>+	rtnl_lock();
+>
+>	I don't believe we can unconditionally acquire RTNL here, as it
+>may deadlock with bond_close's cancel_delayed_work_sync() calls (which
+>occur under RTNL).
+>
+>	I think I'd make this a rtnl_trylock, and if that fails, have
+>the bond_ab_arp_probe function return non-zero as an indication for
+>activebackup_arp_mon to change delta_in_ticks to 1.  Changing the delta
+>is just an optimization; without it, things will still work, but it will
+>take longer to run the curr_arp_slave probe cycle.
 
----1463811672-450474163-1390514309=:1667
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
+True, missed this race. Will re-send once I'll fix it.
 
+Thank you!
 
-	Hello,
-
-On Thu, 23 Jan 2014, Sergey Popovich wrote:
-
-> В письме от 23 января 2014 12:06:30 пользователь Julian Anastasov написал:
-> > 	Hello,
-> > 
-> > On Tue, 21 Jan 2014, Sergey Popovich wrote:
-> > > +			if (nexthop_nh->nh_dev != dev ||
-> > > +			    nexthop_nh->nh_scope == scope ||
-> > > +			    (ifa && !inet_ifa_match(nexthop_nh->nh_gw, ifa)))
-> > 
-> > 	What if nh_gw is part from another smaller/larger subnet?
-> > For example, what if we still have 10.0.0.200/8 ? 10.0.10.5 is
-> > still reachable, i.e. fib_check_nh() would create such NH.
-> 
-> 
-> Please correct me if I dont understand something:
-> 
-> 1. fib_sync_down_dev() is used when interface is going down
-> to remove entires with stray nexthops (including multipath routes).
-> 
-> 2. It takes as its argument device on which event (DOWN for short) is received
-> and force argument to force fib info entry deletion (which is true when
-> fib_sync_down_dev() called from fib_disable_ip() with 2 on UNREGISTER event.
-
-	Correct. The rules are:
-
-- force=2 => remove unipath/multipath fi with such NH dev
-- force=1 => mark/remove remote and local gateways for dev
-- force=0 => mark/remove remote gateways, keep local gateways
-
-	My idea was that without calling fib_lookup() as
-done in fib_check_nh() you can not mark NH as dead because
-you are not sure that nh_gw is still reachable in different
-subnet. GW can be part of many subnets! Your patch assumes
-that GW can be part only from one subnet.
-
-> Case, that patch is tries to address happens when we have two
-> or more addresses on interface, and NH exists in one of such subnet.
-> 
-> With two or more address on iface, fib_disable_ip() is not called on single 
-> address removal, so fib_sync_down_dev() also not called, and we end with 
-> routes with stray nexthop.
-
-	fib_disable_ip() is not a problem with your patch.
-My concern is when last 10.0.10.1 is deleted on dummy1,
-i.e. when fib_del_ifaddr() is called.
-
-	Lets extend your example in this way:
-
-ip -4 addr add 10.0.0.200/8 dev dummy1
-
-	ip route get 10.0.10.5 should return the longest
-match route, 10.0.10.0/24 in our case. If 10.0.10.1 is
-removed ip route get 10.0.10.5 will hit 10.0.0.0/8.
-
-	OK, lets delete the last 10.0.10.1 address on dummy1.
-
-	Before your patch only fib_sync_down_addr() was called.
-You now call fib_sync_down_dev() with force=0 and ifa, with the
-goal to mark 172.16.0.0/12 as dead (it is unipath route,
-so it will be removed). inet_ifa_match() checks that nh_gw
-10.0.10.5 is part of the removed subnet: 10.0.10.0/24. Yes, it is.
-Who will check that 10.0.10.5 is still reachable as part of
-another subnet 10.0.0.0/8 ? At this point
-ip -4 route add 172.16.0.0/12 proto static via 10.0.10.5
-should succeed again because fib_check_nh() will see with
-fib_lookup() that 10.0.10.5 is part of 10.0.0.0/8. So, the
-patch wrongly marked the NH as dead.
-
-> > IMHO, marking NH by exact nh_gw looks more acceptable because
-> > the exact GW becomes unreachable. Otherwise, you will need
-> > fib_lookup() as in fib_check_nh() to check that NH becomes
-> > unreachable.
-> 
-> Not sure that I fully understand you.
-
-	If last 10.0.10.5 is deleted we can mark NHs with
-nh_gw=10.0.10.5 as dead. It is again expensive (your
-new fib_sync_down_dev call) but this time fib_lookup() is
-not needed because this is a local GW. That is what I mean
-above.
-
-> When deleting address and removing its subnet, instead of removing route from 
-> the FIB, resolve new NH with fib_lookup() if possible, as this done in 
-> fib_check_nh(), and leave route with modified NH?
-
-	I don't say to do it. But it is the only way to
-check if nh_gw is no more reachable.
-
-> Well, sounds good, but what to do with multipath routes?
-> Is this correct at all?
-
-	fib_lookup() call is correct but expensive. That is
-why it was not done before.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
----1463811672-450474163-1390514309=:1667--
+>
+>	-J
+>
+>>+	/* curr_arp_slave might have gone away */
+>>+	curr_arp_slave = rcu_dereference(bond->current_arp_slave);
+>>+
+>> 	if (!curr_arp_slave) {
+>>-		curr_arp_slave = bond_first_slave_rcu(bond);
+>>-		if (!curr_arp_slave)
+>>+		curr_arp_slave = bond_first_slave(bond);
+>>+		if (!curr_arp_slave) {
+>>+			rtnl_unlock();
+>> 			return;
+>>+		}
+>> 	}
+>>
+>> 	bond_set_slave_inactive_flags(curr_arp_slave);
+>>
+>>-	bond_for_each_slave_rcu(bond, slave, iter) {
+>>+	bond_for_each_slave(bond, slave, iter) {
+>> 		if (!found && !before && IS_UP(slave->dev))
+>> 			before = slave;
+>>
+>>@@ -2663,21 +2674,24 @@ static void bond_ab_arp_probe(struct bonding *bond)
+>> 	if (!new_slave && before)
+>> 		new_slave = before;
+>>
+>>-	if (!new_slave)
+>>+	if (!new_slave) {
+>>+		rtnl_unlock();
+>> 		return;
+>>+	}
+>>
+>> 	new_slave->link = BOND_LINK_BACK;
+>> 	bond_set_slave_active_flags(new_slave);
+>> 	bond_arp_send_all(bond, new_slave);
+>> 	new_slave->jiffies = jiffies;
+>> 	rcu_assign_pointer(bond->current_arp_slave, new_slave);
+>>+	rtnl_unlock();
+>> }
+>>
+>> static void bond_activebackup_arp_mon(struct work_struct *work)
+>> {
+>> 	struct bonding *bond = container_of(work, struct bonding,
+>> 					    arp_work.work);
+>>-	bool should_notify_peers = false;
+>>+	bool should_notify_peers = false, should_commit = false;
+>> 	int delta_in_ticks;
+>>
+>> 	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
+>>@@ -2686,12 +2700,11 @@ static void bond_activebackup_arp_mon(struct work_struct *work)
+>> 		goto re_arm;
+>>
+>> 	rcu_read_lock();
+>>-
+>> 	should_notify_peers = bond_should_notify_peers(bond);
+>>+	should_commit = bond_ab_arp_inspect(bond);
+>>+	rcu_read_unlock();
+>>
+>>-	if (bond_ab_arp_inspect(bond)) {
+>>-		rcu_read_unlock();
+>>-
+>>+	if (should_commit) {
+>> 		/* Race avoidance with bond_close flush of workqueue */
+>> 		if (!rtnl_trylock()) {
+>> 			delta_in_ticks = 1;
+>>@@ -2700,13 +2713,10 @@ static void bond_activebackup_arp_mon(struct work_struct *work)
+>> 		}
+>>
+>> 		bond_ab_arp_commit(bond);
+>>-
+>> 		rtnl_unlock();
+>>-		rcu_read_lock();
+>> 	}
+>>
+>> 	bond_ab_arp_probe(bond);
+>>-	rcu_read_unlock();
+>>
+>> re_arm:
+>> 	if (bond->params.arp_interval)
+>>--
+>>1.8.4
+>>
+>
+>---
+>	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+>
