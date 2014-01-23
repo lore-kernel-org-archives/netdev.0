@@ -1,178 +1,64 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH v2 net-next 2/2] bonding: restructure locking of
- bond_ab_arp_probe()
-Date: Thu, 23 Jan 2014 22:56:15 +0100
-Message-ID: <20140123215615.GA3932@redhat.com>
-References: <1390482511-14884-1-git-send-email-vfalico@redhat.com>
- <1390482511-14884-3-git-send-email-vfalico@redhat.com>
- <1071.1390505138@death.nxdomain>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] bonding: Use do_div to divide 64 bit numbers
+Date: Fri, 24 Jan 2014 02:25:28 +0400
+Message-ID: <52E196D8.5060103@cogentembedded.com>
+References: <1390502838-21581-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52461 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753817AbaAWV7T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Jan 2014 16:59:19 -0500
-Content-Disposition: inline
-In-Reply-To: <1071.1390505138@death.nxdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Zoltan Kiss <zoltan.kiss@citrix.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Nikolay Aleksandrov <nikolay@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1390502838-21581-1-git-send-email-zoltan.kiss@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 23, 2014 at 11:25:38AM -0800, Jay Vosburgh wrote:
->Veaceslav Falico <vfalico@redhat.com> wrote:
->
->>Currently we're calling it from under RCU context, however we're using some
->>functions that require rtnl to be held.
->>
->>Fix this by restructuring the locking - don't call it under any locks,
->>aquire rcu_read_lock() if we're sending _only_ (i.e. we have the active
->>slave present), and use rtnl locking otherwise - if we need to modify
->>(in)active flags of a slave.
->>
->>CC: Jay Vosburgh <fubar@us.ibm.com>
->>CC: Andy Gospodarek <andy@greyhouse.net>
->>Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
->>---
->> drivers/net/bonding/bond_main.c | 38 ++++++++++++++++++++++++--------------
->> 1 file changed, 24 insertions(+), 14 deletions(-)
->>
->>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->>index 22d8b69..f879e9e 100644
->>--- a/drivers/net/bonding/bond_main.c
->>+++ b/drivers/net/bonding/bond_main.c
->>@@ -2605,11 +2605,14 @@ do_failover:
->> static void bond_ab_arp_probe(struct bonding *bond)
->> {
->> 	struct slave *slave, *before = NULL, *new_slave = NULL,
->>-		     *curr_arp_slave = rcu_dereference(bond->current_arp_slave),
->>-		     *curr_active_slave = rcu_dereference(bond->curr_active_slave);
->>+		     *curr_arp_slave, *curr_active_slave;
->> 	struct list_head *iter;
->> 	bool found = false;
->>
->>+	rcu_read_lock();
->>+	curr_arp_slave = rcu_dereference(bond->current_arp_slave);
->>+	curr_active_slave = rcu_dereference(bond->curr_active_slave);
->>+
->> 	if (curr_arp_slave && curr_active_slave)
->> 		pr_info("PROBE: c_arp %s && cas %s BAD\n",
->> 			curr_arp_slave->dev->name,
->>@@ -2617,23 +2620,31 @@ static void bond_ab_arp_probe(struct bonding *bond)
->>
->> 	if (curr_active_slave) {
->> 		bond_arp_send_all(bond, curr_active_slave);
->>+		rcu_read_unlock();
->> 		return;
->> 	}
->>+	rcu_read_unlock();
->>
->> 	/* if we don't have a curr_active_slave, search for the next available
->> 	 * backup slave from the current_arp_slave and make it the candidate
->> 	 * for becoming the curr_active_slave
->> 	 */
->>
->>+	rtnl_lock();
->
->	I don't believe we can unconditionally acquire RTNL here, as it
->may deadlock with bond_close's cancel_delayed_work_sync() calls (which
->occur under RTNL).
->
->	I think I'd make this a rtnl_trylock, and if that fails, have
->the bond_ab_arp_probe function return non-zero as an indication for
->activebackup_arp_mon to change delta_in_ticks to 1.  Changing the delta
->is just an optimization; without it, things will still work, but it will
->take longer to run the curr_arp_slave probe cycle.
+Hello.
 
-True, missed this race. Will re-send once I'll fix it.
+On 23-01-2014 22:47, Zoltan Kiss wrote:
 
-Thank you!
+> Nikolay Aleksandrov's recent bonding option API changes (25a9b54a and e4994612)
 
+    You should also specify those commits' summary lines.
+
+> introduced u64 as the type of downdelay and updelay. On 32 bit the division and
+> modulo operations cause compile errors:
+
+> ERROR: "__udivdi3" [drivers/net/bonding/bonding.ko] undefined!
+> ERROR: "__umoddi3" [drivers/net/bonding/bonding.ko] undefined!
+
+> This patch use the do_div macro, which guaranteed to do the right thing.
+
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> ---
+>   drivers/net/bonding/bond_options.c |   19 +++++++++++--------
+>   1 file changed, 11 insertions(+), 8 deletions(-)
+
+> diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+> index 4cee04a..4f94907 100644
+> --- a/drivers/net/bonding/bond_options.c
+> +++ b/drivers/net/bonding/bond_options.c
+[...]
+> @@ -727,19 +728,20 @@ int bond_option_miimon_set(struct bonding *bond, struct bond_opt_value *newval)
 >
->	-J
->
->>+	/* curr_arp_slave might have gone away */
->>+	curr_arp_slave = rcu_dereference(bond->current_arp_slave);
->>+
->> 	if (!curr_arp_slave) {
->>-		curr_arp_slave = bond_first_slave_rcu(bond);
->>-		if (!curr_arp_slave)
->>+		curr_arp_slave = bond_first_slave(bond);
->>+		if (!curr_arp_slave) {
->>+			rtnl_unlock();
->> 			return;
->>+		}
->> 	}
->>
->> 	bond_set_slave_inactive_flags(curr_arp_slave);
->>
->>-	bond_for_each_slave_rcu(bond, slave, iter) {
->>+	bond_for_each_slave(bond, slave, iter) {
->> 		if (!found && !before && IS_UP(slave->dev))
->> 			before = slave;
->>
->>@@ -2663,21 +2674,24 @@ static void bond_ab_arp_probe(struct bonding *bond)
->> 	if (!new_slave && before)
->> 		new_slave = before;
->>
->>-	if (!new_slave)
->>+	if (!new_slave) {
->>+		rtnl_unlock();
->> 		return;
->>+	}
->>
->> 	new_slave->link = BOND_LINK_BACK;
->> 	bond_set_slave_active_flags(new_slave);
->> 	bond_arp_send_all(bond, new_slave);
->> 	new_slave->jiffies = jiffies;
->> 	rcu_assign_pointer(bond->current_arp_slave, new_slave);
->>+	rtnl_unlock();
->> }
->>
->> static void bond_activebackup_arp_mon(struct work_struct *work)
->> {
->> 	struct bonding *bond = container_of(work, struct bonding,
->> 					    arp_work.work);
->>-	bool should_notify_peers = false;
->>+	bool should_notify_peers = false, should_commit = false;
->> 	int delta_in_ticks;
->>
->> 	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
->>@@ -2686,12 +2700,11 @@ static void bond_activebackup_arp_mon(struct work_struct *work)
->> 		goto re_arm;
->>
->> 	rcu_read_lock();
->>-
->> 	should_notify_peers = bond_should_notify_peers(bond);
->>+	should_commit = bond_ab_arp_inspect(bond);
->>+	rcu_read_unlock();
->>
->>-	if (bond_ab_arp_inspect(bond)) {
->>-		rcu_read_unlock();
->>-
->>+	if (should_commit) {
->> 		/* Race avoidance with bond_close flush of workqueue */
->> 		if (!rtnl_trylock()) {
->> 			delta_in_ticks = 1;
->>@@ -2700,13 +2713,10 @@ static void bond_activebackup_arp_mon(struct work_struct *work)
->> 		}
->>
->> 		bond_ab_arp_commit(bond);
->>-
->> 		rtnl_unlock();
->>-		rcu_read_lock();
->> 	}
->>
->> 	bond_ab_arp_probe(bond);
->>-	rcu_read_unlock();
->>
->> re_arm:
->> 	if (bond->params.arp_interval)
->>--
->>1.8.4
->>
->
->---
->	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
->
+>   int bond_option_updelay_set(struct bonding *bond, struct bond_opt_value *newval)
+>   {
+> +	u64 quotient = newval->value;
+> +	u64 remainder = do_div(quotient, bond->params.miimon);
+
+    Empty line after declarations wouldn't hurt here.
+
+> @@ -750,19 +752,20 @@ int bond_option_updelay_set(struct bonding *bond, struct bond_opt_value *newval)
+>   int bond_option_downdelay_set(struct bonding *bond,
+>   			      struct bond_opt_value *newval)
+>   {
+> +	u64 quotient = newval->value;
+> +	u64 remainder = do_div(quotient, bond->params.miimon);
+
+    And here.
+
+WBR, Sergei
