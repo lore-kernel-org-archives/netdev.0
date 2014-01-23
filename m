@@ -1,71 +1,48 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [PATCH ebtables] arptables: long option "--set-counters" were
- missing
-Date: Thu, 23 Jan 2014 21:09:35 +0100
-Message-ID: <20140123200921.19853.63386.stgit@localhost>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 2/4] net: phy: update phy_print_status to show pause settings
+Date: Thu, 23 Jan 2014 12:17:47 -0800
+Message-ID: <1390508269-28769-3-git-send-email-f.fainelli@gmail.com>
+References: <1390508269-28769-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Bart De Schuymer <bdschuym@pandora.be>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <joe@perches.com>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61645 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932372AbaAWUJk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Jan 2014 15:09:40 -0500
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:41025 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753190AbaAWUSL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 15:18:11 -0500
+In-Reply-To: <1390508269-28769-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The long option "--set-counters" where missing in option parsing.
-And the corresponding short option "-c" were not mentioned in
-the help usage text.
+Update phy_print_status() to also display the PHY device pause settings
+(rx/tx or off).
 
-Also update the arptables man page with a description
-of the parameter.
-
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Suggested-by: Joe Perches <joe@perches.com>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- userspace/arptables/arptables.8 |    8 ++++++++
- userspace/arptables/arptables.c |    3 ++-
- 2 files changed, 10 insertions(+), 1 deletion(-)
+ drivers/net/phy/phy.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/userspace/arptables/arptables.8 b/userspace/arptables/arptables.8
-index 0b6b62e..78b2c60 100644
---- a/userspace/arptables/arptables.8
-+++ b/userspace/arptables/arptables.8
-@@ -215,6 +215,14 @@ The target of the rule. This is one of the following values:
- a target extension (see
- .BR "TARGET EXTENSIONS" ")"
- or a user-defined chain name.
-+.TP
-+.BI "-c, --set-counters " "PKTS BYTES"
-+This enables the administrator to initialize the packet and byte
-+counters of a rule (during
-+.B INSERT,
-+.B APPEND,
-+.B REPLACE
-+operations).
- 
- .SS RULE-SPECIFICATIONS
- The following command line arguments make up a rule specification (as used 
-diff --git a/userspace/arptables/arptables.c b/userspace/arptables/arptables.c
-index 4da6fea..3fb8ed5 100644
---- a/userspace/arptables/arptables.c
-+++ b/userspace/arptables/arptables.c
-@@ -152,6 +152,7 @@ static struct option original_opts[] = {
- 	{ "help", 2, 0, 'h' },
- 	{ "line-numbers", 0, 0, '0' },
- 	{ "modprobe", 1, 0, 'M' },
-+	{ "set-counters", 1, 0, 'c' },
- 	{ 0 }
- };
- 
-@@ -529,7 +530,7 @@ exit_printhelp(void)
- "  --line-numbers		print line numbers when listing\n"
- "  --exact	-x		expand numbers (display exact values)\n"
- "  --modprobe=<command>		try to insert modules using this command\n"
--"  --set-counters PKTS BYTES	set the counter during insert/append\n"
-+"  --set-counters -c PKTS BYTES	set the counter during insert/append\n"
- "[!] --version	-V		print package version.\n");
- 	printf(" opcode strings: \n");
-         for (i = 0; i < NUMOPCODES; i++)
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index c35b2e7..8ae2260 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -45,9 +45,11 @@
+ void phy_print_status(struct phy_device *phydev)
+ {
+ 	if (phydev->link) {
+-		netdev_info(phydev->attached_dev, "Link is Up - %d/%s\n",
++		netdev_info(phydev->attached_dev,
++			"Link is Up - %d/%s - flow control %s\n",
+ 			phydev->speed,
+-			DUPLEX_FULL == phydev->duplex ? "Full" : "Half");
++			DUPLEX_FULL == phydev->duplex ? "Full" : "Half",
++			phydev->pause ? "rx/tx" : "off");
+ 	} else	{
+ 		netdev_info(phydev->attached_dev, "Link is Down\n");
+ 	}
+-- 
+1.8.3.2
