@@ -1,46 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] tcp: metrics: Handle v6/v4-mapped sockets
- in tcp-metrics
-Date: Thu, 23 Jan 2014 12:49:26 -0800 (PST)
-Message-ID: <20140123.124926.313254281273203545.davem@davemloft.net>
-References: <1390395524-27930-1-git-send-email-christoph.paasch@uclouvain.be>
+Subject: Re: [PATCH net-next] net/udp_offload: Handle static checker
+ complaints
+Date: Thu, 23 Jan 2014 12:59:28 -0800 (PST)
+Message-ID: <20140123.125928.615354504249618511.davem@davemloft.net>
+References: <1390397009-28280-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: christoph.paasch@uclouvain.be
+Cc: netdev@vger.kernel.org, shlomop@mellanox.com
+To: ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60063 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60150 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751331AbaAWUt0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 15:49:26 -0500
-In-Reply-To: <1390395524-27930-1-git-send-email-christoph.paasch@uclouvain.be>
+	with ESMTP id S1751108AbaAWU73 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 15:59:29 -0500
+In-Reply-To: <1390397009-28280-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Date: Wed, 22 Jan 2014 13:58:44 +0100
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Wed, 22 Jan 2014 15:23:29 +0200
 
-> A socket may be v6/v4-mapped. In that case sk->sk_family is AF_INET6,
-> but the IP being used is actually an IPv4-address.
-> Current's tcp-metrics will thus represent it as an IPv6-address:
+> From: Shlomo Pongratz <shlomop@mellanox.com>
 > 
-> root@server:~# ip tcp_metrics
-> ::ffff:10.1.1.2 age 22.920sec rtt 18750us rttvar 15000us cwnd 10
-> 10.1.1.2 age 47.970sec rtt 16250us rttvar 10000us cwnd 10
+> Fixed few issues around using __rcu prefix and rcu_assign_pointer, also
+> fixed a warning print to use ntohs(port) and not htons(port).
 > 
-> This patch modifies the tcp-metrics so that they are able to handle the
-> v6/v4-mapped sockets correctly.
+> net/ipv4/udp_offload.c:112:9: error: incompatible types in comparison expression (different address spaces)
+> net/ipv4/udp_offload.c:113:9: error: incompatible types in comparison expression (different address spaces)
+> net/ipv4/udp_offload.c:176:19: error: incompatible types in comparison expression (different address spaces)
 > 
-> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+> Signed-off-by: Shlomo Pongratz <shlomop@mellanox.com>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 
-Applied, but I guess you didn't look at the build warnings, nor thoroughly
-test this:
-
-> +	else if (sk->sk_family = AF_INET6) {
-
-That's an assignment, not a straight test, and the compiler warns
-about it.
-
-I fixed it when I applied this, but please don't be so sloppy in the
-future.
+Applied, thanks.
