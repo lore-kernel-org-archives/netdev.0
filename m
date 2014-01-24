@@ -1,127 +1,173 @@
-From: Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>
-Subject: Re: [PATCH v2] net: Correctly sync addresses from multiple sources
- to single device
-Date: Fri, 24 Jan 2014 15:33:41 +0400
-Message-ID: <52E24F95.5010901@oktetlabs.ru>
-References: <52DFD32D.4060805@oktetlabs.ru> <1390413255-32223-1-git-send-email-vyasevic@redhat.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH iproute2] Add IFLA_SLAVE support.
+Date: Fri, 24 Jan 2014 12:46:08 +0100
+Message-ID: <20140124114608.GC3153@minipsycho.orion>
+References: <20140120222505.6206.85084.stgit@debian>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>,
-	Konstantin Ushakov <Konstantin.Ushakov@oktetlabs.ru>
-To: Vlad Yasevich <vyasevic@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	shm@cumulusnetworks.com, sfeldma@cumulusnetworks.com
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shelob.oktetlabs.ru ([195.131.132.186]:40093 "EHLO
-	shelob.oktetlabs.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751053AbaAXLdx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jan 2014 06:33:53 -0500
-In-Reply-To: <1390413255-32223-1-git-send-email-vyasevic@redhat.com>
+Received: from mail-ea0-f173.google.com ([209.85.215.173]:55678 "EHLO
+	mail-ea0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752192AbaAXLqO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jan 2014 06:46:14 -0500
+Received: by mail-ea0-f173.google.com with SMTP id d10so939108eaj.4
+        for <netdev@vger.kernel.org>; Fri, 24 Jan 2014 03:46:13 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20140120222505.6206.85084.stgit@debian>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/22/2014 09:54 PM, Vlad Yasevich wrote:
-> When we have multiple devices attempting to sync the same address
-> to a single destination, each device should be permitted to sync
-> it once.  To accomplish this, pass the 'sync_cnt' of the source
-> address when adding the addresss to the lower device.  'sync_cnt'
-> tracks how many time a given address has been succefully synced.
-> This way, we know that if the 'sync_cnt' passed in is 0, we should
-> sync this address.
->
-> Also, turn 'synced' member back into the counter as was originally
-> done in
->     commit 4543fbefe6e06a9e40d9f2b28d688393a299f079.
->     net: count hw_addr syncs so that unsync works properly.
-> It tracks how many time a given address has been added via a
-> 'sync' operation.  For every successfull 'sync' the counter is
-> incremented, and for ever 'unsync', the counter is decremented.
-> This makes sure that the address will be properly removed from
-> the the lower device when all the upper devices have removed it.
->
-> Reported-by: Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>
-> CC: Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>
-> CC: Alexandra N. Kossovsky <Alexandra.Kossovsky@oktetlabs.ru>
-> CC: Konstantin Ushakov <Konstantin.Ushakov@oktetlabs.ru>
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-> ---
->   net/core/dev_addr_lists.c | 18 ++++++++++--------
->   1 file changed, 10 insertions(+), 8 deletions(-)
->
-> diff --git a/net/core/dev_addr_lists.c b/net/core/dev_addr_lists.c
-> index ec40a84..9974f48 100644
-> --- a/net/core/dev_addr_lists.c
-> +++ b/net/core/dev_addr_lists.c
-> @@ -38,7 +38,7 @@ static int __hw_addr_create_ex(struct netdev_hw_addr_list *list,
->   	ha->type = addr_type;
->   	ha->refcount = 1;
->   	ha->global_use = global;
-> -	ha->synced = sync;
-> +	ha->synced = sync ? 1 : 0;
->   	ha->sync_cnt = 0;
->   	list_add_tail_rcu(&ha->list, &list->list);
->   	list->count++;
-> @@ -48,7 +48,8 @@ static int __hw_addr_create_ex(struct netdev_hw_addr_list *list,
->   
->   static int __hw_addr_add_ex(struct netdev_hw_addr_list *list,
->   			    const unsigned char *addr, int addr_len,
-> -			    unsigned char addr_type, bool global, bool sync)
-> +			    unsigned char addr_type, bool global, bool sync,
-> +			    int sync_count)
->   {
->   	struct netdev_hw_addr *ha;
->   
-> @@ -66,10 +67,10 @@ static int __hw_addr_add_ex(struct netdev_hw_addr_list *list,
->   					ha->global_use = true;
->   			}
->   			if (sync) {
-> -				if (ha->synced)
-> +				if (ha->synced && sync_count)
->   					return -EEXIST;
->   				else
-> -					ha->synced = true;
-> +					ha->synced++;
->   			}
->   			ha->refcount++;
->   			return 0;
-> @@ -84,7 +85,8 @@ static int __hw_addr_add(struct netdev_hw_addr_list *list,
->   			 const unsigned char *addr, int addr_len,
->   			 unsigned char addr_type)
->   {
-> -	return __hw_addr_add_ex(list, addr, addr_len, addr_type, false, false);
-> +	return __hw_addr_add_ex(list, addr, addr_len, addr_type, false, false,
-> +				0);
->   }
->   
->   static int __hw_addr_del_entry(struct netdev_hw_addr_list *list,
-> @@ -101,7 +103,7 @@ static int __hw_addr_del_entry(struct netdev_hw_addr_list *list,
->   		ha->global_use = false;
->   
->   	if (sync)
-> -		ha->synced = false;
-> +		ha->synced--;
->   
->   	if (--ha->refcount)
->   		return 0;
-> @@ -139,7 +141,7 @@ static int __hw_addr_sync_one(struct netdev_hw_addr_list *to_list,
->   	int err;
->   
->   	err = __hw_addr_add_ex(to_list, ha->addr, addr_len, ha->type,
-> -			       false, true);
-> +			       false, true, ha->sync_cnt);
->   	if (err && err != -EEXIST)
->   		return err;
->   
-> @@ -676,7 +678,7 @@ static int __dev_mc_add(struct net_device *dev, const unsigned char *addr,
->   
->   	netif_addr_lock_bh(dev);
->   	err = __hw_addr_add_ex(&dev->mc, addr, dev->addr_len,
-> -			       NETDEV_HW_ADDR_T_MULTICAST, global, false);
-> +			       NETDEV_HW_ADDR_T_MULTICAST, global, false, 0);
->   	if (!err)
->   		__dev_set_rx_mode(dev);
->   	netif_addr_unlock_bh(dev);
-Everything works properly now. The patch has been tested with linux-3.12.6.
+Stephen, please note that this patch was replaced by following patchset:
+[patch iproute2 net-next-for-3.13 0/2] iplink: add support for bonding slave
+  [patch iproute2 net-next-for-3.13 1/2] introduce support for slave info data
+  [patch iproute2 net-next-for-3.13 2/2] iplink: add support for bonding slave
 
-Thanks,
-Andrey
+Thanks.
+
+Mon, Jan 20, 2014 at 11:25:05PM CET, sfeldma@cumulusnetworks.com wrote:
+>Show slave details for link when slave has IFLA_SLAVE attributes, e.g.:
+>
+>ip -d link show eth4
+>6: eth4: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master bond1 state UP mode DEFAULT group default qlen 1000
+>    link/ether 00:02:00:00:04:03 brd ff:ff:ff:ff:ff:ff promiscuity 1
+>    slave state ACTIVE mii_status UP link_failure_count 0 perm_hwaddr 00:02:00:00:04:03 queue_id 0 ad_aggregator_id 1
+>---
+> include/linux/if_link.h |   13 +++++++++
+> ip/ipaddress.c          |   71 +++++++++++++++++++++++++++++++++++++++++++++++
+> 2 files changed, 84 insertions(+)
+>
+>diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+>index 098be3d..7f956f6 100644
+>--- a/include/linux/if_link.h
+>+++ b/include/linux/if_link.h
+>@@ -144,6 +144,7 @@ enum {
+> 	IFLA_NUM_RX_QUEUES,
+> 	IFLA_CARRIER,
+> 	IFLA_PHYS_PORT_ID,
+>+	IFLA_SLAVE,
+> 	__IFLA_MAX
+> };
+> 
+>@@ -366,6 +367,18 @@ enum {
+> 
+> #define IFLA_BOND_AD_INFO_MAX   (__IFLA_BOND_AD_INFO_MAX - 1)
+> 
+>+enum {
+>+	IFLA_SLAVE_STATE,
+>+	IFLA_SLAVE_MII_STATUS,
+>+	IFLA_SLAVE_LINK_FAILURE_COUNT,
+>+	IFLA_SLAVE_PERM_HWADDR,
+>+	IFLA_SLAVE_QUEUE_ID,
+>+	IFLA_SLAVE_AD_AGGREGATOR_ID,
+>+	__IFLA_SLAVE_MAX,
+>+};
+>+
+>+#define IFLA_SLAVE_MAX  (__IFLA_SLAVE_MAX - 1)
+>+
+> /* SR-IOV virtual function management section */
+> 
+> enum {
+>diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+>index d02eaaf..a0d3ab8 100644
+>--- a/ip/ipaddress.c
+>+++ b/ip/ipaddress.c
+>@@ -27,6 +27,7 @@
+> 
+> #include <linux/netdevice.h>
+> #include <linux/if_arp.h>
+>+#include <linux/if_bonding.h>
+> #include <linux/sockios.h>
+> 
+> #include "rt_names.h"
+>@@ -223,6 +224,73 @@ static void print_linktype(FILE *fp, struct rtattr *tb)
+> 	}
+> }
+> 
+>+static const char *slave_states[] = {
+>+	[BOND_STATE_ACTIVE] = "ACTIVE",
+>+	[BOND_STATE_BACKUP] = "BACKUP",
+>+};
+>+
+>+static void print_slave_state(FILE *f, struct rtattr *tb)
+>+{
+>+	unsigned int state = rta_getattr_u8(tb);
+>+
+>+	if (state >= sizeof(slave_states) / sizeof(slave_states[0]))
+>+		fprintf(f, "state %d ", state);
+>+	else
+>+		fprintf(f, "state %s ", slave_states[state]);
+>+}
+>+
+>+static const char *slave_mii_status[] = {
+>+	[BOND_LINK_UP] = "UP",
+>+	[BOND_LINK_FAIL] = "GOING_DOWN",
+>+	[BOND_LINK_DOWN] = "DOWN",
+>+	[BOND_LINK_BACK] = "GOING_BACK",
+>+};
+>+
+>+static void print_slave_mii_status(FILE *f, struct rtattr *tb)
+>+{
+>+	unsigned int status = rta_getattr_u8(tb);
+>+
+>+	if (status >= sizeof(slave_mii_status) / sizeof(slave_mii_status[0]))
+>+		fprintf(f, "mii_status %d ", status);
+>+	else
+>+		fprintf(f, "mii_status %s ", slave_mii_status[status]);
+>+}
+>+
+>+static void print_slave(FILE *fp, struct rtattr *tb)
+>+{
+>+	struct rtattr *slave[IFLA_SLAVE_MAX+1];
+>+	SPRINT_BUF(b1);
+>+
+>+	parse_rtattr_nested(slave, IFLA_SLAVE_MAX, tb);
+>+
+>+	if (!slave[IFLA_SLAVE_STATE])
+>+		return;
+>+
+>+	fprintf(fp, "%s    slave ", _SL_);
+>+	print_slave_state(fp, slave[IFLA_SLAVE_STATE]);
+>+
+>+	if (slave[IFLA_SLAVE_MII_STATUS])
+>+		print_slave_mii_status(fp, slave[IFLA_SLAVE_MII_STATUS]);
+>+
+>+	if (slave[IFLA_SLAVE_LINK_FAILURE_COUNT])
+>+		fprintf(fp, "link_failure_count %d ",
+>+			rta_getattr_u32(slave[IFLA_SLAVE_LINK_FAILURE_COUNT]));
+>+
+>+	if (slave[IFLA_SLAVE_PERM_HWADDR])
+>+		fprintf(fp, "perm_hwaddr %s ",
+>+			ll_addr_n2a(RTA_DATA(slave[IFLA_SLAVE_PERM_HWADDR]),
+>+				    RTA_PAYLOAD(slave[IFLA_SLAVE_PERM_HWADDR]),
+>+				    0, b1, sizeof(b1)));
+>+
+>+	if (slave[IFLA_SLAVE_QUEUE_ID])
+>+		fprintf(fp, "queue_id %d ",
+>+			rta_getattr_u16(slave[IFLA_SLAVE_QUEUE_ID]));
+>+
+>+	if (slave[IFLA_SLAVE_AD_AGGREGATOR_ID])
+>+		fprintf(fp, "ad_aggregator_id %d ",
+>+			rta_getattr_u16(slave[IFLA_SLAVE_AD_AGGREGATOR_ID]));
+>+}
+>+
+> static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
+> {
+> 	struct ifla_vf_mac *vf_mac;
+>@@ -516,6 +584,9 @@ int print_linkinfo(const struct sockaddr_nl *who,
+> 			print_vfinfo(fp, i);
+> 	}
+> 
+>+	if (do_link && tb[IFLA_SLAVE] && show_details)
+>+		print_slave(fp, tb[IFLA_SLAVE]);
+>+
+> 	fprintf(fp, "\n");
+> 	fflush(fp);
+> 	return 0;
+>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
