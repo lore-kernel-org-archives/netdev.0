@@ -1,76 +1,69 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCH v6] xen/grant-table: Avoid m2p_override	during
- mapping
-Date: Fri, 24 Jan 2014 10:57:43 +0000
-Message-ID: <52E24727.6090809@citrix.com>
-References: <1390512224-27296-1-git-send-email-zoltan.kiss@citrix.com> <20140124054828.GA18522@u109add4315675089e695.ant.amazon.com>
+From: annie li <annie.li@oracle.com>
+Subject: Re: [Xen-devel] [PATCH net-next v4] xen-netfront: clean up code in
+ xennet_release_rx_bufs
+Date: Fri, 24 Jan 2014 19:05:26 +0800
+Message-ID: <52E248F6.9080601@oracle.com>
+References: <1390534095-5097-1-git-send-email-Annie.li@oracle.com> <52E24507.8060402@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>, <jonathan.davies@citrix.com>,
-	<wei.liu2@citrix.com>, <ian.campbell@citrix.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Anthony Liguori <aliguori@amazon.com>,
-	<xen-devel@lists.xenproject.org>, Matt Wilson <msw@amazon.com>
-To: Matt Wilson <msw@linux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140124054828.GA18522@u109add4315675089e695.ant.amazon.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, wei.liu2@citrix.com,
+	ian.campbell@citrix.com, xen-devel@lists.xen.org
+To: David Vrabel <david.vrabel@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:41915 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752445AbaAXLFg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jan 2014 06:05:36 -0500
+In-Reply-To: <52E24507.8060402@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 24/01/14 05:48, Matt Wilson wrote:
-> On Thu, Jan 23, 2014 at 09:23:44PM +0000, Zoltan Kiss wrote:
->> The grant mapping API does m2p_override unnecessarily: only gntdev needs it,
->> for blkback and future netback patches it just cause a lock contention, as
->> those pages never go to userspace. Therefore this series does the following:
->> - the original functions were renamed to __gnttab_[un]map_refs, with a new
->>   parameter m2p_override
->> - based on m2p_override either they follow the original behaviour, or just set
->>   the private flag and call set_phys_to_machine
->> - gnttab_[un]map_refs are now a wrapper to call __gnttab_[un]map_refs with
->>   m2p_override false
->> - a new function gnttab_[un]map_refs_userspace provides the old behaviour
->>
->> It also removes a stray space from page.h and change ret to 0 if
->> XENFEAT_auto_translated_physmap, as that is the only possible return value
->> there.
->>
->> v2:
->> - move the storing of the old mfn in page->index to gnttab_map_refs
->> - move the function header update to a separate patch
->>
->> v3:
->> - a new approach to retain old behaviour where it needed
->> - squash the patches into one
->>
->> v4:
->> - move out the common bits from m2p* functions, and pass pfn/mfn as parameter
->> - clear page->private before doing anything with the page, so m2p_find_override
->>   won't race with this
->>
->> v5:
->> - change return value handling in __gnttab_[un]map_refs
->> - remove a stray space in page.h
->> - add detail why ret = 0 now at some places
->>
->> v6:
->> - don't pass pfn to m2p* functions, just get it locally
->>
->> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
->> Suggested-by: David Vrabel <david.vrabel@citrix.com>
-> 
-> Apologies for coming in late on this thread. I'm quite behind on
-> xen-devel mail that isn't CC: to me.
-> 
-> It seems to have been forgotten that Anthony and I proposed a similar
-> change last November.
-> 
-> https://lkml.kernel.org/r/1384307336-5328-1-git-send-email-anthony@codemonkey.ws
-> 
-> Or am I misunderstanding the change?
 
-Yes, it's equivalent.  There doesn't seem to have been a follow up patch
-posted for Anthony's patch so it's not surprising that it's fallen
-through the cracks.
+On 2014/1/24 18:48, David Vrabel wrote:
+> On 24/01/14 03:28, Annie Li wrote:
+>> From: Annie Li <annie.li@oracle.com>
+>>
+>> This patch removes grant transfer releasing code from netfront, and uses
+>> gnttab_end_foreign_access to end grant access since
+>> gnttab_end_foreign_access_ref may fail when the grant entry is
+>> currently used for reading or writing.
+>>
+>> * clean up grant transfer code kept from old netfront(2.6.18) which grants
+>> pages for access/map and transfer. But grant transfer is deprecated in current
+>> netfront, so remove corresponding release code for transfer.
+>>
+>> * release grant access (through gnttab_end_foreign_access) and skb for tx/rx path,
+>> use get_page to ensure page is released when grant access is completed successfully.
+>>
+>> Xen-blkfront/xen-tpmfront/xen-pcifront also have similar issue, but patches
+>> for them will be created separately.
+> ...
+>> @@ -1439,8 +1403,11 @@ static int netfront_probe(struct xenbus_device *dev,
+>>   static void xennet_end_access(int ref, void *page)
+>>   {
+>>   	/* This frees the page as a side-effect */
+>> -	if (ref != GRANT_INVALID_REF)
+>> +	if (ref != GRANT_INVALID_REF) {
+>> +		get_page(virt_to_page(page));
+>>   		gnttab_end_foreign_access(ref, 0, (unsigned long)page);
+>> +		free_page((unsigned long)page);
+>> +	}
+>>   }
 
-David
+Oh, these code were kept from my debug, will remove it.
+
+Thanks
+Annie
+> Please drop this hunk.
+>
+> Otherwise,
+>
+> Reviewed-by: David Vrabel <david.vrabel@citrix.com>
+>
+> David
+>
+> _______________________________________________
+> Xen-devel mailing list
+> Xen-devel@lists.xen.org
+> http://lists.xen.org/xen-devel
