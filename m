@@ -1,70 +1,80 @@
-From: Emmanuel Thierry <ml@sekil.fr>
-Subject: Re: IPV6 routing problem
-Date: Fri, 24 Jan 2014 10:36:54 +0100
-Message-ID: <CD36411A-7584-48B1-A406-E1584B3D32DD@sekil.fr>
-References: <CAJzFV37rPo6trvCwWyErchen_MvTzqabSU+BE3JZjNXT5-5H7Q@mail.gmail.com> <20140122070759.GB28225@order.stressinduktion.org> <20140122071101.GC28225@order.stressinduktion.org> <CAJzFV34FhudmwOPY1q9SUtagb8rUuQanrAqt_+cOyETFsLcxqw@mail.gmail.com>
-Mime-Version: 1.0 (Apple Message framework v1085)
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Sharat Masetty <sharat04@gmail.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next] bonding: do't permit slaves to change their mtu
+ ndependently
+Date: Fri, 24 Jan 2014 17:43:56 +0800
+Message-ID: <52E235DC.1020709@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host1.ip6-networks.net ([95.130.10.56]:38217 "EHLO
-	host1.ip6-networks.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751053AbaAXJo2 convert rfc822-to-8bit (ORCPT
+Received: from szxga03-in.huawei.com ([119.145.14.66]:25422 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750922AbaAXJo2 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jan 2014 04:44:28 -0500
-In-Reply-To: <CAJzFV34FhudmwOPY1q9SUtagb8rUuQanrAqt_+cOyETFsLcxqw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+I have come to a conclusion by testing every mode for mtu changing:
 
-Le 23 janv. 2014 =E0 08:15, Sharat Masetty a =E9crit :
+1). If the slaves support changing mtu and no need to restart the device,
+    just like virtual nic, the master will not lost any packages for every
+    mode.
 
-> Unfortunately toggling this config setting CONFIG_IPV6_ROUTER_PREF di=
-d
-> not help, I see the same problem in both cases.
-> The kernel version I am using is 3.10.0.
->=20
-> Thanks for confirming that this is a non issue on 3.13 kernel version=
-=2E
-> Would you happen to know which patch would have potentially fixed thi=
-s
-> issue?
+2). If the slaves support changing mtu and need to restart the device,
+    just like Intel 82599, the AB, 802.3, ALB and TLB mode may lost
+    packages, but other modes could work well.
 
-Your problem looks like the following one :=20
-http://marc.info/?l=3Dlinux-netdev&m=3D137280268407054&w=3D2
+The reason is that when the slave's mtu has been changed, the slave will
+restart, if the slave is current active slave, the master may set the
+slave to backup state and reselect a new slave, after the reselect processing,
+the master could work again, but if in load-balance mode, the master could
+select another active slave to send and recv packages.
 
-Which has been fixed in 3.10.4, and 3.11+
+So the best way to fix the problem is don't permit slave to change their
+mtu independently.
 
-> On Wed, Jan 22, 2014 at 12:11 AM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
->> On Wed, Jan 22, 2014 at 08:07:59AM +0100, Hannes Frederic Sowa wrote=
-:
->>> Hi!
->>>=20
->>> On Tue, Jan 21, 2014 at 06:41:58PM -0700, Sharat Masetty wrote:
->>>> I have an IPV6 routing problem that has only surfaced on a 3.10
->>>> kernel version. This problem is not seen on 3.4 kernel. I will kee=
-p
->>>> the problem statement as brief as possible.
->>>=20
->>> Could you do me a favor and test this on a recent 3.13 kernel? Than=
-ks!
->>> Please also state the specific kernel version (I guess you use one)=
-=2E
->>=20
->> +stable.
->>=20
->> A quick test worked for me. Maybe you could try with CONFIG_IPV6_ROU=
-TER_PREF
->> enabled and one time with it disabled.
->>=20
->> We should make this knob a runtime setting soon...
->>=20
->> Thanks,
->>=20
->>  Hannes
+Cc: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ drivers/net/bonding/bond_main.c | 18 +++++-------------
+ 1 file changed, 5 insertions(+), 13 deletions(-)
 
-Best regards.
-Emmanuel Thierry
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 2ca949f..e127031c 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2808,20 +2808,12 @@ static int bond_slave_netdev_event(unsigned long event,
+ 		 * ... Or is it this?
+ 		 */
+ 		break;
+-	case NETDEV_CHANGEMTU:
+-		/*
+-		 * TODO: Should slaves be allowed to
+-		 * independently alter their MTU?  For
+-		 * an active-backup bond, slaves need
+-		 * not be the same type of device, so
+-		 * MTUs may vary.  For other modes,
+-		 * slaves arguably should have the
+-		 * same MTUs. To do this, we'd need to
+-		 * take over the slave's change_mtu
+-		 * function for the duration of their
+-		 * servitude.
++	case NETDEV_PRECHANGEMTU:
++		/* The master and slaves should have the
++		 * same mtu, so don't permit slaves to
++		 * change their mtu independently.
+ 		 */
+-		break;
++		return NOTIFY_BAD;
+ 	case NETDEV_CHANGENAME:
+ 		/* we don't care if we don't have primary set */
+ 		if (!USES_PRIMARY(bond->params.mode) ||
+-- 
+1.8.0
