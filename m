@@ -1,35 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bonding: fix u64 division
-Date: Thu, 23 Jan 2014 16:12:01 -0800 (PST)
-Message-ID: <20140123.161201.2239098830159792011.davem@davemloft.net>
-References: <52E18720.4060008@redhat.com>
-	<1390517023-31950-1-git-send-email-nikolay@redhat.com>
+Subject: Re: [PATCH net-next 0/7] qlcnic: Refactoring and enhancements for
+ all adapters.
+Date: Thu, 23 Jan 2014 16:14:37 -0800 (PST)
+Message-ID: <20140123.161437.1632835743136251770.davem@davemloft.net>
+References: <cover.1390491376.git.himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, zoltan.kiss@citrix.com, andy@greyhouse.net,
-	vfalico@redhat.com, fubar@us.ibm.com
-To: nikolay@redhat.com
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
+To: himanshu.madhani@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33900 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33954 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751957AbaAXAMF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 19:12:05 -0500
-In-Reply-To: <1390517023-31950-1-git-send-email-nikolay@redhat.com>
+	with ESMTP id S1752955AbaAXAOi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 19:14:38 -0500
+In-Reply-To: <cover.1390491376.git.himanshu.madhani@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Date: Thu, 23 Jan 2014 23:43:43 +0100
+From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+Date: Thu, 23 Jan 2014 17:18:27 -0500
 
-> After the option conversion downdelay and updelay divide a u64
-> and on a 32 bit this causes the following errors:
-> ERROR: "__udivdi3" [drivers/net/bonding/bonding.ko] undefined!
-> ERROR: "__umoddi3" [drivers/net/bonding/bonding.ko] undefined!
+> This patch series contains following patches.
 > 
-> Fix it by using a normal int instead because newval->value is capped
-> at INT_MAX by the way the option is defined.
+> o Enhanced debug data collection when we are in Tx-timeout situation.
+> o Enhanced MSI-x vector calculation for defualt load path as well
+>   as for TSS/RSS ring change path.
+> o Refactored interrupt coalescing code for all adapters.
+> o Refactored interrupt handling as well as cleanup of poll controller
+>   code patch for all adapters.
+> o changed rx_mac_learn type to boolean.
 > 
-> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+> Please apply to net-next.
 
-To fix the build I'm applying this, thanks.
+Series applied, thanks.
