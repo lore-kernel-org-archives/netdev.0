@@ -1,23 +1,59 @@
-From: Sergey Popovich <popovich_sergei@mail.ru>
-Subject: Re: [PATCH 4/4 v3] ipv4: mark nexthop as dead when it's subnet becomes
-Date: Fri, 24 Jan 2014 12:26:49 +0200
-Message-ID: <1880028.LL59UF2HvL@tuxracer>
-References: <cover.1390304505.git.popovich_sergei@mail.ru> <alpine.LFD.2.11.1401232221010.1667@ja.home.ssi.bg> <3898551.8JLk8eulsc@tuxracer>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next v4] xen-netfront: clean up code in
+ xennet_release_rx_bufs
+Date: Fri, 24 Jan 2014 10:48:39 +0000
+Message-ID: <52E24507.8060402@citrix.com>
+References: <1390534095-5097-1-git-send-email-Annie.li@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+	<konrad.wilk@oracle.com>, <ian.campbell@citrix.com>,
+	<wei.liu2@citrix.com>
+To: Annie Li <Annie.li@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp40.i.mail.ru ([94.100.177.100]:38729 "EHLO smtp40.i.mail.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751053AbaAXK0v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Jan 2014 05:26:51 -0500
-Received: from [2a01:6d80:103:13::c3ea:4404] (port=57165 helo=tuxracer.localnet)
-	by smtp40.i.mail.ru with esmtpa (envelope-from <popovich_sergei@mail.ru>)
-	id 1W6dyM-0000x5-82
-	for netdev@vger.kernel.org; Fri, 24 Jan 2014 14:26:50 +0400
-In-Reply-To: <3898551.8JLk8eulsc@tuxracer>
+Received: from smtp02.citrix.com ([66.165.176.63]:42934 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751721AbaAXKsm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jan 2014 05:48:42 -0500
+In-Reply-To: <1390534095-5097-1-git-send-email-Annie.li@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please ignore this mail. MUA line wrapping issues. Sorry.
+On 24/01/14 03:28, Annie Li wrote:
+> From: Annie Li <annie.li@oracle.com>
+> 
+> This patch removes grant transfer releasing code from netfront, and uses
+> gnttab_end_foreign_access to end grant access since
+> gnttab_end_foreign_access_ref may fail when the grant entry is
+> currently used for reading or writing.
+> 
+> * clean up grant transfer code kept from old netfront(2.6.18) which grants
+> pages for access/map and transfer. But grant transfer is deprecated in current
+> netfront, so remove corresponding release code for transfer.
+> 
+> * release grant access (through gnttab_end_foreign_access) and skb for tx/rx path,
+> use get_page to ensure page is released when grant access is completed successfully.
+> 
+> Xen-blkfront/xen-tpmfront/xen-pcifront also have similar issue, but patches
+> for them will be created separately.
+...
+> @@ -1439,8 +1403,11 @@ static int netfront_probe(struct xenbus_device *dev,
+>  static void xennet_end_access(int ref, void *page)
+>  {
+>  	/* This frees the page as a side-effect */
+> -	if (ref != GRANT_INVALID_REF)
+> +	if (ref != GRANT_INVALID_REF) {
+> +		get_page(virt_to_page(page));
+>  		gnttab_end_foreign_access(ref, 0, (unsigned long)page);
+> +		free_page((unsigned long)page);
+> +	}
+>  }
+
+Please drop this hunk.
+
+Otherwise,
+
+Reviewed-by: David Vrabel <david.vrabel@citrix.com>
+
+David
