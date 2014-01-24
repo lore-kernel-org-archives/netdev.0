@@ -1,89 +1,70 @@
-From: David Gibson <david@gibson.dropbear.id.au>
-Subject: Re: [PATCH 2/2] netxen: Add sanity checks for Rx buffers returning
- from hardware
-Date: Fri, 24 Jan 2014 16:21:26 +1100
-Message-ID: <20140124052126.GB4361@voom.redhat.com>
-References: <1387257753-18676-1-git-send-email-david@gibson.dropbear.id.au>
- <1387257753-18676-3-git-send-email-david@gibson.dropbear.id.au>
- <20131219.150527.1753716895684393783.davem@davemloft.net>
+From: Matt Wilson <msw@linux.com>
+Subject: Re: [PATCH v6] xen/grant-table: Avoid m2p_override during mapping
+Date: Thu, 23 Jan 2014 21:48:29 -0800
+Message-ID: <20140124054828.GA18522@u109add4315675089e695.ant.amazon.com>
+References: <1390512224-27296-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="c3bfwLpm8qysLVxt"
-Cc: manish.chopra@qlogic.com, sony.chacko@qlogic.com,
-	rajesh.borundia@qlogic.com, netdev@vger.kernel.org,
-	snagarka@redhat.com, tcamuso@redhat.com, vdasgupt@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:46661 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751116AbaAXFVj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Jan 2014 00:21:39 -0500
-Content-Disposition: inline
-In-Reply-To: <20131219.150527.1753716895684393783.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---c3bfwLpm8qysLVxt
 Content-Type: text/plain; charset=us-ascii
+Cc: ian.campbell@citrix.com, wei.liu2@citrix.com,
+	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jonathan.davies@citrix.com,
+	Anthony Liguori <aliguori@amazon.com>,
+	Matt Wilson <msw@amazon.com>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <1390512224-27296-1-git-send-email-zoltan.kiss@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 19, 2013 at 03:05:27PM -0500, David Miller wrote:
-> From: David Gibson <david@gibson.dropbear.id.au>
-> Date: Tue, 17 Dec 2013 16:22:33 +1100
->=20
-> > +static int netxen_check_rx_buf(int index, struct netxen_rx_buffer *rxb=
-uf)
-> > +{
-> > +	int ret =3D 0;
-> > +
-> > +	if ((rxbuf->list.next !=3D LIST_POISON1)
-> > +	    || (rxbuf->list.prev !=3D LIST_POISON2)) {
-> > +		printk(KERN_ERR "netxen: Rx buffer is already on free list "
-> > +		       "(next=3D%p, prev=3D%p)\n", rxbuf->list.next,
-> > +		       rxbuf->list.prev);
-> > +		ret =3D -1;
-> > +	}
->=20
-> First, you should be using netdev_err() or similar.
+On Thu, Jan 23, 2014 at 09:23:44PM +0000, Zoltan Kiss wrote:
+> The grant mapping API does m2p_override unnecessarily: only gntdev needs it,
+> for blkback and future netback patches it just cause a lock contention, as
+> those pages never go to userspace. Therefore this series does the following:
+> - the original functions were renamed to __gnttab_[un]map_refs, with a new
+>   parameter m2p_override
+> - based on m2p_override either they follow the original behaviour, or just set
+>   the private flag and call set_phys_to_machine
+> - gnttab_[un]map_refs are now a wrapper to call __gnttab_[un]map_refs with
+>   m2p_override false
+> - a new function gnttab_[un]map_refs_userspace provides the old behaviour
+> 
+> It also removes a stray space from page.h and change ret to 0 if
+> XENFEAT_auto_translated_physmap, as that is the only possible return value
+> there.
+> 
+> v2:
+> - move the storing of the old mfn in page->index to gnttab_map_refs
+> - move the function header update to a separate patch
+> 
+> v3:
+> - a new approach to retain old behaviour where it needed
+> - squash the patches into one
+> 
+> v4:
+> - move out the common bits from m2p* functions, and pass pfn/mfn as parameter
+> - clear page->private before doing anything with the page, so m2p_find_override
+>   won't race with this
+> 
+> v5:
+> - change return value handling in __gnttab_[un]map_refs
+> - remove a stray space in page.h
+> - add detail why ret = 0 now at some places
+> 
+> v6:
+> - don't pass pfn to m2p* functions, just get it locally
+> 
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> Suggested-by: David Vrabel <david.vrabel@citrix.com>
 
-Well, I was just matching the form used in the rest of the driver.
+Apologies for coming in late on this thread. I'm quite behind on
+xen-devel mail that isn't CC: to me.
 
-> Second, doing this unconditionally for every receive packet is
-> not really reasonable.
+It seems to have been forgotten that Anthony and I proposed a similar
+change last November.
 
-Yeah, trouble is I don't know what the alternative is.  Whatever is
-causing this problem, it's triggered very rarely - I'm only seeing a
-pattern by looking across everything reported by Red Hat customers.
-Just adding diagnostics for one customer is unlikely to be useful,
-because the chances are they'll never hit the bug again.
+https://lkml.kernel.org/r/1384307336-5328-1-git-send-email-anthony@codemonkey.ws
 
---=20
-David Gibson			| I'll have my music baroque, and my code
-david AT gibson.dropbear.id.au	| minimalist, thank you.  NOT _the_ _other_
-				| _way_ _around_!
-http://www.ozlabs.org/~dgibson
+Or am I misunderstanding the change?
 
---c3bfwLpm8qysLVxt
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJS4fhWAAoJEGw4ysog2bOSvG0P/2ngrNQeo2sIjZvf/1AKL5bv
-1G7eOWRSk4AlHuopAXQQImqHSURN/yM3Y2z2F1uYn7ntJzlBz6x3kIrhK7h7rgNq
-Y7bcLij9RQeq8aP0pzqeK3TpOZ1OL2Enbb3gzbw7MwvMFZ434lq6q2Bi1ULiktWE
-cNJ4XauAgZfHVH+1InR0q4nAZeH1RFZtn/feFIbqnHHOckCadZiZDDkoYCcoLzfH
-hOQD02Fp+8B1T4Sbu3p5Pfx7AEwacIi+Ne5zkKLSaCrVir4wkT+iydEBNUszvunb
-92GJOmo1t9Uq4eGME2ckLqB1Y5OYE0HWAoPROiuZSmzwDIOo0slUK7rhAThY650J
-DdyfFtV1kYsJarudQBga7iIhwdSXYxjaU/WcYQfEXMPf8igHkD1WXRAWMKjxgK83
-Bk+6nnamF372rCk2wexH4LxS6Yv4QL5WfADDe3N8k8dgI0DHm9y8toSXbL5ffise
-jSJWZVMFeBsRs1VUqpnrVYqZ+2l0pL8MzPZvPekmDOIEI2jCP2X118HZQ+ZUl3os
-ypM/F2aihZfY7CZsuHLhGXbdSojX0BMNm9n793ARZM/6H7MCdTGiiwgRL+ZlOVhX
-JsDoSFib4TGdj3NvZYDJ6MUyPuHNJtYzTCzqrWEtR6PHp9ox7VJL18KBRiR3VX+v
-eMWHiYHitK0mSOAPD4vT
-=aXzL
------END PGP SIGNATURE-----
-
---c3bfwLpm8qysLVxt--
+--msw
