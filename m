@@ -1,109 +1,160 @@
 From: Sergey Popovich <popovich_sergei@mail.ru>
-Subject: Re: [PATCH 4/4] ipv4: mark nexthop as dead when it's subnet becomes unreachable
-Date: Fri, 24 Jan 2014 12:12:28 +0200
-Message-ID: <2039386.VZO3kUlZdW@tuxracer>
+Subject: [PATCH 4/4 v3] ipv4: mark nexthop as dead when it's subnet becomes
+Date: Fri, 24 Jan 2014 12:15:38 +0200
+Message-ID: <3898551.8JLk8eulsc@tuxracer>
 References: <cover.1390304505.git.popovich_sergei@mail.ru> <2208170.gq1LW14mJ5@tuxracer> <alpine.LFD.2.11.1401232221010.1667@ja.home.ssi.bg>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback7.mail.ru ([94.100.176.135]:56196 "EHLO
-	fallback7.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751704AbaAXKOw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jan 2014 05:14:52 -0500
-Received: from smtp2.mail.ru (smtp2.mail.ru [94.100.176.130])
-	by fallback7.mail.ru (mPOP.Fallback_MX) with ESMTP id 3FEC8F67991F
-	for <netdev@vger.kernel.org>; Fri, 24 Jan 2014 14:12:46 +0400 (MSK)
-Received: from [2a01:6d80:103:13::c3ea:4404] (port=56844 helo=tuxracer.localnet)
-	by smtp2.mail.ru with esmtpa (envelope-from <popovich_sergei@mail.ru>)
-	id 1W6dkZ-0001AI-1j
-	for netdev@vger.kernel.org; Fri, 24 Jan 2014 14:12:35 +0400
+Received: from fallback8.mail.ru ([94.100.176.136]:43322 "EHLO
+	fallback8.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751721AbaAXKT7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jan 2014 05:19:59 -0500
+Received: from smtp20.mail.ru (smtp20.mail.ru [94.100.176.173])
+	by fallback8.mail.ru (mPOP.Fallback_MX) with ESMTP id 0D8EF4E7E49D
+	for <netdev@vger.kernel.org>; Fri, 24 Jan 2014 14:15:51 +0400 (MSK)
+Received: from [2a01:6d80:103:13::c3ea:4404] (port=56871 helo=tuxracer.localnet)
+	by smtp20.mail.ru with esmtpa (envelope-from <popovich_sergei@mail.ru>)
+	id 1W6dnX-0001Ky-VK
+	for netdev@vger.kernel.org; Fri, 24 Jan 2014 14:15:40 +0400
 In-Reply-To: <alpine.LFD.2.11.1401232221010.1667@ja.home.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Removing ip address and it's subnet route using fib_del_ifaddr() does
+not purge routes with nexthop in such subnet.
 
-> 	Hello,
+This could be easily reproduced with the following config:
 
-Hello, thanks for detailed explanation.
+  ip link add dev dummy1 type dummy
+  ip link set up dev dummy1
+  ip -4 addr add 10.0.10.1/24 dev dummy1
+  ip -4 addr add 10.0.20.1/24 dev dummy1
 
-> 
-> 
-> 	My idea was that without calling fib_lookup() as
-> done in fib_check_nh() you can not mark NH as dead because
-> you are not sure that nh_gw is still reachable in different
-> subnet. GW can be part of many subnets! Your patch assumes
-> that GW can be part only from one subnet.
+  ip -4 route add 172.16.0.0/12 proto static via 10.0.10.5
+  ip -4 route show exact 172.16.0.0/12
+  172.16.0.0/12 via 10.0.10.5 dev dummy1  proto static
 
-Agree, you are completely right.
+  ip -4 addr del 10.0.10.1/24 dev dummy1
 
-> 
-> 	Lets extend your example in this way:
-> 
-> ip -4 addr add 10.0.0.200/8 dev dummy1
-> 
-> 	ip route get 10.0.10.5 should return the longest
-> match route, 10.0.10.0/24 in our case. If 10.0.10.1 is
-> removed ip route get 10.0.10.5 will hit 10.0.0.0/8.
-> 
-> 	OK, lets delete the last 10.0.10.1 address on dummy1.
-> 
-> 	Before your patch only fib_sync_down_addr() was called.
-> You now call fib_sync_down_dev() with force=0 and ifa, with the
-> goal to mark 172.16.0.0/12 as dead (it is unipath route,
-> so it will be removed). inet_ifa_match() checks that nh_gw
-> 10.0.10.5 is part of the removed subnet: 10.0.10.0/24. Yes, it is.
-> Who will check that 10.0.10.5 is still reachable as part of
-> another subnet 10.0.0.0/8 ? At this point
-> ip -4 route add 172.16.0.0/12 proto static via 10.0.10.5
-> should succeed again because fib_check_nh() will see with
-> fib_lookup() that 10.0.10.5 is part of 10.0.0.0/8. So, the
-> patch wrongly marked the NH as dead.
+  ip -4 route show exact 172.16.0.0/12
+  172.16.0.0/12 via 10.0.10.5 dev dummy1  proto static
 
-Really, this true thank you for pointing me on the problem. V3 of patch
-makes an attempt to address this. Please review it and tell what do you
-thing about.
+Add interface address (ifa) parameter to fib_sync_down_dev()
+and use it to match nexthop against it's subnet.
 
-> 
-> 	If last 10.0.10.5 is deleted we can mark NHs with
-> nh_gw=10.0.10.5 as dead. It is again expensive (your
-> new fib_sync_down_dev call) but this time fib_lookup() is
-> not needed because this is a local GW. That is what I mean
-> above.
-> 
-> > When deleting address and removing its subnet, instead of removing route
-> > from the FIB, resolve new NH with fib_lookup() if possible, as this done
-> > in fib_check_nh(), and leave route with modified NH?
-> 
-> 	I don't say to do it. But it is the only way to
-> check if nh_gw is no more reachable.
-> 
-> > Well, sounds good, but what to do with multipath routes?
-> > Is this correct at all?
-> 
-> 	fib_lookup() call is correct but expensive. That is
-> why it was not done before.
+Use fib_sync_down_dev() in fib_del_ifaddr() among with fib_sync_down_addr()
+to mark as dead routes with nexthop in ifa.
 
-fib_lookup() do its job well, but I dont think we need it at all because:
+  v3. Fix NH marking as dead when NH gateway subnet is still on
+      interface (e.g. 10.0.10.1/24 and 10.0.30.1/16 and NH is 10.0.10.5).
+      Thanks to Julian Anastasov.
 
-  1. We known what address is removed (if any).
-  2. We known device where address is removed.
-  3. Each route, regargless if this unipath or multipath, has device assigned
-     for each NH entry (unless NH entry is dead or route is RTN_BLACKHOLE and
-     friends). fib_check_nh() checks for this.
+  v2. Fix NH marking as dead when NH created with onlink option.
 
-I think we could simply iterate over interface address list to find if there
-are other subnet to which NH gateway resolve, beside removed address if any?
+Signed-off-by: Sergey Popovich <popovich_sergei@mail.ru>
+---
+ include/net/ip_fib.h     |  3 ++-
+ net/ipv4/fib_frontend.c  |  5 +++--
+ net/ipv4/fib_semantics.c | 29 +++++++++++++++++++++++++++--
+ 3 files changed, 32 insertions(+), 5 deletions(-)
 
-I did tests with v3 patch and seems described problem is gone.
-
-> 
-> Regards
-> 
-> --
-> Julian Anastasov <ja@ssi.bg>
-
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index 9922093..0405fc9 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -287,8 +287,9 @@ static inline int fib_num_tclassid_users(struct net *net)
+ #endif
+ 
+ /* Exported by fib_semantics.c */
++struct in_ifaddr;
+ int ip_fib_check_default(__be32 gw, struct net_device *dev);
+-int fib_sync_down_dev(struct net_device *dev, int force);
++int fib_sync_down_dev(struct net_device *dev, struct in_ifaddr *ifa, int 
+force);
+ int fib_sync_down_addr(struct net *net, __be32 local);
+ int fib_sync_up(struct net_device *dev);
+ void fib_select_multipath(struct fib_result *res);
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index ae5f35f..fd3445e 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -907,7 +907,8 @@ void fib_del_ifaddr(struct in_ifaddr *ifa, struct 
+in_ifaddr *iprim)
+ 			 * First of all, we scan fib_info list searching
+ 			 * for stray nexthop entries, then ignite fib_flush.
+ 			 */
+-			if (fib_sync_down_addr(dev_net(dev), ifa->ifa_local))
++			if (fib_sync_down_addr(dev_net(dev), ifa->ifa_local) +
++			    fib_sync_down_dev(dev, ifa, 0))
+ 				fib_flush(dev_net(dev));
+ 		}
+ 	}
+@@ -997,7 +998,7 @@ static void nl_fib_lookup_exit(struct net *net)
+ 
+ static void fib_disable_ip(struct net_device *dev, int force)
+ {
+-	if (fib_sync_down_dev(dev, force))
++	if (fib_sync_down_dev(dev, NULL, force))
+ 		fib_flush(dev_net(dev));
+ 	rt_cache_flush(dev_net(dev));
+ 	arp_ifdown(dev);
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 9d43468..fbebba5 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -1112,7 +1112,29 @@ int fib_sync_down_addr(struct net *net, __be32 local)
+ 	return ret;
+ }
+ 
+-int fib_sync_down_dev(struct net_device *dev, int force)
++static inline bool fib_sync_down_gw(struct fib_nh *nh,
++				    struct in_ifaddr *ifr)
++{
++	if (!ifr)
++		return true;
++
++	if (nh->nh_flags & RTNH_F_ONLINK)
++		return false;
++
++	if (!inet_ifa_match(nh->nh_gw, ifr))
++		return false;
++
++	for_ifa(ifr->ifa_dev) {
++		if (unlikely(ifa == ifr))
++			continue;
++		if (inet_ifa_match(nh->nh_gw, ifa))
++			return false;
++	} endfor_ifa(ifr->ifa_dev);
++
++	return true;
++}
++
++int fib_sync_down_dev(struct net_device *dev, struct in_ifaddr *ifa, int 
+force)
+ {
+ 	int ret = 0;
+ 	int scope = RT_SCOPE_NOWHERE;
+@@ -1124,6 +1146,8 @@ int fib_sync_down_dev(struct net_device *dev, int force)
+ 	if (force)
+ 		scope = -1;
+ 
++	BUG_ON(ifa && ifa->ifa_dev->dev != dev);
++
+ 	hlist_for_each_entry(nh, head, nh_hash) {
+ 		struct fib_info *fi = nh->nh_parent;
+ 		int dead;
+@@ -1137,7 +1161,8 @@ int fib_sync_down_dev(struct net_device *dev, int force)
+ 			if (nexthop_nh->nh_flags & RTNH_F_DEAD)
+ 				dead++;
+ 			else if (nexthop_nh->nh_dev == dev &&
+-				 nexthop_nh->nh_scope != scope) {
++				 nexthop_nh->nh_scope != scope &&
++				 fib_sync_down_gw(nexthop_nh, ifa)) {
+ 				nexthop_nh->nh_flags |= RTNH_F_DEAD;
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+ 				spin_lock_bh(&fib_multipath_lock);
 -- 
-SP5474-RIPE
-Sergey Popovich
+1.8.3.4
