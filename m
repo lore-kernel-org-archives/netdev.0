@@ -1,33 +1,25 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] rtnetlink: remove check for fill_slave_info
- in rtnl_have_link_slave_info
-Date: Thu, 23 Jan 2014 16:22:43 -0800 (PST)
-Message-ID: <20140123.162243.1200181889443294910.davem@davemloft.net>
-References: <1390501161-7890-1-git-send-email-jiri@resnulli.us>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: [README] bug fixes only...
+Date: Thu, 23 Jan 2014 16:24:08 -0800 (PST)
+Message-ID: <20140123.162408.681541949851852312.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sfeldma@cumulusnetworks.com,
-	nicolas.dichtel@6wind.com, john.r.fastabend@intel.com,
-	vyasevich@gmail.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33988 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751957AbaAXAWo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 19:22:44 -0500
-In-Reply-To: <1390501161-7890-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Thu, 23 Jan 2014 19:19:21 +0100
 
-> This check is not needed because the same check is done before
-> fill_slave_info is used in rtnl_link_slave_info_fill.
-> Also, by removing this check, kernel will fillup IFLA_INFO_SLAVE_KIND
-> even for slaves of masters which does not implement fill_slave_info.
-> 
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+I want to see zero feature and/or cleanup patches submitted at this
+time.
 
-Applied, thanks.
+net-next is now frozen and I'm going to let it sit for a day before
+I try to merge it to Linus.
+
+Thanks for your understanding.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
