@@ -1,27 +1,25 @@
 From: Sergey Popovich <popovich_sergei@mail.ru>
-Subject: [PATCH 4/4 v3] ipv4: mark nexthop as dead when it's subnet becomes
-Date: Fri, 24 Jan 2014 12:15:38 +0200
-Message-ID: <3898551.8JLk8eulsc@tuxracer>
-References: <cover.1390304505.git.popovich_sergei@mail.ru> <2208170.gq1LW14mJ5@tuxracer> <alpine.LFD.2.11.1401232221010.1667@ja.home.ssi.bg>
+Subject: [PATCH 4/4 v3] ipv4: mark nexthop as dead when it's subnet becomes unreachable
+Date: Fri, 24 Jan 2014 12:25:17 +0200
+Message-ID: <1521507.ObZglEaf1D@tuxracer>
+References: <cover.1390304505.git.popovich_sergei@mail.ru> <alpine.LFD.2.11.1401232221010.1667@ja.home.ssi.bg> <2039386.VZO3kUlZdW@tuxracer>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback8.mail.ru ([94.100.176.136]:43322 "EHLO
-	fallback8.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751721AbaAXKT7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jan 2014 05:19:59 -0500
-Received: from smtp20.mail.ru (smtp20.mail.ru [94.100.176.173])
-	by fallback8.mail.ru (mPOP.Fallback_MX) with ESMTP id 0D8EF4E7E49D
-	for <netdev@vger.kernel.org>; Fri, 24 Jan 2014 14:15:51 +0400 (MSK)
-Received: from [2a01:6d80:103:13::c3ea:4404] (port=56871 helo=tuxracer.localnet)
-	by smtp20.mail.ru with esmtpa (envelope-from <popovich_sergei@mail.ru>)
-	id 1W6dnX-0001Ky-VK
-	for netdev@vger.kernel.org; Fri, 24 Jan 2014 14:15:40 +0400
-In-Reply-To: <alpine.LFD.2.11.1401232221010.1667@ja.home.ssi.bg>
+Received: from smtp40.i.mail.ru ([94.100.177.100]:51490 "EHLO smtp40.i.mail.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752018AbaAXKZW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Jan 2014 05:25:22 -0500
+Received: from [2a01:6d80:103:13::c3ea:4404] (port=57159 helo=tuxracer.localnet)
+	by smtp40.i.mail.ru with esmtpa (envelope-from <popovich_sergei@mail.ru>)
+	id 1W6dwt-00086L-Kj
+	for netdev@vger.kernel.org; Fri, 24 Jan 2014 14:25:20 +0400
+In-Reply-To: <2039386.VZO3kUlZdW@tuxracer>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
 
 Removing ip address and it's subnet route using fib_del_ifaddr() does
 not purge routes with nexthop in such subnet.
@@ -72,8 +70,7 @@ index 9922093..0405fc9 100644
 +struct in_ifaddr;
  int ip_fib_check_default(__be32 gw, struct net_device *dev);
 -int fib_sync_down_dev(struct net_device *dev, int force);
-+int fib_sync_down_dev(struct net_device *dev, struct in_ifaddr *ifa, int 
-force);
++int fib_sync_down_dev(struct net_device *dev, struct in_ifaddr *ifa, int force);
  int fib_sync_down_addr(struct net *net, __be32 local);
  int fib_sync_up(struct net_device *dev);
  void fib_select_multipath(struct fib_result *res);
@@ -81,8 +78,7 @@ diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
 index ae5f35f..fd3445e 100644
 --- a/net/ipv4/fib_frontend.c
 +++ b/net/ipv4/fib_frontend.c
-@@ -907,7 +907,8 @@ void fib_del_ifaddr(struct in_ifaddr *ifa, struct 
-in_ifaddr *iprim)
+@@ -907,7 +907,8 @@ void fib_del_ifaddr(struct in_ifaddr *ifa, struct in_ifaddr *iprim)
  			 * First of all, we scan fib_info list searching
  			 * for stray nexthop entries, then ignite fib_flush.
  			 */
@@ -132,8 +128,7 @@ index 9d43468..fbebba5 100644
 +	return true;
 +}
 +
-+int fib_sync_down_dev(struct net_device *dev, struct in_ifaddr *ifa, int 
-force)
++int fib_sync_down_dev(struct net_device *dev, struct in_ifaddr *ifa, int force)
  {
  	int ret = 0;
  	int scope = RT_SCOPE_NOWHERE;
