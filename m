@@ -1,78 +1,72 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: [net/loopback] +46% netperf.Throughput_Mbps
-Date: Fri, 24 Jan 2014 20:24:42 +0800
-Message-ID: <20140124122442.GA27801@localhost>
+From: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
+Subject: Re: [Xen-devel] [PATCH v6] xen/grant-table: Avoid m2p_override during
+ mapping
+Date: Fri, 24 Jan 2014 12:04:52 +0000
+Message-ID: <alpine.DEB.2.02.1401241200380.15917@kaball.uk.xensource.com>
+References: <1390512224-27296-1-git-send-email-zoltan.kiss@citrix.com> <20140124054828.GA18522@u109add4315675089e695.ant.amazon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:16254 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752167AbaAXMYo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Jan 2014 07:24:44 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Zoltan Kiss <zoltan.kiss@citrix.com>, <jonathan.davies@citrix.com>,
+	<wei.liu2@citrix.com>, <ian.campbell@citrix.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Anthony Liguori <aliguori@amazon.com>,
+	<xen-devel@lists.xenproject.org>, Matt Wilson <msw@amazon.com>
+To: Matt Wilson <msw@linux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140124054828.GA18522@u109add4315675089e695.ant.amazon.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Eric,
+On Thu, 23 Jan 2014, Matt Wilson wrote:
+> On Thu, Jan 23, 2014 at 09:23:44PM +0000, Zoltan Kiss wrote:
+> > The grant mapping API does m2p_override unnecessarily: only gntdev needs it,
+> > for blkback and future netback patches it just cause a lock contention, as
+> > those pages never go to userspace. Therefore this series does the following:
+> > - the original functions were renamed to __gnttab_[un]map_refs, with a new
+> >   parameter m2p_override
+> > - based on m2p_override either they follow the original behaviour, or just set
+> >   the private flag and call set_phys_to_machine
+> > - gnttab_[un]map_refs are now a wrapper to call __gnttab_[un]map_refs with
+> >   m2p_override false
+> > - a new function gnttab_[un]map_refs_userspace provides the old behaviour
+> > 
+> > It also removes a stray space from page.h and change ret to 0 if
+> > XENFEAT_auto_translated_physmap, as that is the only possible return value
+> > there.
+> > 
+> > v2:
+> > - move the storing of the old mfn in page->index to gnttab_map_refs
+> > - move the function header update to a separate patch
+> > 
+> > v3:
+> > - a new approach to retain old behaviour where it needed
+> > - squash the patches into one
+> > 
+> > v4:
+> > - move out the common bits from m2p* functions, and pass pfn/mfn as parameter
+> > - clear page->private before doing anything with the page, so m2p_find_override
+> >   won't race with this
+> > 
+> > v5:
+> > - change return value handling in __gnttab_[un]map_refs
+> > - remove a stray space in page.h
+> > - add detail why ret = 0 now at some places
+> > 
+> > v6:
+> > - don't pass pfn to m2p* functions, just get it locally
+> > 
+> > Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> > Suggested-by: David Vrabel <david.vrabel@citrix.com>
+> 
+> Apologies for coming in late on this thread. I'm quite behind on
+> xen-devel mail that isn't CC: to me.
+> 
+> It seems to have been forgotten that Anthony and I proposed a similar
+> change last November.
+> 
+> https://lkml.kernel.org/r/1384307336-5328-1-git-send-email-anthony@codemonkey.ws
+> 
+> Or am I misunderstanding the change?
 
-Just FYI, we do measured +46.4% performance boost in netperf
-TCP_SENDFILE tests on an atom server for commit:
-
-commit 0cf833aefaa85bbfce3ff70485e5534e09254773
-Author:     Eric Dumazet <edumazet@google.com>
-AuthorDate: Sun Sep 23 22:28:59 2012 +0000
-Commit:     David S. Miller <davem@davemloft.net>
-CommitDate: Mon Sep 24 16:23:53 2012 -0400
-
-    net: loopback: set default mtu to 64K
-    
-    loopback current mtu of 16436 bytes allows no more than 3 MSS TCP
-    segments per frame, or 48 Kbytes. Changing mtu to 64K allows TCP
-    stack to build large frames and significantly reduces stack overhead.
-    
-    Performance boost on bulk TCP transferts can be up to 30 %, partly
-    because we now have one ACK message for two 64KB segments, and a lower
-    probability of hitting /proc/sys/net/ipv4/tcp_reordering default limit.
-    
-    Signed-off-by: Eric Dumazet <edumazet@google.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
- drivers/net/loopback.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-2a6c8c7998f95b1  0cf833aefaa85bbfce3ff7048  
----------------  -------------------------  
-      1233 ~ 4%     +46.4%       1805 ~ 0%   netperf.Throughput_Mbps
-     29214 ~ 9%     -85.2%       4310 ~17%   interrupts.RES
-    450970 ~ 3%     -57.3%     192675 ~ 1%   proc-vmstat.pgalloc_normal
-    453096 ~ 3%     -57.0%     194790 ~ 1%   proc-vmstat.pgfree
-   4664799 ~ 6%     -47.7%    2441398 ~ 0%   softirqs.NET_RX
-      1107 ~ 9%     +62.2%       1797 ~ 0%   slabinfo.kmalloc-1024.active_objs
-      1185 ~ 8%     +54.2%       1827 ~ 0%   slabinfo.kmalloc-1024.num_objs
-    244825 ~ 3%     -28.6%     174791 ~ 0%   proc-vmstat.numa_hit
-    244825 ~ 3%     -28.6%     174791 ~ 0%   proc-vmstat.numa_local
-       913 ~ 2%     +39.3%       1271 ~ 1%   slabinfo.skbuff_fclone_cache.active_objs
-       944 ~ 3%     +36.9%       1293 ~ 1%   slabinfo.skbuff_fclone_cache.num_objs
-        10 ~ 0%     -10.0%          9 ~ 0%   vmstat.procs.r
-     59630 ~12%     -94.4%       3336 ~ 8%   vmstat.system.cs
-      1233 ~ 1%     -16.4%       1031 ~ 0%   vmstat.system.in
-
-                               netperf.Throughput_Mbps
-
-   2000 ++------------------------------------------------------------------+
-   1800 O+O O  O O O O O  O O O O O  O O O O O O  O O O O O  O O O O O  O O O
-        |                                                                   |
-   1600 ++                                                                  |
-   1400 ++                  *.                                              |
-        *.*.*..   .*.*.    +  *      *.*.*.*.    .*.*. .*.*                 |
-   1200 ++     *.*     *..*   :      :       *.*.     *                     |
-   1000 ++                    :     :                                       |
-    800 ++                     :    :                                       |
-        |                      :    :                                       |
-    600 ++                     :   :                                        |
-    400 ++                     :   :                                        |
-        |                       :  :                                        |
-    200 ++                      : :                                         |
-      0 ++----------------------*-*-----------------------------------------+
+Matt, you are correct, it is very similar. I had forgotten about
+Anthony's patch, otherwise I would have CC'ed him in the discussion.
