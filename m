@@ -1,44 +1,35 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next v2 3/5] net_sched: act: move tcf_hashinfo_init()
- into tcf_register_action()
-Date: Thu, 23 Jan 2014 16:52:00 -0800
-Message-ID: <CAM_iQpV2zKF3vQGmsa0Fvcii2+tQTKmp=6a-odggbFnJK8snjQ@mail.gmail.com>
-References: <1390516525-8556-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1390516525-8556-4-git-send-email-xiyou.wangcong@gmail.com>
-	<20140123160859.147c6878@nehalam.linuxnetplumber.net>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: Setting mac address of loopback device
+Date: Thu, 23 Jan 2014 16:55:13 -0800
+Message-ID: <CAHA+R7OghbTx1VZj=2P7XROgiLu7vFZ_uV6NybgOtkc3V3P3Yg@mail.gmail.com>
+References: <CAHA+R7Poj99BjOq55st3hU-2-p+gqoeHMCDCSJjT5eEocbKwMQ@mail.gmail.com>
+	<20140123234920.GM7269@order.stressinduktion.org>
+	<CAHA+R7PtkiQRgJwTJ4Pq2zTWs9N5x22VFEcK4QMv65SG7bX1Tw@mail.gmail.com>
+	<20140124001026.GN7269@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=ISO-8859-1
+To: Cong Wang <cwang@twopensource.com>,
+	David Miller <davem@davemloft.net>, stephen@networkplumber.org,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f181.google.com ([209.85.214.181]:38138 "EHLO
-	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751853AbaAXAwC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 19:52:02 -0500
-Received: by mail-ob0-f181.google.com with SMTP id va2so2932462obc.12
-        for <netdev@vger.kernel.org>; Thu, 23 Jan 2014 16:52:00 -0800 (PST)
-In-Reply-To: <20140123160859.147c6878@nehalam.linuxnetplumber.net>
+Received: from mail-lb0-f178.google.com ([209.85.217.178]:59270 "EHLO
+	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751592AbaAXAzP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 19:55:15 -0500
+Received: by mail-lb0-f178.google.com with SMTP id u14so2008268lbd.23
+        for <netdev@vger.kernel.org>; Thu, 23 Jan 2014 16:55:14 -0800 (PST)
+In-Reply-To: <20140124001026.GN7269@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 23, 2014 at 4:08 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Thu, 23 Jan 2014 14:35:23 -0800
-> Cong Wang <xiyou.wangcong@gmail.com> wrote:
+On Thu, Jan 23, 2014 at 4:10 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
 >
->>
->>  struct tc_action {
->>       void                    *priv;
->> -     const struct tc_action_ops      *ops;
->> +     struct tc_action_ops    *ops;
+> It seems accurate. Only other idea is to try netfilter with TEE target on
+> loopback.
 >
-> As much as possible all function tables should be constant.
-> One of the rootkit tricks is to overwrite a function table entry
-> at runtime. Granted tc action is a minor corner of the exposed
-> universe, but this seems a step backwards when the only real
-> gain is some refactoring/cleanup.
 
-Yeah, then we can keep hinfo as a pointer in ops,
-and allocate it dynamically.
+xt_TEE should work for me too. But for applications, using iptables
+is at least as hard as using a tc action.
+
+Thanks!
