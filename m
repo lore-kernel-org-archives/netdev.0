@@ -1,35 +1,73 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: Setting mac address of loopback device
-Date: Thu, 23 Jan 2014 16:55:13 -0800
-Message-ID: <CAHA+R7OghbTx1VZj=2P7XROgiLu7vFZ_uV6NybgOtkc3V3P3Yg@mail.gmail.com>
-References: <CAHA+R7Poj99BjOq55st3hU-2-p+gqoeHMCDCSJjT5eEocbKwMQ@mail.gmail.com>
-	<20140123234920.GM7269@order.stressinduktion.org>
-	<CAHA+R7PtkiQRgJwTJ4Pq2zTWs9N5x22VFEcK4QMv65SG7bX1Tw@mail.gmail.com>
-	<20140124001026.GN7269@order.stressinduktion.org>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH] ipv6: reallocate addrconf router for ipv6 address when
+ lo device up
+Date: Fri, 24 Jan 2014 09:14:04 +0800
+Message-ID: <52E1BE5C.3060106@cn.fujitsu.com>
+References: <1390460277-23451-1-git-send-email-gaofeng@cn.fujitsu.com> <20140123210324.GL7269@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Cong Wang <cwang@twopensource.com>,
-	David Miller <davem@davemloft.net>, stephen@networkplumber.org,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, davem@davemloft.net,
+	Sabrina Dubroca <sd@queasysnail.net>,
+	Weilong Chen <chenweilong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:59270 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751592AbaAXAzP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 19:55:15 -0500
-Received: by mail-lb0-f178.google.com with SMTP id u14so2008268lbd.23
-        for <netdev@vger.kernel.org>; Thu, 23 Jan 2014 16:55:14 -0800 (PST)
-In-Reply-To: <20140124001026.GN7269@order.stressinduktion.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:27673 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751015AbaAXBNR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jan 2014 20:13:17 -0500
+In-Reply-To: <20140123210324.GL7269@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 23, 2014 at 4:10 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
->
-> It seems accurate. Only other idea is to try netfilter with TEE target on
-> loopback.
->
+On 01/24/2014 05:03 AM, Hannes Frederic Sowa wrote:
+> On Thu, Jan 23, 2014 at 02:57:57PM +0800, Gao feng wrote:
+>> commit 25fb6ca4ed9cad72f14f61629b68dc03c0d9713f
+>> "net IPv6 : Fix broken IPv6 routing table after loopback down-up"
+>> allocates addrconf router for ipv6 address when lo device up.
+>> but commit a881ae1f625c599b460cc8f8a7fcb1c438f699ad
+>> "ipv6:don't call addrconf_dst_alloc again when enable lo" breaks
+>> this behavior.
+>>
+>> Since the addrconf router is moved to the garbage list when
+>> lo device down, we should delete this router and rellocate
+>> a new one for ipv6 address when lo device up.
+>>
+>> This patch solves bug 67951 on bugzilla
+>> https://bugzilla.kernel.org/show_bug.cgi?id=67951
+>>
+>> CC: Sabrina Dubroca <sd@queasysnail.net>
+>> CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>> Reported-by: Weilong Chen <chenweilong@huawei.com>
+>> Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+>> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+>> ---
+>>  net/ipv6/addrconf.c | 13 +++++++++++--
+>>  1 file changed, 11 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+>> index 4b6b720..6eecd9d 100644
+>> --- a/net/ipv6/addrconf.c
+>> +++ b/net/ipv6/addrconf.c
+>> @@ -2611,8 +2611,17 @@ static void init_loopback(struct net_device *dev)
+>>  			if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
+>>  				continue;
+>>  
+>> -			if (sp_ifa->rt)
+>> -				continue;
+>> +			if (sp_ifa->rt) {
+>> +				/* This dst has been added to garbage list when
+>> +				 * lo device down, delete this obsolete dst and
+>> +				 * reallocate a new router for ifa.
+>> +				 */
+>> +				if (sp_ifa->rt->dst.obsolete > 0) {
+>> +					ip6_del_rt(sp_ifa->rt);
+> 
+> We should not delete dst.obsolete > 0 routes. I think a ip6_put_rt is just
+> fine here, no?
+> 
 
-xt_TEE should work for me too. But for applications, using iptables
-is at least as hard as using a tc action.
 
-Thanks!
+Yes, definitely. this route has already been delete from route tree in fib6_clean_all.
+no need delete it again.
+
+Thanks, I will post v2 patch.
