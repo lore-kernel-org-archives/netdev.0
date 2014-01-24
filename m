@@ -1,79 +1,41 @@
-From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
-Subject: RE: [PATCH net-next 3/4] ethtool: Support for configurable RSS hash
- key.
-Date: Fri, 24 Jan 2014 12:00:55 +0000
-Message-ID: <BF3270C86E8B1349A26C34E4EC1C44CB2C85E298@CMEXMB1.ad.emulex.com>
-References: <BF3270C86E8B1349A26C34E4EC1C44CB2C83D8E5@CMEXMB1.ad.emulex.com>
-	 <1390156048.16433.114.camel@deadeye.wl.decadent.org.uk>
-	 <BF3270C86E8B1349A26C34E4EC1C44CB2C84C327@CMEXMB1.ad.emulex.com>
-	 <1390224028.3651.72.camel@deadeye.wl.decadent.org.uk>
-	 <BF3270C86E8B1349A26C34E4EC1C44CB2C84CFAE@CMEXMB1.ad.emulex.com>
-	 <1390455540.3651.136.camel@deadeye.wl.decadent.org.uk>
-	 <BF3270C86E8B1349A26C34E4EC1C44CB2C84D71E@CMEXMB1.ad.emulex.com>
- <1390489756.1547.13.camel@deadeye.wl.decadent.org.uk>
+From: Michal Sojka <sojkam1@fel.cvut.cz>
+Subject: Re: [PATCH v2 1/2] can: Decrease default size of CAN_RAW socket send queue
+Date: Fri, 24 Jan 2014 13:14:09 +0100
+Message-ID: <87mwilbmr2.fsf@steelpick.2x.cz>
+References: <1390379257-9040-1-git-send-email-sojkam1@fel.cvut.cz> <20140123.124108.891860564230946746.davem@davemloft.net> <52E18331.6050607@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:49333 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752064AbaAXMA4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jan 2014 07:00:56 -0500
-In-Reply-To: <1390489756.1547.13.camel@deadeye.wl.decadent.org.uk>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <52E18331.6050607@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
-bWFpbHRvOmJlbkBkZWNhZGVudC5vcmcudWtdDQo+IFNlbnQ6IFRodXJzZGF5LCBKYW51YXJ5IDIz
-LCAyMDE0IDg6MzkgUE0NCj4gVG86IFZlbmthdGEgRHV2dnVydQ0KPiBDYzogbmV0ZGV2QHZnZXIu
-a2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldC1uZXh0IDMvNF0gZXRodG9vbDog
-U3VwcG9ydCBmb3IgY29uZmlndXJhYmxlIFJTUyBoYXNoDQo+IGtleS4NCj4gDQo+IE9uIFRodSwg
-MjAxNC0wMS0yMyBhdCAxMzo0NyArMDAwMCwgVmVua2F0YSBEdXZ2dXJ1IHdyb3RlOg0KPiA+ID4g
-LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiA+IEZyb206IEJlbiBIdXRjaGluZ3MgW21h
-aWx0bzpiZW5AZGVjYWRlbnQub3JnLnVrXQ0KPiA+ID4gU2VudDogVGh1cnNkYXksIEphbnVhcnkg
-MjMsIDIwMTQgMTE6MDkgQU0NCj4gPiA+IFRvOiBWZW5rYXRhIER1dnZ1cnUNCj4gPiA+IENjOiBu
-ZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+ID4gPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldC1uZXh0
-IDMvNF0gZXRodG9vbDogU3VwcG9ydCBmb3IgY29uZmlndXJhYmxlDQo+ID4gPiBSU1MgaGFzaCBr
-ZXkuDQo+ID4gPg0KPiA+ID4gT24gV2VkLCAyMDE0LTAxLTIyIGF0IDEyOjEyICswMDAwLCBWZW5r
-YXRhIER1dnZ1cnUgd3JvdGU6DQo+ID4gPiBbLi4uXQ0KPiA+ID4gPiA+IE5vLCB3aGF0IEkgbWVh
-biBpczoNCj4gPiA+ID4gPg0KPiA+ID4gPiA+IDEuIEFuIFJYIGZsb3cgc3RlZXJpbmcgZmlsdGVy
-IGNhbiBzcGVjaWZ5IHVzZSBvZiBSU1MsIGluIHdoaWNoDQo+ID4gPiA+ID4gY2FzZSB0aGUgdmFs
-dWUgbG9va2VkIHVwIGluIHRoZSBpbmRpcmVjdGlvbiBpcyBhZGRlZCB0byB0aGUNCj4gPiA+ID4g
-PiBxdWV1ZSBudW1iZXIgc3BlY2lmaWVkIGluIHRoZSBmaWx0ZXIuICBUaGlzIGlzIG5vdCB5ZXQN
-Cj4gPiA+ID4gPiBjb250cm9sbGFibGUgdGhyb3VnaCBSWCBORkMgdGhvdWdoIHRoZXJlIGlzIHJv
-b20gZm9yIGV4dGVuc2lvbg0KPiB0aGVyZS4NCj4gPiA+ID4gPg0KPiA+ID4gPiA+IDIuIE11bHRp
-LWZ1bmN0aW9uIGNvbnRyb2xsZXJzIG5lZWQgbXVsdGlwbGUgUlNTIGNvbnRleHRzIChrZXkgKw0K
-PiA+ID4gPiA+IGluZGlyZWN0aW9uDQo+ID4gPiA+ID4gdGFibGUpIHRvIHN1cHBvcnQgaW5kZXBl
-bmRlbnQgdXNlIG9mIFJTUyBvbiBlYWNoIGZ1bmN0aW9uLg0KPiA+ID4gPiA+IEJ1dCBpdCBtYXkg
-YWxzbyBiZSBwb3NzaWJsZSB0byBhbGxvY2F0ZSBtdWx0aXBsZSBjb250ZXh0cyB0byBhDQo+ID4g
-PiA+ID4gc2luZ2xlDQo+ID4gPiBmdW5jdGlvbi4NCj4gPiA+ID4gPiBUaGlzIGNvdWxkIGJlIHVz
-ZWZ1bCBpbiBjb25qdW5jdGlvbiB3aXRoIDEuICBCdXQgdGhlcmUgd291bGQNCj4gPiA+ID4gPiBu
-ZWVkIHRvIGJlIGEgd2F5IHRvIGFsbG9jYXRlIGFuZCBjb25maWd1cmUgZXh0cmEgY29udGV4dHMg
-Zmlyc3QuDQo+ID4gPiA+IFRoZSBwcm9wb3NlZCBjaGFuZ2VzIHdpbGwgYmUgaW5jcmVtZW50YWwg
-c28gSSB0aGluayB0aGlzIGNhbiBiZQ0KPiA+ID4gPiBkb25lIGluIGEgc2VwYXJhdGUgcGF0Y2gu
-IFRob3VnaHRzPw0KPiA+ID4NCj4gPiA+IFRoZSBldGh0b29sIEFCSSAodG8gdXNlcmxhbmQpIGhh
-cyB0byByZW1haW4gYmFja3dhcmQtY29tcGF0aWJsZSwgYW5kDQo+ID4gPiBpdCBpcyBwcmVmZXJh
-YmxlIGlmIHdlIGRvbid0IGFkZCBsb3RzIG9mIGRpZmZlcmVudCBzdHJ1Y3R1cmVzIGZvciB0aGlz
-Lg0KPiA+ID4NCj4gPiA+IFNvIHBsZWFzZSBkZWZpbmUgdGhlIG5ldyBjb21tYW5kIHN0cnVjdHVy
-ZSB0byBpbmNsdWRlIGJvdGggdGhlIGtleQ0KPiA+ID4gYW5kIGluZGlyZWN0aW9uIHRhYmxlLCBh
-bmQgc29tZSByZXNlcnZlZCBzcGFjZSAoZG9jdW1lbnRlZCBhcw0KPiA+ID4gJ3VzZXJsYW5kIG11
-c3Qgc2V0IHRvIDAnKSBmb3IgZnV0dXJlIGV4dGVuc2lvbnMuDQo+ID4NCj4gPiBJIHRoaW5rIGl0
-4oCZcyBiZXR0ZXIgdG8ga2VlcCBrZXkgYW5kIGluZGlyZWN0aW9uIHRhYmxlIHNldHRpbmdzIGFz
-DQo+ID4gZGlmZmVyZW50IGV0aHRvb2wgY29tbWFuZHMuIFdlIGNhbiBwcm9iYWJseSBhZGQgcnNz
-IGNvbnRleHRzIChyZXNlcnZlZA0KPiA+IHNwYWNlKSB0byBib3RoIHRoZSBjb21tYW5kIHN0cnVj
-dHVyZXMuDQo+ID4gSWYgd2UgbWl4IGtleSBhbmQgaW5kaXJlY3Rpb24gdGFibGUgaW50byBvbmUg
-Y29tbWFuZCBzdHJ1Y3R1cmUgdGhlbiBpdA0KPiA+IHdpbGwgaGFtcGVyIHRoZSBjb21wYXRpYmls
-aXR5Lg0KPiBbLi4uXQ0KPiANCj4gUmlnaHQsIHRoZXJlIGlzIG5vIGNvbXBhdGlibGUgd2F5IHRv
-IGV4dGVuZCBzdHJ1Y3QgZXRodG9vbF9yeGZoX2luZGlyLg0KPiBJIHNob3VsZCBoYXZlIHRob3Vn
-aHQgYWhlYWQgd2hlbiBkZWZpbmluZyBpdCEgIEJ1dCB0aGUgbmV3IHN0cnVjdHVyZSBkb2Vzbid0
-DQo+IG5lZWQgdG8gaGF2ZSB0aGF0IHByb2JsZW0uDQoNCklmIGFueSBvbmUgb2YgdGhlIG9wZXJh
-dGlvbnMgKGtleSBvciBpbmRpcmVjdGlvbiB0YWJsZSkgaXMgbm90IHN1cHBvcnRlZCBieSB0aGUg
-ZHJpdmVyLCBzaG91bGQgd2Ugc2lsZW50bHkgaWdub3JlIHRoYXQgb3BlcmF0aW9uIGFuZCBwcm9j
-ZXNzIHRoZSBvdGhlciBzdXBwb3J0ZWQgb3BlcmF0aW9uIG9yIHNob3VsZCB3ZSBmYWlsIHRoZSBj
-b21tYW5kLiBJZiB3ZSBmYWlsIHRoZSBjb21tYW5kIHRoZW4gd2UgYXJlIG1hbmRhdGluZyB0aGUg
-ZHJpdmVycyB0byBpbXBsZW1lbnQgYm90aCB0aGUgb3BlcmF0aW9ucy4NCj4gDQo+IEJlbi4NCj4g
-DQo+IC0tDQo+IEJlbiBIdXRjaGluZ3MNCj4gY29tcGF0aWJsZTogR3JhY2VmdWxseSBhY2NlcHRz
-IGVycm9uZW91cyBkYXRhIGZyb20gYW55IHNvdXJjZQ0K
+On Thu, Jan 23 2014, Marc Kleine-Budde wrote:
+> On 01/23/2014 09:41 PM, David Miller wrote:
+>> From: Michal Sojka <sojkam1@fel.cvut.cz>
+>> Date: Wed, 22 Jan 2014 09:27:36 +0100
+>> 
+>>> Since the length of the qdisc queue was set by default to 10
+>>> packets, this is exactly what was happening.
+>> 
+>> This is your bug, set the qdisc limit to something more reasonable.
+>> 
+>> Something large enough to absorb the traffic wrt. the speed at which
+>> the CAN device can sink the data.
+>
+> Hmmm, the problem is on i686 I have to increase the txqueuelen to 366
+> before the socket works as expected (writes are blocking). This means if
+> there are two processes one sending a stream of bulk data and the other
+> one occasionally more important data there will be a lot of frames in
+> front of the important ones.
+
+This problem can be solved with queuing disciplines. See
+https://rtime.felk.cvut.cz/can/socketcan-qdisc-final.pdf.
+
+This reminds me that I have another patch that makes qdisc work better
+with CAN raw sockets. I'll send the patch to linux-can.
+
+-Michal
