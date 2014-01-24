@@ -1,38 +1,46 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [Patch net-next v2 3/5] net_sched: act: move
- tcf_hashinfo_init() into tcf_register_action()
-Date: Thu, 23 Jan 2014 16:08:59 -0800
-Message-ID: <20140123160859.147c6878@nehalam.linuxnetplumber.net>
-References: <1390516525-8556-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1390516525-8556-4-git-send-email-xiyou.wangcong@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Setting mac address of loopback device
+Date: Fri, 24 Jan 2014 01:10:26 +0100
+Message-ID: <20140124001026.GN7269@order.stressinduktion.org>
+References: <CAHA+R7Poj99BjOq55st3hU-2-p+gqoeHMCDCSJjT5eEocbKwMQ@mail.gmail.com> <20140123234920.GM7269@order.stressinduktion.org> <CAHA+R7PtkiQRgJwTJ4Pq2zTWs9N5x22VFEcK4QMv65SG7bX1Tw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>, stephen@networkplumber.org,
+	netdev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:34329 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751626AbaAXAJD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 19:09:03 -0500
-Received: by mail-pb0-f44.google.com with SMTP id rq2so2495429pbb.17
-        for <netdev@vger.kernel.org>; Thu, 23 Jan 2014 16:09:02 -0800 (PST)
-In-Reply-To: <1390516525-8556-4-git-send-email-xiyou.wangcong@gmail.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:33567 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752062AbaAXAK1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 19:10:27 -0500
+Content-Disposition: inline
+In-Reply-To: <CAHA+R7PtkiQRgJwTJ4Pq2zTWs9N5x22VFEcK4QMv65SG7bX1Tw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 23 Jan 2014 14:35:23 -0800
-Cong Wang <xiyou.wangcong@gmail.com> wrote:
+On Thu, Jan 23, 2014 at 04:03:29PM -0800, Cong Wang wrote:
+> On Thu, Jan 23, 2014 at 3:49 PM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+> > On Thu, Jan 23, 2014 at 11:53:49AM -0800, Cong Wang wrote:
+> >> BTW, how to change route to redirect _local_ traffic (that is packets
+> >> sending to itself) to a non-loopback device? I tried to modify local
+> >> route table, but have no luck to make it working.
+> >
+> > Have you seen the route_localnet sysctl? It should avoid the check for
+> > loopback addresses when building outgoing route.
+> 
+> I noticed it, the doc said:
+> 
+> This enables the use of 127/8 for local routing purposes.
+> 
+> but I don't care 127/8 traffic at all, only the traffic sending to itself
+> via a non-127/8 IP. :(
+> 
+> Or the doc is not accurate?
 
->  
->  struct tc_action {
->  	void			*priv;
-> -	const struct tc_action_ops	*ops;
-> +	struct tc_action_ops	*ops;
+It seems accurate. Only other idea is to try netfilter with TEE target on
+loopback.
 
-As much as possible all function tables should be constant.
-One of the rootkit tricks is to overwrite a function table entry
-at runtime. Granted tc action is a minor corner of the exposed
-universe, but this seems a step backwards when the only real
-gain is some refactoring/cleanup.
+Greetings,
+
+  Hannes
