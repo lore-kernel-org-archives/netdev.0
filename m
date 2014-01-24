@@ -1,108 +1,76 @@
-From: Michal Sojka <sojkam1@fel.cvut.cz>
-Subject: Re: [PATCH v2 1/2] can: Decrease default size of CAN_RAW socket send queue
-Date: Fri, 24 Jan 2014 11:51:25 +0100
-Message-ID: <87sisdbqky.fsf@steelpick.2x.cz>
-References: <1390379257-9040-1-git-send-email-sojkam1@fel.cvut.cz> <20140123.124108.891860564230946746.davem@davemloft.net> <52E18331.6050607@pengutronix.de> <20140123.144243.998328685775607324.davem@davemloft.net>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH v6] xen/grant-table: Avoid m2p_override	during
+ mapping
+Date: Fri, 24 Jan 2014 10:57:43 +0000
+Message-ID: <52E24727.6090809@citrix.com>
+References: <1390512224-27296-1-git-send-email-zoltan.kiss@citrix.com> <20140124054828.GA18522@u109add4315675089e695.ant.amazon.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20140123.144243.998328685775607324.davem@davemloft.net>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Zoltan Kiss <zoltan.kiss@citrix.com>, <jonathan.davies@citrix.com>,
+	<wei.liu2@citrix.com>, <ian.campbell@citrix.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Anthony Liguori <aliguori@amazon.com>,
+	<xen-devel@lists.xenproject.org>, Matt Wilson <msw@amazon.com>
+To: Matt Wilson <msw@linux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140124054828.GA18522@u109add4315675089e695.ant.amazon.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 23 2014, David Miller wrote:
-> From: Michal Sojka <sojkam1@fel.cvut.cz>
-> Date: Wed, 22 Jan 2014 09:27:36 +0100
->
->> Since the length of the qdisc queue was set by default to 10
->> packets, this is exactly what was happening.
->
-> This is your bug, set the qdisc limit to something more reasonable.
+On 24/01/14 05:48, Matt Wilson wrote:
+> On Thu, Jan 23, 2014 at 09:23:44PM +0000, Zoltan Kiss wrote:
+>> The grant mapping API does m2p_override unnecessarily: only gntdev needs it,
+>> for blkback and future netback patches it just cause a lock contention, as
+>> those pages never go to userspace. Therefore this series does the following:
+>> - the original functions were renamed to __gnttab_[un]map_refs, with a new
+>>   parameter m2p_override
+>> - based on m2p_override either they follow the original behaviour, or just set
+>>   the private flag and call set_phys_to_machine
+>> - gnttab_[un]map_refs are now a wrapper to call __gnttab_[un]map_refs with
+>>   m2p_override false
+>> - a new function gnttab_[un]map_refs_userspace provides the old behaviour
+>>
+>> It also removes a stray space from page.h and change ret to 0 if
+>> XENFEAT_auto_translated_physmap, as that is the only possible return value
+>> there.
+>>
+>> v2:
+>> - move the storing of the old mfn in page->index to gnttab_map_refs
+>> - move the function header update to a separate patch
+>>
+>> v3:
+>> - a new approach to retain old behaviour where it needed
+>> - squash the patches into one
+>>
+>> v4:
+>> - move out the common bits from m2p* functions, and pass pfn/mfn as parameter
+>> - clear page->private before doing anything with the page, so m2p_find_override
+>>   won't race with this
+>>
+>> v5:
+>> - change return value handling in __gnttab_[un]map_refs
+>> - remove a stray space in page.h
+>> - add detail why ret = 0 now at some places
+>>
+>> v6:
+>> - don't pass pfn to m2p* functions, just get it locally
+>>
+>> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+>> Suggested-by: David Vrabel <david.vrabel@citrix.com>
+> 
+> Apologies for coming in late on this thread. I'm quite behind on
+> xen-devel mail that isn't CC: to me.
+> 
+> It seems to have been forgotten that Anthony and I proposed a similar
+> change last November.
+> 
+> https://lkml.kernel.org/r/1384307336-5328-1-git-send-email-anthony@codemonkey.ws
+> 
+> Or am I misunderstanding the change?
 
-This is what that patch does. It increases qdisc limit from 10 to 100.
+Yes, it's equivalent.  There doesn't seem to have been a follow up patch
+posted for Anthony's patch so it's not surprising that it's fallen
+through the cracks.
 
-> What do you think UDP applications have to do on slow interfaces?
-> If they care about overrunning the device queue and getting packet
-> drops, they themselves set a smaller socket send buffer size.
->
-> CAN is not special in this regard, please stop treating it as such.
-
-CAN is different from UDP in that it cannot send big datagrams. So it
-makes sense to change the default sk_sndbuf value. Otherwise, you're
-right. I've checked that skb->truesize is the same for small UDP
-datagrams and CAN frames.
-
-What about the following?
-
-----8<--------8<-----
-Subject: [PATCH v3] can: Decrease default size of CAN_RAW socket send queue
-
-This fixes the infamous ENOBUFS problem, which appears when an
-application sends CAN frames faster than they leave the interface.
-
-Packets for sending can be queued at queueing discipline. Qdisc queue
-has two limits: maximum length and per-socket byte limit (SO_SNDBUF).
-Only the later limit can cause the sender to block. If maximum queue
-length limit is reached before the per-socket limit, the application
-receives ENOBUFS and there is no way how it can wait for the queue to
-become free again. Since the length of the qdisc queue was set by
-default to 10 packets, this is exactly what was happening.
-
-This patch decreases the default per-socket limit to the minimum value
-(which corresponds to approximately 11 CAN frames) and increases the
-length of the qdisc queue to 100 frames. This setting allows for at
-least 9 CAN_RAW sockets to send simultaneously to the same CAN
-interface without getting ENOBUFS errors.
-
-The exact maximum number of CAN frames that fit into the per-socket
-limit is: 1+floor(sk_sndbuf/skb->truesize). On my 32 bit PowerPC
-system, skb->truesize = 448 and SOCK_MIN_SNDBUF = 4480. This gives the
-limit of 1+floor(4480/448) = 11 CAN frames.
-
-Changes since v2:
-- Used SOCK_MIN_SNDBUF instead of a custom lower value.
-- Dropped second patch that set SOCK_MIN_SNDBUF differently for
-  AF_CAN.
-
-Changes since v1:
-- Improved the commit message, added some number from my system.
-
-Signed-off-by: Michal Sojka <sojkam1@fel.cvut.cz>
----
- drivers/net/can/dev.c | 2 +-
- net/can/raw.c         | 3 +++
- 2 files changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
-index 1870c47..a0bce83 100644
---- a/drivers/net/can/dev.c
-+++ b/drivers/net/can/dev.c
-@@ -492,7 +492,7 @@ static void can_setup(struct net_device *dev)
- 	dev->mtu = CAN_MTU;
- 	dev->hard_header_len = 0;
- 	dev->addr_len = 0;
--	dev->tx_queue_len = 10;
-+	dev->tx_queue_len = 100;
- 
- 	/* New-style flags. */
- 	dev->flags = IFF_NOARP;
-diff --git a/net/can/raw.c b/net/can/raw.c
-index fdda5f6..4293197 100644
---- a/net/can/raw.c
-+++ b/net/can/raw.c
-@@ -291,6 +291,9 @@ static int raw_init(struct sock *sk)
- {
- 	struct raw_sock *ro = raw_sk(sk);
- 
-+	/* This limits the number of queued CAN frames to approximately 11 */
-+	sk->sk_sndbuf = SOCK_MIN_SNDBUF;
-+
- 	ro->bound            = 0;
- 	ro->ifindex          = 0;
- 
--- 
-1.8.5.2
-
-
+David
