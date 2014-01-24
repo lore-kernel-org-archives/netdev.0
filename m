@@ -1,50 +1,79 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next] bonding: do't permit slaves to change their mtu
- ndependently
-Date: Fri, 24 Jan 2014 12:50:46 +0100
-Message-ID: <20140124115046.GD3153@minipsycho.orion>
-References: <52E235DC.1020709@huawei.com>
- <20140124.015538.738633619234119497.davem@davemloft.net>
+From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
+Subject: RE: [PATCH net-next 3/4] ethtool: Support for configurable RSS hash
+ key.
+Date: Fri, 24 Jan 2014 12:00:55 +0000
+Message-ID: <BF3270C86E8B1349A26C34E4EC1C44CB2C85E298@CMEXMB1.ad.emulex.com>
+References: <BF3270C86E8B1349A26C34E4EC1C44CB2C83D8E5@CMEXMB1.ad.emulex.com>
+	 <1390156048.16433.114.camel@deadeye.wl.decadent.org.uk>
+	 <BF3270C86E8B1349A26C34E4EC1C44CB2C84C327@CMEXMB1.ad.emulex.com>
+	 <1390224028.3651.72.camel@deadeye.wl.decadent.org.uk>
+	 <BF3270C86E8B1349A26C34E4EC1C44CB2C84CFAE@CMEXMB1.ad.emulex.com>
+	 <1390455540.3651.136.camel@deadeye.wl.decadent.org.uk>
+	 <BF3270C86E8B1349A26C34E4EC1C44CB2C84D71E@CMEXMB1.ad.emulex.com>
+ <1390489756.1547.13.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dingtianhong@huawei.com, fubar@us.ibm.com, vfalico@redhat.com,
-	andy@greyhouse.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f177.google.com ([209.85.215.177]:33047 "EHLO
-	mail-ea0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751053AbaAXLuw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jan 2014 06:50:52 -0500
-Received: by mail-ea0-f177.google.com with SMTP id n15so937500ead.22
-        for <netdev@vger.kernel.org>; Fri, 24 Jan 2014 03:50:49 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20140124.015538.738633619234119497.davem@davemloft.net>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:49333 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752064AbaAXMA4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jan 2014 07:00:56 -0500
+In-Reply-To: <1390489756.1547.13.camel@deadeye.wl.decadent.org.uk>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Jan 24, 2014 at 10:55:38AM CET, davem@davemloft.net wrote:
->
->Diag, your commit messages and subject lines chronically have
- ^^^^
-
- Also typo :)
-
->many typos.
->
->Please take the time out necessary to correct such errors before
->sending your patches.
->
->This subject line shows a complete lack of care.
->
->Subject: Re: [PATCH net-next] bonding: do't permit slaves to change their mtu ndependently
-
-
-This patch (leaving the typos out of the equation) looks correct to me.
-
-Acked-by: Jiri Pirko <jiri@resnulli.us>
-
-
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
+bWFpbHRvOmJlbkBkZWNhZGVudC5vcmcudWtdDQo+IFNlbnQ6IFRodXJzZGF5LCBKYW51YXJ5IDIz
+LCAyMDE0IDg6MzkgUE0NCj4gVG86IFZlbmthdGEgRHV2dnVydQ0KPiBDYzogbmV0ZGV2QHZnZXIu
+a2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldC1uZXh0IDMvNF0gZXRodG9vbDog
+U3VwcG9ydCBmb3IgY29uZmlndXJhYmxlIFJTUyBoYXNoDQo+IGtleS4NCj4gDQo+IE9uIFRodSwg
+MjAxNC0wMS0yMyBhdCAxMzo0NyArMDAwMCwgVmVua2F0YSBEdXZ2dXJ1IHdyb3RlOg0KPiA+ID4g
+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiA+IEZyb206IEJlbiBIdXRjaGluZ3MgW21h
+aWx0bzpiZW5AZGVjYWRlbnQub3JnLnVrXQ0KPiA+ID4gU2VudDogVGh1cnNkYXksIEphbnVhcnkg
+MjMsIDIwMTQgMTE6MDkgQU0NCj4gPiA+IFRvOiBWZW5rYXRhIER1dnZ1cnUNCj4gPiA+IENjOiBu
+ZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+ID4gPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldC1uZXh0
+IDMvNF0gZXRodG9vbDogU3VwcG9ydCBmb3IgY29uZmlndXJhYmxlDQo+ID4gPiBSU1MgaGFzaCBr
+ZXkuDQo+ID4gPg0KPiA+ID4gT24gV2VkLCAyMDE0LTAxLTIyIGF0IDEyOjEyICswMDAwLCBWZW5r
+YXRhIER1dnZ1cnUgd3JvdGU6DQo+ID4gPiBbLi4uXQ0KPiA+ID4gPiA+IE5vLCB3aGF0IEkgbWVh
+biBpczoNCj4gPiA+ID4gPg0KPiA+ID4gPiA+IDEuIEFuIFJYIGZsb3cgc3RlZXJpbmcgZmlsdGVy
+IGNhbiBzcGVjaWZ5IHVzZSBvZiBSU1MsIGluIHdoaWNoDQo+ID4gPiA+ID4gY2FzZSB0aGUgdmFs
+dWUgbG9va2VkIHVwIGluIHRoZSBpbmRpcmVjdGlvbiBpcyBhZGRlZCB0byB0aGUNCj4gPiA+ID4g
+PiBxdWV1ZSBudW1iZXIgc3BlY2lmaWVkIGluIHRoZSBmaWx0ZXIuICBUaGlzIGlzIG5vdCB5ZXQN
+Cj4gPiA+ID4gPiBjb250cm9sbGFibGUgdGhyb3VnaCBSWCBORkMgdGhvdWdoIHRoZXJlIGlzIHJv
+b20gZm9yIGV4dGVuc2lvbg0KPiB0aGVyZS4NCj4gPiA+ID4gPg0KPiA+ID4gPiA+IDIuIE11bHRp
+LWZ1bmN0aW9uIGNvbnRyb2xsZXJzIG5lZWQgbXVsdGlwbGUgUlNTIGNvbnRleHRzIChrZXkgKw0K
+PiA+ID4gPiA+IGluZGlyZWN0aW9uDQo+ID4gPiA+ID4gdGFibGUpIHRvIHN1cHBvcnQgaW5kZXBl
+bmRlbnQgdXNlIG9mIFJTUyBvbiBlYWNoIGZ1bmN0aW9uLg0KPiA+ID4gPiA+IEJ1dCBpdCBtYXkg
+YWxzbyBiZSBwb3NzaWJsZSB0byBhbGxvY2F0ZSBtdWx0aXBsZSBjb250ZXh0cyB0byBhDQo+ID4g
+PiA+ID4gc2luZ2xlDQo+ID4gPiBmdW5jdGlvbi4NCj4gPiA+ID4gPiBUaGlzIGNvdWxkIGJlIHVz
+ZWZ1bCBpbiBjb25qdW5jdGlvbiB3aXRoIDEuICBCdXQgdGhlcmUgd291bGQNCj4gPiA+ID4gPiBu
+ZWVkIHRvIGJlIGEgd2F5IHRvIGFsbG9jYXRlIGFuZCBjb25maWd1cmUgZXh0cmEgY29udGV4dHMg
+Zmlyc3QuDQo+ID4gPiA+IFRoZSBwcm9wb3NlZCBjaGFuZ2VzIHdpbGwgYmUgaW5jcmVtZW50YWwg
+c28gSSB0aGluayB0aGlzIGNhbiBiZQ0KPiA+ID4gPiBkb25lIGluIGEgc2VwYXJhdGUgcGF0Y2gu
+IFRob3VnaHRzPw0KPiA+ID4NCj4gPiA+IFRoZSBldGh0b29sIEFCSSAodG8gdXNlcmxhbmQpIGhh
+cyB0byByZW1haW4gYmFja3dhcmQtY29tcGF0aWJsZSwgYW5kDQo+ID4gPiBpdCBpcyBwcmVmZXJh
+YmxlIGlmIHdlIGRvbid0IGFkZCBsb3RzIG9mIGRpZmZlcmVudCBzdHJ1Y3R1cmVzIGZvciB0aGlz
+Lg0KPiA+ID4NCj4gPiA+IFNvIHBsZWFzZSBkZWZpbmUgdGhlIG5ldyBjb21tYW5kIHN0cnVjdHVy
+ZSB0byBpbmNsdWRlIGJvdGggdGhlIGtleQ0KPiA+ID4gYW5kIGluZGlyZWN0aW9uIHRhYmxlLCBh
+bmQgc29tZSByZXNlcnZlZCBzcGFjZSAoZG9jdW1lbnRlZCBhcw0KPiA+ID4gJ3VzZXJsYW5kIG11
+c3Qgc2V0IHRvIDAnKSBmb3IgZnV0dXJlIGV4dGVuc2lvbnMuDQo+ID4NCj4gPiBJIHRoaW5rIGl0
+4oCZcyBiZXR0ZXIgdG8ga2VlcCBrZXkgYW5kIGluZGlyZWN0aW9uIHRhYmxlIHNldHRpbmdzIGFz
+DQo+ID4gZGlmZmVyZW50IGV0aHRvb2wgY29tbWFuZHMuIFdlIGNhbiBwcm9iYWJseSBhZGQgcnNz
+IGNvbnRleHRzIChyZXNlcnZlZA0KPiA+IHNwYWNlKSB0byBib3RoIHRoZSBjb21tYW5kIHN0cnVj
+dHVyZXMuDQo+ID4gSWYgd2UgbWl4IGtleSBhbmQgaW5kaXJlY3Rpb24gdGFibGUgaW50byBvbmUg
+Y29tbWFuZCBzdHJ1Y3R1cmUgdGhlbiBpdA0KPiA+IHdpbGwgaGFtcGVyIHRoZSBjb21wYXRpYmls
+aXR5Lg0KPiBbLi4uXQ0KPiANCj4gUmlnaHQsIHRoZXJlIGlzIG5vIGNvbXBhdGlibGUgd2F5IHRv
+IGV4dGVuZCBzdHJ1Y3QgZXRodG9vbF9yeGZoX2luZGlyLg0KPiBJIHNob3VsZCBoYXZlIHRob3Vn
+aHQgYWhlYWQgd2hlbiBkZWZpbmluZyBpdCEgIEJ1dCB0aGUgbmV3IHN0cnVjdHVyZSBkb2Vzbid0
+DQo+IG5lZWQgdG8gaGF2ZSB0aGF0IHByb2JsZW0uDQoNCklmIGFueSBvbmUgb2YgdGhlIG9wZXJh
+dGlvbnMgKGtleSBvciBpbmRpcmVjdGlvbiB0YWJsZSkgaXMgbm90IHN1cHBvcnRlZCBieSB0aGUg
+ZHJpdmVyLCBzaG91bGQgd2Ugc2lsZW50bHkgaWdub3JlIHRoYXQgb3BlcmF0aW9uIGFuZCBwcm9j
+ZXNzIHRoZSBvdGhlciBzdXBwb3J0ZWQgb3BlcmF0aW9uIG9yIHNob3VsZCB3ZSBmYWlsIHRoZSBj
+b21tYW5kLiBJZiB3ZSBmYWlsIHRoZSBjb21tYW5kIHRoZW4gd2UgYXJlIG1hbmRhdGluZyB0aGUg
+ZHJpdmVycyB0byBpbXBsZW1lbnQgYm90aCB0aGUgb3BlcmF0aW9ucy4NCj4gDQo+IEJlbi4NCj4g
+DQo+IC0tDQo+IEJlbiBIdXRjaGluZ3MNCj4gY29tcGF0aWJsZTogR3JhY2VmdWxseSBhY2NlcHRz
+IGVycm9uZW91cyBkYXRhIGZyb20gYW55IHNvdXJjZQ0K
