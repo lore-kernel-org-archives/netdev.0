@@ -1,53 +1,47 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: IPV6 routing problem
-Date: Fri, 24 Jan 2014 14:59:32 +0100
-Message-ID: <20140124135932.GR7269@order.stressinduktion.org>
-References: <CAJzFV37rPo6trvCwWyErchen_MvTzqabSU+BE3JZjNXT5-5H7Q@mail.gmail.com> <20140122070759.GB28225@order.stressinduktion.org> <20140122071101.GC28225@order.stressinduktion.org> <CAJzFV34FhudmwOPY1q9SUtagb8rUuQanrAqt_+cOyETFsLcxqw@mail.gmail.com> <CD36411A-7584-48B1-A406-E1584B3D32DD@sekil.fr>
+From: Ding Tianhong <dthxman@gmail.com>
+Subject: Re: [PATCH net-next] bonding: do't permit slaves to change their
+ mtu ndependently
+Date: Fri, 24 Jan 2014 21:58:12 +0800
+Message-ID: <52E27174.4010805@gmail.com>
+References: <52E235DC.1020709@huawei.com> <20140124.015538.738633619234119497.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sharat Masetty <sharat04@gmail.com>, netdev@vger.kernel.org
-To: Emmanuel Thierry <ml@sekil.fr>
+Cc: fubar@us.ibm.com, vfalico@redhat.com, andy@greyhouse.net,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, dingtianhong@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:34645 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752359AbaAXN7e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jan 2014 08:59:34 -0500
-Content-Disposition: inline
-In-Reply-To: <CD36411A-7584-48B1-A406-E1584B3D32DD@sekil.fr>
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:54325 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752359AbaAXOKp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jan 2014 09:10:45 -0500
+Received: by mail-pb0-f48.google.com with SMTP id rr13so3282116pbb.7
+        for <netdev@vger.kernel.org>; Fri, 24 Jan 2014 06:10:45 -0800 (PST)
+In-Reply-To: <20140124.015538.738633619234119497.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 24, 2014 at 10:36:54AM +0100, Emmanuel Thierry wrote:
-> Hello,
+=E4=BA=8E 2014/1/24 17:55, David Miller =E5=86=99=E9=81=93:
 >=20
-> Le 23 janv. 2014 =C3=A0 08:15, Sharat Masetty a =C3=A9crit :
+> Diag, your commit messages and subject lines chronically have
+> many typos.
 >=20
-> > Unfortunately toggling this config setting CONFIG_IPV6_ROUTER_PREF =
-did
-> > not help, I see the same problem in both cases.
-> > The kernel version I am using is 3.10.0.
-> >=20
-> > Thanks for confirming that this is a non issue on 3.13 kernel versi=
-on.
-> > Would you happen to know which patch would have potentially fixed t=
-his
-> > issue?
+> Please take the time out necessary to correct such errors before
+> sending your patches.
 >=20
-> Your problem looks like the following one :=20
-> http://marc.info/?l=3Dlinux-netdev&m=3D137280268407054&w=3D2
+> This subject line shows a complete lack of care.
 >=20
-> Which has been fixed in 3.10.4, and 3.11+
 
-Yes, that could very well be the case. We resolve the gateway while
-inserting the route (if not on-link), and it may not be available
-because of missing probes or no traffic went to it, yet. Thanks for
-looking after this, Emmanuel.
+I am very sorry, I was not in my office, so I could not resend now by o=
+ffice email, sorry for that.
 
-I really recommend using the stable kernels btw. instead of the vaniall=
-a
-point zero releases.
+Ding
 
-Thanks,
-
-  Hannes
+> Subject: Re: [PATCH net-next] bonding: do't permit slaves to change t=
+heir mtu ndependently
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> .
+>=20
