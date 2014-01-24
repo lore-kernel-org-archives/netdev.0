@@ -1,42 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [README] bug fixes only...
-Date: Fri, 24 Jan 2014 09:28:10 -0800
-Message-ID: <1390584490.27806.60.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140123.162408.681541949851852312.davem@davemloft.net>
-	 <52E29650.7010606@hartkopp.net>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next] bonding: Use do_div to divide 64 bit numbers
+Date: Fri, 24 Jan 2014 18:27:36 +0000
+Message-ID: <52E2B098.1060509@citrix.com>
+References: <1390502838-21581-1-git-send-email-zoltan.kiss@citrix.com> <52E17F40.4040004@redhat.com> <52E18720.4060008@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f54.google.com ([209.85.214.54]:61844 "EHLO
-	mail-bk0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751196AbaAXR2Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jan 2014 12:28:16 -0500
-Received: by mail-bk0-f54.google.com with SMTP id u14so1305222bkz.41
-        for <netdev@vger.kernel.org>; Fri, 24 Jan 2014 09:28:15 -0800 (PST)
-In-Reply-To: <52E29650.7010606@hartkopp.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Nikolay Aleksandrov <nikolay@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52E18720.4060008@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-01-24 at 17:35 +0100, Oliver Hartkopp wrote:
-> Do you plan this fix after the net-next merge?
-> 
-> http://patchwork.ozlabs.org/patch/313483/
-> 
+On 23/01/14 21:18, Nikolay Aleksandrov wrote:
+>> Hi Zoltan,
+>> Thanks for fixing this, a few comments though:
+>> bond->params.miimon can be 0 here that's why there's a check afterwards,
+>> also please separate the local variable definitions from the body with a
+>> new line.
+>> The same applies for downdelay.
+>>
+>> Nik
+> In fact since we don't need the u64 and newval->value is limited to
+> INT_MAX, can't we simply cast it to (int) and avoid the do_div entirely ?
+Yep, that's even better, thanks for fixing it!
 
-Oliver, this is a bug fix.
-
-David said "I want to see zero feature and/or cleanup patches submitted
-at this time."
-
-Is a bug fix a "zero feature and/or cleanup patches" ?
-
-Answer is obviously no, so relax, read
-Documentation/networking/netdev-FAQ.txt again, 
-
-and please avoid top posting.
-
-
-Thanks
+Zoli
