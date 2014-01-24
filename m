@@ -1,47 +1,38 @@
-From: Ding Tianhong <dthxman@gmail.com>
-Subject: Re: [PATCH net-next] bonding: do't permit slaves to change their
- mtu ndependently
-Date: Fri, 24 Jan 2014 21:58:12 +0800
-Message-ID: <52E27174.4010805@gmail.com>
-References: <52E235DC.1020709@huawei.com> <20140124.015538.738633619234119497.davem@davemloft.net>
+From: Andrew Ruder <andy@aeruder.net>
+Subject: Re: [PATCH] net: sk == 0xffffffff fix - not for commit
+Date: Fri, 24 Jan 2014 08:15:30 -0600
+Message-ID: <20140124141530.GC20804@gmail.com>
+References: <1386589672-5830-1-git-send-email-andrzej.p@samsung.com>
+ <20140124133831.GB20804@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: fubar@us.ibm.com, vfalico@redhat.com, andy@greyhouse.net,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, dingtianhong@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:54325 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752359AbaAXOKp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jan 2014 09:10:45 -0500
-Received: by mail-pb0-f48.google.com with SMTP id rr13so3282116pbb.7
-        for <netdev@vger.kernel.org>; Fri, 24 Jan 2014 06:10:45 -0800 (PST)
-In-Reply-To: <20140124.015538.738633619234119497.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: Andrzej Pietrasiewicz <andrzej.p@samsung.com>,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
+	Kyungmin Park <kyungmin.park@samsung.com>,
+	Felipe Balbi <balbi@ti.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Marek Szyprowski <m.szyprowski@samsung.com>,
+	Michal Nazarewicz <mina86@mina86.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140124133831.GB20804@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=E4=BA=8E 2014/1/24 17:55, David Miller =E5=86=99=E9=81=93:
->=20
-> Diag, your commit messages and subject lines chronically have
-> many typos.
->=20
-> Please take the time out necessary to correct such errors before
-> sending your patches.
->=20
-> This subject line shows a complete lack of care.
->=20
+On Fri, Jan 24, 2014 at 07:38:31AM -0600, Andrew Ruder wrote:
+> http://www.mail-archive.com/linux-kernel@vger.kernel.org/msg574770.html
+> http://gcc.gnu.org/bugzilla/show_bug.cgi?id=58854
 
-I am very sorry, I was not in my office, so I could not resend now by o=
-ffice email, sorry for that.
+Just a little further confirmation.  This appears in
+__inet_lookup_established as the last four instructions before
+returning.
 
-Ding
-
-> Subject: Re: [PATCH net-next] bonding: do't permit slaves to change t=
-heir mtu ndependently
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> .
->=20
+   <+440>:       bl      <__rcu_read_unlock>
+   <+444>:       sub     sp, r11, #40    ; 0x28
+   <+448>:       ldr     r0, [r11, #-48] ; 0x30
+   <+452>:       ldm     sp, {r4, r5, r6, r7, r8, r9, r10, r11, sp, pc}
