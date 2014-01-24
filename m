@@ -1,92 +1,85 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [patch 1/3] qeth: bridgeport support - basic control
-Date: Fri, 24 Jan 2014 16:23:01 -0500
-Message-ID: <CAP=VYLp385bCpGiyDma82sO2zJkzArqUrHXYf0Bft6-WNj92Lg@mail.gmail.com>
-References: <20140114145410.453840919@de.ibm.com> <20140114145509.287096531@de.ibm.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH 4/4 v3] ipv4: mark nexthop as dead when it's subnet
+ becomes unreachable
+Date: Fri, 24 Jan 2014 23:49:59 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1401242221410.1717@ja.home.ssi.bg>
+References: <cover.1390304505.git.popovich_sergei@mail.ru> <alpine.LFD.2.11.1401232221010.1667@ja.home.ssi.bg> <2039386.VZO3kUlZdW@tuxracer> <1521507.ObZglEaf1D@tuxracer>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, linux-s390@vger.kernel.org,
-	Eugene Crosser <eugene.crosser@ru.ibm.com>,
-	Ursula Braun <ursula.braun@de.ibm.com>
-To: frank.blaschka@de.ibm.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Sergey Popovich <popovich_sergei@mail.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f177.google.com ([74.125.82.177]:60592 "EHLO
-	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752642AbaAXVXc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jan 2014 16:23:32 -0500
-In-Reply-To: <20140114145509.287096531@de.ibm.com>
+Received: from ja.ssi.bg ([178.16.129.10]:36152 "EHLO ja.home.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751939AbaAXVuJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Jan 2014 16:50:09 -0500
+In-Reply-To: <1521507.ObZglEaf1D@tuxracer>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 14, 2014 at 9:54 AM,  <frank.blaschka@de.ibm.com> wrote:
-> From: Eugene Crosser <Eugene.Crosser@ru.ibm.com>
->
-> Introduce functions to assign roles and check state of bridgeport-capable
-> HiperSocket devices, and sysfs attributes providing access to these
-> functions from userspace. Introduce udev events emitted when the state
-> of a bridgeport device changes.
->
-> Signed-off-by: Eugene Crosser <eugene.crosser@ru.ibm.com>
-> Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
-> Reviewed-by: Ursula Braun <ursula.braun@de.ibm.com>
 
-Hi Eugene,
+	Hello,
 
-This commit breaks the linux-next builds of s390 allmodconfig:
+On Fri, 24 Jan 2014, Sergey Popovich wrote:
 
-Bisecting: 0 revisions left to test after this (roughly 0 steps)
-[b4d72c08b358fc5b259fad0f4971112d949efd1c] qeth: bridgeport support -
-basic control
-running ./x
-scripts/kconfig/conf --allmodconfig Kconfig
-#
-# configuration written to .config
-#
-ERROR: "qeth_wq" [drivers/s390/net/qeth_l2.ko] undefined!
-make[1]: *** [__modpost] Error 1
-make: *** [modules] Error 2
-b4d72c08b358fc5b259fad0f4971112d949efd1c is the first bad commit
-commit b4d72c08b358fc5b259fad0f4971112d949efd1c
-Author: Eugene Crosser <Eugene.Crosser@ru.ibm.com>
-Date:   Tue Jan 14 15:54:11 2014 +0100
+> -int fib_sync_down_dev(struct net_device *dev, int force)
+> +static inline bool fib_sync_down_gw(struct fib_nh *nh,
+> +				    struct in_ifaddr *ifr)
+> +{
+> +	if (!ifr)
+> +		return true;
+> +
+> +	if (nh->nh_flags & RTNH_F_ONLINK)
+> +		return false;
+> +
+> +	if (!inet_ifa_match(nh->nh_gw, ifr))
+> +		return false;
+> +
 
-    qeth: bridgeport support - basic control
+	You need to walk subnets here, not IPs, so
+for_primary_ifa() instead of for_ifa() will save some
+cycles. But for me such change still looks expensive
+and does not fix the root of the problem:
 
-    Introduce functions to assign roles and check state of bridgeport-capable
-    HiperSocket devices, and sysfs attributes providing access to these
-    functions from userspace. Introduce udev events emitted when the state
-    of a bridgeport device changes.
+- You fix the problem from IP address point of view.
+The actual problem is that subnet is removed, i.e.
+it is the route removal that is making GWs unreachable.
+I can ip route delete some link route and cause GWs
+to become unreachable.
 
-    Signed-off-by: Eugene Crosser <eugene.crosser@ru.ibm.com>
-    Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
-    Reviewed-by: Ursula Braun <ursula.braun@de.ibm.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+- not sure that walking the ifa_list is a fast operation
 
-:040000 040000 1eb4205806a03dbc3de37af46e9447168b0d0e2a
-0ba638a94d92c41d732bedc54c8108775f689cf3 M      Documentation
-:040000 040000 9a9eb7da725785bfe40c77cdee4c181c90f74ef3
-f7e69854a168599f2f191675b449783292b0a4a1 M      drivers
-bisect run success
+- sadly, the NHs can not survive the secondary address
+promotion as done in __inet_del_ifa().
 
-http://kisskb.ellerman.id.au/kisskb/buildresult/10509367/
+	You can have additional optimization in
+fib_del_ifaddr() while calling fib_sync_down_dev():
+do nothing if secondary address is deleted because its
+subnet (primary address) should be present. For example:
 
-Paul.
+	if (fib_sync_down_addr(dev_net(dev), ifa->ifa_local) |
+	    (!(ifa->ifa_flags & IFA_F_SECONDARY) &&
+	     fib_sync_down_dev(dev, ifa, 0)))
+
+> +	for_ifa(ifr->ifa_dev) {
+
+	Below ifa == ifr check will not be needed when
+for_primary_ifa() is used or when fib_sync_down_dev() is
+called only for primary IPs. We can see some ifr in the
+list only if it is secondary IP deleted during the promotion
+process. Without promotion, the primary/secondary ifa is
+unlinked before the NETDEV_DOWN notification and we do
+not see it here.
+
+> +		if (unlikely(ifa == ifr))
+> +			continue;
+> +		if (inet_ifa_match(nh->nh_gw, ifa))
+> +			return false;
+> +	} endfor_ifa(ifr->ifa_dev);
+> +
+> +	return true;
+
+Regards
+
 --
-
-> ---
->  Documentation/s390/qeth.txt       |  21 +++
->  drivers/s390/net/Makefile         |   2 +-
->  drivers/s390/net/qeth_core.h      |  25 +++
->  drivers/s390/net/qeth_core_main.c |  14 +-
->  drivers/s390/net/qeth_core_mpc.c  |   1 +
->  drivers/s390/net/qeth_core_mpc.h  |  84 +++++++++
->  drivers/s390/net/qeth_l2.h        |  15 ++
->  drivers/s390/net/qeth_l2_main.c   | 364 ++++++++++++++++++++++++++++++++++++++
->  drivers/s390/net/qeth_l2_sys.c    | 161 +++++++++++++++++
->  9 files changed, 685 insertions(+), 2 deletions(-)
->  create mode 100644 Documentation/s390/qeth.txt
->  create mode 100644 drivers/s390/net/qeth_l2.h
->  create mode 100644 drivers/s390/net/qeth_l2_sys.c
->
->
+Julian Anastasov <ja@ssi.bg>
