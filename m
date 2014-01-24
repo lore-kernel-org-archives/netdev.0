@@ -1,41 +1,55 @@
-From: <BusinessProposal21@fundstransferbankofT419.onmicrosoft.com>
-Subject: BUSINESS PROPOSAL OF $44.5MILLI?ON.USD.
-Date: Thu, 23 Jan 2014 22:44:36 -0500
-Message-ID: <9c0cab98-d530-44ab-b0a0-225a28321253@SIXPR03MB048.apcprd03.prod.outlook.com>
-Reply-To: <mrchingkwok091@gmail.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next v3 0/2] bonding: Fix some issues for fail_over_mac
+Date: Fri, 24 Jan 2014 12:27:28 +0800
+Message-ID: <52E1EBB0.6040505@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients
-	<BusinessProposal21@fundstransferbankofT419.onmicrosoft.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emea01-db3-ndr.ptr.protection.outlook.com ([157.56.120.99]:39101
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754171AbaAXDpO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 22:45:14 -0500
-Content-Description: Mail message body
+Received: from szxga02-in.huawei.com ([119.145.14.65]:1668 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751586AbaAXE2f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jan 2014 23:28:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, It is understandable that you might be a little bit apprehensive
-  because you do not know me but I have a lucrative business proposal of mutual
-  interest to share with you.
+The parameter fail_over_mac only affect active-backup mode, if it was
+set to active or follow and works with other modes, just like RR or XOR
+mode, the bonding could not set all slaves to the master's address, it
+will cause the slave could not work well with master.
 
-  I got your reference in my search for someone who suits my proposed business relationship.
-  I am Mr.ching Kwok bank officer with the International bank of Taipei.
-  I will need you to assist me in executing a business project from Taiwan to your country.
-  It involves the transfer of money.
+So set the fail_over_mac to none if the mode is not active-backup and
+slight optimization for bond_set_mac_address().
 
-  Everything concerning this transaction shall be legally done without hitch.
-  Once the funds have been successfully transferred into your account,
-  we shall share in the ratio to be agreed by both of us.Contact me for further details.
+v1->v2: According Jay's suggestion, that we should permit setting an option
+	at any time, but only have it take effect in active-backup mode, so
+	I add mode checking together with fail_over_mac during enslavement and
+	rebuild the patches.
 
-  I shall furnish you with more information about this operation immediately
-  I receive a positive response from you.
-  You Contact me for more details
+v2->v3: The correct way to fix the problem is that we should not add restrictions when
+    	setting options, just need to modify the bond enslave and removal processing
+    	to check the mode in addition to fail_over_mac when setting a slave's MAC during
+    	enslavement. The change active slave processing already only calls the fail_over_mac
+    	function when in active-backup mode.
 
-  Email: mrchingkwok091@gmail.com
+	Remove the cleanup patch because the net-next is frozen now.
 
-  Kind Regards,
-  Mr.ching Kwok
+Regards
+Ding
+
+Ding Tianhong (2):
+  bonding: bonding: fail_over_mac should only affect AB mode at
+    enslave and removal processing
+  bonding: fail_over_mac should only affect AB mode in
+    bond_set_mac_address()
+
+ drivers/net/bonding/bond_main.c | 25 +++++++++++++++++--------
+ 1 file changed, 17 insertions(+), 8 deletions(-)
+
+-- 
+1.8.0
