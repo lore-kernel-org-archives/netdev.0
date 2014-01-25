@@ -1,199 +1,151 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH 2/2] net: ip, ipv6: handle gso skbs in forwarding path
-Date: Sat, 25 Jan 2014 23:48:47 +0100
-Message-ID: <1390690127-559-3-git-send-email-fw@strlen.de>
-References: <1390690127-559-1-git-send-email-fw@strlen.de>
-Cc: eric.dumazet@gmail.com, Florian Westphal <fw@strlen.de>
-To: netdev@vger.kernel.org
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: Re: [BUG] null pointer dereference in tcp_gso_segment()
+Date: Sun, 26 Jan 2014 00:54:38 +0100
+Message-ID: <87r47v4ny9.fsf@natisbad.org>
+References: <87r47z7kqo.fsf@natisbad.org>
+	<1390427824.27806.36.camel@edumazet-glaptop2.roam.corp.google.com>
+	<8761pb7jzq.fsf@natisbad.org>
+	<1390429125.27806.40.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Willy Tarreau <w@1wt.eu>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:33746 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752413AbaAYWxL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jan 2014 17:53:11 -0500
-In-Reply-To: <1390690127-559-1-git-send-email-fw@strlen.de>
+Received: from smtp2-g21.free.fr ([212.27.42.2]:45798 "EHLO smtp2-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750840AbaAYXzM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Jan 2014 18:55:12 -0500
+Received: from smtp.natisbad.org (unknown [IPv6:2a01:e35:139b:9f90:221:70ff:fe55:8f78])
+	by smtp2-g21.free.fr (Postfix) with ESMTP id 294474B007C
+	for <netdev@vger.kernel.org>; Sun, 26 Jan 2014 00:54:56 +0100 (CET)
+In-Reply-To: <1390429125.27806.40.camel@edumazet-glaptop2.roam.corp.google.com>
+	(Eric Dumazet's message of "Wed, 22 Jan 2014 14:18:45 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Given:
-Host <mtu1500> R1 <mtu1200> R2
+Hi Eric,
 
-Host sends tcp stream which is routed via R1 and R2.
-R1 nics perform GRO.
+Eric Dumazet <eric.dumazet@gmail.com> writes:
 
-In this case, the kernel will fail to send ICMP fragmentation needed
-messages (or pkt too big for ipv6), as gso packets currently bypass the
-dst mtu checks in forward path. Instead, Linux tries to send out packets
-exceeding R1-R2 link mtu.
+> On Wed, 2014-01-22 at 23:02 +0100, Arnaud Ebalard wrote:
+>> Hi Eric,
+>> 
+>> Eric Dumazet <eric.dumazet@gmail.com> writes:
+>> 
+>> >> Unless there is an assumption I missed somewhere in the function, the
+>> >> problem may occur during the first round of the loop, because (unlike
+>> >> the 'while' condition does at line 21) skb->next is not checked against
+>> >> null at lines 17 above before it is passed to tcp_hdr() at line 18.
+>> >> 
+>> >> To be honest, I am asking because I am not familiar w/ the code and it
+>> >> is somewhat old so I wonder why noone got hit before. AFAICT,
+>> >> f4c50d990dcf ([NET]: Add software TSOv4) added TSOv4 support in 2006 via
+>> >> introduction of tcp_tso_segmen() (with the same kind of deref but
+>> >> possibly different assumptions) which was more recently modified via
+>> >> 28850dc7c7 (net: tcp: move GRO/GSO functions to tcp_offload) to become
+>> >> tcp_gso_segment().
+>> >> 
+>> >> David, can you confirm the analysis and possibly comment on the
+>> >> conditions needed for the bug to manifest?
+>> >
+>> > A gso packet contains at least 2 segments.
+>> 
+>> By whom / where is it enforced?
+>
+> For example, tcp_gso_segment() does the following check :
+>
+> if (unlikely(skb->len <= mss))
+> 	goto out;
+>
+> If there was one segment, then skb->len should also be smaller than
+> mss
 
-When locking route MTU on Host (i.e., no ipv4 DF bit set), R1 does
-not fragment the packets when forwarding, and again tries to send out
-packets exceeding R1-R2 link mtu.
+Thanks for the explanation and sorry for the delay, I only just found
+the time to take a look at the code. For the discussion, a simplified
+version of tcp_gso_segment() is:
 
-This alters the forwarding dstmtu checks to take the individual gso
-segment lengths into account.
 
-For ipv6, we send out pkt too big error for gso if the individual
-segments are too big.
+  th = tcp_hdr(skb);
+  thlen = th->doff * 4;
 
-For ipv4, we either send icmp fragmentation needed, or, if the DF bit
-is not set, perform software segmentation and let the output path
-create fragments when the packet is leaving the machine.  This is
-technically not 100% accurate, as the error message will contain the
-gro-skb tcp header (we'd have to segment unconditionally and use first
-segment instead), but it does seem to work.
+  ...
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- include/linux/skbuff.h | 17 +++++++++++++++
- net/ipv4/ip_forward.c  | 58 ++++++++++++++++++++++++++++++++++++++++++++++++--
- net/ipv6/ip6_output.c  | 18 ++++++++++++++--
- 3 files changed, 89 insertions(+), 4 deletions(-)
+  __skb_pull(skb, thlen);
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 3d76066..37cb679 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2811,5 +2811,22 @@ static inline bool skb_head_is_locked(const struct sk_buff *skb)
+  ...
+
+  mss = tcp_skb_mss(skb);
+  if (unlikely(skb->len <= mss))
+ 	goto out;
+
+  ...
+
+  segs = skb_segment(skb, features);
+  skb = segs;
+
+  ...
+
+		skb = skb->next;
+		th = tcp_hdr(skb);   <- bug occurs here
+
+
+So the logic seems to be that if we pass the mss test (i.e. skb->len >
+mss), then skb_segment() *should* indeed create at least two segments
+from the skb. I took a look at skb_segment() but the code is !trivial,
+i.e. it is not obvious that there is no way for the function to deliver
+a sk_buff skb w/ a NULL skb->next. Eric, I guess you or Herbert are
+familiar enough w/ the code to tell. But before checking that, your lead
+below is interesting ...
+
+> Since TCP stack seemed to be the provider of the packet in your stack
+> trace, check tcp_set_skb_tso_segs()
+
+It is indeed called in tcp_write_xmit() which appears in the
+backtrace. That function you point has an interesting property:
+
+ static void tcp_set_skb_tso_segs(const struct sock *sk, struct sk_buff *skb,
+ 				 unsigned int mss_now)
  {
- 	return !skb->head_frag || skb_cloned(skb);
- }
-+
-+/**
-+ * skb_gso_network_seglen - Return length of individual segments of a gso packet
-+ *
-+ * @skb: GSO skb
-+ *
-+ * skb_gso_network_seglen is used to determine the real size of the
-+ * individual segments, including Layer3 (IP, IPv6) and L4 headers (TCP/UDP).
-+ *
-+ * The MAC/L2 header is not accounted for.
-+ */
-+static inline unsigned int skb_gso_network_seglen(const struct sk_buff *skb)
-+{
-+	unsigned int hdr_len = skb_transport_header(skb) -
-+			       skb_network_header(skb);
-+	return hdr_len + skb_gso_transport_seglen(skb);
-+}
- #endif	/* __KERNEL__ */
- #endif	/* _LINUX_SKBUFF_H */
-diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-index 694de3b..78f2e2a 100644
---- a/net/ipv4/ip_forward.c
-+++ b/net/ipv4/ip_forward.c
-@@ -39,6 +39,58 @@
- #include <net/route.h>
- #include <net/xfrm.h>
+ 	/* Make sure we own this skb before messing gso_size/gso_segs */
+ 	WARN_ON_ONCE(skb_cloned(skb));
  
-+static bool ip_may_fragment(const struct sk_buff *skb)
-+{
-+	return unlikely((ip_hdr(skb)->frag_off & htons(IP_DF)) == 0) ||
-+	       !skb->local_df;
-+}
-+
-+static bool ip_gso_exceeds_dst_mtu(const struct sk_buff *skb)
-+{
-+	if (skb->local_df || !skb_is_gso(skb))
-+		return false;
-+	return skb_gso_network_seglen(skb) > dst_mtu(skb_dst(skb));
-+}
-+
-+static bool ip_exceeds_mtu(const struct sk_buff *skb, unsigned int mtu)
-+{
-+	unsigned len;
-+
-+	if (skb->local_df)
-+		return false;
-+	len = skb_is_gso(skb) ? skb_gso_network_seglen(skb) : skb->len;
-+
-+	return len > mtu;
-+}
-+
-+/* called if GSO skb needs to be fragmented on forward.  */
-+static int ip_forward_finish_gso(struct sk_buff *skb)
-+{
-+	struct sk_buff *segs = skb_gso_segment(skb, 0);
-+	int ret = 0;
-+
-+	if (IS_ERR(segs)) {
-+		kfree_skb(skb);
-+		return -ENOMEM;
-+	}
-+
-+	consume_skb(skb);
-+
-+	do {
-+		struct sk_buff *nskb = segs->next;
-+		int err;
-+
-+		segs->next = NULL;
-+		err = dst_output(segs);
-+
-+		if (err && ret == 0)
-+			ret = err;
-+		segs = nskb;
-+	} while (segs);
-+
-+	return ret;
-+}
-+
- static int ip_forward_finish(struct sk_buff *skb)
- {
- 	struct ip_options *opt	= &(IPCB(skb)->opt);
-@@ -49,6 +101,9 @@ static int ip_forward_finish(struct sk_buff *skb)
- 	if (unlikely(opt->optlen))
- 		ip_forward_options(skb);
- 
-+	if (ip_gso_exceeds_dst_mtu(skb))
-+		return ip_forward_finish_gso(skb);
-+
- 	return dst_output(skb);
+ 	if (skb->len <= mss_now || skb->ip_summed == CHECKSUM_NONE) {
+ 		/* Avoid the costly divide in the normal
+ 		 * non-TSO case.
+ 		 */
+ 		skb_shinfo(skb)->gso_segs = 1;
+ 		skb_shinfo(skb)->gso_size = 0;
+ 		skb_shinfo(skb)->gso_type = 0;
+ 	} else {
+ 		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss_now);
+ 		skb_shinfo(skb)->gso_size = mss_now;
+ 		skb_shinfo(skb)->gso_type = sk->sk_gso_type;
+ 	}
  }
  
-@@ -88,8 +143,7 @@ int ip_forward(struct sk_buff *skb)
- 	if (opt->is_strictroute && rt->rt_uses_gateway)
- 		goto sr_failed;
- 
--	if (unlikely(skb->len > dst_mtu(&rt->dst) && !skb_is_gso(skb) &&
--		     (ip_hdr(skb)->frag_off & htons(IP_DF))) && !skb->local_df) {
-+	if (!ip_may_fragment(skb) && ip_exceeds_mtu(skb, dst_mtu(&rt->dst))) {
- 		IP_INC_STATS(dev_net(rt->dst.dev), IPSTATS_MIB_FRAGFAILS);
- 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
- 			  htonl(dst_mtu(&rt->dst)));
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index e6f9319..e1a5aec 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -321,6 +321,21 @@ static inline int ip6_forward_finish(struct sk_buff *skb)
- 	return dst_output(skb);
- }
- 
-+static bool ip6_pkt_too_big(const struct sk_buff *skb, unsigned int mtu)
-+{
-+	unsigned int len;
-+
-+	if (skb->local_df)
-+		return false;
-+
-+	if (IP6CB(skb)->frag_max_size && IP6CB(skb)->frag_max_size > mtu)
-+		return true;
-+
-+	len = skb_is_gso(skb) ? skb_gso_network_seglen(skb) : skb->len;
-+
-+	return len > mtu;
-+}
-+
- int ip6_forward(struct sk_buff *skb)
- {
- 	struct dst_entry *dst = skb_dst(skb);
-@@ -443,8 +458,7 @@ int ip6_forward(struct sk_buff *skb)
- 	if (mtu < IPV6_MIN_MTU)
- 		mtu = IPV6_MIN_MTU;
- 
--	if ((!skb->local_df && skb->len > mtu && !skb_is_gso(skb)) ||
--	    (IP6CB(skb)->frag_max_size && IP6CB(skb)->frag_max_size > mtu)) {
-+	if (ip6_pkt_too_big(skb, mtu)) {
- 		/* Again, force OUTPUT device used as source address */
- 		skb->dev = dst->dev;
- 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
--- 
-1.8.1.5
+If it is called with skb->len <= mss, the resulting skb will be modified
+so that you will then have skb_shinfo(skb)->gso_size set to 0,
+i.e. skb->len > skb_shinfo(skb)->gso_size.
+
+In tcp_gso_segment(), mss is grabbed using tcp_skb_mss() which simply
+returns skb_shinfo(skb)->gso_size. That function comes with a comment
+indicating that it provides the mss only when tcp_skb_pcount() > 1,
+i.e when skb_shinfo(skb)->gso_segs > 1. Said differently, one should
+never call tcp_skb_mss() after tcp_set_skb_tso_segs() has been called on
+a skb *unless* she tests explicitly that tcp_skb_pcount() > 1.
+
+This test (tcp_skb_pcount() > 1) is not done in tcp_gso_segment() before
+getting the mss value w/ tcp_skb_mss(). I may have missed a test
+somewhere in a caller but I do not see why tcp_gso_segment() makes the
+assumption it can safely call tcp_skb_mss().
+
+Cheers,
+
+a+
+
+
+   
