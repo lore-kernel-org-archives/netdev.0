@@ -1,35 +1,49 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: critic on documentation of the network stack
-Date: Fri, 24 Jan 2014 15:58:35 -0800
-Message-ID: <20140124155835.467deca8@nehalam.linuxnetplumber.net>
-References: <20140124032324.GO7269@order.stressinduktion.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2] ipv6: reallocate addrconf router for ipv6
+ address when lo device up
+Date: Fri, 24 Jan 2014 16:00:05 -0800 (PST)
+Message-ID: <20140124.160005.687359123475903930.davem@davemloft.net>
+References: <1390552151-20735-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: netdev@vger.kernel.org, sd@queasysnail.net,
+	hannes@stressinduktion.org, chenweilong@huawei.com
+To: gaofeng@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:33303 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750872AbaAXX6k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jan 2014 18:58:40 -0500
-Received: by mail-pa0-f44.google.com with SMTP id kq14so3821404pab.31
-        for <netdev@vger.kernel.org>; Fri, 24 Jan 2014 15:58:39 -0800 (PST)
-In-Reply-To: <20140124032324.GO7269@order.stressinduktion.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40762 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751196AbaAYAAG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jan 2014 19:00:06 -0500
+In-Reply-To: <1390552151-20735-1-git-send-email-gaofeng@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 24 Jan 2014 04:23:24 +0100
-Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Date: Fri, 24 Jan 2014 16:29:11 +0800
 
-> Hello!
+> commit 25fb6ca4ed9cad72f14f61629b68dc03c0d9713f
+> "net IPv6 : Fix broken IPv6 routing table after loopback down-up"
+> allocates addrconf router for ipv6 address when lo device up.
+> but commit a881ae1f625c599b460cc8f8a7fcb1c438f699ad
+> "ipv6:don't call addrconf_dst_alloc again when enable lo" breaks
+> this behavior.
 > 
-> After net-next is closed I wanted to put the following link here:
+> Since the addrconf router is moved to the garbage list when
+> lo device down, we should release this router and rellocate
+> a new one for ipv6 address when lo device up.
 > 
->   <http://linux.slashdot.org/comments.pl?sid=4356053&cid=45184693>
+> This patch solves bug 67951 on bugzilla
+> https://bugzilla.kernel.org/show_bug.cgi?id=67951
+> 
+> change from v1:
+> use ip6_rt_put to repleace ip6_del_rt, thanks Hannes!
+> change code style, suggested by Sergei.
+> 
+> CC: Sabrina Dubroca <sd@queasysnail.net>
+> CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Reported-by: Weilong Chen <chenweilong@huawei.com>
+> Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 
-The problem I have is more that there are more incorrect sources of documentation
-and differing opinions on the Internet. Maybe the problem is users, maybe the
-problem is lack of SEO, or developers not being paid to write documentation, or
-old web sites not being updated. For example, this commenter obviously never
-found http://www.lartc.org/
+Applied and queued up for -stable, thanks!
