@@ -1,172 +1,79 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] xfrm: fix potential incorrect pointer dereference in
- xfrm_bundle_create
-Date: Sat, 25 Jan 2014 11:32:58 -0800
-Message-ID: <1390678378.20150.5.camel@joe-AO722>
-References: <1390675673-20682-1-git-send-email-horia.geanta@freescale.com>
-	 <20140125.110745.939440249416819926.davem@davemloft.net>
+From: Stanislaw Gruszka <stf_xl@wp.pl>
+Subject: [PATCH] sky2: initialize napi before registering device
+Date: Sat, 25 Jan 2014 11:34:54 +0100
+Message-ID: <20140125103454.GA2490@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: horia.geanta@freescale.com, steffen.klassert@secunet.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Mirko Lindner <mlindner@marvell.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0083.hostedemail.com ([216.40.44.83]:60648 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751600AbaAYTdD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jan 2014 14:33:03 -0500
-In-Reply-To: <20140125.110745.939440249416819926.davem@davemloft.net>
+Received: from mx3.wp.pl ([212.77.101.7]:59621 "EHLO mx3.wp.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752551AbaAYVjd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Jan 2014 16:39:33 -0500
+Received: from ip-94-112-189-223.net.upcbroadband.cz (HELO localhost) (stf_xl@wp.pl@[94.112.189.223])
+          (envelope-sender <stf_xl@wp.pl>)
+          by smtp.wp.pl (WP-SMTPD) with AES128-SHA encrypted SMTP
+          for <netdev@vger.kernel.org>; 25 Jan 2014 11:32:49 +0100
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2014-01-25 at 11:07 -0800, David Miller wrote:
-> From: Horia Geanta <horia.geanta@freescale.com>
-> Date: Sat, 25 Jan 2014 20:47:53 +0200
-> 
-> > Return value of xfrm_alloc_dst might be an error code.
-> > Need to check this before using the pointer safely.
-> > 
-> > Signed-off-by: Horia Geanta <horia.geanta@freescale.com>
-> > ---
-> >  net/xfrm/xfrm_policy.c | 4 +++-
-> >  1 file changed, 3 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-> > index 9a91f74..f230f2a 100644
-> > --- a/net/xfrm/xfrm_policy.c
-> > +++ b/net/xfrm/xfrm_policy.c
-> > @@ -1541,7 +1541,7 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
-> >  
-> >  	for (; i < nx; i++) {
-> >  		struct xfrm_dst *xdst = xfrm_alloc_dst(net, family);
-> > -		struct dst_entry *dst1 = &xdst->u.dst;
-> > +		struct dst_entry *dst1;
-> 
-> There is no harm in taking the address of a bad pointer.  The only
-> trouble is if we actually dereference it, which we are not doing here.
-> 
-> I'm not applying this patch, sorry.
+There is race condition when call netif_napi_add() after
+register_netdevice(), as ->open() can be called without napi initialized
+and trigger BUG_ON() on napi_enable(), like on below messages:
 
-trivia:
+[    9.699863] sky2: driver version 1.30
+[    9.699960] sky2 0000:02:00.0: Yukon-2 EC Ultra chip revision 2
+[    9.700020] sky2 0000:02:00.0: irq 45 for MSI/MSI-X
+[    9.700498] ------------[ cut here ]------------
+[    9.703391] kernel BUG at include/linux/netdevice.h:501!
+[    9.703391] invalid opcode: 0000 [#1] PREEMPT SMP
+<snip>
+[    9.830018] Call Trace:
+[    9.830018]  [<fa996169>] sky2_open+0x309/0x360 [sky2]
+[    9.830018]  [<c1007210>] ? via_no_dac+0x40/0x40
+[    9.830018]  [<c1007210>] ? via_no_dac+0x40/0x40
+[    9.830018]  [<c135ed4b>] __dev_open+0x9b/0x120
+[    9.830018]  [<c1431cbe>] ? _raw_spin_unlock_bh+0x1e/0x20
+[    9.830018]  [<c135efd9>] __dev_change_flags+0x89/0x150
+[    9.830018]  [<c135f148>] dev_change_flags+0x18/0x50
+[    9.830018]  [<c13bb8e0>] devinet_ioctl+0x5d0/0x6e0
+[    9.830018]  [<c13bcced>] inet_ioctl+0x6d/0xa0
 
-Yes, but perhaps the failure test be done before the
-assignment anyway.  There are more paths below the test
-where the value is not yet used.
+To fix the problem patch changes the order of initialization.
 
-Perhaps something like this would be more readable.
+Bug report:
+https://bugzilla.kernel.org/show_bug.cgi?id=67151
 
-(with a few more miscellaneous cleanups)
-
-Use a normal for loop, add braces, remove unnecessary
-out: label, move automatic declarations, move error
-assignments.
-
+Reported-and-tested-by: ebrahim.azarisooreh@gmail.com
+Signed-off-by: Stanislaw Gruszka <stf_xl@wp.pl>
 ---
+ drivers/net/ethernet/marvell/sky2.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
- net/xfrm/xfrm_policy.c | 40 +++++++++++++++++++++++-----------------
- 1 file changed, 23 insertions(+), 17 deletions(-)
-
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 4b98b25..29ce9fc 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1526,7 +1526,9 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
- 	struct xfrm_mode *inner_mode;
- 	struct dst_entry *dst_prev = NULL;
- 	struct dst_entry *dst0 = NULL;
--	int i = 0;
-+	struct dst_entry *dst1;
-+	struct xfrm_dst *xdst;
-+	int i;
- 	int err;
- 	int header_len = 0;
- 	int nfheader_len = 0;
-@@ -1538,18 +1540,17 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
- 	xfrm_flowi_addr_get(fl, &saddr, &daddr, family);
- 
- 	tos = xfrm_get_tos(fl, family);
--	err = tos;
--	if (tos < 0)
-+	if (tos < 0) {
-+		err = tos;
- 		goto put_states;
-+	}
- 
- 	dst_hold(dst);
- 
--	for (; i < nx; i++) {
--		struct xfrm_dst *xdst = xfrm_alloc_dst(net, family);
--		struct dst_entry *dst1 = &xdst->u.dst;
--
--		err = PTR_ERR(xdst);
-+	for (i = 0; i < nx; i++) {
-+		xdst = xfrm_alloc_dst(net, family);
- 		if (IS_ERR(xdst)) {
-+			err = PTR_ERR(xdst);
- 			dst_release(dst);
- 			goto put_states;
+diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+index 43aa7acd..2564eda 100644
+--- a/drivers/net/ethernet/marvell/sky2.c
++++ b/drivers/net/ethernet/marvell/sky2.c
+@@ -5020,6 +5020,8 @@ static int sky2_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
  		}
-@@ -1562,8 +1563,11 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
- 				dst_release(dst);
- 				goto put_states;
- 			}
--		} else
-+		} else {
- 			inner_mode = xfrm[i]->inner_mode;
-+		}
+  	}
+ 
++	netif_napi_add(dev, &hw->napi, sky2_poll, NAPI_WEIGHT);
 +
-+		dst1 = &xdst->u.dst;
+ 	err = register_netdev(dev);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "cannot register net device\n");
+@@ -5028,8 +5030,6 @@ static int sky2_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
  
- 		if (!dst_prev)
- 			dst0 = dst1;
-@@ -1579,11 +1583,13 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
- 			family = xfrm[i]->props.family;
- 			dst = xfrm_dst_lookup(xfrm[i], tos, &saddr, &daddr,
- 					      family);
--			err = PTR_ERR(dst);
--			if (IS_ERR(dst))
-+			if (IS_ERR(dst)) {
-+				err = PTR_ERR(dst);
- 				goto put_states;
--		} else
-+			}
-+		} else {
- 			dst_hold(dst);
-+		}
+ 	netif_carrier_off(dev);
  
- 		dst1->xfrm = xfrm[i];
- 		xdst->xfrm_genid = xfrm[i]->genid;
-@@ -1607,10 +1613,11 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
- 	dst_prev->child = dst;
- 	dst0->path = dst;
+-	netif_napi_add(dev, &hw->napi, sky2_poll, NAPI_WEIGHT);
+-
+ 	sky2_show_addr(dev);
  
--	err = -ENODEV;
- 	dev = dst->dev;
--	if (!dev)
-+	if (!dev) {
-+		err = -ENODEV;
- 		goto free_dst;
-+	}
- 
- 	xfrm_init_path((struct xfrm_dst *)dst0, dst, nfheader_len);
- 	xfrm_init_pmtu(dst_prev);
-@@ -1628,7 +1635,6 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
- 		trailer_len -= xdst->u.dst.xfrm->props.trailer_len;
- 	}
- 
--out:
- 	return dst0;
- 
- put_states:
-@@ -1637,8 +1643,8 @@ put_states:
- free_dst:
- 	if (dst0)
- 		dst_free(dst0);
--	dst0 = ERR_PTR(err);
--	goto out;
-+
-+	return ERR_PTR(err);
- }
- 
- #ifdef CONFIG_XFRM_SUB_POLICY
+ 	if (hw->ports > 1) {
+-- 
+1.7.4.4
