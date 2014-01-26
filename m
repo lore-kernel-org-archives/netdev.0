@@ -1,42 +1,38 @@
-From: Josh Boyer <jwboyer@fedoraproject.org>
-Subject: ath9k ARM build error with v3.13-8330-g4ba9920
-Date: Sun, 26 Jan 2014 10:59:48 -0500
-Message-ID: <CA+5PVA4fnCo8anT0HZCVu4+AFAseibm=0yD8nL3Lm7Q5dA-qZQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH V2 1/2] net: add and use skb_gso_transport_seglen()
+Date: Sun, 26 Jan 2014 08:51:59 -0800
+Message-ID: <1390755119.27806.73.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1390730297-10725-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: ath9k-devel@lists.ath9k.org, netdev <netdev@vger.kernel.org>,
-	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>
-To: Sujith Manoharan <c_manoha@qca.qualcomm.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:50504 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752225AbaAZQwA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jan 2014 11:52:00 -0500
+Received: by mail-pa0-f44.google.com with SMTP id kq14so5029505pab.31
+        for <netdev@vger.kernel.org>; Sun, 26 Jan 2014 08:52:00 -0800 (PST)
+In-Reply-To: <1390730297-10725-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+On Sun, 2014-01-26 at 10:58 +0100, Florian Westphal wrote:
+> This moves part of Eric Dumazets skb_gso_seglen helper from tbf sched to
+> skbuff core so it may be reused by upcoming ip forwarding path patch.
+> 
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> ---
+>  Changes since V1:
+>  suggestions from Eric Dumazet:
+>   - don't use uapi udp.h
+>   - remove tcp.h include from tbf, its not needed anymore
+> 
+>  include/linux/skbuff.h |  1 +
+>  net/core/skbuff.c      | 25 +++++++++++++++++++++++++
+>  net/sched/sch_tbf.c    | 13 +++----------
+>  3 files changed, 29 insertions(+), 10 deletions(-)
 
-This commit:
-
-commit 4dc78c437a0a2ac152a2b2c5e91a814a6ef3599e
-Author: Sujith Manoharan <c_manoha@qca.qualcomm.com>
-Date:   Wed Dec 18 09:53:26 2013 +0530
-
-    ath9k: Fix RTC reset delay
-
-    The delay that is required after issuing a RTC reset
-    varies for each chip. Handle this properly.
-
-    Signed-off-by: Sujith Manoharan <c_manoha@qca.qualcomm.com>
-    Signed-off-by: John W. Linville <linville@tuxdriver.com>
-
-adds a udelay(10000) call to the ath9k driver.  This will cause a
-build error on various ARM configs because the value passed to udelay
-is too large:
-
-ERROR: "__bad_udelay" [drivers/net/wireless/ath/ath9k/ath9k_hw.ko] undefined!
-make[1]: *** [__modpost] Error 1
-make: *** [modules] Error 2
-
-Is the 10000 microsecond udelay really required?  I believe the limit
-on ARM is 2000.  Perhaps something else could be done in this case?
-
-josh
+Acked-by: Eric Dumazet <edumazet@google.com>
