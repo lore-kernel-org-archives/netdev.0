@@ -1,92 +1,56 @@
-From: arno@natisbad.org (Arnaud Ebalard)
-Subject: Re: [BUG] null pointer dereference in tcp_gso_segment()
-Date: Sun, 26 Jan 2014 01:04:06 +0100
-Message-ID: <87mwij4nih.fsf@natisbad.org>
-References: <87r47z7kqo.fsf@natisbad.org>
-	<1390427824.27806.36.camel@edumazet-glaptop2.roam.corp.google.com>
-	<8761pb7jzq.fsf@natisbad.org>
-	<1390429125.27806.40.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140122235651.GA20227@1wt.eu>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
+From: Connor Behan <connor.behan@gmail.com>
+Subject: [PATCH] Remove executable permissions from firmware files
+Date: Sat, 25 Jan 2014 16:51:04 -0800
+Message-ID: <1390697464-7137-1-git-send-email-connor.behan@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Cc: netdev@vger.kernel.org, Connor Behan <connor.behan@gmail.com>
+To: dwmw2@infradead.org, ben@decadent.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3-g21.free.fr ([212.27.42.3]:39714 "EHLO smtp3-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750840AbaAZAEb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Jan 2014 19:04:31 -0500
-Received: from smtp.natisbad.org (unknown [IPv6:2a01:e35:139b:9f90:221:70ff:fe55:8f78])
-	by smtp3-g21.free.fr (Postfix) with ESMTP id 66A03A619A
-	for <netdev@vger.kernel.org>; Sun, 26 Jan 2014 01:04:22 +0100 (CET)
-In-Reply-To: <20140122235651.GA20227@1wt.eu> (Willy Tarreau's message of "Thu,
-	23 Jan 2014 00:56:51 +0100")
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:57872 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750840AbaAZA63 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jan 2014 19:58:29 -0500
+Received: by mail-pa0-f46.google.com with SMTP id rd3so4586798pab.5
+        for <netdev@vger.kernel.org>; Sat, 25 Jan 2014 16:58:27 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+We should change these permissions unless there is a reason to keep them
+executable.
 
-Willy Tarreau <w@1wt.eu> writes:
+Signed-off-by: Connor Behan <connor.behan@gmail.com>
+---
+ ar3k/AthrBT_0x41020000.dfu     | Bin
+ ar3k/ramps_0x41020000_40.dfu   | Bin
+ ar5523.bin                     | Bin
+ carl9170fw/carlfw/src/printf.c |   0
+ rtlwifi/rtl8723fw.bin          | Bin
+ rtlwifi/rtl8723fw_B.bin        | Bin
+ 6 files changed, 0 insertions(+), 0 deletions(-)
+ mode change 100755 => 100644 ar3k/AthrBT_0x41020000.dfu
+ mode change 100755 => 100644 ar3k/ramps_0x41020000_40.dfu
+ mode change 100755 => 100644 ar5523.bin
+ mode change 100755 => 100644 carl9170fw/carlfw/src/printf.c
+ mode change 100755 => 100644 rtlwifi/rtl8723fw.bin
+ mode change 100755 => 100644 rtlwifi/rtl8723fw_B.bin
 
-> On Wed, Jan 22, 2014 at 02:18:45PM -0800, Eric Dumazet wrote:
->> On Wed, 2014-01-22 at 23:02 +0100, Arnaud Ebalard wrote:
->> > Hi Eric,
->> > 
->> > Eric Dumazet <eric.dumazet@gmail.com> writes:
->> > 
->> > >> Unless there is an assumption I missed somewhere in the function, the
->> > >> problem may occur during the first round of the loop, because (unlike
->> > >> the 'while' condition does at line 21) skb->next is not checked against
->> > >> null at lines 17 above before it is passed to tcp_hdr() at line 18.
->> > >> 
->> > >> To be honest, I am asking because I am not familiar w/ the code and it
->> > >> is somewhat old so I wonder why noone got hit before. AFAICT,
->> > >> f4c50d990dcf ([NET]: Add software TSOv4) added TSOv4 support in 2006 via
->> > >> introduction of tcp_tso_segmen() (with the same kind of deref but
->> > >> possibly different assumptions) which was more recently modified via
->> > >> 28850dc7c7 (net: tcp: move GRO/GSO functions to tcp_offload) to become
->> > >> tcp_gso_segment().
->> > >> 
->> > >> David, can you confirm the analysis and possibly comment on the
->> > >> conditions needed for the bug to manifest?
->> > >
->> > > A gso packet contains at least 2 segments.
->> > 
->> > By whom / where is it enforced?
->> 
->> For example, tcp_gso_segment() does the following check :
->> 
->> if (unlikely(skb->len <= mss))
->> 	goto out;
->> 
->> If there was one segment, then skb->len should also be smaller than mss
->> 
->> Since TCP stack seemed to be the provider of the packet in your stack
->> trace, check tcp_set_skb_tso_segs()
->
-> Thanks Eric for the explanation. From Arnaud's trace, I suspect that he's
-> received an ACK which has released some pending data, so it's very likely
-> indeed that at least two segments were released at once given that the
-> receiver is likely to ACK every two segments.
->
-> Also we can expect that the received ACK was copy-breaked. I don't know
-> if some sort of skb recycling may happen at this stage and reveal some
-> bad corner cases (eg: improperly initialized skb during the rx path that
-> causes everything to break when it's recycled for the tx path), but Arnaud
-> you can easily disable the rx_copybreak feature by setting the rx_copybreak
-> module argument to zero. You can change it at run time in /sys/module. At
-> least it will tell us if it could be related or not.
-
-The problem is that I cannot simply use that trick to test your hypothesis
-as the bug is not easily reproducible. I was lucky to trigger it twice but
-never got it then (when I tested with an additonal BUG_ON(skb->next == NULL)
-before the main loop in tcp_gso_segment()). 
-
-Cheers,
-
-a+
+diff --git a/ar3k/AthrBT_0x41020000.dfu b/ar3k/AthrBT_0x41020000.dfu
+old mode 100755
+new mode 100644
+diff --git a/ar3k/ramps_0x41020000_40.dfu b/ar3k/ramps_0x41020000_40.dfu
+old mode 100755
+new mode 100644
+diff --git a/ar5523.bin b/ar5523.bin
+old mode 100755
+new mode 100644
+diff --git a/carl9170fw/carlfw/src/printf.c b/carl9170fw/carlfw/src/printf.c
+old mode 100755
+new mode 100644
+diff --git a/rtlwifi/rtl8723fw.bin b/rtlwifi/rtl8723fw.bin
+old mode 100755
+new mode 100644
+diff --git a/rtlwifi/rtl8723fw_B.bin b/rtlwifi/rtl8723fw_B.bin
+old mode 100755
+new mode 100644
+-- 
+1.8.5.2
