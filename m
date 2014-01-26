@@ -1,54 +1,26 @@
-From: Konrad Lukman <mc_phill66@yahoo.com>
-Subject: Inquiry
-Date: 26 Jan 2014 20:37:22 +0100
-Message-ID: <20140126193722.11319.qmail@91-184-0-75.shared.hostnet.nl>
-Reply-To: konrad_lukman66@yahoo.com
+From: Abdul Nasser <nasser500@justin.ddo.jp>
+Subject: Kind Regards
+Date: Sun, 26 Jan 2014 21:30:30 +0000
+Message-ID: <SECEXCHANGEARf3sllN0000384d@mail.standardelectronics.com>
+Reply-To: s.abdulnasser@yahoo.com.hk
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
+To: Recipients <nasser500@justin.ddo.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kate1.hostnet.nl ([91.184.19.53]:36882 "EHLO kate1.hostnet.nl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753166AbaAZXgr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Jan 2014 18:36:47 -0500
-Received: from 91-184-0-75.shared.hostnet.nl ([91.184.0.75])
-	by kate.hostnet.nl with esmtps (TLSv1:DHE-RSA-AES256-SHA:256)
-	(Exim 4.82)
-	(envelope-from <info@sportpark2.nl>)
-	id 1W7VWE-0000Kp-NN
-	for netdev@vger.kernel.org; Sun, 26 Jan 2014 20:37:25 +0100
+Received: from mail.standardelectronics.com ([74.92.67.124]:7971 "EHLO
+	mail.standardelectronics.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753667AbaAZXj4 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Jan 2014 18:39:56 -0500
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Greetings,
+My name is Abdul Nasser Sokariah and I am writing you from Syria, I choose to contact you directly as I need a reliable person to trust who can help me handle my huge deposit  with a vault company in EUROPE, and based on my present situation in Syria, I need you urgently to take possession of everything and further modalities/directives will follow.Please reply to my private  Email: nasserabdul190@yahoo.com
 
+I wait for your response.
 
-Dear sir/Madam
-
-
-
-            Compliment of the new year .Sir we like like to establish a
-
-serious business relationship with you , we are Suppliers we will like to inquire if you have some product available for the months of Febuary,please kindly get back to me if you have it available and let me know your payment terms and time of delivery. I look forward to hear from you soon thanks and have a great day.
-
-
-
-Regards.
-
-Konrad Lukman
-
-Sale manager.
-
-Comiol Enterprises
-
-Address--904 54TH ST
-
-City--BROOKLYN
-
-Zip--11219-4020
-
-State--NY
-
-+1345675464
-
-Country--UNITED STATES
+Yours truly,
+Abdul Nasser Sokariah
