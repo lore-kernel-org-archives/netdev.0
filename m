@@ -1,74 +1,123 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: WARNING: at net/ipv4/devinet.c:1599
-Date: Sun, 26 Jan 2014 10:56:24 +0100
-Message-ID: <CAMuHMdWFDhTXaTTgBHg1hVduBKU2+Liz9j+ZHd=kBFh3hhTGhg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH V2 1/2] net: add and use skb_gso_transport_seglen()
+Date: Sun, 26 Jan 2014 10:58:16 +0100
+Message-ID: <1390730297-10725-1-git-send-email-fw@strlen.de>
+Cc: eric.dumazet@gmail.com, Florian Westphal <fw@strlen.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:34157 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751111AbaAZKBz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jan 2014 05:01:55 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On m68k/ARAnyM:
+This moves part of Eric Dumazets skb_gso_seglen helper from tbf sched to
+skbuff core so it may be reused by upcoming ip forwarding path patch.
 
-WARNING: CPU: 0 PID: 407 at net/ipv4/devinet.c:1599 0x316a99()
-Modules linked in:
-CPU: 0 PID: 407 Comm: ifconfig Not tainted
-3.13.0-atari-09263-g0c71d68014d1 #1378
-Stack from 10c4fdf0:
-        10c4fdf0 002ffabb 000243e8 00000000 008ced6c 00024416 00316a99 0000063f
-        00316a99 00000009 00000000 002501b4 00316a99 0000063f c0a86117 00000080
-        c0a86117 00ad0c90 00250a5a 00000014 00ad0c90 00000000 00000000 00000001
-        00b02dd0 00356594 00000000 00356594 c0a86117 eff6c9e4 008ced6c 00000002
-        008ced60 0024f9b4 00250b52 00ad0c90 00000000 00000000 00252390 00ad0c90
-        eff6c9e4 0000004f 00000000 00000000 eff6c9e4 8000e25c eff6c9e4 80001020
-Call Trace: [<000243e8>] warn_slowpath_common+0x52/0x6c
- [<00024416>] warn_slowpath_null+0x14/0x1a
- [<002501b4>] rtmsg_ifa+0xdc/0xf0
- [<00250a5a>] __inet_insert_ifa+0xd6/0x1c2
- [<0024f9b4>] inet_abc_len+0x0/0x42
- [<00250b52>] inet_insert_ifa+0xc/0x12
- [<00252390>] devinet_ioctl+0x2ae/0x5d6
- [<00020000>] _060_fpsp_effadd+0xc90c/0xd518
- [<00020000>] _060_fpsp_effadd+0xc90c/0xd518
- [<002530ec>] inet_ioctl+0x120/0x14e
- [<00008916>] atari_scc_console_write+0x42/0x5c
- [<00008916>] atari_scc_console_write+0x42/0x5c
- [<001f7666>] sock_ioctl+0x56/0x256
- [<00008916>] atari_scc_console_write+0x42/0x5c
- [<00095434>] vfs_ioctl+0x1c/0x30
- [<00008916>] atari_scc_console_write+0x42/0x5c
- [<0009559c>] do_vfs_ioctl+0x7a/0x3b8
- [<00008916>] atari_scc_console_write+0x42/0x5c
- [<00002884>] buserr+0x20/0x28
- [<00008916>] atari_scc_console_write+0x42/0x5c
- [<00095910>] SyS_ioctl+0x36/0x5a
- [<00008916>] atari_scc_console_write+0x42/0x5c
- [<00008916>] atari_scc_console_write+0x42/0x5c
- [<00002980>] syscall+0x8/0xc
- [<00008916>] atari_scc_console_write+0x42/0x5c
- [<0010c00b>] mext_leaf_block+0x443/0x81e
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ Changes since V1:
+ suggestions from Eric Dumazet:
+  - don't use uapi udp.h
+  - remove tcp.h include from tbf, its not needed anymore
 
----[ end trace 44b14c97c2210758 ]---
+ include/linux/skbuff.h |  1 +
+ net/core/skbuff.c      | 25 +++++++++++++++++++++++++
+ net/sched/sch_tbf.c    | 13 +++----------
+ 3 files changed, 29 insertions(+), 10 deletions(-)
 
-Adding some debugging code reveals that net_fill_ifaddr() fails in
-
-    put_cacheinfo(skb, ifa->ifa_cstamp, ifa->ifa_tstamp,
-                              preferred, valid))
-
-nla_put complains:
-
-lib/nlattr.c:454: skb_tailroom(skb) = 12, nla_total_size(attrlen) = 20
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 6f69b3f..3d76066 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2371,6 +2371,7 @@ void skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to);
+ void skb_split(struct sk_buff *skb, struct sk_buff *skb1, const u32 len);
+ int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen);
+ void skb_scrub_packet(struct sk_buff *skb, bool xnet);
++unsigned int skb_gso_transport_seglen(const struct sk_buff *skb);
+ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features);
+ 
+ struct skb_checksum_ops {
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 06e72d3..ce04da0 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -47,6 +47,8 @@
+ #include <linux/in.h>
+ #include <linux/inet.h>
+ #include <linux/slab.h>
++#include <linux/tcp.h>
++#include <linux/udp.h>
+ #include <linux/netdevice.h>
+ #ifdef CONFIG_NET_CLS_ACT
+ #include <net/pkt_sched.h>
+@@ -3592,3 +3594,26 @@ void skb_scrub_packet(struct sk_buff *skb, bool xnet)
+ 	nf_reset_trace(skb);
+ }
+ EXPORT_SYMBOL_GPL(skb_scrub_packet);
++
++/**
++ * skb_gso_transport_seglen - Return length of individual segments of a gso packet
++ *
++ * @skb: GSO skb
++ *
++ * skb_gso_transport_seglen is used to determine the real size of the
++ * individual segments, including Layer4 headers (TCP/UDP).
++ *
++ * The MAC/L2 or network (IP, IPv6) headers are not accounted for.
++ */
++unsigned int skb_gso_transport_seglen(const struct sk_buff *skb)
++{
++	const struct skb_shared_info *shinfo = skb_shinfo(skb);
++	unsigned int hdr_len;
++
++	if (likely(shinfo->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6)))
++		hdr_len = tcp_hdrlen(skb);
++	else
++		hdr_len = sizeof(struct udphdr);
++	return hdr_len + shinfo->gso_size;
++}
++EXPORT_SYMBOL_GPL(skb_gso_transport_seglen);
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index 887e672..758c356 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -21,7 +21,6 @@
+ #include <net/netlink.h>
+ #include <net/sch_generic.h>
+ #include <net/pkt_sched.h>
+-#include <net/tcp.h>
+ 
+ 
+ /*	Simple Token Bucket Filter.
+@@ -148,16 +147,10 @@ static u64 psched_ns_t2l(const struct psched_ratecfg *r,
+  * Return length of individual segments of a gso packet,
+  * including all headers (MAC, IP, TCP/UDP)
+  */
+-static unsigned int skb_gso_seglen(const struct sk_buff *skb)
++static unsigned int skb_gso_mac_seglen(const struct sk_buff *skb)
+ {
+ 	unsigned int hdr_len = skb_transport_header(skb) - skb_mac_header(skb);
+-	const struct skb_shared_info *shinfo = skb_shinfo(skb);
+-
+-	if (likely(shinfo->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6)))
+-		hdr_len += tcp_hdrlen(skb);
+-	else
+-		hdr_len += sizeof(struct udphdr);
+-	return hdr_len + shinfo->gso_size;
++	return hdr_len + skb_gso_transport_seglen(skb);
+ }
+ 
+ /* GSO packet is too big, segment it so that tbf can transmit
+@@ -202,7 +195,7 @@ static int tbf_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	int ret;
+ 
+ 	if (qdisc_pkt_len(skb) > q->max_size) {
+-		if (skb_is_gso(skb) && skb_gso_seglen(skb) <= q->max_size)
++		if (skb_is_gso(skb) && skb_gso_mac_seglen(skb) <= q->max_size)
+ 			return tbf_segment(skb, sch);
+ 		return qdisc_reshape_fail(skb, sch);
+ 	}
+-- 
+1.8.1.5
