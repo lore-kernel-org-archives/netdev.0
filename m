@@ -1,131 +1,139 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [BUG] null pointer dereference in tcp_gso_segment()
-Date: Sat, 25 Jan 2014 17:18:25 -0800
-Message-ID: <1390699105.27806.63.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <87r47z7kqo.fsf@natisbad.org>
-	 <1390427824.27806.36.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <8761pb7jzq.fsf@natisbad.org>
-	 <1390429125.27806.40.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <87r47v4ny9.fsf@natisbad.org>
+Subject: Re: [PATCH 1/2] net: add and use skb_gso_transport_seglen()
+Date: Sat, 25 Jan 2014 17:28:08 -0800
+Message-ID: <1390699688.27806.66.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1390690127-559-1-git-send-email-fw@strlen.de>
+	 <1390690127-559-2-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Willy Tarreau <w@1wt.eu>, netdev@vger.kernel.org
-To: Arnaud Ebalard <arno@natisbad.org>
+Cc: netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:58453 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750840AbaAZBS2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jan 2014 20:18:28 -0500
-Received: by mail-pa0-f53.google.com with SMTP id lj1so4623429pab.12
-        for <netdev@vger.kernel.org>; Sat, 25 Jan 2014 17:18:28 -0800 (PST)
-In-Reply-To: <87r47v4ny9.fsf@natisbad.org>
+Received: from mail-pb0-f45.google.com ([209.85.160.45]:60986 "EHLO
+	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751197AbaAZB2K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jan 2014 20:28:10 -0500
+Received: by mail-pb0-f45.google.com with SMTP id un15so4582037pbc.18
+        for <netdev@vger.kernel.org>; Sat, 25 Jan 2014 17:28:09 -0800 (PST)
+In-Reply-To: <1390690127-559-2-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-01-26 at 00:54 +0100, Arnaud Ebalard wrote:
-
-> Thanks for the explanation and sorry for the delay, I only just found
-> the time to take a look at the code. For the discussion, a simplified
-> version of tcp_gso_segment() is:
+On Sat, 2014-01-25 at 23:48 +0100, Florian Westphal wrote:
+> This moves part of Eric Dumazets skb_gso_seglen helper from tbf sched to
+> skbuff core so it may be reused by upcoming ip forwarding path patch.
 > 
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> ---
+>  include/linux/skbuff.h |  1 +
+>  net/core/skbuff.c      | 26 ++++++++++++++++++++++++++
+>  net/sched/sch_tbf.c    | 12 +++---------
+>  3 files changed, 30 insertions(+), 9 deletions(-)
 > 
->   th = tcp_hdr(skb);
->   thlen = th->doff * 4;
-> 
->   ...
-> 
->   __skb_pull(skb, thlen);
-> 
->   ...
-> 
->   mss = tcp_skb_mss(skb);
->   if (unlikely(skb->len <= mss))
->  	goto out;
-> 
->   ...
-> 
->   segs = skb_segment(skb, features);
->   skb = segs;
-> 
->   ...
-> 
-> 		skb = skb->next;
-> 		th = tcp_hdr(skb);   <- bug occurs here
-> 
-> 
-> So the logic seems to be that if we pass the mss test (i.e. skb->len >
-> mss), then skb_segment() *should* indeed create at least two segments
-> from the skb. I took a look at skb_segment() but the code is !trivial,
-> i.e. it is not obvious that there is no way for the function to deliver
-> a sk_buff skb w/ a NULL skb->next. Eric, I guess you or Herbert are
-> familiar enough w/ the code to tell. But before checking that, your lead
-> below is interesting ...
-> 
-> > Since TCP stack seemed to be the provider of the packet in your stack
-> > trace, check tcp_set_skb_tso_segs()
-> 
-> It is indeed called in tcp_write_xmit() which appears in the
-> backtrace. That function you point has an interesting property:
-> 
->  static void tcp_set_skb_tso_segs(const struct sock *sk, struct sk_buff *skb,
->  				 unsigned int mss_now)
->  {
->  	/* Make sure we own this skb before messing gso_size/gso_segs */
->  	WARN_ON_ONCE(skb_cloned(skb));
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 6f69b3f..3d76066 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -2371,6 +2371,7 @@ void skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to);
+>  void skb_split(struct sk_buff *skb, struct sk_buff *skb1, const u32 len);
+>  int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen);
+>  void skb_scrub_packet(struct sk_buff *skb, bool xnet);
+> +unsigned int skb_gso_transport_seglen(const struct sk_buff *skb);
+>  struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features);
 >  
->  	if (skb->len <= mss_now || skb->ip_summed == CHECKSUM_NONE) {
->  		/* Avoid the costly divide in the normal
->  		 * non-TSO case.
->  		 */
->  		skb_shinfo(skb)->gso_segs = 1;
->  		skb_shinfo(skb)->gso_size = 0;
->  		skb_shinfo(skb)->gso_type = 0;
->  	} else {
->  		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss_now);
->  		skb_shinfo(skb)->gso_size = mss_now;
->  		skb_shinfo(skb)->gso_type = sk->sk_gso_type;
->  	}
+>  struct skb_checksum_ops {
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 06e72d3..2e1fd75 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -45,6 +45,7 @@
+>  #include <linux/mm.h>
+>  #include <linux/interrupt.h>
+>  #include <linux/in.h>
+> +#include <linux/tcp.h>
+>  #include <linux/inet.h>
+>  #include <linux/slab.h>
+>  #include <linux/netdevice.h>
+> @@ -71,6 +72,8 @@
+>  #include <trace/events/skb.h>
+>  #include <linux/highmem.h>
+>  
+> +#include <uapi/linux/udp.h>
+
+
+Normally you should not use uapi/
+
+#include <linux/udp.h>
+
+> +
+>  struct kmem_cache *skbuff_head_cache __read_mostly;
+>  static struct kmem_cache *skbuff_fclone_cache __read_mostly;
+>  
+> @@ -3592,3 +3595,26 @@ void skb_scrub_packet(struct sk_buff *skb, bool xnet)
+>  	nf_reset_trace(skb);
+>  }
+>  EXPORT_SYMBOL_GPL(skb_scrub_packet);
+> +
+> +/**
+> + * skb_gso_transport_seglen - Return length of individual segments of a gso packet
+> + *
+> + * @skb: GSO skb
+> + *
+> + * skb_gso_transport_seglen is used to determine the real size of the
+> + * individual segments, including Layer4 headers (TCP/UDP).
+> + *
+> + * The MAC/L2 or network (IP, IPv6) headers are not accounted for.
+> + */
+> +unsigned int skb_gso_transport_seglen(const struct sk_buff *skb)
+> +{
+> +	const struct skb_shared_info *shinfo = skb_shinfo(skb);
+> +	unsigned int hdr_len;
+> +
+> +	if (likely(shinfo->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6)))
+> +		hdr_len = tcp_hdrlen(skb);
+> +	else
+> +		hdr_len = sizeof(struct udphdr);
+> +	return hdr_len + shinfo->gso_size;
+> +}
+> +EXPORT_SYMBOL_GPL(skb_gso_transport_seglen);
+> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+> index 887e672..837a61b 100644
+> --- a/net/sched/sch_tbf.c
+> +++ b/net/sched/sch_tbf.c
+
+It seems you forgot to remove from this file this include :
+
+#include <net/tcp.h>
+
+> @@ -148,16 +148,10 @@ static u64 psched_ns_t2l(const struct psched_ratecfg *r,
+>   * Return length of individual segments of a gso packet,
+>   * including all headers (MAC, IP, TCP/UDP)
+>   */
+> -static unsigned int skb_gso_seglen(const struct sk_buff *skb)
+> +static unsigned int skb_gso_mac_seglen(const struct sk_buff *skb)
+>  {
+>  	unsigned int hdr_len = skb_transport_header(skb) - skb_mac_header(skb);
+> -	const struct skb_shared_info *shinfo = skb_shinfo(skb);
+> -
+> -	if (likely(shinfo->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6)))
+> -		hdr_len += tcp_hdrlen(skb);
+> -	else
+> -		hdr_len += sizeof(struct udphdr);
+> -	return hdr_len + shinfo->gso_size;
+> +	return hdr_len + skb_gso_transport_seglen(skb);
 >  }
 >  
-> If it is called with skb->len <= mss, the resulting skb will be modified
-> so that you will then have skb_shinfo(skb)->gso_size set to 0,
-> i.e. skb->len > skb_shinfo(skb)->gso_size.
-> 
-
-The key part is that gso_size is set to 0.
-
-Meaning its not a gso packet :
-
-static inline bool skb_is_gso(const struct sk_buff *skb)
-{
-        return skb_shinfo(skb)->gso_size;
-}
-
-So the packet cannot possibly go up to tcp_gso_segment() because
-we fail the first test in :
-
-static inline bool netif_needs_gso(struct sk_buff *skb,
-                                   netdev_features_t features)
-{
-        return skb_is_gso(skb) && (!skb_gso_ok(skb, features) ||
-                unlikely((skb->ip_summed != CHECKSUM_PARTIAL) &&
-                         (skb->ip_summed != CHECKSUM_UNNECESSARY)));
-}
+>  /* GSO packet is too big, segment it so that tbf can transmit
+> @@ -202,7 +196,7 @@ static int tbf_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+>  	int ret;
+>  
+>  	if (qdisc_pkt_len(skb) > q->max_size) {
+> -		if (skb_is_gso(skb) && skb_gso_seglen(skb) <= q->max_size)
+> +		if (skb_is_gso(skb) && skb_gso_mac_seglen(skb) <= q->max_size)
+>  			return tbf_segment(skb, sch);
+>  		return qdisc_reshape_fail(skb, sch);
+>  	}
 
 
-> In tcp_gso_segment(), mss is grabbed using tcp_skb_mss() which simply
-> returns skb_shinfo(skb)->gso_size. That function comes with a comment
-> indicating that it provides the mss only when tcp_skb_pcount() > 1,
-> i.e when skb_shinfo(skb)->gso_segs > 1. Said differently, one should
-> never call tcp_skb_mss() after tcp_set_skb_tso_segs() has been called on
-> a skb *unless* she tests explicitly that tcp_skb_pcount() > 1.
-> 
-> This test (tcp_skb_pcount() > 1) is not done in tcp_gso_segment() before
-> getting the mss value w/ tcp_skb_mss(). I may have missed a test
-> somewhere in a caller but I do not see why tcp_gso_segment() makes the
-> assumption it can safely call tcp_skb_mss().
+Otherwise, this seems good, thanks !
