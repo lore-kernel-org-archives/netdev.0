@@ -1,214 +1,212 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH V2 2/2] net: ip, ipv6: handle gso skbs in forwarding path
-Date: Sun, 26 Jan 2014 10:58:17 +0100
-Message-ID: <1390730297-10725-2-git-send-email-fw@strlen.de>
-References: <1390730297-10725-1-git-send-email-fw@strlen.de>
-Cc: eric.dumazet@gmail.com, Florian Westphal <fw@strlen.de>
-To: netdev@vger.kernel.org
+From: Annie Li <Annie.li@oracle.com>
+Subject: [Xen-devel] [PATCH net-next v5] xen-netfront: clean up code in xennet_release_rx_bufs
+Date: Sun, 26 Jan 2014 18:12:27 +0800
+Message-ID: <1390731147-2424-1-git-send-email-Annie.li@oracle.com>
+Cc: konrad.wilk@oracle.com, ian.campbell@citrix.com,
+	wei.liu2@citrix.com, david.vrabel@citrix.com,
+	Annie Li <annie.li@oracle.com>
+To: xen-devel@lists.xen.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:34159 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751652AbaAZKB4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jan 2014 05:01:56 -0500
-In-Reply-To: <1390730297-10725-1-git-send-email-fw@strlen.de>
+Received: from userp1040.oracle.com ([156.151.31.81]:38775 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752596AbaAZKKp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jan 2014 05:10:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Marcelo Ricardo Leitner reported problems when the forwarding link
-path has a lower mtu than the incoming link if the inbound interface
-supports GRO.
+From: Annie Li <annie.li@oracle.com>
 
-Given:
-Host <mtu1500> R1 <mtu1200> R2
+This patch removes grant transfer releasing code from netfront, and uses
+gnttab_end_foreign_access to end grant access since
+gnttab_end_foreign_access_ref may fail when the grant entry is
+currently used for reading or writing.
 
-Host sends tcp stream which is routed via R1 and R2.  R1 performs GRO.
+* clean up grant transfer code kept from old netfront(2.6.18) which grants
+pages for access/map and transfer. But grant transfer is deprecated in current
+netfront, so remove corresponding release code for transfer.
 
-In this case, the kernel will fail to send ICMP fragmentation needed
-messages (or pkt too big for ipv6), as gso packets currently bypass the
-dst mtu checks in forward path. Instead, Linux tries to send out packets
-exceeding R1-R2 link mtu.
+* release grant access (through gnttab_end_foreign_access) and skb for tx/rx path,
+use get_page to ensure page is released when grant access is completed successfully.
 
-When locking route MTU on Host (i.e., no ipv4 DF bit set), R1 does
-not fragment the packets when forwarding, and again tries to send out
-packets exceeding R1-R2 link mtu.
+Xen-blkfront/xen-tpmfront/xen-pcifront also have similar issue, but patches
+for them will be created separately.
 
-This alters the forwarding dstmtu checks to take the individual gso
-segment lengths into account.
+V5: Remove unecessary change in xennet_end_access.
 
-For ipv6, we send out pkt too big error for gso if the individual
-segments are too big.
+V4: Revert put_page in gnttab_end_foreign_access, and keep netfront change in
+single patch.
 
-For ipv4, we either send icmp fragmentation needed, or, if the DF bit
-is not set, perform software segmentation and let the output path
-create fragments when the packet is leaving the machine.
-It is not 100% correct as the error message will contain the headers of
-the GRO skb instead of the original/segmented one, but it seems to
-work fine in my (limited) tests.
+V3: Changes as suggestion from David Vrabel, ensure pages are not freed untill
+grant acess is ended.
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
+V2: Improve patch comments.
+
+Signed-off-by: Annie Li <annie.li@oracle.com>
 ---
+ drivers/net/xen-netfront.c |   88 +++++++++++++-------------------------------
+ 1 files changed, 26 insertions(+), 62 deletions(-)
 
-Changes since V1:
- suggestions from Eric Dumazet:
-  - skip more expensive computation for small packets in fwd path
-  - use netif_skb_features() feature mask and remove GSO flags
-    instead of using 0 feature set.
-
- include/linux/skbuff.h | 17 ++++++++++++++
- net/ipv4/ip_forward.c  | 62 ++++++++++++++++++++++++++++++++++++++++++++++++--
- net/ipv6/ip6_output.c  | 19 ++++++++++++++--
- 3 files changed, 94 insertions(+), 4 deletions(-)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 3d76066..37cb679 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2811,5 +2811,22 @@ static inline bool skb_head_is_locked(const struct sk_buff *skb)
- {
- 	return !skb->head_frag || skb_cloned(skb);
- }
-+
-+/**
-+ * skb_gso_network_seglen - Return length of individual segments of a gso packet
-+ *
-+ * @skb: GSO skb
-+ *
-+ * skb_gso_network_seglen is used to determine the real size of the
-+ * individual segments, including Layer3 (IP, IPv6) and L4 headers (TCP/UDP).
-+ *
-+ * The MAC/L2 header is not accounted for.
-+ */
-+static inline unsigned int skb_gso_network_seglen(const struct sk_buff *skb)
-+{
-+	unsigned int hdr_len = skb_transport_header(skb) -
-+			       skb_network_header(skb);
-+	return hdr_len + skb_gso_transport_seglen(skb);
-+}
- #endif	/* __KERNEL__ */
- #endif	/* _LINUX_SKBUFF_H */
-diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-index 694de3b..f5a4d2a 100644
---- a/net/ipv4/ip_forward.c
-+++ b/net/ipv4/ip_forward.c
-@@ -39,6 +39,62 @@
- #include <net/route.h>
- #include <net/xfrm.h>
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index d7bee8a..6ddf1e6 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -117,6 +117,7 @@ struct netfront_info {
+ 	} tx_skbs[NET_TX_RING_SIZE];
+ 	grant_ref_t gref_tx_head;
+ 	grant_ref_t grant_tx_ref[NET_TX_RING_SIZE];
++	struct page *grant_tx_page[NET_TX_RING_SIZE];
+ 	unsigned tx_skb_freelist;
  
-+static bool ip_may_fragment(const struct sk_buff *skb)
-+{
-+	return unlikely((ip_hdr(skb)->frag_off & htons(IP_DF)) == 0) ||
-+	       !skb->local_df;
-+}
-+
-+static bool ip_gso_exceeds_dst_mtu(const struct sk_buff *skb)
-+{
-+	if (skb->local_df || !skb_is_gso(skb))
-+		return false;
-+	return skb_gso_network_seglen(skb) > dst_mtu(skb_dst(skb));
-+}
-+
-+static bool ip_exceeds_mtu(const struct sk_buff *skb, unsigned int mtu)
-+{
-+	unsigned len;
-+
-+	if (skb->len <= mtu || skb->local_df)
-+		return false;
-+
-+	if (skb_is_gso(skb) && skb_gso_network_seglen(skb) <= mtu)
-+		return false;
-+
-+	return true;
-+}
-+
-+/* called if GSO skb needs to be fragmented on forward.  */
-+static int ip_forward_finish_gso(struct sk_buff *skb)
-+{
-+	netdev_features_t features = netif_skb_features(skb);
-+	struct sk_buff *segs;
-+	int ret = 0;
-+
-+	segs = skb_gso_segment(skb, features & ~NETIF_F_GSO_MASK);
-+	if (IS_ERR(segs)) {
+ 	spinlock_t   rx_lock ____cacheline_aligned_in_smp;
+@@ -396,6 +397,7 @@ static void xennet_tx_buf_gc(struct net_device *dev)
+ 			gnttab_release_grant_reference(
+ 				&np->gref_tx_head, np->grant_tx_ref[id]);
+ 			np->grant_tx_ref[id] = GRANT_INVALID_REF;
++			np->grant_tx_page[id] = NULL;
+ 			add_id_to_freelist(&np->tx_skb_freelist, np->tx_skbs, id);
+ 			dev_kfree_skb_irq(skb);
+ 		}
+@@ -452,6 +454,7 @@ static void xennet_make_frags(struct sk_buff *skb, struct net_device *dev,
+ 		gnttab_grant_foreign_access_ref(ref, np->xbdev->otherend_id,
+ 						mfn, GNTMAP_readonly);
+ 
++		np->grant_tx_page[id] = virt_to_page(data);
+ 		tx->gref = np->grant_tx_ref[id] = ref;
+ 		tx->offset = offset;
+ 		tx->size = len;
+@@ -497,6 +500,7 @@ static void xennet_make_frags(struct sk_buff *skb, struct net_device *dev,
+ 							np->xbdev->otherend_id,
+ 							mfn, GNTMAP_readonly);
+ 
++			np->grant_tx_page[id] = page;
+ 			tx->gref = np->grant_tx_ref[id] = ref;
+ 			tx->offset = offset;
+ 			tx->size = bytes;
+@@ -596,6 +600,7 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	mfn = virt_to_mfn(data);
+ 	gnttab_grant_foreign_access_ref(
+ 		ref, np->xbdev->otherend_id, mfn, GNTMAP_readonly);
++	np->grant_tx_page[id] = virt_to_page(data);
+ 	tx->gref = np->grant_tx_ref[id] = ref;
+ 	tx->offset = offset;
+ 	tx->size = len;
+@@ -1085,10 +1090,11 @@ static void xennet_release_tx_bufs(struct netfront_info *np)
+ 			continue;
+ 
+ 		skb = np->tx_skbs[i].skb;
+-		gnttab_end_foreign_access_ref(np->grant_tx_ref[i],
+-					      GNTMAP_readonly);
+-		gnttab_release_grant_reference(&np->gref_tx_head,
+-					       np->grant_tx_ref[i]);
++		get_page(np->grant_tx_page[i]);
++		gnttab_end_foreign_access(np->grant_tx_ref[i],
++					  GNTMAP_readonly,
++					  (unsigned long)page_address(np->grant_tx_page[i]));
++		np->grant_tx_page[i] = NULL;
+ 		np->grant_tx_ref[i] = GRANT_INVALID_REF;
+ 		add_id_to_freelist(&np->tx_skb_freelist, np->tx_skbs, i);
+ 		dev_kfree_skb_irq(skb);
+@@ -1097,78 +1103,35 @@ static void xennet_release_tx_bufs(struct netfront_info *np)
+ 
+ static void xennet_release_rx_bufs(struct netfront_info *np)
+ {
+-	struct mmu_update      *mmu = np->rx_mmu;
+-	struct multicall_entry *mcl = np->rx_mcl;
+-	struct sk_buff_head free_list;
+-	struct sk_buff *skb;
+-	unsigned long mfn;
+-	int xfer = 0, noxfer = 0, unused = 0;
+ 	int id, ref;
+ 
+-	dev_warn(&np->netdev->dev, "%s: fix me for copying receiver.\n",
+-			 __func__);
+-	return;
+-
+-	skb_queue_head_init(&free_list);
+-
+ 	spin_lock_bh(&np->rx_lock);
+ 
+ 	for (id = 0; id < NET_RX_RING_SIZE; id++) {
+-		ref = np->grant_rx_ref[id];
+-		if (ref == GRANT_INVALID_REF) {
+-			unused++;
+-			continue;
+-		}
++		struct sk_buff *skb;
++		struct page *page;
+ 
+ 		skb = np->rx_skbs[id];
+-		mfn = gnttab_end_foreign_transfer_ref(ref);
+-		gnttab_release_grant_reference(&np->gref_rx_head, ref);
+-		np->grant_rx_ref[id] = GRANT_INVALID_REF;
+-
+-		if (0 == mfn) {
+-			skb_shinfo(skb)->nr_frags = 0;
+-			dev_kfree_skb(skb);
+-			noxfer++;
++		if (!skb)
+ 			continue;
+-		}
+ 
+-		if (!xen_feature(XENFEAT_auto_translated_physmap)) {
+-			/* Remap the page. */
+-			const struct page *page =
+-				skb_frag_page(&skb_shinfo(skb)->frags[0]);
+-			unsigned long pfn = page_to_pfn(page);
+-			void *vaddr = page_address(page);
++		ref = np->grant_rx_ref[id];
++		if (ref == GRANT_INVALID_REF)
++			continue;
+ 
+-			MULTI_update_va_mapping(mcl, (unsigned long)vaddr,
+-						mfn_pte(mfn, PAGE_KERNEL),
+-						0);
+-			mcl++;
+-			mmu->ptr = ((u64)mfn << PAGE_SHIFT)
+-				| MMU_MACHPHYS_UPDATE;
+-			mmu->val = pfn;
+-			mmu++;
++		page = skb_frag_page(&skb_shinfo(skb)->frags[0]);
+ 
+-			set_phys_to_machine(pfn, mfn);
+-		}
+-		__skb_queue_tail(&free_list, skb);
+-		xfer++;
+-	}
+-
+-	dev_info(&np->netdev->dev, "%s: %d xfer, %d noxfer, %d unused\n",
+-		 __func__, xfer, noxfer, unused);
++		/* gnttab_end_foreign_access() needs a page ref until
++		 * foreign access is ended (which may be deferred).
++		 */
++		get_page(page);
++		gnttab_end_foreign_access(ref, 0,
++					  (unsigned long)page_address(page));
++		np->grant_rx_ref[id] = GRANT_INVALID_REF;
+ 
+-	if (xfer) {
+-		if (!xen_feature(XENFEAT_auto_translated_physmap)) {
+-			/* Do all the remapping work and M2P updates. */
+-			MULTI_mmu_update(mcl, np->rx_mmu, mmu - np->rx_mmu,
+-					 NULL, DOMID_SELF);
+-			mcl++;
+-			HYPERVISOR_multicall(np->rx_mcl, mcl - np->rx_mcl);
+-		}
 +		kfree_skb(skb);
-+		return -ENOMEM;
-+	}
-+
-+	consume_skb(skb);
-+
-+	do {
-+		struct sk_buff *nskb = segs->next;
-+		int err;
-+
-+		segs->next = NULL;
-+		err = dst_output(segs);
-+
-+		if (err && ret == 0)
-+			ret = err;
-+		segs = nskb;
-+	} while (segs);
-+
-+	return ret;
-+}
-+
- static int ip_forward_finish(struct sk_buff *skb)
- {
- 	struct ip_options *opt	= &(IPCB(skb)->opt);
-@@ -49,6 +105,9 @@ static int ip_forward_finish(struct sk_buff *skb)
- 	if (unlikely(opt->optlen))
- 		ip_forward_options(skb);
+ 	}
  
-+	if (ip_gso_exceeds_dst_mtu(skb))
-+		return ip_forward_finish_gso(skb);
-+
- 	return dst_output(skb);
+-	__skb_queue_purge(&free_list);
+-
+ 	spin_unlock_bh(&np->rx_lock);
  }
  
-@@ -88,8 +147,7 @@ int ip_forward(struct sk_buff *skb)
- 	if (opt->is_strictroute && rt->rt_uses_gateway)
- 		goto sr_failed;
+@@ -1339,6 +1302,7 @@ static struct net_device *xennet_create_dev(struct xenbus_device *dev)
+ 	for (i = 0; i < NET_RX_RING_SIZE; i++) {
+ 		np->rx_skbs[i] = NULL;
+ 		np->grant_rx_ref[i] = GRANT_INVALID_REF;
++		np->grant_tx_page[i] = NULL;
+ 	}
  
--	if (unlikely(skb->len > dst_mtu(&rt->dst) && !skb_is_gso(skb) &&
--		     (ip_hdr(skb)->frag_off & htons(IP_DF))) && !skb->local_df) {
-+	if (!ip_may_fragment(skb) && ip_exceeds_mtu(skb, dst_mtu(&rt->dst))) {
- 		IP_INC_STATS(dev_net(rt->dst.dev), IPSTATS_MIB_FRAGFAILS);
- 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
- 			  htonl(dst_mtu(&rt->dst)));
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index e6f9319..6a92666 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -321,6 +321,22 @@ static inline int ip6_forward_finish(struct sk_buff *skb)
- 	return dst_output(skb);
- }
- 
-+static bool ip6_pkt_too_big(const struct sk_buff *skb, unsigned int mtu)
-+{
-+	unsigned int len;
-+
-+	if (skb->len <= mtu || skb->local_df)
-+		return false;
-+
-+	if (IP6CB(skb)->frag_max_size && IP6CB(skb)->frag_max_size > mtu)
-+		return true;
-+
-+	if (skb_is_gso(skb) && skb_gso_network_seglen(skb) <= mtu)
-+		return false;
-+
-+	return true;
-+}
-+
- int ip6_forward(struct sk_buff *skb)
- {
- 	struct dst_entry *dst = skb_dst(skb);
-@@ -443,8 +459,7 @@ int ip6_forward(struct sk_buff *skb)
- 	if (mtu < IPV6_MIN_MTU)
- 		mtu = IPV6_MIN_MTU;
- 
--	if ((!skb->local_df && skb->len > mtu && !skb_is_gso(skb)) ||
--	    (IP6CB(skb)->frag_max_size && IP6CB(skb)->frag_max_size > mtu)) {
-+	if (ip6_pkt_too_big(skb, mtu)) {
- 		/* Again, force OUTPUT device used as source address */
- 		skb->dev = dst->dev;
- 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
+ 	/* A grant for every tx ring slot */
 -- 
-1.8.1.5
+1.7.3.4
