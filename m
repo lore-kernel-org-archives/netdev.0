@@ -1,38 +1,44 @@
 From: Hans de Goede <hdegoede@redhat.com>
-Subject: [PATCH 1/2] net: stmmac: Silence PTP init errors on hw without PTP
-Date: Sun, 26 Jan 2014 15:50:43 +0100
-Message-ID: <1390747844-25060-1-git-send-email-hdegoede@redhat.com>
+Subject: [PATCH 2/2] net: stmmac: Log MAC address only once
+Date: Sun, 26 Jan 2014 15:50:44 +0100
+Message-ID: <1390747844-25060-2-git-send-email-hdegoede@redhat.com>
+References: <1390747844-25060-1-git-send-email-hdegoede@redhat.com>
 Cc: netdev@vger.kernel.org, Hans de Goede <hdegoede@redhat.com>
 To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44450 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:22066 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751444AbaAZOuw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Jan 2014 09:50:52 -0500
+	id S1752397AbaAZOu4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Jan 2014 09:50:56 -0500
+In-Reply-To: <1390747844-25060-1-git-send-email-hdegoede@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Logging a PTP error on hw which simply does not support PTP is not very
-useful. Moreover this message gets logged on every if-up, and if there is
-no cable inserted NetworkManager will re-try the ifup every 50 seconds.
+Logging the MAC address on every if-up, is not really useful, and annoying when
+there is no cable inserted and NetworkManager tries the ifup every 50 seconds.
+
+Also change the log level from warning to info, as that is what it is.
 
 Signed-off-by: Hans de Goede <hdegoede@redhat.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index ff514b5..838d0b7 100644
+index 838d0b7..920b3c6 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1687,7 +1687,7 @@ static int stmmac_open(struct net_device *dev)
- 	stmmac_mmc_setup(priv);
+@@ -1523,9 +1523,9 @@ static void stmmac_check_ether_addr(struct stmmac_priv *priv)
+ 					     priv->dev->dev_addr, 0);
+ 		if (!is_valid_ether_addr(priv->dev->dev_addr))
+ 			eth_hw_addr_random(priv->dev);
++		pr_info("%s: device MAC address %pM\n", priv->dev->name,
++			priv->dev->dev_addr);
+ 	}
+-	pr_warn("%s: device MAC address %pM\n", priv->dev->name,
+-		priv->dev->dev_addr);
+ }
  
- 	ret = stmmac_init_ptp(priv);
--	if (ret)
-+	if (ret && ret != -EOPNOTSUPP)
- 		pr_warn("%s: failed PTP initialisation\n", __func__);
- 
- #ifdef CONFIG_STMMAC_DEBUG_FS
+ /**
 -- 
 1.8.5.3
