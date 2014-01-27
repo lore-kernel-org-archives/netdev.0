@@ -1,53 +1,41 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net] net: hyperv: initialize link status correctly
-Date: Mon, 27 Jan 2014 16:05:03 +0000
-Message-ID: <366785442d3b42d593f3c5df3f867ddd@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <1390807854-4469-1-git-send-email-jasowang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Jason Wang <jasowang@redhat.com>, KY Srinivasan <kys@microsoft.com>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1390807854-4469-1-git-send-email-jasowang@redhat.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] AF_PACKET: Add documentation for queue mapping fanout mode
+Date: Mon, 27 Jan 2014 11:43:04 -0500
+Message-ID: <1390840984-22246-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:36809 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753842AbaA0QnZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jan 2014 11:43:25 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Recently I added a new AF_PACKET fanout operation mode in commit
+2d36097, but I forgot to document it.  Add PACKET_FANOUT_QM as an available mode
+in the af_packet documentation.  Applies to net-next.
 
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Daniel Borkmann <dborkman@redhat.com>
+---
+ Documentation/networking/packet_mmap.txt | 1 +
+ 1 file changed, 1 insertion(+)
 
-> -----Original Message-----
-> From: Jason Wang [mailto:jasowang@redhat.com]
-> Sent: Monday, January 27, 2014 2:31 AM
-> To: KY Srinivasan; Haiyang Zhang; devel@linuxdriverproject.org;
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org
-> Cc: Jason Wang
-> Subject: [PATCH net] net: hyperv: initialize link status correctly
-> 
-> Call netif_carrier_on() after register_device(). Otherwise it won't work since
-> the device was still in NETREG_UNINITIALIZED state.
-> 
-> Fixes a68f9614614749727286f675d15f1e09d13cb54a
-> (hyperv: Fix race between probe and open calls)
-> 
-> Cc: Haiyang Zhang <haiyangz@microsoft.com>
-> Cc: K. Y. Srinivasan <kys@microsoft.com>
-> Reported-by: Di Nie <dnie@redhat.com>
-> Tested-by: Di Nie <dnie@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
-
-I'm working on a fix for this, and will submit it soon.
-
-Thanks,
-- Haiyang
+diff --git a/Documentation/networking/packet_mmap.txt b/Documentation/networking/packet_mmap.txt
+index 91ffe1d..1404674 100644
+--- a/Documentation/networking/packet_mmap.txt
++++ b/Documentation/networking/packet_mmap.txt
+@@ -583,6 +583,7 @@ Currently implemented fanout policies are:
+   - PACKET_FANOUT_CPU: schedule to socket by CPU packet arrives on
+   - PACKET_FANOUT_RND: schedule to socket by random selection
+   - PACKET_FANOUT_ROLLOVER: if one socket is full, rollover to another
++  - PACKET_FANOUT_QM: schedule to socket by skbs recorded queue_mapping
+ 
+ Minimal example code by David S. Miller (try things like "./test eth0 hash",
+ "./test eth0 lb", etc.):
+-- 
+1.8.3.1
