@@ -1,83 +1,61 @@
-From: Max Filippov <jcmvbkbc@gmail.com>
-Subject: Re: [PATCH 3/3] net: ethoc: document OF bindings
-Date: Mon, 27 Jan 2014 19:52:58 +0400
-Message-ID: <CAMo8BfKm_rzDDs9BpfQkaew9DP9T8y0RnjzT_1gzs9Xrbx2CLA@mail.gmail.com>
-References: <1390795167-6677-1-git-send-email-jcmvbkbc@gmail.com>
-	<1390795167-6677-4-git-send-email-jcmvbkbc@gmail.com>
-	<CAL_JsqLjn4FXrNGLGHs639TEqmQKPx_kk9JbAd-hn7mexzAjNg@mail.gmail.com>
+From: Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 3/3] net: via-rhine: add OF bus binding
+Date: Mon, 27 Jan 2014 09:56:12 -0600
+Message-ID: <CAL_JsqLi0QKeeUkGMKmYZ1ki02mzk=L1gDxTJyXFGiOe_aHiVw@mail.gmail.com>
+References: <1385227995-3956-1-git-send-email-alchark@gmail.com>
+	<1390823503-24087-1-git-send-email-alchark@gmail.com>
+	<1390823503-24087-4-git-send-email-alchark@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>,
-	netdev <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Chris Zankel <chris@zankel.net>,
-	Marc Gauthier <marc@cadence.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>
-To: Rob Herring <robherring2@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAL_JsqLjn4FXrNGLGHs639TEqmQKPx_kk9JbAd-hn7mexzAjNg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Tony Prisk <linux-ci5G2KO2hbZ+pU9mqzGVBQ@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	rl-7uj+XXdSDtwfv37vnLkPlQ@public.gmane.org,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Alexey Charkov <alchark-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1390823503-24087-4-git-send-email-alchark-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Rob,
-
-On Mon, Jan 27, 2014 at 6:10 PM, Rob Herring <robherring2@gmail.com> wrote:
-> On Sun, Jan 26, 2014 at 9:59 PM, Max Filippov <jcmvbkbc@gmail.com> wrote:
->> Signed-off-by: Max Filippov <jcmvbkbc@gmail.com>
->> ---
->>  .../devicetree/bindings/net/opencores-ethoc.txt    | 25 ++++++++++++++++++++++
->>  1 file changed, 25 insertions(+)
->>  create mode 100644 Documentation/devicetree/bindings/net/opencores-ethoc.txt
->>
->> diff --git a/Documentation/devicetree/bindings/net/opencores-ethoc.txt b/Documentation/devicetree/bindings/net/opencores-ethoc.txt
->> new file mode 100644
->> index 0000000..f7c6c94
->> --- /dev/null
->> +++ b/Documentation/devicetree/bindings/net/opencores-ethoc.txt
->> @@ -0,0 +1,25 @@
->> +* OpenCores MAC 10/100 Mbps
->> +
->> +Required properties:
->> +- compatible: Should be "opencores,ethoc".
+On Mon, Jan 27, 2014 at 5:51 AM, Alexey Charkov <alchark-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> This should make the driver usable with VIA/WonderMedia ARM-based
+> Systems-on-Chip integrated Rhine III adapters. Note that these
+> are always in MMIO mode, and don't have any known EEPROM.
 >
-> There are not different versions of IP or is the version probeable?
-
-AFAIK there's single version of this 10/100 MAC.
-It doesn't have any identification registers.
-
->> +- reg: Address and length of the register set for the device and of its
->> +  descriptor memory.
->> +- interrupts: Should contain ethoc interrupt.
->> +
->> +Optional properties:
->> +- local-mac-address: 6 bytes, mac address
+> Signed-off-by: Alexey Charkov <alchark-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Roger Luethi <rl-7uj+XXdSDtwfv37vnLkPlQ@public.gmane.org>
+> ---
+>  .../devicetree/bindings/net/via-rhine.txt          |  18 ++
+>  drivers/net/ethernet/via/Kconfig                   |   2 +-
+>  drivers/net/ethernet/via/via-rhine.c               | 293 +++++++++++++--------
+>  3 files changed, 200 insertions(+), 113 deletions(-)
+>  create mode 100644 Documentation/devicetree/bindings/net/via-rhine.txt
 >
-> There's a patch in progress to move all the standard network
-> properties to a common location, so you can remove this.
+> diff --git a/Documentation/devicetree/bindings/net/via-rhine.txt b/Documentation/devicetree/bindings/net/via-rhine.txt
+> new file mode 100644
+> index 0000000..684dd3a
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/via-rhine.txt
+> @@ -0,0 +1,18 @@
+> +* VIA Rhine 10/100 Network Controller
+> +
+> +Required properties:
+> +- compatible : Should be "via,rhine"
 
-Will do.
+This should be more specific rather than...
 
->> +- clock-frequency: basic MAC frequency.
->> +- mii-mgmt-clock-frequency: frequency of MII management bus. Together
->> +  with clock-frequency determines the value programmed into the CLKDIV
->> +  field of MIIMODER register.
->> +
->> +Examples:
->> +
->> +       enet0: ethoc@fd030000 {
->> +               compatible = "opencores,ethoc";
->> +               reg = <0xfd030000 0x4000 0xfd800000 0x4000>;
->> +               interrupts = <1>;
->> +               local-mac-address = [00 50 c2 13 6f 00];
->> +               clock-frequency = <50000000>;
->> +               mii-mgmt-clock-frequency = <5000000>;
->> +        };
->> --
->> 1.8.1.4
+> +- reg : Address and length of the io space
+> +- interrupts : Should contain the controller interrupt line
+> +- rhine,revision : Rhine core revision, used to inform the
+> +       driver of quirks and capabilities to expect from
+> +       the device. Mimics the respective PCI attribute.
 
--- 
-Thanks.
--- Max
+having this property. The OF match table can then have the quirks set
+based on compatible strings.
+
+Rob
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
