@@ -1,50 +1,174 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v3 net-next 0/2] bonding: fix locking in bond_ab_arp_prob
-Date: Mon, 27 Jan 2014 14:37:30 +0100
-Message-ID: <1390829852-1943-1-git-send-email-vfalico@redhat.com>
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH v3 net-next 2/2] bonding: restructure locking of bond_ab_arp_probe()
+Date: Mon, 27 Jan 2014 14:37:32 +0100
+Message-ID: <1390829852-1943-3-git-send-email-vfalico@redhat.com>
+References: <1390829852-1943-1-git-send-email-vfalico@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16500 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:51848 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751431AbaA0Nlt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Jan 2014 08:41:49 -0500
+	id S1753473AbaA0Nlw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jan 2014 08:41:52 -0500
+In-Reply-To: <1390829852-1943-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Currently we're calling it from under RCU context, however we're using some
+functions that require rtnl to be held.
 
-After the latest patches, on every call of bond_ab_arp_probe() without an
-active slave I see the following warning:
-
-[    7.912314] RTNL: assertion failed at net/core/dev.c (4494)
-...
-[    7.922495]  [<ffffffff817acc6f>] dump_stack+0x51/0x72
-[    7.923714]  [<ffffffff8168795e>] netdev_master_upper_dev_get+0x6e/0x70
-[    7.924940]  [<ffffffff816a2a66>] rtnl_link_fill+0x116/0x260
-[    7.926143]  [<ffffffff817acc6f>] ? dump_stack+0x51/0x72
-[    7.927333]  [<ffffffff816a350c>] rtnl_fill_ifinfo+0x95c/0xb90
-[    7.928529]  [<ffffffff8167af2b>] ? __kmalloc_reserve+0x3b/0xa0
-[    7.929681]  [<ffffffff8167bfcf>] ? __alloc_skb+0x9f/0x1e0
-[    7.930827]  [<ffffffff816a3b64>] rtmsg_ifinfo+0x84/0x100
-[    7.931960]  [<ffffffffa00bca07>] bond_ab_arp_probe+0x1a7/0x370 [bonding]
-[    7.933133]  [<ffffffffa00bcd78>] bond_activebackup_arp_mon+0x1a8/0x2f0 [bonding]
-...
-
-It happens because in bond_ab_arp_probe() we change the flags of a slave
-without holding the RTNL lock.
-
-To fix this - remove the useless curr_active_lock, RCUify it and lock RTNL
-while changing the slave's flags. Also, remove bond_ab_arp_probe() from
-under any locks in bond_ab_arp_mon().
+Fix this by restructuring the locking - don't call it under any locks,
+aquire rcu_read_lock() if we're sending _only_ (i.e. we have the active
+slave present), and use rtnl locking otherwise - if we need to modify
+(in)active flags of a slave.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
-CC: netdev@vger.kernel.org
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
-
 ---
- drivers/net/bonding/bond_main.c | 67 ++++++++++++++++++++++++-----------------
- 1 file changed, 39 insertions(+), 28 deletions(-)
+
+Notes:
+    v2->v3:
+    Use rtnl_trylock(), not to race with queue cancelling.
+    
+    v1->v2:
+    Add two steps - one for sending/rcu, another for modifying/rtnl.
+
+ drivers/net/bonding/bond_main.c | 57 ++++++++++++++++++++++++++---------------
+ 1 file changed, 36 insertions(+), 21 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 27e6fdd..dd75615 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2599,17 +2599,18 @@ do_failover:
+ 
+ /*
+  * Send ARP probes for active-backup mode ARP monitor.
+- *
+- * Called with rcu_read_lock hold.
+  */
+-static void bond_ab_arp_probe(struct bonding *bond)
++static bool bond_ab_arp_probe(struct bonding *bond)
+ {
+ 	struct slave *slave, *before = NULL, *new_slave = NULL,
+-		     *curr_arp_slave = rcu_dereference(bond->current_arp_slave),
+-		     *curr_active_slave = rcu_dereference(bond->curr_active_slave);
++		     *curr_arp_slave, *curr_active_slave;
+ 	struct list_head *iter;
+ 	bool found = false;
+ 
++	rcu_read_lock();
++	curr_arp_slave = rcu_dereference(bond->current_arp_slave);
++	curr_active_slave = rcu_dereference(bond->curr_active_slave);
++
+ 	if (curr_arp_slave && curr_active_slave)
+ 		pr_info("PROBE: c_arp %s && cas %s BAD\n",
+ 			curr_arp_slave->dev->name,
+@@ -2617,23 +2618,32 @@ static void bond_ab_arp_probe(struct bonding *bond)
+ 
+ 	if (curr_active_slave) {
+ 		bond_arp_send_all(bond, curr_active_slave);
+-		return;
++		rcu_read_unlock();
++		return true;
+ 	}
++	rcu_read_unlock();
+ 
+ 	/* if we don't have a curr_active_slave, search for the next available
+ 	 * backup slave from the current_arp_slave and make it the candidate
+ 	 * for becoming the curr_active_slave
+ 	 */
+ 
++	if (!rtnl_trylock())
++		return false;
++	/* curr_arp_slave might have gone away */
++	curr_arp_slave = ACCESS_ONCE(bond->current_arp_slave);
++
+ 	if (!curr_arp_slave) {
+-		curr_arp_slave = bond_first_slave_rcu(bond);
+-		if (!curr_arp_slave)
+-			return;
++		curr_arp_slave = bond_first_slave(bond);
++		if (!curr_arp_slave) {
++			rtnl_unlock();
++			return true;
++		}
+ 	}
+ 
+ 	bond_set_slave_inactive_flags(curr_arp_slave);
+ 
+-	bond_for_each_slave_rcu(bond, slave, iter) {
++	bond_for_each_slave(bond, slave, iter) {
+ 		if (!found && !before && IS_UP(slave->dev))
+ 			before = slave;
+ 
+@@ -2663,21 +2673,26 @@ static void bond_ab_arp_probe(struct bonding *bond)
+ 	if (!new_slave && before)
+ 		new_slave = before;
+ 
+-	if (!new_slave)
+-		return;
++	if (!new_slave) {
++		rtnl_unlock();
++		return true;
++	}
+ 
+ 	new_slave->link = BOND_LINK_BACK;
+ 	bond_set_slave_active_flags(new_slave);
+ 	bond_arp_send_all(bond, new_slave);
+ 	new_slave->jiffies = jiffies;
+ 	rcu_assign_pointer(bond->current_arp_slave, new_slave);
++	rtnl_unlock();
++
++	return true;
+ }
+ 
+ static void bond_activebackup_arp_mon(struct work_struct *work)
+ {
+ 	struct bonding *bond = container_of(work, struct bonding,
+ 					    arp_work.work);
+-	bool should_notify_peers = false;
++	bool should_notify_peers = false, should_commit = false;
+ 	int delta_in_ticks;
+ 
+ 	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
+@@ -2686,12 +2701,11 @@ static void bond_activebackup_arp_mon(struct work_struct *work)
+ 		goto re_arm;
+ 
+ 	rcu_read_lock();
+-
+ 	should_notify_peers = bond_should_notify_peers(bond);
++	should_commit = bond_ab_arp_inspect(bond);
++	rcu_read_unlock();
+ 
+-	if (bond_ab_arp_inspect(bond)) {
+-		rcu_read_unlock();
+-
++	if (should_commit) {
+ 		/* Race avoidance with bond_close flush of workqueue */
+ 		if (!rtnl_trylock()) {
+ 			delta_in_ticks = 1;
+@@ -2700,13 +2714,14 @@ static void bond_activebackup_arp_mon(struct work_struct *work)
+ 		}
+ 
+ 		bond_ab_arp_commit(bond);
+-
+ 		rtnl_unlock();
+-		rcu_read_lock();
+ 	}
+ 
+-	bond_ab_arp_probe(bond);
+-	rcu_read_unlock();
++	if (!bond_ab_arp_probe(bond)) {
++		/* rtnl locking failed, re-arm */
++		delta_in_ticks = 1;
++		should_notify_peers = false;
++	}
+ 
+ re_arm:
+ 	if (bond->params.arp_interval)
+-- 
+1.8.4
