@@ -1,115 +1,137 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC v3 04/12] ipcomp4: Use the IPsec protocol multiplexer API
-Date: Mon, 27 Jan 2014 11:29:29 +0100
-Message-ID: <1390818577-19589-5-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH RFC v3 08/12] xfrm4: Remove xfrm_tunnel_notifier
+Date: Mon, 27 Jan 2014 11:29:33 +0100
+Message-ID: <1390818577-19589-9-git-send-email-steffen.klassert@secunet.com>
 References: <1390818577-19589-1-git-send-email-steffen.klassert@secunet.com>
 Cc: Steffen Klassert <steffen.klassert@secunet.com>,
 	Christophe Gouault <christophe.gouault@6wind.com>,
 	Saurabh Mohan <saurabh.mohan@vyatta.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:43166 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:43181 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753821AbaA0KaJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Jan 2014 05:30:09 -0500
+	id S1753835AbaA0KaM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jan 2014 05:30:12 -0500
 In-Reply-To: <1390818577-19589-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Switch ipcomp4 to use the new IPsec protocol multiplexer.
+This was used from vti and is replaced by the IPsec protocol
+multiplexer hooks. It is now unused, so remove it.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/ipv4/ipcomp.c |   25 ++++++++++++++++---------
- 1 file changed, 16 insertions(+), 9 deletions(-)
+ include/net/xfrm.h           |    2 --
+ net/ipv4/xfrm4_mode_tunnel.c |   68 ------------------------------------------
+ 2 files changed, 70 deletions(-)
 
-diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
-index 826be4c..6135ff8 100644
---- a/net/ipv4/ipcomp.c
-+++ b/net/ipv4/ipcomp.c
-@@ -23,7 +23,7 @@
- #include <net/protocol.h>
- #include <net/sock.h>
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index c8f84171..8f28b9e 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1526,8 +1526,6 @@ int xfrm4_protocol_deregister(struct xfrm4_protocol *handler, unsigned char prot
+ int xfrm4_tunnel_register(struct xfrm_tunnel *handler, unsigned short family);
+ int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler, unsigned short family);
+ void xfrm4_local_error(struct sk_buff *skb, u32 mtu);
+-int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel_notifier *handler);
+-int xfrm4_mode_tunnel_input_deregister(struct xfrm_tunnel_notifier *handler);
+ int xfrm6_mode_tunnel_input_register(struct xfrm_tunnel_notifier *handler);
+ int xfrm6_mode_tunnel_input_deregister(struct xfrm_tunnel_notifier *handler);
+ int xfrm6_extract_header(struct sk_buff *skb);
+diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
+index 31b1815..05f2b48 100644
+--- a/net/ipv4/xfrm4_mode_tunnel.c
++++ b/net/ipv4/xfrm4_mode_tunnel.c
+@@ -15,65 +15,6 @@
+ #include <net/ip.h>
+ #include <net/xfrm.h>
  
--static void ipcomp4_err(struct sk_buff *skb, u32 info)
-+static int ipcomp4_err(struct sk_buff *skb, u32 info)
+-/* Informational hook. The decap is still done here. */
+-static struct xfrm_tunnel_notifier __rcu *rcv_notify_handlers __read_mostly;
+-static DEFINE_MUTEX(xfrm4_mode_tunnel_input_mutex);
+-
+-int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel_notifier *handler)
+-{
+-	struct xfrm_tunnel_notifier __rcu **pprev;
+-	struct xfrm_tunnel_notifier *t;
+-	int ret = -EEXIST;
+-	int priority = handler->priority;
+-
+-	mutex_lock(&xfrm4_mode_tunnel_input_mutex);
+-
+-	for (pprev = &rcv_notify_handlers;
+-	     (t = rcu_dereference_protected(*pprev,
+-	     lockdep_is_held(&xfrm4_mode_tunnel_input_mutex))) != NULL;
+-	     pprev = &t->next) {
+-		if (t->priority > priority)
+-			break;
+-		if (t->priority == priority)
+-			goto err;
+-
+-	}
+-
+-	handler->next = *pprev;
+-	rcu_assign_pointer(*pprev, handler);
+-
+-	ret = 0;
+-
+-err:
+-	mutex_unlock(&xfrm4_mode_tunnel_input_mutex);
+-	return ret;
+-}
+-EXPORT_SYMBOL_GPL(xfrm4_mode_tunnel_input_register);
+-
+-int xfrm4_mode_tunnel_input_deregister(struct xfrm_tunnel_notifier *handler)
+-{
+-	struct xfrm_tunnel_notifier __rcu **pprev;
+-	struct xfrm_tunnel_notifier *t;
+-	int ret = -ENOENT;
+-
+-	mutex_lock(&xfrm4_mode_tunnel_input_mutex);
+-	for (pprev = &rcv_notify_handlers;
+-	     (t = rcu_dereference_protected(*pprev,
+-	     lockdep_is_held(&xfrm4_mode_tunnel_input_mutex))) != NULL;
+-	     pprev = &t->next) {
+-		if (t == handler) {
+-			*pprev = handler->next;
+-			ret = 0;
+-			break;
+-		}
+-	}
+-	mutex_unlock(&xfrm4_mode_tunnel_input_mutex);
+-	synchronize_net();
+-
+-	return ret;
+-}
+-EXPORT_SYMBOL_GPL(xfrm4_mode_tunnel_input_deregister);
+-
+ static inline void ipip_ecn_decapsulate(struct sk_buff *skb)
  {
- 	struct net *net = dev_net(skb->dev);
- 	__be32 spi;
-@@ -34,24 +34,26 @@ static void ipcomp4_err(struct sk_buff *skb, u32 info)
- 	switch (icmp_hdr(skb)->type) {
- 	case ICMP_DEST_UNREACH:
- 		if (icmp_hdr(skb)->code != ICMP_FRAG_NEEDED)
--			return;
-+			return 0;
- 	case ICMP_REDIRECT:
- 		break;
- 	default:
--		return;
-+		return 0;
- 	}
- 
- 	spi = htonl(ntohs(ipch->cpi));
- 	x = xfrm_state_lookup(net, skb->mark, (const xfrm_address_t *)&iph->daddr,
- 			      spi, IPPROTO_COMP, AF_INET);
- 	if (!x)
--		return;
-+		return 0;
- 
- 	if (icmp_hdr(skb)->type == ICMP_DEST_UNREACH)
- 		ipv4_update_pmtu(skb, net, info, 0, 0, IPPROTO_COMP, 0);
- 	else
- 		ipv4_redirect(skb, net, 0, 0, IPPROTO_COMP, 0);
- 	xfrm_state_put(x);
-+
-+	return 0;
+ 	struct iphdr *inner_iph = ipip_hdr(skb);
+@@ -127,14 +68,8 @@ static int xfrm4_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	return 0;
  }
  
- /* We always hold one tunnel user reference to indicate a tunnel */
-@@ -147,6 +149,11 @@ out:
- 	return err;
- }
- 
-+static int ipcomp4_rcv_cb(struct sk_buff *skb, int err)
-+{
-+	return 0;
-+}
-+
- static const struct xfrm_type ipcomp_type = {
- 	.description	= "IPCOMP4",
- 	.owner		= THIS_MODULE,
-@@ -157,11 +164,11 @@ static const struct xfrm_type ipcomp_type = {
- 	.output		= ipcomp_output
- };
- 
--static const struct net_protocol ipcomp4_protocol = {
-+static struct xfrm4_protocol ipcomp4_protocol = {
- 	.handler	=	xfrm4_rcv,
-+	.cb_handler	=	ipcomp4_rcv_cb,
- 	.err_handler	=	ipcomp4_err,
--	.no_policy	=	1,
--	.netns_ok	=	1,
-+	.priority	=	0,
- };
- 
- static int __init ipcomp4_init(void)
-@@ -170,7 +177,7 @@ static int __init ipcomp4_init(void)
- 		pr_info("%s: can't add xfrm type\n", __func__);
- 		return -EAGAIN;
- 	}
--	if (inet_add_protocol(&ipcomp4_protocol, IPPROTO_COMP) < 0) {
-+	if (xfrm4_protocol_register(&ipcomp4_protocol, IPPROTO_COMP) < 0) {
- 		pr_info("%s: can't add protocol\n", __func__);
- 		xfrm_unregister_type(&ipcomp_type, AF_INET);
- 		return -EAGAIN;
-@@ -180,7 +187,7 @@ static int __init ipcomp4_init(void)
- 
- static void __exit ipcomp4_fini(void)
+-#define for_each_input_rcu(head, handler)	\
+-	for (handler = rcu_dereference(head);	\
+-	     handler != NULL;			\
+-	     handler = rcu_dereference(handler->next))
+-
+ static int xfrm4_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
  {
--	if (inet_del_protocol(&ipcomp4_protocol, IPPROTO_COMP) < 0)
-+	if (xfrm4_protocol_deregister(&ipcomp4_protocol, IPPROTO_COMP) < 0)
- 		pr_info("%s: can't remove protocol\n", __func__);
- 	if (xfrm_unregister_type(&ipcomp_type, AF_INET) < 0)
- 		pr_info("%s: can't remove xfrm type\n", __func__);
+-	struct xfrm_tunnel_notifier *handler;
+ 	int err = -EINVAL;
+ 
+ 	if (XFRM_MODE_SKB_CB(skb)->protocol != IPPROTO_IPIP)
+@@ -143,9 +78,6 @@ static int xfrm4_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
+ 		goto out;
+ 
+-	for_each_input_rcu(rcv_notify_handlers, handler)
+-		handler->handler(skb);
+-
+ 	err = skb_unclone(skb, GFP_ATOMIC);
+ 	if (err)
+ 		goto out;
 -- 
 1.7.9.5
