@@ -1,34 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: ip, ipv6: handle gso skbs in forwarding path
-Date: Mon, 27 Jan 2014 00:34:03 -0800 (PST)
-Message-ID: <20140127.003403.165822194531743765.davem@davemloft.net>
-References: <1390810971-23959-1-git-send-email-fw@strlen.de>
-	<1390810971-23959-2-git-send-email-fw@strlen.de>
+Subject: Re: [PATCH net] net: hyperv: initialize link status correctly
+Date: Mon, 27 Jan 2014 00:35:59 -0800 (PST)
+Message-ID: <20140127.003559.2290408024387922847.davem@davemloft.net>
+References: <1390807854-4469-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fw@strlen.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56779 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753334AbaA0IeE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jan 2014 03:34:04 -0500
-In-Reply-To: <1390810971-23959-2-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@linuxdriverproject.org, haiyangz@microsoft.com,
+ linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: jasowang@redhat.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1390807854-4469-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
-Date: Mon, 27 Jan 2014 09:22:51 +0100
+From: Jason Wang <jasowang@redhat.com>
+Date: Mon, 27 Jan 2014 15:30:54 +0800
 
-> Changes since V2:
->  - make this thing apply to current -net tree
->  - kill unused variables in ip_forward/ip6_output
+> Call netif_carrier_on() after register_device(). Otherwise it won't work since
+> the device was still in NETREG_UNINITIALIZED state.
+> 
+> Fixes a68f9614614749727286f675d15f1e09d13cb54a
+> (hyperv: Fix race between probe and open calls)
+> 
+> Cc: Haiyang Zhang <haiyangz@microsoft.com>
+> Cc: K. Y. Srinivasan <kys@microsoft.com>
+> Reported-by: Di Nie <dnie@redhat.com>
+> Tested-by: Di Nie <dnie@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Still need changes.
-> +	return skb_gso_network_seglen(skb) > dst_mtu(skb_dst(skb));
-
-You can't use dst_mtu() directly, in order to be consistent with the
-rest of the forwarding code in this file you must use something like:
-
->  	mtu = ip_dst_mtu_maybe_forward(&rt->dst, true);
+A device up can occur at the moment you call register_netdevice(),
+therefore that up call can see the carrier as down and fail or
+similar.  So you really cannot resolve the carrier to be on in this
+way.
