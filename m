@@ -1,125 +1,406 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net] net: hyperv: initialize link status correctly
-Date: Mon, 27 Jan 2014 10:30:38 +0000
-Message-ID: <1390818638.2735.136.camel@deadeye.wl.decadent.org.uk>
-References: <1390807854-4469-1-git-send-email-jasowang@redhat.com>
- <20140127.003559.2290408024387922847.davem@davemloft.net>
- <52E629A8.5010302@redhat.com>
- <1390818121.2735.130.camel@deadeye.wl.decadent.org.uk>
- <52E634DA.3040200@redhat.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============4544982949310501754=="
-Cc: netdev@vger.kernel.org, haiyangz@microsoft.com,
- linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
- David Miller <davem@davemloft.net>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <52E634DA.3040200@redhat.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH RFC v3 01/12] xfrm4: Add IPsec protocol multiplexer
+Date: Mon, 27 Jan 2014 11:29:26 +0100
+Message-ID: <1390818577-19589-2-git-send-email-steffen.klassert@secunet.com>
+References: <1390818577-19589-1-git-send-email-steffen.klassert@secunet.com>
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	Christophe Gouault <christophe.gouault@6wind.com>,
+	Saurabh Mohan <saurabh.mohan@vyatta.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:43148 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753484AbaA0KaH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jan 2014 05:30:07 -0500
+In-Reply-To: <1390818577-19589-1-git-send-email-steffen.klassert@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This patch add an IPsec protocol multiplexer. With this
+it is possible to add alternative protocol handlers as
+needed for IPsec virtual tunnel interfaces.
 
---===============4544982949310501754==
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-56IykHN8/pSwD5rjO7vl"
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ include/net/xfrm.h        |   24 +++++
+ net/ipv4/Makefile         |    2 +-
+ net/ipv4/xfrm4_protocol.c |  242 +++++++++++++++++++++++++++++++++++++++++++++
+ net/xfrm/xfrm_input.c     |   18 ++--
+ 4 files changed, 279 insertions(+), 7 deletions(-)
+ create mode 100644 net/ipv4/xfrm4_protocol.c
 
-
---=-56IykHN8/pSwD5rjO7vl
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Mon, 2014-01-27 at 18:28 +0800, Jason Wang wrote:
-> On 01/27/2014 06:22 PM, Ben Hutchings wrote:
-> > On Mon, 2014-01-27 at 17:40 +0800, Jason Wang wrote:
-> >> On 01/27/2014 04:35 PM, David Miller wrote:
-> >>> From: Jason Wang <jasowang@redhat.com>
-> >>> Date: Mon, 27 Jan 2014 15:30:54 +0800
-> >>>
-> >>>> Call netif_carrier_on() after register_device(). Otherwise it won't =
-work since
-> >>>> the device was still in NETREG_UNINITIALIZED state.
-> >>>>
-> >>>> Fixes a68f9614614749727286f675d15f1e09d13cb54a
-> >>>> (hyperv: Fix race between probe and open calls)
-> >>>>
-> >>>> Cc: Haiyang Zhang <haiyangz@microsoft.com>
-> >>>> Cc: K. Y. Srinivasan <kys@microsoft.com>
-> >>>> Reported-by: Di Nie <dnie@redhat.com>
-> >>>> Tested-by: Di Nie <dnie@redhat.com>
-> >>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> >>> A device up can occur at the moment you call register_netdevice(),
-> >>> therefore that up call can see the carrier as down and fail or
-> >>> similar.  So you really cannot resolve the carrier to be on in this
-> >>> way.
-> >> True, we need a workqueue to synchronize them.
-> > Whatever for?  All you need to do is:
-> >
-> > 	rtnl_lock();
-> > 	register_netdevice();
-> > 	netif_carrier_on();
-> > 	rtnl_unlock();
-> >
-> > It would be nice if we could make the current code work with a change i=
-n
-> > the core, though.
-> >
-> > Ben.
-> >
->=20
-> Looks like the link status interrupt may happen during this (after
-> netvsc_device_add() was called by rndis_filter_device_add()) without any
-> synchronization. This may lead a wrong link status here.
-
-Now I'm confused - if there's a link status interrupt, why are you
-setting the carrier on initially?
-
-Ben.
-
---=20
-Ben Hutchings
-If at first you don't succeed, you're doing about average.
-
---=-56IykHN8/pSwD5rjO7vl
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
-
-iQIVAwUAUuY1Tue/yOyVhhEJAQrjCA//biMTbPGxReR86S/jyvSTgRD8v7DzxLeC
-BKoqfToZEMsnaNj8PS137rfyKUtdd0NfC/crPv1vox5fMftygNc82i0eoDVZJCDn
-t/jKYPSWGXZvOqVAWrV6P0VnwJ6YHh2j9lEpzGOt3VNPpDyZDJ47Cp4dqVVrT5c0
-TPWLizma8zQqUvVVE97rn6DHJ+l9a68sydRRZRklkT5HKBV7+S+fhzIPYDGDynqt
-F73Dom8OvlFxYr4dRIMM34ULUdINDeUT5G/xeksokJXW2GjeNVDBDhA3lQkZEcOo
-XUq2N12oPPMb94U7UXnNntCnxDgPFafdWk2eJx4TriYA3NgWCU+su4bOuBY8tR7l
-UIR9aXUv7i52jm6aKNXzPD6cPF5ldDn3+l4fUWyWdgRnmjkvtonx1eSQmaLgO+mg
-fM8GzMUBN0Hj3kWylGzPyN/8bTyAaIlny4yfWcGmIZ5F++FLHjLyb+racMgjUoKg
-uYaJYny6SoFyM7vc0ecxooXSVK4cOBfPkP1PdeCQ8qaR/yKt1nVEmc/nzCwVZfRS
-9pu5IykYRWFha5Guc5qtL4Ka4A2sLa+bBK9h003hlr66tohvX1043/mLqazIJsZK
-dCZdDSs4uAsKHnqjAx8Plrv0AaBymPAG23EdkoMo1FPk1OGRzmMGdwkpcglyGDQy
-OtrX39qjiLA=
-=Z9Dz
------END PGP SIGNATURE-----
-
---=-56IykHN8/pSwD5rjO7vl--
-
---===============4544982949310501754==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-devel mailing list
-devel@linuxdriverproject.org
-http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
-
---===============4544982949310501754==--
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index afa5730..34aef6f 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1347,6 +1347,17 @@ struct xfrm_algo_desc {
+ 	struct sadb_alg desc;
+ };
+ 
++
++/* XFRM protocol handlers.  */
++struct xfrm4_protocol {
++	int (*handler)(struct sk_buff *skb);
++	int (*cb_handler)(struct sk_buff *skb, int err);
++	int (*err_handler)(struct sk_buff *skb, u32 info);
++
++	struct xfrm4_protocol __rcu *next;
++	int priority;
++};
++
+ /* XFRM tunnel handlers.  */
+ struct xfrm_tunnel {
+ 	int (*handler)(struct sk_buff *skb);
+@@ -1504,6 +1515,9 @@ int xfrm4_extract_output(struct xfrm_state *x, struct sk_buff *skb);
+ int xfrm4_prepare_output(struct xfrm_state *x, struct sk_buff *skb);
+ int xfrm4_output(struct sk_buff *skb);
+ int xfrm4_output_finish(struct sk_buff *skb);
++void xfrm4_rcv_cb(struct sk_buff *skb, u8 protocol, int err);
++int xfrm4_protocol_register(struct xfrm4_protocol *handler, unsigned char protocol);
++int xfrm4_protocol_deregister(struct xfrm4_protocol *handler, unsigned char protocol);
+ int xfrm4_tunnel_register(struct xfrm_tunnel *handler, unsigned short family);
+ int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler, unsigned short family);
+ void xfrm4_local_error(struct sk_buff *skb, u32 mtu);
+@@ -1737,4 +1751,14 @@ static inline int xfrm_mark_put(struct sk_buff *skb, const struct xfrm_mark *m)
+ 	return ret;
+ }
+ 
++static inline void xfrm_rcv_cb(struct sk_buff *skb, unsigned int family,
++			       u8 protocol, int err)
++{
++	switch(family) {
++	case AF_INET:
++		xfrm4_rcv_cb(skb, protocol, err);
++		break;
++	}
++}
++
+ #endif	/* _NET_XFRM_H */
+diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+index f8c49ce..f032688 100644
+--- a/net/ipv4/Makefile
++++ b/net/ipv4/Makefile
+@@ -55,4 +55,4 @@ obj-$(CONFIG_MEMCG_KMEM) += tcp_memcontrol.o
+ obj-$(CONFIG_NETLABEL) += cipso_ipv4.o
+ 
+ obj-$(CONFIG_XFRM) += xfrm4_policy.o xfrm4_state.o xfrm4_input.o \
+-		      xfrm4_output.o
++		      xfrm4_output.o xfrm4_protocol.o
+diff --git a/net/ipv4/xfrm4_protocol.c b/net/ipv4/xfrm4_protocol.c
+new file mode 100644
+index 0000000..993ab39
+--- /dev/null
++++ b/net/ipv4/xfrm4_protocol.c
+@@ -0,0 +1,242 @@
++/* xfrm4_protocol.c - Generic xfrm protocol multiplexer.
++ *
++ * Copyright (C) 2013 secunet Security Networks AG
++ *
++ * Author:
++ * Steffen Klassert <steffen.klassert@secunet.com>
++ *
++ * Based on:
++ * net/ipv4/tunnel4.c
++ *
++ *	This program is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU General Public License
++ *	as published by the Free Software Foundation; either version
++ *	2 of the License, or (at your option) any later version.
++ */
++
++#include <linux/init.h>
++#include <linux/mutex.h>
++#include <linux/skbuff.h>
++#include <net/icmp.h>
++#include <net/ip.h>
++#include <net/protocol.h>
++#include <net/xfrm.h>
++
++static struct xfrm4_protocol __rcu *esp4_handlers __read_mostly;
++static struct xfrm4_protocol __rcu *ah4_handlers __read_mostly;
++static struct xfrm4_protocol __rcu *ipcomp4_handlers __read_mostly;
++static DEFINE_MUTEX(xfrm4_protocol_mutex);
++
++static inline struct xfrm4_protocol __rcu **proto_handlers(u8 protocol)
++{
++	switch (protocol) {
++	case IPPROTO_ESP:
++		return &esp4_handlers;
++	case IPPROTO_AH:
++		return &ah4_handlers;
++	case IPPROTO_COMP:
++		return &ipcomp4_handlers;
++	}
++
++	return NULL;
++}
++
++#define for_each_protocol_rcu(head, handler)		\
++	for (handler = rcu_dereference(head);		\
++	     handler != NULL;				\
++	     handler = rcu_dereference(handler->next))	\
++
++void xfrm4_rcv_cb(struct sk_buff *skb, u8 protocol, int err)
++{
++	struct xfrm4_protocol *handler;
++
++	for_each_protocol_rcu(*proto_handlers(protocol), handler)
++		if (!handler->cb_handler(skb, err))
++			return;
++}
++EXPORT_SYMBOL(xfrm4_rcv_cb);
++
++static int xfrm4_esp_rcv(struct sk_buff *skb)
++{
++	struct xfrm4_protocol *handler;
++
++	for_each_protocol_rcu(esp4_handlers, handler)
++		if (!handler->handler(skb))
++			return 0;
++
++	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
++
++	kfree_skb(skb);
++	return 0;
++}
++
++static void xfrm4_esp_err(struct sk_buff *skb, u32 info)
++{
++	struct xfrm4_protocol *handler;
++
++	for_each_protocol_rcu(esp4_handlers, handler)
++		if (!handler->err_handler(skb, info))
++			break;
++}
++
++static int xfrm4_ah_rcv(struct sk_buff *skb)
++{
++	struct xfrm4_protocol *handler;
++
++	for_each_protocol_rcu(ah4_handlers, handler)
++		if (!handler->handler(skb))
++			return 0;
++
++	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
++
++	kfree_skb(skb);
++	return 0;
++}
++
++static void xfrm4_ah_err(struct sk_buff *skb, u32 info)
++{
++	struct xfrm4_protocol *handler;
++
++	for_each_protocol_rcu(ah4_handlers, handler)
++		if (!handler->err_handler(skb, info))
++			break;
++}
++
++static int xfrm4_ipcomp_rcv(struct sk_buff *skb)
++{
++	struct xfrm4_protocol *handler;
++
++	for_each_protocol_rcu(ipcomp4_handlers, handler)
++		if (!handler->handler(skb))
++			return 0;
++
++	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
++
++	kfree_skb(skb);
++	return 0;
++}
++
++static void xfrm4_ipcomp_err(struct sk_buff *skb, u32 info)
++{
++	struct xfrm4_protocol *handler;
++
++	for_each_protocol_rcu(ipcomp4_handlers, handler)
++		if (!handler->err_handler(skb, info))
++			break;
++}
++
++static const struct net_protocol esp4_protocol = {
++	.handler	=	xfrm4_esp_rcv,
++	.err_handler	=	xfrm4_esp_err,
++	.no_policy	=	1,
++	.netns_ok	=	1,
++};
++
++static const struct net_protocol ah4_protocol = {
++	.handler	=	xfrm4_ah_rcv,
++	.err_handler	=	xfrm4_ah_err,
++	.no_policy	=	1,
++	.netns_ok	=	1,
++};
++
++static const struct net_protocol ipcomp4_protocol = {
++	.handler	=	xfrm4_ipcomp_rcv,
++	.err_handler	=	xfrm4_ipcomp_err,
++	.no_policy	=	1,
++	.netns_ok	=	1,
++};
++
++static inline const struct net_protocol *netproto(unsigned char protocol)
++{
++	switch (protocol) {
++	case IPPROTO_ESP:
++		return &esp4_protocol;
++	case IPPROTO_AH:
++		return &ah4_protocol;
++	case IPPROTO_COMP:
++		return &ipcomp4_protocol;
++	}
++
++	return NULL;
++}
++
++int xfrm4_protocol_register(struct xfrm4_protocol *handler,
++			    unsigned char protocol)
++{
++	struct xfrm4_protocol __rcu **pprev;
++	struct xfrm4_protocol *t;
++	bool add_netproto = false;
++
++	int ret = -EEXIST;
++	int priority = handler->priority;
++
++	mutex_lock(&xfrm4_protocol_mutex);
++
++	if (!rcu_dereference_protected(*proto_handlers(protocol),
++				       lockdep_is_held(&xfrm4_protocol_mutex)))
++		add_netproto = true;
++
++	for (pprev = proto_handlers(protocol);
++	     (t = rcu_dereference_protected(*pprev,
++			lockdep_is_held(&xfrm4_protocol_mutex))) != NULL;
++	     pprev = &t->next) {
++		if (t->priority < priority)
++			break;
++		if (t->priority == priority)
++			goto err;
++	}
++
++	handler->next = *pprev;
++	rcu_assign_pointer(*pprev, handler);
++
++	ret = 0;
++
++err:
++	mutex_unlock(&xfrm4_protocol_mutex);
++
++	if (add_netproto) {
++		if (inet_add_protocol(netproto(protocol), protocol)) {
++			pr_err("%s: can't add protocol\n", __func__);
++			ret = -EAGAIN;
++		}
++	}
++
++	return ret;
++}
++EXPORT_SYMBOL(xfrm4_protocol_register);
++
++int xfrm4_protocol_deregister(struct xfrm4_protocol *handler,
++			      unsigned char protocol)
++{
++	struct xfrm4_protocol __rcu **pprev;
++	struct xfrm4_protocol *t;
++	int ret = -ENOENT;
++
++	mutex_lock(&xfrm4_protocol_mutex);
++
++	for (pprev = proto_handlers(protocol);
++	     (t = rcu_dereference_protected(*pprev,
++			lockdep_is_held(&xfrm4_protocol_mutex))) != NULL;
++	     pprev = &t->next) {
++		if (t == handler) {
++			*pprev = handler->next;
++			ret = 0;
++			break;
++		}
++	}
++
++	if (!rcu_dereference_protected(*proto_handlers(protocol),
++				       lockdep_is_held(&xfrm4_protocol_mutex))) {
++		if (inet_del_protocol(netproto(protocol), protocol) < 0) {
++			pr_err("%s: can't remove protocol\n", __func__);
++			ret = -EAGAIN;
++		}
++	}
++
++	mutex_unlock(&xfrm4_protocol_mutex);
++
++	synchronize_net();
++
++	return ret;
++}
++EXPORT_SYMBOL(xfrm4_protocol_deregister);
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index 6c7ac01..9bf7559 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -108,7 +108,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 	int err;
+ 	__be32 seq;
+ 	__be32 seq_hi;
+-	struct xfrm_state *x;
++	struct xfrm_state *x = NULL;
+ 	xfrm_address_t *daddr;
+ 	struct xfrm_mode *inner_mode;
+ 	unsigned int family;
+@@ -120,9 +120,14 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 		async = 1;
+ 		x = xfrm_input_state(skb);
+ 		seq = XFRM_SKB_CB(skb)->seq.input.low;
++		family = x->outer_mode->afinfo->family;
+ 		goto resume;
+ 	}
+ 
++	daddr = (xfrm_address_t *)(skb_network_header(skb) +
++				   XFRM_SPI_SKB_CB(skb)->daddroff);
++	family = XFRM_SPI_SKB_CB(skb)->family;
++
+ 	/* Allocate new secpath or COW existing one. */
+ 	if (!skb->sp || atomic_read(&skb->sp->refcnt) != 1) {
+ 		struct sec_path *sp;
+@@ -137,10 +142,6 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 		skb->sp = sp;
+ 	}
+ 
+-	daddr = (xfrm_address_t *)(skb_network_header(skb) +
+-				   XFRM_SPI_SKB_CB(skb)->daddroff);
+-	family = XFRM_SPI_SKB_CB(skb)->family;
+-
+ 	seq = 0;
+ 	if (!spi && (err = xfrm_parse_spi(skb, nexthdr, &spi, &seq)) != 0) {
+ 		XFRM_INC_STATS(net, LINUX_MIB_XFRMINHDRERROR);
+@@ -199,8 +200,10 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 
+ 		nexthdr = x->type->input(x, skb);
+ 
+-		if (nexthdr == -EINPROGRESS)
++		if (nexthdr == -EINPROGRESS) {
++			xfrm_rcv_cb(skb, family, x->type->proto, nexthdr);
+ 			return 0;
++		}
+ 
+ resume:
+ 		spin_lock(&x->lock);
+@@ -263,6 +266,8 @@ resume:
+ 		}
+ 	} while (!err);
+ 
++	xfrm_rcv_cb(skb, family, x->type->proto, 0);
++
+ 	nf_reset(skb);
+ 
+ 	if (decaps) {
+@@ -276,6 +281,7 @@ resume:
+ drop_unlock:
+ 	spin_unlock(&x->lock);
+ drop:
++	xfrm_rcv_cb(skb, family, x ? x->type->proto : nexthdr, -1);
+ 	kfree_skb(skb);
+ 	return 0;
+ }
+-- 
+1.7.9.5
