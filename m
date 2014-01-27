@@ -1,58 +1,45 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH 2/2] sctp: optimize the sctp_sysctl_net_register
-Date: Mon, 27 Jan 2014 11:49:03 +0800
-Message-ID: <1390794543-1008-3-git-send-email-wangweidong1@huawei.com>
-References: <1390794543-1008-1-git-send-email-wangweidong1@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <dborkman@redhat.com>, <netdev@vger.kernel.org>
-To: <nhorman@tuxdriver.com>, <davem@davemloft.net>,
-	<vyasevich@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:55053 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753195AbaA0Dup (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jan 2014 22:50:45 -0500
-In-Reply-To: <1390794543-1008-1-git-send-email-wangweidong1@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Max Filippov <jcmvbkbc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 0/3] OpenCores 10/100 MAC fixes for gigabit environment
+Date: Mon, 27 Jan 2014 07:59:24 +0400
+Message-ID: <1390795167-6677-1-git-send-email-jcmvbkbc@gmail.com>
+Cc: Chris Zankel <chris-YvXeqwSYzG2sTnJN9+BGXg@public.gmane.org>, Marc Gauthier <marc-vna1KIf7WgpBDgjK7y7TUQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>,
+	Max Filippov <jcmvbkbc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Here, when the net is init_net, we needn't to kmemdup the ctl_table
-again. So add a check for net. Also we can save some memory.
+Hello David, Grant, Rob, Chris and everybody,
 
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
----
- net/sctp/sysctl.c | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+this series improves ethoc behavior in gigabit environment:
+- first patch disables gigabit advertisement in the attached PHY making
+  possible to use gigabit link without any additional setup;
+- second patch adds support to set up MII management bus frequency, adding
+  new fields to platform data and to OF bindings;
+- third patch documents existing and newly added OF bindings.
 
-diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-index 2ddb401..b65396b 100644
---- a/net/sctp/sysctl.c
-+++ b/net/sctp/sysctl.c
-@@ -403,15 +403,17 @@ static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
- 
- int sctp_sysctl_net_register(struct net *net)
- {
--	struct ctl_table *table;
--	int i;
-+	struct ctl_table *table = sctp_net_table;
- 
--	table = kmemdup(sctp_net_table, sizeof(sctp_net_table), GFP_KERNEL);
--	if (!table)
--		return -ENOMEM;
-+	if (!net_eq(net, &init_net)) {
-+		int i;
-+		table = kmemdup(sctp_net_table, sizeof(sctp_net_table), GFP_KERNEL);
-+		if (!table)
-+			return -ENOMEM;
- 
--	for (i = 0; table[i].data; i++)
--		table[i].data += (char *)(&net->sctp) - (char *)&init_net.sctp;
-+		for (i = 0; table[i].data; i++)
-+			table[i].data += (char *)(&net->sctp) - (char *)&init_net.sctp;
-+	}
- 
- 	net->sctp.sysctl_header = register_net_sysctl(net, "net/sctp", table);
- 	return 0;
+These changes allow to use KC-705 board with 50MHz xtensa core and OpenCores
+10/100 Mbps MAC connected to gigabit network without any additional setup.
+
+Max Filippov (3):
+  net: ethoc: don't advertise gigabit speed on attached PHY
+  net: ethoc: set up MII management bus clock
+  net: ethoc: document OF bindings
+
+ .../devicetree/bindings/net/opencores-ethoc.txt    | 25 +++++++++++++++++++
+ drivers/net/ethernet/ethoc.c                       | 29 ++++++++++++++++++++--
+ include/net/ethoc.h                                |  2 ++
+ 3 files changed, 54 insertions(+), 2 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/opencores-ethoc.txt
+
 -- 
-1.7.12
+1.8.1.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
