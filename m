@@ -1,50 +1,42 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net-next] hyperv: Add support for physically
- discontinuous receive buffer
-Date: Mon, 27 Jan 2014 21:55:27 +0000
-Message-ID: <2c34baaad4eb4aab83f5b54eb982b662@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <5f60b6bd1ea84eadbb730c7ea9d3d4d5@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-	<18b9150b090043b7b296593af994f8ee@BY2PR03MB299.namprd03.prod.outlook.com>
-	<0671791e2ca8487a86a551eadf2e2bcd@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
- <20140127.135036.201976640275761993.davem@davemloft.net>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next 0/7] qlcnic: Refactoring and enhancements for
+ all adapters.
+Date: Mon, 27 Jan 2014 22:04:17 +0000
+Message-ID: <52E6D7E1.90204@citrix.com>
+References: <cover.1390491376.git.himanshu.madhani@qlogic.com> <20140123.161437.1632835743136251770.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: KY Srinivasan <kys@microsoft.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"driverdev-devel@linuxdriverproject.org"
-	<driverdev-devel@linuxdriverproject.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140127.135036.201976640275761993.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>
+To: David Miller <davem@davemloft.net>, <himanshu.madhani@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:38352 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754343AbaA0WEU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jan 2014 17:04:20 -0500
+In-Reply-To: <20140123.161437.1632835743136251770.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 24/01/14 00:14, David Miller wrote:
+> From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+> Date: Thu, 23 Jan 2014 17:18:27 -0500
+>
+>> This patch series contains following patches.
+>>
+>> o Enhanced debug data collection when we are in Tx-timeout situation.
+>> o Enhanced MSI-x vector calculation for defualt load path as well
+>>    as for TSS/RSS ring change path.
+>> o Refactored interrupt coalescing code for all adapters.
+>> o Refactored interrupt handling as well as cleanup of poll controller
+>>    code patch for all adapters.
+>> o changed rx_mac_learn type to boolean.
+>>
+>> Please apply to net-next.
+>
+> Series applied, thanks.
 
+Not that I reject fame, but the commit message contains my name as 
+sign-off, while I've never seen a bit of that code :)
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Monday, January 27, 2014 4:51 PM
-> To: Haiyang Zhang
-> Cc: KY Srinivasan; netdev@vger.kernel.org; olaf@aepfle.de;
-> jasowang@redhat.com; linux-kernel@vger.kernel.org; driverdev-
-> devel@linuxdriverproject.org
-> Subject: Re: [PATCH net-next] hyperv: Add support for physically discontinuous
-> receive buffer
-> 
-> From: Haiyang Zhang <haiyangz@microsoft.com>
-> Date: Mon, 27 Jan 2014 21:47:43 +0000
-> 
-> > So, could this patch be taken first?
-> 
-> You always need to resend patches that I've originally rejected and you've
-> made arguments for.
-
-Sure, I will re-send it now.
-
-Thanks,
-- Haiyang
+Zoli
