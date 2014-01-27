@@ -1,7 +1,7 @@
 From: Max Filippov <jcmvbkbc@gmail.com>
-Subject: [PATCH 3/3] net: ethoc: document OF bindings
-Date: Mon, 27 Jan 2014 07:59:27 +0400
-Message-ID: <1390795167-6677-4-git-send-email-jcmvbkbc@gmail.com>
+Subject: [PATCH 1/3] net: ethoc: don't advertise gigabit speed on attached PHY
+Date: Mon, 27 Jan 2014 07:59:25 +0400
+Message-ID: <1390795167-6677-2-git-send-email-jcmvbkbc@gmail.com>
 References: <1390795167-6677-1-git-send-email-jcmvbkbc@gmail.com>
 Cc: Chris Zankel <chris@zankel.net>, Marc Gauthier <marc@cadence.com>,
 	"David S. Miller" <davem@davemloft.net>,
@@ -15,42 +15,31 @@ In-Reply-To: <1390795167-6677-1-git-send-email-jcmvbkbc@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+OpenCores 10/100 Mbps MAC does not support speeds above 100 Mbps, but does
+not disable advertisement when PHY supports them. This results in
+non-functioning network when the MAC is connected to a gigabit PHY connected
+to a gigabit switch.
+
+The fix is to disable gigabit speed advertisement on attached PHY
+unconditionally.
+
 Signed-off-by: Max Filippov <jcmvbkbc@gmail.com>
 ---
- .../devicetree/bindings/net/opencores-ethoc.txt    | 25 ++++++++++++++++++++++
- 1 file changed, 25 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/opencores-ethoc.txt
+ drivers/net/ethernet/ethoc.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/net/opencores-ethoc.txt b/Documentation/devicetree/bindings/net/opencores-ethoc.txt
-new file mode 100644
-index 0000000..f7c6c94
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/opencores-ethoc.txt
-@@ -0,0 +1,25 @@
-+* OpenCores MAC 10/100 Mbps
-+
-+Required properties:
-+- compatible: Should be "opencores,ethoc".
-+- reg: Address and length of the register set for the device and of its
-+  descriptor memory.
-+- interrupts: Should contain ethoc interrupt.
-+
-+Optional properties:
-+- local-mac-address: 6 bytes, mac address
-+- clock-frequency: basic MAC frequency.
-+- mii-mgmt-clock-frequency: frequency of MII management bus. Together
-+  with clock-frequency determines the value programmed into the CLKDIV
-+  field of MIIMODER register.
-+
-+Examples:
-+
-+	enet0: ethoc@fd030000 {
-+		compatible = "opencores,ethoc";
-+		reg = <0xfd030000 0x4000 0xfd800000 0x4000>;
-+		interrupts = <1>;
-+		local-mac-address = [00 50 c2 13 6f 00];
-+		clock-frequency = <50000000>;
-+		mii-mgmt-clock-frequency = <5000000>;
-+        };
+diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/ethoc.c
+index 4de8cfd..0aa1a05 100644
+--- a/drivers/net/ethernet/ethoc.c
++++ b/drivers/net/ethernet/ethoc.c
+@@ -712,6 +712,8 @@ static int ethoc_open(struct net_device *dev)
+ 		netif_start_queue(dev);
+ 	}
+ 
++	priv->phy->advertising &= ~(ADVERTISED_1000baseT_Full |
++				    ADVERTISED_1000baseT_Half);
+ 	phy_start(priv->phy);
+ 	napi_enable(&priv->napi);
+ 
 -- 
 1.8.1.4
