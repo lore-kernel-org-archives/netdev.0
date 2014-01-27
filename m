@@ -1,7 +1,7 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH 1/2] DT: net: davinci_emac: "ti,davinci-rmii-en" property is actually optional
-Date: Tue, 28 Jan 2014 02:47:41 +0300
-Message-ID: <201401280247.42415.sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH 2/2] DT: net: davinci_emac: "ti,davinci-no-bd-ram" property is actually optional
+Date: Tue, 28 Jan 2014 02:49:39 +0300
+Message-ID: <201401280249.40451.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="iso-8859-1"
@@ -15,18 +15,14 @@ Return-path: <linux-doc-owner@vger.kernel.org>
 Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Though described as required, the "ti,davinci-rmii-en" property for the DaVinci
-EMAC binding seems actually optional, as the driver should happily work without
-it; the property is not specified either  in the example device node or in the
-actual EMAC device node for DA850 device tree, only AM3517 one.
+The "ti,davinci-no-bd-ram" property for the DaVinci EMAC binding simply can't be
+required one, as it's boolean (which means it's absent if false).
 
 While at it, document the property better...
 
 Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
 ---
-Actually I think this property should have been boolean...
-
  Documentation/devicetree/bindings/net/davinci_emac.txt |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
@@ -38,15 +34,15 @@ Index: net/Documentation/devicetree/bindings/net/davinci_emac.txt
  - ti,davinci-ctrl-mod-reg-offset: offset to control module register
  - ti,davinci-ctrl-ram-offset: offset to control module ram
  - ti,davinci-ctrl-ram-size: size of control module ram
--- ti,davinci-rmii-en: use RMII
- - ti,davinci-no-bd-ram: has the emac controller BD RAM
+-- ti,davinci-no-bd-ram: has the emac controller BD RAM
  - interrupts: interrupt mapping for the davinci emac interrupts sources:
                4 sources: <Receive Threshold Interrupt
+ 			  Receive Interrupt
 @@ -22,6 +21,7 @@ Optional properties:
- - phy-handle: Contains a phandle to an Ethernet PHY.
                If absent, davinci_emac driver defaults to 100/FULL.
  - local-mac-address : 6 bytes, mac address
-+- ti,davinci-rmii-en: 1 byte, 1 means use RMII
+ - ti,davinci-rmii-en: 1 byte, 1 means use RMII
++- ti,davinci-no-bd-ram: boolean, does EMAC has BD RAM?
  
  Example (enbw_cmc board):
  	eth0: emac@1e20000 {
