@@ -1,55 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 2/2] net: ip, ipv6: handle gso skbs in forwarding
- path
-Date: Sun, 26 Jan 2014 22:42:45 -0800 (PST)
-Message-ID: <20140126.224245.1526907151535623187.davem@davemloft.net>
-References: <1390730297-10725-1-git-send-email-fw@strlen.de>
-	<1390730297-10725-2-git-send-email-fw@strlen.de>
+Subject: Re: [PATCH] net/apne: Remove unused variable ei_local
+Date: Sun, 26 Jan 2014 22:42:53 -0800 (PST)
+Message-ID: <20140126.224253.171312551216917580.davem@davemloft.net>
+References: <1390733063-9077-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: fw@strlen.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56287 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750895AbaA0Gmq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jan 2014 01:42:46 -0500
-In-Reply-To: <1390730297-10725-2-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: tedheadster@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: geert@linux-m68k.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1390733063-9077-1-git-send-email-geert@linux-m68k.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
-Date: Sun, 26 Jan 2014 10:58:17 +0100
-
-> +static bool ip_exceeds_mtu(const struct sk_buff *skb, unsigned int mtu)
-> +{
-> +	unsigned len;
-> +
-> +	if (skb->len <= mtu || skb->local_df)
-> +		return false;
-> +
-> +	if (skb_is_gso(skb) && skb_gso_network_seglen(skb) <= mtu)
-> +		return false;
-> +
-> +	return true;
-> +}
-
-Unused local variable 'len'.  Please scan the compiler output for at
-least the *.c files you touch, it warns about this case.  Also, you
-should always explicitly use "unsigned int" as the type instead of
-just plain "unsigned".
-
-> @@ -88,8 +147,7 @@ int ip_forward(struct sk_buff *skb)
->  	if (opt->is_strictroute && rt->rt_uses_gateway)
->  		goto sr_failed;
->  
-> -	if (unlikely(skb->len > dst_mtu(&rt->dst) && !skb_is_gso(skb) &&
-> -		     (ip_hdr(skb)->frag_off & htons(IP_DF))) && !skb->local_df) {
-> +	if (!ip_may_fragment(skb) && ip_exceeds_mtu(skb, dst_mtu(&rt->dst))) {
->  		IP_INC_STATS(dev_net(rt->dst.dev), IPSTATS_MIB_FRAGFAILS);
->  		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
->  			  htonl(dst_mtu(&rt->dst)));
-
-This hunk rejects, the test here looks a lot different in the current
-tree.
+RnJvbTogR2VlcnQgVXl0dGVyaG9ldmVuIDxnZWVydEBsaW51eC1tNjhrLm9yZz4NCkRhdGU6IFN1
+biwgMjYgSmFuIDIwMTQgMTE6NDQ6MjMgKzAxMDANCg0KPiBkcml2ZXJzL25ldC9ldGhlcm5ldC84
+MzkwL2FwbmUuYzogSW4gZnVuY3Rpb24goWFwbmVfcHJvYmUxojoNCj4gZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvODM5MC9hcG5lLmM6MjE1OiB3YXJuaW5nOiB1bnVzZWQgdmFyaWFibGUgoWVpX2xvY2Fs
+og0KPiANCj4gSW50cm9kdWNlZCBieSBjb21taXQgYzQ1ZjgxMmYwMjgwYzEzZjFiNzk5MmJlNWUw
+ZGU1MTIzMTJhOWU4ZiAoIjgzOTAgOg0KPiBSZXBsYWNlIGVpX2RlYnVnIHdpdGggbXNnX2VuYWJs
+ZS9ORVRJRl9NU0dfKiBmZWF0dXJlIiksIHdoaWNoIGFkZGVkIHRoZQ0KPiB2YXJpYWJsZSB3aXRo
+b3V0IHVzaW5nIGl0Lg0KPiANCj4gU2lnbmVkLW9mZi1ieTogR2VlcnQgVXl0dGVyaG9ldmVuIDxn
+ZWVydEBsaW51eC1tNjhrLm9yZz4NCg0KQXBwbGllZC4NCg==
