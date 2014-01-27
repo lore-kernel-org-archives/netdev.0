@@ -1,58 +1,66 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net-next v5] xen-netfront: clean up code in
- xennet_release_rx_bufs
-Date: Mon, 27 Jan 2014 10:22:58 +0000
-Message-ID: <52E63382.6090503@citrix.com>
-References: <1390731147-2424-1-git-send-email-Annie.li@oracle.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net] net: hyperv: initialize link status correctly
+Date: Mon, 27 Jan 2014 18:28:42 +0800
+Message-ID: <52E634DA.3040200@redhat.com>
+References: <1390807854-4469-1-git-send-email-jasowang@redhat.com>	
+ <20140127.003559.2290408024387922847.davem@davemloft.net>	
+ <52E629A8.5010302@redhat.com>
+ <1390818121.2735.130.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
-	<konrad.wilk@oracle.com>, <ian.campbell@citrix.com>,
-	<wei.liu2@citrix.com>
-To: Annie Li <Annie.li@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:25857 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751741AbaA0KXA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jan 2014 05:23:00 -0500
-In-Reply-To: <1390731147-2424-1-git-send-email-Annie.li@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, haiyangz@microsoft.com,
+ linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+ David Miller <davem@davemloft.net>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1390818121.2735.130.camel@deadeye.wl.decadent.org.uk>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On 26/01/14 10:12, Annie Li wrote:
-> From: Annie Li <annie.li@oracle.com>
-> 
-> This patch removes grant transfer releasing code from netfront, and uses
-> gnttab_end_foreign_access to end grant access since
-> gnttab_end_foreign_access_ref may fail when the grant entry is
-> currently used for reading or writing.
-> 
-> * clean up grant transfer code kept from old netfront(2.6.18) which grants
-> pages for access/map and transfer. But grant transfer is deprecated in current
-> netfront, so remove corresponding release code for transfer.
-> 
-> * release grant access (through gnttab_end_foreign_access) and skb for tx/rx path,
-> use get_page to ensure page is released when grant access is completed successfully.
-> 
-> Xen-blkfront/xen-tpmfront/xen-pcifront also have similar issue, but patches
-> for them will be created separately.
-> 
-> V5: Remove unecessary change in xennet_end_access.
-> 
-> V4: Revert put_page in gnttab_end_foreign_access, and keep netfront change in
-> single patch.
-> 
-> V3: Changes as suggestion from David Vrabel, ensure pages are not freed untill
-> grant acess is ended.
-> 
-> V2: Improve patch comments.
-> 
-> Signed-off-by: Annie Li <annie.li@oracle.com>
+On 01/27/2014 06:22 PM, Ben Hutchings wrote:
+> On Mon, 2014-01-27 at 17:40 +0800, Jason Wang wrote:
+>> On 01/27/2014 04:35 PM, David Miller wrote:
+>>> From: Jason Wang <jasowang@redhat.com>
+>>> Date: Mon, 27 Jan 2014 15:30:54 +0800
+>>>
+>>>> Call netif_carrier_on() after register_device(). Otherwise it won't work since
+>>>> the device was still in NETREG_UNINITIALIZED state.
+>>>>
+>>>> Fixes a68f9614614749727286f675d15f1e09d13cb54a
+>>>> (hyperv: Fix race between probe and open calls)
+>>>>
+>>>> Cc: Haiyang Zhang <haiyangz@microsoft.com>
+>>>> Cc: K. Y. Srinivasan <kys@microsoft.com>
+>>>> Reported-by: Di Nie <dnie@redhat.com>
+>>>> Tested-by: Di Nie <dnie@redhat.com>
+>>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>>> A device up can occur at the moment you call register_netdevice(),
+>>> therefore that up call can see the carrier as down and fail or
+>>> similar.  So you really cannot resolve the carrier to be on in this
+>>> way.
+>> True, we need a workqueue to synchronize them.
+> Whatever for?  All you need to do is:
+>
+> 	rtnl_lock();
+> 	register_netdevice();
+> 	netif_carrier_on();
+> 	rtnl_unlock();
+>
+> It would be nice if we could make the current code work with a change in
+> the core, though.
+>
+> Ben.
+>
 
-Reviewed-by: David Vrabel <david.vrabel@citrix.com>
-
-I think this should be applied to net (and tagged as a stable candidate)
-rather than net-next as this fixes are very big resource leak.
-
-David
+Looks like the link status interrupt may happen during this (after
+netvsc_device_add() was called by rndis_filter_device_add()) without any
+synchronization. This may lead a wrong link status here.
