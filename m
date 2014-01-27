@@ -1,50 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] qlcnic: Refactoring and enhancements for
- all adapters.
-Date: Mon, 27 Jan 2014 15:24:33 -0800 (PST)
-Message-ID: <20140127.152433.629611759956344780.davem@davemloft.net>
-References: <cover.1390491376.git.himanshu.madhani@qlogic.com>
-	<20140123.161437.1632835743136251770.davem@davemloft.net>
-	<52E6D7E1.90204@citrix.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: Many USB ethernet devices are broken over xhci
+Date: Mon, 27 Jan 2014 15:33:26 -0800
+Message-ID: <20140127233326.GB652@kroah.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D46624F@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: himanshu.madhani@qlogic.com, netdev@vger.kernel.org,
-	Dept_NX_Linux_NIC_Driver@qlogic.com
-To: zoltan.kiss@citrix.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	Sarah Sharp <sarah.a.sharp@linux.intel.com>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38089 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753491AbaA0XYg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jan 2014 18:24:36 -0500
-In-Reply-To: <52E6D7E1.90204@citrix.com>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:37184 "EHLO
+	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753849AbaA0XcV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jan 2014 18:32:21 -0500
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D46624F@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Date: Mon, 27 Jan 2014 22:04:17 +0000
+On Mon, Jan 27, 2014 at 04:06:22PM +0000, David Laight wrote:
+> Many of the net/usb ethernet drivers (including common ones like
+> the smsc95xx) will fail to transmit all packet length properly
+> when connected to a USB3 port (ie using the xhci driver).
 
-> On 24/01/14 00:14, David Miller wrote:
->> From: Himanshu Madhani <himanshu.madhani@qlogic.com>
->> Date: Thu, 23 Jan 2014 17:18:27 -0500
->>
->>> This patch series contains following patches.
->>>
->>> o Enhanced debug data collection when we are in Tx-timeout situation.
->>> o Enhanced MSI-x vector calculation for defualt load path as well
->>>    as for TSS/RSS ring change path.
->>> o Refactored interrupt coalescing code for all adapters.
->>> o Refactored interrupt handling as well as cleanup of poll controller
->>>    code patch for all adapters.
->>> o changed rx_mac_learn type to boolean.
->>>
->>> Please apply to net-next.
->>
->> Series applied, thanks.
+That's odd, as I've never had a problem with my USB 3.0 ethernet device
+(sorry, don't remember what driver it uses), and I stress it all the
+time.
+
+I've also run two different USB 2 ethernet devices on xhci with no
+issues at all, so perhaps the "many" statement might not be true?
+
+> The underlying problem is that they assume the host controller
+> will honour the URB_ZERO_PACKET flag - which usbnet sets because
+> they specify FLAG_SEND_ZLP.
 > 
-> Not that I reject fame, but the commit message contains my name as
-> sign-off, while I've never seen a bit of that code :)
+> However no one has ever added support for URB_ZERO_PACKET to
+> the xhci driver - so packets that need padding (probably 512
+> bytes after any header is added) will not be sent correctly
+> and may have very adverse effects on the usb target.
 
-Sorry about that.  What happens is that I build the merge commit
-messages from a template, and I used a template for a previous
-serious with your signoff by accident :-/
+Really?  How has things been working so well up to now without this
+support?  Doesn't the hardware automatically add this padding with no
+explicit need for the xhci driver to do something?
+
+> The ax179_178a driver avoids this by not setting FLAG_SEND_ZLP,
+> modifying the packet header, and appending an extra zero byte.
+> (Which has been responsible for its own set of panics.)
+> 
+> I don't think this can be fixed by just clearing (or ignoring)
+> FLAG_SEND_ZLP as the extra byte will also confuse things.
+> 
+> It needs to be fixed in the xhci code.
+> 
+> I wrote this patch a while ago - worked for me with the ax179_178a
+> driver. http://www.spinics.net/lists/linux-usb/msg97370.html
+
+Doing multiple things in a patch is generally considered bad-form, and
+this is quite hard to follow.
+
+> The patch is a bit difficult to read, the v1 version contained a copy of
+> the new function. http://www.spinics.net/lists/linux-usb/msg97183.html
+
+That's not helpful to the people having to review the v2 patch :)
+
+> I don't think anything significant has changed (in the main kernel
+> sources) since I wrote the patch.
+
+Then resubmit it, don't post links to it on the web, there's nothing we
+can do with them, sorry.
+
+thanks,
+
+greg k-h
