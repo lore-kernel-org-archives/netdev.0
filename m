@@ -1,77 +1,57 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH ethtool] ethtool: Accept long feature names reported by
- -k option as input to -K option
-Date: Mon, 27 Jan 2014 01:33:40 +0000
-Message-ID: <1390786420.2735.108.camel@deadeye.wl.decadent.org.uk>
-References: <1389217931.1644.44.camel@bwh-desktop.uk.level5networks.com>
+From: Sujith Manoharan <sujith@msujith.org>
+Subject: Re: ath9k ARM build error with v3.13-8330-g4ba9920
+Date: Mon, 27 Jan 2014 07:20:16 +0530
+Message-ID: <21221.47960.726835.615315@gargle.gargle.HOWL>
+References: <CA+5PVA4fnCo8anT0HZCVu4+AFAseibm=0yD8nL3Lm7Q5dA-qZQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-zmGjgP3qXCrWfanwuViY"
-Cc: Bill Fink <billfink@mindspring.com>, netdev@vger.kernel.org
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54231 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753121AbaA0Bd5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jan 2014 20:33:57 -0500
-In-Reply-To: <1389217931.1644.44.camel@bwh-desktop.uk.level5networks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	<ath9k-devel@lists.ath9k.org>, netdev <netdev@vger.kernel.org>,
+	"Linux-Kernel\@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>
+To: Josh Boyer <jwboyer@fedoraproject.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+5PVA4fnCo8anT0HZCVu4+AFAseibm=0yD8nL3Lm7Q5dA-qZQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Josh Boyer wrote:
+> adds a udelay(10000) call to the ath9k driver.  This will cause a
+> build error on various ARM configs because the value passed to udelay
+> is too large:
+> 
+> ERROR: "__bad_udelay" [drivers/net/wireless/ath/ath9k/ath9k_hw.ko] undefined!
+> make[1]: *** [__modpost] Error 1
+> make: *** [modules] Error 2
+> 
+> Is the 10000 microsecond udelay really required?  I believe the limit
+> on ARM is 2000.  Perhaps something else could be done in this case?
 
---=-zmGjgP3qXCrWfanwuViY
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+The delay is a workaround for a HW issue. Does this patch fix the problem ?
 
-On Wed, 2014-01-08 at 21:52 +0000, Ben Hutchings wrote:
-> Before the generic features API was introduced, the ethtool -K option
-> took short names for various features, e.g. 'gso' but the -k option
-> reported their state using longer names,
-> e.g. 'generic-segmentation-offload'.
->=20
-> All newer features have a single kernel-provided name so input
-> and output are consistent.  But the old features still aren't, and
-> although their short names are documented it's not good to have
-> these exceptions.
->=20
-> Change the argument parsing code for -K so that the long names
-> reported by -k are also accepted.
->=20
-> Reported-by: Or Gerlitz <or.gerlitz@gmail.com>
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
-> This turned out to be pretty easy to do as the argument processing is
-> all table-driven already.  I'll push this if it works for you.
-[...]
+diff --git a/drivers/net/wireless/ath/ath9k/hw.c b/drivers/net/wireless/ath/ath9k/hw.c
+index fbf43c0..11eab9f 100644
+--- a/drivers/net/wireless/ath/ath9k/hw.c
++++ b/drivers/net/wireless/ath/ath9k/hw.c
+@@ -1316,7 +1316,7 @@ static bool ath9k_hw_set_reset(struct ath_hw *ah, int type)
+ 	if (AR_SREV_9300_20_OR_LATER(ah))
+ 		udelay(50);
+ 	else if (AR_SREV_9100(ah))
+-		udelay(10000);
++		mdelay(10);
+ 	else
+ 		udelay(100);
+ 
+@@ -2051,9 +2051,8 @@ static bool ath9k_hw_set_power_awake(struct ath_hw *ah)
+ 
+ 	REG_SET_BIT(ah, AR_RTC_FORCE_WAKE,
+ 		    AR_RTC_FORCE_WAKE_EN);
+-
+ 	if (AR_SREV_9100(ah))
+-		udelay(10000);
++		mdelay(10);
+ 	else
+ 		udelay(50);
+ 
 
-Can you confirm whether this does what you wanted?
-
-Ben.
-
---=20
-Ben Hutchings
-If at first you don't succeed, you're doing about average.
-
---=-zmGjgP3qXCrWfanwuViY
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
-
-iQIVAwUAUuW3dOe/yOyVhhEJAQoYNg/+OELv4ZjpJPUppyZl9y8I+fHZXs09koJP
-7a3jJmIg2jwUCNFv8HQcQhwA7PR3voucVtV6A5PRSYoDY/OpwMu6i89w6bDtJj5A
-oYUL60uedloqIppIjK10QjzWo4ve7U8mNlW1wYdprlybP7qx1pL4MN/Too0+fGRn
-rK4zcpNv1tCwcP6xS3e4vH93DS0y8kHhqcPs9fsCEgWHmDeGFMkSeXpE6bJfVX7O
-6JCMkXWr6bbkQOJ0bEaeaDkA8mMOAnsalShdy5pK38OhBHVcSZyrZexDBnSuZ6JI
-N9IWsExunGhE1QOeegIz9t1JcchPH/rYqQJRxqIdFrQVxX0iTKdHKQpaUY7kPF9h
-P5RhPlrbh9LfLuNrJhpw6bsM64SFIhqAHXcDSiLjJ6yK43NmwkK1oYFrdAXzn88s
-FmdGmwfpZdufQpTDZVWA1OKiM5ZVhkpACDg9ozHPlk5QIM9XlkEVp6XGzY5Zy/LQ
-iWoEybIq1eOZH5cembisEjMTfI8Tg9R1kM50cBzHQ7Oyy9++SdUmN5YXLZ4HONWI
-Y6PX31u6mEQbTsOIIMfpGp5RXueSKkguDL/L83YmR87hl27+CkHEbMiDP63ON5Dw
-Hv9Q7W6fxBbtqd0G9U8kzJGKbeTCoSie6EZh5lvNlvDGIbmwrYECDi/CjncYHkHs
-VR9ofxw2ao0=
-=JJvs
------END PGP SIGNATURE-----
-
---=-zmGjgP3qXCrWfanwuViY--
+Sujith
