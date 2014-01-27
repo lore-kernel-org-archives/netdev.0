@@ -1,95 +1,71 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: manual merge of the bluetooth tree with the
- net/net-next trees
-Date: Tue, 28 Jan 2014 09:54:15 +1100
-Message-ID: <20140128095415.8382335c33545ad14d4be067@canb.auug.org.au>
-References: <20140107125418.986ae20298ddc55e5e657447@canb.auug.org.au>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 1/2] DT: net: davinci_emac: "ti,davinci-rmii-en" property
+ is actually optional
+Date: Mon, 27 Jan 2014 14:57:14 -0800
+Message-ID: <CAGVrzcYdd3KjoHyAS2_y5e9BBPk4O9t7pCiCqoWGXQ=T6Qg-yA@mail.gmail.com>
+References: <201401280247.42415.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Tue__28_Jan_2014_09_54_15_+1100_9.C+37tbD.O6vAfb"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Jukka Rissanen <jukka.rissanen@linux.intel.com>
-To: Gustavo Padovan <gustavo@padovan.org>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140107125418.986ae20298ddc55e5e657447@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Rob Landley <rob@landley.net>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	davinci-linux-open-source@linux.davincidsp.com
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:65408 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754553AbaA0W5y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jan 2014 17:57:54 -0500
+In-Reply-To: <201401280247.42415.sergei.shtylyov@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Tue__28_Jan_2014_09_54_15_+1100_9.C+37tbD.O6vAfb
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-Hi all,
-
-On Tue, 7 Jan 2014 12:54:18 +1100 Stephen Rothwell <sfr@canb.auug.org.au> w=
-rote:
+2014-01-27 Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>:
+> Though described as required, the "ti,davinci-rmii-en" property for the DaVinci
+> EMAC binding seems actually optional, as the driver should happily work without
+> it; the property is not specified either  in the example device node or in the
+> actual EMAC device node for DA850 device tree, only AM3517 one.
 >
-> Today's linux-next merge of the bluetooth tree got a conflict in
-> net/ieee802154/6lowpan.c between commit 965801e1eb62 ("net: 6lowpan: fix
-> lowpan_header_create non-compression memcpy call") from the  tree and
-> commit 8df8c56a5abc ("6lowpan: Moving generic compression code into
-> 6lowpan_iphc.c") from the bluetooth tree.
->=20
-> I fixed it up (I applied the following patch to move the fix into
-> 6lowpan_iphc.c) and can carry the fix as necessary (no action is
-> required).
->=20
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Tue, 7 Jan 2014 12:52:43 +1100
-> Subject: [PATCH] net: 6lowpan: fixup for code movement
->=20
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> While at it, document the property better...
+>
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>
 > ---
->  net/ieee802154/6lowpan_iphc.c | 2 +-
+> Actually I think this property should have been boolean...
+>
+>  Documentation/devicetree/bindings/net/davinci_emac.txt |    2 +-
 >  1 file changed, 1 insertion(+), 1 deletion(-)
->=20
-> diff --git a/net/ieee802154/6lowpan_iphc.c b/net/ieee802154/6lowpan_iphc.c
-> index 11840f9e46da..e14fe8b2c054 100644
-> --- a/net/ieee802154/6lowpan_iphc.c
-> +++ b/net/ieee802154/6lowpan_iphc.c
-> @@ -677,7 +677,7 @@ int lowpan_header_compress(struct sk_buff *skb, struc=
-t net_device *dev,
->  			hc06_ptr +=3D 3;
->  		} else {
->  			/* compress nothing */
-> -			memcpy(hc06_ptr, &hdr, 4);
-> +			memcpy(hc06_ptr, hdr, 4);
->  			/* replace the top byte with new ECN | DSCP format */
->  			*hc06_ptr =3D tmp;
->  			hc06_ptr +=3D 4;
-> --=20
-> 1.8.5.2
+>
+> Index: net/Documentation/devicetree/bindings/net/davinci_emac.txt
+> ===================================================================
+> --- net.orig/Documentation/devicetree/bindings/net/davinci_emac.txt
+> +++ net/Documentation/devicetree/bindings/net/davinci_emac.txt
+> @@ -10,7 +10,6 @@ Required properties:
+>  - ti,davinci-ctrl-mod-reg-offset: offset to control module register
+>  - ti,davinci-ctrl-ram-offset: offset to control module ram
+>  - ti,davinci-ctrl-ram-size: size of control module ram
+> -- ti,davinci-rmii-en: use RMII
+>  - ti,davinci-no-bd-ram: has the emac controller BD RAM
+>  - interrupts: interrupt mapping for the davinci emac interrupts sources:
+>                4 sources: <Receive Threshold Interrupt
+> @@ -22,6 +21,7 @@ Optional properties:
+>  - phy-handle: Contains a phandle to an Ethernet PHY.
+>                If absent, davinci_emac driver defaults to 100/FULL.
+>  - local-mac-address : 6 bytes, mac address
+> +- ti,davinci-rmii-en: 1 byte, 1 means use RMII
 
-I think this fix patch got missed when bluetooth was merged ... so it
-should probably go into the net tree.
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Signature=_Tue__28_Jan_2014_09_54_15_+1100_9.C+37tbD.O6vAfb
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAEBCAAGBQJS5uObAAoJEMDTa8Ir7ZwVSkoP/RfvqDurol0Qhki0tzIlWWUy
-sMgkoah19nmjzew2hPLLmaI0cBv3yrwUPWIjbI6GMRsOGOivykMaj69ER7DNqnhO
-fg79SsahBBihw50kja9mx/KWBcQt6vxXZZMVd1a+UWOwSKnsf5I2gaIJMsvhIfCB
-CsIas+O0WZ385pAyjqK/uvRNM4lX3mIXuRInybGqYXlLY8NgMMAyU3bvuqLtt6Jm
-DNL45fjGxMRsuaGGTgVfw4k3W4eILS4NvSzsz/MDesaJbEQ2g7OkmpbIPY494OhL
-MQs5tqe6tvst1aVpd+ouYCCAWrkktcMq118iUwoNfBuNrEtqmw9thWFFRry1T2AQ
-Imw7g8lxnqB8RKTsljAo9+r+chpMEuX4EsT9WPmQO2xYG4d4uDNB3GpPIvIjoZWe
-S7Ryy8DNocLbKQbvq0ko9VRleCbfBgVwKsLVr94wrsGrLrnU6D4TOCZJA1MzPLh8
-53LvIGEADbinHWBwYpuZ4NCWdMzjk99fs/0Gi31TqF7kPvSdUeMUablPvycHd/Gq
-t8vZeY4Rzp35IUlc8upqU+DQiAp2OLzfnj9uWcBSTX1T+47RAGLV2+zAzlKhEA81
-7n01JWCSBm5ID5o1tOWcrK5NAmVI4jwd5N4u6iFbGllDbsHbr9TvSiMRSLzQhoNj
-Djmzf+ThlWD1iEAKVwaZ
-=qH/o
------END PGP SIGNATURE-----
-
---Signature=_Tue__28_Jan_2014_09_54_15_+1100_9.C+37tbD.O6vAfb--
+This just made me look at the actual DT binding documentation and the
+driver, but there is support for specifying a PHY device tree node,
+but no corresponding 'phy-connection-type' property which would tell
+whether the connection is Reduced MII, MII or something else.
+'phy-connection-type' would convey much more information about what is
+happening, and once know, should also make the driver automatically
+configure for Reduced MII or anything else, hence making
+"ti,davinc-rmii-en" obsolete.
+-- 
+Florian
