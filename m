@@ -1,7 +1,7 @@
 From: Max Filippov <jcmvbkbc@gmail.com>
-Subject: [PATCH 2/3] net: ethoc: set up MII management bus clock
-Date: Mon, 27 Jan 2014 07:59:26 +0400
-Message-ID: <1390795167-6677-3-git-send-email-jcmvbkbc@gmail.com>
+Subject: [PATCH 3/3] net: ethoc: document OF bindings
+Date: Mon, 27 Jan 2014 07:59:27 +0400
+Message-ID: <1390795167-6677-4-git-send-email-jcmvbkbc@gmail.com>
 References: <1390795167-6677-1-git-send-email-jcmvbkbc@gmail.com>
 Cc: Chris Zankel <chris@zankel.net>, Marc Gauthier <marc@cadence.com>,
 	"David S. Miller" <davem@davemloft.net>,
@@ -15,84 +15,42 @@ In-Reply-To: <1390795167-6677-1-git-send-email-jcmvbkbc@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-MII management bus clock is derived from the MAC clock by dividing it by
-MIIMODER register CLKDIV field value. This value may need to be set up
-in case it is undefined or its default value is too high (and
-communication with PHY is too slow) or too low (and communication with
-PHY is impossible). The value of CLKDIV is not specified directly, but
-as a pair of MAC frequency and desired MII management bus frequency, as
-these parameters are natural.
-
 Signed-off-by: Max Filippov <jcmvbkbc@gmail.com>
 ---
- drivers/net/ethernet/ethoc.c | 27 +++++++++++++++++++++++++--
- include/net/ethoc.h          |  2 ++
- 2 files changed, 27 insertions(+), 2 deletions(-)
+ .../devicetree/bindings/net/opencores-ethoc.txt    | 25 ++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/opencores-ethoc.txt
 
-diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/ethoc.c
-index 0aa1a05..5831406 100644
---- a/drivers/net/ethernet/ethoc.c
-+++ b/drivers/net/ethernet/ethoc.c
-@@ -919,6 +919,9 @@ static int ethoc_probe(struct platform_device *pdev)
- 	int num_bd;
- 	int ret = 0;
- 	bool random_mac = false;
-+	u32 eth_clkfreq = 0;
-+	u32 mii_clkfreq = 0;
-+	struct ethoc_platform_data *pdata = dev_get_platdata(&pdev->dev);
- 
- 	/* allocate networking device */
- 	netdev = alloc_etherdev(sizeof(struct ethoc));
-@@ -1032,8 +1035,7 @@ static int ethoc_probe(struct platform_device *pdev)
- 	}
- 
- 	/* Allow the platform setup code to pass in a MAC address. */
--	if (dev_get_platdata(&pdev->dev)) {
--		struct ethoc_platform_data *pdata = dev_get_platdata(&pdev->dev);
-+	if (pdata) {
- 		memcpy(netdev->dev_addr, pdata->hwaddr, IFHWADDRLEN);
- 		priv->phy_id = pdata->phy_id;
- 	} else {
-@@ -1071,6 +1073,27 @@ static int ethoc_probe(struct platform_device *pdev)
- 	if (random_mac)
- 		netdev->addr_assign_type = NET_ADDR_RANDOM;
- 
-+	/* Allow the platform setup code to adjust MII management bus clock. */
-+	if (pdata) {
-+		eth_clkfreq = pdata->eth_clkfreq;
-+		mii_clkfreq = pdata->mii_mgmt_clkfreq;
-+	} else {
-+		of_property_read_u32(pdev->dev.of_node,
-+				     "clock-frequency", &eth_clkfreq);
-+		of_property_read_u32(pdev->dev.of_node,
-+				     "mii-mgmt-clock-frequency", &mii_clkfreq);
-+	}
-+	if (eth_clkfreq && mii_clkfreq) {
-+		u32 clkdiv = MIIMODER_CLKDIV(eth_clkfreq / mii_clkfreq + 1);
+diff --git a/Documentation/devicetree/bindings/net/opencores-ethoc.txt b/Documentation/devicetree/bindings/net/opencores-ethoc.txt
+new file mode 100644
+index 0000000..f7c6c94
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/opencores-ethoc.txt
+@@ -0,0 +1,25 @@
++* OpenCores MAC 10/100 Mbps
 +
-+		if (!clkdiv)
-+			clkdiv = 2;
-+		dev_dbg(&pdev->dev, "setting MII clkdiv to %u\n", clkdiv);
-+		ethoc_write(priv, MIIMODER,
-+			    (ethoc_read(priv, MIIMODER) & MIIMODER_NOPRE) |
-+			    clkdiv);
-+	}
++Required properties:
++- compatible: Should be "opencores,ethoc".
++- reg: Address and length of the register set for the device and of its
++  descriptor memory.
++- interrupts: Should contain ethoc interrupt.
 +
- 	/* register MII bus */
- 	priv->mdio = mdiobus_alloc();
- 	if (!priv->mdio) {
-diff --git a/include/net/ethoc.h b/include/net/ethoc.h
-index 96f3789..b292474 100644
---- a/include/net/ethoc.h
-+++ b/include/net/ethoc.h
-@@ -16,6 +16,8 @@
- struct ethoc_platform_data {
- 	u8 hwaddr[IFHWADDRLEN];
- 	s8 phy_id;
-+	u32 eth_clkfreq;
-+	u32 mii_mgmt_clkfreq;
- };
- 
- #endif /* !LINUX_NET_ETHOC_H */
++Optional properties:
++- local-mac-address: 6 bytes, mac address
++- clock-frequency: basic MAC frequency.
++- mii-mgmt-clock-frequency: frequency of MII management bus. Together
++  with clock-frequency determines the value programmed into the CLKDIV
++  field of MIIMODER register.
++
++Examples:
++
++	enet0: ethoc@fd030000 {
++		compatible = "opencores,ethoc";
++		reg = <0xfd030000 0x4000 0xfd800000 0x4000>;
++		interrupts = <1>;
++		local-mac-address = [00 50 c2 13 6f 00];
++		clock-frequency = <50000000>;
++		mii-mgmt-clock-frequency = <5000000>;
++        };
 -- 
 1.8.1.4
