@@ -1,137 +1,124 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC v3 08/12] xfrm4: Remove xfrm_tunnel_notifier
-Date: Mon, 27 Jan 2014 11:29:33 +0100
-Message-ID: <1390818577-19589-9-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH RFC v3 10/12] vti4: Support inter address family tunneling.
+Date: Mon, 27 Jan 2014 11:29:35 +0100
+Message-ID: <1390818577-19589-11-git-send-email-steffen.klassert@secunet.com>
 References: <1390818577-19589-1-git-send-email-steffen.klassert@secunet.com>
 Cc: Steffen Klassert <steffen.klassert@secunet.com>,
 	Christophe Gouault <christophe.gouault@6wind.com>,
 	Saurabh Mohan <saurabh.mohan@vyatta.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:43181 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:43195 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753835AbaA0KaM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Jan 2014 05:30:12 -0500
+	id S1753848AbaA0KaO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jan 2014 05:30:14 -0500
 In-Reply-To: <1390818577-19589-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This was used from vti and is replaced by the IPsec protocol
-multiplexer hooks. It is now unused, so remove it.
+With this patch we can tunnel ipv6 traffic via a vti4
+interface. A vti4 interface can now have an ipv6 address
+and ipv6 traffic can be routed via a vti4 interface.
+The resulting traffic is xfrm transformed and tunneled
+throuhg ipv4 if matching IPsec policies and states are
+present.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/net/xfrm.h           |    2 --
- net/ipv4/xfrm4_mode_tunnel.c |   68 ------------------------------------------
- 2 files changed, 70 deletions(-)
+ net/ipv4/ip_vti.c |   48 ++++++++++++++++++++++++++++++++++--------------
+ 1 file changed, 34 insertions(+), 14 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index c8f84171..8f28b9e 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1526,8 +1526,6 @@ int xfrm4_protocol_deregister(struct xfrm4_protocol *handler, unsigned char prot
- int xfrm4_tunnel_register(struct xfrm_tunnel *handler, unsigned short family);
- int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler, unsigned short family);
- void xfrm4_local_error(struct sk_buff *skb, u32 mtu);
--int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel_notifier *handler);
--int xfrm4_mode_tunnel_input_deregister(struct xfrm_tunnel_notifier *handler);
- int xfrm6_mode_tunnel_input_register(struct xfrm_tunnel_notifier *handler);
- int xfrm6_mode_tunnel_input_deregister(struct xfrm_tunnel_notifier *handler);
- int xfrm6_extract_header(struct sk_buff *skb);
-diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
-index 31b1815..05f2b48 100644
---- a/net/ipv4/xfrm4_mode_tunnel.c
-+++ b/net/ipv4/xfrm4_mode_tunnel.c
-@@ -15,65 +15,6 @@
- #include <net/ip.h>
- #include <net/xfrm.h>
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index b8d6184..1708fc1 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -34,6 +34,7 @@
+ #include <linux/init.h>
+ #include <linux/netfilter_ipv4.h>
+ #include <linux/if_ether.h>
++#include <linux/icmpv6.h>
  
--/* Informational hook. The decap is still done here. */
--static struct xfrm_tunnel_notifier __rcu *rcv_notify_handlers __read_mostly;
--static DEFINE_MUTEX(xfrm4_mode_tunnel_input_mutex);
--
--int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel_notifier *handler)
--{
--	struct xfrm_tunnel_notifier __rcu **pprev;
--	struct xfrm_tunnel_notifier *t;
--	int ret = -EEXIST;
--	int priority = handler->priority;
--
--	mutex_lock(&xfrm4_mode_tunnel_input_mutex);
--
--	for (pprev = &rcv_notify_handlers;
--	     (t = rcu_dereference_protected(*pprev,
--	     lockdep_is_held(&xfrm4_mode_tunnel_input_mutex))) != NULL;
--	     pprev = &t->next) {
--		if (t->priority > priority)
--			break;
--		if (t->priority == priority)
--			goto err;
--
--	}
--
--	handler->next = *pprev;
--	rcu_assign_pointer(*pprev, handler);
--
--	ret = 0;
--
--err:
--	mutex_unlock(&xfrm4_mode_tunnel_input_mutex);
--	return ret;
--}
--EXPORT_SYMBOL_GPL(xfrm4_mode_tunnel_input_register);
--
--int xfrm4_mode_tunnel_input_deregister(struct xfrm_tunnel_notifier *handler)
--{
--	struct xfrm_tunnel_notifier __rcu **pprev;
--	struct xfrm_tunnel_notifier *t;
--	int ret = -ENOENT;
--
--	mutex_lock(&xfrm4_mode_tunnel_input_mutex);
--	for (pprev = &rcv_notify_handlers;
--	     (t = rcu_dereference_protected(*pprev,
--	     lockdep_is_held(&xfrm4_mode_tunnel_input_mutex))) != NULL;
--	     pprev = &t->next) {
--		if (t == handler) {
--			*pprev = handler->next;
--			ret = 0;
--			break;
--		}
--	}
--	mutex_unlock(&xfrm4_mode_tunnel_input_mutex);
--	synchronize_net();
--
--	return ret;
--}
--EXPORT_SYMBOL_GPL(xfrm4_mode_tunnel_input_deregister);
--
- static inline void ipip_ecn_decapsulate(struct sk_buff *skb)
- {
- 	struct iphdr *inner_iph = ipip_hdr(skb);
-@@ -127,14 +68,8 @@ static int xfrm4_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
+ #include <net/sock.h>
+ #include <net/ip.h>
+@@ -105,31 +106,21 @@ static int vti_rcv_cb(struct sk_buff *skb, int err)
  	return 0;
  }
  
--#define for_each_input_rcu(head, handler)	\
--	for (handler = rcu_dereference(head);	\
--	     handler != NULL;			\
--	     handler = rcu_dereference(handler->next))
--
- static int xfrm4_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
+-/* This function assumes it is being called from dev_queue_xmit()
+- * and that skb is filled properly by that function.
+- */
+-static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t vti_xmit(struct sk_buff *skb, struct net_device *dev,
++			    struct flowi *fl)
  {
--	struct xfrm_tunnel_notifier *handler;
- 	int err = -EINVAL;
+ 	struct ip_tunnel *tunnel = netdev_priv(dev);
+ 	struct dst_entry *dst = skb_dst(skb);
+ 	struct net_device *tdev;	/* Device to other host */
+-	struct flowi fl;
+ 	int err;
  
- 	if (XFRM_MODE_SKB_CB(skb)->protocol != IPPROTO_IPIP)
-@@ -143,9 +78,6 @@ static int xfrm4_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
- 	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
- 		goto out;
- 
--	for_each_input_rcu(rcv_notify_handlers, handler)
--		handler->handler(skb);
+-	if (skb->protocol != htons(ETH_P_IP))
+-		goto tx_error;
 -
- 	err = skb_unclone(skb, GFP_ATOMIC);
- 	if (err)
- 		goto out;
+-	memset(&fl, 0, sizeof(fl));
+-	skb->mark = be32_to_cpu(tunnel->parms.o_key);
+-	xfrm_decode_session(skb, &fl, AF_INET);
+-
+ 	if (!dst) {
+ 		dev->stats.tx_carrier_errors++;
+ 		goto tx_error_icmp;
+ 	}
+ 
+ 	dst_hold(dst);
+-	dst = xfrm_lookup(tunnel->net, dst, &fl, NULL, 0);
++	dst = xfrm_lookup(tunnel->net, dst, fl, NULL, 0);
+ 	if (IS_ERR(dst)) {
+ 		dev->stats.tx_carrier_errors++;
+ 		goto tx_error_icmp;
+@@ -161,7 +152,6 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			tunnel->err_count = 0;
+ 	}
+ 
+-	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
+ 	skb_scrub_packet(skb, !net_eq(tunnel->net, dev_net(dev)));
+ 	skb_dst_set(skb, dst);
+ 	skb->dev = skb_dst(skb)->dev;
+@@ -180,6 +170,36 @@ tx_error:
+ 	return NETDEV_TX_OK;
+ }
+ 
++/* This function assumes it is being called from dev_queue_xmit()
++ * and that skb is filled properly by that function.
++ */
++static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	struct ip_tunnel *tunnel = netdev_priv(dev);
++	struct flowi fl;
++
++	memset(&fl, 0, sizeof(fl));
++
++	skb->mark = be32_to_cpu(tunnel->parms.o_key);
++
++	switch (skb->protocol) {
++	case htons(ETH_P_IP):
++		xfrm_decode_session(skb, &fl, AF_INET);
++		memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
++		break;
++	case htons(ETH_P_IPV6):
++		xfrm_decode_session(skb, &fl, AF_INET6);
++		memset(IP6CB(skb), 0, sizeof(*IP6CB(skb)));
++		break;
++	default:
++		dev->stats.tx_errors++;
++		dev_kfree_skb(skb);
++		return NETDEV_TX_OK;
++	}
++
++	return vti_xmit(skb, dev, &fl);
++}
++
+ static int vti4_err(struct sk_buff *skb, u32 info)
+ {
+ 	__be32 spi;
 -- 
 1.7.9.5
