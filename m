@@ -1,93 +1,81 @@
-From: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
-Subject: Re: [PATCH 1/3] net: via-rhine: switch to generic DMA functions
-Date: Mon, 27 Jan 2014 15:28:43 +0000
-Message-ID: <1390836523.2735.155.camel@deadeye.wl.decadent.org.uk>
+From: Alexey Charkov <alchark-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 3/3] net: via-rhine: add OF bus binding
+Date: Mon, 27 Jan 2014 19:34:40 +0400
+Message-ID: <CABjd4Yz2Kfed_qBfSAEXoAcVxfsmhTBA-83YJ9_iSwPZ+r1qYQ@mail.gmail.com>
 References: <1385227995-3956-1-git-send-email-alchark@gmail.com>
-	 <1390823503-24087-1-git-send-email-alchark@gmail.com>
-	 <1390823503-24087-2-git-send-email-alchark@gmail.com>
-	 <1390834190.2735.143.camel@deadeye.wl.decadent.org.uk>
-	 <CABjd4Yyq_Mia=2DkC83Wpi6o1o3m5+yoMcDL4WdZmuLvRtu6qg@mail.gmail.com>
+	<1390823503-24087-1-git-send-email-alchark@gmail.com>
+	<1390823503-24087-4-git-send-email-alchark@gmail.com>
+	<1390834654.2735.148.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Ux9LAchQ19x2tdYiH7kd"
+Content-Type: text/plain; charset=UTF-8
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Tony Prisk <linux-ci5G2KO2hbZ+pU9mqzGVBQ@public.gmane.org>,
 	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Roger Luethi <rl-7uj+XXdSDtwfv37vnLkPlQ@public.gmane.org>,
 	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Alexey Charkov <alchark-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
 Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CABjd4Yyq_Mia=2DkC83Wpi6o1o3m5+yoMcDL4WdZmuLvRtu6qg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+In-Reply-To: <1390834654.2735.148.camel-nDn/Rdv9kqW9Jme8/bJn5UCKIB8iOfG2tUK59QYPAWc@public.gmane.org>
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+2014/1/27 Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>:
+> On Mon, 2014-01-27 at 15:51 +0400, Alexey Charkov wrote:
+>> This should make the driver usable with VIA/WonderMedia ARM-based
+>> Systems-on-Chip integrated Rhine III adapters. Note that these
+>> are always in MMIO mode, and don't have any known EEPROM.
+> [...]
+>> --- a/drivers/net/ethernet/via/Kconfig
+>> +++ b/drivers/net/ethernet/via/Kconfig
+>> @@ -19,7 +19,7 @@ if NET_VENDOR_VIA
+>>
+>>  config VIA_RHINE
+>>         tristate "VIA Rhine support"
+>> -       depends on PCI
+>> +       depends on (PCI || USE_OF)
+>>         select CRC32
+>>         select MII
+>>         ---help---
+>
+> This seems like the right thing to do, but it means you need to add
+> #ifdef CONFIG_PCI and #ifdef CONFIG_USE_OF around the driver structures
+> and related functions.
 
---=-Ux9LAchQ19x2tdYiH7kd
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Frankly, I would like to avoid that if possible (as pointed out in the
+cover email), as I believe we would get a cleaner driver without
+#ifdef. This is also the way it was done in via-velocity, and it works
+just fine.
 
-On Mon, 2014-01-27 at 19:26 +0400, Alexey Charkov wrote:
-> 2014/1/27 Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>:
-> > On Mon, 2014-01-27 at 15:51 +0400, Alexey Charkov wrote:
-[...]
-> >> @@ -1094,20 +1094,22 @@ static int alloc_ring(struct net_device* dev)
-> >>       void *ring;
-> >>       dma_addr_t ring_dma;
-> >>
-> >> -     ring =3D pci_alloc_consistent(rp->pdev,
-> >> +     ring =3D dma_alloc_coherent(&rp->pdev->dev,
-> >>                                   RX_RING_SIZE * sizeof(struct rx_desc=
-) +
-> >>                                   TX_RING_SIZE * sizeof(struct tx_desc=
-),
-> >> -                                 &ring_dma);
-> >> +                                 &ring_dma,
-> >> +                                     GFP_ATOMIC);
-> > [...]
-> >
-> > Indentation is messed up here (and in several other function calls
-> > you're changing).  You should align the function arguments so each line
-> > begins in the column after the opening parenthesis.
->=20
-> Ben, thanks for pointing out. I actually just tried to follow the
-> style of surrounding code, but happy to adjust if that's the preferred
-> option. From what I can see, these lines should still fit in below 80
-> cols even with increased indents...
->=20
-> Should we then also adjust other function calls within the driver with
-> similar indentation (if any), that are currently not touched by this
-> patch series?
+> You should compile-test in configurations that have just one of those
+> dependencies enabled.
 
-There is no need to do that at the same time, but it would be a nice bit
-of cleanup.
+This has been compile-tested and runtime-tested in OF-only
+configuration on WM8950, and Roger also tested it in PCI-only
+configuration, so it seems to work fine.
 
-Ben.
+> [...]
+>> --- a/drivers/net/ethernet/via/via-rhine.c
+>> +++ b/drivers/net/ethernet/via/via-rhine.c
+> [...]
+>> @@ -847,7 +856,8 @@ static void rhine_hw_init(struct net_device *dev, long pioaddr)
+>>               msleep(5);
+>>
+>>       /* Reload EEPROM controlled bytes cleared by soft reset */
+>> -     rhine_reload_eeprom(pioaddr, dev);
+>> +     if (!strncmp(dev->dev.parent->bus->name, "pci", 3))
+>> +             rhine_reload_eeprom(pioaddr, dev);
+> [...]
+>
+> Ew.  I think you should use dev_is_pci(), although you might also need
+> to guard that with #ifdef CONFIG_PCI.
 
---=20
-Ben Hutchings
-If at first you don't succeed, you're doing about average.
+Oh, cool. Didn't realize it existed :) Will adjust, thanks.
 
---=-Ux9LAchQ19x2tdYiH7kd
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+I believe the #ifdef is not strictly required, though, as we include
+the PCI header anyway (and the macro expands to just a simple test).
+Any specific concerns why we should do that, apart from the +3.8%
+module size increase?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
-
-iQIVAwUAUuZ7K+e/yOyVhhEJAQq8mxAAxx+rkZhozFIH9lRRo21YsW22gdWeMENt
-gE8kEHnBqCNPwTzI0sIGsyMU4c3b10+Qn3+1wEHgwVr6qnw9lCco2ypzjjWVN/K6
-JjtexHuLhpLy5dGgVWRYLwxm/3mqQoZYbprGzCFtxzU4TZ2DUAVdyzUajYQKEBjJ
-viynRzlMmM3IbKPnjNmaxymOkSMpMSsFOPBUPNC8ne/fHtZE9Xt1JbRCu590r27/
-R69kPtQCU6kTnUYGFv1797roDMGGDHZPjAATSpEI5ZrU9ejp9gdBld1/4iSrL/WR
-rtoGGqZTNAwBPBK1CrLJG9YcgybY8W29FT9Ctxhv65U9RmSNYFOWo/k8tlBFfsFu
-AuDPSMoc81pxLA0S2ahWSn0gn31h3+yrg/HnWsAgrbX/YPMu/y8zoQm1j2svmz+e
-d8VkTonj8teOvVrKgZ7xb3pSyJwCposcl+KKhCiofOZF4LKIoxnHcGP37hLjzfgt
-xqz9a6xZNcSo1tak0lm36Hc5SbsqEppuqkkHX7StmDCKfBKqTpvecyQr1LdXv+p4
-sGDe9z6sP82hucYW4+/6i5XxX1Clv7tzCXnOKUMwNQ4y58m0dsl2XruN3E7oVDgK
-ME8egLF/VW8FnFBFuOSzGzK8Ll54DxpbEJTEtf9mcSkq2y9rTiityCuw46rzlLCV
-IDQk5XhuTRY=
-=xyCp
------END PGP SIGNATURE-----
-
---=-Ux9LAchQ19x2tdYiH7kd--
+Thanks,
+Alexey
 --
 To unsubscribe from this list: send the line "unsubscribe devicetree" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
