@@ -1,51 +1,90 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: 3.14-mw regression:  rtl8169 WARNING: DMA-API: exceeded 7
- overlapping mappings of pfn 55ebe
-Date: Mon, 27 Jan 2014 01:03:05 +0100
-Message-ID: <20140127000305.GA14236@electric-eye.fr.zoreil.com>
-References: <1859471893.20140126115521@eikelenboom.it>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: critic on documentation of the network stack
+Date: Mon, 27 Jan 2014 00:38:14 +0000
+Message-ID: <1390783094.2735.82.camel@deadeye.wl.decadent.org.uk>
+References: <20140124032324.GO7269@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sander Eikelenboom <linux@eikelenboom.it>, netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Dan Williams <dan.j.williams@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1859471893.20140126115521@eikelenboom.it>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-WCbituOa4+iAH5R6F0g3"
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54110 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753257AbaA0AiW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jan 2014 19:38:22 -0500
+In-Reply-To: <20140124032324.GO7269@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sander Eikelenboom <linux@eikelenboom.it> :
+
+--=-WCbituOa4+iAH5R6F0g3
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Fri, 2014-01-24 at 04:23 +0100, Hannes Frederic Sowa wrote:
+> Hello!
+>=20
+> After net-next is closed I wanted to put the following link here:
+>=20
+>   <http://linux.slashdot.org/comments.pl?sid=3D4356053&cid=3D45184693>
+>=20
+> I don't want to start a flamefest or come too close to someone but I
+> fear some of the critic is reasonable.  Maybe we can do better (I have
+> to admit, I also hate writing documentation, e.g. have not yet send the
+> IP_PMTUDISC_INTERFACE man-page patches).
+>=20
+> I try to start with some constructive discussion:
+>=20
+> There are some great features in the network stack that some people miss
+> because of lack documentation. One possible solution is documentation
+> directly in the kernel, but mostly this is just written as a reference
+> and the real wonderful stuff is only achieved by putting lots of those
+> features correclty together.
+
+I think the reference documentation is also severely lacking.  I have
+occasionally filled in documentation of the ethtool API (as kernel-doc
+comments) after having to effectively reverse-engineer it from the
+implementations.
+
+> Maybe this is the second or third time this was proposed but I'll try
+> again: Would it make sense to just start slow and setup a wiki where we
+> just throw in the various snippets we use for testing while developing
+> patches, maybe with a bit of background information?
 [...]
-> I have got a regression with a 3.14-mw kernel (last commit is 4ba9920e5e9c0e16b5ed24292d45322907bb9035):
-> It looks like it's related to the rtl8169 ...
-> 
-> --
-> Sander
-> 
-> Jan 26 11:36:26 serveerstertje kernel: [   89.105537] ------------[ cut here ]------------
-> Jan 26 11:36:26 serveerstertje kernel: [   89.116779] WARNING: CPU: 0 PID: 0 at lib/dma-debug.c:491 add_dma_entry+0x103/0x130()
-> Jan 26 11:36:26 serveerstertje kernel: [   89.128148] DMA-API: exceeded 7 overlapping mappings of pfn 55ebe
-> Jan 26 11:36:26 serveerstertje kernel: [   89.139397] Modules linked in:
-> Jan 26 11:36:26 serveerstertje kernel: [   89.150535] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.13.0-20140125-mw-pcireset+ #1
-> Jan 26 11:36:26 serveerstertje kernel: [   89.161784] Hardware name: MSI MS-7640/890FXA-GD70 (MS-7640)  , BIOS V1.8B1 09/13/2010
-> Jan 26 11:36:26 serveerstertje kernel: [   89.172965]  0000000000000009 ffff88005f603838 ffffffff81acbcfa ffffffff822134e0
-> Jan 26 11:36:26 serveerstertje kernel: [   89.184156]  ffff88005f603888 ffff88005f603878 ffffffff810bdf62 ffff880000000000
-> Jan 26 11:36:26 serveerstertje kernel: [   89.195186]  0000000000055ebe 00000000ffffffef 0000000000000200 ffff8800592ea098
-> Jan 26 11:36:26 serveerstertje kernel: [   89.206227] Call Trace:
-> Jan 26 11:36:26 serveerstertje kernel: [   89.217027]  <IRQ>  [<ffffffff81acbcfa>] dump_stack+0x46/0x58
-> Jan 26 11:36:26 serveerstertje kernel: [   89.227907]  [<ffffffff810bdf62>] warn_slowpath_common+0x82/0xb0
-> Jan 26 11:36:26 serveerstertje kernel: [   89.238678]  [<ffffffff810be031>] warn_slowpath_fmt+0x41/0x50
-> Jan 26 11:36:26 serveerstertje kernel: [   89.249336]  [<ffffffff81471c5a>] ? active_pfn_read_overlap+0x3a/0x70
-> Jan 26 11:36:26 serveerstertje kernel: [   89.259904]  [<ffffffff814729e3>] add_dma_entry+0x103/0x130
-> Jan 26 11:36:26 serveerstertje kernel: [   89.270416]  [<ffffffff81472de6>] debug_dma_map_page+0x126/0x150
-> Jan 26 11:36:26 serveerstertje kernel: [   89.280840]  [<ffffffff81714686>] rtl8169_start_xmit+0x216/0xa20
-[r8169 and xen stuff]
 
-Dan, I miss the part of the debug code that tells where the mappings were
-previously set.
+There seems to be an appropriate wiki available:
+http://www.linuxfoundation.org/collaborate/workgroups/networking
 
--- 
-Ueimor
+But developers will need to get into the habit of using it (maybe with
+pressure from David Miller).
+
+Ben.
+
+--=20
+Ben Hutchings
+If the facts do not conform to your theory, they must be disposed of.
+
+--=-WCbituOa4+iAH5R6F0g3
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.15 (GNU/Linux)
+
+iQIVAwUAUuWqdue/yOyVhhEJAQqIgRAAzqsPiqHnWHuItBwK5xFrjIOrAUM4NqJV
+DWNaFgcpw4qgMwj+rgNKELRcdNcwsOIuievv+w8LVYLKnH8khgRtgDUSWQH4rFgo
+/qOiwKz4QR6wuWyfT7tgvDCpQufDjwmAuAUKcojHlMYn2BGoKQT4ycCfahIu9Qxo
+GOEgFRBf6p3cRkgXdmmHlBj4FrbnJSDYJtrtiYoCb3DR5/KmD/ynqy90M6asDT9j
+AvvBnleC7V2Ahl6/qF6DURlk1Fes7TUa5k994XGJXd61OrGPhoNnnyWRTwnFHVYk
+nGxSWyv/5xfmdstu29u/JkF6tf2LHpHsSaAdyebwDYJWajncwMWtQzs8vgKsIIhU
+LO1agi/wxcL0wPxGoigY4YZwgUR3FMcjQOqSSfplSjiybCKDeNmKomQffkH5ifTV
+ZEbhxiYPQYtcT/zWRdOrrScE0ciGMJ1BKzs/D8Nhll7aYo+2c2s0rn03+YOL3FsQ
+U/MiAWy42MeF/XQndwu/nJ7PhR1DSiTNnW9XyrR3A//8f2P+gN/XzHVBBsbGw8q5
+psYC2I0l56WkZMHYFWh2Ihb+2M9FQ9x8kjJSMO8acprfJVPIsAsK0FtpiyWWZj9v
+tFDfH8ZomRwkcs1cedu1g/CvVOm+VKxc0Q0BWABA6X0StU8EqFnxDoFx3AmaCfXO
+NqpaY9+xC6o=
+=g+yR
+-----END PGP SIGNATURE-----
+
+--=-WCbituOa4+iAH5R6F0g3--
