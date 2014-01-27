@@ -1,45 +1,28 @@
-From: Max Filippov <jcmvbkbc@gmail.com>
-Subject: [PATCH 1/3] net: ethoc: don't advertise gigabit speed on attached PHY
-Date: Mon, 27 Jan 2014 07:59:25 +0400
-Message-ID: <1390795167-6677-2-git-send-email-jcmvbkbc@gmail.com>
-References: <1390795167-6677-1-git-send-email-jcmvbkbc@gmail.com>
-Cc: Chris Zankel <chris@zankel.net>, Marc Gauthier <marc@cadence.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Max Filippov <jcmvbkbc@gmail.com>
-To: linux-xtensa@linux-xtensa.org, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1390795167-6677-1-git-send-email-jcmvbkbc@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V2 1/2] net: add and use skb_gso_transport_seglen()
+Date: Sun, 26 Jan 2014 22:41:37 -0800 (PST)
+Message-ID: <20140126.224137.189578820909857783.davem@davemloft.net>
+References: <1390730297-10725-1-git-send-email-fw@strlen.de>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56281 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750895AbaA0Gll (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jan 2014 01:41:41 -0500
+In-Reply-To: <1390730297-10725-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-OpenCores 10/100 Mbps MAC does not support speeds above 100 Mbps, but does
-not disable advertisement when PHY supports them. This results in
-non-functioning network when the MAC is connected to a gigabit PHY connected
-to a gigabit switch.
+From: Florian Westphal <fw@strlen.de>
+Date: Sun, 26 Jan 2014 10:58:16 +0100
 
-The fix is to disable gigabit speed advertisement on attached PHY
-unconditionally.
+> This moves part of Eric Dumazets skb_gso_seglen helper from tbf sched to
+> skbuff core so it may be reused by upcoming ip forwarding path patch.
+> 
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-Signed-off-by: Max Filippov <jcmvbkbc@gmail.com>
----
- drivers/net/ethernet/ethoc.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/ethoc.c
-index 4de8cfd..0aa1a05 100644
---- a/drivers/net/ethernet/ethoc.c
-+++ b/drivers/net/ethernet/ethoc.c
-@@ -712,6 +712,8 @@ static int ethoc_open(struct net_device *dev)
- 		netif_start_queue(dev);
- 	}
- 
-+	priv->phy->advertising &= ~(ADVERTISED_1000baseT_Full |
-+				    ADVERTISED_1000baseT_Half);
- 	phy_start(priv->phy);
- 	napi_enable(&priv->napi);
- 
--- 
-1.8.1.4
+Applied.
