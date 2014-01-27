@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] AF_PACKET: Add documentation for queue mapping fanout
- mode
-Date: Mon, 27 Jan 2014 12:57:54 -0800 (PST)
-Message-ID: <20140127.125754.1285784322055554689.davem@davemloft.net>
-References: <1390840984-22246-1-git-send-email-nhorman@tuxdriver.com>
+Subject: Re: [PATCH 2/2] net: ip, ipv6: handle gso skbs in forwarding path
+Date: Mon, 27 Jan 2014 12:58:38 -0800 (PST)
+Message-ID: <20140127.125838.2234405619673167551.davem@davemloft.net>
+References: <1390810971-23959-1-git-send-email-fw@strlen.de>
+	<1390810971-23959-2-git-send-email-fw@strlen.de>
+	<1390846967.27806.75.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dborkman@redhat.com
-To: nhorman@tuxdriver.com
+Cc: fw@strlen.de, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36550 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36591 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754428AbaA0U5y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jan 2014 15:57:54 -0500
-In-Reply-To: <1390840984-22246-1-git-send-email-nhorman@tuxdriver.com>
+	with ESMTP id S1754018AbaA0U6i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jan 2014 15:58:38 -0500
+In-Reply-To: <1390846967.27806.75.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Mon, 27 Jan 2014 11:43:04 -0500
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 27 Jan 2014 10:22:47 -0800
 
-> Recently I added a new AF_PACKET fanout operation mode in commit
-> 2d36097, but I forgot to document it.  Add PACKET_FANOUT_QM as an available mode
-> in the af_packet documentation.  Applies to net-next.
+> Its still unclear if this is the best strategy.
 > 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> TCP stream not using DF flag are very unlikely to care if we adjust
+> their MTU (lowering gso_size) at this point ?
 
-Applied.
+It's better than what happens now when the destination link has a lower
+MTU, wouldn't you say?
