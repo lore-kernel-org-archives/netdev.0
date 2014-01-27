@@ -1,66 +1,92 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net] net: hyperv: initialize link status correctly
-Date: Mon, 27 Jan 2014 18:28:42 +0800
-Message-ID: <52E634DA.3040200@redhat.com>
-References: <1390807854-4469-1-git-send-email-jasowang@redhat.com>	
- <20140127.003559.2290408024387922847.davem@davemloft.net>	
- <52E629A8.5010302@redhat.com>
- <1390818121.2735.130.camel@deadeye.wl.decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, haiyangz@microsoft.com,
- linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
- David Miller <davem@davemloft.net>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1390818121.2735.130.camel@deadeye.wl.decadent.org.uk>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH RFC v3 0/12] vti4: prepare namespace and interfamily support.
+Date: Mon, 27 Jan 2014 11:29:25 +0100
+Message-ID: <1390818577-19589-1-git-send-email-steffen.klassert@secunet.com>
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	Christophe Gouault <christophe.gouault@6wind.com>,
+	Saurabh Mohan <saurabh.mohan@vyatta.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:43143 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753656AbaA0KaH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jan 2014 05:30:07 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/27/2014 06:22 PM, Ben Hutchings wrote:
-> On Mon, 2014-01-27 at 17:40 +0800, Jason Wang wrote:
->> On 01/27/2014 04:35 PM, David Miller wrote:
->>> From: Jason Wang <jasowang@redhat.com>
->>> Date: Mon, 27 Jan 2014 15:30:54 +0800
->>>
->>>> Call netif_carrier_on() after register_device(). Otherwise it won't work since
->>>> the device was still in NETREG_UNINITIALIZED state.
->>>>
->>>> Fixes a68f9614614749727286f675d15f1e09d13cb54a
->>>> (hyperv: Fix race between probe and open calls)
->>>>
->>>> Cc: Haiyang Zhang <haiyangz@microsoft.com>
->>>> Cc: K. Y. Srinivasan <kys@microsoft.com>
->>>> Reported-by: Di Nie <dnie@redhat.com>
->>>> Tested-by: Di Nie <dnie@redhat.com>
->>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
->>> A device up can occur at the moment you call register_netdevice(),
->>> therefore that up call can see the carrier as down and fail or
->>> similar.  So you really cannot resolve the carrier to be on in this
->>> way.
->> True, we need a workqueue to synchronize them.
-> Whatever for?  All you need to do is:
->
-> 	rtnl_lock();
-> 	register_netdevice();
-> 	netif_carrier_on();
-> 	rtnl_unlock();
->
-> It would be nice if we could make the current code work with a change in
-> the core, though.
->
-> Ben.
->
+This patchset prepares vti4 for proper namespace and interfamily support.
 
-Looks like the link status interrupt may happen during this (after
-netvsc_device_add() was called by rndis_filter_device_add()) without any
-synchronization. This may lead a wrong link status here.
+Currently the receive hook is in the middle of the decapsulation
+process, some of the header pointers point still into the IPsec packet
+others point already into the decapsulated packet. This makes it
+very unflexible and proper namespace and interfamily support can't
+be done as it is.
+
+The patchset that implements an IPsec protocol multiplexer, so that vti
+can register it's own receive path hooks. Further it makes the i_key
+usable for vti and changes the vti code to do the following:
+
+vti uses the IPsec protocol multiplexer to register it's
+own receive side hooks for ESP, AH and IPCOMP.
+
+Vti does the following on receive side:
+
+1. Do an input policy check for the IPsec packet we received.
+   This is required because this packet could be already
+   processed by IPsec (tunnel in tunnel or a block policy
+   is present), so an inbound policy check is needed.
+
+2. Mark the packet with the i_key. The policy and the state
+   must match this key now. Policy and state belong to the vti
+   namespace and policy enforcement is done at the further layers.
+
+3. Call the generic xfrm layer to do decryption and decapsulation.
+
+4. Wait for a callback from the xfrm layer to properly clean the skb to
+   not leak informations on namespace transitions and to update the device
+   statistics.
+
+On transmit side:
+
+1. Mark the packet with the o_key. The policy and the state
+   must match this key now.
+
+2. Do a xfrm_lookup on the original packet with the mark applied.
+
+3. Check if we got an IPsec route.
+
+4. Clean the skb to not leak informations on namespace
+   transitions.
+
+5. Attach the dst_enty we got from the xfrm_lookup to the skb.
+
+6. Call dst_output to do the IPsec processing.
+
+7. Do the device statistics.
+
+
+Changes from v1:
+
+- Rebased to current net-next.
+- Fix a rcu lockdep complaint in xfrm protocol registration/deregistration.
+- Fix usage of a ipv4 specific callback handler in generic code.
+- Use skb_scrub_packet() to clear the skb in vti_rcv(), suggested by
+  Nicolas Dichtel.
+- Add support for IPCOMP.
+- Support inter address family tunneling.
+
+Changes from v2:
+
+- Rebased to current net-next.
+- Check for matching tunnel endpoints of the xfrm state and
+  the vti interface.
+- Use a own error handler to not create dependencies to the
+  generic IPsec protocol handlers.
+- Change the receive path to do the namespace transition after
+  decapsulation. With this the xfrm lookups are done in the outer
+  namespace for xmit and receive, thanks to Christophe Gouault
+  for pointing this out.
+- Enable namespace changing of vti devices.
+
+I'd take this into the ipsec-next tree after the merge window closes
+if noone has further suggestions or objections.
