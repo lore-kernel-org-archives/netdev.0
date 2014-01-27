@@ -1,98 +1,100 @@
-From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH RFC 4/6] net: rfkill: gpio: add device tree support
-Date: Mon, 27 Jan 2014 15:24:00 +0100
-Message-ID: <20140127142400.GI3867@lukather>
-References: <1389941251-32692-1-git-send-email-wens@csie.org>
- <1389941251-32692-5-git-send-email-wens@csie.org>
-Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH 1/3] net: via-rhine: switch to generic DMA functions
+Date: Mon, 27 Jan 2014 14:49:50 +0000
+Message-ID: <1390834190.2735.143.camel@deadeye.wl.decadent.org.uk>
+References: <1385227995-3956-1-git-send-email-alchark@gmail.com>
+	 <1390823503-24087-1-git-send-email-alchark@gmail.com>
+	 <1390823503-24087-2-git-send-email-alchark@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="ZYOWEO2dMm2Af3e3"
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Return-path: <linux-sunxi+bncBD2ZNBF5VYJRBQGYTGLQKGQE5MAGJOI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1389941251-32692-5-git-send-email-wens-jdAy2FN1RRM@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-WR/bumXEMf/ietEL7HTD"
+Cc: netdev@vger.kernel.org, linux@prisktech.co.nz,
+	devicetree@vger.kernel.org, rl@hellgate.ch,
+	linux-kernel@vger.kernel.org
+To: Alexey Charkov <alchark@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1390823503-24087-2-git-send-email-alchark@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---ZYOWEO2dMm2Af3e3
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+--=-WR/bumXEMf/ietEL7HTD
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-Hi,
-
-On Fri, Jan 17, 2014 at 02:47:29PM +0800, Chen-Yu Tsai wrote:
-> Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-> ---
->  .../devicetree/bindings/rfkill/rfkill-gpio.txt     | 26 ++++++++++++++++=
-++++++
->  net/rfkill/rfkill-gpio.c                           | 23 ++++++++++++++++=
-+++
->  2 files changed, 49 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/rfkill/rfkill-gpio.=
-txt
+On Mon, 2014-01-27 at 15:51 +0400, Alexey Charkov wrote:
+> Remove legacy PCI DMA wrappers and instead use generic DMA functions
+> directly in preparation for OF bus binding
 >=20
-> diff --git a/Documentation/devicetree/bindings/rfkill/rfkill-gpio.txt b/D=
-ocumentation/devicetree/bindings/rfkill/rfkill-gpio.txt
-> new file mode 100644
-> index 0000000..8a07ea4
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/rfkill/rfkill-gpio.txt
-> @@ -0,0 +1,26 @@
-> +GPIO controlled RFKILL devices
-> +
-> +Required properties:
-> +- compatible	: Must be "rfkill-gpio".
-> +- rfkill-name	: Name of RFKILL device
-> +- rfkill-type	: Type of RFKILL device: 1 for WiFi, 2 for BlueTooth
-> +- NAME_shutdown-gpios	: GPIO phandle to shutdown control
-> +			  (phandle must be the second)
+> Signed-off-by: Alexey Charkov <alchark@gmail.com>
+> Signed-off-by: Roger Luethi <rl@hellgate.ch>
+> ---
+>  drivers/net/ethernet/via/via-rhine.c | 56 +++++++++++++++++++-----------=
+------
+>  1 file changed, 29 insertions(+), 27 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/=
+via/via-rhine.c
+> index ef312bc..fee8732 100644
+> --- a/drivers/net/ethernet/via/via-rhine.c
+> +++ b/drivers/net/ethernet/via/via-rhine.c
+> @@ -919,10 +919,10 @@ static int rhine_init_one(struct pci_dev *pdev, con=
+st struct pci_device_id *ent)
+>  		goto err_out;
+> =20
+>  	/* this should always be supported */
+> -	rc =3D pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
+> +	rc =3D dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
+>  	if (rc) {
+>  		dev_err(&pdev->dev,
+> -			"32-bit PCI DMA addresses not supported by the card!?\n");
+> +			"32-bit DMA addresses not supported by the card!?\n");
+>  		goto err_out;
+>  	}
+> =20
+> @@ -1094,20 +1094,22 @@ static int alloc_ring(struct net_device* dev)
+>  	void *ring;
+>  	dma_addr_t ring_dma;
+> =20
+> -	ring =3D pci_alloc_consistent(rp->pdev,
+> +	ring =3D dma_alloc_coherent(&rp->pdev->dev,
+>  				    RX_RING_SIZE * sizeof(struct rx_desc) +
+>  				    TX_RING_SIZE * sizeof(struct tx_desc),
+> -				    &ring_dma);
+> +				    &ring_dma,
+> +					GFP_ATOMIC);
+[...]
 
-Can't it be handled by a regulator?
+Indentation is messed up here (and in several other function calls
+you're changing).  You should align the function arguments so each line
+begins in the column after the opening parenthesis.
 
-> +- NAME_reset-gpios	: GPIO phandle to reset control
-
-And this one using the reset framework?
-
-Maxime
+Ben.
 
 --=20
-Maxime Ripard, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+Ben Hutchings
+If at first you don't succeed, you're doing about average.
 
---ZYOWEO2dMm2Af3e3
+--=-WR/bumXEMf/ietEL7HTD
 Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
+Version: GnuPG v1.4.15 (GNU/Linux)
 
-iQIcBAEBAgAGBQJS5mwAAAoJEBx+YmzsjxAgPZwP/iX6u84lb83QdNWM8d3+KCD/
-SWxJR9LuvniuU9sEEnAdo5VbsNi4oQiLhe8xHbrmtyv73Pvl5OZ53rL731unXT0n
-d4C3FVApJuLuXW+U1sLqctNUQFCxWCLSJbW+58U/JPUgnpGKJa3kfWNa3cDz99WX
-9L4fjz/X8EptLs28NUILjDTESKFpHZC5ModW/9eoxI/wcZt6L7ojsFZ7wk0wJe4w
-OewXIx4SDVoqy6dB6aAR4esZDmF16gmcycfoljpyGkqboILw6Eo7CvWfKrEH+7Sm
-Sc7cMDmH5nd98l+lqzIJzEVDxX7yHP20OfB+YWOCuP9WvAPhgWpmr3WF2knADOhc
-vaGd66ED5fvhYEdEhNxXE0eKSQqJIsldC8LLrc8oMPm39ddC8/IPBVlV+WGfUwOx
-iJ6PItgg6K0Wa96fkULMKwTt5lG8V0PCMOjUqaXMocKLTzGqm9f8doxHMRRfpt43
-Enw39v3njYHHlzBZzYH6Mj2wOFNQm0ge8MWy+VIA44mkQgib6XBRaspwsP8qTsbI
-PJylAftoU8O0U8fqG0cG6Xhk+kneeu+iAKK4yh+JkyqW18UflRTawQr8g8O6ftGm
-3/pOFn0kY2UMMdoUqU2YpN6Fz9xWLmoNPBeg1wfLXrSVycopSspZnMMk7K6YNLyO
-0QmPdpd4KZrLlrzi8D0F
-=zNdg
+iQIVAwUAUuZyDue/yOyVhhEJAQrTYA/9Gpn0fWkilBWjm0iA0Iqjdx/JJJjCW2e8
+q80ByLz/X7KfW/LuLyMZzDzXMA4dxK8LtGiIsNdBV8PiddtZBSePnXpSex1lvQvR
+61usSDcL+mWVvpPQoVmoENfl+NOn3EZh8FWSzv5+abJwvnuS+rRRdVtbLhOAJ6yO
+e9KXai3Y1kYbjC02Tl5R6IL0rNCn6dqtCWwZU0ATtSc9Fv1jg7W6LYnyF5+lXwx+
+3orNHnhwTAJq6xCdzfvRLyKn43KoMvdiFyz/mSL+Oap3FELQwIajgf65egcXhSc6
+hrKKT4Wf96axGmfvETobk2i00fMJhVMeK21K3CtNtB3ndIg2WVYqfDb6d1kmH7Yu
+uBCWqepQWW/yqrtfUM69lGsbDSVb1ZK9qBP+Aq+yYqPyaKixyj0QhzgvZPNQ8t4c
+6TMKCon5/Xv+G1qA0NpsEVz0nSH66Cej8G8edISQqijKJXInlYZcHf8xxE6ns2fg
+ahakVqWOVwhqPXE22JvcVCBTIcRMCtnMdX2SBzg8OTDRM4+hlVeXlo/Un/FNB6ya
+kyMf4GYrVKrhgT4+E1+q7GX1yPoapvlJMgFEA3aI6SgjQQbU8ETEAI+g30fu1YMX
+ZDFmUdGahDHxwxAT54HprjUckDo/SgpMs2gy6XcFtOnjdKjx3s88TFb3j24NMe3z
+4PFIjzOlR80=
+=vFFp
 -----END PGP SIGNATURE-----
 
---ZYOWEO2dMm2Af3e3--
+--=-WR/bumXEMf/ietEL7HTD--
