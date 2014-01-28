@@ -1,100 +1,43 @@
-From: Masatake YAMATO <yamato@redhat.com>
-Subject: [PATCH] tun: add device name(iff) field to proc fdinfo entry
-Date: Wed, 29 Jan 2014 01:54:11 +0900
-Message-ID: <1390928051-6113-1-git-send-email-yamato@redhat.com>
-Cc: yamato@redhat.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:13652 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754708AbaA1QyV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Jan 2014 11:54:21 -0500
-Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s0SGsGW2027691
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Tue, 28 Jan 2014 11:54:16 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: 8% performance improved by change tap interact with kernel stack
+Date: Tue, 28 Jan 2014 08:56:34 -0800
+Message-ID: <52E7E142.8000407@hp.com>
+References: <52E766D4.4070901@huawei.com> <20140128083459.GB16833@redhat.com> <52E77506.1080604@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jasowang@redhat.com, Anthony Liguori <anthony@codemonkey.ws>,
+	KVM list <kvm@vger.kernel.org>, netdev@vger.kernel.org
+To: Qin Chuanyu <qinchuanyu@huawei.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <52E77506.1080604@huawei.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-A file descriptor opened for /dev/net/tun and a tun device are
-connected with ioctl.  Though understanding the connection is
-important for trouble shooting, no way is given to a user to know
-the connected device for a given file descriptor at userland.
+On 01/28/2014 01:14 AM, Qin Chuanyu wrote:
+> On 2014/1/28 16:34, Michael S. Tsirkin wrote:
+>> Could you please check latency results?
+>>
+> netperf UDP_RR 512
+> test model: VM->host->host
+>
+> modified before : 11108
+> modified after  : 11480
+>
+> 3% gained by this patch
 
-This patch adds a new fdinfo field for the device name connected to
-a file descriptor opened for /dev/net/tun.
+Netperf UDP_RR can be very sensitive to packet losses.  Not that there 
+were necessarily any in your tests, but to further confirm the 3% 
+improvement in latency, I would suggest using the confidence intervals 
+functionality in your before/after netperf testing.  And to get at what 
+Michael asks about CPU utilization I would suggest:
 
-Here is an example of the field:
+netperf -H <otherguy> -c -C -l 30 -i 30,3 -t UDP_RR -- -r 512
 
-    # lsof | grep tun
-    qemu-syst 4565         qemu   25u      CHR             10,200       0t138      12921 /dev/net/tun
-    ...
+(I was guessing as to what netperf options you may have been using already)
 
-    # cat /proc/4565/fdinfo/25
-    pos:	138
-    flags:	0104002
-    iff: vnet0
+happy benchmarking,
 
-    # ip link show dev vnet0
-    8: vnet0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 ...
+rick jones
 
-Signed-off-by: Masatake YAMATO <yamato@redhat.com>
----
- drivers/net/tun.c | 28 +++++++++++++++++++++++++++-
- 1 file changed, 27 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index bcf01af..f0a1e1d 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -69,6 +69,7 @@
- #include <net/netns/generic.h>
- #include <net/rtnetlink.h>
- #include <net/sock.h>
-+#include <linux/seq_file.h>
- 
- #include <asm/uaccess.h>
- 
-@@ -2228,6 +2229,28 @@ static int tun_chr_close(struct inode *inode, struct file *file)
- 	return 0;
- }
- 
-+#ifdef CONFIG_PROC_FS
-+static int tun_chr_show_fdinfo(struct seq_file *m, struct file *f)
-+{
-+	struct tun_struct *tun;
-+	struct ifreq ifr;
-+	int ret;
-+
-+	memset(&ifr, 0, sizeof(ifr));
-+
-+	rtnl_lock();
-+	tun = tun_get(f);
-+	if (tun)
-+		tun_get_iff(current->nsproxy->net_ns, tun, &ifr);
-+	rtnl_unlock();
-+
-+	if (tun)
-+		tun_put(tun);
-+
-+	return seq_printf(m, "iff: %s\n", ifr.ifr_name);
-+}
-+#endif
-+
- static const struct file_operations tun_fops = {
- 	.owner	= THIS_MODULE,
- 	.llseek = no_llseek,
-@@ -2242,7 +2265,10 @@ static const struct file_operations tun_fops = {
- #endif
- 	.open	= tun_chr_open,
- 	.release = tun_chr_close,
--	.fasync = tun_chr_fasync
-+	.fasync = tun_chr_fasync,
-+#ifdef CONFIG_PROC_FS
-+	.show_fdinfo = tun_chr_show_fdinfo,
-+#endif
- };
- 
- static struct miscdevice tun_miscdev = {
--- 
-1.8.5.3
