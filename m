@@ -1,36 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sky2: initialize napi before registering device
-Date: Mon, 27 Jan 2014 16:40:22 -0800 (PST)
-Message-ID: <20140127.164022.1770189430751977967.davem@davemloft.net>
-References: <20140125103454.GA2490@localhost.localdomain>
+Subject: Re: [PATCH net-next] hyperv: Add support for physically
+ discontinuous receive buffer
+Date: Mon, 27 Jan 2014 16:41:07 -0800 (PST)
+Message-ID: <20140127.164107.224798942983026579.davem@davemloft.net>
+References: <1390863822-3509-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mlindner@marvell.com,
-	stephen@networkplumber.org
-To: stf_xl@wp.pl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38544 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754457AbaA1AkX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jan 2014 19:40:23 -0500
-In-Reply-To: <20140125103454.GA2490@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1390863822-3509-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-From: Stanislaw Gruszka <stf_xl@wp.pl>
-Date: Sat, 25 Jan 2014 11:34:54 +0100
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Mon, 27 Jan 2014 15:03:42 -0800
 
-> There is race condition when call netif_napi_add() after
-> register_netdevice(), as ->open() can be called without napi initialized
-> and trigger BUG_ON() on napi_enable(), like on below messages:
-...
-> To fix the problem patch changes the order of initialization.
+> This will allow us to use bigger receive buffer, and prevent allocation failure
+> due to fragmented memory.
 > 
-> Bug report:
-> https://bugzilla.kernel.org/show_bug.cgi?id=67151
-> 
-> Reported-and-tested-by: ebrahim.azarisooreh@gmail.com
-> Signed-off-by: Stanislaw Gruszka <stf_xl@wp.pl>
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
-Applied, thanks a lot.
+Applied, thanks.
