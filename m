@@ -1,62 +1,64 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: Incorrect skb->truesize calculations in net/usb/ax88179_178a.c
-Date: Tue, 28 Jan 2014 09:14:12 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D4663F5@AcuExch.aculab.com>
+From: Qin Chuanyu <qinchuanyu@huawei.com>
+Subject: Re: 8% performance improved by change tap interact with kernel stack
+Date: Tue, 28 Jan 2014 17:14:46 +0800
+Message-ID: <52E77506.1080604@huawei.com>
+References: <52E766D4.4070901@huawei.com> <20140128083459.GB16833@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <jasowang@redhat.com>, Anthony Liguori <anthony@codemonkey.ws>,
+	KVM list <kvm@vger.kernel.org>, <netdev@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:35821 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1754473AbaA1JOc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jan 2014 04:14:32 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 16950-10 for <netdev@vger.kernel.org>;
- Tue, 28 Jan 2014 09:14:29 +0000 (GMT)
-Content-Language: en-US
+Received: from szxga02-in.huawei.com ([119.145.14.65]:44884 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754054AbaA1JPh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jan 2014 04:15:37 -0500
+In-Reply-To: <20140128083459.GB16833@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ax88179_178a driver contains this code for processing receive traffic:
+On 2014/1/28 16:34, Michael S. Tsirkin wrote:
+> On Tue, Jan 28, 2014 at 04:14:12PM +0800, Qin Chuanyu wrote:
+>> according perf test result=EF=BC=8CI found that there are 5%-8% cpu =
+cost on
+>> softirq by use netif_rx_ni called in tun_get_user.
+>>
+>> so I changed the function which cause skb transmitted more quickly.
+>> from
+>> 	tun_get_user	->
+>> 		 netif_rx_ni(skb);
+>> to
+>> 	tun_get_user	->
+>> 		rcu_read_lock_bh();
+>> 		netif_receive_skb(skb);
+>> 		rcu_read_unlock_bh();
+>>
+>> The test result is as below:
+>> 	CPU: Intel(R) Xeon(R) CPU E5620  @ 2.40GHz
+>> 	NIC: intel 82599
+>> 	Host OS/Guest OS:suse11sp3
+>> 	Qemu-1.6
+>> 	netperf udp 512(VM tx)
+>> 	test model: VM->host->host
+>>
+>> 	modified before : 2.00Gbps 461146pps
+>> 	modified after  : 2.16Gbps 498782pps
+>>
+>> 8% performance gained from this change,
+>> Is there any problem for this patch ?
+>
+> I think it's okay - IIUC this way we are processing xmit directly
+> instead of going through softirq.
+> Was meaning to try this - I'm glad you are looking into this.
+>
+> Could you please check latency results?
+>
+netperf UDP_RR 512
+test model: VM->host->host
 
-1130         while (pkt_cnt--) {
-...
-1144                 if (pkt_cnt == 0) {
-1145                         /* Skip IP alignment psudo header */
-1146                         skb_pull(skb, 2);
-1147                         skb->len = pkt_len;
-1148                         skb_set_tail_pointer(skb, pkt_len);
-1149                         skb->truesize = pkt_len + sizeof(struct sk_buff);
-1150                         ax88179_rx_checksum(skb, pkt_hdr);
-1151                         return 1;
-1152                 }
-1153 
-1154                 ax_skb = skb_clone(skb, GFP_ATOMIC);
-1155                 if (ax_skb) {
-1156                         ax_skb->len = pkt_len;
-1157                         ax_skb->data = skb->data + 2;
-1158                         skb_set_tail_pointer(ax_skb, pkt_len);
-1159                         ax_skb->truesize = pkt_len + sizeof(struct sk_buff);
-1160                         ax88179_rx_checksum(ax_skb, pkt_hdr);
-1161                         usbnet_skb_return(dev, ax_skb);
-1162                 } else {
-1163                         return 0;
-1164                 }
+modified before : 11108
+modified after  : 11480
 
-The usb receives are done with 20kB skb.
-The loop above implies that they can be filled with multiple ethernet frames.
-The hardware supports TSO, I don't know if it also supports receive offload.
-
-I'm not sure what skb->trusize should be for a cloned skb (in order to get
-sensible accounting). But is a single ethernet frame is received I thought
-the truesize should still be 20k+, not reset to the data size.
-
-This driver would be much better off providing single 4k buffers to the
-usb stack, and then generating skb referring to the data - especially
-if it does merge receives.
-I'm not sure of the best way to handle the splitting of multiple ethernet
-frames from shared pages, but I'm pretty sure it isn't the above.
-
-	David
+3% gained by this patch
