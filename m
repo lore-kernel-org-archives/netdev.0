@@ -1,114 +1,62 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: [PATCH] iproute: Fix Netid value for multi-families output
-Date: Tue, 28 Jan 2014 10:24:15 +0400
-Message-ID: <52E74D0F.4050806@parallels.com>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: How to identify 6to4 and 6in4 tunnels
+Date: Tue, 28 Jan 2014 15:32:51 +0800
+Message-ID: <52E75D23.10909@gmail.com>
+References: <52E63779.5090101@gmail.com> <52E65817.1090904@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-To: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.parallels.com ([195.214.232.42]:39242 "EHLO
-	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750816AbaA1GYR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jan 2014 01:24:17 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: nicolas.dichtel@6wind.com, "David S. Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52E65817.1090904@6wind.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When requesting simultaneous output of TCP and UDP sockets
-the netid field shows "tcp" always.
+On 01/27/2014 08:59 PM, Nicolas Dichtel wrote:
+> Le 27/01/2014 11:39, zhuyj a =E9crit :
+>> Hi, Maintainers
+>>
+>> In our scene, we will create the 6in4/6to4 tunnel firstly and need t=
+o=20
+>> check the
+>> tunnel type, secondly, we will configure the ip address on it. So,=20
+>> Could we have
+>> any way to get the actual tunnel for 6in4 and 6to4 from current linu=
+x=20
+>> version?
+>>
+>> Both 6in4 and 6to4 have the same protocol =93IPPROTO_IPV6=94 in Linu=
+x=20
+>> kernel. The
+>> only difference is the ip address on the tunnel. Can we distinguish=20
+>> them in
+>> Linux kernel?
+> Just check the prefix, like it is done in check_6rd().
+>
+>
+> Regards,
+> Nicolas
+>
+Hi, Nicolas
 
-[root@xemvm1 iproute2]# ./misc/ss -a -tu
-Netid State      Recv-Q Send-Q                            Local Address=
-:Port                                Peer Address:Port  =20
-tcp   UNCONN     0      0                                             *=
-:32713                                          *:*      =20
-tcp   UNCONN     0      0                                             *=
-:bootpc                                         *:*      =20
-tcp   UNCONN     0      0                                            ::=
-:57879                                         :::*      =20
-tcp   LISTEN     0      128                                           *=
-:ssh                                            *:*      =20
-tcp   ESTAB      0      48                                      1.2.3.5=
-:ssh                                      1.2.3.4:45826  =20
-tcp   ESTAB      0      0                                       1.2.3.5=
-:ssh                                      1.2.3.4:45814  =20
-tcp   LISTEN     0      128                                          ::=
-:ssh                                           :::*      =20
+Thanks for your reply. Maybe I can configure 6to4 tunnel by the=20
+following commands:
 
-While the 1st 3 sockets are UDP ones:
+  ip tunnel add tun6to4 mode sit remote any local 1.202.252.122 ttl 64
+  ip link set dev tun6to4 up
+  ip -6 addr add 2002:01ca:fc7a::0012:0225:2122/128 dev tun6to4
+  ip -6 route add 2000::/3 via ::192.88.99.1 dev tun6to4 metric 1
 
-[root@xemvm1 iproute2]# ./misc/ss -a -u
-State       Recv-Q Send-Q                              Local Address:Po=
-rt                                  Peer Address:Port  =20
-UNCONN      0      0                                               *:32=
-713                                            *:*      =20
-UNCONN      0      0                                               *:bo=
-otpc                                           *:*      =20
-UNCONN      0      0                                              :::57=
-879                                           :::*      =20
+But the kernel can not identify the tunnel is 6to4 tunnel or 6in4 tunne=
+l=20
+immediately. After the packets travel through this tunnel, the kernel=20
+can identify the type of the tunnel by check_6rd.
 
-Reported-by: Fran=E7ois-Xavier Le Bail <fx.lebail@yahoo.com>
-Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+Is it right?
 
----
-
-diff --git a/misc/ss.c b/misc/ss.c
-index 764ffe2..37dcc11 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -1462,7 +1462,21 @@ static void tcp_show_info(const struct nlmsghdr =
-*nlh, struct inet_diag_msg *r,
- 	}
- }
-=20
--static int inet_show_sock(struct nlmsghdr *nlh, struct filter *f)
-+static char *proto_name(int protocol)
-+{
-+	switch (protocol) {
-+	case IPPROTO_UDP:
-+		return "udp";
-+	case IPPROTO_TCP:
-+		return "tcp";
-+	case IPPROTO_DCCP:
-+		return "dccp";
-+	}
-+
-+	return "???";
-+}
-+
-+static int inet_show_sock(struct nlmsghdr *nlh, struct filter *f, int =
-protocol)
- {
- 	struct rtattr * tb[INET_DIAG_MAX+1];
- 	struct inet_diag_msg *r =3D NLMSG_DATA(nlh);
-@@ -1487,7 +1501,7 @@ static int inet_show_sock(struct nlmsghdr *nlh, s=
-truct filter *f)
- 		return 0;
-=20
- 	if (netid_width)
--		printf("%-*s ", netid_width, "tcp");
-+		printf("%-*s ", netid_width, proto_name(protocol));
- 	if (state_width)
- 		printf("%-*s ", state_width, sstate_name[s.state]);
-=20
-@@ -1760,7 +1774,7 @@ again:
- 					h =3D NLMSG_NEXT(h, status);
- 					continue;
- 				}
--				err =3D inet_show_sock(h, NULL);
-+				err =3D inet_show_sock(h, NULL, protocol);
- 				if (err < 0) {
- 					close(fd);
- 					return err;
-@@ -1839,7 +1853,7 @@ static int tcp_show_netlink_file(struct filter *f=
-)
- 			return -1;
- 		}
-=20
--		err =3D inet_show_sock(h, f);
-+		err =3D inet_show_sock(h, f, IPPROTO_TCP);
- 		if (err < 0)
- 			return err;
- 	}
+Best Regards!
+Zhu Yanjun
