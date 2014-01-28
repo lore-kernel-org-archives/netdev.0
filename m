@@ -1,11 +1,13 @@
 From: Alexey Charkov <alchark@gmail.com>
 Subject: Re: [PATCH 3/3] net: via-rhine: add OF bus binding
-Date: Tue, 28 Jan 2014 22:27:53 +0400
-Message-ID: <CABjd4Yxo0Pp+QtTuXhKBT9KdVhUk12x2L8+FBL_ZWmPYopG2JQ@mail.gmail.com>
+Date: Tue, 28 Jan 2014 22:31:20 +0400
+Message-ID: <CABjd4Yx5HtbGjo_ZsOJ5SvqFQZey1fv5K36PD=D9fUUn0SanVQ@mail.gmail.com>
 References: <1385227995-3956-1-git-send-email-alchark@gmail.com>
 	<1390823503-24087-1-git-send-email-alchark@gmail.com>
 	<1390823503-24087-4-git-send-email-alchark@gmail.com>
-	<CAL_JsqLi0QKeeUkGMKmYZ1ki02mzk=L1gDxTJyXFGiOe_aHiVw@mail.gmail.com>
+	<1390834654.2735.148.camel@deadeye.wl.decadent.org.uk>
+	<CABjd4Yz2Kfed_qBfSAEXoAcVxfsmhTBA-83YJ9_iSwPZ+r1qYQ@mail.gmail.com>
+	<1390866011.4405.2.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: netdev <netdev@vger.kernel.org>,
@@ -13,56 +15,56 @@ Cc: netdev <netdev@vger.kernel.org>,
 	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
 	Roger Luethi <rl@hellgate.ch>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Rob Herring <robherring2@gmail.com>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAL_JsqLi0QKeeUkGMKmYZ1ki02mzk=L1gDxTJyXFGiOe_aHiVw@mail.gmail.com>
+In-Reply-To: <1390866011.4405.2.camel@deadeye.wl.decadent.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2014/1/27 Rob Herring <robherring2@gmail.com>:
-> On Mon, Jan 27, 2014 at 5:51 AM, Alexey Charkov <alchark@gmail.com> wrote:
->> This should make the driver usable with VIA/WonderMedia ARM-based
->> Systems-on-Chip integrated Rhine III adapters. Note that these
->> are always in MMIO mode, and don't have any known EEPROM.
+2014/1/28 Ben Hutchings <ben@decadent.org.uk>:
+> On Mon, 2014-01-27 at 19:34 +0400, Alexey Charkov wrote:
+>> 2014/1/27 Ben Hutchings <ben@decadent.org.uk>:
+>> > On Mon, 2014-01-27 at 15:51 +0400, Alexey Charkov wrote:
+>> >> This should make the driver usable with VIA/WonderMedia ARM-based
+>> >> Systems-on-Chip integrated Rhine III adapters. Note that these
+>> >> are always in MMIO mode, and don't have any known EEPROM.
+>> > [...]
+>> >> --- a/drivers/net/ethernet/via/Kconfig
+>> >> +++ b/drivers/net/ethernet/via/Kconfig
+>> >> @@ -19,7 +19,7 @@ if NET_VENDOR_VIA
+>> >>
+>> >>  config VIA_RHINE
+>> >>         tristate "VIA Rhine support"
+>> >> -       depends on PCI
+>> >> +       depends on (PCI || USE_OF)
+>> >>         select CRC32
+>> >>         select MII
+>> >>         ---help---
+>> >
+>> > This seems like the right thing to do, but it means you need to add
+>> > #ifdef CONFIG_PCI and #ifdef CONFIG_USE_OF around the driver structures
+>> > and related functions.
 >>
->> Signed-off-by: Alexey Charkov <alchark@gmail.com>
->> Signed-off-by: Roger Luethi <rl@hellgate.ch>
->> ---
->>  .../devicetree/bindings/net/via-rhine.txt          |  18 ++
->>  drivers/net/ethernet/via/Kconfig                   |   2 +-
->>  drivers/net/ethernet/via/via-rhine.c               | 293 +++++++++++++--------
->>  3 files changed, 200 insertions(+), 113 deletions(-)
->>  create mode 100644 Documentation/devicetree/bindings/net/via-rhine.txt
+>> Frankly, I would like to avoid that if possible (as pointed out in the
+>> cover email), as I believe we would get a cleaner driver without
+>> #ifdef. This is also the way it was done in via-velocity, and it works
+>> just fine.
+>
+> OK, I'm surprised that all the PCI functions have dummy definitions.
+>
+>> > You should compile-test in configurations that have just one of those
+>> > dependencies enabled.
 >>
->> diff --git a/Documentation/devicetree/bindings/net/via-rhine.txt b/Documentation/devicetree/bindings/net/via-rhine.txt
->> new file mode 100644
->> index 0000000..684dd3a
->> --- /dev/null
->> +++ b/Documentation/devicetree/bindings/net/via-rhine.txt
->> @@ -0,0 +1,18 @@
->> +* VIA Rhine 10/100 Network Controller
->> +
->> +Required properties:
->> +- compatible : Should be "via,rhine"
+>> This has been compile-tested and runtime-tested in OF-only
+>> configuration on WM8950, and Roger also tested it in PCI-only
+>> configuration, so it seems to work fine.
+> [...]
 >
-> This should be more specific rather than...
->
->> +- reg : Address and length of the io space
->> +- interrupts : Should contain the controller interrupt line
->> +- rhine,revision : Rhine core revision, used to inform the
->> +       driver of quirks and capabilities to expect from
->> +       the device. Mimics the respective PCI attribute.
->
-> having this property. The OF match table can then have the quirks set
-> based on compatible strings.
+> Good, then I have no objection.
 
-Sounds fair. Do you think something like the following would fly?
-
-Required properties:
-- compatible : Should be "via,rhine-soc-vt8500" for integrated Rhine
-cores found in SoC's such as VIA VT8500, WonderMedia WM8950 and
-possibly others. These are listed as 1106:3106 rev. 0x84 on the
-virtual PCI bus under vendor-provided kernels.
+Thanks Ben! Would it be fine to add your Reviewed-by at the next
+iteration, once I fix indentation of function arguments and
+dev_is_pci()?
 
 Thanks,
 Alexey
