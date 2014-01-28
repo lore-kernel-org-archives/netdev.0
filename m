@@ -1,35 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hyperv: Add support for physically
- discontinuous receive buffer
-Date: Mon, 27 Jan 2014 16:41:07 -0800 (PST)
-Message-ID: <20140127.164107.224798942983026579.davem@davemloft.net>
-References: <1390863822-3509-1-git-send-email-haiyangz@microsoft.com>
+Subject: Re: linux-next: manual merge of the bluetooth tree with the
+ net/net-next trees
+Date: Mon, 27 Jan 2014 16:43:42 -0800 (PST)
+Message-ID: <20140127.164342.1026192370176923084.davem@davemloft.net>
+References: <20140107125418.986ae20298ddc55e5e657447@canb.auug.org.au>
+	<20140128095415.8382335c33545ad14d4be067@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1390863822-3509-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Cc: gustavo@padovan.org, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dborkman@redhat.com, jukka.rissanen@linux.intel.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20140128095415.8382335c33545ad14d4be067@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Mon, 27 Jan 2014 15:03:42 -0800
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Tue, 28 Jan 2014 09:54:15 +1100
 
-> This will allow us to use bigger receive buffer, and prevent allocation failure
-> due to fragmented memory.
-> 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> On Tue, 7 Jan 2014 12:54:18 +1100 Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+ ...
+>> From: Stephen Rothwell <sfr@canb.auug.org.au>
+>> Date: Tue, 7 Jan 2014 12:52:43 +1100
+>> Subject: [PATCH] net: 6lowpan: fixup for code movement
+>> 
+>> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+ ...
+> I think this fix patch got missed when bluetooth was merged ... so it
+> should probably go into the net tree.
 
-Applied, thanks.
+Good catch, applied, thanks Stephen!
