@@ -1,44 +1,63 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH 2/2] net: ip, ipv6: handle gso skbs in forwarding path
-Date: Tue, 28 Jan 2014 18:15:19 +0100
-Message-ID: <20140128171519.GC30123@breakpoint.cc>
-References: <1390810971-23959-1-git-send-email-fw@strlen.de>
- <1390810971-23959-2-git-send-email-fw@strlen.de>
- <1390846967.27806.75.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140128085706.GB30123@breakpoint.cc>
- <1390926883.28432.12.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Subject: [PATCH net 2/4] qlcnic: Fix initialization of vlan list.
+Date: Tue, 28 Jan 2014 11:55:28 -0500
+Message-ID: <1390928130-10710-3-git-send-email-rajesh.borundia@qlogic.com>
+References: <1390928130-10710-1-git-send-email-rajesh.borundia@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:40237 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932188AbaA1RP0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jan 2014 12:15:26 -0500
-Content-Disposition: inline
-In-Reply-To: <1390926883.28432.12.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:34107 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755201AbaA1RaD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jan 2014 12:30:03 -0500
+In-Reply-To: <1390928130-10710-1-git-send-email-rajesh.borundia@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > Eric, any chance you know wheter mucking with gso_size in this way
-> > is supposed to work?
-> > 
-> > I will go through skb_segment and see if I can find out what exactly causes this
-> > BUG_ON to trigger.
-> 
-> This is definitely net-next material anyway, no hurry ;)
+o Do not re-initialize vlan list in case of adapter reset.
 
-Yes, looks like it :)
+Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
+---
+ .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |   11 +++++------
+ 1 files changed, 5 insertions(+), 6 deletions(-)
 
-Eric, do you mind if I re-send the patch with skb_gso_segment and a zero
-feature mask?
-
-I think thats the best solution for -net.  I would then try to come up
-with a version that follows your "shrink gso_size" suggestion for -next.
-
-Cheers,
-Florian
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
+index 17a1ca2..0638c18 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
+@@ -448,8 +448,7 @@ static int qlcnic_sriov_set_guest_vlan_mode(struct qlcnic_adapter *adapter,
+ 	return 0;
+ }
+ 
+-static int qlcnic_sriov_get_vf_acl(struct qlcnic_adapter *adapter,
+-				   struct qlcnic_info *info)
++static int qlcnic_sriov_get_vf_acl(struct qlcnic_adapter *adapter)
+ {
+ 	struct qlcnic_sriov *sriov = adapter->ahw->sriov;
+ 	struct qlcnic_cmd_args cmd;
+@@ -495,10 +494,6 @@ static int qlcnic_sriov_vf_init_driver(struct qlcnic_adapter *adapter)
+ 	if (err)
+ 		return -EIO;
+ 
+-	err = qlcnic_sriov_get_vf_acl(adapter, &nic_info);
+-	if (err)
+-		return err;
+-
+ 	if (qlcnic_83xx_get_port_info(adapter))
+ 		return -EIO;
+ 
+@@ -555,6 +550,10 @@ static int qlcnic_sriov_setup_vf(struct qlcnic_adapter *adapter,
+ 	if (err)
+ 		goto err_out_send_channel_term;
+ 
++	err = qlcnic_sriov_get_vf_acl(adapter);
++	if (err)
++		goto err_out_send_channel_term;
++
+ 	err = qlcnic_setup_netdev(adapter, adapter->netdev, pci_using_dac);
+ 	if (err)
+ 		goto err_out_send_channel_term;
+-- 
+1.5.6
