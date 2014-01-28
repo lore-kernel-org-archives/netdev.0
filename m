@@ -1,51 +1,120 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [GIT PULL] AF_RXRPC fixes
-Date: Tue, 28 Jan 2014 17:07:36 +0000
-Message-ID: <8672.1390928856@warthog.procyon.org.uk>
-Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
-	Tim Smith <tim@electronghost.co.uk>,
-	Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: 8% performance improved by change tap interact with kernel stack
+Date: Tue, 28 Jan 2014 19:18:49 +0200
+Message-ID: <20140128171849.GA20177@redhat.com>
+References: <52E766D4.4070901@huawei.com>
+ <20140128083459.GB16833@redhat.com>
+ <52E77506.1080604@huawei.com>
+ <20140128094138.GA17332@redhat.com>
+ <52E78416.50000@huawei.com>
+ <20140128103325.GA17794@redhat.com>
+ <20140128085834.0325cd9f@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Qin Chuanyu <qinchuanyu@huawei.com>, jasowang@redhat.com,
+	Anthony Liguori <anthony@codemonkey.ws>,
+	KVM list <kvm@vger.kernel.org>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:4809 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932165AbaA1ROB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Jan 2014 12:14:01 -0500
+Content-Disposition: inline
+In-Reply-To: <20140128085834.0325cd9f@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, Jan 28, 2014 at 08:58:34AM -0800, Stephen Hemminger wrote:
+> On Tue, 28 Jan 2014 12:33:25 +0200
+> "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> 
+> > On Tue, Jan 28, 2014 at 06:19:02PM +0800, Qin Chuanyu wrote:
+> > > On 2014/1/28 17:41, Michael S. Tsirkin wrote:
+> > > >>>I think it's okay - IIUC this way we are processing xmit directly
+> > > >>>instead of going through softirq.
+> > > >>>Was meaning to try this - I'm glad you are looking into this.
+> > > >>>
+> > > >>>Could you please check latency results?
+> > > >>>
+> > > >>netperf UDP_RR 512
+> > > >>test model: VM->host->host
+> > > >>
+> > > >>modified before : 11108
+> > > >>modified after  : 11480
+> > > >>
+> > > >>3% gained by this patch
+> > > >>
+> > > >>
+> > > >Nice.
+> > > >What about CPU utilization?
+> > > >It's trivially easy to speed up networking by
+> > > >burning up a lot of CPU so we must make sure it's
+> > > >not doing that.
+> > > >And I think we should see some tests with TCP as well, and
+> > > >try several message sizes.
+> > > >
+> > > >
+> > > Yes, by burning up more CPU we could get better performance easily.
+> > > So I have bond vhost thread and interrupt of nic on CPU1 while testing.
+> > > 
+> > > modified before, the idle of CPU1 is 0%-1% while testing.
+> > > and after modify, the idle of CPU1 is 2%-3% while testing
+> > > 
+> > > TCP also could gain from this, but pps is less than UDP, so I think
+> > > the improvement would be not so obviously.
+> > 
+> > Still need to test this doesn't regress but overall looks convincing to me.
+> > Could you send a patch, accompanied by testing results for
+> > throughput latency and cpu utilization for tcp and udp
+> > with various message sizes?
+> > 
+> > Thanks!
+> > 
+> 
+> There are a couple potential problems with this. The primary one is
+> that now you are violating the explicit assumptions about when netif_receive_skb()
+> can be called and because of that it may break things all over the place.
 
-Here are some small AF_RXRPC fixes.
+Specifically http://patchwork.ozlabs.org/patch/52963/
+mentions cls_cgroup_classify which has this code:
+        if (in_serving_softirq()) {
+                /* If there is an sk_classid we'll use that. */
+                if (!skb->sk)
+                        return -1;
+                classid = skb->sk->sk_classid;
+        }
 
- (1) Fix a place where a spinlock is taken conditionally but is released
-     unconditionally.
+in_serving_softirq now checks flag so we could thinkably set it
+just like softirq does.
 
- (2) Fix a double-free that happens when cleaning up on a checksum error.
+>  *
+>  *	netif_receive_skb() is the main receive data processing function.
+>  *	It always succeeds. The buffer may be dropped during processing
+>  *	for congestion control or by the protocol layers.
+>  *
+>  *	This function may only be called from softirq context and interrupts
+>  *	should be enabled.
+> 
+> At a minimum, softirq (BH) and preempt must be disabled.
 
- (3) Fix handling of CHECKSUM_PARTIAL whilst delivering messages to userspace.
+Yes.
 
-David
----
-The following changes since commit d8ec26d7f8287f5788a494f56e8814210f0e64be:
+> Another potential problem is that since a softirq is not used, the kernel stack
+> maybe much larger.
 
-  Linux 3.13 (2014-01-19 18:40:07 -0800)
+tun itself is pretty modest in its stack use -
+as thread linked above says it might not be a big issue.
 
-are available in the git repository at:
+> Maybe a better way would be implementing some form of NAPI in the TUN device?
+> 
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git tags/rxrpc-20140126
+We can't always do this.
 
-for you to fetch changes up to 1ea427359dde1573815e19c411ce08fdf0c42cfe:
+regular devices get skbs from card or RAM so they can do this
+in softirq context.
+tun gets skbs from userspace memory so it needs to run in
+process context, at least sometimes.
 
-  af_rxrpc: Handle frames delivered from another VM (2014-01-26 11:45:04 +0000)
-
-----------------------------------------------------------------
-RxRPC fixes
-
-----------------------------------------------------------------
-Alexey Khoroshilov (1):
-      RxRPC: do not unlock unheld spinlock in rxrpc_connect_exclusive()
-
-Tim Smith (2):
-      af_rxrpc: Avoid setting up double-free on checksum error
-      af_rxrpc: Handle frames delivered from another VM
-
- net/rxrpc/ar-connection.c | 2 ++
- net/rxrpc/ar-recvmsg.c    | 7 ++++++-
- 2 files changed, 8 insertions(+), 1 deletion(-)
+-- 
+MST
