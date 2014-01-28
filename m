@@ -1,117 +1,100 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/2] net: ip, ipv6: handle gso skbs in forwarding path
-Date: Tue, 28 Jan 2014 08:34:43 -0800
-Message-ID: <1390926883.28432.12.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1390810971-23959-1-git-send-email-fw@strlen.de>
-	 <1390810971-23959-2-git-send-email-fw@strlen.de>
-	 <1390846967.27806.75.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140128085706.GB30123@breakpoint.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>,
-	Herbert Xu <herbert@gondor.apana.org.au>
+From: Masatake YAMATO <yamato@redhat.com>
+Subject: [PATCH] tun: add device name(iff) field to proc fdinfo entry
+Date: Wed, 29 Jan 2014 01:54:11 +0900
+Message-ID: <1390928051-6113-1-git-send-email-yamato@redhat.com>
+Cc: yamato@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:65302 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754685AbaA1Qer (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jan 2014 11:34:47 -0500
-Received: by mail-pa0-f46.google.com with SMTP id rd3so567868pab.33
-        for <netdev@vger.kernel.org>; Tue, 28 Jan 2014 08:34:47 -0800 (PST)
-In-Reply-To: <20140128085706.GB30123@breakpoint.cc>
+Received: from mx1.redhat.com ([209.132.183.28]:13652 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754708AbaA1QyV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Jan 2014 11:54:21 -0500
+Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s0SGsGW2027691
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Tue, 28 Jan 2014 11:54:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-01-28 at 09:57 +0100, Florian Westphal wrote:
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > > +	do {
-> > > +		struct sk_buff *nskb = segs->next;
-> > > +		int err;
-> > > +
-> > > +		segs->next = NULL;
-> > > +		err = dst_output(segs);
-> > > +
-> > > +		if (err && ret == 0)
-> > > +			ret = err;
-> > > +		segs = nskb;
-> > > +	} while (segs);
-> > > +
-> > > +	return ret;
-> > > +}
-> > > +
-> > 
-> > Its still unclear if this is the best strategy.
-> > 
-> > TCP stream not using DF flag are very unlikely to care if we adjust
-> > their MTU (lowering gso_size) at this point ?
-> 
-> Thanks for this suggestion.  It would indeed be nice to avoid sw
-> segmentation.  I tried:
-> 
-> static void ip_gso_adjust_seglen(struct sk_buff *skb)
-> {
->         unsigned int mtu;
-> 
->         if (!skb_is_gso(skb))
->                 return;
-> 
->         mtu = ip_dst_mtu_maybe_forward(skb_dst(skb), true);
->         skb_shinfo(skb)->gso_size = mtu - sizeof(struct iphdr);
-> }
-> 
-> But this yields
-> 
-> [   28.644776] kernel BUG at net/net/core/skbuff.c:2984!
+A file descriptor opened for /dev/net/tun and a tun device are
+connected with ioctl.  Though understanding the connection is
+important for trouble shooting, no way is given to a user to know
+the connected device for a given file descriptor at userland.
 
-Yep, lets CC Herbert Xu, as he 'owns' skb_segment()
+This patch adds a new fdinfo field for the device name connected to
+a file descriptor opened for /dev/net/tun.
 
-BUG_ON(skb_headlen(fskb));
+Here is an example of the field:
 
-I sent once a generic version of skb_segment(), but Herbert preferred a
-different one.
+    # lsof | grep tun
+    qemu-syst 4565         qemu   25u      CHR             10,200       0t138      12921 /dev/net/tun
+    ...
 
-> [   28.644776] invalid opcode: 0000 [#1] SMP 
-> [   28.644776] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.13.0+ #35
-> [   28.644776] task: ffffffff818104c0 ti: ffffffff81800000 task.ti: ffffffff81800000
-> [   28.644776] RIP: 0010:[<ffffffff813b10d8>]  [<ffffffff813b10d8>] skb_segment+0x808/0x830
-> [   28.644776] RSP: 0018:ffff88002fc03688  EFLAGS: 00010212
-> [   28.644776] RAX: 000000000000047c RBX: ffff88002d614b00 RCX: ffff88002d72ab00
-> [   28.644776] RDX: 000000000000047c RSI: 00000000000050fa RDI: ffff88002cf9f800
-> [   28.644776] RBP: ffff88002fc03778 R08: 0000000000000000 R09: ffff88002cdaf300
-> [   28.644776] R10: 0000000000000011 R11: 0000000000004ff2 R12: ffff88002cf9ff80
-> [   28.644776] R13: 0000000000000011 R14: 00000000000050fa R15: 00000000000054a2
-> [   28.644776] FS:  00007f27db007700(0000) GS:ffff88002fc00000(0000) knlGS:0000000000000000
-> [   28.644776] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> [   28.644776] CR2: 00007f8176cedcfc CR3: 000000002cd14000 CR4: 00000000000006b0
-> [   28.644776] Stack:
-> [   28.644776]  0000000000000046 ffffffff00000014 0000000000000001 ffffffff00000022
-> [   28.644776]  ffff88002cdaf300 ffff88002d72aaf0 0000000000000000 0000000000004ff2
-> [   28.644776]  0000000000000014 ffffffff818104c0 ffffffff81810bc8 ffffffffffffffbe
-> [   28.644776] Call Trace:
-> [   28.644776]  <IRQ> 
-> [   28.644776]  [<ffffffff8125e742>] ? number.isra.1+0x302/0x330
-> [   28.644776]  [<ffffffff8142f35e>] tcp_gso_segment+0x11e/0x3f0
-> [   28.644776]  [<ffffffff8143f2c9>] inet_gso_segment+0x129/0x350
-> [   28.644776]  [<ffffffff810832cf>] ?  __lock_acquire+0x2ef/0x1ca0
-> [   28.644776]  [<ffffffff813bcd9d>] skb_mac_gso_segment+0xdd/0x1e0
-> [   28.644776]  [<ffffffff813bcd07>] ?  skb_mac_gso_segment+0x47/0x1e0
-> [   28.644776]  [<ffffffff813bcf00>] __skb_gso_segment+0x60/0xc0
-> [   28.644776]  [<ffffffff813bd203>] dev_hard_start_xmit+0x183/0x5b0
-> [   28.644776]  [<ffffffff813e064e>] sch_direct_xmit+0xfe/0x280
-> [   28.644776]  [<ffffffff813bd843>] __dev_queue_xmit+0x213/0x6b0
-> [   28.644776]  [<ffffffff813bd635>] ?  __dev_queue_xmit+0x5/0x6b0
-> [   28.644776]  [<ffffffff813bdcf0>] dev_queue_xmit+0x10/0x20
-> [   28.644776]  [<ffffffff8140c2a9>] ip_finish_output+0x419/0x600
-> [   28.644776]  [<ffffffff8140c4de>] ? ip_output+0x4e/0xc0
-> [   28.644776]  [<ffffffff810803e4>] ? __lock_is_held+0x54/0x80
-> [   28.644776]  [<ffffffff8140c4de>] ip_output+0x4e/0xc0
-> [   28.644776]  [<ffffffff81407ffb>] ip_forward+0x21b/0x650
-> 
-> Eric, any chance you know wheter mucking with gso_size in this way
-> is supposed to work?
-> 
-> I will go through skb_segment and see if I can find out what exactly causes this
-> BUG_ON to trigger.
+    # cat /proc/4565/fdinfo/25
+    pos:	138
+    flags:	0104002
+    iff: vnet0
 
-This is definitely net-next material anyway, no hurry ;)
+    # ip link show dev vnet0
+    8: vnet0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 ...
+
+Signed-off-by: Masatake YAMATO <yamato@redhat.com>
+---
+ drivers/net/tun.c | 28 +++++++++++++++++++++++++++-
+ 1 file changed, 27 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index bcf01af..f0a1e1d 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -69,6 +69,7 @@
+ #include <net/netns/generic.h>
+ #include <net/rtnetlink.h>
+ #include <net/sock.h>
++#include <linux/seq_file.h>
+ 
+ #include <asm/uaccess.h>
+ 
+@@ -2228,6 +2229,28 @@ static int tun_chr_close(struct inode *inode, struct file *file)
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_PROC_FS
++static int tun_chr_show_fdinfo(struct seq_file *m, struct file *f)
++{
++	struct tun_struct *tun;
++	struct ifreq ifr;
++	int ret;
++
++	memset(&ifr, 0, sizeof(ifr));
++
++	rtnl_lock();
++	tun = tun_get(f);
++	if (tun)
++		tun_get_iff(current->nsproxy->net_ns, tun, &ifr);
++	rtnl_unlock();
++
++	if (tun)
++		tun_put(tun);
++
++	return seq_printf(m, "iff: %s\n", ifr.ifr_name);
++}
++#endif
++
+ static const struct file_operations tun_fops = {
+ 	.owner	= THIS_MODULE,
+ 	.llseek = no_llseek,
+@@ -2242,7 +2265,10 @@ static const struct file_operations tun_fops = {
+ #endif
+ 	.open	= tun_chr_open,
+ 	.release = tun_chr_close,
+-	.fasync = tun_chr_fasync
++	.fasync = tun_chr_fasync,
++#ifdef CONFIG_PROC_FS
++	.show_fdinfo = tun_chr_show_fdinfo,
++#endif
+ };
+ 
+ static struct miscdevice tun_miscdev = {
+-- 
+1.8.5.3
