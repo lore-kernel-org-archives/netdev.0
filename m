@@ -1,51 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/2] net: ip, ipv6: handle gso skbs in forwarding path
-Date: Tue, 28 Jan 2014 09:30:33 -0800
-Message-ID: <1390930233.28432.16.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1390810971-23959-1-git-send-email-fw@strlen.de>
-	 <1390810971-23959-2-git-send-email-fw@strlen.de>
-	 <1390846967.27806.75.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140128085706.GB30123@breakpoint.cc>
-	 <1390926883.28432.12.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140128171519.GC30123@breakpoint.cc>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: [PATCH] iproute: Properly handle protocol level diag module absence
+Date: Tue, 28 Jan 2014 21:32:00 +0400
+Message-ID: <52E7E990.7050501@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f49.google.com ([209.85.214.49]:44995 "EHLO
-	mail-bk0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755182AbaA1Raj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jan 2014 12:30:39 -0500
-Received: by mail-bk0-f49.google.com with SMTP id v15so517669bkz.36
-        for <netdev@vger.kernel.org>; Tue, 28 Jan 2014 09:30:38 -0800 (PST)
-In-Reply-To: <20140128171519.GC30123@breakpoint.cc>
+Received: from relay.parallels.com ([195.214.232.42]:42805 "EHLO
+	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754599AbaA1RcE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jan 2014 12:32:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-01-28 at 18:15 +0100, Florian Westphal wrote:
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > > Eric, any chance you know wheter mucking with gso_size in this way
-> > > is supposed to work?
-> > > 
-> > > I will go through skb_segment and see if I can find out what exactly causes this
-> > > BUG_ON to trigger.
-> > 
-> > This is definitely net-next material anyway, no hurry ;)
-> 
-> Yes, looks like it :)
-> 
-> Eric, do you mind if I re-send the patch with skb_gso_segment and a zero
-> feature mask?
+When *_diag module is missing in the kernel, the ss tool should go
+ad read legacry /proc/* files.
 
+This is the case when all *_diag stuff is missing, but in case the
+inet_diag.ko is loaded, but (tcp|udp)_diag.ko is not, the ss tool
+doesn't notice this and produces empty output. The reason for that
+is -- error from the inet_diag module (which means, that e.g. the
+udp_diag is missing) is reported in the NLMSG_DONE message body.
 
+That said, we need to check the NLMSG_DONE's message return code
+and act respectively.
 
-I think the xmit will take care of doing the fallback anyway, if skb
-need to be linear or TX checksum be computed. 
+Reported-by: Fran=E7ois-Xavier Le Bail <fx.lebail@yahoo.com>
+Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
 
-> I think thats the best solution for -net.  I would then try to come up
-> with a version that follows your "shrink gso_size" suggestion for -next.
+---
 
-Note that I mentioned this MTU thing months ago, and the bug is here
-since years. I do not think its a very urgent matter :)
+diff --git a/misc/ss.c b/misc/ss.c
+index 37dcc11..9c7d937 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -1746,8 +1746,15 @@ again:
+ 			    h->nlmsg_seq !=3D 123456)
+ 				goto skip_it;
+=20
+-			if (h->nlmsg_type =3D=3D NLMSG_DONE)
++			if (h->nlmsg_type =3D=3D NLMSG_DONE) {
++				int *len =3D (int *)NLMSG_DATA(h);
++				if (*len < 0) {
++					close(fd);
++					return -1;
++				}
++
+ 				goto done;
++			}
+=20
+ 			if (h->nlmsg_type =3D=3D NLMSG_ERROR) {
+ 				struct nlmsgerr *err =3D (struct nlmsgerr*)NLMSG_DATA(h);
