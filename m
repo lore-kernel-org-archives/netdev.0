@@ -1,69 +1,92 @@
-From: Asi Lichtenstein <asili22@gmail.com>
-Subject: IPv6 multiple routing tables - all routes were added to main table
-Date: Tue, 28 Jan 2014 11:38:11 +0200
-Message-ID: <CAMBtn_0S0K6eydjTLJAsVqbKVuJ+tc7k30OUWRxscm+gP6y2EQ@mail.gmail.com>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: How to identify 6to4 and 6in4 tunnels
+Date: Tue, 28 Jan 2014 18:18:57 +0800
+Message-ID: <52E78411.9040802@gmail.com>
+References: <52E63779.5090101@gmail.com> <52E65817.1090904@6wind.com> <52E75D23.10909@gmail.com> <52E75EA5.4070102@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: nicolas.dichtel@6wind.com, "David S. Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net,
+	linux-kernel@vger.kernel.org, zhuyj <zyjzyj2000@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f177.google.com ([209.85.214.177]:56587 "EHLO
-	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754836AbaA1JiL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jan 2014 04:38:11 -0500
-Received: by mail-ob0-f177.google.com with SMTP id wp18so133336obc.36
-        for <netdev@vger.kernel.org>; Tue, 28 Jan 2014 01:38:11 -0800 (PST)
+Received: from mail-qa0-f53.google.com ([209.85.216.53]:49850 "EHLO
+	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753485AbaA1KTI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jan 2014 05:19:08 -0500
+In-Reply-To: <52E75EA5.4070102@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi there,
+On 01/28/2014 03:39 PM, zhuyj wrote:
+> On 01/28/2014 03:32 PM, zhuyj wrote:
+>> On 01/27/2014 08:59 PM, Nicolas Dichtel wrote:
+>>> Le 27/01/2014 11:39, zhuyj a =E9crit :
+>>>> Hi, Maintainers
+>>>>
+>>>> In our scene, we will create the 6in4/6to4 tunnel firstly and need=
+=20
+>>>> to check the
+>>>> tunnel type, secondly, we will configure the ip address on it. So,=
+=20
+>>>> Could we have
+>>>> any way to get the actual tunnel for 6in4 and 6to4 from current=20
+>>>> linux version?
+>>>>
+>>>> Both 6in4 and 6to4 have the same protocol =93IPPROTO_IPV6=94 in Li=
+nux=20
+>>>> kernel. The
+>>>> only difference is the ip address on the tunnel. Can we distinguis=
+h=20
+>>>> them in
+>>>> Linux kernel?
+>>> Just check the prefix, like it is done in check_6rd().
+>>>
+>>>
+>>> Regards,
+>>> Nicolas
+> Hi, Nicolas
+> Thanks for your reply. Maybe I can configure 6to4 tunnel by the=20
+> following commands:
+>
+>  ip tunnel add tun6to4 mode sit remote any local 1.202.252.122 ttl 64
+>  ip link set dev tun6to4 up
+>  ip -6 addr add 2002:01ca:fc7a::0012:0225:2122/128 dev tun6to4
+>  ip -6 route add 2000::/3 via ::192.88.99.1 dev tun6to4 metric 1
+>
+> But the kernel can not identify the tunnel is 6to4 tunnel or 6in4=20
+> tunnel immediately. After the packets travel through this tunnel, the=
+=20
+> kernel can identify the type of the tunnel by check_6rd.
+>
+> Is it right?
+>
+> Best Regards!
+> Zhu Yanjun
+>
+>
+Hi, David
 
-I'm using an old kernel 2.6.16 where i applied this patchset:
-http://thread.gmane.org/gmane.linux.network/41149/focus=41150
+I want to identify sit interface 6to4 or 6in4 with the following parame=
+ters.
 
-i was able to create new table but all routes I've added to specific
-table were added to main table.
+include/uapi/linux/if_tunnel.h
+=2E..
+struct ip_tunnel_parm {
+         char                    name[IFNAMSIZ];
+         int                     link;
+         __be16                  i_flags;             <---------I want=20
+to use this variable to identify the type of sit interface. Can I?
+         __be16                  o_flags;
+         __be32                  i_key;
+         __be32                  o_key;
+         struct iphdr            iph;
+};
+=2E..
 
-please see output:
+Please comment on this ? Thanks a lot.
 
-# ip -6 rule
-0:      from all vrf 0 lookup local
-16383:  from all iif eth0 vrf 0 lookup 3
-16383:  from all iif eth1 vrf 0 lookup 5
-32766:  from all vrf 0 lookup main
-
-# ip -6 route show
-2050:: dev eth0  proto static  metric 10  expires 2132979sec mtu 1500
-advmss 1440 metric10 4294967295
-2050:: dev eth1  proto static  metric 10  expires 2132996sec mtu 1500
-advmss 1440 metric10 4294967295
-unreachable default dev lo  proto none  metric -1  error -128 metric10 255
-unreachable default dev lo  proto none  metric -1  error -128 metric10 255
-unreachable default dev lo  proto none  metric -1  error -128 metric10 255
-2000::/64 dev eth0.1  metric 256  expires 2132967sec mtu 1500 advmss
-1440 metric10 4294967295
-2000::/64 dev eth0  metric 256  expires 2132978sec mtu 1500 advmss
-1440 metric10 4294967295
-fe80::/64 dev eth0  metric 256  expires 2132960sec mtu 1500 advmss
-1440 metric10 4294967295
-fe80::/64 dev eth1  metric 256  expires 2132960sec mtu 1500 advmss
-1440 metric10 4294967295
-fe80::/64 dev eth0.4001  metric 256  expires 2132960sec mtu 1500
-advmss 1440 metric10 4294967295
-fe80::/64 dev eth0.1  metric 256  expires 2132961sec mtu 1500 advmss
-1440 metric10 4294967295
-unreachable default dev lo  proto none  metric -1  error -128 metric10 255
-ff00::/8 dev eth1  metric 256  expires 2132960sec mtu 1500 advmss 1440
-metric10 4294967295
-ff00::/8 dev eth0.4001  metric 256  expires 2132960sec mtu 1500 advmss
-1440 metric10 4294967295
-ff00::/8 dev eth0  metric 256  expires 2132960sec mtu 1500 advmss 1440
-metric10 4294967295
-ff00::/8 dev eth0.1  metric 256  expires 2132961sec mtu 1500 advmss
-1440 metric10 4294967295
-unreachable default dev lo  proto none  metric -1  error -128 metric10 255
-
-
-Does anyone know if adding route to specific table should be working
-after applying this patch?
-
-10x
+Best Regards!
+Zhu Yanjun
