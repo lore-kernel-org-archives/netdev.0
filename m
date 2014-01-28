@@ -1,68 +1,30 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: 8% performance improved by change tap interact with kernel stack
-Date: Tue, 28 Jan 2014 12:33:25 +0200
-Message-ID: <20140128103325.GA17794@redhat.com>
-References: <52E766D4.4070901@huawei.com>
- <20140128083459.GB16833@redhat.com>
- <52E77506.1080604@huawei.com>
- <20140128094138.GA17332@redhat.com>
- <52E78416.50000@huawei.com>
+From: "Yung kim" <pawel.dobrzanski@prawo.uni.wroc.pl>
+Subject: I HAVE A PROPOSAL FOR YOU!
+Date: Tue, 28 Jan 2014 12:08:09 +0100 (CET)
+Message-ID: <4e23ac4db5c67f736eaf2d412a2219e9.squirrel@prawo.uni.wroc.pl>
+Reply-To: yung.kim@qq.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jasowang@redhat.com, Anthony Liguori <anthony@codemonkey.ws>,
-	KVM list <kvm@vger.kernel.org>, netdev@vger.kernel.org
-To: Qin Chuanyu <qinchuanyu@huawei.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:17736 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753485AbaA1K2l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Jan 2014 05:28:41 -0500
-Content-Disposition: inline
-In-Reply-To: <52E78416.50000@huawei.com>
+Received: from mx.prawo.uni.wroc.pl ([156.17.122.2]:59281 "EHLO
+	mx.prawo.uni.wroc.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754513AbaA1Lld convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jan 2014 06:41:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 28, 2014 at 06:19:02PM +0800, Qin Chuanyu wrote:
-> On 2014/1/28 17:41, Michael S. Tsirkin wrote:
-> >>>I think it's okay - IIUC this way we are processing xmit directly
-> >>>instead of going through softirq.
-> >>>Was meaning to try this - I'm glad you are looking into this.
-> >>>
-> >>>Could you please check latency results?
-> >>>
-> >>netperf UDP_RR 512
-> >>test model: VM->host->host
-> >>
-> >>modified before : 11108
-> >>modified after  : 11480
-> >>
-> >>3% gained by this patch
-> >>
-> >>
-> >Nice.
-> >What about CPU utilization?
-> >It's trivially easy to speed up networking by
-> >burning up a lot of CPU so we must make sure it's
-> >not doing that.
-> >And I think we should see some tests with TCP as well, and
-> >try several message sizes.
-> >
-> >
-> Yes, by burning up more CPU we could get better performance easily.
-> So I have bond vhost thread and interrupt of nic on CPU1 while testing.
-> 
-> modified before, the idle of CPU1 is 0%-1% while testing.
-> and after modify, the idle of CPU1 is 2%-3% while testing
-> 
-> TCP also could gain from this, but pps is less than UDP, so I think
-> the improvement would be not so obviously.
+Hello,
 
-Still need to test this doesn't regress but overall looks convincing to me.
-Could you send a patch, accompanied by testing results for
-throughput latency and cpu utilization for tcp and udp
-with various message sizes?
+The Project is about the exportation of 100,000 barrels of Light Crude
+Oil daily out from Iraq to Turkey through my client's company in Iraq
+at the rate of $92.00 a barrel. This amount to $9,200,000 daily. I ask
+for your support as a foreigner to handle this business project with my
+client and you are not expected to invest in Iraq
 
-Thanks!
+If yes, let me know and we will discuss this project proper.
 
--- 
-MST
+yung kim.
+
+yung.kim@qq.com
