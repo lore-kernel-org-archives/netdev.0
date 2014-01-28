@@ -1,72 +1,36 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] USB2NET : SR9800 : One chip USB2.0 USB2NET SR9800
- Device Driver Support
-Date: Tue, 28 Jan 2014 00:59:32 -0800
-Message-ID: <1390899572.20150.97.camel@joe-AO722>
-References: <1390898200-9925-1-git-send-email-liujunliang_ljl@163.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH 2/2] net: ip, ipv6: handle gso skbs in forwarding path
+Date: Tue, 28 Jan 2014 10:12:01 +0100
+Message-ID: <20140128091201.GA25726@breakpoint.cc>
+References: <1390810971-23959-1-git-send-email-fw@strlen.de>
+ <1390810971-23959-2-git-send-email-fw@strlen.de>
+ <1390846967.27806.75.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140128002707.GA12308@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, horms@verge.net.au, romieu@fr.zoreil.com,
-	gregkh@linuxfoundation.org, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sunhecheng@vip.126.com
-To: liujunliang_ljl@163.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1390898200-9925-1-git-send-email-liujunliang_ljl@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:39148 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750866AbaA1JMC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jan 2014 04:12:02 -0500
+Content-Disposition: inline
+In-Reply-To: <20140128002707.GA12308@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-01-28 at 16:36 +0800, liujunliang_ljl@163.com wrote:
-> From: Liu Junliang <liujunliang_ljl@163.com>
+Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+> On Mon, Jan 27, 2014 at 10:22:47AM -0800, Eric Dumazet wrote:
+> > On Mon, 2014-01-27 at 09:22 +0100, Florian Westphal wrote:
+> > 
+> > > +/* called if GSO skb needs to be fragmented on forward.  */
+> > > +static int ip_forward_finish_gso(struct sk_buff *skb)
+> > > +{
+> > > +	netdev_features_t features = netif_skb_features(skb);
+> 
+> netif_skb_features uses skb->dev for determination of offloading features but
+> we actually need rt->dst.dev, no?
 
-trivial comments...
-
-> diff --git a/drivers/net/usb/sr9800.c b/drivers/net/usb/sr9800.c
-
-[]
-
-> +static int sr_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
-> +{
-[]
-> +		if (size != ((~header >> 16) & 0x07ff)) {
-> +			netdev_err(dev->net,
-> +				   "sr_rx_fixup() Bad Header Length\n");
-
-printks with embedded functions names are
-generally better using "%s: ", __func__
-
-			netdev_err(dev->net, "%s: Bad header length\n",
-				   __func__);
-
-[]
-
-> +			netdev_err(dev->net,
-> +				   "sr_rx_fixup() Bad RX Length %d\n", size);
-
-etc.
-
-> +	if (skb->len != offset) {
-> +		netdev_err(dev->net, "sr_rx_fixup() Bad SKB Length %d\n",
-> +			   skb->len);
-
-etc.
-
-[]
-
-> +static inline int sr9800_set_default_mode(struct usbnet *dev)
-> +{
-
-rather a big function to inline
-
-[]
-
-> +	if (ret < 0) {
-> +		netdev_dbg(dev->net, "Write IPG,IPG1,IPG2 failed: %d", ret);
-
-missing newline terminations
-
-> +	netdev_dbg(dev->net, "RX_CTL is 0x%04x after all initializations",
-> +		   rx_ctl);
-
-etc...
+good catch, cannot use netif_skb_features as skb->dev still
+points to incoming device here...
