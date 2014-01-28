@@ -1,57 +1,67 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next v2 1/5] net_sched: act: hide struct tcf_common
- from API
-Date: Mon, 27 Jan 2014 21:17:12 -0800
-Message-ID: <CAM_iQpV_8=f=EZfbYOzTb40NA881x-ii3nPqLK2EQGOa4nxang@mail.gmail.com>
-References: <1390516525-8556-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1390516525-8556-2-git-send-email-xiyou.wangcong@gmail.com>
-	<52E64D03.7000506@mojatatu.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH v2] net: gre: use icmp_hdr() to get inner ip header
+Date: Mon, 27 Jan 2014 21:35:40 -0800
+Message-ID: <CALnjE+oK_v0CuUvP4aGHo00KvwYR2RnP0W+stBffKAH+4WYx_w@mail.gmail.com>
+References: <52E728D7.70506@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	netdev <netdev@vger.kernel.org>
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f179.google.com ([209.85.214.179]:33436 "EHLO
-	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750747AbaA1FRM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jan 2014 00:17:12 -0500
-Received: by mail-ob0-f179.google.com with SMTP id wo20so7527014obc.38
-        for <netdev@vger.kernel.org>; Mon, 27 Jan 2014 21:17:12 -0800 (PST)
-In-Reply-To: <52E64D03.7000506@mojatatu.com>
+Received: from na3sys009aog125.obsmtp.com ([74.125.149.153]:48859 "HELO
+	na3sys009aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750793AbaA1Ffl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jan 2014 00:35:41 -0500
+Received: by mail-ve0-f179.google.com with SMTP id jx11so4146626veb.10
+        for <netdev@vger.kernel.org>; Mon, 27 Jan 2014 21:35:40 -0800 (PST)
+In-Reply-To: <52E728D7.70506@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 27, 2014 at 4:11 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 01/23/14 17:35, Cong Wang wrote:
->>
->> Now we can totally hide it from modules. tcf_hash_*() API's
->> will operate on struct tc_action, modules don't need to care about
->> the details.
->>
->> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
->> Cc: David S. Miller <davem@davemloft.net>
->> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->> ---
+On Mon, Jan 27, 2014 at 7:49 PM, Duan Jiong <duanj.fnst@cn.fujitsu.com> wrote:
 >
+> When dealing with icmp messages, the skb->data points the
+> ip header that triggered the sending of the icmp message.
 >
-> Cong, this patch does not compile by itself. I did not try the rest.
-> For git bisect to work:
-> Every patch should be compilable standalone and all tests should
-> pass with every single patch (the later part is my view, the first
-> is common practise)
-
-I knew, and I thought I did compile-test for every patch, seems
-I missed something during update, or you use a different config
-to trigger the compile error.
-
+> In gre_cisco_err(), the parse_gre_header() is called, and the
+> iptunnel_pull_header() is called to pull the skb at the end of
+> the parse_gre_header(), so the skb->data doesn't point the
+> inner ip header.
 >
-> Since Dave already closed the door - no rush, when you get the
-> cycles please fix this up. I am hoping to do a quick test run
-> when you are done.
+> Unfortunately, the ipgre_err still needs those ip addresses in
+> inner ip header to look up tunnel by ip_tunnel_lookup().
+>
+> So just use icmp_hdr() to get inner ip header instead of skb->data.
+>
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> ---
+>
+> v2: use icmp_hdr() instead of conditional pulling of headers
+>
+>  net/ipv4/ip_gre.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+> index e7a92fd..ec4f762 100644
+> --- a/net/ipv4/ip_gre.c
+> +++ b/net/ipv4/ip_gre.c
+> @@ -178,7 +178,7 @@ static int ipgre_err(struct sk_buff *skb, u32 info,
+>         else
+>                 itn = net_generic(net, ipgre_net_id);
+>
+> -       iph = (const struct iphdr *)skb->data;
+> +       iph = (const struct iphdr *)(icmp_hdr(skb) + 1);
+>         t = ip_tunnel_lookup(itn, skb->dev->ifindex, tpi->flags,
+>                              iph->daddr, iph->saddr, tpi->key);
 >
 
-Yeah, I asked Dave in another thread and decided to wait
-for the next net-next.
+Don't we need to pull inner ip header first?
 
-Thanks.
+> --
+> 1.8.3.1
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
