@@ -1,69 +1,72 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: [PATCH 1/2] sit: Unregister sit devices with rtnl_link_ops
-Date: Tue, 28 Jan 2014 15:57:57 -0500
-Message-ID: <20140128210543.190799134@goodmis.org>
-References: <20140128205756.074448668@goodmis.org>
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	stable <stable@vger.kernel.org>,
-	Clark Williams <williams@redhat.com>,
-	"Luis Claudio R. Goncalves" <lclaudio@uudg.org>,
-	John Kacur <jkacur@redhat.com>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+From: Dave Jones <davej@redhat.com>
+Subject: llc: remove noisy WARN from llc_mac_hdr_init
+Date: Tue, 28 Jan 2014 16:30:52 -0500
+Message-ID: <20140128213052.GA10689@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cdptpa-outbound-snat.email.rr.com ([107.14.166.226]:61791 "EHLO
-	cdptpa-oedge-vip.email.rr.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755775AbaA1VFq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jan 2014 16:05:46 -0500
-Content-Disposition: inline; filename=0001-sit-Unregister-sit-devices-with-rtnl_link_ops.patch
+Received: from mx1.redhat.com ([209.132.183.28]:11683 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755719AbaA1VbA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Jan 2014 16:31:00 -0500
+Received: from int-mx12.intmail.prod.int.phx2.redhat.com (int-mx12.intmail.prod.int.phx2.redhat.com [10.5.11.25])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s0SLV0SO014311
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Tue, 28 Jan 2014 16:31:00 -0500
+Received: from gelk.kernelslacker.org (ovpn-113-178.phx2.redhat.com [10.3.113.178])
+	by int-mx12.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id s0SLUsOC009919
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 28 Jan 2014 16:30:59 -0500
+Received: from gelk.kernelslacker.org (localhost [127.0.0.1])
+	by gelk.kernelslacker.org (8.14.7/8.14.7) with ESMTP id s0SLUrMA010872
+	for <netdev@vger.kernel.org>; Tue, 28 Jan 2014 16:30:53 -0500
+Received: (from davej@localhost)
+	by gelk.kernelslacker.org (8.14.7/8.14.7/Submit) id s0SLUrm0010871
+	for netdev@vger.kernel.org; Tue, 28 Jan 2014 16:30:53 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Steven Rostedt (Red Hat)" <rostedt@goodmis.org>
+Sending malformed llc packets triggers this spew, which seems excessive.
 
-The backport of upstream commit 205983c43700ac3 ("sit: allow to use rtnl
-ops on fb tunnel") had a dependency on commit 5e6700b3bf98 ("sit: add
-support of x-netns"). The dependency was on the way that commit
-unregistered the sit devices.
+WARNING: CPU: 1 PID: 6917 at net/llc/llc_output.c:46 llc_mac_hdr_init+0x85/0x90 [llc]()
+device type not supported: 0
+CPU: 1 PID: 6917 Comm: trinity-c1 Not tainted 3.13.0+ #95 
+ 0000000000000009 00000000007e257d ffff88009232fbe8 ffffffffac737325
+ ffff88009232fc30 ffff88009232fc20 ffffffffac06d28d ffff88020e07f180
+ ffff88009232fec0 00000000000000c8 0000000000000000 ffff88009232fe70
+Call Trace:
+ [<ffffffffac737325>] dump_stack+0x4e/0x7a
+ [<ffffffffac06d28d>] warn_slowpath_common+0x7d/0xa0
+ [<ffffffffac06d30c>] warn_slowpath_fmt+0x5c/0x80
+ [<ffffffffc01736d5>] llc_mac_hdr_init+0x85/0x90 [llc]
+ [<ffffffffc0173759>] llc_build_and_send_ui_pkt+0x79/0x90 [llc]
+ [<ffffffffc057cdba>] llc_ui_sendmsg+0x23a/0x400 [llc2]
+ [<ffffffffac605d8c>] sock_sendmsg+0x9c/0xe0
+ [<ffffffffac185a37>] ? might_fault+0x47/0x50
+ [<ffffffffac606321>] SYSC_sendto+0x121/0x1c0
+ [<ffffffffac011847>] ? syscall_trace_enter+0x207/0x270
+ [<ffffffffac6071ce>] SyS_sendto+0xe/0x10
+ [<ffffffffac74aaa4>] tracesys+0xdd/0xe2
 
-Since the entire commit 5e6700b3bf98 is not necessary for a backport
-we only need to backport the part required for the backport of
-205983c43700ac3. This is the loop to unregister the sit devices where
-dev->rtnl_link_ops == &sit_link_ops.
+Until 2009, this was a printk, when it was changed in
+bf9ae5386bc: "llc: use dev_hard_header".
 
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Signed-off-by: Steven Rostedt <rostedt@goodmis.org>
----
- net/ipv6/sit.c | 11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
+Let userland figure out what -EINVAL means by itself.
 
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 0491264..3652033 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -1529,6 +1529,10 @@ static void __net_exit sit_destroy_tunnels(struct sit_net *sitn, struct list_hea
- {
- 	int prio;
- 
-+	for_each_netdev_safe(net, dev, aux)
-+		if (dev->rtnl_link_ops == &sit_link_ops)
-+			unregister_netdevice_queue(dev, head);
-+
- 	for (prio = 1; prio < 4; prio++) {
- 		int h;
- 		for (h = 0; h < HASH_SIZE; h++) {
-@@ -1536,7 +1540,12 @@ static void __net_exit sit_destroy_tunnels(struct sit_net *sitn, struct list_hea
- 
- 			t = rtnl_dereference(sitn->tunnels[prio][h]);
- 			while (t != NULL) {
--				unregister_netdevice_queue(t->dev, head);
-+				/* If dev is in the same netns, it has already
-+				 * been added to the list by the previous loop.
-+				 */
-+				if (dev_net(t->dev) != net)
-+					unregister_netdevice_queue(t->dev,
-+								   head);
- 				t = rtnl_dereference(t->next);
- 			}
- 		}
--- 
-1.8.4.3
+Signed-off-by: Dave Jones <davej@fedoraproject.org>
+
+diff --git a/net/llc/llc_output.c b/net/llc/llc_output.c
+index 2dae8a5df23f..94425e421213 100644
+--- a/net/llc/llc_output.c
++++ b/net/llc/llc_output.c
+@@ -43,7 +43,7 @@ int llc_mac_hdr_init(struct sk_buff *skb,
+ 			rc = 0;
+ 		break;
+ 	default:
+-		WARN(1, "device type not supported: %d\n", skb->dev->type);
++		break;
+ 	}
+ 	return rc;
+ }
