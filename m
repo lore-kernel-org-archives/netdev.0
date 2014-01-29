@@ -1,98 +1,93 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH 0/2] [BUG FIXES - 3.10.27] sit: More backports
-Date: Wed, 29 Jan 2014 12:21:26 -0500
-Message-ID: <CA+FuTSeZ=ZFz4NmYvWfkU9B_NjqpHrd9-NUDv3b+kheGC-5ruQ@mail.gmail.com>
-References: <20140128205756.074448668@goodmis.org> <52E8E025.2060803@6wind.com>
- <20140129075745.4227a2ed@gandalf.local.home> <52E9267C.90403@6wind.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] net/ipv4: Use non-atomic allocation of udp offloads
+ structure instance
+Date: Wed, 29 Jan 2014 09:31:08 -0800
+Message-ID: <1391016668.28432.57.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1391011739-8597-1-git-send-email-ogerlitz@mellanox.com>
+	 <1391012411.28432.55.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <52E92F92.9080307@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Steven Rostedt <rostedt@goodmis.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, stable <stable@vger.kernel.org>,
-	Clark Williams <williams@redhat.com>,
-	"Luis Claudio R. Goncalves" <lclaudio@uudg.org>,
-	John Kacur <jkacur@redhat.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52E9267C.90403@6wind.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	dan.carpenter@oracle.com, Shlomo Pongratz <shlomop@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:63295 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752965AbaA2RbJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jan 2014 12:31:09 -0500
+Received: by mail-pd0-f173.google.com with SMTP id y10so1939608pdj.18
+        for <netdev@vger.kernel.org>; Wed, 29 Jan 2014 09:31:09 -0800 (PST)
+In-Reply-To: <52E92F92.9080307@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From d101450583c3a472a2a94904cfe13fd4e7d2f519 Mon Sep 17 00:00:00 2001
-> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Date: Wed, 29 Jan 2014 16:40:30 +0100
-> Subject: [PATCH] sit: fix double free of fb_tunnel_dev on exit
->
-> This problem was fixed upstream by commit 9434266f2c64 ("sit: fix use after free
-> of fb_tunnel_dev").
-> The upstream patch depends on upstream commit 5e6700b3bf98 ("sit: add support of
-> x-netns"), which was not backported into 3.10 branch.
->
-> First, explain the problem: when the sit module is unloaded, sit_cleanup() is
-> called.
-> rmmod sit
-> => sit_cleanup()
->   => rtnl_link_unregister()
->     => __rtnl_kill_links()
->       => for_each_netdev(net, dev) {
->         if (dev->rtnl_link_ops == ops)
->                 ops->dellink(dev, &list_kill);
->         }
-> At this point, the FB device is deleted (and all sit tunnels).
->   => unregister_pernet_device()
->     => unregister_pernet_operations()
->       => ops_exit_list()
->         => sit_exit_net()
->           => sit_destroy_tunnels()
->           In this function, no tunnel is found.
->           => unregister_netdevice_queue(sitn->fb_tunnel_dev, &list);
-> We delete the FB device a second time here!
->
-> Because we cannot simply remove the second deletion (sit_exit_net() must remove
-> the FB device when a netns is deleted), we add an rtnl ops which delete all sit
-> device excepting the FB device and thus we can keep the explicit deletion in
-> sit_exit_net().
->
-> CC: Steven Rostedt <rostedt@goodmis.org>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> ---
->  net/ipv6/sit.c | 10 ++++++++++
->  1 file changed, 10 insertions(+)
->
-> diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-> index 0491264b8bfc..620d326e8fdd 100644
-> --- a/net/ipv6/sit.c
-> +++ b/net/ipv6/sit.c
-> @@ -1507,6 +1507,15 @@ static const struct nla_policy ipip6_policy[IFLA_IPTUN_MAX + 1] = {
->  #endif
->  };
->
-> +static void ipip6_dellink(struct net_device *dev, struct list_head *head)
-> +{
-> +       struct net *net = dev_net(dev);
-> +       struct sit_net *sitn = net_generic(net, sit_net_id);
-> +
-> +       if (dev != sitn->fb_tunnel_dev)
-> +               unregister_netdevice_queue(dev, head);
-> +}
-> +
->  static struct rtnl_link_ops sit_link_ops __read_mostly = {
->         .kind           = "sit",
->         .maxtype        = IFLA_IPTUN_MAX,
-> @@ -1517,6 +1526,7 @@ static struct rtnl_link_ops sit_link_ops __read_mostly = {
->         .changelink     = ipip6_changelink,
->         .get_size       = ipip6_get_size,
->         .fill_info      = ipip6_fill_info,
-> +       .dellink        = ipip6_dellink,
->  };
->
->  static struct xfrm_tunnel sit_handler __read_mostly = {
+On Wed, 2014-01-29 at 18:42 +0200, Or Gerlitz wrote:
+> On 29/01/2014 18:20, Eric Dumazet wrote:
+> > Could you also fix all the rcu_dereference() calls ?
+> >
+> > Try CONFIG_PROVE_RCU=y
+> 
+> Thanks Eric, I tried this out now and got one alarm on udp_add_offload, 
+> which I will loop up how to fix,
+> do you see anything else?
+> 
+> 
+
+You should have same issue in udp_del_offload()
+
+
+(Lockdep triggers once only)
+
+> ===============================
+> [ INFO: suspicious RCU usage. ]
+> 3.13.0+ #109 Not tainted
+> -------------------------------
+> net/ipv4/udp_offload.c:112 suspicious rcu_dereference_check() usage!
+> 
+> other info that might help us debug this:
+> 
+> 
+> rcu_scheduler_active = 1, debug_locks = 0
+> 4 locks held by kworker/2:2/2752:
+>   #0:  (vxlan){.+.+.+}, at: [<ffffffff8108bd5a>] 
+> process_one_work+0x15a/0x710
+>   #1:  ((&vxlan->sock_work)){+.+.+.}, at: [<ffffffff8108bd5a>] 
+> process_one_work+0x15a/0x710
+>   #2:  (&(&vn->sock_lock)->rlock){+.+...}, at: [<ffffffffa03caae3>] 
+> vxlan_sock_add+0x323/0xb70 [vxlan]
+>   #3:  (udp_offload_lock){+.+...}, at: [<ffffffff814d22e1>] 
+> udp_add_offload+0x41/0xd0
+> 
+> stack backtrace:
+> CPU: 2 PID: 2752 Comm: kworker/2:2 Not tainted 3.13.0+ #109
+> Hardware name: Red Hat KVM, BIOS 0.5.1 01/01/2007
+> Workqueue: vxlan vxlan_sock_work [vxlan]
+>   0000000000000001 ffff8800d1949bf8 ffffffff81528412 0000000000000002
+>   ffff88021ef2e060 ffff8800d1949c28 ffffffff810b8373 ffff880218f59160
+>   0000000000000000 ffffffff81aa3540 ffff88021dcaf000 ffff8800d1949c48
+> Call Trace:
+>   [<ffffffff81528412>] dump_stack+0x51/0x77
+>   [<ffffffff810b8373>] lockdep_rcu_suspicious+0x103/0x140
+>   [<ffffffff814d234a>] udp_add_offload+0xaa/0xd0
+>   [<ffffffffa03cb0ad>] vxlan_sock_add+0x8ed/0xb70 [vxlan]
+>   [<ffffffffa03caa77>] ? vxlan_sock_add+0x2b7/0xb70 [vxlan]
+>   [<ffffffffa03ce390>] ? vxlan_xmit+0x650/0x650 [vxlan]
+>   [<ffffffffa03cb330>] ? vxlan_sock_add+0xb70/0xb70 [vxlan]
+>   [<ffffffff81291f7c>] ? delay_tsc+0x6c/0xd0
+>   [<ffffffffa03cb439>] vxlan_sock_work+0x109/0x260 [vxlan]
+>   [<ffffffffa03cb330>] ? vxlan_sock_add+0xb70/0xb70 [vxlan]
+>   [<ffffffff8108bdd1>] process_one_work+0x1d1/0x710
+>   [<ffffffff8108bd5a>] ? process_one_work+0x15a/0x710
+>   [<ffffffff8108c432>] worker_thread+0x122/0x400
+>   [<ffffffff8108c310>] ? process_one_work+0x710/0x710
+>   [<ffffffff810943fe>] kthread+0xde/0x100
+>   [<ffffffff81094320>] ? __init_kthread_worker+0x70/0x70
+>   [<ffffffff8152f3bc>] ret_from_fork+0x7c/0xb0
+>   [<ffffffff81094320>] ? __init_kthread_worker+0x70/0x70
+> 
 > --
-> 1.8.4.1
-
-
-This looks good to me. It is the same as the backport "sit: fix use
-after free of fb_tunnel_dev" (9434266f2c64), minus the small code
-cleanup at the end of that patch that is not relevant to 3.10.27 (do
-not define sit_net *sitn in sit_exit_net if it is not used there. But in
-3.10.27 it is used, in unregister_netdevice_queue).
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
