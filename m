@@ -1,36 +1,43 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch iproute2] pedit: do not print debugging information by default
-Date: Wed, 29 Jan 2014 15:12:59 -0800
-Message-ID: <1391037179-3510-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Cong Wang <xiyou.wangcong@gmail.com>
-To: netdev@vger.kernel.org
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: IPv6 multiple routing tables - all routes were added to main
+ table
+Date: Wed, 29 Jan 2014 15:17:17 -0800
+Message-ID: <52E98BFD.40306@candelatech.com>
+References: <CAMBtn_0S0K6eydjTLJAsVqbKVuJ+tc7k30OUWRxscm+gP6y2EQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Asi Lichtenstein <asili22@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:64359 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751312AbaA2XNN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jan 2014 18:13:13 -0500
-Received: by mail-pb0-f46.google.com with SMTP id um1so2366030pbc.19
-        for <netdev@vger.kernel.org>; Wed, 29 Jan 2014 15:13:12 -0800 (PST)
+Received: from mail.candelatech.com ([208.74.158.172]:42881 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751116AbaA2XRT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jan 2014 18:17:19 -0500
+In-Reply-To: <CAMBtn_0S0K6eydjTLJAsVqbKVuJ+tc7k30OUWRxscm+gP6y2EQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+On 01/28/2014 01:38 AM, Asi Lichtenstein wrote:
+> Hi there,
+> 
+> I'm using an old kernel 2.6.16 where i applied this patchset:
+> http://thread.gmane.org/gmane.linux.network/41149/focus=41150
+> 
+> i was able to create new table but all routes I've added to specific
+> table were added to main table.
 
----
-diff --git a/tc/m_pedit.c b/tc/m_pedit.c
-index 452d96f..16dd277 100644
---- a/tc/m_pedit.c
-+++ b/tc/m_pedit.c
-@@ -30,7 +30,7 @@
- #include "m_pedit.h"
- 
- static struct m_pedit_util *pedit_list;
--int pedit_debug = 1;
-+static int pedit_debug;
- 
- static void
- explain(void)
+No idea if your patches will work on that ancient kernel.  Did you update
+your ip tool as well?
+
+try:  ip route show table X
+
+and show us what commands you used to try to add the routes to a specific
+table?
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
