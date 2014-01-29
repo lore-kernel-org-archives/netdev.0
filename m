@@ -1,104 +1,70 @@
-From: Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 3/3] net: via-rhine: add OF bus binding
-Date: Wed, 29 Jan 2014 08:59:43 -0600
-Message-ID: <CAL_JsqK2aLSGzjp_gqJ=ePPybf85S0FFQ2n+XascUSYPnSoHcA@mail.gmail.com>
-References: <1385227995-3956-1-git-send-email-alchark@gmail.com>
-	<1390823503-24087-1-git-send-email-alchark@gmail.com>
-	<1390823503-24087-4-git-send-email-alchark@gmail.com>
-	<CAL_JsqLi0QKeeUkGMKmYZ1ki02mzk=L1gDxTJyXFGiOe_aHiVw@mail.gmail.com>
-	<CABjd4Yxo0Pp+QtTuXhKBT9KdVhUk12x2L8+FBL_ZWmPYopG2JQ@mail.gmail.com>
-	<52E87929.30708@prisktech.co.nz>
-	<CABjd4Yy2pFr=qr1_e3XqupHngp_mF0GcDT0hCM46v=tNNDY1hw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH stable 3.11+] can: use private sk reference to detect
+ originating socket
+Date: Wed, 29 Jan 2014 07:02:25 -0800
+Message-ID: <1391007745.28432.36.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <52E905C8.1060408@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Tony Prisk <linux-ci5G2KO2hbZ+pU9mqzGVBQ@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Roger Luethi <rl-7uj+XXdSDtwfv37vnLkPlQ@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Alexey Charkov <alchark-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CABjd4Yy2pFr=qr1_e3XqupHngp_mF0GcDT0hCM46v=tNNDY1hw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Andre Naujoks <nautsch2@gmail.com>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:51676 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751138AbaA2PC0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jan 2014 10:02:26 -0500
+Received: by mail-pb0-f49.google.com with SMTP id up15so1845294pbc.36
+        for <netdev@vger.kernel.org>; Wed, 29 Jan 2014 07:02:26 -0800 (PST)
+In-Reply-To: <52E905C8.1060408@hartkopp.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 28, 2014 at 11:20 PM, Alexey Charkov <alchark-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> 2014/1/29 Tony Prisk <linux-ci5G2KO2hbZ+pU9mqzGVBQ@public.gmane.org>:
->> On 29/01/14 07:27, Alexey Charkov wrote:
->>>
->>> 2014/1/27 Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
->>>>
->>>> On Mon, Jan 27, 2014 at 5:51 AM, Alexey Charkov <alchark-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->>>> wrote:
->>>>>
->>>>> This should make the driver usable with VIA/WonderMedia ARM-based
->>>>> Systems-on-Chip integrated Rhine III adapters. Note that these
->>>>> are always in MMIO mode, and don't have any known EEPROM.
->>>>>
->>>>> Signed-off-by: Alexey Charkov <alchark-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->>>>> Signed-off-by: Roger Luethi <rl-7uj+XXdSDtwfv37vnLkPlQ@public.gmane.org>
->>>>> ---
->>>>>   .../devicetree/bindings/net/via-rhine.txt          |  18 ++
->>>>>   drivers/net/ethernet/via/Kconfig                   |   2 +-
->>>>>   drivers/net/ethernet/via/via-rhine.c               | 293
->>>>> +++++++++++++--------
->>>>>   3 files changed, 200 insertions(+), 113 deletions(-)
->>>>>   create mode 100644 Documentation/devicetree/bindings/net/via-rhine.txt
->>>>>
->>>>> diff --git a/Documentation/devicetree/bindings/net/via-rhine.txt
->>>>> b/Documentation/devicetree/bindings/net/via-rhine.txt
->>>>> new file mode 100644
->>>>> index 0000000..684dd3a
->>>>> --- /dev/null
->>>>> +++ b/Documentation/devicetree/bindings/net/via-rhine.txt
->>>>> @@ -0,0 +1,18 @@
->>>>> +* VIA Rhine 10/100 Network Controller
->>>>> +
->>>>> +Required properties:
->>>>> +- compatible : Should be "via,rhine"
->>>>
->>>> This should be more specific rather than...
->>>>
->>>>> +- reg : Address and length of the io space
->>>>> +- interrupts : Should contain the controller interrupt line
->>>>> +- rhine,revision : Rhine core revision, used to inform the
->>>>> +       driver of quirks and capabilities to expect from
->>>>> +       the device. Mimics the respective PCI attribute.
->>>>
->>>> having this property. The OF match table can then have the quirks set
->>>> based on compatible strings.
->>>
->>> Sounds fair. Do you think something like the following would fly?
->>>
->>> Required properties:
->>> - compatible : Should be "via,rhine-soc-vt8500" for integrated Rhine
->>> cores found in SoC's such as VIA VT8500, WonderMedia WM8950 and
->>> possibly others. These are listed as 1106:3106 rev. 0x84 on the
->>> virtual PCI bus under vendor-provided kernels.
->>
->> Does it need a special name? I would have assumed they are using their own
->> IP for the VT6105 or VT6106S.
->> Then you can use it to add quirks later on if needed.
->
-> The problem is that I have no reliable source for the exact name of
-> the IP block. The lookup table within the driver says that rev. 0x83
-> is VT6105_B0, and rev. 0x8A is VT6105L (and it doesn't contain any
-> entry for 0x84, so our case gets treated as 0x83 currently).
->
-> If we only differentiate them by the compatible string, I would be
-> reluctant to call it vt6105 or vt6106 or whatever else without knowing
-> for sure. Otherwise, if at some point we need to add any quirks
-> specific to rev. 0x84, we wouldn't be able to do that without
-> side-effects.
+On Wed, 2014-01-29 at 14:44 +0100, Oliver Hartkopp wrote:
+> Commit 376c7311bdb6 (net: add a temporary sanity check in skb_orphan())
+> leads to a BUG in can_put_echo_skb() when skb_orphan() is executed.
+> 
+> The use of skb->sk to detect the originating socket can lead to side effects
+> in net/core and net/sched. Therefore the reference needed in net/can/raw.c is
+> now stored in a CAN private skbuff space in struct can_skb_priv.
+> 
+> The reference which comes with the CAN frame is only needed in raw_rcv() and
+> checked against his own sock pointer and does only special things if it
+> matches. So removing the socket does not hurt as the in-flight skbs are
+> removed and the receive filters are purged anyway when the socket disappears.
+> 
+> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+> 
+> ---
+> 
+> Here's my idea to fix up the original skb->sk handling concept for detecting
+> the originating socket instance. The patch applies properly down to 3.11.
+> 
+> Eric please take a look if I used sock_alloc_send_skb() correctly in bcm.c.
+> Andre please check if you see any functional differences on your machine.
 
-If you don't know the IP rev, then you should assume it is different
-and you should certainly know which chip it is in. This is why the soc
-name is typically in the compatible string. You can always have
-multiple compatible strings. You want to have a unique compatible
-string so you can add quirks later if needed.
+I think this is opening yet another can of bugs.
 
-Rob
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+CAN calls dev_queue_xmit()  : This layer can zap skb->cb[] totally.
+
+Please hold a reference on the socket instead. Thats a 10 lines patch,
+instead of yet another complex patch.
+
+void can_destructor(struct sk_buff *skb)
+{
+	sock_put(skb->sk);
+}
+
+void can_set_owner(struct sk_buff *skb, struct sock *sk)
+{
+	skb_orphan(skb);
+	skb->destructor = can_skb_destructor;
+	skb->sk = sk;
+	sock_hold(sk);
+}
+
+Thats how every protocol does this, with variants.
+
+Check l2tp_sock_wfree()/l2tp_skb_set_owner_w() for an example
