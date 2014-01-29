@@ -1,40 +1,34 @@
-From: "Mrs. Katrina Miller " <export3@kwankin.com>
-Subject: Contact My Secretary For Your Bank Draft
-Date: Wed, 29 Jan 2014 19:15:24 +0800 (HKT)
-Message-ID: <471666577.14274586.1390994124961.JavaMail.root@kwankin.com>
-Reply-To: "Mr. David Johnson" <davidjohnson887196@yahoo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+From: Masatake YAMATO <yamato@redhat.com>
+Subject: [PATCH resend] genl: fix a typo in help message of ctrl
+Date: Wed, 29 Jan 2014 20:30:15 +0900
+Message-ID: <1390995015-30634-1-git-send-email-yamato@redhat.com>
+Cc: yamato@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer11.incnets.com ([210.6.92.70]:60319 "EHLO
-	mailer11.incnets.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750970AbaA2LZA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jan 2014 06:25:00 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:26797 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751425AbaA2Lab (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Jan 2014 06:30:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Signed-off-by: Masatake YAMATO <yamato@redhat.com>
+---
+ genl/ctrl.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-
-Dear friend, 
+diff --git a/genl/ctrl.c b/genl/ctrl.c
+index 7c42578..3546129 100644
+--- a/genl/ctrl.c
++++ b/genl/ctrl.c
+@@ -399,7 +399,7 @@ static int parse_ctrl(struct genl_util *a, int argc, char **argv)
+ 	if (matches(*argv, "help") == 0)
+ 		return usage();
  
-I am very happy to inform you about my success in transferred that fund $15. Million Dollars now; I want you to contact my secretary on the information below: 
+-	fprintf(stderr, "ctrl command \"%s\" is unknown, try \"ctrl -help\".\n",
++	fprintf(stderr, "ctrl command \"%s\" is unknown, try \"ctrl help\".\n",
+ 		*argv);
  
-NAME; Mr. David Johnson
-EMAIL: davidjohnson887196@yahoo.com
- 
-Ask him to send you the total sum of ($3.5 Million United State Dollars) Five million Five hundred thousand United State Dollars in a bank draft, for your share which I kept for your compensation. 
-So feel free to contact him with your information below avoid wrong delivery, 
- 
-Full Name: 
-Home Address: 
-Occupation: 
-Cell Phone: 
-Country: 
-Age: 
- 
-Please contact him with this information above for the registration of the bank draft. Thanks for your help and I will stop here again. You let me know immediately you receive it. I am waiting for the good news from you. 
- 
-Regards, 
-Mrs. Katrina Miller 
+ 	return -1;
+-- 
+1.8.5.3
