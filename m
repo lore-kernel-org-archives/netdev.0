@@ -1,174 +1,89 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2 3/4] net: ethoc: set up MII management bus clock
-Date: Tue, 28 Jan 2014 23:01:35 -0800
-Message-ID: <52E8A74F.9060603@gmail.com>
-References: <1390975218-13863-1-git-send-email-jcmvbkbc@gmail.com> <1390975218-13863-4-git-send-email-jcmvbkbc@gmail.com>
+From: Max Filippov <jcmvbkbc@gmail.com>
+Subject: Re: [PATCH v2 2/4] net: ethoc: don't advertise gigabit speed on
+ attached PHY
+Date: Wed, 29 Jan 2014 11:01:06 +0400
+Message-ID: <CAMo8BfJ_nce_H_8HJ7iw9ME=8C+sjF_Q43RaDG+1eVrpxWRvdQ@mail.gmail.com>
+References: <1390975218-13863-1-git-send-email-jcmvbkbc@gmail.com>
+	<1390975218-13863-3-git-send-email-jcmvbkbc@gmail.com>
+	<52E8A407.1020809@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Chris Zankel <chris@zankel.net>, Marc Gauthier <marc@cadence.com>,
+Cc: "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Chris Zankel <chris@zankel.net>,
+	Marc Gauthier <marc@cadence.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Ben Hutchings <ben@decadent.org.uk>
-To: Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1390975218-13863-4-git-send-email-jcmvbkbc@gmail.com>
+In-Reply-To: <52E8A407.1020809@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le 28/01/2014 22:00, Max Filippov a =E9crit :
-> MII management bus clock is derived from the MAC clock by dividing it=
- by
-> MIIMODER register CLKDIV field value. This value may need to be set u=
-p
-> in case it is undefined or its default value is too high (and
-> communication with PHY is too slow) or too low (and communication wit=
-h
-> PHY is impossible). The value of CLKDIV is not specified directly, bu=
+On Wed, Jan 29, 2014 at 10:47 AM, Florian Fainelli <f.fainelli@gmail.co=
+m> wrote:
+> Hi Max,
+>
+> Le 28/01/2014 22:00, Max Filippov a =C3=A9crit :
+>
+>> OpenCores 10/100 Mbps MAC does not support speeds above 100 Mbps, bu=
+t does
+>> not disable advertisement when PHY supports them. This results in
+>> non-functioning network when the MAC is connected to a gigabit PHY
+>> connected
+>> to a gigabit switch.
+>>
+>> The fix is to disable gigabit speed advertisement on attached PHY
+>> unconditionally.
+>>
+>> Signed-off-by: Max Filippov <jcmvbkbc@gmail.com>
+>> ---
+>> Changes v1->v2:
+>> - disable both gigabit advertisement and support.
+>>
+>>   drivers/net/ethernet/ethoc.c | 8 ++++++++
+>>   1 file changed, 8 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/eth=
+oc.c
+>> index 4de8cfd..5643b2d 100644
+>> --- a/drivers/net/ethernet/ethoc.c
+>> +++ b/drivers/net/ethernet/ethoc.c
+>> @@ -688,6 +688,14 @@ static int ethoc_mdio_probe(struct net_device *=
+dev)
+>>         }
+>>
+>>         priv->phy =3D phy;
+>> +       phy_update_advert(phy,
+>> +                         ADVERTISED_1000baseT_Full |
+>> +                         ADVERTISED_1000baseT_Half, 0);
+>> +       phy_start_aneg(phy);
+>
+>
+> This does not look necessary, you should not have to call phy_start_a=
+neg()
+> because the PHY state machine is not yet started, at best this calls =
+does
+> nothing.
+
+This call actually makes the whole thing work, because otherwise once g=
+igabit
+support is cleared from the supported mask genphy_config_advert does no=
 t
-> is derived from the MAC clock for the default MII management bus freq=
-uency
-> of 2.5MHz. The MAC clock may be specified in the platform data, or as
-> either 'clock-frequency' or 'clocks' device tree attribute.
->
-> Signed-off-by: Max Filippov <jcmvbkbc@gmail.com>
-> ---
-> Changes v1->v2:
-> - drop MDIO bus frequency configurability, always configure for stand=
-ard
->    2.5MHz;
-> - allow using common clock framework to provide ethoc clock.
->
->   drivers/net/ethernet/ethoc.c | 37 +++++++++++++++++++++++++++++++++=
-++--
->   include/net/ethoc.h          |  1 +
->   2 files changed, 36 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/etho=
-c.c
-> index 5643b2d..5854d41 100644
-> --- a/drivers/net/ethernet/ethoc.c
-> +++ b/drivers/net/ethernet/ethoc.c
-> @@ -13,6 +13,7 @@
->
->   #include <linux/dma-mapping.h>
->   #include <linux/etherdevice.h>
-> +#include <linux/clk.h>
->   #include <linux/crc32.h>
->   #include <linux/interrupt.h>
->   #include <linux/io.h>
-> @@ -216,6 +217,7 @@ struct ethoc {
->
->   	struct phy_device *phy;
->   	struct mii_bus *mdio;
-> +	struct clk *clk;
->   	s8 phy_id;
->   };
->
-> @@ -925,6 +927,8 @@ static int ethoc_probe(struct platform_device *pd=
-ev)
->   	int num_bd;
->   	int ret =3D 0;
->   	bool random_mac =3D false;
-> +	u32 eth_clkfreq =3D 0;
-> +	struct ethoc_platform_data *pdata =3D dev_get_platdata(&pdev->dev);
->
->   	/* allocate networking device */
->   	netdev =3D alloc_etherdev(sizeof(struct ethoc));
-> @@ -1038,8 +1042,7 @@ static int ethoc_probe(struct platform_device *=
-pdev)
->   	}
->
->   	/* Allow the platform setup code to pass in a MAC address. */
-> -	if (dev_get_platdata(&pdev->dev)) {
-> -		struct ethoc_platform_data *pdata =3D dev_get_platdata(&pdev->dev)=
-;
-> +	if (pdata) {
->   		memcpy(netdev->dev_addr, pdata->hwaddr, IFHWADDRLEN);
->   		priv->phy_id =3D pdata->phy_id;
->   	} else {
-> @@ -1077,6 +1080,32 @@ static int ethoc_probe(struct platform_device =
-*pdev)
->   	if (random_mac)
->   		netdev->addr_assign_type =3D NET_ADDR_RANDOM;
->
-> +	/* Allow the platform setup code to adjust MII management bus clock=
-=2E */
-> +	if (pdata)
-> +		eth_clkfreq =3D pdata->eth_clkfreq;
+update gigabit advertisement register, leaving it enabled.
 
-Since this is a new member, why not make it a struct clk pointer=20
-directly so you could simplify the code path?
-
-> +	else
-> +		of_property_read_u32(pdev->dev.of_node,
-> +				     "clock-frequency", &eth_clkfreq);
-> +	if (!eth_clkfreq) {
-> +		struct clk *clk =3D clk_get(&pdev->dev, NULL);
-> +
-> +		if (!IS_ERR(clk)) {
-> +			priv->clk =3D clk;
-> +			clk_prepare_enable(clk);
-> +			eth_clkfreq =3D clk_get_rate(clk);
-> +		}
-> +	}
-> +	if (eth_clkfreq) {
-> +		u32 clkdiv =3D MIIMODER_CLKDIV(eth_clkfreq / 2500000 + 1);
-> +
-> +		if (!clkdiv)
-> +			clkdiv =3D 2;
-> +		dev_dbg(&pdev->dev, "setting MII clkdiv to %u\n", clkdiv);
-> +		ethoc_write(priv, MIIMODER,
-> +			    (ethoc_read(priv, MIIMODER) & MIIMODER_NOPRE) |
-> +			    clkdiv);
-> +	}
-
-This does look a bit convoluted, and it looks like the clk_get() or=20
-getting the clock-frequency property should boil down to being the same=
-=20
-thing with of_clk_get() as it should resolve all clocks phandles and=20
-fetch their frequencies appropriately.
-
-> +
->   	/* register MII bus */
->   	priv->mdio =3D mdiobus_alloc();
->   	if (!priv->mdio) {
-> @@ -1141,6 +1170,8 @@ free_mdio:
->   	kfree(priv->mdio->irq);
->   	mdiobus_free(priv->mdio);
->   free:
-> +	if (priv->clk)
-> +		clk_disable_unprepare(priv->clk);
-
-This should probbaly be if (!IS_ERR(priv-clk)).
-
->   	free_netdev(netdev);
->   out:
->   	return ret;
-> @@ -1165,6 +1196,8 @@ static int ethoc_remove(struct platform_device =
-*pdev)
->   			kfree(priv->mdio->irq);
->   			mdiobus_free(priv->mdio);
->   		}
-> +		if (priv->clk)
-> +			clk_disable_unprepare(priv->clk);
-
-Same here
-
->   		unregister_netdev(netdev);
->   		free_netdev(netdev);
->   	}
-> diff --git a/include/net/ethoc.h b/include/net/ethoc.h
-> index 96f3789..2a2d6bb 100644
-> --- a/include/net/ethoc.h
-> +++ b/include/net/ethoc.h
-> @@ -16,6 +16,7 @@
->   struct ethoc_platform_data {
->   	u8 hwaddr[IFHWADDRLEN];
->   	s8 phy_id;
-> +	u32 eth_clkfreq;
->   };
+>> +       phy_update_supported(phy,
+>> +                            SUPPORTED_1000baseT_Full |
+>> +                            SUPPORTED_1000baseT_Half, 0);
+>> +
+>>         return 0;
+>>   }
+>>
+>>
 >
->   #endif /* !LINUX_NET_ETHOC_H */
->
+
+--=20
+Thanks.
+-- Max
