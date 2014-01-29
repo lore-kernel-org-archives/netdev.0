@@ -1,53 +1,42 @@
-From: Sarah Sharp <sarah.a.sharp@linux.intel.com>
-Subject: Re: Help testing for USB ethernet/xHCI regression
-Date: Wed, 29 Jan 2014 13:18:17 -0800
-Message-ID: <20140129211817.GA5991@xanatos>
-References: <20140128203007.GA3311@xanatos>
- <52E883FB.7010704@pobox.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH stable 3.11+] can: use private sk reference to detect
+ originating socket
+Date: Wed, 29 Jan 2014 22:25:44 +0100
+Message-ID: <52E971D8.8000701@hartkopp.net>
+References: <52E905C8.1060408@hartkopp.net>			 <1391007745.28432.36.camel@edumazet-glaptop2.roam.corp.google.com>			 <1391009406.28432.38.camel@edumazet-glaptop2.roam.corp.google.com>		 <1391010437.28432.39.camel@edumazet-glaptop2.roam.corp.google.com>		 <52E956E6.7090002@hartkopp.net>	 <1391025348.28432.63.camel@edumazet-glaptop2.roam.corp.google.com>	 <52E9675A.4070201@hartkopp.net> <52E96BDC.9070209@hartkopp.net> <1391029578.28432.64.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	David Laight <David.Laight@ACULAB.COM>
-To: Mark Lord <mlord@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:51564 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750851AbaA2VSU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Jan 2014 16:18:20 -0500
-Content-Disposition: inline
-In-Reply-To: <52E883FB.7010704@pobox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Andre Naujoks <nautsch2@gmail.com>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1391029578.28432.64.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 28, 2014 at 11:30:51PM -0500, Mark Lord wrote:
-> On 14-01-28 03:30 PM, Sarah Sharp wrote:
-> ..
-> > Can you please pull this branch, which contains a 3.13 kernel with
-> > David's patch reverted, and test whether your USB ethernet device works
-> > or fails?
+On 29.01.2014 22:06, Eric Dumazet wrote:
+> On Wed, 2014-01-29 at 22:00 +0100, Oliver Hartkopp wrote:
+>> So here we are:
+>>
+>> Introduced can_create_echo_skb() which creates a skb which is properly
+>> owned to be send back (echo'ed) into the network stack. 
+>>
+>> Regards,
+>> Oliver
 > 
-> Fails.  dmesg log attached.
-
-It's funny, because there's certainly data transferred over endpoint
-0x82, even though there were link TRBs in the middle of transfers.  Did
-the "untransferred" messages stop when the device stopped working, or
-did they continue?
-
-> All I do is something akin to this:
+> This seems much better ;)
 > 
->    mount /server/ /x
->    mount --bind / /t
->    mirrordir -v --strict-mtimes /t /x/backups/empress
-> 
-> "mirrordir" is similar to "rsync", but less cryptic.
-> The sequence above maintains a clone of the root filesystem
-> of my ultrabook ("empress") on an NFS server over GigE.
 
-Please send me the output of `sudo lsusb -t`  and `sudo lsusb -v` with
-the USB device attached.  I'd like to know whether you and David have
-the same device and driver.  Perhaps the link TRB issue only impacts
-that device, and we can limit scatter-gather under xHCI for that device.
-If not, we'll have to look at bigger fixes.
+Great!
 
-Sarah Sharp
+I'll give it some more testing on my Laptop and will send the patch with a
+proper description tomorrow morning.
+
+Thanks for your support fixing this issue!
+
+Regards,
+Oliver
+
