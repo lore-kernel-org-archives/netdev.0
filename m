@@ -1,44 +1,57 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH stable 3.11+] can: use private sk reference to detect
- originating socket
-Date: Wed, 29 Jan 2014 08:12:53 -0800
-Message-ID: <1391011973.28432.53.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <52E905C8.1060408@hartkopp.net>
+Subject: Re: [PATCH net] net/ipv4: Use non-atomic allocation of udp offloads
+ structure instance
+Date: Wed, 29 Jan 2014 08:20:11 -0800
+Message-ID: <1391012411.28432.55.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1391011739-8597-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Andre Naujoks <nautsch2@gmail.com>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	dan.carpenter@oracle.com
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:51811 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751477AbaA2QMz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jan 2014 11:12:55 -0500
-Received: by mail-pd0-f170.google.com with SMTP id p10so1881292pdj.1
-        for <netdev@vger.kernel.org>; Wed, 29 Jan 2014 08:12:54 -0800 (PST)
-In-Reply-To: <52E905C8.1060408@hartkopp.net>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:39988 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751916AbaA2QUM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jan 2014 11:20:12 -0500
+Received: by mail-pd0-f175.google.com with SMTP id w10so1862377pde.6
+        for <netdev@vger.kernel.org>; Wed, 29 Jan 2014 08:20:12 -0800 (PST)
+In-Reply-To: <1391011739-8597-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-01-29 at 14:44 +0100, Oliver Hartkopp wrote:
+On Wed, 2014-01-29 at 18:08 +0200, Or Gerlitz wrote:
+> Since udp_add_offload() can be called from non-sleepable context e.g
+> under this call tree from the vxlan driver use case:
+> 
+>   vxlan_socket_create() <-- holds the spinlock
+>   -> vxlan_notify_add_rx_port()
+>      -> udp_add_offload()  <-- schedules
+> 
+> we should allocate the udp_offloads structure in atomic manner.
+> 
+> Fixes: b582ef0 ('net: Add GRO support for UDP encapsulating protocols')
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> ---
+>  net/ipv4/udp_offload.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+> index 25f5cee..2ffea6f 100644
+> --- a/net/ipv4/udp_offload.c
+> +++ b/net/ipv4/udp_offload.c
+> @@ -101,7 +101,7 @@ out:
+>  int udp_add_offload(struct udp_offload *uo)
+>  {
+>  	struct udp_offload_priv __rcu **head = &udp_offload_base;
+> -	struct udp_offload_priv *new_offload = kzalloc(sizeof(*new_offload), GFP_KERNEL);
+> +	struct udp_offload_priv *new_offload = kzalloc(sizeof(*new_offload), GFP_ATOMIC);
+>  
+>  	if (!new_offload)
+>  		return -ENOMEM;
 
-> ps. I would suggest to move the BUG() in WARN_ON_ONCE() to fulfill the
-> requirement to detect a possible misuse but not kill the entire machine.
-> BUG() is intended to be used when there's no way to continue any reasonable
-> operation. Detecting and fixing this issue half a year after the "temporary
-> sanity check" has been integrated is a bad example for using BUG() IMO.
+Could you also fix all the rcu_dereference() calls ?
 
-I find worrying it took 6 months for CAN developers to hit this problem.
-
-A WARN_ON_ONCE() has almost no chance being noticed in the embedded
-world, and makes no pressure on developers to fix the bugs.
-
-Patch is 6 months old, and will be reverted when we have confidence that
-all offenders are fixed. Your feedback shows that we shall wait 10 years
-just to make sure, and maybe we wont revert it.
-
-All BUG() in the kernel have the property to potentially halt a
-perfectly working machine, at a bad time, yes. But they make us
-build a better kernel.
+Try CONFIG_PROVE_RCU=y
