@@ -1,76 +1,78 @@
-From: Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 3/3] net: via-rhine: add OF bus binding
-Date: Wed, 29 Jan 2014 07:46:02 -0600
-Message-ID: <CAL_JsqKui20VM1rcw-Sc-cr9gSaXOrzXheDNUUnn+H+bjqEO5A@mail.gmail.com>
-References: <1385227995-3956-1-git-send-email-alchark@gmail.com>
-	<1390823503-24087-1-git-send-email-alchark@gmail.com>
-	<1390823503-24087-4-git-send-email-alchark@gmail.com>
-	<CAL_JsqLi0QKeeUkGMKmYZ1ki02mzk=L1gDxTJyXFGiOe_aHiVw@mail.gmail.com>
-	<CABjd4Yxo0Pp+QtTuXhKBT9KdVhUk12x2L8+FBL_ZWmPYopG2JQ@mail.gmail.com>
+From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: Many USB ethernet devices are broken over xhci
+Date: Wed, 29 Jan 2014 14:26:15 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D46742C@AcuExch.aculab.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D46624F@AcuExch.aculab.com>
+ <20140127233326.GB652@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Tony Prisk <linux-ci5G2KO2hbZ+pU9mqzGVBQ@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Roger Luethi <rl-7uj+XXdSDtwfv37vnLkPlQ@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Alexey Charkov <alchark-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CABjd4Yxo0Pp+QtTuXhKBT9KdVhUk12x2L8+FBL_ZWmPYopG2JQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+To: 'Greg KH' <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140127233326.GB652-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Content-Language: en-US
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 28, 2014 at 12:27 PM, Alexey Charkov <alchark-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> 2014/1/27 Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
->> On Mon, Jan 27, 2014 at 5:51 AM, Alexey Charkov <alchark-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->>> This should make the driver usable with VIA/WonderMedia ARM-based
->>> Systems-on-Chip integrated Rhine III adapters. Note that these
->>> are always in MMIO mode, and don't have any known EEPROM.
->>>
->>> Signed-off-by: Alexey Charkov <alchark-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->>> Signed-off-by: Roger Luethi <rl-7uj+XXdSDtwfv37vnLkPlQ@public.gmane.org>
->>> ---
->>>  .../devicetree/bindings/net/via-rhine.txt          |  18 ++
->>>  drivers/net/ethernet/via/Kconfig                   |   2 +-
->>>  drivers/net/ethernet/via/via-rhine.c               | 293 +++++++++++++--------
->>>  3 files changed, 200 insertions(+), 113 deletions(-)
->>>  create mode 100644 Documentation/devicetree/bindings/net/via-rhine.txt
->>>
->>> diff --git a/Documentation/devicetree/bindings/net/via-rhine.txt b/Documentation/devicetree/bindings/net/via-rhine.txt
->>> new file mode 100644
->>> index 0000000..684dd3a
->>> --- /dev/null
->>> +++ b/Documentation/devicetree/bindings/net/via-rhine.txt
->>> @@ -0,0 +1,18 @@
->>> +* VIA Rhine 10/100 Network Controller
->>> +
->>> +Required properties:
->>> +- compatible : Should be "via,rhine"
->>
->> This should be more specific rather than...
->>
->>> +- reg : Address and length of the io space
->>> +- interrupts : Should contain the controller interrupt line
->>> +- rhine,revision : Rhine core revision, used to inform the
->>> +       driver of quirks and capabilities to expect from
->>> +       the device. Mimics the respective PCI attribute.
->>
->> having this property. The OF match table can then have the quirks set
->> based on compatible strings.
->
-> Sounds fair. Do you think something like the following would fly?
->
-> Required properties:
-> - compatible : Should be "via,rhine-soc-vt8500" for integrated Rhine
-> cores found in SoC's such as VIA VT8500, WonderMedia WM8950 and
-> possibly others. These are listed as 1106:3106 rev. 0x84 on the
-> virtual PCI bus under vendor-provided kernels.
+From: Greg KH 
+> On Mon, Jan 27, 2014 at 04:06:22PM +0000, David Laight wrote:
+> > Many of the net/usb ethernet drivers (including common ones like
+> > the smsc95xx) will fail to transmit all packet length properly
+> > when connected to a USB3 port (ie using the xhci driver).
+> 
+> That's odd, as I've never had a problem with my USB 3.0 ethernet device
+> (sorry, don't remember what driver it uses), and I stress it all the
+> time.
 
-Yes, although the "soc" part seems a bit redundant. The usual pattern
-is <vendor>,<chip/soc>-<device>. I would go with "via,vt8500-rhine".
+If it is the ax88179_178a driver then it carefully pads packets
+that are multiples of the message size.
 
-Rob
+> I've also run two different USB 2 ethernet devices on xhci with no
+> issues at all, so perhaps the "many" statement might not be true?
+
+Dunno, quite a few will send down requests with URB_SEND_SERO set.
+Whether this causes a problem depends on exactly how the ethernet
+packets are encapsulated in usb ones.
+The ax88179_178a hardware gets very confused if you fail to send
+a ZLP - which it why it uses the 'bodge' in usbnet to append a byte.
+
+> > The underlying problem is that they assume the host controller
+> > will honour the URB_ZERO_PACKET flag - which usbnet sets because
+> > they specify FLAG_SEND_ZLP.
+> >
+> > However no one has ever added support for URB_ZERO_PACKET to
+> > the xhci driver - so packets that need padding (probably 512
+> > bytes after any header is added) will not be sent correctly
+> > and may have very adverse effects on the usb target.
+> 
+> Really?  How has things been working so well up to now without this
+> support?  Doesn't the hardware automatically add this padding with no
+> explicit need for the xhci driver to do something?
+
+Nope - things must work by luck!
+Try ping -n $((512-0x32)) on an smsc95xx card - it should need a ZLP.
+
+> > I don't think anything significant has changed (in the main kernel
+> > sources) since I wrote the patch.
+> 
+> Then resubmit it, don't post links to it on the web, there's nothing we
+> can do with them, sorry.
+
+I've resubmitted it as a v3 patch (to linux-usb) in small steps so that
+the changes are easier to verify.
+The final result is slightly different as I spotted a couple of minor
+issues when re-reading the final version.
+Mostly due to another 2 months of looking at this code.
+
+	David
+
+
+
+
 --
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
