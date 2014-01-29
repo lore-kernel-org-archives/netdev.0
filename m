@@ -1,183 +1,199 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Wed, 29 Jan 2014 00:55:55 -0800 (PST)
-Message-ID: <20140129.005555.1578998818751926111.davem@davemloft.net>
+From: Horia Geanta <horia.geanta@freescale.com>
+Subject: [PATCH] xfrm: avoid creating temporary SA when there are no listeners
+Date: Wed, 29 Jan 2014 11:12:11 +0200
+Message-ID: <1390986731-12861-1-git-send-email-horia.geanta@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:6594 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750829AbaA2JOE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jan 2014 04:14:04 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+In the case when KMs have no listeners, km_query() will fail and
+temporary SAs are garbage collected immediately after their allocation.
+This causes strain on memory allocation, leading even to OOM since
+temporary SA alloc/free cycle is performed for every packet
+and garbage collection does not keep up the pace.
 
-Several fixups, of note:
+The sane thing to do is to make sure we have audience before
+temporary SA allocation.
 
-1) Fix unlock of not held spinlock in RXRPC code, from Alexey
-   Khoroshilov.
+Signed-off-by: Horia Geanta <horia.geanta@freescale.com>
+---
+Resending - initially posted as RFC:
+http://www.spinics.net/lists/netdev/msg268454.html
 
-2) Call pci_disable_device() from the correct shutdown path in
-   bnx2x driver, from Yuval Mintz.
+Please apply.
 
-3) Fix qeth build on s390 for some configurations, from Eugene
-   Crosser.
+ include/net/xfrm.h    | 15 +++++++++++++++
+ net/key/af_key.c      | 20 ++++++++++++++++++++
+ net/xfrm/xfrm_state.c | 31 +++++++++++++++++++++++++++++++
+ net/xfrm/xfrm_user.c  |  6 ++++++
+ 4 files changed, 72 insertions(+)
 
-4) Cure locking bugs in bond_loadbalance_arp_mon(), from Ding
-   Tianhong.
-
-5) Must do netif_napi_add() before registering netdevice in sky2
-   driver, from Stanislaw Gruszka.
-
-6) Fix lost bug fix during merge due to code movement in ieee802154,
-   noticed and fixed by the eagle eyed Stephen Rothwell.
-
-7) Get rid of resource leak in xen-netfront driver, from Annie Li.
-
-8) Bounds checks in qlcnic driver are off by one, from Manish Chopra.
-
-9) TPROXY can leak sockets when TCP early demux is enabled, fix from
-   Holger Eitzenberger.
-
-Please pull, thanks a lot!
-
-The following changes since commit 77d143de75812596a58d126606f42d1214e09dde:
-
-  Merge branch 'for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/rw/uml (2014-01-26 11:06:16 -0800)
-
-are available in the git repository at:
-
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
-
-for you to fetch changes up to c044dc2132d19d8c643cdd340f21afcec177c046:
-
-  qeth: fix build of s390 allmodconfig (2014-01-29 00:43:33 -0800)
-
-----------------------------------------------------------------
-Alexey Khoroshilov (1):
-      RxRPC: do not unlock unheld spinlock in rxrpc_connect_exclusive()
-
-Annie Li (1):
-      xen-netfront: fix resource leak in netfront
-
-Dave Jones (2):
-      i40e: Add missing braces to i40e_dcb_need_reconfig()
-      llc: remove noisy WARN from llc_mac_hdr_init
-
-David S. Miller (4):
-      Merge branch 'bonding'
-      Merge branch 'qlcnic'
-      Merge tag 'rxrpc-20140126' of git://git.kernel.org/.../dhowells/linux-fs
-      Merge branch 'DT'
-
-Ding Tianhong (1):
-      bonding: fix locking in bond_loadbalance_arp_mon()
-
-Duan Jiong (1):
-      net: gre: use icmp_hdr() to get inner ip header
-
-Eugene Crosser (1):
-      qeth: fix build of s390 allmodconfig
-
-Florian Westphal (1):
-      net: add and use skb_gso_transport_seglen()
-
-Geert Uytterhoeven (1):
-      net/apne: Remove unused variable ei_local
-
-Haiyang Zhang (1):
-      hyperv: Add support for physically discontinuous receive buffer
-
-Hans de Goede (2):
-      net: stmmac: Silence PTP init errors on hw without PTP
-      net: stmmac: Log MAC address only once
-
-Holger Eitzenberger (1):
-      net: Fix memory leak if TPROXY used with TCP early demux
-
-Manish Chopra (1):
-      qlcnic: Correct off-by-one errors in bounds checks
-
-Martin Schwenke (1):
-      net: Document promote_secondaries
-
-Masanari Iida (1):
-      net: Fix warning on make htmldocs caused by skbuff.c
-
-Masatake YAMATO (1):
-      tun: add device name(iff) field to proc fdinfo entry
-
-Neil Horman (1):
-      AF_PACKET: Add documentation for queue mapping fanout mode
-
-Rajesh Borundia (2):
-      qlcnic: Fix initialization of vlan list.
-      qlcnic: Fix tx timeout.
-
-Sachin Kamat (1):
-      net: ipv4: Use PTR_ERR_OR_ZERO
-
-Sergei Shtylyov (2):
-      DT: net: davinci_emac: "ti, davinci-rmii-en" property is actually optional
-      DT: net: davinci_emac: "ti, davinci-no-bd-ram" property is actually optional
-
-Shahed Shaikh (1):
-      qlcnic: Fix loopback test failure
-
-Stanislaw Gruszka (1):
-      sky2: initialize napi before registering device
-
-Stephen Rothwell (1):
-      net: 6lowpan: fixup for code movement
-
-Tim Smith (2):
-      af_rxrpc: Avoid setting up double-free on checksum error
-      af_rxrpc: Handle frames delivered from another VM
-
-Veaceslav Falico (2):
-      bonding: RCUify bond_ab_arp_probe
-      bonding: restructure locking of bond_ab_arp_probe()
-
-Yaniv Rosner (1):
-      bnx2x: Fix generic option settings
-
-Yuval Mintz (1):
-      bnx2x: More Shutdown revisions
-
- Documentation/devicetree/bindings/net/davinci_emac.txt   |  4 +-
- Documentation/networking/ip-sysctl.txt                   |  6 +++
- Documentation/networking/packet_mmap.txt                 |  1 +
- drivers/hv/channel.c                                     | 14 +++---
- drivers/net/bonding/bond_main.c                          | 96 ++++++++++++++++++++++++------------------
- drivers/net/bonding/bonding.h                            | 13 ++++++
- drivers/net/ethernet/8390/apne.c                         |  1 -
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c      | 78 +++++++++++++++++-----------------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c         |  4 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c              |  3 +-
- drivers/net/ethernet/marvell/sky2.c                      |  4 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c           | 19 ++++++---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c         |  9 +---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c | 11 +++--
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c        |  6 +--
- drivers/net/hyperv/hyperv_net.h                          |  2 +-
- drivers/net/hyperv/netvsc.c                              |  7 +--
- drivers/net/tun.c                                        | 27 +++++++++++-
- drivers/net/xen-netfront.c                               | 88 ++++++++++++--------------------------
- drivers/s390/net/qeth_core.h                             |  5 +--
- drivers/s390/net/qeth_core_main.c                        | 18 +++-----
- drivers/s390/net/qeth_l2_main.c                          | 41 +++++++++++++++---
- drivers/s390/net/qeth_l3_main.c                          |  8 ++++
- include/linux/skbuff.h                                   |  1 +
- net/core/skbuff.c                                        | 27 +++++++++++-
- net/ieee802154/6lowpan_iphc.c                            |  2 +-
- net/ipv4/ip_gre.c                                        |  2 +-
- net/ipv4/ip_input.c                                      |  2 +-
- net/ipv4/ip_tunnel.c                                     |  3 +-
- net/ipv6/ip6_input.c                                     |  2 +-
- net/llc/llc_output.c                                     |  2 +-
- net/rxrpc/ar-connection.c                                |  2 +
- net/rxrpc/ar-recvmsg.c                                   |  7 ++-
- net/sched/sch_tbf.c                                      | 13 ++----
- 34 files changed, 303 insertions(+), 225 deletions(-)
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index cd7c46f..449a867 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -594,6 +594,7 @@ struct xfrm_mgr {
+ 					   const struct xfrm_migrate *m,
+ 					   int num_bundles,
+ 					   const struct xfrm_kmaddress *k);
++	bool			(*is_alive)(const struct km_event *c);
+ };
+ 
+ int xfrm_register_km(struct xfrm_mgr *km);
+@@ -1646,6 +1647,20 @@ static inline int xfrm_aevent_is_on(struct net *net)
+ 	rcu_read_unlock();
+ 	return ret;
+ }
++
++static inline int xfrm_acquire_is_on(struct net *net)
++{
++	struct sock *nlsk;
++	int ret = 0;
++
++	rcu_read_lock();
++	nlsk = rcu_dereference(net->xfrm.nlsk);
++	if (nlsk)
++		ret = netlink_has_listeners(nlsk, XFRMNLGRP_ACQUIRE);
++	rcu_read_unlock();
++
++	return ret;
++}
+ #endif
+ 
+ static inline int xfrm_alg_len(const struct xfrm_algo *alg)
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 1a04c13..12eb0ad 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -3059,6 +3059,25 @@ static u32 get_acqseq(void)
+ 	return res;
+ }
+ 
++static bool pfkey_is_alive(const struct km_event *c)
++{
++	struct netns_pfkey *net_pfkey = net_generic(c->net, pfkey_net_id);
++	struct sock *sk;
++	struct hlist_node *node;
++	bool is_alive = false;
++
++	rcu_read_lock();
++	sk_for_each_rcu(sk, node, &net_pfkey->table) {
++		if (pfkey_sk(sk)->registered) {
++			is_alive = true;
++			break;
++		}
++	}
++	rcu_read_unlock();
++
++	return is_alive;
++}
++
+ static int pfkey_send_acquire(struct xfrm_state *x, struct xfrm_tmpl *t, struct xfrm_policy *xp)
+ {
+ 	struct sk_buff *skb;
+@@ -3784,6 +3803,7 @@ static struct xfrm_mgr pfkeyv2_mgr =
+ 	.new_mapping	= pfkey_send_new_mapping,
+ 	.notify_policy	= pfkey_send_policy_notify,
+ 	.migrate	= pfkey_send_migrate,
++	.is_alive	= pfkey_is_alive,
+ };
+ 
+ static int __net_init pfkey_net_init(struct net *net)
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 8d11d28..e79f376 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -161,6 +161,7 @@ static DEFINE_SPINLOCK(xfrm_state_gc_lock);
+ int __xfrm_state_delete(struct xfrm_state *x);
+ 
+ int km_query(struct xfrm_state *x, struct xfrm_tmpl *t, struct xfrm_policy *pol);
++bool km_is_alive(const struct km_event *c);
+ void km_state_expired(struct xfrm_state *x, int hard, u32 portid);
+ 
+ static DEFINE_SPINLOCK(xfrm_type_lock);
+@@ -788,6 +789,7 @@ xfrm_state_find(const xfrm_address_t *daddr, const xfrm_address_t *saddr,
+ 	struct xfrm_state *best = NULL;
+ 	u32 mark = pol->mark.v & pol->mark.m;
+ 	unsigned short encap_family = tmpl->encap_family;
++	struct km_event c;
+ 
+ 	to_put = NULL;
+ 
+@@ -832,6 +834,17 @@ found:
+ 			error = -EEXIST;
+ 			goto out;
+ 		}
++
++		c.net = net;
++		/* If the KMs have no listeners (yet...), avoid allocating an SA
++		 * for each and every packet - garbage collection might not
++		 * handle the flood.
++		 */
++		if (!km_is_alive(&c)) {
++			error = -ESRCH;
++			goto out;
++		}
++
+ 		x = xfrm_state_alloc(net);
+ 		if (x == NULL) {
+ 			error = -ENOMEM;
+@@ -1793,6 +1806,24 @@ int km_report(struct net *net, u8 proto, struct xfrm_selector *sel, xfrm_address
+ }
+ EXPORT_SYMBOL(km_report);
+ 
++bool km_is_alive(const struct km_event *c)
++{
++	struct xfrm_mgr *km;
++	bool is_alive = false;
++
++	read_lock(&xfrm_km_lock);
++	list_for_each_entry(km, &xfrm_km_list, list) {
++		if (km->is_alive && km->is_alive(c)) {
++			is_alive = true;
++			break;
++		}
++	}
++	read_unlock(&xfrm_km_lock);
++
++	return is_alive;
++}
++EXPORT_SYMBOL(km_is_alive);
++
+ int xfrm_user_policy(struct sock *sk, int optname, u8 __user *optval, int optlen)
+ {
+ 	int err;
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 3348566..b53a489 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -2981,6 +2981,11 @@ static int xfrm_send_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr,
+ 	return nlmsg_multicast(net->xfrm.nlsk, skb, 0, XFRMNLGRP_MAPPING, GFP_ATOMIC);
+ }
+ 
++static bool xfrm_is_alive(const struct km_event *c)
++{
++	return (bool)xfrm_acquire_is_on(c->net);
++}
++
+ static struct xfrm_mgr netlink_mgr = {
+ 	.id		= "netlink",
+ 	.notify		= xfrm_send_state_notify,
+@@ -2990,6 +2995,7 @@ static struct xfrm_mgr netlink_mgr = {
+ 	.report		= xfrm_send_report,
+ 	.migrate	= xfrm_send_migrate,
+ 	.new_mapping	= xfrm_send_mapping,
++	.is_alive	= xfrm_is_alive,
+ };
+ 
+ static int __net_init xfrm_user_net_init(struct net *net)
+-- 
+1.8.3.1
