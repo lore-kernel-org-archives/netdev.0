@@ -1,44 +1,53 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 3/3] can: janz-ican3: fix uninitialized variable warnings
-Date: Wed, 29 Jan 2014 22:11:03 +0100
-Message-ID: <1391029863-23099-4-git-send-email-mkl@pengutronix.de>
-References: <1391029863-23099-1-git-send-email-mkl@pengutronix.de>
-Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de, "Ira W. Snyder" <iws@ovro.caltech.edu>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1391029863-23099-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sarah Sharp <sarah.a.sharp@linux.intel.com>
+Subject: Re: Help testing for USB ethernet/xHCI regression
+Date: Wed, 29 Jan 2014 13:18:17 -0800
+Message-ID: <20140129211817.GA5991@xanatos>
+References: <20140128203007.GA3311@xanatos>
+ <52E883FB.7010704@pobox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	David Laight <David.Laight@ACULAB.COM>
+To: Mark Lord <mlord@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:51564 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750851AbaA2VSU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Jan 2014 16:18:20 -0500
+Content-Disposition: inline
+In-Reply-To: <52E883FB.7010704@pobox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Ira W. Snyder" <iws@ovro.caltech.edu>
+On Tue, Jan 28, 2014 at 11:30:51PM -0500, Mark Lord wrote:
+> On 14-01-28 03:30 PM, Sarah Sharp wrote:
+> ..
+> > Can you please pull this branch, which contains a 3.13 kernel with
+> > David's patch reverted, and test whether your USB ethernet device works
+> > or fails?
+> 
+> Fails.  dmesg log attached.
 
-Analysis of the code shows that the struct ican3_msg variable cannot be
-used uninitialized. Error conditions are checked and the loop terminates
-before calling the ican3_handle_message() function with an uninitialized
-value.
+It's funny, because there's certainly data transferred over endpoint
+0x82, even though there were link TRBs in the middle of transfers.  Did
+the "untransferred" messages stop when the device stopped working, or
+did they continue?
 
-Signed-off-by: Ira W. Snyder <iws@ovro.caltech.edu>
-Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
----
- drivers/net/can/janz-ican3.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> All I do is something akin to this:
+> 
+>    mount /server/ /x
+>    mount --bind / /t
+>    mirrordir -v --strict-mtimes /t /x/backups/empress
+> 
+> "mirrordir" is similar to "rsync", but less cryptic.
+> The sequence above maintains a clone of the root filesystem
+> of my ultrabook ("empress") on an NFS server over GigE.
 
-diff --git a/drivers/net/can/janz-ican3.c b/drivers/net/can/janz-ican3.c
-index e24e669..07f0ba0 100644
---- a/drivers/net/can/janz-ican3.c
-+++ b/drivers/net/can/janz-ican3.c
-@@ -1322,7 +1322,7 @@ static int ican3_napi(struct napi_struct *napi, int budget)
- 
- 	/* process all communication messages */
- 	while (true) {
--		struct ican3_msg msg;
-+		struct ican3_msg uninitialized_var(msg);
- 		ret = ican3_recv_msg(mod, &msg);
- 		if (ret)
- 			break;
--- 
-1.8.5.3
+Please send me the output of `sudo lsusb -t`  and `sudo lsusb -v` with
+the USB device attached.  I'd like to know whether you and David have
+the same device and driver.  Perhaps the link TRB issue only impacts
+that device, and we can limit scatter-gather under xHCI for that device.
+If not, we'll have to look at bigger fixes.
 
+Sarah Sharp
