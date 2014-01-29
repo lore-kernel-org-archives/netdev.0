@@ -1,54 +1,36 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] DT: net: document Ethernet bindings in one place
-Date: Thu, 30 Jan 2014 02:04:26 +0300
-Message-ID: <52E988FA.8040807@cogentembedded.com>
-References: <201401180405.07859.sergei.shtylyov@cogentembedded.com> <CAL_Jsq+oa9P=rh+p-dMZyGP8TcmpX7bTnMU0ynLvFxjxFDYbRg@mail.gmail.com> <52DD98F7.4090202@cogentembedded.com> <CAL_JsqJXbF1-PcPHR2VP+Vi9A1aWizdsG_r3kDvRt3itXDhCGQ@mail.gmail.com> <CAGVrzcb3X3soJNJCE5+YSpQrr+EdycCRFkptPvBCgFg4CbGJ4Q@mail.gmail.com> <CAGVrzcb0dfw1orZzUt5-YkShOg-HNbUYvvo2vfmsZUZXy1Aqfg@mail.gmail.com> <52DEE465.9000202@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Rob Landley <rob@landley.net>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	Grant Likely <grant.likely@linaro.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	Rob Herring <robherring2@gmail.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <52DEE465.9000202@cogentembedded.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch iproute2] pedit: do not print debugging information by default
+Date: Wed, 29 Jan 2014 15:12:59 -0800
+Message-ID: <1391037179-3510-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:64359 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751312AbaA2XNN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jan 2014 18:13:13 -0500
+Received: by mail-pb0-f46.google.com with SMTP id um1so2366030pbc.19
+        for <netdev@vger.kernel.org>; Wed, 29 Jan 2014 15:13:12 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-On 01/22/2014 12:19 AM, Sergei Shtylyov wrote:
-
->>>>>     I'm afraid that's too late, it has spread very far, so that
->>>>> of_get_phy_mode() handles that property, not "phy-connection-type".
-
->>>> Uggg, I guess this is a case of a defacto standard then if the kernel
->>>> doesn't even support it.
-
->>> Maybe I forgot to CC you on patch sent to Grant only, I sent a patch a
->>> while ago for of_get_phy_mode() to look for both "phy-mode" and
->>> "phy-connection-type" since the former has been a Linux invention, but
->>> the latter is ePAPR specified.
-
->> Here is a link to the actual patch in question, not sure which tree
->> Grant applied it to though:
-
->> http://lkml.indiana.edu/hypermail/linux/kernel/1311.2/00048.html
-
->     It's not the patch mail, it's Grant's "applied" reply, patch is mangled in
-> this reply, and I couldn't follow the thread. Here's the actual patch mail:
-
-> http://marc.info/?l=devicetree&m=138449662807254
-
-    Florian, I didn't find this patch in Grant's official tree, so maybe you 
-should ask him where is the patch already?
-
-WBR, Sergei
-
+---
+diff --git a/tc/m_pedit.c b/tc/m_pedit.c
+index 452d96f..16dd277 100644
+--- a/tc/m_pedit.c
++++ b/tc/m_pedit.c
+@@ -30,7 +30,7 @@
+ #include "m_pedit.h"
+ 
+ static struct m_pedit_util *pedit_list;
+-int pedit_debug = 1;
++static int pedit_debug;
+ 
+ static void
+ explain(void)
