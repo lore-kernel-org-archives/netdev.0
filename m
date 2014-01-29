@@ -1,46 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] [BUG FIXES - 3.10.27] sit: More backports
-Date: Tue, 28 Jan 2014 23:52:14 -0800 (PST)
-Message-ID: <20140128.235214.881810600024309551.davem@davemloft.net>
-References: <20140128205756.074448668@goodmis.org>
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: Question about skb_segment()
+Date: Wed, 29 Jan 2014 09:12:57 +0100
+Message-ID: <87fvo71a0m.fsf@natisbad.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	nicolas.dichtel@6wind.com, stable@vger.kernel.org,
-	williams@redhat.com, lclaudio@uudg.org, jkacur@redhat.com
-To: rostedt@goodmis.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140128205756.074448668@goodmis.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>, Willy Tarreau <w@1wt.eu>,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2-g21.free.fr ([212.27.42.2]:57091 "EHLO smtp2-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751113AbaA2INV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Jan 2014 03:13:21 -0500
+Received: from smtp.natisbad.org (unknown [IPv6:2a01:e35:139b:9f90:221:70ff:fe55:8f78])
+	by smtp2-g21.free.fr (Postfix) with ESMTP id 50F9C4B00EC
+	for <netdev@vger.kernel.org>; Wed, 29 Jan 2014 09:13:07 +0100 (CET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Steven Rostedt <rostedt@goodmis.org>
-Date: Tue, 28 Jan 2014 15:57:56 -0500
+Hi Herbert,
 
-> At Red Hat we base our real-time kernel off of 3.10.27 and do lots of
-> stress testing on that kernel. This has discovered some bugs that we
-> can hit with the vanilla 3.10.27 kernel (no -rt patches applied).
-> 
-> I sent out a bug fix that can cause a crash with the current 3.10.27
-> when you add and then remove the sit module. That patch is obsoleted by
-> these patches, as that patch was not enough.
-> 
-> A previous patch that was backported:
-> 
->   Upstream commit 205983c43700ac3a81e7625273a3fa83cd2759b5
->   sit: allow to use rtnl ops on fb tunnel
-> 
-> Had a depenency on commit 5e6700b3bf98 ("sit: add support of x-netns")
-> which was not backported. The dependency was only on part of that
-> commit which is what I backported.
-> 
-> The other upstream commit 9434266f2c645d4fcf62a03a8e36ad8075e37943
-> sit: fix use after free of fb_tunnel_dev
-> 
-> fixes another bug we encountered, it also fixes the 3.10.27 bug
-> where removing the sit module cause the crash. This is the patch
-> that obsoletes my previous patch.
+I wonder if you could share some knowledge on the behaviour of
+skb_segment() as it is implemented in 3.13.0: when passed a GSO
+packet to be segmented, can the skb result have skb->next == NULL?
 
-Greg, these have my blessing, please apply these to 3.10 -stable,
-thanks a lot!
+One would expect the number of segments of the result to usually match
+tcp_skb_pcount() of passed packet and hence having skb->next != NULL: 
+AFAICT, this what usually happens when skb_segment() is called in
+tcp_gso_segment() but I noticed some cases where the number of segments
+(length of chained sk_buff) is lower than the expected value and also
+have two backtraces resulting from a skb delivered with a NULL skb->next. 
+
+The whole thread leading to my question is here, in case you want to
+take a look:
+
+ http://thread.gmane.org/gmane.linux.network/301587
+
+Thanks in advance,
+
+a+
