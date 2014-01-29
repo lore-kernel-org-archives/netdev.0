@@ -1,42 +1,71 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH stable 3.11+] can: use private sk reference to detect
- originating socket
-Date: Wed, 29 Jan 2014 22:25:44 +0100
-Message-ID: <52E971D8.8000701@hartkopp.net>
-References: <52E905C8.1060408@hartkopp.net>			 <1391007745.28432.36.camel@edumazet-glaptop2.roam.corp.google.com>			 <1391009406.28432.38.camel@edumazet-glaptop2.roam.corp.google.com>		 <1391010437.28432.39.camel@edumazet-glaptop2.roam.corp.google.com>		 <52E956E6.7090002@hartkopp.net>	 <1391025348.28432.63.camel@edumazet-glaptop2.roam.corp.google.com>	 <52E9675A.4070201@hartkopp.net> <52E96BDC.9070209@hartkopp.net> <1391029578.28432.64.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [Patch resend nf] ipvs: fix AF assignment in ip_vs_conn_new()
+Date: Wed, 29 Jan 2014 23:24:17 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1401292319030.1844@ja.home.ssi.bg>
+References: <20140129145437.69F56E916F@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Andre Naujoks <nautsch2@gmail.com>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1391029578.28432.64.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>
+To: Michal Kubecek <mkubecek@suse.cz>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20140129145437.69F56E916F@unicorn.suse.cz>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 29.01.2014 22:06, Eric Dumazet wrote:
-> On Wed, 2014-01-29 at 22:00 +0100, Oliver Hartkopp wrote:
->> So here we are:
->>
->> Introduced can_create_echo_skb() which creates a skb which is properly
->> owned to be send back (echo'ed) into the network stack. 
->>
->> Regards,
->> Oliver
+
+	Hello,
+
+On Wed, 29 Jan 2014, Michal Kubecek wrote:
+
+> If a fwmark is passed to ip_vs_conn_new(), it is passed in
+> vaddr, not daddr. Therefore we should set AF to AF_UNSPEC in
+> vaddr assignment (like we do in ip_vs_ct_in_get()).
 > 
-> This seems much better ;)
+> Signed-off-by: Bogdano Arendartchuk <barendartchuk@suse.com>
+> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+> ---
+> (first time it didn't reach all recipients due to a malformed header)
+> ---
+>  net/netfilter/ipvs/ip_vs_conn.c | 8 ++++----
+>  1 file changed, 4 insertions(+), 4 deletions(-)
 > 
+> diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+> index 59a1a85..282b39b 100644
+> --- a/net/netfilter/ipvs/ip_vs_conn.c
+> +++ b/net/netfilter/ipvs/ip_vs_conn.c
+> @@ -871,11 +871,11 @@ ip_vs_conn_new(const struct ip_vs_conn_param *p,
+>  	cp->protocol	   = p->protocol;
+>  	ip_vs_addr_set(p->af, &cp->caddr, p->caddr);
+>  	cp->cport	   = p->cport;
+> -	ip_vs_addr_set(p->af, &cp->vaddr, p->vaddr);
+> -	cp->vport	   = p->vport;
+> -	/* proto should only be IPPROTO_IP if d_addr is a fwmark */
+> +	/* proto should only be IPPROTO_IP if p->vaddr is a fwmark */
+>  	ip_vs_addr_set(p->protocol == IPPROTO_IP ? AF_UNSPEC : p->af,
+> -		       &cp->daddr, daddr);
+> +		       &cp->vaddr, vaddr);
 
-Great!
+	Patch does not compile due to vaddr and p->daddr
+usage but you are in the right direction. Such change should
+fix a problem where connection templates don't get full
+IPv6 address for the real server, only the first 4 bytes
+are copied and as result it works only for IPv4.
 
-I'll give it some more testing on my Laptop and will send the patch with a
-proper description tomorrow morning.
+> +	cp->vport	   = p->vport;
+> +	ip_vs_addr_set(p->af, &cp->daddr, p->daddr);
+>  	cp->dport          = dport;
+>  	cp->flags	   = flags;
+>  	cp->fwmark         = fwmark;
+> -- 
+> 1.8.1.4
 
-Thanks for your support fixing this issue!
+Regards
 
-Regards,
-Oliver
-
+--
+Julian Anastasov <ja@ssi.bg>
