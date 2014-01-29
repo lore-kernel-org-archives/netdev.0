@@ -1,89 +1,54 @@
-From: Max Filippov <jcmvbkbc@gmail.com>
-Subject: Re: [PATCH v2 2/4] net: ethoc: don't advertise gigabit speed on
- attached PHY
-Date: Wed, 29 Jan 2014 11:01:06 +0400
-Message-ID: <CAMo8BfJ_nce_H_8HJ7iw9ME=8C+sjF_Q43RaDG+1eVrpxWRvdQ@mail.gmail.com>
-References: <1390975218-13863-1-git-send-email-jcmvbkbc@gmail.com>
-	<1390975218-13863-3-git-send-email-jcmvbkbc@gmail.com>
-	<52E8A407.1020809@gmail.com>
+From: Qin Chuanyu <qinchuanyu@huawei.com>
+Subject: Re: 8% performance improved by change tap interact with kernel stack
+Date: Wed, 29 Jan 2014 15:12:49 +0800
+Message-ID: <52E8A9F1.3000700@huawei.com>
+References: <52E766D4.4070901@huawei.com> <1390920560.28432.8.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Chris Zankel <chris@zankel.net>,
-	Marc Gauthier <marc@cadence.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <ben@decadent.org.uk>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52E8A407.1020809@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <jasowang@redhat.com>, "Michael S. Tsirkin" <mst@redhat.com>,
+	"Anthony Liguori" <anthony@codemonkey.ws>,
+	KVM list <kvm@vger.kernel.org>, <netdev@vger.kernel.org>,
+	Peter Klausler <pmk@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:42638 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750805AbaA2HNt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jan 2014 02:13:49 -0500
+In-Reply-To: <1390920560.28432.8.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 29, 2014 at 10:47 AM, Florian Fainelli <f.fainelli@gmail.co=
-m> wrote:
-> Hi Max,
+On 2014/1/28 22:49, Eric Dumazet wrote:
+> On Tue, 2014-01-28 at 16:14 +0800, Qin Chuanyu wrote:
+>> according perf test result=EF=BC=8CI found that there are 5%-8% cpu =
+cost on
+>> softirq by use netif_rx_ni called in tun_get_user.
+>>
+>> so I changed the function which cause skb transmitted more quickly.
+>> from
+>> 	tun_get_user	->
+>> 		 netif_rx_ni(skb);
+>> to
+>> 	tun_get_user	->
+>> 		rcu_read_lock_bh();
+>> 		netif_receive_skb(skb);
+>> 		rcu_read_unlock_bh();
 >
-> Le 28/01/2014 22:00, Max Filippov a =C3=A9crit :
->
->> OpenCores 10/100 Mbps MAC does not support speeds above 100 Mbps, bu=
-t does
->> not disable advertisement when PHY supports them. This results in
->> non-functioning network when the MAC is connected to a gigabit PHY
->> connected
->> to a gigabit switch.
->>
->> The fix is to disable gigabit speed advertisement on attached PHY
->> unconditionally.
->>
->> Signed-off-by: Max Filippov <jcmvbkbc@gmail.com>
->> ---
->> Changes v1->v2:
->> - disable both gigabit advertisement and support.
->>
->>   drivers/net/ethernet/ethoc.c | 8 ++++++++
->>   1 file changed, 8 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/eth=
-oc.c
->> index 4de8cfd..5643b2d 100644
->> --- a/drivers/net/ethernet/ethoc.c
->> +++ b/drivers/net/ethernet/ethoc.c
->> @@ -688,6 +688,14 @@ static int ethoc_mdio_probe(struct net_device *=
-dev)
->>         }
->>
->>         priv->phy =3D phy;
->> +       phy_update_advert(phy,
->> +                         ADVERTISED_1000baseT_Full |
->> +                         ADVERTISED_1000baseT_Half, 0);
->> +       phy_start_aneg(phy);
->
->
-> This does not look necessary, you should not have to call phy_start_a=
-neg()
-> because the PHY state machine is not yet started, at best this calls =
-does
-> nothing.
+> No idea why you use rcu here ?
 
-This call actually makes the whole thing work, because otherwise once g=
-igabit
-support is cleared from the supported mask genphy_config_advert does no=
-t
-update gigabit advertisement register, leaving it enabled.
+In my first version, I forgot to add lock when called netif_receive_skb
+then I met a dad spinlock when using tcpdump.
 
->> +       phy_update_supported(phy,
->> +                            SUPPORTED_1000baseT_Full |
->> +                            SUPPORTED_1000baseT_Half, 0);
->> +
->>         return 0;
->>   }
->>
->>
->
-
---=20
-Thanks.
--- Max
+tcpdump receive skb in netif_receive_skb but also in dev_queue_xmit.
+and I have notice dev_queue_xmit add rcu_read_lock_bh before=20
+transmitting skb, and this lock avoid race between softirq and transmit=
+=20
+thread.
+	/* Disable soft irqs for various locks below. Also
+	 * stops preemption for RCU.
+	 */
+	rcu_read_lock_bh();
+Now I try to xmit skb in vhost thread, so I did the same thing.
