@@ -1,71 +1,42 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [Patch resend nf] ipvs: fix AF assignment in ip_vs_conn_new()
-Date: Wed, 29 Jan 2014 23:24:17 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1401292319030.1844@ja.home.ssi.bg>
-References: <20140129145437.69F56E916F@unicorn.suse.cz>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 0/2] DT: net: davinci_emac: couple more properties actually
+ optional
+Date: Thu, 30 Jan 2014 01:42:28 +0300
+Message-ID: <52E983D4.4070405@cogentembedded.com>
+References: <201401280245.35745.sergei.shtylyov@cogentembedded.com> <20140128.234315.2164810932256158473.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>
-To: Michal Kubecek <mkubecek@suse.cz>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20140129145437.69F56E916F@unicorn.suse.cz>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, rob@landley.net, devicetree@vger.kernel.org,
+	linux-doc@vger.kernel.org,
+	davinci-linux-open-source@linux.davincidsp.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20140128.234315.2164810932256158473.davem@davemloft.net>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hello.
 
-	Hello,
+On 01/29/2014 10:43 AM, David Miller wrote:
 
-On Wed, 29 Jan 2014, Michal Kubecek wrote:
+>>     Though described as required, couple more properties in the DaVinci EMAC
+>> binding are actually optional, as the driver will happily function without them.
+>> The patchset is against DaveM's 'net.git' tree this time.
 
-> If a fwmark is passed to ip_vs_conn_new(), it is passed in
-> vaddr, not daddr. Therefore we should set AF to AF_UNSPEC in
-> vaddr assignment (like we do in ip_vs_ct_in_get()).
-> 
-> Signed-off-by: Bogdano Arendartchuk <barendartchuk@suse.com>
-> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-> ---
-> (first time it didn't reach all recipients due to a malformed header)
-> ---
->  net/netfilter/ipvs/ip_vs_conn.c | 8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-> index 59a1a85..282b39b 100644
-> --- a/net/netfilter/ipvs/ip_vs_conn.c
-> +++ b/net/netfilter/ipvs/ip_vs_conn.c
-> @@ -871,11 +871,11 @@ ip_vs_conn_new(const struct ip_vs_conn_param *p,
->  	cp->protocol	   = p->protocol;
->  	ip_vs_addr_set(p->af, &cp->caddr, p->caddr);
->  	cp->cport	   = p->cport;
-> -	ip_vs_addr_set(p->af, &cp->vaddr, p->vaddr);
-> -	cp->vport	   = p->vport;
-> -	/* proto should only be IPPROTO_IP if d_addr is a fwmark */
-> +	/* proto should only be IPPROTO_IP if p->vaddr is a fwmark */
->  	ip_vs_addr_set(p->protocol == IPPROTO_IP ? AF_UNSPEC : p->af,
-> -		       &cp->daddr, daddr);
-> +		       &cp->vaddr, vaddr);
+>> [1/2] DT: net: davinci_emac: "ti,davinci-rmii-en" property is actually optional
+>> [2/2] DT: net: davinci_emac: "ti,davinci-no-bd-ram" property is actually optional
 
-	Patch does not compile due to vaddr and p->daddr
-usage but you are in the right direction. Such change should
-fix a problem where connection templates don't get full
-IPv6 address for the real server, only the first 4 bytes
-are copied and as result it works only for IPv4.
+> Series applied with the "has/have" thing fixed.
 
-> +	cp->vport	   = p->vport;
-> +	ip_vs_addr_set(p->af, &cp->daddr, p->daddr);
->  	cp->dport          = dport;
->  	cp->flags	   = flags;
->  	cp->fwmark         = fwmark;
-> -- 
-> 1.8.1.4
+> Thanks.
 
-Regards
+    Thank you!
+    Unfortunately, this driver presents a bad example of DT bindings overall 
+(caused in its turn by a misuse of the platform data for the EMAC type 
+differing instead of the platform device IDs).
 
---
-Julian Anastasov <ja@ssi.bg>
+WBR, Sergei
+
