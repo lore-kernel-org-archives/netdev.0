@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: llc: remove noisy WARN from llc_mac_hdr_init
-Date: Tue, 28 Jan 2014 18:01:57 -0800 (PST)
-Message-ID: <20140128.180157.1414191455730815665.davem@davemloft.net>
-References: <20140128213052.GA10689@redhat.com>
+Subject: Re: [GIT PULL] AF_RXRPC fixes
+Date: Tue, 28 Jan 2014 18:05:44 -0800 (PST)
+Message-ID: <20140128.180544.1357966891418521200.davem@davemloft.net>
+References: <8672.1390928856@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davej@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48084 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752017AbaA2CCA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jan 2014 21:02:00 -0500
-In-Reply-To: <20140128213052.GA10689@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+	tim@electronghost.co.uk, khoroshilov@ispras.ru,
+	linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8672.1390928856@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dave Jones <davej@redhat.com>
-Date: Tue, 28 Jan 2014 16:30:52 -0500
+From: David Howells <dhowells@redhat.com>
+Date: Tue, 28 Jan 2014 17:07:36 +0000
 
-> Sending malformed llc packets triggers this spew, which seems excessive.
-...
-> Until 2009, this was a printk, when it was changed in
-> bf9ae5386bc: "llc: use dev_hard_header".
+> Here are some small AF_RXRPC fixes.
 > 
-> Let userland figure out what -EINVAL means by itself.
+>  (1) Fix a place where a spinlock is taken conditionally but is released
+>      unconditionally.
 > 
-> Signed-off-by: Dave Jones <davej@fedoraproject.org>
+>  (2) Fix a double-free that happens when cleaning up on a checksum error.
+> 
+>  (3) Fix handling of CHECKSUM_PARTIAL whilst delivering messages to userspace.
 
-Applied, thanks Dave.
+Pulled, thanks David.
