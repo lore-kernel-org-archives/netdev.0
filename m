@@ -1,99 +1,103 @@
-From: Alexey Charkov <alchark-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 3/3] net: via-rhine: add OF bus binding
-Date: Wed, 29 Jan 2014 09:20:14 +0400
-Message-ID: <CABjd4Yy2pFr=qr1_e3XqupHngp_mF0GcDT0hCM46v=tNNDY1hw@mail.gmail.com>
-References: <1385227995-3956-1-git-send-email-alchark@gmail.com>
-	<1390823503-24087-1-git-send-email-alchark@gmail.com>
-	<1390823503-24087-4-git-send-email-alchark@gmail.com>
-	<CAL_JsqLi0QKeeUkGMKmYZ1ki02mzk=L1gDxTJyXFGiOe_aHiVw@mail.gmail.com>
-	<CABjd4Yxo0Pp+QtTuXhKBT9KdVhUk12x2L8+FBL_ZWmPYopG2JQ@mail.gmail.com>
-	<52E87929.30708@prisktech.co.nz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Roger Luethi <rl-7uj+XXdSDtwfv37vnLkPlQ@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Tony Prisk <linux-ci5G2KO2hbZ+pU9mqzGVBQ@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <52E87929.30708-ci5G2KO2hbZ+pU9mqzGVBQ@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Masatake YAMATO <yamato@redhat.com>
+Subject: [PATCH v2] tun: add device name(iff) field to proc fdinfo entry
+Date: Wed, 29 Jan 2014 14:33:34 +0900
+Message-ID: <1390973614-3929-1-git-send-email-yamato@redhat.com>
+References: <20140128.180819.623844973390653379.davem@davemloft.net>
+Cc: netdev@vger.kernel.org, yamato@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:57482 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750929AbaA2Fdv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Jan 2014 00:33:51 -0500
+In-Reply-To: <20140128.180819.623844973390653379.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2014/1/29 Tony Prisk <linux-ci5G2KO2hbZ+pU9mqzGVBQ@public.gmane.org>:
-> On 29/01/14 07:27, Alexey Charkov wrote:
->>
->> 2014/1/27 Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
->>>
->>> On Mon, Jan 27, 2014 at 5:51 AM, Alexey Charkov <alchark-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->>> wrote:
->>>>
->>>> This should make the driver usable with VIA/WonderMedia ARM-based
->>>> Systems-on-Chip integrated Rhine III adapters. Note that these
->>>> are always in MMIO mode, and don't have any known EEPROM.
->>>>
->>>> Signed-off-by: Alexey Charkov <alchark-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->>>> Signed-off-by: Roger Luethi <rl-7uj+XXdSDtwfv37vnLkPlQ@public.gmane.org>
->>>> ---
->>>>   .../devicetree/bindings/net/via-rhine.txt          |  18 ++
->>>>   drivers/net/ethernet/via/Kconfig                   |   2 +-
->>>>   drivers/net/ethernet/via/via-rhine.c               | 293
->>>> +++++++++++++--------
->>>>   3 files changed, 200 insertions(+), 113 deletions(-)
->>>>   create mode 100644 Documentation/devicetree/bindings/net/via-rhine.txt
->>>>
->>>> diff --git a/Documentation/devicetree/bindings/net/via-rhine.txt
->>>> b/Documentation/devicetree/bindings/net/via-rhine.txt
->>>> new file mode 100644
->>>> index 0000000..684dd3a
->>>> --- /dev/null
->>>> +++ b/Documentation/devicetree/bindings/net/via-rhine.txt
->>>> @@ -0,0 +1,18 @@
->>>> +* VIA Rhine 10/100 Network Controller
->>>> +
->>>> +Required properties:
->>>> +- compatible : Should be "via,rhine"
->>>
->>> This should be more specific rather than...
->>>
->>>> +- reg : Address and length of the io space
->>>> +- interrupts : Should contain the controller interrupt line
->>>> +- rhine,revision : Rhine core revision, used to inform the
->>>> +       driver of quirks and capabilities to expect from
->>>> +       the device. Mimics the respective PCI attribute.
->>>
->>> having this property. The OF match table can then have the quirks set
->>> based on compatible strings.
->>
->> Sounds fair. Do you think something like the following would fly?
->>
->> Required properties:
->> - compatible : Should be "via,rhine-soc-vt8500" for integrated Rhine
->> cores found in SoC's such as VIA VT8500, WonderMedia WM8950 and
->> possibly others. These are listed as 1106:3106 rev. 0x84 on the
->> virtual PCI bus under vendor-provided kernels.
->
-> Does it need a special name? I would have assumed they are using their own
-> IP for the VT6105 or VT6106S.
-> Then you can use it to add quirks later on if needed.
+A file descriptor opened for /dev/net/tun and a tun device are
+connected with ioctl.  Though understanding the connection is
+important for trouble shooting, no way is given to a user to know
+the connected device for a given file descriptor at userland.
 
-The problem is that I have no reliable source for the exact name of
-the IP block. The lookup table within the driver says that rev. 0x83
-is VT6105_B0, and rev. 0x8A is VT6105L (and it doesn't contain any
-entry for 0x84, so our case gets treated as 0x83 currently).
+This patch adds a new fdinfo field for the device name connected to
+a file descriptor opened for /dev/net/tun.
 
-If we only differentiate them by the compatible string, I would be
-reluctant to call it vt6105 or vt6106 or whatever else without knowing
-for sure. Otherwise, if at some point we need to add any quirks
-specific to rev. 0x84, we wouldn't be able to do that without
-side-effects.
+Here is an example of the field:
 
-Thoughts welcome :)
+    # lsof | grep tun
+    qemu-syst 4565         qemu   25u      CHR             10,200       0t138      12921 /dev/net/tun
+    ...
 
-Thanks,
-Alexey
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+    # cat /proc/4565/fdinfo/25
+    pos:	138
+    flags:	0104002
+    iff:	vnet0
+
+    # ip link show dev vnet0
+    8: vnet0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 ...
+
+changelog:
+
+    (v2): indent iff just like the other fdinfo fields are.
+          Suggested by David Miller <davem@davemloft.net>.
+
+Signed-off-by: Masatake YAMATO <yamato@redhat.com>
+---
+ drivers/net/tun.c | 28 +++++++++++++++++++++++++++-
+ 1 file changed, 27 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index bcf01af..8651c31 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -69,6 +69,7 @@
+ #include <net/netns/generic.h>
+ #include <net/rtnetlink.h>
+ #include <net/sock.h>
++#include <linux/seq_file.h>
+ 
+ #include <asm/uaccess.h>
+ 
+@@ -2228,6 +2229,28 @@ static int tun_chr_close(struct inode *inode, struct file *file)
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_PROC_FS
++static int tun_chr_show_fdinfo(struct seq_file *m, struct file *f)
++{
++	struct tun_struct *tun;
++	struct ifreq ifr;
++	int ret;
++
++	memset(&ifr, 0, sizeof(ifr));
++
++	rtnl_lock();
++	tun = tun_get(f);
++	if (tun)
++		tun_get_iff(current->nsproxy->net_ns, tun, &ifr);
++	rtnl_unlock();
++
++	if (tun)
++		tun_put(tun);
++
++	return seq_printf(m, "iff:\t%s\n", ifr.ifr_name);
++}
++#endif
++
+ static const struct file_operations tun_fops = {
+ 	.owner	= THIS_MODULE,
+ 	.llseek = no_llseek,
+@@ -2242,7 +2265,10 @@ static const struct file_operations tun_fops = {
+ #endif
+ 	.open	= tun_chr_open,
+ 	.release = tun_chr_close,
+-	.fasync = tun_chr_fasync
++	.fasync = tun_chr_fasync,
++#ifdef CONFIG_PROC_FS
++	.show_fdinfo = tun_chr_show_fdinfo,
++#endif
+ };
+ 
+ static struct miscdevice tun_miscdev = {
+-- 
+1.8.5.3
