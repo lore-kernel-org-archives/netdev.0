@@ -1,44 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bonding: fix locking in
- bond_loadbalance_arp_mon()
-Date: Tue, 28 Jan 2014 23:48:58 -0800 (PST)
-Message-ID: <20140128.234858.302883010176792367.davem@davemloft.net>
-References: <52E728A5.5070701@huawei.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: 8% performance improved by change tap interact with kernel stack
+Date: Wed, 29 Jan 2014 09:56:30 +0200
+Message-ID: <20140129075630.GC23228@redhat.com>
+References: <52E766D4.4070901@huawei.com>
+ <20140128083459.GB16833@redhat.com>
+ <52E77506.1080604@huawei.com>
+ <20140128094138.GA17332@redhat.com>
+ <52E78416.50000@huawei.com>
+ <20140128103325.GA17794@redhat.com>
+ <52E8B0A4.6030806@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, vfalico@redhat.com, netdev@vger.kernel.org,
-	andy@greyhouse.net
-To: dingtianhong@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49365 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750834AbaA2Hs6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jan 2014 02:48:58 -0500
-In-Reply-To: <52E728A5.5070701@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: jasowang@redhat.com, Anthony Liguori <anthony@codemonkey.ws>,
+	KVM list <kvm@vger.kernel.org>, netdev@vger.kernel.org
+To: Qin Chuanyu <qinchuanyu@huawei.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <52E8B0A4.6030806@huawei.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Tue, 28 Jan 2014 11:48:53 +0800
-
-> The commit 1d3ee88ae0d605629bf369
-> (bonding: add netlink attributes to slave link dev)
-> has add rtmsg_ifinfo() in bond_set_active_slave() and
-> bond_set_backup_slave(), so the two function need to
-> called in RTNL lock, but bond_loadbalance_arp_mon()
-> only calling these functions in RCU, warning message
-> will occurs.
+On Wed, Jan 29, 2014 at 03:41:24PM +0800, Qin Chuanyu wrote:
+> On 2014/1/28 18:33, Michael S. Tsirkin wrote:
 > 
-> fix this by add a new function bond_slave_state_change(),
-> which will reset the slave's state after slave link check,
-> so remove the bond_set_xxx_slave() from the cycle and only
-> record the slave_state_changed, this will call the new
-> function to set all slaves to new state in RTNL later.
-> 
-> Cc: Jay Vosburgh <fubar@us.ibm.com>
-> Cc: Veaceslav Falico <vfalico@redhat.com>
-> Cc: Andy Gospodarek <andy@greyhouse.net>
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> >>>Nice.
+> >>>What about CPU utilization?
+> >>>It's trivially easy to speed up networking by
+> >>>burning up a lot of CPU so we must make sure it's
+> >>>not doing that.
+> >>>And I think we should see some tests with TCP as well, and
+> >>>try several message sizes.
+> >>>
+> >>>
+> >>Yes, by burning up more CPU we could get better performance easily.
+> >>So I have bond vhost thread and interrupt of nic on CPU1 while testing.
+> >>
+> >>modified before, the idle of CPU1 is 0%-1% while testing.
+> >>and after modify, the idle of CPU1 is 2%-3% while testing
+> >>
+> >>TCP also could gain from this, but pps is less than UDP, so I think
+> >>the improvement would be not so obviously.
+> >
+> >Still need to test this doesn't regress but overall looks convincing to me.
+> >Could you send a patch, accompanied by testing results for
+> >throughput latency and cpu utilization for tcp and udp
+> >with various message sizes?
+> >
+> >Thanks!
+> >
+> because of spring festival of china, the test result would be given
+> two week later.
+> throughput would be test by netperf, and latency would be tested by
+> qperf. Is that OK?
 
-Applied, thanks.
+For testing - sounds good. Run vmstat in host to check host cpu utilization.
+Pls don't forget to address all issues raised in this thread and in
+the old one Eric mentioned:
+http://patchwork.ozlabs.org/patch/52963/
+either address in code or address in commit log why it doesn't apply
+anymore.
+
+-- 
+MST
