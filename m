@@ -1,103 +1,52 @@
-From: Masatake YAMATO <yamato@redhat.com>
-Subject: [PATCH v2] tun: add device name(iff) field to proc fdinfo entry
-Date: Wed, 29 Jan 2014 14:33:34 +0900
-Message-ID: <1390973614-3929-1-git-send-email-yamato@redhat.com>
-References: <20140128.180819.623844973390653379.davem@davemloft.net>
-Cc: netdev@vger.kernel.org, yamato@redhat.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57482 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750929AbaA2Fdv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Jan 2014 00:33:51 -0500
-In-Reply-To: <20140128.180819.623844973390653379.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Max Filippov <jcmvbkbc@gmail.com>
+Subject: [PATCH v2 0/4]
+Date: Wed, 29 Jan 2014 10:00:14 +0400
+Message-ID: <1390975218-13863-1-git-send-email-jcmvbkbc@gmail.com>
+Cc: Chris Zankel <chris@zankel.net>, Marc Gauthier <marc@cadence.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Max Filippov <jcmvbkbc@gmail.com>
+To: linux-xtensa@linux-xtensa.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-A file descriptor opened for /dev/net/tun and a tun device are
-connected with ioctl.  Though understanding the connection is
-important for trouble shooting, no way is given to a user to know
-the connected device for a given file descriptor at userland.
+Hello David, Ben, Florian, Chris and everybody,
 
-This patch adds a new fdinfo field for the device name connected to
-a file descriptor opened for /dev/net/tun.
+this series improves ethoc behavior in gigabit environment:
+- first patch introduces two phylib setters for 'advertising' and 'supported'
+  fields of struct phy_device;
+- second patch disables gigabit advertisement in the attached PHY making
+  possible to use gigabit link without any additional setup;
+- third patch adds support to set up MII management bus frequency, adding
+  new fields to platform data and to OF bindings;
+- fourth patch adds basic ethtool support to ethoc driver.
 
-Here is an example of the field:
+These changes allow to use KC-705 board with 50MHz xtensa core and OpenCores
+10/100 Mbps MAC connected to gigabit network without any additional setup.
 
-    # lsof | grep tun
-    qemu-syst 4565         qemu   25u      CHR             10,200       0t138      12921 /dev/net/tun
-    ...
+Changes v1->v2:
+- new patch "phy: provide accessors for 'advertising' and 'supported' fields";
+- disable both gigabit advertisement and support;
+- drop MDIO bus frequency configurability, always configure for standard
+  2.5MHz;
+- allow using common clock framework to provide ethoc clock;
+- new patch: "net: ethoc: implement ethtool operations";
+- drop device tree bindings documentation patch until common bindings format
+  for network drivers is decided.
 
-    # cat /proc/4565/fdinfo/25
-    pos:	138
-    flags:	0104002
-    iff:	vnet0
+Max Filippov (4):
+  phy: provide accessors for 'advertising' and 'supported' fields
+  net: ethoc: don't advertise gigabit speed on attached PHY
+  net: ethoc: set up MII management bus clock
+  net: ethoc: implement ethtool operations
 
-    # ip link show dev vnet0
-    8: vnet0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 ...
+ drivers/net/ethernet/ethoc.c | 130 ++++++++++++++++++++++++++++++++++++++++++-
+ include/linux/phy.h          |  12 ++++
+ include/net/ethoc.h          |   1 +
+ 3 files changed, 141 insertions(+), 2 deletions(-)
 
-changelog:
-
-    (v2): indent iff just like the other fdinfo fields are.
-          Suggested by David Miller <davem@davemloft.net>.
-
-Signed-off-by: Masatake YAMATO <yamato@redhat.com>
----
- drivers/net/tun.c | 28 +++++++++++++++++++++++++++-
- 1 file changed, 27 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index bcf01af..8651c31 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -69,6 +69,7 @@
- #include <net/netns/generic.h>
- #include <net/rtnetlink.h>
- #include <net/sock.h>
-+#include <linux/seq_file.h>
- 
- #include <asm/uaccess.h>
- 
-@@ -2228,6 +2229,28 @@ static int tun_chr_close(struct inode *inode, struct file *file)
- 	return 0;
- }
- 
-+#ifdef CONFIG_PROC_FS
-+static int tun_chr_show_fdinfo(struct seq_file *m, struct file *f)
-+{
-+	struct tun_struct *tun;
-+	struct ifreq ifr;
-+	int ret;
-+
-+	memset(&ifr, 0, sizeof(ifr));
-+
-+	rtnl_lock();
-+	tun = tun_get(f);
-+	if (tun)
-+		tun_get_iff(current->nsproxy->net_ns, tun, &ifr);
-+	rtnl_unlock();
-+
-+	if (tun)
-+		tun_put(tun);
-+
-+	return seq_printf(m, "iff:\t%s\n", ifr.ifr_name);
-+}
-+#endif
-+
- static const struct file_operations tun_fops = {
- 	.owner	= THIS_MODULE,
- 	.llseek = no_llseek,
-@@ -2242,7 +2265,10 @@ static const struct file_operations tun_fops = {
- #endif
- 	.open	= tun_chr_open,
- 	.release = tun_chr_close,
--	.fasync = tun_chr_fasync
-+	.fasync = tun_chr_fasync,
-+#ifdef CONFIG_PROC_FS
-+	.show_fdinfo = tun_chr_show_fdinfo,
-+#endif
- };
- 
- static struct miscdevice tun_miscdev = {
 -- 
-1.8.5.3
+1.8.1.4
