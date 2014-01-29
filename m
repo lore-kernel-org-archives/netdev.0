@@ -1,66 +1,71 @@
-From: Max Filippov <jcmvbkbc@gmail.com>
-Subject: Re: [PATCH v2 0/4] OpenCores 10/100 MAC fixes for gigabit environment
-Date: Wed, 29 Jan 2014 10:17:46 +0400
-Message-ID: <CAMo8BfKwxKZDfwDcezyfAX73UTiSw7Q_u5Ki=0WNXSYRYF5z0Q@mail.gmail.com>
+From: Sohny Thomas <sthomas@linux.vnet.ibm.com>
+Subject: [PATCH] ipv6: default route for link local address is not added while
+ assigning a address
+Date: Wed, 29 Jan 2014 12:11:46 +0530
+Message-ID: <52E8A2AA.3090507@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Chris Zankel <chris@zankel.net>, Marc Gauthier <marc@cadence.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Max Filippov <jcmvbkbc@gmail.com>
-To: "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f171.google.com ([209.85.214.171]:59517 "EHLO
-	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750810AbaA2GRr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jan 2014 01:17:47 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
+	yoshfuji@linux-ipv6.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	davem@davemloft.net, kumuda <kumuda@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fixed the subject.
+Resending this on netdev mailing list:
+Default route for link local address is configured automatically if 
+NETWORKING_IPV6=yes is in ifcfg-eth*.
+When the route table for the interface is flushed and a new address is 
+added to the same device with out removing linklocal addr, default route 
+for link local address has to added by default.
 
-On Wed, Jan 29, 2014 at 10:00 AM, Max Filippov <jcmvbkbc@gmail.com> wrote:
-> Hello David, Ben, Florian, Chris and everybody,
->
-> this series improves ethoc behavior in gigabit environment:
-> - first patch introduces two phylib setters for 'advertising' and 'supported'
->   fields of struct phy_device;
-> - second patch disables gigabit advertisement in the attached PHY making
->   possible to use gigabit link without any additional setup;
-> - third patch adds support to set up MII management bus frequency, adding
->   new fields to platform data and to OF bindings;
-> - fourth patch adds basic ethtool support to ethoc driver.
->
-> These changes allow to use KC-705 board with 50MHz xtensa core and OpenCores
-> 10/100 Mbps MAC connected to gigabit network without any additional setup.
->
-> Changes v1->v2:
-> - new patch "phy: provide accessors for 'advertising' and 'supported' fields";
-> - disable both gigabit advertisement and support;
-> - drop MDIO bus frequency configurability, always configure for standard
->   2.5MHz;
-> - allow using common clock framework to provide ethoc clock;
-> - new patch: "net: ethoc: implement ethtool operations";
-> - drop device tree bindings documentation patch until common bindings format
->   for network drivers is decided.
->
-> Max Filippov (4):
->   phy: provide accessors for 'advertising' and 'supported' fields
->   net: ethoc: don't advertise gigabit speed on attached PHY
->   net: ethoc: set up MII management bus clock
->   net: ethoc: implement ethtool operations
->
->  drivers/net/ethernet/ethoc.c | 130 ++++++++++++++++++++++++++++++++++++++++++-
->  include/linux/phy.h          |  12 ++++
->  include/net/ethoc.h          |   1 +
->  3 files changed, 141 insertions(+), 2 deletions(-)
->
-> --
-> 1.8.1.4
+I have found the issue to be caused by this checkin
 
--- 
-Thanks.
--- Max
+http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/net/ipv6?id=62b54dd91567686a1cb118f76a72d5f4764a86dd
+
+According to this change :
+He removes adding a link local route if any other address is added , 
+applicable across all interfaces though there's mentioned only lo interface
+So below patch fixes for other devices
+
+Signed-off-by: Sohny THomas <sohthoma@linux.vnet.ibm.com>
+
+-----
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index f62c72b..a8a4df9 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1763,6 +1763,16 @@ static int addrconf_ifid_infiniband(u8 *eui, 
+struct net_device *dev)
+         return 0;
+  }
+
++static void addrconf_add_lroute(struct net_device *dev)
++{
++       struct in6_addr addr;
++
++       ipv6_addr_set(&addr,  htonl(0xFE800000), 0, 0, 0);
++       addrconf_prefix_route(&addr, 64, dev, 0, 0);
++}
++
++
++
+  static int __ipv6_isatap_ifid(u8 *eui, __be32 addr)
+  {
+         if (addr == 0)
+@@ -2010,8 +2020,10 @@ static struct inet6_dev *addrconf_add_dev(struct 
+net_device *dev)
+                 return ERR_PTR(-EACCES);
+
+         /* Add default multicast route */
+-       if (!(dev->flags & IFF_LOOPBACK))
++       if (!(dev->flags & IFF_LOOPBACK)){
+                 addrconf_add_mroute(dev);
++               addrconf_add_lroute(dev);
++       }
+
+         return idev;
+  }
