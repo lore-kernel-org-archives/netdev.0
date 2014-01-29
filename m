@@ -1,43 +1,75 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 2/2] net: ip, ipv6: handle gso skbs in forwarding path
-Date: Wed, 29 Jan 2014 12:04:01 +0100
-Message-ID: <20140129110401.GA25336@order.stressinduktion.org>
-References: <1390810971-23959-1-git-send-email-fw@strlen.de> <1390810971-23959-2-git-send-email-fw@strlen.de> <1390846967.27806.75.camel@edumazet-glaptop2.roam.corp.google.com> <20140128002707.GA12308@order.stressinduktion.org> <20140129105347.GF30123@breakpoint.cc>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH 0/2] [BUG FIXES - 3.10.27] sit: More backports
+Date: Wed, 29 Jan 2014 12:04:05 +0100
+Message-ID: <52E8E025.2060803@6wind.com>
+References: <20140128205756.074448668@goodmis.org>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:44114 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750942AbaA2LED (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jan 2014 06:04:03 -0500
-Content-Disposition: inline
-In-Reply-To: <20140129105347.GF30123@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: stable <stable@vger.kernel.org>,
+	Clark Williams <williams@redhat.com>,
+	"Luis Claudio R. Goncalves" <lclaudio@uudg.org>,
+	John Kacur <jkacur@redhat.com>
+To: Steven Rostedt <rostedt@goodmis.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20140128205756.074448668@goodmis.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 29, 2014 at 11:53:47AM +0100, Florian Westphal wrote:
-> Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> > > TCP stream not using DF flag are very unlikely to care if we adjust
-> > > their MTU (lowering gso_size) at this point ?
-> > 
-> > UDP shouldn't be a problem, too.
-> 
-> Sorry for late reply, but how can this be safe for UDP?
-> We should make sure that peer sees original, unchanged datagram?
+Le 28/01/2014 21:57, Steven Rostedt a =C3=A9crit :
+> At Red Hat we base our real-time kernel off of 3.10.27 and do lots of
+> stress testing on that kernel. This has discovered some bugs that we
+> can hit with the vanilla 3.10.27 kernel (no -rt patches applied).
+>
+> I sent out a bug fix that can cause a crash with the current 3.10.27
+> when you add and then remove the sit module. That patch is obsoleted =
+by
+> these patches, as that patch was not enough.
+Can you explain a bit more which problem remains after that patch?
+I wonder if a problem remains also with ip6_tunnel.ko (net/ipv6/ip6_tun=
+nel.c),
+the same problem was spotted into this module.
 
-Peer as in original destination? Of course, we must not alter the datagram but
-can only do fragmentation or send back frag_needed.
+>
+> A previous patch that was backported:
+>
+>    Upstream commit 205983c43700ac3a81e7625273a3fa83cd2759b5
+>    sit: allow to use rtnl ops on fb tunnel
+>
+> Had a depenency on commit 5e6700b3bf98 ("sit: add support of x-netns"=
+)
+> which was not backported. The dependency was only on part of that
+> commit which is what I backported.
+I cannot comment directly the patch, it was an attachement, hence I put=
+ my
+comments here.
+In patch 0001-sit-Unregister-sit-devices-with-rtnl_link_ops.patch, I wo=
+nder how
+'if (dev_net(t->dev) !=3D net)' can be wrong. If commit 5e6700b3bf98 ("=
+sit: add
+support of x-netns") has not been backported, this test is always true.
 
-> And only solution for UDP that I can see is to do sw segmentation (i.e.
-> create ip fragments).
-
-Hardware(-UFO) would do fragmentation in hardware, too, because there is
-no other way to split UDP data in any other way. If UFO is not supported
-manual sw segmentation would create the required fragments in output
-path, too.
-
-Greetings,
-
-  Hannes
+>
+> The other upstream commit 9434266f2c645d4fcf62a03a8e36ad8075e37943
+> sit: fix use after free of fb_tunnel_dev
+>
+> fixes another bug we encountered, it also fixes the 3.10.27 bug
+> where removing the sit module cause the crash. This is the patch
+> that obsoletes my previous patch.
+>
+> -- Steve
+>
+>
+> Steven Rostedt (Red Hat) (1):
+>        sit: Unregister sit devices with rtnl_link_ops
+>
+> Willem de Bruijn (1):
+>        sit: fix use after free of fb_tunnel_dev
+>
+> ----
+>   net/ipv6/sit.c | 30 +++++++++++++++++++++++++-----
+>   1 file changed, 25 insertions(+), 5 deletions(-)
+>
