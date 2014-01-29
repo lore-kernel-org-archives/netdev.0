@@ -1,57 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH stable 3.11+] can: bcm: add skb destructor
-Date: Wed, 29 Jan 2014 06:53:45 -0800
-Message-ID: <1391007225.28432.29.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <52E833ED.4080006@hartkopp.net>
-		<1390953066.28432.26.camel@edumazet-glaptop2.roam.corp.google.com>
-		<52E8B053.2030808@gmail.com>
-	 <20140128.234630.1768378245126172951.davem@davemloft.net>
-	 <52E8C03A.4030906@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, socketcan@hartkopp.net,
-	netdev@vger.kernel.org
-To: Andre Naujoks <nautsch2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f53.google.com ([209.85.160.53]:34680 "EHLO
-	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751149AbaA2Oxq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jan 2014 09:53:46 -0500
-Received: by mail-pb0-f53.google.com with SMTP id md12so1833727pbc.40
-        for <netdev@vger.kernel.org>; Wed, 29 Jan 2014 06:53:46 -0800 (PST)
-In-Reply-To: <52E8C03A.4030906@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [Patch resend nf] ipvs: fix AF assignment in ip_vs_conn_new()
+Date: Wed, 29 Jan 2014 15:54:37 +0100 (CET)
+Message-ID: <20140129145437.69F56E916F@unicorn.suse.cz>
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Julian Anastasov <ja@ssi.bg>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>
+To: netfilter-devel@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-01-29 at 09:47 +0100, Andre Naujoks wrote:
-> On 29.01.2014 08:46, schrieb David Miller:
-> > From: Andre Naujoks <nautsch2@gmail.com>
-> > Date: Wed, 29 Jan 2014 08:40:03 +0100
-> > 
-> >> Even if this is a bug in the CAN BCM implementation. Your "fix" just
-> >> enabled a user space application to shut down any machine with a kernel
-> >> containing the BUG_ON patch.
-> > 
-> > Rather, he detected a potential stray pointer reference to freed data
-> > that was caused by the CAN code which would difficult if not
-> > impossible to detect otherwise.
-> > 
-> > That's even more dangerous, and you should be thanking him.
-> 
-> "potential" is the keyword here. But its a definite kernel crash as it
-> is right now with a standard use case for the BCM.
-> 
-> Don't get me wrong. If there are bugs in the code, they should be fixed,
-> but I don't think breaking a working (even if flawed) part of the kernel
-> is the right thing to do here.
+If a fwmark is passed to ip_vs_conn_new(), it is passed in
+vaddr, not daddr. Therefore we should set AF to AF_UNSPEC in
+vaddr assignment (like we do in ip_vs_ct_in_get()).
 
-Shall I remember you this patch was suggested by David Miller, our
-beloved network maintainer ?
+Signed-off-by: Bogdano Arendartchuk <barendartchuk@suse.com>
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+---
+(first time it didn't reach all recipients due to a malformed header)
+---
+ net/netfilter/ipvs/ip_vs_conn.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-Really this is quite silly, I'll tell you.
+diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+index 59a1a85..282b39b 100644
+--- a/net/netfilter/ipvs/ip_vs_conn.c
++++ b/net/netfilter/ipvs/ip_vs_conn.c
+@@ -871,11 +871,11 @@ ip_vs_conn_new(const struct ip_vs_conn_param *p,
+ 	cp->protocol	   = p->protocol;
+ 	ip_vs_addr_set(p->af, &cp->caddr, p->caddr);
+ 	cp->cport	   = p->cport;
+-	ip_vs_addr_set(p->af, &cp->vaddr, p->vaddr);
+-	cp->vport	   = p->vport;
+-	/* proto should only be IPPROTO_IP if d_addr is a fwmark */
++	/* proto should only be IPPROTO_IP if p->vaddr is a fwmark */
+ 	ip_vs_addr_set(p->protocol == IPPROTO_IP ? AF_UNSPEC : p->af,
+-		       &cp->daddr, daddr);
++		       &cp->vaddr, vaddr);
++	cp->vport	   = p->vport;
++	ip_vs_addr_set(p->af, &cp->daddr, p->daddr);
+ 	cp->dport          = dport;
+ 	cp->flags	   = flags;
+ 	cp->fwmark         = fwmark;
+-- 
+1.8.1.4
 
-I can send a patch to mark CAN as BROKEN if you want, or you can send an
-appropriate patch.
-
-Your resistance is futile.
