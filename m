@@ -1,51 +1,99 @@
-From: Mark Lord <mlord@pobox.com>
-Subject: Re: Help testing for USB ethernet/xHCI regression
-Date: Tue, 28 Jan 2014 23:54:26 -0500
-Message-ID: <52E88982.9070902@pobox.com>
-References: <20140128203007.GA3311@xanatos> <52E883FB.7010704@pobox.com>
+From: Alexey Charkov <alchark-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 3/3] net: via-rhine: add OF bus binding
+Date: Wed, 29 Jan 2014 09:20:14 +0400
+Message-ID: <CABjd4Yy2pFr=qr1_e3XqupHngp_mF0GcDT0hCM46v=tNNDY1hw@mail.gmail.com>
+References: <1385227995-3956-1-git-send-email-alchark@gmail.com>
+	<1390823503-24087-1-git-send-email-alchark@gmail.com>
+	<1390823503-24087-4-git-send-email-alchark@gmail.com>
+	<CAL_JsqLi0QKeeUkGMKmYZ1ki02mzk=L1gDxTJyXFGiOe_aHiVw@mail.gmail.com>
+	<CABjd4Yxo0Pp+QtTuXhKBT9KdVhUk12x2L8+FBL_ZWmPYopG2JQ@mail.gmail.com>
+	<52E87929.30708@prisktech.co.nz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	David Laight <David.Laight@ACULAB.COM>
-To: Sarah Sharp <sarah.a.sharp@linux.intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a-pb-sasl-quonix.pobox.com ([208.72.237.25]:39318 "EHLO
-	sasl.smtp.pobox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751631AbaA2Ey2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jan 2014 23:54:28 -0500
-In-Reply-To: <52E883FB.7010704@pobox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Roger Luethi <rl-7uj+XXdSDtwfv37vnLkPlQ@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Tony Prisk <linux-ci5G2KO2hbZ+pU9mqzGVBQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <52E87929.30708-ci5G2KO2hbZ+pU9mqzGVBQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 14-01-28 11:30 PM, Mark Lord wrote:
-> On 14-01-28 03:30 PM, Sarah Sharp wrote:
-> ..
->> Can you please pull this branch, which contains a 3.13 kernel with
->> David's patch reverted, and test whether your USB ethernet device works
->> or fails?
-> 
-> Fails.  dmesg log attached.
-> All I do is something akin to this:
-> 
->    mount /server/ /x
->    mount --bind / /t
->    mirrordir -v --strict-mtimes /t /x/backups/empress
-> 
-> "mirrordir" is similar to "rsync", but less cryptic.
-> The sequence above maintains a clone of the root filesystem
-> of my ultrabook ("empress") on an NFS server over GigE.
-> 
->> Also, please double check to see if vanilla 3.13 works or fails.
-> 
-> Okay, will try that before bed.
+2014/1/29 Tony Prisk <linux-ci5G2KO2hbZ+pU9mqzGVBQ@public.gmane.org>:
+> On 29/01/14 07:27, Alexey Charkov wrote:
+>>
+>> 2014/1/27 Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
+>>>
+>>> On Mon, Jan 27, 2014 at 5:51 AM, Alexey Charkov <alchark-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>>> wrote:
+>>>>
+>>>> This should make the driver usable with VIA/WonderMedia ARM-based
+>>>> Systems-on-Chip integrated Rhine III adapters. Note that these
+>>>> are always in MMIO mode, and don't have any known EEPROM.
+>>>>
+>>>> Signed-off-by: Alexey Charkov <alchark-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>>>> Signed-off-by: Roger Luethi <rl-7uj+XXdSDtwfv37vnLkPlQ@public.gmane.org>
+>>>> ---
+>>>>   .../devicetree/bindings/net/via-rhine.txt          |  18 ++
+>>>>   drivers/net/ethernet/via/Kconfig                   |   2 +-
+>>>>   drivers/net/ethernet/via/via-rhine.c               | 293
+>>>> +++++++++++++--------
+>>>>   3 files changed, 200 insertions(+), 113 deletions(-)
+>>>>   create mode 100644 Documentation/devicetree/bindings/net/via-rhine.txt
+>>>>
+>>>> diff --git a/Documentation/devicetree/bindings/net/via-rhine.txt
+>>>> b/Documentation/devicetree/bindings/net/via-rhine.txt
+>>>> new file mode 100644
+>>>> index 0000000..684dd3a
+>>>> --- /dev/null
+>>>> +++ b/Documentation/devicetree/bindings/net/via-rhine.txt
+>>>> @@ -0,0 +1,18 @@
+>>>> +* VIA Rhine 10/100 Network Controller
+>>>> +
+>>>> +Required properties:
+>>>> +- compatible : Should be "via,rhine"
+>>>
+>>> This should be more specific rather than...
+>>>
+>>>> +- reg : Address and length of the io space
+>>>> +- interrupts : Should contain the controller interrupt line
+>>>> +- rhine,revision : Rhine core revision, used to inform the
+>>>> +       driver of quirks and capabilities to expect from
+>>>> +       the device. Mimics the respective PCI attribute.
+>>>
+>>> having this property. The OF match table can then have the quirks set
+>>> based on compatible strings.
+>>
+>> Sounds fair. Do you think something like the following would fly?
+>>
+>> Required properties:
+>> - compatible : Should be "via,rhine-soc-vt8500" for integrated Rhine
+>> cores found in SoC's such as VIA VT8500, WonderMedia WM8950 and
+>> possibly others. These are listed as 1106:3106 rev. 0x84 on the
+>> virtual PCI bus under vendor-provided kernels.
+>
+> Does it need a special name? I would have assumed they are using their own
+> IP for the VT6105 or VT6106S.
+> Then you can use it to add quirks later on if needed.
 
-Vanilla 3.13 does not appear to have the USB3 ethernet lockup issue,
-and even USB3 hot-plug appears to be working again (was not working in 3.13-rc4).
+The problem is that I have no reliable source for the exact name of
+the IP block. The lookup table within the driver says that rev. 0x83
+is VT6105_B0, and rev. 0x8A is VT6105L (and it doesn't contain any
+entry for 0x84, so our case gets treated as 0x83 currently).
 
-Cheers
--- 
-Mark Lord
-Real-Time Remedies Inc.
-mlord@pobox.com
+If we only differentiate them by the compatible string, I would be
+reluctant to call it vt6105 or vt6106 or whatever else without knowing
+for sure. Otherwise, if at some point we need to add any quirks
+specific to rev. 0x84, we wouldn't be able to do that without
+side-effects.
+
+Thoughts welcome :)
+
+Thanks,
+Alexey
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
