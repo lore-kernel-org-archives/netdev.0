@@ -1,8 +1,8 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2 4/4] net: ethoc: implement ethtool operations
-Date: Tue, 28 Jan 2014 22:52:56 -0800
-Message-ID: <52E8A548.5030806@gmail.com>
-References: <1390975218-13863-1-git-send-email-jcmvbkbc@gmail.com> <1390975218-13863-5-git-send-email-jcmvbkbc@gmail.com>
+Subject: Re: [PATCH v2 3/4] net: ethoc: set up MII management bus clock
+Date: Tue, 28 Jan 2014 23:01:35 -0800
+Message-ID: <52E8A74F.9060603@gmail.com>
+References: <1390975218-13863-1-git-send-email-jcmvbkbc@gmail.com> <1390975218-13863-4-git-send-email-jcmvbkbc@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1;
 	format=flowed
@@ -13,169 +13,162 @@ Cc: Chris Zankel <chris@zankel.net>, Marc Gauthier <marc@cadence.com>,
 To: Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1390975218-13863-5-git-send-email-jcmvbkbc@gmail.com>
+In-Reply-To: <1390975218-13863-4-git-send-email-jcmvbkbc@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Le 28/01/2014 22:00, Max Filippov a =E9crit :
-> The following methods are implemented:
-> - get/set settings;
-> - get registers length/registers;
-> - get link state (standard implementation);
-> - get/set ring parameters;
-> - get timestamping info (standard implementation).
-
-Ideally you should have one patch per ethtool callback that you=20
-implement just in case something happens to break, only the specific=20
-patch can reverted/referenced.
-
+> MII management bus clock is derived from the MAC clock by dividing it=
+ by
+> MIIMODER register CLKDIV field value. This value may need to be set u=
+p
+> in case it is undefined or its default value is too high (and
+> communication with PHY is too slow) or too low (and communication wit=
+h
+> PHY is impossible). The value of CLKDIV is not specified directly, bu=
+t
+> is derived from the MAC clock for the default MII management bus freq=
+uency
+> of 2.5MHz. The MAC clock may be specified in the platform data, or as
+> either 'clock-frequency' or 'clocks' device tree attribute.
 >
 > Signed-off-by: Max Filippov <jcmvbkbc@gmail.com>
 > ---
 > Changes v1->v2:
-> - new patch.
+> - drop MDIO bus frequency configurability, always configure for stand=
+ard
+>    2.5MHz;
+> - allow using common clock framework to provide ethoc clock.
 >
->   drivers/net/ethernet/ethoc.c | 85 +++++++++++++++++++++++++++++++++=
-+++++++++++
->   1 file changed, 85 insertions(+)
+>   drivers/net/ethernet/ethoc.c | 37 +++++++++++++++++++++++++++++++++=
+++--
+>   include/net/ethoc.h          |  1 +
+>   2 files changed, 36 insertions(+), 2 deletions(-)
 >
 > diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/etho=
 c.c
-> index 5854d41..2f8b174 100644
+> index 5643b2d..5854d41 100644
 > --- a/drivers/net/ethernet/ethoc.c
 > +++ b/drivers/net/ethernet/ethoc.c
-> @@ -52,6 +52,7 @@ MODULE_PARM_DESC(buffer_size, "DMA buffer allocatio=
-n size");
->   #define	ETH_HASH0	0x48
->   #define	ETH_HASH1	0x4c
->   #define	ETH_TXCTRL	0x50
-> +#define	ETH_END		0x54
+> @@ -13,6 +13,7 @@
 >
->   /* mode register */
->   #define	MODER_RXEN	(1 <<  0) /* receive enable */
-> @@ -180,6 +181,7 @@ MODULE_PARM_DESC(buffer_size, "DMA buffer allocat=
-ion size");
->    * @membase:	pointer to buffer memory region
->    * @dma_alloc:	dma allocated buffer size
->    * @io_region_size:	I/O memory region size
-> + * @num_bd:	number of buffer descriptors
->    * @num_tx:	number of send buffers
->    * @cur_tx:	last send buffer written
->    * @dty_tx:	last buffer actually sent
-> @@ -200,6 +202,7 @@ struct ethoc {
->   	int dma_alloc;
->   	resource_size_t io_region_size;
+>   #include <linux/dma-mapping.h>
+>   #include <linux/etherdevice.h>
+> +#include <linux/clk.h>
+>   #include <linux/crc32.h>
+>   #include <linux/interrupt.h>
+>   #include <linux/io.h>
+> @@ -216,6 +217,7 @@ struct ethoc {
 >
-> +	unsigned int num_bd;
->   	unsigned int num_tx;
->   	unsigned int cur_tx;
->   	unsigned int dty_tx;
-> @@ -900,6 +903,86 @@ out:
->   	return NETDEV_TX_OK;
->   }
+>   	struct phy_device *phy;
+>   	struct mii_bus *mdio;
+> +	struct clk *clk;
+>   	s8 phy_id;
+>   };
 >
-> +static int ethoc_get_settings(struct net_device *dev, struct ethtool=
-_cmd *cmd)
-> +{
-> +	struct ethoc *priv =3D netdev_priv(dev);
-> +	struct phy_device *phydev =3D priv->phy;
-> +
-> +	if (!phydev)
-> +		return -ENODEV;
-> +
-> +	return phy_ethtool_gset(phydev, cmd);
-> +}
-> +
-> +static int ethoc_set_settings(struct net_device *dev, struct ethtool=
-_cmd *cmd)
-> +{
-> +	struct ethoc *priv =3D netdev_priv(dev);
-> +	struct phy_device *phydev =3D priv->phy;
-> +
-> +	if (!phydev)
-> +		return -ENODEV;
-> +
-> +	return phy_ethtool_sset(phydev, cmd);
-> +}
-> +
-> +static int ethoc_get_regs_len(struct net_device *netdev)
-> +{
-> +	return ETH_END;
-> +}
-> +
-> +static void ethoc_get_regs(struct net_device *dev, struct ethtool_re=
-gs *regs,
-> +			   void *p)
-> +{
-> +	struct ethoc *priv =3D netdev_priv(dev);
-> +	u32 *regs_buff =3D p;
-> +	unsigned i;
-> +
-> +	regs->version =3D 0;
-> +	for (i =3D 0; i < ETH_END / sizeof(u32); ++i)
-> +		regs_buff[i] =3D ethoc_read(priv, i * sizeof(u32));
-> +}
-> +
-> +static void ethoc_get_ringparam(struct net_device *dev,
-> +				struct ethtool_ringparam *ring)
-> +{
-> +	struct ethoc *priv =3D netdev_priv(dev);
-> +
-> +	ring->rx_max_pending =3D priv->num_bd;
-> +	ring->rx_mini_max_pending =3D 0;
-> +	ring->rx_jumbo_max_pending =3D 0;
-> +	ring->tx_max_pending =3D priv->num_bd;
-> +
-> +	ring->rx_pending =3D priv->num_rx;
-> +	ring->rx_mini_pending =3D 0;
-> +	ring->rx_jumbo_pending =3D 0;
-> +	ring->tx_pending =3D priv->num_tx;
-> +}
-> +
-> +static int ethoc_set_ringparam(struct net_device *dev,
-> +			       struct ethtool_ringparam *ring)
-> +{
-> +	struct ethoc *priv =3D netdev_priv(dev);
-> +
-> +	if (netif_running(dev))
-> +		return -EBUSY;
-> +	priv->num_tx =3D rounddown_pow_of_two(ring->tx_pending);
-> +	priv->num_rx =3D priv->num_bd - priv->num_tx;
-> +	if (priv->num_rx > ring->rx_pending)
-> +		priv->num_rx =3D ring->rx_pending;
-> +	return 0;
-> +}
-> +
-> +const struct ethtool_ops ethoc_ethtool_ops =3D {
-> +	.get_settings =3D ethoc_get_settings,
-> +	.set_settings =3D ethoc_set_settings,
-> +	.get_regs_len =3D ethoc_get_regs_len,
-> +	.get_regs =3D ethoc_get_regs,
-> +	.get_link =3D ethtool_op_get_link,
-> +	.get_ringparam =3D ethoc_get_ringparam,
-> +	.set_ringparam =3D ethoc_set_ringparam,
-> +	.get_ts_info =3D ethtool_op_get_ts_info,
-> +};
-> +
->   static const struct net_device_ops ethoc_netdev_ops =3D {
->   	.ndo_open =3D ethoc_open,
->   	.ndo_stop =3D ethoc_stop,
-> @@ -1028,6 +1111,7 @@ static int ethoc_probe(struct platform_device *=
+> @@ -925,6 +927,8 @@ static int ethoc_probe(struct platform_device *pd=
+ev)
+>   	int num_bd;
+>   	int ret =3D 0;
+>   	bool random_mac =3D false;
+> +	u32 eth_clkfreq =3D 0;
+> +	struct ethoc_platform_data *pdata =3D dev_get_platdata(&pdev->dev);
+>
+>   	/* allocate networking device */
+>   	netdev =3D alloc_etherdev(sizeof(struct ethoc));
+> @@ -1038,8 +1042,7 @@ static int ethoc_probe(struct platform_device *=
 pdev)
->   		ret =3D -ENODEV;
->   		goto error;
 >   	}
-> +	priv->num_bd =3D num_bd;
->   	/* num_tx must be a power of two */
->   	priv->num_tx =3D rounddown_pow_of_two(num_bd >> 1);
->   	priv->num_rx =3D num_bd - priv->num_tx;
-> @@ -1148,6 +1232,7 @@ static int ethoc_probe(struct platform_device *=
-pdev)
->   	netdev->netdev_ops =3D &ethoc_netdev_ops;
->   	netdev->watchdog_timeo =3D ETHOC_TIMEOUT;
->   	netdev->features |=3D 0;
-> +	netdev->ethtool_ops =3D &ethoc_ethtool_ops;
 >
->   	/* setup NAPI */
->   	netif_napi_add(netdev, &priv->napi, ethoc_poll, 64);
+>   	/* Allow the platform setup code to pass in a MAC address. */
+> -	if (dev_get_platdata(&pdev->dev)) {
+> -		struct ethoc_platform_data *pdata =3D dev_get_platdata(&pdev->dev)=
+;
+> +	if (pdata) {
+>   		memcpy(netdev->dev_addr, pdata->hwaddr, IFHWADDRLEN);
+>   		priv->phy_id =3D pdata->phy_id;
+>   	} else {
+> @@ -1077,6 +1080,32 @@ static int ethoc_probe(struct platform_device =
+*pdev)
+>   	if (random_mac)
+>   		netdev->addr_assign_type =3D NET_ADDR_RANDOM;
+>
+> +	/* Allow the platform setup code to adjust MII management bus clock=
+=2E */
+> +	if (pdata)
+> +		eth_clkfreq =3D pdata->eth_clkfreq;
+
+Since this is a new member, why not make it a struct clk pointer=20
+directly so you could simplify the code path?
+
+> +	else
+> +		of_property_read_u32(pdev->dev.of_node,
+> +				     "clock-frequency", &eth_clkfreq);
+> +	if (!eth_clkfreq) {
+> +		struct clk *clk =3D clk_get(&pdev->dev, NULL);
+> +
+> +		if (!IS_ERR(clk)) {
+> +			priv->clk =3D clk;
+> +			clk_prepare_enable(clk);
+> +			eth_clkfreq =3D clk_get_rate(clk);
+> +		}
+> +	}
+> +	if (eth_clkfreq) {
+> +		u32 clkdiv =3D MIIMODER_CLKDIV(eth_clkfreq / 2500000 + 1);
+> +
+> +		if (!clkdiv)
+> +			clkdiv =3D 2;
+> +		dev_dbg(&pdev->dev, "setting MII clkdiv to %u\n", clkdiv);
+> +		ethoc_write(priv, MIIMODER,
+> +			    (ethoc_read(priv, MIIMODER) & MIIMODER_NOPRE) |
+> +			    clkdiv);
+> +	}
+
+This does look a bit convoluted, and it looks like the clk_get() or=20
+getting the clock-frequency property should boil down to being the same=
+=20
+thing with of_clk_get() as it should resolve all clocks phandles and=20
+fetch their frequencies appropriately.
+
+> +
+>   	/* register MII bus */
+>   	priv->mdio =3D mdiobus_alloc();
+>   	if (!priv->mdio) {
+> @@ -1141,6 +1170,8 @@ free_mdio:
+>   	kfree(priv->mdio->irq);
+>   	mdiobus_free(priv->mdio);
+>   free:
+> +	if (priv->clk)
+> +		clk_disable_unprepare(priv->clk);
+
+This should probbaly be if (!IS_ERR(priv-clk)).
+
+>   	free_netdev(netdev);
+>   out:
+>   	return ret;
+> @@ -1165,6 +1196,8 @@ static int ethoc_remove(struct platform_device =
+*pdev)
+>   			kfree(priv->mdio->irq);
+>   			mdiobus_free(priv->mdio);
+>   		}
+> +		if (priv->clk)
+> +			clk_disable_unprepare(priv->clk);
+
+Same here
+
+>   		unregister_netdev(netdev);
+>   		free_netdev(netdev);
+>   	}
+> diff --git a/include/net/ethoc.h b/include/net/ethoc.h
+> index 96f3789..2a2d6bb 100644
+> --- a/include/net/ethoc.h
+> +++ b/include/net/ethoc.h
+> @@ -16,6 +16,7 @@
+>   struct ethoc_platform_data {
+>   	u8 hwaddr[IFHWADDRLEN];
+>   	s8 phy_id;
+> +	u32 eth_clkfreq;
+>   };
+>
+>   #endif /* !LINUX_NET_ETHOC_H */
 >
