@@ -1,63 +1,49 @@
-From: Mark Lord <mlord@pobox.com>
-Subject: Re: [PATCH RFC 1/1] usb: Tell xhci when usb data might be misaligned
-Date: Thu, 30 Jan 2014 16:39:34 -0500
-Message-ID: <52EAC696.6050708@pobox.com>
-References: <20140130211816.GB3787@xanatos>
+From: Sarah Sharp <sarah.a.sharp@linux.intel.com>
+Subject: Re: Help testing for USB ethernet/xHCI regression
+Date: Thu, 30 Jan 2014 13:41:33 -0800
+Message-ID: <20140130214133.GB14228@xanatos>
+References: <22081260.RNay0J72dY@athas>
+ <20140129215408.GC5991@xanatos>
+ <063D6719AE5E284EB5DD2968C1650D6D0F6ACF20@AcuExch.aculab.com>
+ <20140130184412.GA3787@xanatos>
+ <A2CA0424C0A6F04399FB9E1CD98E03046D147453@US01WEMBX2.internal.synopsys.com>
+ <52EAAF6F.7070202@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul Zimmerman <paulz@synopsys.com>,
+	David Laight <David.Laight@ACULAB.COM>,
+	"renevant@internode.on.net" <renevant@internode.on.net>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	David Miller <davem@davemloft.net>,
-	Dan Williams <dan.j.williams@intel.com>,
-	"Nyman, Mathias" <mathias.nyman@intel.com>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	Freddy Xin <freddy@asix.com.tw>
-To: Sarah Sharp <sarah.a.sharp@linux.intel.com>,
-	David Laight <David.Laight@ACULAB.COM>
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Mark Lord <mlord@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a-pb-sasl-quonix.pobox.com ([208.72.237.25]:32775 "EHLO
-	sasl.smtp.pobox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752118AbaA3Vji (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jan 2014 16:39:38 -0500
-In-Reply-To: <20140130211816.GB3787@xanatos>
+Received: from mga09.intel.com ([134.134.136.24]:23928 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753294AbaA3Vlp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Jan 2014 16:41:45 -0500
+Content-Disposition: inline
+In-Reply-To: <52EAAF6F.7070202@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14-01-30 04:18 PM, Sarah Sharp wrote:
->
-> Let's do this fix the right way, instead of wall papering over the
-> issue.  Here's what we should do:
+On Thu, Jan 30, 2014 at 03:00:47PM -0500, Mark Lord wrote:
+> On 14-01-30 02:54 PM, Paul Zimmerman wrote:
+> >
+> > Can you give a pointer to where we could buy one of these devices? I
+> > would like to test this with our (Synopsys) xHCI controller as well.
+> > 
 > 
-> 1. Disable scatter-gather for the ax88179_178a driver when it's under an
->    xHCI host.
-> 
-> 2. Revert the following commits:
->    f2d9b991c549 xhci: Set scatter-gather limit to avoid failed block writes.
->    d6c9ea9069af xhci: Avoid infinite loop when sg urb requires too many trbs
->    35773dac5f86 usb: xhci: Link TRB must not occur within a USB payload burst
-> 
-> 3. Dan and Mathias can work together to come up with an overall plan to
->    change the xHCI driver architecture to be fully compliant with the TD
->    fragment rules.  That can be done over the next few kernel releases.
-> 
-> The end result is that we don't destabilize storage or break userspace
-> USB drivers, we don't break people's xHCI host controllers,
-> the ax88179_178a USB ethernet devices still work under xHCI (a bit with
-> worse performance), and other USB ethernet devices still get the
-> performance improvement introduced in 3.12.
+> newegg.com, item N82E16817659005
 
+Ah, so it's also the ASIX AX88179 that's causing you issues.
 
-Performance before 3.12/3.13 was not all that bad either.
-My ax88179 dongle (yes, that one, using ax88179_178a.ko)
-manages very close to 1gbit/sec throughput even without SG,
-and without a huge cpu tax either.
+Mark and David, can you pull the 3.13-td-changes-reverted branch again,
+and see if the latest patch fixes your issue?  It disables scatter
+gather for the ax88179_178a device, but only when it's operating at USB
+3.0 speeds.
 
-SG done Right will make it better eventually.  I can wait.
+Please test with it plugged into a USB 3.0 port, and when it's plugged
+in behind a USB 2.0 hub.
 
-Cheers
--- 
-Mark Lord
-Real-Time Remedies Inc.
-mlord@pobox.com
+Sarah Sharp
