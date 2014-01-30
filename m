@@ -1,58 +1,42 @@
-From: Zoltan Kiss <zoltan.kiss@schaman.hu>
-Subject: igb and bnx2: "NETDEV WATCHDOG: transmit queue timed out" when skb
- has huge linear buffer
-Date: Thu, 30 Jan 2014 19:08:11 +0000
-Message-ID: <52EAA31B.1090606@schaman.hu>
+From: Mark Lord <mlord@pobox.com>
+Subject: Re: Help testing for USB ethernet/xHCI regression
+Date: Thu, 30 Jan 2014 14:45:36 -0500
+Message-ID: <52EAABE0.8000904@pobox.com>
+References: <22081260.RNay0J72dY@athas> <20140129215408.GC5991@xanatos> <063D6719AE5E284EB5DD2968C1650D6D0F6ACF20@AcuExch.aculab.com> <20140130184412.GA3787@xanatos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Tushar Dave <tushar.n.dave@intel.com>,
-	Akeem G Abodunrin <akeem.g.abodunrin@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	e1000-devel@lists.sourceforge.net,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org, Michael Chan <mchan@broadcom.com>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "renevant@internode.on.net" <renevant@internode.on.net>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Sarah Sharp <sarah.a.sharp@linux.intel.com>,
+	David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a-pb-sasl-quonix.pobox.com ([208.72.237.25]:57817 "EHLO
+	sasl.smtp.pobox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751154AbaA3Tq0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jan 2014 14:46:26 -0500
+In-Reply-To: <20140130184412.GA3787@xanatos>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 14-01-30 01:44 PM, Sarah Sharp wrote:
+..
+> Since the USB ethernet scatter-gather support wasn't added until the
+> 3.12 kernel, it's unlikely that the xHCI TD fragment issue is actually
+> the root cause.
+> 
+> The interesting piece of information in that report is that when the USB
+> 3.0 device falls back to USB 2.0 speeds under xHCI, it works.
 
-I've experienced some queue timeout problems mentioned in the subject 
-with igb and bnx2 cards. I haven't seen them on other cards so far. I'm 
-using XenServer with 3.10 Dom0 kernel (however igb were already updated 
-to latest version), and there are Windows guests sending data through 
-these cards. I noticed these problems in XenRT test runs, and I know 
-that they usually mean some lost interrupt problem or other hardware 
-error, but in my case they started to appear more often, and they are 
-likely connected to my netback grant mapping patches. These patches 
-causing skb's with huge (~64kb) linear buffers to appear more often.
-The reason for that is an old problem in the ring protocol: originally 
-the maximum amount of slots were linked to MAX_SKB_FRAGS, as every slot 
-ended up as a frag of the skb. When this value were changed, netback had 
-to cope with the situation by coalescing the packets into fewer frags.
-My patch series take a different approach: the leftover slots (pages) 
-were assigned to a new skb's frags, and that skb were stashed to the 
-frag_list of the first one. Then, before sending it off to the stack it 
-calls skb = skb_copy_expand(skb, 0, 0, GFP_ATOMIC, __GFP_NOWARN), which 
-basically creates a new skb and copied all the data into it. As far as I 
-understood, it put everything into the linear buffer, which can amount 
-to 64KB at most. The original skb are freed then, and this new one were 
-sent to the stack.
-I suspect that this is the problem as it only happens when guests send 
-too much slots. Does anyone familiar with these drivers have seen such 
-issue before? (when these kind of skb's get stucked in the queue)
+Could be due to something related to the max URB length:
 
-Regards,
+USB 2.0 High-Speed: max URB length 512.
+USB 3.0 Super-Speed: max URB length 1024.
 
-Zoltan Kiss
+Cheers
+-- 
+Mark Lord
+Real-Time Remedies Inc.
+mlord@pobox.com
