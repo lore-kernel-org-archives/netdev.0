@@ -1,48 +1,74 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: IGMP joins come from the wrong SA/interface
-Date: Thu, 30 Jan 2014 23:44:11 +0100
-Message-ID: <20140130224411.GG25336@order.stressinduktion.org>
-References: <20140118191107.GA21979@sesse.net> <20140119181806.GC16462@order.stressinduktion.org> <20140120184025.GA19972@sesse.net> <20140130104709.GA21178@sesse.net> <20140130180304.GA3793@plex.lan> <20140130181229.GA32245@sesse.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:47952 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753932AbaA3WoN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jan 2014 17:44:13 -0500
-Content-Disposition: inline
-In-Reply-To: <20140130181229.GA32245@sesse.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zoran Markovic <zoran.markovic-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: [RFC PATCH] net: wireless: move regulatory timeout work to power efficient workqueue
+Date: Thu, 30 Jan 2014 15:08:30 -0800
+Message-ID: <1391123310-6425-1-git-send-email-zoran.markovic@linaro.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Shaibal Dutta <shaibal.dutta-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Zoran Markovic <zoran.markovic-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 30, 2014 at 07:12:29PM +0100, Steinar H. Gunderson wrote:
-> On Thu, Jan 30, 2014 at 04:08:11PM -0200, Flavio Leitner wrote:
-> > No special multicast route, so it should go out on em1/default route.
-> 
-> Well, that's not really relevant for my bug then, is it? My problem is that
-> it goes out on the default unicast route, whereas it shouldn't.
+From: Shaibal Dutta <shaibal.dutta-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
 
-Hmm, it looks to me that Flavio showed that it should actually work
-correctly.
+For better use of CPU idle time, allow the scheduler to select the CPU
+on which the timeout work of regulatory settings would be executed.
+This extends CPU idle residency time and saves power.
 
-> > Maybe your application is using wrong values to IP_MULTICAST_IF?
-> > strace and /proc/net/igmp as suggested might help you find out.
-> 
-> This goes for at least vlc+mplayer+xbmc. I don't think they would all be
-> buggy in the same way? (Actually I don't think any of them set
-> IP_MULTICAST_IF.)
+This functionality is enabled when CONFIG_WQ_POWER_EFFICIENT is selected.
 
-The routing lookup is done at IP_ADD_MEMBERSHIP time. I really wonder why you
-have routed the 239.0.0.0/8 range to eth0.11. It seems to me that the kernel
-does what you told it to do. ;)
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Signed-off-by: Shaibal Dutta <shaibal.dutta-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+[zoran.markovic-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org: Rebased to latest kernel. Added commit message.]
+Signed-off-by: Zoran Markovic <zoran.markovic-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+---
+ net/wireless/reg.c |    9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
-multicast flag on ip route is just used for multicast forwarding and does not
-matter for local multicast. Also if we find unicast route first (more
-specific) kernel does not do backtracking if destination is in multicast
-scope.
+diff --git a/net/wireless/reg.c b/net/wireless/reg.c
+index 9b897fc..6e21011 100644
+--- a/net/wireless/reg.c
++++ b/net/wireless/reg.c
+@@ -1703,7 +1703,8 @@ static void reg_process_hint(struct regulatory_request *reg_request)
+ 		if (treatment == REG_REQ_OK ||
+ 		    treatment == REG_REQ_ALREADY_SET)
+ 			return;
+-		schedule_delayed_work(&reg_timeout, msecs_to_jiffies(3142));
++		queue_delayed_work(system_power_efficient_wq,
++				   &reg_timeout, msecs_to_jiffies(3142));
+ 		return;
+ 	case NL80211_REGDOM_SET_BY_DRIVER:
+ 		treatment = reg_process_hint_driver(wiphy, reg_request);
+@@ -2294,7 +2295,8 @@ static int reg_set_rd_driver(const struct ieee80211_regdomain *rd,
+ 
+ 	request_wiphy = wiphy_idx_to_wiphy(driver_request->wiphy_idx);
+ 	if (!request_wiphy) {
+-		schedule_delayed_work(&reg_timeout, 0);
++		queue_delayed_work(system_power_efficient_wq,
++				   &reg_timeout, 0);
+ 		return -ENODEV;
+ 	}
+ 
+@@ -2354,7 +2356,8 @@ static int reg_set_rd_country_ie(const struct ieee80211_regdomain *rd,
+ 
+ 	request_wiphy = wiphy_idx_to_wiphy(country_ie_request->wiphy_idx);
+ 	if (!request_wiphy) {
+-		schedule_delayed_work(&reg_timeout, 0);
++		queue_delayed_work(system_power_efficient_wq,
++				   &reg_timeout, 0);
+ 		return -ENODEV;
+ 	}
+ 
+-- 
+1.7.9.5
 
-Greetings,
-
-  Hannes
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
