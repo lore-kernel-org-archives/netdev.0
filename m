@@ -1,72 +1,48 @@
-From: Zoran Markovic <zoran.markovic@linaro.org>
-Subject: [RFC PATCH] net: rfkill: move poll work to power efficient workqueue
-Date: Thu, 30 Jan 2014 14:43:34 -0800
-Message-ID: <1391121814-6026-1-git-send-email-zoran.markovic@linaro.org>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Shaibal Dutta <shaibal.dutta@broadcom.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Zoran Markovic <zoran.markovic@linaro.org>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: IGMP joins come from the wrong SA/interface
+Date: Thu, 30 Jan 2014 23:44:11 +0100
+Message-ID: <20140130224411.GG25336@order.stressinduktion.org>
+References: <20140118191107.GA21979@sesse.net> <20140119181806.GC16462@order.stressinduktion.org> <20140120184025.GA19972@sesse.net> <20140130104709.GA21178@sesse.net> <20140130180304.GA3793@plex.lan> <20140130181229.GA32245@sesse.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:47952 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753932AbaA3WoN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jan 2014 17:44:13 -0500
+Content-Disposition: inline
+In-Reply-To: <20140130181229.GA32245@sesse.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Shaibal Dutta <shaibal.dutta@broadcom.com>
+On Thu, Jan 30, 2014 at 07:12:29PM +0100, Steinar H. Gunderson wrote:
+> On Thu, Jan 30, 2014 at 04:08:11PM -0200, Flavio Leitner wrote:
+> > No special multicast route, so it should go out on em1/default route.
+> 
+> Well, that's not really relevant for my bug then, is it? My problem is that
+> it goes out on the default unicast route, whereas it shouldn't.
 
-This patch moves the rfkill poll_work to the power efficient workqueue.
-This work does not have to be bound to the CPU that scheduled it, hence
-the selection of CPU that executes it would be left to the scheduler.
-Net result is that CPU idle times would be extended, resulting in power
-savings.
+Hmm, it looks to me that Flavio showed that it should actually work
+correctly.
 
-This behaviour is enabled when CONFIG_WQ_POWER_EFFICIENT is selected.
+> > Maybe your application is using wrong values to IP_MULTICAST_IF?
+> > strace and /proc/net/igmp as suggested might help you find out.
+> 
+> This goes for at least vlc+mplayer+xbmc. I don't think they would all be
+> buggy in the same way? (Actually I don't think any of them set
+> IP_MULTICAST_IF.)
 
-Cc: Johannes Berg <johannes@sipsolutions.net>
-Cc: "John W. Linville" <linville@tuxdriver.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Shaibal Dutta <shaibal.dutta@broadcom.com>
-[zoran.markovic@linaro.org: Rebased to latest kernel, added commit message.
-Fixed workqueue selection after suspend/resume cycle.]
-Signed-off-by: Zoran Markovic <zoran.markovic@linaro.org>
----
- net/rfkill/core.c |    9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+The routing lookup is done at IP_ADD_MEMBERSHIP time. I really wonder why you
+have routed the 239.0.0.0/8 range to eth0.11. It seems to me that the kernel
+does what you told it to do. ;)
 
-diff --git a/net/rfkill/core.c b/net/rfkill/core.c
-index ed7e0b4..b3b16c0 100644
---- a/net/rfkill/core.c
-+++ b/net/rfkill/core.c
-@@ -789,7 +789,8 @@ void rfkill_resume_polling(struct rfkill *rfkill)
- 	if (!rfkill->ops->poll)
- 		return;
- 
--	schedule_work(&rfkill->poll_work.work);
-+	queue_delayed_work(system_power_efficient_wq,
-+			   &rfkill->poll_work, 0);
- }
- EXPORT_SYMBOL(rfkill_resume_polling);
- 
-@@ -894,7 +895,8 @@ static void rfkill_poll(struct work_struct *work)
- 	 */
- 	rfkill->ops->poll(rfkill, rfkill->data);
- 
--	schedule_delayed_work(&rfkill->poll_work,
-+	queue_delayed_work(system_power_efficient_wq,
-+		&rfkill->poll_work,
- 		round_jiffies_relative(POLL_INTERVAL));
- }
- 
-@@ -958,7 +960,8 @@ int __must_check rfkill_register(struct rfkill *rfkill)
- 	INIT_WORK(&rfkill->sync_work, rfkill_sync_work);
- 
- 	if (rfkill->ops->poll)
--		schedule_delayed_work(&rfkill->poll_work,
-+		queue_delayed_work(system_power_efficient_wq,
-+			&rfkill->poll_work,
- 			round_jiffies_relative(POLL_INTERVAL));
- 
- 	if (!rfkill->persistent || rfkill_epo_lock_active) {
--- 
-1.7.9.5
+multicast flag on ip route is just used for multicast forwarding and does not
+matter for local multicast. Also if we find unicast route first (more
+specific) kernel does not do backtracking if destination is in multicast
+scope.
+
+Greetings,
+
+  Hannes
