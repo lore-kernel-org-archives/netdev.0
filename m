@@ -1,60 +1,82 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH 0/2] [BUG FIXES - 3.10.27] sit: More backports
-Date: Thu, 30 Jan 2014 17:10:29 -0500
-Message-ID: <20140130171029.01cd80ca@gandalf.local.home>
-References: <20140128205756.074448668@goodmis.org>
-	<52E8E025.2060803@6wind.com>
-	<20140129075745.4227a2ed@gandalf.local.home>
-	<52E9267C.90403@6wind.com>
-	<20140129154811.27fbaf13@gandalf.local.home>
-	<52EA1B4B.5080403@6wind.com>
-	<20140130083103.2bc68bad@gandalf.local.home>
-	<52EA56E1.40507@6wind.com>
+From: Sarah Sharp <sarah.a.sharp@linux.intel.com>
+Subject: Re: [PATCH RFC 1/1] usb: Tell xhci when usb data might be misaligned
+Date: Thu, 30 Jan 2014 14:15:11 -0800
+Message-ID: <20140130221511.GD14228@xanatos>
+References: <20140130211816.GB3787@xanatos>
+ <87iot1qgv6.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	stable <stable@vger.kernel.org>,
-	Clark Williams <williams@redhat.com>,
-	"Luis Claudio R. Goncalves" <lclaudio@uudg.org>,
-	John Kacur <jkacur@redhat.com>,
-	Willem de Bruijn <willemb@google.com>
-To: nicolas.dichtel@6wind.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52EA56E1.40507@6wind.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	David Miller <davem@davemloft.net>,
+	Dan Williams <dan.j.williams@intel.com>,
+	"Nyman, Mathias" <mathias.nyman@intel.com>,
+	Mark Lord <mlord@pobox.com>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	Freddy Xin <freddy@asix.com.tw>,
+	Ming Lei <ming.lei@canonical.com>
+To: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:61628 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753108AbaA3WPR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Jan 2014 17:15:17 -0500
+Content-Disposition: inline
+In-Reply-To: <87iot1qgv6.fsf@nemi.mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 30 Jan 2014 14:42:57 +0100
-Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+On Thu, Jan 30, 2014 at 10:50:21PM +0100, Bj=F8rn Mork wrote:
+> FWIW, the plan looks fine to me.  Just adding a couple of hints to
+> simplify the implementation.
+>=20
+> Sarah Sharp <sarah.a.sharp@linux.intel.com> writes:
+>=20
+> > Let's do this fix the right way, instead of wall papering over the
+> > issue.  Here's what we should do:
+> >
+> > 1. Disable scatter-gather for the ax88179_178a driver when it's und=
+er an
+> >    xHCI host.
+>=20
+> No need to make this conditional.  SG is only enabled in the
+> ax88179_178a driver if udev->bus->no_sg_constraint is true, so it
+> applies only to xHCI hosts in the first place.
 
+Ah, so you're suggesting just reverting commit
+3804fad45411b48233b48003e33a78f290d227c8 "USBNET: ax88179_178a: enable
+tso if usb host supports sg dma"?
 
-> > I'll let you know when these are finished.
-> Thank you for testing.
+> > 2. Revert the following commits:
+> >    f2d9b991c549 xhci: Set scatter-gather limit to avoid failed bloc=
+k writes.
+> >    d6c9ea9069af xhci: Avoid infinite loop when sg urb requires too =
+many trbs
+> >    35773dac5f86 usb: xhci: Link TRB must not occur within a USB pay=
+load burst
+> >
+> > 3. Dan and Mathias can work together to come up with an overall pla=
+n to
+> >    change the xHCI driver architecture to be fully compliant with t=
+he TD
+> >    fragment rules.  That can be done over the next few kernel relea=
+ses.
+> >
+> > The end result is that we don't destabilize storage or break usersp=
+ace
+> > USB drivers, we don't break people's xHCI host controllers,
+> > the ax88179_178a USB ethernet devices still work under xHCI (a bit =
+with
+> > worse performance), and other USB ethernet devices still get the
+> > performance improvement introduced in 3.12.
+>=20
+> No other usbnet drivers has enabled SG...  Which is why you have only
+> seen this problem with the ax88179_178a devices.  So there is no
+> performance improvement to keep.
 
-Our short tests that were crashing have all now passed :-) with your
-patches applied.
+I see.
 
-We are now running our full tier tests on the code, but I don't think
-we need to wait. Please add my tags to your patches, and hopefully we
-can get David to give us a new blessing on your patch set.
-
-David and Greg,
-
-You can ignore my patches as it seems that Nicolas's patches solve the
-issues we have been seeing on 3.10.
-
-Nicolas,
-
-Thanks for all your effort in helping us out here :-)
-
-Reported-by: Steven Rostedt <srostedt@redhat.com>
-Tested-by: Steven Rostedt <srostedt@redhat.com> (and our entire MRG team)
-Tested-by: "Luis Claudio R. Goncalves" <lgoncalv@redhat.com>
-Tested-by: John Kacur <jkacur@redhat.com>
-
-I don't usually give my Red Hat email for things like this, but as this
-was found and tested with the Red Hat infrastructure, with the help
-from Luis and John (and others), I would like to give them credit too.
-
--- Steve
+Sarah Sharp
