@@ -1,44 +1,69 @@
-From: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: Help testing for USB ethernet/xHCI regression
-Date: Thu, 30 Jan 2014 15:26:29 -0800
-Message-ID: <20140130232629.GF14228@xanatos>
-References: <22081260.RNay0J72dY@athas>
- <20140129215408.GC5991@xanatos>
- <063D6719AE5E284EB5DD2968C1650D6D0F6ACF20@AcuExch.aculab.com>
- <20140130184412.GA3787@xanatos>
- <A2CA0424C0A6F04399FB9E1CD98E03046D147453@US01WEMBX2.internal.synopsys.com>
- <52EAAF6F.7070202@pobox.com>
- <20140130214133.GB14228@xanatos>
- <52EAD038.5020409@pobox.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] ipv6: default route for link local address is not added while assigning a address
+Date: Fri, 31 Jan 2014 00:29:09 +0100
+Message-ID: <20140130232909.GH25336@order.stressinduktion.org>
+References: <52E8A2AA.3090507@linux.vnet.ibm.com> <52E8DA37.7010208@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Paul Zimmerman <paulz-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>,
-	David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
-	"renevant-CkBdp7X+a1oIQCUVoCVjmQ@public.gmane.org" <renevant-CkBdp7X+a1oIQCUVoCVjmQ@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Mark Lord <mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sohny Thomas <sthomas@linux.vnet.ibm.com>,
+	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
+	yoshfuji@linux-ipv6.org, davem@davemloft.net,
+	kumuda <kumuda@linux.vnet.ibm.com>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <52EAD038.5020409-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <52E8DA37.7010208@6wind.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 30, 2014 at 05:20:40PM -0500, Mark Lord wrote:
-> On 14-01-30 04:41 PM, Sarah Sharp wrote:
+Sorry for replying so late...
+
+On Wed, Jan 29, 2014 at 11:38:47AM +0100, Nicolas Dichtel wrote:
+> Le 29/01/2014 07:41, Sohny Thomas a =C3=A9crit :
+> >Resending this on netdev mailing list:
+> >Default route for link local address is configured automatically if
+> >NETWORKING_IPV6=3Dyes is in ifcfg-eth*.
+> >When the route table for the interface is flushed and a new address =
+is=20
+> >added to
+> >the same device with out removing linklocal addr, default route for =
+link=20
+> >local
+> >address has to added by default.
 > >
-> > Mark and David, can you pull the 3.13-td-changes-reverted branch again,
-> > and see if the latest patch fixes your issue?  It disables scatter
-> > gather for the ax88179_178a device, but only when it's operating at USB
-> > 3.0 speeds.
-> 
-> As expected, this works just fine.
+> >I have found the issue to be caused by this checkin
+> >
+> >http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commi=
+t/net/ipv6?id=3D62b54dd91567686a1cb118f76a72d5f4764a86dd
+> >
+> >
+> >According to this change :
+> >He removes adding a link local route if any other address is added ,=
+=20
+> >applicable
+> >across all interfaces though there's mentioned only lo interface
+> >So below patch fixes for other devices
+> >
+> >Signed-off-by: Sohny THomas <sohthoma@linux.vnet.ibm.com>
+> Your email client has corrupted the patch, it cannot be applied.
+> Please read Documentation/email-clients.txt
+>=20
+> About the patch, I still think that the flush is too agressive. Link =
+local
+> routes are marked as 'proto kernel', removing them without the link l=
+ocal
+> address is wrong.
 
-Did it work when plugged into a USB 2.0 hub?
+Actually I am not so sure, there is no defined semantic of flush. I wou=
+ld
+be ok with all three solutions: leave it as is, always add link-local
+address (it does not matter if we don't have a link-local address on
+that interface, as a global scoped one is just fine enough) or make flu=
+sh not
+remove the link-local address (but this seems a bit too special cased f=
+or me).
 
-Sarah Sharp
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Greetings,
+
+  Hannes
