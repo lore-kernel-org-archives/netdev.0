@@ -1,61 +1,60 @@
-From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-Subject: Re: [PATCH RFC 1/1] usb: Tell xhci when usb data might be misaligned
-Date: Thu, 30 Jan 2014 17:07:11 -0500 (EST)
-Message-ID: <Pine.LNX.4.44L0.1401301702590.31548-100000@netrider.rowland.org>
-References: <20140130215523.GC14228@xanatos>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH 0/2] [BUG FIXES - 3.10.27] sit: More backports
+Date: Thu, 30 Jan 2014 17:10:29 -0500
+Message-ID: <20140130171029.01cd80ca@gandalf.local.home>
+References: <20140128205756.074448668@goodmis.org>
+	<52E8E025.2060803@6wind.com>
+	<20140129075745.4227a2ed@gandalf.local.home>
+	<52E9267C.90403@6wind.com>
+	<20140129154811.27fbaf13@gandalf.local.home>
+	<52EA1B4B.5080403@6wind.com>
+	<20140130083103.2bc68bad@gandalf.local.home>
+	<52EA56E1.40507@6wind.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Nyman, Mathias" <mathias.nyman-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Mark Lord <mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>, Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-To: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140130215523.GC14228@xanatos>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	stable <stable@vger.kernel.org>,
+	Clark Williams <williams@redhat.com>,
+	"Luis Claudio R. Goncalves" <lclaudio@uudg.org>,
+	John Kacur <jkacur@redhat.com>,
+	Willem de Bruijn <willemb@google.com>
+To: nicolas.dichtel@6wind.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52EA56E1.40507@6wind.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 30 Jan 2014, Sarah Sharp wrote:
+On Thu, 30 Jan 2014 14:42:57 +0100
+Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
 
-> > That's a good plan.  However _some_ restriction will turn out to be
-> > necessary.
-> > 
-> > For example, what will you do if a driver submits an SG list containing
-> > 300 elements, each 3 bytes long?  That's too many to fit in a single
-> > ring segment, but it's smaller than a TD fragment -- it's even smaller
-> > than maxpacket -- so there's no place to split it.  (Not that I think
-> > drivers _will_ submit requests like this; this is just to demonstrate
-> > the point.)
-> > 
-> > It ought to be acceptable to require, for example, that an SG URB 
-> > contain no more than (say) 100 elements that are smaller than 512 
-> > bytes.
-> 
-> At that point, the xHCI driver or USB core should probably use a bounce
-> buffer.  It feels like we should attempt to push down scatter-gather
-> lists as far down in the stack as possible, so the upper layers don't
-> have to care what alignment, length, or random 64KB boundary splits we
-> need.
 
-Okay.  That should be doable, if awkward.
+> > I'll let you know when these are finished.
+> Thank you for testing.
 
-> > ehci-hcd gets along okay with the restriction that each SG element 
-> > except the last has to be a multiple of the maxpacket size.  xhci-hcd 
-> > can relax this quite a lot, but not all the way.
-> 
-> What does the EHCI driver do when it receives a SG list from the USB
-> networking layer that violates this restriction?
+Our short tests that were crashing have all now passed :-) with your
+patches applied.
 
-It never receives such lists.  usb_submit_urb() returns -EINVAL before 
-the request gets sent to ehci-hcd.
+We are now running our full tier tests on the code, but I don't think
+we need to wait. Please add my tags to your patches, and hopefully we
+can get David to give us a new blessing on your patch set.
 
-Alan Stern
+David and Greg,
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+You can ignore my patches as it seems that Nicolas's patches solve the
+issues we have been seeing on 3.10.
+
+Nicolas,
+
+Thanks for all your effort in helping us out here :-)
+
+Reported-by: Steven Rostedt <srostedt@redhat.com>
+Tested-by: Steven Rostedt <srostedt@redhat.com> (and our entire MRG team)
+Tested-by: "Luis Claudio R. Goncalves" <lgoncalv@redhat.com>
+Tested-by: John Kacur <jkacur@redhat.com>
+
+I don't usually give my Red Hat email for things like this, but as this
+was found and tested with the Red Hat infrastructure, with the help
+from Luis and John (and others), I would like to give them credit too.
+
+-- Steve
