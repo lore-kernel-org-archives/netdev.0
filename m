@@ -1,43 +1,38 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: IGMP joins come from the wrong SA/interface
-Date: Thu, 30 Jan 2014 15:17:47 +0100
-Message-ID: <20140130141747.GC25336@order.stressinduktion.org>
-References: <20140118191107.GA21979@sesse.net> <20140119181806.GC16462@order.stressinduktion.org> <20140120184025.GA19972@sesse.net> <20140130104709.GA21178@sesse.net>
+Subject: Re: IPv4 / IPv6 over IPv4 IPsec tunnel: setting the DF bit
+Date: Thu, 30 Jan 2014 15:21:16 +0100
+Message-ID: <20140130142116.GD25336@order.stressinduktion.org>
+References: <trinity-bc5263ea-896d-4350-aa80-fd2895b54b3b-1391084710336@3capp-gmx-bs28>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Cc: netdev@vger.kernel.org
-To: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
+To: Simon Schneider <simon-schneider@gmx.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:46863 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:46875 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752750AbaA3ORs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jan 2014 09:17:48 -0500
+	with ESMTP id S1752956AbaA3OVR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jan 2014 09:21:17 -0500
 Content-Disposition: inline
-In-Reply-To: <20140130104709.GA21178@sesse.net>
+In-Reply-To: <trinity-bc5263ea-896d-4350-aa80-fd2895b54b3b-1391084710336@3capp-gmx-bs28>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 30, 2014 at 11:47:09AM +0100, Steinar H. Gunderson wrote:
-> On Mon, Jan 20, 2014 at 07:40:25PM +0100, Steinar H. Gunderson wrote:
-> >> I currently only remember one commit 0a7e22609067ff ("ipv4: fix
-> >> ineffective source address selection") which did affect multicast source
-> >> address selection in recent times.
-> > I tried 3.10.27, just to check something older. I also tried 3.10.27 with
-> > 0a7e22609067ff reverted, and it's still wrong.
-> > 
-> > I am thinking this might have something to do with the machine switching to
-> > systemd, presumably changing the order of DHCP and static addresses being
-> > assigned...
+On Thu, Jan 30, 2014 at 01:25:10PM +0100, Simon Schneider wrote:
+> Hi,
+> for the scenarios
+> - IPv4 over IPv4 IPsec tunnel
+> - IPv6 over IPv4 IPsec tunnel
 > 
-> Anything more I can do here?
+> I wonder how the DF bit of the outer (encrypted) packet is set.
+> 
+> There are generally three options:
+> - DF bit always 0
+> - DF bit always 1
+> - DF bit copied from inner packet
 
-Can you give a bit more background what multicast application you are running
-on the box and also post a cat /proc/net/igmp?
-
-(For the application info an strace how the join to the multicast address would be
-interesting.)
-
-I guess a workaround would be to bind the join to a specific interface.
+There is a pmtudisc knob on ip tunnel ... to force DF bit on outgoing packets,
+but DF bit should get copied from inner packet up to tunnel header in every
+case.
 
 Greetings,
 
