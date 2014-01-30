@@ -1,75 +1,64 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+From: Sarah Sharp <sarah.a.sharp@linux.intel.com>
 Subject: Re: [PATCH RFC 1/1] usb: Tell xhci when usb data might be misaligned
-Date: Thu, 30 Jan 2014 22:50:21 +0100
-Message-ID: <87iot1qgv6.fsf@nemi.mork.no>
+Date: Thu, 30 Jan 2014 13:55:23 -0800
+Message-ID: <20140130215523.GC14228@xanatos>
 References: <20140130211816.GB3787@xanatos>
+ <Pine.LNX.4.44L0.1401301630340.31548-100000@netrider.rowland.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
-	"linux-usb\@vger.kernel.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev\@vger.kernel.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Nyman\, Mathias" <mathias.nyman-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Mark Lord <mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
-	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-To: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140130211816.GB3787@xanatos> (Sarah Sharp's message of "Thu,
-	30 Jan 2014 13:18:16 -0800")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	David Miller <davem@davemloft.net>,
+	Dan Williams <dan.j.williams@intel.com>,
+	"Nyman, Mathias" <mathias.nyman@intel.com>,
+	Mark Lord <mlord@pobox.com>, Freddy Xin <freddy@asix.com.tw>
+To: Alan Stern <stern@rowland.harvard.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:52218 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752584AbaA3Vz1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Jan 2014 16:55:27 -0500
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.44L0.1401301630340.31548-100000@netrider.rowland.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46WIW, the plan looks fine to me.  Just adding a couple of hints to
-simplify the implementation.
+On Thu, Jan 30, 2014 at 04:43:54PM -0500, Alan Stern wrote:
+> On Thu, 30 Jan 2014, Sarah Sharp wrote:
+> 
+> > It should not matter what alignment or length of scatter-gather list the
+> > upper layers pass the xHCI driver, it should just work.  I want to do
+> > this fix right, by changing the fundamental way we queue TRBs to the
+> > rings to fit the TD rules.  We should break each TD into fragment-sized
+> > chunks, and add a link TRB in the middle of a segment where necessary.
+> 
+> That's a good plan.  However _some_ restriction will turn out to be
+> necessary.
+> 
+> For example, what will you do if a driver submits an SG list containing
+> 300 elements, each 3 bytes long?  That's too many to fit in a single
+> ring segment, but it's smaller than a TD fragment -- it's even smaller
+> than maxpacket -- so there's no place to split it.  (Not that I think
+> drivers _will_ submit requests like this; this is just to demonstrate
+> the point.)
+> 
+> It ought to be acceptable to require, for example, that an SG URB 
+> contain no more than (say) 100 elements that are smaller than 512 
+> bytes.
 
-Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org> writes:
+At that point, the xHCI driver or USB core should probably use a bounce
+buffer.  It feels like we should attempt to push down scatter-gather
+lists as far down in the stack as possible, so the upper layers don't
+have to care what alignment, length, or random 64KB boundary splits we
+need.
 
-> Let's do this fix the right way, instead of wall papering over the
-> issue.  Here's what we should do:
->
-> 1. Disable scatter-gather for the ax88179_178a driver when it's under=
- an
->    xHCI host.
+> ehci-hcd gets along okay with the restriction that each SG element 
+> except the last has to be a multiple of the maxpacket size.  xhci-hcd 
+> can relax this quite a lot, but not all the way.
 
-No need to make this conditional.  SG is only enabled in the
-ax88179_178a driver if udev->bus->no_sg_constraint is true, so it
-applies only to xHCI hosts in the first place.
+What does the EHCI driver do when it receives a SG list from the USB
+networking layer that violates this restriction?
 
-> 2. Revert the following commits:
->    f2d9b991c549 xhci: Set scatter-gather limit to avoid failed block =
-writes.
->    d6c9ea9069af xhci: Avoid infinite loop when sg urb requires too ma=
-ny trbs
->    35773dac5f86 usb: xhci: Link TRB must not occur within a USB paylo=
-ad burst
->
-> 3. Dan and Mathias can work together to come up with an overall plan =
-to
->    change the xHCI driver architecture to be fully compliant with the=
- TD
->    fragment rules.  That can be done over the next few kernel release=
-s.
->
-> The end result is that we don't destabilize storage or break userspac=
-e
-> USB drivers, we don't break people's xHCI host controllers,
-> the ax88179_178a USB ethernet devices still work under xHCI (a bit wi=
-th
-> worse performance), and other USB ethernet devices still get the
-> performance improvement introduced in 3.12.
-
-No other usbnet drivers has enabled SG...  Which is why you have only
-seen this problem with the ax88179_178a devices.  So there is no
-performance improvement to keep.
-
-
-
-Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Sarah Sharp
