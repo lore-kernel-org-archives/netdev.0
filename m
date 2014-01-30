@@ -1,50 +1,64 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH 0/2] [BUG FIXES - 3.10.27] sit: More backports
-Date: Thu, 30 Jan 2014 14:42:57 +0100
-Message-ID: <52EA56E1.40507@6wind.com>
-References: <20140128205756.074448668@goodmis.org>	<52E8E025.2060803@6wind.com>	<20140129075745.4227a2ed@gandalf.local.home>	<52E9267C.90403@6wind.com>	<20140129154811.27fbaf13@gandalf.local.home>	<52EA1B4B.5080403@6wind.com> <20140130083103.2bc68bad@gandalf.local.home>
-Reply-To: nicolas.dichtel@6wind.com
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: Fwd: RFC 7112 on Implications of Oversized IPv6 Header Chains
+Date: Thu, 30 Jan 2014 13:56:38 +0000
+Message-ID: <1391090198.4405.57.camel@deadeye.wl.decadent.org.uk>
+References: <20140129173044.D475C7FC17B@rfc-editor.org>
+	 <52E955A3.7080408@gont.com.ar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	stable <stable@vger.kernel.org>,
-	Clark Williams <williams@redhat.com>,
-	"Luis Claudio R. Goncalves" <lclaudio@uudg.org>,
-	John Kacur <jkacur@redhat.com>,
-	Willem de Bruijn <willemb@google.com>
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20140130083103.2bc68bad@gandalf.local.home>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Le 30/01/2014 14:31, Steven Rostedt a =E9crit :
-> On Thu, 30 Jan 2014 10:28:43 +0100
-> Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
->
->
->> Steve, I think the patch I sent yesterday is the good fix. At the en=
-d, it's
->> a backport of Willem's patch. Note that he also ack that patch.
->> The first version you sent (which removes
->> unregister_netdevice_queue(sitn->fb_tunnel_dev, &list)) will introdu=
-ce a
->> memory leak when the user destroy a netns.
->
-> Hi Nicolas,
->
-> I reverted my patches and applied and tested your patches locally and
-> they passed my first line testing. I'm going to have them entered int=
-o
-> our test suite, after removing our other patches, and see if they sol=
-ve
-> all the bugs that we were tripping over.
->
-> I'll let you know when these are finished.
-Thank you for testing.
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-WjRjg8oOmN3UlrjN1nPw"
+Cc: netdev <netdev@vger.kernel.org>
+To: Fernando Gont <fernando@gont.com.ar>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:36593 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752950AbaA3N44 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jan 2014 08:56:56 -0500
+In-Reply-To: <52E955A3.7080408@gont.com.ar>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-Regards,
-Nicolas
+--=-WjRjg8oOmN3UlrjN1nPw
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, 2014-01-29 at 16:25 -0300, Fernando Gont wrote:
+> Folks,
+>=20
+> FYI. This one has important implications -- it allows stateless
+> filtering in IPv6 (otherwise not really possible)
+[...]
+
+Still not possible unless you can trust that all hosts behind the
+firewall will correctly drop overlapping fragments.
+
+Ben.
+
+--=20
+Ben Hutchings
+It is a miracle that curiosity survives formal education. - Albert Einstein
+
+--=-WjRjg8oOmN3UlrjN1nPw
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.15 (GNU/Linux)
+
+iQIVAwUAUupaFue/yOyVhhEJAQq4yBAAmxEFVimvDRxNlefxlz7a1+YMWYG18X3D
+p/K6bvZra9tic8oYviLn+jUI3PaenOVGWpzviMApZWVEzHZupq0qj0uEIbg5wl5g
+oZoNe7sMlnkBnru5n1kYAjqv357ngzGXaO+CBJDW97a/G0oquo7thM6jMCH8evOW
+ZKTOe9GtZWOGugaV1wdn9Uuv2Zx/9SdKH6vZQVKkfscjLuQemCNHUZuqHALDtUZE
+ubiE/AboXbFVdPcBSD9P6RvQ8UgR/a1Uj0MyPLlWlDSmPGP1qgoZxNSpXU+o6C76
+eRcILc9wOd15qj0oZc/U/DRqayFZzF3D701RY0zr4yCEKo9+skKgMn48bhOFVFHH
+ovZ6fxQZtmsjyh81nefpahbbtMuPzrIgB5u1lcT3nsjfGVV02pXOHXMAKB6BTqvT
+NC6wksHtAEG0xe2LfEvSptynGwRC4wQgzZ6olWZJHThECh2E7skILwaaRhIlpXvb
+n2st8lgVcA9X+/szM2zHHWcIJHdJo2j6P7eTPPqX3DKpHKlsDSYezAazs9cn6z8e
+TLobA8FuOfXWrmMkH9ngJXXWkua8tIKw7Z8JSUWT9CLHGwYTX0hKJVs/fsnfT9TB
+SZUxPAqEnGb4R+z7n/S2TTeE9FgOJkTZ123Dwf3PFoLRCWWXZoQBHrjaXLyU43Hl
+epNVU03I+oQ=
+=SQ6M
+-----END PGP SIGNATURE-----
+
+--=-WjRjg8oOmN3UlrjN1nPw--
