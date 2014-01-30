@@ -1,10 +1,16 @@
 From: Florian Vaussard <florian.vaussard@epfl.ch>
-Subject: [PATCH 1/5] can: sja1000: remove unused defines
-Date: Thu, 30 Jan 2014 15:29:24 +0100
-Message-ID: <1391092168-21246-2-git-send-email-florian.vaussard@epfl.ch>
+Subject: [PATCH 4/5] Documentation: devicetree: sja1000: add reg-io-width binding
+Date: Thu, 30 Jan 2014 15:29:27 +0100
+Message-ID: <1391092168-21246-5-git-send-email-florian.vaussard@epfl.ch>
 References: <1391092168-21246-1-git-send-email-florian.vaussard@epfl.ch>
 Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, florian.vaussard@epfl.ch
+	linux-kernel@vger.kernel.org, florian.vaussard@epfl.ch,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>, devicetree@vger.kernel.org
 To: Wolfgang Grandegger <wg@grandegger.com>,
 	Marc Kleine-Budde <mkl@pengutronix.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -12,26 +18,35 @@ In-Reply-To: <1391092168-21246-1-git-send-email-florian.vaussard@epfl.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove unused defines for the OF platform.
+Add the reg-io-width property to describe the width of the memory
+accesses.
 
+Cc: Grant Likely <grant.likely@linaro.org>
+Cc: Rob Herring <robh+dt@kernel.org>
+Cc: Pawel Moll <pawel.moll@arm.com>
+Cc: Mark Rutland <mark.rutland@arm.com>
+Cc: Ian Campbell <ijc+devicetree@hellion.org.uk>
+Cc: Kumar Gala <galak@codeaurora.org>
+Cc: devicetree@vger.kernel.org
 Signed-off-by: Florian Vaussard <florian.vaussard@epfl.ch>
 ---
- drivers/net/can/sja1000/sja1000_of_platform.c | 3 ---
- 1 file changed, 3 deletions(-)
+ Documentation/devicetree/bindings/net/can/sja1000.txt | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/drivers/net/can/sja1000/sja1000_of_platform.c b/drivers/net/can/sja1000/sja1000_of_platform.c
-index 047accd..2f29eb9 100644
---- a/drivers/net/can/sja1000/sja1000_of_platform.c
-+++ b/drivers/net/can/sja1000/sja1000_of_platform.c
-@@ -55,9 +55,6 @@ MODULE_LICENSE("GPL v2");
+diff --git a/Documentation/devicetree/bindings/net/can/sja1000.txt b/Documentation/devicetree/bindings/net/can/sja1000.txt
+index f2105a4..b4a6d53 100644
+--- a/Documentation/devicetree/bindings/net/can/sja1000.txt
++++ b/Documentation/devicetree/bindings/net/can/sja1000.txt
+@@ -12,6 +12,10 @@ Required properties:
  
- #define SJA1000_OFP_CAN_CLOCK  (16000000 / 2)
+ Optional properties:
  
--#define SJA1000_OFP_OCR        OCR_TX0_PULLDOWN
--#define SJA1000_OFP_CDR        (CDR_CBP | CDR_CLK_OFF)
--
- static u8 sja1000_ofp_read_reg(const struct sja1000_priv *priv, int reg)
- {
- 	return ioread8(priv->reg_base + reg);
++- reg-io-width : Specify the size (in bytes) of the IO accesses that
++	should be performed on the device.  Valid value is 1, 2 or 4.
++	Default to 1 (8 bits).
++
+ - nxp,external-clock-frequency : Frequency of the external oscillator
+ 	clock in Hz. Note that the internal clock frequency used by the
+ 	SJA1000 is half of that value. If not specified, a default value
 -- 
 1.8.1.2
