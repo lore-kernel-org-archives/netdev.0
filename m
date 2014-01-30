@@ -1,48 +1,29 @@
-From: Michael Chan <mchan@broadcom.com>
-Subject: Re: igb and bnx2: "NETDEV WATCHDOG: transmit queue
- timed out" when skb has huge linear buffer
-Date: Thu, 30 Jan 2014 12:34:08 -0800
-Message-ID: <1391114048.4804.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <52EAA31B.1090606@schaman.hu>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169: DMA-API: exceeded 7 overlapping mappings of pfn 943ad
+Date: Thu, 30 Jan 2014 22:08:02 +0100
+Message-ID: <20140130210802.GA3373@electric-eye.fr.zoreil.com>
+References: <20140130160113.GA18779@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Carolyn, Tushar,
-	e1000-devel@lists.sourceforge.net, Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	John Ronciak <john.ronciak@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>, Peter
-To: Zoltan Kiss <zoltan.kiss@schaman.hu>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <52EAA31B.1090606@schaman.hu>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Dave Jones <davej@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:59295 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751468AbaA3VII (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jan 2014 16:08:08 -0500
+Content-Disposition: inline
+In-Reply-To: <20140130160113.GA18779@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-01-30 at 19:08 +0000, Zoltan Kiss wrote:
-> I've experienced some queue timeout problems mentioned in the subject 
-> with igb and bnx2 cards. 
+Dave Jones <davej@redhat.com> :
+> WARNING: CPU: 0 PID: 0 at lib/dma-debug.c:491 add_dma_entry+0x127/0x130()
+> DMA-API: exceeded 7 overlapping mappings of pfn 943ad
+> Modules linked in: ipt_MASQUERADE iptable_nat nf_nat_ipv4 nf_nat xt_LOG xt_limit ip6t_REJECT nf_conntrack_ipv4 nf_conntrack_ipv6 nf_defrag_ipv6 nf_defrag_ipv4 xt_conntrack nf_conntrack ip6table_filter ip6_tables crc32c_intel ghash_clmulni_intel microcode pcspkr r8169 mii nfsd auth_rpcgss nfs_acl lockd sunrpc i915 i2c_algo_bit drm_kms_helper drm video backlight
+> CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.13.0+ #10
 
-Please provide the full tx timeout dmesg.  bnx2 dumps some diagnostic
-information during tx timeout that may be useful.  Thanks.
+Was 59f2e7df574c78e952d79435de3f4867349403aa included in the run ?
 
-
-------------------------------------------------------------------------------
-WatchGuard Dimension instantly turns raw network data into actionable 
-security intelligence. It gives you real-time visual feedback on key
-security issues and trends.  Skip the complicated setup - simply import
-a virtual appliance and go from zero to informed in seconds.
-http://pubads.g.doubleclick.net/gampad/clk?id=123612991&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+-- 
+Ueimor
