@@ -1,59 +1,46 @@
-From: Fernando Gont <fernando@gont.com.ar>
-Subject: Re: Fwd: RFC 7112 on Implications of Oversized IPv6 Header Chains
-Date: Thu, 30 Jan 2014 12:00:07 -0300
-Message-ID: <52EA68F7.8040604@gont.com.ar>
-References: <20140129173044.D475C7FC17B@rfc-editor.org>	 <52E955A3.7080408@gont.com.ar> <1391090198.4405.57.camel@deadeye.wl.decadent.org.uk>
+From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: [PATCH RFC 1/1] usb: Tell xhci when usb data might be	misaligned
+Date: Thu, 30 Jan 2014 16:30:30 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6B553D@AcuExch.aculab.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D0F6B5486@AcuExch.aculab.com>
+ <20140130161721.25560.qmail@stuge.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from web01.jbserver.net ([93.186.182.34]:36681 "EHLO
-	web01.jbserver.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752733AbaA3QXn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jan 2014 11:23:43 -0500
-In-Reply-To: <1391090198.4405.57.camel@deadeye.wl.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: 'Peter Stuge' <peter-Y+HMSxxDrH8@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140130161721.25560.qmail-Y+HMSxxDrH8@public.gmane.org>
+Content-Language: en-US
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
-
-On 01/30/2014 10:56 AM, Ben Hutchings wrote:
-> On Wed, 2014-01-29 at 16:25 -0300, Fernando Gont wrote:
->> Folks,
->> 
->> FYI. This one has important implications -- it allows stateless 
->> filtering in IPv6 (otherwise not really possible)
-> [...]
+From: Peter Stuge 
+...
+> > code using libusb can generate arbitrarily long transfers that usually
+> > get split into 8k fragments.
 > 
-> Still not possible unless you can trust that all hosts behind the 
-> firewall will correctly drop overlapping fragments.
+> libusb splits transfers into 16k urbs, or doesn't with newer code
+> when both kernel and libusb support scatter-gather.
+> 
+> > In fact libusb always uses 8k fragments.
+> 
+> Hm? Worst-case libusb-1.0 submits 16k urbs. libusb-0.1 I'm unsure
+> about, but could check.
+...
+> Where's the 8k coming from?
 
-All recent versions of popular OSes already do that.
+My memory, I meant 16k :-(
 
-Yes, there will be older ones around for a while -- but so many things
-have and are being improved in the IPv6 area that, if you ran an old
-OS, processing overlapping fragments should probably be the last thing
-you should worry about.
-
-Thanks,
-- -- 
-Fernando Gont
-e-mail: fernando@gont.com.ar || fgont@si6networks.com
-PGP Fingerprint: 7809 84F5 322E 45C7 F1C9 3945 96EE A9EF D076 FFF1
+	David
 
 
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAEBAgAGBQJS6mjuAAoJEJbuqe/Qdv/x3e0H/iwSar/7m9XJr6/6QOt6Nst5
-gbvAOzd2PgtjwGuRYHT0rSwZi2+/Ju7CRoiBjsTpMuAVtpYYt9+1+RX20W1Q0VpA
-QVKlQUKoOeL00jNLjWGVCG8rJtDhE5Q+oi5hynjrWtphEQ3mNeHCn+bfW/Jbu0R6
-oFv6uOkMiRNvdcVGkXxf6cNeZ9uE4w2pTOIXHbZekl6ejfUjkn5z8u5VlckDS7QR
-ct3NPSKSOMv0C/3q+ncuZeUp2ids5BiyxBUzhJvxH2YG8/CYL5gjjOi/YbTDdz+3
-TKM/ZB13U1ZqoTpWgYjr8o4UPR14Ek/GTCwrHYY6O9X5Y8FgXoQZePrItqexR0Y=
-=CQDC
------END PGP SIGNATURE-----
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
