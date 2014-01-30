@@ -1,38 +1,72 @@
-From: Mark Lord <mlord@pobox.com>
-Subject: Re: Help testing for USB ethernet/xHCI regression
-Date: Thu, 30 Jan 2014 17:20:40 -0500
-Message-ID: <52EAD038.5020409@pobox.com>
-References: <22081260.RNay0J72dY@athas> <20140129215408.GC5991@xanatos> <063D6719AE5E284EB5DD2968C1650D6D0F6ACF20@AcuExch.aculab.com> <20140130184412.GA3787@xanatos> <A2CA0424C0A6F04399FB9E1CD98E03046D147453@US01WEMBX2.internal.synopsys.com> <52EAAF6F.7070202@pobox.com> <20140130214133.GB14228@xanatos>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Paul Zimmerman <paulz@synopsys.com>,
-	David Laight <David.Laight@ACULAB.COM>,
-	"renevant@internode.on.net" <renevant@internode.on.net>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Sarah Sharp <sarah.a.sharp@linux.intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a-pb-sasl-quonix.pobox.com ([208.72.237.25]:51148 "EHLO
-	sasl.smtp.pobox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753567AbaA3WUm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jan 2014 17:20:42 -0500
-In-Reply-To: <20140130214133.GB14228@xanatos>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zoran Markovic <zoran.markovic@linaro.org>
+Subject: [RFC PATCH] net: rfkill: move poll work to power efficient workqueue
+Date: Thu, 30 Jan 2014 14:43:34 -0800
+Message-ID: <1391121814-6026-1-git-send-email-zoran.markovic@linaro.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Shaibal Dutta <shaibal.dutta@broadcom.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Zoran Markovic <zoran.markovic@linaro.org>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 14-01-30 04:41 PM, Sarah Sharp wrote:
->
-> Mark and David, can you pull the 3.13-td-changes-reverted branch again,
-> and see if the latest patch fixes your issue?  It disables scatter
-> gather for the ax88179_178a device, but only when it's operating at USB
-> 3.0 speeds.
+From: Shaibal Dutta <shaibal.dutta@broadcom.com>
 
-As expected, this works just fine.
+This patch moves the rfkill poll_work to the power efficient workqueue.
+This work does not have to be bound to the CPU that scheduled it, hence
+the selection of CPU that executes it would be left to the scheduler.
+Net result is that CPU idle times would be extended, resulting in power
+savings.
 
+This behaviour is enabled when CONFIG_WQ_POWER_EFFICIENT is selected.
 
+Cc: Johannes Berg <johannes@sipsolutions.net>
+Cc: "John W. Linville" <linville@tuxdriver.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Shaibal Dutta <shaibal.dutta@broadcom.com>
+[zoran.markovic@linaro.org: Rebased to latest kernel, added commit message.
+Fixed workqueue selection after suspend/resume cycle.]
+Signed-off-by: Zoran Markovic <zoran.markovic@linaro.org>
+---
+ net/rfkill/core.c |    9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/net/rfkill/core.c b/net/rfkill/core.c
+index ed7e0b4..b3b16c0 100644
+--- a/net/rfkill/core.c
++++ b/net/rfkill/core.c
+@@ -789,7 +789,8 @@ void rfkill_resume_polling(struct rfkill *rfkill)
+ 	if (!rfkill->ops->poll)
+ 		return;
+ 
+-	schedule_work(&rfkill->poll_work.work);
++	queue_delayed_work(system_power_efficient_wq,
++			   &rfkill->poll_work, 0);
+ }
+ EXPORT_SYMBOL(rfkill_resume_polling);
+ 
+@@ -894,7 +895,8 @@ static void rfkill_poll(struct work_struct *work)
+ 	 */
+ 	rfkill->ops->poll(rfkill, rfkill->data);
+ 
+-	schedule_delayed_work(&rfkill->poll_work,
++	queue_delayed_work(system_power_efficient_wq,
++		&rfkill->poll_work,
+ 		round_jiffies_relative(POLL_INTERVAL));
+ }
+ 
+@@ -958,7 +960,8 @@ int __must_check rfkill_register(struct rfkill *rfkill)
+ 	INIT_WORK(&rfkill->sync_work, rfkill_sync_work);
+ 
+ 	if (rfkill->ops->poll)
+-		schedule_delayed_work(&rfkill->poll_work,
++		queue_delayed_work(system_power_efficient_wq,
++			&rfkill->poll_work,
+ 			round_jiffies_relative(POLL_INTERVAL));
+ 
+ 	if (!rfkill->persistent || rfkill_epo_lock_active) {
 -- 
-Mark Lord
-Real-Time Remedies Inc.
-mlord@pobox.com
+1.7.9.5
