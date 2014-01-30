@@ -1,93 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net/ipv4: Use proper RCU APIs for writer-side in
- udp_offload.c
-Date: Thu, 30 Jan 2014 06:39:51 -0800
-Message-ID: <1391092791.28432.78.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1391079118-23922-1-git-send-email-ogerlitz@mellanox.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [Patch net] net: allow setting mac address of loopback device
+Date: Thu, 30 Jan 2014 15:42:48 +0100
+Message-ID: <20140130144248.GE25336@order.stressinduktion.org>
+References: <1391038731-7501-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, edumazet@google.com,
-	Shlomo Pongratz <shlomop@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:61052 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751816AbaA3Ojy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jan 2014 09:39:54 -0500
-Received: by mail-ie0-f169.google.com with SMTP id to1so3413909ieb.28
-        for <netdev@vger.kernel.org>; Thu, 30 Jan 2014 06:39:53 -0800 (PST)
-In-Reply-To: <1391079118-23922-1-git-send-email-ogerlitz@mellanox.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:46941 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752572AbaA3Omt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jan 2014 09:42:49 -0500
+Content-Disposition: inline
+In-Reply-To: <1391038731-7501-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-01-30 at 12:51 +0200, Or Gerlitz wrote:
-> From: Shlomo Pongratz <shlomop@mellanox.com>
+On Wed, Jan 29, 2014 at 03:38:51PM -0800, Cong Wang wrote:
+> We are trying to mirror the local traffic from lo to eth0,
+> allowing setting mac address of lo to eth0 would make
+> the ether addresses in these packets correct, so that
+> we don't have to modify the ether header again.
 > 
-> RCU writer side should use rcu_dereference_protected() and not
-> rcu_dereference(), fix that. This also removes the "suspicious RCU usage"
-> warning seen when running with CONFIG_PROVE_RCU.
+> Since usually no one cares about its mac address (all-zero),
+> it is safe to allow those who care to set its mac address.
 > 
-> Fixes: b582ef0 ('net: Add GRO support for UDP encapsulating protocols')
-> Reported-by: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-> Signed-off-by: Shlomo Pongratz <shlomop@mellanox.com>
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> 
 > ---
->  net/ipv4/udp_offload.c |   14 +++++++++-----
->  1 files changed, 9 insertions(+), 5 deletions(-)
-> 
-> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-> index 2ffea6f..1bf21d4 100644
-> --- a/net/ipv4/udp_offload.c
-> +++ b/net/ipv4/udp_offload.c
-> @@ -109,7 +109,8 @@ int udp_add_offload(struct udp_offload *uo)
->  	new_offload->offload = uo;
->  
->  	spin_lock(&udp_offload_lock);
-> -	rcu_assign_pointer(new_offload->next, rcu_dereference(*head));
-> +	rcu_assign_pointer(new_offload->next,
-> +			   rcu_dereference_protected(*head, lockdep_is_held(&udp_offload_lock)));
+> diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+> index c5011e0..a0ee030 100644
+> --- a/drivers/net/loopback.c
+> +++ b/drivers/net/loopback.c
+> @@ -160,6 +160,7 @@ static const struct net_device_ops loopback_ops = {
+>  	.ndo_init      = loopback_dev_init,
+>  	.ndo_start_xmit= loopback_xmit,
+>  	.ndo_get_stats64 = loopback_get_stats64,
+> +	.ndo_set_mac_address = eth_mac_addr,
+>  };
 
-Technically speaking, this first rcu_assign_pointer() is not needed,
-because we write into a field of a structure which is only visible by
-us.
+IFF_LIVE_ADDR_CHANGE would also be helpful to change mac address if loopback
+is already up.
 
-The _following_ rcu_assign_pointer() is enough to make sure the whole
-structure is consistent before being inserted in the global list.
+Also I doubt this is a change for net but for net-next.
 
-So it should be enough and correct to simply use
+Greetings,
 
-	new_offload->next = udp_offload_base;
-	rcu_assing_pointer(udp_offload_base, new_offload);
-
-(and get rid of *head pointer btw)
-
->  	rcu_assign_pointer(*head, new_offload);
->  	spin_unlock(&udp_offload_lock);
->  
-> @@ -130,12 +131,15 @@ void udp_del_offload(struct udp_offload *uo)
->  
->  	spin_lock(&udp_offload_lock);
->  
-> -	uo_priv = rcu_dereference(*head);
-> +	uo_priv = rcu_dereference_protected(*head,
-> +					    lockdep_is_held(&udp_offload_lock));
->  	for (; uo_priv != NULL;
-> -		uo_priv = rcu_dereference(*head)) {
-> -
-> +	     uo_priv = rcu_dereference_protected(*head,
-> +						 lockdep_is_held(&udp_offload_lock))) {
->  		if (uo_priv->offload == uo) {
-> -			rcu_assign_pointer(*head, rcu_dereference(uo_priv->next));
-> +			rcu_assign_pointer(*head,
-> +					   rcu_dereference_protected(uo_priv->next,
-> +								     lockdep_is_held(&udp_offload_lock)));
->  			goto unlock;
->  		}
->  		head = &uo_priv->next;
-
-You also could define and use a macro to get better indentation.
-
-#define u_deref_protected(X) rcu_dereference_protected(X, lockdep_is_held(&udp_offload_lock))
-
-(This is what we did for nl_deref_protected() for example)
+  Hannes
