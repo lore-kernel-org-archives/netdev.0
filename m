@@ -1,38 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH stable 3.9+] can: add destructor for self generated skbs
-Date: Thu, 30 Jan 2014 15:10:03 -0800
-Message-ID: <1391123403.28432.81.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <52EA1740.2010108@hartkopp.net>
+From: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: Re: Help testing for USB ethernet/xHCI regression
+Date: Thu, 30 Jan 2014 15:26:29 -0800
+Message-ID: <20140130232629.GF14228@xanatos>
+References: <22081260.RNay0J72dY@athas>
+ <20140129215408.GC5991@xanatos>
+ <063D6719AE5E284EB5DD2968C1650D6D0F6ACF20@AcuExch.aculab.com>
+ <20140130184412.GA3787@xanatos>
+ <A2CA0424C0A6F04399FB9E1CD98E03046D147453@US01WEMBX2.internal.synopsys.com>
+ <52EAAF6F.7070202@pobox.com>
+ <20140130214133.GB14228@xanatos>
+ <52EAD038.5020409@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Andre Naujoks <nautsch2@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:52623 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752374AbaA3XKF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jan 2014 18:10:05 -0500
-In-Reply-To: <52EA1740.2010108@hartkopp.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul Zimmerman <paulz-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>,
+	David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
+	"renevant-CkBdp7X+a1oIQCUVoCVjmQ@public.gmane.org" <renevant-CkBdp7X+a1oIQCUVoCVjmQ@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Mark Lord <mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <52EAD038.5020409-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-01-30 at 10:11 +0100, Oliver Hartkopp wrote:
-> Self generated skbuffs in net/can/bcm.c are setting a skb->sk reference but
-> no explicit destructor which is enforced since Linux 3.11 with commit
-> 376c7311bdb6 (net: add a temporary sanity check in skb_orphan()).
+On Thu, Jan 30, 2014 at 05:20:40PM -0500, Mark Lord wrote:
+> On 14-01-30 04:41 PM, Sarah Sharp wrote:
+> >
+> > Mark and David, can you pull the 3.13-td-changes-reverted branch again,
+> > and see if the latest patch fixes your issue?  It disables scatter
+> > gather for the ax88179_178a device, but only when it's operating at USB
+> > 3.0 speeds.
 > 
-> This patch adds some helper functions to make sure that a destructor is
-> properly defined when a sock reference is assigned to a CAN related skb.
-> To create an unshared skb owned by the original sock a common helper function
-> has been introduced to replace open coded functions to create CAN echo skbs.
-> 
-> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
-> Tested-by: Andre Naujoks <nautsch2@gmail.com>
-> 
-> ---
+> As expected, this works just fine.
 
-Reviewed-by: Eric Dumazet <edumazet@google.com>
+Did it work when plugged into a USB 2.0 hub?
+
+Sarah Sharp
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
