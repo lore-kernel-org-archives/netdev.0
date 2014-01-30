@@ -1,74 +1,38 @@
-From: Zoran Markovic <zoran.markovic-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: [RFC PATCH] net: wireless: move regulatory timeout work to power efficient workqueue
-Date: Thu, 30 Jan 2014 15:08:30 -0800
-Message-ID: <1391123310-6425-1-git-send-email-zoran.markovic@linaro.org>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Shaibal Dutta <shaibal.dutta-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Zoran Markovic <zoran.markovic-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH stable 3.9+] can: add destructor for self generated skbs
+Date: Thu, 30 Jan 2014 15:10:03 -0800
+Message-ID: <1391123403.28432.81.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <52EA1740.2010108@hartkopp.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Andre Naujoks <nautsch2@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:52623 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752374AbaA3XKF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jan 2014 18:10:05 -0500
+In-Reply-To: <52EA1740.2010108@hartkopp.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Shaibal Dutta <shaibal.dutta-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+On Thu, 2014-01-30 at 10:11 +0100, Oliver Hartkopp wrote:
+> Self generated skbuffs in net/can/bcm.c are setting a skb->sk reference but
+> no explicit destructor which is enforced since Linux 3.11 with commit
+> 376c7311bdb6 (net: add a temporary sanity check in skb_orphan()).
+> 
+> This patch adds some helper functions to make sure that a destructor is
+> properly defined when a sock reference is assigned to a CAN related skb.
+> To create an unshared skb owned by the original sock a common helper function
+> has been introduced to replace open coded functions to create CAN echo skbs.
+> 
+> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+> Tested-by: Andre Naujoks <nautsch2@gmail.com>
+> 
+> ---
 
-For better use of CPU idle time, allow the scheduler to select the CPU
-on which the timeout work of regulatory settings would be executed.
-This extends CPU idle residency time and saves power.
-
-This functionality is enabled when CONFIG_WQ_POWER_EFFICIENT is selected.
-
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Signed-off-by: Shaibal Dutta <shaibal.dutta-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-[zoran.markovic-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org: Rebased to latest kernel. Added commit message.]
-Signed-off-by: Zoran Markovic <zoran.markovic-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
----
- net/wireless/reg.c |    9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
-
-diff --git a/net/wireless/reg.c b/net/wireless/reg.c
-index 9b897fc..6e21011 100644
---- a/net/wireless/reg.c
-+++ b/net/wireless/reg.c
-@@ -1703,7 +1703,8 @@ static void reg_process_hint(struct regulatory_request *reg_request)
- 		if (treatment == REG_REQ_OK ||
- 		    treatment == REG_REQ_ALREADY_SET)
- 			return;
--		schedule_delayed_work(&reg_timeout, msecs_to_jiffies(3142));
-+		queue_delayed_work(system_power_efficient_wq,
-+				   &reg_timeout, msecs_to_jiffies(3142));
- 		return;
- 	case NL80211_REGDOM_SET_BY_DRIVER:
- 		treatment = reg_process_hint_driver(wiphy, reg_request);
-@@ -2294,7 +2295,8 @@ static int reg_set_rd_driver(const struct ieee80211_regdomain *rd,
- 
- 	request_wiphy = wiphy_idx_to_wiphy(driver_request->wiphy_idx);
- 	if (!request_wiphy) {
--		schedule_delayed_work(&reg_timeout, 0);
-+		queue_delayed_work(system_power_efficient_wq,
-+				   &reg_timeout, 0);
- 		return -ENODEV;
- 	}
- 
-@@ -2354,7 +2356,8 @@ static int reg_set_rd_country_ie(const struct ieee80211_regdomain *rd,
- 
- 	request_wiphy = wiphy_idx_to_wiphy(country_ie_request->wiphy_idx);
- 	if (!request_wiphy) {
--		schedule_delayed_work(&reg_timeout, 0);
-+		queue_delayed_work(system_power_efficient_wq,
-+				   &reg_timeout, 0);
- 		return -ENODEV;
- 	}
- 
--- 
-1.7.9.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Reviewed-by: Eric Dumazet <edumazet@google.com>
