@@ -1,66 +1,70 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net] net/ipv4: Use proper RCU APIs for writer-side in udp_offload.c
-Date: Thu, 30 Jan 2014 12:51:58 +0200
-Message-ID: <1391079118-23922-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, edumazet@google.com,
-	Shlomo Pongratz <shlomop@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: davem@davemloft.net
+From: Michele Baldessari <michele@acksyn.org>
+Subject: [PATCH net] e100: Fix "disabling already-disabled device" warning
+Date: Thu, 30 Jan 2014 10:51:04 +0000
+Message-ID: <1391079064-18411-1-git-send-email-michele@acksyn.org>
+Cc: e1000-devel@lists.sourceforge.net, idirectscm@aim.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Michele Baldessari <michele@acksyn.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:49260 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752751AbaA3KwE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Jan 2014 05:52:04 -0500
+Received: from palahniuk.acksyn.org ([5.9.7.26]:50021 "EHLO
+	palahniuk.acksyn.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751836AbaA3LBZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jan 2014 06:01:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shlomo Pongratz <shlomop@mellanox.com>
+In https://bugzilla.redhat.com/show_bug.cgi?id=994438 and
+https://bugzilla.redhat.com/show_bug.cgi?id=970480  we
+received different reports of e100 throwing the following
+warning:
 
-RCU writer side should use rcu_dereference_protected() and not
-rcu_dereference(), fix that. This also removes the "suspicious RCU usage"
-warning seen when running with CONFIG_PROVE_RCU.
+ [<c06a0ba5>] ? pci_disable_device+0x85/0x90
+ [<c044a153>] warn_slowpath_fmt+0x33/0x40
+ [<c06a0ba5>] pci_disable_device+0x85/0x90
+ [<f7fdf7e0>] __e100_shutdown+0x80/0x120 [e100]
+ [<c0476ca5>] ? check_preempt_curr+0x65/0x90
+ [<f7fdf8d6>] e100_suspend+0x16/0x30 [e100]
+ [<c06a1ebb>] pci_legacy_suspend+0x2b/0xb0
+ [<c098fc0f>] ? wait_for_completion+0x1f/0xd0
+ [<c06a2d50>] ? pci_pm_poweroff+0xb0/0xb0
+ [<c06a2de4>] pci_pm_freeze+0x94/0xa0
+ [<c0767bb7>] dpm_run_callback+0x37/0x80
+ [<c076a204>] ? pm_wakeup_pending+0xc4/0x140
+ [<c0767f12>] __device_suspend+0xb2/0x1f0
+ [<c076806f>] async_suspend+0x1f/0x90
+ [<c04706e5>] async_run_entry_fn+0x35/0x140
+ [<c0478aef>] ? wake_up_process+0x1f/0x40
+ [<c0464495>] process_one_work+0x115/0x370
+ [<c0462645>] ? start_worker+0x25/0x30
+ [<c0464dc5>] ? manage_workers.isra.27+0x1a5/0x250
+ [<c0464f6e>] worker_thread+0xfe/0x330
+ [<c0464e70>] ? manage_workers.isra.27+0x250/0x250
+ [<c046a224>] kthread+0x94/0xa0
+ [<c0997f37>] ret_from_kernel_thread+0x1b/0x28
+ [<c046a190>] ? insert_kthread_work+0x30/0x30
 
-Fixes: b582ef0 ('net: Add GRO support for UDP encapsulating protocols')
-Reported-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Signed-off-by: Shlomo Pongratz <shlomop@mellanox.com>
+This patch removes pci_disable_device() from __e100_shutdown().
+pci_clear_master() is enough.
+
+Signed-off-by: Michele Baldessari <michele@acksyn.org>
+Tested-by: Mark Harig <idirectscm@aim.com>
 ---
- net/ipv4/udp_offload.c |   14 +++++++++-----
- 1 files changed, 9 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/e100.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index 2ffea6f..1bf21d4 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -109,7 +109,8 @@ int udp_add_offload(struct udp_offload *uo)
- 	new_offload->offload = uo;
+diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
+index cbaba44..bf7a01e 100644
+--- a/drivers/net/ethernet/intel/e100.c
++++ b/drivers/net/ethernet/intel/e100.c
+@@ -3034,7 +3034,7 @@ static void __e100_shutdown(struct pci_dev *pdev, bool *enable_wake)
+ 		*enable_wake = false;
+ 	}
  
- 	spin_lock(&udp_offload_lock);
--	rcu_assign_pointer(new_offload->next, rcu_dereference(*head));
-+	rcu_assign_pointer(new_offload->next,
-+			   rcu_dereference_protected(*head, lockdep_is_held(&udp_offload_lock)));
- 	rcu_assign_pointer(*head, new_offload);
- 	spin_unlock(&udp_offload_lock);
+-	pci_disable_device(pdev);
++	pci_clear_master(pdev);
+ }
  
-@@ -130,12 +131,15 @@ void udp_del_offload(struct udp_offload *uo)
- 
- 	spin_lock(&udp_offload_lock);
- 
--	uo_priv = rcu_dereference(*head);
-+	uo_priv = rcu_dereference_protected(*head,
-+					    lockdep_is_held(&udp_offload_lock));
- 	for (; uo_priv != NULL;
--		uo_priv = rcu_dereference(*head)) {
--
-+	     uo_priv = rcu_dereference_protected(*head,
-+						 lockdep_is_held(&udp_offload_lock))) {
- 		if (uo_priv->offload == uo) {
--			rcu_assign_pointer(*head, rcu_dereference(uo_priv->next));
-+			rcu_assign_pointer(*head,
-+					   rcu_dereference_protected(uo_priv->next,
-+								     lockdep_is_held(&udp_offload_lock)));
- 			goto unlock;
- 		}
- 		head = &uo_priv->next;
+ static int __e100_power_off(struct pci_dev *pdev, bool wake)
 -- 
-1.7.1
+1.8.5.3
