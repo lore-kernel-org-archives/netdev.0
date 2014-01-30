@@ -1,34 +1,58 @@
-From: Peter Stuge <peter-Y+HMSxxDrH8@public.gmane.org>
-Subject: Re: [PATCH RFC 1/1] usb: Tell xhci when usb data might be
-	misaligned
-Date: Thu, 30 Jan 2014 17:35:08 +0100
-Message-ID: <20140130163508.27016.qmail@stuge.se>
-References: <063D6719AE5E284EB5DD2968C1650D6D0F6B5486@AcuExch.aculab.com> <20140130161721.25560.qmail@stuge.se> <063D6719AE5E284EB5DD2968C1650D6D0F6B553D@AcuExch.aculab.com>
+From: Florian Vaussard <florian.vaussard@epfl.ch>
+Subject: Re: [PATCH 0/5] can: sja1000: cleanups and new OF property
+Date: Thu, 30 Jan 2014 17:51:01 +0100
+Message-ID: <52EA82F5.5000004@epfl.ch>
+References: <1391092168-21246-1-git-send-email-florian.vaussard@epfl.ch> <52EA6E31.2030604@pengutronix.de> <52EA6F6E.1010405@epfl.ch> <52EA718B.3090006@pengutronix.de>
+Reply-To: florian.vaussard@epfl.ch
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6B553D-VkEWCZq2GCInGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Marc Kleine-Budde <mkl@pengutronix.de>,
+	Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52EA718B.3090006@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Laight wrote:
-> > Where's the 8k coming from?
+
+
+On 01/30/2014 04:36 PM, Marc Kleine-Budde wrote:
+> On 01/30/2014 04:27 PM, Florian Vaussard wrote:
+>> Hello,
+>>
+>> On 01/30/2014 04:22 PM, Marc Kleine-Budde wrote:
+>>> Hello Florian,
+>>>
+>>> On 01/30/2014 03:29 PM, Florian Vaussard wrote:
+>>>> The first part of this series performs serveral small cleanups
+>>>> (patches 1 to 3).
+>>>
+>>> Thanks for your contribution. I like patches 1 and 2.
+>>>
+>>>> The second part introduces the 'reg-io-width' binding (already used
+>>>> by some other drivers) to perform a similar job as what was done
+>>>> with IORESOURCE_MEM_XXBIT on the sja1000_platform. This is needed
+>>>> on my system to correctly take into account the aliasing of the
+>>>> address bus.
+>>>
+>>> And I appreciate the improvements for the of_platform driver. However
+>>> that driver was written back when it was not possible to have platform
+>>> and of bindings in the same driver. So I'd like to see that the
+>>> of_platform driver gets merged into the platform driver.
+>>>
+>>
+>> Fine. Is an incremental patch on top of this series ok for you ?
 > 
-> My memory, I meant 16k :-(
+> I'd rather see patches 1 and 2 you have already posted, then probably a
+> modernization patch which converts the platform driver to use devm_ and
+> friends. Then a patch adding the existing of bindings [1]. This patch is
+> probably quite small if you prepare the driver in the modernization
+> patch properly. The last patch will add the new reg-io-width property.
+> 
 
-No problem. But what about that alignment? It seems that userspace
-needs to start caring about alignment with xhci, right?
+Ok, I will do it.
 
-
-//Peter
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards,
+Florian
