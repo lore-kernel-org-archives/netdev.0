@@ -1,196 +1,76 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: [PATCH RFC 1/1] usb: Tell xhci when usb data might be misaligned
-Date: Thu, 30 Jan 2014 16:00:38 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6B5486@AcuExch.aculab.com>
+From: Dave Jones <davej@redhat.com>
+Subject: r8169: DMA-API: exceeded 7 overlapping mappings of pfn 943ad
+Date: Thu, 30 Jan 2014 11:01:13 -0500
+Message-ID: <20140130160113.GA18779@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Sarah Sharp <sarah.a.sharp@linux.intel.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:43124 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753209AbaA3QBI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jan 2014 11:01:08 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 22461-05 for <netdev@vger.kernel.org>;
- Thu, 30 Jan 2014 16:01:02 +0000 (GMT)
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:58083 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753209AbaA3QBY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Jan 2014 11:01:24 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some xhci (USB3) controllers have a constraint on the offset within a
-bulk transfer of the end of the transfer ring.
+WARNING: CPU: 0 PID: 0 at lib/dma-debug.c:491 add_dma_entry+0x127/0x130()
+DMA-API: exceeded 7 overlapping mappings of pfn 943ad
+Modules linked in: ipt_MASQUERADE iptable_nat nf_nat_ipv4 nf_nat xt_LOG xt_limit ip6t_REJECT nf_conntrack_ipv4 nf_conntrack_ipv6 nf_defrag_ipv6 nf_defrag_ipv4 xt_conntrack nf_conntrack ip6table_filter ip6_tables crc32c_intel ghash_clmulni_intel microcode pcspkr r8169 mii nfsd auth_rpcgss nfs_acl lockd sunrpc i915 i2c_algo_bit drm_kms_helper drm video backlight
+CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.13.0+ #10
+Hardware name: Shuttle Inc. SH87R/FH87, BIOS 1.02 06/26/2013
+ 0000000000000009 62a5d1f597ade7cd ffff88013ac03910 ffffffff8157a0ca
+ ffff88013ac03958 ffff88013ac03948 ffffffff8105c343 00000000000943ad
+ ffff8800b198ce38 0000000000000286 ffffffff828acb40 0000000000000286
+Call Trace:
+ <IRQ>  [<ffffffff8157a0ca>] dump_stack+0x4d/0x66
+ [<ffffffff8105c343>] warn_slowpath_common+0x73/0x90
+ [<ffffffff8105c3b7>] warn_slowpath_fmt+0x57/0x80
+ [<ffffffff812bf60d>] ? active_pfn_read_overlap+0x2d/0x50
+ [<ffffffff812bfbd7>] add_dma_entry+0x127/0x130
+ [<ffffffff812bff0a>] debug_dma_map_page+0x11a/0x140
+ [<ffffffffa01ebaae>] rtl8169_start_xmit+0x1fe/0xac0 [r8169]
+ [<ffffffff810a81bf>] ? lock_release_holdtime.part.30+0xf/0x190
+ [<ffffffff8146b3f0>] ? dev_queue_xmit_nit+0x170/0x3d0
+ [<ffffffff8146d69b>] dev_hard_start_xmit+0x2cb/0x4c0
+ [<ffffffff8148e3de>] sch_direct_xmit+0xee/0x280
+ [<ffffffff8146da90>] __dev_queue_xmit+0x200/0x770
+ [<ffffffff8146d890>] ? dev_hard_start_xmit+0x4c0/0x4c0
+ [<ffffffff8146e00b>] dev_queue_xmit+0xb/0x10
+ [<ffffffff8147912a>] neigh_resolve_output+0x17a/0x2e0
+ [<ffffffff814a87f0>] ? ip_finish_output+0x3f0/0x8e0
+ [<ffffffff814a87f0>] ip_finish_output+0x3f0/0x8e0
+ [<ffffffff814a8666>] ? ip_finish_output+0x266/0x8e0
+ [<ffffffff814aa427>] ip_output+0x57/0xf0
+ [<ffffffff814a5121>] ip_forward_finish+0x71/0x1c0
+ [<ffffffff814a5483>] ip_forward+0x213/0x590
+ [<ffffffff814a3030>] ip_rcv_finish+0x140/0x570
+ [<ffffffff814a39b4>] ip_rcv+0x294/0x3d0
+ [<ffffffff8146aaa2>] __netif_receive_skb_core+0x762/0x960
+ [<ffffffff8146a47d>] ? __netif_receive_skb_core+0x13d/0x960
+ [<ffffffff810aad4d>] ? trace_hardirqs_on+0xd/0x10
+ [<ffffffff8146acb3>] __netif_receive_skb+0x13/0x60
+ [<ffffffff8146ad2d>] netif_receive_skb_internal+0x2d/0x210
+ [<ffffffff8146ca68>] napi_gro_receive+0x58/0x80
+ [<ffffffffa01ec4d6>] rtl8169_poll+0x166/0x700 [r8169]
+ [<ffffffff8146b839>] net_rx_action+0x129/0x1e0
+ [<ffffffff81060ebc>] __do_softirq+0x11c/0x2a0
+ [<ffffffff8106137d>] irq_exit+0x11d/0x140
+ [<ffffffff810043c3>] do_IRQ+0x53/0xf0
+ [<ffffffff81582def>] common_interrupt+0x6f/0x6f
+ <EOI>  [<ffffffff8142c35f>] ? cpuidle_enter_state+0x4f/0xc0
+ [<ffffffff8142c35b>] ? cpuidle_enter_state+0x4b/0xc0
+ [<ffffffff8142c466>] cpuidle_idle_call+0x96/0x140
+ [<ffffffff8100b879>] arch_cpu_idle+0x9/0x30
+ [<ffffffff810b505a>] cpu_startup_entry+0xea/0x220
+ [<ffffffff81571a83>] rest_init+0x133/0x140
+ [<ffffffff81571950>] ? csum_partial_copy_generic+0x170/0x170
+ [<ffffffff81c78e6c>] start_kernel+0x41f/0x440
+ [<ffffffff81c78856>] ? repair_env_string+0x5c/0x5c
+ [<ffffffff81c78571>] x86_64_start_reservations+0x2a/0x2c
+ [<ffffffff81c7863a>] x86_64_start_kernel+0xc7/0xca
 
-The xhci documentation (v1.00, but not the earlier versions) states that
-the offset (from the beginning of the transfer) at end of the transfer
-ring must be a multiple of the burst size (this is actually 16k for USB3
-since the controller is configured for 16 message bursts).
-However the effect is probably that the transfer is split at the ring end,
-so the target will see correct messages provided the data is 1k aligned.
-
-This mostly affects scatter-gather transfer requests, but can potentially
-affect other requests as they must be split on 64k address boundaries.
-(It might even affect non-bulk transfers.)
-
-The only known current source of such misaligned transfers is the
-ax88179_178a ethernet driver. The hardware stops transmitting ethernet
-frames when the host controller (presumably) spilts a 1k message.
-
-Not all host controllers behave this way.
-The Intel Panther Point used on recent motherboards is affected.
-
-A fix has been applied to the xhci driver (and backported), however this
-has a side effect of limiting the number of fragments that can be sent.
-(It works by putting all the buffer fragments in one ring segment.)
-
-The SCSI system generates more fragments than was originally thought, and
-code using libusb can generate arbitrarily long transfers that usually
-get split into 8k fragments.
-
-We've had reports of 4MB libusb requests failing. A 16MB request would
-require 256 fragments (because of the requirement to not cross a 64k
-address boundary) so could not be fitted into the 255 ring slots regarless
-of the number and alignment of any fragments.
-
-In fact libusb always uses 8k fragments. Anything over 1M can't be
-split with the current limit of 128 fragments and is sent unfragmented.
-This leads to kmalloc() failures.
-
-This all means that the xhci driver needs to accept unlimited numbers
-of 'aligned' fragments and only restrict the number of misaligned ones.
-
-None of the other USB controllers allow buffer fragments that cross
-USB message boundaries (512 bytes for USB2), so almost all the code
-uses aligned buffers. Potentially these might cross 64k boundaries
-at unaligned offsets, but I suspect that really doesn't happen.
-
-So rather than change all the code that generates urbs, this patch
-modifies the only code that generates misaligned transfares to tell
-the host controller that the buffer might have alignment issues.
-
-The patch:
-- Adds the flag URB_UNCONSTRAINED_XFER to urb->transfer_flags.
-  This reuses the value of URB_ASYNC_UNLINK (removed in 2005).
-- Sets the flag in usbnet.c for all transmit requests.
-  Since the buffer offsets aren't aligned an unfragmented message might
-  need splitting on a 64k boundary.
-- Pass the transfer_flags down to prepare_ring() and only check for
-  the end of ring segments (filling with NOPs) if the flag is set.
-- Remove the advertised restriction on the number fragments xhci supports.
-
-This doesn't actually define what a 'constrained' transfer is - but
-that wasn't defined when no_sg_constraint was added to struct usb_bus.
-Possibly there should also be separate limits of the number of 'constrained'
-and 'unconstrained' scatter-gather lists. But and the moment the former
-is (more or less) required to be infinite, and the limit of the latter
-won't be reached by any code that sets the flag.
-
-Signed-off-by: David Laight <david.laight@aculab.com>
----
- drivers/net/usb/usbnet.c     |  1 +
- drivers/usb/host/xhci-ring.c | 12 ++++++++----
- drivers/usb/host/xhci.c      |  8 ++++++--
- include/linux/usb.h          |  1 +
- 4 files changed, 16 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 4671da7..504be5b 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1303,6 +1303,7 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
- 		if (build_dma_sg(skb, urb) < 0)
- 			goto drop;
- 	}
-+	urb->transfer_flags |= URB_UNCONSTRAINED_XFER;
- 	length = urb->transfer_buffer_length;
- 
- 	/* don't assume the hardware handles USB_ZERO_PACKET
-diff --git a/drivers/usb/host/xhci-ring.c b/drivers/usb/host/xhci-ring.c
-index a0b248c..5860874 100644
---- a/drivers/usb/host/xhci-ring.c
-+++ b/drivers/usb/host/xhci-ring.c
-@@ -2932,7 +2932,8 @@ static void queue_trb(struct xhci_hcd *xhci, struct xhci_ring *ring,
-  * FIXME allocate segments if the ring is full.
-  */
- static int prepare_ring(struct xhci_hcd *xhci, struct xhci_ring *ep_ring,
--		u32 ep_state, unsigned int num_trbs, gfp_t mem_flags)
-+		u32 ep_state, unsigned int num_trbs, gfp_t mem_flags,
-+		unsigned int transfer_flags)
- {
- 	unsigned int num_trbs_needed;
- 
-@@ -2980,6 +2981,9 @@ static int prepare_ring(struct xhci_hcd *xhci, struct xhci_ring *ep_ring,
- 			 * Simplest solution is to fill the trb before the
- 			 * LINK with nop commands.
- 			 */
-+			if (!(transfer_flags & URB_UNCONSTRAINED_XFER))
-+				/* Caller says buffer is aligned */
-+				break;
- 			if (num_trbs == 1 || num_trbs <= usable || usable == 0)
- 				break;
- 
-@@ -3090,7 +3094,7 @@ static int prepare_transfer(struct xhci_hcd *xhci,
- 
- 	ret = prepare_ring(xhci, ep_ring,
- 			   le32_to_cpu(ep_ctx->ep_info) & EP_STATE_MASK,
--			   num_trbs, mem_flags);
-+			   num_trbs, mem_flags, urb->transfer_flags);
- 	if (ret)
- 		return ret;
- 
-@@ -3969,7 +3973,7 @@ int xhci_queue_isoc_tx_prepare(struct xhci_hcd *xhci, gfp_t mem_flags,
- 	 * Do not insert any td of the urb to the ring if the check failed.
- 	 */
- 	ret = prepare_ring(xhci, ep_ring, le32_to_cpu(ep_ctx->ep_info) & EP_STATE_MASK,
--			   num_trbs, mem_flags);
-+			   num_trbs, mem_flags, 0);
- 	if (ret)
- 		return ret;
- 
-@@ -4026,7 +4030,7 @@ static int queue_command(struct xhci_hcd *xhci, u32 field1, u32 field2,
- 		reserved_trbs++;
- 
- 	ret = prepare_ring(xhci, xhci->cmd_ring, EP_STATE_RUNNING,
--			reserved_trbs, GFP_ATOMIC);
-+			reserved_trbs, GFP_ATOMIC, 0);
- 	if (ret < 0) {
- 		xhci_err(xhci, "ERR: No room for command on command ring\n");
- 		if (command_must_succeed)
-diff --git a/drivers/usb/host/xhci.c b/drivers/usb/host/xhci.c
-index ad36439..eab1c5c 100644
---- a/drivers/usb/host/xhci.c
-+++ b/drivers/usb/host/xhci.c
-@@ -4730,8 +4730,12 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
- 	struct device		*dev = hcd->self.controller;
- 	int			retval;
- 
--	/* Limit the block layer scatter-gather lists to half a segment. */
--	hcd->self.sg_tablesize = TRBS_PER_SEGMENT / 2;
-+	/* The length of scatter-gather lists needs to be unlimited for
-+	 * aligned lists (URB_UNCONSTRAINED_XFER unset).
-+	 * There is currently no way of specifying the limit for
-+	 * misaligned transfers.
-+	 */
-+	hcd->self.sg_tablesize = ~0u;
- 
- 	/* support to build packet from discontinuous buffers */
- 	hcd->self.no_sg_constraint = 1;
-diff --git a/include/linux/usb.h b/include/linux/usb.h
-index c716da1..7f53034 100644
---- a/include/linux/usb.h
-+++ b/include/linux/usb.h
-@@ -1179,6 +1179,7 @@ extern int usb_disabled(void);
- #define URB_ISO_ASAP		0x0002	/* iso-only; use the first unexpired
- 					 * slot in the schedule */
- #define URB_NO_TRANSFER_DMA_MAP	0x0004	/* urb->transfer_dma valid on submit */
-+#define URB_UNCONSTRAINED_XFER	0x0010	/* data may not be aligned */
- #define URB_NO_FSBR		0x0020	/* UHCI-specific */
- #define URB_ZERO_PACKET		0x0040	/* Finish bulk OUT with short packet */
- #define URB_NO_INTERRUPT	0x0080	/* HINT: no non-error interrupt
--- 
-1.8.1.2
+This box has two r8169's. Two different revs..
+02:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 0c)
+03:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 03)
