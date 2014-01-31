@@ -1,15 +1,12 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH 10/34] enic: Use pci_enable_msix_range()
-Date: Fri, 31 Jan 2014 16:08:29 +0100
-Message-ID: <198b4ebcab97d1ce115670f12131679566ae30f6.1391172839.git.agordeev@redhat.com>
+Subject: [PATCH 11/34] benet: Use pci_enable_msix_range()
+Date: Fri, 31 Jan 2014 16:08:30 +0100
+Message-ID: <0ab74b1142006d2e7a8065ec8a2d3ba48fc3ec0c.1391172839.git.agordeev@redhat.com>
 References: <cover.1391172839.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
-	Christian Benvenuti <benve@cisco.com>,
-	Sujith Sankar <ssujith@cisco.com>,
-	Govindarajulu Varadarajan <govindarajulu90@gmail.com>,
-	Neel Patel <neepatel@cisco.com>,
-	Nishank Trivedi <nistrive@cisco.com>, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org
+	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
+	Ajit Khaparde <ajit.khaparde@emulex.com>,
+	netdev@vger.kernel.org, linux-pci@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1391172839.git.agordeev@redhat.com>
@@ -24,32 +21,65 @@ interfaces.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/cisco/enic/enic_main.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_main.c |   31 +++++++++++---------------
+ 1 files changed, 13 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index b740bfc..dcd58f2 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -1796,7 +1796,8 @@ static int enic_set_intr_mode(struct enic *enic)
- 	    enic->cq_count >= n + m &&
- 	    enic->intr_count >= n + m + 2) {
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 04ac9c6..f55c09b 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -2505,7 +2505,7 @@ static void be_msix_disable(struct be_adapter *adapter)
  
--		if (!pci_enable_msix(enic->pdev, enic->msix_entry, n + m + 2)) {
-+		if (pci_enable_msix_range(enic->pdev, enic->msix_entry,
-+					  n + m + 2, n + m + 2) > 0) {
+ static int be_msix_enable(struct be_adapter *adapter)
+ {
+-	int i, status, num_vec;
++	int i, num_vec;
+ 	struct device *dev = &adapter->pdev->dev;
  
- 			enic->rq_count = n;
- 			enic->wq_count = m;
-@@ -1815,7 +1816,8 @@ static int enic_set_intr_mode(struct enic *enic)
- 	    enic->wq_count >= m &&
- 	    enic->cq_count >= 1 + m &&
- 	    enic->intr_count >= 1 + m + 2) {
--		if (!pci_enable_msix(enic->pdev, enic->msix_entry, 1 + m + 2)) {
-+		if (pci_enable_msix_range(enic->pdev, enic->msix_entry,
-+					  1 + m + 2, 1 + m + 2) > 0) {
+ 	/* If RoCE is supported, program the max number of NIC vectors that
+@@ -2521,24 +2521,11 @@ static int be_msix_enable(struct be_adapter *adapter)
+ 	for (i = 0; i < num_vec; i++)
+ 		adapter->msix_entries[i].entry = i;
  
- 			enic->rq_count = 1;
- 			enic->wq_count = m;
+-	status = pci_enable_msix(adapter->pdev, adapter->msix_entries, num_vec);
+-	if (status == 0) {
+-		goto done;
+-	} else if (status >= MIN_MSIX_VECTORS) {
+-		num_vec = status;
+-		status = pci_enable_msix(adapter->pdev, adapter->msix_entries,
+-					 num_vec);
+-		if (!status)
+-			goto done;
+-	}
++	num_vec = pci_enable_msix_range(adapter->pdev, adapter->msix_entries,
++					MIN_MSIX_VECTORS, num_vec);
++	if (num_vec < 0)
++		goto fail;
+ 
+-	dev_warn(dev, "MSIx enable failed\n");
+-
+-	/* INTx is not supported in VFs, so fail probe if enable_msix fails */
+-	if (!be_physfn(adapter))
+-		return status;
+-	return 0;
+-done:
+ 	if (be_roce_supported(adapter) && num_vec > MIN_MSIX_VECTORS) {
+ 		adapter->num_msix_roce_vec = num_vec / 2;
+ 		dev_info(dev, "enabled %d MSI-x vector(s) for RoCE\n",
+@@ -2550,6 +2537,14 @@ done:
+ 	dev_info(dev, "enabled %d MSI-x vector(s) for NIC\n",
+ 		 adapter->num_msix_vec);
+ 	return 0;
++
++fail:
++	dev_warn(dev, "MSIx enable failed\n");
++
++	/* INTx is not supported in VFs, so fail probe if enable_msix fails */
++	if (!be_physfn(adapter))
++		return num_vec;
++	return 0;
+ }
+ 
+ static inline int be_msix_vec_get(struct be_adapter *adapter,
 -- 
 1.7.7.6
