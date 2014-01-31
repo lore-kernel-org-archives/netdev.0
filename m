@@ -1,37 +1,33 @@
-From: Florian Vaussard <florian.vaussard@epfl.ch>
-Subject: [PATCH v2 2/6] can: sja1000: convert printk to use netdev API
-Date: Fri, 31 Jan 2014 11:35:09 +0100
-Message-ID: <1391164513-11529-3-git-send-email-florian.vaussard@epfl.ch>
-References: <1391164513-11529-1-git-send-email-florian.vaussard@epfl.ch>
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, florian.vaussard@epfl.ch
-To: Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1391164513-11529-1-git-send-email-florian.vaussard@epfl.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: IGMP joins come from the wrong SA/interface
+Date: Fri, 31 Jan 2014 12:32:12 +0100
+Message-ID: <20140131113212.GI25336@order.stressinduktion.org>
+References: <20140118191107.GA21979@sesse.net> <20140119181806.GC16462@order.stressinduktion.org> <20140120184025.GA19972@sesse.net> <20140130104709.GA21178@sesse.net> <20140130180304.GA3793@plex.lan> <20140130181229.GA32245@sesse.net> <20140130224411.GG25336@order.stressinduktion.org> <alpine.LFD.2.11.1401310948270.1576@ja.home.ssi.bg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: "Steinar H. Gunderson" <sgunderson@bigfoot.com>,
+	netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:49039 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932316AbaAaLcO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jan 2014 06:32:14 -0500
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.11.1401310948270.1576@ja.home.ssi.bg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use netdev_* where applicable.
+On Fri, Jan 31, 2014 at 10:51:53AM +0200, Julian Anastasov wrote:
+> 	To summarize: IGMP will use the same interface as
+> selected from route to the joined multicast group but
+> source can be from another device if for some reason there
+> is no address on this interface.
 
-Signed-off-by: Florian Vaussard <florian.vaussard@epfl.ch>
----
- drivers/net/can/sja1000/sja1000.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+Exactly that was my conclusion. As eth0.11 (as said in the second mail)
+is a leg of a bridge I concluded that there is no ip address on that
+interface.
 
-diff --git a/drivers/net/can/sja1000/sja1000.c b/drivers/net/can/sja1000/sja1000.c
-index f17c301..55cce47 100644
---- a/drivers/net/can/sja1000/sja1000.c
-+++ b/drivers/net/can/sja1000/sja1000.c
-@@ -106,8 +106,7 @@ static int sja1000_probe_chip(struct net_device *dev)
- 	struct sja1000_priv *priv = netdev_priv(dev);
- 
- 	if (priv->reg_base && sja1000_is_absent(priv)) {
--		printk(KERN_INFO "%s: probing @0x%lX failed\n",
--		       DRV_NAME, dev->base_addr);
-+		netdev_err(dev, "probing failed\n");
- 		return 0;
- 	}
- 	return -1;
--- 
-1.8.1.2
+Greetings,
+
+  Hannes
