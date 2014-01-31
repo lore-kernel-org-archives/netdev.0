@@ -1,47 +1,57 @@
-From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH 03/34] tg3: Use pci_enable_msix_range()
-Date: Fri, 31 Jan 2014 16:08:22 +0100
-Message-ID: <21689343cc3c785d2bae8d1187741f404b03c84d.1391172839.git.agordeev@redhat.com>
-References: <cover.1391172839.git.agordeev@redhat.com>
-Cc: Alexander Gordeev <agordeev@redhat.com>,
-	Nithin Nayak Sujir <nsujir@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1391172839.git.agordeev@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH RFC 1/1] usb: Tell xhci when usb data might be misaligned
+Date: Fri, 31 Jan 2014 15:22:37 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6B6083@AcuExch.aculab.com>
+References: <20140130211816.GB3787@xanatos> <87iot1qgv6.fsf@nemi.mork.no>
+ <20140130221511.GD14228@xanatos>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=Windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	David Miller <davem@davemloft.net>,
+	"Dan Williams" <dan.j.williams@intel.com>,
+	"Nyman, Mathias" <mathias.nyman@intel.com>,
+	Mark Lord <mlord@pobox.com>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	Freddy Xin <freddy@asix.com.tw>,
+	Ming Lei <ming.lei@canonical.com>
+To: 'Sarah Sharp' <sarah.a.sharp@linux.intel.com>,
+	=?Windows-1252?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:37406 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1754047AbaAaPXK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jan 2014 10:23:10 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 08575-05 for <netdev@vger.kernel.org>;
+ Fri, 31 Jan 2014 15:23:06 +0000 (GMT)
+In-Reply-To: <20140130221511.GD14228@xanatos>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As result of deprecation of MSI-X/MSI enablement functions
-pci_enable_msix() and pci_enable_msi_block() all drivers
-using these two interfaces need to be updated to use the
-new pci_enable_msi_range() and pci_enable_msix_range()
-interfaces.
+=46rom: Sarah Sharp
+> On Thu, Jan 30, 2014 at 10:50:21PM +0100, Bj=F8rn Mork wrote:
+> > FWIW, the plan looks fine to me.  Just adding a couple of hints to
+> > simplify the implementation.
+> >
+> > Sarah Sharp <sarah.a.sharp@linux.intel.com> writes:
+> >
+> > > Let's do this fix the right way, instead of wall papering over th=
+e
+> > > issue.  Here's what we should do:
+> > >
+> > > 1. Disable scatter-gather for the ax88179_178a driver when it's u=
+nder an
+> > >    xHCI host.
+> >
+> > No need to make this conditional.  SG is only enabled in the
+> > ax88179_178a driver if udev->bus->no_sg_constraint is true, so it
+> > applies only to xHCI hosts in the first place.
 
-Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
----
- drivers/net/ethernet/broadcom/tg3.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+Leave the usbnet code alone and unset udev->bus->no_sg_constraint.
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index e2ca03e..fca9996 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -11361,12 +11361,10 @@ static bool tg3_enable_msix(struct tg3 *tp)
- 		msix_ent[i].vector = 0;
- 	}
- 
--	rc = pci_enable_msix(tp->pdev, msix_ent, tp->irq_cnt);
-+	rc = pci_enable_msix_range(tp->pdev, msix_ent, 1, tp->irq_cnt);
- 	if (rc < 0) {
- 		return false;
--	} else if (rc != 0) {
--		if (pci_enable_msix(tp->pdev, msix_ent, rc))
--			return false;
-+	} else if (rc < tp->irq_cnt) {
- 		netdev_notice(tp->dev, "Requested %d MSI-X vectors, received %d\n",
- 			      tp->irq_cnt, rc);
- 		tp->irq_cnt = rc;
--- 
-1.7.7.6
+	David
