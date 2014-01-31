@@ -1,11 +1,11 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH 19/34] mlx5: Use pci_enable_msix_range()
-Date: Fri, 31 Jan 2014 16:08:38 +0100
-Message-ID: <bf395f4c5a111f0f3766ce4be08e72177e227412.1391172839.git.agordeev@redhat.com>
+Subject: [PATCH 21/34] s2io: Use pci_enable_msix_range()
+Date: Fri, 31 Jan 2014 16:08:40 +0100
+Message-ID: <d1a9bf16ad8e822bb8fc7d42819f13d08dc8e430.1391172839.git.agordeev@redhat.com>
 References: <cover.1391172839.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
-	Eli Cohen <eli@mellanox.com>, linux-rdma@vger.kernel.org,
-	netdev@vger.kernel.org, linux-pci@vger.kernel.org
+	Jon Mason <jdmason@kudzu.us>, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1391172839.git.agordeev@redhat.com>
@@ -20,43 +20,25 @@ interfaces.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/main.c |   16 +++++-----------
- 1 files changed, 5 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/neterion/s2io.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index a064f06..81df046 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -116,7 +116,6 @@ static int mlx5_enable_msix(struct mlx5_core_dev *dev)
- 	struct mlx5_eq_table *table = &dev->priv.eq_table;
- 	int num_eqs = 1 << dev->caps.log_max_eq;
- 	int nvec;
--	int err;
- 	int i;
+diff --git a/drivers/net/ethernet/neterion/s2io.c b/drivers/net/ethernet/neterion/s2io.c
+index 9eeddbd..56e3a9d 100644
+--- a/drivers/net/ethernet/neterion/s2io.c
++++ b/drivers/net/ethernet/neterion/s2io.c
+@@ -3792,9 +3792,10 @@ static int s2io_enable_msi_x(struct s2io_nic *nic)
+ 	writeq(rx_mat, &bar0->rx_mat);
+ 	readq(&bar0->rx_mat);
  
- 	nvec = dev->caps.num_ports * num_online_cpus() + MLX5_EQ_VEC_COMP_BASE;
-@@ -131,17 +130,12 @@ static int mlx5_enable_msix(struct mlx5_core_dev *dev)
- 	for (i = 0; i < nvec; i++)
- 		table->msix_arr[i].entry = i;
- 
--retry:
--	table->num_comp_vectors = nvec - MLX5_EQ_VEC_COMP_BASE;
--	err = pci_enable_msix(dev->pdev, table->msix_arr, nvec);
--	if (err <= 0) {
--		return err;
--	} else if (err > 2) {
--		nvec = err;
--		goto retry;
--	}
-+	nvec = pci_enable_msix_range(dev->pdev, table->msix_arr,
-+				     MLX5_EQ_VEC_COMP_BASE, nvec);
-+	if (nvec < 0)
-+		return nvec;
- 
--	mlx5_core_dbg(dev, "received %d MSI vectors out of %d requested\n", err, nvec);
-+	table->num_comp_vectors = nvec - MLX5_EQ_VEC_COMP_BASE;
- 
- 	return 0;
- }
+-	ret = pci_enable_msix(nic->pdev, nic->entries, nic->num_entries);
++	ret = pci_enable_msix_range(nic->pdev, nic->entries,
++				    nic->num_entries, nic->num_entries);
+ 	/* We fail init if error or we get less vectors than min required */
+-	if (ret) {
++	if (ret < 0) {
+ 		DBG_PRINT(ERR_DBG, "Enabling MSI-X failed\n");
+ 		kfree(nic->entries);
+ 		swstats->mem_freed += nic->num_entries *
 -- 
 1.7.7.6
