@@ -1,45 +1,65 @@
-From: Tom Gundersen <teg@jklm.no>
-Subject: Re: [PATCH] rtnetlink: return the newly created link in response to newlink
-Date: Fri, 31 Jan 2014 01:57:23 +0100
-Message-ID: <CAG-2HqUdAZO0X7+D=4fQmjnb7eZUigS5OnABT2fXL=gKL6jRzg@mail.gmail.com>
-References: <1391087144-24490-1-git-send-email-teg@jklm.no> <20140130142740.GC2185@casper.infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Thomas Graf <tgraf@suug.ch>
+From: Richard Yao <ryao@gentoo.org>
+Subject: Re: [PATCH] 9p/trans_virtio.c: Fix broken zero-copy on vmalloc() buffers
+Date: Thu, 30 Jan 2014 20:02:23 -0500
+Message-ID: <1EB31694-2C49-415B-8394-A91724665D71@gentoo.org>
+References: <1391104968-10258-1-git-send-email-ryao@gentoo.org> <1391104968-10258-2-git-send-email-ryao@gentoo.org> <20140130.162926.561686911250624301.davem@davemloft.net> <20140130.164451.873520736572570393.davem@davemloft.net>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain;
+	charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "ericvh@gmail.com" <ericvh@gmail.com>,
+	"rminnich@sandia.gov" <rminnich@sandia.gov>,
+	"lucho@ionkov.net" <lucho@ionkov.net>,
+	"v9fs-developer@lists.sourceforge.net"
+	<v9fs-developer@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"kernel@gentoo.org" <kernel@gentoo.org>,
+	"aneesh.kumar@linux.vnet.ibm.com" <aneesh.kumar@linux.vnet.ibm.com>,
+	"will.deacon@arm.com" <will.deacon@arm.com>,
+	"cov@codeaurora.org" <cov@codeaurora.org>,
+	"behlendorf1@llnl.gov" <behlendorf1@llnl.gov>,
+	"mthode@mthode.org" <mthode@mthode.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140130142740.GC2185@casper.infradead.org>
+In-Reply-To: <20140130.164451.873520736572570393.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Thomas,
+On Jan 30, 2014, at 7:44 PM, David Miller <davem@davemloft.net> wrote:
 
-Thanks for your reply.
+> From: David Miller <davem@davemloft.net>
+> Date: Thu, 30 Jan 2014 16:29:26 -0800 (PST)
+> 
+>> From: Richard Yao <ryao@gentoo.org>
+>> Date: Thu, 30 Jan 2014 13:02:48 -0500
+>> 
+>>> The 9p-virtio transport does zero copy on things larger than 1024 bytes
+>>> in size. It accomplishes this by returning the physical addresses of
+>>> pages to the virtio-pci device. At present, the translation is usually a
+>>> bit shift.
+>>> 
+>>> However, that approach produces an invalid page address when we
+>>> read/write to vmalloc buffers, such as those used for Linux kernle
+>>> modules. This causes QEMU to die printing:
+>>> 
+>>> qemu-system-x86_64: virtio: trying to map MMIO memory
+>>> 
+>>> This patch enables 9p-virtio to correctly handle this case. This not
+>>> only enables us to load Linux kernel modules off virtfs, but also
+>>> enables ZFS file-based vdevs on virtfs to be used without killing QEMU.
+>>> 
+>>> Also, special thanks to both Avi Kivity and Alexander Graf for their
+>>> interpretation of QEMU backtraces. Without their guidence, tracking down
+>>> this bug would have taken much longer.
+>>> 
+>>> Signed-off-by: Richard Yao <ryao@gentoo.org>
+>>> Acked-by: Alexander Graf <agraf@suse.de>
+>>> Reviewed-by: Will Deacon <will.deacon@arm.com>
+>> 
+>> Applied, thanks.
+> 
+> Actually I had to revert, is_vmalloc_or_malloc_addr() is not exported to
+> modules, so this change breaks the build.
 
-On Thu, Jan 30, 2014 at 3:27 PM, Thomas Graf <tgraf@suug.ch> wrote:
-> On 01/30/14 at 02:05pm, Tom Gundersen wrote:
->> Userspace needs to reliably know the ifindex of the netdevs it creates,
->> as we cannot rely on the ifname staying unchanged.
->>
->> Earlier, a simlpe NLMSG_ERROR would be returned, but this returns the
->> corresponding RTM_NEWLINK on success instead.
->
-> This breaks existing Netlink applications in user space. User space
-> apps are not prepared to receive both a RTM_NEWLINK reply _and_
-> the ACK unless they have set NLM_F_ECHO in the original request.
->
-> You can already reliably retrieve the ifindex by listening to
-> RTNLGRP_LINK messages and be notified about the link created
-> including all follow-up renames.
-
-Ok, we'll keep doing this instead.
-
-Cheers,
-
-Tom
+Thanks for catching that. I had originally used is_vmalloc_addr() instead of is_vmalloc_or_malloc_addr(), but changed it after realizing this did not correct the problem on all architectures. The is_vmalloc_addr() lives in headers. I will send out a patch to get that symbol exported and resubmit this after it is merged.
