@@ -1,11 +1,10 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH 18/34] mlx4: Use pci_enable_msix_range()
-Date: Fri, 31 Jan 2014 16:08:37 +0100
-Message-ID: <2f6674dabb90d4cbca3ef4039c3b893f2e5e9ec4.1391172839.git.agordeev@redhat.com>
+Subject: [PATCH 09/34] cxgb4vf: Use pci_enable_msix_range()
+Date: Fri, 31 Jan 2014 16:08:28 +0100
+Message-ID: <bcf76e68c08022d968ef52241e94bbf1c3f65fc3.1391172839.git.agordeev@redhat.com>
 References: <cover.1391172839.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
+	Casey Leedom <leedom@chelsio.com>, netdev@vger.kernel.org,
 	linux-pci@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -21,47 +20,62 @@ interfaces.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/main.c |   19 ++++---------------
- 1 files changed, 4 insertions(+), 15 deletions(-)
+ .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |   34 +++++++++----------
+ 1 files changed, 16 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index d711158..a9d1249 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -1976,7 +1976,6 @@ static void mlx4_enable_msi_x(struct mlx4_dev *dev)
- 	int nreq = min_t(int, dev->caps.num_ports *
- 			 min_t(int, netif_get_num_default_rss_queues() + 1,
- 			       MAX_MSIX_P_PORT) + MSIX_LEGACY_SZ, MAX_MSIX);
--	int err;
- 	int i;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+index 509fed9..1d0fe9b 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+@@ -2444,7 +2444,7 @@ static void reduce_ethqs(struct adapter *adapter, int n)
+  */
+ static int enable_msix(struct adapter *adapter)
+ {
+-	int i, err, want, need;
++	int i, want, need, nqsets;
+ 	struct msix_entry entries[MSIX_ENTRIES];
+ 	struct sge *s = &adapter->sge;
  
- 	if (msi_x) {
-@@ -1990,22 +1989,12 @@ static void mlx4_enable_msi_x(struct mlx4_dev *dev)
- 		for (i = 0; i < nreq; ++i)
- 			entries[i].entry = i;
+@@ -2460,25 +2460,23 @@ static int enable_msix(struct adapter *adapter)
+ 	 */
+ 	want = s->max_ethqsets + MSIX_EXTRAS;
+ 	need = adapter->params.nports + MSIX_EXTRAS;
+-	while ((err = pci_enable_msix(adapter->pdev, entries, want)) >= need)
+-		want = err;
  
--	retry:
--		err = pci_enable_msix(dev->pdev, entries, nreq);
--		if (err) {
--			/* Try again if at least 2 vectors are available */
--			if (err > 1) {
--				mlx4_info(dev, "Requested %d vectors, "
--					  "but only %d MSI-X vectors available, "
--					  "trying again\n", nreq, err);
--				nreq = err;
--				goto retry;
--			}
-+		nreq = pci_enable_msix_range(dev->pdev, entries, 2, nreq);
-+
-+		if (nreq < 0) {
- 			kfree(entries);
- 			goto no_msi;
+-	if (err == 0) {
+-		int nqsets = want - MSIX_EXTRAS;
+-		if (nqsets < s->max_ethqsets) {
+-			dev_warn(adapter->pdev_dev, "only enough MSI-X vectors"
+-				 " for %d Queue Sets\n", nqsets);
+-			s->max_ethqsets = nqsets;
+-			if (nqsets < s->ethqsets)
+-				reduce_ethqs(adapter, nqsets);
 -		}
--
--		if (nreq <
-+		} else if (nreq <
- 		    MSIX_LEGACY_SZ + dev->caps.num_ports * MIN_MSIX_P_PORT) {
- 			/*Working in legacy mode , all EQ's shared*/
- 			dev->caps.comp_pool           = 0;
+-		for (i = 0; i < want; ++i)
+-			adapter->msix_info[i].vec = entries[i].vector;
+-	} else if (err > 0) {
+-		dev_info(adapter->pdev_dev, "only %d MSI-X vectors left,"
+-			 " not using MSI-X\n", err);
++	want = pci_enable_msix_range(adapter->pdev, entries, need, want);
++	if (want < 0)
++		return want;
++
++	nqsets = want - MSIX_EXTRAS;
++	if (nqsets < s->max_ethqsets) {
++		dev_warn(adapter->pdev_dev, "only enough MSI-X vectors"
++			 " for %d Queue Sets\n", nqsets);
++		s->max_ethqsets = nqsets;
++		if (nqsets < s->ethqsets)
++			reduce_ethqs(adapter, nqsets);
+ 	}
+-	return err;
++	for (i = 0; i < want; ++i)
++		adapter->msix_info[i].vec = entries[i].vector;
++
++	return 0;
+ }
+ 
+ static const struct net_device_ops cxgb4vf_netdev_ops	= {
 -- 
 1.7.7.6
