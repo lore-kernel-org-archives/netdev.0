@@ -1,12 +1,12 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH 34/34] vmxnet3: Use pci_enable_msix_range()
-Date: Fri, 31 Jan 2014 16:08:53 +0100
-Message-ID: <3407b374f3926408fde736674b5dce4841c50fa6.1391172839.git.agordeev@redhat.com>
+Subject: [PATCH 31/34] efx: Use pci_enable_msix_range()
+Date: Fri, 31 Jan 2014 16:08:50 +0100
+Message-ID: <433fe68f834c10679986274f4bb605aa4ed5eaf3.1391172839.git.agordeev@redhat.com>
 References: <cover.1391172839.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
-	Shreyas Bhatewara <sbhatewara@vmware.com>,
-	"VMware, Inc." <pv-drivers@vmware.com>, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org
+	Shradha Shah <sshah@solarflare.com>,
+	Solarflare maintainers <linux-net-drivers@solarflare.com>,
+	netdev@vger.kernel.org, linux-pci@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1391172839.git.agordeev@redhat.com>
@@ -21,67 +21,54 @@ interfaces.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/vmxnet3/vmxnet3_drv.c |   47 +++++++++++++++----------------------
- 1 files changed, 19 insertions(+), 28 deletions(-)
+ drivers/net/ethernet/sfc/efx.c |   20 +++++++++-----------
+ 1 files changed, 9 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 3a17797..9275c8c 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -2738,35 +2738,26 @@ vmxnet3_read_mac_addr(struct vmxnet3_adapter *adapter, u8 *mac)
- static int
- vmxnet3_acquire_msix_vectors(struct vmxnet3_adapter *adapter, int nvec)
- {
--	do {
--		int err = pci_enable_msix(adapter->pdev,
--					  adapter->intr.msix_entries, nvec);
--		if (!err) {
--			return nvec;
--		} else if (err < 0) {
--			dev_err(&adapter->netdev->dev,
--				"Failed to enable MSI-X, error: %d\n", err);
--			return err;
--		} else if (err < VMXNET3_LINUX_MIN_MSIX_VECT) {
--			dev_info(&adapter->pdev->dev,
--				 "Number of MSI-X which can be allocated "
--				 "is lower than min threshold required.\n");
--			return -ENOSPC;
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 83d4643..297b97a 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -1346,20 +1346,23 @@ static int efx_probe_interrupts(struct efx_nic *efx)
+ 
+ 		for (i = 0; i < n_channels; i++)
+ 			xentries[i].entry = i;
+-		rc = pci_enable_msix(efx->pci_dev, xentries, n_channels);
+-		if (rc > 0) {
++		rc = pci_enable_msix_range(efx->pci_dev,
++					   xentries, 1, n_channels);
++		if (rc < 0) {
++			/* Fall back to single channel MSI */
++			efx->interrupt_mode = EFX_INT_MODE_MSI;
++			netif_err(efx, drv, efx->net_dev,
++				  "could not enable MSI-X\n");
++		} else if (rc < n_channels) {
+ 			netif_err(efx, drv, efx->net_dev,
+ 				  "WARNING: Insufficient MSI-X vectors"
+ 				  " available (%d < %u).\n", rc, n_channels);
+ 			netif_err(efx, drv, efx->net_dev,
+ 				  "WARNING: Performance may be reduced.\n");
+-			EFX_BUG_ON_PARANOID(rc >= n_channels);
+ 			n_channels = rc;
+-			rc = pci_enable_msix(efx->pci_dev, xentries,
+-					     n_channels);
+ 		}
+ 
+-		if (rc == 0) {
++		if (rc > 0) {
+ 			efx->n_channels = n_channels;
+ 			if (n_channels > extra_channels)
+ 				n_channels -= extra_channels;
+@@ -1375,11 +1378,6 @@ static int efx_probe_interrupts(struct efx_nic *efx)
+ 			for (i = 0; i < efx->n_channels; i++)
+ 				efx_get_channel(efx, i)->irq =
+ 					xentries[i].vector;
 -		} else {
--			/* If fails to enable required number of MSI-x vectors
--			 * try enabling minimum number of vectors required.
--			 */
--			dev_err(&adapter->netdev->dev,
--				"Failed to enable %d MSI-X, trying %d\n",
--				nvec, VMXNET3_LINUX_MIN_MSIX_VECT);
--			nvec = VMXNET3_LINUX_MIN_MSIX_VECT;
--		}
--	} while (nvec >= VMXNET3_LINUX_MIN_MSIX_VECT);
-+	int ret = pci_enable_msix_range(adapter->pdev,
-+					adapter->intr.msix_entries, nvec, nvec);
- 
--	/*
--	 * Should never get here
--	 */
--	return -ENOSPC;
-+	if (ret == -ENOSPC && nvec > VMXNET3_LINUX_MIN_MSIX_VECT) {
-+		dev_err(&adapter->netdev->dev,
-+			"Failed to enable %d MSI-X, trying %d\n",
-+			nvec, VMXNET3_LINUX_MIN_MSIX_VECT);
-+
-+		ret = pci_enable_msix_range(adapter->pdev,
-+					    adapter->intr.msix_entries,
-+					    VMXNET3_LINUX_MIN_MSIX_VECT,
-+					    VMXNET3_LINUX_MIN_MSIX_VECT);
-+	}
-+
-+	if (ret < 0) {
-+		dev_err(&adapter->netdev->dev,
-+			"Failed to enable MSI-X, error: %d\n", ret);
-+	}
-+
-+	return ret;
- }
- 
+-			/* Fall back to single channel MSI */
+-			efx->interrupt_mode = EFX_INT_MODE_MSI;
+-			netif_err(efx, drv, efx->net_dev,
+-				  "could not enable MSI-X\n");
+ 		}
+ 	}
  
 -- 
 1.7.7.6
