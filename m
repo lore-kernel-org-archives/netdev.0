@@ -1,13 +1,12 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH 30/34] qlge: Use pci_enable_msix_range()
-Date: Fri, 31 Jan 2014 16:08:49 +0100
-Message-ID: <c9d24ca514bde3e4caed3047dacbe64109d466bc.1391172839.git.agordeev@redhat.com>
+Subject: [PATCH 34/34] vmxnet3: Use pci_enable_msix_range()
+Date: Fri, 31 Jan 2014 16:08:53 +0100
+Message-ID: <3407b374f3926408fde736674b5dce4841c50fa6.1391172839.git.agordeev@redhat.com>
 References: <cover.1391172839.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
-	Ron Mercer <ron.mercer@qlogic.com>, linux-driver@qlogic.com,
-	netdev@vger.kernel.org, linux-pci@vger.kernel.org
+	Shreyas Bhatewara <sbhatewara@vmware.com>,
+	"VMware, Inc." <pv-drivers@vmware.com>, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1391172839.git.agordeev@redhat.com>
@@ -22,40 +21,67 @@ interfaces.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/qlogic/qlge/qlge_main.c |   15 ++++-----------
- 1 files changed, 4 insertions(+), 11 deletions(-)
+ drivers/net/vmxnet3/vmxnet3_drv.c |   47 +++++++++++++++----------------------
+ 1 files changed, 19 insertions(+), 28 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-index 82bace5..adf87d2 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-@@ -3331,23 +3331,16 @@ static void ql_enable_msix(struct ql_adapter *qdev)
- 		for (i = 0; i < qdev->intr_count; i++)
- 			qdev->msi_x_entry[i].entry = i;
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 3a17797..9275c8c 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -2738,35 +2738,26 @@ vmxnet3_read_mac_addr(struct vmxnet3_adapter *adapter, u8 *mac)
+ static int
+ vmxnet3_acquire_msix_vectors(struct vmxnet3_adapter *adapter, int nvec)
+ {
+-	do {
+-		int err = pci_enable_msix(adapter->pdev,
+-					  adapter->intr.msix_entries, nvec);
+-		if (!err) {
+-			return nvec;
+-		} else if (err < 0) {
+-			dev_err(&adapter->netdev->dev,
+-				"Failed to enable MSI-X, error: %d\n", err);
+-			return err;
+-		} else if (err < VMXNET3_LINUX_MIN_MSIX_VECT) {
+-			dev_info(&adapter->pdev->dev,
+-				 "Number of MSI-X which can be allocated "
+-				 "is lower than min threshold required.\n");
+-			return -ENOSPC;
+-		} else {
+-			/* If fails to enable required number of MSI-x vectors
+-			 * try enabling minimum number of vectors required.
+-			 */
+-			dev_err(&adapter->netdev->dev,
+-				"Failed to enable %d MSI-X, trying %d\n",
+-				nvec, VMXNET3_LINUX_MIN_MSIX_VECT);
+-			nvec = VMXNET3_LINUX_MIN_MSIX_VECT;
+-		}
+-	} while (nvec >= VMXNET3_LINUX_MIN_MSIX_VECT);
++	int ret = pci_enable_msix_range(adapter->pdev,
++					adapter->intr.msix_entries, nvec, nvec);
  
--		/* Loop to get our vectors.  We start with
--		 * what we want and settle for what we get.
--		 */
--		do {
--			err = pci_enable_msix(qdev->pdev,
--				qdev->msi_x_entry, qdev->intr_count);
--			if (err > 0)
--				qdev->intr_count = err;
--		} while (err > 0);
--
-+		err = pci_enable_msix_range(qdev->pdev, qdev->msi_x_entry,
-+					    1, qdev->intr_count);
- 		if (err < 0) {
- 			kfree(qdev->msi_x_entry);
- 			qdev->msi_x_entry = NULL;
- 			netif_warn(qdev, ifup, qdev->ndev,
- 				   "MSI-X Enable failed, trying MSI.\n");
- 			qlge_irq_type = MSI_IRQ;
--		} else if (err == 0) {
-+		} else {
-+			qdev->intr_count = err;
- 			set_bit(QL_MSIX_ENABLED, &qdev->flags);
- 			netif_info(qdev, ifup, qdev->ndev,
- 				   "MSI-X Enabled, got %d vectors.\n",
+-	/*
+-	 * Should never get here
+-	 */
+-	return -ENOSPC;
++	if (ret == -ENOSPC && nvec > VMXNET3_LINUX_MIN_MSIX_VECT) {
++		dev_err(&adapter->netdev->dev,
++			"Failed to enable %d MSI-X, trying %d\n",
++			nvec, VMXNET3_LINUX_MIN_MSIX_VECT);
++
++		ret = pci_enable_msix_range(adapter->pdev,
++					    adapter->intr.msix_entries,
++					    VMXNET3_LINUX_MIN_MSIX_VECT,
++					    VMXNET3_LINUX_MIN_MSIX_VECT);
++	}
++
++	if (ret < 0) {
++		dev_err(&adapter->netdev->dev,
++			"Failed to enable MSI-X, error: %d\n", ret);
++	}
++
++	return ret;
+ }
+ 
+ 
 -- 
 1.7.7.6
