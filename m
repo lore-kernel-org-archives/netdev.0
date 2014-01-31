@@ -1,47 +1,96 @@
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net-next 0/2] stmmac: Add extended multicast filtering for
-Date: Fri, 31 Jan 2014 14:15:54 -0600
-Message-ID: <1391199356-27226-1-git-send-email-vbridgers2013@gmail.com>
-Cc: peppe.cavallaro@st.com, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, dinguyen@altera.com,
-	rayagond@vayavyalabs.com, vbridgers2013@gmail.com
-To: devicetree@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f41.google.com ([209.85.160.41]:37340 "EHLO
-	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932331AbaAaU0D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jan 2014 15:26:03 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: BUG ip_dst_cache (Not tainted): Poison overwritten
+Date: Fri, 31 Jan 2014 12:57:53 -0800
+Message-ID: <1391201873.28432.86.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CA+ydwtrWCgi=v7v=8yjNMV37Aa4ua9zbqYM5_uUdQrLSQt+VEw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Dave Jones <davej@redhat.com>,
+	trinity@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: Tommi Rantala <tt.rantala@gmail.com>
+Return-path: <trinity-owner@vger.kernel.org>
+In-Reply-To: <CA+ydwtrWCgi=v7v=8yjNMV37Aa4ua9zbqYM5_uUdQrLSQt+VEw@mail.gmail.com>
+Sender: trinity-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-These patches add and correct multicast address filtering for the Altera 
-Cyclone 5 SOC, and configuration parameters for multicast and perfect
-filtering capabilities of a particular Synopsys EMAC. 
+On Fri, 2014-01-31 at 22:11 +0200, Tommi Rantala wrote:
+> Hello,
+> 
+> Hit this while fuzzing v3.13-9218-g0e47c96 with trinity in a qemu
+> virtual machine.
+> 
+> Tommi
 
-Filtering has been put through regression testing for the Altera C5 SOC, 
-but not for other implementations. This implementation extends the filter
-programming by examining the device characteristics and using either the
-current set_multicast function or the new extended function that supports
-all possible multicast filter configurations for the Synopsys EMAC. Review
-comments are welcome. 
+Hi Tommi
 
-Thanks
+Could you please try the following fix ?
 
-Vince Bridgers (2):
-  dts: Add bindings for multicast hash bins and perfect filter entries
-  stmmac: add extended set multicast filter & devicetree options
+I'll send an official patch in a couple of hours
 
- Documentation/devicetree/bindings/net/stmmac.txt   |    6 +
- drivers/net/ethernet/stmicro/stmmac/common.h       |   42 +++--
- drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |    5 +-
- .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |  161 +++++++++++++++++---
- .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |   29 ++--
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |    6 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   36 ++---
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   51 +++++++
- include/linux/stmmac.h                             |    2 +
- 9 files changed, 267 insertions(+), 71 deletions(-)
+There are two bugs : 
+One dst leak, and one plain bug, as rt initial NULL
+value might be scratched.
 
--- 
-1.7.9.5
+ net/ipv4/ip_tunnel.c |   27 ++++++++++-----------------
+ 1 file changed, 10 insertions(+), 17 deletions(-)
+
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index bd28f386bd02..bc6acdcb7625 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -101,27 +101,21 @@ static void tunnel_dst_reset_all(struct ip_tunnel *t)
+ 		__tunnel_dst_set(per_cpu_ptr(t->dst_cache, i), NULL);
+ }
+ 
+-static struct dst_entry *tunnel_dst_get(struct ip_tunnel *t)
++static struct dst_entry *tunnel_dst_check(struct ip_tunnel *t, u32 cookie)
+ {
+ 	struct dst_entry *dst;
+ 
+ 	rcu_read_lock();
+ 	dst = rcu_dereference(this_cpu_ptr(t->dst_cache)->dst);
+-	if (dst)
++	if (dst) {
++		if (dst->obsolete && dst->ops->check(dst, cookie) == NULL) {
++			rcu_read_unlock();
++			tunnel_dst_reset(t);
++			return NULL;
++		}
+ 		dst_hold(dst);
+-	rcu_read_unlock();
+-	return dst;
+-}
+-
+-static struct dst_entry *tunnel_dst_check(struct ip_tunnel *t, u32 cookie)
+-{
+-	struct dst_entry *dst = tunnel_dst_get(t);
+-
+-	if (dst && dst->obsolete && dst->ops->check(dst, cookie) == NULL) {
+-		tunnel_dst_reset(t);
+-		return NULL;
+ 	}
+-
++	rcu_read_unlock();
+ 	return dst;
+ }
+ 
+@@ -584,7 +578,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 	struct flowi4 fl4;
+ 	u8     tos, ttl;
+ 	__be16 df;
+-	struct rtable *rt = NULL;	/* Route to the other host */
++	struct rtable *rt;		/* Route to the other host */
+ 	unsigned int max_headroom;	/* The extra header space needed */
+ 	__be32 dst;
+ 	int err;
+@@ -657,8 +651,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 	init_tunnel_flow(&fl4, protocol, dst, tnl_params->saddr,
+ 			 tunnel->parms.o_key, RT_TOS(tos), tunnel->parms.link);
+ 
+-	if (connected)
+-		rt = (struct rtable *)tunnel_dst_check(tunnel, 0);
++	rt = (connected) ? (struct rtable *)tunnel_dst_check(tunnel, 0) : NULL;
+ 
+ 	if (!rt) {
+ 		rt = ip_route_output_key(tunnel->net, &fl4);
