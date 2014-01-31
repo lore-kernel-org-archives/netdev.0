@@ -1,39 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] net: allow setting mac address of loopback device
-Date: Thu, 30 Jan 2014 16:27:11 -0800 (PST)
-Message-ID: <20140130.162711.1746399773464232016.davem@davemloft.net>
-References: <1391038731-7501-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH stable 3.9+] can: add destructor for self generated skbs
+Date: Thu, 30 Jan 2014 16:27:23 -0800 (PST)
+Message-ID: <20140130.162723.1124545320708055175.davem@davemloft.net>
+References: <52EA1740.2010108@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-	edumazet@google.com
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32798 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751997AbaAaA1L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jan 2014 19:27:11 -0500
-In-Reply-To: <1391038731-7501-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, nautsch2@gmail.com, netdev@vger.kernel.org,
+	linux-can@vger.kernel.org
+To: socketcan@hartkopp.net
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <52EA1740.2010108@hartkopp.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Wed, 29 Jan 2014 15:38:51 -0800
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Date: Thu, 30 Jan 2014 10:11:28 +0100
 
-> We are trying to mirror the local traffic from lo to eth0,
-> allowing setting mac address of lo to eth0 would make
-> the ether addresses in these packets correct, so that
-> we don't have to modify the ether header again.
+> Self generated skbuffs in net/can/bcm.c are setting a skb->sk reference but
+> no explicit destructor which is enforced since Linux 3.11 with commit
+> 376c7311bdb6 (net: add a temporary sanity check in skb_orphan()).
 > 
-> Since usually no one cares about its mac address (all-zero),
-> it is safe to allow those who care to set its mac address.
+> This patch adds some helper functions to make sure that a destructor is
+> properly defined when a sock reference is assigned to a CAN related skb.
+> To create an unshared skb owned by the original sock a common helper function
+> has been introduced to replace open coded functions to create CAN echo skbs.
 > 
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+> Tested-by: Andre Naujoks <nautsch2@gmail.com>
 
-Please resubmit when the net-next tree opens back up.
-
-Thank you.
+Applied and queued up for -stable, thanks.
