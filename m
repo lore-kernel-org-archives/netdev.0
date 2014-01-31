@@ -1,10 +1,14 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH 09/34] cxgb4vf: Use pci_enable_msix_range()
-Date: Fri, 31 Jan 2014 16:08:28 +0100
-Message-ID: <bcf76e68c08022d968ef52241e94bbf1c3f65fc3.1391172839.git.agordeev@redhat.com>
+Subject: [PATCH 10/34] enic: Use pci_enable_msix_range()
+Date: Fri, 31 Jan 2014 16:08:29 +0100
+Message-ID: <198b4ebcab97d1ce115670f12131679566ae30f6.1391172839.git.agordeev@redhat.com>
 References: <cover.1391172839.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
-	Casey Leedom <leedom@chelsio.com>, netdev@vger.kernel.org,
+	Christian Benvenuti <benve@cisco.com>,
+	Sujith Sankar <ssujith@cisco.com>,
+	Govindarajulu Varadarajan <govindarajulu90@gmail.com>,
+	Neel Patel <neepatel@cisco.com>,
+	Nishank Trivedi <nistrive@cisco.com>, netdev@vger.kernel.org,
 	linux-pci@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -20,62 +24,32 @@ interfaces.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |   34 +++++++++----------
- 1 files changed, 16 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/cisco/enic/enic_main.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-index 509fed9..1d0fe9b 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-@@ -2444,7 +2444,7 @@ static void reduce_ethqs(struct adapter *adapter, int n)
-  */
- static int enable_msix(struct adapter *adapter)
- {
--	int i, err, want, need;
-+	int i, want, need, nqsets;
- 	struct msix_entry entries[MSIX_ENTRIES];
- 	struct sge *s = &adapter->sge;
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index b740bfc..dcd58f2 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -1796,7 +1796,8 @@ static int enic_set_intr_mode(struct enic *enic)
+ 	    enic->cq_count >= n + m &&
+ 	    enic->intr_count >= n + m + 2) {
  
-@@ -2460,25 +2460,23 @@ static int enable_msix(struct adapter *adapter)
- 	 */
- 	want = s->max_ethqsets + MSIX_EXTRAS;
- 	need = adapter->params.nports + MSIX_EXTRAS;
--	while ((err = pci_enable_msix(adapter->pdev, entries, want)) >= need)
--		want = err;
+-		if (!pci_enable_msix(enic->pdev, enic->msix_entry, n + m + 2)) {
++		if (pci_enable_msix_range(enic->pdev, enic->msix_entry,
++					  n + m + 2, n + m + 2) > 0) {
  
--	if (err == 0) {
--		int nqsets = want - MSIX_EXTRAS;
--		if (nqsets < s->max_ethqsets) {
--			dev_warn(adapter->pdev_dev, "only enough MSI-X vectors"
--				 " for %d Queue Sets\n", nqsets);
--			s->max_ethqsets = nqsets;
--			if (nqsets < s->ethqsets)
--				reduce_ethqs(adapter, nqsets);
--		}
--		for (i = 0; i < want; ++i)
--			adapter->msix_info[i].vec = entries[i].vector;
--	} else if (err > 0) {
--		dev_info(adapter->pdev_dev, "only %d MSI-X vectors left,"
--			 " not using MSI-X\n", err);
-+	want = pci_enable_msix_range(adapter->pdev, entries, need, want);
-+	if (want < 0)
-+		return want;
-+
-+	nqsets = want - MSIX_EXTRAS;
-+	if (nqsets < s->max_ethqsets) {
-+		dev_warn(adapter->pdev_dev, "only enough MSI-X vectors"
-+			 " for %d Queue Sets\n", nqsets);
-+		s->max_ethqsets = nqsets;
-+		if (nqsets < s->ethqsets)
-+			reduce_ethqs(adapter, nqsets);
- 	}
--	return err;
-+	for (i = 0; i < want; ++i)
-+		adapter->msix_info[i].vec = entries[i].vector;
-+
-+	return 0;
- }
+ 			enic->rq_count = n;
+ 			enic->wq_count = m;
+@@ -1815,7 +1816,8 @@ static int enic_set_intr_mode(struct enic *enic)
+ 	    enic->wq_count >= m &&
+ 	    enic->cq_count >= 1 + m &&
+ 	    enic->intr_count >= 1 + m + 2) {
+-		if (!pci_enable_msix(enic->pdev, enic->msix_entry, 1 + m + 2)) {
++		if (pci_enable_msix_range(enic->pdev, enic->msix_entry,
++					  1 + m + 2, 1 + m + 2) > 0) {
  
- static const struct net_device_ops cxgb4vf_netdev_ops	= {
+ 			enic->rq_count = 1;
+ 			enic->wq_count = m;
 -- 
 1.7.7.6
