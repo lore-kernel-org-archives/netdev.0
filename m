@@ -1,10 +1,11 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH 20/34] myri10ge: Use pci_enable_msix_range()
-Date: Fri, 31 Jan 2014 16:08:39 +0100
-Message-ID: <1253b3c920637ab6bb987defb88d1698ac1e4851.1391172839.git.agordeev@redhat.com>
+Subject: [PATCH 18/34] mlx4: Use pci_enable_msix_range()
+Date: Fri, 31 Jan 2014 16:08:37 +0100
+Message-ID: <2f6674dabb90d4cbca3ef4039c3b893f2e5e9ec4.1391172839.git.agordeev@redhat.com>
 References: <cover.1391172839.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
-	Hyong-Youb Kim <hykim@myri.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
 	linux-pci@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -20,68 +21,47 @@ interfaces.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/myricom/myri10ge/myri10ge.c |   32 ++++++++++-----------
- 1 files changed, 15 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/main.c |   19 ++++---------------
+ 1 files changed, 4 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-index 68026f7..9f717d6 100644
---- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-+++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-@@ -2329,16 +2329,14 @@ static int myri10ge_request_irq(struct myri10ge_priv *mgp)
- 	status = 0;
- 	if (myri10ge_msi) {
- 		if (mgp->num_slices > 1) {
--			status =
--			    pci_enable_msix(pdev, mgp->msix_vectors,
--					    mgp->num_slices);
--			if (status == 0) {
--				mgp->msix_enabled = 1;
--			} else {
-+			status = pci_enable_msix_range(pdev, mgp->msix_vectors,
-+					mgp->num_slices, mgp->num_slices);
-+			if (status < 0) {
- 				dev_err(&pdev->dev,
- 					"Error %d setting up MSI-X\n", status);
- 				return status;
- 			}
-+			mgp->msix_enabled = 1;
- 		}
- 		if (mgp->msix_enabled == 0) {
- 			status = pci_enable_msi(pdev);
-@@ -3901,23 +3899,23 @@ static void myri10ge_probe_slices(struct myri10ge_priv *mgp)
- 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index d711158..a9d1249 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -1976,7 +1976,6 @@ static void mlx4_enable_msi_x(struct mlx4_dev *dev)
+ 	int nreq = min_t(int, dev->caps.num_ports *
+ 			 min_t(int, netif_get_num_default_rss_queues() + 1,
+ 			       MAX_MSIX_P_PORT) + MSIX_LEGACY_SZ, MAX_MSIX);
+-	int err;
+ 	int i;
  
- 	while (mgp->num_slices > 1) {
--		/* make sure it is a power of two */
--		while (!is_power_of_2(mgp->num_slices))
--			mgp->num_slices--;
-+		mgp->num_slices = rounddown_pow_of_two(mgp->num_slices);
- 		if (mgp->num_slices == 1)
- 			goto disable_msix;
--		status = pci_enable_msix(pdev, mgp->msix_vectors,
--					 mgp->num_slices);
--		if (status == 0) {
--			pci_disable_msix(pdev);
-+		status = pci_enable_msix_range(pdev, mgp->msix_vectors,
-+					mgp->num_slices, mgp->num_slices);
-+		if (status < 0)
-+			goto disable_msix;
+ 	if (msi_x) {
+@@ -1990,22 +1989,12 @@ static void mlx4_enable_msi_x(struct mlx4_dev *dev)
+ 		for (i = 0; i < nreq; ++i)
+ 			entries[i].entry = i;
+ 
+-	retry:
+-		err = pci_enable_msix(dev->pdev, entries, nreq);
+-		if (err) {
+-			/* Try again if at least 2 vectors are available */
+-			if (err > 1) {
+-				mlx4_info(dev, "Requested %d vectors, "
+-					  "but only %d MSI-X vectors available, "
+-					  "trying again\n", nreq, err);
+-				nreq = err;
+-				goto retry;
+-			}
++		nreq = pci_enable_msix_range(dev->pdev, entries, 2, nreq);
 +
-+		pci_disable_msix(pdev);
-+
-+		if (status == mgp->num_slices) {
- 			if (old_allocated)
- 				kfree(old_fw);
- 			return;
++		if (nreq < 0) {
+ 			kfree(entries);
+ 			goto no_msi;
 -		}
--		if (status > 0)
-+		} else {
- 			mgp->num_slices = status;
--		else
--			goto disable_msix;
-+		}
- 	}
- 
- disable_msix:
+-
+-		if (nreq <
++		} else if (nreq <
+ 		    MSIX_LEGACY_SZ + dev->caps.num_ports * MIN_MSIX_P_PORT) {
+ 			/*Working in legacy mode , all EQ's shared*/
+ 			dev->caps.comp_pool           = 0;
 -- 
 1.7.7.6
