@@ -1,62 +1,79 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH linux-3.10.y v2 1/3] sit: fix double free of
- fb_tunnel_dev on exit
-Date: Fri, 31 Jan 2014 12:19:29 -0500
-Message-ID: <20140131121929.51a58c72@gandalf.local.home>
-References: <20140130171029.01cd80ca@gandalf.local.home>
-	<1391156646-11981-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Shradha Shah <sshah@solarflare.com>
+Subject: Re: [PATCH 31/34] efx: Use pci_enable_msix_range()
+Date: Fri, 31 Jan 2014 17:21:59 +0000
+Message-ID: <52EBDBB7.9010503@solarflare.com>
+References: <cover.1391172839.git.agordeev@redhat.com> <433fe68f834c10679986274f4bb605aa4ed5eaf3.1391172839.git.agordeev@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	stable@vger.kernel.org, williams@redhat.com, lclaudio@uudg.org,
-	jkacur@redhat.com, willemb@google.com
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1391156646-11981-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: stable-owner@vger.kernel.org
+Cc: <linux-kernel@vger.kernel.org>,
+	Solarflare maintainers <linux-net-drivers@solarflare.com>,
+	<netdev@vger.kernel.org>, <linux-pci@vger.kernel.org>
+To: Alexander Gordeev <agordeev@redhat.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <433fe68f834c10679986274f4bb605aa4ed5eaf3.1391172839.git.agordeev@redhat.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Just FYI.
-
-Our full tier tests have completed with no issues due to the sit or
-ip6_tunnel modules. These patches appear to have solved our problems.
-
-Nicolas, Thanks again for posting these!
-
--- Steve
-
-
-On Fri, 31 Jan 2014 09:24:04 +0100
-Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
-
-> This problem was fixed upstream by commit 9434266f2c64 ("sit: fix use after free
-> of fb_tunnel_dev").
-> The upstream patch depends on upstream commit 5e6700b3bf98 ("sit: add support of
-> x-netns"), which was not backported into 3.10 branch.
+On 01/31/2014 03:08 PM, Alexander Gordeev wrote:
+> As result of deprecation of MSI-X/MSI enablement functions
+> pci_enable_msix() and pci_enable_msi_block() all drivers
+> using these two interfaces need to be updated to use the
+> new pci_enable_msi_range() and pci_enable_msix_range()
+> interfaces.
 > 
-> First, explain the problem: when the sit module is unloaded, sit_cleanup() is
-> called.
-> rmmod sit
-> => sit_cleanup()
->   => rtnl_link_unregister()
->     => __rtnl_kill_links()
->       => for_each_netdev(net, dev) {
->         if (dev->rtnl_link_ops == ops)
->         	ops->dellink(dev, &list_kill);
->         }
-> At this point, the FB device is deleted (and all sit tunnels).
->   => unregister_pernet_device()
->     => unregister_pernet_operations()
->       => ops_exit_list()
->         => sit_exit_net()
->           => sit_destroy_tunnels()
->           In this function, no tunnel is found.
->           => unregister_netdevice_queue(sitn->fb_tunnel_dev, &list);
-> We delete the FB device a second time here!
+> Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
+
+Acked-by: Shradha Shah <sshah@solarflare.com>
+
+> ---
+>  drivers/net/ethernet/sfc/efx.c |   20 +++++++++-----------
+>  1 files changed, 9 insertions(+), 11 deletions(-)
 > 
-> Because we cannot simply remove the second deletion (sit_exit_net() must remove
-> the FB device when a netns is deleted), we add an rtnl ops which delete all sit
-> device excepting the FB device and thus we can keep the explicit deletion in
-> sit_exit_net().
+> diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+> index 83d4643..297b97a 100644
+> --- a/drivers/net/ethernet/sfc/efx.c
+> +++ b/drivers/net/ethernet/sfc/efx.c
+> @@ -1346,20 +1346,23 @@ static int efx_probe_interrupts(struct efx_nic *efx)
+>  
+>  		for (i = 0; i < n_channels; i++)
+>  			xentries[i].entry = i;
+> -		rc = pci_enable_msix(efx->pci_dev, xentries, n_channels);
+> -		if (rc > 0) {
+> +		rc = pci_enable_msix_range(efx->pci_dev,
+> +					   xentries, 1, n_channels);
+> +		if (rc < 0) {
+> +			/* Fall back to single channel MSI */
+> +			efx->interrupt_mode = EFX_INT_MODE_MSI;
+> +			netif_err(efx, drv, efx->net_dev,
+> +				  "could not enable MSI-X\n");
+> +		} else if (rc < n_channels) {
+>  			netif_err(efx, drv, efx->net_dev,
+>  				  "WARNING: Insufficient MSI-X vectors"
+>  				  " available (%d < %u).\n", rc, n_channels);
+>  			netif_err(efx, drv, efx->net_dev,
+>  				  "WARNING: Performance may be reduced.\n");
+> -			EFX_BUG_ON_PARANOID(rc >= n_channels);
+>  			n_channels = rc;
+> -			rc = pci_enable_msix(efx->pci_dev, xentries,
+> -					     n_channels);
+>  		}
+>  
+> -		if (rc == 0) {
+> +		if (rc > 0) {
+>  			efx->n_channels = n_channels;
+>  			if (n_channels > extra_channels)
+>  				n_channels -= extra_channels;
+> @@ -1375,11 +1378,6 @@ static int efx_probe_interrupts(struct efx_nic *efx)
+>  			for (i = 0; i < efx->n_channels; i++)
+>  				efx_get_channel(efx, i)->irq =
+>  					xentries[i].vector;
+> -		} else {
+> -			/* Fall back to single channel MSI */
+> -			efx->interrupt_mode = EFX_INT_MODE_MSI;
+> -			netif_err(efx, drv, efx->net_dev,
+> -				  "could not enable MSI-X\n");
+>  		}
+>  	}
+>  
 > 
