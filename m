@@ -1,62 +1,44 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH RFC 1/1] usb: Tell xhci when usb data might be	misaligned
-Date: Fri, 31 Jan 2014 09:30:03 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6B5567@AcuExch.aculab.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D0F6B5486@AcuExch.aculab.com>
- <20140130161721.25560.qmail@stuge.se>
- <063D6719AE5E284EB5DD2968C1650D6D0F6B553D@AcuExch.aculab.com>
- <20140130163508.27016.qmail@stuge.se>
+From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [RFC PATCH] net: wireless: move regulatory timeout work to power
+ efficient workqueue
+Date: Fri, 31 Jan 2014 04:35:31 -0500
+Message-ID: <20140131093531.GA25559@mtj.dyndns.org>
+References: <1391123310-6425-1-git-send-email-zoran.markovic@linaro.org>
+ <1391160084.4141.1.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Sarah Sharp <sarah.a.sharp@linux.intel.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	David Miller <davem@davemloft.net>
-To: 'Peter Stuge' <peter@stuge.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:58442 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751006AbaAaJae convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jan 2014 04:30:34 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 00339-05 for <netdev@vger.kernel.org>;
- Fri, 31 Jan 2014 09:30:30 +0000 (GMT)
-In-Reply-To: <20140130163508.27016.qmail@stuge.se>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Zoran Markovic <zoran.markovic-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Shaibal Dutta <shaibal.dutta-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1391160084.4141.1.camel-8Nb76shvtaUJvtFkdXX2HixXY32XiHfO@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Peter Stuge
-> But what about that alignment? It seems that userspace
-> needs to start caring about alignment with xhci, right?
+Hello,
 
-No because there is a copy_to/from_user() in the middle.
+On Fri, Jan 31, 2014 at 10:21:24AM +0100, Johannes Berg wrote:
+> I'm not sure if this is part of a larger patchset actually adding that
+> "system_power_efficient_wq", but maybe it'd be better to expose a
+> function as an API rather than the wq struct?
+> 
+> Something like
+> 
+> scheduled_delayed_work_pwr_efficient(...)?
 
-The ehci/ohci/uhci all require that fragments be a multiple of the
-usb message size (512 bytes for USB2).
-So everything (until very recently) would always supply suitable
-aligned buffers. Mostly they are page aligned.
+While there are some benefits to using dedicated functions for
+specific workqueues, I don't think it brings enough benefits to
+justify adding dedicated API and am unlikely to add new ones.
 
-For those who haven't read the xhci spec carefully:
+Thanks.
 
-The xhci controller removes the requirement on dma segments being
-aligned to usb messages.
-However there are two alignment requirements:
-1) dma segments must not cross 64k address boundaries.
-   This is documented clearly, even though it is a slight pain.
-   You'd have thought the address counter could have more than
-   16 bits these days!
-   There only 17 bits for the length, but a length restriction
-   would be less of a problem.
-2) The v1.00 version of the specification adds that the end of
-   the transfer ring can only occur at a 'TD fragment' boundary.
-   These are aligned with the payload 'bursts' - which can be
-   sixteen 1k packets.
-I think that breaking the second of these causes a usb message
-be split into two small pieces - which will terminate bulk xfers.
-The asix USB3 Ge silicon gets very confused when this happens.
-
-	David
+-- 
+tejun
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
