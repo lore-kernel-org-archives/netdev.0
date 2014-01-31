@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH 16/34] ixgbe: Use pci_enable_msix_range()
-Date: Fri, 31 Jan 2014 16:08:35 +0100
-Message-ID: <d9020bc4e4e2188cedf32be7b6c609797afa1279.1391172839.git.agordeev@redhat.com>
+Subject: [PATCH 15/34] igbvf: Use pci_enable_msix_range()
+Date: Fri, 31 Jan 2014 16:08:34 +0100
+Message-ID: <3de48ccd00189524a07c6d38f0533caa3e5d4293.1391172839.git.agordeev@redhat.com>
 References: <cover.1391172839.git.agordeev@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -31,44 +31,28 @@ interfaces.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c |   16 ++++------------
- 1 files changed, 4 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/intel/igbvf/netdev.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-index 32e3eaa..0834e1e 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-@@ -698,7 +698,7 @@ static void ixgbe_set_num_queues(struct ixgbe_adapter *adapter)
- static void ixgbe_acquire_msix_vectors(struct ixgbe_adapter *adapter,
- 				       int vectors)
- {
--	int err, vector_threshold;
-+	int vector_threshold;
+diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
+index 675435f..e2c6d80 100644
+--- a/drivers/net/ethernet/intel/igbvf/netdev.c
++++ b/drivers/net/ethernet/intel/igbvf/netdev.c
+@@ -1043,11 +1043,11 @@ static void igbvf_set_interrupt_capability(struct igbvf_adapter *adapter)
+ 		for (i = 0; i < 3; i++)
+ 			adapter->msix_entries[i].entry = i;
  
- 	/* We'll want at least 2 (vector_threshold):
- 	 * 1) TxQ[0] + RxQ[0] handler
-@@ -712,18 +712,10 @@ static void ixgbe_acquire_msix_vectors(struct ixgbe_adapter *adapter,
- 	 * Right now, we simply care about how many we'll get; we'll
- 	 * set them up later while requesting irq's.
- 	 */
--	while (vectors >= vector_threshold) {
--		err = pci_enable_msix(adapter->pdev, adapter->msix_entries,
--				      vectors);
--		if (!err) /* Success in acquiring all requested vectors. */
--			break;
--		else if (err < 0)
--			vectors = 0; /* Nasty failure, quit now */
--		else /* err == number of vectors we should try again with */
--			vectors = err;
--	}
-+	vectors = pci_enable_msix_range(adapter->pdev, adapter->msix_entries,
-+					vector_threshold, vectors);
+-		err = pci_enable_msix(adapter->pdev,
+-		                      adapter->msix_entries, 3);
++		err = pci_enable_msix_range(adapter->pdev,
++		                            adapter->msix_entries, 3, 3);
+ 	}
  
--	if (vectors < vector_threshold) {
-+	if (vectors < 0) {
- 		/* Can't allocate enough MSI-X interrupts?  Oh well.
- 		 * This just means we'll go with either a single MSI
- 		 * vector or fall back to legacy interrupts.
+-	if (err) {
++	if (err < 0) {
+ 		/* MSI-X failed */
+ 		dev_err(&adapter->pdev->dev,
+ 		        "Failed to initialize MSI-X interrupts.\n");
 -- 
 1.7.7.6
 
