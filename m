@@ -1,42 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: set default DEVTYPE for all ethernet based devices
-Date: Thu, 30 Jan 2014 16:28:41 -0800 (PST)
-Message-ID: <20140130.162841.525938031146003411.davem@davemloft.net>
-References: <1391088002-15650-1-git-send-email-teg@jklm.no>
+Subject: Re: [PATCH] 9p/trans_virtio.c: Fix broken zero-copy on vmalloc()
+ buffers
+Date: Thu, 30 Jan 2014 16:29:26 -0800 (PST)
+Message-ID: <20140130.162926.561686911250624301.davem@davemloft.net>
+References: <1391104968-10258-1-git-send-email-ryao@gentoo.org>
+	<1391104968-10258-2-git-send-email-ryao@gentoo.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	stephen@networkplumber.org, avi.kp.137@gmail.com,
-	mchehab@redhat.com, horms@verge.net.au, marcel@holtmann.org,
-	gregkh@linuxfoundation.org, kay@vrfy.org
-To: teg@jklm.no
+Cc: ericvh@gmail.com, rminnich@sandia.gov, lucho@ionkov.net,
+	v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel@gentoo.org,
+	aneesh.kumar@linux.vnet.ibm.com, will.deacon@arm.com,
+	cov@codeaurora.org, behlendorf1@llnl.gov, mthode@mthode.org
+To: ryao@gentoo.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1391088002-15650-1-git-send-email-teg@jklm.no>
+In-Reply-To: <1391104968-10258-2-git-send-email-ryao@gentoo.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Tom Gundersen <teg@jklm.no>
-Date: Thu, 30 Jan 2014 14:20:02 +0100
+From: Richard Yao <ryao@gentoo.org>
+Date: Thu, 30 Jan 2014 13:02:48 -0500
 
-> In systemd's networkd and udevd, we would like to give the administrator a
-> simple way to filter net devices by their DEVTYPE [0][1]. Other software
-> such as ConnMan and NetworkManager uses a similar filtering already.
+> The 9p-virtio transport does zero copy on things larger than 1024 bytes
+> in size. It accomplishes this by returning the physical addresses of
+> pages to the virtio-pci device. At present, the translation is usually a
+> bit shift.
 > 
-> Currently, plain ethernet devices have DEVTYPE=(null). This patch sets the
-> devtype to "ethernet" instead. This avoids the need for special-casing the
-> DEVTYPE=(null) case in userspace, and also avoids false positives, as there
-> are several other types of netdevs that also have DEVTYPE=(null).
+> However, that approach produces an invalid page address when we
+> read/write to vmalloc buffers, such as those used for Linux kernle
+> modules. This causes QEMU to die printing:
 > 
-> Notice that this is done, as suggested by Marcel, in alloc_etherdev_mqs(),
-> and as best I can tell it will not give any false positives. I considered
-> doing it in ether_setup() instead as that seemed more intuitive, but that
-> would give a lot of false positives indeed.
+> qemu-system-x86_64: virtio: trying to map MMIO memory
 > 
-> [0]: <http://www.freedesktop.org/software/systemd/man/systemd-networkd.service.html#Type>
-> [1]: <http://www.freedesktop.org/software/systemd/man/udev.html#Type>
+> This patch enables 9p-virtio to correctly handle this case. This not
+> only enables us to load Linux kernel modules off virtfs, but also
+> enables ZFS file-based vdevs on virtfs to be used without killing QEMU.
 > 
-> Signed-off-by: Tom Gundersen <teg@jklm.no>
+> Also, special thanks to both Avi Kivity and Alexander Graf for their
+> interpretation of QEMU backtraces. Without their guidence, tracking down
+> this bug would have taken much longer.
+> 
+> Signed-off-by: Richard Yao <ryao@gentoo.org>
+> Acked-by: Alexander Graf <agraf@suse.de>
+> Reviewed-by: Will Deacon <will.deacon@arm.com>
 
-Assuming that all users of alloc_etherdev*() are ethernet devices is
-really not going to work.
+Applied, thanks.
