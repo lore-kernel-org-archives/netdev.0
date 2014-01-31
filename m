@@ -1,13 +1,12 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH 12/34] e1000e: Use pci_enable_msix_range()
-Date: Fri, 31 Jan 2014 16:08:31 +0100
-Message-ID: <0ec36309e17031a66d3a6ab489fc60702b6d76b3.1391172839.git.agordeev@redhat.com>
+Subject: [PATCH 14/34] igb: Use pci_enable_msix_range()
+Date: Fri, 31 Jan 2014 16:08:33 +0100
+Message-ID: <af7e2d8611ac6590fad19ea6c0061017558bff2e.1391172839.git.agordeev@redhat.com>
 References: <cover.1391172839.git.agordeev@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Bruce Allan <bruce.w.allan@intel.com>,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Alexander Gordeev <agordeev@redhat.com>, linux-pci@vger.kernel.org
 To: linux-kernel@vger.kernel.org
@@ -31,29 +30,29 @@ interfaces.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c |    9 +++++----
+ drivers/net/ethernet/intel/igb/igb_main.c |    9 +++++----
  1 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 6d91933..7735d1a 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -2041,10 +2041,11 @@ void e1000e_set_interrupt_capability(struct e1000_adapter *adapter)
- 				for (i = 0; i < adapter->num_vectors; i++)
- 					adapter->msix_entries[i].entry = i;
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 46d31a4..84dfa3f 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -1111,10 +1111,11 @@ static void igb_set_interrupt_capability(struct igb_adapter *adapter, bool msix)
+ 	for (i = 0; i < numvecs; i++)
+ 		adapter->msix_entries[i].entry = i;
  
--				err = pci_enable_msix(adapter->pdev,
--						      adapter->msix_entries,
--						      adapter->num_vectors);
--				if (err == 0)
-+				err = pci_enable_msix_range(adapter->pdev,
-+							adapter->msix_entries,
-+							adapter->num_vectors,
-+							adapter->num_vectors);
-+				if (err > 0)
- 					return;
- 			}
- 			/* MSI-X failed, so fall through and try MSI */
+-	err = pci_enable_msix(adapter->pdev,
+-			      adapter->msix_entries,
+-			      numvecs);
+-	if (err == 0)
++	err = pci_enable_msix_range(adapter->pdev,
++				    adapter->msix_entries,
++				    numvecs,
++				    numvecs);
++	if (err > 0)
+ 		return;
+ 
+ 	igb_reset_interrupt_capability(adapter);
 -- 
 1.7.7.6
 
