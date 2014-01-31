@@ -1,20 +1,16 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH 01/34] bnx2: Use pci_enable_msix_range()
-Date: Fri, 31 Jan 2014 16:08:20 +0100
-Message-ID: <434a34e01c353441131204edef36126a95e8928a.1391172839.git.agordeev@redhat.com>
+Subject: [PATCH 06/34] cxgb3: Use pci_enable_msix_range()
+Date: Fri, 31 Jan 2014 16:08:25 +0100
+Message-ID: <d64d3732650c539b611a786cbb9e25ba23b1317c.1391172839.git.agordeev@redhat.com>
 References: <cover.1391172839.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
-	Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org,
+	Santosh Raspatur <santosh@chelsio.com>, netdev@vger.kernel.org,
 	linux-pci@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36435 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753976AbaAaPHA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Jan 2014 10:07:00 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1391172839.git.agordeev@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 As result of deprecation of MSI-X/MSI enablement functions
 pci_enable_msix() and pci_enable_msi_block() all drivers
@@ -24,41 +20,49 @@ interfaces.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/broadcom/bnx2.c |   15 ++++-----------
- 1 files changed, 4 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c |   23 +++++++++--------------
+ 1 files changed, 9 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
-index 9d2deda..3df63b2 100644
---- a/drivers/net/ethernet/broadcom/bnx2.c
-+++ b/drivers/net/ethernet/broadcom/bnx2.c
-@@ -6206,7 +6206,7 @@ bnx2_free_irq(struct bnx2 *bp)
- static void
- bnx2_enable_msix(struct bnx2 *bp, int msix_vecs)
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+index b72d2ed..07bbb71 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+@@ -3088,27 +3088,22 @@ static int cxgb_enable_msix(struct adapter *adap)
  {
--	int i, total_vecs, rc;
-+	int i, total_vecs;
- 	struct msix_entry msix_ent[BNX2_MAX_MSIX_VEC];
- 	struct net_device *dev = bp->dev;
- 	const int len = sizeof(bp->irq_tbl[0].name);
-@@ -6229,16 +6229,9 @@ bnx2_enable_msix(struct bnx2 *bp, int msix_vecs)
- #ifdef BCM_CNIC
- 	total_vecs++;
- #endif
--	rc = -ENOSPC;
--	while (total_vecs >= BNX2_MIN_MSIX_VEC) {
--		rc = pci_enable_msix(bp->pdev, msix_ent, total_vecs);
--		if (rc <= 0)
--			break;
--		if (rc > 0)
--			total_vecs = rc;
--	}
--
--	if (rc != 0)
-+	total_vecs = pci_enable_msix_range(bp->pdev, msix_ent,
-+					   BNX2_MIN_MSIX_VEC, total_vecs);
-+	if (total_vecs < 0)
- 		return;
+ 	struct msix_entry entries[SGE_QSETS + 1];
+ 	int vectors;
+-	int i, err;
++	int i;
  
- 	msix_vecs = total_vecs;
+ 	vectors = ARRAY_SIZE(entries);
+ 	for (i = 0; i < vectors; ++i)
+ 		entries[i].entry = i;
+ 
+-	while ((err = pci_enable_msix(adap->pdev, entries, vectors)) > 0)
+-		vectors = err;
+-
+-	if (!err && vectors < (adap->params.nports + 1)) {
+-		pci_disable_msix(adap->pdev);
+-		err = -1;
+-	}
++	vectors = pci_enable_msix_range(adap->pdev, entries,
++					adap->params.nports + 1, vectors);
++	if (vectors < 0)
++		return vectors;
+ 
+-	if (!err) {
+-		for (i = 0; i < vectors; ++i)
+-			adap->msix_info[i].vec = entries[i].vector;
+-		adap->msix_nvectors = vectors;
+-	}
++	for (i = 0; i < vectors; ++i)
++		adap->msix_info[i].vec = entries[i].vector;
++	adap->msix_nvectors = vectors;
+ 
+-	return err;
++	return 0;
+ }
+ 
+ static void print_port_info(struct adapter *adap, const struct adapter_info *ai)
 -- 
 1.7.7.6
