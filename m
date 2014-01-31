@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH 27/34] qlcnic: Cleanup qlcnic_enable_msix() return values
-Date: Fri, 31 Jan 2014 16:08:46 +0100
-Message-ID: <55f301267b3b9c1fa409dad293067e58c467cb6c.1391172839.git.agordeev@redhat.com>
+Subject: [PATCH 28/34] qlcnic: Use pci_enable_msix_range()
+Date: Fri, 31 Jan 2014 16:08:47 +0100
+Message-ID: <7015fc7b0c4dda38cf2ecdc474d510984fcfbcab.1391172839.git.agordeev@redhat.com>
 References: <cover.1391172839.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
 	Himanshu Madhani <himanshu.madhani@qlogic.com>,
@@ -14,56 +14,40 @@ In-Reply-To: <cover.1391172839.git.agordeev@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+As result of deprecation of MSI-X/MSI enablement functions
+pci_enable_msix() and pci_enable_msi_block() all drivers
+using these two interfaces need to be updated to use the
+new pci_enable_msi_range() and pci_enable_msix_range()
+interfaces.
+
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 1f79d47..3d2eb14 100644
+index 3d2eb14..ea7a17c 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -684,7 +684,7 @@ restore:
- int qlcnic_enable_msix(struct qlcnic_adapter *adapter, u32 num_msix)
- {
- 	struct pci_dev *pdev = adapter->pdev;
--	int err = -1, vector;
-+	int err, vector;
+@@ -701,13 +701,17 @@ enable_msix:
+ 		for (vector = 0; vector < num_msix; vector++)
+ 			adapter->msix_entries[vector].entry = vector;
  
- 	if (!adapter->msix_entries) {
- 		adapter->msix_entries = kcalloc(num_msix,
-@@ -706,7 +706,7 @@ enable_msix:
+-		err = pci_enable_msix(pdev, adapter->msix_entries, num_msix);
+-		if (err == 0) {
++		err = pci_enable_msix_range(pdev,
++					    adapter->msix_entries, 1, num_msix);
++
++		if (err == num_msix) {
  			adapter->flags |= QLCNIC_MSIX_ENABLED;
  			adapter->ahw->num_msix = num_msix;
  			dev_info(&pdev->dev, "using msi-x interrupts\n");
--			return err;
-+			return 0;
+ 			return 0;
  		} else if (err > 0) {
++			pci_disable_msix(pdev);
++
  			dev_info(&pdev->dev,
  				 "Unable to allocate %d MSI-X vectors, Available vectors %d\n",
-@@ -715,12 +715,12 @@ enable_msix:
- 			if (qlcnic_82xx_check(adapter)) {
- 				num_msix = rounddown_pow_of_two(err);
- 				if (err < QLCNIC_82XX_MINIMUM_VECTOR)
--					return -EIO;
-+					return -ENOSPC;
- 			} else {
- 				num_msix = rounddown_pow_of_two(err - 1);
- 				num_msix += 1;
- 				if (err < QLCNIC_83XX_MINIMUM_VECTOR)
--					return -EIO;
-+					return -ENOSPC;
- 			}
- 
- 			if (qlcnic_82xx_check(adapter) &&
-@@ -747,7 +747,7 @@ enable_msix:
- 		}
- 	}
- 
--	return err;
-+	return -EIO;
- }
- 
- static int qlcnic_82xx_calculate_msix_vector(struct qlcnic_adapter *adapter)
+ 				 num_msix, err);
 -- 
 1.7.7.6
