@@ -1,102 +1,62 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 20/34] myri10ge: Use pci_enable_msix_range()
-Date: Fri, 31 Jan 2014 22:24:53 +0300
-Message-ID: <52EBF885.30309@cogentembedded.com>
-References: <cover.1391172839.git.agordeev@redhat.com> <1253b3c920637ab6bb987defb88d1698ac1e4851.1391172839.git.agordeev@redhat.com>
+From: Sarah Sharp <sarah.a.sharp@linux.intel.com>
+Subject: Re: Help testing for USB ethernet/xHCI regression
+Date: Fri, 31 Jan 2014 10:37:47 -0800
+Message-ID: <20140131183747.GA18262@xanatos>
+References: <22081260.RNay0J72dY@athas>
+ <20140129215408.GC5991@xanatos>
+ <063D6719AE5E284EB5DD2968C1650D6D0F6ACF20@AcuExch.aculab.com>
+ <20140130184412.GA3787@xanatos>
+ <A2CA0424C0A6F04399FB9E1CD98E03046D147453@US01WEMBX2.internal.synopsys.com>
+ <52EAAF6F.7070202@pobox.com>
+ <20140130214133.GB14228@xanatos>
+ <52EAD038.5020409@pobox.com>
+ <20140130232629.GF14228@xanatos>
+ <52EB0B51.4020407@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Hyong-Youb Kim <hykim@myri.com>, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org
-To: Alexander Gordeev <agordeev@redhat.com>,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1253b3c920637ab6bb987defb88d1698ac1e4851.1391172839.git.agordeev@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul Zimmerman <paulz@synopsys.com>,
+	David Laight <David.Laight@ACULAB.COM>,
+	"renevant@internode.on.net" <renevant@internode.on.net>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Mark Lord <mlord@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:55668 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932236AbaAaSht (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Jan 2014 13:37:49 -0500
+Content-Disposition: inline
+In-Reply-To: <52EB0B51.4020407@pobox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Thu, Jan 30, 2014 at 09:32:49PM -0500, Mark Lord wrote:
+> On 14-01-30 06:26 PM, Sarah Sharp wrote:
+> > On Thu, Jan 30, 2014 at 05:20:40PM -0500, Mark Lord wrote:
+> >> On 14-01-30 04:41 PM, Sarah Sharp wrote:
+> >>>
+> >>> Mark and David, can you pull the 3.13-td-changes-reverted branch again,
+> >>> and see if the latest patch fixes your issue?  It disables scatter
+> >>> gather for the ax88179_178a device, but only when it's operating at USB
+> >>> 3.0 speeds.
+> >>
+> >> As expected, this works just fine.
+> > 
+> > Did it work when plugged into a USB 2.0 hub?
+> 
+> Curiosity, NO.  Dies almost immediately when run at USB 2.0 Hi-Speed.
+> With a USB 2.0 hub, with a USB 2.0 port on a USB 3.0 hub,
+> and with a USB 2.0 extension cable in place of a hub.
+> 
+> Near instant hangs.
+> 
+> Plugged directly to the USB 3.0 port, it works fine.
 
-On 01/31/2014 06:08 PM, Alexander Gordeev wrote:
+Ok, that makes sense.  The patch I wrote only limited scatter-gather at
+USB 3.0 speeds, to see if scatter-gather could work at USB 2.0 speeds.
+Reverting commit 3804fad45411b48233b48003e33a78f290d227c8 "USBNET:
+ax88179_178a: enable tso if usb host supports sg dma" is the right way
+to go instead.
 
-> As result of deprecation of MSI-X/MSI enablement functions
-> pci_enable_msix() and pci_enable_msi_block() all drivers
-> using these two interfaces need to be updated to use the
-> new pci_enable_msi_range() and pci_enable_msix_range()
-> interfaces.
-
-> Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
-> ---
->   drivers/net/ethernet/myricom/myri10ge/myri10ge.c |   32 ++++++++++-----------
->   1 files changed, 15 insertions(+), 17 deletions(-)
-
-> diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-> index 68026f7..9f717d6 100644
-> --- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-> +++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-> @@ -2329,16 +2329,14 @@ static int myri10ge_request_irq(struct myri10ge_priv *mgp)
->   	status = 0;
->   	if (myri10ge_msi) {
->   		if (mgp->num_slices > 1) {
-> -			status =
-> -			    pci_enable_msix(pdev, mgp->msix_vectors,
-> -					    mgp->num_slices);
-> -			if (status == 0) {
-> -				mgp->msix_enabled = 1;
-> -			} else {
-> +			status = pci_enable_msix_range(pdev, mgp->msix_vectors,
-> +					mgp->num_slices, mgp->num_slices);
-> +			if (status < 0) {
->   				dev_err(&pdev->dev,
->   					"Error %d setting up MSI-X\n", status);
->   				return status;
->   			}
-> +			mgp->msix_enabled = 1;
->   		}
->   		if (mgp->msix_enabled == 0) {
->   			status = pci_enable_msi(pdev);
-> @@ -3901,23 +3899,23 @@ static void myri10ge_probe_slices(struct myri10ge_priv *mgp)
->   	}
->
->   	while (mgp->num_slices > 1) {
-> -		/* make sure it is a power of two */
-> -		while (!is_power_of_2(mgp->num_slices))
-> -			mgp->num_slices--;
-> +		mgp->num_slices = rounddown_pow_of_two(mgp->num_slices);
->   		if (mgp->num_slices == 1)
->   			goto disable_msix;
-> -		status = pci_enable_msix(pdev, mgp->msix_vectors,
-> -					 mgp->num_slices);
-> -		if (status == 0) {
-> -			pci_disable_msix(pdev);
-> +		status = pci_enable_msix_range(pdev, mgp->msix_vectors,
-> +					mgp->num_slices, mgp->num_slices);
-
-    The continuation line(s) should be aligned to start right under 'pdev', 
-according to the networking coding rules.
-
-> +		if (status < 0)
-> +			goto disable_msix;
-
-    Hm, if enabling MSI failed, we don't need to disable it, right? So, 
-perhaps the label should be renamed?
-
-> +
-> +		pci_disable_msix(pdev);
-> +
-> +		if (status == mgp->num_slices) {
->   			if (old_allocated)
->   				kfree(old_fw);
->   			return;
-> -		}
-> -		if (status > 0)
-> +		} else {
->   			mgp->num_slices = status;
-> -		else
-> -			goto disable_msix;
-> +		}
->   	}
->
->   disable_msix:
-
-WBR, Sergei
+Sarah Sharp
