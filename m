@@ -1,79 +1,103 @@
-From: Shradha Shah <sshah@solarflare.com>
-Subject: Re: [PATCH 31/34] efx: Use pci_enable_msix_range()
-Date: Fri, 31 Jan 2014 17:21:59 +0000
-Message-ID: <52EBDBB7.9010503@solarflare.com>
-References: <cover.1391172839.git.agordeev@redhat.com> <433fe68f834c10679986274f4bb605aa4ed5eaf3.1391172839.git.agordeev@redhat.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH v2 2/4] net: ethoc: implement ethtool get/set settings
+Date: Fri, 31 Jan 2014 18:03:03 +0000
+Message-ID: <1391191383.4405.83.camel@deadeye.wl.decadent.org.uk>
+References: <1391146867-30508-1-git-send-email-jcmvbkbc@gmail.com>
+	 <1391146867-30508-3-git-send-email-jcmvbkbc@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>,
-	Solarflare maintainers <linux-net-drivers@solarflare.com>,
-	<netdev@vger.kernel.org>, <linux-pci@vger.kernel.org>
-To: Alexander Gordeev <agordeev@redhat.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <433fe68f834c10679986274f4bb605aa4ed5eaf3.1391172839.git.agordeev@redhat.com>
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-0DRz3IWApEQVGdLXE1zW"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Marc Gauthier <marc@cadence.com>
+To: Max Filippov <jcmvbkbc@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1391146867-30508-3-git-send-email-jcmvbkbc@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/31/2014 03:08 PM, Alexander Gordeev wrote:
-> As result of deprecation of MSI-X/MSI enablement functions
-> pci_enable_msix() and pci_enable_msi_block() all drivers
-> using these two interfaces need to be updated to use the
-> new pci_enable_msi_range() and pci_enable_msix_range()
-> interfaces.
-> 
-> Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 
-Acked-by: Shradha Shah <sshah@solarflare.com>
+--=-0DRz3IWApEQVGdLXE1zW
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Fri, 2014-01-31 at 09:41 +0400, Max Filippov wrote:
+> Signed-off-by: Max Filippov <jcmvbkbc@gmail.com>
+
+Reviewed-by: Ben Hutchings <ben@decadent.org.uk>
 
 > ---
->  drivers/net/ethernet/sfc/efx.c |   20 +++++++++-----------
->  1 files changed, 9 insertions(+), 11 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-> index 83d4643..297b97a 100644
-> --- a/drivers/net/ethernet/sfc/efx.c
-> +++ b/drivers/net/ethernet/sfc/efx.c
-> @@ -1346,20 +1346,23 @@ static int efx_probe_interrupts(struct efx_nic *efx)
->  
->  		for (i = 0; i < n_channels; i++)
->  			xentries[i].entry = i;
-> -		rc = pci_enable_msix(efx->pci_dev, xentries, n_channels);
-> -		if (rc > 0) {
-> +		rc = pci_enable_msix_range(efx->pci_dev,
-> +					   xentries, 1, n_channels);
-> +		if (rc < 0) {
-> +			/* Fall back to single channel MSI */
-> +			efx->interrupt_mode = EFX_INT_MODE_MSI;
-> +			netif_err(efx, drv, efx->net_dev,
-> +				  "could not enable MSI-X\n");
-> +		} else if (rc < n_channels) {
->  			netif_err(efx, drv, efx->net_dev,
->  				  "WARNING: Insufficient MSI-X vectors"
->  				  " available (%d < %u).\n", rc, n_channels);
->  			netif_err(efx, drv, efx->net_dev,
->  				  "WARNING: Performance may be reduced.\n");
-> -			EFX_BUG_ON_PARANOID(rc >= n_channels);
->  			n_channels = rc;
-> -			rc = pci_enable_msix(efx->pci_dev, xentries,
-> -					     n_channels);
->  		}
->  
-> -		if (rc == 0) {
-> +		if (rc > 0) {
->  			efx->n_channels = n_channels;
->  			if (n_channels > extra_channels)
->  				n_channels -= extra_channels;
-> @@ -1375,11 +1378,6 @@ static int efx_probe_interrupts(struct efx_nic *efx)
->  			for (i = 0; i < efx->n_channels; i++)
->  				efx_get_channel(efx, i)->irq =
->  					xentries[i].vector;
-> -		} else {
-> -			/* Fall back to single channel MSI */
-> -			efx->interrupt_mode = EFX_INT_MODE_MSI;
-> -			netif_err(efx, drv, efx->net_dev,
-> -				  "could not enable MSI-X\n");
->  		}
->  	}
->  
-> 
+> Changes v1->v2:
+> - fix {get,set}_settings return code in case there's no PHY.
+>=20
+>  drivers/net/ethernet/ethoc.c | 24 ++++++++++++++++++++++++
+>  1 file changed, 24 insertions(+)
+>=20
+> diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/ethoc.c
+> index 0623c20..779d3c3 100644
+> --- a/drivers/net/ethernet/ethoc.c
+> +++ b/drivers/net/ethernet/ethoc.c
+> @@ -890,7 +890,31 @@ out:
+>  	return NETDEV_TX_OK;
+>  }
+> =20
+> +static int ethoc_get_settings(struct net_device *dev, struct ethtool_cmd=
+ *cmd)
+> +{
+> +	struct ethoc *priv =3D netdev_priv(dev);
+> +	struct phy_device *phydev =3D priv->phy;
+> +
+> +	if (!phydev)
+> +		return -EOPNOTSUPP;
+> +
+> +	return phy_ethtool_gset(phydev, cmd);
+> +}
+> +
+> +static int ethoc_set_settings(struct net_device *dev, struct ethtool_cmd=
+ *cmd)
+> +{
+> +	struct ethoc *priv =3D netdev_priv(dev);
+> +	struct phy_device *phydev =3D priv->phy;
+> +
+> +	if (!phydev)
+> +		return -EOPNOTSUPP;
+> +
+> +	return phy_ethtool_sset(phydev, cmd);
+> +}
+> +
+>  const struct ethtool_ops ethoc_ethtool_ops =3D {
+> +	.get_settings =3D ethoc_get_settings,
+> +	.set_settings =3D ethoc_set_settings,
+>  	.get_link =3D ethtool_op_get_link,
+>  	.get_ts_info =3D ethtool_op_get_ts_info,
+>  };
+
+--=20
+Ben Hutchings
+It is easier to write an incorrect program than to understand a correct one=
+.
+
+--=-0DRz3IWApEQVGdLXE1zW
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.15 (GNU/Linux)
+
+iQIVAwUAUuvlV+e/yOyVhhEJAQqa5A//VeJVtFoD5yLhcrp3XWsv2zOpkE+nCrPa
+SMVdsxSrIT7Na0MMRji4918It4offs9CaUh+kUtnAQ6A94cpwGq5EUC/s+4A+wLT
+OU+eiccyQ7w5Zn+QXqbVRHD3/n7E4GdWA3/MfFq5kv/DAQBh/kZrEmQBJs2BnNvG
+5+FNEHV8BwUl0kP3QxvUz6OjW4M2gn46OEIclMHhWw9DOgCvaZgOSmlnz4PFi9ut
+iyoOtODK5r7bD1uWHZUDQG7f3o9+zLrpmYr/sSpTSnYkNcZ1MNipZR3WNYIoOaxH
+JsYwCO+L+v8axWQCU3IVR8rvoW9wLph3GIurFteOWg2iE19ufL8W9D1I9vNfFLAX
+geY9vSgpgw/M7dF3t66EJ8FDsckg2EaHAaHY6lW+jsJ300FeRPN1ty+CIviXbLHb
+25ZlEQqzKlN0CnnNy1N+eKOkRmY4StnyqXlo0t7Oi3XJKM/93b6D+Pt7c0YExmRy
+s0HGQ8xZCKu5I/8X26HBY/lbzdqhy01/O9scKux4uXY6bkLVKwrOAAvNc6SU5Fd/
+VmrecDeSPq3S8rJADd0H7eVtF7iuzm8aANqtl7V476jHiKpx6ghcRtvDdauegx0d
+gXaH7dCeIWQTmMp/NUJcIi2VXcRyyjLrWjTj35ze/FjsK/rVScGoCAXJ7bTJHhRD
+3jFQWhFMvvA=
+=RRYS
+-----END PGP SIGNATURE-----
+
+--=-0DRz3IWApEQVGdLXE1zW--
