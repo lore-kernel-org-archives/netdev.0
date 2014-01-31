@@ -1,112 +1,55 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: Re: [RFC PATCH] net: core: move core networking work to power efficient
- workqueue
-Date: Fri, 31 Jan 2014 01:48:37 +0100
-Message-ID: <52EAF2E5.8090403@meshcoding.com>
-References: <1391128402-10725-1-git-send-email-zoran.markovic@linaro.org>
+From: Tom Gundersen <teg@jklm.no>
+Subject: Re: [PATCH] net: set default DEVTYPE for all ethernet based devices
+Date: Fri, 31 Jan 2014 01:54:03 +0100
+Message-ID: <CAG-2HqVH5akkCY_d7=v-EECFzYTfT531t4g6zG9euC4+VgFLWw@mail.gmail.com>
+References: <1391088002-15650-1-git-send-email-teg@jklm.no> <20140130150503.GA29607@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="FgmjO4qw8O7x8rjEXkT6tBV3b3GrgqAVj"
-Cc: netdev@vger.kernel.org, Shaibal Dutta <shaibal.dutta@broadcom.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jiri@resnulli.us>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Julian Anastasov <ja@ssi.bg>, Flavio Leitner <fbl@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Patrick McHardy <kaber@trash.net>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Amerigo Wang <amwang@redhat.com>,
-	Joe Perches <joe@perches.com>,
-	Jason Wang <jasowang@redhat.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Avinash Kumar <avi.kp.137@gmail.com>,
 	Simon Horman <horms@verge.net.au>,
-	Nikolay Aleksandrov <nikolay@redhat.com>
-To: Zoran Markovic <zoran.markovic@linaro.org>,
-	linux-kernel@vger.kernel.org
+	Marcel Holtmann <marcel@holtmann.org>,
+	Greg KH <gregkh@linuxfoundation.org>,
+	Kay Sievers <kay@vrfy.org>
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1391128402-10725-1-git-send-email-zoran.markovic@linaro.org>
+In-Reply-To: <20140130150503.GA29607@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---FgmjO4qw8O7x8rjEXkT6tBV3b3GrgqAVj
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Hi Veaceslav,
 
-On 31/01/14 01:33, Zoran Markovic wrote:
-> From: Shaibal Dutta <shaibal.dutta@broadcom.com>
+Thanks for your quick reply.
 
-[...]
+On Thu, Jan 30, 2014 at 4:05 PM, Veaceslav Falico <vfalico@redhat.com> wrote:
+> On Thu, Jan 30, 2014 at 02:20:02PM +0100, Tom Gundersen wrote:
+>>
+>> In systemd's networkd and udevd, we would like to give the administrator a
+>> simple way to filter net devices by their DEVTYPE [0][1]. Other software
+>> such as ConnMan and NetworkManager uses a similar filtering already.
+>>
+>> Currently, plain ethernet devices have DEVTYPE=(null). This patch sets the
+>> devtype to "ethernet" instead. This avoids the need for special-casing the
+>> DEVTYPE=(null) case in userspace, and also avoids false positives, as
+>> there
+>> are several other types of netdevs that also have DEVTYPE=(null).
+>
+>
+> There are quite a few users at least in usb and wireless drivers:
+>
+> net#git grep alloc_etherdev drivers/net/wireless/ drivers/net/usb | wc -l
+> 18
+>
+> In usb, though, there might be some false positives of this grep, as
+> there are a few devices which might be considered ethernet.
 
-> -		schedule_delayed_work(&linkwatch_work, delay);
-> +		queue_delayed_work(system_power_efficient_wq,
-> +			&linkwatch_work, delay);
+Ah, yes I missed the #define of alloc_etherdev(). Looking through
+these, it shouldn't be too hard to keep this patch and additionally
+fix up the false positives to opt-out of setting the DEVTYPE. Does
+that sound like something that would be acceptable?
 
-before talking about technical details, here and in other spots of this
-patch the alignment is wrong. I think checkpatch should have said
-something about it. The first parameter on the new line should be
-aligned up to the column after the opening parenthesis.
+Cheers,
 
-Regards,
-
->  }
-> =20
-> =20
-> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-> index c03f3de..2c8f839 100644
-> --- a/net/core/netpoll.c
-> +++ b/net/core/netpoll.c
-> @@ -101,7 +101,8 @@ static void queue_process(struct work_struct *work)=
-
->  			__netif_tx_unlock(txq);
->  			local_irq_restore(flags);
-> =20
-> -			schedule_delayed_work(&npinfo->tx_work, HZ/10);
-> +			queue_delayed_work(system_power_efficient_wq,
-> +				&npinfo->tx_work, HZ/10);
->  			return;
->  		}
->  		__netif_tx_unlock(txq);
-> @@ -423,7 +424,8 @@ void netpoll_send_skb_on_dev(struct netpoll *np, st=
-ruct sk_buff *skb,
-> =20
->  	if (status !=3D NETDEV_TX_OK) {
->  		skb_queue_tail(&npinfo->txq, skb);
-> -		schedule_delayed_work(&npinfo->tx_work,0);
-> +		queue_delayed_work(system_power_efficient_wq,
-> +			&npinfo->tx_work, 0);
->  	}
->  }
->  EXPORT_SYMBOL(netpoll_send_skb_on_dev);
->=20
-
-
---=20
-Antonio Quartulli
-
-
---FgmjO4qw8O7x8rjEXkT6tBV3b3GrgqAVj
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAEBCAAGBQJS6vLqAAoJEEKTMo6mOh1Vc90P/iKvO5sq4ALPq8OWN/NMb/Au
-WS+vNv3SWrjfV0he63ASF7a9Ygb2CTwsBfnAz6+fxkZZopUMIBFyt4lOa34bTxjh
-ycZZ6DyZbSpLIUTEoD9o5MSVPviVX3OulKDtG+np5FwTrf+Yt3KI6jwmSohXO2M6
-fAnh2kxSVrlfe7tanvXhV1a6XMkVAnjxDVdE/zcXr7N5LEQF29g94SfutrUZZS8E
-OO+87loydMq9XAD2/uV5UlJ2RmzQP0bEbkW5cDKJ4HXN19HsNTygl8sj8BqupWAK
-ousndDG2zqznta0pCiNeh9Szxvpqd/UVsxsb70S3sPGDbJXpoUuxDTSUpAUnbdkj
-NhVJnGq31AGSpmGWYDNYeuVEZWmP8WlbWzpvI9zal3neS7HOnMo/gIVirXLDEz3M
-NzkVqat9QtaJIhumiiRDykVCLYInjEMhGb3LPsUgkLRK8b1O1nhK50cPuP2X4XXh
-fD9rplHBm6XPd5jL9KOQwKq55MsJyLQHwA6mt6rpAAsSh7VcNEQZ/qEhtGzMSVTx
-yi0CPwwiKDzfvWYD44LkLVEsfAT3d3pCd7ORmNj5Ed2cZMURv9l2g2af6jKPfBs6
-Wq3sTbFAg82OL9sBTQOirU65Aowgz6YYelkMQC/tY+tlOnZWCm8SQD2BQXRGJFwt
-3Fr05KFkwUuSmX/hN8IY
-=Nmm0
------END PGP SIGNATURE-----
-
---FgmjO4qw8O7x8rjEXkT6tBV3b3GrgqAVj--
+Tom
