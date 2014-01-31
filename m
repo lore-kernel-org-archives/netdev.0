@@ -1,38 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] e100: Fix "disabling already-disabled device"
- warning
-Date: Thu, 30 Jan 2014 16:27:45 -0800 (PST)
-Message-ID: <20140130.162745.1556632155972070897.davem@davemloft.net>
-References: <1391079064-18411-1-git-send-email-michele@acksyn.org>
+Subject: Re: [PATCH] net: set default DEVTYPE for all ethernet based devices
+Date: Thu, 30 Jan 2014 16:28:41 -0800 (PST)
+Message-ID: <20140130.162841.525938031146003411.davem@davemloft.net>
+References: <1391088002-15650-1-git-send-email-teg@jklm.no>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	idirectscm@aim.com
-To: michele@acksyn.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32807 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753390AbaAaA1q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jan 2014 19:27:46 -0500
-In-Reply-To: <1391079064-18411-1-git-send-email-michele@acksyn.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	stephen@networkplumber.org, avi.kp.137@gmail.com,
+	mchehab@redhat.com, horms@verge.net.au, marcel@holtmann.org,
+	gregkh@linuxfoundation.org, kay@vrfy.org
+To: teg@jklm.no
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1391088002-15650-1-git-send-email-teg@jklm.no>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Michele Baldessari <michele@acksyn.org>
-Date: Thu, 30 Jan 2014 10:51:04 +0000
+From: Tom Gundersen <teg@jklm.no>
+Date: Thu, 30 Jan 2014 14:20:02 +0100
 
-> In https://bugzilla.redhat.com/show_bug.cgi?id=994438 and
-> https://bugzilla.redhat.com/show_bug.cgi?id=970480  we
-> received different reports of e100 throwing the following
-> warning:
- ...
-> This patch removes pci_disable_device() from __e100_shutdown().
-> pci_clear_master() is enough.
+> In systemd's networkd and udevd, we would like to give the administrator a
+> simple way to filter net devices by their DEVTYPE [0][1]. Other software
+> such as ConnMan and NetworkManager uses a similar filtering already.
 > 
-> Signed-off-by: Michele Baldessari <michele@acksyn.org>
-> Tested-by: Mark Harig <idirectscm@aim.com>
+> Currently, plain ethernet devices have DEVTYPE=(null). This patch sets the
+> devtype to "ethernet" instead. This avoids the need for special-casing the
+> DEVTYPE=(null) case in userspace, and also avoids false positives, as there
+> are several other types of netdevs that also have DEVTYPE=(null).
+> 
+> Notice that this is done, as suggested by Marcel, in alloc_etherdev_mqs(),
+> and as best I can tell it will not give any false positives. I considered
+> doing it in ether_setup() instead as that seemed more intuitive, but that
+> would give a lot of false positives indeed.
+> 
+> [0]: <http://www.freedesktop.org/software/systemd/man/systemd-networkd.service.html#Type>
+> [1]: <http://www.freedesktop.org/software/systemd/man/udev.html#Type>
+> 
+> Signed-off-by: Tom Gundersen <teg@jklm.no>
 
-Can I get some Intel folks to review/ack this?
-
-Thanks.
+Assuming that all users of alloc_etherdev*() are ethernet devices is
+really not going to work.
