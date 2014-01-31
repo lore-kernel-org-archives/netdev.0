@@ -1,7 +1,7 @@
 From: Florian Vaussard <florian.vaussard@epfl.ch>
-Subject: [PATCH v2 1/6] can: sja1000: remove unused defines
-Date: Fri, 31 Jan 2014 11:35:08 +0100
-Message-ID: <1391164513-11529-2-git-send-email-florian.vaussard@epfl.ch>
+Subject: [PATCH v2 6/6] can: sja1000: of: add reg-io-width property for 8, 16 and 32-bit register access
+Date: Fri, 31 Jan 2014 11:35:13 +0100
+Message-ID: <1391164513-11529-7-git-send-email-florian.vaussard@epfl.ch>
 References: <1391164513-11529-1-git-send-email-florian.vaussard@epfl.ch>
 Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, florian.vaussard@epfl.ch
@@ -12,26 +12,38 @@ In-Reply-To: <1391164513-11529-1-git-send-email-florian.vaussard@epfl.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove unused defines for the OF platform.
+Add the 'reg-io-width' property for 8, 16 and 32-bit access, like
+what is currently done with IORESOURCE_MEM_{8,16,32}BIT for non-OF
+boot.
 
 Signed-off-by: Florian Vaussard <florian.vaussard@epfl.ch>
 ---
- drivers/net/can/sja1000/sja1000_of_platform.c | 3 ---
- 1 file changed, 3 deletions(-)
+ drivers/net/can/sja1000/sja1000_platform.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/can/sja1000/sja1000_of_platform.c b/drivers/net/can/sja1000/sja1000_of_platform.c
-index 047accd..2f29eb9 100644
---- a/drivers/net/can/sja1000/sja1000_of_platform.c
-+++ b/drivers/net/can/sja1000/sja1000_of_platform.c
-@@ -55,9 +55,6 @@ MODULE_LICENSE("GPL v2");
+diff --git a/drivers/net/can/sja1000/sja1000_platform.c b/drivers/net/can/sja1000/sja1000_platform.c
+index 96a92a1..62ebc3d 100644
+--- a/drivers/net/can/sja1000/sja1000_platform.c
++++ b/drivers/net/can/sja1000/sja1000_platform.c
+@@ -103,8 +103,17 @@ static void sp_populate_of(struct sja1000_priv *priv, struct device_node *of)
+ 	int err;
+ 	u32 prop;
  
- #define SJA1000_OFP_CAN_CLOCK  (16000000 / 2)
+-	priv->read_reg = sp_read_reg8;
+-	priv->write_reg = sp_write_reg8;
++	of_property_read_u32(of, "reg-io-width", &prop);
++	if (prop == 4) {
++		priv->read_reg = sp_read_reg32;
++		priv->write_reg = sp_write_reg32;
++	} else if (prop == 2) {
++		priv->read_reg = sp_read_reg16;
++		priv->write_reg = sp_write_reg16;
++	} else {
++		priv->read_reg = sp_read_reg8;
++		priv->write_reg = sp_write_reg8;
++	}
  
--#define SJA1000_OFP_OCR        OCR_TX0_PULLDOWN
--#define SJA1000_OFP_CDR        (CDR_CBP | CDR_CLK_OFF)
--
- static u8 sja1000_ofp_read_reg(const struct sja1000_priv *priv, int reg)
- {
- 	return ioread8(priv->reg_base + reg);
+ 	err = of_property_read_u32(of, "nxp,external-clock-frequency", &prop);
+ 	if (!err)
 -- 
 1.8.1.2
