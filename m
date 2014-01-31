@@ -1,77 +1,62 @@
-From: astx <astx@aws-it.at>
-Subject: Re: OOPS in nf_ct_unlink_expect_report using Polycom RealPresence
- Mobile
-Date: Fri, 31 Jan 2014 17:04:02 +0100
-Message-ID: <20140131170402.Horde.yIFUeQVjLycuS_8PGQoKmg5@aws-it.at>
-References: <20140131120527.Horde.-3YzQu5S8WWBx7vuVVNdBA2@bigboss.aws-it.at>
- <20140131125014.Horde.G2TRlt-60JJ0Nl_3Y8IniQ2@bigboss.aws-it.at>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH linux-3.10.y v2 1/3] sit: fix double free of
+ fb_tunnel_dev on exit
+Date: Fri, 31 Jan 2014 12:19:29 -0500
+Message-ID: <20140131121929.51a58c72@gandalf.local.home>
+References: <20140130171029.01cd80ca@gandalf.local.home>
+	<1391156646-11981-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed; DelSp=Yes
-Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140131125014.Horde.G2TRlt-60JJ0Nl_3Y8IniQ2@bigboss.aws-it.at>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	stable@vger.kernel.org, williams@redhat.com, lclaudio@uudg.org,
+	jkacur@redhat.com, willemb@google.com
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1391156646-11981-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dear Alexey,
+Just FYI.
 
-seems to help. Thank you for your quick response. Kernel 3.10.28 is  
-now stable using h323 / Polycom.
+Our full tier tests have completed with no issues due to the sit or
+ip6_tunnel modules. These patches appear to have solved our problems.
 
-Will test this patch with different kernel versions the next days.
+Nicolas, Thanks again for posting these!
 
-Best Regards,
-Toni
-
-
-Original message from Alexey Dobriyan:
---------------------------------------------------------------------------------------
-Date	Fri, 31 Jan 2014 16:29:58 +0300
-Subject	Re: OOPS in nf_ct_unlink_expect_report using Polycom  
-RealPresence Mobile
-From	Alexey Dobriyan <>
+-- Steve
 
 
-> Disabling nf_nat_h323 and nf_conntrack_h323 avoids crash -
-> but video conferencing software is no more usable.
->
-> BUG: unable to handle kernel paging request at 00100104
-> IP: [<f8214f07>] nf_ct_unlink_expect_report
+On Fri, 31 Jan 2014 09:24:04 +0100
+Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
 
-This must be the same bug fixed in SIP module:
-commit 3f509c689a07a4aa989b426893d8491a7ffcc410
-netfilter: nf_nat_sip: fix incorrect handling of EBUSY for RTCP expectation
-
-Try attached patch (if this is mangled):
-
---- a/net/ipv4/netfilter/nf_nat_h323.c
-+++ b/net/ipv4/netfilter/nf_nat_h323.c
-@@ -229,7 +229,10 @@ static int nat_rtp_rtcp(struct sk_buff *skb,
-struct nf_conn *ct,
-   ret = nf_ct_expect_related(rtcp_exp);
-   if (ret == 0)
-   break;
-- else if (ret != -EBUSY) {
-+ else if (ret == -EBUSY) {
-+ nf_ct_unexpect_related(rtp_exp);
-+ continue;
-+ } else if (ret < 0) {
-   nf_ct_unexpect_related(rtp_exp);
-   nated_port = 0;
-   break;--- a/net/ipv4/netfilter/nf_nat_h323.c
-+++ b/net/ipv4/netfilter/nf_nat_h323.c
-@@ -229,7 +229,10 @@ static int nat_rtp_rtcp(struct sk_buff *skb,  
-struct nf_conn *ct,
-  			ret = nf_ct_expect_related(rtcp_exp);
-  			if (ret == 0)
-  				break;
--			else if (ret != -EBUSY) {
-+			else if (ret == -EBUSY) {
-+				nf_ct_unexpect_related(rtp_exp);
-+				continue;
-+			} else if (ret < 0) {
-  				nf_ct_unexpect_related(rtp_exp);
-  				nated_port = 0;
-  				break;
+> This problem was fixed upstream by commit 9434266f2c64 ("sit: fix use after free
+> of fb_tunnel_dev").
+> The upstream patch depends on upstream commit 5e6700b3bf98 ("sit: add support of
+> x-netns"), which was not backported into 3.10 branch.
+> 
+> First, explain the problem: when the sit module is unloaded, sit_cleanup() is
+> called.
+> rmmod sit
+> => sit_cleanup()
+>   => rtnl_link_unregister()
+>     => __rtnl_kill_links()
+>       => for_each_netdev(net, dev) {
+>         if (dev->rtnl_link_ops == ops)
+>         	ops->dellink(dev, &list_kill);
+>         }
+> At this point, the FB device is deleted (and all sit tunnels).
+>   => unregister_pernet_device()
+>     => unregister_pernet_operations()
+>       => ops_exit_list()
+>         => sit_exit_net()
+>           => sit_destroy_tunnels()
+>           In this function, no tunnel is found.
+>           => unregister_netdevice_queue(sitn->fb_tunnel_dev, &list);
+> We delete the FB device a second time here!
+> 
+> Because we cannot simply remove the second deletion (sit_exit_net() must remove
+> the FB device when a netns is deleted), we add an rtnl ops which delete all sit
+> device excepting the FB device and thus we can keep the explicit deletion in
+> sit_exit_net().
+> 
