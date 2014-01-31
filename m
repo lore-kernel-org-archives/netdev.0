@@ -1,62 +1,64 @@
-From: Sarah Sharp <sarah.a.sharp@linux.intel.com>
-Subject: Re: Help testing for USB ethernet/xHCI regression
-Date: Fri, 31 Jan 2014 10:37:47 -0800
-Message-ID: <20140131183747.GA18262@xanatos>
-References: <22081260.RNay0J72dY@athas>
- <20140129215408.GC5991@xanatos>
- <063D6719AE5E284EB5DD2968C1650D6D0F6ACF20@AcuExch.aculab.com>
- <20140130184412.GA3787@xanatos>
- <A2CA0424C0A6F04399FB9E1CD98E03046D147453@US01WEMBX2.internal.synopsys.com>
- <52EAAF6F.7070202@pobox.com>
- <20140130214133.GB14228@xanatos>
- <52EAD038.5020409@pobox.com>
- <20140130232629.GF14228@xanatos>
- <52EB0B51.4020407@pobox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Paul Zimmerman <paulz@synopsys.com>,
-	David Laight <David.Laight@ACULAB.COM>,
-	"renevant@internode.on.net" <renevant@internode.on.net>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Mark Lord <mlord@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:55668 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932236AbaAaSht (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Jan 2014 13:37:49 -0500
-Content-Disposition: inline
-In-Reply-To: <52EB0B51.4020407@pobox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zoran Markovic <zoran.markovic@linaro.org>
+Subject: [RFC PATCHv2] net: ipv4: move inetpeer garbage collector work to power efficient workqueue
+Date: Fri, 31 Jan 2014 10:48:07 -0800
+Message-ID: <1391194087-12195-1-git-send-email-zoran.markovic@linaro.org>
+Cc: netdev@vger.kernel.org, Shaibal Dutta <shaibal.dutta@broadcom.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Zoran Markovic <zoran.markovic@linaro.org>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 30, 2014 at 09:32:49PM -0500, Mark Lord wrote:
-> On 14-01-30 06:26 PM, Sarah Sharp wrote:
-> > On Thu, Jan 30, 2014 at 05:20:40PM -0500, Mark Lord wrote:
-> >> On 14-01-30 04:41 PM, Sarah Sharp wrote:
-> >>>
-> >>> Mark and David, can you pull the 3.13-td-changes-reverted branch again,
-> >>> and see if the latest patch fixes your issue?  It disables scatter
-> >>> gather for the ax88179_178a device, but only when it's operating at USB
-> >>> 3.0 speeds.
-> >>
-> >> As expected, this works just fine.
-> > 
-> > Did it work when plugged into a USB 2.0 hub?
-> 
-> Curiosity, NO.  Dies almost immediately when run at USB 2.0 Hi-Speed.
-> With a USB 2.0 hub, with a USB 2.0 port on a USB 3.0 hub,
-> and with a USB 2.0 extension cable in place of a hub.
-> 
-> Near instant hangs.
-> 
-> Plugged directly to the USB 3.0 port, it works fine.
+From: Shaibal Dutta <shaibal.dutta@broadcom.com>
 
-Ok, that makes sense.  The patch I wrote only limited scatter-gather at
-USB 3.0 speeds, to see if scatter-gather could work at USB 2.0 speeds.
-Reverting commit 3804fad45411b48233b48003e33a78f290d227c8 "USBNET:
-ax88179_178a: enable tso if usb host supports sg dma" is the right way
-to go instead.
+Garbage collector work does not have to be bound to the CPU that scheduled
+it. By moving work to the power-efficient workqueue, the selection of
+CPU executing the work is left to the scheduler. This extends idle
+residency times and conserves power.
 
-Sarah Sharp
+This functionality is enabled when CONFIG_WQ_POWER_EFFICIENT is selected.
+
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: James Morris <jmorris@namei.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Shaibal Dutta <shaibal.dutta@broadcom.com>
+[zoran.markovic@linaro.org: Rebased to latest kernel version. Added
+commit message. Fixed code alignment.]
+Signed-off-by: Zoran Markovic <zoran.markovic@linaro.org>
+---
+ net/ipv4/inetpeer.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
+index 48f4244..7e3da6c6 100644
+--- a/net/ipv4/inetpeer.c
++++ b/net/ipv4/inetpeer.c
+@@ -161,7 +161,8 @@ static void inetpeer_gc_worker(struct work_struct *work)
+ 	list_splice(&list, &gc_list);
+ 	spin_unlock_bh(&gc_lock);
+ 
+-	schedule_delayed_work(&gc_work, gc_delay);
++	queue_delayed_work(system_power_efficient_wq,
++			   &gc_work, gc_delay);
+ }
+ 
+ /* Called from ip_output.c:ip_init  */
+@@ -576,7 +577,8 @@ static void inetpeer_inval_rcu(struct rcu_head *head)
+ 	list_add_tail(&p->gc_list, &gc_list);
+ 	spin_unlock_bh(&gc_lock);
+ 
+-	schedule_delayed_work(&gc_work, gc_delay);
++	queue_delayed_work(system_power_efficient_wq,
++			   &gc_work, gc_delay);
+ }
+ 
+ void inetpeer_invalidate_tree(struct inet_peer_base *base)
+-- 
+1.7.9.5
