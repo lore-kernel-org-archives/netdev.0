@@ -1,64 +1,104 @@
-From: Zoran Markovic <zoran.markovic@linaro.org>
-Subject: [RFC PATCH] net: ipv4: move inetpeer garbage collector work to power efficient workqueue
-Date: Thu, 30 Jan 2014 15:40:13 -0800
-Message-ID: <1391125213-8119-1-git-send-email-zoran.markovic@linaro.org>
-Cc: netdev@vger.kernel.org, Shaibal Dutta <shaibal.dutta@broadcom.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Zoran Markovic <zoran.markovic@linaro.org>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: [PATCH RFC 1/1] usb: Tell xhci when usb data might be misaligned
+Date: Fri, 31 Jan 2014 08:17:58 +0800
+Message-ID: <CACVXFVMVoMAH3DRiv-VYZL8VWq2Rw+fZwreVtUVm1M44HR+X8Q@mail.gmail.com>
+References: <20140130211816.GB3787@xanatos>
+	<87iot1qgv6.fsf@nemi.mork.no>
+	<20140130221511.GD14228@xanatos>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
+	David Laight <David.Laight-JxhZ9S5GRejQT0dZR+AlfA@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"Nyman, Mathias" <mathias.nyman-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Mark Lord <mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
+	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
+To: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140130221511.GD14228@xanatos>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Shaibal Dutta <shaibal.dutta@broadcom.com>
+On Fri, Jan 31, 2014 at 6:15 AM, Sarah Sharp
+<sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org> wrote:
+> On Thu, Jan 30, 2014 at 10:50:21PM +0100, Bj=F8rn Mork wrote:
+>> FWIW, the plan looks fine to me.  Just adding a couple of hints to
+>> simplify the implementation.
+>>
+>> Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org> writes:
+>>
+>> > Let's do this fix the right way, instead of wall papering over the
+>> > issue.  Here's what we should do:
+>> >
+>> > 1. Disable scatter-gather for the ax88179_178a driver when it's un=
+der an
+>> >    xHCI host.
+>>
+>> No need to make this conditional.  SG is only enabled in the
+>> ax88179_178a driver if udev->bus->no_sg_constraint is true, so it
+>> applies only to xHCI hosts in the first place.
+>
+> Ah, so you're suggesting just reverting commit
+> 3804fad45411b48233b48003e33a78f290d227c8 "USBNET: ax88179_178a: enabl=
+e
+> tso if usb host supports sg dma"?
 
-Garbage collector work does not have to be bound to the CPU that scheduled
-it. By moving work to the power-efficient workqueue, the selection of
-CPU executing the work is left to the scheduler. This extends idle
-residency times and conserves power.
+If I understand the problem correctly, the current issue is that xhci d=
+river
+doesn't support the arbitrary dma length not well, but per XHCI spec, i=
+t
+should be supported, right?
 
-This functionality is enabled when CONFIG_WQ_POWER_EFFICIENT is selected.
+If the above is correct, reverting the commit isn't correct since there=
+ isn't
+any issue about the commit, so I suggest to disable the flag in xhci
+for the buggy devices, and it may be enabled again if the problem is fi=
+xed.
 
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Shaibal Dutta <shaibal.dutta@broadcom.com>
-[zoran.markovic@linaro.org: Rebased to latest kernel version. Added
-commit message.]
-Signed-off-by: Zoran Markovic <zoran.markovic@linaro.org>
----
- net/ipv4/inetpeer.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+>
+>> > 2. Revert the following commits:
+>> >    f2d9b991c549 xhci: Set scatter-gather limit to avoid failed blo=
+ck writes.
+>> >    d6c9ea9069af xhci: Avoid infinite loop when sg urb requires too=
+ many trbs
+>> >    35773dac5f86 usb: xhci: Link TRB must not occur within a USB pa=
+yload burst
+>> >
+>> > 3. Dan and Mathias can work together to come up with an overall pl=
+an to
+>> >    change the xHCI driver architecture to be fully compliant with =
+the TD
+>> >    fragment rules.  That can be done over the next few kernel rele=
+ases.
+>> >
+>> > The end result is that we don't destabilize storage or break users=
+pace
+>> > USB drivers, we don't break people's xHCI host controllers,
+>> > the ax88179_178a USB ethernet devices still work under xHCI (a bit=
+ with
+>> > worse performance), and other USB ethernet devices still get the
+>> > performance improvement introduced in 3.12.
+>>
+>> No other usbnet drivers has enabled SG...  Which is why you have onl=
+y
+>> seen this problem with the ax88179_178a devices.  So there is no
+>> performance improvement to keep.
 
-diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
-index 48f4244..87155aa 100644
---- a/net/ipv4/inetpeer.c
-+++ b/net/ipv4/inetpeer.c
-@@ -161,7 +161,8 @@ static void inetpeer_gc_worker(struct work_struct *work)
- 	list_splice(&list, &gc_list);
- 	spin_unlock_bh(&gc_lock);
- 
--	schedule_delayed_work(&gc_work, gc_delay);
-+	queue_delayed_work(system_power_efficient_wq,
-+		&gc_work, gc_delay);
- }
- 
- /* Called from ip_output.c:ip_init  */
-@@ -576,7 +577,8 @@ static void inetpeer_inval_rcu(struct rcu_head *head)
- 	list_add_tail(&p->gc_list, &gc_list);
- 	spin_unlock_bh(&gc_lock);
- 
--	schedule_delayed_work(&gc_work, gc_delay);
-+	queue_delayed_work(system_power_efficient_wq,
-+		&gc_work, gc_delay);
- }
- 
- void inetpeer_invalidate_tree(struct inet_peer_base *base)
--- 
-1.7.9.5
+In my test environment, the patch does improve both throughput and
+cpu utilization, if you search the previous email for the patch, you ca=
+n
+see the data.
+
+Thanks,
+--
+Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
