@@ -1,30 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 01/34] bnx2: Use pci_enable_msix_range()
-Date: Fri, 31 Jan 2014 13:30:51 -0800 (PST)
-Message-ID: <20140131.133051.483295479425700960.davem@davemloft.net>
-References: <cover.1391172839.git.agordeev@redhat.com>
-	<434a34e01c353441131204edef36126a95e8928a.1391172839.git.agordeev@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, mchan@broadcom.com,
-	netdev@vger.kernel.org, linux-pci@vger.kernel.org
-To: agordeev@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <434a34e01c353441131204edef36126a95e8928a.1391172839.git.agordeev@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: [PATCH v2 1/2] dt: Document a compatible entry for MDIO ethernet Phys
+Date: Fri, 31 Jan 2014 14:50:44 -0700
+Message-ID: <1391205045-1751-1-git-send-email-jgunthorpe@obsidianresearch.com>
+Cc: Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+This describes a compatible entry of the form:
+  ethernet-phy-idAAAA,BBBB
+Which is modelled after the PCI structured compatible entry
+(pciVVVV,DDDD.SSSS.ssss.RR)
 
-Please submit this patch series when the net-next tree opens back up,
-I'm only accepting bug fixes at this time.
+If present the OF core will be able to use this information to
+directly create the correct phy without auto probing the bus.
 
-Also, please always provide a proper "00/NN" openning posting for a
-patch series, that gives background and high level information about
-what your patch series is trying to achieve and how it achieves it.
+Signed-off-by: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+---
+ Documentation/devicetree/bindings/net/phy.txt | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 
-That way people reviewing the patches know what to expect, and why,
-and I have exactly one posting to reply to if I apply the whole
-series.
+diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentation/devicetree/bindings/net/phy.txt
+index 7cd18fb..989122c 100644
+--- a/Documentation/devicetree/bindings/net/phy.txt
++++ b/Documentation/devicetree/bindings/net/phy.txt
+@@ -23,10 +23,18 @@ Optional Properties:
+   assume clause 22. The compatible list may also contain other
+   elements.
+ 
++  If the phy's identifier is known then the list may contain an entry
++  of the form: "ethernet-phy-idAAAA.BBBB" where
++     AAAA - The value of the 16 bit Phy Identifier 1 register as
++            4 hex digits. This is the chip vendor OUI bits 3:18
++     BBBB - The value of the 16 bit Phy Identifier 2 register as
++            4 hex digits. This is the chip vendor OUI bits 19:24,
++            followed by 10 bits of a vendor specific ID.
++
+ Example:
+ 
+ ethernet-phy@0 {
+-	compatible = "ethernet-phy-ieee802.3-c22";
++	compatible = "ethernet-phy-id0141.0e90", "ethernet-phy-ieee802.3-c22";
+ 	linux,phandle = <2452000>;
+ 	interrupt-parent = <40000>;
+ 	interrupts = <35 1>;
+-- 
+1.8.1.2
 
-Thank you.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
