@@ -1,12 +1,11 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH 11/34] benet: Use pci_enable_msix_range()
-Date: Fri, 31 Jan 2014 16:08:30 +0100
-Message-ID: <0ab74b1142006d2e7a8065ec8a2d3ba48fc3ec0c.1391172839.git.agordeev@redhat.com>
+Subject: [PATCH 07/34] cxgb4: Use pci_enable_msix_range()
+Date: Fri, 31 Jan 2014 16:08:26 +0100
+Message-ID: <f84d46c7894241fc9d164cde3474cb55c710835c.1391172839.git.agordeev@redhat.com>
 References: <cover.1391172839.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
-	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
-	Ajit Khaparde <ajit.khaparde@emulex.com>,
-	netdev@vger.kernel.org, linux-pci@vger.kernel.org
+	Dimitris Michailidis <dm@chelsio.com>, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1391172839.git.agordeev@redhat.com>
@@ -21,65 +20,77 @@ interfaces.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c |   31 +++++++++++---------------
- 1 files changed, 13 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   50 +++++++++++------------
+ 1 files changed, 24 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 04ac9c6..f55c09b 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2505,7 +2505,7 @@ static void be_msix_disable(struct be_adapter *adapter)
- 
- static int be_msix_enable(struct be_adapter *adapter)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 43ab35f..bd0321d 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -5737,7 +5737,7 @@ static void reduce_ethqs(struct adapter *adap, int n)
+ static int enable_msix(struct adapter *adap)
  {
--	int i, status, num_vec;
-+	int i, num_vec;
- 	struct device *dev = &adapter->pdev->dev;
+ 	int ofld_need = 0;
+-	int i, err, want, need;
++	int i, want, need;
+ 	struct sge *s = &adap->sge;
+ 	unsigned int nchan = adap->params.nports;
+ 	struct msix_entry entries[MAX_INGQ + 1];
+@@ -5753,32 +5753,30 @@ static int enable_msix(struct adapter *adap)
+ 	}
+ 	need = adap->params.nports + EXTRA_VECS + ofld_need;
  
- 	/* If RoCE is supported, program the max number of NIC vectors that
-@@ -2521,24 +2521,11 @@ static int be_msix_enable(struct be_adapter *adapter)
- 	for (i = 0; i < num_vec; i++)
- 		adapter->msix_entries[i].entry = i;
+-	while ((err = pci_enable_msix(adap->pdev, entries, want)) >= need)
+-		want = err;
++	want = pci_enable_msix_range(adap->pdev, entries, need, want);
++	if (want < 0)
++		return want;
  
--	status = pci_enable_msix(adapter->pdev, adapter->msix_entries, num_vec);
--	if (status == 0) {
--		goto done;
--	} else if (status >= MIN_MSIX_VECTORS) {
--		num_vec = status;
--		status = pci_enable_msix(adapter->pdev, adapter->msix_entries,
--					 num_vec);
--		if (!status)
--			goto done;
--	}
-+	num_vec = pci_enable_msix_range(adapter->pdev, adapter->msix_entries,
-+					MIN_MSIX_VECTORS, num_vec);
-+	if (num_vec < 0)
-+		goto fail;
- 
--	dev_warn(dev, "MSIx enable failed\n");
--
--	/* INTx is not supported in VFs, so fail probe if enable_msix fails */
--	if (!be_physfn(adapter))
--		return status;
--	return 0;
--done:
- 	if (be_roce_supported(adapter) && num_vec > MIN_MSIX_VECTORS) {
- 		adapter->num_msix_roce_vec = num_vec / 2;
- 		dev_info(dev, "enabled %d MSI-x vector(s) for RoCE\n",
-@@ -2550,6 +2537,14 @@ done:
- 	dev_info(dev, "enabled %d MSI-x vector(s) for NIC\n",
- 		 adapter->num_msix_vec);
- 	return 0;
+-	if (!err) {
+-		/*
+-		 * Distribute available vectors to the various queue groups.
+-		 * Every group gets its minimum requirement and NIC gets top
+-		 * priority for leftovers.
+-		 */
+-		i = want - EXTRA_VECS - ofld_need;
+-		if (i < s->max_ethqsets) {
+-			s->max_ethqsets = i;
+-			if (i < s->ethqsets)
+-				reduce_ethqs(adap, i);
+-		}
+-		if (is_offload(adap)) {
+-			i = want - EXTRA_VECS - s->max_ethqsets;
+-			i -= ofld_need - nchan;
+-			s->ofldqsets = (i / nchan) * nchan;  /* round down */
+-		}
+-		for (i = 0; i < want; ++i)
+-			adap->msix_info[i].vec = entries[i].vector;
+-	} else if (err > 0)
+-		dev_info(adap->pdev_dev,
+-			 "only %d MSI-X vectors left, not using MSI-X\n", err);
+-	return err;
++	/*
++	 * Distribute available vectors to the various queue groups.
++	 * Every group gets its minimum requirement and NIC gets top
++	 * priority for leftovers.
++	 */
++	i = want - EXTRA_VECS - ofld_need;
++	if (i < s->max_ethqsets) {
++		s->max_ethqsets = i;
++		if (i < s->ethqsets)
++			reduce_ethqs(adap, i);
++	}
++	if (is_offload(adap)) {
++		i = want - EXTRA_VECS - s->max_ethqsets;
++		i -= ofld_need - nchan;
++		s->ofldqsets = (i / nchan) * nchan;  /* round down */
++	}
++	for (i = 0; i < want; ++i)
++		adap->msix_info[i].vec = entries[i].vector;
 +
-+fail:
-+	dev_warn(dev, "MSIx enable failed\n");
-+
-+	/* INTx is not supported in VFs, so fail probe if enable_msix fails */
-+	if (!be_physfn(adapter))
-+		return num_vec;
 +	return 0;
  }
  
- static inline int be_msix_vec_get(struct be_adapter *adapter,
+ #undef EXTRA_VECS
 -- 
 1.7.7.6
