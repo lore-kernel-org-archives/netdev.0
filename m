@@ -1,146 +1,334 @@
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH 1/2] Drivers: net: hyperv: Get rid of the rndis_filter_packet
- structure
-Date: Fri, 31 Jan 2014 08:25:16 -0800
-Message-ID: <1391185517-5698-1-git-send-email-kys@microsoft.com>
-References: <1391185478-5655-1-git-send-email-kys@microsoft.com>
+From: Thomas Hellstrom <thellstrom@vmware.com>
+Subject: Re: [BUG] at include/linux/page-flags.h:415 (PageTransHuge)
+Date: Fri, 31 Jan 2014 16:35:58 +0100
+Message-ID: <52EBC2DE.5060202@vmware.com>
+References: <52D03A9E.2030309@iogearbox.net> <20140110222248.4e8419ca.akpm@linux-foundation.org> <52D147F1.3040803@iogearbox.net> <52D3BCE9.4020405@suse.cz> <52D3D060.1010301@iogearbox.net> <52D69AB4.6000309@suse.cz> <52D6B213.4020602@iogearbox.net> <52EBB5E6.8010007@suse.cz> <52EBBA21.1070009@vmware.com> <52EBC06F.2050307@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
- jasowang@redhat.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1391185478-5655-1-git-send-email-kys@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Cc: Daniel Borkmann <borkmann@iogearbox.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Michel Lespinasse <walken@google.com>,
+	linux-mm <linux-mm@kvack.org>, Jared Hulbert <jaredeh@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	John David Anglin <dave.anglin@bell.net>,
+	HATAYAMA Daisuke <d.hatayama@jp.fujitsu.com>,
+	Konstantin Khlebnikov <khlebnikov@openvz.org>,
+	Carsten Otte <cotte@de.ibm.com>,
+	Peter Zijlstra <peterz@infradead.org>
+To: Vlastimil Babka <vbabka@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52EBC06F.2050307@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This structure is redundant; get rid of it make the code little more efficient -
-get rid of the unnecessary indirection.
+On 01/31/2014 04:25 PM, Vlastimil Babka wrote:
+> On 01/31/2014 03:58 PM, Thomas Hellstrom wrote:
+>> On 01/31/2014 03:40 PM, Vlastimil Babka wrote:
+>>> On 01/15/2014 05:06 PM, Daniel Borkmann wrote:
+>>>> [keeping netdev in loop as well]
+>>>>
+>>>> On 01/15/2014 03:27 PM, Vlastimil Babka wrote:
+>>>>> On 01/13/2014 12:39 PM, Daniel Borkmann wrote:
+>>>>>> On 01/13/2014 11:16 AM, Vlastimil Babka wrote:
+>>>>>>> On 01/11/2014 02:32 PM, Daniel Borkmann wrote:
+>>>>>>>> On 01/11/2014 07:22 AM, Andrew Morton wrote:
+>>>>>>>>> On Fri, 10 Jan 2014 19:23:26 +0100 Daniel Borkmann
+>>>>>>>>> <borkmann@iogearbox.net> wrote:
+>>>>>>>>>
+>>>>>>>>>> This is being reliably triggered for each mmaped() packet(7)
+>>>>>>>>>> socket from user space, basically during unmapping resp.
+>>>>>>>>>> closing the TX socket.
+>>>>>>>>>>
+>>>>>>>>>> I believe due to some change in transparent hugepages code ?
+>>>>>>>>>>
+>>>>>>>>>> When I disable transparent hugepages, everything works fine,
+>>>>>>>>>> no BUG triggered.
+>>>>>>>>>>
+>>>>>>>>>> I'd be happy to test patches.
+>>>>>>>>> Did the inclusion of c424be1cbbf852e46acc8 ("mm: munlock: fix
+>>>>>>>>> a bug
+>>>>>>>>> where THP tail page is encountered") in current mainline fix
+>>>>>>>>> this?
+>>>>>>>> Thanks for your answer Andrew!
+>>>>>>>>
+>>>>>>>> Hm, I just cherry-picked that onto current net-next as I have
+>>>>>>>> some work
+>>>>>>>> there, and this time I got ...
+>>>>>>>>
+>>>>>>>> (User space uses packet mmap() and mlockall(MCL_CURRENT |
+>>>>>>>> MCL_FUTURE)
+>>>>>>>>         and on shutdown munlockall() ...)
+>>>>>>>>
+>>>>>>>> [   63.863672] ------------[ cut here ]------------
+>>>>>>>> [   63.863702] kernel BUG at mm/mlock.c:507!
+>>>>>>>> [   63.863721] invalid opcode: 0000 [#1] SMP
+>>>>>>>> [   63.863743] Modules linked in: fuse ebtable_nat xt_CHECKSUM
+>>>>>>>> nf_conntrack_netbios_ns nf_conntrack_broadcast ipt_MASQUERADE
+>>>>>>>> ip6table_nat nf_nat_ipv6 ip6table_mangle ip6t_REJECT
+>>>>>>>> nf_conntrack_ipv6 nf_defrag_ipv6 iptable_nat nf_nat_ipv4 nf_nat
+>>>>>>>> iptable_mangle nf_conntrack_ipv4 nf_defrag_ipv4 xt_conntrack
+>>>>>>>> nf_conntrack bridge ebtable_filter ebtables stp llc
+>>>>>>>> ip6table_filter ip6_tables rfcomm bnep snd_hda_codec_hdmi
+>>>>>>>> snd_hda_codec_realtek snd_hda_intel snd_hda_codec iwlwifi
+>>>>>>>> cfg80211 snd_hwdep btusb snd_seq bluetooth sdhci_pci
+>>>>>>>> snd_seq_device e1000e tpm_tis snd_pcm thinkpad_acpi sdhci ptp
+>>>>>>>> tpm uvcvideo pps_core snd_page_alloc snd_timer snd rfkill
+>>>>>>>> mmc_core iTCO_wdt iTCO_vendor_support lpc_ich mfd_core
+>>>>>>>> soundcore joydev wmi videobuf2_vmalloc videobuf2_memops
+>>>>>>>> videobuf2_core i2c_i801 pcspkr videodev media uinput i915
+>>>>>>>> [   63.864152]  i2c_algo_bit drm_kms_helper drm i2c_core video
+>>>>>>>> [   63.864181] CPU: 1 PID: 1617 Comm: trafgen Not tainted
+>>>>>>>> 3.13.0-rc6+ #15
+>>>>>>>> [   63.864209] Hardware name: LENOVO 2429BP3/2429BP3, BIOS
+>>>>>>>> G4ET37WW (1.12 ) 05/29/2012
+>>>>>>>> [   63.864242] task: ffff8801ee060000 ti: ffff8800b5954000
+>>>>>>>> task.ti: ffff8800b5954000
+>>>>>>>> [   63.864274] RIP: 0010:[<ffffffff8116fa9a>] 
+>>>>>>>> [<ffffffff8116fa9a>] munlock_vma_pages_range+0x2ea/0x2f0
+>>>>>>>> [   63.864318] RSP: 0018:ffff8800b5955e08  EFLAGS: 00010202
+>>>>>>>> [   63.864341] RAX: 00000000000001ff RBX: ffff8800b58f7508 RCX:
+>>>>>>>> 0000000000000034
+>>>>>>>> [   63.864372] RDX: 00000007f0708992 RSI: ffffea0002c3e700 RDI:
+>>>>>>>> ffffea0002c3e700
+>>>>>>>> [   63.864402] RBP: ffff8800b5955ee0 R08: 3800000000000000 R09:
+>>>>>>>> a8000b0f9c000000
+>>>>>>>> [   63.864432] R10: 57ffdef066c3e700 R11: ffffff5cfb00c14a R12:
+>>>>>>>> ffffea0002c3e700
+>>>>>>>> [   63.864462] R13: ffff8800b5955f48 R14: 00007f0708992000 R15:
+>>>>>>>> 00007f0708992000
+>>>>>>>> [   63.864492] FS:  00007f0708b92740(0000)
+>>>>>>>> GS:ffff88021e240000(0000) knlGS:0000000000000000
+>>>>>>>> [   63.864526] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+>>>>>>>> [   63.864551] CR2: 00007f33bb373000 CR3: 00000000b2a2c000 CR4:
+>>>>>>>> 00000000001407e0
+>>>>>>>> [   63.864581] Stack:
+>>>>>>>> [   63.864593]  ffff8800b5955ed0 00007f0708b91fff
+>>>>>>>> 00007f0708b92000 ffff8800b5955e48
+>>>>>>>> [   63.864632]  000001ff810c864b ffff8801ee060000
+>>>>>>>> 0000000000000000 0000000000000000
+>>>>>>>> [   63.864669]  ffff8800b5955e58 ffff8801ee060000
+>>>>>>>> 0000000700000086 ffff8801ee060000
+>>>>>>>> [   63.864708] Call Trace:
+>>>>>>>> [   63.864724]  [<ffffffff816956bc>] ?
+>>>>>>>> _raw_spin_unlock_irq+0x2c/0x30
+>>>>>>>> [   63.864754]  [<ffffffff81171b52>] ? vma_merge+0xc2/0x330
+>>>>>>>> [   63.864786]  [<ffffffff8116fb9c>] mlock_fixup+0xfc/0x190
+>>>>>>>> [   63.864812]  [<ffffffff8116fde7>] do_mlockall+0x87/0xc0
+>>>>>>>> [   63.864836]  [<ffffffff811702df>] sys_munlockall+0x2f/0x50
+>>>>>>>> [   63.864873]  [<ffffffff8169e192>]
+>>>>>>>> system_call_fastpath+0x16/0x1b
+>>>>>>>> [   63.864898] Code: d7 48 89 95 28 ff ff ff e8 a4 04 fe ff 84
+>>>>>>>> c0 48 8b 95 28 ff ff ff 0f 85 5a ff ff ff e9 46 ff ff ff e8 3f
+>>>>>>>> ac 51 00 e8 34 ac 51 00 <0f> 0b 0f 1f 40 00 0f 1f 44 00 00 55
+>>>>>>>> 48 89 e5 41 57 41 56 41 55
+>>>>>>>> [   63.865114] RIP  [<ffffffff8116fa9a>]
+>>>>>>>> munlock_vma_pages_range+0x2ea/0x2f0
+>>>>>>>> [   63.865148]  RSP <ffff8800b5955e08>
+>>>>>>>> [   63.874968] ------------[ cut here ]------------
+>>>>>>>>
+>>>>>>>> ... when I find some time, I'll try with normal torvalds' tree,
+>>>>>>>> maybe some
+>>>>>>>> other patches are missing as well, not sure right now.
+>>>>>>> Uh so the triggered assertion is the one added by this very
+>>>>>>> patch, and there are no more changes wrt this in mainline.
+>>>>>>>
+>>>>>>> If you can still try debug patches, please try this. Thanks.
+>>>>>> Yes, thanks, I'll come back to you some time by today.
+>>>>> Daniel sent me (off-list) instructions to reproduce:
+>>>>>
+>>>>>> Then in the kernel source tree, you'll find:
+>>>>>>
+>>>>>>       tools/testing/selftests/net/
+>>>>>>
+>>>>>> There, just do a 'make' and run ./psock_tpacket
+>>>>> It reproduces deterministically in mainline since 3.12, i.e. my
+>>>>> munlock
+>>>>> performance series. Based on the initial debug output, I've
+>>>>> expanded the
+>>>>> debug patch below a bit:
+>>>>>
+>>>>>>> From: Vlastimil Babka <vbabka@suse.cz>
+>>>>>>> Date: Mon, 13 Jan 2014 11:13:53 +0100
+>>>>>>> Subject: [PATCH] debug munlock_vma_pages_range
+>>>>>>>
+>>>>>>> ---
+>>>>>>>       mm/mlock.c | 22 ++++++++++++++++++++--
+>>>>>>>       1 file changed, 20 insertions(+), 2 deletions(-)
+>>>>>>>
+>>>>>>> diff --git a/mm/mlock.c b/mm/mlock.c
+>>>>>>> index c59c420..7d0e29a 100644
+>>>>>>> --- a/mm/mlock.c
+>>>>>>> +++ b/mm/mlock.c
+>>>>>>> @@ -448,12 +448,14 @@ static unsigned long
+>>>>>>> __munlock_pagevec_fill(struct pagevec *pvec,
+>>>>>>>       void munlock_vma_pages_range(struct vm_area_struct *vma,
+>>>>>>>                        unsigned long start, unsigned long end)
+>>>>>>>       {
+>>>>>>> +    unsigned long orig_start = start;
+>>>>>>> +    unsigned long page_increm = 0;
+>>>>>>> +
+>>>>>>>           vma->vm_flags &= ~VM_LOCKED;
+>>>>>>>
+>>>>>>>           while (start < end) {
+>>>>>>>               struct page *page = NULL;
+>>>>>>>               unsigned int page_mask;
+>>>>>>> -        unsigned long page_increm;
+>>>>>>>               struct pagevec pvec;
+>>>>>>>               struct zone *zone;
+>>>>>>>               int zoneid;
+>>>>>>> @@ -504,7 +506,23 @@ void munlock_vma_pages_range(struct
+>>>>>>> vm_area_struct *vma,
+>>>>>>>                   }
+>>>>>>>               }
+>>>>>>>               /* It's a bug to munlock in the middle of a THP
+>>>>>>> page */
+>>>>>>> -        VM_BUG_ON((start >> PAGE_SHIFT) & page_mask);
+>>>>>>> +        if ((start >> PAGE_SHIFT) & page_mask) {
+>>>>>>> +            dump_page(page);
+>>>>>>> +            printk("start=%lu pfn=%lu orig_start=%lu "
+>>>>>>> +                   "prev_page_increm=%lu page_mask=%u "
+>>>>>>> +                   "vm_start=%lu vm_end=%lu vm_flags=%lu\n",
+>>>>>>> +                start, page_to_pfn(page), orig_start,
+>>>>>>> +                page_increm, page_mask,
+>>>>>>> +                vma->vm_start, vma->vm_end,
+>>>>>>> +                vma->vm_flags);
+>>>>> +                        printk("vm_ops=%pF, open=%pF, fault=%pF,
+>>>>> remap_pages=%pF\n", vma->vm_ops,
+>>>>> +                                vma->vm_ops->open,
+>>>>> vma->vm_ops->fault, vma->vm_ops->remap_pages);
+>>>>> +                        if (PageCompound(page)) {
+>>>>> +                                printk("page is compound with
+>>>>> order=%d\n", compound_order(page));
+>>>>> +                        }
+>>>>>>> +            if (PageTail(page)) {
+>>>>>>> +                struct page *first_page = page->first_page;
+>>>>>>> +                printk("first_page pfn=%lu\n",
+>>>>>>> +                        page_to_pfn(first_page));
+>>>>>>> +                dump_page(first_page);
+>>>>>>> +            }
+>>>>>>> +            VM_BUG_ON(true);
+>>>>>>> +        }
+>>>>>>>               page_increm = 1 + page_mask;
+>>>>>>>               start += page_increm * PAGE_SIZE;
+>>>>>>>       next:
+>>>>>>>
+>>>>> And got output like this:
+>>>>>
+>>>>> page:ffffea0002474a40 count:5 mapcount:1 mapping:          (null)
+>>>>> index:0x0
+>>>>> page flags: 0x100000000004004(referenced|head)
+>>>>> start=140242647736320 pfn=682616 orig_start=140242647736320
+>>>>> prev_page_increm=0 page_mask=511 vm_start=140242647736320
+>>>>> vm_end=140242651930624 vm_flags=268435707
+>>>>> vm_ops=packet_mmap_ops+0x0/0xfffffffffffff8e0 [af_packet],
+>>>>> open=packet_mm_open+0x0/0x30 [af_packet], fault=          (null),
+>>>>> remap_pages=          (null)
+>>>>> page is compound with order=2
+>>>>>
+>>>>> Observations:
+>>>>> - address 140242647736320 is where the vma starts, and is not
+>>>>> aligned to 512 pages
+>>>>>      (so it cannot be a THP head which the munlock expects). Yet
+>>>>> there is a head page
+>>>>>      that triggers the PageTransHuge() and consequently
+>>>>> hpage_nr_pages() in munlock_vma_page()
+>>>>>      That's why page_mask is determined to be 511 and the code
+>>>>> thinks it's in the
+>>>>>      middle of a THP page.
+>>>>> - in fact, the page is a compound page with order=2
+>>>>> - the VM flags (except (may)read/write) are VM_SHARED and VM_MIXEDMAP
+>>>>> - the vma was mmapped by packet_mmap() (net/packet/af_packet.c)
+>>>>> which uses
+>>>>>      vm_insert_page(), which adds the VM_MIXEDMAP flag
+>>>>> - the buffers that are mapped were allocated by
+>>>>> alloc_one_pg_vec_page()
+>>>>>      where flags indeed include __GFP_COMP
+>>>>>
+>>>>> So clearly there is a way to have mlock/munlock operate on a vma
+>>>>> that contains
+>>>>> compound pages and confuse the checks for PageTransHuge().
+>>>>>
+>>>>> The checks for THP in munlock came with commit ff6a6da60b89 ("mm:
+>>>>> accelerate munlock()
+>>>>> treatment of THP pages"), i.e. since 3.9, but did not trigger a
+>>>>> bug. It however
+>>>>> makes munlock_vma_pages_range() skip pages until the next
+>>>>> 512-pages-aligned page,
+>>>>> when it encounters a head page. If the head page is of smaller
+>>>>> order and is followed
+>>>>> by normal LRU pages (theoretically, I'm not sure if that's
+>>>>> possible, or done anywhere),
+>>>>> they wouldn't get munlocked.
+>>>>>
+>>>>> My commit 7225522bb429 ("mm: munlock: batch non-THP page isolation
+>>>>> and
+>>>>> munlock+putback using pagevec") (since 3.12) has added a new
+>>>>> PageTransHuge() check
+>>>>> that can trigger on tail pages of the compound page here. Commit
+>>>>> c424be1cbbf852e46acc8
+>>>>> ("mm: munlock: fix a bug where THP tail page is encountered") in
+>>>>> current rc's removes
+>>>>> one class of bugs here, but still non-THP compound pages are not
+>>>>> expected in mlock/munlock,
+>>>>> which leads to this assertion failing.
+>>>>>
+>>>>> The question is what is the correct fix, and I'm not that familiar
+>>>>> with VM_MIXEDMAP
+>>>>> to decide.
+>>>>>
+>>>>> Option 1: mlocking VM_MIXEDMAP vma's has no sense. They should be
+>>>>> treated like VM_PFNMAP
+>>>>>              and added to VM_SPECIAL, which makes m(un)lock skip
+>>>>> them completely.
+>>>>>
+>>>>> Option 2: if indeed VM_MIXEDMAP can contain PageLRU pages for
+>>>>> which mlocking is useful,
+>>>>>              VM_NO_THP should be checked in munlock before
+>>>>> attempting PageTransHuge() and
+>>>>>              friends. VM_NO_THP already contains VM_MIXEDMAP, so
+>>>>> knowing that there can be
+>>>>>              no THP means we don't try optimize for it and no
+>>>>> unexpected head pages trip us.
+>>>>>
+>>>>> Thoughts?
+>>> OK, here's a RFC patch to hopefully help get us somewhere. I went for
+>>> Option1, as I didn't see anyone using VM_MIXEDMAP also for LRU pages,
+>>> and Option2 was ugly to implement and also seemed quite arbitrary. I'm
+>>> not sure if making VM_MIXEDMAP also non-mergeable this way is an issue
+>>> though.
+>>>
+>>>
+>>
+>> Hi!
+>>
+>> Forgive an ignorant question, but are anonymous COW'd pages LRU pages?
+>
+> I believe so, but I've checked where VM_MIXEDMAP is used in TTM and it
+> seems all those vma's are also VM_IO which means they are already
+> included in VM_SPECIAL and this change won't affect them.
+>
+> Vlastimil
+>
 
-Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
----
- drivers/net/hyperv/hyperv_net.h   |    6 -----
- drivers/net/hyperv/netvsc_drv.c   |    2 +-
- drivers/net/hyperv/rndis_filter.c |   41 ++----------------------------------
- 3 files changed, 4 insertions(+), 45 deletions(-)
+OK. Thanks.
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 7b594ce..7645ba3 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -846,12 +846,6 @@ struct rndis_message {
- };
- 
- 
--struct rndis_filter_packet {
--	void *completion_ctx;
--	void (*completion)(void *context);
--	struct rndis_message msg;
--};
--
- /* Handy macros */
- 
- /* get the size of an RNDIS message. Pass in the message type, */
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 7756118..1eadc13 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -146,7 +146,7 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	/* Allocate a netvsc packet based on # of frags. */
- 	packet = kzalloc(sizeof(struct hv_netvsc_packet) +
- 			 (num_pages * sizeof(struct hv_page_buffer)) +
--			 sizeof(struct rndis_filter_packet) +
-+			 sizeof(struct rndis_message) +
- 			 NDIS_VLAN_PPI_SIZE, GFP_ATOMIC);
- 	if (!packet) {
- 		/* out of memory, drop packet */
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 1084e5d..f0cc8ef 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -58,9 +58,6 @@ struct rndis_request {
- 	u8 request_ext[RNDIS_EXT_LEN];
- };
- 
--static void rndis_filter_send_completion(void *ctx);
--
--
- static struct rndis_device *get_rndis_device(void)
- {
- 	struct rndis_device *device;
-@@ -277,7 +274,7 @@ static void rndis_filter_receive_response(struct rndis_device *dev,
- 				"rndis response buffer overflow "
- 				"detected (size %u max %zu)\n",
- 				resp->msg_len,
--				sizeof(struct rndis_filter_packet));
-+				sizeof(struct rndis_message));
- 
- 			if (resp->ndis_msg_type ==
- 			    RNDIS_MSG_RESET_C) {
-@@ -898,17 +895,14 @@ int rndis_filter_close(struct hv_device *dev)
- int rndis_filter_send(struct hv_device *dev,
- 			     struct hv_netvsc_packet *pkt)
- {
--	int ret;
--	struct rndis_filter_packet *filter_pkt;
- 	struct rndis_message *rndis_msg;
- 	struct rndis_packet *rndis_pkt;
- 	u32 rndis_msg_size;
- 	bool isvlan = pkt->vlan_tci & VLAN_TAG_PRESENT;
- 
- 	/* Add the rndis header */
--	filter_pkt = (struct rndis_filter_packet *)pkt->extension;
-+	rndis_msg = (struct rndis_message *)pkt->extension;
- 
--	rndis_msg = &filter_pkt->msg;
- 	rndis_msg_size = RNDIS_MESSAGE_SIZE(struct rndis_packet);
- 	if (isvlan)
- 		rndis_msg_size += NDIS_VLAN_PPI_SIZE;
-@@ -961,34 +955,5 @@ int rndis_filter_send(struct hv_device *dev,
- 		pkt->page_buf[1].len = rndis_msg_size - pkt->page_buf[0].len;
- 	}
- 
--	/* Save the packet send completion and context */
--	filter_pkt->completion = pkt->completion.send.send_completion;
--	filter_pkt->completion_ctx =
--				pkt->completion.send.send_completion_ctx;
--
--	/* Use ours */
--	pkt->completion.send.send_completion = rndis_filter_send_completion;
--	pkt->completion.send.send_completion_ctx = filter_pkt;
--
--	ret = netvsc_send(dev, pkt);
--	if (ret != 0) {
--		/*
--		 * Reset the completion to originals to allow retries from
--		 * above
--		 */
--		pkt->completion.send.send_completion =
--				filter_pkt->completion;
--		pkt->completion.send.send_completion_ctx =
--				filter_pkt->completion_ctx;
--	}
--
--	return ret;
--}
--
--static void rndis_filter_send_completion(void *ctx)
--{
--	struct rndis_filter_packet *filter_pkt = ctx;
--
--	/* Pass it back to the original handler */
--	filter_pkt->completion(filter_pkt->completion_ctx);
-+	return netvsc_send(dev, pkt);
- }
--- 
-1.7.4.1
+/Thomas
+
+
+
+
+>> The reason I'm asking is that TTM VM_MIXEDMAP vmas may contain such
+>> pages.
+>>
+>> /Thomas
+>>
+>> -- 
+>> To unsubscribe, send a message with 'unsubscribe linux-mm' in
+>> the body to majordomo@kvack.org.  For more info on Linux MM,
+>> see:
+>> https://urldefense.proofpoint.com/v1/url?u=http://www.linux-mm.org/&k=oIvRg1%2BdGAgOoM1BIlLLqw%3D%3D%0A&r=l5Ago9ekmVFZ3c4M6eauqrJWGwjf6fTb%2BP3CxbBFkVM%3D%0A&m=Wlb%2FkDdCXWj2m8QNoBUogfTl0sK0cH2%2BOONacP0U1SE%3D%0A&s=84b13d34ca94efa34cd185d7ae467b18377a92330174671ac93dbb2948cda967
+>> .
+>> Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+>>
