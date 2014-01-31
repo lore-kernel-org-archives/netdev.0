@@ -1,35 +1,30 @@
-From: David Rientjes <rientjes@google.com>
-Subject: Re: kmem_cache_alloc panic in 3.10+
-Date: Fri, 31 Jan 2014 13:19:29 -0800 (PST)
-Message-ID: <alpine.DEB.2.02.1401311315110.27318@chino.kir.corp.google.com>
-References: <alpine.DEB.2.10.1401180036020.18419@dinf> <1390062576.31367.519.camel@edumazet-glaptop2.roam.corp.google.com> <alpine.DEB.2.02.1401181101220.579@dtop> <alpine.DEB.2.02.1401292301070.5905@dtop> <1391134615.28432.83.camel@edumazet-glaptop2.roam.corp.google.com>
- <CAADnVQ+vCikFY-te2U8wD+ustNW-o6Cqs8ye5ZfyNcU6vPQzNA@mail.gmail.com> <alpine.DEB.2.10.1401301951060.5516@dinf>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 01/34] bnx2: Use pci_enable_msix_range()
+Date: Fri, 31 Jan 2014 13:30:51 -0800 (PST)
+Message-ID: <20140131.133051.483295479425700960.davem@davemloft.net>
+References: <cover.1391172839.git.agordeev@redhat.com>
+	<434a34e01c353441131204edef36126a95e8928a.1391172839.git.agordeev@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Alexei Starovoitov <ast@plumgrid.com>
-To: dormando <dormando@rydia.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, mchan@broadcom.com,
+	netdev@vger.kernel.org, linux-pci@vger.kernel.org
+To: agordeev@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.10.1401301951060.5516@dinf>
+In-Reply-To: <434a34e01c353441131204edef36126a95e8928a.1391172839.git.agordeev@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 30 Jan 2014, dormando wrote:
 
-> > > I really wonder... it looks like a possible in SLUB. (might be already
-> > > fixed)
-> > >
-> > > Could you try using SLAB instead ?
-> >
-> > try config_slub_debug_on=y ? it should catch double free and other things.
-> >
-> 
-> Any slowdowns/issues with that?
+Please submit this patch series when the net-next tree opens back up,
+I'm only accepting bug fixes at this time.
 
-CONFIG_SLUB_DEBUG_ON will definitely be slower but can help to identify 
-any possible corruption issues.
+Also, please always provide a proper "00/NN" openning posting for a
+patch series, that gives background and high level information about
+what your patch series is trying to achieve and how it achieves it.
 
-I'm wondering if you have CONFIG_MEMCG enabled and are actually allocating 
-slab in a non-root memcg?  What does /proc/self/cgroup say?
+That way people reviewing the patches know what to expect, and why,
+and I have exactly one posting to reply to if I apply the whole
+series.
+
+Thank you.
