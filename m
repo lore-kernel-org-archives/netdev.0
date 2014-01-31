@@ -1,28 +1,22 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 17/34] ixgbevf: Use pci_enable_msix_range()
-Date: Fri, 31 Jan 2014 22:20:43 +0300
-Message-ID: <52EBF78B.6040609@cogentembedded.com>
-References: <cover.1391172839.git.agordeev@redhat.com> <3d63d58082b8cb80de7f2cb434ca5d83781e8c9f.1391172839.git.agordeev@redhat.com>
+Subject: Re: [PATCH 18/34] mlx4: Use pci_enable_msix_range()
+Date: Fri, 31 Jan 2014 22:22:06 +0300
+Message-ID: <52EBF7DE.3080003@cogentembedded.com>
+References: <cover.1391172839.git.agordeev@redhat.com> <2f6674dabb90d4cbca3ef4039c3b893f2e5e9ec4.1391172839.git.agordeev@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
 	linux-pci@vger.kernel.org
 To: Alexander Gordeev <agordeev@redhat.com>,
 	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f51.google.com ([209.85.215.51]:44467 "EHLO
-	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932900AbaAaSUc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jan 2014 13:20:32 -0500
-Received: by mail-la0-f51.google.com with SMTP id c6so3809745lan.10
-        for <netdev@vger.kernel.org>; Fri, 31 Jan 2014 10:20:31 -0800 (PST)
-In-Reply-To: <3d63d58082b8cb80de7f2cb434ca5d83781e8c9f.1391172839.git.agordeev@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <2f6674dabb90d4cbca3ef4039c3b893f2e5e9ec4.1391172839.git.agordeev@redhat.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+Hello.
 
 On 01/31/2014 06:08 PM, Alexander Gordeev wrote:
 
@@ -34,63 +28,27 @@ On 01/31/2014 06:08 PM, Alexander Gordeev wrote:
 
 > Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 > ---
->   drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   33 +++++++-------------
->   1 files changed, 12 insertions(+), 21 deletions(-)
+>   drivers/net/ethernet/mellanox/mlx4/main.c |   19 ++++---------------
+>   1 files changed, 4 insertions(+), 15 deletions(-)
 
-> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> index 9df2898..521a9d7 100644
-> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-
-> @@ -1831,33 +1830,25 @@ static int ixgbevf_acquire_msix_vectors(struct ixgbevf_adapter *adapter,
->   	 * Right now, we simply care about how many we'll get; we'll
->   	 * set them up later while requesting irq's.
->   	 */
-> -	while (vectors >= vector_threshold) {
-> -		err = pci_enable_msix(adapter->pdev, adapter->msix_entries,
-> -				      vectors);
-> -		if (!err || err < 0) /* Success or a nasty failure. */
-> -			break;
-> -		else /* err == number of vectors we should try again with */
-> -			vectors = err;
-> -	}
-> +	vectors = pci_enable_msix_range(adapter->pdev, adapter->msix_entries,
-> +					vector_threshold, vectors);
->
-> -	if (vectors < vector_threshold)
-> -		err = -ENOMEM;
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+> index d711158..a9d1249 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/main.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+[...]
+> @@ -1990,22 +1989,12 @@ static void mlx4_enable_msi_x(struct mlx4_dev *dev)
+[...]
+> +		nreq = pci_enable_msix_range(dev->pdev, entries, 2, nreq);
+> +
+> +		if (nreq < 0) {
+>   			kfree(entries);
+>   			goto no_msi;
+> -		}
 > -
-> -	if (err) {
-> +	if (vectors < 0) {
->   		dev_err(&adapter->pdev->dev,
->   			"Unable to allocate MSI-X interrupts\n");
->   		kfree(adapter->msix_entries);
->   		adapter->msix_entries = NULL;
-> -	} else {
-> -		/*
-> -		 * Adjust for only the vectors we'll use, which is minimum
-> -		 * of max_msix_q_vectors + NON_Q_VECTORS, or the number of
-> -		 * vectors we were allocated.
-> -		 */
-> -		adapter->num_msix_vectors = vectors;
-> +		return vectors;
->   	}
->
-> -	return err;
-> +	/*
-> +	 * Adjust for only the vectors we'll use, which is minimum
-> +	 * of max_msix_q_vectors + NON_Q_VECTORS, or the number of
-> +	 * vectors we were allocated.
-> +	 */
+> -		if (nreq <
+> +		} else if (nreq <
+>   		    MSIX_LEGACY_SZ + dev->caps.num_ports * MIN_MSIX_P_PORT) {
 
-    Networking code formats multi-line comments slightly differently to the 
-rest of the kernel:
-
-/* bla
-  * bla
-  */
-
-    Although, you're only moving what was there before you, maybe it's a good 
-time to get this right.
+    Please realign this line to start right under 'nreq'.
 
 WBR, Sergei
