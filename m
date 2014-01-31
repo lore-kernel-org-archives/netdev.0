@@ -1,13 +1,10 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH 17/34] ixgbevf: Use pci_enable_msix_range()
-Date: Fri, 31 Jan 2014 16:08:36 +0100
-Message-ID: <3d63d58082b8cb80de7f2cb434ca5d83781e8c9f.1391172839.git.agordeev@redhat.com>
+Subject: [PATCH 20/34] myri10ge: Use pci_enable_msix_range()
+Date: Fri, 31 Jan 2014 16:08:39 +0100
+Message-ID: <1253b3c920637ab6bb987defb88d1698ac1e4851.1391172839.git.agordeev@redhat.com>
 References: <cover.1391172839.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Hyong-Youb Kim <hykim@myri.com>, netdev@vger.kernel.org,
 	linux-pci@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -23,66 +20,68 @@ interfaces.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   33 +++++++-------------
- 1 files changed, 12 insertions(+), 21 deletions(-)
+ drivers/net/ethernet/myricom/myri10ge/myri10ge.c |   32 ++++++++++-----------
+ 1 files changed, 15 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 9df2898..521a9d7 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -1817,7 +1817,6 @@ void ixgbevf_reset(struct ixgbevf_adapter *adapter)
- static int ixgbevf_acquire_msix_vectors(struct ixgbevf_adapter *adapter,
- 					int vectors)
- {
--	int err = 0;
- 	int vector_threshold;
- 
- 	/* We'll want at least 2 (vector_threshold):
-@@ -1831,33 +1830,25 @@ static int ixgbevf_acquire_msix_vectors(struct ixgbevf_adapter *adapter,
- 	 * Right now, we simply care about how many we'll get; we'll
- 	 * set them up later while requesting irq's.
- 	 */
--	while (vectors >= vector_threshold) {
--		err = pci_enable_msix(adapter->pdev, adapter->msix_entries,
--				      vectors);
--		if (!err || err < 0) /* Success or a nasty failure. */
--			break;
--		else /* err == number of vectors we should try again with */
--			vectors = err;
--	}
-+	vectors = pci_enable_msix_range(adapter->pdev, adapter->msix_entries,
-+					vector_threshold, vectors);
- 
--	if (vectors < vector_threshold)
--		err = -ENOMEM;
--
--	if (err) {
-+	if (vectors < 0) {
- 		dev_err(&adapter->pdev->dev,
- 			"Unable to allocate MSI-X interrupts\n");
- 		kfree(adapter->msix_entries);
- 		adapter->msix_entries = NULL;
--	} else {
--		/*
--		 * Adjust for only the vectors we'll use, which is minimum
--		 * of max_msix_q_vectors + NON_Q_VECTORS, or the number of
--		 * vectors we were allocated.
--		 */
--		adapter->num_msix_vectors = vectors;
-+		return vectors;
+diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+index 68026f7..9f717d6 100644
+--- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
++++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+@@ -2329,16 +2329,14 @@ static int myri10ge_request_irq(struct myri10ge_priv *mgp)
+ 	status = 0;
+ 	if (myri10ge_msi) {
+ 		if (mgp->num_slices > 1) {
+-			status =
+-			    pci_enable_msix(pdev, mgp->msix_vectors,
+-					    mgp->num_slices);
+-			if (status == 0) {
+-				mgp->msix_enabled = 1;
+-			} else {
++			status = pci_enable_msix_range(pdev, mgp->msix_vectors,
++					mgp->num_slices, mgp->num_slices);
++			if (status < 0) {
+ 				dev_err(&pdev->dev,
+ 					"Error %d setting up MSI-X\n", status);
+ 				return status;
+ 			}
++			mgp->msix_enabled = 1;
+ 		}
+ 		if (mgp->msix_enabled == 0) {
+ 			status = pci_enable_msi(pdev);
+@@ -3901,23 +3899,23 @@ static void myri10ge_probe_slices(struct myri10ge_priv *mgp)
  	}
  
--	return err;
-+	/*
-+	 * Adjust for only the vectors we'll use, which is minimum
-+	 * of max_msix_q_vectors + NON_Q_VECTORS, or the number of
-+	 * vectors we were allocated.
-+	 */
-+	adapter->num_msix_vectors = vectors;
+ 	while (mgp->num_slices > 1) {
+-		/* make sure it is a power of two */
+-		while (!is_power_of_2(mgp->num_slices))
+-			mgp->num_slices--;
++		mgp->num_slices = rounddown_pow_of_two(mgp->num_slices);
+ 		if (mgp->num_slices == 1)
+ 			goto disable_msix;
+-		status = pci_enable_msix(pdev, mgp->msix_vectors,
+-					 mgp->num_slices);
+-		if (status == 0) {
+-			pci_disable_msix(pdev);
++		status = pci_enable_msix_range(pdev, mgp->msix_vectors,
++					mgp->num_slices, mgp->num_slices);
++		if (status < 0)
++			goto disable_msix;
 +
-+	return 0;
- }
++		pci_disable_msix(pdev);
++
++		if (status == mgp->num_slices) {
+ 			if (old_allocated)
+ 				kfree(old_fw);
+ 			return;
+-		}
+-		if (status > 0)
++		} else {
+ 			mgp->num_slices = status;
+-		else
+-			goto disable_msix;
++		}
+ 	}
  
- /**
+ disable_msix:
 -- 
 1.7.7.6
