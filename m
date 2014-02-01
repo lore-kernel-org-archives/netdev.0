@@ -1,49 +1,107 @@
-From: Mark Lord <mlord@pobox.com>
-Subject: Re: [PATCH RFC 1/1] usb: Tell xhci when usb data might be misaligned
-Date: Sat, 01 Feb 2014 08:30:29 -0500
-Message-ID: <52ECF6F5.6060207@pobox.com>
-References: <20140130211816.GB3787@xanatos>	<87iot1qgv6.fsf@nemi.mork.no>	<20140130221511.GD14228@xanatos>	<CACVXFVMVoMAH3DRiv-VYZL8VWq2Rw+fZwreVtUVm1M44HR+X8Q@mail.gmail.com>	<20140131190035.GB18262@xanatos> <CACVXFVN3OsPM5CBWjc4kh_sGo3fMwpvBoYer7VtreUWrvWA=+Q@mail.gmail.com>
+From: Chen Gang <gang.chen.5i5j@gmail.com>
+Subject: Re: [PATCH] drivers: staging: lustre: lustre: include: add
+ "__attribute__((packed))" for the related union
+Date: Sat, 01 Feb 2014 21:57:39 +0800
+Message-ID: <52ECFD53.7010401@gmail.com>
+References: <52DA4E6A.1000308@gmail.com> <20140118100547.GS7444@mwanda>
+ <52DA56C2.5010802@gmail.com> <20140118142404.GT7444@mwanda>
+ <52DBA3D4.3090308@gmail.com> <52DD0EFF.2010305@imgtec.com>
+ <20140120123045.GV7444@mwanda> <52DD18A5.1090308@imgtec.com>
+ <20140120125603.GD4815@mwanda> <20140120211356.GG4815@mwanda>
+ <52DE4DA3.7090301@imgtec.com> <52E3A642.7010307@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
-	David Laight <David.Laight@aculab.com>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	David Miller <davem@davemloft.net>,
-	Dan Williams <dan.j.williams@intel.com>,
-	"Nyman, Mathias" <mathias.nyman@intel.com>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	Freddy Xin <freddy@asix.com.tw>
-To: Ming Lei <ming.lei@canonical.com>,
-	Sarah Sharp <sarah.a.sharp@linux.intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a-pb-sasl-quonix.pobox.com ([208.72.237.25]:44690 "EHLO
-	sasl.smtp.pobox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932830AbaBANah (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Feb 2014 08:30:37 -0500
-In-Reply-To: <CACVXFVN3OsPM5CBWjc4kh_sGo3fMwpvBoYer7VtreUWrvWA=+Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@driverdev.osuosl.org, andreas.dilger@intel.com,
+ Antonio Quartulli <antonio@meshcoding.com>,
+ Greg KH <gregkh@linuxfoundation.org>, bergwolf@gmail.com,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ David Miller <davem@davemloft.net>, oleg.drokin@intel.com,
+ jacques-charles.lafoucriere@cea.fr, jinshan.xiong@intel.com,
+ netdev <netdev@vger.kernel.org>, linux-metag@vger.kernel.org,
+ Dan Carpenter <dan.carpenter@oracle.com>
+To: James Hogan <james.hogan@imgtec.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <52E3A642.7010307@gmail.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On 14-02-01 02:54 AM, Ming Lei wrote:
-..
-> With SG enabled, for the iperf client test case, the average urb size
-> for transmission will be increased from ~1500 to ~20K bytes in my
-> test case:
+On 01/25/2014 07:55 PM, Chen Gang wrote:
+> On 01/21/2014 06:36 PM, James Hogan wrote:
+>> Hi Dan,
+>>
+>> On 20/01/14 21:13, Dan Carpenter wrote:
+>>> I made a quick and dirty sparse patch to check for this.  I don't think
+>>> I will bother trying to send it to sparse upstream, but you can if you
+>>> want to.
+>>>
+>>> It found 289 unions which might need a __packed added.  The lustre
+>>> unions were not in my allmodconfig so they're not listed.
+>>
+>> Thanks a lot for this, it seems to be useful. I'm adapting it to reduce
+>> false negatives (e.g. omitting the check if the struct/union is already
+>> packed), and I imagine it could be made to only warn about padded
+>> unpacked structs/unions which are used as nested members of packed
+>> structs/unions. It wouldn't catch everything but would probably catch a
+>> lot of cases that are most likely to be genuine since they would have
+>> been packed at the outer level for a reason.
+>>
+>>> Perhaps there could be a command line option or a pragma so that unions
+>>> will work in the kernel.  We don't care about linking to outside
+>>> libraries.
+>>
+>> We still interact with userland via structs and unions, so it would
+>> probably have to exclude anything in uapi/.
+>>
 > 
->    iperf -c $SRV -t 30 -P 4 -w 128K
+
+It seems, our kernel still stick to treate 'pack' region have effect
+with both 'align' and 'sizeof'.
+
+So for compiler, could we add one additional cflag parameter to tell
+compiler to switch it (compatible with ABI, or satisfy upstream kernel).
+
+And for kernel, it will be OK enough to only append this parameter to
+KBUILD_CFLAGS in "arch/metag/Makefile".
+
+
+Thanks.
+
+> Thank all of you firstly.
 > 
-> So I am wondering you guys do not care the improvement ..
+> But excuse me, I am still not quit clear that: "what need we do enough
+> to solve this feature issue?"
+> 
+> So I guess our current result is:
+> 
+>  - It is not a good idea to only let kernel to fit with compiler.
+> 
+>  - It is not a good idea to only let compiler to fit with kernel.
+> 
+>  - Need let compiler and kernel to fit with each other:
+> 
+>    - compiler will print related warning, but not break compiling.
+>      so metag compiler need be improvement (check and warn for it).
+> 
+>    - if check alignment explicitly in kernel source code, it need be
+>      fixed within kernel: "apply related patches (pack each struct or
+>      union), but the related patch comments need be improved".
+> 
+> Is what I guess correct?
+> 
+> Thanks.
+> 
 
-No, that's not it.  Simply, the recent changes killed the driver
-for some users, something Linus calls a "regression", and does not permit.
 
-Far better to have it continue to work than not to work.
-The plan discussed earlier calls for reintroduction of SG here
-once the problems are solved outside of the main tree.
 -- 
-Mark Lord
-Real-Time Remedies Inc.
-mlord@pobox.com
+Chen Gang
+
+Open, share and attitude like air, water and life which God blessed
