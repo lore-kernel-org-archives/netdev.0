@@ -1,34 +1,19 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] Drivers: net: hyperv: Cleanup the recive path
-Date: Sat, 01 Feb 2014 17:01:38 -0800 (PST)
-Message-ID: <20140201.170138.2222640901661791450.davem@davemloft.net>
-References: <1391185478-5655-1-git-send-email-kys@microsoft.com>
+From: "Mr. Duke" <bsbutola@mail.jnu.ac.in>
+Subject: LOAN
+Date: Sat, 01 Feb 2014 18:05:28 +0100
+Message-ID: <20140201170556.71C8771A4572@mail.jnu.ac.in>
+Reply-To: macrofinancefirm@live.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- linux-kernel@vger.kernel.org, apw@canonical.com, devel@linuxdriverproject.org
-To: kys@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1391185478-5655-1-git-send-email-kys@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <bsbutola@mail.jnu.ac.in>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.jnu.ac.in ([202.41.10.19]:45144 "EHLO mail.jnu.ac.in"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750849AbaBBCno convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Feb 2014 21:43:44 -0500
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Date: Fri, 31 Jan 2014 08:24:38 -0800
-
-> Some minor cleanup of the receive path. Get rid of unnecessary
-> indirection as well as unnecessary re-establishment of state.
-
-It is not appropriate to submit cleanups at this time.
-
-Please wait until the net-next tree opens back up, and submit
-your changes against it at that time.
+We offer all kinds of loan at 3% interest rate.. If interested, reply us now for more details via email: macrofinancefirm@live.com
