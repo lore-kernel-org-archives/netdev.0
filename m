@@ -1,108 +1,45 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2 2/4] net: ethoc: don't advertise gigabit speed on
- attached PHY
-Date: Fri, 31 Jan 2014 16:54:21 -0800
-Message-ID: <CAGVrzcY00GS8n0POtUpSNEAiTSCZLKVB_6AUFAuB0B3Ax4wbXA@mail.gmail.com>
-References: <1390975218-13863-1-git-send-email-jcmvbkbc@gmail.com>
- <1390975218-13863-3-git-send-email-jcmvbkbc@gmail.com> <52E8A407.1020809@gmail.com>
- <CAMo8BfJ_nce_H_8HJ7iw9ME=8C+sjF_Q43RaDG+1eVrpxWRvdQ@mail.gmail.com>
- <CAGVrzcboHp8-qHZseGOVm14u1-cTcOjRZGExFxNu_nbK__XCSA@mail.gmail.com>
- <CAMo8BfK-3-B-n7gxLaSO3JXSNNT_HwF0yTAMd+L5pp6odJKFTg@mail.gmail.com>
- <CAMo8BfKkZOhsXBXWXS5scc5zN6qQnvk51HOCxAJmDWW19wFM-Q@mail.gmail.com> <CAGVrzcaN=noWOoMj0w720H5TUBypOv2HAFPPzJRAfA=R4RLUmw@mail.gmail.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [PATCH 2/2] of_mdio: Allow the DT to specify the phy ID and
+ avoid autoprobing
+Date: Fri, 31 Jan 2014 18:01:50 -0700
+Message-ID: <20140201010150.GB2519@obsidianresearch.com>
+References: <1391205045-1751-1-git-send-email-jgunthorpe@obsidianresearch.com>
+ <1391205045-1751-2-git-send-email-jgunthorpe@obsidianresearch.com>
+ <CAGVrzcbVo-Zzm9kLhiptf-qWgPH9XSs29mW8g2=g=Bq=PCb0_w@mail.gmail.com>
+ <20140131225513.GA2519@obsidianresearch.com>
+ <CAGVrzcZwkHSLJxpVsVY_6-VnsuODs0vGKcrcvSBzMEq3GWxqLA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Marc Gauthier <marc@cadence.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Chris Zankel <chris@zankel.net>,
-	"linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Rob Herring <robh+dt@kernel.org>,
+	Grant Likely <grant.likely@linaro.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	netdev <netdev@vger.kernel.org>
-To: Max Filippov <jcmvbkbc@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGVrzcaN=noWOoMj0w720H5TUBypOv2HAFPPzJRAfA=R4RLUmw@mail.gmail.com>
+Content-Disposition: inline
+In-Reply-To: <CAGVrzcZwkHSLJxpVsVY_6-VnsuODs0vGKcrcvSBzMEq3GWxqLA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2014-01-31 Florian Fainelli <f.fainelli@gmail.com>:
->>> Maybe they boot up with gigabit advertisement disabled in their PHY
->>> and thus they don't see the problem?
->>>
->>>> Other drivers do the following:
->>>>
->>>> - connect to the PHY
->>>> - phydev->supported = PHY_BASIC_FEATURES
->>>> - phydev->advertising &= phydev->supported
->>>> - start the PHY state machine
->>>>
->>>> And they work just fine. Is the PHY driver you are bound to the "Generic
->>>> PHY" or something else which does something funky in config_aneg()?
->>>
->>> It's marvell 88E1111 from the KC-705 board, but the behaviour doesn't
->>> change if I disable it and the generic phy is used.
->>
->> Florian,
->>
->> I don't see how the generic genphy_config_advert can ever change
->> gigabit advertisement if phydev->supported has gigabit speeds masked
->> off.
->
-> It does not, but it makes sure that phydev->advertising gets masked
-> with phydev->supported. So, prior to starting your PHY state machine,
-> if you do:
->
-> phydev->supported &= PHY_BASIC_FEATURES;
-> phydev->advertising = phydev->supported;
+On Fri, Jan 31, 2014 at 03:28:10PM -0800, Florian Fainelli wrote:
+> - you tell of_mdiobus_register() to look for a reset phandle and have
+> a reset controller release the PHY from reset before it tries to probe
+> for it, because doing that could avoid doing the PHY out of reset
+> sequence in a few dozen Ethernet drivers
 
-It looks like there might be one problem however, if we have the following:
+I think this would be interesting, but difficult. Ideally you'd want
+to keep the phy in reset until an ethernet driver attaches to it, and
+reset it again once it detaches, so Linux would have to defer probing
+the phy driver until an attach. Not sure what this would do for power
+consumption, but reset might be lower power on phy's that don't have
+an internal power down.
 
-- phydev->supported masks off the Gigabit features
-- PHY device comes out of reset/default with Gigabit features set in
-MII_CTRL1000
+> The auto-probing bypass logic looks simple enough, and it does not
+> require burying the reset logic behind a reset controller, which
+> uses
 
-Could you try the following patch:
+Right, it closely matches what was happening in board files. FWIW,
+this system was designed in 2005 for Linux 2.16 and this patch set fell
+out of porting forward to 3.13 w/ DT.
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 78bf1a4..b607f4a 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -749,25 +749,24 @@ static int genphy_config_advert(struct phy_device *phydev)
-        }
-
-        /* Configure gigabit if it's supported */
-+       adv = phy_read(phydev, MII_CTRL1000);
-+       if (adv < 0)
-+               return adv;
-+
-+       oldadv = adv;
-+       adv &= ~(ADVERTISE_1000FULL | ADVERTISE_1000HALF);
-+
-        if (phydev->supported & (SUPPORTED_1000baseT_Half |
-                                 SUPPORTED_1000baseT_Full)) {
--               adv = phy_read(phydev, MII_CTRL1000);
--               if (adv < 0)
--                       return adv;
--
--               oldadv = adv;
--               adv &= ~(ADVERTISE_1000FULL | ADVERTISE_1000HALF);
-                adv |= ethtool_adv_to_mii_ctrl1000_t(advertise);
--
--               if (adv != oldadv) {
--                       err = phy_write(phydev, MII_CTRL1000, adv);
--
--                       if (err < 0)
--                               return err;
-+               if (adv != oldadv)
-                        changed = 1;
--               }
-        }
-
-+       err = phy_write(phydev, MII_CTRL1000, adv);
-+       if (err < 0)
-+               return err;
-+
-        return changed;
- }
-
--- 
-Florian
+Jason
