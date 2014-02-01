@@ -1,48 +1,44 @@
-From: Hyong-Youb Kim <hyong-youb.kim@myricom.com>
-Subject: Re: [PATCH 20/34] myri10ge: Use pci_enable_msix_range()
-Date: Sat, 1 Feb 2014 23:13:34 +0900
-Message-ID: <52ED010E.80500@myricom.com>
-References: <cover.1391172839.git.agordeev@redhat.com> <1253b3c920637ab6bb987defb88d1698ac1e4851.1391172839.git.agordeev@redhat.com> <52EBF885.30309@cogentembedded.com>
+From: Mark Lord <mlord@pobox.com>
+Subject: Re: [PATCH RFC 1/1] usb: Tell xhci when usb data might be misaligned
+Date: Sat, 01 Feb 2014 15:05:21 -0500
+Message-ID: <52ED5381.2010106@pobox.com>
+References: <20140130211816.GB3787@xanatos>	<87iot1qgv6.fsf@nemi.mork.no>	<20140130221511.GD14228@xanatos>	<CACVXFVMVoMAH3DRiv-VYZL8VWq2Rw+fZwreVtUVm1M44HR+X8Q@mail.gmail.com>	<20140131190035.GB18262@xanatos>	<CACVXFVN3OsPM5CBWjc4kh_sGo3fMwpvBoYer7VtreUWrvWA=+Q@mail.gmail.com>	<52ECF6F5.6060207@pobox.com> <CACVXFVOynsojKo+aukHY4q+MkEyhHXC0=OpN0ysu0TGuUjY8sA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Hyong-Youb Kim <hykim@myri.com>, <netdev@vger.kernel.org>,
-	<linux-pci@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Alexander Gordeev <agordeev@redhat.com>,
-	<linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52EBF885.30309@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Sarah Sharp <sarah.a.sharp@linux.intel.com>,
+	=?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
+	David Laight <David.Laight@aculab.com>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	David Miller <davem@davemloft.net>,
+	Dan Williams <dan.j.williams@intel.com>,
+	"Nyman, Mathias" <mathias.nyman@intel.com>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	Freddy Xin <freddy@asix.com.tw>
+To: Ming Lei <ming.lei@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a-pb-sasl-quonix.pobox.com ([208.72.237.25]:54680 "EHLO
+	sasl.smtp.pobox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932074AbaBAUFc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Feb 2014 15:05:32 -0500
+In-Reply-To: <CACVXFVOynsojKo+aukHY4q+MkEyhHXC0=OpN0ysu0TGuUjY8sA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On 2/1/2014 4:24 AM, Sergei Shtylyov wrote:
-> Hello.
+On 14-02-01 09:18 AM, Ming Lei wrote:
 >
-> On 01/31/2014 06:08 PM, Alexander Gordeev wrote:
->
-[...]
->> +        if (status < 0)
->> +            goto disable_msix;
->
->     Hm, if enabling MSI failed, we don't need to disable it, right? So,
-> perhaps the label should be renamed?
->
+> Even real regressions are easily/often introduced, and we are discussing
+> how to fix that. I suggest to unset the flag only for the known buggy
+> controllers.
 
-The code following disable_msix does not call pci_disable_msix().  It 
-frees the allocated vector buffer and loads the firmware that uses a 
-single interrupt vector.  So, it is "disable" in the sense that the 
-driver is not going to use MSI-X vectors.  I agree that naming could be 
-better.
 
-disable_msix:
-         if (mgp->msix_vectors != NULL) {
-                 kfree(mgp->msix_vectors);
-                 mgp->msix_vectors = NULL;
-         }
+It is not the controllers that are particularly "buggy" here.
+But rather the drivers and design of parts of the kernel.
 
-abort_with_fw:
-         mgp->num_slices = 1;
-         set_fw_name(mgp, old_fw, old_allocated);
-         myri10ge_load_firmware(mgp, 0);
+Cheers
+-- 
+Mark Lord
+Real-Time Remedies Inc.
+mlord@pobox.com
