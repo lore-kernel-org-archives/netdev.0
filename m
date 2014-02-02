@@ -1,51 +1,44 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: inet_diag_dump_icsk() change seems bogus...
-Date: Sun, 2 Feb 2014 10:43:10 -0500
-Message-ID: <CADVnQynq6tfd6Hdg0iqD4Wpm805mVXwFT-VUCsWT6YUxo2=wbQ@mail.gmail.com>
-References: <20140202.004538.1011276314292086521.davem@davemloft.net>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: Patchset - Support for configurable RSS hash key
+Date: Sun, 2 Feb 2014 18:10:18 +0200
+Message-ID: <20140202161016.GA17000@mtl-eit-vdi-22.mtl.labs.mlnx>
+References: <BF3270C86E8B1349A26C34E4EC1C44CB2C83D8B7@CMEXMB1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f48.google.com ([74.125.83.48]:44381 "EHLO
-	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751595AbaBBPnM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Feb 2014 10:43:12 -0500
-Received: by mail-ee0-f48.google.com with SMTP id t10so3158575eei.35
-        for <netdev@vger.kernel.org>; Sun, 02 Feb 2014 07:43:10 -0800 (PST)
-In-Reply-To: <20140202.004538.1011276314292086521.davem@davemloft.net>
+Received: from mail-wg0-f54.google.com ([74.125.82.54]:61492 "EHLO
+	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751726AbaBBQKW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Feb 2014 11:10:22 -0500
+Received: by mail-wg0-f54.google.com with SMTP id x13so10758714wgg.33
+        for <netdev@vger.kernel.org>; Sun, 02 Feb 2014 08:10:20 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <BF3270C86E8B1349A26C34E4EC1C44CB2C83D8B7@CMEXMB1.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+On 17/01/14 13:02 +0000, Venkata Duvvuru wrote:
+> NIC drivers that support RSS use either a hard-coded value or a random value for the RSS hash key. Irrespective of the type of the key used, the user would want to change the hash key if he/she is not satisfied with the effectiveness of the default hash-key in spreading the incoming flows evenly across the RSS queues.
+> 
+> This patch set provides support for configuring the RSS hash-key via the ethtool interface.
+> 
+> The patch set consists of:
+> a) ethtool user-land patches
+> b) ethtool kernel patch
+> c) be2net patch that implements the ethtool hooks
 
-That was true in 3.12 and earlier, but AFAICT since Eric's 05dbc7b
-("tcp/dccp: remove twchain") in 3.13-rc1, there is no head->twchain,
-and instead all the connections (both tcp_sock and timewait flavor)
-are on the head->chain, so that we do need to check for timewait
-sockets. :-)
+Hi,
 
-neal
+I would be happy to add support in setting the hash function in
+addition to the hash key.
 
+Mellanox NIC's have support in 2 hash functions: Toplitz and XOR.
 
-On Sun, Feb 2, 2014 at 3:45 AM, David Miller <davem@davemloft.net> wrote:
->
-> Upon further review, commit 70315d22d3c7383f9a508d0aab21e2eb35b2303a
-> ("inet_diag: fix inet_diag_dump_icsk() to use correct state for
-> timewait sockets") doesn't seem valid to me.
->
-> Take a close look at get_tcp4_sock() and get_timewait4_sock() which
-> you reference in your commit message.
->
-> The former always gets it's socket from head->chain and the latter
-> always gets it's socket from head->twchain.
->
-> Yet in this inet_diag_dump_icsk() change, you're changing the
-> head->chain iterator to check for timewait sockets.  That doesn't
-> seem possible.
->
-> Only head->twchain holds timewait sockets, and this code was handling
-> it correctly already.
->
-> What gives?
+Let me if you can add it to your patchset or would like me to send a
+patch on top of yours to add it.
+
+Thanks,
+Amir
