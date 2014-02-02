@@ -1,42 +1,35 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net V1] net/ipv4: Use proper RCU APIs for writer-side in
- udp_offload.c
-Date: Sun, 02 Feb 2014 10:49:35 -0800
-Message-ID: <1391366975.28432.89.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1391348530-31643-1-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: inet_diag_dump_icsk() change seems bogus...
+Date: Sun, 02 Feb 2014 10:52:34 -0800
+Message-ID: <1391367154.28432.91.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140202.004538.1011276314292086521.davem@davemloft.net>
+	 <CADVnQynq6tfd6Hdg0iqD4Wpm805mVXwFT-VUCsWT6YUxo2=wbQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Shlomo Pongratz <shlomop@mellanox.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:57974 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751974AbaBBSti (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Feb 2014 13:49:38 -0500
-Received: by mail-ig0-f182.google.com with SMTP id uy17so2858187igb.3
-        for <netdev@vger.kernel.org>; Sun, 02 Feb 2014 10:49:38 -0800 (PST)
-In-Reply-To: <1391348530-31643-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:43329 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752015AbaBBSwh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Feb 2014 13:52:37 -0500
+Received: by mail-ie0-f179.google.com with SMTP id ar20so5768642iec.10
+        for <netdev@vger.kernel.org>; Sun, 02 Feb 2014 10:52:36 -0800 (PST)
+In-Reply-To: <CADVnQynq6tfd6Hdg0iqD4Wpm805mVXwFT-VUCsWT6YUxo2=wbQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-02-02 at 15:42 +0200, Or Gerlitz wrote:
-> From: Shlomo Pongratz <shlomop@mellanox.com>
+On Sun, 2014-02-02 at 10:43 -0500, Neal Cardwell wrote:
+> Hi David,
 > 
-> RCU writer side should use rcu_dereference_protected() and not
-> rcu_dereference(), fix that. This also removes the "suspicious RCU usage"
-> warning seen when running with CONFIG_PROVE_RCU.
-> 
-> Also, don't use rcu_assign_pointer/rcu_dereference for pointers
-> which are invisible beyond the udp offload code.
-> 
-> Fixes: b582ef0 ('net: Add GRO support for UDP encapsulating protocols')
-> Reported-by: Eric Dumazet <edumazet@google.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-> Signed-off-by: Shlomo Pongratz <shlomop@mellanox.com>
-> ---
+> That was true in 3.12 and earlier, but AFAICT since Eric's 05dbc7b
+> ("tcp/dccp: remove twchain") in 3.13-rc1, there is no head->twchain,
+> and instead all the connections (both tcp_sock and timewait flavor)
+> are on the head->chain, so that we do need to check for timewait
+> sockets. :-)
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+
+Note that Neal fix needs a different form for stable trees.
+
+Thats maybe David concern ;)
