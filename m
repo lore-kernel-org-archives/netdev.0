@@ -1,36 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: inet_diag_dump_icsk() change seems bogus...
-Date: Sun, 02 Feb 2014 00:45:38 -0800 (PST)
-Message-ID: <20140202.004538.1011276314292086521.davem@davemloft.net>
+From: Amir Vadai <avadai@redhat.com>
+Subject: Re: mlx4: Use pci_enable_msix_range()
+Date: Sun, 2 Feb 2014 11:43:34 +0200
+Message-ID: <20140202094334.GE24400@mtl-eit-vdi-22.mtl.labs.mlnx>
+References: <cover.1391172839.git.agordeev@redhat.com>
+ <2f6674dabb90d4cbca3ef4039c3b893f2e5e9ec4.1391172839.git.agordeev@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ncardwell@google.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52540 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751253AbaBBIpl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Feb 2014 03:45:41 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org
+To: Alexander Gordeev <agordeev@redhat.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <2f6674dabb90d4cbca3ef4039c3b893f2e5e9ec4.1391172839.git.agordeev@redhat.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 31/01/14 16:08 +0100, Alexander Gordeev wrote:
+> As result of deprecation of MSI-X/MSI enablement functions
+> pci_enable_msix() and pci_enable_msi_block() all drivers
+> using these two interfaces need to be updated to use the
+> new pci_enable_msi_range() and pci_enable_msix_range()
+> interfaces.
+> 
+> Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx4/main.c |   19 ++++---------------
+>  1 files changed, 4 insertions(+), 15 deletions(-)
+> 
 
-Upon further review, commit 70315d22d3c7383f9a508d0aab21e2eb35b2303a
-("inet_diag: fix inet_diag_dump_icsk() to use correct state for
-timewait sockets") doesn't seem valid to me.
-
-Take a close look at get_tcp4_sock() and get_timewait4_sock() which
-you reference in your commit message.
-
-The former always gets it's socket from head->chain and the latter
-always gets it's socket from head->twchain.
-
-Yet in this inet_diag_dump_icsk() change, you're changing the
-head->chain iterator to check for timewait sockets.  That doesn't
-seem possible.
-
-Only head->twchain holds timewait sockets, and this code was handling
-it correctly already.
-
-What gives?
+Acked By: Amir Vadai <amirv@mellanox.com>
