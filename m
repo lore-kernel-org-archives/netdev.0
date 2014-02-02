@@ -1,45 +1,31 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] staging: r8188eu: Fix typo in USB_DEVICE list
-Date: Sun,  2 Feb 2014 14:07:06 -0600
-Message-ID: <1391371626-13551-1-git-send-email-Larry.Finger@lwfinger.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: inet_diag_dump_icsk() change seems bogus...
+Date: Sun, 02 Feb 2014 13:00:49 -0800 (PST)
+Message-ID: <20140202.130049.1290685187605936835.davem@davemloft.net>
+References: <20140202.004538.1011276314292086521.davem@davemloft.net>
+	<CADVnQynq6tfd6Hdg0iqD4Wpm805mVXwFT-VUCsWT6YUxo2=wbQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- Larry Finger <Larry.Finger@lwfinger.net>
-To: gregkh@linuxfoundation.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: ncardwell@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56885 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752435AbaBBVA5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Feb 2014 16:00:57 -0500
+In-Reply-To: <CADVnQynq6tfd6Hdg0iqD4Wpm805mVXwFT-VUCsWT6YUxo2=wbQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There is a typo in the device list that interchanges the vendor and
-product codes for one of the entries.
+From: Neal Cardwell <ncardwell@google.com>
+Date: Sun, 2 Feb 2014 10:43:10 -0500
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
----
- drivers/staging/rtl8188eu/os_dep/usb_intf.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> That was true in 3.12 and earlier, but AFAICT since Eric's 05dbc7b
+> ("tcp/dccp: remove twchain") in 3.13-rc1, there is no head->twchain,
+> and instead all the connections (both tcp_sock and timewait flavor)
+> are on the head->chain, so that we do need to check for timewait
+> sockets. :-)
 
-diff --git a/drivers/staging/rtl8188eu/os_dep/usb_intf.c b/drivers/staging/rtl8188eu/os_dep/usb_intf.c
-index 0a341d6..e9e3c76 100644
---- a/drivers/staging/rtl8188eu/os_dep/usb_intf.c
-+++ b/drivers/staging/rtl8188eu/os_dep/usb_intf.c
-@@ -53,7 +53,7 @@ static struct usb_device_id rtw_usb_id_tbl[] = {
- 	{USB_DEVICE(USB_VENDER_ID_REALTEK, 0x0179)}, /* 8188ETV */
- 	/*=== Customer ID ===*/
- 	/****** 8188EUS ********/
--	{USB_DEVICE(0x8179, 0x07B8)}, /* Abocom - Abocom */
-+	{USB_DEVICE(0x07bb, 0x8179)}, /* Abocom - Abocom */
- 	{USB_DEVICE(0x2001, 0x330F)}, /* DLink DWA-125 REV D1 */
- 	{}	/* Terminating entry */
- };
--- 
-1.8.4
+Therefore I don't need to -stable backport this change, ok makes
+sense, thanks for explaining.
