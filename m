@@ -1,28 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: inet_diag_dump_icsk() change seems bogus...
-Date: Sun, 02 Feb 2014 13:03:15 -0800 (PST)
-Message-ID: <20140202.130315.259664831670406274.davem@davemloft.net>
-References: <CADVnQynq6tfd6Hdg0iqD4Wpm805mVXwFT-VUCsWT6YUxo2=wbQ@mail.gmail.com>
-	<1391367154.28432.91.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CADVnQymV9R-f3ANtFxbBnsKtD3ytO7QwrOEz7cJAkVkn34ADKQ@mail.gmail.com>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: [PATCH] staging: r8188eu: Fix typo in USB_DEVICE list
+Date: Sun, 02 Feb 2014 13:04:35 -0800
+Message-ID: <52EEB2E3.8090306@infradead.org>
+References: <1391371626-13551-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: ncardwell@google.com
+Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+	gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56897 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752510AbaBBVDQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Feb 2014 16:03:16 -0500
-In-Reply-To: <CADVnQymV9R-f3ANtFxbBnsKtD3ytO7QwrOEz7cJAkVkn34ADKQ@mail.gmail.com>
+Received: from merlin.infradead.org ([205.233.59.134]:32961 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752435AbaBBVEj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Feb 2014 16:04:39 -0500
+In-Reply-To: <1391371626-13551-1-git-send-email-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neal Cardwell <ncardwell@google.com>
-Date: Sun, 2 Feb 2014 13:59:06 -0500
+On 02/02/2014 12:07 PM, Larry Finger wrote:
+> There is a typo in the device list that interchanges the vendor and
+> product codes for one of the entries.
 
-> Ah, makes sense. :-) I have a tested version of the patch for pre-3.13
-> kernels if anyone is interested in that.
+You also changed 0x7b8 to 0x7bb.
+Did you mean to do that?
 
-Please post :-)  Thanks!
+
+> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> ---
+>  drivers/staging/rtl8188eu/os_dep/usb_intf.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/staging/rtl8188eu/os_dep/usb_intf.c b/drivers/staging/rtl8188eu/os_dep/usb_intf.c
+> index 0a341d6..e9e3c76 100644
+> --- a/drivers/staging/rtl8188eu/os_dep/usb_intf.c
+> +++ b/drivers/staging/rtl8188eu/os_dep/usb_intf.c
+> @@ -53,7 +53,7 @@ static struct usb_device_id rtw_usb_id_tbl[] = {
+>  	{USB_DEVICE(USB_VENDER_ID_REALTEK, 0x0179)}, /* 8188ETV */
+>  	/*=== Customer ID ===*/
+>  	/****** 8188EUS ********/
+> -	{USB_DEVICE(0x8179, 0x07B8)}, /* Abocom - Abocom */
+> +	{USB_DEVICE(0x07bb, 0x8179)}, /* Abocom - Abocom */
+>  	{USB_DEVICE(0x2001, 0x330F)}, /* DLink DWA-125 REV D1 */
+>  	{}	/* Terminating entry */
+>  };
+> 
+
+
+-- 
+~Randy
