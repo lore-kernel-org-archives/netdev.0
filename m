@@ -1,54 +1,95 @@
-From: Florian Vaussard <florian.vaussard@epfl.ch>
-Subject: Re: [PATCH v2 5/6] Documentation: devicetree: sja1000: add reg-io-width
- binding
-Date: Mon, 03 Feb 2014 09:11:37 +0100
-Message-ID: <52EF4F39.8010403@epfl.ch>
-References: <1391164513-11529-1-git-send-email-florian.vaussard@epfl.ch> <1391164513-11529-6-git-send-email-florian.vaussard@epfl.ch> <52EB9723.3080008@pengutronix.de>
-Reply-To: florian.vaussard@epfl.ch
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>, devicetree@vger.kernel.org
-To: Marc Kleine-Budde <mkl@pengutronix.de>,
-	Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <52EB9723.3080008@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Maxime Ripard <maxime.ripard@free-electrons.com>
+Subject: [PATCH 3/3] ARM: sunxi: dt: Convert to the new net compatibles
+Date: Sun,  2 Feb 2014 14:49:13 +0100
+Message-ID: <1391348953-10662-3-git-send-email-maxime.ripard@free-electrons.com>
+References: <1391348953-10662-1-git-send-email-maxime.ripard@free-electrons.com>
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Maxime Ripard <maxime.ripard@free-electrons.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from top.free-electrons.com ([176.31.233.9]:49893 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751566AbaBCIaI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Feb 2014 03:30:08 -0500
+In-Reply-To: <1391348953-10662-1-git-send-email-maxime.ripard@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Switch the device tree to the new compatibles introduced in the ethernet and
+mdio drivers to have a common pattern accross all Allwinner SoCs.
 
+Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
+---
+ arch/arm/boot/dts/sun4i-a10.dtsi  | 4 ++--
+ arch/arm/boot/dts/sun5i-a10s.dtsi | 4 ++--
+ arch/arm/boot/dts/sun7i-a20.dtsi  | 4 ++--
+ 3 files changed, 6 insertions(+), 6 deletions(-)
 
-On 01/31/2014 01:29 PM, Marc Kleine-Budde wrote:
-> On 01/31/2014 11:35 AM, Florian Vaussard wrote:
->> Add the reg-io-width property to describe the width of the memory
->> accesses.
->>
->> Cc: Grant Likely <grant.likely@linaro.org>
->> Cc: Rob Herring <robh+dt@kernel.org>
->> Cc: Pawel Moll <pawel.moll@arm.com>
->> Cc: Mark Rutland <mark.rutland@arm.com>
->> Cc: Ian Campbell <ijc+devicetree@hellion.org.uk>
->> Cc: Kumar Gala <galak@codeaurora.org>
->> Cc: devicetree@vger.kernel.org
->> Acked-by: Rob Herring <robh@kernel.org>
->> Signed-off-by: Florian Vaussard <florian.vaussard@epfl.ch>
-> 
-> I think it makes sense to squash into patch 6.
-> 
-
-According to recent guidelines from the DT maintainers [1], the
-documentation part should be a separate patch. I guess it makes sense to
-ease the review process for new bindings.
-
-Regards
-Florian
-
-[1]
-https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/submitting-patches.txt
+diff --git a/arch/arm/boot/dts/sun4i-a10.dtsi b/arch/arm/boot/dts/sun4i-a10.dtsi
+index 040bb0e..10666ca 100644
+--- a/arch/arm/boot/dts/sun4i-a10.dtsi
++++ b/arch/arm/boot/dts/sun4i-a10.dtsi
+@@ -315,7 +315,7 @@
+ 		ranges;
+ 
+ 		emac: ethernet@01c0b000 {
+-			compatible = "allwinner,sun4i-emac";
++			compatible = "allwinner,sun4i-a10-emac";
+ 			reg = <0x01c0b000 0x1000>;
+ 			interrupts = <55>;
+ 			clocks = <&ahb_gates 17>;
+@@ -323,7 +323,7 @@
+ 		};
+ 
+ 		mdio@01c0b080 {
+-			compatible = "allwinner,sun4i-mdio";
++			compatible = "allwinner,sun4i-a10-mdio";
+ 			reg = <0x01c0b080 0x14>;
+ 			status = "disabled";
+ 			#address-cells = <1>;
+diff --git a/arch/arm/boot/dts/sun5i-a10s.dtsi b/arch/arm/boot/dts/sun5i-a10s.dtsi
+index ea16054..6496159 100644
+--- a/arch/arm/boot/dts/sun5i-a10s.dtsi
++++ b/arch/arm/boot/dts/sun5i-a10s.dtsi
+@@ -278,7 +278,7 @@
+ 		ranges;
+ 
+ 		emac: ethernet@01c0b000 {
+-			compatible = "allwinner,sun4i-emac";
++			compatible = "allwinner,sun4i-a10-emac";
+ 			reg = <0x01c0b000 0x1000>;
+ 			interrupts = <55>;
+ 			clocks = <&ahb_gates 17>;
+@@ -286,7 +286,7 @@
+ 		};
+ 
+ 		mdio@01c0b080 {
+-			compatible = "allwinner,sun4i-mdio";
++			compatible = "allwinner,sun4i-a10-mdio";
+ 			reg = <0x01c0b080 0x14>;
+ 			status = "disabled";
+ 			#address-cells = <1>;
+diff --git a/arch/arm/boot/dts/sun7i-a20.dtsi b/arch/arm/boot/dts/sun7i-a20.dtsi
+index 119f066..9ff0948 100644
+--- a/arch/arm/boot/dts/sun7i-a20.dtsi
++++ b/arch/arm/boot/dts/sun7i-a20.dtsi
+@@ -340,7 +340,7 @@
+ 		ranges;
+ 
+ 		emac: ethernet@01c0b000 {
+-			compatible = "allwinner,sun4i-emac";
++			compatible = "allwinner,sun4i-a10-emac";
+ 			reg = <0x01c0b000 0x1000>;
+ 			interrupts = <0 55 4>;
+ 			clocks = <&ahb_gates 17>;
+@@ -348,7 +348,7 @@
+ 		};
+ 
+ 		mdio@01c0b080 {
+-			compatible = "allwinner,sun4i-mdio";
++			compatible = "allwinner,sun4i-a10-mdio";
+ 			reg = <0x01c0b080 0x14>;
+ 			status = "disabled";
+ 			#address-cells = <1>;
+-- 
+1.8.4.2
