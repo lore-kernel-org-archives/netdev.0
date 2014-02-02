@@ -1,44 +1,42 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: Patchset - Support for configurable RSS hash key
-Date: Sun, 2 Feb 2014 18:10:18 +0200
-Message-ID: <20140202161016.GA17000@mtl-eit-vdi-22.mtl.labs.mlnx>
-References: <BF3270C86E8B1349A26C34E4EC1C44CB2C83D8B7@CMEXMB1.ad.emulex.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net V1] net/ipv4: Use proper RCU APIs for writer-side in
+ udp_offload.c
+Date: Sun, 02 Feb 2014 10:49:35 -0800
+Message-ID: <1391366975.28432.89.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1391348530-31643-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Shlomo Pongratz <shlomop@mellanox.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f54.google.com ([74.125.82.54]:61492 "EHLO
-	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751726AbaBBQKW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Feb 2014 11:10:22 -0500
-Received: by mail-wg0-f54.google.com with SMTP id x13so10758714wgg.33
-        for <netdev@vger.kernel.org>; Sun, 02 Feb 2014 08:10:20 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <BF3270C86E8B1349A26C34E4EC1C44CB2C83D8B7@CMEXMB1.ad.emulex.com>
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:57974 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751974AbaBBSti (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Feb 2014 13:49:38 -0500
+Received: by mail-ig0-f182.google.com with SMTP id uy17so2858187igb.3
+        for <netdev@vger.kernel.org>; Sun, 02 Feb 2014 10:49:38 -0800 (PST)
+In-Reply-To: <1391348530-31643-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17/01/14 13:02 +0000, Venkata Duvvuru wrote:
-> NIC drivers that support RSS use either a hard-coded value or a random value for the RSS hash key. Irrespective of the type of the key used, the user would want to change the hash key if he/she is not satisfied with the effectiveness of the default hash-key in spreading the incoming flows evenly across the RSS queues.
+On Sun, 2014-02-02 at 15:42 +0200, Or Gerlitz wrote:
+> From: Shlomo Pongratz <shlomop@mellanox.com>
 > 
-> This patch set provides support for configuring the RSS hash-key via the ethtool interface.
+> RCU writer side should use rcu_dereference_protected() and not
+> rcu_dereference(), fix that. This also removes the "suspicious RCU usage"
+> warning seen when running with CONFIG_PROVE_RCU.
 > 
-> The patch set consists of:
-> a) ethtool user-land patches
-> b) ethtool kernel patch
-> c) be2net patch that implements the ethtool hooks
+> Also, don't use rcu_assign_pointer/rcu_dereference for pointers
+> which are invisible beyond the udp offload code.
+> 
+> Fixes: b582ef0 ('net: Add GRO support for UDP encapsulating protocols')
+> Reported-by: Eric Dumazet <edumazet@google.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Signed-off-by: Shlomo Pongratz <shlomop@mellanox.com>
+> ---
 
-Hi,
-
-I would be happy to add support in setting the hash function in
-addition to the hash key.
-
-Mellanox NIC's have support in 2 hash functions: Toplitz and XOR.
-
-Let me if you can add it to your patchset or would like me to send a
-patch on top of yours to add it.
-
-Thanks,
-Amir
+Acked-by: Eric Dumazet <edumazet@google.com>
