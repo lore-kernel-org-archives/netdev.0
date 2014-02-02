@@ -1,95 +1,67 @@
 From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Subject: [PATCH 3/3] ARM: sunxi: dt: Convert to the new net compatibles
-Date: Sun,  2 Feb 2014 14:49:13 +0100
-Message-ID: <1391348953-10662-3-git-send-email-maxime.ripard@free-electrons.com>
+Subject: [PATCH 2/3] net: phy: sunxi: Add new compatibles
+Date: Sun,  2 Feb 2014 14:49:12 +0100
+Message-ID: <1391348953-10662-2-git-send-email-maxime.ripard@free-electrons.com>
 References: <1391348953-10662-1-git-send-email-maxime.ripard@free-electrons.com>
 Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	Maxime Ripard <maxime.ripard@free-electrons.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:49893 "EHLO
+Received: from top.free-electrons.com ([176.31.233.9]:49891 "EHLO
 	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751566AbaBCIaI (ORCPT
+	with ESMTP id S1751317AbaBCIaI (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 3 Feb 2014 03:30:08 -0500
 In-Reply-To: <1391348953-10662-1-git-send-email-maxime.ripard@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Switch the device tree to the new compatibles introduced in the ethernet and
-mdio drivers to have a common pattern accross all Allwinner SoCs.
+The Allwinner A10 compatibles were following a slightly different compatible
+patterns than the rest of the SoCs for historical reasons. Add compatibles
+matching the other pattern to the mdio driver for consistency, and keep the
+older one for backward compatibility.
 
 Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
 ---
- arch/arm/boot/dts/sun4i-a10.dtsi  | 4 ++--
- arch/arm/boot/dts/sun5i-a10s.dtsi | 4 ++--
- arch/arm/boot/dts/sun7i-a20.dtsi  | 4 ++--
- 3 files changed, 6 insertions(+), 6 deletions(-)
+ Documentation/devicetree/bindings/net/allwinner,sun4i-mdio.txt | 5 +++--
+ drivers/net/phy/mdio-sun4i.c                                   | 3 +++
+ 2 files changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/arch/arm/boot/dts/sun4i-a10.dtsi b/arch/arm/boot/dts/sun4i-a10.dtsi
-index 040bb0e..10666ca 100644
---- a/arch/arm/boot/dts/sun4i-a10.dtsi
-+++ b/arch/arm/boot/dts/sun4i-a10.dtsi
-@@ -315,7 +315,7 @@
- 		ranges;
+diff --git a/Documentation/devicetree/bindings/net/allwinner,sun4i-mdio.txt b/Documentation/devicetree/bindings/net/allwinner,sun4i-mdio.txt
+index 00b9f9a..4ec5641 100644
+--- a/Documentation/devicetree/bindings/net/allwinner,sun4i-mdio.txt
++++ b/Documentation/devicetree/bindings/net/allwinner,sun4i-mdio.txt
+@@ -1,7 +1,8 @@
+ * Allwinner A10 MDIO Ethernet Controller interface
  
- 		emac: ethernet@01c0b000 {
--			compatible = "allwinner,sun4i-emac";
-+			compatible = "allwinner,sun4i-a10-emac";
- 			reg = <0x01c0b000 0x1000>;
- 			interrupts = <55>;
- 			clocks = <&ahb_gates 17>;
-@@ -323,7 +323,7 @@
- 		};
+ Required properties:
+-- compatible: should be "allwinner,sun4i-mdio".
++- compatible: should be "allwinner,sun4i-a10-mdio"
++              (Deprecated: "allwinner,sun4i-mdio").
+ - reg: address and length of the register set for the device.
  
- 		mdio@01c0b080 {
--			compatible = "allwinner,sun4i-mdio";
-+			compatible = "allwinner,sun4i-a10-mdio";
- 			reg = <0x01c0b080 0x14>;
- 			status = "disabled";
- 			#address-cells = <1>;
-diff --git a/arch/arm/boot/dts/sun5i-a10s.dtsi b/arch/arm/boot/dts/sun5i-a10s.dtsi
-index ea16054..6496159 100644
---- a/arch/arm/boot/dts/sun5i-a10s.dtsi
-+++ b/arch/arm/boot/dts/sun5i-a10s.dtsi
-@@ -278,7 +278,7 @@
- 		ranges;
+ Optional properties:
+@@ -9,7 +10,7 @@ Optional properties:
  
- 		emac: ethernet@01c0b000 {
--			compatible = "allwinner,sun4i-emac";
-+			compatible = "allwinner,sun4i-a10-emac";
- 			reg = <0x01c0b000 0x1000>;
- 			interrupts = <55>;
- 			clocks = <&ahb_gates 17>;
-@@ -286,7 +286,7 @@
- 		};
+ Example at the SoC level:
+ mdio@01c0b080 {
+-	compatible = "allwinner,sun4i-mdio";
++	compatible = "allwinner,sun4i-a10-mdio";
+ 	reg = <0x01c0b080 0x14>;
+ 	#address-cells = <1>;
+ 	#size-cells = <0>;
+diff --git a/drivers/net/phy/mdio-sun4i.c b/drivers/net/phy/mdio-sun4i.c
+index 18969b3..7f4a66d 100644
+--- a/drivers/net/phy/mdio-sun4i.c
++++ b/drivers/net/phy/mdio-sun4i.c
+@@ -171,6 +171,9 @@ static int sun4i_mdio_remove(struct platform_device *pdev)
+ }
  
- 		mdio@01c0b080 {
--			compatible = "allwinner,sun4i-mdio";
-+			compatible = "allwinner,sun4i-a10-mdio";
- 			reg = <0x01c0b080 0x14>;
- 			status = "disabled";
- 			#address-cells = <1>;
-diff --git a/arch/arm/boot/dts/sun7i-a20.dtsi b/arch/arm/boot/dts/sun7i-a20.dtsi
-index 119f066..9ff0948 100644
---- a/arch/arm/boot/dts/sun7i-a20.dtsi
-+++ b/arch/arm/boot/dts/sun7i-a20.dtsi
-@@ -340,7 +340,7 @@
- 		ranges;
- 
- 		emac: ethernet@01c0b000 {
--			compatible = "allwinner,sun4i-emac";
-+			compatible = "allwinner,sun4i-a10-emac";
- 			reg = <0x01c0b000 0x1000>;
- 			interrupts = <0 55 4>;
- 			clocks = <&ahb_gates 17>;
-@@ -348,7 +348,7 @@
- 		};
- 
- 		mdio@01c0b080 {
--			compatible = "allwinner,sun4i-mdio";
-+			compatible = "allwinner,sun4i-a10-mdio";
- 			reg = <0x01c0b080 0x14>;
- 			status = "disabled";
- 			#address-cells = <1>;
+ static const struct of_device_id sun4i_mdio_dt_ids[] = {
++	{ .compatible = "allwinner,sun4i-a10-mdio" },
++
++	/* Deprecated */
+ 	{ .compatible = "allwinner,sun4i-mdio" },
+ 	{ }
+ };
 -- 
 1.8.4.2
