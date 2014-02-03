@@ -1,90 +1,87 @@
-From: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
-	<stefan.sorensen@spectralink.com>
-Subject: [PATCH] ptp: Allow selecting trigger/event index in testptp
-Date: Mon,  3 Feb 2014 15:36:27 +0100
-Message-ID: <1391438187-21834-1-git-send-email-stefan.sorensen@spectralink.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH] ipv6: default route for link local address is not added
+ while assigning a address
+Date: Mon, 03 Feb 2014 16:23:00 +0100
+Message-ID: <52EFB454.1040908@6wind.com>
+References: <52E8A2AA.3090507@linux.vnet.ibm.com> <52E8DA37.7010208@6wind.com> <20140130232909.GH25336@order.stressinduktion.org> <52EF42FF.60907@linux.vnet.ibm.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
-	<stefan.sorensen@spectralink.com>
-To: richardcochran@gmail.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 213083164162.static.sonofon.dk ([213.83.164.162]:60808 "EHLO
-	HORWDSPRD01.spectralink.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752222AbaBCOzo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Feb 2014 09:55:44 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Sohny Thomas <sthomas@linux.vnet.ibm.com>,
+	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
+	yoshfuji@linux-ipv6.org, davem@davemloft.net,
+	kumuda <kumuda@linux.vnet.ibm.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52EF42FF.60907@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently the trigger/event is hardcoded to 0, this patch adds
-a new command line argument -i to select an arbitrary trigger/
-event.
+Le 03/02/2014 08:19, Sohny Thomas a =C3=A9crit :
+>
+>> Actually I am not so sure, there is no defined semantic of flush. I =
+would
+>> be ok with all three solutions: leave it as is, always add link-loca=
+l
+>> address (it does not matter if we don't have a link-local address on
+It matters. This address is required.
+RFC 4291
+Section 2.1:
+    All interfaces are required to have at least one Link-Local unicast
+    address (see Section 2.8 for additional required addresses).
+Section 2.8:
+       o Its required Link-Local address for each interface.
 
-Signed-off-by: Stefan S=C3=B8rensen <stefan.sorensen@spectralink.com>
----
- Documentation/ptp/testptp.c | 13 +++++++++----
- 1 file changed, 9 insertions(+), 4 deletions(-)
+>> that interface, as a global scoped one is just fine enough) or make =
+flush not
+>> remove the link-local address (but this seems a bit too special case=
+d for me).
+>
+> 1) In case if we leave it as it is, there is rfc 6724 rule 2 to be co=
+nsidered (
+> previously rfc 3484)
+>
+> Rule 2: Prefer appropriate scope.
+>     If Scope(SA) < Scope(SB): If Scope(SA) < Scope(D), then prefer SB=
+ and
+>     otherwise prefer SA.  Similarly, if Scope(SB) < Scope(SA): If
+>     Scope(SB) < Scope(D), then prefer SA and otherwise prefer SB.
+>
+> Test:
+>
+>     Destination: fe80::2(LS)
+>      Candidate Source Addresses: 3ffe::1(GS) or fec0::1(SS) or LLA(LS=
+)
+>      Result: LLA(LS)
+>      Scope(LLA) < Scope(fec0::1): If Scope(LLA) < Scope(fe80::2),  no=
+, prefer LLA
+>      Scope(LLA) < Scope(3ffe::1): If Scope(LLA) < Scope(fe80::2),  no=
+, prefer LLA
+>
+>
+> Now the above test fails since the route itself is not present, and t=
+he test
+> assumes that the route gets added since the LLA is not removed during=
+ the test
+In your scenario, the link local route has been removed manually, not b=
+y the
+kernel. What is your network manager?
 
-diff --git a/Documentation/ptp/testptp.c b/Documentation/ptp/testptp.c
-index a74d0a8..04b21cd 100644
---- a/Documentation/ptp/testptp.c
-+++ b/Documentation/ptp/testptp.c
-@@ -123,7 +123,8 @@ static void usage(char *progname)
- 		" -P val     enable or disable (val=3D1|0) the system clock PPS\n"
- 		" -s         set the ptp clock time from the system time\n"
- 		" -S         set the system time from the ptp clock time\n"
--		" -t val     shift the ptp clock time by 'val' seconds\n",
-+		" -t val     shift the ptp clock time by 'val' seconds\n"
-+		" -i val     index for event/trigger\n",
- 		progname);
- }
-=20
-@@ -161,13 +162,14 @@ int main(int argc, char *argv[])
- 	int perout =3D -1;
- 	int pps =3D -1;
- 	int settime =3D 0;
-+	int index =3D 0;
-=20
- 	int64_t t1, t2, tp;
- 	int64_t interval, offset;
-=20
- 	progname =3D strrchr(argv[0], '/');
- 	progname =3D progname ? 1+progname : argv[0];
--	while (EOF !=3D (c =3D getopt(argc, argv, "a:A:cd:e:f:ghk:p:P:sSt:v")=
-)) {
-+	while (EOF !=3D (c =3D getopt(argc, argv, "a:A:cd:e:f:ghk:p:P:sSt:vi:=
-"))) {
- 		switch (c) {
- 		case 'a':
- 			oneshot =3D atoi(optarg);
-@@ -209,6 +211,9 @@ int main(int argc, char *argv[])
- 		case 't':
- 			adjtime =3D atoi(optarg);
- 			break;
-+		case 'i':
-+			index =3D atoi(optarg);
-+			break;
- 		case 'h':
- 			usage(progname);
- 			return 0;
-@@ -301,7 +306,7 @@ int main(int argc, char *argv[])
-=20
- 	if (extts) {
- 		memset(&extts_request, 0, sizeof(extts_request));
--		extts_request.index =3D 0;
-+		extts_request.index =3D index;
- 		extts_request.flags =3D PTP_ENABLE_FEATURE;
- 		if (ioctl(fd, PTP_EXTTS_REQUEST, &extts_request)) {
- 			perror("PTP_EXTTS_REQUEST");
-@@ -375,7 +380,7 @@ int main(int argc, char *argv[])
- 			return -1;
- 		}
- 		memset(&perout_request, 0, sizeof(perout_request));
--		perout_request.index =3D 0;
-+		perout_request.index =3D index;
- 		perout_request.start.sec =3D ts.tv_sec + 2;
- 		perout_request.start.nsec =3D 0;
- 		perout_request.period.sec =3D 0;
---=20
-1.8.5.3
+>
+> 2) having a LLA always helps in NDP i think
+A link-local Address yes, it's a MUST. But having only the link local r=
+oute will
+not help.
+
+>
+> 3) making flush not remove link-local address will be chnaging functi=
+onality of
+> ip flush command
+You can flush by specifying the prototype:
+ip -6 route flush proto static
+
+
+Regards,
+Nicolas
