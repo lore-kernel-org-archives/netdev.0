@@ -1,13 +1,13 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net 3/5] openvswitch: Fix ovs_dp_cmd_msg_size()
-Date: Sun,  2 Feb 2014 17:08:04 -0800
-Message-ID: <1391389686-34303-4-git-send-email-jesse@nicira.com>
+Subject: [PATCH net 4/5] openvswitch: Fix ovs_flow_free() ovs-lock
+	assert.
+Date: Sun,  2 Feb 2014 17:08:05 -0800
+Message-ID: <1391389686-34303-5-git-send-email-jesse@nicira.com>
 References: <1391389686-34303-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Daniele Di Proietto <daniele.di.proietto-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org
 To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 In-Reply-To: <1391389686-34303-1-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
@@ -22,30 +22,39 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Daniele Di Proietto <daniele.di.proietto-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 
-commit 43d4be9cb55f3bac5253e9289996fd9d735531db (openvswitch: Allow user space
-to announce ability to accept unaligned Netlink messages) introduced
-OVS_DP_ATTR_USER_FEATURES netlink attribute in datapath responses,
-but the attribute size was not taken into account in ovs_dp_cmd_msg_size().
+ovs_flow_free() is not called under ovs-lock during packet
+execute path (ovs_packet_cmd_execute()). Since packet execute
+does not touch flow->mask, there is no need to take that
+lock either. So move assert in case where flow->mask is checked.
 
-Signed-off-by: Daniele Di Proietto <daniele.di.proietto-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Found by code inspection.
+
+Signed-off-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
- net/openvswitch/datapath.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/openvswitch/flow_table.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index ea0b30f..8b392cc 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -1084,6 +1084,7 @@ static size_t ovs_dp_cmd_msg_size(void)
- 	msgsize += nla_total_size(IFNAMSIZ);
- 	msgsize += nla_total_size(sizeof(struct ovs_dp_stats));
- 	msgsize += nla_total_size(sizeof(struct ovs_dp_megaflow_stats));
-+	msgsize += nla_total_size(sizeof(u32)); /* OVS_DP_ATTR_USER_FEATURES */
+diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
+index bd14052..ad0bda0 100644
+--- a/net/openvswitch/flow_table.c
++++ b/net/openvswitch/flow_table.c
+@@ -158,11 +158,12 @@ void ovs_flow_free(struct sw_flow *flow, bool deferred)
+ 	if (!flow)
+ 		return;
  
- 	return msgsize;
- }
+-	ASSERT_OVSL();
+-
+ 	if (flow->mask) {
+ 		struct sw_flow_mask *mask = flow->mask;
+ 
++		/* ovs-lock is required to protect mask-refcount and
++		 * mask list. */
++		ASSERT_OVSL();
+ 		BUG_ON(!mask->ref_count);
+ 		mask->ref_count--;
+ 
 -- 
 1.8.3.2
