@@ -1,103 +1,100 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
 Subject: Re: TI CPSW Ethernet Tx performance regression
-Date: Tue, 4 Feb 2014 00:04:07 +0530
-Message-ID: <52EFE11F.5040605@ti.com>
-References: <1389790129-5721-1-git-send-email-mugunthanvnm@ti.com> <1389808467.11912.9.camel@bwh-desktop.uk.level5networks.com> <CAGVrzca+jeetqMbQ8NvVgddrjEuay+GWZjZadekV2-AiE4OLyw@mail.gmail.com> <52D77716.1020205@ti.com> <CAGVrzcbdDAAfFXjYc-ksxqxeJWeY_Jyh1DbwFiOW=p7WqRvzFQ@mail.gmail.com>
+Date: Mon, 3 Feb 2014 11:24:49 -0800
+Message-ID: <CAGVrzcY5jm+1+B1eqn4Li8K6ovDHCfKwuddqXHgLy_gFNs1KuA@mail.gmail.com>
+References: <1389790129-5721-1-git-send-email-mugunthanvnm@ti.com>
+ <1389808467.11912.9.camel@bwh-desktop.uk.level5networks.com>
+ <CAGVrzca+jeetqMbQ8NvVgddrjEuay+GWZjZadekV2-AiE4OLyw@mail.gmail.com> <52D77716.1020205@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	netdev <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Ben Hutchings <ben@decadent.org.uk>
+To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:34725 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753237AbaBCSeP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Feb 2014 13:34:15 -0500
-In-Reply-To: <CAGVrzcbdDAAfFXjYc-ksxqxeJWeY_Jyh1DbwFiOW=p7WqRvzFQ@mail.gmail.com>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:50433 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752975AbaBCTZa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Feb 2014 14:25:30 -0500
+Received: by mail-pd0-f171.google.com with SMTP id g10so7217882pdj.30
+        for <netdev@vger.kernel.org>; Mon, 03 Feb 2014 11:25:29 -0800 (PST)
+In-Reply-To: <52D77716.1020205@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
-
-On Friday 17 January 2014 05:05 AM, Florian Fainelli wrote:
-> Whenever I had bad TX performance with hardware, the culprit was that
-> transmit buffers were not freed quickly enough so the transmit
-> scheduler cannot push as many packets as expected. When this happens,
-> the root cause for me was bad TX interrupt which messed up the TX flow
-> control, but there are plenty other stuff that can go wrong.
+2014-01-15 Mugunthan V N <mugunthanvnm@ti.com>:
+> Hi
 >
-> You could try to check a few things like TX interrupt rate for the
-> same workload on both kernels, dump the queue usage every few seconds
-> etc...
+> On Thursday 16 January 2014 02:51 AM, Florian Fainelli wrote:
+>> 2014/1/15 Ben Hutchings <bhutchings@solarflare.com>:
+>>> On Wed, 2014-01-15 at 18:18 +0530, Mugunthan V N wrote:
+>>>> Hi
+>>>>
+>>>> I am seeing a performance regression with CPSW driver on AM335x EVM. AM335x EVM
+>>>> CPSW has 3.2 kernel support [1] and Mainline support from 3.7. When I am
+>>>> comparing the performance between 3.2 and 3.13-rc4. TCP receive performance of
+>>>> CPSW between 3.2 and 3.13-rc4 is same (~180Mbps) but TCP Transmit performance
+>>>> is poor comparing to 3.2 kernel. In 3.2 kernel is it *256Mbps* and in 3.13-rc4
+>>>> it is *70Mbps*
+>>>>
+>>>> Iperf version is *iperf version 2.0.5 (08 Jul 2010) pthreads* on both PC and EVM
+>>>>
+>>>> On UDP transmit also performance is down comparing to 3.2 kernel. In 3.2 it is
+>>>> 196Mbps for 200Mbps band width and in 3.13-rc4 it is 92Mbps
+>>>>
+>>>> Can someone point me out where can I look for improving Tx performance. I also
+>>>> checked whether there is Tx descriptor over flow and there is none. I have
+>>>> tries 3.11 and some older kernel, all are giving ~75Mbps Transmit performance
+>>>> only.
+>>>>
+>>>> [1] - http://arago-project.org/git/projects/?p=linux-am33x.git;a=summary
+>>> If you don't get any specific suggestions, you could try bisecting to
+>>> find out which specific commit(s) changed the performance.
+>> Not necessarily related to that issue, but there are a few
+>> weird/unusual things done in the CPSW interrupt handler:
+>>
+>> static irqreturn_t cpsw_interrupt(int irq, void *dev_id)
+>> {
+>>         struct cpsw_priv *priv = dev_id;
+>>
+>>         cpsw_intr_disable(priv);
+>>         if (priv->irq_enabled == true) {
+>>                 cpsw_disable_irq(priv);
+>>                 priv->irq_enabled = false;
+>>         }
+>>
+>>         if (netif_running(priv->ndev)) {
+>>                 napi_schedule(&priv->napi);
+>>                 return IRQ_HANDLED;
+>>         }
+>>
+>> Checking for netif_running() should not be required, you should not
+>> get any TX/RX interrupts if your interface is not running.
+>
+> The driver also supports Dual EMAC with one physical device. More
+> description can be found in [1] under the topic *9.2.1.5.2 Dual Mac
+> Mode*. If the first interface is down and the second interface is up,
+> without checking the interface we will not know which napi to schedule.
+>
+>>
+>>
+>>         priv = cpsw_get_slave_priv(priv, 1);
+>>         if (!priv)
+>>                 return IRQ_NONE;
+>>
+>> Should not this be moved up as the very first conditional check to do?
+>> is not there a risk to leave the interrupts disabled and not
+>> re-enabled due to the first 5 lines at the top?
+>
+> This has to be kept here to check if the interrupt is triggered by the
+> second Ethernet port interface when the first interface is down.
 
-I did a further analysis using oprofile and found some more info. In
-v3.2 kernel most of the time is spend in csum_partial_copy_from_user and
-cpdma_chan_submit which are in the path of tx but the dump in v3.12 cpu
-is held more in __do_softirq and __irq_put_desc_unlock. I think because
-of this Tx performance is affected. Since __do_softirq is used to invode
-NAPI, how to reduce its priority or is there any other code that I
-should be looking into?
+Ok,the priv pointer when we enter the interrupt handler could point to
+e.g: slave 0, so we need to get it re-assigned to the second slave
+using cpsw_get_slave_priv(). How do you ensure that "priv" at the
+beginning of the interrupt handler does not already point to slave 1?
+In that case, is not there a chance to starve slave 0, or at least
+cause an excessive latency by exiting the interrupt handler for slave
+1, and then re-entering it for slave 0?
 
-Pasting the O-Profile dump with iperf running in v3.2 and v3.12 kernel
-
-v3.2:
-====
-samples  %        app name                 symbol name
-33152     9.3792  vmlinux-3.2              csum_partial_copy_from_user
-23960     6.7786  vmlinux-3.2              cpdma_chan_submit
-19288     5.4569  vmlinux-3.2              __do_softirq
-13425     3.7981  vmlinux-3.2              __irq_put_desc_unlock
-11065     3.1305  vmlinux-3.2              tcp_packet
-8458      2.3929  vmlinux-3.2              __cpdma_chan_free
-8386      2.3725  vmlinux-3.2              cpdma_ctlr_int_ctrl
-7316      2.0698  vmlinux-3.2              __cpdma_chan_process
-5186      1.4672  vmlinux-3.2              tcp_transmit_skb
-5118      1.4480  vmlinux-3.2              ipt_do_table
-4954      1.4016  vmlinux-3.2              kfree
-4857      1.3741  vmlinux-3.2              nf_iterate
-4797      1.3571  vmlinux-3.2              tcp_ack
-4511      1.2762  vmlinux-3.2              __kmalloc
-4433      1.2542  vmlinux-3.2              v7_dma_inv_range
-4393      1.2428  vmlinux-3.2              nf_conntrack_in
-4069      1.1512  vmlinux-3.2              tcp_sendmsg
-3607      1.0205  vmlinux-3.2              local_bh_enable
-3148      0.8906  vmlinux-3.2              __memzero
-3127      0.8847  vmlinux-3.2              csum_partial
-2850      0.8063  vmlinux-3.2              __alloc_skb
-2825      0.7992  vmlinux-3.2              ip_queue_xmit
-2559      0.7240  vmlinux-3.2              tcp_write_xmit
-2399      0.6787  vmlinux-3.2              clocksource_read_cycles
-2091      0.5916  vmlinux-3.2              dev_hard_start_xmit
-
-
-v3.12:
-=====
-samples  %        app name                 symbol name
-9040     15.8034  vmlinux                  __do_softirq
-6410     11.2057  vmlinux                  __irq_put_desc_unlock
-3584      6.2654  vmlinux                  cpdma_chan_submit
-3250      5.6815  vmlinux                  csum_partial_copy_from_user
-3070      5.3669  vmlinux                  __cpdma_chan_process
-2894      5.0592  vmlinux                  resend_irqs
-2567      4.4875  vmlinux                  cpdma_ctlr_int_ctrl
-2214      3.8704  vmlinux                  mod_timer
-1922      3.3600  vmlinux                  lock_acquire
-1402      2.4509  vmlinux                  __cpdma_chan_free
-1063      1.8583  vmlinux                  local_bh_enable
-783       1.3688  vmlinux                  cpdma_check_free_tx_desc
-668       1.1678  vmlinux                  lock_is_held
-610       1.0664  vmlinux                  __kmalloc_track_caller
-584       1.0209  vmlinux                  lock_release
-559       0.9772  vmlinux                  kmem_cache_alloc
-557       0.9737  vmlinux                  kfree
-460       0.8042  vmlinux                  tcp_transmit_skb
-429       0.7500  vmlinux                  tcp_ack
-418       0.7307  vmlinux                  tcp_sendmsg
-378       0.6608  vmlinux                  kmem_cache_free
-366       0.6398  vmlinux                  ip_queue_xmit
-363       0.6346  vmlinux                  cache_alloc_refill
-351       0.6136  vmlinux                  sub_preempt_count
-347       0.6066  vmlinux                  napi_complete
-335       0.5856  vmlinux                  __alloc_skb
-311       0.5437  vmlinux                  ip_finish_output
+-- 
+Florian
