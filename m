@@ -1,64 +1,64 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH net 1/5] openvswitch: Pad
- OVS_PACKET_ATTR_PACKET if linear copy was performed
-Date: Mon, 03 Feb 2014 20:43:58 +0400
-Message-ID: <52EFC74E.8040906@cogentembedded.com>
-References: <1391389686-34303-1-git-send-email-jesse@nicira.com>
-	<1391389686-34303-2-git-send-email-jesse@nicira.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: usb interrupt storms from the ax88179 hardware
+Date: Mon, 3 Feb 2014 17:17:19 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6B7B42@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1391389686-34303-2-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev <netdev@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	Freddy Xin <freddy@asix.com.tw>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:51622 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751134AbaBCRSF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Feb 2014 12:18:05 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 28101-04 for <netdev@vger.kernel.org>;
+ Mon,  3 Feb 2014 17:18:00 +0000 (GMT)
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On one system (an amd motherboard with the ASMedia xhci controller)
+I'm seeing almost back to back USB (7 or 8 a second) 'interrupt'
+packets from an ax88179 Ge card.
+It may be that other systems behave similarly.
+I'm sure this hadn't used to happen!
 
-On 03-02-2014 5:08, Jesse Gross wrote:
+I don't know what the interrupt status means, the value (as LE u32)
+is 0x900a1 0xe1cd6d79
+The only bit the driver looks at is the 0x10000 bit in the first word.
+This is the 'link up/down' flag.
+The two halves of the second word are probably different fields, the
+high bits appear after about a second.
 
-> From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Now I'd guess that the driver ought to be doing something about some
+of these values. While in this mode transmits are delayed for anything
+upto 100ms, at least for some time they do get sent.
 
-> While the zerocopy method is correctly omitted if user space
-> does not support unaligned Netlink messages. The attribute is
-> still not padded correctly as skb_zerocopy() will not ensure
-> padding and the attribute size is no longer pre calculated
-> though nla_reserve() which ensured padding previously.
+However the processing of the 'link up/down' flag is clearly wrong.
+The code currently does:
 
-> This patch applies appropriate padding if a linear data copy
-> was performed in skb_zerocopy().
+348         event = urb->transfer_buffer;
+349         le32_to_cpus((void *)&event->intdata1);
+350 
+351         link = (((__force u32)event->intdata1) & AX_INT_PPLS_LINK) >> 16;
+352 
+353         if (netif_carrier_ok(dev->net) != link) {
+354                 usbnet_link_change(dev, link, 1);
+355                 netdev_info(dev->net, "ax88179 - Link status is: %d\n", link);
+356         }
 
-> Signed-off-by: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-> Acked-by: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-> ---
->   net/openvswitch/datapath.c | 7 ++++++-
->   1 file changed, 6 insertions(+), 1 deletion(-)
+Which ends up doing repeated calls to usbnet_link_change() and confusing
+that code a lot.
 
-> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-> index df46928..3ca9121 100644
-> --- a/net/openvswitch/datapath.c
-> +++ b/net/openvswitch/datapath.c
-[...]
-> @@ -466,6 +466,11 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
->
->   	skb_zerocopy(user_skb, skb, skb->len, hlen);
->
-> +	/* Pad OVS_PACKET_ATTR_PACKET if linear copy was performed */
-> +	if (!(dp->user_features & OVS_DP_F_UNALIGNED) &&
-> +	    (plen = (ALIGN(user_skb->len, NLA_ALIGNTO) - user_skb->len)) > 0)
+I presume there is some delay before the return value from netif_carrier_ok()
+matches the set state.
 
-    This shouldn't pass checkpatch.pl which complains about assignments inside 
-*if* statements.
+I think the code should be remembering the link state locally.
+It might also need to clear some other interrupt flags, only ASIX know
+what they mean.
 
-WBR, Sergei
+	David
