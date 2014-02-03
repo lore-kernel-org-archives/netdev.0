@@ -1,8 +1,8 @@
-From: Chen Gang <gang.chen.5i5j@gmail.com>
-Subject: Re: [PATCH] drivers: staging: lustre: lustre: include: add
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] drivers: staging: lustre: lustre: include: add
  "__attribute__((packed))" for the related union
-Date: Mon, 03 Feb 2014 18:03:17 +0800
-Message-ID: <52EF6965.6040406@gmail.com>
+Date: Mon, 3 Feb 2014 10:05:14 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6B772B@AcuExch.aculab.com>
 References: <20140118142404.GT7444@mwanda> <52DBA3D4.3090308@gmail.com>
  <52DD0EFF.2010305@imgtec.com> <20140120123045.GV7444@mwanda>
  <52DD18A5.1090308@imgtec.com> <20140120125603.GD4815@mwanda>
@@ -10,34 +10,34 @@ References: <20140118142404.GT7444@mwanda> <52DBA3D4.3090308@gmail.com>
  <52E3A642.7010307@gmail.com> <52ECFD53.7010401@gmail.com>
  <20140203085855.GA26722@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, James Hogan <james.hogan@imgtec.com>,
- andreas.dilger@intel.com, jinshan.xiong@intel.com,
- Greg KH <gregkh@linuxfoundation.org>, bergwolf@gmail.com,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- linux-metag@vger.kernel.org, oleg.drokin@intel.com,
- jacques-charles.lafoucriere@cea.fr, Antonio Quartulli <antonio@meshcoding.com>,
- netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: James Hogan <james.hogan@imgtec.com>,
+	"devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
+	"andreas.dilger@intel.com" <andreas.dilger@intel.com>,
+	Antonio Quartulli <antonio@meshcoding.com>,
+	"Greg KH" <gregkh@linuxfoundation.org>,
+	"bergwolf@gmail.com" <bergwolf@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"oleg.drokin@intel.com" <oleg.drokin@intel.com>,
+	"jacques-charles.lafoucriere@cea.fr"
+	<jacques-charles.lafoucriere@cea.fr>,
+	"jinshan.xiong@intel.com" <jinshan.xiong@intel.com>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-metag@vger.kernel.org" <linux-metag@vger.kernel.org>
+To: 'Dan Carpenter' <dan.carpenter@oracle.com>,
+	Chen Gang <gang.chen.5i5j@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20140203085855.GA26722@mwanda>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/03/2014 04:58 PM, Dan Carpenter wrote:
+From: Dan Carpenter
 > On Sat, Feb 01, 2014 at 09:57:39PM +0800, Chen Gang wrote:
->> It seems, our kernel still stick to treate 'pack' region have effect
->> with both 'align' and 'sizeof'.
->>
+> > It seems, our kernel still stick to treate 'pack' region have effect
+> > with both 'align' and 'sizeof'.
 > 
 > It's not about packed regions.  It's about unions.  It's saying the
 > sizeof() a union is a multiple of 4 unless it's packed.
@@ -49,25 +49,13 @@ On 02/03/2014 04:58 PM, Dan Carpenter wrote:
 > 
 > The author intended the sizeof(union foo) to be 2 but on metag arch then
 > it is 4.
-> 
 
-Yeah, just like your original discussion.  :-)
+The same is probably be true of: struct foo { _u16 bar; };
 
+Architectures that define such alignment rules are a right PITA.
+You either need to get the size to 2 without using 'packed', or
+just not define such structures.
+It is worth seeing if adding aligned(2) will change the size - I'm
+not sure.
 
-Hmm... can we say: "for metag compiler, in a pack region, it considers
-variables alignment, but does not consider about struct/union alignment
-(except append packed to each related struct/union)".
-
-For compatible (consider about its ABI), it has to keep this features,
-but for kernel, it needs be changed.
-
-So, I suggest to add one parameter to compiler to switch this feature,
-and append this parameter to KBUILD_CFLAGS in "arch/metag/Makefile"
-which can satisfy both ABI and kernel.
-
-
-Thanks.
--- 
-Chen Gang
-
-Open, share and attitude like air, water and life which God blessed
+	David
