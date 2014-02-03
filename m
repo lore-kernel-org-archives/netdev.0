@@ -1,44 +1,34 @@
-From: James Hogan <james.hogan@imgtec.com>
-Subject: Re: [PATCH] drivers: staging: lustre: lustre: include: add
- "__attribute__((packed))" for the related union
-Date: Mon, 3 Feb 2014 10:22:04 +0000
-Message-ID: <52EF6DCC.6040807@imgtec.com>
-References: <20140118142404.GT7444@mwanda> <52DBA3D4.3090308@gmail.com>
- <52DD0EFF.2010305@imgtec.com> <20140120123045.GV7444@mwanda>
- <52DD18A5.1090308@imgtec.com> <20140120125603.GD4815@mwanda>
- <20140120211356.GG4815@mwanda> <52DE4DA3.7090301@imgtec.com>
- <52E3A642.7010307@gmail.com> <52ECFD53.7010401@gmail.com>
- <20140203085855.GA26722@mwanda>
- <063D6719AE5E284EB5DD2968C1650D6D0F6B772B@AcuExch.aculab.com>
+From: Chen Gang <gang.chen.5i5j-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] drivers: staging: lustre: lustre: include: add "__attribute__((packed))"
+ for the related union
+Date: Mon, 03 Feb 2014 18:25:41 +0800
+Message-ID: <52EF6EA5.1050701@gmail.com>
+References: <20140118142404.GT7444@mwanda> <52DBA3D4.3090308@gmail.com> <52DD0EFF.2010305@imgtec.com> <20140120123045.GV7444@mwanda> <52DD18A5.1090308@imgtec.com> <20140120125603.GD4815@mwanda> <20140120211356.GG4815@mwanda> <52DE4DA3.7090301@imgtec.com> <52E3A642.7010307@gmail.com> <52ECFD53.7010401@gmail.com> <20140203085855.GA26722@mwanda> <063D6719AE5E284EB5DD2968C1650D6D0F6B772B@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: "devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
- "andreas.dilger@intel.com" <andreas.dilger@intel.com>,
- Chen Gang <gang.chen.5i5j@gmail.com>, Greg KH <gregkh@linuxfoundation.org>,
- "bergwolf@gmail.com" <bergwolf@gmail.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "linux-metag@vger.kernel.org" <linux-metag@vger.kernel.org>,
- "oleg.drokin@intel.com" <oleg.drokin@intel.com>,
- "jacques-charles.lafoucriere@cea.fr" <jacques-charles.lafoucriere@cea.fr>,
- Antonio Quartulli <antonio@meshcoding.com>, netdev <netdev@vger.kernel.org>,
- "jinshan.xiong@intel.com" <jinshan.xiong@intel.com>,
- David Miller <davem@davemloft.net>, 'Dan Carpenter' <dan.carpenter@oracle.com>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6B772B@AcuExch.aculab.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Cc: 'Dan Carpenter' <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	James Hogan <james.hogan-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>,
+	"devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org" <devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org>,
+	"andreas.dilger-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <andreas.dilger-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>,
+	Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	"bergwolf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <bergwolf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"oleg.drokin-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <oleg.drokin-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"jacques-charles.lafoucriere-KCE40YydGKI@public.gmane.org"
+	<jacques-charles.lafoucriere-KCE40YydGKI@public.gmane.org>,
+	"jinshan.xiong-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <jinshan.xiong-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Return-path: <linux-metag-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6B772B-VkEWCZq2GCInGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
+Sender: linux-metag-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 03/02/14 10:05, David Laight wrote:
+On 02/03/2014 06:05 PM, David Laight wrote:
 > From: Dan Carpenter
 >> On Sat, Feb 01, 2014 at 09:57:39PM +0800, Chen Gang wrote:
 >>> It seems, our kernel still stick to treate 'pack' region have effect
@@ -56,21 +46,43 @@ On 03/02/14 10:05, David Laight wrote:
 >> it is 4.
 > 
 > The same is probably be true of: struct foo { _u16 bar; };
+> 
 
-Yes indeed.
+I guess so.
+
 
 > Architectures that define such alignment rules are a right PITA.
+
+Sorry, I do not know about PITA (after google or wiki, I can not get
+more related information).
+
+Could you provide more information about PITA, thanks?
+
+
 > You either need to get the size to 2 without using 'packed', or
 > just not define such structures.
+
+Excuse me, I don't quite understand your meaning. I guess your meaning
+is:
+
+  "normally, we should not use a struct/union like that, no matter what it is (2 or 4)".
+
+Is it correct.
+
+
 > It is worth seeing if adding aligned(2) will change the size - I'm
 > not sure.
+> 
 
-__aligned(2) alone doesn't seem to have any effect on sizeof() or
-__alignof__() unless it is accompanied by __packed. x86_64 is similar in
-that respect (it just packs sanely in the first place).
+Yes, it will/should make sure that it must be 2.
 
-Combining __packed with __aligned(2) does the trick though (__packed
-alone sets __aligned(1) which is obviously going to be suboptimal).
 
-Cheers
-James
+Thanks.
+-- 
+Chen Gang
+
+Open, share and attitude like air, water and life which God blessed
+--
+To unsubscribe from this list: send the line "unsubscribe linux-metag" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
