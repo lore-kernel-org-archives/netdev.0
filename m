@@ -1,8 +1,8 @@
 From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next 01/13] sfc: Removed adhoc scheme to rate limit PTP
- event queue overflow message
-Date: Mon, 3 Feb 2014 23:33:23 +0000
-Message-ID: <52F02743.6000206@solarflare.com>
+Subject: [PATCH net-next 02/13] sfc: Cache skb->data in local variable in
+ efx_ptp_rx()
+Date: Mon, 3 Feb 2014 23:33:37 +0000
+Message-ID: <52F02751.9000600@solarflare.com>
 References: <52F02469.50302@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
@@ -10,97 +10,92 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:8147 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:8154 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753968AbaBCXd1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Feb 2014 18:33:27 -0500
+	with ESMTP id S1754214AbaBCXdk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Feb 2014 18:33:40 -0500
 In-Reply-To: <52F02469.50302@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Laurence Evans <levans@solarflare.com>
-
-Use conventional net_ratelimit() instead.
+From: Ben Hutchings <bhutchings@solarflare.com>
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 Signed-off-by: Shradha Shah <sshah@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ptp.c |   22 ++--------------------
- 1 files changed, 2 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/sfc/ptp.c |   23 +++++++++++++----------
+ 1 files changed, 13 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
-index eb75fbd..52be63d 100644
+index 52be63d..7d0de50 100644
 --- a/drivers/net/ethernet/sfc/ptp.c
 +++ b/drivers/net/ethernet/sfc/ptp.c
-@@ -223,7 +223,6 @@ struct efx_ptp_timeset {
-  * @evt_list: List of MC receive events awaiting packets
-  * @evt_free_list: List of free events
-  * @evt_lock: Lock for manipulating evt_list and evt_free_list
-- * @evt_overflow: Boolean indicating that event list has overflowed
-  * @rx_evts: Instantiated events (on evt_list and evt_free_list)
-  * @workwq: Work queue for processing pending PTP operations
-  * @work: Work task
-@@ -275,7 +274,6 @@ struct efx_ptp_data {
- 	struct list_head evt_list;
- 	struct list_head evt_free_list;
- 	spinlock_t evt_lock;
--	bool evt_overflow;
- 	struct efx_ptp_event_rx rx_evts[MAX_RECEIVE_EVENTS];
- 	struct workqueue_struct *workwq;
- 	struct work_struct work;
-@@ -941,11 +939,6 @@ static void efx_ptp_drop_time_expired_events(struct efx_nic *efx)
- 			}
+@@ -1366,6 +1366,7 @@ static bool efx_ptp_rx(struct efx_channel *channel, struct sk_buff *skb)
+ 	struct efx_ptp_match *match = (struct efx_ptp_match *)skb->cb;
+ 	u8 *match_data_012, *match_data_345;
+ 	unsigned int version;
++	u8 *data;
+ 
+ 	match->expiry = jiffies + msecs_to_jiffies(PKT_EVENT_LIFETIME_MS);
+ 
+@@ -1374,7 +1375,8 @@ static bool efx_ptp_rx(struct efx_channel *channel, struct sk_buff *skb)
+ 		if (!pskb_may_pull(skb, PTP_V1_MIN_LENGTH)) {
+ 			return false;
+ 		}
+-		version = ntohs(*(__be16 *)&skb->data[PTP_V1_VERSION_OFFSET]);
++		data = skb->data;
++		version = ntohs(*(__be16 *)&data[PTP_V1_VERSION_OFFSET]);
+ 		if (version != PTP_VERSION_V1) {
+ 			return false;
+ 		}
+@@ -1382,13 +1384,14 @@ static bool efx_ptp_rx(struct efx_channel *channel, struct sk_buff *skb)
+ 		/* PTP V1 uses all six bytes of the UUID to match the packet
+ 		 * to the timestamp
+ 		 */
+-		match_data_012 = skb->data + PTP_V1_UUID_OFFSET;
+-		match_data_345 = skb->data + PTP_V1_UUID_OFFSET + 3;
++		match_data_012 = data + PTP_V1_UUID_OFFSET;
++		match_data_345 = data + PTP_V1_UUID_OFFSET + 3;
+ 	} else {
+ 		if (!pskb_may_pull(skb, PTP_V2_MIN_LENGTH)) {
+ 			return false;
+ 		}
+-		version = skb->data[PTP_V2_VERSION_OFFSET];
++		data = skb->data;
++		version = data[PTP_V2_VERSION_OFFSET];
+ 		if ((version & PTP_VERSION_V2_MASK) != PTP_VERSION_V2) {
+ 			return false;
+ 		}
+@@ -1400,17 +1403,17 @@ static bool efx_ptp_rx(struct efx_channel *channel, struct sk_buff *skb)
+ 		 * enhanced mode fixes this issue and uses bytes 0-2
+ 		 * and byte 5-7 of the UUID.
+ 		 */
+-		match_data_345 = skb->data + PTP_V2_UUID_OFFSET + 5;
++		match_data_345 = data + PTP_V2_UUID_OFFSET + 5;
+ 		if (ptp->mode == MC_CMD_PTP_MODE_V2) {
+-			match_data_012 = skb->data + PTP_V2_UUID_OFFSET + 2;
++			match_data_012 = data + PTP_V2_UUID_OFFSET + 2;
+ 		} else {
+-			match_data_012 = skb->data + PTP_V2_UUID_OFFSET + 0;
++			match_data_012 = data + PTP_V2_UUID_OFFSET + 0;
+ 			BUG_ON(ptp->mode != MC_CMD_PTP_MODE_V2_ENHANCED);
  		}
  	}
--	/* If the event overflow flag is set and the event list is now empty
--	 * clear the flag to re-enable the overflow warning message.
--	 */
--	if (ptp->evt_overflow && list_empty(&ptp->evt_list))
--		ptp->evt_overflow = false;
- 	spin_unlock_bh(&ptp->evt_lock);
- }
  
-@@ -989,11 +982,6 @@ static enum ptp_packet_state efx_ptp_match_rx(struct efx_nic *efx,
- 			break;
- 		}
- 	}
--	/* If the event overflow flag is set and the event list is now empty
--	 * clear the flag to re-enable the overflow warning message.
--	 */
--	if (ptp->evt_overflow && list_empty(&ptp->evt_list))
--		ptp->evt_overflow = false;
- 	spin_unlock_bh(&ptp->evt_lock);
+ 	/* Does this packet require timestamping? */
+-	if (ntohs(*(__be16 *)&skb->data[PTP_DPORT_OFFSET]) == PTP_EVENT_PORT) {
++	if (ntohs(*(__be16 *)&data[PTP_DPORT_OFFSET]) == PTP_EVENT_PORT) {
+ 		match->state = PTP_PACKET_STATE_UNMATCHED;
  
- 	return rc;
-@@ -1147,7 +1135,6 @@ static int efx_ptp_stop(struct efx_nic *efx)
- 	list_for_each_safe(cursor, next, &efx->ptp_data->evt_list) {
- 		list_move(cursor, &efx->ptp_data->evt_free_list);
- 	}
--	ptp->evt_overflow = false;
- 	spin_unlock_bh(&efx->ptp_data->evt_lock);
- 
- 	return rc;
-@@ -1253,7 +1240,6 @@ int efx_ptp_probe(struct efx_nic *efx, struct efx_channel *channel)
- 	spin_lock_init(&ptp->evt_lock);
- 	for (pos = 0; pos < MAX_RECEIVE_EVENTS; pos++)
- 		list_add(&ptp->rx_evts[pos].link, &ptp->evt_free_list);
--	ptp->evt_overflow = false;
- 
- 	/* Get the NIC PTP attributes and set up time conversions */
- 	rc = efx_ptp_get_attributes(efx);
-@@ -1635,13 +1621,9 @@ static void ptp_event_rx(struct efx_nic *efx, struct efx_ptp_data *ptp)
- 		list_add_tail(&evt->link, &ptp->evt_list);
- 
- 		queue_work(ptp->workwq, &ptp->work);
--	} else if (!ptp->evt_overflow) {
--		/* Log a warning message and set the event overflow flag.
--		 * The message won't be logged again until the event queue
--		 * becomes empty.
--		 */
-+	} else if (net_ratelimit()) {
-+		/* Log a rate-limited warning message. */
- 		netif_err(efx, rx_err, efx->net_dev, "PTP event queue overflow\n");
--		ptp->evt_overflow = true;
- 	}
- 	spin_unlock_bh(&ptp->evt_lock);
- }
+ 		/* We expect the sequence number to be in the same position in
+@@ -1426,8 +1429,8 @@ static bool efx_ptp_rx(struct efx_channel *channel, struct sk_buff *skb)
+ 				   (match_data_345[0] << 24));
+ 		match->words[1] = (match_data_345[1]         |
+ 				   (match_data_345[2] << 8)  |
+-				   (skb->data[PTP_V1_SEQUENCE_OFFSET +
+-					      PTP_V1_SEQUENCE_LENGTH - 1] <<
++				   (data[PTP_V1_SEQUENCE_OFFSET +
++					 PTP_V1_SEQUENCE_LENGTH - 1] <<
+ 				    16));
+ 	} else {
+ 		match->state = PTP_PACKET_STATE_MATCH_UNWANTED;
