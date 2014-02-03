@@ -1,102 +1,72 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [Xen-devel] [PATCH v6] xen/grant-table: Avoid m2p_override
- during mapping
-Date: Mon, 3 Feb 2014 06:50:40 -0500
-Message-ID: <20140203115040.GB3400@phenom.dumpdata.com>
-References: <1390512224-27296-1-git-send-email-zoltan.kiss@citrix.com>
- <alpine.DEB.2.02.1401232333280.15917@kaball.uk.xensource.com>
- <52EE1E26.2040308@linaro.org>
- <52EE93F0.1020508@citrix.com>
- <52EF7618.7030402@citrix.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] drivers: staging: lustre: lustre: include: add
+ "__attribute__((packed))" for the related union
+Date: Mon, 3 Feb 2014 11:54:59 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6B77F1@AcuExch.aculab.com>
+References: <20140118142404.GT7444@mwanda> <52DBA3D4.3090308@gmail.com>
+ <52DD0EFF.2010305@imgtec.com> <20140120123045.GV7444@mwanda>
+ <52DD18A5.1090308@imgtec.com> <20140120125603.GD4815@mwanda>
+ <20140120211356.GG4815@mwanda> <52DE4DA3.7090301@imgtec.com>
+ <52E3A642.7010307@gmail.com> <52ECFD53.7010401@gmail.com>
+ <20140203085855.GA26722@mwanda>
+ <063D6719AE5E284EB5DD2968C1650D6D0F6B772B@AcuExch.aculab.com>
+ <52EF6DCC.6040807@imgtec.com>
+ <063D6719AE5E284EB5DD2968C1650D6D0F6B777A@AcuExch.aculab.com>
+ <52EF7762.2060809@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>, jonathan.davies@citrix.com,
-	wei.liu2@citrix.com, ian.campbell@citrix.com,
-	Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
-	netdev@vger.kernel.org, Julien Grall <julien.grall@linaro.org>,
-	linux-kernel@vger.kernel.org, xen-devel@lists.xenproject.org
-To: David Vrabel <david.vrabel@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <52EF7618.7030402@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
+ "andreas.dilger@intel.com" <andreas.dilger@intel.com>,
+ Chen Gang <gang.chen.5i5j@gmail.com>, Greg KH <gregkh@linuxfoundation.org>,
+ "bergwolf@gmail.com" <bergwolf@gmail.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "linux-metag@vger.kernel.org" <linux-metag@vger.kernel.org>,
+ "oleg.drokin@intel.com" <oleg.drokin@intel.com>,
+ "jacques-charles.lafoucriere@cea.fr" <jacques-charles.lafoucriere@cea.fr>,
+ Antonio Quartulli <antonio@meshcoding.com>, netdev <netdev@vger.kernel.org>,
+ "jinshan.xiong@intel.com" <jinshan.xiong@intel.com>,
+ David Miller <davem@davemloft.net>, 'Dan Carpenter' <dan.carpenter@oracle.com>
+To: 'James Hogan' <james.hogan@imgtec.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <52EF7762.2060809@imgtec.com>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 03, 2014 at 10:57:28AM +0000, David Vrabel wrote:
-> On 02/02/14 18:52, Zoltan Kiss wrote:
-> > On 02/02/14 11:29, Julien Grall wrote:
-> >> Hello,
-> >>
-> >> This patch is breaking Linux compilation on ARM:
-> >>
-> >> drivers/xen/grant-table.c: In function =E2=80=98__gnttab_map_refs=E2=
-=80=99:
-> >> drivers/xen/grant-table.c:989:3: error: implicit declaration of
-> >> function =E2=80=98FOREIGN_FRAME=E2=80=99 [-Werror=3Dimplicit-funct=
-ion-declaration]
-> >>     if (unlikely(!set_phys_to_machine(pfn, FOREIGN_FRAME(mfn)))) {
-> >>     ^
-> >> drivers/xen/grant-table.c: In function =E2=80=98__gnttab_unmap_ref=
-s=E2=80=99:
-> >> drivers/xen/grant-table.c:1054:3: error: implicit declaration of
-> >> function =E2=80=98get_phys_to_machine=E2=80=99 [-Werror=3Dimplicit=
--function-declaration]
-> >>     mfn =3D get_phys_to_machine(pfn);
-> >>     ^
-> >> drivers/xen/grant-table.c:1055:43: error: =E2=80=98FOREIGN_FRAME_B=
-IT=E2=80=99
-> >> undeclared (first use in this function)
-> >>     if (mfn =3D=3D INVALID_P2M_ENTRY || !(mfn & FOREIGN_FRAME_BIT)=
-) {
-> >>                                             ^
-> >> drivers/xen/grant-table.c:1055:43: note: each undeclared identifie=
-r is
-> >> reported only once for each function it appears in
-> >> drivers/xen/grant-table.c:1068:9: error: too many arguments to
-> >> function =E2=80=98m2p_remove_override=E2=80=99
-> >>           mfn);
-> >>           ^
-> >> In file included from include/xen/page.h:4:0,
-> >>                   from drivers/xen/grant-table.c:48:
-> >> /local/home/julien/works/midway/linux/arch/arm/include/asm/xen/pag=
-e.h:106:19:
-> >> note: declared here
-> >>   static inline int m2p_remove_override(struct page *page, bool
-> >> clear_pte)
-> >>                     ^
-> >> cc1: some warnings being treated as errors
-> >=20
-> > Hi,
-> >=20
-> > That's bad indeed. I think the best solution is to put those parts
-> > behind an #ifdef x86. The ones moved from x86/p2m.c to grant-table.=
-c.
-> > David, Stefano, what do you think?
->=20
-> I don't think we want (more) #ifdef CONFIG_X86 in grant-table.c and t=
-he
-> arch-specific bits will have to factored out into their own functions
-> with suitable stubs provided for ARM.
->=20
-> But, this patch went in late and it's clearly not ready. So I think i=
-t
-> should be reverted and we should aim to get it sorted out for 3.15.
->=20
-> Konrad/Stefano (if you agree) please revert
-> 08ece5bb2312b4510b161a6ef6682f37f4eac8a1 and send a pull request.
+From: James Hogan
+> On 03/02/14 10:35, David Laight wrote:
+> > From: James Hogan
+> >> Combining __packed with __aligned(2) does the trick though (__packed
+> >> alone sets __aligned(1) which is obviously going to be suboptimal).
+...
+> 
+> Meta is also one of those arches, and according to my quick tests,
+> __packed alone does correctly make it fall back to byte loads/stores,
+> but with __packed __aligned(2) it uses 16bit loads/stores. I've also
+> confirmed that with an ARM toolchain (see below for example).
 
-OK, queued up. I also put on the xen/cr4 patch on the queue - just sent
-an email with it.
+I would either:
+1a) Add explicit padding to the relevant structures so that they are
+   multiple of 4 bytes.
+or:
+1b) #define some token to "__packed __aligned(2)" before all the structures
+   that require changing, and use that in there definitions.
+   This lets you comment on WHY you are doing it.
+and:
+2) Add a compile-time assert that the structures are the correct size.
 
->=20
-> Konrad, I also think you should look at adding an ARM build to your t=
-est
-> system (I thought you had this already).
->=20
-> David
->=20
-> _______________________________________________
-> Xen-devel mailing list
-> Xen-devel@lists.xen.org
-> http://lists.xen.org/xen-devel
+Clearly you don't want to mark anything that contains a 32bit value
+with __packed __aligned(2).
+
+I'm not at all clear whether you are sometimes using a different compiler.
+
+	David
