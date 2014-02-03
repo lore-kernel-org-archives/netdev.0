@@ -1,65 +1,53 @@
-From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Subject: [PATCH 1/3] net: ethernet: sunxi: Add new compatibles
-Date: Sun,  2 Feb 2014 14:49:11 +0100
-Message-ID: <1391348953-10662-1-git-send-email-maxime.ripard@free-electrons.com>
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Maxime Ripard <maxime.ripard@free-electrons.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:49898 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751577AbaBCIaJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Feb 2014 03:30:09 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH] drivers: staging: lustre: lustre: include: add
+ "__attribute__((packed))" for the related union
+Date: Mon, 3 Feb 2014 11:58:55 +0300
+Message-ID: <20140203085855.GA26722@mwanda>
+References: <20140118142404.GT7444@mwanda> <52DBA3D4.3090308@gmail.com>
+ <52DD0EFF.2010305@imgtec.com> <20140120123045.GV7444@mwanda>
+ <52DD18A5.1090308@imgtec.com> <20140120125603.GD4815@mwanda>
+ <20140120211356.GG4815@mwanda> <52DE4DA3.7090301@imgtec.com>
+ <52E3A642.7010307@gmail.com> <52ECFD53.7010401@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, James Hogan <james.hogan@imgtec.com>,
+ andreas.dilger@intel.com, jinshan.xiong@intel.com,
+ Greg KH <gregkh@linuxfoundation.org>, bergwolf@gmail.com,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ linux-metag@vger.kernel.org, oleg.drokin@intel.com,
+ jacques-charles.lafoucriere@cea.fr, Antonio Quartulli <antonio@meshcoding.com>,
+ netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Chen Gang <gang.chen.5i5j@gmail.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <52ECFD53.7010401@gmail.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-The Allwinner A10 compatibles were following a slightly different compatible
-patterns than the rest of the SoCs for historical reasons. Add compatibles
-matching the other pattern to the ethernet driver for consistency, and keep the
-older one for backward compatibility.
+On Sat, Feb 01, 2014 at 09:57:39PM +0800, Chen Gang wrote:
+> It seems, our kernel still stick to treate 'pack' region have effect
+> with both 'align' and 'sizeof'.
+> 
 
-Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
----
- Documentation/devicetree/bindings/net/allwinner,sun4i-emac.txt | 5 +++--
- drivers/net/ethernet/allwinner/sun4i-emac.c                    | 3 +++
- 2 files changed, 6 insertions(+), 2 deletions(-)
+It's not about packed regions.  It's about unions.  It's saying the
+sizeof() a union is a multiple of 4 unless it's packed.
 
-diff --git a/Documentation/devicetree/bindings/net/allwinner,sun4i-emac.txt b/Documentation/devicetree/bindings/net/allwinner,sun4i-emac.txt
-index b90bfcd..863d5b81 100644
---- a/Documentation/devicetree/bindings/net/allwinner,sun4i-emac.txt
-+++ b/Documentation/devicetree/bindings/net/allwinner,sun4i-emac.txt
-@@ -1,7 +1,8 @@
- * Allwinner EMAC ethernet controller
- 
- Required properties:
--- compatible: should be "allwinner,sun4i-emac".
-+- compatible: should be "allwinner,sun4i-a10-emac" (Deprecated:
-+              "allwinner,sun4i-emac")
- - reg: address and length of the register set for the device.
- - interrupts: interrupt for the device
- - phy: A phandle to a phy node defining the PHY address (as the reg
-@@ -14,7 +15,7 @@ Optional properties:
- Example:
- 
- emac: ethernet@01c0b000 {
--       compatible = "allwinner,sun4i-emac";
-+       compatible = "allwinner,sun4i-a10-emac";
-        reg = <0x01c0b000 0x1000>;
-        interrupts = <55>;
-        clocks = <&ahb_gates 17>;
-diff --git a/drivers/net/ethernet/allwinner/sun4i-emac.c b/drivers/net/ethernet/allwinner/sun4i-emac.c
-index 46dfb13..6673106 100644
---- a/drivers/net/ethernet/allwinner/sun4i-emac.c
-+++ b/drivers/net/ethernet/allwinner/sun4i-emac.c
-@@ -930,6 +930,9 @@ static int emac_resume(struct platform_device *dev)
- }
- 
- static const struct of_device_id emac_of_match[] = {
-+	{.compatible = "allwinner,sun4i-a10-emac",},
-+
-+	/* Deprecated */
- 	{.compatible = "allwinner,sun4i-emac",},
- 	{},
- };
--- 
-1.8.4.2
+union foo {
+	short x;
+	short y;
+};
+
+The author intended the sizeof(union foo) to be 2 but on metag arch then
+it is 4.
+
+regards,
+dan carpenter
