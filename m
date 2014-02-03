@@ -1,44 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ip_tunnel: fix panic in ip_tunnel_xmit()
-Date: Mon, 03 Feb 2014 13:03:09 -0800 (PST)
-Message-ID: <20140203.130309.1340651554312620948.davem@davemloft.net>
-References: <CA+ydwtpmFbhkck9z8G7tfHQZW+4rWSepQMgPURqVCwrZ77v2bA@mail.gmail.com>
-	<CA+ydwto5CTDSED=pZ_DfAZyh6Jx7xKJafRuDFUtV4ZZCb70ULA@mail.gmail.com>
-	<1391460734.28432.111.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RFC PATCH] openvswitch: Use net_ratelimit in
+	OVS_NLERR
+Date: Mon, 3 Feb 2014 13:46:37 -0800
+Message-ID: <CAEP_g=_vvSPLt76VUE66XHJtgCW_05acn-r77PfkJFWBkT0S2A@mail.gmail.com>
+References: <1391389686-34303-1-git-send-email-jesse@nicira.com>
+	<1391389686-34303-6-git-send-email-jesse@nicira.com>
+	<1391410526.2784.9.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: tt.rantala@gmail.com, netdev@vger.kernel.org, davej@redhat.com,
-	trinity@vger.kernel.org, linux-kernel@vger.kernel.org,
-	therbert@google.com, maze@google.com
-To: eric.dumazet@gmail.com
-Return-path: <trinity-owner@vger.kernel.org>
-In-Reply-To: <1391460734.28432.111.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: trinity-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org" <dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org>
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1391410526.2784.9.camel@joe-AO722>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 03 Feb 2014 12:52:14 -0800
+On Sun, Feb 2, 2014 at 10:55 PM, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> wrote:
+> Perhaps it'd make sense to use net_ratelimit()
+> instead of printk_once for OVS_NLERR
 
-> From: Eric Dumazet <edumazet@google.com>
->=20
-> Setting rt variable to NULL at the beginning of ip_tunnel_xmit()
-> missed possible use of this variable as a scratch value.
->=20
-> Also fixes a possible dst leak in tunnel_dst_check() :
-> If we had to call tunnel_dst_reset(), we forgot to
-> release the reference on dst.
->=20
-> Merges tunnel_dst_get()/tunnel_dst_check() into
-> a single tunnel_rtable_get() function for clarity.
->=20
-> Many thanks to Tommi for his report and tests.
->=20
-> Fixes: 7d442fab0a67 ("ipv4: Cache dst in tunnels)"
-> Reported-by: Tommi Rantala <tt.rantala@gmail.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Tested-by: Tommi Rantala <tt.rantala@gmail.com>
-> Cc: Tom Herbert <therbert@google.com>
-> Cc: Maciej =AFenczykowski <maze@google.com>
-
-Applied, thanks Eric.
+I guess I could see it going either way but I'm not sure I see a
+strong argument for changing.
