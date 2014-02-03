@@ -1,64 +1,69 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: usb interrupt storms from the ax88179 hardware
-Date: Mon, 3 Feb 2014 17:17:19 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6B7B42@AcuExch.aculab.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Requeues and ECN marking
+Date: Mon, 03 Feb 2014 09:28:23 -0800
+Message-ID: <1391448503.28432.101.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAMvx-beWMC8awScfEtHs8sSkzz0fGNqBH1fn7hC=k0iaFpJvSA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev <netdev@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	Freddy Xin <freddy@asix.com.tw>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Greg Kuperman <gregk@MIT.EDU>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:51622 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751134AbaBCRSF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Feb 2014 12:18:05 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 28101-04 for <netdev@vger.kernel.org>;
- Mon,  3 Feb 2014 17:18:00 +0000 (GMT)
-Content-Language: en-US
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:58314 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752559AbaBCR2Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Feb 2014 12:28:25 -0500
+Received: by mail-ie0-f175.google.com with SMTP id ar20so6487185iec.20
+        for <netdev@vger.kernel.org>; Mon, 03 Feb 2014 09:28:25 -0800 (PST)
+In-Reply-To: <CAMvx-beWMC8awScfEtHs8sSkzz0fGNqBH1fn7hC=k0iaFpJvSA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On one system (an amd motherboard with the ASMedia xhci controller)
-I'm seeing almost back to back USB (7 or 8 a second) 'interrupt'
-packets from an ax88179 Ge card.
-It may be that other systems behave similarly.
-I'm sure this hadn't used to happen!
+On Mon, 2014-02-03 at 09:50 -0500, Greg Kuperman wrote:
+> Hi all,
+> 
+> I am testing a new congestion control protocol that relies on explicit
+> congestion notifications (ECN) to notify the receiver of a congestion
+> event. I have a rate limited link of 1 Mbps, and I am using the RED
+> queuing discipline with ECN enabled. What I have noticed is that no
+> matter how small I set my queue size, or how low I set my minimum
+> marking level, the first ECN marked packet does not get sent out for
+> about 10 seconds after the input rate exceeds the output rate. Further
+> examination shows that ECN marking does not occur until the number or
+> requeues hits 1000. Below are two queries of tc -s -d qdisc ls dev
+> eth1.
+> 
+> qdisc red 8028: root refcnt 2 limit 10000000b min 1b max 0b ecn ewma
+> 30 Plog 21 Scell_log 31
+>  Sent 1307892 bytes 1247 pkt (dropped 0, overlimits 0 requeues 960)
+>  backlog 1052118b 962p requeues 960
+>   marked 0 early 0 pdrop 0 other 0
+> 
+> qdisc red 8028: root refcnt 2 limit 10000000b min 1b max 0b ecn ewma
+> 30 Plog 21 Scell_log 31
+>  Sent 1379262 bytes 1312 pkt (dropped 0, overlimits 72 requeues 1024)
+>  backlog 1122468b 1027p requeues 1024
+>   marked 72 early 0 pdrop 0 other 0
+> 
+> 
+> The txqueuelen defaults to 1000 for the interface, so I figured that
+> packets maybe buffering there, and then dequeuing, before any packets
+> are marked. I set txqueuelen to lower values (all the way down to 1),
+> but the exact same behavior occurs (no marked packets until number of
+> dequeues hits 1000). In contrast, if I set txqueuele to something very
+> high, I get no requeues, drops, or marked packets.
+> 
+> My goal is for packets to be marked as soon as the ingress rate
+> exceeds the egress. Am I correct in thinking that the requeuing
+> operation is the culprit? Can I eliminate requeues? Is there something
+> else I can do to get the behavior I am looking for?
+> 
+> Thank you all for the help. And please cc me in your replies; I'm not
+> 100% sure if I get all the messages from this mailing list.
 
-I don't know what the interrupt status means, the value (as LE u32)
-is 0x900a1 0xe1cd6d79
-The only bit the driver looks at is the 0x10000 bit in the first word.
-This is the 'link up/down' flag.
-The two halves of the second word are probably different fields, the
-high bits appear after about a second.
+requeues have nothing to do with ECN marking.
 
-Now I'd guess that the driver ought to be doing something about some
-of these values. While in this mode transmits are delayed for anything
-upto 100ms, at least for some time they do get sent.
+How is done your rate limiting ?
 
-However the processing of the 'link up/down' flag is clearly wrong.
-The code currently does:
-
-348         event = urb->transfer_buffer;
-349         le32_to_cpus((void *)&event->intdata1);
-350 
-351         link = (((__force u32)event->intdata1) & AX_INT_PPLS_LINK) >> 16;
-352 
-353         if (netif_carrier_ok(dev->net) != link) {
-354                 usbnet_link_change(dev, link, 1);
-355                 netdev_info(dev->net, "ax88179 - Link status is: %d\n", link);
-356         }
-
-Which ends up doing repeated calls to usbnet_link_change() and confusing
-that code a lot.
-
-I presume there is some delay before the return value from netif_carrier_ok()
-matches the set state.
-
-I think the code should be remembering the link state locally.
-It might also need to clear some other interrupt flags, only ASIX know
-what they mean.
-
-	David
+Post the whole setup, not part of it, it will help to spot the problem
+in one go, instead of many mail exchanges.
