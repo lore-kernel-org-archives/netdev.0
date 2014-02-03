@@ -1,8 +1,8 @@
 From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next 08/13] sfc: Preserve rx_frm_trunc counters when resizing
- DMA rings
-Date: Mon, 3 Feb 2014 23:35:05 +0000
-Message-ID: <52F027A9.7070104@solarflare.com>
+Subject: [PATCH net-next 09/13] sfc: Use canonical pointer type for MAC address
+ in efx_set_mac_address()
+Date: Mon, 3 Feb 2014 23:35:21 +0000
+Message-ID: <52F027B9.4020608@solarflare.com>
 References: <52F02469.50302@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
@@ -10,37 +10,35 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:8189 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:8207 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753955AbaBCXfJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Feb 2014 18:35:09 -0500
+	with ESMTP id S1753955AbaBCXfZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Feb 2014 18:35:25 -0500
 In-Reply-To: <52F02469.50302@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ben Hutchings <bhutchings@solarflare.com>
 
-We allocate efx_channel structures with kzalloc() so we don't need to
-zero-initialise individual fields in efx_probe_channel().  Further,
-this function will be called again during DMA ring resizing and we
-should not reset any statistics then.
+Functions such as is_valid_ether_addr() expect u8 *, so use that
+instead of char *.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 Signed-off-by: Shradha Shah <sshah@solarflare.com>
 ---
- drivers/net/ethernet/sfc/efx.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/sfc/efx.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 83d4643..84a1e11 100644
+index 84a1e11..91acdc2 100644
 --- a/drivers/net/ethernet/sfc/efx.c
 +++ b/drivers/net/ethernet/sfc/efx.c
-@@ -503,8 +503,6 @@ static int efx_probe_channel(struct efx_channel *channel)
- 			goto fail;
- 	}
+@@ -2113,7 +2113,7 @@ static int efx_set_mac_address(struct net_device *net_dev, void *data)
+ {
+ 	struct efx_nic *efx = netdev_priv(net_dev);
+ 	struct sockaddr *addr = data;
+-	char *new_addr = addr->sa_data;
++	u8 *new_addr = addr->sa_data;
  
--	channel->n_rx_frm_trunc = 0;
--
- 	return 0;
- 
- fail:
+ 	if (!is_valid_ether_addr(new_addr)) {
+ 		netif_err(efx, drv, efx->net_dev,
