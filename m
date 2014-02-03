@@ -1,38 +1,67 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] net:phy:dp83640: Initialize PTP clocks at device init.
-Date: Mon, 3 Feb 2014 17:33:32 +0100
-Message-ID: <20140203163332.GA9935@netboy>
-References: <1391438218-21994-1-git-send-email-stefan.sorensen@spectralink.com>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH net 4/5] openvswitch: Fix ovs_flow_free()
+	ovs-lock assert.
+Date: Mon, 03 Feb 2014 20:42:06 +0400
+Message-ID: <52EFC6DE.3070603@cogentembedded.com>
+References: <1391389686-34303-1-git-send-email-jesse@nicira.com>
+	<1391389686-34303-5-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Stefan =?iso-8859-1?Q?S=F8rensen?=
-	<stefan.sorensen@spectralink.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f180.google.com ([209.85.215.180]:34534 "EHLO
-	mail-ea0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751134AbaBCQdi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Feb 2014 11:33:38 -0500
-Received: by mail-ea0-f180.google.com with SMTP id o10so3861291eaj.11
-        for <netdev@vger.kernel.org>; Mon, 03 Feb 2014 08:33:37 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1391438218-21994-1-git-send-email-stefan.sorensen@spectralink.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1391389686-34303-5-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 03, 2014 at 03:36:58PM +0100, Stefan S=F8rensen wrote:
-> The trigger and events functionality can be useful even if packet
-> timestamping is not used, but the required PTP clock is only enabled
-> when packet timestamping is started. This patch moves the clock enabl=
-e
-> to when the interface is configured.
+Hello.
 
-Hm, I vaguely recall that there might have been some reason not enable
-the clock too early. (Maybe this was related to multiple PHYs?)
+On 03-02-2014 5:08, Jesse Gross wrote:
 
-Quickly looking at the code once again, I can't see anything wrong with
-this now, but I'll look at it again tomorrow.
+> From: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 
-Thanks,
-Richard
+> ovs_flow_free() is not called under ovs-lock during packet
+> execute path (ovs_packet_cmd_execute()). Since packet execute
+> does not touch flow->mask, there is no need to take that
+> lock either. So move assert in case where flow->mask is checked.
+
+> Found by code inspection.
+
+> Signed-off-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+> ---
+>   net/openvswitch/flow_table.c | 5 +++--
+>   1 file changed, 3 insertions(+), 2 deletions(-)
+
+> diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
+> index bd14052..ad0bda0 100644
+> --- a/net/openvswitch/flow_table.c
+> +++ b/net/openvswitch/flow_table.c
+> @@ -158,11 +158,12 @@ void ovs_flow_free(struct sw_flow *flow, bool deferred)
+>   	if (!flow)
+>   		return;
+>
+> -	ASSERT_OVSL();
+> -
+>   	if (flow->mask) {
+>   		struct sw_flow_mask *mask = flow->mask;
+>
+> +		/* ovs-lock is required to protect mask-refcount and
+> +		 * mask list. */
+
+    Networking multi-line comment style is:
+
+/* bla
+  * bla
+  */
+
+WBR, Sergei
