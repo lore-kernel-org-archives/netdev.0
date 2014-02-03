@@ -1,60 +1,40 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: IPv6 FIB related crash with MACVLANs in 3.9.11+ kernel.
-Date: Mon, 03 Feb 2014 14:06:55 -0800
-Message-ID: <52F012FF.9030105@candelatech.com>
-References: <52EFFE20.5080500@candelatech.com> <20140203220323.GB17999@order.stressinduktion.org>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [RFC PATCH] openvswitch: Use net_ratelimit in
+	OVS_NLERR
+Date: Mon, 03 Feb 2014 14:08:08 -0800
+Message-ID: <1391465288.2538.1.camel@joe-AO722>
+References: <1391389686-34303-1-git-send-email-jesse@nicira.com>
+	<1391389686-34303-6-git-send-email-jesse@nicira.com>
+	<1391410526.2784.9.camel@joe-AO722>
+	<CAEP_g=_vvSPLt76VUE66XHJtgCW_05acn-r77PfkJFWBkT0S2A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:59366 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752388AbaBCWGz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Feb 2014 17:06:55 -0500
-Received: from [192.168.100.236] (firewall.candelatech.com [70.89.124.249])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id s13M6txQ004537
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 3 Feb 2014 14:06:55 -0800
-In-Reply-To: <20140203220323.GB17999@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org" <dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org>
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CAEP_g=_vvSPLt76VUE66XHJtgCW_05acn-r77PfkJFWBkT0S2A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 02/03/2014 02:03 PM, Hannes Frederic Sowa wrote:
-> Hi Ben,
+On Mon, 2014-02-03 at 13:46 -0800, Jesse Gross wrote:
+> On Sun, Feb 2, 2014 at 10:55 PM, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> wrote:
+> > Perhaps it'd make sense to use net_ratelimit()
+> > instead of printk_once for OVS_NLERR
 > 
-> On Mon, Feb 03, 2014 at 12:37:52PM -0800, Ben Greear wrote:
->> The kernel has some additional patches, but not much to IPv6.
->>
->> The bug is that when we have lots of mac-vlans on some ixgbe ports
->> (500 per interface in this case), and boot up the system with the ports unplugged,
->> we get this crash almost every time.  Boot-up is going to do normal bootup
->> stuff plus create and configure the 1000 mac-vlans, dump their routing
->> tables, etc.
->>
->> We are using one routing table per network device, and some
->> ip rules.
->>
->> If we plug in the ixgbe ports, we do not ever see a crash.
->>
->> We have not yet tried reproducing it on other drivers, but I suspect
->> the issue is not related to ixgbe.
->>
->> Any ideas on this one?
-> 
-> Could you bring the machine to a panic again with enabling RT6_DEBUG at the
-> top of ip6_fib.c and send a dump of the trace?
+> I guess I could see it going either way but I'm not sure I see a
+> strong argument for changing.
 
-Yes, but it will be a bit until we can create a duplicate machine.
-We ended up delivering the machine with a note to make sure the
-interfaces were plugged in (we found the bug hours before shipping
-the system, of course).
+pr_<level>_once is a per-site flag.
 
-Thanks,
-Ben
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Some of these messages look as if seeing them
+multiple times could be useful.
