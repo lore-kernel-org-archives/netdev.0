@@ -1,40 +1,96 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [RFC PATCH] openvswitch: Use net_ratelimit in
-	OVS_NLERR
-Date: Mon, 03 Feb 2014 14:08:08 -0800
-Message-ID: <1391465288.2538.1.camel@joe-AO722>
-References: <1391389686-34303-1-git-send-email-jesse@nicira.com>
-	<1391389686-34303-6-git-send-email-jesse@nicira.com>
-	<1391410526.2784.9.camel@joe-AO722>
-	<CAEP_g=_vvSPLt76VUE66XHJtgCW_05acn-r77PfkJFWBkT0S2A@mail.gmail.com>
+From: Mathias Kretschmer <mathias.kretschmer@fokus.fraunhofer.de>
+Subject: linux-3.14-rc1 & PACKET_QDISC_BYPASS : slow_path warning
+Date: Mon, 3 Feb 2014 23:47:51 +0100
+Message-ID: <52F01C97.20001@fokus.fraunhofer.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: multipart/mixed;
+	boundary="------------000702020208010209000909"
+Cc: <netdev@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>
+To: <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx-relay08-dus.antispameurope.com ([94.100.134.208]:35212 "EHLO
+	mx-relay08-dus.antispameurope.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752394AbaBCWyD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Feb 2014 17:54:03 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+--------------000702020208010209000909
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org" <dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org>
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <CAEP_g=_vvSPLt76VUE66XHJtgCW_05acn-r77PfkJFWBkT0S2A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-02-03 at 13:46 -0800, Jesse Gross wrote:
-> On Sun, Feb 2, 2014 at 10:55 PM, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> wrote:
-> > Perhaps it'd make sense to use net_ratelimit()
-> > instead of printk_once for OVS_NLERR
-> 
-> I guess I could see it going either way but I'm not sure I see a
-> strong argument for changing.
+Hi Daniel,
 
-pr_<level>_once is a per-site flag.
+we are developing a wired/wireless MPLS switch. Currently the data plane 
+runs in user space using PF_PACKET sockets via RX_RING/TX_RING.
 
-Some of these messages look as if seeing them
-multiple times could be useful.
+We had hoped to test the PACKET_QDISC_BYPASS option since this seems to 
+be the proper optimization for our purposes.
+
+Unfortunately, we're seeing a 'slow path' warning for every packet that 
+is being sent out. With PACKET_QDISC_BYPASS disabled, no warnings are 
+dumped. Hardware is an older AMD Geode LX embedded board (ALiX).
+
+BTW, this happens while sending via a wireless (802.11) adhoc interface. 
+Hence, it might be an interaction with the ieee80211 sub system.
+
+Please, let me know if you need any further information.
+
+Cheers,
+
+Mathias
+
+-- 
+Dr. Mathias Kretschmer, Head of Competence Center
+Fraunhofer FOKUS Network Research
+A Schloss Birlinghoven, 53754 Sankt Augustin, Germany
+T +49-2241-14-3466, F +49-2241-14-1050
+E mathias.kretschmer@fokus.fraunhofer.de
+W http://www.fokus.fraunhofer.de/en/net
+
+--------------000702020208010209000909
+Content-Type: text/plain; charset="UTF-8"; name="slow-path-3.14.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="slow-path-3.14.txt"
+
+[ 3246.953225] ------------[ cut here ]------------
+[ 3246.953225] WARNING: CPU: 0 PID: 778 at drivers/net/wireless/ath/ath9k/xmit.c:2195 ath_tx_start+0x245/0x24d()
+[ 3246.953225] Modules linked in: lm90 gpio_keys_polled scx200_acb
+[ 3246.953225] CPU: 0 PID: 778 Comm: wiback Tainted: G        W    3.14.0-rc1.geode #1
+[ 3246.953225]  c13bec9a c10207ed c14f4de0 00000000 0000030a c151cab0 00000893 c121071e
+[ 3246.953225]  c121071e 00000893 cf4ba180 cf791b14 c01d8c20 c102081c 00000009 00000000
+[ 3246.953225]  c121071e cec3c358 cf7c8c2c 00000200 c01d9eb0 00000000 c01d94dc 00000000
+[ 3246.953225] Call Trace:
+[ 3246.953225]  [<c13bec9a>] ? dump_stack+0xa/0x13
+[ 3246.953225]  [<c10207ed>] ? warn_slowpath_common+0x7a/0x8e
+[ 3246.953225]  [<c121071e>] ? ath_tx_start+0x245/0x24d
+[ 3246.953225]  [<c121071e>] ? ath_tx_start+0x245/0x24d
+[ 3246.953225]  [<c102081c>] ? warn_slowpath_null+0x1b/0x1f
+[ 3246.953225]  [<c121071e>] ? ath_tx_start+0x245/0x24d
+[ 3246.953225]  [<c120a43f>] ? ath9k_tx+0x7f/0x162
+[ 3246.953225]  [<c13a14cd>] ? __ieee80211_tx+0xcf/0x288
+[ 3246.953225]  [<c13a314b>] ? ieee80211_tx+0xa0/0xc0
+[ 3246.953225]  [<c13a395c>] ? ieee80211_xmit+0x81/0x99
+[ 3246.953225]  [<c13a4454>] ? ieee80211_subif_start_xmit+0x7d0/0x934
+[ 3246.953225]  [<c134e8da>] ? packet_direct_xmit+0x6a/0xee
+[ 3246.953225]  [<c13506bb>] ? packet_sendmsg+0x4eb/0xd58
+[ 3246.953225]  [<c12ae6fb>] ? sock_sendmsg+0x4f/0x6f
+[ 3246.953225]  [<c12afe68>] ? SYSC_sendto+0xc8/0xe9
+[ 3246.953225]  [<c103a85f>] ? sched_clock_local.constprop.7+0x39/0x152
+[ 3246.953225]  [<c12b0c63>] ? SYSC_socketcall+0x3c8/0x8f7
+[ 3246.953225]  [<c13c0d68>] ? __schedule+0x164/0x3c0
+[ 3246.953225]  [<c103a85f>] ? sched_clock_local.constprop.7+0x39/0x152
+[ 3246.953225]  [<c1045fef>] ? ktime_get+0x4c/0xd4
+[ 3246.953225]  [<c10ae7b5>] ? ep_send_events_proc+0x69/0x105
+[ 3246.953225]  [<c10ae74c>] ? ep_read_events_proc+0x78/0x78
+[ 3246.953225]  [<c10aee5f>] ? ep_scan_ready_list.isra.27+0x122/0x13d
+[ 3246.953225]  [<c10ae74c>] ? ep_read_events_proc+0x78/0x78
+[ 3246.953225]  [<c10b0765>] ? timerfd_read+0xa6/0x25e
+[ 3246.953225]  [<c10aef9d>] ? ep_poll+0x109/0x234
+[ 3246.953225]  [<c12b123f>] ? SyS_socketcall+0xd/0xe
+[ 3246.953225]  [<c13c28ed>] ? syscall_call+0x7/0xb
+[ 3246.953225] ---[ end trace c930b576e9270049 ]---
+
+
+--------------000702020208010209000909--
