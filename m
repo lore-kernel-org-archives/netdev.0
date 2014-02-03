@@ -1,27 +1,17 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH] drivers: staging: lustre: lustre: include: add
- "__attribute__((packed))" for the related union
-Date: Mon, 3 Feb 2014 11:58:55 +0300
-Message-ID: <20140203085855.GA26722@mwanda>
-References: <20140118142404.GT7444@mwanda> <52DBA3D4.3090308@gmail.com>
- <52DD0EFF.2010305@imgtec.com> <20140120123045.GV7444@mwanda>
- <52DD18A5.1090308@imgtec.com> <20140120125603.GD4815@mwanda>
- <20140120211356.GG4815@mwanda> <52DE4DA3.7090301@imgtec.com>
- <52E3A642.7010307@gmail.com> <52ECFD53.7010401@gmail.com>
+Subject: Re: [PATCH] staging: r8188eu: Fix typo in USB_DEVICE list
+Date: Mon, 3 Feb 2014 12:17:38 +0300
+Message-ID: <20140203091738.GC26722@mwanda>
+References: <1391371626-13551-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, James Hogan <james.hogan@imgtec.com>,
- andreas.dilger@intel.com, jinshan.xiong@intel.com,
- Greg KH <gregkh@linuxfoundation.org>, bergwolf@gmail.com,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- linux-metag@vger.kernel.org, oleg.drokin@intel.com,
- jacques-charles.lafoucriere@cea.fr, Antonio Quartulli <antonio@meshcoding.com>,
- netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Chen Gang <gang.chen.5i5j@gmail.com>
+Cc: devel@driverdev.osuosl.org, gregkh@linuxfoundation.org,
+ netdev@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
 Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
 Content-Disposition: inline
-In-Reply-To: <52ECFD53.7010401@gmail.com>
+In-Reply-To: <1391371626-13551-1-git-send-email-Larry.Finger@lwfinger.net>
 List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
  <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
 List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
@@ -33,21 +23,38 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Feb 01, 2014 at 09:57:39PM +0800, Chen Gang wrote:
-> It seems, our kernel still stick to treate 'pack' region have effect
-> with both 'align' and 'sizeof'.
+On Sun, Feb 02, 2014 at 02:07:06PM -0600, Larry Finger wrote:
+> There is a typo in the device list that interchanges the vendor and
+> product codes for one of the entries.
 > 
-
-It's not about packed regions.  It's about unions.  It's saying the
-sizeof() a union is a multiple of 4 unless it's packed.
-
-union foo {
-	short x;
-	short y;
-};
-
-The author intended the sizeof(union foo) to be 2 but on metag arch then
-it is 4.
+> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> ---
+>  drivers/staging/rtl8188eu/os_dep/usb_intf.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/staging/rtl8188eu/os_dep/usb_intf.c b/drivers/staging/rtl8188eu/os_dep/usb_intf.c
+> index 0a341d6..e9e3c76 100644
+> --- a/drivers/staging/rtl8188eu/os_dep/usb_intf.c
+> +++ b/drivers/staging/rtl8188eu/os_dep/usb_intf.c
+> @@ -53,7 +53,7 @@ static struct usb_device_id rtw_usb_id_tbl[] = {
+>  	{USB_DEVICE(USB_VENDER_ID_REALTEK, 0x0179)}, /* 8188ETV */
+>  	/*=== Customer ID ===*/
+>  	/****** 8188EUS ********/
+> -	{USB_DEVICE(0x8179, 0x07B8)}, /* Abocom - Abocom */
+> +	{USB_DEVICE(0x07bb, 0x8179)}, /* Abocom - Abocom */
+                    ^^^^^^
+Should this be      0x07b8?
 
 regards,
 dan carpenter
+
+>  	{USB_DEVICE(0x2001, 0x330F)}, /* DLink DWA-125 REV D1 */
+>  	{}	/* Terminating entry */
+>  };
+> -- 
+> 1.8.4
+> 
+> _______________________________________________
+> devel mailing list
+> devel@linuxdriverproject.org
+> http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
