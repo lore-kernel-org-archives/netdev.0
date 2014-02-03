@@ -1,38 +1,40 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: inet_diag_dump_icsk() change seems bogus...
-Date: Sun, 2 Feb 2014 20:41:07 -0500
-Message-ID: <CADVnQy=W8VZK6+__YUyUZuWkVkKhux_B3ARdPhtxM0SfiUzrCw@mail.gmail.com>
-References: <CADVnQynq6tfd6Hdg0iqD4Wpm805mVXwFT-VUCsWT6YUxo2=wbQ@mail.gmail.com>
-	<1391367154.28432.91.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CADVnQymV9R-f3ANtFxbBnsKtD3ytO7QwrOEz7cJAkVkn34ADKQ@mail.gmail.com>
-	<20140202.130315.259664831670406274.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-stable 3.3..3.12] inet_diag: fix
+ inet_diag_dump_icsk() timewait socket state logic
+Date: Sun, 02 Feb 2014 19:54:17 -0800
+Message-ID: <1391399657.28432.93.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1391391613-687-1-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f169.google.com ([209.85.215.169]:47969 "EHLO
-	mail-ea0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752651AbaBCBlI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Feb 2014 20:41:08 -0500
-Received: by mail-ea0-f169.google.com with SMTP id h10so3463187eak.0
-        for <netdev@vger.kernel.org>; Sun, 02 Feb 2014 17:41:07 -0800 (PST)
-In-Reply-To: <20140202.130315.259664831670406274.davem@davemloft.net>
+Received: from mail-pb0-f43.google.com ([209.85.160.43]:38838 "EHLO
+	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752689AbaBCDyT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Feb 2014 22:54:19 -0500
+Received: by mail-pb0-f43.google.com with SMTP id md12so6563328pbc.2
+        for <netdev@vger.kernel.org>; Sun, 02 Feb 2014 19:54:19 -0800 (PST)
+In-Reply-To: <1391391613-687-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 2, 2014 at 4:03 PM, David Miller <davem@davemloft.net> wrote:
-> From: Neal Cardwell <ncardwell@google.com>
-> Date: Sun, 2 Feb 2014 13:59:06 -0500
->
->> Ah, makes sense. :-) I have a tested version of the patch for pre-3.13
->> kernels if anyone is interested in that.
->
-> Please post :-)  Thanks!
+On Sun, 2014-02-02 at 20:40 -0500, Neal Cardwell wrote:
+...
+> An analogous fix is in v3.13: 70315d22d3c7383f9a508d0aab21e2eb35b2303a
+> ("inet_diag: fix inet_diag_dump_icsk() to use correct state for
+> timewait sockets") but that patch is quite different because 3.13 code
+> is very different in this area due to the unification of TCP hash
+> tables in 05dbc7b ("tcp/dccp: remove twchain") in v3.13-rc1.
+...
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> ---
+>  net/ipv4/inet_diag.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
 
-Sure. Posted here:
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-http://patchwork.ozlabs.org/patch/316053/
-
-neal
+Thanks !
