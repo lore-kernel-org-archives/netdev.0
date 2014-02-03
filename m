@@ -1,40 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-stable 3.3..3.12] inet_diag: fix
- inet_diag_dump_icsk() timewait socket state logic
-Date: Sun, 02 Feb 2014 19:54:17 -0800
-Message-ID: <1391399657.28432.93.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1391391613-687-1-git-send-email-ncardwell@google.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] staging: r8188eu: Fix typo in USB_DEVICE list
+Date: Sun, 02 Feb 2014 22:16:04 -0600
+Message-ID: <52EF1804.50804@lwfinger.net>
+References: <1391371626-13551-1-git-send-email-Larry.Finger@lwfinger.net>
+ <20140202212650.GA27215@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>
-To: Neal Cardwell <ncardwell@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f43.google.com ([209.85.160.43]:38838 "EHLO
-	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752689AbaBCDyT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Feb 2014 22:54:19 -0500
-Received: by mail-pb0-f43.google.com with SMTP id md12so6563328pbc.2
-        for <netdev@vger.kernel.org>; Sun, 02 Feb 2014 19:54:19 -0800 (PST)
-In-Reply-To: <1391391613-687-1-git-send-email-ncardwell@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20140202212650.GA27215@kroah.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2014-02-02 at 20:40 -0500, Neal Cardwell wrote:
-...
-> An analogous fix is in v3.13: 70315d22d3c7383f9a508d0aab21e2eb35b2303a
-> ("inet_diag: fix inet_diag_dump_icsk() to use correct state for
-> timewait sockets") but that patch is quite different because 3.13 code
-> is very different in this area due to the unification of TCP hash
-> tables in 05dbc7b ("tcp/dccp: remove twchain") in v3.13-rc1.
-...
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> ---
->  net/ipv4/inet_diag.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
+On 02/02/2014 03:26 PM, Greg KH wrote:
+> On Sun, Feb 02, 2014 at 02:07:06PM -0600, Larry Finger wrote:
+>> There is a typo in the device list that interchanges the vendor and
+>> product codes for one of the entries.
+>>
+>> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+>> ---
+>>   drivers/staging/rtl8188eu/os_dep/usb_intf.c | 2 +-
+>>   1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/staging/rtl8188eu/os_dep/usb_intf.c b/drivers/staging/rtl8188eu/os_dep/usb_intf.c
+>> index 0a341d6..e9e3c76 100644
+>> --- a/drivers/staging/rtl8188eu/os_dep/usb_intf.c
+>> +++ b/drivers/staging/rtl8188eu/os_dep/usb_intf.c
+>> @@ -53,7 +53,7 @@ static struct usb_device_id rtw_usb_id_tbl[] = {
+>>   	{USB_DEVICE(USB_VENDER_ID_REALTEK, 0x0179)}, /* 8188ETV */
+>>   	/*=== Customer ID ===*/
+>>   	/****** 8188EUS ********/
+>> -	{USB_DEVICE(0x8179, 0x07B8)}, /* Abocom - Abocom */
+>> +	{USB_DEVICE(0x07bb, 0x8179)}, /* Abocom - Abocom */
+>
+> Becides the b8 -> bb issue, are you sure this is correct?  I've seen
+> lots of USB devices that got this backwards (vendor id in the product id
+> place), so it wouldn't be the first time it's happened.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+The listing at http://www.linux-usb.org/usb.ids shows that the vendor code for 
+AboCom Systems Inc is 0x07b8. Although it does not show a device id of 0x8179, 
+I'm pretty sure that this listing has reversed the two entries.
 
-Thanks !
+Larry
