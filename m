@@ -1,69 +1,42 @@
-From: Greg Kuperman <gregk@MIT.EDU>
-Subject: Requeues and ECN marking
-Date: Mon, 3 Feb 2014 09:50:06 -0500
-Message-ID: <CAMvx-beWMC8awScfEtHs8sSkzz0fGNqBH1fn7hC=k0iaFpJvSA@mail.gmail.com>
+From: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
+	<stefan.sorensen@spectralink.com>
+Subject: [PATCH] net:phy:dp83640: Declare that TX timestamping possible
+Date: Mon,  3 Feb 2014 15:36:35 +0100
+Message-ID: <1391438195-21888-1-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
+	<stefan.sorensen@spectralink.com>
+To: richardcochran@gmail.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dmz-mailsec-scanner-3.mit.edu ([18.9.25.14]:58307 "EHLO
-	dmz-mailsec-scanner-3.mit.edu" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752672AbaBCOua (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Feb 2014 09:50:30 -0500
-Received: from outgoing.mit.edu (outgoing-auth-1.mit.edu [18.9.28.11])
-	by mailhub-auth-4.mit.edu (8.13.8/8.9.2) with ESMTP id s13EoSil009557
-	for <netdev@vger.kernel.org>; Mon, 3 Feb 2014 09:50:29 -0500
-Received: from mail-pd0-f180.google.com (mail-pd0-f180.google.com [209.85.192.180])
-	(authenticated bits=0)
-        (User authenticated as gregk@ATHENA.MIT.EDU)
-	by outgoing.mit.edu (8.13.8/8.12.4) with ESMTP id s13EoQ2O030921
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 3 Feb 2014 09:50:28 -0500
-Received: by mail-pd0-f180.google.com with SMTP id x10so6943732pdj.39
-        for <netdev@vger.kernel.org>; Mon, 03 Feb 2014 06:50:26 -0800 (PST)
+Received: from 213083164162.static.sonofon.dk ([213.83.164.162]:60808 "EHLO
+	HORWDSPRD01.spectralink.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751294AbaBCOzl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Feb 2014 09:55:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Set the SKBTX_IN_PROGRESS bit in tx_flags dp83640_txtstamp when doing
+tx timestamps as per Documentation/networking/timestamping.txt.
 
-I am testing a new congestion control protocol that relies on explicit
-congestion notifications (ECN) to notify the receiver of a congestion
-event. I have a rate limited link of 1 Mbps, and I am using the RED
-queuing discipline with ECN enabled. What I have noticed is that no
-matter how small I set my queue size, or how low I set my minimum
-marking level, the first ECN marked packet does not get sent out for
-about 10 seconds after the input rate exceeds the output rate. Further
-examination shows that ECN marking does not occur until the number or
-requeues hits 1000. Below are two queries of tc -s -d qdisc ls dev
-eth1.
+Signed-off-by: Stefan S=C3=B8rensen <stefan.sorensen@spectralink.com>
+---
+ drivers/net/phy/dp83640.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-qdisc red 8028: root refcnt 2 limit 10000000b min 1b max 0b ecn ewma
-30 Plog 21 Scell_log 31
- Sent 1307892 bytes 1247 pkt (dropped 0, overlimits 0 requeues 960)
- backlog 1052118b 962p requeues 960
-  marked 0 early 0 pdrop 0 other 0
-
-qdisc red 8028: root refcnt 2 limit 10000000b min 1b max 0b ecn ewma
-30 Plog 21 Scell_log 31
- Sent 1379262 bytes 1312 pkt (dropped 0, overlimits 72 requeues 1024)
- backlog 1122468b 1027p requeues 1024
-  marked 72 early 0 pdrop 0 other 0
-
-
-The txqueuelen defaults to 1000 for the interface, so I figured that
-packets maybe buffering there, and then dequeuing, before any packets
-are marked. I set txqueuelen to lower values (all the way down to 1),
-but the exact same behavior occurs (no marked packets until number of
-dequeues hits 1000). In contrast, if I set txqueuele to something very
-high, I get no requeues, drops, or marked packets.
-
-My goal is for packets to be marked as soon as the ingress rate
-exceeds the egress. Am I correct in thinking that the requeuing
-operation is the culprit? Can I eliminate requeues? Is there something
-else I can do to get the behavior I am looking for?
-
-Thank you all for the help. And please cc me in your replies; I'm not
-100% sure if I get all the messages from this mailing list.
-
-Best,
-Greg
+diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
+index dfb132e..ae95a9a 100644
+--- a/drivers/net/phy/dp83640.c
++++ b/drivers/net/phy/dp83640.c
+@@ -1273,6 +1273,7 @@ static void dp83640_txtstamp(struct phy_device *p=
+hydev,
+ 		}
+ 		/* fall through */
+ 	case HWTSTAMP_TX_ON:
++		skb_shinfo(skb)->tx_flags |=3D SKBTX_IN_PROGRESS;
+ 		skb_queue_tail(&dp83640->tx_queue, skb);
+ 		schedule_work(&dp83640->ts_work);
+ 		break;
+--=20
+1.8.5.3
