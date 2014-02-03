@@ -1,56 +1,39 @@
-From: Sarah Sharp <sarah.a.sharp@linux.intel.com>
-Subject: Re: [PATCH RFC 1/1] usb: Tell xhci when usb data might be misaligned
-Date: Mon, 3 Feb 2014 09:56:53 -0800
-Message-ID: <20140203175653.GB26115@xanatos>
-References: <20140130211816.GB3787@xanatos>
- <87iot1qgv6.fsf@nemi.mork.no>
- <20140130221511.GD14228@xanatos>
- <CACVXFVMVoMAH3DRiv-VYZL8VWq2Rw+fZwreVtUVm1M44HR+X8Q@mail.gmail.com>
- <20140131190035.GB18262@xanatos>
- <CACVXFVN3OsPM5CBWjc4kh_sGo3fMwpvBoYer7VtreUWrvWA=+Q@mail.gmail.com>
- <52ECF6F5.6060207@pobox.com>
- <CACVXFVOynsojKo+aukHY4q+MkEyhHXC0=OpN0ysu0TGuUjY8sA@mail.gmail.com>
- <52ED5381.2010106@pobox.com>
- <063D6719AE5E284EB5DD2968C1650D6D0F6B7707@AcuExch.aculab.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Requeues and ECN marking
+Date: Mon, 03 Feb 2014 09:59:20 -0800
+Message-ID: <1391450360.28432.104.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAMvx-beWMC8awScfEtHs8sSkzz0fGNqBH1fn7hC=k0iaFpJvSA@mail.gmail.com>
+	 <1391448503.28432.101.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAMvx-bccJce7U4=KAO-uaot8uguORtBK0kPxdFUUgDkNWJVmMQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: 'Mark Lord' <mlord@pobox.com>, Ming Lei <ming.lei@canonical.com>,
-	=?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	David Miller <davem@davemloft.net>,
-	Dan Williams <dan.j.williams@intel.com>,
-	"Nyman, Mathias" <mathias.nyman@intel.com>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	Freddy Xin <freddy@asix.com.tw>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Greg Kuperman <gregk@MIT.EDU>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:15987 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752558AbaBCR4y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Feb 2014 12:56:54 -0500
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6B7707@AcuExch.aculab.com>
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:41280 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752160AbaBCR7V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Feb 2014 12:59:21 -0500
+Received: by mail-pb0-f49.google.com with SMTP id up15so7334056pbc.36
+        for <netdev@vger.kernel.org>; Mon, 03 Feb 2014 09:59:21 -0800 (PST)
+In-Reply-To: <CAMvx-bccJce7U4=KAO-uaot8uguORtBK0kPxdFUUgDkNWJVmMQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 03, 2014 at 09:54:09AM +0000, David Laight wrote:
-> From: Mark Lord
-> > On 14-02-01 09:18 AM, Ming Lei wrote:
-> > >
-> > > Even real regressions are easily/often introduced, and we are discussing
-> > > how to fix that. I suggest to unset the flag only for the known buggy
-> > > controllers.
-> > 
-> > It is not the controllers that are particularly "buggy" here.
-> > But rather the drivers and design of parts of the kernel.
-> 
-> I suspect that the documentation is describing the actual implementation
-> of a specific hardware implementation, not necessarily how the hardware was
-> intended to behave.
+On Mon, 2014-02-03 at 12:48 -0500, Greg Kuperman wrote:
 
-You are speculating.  Please stop speculating without evidence.  It does
-not add to this conversation.
+> I am running RED queuing discipline on the egress of node 1 with the
+> following setup:
+> tc qdisc add dev eth1 root red burst 1000000 limit 10000000 avpkt 1000
+> ecn bandwidth 125 probability 1
 
-Sarah Sharp
+But these parameters are huge, and you get what you asked for.
+
+burst=1000000, and avpkt=1000 means you have to queue more than 1000
+packets before red being active, and marking packets eventually (or drop
+them if non ECN capable)
+
+Even probability=1 makes little sense.
+
+Please read http://linux.die.net/man/8/tc-red for some guidance.
