@@ -1,84 +1,102 @@
-From: Chen Gang <gang.chen.5i5j-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] drivers: staging: lustre: lustre: include: add "__attribute__((packed))"
- for the related union
-Date: Mon, 03 Feb 2014 19:35:24 +0800
-Message-ID: <52EF7EFC.5040704@gmail.com>
-References: <20140118142404.GT7444@mwanda> <52DBA3D4.3090308@gmail.com> <52DD0EFF.2010305@imgtec.com> <20140120123045.GV7444@mwanda> <52DD18A5.1090308@imgtec.com> <20140120125603.GD4815@mwanda> <20140120211356.GG4815@mwanda> <52DE4DA3.7090301@imgtec.com> <52E3A642.7010307@gmail.com> <52ECFD53.7010401@gmail.com> <20140203085855.GA26722@mwanda> <52EF6965.6040406@gmail.com>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [Xen-devel] [PATCH v6] xen/grant-table: Avoid m2p_override
+ during mapping
+Date: Mon, 3 Feb 2014 06:50:40 -0500
+Message-ID: <20140203115040.GB3400@phenom.dumpdata.com>
+References: <1390512224-27296-1-git-send-email-zoltan.kiss@citrix.com>
+ <alpine.DEB.2.02.1401232333280.15917@kaball.uk.xensource.com>
+ <52EE1E26.2040308@linaro.org>
+ <52EE93F0.1020508@citrix.com>
+ <52EF7618.7030402@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: James Hogan <james.hogan-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>, devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org,
-	andreas.dilger-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>,
-	Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>, bergwolf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, oleg.drokin-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	jacques-charles.lafoucriere-KCE40YydGKI@public.gmane.org, jinshan.xiong-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-To: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-metag-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <52EF6965.6040406-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-metag-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Zoltan Kiss <zoltan.kiss@citrix.com>, jonathan.davies@citrix.com,
+	wei.liu2@citrix.com, ian.campbell@citrix.com,
+	Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
+	netdev@vger.kernel.org, Julien Grall <julien.grall@linaro.org>,
+	linux-kernel@vger.kernel.org, xen-devel@lists.xenproject.org
+To: David Vrabel <david.vrabel@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <52EF7618.7030402@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/03/2014 06:03 PM, Chen Gang wrote:
-> On 02/03/2014 04:58 PM, Dan Carpenter wrote:
->> On Sat, Feb 01, 2014 at 09:57:39PM +0800, Chen Gang wrote:
->>> It seems, our kernel still stick to treate 'pack' region have effect
->>> with both 'align' and 'sizeof'.
->>>
->>
->> It's not about packed regions.  It's about unions.  It's saying the
->> sizeof() a union is a multiple of 4 unless it's packed.
->>
->> union foo {
->> 	short x;
->> 	short y;
->> };
->>
->> The author intended the sizeof(union foo) to be 2 but on metag arch then
->> it is 4.
->>
-> 
-> Yeah, just like your original discussion.  :-)
-> 
-> 
-> Hmm... can we say: "for metag compiler, in a pack region, it considers
-> variables alignment, but does not consider about struct/union alignment
-> (except append packed to each related struct/union)".
-> 
-> For compatible (consider about its ABI), it has to keep this features,
-> but for kernel, it needs be changed.
-> 
-> So, I suggest to add one parameter to compiler to switch this feature,
-> and append this parameter to KBUILD_CFLAGS in "arch/metag/Makefile"
-> which can satisfy both ABI and kernel.
-> 
+On Mon, Feb 03, 2014 at 10:57:28AM +0000, David Vrabel wrote:
+> On 02/02/14 18:52, Zoltan Kiss wrote:
+> > On 02/02/14 11:29, Julien Grall wrote:
+> >> Hello,
+> >>
+> >> This patch is breaking Linux compilation on ARM:
+> >>
+> >> drivers/xen/grant-table.c: In function =E2=80=98__gnttab_map_refs=E2=
+=80=99:
+> >> drivers/xen/grant-table.c:989:3: error: implicit declaration of
+> >> function =E2=80=98FOREIGN_FRAME=E2=80=99 [-Werror=3Dimplicit-funct=
+ion-declaration]
+> >>     if (unlikely(!set_phys_to_machine(pfn, FOREIGN_FRAME(mfn)))) {
+> >>     ^
+> >> drivers/xen/grant-table.c: In function =E2=80=98__gnttab_unmap_ref=
+s=E2=80=99:
+> >> drivers/xen/grant-table.c:1054:3: error: implicit declaration of
+> >> function =E2=80=98get_phys_to_machine=E2=80=99 [-Werror=3Dimplicit=
+-function-declaration]
+> >>     mfn =3D get_phys_to_machine(pfn);
+> >>     ^
+> >> drivers/xen/grant-table.c:1055:43: error: =E2=80=98FOREIGN_FRAME_B=
+IT=E2=80=99
+> >> undeclared (first use in this function)
+> >>     if (mfn =3D=3D INVALID_P2M_ENTRY || !(mfn & FOREIGN_FRAME_BIT)=
+) {
+> >>                                             ^
+> >> drivers/xen/grant-table.c:1055:43: note: each undeclared identifie=
+r is
+> >> reported only once for each function it appears in
+> >> drivers/xen/grant-table.c:1068:9: error: too many arguments to
+> >> function =E2=80=98m2p_remove_override=E2=80=99
+> >>           mfn);
+> >>           ^
+> >> In file included from include/xen/page.h:4:0,
+> >>                   from drivers/xen/grant-table.c:48:
+> >> /local/home/julien/works/midway/linux/arch/arm/include/asm/xen/pag=
+e.h:106:19:
+> >> note: declared here
+> >>   static inline int m2p_remove_override(struct page *page, bool
+> >> clear_pte)
+> >>                     ^
+> >> cc1: some warnings being treated as errors
+> >=20
+> > Hi,
+> >=20
+> > That's bad indeed. I think the best solution is to put those parts
+> > behind an #ifdef x86. The ones moved from x86/p2m.c to grant-table.=
+c.
+> > David, Stefano, what do you think?
+>=20
+> I don't think we want (more) #ifdef CONFIG_X86 in grant-table.c and t=
+he
+> arch-specific bits will have to factored out into their own functions
+> with suitable stubs provided for ARM.
+>=20
+> But, this patch went in late and it's clearly not ready. So I think i=
+t
+> should be reverted and we should aim to get it sorted out for 3.15.
+>=20
+> Konrad/Stefano (if you agree) please revert
+> 08ece5bb2312b4510b161a6ef6682f37f4eac8a1 and send a pull request.
 
-After append the parameter to KBUILD_CFLAGS in "arch/metag/Makefile",
+OK, queued up. I also put on the xen/cr4 patch on the queue - just sent
+an email with it.
 
- - I guess/assume "include/uapi/*" should/will not need be modified.
-
- - but need check all files in "arch/metag/include/uapi/*".
-   (add padding data for packed struct/union when __KERNEL__ defined)
-
- - maybe we have to process metag related ABI which not in "*/uapi/*"
-   (add padding data for packed struct/union when __KERNEL__ defined)
-   and when we find them, recommend to move all of them to "*/uapi/*".
-
-
-Sorry, I don't know whether this way is the best way or not, but for me
-it is an executable way to solve this feature issue and satisfy both
-kernel and ABI.
-
-
-Thanks.
--- 
-Chen Gang
-
-Open, share and attitude like air, water and life which God blessed
---
-To unsubscribe from this list: send the line "unsubscribe linux-metag" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
+> Konrad, I also think you should look at adding an ARM build to your t=
+est
+> system (I thought you had this already).
+>=20
+> David
+>=20
+> _______________________________________________
+> Xen-devel mailing list
+> Xen-devel@lists.xen.org
+> http://lists.xen.org/xen-devel
