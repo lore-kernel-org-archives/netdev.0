@@ -1,33 +1,46 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC PATCH] openvswitch: Use net_ratelimit in
-	OVS_NLERR
-Date: Mon, 3 Feb 2014 13:46:37 -0800
-Message-ID: <CAEP_g=_vvSPLt76VUE66XHJtgCW_05acn-r77PfkJFWBkT0S2A@mail.gmail.com>
-References: <1391389686-34303-1-git-send-email-jesse@nicira.com>
-	<1391389686-34303-6-git-send-email-jesse@nicira.com>
-	<1391410526.2784.9.camel@joe-AO722>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: IPv6 FIB related crash with MACVLANs in 3.9.11+ kernel.
+Date: Mon, 3 Feb 2014 23:03:23 +0100
+Message-ID: <20140203220323.GB17999@order.stressinduktion.org>
+References: <52EFFE20.5080500@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org" <dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org>
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1391410526.2784.9.camel@joe-AO722>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:55602 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751195AbaBCWDY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Feb 2014 17:03:24 -0500
+Content-Disposition: inline
+In-Reply-To: <52EFFE20.5080500@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 2, 2014 at 10:55 PM, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> wrote:
-> Perhaps it'd make sense to use net_ratelimit()
-> instead of printk_once for OVS_NLERR
+Hi Ben,
 
-I guess I could see it going either way but I'm not sure I see a
-strong argument for changing.
+On Mon, Feb 03, 2014 at 12:37:52PM -0800, Ben Greear wrote:
+> The kernel has some additional patches, but not much to IPv6.
+> 
+> The bug is that when we have lots of mac-vlans on some ixgbe ports
+> (500 per interface in this case), and boot up the system with the ports unplugged,
+> we get this crash almost every time.  Boot-up is going to do normal bootup
+> stuff plus create and configure the 1000 mac-vlans, dump their routing
+> tables, etc.
+> 
+> We are using one routing table per network device, and some
+> ip rules.
+> 
+> If we plug in the ixgbe ports, we do not ever see a crash.
+> 
+> We have not yet tried reproducing it on other drivers, but I suspect
+> the issue is not related to ixgbe.
+> 
+> Any ideas on this one?
+
+Could you bring the machine to a panic again with enabling RT6_DEBUG at the
+top of ip6_fib.c and send a dump of the trace?
+
+Thanks,
+
+  Hannes
