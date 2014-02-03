@@ -1,48 +1,65 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: [RFC PATCH] openvswitch: Use net_ratelimit in OVS_NLERR
-Date: Sun, 02 Feb 2014 22:55:26 -0800
-Message-ID: <1391410526.2784.9.camel@joe-AO722>
-References: <1391389686-34303-1-git-send-email-jesse@nicira.com>
-	<1391389686-34303-6-git-send-email-jesse@nicira.com>
+From: Sohny Thomas <sthomas@linux.vnet.ibm.com>
+Subject: Re: [PATCH] ipv6: default route for link local address is not added
+ while assigning a address
+Date: Mon, 03 Feb 2014 12:32:10 +0530
+Message-ID: <52EF3EF2.30900@linux.vnet.ibm.com>
+References: <52E8A2AA.3090507@linux.vnet.ibm.com> <52E8DA37.7010208@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1391389686-34303-6-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: nicolas.dichtel@6wind.com, netdev <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	davem@davemloft.net, kumuda <kumuda@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52E8DA37.7010208@6wind.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Perhaps it'd make sense to use net_ratelimit()
-instead of printk_once for OVS_NLERR
----
- net/openvswitch/datapath.h | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+On Wednesday 29 January 2014 04:08 PM, Nicolas Dichtel wrote:
+> Le 29/01/2014 07:41, Sohny Thomas a =E9crit :
+>> Resending this on netdev mailing list:
+>> Default route for link local address is configured automatically if
+>> NETWORKING_IPV6=3Dyes is in ifcfg-eth*.
+>> When the route table for the interface is flushed and a new address =
+is
+>> added to
+>> the same device with out removing linklocal addr, default route for
+>> link local
+>> address has to added by default.
+>>
+>> I have found the issue to be caused by this checkin
+>>
+>> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commi=
+t/net/ipv6?id=3D62b54dd91567686a1cb118f76a72d5f4764a86dd
+>>
+>>
+>>
+>> According to this change :
+>> He removes adding a link local route if any other address is added ,
+>> applicable
+>> across all interfaces though there's mentioned only lo interface
+>> So below patch fixes for other devices
+>>
+>> Signed-off-by: Sohny THomas <sohthoma@linux.vnet.ibm.com>
+> Your email client has corrupted the patch, it cannot be applied.
+> Please read Documentation/email-clients.txt
+Sorry about that. Will resend again
+>
+> About the patch, I still think that the flush is too agressive. Link =
+local
+> routes are marked as 'proto kernel', removing them without the link l=
+ocal
+> address is wrong.
+>
+> With this patch, you will add a link local route even if you don't ha=
+ve
+> a link local address.
+I think it wouldn't hurt to have a Link local route for NDP  in case a=20
+the routes become unreachable
 
-diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
-index 6be9fbb..0f5e77c 100644
---- a/net/openvswitch/datapath.h
-+++ b/net/openvswitch/datapath.h
-@@ -194,7 +194,9 @@ struct sk_buff *ovs_vport_cmd_build_info(struct vport *, u32 pid, u32 seq,
- int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb);
- void ovs_dp_notify_wq(struct work_struct *work);
- 
--#define OVS_NLERR(fmt, ...) \
--	pr_info_once("netlink: " fmt, ##__VA_ARGS__)
--
-+#define OVS_NLERR(fmt, ...)					\
-+do {								\
-+	if (net_ratelimit())					\
-+		pr_info("netlink: " fmt, ##__VA_ARGS__);	\
-+} while (0)
- #endif /* datapath.h */
+-Regards,
+Sohny
+>
+>
+>
