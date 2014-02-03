@@ -1,49 +1,47 @@
-From: astx <astx@aws-it.at>
-Subject: Re: OOPS in nf_ct_unlink_expect_report using Polycom RealPresence
- Mobile
-Date: Mon, 03 Feb 2014 16:46:01 +0100
-Message-ID: <20140203164601.Horde.d6qSBqHukBoUna_PtOIzfA6@aws-it.at>
-References: <20140131120527.Horde.-3YzQu5S8WWBx7vuVVNdBA2@bigboss.aws-it.at>
- <20140131125014.Horde.G2TRlt-60JJ0Nl_3Y8IniQ2@bigboss.aws-it.at>
- <20140131170402.Horde.yIFUeQVjLycuS_8PGQoKmg5@aws-it.at>
- <20140203121415.GA12777@localhost>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH] ptp: Allow selecting trigger/event index in testptp
+Date: Mon, 3 Feb 2014 16:59:10 +0100
+Message-ID: <20140203155909.GA6011@netboy>
+References: <1391438187-21834-1-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed; DelSp=Yes
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter@vger.kernel.org, Alexey Dobriyan <adobriyan@gmail.com>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140203121415.GA12777@localhost>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Stefan =?iso-8859-1?Q?S=F8rensen?=
+	<stefan.sorensen@spectralink.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f53.google.com ([74.125.83.53]:38927 "EHLO
+	mail-ee0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751912AbaBCP7W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Feb 2014 10:59:22 -0500
+Received: by mail-ee0-f53.google.com with SMTP id t10so3755301eei.40
+        for <netdev@vger.kernel.org>; Mon, 03 Feb 2014 07:59:20 -0800 (PST)
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1391438187-21834-1-git-send-email-stefan.sorensen@spectralink.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Test results / tested kernel versions:
+On Mon, Feb 03, 2014 at 03:36:27PM +0100, Stefan S=F8rensen wrote:
+> Currently the trigger/event is hardcoded to 0, this patch adds
+> a new command line argument -i to select an arbitrary trigger/
+> event.
 
-3.2.54
-3.8.13
-3.10.28
+This is a nice extension of the program, but ...
 
-Above kernel versions without patch are dying with same error on  
-trying to start h323 connections using "Polycom RealPresence Mobile".
+> diff --git a/Documentation/ptp/testptp.c b/Documentation/ptp/testptp.=
+c
+> index a74d0a8..04b21cd 100644
+> --- a/Documentation/ptp/testptp.c
+> +++ b/Documentation/ptp/testptp.c
+> @@ -123,7 +123,8 @@ static void usage(char *progname)
+>  		" -P val     enable or disable (val=3D1|0) the system clock PPS\n"
+>  		" -s         set the ptp clock time from the system time\n"
+>  		" -S         set the system time from the ptp clock time\n"
+> -		" -t val     shift the ptp clock time by 'val' seconds\n",
+> +		" -t val     shift the ptp clock time by 'val' seconds\n"
+> +		" -i val     index for event/trigger\n",
 
-I can confirm that with this patch all three kernel versions are  
-pretty stable now again.
+can we please keep the options in alphabetical order?
 
-Thank you all for your fast and competent help.
-
-Best Regards,
-
-Toni
-
-
-Zitat von Pablo Neira Ayuso <pablo@netfilter.org>:
-
-> On Fri, Jan 31, 2014 at 05:04:02PM +0100, astx wrote:
->> Dear Alexey,
->>
->> seems to help. Thank you for your quick response. Kernel 3.10.28 is
->> now stable using h323 / Polycom.
->
-> Thanks, if no objection, will pass this patch to David.
+Thanks,
+Richard
