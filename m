@@ -1,69 +1,106 @@
-From: Mathias Kretschmer <mathias.kretschmer-8LS2qeF34IpklNlQbfROjRvVK+yQ3ZXh@public.gmane.org>
-Subject: Re: linux-3.14-rc1 & PACKET_QDISC_BYPASS : slow_path warning
-Date: Tue, 4 Feb 2014 14:13:21 +0100
-Message-ID: <52F0E771.8070904@fokus.fraunhofer.de>
-References: <52F01C97.20001@fokus.fraunhofer.de> <52F0E361.9000304@redhat.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [bisected] Re: WARNING: at net/ipv4/devinet.c:1599
+Date: Tue, 4 Feb 2014 15:19:52 +0100
+Message-ID: <CAMuHMdVCeFek2LX0_AnA8zg_yYhXvzw19rH8OsqbWWb-rb9w-A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
-	Jesper Dangaard Brouer <jbrouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <52F0E361.9000304-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f45.google.com ([209.85.160.45]:48318 "EHLO
+	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751214AbaBDOT5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 09:19:57 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Daniel,
-
-On 02/04/2014 01:56 PM, Daniel Borkmann wrote:
-> Hi Mathias, [cc'ing Felix]
+On Sun, Jan 26, 2014 at 10:56 AM, Geert Uytterhoeven
+<geert@linux-m68k.org> wrote:
+> On m68k/ARAnyM:
 >
-> On 02/03/2014 11:47 PM, Mathias Kretschmer wrote:
->> Hi Daniel,
->>
->> we are developing a wired/wireless MPLS switch. Currently the data plane runs in
->> user space using PF_PACKET sockets via RX_RING/TX_RING.
->>
->> We had hoped to test the PACKET_QDISC_BYPASS option since this seems to be the
->> proper optimization for our purposes.
->>
->> Unfortunately, we're seeing a 'slow path' warning for every packet that is being
->> sent out. With PACKET_QDISC_BYPASS disabled, no warnings are dumped. Hardware is
->> an older AMD Geode LX embedded board (ALiX).
->>
->> BTW, this happens while sending via a wireless (802.11) adhoc interface. Hence, it
->> might be an interaction with the ieee80211 sub system.
+> WARNING: CPU: 0 PID: 407 at net/ipv4/devinet.c:1599 0x316a99()
+> Modules linked in:
+> CPU: 0 PID: 407 Comm: ifconfig Not tainted
+> 3.13.0-atari-09263-g0c71d68014d1 #1378
+> Stack from 10c4fdf0:
+>         10c4fdf0 002ffabb 000243e8 00000000 008ced6c 00024416 00316a99 0000063f
+>         00316a99 00000009 00000000 002501b4 00316a99 0000063f c0a86117 00000080
+>         c0a86117 00ad0c90 00250a5a 00000014 00ad0c90 00000000 00000000 00000001
+>         00b02dd0 00356594 00000000 00356594 c0a86117 eff6c9e4 008ced6c 00000002
+>         008ced60 0024f9b4 00250b52 00ad0c90 00000000 00000000 00252390 00ad0c90
+>         eff6c9e4 0000004f 00000000 00000000 eff6c9e4 8000e25c eff6c9e4 80001020
+> Call Trace: [<000243e8>] warn_slowpath_common+0x52/0x6c
+>  [<00024416>] warn_slowpath_null+0x14/0x1a
+>  [<002501b4>] rtmsg_ifa+0xdc/0xf0
+>  [<00250a5a>] __inet_insert_ifa+0xd6/0x1c2
+>  [<0024f9b4>] inet_abc_len+0x0/0x42
+>  [<00250b52>] inet_insert_ifa+0xc/0x12
+>  [<00252390>] devinet_ioctl+0x2ae/0x5d6
+>  [<00020000>] _060_fpsp_effadd+0xc90c/0xd518
+>  [<00020000>] _060_fpsp_effadd+0xc90c/0xd518
+>  [<002530ec>] inet_ioctl+0x120/0x14e
+>  [<00008916>] atari_scc_console_write+0x42/0x5c
+>  [<00008916>] atari_scc_console_write+0x42/0x5c
+>  [<001f7666>] sock_ioctl+0x56/0x256
+>  [<00008916>] atari_scc_console_write+0x42/0x5c
+>  [<00095434>] vfs_ioctl+0x1c/0x30
+>  [<00008916>] atari_scc_console_write+0x42/0x5c
+>  [<0009559c>] do_vfs_ioctl+0x7a/0x3b8
+>  [<00008916>] atari_scc_console_write+0x42/0x5c
+>  [<00002884>] buserr+0x20/0x28
+>  [<00008916>] atari_scc_console_write+0x42/0x5c
+>  [<00095910>] SyS_ioctl+0x36/0x5a
+>  [<00008916>] atari_scc_console_write+0x42/0x5c
+>  [<00008916>] atari_scc_console_write+0x42/0x5c
+>  [<00002980>] syscall+0x8/0xc
+>  [<00008916>] atari_scc_console_write+0x42/0x5c
+>  [<0010c00b>] mext_leaf_block+0x443/0x81e
 >
-> Hm, so the WARN_ON() is triggered inside ath9k driver in relation to 802.11 QoS,
-> and came in from commit 066dae93bdf ("ath9k: rework tx queue selection and fix
-> queue stopping/waking"). We did the stress testing of that option for PF_PACKET
-> on 10Gbit/s NICs. Seems to me you might be running into the same issue when using
-> pktgen as it randomly or per round-robin selects tx queues as well? Not entirely
-> sure how necessary this WARN_ON() is though, Felix? I think QDISC_BYPASS might not
-> be the best option in your case, perhaps you will run into increased power usage
-> in your NIC as a side-effect?
-
-I'm not familiar with the exact implementation details, but from the description of 
-this option, it seems to me that this is exactly what one would want to use if the 
-goal is to send an Ethernet frame out on a particular interface without any further 
-processing by the kernel.
-
-Why would this increase the power usage on the NIC ?  Due to a higher achievable 
-packet rate ?  That would be acceptable :)
-
-Cheers,
-
-Mathias
-
-
-> Cheers,
+> ---[ end trace 44b14c97c2210758 ]---
 >
-> Daniel
+> Adding some debugging code reveals that net_fill_ifaddr() fails in
+>
+>     put_cacheinfo(skb, ifa->ifa_cstamp, ifa->ifa_tstamp,
+>                               preferred, valid))
+>
+> nla_put complains:
+>
+> lib/nlattr.c:454: skb_tailroom(skb) = 12, nla_total_size(attrlen) = 20
+
+Bisected to:
+
+commit ad6c81359fc3e6086d1d6f91acda9d5d0e64b2c3
+Author: Jiri Pirko <jiri@resnulli.us>
+Date:   Sun Dec 8 12:16:10 2013 +0100
+
+    ipv4: add support for IFA_FLAGS nl attribute
+
+    Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Reverting that commit on v3.14-rc1 fixes the problem.
+
+I don't know why it fails. My first guess was the alignment of ifa_flags
+(on m68k __u32 is aligned to 2 bytes, so there's no implicit padding):
+
+        __be32                  ifa_broadcast;
+        unsigned char           ifa_scope;
+        unsigned char           ifa_prefixlen;
+        __u32                   ifa_flags;
+
+but adding 2 bytes of explicit alignment didn't help.
+
+Anyone with a clue?
+
+Gr{oetje,eeting}s,
+
+                        Geert
 
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
