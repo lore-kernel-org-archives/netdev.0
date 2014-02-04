@@ -1,54 +1,47 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH v2 0/5] net: phy: Ethernet PHY powerdown optimization
-Date: Tue, 04 Feb 2014 20:38:22 +0100
-Message-ID: <52F141AE.8010402@gmail.com>
-References: <1386513631-11284-1-git-send-email-sebastian.hesselbarth@gmail.com> <1386926429-28818-1-git-send-email-sebastian.hesselbarth@gmail.com> <20131217.144313.1563516273987934449.davem@davemloft.net>
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+From: Michael Chan <mchan@broadcom.com>
+Subject: Re: igb and bnx2: "NETDEV WATCHDOG: transmit queue timed out" when
+ skb has huge linear buffer
+Date: Tue, 4 Feb 2014 11:47:51 -0800
+Message-ID: <1391543271.4804.44.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <52EAA31B.1090606@schaman.hu>
+	 <1391114048.4804.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	 <52EBA51E.808@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="cp1252"
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, mugunthanvnm@ti.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131217.144313.1563516273987934449.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Zoltan Kiss <zoltan.kiss@schaman.hu>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	"Greg Rose" <gregory.v.rose@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Alex Duyck <alexander.h.duyck@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Tushar Dave <tushar.n.dave@intel.com>,
+	Akeem G Abodunrin <akeem.g.abodunrin@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:21382 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752828AbaBDTrw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 14:47:52 -0500
+In-Reply-To: <52EBA51E.808@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/17/2013 08:43 PM, David Miller wrote:
-> From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-> Date: Fri, 13 Dec 2013 10:20:24 +0100
->
->> This is v2 of the ethernet PHY power optimization patches to reduce
->> power consumption of network PHYs with link that are either unused or
->> the corresponding netdev is down.
->>
->> Compared to the last version, this patch set drops a patch to disable
->> unused PHYs after late initcall, as it is not compatible with a modular
->> mdio bus [1]. I'll investigate different ways to have a modular mdio bus
->> driver get notified when driver loading is done.
->>
->> Again, a branch with v2 applied to v3.13-rc2 can also be found at
->> https://github.com/shesselba/linux-dove.git topic/ethphy-power-v2
->>
->> [1] http://www.spinics.net/lists/arm-kernel/msg293028.html
->
-> Series applied, thanks.
->
+On Fri, 2014-01-31 at 14:29 +0100, Zoltan Kiss wrote: 
+> [ 5417.275472] WARNING: at net/sched/sch_generic.c:255 
+> dev_watchdog+0x156/0x1f0()
+> [ 5417.275474] NETDEV WATCHDOG: eth1 (bnx2): transmit queue 2 timed out 
 
-David, Mungunthan, Florian,
-
-as expected the above patches create a Linux to bootloader dependency
-that surfaces dumb bootloaders not initializing PHYs correctly.
-
-Andrew has a Kirkwood based board that does not power-up and restart
-auto-negotiation on the powered down PHY after a warm restart. While
-this specific bootloader allows a soft-workaround by issuing the
-required PHY writes before accessing the interface, others may not.
-
-I think we should allow the user to soft-disable the automatic
-power-down of PHYs, i.e. by exploiting a kernel parameter.
-
-Do you have any preference for naming it? My call would be something
-like libphy.suspend_halted = [0,1] with 1 being the default.
-
-Sebastian
+The dump shows an internal IRQ pending on MSIX vector 2 which matches
+the the queue number that is timing out.  I don't know what happened to
+the MSIX and why the driver is not seeing it.  Do you see an IRQ error
+message from the kernel a few seconds before the tx timeout message?
