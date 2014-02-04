@@ -1,57 +1,82 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH V3] net/dt: Add support for overriding phy configuration
- from device tree
-Date: Tue, 4 Feb 2014 14:48:15 -0800
-Message-ID: <CAGVrzcbwiVCj0oETXms6ek+QG13BEbgydLzUEckuGFOhSx0iXQ@mail.gmail.com>
-References: <7510122.cayuQ6qt8r@wuerfel> <1389999459-9483-1-git-send-email-matthew.garrett@nebula.com>
- <CAGVrzcZ4TFd=9KP+aoG47QbmqDJ1i23WBcEWDbzNRUfGmPvZHQ@mail.gmail.com> <1391550040.3003.28.camel@deadeye.wl.decadent.org.uk>
+Subject: Re: [PATCH v2 0/5] net: phy: Ethernet PHY powerdown optimization
+Date: Tue, 4 Feb 2014 14:51:27 -0800
+Message-ID: <CAGVrzcYxcSL+Lrc=ueU6ARtxJ6MhhfHtSMEUeaMXQJEfjByVUA@mail.gmail.com>
+References: <1386513631-11284-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1386926429-28818-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <20131217.144313.1563516273987934449.davem@davemloft.net> <52F141AE.8010402@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Matthew Garrett <matthew.garrett@nebula.com>,
+Cc: David Miller <davem@davemloft.net>,
+	mugunthanvnm <mugunthanvnm@ti.com>,
 	netdev <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Kishon Vijay Abraham I <kishon@ti.com>
-To: Ben Hutchings <ben@decadent.org.uk>
+	Andrew Lunn <andrew@lunn.ch>
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1391550040.3003.28.camel@deadeye.wl.decadent.org.uk>
+In-Reply-To: <52F141AE.8010402@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2014-02-04 Ben Hutchings <ben@decadent.org.uk>:
-> On Tue, 2014-02-04 at 12:39 -0800, Florian Fainelli wrote:
->> 2014-01-17 Matthew Garrett <matthew.garrett@nebula.com>:
->> > Some hardware may be broken in interesting and board-specific ways, such
->> > that various bits of functionality don't work. This patch provides a
->> > mechanism for overriding mii registers during init based on the contents of
->> > the device tree data, allowing board-specific fixups without having to
->> > pollute generic code.
+Hi Sebastian,
+
+2014-02-04 Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>:
+> On 12/17/2013 08:43 PM, David Miller wrote:
 >>
->> It would be good to explain exactly how your hardware is broken
->> exactly. I really do not think that such a fine-grained setting where
->> you could disable, e.g: 100BaseT_Full, but allow 100BaseT_Half to
->> remain usable makes that much sense. In general, Gigabit might be
->> badly broken, but 100 and 10Mbits/sec should work fine. How about the
->> MASTER-SLAVE bit, is overriding it really required?
+>> From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+>> Date: Fri, 13 Dec 2013 10:20:24 +0100
+>>
+>>> This is v2 of the ethernet PHY power optimization patches to reduce
+>>> power consumption of network PHYs with link that are either unused or
+>>> the corresponding netdev is down.
+>>>
+>>> Compared to the last version, this patch set drops a patch to disable
+>>> unused PHYs after late initcall, as it is not compatible with a modular
+>>> mdio bus [1]. I'll investigate different ways to have a modular mdio bus
+>>> driver get notified when driver loading is done.
+>>>
+>>> Again, a branch with v2 applied to v3.13-rc2 can also be found at
+>>> https://github.com/shesselba/linux-dove.git topic/ethphy-power-v2
+>>>
+>>> [1] http://www.spinics.net/lists/arm-kernel/msg293028.html
+>>
+>>
+>> Series applied, thanks.
+>>
 >
-> Yes, it is entirely possible that one or other of the clock modes
-> (locally generated vs recovered) is not reliable.
-
-That one is not covered in the existing Ethernet PHY binding, okay for
-handling it.
-
+> David, Mungunthan, Florian,
 >
->> Is not a PHY fixup registered for a specific OUI the solution you are
->> looking for?
-> [...]
+> as expected the above patches create a Linux to bootloader dependency
+> that surfaces dumb bootloaders not initializing PHYs correctly.
 >
-> The fault is in the board, not the PHY.
+> Andrew has a Kirkwood based board that does not power-up and restart
+> auto-negotiation on the powered down PHY after a warm restart. While
+> this specific bootloader allows a soft-workaround by issuing the
+> required PHY writes before accessing the interface, others may not.
+>
+> I think we should allow the user to soft-disable the automatic
+> power-down of PHYs, i.e. by exploiting a kernel parameter.
+>
+> Do you have any preference for naming it? My call would be something
+> like libphy.suspend_halted = [0,1] with 1 being the default.
 
-What kind of fault at the board level are we talking about? Lack of
-specific twisted pair wiring to the RJ-45 jack? Out of spec RXC/TXC on
-a (R)GMII path? If the latter, this is going to be via vendor-specific
-MII registers, and should be a good enough reason for registering a
-PHY fixup. What about pad control, and Ethernet MACs specicif register
-affecting the internal delays and such?
+The name looks good to me, and it would avoid having to clear the
+BMCR_PWRDOWN bit during the MDIO bus remove callback to workaround
+such bootloaders.
+
+BTW, it looks like we are omitting a 0.5 seconds delay after clearing
+the BMCR_PWRDOWN bit:
+
+"
+22.2.4.1.5 Power Down
+...
+A PHY is not required to meet the RX_CLK and TX_CLK signal functional
+requirements when either bit
+0.11 or bit 0.10 is set to a logic one. A PHY shall meet the RX_CLK
+and TX_CLK signal functional require-
+ments defined in 22.2.2 within 0.5 s after both bit 0.11 and 0.10 are
+cleared to zero."
 -- 
 Florian
