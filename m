@@ -1,62 +1,84 @@
-From: David Rientjes <rientjes@google.com>
-Subject: Re: [PATCH] fdtable: Avoid triggering OOMs from alloc_fdmem
-Date: Tue, 4 Feb 2014 13:27:32 -0800 (PST)
-Message-ID: <alpine.DEB.2.02.1402041312410.26019@chino.kir.corp.google.com>
-References: <87r47jsb2p.fsf@xmission.com> <1391530721.4301.8.camel@edumazet-glaptop2.roam.corp.google.com> <871tzirdwf.fsf@xmission.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: igb and bnx2: "NETDEV WATCHDOG: transmit queue
+ timed out" when skb has huge linear buffer
+Date: Tue, 4 Feb 2014 21:32:53 +0000
+Message-ID: <52F15C85.7050200@citrix.com>
+References: <52EAA31B.1090606@schaman.hu>
+	<20140131185619.GB27553@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-    Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org,
-    linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org, linux-mm@kvack.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <871tzirdwf.fsf@xmission.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Carolyn, Tushar,
+	e1000-devel@lists.sourceforge.net, Michael Chan <mchan@broadcom.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	John Ronciak <john.ronciak@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>, Peter
+To: Wei Liu <wei.liu2@citrix.com>, Zoltan Kiss <zoltan.kiss@schaman.hu>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20140131185619.GB27553@zion.uk.xensource.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Tue, 4 Feb 2014, Eric W. Biederman wrote:
+On 31/01/14 18:56, Wei Liu wrote:
+> On Thu, Jan 30, 2014 at 07:08:11PM +0000, Zoltan Kiss wrote:
+>> Hi,
+>>
+>> I've experienced some queue timeout problems mentioned in the
+>> subject with igb and bnx2 cards. I haven't seen them on other cards
+>> so far. I'm using XenServer with 3.10 Dom0 kernel (however igb were
+>> already updated to latest version), and there are Windows guests
+>> sending data through these cards. I noticed these problems in XenRT
+>> test runs, and I know that they usually mean some lost interrupt
+>> problem or other hardware error, but in my case they started to
+>> appear more often, and they are likely connected to my netback grant
+>> mapping patches. These patches causing skb's with huge (~64kb)
+>> linear buffers to appear more often.
+>> The reason for that is an old problem in the ring protocol:
+>> originally the maximum amount of slots were linked to MAX_SKB_FRAGS,
+>> as every slot ended up as a frag of the skb. When this value were
+>> changed, netback had to cope with the situation by coalescing the
+>> packets into fewer frags.
+>> My patch series take a different approach: the leftover slots
+>> (pages) were assigned to a new skb's frags, and that skb were
+>> stashed to the frag_list of the first one. Then, before sending it
+>> off to the stack it calls skb = skb_copy_expand(skb, 0, 0,
+>> GFP_ATOMIC, __GFP_NOWARN), which basically creates a new skb and
+>> copied all the data into it. As far as I understood, it put
+>> everything into the linear buffer, which can amount to 64KB at most.
+>> The original skb are freed then, and this new one were sent to the
+>> stack.
+>
+> Just my two cents, if it is this case, you can try to call
+> skb_copy_expand on every SKB netback receives to manually create SKBs
+> with ~64KB linear buffer to see how it goes...
 
-> My gut feel says if there is a code path that has __GFP_NOWARN and
-> because of PAGE_ALLOC_COSTLY_ORDER we loop forever then there is
-> something fishy going on.
-> 
+I've tried it, and it did break everything in a similar way, so that's a 
+strong clue that the problem lies here. I've rewrote that part of my 
+patches to do less modification, based on Malcolm's idea: netback pulls 
+the first frag into linear buffer, then moves a frag from the frag_list 
+skb into the first one. That seems to help, but so far I have only one 
+relevant test result, I'm waiting for more results.
 
-The __GFP_NOWARN without __GFP_NORETRY in alloc_fdmem() is pointless 
-because we already know that the allocation is PAGE_ALLOC_COSTLY_ORDER or 
-smaller.  That function encodes specific knowledge of the page allocator's 
-implementation so it leads me to believe that __GFP_NOWARN was intended to 
-be __GFP_NORETRY from the start.  Otherwise, it's just set pointlessly and 
-specifically allows for the oom killing that you're now reporting.  Since 
-it can fallback to vmalloc() after exhausting all of the page allocator's 
-capabilities, the __GFP_NOWARN|__GFP_NORETRY seems entirely appropriate.
+Zoli
 
-The vmalloc() has never been called in this function because of the 
-infinite loop in kmalloc() because of its allocation context, but it 
-definitely seems better than oom killing something.
 
-Acked-by: David Rientjes <rientjes@google.com>
-
-> I would love to hear some people who are more current on the mm
-> subsystem than I am chime in.  It might be that the darn fix is going to
-> be to teach __alloc_pages_slowpath to not loop forever, unless order == 0.
-
-It doesn't loop forever, it will either return NULL because of its 
-allocation context or the oom killer will kill something, even for order-3 
-allocations.  In the case that you've modified, you have sane fallback 
-behavior that can be utilized rather than the oom killer and __GFP_NORETRY 
-was reasonable from the start.
-
-The question is simple enough: do we want to change 
-PAGE_ALLOC_COSTLY_ORDER to be smaller so that order-3 does return NULL 
-without oom killing?  Perhaps there's an argument to be made that does 
-exactly that, but by not setting __GFP_NORETRY you are really demanding 
-order-3 memory at the time you allocate it and are willing to accept the 
-consequences to free that memory.  Should we make everything except for 
-order-0 inherently __GFP_NORETRY and introduce a replacement __GFP_RETRY?  
-That's doable as well, but it would be a massive effort.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+------------------------------------------------------------------------------
+Managing the Performance of Cloud-Based Applications
+Take advantage of what the Cloud has to offer - Avoid Common Pitfalls.
+Read the Whitepaper.
+http://pubads.g.doubleclick.net/gampad/clk?id=121051231&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
