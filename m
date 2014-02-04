@@ -1,59 +1,47 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH nf] ipvs: fix AF assignment in ip_vs_conn_new()
-Date: Tue,  4 Feb 2014 21:34:21 +0900
-Message-ID: <1391517261-27222-2-git-send-email-horms@verge.net.au>
-References: <1391517261-27222-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Michal Kubecek <mkubecek@suse.cz>,
-	Bogdano Arendartchuk <barendartchuk@suse.com>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:47825 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753378AbaBDMej (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 07:34:39 -0500
-In-Reply-To: <1391517261-27222-1-git-send-email-horms@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: linux-3.14-rc1 & PACKET_QDISC_BYPASS : slow_path warning
+Date: Tue, 04 Feb 2014 13:56:01 +0100
+Message-ID: <52F0E361.9000304@redhat.com>
+References: <52F01C97.20001@fokus.fraunhofer.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
+	Jesper Dangaard Brouer <jbrouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Mathias Kretschmer <mathias.kretschmer-8LS2qeF34IpklNlQbfROjRvVK+yQ3ZXh@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <52F01C97.20001-8LS2qeF34IpklNlQbfROjRvVK+yQ3ZXh@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Michal Kubecek <mkubecek@suse.cz>
+Hi Mathias, [cc'ing Felix]
 
-If a fwmark is passed to ip_vs_conn_new(), it is passed in
-vaddr, not daddr. Therefore we should set AF to AF_UNSPEC in
-vaddr assignment (like we do in ip_vs_ct_in_get()), otherwise we
-may copy only first 4 bytes of an IPv6 address into cp->daddr.
+On 02/03/2014 11:47 PM, Mathias Kretschmer wrote:
+> Hi Daniel,
+>
+> we are developing a wired/wireless MPLS switch. Currently the data plane runs in user space using PF_PACKET sockets via RX_RING/TX_RING.
+>
+> We had hoped to test the PACKET_QDISC_BYPASS option since this seems to be the proper optimization for our purposes.
+>
+> Unfortunately, we're seeing a 'slow path' warning for every packet that is being sent out. With PACKET_QDISC_BYPASS disabled, no warnings are dumped. Hardware is an older AMD Geode LX embedded board (ALiX).
+>
+> BTW, this happens while sending via a wireless (802.11) adhoc interface. Hence, it might be an interaction with the ieee80211 sub system.
 
-Signed-off-by: Bogdano Arendartchuk <barendartchuk@suse.com>
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_conn.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+Hm, so the WARN_ON() is triggered inside ath9k driver in relation to 802.11 QoS,
+and came in from commit 066dae93bdf ("ath9k: rework tx queue selection and fix
+queue stopping/waking"). We did the stress testing of that option for PF_PACKET
+on 10Gbit/s NICs. Seems to me you might be running into the same issue when using
+pktgen as it randomly or per round-robin selects tx queues as well? Not entirely
+sure how necessary this WARN_ON() is though, Felix? I think QDISC_BYPASS might not
+be the best option in your case, perhaps you will run into increased power usage
+in your NIC as a side-effect?
 
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index 59a1a85..a8eb0a8 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -871,11 +871,11 @@ ip_vs_conn_new(const struct ip_vs_conn_param *p,
- 	cp->protocol	   = p->protocol;
- 	ip_vs_addr_set(p->af, &cp->caddr, p->caddr);
- 	cp->cport	   = p->cport;
--	ip_vs_addr_set(p->af, &cp->vaddr, p->vaddr);
--	cp->vport	   = p->vport;
--	/* proto should only be IPPROTO_IP if d_addr is a fwmark */
-+	/* proto should only be IPPROTO_IP if p->vaddr is a fwmark */
- 	ip_vs_addr_set(p->protocol == IPPROTO_IP ? AF_UNSPEC : p->af,
--		       &cp->daddr, daddr);
-+		       &cp->vaddr, p->vaddr);
-+	cp->vport	   = p->vport;
-+	ip_vs_addr_set(p->af, &cp->daddr, daddr);
- 	cp->dport          = dport;
- 	cp->flags	   = flags;
- 	cp->fwmark         = fwmark;
--- 
-1.8.5.2
+Cheers,
+
+Daniel
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
