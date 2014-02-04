@@ -1,44 +1,140 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] dp83640: Support a configurable number of periodic
- outputs
-Date: Tue, 4 Feb 2014 16:43:23 +0100
-Message-ID: <20140204154323.GA2815@netboy>
-References: <1391503942-694-1-git-send-email-stefan.sorensen@spectralink.com>
- <20140204092939.GA9862@netboy>
- <1391511238.3003.25.camel@deadeye.wl.decadent.org.uk>
- <1391527464.7871.15.camel@e37108.spectralink.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "ben@decadent.org.uk" <ben@decadent.org.uk>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: =?iso-8859-1?B?U/hyZW5zZW4s?= Stefan
-	<Stefan.Sorensen@spectralink.com>
+From: Alexander Shiyan <shc_work@mail.ru>
+Subject: [PATCH] net: irda: ep7211-sir: Remove driver
+Date: Tue,  4 Feb 2014 19:43:32 +0400
+Message-ID: <1391528612-16957-1-git-send-email-shc_work@mail.ru>
+Cc: Samuel Ortiz <samuel@sortiz.org>,
+	Alexander Shiyan <shc_work@mail.ru>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f176.google.com ([209.85.215.176]:58760 "EHLO
-	mail-ea0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754073AbaBDPnj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 10:43:39 -0500
-Received: by mail-ea0-f176.google.com with SMTP id h14so4412026eaj.21
-        for <netdev@vger.kernel.org>; Tue, 04 Feb 2014 07:43:38 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1391527464.7871.15.camel@e37108.spectralink.com>
+Received: from fallback1.mail.ru ([94.100.176.18]:40912 "EHLO
+	fallback1.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751484AbaBDPoQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 10:44:16 -0500
+Received: from smtp49.i.mail.ru (smtp49.i.mail.ru [94.100.177.109])
+	by fallback1.mail.ru (mPOP.Fallback_MX) with ESMTP id B87773387AF4
+	for <netdev@vger.kernel.org>; Tue,  4 Feb 2014 19:44:14 +0400 (MSK)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 04, 2014 at 03:24:27PM +0000, S=F8rensen, Stefan wrote:
->=20
-> I would definitely prefer the DT approach. On all the platforms I hav=
-e
-> used, the GPIO configuration has been set in stone by the HW. But the=
-re
-> might be some dev boards or the like that has them configurable.
+This patch removes old and unsupported CLPS711X IrDA driver.
+Support for IrDA for CLPS711X serial port now provided by commit
+4a33f1f59abd (serial: clps711x: Add support for N_IRDA line
+discipline), so IrDA-mode can be turned ON with "irattach" tool
+through "irtty" driver.
 
-I think DT is fine for the initial configuration, but the ethtool way
-will still be needed in at least two cases.
+Signed-off-by: Alexander Shiyan <shc_work@mail.ru>
+---
+ drivers/net/irda/Kconfig      |  7 -----
+ drivers/net/irda/Makefile     |  1 -
+ drivers/net/irda/ep7211-sir.c | 70 -------------------------------------------
+ 3 files changed, 78 deletions(-)
+ delete mode 100644 drivers/net/irda/ep7211-sir.c
 
-1. Platform has no DT at all.
-2. User wants to change the function at run time.
-
-Thanks,
-Richard
+diff --git a/drivers/net/irda/Kconfig b/drivers/net/irda/Kconfig
+index 2dc82f1..3da44d5 100644
+--- a/drivers/net/irda/Kconfig
++++ b/drivers/net/irda/Kconfig
+@@ -210,13 +210,6 @@ config KINGSUN_DONGLE
+ 	  To compile it as a module, choose M here: the module will be called
+ 	  kingsun-sir.
+ 
+-config EP7211_DONGLE
+-	tristate "Cirrus Logic clps711x I/R support"
+-	depends on IRTTY_SIR && ARCH_CLPS711X && IRDA
+-	help
+-	  Say Y here if you want to build support for the Cirrus logic
+-	  EP7211 chipset's infrared module.
+-
+ config KSDAZZLE_DONGLE
+ 	tristate "KingSun Dazzle IrDA-USB dongle"
+ 	depends on IRDA && USB
+diff --git a/drivers/net/irda/Makefile b/drivers/net/irda/Makefile
+index dfc6453..be8ab5b 100644
+--- a/drivers/net/irda/Makefile
++++ b/drivers/net/irda/Makefile
+@@ -35,7 +35,6 @@ obj-$(CONFIG_MCP2120_DONGLE)	+= mcp2120-sir.o
+ obj-$(CONFIG_ACT200L_DONGLE)	+= act200l-sir.o
+ obj-$(CONFIG_MA600_DONGLE)	+= ma600-sir.o
+ obj-$(CONFIG_TOIM3232_DONGLE)	+= toim3232-sir.o
+-obj-$(CONFIG_EP7211_DONGLE)	+= ep7211-sir.o
+ obj-$(CONFIG_KINGSUN_DONGLE)	+= kingsun-sir.o
+ obj-$(CONFIG_KSDAZZLE_DONGLE)	+= ksdazzle-sir.o
+ obj-$(CONFIG_KS959_DONGLE)    	+= ks959-sir.o
+diff --git a/drivers/net/irda/ep7211-sir.c b/drivers/net/irda/ep7211-sir.c
+deleted file mode 100644
+index 5fe1f4d..0000000
+--- a/drivers/net/irda/ep7211-sir.c
++++ /dev/null
+@@ -1,70 +0,0 @@
+-/*
+- * IR port driver for the Cirrus Logic CLPS711X processors
+- *
+- * Copyright 2001, Blue Mug Inc.  All rights reserved.
+- * Copyright 2007, Samuel Ortiz <samuel@sortiz.org>
+- */
+-
+-#include <linux/module.h>
+-#include <linux/platform_device.h>
+-
+-#include <mach/hardware.h>
+-
+-#include "sir-dev.h"
+-
+-static int clps711x_dongle_open(struct sir_dev *dev)
+-{
+-	unsigned int syscon;
+-
+-	/* Turn on the SIR encoder. */
+-	syscon = clps_readl(SYSCON1);
+-	syscon |= SYSCON1_SIREN;
+-	clps_writel(syscon, SYSCON1);
+-
+-	return 0;
+-}
+-
+-static int clps711x_dongle_close(struct sir_dev *dev)
+-{
+-	unsigned int syscon;
+-
+-	/* Turn off the SIR encoder. */
+-	syscon = clps_readl(SYSCON1);
+-	syscon &= ~SYSCON1_SIREN;
+-	clps_writel(syscon, SYSCON1);
+-
+-	return 0;
+-}
+-
+-static struct dongle_driver clps711x_dongle = {
+-	.owner		= THIS_MODULE,
+-	.driver_name	= "EP7211 IR driver",
+-	.type		= IRDA_EP7211_DONGLE,
+-	.open		= clps711x_dongle_open,
+-	.close		= clps711x_dongle_close,
+-};
+-
+-static int clps711x_sir_probe(struct platform_device *pdev)
+-{
+-	return irda_register_dongle(&clps711x_dongle);
+-}
+-
+-static int clps711x_sir_remove(struct platform_device *pdev)
+-{
+-	return irda_unregister_dongle(&clps711x_dongle);
+-}
+-
+-static struct platform_driver clps711x_sir_driver = {
+-	.driver	= {
+-		.name	= "sir-clps711x",
+-		.owner	= THIS_MODULE,
+-	},
+-	.probe	= clps711x_sir_probe,
+-	.remove	= clps711x_sir_remove,
+-};
+-module_platform_driver(clps711x_sir_driver);
+-
+-MODULE_AUTHOR("Samuel Ortiz <samuel@sortiz.org>");
+-MODULE_DESCRIPTION("EP7211 IR dongle driver");
+-MODULE_LICENSE("GPL");
+-MODULE_ALIAS("irda-dongle-13"); /* IRDA_EP7211_DONGLE */
+-- 
+1.8.3.2
