@@ -1,82 +1,98 @@
-From: Fernando Luis =?ISO-8859-1?Q?V=E1zquez?= Cao <fernando_b1-Zyj7fXuS5i5L9jVzuh4AOg@public.gmane.org>
-Subject: [PATCH] rtnetlink: fix oops in
-	rtnl_link_get_slave_info_data_size
-Date: Tue, 04 Feb 2014 19:35:02 +0900
-Message-ID: <1391510102.6282.9.camel@nexus>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH] net:cpsw: Pass unhandled ioctl's on to generic phy ioctl
+Date: Tue, 04 Feb 2014 10:50:50 +0000
+Message-ID: <1391511050.3003.21.camel@deadeye.wl.decadent.org.uk>
+References: <1391500242-10554-1-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-8ftSNWMZ87ivU4HxHQ3p"
+Cc: mugunthanvnm@ti.com, davem@davemloft.net, netdev@vger.kernel.org
+To: Stefan =?ISO-8859-1?Q?S=F8rensen?=
+	<stefan.sorensen@spectralink.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:50555 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750937AbaBDKvJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 05:51:09 -0500
+In-Reply-To: <1391500242-10554-1-git-send-email-stefan.sorensen@spectralink.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We should check whether rtnetlink link operations
-are defined before calling get_slave_size().
 
-Without this, the following oops can occur when
-adding a tap device to OVS.
+--=-8ftSNWMZ87ivU4HxHQ3p
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-[   87.839553] BUG: unable to handle kernel NULL pointer dereference at 00000000000000a8
-[   87.839595] IP: [<ffffffff813d47c0>] if_nlmsg_size+0xf0/0x220
-[...]
-[   87.840651] Call Trace:
-[   87.840664]  [<ffffffff813d694b>] ? rtmsg_ifinfo+0x2b/0x100
-[   87.840688]  [<ffffffff813c8340>] ? __netdev_adjacent_dev_insert+0x150/0x1a0
-[   87.840718]  [<ffffffff813d6a50>] ? rtnetlink_event+0x30/0x40
-[   87.840742]  [<ffffffff814b4144>] ? notifier_call_chain+0x44/0x70
-[   87.840768]  [<ffffffff813c8946>] ? __netdev_upper_dev_link+0x3c6/0x3f0
-[   87.840798]  [<ffffffffa0678d6c>] ? netdev_create+0xcc/0x160 [openvswitch]
-[   87.840828]  [<ffffffffa06781ea>] ? ovs_vport_add+0x4a/0xd0 [openvswitch]
-[   87.840857]  [<ffffffffa0670139>] ? new_vport+0x9/0x50 [openvswitch]
-[   87.840884]  [<ffffffffa067279e>] ? ovs_vport_cmd_new+0x11e/0x210 [openvswitch]
-[   87.840915]  [<ffffffff813f3efa>] ? genl_family_rcv_msg+0x19a/0x360
-[   87.840941]  [<ffffffff813f40c0>] ? genl_family_rcv_msg+0x360/0x360
-[   87.840967]  [<ffffffff813f4139>] ? genl_rcv_msg+0x79/0xc0
-[   87.840991]  [<ffffffff813b6cf9>] ? __kmalloc_reserve.isra.25+0x29/0x80
-[   87.841018]  [<ffffffff813f2389>] ? netlink_rcv_skb+0xa9/0xc0
-[   87.841042]  [<ffffffff813f27cf>] ? genl_rcv+0x1f/0x30
-[   87.841064]  [<ffffffff813f1988>] ? netlink_unicast+0xe8/0x1e0
-[   87.841088]  [<ffffffff813f1d9a>] ? netlink_sendmsg+0x31a/0x750
-[   87.841113]  [<ffffffff813aee96>] ? sock_sendmsg+0x86/0xc0
-[   87.841136]  [<ffffffff813c960d>] ? __netdev_update_features+0x4d/0x200
-[   87.841163]  [<ffffffff813ca94e>] ? ethtool_get_value+0x2e/0x50
-[   87.841188]  [<ffffffff813af269>] ? ___sys_sendmsg+0x359/0x370
-[   87.841212]  [<ffffffff813da686>] ? dev_ioctl+0x1a6/0x5c0
-[   87.841236]  [<ffffffff8109c210>] ? autoremove_wake_function+0x30/0x30
-[   87.841264]  [<ffffffff813ac59d>] ? sock_do_ioctl+0x3d/0x50
-[   87.841288]  [<ffffffff813aca68>] ? sock_ioctl+0x1e8/0x2c0
-[   87.841312]  [<ffffffff811934bf>] ? do_vfs_ioctl+0x2cf/0x4b0
-[   87.841335]  [<ffffffff813afeb9>] ? __sys_sendmsg+0x39/0x70
-[   87.841362]  [<ffffffff814b86f9>] ? system_call_fastpath+0x16/0x1b
-[   87.841386] Code: c0 74 10 48 89 ef ff d0 83 c0 07 83 e0 fc 48 98 49 01 c7 48 89 ef e8 d0 d6 fe ff 48 85 c0 0f 84 df 00 00 00 48 8b 90 08 07 00 00 <48> 8b 8a a8 00 00 00 31 d2 48 85 c9 74 0c 48 89 ee 48 89 c7 ff 
-[   87.841529] RIP  [<ffffffff813d47c0>] if_nlmsg_size+0xf0/0x220
-[   87.841555]  RSP <ffff880221aa5950>
-[   87.841569] CR2: 00000000000000a8
-[   87.851442] ---[ end trace e42ab217691b4fc2 ]---
+On Tue, 2014-02-04 at 08:50 +0100, Stefan S=C3=B8rensen wrote:
+> This patch allows the use of a generic timestamping phy connected
+> to the cpsw if CPTS support is not enabled.
 
-Signed-off-by: Fernando Luis Vazquez Cao <fernando-gVGce1chcLdL9jVzuh4AOg@public.gmane.org>
----
+What if CPTS support is enabled in the driver, but this particular
+machine doesn't have it and uses a timestamping PHY instead?
 
-diff -urNp linux-3.14-rc1-orig/net/core/rtnetlink.c linux-3.14-rc1/net/core/rtnetlink.c
---- linux-3.14-rc1-orig/net/core/rtnetlink.c	2014-02-04 19:13:08.849827354 +0900
-+++ linux-3.14-rc1/net/core/rtnetlink.c	2014-02-04 19:04:20.130714042 +0900
-@@ -374,7 +374,7 @@ static size_t rtnl_link_get_slave_info_d
- 	if (!master_dev)
- 		return 0;
- 	ops = master_dev->rtnl_link_ops;
--	if (!ops->get_slave_size)
-+	if (!ops || !ops->get_slave_size)
- 		return 0;
- 	/* IFLA_INFO_SLAVE_DATA + nested data */
- 	return nla_total_size(sizeof(struct nlattr)) +
+> Signed-off-by: Stefan S=C3=B8rensen <stefan.sorensen@spectralink.com>
+> ---
+>  drivers/net/ethernet/ti/cpsw.c | 8 ++++----
+>  1 file changed, 4 insertions(+), 4 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cps=
+w.c
+> index bde63e3..a03cfb3 100644
+> --- a/drivers/net/ethernet/ti/cpsw.c
+> +++ b/drivers/net/ethernet/ti/cpsw.c
+> @@ -1486,12 +1486,12 @@ static int cpsw_ndo_ioctl(struct net_device *dev,=
+ struct ifreq *req, int cmd)
+>  #endif
+>  	case SIOCGMIIPHY:
+>  		data->phy_id =3D priv->slaves[slave_no].phy->addr;
+
+It looks like this existing code is broken, as the phy pointer can be
+NULL!
+
+> -		break;
+> -	default:
+> -		return -ENOTSUPP;
+> +		return 0;
+>  	}
+> =20
+> -	return 0;
+> +	if (!priv->slaves[slave_no].phy)
+> +		return -EINVAL;
+> +	return phy_mii_ioctl(priv->slaves[slave_no].phy, req, cmd);
+
+This presumably also enables SIOC{G,S}MIIREG, but you didn't mention
+that.
+
+Ben.
+
+>  }
+> =20
+>  static void cpsw_ndo_tx_timeout(struct net_device *ndev)
+
+--=20
+Ben Hutchings
+One of the nice things about standards is that there are so many of them.
+
+--=-8ftSNWMZ87ivU4HxHQ3p
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAUvDGCue/yOyVhhEJAQqIeA//bPzG6QiVqiY/l8EoX8klfOwIbdB8CeNM
+ThGJBt4SapzPOphuC08P8kR+UkdfaaClfCIlYXxaXXcy2ZUpueNFUw8PPe4hCGFg
+ZTVenYPCZbsm6B7J3/yzxQZmC3iJsvOgowPmIa8XFi9LcrQa3OGfwS77g+0x03cz
+QhUCf9xqk1i4wMCMSQ7hUsLUrht70l6fM+QcUzd261FMkQpdvD1iV+sv9z/60W23
+XAPEyrfENr6OigZT7xQDXJQ2Ms9J4gzcvtuATLp1jJu0mAnozdaz5glpmyjlUMyB
+JMScjOVvcnYICCB3l2bcxqupNukppRgMeC2hKEfsKECMWuOXRbPU+8IAh5HGZa9R
+vl7Xxq32sZTSn1PEIACVLcNj3Pi1F9fqUTx2KpAjPOitgX7muKSfIn/mdVKYFyHj
+a4DXtAAzsjaUQgG3grnMzFzyB4KWgi10ftp8IPynP+XyFoxSSw01s52ZVazPtFDA
+uXfTPympoNU+DYMIoCHL+dM8CzU/OTZ8lNgr/eNQKgXeo0ibPMxik3kRITJNmMVZ
+iMk6BuLBcey5grcKUuKhoOX+87d7+y3E7ECCPGh31HeJmtS5IauxXhLFiXXdo1C0
+ZsxfJ62gvbCS0ZVzKlqnHNUs4nsAOiOV+MgamuOsnVJY7FImyCoIT9jnDbLNz720
+h9HZEq2GGYg=
+=HimA
+-----END PGP SIGNATURE-----
+
+--=-8ftSNWMZ87ivU4HxHQ3p--
