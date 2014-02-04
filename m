@@ -1,44 +1,78 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] fdtable: Avoid triggering OOMs from alloc_fdmem
-Date: Tue, 04 Feb 2014 10:57:05 -0800
-Message-ID: <87r47ik8ou.fsf@xmission.com>
-References: <87r47jsb2p.fsf@xmission.com>
-	<1391530721.4301.8.camel@edumazet-glaptop2.roam.corp.google.com>
-	<871tzirdwf.fsf@xmission.com>
-	<1391539464.10160.1.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: [PATCHv1 net] tg3: fix deadlock in tg3_change_mtu()
+Date: Tue, 4 Feb 2014 19:01:27 +0000
+Message-ID: <1391540487-31207-1-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-mm@kvack.org,
-	David Rientjes <rientjes@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1391539464.10160.1.camel@edumazet-glaptop2.roam.corp.google.com>
-	(Eric Dumazet's message of "Tue, 04 Feb 2014 10:44:24 -0800")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Nithin Nayak Sujir <nsujir@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:42664 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754657AbaBDTBu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 14:01:50 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
+5780 cards cannot have jumbo frames and TSO enabled together.  When
+jumbo frames are enabled by setting the MTU, the TSO feature must be
+cleared.  This is done indirectly by calling netdev_update_features()
+which will call tg3_fix_features() to actually clear the flags.
 
-> On Tue, 2014-02-04 at 09:22 -0800, Eric W. Biederman wrote:
->
->> The two code paths below certainly look good canidates for having
->> __GFP_NORETRY added to them.  The same issues I ran into with
->> alloc_fdmem are likely to show up there as well.
->
-> Yes, this is what I thought : a write into TCP socket should be more
-> frequent than the alloc_fdmem() case ;)
->
-> But then, maybe your workload was only using UDP ?
+netdev_update_features() will also trigger a new netlink message for
+the feature change event which will result in a call to
+tg3_get_stats64() which deadlocks on the tg3 lock.
 
-As I have heard it described one tcp connection per small requestion,
-and someone goofed and started creating new connections when the server
-was bogged down.  But since all of the requests and replies were small I
-don't expect even TCP would allocate more than a 4KiB page in that
-worload.
+Fix this by dropping the tg3 lock while calling
+netdev_update_features().  This is safe as the device is down and the
+hardware is stopped.
 
-I had oodles of 4KiB and 8KiB pages.  What size of memory allocation did
-you see failing?  
+Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c |   18 +++++++++++-------
+ 1 files changed, 11 insertions(+), 7 deletions(-)
 
-Eric
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index e2ca03e..0b344c0 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -14077,17 +14077,13 @@ static inline void tg3_set_mtu(struct net_device *dev, struct tg3 *tp,
+ 	dev->mtu = new_mtu;
+ 
+ 	if (new_mtu > ETH_DATA_LEN) {
+-		if (tg3_flag(tp, 5780_CLASS)) {
+-			netdev_update_features(dev);
++		if (tg3_flag(tp, 5780_CLASS))
+ 			tg3_flag_clear(tp, TSO_CAPABLE);
+-		} else {
++		else
+ 			tg3_flag_set(tp, JUMBO_RING_ENABLE);
+-		}
+ 	} else {
+-		if (tg3_flag(tp, 5780_CLASS)) {
++		if (tg3_flag(tp, 5780_CLASS))
+ 			tg3_flag_set(tp, TSO_CAPABLE);
+-			netdev_update_features(dev);
+-		}
+ 		tg3_flag_clear(tp, JUMBO_RING_ENABLE);
+ 	}
+ }
+@@ -14119,6 +14115,14 @@ static int tg3_change_mtu(struct net_device *dev, int new_mtu)
+ 
+ 	tg3_set_mtu(dev, tp, new_mtu);
+ 
++	tg3_full_unlock(tp);
++
++	/* Adjusting MTU may add/remove TSO feature. */
++	if (tg3_flag(tp, 5780_CLASS))
++		netdev_update_features(dev);
++
++	tg3_full_lock(tp, 0);
++
+ 	/* Reset PHY, otherwise the read DMA engine will be in a mode that
+ 	 * breaks all requests to 256 bytes.
+ 	 */
+-- 
+1.7.2.5
