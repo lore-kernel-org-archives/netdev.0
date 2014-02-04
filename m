@@ -1,85 +1,70 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH nf v2] ipvs: fix AF assignment in ip_vs_conn_new()
-Date: Tue, 4 Feb 2014 18:08:00 +0900
-Message-ID: <20140204090800.GC8144@verge.net.au>
-References: <alpine.LFD.2.11.1401292319030.1844@ja.home.ssi.bg>
- <20140130075020.7A903E916F@unicorn.suse.cz>
- <alpine.LFD.2.11.1401301022170.1644@ja.home.ssi.bg>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH] dp83640: Support a configurable number of periodic
+ outputs
+Date: Tue, 4 Feb 2014 10:29:39 +0100
+Message-ID: <20140204092939.GA9862@netboy>
+References: <1391503942-694-1-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michal Kubecek <mkubecek@suse.cz>, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Stefan =?iso-8859-1?Q?S=F8rensen?=
+	<stefan.sorensen@spectralink.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:39854 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751346AbaBDJID (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 04:08:03 -0500
+Received: from mail-ee0-f42.google.com ([74.125.83.42]:50599 "EHLO
+	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753239AbaBDJ34 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 04:29:56 -0500
+Received: by mail-ee0-f42.google.com with SMTP id b15so2313829eek.29
+        for <netdev@vger.kernel.org>; Tue, 04 Feb 2014 01:29:55 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.11.1401301022170.1644@ja.home.ssi.bg>
+In-Reply-To: <1391503942-694-1-git-send-email-stefan.sorensen@spectralink.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 30, 2014 at 10:29:22AM +0200, Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Thu, 30 Jan 2014, Michal Kubecek wrote:
-> 
-> > If a fwmark is passed to ip_vs_conn_new(), it is passed in
-> > vaddr, not daddr. Therefore we should set AF to AF_UNSPEC in
-> > vaddr assignment (like we do in ip_vs_ct_in_get()), otherwise we
-> > may copy only first 4 bytes of an IPv6 address into cp->daddr.
-> > 
-> > v2: fix messed up {d,v}addr and p->{d,v}addr, add info about the
-> > outcome (thanks to Julian Anastasov)
-> > 
-> > Signed-off-by: Bogdano Arendartchuk <barendartchuk@suse.com>
-> > Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-> 
-> Acked-by: Julian Anastasov <ja@ssi.bg>
-> 
-> 	Looks like problem comes from
-> commit be8be9eccbf2d908a7e56b3f7a71105cd88da06b
-> "ipvs: Fix IPv4 FWMARK virtual services" (2.6.30).
+On Tue, Feb 04, 2014 at 09:52:22AM +0100, Stefan S=F8rensen wrote:
+> The driver is currently limited to a single periodic output.
+> This patch makes the number of peridodic output dynamic by
+> dropping the gpio_tab module parameter and adding cal_gpio,
+> perout_gpio_tab and extts_gpio_tabs parameters.
 
-Thanks, I'll queue this up.
+=2E..
 
-> 
-> > ---
-> >  net/netfilter/ipvs/ip_vs_conn.c | 8 ++++----
-> >  1 file changed, 4 insertions(+), 4 deletions(-)
-> > 
-> > diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-> > index 59a1a85..a8eb0a8 100644
-> > --- a/net/netfilter/ipvs/ip_vs_conn.c
-> > +++ b/net/netfilter/ipvs/ip_vs_conn.c
-> > @@ -871,11 +871,11 @@ ip_vs_conn_new(const struct ip_vs_conn_param *p,
-> >  	cp->protocol	   = p->protocol;
-> >  	ip_vs_addr_set(p->af, &cp->caddr, p->caddr);
-> >  	cp->cport	   = p->cport;
-> > -	ip_vs_addr_set(p->af, &cp->vaddr, p->vaddr);
-> > -	cp->vport	   = p->vport;
-> > -	/* proto should only be IPPROTO_IP if d_addr is a fwmark */
-> > +	/* proto should only be IPPROTO_IP if p->vaddr is a fwmark */
-> >  	ip_vs_addr_set(p->protocol == IPPROTO_IP ? AF_UNSPEC : p->af,
-> > -		       &cp->daddr, daddr);
-> > +		       &cp->vaddr, p->vaddr);
-> > +	cp->vport	   = p->vport;
-> > +	ip_vs_addr_set(p->af, &cp->daddr, daddr);
-> >  	cp->dport          = dport;
-> >  	cp->flags	   = flags;
-> >  	cp->fwmark         = fwmark;
-> > -- 
-> > 1.8.1.4
-> 
-> Regards
-> 
-> --
-> Julian Anastasov <ja@ssi.bg>
-> 
+>  module_param(chosen_phy, int, 0444);
+> -module_param_array(gpio_tab, ushort, NULL, 0444);
+> +module_param(cal_gpio, int, 0444);
+> +module_param_array(perout_gpio_tab, int, &n_perout, 0444);
+> +module_param_array(extts_gpio_tab, int, &n_extts, 0444);
+> =20
+>  MODULE_PARM_DESC(chosen_phy, \
+>  	"The address of the PHY to use for the ancillary clock features");
+> -MODULE_PARM_DESC(gpio_tab, \
+> -	"Which GPIO line to use for which purpose: cal,perout,extts1,...,ex=
+tts6");
+> +MODULE_PARM_DESC(cal_gpio, "Which GPIO line to use for calibration")=
+;
+> +MODULE_PARM_DESC(perout_gpio_tab, "Which GPIO lines to use for perio=
+dic output");
+> +MODULE_PARM_DESC(extts_gpio_tab, "Which GPIO lines to use for extern=
+al timestamping");
+
+Modules parameters are surely easiest (for the developer), but perhaps
+the time has come for the "right way."
+
+Currently there is no interface for configuring the GPIOs used by PHC
+devices, and last year I was going to add the GPIOs to the igb
+driver. The conclusion of the discussion was that module parameters
+are bad for this, but ethtool is good.
+
+  http://www.spinics.net/lists/netdev/msg237692.html
+
+[ I did not follow through to come up with an ethtool way of configurin=
+g
+  the igb pins. ]
+
+Even though it is more work, I think the way forward is to invent a
+way to let the user configure this kind of thing via ethtool. Would
+you care to take a stab at this?
+
+Thanks,
+Richard
