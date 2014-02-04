@@ -1,60 +1,82 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [bisected] Re: WARNING: at net/ipv4/devinet.c:1599
-Date: Tue, 4 Feb 2014 21:03:24 +0100
-Message-ID: <CAMuHMdWrYj1te-7qhKg-uHmXpuLaBBdqCEmpv_fgYSmaN3yujw@mail.gmail.com>
-References: <CAMuHMdVCeFek2LX0_AnA8zg_yYhXvzw19rH8OsqbWWb-rb9w-A@mail.gmail.com>
-	<CAHA+R7Omv++NCg=nocVsW+tM=Zv_qCNhX1JjtFTuCzfz9B3Cig@mail.gmail.com>
-	<CAMuHMdWUR-x=fwG26xg8AsUQwL+FXLaQAnkaWHbrVaep0QzHJQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jiri@resnulli.us>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdWUR-x=fwG26xg8AsUQwL+FXLaQAnkaWHbrVaep0QzHJQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: James M Leddy <james.leddy@redhat.com>
+Subject: [PATCH net-next] bnx2[x]: Make module parameters readable
+Date: Tue,  4 Feb 2014 15:10:59 -0500
+Message-ID: <1391544659-5711-1-git-send-email-james.leddy@redhat.com>
+Cc: Michael Chan <mchan@broadcom.com>,
+	Ariel Elior <ariele@broadcom.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41827 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932088AbaBDULI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Feb 2014 15:11:08 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 4, 2014 at 8:20 PM, Geert Uytterhoeven <geert@linux-m68k.org> wrote:
-> On Tue, Feb 4, 2014 at 7:08 PM, Cong Wang <cwang@twopensource.com> wrote:
->> On Tue, Feb 4, 2014 at 6:19 AM, Geert Uytterhoeven <geert@linux-m68k.org> wrote:
->>>
->>> Anyone with a clue?
->>>
->>
->> Looks like we need:
->>
->> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
->> index ac2dff3..bdbf68b 100644
->> --- a/net/ipv4/devinet.c
->> +++ b/net/ipv4/devinet.c
->> @@ -1443,7 +1443,8 @@ static size_t inet_nlmsg_size(void)
->>                + nla_total_size(4) /* IFA_LOCAL */
->>                + nla_total_size(4) /* IFA_BROADCAST */
->>                + nla_total_size(IFNAMSIZ) /* IFA_LABEL */
->> -              + nla_total_size(4);  /* IFA_FLAGS */
->> +              + nla_total_size(4)  /* IFA_FLAGS */
->> +              + nla_total_size(sizeof(struct ifa_cacheinfo)); /*
->> IFA_CACHEINFO */
->>  }
->
-> Thanks for your suggestion, but it doesn't help :-(
+Occasionally users want to know what parameters their Broadcom drivers
+are running with. For example, a user may want to know if MSI is
+disabled.
 
-Bummer, I applied it to the wrong tree.
+This patch has been compile tested.
 
-Yes, it works, thanks a lot!
+Signed-off-by: James M Leddy <james.leddy@redhat.com>
+---
+ drivers/net/ethernet/broadcom/bnx2.c             |    2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   12 ++++++------
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
-David, Jiri, is this the right fix, or just a band-aid?
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
+index 9d2deda..cda25ac 100644
+--- a/drivers/net/ethernet/broadcom/bnx2.c
++++ b/drivers/net/ethernet/broadcom/bnx2.c
+@@ -85,7 +85,7 @@ MODULE_FIRMWARE(FW_RV2P_FILE_09_Ax);
+ 
+ static int disable_msi = 0;
+ 
+-module_param(disable_msi, int, 0);
++module_param(disable_msi, int, S_IRUGO);
+ MODULE_PARM_DESC(disable_msi, "Disable Message Signaled Interrupt (MSI)");
+ 
+ typedef enum {
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index e118a3e..639e287 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -95,29 +95,29 @@ MODULE_FIRMWARE(FW_FILE_NAME_E1H);
+ MODULE_FIRMWARE(FW_FILE_NAME_E2);
+ 
+ int bnx2x_num_queues;
+-module_param_named(num_queues, bnx2x_num_queues, int, 0);
++module_param_named(num_queues, bnx2x_num_queues, int, S_IRUGO);
+ MODULE_PARM_DESC(num_queues,
+ 		 " Set number of queues (default is as a number of CPUs)");
+ 
+ static int disable_tpa;
+-module_param(disable_tpa, int, 0);
++module_param(disable_tpa, int, S_IRUGO);
+ MODULE_PARM_DESC(disable_tpa, " Disable the TPA (LRO) feature");
+ 
+ static int int_mode;
+-module_param(int_mode, int, 0);
++module_param(int_mode, int, S_IRUGO);
+ MODULE_PARM_DESC(int_mode, " Force interrupt mode other than MSI-X "
+ 				"(1 INT#x; 2 MSI)");
+ 
+ static int dropless_fc;
+-module_param(dropless_fc, int, 0);
++module_param(dropless_fc, int, S_IRUGO);
+ MODULE_PARM_DESC(dropless_fc, " Pause on exhausted host ring");
+ 
+ static int mrrs = -1;
+-module_param(mrrs, int, 0);
++module_param(mrrs, int, S_IRUGO);
+ MODULE_PARM_DESC(mrrs, " Force Max Read Req Size (0..3) (for debug)");
+ 
+ static int debug;
+-module_param(debug, int, 0);
++module_param(debug, int, S_IRUGO);
+ MODULE_PARM_DESC(debug, " Default debug msglevel");
+ 
+ struct workqueue_struct *bnx2x_wq;
+-- 
+1.7.1
