@@ -1,50 +1,48 @@
 From: =?utf-8?B?U8O4cmVuc2VuLCBTdGVmYW4=?=
 	<Stefan.Sorensen@spectralink.com>
-Subject: Re: [PATCH] dp83640: Support a configurable number of periodic
- outputs
-Date: Tue, 4 Feb 2014 15:24:27 +0000
-Message-ID: <1391527464.7871.15.camel@e37108.spectralink.com>
-References: <1391503942-694-1-git-send-email-stefan.sorensen@spectralink.com>
-	 <20140204092939.GA9862@netboy>
-	 <1391511238.3003.25.camel@deadeye.wl.decadent.org.uk>
+Subject: Re: [PATCH] net:cpsw: Pass unhandled ioctl's on to generic phy ioctl
+Date: Tue, 4 Feb 2014 15:08:16 +0000
+Message-ID: <1391526492.7871.8.camel@e37108.spectralink.com>
+References: <1391500242-10554-1-git-send-email-stefan.sorensen@spectralink.com>
+	 <1391511050.3003.21.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"richardcochran@gmail.com" <richardcochran@gmail.com>
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"mugunthanvnm@ti.com" <mugunthanvnm@ti.com>
 To: "ben@decadent.org.uk" <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1lp0156.outbound.protection.outlook.com ([207.46.163.156]:36120
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752859AbaBDPYa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Feb 2014 10:24:30 -0500
-In-Reply-To: <1391511238.3003.25.camel@deadeye.wl.decadent.org.uk>
+Received: from mail-bl2lp0209.outbound.protection.outlook.com ([207.46.163.209]:12853
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751214AbaBDPYW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Feb 2014 10:24:22 -0500
+In-Reply-To: <1391511050.3003.21.camel@deadeye.wl.decadent.org.uk>
 Content-Language: en-US
-Content-ID: <B4E4DB3E347CBB42B49B3753B0F6AEED@namprd07.prod.outlook.com>
+Content-ID: <16B5D27C948C61478E4FEAFA50B58C15@namprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCAyMDE0LTAyLTA0IGF0IDEwOjUzICswMDAwLCBCZW4gSHV0Y2hpbmdzIHdyb3RlOg0K
-PiA+IE1vZHVsZXMgcGFyYW1ldGVycyBhcmUgc3VyZWx5IGVhc2llc3QgKGZvciB0aGUgZGV2ZWxv
-cGVyKSwgYnV0IHBlcmhhcHMNCj4gPiB0aGUgdGltZSBoYXMgY29tZSBmb3IgdGhlICJyaWdodCB3
-YXkuIg0KPiA+IA0KPiA+IEN1cnJlbnRseSB0aGVyZSBpcyBubyBpbnRlcmZhY2UgZm9yIGNvbmZp
-Z3VyaW5nIHRoZSBHUElPcyB1c2VkIGJ5IFBIQw0KPiA+IGRldmljZXMsIGFuZCBsYXN0IHllYXIg
-SSB3YXMgZ29pbmcgdG8gYWRkIHRoZSBHUElPcyB0byB0aGUgaWdiDQo+ID4gZHJpdmVyLiBUaGUg
-Y29uY2x1c2lvbiBvZiB0aGUgZGlzY3Vzc2lvbiB3YXMgdGhhdCBtb2R1bGUgcGFyYW1ldGVycw0K
-PiA+IGFyZSBiYWQgZm9yIHRoaXMsIGJ1dCBldGh0b29sIGlzIGdvb2QuDQo+ID4gDQo+ID4gICBo
-dHRwOi8vd3d3LnNwaW5pY3MubmV0L2xpc3RzL25ldGRldi9tc2cyMzc2OTIuaHRtbA0KPiA+IA0K
-PiA+IFsgSSBkaWQgbm90IGZvbGxvdyB0aHJvdWdoIHRvIGNvbWUgdXAgd2l0aCBhbiBldGh0b29s
-IHdheSBvZiBjb25maWd1cmluZw0KPiA+ICAgdGhlIGlnYiBwaW5zLiBdDQo+ID4gDQo+ID4gRXZl
-biB0aG91Z2ggaXQgaXMgbW9yZSB3b3JrLCBJIHRoaW5rIHRoZSB3YXkgZm9yd2FyZCBpcyB0byBp
-bnZlbnQgYQ0KPiA+IHdheSB0byBsZXQgdGhlIHVzZXIgY29uZmlndXJlIHRoaXMga2luZCBvZiB0
-aGluZyB2aWEgZXRodG9vbC4gV291bGQNCj4gPiB5b3UgY2FyZSB0byB0YWtlIGEgc3RhYiBhdCB0
-aGlzPw0KPiANCj4gSXQgc2VlbXMgdG8gbWUgdGhhdCB0aGlzIGlzIGJvYXJkIGNvbmZpZ3VyYXRp
-b24sIG5vdCB1c2VyIGNvbmZpZ3VyYXRpb24sDQo+IHNvIGl0IHNob3VsZCBiZSBkZWZpbmVkIGlu
-IERUIG9yIEFDUEkgb3Igd2hhdGV2ZXIuDQo+IA0KPiBBcmUgdGhlcmUgYm9hcmRzIHdoaWNoIGV4
-cG9zZSBtdWx0aXBsZSBHUElPcyBmb3IgdXNlcnMgdG8gcGx1ZyB0b2dldGhlcg0KPiBQUFMgc2ln
-bmFscz8NCg0KSSB3b3VsZCBkZWZpbml0ZWx5IHByZWZlciB0aGUgRFQgYXBwcm9hY2guIE9uIGFs
-bCB0aGUgcGxhdGZvcm1zIEkgaGF2ZQ0KdXNlZCwgdGhlIEdQSU8gY29uZmlndXJhdGlvbiBoYXMg
-YmVlbiBzZXQgaW4gc3RvbmUgYnkgdGhlIEhXLiBCdXQgdGhlcmUNCm1pZ2h0IGJlIHNvbWUgZGV2
-IGJvYXJkcyBvciB0aGUgbGlrZSB0aGF0IGhhcyB0aGVtIGNvbmZpZ3VyYWJsZS4NCg0KU3RlZmFu
-DQo=
+T24gVHVlLCAyMDE0LTAyLTA0IGF0IDEwOjUwICswMDAwLCBCZW4gSHV0Y2hpbmdzIHdyb3RlOg0K
+PiA+IFRoaXMgcGF0Y2ggYWxsb3dzIHRoZSB1c2Ugb2YgYSBnZW5lcmljIHRpbWVzdGFtcGluZyBw
+aHkgY29ubmVjdGVkDQo+ID4gdG8gdGhlIGNwc3cgaWYgQ1BUUyBzdXBwb3J0IGlzIG5vdCBlbmFi
+bGVkLg0KPiANCj4gV2hhdCBpZiBDUFRTIHN1cHBvcnQgaXMgZW5hYmxlZCBpbiB0aGUgZHJpdmVy
+LCBidXQgdGhpcyBwYXJ0aWN1bGFyDQo+IG1hY2hpbmUgZG9lc24ndCBoYXZlIGl0IGFuZCB1c2Vz
+IGEgdGltZXN0YW1waW5nIFBIWSBpbnN0ZWFkPw0KDQpUaGF0IHdvdWxkIG5vdCB3b3JrLCB0aGUg
+Q1BUUyB3aWxsIGdyYWIgdGhlIFNJT0N7RyxTfUhXVFNUQU1QLiBJJ20gbm90DQpzdXJlIGhvdyB0
+aGF0IGNvdWxkIGJlIGNvbmZpZ3VyZWQgYXQgcnVudGltZSwgb3RoZXIgdGhhbiBhIHByaXZhdGUN
+CmV0aHRvb2wgZmxhZy4NCg0KQWxzbyBpdCBzZWVtIGFzIHRoZSBzaXR1YXRpb24gd2l0aCBhIHRp
+bWVzdGFtcGluZyBNQUMgYW5kIGEgdGltZXN0YW1waW5nDQpQSFkgY291bGQgZGVsaXZlciBib2d1
+cyBldGh0b29sIHRpbWVzdGFtcGluZyBpbmZvLCBhcyBpdCB3aWxsIGNvbWUgZnJvbQ0KdGhlIFBI
+WSBpZiBhdmFpbGFibGUsIGJ1dCB0aGUgdGltZXN0YW1waW5nIHdpbGwgYmUgaGFuZGxlZCBieSB0
+aGUgTUFDLg0KDQo+ID4gIAljYXNlIFNJT0NHTUlJUEhZOg0KPiA+ICAJCWRhdGEtPnBoeV9pZCA9
+IHByaXYtPnNsYXZlc1tzbGF2ZV9ub10ucGh5LT5hZGRyOw0KPiANCj4gSXQgbG9va3MgbGlrZSB0
+aGlzIGV4aXN0aW5nIGNvZGUgaXMgYnJva2VuLCBhcyB0aGUgcGh5IHBvaW50ZXIgY2FuIGJlDQo+
+IE5VTEwhDQoNClJpZ2h0LCBidXQgdGhhdCBjb2RlIGNhbiBnbyBhd2F5IHNpbmNlIFNJT0NHTUlJ
+UEhZIGlzIGFsc28gaGFuZGxlZCBieQ0KcGh5X21paV9pb2N0bC4gSSB3aWxsIGRlbGV0ZSB0aGF0
+IGNhc2UgaW4gdGhlIG5leHQgdmVyc2lvbi4NCg0KPiA+ICsJcmV0dXJuIHBoeV9taWlfaW9jdGwo
+cHJpdi0+c2xhdmVzW3NsYXZlX25vXS5waHksIHJlcSwgY21kKTsNCj4gDQo+IFRoaXMgcHJlc3Vt
+YWJseSBhbHNvIGVuYWJsZXMgU0lPQ3tHLFN9TUlJUkVHLCBidXQgeW91IGRpZG4ndCBtZW50aW9u
+DQo+IHRoYXQuDQoNClllcywgSSB3aWxsIGFkZCB0aGF0IHRvIHRoZSBjb21taXQgbG9nIGluIHRo
+ZSBuZXh0IHZlcnNpb24uDQoNClN0ZWZhbg0K
