@@ -1,280 +1,143 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH V3] net/dt: Add support for overriding phy configuration from device tree
-Date: Tue, 04 Feb 2014 17:15:08 +0000
-Message-ID: <20140204171508.4E169C4050F@trevor.secretlab.ca>
-References: <7510122.cayuQ6qt8r@wuerfel> < 1389999459-9483-1-git-send-email-matthew.garrett@nebula.com>
-Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kishon@ti.com, Matthew Garrett <matthew.garrett@nebula.com>
-To: Matthew Garrett <matthew.garrett@nebula.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f47.google.com ([74.125.82.47]:63099 "EHLO
-	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754857AbaBDRPR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 12:15:17 -0500
-Received: by mail-wg0-f47.google.com with SMTP id m15so13283354wgh.14
-        for <netdev@vger.kernel.org>; Tue, 04 Feb 2014 09:15:14 -0800 (PST)
-In-Reply-To: <1389999459-9483-1-git-send-email-matthew.garrett@nebula.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] fdtable: Avoid triggering OOMs from alloc_fdmem
+Date: Tue, 04 Feb 2014 09:22:40 -0800
+Message-ID: <871tzirdwf.fsf@xmission.com>
+References: <87r47jsb2p.fsf@xmission.com>
+	<1391530721.4301.8.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-mm@kvack.org,
+	David Rientjes <rientjes@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <1391530721.4301.8.camel@edumazet-glaptop2.roam.corp.google.com>
+	(Eric Dumazet's message of "Tue, 04 Feb 2014 08:18:41 -0800")
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 17 Jan 2014 17:57:39 -0500, Matthew Garrett <matthew.garrett@nebula.com> wrote:
-> Some hardware may be broken in interesting and board-specific ways, such
-> that various bits of functionality don't work. This patch provides a
-> mechanism for overriding mii registers during init based on the contents of
-> the device tree data, allowing board-specific fixups without having to
-> pollute generic code.
-> 
-> Signed-off-by: Matthew Garrett <matthew.garrett@nebula.com>
+Eric Dumazet <eric.dumazet@gmail.com> writes:
 
-I've got no problems in principle with the feature. I think it is a good
-change. The binding itself feels too verbose to me. As an alternative,
-how about the following:
+> On Mon, 2014-02-03 at 21:26 -0800, Eric W. Biederman wrote:
+>> Recently due to a spike in connections per second memcached on 3
+>> separate boxes triggered the OOM killer from accept.  At the time the
+>> OOM killer was triggered there was 4GB out of 36GB free in zone 1. The
+>> problem was that alloc_fdtable was allocating an order 3 page (32KiB) to
+>> hold a bitmap, and there was sufficient fragmentation that the largest
+>> page available was 8KiB.
+>> 
+>> I find the logic that PAGE_ALLOC_COSTLY_ORDER can't fail pretty dubious
+>> but I do agree that order 3 allocations are very likely to succeed.
+>> 
+>> There are always pathologies where order > 0 allocations can fail when
+>> there are copious amounts of free memory available.  Using the pigeon
+>> hole principle it is easy to show that it requires 1 page more than 50%
+>> of the pages being free to guarantee an order 1 (8KiB) allocation will
+>> succeed, 1 page more than 75% of the pages being free to guarantee an
+>> order 2 (16KiB) allocation will succeed and 1 page more than 87.5% of
+>> the pages being free to guarantee an order 3 allocate will succeed.
+>> 
+>> A server churning memory with a lot of small requests and replies like
+>> memcached is a common case that if anything can will skew the odds
+>> against large pages being available.
+>> 
+>> Therefore let's not give external applications a practical way to kill
+>> linux server applications, and specify __GFP_NORETRY to the kmalloc in
+>> alloc_fdmem.  Unless I am misreading the code and by the time the code
+>> reaches should_alloc_retry in __alloc_pages_slowpath (where
+>> __GFP_NORETRY becomes signification).  We have already tried everything
+>> reasonable to allocate a page and the only thing left to do is wait.  So
+>> not waiting and falling back to vmalloc immediately seems like the
+>> reasonable thing to do even if there wasn't a chance of triggering the
+>> OOM killer.
+>> 
+>> Cc: stable@vger.kernel.org
+>> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+>> ---
+>>  fs/file.c |    2 +-
+>>  1 files changed, 1 insertions(+), 1 deletions(-)
+>> 
+>> diff --git a/fs/file.c b/fs/file.c
+>> index 771578b33fb6..db25c2bdfe46 100644
+>> --- a/fs/file.c
+>> +++ b/fs/file.c
+>> @@ -34,7 +34,7 @@ static void *alloc_fdmem(size_t size)
+>>  	 * vmalloc() if the allocation size will be considered "large" by the VM.
+>>  	 */
+>>  	if (size <= (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER)) {
+>> -		void *data = kmalloc(size, GFP_KERNEL|__GFP_NOWARN);
+>> +		void *data = kmalloc(size, GFP_KERNEL|__GFP_NOWARN|__GFP_NORETRY);
+>>  		if (data != NULL)
+>>  			return data;
+>>  	}
+>
+> Hi Eric
+>
+> I wrote yesterday a similar patch adding __GFP_NORETRY in following
+> paths. I feel that alloc_fdmem() is only a part of the problem ;)
 
-	phy-mii-advertise = "10half", "!10full", "!100base4"
+These code paths below were triggering OOMs for you?
 
-So it is a list of features. Prepending a '!' makes it disabled. And we
-could add something like "nodefault" to clear the probed settings
-entirely before listing the modes we want.
+I looked and didn't see a path flying through the air.
 
-g.
+> What do you think, should we merge our changes or have distinct
+> patches ?
 
-> ---
-> 
-> V3: Break the main function out into some helper functions and store the
-> values in some structs.
-> 
->  Documentation/devicetree/bindings/net/phy.txt | 21 +++++++
->  drivers/net/phy/phy_device.c                  | 29 ++++++++-
->  drivers/of/of_net.c                           | 87 +++++++++++++++++++++++++++
->  include/linux/of_net.h                        | 12 ++++
->  4 files changed, 148 insertions(+), 1 deletion(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentation/devicetree/bindings/net/phy.txt
-> index 7cd18fb..fc50f02 100644
-> --- a/Documentation/devicetree/bindings/net/phy.txt
-> +++ b/Documentation/devicetree/bindings/net/phy.txt
-> @@ -23,6 +23,21 @@ Optional Properties:
->    assume clause 22. The compatible list may also contain other
->    elements.
+I don't know about merging changes but certainly looking at the issue
+together sounds good.
+
+My gut feel says if there is a code path that has __GFP_NOWARN and
+because of PAGE_ALLOC_COSTLY_ORDER we loop forever then there is
+something fishy going on.
+
+I would love to hear some people who are more current on the mm
+subsystem than I am chime in.  It might be that the darn fix is going to
+be to teach __alloc_pages_slowpath to not loop forever, unless order == 0. 
+I expect the worst offenders need to have __GFP_NORETRY added so the
+knowledge of what is going on spreads, and so we can avoid the danger of
+needing to retune the whole mm subsystem that changing
+__alloc_pages_slowpath does.
+
+The two code paths below certainly look good canidates for having
+__GFP_NORETRY added to them.  The same issues I ran into with
+alloc_fdmem are likely to show up there as well.
+
+Eric
+
+
+
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index 0c127dcdf6a8..5b6a9431b017 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -1775,7 +1775,9 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+>  			while (order) {
+>  				if (npages >= 1 << order) {
+>  					page = alloc_pages(sk->sk_allocation |
+> -							   __GFP_COMP | __GFP_NOWARN,
+> +							   __GFP_COMP |
+> +							   __GFP_NOWARN |
+> +							   __GFP_NORETRY,
+>  							   order);
+>  					if (page)
+>  						goto fill_page;
+> @@ -1845,7 +1847,7 @@ bool skb_page_frag_refill(unsigned int sz, struct page_frag *pfrag, gfp_t prio)
+>  		gfp_t gfp = prio;
 >  
-> +The following properties may be added to either the phy node or the parent
-> +ethernet device. If not present, the hardware defaults will be used.
-> +
-> +- phy-mii-advertise-10half: 1 to advertise half-duplex 10MBit, 0 to disable
-> +- phy-mii-advertise-10full: 1 to advertise full-duplex 10MBit, 0 to disable
-> +- phy-mii-advertise-100half: 1 to advertise half-duplex 100MBit, 0 to disable
-> +- phy-mii-advertise-100full: 1 to advertise full-duplex 100MBit, 0 to disable
-> +- phy-mii-advertise-100base4: 1 to advertise 100base4, 0 to disable
-> +- phy-mii-advertise-1000half: 1 to advertise half-duplex 1000MBit, 0 to disable
-> +- phy-mii-advertise-1000full: 1 to advertise full-duplex 1000MBit, 0 to disable
-> +- phy-mii-manual-master: 1 to enable manual master/slave configuration, 0
-> +  to disable manual master/slave configuration
-> +- phy-mii-as-master: 1 to configure phy to act as master, 0 to configure phy
-> +  to act as slave. Ignored if manual master/slave configuration is not enabled.
-> +
->  Example:
->  
->  ethernet-phy@0 {
-> @@ -32,4 +47,10 @@ ethernet-phy@0 {
->  	interrupts = <35 1>;
->  	reg = <0>;
->  	device_type = "ethernet-phy";
-> +	// Disable advertising of full duplex 1000MBit
-> +	phy-mii-advertise-1000full = <0>;
-> +	// Force manual phy master/slave configuration
-> +	phy-mii-manual-master = <1>;
-> +	// Forcibly configure phy as slave
-> +	phy-mii-as-master = <0>;
->  };
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index d6447b3..91793bc 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -33,6 +33,7 @@
->  #include <linux/mii.h>
->  #include <linux/ethtool.h>
->  #include <linux/phy.h>
-> +#include <linux/of_net.h>
->  
->  #include <asm/io.h>
->  #include <asm/irq.h>
-> @@ -497,6 +498,28 @@ void phy_disconnect(struct phy_device *phydev)
->  }
->  EXPORT_SYMBOL(phy_disconnect);
->  
-> +int phy_override_from_of(struct phy_device *phydev)
-> +{
-> +	int reg, regval;
-> +	u16 val, mask;
-> +
-> +	/* Check for phy register overrides from OF */
-> +	for (reg = 0; reg < 16; reg++) {
-> +		if (!of_get_mii_register(phydev, reg, &val, &mask)) {
-> +			if (!mask)
-> +				continue;
-> +			regval = phy_read(phydev, reg);
-> +			if (regval < 0)
-> +				continue;
-> +			regval &= ~mask;
-> +			regval |= val;
-> +			phy_write(phydev, reg, regval);
-> +		}
-> +	}
-> +
-> +	return 0;
-> +}
-> +
->  int phy_init_hw(struct phy_device *phydev)
->  {
->  	int ret;
-> @@ -508,7 +531,11 @@ int phy_init_hw(struct phy_device *phydev)
->  	if (ret < 0)
->  		return ret;
->  
-> -	return phydev->drv->config_init(phydev);
-> +	ret = phydev->drv->config_init(phydev);
-> +	if (ret < 0)
-> +		return ret;
-> +
-> +	return phy_override_from_of(phydev);
->  }
->  
->  /**
-> diff --git a/drivers/of/of_net.c b/drivers/of/of_net.c
-> index 8f9be2e..75751b7 100644
-> --- a/drivers/of/of_net.c
-> +++ b/drivers/of/of_net.c
-> @@ -93,3 +93,90 @@ const void *of_get_mac_address(struct device_node *np)
->  	return NULL;
->  }
->  EXPORT_SYMBOL(of_get_mac_address);
-> +
-> +struct mii_override {
-> +	char *prop;
-> +	u32 supported;
-> +	u16 value;
-> +};
-> +
-> +static struct mii_override mii_advertise_override[] = {
-> +	{ "phy-mii-advertise-10half", SUPPORTED_10baseT_Half,
-> +	  ADVERTISE_10HALF },
-> +	{ "phy-mii-advertise-10full", SUPPORTED_10baseT_Full,
-> +	  ADVERTISE_10FULL },
-> +	{ "phy-mii-advertise-100half", SUPPORTED_100baseT_Half,
-> +	  ADVERTISE_100HALF },
-> +	{ "phy-mii-advertise-100full", SUPPORTED_100baseT_Full,
-> +	  ADVERTISE_100FULL },
-> +	{ "phy-mii-advertise-100base4", 0, ADVERTISE_100BASE4 },
-> +	{ NULL },
-> +};
-> +
-> +static struct mii_override mii_gigabit_override[] = {
-> +	{ "phy-mii-advertise-1000half", SUPPORTED_1000baseT_Half,
-> +	  ADVERTISE_1000HALF },
-> +	{ "phy-mii-advertise-1000full", SUPPORTED_1000baseT_Full,
-> +	  ADVERTISE_1000FULL },
-> +	{ "phy-mii-as-master", 0, CTL1000_AS_MASTER },
-> +	{ "phy-mii-manual-master", 0, CTL1000_ENABLE_MASTER },
-> +	{ NULL },
-> +};
-> +
-> +static void mii_handle_override(struct mii_override *override_list,
-> +				struct phy_device *phydev, u16 *val, u16 *mask)
-> +{
-> +	struct device *dev = &phydev->dev;
-> +	struct device_node *np = dev->of_node;
-> +	struct mii_override *override;
-> +	u32 tmp;
-> +
-> +	if (!np && dev->parent->of_node)
-> +		np = dev->parent->of_node;
-> +
-> +	if (!np)
-> +		return;
-> +
-> +	for (override = &override_list[0]; override->prop != NULL; override++) {
-> +		if (!of_property_read_u32(np, override->prop, &tmp)) {
-> +			if (tmp) {
-> +				*val |= override->value;
-> +				phydev->advertising |= override->supported;
-> +			} else {
-> +				phydev->advertising &= ~(override->supported);
-> +			}
-> +
-> +			*mask |= override->value;
-> +		}
-> +	}
-> +
-> +	return;
-> +}
-> +
-> +/**
-> + * Provide phy register overrides from the device tree. Some hardware may
-> + * be broken in interesting and board-specific ways, so we want a mechanism
-> + * for the board data to provide overrides for default values. This should be
-> + * called during phy init.
-> + */
-> +int of_get_mii_register(struct phy_device *phydev, int reg, u16 *val,
-> +			u16 *mask)
-> +{
-> +	*val = 0;
-> +	*mask = 0;
-> +
-> +	switch (reg) {
-> +	case MII_ADVERTISE:
-> +		mii_handle_override(mii_advertise_override, phydev, val, mask);
-> +		break;
-> +
-> +	case MII_CTRL1000:
-> +		mii_handle_override(mii_gigabit_override, phydev, val, mask);
-> +		break;
-> +
-> +	default:
-> +		return -EINVAL;
-> +	}
-> +	return 0;
-> +}
-> +EXPORT_SYMBOL(of_get_mii_register);
-> diff --git a/include/linux/of_net.h b/include/linux/of_net.h
-> index 34597c8..2e478bc 100644
-> --- a/include/linux/of_net.h
-> +++ b/include/linux/of_net.h
-> @@ -7,10 +7,14 @@
->  #ifndef __LINUX_OF_NET_H
->  #define __LINUX_OF_NET_H
->  
-> +#include <linux/phy.h>
-> +
->  #ifdef CONFIG_OF_NET
->  #include <linux/of.h>
->  extern int of_get_phy_mode(struct device_node *np);
->  extern const void *of_get_mac_address(struct device_node *np);
-> +extern int of_get_mii_register(struct phy_device *np, int reg, u16 *val,
-> +			       u16 *mask);
->  #else
->  static inline int of_get_phy_mode(struct device_node *np)
->  {
-> @@ -21,6 +25,14 @@ static inline const void *of_get_mac_address(struct device_node *np)
->  {
->  	return NULL;
->  }
-> +static inline int of_get_mii_register(struct phy_device *np, int reg, u16 *val,
-> +				      u16 *mask)
-> +{
-> +	*val = 0;
-> +	*mask = 0;
-> +
-> +	return -EINVAL;
-> +}
->  #endif
->  
->  #endif /* __LINUX_OF_NET_H */
-> -- 
-> 1.8.4.2
-> 
+>  		if (order)
+> -			gfp |= __GFP_COMP | __GFP_NOWARN;
+> +			gfp |= __GFP_COMP | __GFP_NOWARN | __GFP_NORETRY;
+>  		pfrag->page = alloc_pages(gfp, order);
+>  		if (likely(pfrag->page)) {
+>  			pfrag->offset = 0;
+>
+>
+>
+>
+>
+>
 > --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
