@@ -1,140 +1,113 @@
-From: Alexander Shiyan <shc_work@mail.ru>
-Subject: [PATCH] net: irda: ep7211-sir: Remove driver
-Date: Tue,  4 Feb 2014 19:43:32 +0400
-Message-ID: <1391528612-16957-1-git-send-email-shc_work@mail.ru>
-Cc: Samuel Ortiz <samuel@sortiz.org>,
-	Alexander Shiyan <shc_work@mail.ru>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback1.mail.ru ([94.100.176.18]:40912 "EHLO
-	fallback1.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751484AbaBDPoQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 10:44:16 -0500
-Received: from smtp49.i.mail.ru (smtp49.i.mail.ru [94.100.177.109])
-	by fallback1.mail.ru (mPOP.Fallback_MX) with ESMTP id B87773387AF4
-	for <netdev@vger.kernel.org>; Tue,  4 Feb 2014 19:44:14 +0400 (MSK)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] fdtable: Avoid triggering OOMs from alloc_fdmem
+Date: Tue, 04 Feb 2014 08:18:41 -0800
+Message-ID: <1391530721.4301.8.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <87r47jsb2p.fsf@xmission.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org,
+  linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org, linux-mm@kvack.org,
+  David Rientjes <rientjes@google.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <87r47jsb2p.fsf@xmission.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-This patch removes old and unsupported CLPS711X IrDA driver.
-Support for IrDA for CLPS711X serial port now provided by commit
-4a33f1f59abd (serial: clps711x: Add support for N_IRDA line
-discipline), so IrDA-mode can be turned ON with "irattach" tool
-through "irtty" driver.
+On Mon, 2014-02-03 at 21:26 -0800, Eric W. Biederman wrote:
+> Recently due to a spike in connections per second memcached on 3
+> separate boxes triggered the OOM killer from accept.  At the time the
+> OOM killer was triggered there was 4GB out of 36GB free in zone 1. The
+> problem was that alloc_fdtable was allocating an order 3 page (32KiB) to
+> hold a bitmap, and there was sufficient fragmentation that the largest
+> page available was 8KiB.
+> 
+> I find the logic that PAGE_ALLOC_COSTLY_ORDER can't fail pretty dubious
+> but I do agree that order 3 allocations are very likely to succeed.
+> 
+> There are always pathologies where order > 0 allocations can fail when
+> there are copious amounts of free memory available.  Using the pigeon
+> hole principle it is easy to show that it requires 1 page more than 50%
+> of the pages being free to guarantee an order 1 (8KiB) allocation will
+> succeed, 1 page more than 75% of the pages being free to guarantee an
+> order 2 (16KiB) allocation will succeed and 1 page more than 87.5% of
+> the pages being free to guarantee an order 3 allocate will succeed.
+> 
+> A server churning memory with a lot of small requests and replies like
+> memcached is a common case that if anything can will skew the odds
+> against large pages being available.
+> 
+> Therefore let's not give external applications a practical way to kill
+> linux server applications, and specify __GFP_NORETRY to the kmalloc in
+> alloc_fdmem.  Unless I am misreading the code and by the time the code
+> reaches should_alloc_retry in __alloc_pages_slowpath (where
+> __GFP_NORETRY becomes signification).  We have already tried everything
+> reasonable to allocate a page and the only thing left to do is wait.  So
+> not waiting and falling back to vmalloc immediately seems like the
+> reasonable thing to do even if there wasn't a chance of triggering the
+> OOM killer.
+> 
+> Cc: stable@vger.kernel.org
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> ---
+>  fs/file.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/fs/file.c b/fs/file.c
+> index 771578b33fb6..db25c2bdfe46 100644
+> --- a/fs/file.c
+> +++ b/fs/file.c
+> @@ -34,7 +34,7 @@ static void *alloc_fdmem(size_t size)
+>  	 * vmalloc() if the allocation size will be considered "large" by the VM.
+>  	 */
+>  	if (size <= (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER)) {
+> -		void *data = kmalloc(size, GFP_KERNEL|__GFP_NOWARN);
+> +		void *data = kmalloc(size, GFP_KERNEL|__GFP_NOWARN|__GFP_NORETRY);
+>  		if (data != NULL)
+>  			return data;
+>  	}
 
-Signed-off-by: Alexander Shiyan <shc_work@mail.ru>
----
- drivers/net/irda/Kconfig      |  7 -----
- drivers/net/irda/Makefile     |  1 -
- drivers/net/irda/ep7211-sir.c | 70 -------------------------------------------
- 3 files changed, 78 deletions(-)
- delete mode 100644 drivers/net/irda/ep7211-sir.c
+Hi Eric
 
-diff --git a/drivers/net/irda/Kconfig b/drivers/net/irda/Kconfig
-index 2dc82f1..3da44d5 100644
---- a/drivers/net/irda/Kconfig
-+++ b/drivers/net/irda/Kconfig
-@@ -210,13 +210,6 @@ config KINGSUN_DONGLE
- 	  To compile it as a module, choose M here: the module will be called
- 	  kingsun-sir.
+I wrote yesterday a similar patch adding __GFP_NORETRY in following
+paths. I feel that alloc_fdmem() is only a part of the problem ;)
+
+What do you think, should we merge our changes or have distinct
+patches ?
+
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 0c127dcdf6a8..5b6a9431b017 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1775,7 +1775,9 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+ 			while (order) {
+ 				if (npages >= 1 << order) {
+ 					page = alloc_pages(sk->sk_allocation |
+-							   __GFP_COMP | __GFP_NOWARN,
++							   __GFP_COMP |
++							   __GFP_NOWARN |
++							   __GFP_NORETRY,
+ 							   order);
+ 					if (page)
+ 						goto fill_page;
+@@ -1845,7 +1847,7 @@ bool skb_page_frag_refill(unsigned int sz, struct page_frag *pfrag, gfp_t prio)
+ 		gfp_t gfp = prio;
  
--config EP7211_DONGLE
--	tristate "Cirrus Logic clps711x I/R support"
--	depends on IRTTY_SIR && ARCH_CLPS711X && IRDA
--	help
--	  Say Y here if you want to build support for the Cirrus logic
--	  EP7211 chipset's infrared module.
--
- config KSDAZZLE_DONGLE
- 	tristate "KingSun Dazzle IrDA-USB dongle"
- 	depends on IRDA && USB
-diff --git a/drivers/net/irda/Makefile b/drivers/net/irda/Makefile
-index dfc6453..be8ab5b 100644
---- a/drivers/net/irda/Makefile
-+++ b/drivers/net/irda/Makefile
-@@ -35,7 +35,6 @@ obj-$(CONFIG_MCP2120_DONGLE)	+= mcp2120-sir.o
- obj-$(CONFIG_ACT200L_DONGLE)	+= act200l-sir.o
- obj-$(CONFIG_MA600_DONGLE)	+= ma600-sir.o
- obj-$(CONFIG_TOIM3232_DONGLE)	+= toim3232-sir.o
--obj-$(CONFIG_EP7211_DONGLE)	+= ep7211-sir.o
- obj-$(CONFIG_KINGSUN_DONGLE)	+= kingsun-sir.o
- obj-$(CONFIG_KSDAZZLE_DONGLE)	+= ksdazzle-sir.o
- obj-$(CONFIG_KS959_DONGLE)    	+= ks959-sir.o
-diff --git a/drivers/net/irda/ep7211-sir.c b/drivers/net/irda/ep7211-sir.c
-deleted file mode 100644
-index 5fe1f4d..0000000
---- a/drivers/net/irda/ep7211-sir.c
-+++ /dev/null
-@@ -1,70 +0,0 @@
--/*
-- * IR port driver for the Cirrus Logic CLPS711X processors
-- *
-- * Copyright 2001, Blue Mug Inc.  All rights reserved.
-- * Copyright 2007, Samuel Ortiz <samuel@sortiz.org>
-- */
--
--#include <linux/module.h>
--#include <linux/platform_device.h>
--
--#include <mach/hardware.h>
--
--#include "sir-dev.h"
--
--static int clps711x_dongle_open(struct sir_dev *dev)
--{
--	unsigned int syscon;
--
--	/* Turn on the SIR encoder. */
--	syscon = clps_readl(SYSCON1);
--	syscon |= SYSCON1_SIREN;
--	clps_writel(syscon, SYSCON1);
--
--	return 0;
--}
--
--static int clps711x_dongle_close(struct sir_dev *dev)
--{
--	unsigned int syscon;
--
--	/* Turn off the SIR encoder. */
--	syscon = clps_readl(SYSCON1);
--	syscon &= ~SYSCON1_SIREN;
--	clps_writel(syscon, SYSCON1);
--
--	return 0;
--}
--
--static struct dongle_driver clps711x_dongle = {
--	.owner		= THIS_MODULE,
--	.driver_name	= "EP7211 IR driver",
--	.type		= IRDA_EP7211_DONGLE,
--	.open		= clps711x_dongle_open,
--	.close		= clps711x_dongle_close,
--};
--
--static int clps711x_sir_probe(struct platform_device *pdev)
--{
--	return irda_register_dongle(&clps711x_dongle);
--}
--
--static int clps711x_sir_remove(struct platform_device *pdev)
--{
--	return irda_unregister_dongle(&clps711x_dongle);
--}
--
--static struct platform_driver clps711x_sir_driver = {
--	.driver	= {
--		.name	= "sir-clps711x",
--		.owner	= THIS_MODULE,
--	},
--	.probe	= clps711x_sir_probe,
--	.remove	= clps711x_sir_remove,
--};
--module_platform_driver(clps711x_sir_driver);
--
--MODULE_AUTHOR("Samuel Ortiz <samuel@sortiz.org>");
--MODULE_DESCRIPTION("EP7211 IR dongle driver");
--MODULE_LICENSE("GPL");
--MODULE_ALIAS("irda-dongle-13"); /* IRDA_EP7211_DONGLE */
--- 
-1.8.3.2
+ 		if (order)
+-			gfp |= __GFP_COMP | __GFP_NOWARN;
++			gfp |= __GFP_COMP | __GFP_NOWARN | __GFP_NORETRY;
+ 		pfrag->page = alloc_pages(gfp, order);
+ 		if (likely(pfrag->page)) {
+ 			pfrag->offset = 0;
+
+
+
+
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
