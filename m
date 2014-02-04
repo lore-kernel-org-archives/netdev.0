@@ -1,14 +1,15 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] openvswitch: Use net_ratelimit in OVS_NLERR
-Date: Mon, 3 Feb 2014 17:29:28 -0800
-Message-ID: <CAEP_g=8oKyfwqnnY98qwQSomtro9gfYgYZAS2tMKPbP5HUBk9g@mail.gmail.com>
+Subject: Re: [PATCH] openvswitch: flow_netlink: Use pr_fmt to
+	OVS_NLERR output
+Date: Mon, 3 Feb 2014 17:29:42 -0800
+Message-ID: <CAEP_g=_5jfA4q8=XeSPjEc3CSQjzmAh-p4TF18B-Jg+_bY2X9w@mail.gmail.com>
 References: <1391389686-34303-1-git-send-email-jesse@nicira.com>
 	<1391389686-34303-6-git-send-email-jesse@nicira.com>
 	<1391410526.2784.9.camel@joe-AO722>
 	<CAEP_g=_vvSPLt76VUE66XHJtgCW_05acn-r77PfkJFWBkT0S2A@mail.gmail.com>
 	<1391465288.2538.1.camel@joe-AO722>
 	<CAEP_g=83oVtSTMmLB7O8g=a3e5ghjHp7Bgs-f4nvgqCvWqE5VQ@mail.gmail.com>
-	<1391476006.2538.5.camel@joe-AO722>
+	<1391476006.2538.5.camel@joe-AO722> <1391476701.2538.9.camel@joe-AO722>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -16,7 +17,7 @@ Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, David Miller <davem
 	"dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org" <dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org>
 To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1391476006.2538.5.camel@joe-AO722>
+In-Reply-To: <1391476701.2538.9.camel@joe-AO722>
 List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
 	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://openvswitch.org/pipermail/dev>
@@ -28,13 +29,10 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 3, 2014 at 5:06 PM, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> wrote:
-> Each use of pr_<level>_once has a per-site flag.
->
-> Some of the OVS_NLERR messages look as if seeing them
-> multiple times could be useful, so use net_ratelimit()
-> instead of pr_info_once.
+On Mon, Feb 3, 2014 at 5:18 PM, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> wrote:
+> Add "openvswitch: " prefix to OVS_NLERR output
+> to match the other OVS_NLERR output of datapath.c
 >
 > Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 
-Applied, thanks.
+Also applied.
