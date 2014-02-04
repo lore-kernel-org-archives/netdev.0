@@ -1,54 +1,93 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: [PATCH net] 6lowpan: add missing fragment list spinlock
-Date: Tue,  4 Feb 2014 11:57:53 +0100
-Message-ID: <1391511473-30000-1-git-send-email-alex.aring@gmail.com>
-Cc: dbaryshkov@gmail.com, davem@davemloft.net,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Alexander Aring <alex.aring@gmail.com>
-To: alex.bluesman.smirnov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f49.google.com ([74.125.83.49]:59287 "EHLO
-	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751540AbaBDK63 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 05:58:29 -0500
-Received: by mail-ee0-f49.google.com with SMTP id d17so4188431eek.8
-        for <netdev@vger.kernel.org>; Tue, 04 Feb 2014 02:58:27 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Subject: Re: [PATCH] rtnetlink: fix oops in
+	rtnl_link_get_slave_info_data_size
+Date: Tue, 4 Feb 2014 11:59:57 +0100
+Message-ID: <20140204105957.GA3067@minipsycho.brq.redhat.com>
+References: <1391510102.6282.9.camel@nexus>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Fernando Luis =?iso-8859-1?Q?V=E1zquez?= Cao <fernando_b1-Zyj7fXuS5i5L9jVzuh4AOg@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1391510102.6282.9.camel@nexus>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds a missing spinlock hold in the timer expire function.
-The timer expire function will occur after specific timeout for
-fragmented 6lowpan packets which are still in the fragment list.
+Tue, Feb 04, 2014 at 11:35:02AM CET, fernando_b1-Zyj7fXuS5i5L9jVzuh4AOg@public.gmane.org wrote:
+>We should check whether rtnetlink link operations
+>are defined before calling get_slave_size().
+>
+>Without this, the following oops can occur when
+>adding a tap device to OVS.
+>
+>[   87.839553] BUG: unable to handle kernel NULL pointer dereference at 00000000000000a8
+>[   87.839595] IP: [<ffffffff813d47c0>] if_nlmsg_size+0xf0/0x220
+>[...]
+>[   87.840651] Call Trace:
+>[   87.840664]  [<ffffffff813d694b>] ? rtmsg_ifinfo+0x2b/0x100
+>[   87.840688]  [<ffffffff813c8340>] ? __netdev_adjacent_dev_insert+0x150/0x1a0
+>[   87.840718]  [<ffffffff813d6a50>] ? rtnetlink_event+0x30/0x40
+>[   87.840742]  [<ffffffff814b4144>] ? notifier_call_chain+0x44/0x70
+>[   87.840768]  [<ffffffff813c8946>] ? __netdev_upper_dev_link+0x3c6/0x3f0
+>[   87.840798]  [<ffffffffa0678d6c>] ? netdev_create+0xcc/0x160 [openvswitch]
+>[   87.840828]  [<ffffffffa06781ea>] ? ovs_vport_add+0x4a/0xd0 [openvswitch]
+>[   87.840857]  [<ffffffffa0670139>] ? new_vport+0x9/0x50 [openvswitch]
+>[   87.840884]  [<ffffffffa067279e>] ? ovs_vport_cmd_new+0x11e/0x210 [openvswitch]
+>[   87.840915]  [<ffffffff813f3efa>] ? genl_family_rcv_msg+0x19a/0x360
+>[   87.840941]  [<ffffffff813f40c0>] ? genl_family_rcv_msg+0x360/0x360
+>[   87.840967]  [<ffffffff813f4139>] ? genl_rcv_msg+0x79/0xc0
+>[   87.840991]  [<ffffffff813b6cf9>] ? __kmalloc_reserve.isra.25+0x29/0x80
+>[   87.841018]  [<ffffffff813f2389>] ? netlink_rcv_skb+0xa9/0xc0
+>[   87.841042]  [<ffffffff813f27cf>] ? genl_rcv+0x1f/0x30
+>[   87.841064]  [<ffffffff813f1988>] ? netlink_unicast+0xe8/0x1e0
+>[   87.841088]  [<ffffffff813f1d9a>] ? netlink_sendmsg+0x31a/0x750
+>[   87.841113]  [<ffffffff813aee96>] ? sock_sendmsg+0x86/0xc0
+>[   87.841136]  [<ffffffff813c960d>] ? __netdev_update_features+0x4d/0x200
+>[   87.841163]  [<ffffffff813ca94e>] ? ethtool_get_value+0x2e/0x50
+>[   87.841188]  [<ffffffff813af269>] ? ___sys_sendmsg+0x359/0x370
+>[   87.841212]  [<ffffffff813da686>] ? dev_ioctl+0x1a6/0x5c0
+>[   87.841236]  [<ffffffff8109c210>] ? autoremove_wake_function+0x30/0x30
+>[   87.841264]  [<ffffffff813ac59d>] ? sock_do_ioctl+0x3d/0x50
+>[   87.841288]  [<ffffffff813aca68>] ? sock_ioctl+0x1e8/0x2c0
+>[   87.841312]  [<ffffffff811934bf>] ? do_vfs_ioctl+0x2cf/0x4b0
+>[   87.841335]  [<ffffffff813afeb9>] ? __sys_sendmsg+0x39/0x70
+>[   87.841362]  [<ffffffff814b86f9>] ? system_call_fastpath+0x16/0x1b
+>[   87.841386] Code: c0 74 10 48 89 ef ff d0 83 c0 07 83 e0 fc 48 98 49 01 c7 48 89 ef e8 d0 d6 fe ff 48 85 c0 0f 84 df 00 00 00 48 8b 90 08 07 00 00 <48> 8b 8a a8 00 00 00 31 d2 48 85 c9 74 0c 48 89 ee 48 89 c7 ff 
+>[   87.841529] RIP  [<ffffffff813d47c0>] if_nlmsg_size+0xf0/0x220
+>[   87.841555]  RSP <ffff880221aa5950>
+>[   87.841569] CR2: 00000000000000a8
+>[   87.851442] ---[ end trace e42ab217691b4fc2 ]---
+>
+>Signed-off-by: Fernando Luis Vazquez Cao <fernando-gVGce1chcLdL9jVzuh4AOg@public.gmane.org>
+>---
+>
+>diff -urNp linux-3.14-rc1-orig/net/core/rtnetlink.c linux-3.14-rc1/net/core/rtnetlink.c
+>--- linux-3.14-rc1-orig/net/core/rtnetlink.c	2014-02-04 19:13:08.849827354 +0900
+>+++ linux-3.14-rc1/net/core/rtnetlink.c	2014-02-04 19:04:20.130714042 +0900
+>@@ -374,7 +374,7 @@ static size_t rtnl_link_get_slave_info_d
+> 	if (!master_dev)
+> 		return 0;
+> 	ops = master_dev->rtnl_link_ops;
+>-	if (!ops->get_slave_size)
+>+	if (!ops || !ops->get_slave_size)
+> 		return 0;
+> 	/* IFLA_INFO_SLAVE_DATA + nested data */
+> 	return nla_total_size(sizeof(struct nlattr)) +
+>
+>
 
-Signed-off-by: Alexander Aring <alex.aring@gmail.com>
----
-Some little note:
 
-Currently I working on patches for net-next to use the inet_frag api
-for 6lowpan fragmentation. This api is also used in ipv4 and ipv6.
-The upcomming patch series fix also some other in the current 6lowpan
-fragmentation handling, I will send them soon.
+Oops.
 
-This patch is for net and fix one of the main race condition in the
-current fragmentation api of 6lowpan. Maybe there are some 6lowpan users
-which use some older kernels.
-
- net/ieee802154/6lowpan.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 48b25c0..757079d 100644
---- a/net/ieee802154/6lowpan.c
-+++ b/net/ieee802154/6lowpan.c
-@@ -197,7 +197,9 @@ static void lowpan_fragment_timer_expired(unsigned long entry_addr)
- 
- 	pr_debug("timer expired for frame with tag %d\n", entry->tag);
- 
-+	spin_lock_bh(&flist_lock);
- 	list_del(&entry->list);
-+	spin_unlock_bh(&flist_lock);
- 	dev_kfree_skb(entry->skb);
- 	kfree(entry);
- }
--- 
-1.8.5.3
+Acked-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
