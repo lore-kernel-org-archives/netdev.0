@@ -1,34 +1,62 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] net:phy:dp83640: Initialize PTP clocks at device init.
-Date: Tue, 4 Feb 2014 09:04:29 +0100
-Message-ID: <20140204080429.GB4447@netboy>
-References: <1391438218-21994-1-git-send-email-stefan.sorensen@spectralink.com>
+From: Andreas Larsson <andreas@gaisler.com>
+Subject: Re: [PATCH v3 0/5] can: sja1000: cleanups and new OF property
+Date: Tue, 04 Feb 2014 09:19:40 +0100
+Message-ID: <52F0A29C.9000604@gaisler.com>
+References: <1391175277-19833-1-git-send-email-florian.vaussard@epfl.ch> <52EBA7E2.6090007@pengutronix.de> <52EBAA28.1070307@gaisler.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Stefan =?iso-8859-1?Q?S=F8rensen?=
-	<stefan.sorensen@spectralink.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f173.google.com ([209.85.215.173]:38368 "EHLO
-	mail-ea0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752691AbaBDIEe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 03:04:34 -0500
-Received: by mail-ea0-f173.google.com with SMTP id d10so4203348eaj.4
-        for <netdev@vger.kernel.org>; Tue, 04 Feb 2014 00:04:33 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1391438218-21994-1-git-send-email-stefan.sorensen@spectralink.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Marc Kleine-Budde <mkl@pengutronix.de>,
+	Florian Vaussard <florian.vaussard@epfl.ch>,
+	Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52EBAA28.1070307@gaisler.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 03, 2014 at 03:36:58PM +0100, Stefan S=F8rensen wrote:
-> The trigger and events functionality can be useful even if packet
-> timestamping is not used, but the required PTP clock is only enabled
-> when packet timestamping is started. This patch moves the clock enabl=
-e
-> to when the interface is configured.
+On 2014-01-31 14:50, Andreas Larsson wrote:
+> On 2014-01-31 14:40, Marc Kleine-Budde wrote:
+>> On 01/31/2014 02:34 PM, Florian Vaussard wrote:
+>>> Hello,
+>>>
+>>> (could someone with a SJA1000 on SPARC perform a functional test
+>>> to see if interrupts are working? it would be great :-)
+>>>
+>>> Changes since v2:
+>>> - Dropped patch 1 "can: sja1000: remove unused defines"
+>>> - Addressed Marc's comments on patch 4 and 6 (now 3 and 5)
+>>>
+>>> Changes since v1:
+>>> - Merge sja1000_of_platform.c into sja1000_platform.c (patch 4)
+>>>
+>>> The first part of this series performs serveral small cleanups
+>>> (patches 1 and 2).
+>>>
+>>> Patch 3 merges sja1000_of_platform.c into sja1000_platform.c.
+>>> Changes are pretty conservatives (mostly copy/paste/move). IRQ
+>>> is treated differently in the OF and non-OF versions, thus this
+>>> is where the fused version differs the most.
+>>>
+>>> The final part introduces the 'reg-io-width' binding (already used
+>>> by some other drivers) to perform a similar job as what was done
+>>> with IORESOURCE_MEM_XXBIT. This is needed on my system to correctly
+>>> take into account the aliasing of the address bus.
+>>>
+>>> All patches were tested using OF boot on my OMAP3 system with a
+>>> memory-mapped SJA1000. Thus, the non-OF path is not tested, as
+>>> I do not have a platform data at hand.
+>>
+>> Nice, looks good now. I'll give Andreas some time to test on sparc and
+>> then apply the patches.
+>
+>
+> I am on it. I will dig up some hardware for this on Monday to test it.
 
-I looked in the code and in the docs, and I can't find any reason not
-to enable the clock earlier.
+Works splendidly. You can add:
 
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+Tested-by: Andreas Larsson <andreas@gaisler.com>
+
+Cheers,
+Andreas Larsson
