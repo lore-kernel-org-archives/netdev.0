@@ -1,67 +1,36 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH] fdtable: Avoid triggering OOMs from alloc_fdmem
-Date: Tue, 4 Feb 2014 10:25:33 -0800
-Message-ID: <CAHA+R7OLnrujsinNhwVvZyJDz+BrTxYmw0gWeSSyq+dJ2LF9qg@mail.gmail.com>
-References: <87r47jsb2p.fsf@xmission.com>
+From: sohny thomas <sohny.kernel@gmail.com>
+Subject: Re: [PATCH] ipv6: default route for link local address is not added
+ while assigning a address
+Date: Wed, 05 Feb 2014 00:07:04 +0530
+Message-ID: <52F13350.2020300@gmail.com>
+References: <52E8A2AA.3090507@linux.vnet.ibm.com> <52E8DA37.7010208@6wind.com> <20140130232909.GH25336@order.stressinduktion.org> <52EF42FF.60907@linux.vnet.ibm.com> <52EFB454.1040908@6wind.com> <20140203160838.GA17999@order.stressinduktion.org> <52EFC324.1030102@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, linux-fsdevel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>, linux-mm@kvack.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <87r47jsb2p.fsf@xmission.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: nicolas.dichtel@6wind.com,
+	Sohny Thomas <sthomas@linux.vnet.ibm.com>,
+	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
+	yoshfuji@linux-ipv6.org, davem@davemloft.net,
+	kumuda <kumuda@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52EFC324.1030102@6wind.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 3, 2014 at 9:26 PM, Eric W. Biederman <ebiederm@xmission.com> wrote:
-> diff --git a/fs/file.c b/fs/file.c
-> index 771578b33fb6..db25c2bdfe46 100644
-> --- a/fs/file.c
-> +++ b/fs/file.c
-> @@ -34,7 +34,7 @@ static void *alloc_fdmem(size_t size)
->          * vmalloc() if the allocation size will be considered "large" by the VM.
->          */
->         if (size <= (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER)) {
-> -               void *data = kmalloc(size, GFP_KERNEL|__GFP_NOWARN);
-> +               void *data = kmalloc(size, GFP_KERNEL|__GFP_NOWARN|__GFP_NORETRY);
->                 if (data != NULL)
->                         return data;
->         }
+On Monday 03 February 2014 09:56 PM, Nicolas Dichtel wrote:
+>> 4) make flush not remove the fe80::/64 address
+>>
+>>     Least favourable to me. I guess this also woud need iproute change
+>>     and seems most difficult to do.
+> Why using this command 'ip -6 route flush proto static' isn't possible?
+Ok I tried this and it works fine ( i.e, leaves out removing Link Local 
+route), but I think this is a workaround to a problem that occurs if 
+anyone actually deletes a Link local route
 
-Or try again without __GFP_NORETRY like we do in nelink mmap?
-
-diff --git a/fs/file.c b/fs/file.c
-index 771578b..5c7a7b5 100644
---- a/fs/file.c
-+++ b/fs/file.c
-@@ -29,16 +29,20 @@ int sysctl_nr_open_max = 1024 * 1024; /* raised later */
-
- static void *alloc_fdmem(size_t size)
- {
-+       void *data;
-        /*
-         * Very large allocations can stress page reclaim, so fall back to
-         * vmalloc() if the allocation size will be considered "large"
-by the VM.
-         */
-        if (size <= (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER)) {
--               void *data = kmalloc(size, GFP_KERNEL|__GFP_NOWARN);
-+               data = kmalloc(size, GFP_KERNEL|__GFP_NOWARN|__GFP_NORETRY);
-                if (data != NULL)
-                        return data;
-        }
--       return vmalloc(size);
-+       data = vmalloc(size);
-+       if (data != NULL)
-+               return data;
-+       return kmalloc(size, GFP_KERNEL|__GFP_NOWARN);
- }
-
- static void free_fdmem(void *ptr)
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+> I think that we know what kind of route is added for these TAHI tests,
+> hence
+> it's better to remove only routes added manually (or by a routing daemon if
+> it's the case).
+> Removing kernel routes may hide bugs: imagine the kernel adds a wrong
+> route,
+> TAHI will not detect it.
