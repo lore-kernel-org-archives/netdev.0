@@ -1,73 +1,91 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH] fdtable: Avoid triggering OOMs from alloc_fdmem
-Date: Mon, 03 Feb 2014 21:26:06 -0800
-Message-ID: <87r47jsb2p.fsf@xmission.com>
+From: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
+	<stefan.sorensen@spectralink.com>
+Subject: [PATCH v2] ptp: Allow selecting trigger/event index in testptp
+Date: Tue,  4 Feb 2014 07:25:06 +0100
+Message-ID: <1391495106-4224-1-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>, <linux-fsdevel@vger.kernel.org> ,
-    <netdev@vger.kernel.org> , <linux-mm@kvack.org>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
+	<stefan.sorensen@spectralink.com>
+To: richardcochran@gmail.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 213083164162.static.sonofon.dk ([213.83.164.162]:45664 "EHLO
+	HORWDSPRD01.spectralink.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751958AbaBDGZi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 01:25:38 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Currently the trigger/event is hardcoded to 0, this patch adds
+a new command line argument -i to select an arbitrary trigger/
+event.
 
-Recently due to a spike in connections per second memcached on 3
-separate boxes triggered the OOM killer from accept.  At the time the
-OOM killer was triggered there was 4GB out of 36GB free in zone 1. The
-problem was that alloc_fdtable was allocating an order 3 page (32KiB) to
-hold a bitmap, and there was sufficient fragmentation that the largest
-page available was 8KiB.
-
-I find the logic that PAGE_ALLOC_COSTLY_ORDER can't fail pretty dubious
-but I do agree that order 3 allocations are very likely to succeed.
-
-There are always pathologies where order > 0 allocations can fail when
-there are copious amounts of free memory available.  Using the pigeon
-hole principle it is easy to show that it requires 1 page more than 50%
-of the pages being free to guarantee an order 1 (8KiB) allocation will
-succeed, 1 page more than 75% of the pages being free to guarantee an
-order 2 (16KiB) allocation will succeed and 1 page more than 87.5% of
-the pages being free to guarantee an order 3 allocate will succeed.
-
-A server churning memory with a lot of small requests and replies like
-memcached is a common case that if anything can will skew the odds
-against large pages being available.
-
-Therefore let's not give external applications a practical way to kill
-linux server applications, and specify __GFP_NORETRY to the kmalloc in
-alloc_fdmem.  Unless I am misreading the code and by the time the code
-reaches should_alloc_retry in __alloc_pages_slowpath (where
-__GFP_NORETRY becomes signification).  We have already tried everything
-reasonable to allocate a page and the only thing left to do is wait.  So
-not waiting and falling back to vmalloc immediately seems like the
-reasonable thing to do even if there wasn't a chance of triggering the
-OOM killer.
-
-Cc: stable@vger.kernel.org
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Stefan S=C3=B8rensen <stefan.sorensen@spectralink.com>
 ---
- fs/file.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Changes from v1:
+ * Keep options sorted
 
-diff --git a/fs/file.c b/fs/file.c
-index 771578b33fb6..db25c2bdfe46 100644
---- a/fs/file.c
-+++ b/fs/file.c
-@@ -34,7 +34,7 @@ static void *alloc_fdmem(size_t size)
- 	 * vmalloc() if the allocation size will be considered "large" by the VM.
- 	 */
- 	if (size <= (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER)) {
--		void *data = kmalloc(size, GFP_KERNEL|__GFP_NOWARN);
-+		void *data = kmalloc(size, GFP_KERNEL|__GFP_NOWARN|__GFP_NORETRY);
- 		if (data != NULL)
- 			return data;
- 	}
--- 
-1.7.5.4
+ Documentation/ptp/testptp.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/Documentation/ptp/testptp.c b/Documentation/ptp/testptp.c
+index a74d0a8..a262245 100644
+--- a/Documentation/ptp/testptp.c
++++ b/Documentation/ptp/testptp.c
+@@ -117,6 +117,7 @@ static void usage(char *progname)
+ 		" -f val     adjust the ptp clock frequency by 'val' ppb\n"
+ 		" -g         get the ptp clock time\n"
+ 		" -h         prints this message\n"
++		" -i val     index for event/trigger\n"
+ 		" -k val     measure the time offset between system and phc clock\n"
+ 		"            for 'val' times (Maximum 25)\n"
+ 		" -p val     enable output with a period of 'val' nanoseconds\n"
+@@ -161,13 +162,14 @@ int main(int argc, char *argv[])
+ 	int perout =3D -1;
+ 	int pps =3D -1;
+ 	int settime =3D 0;
++	int index =3D 0;
+=20
+ 	int64_t t1, t2, tp;
+ 	int64_t interval, offset;
+=20
+ 	progname =3D strrchr(argv[0], '/');
+ 	progname =3D progname ? 1+progname : argv[0];
+-	while (EOF !=3D (c =3D getopt(argc, argv, "a:A:cd:e:f:ghk:p:P:sSt:v")=
+)) {
++	while (EOF !=3D (c =3D getopt(argc, argv, "a:A:cd:e:f:ghk:p:P:sSt:vi:=
+"))) {
+ 		switch (c) {
+ 		case 'a':
+ 			oneshot =3D atoi(optarg);
+@@ -209,6 +211,9 @@ int main(int argc, char *argv[])
+ 		case 't':
+ 			adjtime =3D atoi(optarg);
+ 			break;
++		case 'i':
++			index =3D atoi(optarg);
++			break;
+ 		case 'h':
+ 			usage(progname);
+ 			return 0;
+@@ -301,7 +306,7 @@ int main(int argc, char *argv[])
+=20
+ 	if (extts) {
+ 		memset(&extts_request, 0, sizeof(extts_request));
+-		extts_request.index =3D 0;
++		extts_request.index =3D index;
+ 		extts_request.flags =3D PTP_ENABLE_FEATURE;
+ 		if (ioctl(fd, PTP_EXTTS_REQUEST, &extts_request)) {
+ 			perror("PTP_EXTTS_REQUEST");
+@@ -375,7 +380,7 @@ int main(int argc, char *argv[])
+ 			return -1;
+ 		}
+ 		memset(&perout_request, 0, sizeof(perout_request));
+-		perout_request.index =3D 0;
++		perout_request.index =3D index;
+ 		perout_request.start.sec =3D ts.tv_sec + 2;
+ 		perout_request.start.nsec =3D 0;
+ 		perout_request.period.sec =3D 0;
+--=20
+1.8.5.3
