@@ -1,49 +1,67 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH net,stable] net: qmi_wwan: add Netgear Aircard 340U
-Date: Tue,  4 Feb 2014 13:04:33 +0100
-Message-ID: <1391515473-17397-1-git-send-email-bjorn@mork.no>
+From: Florian Vaussard <florian.vaussard@epfl.ch>
+Subject: Re: [PATCH v3 0/5] can: sja1000: cleanups and new OF property
+Date: Tue, 04 Feb 2014 13:13:20 +0100
+Message-ID: <52F0D960.3010501@epfl.ch>
+References: <1391175277-19833-1-git-send-email-florian.vaussard@epfl.ch> <52EBA7E2.6090007@pengutronix.de> <52EBAA28.1070307@gaisler.com> <52F0A29C.9000604@gaisler.com>
+Reply-To: florian.vaussard@epfl.ch
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:43838 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754280AbaBDMEn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Feb 2014 07:04:43 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andreas Larsson <andreas@gaisler.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <52F0A29C.9000604@gaisler.com>
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This device was mentioned in an OpenWRT forum.  Seems to have a "standa=
-rd"
-Sierra Wireless ifnumber to function layout:
- 0: qcdm
- 2: nmea
- 3: modem
- 8: qmi
- 9: storage
+On 02/04/2014 09:19 AM, Andreas Larsson wrote:
+> On 2014-01-31 14:50, Andreas Larsson wrote:
+>> On 2014-01-31 14:40, Marc Kleine-Budde wrote:
+>>> On 01/31/2014 02:34 PM, Florian Vaussard wrote:
+>>>> Hello,
+>>>>
+>>>> (could someone with a SJA1000 on SPARC perform a functional test
+>>>> to see if interrupts are working? it would be great :-)
+>>>>
+>>>> Changes since v2:
+>>>> - Dropped patch 1 "can: sja1000: remove unused defines"
+>>>> - Addressed Marc's comments on patch 4 and 6 (now 3 and 5)
+>>>>
+>>>> Changes since v1:
+>>>> - Merge sja1000_of_platform.c into sja1000_platform.c (patch 4)
+>>>>
+>>>> The first part of this series performs serveral small cleanups
+>>>> (patches 1 and 2).
+>>>>
+>>>> Patch 3 merges sja1000_of_platform.c into sja1000_platform.c.
+>>>> Changes are pretty conservatives (mostly copy/paste/move). IRQ
+>>>> is treated differently in the OF and non-OF versions, thus this
+>>>> is where the fused version differs the most.
+>>>>
+>>>> The final part introduces the 'reg-io-width' binding (already used
+>>>> by some other drivers) to perform a similar job as what was done
+>>>> with IORESOURCE_MEM_XXBIT. This is needed on my system to correctly
+>>>> take into account the aliasing of the address bus.
+>>>>
+>>>> All patches were tested using OF boot on my OMAP3 system with a
+>>>> memory-mapped SJA1000. Thus, the non-OF path is not tested, as
+>>>> I do not have a platform data at hand.
+>>>
+>>> Nice, looks good now. I'll give Andreas some time to test on sparc and
+>>> then apply the patches.
+>>
+>>
+>> I am on it. I will dig up some hardware for this on Monday to test it.
+> 
+> Works splendidly. You can add:
+> 
+> Tested-by: Andreas Larsson <andreas@gaisler.com>
+> 
 
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
----
- drivers/net/usb/qmi_wwan.c | 1 +
- 1 file changed, 1 insertion(+)
+Waohhh, great :D Thank you!
 
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 23bdd5b9274d..ef4a45aea5aa 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -723,6 +723,7 @@ static const struct usb_device_id products[] =3D {
- 	{QMI_FIXED_INTF(0x1199, 0x68a2, 8)},	/* Sierra Wireless MC7710 in QMI=
- mode */
- 	{QMI_FIXED_INTF(0x1199, 0x68a2, 19)},	/* Sierra Wireless MC7710 in QM=
-I mode */
- 	{QMI_FIXED_INTF(0x1199, 0x901c, 8)},    /* Sierra Wireless EM7700 */
-+	{QMI_FIXED_INTF(0x1199, 0x9051, 8)},	/* Netgear AirCard 340U */
- 	{QMI_FIXED_INTF(0x1bbb, 0x011e, 4)},	/* Telekom Speedstick LTE II (Al=
-catel One Touch L100V LTE) */
- 	{QMI_FIXED_INTF(0x2357, 0x0201, 4)},	/* TP-LINK HSUPA Modem MA180 */
- 	{QMI_FIXED_INTF(0x2357, 0x9000, 4)},	/* TP-LINK MA260 */
---=20
-1.9.rc1
+Regards,
+Florian
