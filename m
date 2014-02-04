@@ -1,56 +1,54 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [bisected] Re: WARNING: at net/ipv4/devinet.c:1599
-Date: Tue, 4 Feb 2014 20:20:20 +0100
-Message-ID: <CAMuHMdWUR-x=fwG26xg8AsUQwL+FXLaQAnkaWHbrVaep0QzHJQ@mail.gmail.com>
-References: <CAMuHMdVCeFek2LX0_AnA8zg_yYhXvzw19rH8OsqbWWb-rb9w-A@mail.gmail.com>
-	<CAHA+R7Omv++NCg=nocVsW+tM=Zv_qCNhX1JjtFTuCzfz9B3Cig@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jiri@resnulli.us>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:33503 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932079AbaBDTUV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 14:20:21 -0500
-In-Reply-To: <CAHA+R7Omv++NCg=nocVsW+tM=Zv_qCNhX1JjtFTuCzfz9B3Cig@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: Re: [PATCH v2 0/5] net: phy: Ethernet PHY powerdown optimization
+Date: Tue, 04 Feb 2014 20:38:22 +0100
+Message-ID: <52F141AE.8010402@gmail.com>
+References: <1386513631-11284-1-git-send-email-sebastian.hesselbarth@gmail.com> <1386926429-28818-1-git-send-email-sebastian.hesselbarth@gmail.com> <20131217.144313.1563516273987934449.davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli@gmail.com, mugunthanvnm@ti.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131217.144313.1563516273987934449.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 4, 2014 at 7:08 PM, Cong Wang <cwang@twopensource.com> wrote:
-> On Tue, Feb 4, 2014 at 6:19 AM, Geert Uytterhoeven <geert@linux-m68k.org> wrote:
->>
->> Anyone with a clue?
->>
+On 12/17/2013 08:43 PM, David Miller wrote:
+> From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+> Date: Fri, 13 Dec 2013 10:20:24 +0100
 >
-> Looks like we need:
+>> This is v2 of the ethernet PHY power optimization patches to reduce
+>> power consumption of network PHYs with link that are either unused or
+>> the corresponding netdev is down.
+>>
+>> Compared to the last version, this patch set drops a patch to disable
+>> unused PHYs after late initcall, as it is not compatible with a modular
+>> mdio bus [1]. I'll investigate different ways to have a modular mdio bus
+>> driver get notified when driver loading is done.
+>>
+>> Again, a branch with v2 applied to v3.13-rc2 can also be found at
+>> https://github.com/shesselba/linux-dove.git topic/ethphy-power-v2
+>>
+>> [1] http://www.spinics.net/lists/arm-kernel/msg293028.html
 >
-> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-> index ac2dff3..bdbf68b 100644
-> --- a/net/ipv4/devinet.c
-> +++ b/net/ipv4/devinet.c
-> @@ -1443,7 +1443,8 @@ static size_t inet_nlmsg_size(void)
->                + nla_total_size(4) /* IFA_LOCAL */
->                + nla_total_size(4) /* IFA_BROADCAST */
->                + nla_total_size(IFNAMSIZ) /* IFA_LABEL */
-> -              + nla_total_size(4);  /* IFA_FLAGS */
-> +              + nla_total_size(4)  /* IFA_FLAGS */
-> +              + nla_total_size(sizeof(struct ifa_cacheinfo)); /*
-> IFA_CACHEINFO */
->  }
+> Series applied, thanks.
+>
 
-Thanks for your suggestion, but it doesn't help :-(
+David, Mungunthan, Florian,
 
-Gr{oetje,eeting}s,
+as expected the above patches create a Linux to bootloader dependency
+that surfaces dumb bootloaders not initializing PHYs correctly.
 
-                        Geert
+Andrew has a Kirkwood based board that does not power-up and restart
+auto-negotiation on the powered down PHY after a warm restart. While
+this specific bootloader allows a soft-workaround by issuing the
+required PHY writes before accessing the interface, others may not.
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+I think we should allow the user to soft-disable the automatic
+power-down of PHYs, i.e. by exploiting a kernel parameter.
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+Do you have any preference for naming it? My call would be something
+like libphy.suspend_halted = [0,1] with 1 being the default.
+
+Sebastian
