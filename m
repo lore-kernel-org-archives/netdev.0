@@ -1,55 +1,44 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: [PATCH] fdtable: Avoid triggering OOMs from alloc_fdmem
-Date: Tue, 04 Feb 2014 10:53:35 -0800
-Message-ID: <878utqlnf4.fsf@xmission.com>
+Date: Tue, 04 Feb 2014 10:57:05 -0800
+Message-ID: <87r47ik8ou.fsf@xmission.com>
 References: <87r47jsb2p.fsf@xmission.com>
-	<CAHA+R7OLnrujsinNhwVvZyJDz+BrTxYmw0gWeSSyq+dJ2LF9qg@mail.gmail.com>
+	<1391530721.4301.8.camel@edumazet-glaptop2.roam.corp.google.com>
+	<871tzirdwf.fsf@xmission.com>
+	<1391539464.10160.1.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Andrew Morton <akpm@linux-foundation.org>,  "linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,  linux-fsdevel@vger.kernel.org,  netdev <netdev@vger.kernel.org>,  linux-mm@kvack.org
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <CAHA+R7OLnrujsinNhwVvZyJDz+BrTxYmw0gWeSSyq+dJ2LF9qg@mail.gmail.com>
-	(Cong Wang's message of "Tue, 4 Feb 2014 10:25:33 -0800")
-Sender: owner-linux-mm@kvack.org
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-mm@kvack.org,
+	David Rientjes <rientjes@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1391539464.10160.1.camel@edumazet-glaptop2.roam.corp.google.com>
+	(Eric Dumazet's message of "Tue, 04 Feb 2014 10:44:24 -0800")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Cong Wang <cwang@twopensource.com> writes:
+Eric Dumazet <eric.dumazet@gmail.com> writes:
 
-> On Mon, Feb 3, 2014 at 9:26 PM, Eric W. Biederman <ebiederm@xmission.com> wrote:
->> diff --git a/fs/file.c b/fs/file.c
->> index 771578b33fb6..db25c2bdfe46 100644
->> --- a/fs/file.c
->> +++ b/fs/file.c
->> @@ -34,7 +34,7 @@ static void *alloc_fdmem(size_t size)
->>          * vmalloc() if the allocation size will be considered "large" by the VM.
->>          */
->>         if (size <= (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER)) {
->> -               void *data = kmalloc(size, GFP_KERNEL|__GFP_NOWARN);
->> +               void *data = kmalloc(size, GFP_KERNEL|__GFP_NOWARN|__GFP_NORETRY);
->>                 if (data != NULL)
->>                         return data;
->>         }
+> On Tue, 2014-02-04 at 09:22 -0800, Eric W. Biederman wrote:
 >
-> Or try again without __GFP_NORETRY like we do in nelink mmap?
+>> The two code paths below certainly look good canidates for having
+>> __GFP_NORETRY added to them.  The same issues I ran into with
+>> alloc_fdmem are likely to show up there as well.
+>
+> Yes, this is what I thought : a write into TCP socket should be more
+> frequent than the alloc_fdmem() case ;)
+>
+> But then, maybe your workload was only using UDP ?
 
-I think I would much rather keep the current semantics of return -ENOMEM
-and keep the problem localized then trigger a box wide OOM thank you
-very much.
+As I have heard it described one tcp connection per small requestion,
+and someone goofed and started creating new connections when the server
+was bogged down.  But since all of the requests and replies were small I
+don't expect even TCP would allocate more than a 4KiB page in that
+worload.
 
-
-Retrying the kmalloc without __GFP_NORETRY is pointless.  If you are in
-the unlikely 0.01% of the time when the kmalloc fails it is almost
-certainly going to fail again.  Writing out_of_memory() as kmalloc()
-is pointless and very confusing.
-
-The vmalloc won't fail unless you are on a 32bit box.  So it isn't a
-case that anyone has to deal with in practice.
+I had oodles of 4KiB and 8KiB pages.  What size of memory allocation did
+you see failing?  
 
 Eric
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
