@@ -1,61 +1,55 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: [PATCHv1 net] xen-netfront: handle backend CLOSED without CLOSING
-Date: Tue, 4 Feb 2014 18:50:26 +0000
-Message-ID: <1391539826-30962-1-git-send-email-david.vrabel@citrix.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] fdtable: Avoid triggering OOMs from alloc_fdmem
+Date: Tue, 04 Feb 2014 10:53:35 -0800
+Message-ID: <878utqlnf4.fsf@xmission.com>
+References: <87r47jsb2p.fsf@xmission.com>
+	<CAHA+R7OLnrujsinNhwVvZyJDz+BrTxYmw0gWeSSyq+dJ2LF9qg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: David Vrabel <david.vrabel@citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	<netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
-To: <xen-devel@lists.xen.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:51369 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753733AbaBDSu5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Feb 2014 13:50:57 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>,  "linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,  linux-fsdevel@vger.kernel.org,  netdev <netdev@vger.kernel.org>,  linux-mm@kvack.org
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <CAHA+R7OLnrujsinNhwVvZyJDz+BrTxYmw0gWeSSyq+dJ2LF9qg@mail.gmail.com>
+	(Cong Wang's message of "Tue, 4 Feb 2014 10:25:33 -0800")
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: David Vrabel <david.vrabel@citrix.com>
+Cong Wang <cwang@twopensource.com> writes:
 
-Backend drivers shouldn't transistion to CLOSED unless the frontend is
-CLOSED.  If a backend does transition to CLOSED too soon then the
-frontend may not see the CLOSING state and will not properly shutdown.
+> On Mon, Feb 3, 2014 at 9:26 PM, Eric W. Biederman <ebiederm@xmission.com> wrote:
+>> diff --git a/fs/file.c b/fs/file.c
+>> index 771578b33fb6..db25c2bdfe46 100644
+>> --- a/fs/file.c
+>> +++ b/fs/file.c
+>> @@ -34,7 +34,7 @@ static void *alloc_fdmem(size_t size)
+>>          * vmalloc() if the allocation size will be considered "large" by the VM.
+>>          */
+>>         if (size <= (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER)) {
+>> -               void *data = kmalloc(size, GFP_KERNEL|__GFP_NOWARN);
+>> +               void *data = kmalloc(size, GFP_KERNEL|__GFP_NOWARN|__GFP_NORETRY);
+>>                 if (data != NULL)
+>>                         return data;
+>>         }
+>
+> Or try again without __GFP_NORETRY like we do in nelink mmap?
 
-So, treat an unexpected backend CLOSED state the same as CLOSING.
+I think I would much rather keep the current semantics of return -ENOMEM
+and keep the problem localized then trigger a box wide OOM thank you
+very much.
 
-Signed-off-by: David Vrabel <david.vrabel@citrix.com>
-Acked-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
----
-Cc: netdev@vger.kernel.org
-Cc: "David S. Miller" <davem@davemloft.net>
----
- drivers/net/xen-netfront.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index ff04d4f..f9daa9e 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -1832,7 +1832,6 @@ static void netback_changed(struct xenbus_device *dev,
- 	case XenbusStateReconfiguring:
- 	case XenbusStateReconfigured:
- 	case XenbusStateUnknown:
--	case XenbusStateClosed:
- 		break;
- 
- 	case XenbusStateInitWait:
-@@ -1847,6 +1846,10 @@ static void netback_changed(struct xenbus_device *dev,
- 		netdev_notify_peers(netdev);
- 		break;
- 
-+	case XenbusStateClosed:
-+		if (dev->state == XenbusStateClosed)
-+			break;
-+		/* Missed the backend's CLOSING state -- fallthrough */
- 	case XenbusStateClosing:
- 		xenbus_frontend_closed(dev);
- 		break;
--- 
-1.7.2.5
+Retrying the kmalloc without __GFP_NORETRY is pointless.  If you are in
+the unlikely 0.01% of the time when the kmalloc fails it is almost
+certainly going to fail again.  Writing out_of_memory() as kmalloc()
+is pointless and very confusing.
+
+The vmalloc won't fail unless you are on a 32bit box.  So it isn't a
+case that anyone has to deal with in practice.
+
+Eric
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
