@@ -1,69 +1,82 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH net-next 1/2] dts: Add bindings for multicast hash bins
- and perfect filter entries
-Date: Tue, 4 Feb 2014 10:58:21 +0100
-Message-ID: <52F0B9BD.7070904@st.com>
-References: <1391199356-27226-1-git-send-email-vbridgers2013@gmail.com> <1391199356-27226-2-git-send-email-vbridgers2013@gmail.com>
+From: Fernando Luis =?ISO-8859-1?Q?V=E1zquez?= Cao <fernando_b1-Zyj7fXuS5i5L9jVzuh4AOg@public.gmane.org>
+Subject: [PATCH] rtnetlink: fix oops in
+	rtnl_link_get_slave_info_data_size
+Date: Tue, 04 Feb 2014 19:35:02 +0900
+Message-ID: <1391510102.6282.9.camel@nexus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
-	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
-	<dinguyen@altera.com>, <rayagond@vayavyalabs.com>
-To: Vince Bridgers <vbridgers2013@gmail.com>,
-	<devicetree@vger.kernel.org>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog122.obsmtp.com ([207.126.144.153]:58897 "EHLO
-	eu1sys200aog122.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754152AbaBDK0y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 05:26:54 -0500
-In-Reply-To: <1391199356-27226-2-git-send-email-vbridgers2013@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello Vince
+We should check whether rtnetlink link operations
+are defined before calling get_slave_size().
 
-On 1/31/2014 9:15 PM, Vince Bridgers wrote:
-> This change adds bindings for the number of multicast hash bins and perfect
-> filter entries supported by the Synopsys EMAC. The Synopsys EMAC core is
-> configurable at device creation time, and can be configured for a different
-> number of multicast hash bins and a different number of perfect filter entries.
-> The device does not provide a way to query these parameters, therefore
-> parameters are required. The Altera Cyclone V SOC has support for 256
-> multicast hash bins and 128 perfect filter entries, and is different than
-> what's currently provided in the stmmac driver.
->
+Without this, the following oops can occur when
+adding a tap device to OVS.
 
-thanks a lot for these patches, I have just added some comment for the
-patch #2
+[   87.839553] BUG: unable to handle kernel NULL pointer dereference at 00000000000000a8
+[   87.839595] IP: [<ffffffff813d47c0>] if_nlmsg_size+0xf0/0x220
+[...]
+[   87.840651] Call Trace:
+[   87.840664]  [<ffffffff813d694b>] ? rtmsg_ifinfo+0x2b/0x100
+[   87.840688]  [<ffffffff813c8340>] ? __netdev_adjacent_dev_insert+0x150/0x1a0
+[   87.840718]  [<ffffffff813d6a50>] ? rtnetlink_event+0x30/0x40
+[   87.840742]  [<ffffffff814b4144>] ? notifier_call_chain+0x44/0x70
+[   87.840768]  [<ffffffff813c8946>] ? __netdev_upper_dev_link+0x3c6/0x3f0
+[   87.840798]  [<ffffffffa0678d6c>] ? netdev_create+0xcc/0x160 [openvswitch]
+[   87.840828]  [<ffffffffa06781ea>] ? ovs_vport_add+0x4a/0xd0 [openvswitch]
+[   87.840857]  [<ffffffffa0670139>] ? new_vport+0x9/0x50 [openvswitch]
+[   87.840884]  [<ffffffffa067279e>] ? ovs_vport_cmd_new+0x11e/0x210 [openvswitch]
+[   87.840915]  [<ffffffff813f3efa>] ? genl_family_rcv_msg+0x19a/0x360
+[   87.840941]  [<ffffffff813f40c0>] ? genl_family_rcv_msg+0x360/0x360
+[   87.840967]  [<ffffffff813f4139>] ? genl_rcv_msg+0x79/0xc0
+[   87.840991]  [<ffffffff813b6cf9>] ? __kmalloc_reserve.isra.25+0x29/0x80
+[   87.841018]  [<ffffffff813f2389>] ? netlink_rcv_skb+0xa9/0xc0
+[   87.841042]  [<ffffffff813f27cf>] ? genl_rcv+0x1f/0x30
+[   87.841064]  [<ffffffff813f1988>] ? netlink_unicast+0xe8/0x1e0
+[   87.841088]  [<ffffffff813f1d9a>] ? netlink_sendmsg+0x31a/0x750
+[   87.841113]  [<ffffffff813aee96>] ? sock_sendmsg+0x86/0xc0
+[   87.841136]  [<ffffffff813c960d>] ? __netdev_update_features+0x4d/0x200
+[   87.841163]  [<ffffffff813ca94e>] ? ethtool_get_value+0x2e/0x50
+[   87.841188]  [<ffffffff813af269>] ? ___sys_sendmsg+0x359/0x370
+[   87.841212]  [<ffffffff813da686>] ? dev_ioctl+0x1a6/0x5c0
+[   87.841236]  [<ffffffff8109c210>] ? autoremove_wake_function+0x30/0x30
+[   87.841264]  [<ffffffff813ac59d>] ? sock_do_ioctl+0x3d/0x50
+[   87.841288]  [<ffffffff813aca68>] ? sock_ioctl+0x1e8/0x2c0
+[   87.841312]  [<ffffffff811934bf>] ? do_vfs_ioctl+0x2cf/0x4b0
+[   87.841335]  [<ffffffff813afeb9>] ? __sys_sendmsg+0x39/0x70
+[   87.841362]  [<ffffffff814b86f9>] ? system_call_fastpath+0x16/0x1b
+[   87.841386] Code: c0 74 10 48 89 ef ff d0 83 c0 07 83 e0 fc 48 98 49 01 c7 48 89 ef e8 d0 d6 fe ff 48 85 c0 0f 84 df 00 00 00 48 8b 90 08 07 00 00 <48> 8b 8a a8 00 00 00 31 d2 48 85 c9 74 0c 48 89 ee 48 89 c7 ff 
+[   87.841529] RIP  [<ffffffff813d47c0>] if_nlmsg_size+0xf0/0x220
+[   87.841555]  RSP <ffff880221aa5950>
+[   87.841569] CR2: 00000000000000a8
+[   87.851442] ---[ end trace e42ab217691b4fc2 ]---
 
-peppe
+Signed-off-by: Fernando Luis Vazquez Cao <fernando-gVGce1chcLdL9jVzuh4AOg@public.gmane.org>
+---
 
-> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
-> ---
->   Documentation/devicetree/bindings/net/stmmac.txt |    6 ++++++
->   1 file changed, 6 insertions(+)
->
-> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-> index 9d92d42..dbf7498 100644
-> --- a/Documentation/devicetree/bindings/net/stmmac.txt
-> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
-> @@ -34,6 +34,10 @@ Optional properties:
->   	reset phandle is given
->   - max-frame-size:	Maximum Transfer Unit (IEEE defined MTU), rather
->   			than the maximum frame size.
-> +- snps,multicast-filter-bins:	Number of multicast filter hash bins
-> +				supported by this device instance
-> +- snps,perfect-filter-entries:	Number of perfect filter entries supported
-> +				by this device instance
->
->   Examples:
->
-> @@ -46,4 +50,6 @@ Examples:
->   		mac-address = [000000000000]; /* Filled in by U-Boot */
->   		max-frame-size = <3800>;
->   		phy-mode = "gmii";
-> +		snps,multicast-filter-bins = <256>;
-> +		snps,perfect-filter-entries = <128>;
->   	};
->
+diff -urNp linux-3.14-rc1-orig/net/core/rtnetlink.c linux-3.14-rc1/net/core/rtnetlink.c
+--- linux-3.14-rc1-orig/net/core/rtnetlink.c	2014-02-04 19:13:08.849827354 +0900
++++ linux-3.14-rc1/net/core/rtnetlink.c	2014-02-04 19:04:20.130714042 +0900
+@@ -374,7 +374,7 @@ static size_t rtnl_link_get_slave_info_d
+ 	if (!master_dev)
+ 		return 0;
+ 	ops = master_dev->rtnl_link_ops;
+-	if (!ops->get_slave_size)
++	if (!ops || !ops->get_slave_size)
+ 		return 0;
+ 	/* IFLA_INFO_SLAVE_DATA + nested data */
+ 	return nla_total_size(sizeof(struct nlattr)) +
