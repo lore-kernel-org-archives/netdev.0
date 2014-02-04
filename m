@@ -1,143 +1,72 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] fdtable: Avoid triggering OOMs from alloc_fdmem
-Date: Tue, 04 Feb 2014 09:22:40 -0800
-Message-ID: <871tzirdwf.fsf@xmission.com>
-References: <87r47jsb2p.fsf@xmission.com>
-	<1391530721.4301.8.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Rob Herring <robherring2@gmail.com>
+Subject: Re: [PATCH net-next 1/2] dts: Add bindings for multicast hash bins
+ and perfect filter entries
+Date: Tue, 4 Feb 2014 11:25:01 -0600
+Message-ID: <CAL_JsqKo6=n8NfXt-VtXEip47s6ePhcqSpTbOtk6EHECtER4aQ@mail.gmail.com>
+References: <1391199356-27226-1-git-send-email-vbridgers2013@gmail.com>
+	<1391199356-27226-2-git-send-email-vbridgers2013@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-mm@kvack.org,
-	David Rientjes <rientjes@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <1391530721.4301.8.camel@edumazet-glaptop2.roam.corp.google.com>
-	(Eric Dumazet's message of "Tue, 04 Feb 2014 08:18:41 -0800")
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Dinh Nguyen <dinguyen@altera.com>,
+	Rayagond Kokatanur <rayagond@vayavyalabs.com>
+To: Vince Bridgers <vbridgers2013@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ve0-f170.google.com ([209.85.128.170]:49613 "EHLO
+	mail-ve0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932101AbaBDRZC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 12:25:02 -0500
+In-Reply-To: <1391199356-27226-2-git-send-email-vbridgers2013@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
-
-> On Mon, 2014-02-03 at 21:26 -0800, Eric W. Biederman wrote:
->> Recently due to a spike in connections per second memcached on 3
->> separate boxes triggered the OOM killer from accept.  At the time the
->> OOM killer was triggered there was 4GB out of 36GB free in zone 1. The
->> problem was that alloc_fdtable was allocating an order 3 page (32KiB) to
->> hold a bitmap, and there was sufficient fragmentation that the largest
->> page available was 8KiB.
->> 
->> I find the logic that PAGE_ALLOC_COSTLY_ORDER can't fail pretty dubious
->> but I do agree that order 3 allocations are very likely to succeed.
->> 
->> There are always pathologies where order > 0 allocations can fail when
->> there are copious amounts of free memory available.  Using the pigeon
->> hole principle it is easy to show that it requires 1 page more than 50%
->> of the pages being free to guarantee an order 1 (8KiB) allocation will
->> succeed, 1 page more than 75% of the pages being free to guarantee an
->> order 2 (16KiB) allocation will succeed and 1 page more than 87.5% of
->> the pages being free to guarantee an order 3 allocate will succeed.
->> 
->> A server churning memory with a lot of small requests and replies like
->> memcached is a common case that if anything can will skew the odds
->> against large pages being available.
->> 
->> Therefore let's not give external applications a practical way to kill
->> linux server applications, and specify __GFP_NORETRY to the kmalloc in
->> alloc_fdmem.  Unless I am misreading the code and by the time the code
->> reaches should_alloc_retry in __alloc_pages_slowpath (where
->> __GFP_NORETRY becomes signification).  We have already tried everything
->> reasonable to allocate a page and the only thing left to do is wait.  So
->> not waiting and falling back to vmalloc immediately seems like the
->> reasonable thing to do even if there wasn't a chance of triggering the
->> OOM killer.
->> 
->> Cc: stable@vger.kernel.org
->> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
->> ---
->>  fs/file.c |    2 +-
->>  1 files changed, 1 insertions(+), 1 deletions(-)
->> 
->> diff --git a/fs/file.c b/fs/file.c
->> index 771578b33fb6..db25c2bdfe46 100644
->> --- a/fs/file.c
->> +++ b/fs/file.c
->> @@ -34,7 +34,7 @@ static void *alloc_fdmem(size_t size)
->>  	 * vmalloc() if the allocation size will be considered "large" by the VM.
->>  	 */
->>  	if (size <= (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER)) {
->> -		void *data = kmalloc(size, GFP_KERNEL|__GFP_NOWARN);
->> +		void *data = kmalloc(size, GFP_KERNEL|__GFP_NOWARN|__GFP_NORETRY);
->>  		if (data != NULL)
->>  			return data;
->>  	}
+On Fri, Jan 31, 2014 at 2:15 PM, Vince Bridgers <vbridgers2013@gmail.com> wrote:
+> This change adds bindings for the number of multicast hash bins and perfect
+> filter entries supported by the Synopsys EMAC. The Synopsys EMAC core is
+> configurable at device creation time, and can be configured for a different
+> number of multicast hash bins and a different number of perfect filter entries.
+> The device does not provide a way to query these parameters, therefore
+> parameters are required. The Altera Cyclone V SOC has support for 256
+> multicast hash bins and 128 perfect filter entries, and is different than
+> what's currently provided in the stmmac driver.
 >
-> Hi Eric
+> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
+
+Acked-by: Rob Herring <robh@kernel.org>
+
+> ---
+>  Documentation/devicetree/bindings/net/stmmac.txt |    6 ++++++
+>  1 file changed, 6 insertions(+)
 >
-> I wrote yesterday a similar patch adding __GFP_NORETRY in following
-> paths. I feel that alloc_fdmem() is only a part of the problem ;)
-
-These code paths below were triggering OOMs for you?
-
-I looked and didn't see a path flying through the air.
-
-> What do you think, should we merge our changes or have distinct
-> patches ?
-
-I don't know about merging changes but certainly looking at the issue
-together sounds good.
-
-My gut feel says if there is a code path that has __GFP_NOWARN and
-because of PAGE_ALLOC_COSTLY_ORDER we loop forever then there is
-something fishy going on.
-
-I would love to hear some people who are more current on the mm
-subsystem than I am chime in.  It might be that the darn fix is going to
-be to teach __alloc_pages_slowpath to not loop forever, unless order == 0. 
-I expect the worst offenders need to have __GFP_NORETRY added so the
-knowledge of what is going on spreads, and so we can avoid the danger of
-needing to retune the whole mm subsystem that changing
-__alloc_pages_slowpath does.
-
-The two code paths below certainly look good canidates for having
-__GFP_NORETRY added to them.  The same issues I ran into with
-alloc_fdmem are likely to show up there as well.
-
-Eric
-
-
-
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index 0c127dcdf6a8..5b6a9431b017 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -1775,7 +1775,9 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
->  			while (order) {
->  				if (npages >= 1 << order) {
->  					page = alloc_pages(sk->sk_allocation |
-> -							   __GFP_COMP | __GFP_NOWARN,
-> +							   __GFP_COMP |
-> +							   __GFP_NOWARN |
-> +							   __GFP_NORETRY,
->  							   order);
->  					if (page)
->  						goto fill_page;
-> @@ -1845,7 +1847,7 @@ bool skb_page_frag_refill(unsigned int sz, struct page_frag *pfrag, gfp_t prio)
->  		gfp_t gfp = prio;
->  
->  		if (order)
-> -			gfp |= __GFP_COMP | __GFP_NOWARN;
-> +			gfp |= __GFP_COMP | __GFP_NOWARN | __GFP_NORETRY;
->  		pfrag->page = alloc_pages(gfp, order);
->  		if (likely(pfrag->page)) {
->  			pfrag->offset = 0;
+> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+> index 9d92d42..dbf7498 100644
+> --- a/Documentation/devicetree/bindings/net/stmmac.txt
+> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
+> @@ -34,6 +34,10 @@ Optional properties:
+>         reset phandle is given
+>  - max-frame-size:      Maximum Transfer Unit (IEEE defined MTU), rather
+>                         than the maximum frame size.
+> +- snps,multicast-filter-bins:  Number of multicast filter hash bins
+> +                               supported by this device instance
+> +- snps,perfect-filter-entries: Number of perfect filter entries supported
+> +                               by this device instance
 >
+>  Examples:
 >
->
->
->
->
+> @@ -46,4 +50,6 @@ Examples:
+>                 mac-address = [000000000000]; /* Filled in by U-Boot */
+>                 max-frame-size = <3800>;
+>                 phy-mode = "gmii";
+> +               snps,multicast-filter-bins = <256>;
+> +               snps,perfect-filter-entries = <128>;
+>         };
 > --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 1.7.9.5
+>
