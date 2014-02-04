@@ -1,84 +1,82 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: igb and bnx2: "NETDEV WATCHDOG: transmit queue
- timed out" when skb has huge linear buffer
-Date: Tue, 4 Feb 2014 21:32:53 +0000
-Message-ID: <52F15C85.7050200@citrix.com>
-References: <52EAA31B.1090606@schaman.hu>
-	<20140131185619.GB27553@zion.uk.xensource.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH V3] net/dt: Add support for overriding phy configuration
+ from device tree
+Date: Tue, 04 Feb 2014 21:40:40 +0000
+Message-ID: <1391550040.3003.28.camel@deadeye.wl.decadent.org.uk>
+References: <7510122.cayuQ6qt8r@wuerfel>
+	 <1389999459-9483-1-git-send-email-matthew.garrett@nebula.com>
+	 <CAGVrzcZ4TFd=9KP+aoG47QbmqDJ1i23WBcEWDbzNRUfGmPvZHQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Carolyn, Tushar,
-	e1000-devel@lists.sourceforge.net, Michael Chan <mchan@broadcom.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	John Ronciak <john.ronciak@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>, Peter
-To: Wei Liu <wei.liu2@citrix.com>, Zoltan Kiss <zoltan.kiss@schaman.hu>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20140131185619.GB27553@zion.uk.xensource.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-Cl4GTycUti78AzhdcRFk"
+Cc: Matthew Garrett <matthew.garrett@nebula.com>,
+	netdev <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Kishon Vijay Abraham I <kishon@ti.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGVrzcZ4TFd=9KP+aoG47QbmqDJ1i23WBcEWDbzNRUfGmPvZHQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 31/01/14 18:56, Wei Liu wrote:
-> On Thu, Jan 30, 2014 at 07:08:11PM +0000, Zoltan Kiss wrote:
->> Hi,
->>
->> I've experienced some queue timeout problems mentioned in the
->> subject with igb and bnx2 cards. I haven't seen them on other cards
->> so far. I'm using XenServer with 3.10 Dom0 kernel (however igb were
->> already updated to latest version), and there are Windows guests
->> sending data through these cards. I noticed these problems in XenRT
->> test runs, and I know that they usually mean some lost interrupt
->> problem or other hardware error, but in my case they started to
->> appear more often, and they are likely connected to my netback grant
->> mapping patches. These patches causing skb's with huge (~64kb)
->> linear buffers to appear more often.
->> The reason for that is an old problem in the ring protocol:
->> originally the maximum amount of slots were linked to MAX_SKB_FRAGS,
->> as every slot ended up as a frag of the skb. When this value were
->> changed, netback had to cope with the situation by coalescing the
->> packets into fewer frags.
->> My patch series take a different approach: the leftover slots
->> (pages) were assigned to a new skb's frags, and that skb were
->> stashed to the frag_list of the first one. Then, before sending it
->> off to the stack it calls skb = skb_copy_expand(skb, 0, 0,
->> GFP_ATOMIC, __GFP_NOWARN), which basically creates a new skb and
->> copied all the data into it. As far as I understood, it put
->> everything into the linear buffer, which can amount to 64KB at most.
->> The original skb are freed then, and this new one were sent to the
->> stack.
->
-> Just my two cents, if it is this case, you can try to call
-> skb_copy_expand on every SKB netback receives to manually create SKBs
-> with ~64KB linear buffer to see how it goes...
 
-I've tried it, and it did break everything in a similar way, so that's a 
-strong clue that the problem lies here. I've rewrote that part of my 
-patches to do less modification, based on Malcolm's idea: netback pulls 
-the first frag into linear buffer, then moves a frag from the frag_list 
-skb into the first one. That seems to help, but so far I have only one 
-relevant test result, I'm waiting for more results.
+--=-Cl4GTycUti78AzhdcRFk
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Zoli
+On Tue, 2014-02-04 at 12:39 -0800, Florian Fainelli wrote:
+> 2014-01-17 Matthew Garrett <matthew.garrett@nebula.com>:
+> > Some hardware may be broken in interesting and board-specific ways, suc=
+h
+> > that various bits of functionality don't work. This patch provides a
+> > mechanism for overriding mii registers during init based on the content=
+s of
+> > the device tree data, allowing board-specific fixups without having to
+> > pollute generic code.
+>=20
+> It would be good to explain exactly how your hardware is broken
+> exactly. I really do not think that such a fine-grained setting where
+> you could disable, e.g: 100BaseT_Full, but allow 100BaseT_Half to
+> remain usable makes that much sense. In general, Gigabit might be
+> badly broken, but 100 and 10Mbits/sec should work fine. How about the
+> MASTER-SLAVE bit, is overriding it really required?
 
+Yes, it is entirely possible that one or other of the clock modes
+(locally generated vs recovered) is not reliable.
 
-------------------------------------------------------------------------------
-Managing the Performance of Cloud-Based Applications
-Take advantage of what the Cloud has to offer - Avoid Common Pitfalls.
-Read the Whitepaper.
-http://pubads.g.doubleclick.net/gampad/clk?id=121051231&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+> Is not a PHY fixup registered for a specific OUI the solution you are
+> looking for?
+[...]
+
+The fault is in the board, not the PHY.
+
+Ben.
+
+--=20
+Ben Hutchings
+One of the nice things about standards is that there are so many of them.
+
+--=-Cl4GTycUti78AzhdcRFk
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAUvFeWOe/yOyVhhEJAQpirA/+PmyKReUFK6DjC7cFUusU3xKKTESbGss9
+fOMUi5Cb218mFx6bJi6AYqaK7W9EimD0SjzsV1E2NzAE+120/FcETG+nftYkhXjR
+7/Zzyoxg2HFKAx/EhRznb1pmr0zS0b0ixQAI7Yc9MvV3pLUQwqrX2I8vcWHr0eyf
+ggdTO7NRe2CQZf8WRXrY4WGfNge6bVm95LmqP2cyMknMLNL8sip3G0I0V8CW/ni8
+57d+0UTI128jNsNFtVIGgivyz5N4u727lexAFIvxStUuH3JN907YkKDTPRIJK78S
+5qf57AdJNUJfgIhpzgnKFTG1+lXXf8ZYlBzTSp1pqdcXKHf2w9D6kLg1om1ZSgdl
+bOl0PWbtdqc7FU4cVrB0lAJluEy6ABSQSzZaMDlWT4NHR8gqRu5IaY68vib+AxyS
+odynOkWwY6b+hTSV9r2JCapcCd/2mcNgQ9E5N5pepO4bSL8CNlH5/m/PQnvjlxiq
+cWdaiHxu4wOxlAPnwScM2jgeFHOksLnCdFNQNFev9TUAgye7jYOiWgk5o/7E+lM1
+hcGpA047u41ul6FLMMUuNnlbJV6aGnBNgjdEJiLqUbLYrA9MefcgJVWN90Wrcabk
+ftBseLlr/Jc8RNHr9fwPqOTaKxPotq6acquvrrsFfWsjWsTM+BI1Hs8REUTApahW
+blwiyDniAuQ=
+=fXK0
+-----END PGP SIGNATURE-----
+
+--=-Cl4GTycUti78AzhdcRFk--
