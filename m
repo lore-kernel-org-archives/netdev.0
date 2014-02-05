@@ -1,54 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [bisected] Re: WARNING: at net/ipv4/devinet.c:1599
-Date: Tue, 04 Feb 2014 20:41:24 -0800 (PST)
-Message-ID: <20140204.204124.155963712324513810.davem@davemloft.net>
-References: <CAHA+R7Omv++NCg=nocVsW+tM=Zv_qCNhX1JjtFTuCzfz9B3Cig@mail.gmail.com>
-	<CAMuHMdWUR-x=fwG26xg8AsUQwL+FXLaQAnkaWHbrVaep0QzHJQ@mail.gmail.com>
-	<CAMuHMdWrYj1te-7qhKg-uHmXpuLaBBdqCEmpv_fgYSmaN3yujw@mail.gmail.com>
+Subject: Re: [PATCHv1 net] xen-netfront: handle backend CLOSED without
+ CLOSING
+Date: Tue, 04 Feb 2014 20:43:00 -0800 (PST)
+Message-ID: <20140204.204300.1246992450475475633.davem@davemloft.net>
+References: <1391539826-30962-1-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: cwang@twopensource.com, jiri@resnulli.us, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: geert@linux-m68k.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdWrYj1te-7qhKg-uHmXpuLaBBdqCEmpv_fgYSmaN3yujw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: xen-devel@lists.xen.org, konrad.wilk@oracle.com,
+	boris.ostrovsky@oracle.com, netdev@vger.kernel.org
+To: david.vrabel@citrix.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48928 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754626AbaBEEnB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 23:43:01 -0500
+In-Reply-To: <1391539826-30962-1-git-send-email-david.vrabel@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Tue, 4 Feb 2014 21:03:24 +0100
+From: David Vrabel <david.vrabel@citrix.com>
+Date: Tue, 4 Feb 2014 18:50:26 +0000
 
-> On Tue, Feb 4, 2014 at 8:20 PM, Geert Uytterhoeven <geert@linux-m68k.org> wrote:
->> On Tue, Feb 4, 2014 at 7:08 PM, Cong Wang <cwang@twopensource.com> wrote:
->>> On Tue, Feb 4, 2014 at 6:19 AM, Geert Uytterhoeven <geert@linux-m68k.org> wrote:
->>>>
->>>> Anyone with a clue?
->>>>
->>>
->>> Looks like we need:
->>>
->>> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
->>> index ac2dff3..bdbf68b 100644
->>> --- a/net/ipv4/devinet.c
->>> +++ b/net/ipv4/devinet.c
->>> @@ -1443,7 +1443,8 @@ static size_t inet_nlmsg_size(void)
->>>                + nla_total_size(4) /* IFA_LOCAL */
->>>                + nla_total_size(4) /* IFA_BROADCAST */
->>>                + nla_total_size(IFNAMSIZ) /* IFA_LABEL */
->>> -              + nla_total_size(4);  /* IFA_FLAGS */
->>> +              + nla_total_size(4)  /* IFA_FLAGS */
->>> +              + nla_total_size(sizeof(struct ifa_cacheinfo)); /*
->>> IFA_CACHEINFO */
->>>  }
->>
->> Thanks for your suggestion, but it doesn't help :-(
+> From: David Vrabel <david.vrabel@citrix.com>
 > 
-> Bummer, I applied it to the wrong tree.
+> Backend drivers shouldn't transistion to CLOSED unless the frontend is
+> CLOSED.  If a backend does transition to CLOSED too soon then the
+> frontend may not see the CLOSING state and will not properly shutdown.
 > 
-> Yes, it works, thanks a lot!
+> So, treat an unexpected backend CLOSED state the same as CLOSING.
 > 
-> David, Jiri, is this the right fix, or just a band-aid?
+> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+> Acked-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 
-It looks correct, and if you look ipv6 does this correctly already,
-someone please submit this formally.
+Applied, thanks.
