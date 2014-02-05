@@ -1,70 +1,42 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH] ipv4: Fix runtime WARNING in rtmsg_ifa()
-Date: Wed,  5 Feb 2014 08:38:25 +0100
-Message-ID: <1391585905-24851-1-git-send-email-geert@linux-m68k.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: "David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Cong Wang <cwang@twopensource.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: =?utf-8?B?U8O4cmVuc2VuLCBTdGVmYW4=?=
+	<Stefan.Sorensen@spectralink.com>
+Subject: Re: [PATCH] dp83640: Support a configurable number of periodic
+ outputs
+Date: Wed, 5 Feb 2014 07:40:17 +0000
+Message-ID: <1391586016.7871.23.camel@e37108.spectralink.com>
+References: <1391503942-694-1-git-send-email-stefan.sorensen@spectralink.com>
+	 <20140204092939.GA9862@netboy>
+	 <1391511238.3003.25.camel@deadeye.wl.decadent.org.uk>
+	 <1391527464.7871.15.camel@e37108.spectralink.com>
+	 <20140204154323.GA2815@netboy>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "richardcochran@gmail.com" <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2lp0235.outbound.protection.outlook.com ([207.46.163.235]:27145
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751326AbaBEHkV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Feb 2014 02:40:21 -0500
+In-Reply-To: <20140204154323.GA2815@netboy>
+Content-Language: en-US
+Content-ID: <A63730E5560B474087227B8B7254E65C@namprd07.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On m68k/ARAnyM:
-
-WARNING: CPU: 0 PID: 407 at net/ipv4/devinet.c:1599 0x316a99()
-Modules linked in:
-CPU: 0 PID: 407 Comm: ifconfig Not tainted
-3.13.0-atari-09263-g0c71d68014d1 #1378
-Stack from 10c4fdf0:
-        10c4fdf0 002ffabb 000243e8 00000000 008ced6c 00024416 00316a99 0000063f
-        00316a99 00000009 00000000 002501b4 00316a99 0000063f c0a86117 00000080
-        c0a86117 00ad0c90 00250a5a 00000014 00ad0c90 00000000 00000000 00000001
-        00b02dd0 00356594 00000000 00356594 c0a86117 eff6c9e4 008ced6c 00000002
-        008ced60 0024f9b4 00250b52 00ad0c90 00000000 00000000 00252390 00ad0c90
-        eff6c9e4 0000004f 00000000 00000000 eff6c9e4 8000e25c eff6c9e4 80001020
-Call Trace: [<000243e8>] warn_slowpath_common+0x52/0x6c
- [<00024416>] warn_slowpath_null+0x14/0x1a
- [<002501b4>] rtmsg_ifa+0xdc/0xf0
- [<00250a5a>] __inet_insert_ifa+0xd6/0x1c2
- [<0024f9b4>] inet_abc_len+0x0/0x42
- [<00250b52>] inet_insert_ifa+0xc/0x12
- [<00252390>] devinet_ioctl+0x2ae/0x5d6
-
-Adding some debugging code reveals that net_fill_ifaddr() fails in
-
-    put_cacheinfo(skb, ifa->ifa_cstamp, ifa->ifa_tstamp,
-                              preferred, valid))
-
-nla_put complains:
-
-    lib/nlattr.c:454: skb_tailroom(skb) = 12, nla_total_size(attrlen) = 20
-
-Apparently commit 5c766d642bcaffd0c2a5b354db2068515b3846cf ("ipv4:
-introduce address lifetime") forgot to take into account the addition of
-struct ifa_cacheinfo in inet_nlmsg_size(). Hence add it, like is already
-done for ipv6.
-
-Suggested-by: Cong Wang <cwang@twopensource.com>
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
----
- net/ipv4/devinet.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index ac2dff3c2c1c..bdbf68bb2e2d 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1443,7 +1443,8 @@ static size_t inet_nlmsg_size(void)
- 	       + nla_total_size(4) /* IFA_LOCAL */
- 	       + nla_total_size(4) /* IFA_BROADCAST */
- 	       + nla_total_size(IFNAMSIZ) /* IFA_LABEL */
--	       + nla_total_size(4);  /* IFA_FLAGS */
-+	       + nla_total_size(4)  /* IFA_FLAGS */
-+	       + nla_total_size(sizeof(struct ifa_cacheinfo)); /* IFA_CACHEINFO */
- }
- 
- static inline u32 cstamp_delta(unsigned long cstamp)
--- 
-1.7.9.5
+T24gVHVlLCAyMDE0LTAyLTA0IGF0IDE2OjQzICswMTAwLCBSaWNoYXJkIENvY2hyYW4gd3JvdGU6
+DQo+IE9uIFR1ZSwgRmViIDA0LCAyMDE0IGF0IDAzOjI0OjI3UE0gKzAwMDAsIFPDuHJlbnNlbiwg
+U3RlZmFuIHdyb3RlOg0KPiA+IA0KPiA+IEkgd291bGQgZGVmaW5pdGVseSBwcmVmZXIgdGhlIERU
+IGFwcHJvYWNoLiBPbiBhbGwgdGhlIHBsYXRmb3JtcyBJIGhhdmUNCj4gPiB1c2VkLCB0aGUgR1BJ
+TyBjb25maWd1cmF0aW9uIGhhcyBiZWVuIHNldCBpbiBzdG9uZSBieSB0aGUgSFcuIEJ1dCB0aGVy
+ZQ0KPiA+IG1pZ2h0IGJlIHNvbWUgZGV2IGJvYXJkcyBvciB0aGUgbGlrZSB0aGF0IGhhcyB0aGVt
+IGNvbmZpZ3VyYWJsZS4NCj4gDQo+IEkgdGhpbmsgRFQgaXMgZmluZSBmb3IgdGhlIGluaXRpYWwg
+Y29uZmlndXJhdGlvbiwgYnV0IHRoZSBldGh0b29sIHdheQ0KPiB3aWxsIHN0aWxsIGJlIG5lZWRl
+ZCBpbiBhdCBsZWFzdCB0d28gY2FzZXMuDQo+IA0KPiAxLiBQbGF0Zm9ybSBoYXMgbm8gRFQgYXQg
+YWxsLg0KPiAyLiBVc2VyIHdhbnRzIHRvIGNoYW5nZSB0aGUgZnVuY3Rpb24gYXQgcnVuIHRpbWUu
+DQoNCldpbGwgYWxsIFBUUCBjbG9ja3MgYmUgYXNzb2NpYXRlZCB3aXRoIGFuIGV0aGVybmV0IGRl
+dmljZT8gSWYgbm90LA0Kd291bGRuJ3QgYSBQVFAgaW9jdGwgYmUgYmV0dGVyIHRoYW4gZXRodG9v
+bD8gDQoNClN0ZWZhbg0KDQo=
