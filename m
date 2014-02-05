@@ -1,58 +1,44 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [RFC PATCH] net: wireless: move regulatory timeout work to power
- efficient workqueue
-Date: Wed, 5 Feb 2014 04:25:12 -0500
-Message-ID: <20140205092512.GB32349@htj.dyndns.org>
-References: <1391123310-6425-1-git-send-email-zoran.markovic@linaro.org>
- <1391160084.4141.1.camel@jlt4.sipsolutions.net>
- <20140131093531.GA25559@mtj.dyndns.org>
- <20140205091742.GA1978@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Zoran Markovic <zoran.markovic-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Shaibal Dutta <shaibal.dutta-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20140205091742.GA1978-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH V3] net/dt: Add support for overriding phy configuration from device tree
+Date: Wed, 05 Feb 2014 09:47:03 +0000
+Message-ID: <20140205094703.37C1EC40A89@trevor.secretlab.ca>
+References: <7510122.cayuQ6qt8r@wuerfel> < 1389999459-9483-1-git-send-email-matthew.garrett@nebula.com> < CAGVrzcZ4TFd=9KP+aoG47QbmqDJ1i23WBcEWDbzNRUfGmPvZHQ@mail.gmail.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Kishon Vijay Abraham I <kishon@ti.com>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Matthew Garrett <matthew.garrett@nebula.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGVrzcZ4TFd=9KP+aoG47QbmqDJ1i23WBcEWDbzNRUfGmPvZHQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Tue, 4 Feb 2014 12:39:41 -0800, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> 2014-01-17 Matthew Garrett <matthew.garrett@nebula.com>:
+> > Some hardware may be broken in interesting and board-specific ways, such
+> > that various bits of functionality don't work. This patch provides a
+> > mechanism for overriding mii registers during init based on the contents of
+> > the device tree data, allowing board-specific fixups without having to
+> > pollute generic code.
+> 
+> It would be good to explain exactly how your hardware is broken
+> exactly. I really do not think that such a fine-grained setting where
+> you could disable, e.g: 100BaseT_Full, but allow 100BaseT_Half to
+> remain usable makes that much sense. In general, Gigabit might be
+> badly broken, but 100 and 10Mbits/sec should work fine. How about the
+> MASTER-SLAVE bit, is overriding it really required?
+> 
+> Is not a PHY fixup registered for a specific OUI the solution you are
+> looking for? I am also concerned that this creates PHY troubleshooting
+> issues much harder to debug than before as we may have no idea about
+> how much information has been put in Device Tree to override that.
+> 
+> Finally, how about making this more general just like the BCM87xx PHY
+> driver, which is supplied value/reg pairs directly? There are 16
+> common MII registers, and 16 others for vendor specific registers,
+> this is just covering for about 2% of the possible changes.
 
-On Wed, Feb 05, 2014 at 10:17:42AM +0100, Stanislaw Gruszka wrote:
-> What are selection criteria when choosing between system_wq or
-> system_power_efficient_wq on drivers ? IOW if I would be writing
-> a new driver which workqueue should I use and when ?
+I would be fine with that too.
 
-Yeah, it's a bit ad-hoc at the moment.  The original intention was
-just marking the ones which can be shown to have noticeable power
-impacts which weren't expected to be too many but we may now have an
-self-feeding feedback loop growing new usages, likely somewhat
-overzealously and be better off making things more generic.
-
-> I think that should be driver independent, at least for most of drivers.
-> If system have to run in low power mode, system_power_efficient_wq
-> should be chosen automatically by schedule_work(), otherwise when high
-> performance is more important schedule_work() should use system_wq.
-
-The problem there is that system_wq has traditionally guaranteed
-per-cpu execution.  It can't automatically be switched to unbound
-behavior.  The best long term solution would be isolating the users
-which depend on per-cpu behavior and mark them specially rather than
-the other way around that we're doing now, making per-cpu guarantee
-the special case rather than the norm.  That's gonna take a lot of
-auditing tho.
-
-Thanks.
-
--- 
-tejun
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+g.
