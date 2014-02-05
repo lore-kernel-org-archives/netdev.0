@@ -1,59 +1,53 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net 5/5] openvswitch: Suppress error messages on
-	megaflow updates
-Date: Tue,  4 Feb 2014 22:59:21 -0800
-Message-ID: <1391583561-25399-6-git-send-email-jesse@nicira.com>
-References: <1391583561-25399-1-git-send-email-jesse@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1391583561-25399-1-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jesse Gross <jesse@nicira.com>
+Subject: [GIT net] Open vSwitch
+Date: Tue,  4 Feb 2014 22:59:16 -0800
+Message-ID: <1391583561-25399-1-git-send-email-jesse@nicira.com>
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog125.obsmtp.com ([74.125.149.153]:41889 "HELO
+	na3sys009aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S932211AbaBEG7d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Feb 2014 01:59:33 -0500
+Received: by mail-pd0-f176.google.com with SMTP id w10so9213819pde.21
+        for <netdev@vger.kernel.org>; Tue, 04 Feb 2014 22:59:27 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andy Zhou <azhou-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+A handful of bug fixes for net/3.14. High level fixes are:
+ * Regressions introduced by the zerocopy changes, particularly with
+   old userspaces.
+ * A few bugs lingering from the introduction of megaflows.
+ * Overly zealous error checking that is now being triggered frequently
+   in common cases.
 
-With subfacets, we'd expect megaflow updates message to carry
-the original micro flow. If not, EINVAL is returned and kernel
-logs an error message.  Now that the user space subfacet layer is
-removed, it is expected that flow updates can arrive with a
-micro flow other than the original. Change the return code to
-EEXIST and remove the kernel error log message.
+The following changes since commit bce3ea81d5b2a33ed0e275d58a45f10ce95cbd50:
 
-Reported-by: Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Andy Zhou <azhou-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
----
- net/openvswitch/datapath.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+  xen-netfront: handle backend CLOSED without CLOSING (2014-02-04 20:42:36 -0800)
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 58689dd..e9a48ba 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -860,11 +860,8 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 			goto err_unlock_ovs;
- 
- 		/* The unmasked key has to be the same for flow updates. */
--		error = -EINVAL;
--		if (!ovs_flow_cmp_unmasked_key(flow, &match)) {
--			OVS_NLERR("Flow modification message rejected, unmasked key does not match.\n");
-+		if (!ovs_flow_cmp_unmasked_key(flow, &match))
- 			goto err_unlock_ovs;
--		}
- 
- 		/* Update actions. */
- 		old_acts = ovsl_dereference(flow->sf_acts);
--- 
-1.8.3.2
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jesse/openvswitch.git fixes
+
+for you to fetch changes up to c14e0953ca51dbcb8d1ac92acbdcff23d0caa158:
+
+  openvswitch: Suppress error messages on megaflow updates (2014-02-04 22:32:38 -0800)
+
+----------------------------------------------------------------
+Andy Zhou (2):
+      openvswitch: Fix kernel panic on ovs_flow_free
+      openvswitch: Suppress error messages on megaflow updates
+
+Daniele Di Proietto (1):
+      openvswitch: Fix ovs_dp_cmd_msg_size()
+
+Pravin B Shelar (1):
+      openvswitch: Fix ovs_flow_free() ovs-lock assert.
+
+Thomas Graf (1):
+      openvswitch: Pad OVS_PACKET_ATTR_PACKET if linear copy was performed
+
+ net/openvswitch/datapath.c   | 23 ++++++++----
+ net/openvswitch/flow_table.c | 88 ++++++++++++++++++++++----------------------
+ net/openvswitch/flow_table.h |  2 +-
+ 3 files changed, 60 insertions(+), 53 deletions(-)
