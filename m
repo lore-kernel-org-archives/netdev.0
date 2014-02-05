@@ -1,39 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net V1] net/ipv4: Use proper RCU APIs for writer-side
- in udp_offload.c
-Date: Tue, 04 Feb 2014 20:03:26 -0800 (PST)
-Message-ID: <20140204.200326.1370432247105523133.davem@davemloft.net>
-References: <1391348530-31643-1-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [PATCH] net:phy:dp83640: Declare that TX timestamping possible
+Date: Tue, 04 Feb 2014 20:08:02 -0800 (PST)
+Message-ID: <20140204.200802.1744067878442584024.davem@davemloft.net>
+References: <1391438195-21888-1-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shlomop@mellanox.com, edumazet@google.com
-To: ogerlitz@mellanox.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: richardcochran@gmail.com, netdev@vger.kernel.org
+To: stefan.sorensen@spectralink.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48756 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48778 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750899AbaBEED1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 23:03:27 -0500
-In-Reply-To: <1391348530-31643-1-git-send-email-ogerlitz@mellanox.com>
+	with ESMTP id S1751470AbaBEEID convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 23:08:03 -0500
+In-Reply-To: <1391438195-21888-1-git-send-email-stefan.sorensen@spectralink.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Sun,  2 Feb 2014 15:42:10 +0200
+=46rom: Stefan S=F8rensen <stefan.sorensen@spectralink.com>
+Date: Mon,  3 Feb 2014 15:36:35 +0100
 
-> From: Shlomo Pongratz <shlomop@mellanox.com>
-> 
-> RCU writer side should use rcu_dereference_protected() and not
-> rcu_dereference(), fix that. This also removes the "suspicious RCU usage"
-> warning seen when running with CONFIG_PROVE_RCU.
-> 
-> Also, don't use rcu_assign_pointer/rcu_dereference for pointers
-> which are invisible beyond the udp offload code.
-> 
-> Fixes: b582ef0 ('net: Add GRO support for UDP encapsulating protocols')
-> Reported-by: Eric Dumazet <edumazet@google.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-> Signed-off-by: Shlomo Pongratz <shlomop@mellanox.com>
+> Set the SKBTX_IN_PROGRESS bit in tx_flags dp83640_txtstamp when doing
+> tx timestamps as per Documentation/networking/timestamping.txt.
+>=20
+> Signed-off-by: Stefan S=F8rensen <stefan.sorensen@spectralink.com>
 
-Applied, thank you.
+Applied.
