@@ -1,53 +1,51 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: [GIT net] Open vSwitch
-Date: Tue,  4 Feb 2014 22:59:16 -0800
-Message-ID: <1391583561-25399-1-git-send-email-jesse@nicira.com>
-Cc: netdev@vger.kernel.org, dev@openvswitch.org
-To: David Miller <davem@davemloft.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH] net:cpsw: Pass unhandled ioctl's on to generic phy ioctl
+Date: Wed, 5 Feb 2014 08:12:51 +0100
+Message-ID: <20140205071250.GA4071@netboy>
+References: <1391500242-10554-1-git-send-email-stefan.sorensen@spectralink.com>
+ <1391511050.3003.21.camel@deadeye.wl.decadent.org.uk>
+ <1391526492.7871.8.camel@e37108.spectralink.com>
+ <1391550719.3003.33.camel@deadeye.wl.decadent.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: =?iso-8859-1?B?U/hyZW5zZW4s?= Stefan
+	<Stefan.Sorensen@spectralink.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"mugunthanvnm@ti.com" <mugunthanvnm@ti.com>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog125.obsmtp.com ([74.125.149.153]:41889 "HELO
-	na3sys009aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S932211AbaBEG7d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Feb 2014 01:59:33 -0500
-Received: by mail-pd0-f176.google.com with SMTP id w10so9213819pde.21
-        for <netdev@vger.kernel.org>; Tue, 04 Feb 2014 22:59:27 -0800 (PST)
+Received: from mail-ea0-f179.google.com ([209.85.215.179]:36667 "EHLO
+	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932072AbaBEHM4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Feb 2014 02:12:56 -0500
+Received: by mail-ea0-f179.google.com with SMTP id q10so939ead.10
+        for <netdev@vger.kernel.org>; Tue, 04 Feb 2014 23:12:55 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1391550719.3003.33.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A handful of bug fixes for net/3.14. High level fixes are:
- * Regressions introduced by the zerocopy changes, particularly with
-   old userspaces.
- * A few bugs lingering from the introduction of megaflows.
- * Overly zealous error checking that is now being triggered frequently
-   in common cases.
+On Tue, Feb 04, 2014 at 09:51:59PM +0000, Ben Hutchings wrote:
+> 
+> Right.  If all versions of CPSW include hardware timestamping then
+> bother with PHY timestamping at all?  And why make CONFIG_TI_CPTS
+> configurable?
 
-The following changes since commit bce3ea81d5b2a33ed0e275d58a45f10ce95cbd50:
+On the one hand, PHY time stamping is more accurate and offers
+synchronization performance that is measurably better than MAC time
+stamping. On the other hand, when using a MAC the CPU usually has much
+more direct access to the clock (for example, direct register access
+or PCIe, versus MDIO).
 
-  xen-netfront: handle backend CLOSED without CLOSING (2014-02-04 20:42:36 -0800)
+I once worked on a project in which it was planned to have both kinds
+of hardware in the design, in order to keep our options open in the
+face of fluid requirements. So I think you can expect to see such
+combinations in the wild, especially in the embedded area.
 
-are available in the git repository at:
+We cannot reasonably support both types in the kernel at the same
+time, and so it makes sense to have compile time options in MAC
+drivers to disable time stamping.
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/jesse/openvswitch.git fixes
-
-for you to fetch changes up to c14e0953ca51dbcb8d1ac92acbdcff23d0caa158:
-
-  openvswitch: Suppress error messages on megaflow updates (2014-02-04 22:32:38 -0800)
-
-----------------------------------------------------------------
-Andy Zhou (2):
-      openvswitch: Fix kernel panic on ovs_flow_free
-      openvswitch: Suppress error messages on megaflow updates
-
-Daniele Di Proietto (1):
-      openvswitch: Fix ovs_dp_cmd_msg_size()
-
-Pravin B Shelar (1):
-      openvswitch: Fix ovs_flow_free() ovs-lock assert.
-
-Thomas Graf (1):
-      openvswitch: Pad OVS_PACKET_ATTR_PACKET if linear copy was performed
-
- net/openvswitch/datapath.c   | 23 ++++++++----
- net/openvswitch/flow_table.c | 88 ++++++++++++++++++++++----------------------
- net/openvswitch/flow_table.h |  2 +-
- 3 files changed, 60 insertions(+), 53 deletions(-)
+Thanks,
+Richard
