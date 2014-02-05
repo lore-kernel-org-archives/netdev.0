@@ -1,60 +1,47 @@
-From: Yuval Mintz <yuvalmin@broadcom.com>
-Subject: [PATCH net] bnx2x: Allow VF rss on higher PFs
-Date: Wed, 5 Feb 2014 16:07:12 +0200
-Message-ID: <1391609232-875-1-git-send-email-yuvalmin@broadcom.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH] net:cpsw: Pass unhandled ioctl's on to generic phy ioctl
+Date: Wed, 5 Feb 2014 19:45:34 +0530
+Message-ID: <52F24786.3020306@ti.com>
+References: <1391500242-10554-1-git-send-email-stefan.sorensen@spectralink.com>	 <1391511050.3003.21.camel@deadeye.wl.decadent.org.uk>	 <1391526492.7871.8.camel@e37108.spectralink.com>	 <1391550719.3003.33.camel@deadeye.wl.decadent.org.uk> <1391585274.7871.19.camel@e37108.spectralink.com> <52F1F3E3.2050906@ti.com> <52F21755.90101@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Yuval Mintz <yuvalmin@broadcom.com>,
-	Ariel Elior <ariele@broadcom.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Christian Riesch <christian.riesch@omicron.at>,
+	=?UTF-8?B?IlPDuHJlbnNl?= =?UTF-8?B?biwgU3RlZmFuIg==?=
+	<Stefan.Sorensen@spectralink.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:18459 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750799AbaBEOHP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Feb 2014 09:07:15 -0500
+Received: from bear.ext.ti.com ([192.94.94.41]:35096 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751344AbaBEOQI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Feb 2014 09:16:08 -0500
+In-Reply-To: <52F21755.90101@omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bnx2x driver uses incorrect PF identifier to configure (in HW) the VF
-interrupt scheme; As a result, in multi-function mode the configuration
-for PFs with a high index (4+) will overflow and the PF will erroneously
-configure a single ISR scheme for its VFs.
-As a result, if such a VF uses multiple queues, interrupt generation will
-stop after VF receives an Rx packet or sends a Tx packet on a queue
-other than queue[0].
+On Wednesday 05 February 2014 04:19 PM, Christian Riesch wrote:
+> On 2014-02-05 09:18, Mugunthan V N wrote:
+>> On Wednesday 05 February 2014 12:58 PM, S=C3=B8rensen, Stefan wrote:
+>>> The CPSW only supports timestamping which is only one part of the P=
+TP
+>>> functionality. Some PHYs (like the dp83630 that we use with the CPS=
+W)
+>>> also has external event generation and detection.
+>> CPSW also has External event detection upto 4 events and newer SoCs =
+upto
+>> 8 events, currently no boards came with this pins pinned out, so it =
+is
+>> not supported as of now. If we have a board design with this we can
+>> support external event generation.
+>
+> But for external event generation it would be useful to adjust the
+> clock frequency of the PHC. IIRC this is broken on some silicon like
+> the AM335x, right?
+>
 
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
----
-Hi Dave,
+Yes, I agree but it is fixed in future SoCs like DRA7xx and AM43xx
 
-Please consider applying this to `net'.
-
-Thanks,
-Yuval
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index aec5ef2..e42f48d 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -1446,12 +1446,12 @@ static void bnx2x_vf_igu_reset(struct bnx2x *bp, struct bnx2x_virtf *vf)
- 	if (vf->cfg_flags & VF_CFG_INT_SIMD)
- 		val |= IGU_VF_CONF_SINGLE_ISR_EN;
- 	val &= ~IGU_VF_CONF_PARENT_MASK;
--	val |= BP_FUNC(bp) << IGU_VF_CONF_PARENT_SHIFT;	/* parent PF */
-+	val |= (BP_ABS_FUNC(bp) >> 1) << IGU_VF_CONF_PARENT_SHIFT;
- 	REG_WR(bp, IGU_REG_VF_CONFIGURATION, val);
- 
- 	DP(BNX2X_MSG_IOV,
--	   "value in IGU_REG_VF_CONFIGURATION of vf %d after write %x\n",
--	   vf->abs_vfid, REG_RD(bp, IGU_REG_VF_CONFIGURATION));
-+	   "value in IGU_REG_VF_CONFIGURATION of vf %d after write is 0x%08x\n",
-+	   vf->abs_vfid, val);
- 
- 	bnx2x_pretend_func(bp, BP_ABS_FUNC(bp));
- 
--- 
-1.8.1.227.g44fe835
+Regards
+Mugunthan V N
