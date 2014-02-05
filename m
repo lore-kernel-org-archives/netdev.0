@@ -1,82 +1,72 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [GIT PULL] tree-wide: clean up no longer required #include
- <linux/init.h>
-Date: Wed, 5 Feb 2014 09:28:25 -0500
-Message-ID: <20140205142824.GA23780@windriver.com>
-References: <1391547118-21967-1-git-send-email-paul.gortmaker@windriver.com>
- <CAP=VYLp+zus5591g-1YQBCJifbk+UY59yJ7rV06ZN3QhhdnK7w@mail.gmail.com>
- <20140205060633.GE30094@gmail.com>
- <20140205172723.3fa841793b3fa3f3f534937f@canb.auug.org.au>
- <20140205064150.GA31568@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] DT: net: document Ethernet bindings in one place
+Date: Wed, 05 Feb 2014 18:36:03 +0300
+Message-ID: <52F25A63.3010608@cogentembedded.com>
+References: <201401180405.07859.sergei.shtylyov@cogentembedded.com> < CAL_Jsq+oa9P=rh+p-dMZyGP8TcmpX7bTnMU0ynLvFxjxFDYbRg@mail.gmail.com> < 52DD98F7.4090202@cogentembedded.com> < CAL_JsqJXbF1-PcPHR2VP+Vi9A1aWizdsG_r3kDvRt3itXDhCGQ@mail.gmail.com> < CAGVrzcb3X3soJNJCE5+YSpQrr+EdycCRFkptPvBCgFg4CbGJ4Q@mail.gmail.com> < CAGVrzcb0dfw1orZzUt5-YkShOg-HNbUYvvo2vfmsZUZXy1Aqfg@mail.gmail.com> < 52DEE465.9000202@cogentembedded.com> <52E988FA.8040807@cogentembedded.com> <20140204172602.01420C4050F@trevor.secretlab.ca> <52F13410.8070205@ cogentembedded.com> <20140205120843.9ED08C40A89@trevor.secretlab.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-arch@vger.kernel.org, Stephen Rothwell <sfr@canb.auug.org.au>,
- linux-m68k@vger.kernel.org, rusty@rustcorp.com.au, linux-ia64@vger.kernel.org,
- kvm@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org,
- x86@kernel.org, linux-alpha@vger.kernel.org, netdev@vger.kernel.org,
- gregkh@linuxfoundation.org, sparclinux@vger.kernel.org,
- akpm@linux-foundation.org, Linus Torvalds <torvalds@linux-foundation.org>,
- linux-arm-kernel@lists.infradead.org, linux-s390@vger.kernel.org
-To: Ingo Molnar <mingo@kernel.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20140205064150.GA31568@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>, Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Rob Landley <rob@landley.net>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
+To: Grant Likely <grant.likely@linaro.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Rob Herring <robherring2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f169.google.com ([209.85.217.169]:58983 "EHLO
+	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751134AbaBEOfk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Feb 2014 09:35:40 -0500
+Received: by mail-lb0-f169.google.com with SMTP id q8so388042lbi.0
+        for <netdev@vger.kernel.org>; Wed, 05 Feb 2014 06:35:39 -0800 (PST)
+In-Reply-To: <20140205120843.9ED08C40A89@trevor.secretlab.ca>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[Re: [GIT PULL] tree-wide: clean up no longer required #include <linux/init.h>] On 05/02/2014 (Wed 07:41) Ingo Molnar wrote:
+Hello.
 
-> 
-> * Stephen Rothwell <sfr@canb.auug.org.au> wrote:
-> 
-> > Hi Ingo,
-> > 
-> > On Wed, 5 Feb 2014 07:06:33 +0100 Ingo Molnar <mingo@kernel.org> wrote:
-> > > 
-> > > So, if you meant Linus to pull it, you probably want to cite a real 
-> > > Git URI along the lines of:
-> > > 
-> > >    git://git.kernel.org/pub/scm/linux/kernel/git/paulg/init.git
-> > 
-> > Paul provided the proper git url further down in the mail along with the
-> > usual pull request message (I guess he should have put that bit at the
-> > top).
-> 
-> Yeah, indeed, and it even comes with a signed tag, which is an extra 
-> nice touch:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/paulg/linux.git tags/init-cleanup
-> 
-> (I guess the https was mentioned first to lower expectations.)
+On 02/05/2014 03:08 PM, Grant Likely wrote:
 
-Just to clarify, the init.git was the repo of raw commits+series file
-that was used for testing on linux next; now useless, except for showing
-the last several weeks of history (hence the visual http link).  The
-signed tag [separate repo] is the application of those commits against
-the 3.14-rc1 tag, which was the end goal from the beginning.
+>>>>>>>>>       I'm afraid that's too late, it has spread very far, so that
+>>>>>>>>> of_get_phy_mode() handles that property, not "phy-connection-type".
 
-Does history matter?  In the case of a cleanup like this, it does only
-in the immediate context of this pull request; to help distinguish this
-work from some short lived half baked idea that also had its testing
-invalidated by arbitrarily rebasing onto the latest shiny tag.
+>>>>>>>> Uggg, I guess this is a case of a defacto standard then if the kernel
+>>>>>>>> doesn't even support it.
 
-I wouldn't have even mentioned the patch repo, except for the fact that
-I know how Linus loves arbitrary rebases [and malformed pull requests]  :)
+>>>>>>> Maybe I forgot to CC you on patch sent to Grant only, I sent a patch a
+>>>>>>> while ago for of_get_phy_mode() to look for both "phy-mode" and
+>>>>>>> "phy-connection-type" since the former has been a Linux invention, but
+>>>>>>> the latter is ePAPR specified.
 
-Thanks,
-Paul.
---
+>>>>>> Here is a link to the actual patch in question, not sure which tree
+>>>>>> Grant applied it to though:
 
-> 
-> Thanks,
-> 
-> 	Ingo
+>>>>>> http://lkml.indiana.edu/hypermail/linux/kernel/1311.2/00048.html
+
+>>>>>       It's not the patch mail, it's Grant's "applied" reply, patch is mangled in
+>>>>> this reply, and I couldn't follow the thread. Here's the actual patch mail:
+
+>>>>> http://marc.info/?l=devicetree&m=138449662807254
+
+>>>>       Florian, I didn't find this patch in Grant's official tree, so maybe you
+>>>> should ask him where is the patch already?
+
+>>> Sorry, I accidentally dropped it. It will be in the next merge window.
+
+>>      Already saw it, thanks. Would that it was in 3.14 instead of course, so
+>> that I could use "phy-connection-type" in my binding...
+
+> Is 3.14 broken because of missing the patch? If so I'll get it merged as
+ > a bug fix.
+
+    No, it's not. I could have used "phy-connection-type" in my binding 
+destined for 3.15 and document it as a preferred property as well.
+
+> g.
+
+WBR, Sergei
