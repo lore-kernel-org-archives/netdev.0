@@ -1,62 +1,53 @@
-From: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
-Subject: Re: IGMP joins come from the wrong SA/interface
-Date: Wed, 5 Feb 2014 00:34:59 +0100
-Message-ID: <20140204233459.GA30008@sesse.net>
-References: <20140118191107.GA21979@sesse.net>
- <20140119181806.GC16462@order.stressinduktion.org>
- <20140120184025.GA19972@sesse.net>
- <20140130104709.GA21178@sesse.net>
- <20140130180304.GA3793@plex.lan>
- <20140130181229.GA32245@sesse.net>
- <20140130224411.GG25336@order.stressinduktion.org>
- <20140204220809.GB7526@sesse.net>
- <20140204233206.GA16198@order.stressinduktion.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RESEND net-next v3 0/2] bonding: Fix some issues for
+ fail_over_mac
+Date: Tue, 04 Feb 2014 19:48:53 -0800 (PST)
+Message-ID: <20140204.194853.1470448866964415403.davem@davemloft.net>
+References: <52E3447B.6050206@huawei.com>
+	<15005.1391544031@death.nxdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dingtianhong@huawei.com, vfalico@redhat.com,
+	netdev@vger.kernel.org, andy@greyhouse.net
+To: fubar@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cassarossa.samfundet.no ([193.35.52.29]:39899 "EHLO
-	cassarossa.samfundet.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932981AbaBDXfC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 18:35:02 -0500
-Received: from pannekake.samfundet.no ([2001:67c:29f4::50] ident=unknown)
-	by cassarossa.samfundet.no with esmtps (TLS1.2:DHE_RSA_AES_128_CBC_SHA1:128)
-	(Exim 4.80)
-	(envelope-from <sesse@samfundet.no>)
-	id 1WApW7-0002Rt-Ti
-	for netdev@vger.kernel.org; Wed, 05 Feb 2014 00:35:00 +0100
-Received: from sesse by pannekake.samfundet.no with local (Exim 4.80)
-	(envelope-from <sesse@samfundet.no>)
-	id 1WApW7-0000Ef-FZ
-	for netdev@vger.kernel.org; Wed, 05 Feb 2014 00:34:59 +0100
-Content-Disposition: inline
-In-Reply-To: <20140204233206.GA16198@order.stressinduktion.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48694 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751344AbaBEDsy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 22:48:54 -0500
+In-Reply-To: <15005.1391544031@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 05, 2014 at 12:32:06AM +0100, Hannes Frederic Sowa wrote:
->>  2. I didn't properly understand that the multicast flag on the rout=
-e did not
->>     matter (although it really should!).
-> Hmm, maybe that would be good but I am not sure if that could break e=
-xisting
-> setups if we change that now. It seems it is handled like that since =
-Alexey
-> implemented it in that way.
+From: Jay Vosburgh <fubar@us.ibm.com>
+Date: Tue, 04 Feb 2014 12:00:31 -0800
 
-Thinking of it, traditionally (and by =E2=80=9Ctraditionally=E2=80=9D I=
- mean in IOS and the
-likes, not Linux) the multicast routing table has been used to look up =
-the
-rendezvous point (RP), to know where to send the PIM join. (The leads t=
-o the
-confusing situation where the multicast routing table contains unicast
-addresses.) In this situation, we have IGMP and not PIM, which means we=
- do
-not know anything about the RP, so maybe it's the right decision after =
-all.
+> Ding Tianhong <dingtianhong@huawei.com> wrote:
+> 
+>>The parameter fail_over_mac only affect active-backup mode, if it was
+>>set to active or follow and works with other modes, just like RR or XOR
+>>mode, the bonding could not set all slaves to the master's address, it
+>>will cause the slave could not work well with master.
+>>
+>>v1->v2: According Jay's suggestion, that we should permit setting an option
+>>	at any time, but only have it take effect in active-backup mode, so
+>>	I add mode checking together with fail_over_mac during enslavement and
+>>	rebuild the patches.
+>>
+>>v2->v3: The correct way to fix the problem is that we should not add restrictions when
+>>    	setting options, just need to modify the bond enslave and removal processing
+>>    	to check the mode in addition to fail_over_mac when setting a slave's MAC during
+>>    	enslavement. The change active slave processing already only calls the fail_over_mac
+>>    	function when in active-backup mode.
+>>
+>>	Remove the cleanup patch because the net-next is frozen now.
+>>
+>>Regards
+>>Ding
+> 
+> 	Both patches look good to me.
+> 
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
-/* Steinar */
---=20
-Homepage: http://www.sesse.net/
+Series applied, thanks.
