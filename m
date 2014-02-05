@@ -1,42 +1,68 @@
-From: =?utf-8?B?U8O4cmVuc2VuLCBTdGVmYW4=?=
-	<Stefan.Sorensen@spectralink.com>
-Subject: Re: [PATCH] dp83640: Support a configurable number of periodic
- outputs
-Date: Wed, 5 Feb 2014 07:40:17 +0000
-Message-ID: <1391586016.7871.23.camel@e37108.spectralink.com>
-References: <1391503942-694-1-git-send-email-stefan.sorensen@spectralink.com>
-	 <20140204092939.GA9862@netboy>
-	 <1391511238.3003.25.camel@deadeye.wl.decadent.org.uk>
-	 <1391527464.7871.15.camel@e37108.spectralink.com>
-	 <20140204154323.GA2815@netboy>
+From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net] 6lowpan: add missing fragment
+	list spinlock
+Date: Wed, 5 Feb 2014 08:47:30 +0100
+Message-ID: <20140205074729.GA27973@omega>
+References: <1391511473-30000-1-git-send-email-alex.aring@gmail.com>
+	<20140204.203203.1380460749447396879.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "ben@decadent.org.uk" <ben@decadent.org.uk>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "richardcochran@gmail.com" <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2lp0235.outbound.protection.outlook.com ([207.46.163.235]:27145
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751326AbaBEHkV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Feb 2014 02:40:21 -0500
-In-Reply-To: <20140204154323.GA2815@netboy>
-Content-Language: en-US
-Content-ID: <A63730E5560B474087227B8B7254E65C@namprd07.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20140204.203203.1380460749447396879.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-T24gVHVlLCAyMDE0LTAyLTA0IGF0IDE2OjQzICswMTAwLCBSaWNoYXJkIENvY2hyYW4gd3JvdGU6
-DQo+IE9uIFR1ZSwgRmViIDA0LCAyMDE0IGF0IDAzOjI0OjI3UE0gKzAwMDAsIFPDuHJlbnNlbiwg
-U3RlZmFuIHdyb3RlOg0KPiA+IA0KPiA+IEkgd291bGQgZGVmaW5pdGVseSBwcmVmZXIgdGhlIERU
-IGFwcHJvYWNoLiBPbiBhbGwgdGhlIHBsYXRmb3JtcyBJIGhhdmUNCj4gPiB1c2VkLCB0aGUgR1BJ
-TyBjb25maWd1cmF0aW9uIGhhcyBiZWVuIHNldCBpbiBzdG9uZSBieSB0aGUgSFcuIEJ1dCB0aGVy
-ZQ0KPiA+IG1pZ2h0IGJlIHNvbWUgZGV2IGJvYXJkcyBvciB0aGUgbGlrZSB0aGF0IGhhcyB0aGVt
-IGNvbmZpZ3VyYWJsZS4NCj4gDQo+IEkgdGhpbmsgRFQgaXMgZmluZSBmb3IgdGhlIGluaXRpYWwg
-Y29uZmlndXJhdGlvbiwgYnV0IHRoZSBldGh0b29sIHdheQ0KPiB3aWxsIHN0aWxsIGJlIG5lZWRl
-ZCBpbiBhdCBsZWFzdCB0d28gY2FzZXMuDQo+IA0KPiAxLiBQbGF0Zm9ybSBoYXMgbm8gRFQgYXQg
-YWxsLg0KPiAyLiBVc2VyIHdhbnRzIHRvIGNoYW5nZSB0aGUgZnVuY3Rpb24gYXQgcnVuIHRpbWUu
-DQoNCldpbGwgYWxsIFBUUCBjbG9ja3MgYmUgYXNzb2NpYXRlZCB3aXRoIGFuIGV0aGVybmV0IGRl
-dmljZT8gSWYgbm90LA0Kd291bGRuJ3QgYSBQVFAgaW9jdGwgYmUgYmV0dGVyIHRoYW4gZXRodG9v
-bD8gDQoNClN0ZWZhbg0KDQo=
+Hi David,
+
+thanks for your reply.
+
+On Tue, Feb 04, 2014 at 08:32:03PM -0800, David Miller wrote:
+> From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date: Tue,  4 Feb 2014 11:57:53 +0100
+> 
+> > @@ -197,7 +197,9 @@ static void lowpan_fragment_timer_expired(unsigned long entry_addr)
+> >  
+> >  	pr_debug("timer expired for frame with tag %d\n", entry->tag);
+> >  
+> > +	spin_lock_bh(&flist_lock);
+> >  	list_del(&entry->list);
+> > +	spin_unlock_bh(&flist_lock);
+> >  	dev_kfree_skb(entry->skb);
+> >  	kfree(entry);
+> >  }
+> 
+> This will deadlock, because the other code path holding flist_lock calls
+> del_timer_sync() to wait for this timer to return.
+> 
+ok. I detected this some months ago and I talked with Werner Almesberger
+about that. He talked something about del_timer_sync too and other
+issues, but I didn't understand that I open a new deadlock case. Now I
+learned something new things, thanks. :-)
+
+> The synchornization in this code is really a big mess.
+
+That is one thing which I also detected so I decide to make a new
+implementation based on net/ipv6/reassembly.c which also used the
+inet_frag api.
+
+I will bring these patches mainline and I hope it will remove the most
+of the race condigition. But then it's only solved in net-next branch.
+
+- Alex
+
+------------------------------------------------------------------------------
+Managing the Performance of Cloud-Based Applications
+Take advantage of what the Cloud has to offer - Avoid Common Pitfalls.
+Read the Whitepaper.
+http://pubads.g.doubleclick.net/gampad/clk?id=121051231&iu=/4140/ostg.clktrk
