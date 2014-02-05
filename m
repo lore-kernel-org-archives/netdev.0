@@ -1,53 +1,60 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] tg3: cleanup an error path in tg3_phy_reset_5703_4_5()
-Date: Wed, 5 Feb 2014 16:29:21 +0300
-Message-ID: <20140205132920.GE800@elgon.mountain>
+From: Yuval Mintz <yuvalmin@broadcom.com>
+Subject: [PATCH net] bnx2x: Allow VF rss on higher PFs
+Date: Wed, 5 Feb 2014 16:07:12 +0200
+Message-ID: <1391609232-875-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Nithin Nayak Sujir <nsujir@broadcom.com>
+Content-Type: text/plain
+Cc: Yuval Mintz <yuvalmin@broadcom.com>,
+	Ariel Elior <ariele@broadcom.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:41890 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750985AbaBEN3a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Feb 2014 08:29:30 -0500
-Content-Disposition: inline
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:18459 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750799AbaBEOHP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Feb 2014 09:07:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the original code, if tg3_readphy() fails then it does an unnecessary
-check to verify "err" is still zero and then returns -EBUSY.
+bnx2x driver uses incorrect PF identifier to configure (in HW) the VF
+interrupt scheme; As a result, in multi-function mode the configuration
+for PFs with a high index (4+) will overflow and the PF will erroneously
+configure a single ISR scheme for its VFs.
+As a result, if such a VF uses multiple queues, interrupt generation will
+stop after VF receives an Rx packet or sends a Tx packet on a queue
+other than queue[0].
 
-My static checker complains about the unnecessary "if (!err)" check and
-anyway it is better to propagate the -EBUSY error code from
-tg3_readphy() instead of hard coding it here.  And really the original
-code is confusing to look at.
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
+---
+Hi Dave,
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Please consider applying this to `net'.
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index e2ca03e23dc1..c466e12b601e 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -2609,13 +2609,14 @@ static int tg3_phy_reset_5703_4_5(struct tg3 *tp)
+Thanks,
+Yuval
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+index aec5ef2..e42f48d 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+@@ -1446,12 +1446,12 @@ static void bnx2x_vf_igu_reset(struct bnx2x *bp, struct bnx2x_virtf *vf)
+ 	if (vf->cfg_flags & VF_CFG_INT_SIMD)
+ 		val |= IGU_VF_CONF_SINGLE_ISR_EN;
+ 	val &= ~IGU_VF_CONF_PARENT_MASK;
+-	val |= BP_FUNC(bp) << IGU_VF_CONF_PARENT_SHIFT;	/* parent PF */
++	val |= (BP_ABS_FUNC(bp) >> 1) << IGU_VF_CONF_PARENT_SHIFT;
+ 	REG_WR(bp, IGU_REG_VF_CONFIGURATION, val);
  
- 	tg3_writephy(tp, MII_CTRL1000, phy9_orig);
+ 	DP(BNX2X_MSG_IOV,
+-	   "value in IGU_REG_VF_CONFIGURATION of vf %d after write %x\n",
+-	   vf->abs_vfid, REG_RD(bp, IGU_REG_VF_CONFIGURATION));
++	   "value in IGU_REG_VF_CONFIGURATION of vf %d after write is 0x%08x\n",
++	   vf->abs_vfid, val);
  
--	if (!tg3_readphy(tp, MII_TG3_EXT_CTRL, &reg32)) {
--		reg32 &= ~0x3000;
--		tg3_writephy(tp, MII_TG3_EXT_CTRL, reg32);
--	} else if (!err)
--		err = -EBUSY;
-+	err = tg3_readphy(tp, MII_TG3_EXT_CTRL, &reg32);
-+	if (err)
-+		return err;
+ 	bnx2x_pretend_func(bp, BP_ABS_FUNC(bp));
  
--	return err;
-+	reg32 &= ~0x3000;
-+	tg3_writephy(tp, MII_TG3_EXT_CTRL, reg32);
-+
-+	return 0;
- }
- 
- static void tg3_carrier_off(struct tg3 *tp)
+-- 
+1.8.1.227.g44fe835
