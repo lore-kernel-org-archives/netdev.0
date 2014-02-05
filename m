@@ -1,36 +1,70 @@
-From: =?utf-8?B?U8O4cmVuc2VuLCBTdGVmYW4=?=
-	<Stefan.Sorensen@spectralink.com>
-Subject: Re: [PATCH] net:cpsw: Pass unhandled ioctl's on to generic phy ioctl
-Date: Wed, 5 Feb 2014 07:28:02 +0000
-Message-ID: <1391585274.7871.19.camel@e37108.spectralink.com>
-References: <1391500242-10554-1-git-send-email-stefan.sorensen@spectralink.com>
-	 <1391511050.3003.21.camel@deadeye.wl.decadent.org.uk>
-	 <1391526492.7871.8.camel@e37108.spectralink.com>
-	 <1391550719.3003.33.camel@deadeye.wl.decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"mugunthanvnm@ti.com" <mugunthanvnm@ti.com>
-To: "ben@decadent.org.uk" <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2lp0235.outbound.protection.outlook.com ([207.46.163.235]:13046
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932342AbaBEH2G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Feb 2014 02:28:06 -0500
-In-Reply-To: <1391550719.3003.33.camel@deadeye.wl.decadent.org.uk>
-Content-Language: en-US
-Content-ID: <1609E3471522724AB8A64F095E534B5D@namprd07.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH] ipv4: Fix runtime WARNING in rtmsg_ifa()
+Date: Wed,  5 Feb 2014 08:38:25 +0100
+Message-ID: <1391585905-24851-1-git-send-email-geert@linux-m68k.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Cong Wang <cwang@twopensource.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gVHVlLCAyMDE0LTAyLTA0IGF0IDIxOjUxICswMDAwLCBCZW4gSHV0Y2hpbmdzIHdyb3RlOg0K
-PiBSaWdodC4gIElmIGFsbCB2ZXJzaW9ucyBvZiBDUFNXIGluY2x1ZGUgaGFyZHdhcmUgdGltZXN0
-YW1waW5nIHRoZW4NCj4gYm90aGVyIHdpdGggUEhZIHRpbWVzdGFtcGluZyBhdCBhbGw/ICBBbmQg
-d2h5IG1ha2UgQ09ORklHX1RJX0NQVFMNCj4gY29uZmlndXJhYmxlPw0KDQpUaGUgQ1BTVyBvbmx5
-IHN1cHBvcnRzIHRpbWVzdGFtcGluZyB3aGljaCBpcyBvbmx5IG9uZSBwYXJ0IG9mIHRoZSBQVFAN
-CmZ1bmN0aW9uYWxpdHkuIFNvbWUgUEhZcyAobGlrZSB0aGUgZHA4MzYzMCB0aGF0IHdlIHVzZSB3
-aXRoIHRoZSBDUFNXKQ0KYWxzbyBoYXMgZXh0ZXJuYWwgZXZlbnQgZ2VuZXJhdGlvbiBhbmQgZGV0
-ZWN0aW9uLg0KDQpTdGVmYW4NCg==
+On m68k/ARAnyM:
+
+WARNING: CPU: 0 PID: 407 at net/ipv4/devinet.c:1599 0x316a99()
+Modules linked in:
+CPU: 0 PID: 407 Comm: ifconfig Not tainted
+3.13.0-atari-09263-g0c71d68014d1 #1378
+Stack from 10c4fdf0:
+        10c4fdf0 002ffabb 000243e8 00000000 008ced6c 00024416 00316a99 0000063f
+        00316a99 00000009 00000000 002501b4 00316a99 0000063f c0a86117 00000080
+        c0a86117 00ad0c90 00250a5a 00000014 00ad0c90 00000000 00000000 00000001
+        00b02dd0 00356594 00000000 00356594 c0a86117 eff6c9e4 008ced6c 00000002
+        008ced60 0024f9b4 00250b52 00ad0c90 00000000 00000000 00252390 00ad0c90
+        eff6c9e4 0000004f 00000000 00000000 eff6c9e4 8000e25c eff6c9e4 80001020
+Call Trace: [<000243e8>] warn_slowpath_common+0x52/0x6c
+ [<00024416>] warn_slowpath_null+0x14/0x1a
+ [<002501b4>] rtmsg_ifa+0xdc/0xf0
+ [<00250a5a>] __inet_insert_ifa+0xd6/0x1c2
+ [<0024f9b4>] inet_abc_len+0x0/0x42
+ [<00250b52>] inet_insert_ifa+0xc/0x12
+ [<00252390>] devinet_ioctl+0x2ae/0x5d6
+
+Adding some debugging code reveals that net_fill_ifaddr() fails in
+
+    put_cacheinfo(skb, ifa->ifa_cstamp, ifa->ifa_tstamp,
+                              preferred, valid))
+
+nla_put complains:
+
+    lib/nlattr.c:454: skb_tailroom(skb) = 12, nla_total_size(attrlen) = 20
+
+Apparently commit 5c766d642bcaffd0c2a5b354db2068515b3846cf ("ipv4:
+introduce address lifetime") forgot to take into account the addition of
+struct ifa_cacheinfo in inet_nlmsg_size(). Hence add it, like is already
+done for ipv6.
+
+Suggested-by: Cong Wang <cwang@twopensource.com>
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+ net/ipv4/devinet.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index ac2dff3c2c1c..bdbf68bb2e2d 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1443,7 +1443,8 @@ static size_t inet_nlmsg_size(void)
+ 	       + nla_total_size(4) /* IFA_LOCAL */
+ 	       + nla_total_size(4) /* IFA_BROADCAST */
+ 	       + nla_total_size(IFNAMSIZ) /* IFA_LABEL */
+-	       + nla_total_size(4);  /* IFA_FLAGS */
++	       + nla_total_size(4)  /* IFA_FLAGS */
++	       + nla_total_size(sizeof(struct ifa_cacheinfo)); /* IFA_CACHEINFO */
+ }
+ 
+ static inline u32 cstamp_delta(unsigned long cstamp)
+-- 
+1.7.9.5
