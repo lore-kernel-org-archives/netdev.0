@@ -1,68 +1,34 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net] 6lowpan: add missing fragment
-	list spinlock
-Date: Wed, 5 Feb 2014 08:47:30 +0100
-Message-ID: <20140205074729.GA27973@omega>
-References: <1391511473-30000-1-git-send-email-alex.aring@gmail.com>
-	<20140204.203203.1380460749447396879.davem@davemloft.net>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH] net:cpsw: Pass unhandled ioctl's on to generic phy ioctl
+Date: Wed, 5 Feb 2014 13:48:43 +0530
+Message-ID: <52F1F3E3.2050906@ti.com>
+References: <1391500242-10554-1-git-send-email-stefan.sorensen@spectralink.com>	 <1391511050.3003.21.camel@deadeye.wl.decadent.org.uk>	 <1391526492.7871.8.camel@e37108.spectralink.com>	 <1391550719.3003.33.camel@deadeye.wl.decadent.org.uk> <1391585274.7871.19.camel@e37108.spectralink.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20140204.203203.1380460749447396879.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: =?UTF-8?B?IlPDuHJlbnNlbiwgU3RlZmFuIg==?=
+	<Stefan.Sorensen@spectralink.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:45780 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751352AbaBEITO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Feb 2014 03:19:14 -0500
+In-Reply-To: <1391585274.7871.19.camel@e37108.spectralink.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+On Wednesday 05 February 2014 12:58 PM, S=C3=B8rensen, Stefan wrote:
+> The CPSW only supports timestamping which is only one part of the PTP
+> functionality. Some PHYs (like the dp83630 that we use with the CPSW)
+> also has external event generation and detection.
+CPSW also has External event detection upto 4 events and newer SoCs upt=
+o
+8 events, currently no boards came with this pins pinned out, so it is
+not supported as of now. If we have a board design with this we can
+support external event generation.
 
-thanks for your reply.
-
-On Tue, Feb 04, 2014 at 08:32:03PM -0800, David Miller wrote:
-> From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date: Tue,  4 Feb 2014 11:57:53 +0100
-> 
-> > @@ -197,7 +197,9 @@ static void lowpan_fragment_timer_expired(unsigned long entry_addr)
-> >  
-> >  	pr_debug("timer expired for frame with tag %d\n", entry->tag);
-> >  
-> > +	spin_lock_bh(&flist_lock);
-> >  	list_del(&entry->list);
-> > +	spin_unlock_bh(&flist_lock);
-> >  	dev_kfree_skb(entry->skb);
-> >  	kfree(entry);
-> >  }
-> 
-> This will deadlock, because the other code path holding flist_lock calls
-> del_timer_sync() to wait for this timer to return.
-> 
-ok. I detected this some months ago and I talked with Werner Almesberger
-about that. He talked something about del_timer_sync too and other
-issues, but I didn't understand that I open a new deadlock case. Now I
-learned something new things, thanks. :-)
-
-> The synchornization in this code is really a big mess.
-
-That is one thing which I also detected so I decide to make a new
-implementation based on net/ipv6/reassembly.c which also used the
-inet_frag api.
-
-I will bring these patches mainline and I hope it will remove the most
-of the race condigition. But then it's only solved in net-next branch.
-
-- Alex
-
-------------------------------------------------------------------------------
-Managing the Performance of Cloud-Based Applications
-Take advantage of what the Cloud has to offer - Avoid Common Pitfalls.
-Read the Whitepaper.
-http://pubads.g.doubleclick.net/gampad/clk?id=121051231&iu=/4140/ostg.clktrk
+Regards
+Mugunthan V N
