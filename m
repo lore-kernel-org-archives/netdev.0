@@ -1,64 +1,53 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: Patchset - Support for configurable RSS hash key
-Date: Wed, 5 Feb 2014 14:24:43 +0200
-Message-ID: <52F22D8B.4000408@mellanox.com>
-References: <BF3270C86E8B1349A26C34E4EC1C44CB2C83D8B7@CMEXMB1.ad.emulex.com> <20140202161016.GA17000@mtl-eit-vdi-22.mtl.labs.mlnx> <BF3270C86E8B1349A26C34E4EC1C44CB2C86E05F@CMEXMB1.ad.emulex.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] tg3: cleanup an error path in tg3_phy_reset_5703_4_5()
+Date: Wed, 5 Feb 2014 16:29:21 +0300
+Message-ID: <20140205132920.GE800@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Nithin Nayak Sujir <nsujir@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog123.obsmtp.com ([207.126.144.155]:33441 "EHLO
-	eu1sys200aog123.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750723AbaBEMYt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Feb 2014 07:24:49 -0500
-In-Reply-To: <BF3270C86E8B1349A26C34E4EC1C44CB2C86E05F@CMEXMB1.ad.emulex.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:41890 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750985AbaBEN3a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Feb 2014 08:29:30 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/02/2014 14:20, Venkata Duvvuru wrote:
-> 
-> 
->> -----Original Message-----
->> From: Amir Vadai [mailto:amirv.mellanox@gmail.com] On Behalf Of Amir
->> Vadai
->> Sent: Sunday, February 02, 2014 9:40 PM
->> To: Venkata Duvvuru
->> Cc: netdev@vger.kernel.org; Ben Hutchings
->> Subject: Re: Patchset - Support for configurable RSS hash key
->>
->> On 17/01/14 13:02 +0000, Venkata Duvvuru wrote:
->>> NIC drivers that support RSS use either a hard-coded value or a random
->> value for the RSS hash key. Irrespective of the type of the key used, the user
->> would want to change the hash key if he/she is not satisfied with the
->> effectiveness of the default hash-key in spreading the incoming flows evenly
->> across the RSS queues.
->>>
->>> This patch set provides support for configuring the RSS hash-key via the
->> ethtool interface.
->>>
->>> The patch set consists of:
->>> a) ethtool user-land patches
->>> b) ethtool kernel patch
->>> c) be2net patch that implements the ethtool hooks
->>
->> Hi,
->>
->> I would be happy to add support in setting the hash function in addition to
->> the hash key.
->>
->> Mellanox NIC's have support in 2 hash functions: Toplitz and XOR.
->>
->> Let me if you can add it to your patchset or would like me to send a patch on
->> top of yours to add it.
-> 
-> I would prefer you to add the proposed changes on top my patchset. I'm working on the review comments currently and I will post the patchset once the patches are ready.
+In the original code, if tg3_readphy() fails then it does an unnecessary
+check to verify "err" is still zero and then returns -EBUSY.
 
-Ok,
+My static checker complains about the unnecessary "if (!err)" check and
+anyway it is better to propagate the -EBUSY error code from
+tg3_readphy() instead of hard coding it here.  And really the original
+code is confusing to look at.
 
-I will send as soon as your patchset be applied.
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Thanks,
-Amir
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index e2ca03e23dc1..c466e12b601e 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -2609,13 +2609,14 @@ static int tg3_phy_reset_5703_4_5(struct tg3 *tp)
+ 
+ 	tg3_writephy(tp, MII_CTRL1000, phy9_orig);
+ 
+-	if (!tg3_readphy(tp, MII_TG3_EXT_CTRL, &reg32)) {
+-		reg32 &= ~0x3000;
+-		tg3_writephy(tp, MII_TG3_EXT_CTRL, reg32);
+-	} else if (!err)
+-		err = -EBUSY;
++	err = tg3_readphy(tp, MII_TG3_EXT_CTRL, &reg32);
++	if (err)
++		return err;
+ 
+-	return err;
++	reg32 &= ~0x3000;
++	tg3_writephy(tp, MII_TG3_EXT_CTRL, reg32);
++
++	return 0;
+ }
+ 
+ static void tg3_carrier_off(struct tg3 *tp)
