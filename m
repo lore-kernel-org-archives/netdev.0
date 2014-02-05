@@ -1,38 +1,43 @@
-From: Peter Stuge <peter-Y+HMSxxDrH8@public.gmane.org>
-Subject: Re: [RFT 1/2] xhci 1.0: Limit arbitrarily-aligned scatter gather.
-Date: Wed, 5 Feb 2014 23:40:14 +0100
-Message-ID: <20140205224015.19363.qmail@stuge.se>
-References: <cover.1391544195.git.sarah.a.sharp@linux.intel.com> <baa32650c285a89671030370f638e2203171b3a0.1391544195.git.sarah.a.sharp@linux.intel.com> <063D6719AE5E284EB5DD2968C1650D6D0F6B8C70@AcuExch.aculab.com> <20140205210847.GD12087@xanatos>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [GIT PULL nf] IPVS Fixes for v3.14
+Date: Wed, 5 Feb 2014 23:58:15 +0100
+Message-ID: <20140205225815.GA3755@localhost>
+References: <1391517261-27222-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
-	Mark Lord <mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	=?utf-8?B?QmrDuHJu?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>,
-	Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>,
-	Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-To: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:47754 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753151AbaBEW62 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Feb 2014 17:58:28 -0500
 Content-Disposition: inline
-In-Reply-To: <20140205210847.GD12087@xanatos>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1391517261-27222-1-git-send-email-horms@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sarah,
+On Tue, Feb 04, 2014 at 09:34:20PM +0900, Simon Horman wrote:
+> Hi Pablo,
+> 
+> please consider the following fixes for IPVS for v3.14.
+> 
+> It consists of a fix for AF assingment by Michal Kubecek.
+> 
+> I believe this problem is present all the way back to v2.6.30, however, the
+> change only applies as far back as v3.10.  Please let me know if you would
+> like me to make some patches for older -stable versions.
+> 
+> 
+> The following changes since commit d922e1cb1ea17ac7f0a5c3c2be98d4bd80d055b8:
+> 
+>   net: Document promote_secondaries (2014-01-27 20:39:21 -0800)
+> 
+> are available in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs.git tags/ipvs-fixes-for-v3.14
 
-Sarah Sharp wrote:
-> I'm simply trying to see how much of a priority it is to fix this.
-> I really want to re-architect the code and do this right, and it
-> will take some time.
-
-Awesome! I think wanting to do it right is very close to
-desire for perfection, or at the very least correctness. :)
-
-I do appreciate having to prioritize.
-
-
-//Peter
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Pulled, thanks Simon.
