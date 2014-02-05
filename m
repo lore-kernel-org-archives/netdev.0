@@ -1,44 +1,39 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH V3] net/dt: Add support for overriding phy configuration from device tree
-Date: Wed, 05 Feb 2014 09:47:03 +0000
-Message-ID: <20140205094703.37C1EC40A89@trevor.secretlab.ca>
-References: <7510122.cayuQ6qt8r@wuerfel> < 1389999459-9483-1-git-send-email-matthew.garrett@nebula.com> < CAGVrzcZ4TFd=9KP+aoG47QbmqDJ1i23WBcEWDbzNRUfGmPvZHQ@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH V3] net/dt: Add support for overriding phy configuration
+ from device tree
+Date: Wed, 5 Feb 2014 09:51:19 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6B8BCA@AcuExch.aculab.com>
+References: <7510122.cayuQ6qt8r@wuerfel>
+ <1389999459-9483-1-git-send-email-matthew.garrett@nebula.com>
+ <CAGVrzcZ4TFd=9KP+aoG47QbmqDJ1i23WBcEWDbzNRUfGmPvZHQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: netdev <netdev@vger.kernel.org>,
 	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	Kishon Vijay Abraham I <kishon@ti.com>
-To: Florian Fainelli <f.fainelli@gmail.com>,
+To: 'Florian Fainelli' <f.fainelli@gmail.com>,
 	Matthew Garrett <matthew.garrett@nebula.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <CAGVrzcZ4TFd=9KP+aoG47QbmqDJ1i23WBcEWDbzNRUfGmPvZHQ@mail.gmail.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 4 Feb 2014 12:39:41 -0800, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> 2014-01-17 Matthew Garrett <matthew.garrett@nebula.com>:
-> > Some hardware may be broken in interesting and board-specific ways, such
-> > that various bits of functionality don't work. This patch provides a
-> > mechanism for overriding mii registers during init based on the contents of
-> > the device tree data, allowing board-specific fixups without having to
-> > pollute generic code.
-> 
-> It would be good to explain exactly how your hardware is broken
-> exactly. I really do not think that such a fine-grained setting where
-> you could disable, e.g: 100BaseT_Full, but allow 100BaseT_Half to
-> remain usable makes that much sense. In general, Gigabit might be
-> badly broken, but 100 and 10Mbits/sec should work fine. How about the
-> MASTER-SLAVE bit, is overriding it really required?
-> 
-> Is not a PHY fixup registered for a specific OUI the solution you are
-> looking for? I am also concerned that this creates PHY troubleshooting
-> issues much harder to debug than before as we may have no idea about
-> how much information has been put in Device Tree to override that.
-> 
-> Finally, how about making this more general just like the BCM87xx PHY
-> driver, which is supplied value/reg pairs directly? There are 16
-> common MII registers, and 16 others for vendor specific registers,
-> this is just covering for about 2% of the possible changes.
-
-I would be fine with that too.
-
-g.
+RnJvbTogRmxvcmlhbiBGYWluZWxsaQ0KPiBJdCB3b3VsZCBiZSBnb29kIHRvIGV4cGxhaW4gZXhh
+Y3RseSBob3cgeW91ciBoYXJkd2FyZSBpcyBicm9rZW4NCj4gZXhhY3RseS4gSSByZWFsbHkgZG8g
+bm90IHRoaW5rIHRoYXQgc3VjaCBhIGZpbmUtZ3JhaW5lZCBzZXR0aW5nIHdoZXJlDQo+IHlvdSBj
+b3VsZCBkaXNhYmxlLCBlLmc6IDEwMEJhc2VUX0Z1bGwsIGJ1dCBhbGxvdyAxMDBCYXNlVF9IYWxm
+IHRvDQo+IHJlbWFpbiB1c2FibGUgbWFrZXMgdGhhdCBtdWNoIHNlbnNlLiBJbiBnZW5lcmFsLCBH
+aWdhYml0IG1pZ2h0IGJlDQo+IGJhZGx5IGJyb2tlbiwgYnV0IDEwMCBhbmQgMTBNYml0cy9zZWMg
+c2hvdWxkIHdvcmsgZmluZS4gSG93IGFib3V0IHRoZQ0KPiBNQVNURVItU0xBVkUgYml0LCBpcyBv
+dmVycmlkaW5nIGl0IHJlYWxseSByZXF1aXJlZD8NCg0KVGhlcmUgYXJlIHBsZW50eSBvZiBzeXN0
+ZW1zIG91dCB0aGVyZSB3aGVyZSB5b3UnZCB3YW50IHRvIGRpc2FibGUNCmVpdGhlciBIRFggb3Ig
+RkRYIG1vZGVzLg0KVGhlIE1BQyB1bml0IGhhcyB0byBrbm93IHdoZXRoZXIgdGhlIFBIWSBpcyBp
+biBIRFggb3IgRkRYIGluIG9yZGVyDQp0byB3b3JrIHByb3Blcmx5LiBNYW55IGRvIG5vdCBuZWVk
+IHRvIGtub3cgdGhlIHNwZWVkIC0gc2luY2UgdGhlDQpQSFkgaXMgcmVzcG9uc2libGUgZm9yIHRo
+ZSB0eC9yeCBmaWZvIGNsb2NrLg0KR2V0dGluZyB0aGUgbmVnb3RpYXRlZCBzcGVlZCBvdXQgb2Yg
+dGhlIFBIWSBjYW4gYmUgZGlmZmljdWx0LCB3aGlsZQ0KdGhlIEFOQVIgY2FuIGVhc2lseSBiZSBz
+ZXQuDQpVbmZvcnR1bmF0ZWx5IGl0IGlzIHVzdWFsbHkgaW1wb3NzaWJsZSB0byBkaXNhYmxlIHRo
+ZSAnZmFsbC1iYWNrJw0KMTBNIEhEWC4NCg0KCURhdmlkDQoNCg==
