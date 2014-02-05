@@ -1,26 +1,35 @@
-From: Anderson_Dana <anderson_dana@asdk12.org>
-Subject: IT Support Message
-Date: Wed, 5 Feb 2014 15:29:02 +0000
-Message-ID: <748428F251F052478DFF82B07669E5234987518E@ITEXCH03.asdk12.org>
+From: Ahmed Tamrawi <ahmedtamrawi@gmail.com>
+Subject: mutex_unlock is missed in function (drm_crtc_init) in file (linux-3.13/drivers/gpu/drm/drm_crtc.c)
+Date: Wed, 5 Feb 2014 11:23:44 -0600
+Message-ID: <CAFZT-j+u9MMeQXNiozhAn9dpSjivEnadevpKk7LtXLVyTGqcsA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.asdk12.org ([74.114.80.18]:52225 "EHLO mail.asdk12.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751650AbaBEPog convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Feb 2014 10:44:36 -0500
-Content-Language: en-US
+Received: from mail-vb0-f43.google.com ([209.85.212.43]:56054 "EHLO
+	mail-vb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753288AbaBERXp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Feb 2014 12:23:45 -0500
+Received: by mail-vb0-f43.google.com with SMTP id p5so530891vbn.30
+        for <netdev@vger.kernel.org>; Wed, 05 Feb 2014 09:23:44 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Bug Report Filed: https://bugzilla.kernel.org/show_bug.cgi?id=70081
+Linux Version [3.13]
+Configuration: Default configuration for x86
+
+In function (drm_crtc_init) in file (linux-3.13/drivers/gpu/drm/drm_crtc.c):
+
+The structure (crtc->mutex) gets successfully locked at line (636) by
+(drm_modeset_lock_all(dev)), but it is not unlocked before line (637)
+where the structure is reinitialized. After line (637) the
+re-initialized structure gets locked at (638) and unlocked at line
+(650) by (drm_modeset_unlock_all(dev)).
+
+A possible solution is to call (drm_modeset_unlock_all(dev)) before
+the re-initialization line (637).
 
 
-
-
-The Helpdesk is upgrading database Server from the old Microsoft Server (No420134x)  to the new Microsoft Server (No520193x) The maintenance is to launch the new Microsoft Web apps 2014 which has a new effect and more storage space. CLICK HERE<http://webmailacctupgrade.coffeecup.com/forms/webform/> to upgrade your mailbox.
-
-Helpdesk Upgrade Team
-
-Thank You
+Thanks,
+Ahmed
