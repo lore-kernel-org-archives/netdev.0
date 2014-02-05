@@ -1,68 +1,65 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [RFT 1/2] xhci 1.0: Limit arbitrarily-aligned scatter gather.
-Date: Wed, 5 Feb 2014 11:58:12 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6B8C70@AcuExch.aculab.com>
-References: <cover.1391544195.git.sarah.a.sharp@linux.intel.com>
- <baa32650c285a89671030370f638e2203171b3a0.1391544195.git.sarah.a.sharp@linux.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	=?Windows-1252?Q?Bj=F8rn_Mork?= <bjorn@mork.no>,
-	Freddy Xin <freddy@asix.com.tw>,
-	Ming Lei <ming.lei@canonical.com>
-To: 'Sarah Sharp' <sarah.a.sharp@linux.intel.com>,
-	Mark Lord <mlord@pobox.com>, netdev <netdev@vger.kernel.org>
+From: Grant Likely <grant.likely@linaro.org>
+Subject: Re: [PATCH] DT: net: document Ethernet bindings in one place
+Date: Wed, 05 Feb 2014 12:08:43 +0000
+Message-ID: <20140205120843.9ED08C40A89@trevor.secretlab.ca>
+References: <201401180405.07859.sergei.shtylyov@cogentembedded.com> < CAL_Jsq+oa9P=rh+p-dMZyGP8TcmpX7bTnMU0ynLvFxjxFDYbRg@mail.gmail.com> < 52DD98F7.4090202@cogentembedded.com> < CAL_JsqJXbF1-PcPHR2VP+Vi9A1aWizdsG_r3kDvRt3itXDhCGQ@mail.gmail.com> < CAGVrzcb3X3soJNJCE5+YSpQrr+EdycCRFkptPvBCgFg4CbGJ4Q@mail.gmail.com> < CAGVrzcb0dfw1orZzUt5-YkShOg-HNbUYvvo2vfmsZUZXy1Aqfg@mail.gmail.com> < 52DEE465.9000202@cogentembedded.com> <52E988FA.8040807@cogentembedded.com> <20140204172602.01420C4050F@trevor.secretlab.ca> <52F13410.8070205@ cogentembedded.com>
+Cc: netdev <netdev@vger.kernel.org>, Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Rob Landley <rob@landley.net>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Rob Herring <robherring2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:33498 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752000AbaBEL7C convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Feb 2014 06:59:02 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 13788-08 for <netdev@vger.kernel.org>;
- Wed,  5 Feb 2014 11:59:00 +0000 (GMT)
-In-Reply-To: <baa32650c285a89671030370f638e2203171b3a0.1391544195.git.sarah.a.sharp@linux.intel.com>
-Content-Language: en-US
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:45859 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751064AbaBEMIz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Feb 2014 07:08:55 -0500
+Received: by mail-wi0-f179.google.com with SMTP id hn9so467309wib.12
+        for <netdev@vger.kernel.org>; Wed, 05 Feb 2014 04:08:54 -0800 (PST)
+In-Reply-To: <52F13410.8070205@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sarah Sharp 
-> xHCI 1.0 hosts have a set of requirements on how to align transfer
-> buffers on the endpoint rings called "TD fragment" rules.  When the
-> ax88179_178a driver added support for scatter gather in 3.12, with
-> commit 804fad45411b48233b48003e33a78f290d227c8 "USBNET: ax88179_178a:
-> enable tso if usb host supports sg dma", it broke the device under xHCI
-> 1.0 hosts.  Under certain network loads, the device would see an
-> unexpected short packet from the host, which would cause the device to
-> stop sending ethernet packets, even through USB packets would still be
-> sent.
+On Tue, 04 Feb 2014 21:40:16 +0300, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> wrote:
+> Hello.
 > 
-> Commit 35773dac5f86 "usb: xhci: Link TRB must not occur within a USB
-> payload burst" attempted to fix this.  It was a quick hack to partially
-> implement the TD fragment rules.  However, it caused regressions in the
-> usb-storage layer and userspace USB drivers using libusb.  The patches
-> to attempt to fix this are too far reaching into the USB core, and we
-> really need to implement the TD fragment rules correctly in the xHCI
-> driver, instead of continuing to wallpaper over the issues.
+> On 02/04/2014 08:26 PM, Grant Likely wrote:
 > 
-> Disable arbitrarily-aligned scatter-gather in the xHCI driver for 1.0
-> hosts.  Only the ax88179_178a driver checks the no_sg_constraint flag,
-> so don't set it for 1.0 hosts.  This should not impact usb-storage or
-> usbfs behavior, since they pass down max packet sized aligned sg-list
-> entries (512 for USB 2.0 and 1024 for USB 3.0).
+> >>>>>>>      I'm afraid that's too late, it has spread very far, so that
+> >>>>>>> of_get_phy_mode() handles that property, not "phy-connection-type".
+> 
+> >>>>>> Uggg, I guess this is a case of a defacto standard then if the kernel
+> >>>>>> doesn't even support it.
+> 
+> >>>>> Maybe I forgot to CC you on patch sent to Grant only, I sent a patch a
+> >>>>> while ago for of_get_phy_mode() to look for both "phy-mode" and
+> >>>>> "phy-connection-type" since the former has been a Linux invention, but
+> >>>>> the latter is ePAPR specified.
+> 
+> >>>> Here is a link to the actual patch in question, not sure which tree
+> >>>> Grant applied it to though:
+> 
+> >>>> http://lkml.indiana.edu/hypermail/linux/kernel/1311.2/00048.html
+> 
+> >>>      It's not the patch mail, it's Grant's "applied" reply, patch is mangled in
+> >>> this reply, and I couldn't follow the thread. Here's the actual patch mail:
+> 
+> >>> http://marc.info/?l=devicetree&m=138449662807254
+> 
+> >>      Florian, I didn't find this patch in Grant's official tree, so maybe you
+> >> should ask him where is the patch already?
+> 
+> > Sorry, I accidentally dropped it. It will be in the next merge window.
+> 
+>     Already saw it, thanks. Would that it was in 3.14 instead of course, so 
+> that I could use "phy-connection-type" in my binding...
 
-I believe that this will cause the ax88179 driver to discard some
-receive packets on (at least) my panther point 1.00 controller.
+Is 3.14 broken because of missing the patch? If so I'll get it merged as
+a bug fix.
 
-I certainly saw bursts of lost packets in some testing I did before the
-scatter-gather transfers were enabled, and before any of my patches.
-
-The problem is that the ax88179_178a driver submits receive URBs that
-cross 64k boundaries, and are not aligned (they start at an 0x40 boundary).
-Receive USB frames can contain multiple ethernet frames, by default they
-are 20kB (and sit in 24kB of memory).
-
-I'm not entirely convinced that this is acceptable long term behaviour.
-
-	David
+g.
