@@ -1,32 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bnx2x: fix L2-GRE TCP issues
-Date: Tue, 04 Feb 2014 20:34:16 -0800 (PST)
-Message-ID: <20140204.203416.1197655024209227946.davem@davemloft.net>
-References: <1391528583-22935-1-git-send-email-dmitry@broadcom.com>
+Subject: Re: [bisected] Re: WARNING: at net/ipv4/devinet.c:1599
+Date: Tue, 04 Feb 2014 20:41:24 -0800 (PST)
+Message-ID: <20140204.204124.155963712324513810.davem@davemloft.net>
+References: <CAHA+R7Omv++NCg=nocVsW+tM=Zv_qCNhX1JjtFTuCzfz9B3Cig@mail.gmail.com>
+	<CAMuHMdWUR-x=fwG26xg8AsUQwL+FXLaQAnkaWHbrVaep0QzHJQ@mail.gmail.com>
+	<CAMuHMdWrYj1te-7qhKg-uHmXpuLaBBdqCEmpv_fgYSmaN3yujw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mschmidt@redhat.com, ariele@broadcom.com
-To: dmitry@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48902 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754453AbaBEEeR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 23:34:17 -0500
-In-Reply-To: <1391528583-22935-1-git-send-email-dmitry@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: cwang@twopensource.com, jiri@resnulli.us, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: geert@linux-m68k.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdWrYj1te-7qhKg-uHmXpuLaBBdqCEmpv_fgYSmaN3yujw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dmitry Kravkov <dmitry@broadcom.com>
-Date: Tue, 4 Feb 2014 17:43:03 +0200
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Tue, 4 Feb 2014 21:03:24 +0100
 
-> When configuring GRE tunnel using OVS, tcp stream is distributed over
-> all RSS queues which may cause TCP reordering. It happens since OVS
-> uses L2GRE protocol when kernel gre uses IPGRE.
-> Patch defaults gre tunnel to L2GRE which allows proper RSS for L2GRE
-> packets and (implicitly) disables RSS for IPGRE traffic.
+> On Tue, Feb 4, 2014 at 8:20 PM, Geert Uytterhoeven <geert@linux-m68k.org> wrote:
+>> On Tue, Feb 4, 2014 at 7:08 PM, Cong Wang <cwang@twopensource.com> wrote:
+>>> On Tue, Feb 4, 2014 at 6:19 AM, Geert Uytterhoeven <geert@linux-m68k.org> wrote:
+>>>>
+>>>> Anyone with a clue?
+>>>>
+>>>
+>>> Looks like we need:
+>>>
+>>> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+>>> index ac2dff3..bdbf68b 100644
+>>> --- a/net/ipv4/devinet.c
+>>> +++ b/net/ipv4/devinet.c
+>>> @@ -1443,7 +1443,8 @@ static size_t inet_nlmsg_size(void)
+>>>                + nla_total_size(4) /* IFA_LOCAL */
+>>>                + nla_total_size(4) /* IFA_BROADCAST */
+>>>                + nla_total_size(IFNAMSIZ) /* IFA_LABEL */
+>>> -              + nla_total_size(4);  /* IFA_FLAGS */
+>>> +              + nla_total_size(4)  /* IFA_FLAGS */
+>>> +              + nla_total_size(sizeof(struct ifa_cacheinfo)); /*
+>>> IFA_CACHEINFO */
+>>>  }
+>>
+>> Thanks for your suggestion, but it doesn't help :-(
 > 
-> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-> Signed-off-by: Ariel Elior <ariele@broadcom.com>
+> Bummer, I applied it to the wrong tree.
+> 
+> Yes, it works, thanks a lot!
+> 
+> David, Jiri, is this the right fix, or just a band-aid?
 
-Applied.
+It looks correct, and if you look ipv6 does this correctly already,
+someone please submit this formally.
