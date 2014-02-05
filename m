@@ -1,37 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/2] OpenCores 10/100 MAC fixes for gigabit
- environment
-Date: Tue, 04 Feb 2014 20:20:15 -0800 (PST)
-Message-ID: <20140204.202015.1497580539167714407.davem@davemloft.net>
-References: <1391470390-31569-1-git-send-email-jcmvbkbc@gmail.com>
+Subject: Re: [PATCH v3] ptp: Allow selecting trigger/event index in testptp
+Date: Tue, 04 Feb 2014 20:27:01 -0800 (PST)
+Message-ID: <20140204.202701.664547669621722756.davem@davemloft.net>
+References: <1391499996-10233-1-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-xtensa@linux-xtensa.org, netdev@vger.kernel.org,
-	chris@zankel.net, marc@cadence.com, ben@decadent.org.uk,
-	f.fainelli@gmail.com
-To: jcmvbkbc@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: richardcochran@gmail.com, netdev@vger.kernel.org
+To: stefan.sorensen@spectralink.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48810 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48828 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751344AbaBEEUQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 23:20:16 -0500
-In-Reply-To: <1391470390-31569-1-git-send-email-jcmvbkbc@gmail.com>
+	with ESMTP id S1752296AbaBEE1E convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Feb 2014 23:27:04 -0500
+In-Reply-To: <1391499996-10233-1-git-send-email-stefan.sorensen@spectralink.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Max Filippov <jcmvbkbc@gmail.com>
-Date: Tue,  4 Feb 2014 03:33:08 +0400
+=46rom: Stefan S=F8rensen <stefan.sorensen@spectralink.com>
+Date: Tue,  4 Feb 2014 08:46:36 +0100
 
-> Hello David, Ben, Florian, Chris and everybody,
-> 
-> this series improves ethoc behavior in gigabit environment:
-> - first patch disables gigabit advertisement in the attached PHY making
->   possible to use gigabit link without any additional setup;
-> - second patch adds support to set up MII management bus frequency, adding
->   new fields to platform data and to OF bindings.
-> 
-> These changes allow to use KC-705 board with 50MHz xtensa core and OpenCores
-> 10/100 Mbps MAC connected to gigabit network without any additional setup.
+> Currently the trigger/event is hardcoded to 0, this patch adds
+> a new command line argument -i to select an arbitrary trigger/
+> event.
+>=20
+> Signed-off-by: Stefan S=F8rensen <stefan.sorensen@spectralink.com>
 
-Both patches applied, thanks.
+Applied, thanks.
