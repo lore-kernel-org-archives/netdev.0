@@ -1,53 +1,249 @@
-From: Sarah Sharp <sarah.a.sharp@linux.intel.com>
-Subject: Re: [RFT 1/2] xhci 1.0: Limit arbitrarily-aligned scatter gather.
-Date: Wed, 5 Feb 2014 13:45:07 -0800
-Message-ID: <20140205214507.GF12087@xanatos>
-References: <20140205210847.GD12087@xanatos>
- <Pine.LNX.4.44L0.1402051619240.1312-100000@iolanthe.rowland.org>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Subject: [PATCH 51/51] net/iucv/iucv.c: Fix CPU hotplug callback registration
+Date: Thu, 06 Feb 2014 03:43:55 +0530
+Message-ID: <20140205221354.19080.25861.stgit@srivatsabhat.in.ibm.com>
+References: <20140205220251.19080.92336.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	Mark Lord <mlord@pobox.com>, netdev <netdev@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	=?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
-	Freddy Xin <freddy@asix.com.tw>,
-	Ming Lei <ming.lei@canonical.com>
-To: Alan Stern <stern@rowland.harvard.edu>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: mingo@kernel.org, paulmck@linux.vnet.ibm.com, tj@kernel.org,
+	walken@google.com, ego@linux.vnet.ibm.com, linux@arm.linux.org.uk,
+	linux-kernel@vger.kernel.org, srivatsa.bhat@linux.vnet.ibm.com,
+	Ursula Braun <ursula.braun@de.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-s390@vger.kernel.org, netdev@vger.kernel.org,
+	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+To: paulus@samba.org, oleg@redhat.com, rusty@rustcorp.com.au,
+	peterz@infradead.org, tglx@linutronix.de, akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:63291 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753750AbaBEVpK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Feb 2014 16:45:10 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44L0.1402051619240.1312-100000@iolanthe.rowland.org>
+Received: from e28smtp01.in.ibm.com ([122.248.162.1]:43727 "EHLO
+	e28smtp01.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756205AbaBEWTR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Feb 2014 17:19:17 -0500
+Received: from /spool/local
+	by e28smtp01.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <srivatsa.bhat@linux.vnet.ibm.com>;
+	Thu, 6 Feb 2014 03:49:15 +0530
+In-Reply-To: <20140205220251.19080.92336.stgit@srivatsabhat.in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 05, 2014 at 04:23:50PM -0500, Alan Stern wrote:
-> On Wed, 5 Feb 2014, Sarah Sharp wrote:
-> 
-> > On Wed, Feb 05, 2014 at 11:58:12AM +0000, David Laight wrote:
-> 
-> > > The problem is that the ax88179_178a driver submits receive URBs that
-> > > cross 64k boundaries, and are not aligned (they start at an 0x40 boundary).
-> > > Receive USB frames can contain multiple ethernet frames, by default they
-> > > are 20kB (and sit in 24kB of memory).
-> > 
-> > Perhaps you should add printks when a TRB is split on 64KB boundaries
-> > and see if the device drops packets around that time?
-> 
-> This seems kind of puzzling.
-> 
-> In theory, any URB that's more than 1 byte long can cross a 64-KB 
-> boundary.  I don't understand why this should cause problems for 
-> xhci-hcd.  Sure, the transfer has to be split into multiple TDs where 
-> the boundary crossing occurs.  But why would that be problematic?
+Subsystems that want to register CPU hotplug callbacks, as well as perform
+initialization for the CPUs that are already online, often do it as shown
+below:
 
-If we split a non-scatter gather URB into two TRBs because of the 64-KB
-boundary rule, and we have to put a link TRB in between them, that may
-violate the TD fragments rule for 1.0 hosts.
+	get_online_cpus();
 
-So the debugging should really only trigger when there's a link TRB in
-between two TRBs on the bulk ring.
+	for_each_online_cpu(cpu)
+		init_cpu(cpu);
 
-Sarah Sharp
+	register_cpu_notifier(&foobar_cpu_notifier);
+
+	put_online_cpus();
+
+This is wrong, since it is prone to ABBA deadlocks involving the
+cpu_add_remove_lock and the cpu_hotplug.lock (when running concurrently
+with CPU hotplug operations).
+
+Instead, the correct and race-free way of performing the callback
+registration is:
+
+	cpu_maps_update_begin();
+
+	for_each_online_cpu(cpu)
+		init_cpu(cpu);
+
+	/* Note the use of the double underscored version of the API */
+	__register_cpu_notifier(&foobar_cpu_notifier);
+
+	cpu_maps_update_done();
+
+
+Fix the code in net/iucv/iucv.c by using this latter form of callback
+registration. Also, provide helper functions to perform the common memory
+allocations and frees, to condense repetitive code.
+
+Cc: Ursula Braun <ursula.braun@de.ibm.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: linux-s390@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+---
+
+ net/iucv/iucv.c |  121 ++++++++++++++++++++++++++-----------------------------
+ 1 file changed, 57 insertions(+), 64 deletions(-)
+
+diff --git a/net/iucv/iucv.c b/net/iucv/iucv.c
+index cd5b8ec..f92348b 100644
+--- a/net/iucv/iucv.c
++++ b/net/iucv/iucv.c
+@@ -621,6 +621,42 @@ static void iucv_disable(void)
+ 	put_online_cpus();
+ }
+ 
++static void free_iucv_data(int cpu)
++{
++	kfree(iucv_param_irq[cpu]);
++	iucv_param_irq[cpu] = NULL;
++	kfree(iucv_param[cpu]);
++	iucv_param[cpu] = NULL;
++	kfree(iucv_irq_data[cpu]);
++	iucv_irq_data[cpu] = NULL;
++}
++
++static int alloc_iucv_data(int cpu)
++{
++	/* Note: GFP_DMA used to get memory below 2G */
++	iucv_irq_data[cpu] = kmalloc_node(sizeof(struct iucv_irq_data),
++			     GFP_KERNEL|GFP_DMA, cpu_to_node(cpu));
++	if (!iucv_irq_data[cpu])
++		goto out_free;
++
++	/* Allocate parameter blocks. */
++	iucv_param[cpu] = kmalloc_node(sizeof(union iucv_param),
++			  GFP_KERNEL|GFP_DMA, cpu_to_node(cpu));
++	if (!iucv_param[cpu])
++		goto out_free;
++
++	iucv_param_irq[cpu] = kmalloc_node(sizeof(union iucv_param),
++			  GFP_KERNEL|GFP_DMA, cpu_to_node(cpu));
++	if (!iucv_param_irq[cpu])
++		goto out_free;
++
++	return 0;
++
++out_free:
++	free_iucv_data(cpu);
++	return -ENOMEM;
++}
++
+ static int iucv_cpu_notify(struct notifier_block *self,
+ 				     unsigned long action, void *hcpu)
+ {
+@@ -630,38 +666,14 @@ static int iucv_cpu_notify(struct notifier_block *self,
+ 	switch (action) {
+ 	case CPU_UP_PREPARE:
+ 	case CPU_UP_PREPARE_FROZEN:
+-		iucv_irq_data[cpu] = kmalloc_node(sizeof(struct iucv_irq_data),
+-					GFP_KERNEL|GFP_DMA, cpu_to_node(cpu));
+-		if (!iucv_irq_data[cpu])
+-			return notifier_from_errno(-ENOMEM);
+-
+-		iucv_param[cpu] = kmalloc_node(sizeof(union iucv_param),
+-				     GFP_KERNEL|GFP_DMA, cpu_to_node(cpu));
+-		if (!iucv_param[cpu]) {
+-			kfree(iucv_irq_data[cpu]);
+-			iucv_irq_data[cpu] = NULL;
++		if (alloc_iucv_data(cpu))
+ 			return notifier_from_errno(-ENOMEM);
+-		}
+-		iucv_param_irq[cpu] = kmalloc_node(sizeof(union iucv_param),
+-					GFP_KERNEL|GFP_DMA, cpu_to_node(cpu));
+-		if (!iucv_param_irq[cpu]) {
+-			kfree(iucv_param[cpu]);
+-			iucv_param[cpu] = NULL;
+-			kfree(iucv_irq_data[cpu]);
+-			iucv_irq_data[cpu] = NULL;
+-			return notifier_from_errno(-ENOMEM);
+-		}
+ 		break;
+ 	case CPU_UP_CANCELED:
+ 	case CPU_UP_CANCELED_FROZEN:
+ 	case CPU_DEAD:
+ 	case CPU_DEAD_FROZEN:
+-		kfree(iucv_param_irq[cpu]);
+-		iucv_param_irq[cpu] = NULL;
+-		kfree(iucv_param[cpu]);
+-		iucv_param[cpu] = NULL;
+-		kfree(iucv_irq_data[cpu]);
+-		iucv_irq_data[cpu] = NULL;
++		free_iucv_data(cpu);
+ 		break;
+ 	case CPU_ONLINE:
+ 	case CPU_ONLINE_FROZEN:
+@@ -2025,33 +2037,20 @@ static int __init iucv_init(void)
+ 		goto out_int;
+ 	}
+ 
+-	for_each_online_cpu(cpu) {
+-		/* Note: GFP_DMA used to get memory below 2G */
+-		iucv_irq_data[cpu] = kmalloc_node(sizeof(struct iucv_irq_data),
+-				     GFP_KERNEL|GFP_DMA, cpu_to_node(cpu));
+-		if (!iucv_irq_data[cpu]) {
+-			rc = -ENOMEM;
+-			goto out_free;
+-		}
++	cpu_maps_update_begin();
+ 
+-		/* Allocate parameter blocks. */
+-		iucv_param[cpu] = kmalloc_node(sizeof(union iucv_param),
+-				  GFP_KERNEL|GFP_DMA, cpu_to_node(cpu));
+-		if (!iucv_param[cpu]) {
+-			rc = -ENOMEM;
+-			goto out_free;
+-		}
+-		iucv_param_irq[cpu] = kmalloc_node(sizeof(union iucv_param),
+-				  GFP_KERNEL|GFP_DMA, cpu_to_node(cpu));
+-		if (!iucv_param_irq[cpu]) {
++	for_each_online_cpu(cpu) {
++		if (alloc_iucv_data(cpu)) {
+ 			rc = -ENOMEM;
+ 			goto out_free;
+ 		}
+-
+ 	}
+-	rc = register_hotcpu_notifier(&iucv_cpu_notifier);
++	rc = __register_hotcpu_notifier(&iucv_cpu_notifier);
+ 	if (rc)
+ 		goto out_free;
++
++	cpu_maps_update_done();
++
+ 	rc = register_reboot_notifier(&iucv_reboot_notifier);
+ 	if (rc)
+ 		goto out_cpu;
+@@ -2069,16 +2068,14 @@ static int __init iucv_init(void)
+ out_reboot:
+ 	unregister_reboot_notifier(&iucv_reboot_notifier);
+ out_cpu:
+-	unregister_hotcpu_notifier(&iucv_cpu_notifier);
++	cpu_maps_update_begin();
++	__unregister_hotcpu_notifier(&iucv_cpu_notifier);
+ out_free:
+-	for_each_possible_cpu(cpu) {
+-		kfree(iucv_param_irq[cpu]);
+-		iucv_param_irq[cpu] = NULL;
+-		kfree(iucv_param[cpu]);
+-		iucv_param[cpu] = NULL;
+-		kfree(iucv_irq_data[cpu]);
+-		iucv_irq_data[cpu] = NULL;
+-	}
++	for_each_possible_cpu(cpu)
++		free_iucv_data(cpu);
++
++	cpu_maps_update_done();
++
+ 	root_device_unregister(iucv_root);
+ out_int:
+ 	unregister_external_interrupt(0x4000, iucv_external_interrupt);
+@@ -2105,15 +2102,11 @@ static void __exit iucv_exit(void)
+ 		kfree(p);
+ 	spin_unlock_irq(&iucv_queue_lock);
+ 	unregister_reboot_notifier(&iucv_reboot_notifier);
+-	unregister_hotcpu_notifier(&iucv_cpu_notifier);
+-	for_each_possible_cpu(cpu) {
+-		kfree(iucv_param_irq[cpu]);
+-		iucv_param_irq[cpu] = NULL;
+-		kfree(iucv_param[cpu]);
+-		iucv_param[cpu] = NULL;
+-		kfree(iucv_irq_data[cpu]);
+-		iucv_irq_data[cpu] = NULL;
+-	}
++	cpu_maps_update_begin();
++	__unregister_hotcpu_notifier(&iucv_cpu_notifier);
++	for_each_possible_cpu(cpu)
++		free_iucv_data(cpu);
++	cpu_maps_update_done();
+ 	root_device_unregister(iucv_root);
+ 	bus_unregister(&iucv_bus);
+ 	unregister_external_interrupt(0x4000, iucv_external_interrupt);
