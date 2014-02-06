@@ -1,48 +1,40 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [GIT net] Open vSwitch
-Date: Wed, 5 Feb 2014 23:32:19 -0800
-Message-ID: <CAEP_g=-A9cZZqpDA=jOk2bUcmCWY61+jm0JvnbhdHPYAcg_b4g@mail.gmail.com>
-References: <1391583561-25399-1-git-send-email-jesse@nicira.com>
-	<CAJZOPZK17fAaDfYj21i0F=cOg0uX52X9BPfdxZaExGyNTQqtdA@mail.gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] isdn/hisax: hex vs decimal typo in prfeatureind()
+Date: Thu, 6 Feb 2014 11:03:08 +0300
+Message-ID: <20140206080308.GB26661@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-To: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <CAJZOPZK17fAaDfYj21i0F=cOg0uX52X9BPfdxZaExGyNTQqtdA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Kees Cook <keescook@chromium.org>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:40184 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755174AbaBFIDc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 03:03:32 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 5, 2014 at 11:09 PM, Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On Wed, Feb 5, 2014 at 8:59 AM, Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org> wrote:
->>
->> A handful of bug fixes for net/3.14. High level fixes are:
->>  * Regressions introduced by the zerocopy changes, particularly with
->>    old userspaces.
->
-> Hi, so this post was the 2nd version of the five patches you posted
-> earlier, right? it would be very helpful if you
-> denote that on the subject line (e.g just use --subject-prefix="PATCH
-> net V1" for git format-patch) and provide
-> crash diff listing from V0. Also, on a related note to the patch that
-> deals with locking, I see these two smatch
-> complaints, which might be false-positives, what's your thinking?
->
-> net/openvswitch/flow.c:127 ovs_flow_stats_get() warn: returning with
-> unbalanced local_bh_disable
-> net/openvswitch/flow.c:160 ovs_flow_stats_clear() warn: returning with
-> unbalanced local_bh_disable
+This is a static checker fix, but judging from the context then I think
+hexidecimal 0x80 is intended here instead of decimal 80.
 
-Yes, it looks like a false positive to me.
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+Untested.
+
+diff --git a/drivers/isdn/hisax/q931.c b/drivers/isdn/hisax/q931.c
+index af1b020a81f1..b420f8bd862e 100644
+--- a/drivers/isdn/hisax/q931.c
++++ b/drivers/isdn/hisax/q931.c
+@@ -810,7 +810,7 @@ prfeatureind(char *dest, u_char *p)
+ 	dp += sprintf(dp, "    octet 3  ");
+ 	dp += prbits(dp, *p, 8, 8);
+ 	*dp++ = '\n';
+-	if (!(*p++ & 80)) {
++	if (!(*p++ & 0x80)) {
+ 		dp += sprintf(dp, "    octet 4  ");
+ 		dp += prbits(dp, *p++, 8, 8);
+ 		*dp++ = '\n';
