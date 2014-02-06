@@ -1,66 +1,104 @@
-From: Grant Likely <grant.likely@linaro.org>
-Subject: Re: [PATCH] DT: net: document Ethernet bindings in one place
-Date: Thu, 06 Feb 2014 09:43:00 +0000
-Message-ID: <20140206094301.03572C40B6A@trevor.secretlab.ca>
-References: <201401180405.07859.sergei.shtylyov@cogentembedded.com> < CAL_Jsq+oa9P=rh+p-dMZyGP8TcmpX7bTnMU0ynLvFxjxFDYbRg@mail.gmail.com> < 52DD98F7.4090202@cogentembedded.com> < CAL_JsqJXbF1-PcPHR2VP+Vi9A1aWizdsG_r3kDvRt3itXDhCGQ@mail.gmail.com> < CAGVrzcb3X3soJNJCE5+YSpQrr+EdycCRFkptPvBCgFg4CbGJ4Q@mail.gmail.com> < CAGVrzcb0dfw1orZzUt5-YkShOg-HNbUYvvo2vfmsZUZXy1Aqfg@mail.gmail.com> < 52DEE465.9000202@cogentembedded.com> <52E988FA.8040807@cogentembedded.com> <20140204172602.01420C4050F@trevor.secretlab.ca> <52F13410.8070205@ cogentembedded.com> <20140205120843.9ED08C40A89@trevor.secretlab.ca> < 52F25A63.3010608@cogentembedded.com>
-Cc: netdev <netdev@vger.kernel.org>, Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Rob Landley <rob@landley.net>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Rob Herring <robherring2@gmail.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <52F25A63.3010608@cogentembedded.com>
-Sender: linux-doc-owner@vger.kernel.org
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: igb and bnx2: "NETDEV WATCHDOG: transmit queue
+ timed out" when skb has huge linear buffer
+Date: Thu, 6 Feb 2014 09:58:25 +0000
+Message-ID: <52F35CC1.60401@citrix.com>
+References: <52EAA31B.1090606@schaman.hu>	
+	<1391114048.4804.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>	
+	<52EBA51E.808@citrix.com>
+	<1391543271.4804.44.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	<52F29DDC.7010908@citrix.com> <52F2A282.5040502@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Carolyn, Tushar,
+	e1000-devel@lists.sourceforge.net, Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	John Ronciak <john.ronciak@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>, Peter
+To: Andrew Cooper <andrew.cooper3@citrix.com>, Michael Chan
+	<mchan@broadcom.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <52F2A282.5040502@citrix.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Wed, 05 Feb 2014 18:36:03 +0300, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> wrote:
-> Hello.
-> 
-> On 02/05/2014 03:08 PM, Grant Likely wrote:
-> 
-> >>>>>>>>>       I'm afraid that's too late, it has spread very far, so that
-> >>>>>>>>> of_get_phy_mode() handles that property, not "phy-connection-type".
-> 
-> >>>>>>>> Uggg, I guess this is a case of a defacto standard then if the kernel
-> >>>>>>>> doesn't even support it.
-> 
-> >>>>>>> Maybe I forgot to CC you on patch sent to Grant only, I sent a patch a
-> >>>>>>> while ago for of_get_phy_mode() to look for both "phy-mode" and
-> >>>>>>> "phy-connection-type" since the former has been a Linux invention, but
-> >>>>>>> the latter is ePAPR specified.
-> 
-> >>>>>> Here is a link to the actual patch in question, not sure which tree
-> >>>>>> Grant applied it to though:
-> 
-> >>>>>> http://lkml.indiana.edu/hypermail/linux/kernel/1311.2/00048.html
-> 
-> >>>>>       It's not the patch mail, it's Grant's "applied" reply, patch is mangled in
-> >>>>> this reply, and I couldn't follow the thread. Here's the actual patch mail:
-> 
-> >>>>> http://marc.info/?l=devicetree&m=138449662807254
-> 
-> >>>>       Florian, I didn't find this patch in Grant's official tree, so maybe you
-> >>>> should ask him where is the patch already?
-> 
-> >>> Sorry, I accidentally dropped it. It will be in the next merge window.
-> 
-> >>      Already saw it, thanks. Would that it was in 3.14 instead of course, so
-> >> that I could use "phy-connection-type" in my binding...
-> 
-> > Is 3.14 broken because of missing the patch? If so I'll get it merged as
->  > a bug fix.
-> 
->     No, it's not. I could have used "phy-connection-type" in my binding 
-> destined for 3.15 and document it as a preferred property as well.
+On 05/02/14 20:43, Andrew Cooper wrote:
+> On 05/02/2014 20:23, Zoltan Kiss wrote:
+>> On 04/02/14 19:47, Michael Chan wrote:
+>>> On Fri, 2014-01-31 at 14:29 +0100, Zoltan Kiss wrote:
+>>>> [ 5417.275472] WARNING: at net/sched/sch_generic.c:255
+>>>> dev_watchdog+0x156/0x1f0()
+>>>> [ 5417.275474] NETDEV WATCHDOG: eth1 (bnx2): transmit queue 2 timed out
+>>>
+>>> The dump shows an internal IRQ pending on MSIX vector 2 which matches
+>>> the the queue number that is timing out.  I don't know what happened to
+>>> the MSIX and why the driver is not seeing it.  Do you see an IRQ error
+>>> message from the kernel a few seconds before the tx timeout message?
+>>
+>> I haven't seen any IRQ related error message. Note, this is on Xen
+>> 4.3.1. Now I have new results with a reworked version of the patch,
+>> unfortunately it still has this issue. Here is a bnx2 dump, lspci
+>> output and some Xen debug output (MSI and interrupt bindings, I have
+>> more if needed).
+>
+> You need debug-keys 'Q' as well to map between the PCI devices and Xen IRQs
+>
+> ~Andrew
+>
 
-You still can. We just need to make sure that your patch is applied on
-top of the phy-connection-type patch.
+I could have it after reboot:
 
-g.
+(XEN) [2014-02-06 09:44:34] 0000:02:00.0 - dom 0   - MSIs < 64 65 66 67 
+68 69 >
 
+So the relevant MSI informations:
+
+(XEN) [2014-02-05 20:15:20]  MSI-X   64 vec=d7  fixed  edge   assert 
+phys    cpu dest=00000022 mask=1/0/0
+(XEN) [2014-02-05 20:15:20]  MSI-X   65 vec=ba  fixed  edge   assert 
+phys    cpu dest=00000000 mask=1/0/0
+(XEN) [2014-02-05 20:15:20]  MSI-X   66 vec=92  fixed  edge   assert 
+phys    cpu dest=00000022 mask=1/0/0
+(XEN) [2014-02-05 20:15:20]  MSI-X   67 vec=3a  fixed  edge   assert 
+phys    cpu dest=00000021 mask=1/0/0
+(XEN) [2014-02-05 20:15:20]  MSI-X   68 vec=b8  fixed  edge   assert 
+phys    cpu dest=00000022 mask=1/0/0
+(XEN) [2014-02-05 20:15:20]  MSI-X   69 vec=2a  fixed  edge   assert 
+phys    cpu dest=00000020 mask=1/1/1
+...
+(XEN) [2014-02-05 20:15:22]    IRQ:  64 affinity:00000004 vec:d7 
+type=PCI-MSI/-X      status=00000030 in-flight=0 domain-list=0:304(---),
+(XEN) [2014-02-05 20:15:22]    IRQ:  65 affinity:00000100 vec:ba 
+type=PCI-MSI/-X      status=00000010 in-flight=0 domain-list=0:303(---),
+(XEN) [2014-02-05 20:15:22]    IRQ:  66 affinity:00000004 vec:92 
+type=PCI-MSI/-X      status=00000010 in-flight=0 domain-list=0:302(---),
+(XEN) [2014-02-05 20:15:22]    IRQ:  67 affinity:00000002 vec:3a 
+type=PCI-MSI/-X      status=00000010 in-flight=0 domain-list=0:301(---),
+(XEN) [2014-02-05 20:15:22]    IRQ:  68 affinity:00000004 vec:b8 
+type=PCI-MSI/-X      status=00000030 in-flight=0 domain-list=0:300(---),
+(XEN) [2014-02-05 20:15:22]    IRQ:  69 affinity:00000001 vec:2a 
+type=PCI-MSI/-X      status=00000002 mapped, unbound
+
+
+Zoli
+
+------------------------------------------------------------------------------
+Managing the Performance of Cloud-Based Applications
+Take advantage of what the Cloud has to offer - Avoid Common Pitfalls.
+Read the Whitepaper.
+http://pubads.g.doubleclick.net/gampad/clk?id=121051231&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
