@@ -1,97 +1,78 @@
-From: Gerlando Falauto <gerlando.falauto@keymile.com>
-Subject: Re: Disabling autoneg and enforcing speed/duplex
-Date: Thu, 06 Feb 2014 16:00:39 +0100
-Message-ID: <52F3A397.3090208@keymile.com>
-References: <52F3796B.8050809@keymile.com> <CAL_JsqJ=Me+MKF8DGMsh=0y4VLmekUHD7KgmQDkCpDEuKVOT+w@mail.gmail.com>
+From: Emil Goode <emilgoode@gmail.com>
+Subject: Re: [PATCH] net: asix: fix bad header length bug
+Date: Thu, 6 Feb 2014 16:02:26 +0100
+Message-ID: <20140206150226.GA5251@lianli>
+References: <1391691384-8486-1-git-send-email-emilgoode@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6D0F6B98CA@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ming Lei <ming.lei@canonical.com>,
+	Mark Brown <broonie@linaro.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Glen Turner <gdt@gdt.id.au>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	"Brunck, Holger" <Holger.Brunck@keymile.com>
-To: Rob Herring <robherring2@gmail.com>
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-de.keymile.com ([195.8.104.250]:32898 "EHLO
-	mail-de.keymile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752692AbaBFPAn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 10:00:43 -0500
-In-Reply-To: <CAL_JsqJ=Me+MKF8DGMsh=0y4VLmekUHD7KgmQDkCpDEuKVOT+w@mail.gmail.com>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:56229 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752750AbaBFPAo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 10:00:44 -0500
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6B98CA@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Rob,
+Hello David,
 
-thanks for your reply.
+Thank's for the review.
 
-On 02/06/2014 03:50 PM, Rob Herring wrote:
-> On Thu, Feb 6, 2014 at 6:00 AM, Gerlando Falauto
-> <gerlando.falauto@keymile.com> wrote:
->> Hi,
->>
->> I'm using the Kirkwood Ethernet controller (mv643xx_eth.c) with a Marvell
->> 88E3018 PHY which needs to be set in forced 100Base-TX mode.
->>
->> Thanks to Sebastian's addition of DT support to the ethernet driver, I can
->> easily set speed and duplex within the ethernet's port node, therefore
->> leaving the phy unmanaged -- this works fine (I guess this mode is set on
->> the phy by the bootloader or by strap settings).
->>
->> However, this PHY has an erratum whose workaround requires some registers be
->> written -- I believe the natural solution would be to start managing the PHY
->> (i.e. set "phy-handle") and implement the proper workaround within
->> drivers/net/phy/marvell.c. Making the PHY managed does however enable
->> autoneg and therefore break everything.
->>
->> Which brings me to my question: shouldn't there be a way to specify some
->> forced settings within the PHY's node for such cases?
->>
->> Only thing I found vaguely resembling what I'm looking for is Florian's
->> patch introducing "max-speed" in the PHY -- not quite the same thing though.
->> Which, if I understand it correctly, implements it as a property of the PHY,
->> whereas ePAPR specifies it as a property of the ethernet device (which makes
->> sense, since you might want to connect a 10/100 MII to a 10/100/1000 PHY and
->> therefore have the MII restrict the capabilities of the PHY).
->
-> You shouldn't need a property in this case. The driver knows what the
-> h/w is limited to and can configure the phy based on that.
+On Thu, Feb 06, 2014 at 01:37:12PM +0000, David Laight wrote:
+> From: Emil Goode
+> > The AX88772B occasionally send rx packets that cross urb boundaries
+> > and the remaining partial packet is sent with no header.
+> > When the buffer with a partial packet is of less number of octets
+> > than the value of hard_header_len the buffer is discarded by the
+> > usbnet module. This is causing dropped packages and error messages
+> > in dmesg.
+> > 
+> > This can be reproduced by using ping with a packet size
+> > between 1965-1976.
+> 
+> I think this can affect other USB ethernet drivers.
+> Probably most of the ones that explicitly set rx_urb_len.
+> 
+> The ax88179_178a driver sets massive 20k receive urb.
 
-I see, you're right.
+The ax88179_178a has it's own bind function, so I believe it's
+not affected by this change.
 
-> It is when
-> both sides should support a higher speed and you need to limit it for
-> some other reason like errata or board level configuration.
+> I've seen over 10k of data in a single urb, dunno if it
+> can actually generate more than 20k - possibly if the usb3 link
+> is loaded with other traffic.
+> It would be much more efficient for it to use an aligned 4k urb
+> and then merge the fragment into skbs.
+> 
+> Once you've set:
+> +	dev->net->hard_header_len = 0; /* Partial packets have no header */
+> try setting the mtu to a multiple of 1k.
 
-Which is exactly my case. The phy should be configured to work in 
-100Base-TX mode, full duplex.
+I tried setting the mtu to 2000 and when using ping with a large enough
+packet size to fill the urb to rx_urb_size all packages are dropped.
 
->> Or perhaps I'm missing some important bits here?
->
-> Does this patch help you:
->
-> https://lkml.org/lkml/2014/1/15/533
+> There is a very odd check in usbnet_change_mtu() that tries to stop the
+> receive urb_length being a multiple of the usb packet size.
 
-I think so... So I guess I should jest set all
-
-phy-mii-advertise-10full = <0>;
-...
-phy-mii-advertise-100full = <1>;
-...
-
-is that right?
-I'll test it and let you know.
-
-Thanks!
-Gerlando
+This is very odd indeed!
 
 >
-> Rob
->
->>
->> Thanks!
->> Gerlando
->> --
->> To unsubscribe from this list: send the line "unsubscribe devicetree" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> This code looks as though it is hoping that the usb controller will discard
+> any full length bulk messages after finding a short buffer.
+> I suspect that might be just wishful thinking!
+> 
+> 	David
+> 
+> 
+> 
