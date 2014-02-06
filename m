@@ -1,100 +1,80 @@
-From: "Carlos O'Donell" <carlos@redhat.com>
-Subject: Re: [PATCH] inet: defines IPPROTO_* needed for module alias generation
-Date: Thu, 06 Feb 2014 16:33:48 -0500
-Message-ID: <52F3FFBC.1010505@redhat.com>
-References: <1391685000-7346-1-git-send-email-mq@suse.cz>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net: use __GFP_NORETRY for high order allocations
+Date: Thu, 06 Feb 2014 13:34:04 -0800
+Message-ID: <1391722444.15777.28.camel@joe-AO722>
+References: <1391712162.10160.8.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1391718270.15777.20.camel@joe-AO722>
+	 <alpine.DEB.2.02.1402061302020.9567@chino.kir.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jan Moskyto Matejka <mq@suse.cz>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Rientjes <rientjes@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1391685000-7346-1-git-send-email-mq@suse.cz>
+In-Reply-To: <alpine.DEB.2.02.1402061302020.9567@chino.kir.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/06/2014 06:10 AM, Jan Moskyto Matejka wrote:
-> Commit cfd280c91253 ("net: sync some IP headers with glibc") changed a set of
-> define's to an enum (with no explanation why) which introduced a bug
-> in module mip6 where aliases are generated using the IPPROTO_* defines;
-> mip6 doesn't load if require_module called with the aliases from
-> xfrm_get_type().
-
-I wrote that code and I apologize for not giving a reason at
-the time.
-
-There are two reasons:
-
-* It makes the debuginfo better and debugging easier via the enum.
-
-* It harmonizes those headers with what is already in glibc.
-
-Harmonizing this header with glibc makes it easier for userspace
-to synchronize changes and perhaps eventually use the UAPI headers
-directly.
-
-> Reverting this change back to define's to fix the aliases.
+On Thu, 2014-02-06 at 13:03 -0800, David Rientjes wrote:
+> On Thu, 6 Feb 2014, Joe Perches wrote:
 > 
-> modinfo mip6 (before this change)
-> alias:          xfrm-type-10-IPPROTO_DSTOPTS
-> alias:          xfrm-type-10-IPPROTO_ROUTING
+> > On Thu, 2014-02-06 at 10:42 -0800, Eric Dumazet wrote:
+> > > sock_alloc_send_pskb() & sk_page_frag_refill()
+> > > have a loop trying high order allocations to prepare
+> > > skb with low number of fragments as this increases performance.
+> > > 
+> > > Problem is that under memory pressure/fragmentation, this can
+> > > trigger OOM while the intent was only to try the high order
+> > > allocations, then fallback to order-0 allocations.
+> > []
+> > > Call Trace:
+> > >  [<ffffffff8043766c>] dump_header+0xe1/0x23e
+> > >  [<ffffffff80437a02>] oom_kill_process+0x6a/0x323
+> > >  [<ffffffff80438443>] out_of_memory+0x4b3/0x50d
+> > >  [<ffffffff8043a4a6>] __alloc_pages_may_oom+0xa2/0xc7
+> > >  [<ffffffff80236f42>] __alloc_pages_nodemask+0x1002/0x17f0
+> > >  [<ffffffff8024bd23>] alloc_pages_current+0x103/0x2b0
+> > >  [<ffffffff8028567f>] sk_page_frag_refill+0x8f/0x160
+> > []
+> > > diff --git a/net/core/sock.c b/net/core/sock.c
+> > []
+> > > @@ -1775,7 +1775,9 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+> > >  			while (order) {
+> > >  				if (npages >= 1 << order) {
+> > >  					page = alloc_pages(sk->sk_allocation |
+> > > -							   __GFP_COMP | __GFP_NOWARN,
+> > > +							   __GFP_COMP |
+> > > +							   __GFP_NOWARN |
+> > > +							   __GFP_NORETRY,
+> > >  							   order);
+> > >  					if (page)
+> > >  						goto fill_page;
+> > > @@ -1845,7 +1847,7 @@ bool skb_page_frag_refill(unsigned int sz, struct page_frag *pfrag, gfp_t prio)
+> > >  		gfp_t gfp = prio;
+> > >  
+> > >  		if (order)
+> > > -			gfp |= __GFP_COMP | __GFP_NOWARN;
+> > > +			gfp |= __GFP_COMP | __GFP_NOWARN | __GFP_NORETRY;
+> > 
+> > Perhaps add __GFP_THISNODE too ?
+> > 
 > 
-> modinfo mip6 (after this change)
-> alias:          xfrm-type-10-43
-> alias:          xfrm-type-10-60
+> How does __GFP_THISNODE have anything to do with avoiding oom killing due 
+> to high-order fragmentation?
 
-Instead of reverting these changes I suggest someone fix
-whatever is processing that information.
+I don't think it does.
 
-I do not condone the application of this patch for the
-above two reasons. Though you might argue that I should
-just make all debuggers and compilers better at dealing
-with DW_at_macro_info/DW_MACINFO_* debug info... and 
-you also would not be wrong.
+> If they absolutely require local memory to 
+> currnet's cpu node then that would make sense,
 
-I hope that answers your question.
+I presumed THISNODE would be used only with NORETRY
 
-> Signed-off-by: Jan Moskyto Matejka <mq@suse.cz>
-> ---
->  include/uapi/linux/in6.h | 23 +++++++----------------
->  1 file changed, 7 insertions(+), 16 deletions(-)
-> 
-> diff --git a/include/uapi/linux/in6.h b/include/uapi/linux/in6.h
-> index 633b93c..e9a1d2d97 100644
-> --- a/include/uapi/linux/in6.h
-> +++ b/include/uapi/linux/in6.h
-> @@ -128,22 +128,13 @@ struct in6_flowlabel_req {
->   *	IPV6 extension headers
->   */
->  #if __UAPI_DEF_IPPROTO_V6
-> -enum {
-> -  IPPROTO_HOPOPTS = 0,		/* IPv6 hop-by-hop options      */
-> -#define IPPROTO_HOPOPTS		IPPROTO_HOPOPTS
-> -  IPPROTO_ROUTING = 43,		/* IPv6 routing header          */
-> -#define IPPROTO_ROUTING		IPPROTO_ROUTING
-> -  IPPROTO_FRAGMENT = 44,	/* IPv6 fragmentation header    */
-> -#define IPPROTO_FRAGMENT	IPPROTO_FRAGMENT
-> -  IPPROTO_ICMPV6 = 58,		/* ICMPv6                       */
-> -#define IPPROTO_ICMPV6		IPPROTO_ICMPV6
-> -  IPPROTO_NONE = 59,		/* IPv6 no next header          */
-> -#define IPPROTO_NONE		IPPROTO_NONE
-> -  IPPROTO_DSTOPTS = 60,		/* IPv6 destination options     */
-> -#define IPPROTO_DSTOPTS		IPPROTO_DSTOPTS
-> -  IPPROTO_MH = 135,		/* IPv6 mobility header         */
-> -#define IPPROTO_MH		IPPROTO_MH
-> -};
-> +#define IPPROTO_HOPOPTS		0	/* IPv6 hop-by-hop options	*/
-> +#define IPPROTO_ROUTING		43	/* IPv6 routing header		*/
-> +#define IPPROTO_FRAGMENT	44	/* IPv6 fragmentation header	*/
-> +#define IPPROTO_ICMPV6		58	/* ICMPv6			*/
-> +#define IPPROTO_NONE		59	/* IPv6 no next header		*/
-> +#define IPPROTO_DSTOPTS		60	/* IPv6 destination options	*/
-> +#define IPPROTO_MH		135	/* IPv6 mobility header		*/
->  #endif /* __UAPI_DEF_IPPROTO_V6 */
->  
->  /*
-> 
+> but the fallback still 
+> allocates order-0 memory remotely and with __GFP_THISNODE on this attempt 
+> we wouldn't even attempt remote reclaim.
+any other alloc attempt could work on other cpus.
 
-Cheers,
-Carlos.
+It was just a thought, ignore it if it's a dumb thought.
