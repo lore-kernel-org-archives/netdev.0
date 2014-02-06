@@ -1,104 +1,68 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: igb and bnx2: "NETDEV WATCHDOG: transmit queue
- timed out" when skb has huge linear buffer
-Date: Thu, 6 Feb 2014 09:58:25 +0000
-Message-ID: <52F35CC1.60401@citrix.com>
-References: <52EAA31B.1090606@schaman.hu>	
-	<1391114048.4804.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>	
-	<52EBA51E.808@citrix.com>
-	<1391543271.4804.44.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	<52F29DDC.7010908@citrix.com> <52F2A282.5040502@citrix.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH] net: sctp: fix initialization of local source address
+ on accepted ipv6 sockets
+Date: Thu, 06 Feb 2014 11:13:09 +0100
+Message-ID: <52F36035.4070304@redhat.com>
+References: <52F33A02.2040902@nsn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Carolyn, Tushar,
-	e1000-devel@lists.sourceforge.net, Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	John Ronciak <john.ronciak@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>, Peter
-To: Andrew Cooper <andrew.cooper3@citrix.com>, Michael Chan
-	<mchan@broadcom.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <52F2A282.5040502@citrix.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37506 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755537AbaBFKNQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Feb 2014 05:13:16 -0500
+In-Reply-To: <52F33A02.2040902@nsn.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/02/14 20:43, Andrew Cooper wrote:
-> On 05/02/2014 20:23, Zoltan Kiss wrote:
->> On 04/02/14 19:47, Michael Chan wrote:
->>> On Fri, 2014-01-31 at 14:29 +0100, Zoltan Kiss wrote:
->>>> [ 5417.275472] WARNING: at net/sched/sch_generic.c:255
->>>> dev_watchdog+0x156/0x1f0()
->>>> [ 5417.275474] NETDEV WATCHDOG: eth1 (bnx2): transmit queue 2 timed out
->>>
->>> The dump shows an internal IRQ pending on MSIX vector 2 which matches
->>> the the queue number that is timing out.  I don't know what happened to
->>> the MSIX and why the driver is not seeing it.  Do you see an IRQ error
->>> message from the kernel a few seconds before the tx timeout message?
->>
->> I haven't seen any IRQ related error message. Note, this is on Xen
->> 4.3.1. Now I have new results with a reworked version of the patch,
->> unfortunately it still has this issue. Here is a bnx2 dump, lspci
->> output and some Xen debug output (MSI and interrupt bindings, I have
->> more if needed).
+Hi Matija,
+
+On 02/06/2014 08:30 AM, Matija Glavinic Pecotic wrote:
+> commit 	efe4208f47f907b86f528788da711e8ab9dea44d:
+> 'ipv6: make lookups simpler and faster' broke initialization of local source
+> address on accepted ipv6 sockets. Before the mentioned commit receive address
+> was copied along with the contents of ipv6_pinfo in sctp_v6_create_accept_sk.
+> Now when it is moved, it has to be copied separately.
 >
-> You need debug-keys 'Q' as well to map between the PCI devices and Xen IRQs
+> This also fixes lksctp's ipv6 regression in a sense that test_getname_v6, TC5 -
+> 'getsockname on a connected server socket' now passes.
 >
-> ~Andrew
+> Signed-off-by: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
+
+1) What about the status of http://patchwork.ozlabs.org/patch/311958/ ? Are
+    you still working on a v2?
+
+2) There already has been some discussion in [1,2] about that issue and an
+    RFC patch for net-next has been proposed in [3] for fixing it on a more
+    general scope. I need to get back to that when net-next opens and when
+    I'm back from the conference trip I'm right now. It's however net-next
+    material for sure.
+
+   [1] http://patchwork.ozlabs.org/patch/292245/
+   [2] http://patchwork.ozlabs.org/patch/292352/
+   [3] http://www.spinics.net/lists/linux-sctp/msg03089.html
+
+Best,
+
+Daniel
+
+> --- net-next.orig/net/sctp/ipv6.c
+> +++ net-next/net/sctp/ipv6.c
+> @@ -662,6 +662,8 @@ static struct sock *sctp_v6_create_accep
+>   	 */
+>   	sctp_v6_to_sk_daddr(&asoc->peer.primary_addr, newsk);
 >
-
-I could have it after reboot:
-
-(XEN) [2014-02-06 09:44:34] 0000:02:00.0 - dom 0   - MSIs < 64 65 66 67 
-68 69 >
-
-So the relevant MSI informations:
-
-(XEN) [2014-02-05 20:15:20]  MSI-X   64 vec=d7  fixed  edge   assert 
-phys    cpu dest=00000022 mask=1/0/0
-(XEN) [2014-02-05 20:15:20]  MSI-X   65 vec=ba  fixed  edge   assert 
-phys    cpu dest=00000000 mask=1/0/0
-(XEN) [2014-02-05 20:15:20]  MSI-X   66 vec=92  fixed  edge   assert 
-phys    cpu dest=00000022 mask=1/0/0
-(XEN) [2014-02-05 20:15:20]  MSI-X   67 vec=3a  fixed  edge   assert 
-phys    cpu dest=00000021 mask=1/0/0
-(XEN) [2014-02-05 20:15:20]  MSI-X   68 vec=b8  fixed  edge   assert 
-phys    cpu dest=00000022 mask=1/0/0
-(XEN) [2014-02-05 20:15:20]  MSI-X   69 vec=2a  fixed  edge   assert 
-phys    cpu dest=00000020 mask=1/1/1
-...
-(XEN) [2014-02-05 20:15:22]    IRQ:  64 affinity:00000004 vec:d7 
-type=PCI-MSI/-X      status=00000030 in-flight=0 domain-list=0:304(---),
-(XEN) [2014-02-05 20:15:22]    IRQ:  65 affinity:00000100 vec:ba 
-type=PCI-MSI/-X      status=00000010 in-flight=0 domain-list=0:303(---),
-(XEN) [2014-02-05 20:15:22]    IRQ:  66 affinity:00000004 vec:92 
-type=PCI-MSI/-X      status=00000010 in-flight=0 domain-list=0:302(---),
-(XEN) [2014-02-05 20:15:22]    IRQ:  67 affinity:00000002 vec:3a 
-type=PCI-MSI/-X      status=00000010 in-flight=0 domain-list=0:301(---),
-(XEN) [2014-02-05 20:15:22]    IRQ:  68 affinity:00000004 vec:b8 
-type=PCI-MSI/-X      status=00000030 in-flight=0 domain-list=0:300(---),
-(XEN) [2014-02-05 20:15:22]    IRQ:  69 affinity:00000001 vec:2a 
-type=PCI-MSI/-X      status=00000002 mapped, unbound
-
-
-Zoli
-
-------------------------------------------------------------------------------
-Managing the Performance of Cloud-Based Applications
-Take advantage of what the Cloud has to offer - Avoid Common Pitfalls.
-Read the Whitepaper.
-http://pubads.g.doubleclick.net/gampad/clk?id=121051231&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+> +	newsk->sk_v6_rcv_saddr = sk->sk_v6_rcv_saddr;
+> +
+>   	sk_refcnt_debug_inc(newsk);
+>
+>   	if (newsk->sk_prot->init(newsk)) {
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
