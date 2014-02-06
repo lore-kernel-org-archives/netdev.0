@@ -1,75 +1,88 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [GIT PULL] tree-wide: clean up no longer required #include
- <linux/init.h>
-Date: Fri, 7 Feb 2014 09:25:05 +1100
-Message-ID: <20140207092505.4c42d130faff151659a908f9@canb.auug.org.au>
-References: <1391547118-21967-1-git-send-email-paul.gortmaker@windriver.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Fri__7_Feb_2014_09_25_05_+1100_5G4DE1j7Qv3c23/u"
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	<linux-alpha@vger.kernel.org>, <linux-arch@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-ia64@vger.kernel.org>, <linux-m68k@vger.kernel.org>,
-	<linux-mips@linux-mips.org>, <linuxppc-dev@lists.ozlabs.org>,
-	<linux-s390@vger.kernel.org>, <sparclinux@vger.kernel.org>,
-	<x86@kernel.org>, <netdev@vger.kernel.org>, <kvm@vger.kernel.org>,
-	<rusty@rustcorp.com.au>, <gregkh@linuxfoundation.org>,
-	<akpm@linux-foundation.org>
-To: <torvalds@linux-foundation.org>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: RTNL: assertion failed at net/core/dev.c (4494) and RTNL: assertion failed at net/core/rtnetlink.c (940)
+Date: Thu, 06 Feb 2014 14:33:03 -0800
+Message-ID: <31653.1391725983@death.nxdomain>
+References: <20140206205106.GA10488@glanzmann.de> <CAHA+R7OGS_KG1un36KBixbgs7LTPWGRYdJ+Vsn2iM0FzNV5FzA@mail.gmail.com> <30988.1391723318@death.nxdomain> <31272.1391724462@death.nxdomain> <CAHA+R7McuqYDshugsWcaeBbBsEg3QY59LiovYthcq6bH1fLTNg@mail.gmail.com>
+Cc: Thomas Glanzmann <thomas@glanzmann.de>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Veaceslav Falico <vfalico@redhat.com>, andy@greyhouse.net,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	"sfeldma@cumulusnetworks.com" <sfeldma@cumulusnetworks.com>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:44948 "EHLO ozlabs.org"
+Received: from e9.ny.us.ibm.com ([32.97.182.139]:41098 "EHLO e9.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932308AbaBFWZU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Feb 2014 17:25:20 -0500
-In-Reply-To: <1391547118-21967-1-git-send-email-paul.gortmaker@windriver.com>
+	id S1753431AbaBFWdI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Feb 2014 17:33:08 -0500
+Received: from /spool/local
+	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Thu, 6 Feb 2014 17:33:07 -0500
+Received: from b01cxnp22033.gho.pok.ibm.com (b01cxnp22033.gho.pok.ibm.com [9.57.198.23])
+	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id 5A53C6E8047
+	for <netdev@vger.kernel.org>; Thu,  6 Feb 2014 17:33:01 -0500 (EST)
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by b01cxnp22033.gho.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s16MX5T264028892
+	for <netdev@vger.kernel.org>; Thu, 6 Feb 2014 22:33:05 GMT
+Received: from d01av01.pok.ibm.com (localhost [127.0.0.1])
+	by d01av01.pok.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s16MX48E010984
+	for <netdev@vger.kernel.org>; Thu, 6 Feb 2014 17:33:05 -0500
+In-reply-to: <CAHA+R7McuqYDshugsWcaeBbBsEg3QY59LiovYthcq6bH1fLTNg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Signature=_Fri__7_Feb_2014_09_25_05_+1100_5G4DE1j7Qv3c23/u
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-Hi Linus,
+Cong Wang <cwang@twopensource.com> wrote:
 
-On Tue, 4 Feb 2014 15:51:58 -0500 Paul Gortmaker <paul.gortmaker@windriver.=
-com> wrote:
+>On Thu, Feb 6, 2014 at 2:07 PM, Jay Vosburgh <fubar@us.ibm.com> wrote:
+>> Jay Vosburgh <fubar@us.ibm.com> wrote:
+>>
+>>>Cong Wang <cwang@twopensource.com> wrote:
+>>>
+>>>
+>>>       That would eliminate the warning, but is suboptimal.  Acquiring
+>>>RTNL is not necessary on the vast majority of state machine runs
+>>>(because no state changes take place, i.e., no ports are disabled or
+>>>enabled).  The above change would add 10 round trips per second to RTNL,
+>>>which seems excessive.
+>>>
+>>>       Also, we cannot unconditionally acquire RTNL in this function,
+>>>as it would race with the call to cancel_delayed_work_sync from
+>>>bond_close (via bond_work_cancel_all).
 >
-> We've had this in linux-next for 2+ weeks (thanks Stephen!) as a
-> linux-stable like queue of patches, and as can be seen here:
->=20
->   https://git.kernel.org/pub/scm/linux/kernel/git/paulg/init.git
->=20
-> most of the changes in the last week have been trivial adding acks
-> or dropping patches that maintainers decided to take themselves.
+>OK.
+>
+>>
+>>         Thought of one more problem: we can't hold a regular lock while
+>> calling rtmsg_ifinfo, as it may sleep in alloc_skb.  The rtmsg_ifinfo
+>> call has to be RTNL and nothing else.
+>>
+>
+>s/GFP_KERNEL/GFP_ATOMIC/
 
-Any thoughts on merging this?  I can feel it bitrotting :-(
+	Yah, that would help with extra locks, but not totally solve
+things.  I'm looking around, and seeing a number of other places that
+will end up at one of these rtmsg_ifinfo calls with incorrect locking:
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+	bond_ab_arp_probe calls via bond_set_slave_active_flags and
+bond_set_slave_inactive_flags without RTNL.
 
---Signature=_Fri__7_Feb_2014_09_25_05_+1100_5G4DE1j7Qv3c23/u
-Content-Type: application/pgp-signature
+	bond_change_active_slave calls via bond_set_slave_inactive_flags
+and bond_set_slave_active_flags with other locks held, and maybe without
+RTNL; I'm not sure if bond_option_active_slave_set holds RTNL when it
+calls bond_select_active_slave.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
+	bond_open calls via bond_set_slave_active_flags and
+bond_set_slave_inactive_flags with RTNL, but also with other locks held.
 
-iQIcBAEBCAAGBQJS9AvOAAoJEMDTa8Ir7ZwVgtAP/0JLUjtgIOoRu0wcAutXabJX
-FYj8RB3kSvX1YCe+fyEXCiHYTCnMnoLSrGWNqRjga5M/zdrw7P0v+E4MDv+ZLME6
-n4njMVl56NGUE0ULzj09ZwV0oANJ0u34mkTpzUs3SmQkuoi3XnseaoLgL3hBavOY
-QAq/OK/J90jBjm3h9JjAEGDBdcFEgY5qsiQJNU2o47QRfX+/VWsGT3WwQs2Iy5Ih
-YNzju/qmBczjlTJouCfrXBKeOG48uMgtalV9hLiaTxubLQRSjJ0Gy7h4runSPJ6Z
-sqvFMePFjfBD0WSZ/WB50ArXxpeR2YR1qWw0BDFAKr8NXvR2Zb7a0nIkdOIs5Zep
-BRjtC0xMJfTW9GG2g220PyrsYchl2WW31AC9VhjGXk8/d2Gk5A1XfO1lrVohTTMs
-bZyk3rIpXrRTdzTqAmVI+6gsZ+Xd1B9gTGmlvw89CFZz5K/5AvdzkmuD/3AI/yv9
-XFJi5zBOAhbw2D+u3EqqMCV+arE4mxQVPXOjiI2hakGy5NvANrLZHd136aCA/rjH
-Iv4WGKgGQ2rf/GykI1T5vmlRf5k2RLrxG3MPYqS+0IL9OY9S3iswDib+jnRpWjN5
-e1r23hmT1lrb2N7Q4+pzRpX4GRnP5hiAHGFfgijXiPlz/PXj9oqmvIreOtc4jCX6
-gqAy38tkyQhHVjVxOgF9
-=rXtU
------END PGP SIGNATURE-----
+	bond_loadbalance_arp_mon calls bond_set_active_slave and
+bond_set_backup_slave without RTNL.
 
---Signature=_Fri__7_Feb_2014_09_25_05_+1100_5G4DE1j7Qv3c23/u--
+	This is in addition to the cases in the 802.3ad code from
+__enable_port and __disable_port calls.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
