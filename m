@@ -1,54 +1,53 @@
 From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net] netpoll: fix netconsole IPv6 setup
-Date: Thu, 6 Feb 2014 14:09:18 -0800
-Message-ID: <CAHA+R7PrXGeQCM1ZnY2G5f02qm_EaTX__RFut7iFGUh3HBJ1GA@mail.gmail.com>
-References: <1391708052-11188-1-git-send-email-sd@queasysnail.net>
-	<CAHA+R7OQYZ5RLn3v0nucKB=CVpDCZqp=HyNL=qgC9bViVKEuAQ@mail.gmail.com>
-	<20140206205850.GA12704@kria>
+Subject: Re: RTNL: assertion failed at net/core/dev.c (4494) and RTNL:
+ assertion failed at net/core/rtnetlink.c (940)
+Date: Thu, 6 Feb 2014 14:12:25 -0800
+Message-ID: <CAHA+R7McuqYDshugsWcaeBbBsEg3QY59LiovYthcq6bH1fLTNg@mail.gmail.com>
+References: <20140206205106.GA10488@glanzmann.de>
+	<CAHA+R7OGS_KG1un36KBixbgs7LTPWGRYdJ+Vsn2iM0FzNV5FzA@mail.gmail.com>
+	<30988.1391723318@death.nxdomain>
+	<31272.1391724462@death.nxdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Sabrina Dubroca <sd@queasysnail.net>
+Cc: Thomas Glanzmann <thomas@glanzmann.de>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Veaceslav Falico <vfalico@redhat.com>, andy@greyhouse.net,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f169.google.com ([209.85.217.169]:60156 "EHLO
-	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751296AbaBFWJU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 17:09:20 -0500
-Received: by mail-lb0-f169.google.com with SMTP id q8so2040900lbi.28
-        for <netdev@vger.kernel.org>; Thu, 06 Feb 2014 14:09:18 -0800 (PST)
-In-Reply-To: <20140206205850.GA12704@kria>
+Received: from mail-la0-f48.google.com ([209.85.215.48]:59626 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752708AbaBFWM1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 17:12:27 -0500
+Received: by mail-la0-f48.google.com with SMTP id mc6so1965024lab.21
+        for <netdev@vger.kernel.org>; Thu, 06 Feb 2014 14:12:25 -0800 (PST)
+In-Reply-To: <31272.1391724462@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 6, 2014 at 12:58 PM, Sabrina Dubroca <sd@queasysnail.net> wrote:
-> 2014-02-06, 12:34:10 -0800, Cong Wang wrote:
->> On Thu, Feb 6, 2014 at 9:34 AM, Sabrina Dubroca <sd@queasysnail.net> wrote:
->> >  net/core/netpoll.c | 4 +++-
->> >  1 file changed, 3 insertions(+), 1 deletion(-)
->> >
->> > diff --git a/net/core/netpoll.c b/net/core/netpoll.c
->> > index c03f3de..a664f78 100644
->> > --- a/net/core/netpoll.c
->> > +++ b/net/core/netpoll.c
->> > @@ -948,6 +948,7 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
->> >  {
->> >         char *cur=opt, *delim;
->> >         int ipv6;
->> > +       bool ipversion_set = false;
->> >
+On Thu, Feb 6, 2014 at 2:07 PM, Jay Vosburgh <fubar@us.ibm.com> wrote:
+> Jay Vosburgh <fubar@us.ibm.com> wrote:
+>
+>>Cong Wang <cwang@twopensource.com> wrote:
 >>
->> Or initialize 'ipv6' to -1 and then check if it is -1?
+>>
+>>       That would eliminate the warning, but is suboptimal.  Acquiring
+>>RTNL is not necessary on the vast majority of state machine runs
+>>(because no state changes take place, i.e., no ports are disabled or
+>>enabled).  The above change would add 10 round trips per second to RTNL,
+>>which seems excessive.
+>>
+>>       Also, we cannot unconditionally acquire RTNL in this function,
+>>as it would race with the call to cancel_delayed_work_sync from
+>>bond_close (via bond_work_cancel_all).
+
+OK.
+
 >
-> It's overwritten when we parse the remote address. And np->ipv6 is a
-> bool, so we can't store it there either.
+>         Thought of one more problem: we can't hold a regular lock while
+> calling rtmsg_ifinfo, as it may sleep in alloc_skb.  The rtmsg_ifinfo
+> call has to be RTNL and nothing else.
 >
 
-
-Yeah, I misunderstood the problem. Your fix looks good.
-
-Acked-by: Cong Wang <cwang@twopensource.com>
-
-For net-next, I think we should change bool np->ipv6 to int np->ip_version,
-so that we can tell if it is set or not.
-
-Thanks!
+s/GFP_KERNEL/GFP_ATOMIC/
