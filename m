@@ -1,45 +1,64 @@
-From: Marek Vasut <marex@denx.de>
-Subject: Re: Freescale FEC packet loss
-Date: Thu, 6 Feb 2014 14:41:20 +0100
-Message-ID: <201402061441.20475.marex@denx.de>
-References: <201401222255.29467.marex@denx.de> <201401280201.39174.marex@denx.de> <CAH9NwWeK17kfty-BAA9Y977BGTYBcJLRSRESrfbCvQ_BiVxa0A@mail.gmail.com>
+From: Florian Vaussard <florian.vaussard@epfl.ch>
+Subject: Re: [PATCH v3 5/5] can: sja1000: of: add reg-io-width property for
+ 8, 16 and 32-bit register access
+Date: Thu, 06 Feb 2014 15:21:10 +0100
+Message-ID: <52F39A56.4050309@epfl.ch>
+References: <1391175277-19833-1-git-send-email-florian.vaussard@epfl.ch> <1391175277-19833-6-git-send-email-florian.vaussard@epfl.ch> <52EBAE41.8060403@cogentembedded.com> <52F36AAA.9000704@pengutronix.de>
+Reply-To: florian.vaussard@epfl.ch
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	"fabio.estevam@freescale.com" <fabio.estevam@freescale.com>,
-	Matthew Garrett <mjg59@srcf.ucam.org>,
-	Frank Li <Frank.Li@freescale.com>, Detlev Zundel <dzu@denx.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Nelson <eric.nelson@boundarydevices.com>,
-	Hector Palacios <hector.palacios@digi.com>,
-	fugang.duan@freescale.com,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: Christian Gmeiner <christian.gmeiner@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:58439 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751979AbaBFOHm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 09:07:42 -0500
-In-Reply-To: <CAH9NwWeK17kfty-BAA9Y977BGTYBcJLRSRESrfbCvQ_BiVxa0A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andreas Larsson <andreas@gaisler.com>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, sparclinux@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Marc Kleine-Budde <mkl@pengutronix.de>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <52F36AAA.9000704@pengutronix.de>
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thursday, February 06, 2014 at 10:42:00 AM, Christian Gmeiner wrote:
+Hi,
 
-[...]
+On 02/06/2014 11:57 AM, Marc Kleine-Budde wrote:
+> On 01/31/2014 03:08 PM, Sergei Shtylyov wrote:
+>> Hello.
+>>
+>> On 31-01-2014 17:34, Florian Vaussard wrote:
+>>
+>>> Add the 'reg-io-width' property for 8, 16 and 32-bit access, like
+>>> what is currently done with IORESOURCE_MEM_{8,16,32}BIT for non-OF
+>>> boot.
+>>
+>>> Signed-off-by: Florian Vaussard <florian.vaussard@epfl.ch>
+>>> ---
+>>>   drivers/net/can/sja1000/sja1000_platform.c | 16 ++++++++++++++--
+>>>   1 file changed, 14 insertions(+), 2 deletions(-)
+>>
+>>> diff --git a/drivers/net/can/sja1000/sja1000_platform.c
+>>> b/drivers/net/can/sja1000/sja1000_platform.c
+>>> index 50dece8..25122bf 100644
+>>> --- a/drivers/net/can/sja1000/sja1000_platform.c
+>>> +++ b/drivers/net/can/sja1000/sja1000_platform.c
+>>> @@ -102,8 +102,20 @@ static void sp_populate_of(struct sja1000_priv
+>>> *priv, struct device_node *of)
+>>>       int err;
+>>>       u32 prop;
+>>>
+>>> -    priv->read_reg = sp_read_reg8;
+>>> -    priv->write_reg = sp_write_reg8;
+>>> +    err = of_property_read_u32(of, "reg-io-width", &prop);
+>>> +    if (err)
+>>> +        prop = 1;
+>>> +
+>>> +    if (prop == 4) {
+>>
+>>    This is asking to be a *switch* statement instead.
+> 
+> Good point, I'll send a v4.
+> 
 
-> Are there still problems with 3.13.1 kernel regarding FEC networking?
+Thank you!
 
-They are on 3.13.0 and I don't see any network-related fixes in 3.13.1 .
-
-> Does this only
-> affect the SabreLite?
-
-No, this is not board-specific. This affects different boards and different MX6 
-CPUs.
-
-Best regards,
-Marek Vasut
+Florian
