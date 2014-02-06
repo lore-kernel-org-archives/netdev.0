@@ -1,97 +1,66 @@
-From: Christian Gmeiner <christian.gmeiner@gmail.com>
-Subject: Re: Freescale FEC packet loss
-Date: Thu, 6 Feb 2014 10:42:00 +0100
-Message-ID: <CAH9NwWeK17kfty-BAA9Y977BGTYBcJLRSRESrfbCvQ_BiVxa0A@mail.gmail.com>
-References: <201401222255.29467.marex@denx.de> <201401262012.13051.marex@denx.de>
- <1390772013.2735.47.camel@deadeye.wl.decadent.org.uk> <201401280201.39174.marex@denx.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	"fabio.estevam@freescale.com" <fabio.estevam@freescale.com>,
-	Matthew Garrett <mjg59@srcf.ucam.org>,
-	Frank Li <Frank.Li@freescale.com>, Detlev Zundel <dzu@denx.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Nelson <eric.nelson@boundarydevices.com>,
-	Hector Palacios <hector.palacios@digi.com>,
-	fugang.duan@freescale.com,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: Marek Vasut <marex@denx.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f170.google.com ([74.125.82.170]:50311 "EHLO
-	mail-we0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755503AbaBFJmV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 04:42:21 -0500
-Received: by mail-we0-f170.google.com with SMTP id w62so1117341wes.1
-        for <netdev@vger.kernel.org>; Thu, 06 Feb 2014 01:42:20 -0800 (PST)
-In-Reply-To: <201401280201.39174.marex@denx.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Grant Likely <grant.likely@linaro.org>
+Subject: Re: [PATCH] DT: net: document Ethernet bindings in one place
+Date: Thu, 06 Feb 2014 09:43:00 +0000
+Message-ID: <20140206094301.03572C40B6A@trevor.secretlab.ca>
+References: <201401180405.07859.sergei.shtylyov@cogentembedded.com> < CAL_Jsq+oa9P=rh+p-dMZyGP8TcmpX7bTnMU0ynLvFxjxFDYbRg@mail.gmail.com> < 52DD98F7.4090202@cogentembedded.com> < CAL_JsqJXbF1-PcPHR2VP+Vi9A1aWizdsG_r3kDvRt3itXDhCGQ@mail.gmail.com> < CAGVrzcb3X3soJNJCE5+YSpQrr+EdycCRFkptPvBCgFg4CbGJ4Q@mail.gmail.com> < CAGVrzcb0dfw1orZzUt5-YkShOg-HNbUYvvo2vfmsZUZXy1Aqfg@mail.gmail.com> < 52DEE465.9000202@cogentembedded.com> <52E988FA.8040807@cogentembedded.com> <20140204172602.01420C4050F@trevor.secretlab.ca> <52F13410.8070205@ cogentembedded.com> <20140205120843.9ED08C40A89@trevor.secretlab.ca> < 52F25A63.3010608@cogentembedded.com>
+Cc: netdev <netdev@vger.kernel.org>, Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Rob Landley <rob@landley.net>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Rob Herring <robherring2@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <52F25A63.3010608@cogentembedded.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2014-01-28 Marek Vasut <marex@denx.de>:
-> On Sunday, January 26, 2014 at 10:33:33 PM, Ben Hutchings wrote:
->> On Sun, 2014-01-26 at 20:12 +0100, Marek Vasut wrote:
->> > On Sunday, January 26, 2014 at 07:56:30 PM, Ben Hutchings wrote:
->> > > On Wed, 2014-01-22 at 22:55 +0100, Marek Vasut wrote:
->> > > > Hi guys,
->> > > >
->> > > > I am running stock Linux 3.13 on i.MX6Q SabreLite board. The CPU is
->> > > > i.MX6Q TO 1.0 .
->> > > >
->> > > > I am hitting a WARNING when I use the FEC ethernet to transfer data,
->> > > > thus I started investigating this problem. TL;DR I am not able to
->> > > > figure this problem out, so I am not attaching a patch :-(
->> > > >
->> > > > Steps to reproduce:
->> > > > -------------------
->> > > > 1) Boot stock Linux 3.13 on i.MX6Q SabreLite board
->> > > > 2) Plug in an SD card into one of the SD slots (I use the full-size
->> > > > one) 3) Plug in an USB stick into one of the USB ports (I use the
->> > > > upper one) 4) Plug in an ethernet cable into the board
->> > > >
->> > > >    -> Connect the other side into a gigabit-capable PC
->> > >
->> > > [...]
->> > >
->> > > I think there are known problems with 1000BASE-T on the Sabre Lite
->> > > board.
->> >
->> > This is MX6-wide thing, not sabrelite specific actually.
->> >
->> > > Two possible workarounds are to limit the PHY to 100BASE-TX
->> > > (should be doable with ethtool) or force it to be clock master for
->> > > 1000BASE-T (requires a driver patch).
->> >
->> > Can you please elaborate on the later ? I don't quite understand that.
->>
->> 1000BASE-T uses all 4 pairs in both directions at the same time, which
->> requires that both ends transmit symbols synchronously.  As part of the
->> autonegotiation protocol, they decide which is the clock master (using a
->> local clock generator) and which is the clock slave (generating a clock
->> from the received signal).  A PHY can be configured to support only one
->> of these roles.
->
-> I checked the patch you pointed me to. The patch basically messes with the
-> CTL1000 (0x9) register of the PHY, right ? I did the adjustments to the PHY
-> register manually , but the result is still the same (backtrace).
->
-> I did two different kinds of adjustment:
-> 1) reg 0x9 |= 0x1800;
-> 2) reg 0x9 |= 0x1000;
-> In both cases, the crash did happen. I verified the PHY register was configured
-> as necessary. The KSZ9021 PHY bit 12 configures the master/slave override, same
-> as the patch does. The bit 11 forces either master or slave mode for the PHY. In
-> both cases the crash was there.
->
-> I think this patch won't help in this case, sorry.
->
+On Wed, 05 Feb 2014 18:36:03 +0300, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> wrote:
+> Hello.
+> 
+> On 02/05/2014 03:08 PM, Grant Likely wrote:
+> 
+> >>>>>>>>>       I'm afraid that's too late, it has spread very far, so that
+> >>>>>>>>> of_get_phy_mode() handles that property, not "phy-connection-type".
+> 
+> >>>>>>>> Uggg, I guess this is a case of a defacto standard then if the kernel
+> >>>>>>>> doesn't even support it.
+> 
+> >>>>>>> Maybe I forgot to CC you on patch sent to Grant only, I sent a patch a
+> >>>>>>> while ago for of_get_phy_mode() to look for both "phy-mode" and
+> >>>>>>> "phy-connection-type" since the former has been a Linux invention, but
+> >>>>>>> the latter is ePAPR specified.
+> 
+> >>>>>> Here is a link to the actual patch in question, not sure which tree
+> >>>>>> Grant applied it to though:
+> 
+> >>>>>> http://lkml.indiana.edu/hypermail/linux/kernel/1311.2/00048.html
+> 
+> >>>>>       It's not the patch mail, it's Grant's "applied" reply, patch is mangled in
+> >>>>> this reply, and I couldn't follow the thread. Here's the actual patch mail:
+> 
+> >>>>> http://marc.info/?l=devicetree&m=138449662807254
+> 
+> >>>>       Florian, I didn't find this patch in Grant's official tree, so maybe you
+> >>>> should ask him where is the patch already?
+> 
+> >>> Sorry, I accidentally dropped it. It will be in the next merge window.
+> 
+> >>      Already saw it, thanks. Would that it was in 3.14 instead of course, so
+> >> that I could use "phy-connection-type" in my binding...
+> 
+> > Is 3.14 broken because of missing the patch? If so I'll get it merged as
+>  > a bug fix.
+> 
+>     No, it's not. I could have used "phy-connection-type" in my binding 
+> destined for 3.15 and document it as a preferred property as well.
 
-Are there still problems with 3.13.1 kernel regarding FEC networking?
-Does this only
-affect the SabreLite?
+You still can. We just need to make sure that your patch is applied on
+top of the phy-connection-type patch.
 
-greets
---
-Christian Gmeiner, MSc
+g.
 
-https://soundcloud.com/christian-gmeiner
