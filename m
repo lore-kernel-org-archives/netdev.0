@@ -1,110 +1,70 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-Subject: Re: [PATCH net-next v2] ipv6: enable anycast addresses as source addresses in ICMPv6 error messages
-Date: Thu, 6 Feb 2014 06:30:41 -0800 (PST)
-Message-ID: <1391697041.6325.YahooMailNeo@web125505.mail.ne1.yahoo.com>
-References: <1390147236-3660-1-git-send-email-fx.lebail@yahoo.com> <52F357C3.9060406@6wind.com> <1391690329.62545.YahooMailNeo@web125506.mail.ne1.yahoo.com> <52F395BB.2030209@6wind.com>
-Reply-To: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
+From: Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Disabling autoneg and enforcing speed/duplex
+Date: Thu, 6 Feb 2014 08:50:26 -0600
+Message-ID: <CAL_JsqJ=Me+MKF8DGMsh=0y4VLmekUHD7KgmQDkCpDEuKVOT+w@mail.gmail.com>
+References: <52F3796B.8050809@keymile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Stevens <dlstevens@us.ibm.com>,
-	Bill Fink <billfink@mindspring.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: "nicolas.dichtel@6wind.com" <nicolas.dichtel@6wind.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm34.bullet.mail.ne1.yahoo.com ([98.138.229.27]:25890 "EHLO
-	nm34.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754605AbaBFOdn convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Feb 2014 09:33:43 -0500
-In-Reply-To: <52F395BB.2030209@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>,
+	Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Brunck, Holger" <Holger.Brunck-SkAbAL50j+5BDgjK7y7TUQ@public.gmane.org>
+To: Gerlando Falauto <gerlando.falauto-SkAbAL50j+5BDgjK7y7TUQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <52F3796B.8050809-SkAbAL50j+5BDgjK7y7TUQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+On Thu, Feb 6, 2014 at 6:00 AM, Gerlando Falauto
+<gerlando.falauto-SkAbAL50j+5BDgjK7y7TUQ@public.gmane.org> wrote:
+> Hi,
+>
+> I'm using the Kirkwood Ethernet controller (mv643xx_eth.c) with a Marvell
+> 88E3018 PHY which needs to be set in forced 100Base-TX mode.
+>
+> Thanks to Sebastian's addition of DT support to the ethernet driver, I can
+> easily set speed and duplex within the ethernet's port node, therefore
+> leaving the phy unmanaged -- this works fine (I guess this mode is set on
+> the phy by the bootloader or by strap settings).
+>
+> However, this PHY has an erratum whose workaround requires some registers be
+> written -- I believe the natural solution would be to start managing the PHY
+> (i.e. set "phy-handle") and implement the proper workaround within
+> drivers/net/phy/marvell.c. Making the PHY managed does however enable
+> autoneg and therefore break everything.
+>
+> Which brings me to my question: shouldn't there be a way to specify some
+> forced settings within the PHY's node for such cases?
+>
+> Only thing I found vaguely resembling what I'm looking for is Florian's
+> patch introducing "max-speed" in the PHY -- not quite the same thing though.
+> Which, if I understand it correctly, implements it as a property of the PHY,
+> whereas ePAPR specifies it as a property of the ethernet device (which makes
+> sense, since you might want to connect a 10/100 MII to a 10/100/1000 PHY and
+> therefore have the MII restrict the capabilities of the PHY).
 
-> To: Fran=E7ois-Xavier Le Bail <fx.lebail@yahoo.com>; "netdev@vger.ker=
-nel.org" <netdev@vger.kernel.org>
-> Cc: David Stevens <dlstevens@us.ibm.com>; Bill Fink <billfink@mindspr=
-ing.com>; Hannes Frederic Sowa <hannes@stressinduktion.org>; David S. M=
-iller <davem@davemloft.net>; Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>; J=
-ames Morris <jmorris@namei.org>; Hideaki Yoshifuji <yoshfuji@linux-ipv6=
-=2Eorg>; Patrick McHardy <kaber@trash.net>
-> Sent: Thursday, February 6, 2014 3:01 PM
-> Subject: Re: [PATCH net-next v2] ipv6: enable anycast addresses as so=
-urce addresses in ICMPv6 error messages
->=20
-> Le 06/02/2014 13:38, Fran=E7ois-Xavier Le Bail a =E9crit :
->>>  From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->>=20
->>=20
->>>  Subject: Re: [PATCH net-next v2] ipv6: enable anycast addresses as=
-=20
-> source addresses in ICMPv6 error messages
->>>=20
->>>  Le 19/01/2014 17:00, Francois-Xavier Le Bail a =E9crit :
->>>=20
->>>> =A0  - Uses ipv6_anycast_destination() in icmp6_send().
->>>>=20
->>>> =A0  Suggested-by: Bill Fink <billfink@mindspring.com>
->>>> =A0  Signed-off-by: Francois-Xavier Le Bail=20
-> <fx.lebail@yahoo.com>
->>>  This patch causes an Oops on my target.
->>=20
->>  What is your target ?
-> x86 32bits
->=20
->>=20
->>>  Here is the step to reproduce it:
->>>  modprobe sit
->>>  ip link add sit1 type sit remote 10.16.0.121 local 10.16.0.249
->>>  ip l s sit1 up
->>>  ip -6 a a dev sit1 2001:1234::123 remote 2001:1234::121
->>>  ping6 2001:1234::121
->>=20
->>  I cannot reproduce this in my target (updated net-next x86_64) and
->>  iproute2 from git.
-> I use linus tree (3.14-rc1+).
->=20
->>  Can you send me your config file ?
-> See attachment.
->=20
->=20
->>=20
->>>  The problem is that ipv6_anycast_destination() uses unconditionall=
-y
->>>  skb_dst(skb), which is NULL in this case.
->>>=20
->>>  Not sure what is the best way to fix this, any suggestions?
->>=20
->>  I will try to reproduce first and see.
-> Note that the peer was not set up, hence the ping didn't work.
-> ipip6_err() calls ipip6_err_gen_icmpv6_unreach() which will drop the =
-dst
-> before calling icmpv6_send().
->=20
->=20
-> Here is the backtrace:
-> [=A0 387.786155] BUG: unable to handle kernel NULL pointer dereferenc=
-e at 00000096
-> [=A0 387.787291] IP: [<c12f1568>] icmp6_send+0x79/0x596
+You shouldn't need a property in this case. The driver knows what the
+h/w is limited to and can configure the phy based on that. It is when
+both sides should support a higher speed and you need to limit it for
+some other reason like errata or board level configuration.
 
-[...]
+> Or perhaps I'm missing some important bits here?
 
-> [=A0 387.790055]=A0 [<f85ce03b>] ? tunnel64_err+0x16/0x25 [tunnel4]
+Does this patch help you:
 
-Thanks for these informations.
+https://lkml.org/lkml/2014/1/15/533
 
-Can you test an alternative replacing:
+Rob
 
-test on: ipv6_anycast_destination(skb)
-by
-test on: ipv6_chk_acast_addr_src(net, skb->dev, &hdr->daddr)
-
-Greetings
+>
+> Thanks!
+> Gerlando
+> --
+> To unsubscribe from this list: send the line "unsubscribe devicetree" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
