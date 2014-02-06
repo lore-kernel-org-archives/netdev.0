@@ -1,40 +1,68 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: Fw: [Bug 70071] New: Sending netconsole messages over a bridged
- network interface doesn't work anymore
-Date: Thu, 06 Feb 2014 17:52:17 +0900
-Message-ID: <52F34D41.8000704@lab.ntt.co.jp>
-References: <20140205141539.450095fa@samsung-9>	<52F30863.7000206@lab.ntt.co.jp>	<CAHA+R7Pf1q7+xyqpwmGPToa0fTGn6dmukLvyncWwYAP-F_JvLg@mail.gmail.com>	<52F3214C.4060308@lab.ntt.co.jp> <CAHA+R7Ork+gER_v=YhQCSDO9N=aokXiSiMUWwD3aMSv2YaZJ4g@mail.gmail.com>
+From: Mikulas Patocka <mpatocka@redhat.com>
+Subject: Re: [PATCH 3.12 117/133] alpha: fix broken network checksum
+Date: Thu, 6 Feb 2014 04:18:42 -0500 (EST)
+Message-ID: <alpine.LRH.2.02.1402060341090.31200@file01.intranet.prod.int.rdu2.redhat.com>
+References: <20140204210737.008598235@linuxfoundation.org> <20140204210740.336662867@linuxfoundation.org> <20140206043833.GA12599@omega>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:58966 "EHLO
-	tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754961AbaBFIwZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 03:52:25 -0500
-In-Reply-To: <CAHA+R7Ork+gER_v=YhQCSDO9N=aokXiSiMUWwD3aMSv2YaZJ4g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
+	Matt Turner <mattst88@gmail.com>
+To: Michael Cree <mcree@orcon.net.nz>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20140206043833.GA12599@omega>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-(2014/02/06 15:49), Cong Wang wrote:
-> On Wed, Feb 5, 2014 at 9:44 PM, Toshiaki Makita
-> <makita.toshiaki@lab.ntt.co.jp> wrote:
->> Tested this patch with latest net-tree and netconsole works with it.
->> But I thinks it is better to move that "if" to br_add_if() because if we
->> don't have npinfo, we don't have to alloc p->np in br_add_if(), right?
->>
+
+
+On Thu, 6 Feb 2014, Michael Cree wrote:
+
+> On Tue, Feb 04, 2014 at 01:08:38PM -0800, Greg Kroah-Hartman wrote:
+> > 3.12-stable review patch.  If anyone has any objections, please let me know.
+> > 
+> > ------------------
+> > 
+> > From: Mikulas Patocka <mpatocka@redhat.com>
+> > 
+> > commit 0ef38d70d4118b2ce1a538d14357be5ff9dc2bbd upstream.
+> > 
+> > The patch 3ddc5b46a8e90f3c9251338b60191d0a804b0d92 breaks networking on
+> > alpha (there is a follow-up fix 5cfe8f1ba5eebe6f4b6e5858cdb1a5be4f3272a6,
+> > but networking is still broken even with the second patch).
 > 
-> Hmm, we shouldn't handle netpoll-specific code inside br_add_if(),
-> we probably need the attached patch instead. Please give it
-> a try, or I will test it tomorrow, it's too late here.
+> I wonder whether that follow-up (partial) fix mentioned
+> (5cfe8f1ba5eebe6f4b6e5858cdb1a5be4f3272a6) should be pulled into 3.12 stable
+> too?
 > 
+> Cheers
+> Michael.
 
-I tested whether netconsole works and whether it can be built
-with/without CONFIG_NET_POLL_CONTROLLER, and couldn't find any problem.
-This looks good to me.
+Hi
 
-Thanks,
-Toshiaki Makita
+It is quite confusing - csum_partial_copy_from_user is only called from 
+csum_and_copy_from_user in include/net/checksum.h.
+
+csum_and_copy_from_user already verifies the source memory range with 
+access_ok. Despite this, people started to add access_ok to many 
+architecture-specific versions of csum_partial_copy_from_user (for example 
+3ddc5b46a8e90f3c9251338b60191d0a804b0d92).
+
+It seems that the best thing is to revert 
+0ef38d70d4118b2ce1a538d14357be5ff9dc2bbd, 
+5cfe8f1ba5eebe6f4b6e5858cdb1a5be4f3272a6 and csum_partial_copy_from_user 
+change from 3ddc5b46a8e90f3c9251338b60191d0a804b0d92.
+
+
+David, you are maintainer of networking - does it have any deeper sense to 
+perform access_ok in csum_partial_copy_from_user if the caller performs 
+this check already? Should this be just removed?
+
+Also - the x86 and alpha implementation of csum_and_copy_from_user zero 
+the destination buffer on userspace-access error - but 
+csum_and_copy_from_user (that calls these function) doesn't zero the 
+destination buffer on error. Should the destination buffer be zeroed on 
+error or not?
+
+Mikulas
