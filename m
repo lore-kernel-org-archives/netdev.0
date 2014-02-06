@@ -1,37 +1,59 @@
-From: Yuval Mintz <yuvalmin@broadcom.com>
-Subject: RE: [PATCH] bnx2x: Update to FW 7.8.19
-Date: Thu, 6 Feb 2014 15:26:11 +0000
-Message-ID: <979A8436335E3744ADCD3A9F2A2B68A52AF44845@SJEXCHMB10.corp.ad.broadcom.com>
-References: <1390921061-22019-1-git-send-email-yuvalmin@broadcom.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] net: asix: fix bad header length bug
+Date: Thu, 6 Feb 2014 15:28:13 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6B99F7@AcuExch.aculab.com>
+References: <1391691384-8486-1-git-send-email-emilgoode@gmail.com>
+ <1391692768.2843.4.camel@X1Carbon.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Dmitry Kravkov <dmitry@broadcom.com>,
-	Ariel Elior <ariele@broadcom.com>
-To: "dwmw2@infradead.org" <dwmw2@infradead.org>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:10314 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750818AbaBFP0N convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 10:26:13 -0500
-In-Reply-To: <1390921061-22019-1-git-send-email-yuvalmin@broadcom.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ming Lei <ming.lei@canonical.com>,
+	Mark Brown <broonie@linaro.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Glen Turner <gdt@gdt.id.au>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Igor Gnatenko' <i.gnatenko.brain@gmail.com>,
+	Emil Goode <emilgoode@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1391692768.2843.4.camel@X1Carbon.localdomain>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> This new firmware fixes several bugs:
->  1. HW attention appears and traffic stops when iSCSI firmware tries to
->     retransmit iSCSI login command when the iSCSI login is carrying data
->     not aligned to 4-bytes.
->  2. FCoE traffic fails to run when running in switch-independent multi-function
->     mode and there's more than one interface supporting FCoE on a given port.
->  3. While two ports are running FCoE with at least one of them has a function
->     number (>1) on the same engine in a 4-port device a zeroed CQE is given,
->     causing FCoE traffic to stop.
-
-Hi, any news about this one?
-
-Thanks,
-Yuval
+RnJvbTogSWdvciBHbmF0ZW5rbw0KPiBPbiBUaHUsIDIwMTQtMDItMDYgYXQgMTM6NTYgKzAxMDAs
+IEVtaWwgR29vZGUgd3JvdGU6DQo+ID4gVGhlIEFYODg3NzJCIG9jY2FzaW9uYWxseSBzZW5kIHJ4
+IHBhY2tldHMgdGhhdCBjcm9zcyB1cmIgYm91bmRhcmllcw0KPiA+IGFuZCB0aGUgcmVtYWluaW5n
+IHBhcnRpYWwgcGFja2V0IGlzIHNlbnQgd2l0aCBubyBoZWFkZXIuDQo+ID4gV2hlbiB0aGUgYnVm
+ZmVyIHdpdGggYSBwYXJ0aWFsIHBhY2tldCBpcyBvZiBsZXNzIG51bWJlciBvZiBvY3RldHMNCj4g
+PiB0aGFuIHRoZSB2YWx1ZSBvZiBoYXJkX2hlYWRlcl9sZW4gdGhlIGJ1ZmZlciBpcyBkaXNjYXJk
+ZWQgYnkgdGhlDQo+ID4gdXNibmV0IG1vZHVsZS4gVGhpcyBpcyBjYXVzaW5nIGRyb3BwZWQgcGFj
+a2FnZXMgYW5kIGVycm9yIG1lc3NhZ2VzDQo+ID4gaW4gZG1lc2cuDQo+ID4NCj4gPiBUaGlzIGNh
+biBiZSByZXByb2R1Y2VkIGJ5IHVzaW5nIHBpbmcgd2l0aCBhIHBhY2tldCBzaXplDQo+ID4gYmV0
+d2VlbiAxOTY1LTE5NzYuDQo+ID4NCj4gPiBUaGUgYnVnIGhhcyBiZWVuIHJlcG9ydGVkIGhlcmU6
+DQo+ID4NCj4gPiBodHRwczovL2J1Z3ppbGxhLmtlcm5lbC5vcmcvc2hvd19idWcuY2dpP2lkPTI5
+MDgyDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBFbWlsIEdvb2RlIDxlbWlsZ29vZGVAZ21haWwu
+Y29tPg0KPiBSZXBvcnRlZC1hbmQtdGVzdGVkLWJ5OiBJZ29yIEduYXRlbmtvIDxpLmduYXRlbmtv
+LmJyYWluQGdtYWlsLmNvbT4NCj4gPiAtLS0NCj4gPiAgZHJpdmVycy9uZXQvdXNiL2FzaXhfZGV2
+aWNlcy5jIHwgICAgMSArDQo+ID4gIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKQ0KPiA+
+DQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3VzYi9hc2l4X2RldmljZXMuYyBiL2RyaXZl
+cnMvbmV0L3VzYi9hc2l4X2RldmljZXMuYw0KPiA+IGluZGV4IDk3NjVhN2QuLjEyMGJiMjkgMTAw
+NjQ0DQo+ID4gLS0tIGEvZHJpdmVycy9uZXQvdXNiL2FzaXhfZGV2aWNlcy5jDQo+ID4gKysrIGIv
+ZHJpdmVycy9uZXQvdXNiL2FzaXhfZGV2aWNlcy5jDQo+ID4gQEAgLTQ1NSw2ICs0NTUsNyBAQCBz
+dGF0aWMgaW50IGF4ODg3NzJfYmluZChzdHJ1Y3QgdXNibmV0ICpkZXYsIHN0cnVjdCB1c2JfaW50
+ZXJmYWNlICppbnRmKQ0KPiA+ICAJZGV2LT5uZXQtPmV0aHRvb2xfb3BzID0gJmF4ODg3NzJfZXRo
+dG9vbF9vcHM7DQo+ID4gIAlkZXYtPm5ldC0+bmVlZGVkX2hlYWRyb29tID0gNDsgLyogY2YgYXNp
+eF90eF9maXh1cCgpICovDQo+ID4gIAlkZXYtPm5ldC0+bmVlZGVkX3RhaWxyb29tID0gNDsgLyog
+Y2YgYXNpeF90eF9maXh1cCgpICovDQo+ID4gKwlkZXYtPm5ldC0+aGFyZF9oZWFkZXJfbGVuID0g
+MDsgLyogUGFydGlhbCBwYWNrZXRzIGhhdmUgbm8gaGVhZGVyICovDQoNClRoYXQgaXMgdGhlIHdy
+b25nIHBsYWNlIGZvciB0aGUgZml4Lg0KDQpJdCBzaG91bGQgb25seSBiZSBkb25lIHdoZW4gcnhf
+dXJiX3NpemUgaXMgc2V0IHRvIGEgbXVsdGlwbGUgb2YgdGhlIHVzYg0KcGFja2V0IHNpemUuDQpU
+aGF0IGlzIG9ubHkgZG9uZSBmb3Igc29tZSBvZiB0aGUgc3VwcG9ydGVkIGRldmljZXMuDQoNCklu
+IGZhY3QsIGlmIHRoZSByeF91cmJfc2l6ZSBpcyBhIG11bHRpcGxlIG9mIHRoZSB1c2IgZnJhbWUg
+c2l6ZSAob3IgMWspDQp0aGVuIG1heWJlIHRoZSB1c2JuZXQgY29kZSBzaG91bGQgYXNzdW1lIHRo
+YXQgdGhlIGRyaXZlciBpcyBjYXBhYmxlDQpvZiBwcm9jZXNzaW5nIGV0aGVybmV0IGZyYW1lcyB0
+aGF0IGNyb3NzIHVzYiBwYWNrZXQgYm91bmRhcmllcyBhbmQNCm5vdCBkZWxldGUgc2hvcnQgcGFj
+a2V0cyBhdCBhbGwgLSByZWdhcmRsZXNzIG9mIHRoZSBoYXJkX2hlYWRlcl9sZW4uDQoNCglEYXZp
+ZA0KDQo=
