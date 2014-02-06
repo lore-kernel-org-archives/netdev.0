@@ -1,50 +1,75 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: Fw: [Bug 70071] New: Sending netconsole messages over a bridged
- network interface doesn't work anymore
-Date: Thu, 6 Feb 2014 14:18:14 -0800
-Message-ID: <CAHA+R7NkLnh5xpca7nQbf99kAqqLW4trR4AEKXgn3Oad6_NBjg@mail.gmail.com>
-References: <20140205141539.450095fa@samsung-9>
-	<52F30863.7000206@lab.ntt.co.jp>
-	<CAHA+R7Pf1q7+xyqpwmGPToa0fTGn6dmukLvyncWwYAP-F_JvLg@mail.gmail.com>
-	<52F3214C.4060308@lab.ntt.co.jp>
-	<CAHA+R7Ork+gER_v=YhQCSDO9N=aokXiSiMUWwD3aMSv2YaZJ4g@mail.gmail.com>
-	<52F34D41.8000704@lab.ntt.co.jp>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [GIT PULL] tree-wide: clean up no longer required #include
+ <linux/init.h>
+Date: Fri, 7 Feb 2014 09:25:05 +1100
+Message-ID: <20140207092505.4c42d130faff151659a908f9@canb.auug.org.au>
+References: <1391547118-21967-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Fri__7_Feb_2014_09_25_05_+1100_5G4DE1j7Qv3c23/u"
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	<linux-alpha@vger.kernel.org>, <linux-arch@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-ia64@vger.kernel.org>, <linux-m68k@vger.kernel.org>,
+	<linux-mips@linux-mips.org>, <linuxppc-dev@lists.ozlabs.org>,
+	<linux-s390@vger.kernel.org>, <sparclinux@vger.kernel.org>,
+	<x86@kernel.org>, <netdev@vger.kernel.org>, <kvm@vger.kernel.org>,
+	<rusty@rustcorp.com.au>, <gregkh@linuxfoundation.org>,
+	<akpm@linux-foundation.org>
+To: <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f53.google.com ([209.85.215.53]:63825 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752378AbaBFWSQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 17:18:16 -0500
-Received: by mail-la0-f53.google.com with SMTP id e16so1970267lan.40
-        for <netdev@vger.kernel.org>; Thu, 06 Feb 2014 14:18:15 -0800 (PST)
-In-Reply-To: <52F34D41.8000704@lab.ntt.co.jp>
+Received: from ozlabs.org ([203.10.76.45]:44948 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932308AbaBFWZU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Feb 2014 17:25:20 -0500
+In-Reply-To: <1391547118-21967-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 6, 2014 at 12:52 AM, Toshiaki Makita
-<makita.toshiaki@lab.ntt.co.jp> wrote:
-> (2014/02/06 15:49), Cong Wang wrote:
->> On Wed, Feb 5, 2014 at 9:44 PM, Toshiaki Makita
->> <makita.toshiaki@lab.ntt.co.jp> wrote:
->>> Tested this patch with latest net-tree and netconsole works with it.
->>> But I thinks it is better to move that "if" to br_add_if() because if we
->>> don't have npinfo, we don't have to alloc p->np in br_add_if(), right?
->>>
->>
->> Hmm, we shouldn't handle netpoll-specific code inside br_add_if(),
->> we probably need the attached patch instead. Please give it
->> a try, or I will test it tomorrow, it's too late here.
->>
->
-> I tested whether netconsole works and whether it can be built
-> with/without CONFIG_NET_POLL_CONTROLLER, and couldn't find any problem.
-> This looks good to me.
->
+--Signature=_Fri__7_Feb_2014_09_25_05_+1100_5G4DE1j7Qv3c23/u
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Excellent! I will send it formally.
+Hi Linus,
 
-Thanks for testing!
+On Tue, 4 Feb 2014 15:51:58 -0500 Paul Gortmaker <paul.gortmaker@windriver.=
+com> wrote:
+>
+> We've had this in linux-next for 2+ weeks (thanks Stephen!) as a
+> linux-stable like queue of patches, and as can be seen here:
+>=20
+>   https://git.kernel.org/pub/scm/linux/kernel/git/paulg/init.git
+>=20
+> most of the changes in the last week have been trivial adding acks
+> or dropping patches that maintainers decided to take themselves.
+
+Any thoughts on merging this?  I can feel it bitrotting :-(
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Fri__7_Feb_2014_09_25_05_+1100_5G4DE1j7Qv3c23/u
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJS9AvOAAoJEMDTa8Ir7ZwVgtAP/0JLUjtgIOoRu0wcAutXabJX
+FYj8RB3kSvX1YCe+fyEXCiHYTCnMnoLSrGWNqRjga5M/zdrw7P0v+E4MDv+ZLME6
+n4njMVl56NGUE0ULzj09ZwV0oANJ0u34mkTpzUs3SmQkuoi3XnseaoLgL3hBavOY
+QAq/OK/J90jBjm3h9JjAEGDBdcFEgY5qsiQJNU2o47QRfX+/VWsGT3WwQs2Iy5Ih
+YNzju/qmBczjlTJouCfrXBKeOG48uMgtalV9hLiaTxubLQRSjJ0Gy7h4runSPJ6Z
+sqvFMePFjfBD0WSZ/WB50ArXxpeR2YR1qWw0BDFAKr8NXvR2Zb7a0nIkdOIs5Zep
+BRjtC0xMJfTW9GG2g220PyrsYchl2WW31AC9VhjGXk8/d2Gk5A1XfO1lrVohTTMs
+bZyk3rIpXrRTdzTqAmVI+6gsZ+Xd1B9gTGmlvw89CFZz5K/5AvdzkmuD/3AI/yv9
+XFJi5zBOAhbw2D+u3EqqMCV+arE4mxQVPXOjiI2hakGy5NvANrLZHd136aCA/rjH
+Iv4WGKgGQ2rf/GykI1T5vmlRf5k2RLrxG3MPYqS+0IL9OY9S3iswDib+jnRpWjN5
+e1r23hmT1lrb2N7Q4+pzRpX4GRnP5hiAHGFfgijXiPlz/PXj9oqmvIreOtc4jCX6
+gqAy38tkyQhHVjVxOgF9
+=rXtU
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__7_Feb_2014_09_25_05_+1100_5G4DE1j7Qv3c23/u--
