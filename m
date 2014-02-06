@@ -1,48 +1,62 @@
-From: Emil Goode <emilgoode@gmail.com>
-Subject: [PATCH] net: asix: fix bad header length bug
-Date: Thu,  6 Feb 2014 13:56:24 +0100
-Message-ID: <1391691384-8486-1-git-send-email-emilgoode@gmail.com>
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Emil Goode <emilgoode@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Ming Lei <ming.lei@canonical.com>,
-	Mark Brown <broonie@linaro.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Glen Turner <gdt@gdt.id.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH iproute2 net-next-for-3.13] iplink_bond: fix parameter value
+ matching
+Date: Thu,  6 Feb 2014 13:59:01 +0100 (CET)
+Message-ID: <20140206125901.A95E2E5A97@unicorn.suse.cz>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:41431 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932192AbaBFM7C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Feb 2014 07:59:02 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The AX88772B occasionally send rx packets that cross urb boundaries
-and the remaining partial packet is sent with no header.
-When the buffer with a partial packet is of less number of octets
-than the value of hard_header_len the buffer is discarded by the
-usbnet module. This is causing dropped packages and error messages
-in dmesg.
+Lookup function get_index() compares argument with table entries
+only up to the length of the table entry so that if an entry
+with lower index is a substring of a later one, earlier entry is
+used even if the argument is equal to the other. For example,
 
-This can be reproduced by using ping with a packet size
-between 1965-1976.
+  ip link set bond0 type bond xmit_hash_policy layer2+3
 
-The bug has been reported here:
+sets xmit_hash_policy to 0 (layer2) as this is found before
+"layer2+3" can be checked.
 
-https://bugzilla.kernel.org/show_bug.cgi?id=29082
+I believe the reason for using strncmp() rather than simple
+strcmp() was to allow abbreviations which means maximum length
+for comparison should be length of the string looked up.
+However, this would cause a problem if shorter value follows
+longer one and shorter one is entered (there is no such case now
+but it might happen in the future). So let's try to find an
+exact match first and only if none is found, do a second pass
+with checking for abbreviated values.
 
-Signed-off-by: Emil Goode <emilgoode@gmail.com>
+Fixes: 63d127b0 ("iproute2: finish support for bonding attributes")
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
 ---
- drivers/net/usb/asix_devices.c |    1 +
- 1 file changed, 1 insertion(+)
+ ip/iplink_bond.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devices.c
-index 9765a7d..120bb29 100644
---- a/drivers/net/usb/asix_devices.c
-+++ b/drivers/net/usb/asix_devices.c
-@@ -455,6 +455,7 @@ static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf)
- 	dev->net->ethtool_ops = &ax88772_ethtool_ops;
- 	dev->net->needed_headroom = 4; /* cf asix_tx_fixup() */
- 	dev->net->needed_tailroom = 4; /* cf asix_tx_fixup() */
-+	dev->net->hard_header_len = 0; /* Partial packets have no header */
+diff --git a/ip/iplink_bond.c b/ip/iplink_bond.c
+index f22151e..4cd6843 100644
+--- a/ip/iplink_bond.c
++++ b/ip/iplink_bond.c
+@@ -105,8 +105,14 @@ static int get_index(const char **tbl, char *name)
+ 			if (i == index)
+ 				return i;
  
- 	embd_phy = ((dev->mii.phy_id & 0x1f) == 0x10 ? 1 : 0);
++	/* first check for an exact match */
+ 	for (i = 0; tbl[i]; i++)
+-		if (strncmp(tbl[i], name, strlen(tbl[i])) == 0)
++		if (strcmp(tbl[i], name) == 0)
++			return i;
++
++	/* no exact match, try to interpret as an abbreviation */
++	for (i = 0; tbl[i]; i++)
++		if (strncmp(tbl[i], name, strlen(name)) == 0)
+ 			return i;
  
+ 	return -1;
 -- 
-1.7.10.4
+1.8.1.4
