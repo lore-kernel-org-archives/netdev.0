@@ -1,309 +1,253 @@
-From: <dinguyen@altera.com>
-Subject: [PATCHv2 2/2] dts: socfpga: Add DTS entry for adding the stmmac glue layer for stmmac.
-Date: Thu, 6 Feb 2014 17:19:55 -0600
-Message-ID: <1391728795-30435-2-git-send-email-dinguyen@altera.com>
-References: <1391728795-30435-1-git-send-email-dinguyen@altera.com>
+From: <dinguyen-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCHv2 1/2] net: stmmac: Add SOCFPGA glue driver
+Date: Thu, 6 Feb 2014 17:19:54 -0600
+Message-ID: <1391728795-30435-1-git-send-email-dinguyen@altera.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <dinh.linux@gmail.com>, <devicetree@vger.kernel.org>,
-	Dinh Nguyen <dinguyen@altera.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	"Rob Herring" <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	"Kumar Gala" <galak@codeaurora.org>,
-	Vince Bridgers <vbridgers2013@gmail.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0119.outbound.protection.outlook.com ([157.56.110.119]:7446
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751004AbaBFXWS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Feb 2014 18:22:18 -0500
-In-Reply-To: <1391728795-30435-1-git-send-email-dinguyen@altera.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <dinh.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Dinh Nguyen <dinguyen-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>,
+	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+	"Rob Herring" <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	"Kumar Gala" <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Vince Bridgers <vbridgers2013-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Dinh Nguyen <dinguyen@altera.com>
+From: Dinh Nguyen <dinguyen-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>
 
-This patch adds the dts bindings documenation for the Altera SOCFPGA glue
-layer for the Synopsys STMMAC ethernet driver.
+Like the STi series SOCs, Altera's SOCFPGA also needs a glue layer on top of the
+Synopsys gmac IP.
 
-Signed-off-by: Dinh Nguyen <dinguyen@altera.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Cc: Rob Herring <robh+dt@kernel.org>
-Cc: Pawel Moll <pawel.moll@arm.com>
-Cc: Mark Rutland <mark.rutland@arm.com>
-Cc: Ian Campbell <ijc+devicetree@hellion.org.uk>
-Cc: Kumar Gala <galak@codeaurora.org>
-Cc: Vince Bridgers <vbridgers2013@gmail.com>
+This patch adds the platform driver for the glue layer which configures the IP
+before the generic STMMAC driver takes over.
+
+Signed-off-by: Dinh Nguyen <dinguyen-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>
+Cc: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Cc: Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
+Cc: Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>
+Cc: Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Cc: Vince Bridgers <vbridgers2013-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
 v2: Use the dwmac-sti as an example for a glue layer and split patch up
 to have dts as a separate patch. Also cc dts maintainers since there is
 a new binding.
 ---
- .../devicetree/bindings/net/socfpga-dwmac.txt      |   35 ++++++++++++++
- arch/arm/boot/dts/socfpga.dtsi                     |   51 +++++++++++++-------
- arch/arm/boot/dts/socfpga_arria5_socdk.dts         |   24 +++++++++
- arch/arm/boot/dts/socfpga_cyclone5.dtsi            |    6 ---
- arch/arm/boot/dts/socfpga_cyclone5_socdk.dts       |   18 +++++++
- arch/arm/boot/dts/socfpga_cyclone5_sockit.dts      |   22 ++++++++-
- arch/arm/boot/dts/socfpga_vt.dts                   |   13 +++--
- 7 files changed, 140 insertions(+), 29 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/socfpga-dwmac.txt
+ drivers/net/ethernet/stmicro/stmmac/Makefile       |    1 +
+ .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    |  184 ++++++++++++++++++++
+ 2 files changed, 185 insertions(+)
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
 
-diff --git a/Documentation/devicetree/bindings/net/socfpga-dwmac.txt b/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
+diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
+index ecadece..73df8b6 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/Makefile
++++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
+@@ -1,4 +1,5 @@
+ obj-$(CONFIG_STMMAC_ETH) += stmmac.o
++stmmac-$(CONFIG_ARCH_SOCFPGA) += dwmac-socfpga.o
+ stmmac-$(CONFIG_STMMAC_PLATFORM) += stmmac_platform.o
+ stmmac-$(CONFIG_STMMAC_PCI) += stmmac_pci.o
+ stmmac-$(CONFIG_DWMAC_SUNXI) += dwmac-sunxi.o
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
 new file mode 100644
-index 0000000..d53d376
+index 0000000..0a6da3e
 --- /dev/null
-+++ b/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
-@@ -0,0 +1,35 @@
-+Altera SOCFPGA SoC DWMAC controller
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+@@ -0,0 +1,184 @@
++/*  Copyright (C) 2014 Altera Corporation
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ *
++ * Adopted from dwmac-sti.c
++ */
 +
-+The device node has following properties.
++#include <linux/clk.h>
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/mfd/syscon.h>
++#include <linux/of.h>
++#include <linux/of_address.h>
++#include <linux/of_net.h>
++#include <linux/of_platform.h>
++#include <linux/phy.h>
++#include <linux/platform_device.h>
++#include <linux/regmap.h>
++#include <linux/stmmac.h>
 +
-+Required properties:
-+ - compatible	: Should contain "altr,socfpga-stmmac"
-+ - altr,sysmgr-syscon : Should be the phandle to the system manager node that
-+   encompasses the glue register, and the register offset.
++#define SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_GMII_MII 0x0
++#define SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_RGMII 0x1
++#define SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_RMII 0x2
++#define SYSMGR_EMACGRP_CTRL_PHYSEL_WIDTH 2
++#define SYSMGR_EMACGRP_CTRL_PHYSEL_MASK 0x00000003
 +
-+Sub-nodes:
-+The dwmac core should be added as subnode to SOCFPGA dwmac glue.
-+- dwmac :	The binding details of dwmac can be found in
-+  Documentation/devicetree/bindings/net/stmmac.txt
-+
-+Example:
-+
-+ethernet0: ethernet0 {
-+	#address-cells = <1>;
-+	#size-cells = <1>;
-+
-+	compatible = "altr,socfpga-stmmac";
-+	altr,sysmgr-syscon = <&sysmgr 0x60>;
-+	status = "disabled";
-+	ranges;
-+
-+	gmac0: gmac0@ff700000 {
-+		compatible = "snps,dwmac-3.70a", "snps,dwmac";
-+		reg = <0xff700000 0x2000>;
-+		interrupts = <0 115 4>;
-+		interrupt-names = "macirq";
-+		mac-address = [00 00 00 00 00 00];/* Filled in by U-Boot */
-+		clocks = <&emac0_clk>;
-+		clock-names = "stmmaceth";
-+	};
-+};
-diff --git a/arch/arm/boot/dts/socfpga.dtsi b/arch/arm/boot/dts/socfpga.dtsi
-index 8c4adb7..ebf6113 100644
---- a/arch/arm/boot/dts/socfpga.dtsi
-+++ b/arch/arm/boot/dts/socfpga.dtsi
-@@ -442,26 +442,43 @@
- 				};
- 			};
- 
--		gmac0: ethernet@ff700000 {
--			compatible = "altr,socfpga-stmmac", "snps,dwmac-3.70a", "snps,dwmac";
--			reg = <0xff700000 0x2000>;
--			interrupts = <0 115 4>;
--			interrupt-names = "macirq";
--			mac-address = [00 00 00 00 00 00];/* Filled in by U-Boot */
--			clocks = <&emac0_clk>;
--			clock-names = "stmmaceth";
-+		ethernet0: ethernet0 {
-+			#address-cells = <1>;
-+			#size-cells = <1>;
-+			compatible = "altr,socfpga-stmmac";
-+			altr,sysmgr-syscon = <&sysmgr 0x60>;
- 			status = "disabled";
-+			ranges;
-+
-+			gmac0: gmac0@ff700000 {
-+				compatible = "snps,dwmac-3.70a", "snps,dwmac";
-+				reg = <0xff700000 0x2000>;
-+				interrupts = <0 115 4>;
-+				interrupt-names = "macirq";
-+				mac-address = [00 00 00 00 00 00];/* Filled in by U-Boot */
-+				clocks = <&emac0_clk>;
-+				clock-names = "stmmaceth";
-+			};
- 		};
- 
--		gmac1: ethernet@ff702000 {
--			compatible = "altr,socfpga-stmmac", "snps,dwmac-3.70a", "snps,dwmac";
--			reg = <0xff702000 0x2000>;
--			interrupts = <0 120 4>;
--			interrupt-names = "macirq";
--			mac-address = [00 00 00 00 00 00];/* Filled in by U-Boot */
--			clocks = <&emac1_clk>;
--			clock-names = "stmmaceth";
-+		ethernet1: ethernet1 {
-+			#address-cells = <1>;
-+			#size-cells = <1>;
-+			compatible = "altr,socfpga-stmmac";
-+			altr,sysmgr-syscon = <&sysmgr 0x60>;
- 			status = "disabled";
-+			ranges;
-+
-+			gmac1: gmac1@ff702000 {
-+				device_type = "network";
-+				compatible = "snps,dwmac-3.70a", "snps,dwmac";
-+				reg = <0xff702000 0x2000>;
-+				interrupts = <0 120 4>;
-+				interrupt-names = "macirq";
-+				mac-address = [00 00 00 00 00 00];/* Filled in by U-Boot */
-+				clocks = <&emac1_clk>;
-+				clock-names = "stmmaceth";
-+			};
- 		};
- 
- 		L2: l2-cache@fffef000 {
-@@ -538,7 +555,7 @@
- 			reg = <0xffd05000 0x1000>;
- 		};
- 
--		sysmgr@ffd08000 {
-+		sysmgr: sysmgr@ffd08000 {
- 				compatible = "altr,sys-mgr", "syscon";
- 				reg = <0xffd08000 0x4000>;
- 			};
-diff --git a/arch/arm/boot/dts/socfpga_arria5_socdk.dts b/arch/arm/boot/dts/socfpga_arria5_socdk.dts
-index 5beffb2..2d6b38b 100644
---- a/arch/arm/boot/dts/socfpga_arria5_socdk.dts
-+++ b/arch/arm/boot/dts/socfpga_arria5_socdk.dts
-@@ -37,4 +37,28 @@
- 		*/
- 		ethernet0 = &gmac1;
- 	};
-+
-+	aliases {
-+		/* this allow the ethaddr uboot environmnet variable contents
-+		 * to be added to the gmac1 device tree blob.
-+		 */
-+		ethernet0 = &gmac1;
-+	};
++struct socfpga_dwmac {
++	int	interface;
++	u32	reg_offset;
++	struct	device *dev;
++	struct regmap *sys_mgr_base_addr;
++	struct	device_node *dwmac_np;
 +};
 +
-+&ethernet1 {
-+	status = "okay";
++static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *dev)
++{
++	struct device_node *np	= dev->of_node;
++	struct device_node *stmmac_np;
++	struct regmap *sys_mgr_base_addr;
++	u32 reg_offset;
++	int ret;
++
++	stmmac_np = of_get_next_available_child(np, NULL);
++	if (!stmmac_np) {
++		dev_info(dev, "No dwmac node found\n");
++		return -EINVAL;
++	}
++
++	if (!of_device_is_compatible(stmmac_np, "snps,dwmac")) {
++		dev_info(dev, "dwmac node isn't compatible with snps,dwmac\n");
++		return -EINVAL;
++	}
++
++	dwmac->interface = of_get_phy_mode(stmmac_np);
++	of_node_put(stmmac_np);
++
++	sys_mgr_base_addr = syscon_regmap_lookup_by_phandle(np, "altr,sysmgr-syscon");
++	if (IS_ERR(sys_mgr_base_addr)) {
++		dev_info(dev, "No sysmgr-syscon node found\n");
++		return PTR_ERR(sys_mgr_base_addr);
++	}
++
++	ret = of_property_read_u32_index(np, "altr,sysmgr-syscon", 1, &reg_offset);
++	if (ret) {
++		dev_info(dev, "Could not reg_offset into sysmgr-syscon!\n");
++		return -EINVAL;
++	}
++
++	dwmac->reg_offset = reg_offset;
++	dwmac->sys_mgr_base_addr = sys_mgr_base_addr;
++	dwmac->dwmac_np = stmmac_np;
++	dwmac->dev = dev;
++
++	return 0;
++}
++
++static int socfpga_dwmac_setup(struct socfpga_dwmac *dwmac)
++{
++	struct regmap *sys_mgr_base_addr = dwmac->sys_mgr_base_addr;
++	int phymode = dwmac->interface;
++	u32 reg_offset = dwmac->reg_offset;
++	u32 ctrl, val, shift = 0;
++
++	if (of_machine_is_compatible("altr,socfpga-vt"))
++		return 0;
++
++	switch (phymode) {
++	case PHY_INTERFACE_MODE_RGMII:
++		val = SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_RGMII;
++		break;
++	case PHY_INTERFACE_MODE_MII:
++	case PHY_INTERFACE_MODE_GMII:
++		val = SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_GMII_MII;
++		break;
++	default:
++		dev_err(dwmac->dev, "bad phy mode %d\n", phymode);
++		return -EINVAL;
++	}
++
++	regmap_read(sys_mgr_base_addr, reg_offset, &ctrl);
++	ctrl &= ~(SYSMGR_EMACGRP_CTRL_PHYSEL_MASK << shift);
++	ctrl |= val << shift;
++
++	regmap_write(sys_mgr_base_addr, reg_offset, ctrl);
++	return 0;
++}
++
++static int socfpga_dwmac_probe(struct platform_device *pdev)
++{
++	struct device		*dev = &pdev->dev;
++	struct device_node	*node = dev->of_node;
++	int			ret = -ENOMEM;
++	struct socfpga_dwmac	*dwmac;
++
++	dwmac = devm_kzalloc(dev, sizeof(*dwmac), GFP_KERNEL);
++	if (!dwmac)
++		return -ENOMEM;
++
++	ret = socfpga_dwmac_parse_data(dwmac, dev);
++	if (ret) {
++		dev_err(dev, "Unable to parse OF data\n");
++		return ret;
++	}
++
++	ret = socfpga_dwmac_setup(dwmac);
++	if (ret) {
++		dev_err(dev, "couldn't setup SoC glue (%d)\n", ret);
++		return ret;
++	}
++
++	if (node) {
++		ret = of_platform_populate(node, NULL, NULL, dev);
++		if (ret) {
++			dev_err(dev, "failed to add dwmac core\n");
++			return ret;
++		}
++	} else {
++		dev_err(dev, "no device node, failed to add dwmac core\n");
++		return -ENODEV;
++	}
++
++	platform_set_drvdata(pdev, dwmac);
++
++	return 0;
++}
++
++static int socfpga_dwmac_remove(struct platform_device *pdev)
++{
++	return 0;
++}
++
++static const struct of_device_id socfpga_dwmac_match[] = {
++	{ .compatible = "altr,socfpga-stmmac" },
++	{},
++};
++MODULE_DEVICE_TABLE(of, socfpga_dwmac_match);
++
++static struct platform_driver socfpga_dwmac_driver = {
++	.probe		= socfpga_dwmac_probe,
++	.remove		= socfpga_dwmac_remove,
++	.driver		= {
++		.name	= "socfpga-dwmac",
++		.of_match_table = of_match_ptr(socfpga_dwmac_match),
++	},
 +};
 +
-+&gmac1 {
-+	phy-mode = "rgmii";
++module_platform_driver(socfpga_dwmac_driver);
 +
-+	rxd0-skew-ps = <0>;
-+	rxd1-skew-ps = <0>;
-+	rxd2-skew-ps = <0>;
-+	rxd3-skew-ps = <0>;
-+	txen-skew-ps = <0>;
-+	txc-skew-ps = <2600>;
-+	rxdv-skew-ps = <0>;
-+	rxc-skew-ps = <2000>;
- };
-diff --git a/arch/arm/boot/dts/socfpga_cyclone5.dtsi b/arch/arm/boot/dts/socfpga_cyclone5.dtsi
-index ca41b0e..454148d 100644
---- a/arch/arm/boot/dts/socfpga_cyclone5.dtsi
-+++ b/arch/arm/boot/dts/socfpga_cyclone5.dtsi
-@@ -39,12 +39,6 @@
- 			};
- 		};
- 
--		ethernet@ff702000 {
--			phy-mode = "rgmii";
--			phy-addr = <0xffffffff>; /* probe for phy addr */
--			status = "okay";
--		};
--
- 		timer0@ffc08000 {
- 			clock-frequency = <100000000>;
- 		};
-diff --git a/arch/arm/boot/dts/socfpga_cyclone5_socdk.dts b/arch/arm/boot/dts/socfpga_cyclone5_socdk.dts
-index 2ee52ab..9b3b01b 100644
---- a/arch/arm/boot/dts/socfpga_cyclone5_socdk.dts
-+++ b/arch/arm/boot/dts/socfpga_cyclone5_socdk.dts
-@@ -38,3 +38,21 @@
- 		ethernet0 = &gmac1;
- 	};
- };
++MODULE_ALIAS("platform:socfpga-dwmac");
++MODULE_AUTHOR("Dinh Nguyen <dinguyen-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>");
++MODULE_LICENSE("GPL v2");
++MODULE_DESCRIPTION("Altera SOCFPGA DWMAC Glue Layer");
 +
-+&ethernet1 {
-+	status = "okay";
-+};
-+
-+&gmac1 {
-+	phy-mode = "rgmii";
-+
-+	rxd0-skew-ps = <0>;
-+	rxd1-skew-ps = <0>;
-+	rxd2-skew-ps = <0>;
-+	rxd3-skew-ps = <0>;
-+	txen-skew-ps = <0>;
-+	txc-skew-ps = <2600>;
-+	rxdv-skew-ps = <0>;
-+	rxc-skew-ps = <2000>;
-+};
-+
-diff --git a/arch/arm/boot/dts/socfpga_cyclone5_sockit.dts b/arch/arm/boot/dts/socfpga_cyclone5_sockit.dts
-index 50b99a2..469bb5c 100644
---- a/arch/arm/boot/dts/socfpga_cyclone5_sockit.dts
-+++ b/arch/arm/boot/dts/socfpga_cyclone5_sockit.dts
-@@ -30,8 +30,28 @@
- 		device_type = "memory";
- 		reg = <0x0 0x40000000>; /* 1GB */
- 	};
-+
-+	aliases {
-+		/* this allow the ethaddr uboot environmnet variable contents
-+		 * to be added to the gmac1 device tree blob.
-+		 */
-+		ethernet0 = &gmac1;
-+	};
- };
- 
--&gmac1 {
-+&ethernet1 {
- 	status = "okay";
- };
-+
-+&gmac1 {
-+	phy-mode = "rgmii";
-+
-+	rxd0-skew-ps = <0>;
-+	rxd1-skew-ps = <0>;
-+	rxd2-skew-ps = <0>;
-+	rxd3-skew-ps = <0>;
-+	txen-skew-ps = <0>;
-+	txc-skew-ps = <2600>;
-+	rxdv-skew-ps = <0>;
-+	rxc-skew-ps = <2000>;
-+};
-diff --git a/arch/arm/boot/dts/socfpga_vt.dts b/arch/arm/boot/dts/socfpga_vt.dts
-index 222313f..418472c 100644
---- a/arch/arm/boot/dts/socfpga_vt.dts
-+++ b/arch/arm/boot/dts/socfpga_vt.dts
-@@ -52,11 +52,6 @@
- 			};
- 		};
- 
--		ethernet@ff700000 {
--			phy-mode = "gmii";
--			status = "okay";
--		};
--
- 		timer0@ffc08000 {
- 			clock-frequency = <7000000>;
- 		};
-@@ -86,3 +81,11 @@
- 		};
- 	};
- };
-+
-+&ethernet0 {
-+        status = "okay";
-+};
-+
-+&gmac0 {
-+	phy-mode = "gmii";
-+};
 -- 
 1.7.9.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
