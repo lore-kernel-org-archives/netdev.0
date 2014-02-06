@@ -1,71 +1,117 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: AX88179_178A USB3 ethernet adapter performance issue
-Date: Thu, 6 Feb 2014 15:39:02 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6B9A21@AcuExch.aculab.com>
-References: <CAMVG2ssoBwk56n-k5VB9yO2LP4wc+gTv4o_17r-WYakwE6h2uQ@mail.gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next v2] ipv6: enable anycast addresses as source
+ addresses in ICMPv6 error messages
+Date: Thu, 06 Feb 2014 17:29:57 +0100
+Message-ID: <52F3B885.4010707@6wind.com>
+References: <1390147236-3660-1-git-send-email-fx.lebail@yahoo.com> <52F357C3.9060406@6wind.com> <1391690329.62545.YahooMailNeo@web125506.mail.ne1.yahoo.com> <52F395BB.2030209@6wind.com> <1391697041.6325.YahooMailNeo@web125505.mail.ne1.yahoo.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Netdev <netdev@vger.kernel.org>
-To: 'Daniel J Blueman' <daniel@quora.org>,
-	Freddy Xin <freddy@asix.com.tw>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	'Sarah Sharp' <sarah.a.sharp@linux.intel.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Stevens <dlstevens@us.ibm.com>,
+	Bill Fink <billfink@mindspring.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: =?ISO-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:58652 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751794AbaBFPj7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 10:39:59 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 26398-05 for <netdev@vger.kernel.org>;
- Thu,  6 Feb 2014 15:39:53 +0000 (GMT)
-In-Reply-To: <CAMVG2ssoBwk56n-k5VB9yO2LP4wc+gTv4o_17r-WYakwE6h2uQ@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:38917 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752925AbaBFQaE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 11:30:04 -0500
+Received: by mail-wi0-f175.google.com with SMTP id hm4so1791372wib.2
+        for <netdev@vger.kernel.org>; Thu, 06 Feb 2014 08:30:02 -0800 (PST)
+In-Reply-To: <1391697041.6325.YahooMailNeo@web125505.mail.ne1.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel J Blueman
-> Hi Freddy et al,
+Le 06/02/2014 15:30, Fran=E7ois-Xavier Le Bail a =E9crit :
+>> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>
+>> To: Fran=E7ois-Xavier Le Bail <fx.lebail@yahoo.com>; "netdev@vger.ke=
+rnel.org" <netdev@vger.kernel.org>
+>> Cc: David Stevens <dlstevens@us.ibm.com>; Bill Fink <billfink@mindsp=
+ring.com>; Hannes Frederic Sowa <hannes@stressinduktion.org>; David S. =
+Miller <davem@davemloft.net>; Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>; =
+James Morris <jmorris@namei.org>; Hideaki Yoshifuji <yoshfuji@linux-ipv=
+6.org>; Patrick McHardy <kaber@trash.net>
+>> Sent: Thursday, February 6, 2014 3:01 PM
+>> Subject: Re: [PATCH net-next v2] ipv6: enable anycast addresses as s=
+ource addresses in ICMPv6 error messages
+>>
+>> Le 06/02/2014 13:38, Fran=E7ois-Xavier Le Bail a =E9crit :
+>>>>   From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>>>
+>>>
+>>>>   Subject: Re: [PATCH net-next v2] ipv6: enable anycast addresses =
+as
+>> source addresses in ICMPv6 error messages
+>>>>
+>>>>   Le 19/01/2014 17:00, Francois-Xavier Le Bail a =E9crit :
+>>>>
+>>>>>     - Uses ipv6_anycast_destination() in icmp6_send().
+>>>>>
+>>>>>     Suggested-by: Bill Fink <billfink@mindspring.com>
+>>>>>     Signed-off-by: Francois-Xavier Le Bail
+>> <fx.lebail@yahoo.com>
+>>>>   This patch causes an Oops on my target.
+>>>
+>>>   What is your target ?
+>> x86 32bits
+>>
+>>>
+>>>>   Here is the step to reproduce it:
+>>>>   modprobe sit
+>>>>   ip link add sit1 type sit remote 10.16.0.121 local 10.16.0.249
+>>>>   ip l s sit1 up
+>>>>   ip -6 a a dev sit1 2001:1234::123 remote 2001:1234::121
+>>>>   ping6 2001:1234::121
+>>>
+>>>   I cannot reproduce this in my target (updated net-next x86_64) an=
+d
+>>>   iproute2 from git.
+>> I use linus tree (3.14-rc1+).
+>>
+>>>   Can you send me your config file ?
+>> See attachment.
+>>
+>>
+>>>
+>>>>   The problem is that ipv6_anycast_destination() uses unconditiona=
+lly
+>>>>   skb_dst(skb), which is NULL in this case.
+>>>>
+>>>>   Not sure what is the best way to fix this, any suggestions?
+>>>
+>>>   I will try to reproduce first and see.
+>> Note that the peer was not set up, hence the ping didn't work.
+>> ipip6_err() calls ipip6_err_gen_icmpv6_unreach() which will drop the=
+ dst
+>> before calling icmpv6_send().
+>>
+>>
+>> Here is the backtrace:
+>> [  387.786155] BUG: unable to handle kernel NULL pointer dereference=
+ at 00000096
+>> [  387.787291] IP: [<c12f1568>] icmp6_send+0x79/0x596
+>
+> [...]
+>
+>> [  387.790055]  [<f85ce03b>] ? tunnel64_err+0x16/0x25 [tunnel4]
+>
+> Thanks for these informations.
+>
+> Can you test an alternative replacing:
+>
+> test on: ipv6_anycast_destination(skb)
+> by
+> test on: ipv6_chk_acast_addr_src(net, skb->dev, &hdr->daddr)
+Ok, I will do it tomorrow.
 
-I've copied this to linux-usb.
-
-> I'm experiencing poor network performance using an ASIX AX88179_178A
-> USB3 to ethernet adapter using any recent linux kernel (eg 3.11),
-> using an Intel XHCI USB3 controller.
-
-There a several problems with the xhci driver that show up when
-trying to use the ax88179_178a driver.
-Unfortunately some of the fixes have caused regressions on other
-host controllers with disk transfers.
-The patches may, or may not, be present in your kernel.
-The 'scatter-gather' support that is used in order to enable TSO
-is particularly good at exercising the buggy code paths.
-
-> Running iperf tests between one host with a gigabit PCIe NIC, via a
-> gigabit switch to the other host with various interfaces:
-> 
-> PCIe bcm957762: send 818Mb/s, recv 910Mb/s
-> USB2 smsc75xx: send 341Mb/s, recv 330Mb/s
-> USB3 ax88179_178a: send 347Mb/s, recv 18.7Mb/s
-> 
-> Are you able to reproduce the same 19Mb/s receive rate there?
-
-It might be that you are only actually running at USB2 speeds
-(check with lsusb -t).
-
-I have seem line rate Ge from my ax88179 card, but only with a
-patched kernel.
-
-	David
-
-> 
-> Many thanks,
->   Daniel
-> --
-> Daniel J Blueman
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thank you,
+Nicolas
