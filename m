@@ -1,174 +1,50 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: [PATCH iproute2 3/3] tcp_metrics: Allow removal based on the source-IP
-Date: Thu,  6 Feb 2014 23:15:04 +0100
-Message-ID: <1391724904-30504-4-git-send-email-christoph.paasch@uclouvain.be>
-References: <1391724904-30504-1-git-send-email-christoph.paasch@uclouvain.be>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: Fw: [Bug 70071] New: Sending netconsole messages over a bridged
+ network interface doesn't work anymore
+Date: Thu, 6 Feb 2014 14:18:14 -0800
+Message-ID: <CAHA+R7NkLnh5xpca7nQbf99kAqqLW4trR4AEKXgn3Oad6_NBjg@mail.gmail.com>
+References: <20140205141539.450095fa@samsung-9>
+	<52F30863.7000206@lab.ntt.co.jp>
+	<CAHA+R7Pf1q7+xyqpwmGPToa0fTGn6dmukLvyncWwYAP-F_JvLg@mail.gmail.com>
+	<52F3214C.4060308@lab.ntt.co.jp>
+	<CAHA+R7Ork+gER_v=YhQCSDO9N=aokXiSiMUWwD3aMSv2YaZJ4g@mail.gmail.com>
+	<52F34D41.8000704@lab.ntt.co.jp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev <netdev@vger.kernel.org>
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f50.google.com ([74.125.83.50]:61932 "EHLO
-	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753742AbaBFWPa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 17:15:30 -0500
-Received: by mail-ee0-f50.google.com with SMTP id d17so1174457eek.23
-        for <netdev@vger.kernel.org>; Thu, 06 Feb 2014 14:15:28 -0800 (PST)
-In-Reply-To: <1391724904-30504-1-git-send-email-christoph.paasch@uclouvain.be>
+Received: from mail-la0-f53.google.com ([209.85.215.53]:63825 "EHLO
+	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752378AbaBFWSQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 17:18:16 -0500
+Received: by mail-la0-f53.google.com with SMTP id e16so1970267lan.40
+        for <netdev@vger.kernel.org>; Thu, 06 Feb 2014 14:18:15 -0800 (PST)
+In-Reply-To: <52F34D41.8000704@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch allows adding the source-IP attribute to the netlink-command.
+On Thu, Feb 6, 2014 at 12:52 AM, Toshiaki Makita
+<makita.toshiaki@lab.ntt.co.jp> wrote:
+> (2014/02/06 15:49), Cong Wang wrote:
+>> On Wed, Feb 5, 2014 at 9:44 PM, Toshiaki Makita
+>> <makita.toshiaki@lab.ntt.co.jp> wrote:
+>>> Tested this patch with latest net-tree and netconsole works with it.
+>>> But I thinks it is better to move that "if" to br_add_if() because if we
+>>> don't have npinfo, we don't have to alloc p->np in br_add_if(), right?
+>>>
+>>
+>> Hmm, we shouldn't handle netpoll-specific code inside br_add_if(),
+>> we probably need the attached patch instead. Please give it
+>> a try, or I will test it tomorrow, it's too late here.
+>>
+>
+> I tested whether netconsole works and whether it can be built
+> with/without CONFIG_NET_POLL_CONTROLLER, and couldn't find any problem.
+> This looks good to me.
+>
 
-Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
----
- ip/tcp_metrics.c | 87 ++++++++++++++++++++++++++++++++++++++++----------------
- 1 file changed, 62 insertions(+), 25 deletions(-)
+Excellent! I will send it formally.
 
-diff --git a/ip/tcp_metrics.c b/ip/tcp_metrics.c
-index a7215c86379f..e0f03449e94b 100644
---- a/ip/tcp_metrics.c
-+++ b/ip/tcp_metrics.c
-@@ -75,6 +75,7 @@ static struct
- 	int flushe;
- 	int cmd;
- 	inet_prefix daddr;
-+	inet_prefix saddr;
- } f;
- 
- static int flush_update(void)
-@@ -157,6 +158,12 @@ static int process_msg(const struct sockaddr_nl *who, struct nlmsghdr *n,
- 
- 	if (f.daddr.family && f.daddr.bitlen >= 0 &&
- 	    inet_addr_match(&daddr, &f.daddr, f.daddr.bitlen))
-+	       return 0;
-+	/* Only check for the source-address if the kernel supports it,
-+	 * meaning slen != 0.
-+	 */
-+	if (slen && f.saddr.family && f.saddr.bitlen >= 0 &&
-+	    inet_addr_match(&saddr, &f.saddr, f.saddr.bitlen))
- 		return 0;
- 
- 	if (f.flushb) {
-@@ -165,6 +172,9 @@ static int process_msg(const struct sockaddr_nl *who, struct nlmsghdr *n,
- 
- 		addattr_l(&req2.n, sizeof(req2), atype, &daddr.data,
- 			  daddr.bytelen);
-+		if (slen)
-+			addattr_l(&req2.n, sizeof(req2), stype, &saddr.data,
-+				  saddr.bytelen);
- 
- 		if (NLMSG_ALIGN(f.flushp) + req2.n.nlmsg_len > f.flushe) {
- 			if (flush_update())
-@@ -283,12 +293,14 @@ static int process_msg(const struct sockaddr_nl *who, struct nlmsghdr *n,
- static int tcpm_do_cmd(int cmd, int argc, char **argv)
- {
- 	TCPM_REQUEST(req, 1024, TCP_METRICS_CMD_GET, NLM_F_REQUEST);
--	int atype = -1;
-+	int atype = -1, stype = -1;
- 	int ack;
- 
- 	memset(&f, 0, sizeof(f));
- 	f.daddr.bitlen = -1;
- 	f.daddr.family = preferred_family;
-+	f.saddr.bitlen = -1;
-+	f.saddr.family = preferred_family;
- 
- 	switch (preferred_family) {
- 	case AF_UNSPEC:
-@@ -301,31 +313,53 @@ static int tcpm_do_cmd(int cmd, int argc, char **argv)
- 	}
- 
- 	for (; argc > 0; argc--, argv++) {
--		char *who = "address";
--
--		if (strcmp(*argv, "addr") == 0 ||
--		    strcmp(*argv, "address") == 0) {
--			who = *argv;
-+		if (strcmp(*argv, "src") == 0 ||
-+		    strcmp(*argv, "source") == 0) {
-+			char *who = *argv;
- 			NEXT_ARG();
--		}
--		if (matches(*argv, "help") == 0)
--			usage();
--		if (f.daddr.bitlen >= 0)
--			duparg2(who, *argv);
--
--		get_prefix(&f.daddr, *argv, preferred_family);
--		if (f.daddr.bytelen && f.daddr.bytelen * 8 == f.daddr.bitlen) {
--			if (f.daddr.family == AF_INET)
--				atype = TCP_METRICS_ATTR_ADDR_IPV4;
--			else if (f.daddr.family == AF_INET6)
--				atype = TCP_METRICS_ATTR_ADDR_IPV6;
--		}
--		if ((CMD_DEL & cmd) && atype < 0) {
--			fprintf(stderr, "Error: a specific IP address is expected rather than \"%s\"\n",
--				*argv);
--			return -1;
--		}
-+			if (matches(*argv, "help") == 0)
-+				usage();
-+			if (f.saddr.bitlen >= 0)
-+				duparg2(who, *argv);
-+
-+			get_prefix(&f.saddr, *argv, preferred_family);
-+			if (f.saddr.bytelen && f.saddr.bytelen * 8 == f.saddr.bitlen) {
-+				if (f.saddr.family == AF_INET)
-+					stype = TCP_METRICS_ATTR_SADDR_IPV4;
-+				else if (f.saddr.family == AF_INET6)
-+					stype = TCP_METRICS_ATTR_SADDR_IPV6;
-+			}
- 
-+			if (stype < 0) {
-+				fprintf(stderr, "Error: a specific IP address is expected rather than \"%s\"\n",
-+					*argv);
-+				return -1;
-+			}
-+		} else {
-+			char *who = "address";
-+			if (strcmp(*argv, "addr") == 0 ||
-+			    strcmp(*argv, "address") == 0) {
-+				who = *argv;
-+				NEXT_ARG();
-+			}
-+			if (matches(*argv, "help") == 0)
-+				usage();
-+			if (f.daddr.bitlen >= 0)
-+				duparg2(who, *argv);
-+
-+			get_prefix(&f.daddr, *argv, preferred_family);
-+			if (f.daddr.bytelen && f.daddr.bytelen * 8 == f.daddr.bitlen) {
-+				if (f.daddr.family == AF_INET)
-+					atype = TCP_METRICS_ATTR_ADDR_IPV4;
-+				else if (f.daddr.family == AF_INET6)
-+					atype = TCP_METRICS_ATTR_ADDR_IPV6;
-+			}
-+			if ((CMD_DEL & cmd) && atype < 0) {
-+				fprintf(stderr, "Error: a specific IP address is expected rather than \"%s\"\n",
-+					*argv);
-+				return -1;
-+			}
-+		}
- 		argc--; argv++;
- 	}
- 
-@@ -338,7 +372,7 @@ static int tcpm_do_cmd(int cmd, int argc, char **argv)
- 
- 	/* flush for all addresses ? Single del without address */
- 	if (cmd == CMD_FLUSH && f.daddr.bitlen <= 0 &&
--	    preferred_family == AF_UNSPEC) {
-+	    f.saddr.bitlen <= 0 && preferred_family == AF_UNSPEC) {
- 		cmd = CMD_DEL;
- 		req.g.cmd = TCP_METRICS_CMD_DEL;
- 		ack = 1;
-@@ -367,6 +401,9 @@ static int tcpm_do_cmd(int cmd, int argc, char **argv)
- 		if (atype >= 0)
- 			addattr_l(&req.n, sizeof(req), atype, &f.daddr.data,
- 				  f.daddr.bytelen);
-+		if (stype >= 0)
-+			addattr_l(&req.n, sizeof(req), stype, &f.saddr.data,
-+				  f.saddr.bytelen);
- 	} else {
- 		req.n.nlmsg_flags |= NLM_F_DUMP;
- 	}
--- 
-1.8.3.2
+Thanks for testing!
