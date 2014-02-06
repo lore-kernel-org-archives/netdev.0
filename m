@@ -1,82 +1,96 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: use __GFP_NORETRY for high order allocations
-Date: Thu, 06 Feb 2014 10:42:42 -0800
-Message-ID: <1391712162.10160.8.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Dan Williams <dan.j.williams@intel.com>
+Subject: Re: 3.14-mw regression: rtl8169 WARNING: DMA-API: exceeded 7
+ overlapping mappings of pfn 55ebe
+Date: Thu, 6 Feb 2014 11:12:15 -0800
+Message-ID: <CAPcyv4j44ZHmaqUBj3rXv-C7Hr72Z15g=2nFBD=1iYLnhSQQ4g@mail.gmail.com>
+References: <1859471893.20140126115521@eikelenboom.it>
+	<20140127000305.GA14236@electric-eye.fr.zoreil.com>
+	<CAA9_cme2hgJ=jCDkPh5n5RP8fiJE-dVwbFr-apKv1=mNGPHYZg@mail.gmail.com>
+	<84816226.20140206123631@eikelenboom.it>
+	<942972114.20140206140909@eikelenboom.it>
+	<CAPcyv4g2EnCLFWfLfSDnjtwrid2tCq2k6wh-8sPYY06eJpM83A@mail.gmail.com>
+	<932118392.20140206152722@eikelenboom.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	David Rientjes <rientjes@google.com>,
+Content-Type: multipart/mixed; boundary=047d7bd6bb56c944d104f1c1a648
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Sander Eikelenboom <linux@eikelenboom.it>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ve0-f177.google.com ([209.85.128.177]:61282 "EHLO
+	mail-ve0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750739AbaBFTMR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 14:12:17 -0500
+Received: by mail-ve0-f177.google.com with SMTP id jz11so1838533veb.8
+        for <netdev@vger.kernel.org>; Thu, 06 Feb 2014 11:12:16 -0800 (PST)
+In-Reply-To: <932118392.20140206152722@eikelenboom.it>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+--047d7bd6bb56c944d104f1c1a648
+Content-Type: text/plain; charset=ISO-8859-1
 
-sock_alloc_send_pskb() & sk_page_frag_refill()
-have a loop trying high order allocations to prepare
-skb with low number of fragments as this increases performance.
+On Thu, Feb 6, 2014 at 6:27 AM, Sander Eikelenboom <linux@eikelenboom.it> wrote:
+>>>> Not using it seems to prevent the warning, but before 3.14 i have never seen this (with r8169.use_dac=1)
+>
+>> If you are still hitting this with the patch:
+>
+>>   59f2e7df574c dma-debug: fix overlap detection
+>
+>> ...then I'm more inclined to think it is an actual positive report.
+>
+>> If you don't mind I'll send some debug patches to narrow this down.
+>
+> Please do .. sounds better than bisecting :-)
+>
 
-Problem is that under memory pressure/fragmentation, this can
-trigger OOM while the intent was only to try the high order
-allocations, then fallback to order-0 allocations.
+Hi, attached is a patch that should give some insight whether the
+driver is triggering many overlapping mappings.  Try it on top of
+3.14-rc1.
 
-We had various reports from unexpected regressions.
+Thank you for the debug help!
 
-According to David, setting __GFP_NORETRY should be fine,
-as the asynchronous compaction is still enabled, and this
-will prevent OOM from kicking as in :
+--047d7bd6bb56c944d104f1c1a648
+Content-Type: application/octet-stream; name=debug-overlap
+Content-Disposition: attachment; filename=debug-overlap
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_hrcefdvf0
 
-CFSClientEventm invoked oom-killer: gfp_mask=0x42d0, order=3, oom_adj=0,
-oom_score_adj=0, oom_score_badness=2 (enabled),memcg_scoring=disabled
-CFSClientEventm 
-
-Call Trace:
- [<ffffffff8043766c>] dump_header+0xe1/0x23e
- [<ffffffff80437a02>] oom_kill_process+0x6a/0x323
- [<ffffffff80438443>] out_of_memory+0x4b3/0x50d
- [<ffffffff8043a4a6>] __alloc_pages_may_oom+0xa2/0xc7
- [<ffffffff80236f42>] __alloc_pages_nodemask+0x1002/0x17f0
- [<ffffffff8024bd23>] alloc_pages_current+0x103/0x2b0
- [<ffffffff8028567f>] sk_page_frag_refill+0x8f/0x160
- [<ffffffff80295fa0>] tcp_sendmsg+0x560/0xee0
- [<ffffffff802a5037>] inet_sendmsg+0x67/0x100
- [<ffffffff80283c9c>] __sock_sendmsg_nosec+0x6c/0x90
- [<ffffffff80283e85>] sock_sendmsg+0xc5/0xf0
- [<ffffffff802847b6>] __sys_sendmsg+0x136/0x430
- [<ffffffff80284ec8>] sys_sendmsg+0x88/0x110
- [<ffffffff80711472>] system_call_fastpath+0x16/0x1b
-Out of Memory: Kill process 2856 (bash) score 9999 or sacrifice child
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Acked-by: David Rientjes <rientjes@google.com>
----
- net/core/sock.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 0c127dcdf6a8..5b6a9431b017 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1775,7 +1775,9 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
- 			while (order) {
- 				if (npages >= 1 << order) {
- 					page = alloc_pages(sk->sk_allocation |
--							   __GFP_COMP | __GFP_NOWARN,
-+							   __GFP_COMP |
-+							   __GFP_NOWARN |
-+							   __GFP_NORETRY,
- 							   order);
- 					if (page)
- 						goto fill_page;
-@@ -1845,7 +1847,7 @@ bool skb_page_frag_refill(unsigned int sz, struct page_frag *pfrag, gfp_t prio)
- 		gfp_t gfp = prio;
- 
- 		if (order)
--			gfp |= __GFP_COMP | __GFP_NOWARN;
-+			gfp |= __GFP_COMP | __GFP_NOWARN | __GFP_NORETRY;
- 		pfrag->page = alloc_pages(gfp, order);
- 		if (likely(pfrag->page)) {
- 			pfrag->offset = 0;
+ZGVidWcgb3ZlcmxhcCBvdmVyZmxvdwoKRnJvbTogRGFuIFdpbGxpYW1zIDxkYW4uai53aWxsaWFt
+c0BpbnRlbC5jb20+CgoKLS0tCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9yZWFsdGVrL3I4MTY5LmMg
+fCAgICA2ICsrKysrKwogbGliL2RtYS1kZWJ1Zy5jICAgICAgICAgICAgICAgICAgICAgIHwgICAg
+NyArKysrLS0tCiAyIGZpbGVzIGNoYW5nZWQsIDEwIGluc2VydGlvbnMoKyksIDMgZGVsZXRpb25z
+KC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVhbHRlay9yODE2OS5jIGIv
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVhbHRlay9yODE2OS5jCmluZGV4IDkxYTY3YWU4ZjE3Yi4u
+M2JiMmMxZTAwMGJlIDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9yZWFsdGVrL3I4
+MTY5LmMKKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVhbHRlay9yODE2OS5jCkBAIC01ODA5
+LDYgKzU4MDksOSBAQCBzdGF0aWMgdm9pZCBydGw4MTY5X3VubWFwX3R4X3NrYihzdHJ1Y3QgZGV2
+aWNlICpkLCBzdHJ1Y3QgcmluZ19pbmZvICp0eF9za2IsCiB7CiAJdW5zaWduZWQgaW50IGxlbiA9
+IHR4X3NrYi0+bGVuOwogCisJdHJhY2VfcHJpbnRrKCIlcyAlczogdW5tYXAgYWRkcjogJSNsbHgg
+bGVuOiAldVxuIiwKKwkJICAgICBkZXZfZHJpdmVyX3N0cmluZyhkKSwgZGV2X25hbWUoZCksCisJ
+CSAgICAgKHVuc2lnbmVkIGxvbmcgbG9uZykgbGU2NF90b19jcHUoZGVzYy0+YWRkciksIGxlbik7
+CiAJZG1hX3VubWFwX3NpbmdsZShkLCBsZTY0X3RvX2NwdShkZXNjLT5hZGRyKSwgbGVuLCBETUFf
+VE9fREVWSUNFKTsKIAogCWRlc2MtPm9wdHMxID0gMHgwMDsKQEAgLTU5OTksNiArNjAwMiw5IEBA
+IHN0YXRpYyBuZXRkZXZfdHhfdCBydGw4MTY5X3N0YXJ0X3htaXQoc3RydWN0IHNrX2J1ZmYgKnNr
+YiwKIAogCWxlbiA9IHNrYl9oZWFkbGVuKHNrYik7CiAJbWFwcGluZyA9IGRtYV9tYXBfc2luZ2xl
+KGQsIHNrYi0+ZGF0YSwgbGVuLCBETUFfVE9fREVWSUNFKTsKKwl0cmFjZV9wcmludGsoIiVzICVz
+OiBtYXAgYWRkcjogJXAgZG1hOiAlI2xseCBsZW46ICVkXG4iLAorCQkgICAgIGRldl9kcml2ZXJf
+c3RyaW5nKGQpLCBkZXZfbmFtZShkKSwKKwkJICAgICBza2ItPmRhdGEsICh1bnNpZ25lZCBsb25n
+IGxvbmcpIG1hcHBpbmcsIGxlbik7CiAJaWYgKHVubGlrZWx5KGRtYV9tYXBwaW5nX2Vycm9yKGQs
+IG1hcHBpbmcpKSkgewogCQlpZiAobmV0X3JhdGVsaW1pdCgpKQogCQkJbmV0aWZfZXJyKHRwLCBk
+cnYsIGRldiwgIkZhaWxlZCB0byBtYXAgVFggRE1BIVxuIik7CmRpZmYgLS1naXQgYS9saWIvZG1h
+LWRlYnVnLmMgYi9saWIvZG1hLWRlYnVnLmMKaW5kZXggMmRlZmQxMzA4YjA0Li43YjIyYzhmNTky
+OGUgMTAwNjQ0Ci0tLSBhL2xpYi9kbWEtZGVidWcuYworKysgYi9saWIvZG1hLWRlYnVnLmMKQEAg
+LTQ4Niw5ICs0ODYsMTAgQEAgc3RhdGljIHZvaWQgYWN0aXZlX3Bmbl9pbmNfb3ZlcmxhcCh1bnNp
+Z25lZCBsb25nIHBmbikKIAkgKiBkZWJ1Z19kbWFfYXNzZXJ0X2lkbGUoKSBhcyB0aGUgcGZuIG1h
+eSBiZSBtYXJrZWQgaWRsZQogCSAqIHByZW1hdHVyZWx5LgogCSAqLwotCVdBUk5fT05DRShvdmVy
+bGFwID4gQUNUSVZFX1BGTl9NQVhfT1ZFUkxBUCwKLQkJICAiRE1BLUFQSTogZXhjZWVkZWQgJWQg
+b3ZlcmxhcHBpbmcgbWFwcGluZ3Mgb2YgcGZuICVseFxuIiwKLQkJICBBQ1RJVkVfUEZOX01BWF9P
+VkVSTEFQLCBwZm4pOworCWlmIChXQVJOX09OQ0Uob3ZlcmxhcCA+IEFDVElWRV9QRk5fTUFYX09W
+RVJMQVAsCisJCSAgICAgICJETUEtQVBJOiBleGNlZWRlZCAlZCBvdmVybGFwcGluZyBtYXBwaW5n
+cyBvZiBwZm4gJWx4XG4iLAorCQkgICAgICBBQ1RJVkVfUEZOX01BWF9PVkVSTEFQLCBwZm4pKQor
+CQlmdHJhY2VfZHVtcChEVU1QX0FMTCk7CiB9CiAKIHN0YXRpYyBpbnQgYWN0aXZlX3Bmbl9kZWNf
+b3ZlcmxhcCh1bnNpZ25lZCBsb25nIHBmbikK
+--047d7bd6bb56c944d104f1c1a648--
