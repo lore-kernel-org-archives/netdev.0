@@ -1,84 +1,78 @@
-From: Emil Goode <emilgoode@gmail.com>
-Subject: Re: [PATCH] net: asix: fix bad header length bug
-Date: Thu, 6 Feb 2014 23:41:21 +0100
-Message-ID: <20140206224121.GB5251@lianli>
-References: <1391691384-8486-1-git-send-email-emilgoode@gmail.com>
- <1391692768.2843.4.camel@X1Carbon.localdomain>
- <063D6719AE5E284EB5DD2968C1650D6D0F6B99F7@AcuExch.aculab.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [RFC PATCH] udp4: Don't take socket reference in receive path
+Date: Thu, 6 Feb 2014 14:40:17 -0800
+Message-ID: <CA+mtBx9Zovogvnc0_J2Xrf-B+yjxV4Of-24SDLNTt5WGsL5Qhw@mail.gmail.com>
+References: <alpine.DEB.2.02.1402061154580.17707@tomh.mtv.corp.google.com>
+	<1391720338.10160.12.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: 'Igor Gnatenko' <i.gnatenko.brain@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ming Lei <ming.lei@canonical.com>,
-	Mark Brown <broonie@linaro.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Glen Turner <gdt@gdt.id.au>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:50404 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751297AbaBFWjP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 17:39:15 -0500
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6B99F7@AcuExch.aculab.com>
+Received: from mail-vb0-f47.google.com ([209.85.212.47]:63190 "EHLO
+	mail-vb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757038AbaBFWkS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 17:40:18 -0500
+Received: by mail-vb0-f47.google.com with SMTP id p6so1956027vbe.20
+        for <netdev@vger.kernel.org>; Thu, 06 Feb 2014 14:40:18 -0800 (PST)
+In-Reply-To: <1391720338.10160.12.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 06, 2014 at 03:28:13PM +0000, David Laight wrote:
-> From: Igor Gnatenko
-> > On Thu, 2014-02-06 at 13:56 +0100, Emil Goode wrote:
-> > > The AX88772B occasionally send rx packets that cross urb boundaries
-> > > and the remaining partial packet is sent with no header.
-> > > When the buffer with a partial packet is of less number of octets
-> > > than the value of hard_header_len the buffer is discarded by the
-> > > usbnet module. This is causing dropped packages and error messages
-> > > in dmesg.
-> > >
-> > > This can be reproduced by using ping with a packet size
-> > > between 1965-1976.
-> > >
-> > > The bug has been reported here:
-> > >
-> > > https://bugzilla.kernel.org/show_bug.cgi?id=29082
-> > >
-> > > Signed-off-by: Emil Goode <emilgoode@gmail.com>
-> > Reported-and-tested-by: Igor Gnatenko <i.gnatenko.brain@gmail.com>
-> > > ---
-> > >  drivers/net/usb/asix_devices.c |    1 +
-> > >  1 file changed, 1 insertion(+)
-> > >
-> > > diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devices.c
-> > > index 9765a7d..120bb29 100644
-> > > --- a/drivers/net/usb/asix_devices.c
-> > > +++ b/drivers/net/usb/asix_devices.c
-> > > @@ -455,6 +455,7 @@ static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf)
-> > >  	dev->net->ethtool_ops = &ax88772_ethtool_ops;
-> > >  	dev->net->needed_headroom = 4; /* cf asix_tx_fixup() */
-> > >  	dev->net->needed_tailroom = 4; /* cf asix_tx_fixup() */
-> > > +	dev->net->hard_header_len = 0; /* Partial packets have no header */
-> 
-> That is the wrong place for the fix.
-> 
-> It should only be done when rx_urb_size is set to a multiple of the usb
-> packet size.
-> That is only done for some of the supported devices.
-> 
-> In fact, if the rx_urb_size is a multiple of the usb frame size (or 1k)
-> then maybe the usbnet code should assume that the driver is capable
-> of processing ethernet frames that cross usb packet boundaries and
-> not delete short packets at all - regardless of the hard_header_len.
-> 
-> 	David
+On Thu, Feb 6, 2014 at 12:58 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2014-02-06 at 11:58 -0800, Tom Herbert wrote:
+>> The reference counting in the UDP receive path is quite expensive for
+>> a socket that is share amoungst CPUs. This is probably true for normal
+>> sockets, but really is painful when just using the socket for
+>> receive encapsulation.
+>>
+>> udp4_lib_lookup always takes a socket reference, and we also put back
+>> the reference after calling udp_queue_rcv_skb in the normal receive
+>> path, so the need for taking the reference seems to be to hold the
+>> socket after doing rcu_read_unlock. This patch modifies udp_lib_lookup
+>> to optionally take a reference and is always called with rcu_read_lock.
+>> In udp4_lib_rcv we call lib_lookup and udp_queue_rcv under the
+>> rcu_read_lock but without having taken the reference.
+>>
+>> Requesting comments because I suspect there are nuances to this!
+>>
+>> Signed-off-by: Tom Herbert <therbert@google.com>
+>> ---
 >
+> Unfortunately this cant work.
+>
+> When I did the RCU implementation for TCP/UDP, we chose to use
+> SLAB_DESTROY_BY_RCU.
+>
+> This meant we have to take a reference, then check again the keys for
+> the lookup.
+>
+> If we remove SLAB_DESTROY_BY_RCU, we kill performance for short lived
+> sessions, because of call_rcu() added latencies.
+>
+Thanks for the explanation.
 
-I will do some more digging in the code, but the test of skb->len
-against hard_header_len is done already in the completion callback
-function passed to usb_fill_bulk_urb so it seems that buffers of less
-than hard_header_len number of octets will be dropped regardless.
+> (One UDP socket is about 1024 bytes in memory, call_rcu() grace period
+> is throwing away 1024 bytes from cpu caches)
+>
+> Sure, in your case you know your udp sessions are not short lived,
+> but many applications used UDP for DNS lookups, using few packets per
+> socket.
+>
+The rationale for SLAB_DESTROY_BY_RCU might be different for UDP than
+TCP. For instance, in the DNS example small connected UDP flows are
+more an issue on the client, the server (which is likely to have much
+greater load) should be using unconnected sockets.
 
-Best regards,
+In any case, I am still looking for a way to address this. Like I said
+in the commit log, this per packet cost for UDP processing is far too
+high at least in encapsulation path. I thought about extending
+SO__REUSEPORT to provide CPU affinity but that seems like overkill
+with its own performance implications. Alternatively, we could have
+fast path for the encapsulation using UDP offload model which bypass
+sockets completely which seems unpleasant.
 
-Emil Goode
+>
+>
