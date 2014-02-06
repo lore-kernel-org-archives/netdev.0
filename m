@@ -1,61 +1,109 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH v4 4/5] Documentation: devicetree: sja1000: add reg-io-width binding
-Date: Thu,  6 Feb 2014 12:09:55 +0100
-Message-ID: <1391684996-612-5-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH v4 2/5] can: sja1000: platform: use devm_* APIs
+Date: Thu,  6 Feb 2014 12:09:53 +0100
+Message-ID: <1391684996-612-3-git-send-email-mkl@pengutronix.de>
 References: <1391684996-612-1-git-send-email-mkl@pengutronix.de>
 Cc: netdev@vger.kernel.org,
 	Florian Vaussard <florian.vaussard@epfl.ch>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>, devicetree@vger.kernel.org,
 	Marc Kleine-Budde <mkl@pengutronix.de>
 To: linux-can@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:46265 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756066AbaBFLKE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 06:10:04 -0500
+Return-path: <linux-can-owner@vger.kernel.org>
 In-Reply-To: <1391684996-612-1-git-send-email-mkl@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Florian Vaussard <florian.vaussard@epfl.ch>
 
-Add the reg-io-width property to describe the width of the memory
-accesses.
+Simplify probe and remove functions by converting most of the resources
+to use devm_* APIs.
 
-Cc: Grant Likely <grant.likely@linaro.org>
-Cc: Rob Herring <robh+dt@kernel.org>
-Cc: Pawel Moll <pawel.moll@arm.com>
-Cc: Mark Rutland <mark.rutland@arm.com>
-Cc: Ian Campbell <ijc+devicetree@hellion.org.uk>
-Cc: Kumar Gala <galak@codeaurora.org>
-Cc: devicetree@vger.kernel.org
-Acked-by: Rob Herring <robh@kernel.org>
 Signed-off-by: Florian Vaussard <florian.vaussard@epfl.ch>
 Tested-by: Andreas Larsson <andreas@gaisler.com>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- Documentation/devicetree/bindings/net/can/sja1000.txt | 4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/net/can/sja1000/sja1000_platform.c | 46 ++++++++----------------------
+ 1 file changed, 12 insertions(+), 34 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/can/sja1000.txt b/Documentation/devicetree/bindings/net/can/sja1000.txt
-index f2105a4..b4a6d53 100644
---- a/Documentation/devicetree/bindings/net/can/sja1000.txt
-+++ b/Documentation/devicetree/bindings/net/can/sja1000.txt
-@@ -12,6 +12,10 @@ Required properties:
+diff --git a/drivers/net/can/sja1000/sja1000_platform.c b/drivers/net/can/sja1000/sja1000_platform.c
+index 943df64..50ca273 100644
+--- a/drivers/net/can/sja1000/sja1000_platform.c
++++ b/drivers/net/can/sja1000/sja1000_platform.c
+@@ -78,34 +78,26 @@ static int sp_probe(struct platform_device *pdev)
+ 	pdata = dev_get_platdata(&pdev->dev);
+ 	if (!pdata) {
+ 		dev_err(&pdev->dev, "No platform data provided!\n");
+-		err = -ENODEV;
+-		goto exit;
++		return -ENODEV;
+ 	}
  
- Optional properties:
+ 	res_mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	res_irq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+-	if (!res_mem || !res_irq) {
+-		err = -ENODEV;
+-		goto exit;
+-	}
++	if (!res_mem || !res_irq)
++		return -ENODEV;
  
-+- reg-io-width : Specify the size (in bytes) of the IO accesses that
-+	should be performed on the device.  Valid value is 1, 2 or 4.
-+	Default to 1 (8 bits).
-+
- - nxp,external-clock-frequency : Frequency of the external oscillator
- 	clock in Hz. Note that the internal clock frequency used by the
- 	SJA1000 is half of that value. If not specified, a default value
+-	if (!request_mem_region(res_mem->start, resource_size(res_mem),
+-				DRV_NAME)) {
+-		err = -EBUSY;
+-		goto exit;
+-	}
++	if (!devm_request_mem_region(&pdev->dev, res_mem->start,
++				     resource_size(res_mem), DRV_NAME))
++		return -EBUSY;
+ 
+-	addr = ioremap_nocache(res_mem->start, resource_size(res_mem));
+-	if (!addr) {
+-		err = -ENOMEM;
+-		goto exit_release;
+-	}
++	addr = devm_ioremap_nocache(&pdev->dev, res_mem->start,
++				    resource_size(res_mem));
++	if (!addr)
++		return -ENOMEM;
+ 
+ 	dev = alloc_sja1000dev(0);
+-	if (!dev) {
+-		err = -ENOMEM;
+-		goto exit_iounmap;
+-	}
++	if (!dev)
++		return -ENOMEM;
+ 	priv = netdev_priv(dev);
+ 
+ 	dev->irq = res_irq->start;
+@@ -150,28 +142,14 @@ static int sp_probe(struct platform_device *pdev)
+ 
+  exit_free:
+ 	free_sja1000dev(dev);
+- exit_iounmap:
+-	iounmap(addr);
+- exit_release:
+-	release_mem_region(res_mem->start, resource_size(res_mem));
+- exit:
+ 	return err;
+ }
+ 
+ static int sp_remove(struct platform_device *pdev)
+ {
+ 	struct net_device *dev = platform_get_drvdata(pdev);
+-	struct sja1000_priv *priv = netdev_priv(dev);
+-	struct resource *res;
+ 
+ 	unregister_sja1000dev(dev);
+-
+-	if (priv->reg_base)
+-		iounmap(priv->reg_base);
+-
+-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+-	release_mem_region(res->start, resource_size(res));
+-
+ 	free_sja1000dev(dev);
+ 
+ 	return 0;
 -- 
 1.8.5.3
+
