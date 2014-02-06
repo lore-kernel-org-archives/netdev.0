@@ -1,7 +1,8 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [RFC PATCH v2 tip 0/7] 64-bit BPF insn set and tracing filters
-Date: Wed,  5 Feb 2014 17:10:39 -0800
-Message-ID: <1391649046-4383-1-git-send-email-ast@plumgrid.com>
+Subject: [RFC PATCH v2 tip 1/7] Extended BPF core framework
+Date: Wed,  5 Feb 2014 17:10:40 -0800
+Message-ID: <1391649046-4383-2-git-send-email-ast@plumgrid.com>
+References: <1391649046-4383-1-git-send-email-ast@plumgrid.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Steven Rostedt <rostedt@goodmis.org>,
 	Peter Zijlstra <a.p.zijlstra@chello.nl>,
@@ -21,349 +22,1955 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: Ingo Molnar <mingo@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1391649046-4383-1-git-send-email-ast@plumgrid.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi All,
+Extended BPF (or 64-bit BPF) is an instruction set to
+create safe dynamically loadable filters that can call fixed set
+of kernel functions and take generic bpf_context as an input.
+BPF filter is a glue between kernel functions and bpf_context.
+Different kernel subsystems can define their own set of available functions
+and alter BPF machinery for specific use case.
 
-this patch set addresses main sticking points of the previous discussion:
-http://thread.gmane.org/gmane.linux.kernel/1605783
+include/linux/bpf.h - instruction set definition
+kernel/bpf_jit/bpf_check.c - code safety checker/static analyzer
+kernel/bpf_jit/bpf_run.c - emulator for archs without BPF64_JIT
 
-Main difference:
-. all components are now in one place
-  tools/bpf/llvm - standalone LLVM backend for extended BPF instruction set
+Extended BPF instruction set is designed for efficient mapping to native
+instructions on 64-bit CPUs
 
-. regs.si, regs.di accessors are replaced with arg1, arg2
-
-. compiler enforces presence of 'license' string in source C code
-  kernel enforces GPL compatibility of BPF program
-
-Why bother with it?
-Current 32-bit BPF is safe, but limited.
-kernel modules are 'all-goes', but not-safe.
-Extended 64-bit BPF provides safe and restricted kernel modules.
-
-Just like the first two, extended BPF can be used for all sorts of things.
-Initially for tracing/debugging/[ks]tap-like without vmlinux around,
-then for networking, security, etc
-
-To make exising kernel modules safe the x86 disassembler and code analyzer
-are needed. We've tried to follow that path. Disassembler was straight forward,
-but x86 analyzer was becoming unbearably complex due to variety of addressing
-modes, so we started to hack GCC to reduce output x86 insns and facing
-the headache of redoing disasm/analyzer for arm and other arhcs.
-Plus there is old 32-bit bpf insn set already.
-On one side extended BPF is a 64-bit extension to current BPF.
-On the other side it's a common subset of x86-64/aarch64/... ISAs:
-a generic 64-bit insn set that can be JITed to native HW one to one.
-
-Tested on x86-64 and i386.
-BPF core was tested on arm-v7.
-
-V2 vs V1 details:
-0001-Extended-BPF-core-framework:
-  no difference to instruction set
-  new bpf image format to include license string and enforcement during load
-
-0002-Extended-BPF-JIT-for-x86-64: no changes
-
-0003-Extended-BPF-64-bit-BPF-design-document: no changes
-
-0004-Revert-x86-ptrace-Remove-unused-regs_get_argument:
-  restoring Masami's get_Nth_argument accessor to simplify kprobe filters
-
-0005-use-BPF-in-tracing-filters: minor changes to switch from si/di to argN
-
-0006-LLVM-BPF-backend: standalone BPF backend for LLVM
-  requires: apt-get install llvm-3.2-dev clang
-  compiles in 7 seconds, links with the rest of llvm infra
-  compatible with llvm 3.2, 3.3 and just released 3.4
-  Written in llvm coding style and llvm license, so it can be
-  upstreamed into llvm tree
-
-0007-tracing-filter-examples-in-BPF:
-  tools/bpf/filter_check: userspace pre-checker of BPF filter
-  runs the same bpf_check() code as kernel does
-
-  tools/bpf/examples/netif_rcv.c:
------
-#define DESC(NAME) __attribute__((section(NAME), used))
-void my_filter(struct bpf_context *ctx)
-{
-        char devname[4] = "lo";
-        struct net_device *dev;
-        struct sk_buff *skb = 0;
-
-        /*
-         * for tracepoints arg1 is the 1st arg of TP_ARGS() macro
-         * defined in include/trace/events/.h
-         * for kprobe events arg1 is the 1st arg of probed function
-         */
-        skb = (struct sk_buff *)ctx->arg1;
-
-        dev = bpf_load_pointer(&skb->dev);
-        if (bpf_memcmp(dev->name, devname, 2) == 0) {
-                char fmt[] = "skb %p dev %p \n";
-                bpf_trace_printk(fmt, sizeof(fmt), (long)skb, (long)dev, 0);
-        }
-}
-/* filter code license: */
-char license[] DESC("license") = "GPL";
------
-
-$cd tools/bpf/examples
-$make
-  compile it using clang+llvm_bpf
-$make check
-  check safety
-$make try
-  attach this filter to net:netif_receive_skb and kprobe __netif_receive_skb
-  and try ping
-
-dropmon.c is a demo of faster version of net_dropmonitor:
------
-/* attaches to /sys/kernel/debug/tracing/events/skb/kfree_skb */
-void dropmon(struct bpf_context *ctx)
-{
-        void *loc;
-        uint64_t *drop_cnt;
-
-        /*
-         * skb:kfree_skb is defined as:
-         * TRACE_EVENT(kfree_skb,
-         *         TP_PROTO(struct sk_buff *skb, void *location),
-         * so ctx->arg2 is 'location'
-         */
-        loc = (void *)ctx->arg2;
-
-        drop_cnt = bpf_table_lookup(ctx, 0, &loc);
-        if (drop_cnt) {
-                __sync_fetch_and_add(drop_cnt, 1);
-        } else {
-                uint64_t init = 0;
-                bpf_table_update(ctx, 0, &loc, &init);
-        }
-}
-struct bpf_table t[] DESC("bpftables") = {
-        {BPF_TABLE_HASH, sizeof(void *), sizeof(uint64_t), 4096, 0}
-};
-/* filter code license: */
-char l[] DESC("license") = "GPL v2";
------
-It's not fully functional yet. Minimal work remaining to implement
-bpf_table_lookup()/bpf_table_update() in kernel
-and userspace access to filter's table.
-
-This example demonstrates that some interesting events don't have to be
-always fed into userspace, but can be pre-processed in kernel.
-tools/perf/scripts/python/net_dropmonitor.py would need to read bpf table
-from kernel (via debugfs or netlink) and print it in a nice format.
-
-Same as in V1 BPF filters are called before tracepoints store the TP_STRUCT
-fields, since performance advantage is significant.
-
-TODO:
-
-- complete 'dropmonitor': finish bpf hashtable and userspace access to it
-
-- add multi-probe support, so that one C program can specify multiple
-  functions for different probe points (similar to [ks]tap)
-
-- add 'lsmod' like facility to list all loaded BPF filters
-
-- add -m32 flag to llvm, so that C pointers are 32-bit,
-  but emitted BPF is still 64-bit.
-  Useful for kernel struct walking in BPF program on 32-bit archs
-
-- finish testing on arm
-
-- teach llvm to store line numbers in BPF image, so that bpf_check()
-  can print nice errors when program is not safe
-
-- allow read-only "strings" in C code
-  today analyzer can only verify safety of: char s[] = "string"; bpf_print(s);
-  but bpf_print("string"); cannot be proven yet
-
-- write JIT from BPF to aarch64
-
-- refactor openvswitch + BPF proposal
-
-If direction is ok, I would like to commit this part to a branch of tip tree
-or staging tree and continue working there.
-Future deltas will be easier to review.
-
-Thanks
-
-Alexei Starovoitov (7):
-  Extended BPF core framework
-  Extended BPF JIT for x86-64
-  Extended BPF (64-bit BPF) design document
-  Revert "x86/ptrace: Remove unused regs_get_argument_nth API"
-  use BPF in tracing filters
-  LLVM BPF backend
-  tracing filter examples in BPF
-
- Documentation/bpf_jit.txt                          |  204 ++++
- arch/x86/Kconfig                                   |    1 +
- arch/x86/include/asm/ptrace.h                      |    3 +
- arch/x86/kernel/ptrace.c                           |   24 +
- arch/x86/net/Makefile                              |    1 +
- arch/x86/net/bpf64_jit_comp.c                      |  625 ++++++++++++
- arch/x86/net/bpf_jit_comp.c                        |   23 +-
- arch/x86/net/bpf_jit_comp.h                        |   35 +
- include/linux/bpf.h                                |  149 +++
- include/linux/bpf_jit.h                            |  134 +++
- include/linux/ftrace_event.h                       |    5 +
- include/trace/bpf_trace.h                          |   41 +
- include/trace/ftrace.h                             |   17 +
- kernel/Makefile                                    |    1 +
- kernel/bpf_jit/Makefile                            |    3 +
- kernel/bpf_jit/bpf_check.c                         | 1054 ++++++++++++++++++++
- kernel/bpf_jit/bpf_run.c                           |  511 ++++++++++
- kernel/trace/Kconfig                               |    1 +
- kernel/trace/Makefile                              |    1 +
- kernel/trace/bpf_trace_callbacks.c                 |  193 ++++
- kernel/trace/trace.c                               |    7 +
- kernel/trace/trace.h                               |   11 +-
- kernel/trace/trace_events.c                        |    9 +-
- kernel/trace/trace_events_filter.c                 |   61 +-
- kernel/trace/trace_kprobe.c                        |   15 +-
- lib/Kconfig.debug                                  |   15 +
- tools/bpf/examples/Makefile                        |   71 ++
- tools/bpf/examples/README.txt                      |   59 ++
- tools/bpf/examples/dropmon.c                       |   40 +
- tools/bpf/examples/netif_rcv.c                     |   34 +
- tools/bpf/filter_check/Makefile                    |   32 +
- tools/bpf/filter_check/README.txt                  |    3 +
- tools/bpf/filter_check/trace_filter_check.c        |  115 +++
- tools/bpf/llvm/LICENSE.TXT                         |   70 ++
- tools/bpf/llvm/Makefile.rules                      |  641 ++++++++++++
- tools/bpf/llvm/README.txt                          |   23 +
- tools/bpf/llvm/bld/.gitignore                      |    2 +
- tools/bpf/llvm/bld/Makefile                        |   27 +
- tools/bpf/llvm/bld/Makefile.common                 |   14 +
- tools/bpf/llvm/bld/Makefile.config                 |  124 +++
- .../llvm/bld/include/llvm/Config/AsmParsers.def    |    8 +
- .../llvm/bld/include/llvm/Config/AsmPrinters.def   |    9 +
- .../llvm/bld/include/llvm/Config/Disassemblers.def |    8 +
- tools/bpf/llvm/bld/include/llvm/Config/Targets.def |    9 +
- .../bpf/llvm/bld/include/llvm/Support/DataTypes.h  |   96 ++
- tools/bpf/llvm/bld/lib/Makefile                    |   11 +
- .../llvm/bld/lib/Target/BPF/InstPrinter/Makefile   |   10 +
- .../llvm/bld/lib/Target/BPF/MCTargetDesc/Makefile  |   11 +
- tools/bpf/llvm/bld/lib/Target/BPF/Makefile         |   17 +
- .../llvm/bld/lib/Target/BPF/TargetInfo/Makefile    |   10 +
- tools/bpf/llvm/bld/lib/Target/Makefile             |   11 +
- tools/bpf/llvm/bld/tools/Makefile                  |   12 +
- tools/bpf/llvm/bld/tools/llc/Makefile              |   15 +
- tools/bpf/llvm/lib/Target/BPF/BPF.h                |   30 +
- tools/bpf/llvm/lib/Target/BPF/BPF.td               |   29 +
- tools/bpf/llvm/lib/Target/BPF/BPFAsmPrinter.cpp    |  100 ++
- tools/bpf/llvm/lib/Target/BPF/BPFCFGFixup.cpp      |   62 ++
- tools/bpf/llvm/lib/Target/BPF/BPFCallingConv.td    |   24 +
- tools/bpf/llvm/lib/Target/BPF/BPFFrameLowering.cpp |   36 +
- tools/bpf/llvm/lib/Target/BPF/BPFFrameLowering.h   |   35 +
- tools/bpf/llvm/lib/Target/BPF/BPFISelDAGToDAG.cpp  |  182 ++++
- tools/bpf/llvm/lib/Target/BPF/BPFISelLowering.cpp  |  676 +++++++++++++
- tools/bpf/llvm/lib/Target/BPF/BPFISelLowering.h    |  105 ++
- tools/bpf/llvm/lib/Target/BPF/BPFInstrFormats.td   |   29 +
- tools/bpf/llvm/lib/Target/BPF/BPFInstrInfo.cpp     |  162 +++
- tools/bpf/llvm/lib/Target/BPF/BPFInstrInfo.h       |   53 +
- tools/bpf/llvm/lib/Target/BPF/BPFInstrInfo.td      |  455 +++++++++
- tools/bpf/llvm/lib/Target/BPF/BPFMCInstLower.cpp   |   77 ++
- tools/bpf/llvm/lib/Target/BPF/BPFMCInstLower.h     |   40 +
- tools/bpf/llvm/lib/Target/BPF/BPFRegisterInfo.cpp  |  122 +++
- tools/bpf/llvm/lib/Target/BPF/BPFRegisterInfo.h    |   65 ++
- tools/bpf/llvm/lib/Target/BPF/BPFRegisterInfo.td   |   39 +
- tools/bpf/llvm/lib/Target/BPF/BPFSubtarget.cpp     |   23 +
- tools/bpf/llvm/lib/Target/BPF/BPFSubtarget.h       |   33 +
- tools/bpf/llvm/lib/Target/BPF/BPFTargetMachine.cpp |   72 ++
- tools/bpf/llvm/lib/Target/BPF/BPFTargetMachine.h   |   69 ++
- .../lib/Target/BPF/InstPrinter/BPFInstPrinter.cpp  |   79 ++
- .../lib/Target/BPF/InstPrinter/BPFInstPrinter.h    |   34 +
- .../lib/Target/BPF/MCTargetDesc/BPFAsmBackend.cpp  |   85 ++
- .../llvm/lib/Target/BPF/MCTargetDesc/BPFBaseInfo.h |   33 +
- .../Target/BPF/MCTargetDesc/BPFELFObjectWriter.cpp |  119 +++
- .../lib/Target/BPF/MCTargetDesc/BPFMCAsmInfo.h     |   34 +
- .../Target/BPF/MCTargetDesc/BPFMCCodeEmitter.cpp   |  120 +++
- .../lib/Target/BPF/MCTargetDesc/BPFMCCodeEmitter.h |   67 ++
- .../Target/BPF/MCTargetDesc/BPFMCTargetDesc.cpp    |  115 +++
- .../lib/Target/BPF/MCTargetDesc/BPFMCTargetDesc.h  |   56 ++
- .../lib/Target/BPF/TargetInfo/BPFTargetInfo.cpp    |   13 +
- tools/bpf/llvm/tools/llc/llc.cpp                   |  381 +++++++
- 88 files changed, 8255 insertions(+), 25 deletions(-)
- create mode 100644 Documentation/bpf_jit.txt
- create mode 100644 arch/x86/net/bpf64_jit_comp.c
- create mode 100644 arch/x86/net/bpf_jit_comp.h
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+---
+ include/linux/bpf.h        |  149 +++++++
+ include/linux/bpf_jit.h    |  134 ++++++
+ kernel/Makefile            |    1 +
+ kernel/bpf_jit/Makefile    |    3 +
+ kernel/bpf_jit/bpf_check.c | 1054 ++++++++++++++++++++++++++++++++++++++++++++
+ kernel/bpf_jit/bpf_run.c   |  511 +++++++++++++++++++++
+ lib/Kconfig.debug          |   15 +
+ 7 files changed, 1867 insertions(+)
  create mode 100644 include/linux/bpf.h
  create mode 100644 include/linux/bpf_jit.h
- create mode 100644 include/trace/bpf_trace.h
  create mode 100644 kernel/bpf_jit/Makefile
  create mode 100644 kernel/bpf_jit/bpf_check.c
  create mode 100644 kernel/bpf_jit/bpf_run.c
- create mode 100644 kernel/trace/bpf_trace_callbacks.c
- create mode 100644 tools/bpf/examples/Makefile
- create mode 100644 tools/bpf/examples/README.txt
- create mode 100644 tools/bpf/examples/dropmon.c
- create mode 100644 tools/bpf/examples/netif_rcv.c
- create mode 100644 tools/bpf/filter_check/Makefile
- create mode 100644 tools/bpf/filter_check/README.txt
- create mode 100644 tools/bpf/filter_check/trace_filter_check.c
- create mode 100644 tools/bpf/llvm/LICENSE.TXT
- create mode 100644 tools/bpf/llvm/Makefile.rules
- create mode 100644 tools/bpf/llvm/README.txt
- create mode 100644 tools/bpf/llvm/bld/.gitignore
- create mode 100644 tools/bpf/llvm/bld/Makefile
- create mode 100644 tools/bpf/llvm/bld/Makefile.common
- create mode 100644 tools/bpf/llvm/bld/Makefile.config
- create mode 100644 tools/bpf/llvm/bld/include/llvm/Config/AsmParsers.def
- create mode 100644 tools/bpf/llvm/bld/include/llvm/Config/AsmPrinters.def
- create mode 100644 tools/bpf/llvm/bld/include/llvm/Config/Disassemblers.def
- create mode 100644 tools/bpf/llvm/bld/include/llvm/Config/Targets.def
- create mode 100644 tools/bpf/llvm/bld/include/llvm/Support/DataTypes.h
- create mode 100644 tools/bpf/llvm/bld/lib/Makefile
- create mode 100644 tools/bpf/llvm/bld/lib/Target/BPF/InstPrinter/Makefile
- create mode 100644 tools/bpf/llvm/bld/lib/Target/BPF/MCTargetDesc/Makefile
- create mode 100644 tools/bpf/llvm/bld/lib/Target/BPF/Makefile
- create mode 100644 tools/bpf/llvm/bld/lib/Target/BPF/TargetInfo/Makefile
- create mode 100644 tools/bpf/llvm/bld/lib/Target/Makefile
- create mode 100644 tools/bpf/llvm/bld/tools/Makefile
- create mode 100644 tools/bpf/llvm/bld/tools/llc/Makefile
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/BPF.h
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/BPF.td
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/BPFAsmPrinter.cpp
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/BPFCFGFixup.cpp
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/BPFCallingConv.td
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/BPFFrameLowering.cpp
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/BPFFrameLowering.h
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/BPFISelDAGToDAG.cpp
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/BPFISelLowering.cpp
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/BPFISelLowering.h
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/BPFInstrFormats.td
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/BPFInstrInfo.cpp
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/BPFInstrInfo.h
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/BPFInstrInfo.td
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/BPFMCInstLower.cpp
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/BPFMCInstLower.h
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/BPFRegisterInfo.cpp
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/BPFRegisterInfo.h
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/BPFRegisterInfo.td
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/BPFSubtarget.cpp
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/BPFSubtarget.h
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/BPFTargetMachine.cpp
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/BPFTargetMachine.h
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/InstPrinter/BPFInstPrinter.cpp
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/InstPrinter/BPFInstPrinter.h
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/MCTargetDesc/BPFAsmBackend.cpp
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/MCTargetDesc/BPFBaseInfo.h
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/MCTargetDesc/BPFELFObjectWriter.cpp
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/MCTargetDesc/BPFMCAsmInfo.h
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/MCTargetDesc/BPFMCCodeEmitter.cpp
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/MCTargetDesc/BPFMCCodeEmitter.h
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/MCTargetDesc/BPFMCTargetDesc.cpp
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/MCTargetDesc/BPFMCTargetDesc.h
- create mode 100644 tools/bpf/llvm/lib/Target/BPF/TargetInfo/BPFTargetInfo.cpp
- create mode 100644 tools/bpf/llvm/tools/llc/llc.cpp
 
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+new file mode 100644
+index 0000000..a4e18e9
+--- /dev/null
++++ b/include/linux/bpf.h
+@@ -0,0 +1,149 @@
++/* 64-bit BPF is Copyright (c) 2011-2014, PLUMgrid, http://plumgrid.com */
++
++#ifndef __LINUX_BPF_H__
++#define __LINUX_BPF_H__
++
++#include <linux/types.h>
++
++struct bpf_insn {
++	__u8	code;    /* opcode */
++	__u8    a_reg:4; /* dest register*/
++	__u8    x_reg:4; /* source register */
++	__s16	off;     /* signed offset */
++	__s32	imm;     /* signed immediate constant */
++};
++
++struct bpf_table {
++	__u32   type;
++	__u32   key_size;
++	__u32   elem_size;
++	__u32   max_entries;
++	__u32   param1;         /* meaning is table-dependent */
++};
++
++enum bpf_table_type {
++	BPF_TABLE_HASH = 1,
++	BPF_TABLE_LPM
++};
++
++/* maximum number of insns and tables in a BPF program */
++#define MAX_BPF_INSNS 4096
++#define MAX_BPF_TABLES 64
++#define MAX_BPF_STRTAB_SIZE 1024
++
++/* pointer to bpf_context is the first and only argument to BPF program
++ * its definition is use-case specific */
++struct bpf_context;
++
++/* bpf_add|sub|...: a += x
++ *         bpf_mov: a = x
++ *       bpf_bswap: bswap a */
++#define BPF_INSN_ALU(op, a, x) \
++	(struct bpf_insn){BPF_ALU|BPF_OP(op)|BPF_X, a, x, 0, 0}
++
++/* bpf_add|sub|...: a += imm
++ *         bpf_mov: a = imm */
++#define BPF_INSN_ALU_IMM(op, a, imm) \
++	(struct bpf_insn){BPF_ALU|BPF_OP(op)|BPF_K, a, 0, 0, imm}
++
++/* a = *(uint *) (x + off) */
++#define BPF_INSN_LD(size, a, x, off) \
++	(struct bpf_insn){BPF_LDX|BPF_SIZE(size)|BPF_REL, a, x, off, 0}
++
++/* *(uint *) (a + off) = x */
++#define BPF_INSN_ST(size, a, off, x) \
++	(struct bpf_insn){BPF_STX|BPF_SIZE(size)|BPF_REL, a, x, off, 0}
++
++/* *(uint *) (a + off) = imm */
++#define BPF_INSN_ST_IMM(size, a, off, imm) \
++	(struct bpf_insn){BPF_ST|BPF_SIZE(size)|BPF_REL, a, 0, off, imm}
++
++/* lock *(uint *) (a + off) += x */
++#define BPF_INSN_XADD(size, a, off, x) \
++	(struct bpf_insn){BPF_STX|BPF_SIZE(size)|BPF_XADD, a, x, off, 0}
++
++/* if (a 'op' x) pc += off else fall through */
++#define BPF_INSN_JUMP(op, a, x, off) \
++	(struct bpf_insn){BPF_JMP|BPF_OP(op)|BPF_X, a, x, off, 0}
++
++/* if (a 'op' imm) pc += off else fall through */
++#define BPF_INSN_JUMP_IMM(op, a, imm, off) \
++	(struct bpf_insn){BPF_JMP|BPF_OP(op)|BPF_K, a, 0, off, imm}
++
++#define BPF_INSN_RET() \
++	(struct bpf_insn){BPF_RET|BPF_K, 0, 0, 0, 0}
++
++#define BPF_INSN_CALL(fn_code) \
++	(struct bpf_insn){BPF_JMP|BPF_CALL, 0, 0, 0, fn_code}
++
++/* Instruction classes */
++#define BPF_CLASS(code) ((code) & 0x07)
++#define         BPF_LD          0x00
++#define         BPF_LDX         0x01
++#define         BPF_ST          0x02
++#define         BPF_STX         0x03
++#define         BPF_ALU         0x04
++#define         BPF_JMP         0x05
++#define         BPF_RET         0x06
++
++/* ld/ldx fields */
++#define BPF_SIZE(code)  ((code) & 0x18)
++#define         BPF_W           0x00
++#define         BPF_H           0x08
++#define         BPF_B           0x10
++#define         BPF_DW          0x18
++#define BPF_MODE(code)  ((code) & 0xe0)
++#define         BPF_IMM         0x00
++#define         BPF_ABS         0x20
++#define         BPF_IND         0x40
++#define         BPF_MEM         0x60
++#define         BPF_LEN         0x80
++#define         BPF_MSH         0xa0
++#define         BPF_REL         0xc0
++#define         BPF_XADD        0xe0 /* exclusive add */
++
++/* alu/jmp fields */
++#define BPF_OP(code)    ((code) & 0xf0)
++#define         BPF_ADD         0x00
++#define         BPF_SUB         0x10
++#define         BPF_MUL         0x20
++#define         BPF_DIV         0x30
++#define         BPF_OR          0x40
++#define         BPF_AND         0x50
++#define         BPF_LSH         0x60
++#define         BPF_RSH         0x70 /* logical shift right */
++#define         BPF_NEG         0x80
++#define         BPF_MOD         0x90
++#define         BPF_XOR         0xa0
++#define         BPF_MOV         0xb0 /* mov reg to reg */
++#define         BPF_ARSH        0xc0 /* sign extending arithmetic shift right */
++#define         BPF_BSWAP32     0xd0 /* swap lower 4 bytes of 64-bit register */
++#define         BPF_BSWAP64     0xe0 /* swap all 8 bytes of 64-bit register */
++
++#define         BPF_JA          0x00
++#define         BPF_JEQ         0x10 /* jump == */
++#define         BPF_JGT         0x20 /* GT is unsigned '>', JA in x86 */
++#define         BPF_JGE         0x30 /* GE is unsigned '>=', JAE in x86 */
++#define         BPF_JSET        0x40
++#define         BPF_JNE         0x50 /* jump != */
++#define         BPF_JSGT        0x60 /* SGT is signed '>', GT in x86 */
++#define         BPF_JSGE        0x70 /* SGE is signed '>=', GE in x86 */
++#define         BPF_CALL        0x80 /* function call */
++#define BPF_SRC(code)   ((code) & 0x08)
++#define         BPF_K           0x00
++#define         BPF_X           0x08
++
++/* 64-bit registers */
++#define         R0              0
++#define         R1              1
++#define         R2              2
++#define         R3              3
++#define         R4              4
++#define         R5              5
++#define         R6              6
++#define         R7              7
++#define         R8              8
++#define         R9              9
++#define         __fp__          10
++
++#endif /* __LINUX_BPF_H__ */
+diff --git a/include/linux/bpf_jit.h b/include/linux/bpf_jit.h
+new file mode 100644
+index 0000000..170ea64
+--- /dev/null
++++ b/include/linux/bpf_jit.h
+@@ -0,0 +1,134 @@
++/* 64-bit BPF is Copyright (c) 2011-2014, PLUMgrid, http://plumgrid.com */
++
++#ifndef __LINUX_BPF_JIT_H__
++#define __LINUX_BPF_JIT_H__
++
++#include <linux/slab.h>
++#include <linux/workqueue.h>
++#include <linux/bpf.h>
++
++/*
++ * type of value stored in a BPF register or
++ * passed into function as an argument or
++ * returned from the function
++ */
++enum bpf_reg_type {
++	INVALID_PTR,  /* reg doesn't contain a valid pointer */
++	PTR_TO_CTX,   /* reg points to bpf_context */
++	PTR_TO_TABLE, /* reg points to table element */
++	PTR_TO_TABLE_CONDITIONAL, /* points to table element or NULL */
++	PTR_TO_STACK,     /* reg == frame_pointer */
++	PTR_TO_STACK_IMM, /* reg == frame_pointer + imm */
++	PTR_TO_STACK_IMM_TABLE_KEY, /* pointer to stack used as table key */
++	PTR_TO_STACK_IMM_TABLE_ELEM, /* pointer to stack used as table elem */
++	RET_INTEGER, /* function returns integer */
++	RET_VOID,    /* function returns void */
++	CONST_ARG,    /* function expects integer constant argument */
++	CONST_ARG_TABLE_ID, /* int const argument that is used as table_id */
++	/*
++	 * int const argument indicating number of bytes accessed from stack
++	 * previous function argument must be ptr_to_stack_imm
++	 */
++	CONST_ARG_STACK_IMM_SIZE,
++};
++
++/* BPF function prototype */
++struct bpf_func_proto {
++	enum bpf_reg_type ret_type;
++	enum bpf_reg_type arg1_type;
++	enum bpf_reg_type arg2_type;
++	enum bpf_reg_type arg3_type;
++	enum bpf_reg_type arg4_type;
++};
++
++/* struct bpf_context access type */
++enum bpf_access_type {
++	BPF_READ = 1,
++	BPF_WRITE = 2
++};
++
++struct bpf_context_access {
++	int size;
++	enum bpf_access_type type;
++};
++
++struct bpf_callbacks {
++	/* execute BPF func_id with given registers */
++	void (*execute_func)(char *strtab, int id, u64 *regs);
++
++	/* return address of func_id suitable to be called from JITed program */
++	void *(*jit_select_func)(char *strtab, int id);
++
++	/* return BPF function prototype for verification */
++	const struct bpf_func_proto* (*get_func_proto)(char *strtab, int id);
++
++	/* return expected bpf_context access size and permissions
++	 * for given byte offset within bpf_context */
++	const struct bpf_context_access *(*get_context_access)(int off);
++};
++
++struct bpf_program {
++	int   insn_cnt;
++	int   table_cnt;
++	int   strtab_size;
++	struct bpf_insn *insns;
++	struct bpf_table *tables;
++	char *strtab;
++	struct bpf_callbacks *cb;
++	void (*jit_image)(struct bpf_context *ctx);
++	struct work_struct work;
++};
++
++/*
++ * BPF image format:
++ * 4 bytes "bpf\0"
++ * 4 bytes - size of strtab section in bytes
++ * string table: zero separated ascii strings
++ * {
++ *   4 bytes - size of next section in bytes
++ *   4 bytes - index into strtab of section name
++ *   N bytes - of this section
++ * } repeated
++ * "license" section contains BPF license that must be GPL compatible
++ * "bpftables" section contains zero or more of 'struct bpf_table'
++ * "e ..." section contains one or more of 'struct bpf_insn'
++ *
++ * bpf_load_image() - load BPF image, setup callback extensions
++ * and run through verifier
++ */
++int bpf_load_image(const char *image, int image_len, struct bpf_callbacks *cb,
++		   struct bpf_program **prog);
++
++/* free BPF program */
++void bpf_free(struct bpf_program *prog);
++
++/* execture BPF program */
++void bpf_run(struct bpf_program *prog, struct bpf_context *ctx);
++
++/* verify correctness of BPF program */
++int bpf_check(struct bpf_program *prog);
++
++/* pr_info one BPF instructions and registers */
++void pr_info_bpf_insn(struct bpf_insn *insn, u64 *regs);
++
++static inline void free_bpf_program(struct bpf_program *prog)
++{
++	kfree(prog->strtab);
++	kfree(prog->tables);
++	kfree(prog->insns);
++	kfree(prog);
++}
++#if defined(CONFIG_BPF64_JIT)
++void bpf_compile(struct bpf_program *prog);
++void __bpf_free(struct bpf_program *prog);
++#else
++static inline void bpf_compile(struct bpf_program *prog)
++{
++}
++static inline void __bpf_free(struct bpf_program *prog)
++{
++	free_bpf_program(prog);
++}
++#endif
++
++#endif
+diff --git a/kernel/Makefile b/kernel/Makefile
+index bc010ee..e63d81c 100644
+--- a/kernel/Makefile
++++ b/kernel/Makefile
+@@ -83,6 +83,7 @@ obj-$(CONFIG_TRACING) += trace/
+ obj-$(CONFIG_TRACE_CLOCK) += trace/
+ obj-$(CONFIG_RING_BUFFER) += trace/
+ obj-$(CONFIG_TRACEPOINTS) += trace/
++obj-$(CONFIG_BPF64) += bpf_jit/
+ obj-$(CONFIG_IRQ_WORK) += irq_work.o
+ obj-$(CONFIG_CPU_PM) += cpu_pm.o
+ 
+diff --git a/kernel/bpf_jit/Makefile b/kernel/bpf_jit/Makefile
+new file mode 100644
+index 0000000..2e576f9
+--- /dev/null
++++ b/kernel/bpf_jit/Makefile
+@@ -0,0 +1,3 @@
++obj-$(CONFIG_BPF64) += bpf_check.o
++obj-$(CONFIG_BPF64) += bpf_run.o
++
+diff --git a/kernel/bpf_jit/bpf_check.c b/kernel/bpf_jit/bpf_check.c
+new file mode 100644
+index 0000000..c3aa574
+--- /dev/null
++++ b/kernel/bpf_jit/bpf_check.c
+@@ -0,0 +1,1054 @@
++/* Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ * General Public License for more details.
++ */
++#include <linux/kernel.h>
++#include <linux/types.h>
++#include <linux/slab.h>
++#include <linux/bpf_jit.h>
++
++/*
++ * bpf_check() is a static code analyzer that walks the BPF program
++ * instruction by instruction and updates register/stack state.
++ * All paths of conditional branches are analyzed until 'ret' insn.
++ *
++ * At the first pass depth-first-search verifies that the BPF program is a DAG.
++ * It rejects the following programs:
++ * - larger than 4K insns or 64 tables
++ * - if loop is present (detected via back-edge)
++ * - unreachable insns exist (shouldn't be a forest. program = one function)
++ * - more than one ret insn
++ * - ret insn is not a last insn
++ * - out of bounds or malformed jumps
++ * The second pass is all possible path descent from the 1st insn.
++ * Conditional branch target insns keep a link list of verifier states.
++ * If the state already visited, this path can be pruned.
++ * If it wasn't a DAG, such state prunning would be incorrect, since it would
++ * skip cycles. Since it's analyzing all pathes through the program,
++ * the length of the analysis is limited to 32k insn, which may be hit even
++ * if insn_cnt < 4K, but there are too many branches that change stack/regs.
++ * Number of 'branches to be analyzed' is limited to 1k
++ *
++ * All registers are 64-bit (even on 32-bit arch)
++ * R0 - return register
++ * R1-R5 argument passing registers
++ * R6-R9 callee saved registers
++ * R10 - frame pointer read-only
++ *
++ * At the start of BPF program the register R1 contains a pointer to bpf_context
++ * and has type PTR_TO_CTX.
++ *
++ * R10 has type PTR_TO_STACK. The sequence 'mov Rx, R10; add Rx, imm' changes
++ * Rx state to PTR_TO_STACK_IMM and immediate constant is saved for further
++ * stack bounds checking
++ *
++ * registers used to pass pointers to function calls are verified against
++ * function prototypes
++ *
++ * Example: before the call to bpf_table_lookup(), R1 must have type PTR_TO_CTX
++ * R2 must contain integer constant and R3 PTR_TO_STACK_IMM_TABLE_KEY
++ * Integer constant in R2 is a table_id. It's checked that 0 <= R2 < table_cnt
++ * and corresponding table_info->key_size fetched to check that
++ * [R3, R3 + table_info->key_size) are within stack limits and all that stack
++ * memory was initiliazed earlier by BPF program.
++ * After bpf_table_lookup() call insn, R0 is set to PTR_TO_TABLE_CONDITIONAL
++ * R1-R5 are cleared and no longer readable (but still writeable).
++ *
++ * bpf_table_lookup() function returns ether pointer to table value or NULL
++ * which is type PTR_TO_TABLE_CONDITIONAL. Once it passes through !=0 insn
++ * the register holding that pointer in the true branch changes state to
++ * PTR_TO_TABLE and the same register changes state to INVALID_PTR in the false
++ * branch. See check_cond_jmp_op()
++ *
++ * load/store alignment is checked
++ * Ex: stx [Rx + 3], (u32)Ry is rejected
++ *
++ * load/store to stack bounds checked and register spill is tracked
++ * Ex: stx [R10 + 0], (u8)Rx is rejected
++ *
++ * load/store to table bounds checked and table_id provides table size
++ * Ex: stx [Rx + 8], (u16)Ry is ok, if Rx is PTR_TO_TABLE and
++ * 8 + sizeof(u16) <= table_info->elem_size
++ *
++ * load/store to bpf_context checked against known fields
++ *
++ * Future improvements:
++ * stack size is hardcoded to 512 bytes maximum per program, relax it
++ */
++#define _(OP) ({ int ret = OP; if (ret < 0) return ret; })
++
++/* JITed code allocates 512 bytes and used bottom 4 slots
++ * to save R6-R9
++ */
++#define MAX_BPF_STACK (512 - 4 * 8)
++
++struct reg_state {
++	enum bpf_reg_type ptr;
++	bool read_ok;
++	int imm;
++};
++
++#define MAX_REG 11
++
++enum bpf_stack_slot_type {
++	STACK_INVALID,    /* nothing was stored in this stack slot */
++	STACK_SPILL,      /* 1st byte of register spilled into stack */
++	STACK_SPILL_PART, /* other 7 bytes of register spill */
++	STACK_MISC	  /* BPF program wrote some data into this slot */
++};
++
++struct bpf_stack_slot {
++	enum bpf_stack_slot_type type;
++	enum bpf_reg_type ptr;
++	int imm;
++};
++
++/* state of the program:
++ * type of all registers and stack info
++ */
++struct verifier_state {
++	struct reg_state regs[MAX_REG];
++	struct bpf_stack_slot stack[MAX_BPF_STACK];
++};
++
++/* linked list of verifier states
++ * used to prune search
++ */
++struct verifier_state_list {
++	struct verifier_state state;
++	struct verifier_state_list *next;
++};
++
++/* verifier_state + insn_idx are pushed to stack
++ * when branch is encountered
++ */
++struct verifier_stack_elem {
++	struct verifier_state st;
++	int insn_idx; /* at insn 'insn_idx' the program state is 'st' */
++	struct verifier_stack_elem *next;
++};
++
++/* single container for all structs
++ * one verifier_env per bpf_check() call
++ */
++struct verifier_env {
++	struct bpf_program *prog;
++	struct verifier_stack_elem *head;
++	int stack_size;
++	struct verifier_state cur_state;
++	struct verifier_state_list **branch_landing;
++};
++
++static int pop_stack(struct verifier_env *env)
++{
++	int insn_idx;
++	struct verifier_stack_elem *elem;
++	if (env->head == NULL)
++		return -1;
++	memcpy(&env->cur_state, &env->head->st, sizeof(env->cur_state));
++	insn_idx = env->head->insn_idx;
++	elem = env->head->next;
++	kfree(env->head);
++	env->head = elem;
++	env->stack_size--;
++	return insn_idx;
++}
++
++static struct verifier_state *push_stack(struct verifier_env *env, int insn_idx)
++{
++	struct verifier_stack_elem *elem;
++	elem = kmalloc(sizeof(struct verifier_stack_elem), GFP_KERNEL);
++	if (!elem)
++		goto err;
++	memcpy(&elem->st, &env->cur_state, sizeof(env->cur_state));
++	elem->insn_idx = insn_idx;
++	elem->next = env->head;
++	env->head = elem;
++	env->stack_size++;
++	if (env->stack_size > 1024) {
++		pr_err("BPF program is too complex\n");
++		goto err;
++	}
++	return &elem->st;
++err:
++	/* pop all elements and return */
++	while (pop_stack(env) >= 0);
++	return NULL;
++}
++
++#define CALLER_SAVED_REGS 6
++static const int caller_saved[CALLER_SAVED_REGS] = { R0, R1, R2, R3, R4, R5 };
++
++static void init_reg_state(struct reg_state *regs)
++{
++	struct reg_state *reg;
++	int i;
++	for (i = 0; i < MAX_REG; i++) {
++		regs[i].ptr = INVALID_PTR;
++		regs[i].read_ok = false;
++		regs[i].imm = 0xbadbad;
++	}
++	reg = regs + __fp__;
++	reg->ptr = PTR_TO_STACK;
++	reg->read_ok = true;
++
++	reg = regs + R1;	/* 1st arg to a function */
++	reg->ptr = PTR_TO_CTX;
++	reg->read_ok = true;
++}
++
++static void mark_reg_no_ptr(struct reg_state *regs, int regno)
++{
++	regs[regno].ptr = INVALID_PTR;
++	regs[regno].imm = 0xbadbad;
++	regs[regno].read_ok = true;
++}
++
++static int check_reg_arg(struct reg_state *regs, int regno, bool is_src)
++{
++	if (is_src) {
++		if (!regs[regno].read_ok) {
++			pr_err("R%d !read_ok\n", regno);
++			return -EACCES;
++		}
++	} else {
++		if (regno == __fp__)
++			/* frame pointer is read only */
++			return -EACCES;
++		mark_reg_no_ptr(regs, regno);
++	}
++	return 0;
++}
++
++static int bpf_size_to_bytes(int bpf_size)
++{
++	if (bpf_size == BPF_W)
++		return 4;
++	else if (bpf_size == BPF_H)
++		return 2;
++	else if (bpf_size == BPF_B)
++		return 1;
++	else if (bpf_size == BPF_DW)
++		return 8;
++	else
++		return -EACCES;
++}
++
++static int check_stack_write(struct verifier_state *state, int off, int size,
++			     int value_regno)
++{
++	int i;
++	struct bpf_stack_slot *slot;
++	if (value_regno >= 0 &&
++	    (state->regs[value_regno].ptr == PTR_TO_TABLE ||
++	     state->regs[value_regno].ptr == PTR_TO_CTX)) {
++
++		/* register containing pointer is being spilled into stack */
++		if (size != 8) {
++			pr_err("invalid size of register spill\n");
++			return -EACCES;
++		}
++
++		slot = &state->stack[MAX_BPF_STACK + off];
++		slot->type = STACK_SPILL;
++		/* save register state */
++		slot->ptr = state->regs[value_regno].ptr;
++		slot->imm = state->regs[value_regno].imm;
++		for (i = 1; i < 8; i++) {
++			slot = &state->stack[MAX_BPF_STACK + off + i];
++			slot->type = STACK_SPILL_PART;
++		}
++	} else {
++
++		/* regular write of data into stack */
++		for (i = 0; i < size; i++) {
++			slot = &state->stack[MAX_BPF_STACK + off + i];
++			slot->type = STACK_MISC;
++		}
++	}
++	return 0;
++}
++
++static int check_stack_read(struct verifier_state *state, int off, int size,
++			    int value_regno)
++{
++	int i;
++	struct bpf_stack_slot *slot;
++
++	slot = &state->stack[MAX_BPF_STACK + off];
++
++	if (slot->type == STACK_SPILL) {
++		if (size != 8) {
++			pr_err("invalid size of register spill\n");
++			return -EACCES;
++		}
++		for (i = 1; i < 8; i++) {
++			if (state->stack[MAX_BPF_STACK + off + i].type !=
++			    STACK_SPILL_PART) {
++				pr_err("corrupted spill memory\n");
++				return -EACCES;
++			}
++		}
++
++		/* restore register state from stack */
++		state->regs[value_regno].ptr = slot->ptr;
++		state->regs[value_regno].imm = slot->imm;
++		state->regs[value_regno].read_ok = true;
++		return 0;
++	} else {
++		for (i = 0; i < size; i++) {
++			if (state->stack[MAX_BPF_STACK + off + i].type !=
++			    STACK_MISC) {
++				pr_err("invalid read from stack off %d+%d size %d\n",
++				       off, i, size);
++				return -EACCES;
++			}
++		}
++		/* have read misc data from the stack */
++		mark_reg_no_ptr(state->regs, value_regno);
++		return 0;
++	}
++}
++
++static int get_table_info(struct verifier_env *env, int table_id,
++			  struct bpf_table **tablep)
++{
++	/* if BPF program contains bpf_table_lookup(ctx, 1024, key)
++	 * the incorrect table_id will be caught here
++	 */
++	if (table_id < 0 || table_id >= env->prog->table_cnt) {
++		pr_err("invalid access to table_id=%d max_tables=%d\n",
++		       table_id, env->prog->table_cnt);
++		return -EACCES;
++	}
++	*tablep = &env->prog->tables[table_id];
++	return 0;
++}
++
++/* check read/write into table element returned by bpf_table_lookup() */
++static int check_table_access(struct verifier_env *env, int regno, int off,
++			      int size)
++{
++	struct bpf_table *table;
++	int table_id = env->cur_state.regs[regno].imm;
++
++	_(get_table_info(env, table_id, &table));
++
++	if (off < 0 || off + size > table->elem_size) {
++		pr_err("invalid access to table_id=%d leaf_size=%d off=%d size=%d\n",
++		       table_id, table->elem_size, off, size);
++		return -EACCES;
++	}
++	return 0;
++}
++
++/* check access to 'struct bpf_context' fields */
++static int check_ctx_access(struct verifier_env *env, int off, int size,
++			    enum bpf_access_type t)
++{
++	const struct bpf_context_access *access;
++
++	if (off < 0 || off >= 32768/* struct bpf_context shouldn't be huge */)
++		goto error;
++
++	access = env->prog->cb->get_context_access(off);
++	if (!access)
++		goto error;
++
++	if (access->size == size && (access->type & t))
++		return 0;
++error:
++	pr_err("invalid bpf_context access off=%d size=%d\n", off, size);
++	return -EACCES;
++}
++
++static int check_mem_access(struct verifier_env *env, int regno, int off,
++			    int bpf_size, enum bpf_access_type t,
++			    int value_regno)
++{
++	struct verifier_state *state = &env->cur_state;
++	int size;
++	_(size = bpf_size_to_bytes(bpf_size));
++
++	if (off % size != 0) {
++		pr_err("misaligned access off %d size %d\n", off, size);
++		return -EACCES;
++	}
++
++	if (state->regs[regno].ptr == PTR_TO_TABLE) {
++		_(check_table_access(env, regno, off, size));
++		if (t == BPF_READ)
++			mark_reg_no_ptr(state->regs, value_regno);
++	} else if (state->regs[regno].ptr == PTR_TO_CTX) {
++		_(check_ctx_access(env, off, size, t));
++		if (t == BPF_READ)
++			mark_reg_no_ptr(state->regs, value_regno);
++	} else if (state->regs[regno].ptr == PTR_TO_STACK) {
++		if (off >= 0 || off < -MAX_BPF_STACK) {
++			pr_err("invalid stack off=%d size=%d\n", off, size);
++			return -EACCES;
++		}
++		if (t == BPF_WRITE)
++			_(check_stack_write(state, off, size, value_regno));
++		else
++			_(check_stack_read(state, off, size, value_regno));
++	} else {
++		pr_err("invalid mem access %d\n", state->regs[regno].ptr);
++		return -EACCES;
++	}
++	return 0;
++}
++
++/*
++ * when register 'regno' is passed into function that will read 'access_size'
++ * bytes from that pointer, make sure that it's within stack boundary
++ * and all elements of stack are initialized
++ */
++static int check_stack_boundary(struct verifier_env *env,
++				int regno, int access_size)
++{
++	struct verifier_state *state = &env->cur_state;
++	struct reg_state *regs = state->regs;
++	int off, i;
++
++	if (regs[regno].ptr != PTR_TO_STACK_IMM)
++		return -EACCES;
++
++	off = regs[regno].imm;
++	if (off >= 0 || off < -MAX_BPF_STACK || off + access_size > 0 ||
++	    access_size <= 0) {
++		pr_err("invalid stack ptr R%d off=%d access_size=%d\n",
++		       regno, off, access_size);
++		return -EACCES;
++	}
++
++	for (i = 0; i < access_size; i++) {
++		if (state->stack[MAX_BPF_STACK + off + i].type != STACK_MISC) {
++			pr_err("invalid indirect read from stack off %d+%d size %d\n",
++			       off, i, access_size);
++			return -EACCES;
++		}
++	}
++	return 0;
++}
++
++static int check_func_arg(struct verifier_env *env, int regno,
++			  enum bpf_reg_type arg_type, int *table_id,
++			  struct bpf_table **tablep)
++{
++	struct reg_state *reg = env->cur_state.regs + regno;
++	enum bpf_reg_type expected_type;
++
++	if (arg_type == INVALID_PTR)
++		return 0;
++
++	if (!reg->read_ok) {
++		pr_err("R%d !read_ok\n", regno);
++		return -EACCES;
++	}
++
++	if (arg_type == PTR_TO_STACK_IMM_TABLE_KEY ||
++	    arg_type == PTR_TO_STACK_IMM_TABLE_ELEM)
++		expected_type = PTR_TO_STACK_IMM;
++	else if (arg_type == CONST_ARG_TABLE_ID ||
++		 arg_type == CONST_ARG_STACK_IMM_SIZE)
++		expected_type = CONST_ARG;
++	else
++		expected_type = arg_type;
++
++	if (reg->ptr != expected_type) {
++		pr_err("R%d ptr=%d expected=%d\n", regno, reg->ptr,
++		       expected_type);
++		return -EACCES;
++	}
++
++	if (arg_type == CONST_ARG_TABLE_ID) {
++		/* bpf_table_xxx(table_id) call: check that table_id is valid */
++		*table_id = reg->imm;
++		_(get_table_info(env, reg->imm, tablep));
++	} else if (arg_type == PTR_TO_STACK_IMM_TABLE_KEY) {
++		/*
++		 * bpf_table_xxx(..., table_id, ..., key) call:
++		 * check that [key, key + table_info->key_size) are within
++		 * stack limits and initialized
++		 */
++		if (!*tablep) {
++			/*
++			 * in function declaration table_id must come before
++			 * table_key or table_elem, so that it's verified
++			 * and known before we have to check table_key here
++			 */
++			pr_err("invalid table_id to access table->key\n");
++			return -EACCES;
++		}
++		_(check_stack_boundary(env, regno, (*tablep)->key_size));
++	} else if (arg_type == PTR_TO_STACK_IMM_TABLE_ELEM) {
++		/*
++		 * bpf_table_xxx(..., table_id, ..., elem) call:
++		 * check [elem, elem + table_info->elem_size) validity
++		 */
++		if (!*tablep) {
++			pr_err("invalid table_id to access table->elem\n");
++			return -EACCES;
++		}
++		_(check_stack_boundary(env, regno, (*tablep)->elem_size));
++	} else if (arg_type == CONST_ARG_STACK_IMM_SIZE) {
++		/*
++		 * bpf_xxx(..., buf, len) call will access 'len' bytes
++		 * from stack pointer 'buf'. Check it
++		 * note: regno == len, regno - 1 == buf
++		 */
++		_(check_stack_boundary(env, regno - 1, reg->imm));
++	}
++
++	return 0;
++}
++
++static int check_call(struct verifier_env *env, int func_id)
++{
++	struct verifier_state *state = &env->cur_state;
++	const struct bpf_func_proto *fn = NULL;
++	struct reg_state *regs = state->regs;
++	struct bpf_table *table = NULL;
++	int table_id = -1;
++	struct reg_state *reg;
++	int i;
++
++	/* find function prototype */
++	if (func_id <= 0 || func_id >= env->prog->strtab_size) {
++		pr_err("invalid func %d\n", func_id);
++		return -EINVAL;
++	}
++
++	if (env->prog->cb->get_func_proto)
++		fn = env->prog->cb->get_func_proto(env->prog->strtab, func_id);
++
++	if (!fn || (fn->ret_type != RET_INTEGER &&
++		    fn->ret_type != PTR_TO_TABLE_CONDITIONAL &&
++		    fn->ret_type != RET_VOID)) {
++		pr_err("unknown func %d\n", func_id);
++		return -EINVAL;
++	}
++
++	/* check args */
++	_(check_func_arg(env, R1, fn->arg1_type, &table_id, &table));
++	_(check_func_arg(env, R2, fn->arg2_type, &table_id, &table));
++	_(check_func_arg(env, R3, fn->arg3_type, &table_id, &table));
++	_(check_func_arg(env, R4, fn->arg4_type, &table_id, &table));
++
++	/* reset caller saved regs */
++	for (i = 0; i < CALLER_SAVED_REGS; i++) {
++		reg = regs + caller_saved[i];
++		reg->read_ok = false;
++		reg->ptr = INVALID_PTR;
++		reg->imm = 0xbadbad;
++	}
++
++	/* update return register */
++	reg = regs + R0;
++	if (fn->ret_type == RET_INTEGER) {
++		reg->read_ok = true;
++		reg->ptr = INVALID_PTR;
++	} else if (fn->ret_type != RET_VOID) {
++		reg->read_ok = true;
++		reg->ptr = fn->ret_type;
++		if (fn->ret_type == PTR_TO_TABLE_CONDITIONAL)
++			/*
++			 * remember table_id, so that check_table_access()
++			 * can check 'elem_size' boundary of memory access
++			 * to table element returned from bpf_table_lookup()
++			 */
++			reg->imm = table_id;
++	}
++	return 0;
++}
++
++static int check_alu_op(struct reg_state *regs, struct bpf_insn *insn)
++{
++	u16 opcode = BPF_OP(insn->code);
++
++	if (opcode == BPF_BSWAP32 || opcode == BPF_BSWAP64 ||
++	    opcode == BPF_NEG) {
++		if (BPF_SRC(insn->code) != BPF_X)
++			return -EINVAL;
++		/* check src operand */
++		_(check_reg_arg(regs, insn->a_reg, 1));
++
++		/* check dest operand */
++		_(check_reg_arg(regs, insn->a_reg, 0));
++
++	} else if (opcode == BPF_MOV) {
++
++		if (BPF_SRC(insn->code) == BPF_X)
++			/* check src operand */
++			_(check_reg_arg(regs, insn->x_reg, 1));
++
++		/* check dest operand */
++		_(check_reg_arg(regs, insn->a_reg, 0));
++
++		if (BPF_SRC(insn->code) == BPF_X) {
++			/* case: R1 = R2
++			 * copy register state to dest reg
++			 */
++			regs[insn->a_reg].ptr = regs[insn->x_reg].ptr;
++			regs[insn->a_reg].imm = regs[insn->x_reg].imm;
++		} else {
++			/* case: R = imm
++			 * remember the value we stored into this reg
++			 */
++			regs[insn->a_reg].ptr = CONST_ARG;
++			regs[insn->a_reg].imm = insn->imm;
++		}
++
++	} else {	/* all other ALU ops: and, sub, xor, add, ... */
++
++		int stack_relative = 0;
++
++		if (BPF_SRC(insn->code) == BPF_X)
++			/* check src1 operand */
++			_(check_reg_arg(regs, insn->x_reg, 1));
++
++		/* check src2 operand */
++		_(check_reg_arg(regs, insn->a_reg, 1));
++
++		if (opcode == BPF_ADD &&
++		    regs[insn->a_reg].ptr == PTR_TO_STACK &&
++		    BPF_SRC(insn->code) == BPF_K)
++			stack_relative = 1;
++
++		/* check dest operand */
++		_(check_reg_arg(regs, insn->a_reg, 0));
++
++		if (stack_relative) {
++			regs[insn->a_reg].ptr = PTR_TO_STACK_IMM;
++			regs[insn->a_reg].imm = insn->imm;
++		}
++	}
++
++	return 0;
++}
++
++static int check_cond_jmp_op(struct verifier_env *env, struct bpf_insn *insn,
++			     int insn_idx)
++{
++	struct reg_state *regs = env->cur_state.regs;
++	struct verifier_state *other_branch;
++	u16 opcode = BPF_OP(insn->code);
++
++	if (BPF_SRC(insn->code) == BPF_X)
++		/* check src1 operand */
++		_(check_reg_arg(regs, insn->x_reg, 1));
++
++	/* check src2 operand */
++	_(check_reg_arg(regs, insn->a_reg, 1));
++
++	other_branch = push_stack(env, insn_idx + insn->off + 1);
++	if (!other_branch)
++		return -EFAULT;
++
++	/* detect if R == 0 where R is returned value from table_lookup() */
++	if (BPF_SRC(insn->code) == BPF_K &&
++	    insn->imm == 0 && (opcode == BPF_JEQ ||
++			       opcode == BPF_JNE) &&
++	    regs[insn->a_reg].ptr == PTR_TO_TABLE_CONDITIONAL) {
++		if (opcode == BPF_JEQ) {
++			/*
++			 * next fallthrough insn can access memory via
++			 * this register
++			 */
++			regs[insn->a_reg].ptr = PTR_TO_TABLE;
++			/* branch targer cannot access it, since reg == 0 */
++			other_branch->regs[insn->a_reg].ptr = INVALID_PTR;
++		} else {
++			other_branch->regs[insn->a_reg].ptr = PTR_TO_TABLE;
++			regs[insn->a_reg].ptr = INVALID_PTR;
++		}
++	}
++	return 0;
++}
++
++
++/*
++ * non-recursive DFS pseudo code
++ * 1  procedure DFS-iterative(G,v):
++ * 2      label v as discovered
++ * 3      let S be a stack
++ * 4      S.push(v)
++ * 5      while S is not empty
++ * 6            t <- S.pop()
++ * 7            if t is what we're looking for:
++ * 8                return t
++ * 9            for all edges e in G.adjacentEdges(t) do
++ * 10               if edge e is already labelled
++ * 11                   continue with the next edge
++ * 12               w <- G.adjacentVertex(t,e)
++ * 13               if vertex w is not discovered and not explored
++ * 14                   label e as tree-edge
++ * 15                   label w as discovered
++ * 16                   S.push(w)
++ * 17                   continue at 5
++ * 18               else if vertex w is discovered
++ * 19                   label e as back-edge
++ * 20               else
++ * 21                   // vertex w is explored
++ * 22                   label e as forward- or cross-edge
++ * 23           label t as explored
++ * 24           S.pop()
++ *
++ * convention:
++ * 1 - discovered
++ * 2 - discovered and 1st branch labelled
++ * 3 - discovered and 1st and 2nd branch labelled
++ * 4 - explored
++ */
++
++#define STATE_END ((struct verifier_state_list *)-1)
++
++#define PUSH_INT(I) \
++	do { \
++		if (cur_stack >= insn_cnt) { \
++			ret = -E2BIG; \
++			goto free_st; \
++		} \
++		stack[cur_stack++] = I; \
++	} while (0)
++
++#define PEAK_INT() \
++	({ \
++		int _ret; \
++		if (cur_stack == 0) \
++			_ret = -1; \
++		else \
++			_ret = stack[cur_stack - 1]; \
++		_ret; \
++	 })
++
++#define POP_INT() \
++	({ \
++		int _ret; \
++		if (cur_stack == 0) \
++			_ret = -1; \
++		else \
++			_ret = stack[--cur_stack]; \
++		_ret; \
++	 })
++
++#define PUSH_INSN(T, W, E) \
++	do { \
++		int w = W; \
++		if (E == 1 && st[T] >= 2) \
++			break; \
++		if (E == 2 && st[T] >= 3) \
++			break; \
++		if (w >= insn_cnt) { \
++			ret = -EACCES; \
++			goto free_st; \
++		} \
++		if (E == 2) \
++			/* mark branch target for state pruning */ \
++			env->branch_landing[w] = STATE_END; \
++		if (st[w] == 0) { \
++			/* tree-edge */ \
++			st[T] = 1 + E; \
++			st[w] = 1; /* discovered */ \
++			PUSH_INT(w); \
++			goto peak_stack; \
++		} else if (st[w] == 1 || st[w] == 2 || st[w] == 3) { \
++			pr_err("back-edge from insn %d to %d\n", t, w); \
++			ret = -EINVAL; \
++			goto free_st; \
++		} else if (st[w] == 4) { \
++			/* forward- or cross-edge */ \
++			st[T] = 1 + E; \
++		} else { \
++			pr_err("insn state internal bug\n"); \
++			ret = -EFAULT; \
++			goto free_st; \
++		} \
++	} while (0)
++
++/* non-recursive depth-first-search to detect loops in BPF program
++ * loop == back-edge in directed graph
++ */
++static int check_cfg(struct verifier_env *env)
++{
++	struct bpf_insn *insns = env->prog->insns;
++	int insn_cnt = env->prog->insn_cnt;
++	int cur_stack = 0;
++	int *stack;
++	int ret = 0;
++	int *st;
++	int i, t;
++
++	if (insns[insn_cnt - 1].code != (BPF_RET | BPF_K)) {
++		pr_err("last insn is not a 'ret'\n");
++		return -EINVAL;
++	}
++
++	st = kzalloc(sizeof(int) * insn_cnt, GFP_KERNEL);
++	if (!st)
++		return -ENOMEM;
++
++	stack = kzalloc(sizeof(int) * insn_cnt, GFP_KERNEL);
++	if (!stack) {
++		kfree(st);
++		return -ENOMEM;
++	}
++
++	st[0] = 1; /* mark 1st insn as discovered */
++	PUSH_INT(0);
++
++peak_stack:
++	while ((t = PEAK_INT()) != -1) {
++		if (t == insn_cnt - 1)
++			goto mark_explored;
++
++		if (BPF_CLASS(insns[t].code) == BPF_RET) {
++			pr_err("extraneous 'ret'\n");
++			ret = -EINVAL;
++			goto free_st;
++		}
++
++		if (BPF_CLASS(insns[t].code) == BPF_JMP) {
++			u16 opcode = BPF_OP(insns[t].code);
++			if (opcode == BPF_CALL) {
++				PUSH_INSN(t, t + 1, 1);
++			} else if (opcode == BPF_JA) {
++				if (BPF_SRC(insns[t].code) != BPF_X) {
++					ret = -EINVAL;
++					goto free_st;
++				}
++				PUSH_INSN(t, t + insns[t].off + 1, 1);
++			} else {
++				PUSH_INSN(t, t + 1, 1);
++				PUSH_INSN(t, t + insns[t].off + 1, 2);
++			}
++		} else {
++			PUSH_INSN(t, t + 1, 1);
++		}
++
++mark_explored:
++		st[t] = 4; /* explored */
++		if (POP_INT() == -1) {
++			pr_err("pop_int internal bug\n");
++			ret = -EFAULT;
++			goto free_st;
++		}
++	}
++
++
++	for (i = 0; i < insn_cnt; i++) {
++		if (st[i] != 4) {
++			pr_err("unreachable insn %d\n", i);
++			ret = -EINVAL;
++			goto free_st;
++		}
++	}
++
++free_st:
++	kfree(st);
++	kfree(stack);
++	return ret;
++}
++
++static int is_state_visited(struct verifier_env *env, int insn_idx)
++{
++	struct verifier_state_list *new_sl;
++	struct verifier_state_list *sl;
++
++	sl = env->branch_landing[insn_idx];
++	if (!sl)
++		/* no branch jump to this insn, ignore it */
++		return 0;
++
++	while (sl != STATE_END) {
++		if (memcmp(&sl->state, &env->cur_state,
++			   sizeof(env->cur_state)) == 0)
++			/* reached the same register/stack state,
++			 * prune the search
++			 */
++			return 1;
++		sl = sl->next;
++	}
++	new_sl = kmalloc(sizeof(struct verifier_state_list), GFP_KERNEL);
++
++	if (!new_sl)
++		/* ignore kmalloc error, since it's rare and doesn't affect
++		 * correctness of algorithm
++		 */
++		return 0;
++	/* add new state to the head of linked list */
++	memcpy(&new_sl->state, &env->cur_state, sizeof(env->cur_state));
++	new_sl->next = env->branch_landing[insn_idx];
++	env->branch_landing[insn_idx] = new_sl;
++	return 0;
++}
++
++#undef _
++#define _(OP) ({ err = OP; if (err < 0) goto err_print_insn; })
++
++static int __bpf_check(struct verifier_env *env)
++{
++	struct verifier_state *state = &env->cur_state;
++	struct bpf_insn *insns = env->prog->insns;
++	struct reg_state *regs = state->regs;
++	int insn_cnt = env->prog->insn_cnt;
++	int insn_processed = 0;
++	int insn_idx;
++	int err;
++
++	init_reg_state(regs);
++	insn_idx = 0;
++	for (;;) {
++		struct bpf_insn *insn;
++		u16 class;
++
++		if (insn_idx >= insn_cnt) {
++			pr_err("invalid insn idx %d insn_cnt %d\n",
++			       insn_idx, insn_cnt);
++			return -EFAULT;
++		}
++
++		insn = &insns[insn_idx];
++		class = BPF_CLASS(insn->code);
++
++		if (++insn_processed > 32768) {
++			pr_err("BPF program is too large. Proccessed %d insn\n",
++			       insn_processed);
++			return -E2BIG;
++		}
++
++		if (is_state_visited(env, insn_idx))
++			goto process_ret;
++
++		if (class == BPF_ALU) {
++			_(check_alu_op(regs, insn));
++
++		} else if (class == BPF_LDX) {
++			if (BPF_MODE(insn->code) != BPF_REL)
++				return -EINVAL;
++
++			/* check src operand */
++			_(check_reg_arg(regs, insn->x_reg, 1));
++
++			_(check_mem_access(env, insn->x_reg, insn->off,
++					   BPF_SIZE(insn->code), BPF_READ,
++					   insn->a_reg));
++
++			/* dest reg state will be updated by mem_access */
++
++		} else if (class == BPF_STX) {
++			/* check src1 operand */
++			_(check_reg_arg(regs, insn->x_reg, 1));
++			/* check src2 operand */
++			_(check_reg_arg(regs, insn->a_reg, 1));
++			_(check_mem_access(env, insn->a_reg, insn->off,
++					   BPF_SIZE(insn->code), BPF_WRITE,
++					   insn->x_reg));
++
++		} else if (class == BPF_ST) {
++			if (BPF_MODE(insn->code) != BPF_REL)
++				return -EINVAL;
++			/* check src operand */
++			_(check_reg_arg(regs, insn->a_reg, 1));
++			_(check_mem_access(env, insn->a_reg, insn->off,
++					   BPF_SIZE(insn->code), BPF_WRITE,
++					   -1));
++
++		} else if (class == BPF_JMP) {
++			u16 opcode = BPF_OP(insn->code);
++			if (opcode == BPF_CALL) {
++				_(check_call(env, insn->imm));
++			} else if (opcode == BPF_JA) {
++				if (BPF_SRC(insn->code) != BPF_X)
++					return -EINVAL;
++				insn_idx += insn->off + 1;
++				continue;
++			} else {
++				_(check_cond_jmp_op(env, insn, insn_idx));
++			}
++
++		} else if (class == BPF_RET) {
++process_ret:
++			insn_idx = pop_stack(env);
++			if (insn_idx < 0)
++				break;
++			else
++				continue;
++		}
++
++		insn_idx++;
++	}
++
++	pr_debug("insn_processed %d\n", insn_processed);
++	return 0;
++
++err_print_insn:
++	pr_info("insn #%d\n", insn_idx);
++	pr_info_bpf_insn(&insns[insn_idx], NULL);
++	return err;
++}
++
++static void free_states(struct verifier_env *env, int insn_cnt)
++{
++	int i;
++
++	for (i = 0; i < insn_cnt; i++) {
++		struct verifier_state_list *sl = env->branch_landing[i];
++		if (sl)
++			while (sl != STATE_END) {
++				struct verifier_state_list *sln = sl->next;
++				kfree(sl);
++				sl = sln;
++			}
++	}
++
++	kfree(env->branch_landing);
++}
++
++int bpf_check(struct bpf_program *prog)
++{
++	int ret;
++	struct verifier_env *env;
++
++	if (prog->insn_cnt <= 0 || prog->insn_cnt > MAX_BPF_INSNS ||
++	    prog->table_cnt < 0 || prog->table_cnt > MAX_BPF_TABLES ||
++	    prog->strtab_size < 0 || prog->strtab_size > MAX_BPF_STRTAB_SIZE ||
++	    prog->strtab[prog->strtab_size - 1] != 0) {
++		pr_err("BPF program has %d insn and %d tables. Max is %d/%d\n",
++		       prog->insn_cnt, prog->table_cnt,
++		       MAX_BPF_INSNS, MAX_BPF_TABLES);
++		return -E2BIG;
++	}
++
++	env = kzalloc(sizeof(struct verifier_env), GFP_KERNEL);
++	if (!env)
++		return -ENOMEM;
++
++	env->prog = prog;
++	env->branch_landing = kzalloc(sizeof(struct verifier_state_list *) *
++				      prog->insn_cnt, GFP_KERNEL);
++
++	if (!env->branch_landing) {
++		kfree(env);
++		return -ENOMEM;
++	}
++
++	ret = check_cfg(env);
++	if (ret)
++		goto free_env;
++	ret = __bpf_check(env);
++free_env:
++	while (pop_stack(env) >= 0);
++	free_states(env, prog->insn_cnt);
++	kfree(env);
++	return ret;
++}
++EXPORT_SYMBOL(bpf_check);
+diff --git a/kernel/bpf_jit/bpf_run.c b/kernel/bpf_jit/bpf_run.c
+new file mode 100644
+index 0000000..d3b51b6
+--- /dev/null
++++ b/kernel/bpf_jit/bpf_run.c
+@@ -0,0 +1,511 @@
++/* Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ * General Public License for more details.
++ */
++#include <linux/kernel.h>
++#include <linux/types.h>
++#include <linux/slab.h>
++#include <linux/uaccess.h>
++#include <linux/bpf_jit.h>
++#include <linux/license.h>
++
++static const char *const bpf_class_string[] = {
++	"ld", "ldx", "st", "stx", "alu", "jmp", "ret", "misc"
++};
++
++static const char *const bpf_alu_string[] = {
++	"+=", "-=", "*=", "/=", "|=", "&=", "<<=", ">>=", "neg",
++	"%=", "^=", "=", "s>>=", "bswap32", "bswap64", "BUG"
++};
++
++static const char *const bpf_ldst_string[] = {
++	"u32", "u16", "u8", "u64"
++};
++
++static const char *const bpf_jmp_string[] = {
++	"jmp", "==", ">", ">=", "&", "!=", "s>", "s>=", "call"
++};
++
++static const char *reg_to_str(int regno, u64 *regs)
++{
++	static char reg_value[16][32];
++	if (!regs)
++		return "";
++	snprintf(reg_value[regno], sizeof(reg_value[regno]), "(0x%llx)",
++		 regs[regno]);
++	return reg_value[regno];
++}
++
++#define R(regno) reg_to_str(regno, regs)
++
++void pr_info_bpf_insn(struct bpf_insn *insn, u64 *regs)
++{
++	u16 class = BPF_CLASS(insn->code);
++	if (class == BPF_ALU) {
++		if (BPF_SRC(insn->code) == BPF_X)
++			pr_info("code_%02x r%d%s %s r%d%s\n",
++				insn->code, insn->a_reg, R(insn->a_reg),
++				bpf_alu_string[BPF_OP(insn->code) >> 4],
++				insn->x_reg, R(insn->x_reg));
++		else
++			pr_info("code_%02x r%d%s %s %d\n",
++				insn->code, insn->a_reg, R(insn->a_reg),
++				bpf_alu_string[BPF_OP(insn->code) >> 4],
++				insn->imm);
++	} else if (class == BPF_STX) {
++		if (BPF_MODE(insn->code) == BPF_REL)
++			pr_info("code_%02x *(%s *)(r%d%s %+d) = r%d%s\n",
++				insn->code,
++				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
++				insn->a_reg, R(insn->a_reg),
++				insn->off, insn->x_reg, R(insn->x_reg));
++		else if (BPF_MODE(insn->code) == BPF_XADD)
++			pr_info("code_%02x lock *(%s *)(r%d%s %+d) += r%d%s\n",
++				insn->code,
++				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
++				insn->a_reg, R(insn->a_reg), insn->off,
++				insn->x_reg, R(insn->x_reg));
++		else
++			pr_info("BUG_%02x\n", insn->code);
++	} else if (class == BPF_ST) {
++		if (BPF_MODE(insn->code) != BPF_REL) {
++			pr_info("BUG_st_%02x\n", insn->code);
++			return;
++		}
++		pr_info("code_%02x *(%s *)(r%d%s %+d) = %d\n",
++			insn->code,
++			bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
++			insn->a_reg, R(insn->a_reg),
++			insn->off, insn->imm);
++	} else if (class == BPF_LDX) {
++		if (BPF_MODE(insn->code) != BPF_REL) {
++			pr_info("BUG_ldx_%02x\n", insn->code);
++			return;
++		}
++		pr_info("code_%02x r%d = *(%s *)(r%d%s %+d)\n",
++			insn->code, insn->a_reg,
++			bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
++			insn->x_reg, R(insn->x_reg), insn->off);
++	} else if (class == BPF_JMP) {
++		u16 opcode = BPF_OP(insn->code);
++		if (opcode == BPF_CALL) {
++			pr_info("code_%02x call %d\n", insn->code, insn->imm);
++		} else if (insn->code == (BPF_JMP | BPF_JA | BPF_X)) {
++			pr_info("code_%02x goto pc%+d\n",
++				insn->code, insn->off);
++		} else if (BPF_SRC(insn->code) == BPF_X) {
++			pr_info("code_%02x if r%d%s %s r%d%s goto pc%+d\n",
++				insn->code, insn->a_reg, R(insn->a_reg),
++				bpf_jmp_string[BPF_OP(insn->code) >> 4],
++				insn->x_reg, R(insn->x_reg), insn->off);
++		} else {
++			pr_info("code_%02x if r%d%s %s 0x%x goto pc%+d\n",
++				insn->code, insn->a_reg, R(insn->a_reg),
++				bpf_jmp_string[BPF_OP(insn->code) >> 4],
++				insn->imm, insn->off);
++		}
++	} else {
++		pr_info("code_%02x %s\n", insn->code, bpf_class_string[class]);
++	}
++}
++
++void bpf_run(struct bpf_program *prog, struct bpf_context *ctx)
++{
++	struct bpf_insn *insn = prog->insns;
++	u64 stack[64];
++	u64 regs[16] = { };
++	regs[__fp__] = (u64)(ulong)&stack[64];
++	regs[R1] = (u64)(ulong)ctx;
++
++	for (;; insn++) {
++		const s32 K = insn->imm;
++		u64 tmp;
++		u64 *a_reg = &regs[insn->a_reg];
++		u64 *x_reg = &regs[insn->x_reg];
++#define A (*a_reg)
++#define X (*x_reg)
++		/*pr_info_bpf_insn(insn, regs);*/
++		switch (insn->code) {
++			/* ALU */
++		case BPF_ALU | BPF_ADD | BPF_X:
++			A += X;
++			continue;
++		case BPF_ALU | BPF_ADD | BPF_K:
++			A += K;
++			continue;
++		case BPF_ALU | BPF_SUB | BPF_X:
++			A -= X;
++			continue;
++		case BPF_ALU | BPF_SUB | BPF_K:
++			A -= K;
++			continue;
++		case BPF_ALU | BPF_AND | BPF_X:
++			A &= X;
++			continue;
++		case BPF_ALU | BPF_AND | BPF_K:
++			A &= K;
++			continue;
++		case BPF_ALU | BPF_OR | BPF_X:
++			A |= X;
++			continue;
++		case BPF_ALU | BPF_OR | BPF_K:
++			A |= K;
++			continue;
++		case BPF_ALU | BPF_LSH | BPF_X:
++			A <<= X;
++			continue;
++		case BPF_ALU | BPF_LSH | BPF_K:
++			A <<= K;
++			continue;
++		case BPF_ALU | BPF_RSH | BPF_X:
++			A >>= X;
++			continue;
++		case BPF_ALU | BPF_RSH | BPF_K:
++			A >>= K;
++			continue;
++		case BPF_ALU | BPF_MOV | BPF_X:
++			A = X;
++			continue;
++		case BPF_ALU | BPF_MOV | BPF_K:
++			A = K;
++			continue;
++		case BPF_ALU | BPF_ARSH | BPF_X:
++			(*(s64 *) &A) >>= X;
++			continue;
++		case BPF_ALU | BPF_ARSH | BPF_K:
++			(*(s64 *) &A) >>= K;
++			continue;
++		case BPF_ALU | BPF_BSWAP32 | BPF_X:
++			A = __builtin_bswap32(A);
++			continue;
++		case BPF_ALU | BPF_BSWAP64 | BPF_X:
++			A = __builtin_bswap64(A);
++			continue;
++		case BPF_ALU | BPF_MOD | BPF_X:
++			tmp = A;
++			if (X)
++				A = do_div(tmp, X);
++			continue;
++		case BPF_ALU | BPF_MOD | BPF_K:
++			tmp = A;
++			if (K)
++				A = do_div(tmp, K);
++			continue;
++
++			/* CALL */
++		case BPF_JMP | BPF_CALL:
++			prog->cb->execute_func(prog->strtab, K, regs);
++			continue;
++
++			/* JMP */
++		case BPF_JMP | BPF_JA | BPF_X:
++			insn += insn->off;
++			continue;
++		case BPF_JMP | BPF_JEQ | BPF_X:
++			if (A == X)
++				insn += insn->off;
++			continue;
++		case BPF_JMP | BPF_JEQ | BPF_K:
++			if (A == K)
++				insn += insn->off;
++			continue;
++		case BPF_JMP | BPF_JNE | BPF_X:
++			if (A != X)
++				insn += insn->off;
++			continue;
++		case BPF_JMP | BPF_JNE | BPF_K:
++			if (A != K)
++				insn += insn->off;
++			continue;
++		case BPF_JMP | BPF_JGT | BPF_X:
++			if (A > X)
++				insn += insn->off;
++			continue;
++		case BPF_JMP | BPF_JGT | BPF_K:
++			if (A > K)
++				insn += insn->off;
++			continue;
++		case BPF_JMP | BPF_JGE | BPF_X:
++			if (A >= X)
++				insn += insn->off;
++			continue;
++		case BPF_JMP | BPF_JGE | BPF_K:
++			if (A >= K)
++				insn += insn->off;
++			continue;
++		case BPF_JMP | BPF_JSGT | BPF_X:
++			if (((s64)A) > ((s64)X))
++				insn += insn->off;
++			continue;
++		case BPF_JMP | BPF_JSGT | BPF_K:
++			if (((s64)A) > ((s64)K))
++				insn += insn->off;
++			continue;
++		case BPF_JMP | BPF_JSGE | BPF_X:
++			if (((s64)A) >= ((s64)X))
++				insn += insn->off;
++			continue;
++		case BPF_JMP | BPF_JSGE | BPF_K:
++			if (((s64)A) >= ((s64)K))
++				insn += insn->off;
++			continue;
++
++			/* STX */
++		case BPF_STX | BPF_REL | BPF_B:
++			*(u8 *)(ulong)(A + insn->off) = X;
++			continue;
++		case BPF_STX | BPF_REL | BPF_H:
++			*(u16 *)(ulong)(A + insn->off) = X;
++			continue;
++		case BPF_STX | BPF_REL | BPF_W:
++			*(u32 *)(ulong)(A + insn->off) = X;
++			continue;
++		case BPF_STX | BPF_REL | BPF_DW:
++			*(u64 *)(ulong)(A + insn->off) = X;
++			continue;
++
++			/* ST */
++		case BPF_ST | BPF_REL | BPF_B:
++			*(u8 *)(ulong)(A + insn->off) = K;
++			continue;
++		case BPF_ST | BPF_REL | BPF_H:
++			*(u16 *)(ulong)(A + insn->off) = K;
++			continue;
++		case BPF_ST | BPF_REL | BPF_W:
++			*(u32 *)(ulong)(A + insn->off) = K;
++			continue;
++		case BPF_ST | BPF_REL | BPF_DW:
++			*(u64 *)(ulong)(A + insn->off) = K;
++			continue;
++
++			/* LDX */
++		case BPF_LDX | BPF_REL | BPF_B:
++			A = *(u8 *)(ulong)(X + insn->off);
++			continue;
++		case BPF_LDX | BPF_REL | BPF_H:
++			A = *(u16 *)(ulong)(X + insn->off);
++			continue;
++		case BPF_LDX | BPF_REL | BPF_W:
++			A = *(u32 *)(ulong)(X + insn->off);
++			continue;
++		case BPF_LDX | BPF_REL | BPF_DW:
++			A = *(u64 *)(ulong)(X + insn->off);
++			continue;
++
++			/* STX XADD */
++		case BPF_STX | BPF_XADD | BPF_B:
++			__sync_fetch_and_add((u8 *)(ulong)(A + insn->off),
++					     (u8)X);
++			continue;
++		case BPF_STX | BPF_XADD | BPF_H:
++			__sync_fetch_and_add((u16 *)(ulong)(A + insn->off),
++					     (u16)X);
++			continue;
++		case BPF_STX | BPF_XADD | BPF_W:
++			__sync_fetch_and_add((u32 *)(ulong)(A + insn->off),
++					     (u32)X);
++			continue;
++		case BPF_STX | BPF_XADD | BPF_DW:
++			__sync_fetch_and_add((u64 *)(ulong)(A + insn->off),
++					     (u64)X);
++			continue;
++
++			/* RET */
++		case BPF_RET | BPF_K:
++			return;
++		default:
++			/*
++			 * bpf_check() will guarantee that
++			 * we never reach here
++			 */
++			pr_err("unknown opcode %02x\n", insn->code);
++			return;
++		}
++	}
++}
++EXPORT_SYMBOL(bpf_run);
++
++/*
++ * BPF image format:
++ * 4 bytes "bpf\0"
++ * 4 bytes - size of strtab section in bytes
++ * string table: zero separated ascii strings
++ * {
++ *   4 bytes - size of next section in bytes
++ *   4 bytes - index into strtab of section name
++ *   N bytes - of this section
++ * } repeated
++ * "license" section contains BPF license that must be GPL compatible
++ * "bpftables" section contains zero or more of 'struct bpf_table'
++ * "e skb:kfree_skb" section contains one or more of 'struct bpf_insn'
++ */
++#define BPF_HEADER_SIZE 8
++int bpf_load_image(const char *image, int image_len, struct bpf_callbacks *cb,
++		   struct bpf_program **p_prog)
++{
++	struct bpf_program *prog;
++	int sec_size, sec_name, strtab_size;
++	int ret;
++
++	BUILD_BUG_ON(sizeof(struct bpf_insn) != 8);
++
++	if (!image || !cb || !cb->execute_func || !cb->get_func_proto ||
++	    !cb->get_context_access)
++		return -EINVAL;
++
++	if (image_len < 8 || memcmp(image, "bpf", 4) != 0) {
++		pr_err("invalid bpf image, size=%d\n", image_len);
++		return -EINVAL;
++	}
++
++	/* eat 'bpf' header */
++	image += 4;
++	image_len -= 4;
++
++	memcpy(&strtab_size, image, 4);
++	/* eat strtab size */
++	image += 4;
++	image_len -= 4;
++
++	if (strtab_size < 0 ||
++	    strtab_size > MAX_BPF_STRTAB_SIZE ||
++	    strtab_size >= image_len ||
++	    /*
++	     * check that strtab section is null terminated, so we can use
++	     * strcmp below even if sec_name points to strtab_size - 1
++	     */
++	    image[strtab_size - 1] != '\0') {
++		pr_err("BPF program strtab_size %d\n", strtab_size);
++		return -E2BIG;
++	}
++
++	prog = kzalloc(sizeof(struct bpf_program), GFP_KERNEL);
++	if (!prog)
++		return -ENOMEM;
++	prog->cb = cb;
++
++	prog->strtab_size = strtab_size;
++	prog->strtab = kmalloc(strtab_size, GFP_KERNEL);
++	if (!prog->strtab) {
++		ret = -ENOMEM;
++		goto free_prog;
++	}
++	memcpy(prog->strtab, image, strtab_size);
++	/* eat strtab section */
++	image += strtab_size;
++	image_len -= strtab_size;
++
++	/* now walk through all the sections */
++process_section:
++	if (image_len < 8) {
++		ret = -EINVAL;
++		goto free_strtab;
++	}
++	memcpy(&sec_size, image, 4);
++	memcpy(&sec_name, image + 4, 4);
++	image += 8;
++	image_len -= 8;
++	if (sec_name < 0 || sec_name >= strtab_size) {
++		ret = -EINVAL;
++		goto free_strtab;
++	}
++
++	if (prog->strtab[sec_name] == 'e' &&
++	    prog->strtab[sec_name + 1] == ' ' &&
++	    !prog->insns) {
++		/* got bpf_insn section */
++		prog->insn_cnt = sec_size / sizeof(struct bpf_insn);
++		if (prog->insn_cnt <= 0 ||
++		    sec_size % sizeof(struct bpf_insn) ||
++		    sec_size > image_len ||
++		    prog->insn_cnt > MAX_BPF_INSNS) {
++			pr_err("BPF program insn_size %d\n", sec_size);
++			ret = -E2BIG;
++			goto free_strtab;
++		}
++
++		prog->insns = kmalloc(sec_size, GFP_KERNEL);
++		if (!prog->insns) {
++			ret = -ENOMEM;
++			goto free_strtab;
++		}
++		memcpy(prog->insns, image, sec_size);
++		image += sec_size;
++		image_len -= sec_size;
++	} else if (strcmp(&prog->strtab[sec_name], "bpftables") == 0 &&
++		   !prog->tables) {
++		/* got bpf_tables section */
++		prog->table_cnt = sec_size / sizeof(struct bpf_table);
++		if (prog->table_cnt < 0 ||
++		    sec_size % sizeof(struct bpf_table) ||
++		    sec_size > image_len ||
++		    prog->table_cnt > MAX_BPF_TABLES) {
++			pr_err("BPF program table_size %d\n", sec_size);
++			ret = -E2BIG;
++			goto free_strtab;
++		}
++		prog->tables = kmalloc(sec_size, GFP_KERNEL);
++		if (!prog->tables) {
++			ret = -ENOMEM;
++			goto free_strtab;
++		}
++		memcpy(prog->tables, image, sec_size);
++		image += sec_size;
++		image_len -= sec_size;
++	} else if (strcmp(&prog->strtab[sec_name], "license") == 0) {
++		/* license section */
++		if (sec_size > image_len) {
++			pr_err("BPF program license_size %d\n", sec_size);
++			ret = -E2BIG;
++			goto free_strtab;
++		}
++		if (image[sec_size - 1] != '\0' ||
++		    !license_is_gpl_compatible(image)) {
++			pr_err("BPF program license is not GPL compatible\n");
++			ret = -EINVAL;
++			goto free_strtab;
++		}
++		image += sec_size;
++		image_len -= sec_size;
++	}
++
++	if (image_len)
++		goto process_section;
++
++	/* verify BPF program */
++	ret = bpf_check(prog);
++	if (ret)
++		goto free_strtab;
++
++	/* compile it (map BPF insns to native hw insns) */
++	bpf_compile(prog);
++
++	*p_prog = prog;
++
++	return 0;
++
++free_strtab:
++	kfree(prog->strtab);
++	kfree(prog->tables);
++	kfree(prog->insns);
++free_prog:
++	kfree(prog);
++	return ret;
++}
++EXPORT_SYMBOL(bpf_load_image);
++
++void bpf_free(struct bpf_program *prog)
++{
++	if (!prog)
++		return;
++	__bpf_free(prog);
++}
++EXPORT_SYMBOL(bpf_free);
++
+diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
+index a48abea..5a8d2fd 100644
+--- a/lib/Kconfig.debug
++++ b/lib/Kconfig.debug
+@@ -1615,3 +1615,18 @@ source "samples/Kconfig"
+ 
+ source "lib/Kconfig.kgdb"
+ 
++# Used by archs to tell that they support 64-bit BPF JIT
++config HAVE_BPF64_JIT
++	bool
++
++config BPF64
++	bool "Enable 64-bit BPF instruction set support"
++	help
++	  Enable this option to support 64-bit BPF programs
++
++config BPF64_JIT
++	bool "Enable 64-bit BPF JIT compiler"
++	depends on BPF64 && HAVE_BPF64_JIT
++	help
++	  Enable Just-In-Time compiler for 64-bit BPF programs
++
 -- 
 1.7.9.5
