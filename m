@@ -1,169 +1,160 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: stmmac: Add Altera's SOCFPGA extensions for GMAC
-Date: Thu, 06 Feb 2014 17:07:26 +0400
-Message-ID: <52F3890E.2070805@cogentembedded.com>
-References: <1391646915-22045-1-git-send-email-dinguyen@altera.com>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Re: 3.14-mw regression: rtl8169 WARNING: DMA-API: exceeded 7 overlapping mappings of pfn 55ebe
+Date: Thu, 6 Feb 2014 14:09:09 +0100
+Message-ID: <942972114.20140206140909@eikelenboom.it>
+References: <1859471893.20140126115521@eikelenboom.it> <20140127000305.GA14236@electric-eye.fr.zoreil.com> <CAA9_cme2hgJ=jCDkPh5n5RP8fiJE-dVwbFr-apKv1=mNGPHYZg@mail.gmail.com> <84816226.20140206123631@eikelenboom.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dinh.linux@gmail.com, Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Vince Bridgers <vbridgers2013@gmail.com>
-To: dinguyen@altera.com, netdev@vger.kernel.org
+Cc: Dan Williams <dan.j.williams@intel.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Sander Eikelenboom <linux@eikelenboom.it>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f52.google.com ([209.85.215.52]:55068 "EHLO
-	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751433AbaBFNHA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 08:07:00 -0500
-Received: by mail-la0-f52.google.com with SMTP id c6so1449831lan.11
-        for <netdev@vger.kernel.org>; Thu, 06 Feb 2014 05:06:59 -0800 (PST)
-In-Reply-To: <1391646915-22045-1-git-send-email-dinguyen@altera.com>
+Received: from vserver.eikelenboom.it ([84.200.39.61]:33477 "EHLO
+	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756197AbaBFNJW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 08:09:22 -0500
+In-Reply-To: <84816226.20140206123631@eikelenboom.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hmm ok that last message was false .. sorry for that .. it did happen again without r8169.use_dac=1, it just doesn't seem to happen all the time...
 
-On 06-02-2014 4:35, dinguyen@altera.com wrote:
+Konrad / Wei, do you happen to know of any xen related change that went into 3.14 merge window that relates to dma / xen networking ?
 
-> From: Dinh Nguyen <dinguyen@altera.com>
+--
+Sander
 
-> The GMAC controller on Altera's SOCFPGA requires setting the phy mode
-> in a register that exists in the System Manager. This patch sets those
-> register through the syscon interface.
+complete stacktrace:
 
-> Signed-off-by: Dinh Nguyen <dinguyen@altera.com>
-> Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> Cc: Vince Bridgers <vbridgers2013@gmail.com>
-> ---
->   arch/arm/boot/dts/socfpga.dtsi                     |    6 +-
->   arch/arm/boot/dts/socfpga_cyclone5.dtsi            |    6 --
->   arch/arm/boot/dts/socfpga_cyclone5_socdk.dts       |   18 ++++
->   arch/arm/boot/dts/socfpga_cyclone5_sockit.dts      |   13 +++
->   drivers/net/ethernet/stmicro/stmmac/Kconfig        |    7 ++
->   drivers/net/ethernet/stmicro/stmmac/Makefile       |    1 +
->   .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    |  104 ++++++++++++++++++++
->   drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    4 +
->   .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    1 +
->   9 files changed, 151 insertions(+), 9 deletions(-)
->   create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
->
-> diff --git a/arch/arm/boot/dts/socfpga.dtsi b/arch/arm/boot/dts/socfpga.dtsi
-> index 8c4adb7..895257d 100644
-> --- a/arch/arm/boot/dts/socfpga.dtsi
-> +++ b/arch/arm/boot/dts/socfpga.dtsi
-> @@ -442,7 +442,7 @@
->   				};
->   			};
->
-> -		gmac0: ethernet@ff700000 {
-> +		gmac0: gmac0@ff700000 {
+[  342.710738] ------------[ cut here ]------------
+[  342.726890] WARNING: CPU: 0 PID: 0 at lib/dma-debug.c:491 add_dma_entry+0x105/0x130()
+[  342.743210] DMA-API: exceeded 7 overlapping mappings of pfn 40b00
+[  342.759510] Modules linked in:
+[  342.775557] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.14.0-rc1-20140206-pcireset-net-btrevert+ #1
+[  342.791706] Hardware name: MSI MS-7640/890FXA-GD70 (MS-7640)  , BIOS V1.8B1 09/13/2010
+[  342.807627]  0000000000000009 ffff88005f603828 ffffffff81ad29fc ffffffff822134e0
+[  342.823430]  ffff88005f603878 ffff88005f603868 ffffffff810bdf62 ffff880000000000
+[  342.839081]  0000000000040b00 00000000ffffffef ffffffff822102e0 ffff8800592b9098
+[  342.854572] Call Trace:
+[  342.869748]  <IRQ>  [<ffffffff81ad29fc>] dump_stack+0x46/0x58
+[  342.884915]  [<ffffffff810bdf62>] warn_slowpath_common+0x82/0xb0
+[  342.899710]  [<ffffffff810be031>] warn_slowpath_fmt+0x41/0x50
+[  342.914395]  [<ffffffff8147853a>] ? active_pfn_read_overlap+0x3a/0x70
+[  342.929166]  [<ffffffff814792c5>] add_dma_entry+0x105/0x130
+[  342.943733]  [<ffffffff814796c6>] debug_dma_map_page+0x126/0x150
+[  342.957988]  [<ffffffff8171c8b6>] rtl8169_start_xmit+0x216/0xa20
+[  342.972306]  [<ffffffff8195f08f>] ? dev_queue_xmit_nit+0x1ef/0x260
+[  342.986523]  [<ffffffff8195eea0>] ? dev_loopback_xmit+0x1e0/0x1e0
+[  343.000689]  [<ffffffff819631e6>] dev_hard_start_xmit+0x2e6/0x4a0
+[  343.014466]  [<ffffffff81980f3e>] sch_direct_xmit+0xfe/0x280
+[  343.028052]  [<ffffffff819635dc>] __dev_queue_xmit+0x23c/0x630
+[  343.041338]  [<ffffffff819633a0>] ? dev_hard_start_xmit+0x4a0/0x4a0
+[  343.054483]  [<ffffffff81a0a334>] ? ip_output+0x54/0xf0
+[  343.067659]  [<ffffffff819639eb>] dev_queue_xmit+0xb/0x10
+[  343.080804]  [<ffffffff81a0890b>] ip_finish_output+0x2cb/0x670
+[  343.093746]  [<ffffffff81a0a334>] ? ip_output+0x54/0xf0
+[  343.106391]  [<ffffffff81a0a334>] ip_output+0x54/0xf0
+[  343.118683]  [<ffffffff81a05791>] ip_forward_finish+0x71/0x1a0
+[  343.130901]  [<ffffffff81a05a63>] ip_forward+0x1a3/0x440
+[  343.142829]  [<ffffffff810ffebb>] ? lock_is_held+0x8b/0xb0
+[  343.154346]  [<ffffffff81a035c0>] ip_rcv_finish+0x150/0x660
+[  343.165748]  [<ffffffff81a0406b>] ip_rcv+0x22b/0x370
+[  343.176838]  [<ffffffff81a60972>] ? packet_rcv_spkt+0x42/0x190
+[  343.187659]  [<ffffffff819609d2>] __netif_receive_skb_core+0x6d2/0x8a0
+[  343.198209]  [<ffffffff81960414>] ? __netif_receive_skb_core+0x114/0x8a0
+[  343.208819]  [<ffffffff81009010>] ? xen_clocksource_read+0x20/0x30
+[  343.219471]  [<ffffffff81116e49>] ? getnstimeofday+0x9/0x30
+[  343.229862]  [<ffffffff81960bbc>] __netif_receive_skb+0x1c/0x70
+[  343.239953]  [<ffffffff81960c2e>] netif_receive_skb_internal+0x1e/0xf0
+[  343.249908]  [<ffffffff81962110>] napi_gro_receive+0x70/0xa0
+[  343.259509]  [<ffffffff817198a3>] rtl8169_poll+0x2d3/0x680
+[  343.268982]  [<ffffffff81adcd2b>] ? _raw_spin_unlock_irq+0x2b/0x50
+[  343.278091]  [<ffffffff819610d1>] net_rx_action+0x161/0x260
+[  343.287056]  [<ffffffff810c28ec>] __do_softirq+0x12c/0x280
+[  343.295756]  [<ffffffff810c2da2>] irq_exit+0xa2/0xd0
+[  343.304235]  [<ffffffff814ffd5f>] xen_evtchn_do_upcall+0x2f/0x40
+[  343.312387]  [<ffffffff81adf15e>] xen_do_hypervisor_callback+0x1e/0x30
+[  343.320389]  <EOI>  [<ffffffff810013aa>] ? xen_hypercall_sched_op+0xa/0x20
+[  343.328171]  [<ffffffff810013aa>] ? xen_hypercall_sched_op+0xa/0x20
+[  343.335738]  [<ffffffff81008c70>] ? xen_safe_halt+0x10/0x20
+[  343.343142]  [<ffffffff81018748>] ? default_idle+0x18/0x20
+[  343.350202]  [<ffffffff81018f5e>] ? arch_cpu_idle+0x2e/0x40
+[  343.356994]  [<ffffffff8110b551>] ? cpu_startup_entry+0x91/0x1e0
+[  343.363658]  [<ffffffff81ac7d87>] ? rest_init+0xb7/0xc0
+[  343.369924]  [<ffffffff81ac7cd0>] ? csum_partial_copy_generic+0x170/0x170
+[  343.376057]  [<ffffffff8230ff1c>] ? start_kernel+0x409/0x416
+[  343.381972]  [<ffffffff8230f912>] ? repair_env_string+0x5e/0x5e
+[  343.387573]  [<ffffffff8230f5f8>] ? x86_64_start_reservations+0x2a/0x2c
+[  343.393152]  [<ffffffff82312e28>] ? xen_start_kernel+0x586/0x588
+[  343.398628] ---[ end trace 8379b598fb7ef5ee ]---
 
-    Why are you renaming the node from ePAPR compatible name?
 
->   			compatible = "altr,socfpga-stmmac", "snps,dwmac-3.70a", "snps,dwmac";
->   			reg = <0xff700000 0x2000>;
->   			interrupts = <0 115 4>;
-> @@ -453,7 +453,7 @@
->   			status = "disabled";
->   		};
->
-> -		gmac1: ethernet@ff702000 {
-> +		gmac1: gmac1@ff702000 {
->   			compatible = "altr,socfpga-stmmac", "snps,dwmac-3.70a", "snps,dwmac";
->   			reg = <0xff702000 0x2000>;
->   			interrupts = <0 120 4>;
-> @@ -534,7 +534,7 @@
->   		};
->
->   		rstmgr@ffd05000 {
-> -			compatible = "altr,rst-mgr";
-> +			compatible = "altr,rst-mgr", "syscon";
->   			reg = <0xffd05000 0x1000>;
->   		};
->
-> diff --git a/arch/arm/boot/dts/socfpga_cyclone5.dtsi b/arch/arm/boot/dts/socfpga_cyclone5.dtsi
-> index ca41b0e..454148d 100644
-> --- a/arch/arm/boot/dts/socfpga_cyclone5.dtsi
-> +++ b/arch/arm/boot/dts/socfpga_cyclone5.dtsi
-> @@ -39,12 +39,6 @@
->   			};
->   		};
->
-> -		ethernet@ff702000 {
-> -			phy-mode = "rgmii";
-> -			phy-addr = <0xffffffff>; /* probe for phy addr */
-> -			status = "okay";
-> -		};
-> -
->   		timer0@ffc08000 {
->   			clock-frequency = <100000000>;
->   		};
-[...]
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-> new file mode 100644
-> index 0000000..13fa90c
-> --- /dev/null
-> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-> @@ -0,0 +1,104 @@
-[...]
-> +static int socfpga_gmac_init(struct platform_device *pdev, void *priv)
-> +{
-> +	struct device_node *np = pdev->dev.of_node;
-> +	struct regmap *sys_mgr_base_addr;
-> +	struct regmap *rst_mgr_base_addr;
-> +	int phymode;
-> +	u32 ctrl, val, shift = 0;
-> +	u32 rstmask = 0;
-> +
-> +	if (of_machine_is_compatible("altr,socfpga-vt"))
-> +		return 0;
-> +
-> +	phymode = of_get_phy_mode(pdev->dev.of_node);
-> +
 
-    I don't think emoty line is needed here.
 
-> +	switch (phymode) {
-> +	case PHY_INTERFACE_MODE_RGMII:
-> +		val = SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_RGMII;
-> +		break;
-> +	case PHY_INTERFACE_MODE_MII:
-> +	case PHY_INTERFACE_MODE_GMII:
-> +		val = SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_GMII_MII;
-> +		break;
-> +	default:
-> +		dev_err(&pdev->dev, "bad phy mode %d\n", phymode);
-> +		return -EINVAL;
-> +	}
-[...]
-> +	if (streq(np->name, "gmac0"))
-> +		rstmask = RSTMGR_PERMODRST_EMAC0;
 
-    Ah, for that you renamed the nodes! Shouldn't this info be placed in some 
-node property instead?
+Thursday, February 6, 2014, 12:36:31 PM, you wrote:
 
-> +	else if (streq(np->name, "gmac1")) {
-> +		shift = SYSMGR_EMACGRP_CTRL_PHYSEL_WIDTH;
-> +		rstmask = RSTMGR_PERMODRST_EMAC1;
-> +	} else {
-> +		dev_err(&pdev->dev, "Not a valid GMAC!\n");
-> +		return -EINVAL;
-> +	}
-> +
-> +	regmap_read(sys_mgr_base_addr, SYSMGR_EMACGRP_CTRL_OFFSET, &ctrl);
-> +	ctrl &= ~(SYSMGR_EMACGRP_CTRL_PHYSEL_MASK << shift);
-> +	ctrl |= (val << shift);
+> Hi Dan / Francois,
 
-    () not needed.
+> Didn't have time to test it before, but the patch doesn't seem to help.
+> I'm still getting the "DMA-API: exceeded 7 overlapping mappings of pfn 55ebe",
+> but i see now i forgot to mention i use r8169.use_dac=1 ...
 
-> +
-> +	regmap_write(sys_mgr_base_addr, SYSMGR_EMACGRP_CTRL_OFFSET, ctrl);
-> +
-> +	/* Bring the appropriate GMAC out of reset */
-> +	regmap_read(rst_mgr_base_addr, SOCFPGA_RSTMGR_MODPERRST, &ctrl);
-> +	ctrl &= ~(rstmask);
+> Not using it seems to prevent the warning, but before 3.14 i have never seen this (with r8169.use_dac=1)
 
-    Likewise.
+> --
+> Sander
 
-[...]
+> Wednesday, January 29, 2014, 4:06:24 AM, you wrote:
 
-WBR, Sergei
+>> On Sun, Jan 26, 2014 at 4:03 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
+>>> Sander Eikelenboom <linux@eikelenboom.it> :
+>>> [...]
+>>>> I have got a regression with a 3.14-mw kernel (last commit is 4ba9920e5e9c0e16b5ed24292d45322907bb9035):
+>>>> It looks like it's related to the rtl8169 ...
+>>>>
+>>>> --
+>>>> Sander
+>>>>
+>>>> Jan 26 11:36:26 serveerstertje kernel: [   89.105537] ------------[ cut here ]------------
+>>>> Jan 26 11:36:26 serveerstertje kernel: [   89.116779] WARNING: CPU: 0 PID: 0 at lib/dma-debug.c:491 add_dma_entry+0x103/0x130()
+>>>> Jan 26 11:36:26 serveerstertje kernel: [   89.128148] DMA-API: exceeded 7 overlapping mappings of pfn 55ebe
+>>>> Jan 26 11:36:26 serveerstertje kernel: [   89.139397] Modules linked in:
+>>>> Jan 26 11:36:26 serveerstertje kernel: [   89.150535] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.13.0-20140125-mw-pcireset+ #1
+>>>> Jan 26 11:36:26 serveerstertje kernel: [   89.161784] Hardware name: MSI MS-7640/890FXA-GD70 (MS-7640)  , BIOS V1.8B1 09/13/2010
+>>>> Jan 26 11:36:26 serveerstertje kernel: [   89.172965]  0000000000000009 ffff88005f603838 ffffffff81acbcfa ffffffff822134e0
+>>>> Jan 26 11:36:26 serveerstertje kernel: [   89.184156]  ffff88005f603888 ffff88005f603878 ffffffff810bdf62 ffff880000000000
+>>>> Jan 26 11:36:26 serveerstertje kernel: [   89.195186]  0000000000055ebe 00000000ffffffef 0000000000000200 ffff8800592ea098
+>>>> Jan 26 11:36:26 serveerstertje kernel: [   89.206227] Call Trace:
+>>>> Jan 26 11:36:26 serveerstertje kernel: [   89.217027]  <IRQ>  [<ffffffff81acbcfa>] dump_stack+0x46/0x58
+>>>> Jan 26 11:36:26 serveerstertje kernel: [   89.227907]  [<ffffffff810bdf62>] warn_slowpath_common+0x82/0xb0
+>>>> Jan 26 11:36:26 serveerstertje kernel: [   89.238678]  [<ffffffff810be031>] warn_slowpath_fmt+0x41/0x50
+>>>> Jan 26 11:36:26 serveerstertje kernel: [   89.249336]  [<ffffffff81471c5a>] ? active_pfn_read_overlap+0x3a/0x70
+>>>> Jan 26 11:36:26 serveerstertje kernel: [   89.259904]  [<ffffffff814729e3>] add_dma_entry+0x103/0x130
+>>>> Jan 26 11:36:26 serveerstertje kernel: [   89.270416]  [<ffffffff81472de6>] debug_dma_map_page+0x126/0x150
+>>>> Jan 26 11:36:26 serveerstertje kernel: [   89.280840]  [<ffffffff81714686>] rtl8169_start_xmit+0x216/0xa20
+>>> [r8169 and xen stuff]
+>>>
+>>> Dan, I miss the part of the debug code that tells where the mappings were
+>>> previously set.
+
+>> In this case it was a facepalm mistake on my part.  The mappings were
+>> not being properly accounted in the last revision of the patch I sent.
+>>  I copied you on the fix [1].
+
+>> --
+>> Dan
+
+>> [1]: http://marc.info/?l=linux-netdev&m=139096447627032&w=2
+
+
+
+
+-- 
+Best regards,
+ Sander                            mailto:linux@eikelenboom.it
