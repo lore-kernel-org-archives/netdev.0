@@ -1,117 +1,53 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next v2] ipv6: enable anycast addresses as source
- addresses in ICMPv6 error messages
-Date: Thu, 06 Feb 2014 17:29:57 +0100
-Message-ID: <52F3B885.4010707@6wind.com>
-References: <1390147236-3660-1-git-send-email-fx.lebail@yahoo.com> <52F357C3.9060406@6wind.com> <1391690329.62545.YahooMailNeo@web125506.mail.ne1.yahoo.com> <52F395BB.2030209@6wind.com> <1391697041.6325.YahooMailNeo@web125505.mail.ne1.yahoo.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH-net] drivers/net: fix build warning in ethernet/sfc/tx.c
+Date: Thu, 6 Feb 2014 11:45:12 -0500
+Message-ID: <1391705112-27869-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Stevens <dlstevens@us.ibm.com>,
-	Bill Fink <billfink@mindspring.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: =?ISO-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-net-drivers@solarflare.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Jon Cooper <jcooper@solarflare.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:38917 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752925AbaBFQaE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 11:30:04 -0500
-Received: by mail-wi0-f175.google.com with SMTP id hm4so1791372wib.2
-        for <netdev@vger.kernel.org>; Thu, 06 Feb 2014 08:30:02 -0800 (PST)
-In-Reply-To: <1391697041.6325.YahooMailNeo@web125505.mail.ne1.yahoo.com>
+Received: from mail1.windriver.com ([147.11.146.13]:38608 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751651AbaBFQwg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 11:52:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 06/02/2014 15:30, Fran=E7ois-Xavier Le Bail a =E9crit :
->> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->
->> To: Fran=E7ois-Xavier Le Bail <fx.lebail@yahoo.com>; "netdev@vger.ke=
-rnel.org" <netdev@vger.kernel.org>
->> Cc: David Stevens <dlstevens@us.ibm.com>; Bill Fink <billfink@mindsp=
-ring.com>; Hannes Frederic Sowa <hannes@stressinduktion.org>; David S. =
-Miller <davem@davemloft.net>; Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>; =
-James Morris <jmorris@namei.org>; Hideaki Yoshifuji <yoshfuji@linux-ipv=
-6.org>; Patrick McHardy <kaber@trash.net>
->> Sent: Thursday, February 6, 2014 3:01 PM
->> Subject: Re: [PATCH net-next v2] ipv6: enable anycast addresses as s=
-ource addresses in ICMPv6 error messages
->>
->> Le 06/02/2014 13:38, Fran=E7ois-Xavier Le Bail a =E9crit :
->>>>   From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->>>
->>>
->>>>   Subject: Re: [PATCH net-next v2] ipv6: enable anycast addresses =
-as
->> source addresses in ICMPv6 error messages
->>>>
->>>>   Le 19/01/2014 17:00, Francois-Xavier Le Bail a =E9crit :
->>>>
->>>>>     - Uses ipv6_anycast_destination() in icmp6_send().
->>>>>
->>>>>     Suggested-by: Bill Fink <billfink@mindspring.com>
->>>>>     Signed-off-by: Francois-Xavier Le Bail
->> <fx.lebail@yahoo.com>
->>>>   This patch causes an Oops on my target.
->>>
->>>   What is your target ?
->> x86 32bits
->>
->>>
->>>>   Here is the step to reproduce it:
->>>>   modprobe sit
->>>>   ip link add sit1 type sit remote 10.16.0.121 local 10.16.0.249
->>>>   ip l s sit1 up
->>>>   ip -6 a a dev sit1 2001:1234::123 remote 2001:1234::121
->>>>   ping6 2001:1234::121
->>>
->>>   I cannot reproduce this in my target (updated net-next x86_64) an=
-d
->>>   iproute2 from git.
->> I use linus tree (3.14-rc1+).
->>
->>>   Can you send me your config file ?
->> See attachment.
->>
->>
->>>
->>>>   The problem is that ipv6_anycast_destination() uses unconditiona=
-lly
->>>>   skb_dst(skb), which is NULL in this case.
->>>>
->>>>   Not sure what is the best way to fix this, any suggestions?
->>>
->>>   I will try to reproduce first and see.
->> Note that the peer was not set up, hence the ping didn't work.
->> ipip6_err() calls ipip6_err_gen_icmpv6_unreach() which will drop the=
- dst
->> before calling icmpv6_send().
->>
->>
->> Here is the backtrace:
->> [  387.786155] BUG: unable to handle kernel NULL pointer dereference=
- at 00000096
->> [  387.787291] IP: [<c12f1568>] icmp6_send+0x79/0x596
->
-> [...]
->
->> [  387.790055]  [<f85ce03b>] ? tunnel64_err+0x16/0x25 [tunnel4]
->
-> Thanks for these informations.
->
-> Can you test an alternative replacing:
->
-> test on: ipv6_anycast_destination(skb)
-> by
-> test on: ipv6_chk_acast_addr_src(net, skb->dev, &hdr->daddr)
-Ok, I will do it tomorrow.
+Commit ee45fd92c739db5b7950163d91dfe5f016af6d24 ("sfc: Use TX PIO
+for sufficiently small packets") introduced the following warning:
 
-Thank you,
-Nicolas
+drivers/net/ethernet/sfc/tx.c: In function 'efx_enqueue_skb':
+drivers/net/ethernet/sfc/tx.c:432:1: warning: label 'finish_packet' defined but not used
+
+Stick the label inside the same #ifdef that the code which calls
+it uses.  Note that this is only seen for arch that do not set
+ARCH_HAS_IOREMAP_WC, such as arm, mips, sparc, ..., as the others
+enable the write combining code and hence use the label.
+
+Cc: Jon Cooper <jcooper@solarflare.com>
+Cc: Ben Hutchings <bhutchings@solarflare.com>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
+ drivers/net/ethernet/sfc/tx.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
+index c49d1fb16965..75d11fa4eb0a 100644
+--- a/drivers/net/ethernet/sfc/tx.c
++++ b/drivers/net/ethernet/sfc/tx.c
+@@ -429,7 +429,9 @@ netdev_tx_t efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb)
+ 	}
+ 
+ 	/* Transfer ownership of the skb to the final buffer */
++#ifdef EFX_USE_PIO
+ finish_packet:
++#endif
+ 	buffer->skb = skb;
+ 	buffer->flags = EFX_TX_BUF_SKB | dma_flags;
+ 
+-- 
+1.8.5.2
