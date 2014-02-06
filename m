@@ -1,30 +1,30 @@
-From: David Miller <davem@redhat.com>
-Subject: Re: [GIT net] Open vSwitch
-Date: Wed, 05 Feb 2014 16:26:10 -0800 (PST)
-Message-ID: <20140205.162610.551022240482803520.davem@redhat.com>
-References: <1391583561-25399-1-git-send-email-jesse@nicira.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: Fw: [Bug 70071] New: Sending netconsole messages over a bridged
+ network interface doesn't work anymore
+Date: Wed, 5 Feb 2014 16:36:47 -0800
+Message-ID: <CAHA+R7OqieyUwCpuDPKDrYDxy62f0izTnJs7VaN=JbmX5kqG-g@mail.gmail.com>
+References: <20140205141539.450095fa@samsung-9>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dev@openvswitch.org
-To: jesse@nicira.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55483 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753187AbaBFA0S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Feb 2014 19:26:18 -0500
-In-Reply-To: <1391583561-25399-1-git-send-email-jesse@nicira.com>
+Received: from mail-la0-f48.google.com ([209.85.215.48]:43540 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752917AbaBFAgt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Feb 2014 19:36:49 -0500
+Received: by mail-la0-f48.google.com with SMTP id mc6so919456lab.21
+        for <netdev@vger.kernel.org>; Wed, 05 Feb 2014 16:36:48 -0800 (PST)
+In-Reply-To: <20140205141539.450095fa@samsung-9>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Gross <jesse@nicira.com>
-Date: Tue,  4 Feb 2014 22:59:16 -0800
+On Wed, Feb 5, 2014 at 1:15 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+>
+> Apparently several users already ran into this issue. See e.g.:
+> http://thread.gmane.org/gmane.linux.network/288373
+> http://lists.suse.de/archive/opensuse-kernel/2014-01/msg00061.html
+>
 
-> A handful of bug fixes for net/3.14. High level fixes are:
->  * Regressions introduced by the zerocopy changes, particularly with
->    old userspaces.
->  * A few bugs lingering from the introduction of megaflows.
->  * Overly zealous error checking that is now being triggered frequently
->    in common cases.
-
-Pulled, thanks Jesse.
+I will take a look at this.
