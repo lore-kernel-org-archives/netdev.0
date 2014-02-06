@@ -1,38 +1,65 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] phy: fix compiler array bounds warning on settings[]
-Date: Wed, 5 Mar 2014 15:10:34 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6D1D1E@AcuExch.aculab.com>
-References: <20140305003544.23016.55079.stgit@bhelgaas-glaptop.roam.corp.google.com>
- <063D6719AE5E284EB5DD2968C1650D6D0F6D1440@AcuExch.aculab.com>
- <CAErSpo5Pb2bABmnQZ04KRqjU=38=Pcr2OQv8hUJd_hv69QVc-A@mail.gmail.com>
+From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
+Subject: Re: [PATCH net-next v2] ipv6: enable anycast addresses as source addresses in ICMPv6 error messages
+Date: Thu, 6 Feb 2014 04:38:49 -0800 (PST)
+Message-ID: <1391690329.62545.YahooMailNeo@web125506.mail.ne1.yahoo.com>
+References: <1390147236-3660-1-git-send-email-fx.lebail@yahoo.com> <52F357C3.9060406@6wind.com>
+Reply-To: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Bjorn Helgaas' <bhelgaas@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAErSpo5Pb2bABmnQZ04KRqjU=38=Pcr2OQv8hUJd_hv69QVc-A@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Stevens <dlstevens@us.ibm.com>,
+	Bill Fink <billfink@mindspring.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: "nicolas.dichtel@6wind.com" <nicolas.dichtel@6wind.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nm46.bullet.mail.ne1.yahoo.com ([98.138.120.53]:22190 "EHLO
+	nm46.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758922AbaCEPRi convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Mar 2014 10:17:38 -0500
+In-Reply-To: <52F357C3.9060406@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQmpvcm4gSGVsZ2Fhcw0KPiBPbiBXZWQsIE1hciA1LCAyMDE0IGF0IDI6MTAgQU0sIERh
-dmlkIExhaWdodCA8RGF2aWQuTGFpZ2h0QGFjdWxhYi5jb20+IHdyb3RlOg0KPiA+IEZyb206IEJq
-b3JuIEhlbGdhYXMNCj4gPj4gV2l0aCAtV2Vycm9yPWFycmF5LWJvdW5kcywgZ2NjIHY0LjcueCB3
-YXJucyB0aGF0IGluIHBoeV9maW5kX3ZhbGlkKCksIHRoZQ0KPiA+PiBzZXR0aW5nc1tdICJhcnJh
-eSBzdWJzY3JpcHQgaXMgYWJvdmUgYXJyYXkgYm91bmRzIiwgSSB0aGluayBiZWNhdXNlIGlkeCBp
-cw0KPiA+PiBhIHNpZ25lZCBpbnRlZ2VyIGFuZCBpZiB0aGUgY2FsbGVyIHN1cHBsaWVkIGlkeCA8
-IDAsIHdlIHBhc3MgdGhlIGd1YXJkIGJ1dA0KPiA+PiBzdGlsbCByZWZlcmVuY2Ugb3V0IG9mIGJv
-dW5kcy4NCj4gPg0KPiA+IE5vdCByZWplY3RpbmcgdGhlIHBhdGNoIGJ1dC4uLg0KPiA+DQo+ID4g
-SnVzdCBpbmRleGluZyBhbiBhcnJheSB3aXRoICdpbnQnIHNob3VsZG4ndCBjYXVzZSB0aGlzIHdh
-cm5pbmcsDQo+ID4gc28gc29tZXdoZXJlIGEgY2FsbGVyIG11c3QgYWN0dWFsbHkgYmUgcGFzc2lu
-ZyBhbiBpZHggPCAwLg0KPiA+DQo+ID4gV2hpbGUgY2hhbmdpbmcgdGhlIHR5cGUgdG8gdW5zaWdu
-ZWQgd2lsbCBtYWtlIHRoZSBjb21wYXJpc29uDQo+ID4gYWdhaW5zdCB0aGUgYXJyYXkgYm91bmQg
-cmVqZWN0IHRoZSAtMSwgSSBzdXNwZWN0IHRoYXQgdGhlDQo+ID4gc3BlY2lmaWMgY2FsbCBwYXRo
-IGRpZG4ndCByZWFsbHkgaW50ZW5kIHBhc3NpbmcgYSBoYXJkLWNvZGVkIC0xLg0KPiA+DQo+ID4g
-SXQgbWlnaHQgYmUgd29ydGggdHJ5aW5nIHRvIGxvY2F0ZSB0aGUgY2FsbCBzaXRlIHRoYXQgcGFz
-c2VzIC0xLg0KPiANCj4gSSBhZ3JlZSAxMDAlLiAgSWYgdGhhdCdzIHRoZSBjYXNlLCB3ZSBkZWZp
-bml0ZWx5IHNob3VsZCBmaW5kIHRoYXQNCj4gY2FsbGVyIHJhdGhlciB0aGFuIGFwcGx5IHRoaXMg
-cGF0Y2guICBJJ2xsIGxvb2sgbW9yZSB0b2RheS4NCg0KWW91IG1pZ2h0IHdhbnQgdG8gYXBwbHkg
-dGhlIHBhdGNoIGFzIHdlbGwgOi0pDQoNCglEYXZpZA0KDQo=
+> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+
+
+> Subject: Re: [PATCH net-next v2] ipv6: enable anycast addresses as so=
+urce addresses in ICMPv6 error messages
+>=20
+> Le 19/01/2014 17:00, Francois-Xavier Le Bail a =E9crit :
+>=20
+>>  - Uses ipv6_anycast_destination() in icmp6_send().
+>>=20
+>>  Suggested-by: Bill Fink <billfink@mindspring.com>
+>>  Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+> This patch causes an Oops on my target.
+
+What is your target ?
+
+> Here is the step to reproduce it:
+> modprobe sit
+> ip link add sit1 type sit remote 10.16.0.121 local 10.16.0.249
+> ip l s sit1 up
+> ip -6 a a dev sit1 2001:1234::123 remote 2001:1234::121
+> ping6 2001:1234::121
+
+I cannot reproduce this in my target (updated net-next x86_64) and
+iproute2 from git.
+Can you send me your config file ?
+
+> The problem is that ipv6_anycast_destination() uses unconditionally
+> skb_dst(skb), which is NULL in this case.
+>=20
+> Not sure what is the best way to fix this, any suggestions?
+
+I will try to reproduce first and see.
+
+Greetings,
+=46rancois-Xavier
