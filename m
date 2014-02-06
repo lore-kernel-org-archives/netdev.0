@@ -1,59 +1,71 @@
 From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: asix: fix bad header length bug
-Date: Thu, 6 Feb 2014 15:28:13 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6B99F7@AcuExch.aculab.com>
-References: <1391691384-8486-1-git-send-email-emilgoode@gmail.com>
- <1391692768.2843.4.camel@X1Carbon.localdomain>
+Subject: RE: AX88179_178A USB3 ethernet adapter performance issue
+Date: Thu, 6 Feb 2014 15:39:02 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6B9A21@AcuExch.aculab.com>
+References: <CAMVG2ssoBwk56n-k5VB9yO2LP4wc+gTv4o_17r-WYakwE6h2uQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ming Lei <ming.lei@canonical.com>,
-	Mark Brown <broonie@linaro.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Glen Turner <gdt@gdt.id.au>,
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Netdev <netdev@vger.kernel.org>
+To: 'Daniel J Blueman' <daniel@quora.org>,
+	Freddy Xin <freddy@asix.com.tw>,
 	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Igor Gnatenko' <i.gnatenko.brain@gmail.com>,
-	Emil Goode <emilgoode@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1391692768.2843.4.camel@X1Carbon.localdomain>
+	'Sarah Sharp' <sarah.a.sharp@linux.intel.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:58652 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751794AbaBFPj7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 10:39:59 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 26398-05 for <netdev@vger.kernel.org>;
+ Thu,  6 Feb 2014 15:39:53 +0000 (GMT)
+In-Reply-To: <CAMVG2ssoBwk56n-k5VB9yO2LP4wc+gTv4o_17r-WYakwE6h2uQ@mail.gmail.com>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSWdvciBHbmF0ZW5rbw0KPiBPbiBUaHUsIDIwMTQtMDItMDYgYXQgMTM6NTYgKzAxMDAs
-IEVtaWwgR29vZGUgd3JvdGU6DQo+ID4gVGhlIEFYODg3NzJCIG9jY2FzaW9uYWxseSBzZW5kIHJ4
-IHBhY2tldHMgdGhhdCBjcm9zcyB1cmIgYm91bmRhcmllcw0KPiA+IGFuZCB0aGUgcmVtYWluaW5n
-IHBhcnRpYWwgcGFja2V0IGlzIHNlbnQgd2l0aCBubyBoZWFkZXIuDQo+ID4gV2hlbiB0aGUgYnVm
-ZmVyIHdpdGggYSBwYXJ0aWFsIHBhY2tldCBpcyBvZiBsZXNzIG51bWJlciBvZiBvY3RldHMNCj4g
-PiB0aGFuIHRoZSB2YWx1ZSBvZiBoYXJkX2hlYWRlcl9sZW4gdGhlIGJ1ZmZlciBpcyBkaXNjYXJk
-ZWQgYnkgdGhlDQo+ID4gdXNibmV0IG1vZHVsZS4gVGhpcyBpcyBjYXVzaW5nIGRyb3BwZWQgcGFj
-a2FnZXMgYW5kIGVycm9yIG1lc3NhZ2VzDQo+ID4gaW4gZG1lc2cuDQo+ID4NCj4gPiBUaGlzIGNh
-biBiZSByZXByb2R1Y2VkIGJ5IHVzaW5nIHBpbmcgd2l0aCBhIHBhY2tldCBzaXplDQo+ID4gYmV0
-d2VlbiAxOTY1LTE5NzYuDQo+ID4NCj4gPiBUaGUgYnVnIGhhcyBiZWVuIHJlcG9ydGVkIGhlcmU6
-DQo+ID4NCj4gPiBodHRwczovL2J1Z3ppbGxhLmtlcm5lbC5vcmcvc2hvd19idWcuY2dpP2lkPTI5
-MDgyDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBFbWlsIEdvb2RlIDxlbWlsZ29vZGVAZ21haWwu
-Y29tPg0KPiBSZXBvcnRlZC1hbmQtdGVzdGVkLWJ5OiBJZ29yIEduYXRlbmtvIDxpLmduYXRlbmtv
-LmJyYWluQGdtYWlsLmNvbT4NCj4gPiAtLS0NCj4gPiAgZHJpdmVycy9uZXQvdXNiL2FzaXhfZGV2
-aWNlcy5jIHwgICAgMSArDQo+ID4gIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKQ0KPiA+
-DQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3VzYi9hc2l4X2RldmljZXMuYyBiL2RyaXZl
-cnMvbmV0L3VzYi9hc2l4X2RldmljZXMuYw0KPiA+IGluZGV4IDk3NjVhN2QuLjEyMGJiMjkgMTAw
-NjQ0DQo+ID4gLS0tIGEvZHJpdmVycy9uZXQvdXNiL2FzaXhfZGV2aWNlcy5jDQo+ID4gKysrIGIv
-ZHJpdmVycy9uZXQvdXNiL2FzaXhfZGV2aWNlcy5jDQo+ID4gQEAgLTQ1NSw2ICs0NTUsNyBAQCBz
-dGF0aWMgaW50IGF4ODg3NzJfYmluZChzdHJ1Y3QgdXNibmV0ICpkZXYsIHN0cnVjdCB1c2JfaW50
-ZXJmYWNlICppbnRmKQ0KPiA+ICAJZGV2LT5uZXQtPmV0aHRvb2xfb3BzID0gJmF4ODg3NzJfZXRo
-dG9vbF9vcHM7DQo+ID4gIAlkZXYtPm5ldC0+bmVlZGVkX2hlYWRyb29tID0gNDsgLyogY2YgYXNp
-eF90eF9maXh1cCgpICovDQo+ID4gIAlkZXYtPm5ldC0+bmVlZGVkX3RhaWxyb29tID0gNDsgLyog
-Y2YgYXNpeF90eF9maXh1cCgpICovDQo+ID4gKwlkZXYtPm5ldC0+aGFyZF9oZWFkZXJfbGVuID0g
-MDsgLyogUGFydGlhbCBwYWNrZXRzIGhhdmUgbm8gaGVhZGVyICovDQoNClRoYXQgaXMgdGhlIHdy
-b25nIHBsYWNlIGZvciB0aGUgZml4Lg0KDQpJdCBzaG91bGQgb25seSBiZSBkb25lIHdoZW4gcnhf
-dXJiX3NpemUgaXMgc2V0IHRvIGEgbXVsdGlwbGUgb2YgdGhlIHVzYg0KcGFja2V0IHNpemUuDQpU
-aGF0IGlzIG9ubHkgZG9uZSBmb3Igc29tZSBvZiB0aGUgc3VwcG9ydGVkIGRldmljZXMuDQoNCklu
-IGZhY3QsIGlmIHRoZSByeF91cmJfc2l6ZSBpcyBhIG11bHRpcGxlIG9mIHRoZSB1c2IgZnJhbWUg
-c2l6ZSAob3IgMWspDQp0aGVuIG1heWJlIHRoZSB1c2JuZXQgY29kZSBzaG91bGQgYXNzdW1lIHRo
-YXQgdGhlIGRyaXZlciBpcyBjYXBhYmxlDQpvZiBwcm9jZXNzaW5nIGV0aGVybmV0IGZyYW1lcyB0
-aGF0IGNyb3NzIHVzYiBwYWNrZXQgYm91bmRhcmllcyBhbmQNCm5vdCBkZWxldGUgc2hvcnQgcGFj
-a2V0cyBhdCBhbGwgLSByZWdhcmRsZXNzIG9mIHRoZSBoYXJkX2hlYWRlcl9sZW4uDQoNCglEYXZp
-ZA0KDQo=
+From: Daniel J Blueman
+> Hi Freddy et al,
+
+I've copied this to linux-usb.
+
+> I'm experiencing poor network performance using an ASIX AX88179_178A
+> USB3 to ethernet adapter using any recent linux kernel (eg 3.11),
+> using an Intel XHCI USB3 controller.
+
+There a several problems with the xhci driver that show up when
+trying to use the ax88179_178a driver.
+Unfortunately some of the fixes have caused regressions on other
+host controllers with disk transfers.
+The patches may, or may not, be present in your kernel.
+The 'scatter-gather' support that is used in order to enable TSO
+is particularly good at exercising the buggy code paths.
+
+> Running iperf tests between one host with a gigabit PCIe NIC, via a
+> gigabit switch to the other host with various interfaces:
+> 
+> PCIe bcm957762: send 818Mb/s, recv 910Mb/s
+> USB2 smsc75xx: send 341Mb/s, recv 330Mb/s
+> USB3 ax88179_178a: send 347Mb/s, recv 18.7Mb/s
+> 
+> Are you able to reproduce the same 19Mb/s receive rate there?
+
+It might be that you are only actually running at USB2 speeds
+(check with lsusb -t).
+
+I have seem line rate Ge from my ax88179 card, but only with a
+patched kernel.
+
+	David
+
+> 
+> Many thanks,
+>   Daniel
+> --
+> Daniel J Blueman
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
