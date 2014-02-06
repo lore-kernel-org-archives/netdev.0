@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [RFC PATCH v2 tip 7/7] tracing filter examples in BPF
-Date: Wed,  5 Feb 2014 17:10:46 -0800
-Message-ID: <1391649046-4383-8-git-send-email-ast@plumgrid.com>
+Subject: [RFC PATCH v2 tip 3/7] Extended BPF (64-bit BPF) design document
+Date: Wed,  5 Feb 2014 17:10:42 -0800
+Message-ID: <1391649046-4383-4-git-send-email-ast@plumgrid.com>
 References: <1391649046-4383-1-git-send-email-ast@plumgrid.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Steven Rostedt <rostedt@goodmis.org>,
@@ -21,439 +21,226 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Christoph Hellwig <hch@infradead.org>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: Ingo Molnar <mingo@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:37057 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932257AbaBFBLI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Feb 2014 20:11:08 -0500
-Received: by mail-pd0-f170.google.com with SMTP id p10so1052970pdj.15
-        for <netdev@vger.kernel.org>; Wed, 05 Feb 2014 17:11:07 -0800 (PST)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1391649046-4383-1-git-send-email-ast@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-filter_check/ - userspace correctness checker of BPF filter
-examples/ - BPF filter examples in C
-
-will be compiled by LLVM into .bpf
-$cd examples
-$make - compile .c into .bpf
-$make check - check correctness of *.bpf
-$make try - to apply netif_rcv.bpf as a tracing filter
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- tools/bpf/examples/Makefile                 |   71 +++++++++++++++++
- tools/bpf/examples/README.txt               |   59 ++++++++++++++
- tools/bpf/examples/dropmon.c                |   40 ++++++++++
- tools/bpf/examples/netif_rcv.c              |   34 ++++++++
- tools/bpf/filter_check/Makefile             |   32 ++++++++
- tools/bpf/filter_check/README.txt           |    3 +
- tools/bpf/filter_check/trace_filter_check.c |  115 +++++++++++++++++++++++++++
- 7 files changed, 354 insertions(+)
- create mode 100644 tools/bpf/examples/Makefile
- create mode 100644 tools/bpf/examples/README.txt
- create mode 100644 tools/bpf/examples/dropmon.c
- create mode 100644 tools/bpf/examples/netif_rcv.c
- create mode 100644 tools/bpf/filter_check/Makefile
- create mode 100644 tools/bpf/filter_check/README.txt
- create mode 100644 tools/bpf/filter_check/trace_filter_check.c
+ Documentation/bpf_jit.txt |  204 +++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 204 insertions(+)
+ create mode 100644 Documentation/bpf_jit.txt
 
-diff --git a/tools/bpf/examples/Makefile b/tools/bpf/examples/Makefile
+diff --git a/Documentation/bpf_jit.txt b/Documentation/bpf_jit.txt
 new file mode 100644
-index 0000000..1da6fd5
+index 0000000..9c70f42
 --- /dev/null
-+++ b/tools/bpf/examples/Makefile
-@@ -0,0 +1,71 @@
-+KOBJ := $(PWD)/../../..
++++ b/Documentation/bpf_jit.txt
+@@ -0,0 +1,204 @@
++Subject: extended BPF or 64-bit BPF
 +
-+VERSION_FILE := $(KOBJ)/include/generated/uapi/linux/version.h
++Q: What is BPF?
++A: Safe dynamically loadable 32-bit program that can access skb->data via
++sk_load_byte/half/word calls or seccomp_data. Can be attached to sockets,
++to netfilter xtables, seccomp. In case of sockets/xtables input is skb.
++In case of seccomp input is struct seccomp_data.
 +
-+ifeq (,$(wildcard $(VERSION_FILE)))
-+  $(error Linux kernel source not configured - missing version.h)
-+endif
++Q: What is extended BPF?
++A: Safe dynamically loadable 64-bit program that can call fixed set
++of kernel functions and takes generic bpf_context as an input.
++BPF program is a glue between kernel functions and bpf_context.
++Different kernel subsystems can define their own set of available functions
++and alter BPF machinery for specific use case.
 +
-+BLD=$(PWD)
-+LLC=$(BLD)/../llvm/bld/Debug+Asserts/bin/llc
-+CHK=$(BLD)/../filter_check/trace_filter_check
++Example 1:
++when function set is {bpf_load_byte/half/word} and bpf_context=skb
++the extended BPF is equivalent to original BPF (w/o negative offset extensions),
++since any such extended BPF program will only be able to load data from skb
++and interpret it.
 +
-+EXTRA_CFLAGS=
++Example 2:
++when function set is {empty} and bpf_context=seccomp_data,
++the extended BPF is equivalent to original seccomp BPF with simpler programs
++and can immediately take advantage of extended BPF-JIT.
++(original BPF-JIT doesn't work for seccomp)
 +
-+ifeq ($(NESTED),1)
-+# to get NOSTDINC_FLAGS and LINUXINCLUDE from kernel build
-+# have to trick top Makefile
-+# pretend that we're building a module
-+KBUILD_EXTMOD=$(PWD)
-+# and include main kernel Makefile
-+include Makefile
++Example 3:
++when function set is {bpf_load_xxx + bpf_table_lookup} and bpf_context=skb
++the extended BPF can be used to implement network analytics in tcpdump.
++Like counting all tcp flows through the dev or filtering for specific
++set of IP addresses.
 +
-+# cannot have other targets (like all, clean) here
-+# since they will conflict
-+%.bpf: %.c
-+	clang $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
-+	  -D__KERNEL__ -Wno-unused-value -Wno-pointer-sign \
-+	  -O2 -emit-llvm -c $< -o -| $(LLC) -o $@
++Example 4:
++when function set is {load_xxx + table_lookup + trace_printk} and
++bpf_context=pt_regs, the extended BPF is used to implement systemtap-like
++tracing filters
 +
-+else
++Extended Instruction Set was designed with these goals:
++- write programs in restricted C and compile into BPF with GCC/LLVM
++- just-in-time map to modern 64-bit CPU with minimal performance overhead
++  over two steps: C -> BPF -> native code
++- guarantee termination and safety of BPF program in kernel
++  with simple algorithm
 +
-+SRCS := $(notdir $(wildcard *.c))
-+BPFS = $(patsubst %.c,$(BLD)/%.bpf,$(SRCS))
++Writing filters in tcpdump syntax or in systemtap language is difficult.
++Same filter done in C is easier to understand.
++GCC/LLVM-bpf backend is optional.
++Extended BPF can be coded with macroses from bpf.h just like original BPF.
 +
-+all: $(LLC)
-+# invoke make recursively with current Makefile, but
-+# for specific .bpf targets
-+	$(MAKE) -C $(KOBJ) -f $(BLD)/Makefile NESTED=1 $(BPFS)
++Minimal performance overhead is achieved by having one to one mapping
++between BPF insns and native insns, and one to one mapping between BPF
++registers and native registers on 64-bit CPUs
 +
-+$(LLC):
-+	$(MAKE) -C ../llvm/bld -j4
++Extended BPF allows jump forward and backward for two reasons:
++to reduce branch mispredict penalty compiler moves cold basic blocks out of
++fall-through path and to reduce code duplication that would be unavoidable
++if only jump forward was available.
++To guarantee termination simple non-recursive depth-first-search verifies
++that there are no back-edges (no loops in the program), program is a DAG
++with root at the first insn, all branches end at the last RET insn and
++all instructions are reachable.
++(Original BPF actually allows unreachable insns, but that's a bug)
 +
-+$(CHK):
-+	$(MAKE) -C ../filter_check
++Original BPF has two registers (A and X) and hidden frame pointer.
++Extended BPF has ten registers and read-only frame pointer.
++Since 64-bit CPUs are passing arguments to the functions via registers
++the number of args from BPF program to in-kernel function is restricted to 5
++and one register is used to accept return value from in-kernel function.
++x86_64 passes first 6 arguments in registers.
++aarch64/sparcv9/mips64 have 7-8 registers for arguments.
++x86_64 has 6 callee saved registers.
++aarch64/sparcv9/mips64 have 11 or more callee saved registers.
 +
-+check: $(CHK)
-+	@$(foreach bpf,$(patsubst %.c,%.bpf,$(SRCS)),echo Checking $(bpf) ...;$(CHK) $(bpf);)
++Therefore extended BPF calling convention is defined as:
++R0 - return value from in-kernel function
++R1-R5 - arguments from BPF program to in-kernel function
++R6-R9 - callee saved registers that in-kernel function will preserve
++R10 - read-only frame pointer to access stack
 +
-+try:
-+	@echo --- BPF filter for static tracepoint net:netif_receive_skb ---
-+	@echo | sudo tee /sys/kernel/debug/tracing/trace > /dev/null
-+	@cat netif_rcv.bpf | sudo tee /sys/kernel/debug/tracing/events/net/netif_receive_skb/filter > /dev/null
-+	@echo 1 | sudo tee /sys/kernel/debug/tracing/events/net/netif_receive_skb/enable > /dev/null
-+	ping -c1 localhost | grep req
-+	sudo cat /sys/kernel/debug/tracing/trace
-+	@echo 0 | sudo tee /sys/kernel/debug/tracing/events/net/netif_receive_skb/enable > /dev/null
-+	@echo 0 | sudo tee /sys/kernel/debug/tracing/events/net/netif_receive_skb/filter > /dev/null
-+	@echo | sudo tee /sys/kernel/debug/tracing/trace
-+	@echo --- BPF filter for dynamic kprobe __netif_receive_skb ---
-+	@echo "p:my __netif_receive_skb" | sudo tee /sys/kernel/debug/tracing/kprobe_events > /dev/null
-+	@cat netif_rcv.bpf | sudo tee /sys/kernel/debug/tracing/events/kprobes/my/filter > /dev/null
-+	@echo 1 | sudo tee /sys/kernel/debug/tracing/events/kprobes/my/enable > /dev/null
-+	ping -c1 localhost | grep req
-+	sudo cat /sys/kernel/debug/tracing/trace
-+	@echo 0 | sudo tee /sys/kernel/debug/tracing/events/kprobes/my/filter > /dev/null
-+	@echo 0 | sudo tee /sys/kernel/debug/tracing/events/kprobes/my/enable > /dev/null
-+	@echo | sudo tee /sys/kernel/debug/tracing/kprobe_events > /dev/null
++so that all BPF registers map one to one to HW registers on x86_64,aarch64,etc
++and BPF calling convention maps directly to ABIs used by kernel on 64-bit
++architectures.
 +
-+clean:
-+	rm -f *.bpf
-+endif
-diff --git a/tools/bpf/examples/README.txt b/tools/bpf/examples/README.txt
-new file mode 100644
-index 0000000..0768ae1
---- /dev/null
-+++ b/tools/bpf/examples/README.txt
-@@ -0,0 +1,59 @@
-+Tracing filter examples
++R0-R5 are scratch registers and BPF program needs spill/fill them if necessary
++across calls.
++Note that there is only one BPF program == one BPF function and it cannot call
++other BPF functions. It can only call predefined in-kernel functions.
 +
-+netif_rcv: tracing filter example that prints events for loobpack device only
++All BPF registers are 64-bit without subregs, which makes JITed x86 code
++less optimal, but matches sparc/mips architectures.
++Adding 32-bit subregs was considered, since JIT can map them to x86 and aarch64
++nicely, but read-modify-write overhead for sparc/mips is not worth the gains.
 +
-+$ cat netif_rcv.bpf > /sys/kernel/debug/tracing/events/net/netif_receive_skb/filter
-+$ echo 1 > /sys/kernel/debug/tracing/events/net/netif_receive_skb/enable
-+$ ping -c1 localhost
-+$ cat /sys/kernel/debug/tracing/trace
-+            ping-5913  [003] ..s2  3779.285726: __netif_receive_skb_core: skb ffff880808e3a300 dev ffff88080bbf8000
-+            ping-5913  [003] ..s2  3779.285744: __netif_receive_skb_core: skb ffff880808e3a900 dev ffff88080bbf8000
++Original BPF and extended BPF are two operand instructions, which helps
++to do one-to-one mapping between BPF insn and x86 insn during JIT.
 +
-+Alternatively do:
++Extended BPF doesn't have pre-defined endianness not to favor one
++architecture vs another. Therefore bswap insn was introduced.
++Original BPF doesn't have such insn and does bswap as part of sk_load_word call
++which is often unnecessary if we want to compare the value with the constant.
++Restricted C code might be written differently depending on endianness
++and GCC/LLVM-bpf will take an endianness flag.
 +
-+$make - compile .c into .bpf
++32-bit architectures run 64-bit extended BPF programs via interpreter
 +
-+$make check - check correctness of *.bpf
++Q: Why extended BPF is 64-bit? Cannot we live with 32-bit?
++A: On 64-bit architectures, pointers are 64-bit and we want to pass 64-bit
++values in/out kernel functions, so 32-bit BPF registers would require to define
++register-pair ABI, there won't be a direct BPF register to HW register
++mapping and JIT would need to do combine/split/move operations for every
++register in and out of the function, which is complex, bug prone and slow.
++Another reason is counters. To use 64-bit counter BPF program would need to do
++a complex math. Again bug prone and not atomic.
 +
-+$make try - to apply netif_rcv.bpf as a tracing filter
++Q: Original BPF is safe, deterministic and kernel can easily prove that.
++   Does extended BPF keep these properties?
++A: Yes. The safety of the program is determined in two steps.
++First step does depth-first-search to disallow loops and other CFG validation.
++Second step starts from the first insn and descends all possible paths.
++It simulates execution of every insn and observes the state change of
++registers and stack.
++At the start of the program the register R1 contains a pointer to bpf_context
++and has type PTR_TO_CTX. If checker sees an insn that does R2=R1, then R2 has
++now type PTR_TO_CTX as well and can be used on right hand side of expression.
++If R1=PTR_TO_CTX and insn is R2=R1+1, then R2=INVALID_PTR and it is readable.
++If register was never written to, it's not readable.
++After kernel function call, R1-R5 are reset to unreadable and R0 has a return
++type of the function. Since R6-R9 are callee saved, their state is preserved
++across the call.
++load/store instructions are allowed only with registers of valid types, which
++are PTR_TO_CTX, PTR_TO_TABLE, PTR_TO_STACK. They are bounds and alginment
++checked.
 +
-+Should see output like:
++bpf_context structure is generic. Its contents are defined by specific use case.
++For seccomp it can be seccomp_data and through get_context_access callback
++BPF checker is customized, so that BPF program can only access certain fields
++of bpf_context with specified size and alignment.
++For example, the following insn:
++  BPF_INSN_LD(BPF_W, R0, R6, 8)
++intends to load word from address R6 + 8 and store it into R0
++If R6=PTR_TO_CTX, then get_context_access callback should let the checker know
++that offset 8 of size 4 bytes can be accessed for reading, otherwise the checker
++will reject the program.
++If R6=PTR_TO_STACK, then access should be aligned and be within stack bounds,
++which are hard coded to [-480, 0]. In this example offset is 8, so it will fail
++verification.
++The checker will allow BPF program to read data from stack only after it wrote
++into it.
++Pointer register spill/fill is tracked as well, since four (R6-R9) callee saved
++registers may not be enough for some programs.
 +
-+--- BPF filter for static tracepoint net:netif_receive_skb ---
-+ping -c1 localhost | grep req
-+64 bytes from localhost (127.0.0.1): icmp_req=1 ttl=64 time=0.040 ms
-+sudo cat /sys/kernel/debug/tracing/trace
-+# tracer: nop
-+#
-+# entries-in-buffer/entries-written: 2/2   #P:4
-+#
-+#                              _-----=> irqs-off
-+#                             / _----=> need-resched
-+#                            | / _---=> hardirq/softirq
-+#                            || / _--=> preempt-depth
-+#                            ||| /     delay
-+#           TASK-PID   CPU#  ||||    TIMESTAMP  FUNCTION
-+#              | |       |   ||||       |         |
-+            ping-5023  [001] ..s2  3554.532361: __netif_receive_skb_core: skb ffff8807f88bcc00 dev ffff88080b4d0000
-+            ping-5023  [001] ..s2  3554.532378: __netif_receive_skb_core: skb ffff8807f88bcd00 dev ffff88080b4d0000
++Allowed function calls are customized via get_func_proto callback.
++For example:
++  u64 bpf_load_byte(struct bpf_context *ctx, u32 offset);
++function will have the following definition:
++  struct bpf_func_proto proto = {RET_INTEGER, PTR_TO_CTX};
++and BPF checker will verify that bpf_load_byte is always called with first
++argument being a valid pointer to bpf_context. After the call BPF register R0
++will be set to readable state, so that BPF program can access it.
 +
-+--- BPF filter for dynamic kprobe __netif_receive_skb ---
-+ping -c1 localhost | grep req
-+64 bytes from localhost (127.0.0.1): icmp_req=1 ttl=64 time=0.061 ms
-+sudo cat /sys/kernel/debug/tracing/trace
-+# tracer: nop
-+#
-+# entries-in-buffer/entries-written: 2/2   #P:4
-+#
-+#                              _-----=> irqs-off
-+#                             / _----=> need-resched
-+#                            | / _---=> hardirq/softirq
-+#                            || / _--=> preempt-depth
-+#                            ||| /     delay
-+#           TASK-PID   CPU#  ||||    TIMESTAMP  FUNCTION
-+#              | |       |   ||||       |         |
-+            ping-5053  [002] d.s2  3554.902215: kprobe_ftrace_handler: skb ffff8807ae6f7700 dev ffff88080b4d0000
-+            ping-5053  [002] d.s2  3554.902236: kprobe_ftrace_handler: skb ffff8807ae6f7200 dev ffff88080b4d0000
++One of the useful functions that can be made available to BPF program
++are bpf_table_lookup/bpf_table_update.
++Using them a tracing filter can collect any type of statistics.
 +
-+dropmon: faster version of tools/perf/scripts/python/net_dropmonitor.py
-+work in progress
-diff --git a/tools/bpf/examples/dropmon.c b/tools/bpf/examples/dropmon.c
-new file mode 100644
-index 0000000..3ed3f41
---- /dev/null
-+++ b/tools/bpf/examples/dropmon.c
-@@ -0,0 +1,40 @@
-+/*
-+ * drop monitor in BPF, faster version of
-+ * tools/perf/scripts/python/net_dropmonitor.py
-+ */
-+#include <linux/bpf.h>
-+#include <trace/bpf_trace.h>
++Therefore extended BPF program consists of instructions and tables.
++From BPF program the table is identified by constant table_id
++and access to a table in C looks like:
++elem = bpf_table_lookup(ctx, table_id, key);
 +
-+#define DESC(NAME) __attribute__((section(NAME), used))
++BPF checker matches 'table_id' against known tables, verifies that 'key' points
++to stack and table->key_size bytes are initialized.
++From there on bpf_table_lookup() is a normal kernel function. It needs to do
++a lookup by whatever means and return either valid pointer to the element
++or NULL. BPF checker will verify that the program accesses the pointer only
++after comparing it to NULL. That's the meaning of PTR_TO_TABLE_CONDITIONAL and
++PTR_TO_TABLE register types in bpf_check.c
 +
-+DESC("e skb:kfree_skb")
-+/* attaches to /sys/kernel/debug/tracing/events/skb/kfree_skb */
-+void dropmon(struct bpf_context *ctx)
-+{
-+	void *loc;
-+	uint64_t *drop_cnt;
++If a kernel subsystem wants to use this BPF framework and decides to implement
++bpf_table_lookup, the checker will guarantee that argument 'ctx' is a valid
++pointer to bpf_context, 'table_id' is valid table_id and table->key_size bytes
++can be read from the pointer 'key'. It's up to implementation to decide how it
++wants to do the lookup and what is the key.
 +
-+	/*
-+	 * skb:kfree_skb is defined as:
-+	 * TRACE_EVENT(kfree_skb,
-+	 *         TP_PROTO(struct sk_buff *skb, void *location),
-+	 * so ctx->arg2 is 'location'
-+	 */
-+	loc = (void *)ctx->arg2;
++Going back to the example BPF insn:
++  BPF_INSN_LD(BPF_W, R0, R6, 8)
++if R6=PTR_TO_TABLE, then offset and size of access must be within
++[0, table->elem_size] which is determined by constant table_id that was passed
++into bpf_table_lookup call prior to this insn.
 +
-+	drop_cnt = bpf_table_lookup(ctx, 0, &loc);
-+	if (drop_cnt) {
-+		__sync_fetch_and_add(drop_cnt, 1);
-+	} else {
-+		uint64_t init = 0;
-+		bpf_table_update(ctx, 0, &loc, &init);
-+	}
-+}
++Just like original, extended BPF is limited to 4096 insns, which means that any
++program will terminate quickly and will call fixed number of kernel functions.
++Earlier implementation of the checker had a precise calculation of worst case
++number of insns, but it was removed to simplify the code, since the worst number
++is always less then number of insns in a program anyway (because it's a DAG).
 +
-+struct bpf_table t[] DESC("bpftables") = {
-+	{BPF_TABLE_HASH, sizeof(void *), sizeof(uint64_t), 4096, 0}
-+};
++Since register/stack state tracking simulates execution of all insns in all
++possible branches, it will explode if not bounded. There are two bounds.
++verifier_state stack is limited to 1k, therefore BPF program cannot have
++more than 1k jump insns.
++Total number of insns to be analyzed is limited to 32k, which means that
++checker will either prove correctness or reject the program in few
++milliseconds on average x86 cpu. Valid programs take microseconds to verify.
 +
-+/* filter code license: */
-+char l[] DESC("license") = "GPL v2";
-+
-diff --git a/tools/bpf/examples/netif_rcv.c b/tools/bpf/examples/netif_rcv.c
-new file mode 100644
-index 0000000..cd69f5c
---- /dev/null
-+++ b/tools/bpf/examples/netif_rcv.c
-@@ -0,0 +1,34 @@
-+/*
-+ * tracing filter example
-+ * attaches to /sys/kernel/debug/tracing/events/net/netif_receive_skb
-+ * prints events for loobpack device only
-+ */
-+#include <linux/skbuff.h>
-+#include <linux/netdevice.h>
-+#include <linux/bpf.h>
-+#include <trace/bpf_trace.h>
-+
-+#define DESC(NAME) __attribute__((section(NAME), used))
-+
-+DESC("e net:netif_receive_skb")
-+void my_filter(struct bpf_context *ctx)
-+{
-+	char devname[4] = "lo";
-+	struct net_device *dev;
-+	struct sk_buff *skb = 0;
-+
-+	/*
-+	 * for tracepoints arg1 is the 1st arg of TP_ARGS() macro
-+	 * defined in include/trace/events/.h
-+	 * for kprobe events arg1 is the 1st arg of probed function
-+	 */
-+	skb = (struct sk_buff *)ctx->arg1;
-+	dev = bpf_load_pointer(&skb->dev);
-+	if (bpf_memcmp(dev->name, devname, 2) == 0) {
-+		char fmt[] = "skb %p dev %p \n";
-+		bpf_trace_printk(fmt, sizeof(fmt), (long)skb, (long)dev, 0);
-+	}
-+}
-+
-+/* filter code license: */
-+char license[] DESC("license") = "GPL";
-diff --git a/tools/bpf/filter_check/Makefile b/tools/bpf/filter_check/Makefile
-new file mode 100644
-index 0000000..b0ac7aa
---- /dev/null
-+++ b/tools/bpf/filter_check/Makefile
-@@ -0,0 +1,32 @@
-+CC = gcc
-+
-+all: trace_filter_check
-+
-+srctree=../../..
-+src-perf=../../perf
-+ARCH=x86
-+
-+CFLAGS += -I$(src-perf)/util/include
-+CFLAGS += -I$(src-perf)/arch/$(ARCH)/include
-+CFLAGS += -I$(srctree)/arch/$(ARCH)/include/uapi
-+CFLAGS += -I$(srctree)/arch/$(ARCH)/include
-+CFLAGS += -I$(srctree)/include/uapi
-+CFLAGS += -I$(srctree)/include
-+CFLAGS += -O2 -w
-+
-+$(srctree)/kernel/bpf_jit/bpf_check.o: $(srctree)/kernel/bpf_jit/bpf_check.c
-+	$(MAKE) -C $(srctree) kernel/bpf_jit/bpf_check.o
-+$(srctree)/kernel/bpf_jit/bpf_run.o: $(srctree)/kernel/bpf_jit/bpf_run.c
-+	$(MAKE) -C $(srctree) kernel/bpf_jit/bpf_run.o
-+$(srctree)/kernel/trace/bpf_trace_callbacks.o: $(srctree)/kernel/trace/bpf_trace_callbacks.c
-+	$(MAKE) -C $(srctree) kernel/trace/bpf_trace_callbacks.o
-+
-+trace_filter_check: LDLIBS = -Wl,--unresolved-symbols=ignore-all
-+trace_filter_check: trace_filter_check.o \
-+	$(srctree)/kernel/bpf_jit/bpf_check.o \
-+	$(srctree)/kernel/bpf_jit/bpf_run.o \
-+	$(srctree)/kernel/trace/bpf_trace_callbacks.o
-+
-+clean:
-+	rm -rf *.o trace_filter_check
-+
-diff --git a/tools/bpf/filter_check/README.txt b/tools/bpf/filter_check/README.txt
-new file mode 100644
-index 0000000..f5badcd
---- /dev/null
-+++ b/tools/bpf/filter_check/README.txt
-@@ -0,0 +1,3 @@
-+To pre-check correctness of the filter do:
-+$ trace_filter_check filter_ex1.bpf
-+(final filter check always happens in kernel)
-diff --git a/tools/bpf/filter_check/trace_filter_check.c b/tools/bpf/filter_check/trace_filter_check.c
-new file mode 100644
-index 0000000..32ac7ff
---- /dev/null
-+++ b/tools/bpf/filter_check/trace_filter_check.c
-@@ -0,0 +1,115 @@
-+/* Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+#include <linux/bpf.h>
-+#include <trace/bpf_trace.h>
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <stdarg.h>
-+#include <errno.h>
-+
-+/* for i386 use kernel ABI, this attr ignored by gcc in 64-bit */
-+#define REGPARM __attribute__((regparm(3)))
-+
-+REGPARM
-+void *__kmalloc(size_t size, int flags)
-+{
-+	return calloc(size, 1);
-+}
-+
-+REGPARM
-+void kfree(void *objp)
-+{
-+	free(objp);
-+}
-+
-+int kmalloc_caches[128];
-+REGPARM
-+void *kmem_cache_alloc_trace(void *caches, int flags, size_t size)
-+{
-+	return calloc(size, 1);
-+}
-+
-+void bpf_compile(void *prog)
-+{
-+}
-+
-+void __bpf_free(void *prog)
-+{
-+}
-+
-+REGPARM
-+int memcmp(char *p1, char *p2, int len)
-+{
-+	int i;
-+	for (i = 0; i < len; i++)
-+		if (*p1++ != *p2++)
-+			return 1;
-+	return 0;
-+}
-+
-+REGPARM
-+int memcpy(char *p1, char *p2, int len)
-+{
-+	int i;
-+	for (i = 0; i < len; i++)
-+		*p1++ = *p2++;
-+	return 0;
-+}
-+
-+REGPARM
-+int strcmp(char *p1, char *p2)
-+{
-+	return memcmp(p1, p2, strlen(p1));
-+}
-+
-+
-+REGPARM
-+int printk(const char *fmt, ...)
-+{
-+	int ret;
-+	va_list ap;
-+
-+	va_start(ap, fmt);
-+	ret = vprintf(fmt, ap);
-+	va_end(ap);
-+	return ret;
-+}
-+
-+char buf[16000];
-+REGPARM
-+int bpf_load_image(const char *image, int image_len, struct bpf_callbacks *cb,
-+		   void **p_prog);
-+
-+int main(int ac, char **av)
-+{
-+	FILE *f;
-+	int size, err;
-+	void *prog;
-+
-+	if (ac < 2) {
-+		printf("Usage: %s bpf_binary_image\n", av[0]);
-+		return 1;
-+	}
-+
-+	f = fopen(av[1], "r");
-+	if (!f) {
-+		printf("fopen %s\n", strerror(errno));
-+		return 2;
-+	}
-+	size = fread(buf, 1, sizeof(buf), f);
-+	if (size <= 0) {
-+		printf("fread %s\n", strerror(errno));
-+		return 3;
-+	}
-+	err = bpf_load_image(buf, size, &bpf_trace_cb, &prog);
-+	if (!err)
-+		printf("OK\n");
-+	else
-+		printf("err %s\n", strerror(-err));
-+	fclose(f);
-+	return 0;
-+}
 -- 
 1.7.9.5
