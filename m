@@ -1,96 +1,218 @@
-From: Dan Williams <dan.j.williams@intel.com>
-Subject: Re: 3.14-mw regression: rtl8169 WARNING: DMA-API: exceeded 7
- overlapping mappings of pfn 55ebe
-Date: Thu, 6 Feb 2014 11:12:15 -0800
-Message-ID: <CAPcyv4j44ZHmaqUBj3rXv-C7Hr72Z15g=2nFBD=1iYLnhSQQ4g@mail.gmail.com>
-References: <1859471893.20140126115521@eikelenboom.it>
-	<20140127000305.GA14236@electric-eye.fr.zoreil.com>
-	<CAA9_cme2hgJ=jCDkPh5n5RP8fiJE-dVwbFr-apKv1=mNGPHYZg@mail.gmail.com>
-	<84816226.20140206123631@eikelenboom.it>
-	<942972114.20140206140909@eikelenboom.it>
-	<CAPcyv4g2EnCLFWfLfSDnjtwrid2tCq2k6wh-8sPYY06eJpM83A@mail.gmail.com>
-	<932118392.20140206152722@eikelenboom.it>
+From: Tom Herbert <therbert@google.com>
+Subject: [RFC PATCH] udp4: Don't take socket reference in receive path
+Date: Thu, 6 Feb 2014 11:58:26 -0800 (PST)
+Message-ID: <alpine.DEB.2.02.1402061154580.17707@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=047d7bd6bb56c944d104f1c1a648
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Sander Eikelenboom <linux@eikelenboom.it>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, netdev@vger.kernel.org, edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f177.google.com ([209.85.128.177]:61282 "EHLO
-	mail-ve0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750739AbaBFTMR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 14:12:17 -0500
-Received: by mail-ve0-f177.google.com with SMTP id jz11so1838533veb.8
-        for <netdev@vger.kernel.org>; Thu, 06 Feb 2014 11:12:16 -0800 (PST)
-In-Reply-To: <932118392.20140206152722@eikelenboom.it>
+Received: from mail-pa0-f73.google.com ([209.85.220.73]:58899 "EHLO
+	mail-pa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756611AbaBFT63 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 14:58:29 -0500
+Received: by mail-pa0-f73.google.com with SMTP id kp14so192823pab.4
+        for <netdev@vger.kernel.org>; Thu, 06 Feb 2014 11:58:27 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---047d7bd6bb56c944d104f1c1a648
-Content-Type: text/plain; charset=ISO-8859-1
+The reference counting in the UDP receive path is quite expensive for
+a socket that is share amoungst CPUs. This is probably true for normal
+sockets, but really is painful when just using the socket for
+receive encapsulation.
 
-On Thu, Feb 6, 2014 at 6:27 AM, Sander Eikelenboom <linux@eikelenboom.it> wrote:
->>>> Not using it seems to prevent the warning, but before 3.14 i have never seen this (with r8169.use_dac=1)
->
->> If you are still hitting this with the patch:
->
->>   59f2e7df574c dma-debug: fix overlap detection
->
->> ...then I'm more inclined to think it is an actual positive report.
->
->> If you don't mind I'll send some debug patches to narrow this down.
->
-> Please do .. sounds better than bisecting :-)
->
+udp4_lib_lookup always takes a socket reference, and we also put back
+the reference after calling udp_queue_rcv_skb in the normal receive
+path, so the need for taking the reference seems to be to hold the
+socket after doing rcu_read_unlock. This patch modifies udp_lib_lookup
+to optionally take a reference and is always called with rcu_read_lock.
+In udp4_lib_rcv we call lib_lookup and udp_queue_rcv under the
+rcu_read_lock but without having taken the reference.
 
-Hi, attached is a patch that should give some insight whether the
-driver is triggering many overlapping mappings.  Try it on top of
-3.14-rc1.
+Requesting comments because I suspect there are nuances to this!
 
-Thank you for the debug help!
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ net/ipv4/udp.c | 90 ++++++++++++++++++++++++++++++++++++++++------------------
+ 1 file changed, 62 insertions(+), 28 deletions(-)
 
---047d7bd6bb56c944d104f1c1a648
-Content-Type: application/octet-stream; name=debug-overlap
-Content-Disposition: attachment; filename=debug-overlap
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_hrcefdvf0
-
-ZGVidWcgb3ZlcmxhcCBvdmVyZmxvdwoKRnJvbTogRGFuIFdpbGxpYW1zIDxkYW4uai53aWxsaWFt
-c0BpbnRlbC5jb20+CgoKLS0tCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9yZWFsdGVrL3I4MTY5LmMg
-fCAgICA2ICsrKysrKwogbGliL2RtYS1kZWJ1Zy5jICAgICAgICAgICAgICAgICAgICAgIHwgICAg
-NyArKysrLS0tCiAyIGZpbGVzIGNoYW5nZWQsIDEwIGluc2VydGlvbnMoKyksIDMgZGVsZXRpb25z
-KC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVhbHRlay9yODE2OS5jIGIv
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVhbHRlay9yODE2OS5jCmluZGV4IDkxYTY3YWU4ZjE3Yi4u
-M2JiMmMxZTAwMGJlIDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9yZWFsdGVrL3I4
-MTY5LmMKKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVhbHRlay9yODE2OS5jCkBAIC01ODA5
-LDYgKzU4MDksOSBAQCBzdGF0aWMgdm9pZCBydGw4MTY5X3VubWFwX3R4X3NrYihzdHJ1Y3QgZGV2
-aWNlICpkLCBzdHJ1Y3QgcmluZ19pbmZvICp0eF9za2IsCiB7CiAJdW5zaWduZWQgaW50IGxlbiA9
-IHR4X3NrYi0+bGVuOwogCisJdHJhY2VfcHJpbnRrKCIlcyAlczogdW5tYXAgYWRkcjogJSNsbHgg
-bGVuOiAldVxuIiwKKwkJICAgICBkZXZfZHJpdmVyX3N0cmluZyhkKSwgZGV2X25hbWUoZCksCisJ
-CSAgICAgKHVuc2lnbmVkIGxvbmcgbG9uZykgbGU2NF90b19jcHUoZGVzYy0+YWRkciksIGxlbik7
-CiAJZG1hX3VubWFwX3NpbmdsZShkLCBsZTY0X3RvX2NwdShkZXNjLT5hZGRyKSwgbGVuLCBETUFf
-VE9fREVWSUNFKTsKIAogCWRlc2MtPm9wdHMxID0gMHgwMDsKQEAgLTU5OTksNiArNjAwMiw5IEBA
-IHN0YXRpYyBuZXRkZXZfdHhfdCBydGw4MTY5X3N0YXJ0X3htaXQoc3RydWN0IHNrX2J1ZmYgKnNr
-YiwKIAogCWxlbiA9IHNrYl9oZWFkbGVuKHNrYik7CiAJbWFwcGluZyA9IGRtYV9tYXBfc2luZ2xl
-KGQsIHNrYi0+ZGF0YSwgbGVuLCBETUFfVE9fREVWSUNFKTsKKwl0cmFjZV9wcmludGsoIiVzICVz
-OiBtYXAgYWRkcjogJXAgZG1hOiAlI2xseCBsZW46ICVkXG4iLAorCQkgICAgIGRldl9kcml2ZXJf
-c3RyaW5nKGQpLCBkZXZfbmFtZShkKSwKKwkJICAgICBza2ItPmRhdGEsICh1bnNpZ25lZCBsb25n
-IGxvbmcpIG1hcHBpbmcsIGxlbik7CiAJaWYgKHVubGlrZWx5KGRtYV9tYXBwaW5nX2Vycm9yKGQs
-IG1hcHBpbmcpKSkgewogCQlpZiAobmV0X3JhdGVsaW1pdCgpKQogCQkJbmV0aWZfZXJyKHRwLCBk
-cnYsIGRldiwgIkZhaWxlZCB0byBtYXAgVFggRE1BIVxuIik7CmRpZmYgLS1naXQgYS9saWIvZG1h
-LWRlYnVnLmMgYi9saWIvZG1hLWRlYnVnLmMKaW5kZXggMmRlZmQxMzA4YjA0Li43YjIyYzhmNTky
-OGUgMTAwNjQ0Ci0tLSBhL2xpYi9kbWEtZGVidWcuYworKysgYi9saWIvZG1hLWRlYnVnLmMKQEAg
-LTQ4Niw5ICs0ODYsMTAgQEAgc3RhdGljIHZvaWQgYWN0aXZlX3Bmbl9pbmNfb3ZlcmxhcCh1bnNp
-Z25lZCBsb25nIHBmbikKIAkgKiBkZWJ1Z19kbWFfYXNzZXJ0X2lkbGUoKSBhcyB0aGUgcGZuIG1h
-eSBiZSBtYXJrZWQgaWRsZQogCSAqIHByZW1hdHVyZWx5LgogCSAqLwotCVdBUk5fT05DRShvdmVy
-bGFwID4gQUNUSVZFX1BGTl9NQVhfT1ZFUkxBUCwKLQkJICAiRE1BLUFQSTogZXhjZWVkZWQgJWQg
-b3ZlcmxhcHBpbmcgbWFwcGluZ3Mgb2YgcGZuICVseFxuIiwKLQkJICBBQ1RJVkVfUEZOX01BWF9P
-VkVSTEFQLCBwZm4pOworCWlmIChXQVJOX09OQ0Uob3ZlcmxhcCA+IEFDVElWRV9QRk5fTUFYX09W
-RVJMQVAsCisJCSAgICAgICJETUEtQVBJOiBleGNlZWRlZCAlZCBvdmVybGFwcGluZyBtYXBwaW5n
-cyBvZiBwZm4gJWx4XG4iLAorCQkgICAgICBBQ1RJVkVfUEZOX01BWF9PVkVSTEFQLCBwZm4pKQor
-CQlmdHJhY2VfZHVtcChEVU1QX0FMTCk7CiB9CiAKIHN0YXRpYyBpbnQgYWN0aXZlX3Bmbl9kZWNf
-b3ZlcmxhcCh1bnNpZ25lZCBsb25nIHBmbikK
---047d7bd6bb56c944d104f1c1a648--
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 48d8cb2..6043a2f 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -424,7 +424,8 @@ static unsigned int udp_ehashfn(struct net *net, const __be32 laddr,
+ static struct sock *udp4_lib_lookup2(struct net *net,
+ 		__be32 saddr, __be16 sport,
+ 		__be32 daddr, unsigned int hnum, int dif,
+-		struct udp_hslot *hslot2, unsigned int slot2)
++		struct udp_hslot *hslot2, unsigned int slot2,
++		bool get_ref)
+ {
+ 	struct sock *sk, *result;
+ 	struct hlist_nulls_node *node;
+@@ -461,12 +462,20 @@ begin:
+ 	if (get_nulls_value(node) != slot2)
+ 		goto begin;
+ 	if (result) {
+-		if (unlikely(!atomic_inc_not_zero_hint(&result->sk_refcnt, 2)))
+-			result = NULL;
+-		else if (unlikely(compute_score2(result, net, saddr, sport,
+-				  daddr, hnum, dif) < badness)) {
+-			sock_put(result);
+-			goto begin;
++		if (get_ref) {
++			if (unlikely(!atomic_inc_not_zero_hint(&result->sk_refcnt, 2)))
++				result = NULL;
++			else if (unlikely(compute_score2(result, net, saddr, sport,
++-                                 daddr, hnum, dif) < badness)) {
++				sock_put(result);
++				goto begin;
++			}
++		} else {
++			if (unlikely(atomic_read(&result->sk_refcnt) == 0))
++				result = NULL;
++			else if (unlikely(compute_score2(result, net, saddr, sport,
++-                                 daddr, hnum, dif) < badness))
++				goto begin;
+ 		}
+ 	}
+ 	return result;
+@@ -475,9 +484,10 @@ begin:
+ /* UDP is nearly always wildcards out the wazoo, it makes no sense to try
+  * harder than this. -DaveM
+  */
+-struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
++/* called with read_rcu_lock() */
++struct sock *___udp4_lib_lookup(struct net *net, __be32 saddr,
+ 		__be16 sport, __be32 daddr, __be16 dport,
+-		int dif, struct udp_table *udptable)
++		int dif, struct udp_table *udptable, bool get_ref)
+ {
+ 	struct sock *sk, *result;
+ 	struct hlist_nulls_node *node;
+@@ -487,7 +497,6 @@ struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
+ 	int score, badness, matches = 0, reuseport = 0;
+ 	u32 hash = 0;
+ 
+-	rcu_read_lock();
+ 	if (hslot->count > 10) {
+ 		hash2 = udp4_portaddr_hash(net, daddr, hnum);
+ 		slot2 = hash2 & udptable->mask;
+@@ -497,7 +506,7 @@ struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
+ 
+ 		result = udp4_lib_lookup2(net, saddr, sport,
+ 					  daddr, hnum, dif,
+-					  hslot2, slot2);
++					  hslot2, slot2, get_ref);
+ 		if (!result) {
+ 			hash2 = udp4_portaddr_hash(net, htonl(INADDR_ANY), hnum);
+ 			slot2 = hash2 & udptable->mask;
+@@ -507,9 +516,8 @@ struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
+ 
+ 			result = udp4_lib_lookup2(net, saddr, sport,
+ 						  htonl(INADDR_ANY), hnum, dif,
+-						  hslot2, slot2);
++						  hslot2, slot2, get_ref);
+ 		}
+-		rcu_read_unlock();
+ 		return result;
+ 	}
+ begin:
+@@ -543,28 +551,50 @@ begin:
+ 		goto begin;
+ 
+ 	if (result) {
+-		if (unlikely(!atomic_inc_not_zero_hint(&result->sk_refcnt, 2)))
+-			result = NULL;
+-		else if (unlikely(compute_score(result, net, saddr, hnum, sport,
+-				  daddr, dport, dif) < badness)) {
+-			sock_put(result);
+-			goto begin;
++		if (get_ref) {
++			if (unlikely(!atomic_inc_not_zero_hint(&result->sk_refcnt, 2)))
++				result = NULL;
++			else if (unlikely(compute_score(result, net, saddr, hnum, sport,
++					  daddr, dport, dif) < badness)) {
++				sock_put(result);
++				goto begin;
++			}
++		} else {
++			if (unlikely(atomic_read(&result->sk_refcnt) == 0))
++				result = NULL;
++			else if (unlikely(compute_score(result, net, saddr, hnum, sport,
++					  daddr, dport, dif) < badness))
++				goto begin;
+ 		}
+ 	}
++	return result;
++}
++
++struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
++		__be16 sport, __be32 daddr, __be16 dport,
++		int dif, struct udp_table *udptable)
++{
++	struct sock *result;
++
++	rcu_read_lock();
++	result = ___udp4_lib_lookup(net, saddr, sport, daddr, dport, dif, udptable, true);
+ 	rcu_read_unlock();
++
+ 	return result;
+ }
++
+ EXPORT_SYMBOL_GPL(__udp4_lib_lookup);
+ 
++/* called with read_rcu_lock() */
+ static inline struct sock *__udp4_lib_lookup_skb(struct sk_buff *skb,
+ 						 __be16 sport, __be16 dport,
+ 						 struct udp_table *udptable)
+ {
+ 	const struct iphdr *iph = ip_hdr(skb);
+ 
+-	return __udp4_lib_lookup(dev_net(skb_dst(skb)->dev), iph->saddr, sport,
++	return ___udp4_lib_lookup(dev_net(skb_dst(skb)->dev), iph->saddr, sport,
+ 				 iph->daddr, dport, inet_iif(skb),
+-				 udptable);
++				 udptable, false);
+ }
+ 
+ struct sock *udp4_lib_lookup(struct net *net, __be32 saddr, __be16 sport,
+@@ -1755,19 +1785,21 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 		if (ret > 0)
+ 			return -ret;
+ 		return 0;
+-	} else {
+-		if (rt->rt_flags & (RTCF_BROADCAST|RTCF_MULTICAST))
+-			return __udp4_lib_mcast_deliver(net, skb, uh,
+-					saddr, daddr, udptable);
+-
+-		sk = __udp4_lib_lookup_skb(skb, uh->source, uh->dest, udptable);
+ 	}
+ 
++
++	if (rt->rt_flags & (RTCF_BROADCAST|RTCF_MULTICAST))
++		return __udp4_lib_mcast_deliver(net, skb, uh,
++				saddr, daddr, udptable);
++
++	rcu_read_lock();
++	sk = __udp4_lib_lookup_skb(skb, uh->source, uh->dest, udptable);
++
+ 	if (sk != NULL) {
+ 		int ret;
+ 
+ 		ret = udp_queue_rcv_skb(sk, skb);
+-		sock_put(sk);
++		rcu_read_unlock();
+ 
+ 		/* a return value > 0 means to resubmit the input, but
+ 		 * it wants the return to be -protocol, or 0
+@@ -1777,6 +1809,8 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 		return 0;
+ 	}
+ 
++	rcu_read_unlock();
++
+ 	if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb))
+ 		goto drop;
+ 	nf_reset(skb);
+-- 
+1.9.0.rc1.175.g0b1dcb5
