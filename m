@@ -1,41 +1,25 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: Fw: [Bug 70071] New: Sending netconsole messages over a bridged
- network interface doesn't work anymore
-Date: Thu, 06 Feb 2014 12:58:27 +0900
-Message-ID: <52F30863.7000206@lab.ntt.co.jp>
-References: <20140205141539.450095fa@samsung-9>
+From: "Hurwitz, Andrew" <ahurwitz@uarts.edu>
+Subject: =?iso-8859-1?Q?pr=E9stamo_?=
+Date: Wed, 5 Feb 2014 23:18:08 -0500
+Message-ID: <DFB8E9282FC5844CBE05CFFE8B79B1D902E005C74490@UARTSMAILBOX.ua.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:55883 "EHLO
-	tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752784AbaBFD6d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Feb 2014 22:58:33 -0500
-In-Reply-To: <20140205141539.450095fa@samsung-9>
+Received: from na3sys009aob102.obsmtp.com ([74.125.149.68]:32949 "EHLO
+	na3sys009aob102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754018AbaBFEXt convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Feb 2014 23:23:49 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(2014/02/06 6:15), Stephen Hemminger wrote:
-> 
-> 
-> Begin forwarded message:
-> 
-> Date: Wed, 5 Feb 2014 04:36:03 -0800
-> From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-> To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-> Subject: [Bug 70071] New: Sending netconsole messages over a bridged network interface doesn't work anymore
 
-Reverting this commit seems to fix the problem.
-93d8bf9fb8f3 ("bridge: cleanup netpoll code")
+3% oferta de pr=E9stamo General. P=F3ngase en contacto con ASO PRESTAMO=
+S Y AHORRO Hoy por email @ asofinanceninty@gmail.com<mailto:asofinancen=
+inty@gmail.com>
 
-In the following code path, p->br->dev->npinfo is NULL at
-br_netpoll_enable() because __netpoll_setup() assigns ndev->npinfo after
-calling ndo_netpoll_setup().
-
-  __netpoll_setup() -> br_netpoll_setup() -> br_netpoll_enable()
-
-Thanks,
-Toshiaki Makita
+3% General loan offer. Contact ASO LOANS AND SAVINGS Today by email @ a=
+sofinanceninty@gmail.com<mailto:asofinanceninty@gmail.com>
