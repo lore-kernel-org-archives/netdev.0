@@ -1,58 +1,82 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH net] netpoll: fix netconsole IPv6 setup
-Date: Thu,  6 Feb 2014 18:34:12 +0100
-Message-ID: <1391708052-11188-1-git-send-email-sd@queasysnail.net>
-Cc: netdev@vger.kernel.org, Sabrina Dubroca <sd@queasysnail.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1-g21.free.fr ([212.27.42.1]:46844 "EHLO smtp1-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752315AbaBFRe4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Feb 2014 12:34:56 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: use __GFP_NORETRY for high order allocations
+Date: Thu, 06 Feb 2014 10:42:42 -0800
+Message-ID: <1391712162.10160.8.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	David Rientjes <rientjes@google.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently, to make netconsole start over IPv6, the source address
-needs to be specified. Without a source address, netpoll_parse_options
-assumes we're setting up over IPv4 and the destination IPv6 address is
-rejected.
+From: Eric Dumazet <edumazet@google.com>
 
-Check if the IP version has been forced by a source address before
-checking for a version mismatch when parsing the destination address.
+sock_alloc_send_pskb() & sk_page_frag_refill()
+have a loop trying high order allocations to prepare
+skb with low number of fragments as this increases performance.
 
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+Problem is that under memory pressure/fragmentation, this can
+trigger OOM while the intent was only to try the high order
+allocations, then fallback to order-0 allocations.
+
+We had various reports from unexpected regressions.
+
+According to David, setting __GFP_NORETRY should be fine,
+as the asynchronous compaction is still enabled, and this
+will prevent OOM from kicking as in :
+
+CFSClientEventm invoked oom-killer: gfp_mask=0x42d0, order=3, oom_adj=0,
+oom_score_adj=0, oom_score_badness=2 (enabled),memcg_scoring=disabled
+CFSClientEventm 
+
+Call Trace:
+ [<ffffffff8043766c>] dump_header+0xe1/0x23e
+ [<ffffffff80437a02>] oom_kill_process+0x6a/0x323
+ [<ffffffff80438443>] out_of_memory+0x4b3/0x50d
+ [<ffffffff8043a4a6>] __alloc_pages_may_oom+0xa2/0xc7
+ [<ffffffff80236f42>] __alloc_pages_nodemask+0x1002/0x17f0
+ [<ffffffff8024bd23>] alloc_pages_current+0x103/0x2b0
+ [<ffffffff8028567f>] sk_page_frag_refill+0x8f/0x160
+ [<ffffffff80295fa0>] tcp_sendmsg+0x560/0xee0
+ [<ffffffff802a5037>] inet_sendmsg+0x67/0x100
+ [<ffffffff80283c9c>] __sock_sendmsg_nosec+0x6c/0x90
+ [<ffffffff80283e85>] sock_sendmsg+0xc5/0xf0
+ [<ffffffff802847b6>] __sys_sendmsg+0x136/0x430
+ [<ffffffff80284ec8>] sys_sendmsg+0x88/0x110
+ [<ffffffff80711472>] system_call_fastpath+0x16/0x1b
+Out of Memory: Kill process 2856 (bash) score 9999 or sacrifice child
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Acked-by: David Rientjes <rientjes@google.com>
 ---
- net/core/netpoll.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ net/core/sock.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index c03f3de..a664f78 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -948,6 +948,7 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
- {
- 	char *cur=opt, *delim;
- 	int ipv6;
-+	bool ipversion_set = false;
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 0c127dcdf6a8..5b6a9431b017 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1775,7 +1775,9 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+ 			while (order) {
+ 				if (npages >= 1 << order) {
+ 					page = alloc_pages(sk->sk_allocation |
+-							   __GFP_COMP | __GFP_NOWARN,
++							   __GFP_COMP |
++							   __GFP_NOWARN |
++							   __GFP_NORETRY,
+ 							   order);
+ 					if (page)
+ 						goto fill_page;
+@@ -1845,7 +1847,7 @@ bool skb_page_frag_refill(unsigned int sz, struct page_frag *pfrag, gfp_t prio)
+ 		gfp_t gfp = prio;
  
- 	if (*cur != '@') {
- 		if ((delim = strchr(cur, '@')) == NULL)
-@@ -960,6 +961,7 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
- 	cur++;
- 
- 	if (*cur != '/') {
-+		ipversion_set = true;
- 		if ((delim = strchr(cur, '/')) == NULL)
- 			goto parse_failed;
- 		*delim = 0;
-@@ -1002,7 +1004,7 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
- 	ipv6 = netpoll_parse_ip_addr(cur, &np->remote_ip);
- 	if (ipv6 < 0)
- 		goto parse_failed;
--	else if (np->ipv6 != (bool)ipv6)
-+	else if (ipversion_set && np->ipv6 != (bool)ipv6)
- 		goto parse_failed;
- 	else
- 		np->ipv6 = (bool)ipv6;
--- 
-1.8.5.3
+ 		if (order)
+-			gfp |= __GFP_COMP | __GFP_NOWARN;
++			gfp |= __GFP_COMP | __GFP_NOWARN | __GFP_NORETRY;
+ 		pfrag->page = alloc_pages(gfp, order);
+ 		if (likely(pfrag->page)) {
+ 			pfrag->offset = 0;
