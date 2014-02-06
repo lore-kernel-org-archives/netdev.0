@@ -1,49 +1,43 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH 2/2] rtlwifi: Fix incorrect return from rtl_ps_enable_nic()
-Date: Thu, 06 Feb 2014 14:39:30 -0600
-Message-ID: <52F3F302.1040703@lwfinger.net>
-References: <1391235070-23180-1-git-send-email-olivier@trillion01.com> <1391235070-23180-2-git-send-email-olivier@trillion01.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH net] netpoll: fix netconsole IPv6 setup
+Date: Thu, 6 Feb 2014 21:58:50 +0100
+Message-ID: <20140206205850.GA12704@kria>
+References: <1391708052-11188-1-git-send-email-sd@queasysnail.net>
+ <CAHA+R7OQYZ5RLn3v0nucKB=CVpDCZqp=HyNL=qgC9bViVKEuAQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Stable <stable@vger.kernel.org>
-To: Olivier Langlois <olivier@trillion01.com>, linville@tuxdriver.com,
-	chaoming_li@realsil.com.cn
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1391235070-23180-2-git-send-email-olivier@trillion01.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1-g21.free.fr ([212.27.42.1]:58452 "EHLO smtp1-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751622AbaBFU7C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Feb 2014 15:59:02 -0500
+Content-Disposition: inline
+In-Reply-To: <CAHA+R7OQYZ5RLn3v0nucKB=CVpDCZqp=HyNL=qgC9bViVKEuAQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/01/2014 12:11 AM, Olivier Langlois wrote:
-> rtl_ps_enable_nic() is called from loops that will loop until this function returns true or a
-> maximum number of retries is performed.
->
-> hw_init() returns non-zero on error. In that situation return false to
-> restore the original design intent to retry hw init when it fails.
->
-> Signed-off-by: Olivier Langlois <olivier@trillion01.com>
-> Cc: Stable <stable@vger.kernel.org>
+2014-02-06, 12:34:10 -0800, Cong Wang wrote:
+> On Thu, Feb 6, 2014 at 9:34 AM, Sabrina Dubroca <sd@queasysnail.net> wrote:
+> >  net/core/netpoll.c | 4 +++-
+> >  1 file changed, 3 insertions(+), 1 deletion(-)
+> >
+> > diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+> > index c03f3de..a664f78 100644
+> > --- a/net/core/netpoll.c
+> > +++ b/net/core/netpoll.c
+> > @@ -948,6 +948,7 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
+> >  {
+> >         char *cur=opt, *delim;
+> >         int ipv6;
+> > +       bool ipversion_set = false;
+> >
+> 
+> Or initialize 'ipv6' to -1 and then check if it is -1?
 
-Acked-by: Larry Finger <Larry.Finger.net>
+It's overwritten when we parse the remote address. And np->ipv6 is a
+bool, so we can't store it there either.
 
-Larry
-
-> ---
->   drivers/net/wireless/rtlwifi/ps.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/wireless/rtlwifi/ps.c b/drivers/net/wireless/rtlwifi/ps.c
-> index 0d81f76..a56e9b3 100644
-> --- a/drivers/net/wireless/rtlwifi/ps.c
-> +++ b/drivers/net/wireless/rtlwifi/ps.c
-> @@ -48,7 +48,7 @@ bool rtl_ps_enable_nic(struct ieee80211_hw *hw)
->
->   	/*<2> Enable Adapter */
->   	if (rtlpriv->cfg->ops->hw_init(hw))
-> -		return 1;
-> +		return false;
->   	RT_CLEAR_PS_LEVEL(ppsc, RT_RF_OFF_LEVL_HALT_NIC);
->
->   	/*<3> Enable Interrupt */
->
+-- 
+Sabrina
