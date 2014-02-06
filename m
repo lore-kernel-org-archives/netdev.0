@@ -1,78 +1,112 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [RFC PATCH] udp4: Don't take socket reference in receive path
-Date: Thu, 6 Feb 2014 14:40:17 -0800
-Message-ID: <CA+mtBx9Zovogvnc0_J2Xrf-B+yjxV4Of-24SDLNTt5WGsL5Qhw@mail.gmail.com>
-References: <alpine.DEB.2.02.1402061154580.17707@tomh.mtv.corp.google.com>
-	<1391720338.10160.12.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] bridge: fix netconsole setup over bridge
+Date: Thu,  6 Feb 2014 15:00:52 -0800
+Message-ID: <1391727652-12520-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <cwang@twopensource.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f47.google.com ([209.85.212.47]:63190 "EHLO
-	mail-vb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757038AbaBFWkS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 17:40:18 -0500
-Received: by mail-vb0-f47.google.com with SMTP id p6so1956027vbe.20
-        for <netdev@vger.kernel.org>; Thu, 06 Feb 2014 14:40:18 -0800 (PST)
-In-Reply-To: <1391720338.10160.12.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:58601 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751297AbaBFXBH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 18:01:07 -0500
+Received: by mail-pa0-f46.google.com with SMTP id rd3so2323377pab.19
+        for <netdev@vger.kernel.org>; Thu, 06 Feb 2014 15:01:06 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 6, 2014 at 12:58 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2014-02-06 at 11:58 -0800, Tom Herbert wrote:
->> The reference counting in the UDP receive path is quite expensive for
->> a socket that is share amoungst CPUs. This is probably true for normal
->> sockets, but really is painful when just using the socket for
->> receive encapsulation.
->>
->> udp4_lib_lookup always takes a socket reference, and we also put back
->> the reference after calling udp_queue_rcv_skb in the normal receive
->> path, so the need for taking the reference seems to be to hold the
->> socket after doing rcu_read_unlock. This patch modifies udp_lib_lookup
->> to optionally take a reference and is always called with rcu_read_lock.
->> In udp4_lib_rcv we call lib_lookup and udp_queue_rcv under the
->> rcu_read_lock but without having taken the reference.
->>
->> Requesting comments because I suspect there are nuances to this!
->>
->> Signed-off-by: Tom Herbert <therbert@google.com>
->> ---
->
-> Unfortunately this cant work.
->
-> When I did the RCU implementation for TCP/UDP, we chose to use
-> SLAB_DESTROY_BY_RCU.
->
-> This meant we have to take a reference, then check again the keys for
-> the lookup.
->
-> If we remove SLAB_DESTROY_BY_RCU, we kill performance for short lived
-> sessions, because of call_rcu() added latencies.
->
-Thanks for the explanation.
+From: Cong Wang <cwang@twopensource.com>
 
-> (One UDP socket is about 1024 bytes in memory, call_rcu() grace period
-> is throwing away 1024 bytes from cpu caches)
->
-> Sure, in your case you know your udp sessions are not short lived,
-> but many applications used UDP for DNS lookups, using few packets per
-> socket.
->
-The rationale for SLAB_DESTROY_BY_RCU might be different for UDP than
-TCP. For instance, in the DNS example small connected UDP flows are
-more an issue on the client, the server (which is likely to have much
-greater load) should be using unconnected sockets.
+Commit 93d8bf9fb8f3 ("bridge: cleanup netpoll code") introduced
+a check in br_netpoll_enable(), but this check is incorrect for
+br_netpoll_setup(). This patch moves the code after the check
+into __br_netpoll_enable() and calls it in br_netpoll_setup().
+For br_add_if(), the check is still needed.
 
-In any case, I am still looking for a way to address this. Like I said
-in the commit log, this per packet cost for UDP processing is far too
-high at least in encapsulation path. I thought about extending
-SO__REUSEPORT to provide CPU affinity but that seems like overkill
-with its own performance implications. Alternatively, we could have
-fast path for the encapsulation using UDP offload model which bypass
-sockets completely which seems unpleasant.
+Fixes: 93d8bf9fb8f3 ("bridge: cleanup netpoll code")
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <cwang@twopensource.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
->
->
+---
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index e4401a5..d9a9b0f 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -226,6 +226,33 @@ static void br_netpoll_cleanup(struct net_device *dev)
+ 		br_netpoll_disable(p);
+ }
+ 
++static int __br_netpoll_enable(struct net_bridge_port *p, gfp_t gfp)
++{
++	struct netpoll *np;
++	int err;
++
++	np = kzalloc(sizeof(*p->np), gfp);
++	if (!np)
++		return -ENOMEM;
++
++	err = __netpoll_setup(np, p->dev, gfp);
++	if (err) {
++		kfree(np);
++		return err;
++	}
++
++	p->np = np;
++	return err;
++}
++
++int br_netpoll_enable(struct net_bridge_port *p, gfp_t gfp)
++{
++	if (!p->br->dev->npinfo)
++		return 0;
++
++	return __br_netpoll_enable(p, gfp);
++}
++
+ static int br_netpoll_setup(struct net_device *dev, struct netpoll_info *ni,
+ 			    gfp_t gfp)
+ {
+@@ -236,7 +263,7 @@ static int br_netpoll_setup(struct net_device *dev, struct netpoll_info *ni,
+ 	list_for_each_entry(p, &br->port_list, list) {
+ 		if (!p->dev)
+ 			continue;
+-		err = br_netpoll_enable(p, gfp);
++		err = __br_netpoll_enable(p, gfp);
+ 		if (err)
+ 			goto fail;
+ 	}
+@@ -249,28 +276,6 @@ fail:
+ 	goto out;
+ }
+ 
+-int br_netpoll_enable(struct net_bridge_port *p, gfp_t gfp)
+-{
+-	struct netpoll *np;
+-	int err;
+-
+-	if (!p->br->dev->npinfo)
+-		return 0;
+-
+-	np = kzalloc(sizeof(*p->np), gfp);
+-	if (!np)
+-		return -ENOMEM;
+-
+-	err = __netpoll_setup(np, p->dev, gfp);
+-	if (err) {
+-		kfree(np);
+-		return err;
+-	}
+-
+-	p->np = np;
+-	return err;
+-}
+-
+ void br_netpoll_disable(struct net_bridge_port *p)
+ {
+ 	struct netpoll *np = p->np;
