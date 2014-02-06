@@ -1,109 +1,73 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH v4 2/5] can: sja1000: platform: use devm_* APIs
-Date: Thu,  6 Feb 2014 12:09:53 +0100
-Message-ID: <1391684996-612-3-git-send-email-mkl@pengutronix.de>
-References: <1391684996-612-1-git-send-email-mkl@pengutronix.de>
-Cc: netdev@vger.kernel.org,
-	Florian Vaussard <florian.vaussard@epfl.ch>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-To: linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1391684996-612-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jan Moskyto Matejka <mq@suse.cz>
+Subject: [PATCH] inet: defines IPPROTO_* needed for module alias generation
+Date: Thu,  6 Feb 2014 12:10:00 +0100
+Message-ID: <1391685000-7346-1-git-send-email-mq@suse.cz>
+Cc: Jan Moskyto Matejka <mq@suse.cz>,
+	"Carlos O'Donell" <carlos@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:38621 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755875AbaBFLN3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Feb 2014 06:13:29 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Vaussard <florian.vaussard@epfl.ch>
+Commit cfd280c91253 ("net: sync some IP headers with glibc") changed a set of
+define's to an enum (with no explanation why) which introduced a bug
+in module mip6 where aliases are generated using the IPPROTO_* defines;
+mip6 doesn't load if require_module called with the aliases from
+xfrm_get_type().
 
-Simplify probe and remove functions by converting most of the resources
-to use devm_* APIs.
+Reverting this change back to define's to fix the aliases.
 
-Signed-off-by: Florian Vaussard <florian.vaussard@epfl.ch>
-Tested-by: Andreas Larsson <andreas@gaisler.com>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+modinfo mip6 (before this change)
+alias:          xfrm-type-10-IPPROTO_DSTOPTS
+alias:          xfrm-type-10-IPPROTO_ROUTING
+
+modinfo mip6 (after this change)
+alias:          xfrm-type-10-43
+alias:          xfrm-type-10-60
+
+Signed-off-by: Jan Moskyto Matejka <mq@suse.cz>
 ---
- drivers/net/can/sja1000/sja1000_platform.c | 46 ++++++++----------------------
- 1 file changed, 12 insertions(+), 34 deletions(-)
+ include/uapi/linux/in6.h | 23 +++++++----------------
+ 1 file changed, 7 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/can/sja1000/sja1000_platform.c b/drivers/net/can/sja1000/sja1000_platform.c
-index 943df64..50ca273 100644
---- a/drivers/net/can/sja1000/sja1000_platform.c
-+++ b/drivers/net/can/sja1000/sja1000_platform.c
-@@ -78,34 +78,26 @@ static int sp_probe(struct platform_device *pdev)
- 	pdata = dev_get_platdata(&pdev->dev);
- 	if (!pdata) {
- 		dev_err(&pdev->dev, "No platform data provided!\n");
--		err = -ENODEV;
--		goto exit;
-+		return -ENODEV;
- 	}
+diff --git a/include/uapi/linux/in6.h b/include/uapi/linux/in6.h
+index 633b93c..e9a1d2d97 100644
+--- a/include/uapi/linux/in6.h
++++ b/include/uapi/linux/in6.h
+@@ -128,22 +128,13 @@ struct in6_flowlabel_req {
+  *	IPV6 extension headers
+  */
+ #if __UAPI_DEF_IPPROTO_V6
+-enum {
+-  IPPROTO_HOPOPTS = 0,		/* IPv6 hop-by-hop options      */
+-#define IPPROTO_HOPOPTS		IPPROTO_HOPOPTS
+-  IPPROTO_ROUTING = 43,		/* IPv6 routing header          */
+-#define IPPROTO_ROUTING		IPPROTO_ROUTING
+-  IPPROTO_FRAGMENT = 44,	/* IPv6 fragmentation header    */
+-#define IPPROTO_FRAGMENT	IPPROTO_FRAGMENT
+-  IPPROTO_ICMPV6 = 58,		/* ICMPv6                       */
+-#define IPPROTO_ICMPV6		IPPROTO_ICMPV6
+-  IPPROTO_NONE = 59,		/* IPv6 no next header          */
+-#define IPPROTO_NONE		IPPROTO_NONE
+-  IPPROTO_DSTOPTS = 60,		/* IPv6 destination options     */
+-#define IPPROTO_DSTOPTS		IPPROTO_DSTOPTS
+-  IPPROTO_MH = 135,		/* IPv6 mobility header         */
+-#define IPPROTO_MH		IPPROTO_MH
+-};
++#define IPPROTO_HOPOPTS		0	/* IPv6 hop-by-hop options	*/
++#define IPPROTO_ROUTING		43	/* IPv6 routing header		*/
++#define IPPROTO_FRAGMENT	44	/* IPv6 fragmentation header	*/
++#define IPPROTO_ICMPV6		58	/* ICMPv6			*/
++#define IPPROTO_NONE		59	/* IPv6 no next header		*/
++#define IPPROTO_DSTOPTS		60	/* IPv6 destination options	*/
++#define IPPROTO_MH		135	/* IPv6 mobility header		*/
+ #endif /* __UAPI_DEF_IPPROTO_V6 */
  
- 	res_mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	res_irq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
--	if (!res_mem || !res_irq) {
--		err = -ENODEV;
--		goto exit;
--	}
-+	if (!res_mem || !res_irq)
-+		return -ENODEV;
- 
--	if (!request_mem_region(res_mem->start, resource_size(res_mem),
--				DRV_NAME)) {
--		err = -EBUSY;
--		goto exit;
--	}
-+	if (!devm_request_mem_region(&pdev->dev, res_mem->start,
-+				     resource_size(res_mem), DRV_NAME))
-+		return -EBUSY;
- 
--	addr = ioremap_nocache(res_mem->start, resource_size(res_mem));
--	if (!addr) {
--		err = -ENOMEM;
--		goto exit_release;
--	}
-+	addr = devm_ioremap_nocache(&pdev->dev, res_mem->start,
-+				    resource_size(res_mem));
-+	if (!addr)
-+		return -ENOMEM;
- 
- 	dev = alloc_sja1000dev(0);
--	if (!dev) {
--		err = -ENOMEM;
--		goto exit_iounmap;
--	}
-+	if (!dev)
-+		return -ENOMEM;
- 	priv = netdev_priv(dev);
- 
- 	dev->irq = res_irq->start;
-@@ -150,28 +142,14 @@ static int sp_probe(struct platform_device *pdev)
- 
-  exit_free:
- 	free_sja1000dev(dev);
-- exit_iounmap:
--	iounmap(addr);
-- exit_release:
--	release_mem_region(res_mem->start, resource_size(res_mem));
-- exit:
- 	return err;
- }
- 
- static int sp_remove(struct platform_device *pdev)
- {
- 	struct net_device *dev = platform_get_drvdata(pdev);
--	struct sja1000_priv *priv = netdev_priv(dev);
--	struct resource *res;
- 
- 	unregister_sja1000dev(dev);
--
--	if (priv->reg_base)
--		iounmap(priv->reg_base);
--
--	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
--	release_mem_region(res->start, resource_size(res));
--
- 	free_sja1000dev(dev);
- 
- 	return 0;
+ /*
 -- 
-1.8.5.3
-
+1.8.4.5
