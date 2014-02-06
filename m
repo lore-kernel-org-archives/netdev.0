@@ -1,246 +1,307 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [RFC PATCH v2 tip 3/7] Extended BPF (64-bit BPF) design document
-Date: Wed,  5 Feb 2014 17:10:42 -0800
-Message-ID: <1391649046-4383-4-git-send-email-ast@plumgrid.com>
-References: <1391649046-4383-1-git-send-email-ast@plumgrid.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	Tom Zanussi <tom.zanussi@linux.intel.com>,
-	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Pekka Enberg <penberg@iki.fi>,
-	Arjan van de Ven <arjan@infradead.org>,
-	Christoph Hellwig <hch@infradead.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Ingo Molnar <mingo@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1391649046-4383-1-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: <dinguyen@altera.com>
+Subject: [PATCH] net: stmmac: Add Altera's SOCFPGA extensions for GMAC
+Date: Wed, 5 Feb 2014 18:35:15 -0600
+Message-ID: <1391646915-22045-1-git-send-email-dinguyen@altera.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <dinh.linux@gmail.com>, Dinh Nguyen <dinguyen@altera.com>,
+	"Giuseppe Cavallaro" <peppe.cavallaro@st.com>,
+	Vince Bridgers <vbridgers2013@gmail.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1bn0108.outbound.protection.outlook.com ([157.56.110.108]:36529
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932133AbaBFBL1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Feb 2014 20:11:27 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+From: Dinh Nguyen <dinguyen@altera.com>
+
+The GMAC controller on Altera's SOCFPGA requires setting the phy mode
+in a register that exists in the System Manager. This patch sets those
+register through the syscon interface.
+
+Signed-off-by: Dinh Nguyen <dinguyen@altera.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Cc: Vince Bridgers <vbridgers2013@gmail.com>
 ---
- Documentation/bpf_jit.txt |  204 +++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 204 insertions(+)
- create mode 100644 Documentation/bpf_jit.txt
+ arch/arm/boot/dts/socfpga.dtsi                     |    6 +-
+ arch/arm/boot/dts/socfpga_cyclone5.dtsi            |    6 --
+ arch/arm/boot/dts/socfpga_cyclone5_socdk.dts       |   18 ++++
+ arch/arm/boot/dts/socfpga_cyclone5_sockit.dts      |   13 +++
+ drivers/net/ethernet/stmicro/stmmac/Kconfig        |    7 ++
+ drivers/net/ethernet/stmicro/stmmac/Makefile       |    1 +
+ .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    |  104 ++++++++++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    4 +
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    1 +
+ 9 files changed, 151 insertions(+), 9 deletions(-)
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
 
-diff --git a/Documentation/bpf_jit.txt b/Documentation/bpf_jit.txt
+diff --git a/arch/arm/boot/dts/socfpga.dtsi b/arch/arm/boot/dts/socfpga.dtsi
+index 8c4adb7..895257d 100644
+--- a/arch/arm/boot/dts/socfpga.dtsi
++++ b/arch/arm/boot/dts/socfpga.dtsi
+@@ -442,7 +442,7 @@
+ 				};
+ 			};
+ 
+-		gmac0: ethernet@ff700000 {
++		gmac0: gmac0@ff700000 {
+ 			compatible = "altr,socfpga-stmmac", "snps,dwmac-3.70a", "snps,dwmac";
+ 			reg = <0xff700000 0x2000>;
+ 			interrupts = <0 115 4>;
+@@ -453,7 +453,7 @@
+ 			status = "disabled";
+ 		};
+ 
+-		gmac1: ethernet@ff702000 {
++		gmac1: gmac1@ff702000 {
+ 			compatible = "altr,socfpga-stmmac", "snps,dwmac-3.70a", "snps,dwmac";
+ 			reg = <0xff702000 0x2000>;
+ 			interrupts = <0 120 4>;
+@@ -534,7 +534,7 @@
+ 		};
+ 
+ 		rstmgr@ffd05000 {
+-			compatible = "altr,rst-mgr";
++			compatible = "altr,rst-mgr", "syscon";
+ 			reg = <0xffd05000 0x1000>;
+ 		};
+ 
+diff --git a/arch/arm/boot/dts/socfpga_cyclone5.dtsi b/arch/arm/boot/dts/socfpga_cyclone5.dtsi
+index ca41b0e..454148d 100644
+--- a/arch/arm/boot/dts/socfpga_cyclone5.dtsi
++++ b/arch/arm/boot/dts/socfpga_cyclone5.dtsi
+@@ -39,12 +39,6 @@
+ 			};
+ 		};
+ 
+-		ethernet@ff702000 {
+-			phy-mode = "rgmii";
+-			phy-addr = <0xffffffff>; /* probe for phy addr */
+-			status = "okay";
+-		};
+-
+ 		timer0@ffc08000 {
+ 			clock-frequency = <100000000>;
+ 		};
+diff --git a/arch/arm/boot/dts/socfpga_cyclone5_socdk.dts b/arch/arm/boot/dts/socfpga_cyclone5_socdk.dts
+index 2ee52ab..60d95b9 100644
+--- a/arch/arm/boot/dts/socfpga_cyclone5_socdk.dts
++++ b/arch/arm/boot/dts/socfpga_cyclone5_socdk.dts
+@@ -38,3 +38,21 @@
+ 		ethernet0 = &gmac1;
+ 	};
+ };
++
++&gmac1 {
++	phy-mode = "rgmii";
++	snps,phy-addr = <0xffffffff>; /* probe for phy addr */
++
++	rxd0-skew-ps = <0>;
++	rxd0-skew-ps = <0>;
++	rxd1-skew-ps = <0>;
++	rxd2-skew-ps = <0>;
++	rxd3-skew-ps = <0>;
++	txen-skew-ps = <0>;
++	txc-skew-ps = <2600>;
++	rxdv-skew-ps = <0>;
++	rxc-skew-ps = <2000>;
++
++	status = "okay";
++};
++
+diff --git a/arch/arm/boot/dts/socfpga_cyclone5_sockit.dts b/arch/arm/boot/dts/socfpga_cyclone5_sockit.dts
+index 50b99a2..21e08d1 100644
+--- a/arch/arm/boot/dts/socfpga_cyclone5_sockit.dts
++++ b/arch/arm/boot/dts/socfpga_cyclone5_sockit.dts
+@@ -33,5 +33,18 @@
+ };
+ 
+ &gmac1 {
++	phy-mode = "rgmii";
++	snps,phy-addr = <0xffffffff>; /* probe for phy addr */
++
++	rxd0-skew-ps = <0>;
++	rxd0-skew-ps = <0>;
++	rxd1-skew-ps = <0>;
++	rxd2-skew-ps = <0>;
++	rxd3-skew-ps = <0>;
++	txen-skew-ps = <0>;
++	txc-skew-ps = <2600>;
++	rxdv-skew-ps = <0>;
++	rxc-skew-ps = <2000>;
++
+ 	status = "okay";
+ };
+diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+index e2f202e..6b70706 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
++++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+@@ -26,6 +26,13 @@ config STMMAC_PLATFORM
+ 
+ 	  If unsure, say N.
+ 
++config DWMAC_SOCFPGA
++	bool "Altera SOCFPGA GMAC support"
++	depends on STMMAC_PLATFORM && ARCH_SOCFPGA
++	default y
++	---help---
++	  Support for Altera's SOCFPGA GMAC ethernet controller.
++
+ config DWMAC_SUNXI
+ 	bool "Allwinner GMAC support"
+ 	depends on STMMAC_PLATFORM && ARCH_SUNXI
+diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
+index ecadece..e380ba0 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/Makefile
++++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
+@@ -1,6 +1,7 @@
+ obj-$(CONFIG_STMMAC_ETH) += stmmac.o
+ stmmac-$(CONFIG_STMMAC_PLATFORM) += stmmac_platform.o
+ stmmac-$(CONFIG_STMMAC_PCI) += stmmac_pci.o
++stmmac-$(CONFIG_DWMAC_SOCFPGA) += dwmac-socfpga.o
+ stmmac-$(CONFIG_DWMAC_SUNXI) += dwmac-sunxi.o
+ stmmac-objs:= stmmac_main.o stmmac_ethtool.o stmmac_mdio.o ring_mode.o	\
+ 	      chain_mode.o dwmac_lib.o dwmac1000_core.o  dwmac1000_dma.o \
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
 new file mode 100644
-index 0000000..9c70f42
+index 0000000..13fa90c
 --- /dev/null
-+++ b/Documentation/bpf_jit.txt
-@@ -0,0 +1,204 @@
-+Subject: extended BPF or 64-bit BPF
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+@@ -0,0 +1,104 @@
++/*  Copyright (C) 2014 Altera Corporation
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
 +
-+Q: What is BPF?
-+A: Safe dynamically loadable 32-bit program that can access skb->data via
-+sk_load_byte/half/word calls or seccomp_data. Can be attached to sockets,
-+to netfilter xtables, seccomp. In case of sockets/xtables input is skb.
-+In case of seccomp input is struct seccomp_data.
++#include <linux/clk.h>
++#include <linux/mfd/syscon.h>
++#include <linux/of_net.h>
++#include <linux/phy.h>
++#include <linux/regmap.h>
++#include <linux/stmmac.h>
 +
-+Q: What is extended BPF?
-+A: Safe dynamically loadable 64-bit program that can call fixed set
-+of kernel functions and takes generic bpf_context as an input.
-+BPF program is a glue between kernel functions and bpf_context.
-+Different kernel subsystems can define their own set of available functions
-+and alter BPF machinery for specific use case.
++/* Peripheral Module Reset Register bits */
++#define SOCFPGA_RSTMGR_MODPERRST        0x14
++#define RSTMGR_PERMODRST_EMAC0  0x1
++#define RSTMGR_PERMODRST_EMAC1  0x2
 +
-+Example 1:
-+when function set is {bpf_load_byte/half/word} and bpf_context=skb
-+the extended BPF is equivalent to original BPF (w/o negative offset extensions),
-+since any such extended BPF program will only be able to load data from skb
-+and interpret it.
++#define SYSMGR_EMACGRP_CTRL_OFFSET 0x60
++#define SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_GMII_MII 0x0
++#define SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_RGMII 0x1
++#define SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_RMII 0x2
++#define SYSMGR_EMACGRP_CTRL_PHYSEL_WIDTH 2
++#define SYSMGR_EMACGRP_CTRL_PHYSEL_MASK 0x00000003
 +
-+Example 2:
-+when function set is {empty} and bpf_context=seccomp_data,
-+the extended BPF is equivalent to original seccomp BPF with simpler programs
-+and can immediately take advantage of extended BPF-JIT.
-+(original BPF-JIT doesn't work for seccomp)
++#define streq(a, b) (strcmp((a), (b)) == 0)
 +
-+Example 3:
-+when function set is {bpf_load_xxx + bpf_table_lookup} and bpf_context=skb
-+the extended BPF can be used to implement network analytics in tcpdump.
-+Like counting all tcp flows through the dev or filtering for specific
-+set of IP addresses.
++static int socfpga_gmac_init(struct platform_device *pdev, void *priv)
++{
++	struct device_node *np = pdev->dev.of_node;
++	struct regmap *sys_mgr_base_addr;
++	struct regmap *rst_mgr_base_addr;
++	int phymode;
++	u32 ctrl, val, shift = 0;
++	u32 rstmask = 0;
 +
-+Example 4:
-+when function set is {load_xxx + table_lookup + trace_printk} and
-+bpf_context=pt_regs, the extended BPF is used to implement systemtap-like
-+tracing filters
++	if (of_machine_is_compatible("altr,socfpga-vt"))
++		return 0;
 +
-+Extended Instruction Set was designed with these goals:
-+- write programs in restricted C and compile into BPF with GCC/LLVM
-+- just-in-time map to modern 64-bit CPU with minimal performance overhead
-+  over two steps: C -> BPF -> native code
-+- guarantee termination and safety of BPF program in kernel
-+  with simple algorithm
++	phymode = of_get_phy_mode(pdev->dev.of_node);
 +
-+Writing filters in tcpdump syntax or in systemtap language is difficult.
-+Same filter done in C is easier to understand.
-+GCC/LLVM-bpf backend is optional.
-+Extended BPF can be coded with macroses from bpf.h just like original BPF.
++	switch (phymode) {
++	case PHY_INTERFACE_MODE_RGMII:
++		val = SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_RGMII;
++		break;
++	case PHY_INTERFACE_MODE_MII:
++	case PHY_INTERFACE_MODE_GMII:
++		val = SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_GMII_MII;
++		break;
++	default:
++		dev_err(&pdev->dev, "bad phy mode %d\n", phymode);
++		return -EINVAL;
++	}
 +
-+Minimal performance overhead is achieved by having one to one mapping
-+between BPF insns and native insns, and one to one mapping between BPF
-+registers and native registers on 64-bit CPUs
++	sys_mgr_base_addr = syscon_regmap_lookup_by_compatible("altr,sys-mgr");
++	if (IS_ERR(sys_mgr_base_addr)) {
++		dev_err(&pdev->dev, "failed to find altr,sys-mgr regmap!\n");
++		return -EINVAL;
++	}
 +
-+Extended BPF allows jump forward and backward for two reasons:
-+to reduce branch mispredict penalty compiler moves cold basic blocks out of
-+fall-through path and to reduce code duplication that would be unavoidable
-+if only jump forward was available.
-+To guarantee termination simple non-recursive depth-first-search verifies
-+that there are no back-edges (no loops in the program), program is a DAG
-+with root at the first insn, all branches end at the last RET insn and
-+all instructions are reachable.
-+(Original BPF actually allows unreachable insns, but that's a bug)
++	rst_mgr_base_addr = syscon_regmap_lookup_by_compatible("altr,rst-mgr");
++	if (IS_ERR(rst_mgr_base_addr)) {
++		dev_err(&pdev->dev, "failed to find altr,rst-mgr regmap!\n");
++		return -EINVAL;
++	}
 +
-+Original BPF has two registers (A and X) and hidden frame pointer.
-+Extended BPF has ten registers and read-only frame pointer.
-+Since 64-bit CPUs are passing arguments to the functions via registers
-+the number of args from BPF program to in-kernel function is restricted to 5
-+and one register is used to accept return value from in-kernel function.
-+x86_64 passes first 6 arguments in registers.
-+aarch64/sparcv9/mips64 have 7-8 registers for arguments.
-+x86_64 has 6 callee saved registers.
-+aarch64/sparcv9/mips64 have 11 or more callee saved registers.
++	if (streq(np->name, "gmac0"))
++		rstmask = RSTMGR_PERMODRST_EMAC0;
++	else if (streq(np->name, "gmac1")) {
++		shift = SYSMGR_EMACGRP_CTRL_PHYSEL_WIDTH;
++		rstmask = RSTMGR_PERMODRST_EMAC1;
++	} else {
++		dev_err(&pdev->dev, "Not a valid GMAC!\n");
++		return -EINVAL;
++	}
 +
-+Therefore extended BPF calling convention is defined as:
-+R0 - return value from in-kernel function
-+R1-R5 - arguments from BPF program to in-kernel function
-+R6-R9 - callee saved registers that in-kernel function will preserve
-+R10 - read-only frame pointer to access stack
++	regmap_read(sys_mgr_base_addr, SYSMGR_EMACGRP_CTRL_OFFSET, &ctrl);
++	ctrl &= ~(SYSMGR_EMACGRP_CTRL_PHYSEL_MASK << shift);
++	ctrl |= (val << shift);
 +
-+so that all BPF registers map one to one to HW registers on x86_64,aarch64,etc
-+and BPF calling convention maps directly to ABIs used by kernel on 64-bit
-+architectures.
++	regmap_write(sys_mgr_base_addr, SYSMGR_EMACGRP_CTRL_OFFSET, ctrl);
 +
-+R0-R5 are scratch registers and BPF program needs spill/fill them if necessary
-+across calls.
-+Note that there is only one BPF program == one BPF function and it cannot call
-+other BPF functions. It can only call predefined in-kernel functions.
++	/* Bring the appropriate GMAC out of reset */
++	regmap_read(rst_mgr_base_addr, SOCFPGA_RSTMGR_MODPERRST, &ctrl);
++	ctrl &= ~(rstmask);
++	regmap_write(rst_mgr_base_addr, SOCFPGA_RSTMGR_MODPERRST, ctrl);
 +
-+All BPF registers are 64-bit without subregs, which makes JITed x86 code
-+less optimal, but matches sparc/mips architectures.
-+Adding 32-bit subregs was considered, since JIT can map them to x86 and aarch64
-+nicely, but read-modify-write overhead for sparc/mips is not worth the gains.
++	return 0;
++}
 +
-+Original BPF and extended BPF are two operand instructions, which helps
-+to do one-to-one mapping between BPF insn and x86 insn during JIT.
++const struct stmmac_of_data socfpga_gmac_data = {
++	.init = socfpga_gmac_init,
++};
 +
-+Extended BPF doesn't have pre-defined endianness not to favor one
-+architecture vs another. Therefore bswap insn was introduced.
-+Original BPF doesn't have such insn and does bswap as part of sk_load_word call
-+which is often unnecessary if we want to compare the value with the constant.
-+Restricted C code might be written differently depending on endianness
-+and GCC/LLVM-bpf will take an endianness flag.
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index d9af26e..555513d 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -133,6 +133,10 @@ bool stmmac_eee_init(struct stmmac_priv *priv);
+ #ifdef CONFIG_DWMAC_SUNXI
+ extern const struct stmmac_of_data sun7i_gmac_data;
+ #endif
++#ifdef CONFIG_DWMAC_SOCFPGA
++extern const struct stmmac_of_data socfpga_gmac_data;
++#endif
 +
-+32-bit architectures run 64-bit extended BPF programs via interpreter
-+
-+Q: Why extended BPF is 64-bit? Cannot we live with 32-bit?
-+A: On 64-bit architectures, pointers are 64-bit and we want to pass 64-bit
-+values in/out kernel functions, so 32-bit BPF registers would require to define
-+register-pair ABI, there won't be a direct BPF register to HW register
-+mapping and JIT would need to do combine/split/move operations for every
-+register in and out of the function, which is complex, bug prone and slow.
-+Another reason is counters. To use 64-bit counter BPF program would need to do
-+a complex math. Again bug prone and not atomic.
-+
-+Q: Original BPF is safe, deterministic and kernel can easily prove that.
-+   Does extended BPF keep these properties?
-+A: Yes. The safety of the program is determined in two steps.
-+First step does depth-first-search to disallow loops and other CFG validation.
-+Second step starts from the first insn and descends all possible paths.
-+It simulates execution of every insn and observes the state change of
-+registers and stack.
-+At the start of the program the register R1 contains a pointer to bpf_context
-+and has type PTR_TO_CTX. If checker sees an insn that does R2=R1, then R2 has
-+now type PTR_TO_CTX as well and can be used on right hand side of expression.
-+If R1=PTR_TO_CTX and insn is R2=R1+1, then R2=INVALID_PTR and it is readable.
-+If register was never written to, it's not readable.
-+After kernel function call, R1-R5 are reset to unreadable and R0 has a return
-+type of the function. Since R6-R9 are callee saved, their state is preserved
-+across the call.
-+load/store instructions are allowed only with registers of valid types, which
-+are PTR_TO_CTX, PTR_TO_TABLE, PTR_TO_STACK. They are bounds and alginment
-+checked.
-+
-+bpf_context structure is generic. Its contents are defined by specific use case.
-+For seccomp it can be seccomp_data and through get_context_access callback
-+BPF checker is customized, so that BPF program can only access certain fields
-+of bpf_context with specified size and alignment.
-+For example, the following insn:
-+  BPF_INSN_LD(BPF_W, R0, R6, 8)
-+intends to load word from address R6 + 8 and store it into R0
-+If R6=PTR_TO_CTX, then get_context_access callback should let the checker know
-+that offset 8 of size 4 bytes can be accessed for reading, otherwise the checker
-+will reject the program.
-+If R6=PTR_TO_STACK, then access should be aligned and be within stack bounds,
-+which are hard coded to [-480, 0]. In this example offset is 8, so it will fail
-+verification.
-+The checker will allow BPF program to read data from stack only after it wrote
-+into it.
-+Pointer register spill/fill is tracked as well, since four (R6-R9) callee saved
-+registers may not be enough for some programs.
-+
-+Allowed function calls are customized via get_func_proto callback.
-+For example:
-+  u64 bpf_load_byte(struct bpf_context *ctx, u32 offset);
-+function will have the following definition:
-+  struct bpf_func_proto proto = {RET_INTEGER, PTR_TO_CTX};
-+and BPF checker will verify that bpf_load_byte is always called with first
-+argument being a valid pointer to bpf_context. After the call BPF register R0
-+will be set to readable state, so that BPF program can access it.
-+
-+One of the useful functions that can be made available to BPF program
-+are bpf_table_lookup/bpf_table_update.
-+Using them a tracing filter can collect any type of statistics.
-+
-+Therefore extended BPF program consists of instructions and tables.
-+From BPF program the table is identified by constant table_id
-+and access to a table in C looks like:
-+elem = bpf_table_lookup(ctx, table_id, key);
-+
-+BPF checker matches 'table_id' against known tables, verifies that 'key' points
-+to stack and table->key_size bytes are initialized.
-+From there on bpf_table_lookup() is a normal kernel function. It needs to do
-+a lookup by whatever means and return either valid pointer to the element
-+or NULL. BPF checker will verify that the program accesses the pointer only
-+after comparing it to NULL. That's the meaning of PTR_TO_TABLE_CONDITIONAL and
-+PTR_TO_TABLE register types in bpf_check.c
-+
-+If a kernel subsystem wants to use this BPF framework and decides to implement
-+bpf_table_lookup, the checker will guarantee that argument 'ctx' is a valid
-+pointer to bpf_context, 'table_id' is valid table_id and table->key_size bytes
-+can be read from the pointer 'key'. It's up to implementation to decide how it
-+wants to do the lookup and what is the key.
-+
-+Going back to the example BPF insn:
-+  BPF_INSN_LD(BPF_W, R0, R6, 8)
-+if R6=PTR_TO_TABLE, then offset and size of access must be within
-+[0, table->elem_size] which is determined by constant table_id that was passed
-+into bpf_table_lookup call prior to this insn.
-+
-+Just like original, extended BPF is limited to 4096 insns, which means that any
-+program will terminate quickly and will call fixed number of kernel functions.
-+Earlier implementation of the checker had a precise calculation of worst case
-+number of insns, but it was removed to simplify the code, since the worst number
-+is always less then number of insns in a program anyway (because it's a DAG).
-+
-+Since register/stack state tracking simulates execution of all insns in all
-+possible branches, it will explode if not bounded. There are two bounds.
-+verifier_state stack is limited to 1k, therefore BPF program cannot have
-+more than 1k jump insns.
-+Total number of insns to be analyzed is limited to 32k, which means that
-+checker will either prove correctness or reject the program in few
-+milliseconds on average x86 cpu. Valid programs take microseconds to verify.
-+
+ extern struct platform_driver stmmac_pltfr_driver;
+ static inline int stmmac_register_platform(void)
+ {
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 5884a7d..001f419 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -33,6 +33,7 @@ static const struct of_device_id stmmac_dt_ids[] = {
+ #ifdef CONFIG_DWMAC_SUNXI
+ 	{ .compatible = "allwinner,sun7i-a20-gmac", .data = &sun7i_gmac_data},
+ #endif
++	{ .compatible = "altr,socfpga-stmmac", .data = &socfpga_gmac_data},
+ 	/* SoC specific glue layers should come before generic bindings */
+ 	{ .compatible = "st,spear600-gmac"},
+ 	{ .compatible = "snps,dwmac-3.610"},
 -- 
 1.7.9.5
