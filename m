@@ -1,58 +1,69 @@
-From: Shradha Shah <sshah@solarflare.com>
-Subject: Re: [PATCH-net] drivers/net: fix build warning in ethernet/sfc/tx.c
-Date: Thu, 6 Feb 2014 16:59:59 +0000
-Message-ID: <52F3BF8F.4080506@solarflare.com>
-References: <1391705112-27869-1-git-send-email-paul.gortmaker@windriver.com>
+From: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: Re: AX88179_178A USB3 ethernet adapter performance issue
+Date: Thu, 6 Feb 2014 09:12:39 -0800
+Message-ID: <20140206171239.GB16792@xanatos>
+References: <CAMVG2ssoBwk56n-k5VB9yO2LP4wc+gTv4o_17r-WYakwE6h2uQ@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6D0F6B9A21@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
-	Jon Cooper <jcooper@solarflare.com>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:41610 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751366AbaBFRAE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 12:00:04 -0500
-In-Reply-To: <1391705112-27869-1-git-send-email-paul.gortmaker@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: 'Daniel J Blueman' <daniel-JCXMqzvhRcvYtjvyW6yDsg@public.gmane.org>,
+	Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6B9A21-VkEWCZq2GCInGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 02/06/2014 04:45 PM, Paul Gortmaker wrote:
-> Commit ee45fd92c739db5b7950163d91dfe5f016af6d24 ("sfc: Use TX PIO
-> for sufficiently small packets") introduced the following warning:
+On Thu, Feb 06, 2014 at 03:39:02PM +0000, David Laight wrote:
+> From: Daniel J Blueman
+> > Hi Freddy et al,
 > 
-> drivers/net/ethernet/sfc/tx.c: In function 'efx_enqueue_skb':
-> drivers/net/ethernet/sfc/tx.c:432:1: warning: label 'finish_packet' defined but not used
+> I've copied this to linux-usb.
 > 
-> Stick the label inside the same #ifdef that the code which calls
-> it uses.  Note that this is only seen for arch that do not set
-> ARCH_HAS_IOREMAP_WC, such as arm, mips, sparc, ..., as the others
-> enable the write combining code and hence use the label.
+> > I'm experiencing poor network performance using an ASIX AX88179_178A
+> > USB3 to ethernet adapter using any recent linux kernel (eg 3.11),
+> > using an Intel XHCI USB3 controller.
 > 
-> Cc: Jon Cooper <jcooper@solarflare.com>
-> Cc: Ben Hutchings <bhutchings@solarflare.com>
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> There a several problems with the xhci driver that show up when
+> trying to use the ax88179_178a driver.
+> Unfortunately some of the fixes have caused regressions on other
+> host controllers with disk transfers.
+> The patches may, or may not, be present in your kernel.
+> The 'scatter-gather' support that is used in order to enable TSO
+> is particularly good at exercising the buggy code paths.
 
-Acked-by: Shradha Shah <sshah@solarflare.com>
+Scatter gather was not added until 3.12.  That does not explain the
+issues with a 3.11 kernel.  (Unless we're hitting the 64-KB boundary
+corner case a lot in 3.11.)
 
-> ---
->  drivers/net/ethernet/sfc/tx.c | 2 ++
->  1 file changed, 2 insertions(+)
+> > Running iperf tests between one host with a gigabit PCIe NIC, via a
+> > gigabit switch to the other host with various interfaces:
+> > 
+> > PCIe bcm957762: send 818Mb/s, recv 910Mb/s
+> > USB2 smsc75xx: send 341Mb/s, recv 330Mb/s
+> > USB3 ax88179_178a: send 347Mb/s, recv 18.7Mb/s
+> > 
+> > Are you able to reproduce the same 19Mb/s receive rate there?
+
+Which kernel are these numbers for?
+
+Any chance you can test this adapter on Windows?  I would be interested
+to see whether the send and recv numbers are also asymmetrical there.
+
+> It might be that you are only actually running at USB2 speeds
+> (check with lsusb -t).
 > 
-> diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
-> index c49d1fb16965..75d11fa4eb0a 100644
-> --- a/drivers/net/ethernet/sfc/tx.c
-> +++ b/drivers/net/ethernet/sfc/tx.c
-> @@ -429,7 +429,9 @@ netdev_tx_t efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb)
->  	}
->  
->  	/* Transfer ownership of the skb to the final buffer */
-> +#ifdef EFX_USE_PIO
->  finish_packet:
-> +#endif
->  	buffer->skb = skb;
->  	buffer->flags = EFX_TX_BUF_SKB | dma_flags;
->  
-> 
+> I have seem line rate Ge from my ax88179 card, but only with a
+> patched kernel.
+
+David, did you mean you have the same line rate as Daniel?
+
+Sarah Sharp
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
