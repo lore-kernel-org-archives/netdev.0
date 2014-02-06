@@ -1,53 +1,57 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: RTNL: assertion failed at net/core/dev.c (4494) and RTNL:
- assertion failed at net/core/rtnetlink.c (940)
-Date: Thu, 6 Feb 2014 14:12:25 -0800
-Message-ID: <CAHA+R7McuqYDshugsWcaeBbBsEg3QY59LiovYthcq6bH1fLTNg@mail.gmail.com>
-References: <20140206205106.GA10488@glanzmann.de>
-	<CAHA+R7OGS_KG1un36KBixbgs7LTPWGRYdJ+Vsn2iM0FzNV5FzA@mail.gmail.com>
-	<30988.1391723318@death.nxdomain>
-	<31272.1391724462@death.nxdomain>
+From: Nithin Nayak Sujir <nsujir@broadcom.com>
+Subject: [PATCH net] tg3: Fix deadlock in tg3_change_mtu()
+Date: Thu, 6 Feb 2014 14:13:05 -0800
+Message-ID: <1391724785-13562-1-git-send-email-nsujir@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Thomas Glanzmann <thomas@glanzmann.de>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Veaceslav Falico <vfalico@redhat.com>, andy@greyhouse.net,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f48.google.com ([209.85.215.48]:59626 "EHLO
-	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752708AbaBFWM1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 17:12:27 -0500
-Received: by mail-la0-f48.google.com with SMTP id mc6so1965024lab.21
-        for <netdev@vger.kernel.org>; Thu, 06 Feb 2014 14:12:25 -0800 (PST)
-In-Reply-To: <31272.1391724462@death.nxdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <david.vrabel@citrix.com>,
+	Nithin Nayak Sujir <nsujir@broadcom.com>,
+	<stable@vger.kernel.org>, Michael Chan <mchan@broadcom.com>
+To: <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 6, 2014 at 2:07 PM, Jay Vosburgh <fubar@us.ibm.com> wrote:
-> Jay Vosburgh <fubar@us.ibm.com> wrote:
->
->>Cong Wang <cwang@twopensource.com> wrote:
->>
->>
->>       That would eliminate the warning, but is suboptimal.  Acquiring
->>RTNL is not necessary on the vast majority of state machine runs
->>(because no state changes take place, i.e., no ports are disabled or
->>enabled).  The above change would add 10 round trips per second to RTNL,
->>which seems excessive.
->>
->>       Also, we cannot unconditionally acquire RTNL in this function,
->>as it would race with the call to cancel_delayed_work_sync from
->>bond_close (via bond_work_cancel_all).
+Quoting David Vrabel -
+"5780 cards cannot have jumbo frames and TSO enabled together.  When
+jumbo frames are enabled by setting the MTU, the TSO feature must be
+cleared.  This is done indirectly by calling netdev_update_features()
+which will call tg3_fix_features() to actually clear the flags.
 
-OK.
+netdev_update_features() will also trigger a new netlink message for the
+feature change event which will result in a call to tg3_get_stats64()
+which deadlocks on the tg3 lock."
 
->
->         Thought of one more problem: we can't hold a regular lock while
-> calling rtmsg_ifinfo, as it may sleep in alloc_skb.  The rtmsg_ifinfo
-> call has to be RTNL and nothing else.
->
+tg3_set_mtu() does not need to be under the tg3 lock since converting
+the flags to use set_bit(). Move it out to after tg3_netif_stop().
 
-s/GFP_KERNEL/GFP_ATOMIC/
+Cc: <stable@vger.kernel.org>
+Reported-by: David Vrabel <david.vrabel@citrix.com>
+Tested-by: David Vrabel <david.vrabel@citrix.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index e2ca03e..0bb79b8 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -14113,12 +14113,12 @@ static int tg3_change_mtu(struct net_device *dev, int new_mtu)
+ 
+ 	tg3_netif_stop(tp);
+ 
++	tg3_set_mtu(dev, tp, new_mtu);
++
+ 	tg3_full_lock(tp, 1);
+ 
+ 	tg3_halt(tp, RESET_KIND_SHUTDOWN, 1);
+ 
+-	tg3_set_mtu(dev, tp, new_mtu);
+-
+ 	/* Reset PHY, otherwise the read DMA engine will be in a mode that
+ 	 * breaks all requests to 256 bytes.
+ 	 */
+-- 
+1.7.9.5
