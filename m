@@ -1,86 +1,58 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v3 5/5] can: sja1000: of: add reg-io-width property for
- 8, 16 and 32-bit register access
-Date: Thu, 06 Feb 2014 11:57:46 +0100
-Message-ID: <52F36AAA.9000704@pengutronix.de>
-References: <1391175277-19833-1-git-send-email-florian.vaussard@epfl.ch> <1391175277-19833-6-git-send-email-florian.vaussard@epfl.ch> <52EBAE41.8060403@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="GXkxwWb545oR4MXOXRBlnhG69k877C0W4"
-Cc: Andreas Larsson <andreas@gaisler.com>, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, sparclinux@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Florian Vaussard <florian.vaussard@epfl.ch>,
-	Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <52EBAE41.8060403@cogentembedded.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: PATCH v4 1/5] can: sja1000: cleanups and new OF property
+Date: Thu,  6 Feb 2014 12:09:51 +0100
+Message-ID: <1391684996-612-1-git-send-email-mkl@pengutronix.de>
+Cc: netdev@vger.kernel.org
+To: linux-can@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:46248 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756025AbaBFLJ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 06:09:59 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---GXkxwWb545oR4MXOXRBlnhG69k877C0W4
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Picking up Florian's patches.
 
-On 01/31/2014 03:08 PM, Sergei Shtylyov wrote:
-> Hello.
->=20
-> On 31-01-2014 17:34, Florian Vaussard wrote:
->=20
->> Add the 'reg-io-width' property for 8, 16 and 32-bit access, like
->> what is currently done with IORESOURCE_MEM_{8,16,32}BIT for non-OF
->> boot.
->=20
->> Signed-off-by: Florian Vaussard <florian.vaussard@epfl.ch>
->> ---
->>   drivers/net/can/sja1000/sja1000_platform.c | 16 ++++++++++++++--
->>   1 file changed, 14 insertions(+), 2 deletions(-)
->=20
->> diff --git a/drivers/net/can/sja1000/sja1000_platform.c
->> b/drivers/net/can/sja1000/sja1000_platform.c
->> index 50dece8..25122bf 100644
->> --- a/drivers/net/can/sja1000/sja1000_platform.c
->> +++ b/drivers/net/can/sja1000/sja1000_platform.c
->> @@ -102,8 +102,20 @@ static void sp_populate_of(struct sja1000_priv
->> *priv, struct device_node *of)
->>       int err;
->>       u32 prop;
->>
->> -    priv->read_reg =3D sp_read_reg8;
->> -    priv->write_reg =3D sp_write_reg8;
->> +    err =3D of_property_read_u32(of, "reg-io-width", &prop);
->> +    if (err)
->> +        prop =3D 1;
->> +
->> +    if (prop =3D=3D 4) {
->=20
->    This is asking to be a *switch* statement instead.
+Changes since v3:
+- Make use of switch statement in sp_populate_of()
+  (patch 5/5), tnx Sergei.
+- added Tested-by from Andreas Larsson
 
-Good point, I'll send a v4.
+Changes since v2:
+- Dropped patch 1 "can: sja1000: remove unused defines"
+- Addressed Marc's comments on patch 4 and 6 (now 3 and 5)
+
+Changes since v1:
+- Merge sja1000_of_platform.c into sja1000_platform.c (patch 4)
+
+The first part of this series performs serveral small cleanups
+(patches 1 and 2).
+
+Florian further writes:
+
+===
+
+Patch 3 merges sja1000_of_platform.c into sja1000_platform.c.
+Changes are pretty conservatives (mostly copy/paste/move). IRQ
+is treated differently in the OF and non-OF versions, thus this
+is where the fused version differs the most.
+
+The final part introduces the 'reg-io-width' binding (already used
+by some other drivers) to perform a similar job as what was done
+with IORESOURCE_MEM_XXBIT. This is needed on my system to correctly
+take into account the aliasing of the address bus.
+
+All patches were tested using OF boot on my OMAP3 system with a
+memory-mapped SJA1000. Thus, the non-OF path is not tested, as
+I do not have a platform data at hand.
+
+Regards,
+Florian
+
+v1: http://thread.gmane.org/gmane.linux.kernel/1637835
+v2: http://thread.gmane.org/gmane.linux.can/4831
+
+===
 
 Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---GXkxwWb545oR4MXOXRBlnhG69k877C0W4
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlLzaqoACgkQjTAFq1RaXHNO1gCfb/yEcJjJwDr+JfgsIbzd+1rA
-VXYAn10t+Ad+bq+d3MJuAwxFoiciVpSK
-=bbVC
------END PGP SIGNATURE-----
-
---GXkxwWb545oR4MXOXRBlnhG69k877C0W4--
