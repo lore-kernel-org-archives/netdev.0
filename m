@@ -1,88 +1,84 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: RTNL: assertion failed at net/core/dev.c (4494) and RTNL: assertion failed at net/core/rtnetlink.c (940)
-Date: Thu, 06 Feb 2014 14:33:03 -0800
-Message-ID: <31653.1391725983@death.nxdomain>
-References: <20140206205106.GA10488@glanzmann.de> <CAHA+R7OGS_KG1un36KBixbgs7LTPWGRYdJ+Vsn2iM0FzNV5FzA@mail.gmail.com> <30988.1391723318@death.nxdomain> <31272.1391724462@death.nxdomain> <CAHA+R7McuqYDshugsWcaeBbBsEg3QY59LiovYthcq6bH1fLTNg@mail.gmail.com>
-Cc: Thomas Glanzmann <thomas@glanzmann.de>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Veaceslav Falico <vfalico@redhat.com>, andy@greyhouse.net,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	"sfeldma@cumulusnetworks.com" <sfeldma@cumulusnetworks.com>
-To: Cong Wang <cwang@twopensource.com>
+From: Emil Goode <emilgoode@gmail.com>
+Subject: Re: [PATCH] net: asix: fix bad header length bug
+Date: Thu, 6 Feb 2014 23:41:21 +0100
+Message-ID: <20140206224121.GB5251@lianli>
+References: <1391691384-8486-1-git-send-email-emilgoode@gmail.com>
+ <1391692768.2843.4.camel@X1Carbon.localdomain>
+ <063D6719AE5E284EB5DD2968C1650D6D0F6B99F7@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: 'Igor Gnatenko' <i.gnatenko.brain@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ming Lei <ming.lei@canonical.com>,
+	Mark Brown <broonie@linaro.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Glen Turner <gdt@gdt.id.au>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:41098 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753431AbaBFWdI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Feb 2014 17:33:08 -0500
-Received: from /spool/local
-	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Thu, 6 Feb 2014 17:33:07 -0500
-Received: from b01cxnp22033.gho.pok.ibm.com (b01cxnp22033.gho.pok.ibm.com [9.57.198.23])
-	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id 5A53C6E8047
-	for <netdev@vger.kernel.org>; Thu,  6 Feb 2014 17:33:01 -0500 (EST)
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by b01cxnp22033.gho.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s16MX5T264028892
-	for <netdev@vger.kernel.org>; Thu, 6 Feb 2014 22:33:05 GMT
-Received: from d01av01.pok.ibm.com (localhost [127.0.0.1])
-	by d01av01.pok.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s16MX48E010984
-	for <netdev@vger.kernel.org>; Thu, 6 Feb 2014 17:33:05 -0500
-In-reply-to: <CAHA+R7McuqYDshugsWcaeBbBsEg3QY59LiovYthcq6bH1fLTNg@mail.gmail.com>
+Received: from mail-la0-f45.google.com ([209.85.215.45]:50404 "EHLO
+	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751297AbaBFWjP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 17:39:15 -0500
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6B99F7@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-Cong Wang <cwang@twopensource.com> wrote:
-
->On Thu, Feb 6, 2014 at 2:07 PM, Jay Vosburgh <fubar@us.ibm.com> wrote:
->> Jay Vosburgh <fubar@us.ibm.com> wrote:
->>
->>>Cong Wang <cwang@twopensource.com> wrote:
->>>
->>>
->>>       That would eliminate the warning, but is suboptimal.  Acquiring
->>>RTNL is not necessary on the vast majority of state machine runs
->>>(because no state changes take place, i.e., no ports are disabled or
->>>enabled).  The above change would add 10 round trips per second to RTNL,
->>>which seems excessive.
->>>
->>>       Also, we cannot unconditionally acquire RTNL in this function,
->>>as it would race with the call to cancel_delayed_work_sync from
->>>bond_close (via bond_work_cancel_all).
+On Thu, Feb 06, 2014 at 03:28:13PM +0000, David Laight wrote:
+> From: Igor Gnatenko
+> > On Thu, 2014-02-06 at 13:56 +0100, Emil Goode wrote:
+> > > The AX88772B occasionally send rx packets that cross urb boundaries
+> > > and the remaining partial packet is sent with no header.
+> > > When the buffer with a partial packet is of less number of octets
+> > > than the value of hard_header_len the buffer is discarded by the
+> > > usbnet module. This is causing dropped packages and error messages
+> > > in dmesg.
+> > >
+> > > This can be reproduced by using ping with a packet size
+> > > between 1965-1976.
+> > >
+> > > The bug has been reported here:
+> > >
+> > > https://bugzilla.kernel.org/show_bug.cgi?id=29082
+> > >
+> > > Signed-off-by: Emil Goode <emilgoode@gmail.com>
+> > Reported-and-tested-by: Igor Gnatenko <i.gnatenko.brain@gmail.com>
+> > > ---
+> > >  drivers/net/usb/asix_devices.c |    1 +
+> > >  1 file changed, 1 insertion(+)
+> > >
+> > > diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devices.c
+> > > index 9765a7d..120bb29 100644
+> > > --- a/drivers/net/usb/asix_devices.c
+> > > +++ b/drivers/net/usb/asix_devices.c
+> > > @@ -455,6 +455,7 @@ static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf)
+> > >  	dev->net->ethtool_ops = &ax88772_ethtool_ops;
+> > >  	dev->net->needed_headroom = 4; /* cf asix_tx_fixup() */
+> > >  	dev->net->needed_tailroom = 4; /* cf asix_tx_fixup() */
+> > > +	dev->net->hard_header_len = 0; /* Partial packets have no header */
+> 
+> That is the wrong place for the fix.
+> 
+> It should only be done when rx_urb_size is set to a multiple of the usb
+> packet size.
+> That is only done for some of the supported devices.
+> 
+> In fact, if the rx_urb_size is a multiple of the usb frame size (or 1k)
+> then maybe the usbnet code should assume that the driver is capable
+> of processing ethernet frames that cross usb packet boundaries and
+> not delete short packets at all - regardless of the hard_header_len.
+> 
+> 	David
 >
->OK.
->
->>
->>         Thought of one more problem: we can't hold a regular lock while
->> calling rtmsg_ifinfo, as it may sleep in alloc_skb.  The rtmsg_ifinfo
->> call has to be RTNL and nothing else.
->>
->
->s/GFP_KERNEL/GFP_ATOMIC/
 
-	Yah, that would help with extra locks, but not totally solve
-things.  I'm looking around, and seeing a number of other places that
-will end up at one of these rtmsg_ifinfo calls with incorrect locking:
+I will do some more digging in the code, but the test of skb->len
+against hard_header_len is done already in the completion callback
+function passed to usb_fill_bulk_urb so it seems that buffers of less
+than hard_header_len number of octets will be dropped regardless.
 
-	bond_ab_arp_probe calls via bond_set_slave_active_flags and
-bond_set_slave_inactive_flags without RTNL.
+Best regards,
 
-	bond_change_active_slave calls via bond_set_slave_inactive_flags
-and bond_set_slave_active_flags with other locks held, and maybe without
-RTNL; I'm not sure if bond_option_active_slave_set holds RTNL when it
-calls bond_select_active_slave.
-
-	bond_open calls via bond_set_slave_active_flags and
-bond_set_slave_inactive_flags with RTNL, but also with other locks held.
-
-	bond_loadbalance_arp_mon calls bond_set_active_slave and
-bond_set_backup_slave without RTNL.
-
-	This is in addition to the cases in the 802.3ad code from
-__enable_port and __disable_port calls.
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+Emil Goode
