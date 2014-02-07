@@ -1,66 +1,44 @@
-From: Rashika Kheria <rashika.kheria@gmail.com>
-Subject: [PATCH 26/26] drivers: isdn: Move prototype declaration to header
- file platform.h from divasmain.c
-Date: Fri, 7 Feb 2014 18:19:53 +0530
-Message-ID: <03ee99107b3f4f0683055b6d0f0a0a6d53801dca.1390408520.git.rashika.kheria@gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 19/26] drivers: isdn: Move prototype declaration to
+ header file platform.h from diva_didd.c
+Date: Fri, 7 Feb 2014 13:33:46 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6BA76D@AcuExch.aculab.com>
 References: <3cb4d7892ba5a0c0936b3a1e2c9c991a6dbc3229.1390408513.git.rashika.kheria@gmail.com>
+ <93d7188538418423685ecefaf3d2bb311b37be6e.1390408518.git.rashika.kheria@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: Armin Schindler <mac@melware.de>,
-	Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
-	josh@joshtriplett.org
-To: linux-kernel@vger.kernel.org
+	Karsten Keil <isdn@linux-pingi.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"josh@joshtriplett.org" <josh@joshtriplett.org>
+To: 'Rashika Kheria' <rashika.kheria@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <3cb4d7892ba5a0c0936b3a1e2c9c991a6dbc3229.1390408513.git.rashika.kheria@gmail.com>
+In-Reply-To: <93d7188538418423685ecefaf3d2bb311b37be6e.1390408518.git.rashika.kheria@gmail.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Move prototype declaration of functions to header file
-hardware/eicon/platform.h because they are used by more than one file.
-
-This elliminates the following warnings in hardware/eicon/divasproc.c:
-drivers/isdn/hardware/eicon/divasproc.c:125:5: warning: no previous pro=
-totype for =E2=80=98create_divas_proc=E2=80=99 [-Wmissing-prototypes]
-drivers/isdn/hardware/eicon/divasproc.c:135:6: warning: no previous pro=
-totype for =E2=80=98remove_divas_proc=E2=80=99 [-Wmissing-prototypes]
-
-Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
-Reviewed-by: Josh Triplett <josh@joshtriplett.org>
----
- drivers/isdn/hardware/eicon/divasmain.c |    3 ---
- drivers/isdn/hardware/eicon/platform.h  |    2 ++
- 2 files changed, 2 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/isdn/hardware/eicon/divasmain.c b/drivers/isdn/har=
-dware/eicon/divasmain.c
-index 6b15670..3b1e5bc 100644
---- a/drivers/isdn/hardware/eicon/divasmain.c
-+++ b/drivers/isdn/hardware/eicon/divasmain.c
-@@ -55,9 +55,6 @@ static char *DRIVERLNAME =3D "divas";
- static char *DEVNAME =3D "Divas";
- char *DRIVERRELEASE_DIVAS =3D "2.0";
-=20
--extern int create_divas_proc(void);
--extern void remove_divas_proc(void);
--
- typedef struct _diva_os_thread_dpc {
- 	struct tasklet_struct divas_task;
- 	diva_os_soft_isr_t *psoft_isr;
-diff --git a/drivers/isdn/hardware/eicon/platform.h b/drivers/isdn/hard=
-ware/eicon/platform.h
-index 6bec7db..800b8bd 100644
---- a/drivers/isdn/hardware/eicon/platform.h
-+++ b/drivers/isdn/hardware/eicon/platform.h
-@@ -161,6 +161,8 @@ void diva_xdi_didd_remove_adapter(int card);
- void diva_get_vserial_number(PISDN_ADAPTER IoAdapter, char *buf);
- int divasfunc_init(int dbgmask);
- void divasfunc_exit(void);
-+int create_divas_proc(void);
-+void remove_divas_proc(void);
-=20
- /*
- ** memory allocation
---=20
-1.7.9.5
+RnJvbTogUmFzaGlrYSBLaGVyaWENCj4gTW92ZSBwcm90b3R5cGUgZGVjbGFyYXRpb25zIG9mIGZ1
+bmN0aW9uIHRvIGhlYWRlciBmaWxlDQo+IGhhcmR3YXJlL2VpY29uL3BsYXRmb3JtLmggYmVjYXVz
+ZSB0aGV5IGFyZSB1c2VkIGJ5IG1vcmUgdGhhbiBvbmUgZmlsZS4NCj4gDQo+IFRoaXMgZWxpbWlu
+YXRlcyB0aGUgZm9sbG93aW5nIHdhcm5pbmdzIGluIGhhcmR3YXJlL2VpY29uL2RpZGRmdW5jLmM6
+DQo+IGRyaXZlcnMvaXNkbi9oYXJkd2FyZS9laWNvbi9kaWRkZnVuYy5jOjk1OjEyOiB3YXJuaW5n
+OiBubyBwcmV2aW91cyBwcm90b3R5cGUgZm9yIGRpZGRmdW5jX2luaXQgWy0NCj4gV21pc3Npbmct
+cHJvdG90eXBlc10NCj4gZHJpdmVycy9pc2RuL2hhcmR3YXJlL2VpY29uL2RpZGRmdW5jLmM6MTEw
+OjEzOiB3YXJuaW5nOiBubyBwcmV2aW91cyBwcm90b3R5cGUgZm9yIGRpZGRmdW5jX2Zpbml0IFst
+DQo+IFdtaXNzaW5nLXByb3RvdHlwZXNdDQouLi4NCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvaXNk
+bi9oYXJkd2FyZS9laWNvbi9kaXZhX2RpZGQuYyBiL2RyaXZlcnMvaXNkbi9oYXJkd2FyZS9laWNv
+bi9kaXZhX2RpZGQuYw0KPiBpbmRleCBmYWI2Y2NmLi41NmQzMmE3IDEwMDY0NA0KPiAtLS0gYS9k
+cml2ZXJzL2lzZG4vaGFyZHdhcmUvZWljb24vZGl2YV9kaWRkLmMNCj4gKysrIGIvZHJpdmVycy9p
+c2RuL2hhcmR3YXJlL2VpY29uL2RpdmFfZGlkZC5jDQo+IEBAIC0zOSw5ICszOSw2IEBAIE1PRFVM
+RV9MSUNFTlNFKCJHUEwiKTsNCj4gICNkZWZpbmUgREJHX01JTklNVU0gIChETF9MT0cgKyBETF9G
+VEwgKyBETF9FUlIpDQo+ICAjZGVmaW5lIERCR19ERUZBVUxUICAoREJHX01JTklNVU0gKyBETF9Y
+TE9HICsgRExfUkVHKQ0KPiANCj4gLWV4dGVybiBpbnQgZGlkZGZ1bmNfaW5pdCh2b2lkKTsNCj4g
+LWV4dGVybiB2b2lkIGRpZGRmdW5jX2Zpbml0KHZvaWQpOw0KPiAtDQo+ICBleHRlcm4gdm9pZCBE
+SVZBX0RJRERfUmVhZCh2b2lkICosIGludCk7DQoNCllvdSBzaG91bGQgbW92ZSB0aGF0IG9uZSBh
+cyB3ZWxsLg0KVGhlcmUgcmVhbGx5IHNob3VsZG4ndCBiZSAnZXh0ZXJuJyBkZWZpbml0aW9ucyBm
+b3IgYW55IGZ1bmN0aW9uIGluDQphbnkgQyBmaWxlcyBzaW5jZSB5b3Ugd2FudCB0aGUgY29tcGls
+ZXIgdG8gY2hlY2sgdGhleSBhcmUgY29ycmVjdA0Kd2hlbiB0aGUgZnVuY3Rpb24gaXRzZWxmIGlz
+IGNvbXBpbGVkLg0KDQoJRGF2aWQNCg0K
