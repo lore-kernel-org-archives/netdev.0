@@ -1,29 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] hso: remove some dead code
-Date: Thu, 06 Feb 2014 22:30:06 -0800 (PST)
-Message-ID: <20140206.223006.787392520247377485.davem@davemloft.net>
-References: <20140206125319.GC16998@elgon.mountain>
+From: sudurais <sudurais@gmail.com>
+Subject: Re: [PATCH] rtlwifi: Add firmware for rtl8192ee
+Date: Fri, 7 Feb 2014 06:14:33 +0000 (UTC)
+Message-ID: <loom.20140207T071044-625@post.gmane.org>
+References: <1390944643-7388-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: j.dumon@option.com, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20140206125319.GC16998@elgon.mountain>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:46121 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750712AbaBGGpH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Feb 2014 01:45:07 -0500
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1WBfBP-00045h-Ac
+	for netdev@vger.kernel.org; Fri, 07 Feb 2014 07:45:03 +0100
+Received: from c-50-156-3-225.hsd1.ca.comcast.net ([50.156.3.225])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 07 Feb 2014 07:45:03 +0100
+Received: from sudurais by c-50-156-3-225.hsd1.ca.comcast.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 07 Feb 2014 07:45:03 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Thu, 6 Feb 2014 15:53:19 +0300
+Larry Finger <Larry.Finger <at> lwfinger.net> writes:
 
-> It seems like this function was intended to have special handling for
-> urb statuses of -ENOENT and -ECONNRESET.  But now it just prints some
-> debugging and returns at the start of the function.
 > 
-> I have removed the dead code, it's still in the git history if anyone
-> wants to revive it.
+> This firmware is for a driver for the Realtek RTL8192EE PCI WIFI device.
+> It came from a tarball from Realtek named
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+rtl_92ce_92se_92de_8723ae_88ee_8723be_92ee_linux_mac80211_0017.1224.2013.tar
+.gz
+> and is allowed to be distributed under the LICENCE.rtlwifi_firmware.txt 
+license.
+> 
 
-Applied.
+Hello Larry, 
+
+I recently bought Lenovo t440s which has realtek wireless 818b card. I 
+loaded this machine with Ubuntu and wifi is not working. I would like to try 
+92ee driver as 818b seems to be same of 92ee. Could you please send me 
+firmware files. 
+
+If you could send me a link to download 
+rtl_92ce_92se_92de_8723ae_88ee_8723be_92ee_linux_mac80211_0017.1224.2013.tar
+.gz or please email me to sudurais@gmail.com
+
+appreciate your help.
+
+thanks,
