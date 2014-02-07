@@ -1,93 +1,74 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 13/18] netfilter: nf_tables: fix log/queue expressions for NFPROTO_INET
-Date: Fri,  7 Feb 2014 18:41:39 +0100
-Message-ID: <1391794904-4017-14-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 05/18] netfilter: nf_nat_h323: fix crash in nf_ct_unlink_expect_report()
+Date: Fri,  7 Feb 2014 18:41:31 +0100
+Message-ID: <1391794904-4017-6-git-send-email-pablo@netfilter.org>
 References: <1391794904-4017-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:41455 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:41420 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753091AbaBGRmN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Feb 2014 12:42:13 -0500
+	id S1751680AbaBGRmE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Feb 2014 12:42:04 -0500
 In-Reply-To: <1391794904-4017-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
+From: Alexey Dobriyan <adobriyan@gmail.com>
 
-The log and queue expressions both store the family during ->init() and
-use it to deliver packets. This is wrong when used in NFPROTO_INET since
-they should both deliver to the actual AF of the packet, not the dummy
-NFPROTO_INET.
+Similar bug fixed in SIP module in 3f509c6 ("netfilter: nf_nat_sip: fix
+incorrect handling of EBUSY for RTCP expectation").
 
-Use the family from the hook ops to fix this.
+BUG: unable to handle kernel paging request at 00100104
+IP: [<f8214f07>] nf_ct_unlink_expect_report+0x57/0xf0 [nf_conntrack]
+...
+Call Trace:
+  [<c0244bd8>] ? del_timer+0x48/0x70
+  [<f8215687>] nf_ct_remove_expectations+0x47/0x60 [nf_conntrack]
+  [<f8211c99>] nf_ct_delete_from_lists+0x59/0x90 [nf_conntrack]
+  [<f8212e5e>] death_by_timeout+0x14e/0x1c0 [nf_conntrack]
+  [<f8212d10>] ? nf_conntrack_set_hashsize+0x190/0x190 [nf_conntrack]
+  [<c024442d>] call_timer_fn+0x1d/0x80
+  [<c024461e>] run_timer_softirq+0x18e/0x1a0
+  [<f8212d10>] ? nf_conntrack_set_hashsize+0x190/0x190 [nf_conntrack]
+  [<c023e6f3>] __do_softirq+0xa3/0x170
+  [<c023e650>] ? __local_bh_enable+0x70/0x70
+  <IRQ>
+  [<c023e587>] ? irq_exit+0x67/0xa0
+  [<c0202af6>] ? do_IRQ+0x46/0xb0
+  [<c027ad05>] ? clockevents_notify+0x35/0x110
+  [<c066ac6c>] ? common_interrupt+0x2c/0x40
+  [<c056e3c1>] ? cpuidle_enter_state+0x41/0xf0
+  [<c056e6fb>] ? cpuidle_idle_call+0x8b/0x100
+  [<c02085f8>] ? arch_cpu_idle+0x8/0x30
+  [<c027314b>] ? cpu_idle_loop+0x4b/0x140
+  [<c0273258>] ? cpu_startup_entry+0x18/0x20
+  [<c066056d>] ? rest_init+0x5d/0x70
+  [<c0813ac8>] ? start_kernel+0x2ec/0x2f2
+  [<c081364f>] ? repair_env_string+0x5b/0x5b
+  [<c0813269>] ? i386_start_kernel+0x33/0x35
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nft_log.c   |    5 +----
- net/netfilter/nft_queue.c |    4 +---
- 2 files changed, 2 insertions(+), 7 deletions(-)
+ net/ipv4/netfilter/nf_nat_h323.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nft_log.c b/net/netfilter/nft_log.c
-index 5af7901..26c5154 100644
---- a/net/netfilter/nft_log.c
-+++ b/net/netfilter/nft_log.c
-@@ -23,7 +23,6 @@ static const char *nft_log_null_prefix = "";
- struct nft_log {
- 	struct nf_loginfo	loginfo;
- 	char			*prefix;
--	int			family;
- };
- 
- static void nft_log_eval(const struct nft_expr *expr,
-@@ -33,7 +32,7 @@ static void nft_log_eval(const struct nft_expr *expr,
- 	const struct nft_log *priv = nft_expr_priv(expr);
- 	struct net *net = dev_net(pkt->in ? pkt->in : pkt->out);
- 
--	nf_log_packet(net, priv->family, pkt->ops->hooknum, pkt->skb, pkt->in,
-+	nf_log_packet(net, pkt->ops->pf, pkt->ops->hooknum, pkt->skb, pkt->in,
- 		      pkt->out, &priv->loginfo, "%s", priv->prefix);
- }
- 
-@@ -52,8 +51,6 @@ static int nft_log_init(const struct nft_ctx *ctx,
- 	struct nf_loginfo *li = &priv->loginfo;
- 	const struct nlattr *nla;
- 
--	priv->family = ctx->afi->family;
--
- 	nla = tb[NFTA_LOG_PREFIX];
- 	if (nla != NULL) {
- 		priv->prefix = kmalloc(nla_len(nla) + 1, GFP_KERNEL);
-diff --git a/net/netfilter/nft_queue.c b/net/netfilter/nft_queue.c
-index cbea473..e8ae2f6 100644
---- a/net/netfilter/nft_queue.c
-+++ b/net/netfilter/nft_queue.c
-@@ -25,7 +25,6 @@ struct nft_queue {
- 	u16	queuenum;
- 	u16	queues_total;
- 	u16	flags;
--	u8	family;
- };
- 
- static void nft_queue_eval(const struct nft_expr *expr,
-@@ -43,7 +42,7 @@ static void nft_queue_eval(const struct nft_expr *expr,
- 			queue = priv->queuenum + cpu % priv->queues_total;
- 		} else {
- 			queue = nfqueue_hash(pkt->skb, queue,
--					     priv->queues_total, priv->family,
-+					     priv->queues_total, pkt->ops->pf,
- 					     jhash_initval);
- 		}
- 	}
-@@ -71,7 +70,6 @@ static int nft_queue_init(const struct nft_ctx *ctx,
- 		return -EINVAL;
- 
- 	init_hashrandom(&jhash_initval);
--	priv->family = ctx->afi->family;
- 	priv->queuenum = ntohs(nla_get_be16(tb[NFTA_QUEUE_NUM]));
- 
- 	if (tb[NFTA_QUEUE_TOTAL] != NULL)
+diff --git a/net/ipv4/netfilter/nf_nat_h323.c b/net/ipv4/netfilter/nf_nat_h323.c
+index 9eea059d..574f7eb 100644
+--- a/net/ipv4/netfilter/nf_nat_h323.c
++++ b/net/ipv4/netfilter/nf_nat_h323.c
+@@ -229,7 +229,10 @@ static int nat_rtp_rtcp(struct sk_buff *skb, struct nf_conn *ct,
+ 			ret = nf_ct_expect_related(rtcp_exp);
+ 			if (ret == 0)
+ 				break;
+-			else if (ret != -EBUSY) {
++			else if (ret == -EBUSY) {
++				nf_ct_unexpect_related(rtp_exp);
++				continue;
++			} else if (ret < 0) {
+ 				nf_ct_unexpect_related(rtp_exp);
+ 				nated_port = 0;
+ 				break;
 -- 
 1.7.10.4
