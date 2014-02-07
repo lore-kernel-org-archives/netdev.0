@@ -1,7 +1,7 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 06/12] staging: r8188eu: Remove ODM_Write4Byte
-Date: Thu,  6 Feb 2014 20:45:41 -0600
-Message-ID: <1391741147-3047-7-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 09/12] staging: r8188eu: Remove ODM_AllocateMemory
+Date: Thu,  6 Feb 2014 20:45:44 -0600
+Message-ID: <1391741147-3047-10-git-send-email-Larry.Finger@lwfinger.net>
 References: <1391741147-3047-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,58 +22,42 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-This routine is the equivalent of rtw_write32.
+This wrapper for vzalloc() is not used.
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/staging/rtl8188eu/hal/HalPhyRf_8188e.c    | 2 +-
- drivers/staging/rtl8188eu/hal/odm_interface.c     | 7 -------
- drivers/staging/rtl8188eu/include/odm_interface.h | 2 --
- 3 files changed, 1 insertion(+), 10 deletions(-)
+ drivers/staging/rtl8188eu/hal/odm_interface.c     | 6 ------
+ drivers/staging/rtl8188eu/include/odm_interface.h | 1 -
+ 2 files changed, 7 deletions(-)
 
-diff --git a/drivers/staging/rtl8188eu/hal/HalPhyRf_8188e.c b/drivers/staging/rtl8188eu/hal/HalPhyRf_8188e.c
-index bb80b8a..6af70ce 100644
---- a/drivers/staging/rtl8188eu/hal/HalPhyRf_8188e.c
-+++ b/drivers/staging/rtl8188eu/hal/HalPhyRf_8188e.c
-@@ -870,7 +870,7 @@ _PHY_ReloadMACRegisters(
- 	for (i = 0; i < (IQK_MAC_REG_NUM - 1); i++) {
- 		rtw_write8(adapt, MACReg[i], (u8)MACBackup[i]);
- 	}
--	ODM_Write4Byte(dm_odm, MACReg[i], MACBackup[i]);
-+	rtw_write32(adapt, MACReg[i], MACBackup[i]);
- }
- 
- void
 diff --git a/drivers/staging/rtl8188eu/hal/odm_interface.c b/drivers/staging/rtl8188eu/hal/odm_interface.c
-index 202790c..b84b111 100644
+index 568c734..0f5b32f 100644
 --- a/drivers/staging/rtl8188eu/hal/odm_interface.c
 +++ b/drivers/staging/rtl8188eu/hal/odm_interface.c
-@@ -19,13 +19,6 @@
-  ******************************************************************************/
+@@ -20,12 +20,6 @@
  
  #include "odm_precomp.h"
--/*  ODM IO Relative API. */
--
--void ODM_Write4Byte(struct odm_dm_struct *pDM_Odm, u32 RegAddr, u32 Data)
--{
--	struct adapter *Adapter = pDM_Odm->Adapter;
--	rtw_write32(Adapter, RegAddr, Data);
--}
  
- /*  ODM Memory relative API. */
- void ODM_AllocateMemory(struct odm_dm_struct *pDM_Odm, void **pPtr, u32 length)
+-/*  ODM Memory relative API. */
+-void ODM_AllocateMemory(struct odm_dm_struct *pDM_Odm, void **pPtr, u32 length)
+-{
+-	*pPtr = vzalloc(length);
+-}
+-
+ s32 ODM_CompareMemory(struct odm_dm_struct *pDM_Odm, void *pBuf1, void *pBuf2, u32 length)
+ {
+ 	return _rtw_memcmp(pBuf1, pBuf2, length);
 diff --git a/drivers/staging/rtl8188eu/include/odm_interface.h b/drivers/staging/rtl8188eu/include/odm_interface.h
-index f45f172..9284eb8 100644
+index eb96d7a..8e07754 100644
 --- a/drivers/staging/rtl8188eu/include/odm_interface.h
 +++ b/drivers/staging/rtl8188eu/include/odm_interface.h
-@@ -77,8 +77,6 @@ typedef void (*RT_WORKITEM_CALL_BACK)(void *pContext);
- 
+@@ -78,7 +78,6 @@ typedef void (*RT_WORKITEM_CALL_BACK)(void *pContext);
  /*  =========== EXtern Function Prototype */
  
--void ODM_Write4Byte(struct odm_dm_struct *pDM_Odm, u32 RegAddr, u32 Data);
--
  /*  Memory Relative Function. */
- void ODM_AllocateMemory(struct odm_dm_struct *pDM_Odm, void **pPtr, u32 length);
- void ODM_FreeMemory(struct odm_dm_struct *pDM_Odm, void *pPtr, u32 length);
+-void ODM_AllocateMemory(struct odm_dm_struct *pDM_Odm, void **pPtr, u32 length);
+ 
+ s32 ODM_CompareMemory(struct odm_dm_struct *pDM_Odm, void *pBuf1, void *pBuf2,
+ 		      u32 length);
 -- 
 1.8.4.5
