@@ -1,66 +1,57 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 19/26] drivers: isdn: Move prototype declaration to
- header file platform.h from diva_didd.c
-Date: Fri, 7 Feb 2014 17:22:58 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6BAC1C@AcuExch.aculab.com>
-References: <3cb4d7892ba5a0c0936b3a1e2c9c991a6dbc3229.1390408513.git.rashika.kheria@gmail.com>
- <93d7188538418423685ecefaf3d2bb311b37be6e.1390408518.git.rashika.kheria@gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6D0F6BA76D@AcuExch.aculab.com>
- <20140207171516.GA7298@jtriplet-mobl1>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: 'Rashika Kheria' <rashika.kheria@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Armin Schindler" <mac@melware.de>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Josh Triplett' <josh@joshtriplett.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140207171516.GA7298@jtriplet-mobl1>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 02/18] netfilter: nft_ct: fix unconditional dump of 'dir' attr
+Date: Fri,  7 Feb 2014 18:41:28 +0100
+Message-ID: <1391794904-4017-3-git-send-email-pablo@netfilter.org>
+References: <1391794904-4017-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1391794904-4017-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Josh Triplett
-> On Fri, Feb 07, 2014 at 01:33:46PM +0000, David Laight wrote:
-> > From: Rashika Kheria
-> > > Move prototype declarations of function to header file
-> > > hardware/eicon/platform.h because they are used by more than one file.
-> > >
-> > > This eliminates the following warnings in hardware/eicon/diddfunc.c:
-> > > drivers/isdn/hardware/eicon/diddfunc.c:95:12: warning: no previous prototype for diddfunc_init [-
-> > > Wmissing-prototypes]
-> > > drivers/isdn/hardware/eicon/diddfunc.c:110:13: warning: no previous prototype for diddfunc_finit
-> [-
-> > > Wmissing-prototypes]
-> > ...
-> > > diff --git a/drivers/isdn/hardware/eicon/diva_didd.c b/drivers/isdn/hardware/eicon/diva_didd.c
-> > > index fab6ccf..56d32a7 100644
-> > > --- a/drivers/isdn/hardware/eicon/diva_didd.c
-> > > +++ b/drivers/isdn/hardware/eicon/diva_didd.c
-> > > @@ -39,9 +39,6 @@ MODULE_LICENSE("GPL");
-> > >  #define DBG_MINIMUM  (DL_LOG + DL_FTL + DL_ERR)
-> > >  #define DBG_DEFAULT  (DBG_MINIMUM + DL_XLOG + DL_REG)
-> > >
-> > > -extern int diddfunc_init(void);
-> > > -extern void diddfunc_finit(void);
-> > > -
-> > >  extern void DIVA_DIDD_Read(void *, int);
-> >
-> > You should move that one as well.
-> > There really shouldn't be 'extern' definitions for any function in
-> > any C files since you want the compiler to check they are correct
-> > when the function itself is compiled.
-> 
-> Absolutely, but as far as I can tell Rashika is doing this
-> incrementally, organized more by header than by source file, so I'd
-> expect a few externs in a source file to disappear at a time rather than
-> all in one patch.
+From: Arturo Borrero <arturo.borrero.glez@gmail.com>
 
-Unless any actual bugs are found, I'd have thought a single patch for
-each driver would be enough, maybe even one for the whole lot - depending
-on how they are maintained.
-The 26 patches already posted are a little excessive.
+We want to make sure that the information that we get from the kernel can
+be reinjected without troubles. The kernel shouldn't return an attribute
+that is not required, or even prohibited.
 
-	David
+Dumping unconditionally NFTA_CT_DIRECTION could lead an application in
+userspace to interpret that the attribute was originally set, while it
+was not.
+
+Signed-off-by: Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/nft_ct.c |   15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/net/netfilter/nft_ct.c b/net/netfilter/nft_ct.c
+index 917052e..feaf0f3 100644
+--- a/net/netfilter/nft_ct.c
++++ b/net/netfilter/nft_ct.c
+@@ -311,8 +311,19 @@ static int nft_ct_get_dump(struct sk_buff *skb, const struct nft_expr *expr)
+ 		goto nla_put_failure;
+ 	if (nla_put_be32(skb, NFTA_CT_KEY, htonl(priv->key)))
+ 		goto nla_put_failure;
+-	if (nla_put_u8(skb, NFTA_CT_DIRECTION, priv->dir))
+-		goto nla_put_failure;
++
++	switch (priv->key) {
++	case NFT_CT_PROTOCOL:
++	case NFT_CT_SRC:
++	case NFT_CT_DST:
++	case NFT_CT_PROTO_SRC:
++	case NFT_CT_PROTO_DST:
++		if (nla_put_u8(skb, NFTA_CT_DIRECTION, priv->dir))
++			goto nla_put_failure;
++	default:
++		break;
++	}
++
+ 	return 0;
+ 
+ nla_put_failure:
+-- 
+1.7.10.4
+
