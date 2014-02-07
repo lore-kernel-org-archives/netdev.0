@@ -1,72 +1,61 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH iproute2 net-next-for-3.13] iplink_bond: fix parameter
- value matching
-Date: Fri, 7 Feb 2014 10:45:03 +0800
-Message-ID: <52F448AF.3060604@huawei.com>
-References: <20140206125901.A95E2E5A97@unicorn.suse.cz>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH 00/12] Remove several pointless wrapper routines
+Date: Thu,  6 Feb 2014 20:45:35 -0600
+Message-ID: <1391741147-3047-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Michal Kubecek <mkubecek@suse.cz>,
-	Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:11868 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751150AbaBGCpY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 21:45:24 -0500
-In-Reply-To: <20140206125901.A95E2E5A97@unicorn.suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+ Larry Finger <Larry.Finger@lwfinger.net>
+To: gregkh@linuxfoundation.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/2/6 20:59, Michal Kubecek wrote:
-> Lookup function get_index() compares argument with table entries
-> only up to the length of the table entry so that if an entry
-> with lower index is a substring of a later one, earlier entry is
-> used even if the argument is equal to the other. For example,
-> 
->   ip link set bond0 type bond xmit_hash_policy layer2+3
-> 
-> sets xmit_hash_policy to 0 (layer2) as this is found before
-> "layer2+3" can be checked.
-> 
-> I believe the reason for using strncmp() rather than simple
-> strcmp() was to allow abbreviations which means maximum length
-> for comparison should be length of the string looked up.
-> However, this would cause a problem if shorter value follows
-> longer one and shorter one is entered (there is no such case now
-> but it might happen in the future). So let's try to find an
-> exact match first and only if none is found, do a second pass
-> with checking for abbreviated values.
-> 
-> Fixes: 63d127b0 ("iproute2: finish support for bonding attributes")
-> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-> ---
->  ip/iplink_bond.c | 8 +++++++-
->  1 file changed, 7 insertions(+), 1 deletion(-)
-> 
-> diff --git a/ip/iplink_bond.c b/ip/iplink_bond.c
-> index f22151e..4cd6843 100644
-> --- a/ip/iplink_bond.c
-> +++ b/ip/iplink_bond.c
-> @@ -105,8 +105,14 @@ static int get_index(const char **tbl, char *name)
->  			if (i == index)
->  				return i;
->  
-> +	/* first check for an exact match */
->  	for (i = 0; tbl[i]; i++)
-> -		if (strncmp(tbl[i], name, strlen(tbl[i])) == 0)
-> +		if (strcmp(tbl[i], name) == 0)
-> +			return i;
-> +
+The driver contains a large number of wrapper routines. None of them are
+needed.
 
-Yes, I think strcmp is more better here.
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 
-> +	/* no exact match, try to interpret as an abbreviation */
-> +	for (i = 0; tbl[i]; i++)
-> +		if (strncmp(tbl[i], name, strlen(name)) == 0)
->  			return i;
->  
-I don't think it is needed here, if no match, just return the result.
->  	return -1;
-> 
+Larry Finger (12):
+  staging: r8188eu: Remove ODM_Read1Byte
+  staging: r8188eu: Remove ODM_Read2Byte
+  staging: r8188eu: Remove ODM_Read4Byte
+  staging: r8188eu: Remove ODM_Write1Byte
+  staging: r8188eu: Remove ODM_Write2Byte
+  staging: r8188eu: Remove ODM_Write4Byte
+  staging: r8188eu: Remove wrappers around vmalloc and vzalloc
+  staging: r8188eu: Remove wrappers around vfree
+  staging: r8188eu: Remove ODM_AllocateMemory
+  staging: r8188eu: Remove ODM_CompareMemory
+  staging: r8188eu: Remove ODM_SetTimer
+  staging: r8188eu: Remove ODM_InitializeTimer
+
+ drivers/staging/rtl8188eu/core/rtw_mlme.c          |  9 ++-
+ drivers/staging/rtl8188eu/core/rtw_mp.c            |  4 +-
+ drivers/staging/rtl8188eu/core/rtw_recv.c          |  4 +-
+ drivers/staging/rtl8188eu/core/rtw_sta_mgt.c       |  4 +-
+ drivers/staging/rtl8188eu/core/rtw_xmit.c          | 14 ++---
+ .../staging/rtl8188eu/hal/Hal8188ERateAdaptive.c   | 13 +++--
+ drivers/staging/rtl8188eu/hal/HalPhyRf_8188e.c     | 37 ++++++------
+ drivers/staging/rtl8188eu/hal/odm.c                | 11 ++--
+ drivers/staging/rtl8188eu/hal/odm_RegConfig8188E.c |  4 +-
+ drivers/staging/rtl8188eu/hal/odm_interface.c      | 67 ----------------------
+ drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c  |  4 +-
+ drivers/staging/rtl8188eu/include/odm_interface.h  | 23 --------
+ drivers/staging/rtl8188eu/include/osdep_service.h  |  6 --
+ drivers/staging/rtl8188eu/os_dep/ioctl_linux.c     |  6 +-
+ drivers/staging/rtl8188eu/os_dep/osdep_service.c   | 25 +-------
+ drivers/staging/rtl8188eu/os_dep/usb_intf.c        |  4 +-
+ 16 files changed, 59 insertions(+), 176 deletions(-)
+
+-- 
+1.8.4.5
