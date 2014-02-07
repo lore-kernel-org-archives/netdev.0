@@ -1,34 +1,39 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 01/26] drivers: isdn: Rectify typing error in xdi_msg.h
-Date: Fri, 07 Feb 2014 21:48:55 +0300
-Message-ID: <52F52A97.1010001@cogentembedded.com>
-References: <3cb4d7892ba5a0c0936b3a1e2c9c991a6dbc3229.1390408513.git.rashika.kheria@gmail.com>
+From: Wolfgang Walter <linux@stwm.de>
+Subject: linux 3.13: problems with isatap tunnel device and UFO
+Date: Fri, 07 Feb 2014 18:47:07 +0100
+Message-ID: <1682505.dP4nT04FC9@h2o.as.studentenwerk.mhn.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Armin Schindler <mac@melware.de>,
-	Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
-	josh@joshtriplett.org
-To: Rashika Kheria <rashika.kheria@gmail.com>,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3cb4d7892ba5a0c0936b3a1e2c9c991a6dbc3229.1390408513.git.rashika.kheria@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dresden.studentenwerk.mhn.de ([141.84.225.229]:38916 "EHLO
+	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751056AbaBGRxJ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Feb 2014 12:53:09 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hello,
 
-On 02/07/2014 03:18 PM, Rashika Kheria wrote:
+with kernel 3.13 I have a problem with isatap tunnels receiving fragmen=
+ted=20
+ipv6 udp packets.
 
-> Rectify typing error while including the guard for the header
-> file xdi_msg.h so that proper guard is wrapped around the file
-> to prevent it from being included more than once.
+If I switch of ufo for the tunnel device the problem disappears:
+	ethtool -K is0 ufo off
 
-> Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
-> Reviewed-by: Josh Triplett <josh@joshtriplett.org>
+When UFO is on tcpdump shows the packets on the physical device but not=
+ on the=20
+tunnel device. The packets seem to be discarded.
 
-    You need to specify "eicon: " in the patch subjects, else there's an 
-impression you're modifying the generic ISDN code instead of the concrete 
-driver. You might as well drop "drivers:".
+With UFO off I can see them on is0 (and the packet is delivered to the=20
+socket).
 
-WBR, Sergei
+Regards,
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
