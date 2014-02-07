@@ -1,16 +1,14 @@
 From: Rashika Kheria <rashika.kheria@gmail.com>
-Subject: [PATCH 24/26] drivers: isdn: Move prototype declaration to header
- file hisax.h from config.c
-Date: Fri, 7 Feb 2014 18:17:52 +0530
-Message-ID: <7a100c457a882b2de084a50bdbd8b65827dc7aaf.1390408519.git.rashika.kheria@gmail.com>
+Subject: [PATCH 25/26] drivers: isdn: Move prototype declaration to header
+ file dadapter.h
+Date: Fri, 7 Feb 2014 18:18:58 +0530
+Message-ID: <fa09a161cd57206bfac7f3ea2817fb6d535c727c.1390408520.git.rashika.kheria@gmail.com>
 References: <3cb4d7892ba5a0c0936b3a1e2c9c991a6dbc3229.1390408513.git.rashika.kheria@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Karsten Keil <isdn@linux-pingi.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Kees Cook <keescook@chromium.org>, netdev@vger.kernel.org,
+Cc: Armin Schindler <mac@melware.de>,
+	Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
 	josh@joshtriplett.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -19,254 +17,150 @@ In-Reply-To: <3cb4d7892ba5a0c0936b3a1e2c9c991a6dbc3229.1390408513.git.rashika.kh
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Move prototype declaration of functions to header file hisax/hisax.h
-because they are used by more than one file.
+Move prototype declaration of functions to header file
+hardware/eicon/dadapter.h because they are used by more than one file.
 
-This eliminates the following warnings:
-drivers/isdn/hisax/teles3.c:273:5: warning: no previous prototype for =E2=
-=80=98setup_teles3=E2=80=99 [-Wmissing-prototypes]
-drivers/isdn/hisax/telespci.c:288:5: warning: no previous prototype for=
- =E2=80=98setup_telespci=E2=80=99 [-Wmissing-prototypes]
-drivers/isdn/hisax/s0box.c:213:5: warning: no previous prototype for =E2=
-=80=98setup_s0box=E2=80=99 [-Wmissing-prototypes]
-drivers/isdn/hisax/avm_a1p.c:216:5: warning: no previous prototype for =
-=E2=80=98setup_avm_a1_pcmcia=E2=80=99 [-Wmissing-prototypes]
-drivers/isdn/hisax/avm_pci.c:870:5: warning: no previous prototype for =
-=E2=80=98setup_avm_pcipnp=E2=80=99 [-Wmissing-prototypes]
-drivers/isdn/hisax/elsa.c:1209:5: warning: no previous prototype for =E2=
-=80=98setup_elsa=E2=80=99 [-Wmissing-prototypes]
-drivers/isdn/hisax/diva.c:1241:5: warning: no previous prototype for =E2=
-=80=98setup_diva=E2=80=99 [-Wmissing-prototypes]
-drivers/isdn/hisax/sedlbauer.c:674:5: warning: no previous prototype fo=
-r =E2=80=98setup_sedlbauer=E2=80=99 [-Wmissing-prototypes]
-drivers/isdn/hisax/nj_s.c:258:5: warning: no previous prototype for =E2=
-=80=98setup_netjet_s=E2=80=99 [-Wmissing-prototypes]
-drivers/isdn/hisax/nj_u.c:221:5: warning: no previous prototype for =E2=
-=80=98setup_netjet_u=E2=80=99 [-Wmissing-prototypes]
-drivers/isdn/hisax/hfc_pci.c:1638:1: warning: no previous prototype for=
- =E2=80=98setup_hfcpci=E2=80=99 [-Wmissing-prototypes]
-drivers/isdn/hisax/hfc_sx.c:1395:5: warning: no previous prototype for =
-=E2=80=98setup_hfcsx=E2=80=99 [-Wmissing-prototypes]
-drivers/isdn/hisax/niccy.c:229:5: warning: no previous prototype for =E2=
-=80=98setup_niccy=E2=80=99 [-Wmissing-prototypes]
-drivers/isdn/hisax/bkm_a4t.c:325:5: warning: no previous prototype for =
-=E2=80=98setup_bkm_a4t=E2=80=99 [-Wmissing-prototypes]
-drivers/isdn/hisax/bkm_a8.c:276:5: warning: no previous prototype for =E2=
-=80=98setup_sct_quadro=E2=80=99 [-Wmissing-prototypes]
-drivers/isdn/hisax/gazel.c:623:5: warning: no previous prototype for =E2=
-=80=98setup_gazel=E2=80=99 [-Wmissing-prototypes]
-drivers/isdn/hisax/w6692.c:996:5: warning: no previous prototype for =E2=
-=80=98setup_w6692=E2=80=99 [-Wmissing-prototypes]
-drivers/isdn/hisax/enternow_pci.c:387:5: warning: no previous prototype=
- for =E2=80=98setup_enternow_pci=E2=80=99 [-Wmissing-prototypes]
+This eliminates the following warning in hardware/eicon/dadapter.c:
+drivers/isdn/hardware/eicon/dadapter.c:361:22: warning: no previous pro=
+totype for =E2=80=98DIVA_DIDD_Read=E2=80=99 [-Wmissing-prototypes]
 
 Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
 Reviewed-by: Josh Triplett <josh@joshtriplett.org>
 ---
- drivers/isdn/hisax/config.c |   72 -----------------------------------=
---------
- drivers/isdn/hisax/hisax.h  |   71 +++++++++++++++++++++++++++++++++++=
-+++++++
- 2 files changed, 71 insertions(+), 72 deletions(-)
+ drivers/isdn/hardware/eicon/capifunc.c  |    3 +--
+ drivers/isdn/hardware/eicon/dadapter.h  |    1 +
+ drivers/isdn/hardware/eicon/diddfunc.c  |    1 -
+ drivers/isdn/hardware/eicon/diva_didd.c |    2 --
+ drivers/isdn/hardware/eicon/divasfunc.c |    3 +--
+ drivers/isdn/hardware/eicon/idifunc.c   |    3 +--
+ drivers/isdn/hardware/eicon/mntfunc.c   |    3 +--
+ 7 files changed, 5 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/isdn/hisax/config.c b/drivers/isdn/hisax/config.c
-index b33f53b..196cbb8 100644
---- a/drivers/isdn/hisax/config.c
-+++ b/drivers/isdn/hisax/config.c
-@@ -460,42 +460,14 @@ __setup("hisax=3D", HiSax_setup);
- extern int setup_teles0(struct IsdnCard *card);
- #endif
+diff --git a/drivers/isdn/hardware/eicon/capifunc.c b/drivers/isdn/hard=
+ware/eicon/capifunc.c
+index 639d70f..3bcb602 100644
+--- a/drivers/isdn/hardware/eicon/capifunc.c
++++ b/drivers/isdn/hardware/eicon/capifunc.c
+@@ -18,6 +18,7 @@
+ #include "divacapi.h"
+ #include "divasync.h"
+ #include "capifunc.h"
++#include "dadapter.h"
 =20
--#if CARD_TELES3
--extern int setup_teles3(struct IsdnCard *card);
--#endif
--
--#if CARD_S0BOX
--extern int setup_s0box(struct IsdnCard *card);
--#endif
--
--#if CARD_TELESPCI
--extern int setup_telespci(struct IsdnCard *card);
--#endif
--
- #if CARD_AVM_A1
- extern int setup_avm_a1(struct IsdnCard *card);
- #endif
+ #define DBG_MINIMUM  (DL_LOG + DL_FTL + DL_ERR)
+ #define DBG_DEFAULT  (DBG_MINIMUM + DL_XLOG + DL_REG)
+@@ -55,8 +56,6 @@ static char *diva_procinfo(struct capi_ctr *);
+ static u16 diva_send_message(struct capi_ctr *,
+ 			     diva_os_message_buffer_s *);
 =20
--#if CARD_AVM_A1_PCMCIA
--extern int setup_avm_a1_pcmcia(struct IsdnCard *card);
--#endif
--
--#if CARD_FRITZPCI
--extern int setup_avm_pcipnp(struct IsdnCard *card);
--#endif
--
--#if CARD_ELSA
--extern int setup_elsa(struct IsdnCard *card);
--#endif
--
- #if CARD_IX1MICROR2
- extern int setup_ix1micro(struct IsdnCard *card);
- #endif
-=20
--#if CARD_DIEHLDIVA
--extern int setup_diva(struct IsdnCard *card);
--#endif
--
- #if CARD_ASUSCOM
- extern int setup_asuscom(struct IsdnCard *card);
- #endif
-@@ -504,10 +476,6 @@ extern int setup_asuscom(struct IsdnCard *card);
- extern int setup_TeleInt(struct IsdnCard *card);
- #endif
-=20
--#if CARD_SEDLBAUER
--extern int setup_sedlbauer(struct IsdnCard *card);
--#endif
--
- #if CARD_SPORTSTER
- extern int setup_sportster(struct IsdnCard *card);
- #endif
-@@ -516,26 +484,10 @@ extern int setup_sportster(struct IsdnCard *card)=
-;
- extern int setup_mic(struct IsdnCard *card);
- #endif
-=20
--#if CARD_NETJET_S
--extern int setup_netjet_s(struct IsdnCard *card);
--#endif
--
- #if CARD_HFCS
- extern int setup_hfcs(struct IsdnCard *card);
- #endif
-=20
--#if CARD_HFC_PCI
--extern int setup_hfcpci(struct IsdnCard *card);
--#endif
--
--#if CARD_HFC_SX
--extern int setup_hfcsx(struct IsdnCard *card);
--#endif
--
--#if CARD_NICCY
--extern int setup_niccy(struct IsdnCard *card);
--#endif
--
- #if CARD_ISURF
- extern int setup_isurf(struct IsdnCard *card);
- #endif
-@@ -544,30 +496,6 @@ extern int setup_isurf(struct IsdnCard *card);
- extern int setup_saphir(struct IsdnCard *card);
- #endif
-=20
--#if CARD_BKM_A4T
--extern int setup_bkm_a4t(struct IsdnCard *card);
--#endif
--
--#if CARD_SCT_QUADRO
--extern int setup_sct_quadro(struct IsdnCard *card);
--#endif
--
--#if CARD_GAZEL
--extern int setup_gazel(struct IsdnCard *card);
--#endif
--
--#if CARD_W6692
--extern int setup_w6692(struct IsdnCard *card);
--#endif
--
--#if CARD_NETJET_U
--extern int setup_netjet_u(struct IsdnCard *card);
--#endif
--
--#if CARD_FN_ENTERNOW_PCI
--extern int setup_enternow_pci(struct IsdnCard *card);
--#endif
+-extern void DIVA_DIDD_Read(DESCRIPTOR *, int);
 -
  /*
-  * Find card with given driverId
+  * debug
   */
-diff --git a/drivers/isdn/hisax/hisax.h b/drivers/isdn/hisax/hisax.h
-index 6ead6314..90d68d1 100644
---- a/drivers/isdn/hisax/hisax.h
-+++ b/drivers/isdn/hisax/hisax.h
-@@ -1327,6 +1327,77 @@ void release_tei(struct IsdnCardState *cs);
- char *HiSax_getrev(const char *revision);
- int TeiNew(void);
- void TeiFree(void);
-+#if CARD_TELES3
-+int setup_teles3(struct IsdnCard *card);
-+#endif
-+
-+#if CARD_TELESPCI
-+extern int setup_telespci(struct IsdnCard *card);
-+#endif
-+
-+#if CARD_S0BOX
-+extern int setup_s0box(struct IsdnCard *card);
-+#endif
-+
-+#if CARD_AVM_A1_PCMCIA
-+extern int setup_avm_a1_pcmcia(struct IsdnCard *card);
-+#endif
-+
-+#if CARD_FRITZPCI
-+extern int setup_avm_pcipnp(struct IsdnCard *card);
-+#endif
-+
-+#if CARD_ELSA
-+extern int setup_elsa(struct IsdnCard *card);
-+#endif
-+
-+#if CARD_DIEHLDIVA
-+extern int setup_diva(struct IsdnCard *card);
-+#endif
-+
-+#if CARD_SEDLBAUER
-+extern int setup_sedlbauer(struct IsdnCard *card);
-+#endif
-+
-+#if CARD_NETJET_S
-+extern int setup_netjet_s(struct IsdnCard *card);
-+#endif
-+
-+#if CARD_HFC_PCI
-+extern int setup_hfcpci(struct IsdnCard *card);
-+#endif
-+
-+#if CARD_HFC_SX
-+extern int setup_hfcsx(struct IsdnCard *card);
-+#endif
-+
-+#if CARD_NICCY
-+extern int setup_niccy(struct IsdnCard *card);
-+#endif
-+
-+#if CARD_BKM_A4T
-+extern int setup_bkm_a4t(struct IsdnCard *card);
-+#endif
-+
-+#if CARD_SCT_QUADRO
-+extern int setup_sct_quadro(struct IsdnCard *card);
-+#endif
-+
-+#if CARD_GAZEL
-+extern int setup_gazel(struct IsdnCard *card);
-+#endif
-+
-+#if CARD_W6692
-+extern int setup_w6692(struct IsdnCard *card);
-+#endif
-+
-+#if CARD_NETJET_U
-+extern int setup_netjet_u(struct IsdnCard *card);
-+#endif
-+
-+#if CARD_FN_ENTERNOW_PCI
-+extern int setup_enternow_pci(struct IsdnCard *card);
-+#endif
+diff --git a/drivers/isdn/hardware/eicon/dadapter.h b/drivers/isdn/hard=
+ware/eicon/dadapter.h
+index 5540f46..f6cdebf 100644
+--- a/drivers/isdn/hardware/eicon/dadapter.h
++++ b/drivers/isdn/hardware/eicon/dadapter.h
+@@ -28,6 +28,7 @@
 =20
- #ifdef CONFIG_PCI
+ void diva_didd_load_time_init(void);
+ void diva_didd_load_time_finit(void);
++void IDI_CALL_LINK_T DIVA_DIDD_Read(void IDI_CALL_ENTITY_T *buffer, in=
+t length);
 =20
+ #define NEW_MAX_DESCRIPTORS     64
+=20
+diff --git a/drivers/isdn/hardware/eicon/diddfunc.c b/drivers/isdn/hard=
+ware/eicon/diddfunc.c
+index b0b23ed..a8a229f 100644
+--- a/drivers/isdn/hardware/eicon/diddfunc.c
++++ b/drivers/isdn/hardware/eicon/diddfunc.c
+@@ -20,7 +20,6 @@
+ #define DBG_DEFAULT  (DBG_MINIMUM + DL_XLOG + DL_REG)
+=20
+=20
+-extern void DIVA_DIDD_Read(void *, int);
+ extern char *DRIVERRELEASE_DIDD;
+ static dword notify_handle;
+ static DESCRIPTOR _DAdapter;
+diff --git a/drivers/isdn/hardware/eicon/diva_didd.c b/drivers/isdn/har=
+dware/eicon/diva_didd.c
+index 56d32a7..b8e525f 100644
+--- a/drivers/isdn/hardware/eicon/diva_didd.c
++++ b/drivers/isdn/hardware/eicon/diva_didd.c
+@@ -39,8 +39,6 @@ MODULE_LICENSE("GPL");
+ #define DBG_MINIMUM  (DL_LOG + DL_FTL + DL_ERR)
+ #define DBG_DEFAULT  (DBG_MINIMUM + DL_XLOG + DL_REG)
+=20
+-extern void DIVA_DIDD_Read(void *, int);
+-
+ static struct proc_dir_entry *proc_didd;
+ struct proc_dir_entry *proc_net_eicon =3D NULL;
+=20
+diff --git a/drivers/isdn/hardware/eicon/divasfunc.c b/drivers/isdn/har=
+dware/eicon/divasfunc.c
+index 4be5f88..a5d44d0 100644
+--- a/drivers/isdn/hardware/eicon/divasfunc.c
++++ b/drivers/isdn/hardware/eicon/divasfunc.c
+@@ -17,14 +17,13 @@
+ #include "divasync.h"
+ #include "diva.h"
+ #include "xdi_vers.h"
++#include "dadapter.h"
+=20
+ #define DBG_MINIMUM  (DL_LOG + DL_FTL + DL_ERR)
+ #define DBG_DEFAULT  (DBG_MINIMUM + DL_XLOG + DL_REG)
+=20
+ static int debugmask;
+=20
+-extern void DIVA_DIDD_Read(void *, int);
+-
+ extern PISDN_ADAPTER IoAdapters[MAX_ADAPTER];
+=20
+ extern char *DRIVERRELEASE_DIVAS;
+diff --git a/drivers/isdn/hardware/eicon/idifunc.c b/drivers/isdn/hardw=
+are/eicon/idifunc.c
+index bacab74..dc79095 100644
+--- a/drivers/isdn/hardware/eicon/idifunc.c
++++ b/drivers/isdn/hardware/eicon/idifunc.c
+@@ -15,14 +15,13 @@
+ #include "divasync.h"
+ #include "um_xdi.h"
+ #include "um_idi.h"
++#include "dadapter.h"
+=20
+ #define DBG_MINIMUM  (DL_LOG + DL_FTL + DL_ERR)
+ #define DBG_DEFAULT  (DBG_MINIMUM + DL_XLOG + DL_REG)
+=20
+ extern char *DRIVERRELEASE_IDI;
+=20
+-extern void DIVA_DIDD_Read(void *, int);
+-
+ static dword notify_handle;
+ static DESCRIPTOR DAdapter;
+ static DESCRIPTOR MAdapter;
+diff --git a/drivers/isdn/hardware/eicon/mntfunc.c b/drivers/isdn/hardw=
+are/eicon/mntfunc.c
+index e304a1d..be47431 100644
+--- a/drivers/isdn/hardware/eicon/mntfunc.c
++++ b/drivers/isdn/hardware/eicon/mntfunc.c
+@@ -15,14 +15,13 @@
+ #include "di_defs.h"
+ #include "divasync.h"
+ #include "debug_if.h"
++#include "dadapter.h"
+=20
+ extern char *DRIVERRELEASE_MNT;
+=20
+ #define DBG_MINIMUM  (DL_LOG + DL_FTL + DL_ERR)
+ #define DBG_DEFAULT  (DBG_MINIMUM + DL_XLOG + DL_REG)
+=20
+-extern void DIVA_DIDD_Read(void *, int);
+-
+ static dword notify_handle;
+ static DESCRIPTOR DAdapter;
+ static DESCRIPTOR MAdapter;
 --=20
 1.7.9.5
