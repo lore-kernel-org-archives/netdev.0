@@ -1,41 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tg3: Fix deadlock in tg3_change_mtu()
-Date: Thu, 06 Feb 2014 20:06:47 -0800 (PST)
-Message-ID: <20140206.200647.755082106891394503.davem@davemloft.net>
-References: <1391724785-13562-1-git-send-email-nsujir@broadcom.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH RESEND net-next] bonding: don't permit slaves to change
+ their mtu independently
+Date: Fri, 7 Feb 2014 12:19:57 +0800
+Message-ID: <52F45EED.4020108@huawei.com>
+References: <52E343AD.3080402@huawei.com> <20140201.165340.704074184414791614.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, david.vrabel@citrix.com, mchan@broadcom.com
-To: nsujir@broadcom.com
+Cc: <fubar@us.ibm.com>, <vfalico@redhat.com>, <andy@greyhouse.net>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39814 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751651AbaBGEGs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 23:06:48 -0500
-In-Reply-To: <1391724785-13562-1-git-send-email-nsujir@broadcom.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:28087 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751198AbaBGEUd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 23:20:33 -0500
+In-Reply-To: <20140201.165340.704074184414791614.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nithin Nayak Sujir <nsujir@broadcom.com>
-Date: Thu, 6 Feb 2014 14:13:05 -0800
+On 2014/2/2 8:53, David Miller wrote:
+> From: Ding Tianhong <dingtianhong@huawei.com>
+> Date: Sat, 25 Jan 2014 12:55:09 +0800
+> 
+>> I have come to a conclusion by testing all modes for mtu changing:
+>>
+>> 1). If the slaves support changing mtu and no need to restart the device,
+>>     just like virtual nic, the master will not lost any packages for all
+>>     mode.
+>>
+>> 2). If the slaves support changing mtu and need to restart the device,
+>>     just like Intel 82599, the AB, 802.3, ALB and TLB mode may lost
+>>     packages, but other modes could work well.
+>>
+>> The reason is that when the slave's mtu has been changed, the slave's hw will
+>> restart, if the slave is current active slave, the master may set the
+>> slave to backup state and reselect a new slave, after the reselect processing,
+>> the master could work again, but if in load-balance mode, the master could
+>> select another active slave to send and recv packages.
+>>
+>> So the best way to fix the problem is don't permit slave to change their
+>> mtu independently.
+>>
+>> Cc: Jay Vosburgh <fubar@us.ibm.com>
+>> Cc: Veaceslav Falico <vfalico@redhat.com>
+>> Cc: Andy Gospodarek <andy@greyhouse.net>
+>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> 
+> This has been rotting in patchwork for a week, and desperately needs
+> someone to review it.
+> 
+> 
+Self Naked, this patch did not consider the bond dev MTU changing, because
+if I forbidden the slave to change mtu in any way, the bond will not change
+its own mtu anymore, so I should think more about this situation. Sorry for the
+noise.
 
-> Quoting David Vrabel -
-> "5780 cards cannot have jumbo frames and TSO enabled together.  When
-> jumbo frames are enabled by setting the MTU, the TSO feature must be
-> cleared.  This is done indirectly by calling netdev_update_features()
-> which will call tg3_fix_features() to actually clear the flags.
-> 
-> netdev_update_features() will also trigger a new netlink message for the
-> feature change event which will result in a call to tg3_get_stats64()
-> which deadlocks on the tg3 lock."
-> 
-> tg3_set_mtu() does not need to be under the tg3 lock since converting
-> the flags to use set_bit(). Move it out to after tg3_netif_stop().
-> 
-> Reported-by: David Vrabel <david.vrabel@citrix.com>
-> Tested-by: David Vrabel <david.vrabel@citrix.com>
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
-> Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
-
-Applied and queued up for -stable, thanks.
+Regards
+Ding
