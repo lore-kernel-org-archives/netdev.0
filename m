@@ -1,44 +1,97 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 19/26] drivers: isdn: Move prototype declaration to
- header file platform.h from diva_didd.c
-Date: Fri, 7 Feb 2014 13:33:46 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6BA76D@AcuExch.aculab.com>
-References: <3cb4d7892ba5a0c0936b3a1e2c9c991a6dbc3229.1390408513.git.rashika.kheria@gmail.com>
- <93d7188538418423685ecefaf3d2bb311b37be6e.1390408518.git.rashika.kheria@gmail.com>
+From: Emil Goode <emilgoode@gmail.com>
+Subject: Re: [PATCH] net: asix: fix bad header length bug
+Date: Fri, 7 Feb 2014 14:53:20 +0100
+Message-ID: <20140207135320.GA4252@lianli>
+References: <1391691384-8486-1-git-send-email-emilgoode@gmail.com>
+ <1391692768.2843.4.camel@X1Carbon.localdomain>
+ <063D6719AE5E284EB5DD2968C1650D6D0F6B99F7@AcuExch.aculab.com>
+ <20140206224121.GB5251@lianli>
+ <87wqh7i7pf.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Armin Schindler <mac@melware.de>,
-	Karsten Keil <isdn@linux-pingi.de>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	'Igor Gnatenko' <i.gnatenko.brain@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ming Lei <ming.lei@canonical.com>,
+	Mark Brown <broonie@linaro.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Glen Turner <gdt@gdt.id.au>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"josh@joshtriplett.org" <josh@joshtriplett.org>
-To: 'Rashika Kheria' <rashika.kheria@gmail.com>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: =?utf-8?B?QmrDuHJu?= Mork <bjorn@mork.no>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <93d7188538418423685ecefaf3d2bb311b37be6e.1390408518.git.rashika.kheria@gmail.com>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <87wqh7i7pf.fsf@nemi.mork.no>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogUmFzaGlrYSBLaGVyaWENCj4gTW92ZSBwcm90b3R5cGUgZGVjbGFyYXRpb25zIG9mIGZ1
-bmN0aW9uIHRvIGhlYWRlciBmaWxlDQo+IGhhcmR3YXJlL2VpY29uL3BsYXRmb3JtLmggYmVjYXVz
-ZSB0aGV5IGFyZSB1c2VkIGJ5IG1vcmUgdGhhbiBvbmUgZmlsZS4NCj4gDQo+IFRoaXMgZWxpbWlu
-YXRlcyB0aGUgZm9sbG93aW5nIHdhcm5pbmdzIGluIGhhcmR3YXJlL2VpY29uL2RpZGRmdW5jLmM6
-DQo+IGRyaXZlcnMvaXNkbi9oYXJkd2FyZS9laWNvbi9kaWRkZnVuYy5jOjk1OjEyOiB3YXJuaW5n
-OiBubyBwcmV2aW91cyBwcm90b3R5cGUgZm9yIGRpZGRmdW5jX2luaXQgWy0NCj4gV21pc3Npbmct
-cHJvdG90eXBlc10NCj4gZHJpdmVycy9pc2RuL2hhcmR3YXJlL2VpY29uL2RpZGRmdW5jLmM6MTEw
-OjEzOiB3YXJuaW5nOiBubyBwcmV2aW91cyBwcm90b3R5cGUgZm9yIGRpZGRmdW5jX2Zpbml0IFst
-DQo+IFdtaXNzaW5nLXByb3RvdHlwZXNdDQouLi4NCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvaXNk
-bi9oYXJkd2FyZS9laWNvbi9kaXZhX2RpZGQuYyBiL2RyaXZlcnMvaXNkbi9oYXJkd2FyZS9laWNv
-bi9kaXZhX2RpZGQuYw0KPiBpbmRleCBmYWI2Y2NmLi41NmQzMmE3IDEwMDY0NA0KPiAtLS0gYS9k
-cml2ZXJzL2lzZG4vaGFyZHdhcmUvZWljb24vZGl2YV9kaWRkLmMNCj4gKysrIGIvZHJpdmVycy9p
-c2RuL2hhcmR3YXJlL2VpY29uL2RpdmFfZGlkZC5jDQo+IEBAIC0zOSw5ICszOSw2IEBAIE1PRFVM
-RV9MSUNFTlNFKCJHUEwiKTsNCj4gICNkZWZpbmUgREJHX01JTklNVU0gIChETF9MT0cgKyBETF9G
-VEwgKyBETF9FUlIpDQo+ICAjZGVmaW5lIERCR19ERUZBVUxUICAoREJHX01JTklNVU0gKyBETF9Y
-TE9HICsgRExfUkVHKQ0KPiANCj4gLWV4dGVybiBpbnQgZGlkZGZ1bmNfaW5pdCh2b2lkKTsNCj4g
-LWV4dGVybiB2b2lkIGRpZGRmdW5jX2Zpbml0KHZvaWQpOw0KPiAtDQo+ICBleHRlcm4gdm9pZCBE
-SVZBX0RJRERfUmVhZCh2b2lkICosIGludCk7DQoNCllvdSBzaG91bGQgbW92ZSB0aGF0IG9uZSBh
-cyB3ZWxsLg0KVGhlcmUgcmVhbGx5IHNob3VsZG4ndCBiZSAnZXh0ZXJuJyBkZWZpbml0aW9ucyBm
-b3IgYW55IGZ1bmN0aW9uIGluDQphbnkgQyBmaWxlcyBzaW5jZSB5b3Ugd2FudCB0aGUgY29tcGls
-ZXIgdG8gY2hlY2sgdGhleSBhcmUgY29ycmVjdA0Kd2hlbiB0aGUgZnVuY3Rpb24gaXRzZWxmIGlz
-IGNvbXBpbGVkLg0KDQoJRGF2aWQNCg0K
+On Fri, Feb 07, 2014 at 10:38:04AM +0100, Bj=C3=B8rn Mork wrote:
+> Emil Goode <emilgoode@gmail.com> writes:
+> > On Thu, Feb 06, 2014 at 03:28:13PM +0000, David Laight wrote:
+> >> From: Igor Gnatenko
+> >> > On Thu, 2014-02-06 at 13:56 +0100, Emil Goode wrote:
+> >> > > The AX88772B occasionally send rx packets that cross urb bound=
+aries
+> >> > > and the remaining partial packet is sent with no header.
+> >> > > When the buffer with a partial packet is of less number of oct=
+ets
+> >> > > than the value of hard_header_len the buffer is discarded by t=
+he
+> >> > > usbnet module. This is causing dropped packages and error mess=
+ages
+> >> > > in dmesg.
+>=20
+> > I will do some more digging in the code, but the test of skb->len
+> > against hard_header_len is done already in the completion callback
+> > function passed to usb_fill_bulk_urb so it seems that buffers of le=
+ss
+> > than hard_header_len number of octets will be dropped regardless.
+>=20
+> I am pretty sure you are right about this bug. And the exact same
+> solution is already used by the cx82310_eth minidriver, so I don't se=
+e
+> the problem.  Your fix is fine IMHO.  But you should apply it to all =
+the
+> devices using asix_rx_fixup_common(), not just the ax88772 ones.
+>=20
+> You could maybe make this a usbnet flag instead and create a generic
+> solution in usbnet, but frankly I believe the number of flags and the=
+ir
+> meaning have exceeded drivers authors capabilities a long time ago.  =
+At
+> least mine, which are quite limited ;-)
+>=20
+> An example of that problem is another bloody obvious bug I noticed wh=
+ile
+> looking at this driver: The 'struct driver_info ax88178_info' points =
+to
+> asix_rx_fixup_common without setting the FLAG_MULTI_PACKET.  This wil=
+l
+> result in usbnet rx_process() calling usbnet_skb_return() on skbs whi=
+ch
+> are already consumed by the minidriver.  Not a big problem, but will
+> give some odd results.  But if you allow skbs shorter than ETH_HLEN t=
+o
+> slip through then it might go boom, so you should probably fix that a=
+s
+> well.
+>=20
+>=20
+> Bj=C3=B8rn
+
+Yes I believe the patch is necessary, but maybe it would be nice with
+a prettier solution rather than setting hard_header_len to 0 for all
+devices with this behaviour. Perhaps it would be better to let each
+driver that uses the usbnet module decide what skbs to discard?
+
+What David describes seems to be another bug, but I don't think it is
+related to this patch as I'm able to reproduce the bug without the patc=
+h
+beeing applied by setting the mtu to pretty much any value other than=20
+1500 and using ping with a larger packet size than that mtu value.
+
+Best regards,
+
+Emil Goode
