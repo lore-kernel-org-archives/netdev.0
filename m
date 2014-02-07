@@ -1,84 +1,56 @@
-From: Christian Engelmayer <cengelma@gmx.at>
-Subject: [PATCH] 6lowpan: Remove unused pointer in lowpan_header_create()
-Date: Fri, 7 Feb 2014 22:58:38 +0100
-Message-ID: <20140207225838.18ad2ffb@spike>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=PGP-SHA1;
- boundary="Sig_/venGtObzij=pRyNabIw_WXO"; protocol="application/pgp-signature"
-Cc: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	Jukka Rissanen <jukka.rissanen@linux.intel.com>
-To: netdev@vger.kernel.org
+From: Pravin <pshelar@nicira.com>
+Subject: [PATCH net] net: Clear local_df only if crossing namespace.
+Date: Fri,  7 Feb 2014 14:12:38 -0800
+Message-ID: <1391811158-11433-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org, Pravin <pshelar@nicira.com>,
+	"Templin, Fred L" <Fred.L.Templin@boeing.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.15]:54113 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750744AbaBGV6k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Feb 2014 16:58:40 -0500
-Received: from spike ([81.217.122.98]) by mail.gmx.com (mrgmx002) with ESMTPSA
- (Nemesis) id 0Lb4vZ-1VW07b1XD7-00kezu for <netdev@vger.kernel.org>; Fri, 07
- Feb 2014 22:58:38 +0100
+Received: from na3sys009aog113.obsmtp.com ([74.125.149.209]:45755 "HELO
+	na3sys009aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751352AbaBGWMl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Feb 2014 17:12:41 -0500
+Received: by mail-pd0-f179.google.com with SMTP id fp1so3292607pdb.24
+        for <netdev@vger.kernel.org>; Fri, 07 Feb 2014 14:12:41 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Sig_/venGtObzij=pRyNabIw_WXO
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+Commit 239c78db9c41a8 (net: clear local_df when passing skb between
+namespaces) clears local_df unconditionally.  But upper layer should
+be able request local fragmentation within a namespace.  Currently
+OVS sets local_df for tunnel packets and then skb_scrub_packe()
+resets it which is not correct.
 
-Commit 8df8c56a (6lowpan: Moving generic compression code into 6lowpan_iphc=
-.c)
-left pointer 'hdr' unused - remove it.
+Therefore following patch resets local_df only packet is crossing
+namespace.
 
-Detected by Coverity: CID 1164868.
-
-Signed-off-by: Christian Engelmayer <cengelma@gmx.at>
+CC: Templin, Fred L <Fred.L.Templin@boeing.com>
+CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- net/ieee802154/6lowpan.c | 3 ---
- 1 file changed, 3 deletions(-)
+ net/core/skbuff.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 48b25c0..8bfb401 100644
---- a/net/ieee802154/6lowpan.c
-+++ b/net/ieee802154/6lowpan.c
-@@ -106,7 +106,6 @@ static int lowpan_header_create(struct sk_buff *skb,
- 			   unsigned short type, const void *_daddr,
- 			   const void *_saddr, unsigned int len)
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 5976ef0..4ba262f 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3905,12 +3905,13 @@ EXPORT_SYMBOL(skb_try_coalesce);
+  */
+ void skb_scrub_packet(struct sk_buff *skb, bool xnet)
  {
--	struct ipv6hdr *hdr;
- 	const u8 *saddr =3D _saddr;
- 	const u8 *daddr =3D _daddr;
- 	struct ieee802154_addr sa, da;
-@@ -117,8 +116,6 @@ static int lowpan_header_create(struct sk_buff *skb,
- 	if (type !=3D ETH_P_IPV6)
- 		return 0;
-=20
--	hdr =3D ipv6_hdr(skb);
--
- 	if (!saddr)
- 		saddr =3D dev->dev_addr;
-=20
---=20
-1.8.3.2
-
---Sig_/venGtObzij=pRyNabIw_WXO
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-
-iQIcBAEBAgAGBQJS9VcOAAoJEKssnEpaPQKElvUQAJSzDmc26/MOcZZGRrpjlvAZ
-Jn8U1G2rjukiMhRkJK92pOfVW37Uked/eBNaae6Ks5meb4fpvi7EZi3pBnMR5EtY
-+JgG6F4C+bxhMjDBTCd6qg31YBKyvwra0XfYOjUI1yGSaOYr88voyDUoDsuoEYWn
-6+x6ZhDBYO0J/aCr5xbIidtyhqncXUZVWPEFOrELs3My1qRXh0e/OgaNlBOXizsz
-RxtOeZRjejxQtM/0qy962nUqPva83a5r7njhjXY1nA1gL2gpZkPKYNnjHUTDzM7g
-0maHBD5NFxc08ReKEZsiK1MQyv7cljlSvA768CzoQpxqh7QnSZl4mpFEDYRttiY2
-I0ic1PB2ZdJOPCZAzvEq3NlZmiSVU03INobZAGpGe6utvspmv/rNPIBpl07bu/TC
-9XJU0wqPzpEki6jYoIKhjvnptqV5lnzjZd6+f46HfJIGvaJJ32GSTn/cGOzfrpv0
-e46sX0bBDXBCI+QQV8y3+HgEkgvGY+KzKc4xg1YS/Jh6FMrMUJYwTtmEiGo/RfnN
-4OtU/Xf1JDZkdj77+714/TovXbDqrbb2HllxllgkKKdEtQZI8xrhqhs1anCUzfRc
-pkL0LXLZlJXO9IEmdjZhErYVRqgs9zD6yE3Jzbh/sZLhPYF9YGm938+SDX37DpKD
-oVaWQPB/QBpFnXiYNdE5
-=EvUV
------END PGP SIGNATURE-----
-
---Sig_/venGtObzij=pRyNabIw_WXO--
+-	if (xnet)
++	if (xnet) {
+ 		skb_orphan(skb);
++		skb->local_df = 0;
++	}
+ 	skb->tstamp.tv64 = 0;
+ 	skb->pkt_type = PACKET_HOST;
+ 	skb->skb_iif = 0;
+-	skb->local_df = 0;
+ 	skb_dst_drop(skb);
+ 	skb->mark = 0;
+ 	secpath_reset(skb);
+-- 
+1.7.9.5
