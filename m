@@ -1,97 +1,74 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 16/18] netfilter: nft_rbtree: fix data handling of end interval elements
-Date: Fri,  7 Feb 2014 18:41:42 +0100
-Message-ID: <1391794904-4017-17-git-send-email-pablo@netfilter.org>
-References: <1391794904-4017-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:41468 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752964AbaBGRmR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Feb 2014 12:42:17 -0500
-In-Reply-To: <1391794904-4017-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Josh Triplett <josh@joshtriplett.org>
+Subject: Re: [PATCH 19/26] drivers: isdn: Move prototype declaration to
+ header file platform.h from diva_didd.c
+Date: Fri, 7 Feb 2014 09:41:55 -0800
+Message-ID: <20140207174155.GG7298@jtriplet-mobl1>
+References: <3cb4d7892ba5a0c0936b3a1e2c9c991a6dbc3229.1390408513.git.rashika.kheria@gmail.com>
+ <93d7188538418423685ecefaf3d2bb311b37be6e.1390408518.git.rashika.kheria@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6D0F6BA76D@AcuExch.aculab.com>
+ <20140207171516.GA7298@jtriplet-mobl1>
+ <063D6719AE5E284EB5DD2968C1650D6D0F6BAC1C@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: 'Rashika Kheria' <rashika.kheria@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Armin Schindler <mac@melware.de>,
+	Karsten Keil <isdn@linux-pingi.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6BAC1C@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes several things which related to the handling of
-end interval elements:
+On Fri, Feb 07, 2014 at 05:22:58PM +0000, David Laight wrote:
+> From: Josh Triplett
+> > On Fri, Feb 07, 2014 at 01:33:46PM +0000, David Laight wrote:
+> > > From: Rashika Kheria
+> > > > Move prototype declarations of function to header file
+> > > > hardware/eicon/platform.h because they are used by more than one file.
+> > > >
+> > > > This eliminates the following warnings in hardware/eicon/diddfunc.c:
+> > > > drivers/isdn/hardware/eicon/diddfunc.c:95:12: warning: no previous prototype for diddfunc_init [-
+> > > > Wmissing-prototypes]
+> > > > drivers/isdn/hardware/eicon/diddfunc.c:110:13: warning: no previous prototype for diddfunc_finit
+> > [-
+> > > > Wmissing-prototypes]
+> > > ...
+> > > > diff --git a/drivers/isdn/hardware/eicon/diva_didd.c b/drivers/isdn/hardware/eicon/diva_didd.c
+> > > > index fab6ccf..56d32a7 100644
+> > > > --- a/drivers/isdn/hardware/eicon/diva_didd.c
+> > > > +++ b/drivers/isdn/hardware/eicon/diva_didd.c
+> > > > @@ -39,9 +39,6 @@ MODULE_LICENSE("GPL");
+> > > >  #define DBG_MINIMUM  (DL_LOG + DL_FTL + DL_ERR)
+> > > >  #define DBG_DEFAULT  (DBG_MINIMUM + DL_XLOG + DL_REG)
+> > > >
+> > > > -extern int diddfunc_init(void);
+> > > > -extern void diddfunc_finit(void);
+> > > > -
+> > > >  extern void DIVA_DIDD_Read(void *, int);
+> > >
+> > > You should move that one as well.
+> > > There really shouldn't be 'extern' definitions for any function in
+> > > any C files since you want the compiler to check they are correct
+> > > when the function itself is compiled.
+> > 
+> > Absolutely, but as far as I can tell Rashika is doing this
+> > incrementally, organized more by header than by source file, so I'd
+> > expect a few externs in a source file to disappear at a time rather than
+> > all in one patch.
+> 
+> Unless any actual bugs are found, I'd have thought a single patch for
+> each driver would be enough, maybe even one for the whole lot - depending
+> on how they are maintained.
+> The 26 patches already posted are a little excessive.
 
-* Chain use underflow with intervals and map: If you add a rule
-  using intervals+map that introduces a loop, the error path of the
-  rbtree set decrements the chain refcount for each side of the
-  interval, leading to a chain use counter underflow.
+These types of patches often seem to generate a non-trivial amount of
+feedback (for instance, due to driver-specific organizational issues),
+and breaking them up by groups of warnings has tended to avoid excessive
+churn and review difficulty on a larger patch.  Certainly as a reviewer
+unfamiliar with isdn, I found this patch series far easier to review
+than a larger patch would have been.
 
-* Don't copy the data part of the end interval element since, this
-  area is uninitialized and this confuses the loop detection code.
-
-* Don't allocate room for the data part of end interval elements
-  since this is unused.
-
-So, after this patch the idea is that end interval elements don't
-have a data part.
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-Acked-by: Patrick McHardy <kaber@trash.net>
----
- net/netfilter/nft_rbtree.c |   16 +++++++++++-----
- 1 file changed, 11 insertions(+), 5 deletions(-)
-
-diff --git a/net/netfilter/nft_rbtree.c b/net/netfilter/nft_rbtree.c
-index ca0c1b2..e21d69d 100644
---- a/net/netfilter/nft_rbtree.c
-+++ b/net/netfilter/nft_rbtree.c
-@@ -69,8 +69,10 @@ static void nft_rbtree_elem_destroy(const struct nft_set *set,
- 				    struct nft_rbtree_elem *rbe)
- {
- 	nft_data_uninit(&rbe->key, NFT_DATA_VALUE);
--	if (set->flags & NFT_SET_MAP)
-+	if (set->flags & NFT_SET_MAP &&
-+	    !(rbe->flags & NFT_SET_ELEM_INTERVAL_END))
- 		nft_data_uninit(rbe->data, set->dtype);
-+
- 	kfree(rbe);
- }
- 
-@@ -108,7 +110,8 @@ static int nft_rbtree_insert(const struct nft_set *set,
- 	int err;
- 
- 	size = sizeof(*rbe);
--	if (set->flags & NFT_SET_MAP)
-+	if (set->flags & NFT_SET_MAP &&
-+	    !(elem->flags & NFT_SET_ELEM_INTERVAL_END))
- 		size += sizeof(rbe->data[0]);
- 
- 	rbe = kzalloc(size, GFP_KERNEL);
-@@ -117,7 +120,8 @@ static int nft_rbtree_insert(const struct nft_set *set,
- 
- 	rbe->flags = elem->flags;
- 	nft_data_copy(&rbe->key, &elem->key);
--	if (set->flags & NFT_SET_MAP)
-+	if (set->flags & NFT_SET_MAP &&
-+	    !(rbe->flags & NFT_SET_ELEM_INTERVAL_END))
- 		nft_data_copy(rbe->data, &elem->data);
- 
- 	err = __nft_rbtree_insert(set, rbe);
-@@ -153,7 +157,8 @@ static int nft_rbtree_get(const struct nft_set *set, struct nft_set_elem *elem)
- 			parent = parent->rb_right;
- 		else {
- 			elem->cookie = rbe;
--			if (set->flags & NFT_SET_MAP)
-+			if (set->flags & NFT_SET_MAP &&
-+			    !(rbe->flags & NFT_SET_ELEM_INTERVAL_END))
- 				nft_data_copy(&elem->data, rbe->data);
- 			elem->flags = rbe->flags;
- 			return 0;
-@@ -177,7 +182,8 @@ static void nft_rbtree_walk(const struct nft_ctx *ctx,
- 
- 		rbe = rb_entry(node, struct nft_rbtree_elem, node);
- 		nft_data_copy(&elem.key, &rbe->key);
--		if (set->flags & NFT_SET_MAP)
-+		if (set->flags & NFT_SET_MAP &&
-+		    !(rbe->flags & NFT_SET_ELEM_INTERVAL_END))
- 			nft_data_copy(&elem.data, rbe->data);
- 		elem.flags = rbe->flags;
- 
--- 
-1.7.10.4
+- Josh Triplett
