@@ -1,83 +1,62 @@
 From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH v3 net 0/9] bridge: Fix corner case problems around local fdb entries
-Date: Fri,  7 Feb 2014 16:48:17 +0900
-Message-ID: <1391759306-24956-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH v3 net 9/9] bridge: Prevent possible race condition in br_fdb_change_mac_address
+Date: Fri,  7 Feb 2014 16:48:26 +0900
+Message-ID: <1391759306-24956-10-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+References: <1391759306-24956-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 To: "David S . Miller" <davem@davemloft.net>,
 	Stephen Hemminger <stephen@networkplumber.org>,
 	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:39809 "EHLO
+Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:39805 "EHLO
 	tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751549AbaBGHso (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Feb 2014 02:48:44 -0500
+	with ESMTP id S1751233AbaBGHsn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Feb 2014 02:48:43 -0500
+In-Reply-To: <1391759306-24956-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are so many corner cases that are not handled properly around local
-fdb entries.
-- We might fail to delete the old entry and might delete an arbitrary local
-  entry when changing mac address of a bridge port.
-- We always fail to delete the old entry when changing mac address of the
-  bridge device.
-- We might incorrectly delete a necessary entry when detaching a bridge port.
-- We might incorrectly delete a necessary entry when deleting a vlan.
-and so on.
+br_fdb_change_mac_address() calls fdb_insert()/fdb_delete() without
+br->hash_lock.
 
-This is a patch series to fix these issues.
+These hash list updates are racy with br_fdb_update()/br_fdb_cleanup().
 
-v3:
-- Handle NTF_USE case in patch 1/9, commented by Vlad Yasevich.
+Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Acked-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+ net/bridge/br_fdb.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-- Tested port detach/attach and didn't find any problem with patch 5/9,
-  suggested by Stephen Hemminger.
-
-- Add comments about possible inconsistent state in current implementation
-  into commit log of patch 5/9, found by the above test.
-
-- Reword unintensive changelog of patch 7/9, commented by Vlad Yasevich.
-
-v2:
-- Change the way to find the old entry in br_fdb_changeaddr() from memorizing
-  previous port address to introducing a new flag indicating whether a fdb
-  entry is added by user or not, commented by Stephen Hemminger.
-
-- Add a fix for the way to insert a new address in br_fdb_changeaddr().
-
-- Prevent creating an entry such that its dst is NULL in br_add_if() to
-  preserve old behavior, commented by Vlad Yasevich.
-
-- Add more comments about slight behavior change, where the bridge device
-  come to be able to receive traffic to an address it has during short
-  window, to changelogs, commented by Vlad Yasevich.
-
-- Add a fix for possible race in br_fdb_change_mac_address().
-
-Toshiaki Makita (9):
-  bridge: Fix the way to find old local fdb entries in br_fdb_changeaddr
-  bridge: Fix the way to insert new local fdb entries in
-    br_fdb_changeaddr
-  bridge: Fix the way to find old local fdb entries in
-    br_fdb_change_mac_address
-  bridge: Change local fdb entries whenever mac address of bridge device
-    changes
-  bridge: Fix the way to check if a local fdb entry can be deleted
-  bridge: Properly check if local fdb entry can be deleted in
-    br_fdb_change_mac_address
-  bridge: Properly check if local fdb entry can be deleted in
-    br_fdb_delete_by_port
-  bridge: Properly check if local fdb entry can be deleted when deleting
-    vlan
-  bridge: Prevent possible race condition in br_fdb_change_mac_address
-
- net/bridge/br_device.c  |   3 +-
- net/bridge/br_fdb.c     | 137 +++++++++++++++++++++++++++++++-----------------
- net/bridge/br_if.c      |   6 +--
- net/bridge/br_input.c   |   4 +-
- net/bridge/br_private.h |  13 ++++-
- net/bridge/br_stp_if.c  |   2 +
- net/bridge/br_vlan.c    |  27 +++++++---
- 7 files changed, 129 insertions(+), 63 deletions(-)
-
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index 0426dff..9203d5a 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -191,6 +191,8 @@ void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr)
+ 	struct net_port_vlans *pv;
+ 	u16 vid = 0;
+ 
++	spin_lock_bh(&br->hash_lock);
++
+ 	/* If old entry was unassociated with any port, then delete it. */
+ 	f = __br_fdb_get(br, br->dev->dev_addr, 0);
+ 	if (f && f->is_local && !f->dst)
+@@ -204,7 +206,7 @@ void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr)
+ 	 */
+ 	pv = br_get_vlan_info(br);
+ 	if (!pv)
+-		return;
++		goto out;
+ 
+ 	for_each_set_bit_from(vid, pv->vlan_bitmap, VLAN_N_VID) {
+ 		f = __br_fdb_get(br, br->dev->dev_addr, vid);
+@@ -212,6 +214,8 @@ void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr)
+ 			fdb_delete_local(br, NULL, f);
+ 		fdb_insert(br, NULL, newaddr, vid);
+ 	}
++out:
++	spin_unlock_bh(&br->hash_lock);
+ }
+ 
+ void br_fdb_cleanup(unsigned long _data)
 -- 
 1.8.1.2
