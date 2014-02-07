@@ -1,27 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tg3: Fix deadlock in tg3_change_mtu()
-Date: Thu, 06 Feb 2014 16:54:48 -0800 (PST)
-Message-ID: <20140206.165448.1676259324527494823.davem@davemloft.net>
-References: <1391724785-13562-1-git-send-email-nsujir@broadcom.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH] tcp: remove 1ms offset in srtt computation
+Date: Thu, 6 Feb 2014 20:08:02 -0500
+Message-ID: <CADVnQy=yUwdNFT-bExqJZXLwVtNr+qmKP0-e0rTRHFR8+Rc8Bw@mail.gmail.com>
+References: <1391731030.10160.36.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, david.vrabel@citrix.com,
-	stable@vger.kernel.org, mchan@broadcom.com
-To: nsujir@broadcom.com
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1391724785-13562-1-git-send-email-nsujir@broadcom.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Vytautas Valancius <valas@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f42.google.com ([74.125.83.42]:43483 "EHLO
+	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751316AbaBGBIF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 20:08:05 -0500
+Received: by mail-ee0-f42.google.com with SMTP id b15so1220977eek.15
+        for <netdev@vger.kernel.org>; Thu, 06 Feb 2014 17:08:03 -0800 (PST)
+In-Reply-To: <1391731030.10160.36.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, Feb 6, 2014 at 6:57 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> TCP pacing depends on an accurate srtt estimation.
+>
+> Current srtt estimation is using jiffie resolution,
+> and has an artificial offset of at least 1 ms, which can produce
+> slowdowns when FQ/pacing is used, especially in DC world,
+> where typical rtt is below 1 ms.
+>
+> We are planning a switch to usec resolution for linux-3.15,
+> but in the meantime, this patch removes the 1 ms offset.
+>
+> All we need is to have tp->srtt minimal value of 1 to differentiate
+> the case of srtt being initialized or not, not 8.
+>
+> The problematic behavior was observed on a 40Gbit testbed,
+> where 32 concurrent netperf were reaching 12Gbps of aggregate
+> speed, instead of line speed.
+>
+> This patch also has the effect of reporting more accurate srtt and send
+> rates to iproute2 ss command as in :
+>
+> $ ss -i dst cca2
+> Netid  State      Recv-Q Send-Q          Local Address:Port
+> Peer Address:Port
+> tcp    ESTAB      0      0                10.244.129.1:56984
+> 10.244.129.2:12865
+>          cubic wscale:6,6 rto:200 rtt:0.25/0.25 ato:40 mss:1448 cwnd:10 send
+> 463.4Mbps rcv_rtt:1 rcv_space:29200
+> tcp    ESTAB      0      390960           10.244.129.1:60247
+> 10.244.129.2:50204
+>          cubic wscale:6,6 rto:200 rtt:0.875/0.75 mss:1448 cwnd:73 ssthresh:51
+> send 966.4Mbps unacked:73 retrans:0/121 rcv_space:29200
+>
+> Reported-by: Vytautas Valancius <valas@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> ---
+>  net/ipv4/tcp_input.c  |   18 ++++++++++--------
+>  net/ipv4/tcp_output.c |    2 +-
+>  2 files changed, 11 insertions(+), 9 deletions(-)
 
-Networking patches should never be CC:'d to -stable.  And you should
-never add the:
+Acked-by: Neal Cardwell <ncardwell@google.com>
 
-Cc: <stable@vger.kernel.org>
+Thanks, Eric!
 
-tag to networking commit messages.
-
-Instead, after the "---" delimiter, you should kindly request that
-I queue up that patch for stable, and why.  I handle networking
-stable submissions on my own.
+neal
