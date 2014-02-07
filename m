@@ -1,56 +1,41 @@
-From: Pravin <pshelar@nicira.com>
-Subject: [PATCH net] net: Clear local_df only if crossing namespace.
-Date: Fri,  7 Feb 2014 14:12:38 -0800
-Message-ID: <1391811158-11433-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org, Pravin <pshelar@nicira.com>,
-	"Templin, Fred L" <Fred.L.Templin@boeing.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: davem@davemloft.net
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: linux 3.13: problems with isatap tunnel device and UFO
+Date: Fri, 7 Feb 2014 23:22:27 +0100
+Message-ID: <20140207222227.GC16198@order.stressinduktion.org>
+References: <1682505.dP4nT04FC9@h2o.as.studentenwerk.mhn.de> <20140207175641.GB16198@order.stressinduktion.org> <1720760.5dnaEcLin5@h2o.as.studentenwerk.mhn.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Wolfgang Walter <linux@stwm.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog113.obsmtp.com ([74.125.149.209]:45755 "HELO
-	na3sys009aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751352AbaBGWMl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Feb 2014 17:12:41 -0500
-Received: by mail-pd0-f179.google.com with SMTP id fp1so3292607pdb.24
-        for <netdev@vger.kernel.org>; Fri, 07 Feb 2014 14:12:41 -0800 (PST)
+Received: from order.stressinduktion.org ([87.106.68.36]:38736 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750744AbaBGWW2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Feb 2014 17:22:28 -0500
+Content-Disposition: inline
+In-Reply-To: <1720760.5dnaEcLin5@h2o.as.studentenwerk.mhn.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 239c78db9c41a8 (net: clear local_df when passing skb between
-namespaces) clears local_df unconditionally.  But upper layer should
-be able request local fragmentation within a namespace.  Currently
-OVS sets local_df for tunnel packets and then skb_scrub_packe()
-resets it which is not correct.
+Hi!
 
-Therefore following patch resets local_df only packet is crossing
-namespace.
+On Fri, Feb 07, 2014 at 07:17:40PM +0100, Wolfgang Walter wrote:
+> Am Freitag, 7. Februar 2014, 18:56:41 schrieb Hannes Frederic Sowa:
+> > Hi!
+> > 
+> > On Fri, Feb 07, 2014 at 06:47:07PM +0100, Wolfgang Walter wrote:
+> > > with kernel 3.13 I have a problem with isatap tunnels receiving fragmented
+> > > ipv6 udp packets.
+> > 
+> > Which was the last known version that did work?
+> 
+> I think 3.12 had no problems, but I'm not sure. I test this tonight.
 
-CC: Templin, Fred L <Fred.L.Templin@boeing.com>
-CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
----
- net/core/skbuff.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+Could you give me a bit more details on your setup, please?
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 5976ef0..4ba262f 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3905,12 +3905,13 @@ EXPORT_SYMBOL(skb_try_coalesce);
-  */
- void skb_scrub_packet(struct sk_buff *skb, bool xnet)
- {
--	if (xnet)
-+	if (xnet) {
- 		skb_orphan(skb);
-+		skb->local_df = 0;
-+	}
- 	skb->tstamp.tv64 = 0;
- 	skb->pkt_type = PACKET_HOST;
- 	skb->skb_iif = 0;
--	skb->local_df = 0;
- 	skb_dst_drop(skb);
- 	skb->mark = 0;
- 	secpath_reset(skb);
--- 
-1.7.9.5
+I just tested a setup with UFO packets in sit tunnels and it worked
+properly for me (on net).
+
+Greetings,
+
+  Hannes
