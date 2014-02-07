@@ -1,40 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1 1/3] net: stmmac:sti: Add STi SOC glue driver.
-Date: Thu, 06 Feb 2014 19:53:42 -0800 (PST)
-Message-ID: <20140206.195342.1998479313077409827.davem@davemloft.net>
-References: <1391428787-27143-1-git-send-email-srinivas.kandagatla@st.com>
-	<1391428868-27245-1-git-send-email-srinivas.kandagatla@st.com>
+Subject: Re: [PATCH] net: irda: ep7211-sir: Remove driver
+Date: Thu, 06 Feb 2014 19:55:07 -0800 (PST)
+Message-ID: <20140206.195507.661032642429803808.davem@davemloft.net>
+References: <1391528612-16957-1-git-send-email-shc_work@mail.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, rob@landley.net, linux@arm.linux.org.uk,
-	stuart.menefy@st.com, peppe.cavallaro@st.com,
-	devicetree@vger.kernel.org, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	kernel@stlinux.com
-To: srinivas.kandagatla@st.com
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1391428868-27245-1-git-send-email-srinivas.kandagatla@st.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, samuel@sortiz.org
+To: shc_work@mail.ru
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39766 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751064AbaBGDzH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 22:55:07 -0500
+In-Reply-To: <1391528612-16957-1-git-send-email-shc_work@mail.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: <srinivas.kandagatla@st.com>
-Date: Mon, 3 Feb 2014 12:01:08 +0000
+From: Alexander Shiyan <shc_work@mail.ru>
+Date: Tue,  4 Feb 2014 19:43:32 +0400
 
-> +	res = platform_get_resource_byname(pdev,
-> +				IORESOURCE_MEM, "sti-ethconf");
+> This patch removes old and unsupported CLPS711X IrDA driver.
+> Support for IrDA for CLPS711X serial port now provided by commit
+> 4a33f1f59abd (serial: clps711x: Add support for N_IRDA line
+> discipline), so IrDA-mode can be turned ON with "irattach" tool
+> through "irtty" driver.
+> 
+> Signed-off-by: Alexander Shiyan <shc_work@mail.ru>
 
-This is not the correct way to format multi-line function calls,
-you'll need to fix this up in this entire series.
-
-The arguments on the second and subsequent lines must start at
-the first column after the openning parenthesis of the function
-call.  You must use the appropriate number of both space and
-TAB characters necessary to do so.
-
-If you're only using TAB characters to indent, you're doing it
-wrong.
-
-Thank you.
+Applied, thanks.
