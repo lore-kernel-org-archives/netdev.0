@@ -1,17 +1,16 @@
-From: Emil Goode <emilgoode@gmail.com>
-Subject: Re: [PATCH] net: asix: fix bad header length bug
-Date: Fri, 7 Feb 2014 14:53:20 +0100
-Message-ID: <20140207135320.GA4252@lianli>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] net: asix: fix bad header length bug
+Date: Fri, 7 Feb 2014 14:40:07 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6BA7AF@AcuExch.aculab.com>
 References: <1391691384-8486-1-git-send-email-emilgoode@gmail.com>
  <1391692768.2843.4.camel@X1Carbon.localdomain>
  <063D6719AE5E284EB5DD2968C1650D6D0F6B99F7@AcuExch.aculab.com>
- <20140206224121.GB5251@lianli>
- <87wqh7i7pf.fsf@nemi.mork.no>
+ <20140206224121.GB5251@lianli> <87wqh7i7pf.fsf@nemi.mork.no>
+ <20140207135320.GA4252@lianli>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	'Igor Gnatenko' <i.gnatenko.brain@gmail.com>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: 'Igor Gnatenko' <i.gnatenko.brain@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Ming Lei <ming.lei@canonical.com>,
 	Mark Brown <broonie@linaro.org>,
@@ -20,78 +19,90 @@ Cc: David Laight <David.Laight@ACULAB.COM>,
 	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: =?utf-8?B?QmrDuHJu?= Mork <bjorn@mork.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87wqh7i7pf.fsf@nemi.mork.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: 'Emil Goode' <emilgoode@gmail.com>,
+	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:33774 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752676AbaBGOlI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Feb 2014 09:41:08 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 05447-08 for <netdev@vger.kernel.org>;
+ Fri,  7 Feb 2014 14:41:05 +0000 (GMT)
+In-Reply-To: <20140207135320.GA4252@lianli>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 07, 2014 at 10:38:04AM +0100, Bj=C3=B8rn Mork wrote:
-> Emil Goode <emilgoode@gmail.com> writes:
-> > On Thu, Feb 06, 2014 at 03:28:13PM +0000, David Laight wrote:
-> >> From: Igor Gnatenko
-> >> > On Thu, 2014-02-06 at 13:56 +0100, Emil Goode wrote:
-> >> > > The AX88772B occasionally send rx packets that cross urb bound=
-aries
-> >> > > and the remaining partial packet is sent with no header.
-> >> > > When the buffer with a partial packet is of less number of oct=
-ets
-> >> > > than the value of hard_header_len the buffer is discarded by t=
-he
-> >> > > usbnet module. This is causing dropped packages and error mess=
-ages
-> >> > > in dmesg.
->=20
-> > I will do some more digging in the code, but the test of skb->len
-> > against hard_header_len is done already in the completion callback
-> > function passed to usb_fill_bulk_urb so it seems that buffers of le=
-ss
-> > than hard_header_len number of octets will be dropped regardless.
->=20
-> I am pretty sure you are right about this bug. And the exact same
-> solution is already used by the cx82310_eth minidriver, so I don't se=
-e
-> the problem.  Your fix is fine IMHO.  But you should apply it to all =
-the
-> devices using asix_rx_fixup_common(), not just the ax88772 ones.
->=20
-> You could maybe make this a usbnet flag instead and create a generic
-> solution in usbnet, but frankly I believe the number of flags and the=
-ir
-> meaning have exceeded drivers authors capabilities a long time ago.  =
-At
-> least mine, which are quite limited ;-)
->=20
-> An example of that problem is another bloody obvious bug I noticed wh=
-ile
-> looking at this driver: The 'struct driver_info ax88178_info' points =
-to
-> asix_rx_fixup_common without setting the FLAG_MULTI_PACKET.  This wil=
-l
-> result in usbnet rx_process() calling usbnet_skb_return() on skbs whi=
-ch
-> are already consumed by the minidriver.  Not a big problem, but will
-> give some odd results.  But if you allow skbs shorter than ETH_HLEN t=
-o
-> slip through then it might go boom, so you should probably fix that a=
-s
-> well.
->=20
->=20
-> Bj=C3=B8rn
-
-Yes I believe the patch is necessary, but maybe it would be nice with
-a prettier solution rather than setting hard_header_len to 0 for all
-devices with this behaviour. Perhaps it would be better to let each
-driver that uses the usbnet module decide what skbs to discard?
-
-What David describes seems to be another bug, but I don't think it is
-related to this patch as I'm able to reproduce the bug without the patc=
-h
-beeing applied by setting the mtu to pretty much any value other than=20
-1500 and using ping with a larger packet size than that mtu value.
-
-Best regards,
-
-Emil Goode
+RnJvbTogRW1pbCBHb29kZSANCj4gT24gRnJpLCBGZWIgMDcsIDIwMTQgYXQgMTA6Mzg6MDRBTSAr
+MDEwMCwgQmrDuHJuIE1vcmsgd3JvdGU6DQo+ID4gRW1pbCBHb29kZSA8ZW1pbGdvb2RlQGdtYWls
+LmNvbT4gd3JpdGVzOg0KPiA+ID4gT24gVGh1LCBGZWIgMDYsIDIwMTQgYXQgMDM6Mjg6MTNQTSAr
+MDAwMCwgRGF2aWQgTGFpZ2h0IHdyb3RlOg0KPiA+ID4+IEZyb206IElnb3IgR25hdGVua28NCj4g
+PiA+PiA+IE9uIFRodSwgMjAxNC0wMi0wNiBhdCAxMzo1NiArMDEwMCwgRW1pbCBHb29kZSB3cm90
+ZToNCj4gPiA+PiA+ID4gVGhlIEFYODg3NzJCIG9jY2FzaW9uYWxseSBzZW5kIHJ4IHBhY2tldHMg
+dGhhdCBjcm9zcyB1cmIgYm91bmRhcmllcw0KPiA+ID4+ID4gPiBhbmQgdGhlIHJlbWFpbmluZyBw
+YXJ0aWFsIHBhY2tldCBpcyBzZW50IHdpdGggbm8gaGVhZGVyLg0KPiA+ID4+ID4gPiBXaGVuIHRo
+ZSBidWZmZXIgd2l0aCBhIHBhcnRpYWwgcGFja2V0IGlzIG9mIGxlc3MgbnVtYmVyIG9mIG9jdGV0
+cw0KPiA+ID4+ID4gPiB0aGFuIHRoZSB2YWx1ZSBvZiBoYXJkX2hlYWRlcl9sZW4gdGhlIGJ1ZmZl
+ciBpcyBkaXNjYXJkZWQgYnkgdGhlDQo+ID4gPj4gPiA+IHVzYm5ldCBtb2R1bGUuIFRoaXMgaXMg
+Y2F1c2luZyBkcm9wcGVkIHBhY2thZ2VzIGFuZCBlcnJvciBtZXNzYWdlcw0KPiA+ID4+ID4gPiBp
+biBkbWVzZy4NCj4gPg0KPiA+ID4gSSB3aWxsIGRvIHNvbWUgbW9yZSBkaWdnaW5nIGluIHRoZSBj
+b2RlLCBidXQgdGhlIHRlc3Qgb2Ygc2tiLT5sZW4NCj4gPiA+IGFnYWluc3QgaGFyZF9oZWFkZXJf
+bGVuIGlzIGRvbmUgYWxyZWFkeSBpbiB0aGUgY29tcGxldGlvbiBjYWxsYmFjaw0KPiA+ID4gZnVu
+Y3Rpb24gcGFzc2VkIHRvIHVzYl9maWxsX2J1bGtfdXJiIHNvIGl0IHNlZW1zIHRoYXQgYnVmZmVy
+cyBvZiBsZXNzDQo+ID4gPiB0aGFuIGhhcmRfaGVhZGVyX2xlbiBudW1iZXIgb2Ygb2N0ZXRzIHdp
+bGwgYmUgZHJvcHBlZCByZWdhcmRsZXNzLg0KPiA+DQo+ID4gSSBhbSBwcmV0dHkgc3VyZSB5b3Ug
+YXJlIHJpZ2h0IGFib3V0IHRoaXMgYnVnLiBBbmQgdGhlIGV4YWN0IHNhbWUNCj4gPiBzb2x1dGlv
+biBpcyBhbHJlYWR5IHVzZWQgYnkgdGhlIGN4ODIzMTBfZXRoIG1pbmlkcml2ZXIsIHNvIEkgZG9u
+J3Qgc2VlDQo+ID4gdGhlIHByb2JsZW0uICBZb3VyIGZpeCBpcyBmaW5lIElNSE8uICBCdXQgeW91
+IHNob3VsZCBhcHBseSBpdCB0byBhbGwgdGhlDQo+ID4gZGV2aWNlcyB1c2luZyBhc2l4X3J4X2Zp
+eHVwX2NvbW1vbigpLCBub3QganVzdCB0aGUgYXg4ODc3MiBvbmVzLg0KPiA+DQo+ID4gWW91IGNv
+dWxkIG1heWJlIG1ha2UgdGhpcyBhIHVzYm5ldCBmbGFnIGluc3RlYWQgYW5kIGNyZWF0ZSBhIGdl
+bmVyaWMNCj4gPiBzb2x1dGlvbiBpbiB1c2JuZXQsIGJ1dCBmcmFua2x5IEkgYmVsaWV2ZSB0aGUg
+bnVtYmVyIG9mIGZsYWdzIGFuZCB0aGVpcg0KPiA+IG1lYW5pbmcgaGF2ZSBleGNlZWRlZCBkcml2
+ZXJzIGF1dGhvcnMgY2FwYWJpbGl0aWVzIGEgbG9uZyB0aW1lIGFnby4gIEF0DQo+ID4gbGVhc3Qg
+bWluZSwgd2hpY2ggYXJlIHF1aXRlIGxpbWl0ZWQgOy0pDQo+ID4NCj4gPiBBbiBleGFtcGxlIG9m
+IHRoYXQgcHJvYmxlbSBpcyBhbm90aGVyIGJsb29keSBvYnZpb3VzIGJ1ZyBJIG5vdGljZWQgd2hp
+bGUNCj4gPiBsb29raW5nIGF0IHRoaXMgZHJpdmVyOiBUaGUgJ3N0cnVjdCBkcml2ZXJfaW5mbyBh
+eDg4MTc4X2luZm8nIHBvaW50cyB0bw0KPiA+IGFzaXhfcnhfZml4dXBfY29tbW9uIHdpdGhvdXQg
+c2V0dGluZyB0aGUgRkxBR19NVUxUSV9QQUNLRVQuICBUaGlzIHdpbGwNCj4gPiByZXN1bHQgaW4g
+dXNibmV0IHJ4X3Byb2Nlc3MoKSBjYWxsaW5nIHVzYm5ldF9za2JfcmV0dXJuKCkgb24gc2ticyB3
+aGljaA0KPiA+IGFyZSBhbHJlYWR5IGNvbnN1bWVkIGJ5IHRoZSBtaW5pZHJpdmVyLiAgTm90IGEg
+YmlnIHByb2JsZW0sIGJ1dCB3aWxsDQo+ID4gZ2l2ZSBzb21lIG9kZCByZXN1bHRzLiAgQnV0IGlm
+IHlvdSBhbGxvdyBza2JzIHNob3J0ZXIgdGhhbiBFVEhfSExFTiB0bw0KPiA+IHNsaXAgdGhyb3Vn
+aCB0aGVuIGl0IG1pZ2h0IGdvIGJvb20sIHNvIHlvdSBzaG91bGQgcHJvYmFibHkgZml4IHRoYXQg
+YXMNCj4gPiB3ZWxsLg0KPiA+DQo+ID4NCj4gPiBCasO4cm4NCj4gDQo+IFllcyBJIGJlbGlldmUg
+dGhlIHBhdGNoIGlzIG5lY2Vzc2FyeSwgYnV0IG1heWJlIGl0IHdvdWxkIGJlIG5pY2Ugd2l0aA0K
+PiBhIHByZXR0aWVyIHNvbHV0aW9uIHJhdGhlciB0aGFuIHNldHRpbmcgaGFyZF9oZWFkZXJfbGVu
+IHRvIDAgZm9yIGFsbA0KPiBkZXZpY2VzIHdpdGggdGhpcyBiZWhhdmlvdXIuIFBlcmhhcHMgaXQg
+d291bGQgYmUgYmV0dGVyIHRvIGxldCBlYWNoDQo+IGRyaXZlciB0aGF0IHVzZXMgdGhlIHVzYm5l
+dCBtb2R1bGUgZGVjaWRlIHdoYXQgc2ticyB0byBkaXNjYXJkPw0KPiANCj4gV2hhdCBEYXZpZCBk
+ZXNjcmliZXMgc2VlbXMgdG8gYmUgYW5vdGhlciBidWcsIGJ1dCBJIGRvbid0IHRoaW5rIGl0IGlz
+DQo+IHJlbGF0ZWQgdG8gdGhpcyBwYXRjaCBhcyBJJ20gYWJsZSB0byByZXByb2R1Y2UgdGhlIGJ1
+ZyB3aXRob3V0IHRoZSBwYXRjaA0KPiBiZWVpbmcgYXBwbGllZCBieSBzZXR0aW5nIHRoZSBtdHUg
+dG8gcHJldHR5IG11Y2ggYW55IHZhbHVlIG90aGVyIHRoYW4NCj4gMTUwMCBhbmQgdXNpbmcgcGlu
+ZyB3aXRoIGEgbGFyZ2VyIHBhY2tldCBzaXplIHRoYW4gdGhhdCBtdHUgdmFsdWUuDQoNClllcyAt
+IHBsZW50eSBvZiBidWdzIGlmIHlvdSBqdXN0IGxvb2sgZm9yIHRoZW0hDQoNCkkgZGlkIGEgcXVp
+Y2sgc2NhbiB0aHJvdWdoIHRoZSBzdWItZHJpdmVycyBhbmQgYWx0aG91Z2ggdGhlIHVzYm5ldCBj
+b2RlDQpzZWVtcyB0byB0cmVhdCB0aGUgJ2hhcmRfaGVhZGVyX2xlbicgYXMgYSBjb25zdGFudCB0
+byBhZGQgdG8gdGhlIG10dSB3aGVuDQphbGxvY2F0aW5nIHJ4IHVyYiAod2hlbiB0aGUgZHJpdmVy
+IGRvZXNuJ3Qgc2V0IHJ4X3VyYl9sZW4pLCBzb21lIG9mIHRoZQ0Kc3ViLWRyaXZlcnMgc2VlbSB0
+byBoYXZlIHRocmVlIGxlbmd0aCwgdGhlIHJ4IGhlYWRlciwgdHggaGVhZGVyIGFuZCBoYXJkX2hl
+YWRlciwNCmFuZCBzZXQgdGhlbSBzZXBhcmF0ZWx5IChJJ3ZlIG5vdCBqdXN0IHJlY2hlY2tlZCkg
+LSB3aGljaCBtYXkgbm90IGV4YWN0bHkNCm1hdGNoIHdoYXQgdGhlIHVzYm5ldCBjb2RlIGRvZXMg
+aXMgdGhlIGxlbmd0aHMgYXJlIGRpZmZlcmVudC4NCg0KVGhlIGF4ODg3NzJiIGRyaXZlciBzZWVt
+cyB0byBzdXBwb3J0IHNldmVyYWwgZGlmZmVyZW50IGJpdHMgb2Ygc2lsaWNvbi4NCk9ubHkgc29t
+ZSBwdXQgbXVsdGlwbGUgZXRoZXJuZXQgZnJhbWVzIGluIGEgc2luZ2xlIHVyYiwgYW5kIG9ubHkg
+Zm9yIHRoZXNlDQpkb2VzIHRoZSBkcml2ZXIgc2V0IHRoZSByeF91cmJfbGVuZ3RoIHRvIDIwNDgu
+DQpGb3IgdGhlIG90aGVyIHNpbGljb24gaXQgcmVsaWVzIG9uIHVzYm5ldCBzZXR0aW5nIHRoZSBy
+eCB1cmIgc2l6ZSAtIHNvDQp0aGUgaGFyZF9oZWFkZXJfbGVuIGJldHRlciBub3QgYmUgc2V0IHRv
+IHplcm8uDQoNClNvbWVvbmUgd2l0aCBzb21lIHRpbWUgdG8gc3BhcmUgbmVlZHMgdG8gbW9kaWZ5
+IHVzYm5ldCB0byBzdXBwb3J0IHBhZ2UNCmFsaWduZWQgcnggYnVmZmVycyAocHJvYmFibHkgNGsg
+dXJiKSBhbmQgdGhlbiBidWlsZCBjb3JyZWN0bHkgZm9ybWF0dGVkDQpza2IgZnJvbSB0aGVtLg0K
+DQpBdCB0aGUgbW9tZW50IHRoZSBheDE3OV8xNzhhIGRyaXZlciBhbGxvY2F0ZXMgMjBrQiB1cmIg
+d2hpY2ggZW5kIHVwDQp3aXRoIGFuIDB4NDAgYnl0ZSBvZmZzZXQgaW50byB0aGUgcGFnZSAoc28g
+YXJlIHByb2JhYmx5IDI0aykgYW5kDQp0aGVuIGNhdXNlIGFsaWdubWVudCBpc3N1ZXMgaW4gdGhl
+IHhoY2kgZHJpdmVyIHdoaWNoIGN1cnJlbnRseSBkb2Vzbid0DQpjb3JyZWN0bHkgaGFuZGxlIG5v
+bi1hbGlnbmVkIDY0ayBhZGRyZXNzIGJvdW5kYXJpZXMgd2hlbiB0aGUgY3Jvc3MgdGhlDQpyaW5n
+IGVuZC4NCg0KCURhdmlkDQoNCg==
