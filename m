@@ -1,129 +1,231 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 00/18] Netfilter/nftables/IPVS fixes for net
-Date: Fri,  7 Feb 2014 18:41:26 +0100
-Message-ID: <1391794904-4017-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 06/18] netfilter: nf_conntrack: don't release a conntrack with non-zero refcnt
+Date: Fri,  7 Feb 2014 18:41:32 +0100
+Message-ID: <1391794904-4017-7-git-send-email-pablo@netfilter.org>
+References: <1391794904-4017-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:41386 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:41411 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752486AbaBGRmB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Feb 2014 12:42:01 -0500
+	id S1752549AbaBGRmE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Feb 2014 12:42:04 -0500
+In-Reply-To: <1391794904-4017-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+With this patch, the conntrack refcount is initially set to zero and
+it is bumped once it is added to any of the list, so we fulfill
+Eric's golden rule which is that all released objects always have a
+refcount that equals zero.
 
-The following patchset contains Netfilter/IPVS fixes, mostly nftables
-fixes, most relevantly they are:
+Andrey Vagin reports that nf_conntrack_free can't be called for a
+conntrack with non-zero ref-counter, because it can race with
+nf_conntrack_find_get().
 
-* Fix a crash in the h323 conntrack NAT helper due to expectation list
-  corruption, from Alexey Dobriyan.
+A conntrack slab is created with SLAB_DESTROY_BY_RCU. Non-zero
+ref-counter says that this conntrack is used. So when we release
+a conntrack with non-zero counter, we break this assumption.
 
-* A couple of RCU race fixes for conntrack, one manifests by hitting BUG_ON
-  in nf_nat_setup_info() and the destroy path, patches from Andrey Vagin and
-  me.
+CPU1                                    CPU2
+____nf_conntrack_find()
+                                        nf_ct_put()
+                                         destroy_conntrack()
+                                        ...
+                                        init_conntrack
+                                         __nf_conntrack_alloc (set use = 1)
+atomic_inc_not_zero(&ct->use) (use = 2)
+                                         if (!l4proto->new(ct, skb, dataoff, timeouts))
+                                          nf_conntrack_free(ct); (use = 2 !!!)
+                                        ...
+                                        __nf_conntrack_alloc (set use = 1)
+ if (!nf_ct_key_equal(h, tuple, zone))
+  nf_ct_put(ct); (use = 0)
+   destroy_conntrack()
+                                        /* continue to work with CT */
 
-* Dump direction attribute in nft_ct only if it is set, from Arturo
-  Borrero.
+After applying the path "[PATCH] netfilter: nf_conntrack: fix RCU
+race in nf_conntrack_find_get" another bug was triggered in
+destroy_conntrack():
 
-* Fix IPVS bug in its own connection tracking system that may lead to
-  copying only 4 bytes of the IPv6 address when initializing the
-  ip_vs_conn object, from Michal Kubecek.
+<4>[67096.759334] ------------[ cut here ]------------
+<2>[67096.759353] kernel BUG at net/netfilter/nf_conntrack_core.c:211!
+...
+<4>[67096.759837] Pid: 498649, comm: atdd veid: 666 Tainted: G         C ---------------    2.6.32-042stab084.18 #1 042stab084_18 /DQ45CB
+<4>[67096.759932] RIP: 0010:[<ffffffffa03d99ac>]  [<ffffffffa03d99ac>] destroy_conntrack+0x15c/0x190 [nf_conntrack]
+<4>[67096.760255] Call Trace:
+<4>[67096.760255]  [<ffffffff814844a7>] nf_conntrack_destroy+0x17/0x30
+<4>[67096.760255]  [<ffffffffa03d9bb5>] nf_conntrack_find_get+0x85/0x130 [nf_conntrack]
+<4>[67096.760255]  [<ffffffffa03d9fb2>] nf_conntrack_in+0x352/0xb60 [nf_conntrack]
+<4>[67096.760255]  [<ffffffffa048c771>] ipv4_conntrack_local+0x51/0x60 [nf_conntrack_ipv4]
+<4>[67096.760255]  [<ffffffff81484419>] nf_iterate+0x69/0xb0
+<4>[67096.760255]  [<ffffffff814b5b00>] ? dst_output+0x0/0x20
+<4>[67096.760255]  [<ffffffff814845d4>] nf_hook_slow+0x74/0x110
+<4>[67096.760255]  [<ffffffff814b5b00>] ? dst_output+0x0/0x20
+<4>[67096.760255]  [<ffffffff814b66d5>] raw_sendmsg+0x775/0x910
+<4>[67096.760255]  [<ffffffff8104c5a8>] ? flush_tlb_others_ipi+0x128/0x130
+<4>[67096.760255]  [<ffffffff8100bc4e>] ? apic_timer_interrupt+0xe/0x20
+<4>[67096.760255]  [<ffffffff8100bc4e>] ? apic_timer_interrupt+0xe/0x20
+<4>[67096.760255]  [<ffffffff814c136a>] inet_sendmsg+0x4a/0xb0
+<4>[67096.760255]  [<ffffffff81444e93>] ? sock_sendmsg+0x13/0x140
+<4>[67096.760255]  [<ffffffff81444f97>] sock_sendmsg+0x117/0x140
+<4>[67096.760255]  [<ffffffff8102e299>] ? native_smp_send_reschedule+0x49/0x60
+<4>[67096.760255]  [<ffffffff81519beb>] ? _spin_unlock_bh+0x1b/0x20
+<4>[67096.760255]  [<ffffffff8109d930>] ? autoremove_wake_function+0x0/0x40
+<4>[67096.760255]  [<ffffffff814960f0>] ? do_ip_setsockopt+0x90/0xd80
+<4>[67096.760255]  [<ffffffff8100bc4e>] ? apic_timer_interrupt+0xe/0x20
+<4>[67096.760255]  [<ffffffff8100bc4e>] ? apic_timer_interrupt+0xe/0x20
+<4>[67096.760255]  [<ffffffff814457c9>] sys_sendto+0x139/0x190
+<4>[67096.760255]  [<ffffffff810efa77>] ? audit_syscall_entry+0x1d7/0x200
+<4>[67096.760255]  [<ffffffff810ef7c5>] ? __audit_syscall_exit+0x265/0x290
+<4>[67096.760255]  [<ffffffff81474daf>] compat_sys_socketcall+0x13f/0x210
+<4>[67096.760255]  [<ffffffff8104dea3>] ia32_sysret+0x0/0x5
 
-* Fix -EBUSY errors in nftables when deleting the rules, chain and tables
-  in a row due mixture of asynchronous and synchronous object releasing,
-  from me.
+I have reused the original title for the RFC patch that Andrey posted and
+most of the original patch description.
 
-* Three fixes for the nf_tables set infrastructure when using intervals and
-  mappings, from me.
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Andrew Vagin <avagin@parallels.com>
+Cc: Florian Westphal <fw@strlen.de>
+Reported-by: Andrew Vagin <avagin@parallels.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Reviewed-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Andrew Vagin <avagin@parallels.com>
+---
+ include/net/netfilter/nf_conntrack.h |    2 ++
+ net/netfilter/nf_conntrack_core.c    |   34 +++++++++++++++++++++++++++++-----
+ net/netfilter/nf_synproxy_core.c     |    5 ++---
+ net/netfilter/xt_CT.c                |    7 +------
+ 4 files changed, 34 insertions(+), 14 deletions(-)
 
-* Four patches to fixing the nf_tables log, reject and ct expressions from
-  the new inet table, from Patrick McHardy.
-
-* Fix memory overrun in the map that is used to dynamically allocate names
-  from anonymous sets, also from Patrick.
-
-* Fix a potential oops if you dump a set with NFPROTO_UNSPEC and a table
-  name, from Patrick McHardy.
-
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit d922e1cb1ea17ac7f0a5c3c2be98d4bd80d055b8:
-
-  net: Document promote_secondaries (2014-01-27 20:39:21 -0800)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
-
-for you to fetch changes up to 6d8c00d58e9e484fdc41aaaf62e5d8364efe375a:
-
-  netfilter: nf_tables: unininline nft_trace_packet() (2014-02-07 17:50:27 +0100)
-
-----------------------------------------------------------------
-Alexey Dobriyan (1):
-      netfilter: nf_nat_h323: fix crash in nf_ct_unlink_expect_report()
-
-Andrey Vagin (1):
-      netfilter: nf_conntrack: fix RCU race in nf_conntrack_find_get
-
-Arturo Borrero (1):
-      netfilter: nft_ct: fix unconditional dump of 'dir' attr
-
-Michal Kubecek (1):
-      ipvs: fix AF assignment in ip_vs_conn_new()
-
-Pablo Neira Ayuso (5):
-      netfilter: nf_conntrack: don't release a conntrack with non-zero refcnt
-      netfilter: nf_tables: fix racy rule deletion
-      netfilter: nf_tables: do not allow NFT_SET_ELEM_INTERVAL_END flag and data
-      netfilter: nft_rbtree: fix data handling of end interval elements
-      netfilter: nf_tables: fix loop checking with end interval elements
-
-Patrick McHardy (9):
-      netfilter: nf_tables: fix oops when deleting a chain with references
-      netfilter: nf_tables: fix overrun in nf_tables_set_alloc_name()
-      netfilter: nf_tables: fix potential oops when dumping sets
-      netfilter: nft_ct: fix missing NFT_CT_L3PROTOCOL key in validity checks
-      netfilter: nf_tables: add AF specific expression support
-      netfilter: nft_reject: split up reject module into IPv4 and IPv6 specifc parts
-      netfilter: nf_tables: add reject module for NFPROTO_INET
-      netfilter: nf_tables: fix log/queue expressions for NFPROTO_INET
-      netfilter: nf_tables: unininline nft_trace_packet()
-
- include/net/netfilter/nf_conntrack.h |    2 +
- include/net/netfilter/nf_tables.h    |    9 ++--
- include/net/netfilter/nft_reject.h   |   25 ++++++++++
- net/ipv4/netfilter/Kconfig           |    5 ++
- net/ipv4/netfilter/Makefile          |    1 +
- net/ipv4/netfilter/nf_nat_h323.c     |    5 +-
- net/ipv4/netfilter/nft_reject_ipv4.c |   75 ++++++++++++++++++++++++++++
- net/ipv6/netfilter/Kconfig           |    5 ++
- net/ipv6/netfilter/Makefile          |    1 +
- net/ipv6/netfilter/nft_reject_ipv6.c |   76 +++++++++++++++++++++++++++++
- net/netfilter/Kconfig                |    6 ++-
- net/netfilter/Makefile               |    1 +
- net/netfilter/ipvs/ip_vs_conn.c      |    8 +--
- net/netfilter/nf_conntrack_core.c    |   55 +++++++++++++++++----
- net/netfilter/nf_synproxy_core.c     |    5 +-
- net/netfilter/nf_tables_api.c        |   82 ++++++++++++++++++++-----------
- net/netfilter/nf_tables_core.c       |    6 +--
- net/netfilter/nft_ct.c               |   16 +++++-
- net/netfilter/nft_log.c              |    5 +-
- net/netfilter/nft_queue.c            |    4 +-
- net/netfilter/nft_rbtree.c           |   16 ++++--
- net/netfilter/nft_reject.c           |   89 ++++------------------------------
- net/netfilter/nft_reject_inet.c      |   63 ++++++++++++++++++++++++
- net/netfilter/xt_CT.c                |    7 +--
- 24 files changed, 413 insertions(+), 154 deletions(-)
- create mode 100644 include/net/netfilter/nft_reject.h
- create mode 100644 net/ipv4/netfilter/nft_reject_ipv4.c
- create mode 100644 net/ipv6/netfilter/nft_reject_ipv6.c
- create mode 100644 net/netfilter/nft_reject_inet.c
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+index 01ea6ee..b2ac624 100644
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -284,6 +284,8 @@ extern unsigned int nf_conntrack_max;
+ extern unsigned int nf_conntrack_hash_rnd;
+ void init_nf_conntrack_hash_rnd(void);
+ 
++void nf_conntrack_tmpl_insert(struct net *net, struct nf_conn *tmpl);
++
+ #define NF_CT_STAT_INC(net, count)	  __this_cpu_inc((net)->ct.stat->count)
+ #define NF_CT_STAT_INC_ATOMIC(net, count) this_cpu_inc((net)->ct.stat->count)
+ 
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 4d1fb5d..356bef5 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -448,7 +448,9 @@ nf_conntrack_hash_check_insert(struct nf_conn *ct)
+ 			goto out;
+ 
+ 	add_timer(&ct->timeout);
+-	nf_conntrack_get(&ct->ct_general);
++	smp_wmb();
++	/* The caller holds a reference to this object */
++	atomic_set(&ct->ct_general.use, 2);
+ 	__nf_conntrack_hash_insert(ct, hash, repl_hash);
+ 	NF_CT_STAT_INC(net, insert);
+ 	spin_unlock_bh(&nf_conntrack_lock);
+@@ -462,6 +464,21 @@ out:
+ }
+ EXPORT_SYMBOL_GPL(nf_conntrack_hash_check_insert);
+ 
++/* deletion from this larval template list happens via nf_ct_put() */
++void nf_conntrack_tmpl_insert(struct net *net, struct nf_conn *tmpl)
++{
++	__set_bit(IPS_TEMPLATE_BIT, &tmpl->status);
++	__set_bit(IPS_CONFIRMED_BIT, &tmpl->status);
++	nf_conntrack_get(&tmpl->ct_general);
++
++	spin_lock_bh(&nf_conntrack_lock);
++	/* Overload tuple linked list to put us in template list. */
++	hlist_nulls_add_head_rcu(&tmpl->tuplehash[IP_CT_DIR_ORIGINAL].hnnode,
++				 &net->ct.tmpl);
++	spin_unlock_bh(&nf_conntrack_lock);
++}
++EXPORT_SYMBOL_GPL(nf_conntrack_tmpl_insert);
++
+ /* Confirm a connection given skb; places it in hash table */
+ int
+ __nf_conntrack_confirm(struct sk_buff *skb)
+@@ -733,11 +750,10 @@ __nf_conntrack_alloc(struct net *net, u16 zone,
+ 		nf_ct_zone->id = zone;
+ 	}
+ #endif
+-	/*
+-	 * changes to lookup keys must be done before setting refcnt to 1
++	/* Because we use RCU lookups, we set ct_general.use to zero before
++	 * this is inserted in any list.
+ 	 */
+-	smp_wmb();
+-	atomic_set(&ct->ct_general.use, 1);
++	atomic_set(&ct->ct_general.use, 0);
+ 	return ct;
+ 
+ #ifdef CONFIG_NF_CONNTRACK_ZONES
+@@ -761,6 +777,11 @@ void nf_conntrack_free(struct nf_conn *ct)
+ {
+ 	struct net *net = nf_ct_net(ct);
+ 
++	/* A freed object has refcnt == 0, that's
++	 * the golden rule for SLAB_DESTROY_BY_RCU
++	 */
++	NF_CT_ASSERT(atomic_read(&ct->ct_general.use) == 0);
++
+ 	nf_ct_ext_destroy(ct);
+ 	nf_ct_ext_free(ct);
+ 	kmem_cache_free(net->ct.nf_conntrack_cachep, ct);
+@@ -856,6 +877,9 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
+ 		NF_CT_STAT_INC(net, new);
+ 	}
+ 
++	/* Now it is inserted into the unconfirmed list, bump refcount */
++	nf_conntrack_get(&ct->ct_general);
++
+ 	/* Overload tuple linked list to put us in unconfirmed list. */
+ 	hlist_nulls_add_head_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode,
+ 		       &net->ct.unconfirmed);
+diff --git a/net/netfilter/nf_synproxy_core.c b/net/netfilter/nf_synproxy_core.c
+index 9858e3e..52e20c9 100644
+--- a/net/netfilter/nf_synproxy_core.c
++++ b/net/netfilter/nf_synproxy_core.c
+@@ -363,9 +363,8 @@ static int __net_init synproxy_net_init(struct net *net)
+ 		goto err2;
+ 	if (!nfct_synproxy_ext_add(ct))
+ 		goto err2;
+-	__set_bit(IPS_TEMPLATE_BIT, &ct->status);
+-	__set_bit(IPS_CONFIRMED_BIT, &ct->status);
+ 
++	nf_conntrack_tmpl_insert(net, ct);
+ 	snet->tmpl = ct;
+ 
+ 	snet->stats = alloc_percpu(struct synproxy_stats);
+@@ -390,7 +389,7 @@ static void __net_exit synproxy_net_exit(struct net *net)
+ {
+ 	struct synproxy_net *snet = synproxy_pernet(net);
+ 
+-	nf_conntrack_free(snet->tmpl);
++	nf_ct_put(snet->tmpl);
+ 	synproxy_proc_exit(net);
+ 	free_percpu(snet->stats);
+ }
+diff --git a/net/netfilter/xt_CT.c b/net/netfilter/xt_CT.c
+index 5929be6..75747ae 100644
+--- a/net/netfilter/xt_CT.c
++++ b/net/netfilter/xt_CT.c
+@@ -228,12 +228,7 @@ static int xt_ct_tg_check(const struct xt_tgchk_param *par,
+ 			goto err3;
+ 	}
+ 
+-	__set_bit(IPS_TEMPLATE_BIT, &ct->status);
+-	__set_bit(IPS_CONFIRMED_BIT, &ct->status);
+-
+-	/* Overload tuple linked list to put us in template list. */
+-	hlist_nulls_add_head_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode,
+-				 &par->net->ct.tmpl);
++	nf_conntrack_tmpl_insert(par->net, ct);
+ out:
+ 	info->ct = ct;
+ 	return 0;
+-- 
+1.7.10.4
