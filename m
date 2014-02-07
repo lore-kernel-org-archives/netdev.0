@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sctp: fix initialization of local source address
- on accepted ipv6 sockets
-Date: Thu, 06 Feb 2014 20:40:01 -0800 (PST)
-Message-ID: <20140206.204001.1307764044699514075.davem@davemloft.net>
-References: <52F33A02.2040902@nsn.com>
+Subject: Re: [patch] isdn/hisax: hex vs decimal typo in prfeatureind()
+Date: Thu, 06 Feb 2014 20:40:07 -0800 (PST)
+Message-ID: <20140206.204007.2254644541681384666.davem@davemloft.net>
+References: <20140206080308.GB26661@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: matija.glavinic-pecotic.ext@nsn.com
+Cc: isdn@linux-pingi.de, akpm@linux-foundation.org,
+	keescook@chromium.org, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39956 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39959 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751728AbaBGEkC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 23:40:02 -0500
-In-Reply-To: <52F33A02.2040902@nsn.com>
+	with ESMTP id S1751786AbaBGEkI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 23:40:08 -0500
+In-Reply-To: <20140206080308.GB26661@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
-Date: Thu, 06 Feb 2014 08:30:10 +0100
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Thu, 6 Feb 2014 11:03:08 +0300
 
-> commit 	efe4208f47f907b86f528788da711e8ab9dea44d:
-> 'ipv6: make lookups simpler and faster' broke initialization of local source
-> address on accepted ipv6 sockets. Before the mentioned commit receive address
-> was copied along with the contents of ipv6_pinfo in sctp_v6_create_accept_sk.
-> Now when it is moved, it has to be copied separately.
+> This is a static checker fix, but judging from the context then I think
+> hexidecimal 0x80 is intended here instead of decimal 80.
 > 
-> This also fixes lksctp's ipv6 regression in a sense that test_getname_v6, TC5 -
-> 'getsockname on a connected server socket' now passes.
-> 
-> Signed-off-by: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
 Applied.
