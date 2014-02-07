@@ -1,48 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 51/51] net/iucv/iucv.c: Fix CPU hotplug callback
- registration
-Date: Thu, 06 Feb 2014 20:39:35 -0800 (PST)
-Message-ID: <20140206.203935.23931642792292899.davem@davemloft.net>
-References: <20140205220251.19080.92336.stgit@srivatsabhat.in.ibm.com>
-	<20140205221354.19080.25861.stgit@srivatsabhat.in.ibm.com>
+Subject: Re: [PATCH net] r8152: fix the submission of the interrupt transfer
+Date: Thu, 06 Feb 2014 20:39:50 -0800 (PST)
+Message-ID: <20140206.203950.905861192240833461.davem@davemloft.net>
+References: <1391658948-4456-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paulus@samba.org, oleg@redhat.com, rusty@rustcorp.com.au,
-	peterz@infradead.org, tglx@linutronix.de,
-	akpm@linux-foundation.org, mingo@kernel.org,
-	paulmck@linux.vnet.ibm.com, tj@kernel.org, walken@google.com,
-	ego@linux.vnet.ibm.com, linux@arm.linux.org.uk,
-	linux-kernel@vger.kernel.org, ursula.braun@de.ibm.com,
-	linux-s390@vger.kernel.org, netdev@vger.kernel.org
-To: srivatsa.bhat@linux.vnet.ibm.com
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140205221354.19080.25861.stgit@srivatsabhat.in.ibm.com>
+In-Reply-To: <1391658948-4456-1-git-send-email-hayeswang@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Date: Thu, 06 Feb 2014 03:43:55 +0530
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Thu, 6 Feb 2014 11:55:48 +0800
 
-> Subsystems that want to register CPU hotplug callbacks, as well as perform
-> initialization for the CPUs that are already online, often do it as shown
-> below:
- ...
-> This is wrong, since it is prone to ABBA deadlocks involving the
-> cpu_add_remove_lock and the cpu_hotplug.lock (when running concurrently
-> with CPU hotplug operations).
+> The submission of the interrupt transfer should be done after setting
+> the bit of WORK_ENABLE, otherwise the callback function would have
+> the opportunity to be returned directly.
 > 
-> Instead, the correct and race-free way of performing the callback
-> registration is:
- ...
-> Fix the code in net/iucv/iucv.c by using this latter form of callback
-> registration. Also, provide helper functions to perform the common memory
-> allocations and frees, to condense repetitive code.
+> Clear the bit of WORK_ENABLE before killing the interrupt transfer.
 > 
-> Cc: Ursula Braun <ursula.braun@de.ibm.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: linux-s390@vger.kernel.org
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 
 Applied.
