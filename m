@@ -1,29 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] ARM: sunxi: dt: Convert to the new net compatibles
-Date: Thu, 06 Feb 2014 19:47:29 -0800 (PST)
-Message-ID: <20140206.194729.2013136882531508741.davem@davemloft.net>
-References: <1391348953-10662-1-git-send-email-maxime.ripard@free-electrons.com>
-	<1391348953-10662-3-git-send-email-maxime.ripard@free-electrons.com>
+Subject: Re: [PATCH v1 1/3] net: stmmac:sti: Add STi SOC glue driver.
+Date: Thu, 06 Feb 2014 19:53:42 -0800 (PST)
+Message-ID: <20140206.195342.1998479313077409827.davem@davemloft.net>
+References: <1391428787-27143-1-git-send-email-srinivas.kandagatla@st.com>
+	<1391428868-27245-1-git-send-email-srinivas.kandagatla@st.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: maxime.ripard@free-electrons.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39719 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751546AbaBGDra (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 22:47:30 -0500
-In-Reply-To: <1391348953-10662-3-git-send-email-maxime.ripard@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, rob@landley.net, linux@arm.linux.org.uk,
+	stuart.menefy@st.com, peppe.cavallaro@st.com,
+	devicetree@vger.kernel.org, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	kernel@stlinux.com
+To: srinivas.kandagatla@st.com
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1391428868-27245-1-git-send-email-srinivas.kandagatla@st.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Date: Sun,  2 Feb 2014 14:49:13 +0100
+From: <srinivas.kandagatla@st.com>
+Date: Mon, 3 Feb 2014 12:01:08 +0000
 
-> Switch the device tree to the new compatibles introduced in the ethernet and
-> mdio drivers to have a common pattern accross all Allwinner SoCs.
-> 
-> Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
+> +	res = platform_get_resource_byname(pdev,
+> +				IORESOURCE_MEM, "sti-ethconf");
 
-Applied.
+This is not the correct way to format multi-line function calls,
+you'll need to fix this up in this entire series.
+
+The arguments on the second and subsequent lines must start at
+the first column after the openning parenthesis of the function
+call.  You must use the appropriate number of both space and
+TAB characters necessary to do so.
+
+If you're only using TAB characters to indent, you're doing it
+wrong.
+
+Thank you.
