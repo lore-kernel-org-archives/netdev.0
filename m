@@ -1,28 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] r8152: fix the submission of the interrupt transfer
-Date: Thu, 06 Feb 2014 20:39:50 -0800 (PST)
-Message-ID: <20140206.203950.905861192240833461.davem@davemloft.net>
-References: <1391658948-4456-1-git-send-email-hayeswang@realtek.com>
+Subject: Re: [PATCH] net: sctp: fix initialization of local source address
+ on accepted ipv6 sockets
+Date: Thu, 06 Feb 2014 20:40:01 -0800 (PST)
+Message-ID: <20140206.204001.1307764044699514075.davem@davemloft.net>
+References: <52F33A02.2040902@nsn.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1391658948-4456-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: matija.glavinic-pecotic.ext@nsn.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39956 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751728AbaBGEkC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 23:40:02 -0500
+In-Reply-To: <52F33A02.2040902@nsn.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Thu, 6 Feb 2014 11:55:48 +0800
+From: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
+Date: Thu, 06 Feb 2014 08:30:10 +0100
 
-> The submission of the interrupt transfer should be done after setting
-> the bit of WORK_ENABLE, otherwise the callback function would have
-> the opportunity to be returned directly.
+> commit 	efe4208f47f907b86f528788da711e8ab9dea44d:
+> 'ipv6: make lookups simpler and faster' broke initialization of local source
+> address on accepted ipv6 sockets. Before the mentioned commit receive address
+> was copied along with the contents of ipv6_pinfo in sctp_v6_create_accept_sk.
+> Now when it is moved, it has to be copied separately.
 > 
-> Clear the bit of WORK_ENABLE before killing the interrupt transfer.
+> This also fixes lksctp's ipv6 regression in a sense that test_getname_v6, TC5 -
+> 'getsockname on a connected server socket' now passes.
 > 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> Signed-off-by: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
 
 Applied.
