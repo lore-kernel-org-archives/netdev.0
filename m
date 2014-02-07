@@ -1,39 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: Fix runtime WARNING in rtmsg_ifa()
-Date: Thu, 06 Feb 2014 20:03:00 -0800 (PST)
-Message-ID: <20140206.200300.862172310084916848.davem@davemloft.net>
-References: <1391585905-24851-1-git-send-email-geert@linux-m68k.org>
+Subject: Re: [patch] tg3: cleanup an error path in tg3_phy_reset_5703_4_5()
+Date: Thu, 06 Feb 2014 20:06:31 -0800 (PST)
+Message-ID: <20140206.200631.1329672470949197117.davem@davemloft.net>
+References: <20140205132920.GE800@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, cwang@twopensource.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: geert@linux-m68k.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1391585905-24851-1-git-send-email-geert@linux-m68k.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: nsujir@broadcom.com, mchan@broadcom.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39809 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751347AbaBGEGc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 23:06:32 -0500
+In-Reply-To: <20140205132920.GE800@elgon.mountain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Wed,  5 Feb 2014 08:38:25 +0100
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Wed, 5 Feb 2014 16:29:21 +0300
 
-> On m68k/ARAnyM:
- ...
-> Adding some debugging code reveals that net_fill_ifaddr() fails in
+> In the original code, if tg3_readphy() fails then it does an unnecessary
+> check to verify "err" is still zero and then returns -EBUSY.
 > 
->     put_cacheinfo(skb, ifa->ifa_cstamp, ifa->ifa_tstamp,
->                               preferred, valid))
+> My static checker complains about the unnecessary "if (!err)" check and
+> anyway it is better to propagate the -EBUSY error code from
+> tg3_readphy() instead of hard coding it here.  And really the original
+> code is confusing to look at.
 > 
-> nla_put complains:
-> 
->     lib/nlattr.c:454: skb_tailroom(skb) = 12, nla_total_size(attrlen) = 20
-> 
-> Apparently commit 5c766d642bcaffd0c2a5b354db2068515b3846cf ("ipv4:
-> introduce address lifetime") forgot to take into account the addition of
-> struct ifa_cacheinfo in inet_nlmsg_size(). Hence add it, like is already
-> done for ipv6.
-> 
-> Suggested-by: Cong Wang <cwang@twopensource.com>
-> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Applied and queued up for -stable, thanks!
+Applied.
