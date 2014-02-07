@@ -1,49 +1,34 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 07/18] netfilter: nf_tables: fix overrun in nf_tables_set_alloc_name()
-Date: Fri,  7 Feb 2014 18:41:33 +0100
-Message-ID: <1391794904-4017-8-git-send-email-pablo@netfilter.org>
-References: <1391794904-4017-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:41414 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752667AbaBGRmD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Feb 2014 12:42:03 -0500
-In-Reply-To: <1391794904-4017-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 01/26] drivers: isdn: Rectify typing error in xdi_msg.h
+Date: Fri, 07 Feb 2014 21:48:55 +0300
+Message-ID: <52F52A97.1010001@cogentembedded.com>
+References: <3cb4d7892ba5a0c0936b3a1e2c9c991a6dbc3229.1390408513.git.rashika.kheria@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Armin Schindler <mac@melware.de>,
+	Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
+	josh@joshtriplett.org
+To: Rashika Kheria <rashika.kheria@gmail.com>,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3cb4d7892ba5a0c0936b3a1e2c9c991a6dbc3229.1390408513.git.rashika.kheria@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
+Hello.
 
-The map that is used to allocate anonymous sets is indeed
-BITS_PER_BYTE * PAGE_SIZE long.
+On 02/07/2014 03:18 PM, Rashika Kheria wrote:
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nf_tables_api.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> Rectify typing error while including the guard for the header
+> file xdi_msg.h so that proper guard is wrapped around the file
+> to prevent it from being included more than once.
 
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 9ce3053..2a22a18 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -1989,13 +1989,13 @@ static int nf_tables_set_alloc_name(struct nft_ctx *ctx, struct nft_set *set,
- 
- 			if (!sscanf(i->name, name, &tmp))
- 				continue;
--			if (tmp < 0 || tmp > BITS_PER_LONG * PAGE_SIZE)
-+			if (tmp < 0 || tmp >= BITS_PER_BYTE * PAGE_SIZE)
- 				continue;
- 
- 			set_bit(tmp, inuse);
- 		}
- 
--		n = find_first_zero_bit(inuse, BITS_PER_LONG * PAGE_SIZE);
-+		n = find_first_zero_bit(inuse, BITS_PER_BYTE * PAGE_SIZE);
- 		free_page((unsigned long)inuse);
- 	}
- 
--- 
-1.7.10.4
+> Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
+> Reviewed-by: Josh Triplett <josh@joshtriplett.org>
+
+    You need to specify "eicon: " in the patch subjects, else there's an 
+impression you're modifying the generic ISDN code instead of the concrete 
+driver. You might as well drop "drivers:".
+
+WBR, Sergei
