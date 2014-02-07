@@ -1,39 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] inet: defines IPPROTO_* needed for module alias
- generation
-Date: Thu, 06 Feb 2014 20:40:26 -0800 (PST)
-Message-ID: <20140206.204026.748374158531633683.davem@davemloft.net>
-References: <1391685000-7346-1-git-send-email-mq@suse.cz>
+Subject: Re: [PATCH 51/51] net/iucv/iucv.c: Fix CPU hotplug callback
+ registration
+Date: Thu, 06 Feb 2014 21:19:40 -0800 (PST)
+Message-ID: <20140206.211940.1004239821350436139.davem@davemloft.net>
+References: <20140205220251.19080.92336.stgit@srivatsabhat.in.ibm.com>
+	<20140205221354.19080.25861.stgit@srivatsabhat.in.ibm.com>
+	<20140206.203935.23931642792292899.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: carlos@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: mq@suse.cz
+Cc: paulus@samba.org, oleg@redhat.com, rusty@rustcorp.com.au,
+	peterz@infradead.org, tglx@linutronix.de,
+	akpm@linux-foundation.org, mingo@kernel.org,
+	paulmck@linux.vnet.ibm.com, tj@kernel.org, walken@google.com,
+	ego@linux.vnet.ibm.com, linux@arm.linux.org.uk,
+	linux-kernel@vger.kernel.org, ursula.braun@de.ibm.com,
+	linux-s390@vger.kernel.org, netdev@vger.kernel.org
+To: srivatsa.bhat@linux.vnet.ibm.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1391685000-7346-1-git-send-email-mq@suse.cz>
+In-Reply-To: <20140206.203935.23931642792292899.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jan Moskyto Matejka <mq@suse.cz>
-Date: Thu,  6 Feb 2014 12:10:00 +0100
+From: David Miller <davem@davemloft.net>
+Date: Thu, 06 Feb 2014 20:39:35 -0800 (PST)
 
-> Commit cfd280c91253 ("net: sync some IP headers with glibc") changed a set of
-> define's to an enum (with no explanation why) which introduced a bug
-> in module mip6 where aliases are generated using the IPPROTO_* defines;
-> mip6 doesn't load if require_module called with the aliases from
-> xfrm_get_type().
-> 
-> Reverting this change back to define's to fix the aliases.
-> 
-> modinfo mip6 (before this change)
-> alias:          xfrm-type-10-IPPROTO_DSTOPTS
-> alias:          xfrm-type-10-IPPROTO_ROUTING
-> 
-> modinfo mip6 (after this change)
-> alias:          xfrm-type-10-43
-> alias:          xfrm-type-10-60
-> 
-> Signed-off-by: Jan Moskyto Matejka <mq@suse.cz>
+> Applied.
 
-I have to apply this, thanks Jan.
+I just realized that this has a dependency not in the 'net'
+tree, so I reverted and assume you will merge this with the
+patch that provides the necessary interface(s).
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
