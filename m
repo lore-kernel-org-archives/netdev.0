@@ -1,39 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] bridge: fix netconsole setup over bridge
-Date: Thu, 06 Feb 2014 22:28:43 -0800 (PST)
-Message-ID: <20140206.222843.247213341900385510.davem@davemloft.net>
-References: <1391727652-12520-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] net: use __GFP_NORETRY for high order allocations
+Date: Thu, 06 Feb 2014 22:29:32 -0800 (PST)
+Message-ID: <20140206.222932.292588043950970246.davem@davemloft.net>
+References: <1391712162.10160.8.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, makita.toshiaki@lab.ntt.co.jp,
-	stephen@networkplumber.org, cwang@twopensource.com
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40349 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750752AbaBGG2n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Feb 2014 01:28:43 -0500
-In-Reply-To: <1391727652-12520-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, rientjes@google.com,
+	linux-kernel@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1391712162.10160.8.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Thu,  6 Feb 2014 15:00:52 -0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 06 Feb 2014 10:42:42 -0800
 
-> From: Cong Wang <cwang@twopensource.com>
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Commit 93d8bf9fb8f3 ("bridge: cleanup netpoll code") introduced
-> a check in br_netpoll_enable(), but this check is incorrect for
-> br_netpoll_setup(). This patch moves the code after the check
-> into __br_netpoll_enable() and calls it in br_netpoll_setup().
-> For br_add_if(), the check is still needed.
+> sock_alloc_send_pskb() & sk_page_frag_refill()
+> have a loop trying high order allocations to prepare
+> skb with low number of fragments as this increases performance.
 > 
-> Fixes: 93d8bf9fb8f3 ("bridge: cleanup netpoll code")
-> Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <cwang@twopensource.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Problem is that under memory pressure/fragmentation, this can
+> trigger OOM while the intent was only to try the high order
+> allocations, then fallback to order-0 allocations.
+> 
+> We had various reports from unexpected regressions.
+> 
+> According to David, setting __GFP_NORETRY should be fine,
+> as the asynchronous compaction is still enabled, and this
+> will prevent OOM from kicking as in :
+ ...
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Acked-by: David Rientjes <rientjes@google.com>
 
-Applied and queued up for -stable.
+Applied, do we want this for -stable?
