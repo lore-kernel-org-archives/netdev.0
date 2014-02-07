@@ -1,53 +1,83 @@
-From: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
-Subject: [PATCH] ipv6: icmp6_send: fix Oops when pinging a not set up IPv6 peer on a sit tunnel
-Date: Fri,  7 Feb 2014 11:22:37 +0100
-Message-ID: <1391768557-6337-1-git-send-email-fx.lebail@yahoo.com>
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	David Miller <davem@davemloft.net>
-To: NETDEV <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp07.smtpout.orange.fr ([80.12.242.129]:24693 "EHLO
-	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751901AbaBGKtM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Feb 2014 05:49:12 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: <srinivas.kandagatla@st.com>
+Subject: [PATCH v2 0/3] net: stmmac: Add STi GMAC ethernet
+Date: Fri, 7 Feb 2014 10:54:15 +0000
+Message-ID: <1391770455-24291-1-git-send-email-srinivas.kandagatla@st.com>
+References: <1391428787-27143-1-git-send-email-srinivas.kandagatla@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
+ Russell King <linux@arm.linux.org.uk>, kernel@stlinux.com,
+ Pawel Moll <pawel.moll@arm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>,
+ Srinivas Kandagatla <srinivas.kandagatla@st.com>, linux-doc@vger.kernel.org,
+ linux-kernel@vger.kernel.org, Stuart Menefy <stuart.menefy@st.com>,
+ Rob Herring <robh+dt@kernel.org>, Rob Landley <rob@landley.net>,
+ Kumar Gala <galak@codeaurora.org>, Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+ davem@davemloft.net, linux-arm-kernel@lists.infradead.org
+To: <netdev@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1391428787-27143-1-git-send-email-srinivas.kandagatla@st.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-The patch 446fab59333dea91e54688f033dd8d788d0486fb ("ipv6: enable anycast addresses
-as source addresses in ICMPv6 error messages") causes an Oops when pinging a not
-set up IPv6 peer on a sit tunnel.
+From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-The problem is that ipv6_anycast_destination() uses unconditionally skb_dst(skb),
-which is NULL in this case.
+Hi All,
 
-The solution is to use instead the ipv6_chk_acast_addr_src() function.
+This patch series adds Ethernet support to STi series SOCs STiH415 and STiH416.
+STi SOC series integrates dwmac IP from synopsis, however there is a hardware
+glue on top of this standard IP, this glue needs to configured before the
+actual dwmac can be used.  Also the glue logic needs re-configuring when the
+link speed changes, This is because the clk source can change as the link
+speed changes.
 
-Here are the steps to reproduce it:
-modprobe sit
-ip link add sit1 type sit remote 10.16.0.121 local 10.16.0.249
-ip l s sit1 up
-ip -6 a a dev sit1 2001:1234::123 remote 2001:1234::121
-ping6 2001:1234::121
+This patch just adds STi specific callbacks into of_data for configuring the
+glue layer.
 
-Reported-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Tested-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
----
-Thanks Nicolas !
+I have rebased my original patches (http://lkml.org/lkml/2013/11/12/243)
+to latest stmmac which updates callbacks to suit glue drivers like this.
 
- net/ipv6/icmp.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+These patches are tested on b2000 and B2020 with STiH415 and STiH416.
 
-diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-index f81f596..f2610e1 100644
---- a/net/ipv6/icmp.c
-+++ b/net/ipv6/icmp.c
-@@ -414,7 +414,7 @@ static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
- 	addr_type = ipv6_addr_type(&hdr->daddr);
- 
- 	if (ipv6_chk_addr(net, &hdr->daddr, skb->dev, 0) ||
--	    ipv6_anycast_destination(skb))
-+	    ipv6_chk_acast_addr_src(net, skb->dev, &hdr->daddr))
- 		saddr = &hdr->daddr;
- 
- 	/*
+Changes since v1:
+	- fixed multi-line function call format as suggested by David Miller.
+
+Dave, Can I request you to take the first patch via net tree for v3.15, I can
+request Arnd or Olof to take the DT patches via the arm-soc tree for v3.15.
+
+Thanks,
+srini
+
+Srinivas Kandagatla (3):
+  net: stmmac:sti: Add STi SOC glue driver.
+  ARM: STi: Add STiH415 ethernet support.
+  ARM: STi: Add STiH416 ethernet support.
+
+ .../devicetree/bindings/net/sti-dwmac.txt          |   58 ++++
+ arch/arm/boot/dts/stih415-clock.dtsi               |   14 +
+ arch/arm/boot/dts/stih415-pinctrl.dtsi             |  121 +++++++
+ arch/arm/boot/dts/stih415.dtsi                     |   48 +++
+ arch/arm/boot/dts/stih416-clock.dtsi               |   14 +
+ arch/arm/boot/dts/stih416-pinctrl.dtsi             |  109 +++++++
+ arch/arm/boot/dts/stih416.dtsi                     |   44 +++
+ arch/arm/boot/dts/stih41x-b2000.dtsi               |   22 ++
+ arch/arm/boot/dts/stih41x-b2020.dtsi               |   26 ++
+ drivers/net/ethernet/stmicro/stmmac/Kconfig        |   11 +
+ drivers/net/ethernet/stmicro/stmmac/Makefile       |    1 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c    |  331 ++++++++++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    3 +
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    5 +
+ 14 files changed, 807 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/sti-dwmac.txt
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
+
+-- 
+1.7.9.5
