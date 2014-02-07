@@ -1,34 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bnx2x: Allow VF rss on higher PFs
-Date: Thu, 06 Feb 2014 20:39:02 -0800 (PST)
-Message-ID: <20140206.203902.2112242737667767977.davem@davemloft.net>
-References: <1391609232-875-1-git-send-email-yuvalmin@broadcom.com>
+Subject: Re: [PATCH 50/51] net/core/flow.c: Fix CPU hotplug callback
+ registration
+Date: Thu, 06 Feb 2014 20:39:21 -0800 (PST)
+Message-ID: <20140206.203921.888218847049631688.davem@davemloft.net>
+References: <20140205220251.19080.92336.stgit@srivatsabhat.in.ibm.com>
+	<20140205221345.19080.20784.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ariele@broadcom.com
-To: yuvalmin@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39920 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750752AbaBGEjE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 23:39:04 -0500
-In-Reply-To: <1391609232-875-1-git-send-email-yuvalmin@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: paulus@samba.org, oleg@redhat.com, rusty@rustcorp.com.au,
+	peterz@infradead.org, tglx@linutronix.de,
+	akpm@linux-foundation.org, mingo@kernel.org,
+	paulmck@linux.vnet.ibm.com, tj@kernel.org, walken@google.com,
+	ego@linux.vnet.ibm.com, linux@arm.linux.org.uk,
+	linux-kernel@vger.kernel.org, roy.qing.li@gmail.com,
+	sasha.levin@oracle.com, cmetcalf@tilera.com, netdev@vger.kernel.org
+To: srivatsa.bhat@linux.vnet.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140205221345.19080.20784.stgit@srivatsabhat.in.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yuval Mintz <yuvalmin@broadcom.com>
-Date: Wed, 5 Feb 2014 16:07:12 +0200
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Date: Thu, 06 Feb 2014 03:43:46 +0530
 
-> bnx2x driver uses incorrect PF identifier to configure (in HW) the VF
-> interrupt scheme; As a result, in multi-function mode the configuration
-> for PFs with a high index (4+) will overflow and the PF will erroneously
-> configure a single ISR scheme for its VFs.
-> As a result, if such a VF uses multiple queues, interrupt generation will
-> stop after VF receives an Rx packet or sends a Tx packet on a queue
-> other than queue[0].
+> Subsystems that want to register CPU hotplug callbacks, as well as perform
+> initialization for the CPUs that are already online, often do it as shown
+> below:
+ ...
+> This is wrong, since it is prone to ABBA deadlocks involving the
+> cpu_add_remove_lock and the cpu_hotplug.lock (when running concurrently
+> with CPU hotplug operations).
 > 
-> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-> Signed-off-by: Ariel Elior <ariele@broadcom.com>
+> Instead, the correct and race-free way of performing the callback
+> registration is:
+ ...
+> Fix the code in net/core/flow.c by using this latter form of callback
+> registration.
+> 
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Li RongQing <roy.qing.li@gmail.com>
+> Cc: Sasha Levin <sasha.levin@oracle.com>
+> Cc: Andrew Morton <akpm@linux-foundation.org>
+> Cc: Chris Metcalf <cmetcalf@tilera.com>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 
 Applied.
