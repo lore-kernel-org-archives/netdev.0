@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 04/18] netfilter: nf_conntrack: fix RCU race in nf_conntrack_find_get
-Date: Fri,  7 Feb 2014 18:41:30 +0100
-Message-ID: <1391794904-4017-5-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 11/18] netfilter: nft_reject: split up reject module into IPv4 and IPv6 specifc parts
+Date: Fri,  7 Feb 2014 18:41:37 +0100
+Message-ID: <1391794904-4017-12-git-send-email-pablo@netfilter.org>
 References: <1391794904-4017-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,147 +10,407 @@ In-Reply-To: <1391794904-4017-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrey Vagin <avagin@openvz.org>
+From: Patrick McHardy <kaber@trash.net>
 
-Lets look at destroy_conntrack:
+Currently the nft_reject module depends on symbols from ipv6. This is
+wrong since no generic module should force IPv6 support to be loaded.
+Split up the module into AF-specific and a generic part.
 
-hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
-...
-nf_conntrack_free(ct)
-	kmem_cache_free(net->ct.nf_conntrack_cachep, ct);
-
-net->ct.nf_conntrack_cachep is created with SLAB_DESTROY_BY_RCU.
-
-The hash is protected by rcu, so readers look up conntracks without
-locks.
-A conntrack is removed from the hash, but in this moment a few readers
-still can use the conntrack. Then this conntrack is released and another
-thread creates conntrack with the same address and the equal tuple.
-After this a reader starts to validate the conntrack:
-* It's not dying, because a new conntrack was created
-* nf_ct_tuple_equal() returns true.
-
-But this conntrack is not initialized yet, so it can not be used by two
-threads concurrently. In this case BUG_ON may be triggered from
-nf_nat_setup_info().
-
-Florian Westphal suggested to check the confirm bit too. I think it's
-right.
-
-task 1			task 2			task 3
-			nf_conntrack_find_get
-			 ____nf_conntrack_find
-destroy_conntrack
- hlist_nulls_del_rcu
- nf_conntrack_free
- kmem_cache_free
-						__nf_conntrack_alloc
-						 kmem_cache_alloc
-						 memset(&ct->tuplehash[IP_CT_DIR_MAX],
-			 if (nf_ct_is_dying(ct))
-			 if (!nf_ct_tuple_equal()
-
-I'm not sure, that I have ever seen this race condition in a real life.
-Currently we are investigating a bug, which is reproduced on a few nodes.
-In our case one conntrack is initialized from a few tasks concurrently,
-we don't have any other explanation for this.
-
-<2>[46267.083061] kernel BUG at net/ipv4/netfilter/nf_nat_core.c:322!
-...
-<4>[46267.083951] RIP: 0010:[<ffffffffa01e00a4>]  [<ffffffffa01e00a4>] nf_nat_setup_info+0x564/0x590 [nf_nat]
-...
-<4>[46267.085549] Call Trace:
-<4>[46267.085622]  [<ffffffffa023421b>] alloc_null_binding+0x5b/0xa0 [iptable_nat]
-<4>[46267.085697]  [<ffffffffa02342bc>] nf_nat_rule_find+0x5c/0x80 [iptable_nat]
-<4>[46267.085770]  [<ffffffffa0234521>] nf_nat_fn+0x111/0x260 [iptable_nat]
-<4>[46267.085843]  [<ffffffffa0234798>] nf_nat_out+0x48/0xd0 [iptable_nat]
-<4>[46267.085919]  [<ffffffff814841b9>] nf_iterate+0x69/0xb0
-<4>[46267.085991]  [<ffffffff81494e70>] ? ip_finish_output+0x0/0x2f0
-<4>[46267.086063]  [<ffffffff81484374>] nf_hook_slow+0x74/0x110
-<4>[46267.086133]  [<ffffffff81494e70>] ? ip_finish_output+0x0/0x2f0
-<4>[46267.086207]  [<ffffffff814b5890>] ? dst_output+0x0/0x20
-<4>[46267.086277]  [<ffffffff81495204>] ip_output+0xa4/0xc0
-<4>[46267.086346]  [<ffffffff814b65a4>] raw_sendmsg+0x8b4/0x910
-<4>[46267.086419]  [<ffffffff814c10fa>] inet_sendmsg+0x4a/0xb0
-<4>[46267.086491]  [<ffffffff814459aa>] ? sock_update_classid+0x3a/0x50
-<4>[46267.086562]  [<ffffffff81444d67>] sock_sendmsg+0x117/0x140
-<4>[46267.086638]  [<ffffffff8151997b>] ? _spin_unlock_bh+0x1b/0x20
-<4>[46267.086712]  [<ffffffff8109d370>] ? autoremove_wake_function+0x0/0x40
-<4>[46267.086785]  [<ffffffff81495e80>] ? do_ip_setsockopt+0x90/0xd80
-<4>[46267.086858]  [<ffffffff8100be0e>] ? call_function_interrupt+0xe/0x20
-<4>[46267.086936]  [<ffffffff8118cb10>] ? ub_slab_ptr+0x20/0x90
-<4>[46267.087006]  [<ffffffff8118cb10>] ? ub_slab_ptr+0x20/0x90
-<4>[46267.087081]  [<ffffffff8118f2e8>] ? kmem_cache_alloc+0xd8/0x1e0
-<4>[46267.087151]  [<ffffffff81445599>] sys_sendto+0x139/0x190
-<4>[46267.087229]  [<ffffffff81448c0d>] ? sock_setsockopt+0x16d/0x6f0
-<4>[46267.087303]  [<ffffffff810efa47>] ? audit_syscall_entry+0x1d7/0x200
-<4>[46267.087378]  [<ffffffff810ef795>] ? __audit_syscall_exit+0x265/0x290
-<4>[46267.087454]  [<ffffffff81474885>] ? compat_sys_setsockopt+0x75/0x210
-<4>[46267.087531]  [<ffffffff81474b5f>] compat_sys_socketcall+0x13f/0x210
-<4>[46267.087607]  [<ffffffff8104dea3>] ia32_sysret+0x0/0x5
-<4>[46267.087676] Code: 91 20 e2 01 75 29 48 89 de 4c 89 f7 e8 56 fa ff ff 85 c0 0f 84 68 fc ff ff 0f b6 4d c6 41 8b 45 00 e9 4d fb ff ff e8 7c 19 e9 e0 <0f> 0b eb fe f6 05 17 91 20 e2 80 74 ce 80 3d 5f 2e 00 00 00 74
-<1>[46267.088023] RIP  [<ffffffffa01e00a4>] nf_nat_setup_info+0x564/0x590
-
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Florian Westphal <fw@strlen.de>
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Cyrill Gorcunov <gorcunov@openvz.org>
-Signed-off-by: Andrey Vagin <avagin@openvz.org>
-Acked-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_conntrack_core.c |   21 +++++++++++++++++----
- 1 file changed, 17 insertions(+), 4 deletions(-)
+ include/net/netfilter/nft_reject.h   |   17 +++++++
+ net/ipv4/netfilter/Kconfig           |    5 ++
+ net/ipv4/netfilter/Makefile          |    1 +
+ net/ipv4/netfilter/nft_reject_ipv4.c |   74 ++++++++++++++++++++++++++++
+ net/ipv6/netfilter/Kconfig           |    5 ++
+ net/ipv6/netfilter/Makefile          |    1 +
+ net/ipv6/netfilter/nft_reject_ipv6.c |   75 ++++++++++++++++++++++++++++
+ net/netfilter/Kconfig                |    1 -
+ net/netfilter/nft_reject.c           |   89 ++++------------------------------
+ 9 files changed, 187 insertions(+), 81 deletions(-)
+ create mode 100644 include/net/netfilter/nft_reject.h
+ create mode 100644 net/ipv4/netfilter/nft_reject_ipv4.c
+ create mode 100644 net/ipv6/netfilter/nft_reject_ipv6.c
 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 8824ed0..4d1fb5d 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -312,6 +312,21 @@ static void death_by_timeout(unsigned long ul_conntrack)
- 	nf_ct_delete((struct nf_conn *)ul_conntrack, 0, 0);
- }
- 
-+static inline bool
-+nf_ct_key_equal(struct nf_conntrack_tuple_hash *h,
-+			const struct nf_conntrack_tuple *tuple,
-+			u16 zone)
-+{
-+	struct nf_conn *ct = nf_ct_tuplehash_to_ctrack(h);
+diff --git a/include/net/netfilter/nft_reject.h b/include/net/netfilter/nft_reject.h
+new file mode 100644
+index 0000000..ecda759
+--- /dev/null
++++ b/include/net/netfilter/nft_reject.h
+@@ -0,0 +1,17 @@
++#ifndef _NFT_REJECT_H_
++#define _NFT_REJECT_H_
 +
-+	/* A conntrack can be recreated with the equal tuple,
-+	 * so we need to check that the conntrack is confirmed
-+	 */
-+	return nf_ct_tuple_equal(tuple, &h->tuple) &&
-+		nf_ct_zone(ct) == zone &&
-+		nf_ct_is_confirmed(ct);
++struct nft_reject {
++	enum nft_reject_types	type:8;
++	u8			icmp_code;
++};
++
++extern const struct nla_policy nft_reject_policy[];
++
++int nft_reject_init(const struct nft_ctx *ctx,
++		    const struct nft_expr *expr,
++		    const struct nlattr * const tb[]);
++
++int nft_reject_dump(struct sk_buff *skb, const struct nft_expr *expr);
++
++#endif
+diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
+index 81c6910..a26ce03 100644
+--- a/net/ipv4/netfilter/Kconfig
++++ b/net/ipv4/netfilter/Kconfig
+@@ -61,6 +61,11 @@ config NFT_CHAIN_NAT_IPV4
+ 	  packet transformations such as the source, destination address and
+ 	  source and destination ports.
+ 
++config NFT_REJECT_IPV4
++	depends on NF_TABLES_IPV4
++	default NFT_REJECT
++	tristate
++
+ config NF_TABLES_ARP
+ 	depends on NF_TABLES
+ 	tristate "ARP nf_tables support"
+diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
+index c16be9d..90b8240 100644
+--- a/net/ipv4/netfilter/Makefile
++++ b/net/ipv4/netfilter/Makefile
+@@ -30,6 +30,7 @@ obj-$(CONFIG_NF_NAT_PROTO_GRE) += nf_nat_proto_gre.o
+ obj-$(CONFIG_NF_TABLES_IPV4) += nf_tables_ipv4.o
+ obj-$(CONFIG_NFT_CHAIN_ROUTE_IPV4) += nft_chain_route_ipv4.o
+ obj-$(CONFIG_NFT_CHAIN_NAT_IPV4) += nft_chain_nat_ipv4.o
++obj-$(CONFIG_NFT_REJECT_IPV4) += nft_reject_ipv4.o
+ obj-$(CONFIG_NF_TABLES_ARP) += nf_tables_arp.o
+ 
+ # generic IP tables 
+diff --git a/net/ipv4/netfilter/nft_reject_ipv4.c b/net/ipv4/netfilter/nft_reject_ipv4.c
+new file mode 100644
+index 0000000..e935d8d
+--- /dev/null
++++ b/net/ipv4/netfilter/nft_reject_ipv4.c
+@@ -0,0 +1,74 @@
++/*
++ * Copyright (c) 2008-2009 Patrick McHardy <kaber@trash.net>
++ * Copyright (c) 2013 Eric Leblond <eric@regit.org>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ * Development of this code funded by Astaro AG (http://www.astaro.com/)
++ */
++
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/netlink.h>
++#include <linux/netfilter.h>
++#include <linux/netfilter/nf_tables.h>
++#include <net/netfilter/nf_tables.h>
++#include <net/icmp.h>
++#include <net/netfilter/ipv4/nf_reject.h>
++#include <net/netfilter/nft_reject.h>
++
++static void nft_reject_ipv4_eval(const struct nft_expr *expr,
++				 struct nft_data data[NFT_REG_MAX + 1],
++				 const struct nft_pktinfo *pkt)
++{
++	struct nft_reject *priv = nft_expr_priv(expr);
++
++	switch (priv->type) {
++	case NFT_REJECT_ICMP_UNREACH:
++		nf_send_unreach(pkt->skb, priv->icmp_code);
++		break;
++	case NFT_REJECT_TCP_RST:
++		nf_send_reset(pkt->skb, pkt->ops->hooknum);
++		break;
++	}
++
++	data[NFT_REG_VERDICT].verdict = NF_DROP;
 +}
 +
- /*
-  * Warning :
-  * - Caller must take a reference on returned object
-@@ -333,8 +348,7 @@ ____nf_conntrack_find(struct net *net, u16 zone,
- 	local_bh_disable();
- begin:
- 	hlist_nulls_for_each_entry_rcu(h, n, &net->ct.hash[bucket], hnnode) {
--		if (nf_ct_tuple_equal(tuple, &h->tuple) &&
--		    nf_ct_zone(nf_ct_tuplehash_to_ctrack(h)) == zone) {
-+		if (nf_ct_key_equal(h, tuple, zone)) {
- 			NF_CT_STAT_INC(net, found);
- 			local_bh_enable();
- 			return h;
-@@ -372,8 +386,7 @@ begin:
- 			     !atomic_inc_not_zero(&ct->ct_general.use)))
- 			h = NULL;
- 		else {
--			if (unlikely(!nf_ct_tuple_equal(tuple, &h->tuple) ||
--				     nf_ct_zone(ct) != zone)) {
-+			if (unlikely(!nf_ct_key_equal(h, tuple, zone))) {
- 				nf_ct_put(ct);
- 				goto begin;
- 			}
++static struct nft_expr_type nft_reject_ipv4_type;
++static const struct nft_expr_ops nft_reject_ipv4_ops = {
++	.type		= &nft_reject_ipv4_type,
++	.size		= NFT_EXPR_SIZE(sizeof(struct nft_reject)),
++	.eval		= nft_reject_ipv4_eval,
++	.init		= nft_reject_init,
++	.dump		= nft_reject_dump,
++};
++
++static struct nft_expr_type nft_reject_ipv4_type __read_mostly = {
++	.family		= NFPROTO_IPV4,
++	.name		= "reject",
++	.ops		= &nft_reject_ipv4_ops,
++	.policy		= nft_reject_policy,
++	.maxattr	= NFTA_REJECT_MAX,
++	.owner		= THIS_MODULE,
++};
++
++static int __init nft_reject_ipv4_module_init(void)
++{
++	return nft_register_expr(&nft_reject_ipv4_type);
++}
++
++static void __exit nft_reject_ipv4_module_exit(void)
++{
++	nft_unregister_expr(&nft_reject_ipv4_type);
++}
++
++module_init(nft_reject_ipv4_module_init);
++module_exit(nft_reject_ipv4_module_exit);
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
++MODULE_ALIAS_NFT_AF_EXPR(AF_INET, "reject");
+diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
+index 35750df..4bff1f2 100644
+--- a/net/ipv6/netfilter/Kconfig
++++ b/net/ipv6/netfilter/Kconfig
+@@ -50,6 +50,11 @@ config NFT_CHAIN_NAT_IPV6
+ 	  packet transformations such as the source, destination address and
+ 	  source and destination ports.
+ 
++config NFT_REJECT_IPV6
++	depends on NF_TABLES_IPV6
++	default NFT_REJECT
++	tristate
++
+ config IP6_NF_IPTABLES
+ 	tristate "IP6 tables support (required for filtering)"
+ 	depends on INET && IPV6
+diff --git a/net/ipv6/netfilter/Makefile b/net/ipv6/netfilter/Makefile
+index d1b4928..70d3dd6 100644
+--- a/net/ipv6/netfilter/Makefile
++++ b/net/ipv6/netfilter/Makefile
+@@ -27,6 +27,7 @@ obj-$(CONFIG_NF_DEFRAG_IPV6) += nf_defrag_ipv6.o
+ obj-$(CONFIG_NF_TABLES_IPV6) += nf_tables_ipv6.o
+ obj-$(CONFIG_NFT_CHAIN_ROUTE_IPV6) += nft_chain_route_ipv6.o
+ obj-$(CONFIG_NFT_CHAIN_NAT_IPV6) += nft_chain_nat_ipv6.o
++obj-$(CONFIG_NFT_REJECT_IPV6) += nft_reject_ipv6.o
+ 
+ # matches
+ obj-$(CONFIG_IP6_NF_MATCH_AH) += ip6t_ah.o
+diff --git a/net/ipv6/netfilter/nft_reject_ipv6.c b/net/ipv6/netfilter/nft_reject_ipv6.c
+new file mode 100644
+index 0000000..f732859
+--- /dev/null
++++ b/net/ipv6/netfilter/nft_reject_ipv6.c
+@@ -0,0 +1,75 @@
++/*
++ * Copyright (c) 2008-2009 Patrick McHardy <kaber@trash.net>
++ * Copyright (c) 2013 Eric Leblond <eric@regit.org>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ * Development of this code funded by Astaro AG (http://www.astaro.com/)
++ */
++
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/netlink.h>
++#include <linux/netfilter.h>
++#include <linux/netfilter/nf_tables.h>
++#include <net/netfilter/nf_tables.h>
++#include <net/netfilter/nft_reject.h>
++#include <net/netfilter/ipv6/nf_reject.h>
++
++static void nft_reject_ipv6_eval(const struct nft_expr *expr,
++				 struct nft_data data[NFT_REG_MAX + 1],
++				 const struct nft_pktinfo *pkt)
++{
++	struct nft_reject *priv = nft_expr_priv(expr);
++	struct net *net = dev_net((pkt->in != NULL) ? pkt->in : pkt->out);
++
++	switch (priv->type) {
++	case NFT_REJECT_ICMP_UNREACH:
++		nf_send_unreach6(net, pkt->skb, priv->icmp_code,
++				 pkt->ops->hooknum);
++		break;
++	case NFT_REJECT_TCP_RST:
++		nf_send_reset6(net, pkt->skb, pkt->ops->hooknum);
++		break;
++	}
++
++	data[NFT_REG_VERDICT].verdict = NF_DROP;
++}
++
++static struct nft_expr_type nft_reject_ipv6_type;
++static const struct nft_expr_ops nft_reject_ipv6_ops = {
++	.type		= &nft_reject_ipv6_type,
++	.size		= NFT_EXPR_SIZE(sizeof(struct nft_reject)),
++	.eval		= nft_reject_ipv6_eval,
++	.init		= nft_reject_init,
++	.dump		= nft_reject_dump,
++};
++
++static struct nft_expr_type nft_reject_ipv6_type __read_mostly = {
++	.family		= NFPROTO_IPV6,
++	.name		= "reject",
++	.ops		= &nft_reject_ipv6_ops,
++	.policy		= nft_reject_policy,
++	.maxattr	= NFTA_REJECT_MAX,
++	.owner		= THIS_MODULE,
++};
++
++static int __init nft_reject_ipv6_module_init(void)
++{
++	return nft_register_expr(&nft_reject_ipv6_type);
++}
++
++static void __exit nft_reject_ipv6_module_exit(void)
++{
++	nft_unregister_expr(&nft_reject_ipv6_type);
++}
++
++module_init(nft_reject_ipv6_module_init);
++module_exit(nft_reject_ipv6_module_exit);
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
++MODULE_ALIAS_NFT_AF_EXPR(AF_INET6, "reject");
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index c374675..ed8b50e 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -513,7 +513,6 @@ config NFT_QUEUE
+ 
+ config NFT_REJECT
+ 	depends on NF_TABLES
+-	depends on NF_TABLES_IPV6 || !NF_TABLES_IPV6
+ 	default m if NETFILTER_ADVANCED=n
+ 	tristate "Netfilter nf_tables reject support"
+ 	help
+diff --git a/net/netfilter/nft_reject.c b/net/netfilter/nft_reject.c
+index 5e204711..f3448c2 100644
+--- a/net/netfilter/nft_reject.c
++++ b/net/netfilter/nft_reject.c
+@@ -16,65 +16,23 @@
+ #include <linux/netfilter.h>
+ #include <linux/netfilter/nf_tables.h>
+ #include <net/netfilter/nf_tables.h>
+-#include <net/icmp.h>
+-#include <net/netfilter/ipv4/nf_reject.h>
++#include <net/netfilter/nft_reject.h>
+ 
+-#if IS_ENABLED(CONFIG_NF_TABLES_IPV6)
+-#include <net/netfilter/ipv6/nf_reject.h>
+-#endif
+-
+-struct nft_reject {
+-	enum nft_reject_types	type:8;
+-	u8			icmp_code;
+-	u8			family;
+-};
+-
+-static void nft_reject_eval(const struct nft_expr *expr,
+-			      struct nft_data data[NFT_REG_MAX + 1],
+-			      const struct nft_pktinfo *pkt)
+-{
+-	struct nft_reject *priv = nft_expr_priv(expr);
+-#if IS_ENABLED(CONFIG_NF_TABLES_IPV6)
+-	struct net *net = dev_net((pkt->in != NULL) ? pkt->in : pkt->out);
+-#endif
+-	switch (priv->type) {
+-	case NFT_REJECT_ICMP_UNREACH:
+-		if (priv->family == NFPROTO_IPV4)
+-			nf_send_unreach(pkt->skb, priv->icmp_code);
+-#if IS_ENABLED(CONFIG_NF_TABLES_IPV6)
+-		else if (priv->family == NFPROTO_IPV6)
+-			nf_send_unreach6(net, pkt->skb, priv->icmp_code,
+-				      pkt->ops->hooknum);
+-#endif
+-		break;
+-	case NFT_REJECT_TCP_RST:
+-		if (priv->family == NFPROTO_IPV4)
+-			nf_send_reset(pkt->skb, pkt->ops->hooknum);
+-#if IS_ENABLED(CONFIG_NF_TABLES_IPV6)
+-		else if (priv->family == NFPROTO_IPV6)
+-			nf_send_reset6(net, pkt->skb, pkt->ops->hooknum);
+-#endif
+-		break;
+-	}
+-
+-	data[NFT_REG_VERDICT].verdict = NF_DROP;
+-}
+-
+-static const struct nla_policy nft_reject_policy[NFTA_REJECT_MAX + 1] = {
++const struct nla_policy nft_reject_policy[NFTA_REJECT_MAX + 1] = {
+ 	[NFTA_REJECT_TYPE]		= { .type = NLA_U32 },
+ 	[NFTA_REJECT_ICMP_CODE]		= { .type = NLA_U8 },
+ };
++EXPORT_SYMBOL_GPL(nft_reject_policy);
+ 
+-static int nft_reject_init(const struct nft_ctx *ctx,
+-			   const struct nft_expr *expr,
+-			   const struct nlattr * const tb[])
++int nft_reject_init(const struct nft_ctx *ctx,
++		    const struct nft_expr *expr,
++		    const struct nlattr * const tb[])
+ {
+ 	struct nft_reject *priv = nft_expr_priv(expr);
+ 
+ 	if (tb[NFTA_REJECT_TYPE] == NULL)
+ 		return -EINVAL;
+ 
+-	priv->family = ctx->afi->family;
+ 	priv->type = ntohl(nla_get_be32(tb[NFTA_REJECT_TYPE]));
+ 	switch (priv->type) {
+ 	case NFT_REJECT_ICMP_UNREACH:
+@@ -89,8 +47,9 @@ static int nft_reject_init(const struct nft_ctx *ctx,
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(nft_reject_init);
+ 
+-static int nft_reject_dump(struct sk_buff *skb, const struct nft_expr *expr)
++int nft_reject_dump(struct sk_buff *skb, const struct nft_expr *expr)
+ {
+ 	const struct nft_reject *priv = nft_expr_priv(expr);
+ 
+@@ -109,37 +68,7 @@ static int nft_reject_dump(struct sk_buff *skb, const struct nft_expr *expr)
+ nla_put_failure:
+ 	return -1;
+ }
+-
+-static struct nft_expr_type nft_reject_type;
+-static const struct nft_expr_ops nft_reject_ops = {
+-	.type		= &nft_reject_type,
+-	.size		= NFT_EXPR_SIZE(sizeof(struct nft_reject)),
+-	.eval		= nft_reject_eval,
+-	.init		= nft_reject_init,
+-	.dump		= nft_reject_dump,
+-};
+-
+-static struct nft_expr_type nft_reject_type __read_mostly = {
+-	.name		= "reject",
+-	.ops		= &nft_reject_ops,
+-	.policy		= nft_reject_policy,
+-	.maxattr	= NFTA_REJECT_MAX,
+-	.owner		= THIS_MODULE,
+-};
+-
+-static int __init nft_reject_module_init(void)
+-{
+-	return nft_register_expr(&nft_reject_type);
+-}
+-
+-static void __exit nft_reject_module_exit(void)
+-{
+-	nft_unregister_expr(&nft_reject_type);
+-}
+-
+-module_init(nft_reject_module_init);
+-module_exit(nft_reject_module_exit);
++EXPORT_SYMBOL_GPL(nft_reject_dump);
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
+-MODULE_ALIAS_NFT_EXPR("reject");
 -- 
 1.7.10.4
 
