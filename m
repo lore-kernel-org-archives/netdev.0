@@ -1,55 +1,120 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net] net: Clear local_df only if crossing namespace.
-Date: Fri, 7 Feb 2014 14:49:20 -0800
-Message-ID: <CALnjE+pbcbENWjQcE8T0QLa=d0iia3EBBVJz-sGVzAZbsQarLQ@mail.gmail.com>
-References: <1391811158-11433-1-git-send-email-pshelar@nicira.com>
-	<20140207222840.GD16198@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Pravin <pshelar@nicira.com>, David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"Templin, Fred L" <Fred.L.Templin@boeing.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] staging: r8188eu: Fix missing header
+Date: Fri,  7 Feb 2014 17:12:10 -0600
+Message-ID: <1391814730-3461-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
+	Larry Finger <Larry.Finger@lwfinger.net>
+To: gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog131.obsmtp.com ([74.125.149.247]:51231 "HELO
-	na3sys009aog131.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751950AbaBGWtV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Feb 2014 17:49:21 -0500
-Received: by mail-vc0-f177.google.com with SMTP id if11so3118248vcb.22
-        for <netdev@vger.kernel.org>; Fri, 07 Feb 2014 14:49:20 -0800 (PST)
-In-Reply-To: <20140207222840.GD16198@order.stressinduktion.org>
+Received: from mail-ob0-f179.google.com ([209.85.214.179]:59444 "EHLO
+	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750913AbaBGXVK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Feb 2014 18:21:10 -0500
+Received: by mail-ob0-f179.google.com with SMTP id wo20so4807676obc.38
+        for <netdev@vger.kernel.org>; Fri, 07 Feb 2014 15:21:10 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 7, 2014 at 2:28 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> Hi!
->
-> On Fri, Feb 07, 2014 at 02:12:38PM -0800, Pravin wrote:
->> --- a/net/core/skbuff.c
->> +++ b/net/core/skbuff.c
->> @@ -3905,12 +3905,13 @@ EXPORT_SYMBOL(skb_try_coalesce);
->>   */
->>  void skb_scrub_packet(struct sk_buff *skb, bool xnet)
->>  {
->> -     if (xnet)
->> +     if (xnet) {
->>               skb_orphan(skb);
->> +             skb->local_df = 0;
->> +     }
->>       skb->tstamp.tv64 = 0;
->>       skb->pkt_type = PACKET_HOST;
->>       skb->skb_iif = 0;
->> -     skb->local_df = 0;
->>       skb_dst_drop(skb);
->>       skb->mark = 0;
->>       secpath_reset(skb);
->
-> I wonder if this should be the right behaviour for tunnels, which should just
-> do fragmentation based on IP_DF, even if the packet originated locally from a
-> socket which allowed local fragmentation (inet->pmtudisc < IP_PMTUDISC_DO).
->
-This is not about tunneling, skb_scrub_packet() is generic function
-which should not reset local_df on all packets.
+Commit 2397c6e0927675d983b34a03401affdb64818d07 entitled "staging: r8188eu:
+Remove wrappers around vmalloc and vzalloc" and
+commit: 03bd6aea7ba610a1a19f840c373624b8b0adde0d entitled "staging: r8188eu:
+Remove wrappers around vfree" failed to add the header file needed
+to provide vzalloc and vfree.
 
-We can have separate discussion about use of local_df and tunneling in
-another thread.
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+---
+ drivers/staging/rtl8188eu/core/rtw_mlme.c      | 1 +
+ drivers/staging/rtl8188eu/core/rtw_mp.c        | 1 +
+ drivers/staging/rtl8188eu/core/rtw_recv.c      | 1 +
+ drivers/staging/rtl8188eu/core/rtw_sta_mgt.c   | 1 +
+ drivers/staging/rtl8188eu/core/rtw_xmit.c      | 1 +
+ drivers/staging/rtl8188eu/os_dep/ioctl_linux.c | 1 +
+ drivers/staging/rtl8188eu/os_dep/usb_intf.c    | 1 +
+ 7 files changed, 7 insertions(+)
+
+diff --git a/drivers/staging/rtl8188eu/core/rtw_mlme.c b/drivers/staging/rtl8188eu/core/rtw_mlme.c
+index 2037be0..927fc72 100644
+--- a/drivers/staging/rtl8188eu/core/rtw_mlme.c
++++ b/drivers/staging/rtl8188eu/core/rtw_mlme.c
+@@ -31,6 +31,7 @@
+ #include <wlan_bssdef.h>
+ #include <rtw_ioctl_set.h>
+ #include <usb_osintf.h>
++#include <linux/vmalloc.h>
+ 
+ extern unsigned char	MCS_rate_2R[16];
+ extern unsigned char	MCS_rate_1R[16];
+diff --git a/drivers/staging/rtl8188eu/core/rtw_mp.c b/drivers/staging/rtl8188eu/core/rtw_mp.c
+index 9e97b57..99c06c4 100644
+--- a/drivers/staging/rtl8188eu/core/rtw_mp.c
++++ b/drivers/staging/rtl8188eu/core/rtw_mp.c
+@@ -23,6 +23,7 @@
+ 
+ #include "odm_precomp.h"
+ #include "rtl8188e_hal.h"
++#include <linux/vmalloc.h>
+ 
+ u32 read_macreg(struct adapter *padapter, u32 addr, u32 sz)
+ {
+diff --git a/drivers/staging/rtl8188eu/core/rtw_recv.c b/drivers/staging/rtl8188eu/core/rtw_recv.c
+index 8490d51..ed308ff 100644
+--- a/drivers/staging/rtl8188eu/core/rtw_recv.c
++++ b/drivers/staging/rtl8188eu/core/rtw_recv.c
+@@ -28,6 +28,7 @@
+ #include <ethernet.h>
+ #include <usb_ops.h>
+ #include <wifi.h>
++#include <linux/vmalloc.h>
+ 
+ static u8 SNAP_ETH_TYPE_IPX[2] = {0x81, 0x37};
+ static u8 SNAP_ETH_TYPE_APPLETALK_AARP[2] = {0x80, 0xf3};
+diff --git a/drivers/staging/rtl8188eu/core/rtw_sta_mgt.c b/drivers/staging/rtl8188eu/core/rtw_sta_mgt.c
+index 6df9669..e8a654d 100644
+--- a/drivers/staging/rtl8188eu/core/rtw_sta_mgt.c
++++ b/drivers/staging/rtl8188eu/core/rtw_sta_mgt.c
+@@ -25,6 +25,7 @@
+ #include <xmit_osdep.h>
+ #include <mlme_osdep.h>
+ #include <sta_info.h>
++#include <linux/vmalloc.h>
+ 
+ static void _rtw_init_stainfo(struct sta_info *psta)
+ {
+diff --git a/drivers/staging/rtl8188eu/core/rtw_xmit.c b/drivers/staging/rtl8188eu/core/rtw_xmit.c
+index aa77270..2c0a40f 100644
+--- a/drivers/staging/rtl8188eu/core/rtw_xmit.c
++++ b/drivers/staging/rtl8188eu/core/rtw_xmit.c
+@@ -26,6 +26,7 @@
+ #include <ip.h>
+ #include <usb_ops.h>
+ #include <usb_osintf.h>
++#include <linux/vmalloc.h>
+ 
+ static u8 P802_1H_OUI[P80211_OUI_LEN] = { 0x00, 0x00, 0xf8 };
+ static u8 RFC1042_OUI[P80211_OUI_LEN] = { 0x00, 0x00, 0x00 };
+diff --git a/drivers/staging/rtl8188eu/os_dep/ioctl_linux.c b/drivers/staging/rtl8188eu/os_dep/ioctl_linux.c
+index 0204082..f3584dd 100644
+--- a/drivers/staging/rtl8188eu/os_dep/ioctl_linux.c
++++ b/drivers/staging/rtl8188eu/os_dep/ioctl_linux.c
+@@ -35,6 +35,7 @@
+ 
+ #include <rtw_mp.h>
+ #include <rtw_iol.h>
++#include <linux/vmalloc.h>
+ 
+ #define RTL_IOCTL_WPA_SUPPLICANT	(SIOCIWFIRSTPRIV + 30)
+ 
+diff --git a/drivers/staging/rtl8188eu/os_dep/usb_intf.c b/drivers/staging/rtl8188eu/os_dep/usb_intf.c
+index 0a585b2..8ad3948 100644
+--- a/drivers/staging/rtl8188eu/os_dep/usb_intf.c
++++ b/drivers/staging/rtl8188eu/os_dep/usb_intf.c
+@@ -26,6 +26,7 @@
+ #include <hal_intf.h>
+ #include <rtw_version.h>
+ #include <linux/usb.h>
++#include <linux/vmalloc.h>
+ #include <osdep_intf.h>
+ 
+ #include <usb_vendor_req.h>
+-- 
+1.8.4.5
