@@ -1,70 +1,134 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] net: asix: fix bad header length bug
-Date: Fri, 07 Feb 2014 10:38:04 +0100
-Message-ID: <87wqh7i7pf.fsf@nemi.mork.no>
-References: <1391691384-8486-1-git-send-email-emilgoode@gmail.com>
-	<1391692768.2843.4.camel@X1Carbon.localdomain>
-	<063D6719AE5E284EB5DD2968C1650D6D0F6B99F7@AcuExch.aculab.com>
-	<20140206224121.GB5251@lianli>
+From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
+Subject: Re: [PATCH net-next v2] ipv6: enable anycast addresses as source addresses in ICMPv6 error messages
+Date: Fri, 7 Feb 2014 02:04:57 -0800 (PST)
+Message-ID: <1391767497.41194.YahooMailNeo@web125504.mail.ne1.yahoo.com>
+References: <1390147236-3660-1-git-send-email-fx.lebail@yahoo.com> <52F357C3.9060406@6wind.com> <1391690329.62545.YahooMailNeo@web125506.mail.ne1.yahoo.com> <52F395BB.2030209@6wind.com> <1391697041.6325.YahooMailNeo@web125505.mail.ne1.yahoo.com> <52F4A869.6090401@6wind.com>
+Reply-To: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	"'Igor Gnatenko'" <i.gnatenko.brain@gmail.com>,
+Cc: David Stevens <dlstevens@us.ibm.com>,
+	Bill Fink <billfink@mindspring.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Ming Lei <ming.lei@canonical.com>,
-	Mark Brown <broonie@linaro.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Glen Turner <gdt@gdt.id.au>,
-	"linux-usb\@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Emil Goode <emilgoode@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140206224121.GB5251@lianli> (Emil Goode's message of "Thu, 6
-	Feb 2014 23:41:21 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: "nicolas.dichtel@6wind.com" <nicolas.dichtel@6wind.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nm32.bullet.mail.ne1.yahoo.com ([98.138.229.25]:41645 "EHLO
+	nm32.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752314AbaBGKHp convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Feb 2014 05:07:45 -0500
+In-Reply-To: <52F4A869.6090401@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Emil Goode <emilgoode@gmail.com> writes:
-> On Thu, Feb 06, 2014 at 03:28:13PM +0000, David Laight wrote:
->> From: Igor Gnatenko
->> > On Thu, 2014-02-06 at 13:56 +0100, Emil Goode wrote:
->> > > The AX88772B occasionally send rx packets that cross urb boundar=
-ies
->> > > and the remaining partial packet is sent with no header.
->> > > When the buffer with a partial packet is of less number of octet=
-s
->> > > than the value of hard_header_len the buffer is discarded by the
->> > > usbnet module. This is causing dropped packages and error messag=
-es
->> > > in dmesg.
+> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-> I will do some more digging in the code, but the test of skb->len
-> against hard_header_len is done already in the completion callback
-> function passed to usb_fill_bulk_urb so it seems that buffers of less
-> than hard_header_len number of octets will be dropped regardless.
+> To: Fran=E7ois-Xavier Le Bail <fx.lebail@yahoo.com>; "netdev@vger.ker=
+nel.org" <netdev@vger.kernel.org>
+> Cc: David Stevens <dlstevens@us.ibm.com>; Bill Fink <billfink@mindspr=
+ing.com>; Hannes Frederic Sowa <hannes@stressinduktion.org>; David S. M=
+iller <davem@davemloft.net>; Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>; J=
+ames Morris <jmorris@namei.org>; Hideaki Yoshifuji <yoshfuji@linux-ipv6=
+=2Eorg>; Patrick McHardy <kaber@trash.net>
+> Sent: Friday, February 7, 2014 10:33 AM
+> Subject: Re: [PATCH net-next v2] ipv6: enable anycast addresses as so=
+urce addresses in ICMPv6 error messages
+>=20
+> Le 06/02/2014 15:30, Fran=E7ois-Xavier Le Bail a =E9crit :
+>=20
+>>>  From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>>=20
+>>>  To: Fran=E7ois-Xavier Le Bail <fx.lebail@yahoo.com>;=20
+> "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+>>>  Cc: David Stevens <dlstevens@us.ibm.com>; Bill Fink=20
+> <billfink@mindspring.com>; Hannes Frederic Sowa=20
+> <hannes@stressinduktion.org>; David S. Miller <davem@davemloft.net>;=20
+> Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>; James Morris=20
+> <jmorris@namei.org>; Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>;=20
+> Patrick McHardy <kaber@trash.net>
+>>>  Sent: Thursday, February 6, 2014 3:01 PM
+>>>  Subject: Re: [PATCH net-next v2] ipv6: enable anycast addresses as=
+=20
+> source addresses in ICMPv6 error messages
+>>>=20
+>>>  Le 06/02/2014 13:38, Fran=E7ois-Xavier Le Bail a =E9crit :
+>>>>> =A0  From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>>>>=20
+>>>>=20
+>>>>> =A0  Subject: Re: [PATCH net-next v2] ipv6: enable anycast=20
+> addresses as
+>>>  source addresses in ICMPv6 error messages
+>>>>>=20
+>>>>> =A0  Le 19/01/2014 17:00, Francois-Xavier Le Bail a =E9crit :
+>>>>>=20
+>>>>>> =A0 =A0  - Uses ipv6_anycast_destination() in icmp6_send().
+>>>>>>=20
+>>>>>> =A0 =A0  Suggested-by: Bill Fink <billfink@mindspring.com>
+>>>>>> =A0 =A0  Signed-off-by: Francois-Xavier Le Bail
+>>>  <fx.lebail@yahoo.com>
+>>>>> =A0  This patch causes an Oops on my target.
+>>>>=20
+>>>> =A0  What is your target ?
+>>>  x86 32bits
+>>>=20
+>>>>=20
+>>>>> =A0  Here is the step to reproduce it:
+>>>>> =A0  modprobe sit
+>>>>> =A0  ip link add sit1 type sit remote 10.16.0.121 local=20
+> 10.16.0.249
+>>>>> =A0  ip l s sit1 up
+>>>>> =A0  ip -6 a a dev sit1 2001:1234::123 remote 2001:1234::121
+>>>>> =A0  ping6 2001:1234::121
+>>>>=20
+>>>> =A0  I cannot reproduce this in my target (updated net-next x86_64=
+)=20
+> and
+>>>> =A0  iproute2 from git.
+>>>  I use linus tree (3.14-rc1+).
+>>>=20
+>>>> =A0  Can you send me your config file ?
+>>>  See attachment.
+>>>=20
+>>>=20
+>>>>=20
+>>>>> =A0  The problem is that ipv6_anycast_destination() uses=20
+> unconditionally
+>>>>> =A0  skb_dst(skb), which is NULL in this case.
+>>>>>=20
+>>>>> =A0  Not sure what is the best way to fix this, any suggestions?
+>>>>=20
+>>>> =A0  I will try to reproduce first and see.
+>>>  Note that the peer was not set up, hence the ping didn't work.
+>>>  ipip6_err() calls ipip6_err_gen_icmpv6_unreach() which will drop t=
+he=20
+> dst
+>>>  before calling icmpv6_send().
+>>>=20
+>>>=20
+>>>  Here is the backtrace:
+>>>  [=A0 387.786155] BUG: unable to handle kernel NULL pointer derefer=
+ence at=20
+> 00000096
+>>>  [=A0 387.787291] IP: [<c12f1568>] icmp6_send+0x79/0x596
+>>=20
+>>  [...]
+>>=20
+>>>  [=A0 387.790055]=A0 [<f85ce03b>] ? tunnel64_err+0x16/0x25 [tunnel4=
+]
+>>=20
+>>  Thanks for these informations.
+>>=20
+>>  Can you test an alternative replacing:
+>>=20
+>>  test on: ipv6_anycast_destination(skb)
+>>  by
+>>  test on: ipv6_chk_acast_addr_src(net, skb->dev, &hdr->daddr)
+> It's ok with this function. Do you submit the corresponding patch?
 
-I am pretty sure you are right about this bug. And the exact same
-solution is already used by the cx82310_eth minidriver, so I don't see
-the problem.  Your fix is fine IMHO.  But you should apply it to all th=
-e
-devices using asix_rx_fixup_common(), not just the ax88772 ones.
-
-You could maybe make this a usbnet flag instead and create a generic
-solution in usbnet, but frankly I believe the number of flags and their
-meaning have exceeded drivers authors capabilities a long time ago.  At
-least mine, which are quite limited ;-)
-
-An example of that problem is another bloody obvious bug I noticed whil=
-e
-looking at this driver: The 'struct driver_info ax88178_info' points to
-asix_rx_fixup_common without setting the FLAG_MULTI_PACKET.  This will
-result in usbnet rx_process() calling usbnet_skb_return() on skbs which
-are already consumed by the minidriver.  Not a big problem, but will
-give some odd results.  But if you allow skbs shorter than ETH_HLEN to
-slip through then it might go boom, so you should probably fix that as
-well.
-
-
-Bj=C3=B8rn
+Yes, thanks you for the report and the tests.
