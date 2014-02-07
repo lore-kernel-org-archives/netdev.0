@@ -1,108 +1,36 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: asix: fix bad header length bug
-Date: Fri, 7 Feb 2014 14:40:07 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6BA7AF@AcuExch.aculab.com>
-References: <1391691384-8486-1-git-send-email-emilgoode@gmail.com>
- <1391692768.2843.4.camel@X1Carbon.localdomain>
- <063D6719AE5E284EB5DD2968C1650D6D0F6B99F7@AcuExch.aculab.com>
- <20140206224121.GB5251@lianli> <87wqh7i7pf.fsf@nemi.mork.no>
- <20140207135320.GA4252@lianli>
+From: John Ogness <john.ogness@linutronix.de>
+Subject: nonagle flags for TSQ
+Date: Fri, 07 Feb 2014 16:08:39 +0100
+Message-ID: <87fvnv2c5k.fsf@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: 'Igor Gnatenko' <i.gnatenko.brain@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ming Lei <ming.lei@canonical.com>,
-	Mark Brown <broonie@linaro.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Glen Turner <gdt@gdt.id.au>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Emil Goode' <emilgoode@gmail.com>,
-	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:33774 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752676AbaBGOlI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Feb 2014 09:41:08 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 05447-08 for <netdev@vger.kernel.org>;
- Fri,  7 Feb 2014 14:41:05 +0000 (GMT)
-In-Reply-To: <20140207135320.GA4252@lianli>
-Content-Language: en-US
+Received: from www.linutronix.de ([62.245.132.108]:46174 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751439AbaBGPIm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Feb 2014 10:08:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRW1pbCBHb29kZSANCj4gT24gRnJpLCBGZWIgMDcsIDIwMTQgYXQgMTA6Mzg6MDRBTSAr
-MDEwMCwgQmrDuHJuIE1vcmsgd3JvdGU6DQo+ID4gRW1pbCBHb29kZSA8ZW1pbGdvb2RlQGdtYWls
-LmNvbT4gd3JpdGVzOg0KPiA+ID4gT24gVGh1LCBGZWIgMDYsIDIwMTQgYXQgMDM6Mjg6MTNQTSAr
-MDAwMCwgRGF2aWQgTGFpZ2h0IHdyb3RlOg0KPiA+ID4+IEZyb206IElnb3IgR25hdGVua28NCj4g
-PiA+PiA+IE9uIFRodSwgMjAxNC0wMi0wNiBhdCAxMzo1NiArMDEwMCwgRW1pbCBHb29kZSB3cm90
-ZToNCj4gPiA+PiA+ID4gVGhlIEFYODg3NzJCIG9jY2FzaW9uYWxseSBzZW5kIHJ4IHBhY2tldHMg
-dGhhdCBjcm9zcyB1cmIgYm91bmRhcmllcw0KPiA+ID4+ID4gPiBhbmQgdGhlIHJlbWFpbmluZyBw
-YXJ0aWFsIHBhY2tldCBpcyBzZW50IHdpdGggbm8gaGVhZGVyLg0KPiA+ID4+ID4gPiBXaGVuIHRo
-ZSBidWZmZXIgd2l0aCBhIHBhcnRpYWwgcGFja2V0IGlzIG9mIGxlc3MgbnVtYmVyIG9mIG9jdGV0
-cw0KPiA+ID4+ID4gPiB0aGFuIHRoZSB2YWx1ZSBvZiBoYXJkX2hlYWRlcl9sZW4gdGhlIGJ1ZmZl
-ciBpcyBkaXNjYXJkZWQgYnkgdGhlDQo+ID4gPj4gPiA+IHVzYm5ldCBtb2R1bGUuIFRoaXMgaXMg
-Y2F1c2luZyBkcm9wcGVkIHBhY2thZ2VzIGFuZCBlcnJvciBtZXNzYWdlcw0KPiA+ID4+ID4gPiBp
-biBkbWVzZy4NCj4gPg0KPiA+ID4gSSB3aWxsIGRvIHNvbWUgbW9yZSBkaWdnaW5nIGluIHRoZSBj
-b2RlLCBidXQgdGhlIHRlc3Qgb2Ygc2tiLT5sZW4NCj4gPiA+IGFnYWluc3QgaGFyZF9oZWFkZXJf
-bGVuIGlzIGRvbmUgYWxyZWFkeSBpbiB0aGUgY29tcGxldGlvbiBjYWxsYmFjaw0KPiA+ID4gZnVu
-Y3Rpb24gcGFzc2VkIHRvIHVzYl9maWxsX2J1bGtfdXJiIHNvIGl0IHNlZW1zIHRoYXQgYnVmZmVy
-cyBvZiBsZXNzDQo+ID4gPiB0aGFuIGhhcmRfaGVhZGVyX2xlbiBudW1iZXIgb2Ygb2N0ZXRzIHdp
-bGwgYmUgZHJvcHBlZCByZWdhcmRsZXNzLg0KPiA+DQo+ID4gSSBhbSBwcmV0dHkgc3VyZSB5b3Ug
-YXJlIHJpZ2h0IGFib3V0IHRoaXMgYnVnLiBBbmQgdGhlIGV4YWN0IHNhbWUNCj4gPiBzb2x1dGlv
-biBpcyBhbHJlYWR5IHVzZWQgYnkgdGhlIGN4ODIzMTBfZXRoIG1pbmlkcml2ZXIsIHNvIEkgZG9u
-J3Qgc2VlDQo+ID4gdGhlIHByb2JsZW0uICBZb3VyIGZpeCBpcyBmaW5lIElNSE8uICBCdXQgeW91
-IHNob3VsZCBhcHBseSBpdCB0byBhbGwgdGhlDQo+ID4gZGV2aWNlcyB1c2luZyBhc2l4X3J4X2Zp
-eHVwX2NvbW1vbigpLCBub3QganVzdCB0aGUgYXg4ODc3MiBvbmVzLg0KPiA+DQo+ID4gWW91IGNv
-dWxkIG1heWJlIG1ha2UgdGhpcyBhIHVzYm5ldCBmbGFnIGluc3RlYWQgYW5kIGNyZWF0ZSBhIGdl
-bmVyaWMNCj4gPiBzb2x1dGlvbiBpbiB1c2JuZXQsIGJ1dCBmcmFua2x5IEkgYmVsaWV2ZSB0aGUg
-bnVtYmVyIG9mIGZsYWdzIGFuZCB0aGVpcg0KPiA+IG1lYW5pbmcgaGF2ZSBleGNlZWRlZCBkcml2
-ZXJzIGF1dGhvcnMgY2FwYWJpbGl0aWVzIGEgbG9uZyB0aW1lIGFnby4gIEF0DQo+ID4gbGVhc3Qg
-bWluZSwgd2hpY2ggYXJlIHF1aXRlIGxpbWl0ZWQgOy0pDQo+ID4NCj4gPiBBbiBleGFtcGxlIG9m
-IHRoYXQgcHJvYmxlbSBpcyBhbm90aGVyIGJsb29keSBvYnZpb3VzIGJ1ZyBJIG5vdGljZWQgd2hp
-bGUNCj4gPiBsb29raW5nIGF0IHRoaXMgZHJpdmVyOiBUaGUgJ3N0cnVjdCBkcml2ZXJfaW5mbyBh
-eDg4MTc4X2luZm8nIHBvaW50cyB0bw0KPiA+IGFzaXhfcnhfZml4dXBfY29tbW9uIHdpdGhvdXQg
-c2V0dGluZyB0aGUgRkxBR19NVUxUSV9QQUNLRVQuICBUaGlzIHdpbGwNCj4gPiByZXN1bHQgaW4g
-dXNibmV0IHJ4X3Byb2Nlc3MoKSBjYWxsaW5nIHVzYm5ldF9za2JfcmV0dXJuKCkgb24gc2ticyB3
-aGljaA0KPiA+IGFyZSBhbHJlYWR5IGNvbnN1bWVkIGJ5IHRoZSBtaW5pZHJpdmVyLiAgTm90IGEg
-YmlnIHByb2JsZW0sIGJ1dCB3aWxsDQo+ID4gZ2l2ZSBzb21lIG9kZCByZXN1bHRzLiAgQnV0IGlm
-IHlvdSBhbGxvdyBza2JzIHNob3J0ZXIgdGhhbiBFVEhfSExFTiB0bw0KPiA+IHNsaXAgdGhyb3Vn
-aCB0aGVuIGl0IG1pZ2h0IGdvIGJvb20sIHNvIHlvdSBzaG91bGQgcHJvYmFibHkgZml4IHRoYXQg
-YXMNCj4gPiB3ZWxsLg0KPiA+DQo+ID4NCj4gPiBCasO4cm4NCj4gDQo+IFllcyBJIGJlbGlldmUg
-dGhlIHBhdGNoIGlzIG5lY2Vzc2FyeSwgYnV0IG1heWJlIGl0IHdvdWxkIGJlIG5pY2Ugd2l0aA0K
-PiBhIHByZXR0aWVyIHNvbHV0aW9uIHJhdGhlciB0aGFuIHNldHRpbmcgaGFyZF9oZWFkZXJfbGVu
-IHRvIDAgZm9yIGFsbA0KPiBkZXZpY2VzIHdpdGggdGhpcyBiZWhhdmlvdXIuIFBlcmhhcHMgaXQg
-d291bGQgYmUgYmV0dGVyIHRvIGxldCBlYWNoDQo+IGRyaXZlciB0aGF0IHVzZXMgdGhlIHVzYm5l
-dCBtb2R1bGUgZGVjaWRlIHdoYXQgc2ticyB0byBkaXNjYXJkPw0KPiANCj4gV2hhdCBEYXZpZCBk
-ZXNjcmliZXMgc2VlbXMgdG8gYmUgYW5vdGhlciBidWcsIGJ1dCBJIGRvbid0IHRoaW5rIGl0IGlz
-DQo+IHJlbGF0ZWQgdG8gdGhpcyBwYXRjaCBhcyBJJ20gYWJsZSB0byByZXByb2R1Y2UgdGhlIGJ1
-ZyB3aXRob3V0IHRoZSBwYXRjaA0KPiBiZWVpbmcgYXBwbGllZCBieSBzZXR0aW5nIHRoZSBtdHUg
-dG8gcHJldHR5IG11Y2ggYW55IHZhbHVlIG90aGVyIHRoYW4NCj4gMTUwMCBhbmQgdXNpbmcgcGlu
-ZyB3aXRoIGEgbGFyZ2VyIHBhY2tldCBzaXplIHRoYW4gdGhhdCBtdHUgdmFsdWUuDQoNClllcyAt
-IHBsZW50eSBvZiBidWdzIGlmIHlvdSBqdXN0IGxvb2sgZm9yIHRoZW0hDQoNCkkgZGlkIGEgcXVp
-Y2sgc2NhbiB0aHJvdWdoIHRoZSBzdWItZHJpdmVycyBhbmQgYWx0aG91Z2ggdGhlIHVzYm5ldCBj
-b2RlDQpzZWVtcyB0byB0cmVhdCB0aGUgJ2hhcmRfaGVhZGVyX2xlbicgYXMgYSBjb25zdGFudCB0
-byBhZGQgdG8gdGhlIG10dSB3aGVuDQphbGxvY2F0aW5nIHJ4IHVyYiAod2hlbiB0aGUgZHJpdmVy
-IGRvZXNuJ3Qgc2V0IHJ4X3VyYl9sZW4pLCBzb21lIG9mIHRoZQ0Kc3ViLWRyaXZlcnMgc2VlbSB0
-byBoYXZlIHRocmVlIGxlbmd0aCwgdGhlIHJ4IGhlYWRlciwgdHggaGVhZGVyIGFuZCBoYXJkX2hl
-YWRlciwNCmFuZCBzZXQgdGhlbSBzZXBhcmF0ZWx5IChJJ3ZlIG5vdCBqdXN0IHJlY2hlY2tlZCkg
-LSB3aGljaCBtYXkgbm90IGV4YWN0bHkNCm1hdGNoIHdoYXQgdGhlIHVzYm5ldCBjb2RlIGRvZXMg
-aXMgdGhlIGxlbmd0aHMgYXJlIGRpZmZlcmVudC4NCg0KVGhlIGF4ODg3NzJiIGRyaXZlciBzZWVt
-cyB0byBzdXBwb3J0IHNldmVyYWwgZGlmZmVyZW50IGJpdHMgb2Ygc2lsaWNvbi4NCk9ubHkgc29t
-ZSBwdXQgbXVsdGlwbGUgZXRoZXJuZXQgZnJhbWVzIGluIGEgc2luZ2xlIHVyYiwgYW5kIG9ubHkg
-Zm9yIHRoZXNlDQpkb2VzIHRoZSBkcml2ZXIgc2V0IHRoZSByeF91cmJfbGVuZ3RoIHRvIDIwNDgu
-DQpGb3IgdGhlIG90aGVyIHNpbGljb24gaXQgcmVsaWVzIG9uIHVzYm5ldCBzZXR0aW5nIHRoZSBy
-eCB1cmIgc2l6ZSAtIHNvDQp0aGUgaGFyZF9oZWFkZXJfbGVuIGJldHRlciBub3QgYmUgc2V0IHRv
-IHplcm8uDQoNClNvbWVvbmUgd2l0aCBzb21lIHRpbWUgdG8gc3BhcmUgbmVlZHMgdG8gbW9kaWZ5
-IHVzYm5ldCB0byBzdXBwb3J0IHBhZ2UNCmFsaWduZWQgcnggYnVmZmVycyAocHJvYmFibHkgNGsg
-dXJiKSBhbmQgdGhlbiBidWlsZCBjb3JyZWN0bHkgZm9ybWF0dGVkDQpza2IgZnJvbSB0aGVtLg0K
-DQpBdCB0aGUgbW9tZW50IHRoZSBheDE3OV8xNzhhIGRyaXZlciBhbGxvY2F0ZXMgMjBrQiB1cmIg
-d2hpY2ggZW5kIHVwDQp3aXRoIGFuIDB4NDAgYnl0ZSBvZmZzZXQgaW50byB0aGUgcGFnZSAoc28g
-YXJlIHByb2JhYmx5IDI0aykgYW5kDQp0aGVuIGNhdXNlIGFsaWdubWVudCBpc3N1ZXMgaW4gdGhl
-IHhoY2kgZHJpdmVyIHdoaWNoIGN1cnJlbnRseSBkb2Vzbid0DQpjb3JyZWN0bHkgaGFuZGxlIG5v
-bi1hbGlnbmVkIDY0ayBhZGRyZXNzIGJvdW5kYXJpZXMgd2hlbiB0aGUgY3Jvc3MgdGhlDQpyaW5n
-IGVuZC4NCg0KCURhdmlkDQoNCg==
+Hi,
+
+This email is referring to your Linux patch
+46d3ceabd8d98ed0ad10f20c595ca784e34786c5.
+
+https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=46d3ceabd8d98ed0ad10f20c595ca784e34786c5
+
+I have a question about the use of tcp_write_xmit() in
+net/ipv4/tcp_output.c
+
+When tcp_write_xmit() is called, the nonagle flag of the tcp socket is
+ignored and instead 0 is passed. This causes the Nagle-algorithm to be
+used even if it should not be, which in some cases causes a large delay.
+
+Was there a reason that 0 was hard-coded?
+
+Although current mainline code has been refactored, 0 is still
+hard-coded for TSQ cases.
+
+John Ogness
