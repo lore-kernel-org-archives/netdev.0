@@ -1,7 +1,7 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 08/12] staging: r8188eu: Remove wrappers around vfree
-Date: Thu,  6 Feb 2014 20:45:43 -0600
-Message-ID: <1391741147-3047-9-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 10/12] staging: r8188eu: Remove ODM_CompareMemory
+Date: Thu,  6 Feb 2014 20:45:45 -0600
+Message-ID: <1391741147-3047-11-git-send-email-Larry.Finger@lwfinger.net>
 References: <1391741147-3047-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,220 +22,67 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
+This routine is a wrapper for _rtw_memcmp(), which is a wrapper for memcmp.
+In a later change, _rtw_memcmp will be removed.
+
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/staging/rtl8188eu/core/rtw_mlme.c         | 5 ++---
- drivers/staging/rtl8188eu/core/rtw_mp.c           | 2 +-
- drivers/staging/rtl8188eu/core/rtw_recv.c         | 2 +-
- drivers/staging/rtl8188eu/core/rtw_sta_mgt.c      | 2 +-
- drivers/staging/rtl8188eu/core/rtw_xmit.c         | 6 +++---
- drivers/staging/rtl8188eu/hal/odm_interface.c     | 6 ------
- drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c | 2 +-
- drivers/staging/rtl8188eu/include/odm_interface.h | 1 -
- drivers/staging/rtl8188eu/include/osdep_service.h | 2 --
- drivers/staging/rtl8188eu/os_dep/ioctl_linux.c    | 4 ++--
- drivers/staging/rtl8188eu/os_dep/osdep_service.c  | 7 +------
- drivers/staging/rtl8188eu/os_dep/usb_intf.c       | 2 +-
- 12 files changed, 13 insertions(+), 28 deletions(-)
+ drivers/staging/rtl8188eu/hal/HalPhyRf_8188e.c    | 4 ++--
+ drivers/staging/rtl8188eu/hal/odm_interface.c     | 5 -----
+ drivers/staging/rtl8188eu/include/odm_interface.h | 3 ---
+ 3 files changed, 2 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/staging/rtl8188eu/core/rtw_mlme.c b/drivers/staging/rtl8188eu/core/rtw_mlme.c
-index c85fcfe..2037be0 100644
---- a/drivers/staging/rtl8188eu/core/rtw_mlme.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_mlme.c
-@@ -129,9 +129,8 @@ _func_enter_;
- 	rtw_free_mlme_priv_ie_data(pmlmepriv);
+diff --git a/drivers/staging/rtl8188eu/hal/HalPhyRf_8188e.c b/drivers/staging/rtl8188eu/hal/HalPhyRf_8188e.c
+index 6af70ce..4b5caa1 100644
+--- a/drivers/staging/rtl8188eu/hal/HalPhyRf_8188e.c
++++ b/drivers/staging/rtl8188eu/hal/HalPhyRf_8188e.c
+@@ -217,7 +217,7 @@ odm_TXPowerTrackingCallback_ThermalMeter_8188E(
  
- 	if (pmlmepriv) {
--		if (pmlmepriv->free_bss_buf) {
--			rtw_vmfree(pmlmepriv->free_bss_buf, MAX_BSS_CNT * sizeof(struct wlan_network));
--		}
-+		if (pmlmepriv->free_bss_buf)
-+			vfree(pmlmepriv->free_bss_buf);
- 	}
- _func_exit_;
- }
-diff --git a/drivers/staging/rtl8188eu/core/rtw_mp.c b/drivers/staging/rtl8188eu/core/rtw_mp.c
-index a88c5f1..9e97b57 100644
---- a/drivers/staging/rtl8188eu/core/rtw_mp.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_mp.c
-@@ -943,7 +943,7 @@ void _rtw_mp_xmit_priv(struct xmit_priv *pxmitpriv)
- 	}
- 
- 	if (pxmitpriv->pallocated_xmit_extbuf)
--		rtw_vmfree(pxmitpriv->pallocated_xmit_extbuf, num_xmit_extbuf * sizeof(struct xmit_buf) + 4);
-+		vfree(pxmitpriv->pallocated_xmit_extbuf);
- 
- 	if (padapter->registrypriv.mp_mode == 0) {
- 		max_xmit_extbuf_size = 20000;
-diff --git a/drivers/staging/rtl8188eu/core/rtw_recv.c b/drivers/staging/rtl8188eu/core/rtw_recv.c
-index b2e00f9..8490d51 100644
---- a/drivers/staging/rtl8188eu/core/rtw_recv.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_recv.c
-@@ -129,7 +129,7 @@ _func_enter_;
- 	rtw_os_recv_resource_free(precvpriv);
- 
- 	if (precvpriv->pallocated_frame_buf) {
--		rtw_vmfree(precvpriv->pallocated_frame_buf, NR_RECVFRAME * sizeof(union recv_frame) + RXFRAME_ALIGN_SZ);
-+		vfree(precvpriv->pallocated_frame_buf);
- 	}
- 
- 	rtw_hal_free_recv_priv(padapter);
-diff --git a/drivers/staging/rtl8188eu/core/rtw_sta_mgt.c b/drivers/staging/rtl8188eu/core/rtw_sta_mgt.c
-index 21b205f..6df9669 100644
---- a/drivers/staging/rtl8188eu/core/rtw_sta_mgt.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_sta_mgt.c
-@@ -208,7 +208,7 @@ _func_enter_;
- 		rtw_mfree_sta_priv_lock(pstapriv);
- 
- 		if (pstapriv->pallocated_stainfo_buf)
--			rtw_vmfree(pstapriv->pallocated_stainfo_buf, sizeof(struct sta_info)*NUM_STA+4);
-+			vfree(pstapriv->pallocated_stainfo_buf);
- 	}
- 
- _func_exit_;
-diff --git a/drivers/staging/rtl8188eu/core/rtw_xmit.c b/drivers/staging/rtl8188eu/core/rtw_xmit.c
-index e98c038..aa77270 100644
---- a/drivers/staging/rtl8188eu/core/rtw_xmit.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_xmit.c
-@@ -259,10 +259,10 @@ void _rtw_free_xmit_priv (struct xmit_priv *pxmitpriv)
- 	}
- 
- 	if (pxmitpriv->pallocated_frame_buf)
--		rtw_vmfree(pxmitpriv->pallocated_frame_buf, NR_XMITFRAME * sizeof(struct xmit_frame) + 4);
-+		vfree(pxmitpriv->pallocated_frame_buf);
- 
- 	if (pxmitpriv->pallocated_xmitbuf)
--		rtw_vmfree(pxmitpriv->pallocated_xmitbuf, NR_XMITBUFF * sizeof(struct xmit_buf) + 4);
-+		vfree(pxmitpriv->pallocated_xmitbuf);
- 
- 	/*  free xmit extension buff */
- 	pxmitbuf = (struct xmit_buf *)pxmitpriv->pxmit_extbuf;
-@@ -272,7 +272,7 @@ void _rtw_free_xmit_priv (struct xmit_priv *pxmitpriv)
- 	}
- 
- 	if (pxmitpriv->pallocated_xmit_extbuf) {
--		rtw_vmfree(pxmitpriv->pallocated_xmit_extbuf, num_xmit_extbuf * sizeof(struct xmit_buf) + 4);
-+		vfree(pxmitpriv->pallocated_xmit_extbuf);
- 	}
- 
- 	rtw_free_hwxmits(padapter);
+ 		for (i = 0; i < CCK_TABLE_SIZE; i++) {
+ 			if (dm_odm->RFCalibrateInfo.bCCKinCH14) {
+-				if (ODM_CompareMemory(dm_odm, (void *)&TempCCk, (void *)&CCKSwingTable_Ch14[i][2], 4) == 0) {
++				if (_rtw_memcmp((void *)&TempCCk, (void *)&CCKSwingTable_Ch14[i][2], 4) == 0) {
+ 					CCK_index_old = (u8)i;
+ 					dm_odm->BbSwingIdxCckBase = (u8)i;
+ 					ODM_RT_TRACE(dm_odm, ODM_COMP_CALIBRATION, ODM_DBG_LOUD,
+@@ -229,7 +229,7 @@ odm_TXPowerTrackingCallback_ThermalMeter_8188E(
+ 				ODM_RT_TRACE(dm_odm, ODM_COMP_CALIBRATION, ODM_DBG_LOUD,
+ 					     ("RegA24: 0x%X, CCKSwingTable_Ch1_Ch13[%d][2]: CCKSwingTable_Ch1_Ch13[i][2]: 0x%X\n",
+ 					     TempCCk, i, CCKSwingTable_Ch1_Ch13[i][2]));
+-				if (ODM_CompareMemory(dm_odm, (void *)&TempCCk, (void *)&CCKSwingTable_Ch1_Ch13[i][2], 4) == 0) {
++				if (_rtw_memcmp((void *)&TempCCk, (void *)&CCKSwingTable_Ch1_Ch13[i][2], 4) == 0) {
+ 					CCK_index_old = (u8)i;
+ 					dm_odm->BbSwingIdxCckBase = (u8)i;
+ 					ODM_RT_TRACE(dm_odm, ODM_COMP_CALIBRATION, ODM_DBG_LOUD,
 diff --git a/drivers/staging/rtl8188eu/hal/odm_interface.c b/drivers/staging/rtl8188eu/hal/odm_interface.c
-index 5ba95ab..568c734 100644
+index 0f5b32f..f6e8c1c 100644
 --- a/drivers/staging/rtl8188eu/hal/odm_interface.c
 +++ b/drivers/staging/rtl8188eu/hal/odm_interface.c
-@@ -26,12 +26,6 @@ void ODM_AllocateMemory(struct odm_dm_struct *pDM_Odm, void **pPtr, u32 length)
- 	*pPtr = vzalloc(length);
- }
+@@ -20,11 +20,6 @@
  
--/*  length could be ignored, used to detect memory leakage. */
--void ODM_FreeMemory(struct odm_dm_struct *pDM_Odm, void *pPtr, u32 length)
+ #include "odm_precomp.h"
+ 
+-s32 ODM_CompareMemory(struct odm_dm_struct *pDM_Odm, void *pBuf1, void *pBuf2, u32 length)
 -{
--	rtw_vmfree(pPtr, length);
+-	return _rtw_memcmp(pBuf1, pBuf2, length);
 -}
 -
- s32 ODM_CompareMemory(struct odm_dm_struct *pDM_Odm, void *pBuf1, void *pBuf2, u32 length)
+ void ODM_SetTimer(struct odm_dm_struct *pDM_Odm, struct timer_list *pTimer, u32 msDelay)
  {
- 	return _rtw_memcmp(pBuf1, pBuf2, length);
-diff --git a/drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c b/drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c
-index d364abc..f29c003 100644
---- a/drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c
-+++ b/drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c
-@@ -387,7 +387,7 @@ void rtw_IOL_cmd_tx_pkt_buf_dump(struct adapter *Adapter, int data_len)
- 			} while (!rstatus && (loop++ < 10));
- 		}
- 		rtw_IOL_cmd_buf_dump(Adapter, data_len, pbuf);
--		rtw_vmfree(pbuf, data_len+10);
-+		vfree(pbuf);
- 	}
- 	DBG_88E("###### %s ######\n", __func__);
- }
+ 	_set_timer(pTimer, msDelay); /* ms */
 diff --git a/drivers/staging/rtl8188eu/include/odm_interface.h b/drivers/staging/rtl8188eu/include/odm_interface.h
-index 9284eb8..eb96d7a 100644
+index 8e07754..35de915 100644
 --- a/drivers/staging/rtl8188eu/include/odm_interface.h
 +++ b/drivers/staging/rtl8188eu/include/odm_interface.h
-@@ -79,7 +79,6 @@ typedef void (*RT_WORKITEM_CALL_BACK)(void *pContext);
+@@ -79,9 +79,6 @@ typedef void (*RT_WORKITEM_CALL_BACK)(void *pContext);
  
  /*  Memory Relative Function. */
- void ODM_AllocateMemory(struct odm_dm_struct *pDM_Odm, void **pPtr, u32 length);
--void ODM_FreeMemory(struct odm_dm_struct *pDM_Odm, void *pPtr, u32 length);
  
- s32 ODM_CompareMemory(struct odm_dm_struct *pDM_Odm, void *pBuf1, void *pBuf2,
- 		      u32 length);
-diff --git a/drivers/staging/rtl8188eu/include/osdep_service.h b/drivers/staging/rtl8188eu/include/osdep_service.h
-index 0d34c36..495420e 100644
---- a/drivers/staging/rtl8188eu/include/osdep_service.h
-+++ b/drivers/staging/rtl8188eu/include/osdep_service.h
-@@ -230,11 +230,9 @@ extern unsigned char WPA_TKIP_CIPHER[4];
- extern unsigned char RSN_TKIP_CIPHER[4];
- 
- #define rtw_update_mem_stat(flag, sz) do {} while (0)
--void _rtw_vmfree(u8 *pbuf, u32 sz);
- u8 *_rtw_zmalloc(u32 sz);
- u8 *_rtw_malloc(u32 sz);
- void _rtw_mfree(u8 *pbuf, u32 sz);
--#define rtw_vmfree(pbuf, sz)		_rtw_vmfree((pbuf), (sz))
- #define rtw_malloc(sz)			_rtw_malloc((sz))
- #define rtw_zmalloc(sz)			_rtw_zmalloc((sz))
- #define rtw_mfree(pbuf, sz)		_rtw_mfree((pbuf), (sz))
-diff --git a/drivers/staging/rtl8188eu/os_dep/ioctl_linux.c b/drivers/staging/rtl8188eu/os_dep/ioctl_linux.c
-index 50c61c3..0204082 100644
---- a/drivers/staging/rtl8188eu/os_dep/ioctl_linux.c
-+++ b/drivers/staging/rtl8188eu/os_dep/ioctl_linux.c
-@@ -5653,7 +5653,7 @@ static int rtw_wx_set_priv(struct net_device *dev,
- 		return -ENOMEM;
- 
- 	if (copy_from_user(ext, dwrq->pointer, len)) {
--		rtw_vmfree(ext, len);
-+		vfree(ext);
- 		return -EFAULT;
- 	}
- 
-@@ -5693,7 +5693,7 @@ static int rtw_wx_set_priv(struct net_device *dev,
- 
- FREE_EXT:
- 
--	rtw_vmfree(ext, len);
-+	vfree(ext);
- 
- 	return ret;
- }
-diff --git a/drivers/staging/rtl8188eu/os_dep/osdep_service.c b/drivers/staging/rtl8188eu/os_dep/osdep_service.c
-index 02f5e0c..622b70c 100644
---- a/drivers/staging/rtl8188eu/os_dep/osdep_service.c
-+++ b/drivers/staging/rtl8188eu/os_dep/osdep_service.c
-@@ -55,11 +55,6 @@ u32 rtw_atoi(u8 *s)
- 	return num;
- }
- 
--inline void _rtw_vmfree(u8 *pbuf, u32 sz)
--{
--	vfree(pbuf);
--}
+-s32 ODM_CompareMemory(struct odm_dm_struct *pDM_Odm, void *pBuf1, void *pBuf2,
+-		      u32 length);
 -
- u8 *_rtw_malloc(u32 sz)
- {
- 	u8	*pbuf = NULL;
-@@ -260,7 +255,7 @@ void rtw_free_netdev(struct net_device *netdev)
- 	if (!pnpi->priv)
- 		goto RETURN;
- 
--	rtw_vmfree(pnpi->priv, pnpi->sizeof_priv);
-+	vfree(pnpi->priv);
- 	free_netdev(netdev);
- 
- RETURN:
-diff --git a/drivers/staging/rtl8188eu/os_dep/usb_intf.c b/drivers/staging/rtl8188eu/os_dep/usb_intf.c
-index e5539dd..0a585b2 100644
---- a/drivers/staging/rtl8188eu/os_dep/usb_intf.c
-+++ b/drivers/staging/rtl8188eu/os_dep/usb_intf.c
-@@ -746,7 +746,7 @@ free_adapter:
- 		if (pnetdev)
- 			rtw_free_netdev(pnetdev);
- 		else if (padapter)
--			rtw_vmfree((u8 *)padapter, sizeof(*padapter));
-+			vfree(padapter);
- 		padapter = NULL;
- 	}
- exit:
+ /*  ODM Timer relative API. */
+ void ODM_SetTimer(struct odm_dm_struct *pDM_Odm, struct timer_list *pTimer,
+ 		  u32 msDelay);
 -- 
 1.8.4.5
