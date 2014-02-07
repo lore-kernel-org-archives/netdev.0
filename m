@@ -1,40 +1,61 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] dp83640: Support a configurable number of periodic
- outputs
-Date: Fri, 7 Feb 2014 06:48:54 +0100
-Message-ID: <20140207054852.GA4954@netboy>
-References: <1391503942-694-1-git-send-email-stefan.sorensen@spectralink.com>
- <20140204092939.GA9862@netboy>
- <1391511238.3003.25.camel@deadeye.wl.decadent.org.uk>
- <1391527464.7871.15.camel@e37108.spectralink.com>
- <20140204154323.GA2815@netboy>
- <1391586016.7871.23.camel@e37108.spectralink.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: remove 1ms offset in srtt computation
+Date: Thu, 06 Feb 2014 22:28:15 -0800 (PST)
+Message-ID: <20140206.222815.1199932808813246959.davem@davemloft.net>
+References: <1391731030.10160.36.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "ben@decadent.org.uk" <ben@decadent.org.uk>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: =?iso-8859-1?B?U/hyZW5zZW4s?= Stefan
-	<Stefan.Sorensen@spectralink.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ycheng@google.com, ncardwell@google.com,
+	valas@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f51.google.com ([74.125.83.51]:47665 "EHLO
-	mail-ee0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751464AbaBGFtH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Feb 2014 00:49:07 -0500
-Received: by mail-ee0-f51.google.com with SMTP id b57so1297489eek.10
-        for <netdev@vger.kernel.org>; Thu, 06 Feb 2014 21:49:06 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1391586016.7871.23.camel@e37108.spectralink.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40344 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750707AbaBGG2T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Feb 2014 01:28:19 -0500
+In-Reply-To: <1391731030.10160.36.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 05, 2014 at 07:40:17AM +0000, S=F8rensen, Stefan wrote:
->=20
-> Will all PTP clocks be associated with an ethernet device? If not,
-> wouldn't a PTP ioctl be better than ethtool?=20
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 06 Feb 2014 15:57:10 -0800
 
-Hm, maybe. I don't have a strong preference. I'll try and put together
-an idea of how the ioctl might look like.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> TCP pacing depends on an accurate srtt estimation.
+> 
+> Current srtt estimation is using jiffie resolution,
+> and has an artificial offset of at least 1 ms, which can produce
+> slowdowns when FQ/pacing is used, especially in DC world,
+> where typical rtt is below 1 ms.
+> 
+> We are planning a switch to usec resolution for linux-3.15,
+> but in the meantime, this patch removes the 1 ms offset.
+> 
+> All we need is to have tp->srtt minimal value of 1 to differentiate
+> the case of srtt being initialized or not, not 8.
+> 
+> The problematic behavior was observed on a 40Gbit testbed,
+> where 32 concurrent netperf were reaching 12Gbps of aggregate
+> speed, instead of line speed.
+> 
+> This patch also has the effect of reporting more accurate srtt and send
+> rates to iproute2 ss command as in :
+> 
+> $ ss -i dst cca2
+> Netid  State      Recv-Q Send-Q          Local Address:Port
+> Peer Address:Port   
+> tcp    ESTAB      0      0                10.244.129.1:56984
+> 10.244.129.2:12865   
+> 	 cubic wscale:6,6 rto:200 rtt:0.25/0.25 ato:40 mss:1448 cwnd:10 send
+> 463.4Mbps rcv_rtt:1 rcv_space:29200
+> tcp    ESTAB      0      390960           10.244.129.1:60247
+> 10.244.129.2:50204   
+> 	 cubic wscale:6,6 rto:200 rtt:0.875/0.75 mss:1448 cwnd:73 ssthresh:51
+> send 966.4Mbps unacked:73 retrans:0/121 rcv_space:29200
+> 
+> Reported-by: Vytautas Valancius <valas@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Thanks,
-Richard
+Applied.
