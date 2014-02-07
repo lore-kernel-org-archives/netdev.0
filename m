@@ -1,7 +1,7 @@
 From: <srinivas.kandagatla@st.com>
-Subject: [PATCH v2 1/3] net: stmmac:sti: Add STi SOC glue driver.
-Date: Fri, 7 Feb 2014 10:55:25 +0000
-Message-ID: <1391770525-24349-1-git-send-email-srinivas.kandagatla@st.com>
+Subject: [PATCH v2 2/3] ARM: STi: Add STiH415 ethernet support.
+Date: Fri, 7 Feb 2014 10:55:35 +0000
+Message-ID: <1391770535-24390-1-git-send-email-srinivas.kandagatla@st.com>
 References: <1391770455-24291-1-git-send-email-srinivas.kandagatla@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -26,489 +26,323 @@ List-Id: netdev.vger.kernel.org
 
 From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-STi series SOCs have a glue layer on top of the synopsis gmac IP, this
-glue layer needs to be configured before the gmac driver starts using
-the IP.
+This patch adds support to STiH415 SOC, which has two ethernet
+snps,dwmac controllers version 3.610. With this patch B2000 and B2020
+boards can boot with ethernet in MII and RGMII modes.
 
-This patch adds a support to this glue layer which is configured via
-stmmac setup, init, exit callbacks.
+Tested on both B2020 and B2000.
 
 Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 ---
- .../devicetree/bindings/net/sti-dwmac.txt          |   58 ++++
- drivers/net/ethernet/stmicro/stmmac/Kconfig        |   11 +
- drivers/net/ethernet/stmicro/stmmac/Makefile       |    1 +
- drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c    |  331 ++++++++++++++++++++
- drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    3 +
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    5 +
- 6 files changed, 409 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/sti-dwmac.txt
- create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
+ arch/arm/boot/dts/stih415-clock.dtsi   |   14 ++++
+ arch/arm/boot/dts/stih415-pinctrl.dtsi |  121 ++++++++++++++++++++++++++++++++
+ arch/arm/boot/dts/stih415.dtsi         |   48 +++++++++++++
+ arch/arm/boot/dts/stih41x-b2000.dtsi   |   22 ++++++
+ arch/arm/boot/dts/stih41x-b2020.dtsi   |   26 +++++++
+ 5 files changed, 231 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/net/sti-dwmac.txt b/Documentation/devicetree/bindings/net/sti-dwmac.txt
-new file mode 100644
-index 0000000..3dd3d0b
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/sti-dwmac.txt
-@@ -0,0 +1,58 @@
-+STMicroelectronics SoC DWMAC glue layer controller
+diff --git a/arch/arm/boot/dts/stih415-clock.dtsi b/arch/arm/boot/dts/stih415-clock.dtsi
+index 174c799..d047dbc 100644
+--- a/arch/arm/boot/dts/stih415-clock.dtsi
++++ b/arch/arm/boot/dts/stih415-clock.dtsi
+@@ -34,5 +34,19 @@
+ 			compatible = "fixed-clock";
+ 			clock-frequency = <100000000>;
+ 		};
 +
-+The device node has following properties.
++		CLKS_GMAC0_PHY: clockgenA1@7 {
++			#clock-cells = <0>;
++			compatible = "fixed-clock";
++			clock-frequency = <25000000>;
++			clock-output-names = "CLKS_GMAC0_PHY";
++		};
 +
-+Required properties:
-+ - compatible	: Can be "st,stih415-dwmac", "st,stih416-dwmac" or
-+   "st,stid127-dwmac".
-+ - reg		: Offset of the glue configuration register map in system
-+   configuration regmap pointed by st,syscon property and size.
++		CLKS_ETH1_PHY: clockgenA0@7 {
++			#clock-cells = <0>;
++			compatible = "fixed-clock";
++			clock-frequency = <25000000>;
++			clock-output-names = "CLKS_ETH1_PHY";
++		};
+ 	};
+ };
+diff --git a/arch/arm/boot/dts/stih415-pinctrl.dtsi b/arch/arm/boot/dts/stih415-pinctrl.dtsi
+index 887c5e5..9ca20aa 100644
+--- a/arch/arm/boot/dts/stih415-pinctrl.dtsi
++++ b/arch/arm/boot/dts/stih415-pinctrl.dtsi
+@@ -119,6 +119,56 @@
+ 					};
+ 				};
+ 			};
 +
-+ - reg-names	: Should be "sti-ethconf".
++			gmac1 {
++				pinctrl_mii1: mii1 {
++						st,pins {
++						 txd0   = <&PIO0 0 ALT1 OUT  SE_NICLK_IO	0	CLK_A>;
++						 txd1   = <&PIO0 1 ALT1 OUT  SE_NICLK_IO	0	CLK_A>;
++						 txd2   = <&PIO0 2 ALT1 OUT  SE_NICLK_IO	0	CLK_A>;
++						 txd3   = <&PIO0 3 ALT1 OUT  SE_NICLK_IO	0	CLK_A>;
++						 txer   = <&PIO0 4 ALT1 OUT  SE_NICLK_IO	0	CLK_A>;
++						 txen   = <&PIO0 5 ALT1 OUT  SE_NICLK_IO	0	CLK_A>;
++						 txclk  = <&PIO0 6 ALT1 IN   NICLK	0	CLK_A>;
++						 col    = <&PIO0 7 ALT1 IN   BYPASS	1000>;
++						 mdio   = <&PIO1 0 ALT1 OUT  BYPASS	0>;
++						 mdc    = <&PIO1 1 ALT1 OUT  NICLK	0	CLK_A>;
++						 crs    = <&PIO1 2 ALT1 IN   BYPASS	1000>;
++						 mdint  = <&PIO1 3 ALT1 IN   BYPASS	0>;
++						 rxd0   = <&PIO1 4 ALT1 IN   SE_NICLK_IO	0	CLK_A>;
++						 rxd1   = <&PIO1 5 ALT1 IN   SE_NICLK_IO	0	CLK_A>;
++						 rxd2   = <&PIO1 6 ALT1 IN   SE_NICLK_IO	0	CLK_A>;
++						 rxd3   = <&PIO1 7 ALT1 IN   SE_NICLK_IO	0	CLK_A>;
++						 rxdv   = <&PIO2 0 ALT1 IN   SE_NICLK_IO	0	CLK_A>;
++						 rx_er  = <&PIO2 1 ALT1 IN   SE_NICLK_IO	0	CLK_A>;
++						 rxclk  = <&PIO2 2 ALT1 IN   NICLK	0	CLK_A>;
++						 phyclk = <&PIO2 3 ALT1 IN   NICLK	1000	CLK_A>;
++					};
++				};
 +
-+ - st,syscon	: Should be phandle to system configuration node which
-+   encompases this glue registers.
++				pinctrl_rgmii1: rgmii1-0 {
++					st,pins {
++						 txd0 =	 <&PIO0 0 ALT1 OUT DE_IO	1000	CLK_A>;
++						 txd1 =	 <&PIO0 1 ALT1 OUT DE_IO	1000	CLK_A>;
++						 txd2 =	 <&PIO0 2 ALT1 OUT DE_IO	1000	CLK_A>;
++						 txd3 =	 <&PIO0 3 ALT1 OUT DE_IO	1000	CLK_A>;
++						 txen =	 <&PIO0 5 ALT1 OUT DE_IO	0	CLK_A>;
++						 txclk = <&PIO0 6 ALT1 IN	NICLK	0	CLK_A>;
++						 mdio =	 <&PIO1 0 ALT1 OUT	BYPASS	0>;
++						 mdc =	 <&PIO1 1 ALT1 OUT	NICLK	0	CLK_A>;
++						 rxd0 =	 <&PIO1 4 ALT1 IN DE_IO	0	CLK_A>;
++						 rxd1 =	 <&PIO1 5 ALT1 IN DE_IO	0	CLK_A>;
++						 rxd2 =	 <&PIO1 6 ALT1 IN DE_IO	0	CLK_A>;
++						 rxd3 =	 <&PIO1 7 ALT1 IN DE_IO	0	CLK_A>;
 +
-+ - st,tx-retime-src: On STi Parts for Giga bit speeds, 125Mhz clocks can be
-+   wired up in from different sources. One via TXCLK pin and other via CLK_125
-+   pin. This wiring is totally board dependent. However the retiming glue
-+   logic should be configured accordingly. Possible values for this property
++						 rxdv =	  <&PIO2 0 ALT1 IN DE_IO	500	CLK_A>;
++						 rxclk =  <&PIO2 2 ALT1 IN	NICLK	0	CLK_A>;
++						 phyclk = <&PIO2 3 ALT4 OUT	NICLK	0	CLK_B>;
 +
-+	   "txclk" - if 125Mhz clock is wired up via txclk line.
-+	   "clk_125" - if 125Mhz clock is wired up via clk_125 line.
-+
-+   This property is only valid for Giga bit setup( GMII, RGMII), and it is
-+   un-used for non-giga bit (MII and RMII) setups. Also note that internal
-+   clockgen can not generate stable 125Mhz clock.
-+
-+ - st,ext-phyclk: This boolean property indicates who is generating the clock
-+  for tx and rx. This property is only valid for RMII case where the clock can
-+  be generated from the MAC or PHY.
-+
-+ - clock-names: should be "sti-ethclk".
-+ - clocks: Should point to ethernet clockgen which can generate phyclk.
-+
-+
-+Example:
-+
-+ethernet0: dwmac@fe810000 {
-+	device_type 	= "network";
-+	compatible	= "st,stih416-dwmac", "snps,dwmac", "snps,dwmac-3.710";
-+	reg 		= <0xfe810000 0x8000>, <0x8bc 0x4>;
-+	reg-names	= "stmmaceth", "sti-ethconf";
-+	interrupts	= <0 133 0>, <0 134 0>, <0 135 0>;
-+	interrupt-names	= "macirq", "eth_wake_irq", "eth_lpi";
-+	phy-mode	= "mii";
-+
-+	st,syscon	= <&syscfg_rear>;
-+
-+	snps,pbl 	= <32>;
-+	snps,mixed-burst;
-+
-+	resets		= <&softreset STIH416_ETH0_SOFTRESET>;
-+	reset-names	= "stmmaceth";
-+	pinctrl-0	= <&pinctrl_mii0>;
-+	pinctrl-names 	= "default";
-+	clocks		= <&CLK_S_GMAC0_PHY>;
-+	clock-names	= "stmmaceth";
-+};
-diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-index e2f202e..f2d7c70 100644
---- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
-+++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-@@ -37,6 +37,17 @@ config DWMAC_SUNXI
- 	  stmmac device driver. This driver is used for A20/A31
- 	  GMAC 	  ethernet controller.
++						 clk125= <&PIO3 7 ALT4 IN 	NICLK	0	CLK_A>;
++					};
++				};
++			};
+ 		};
  
-+config DWMAC_STI
-+	bool "STi GMAC support"
-+	depends on STMMAC_PLATFORM && ARCH_STI
-+	default y
-+	---help---
-+	  Support for ethernet controller on STi SOCs.
+ 		pin-controller-front {
+@@ -284,6 +334,77 @@
+ 					};
+ 				};
+ 			};
 +
-+	  This selects STi SoC glue layer support for the stmmac
-+	  device driver. This driver is used on for the STi series
-+	  SOCs GMAC ethernet controller.
++			gmac0{
++				pinctrl_mii0: mii0 {
++					st,pins {
++					 mdint =	<&PIO13 6 ALT2	IN	BYPASS		0>;
++					 txen =		<&PIO13 7 ALT2	OUT	SE_NICLK_IO	0	CLK_A>;
 +
- config STMMAC_PCI
- 	bool "STMMAC PCI bus support"
- 	depends on STMMAC_ETH && PCI
-diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
-index ecadece..dcef287 100644
---- a/drivers/net/ethernet/stmicro/stmmac/Makefile
-+++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
-@@ -2,6 +2,7 @@ obj-$(CONFIG_STMMAC_ETH) += stmmac.o
- stmmac-$(CONFIG_STMMAC_PLATFORM) += stmmac_platform.o
- stmmac-$(CONFIG_STMMAC_PCI) += stmmac_pci.o
- stmmac-$(CONFIG_DWMAC_SUNXI) += dwmac-sunxi.o
-+stmmac-$(CONFIG_DWMAC_STI) += dwmac-sti.o
- stmmac-objs:= stmmac_main.o stmmac_ethtool.o stmmac_mdio.o ring_mode.o	\
- 	      chain_mode.o dwmac_lib.o dwmac1000_core.o  dwmac1000_dma.o \
- 	      dwmac100_core.o dwmac100_dma.o enh_desc.o  norm_desc.o \
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
-new file mode 100644
-index 0000000..47113c2
---- /dev/null
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
-@@ -0,0 +1,331 @@
-+/**
-+ * dwmac-sti.c - STMicroelectronics DWMAC Specific Glue layer
-+ *
-+ * Copyright (C) 2003-2014 STMicroelectronics (R&D) Limited
-+ * Author: Srinivas Kandagatla <srinivas.kandagatla@st.com>
-+ *
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
++					 txd0 =		<&PIO14 0 ALT2	OUT	SE_NICLK_IO	0	CLK_A>;
++					 txd1 =		<&PIO14 1 ALT2	OUT	SE_NICLK_IO	0	CLK_A>;
++					 txd2 =		<&PIO14 2 ALT2	OUT	SE_NICLK_IO	0	CLK_B>;
++					 txd3 =		<&PIO14 3 ALT2	OUT	SE_NICLK_IO	0	CLK_B>;
 +
-+#include <linux/kernel.h>
-+#include <linux/slab.h>
-+#include <linux/platform_device.h>
-+#include <linux/stmmac.h>
-+#include <linux/phy.h>
-+#include <linux/mfd/syscon.h>
-+#include <linux/regmap.h>
-+#include <linux/clk.h>
-+#include <linux/of.h>
-+#include <linux/of_net.h>
++					 txclk =	<&PIO15 0 ALT2	IN	NICLK		0	CLK_A>;
++					 txer =		<&PIO15 1 ALT2	OUT	SE_NICLK_IO	0	CLK_A>;
++					 crs =		<&PIO15 2 ALT2	IN	BYPASS		1000>;
++					 col =		<&PIO15 3 ALT2	IN	BYPASS		1000>;
++					 mdio  =        <&PIO15 4 ALT2	OUT	BYPASS 	3000>;
++					 mdc   =        <&PIO15 5 ALT2	OUT     NICLK  	0    	CLK_B>;
 +
-+/**
-+ *			STi GMAC glue logic.
-+ *			--------------------
-+ *
-+ *		 _
-+ *		|  \
-+ *	--------|0  \ ETH_SEL_INTERNAL_NOTEXT_PHYCLK
-+ * phyclk	|    |___________________________________________
-+ *		|    |	|			(phyclk-in)
-+ *	--------|1  /	|
-+ * int-clk	|_ /	|
-+ *			|	 _
-+ *			|	|  \
-+ *			|_______|0  \ ETH_SEL_TX_RETIME_CLK
-+ *				|    |___________________________
-+ *				|    |		(tx-retime-clk)
-+ *			 _______|1  /
-+ *			|	|_ /
-+ *		 _	|
-+ *		|  \	|
-+ *	--------|0  \	|
-+ * clk_125	|    |__|
-+ *		|    |	ETH_SEL_TXCLK_NOT_CLK125
-+ *	--------|1  /
-+ * txclk	|_ /
-+ *
-+ *
-+ * ETH_SEL_INTERNAL_NOTEXT_PHYCLK is valid only for RMII where PHY can
-+ * generate 50MHz clock or MAC can generate it.
-+ * This bit is configured by "st,ext-phyclk" property.
-+ *
-+ * ETH_SEL_TXCLK_NOT_CLK125 is only valid for gigabit modes, where the 125Mhz
-+ * clock either comes from clk-125 pin or txclk pin. This configuration is
-+ * totally driven by the board wiring. This bit is configured by
-+ * "st,tx-retime-src" property.
-+ *
-+ * TXCLK configuration is different for different phy interface modes
-+ * and changes according to link speed in modes like RGMII.
-+ *
-+ * Below table summarizes the clock requirement and clock sources for
-+ * supported phy interface modes with link speeds.
-+ * ________________________________________________
-+ *|  PHY_MODE	| 1000 Mbit Link | 100 Mbit Link   |
-+ * ------------------------------------------------
-+ *|	MII	|	n/a	 |	25Mhz	   |
-+ *|		|		 |	txclk	   |
-+ * ------------------------------------------------
-+ *|	GMII	|     125Mhz	 |	25Mhz	   |
-+ *|		|  clk-125/txclk |	txclk	   |
-+ * ------------------------------------------------
-+ *|	RGMII	|     125Mhz	 |	25Mhz	   |
-+ *|		|  clk-125/txclk |	clkgen     |
-+ * ------------------------------------------------
-+ *|	RMII	|	n/a	 |	25Mhz	   |
-+ *|		|		 |clkgen/phyclk-in |
-+ * ------------------------------------------------
-+ *
-+ * TX lines are always retimed with a clk, which can vary depending
-+ * on the board configuration. Below is the table of these bits
-+ * in eth configuration register depending on source of retime clk.
-+ *
-+ *---------------------------------------------------------------
-+ * src	 | tx_rt_clk	| int_not_ext_phyclk	| txclk_n_clk125|
-+ *---------------------------------------------------------------
-+ * txclk |	0	|	n/a		|	1	|
-+ *---------------------------------------------------------------
-+ * ck_125|	0	|	n/a		|	0	|
-+ *---------------------------------------------------------------
-+ * phyclk|	1	|	0		|	n/a	|
-+ *---------------------------------------------------------------
-+ * clkgen|	1	|	1		|	n/a	|
-+ *---------------------------------------------------------------
-+ */
++					 rxd0 =		<&PIO16 0 ALT2	IN	SE_NICLK_IO	0	CLK_A>;
++					 rxd1 =		<&PIO16 1 ALT2	IN	SE_NICLK_IO	0	CLK_A>;
++					 rxd2 =		<&PIO16 2 ALT2	IN	SE_NICLK_IO	0	CLK_A>;
++					 rxd3 =		<&PIO16 3 ALT2	IN	SE_NICLK_IO	0	CLK_A>;
++					 rxdv =		<&PIO15 6 ALT2	IN	SE_NICLK_IO	0	CLK_A>;
++					 rx_er =	<&PIO15 7 ALT2	IN	SE_NICLK_IO	0	CLK_A>;
++					 rxclk =	<&PIO17 0 ALT2	IN	NICLK		0	CLK_A>;
++					 phyclk =	<&PIO13 5 ALT2	OUT	NICLK	1000	CLK_A>;
 +
-+ /* Register definition */
++					};
++				};
 +
-+ /* 3 bits [8:6]
-+ *  [6:6]	ETH_SEL_TXCLK_NOT_CLK125
-+ *  [7:7]	ETH_SEL_INTERNAL_NOTEXT_PHYCLK
-+ *  [8:8]	ETH_SEL_TX_RETIME_CLK
-+ *
-+ */
++			pinctrl_gmii0: gmii0 {
++				st,pins {
++					 mdint =	<&PIO13 6	ALT2 IN		BYPASS	0>;
++					 mdio  =        <&PIO15 4 	ALT2 OUT	BYPASS 	3000>;
++					 mdc   =        <&PIO15 5 	ALT2 OUT    	NICLK  	0    	CLK_B>;
++					 txen =		<&PIO13 7	ALT2 OUT	SE_NICLK_IO	3000	CLK_A>;
 +
-+#define TX_RETIME_SRC_MASK		GENMASK(8, 6)
-+#define ETH_SEL_TX_RETIME_CLK		BIT(8)
-+#define ETH_SEL_INTERNAL_NOTEXT_PHYCLK	BIT(7)
-+#define ETH_SEL_TXCLK_NOT_CLK125	BIT(6)
++					 txd0 =		<&PIO14 0	ALT2 OUT	SE_NICLK_IO	3000	CLK_A>;
++					 txd1 =		<&PIO14 1	ALT2 OUT	SE_NICLK_IO	3000	CLK_A>;
++					 txd2 =		<&PIO14 2	ALT2 OUT	SE_NICLK_IO	3000	CLK_B>;
++					 txd3 =		<&PIO14 3	ALT2 OUT	SE_NICLK_IO	3000	CLK_B>;
++					 txd4 =		<&PIO14 4	ALT2 OUT	SE_NICLK_IO	3000	CLK_B>;
++					 txd5 =		<&PIO14 5	ALT2 OUT	SE_NICLK_IO	3000	CLK_B>;
++					 txd6 =		<&PIO14 6	ALT2 OUT	SE_NICLK_IO	3000	CLK_B>;
++					 txd7 =		<&PIO14 7	ALT2 OUT	SE_NICLK_IO	3000	CLK_B>;
 +
-+#define ENMII_MASK			GENMASK(5, 5)
-+#define ENMII				BIT(5)
++					 txclk =	<&PIO15 0	ALT2 IN		NICLK	0	CLK_A>;
++					 txer =		<&PIO15 1	ALT2 OUT 	SE_NICLK_IO	3000	CLK_A>;
++					 crs =		<&PIO15 2	ALT2 IN		BYPASS	1000>;
++					 col =		<&PIO15 3	ALT2 IN		BYPASS	1000>;
++					 rxdv =		<&PIO15 6	ALT2 IN		SE_NICLK_IO	1500	CLK_A>;
++					 rx_er =	<&PIO15 7	ALT2 IN		SE_NICLK_IO	1500	CLK_A>;
 +
-+/**
-+ * 3 bits [4:2]
-+ *	000-GMII/MII
-+ *	001-RGMII
-+ *	010-SGMII
-+ *	100-RMII
-+*/
-+#define MII_PHY_SEL_MASK		GENMASK(4, 2)
-+#define ETH_PHY_SEL_RMII		BIT(4)
-+#define ETH_PHY_SEL_SGMII		BIT(3)
-+#define ETH_PHY_SEL_RGMII		BIT(2)
-+#define ETH_PHY_SEL_GMII		0x0
-+#define ETH_PHY_SEL_MII			0x0
++					 rxd0 =		<&PIO16 0	ALT2 IN		SE_NICLK_IO	1500	CLK_A>;
++					 rxd1 =		<&PIO16 1	ALT2 IN		SE_NICLK_IO	1500	CLK_A>;
++					 rxd2 =		<&PIO16 2	ALT2 IN		SE_NICLK_IO	1500	CLK_A>;
++					 rxd3 =		<&PIO16 3	ALT2 IN		SE_NICLK_IO	1500	CLK_A>;
++					 rxd4 =		<&PIO16 4	ALT2 IN		SE_NICLK_IO	1500	CLK_A>;
++					 rxd5 =		<&PIO16 5	ALT2 IN		SE_NICLK_IO	1500	CLK_A>;
++					 rxd6 =		<&PIO16 6	ALT2 IN		SE_NICLK_IO	1500	CLK_A>;
++					 rxd7 =		<&PIO16 7	ALT2 IN		SE_NICLK_IO	1500	CLK_A>;
 +
-+#define IS_PHY_IF_MODE_RGMII(iface)	(iface == PHY_INTERFACE_MODE_RGMII || \
-+			iface == PHY_INTERFACE_MODE_RGMII_ID || \
-+			iface == PHY_INTERFACE_MODE_RGMII_RXID || \
-+			iface == PHY_INTERFACE_MODE_RGMII_TXID)
++					 rxclk =	<&PIO17 0	ALT2 IN	NICLK	0	CLK_A>;
++					 clk125 =	<&PIO17 6	ALT1 IN	NICLK	0	CLK_A>;
++                                         phyclk =       <&PIO13 5       ALT4 OUT NICLK   0       CLK_B>;
 +
-+#define IS_PHY_IF_MODE_GBIT(iface)	(IS_PHY_IF_MODE_RGMII(iface) || \
-+			iface == PHY_INTERFACE_MODE_GMII)
 +
-+struct sti_dwmac {
-+	int	interface;
-+	bool	ext_phyclk;
-+	bool	is_tx_retime_src_clk_125;
-+	struct clk *clk;
-+	int	reg;
-+	struct	device *dev;
-+	struct	regmap *regmap;
-+};
++					};
++				};
++			};
+ 		};
+ 
+ 		pin-controller-left {
+diff --git a/arch/arm/boot/dts/stih415.dtsi b/arch/arm/boot/dts/stih415.dtsi
+index d52207c..cc9b22b 100644
+--- a/arch/arm/boot/dts/stih415.dtsi
++++ b/arch/arm/boot/dts/stih415.dtsi
+@@ -147,5 +147,53 @@
+ 
+ 			status		= "disabled";
+ 		};
 +
-+static u32 phy_intf_sels[] = {
-+	[PHY_INTERFACE_MODE_MII]	= ETH_PHY_SEL_MII,
-+	[PHY_INTERFACE_MODE_GMII]	= ETH_PHY_SEL_GMII,
-+	[PHY_INTERFACE_MODE_RGMII]	= ETH_PHY_SEL_RGMII,
-+	[PHY_INTERFACE_MODE_RGMII_ID]	= ETH_PHY_SEL_RGMII,
-+	[PHY_INTERFACE_MODE_SGMII]	= ETH_PHY_SEL_SGMII,
-+	[PHY_INTERFACE_MODE_RMII]	= ETH_PHY_SEL_RMII,
-+};
++		ethernet0: dwmac@fe810000 {
++			device_type 	= "network";
++			compatible	= "st,stih415-dwmac", "snps,dwmac", "snps,dwmac-3.610";
++			status 		= "disabled";
 +
-+enum {
-+	TX_RETIME_SRC_NA = 0,
-+	TX_RETIME_SRC_TXCLK = 1,
-+	TX_RETIME_SRC_CLK_125,
-+	TX_RETIME_SRC_PHYCLK,
-+	TX_RETIME_SRC_CLKGEN,
-+};
++			reg 		= <0xfe810000 0x8000>, <0x148 0x4>;
++			reg-names	= "stmmaceth", "sti-ethconf";
 +
-+static const char * const tx_retime_srcs[] = {
-+	[TX_RETIME_SRC_NA]		= "",
-+	[TX_RETIME_SRC_TXCLK]		= "txclk",
-+	[TX_RETIME_SRC_CLK_125]		= "clk_125",
-+	[TX_RETIME_SRC_PHYCLK]		= "phyclk",
-+	[TX_RETIME_SRC_CLKGEN]		= "clkgen",
-+};
++			interrupts 	= <0 147 0>, <0 148 0>, <0 149 0>;
++			interrupt-names = "macirq", "eth_wake_irq", "eth_lpi";
++			resets			= <&softreset STIH415_ETH0_SOFTRESET>;
++			reset-names		= "stmmaceth";
 +
-+static u32 tx_retime_val[] = {
-+	[TX_RETIME_SRC_TXCLK]	= ETH_SEL_TXCLK_NOT_CLK125,
-+	[TX_RETIME_SRC_CLK_125]	= 0x0,
-+	[TX_RETIME_SRC_PHYCLK]	= ETH_SEL_TX_RETIME_CLK,
-+	[TX_RETIME_SRC_CLKGEN]	= ETH_SEL_TX_RETIME_CLK |
-+				ETH_SEL_INTERNAL_NOTEXT_PHYCLK,
-+};
++			snps,pbl 	= <32>;
++			snps,mixed-burst;
++			snps,force_sf_dma_mode;
 +
-+static void setup_retime_src(struct sti_dwmac *dwmac, u32 spd)
-+{
-+	u32 src = 0, freq = 0;
++			st,syscon	= <&syscfg_rear>;
 +
-+	if (spd == SPEED_100) {
-+		if (dwmac->interface == PHY_INTERFACE_MODE_MII ||
-+			dwmac->interface == PHY_INTERFACE_MODE_GMII) {
-+				src = TX_RETIME_SRC_TXCLK;
-+		} else if (dwmac->interface == PHY_INTERFACE_MODE_RMII) {
-+			if (dwmac->ext_phyclk) {
-+				src = TX_RETIME_SRC_PHYCLK;
-+			} else {
-+				src = TX_RETIME_SRC_CLKGEN;
-+				freq = 50000000;
-+			}
++			pinctrl-names 	= "default";
++			pinctrl-0	= <&pinctrl_mii0>;
++			clock-names	= "stmmaceth";
++			clocks		= <&CLKS_GMAC0_PHY>;
++		};
 +
-+		} else if (IS_PHY_IF_MODE_RGMII(dwmac->interface)) {
-+			src = TX_RETIME_SRC_CLKGEN;
-+			freq = 25000000;
-+		}
++		ethernet1: dwmac@fef08000 {
++			device_type = "network";
++			compatible	= "st,stih415-dwmac", "snps,dwmac", "snps,dwmac-3.610";
++			status 		= "disabled";
++			reg		= <0xfef08000 0x8000>, <0x74 0x4>;
++			reg-names	= "stmmaceth", "sti-ethconf";
++			interrupts 	= <0 150 0>, <0 151 0>, <0 152 0>;
++			interrupt-names = "macirq", "eth_wake_irq", "eth_lpi";
 +
-+		if (src == TX_RETIME_SRC_CLKGEN && dwmac->clk)
-+			clk_set_rate(dwmac->clk, freq);
++			snps,pbl	= <32>;
++			snps,mixed-burst;
++			snps,force_sf_dma_mode;
 +
-+	} else if (spd == SPEED_1000) {
-+		if (dwmac->is_tx_retime_src_clk_125)
-+			src = TX_RETIME_SRC_CLK_125;
-+		else
-+			src = TX_RETIME_SRC_TXCLK;
-+	}
++			st,syscon		= <&syscfg_sbc>;
 +
-+	regmap_update_bits(dwmac->regmap, dwmac->reg,
-+			   TX_RETIME_SRC_MASK, tx_retime_val[src]);
-+}
++			resets			= <&softreset STIH415_ETH1_SOFTRESET>;
++			reset-names		= "stmmaceth";
++			pinctrl-names 	= "default";
++			pinctrl-0	= <&pinctrl_mii1>;
++			clock-names	= "stmmaceth";
++			clocks		= <&CLKS_ETH1_PHY>;
++		};
+ 	};
+ };
+diff --git a/arch/arm/boot/dts/stih41x-b2000.dtsi b/arch/arm/boot/dts/stih41x-b2000.dtsi
+index 1e6aa92..bf65c49 100644
+--- a/arch/arm/boot/dts/stih41x-b2000.dtsi
++++ b/arch/arm/boot/dts/stih41x-b2000.dtsi
+@@ -20,6 +20,8 @@
+ 
+ 	aliases {
+ 		ttyAS0 = &serial2;
++		ethernet0 = &ethernet0;
++		ethernet1 = &ethernet1;
+ 	};
+ 
+ 	soc {
+@@ -46,5 +48,25 @@
+ 
+ 			status = "okay";
+ 		};
 +
-+static void sti_dwmac_exit(struct platform_device *pdev, void *priv)
-+{
-+	struct sti_dwmac *dwmac = priv;
++		ethernet0: dwmac@fe810000 {
++			status			= "okay";
++			phy-mode		= "mii";
++			pinctrl-0		= <&pinctrl_mii0>;
 +
-+	if (dwmac->clk)
-+		clk_disable_unprepare(dwmac->clk);
-+}
++			snps,reset-gpio 	= <&PIO106 2>;
++			snps,reset-active-low;
++			snps,reset-delays-us 	= <0 10000 10000>;
++		};
 +
-+static void sti_fix_mac_speed(void *priv, unsigned int spd)
-+{
-+	struct sti_dwmac *dwmac = priv;
-+	setup_retime_src(dwmac, spd);
-+	return;
-+}
++		ethernet1: dwmac@fef08000 {
++			status			= "disabled";
++			phy-mode		= "mii";
++			st,tx-retime-src	= "txclk";
 +
-+static int sti_dwmac_parse_data(struct sti_dwmac *dwmac,
-+		struct platform_device *pdev)
-+{
-+	struct resource *res;
-+	struct device *dev	= &pdev->dev;
-+	struct device_node *np	= dev->of_node;
-+	struct regmap	*regmap;
-+	int err;
++			snps,reset-gpio 	= <&PIO4 7>;
++			snps,reset-active-low;
++			snps,reset-delays-us 	= <0 10000 10000>;
++		};
+ 	};
+ };
+diff --git a/arch/arm/boot/dts/stih41x-b2020.dtsi b/arch/arm/boot/dts/stih41x-b2020.dtsi
+index 0ef0a69..6c9a2ab 100644
+--- a/arch/arm/boot/dts/stih41x-b2020.dtsi
++++ b/arch/arm/boot/dts/stih41x-b2020.dtsi
+@@ -19,6 +19,7 @@
+ 
+ 	aliases {
+ 		ttyAS0 = &sbc_serial1;
++		ethernet1 = &ethernet1;
+ 	};
+ 	soc {
+ 		sbc_serial1: serial@fe531000 {
+@@ -60,5 +61,30 @@
+ 		i2c@fe541000 {
+ 			status = "okay";
+ 		};
 +
-+	if (!np)
-+		return -EINVAL;
++		/**
++		* ethernet clk routing:
++		* for
++		* 	max-speed = <1000>;
++		* set
++		* 	st,tx-retime-src	= "clk_125";
++		*
++		* for
++		*	max-speed = <100>;
++		* set
++		*	st,tx-retime-src	= "clkgen";
++		*/
 +
-+	res = platform_get_resource_byname(pdev,
-+					   IORESOURCE_MEM, "sti-ethconf");
-+	if (!res)
-+		return -ENODATA;
++		ethernet1: dwmac@fef08000 {
++			status			= "okay";
++			phy-mode		= "rgmii-id";
++			max-speed		= <1000>;
++			st,tx-retime-src	= "clk_125";
++			snps,reset-gpio 	= <&PIO3 0>;
++			snps,reset-active-low;
++			snps,reset-delays-us 	= <0 10000 10000>;
 +
-+	regmap = syscon_regmap_lookup_by_phandle(np, "st,syscon");
-+	if (IS_ERR(regmap))
-+		return PTR_ERR(regmap);
-+
-+	dwmac->dev = dev;
-+	dwmac->interface = of_get_phy_mode(np);
-+	dwmac->regmap = regmap;
-+	dwmac->reg = res->start;
-+	dwmac->ext_phyclk = of_property_read_bool(np, "st,ext-phyclk");
-+
-+	dwmac->is_tx_retime_src_clk_125 = false;
-+
-+	if (IS_PHY_IF_MODE_GBIT(dwmac->interface)) {
-+		const char *rs;
-+		err = of_property_read_string(np, "st,tx-retime-src", &rs);
-+		if (err < 0) {
-+			dev_err(dev, "st,tx-retime-src not specified\n");
-+			return err;
-+		}
-+
-+		if (!strcasecmp(rs, "clk_125"))
-+			dwmac->is_tx_retime_src_clk_125 = true;
-+
-+	}
-+
-+	dwmac->clk = devm_clk_get(dev, "sti-ethclk");
-+
-+	if (IS_ERR(dwmac->clk))
-+		dwmac->clk = NULL;
-+
-+	return 0;
-+}
-+
-+static int sti_dwmac_init(struct platform_device *pdev, void *priv)
-+{
-+	struct sti_dwmac *dwmac = priv;
-+	struct regmap *regmap = dwmac->regmap;
-+	int iface = dwmac->interface;
-+	u32 reg = dwmac->reg;
-+	u32 val, spd;
-+
-+	if (dwmac->clk)
-+		clk_prepare_enable(dwmac->clk);
-+
-+	regmap_update_bits(regmap, reg, MII_PHY_SEL_MASK,
-+			   phy_intf_sels[iface]);
-+
-+	val = (iface == PHY_INTERFACE_MODE_REVMII) ? 0 : ENMII;
-+	regmap_update_bits(regmap, reg, ENMII_MASK, val);
-+
-+	if (IS_PHY_IF_MODE_GBIT(iface))
-+		spd = SPEED_1000;
-+	else
-+		spd = SPEED_100;
-+
-+	setup_retime_src(dwmac, spd);
-+
-+	return 0;
-+}
-+
-+static void *sti_dwmac_setup(struct platform_device *pdev)
-+{
-+	struct sti_dwmac	*dwmac;
-+	int ret;
-+
-+	dwmac = devm_kzalloc(&pdev->dev, sizeof(*dwmac), GFP_KERNEL);
-+	if (!dwmac)
-+		return ERR_PTR(-ENOMEM);
-+
-+	ret = sti_dwmac_parse_data(dwmac, pdev);
-+	if (ret) {
-+		dev_err(&pdev->dev, "Unable to parse OF data\n");
-+		return ERR_PTR(ret);
-+	}
-+
-+	return dwmac;
-+}
-+
-+const struct stmmac_of_data sti_gmac_data = {
-+	.fix_mac_speed = sti_fix_mac_speed,
-+	.setup = sti_dwmac_setup,
-+	.init = sti_dwmac_init,
-+	.exit = sti_dwmac_exit,
-+};
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index d9af26e..f9e60d7 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -133,6 +133,9 @@ bool stmmac_eee_init(struct stmmac_priv *priv);
- #ifdef CONFIG_DWMAC_SUNXI
- extern const struct stmmac_of_data sun7i_gmac_data;
- #endif
-+#ifdef CONFIG_DWMAC_STI
-+extern const struct stmmac_of_data sti_gmac_data;
-+#endif
- extern struct platform_driver stmmac_pltfr_driver;
- static inline int stmmac_register_platform(void)
- {
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 5884a7d..c61bc72b 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -33,6 +33,11 @@ static const struct of_device_id stmmac_dt_ids[] = {
- #ifdef CONFIG_DWMAC_SUNXI
- 	{ .compatible = "allwinner,sun7i-a20-gmac", .data = &sun7i_gmac_data},
- #endif
-+#ifdef CONFIG_DWMAC_STI
-+	{ .compatible = "st,stih415-dwmac", .data = &sti_gmac_data},
-+	{ .compatible = "st,stih416-dwmac", .data = &sti_gmac_data},
-+	{ .compatible = "st,stih127-dwmac", .data = &sti_gmac_data},
-+#endif
- 	/* SoC specific glue layers should come before generic bindings */
- 	{ .compatible = "st,spear600-gmac"},
- 	{ .compatible = "snps,dwmac-3.610"},
++			pinctrl-0	= <&pinctrl_rgmii1>;
++		};
+ 	};
+ };
 -- 
 1.7.9.5
