@@ -1,34 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] tg3: cleanup an error path in tg3_phy_reset_5703_4_5()
-Date: Thu, 06 Feb 2014 20:06:31 -0800 (PST)
-Message-ID: <20140206.200631.1329672470949197117.davem@davemloft.net>
-References: <20140205132920.GE800@elgon.mountain>
+Subject: Re: [PATCH net] tg3: Fix deadlock in tg3_change_mtu()
+Date: Thu, 06 Feb 2014 20:06:47 -0800 (PST)
+Message-ID: <20140206.200647.755082106891394503.davem@davemloft.net>
+References: <1391724785-13562-1-git-send-email-nsujir@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nsujir@broadcom.com, mchan@broadcom.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: netdev@vger.kernel.org, david.vrabel@citrix.com, mchan@broadcom.com
+To: nsujir@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39809 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39814 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751347AbaBGEGc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 23:06:32 -0500
-In-Reply-To: <20140205132920.GE800@elgon.mountain>
+	with ESMTP id S1751651AbaBGEGs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Feb 2014 23:06:48 -0500
+In-Reply-To: <1391724785-13562-1-git-send-email-nsujir@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Wed, 5 Feb 2014 16:29:21 +0300
+From: Nithin Nayak Sujir <nsujir@broadcom.com>
+Date: Thu, 6 Feb 2014 14:13:05 -0800
 
-> In the original code, if tg3_readphy() fails then it does an unnecessary
-> check to verify "err" is still zero and then returns -EBUSY.
+> Quoting David Vrabel -
+> "5780 cards cannot have jumbo frames and TSO enabled together.  When
+> jumbo frames are enabled by setting the MTU, the TSO feature must be
+> cleared.  This is done indirectly by calling netdev_update_features()
+> which will call tg3_fix_features() to actually clear the flags.
 > 
-> My static checker complains about the unnecessary "if (!err)" check and
-> anyway it is better to propagate the -EBUSY error code from
-> tg3_readphy() instead of hard coding it here.  And really the original
-> code is confusing to look at.
+> netdev_update_features() will also trigger a new netlink message for the
+> feature change event which will result in a call to tg3_get_stats64()
+> which deadlocks on the tg3 lock."
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> tg3_set_mtu() does not need to be under the tg3 lock since converting
+> the flags to use set_bit(). Move it out to after tg3_netif_stop().
+> 
+> Reported-by: David Vrabel <david.vrabel@citrix.com>
+> Tested-by: David Vrabel <david.vrabel@citrix.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
 
-Applied.
+Applied and queued up for -stable, thanks.
