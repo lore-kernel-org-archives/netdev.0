@@ -1,50 +1,60 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] net: use __GFP_NORETRY for high order allocations
-Date: Fri, 07 Feb 2014 16:22:56 -0800
-Message-ID: <87y51me9lr.fsf@xmission.com>
-References: <1391712162.10160.8.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140206.222932.292588043950970246.davem@davemloft.net>
+From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: [PATCH] net: fix 'ip rule' iif/oif device rename
+Date: Fri,  7 Feb 2014 16:23:48 -0800
+Message-ID: <1391819028-10722-1-git-send-email-zenczykowski@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	rientjes@google.com, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140206.222932.292588043950970246.davem@davemloft.net> (David
-	Miller's message of "Thu, 06 Feb 2014 22:29:32 -0800 (PST)")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Willem de Bruijn <willemb@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Chris Davis <chrismd@google.com>,
+	Carlo Contavalli <ccontavalli@google.com>
+To: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:46783 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750868AbaBHAYJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Feb 2014 19:24:09 -0500
+Received: by mail-pb0-f52.google.com with SMTP id jt11so3924006pbb.25
+        for <netdev@vger.kernel.org>; Fri, 07 Feb 2014 16:24:09 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+=46rom: Maciej =C5=BBenczykowski <maze@google.com>
 
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Thu, 06 Feb 2014 10:42:42 -0800
->
->> From: Eric Dumazet <edumazet@google.com>
->> 
->> sock_alloc_send_pskb() & sk_page_frag_refill()
->> have a loop trying high order allocations to prepare
->> skb with low number of fragments as this increases performance.
->> 
->> Problem is that under memory pressure/fragmentation, this can
->> trigger OOM while the intent was only to try the high order
->> allocations, then fallback to order-0 allocations.
->> 
->> We had various reports from unexpected regressions.
->> 
->> According to David, setting __GFP_NORETRY should be fine,
->> as the asynchronous compaction is still enabled, and this
->> will prevent OOM from kicking as in :
->  ...
->> Signed-off-by: Eric Dumazet <edumazet@google.com>
->> Acked-by: David Rientjes <rientjes@google.com>
->
-> Applied, do we want this for -stable?
+ip rules with iif/oif references do not update:
+(detach/attach) across interface renames.
 
-The first hunk goes back to 3.12 and the second hunk goes back to 3.8.
+Signed-off-by: Maciej =C5=BBenczykowski <maze@google.com>
+CC: Willem de Bruijn <willemb@google.com>
+CC: Eric Dumazet <edumazet@google.com>
+CC: Chris Davis <chrismd@google.com>
+CC: Carlo Contavalli <ccontavalli@google.com>
 
-I think so.    The change is safe and this class of problem can cause an
-external attack to trigger an OOM on your box, by controlling the packet
-flow.
+Google-Bug-Id: 12936021
+---
+ net/core/fib_rules.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-Eric
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index f409e0bd35c0..185c341fafbd 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -745,6 +745,13 @@ static int fib_rules_event(struct notifier_block *=
+this, unsigned long event,
+ 			attach_rules(&ops->rules_list, dev);
+ 		break;
+=20
++	case NETDEV_CHANGENAME:
++		list_for_each_entry(ops, &net->rules_ops, list) {
++			detach_rules(&ops->rules_list, dev);
++			attach_rules(&ops->rules_list, dev);
++		}
++		break;
++
+ 	case NETDEV_UNREGISTER:
+ 		list_for_each_entry(ops, &net->rules_ops, list)
+ 			detach_rules(&ops->rules_list, dev);
+--=20
+1.8.3
