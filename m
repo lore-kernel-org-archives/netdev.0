@@ -1,150 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: REGRESSION f54b311142a92ea2e42598e347b84e1655caf8e3 tcp auto
- corking slows down iSCSI file system creation by factor of 70 [WAS: 4 TB
- VMFS creation takes 15 minutes vs 26 seconds]
-Date: Sat, 08 Feb 2014 11:12:39 -0800
-Message-ID: <1391886759.10160.114.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1391865273.10160.76.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1391866389.10160.80.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1391867404.10160.88.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1391868816.10160.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140208141905.GG20512@glanzmann.de>
-	 <1391869805.10160.97.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140208150001.GI20512@glanzmann.de>
-	 <1391871986.10160.105.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140208165732.GB22359@glanzmann.de>
-	 <1391879318.10160.108.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140208171531.GA23798@glanzmann.de>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH v2] SUNRPC: Allow one callback request to be received
+ from two sk_buff
+Date: Sat, 08 Feb 2014 23:14:51 +0400
+Message-ID: <52F6822B.1000804@cogentembedded.com>
+References: <no> <1391826543-3102-1-git-send-email-shaobingqing@bwstor.com.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: John Ogness <john.ogness@linutronix.de>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
-	target-devel <target-devel@vger.kernel.org>,
-	Linux Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Thomas Glanzmann <thomas@glanzmann.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140208171531.GA23798@glanzmann.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: shaobingqing <shaobingqing-Gb3srWounXyPt1CcHtbs0g@public.gmane.org>,
+	trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org, bfields-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1391826543-3102-1-git-send-email-shaobingqing-Gb3srWounXyPt1CcHtbs0g@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2014-02-08 at 18:15 +0100, Thomas Glanzmann wrote:
+Hello.
 
-> The iSCSI target uses one function to send all outbound data. So in
-> order to do it right every function that is sending data in multiple
-> chunks need to mark it correctly. Of course someone could also do some
-> wild guessing and saying that everything that is below 512 Bytes gets
-> pushed out. I wonder what Nab has to say about this?
+On 08-02-2014 6:29, shaobingqing wrote:
 
-I was simply thinking about something like :
-(might need further changes, but I guess this should solve your case)
+> In current code, there only one struct rpc_rqst is prealloced. If one
+> callback request is received from two sk_buff, the xprt_alloc_bc_request
+> would be execute two times with the same transport->xid. The first time
+> xprt_alloc_bc_request will alloc one struct rpc_rqst and the TCP_RCV_COPY_DATA
+> bit of transport->tcp_flags will not be cleared. The second time
+> xprt_alloc_bc_request could not alloc struct rpc_rqst any more and NULL
+> pointer will be returned, then xprt_force_disconnect occur. I think one
+> callback request can be allowed to be received from two sk_buff.
 
-diff --git a/drivers/target/iscsi/iscsi_target_util.c b/drivers/target/iscsi/iscsi_target_util.c
-index 0819e688a398..44f0d62a88d6 100644
---- a/drivers/target/iscsi/iscsi_target_util.c
-+++ b/drivers/target/iscsi/iscsi_target_util.c
-@@ -1165,7 +1165,7 @@ send_data:
- 		iov_count = cmd->iov_misc_count;
- 	}
- 
--	tx_sent = tx_data(conn, &iov[0], iov_count, tx_size);
-+	tx_sent = tx_data(conn, &iov[0], iov_count, tx_size, 0);
- 	if (tx_size != tx_sent) {
- 		if (tx_sent == -EAGAIN) {
- 			pr_err("tx_data() returned -EAGAIN\n");
-@@ -1196,7 +1196,8 @@ send_hdr:
- 	iov.iov_base = cmd->pdu;
- 	iov.iov_len = tx_hdr_size;
- 
--	tx_sent = tx_data(conn, &iov, 1, tx_hdr_size);
-+	data_len = cmd->tx_size - tx_hdr_size - cmd->padding;
-+	tx_sent = tx_data(conn, &iov, 1, tx_hdr_size, data_len ? MSG_MORE : 0);
- 	if (tx_hdr_size != tx_sent) {
- 		if (tx_sent == -EAGAIN) {
- 			pr_err("tx_data() returned -EAGAIN\n");
-@@ -1205,7 +1206,6 @@ send_hdr:
- 		return -1;
- 	}
- 
--	data_len = cmd->tx_size - tx_hdr_size - cmd->padding;
- 	/*
- 	 * Set iov_off used by padding and data digest tx_data() calls below
- 	 * in order to determine proper offset into cmd->iov_data[]
-@@ -1249,7 +1249,8 @@ send_padding:
- 	if (cmd->padding) {
- 		struct kvec *iov_p = &cmd->iov_data[iov_off++];
- 
--		tx_sent = tx_data(conn, iov_p, 1, cmd->padding);
-+		tx_sent = tx_data(conn, iov_p, 1, cmd->padding,
-+				  conn->conn_ops->DataDigest ? MSG_MORE : 0);
- 		if (cmd->padding != tx_sent) {
- 			if (tx_sent == -EAGAIN) {
- 				pr_err("tx_data() returned -EAGAIN\n");
-@@ -1263,7 +1264,7 @@ send_datacrc:
- 	if (conn->conn_ops->DataDigest) {
- 		struct kvec *iov_d = &cmd->iov_data[iov_off];
- 
--		tx_sent = tx_data(conn, iov_d, 1, ISCSI_CRC_LEN);
-+		tx_sent = tx_data(conn, iov_d, 1, ISCSI_CRC_LEN, 0);
- 		if (ISCSI_CRC_LEN != tx_sent) {
- 			if (tx_sent == -EAGAIN) {
- 				pr_err("tx_data() returned -EAGAIN\n");
-@@ -1349,11 +1350,12 @@ static int iscsit_do_rx_data(
- 
- static int iscsit_do_tx_data(
- 	struct iscsi_conn *conn,
--	struct iscsi_data_count *count)
-+	struct iscsi_data_count *count,
-+	int flags)
- {
- 	int data = count->data_length, total_tx = 0, tx_loop = 0, iov_len;
- 	struct kvec *iov_p;
--	struct msghdr msg;
-+	struct msghdr msg = { .msg_flags = flags };
- 
- 	if (!conn || !conn->sock || !conn->conn_ops)
- 		return -1;
-@@ -1363,8 +1365,6 @@ static int iscsit_do_tx_data(
- 		return -1;
- 	}
- 
--	memset(&msg, 0, sizeof(struct msghdr));
--
- 	iov_p = count->iov;
- 	iov_len = count->iov_count;
- 
-@@ -1408,7 +1408,8 @@ int tx_data(
- 	struct iscsi_conn *conn,
- 	struct kvec *iov,
- 	int iov_count,
--	int data)
-+	int data,
-+	int flags)
- {
- 	struct iscsi_data_count c;
- 
-@@ -1421,7 +1422,7 @@ int tx_data(
- 	c.data_length = data;
- 	c.type = ISCSI_TX_DATA;
- 
--	return iscsit_do_tx_data(conn, &c);
-+	return iscsit_do_tx_data(conn, &c, flags);
- }
- 
- void iscsit_collect_login_stats(
-diff --git a/drivers/target/iscsi/iscsi_target_util.h b/drivers/target/iscsi/iscsi_target_util.h
-index e4fc34a02f57..1b4f06801adc 100644
---- a/drivers/target/iscsi/iscsi_target_util.h
-+++ b/drivers/target/iscsi/iscsi_target_util.h
-@@ -54,7 +54,7 @@ extern int iscsit_print_dev_to_proc(char *, char **, off_t, int);
- extern int iscsit_print_sessions_to_proc(char *, char **, off_t, int);
- extern int iscsit_print_tpg_to_proc(char *, char **, off_t, int);
- extern int rx_data(struct iscsi_conn *, struct kvec *, int, int);
--extern int tx_data(struct iscsi_conn *, struct kvec *, int, int);
-+extern int tx_data(struct iscsi_conn *, struct kvec *, int, int, int);
- extern void iscsit_collect_login_stats(struct iscsi_conn *, u8, u8);
- extern struct iscsi_tiqn *iscsit_snmp_get_tiqn(struct iscsi_conn *);
- 
+> Signed-off-by: shaobingqing <shaobingqing-Gb3srWounXyPt1CcHtbs0g@public.gmane.org>
+[...]
+
+> diff --git a/include/linux/sunrpc/xprt.h b/include/linux/sunrpc/xprt.h
+> index cec7b9b..82bfe01 100644
+> --- a/include/linux/sunrpc/xprt.h
+> +++ b/include/linux/sunrpc/xprt.h
+> @@ -211,6 +211,7 @@ struct rpc_xprt {
+>   						 * items */
+>   	struct list_head	bc_pa_list;	/* List of preallocated
+>   						 * backchannel rpc_rqst's */
+> +	struct rpc_rqst	*req_first;
+
+    Please align the variable name with the ones above and below.
+
+>   #endif /* CONFIG_SUNRPC_BACKCHANNEL */
+>   	struct list_head	recv;
+>
+[...]
+> diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+> index ee03d35..c43dca4 100644
+> --- a/net/sunrpc/xprtsock.c
+> +++ b/net/sunrpc/xprtsock.c
+> @@ -1272,7 +1272,16 @@ static inline int xs_tcp_read_callback(struct rpc_xprt *xprt,
+>   				container_of(xprt, struct sock_xprt, xprt);
+>   	struct rpc_rqst *req;
+>
+> -	req = xprt_alloc_bc_request(xprt);
+> +	if (xprt->req_first != NULL &&
+> +			xprt->req_first->rq_xid == transport->tcp_xid) {
+
+    The continuation line should be aligned right under 'xprt' on the broken 
+up line, according to the networking coding style.
+
+> +		req = xprt->req_first;
+> +	} else if (xprt->req_first != NULL &&
+> +			xprt->req_first->rq_xid != transport->tcp_xid) {
+
+    Same here.
+
+WBR, Sergei
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
