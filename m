@@ -1,96 +1,94 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH] ipx: implement shutdown()
-Date: Sun,  9 Feb 2014 00:04:29 +0100
-Message-ID: <1391900669-880-1-git-send-email-sd@queasysnail.net>
-Cc: davem@davemloft.net, netdev@vger.kernel.org, 00cpxxx@gmail.com,
-	Sabrina Dubroca <sd@queasysnail.net>
-To: acme@ghostprotocols.net
+From: Christian Engelmayer <cengelma@gmx.at>
+Subject: [PATCH] net: vxge: Remove unused device pointer
+Date: Sun, 9 Feb 2014 00:16:17 +0100
+Message-ID: <20140209001617.1d1543d4@spike>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=PGP-SHA1;
+ boundary="Sig_/1vaYR0v=1Ha6835zRnj3KaF"; protocol="application/pgp-signature"
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Jingoo Han <jg1.han@samsung.com>,
+	Masanari Iida <standby24x7@gmail.com>,
+	John Stultz <john.stultz@linaro.org>,
+	dingtianhong <dingtianhong@huawei.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	stephen hemminger <stephen@networkplumber.org>,
+	Tom Herbert <therbert@google.com>
+To: Jon Mason <jdmason@kudzu.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpfb2-g21.free.fr ([212.27.42.10]:52013 "EHLO
-	smtpfb2-g21.free.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751537AbaBHXFd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Feb 2014 18:05:33 -0500
-Received: from smtp5-g21.free.fr (smtp5-g21.free.fr [212.27.42.5])
-	by smtpfb2-g21.free.fr (Postfix) with ESMTP id 42CC6D1A05A
-	for <netdev@vger.kernel.org>; Sun,  9 Feb 2014 00:05:28 +0100 (CET)
+Received: from mout.gmx.net ([212.227.15.15]:49608 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751125AbaBHXQT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Feb 2014 18:16:19 -0500
+Received: from spike ([81.217.122.98]) by mail.gmx.com (mrgmx002) with ESMTPSA
+ (Nemesis) id 0M3zne-1VKrCM2BJC-00rZtJ for <netdev@vger.kernel.org>; Sun, 09
+ Feb 2014 00:16:18 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IPX doesn't implement shutdown, which poses a problem to some users:
+--Sig_/1vaYR0v=1Ha6835zRnj3KaF
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-https://bugzilla.kernel.org/show_bug.cgi?id=67841
+Remove occurrences of unused struct __vxge_hw_device pointer in functions
+vxge_learn_mac() and vxge_rem_isr().
 
-This patch is heavily based on the shutdown implementation for unix
-sockets.
+Detected by Coverity: CID 139839, CID 139842.
 
-Reported-by: Bruno Jesus <00cpxxx@gmail.com>
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+Signed-off-by: Christian Engelmayer <cengelma@gmx.at>
 ---
- net/ipx/af_ipx.c | 30 ++++++++++++++++++++++++++++--
- 1 file changed, 28 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/neterion/vxge/vxge-main.c | 6 ------
+ 1 file changed, 6 deletions(-)
 
-diff --git a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
-index 994e28b..1df57ca 100644
---- a/net/ipx/af_ipx.c
-+++ b/net/ipx/af_ipx.c
-@@ -1383,6 +1383,7 @@ static int ipx_release(struct socket *sock)
- 		goto out;
- 
- 	lock_sock(sk);
-+	sk->sk_shutdown = SHUTDOWN_MASK;
- 	if (!sock_flag(sk, SOCK_DEAD))
- 		sk->sk_state_change(sk);
- 
-@@ -1806,8 +1807,11 @@ static int ipx_recvmsg(struct kiocb *iocb, struct socket *sock,
- 
- 	skb = skb_recv_datagram(sk, flags & ~MSG_DONTWAIT,
- 				flags & MSG_DONTWAIT, &rc);
--	if (!skb)
-+	if (!skb) {
-+		if (rc == -EAGAIN && (sk->sk_shutdown & RCV_SHUTDOWN))
-+			rc = 0;
- 		goto out;
-+	}
- 
- 	ipx 	= ipx_hdr(skb);
- 	copied 	= ntohs(ipx->ipx_pktsize) - sizeof(struct ipxhdr);
-@@ -1937,6 +1941,28 @@ static int ipx_compat_ioctl(struct socket *sock, unsigned int cmd, unsigned long
- }
- #endif
- 
-+static int ipx_shutdown(struct socket *sock, int mode)
-+{
-+	struct sock *sk = sock->sk;
-+
-+	printk(KERN_INFO "IPX: shutting down %d\n", mode);
-+	if (mode < SHUT_RD || mode > SHUT_RDWR)
-+		return -EINVAL;
-+	/* This maps:
-+	 * SHUT_RD   (0) -> RCV_SHUTDOWN  (1)
-+	 * SHUT_WR   (1) -> SEND_SHUTDOWN (2)
-+	 * SHUT_RDWR (2) -> SHUTDOWN_MASK (3)
-+	 */
-+	++mode;
-+
-+	lock_sock(sk);
-+	sk->sk_shutdown |= mode;
-+	release_sock(sk);
-+	sk->sk_state_change(sk);
-+	printk(KERN_INFO "IPX: socket shut down\n");
-+
-+	return 0;
-+}
- 
- /*
-  * Socket family declarations
-@@ -1963,7 +1989,7 @@ static const struct proto_ops ipx_dgram_ops = {
- 	.compat_ioctl	= ipx_compat_ioctl,
- #endif
- 	.listen		= sock_no_listen,
--	.shutdown	= sock_no_shutdown, /* FIXME: support shutdown */
-+	.shutdown	= ipx_shutdown,
- 	.setsockopt	= ipx_setsockopt,
- 	.getsockopt	= ipx_getsockopt,
- 	.sendmsg	= ipx_sendmsg,
--- 
-1.8.5.4
+diff --git a/drivers/net/ethernet/neterion/vxge/vxge-main.c b/drivers/net/e=
+thernet/neterion/vxge/vxge-main.c
+index 1ded50ca..e46e869 100644
+--- a/drivers/net/ethernet/neterion/vxge/vxge-main.c
++++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c
+@@ -726,9 +726,6 @@ static int vxge_learn_mac(struct vxgedev *vdev, u8 *mac=
+_header)
+ 	int vpath_idx =3D 0;
+ 	enum vxge_hw_status status =3D VXGE_HW_OK;
+ 	struct vxge_vpath *vpath =3D NULL;
+-	struct __vxge_hw_device *hldev;
+-
+-	hldev =3D pci_get_drvdata(vdev->pdev);
+=20
+ 	mac_address =3D (u8 *)&mac_addr;
+ 	memcpy(mac_address, mac_header, ETH_ALEN);
+@@ -2443,9 +2440,6 @@ static void vxge_rem_msix_isr(struct vxgedev *vdev)
+=20
+ static void vxge_rem_isr(struct vxgedev *vdev)
+ {
+-	struct __vxge_hw_device *hldev;
+-	hldev =3D pci_get_drvdata(vdev->pdev);
+-
+ #ifdef CONFIG_PCI_MSI
+ 	if (vdev->config.intr_type =3D=3D MSI_X) {
+ 		vxge_rem_msix_isr(vdev);
+--=20
+1.8.3.2
+
+--Sig_/1vaYR0v=1Ha6835zRnj3KaF
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+
+iQIcBAEBAgAGBQJS9rrBAAoJEKssnEpaPQKEszcQANLCrMb5qqjz3929PT3p+8t7
+rDP2wbeVYHx+ewbZqS0xCxhB0+gbFE8Hcyn1jJLquZFgQysvrzGKXsMde5VTCjAW
+TxivrWvoiIEqxkHn4tKEn/g1ib3QjEebniwuXzB5eNXtTk4EEUTAR5XCBac2soab
+5Ux2WQp5DizQQAO5g8fr4J4GlNBOwyqgvzaHY4QRlUFw5l/rv6xR1RK2wzHGFOon
+Tz1ZxaPLuh1lS2BYL0TT10AVe9Lsxzy4bZ5j6uWBiYpv59dMR4bu5wGxKStvKEii
+8pwwKpYSNf+Ea9n1M8nOESd8GgyQKZG6JKvFqUZUY4L+DEVHIP0YQ4suwAFzxAXx
+WbfTJ2qFk4oBbOuEuhip+owy8JZ7FxjDoyZFRJBqPltm+WLhnUX1eRztDUSWZ0oF
+3wftJKUdZfwZOhl4TJx3zgDZaTGxqAMyk+BlzWRPySVJzYpWIu9kaJoCur6XCP8S
+2vR9iu7xWqvszdnyP96Bquol6ENj1nr9H6RfeoukPiAl6rniHWDfEq8+dLxJWo3z
+/CwjSXW3ipce1oqkSxizoo0kH3KFRRU2caH06qM2qaO9myJ/M4waxdMSFugsbLQl
+Gm2x3AkbchDphTbhQzE7Z7hAREBNj9G0fPeduYX3VEV0nqnWwFTwvZ9BEp124zgT
+Ui9fhxNlo7AMw7rK7udy
+=KJ1F
+-----END PGP SIGNATURE-----
+
+--Sig_/1vaYR0v=1Ha6835zRnj3KaF--
