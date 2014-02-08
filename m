@@ -1,71 +1,115 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: IPv6 FIB related crash with MACVLANs in 3.9.11+ kernel.
-Date: Sat, 8 Feb 2014 18:23:10 +0100
-Message-ID: <20140208172310.GF16198@order.stressinduktion.org>
-References: <52EFFE20.5080500@candelatech.com> <20140203220323.GB17999@order.stressinduktion.org> <52F012FF.9030105@candelatech.com> <52F65EB4.1050306@candelatech.com>
+From: Bart Van Assche <bvanassche@acm.org>
+Subject: [PATCH] bridge: Unbreak netconsole
+Date: Sat, 08 Feb 2014 19:41:15 +0100
+Message-ID: <52F67A4B.9000504@acm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:39905 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751831AbaBHRXL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Feb 2014 12:23:11 -0500
-Content-Disposition: inline
-In-Reply-To: <52F65EB4.1050306@candelatech.com>
+Received: from smtp03.stone-is.org ([87.238.162.65]:60445 "EHLO
+	smtpgw.stone-is.be" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751022AbaBHTJf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Feb 2014 14:09:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 08, 2014 at 08:43:32AM -0800, Ben Greear wrote:
-> On 02/03/2014 02:06 PM, Ben Greear wrote:
-> > On 02/03/2014 02:03 PM, Hannes Frederic Sowa wrote:
-> >> Hi Ben,
-> >>
-> >> On Mon, Feb 03, 2014 at 12:37:52PM -0800, Ben Greear wrote:
-> >>> The kernel has some additional patches, but not much to IPv6.
-> >>>
-> >>> The bug is that when we have lots of mac-vlans on some ixgbe ports
-> >>> (500 per interface in this case), and boot up the system with the ports unplugged,
-> >>> we get this crash almost every time.  Boot-up is going to do normal bootup
-> >>> stuff plus create and configure the 1000 mac-vlans, dump their routing
-> >>> tables, etc.
-> >>>
-> >>> We are using one routing table per network device, and some
-> >>> ip rules.
-> >>>
-> >>> If we plug in the ixgbe ports, we do not ever see a crash.
-> >>>
-> >>> We have not yet tried reproducing it on other drivers, but I suspect
-> >>> the issue is not related to ixgbe.
-> >>>
-> >>> Any ideas on this one?
-> >>
-> >> Could you bring the machine to a panic again with enabling RT6_DEBUG at the
-> >> top of ip6_fib.c and send a dump of the trace?
-> > 
-> > Yes, but it will be a bit until we can create a duplicate machine.
-> > We ended up delivering the machine with a note to make sure the
-> > interfaces were plugged in (we found the bug hours before shipping
-> > the system, of course).
-> 
-> According to my system test guy, it took a lot longer to reproduce
-> the problem with the debug enabled kernel, but I do not see any extra
-> debug messages on the serial console logging or in /var/log/messages
+Sending netconsole messages over a bridge network interface doesn't
+work anymore since kernel v3.12. Bisecting this led to the patch
+"bridge: cleanup netpoll code". Hence revert that patch (commit
+93d8bf9fb8f39d6d3e461db60f883d9f81006159).
 
-Sounds like a race, then, like I thought.
+Signed-off-by: Bart Van Assche <bvanassche@acm.org>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Jiri Pirko <jiri@resnulli.us>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: <stable@vger.kernel.org> # 3.12
+Reference: https://bugzilla.kernel.org/show_bug.cgi?id=70071
+---
+ net/bridge/br_device.c  | 12 ++++++------
+ net/bridge/br_if.c      |  3 +--
+ net/bridge/br_private.h | 10 ++++++++++
+ 3 files changed, 17 insertions(+), 8 deletions(-)
 
-I forgot, those are pr_debugs, I usually enable them with
-
-$ echo file net/ipv6/ip6_fib.c +p > /sys/kernel/debug/dynamic_debug/control
-
-RT6_TRACE is pretty noisy so you should see output immediatley if you do ipv6
-traffic. Other way is to specify dyndbg="file net/ipv6/ip6_fib.c +p" on the
-kernel command line.
-
-Try before doing to play with that until you can confirm the output showes up
-on the console.
-
-Thanks again,
-
-  Hannes
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index e4401a5..ab69594 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -252,22 +252,22 @@ fail:
+ int br_netpoll_enable(struct net_bridge_port *p, gfp_t gfp)
+ {
+ 	struct netpoll *np;
+-	int err;
+-
+-	if (!p->br->dev->npinfo)
+-		return 0;
++	int err = 0;
+ 
+ 	np = kzalloc(sizeof(*p->np), gfp);
++	err = -ENOMEM;
+ 	if (!np)
+-		return -ENOMEM;
++		goto out;
+ 
+ 	err = __netpoll_setup(np, p->dev, gfp);
+ 	if (err) {
+ 		kfree(np);
+-		return err;
++		goto out;
+ 	}
+ 
+ 	p->np = np;
++
++out:
+ 	return err;
+ }
+ 
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index cffe1d6..639231a 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -366,8 +366,7 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ 	if (err)
+ 		goto err2;
+ 
+-	err = br_netpoll_enable(p, GFP_KERNEL);
+-	if (err)
++	if (br_netpoll_info(br) && ((err = br_netpoll_enable(p, GFP_KERNEL))))
+ 		goto err3;
+ 
+ 	err = netdev_master_upper_dev_link(dev, br->dev);
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index fcd1233..52d63bf 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -339,6 +339,11 @@ void br_dev_setup(struct net_device *dev);
+ void br_dev_delete(struct net_device *dev, struct list_head *list);
+ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev);
+ #ifdef CONFIG_NET_POLL_CONTROLLER
++static inline struct netpoll_info *br_netpoll_info(struct net_bridge *br)
++{
++	return br->dev->npinfo;
++}
++
+ static inline void br_netpoll_send_skb(const struct net_bridge_port *p,
+ 				       struct sk_buff *skb)
+ {
+@@ -351,6 +356,11 @@ static inline void br_netpoll_send_skb(const struct net_bridge_port *p,
+ int br_netpoll_enable(struct net_bridge_port *p, gfp_t gfp);
+ void br_netpoll_disable(struct net_bridge_port *p);
+ #else
++static inline struct netpoll_info *br_netpoll_info(struct net_bridge *br)
++{
++	return NULL;
++}
++
+ static inline void br_netpoll_send_skb(const struct net_bridge_port *p,
+ 				       struct sk_buff *skb)
+ {
+-- 
+1.8.4.5
