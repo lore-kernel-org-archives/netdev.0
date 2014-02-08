@@ -1,60 +1,81 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH 1/2] mm/vmalloc: export is_vmalloc_or_module_addr
-Date: Sat, 8 Feb 2014 12:06:40 -0800
-Message-ID: <CA+55aFw2BGS-sPYM1xkO7MfZ_-u=7nF4RYFmoCM99rkL=PxvpA@mail.gmail.com>
-References: <1391886730-19667-1-git-send-email-ryao@gentoo.org>
-	<1391886730-19667-2-git-send-email-ryao@gentoo.org>
-	<CA+55aFx8TzOnW9xPFA4Ox-yFiSUo=cEqeQUmgw_JWjDNEZep8Q@mail.gmail.com>
-	<52F68C67.6050606@gentoo.org>
+From: Josh Triplett <josh@joshtriplett.org>
+Subject: Re: [PATCH 04/13] net: Mark functions as static in core/dev.c
+Date: Sat, 8 Feb 2014 12:07:00 -0800
+Message-ID: <20140208200700.GD20885@leaf>
+References: <6f029c895035908595957fb16ab445c82793c77d.1391888654.git.rashika.kheria@gmail.com>
+ <ccd9586270a8ebb87aeadc10feff52857b7f907c.1391888654.git.rashika.kheria@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Mel Gorman <mgorman@suse.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Rik van Riel <riel@redhat.com>,
-	Eric Van Hensbergen <ericvh@gmail.com>,
-	Ron Minnich <rminnich@sandia.gov>,
-	Latchesar Ionkov <lucho@ionkov.net>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
-	V9FS Develooper Mailing List
-	<v9fs-developer@lists.sourceforge.net>,
-	Linux Netdev Mailing List <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>,
-	Will Deacon <will.deacon@arm.com>,
-	Christopher Covington <cov@codeaurora.org>,
-	Matthew Thode <mthode@mthode.org>
-To: Richard Yao <ryao@gentoo.org>
+	Eric Dumazet <edumazet@google.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org
+To: Rashika Kheria <rashika.kheria@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52F68C67.6050606@gentoo.org>
+Content-Disposition: inline
+In-Reply-To: <ccd9586270a8ebb87aeadc10feff52857b7f907c.1391888654.git.rashika.kheria@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Feb 8, 2014 at 11:58 AM, Richard Yao <ryao@gentoo.org> wrote:
->
-> My apologies for that. Here is the backtrace:
->
-> [<ffffffff814878ce>] p9_virtio_zc_request+0x45e/0x510
-> [<ffffffff814814ed>] p9_client_zc_rpc.constprop.16+0xfd/0x4f0
-> [<ffffffff814839dd>] p9_client_read+0x15d/0x240
-> [<ffffffff811c8440>] v9fs_fid_readn+0x50/0xa0
-> [<ffffffff811c84a0>] v9fs_file_readn+0x10/0x20
-> [<ffffffff811c84e7>] v9fs_file_read+0x37/0x70
-> [<ffffffff8114e3fb>] vfs_read+0x9b/0x160
-> [<ffffffff81153571>] kernel_read+0x41/0x60
-> [<ffffffff810c83ab>] copy_module_from_fd.isra.34+0xfb/0x180
+On Sun, Feb 09, 2014 at 01:23:45AM +0530, Rashika Kheria wrote:
+> Mark functions as static in core/dev.c because they are not used outs=
+ide
+> this file.
+>=20
+> This eliminates the following warning in core/dev.c:
+> net/core/dev.c:2806:5: warning: no previous prototype for =E2=80=98__=
+dev_queue_xmit=E2=80=99 [-Wmissing-prototypes]
+> net/core/dev.c:4640:5: warning: no previous prototype for =E2=80=98ne=
+tdev_adjacent_sysfs_add=E2=80=99 [-Wmissing-prototypes]
+> net/core/dev.c:4650:6: warning: no previous prototype for =E2=80=98ne=
+tdev_adjacent_sysfs_del=E2=80=99 [-Wmissing-prototypes]
+>=20
+> Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
 
-So copy_module_from_fd() does read into a vmalloc'ed buffer (which
-isn't pretty, but at least it's not like using some statically
-allocated module data), but that's a regular vmalloc() afaik.
+Reviewed-by: Josh Triplett <josh@joshtriplett.org>
 
-So I don't see the need for "is_vmalloc_or_module_addr()". The regular
-"is_vmalloc_addr()" should be fine, and *is* usable from modules (it's
-inline, not exported, but it comes to the same thing wrt module use),
-exactly because we have traditionally allowed vmalloc'ed memory to be
-used.
-
-So is there some reason why it's not just using that simpler function?
-
-The kmap_to_page() thing is actually worse, but that's preexisting damage.
-
-            Linus
+>  net/core/dev.c |    6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+>=20
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 3721db7..4ad1b78 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2803,7 +2803,7 @@ EXPORT_SYMBOL(dev_loopback_xmit);
+>   *      the BH enable code must have IRQs enabled so that it will no=
+t deadlock.
+>   *          --BLG
+>   */
+> -int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
+> +static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
+>  {
+>  	struct net_device *dev =3D skb->dev;
+>  	struct netdev_queue *txq;
+> @@ -4637,7 +4637,7 @@ struct net_device *netdev_master_upper_dev_get_=
+rcu(struct net_device *dev)
+>  }
+>  EXPORT_SYMBOL(netdev_master_upper_dev_get_rcu);
+> =20
+> -int netdev_adjacent_sysfs_add(struct net_device *dev,
+> +static int netdev_adjacent_sysfs_add(struct net_device *dev,
+>  			      struct net_device *adj_dev,
+>  			      struct list_head *dev_list)
+>  {
+> @@ -4647,7 +4647,7 @@ int netdev_adjacent_sysfs_add(struct net_device=
+ *dev,
+>  	return sysfs_create_link(&(dev->dev.kobj), &(adj_dev->dev.kobj),
+>  				 linkname);
+>  }
+> -void netdev_adjacent_sysfs_del(struct net_device *dev,
+> +static void netdev_adjacent_sysfs_del(struct net_device *dev,
+>  			       char *name,
+>  			       struct list_head *dev_list)
+>  {
+> --=20
+> 1.7.9.5
+>=20
