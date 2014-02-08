@@ -1,7 +1,7 @@
 From: Richard Yao <ryao@gentoo.org>
 Subject: [PATCH 0/2] Attention by Linus Torvalds needed to export symbol he wrote
-Date: Sat,  8 Feb 2014 14:11:01 -0500
-Message-ID: <1391886663-19583-1-git-send-email-ryao@gentoo.org>
+Date: Sat,  8 Feb 2014 14:12:08 -0500
+Message-ID: <1391886730-19667-1-git-send-email-ryao@gentoo.org>
 Cc: Eric Van Hensbergen <ericvh@gmail.com>,
 	Ron Minnich <rminnich@sandia.gov>,
 	Latchesar Ionkov <lucho@ionkov.net>,
@@ -13,7 +13,6 @@ Cc: Eric Van Hensbergen <ericvh@gmail.com>,
 	"Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>,
 	Will Deacon <will.deacon@arm.com>,
 	Christopher Covington <cov@codeaurora.org>,
-	Brian Behlendorf <behlendorf1@llnl.gov>,
 	Matthew Thode <mthode@mthode.org>
 To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
