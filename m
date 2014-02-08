@@ -1,70 +1,97 @@
-From: Rashika Kheria <rashika.kheria@gmail.com>
-Subject: [PATCH 06/13] net: Move prototype declaration to appropriate header
- file from decnet/af_decnet.c
-Date: Sun, 9 Feb 2014 01:28:07 +0530
-Message-ID: <46f32476c8361e104aa27cebb3425b4926f5ad57.1391888654.git.rashika.kheria@gmail.com>
-References: <6f029c895035908595957fb16ab445c82793c77d.1391888654.git.rashika.kheria@gmail.com>
+From: Richard Yao <ryao@gentoo.org>
+Subject: Re: [PATCH 1/2] mm/vmalloc: export is_vmalloc_or_module_addr
+Date: Sat, 08 Feb 2014 14:58:31 -0500
+Message-ID: <52F68C67.6050606@gentoo.org>
+References: <1391886730-19667-1-git-send-email-ryao@gentoo.org>	<1391886730-19667-2-git-send-email-ryao@gentoo.org> <CA+55aFx8TzOnW9xPFA4Ox-yFiSUo=cEqeQUmgw_JWjDNEZep8Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Rashika Kheria <rashika.kheria@gmail.com>,
-	Gao feng <gaofeng@cn.fujitsu.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="uqXPEAPdQrvLxNhn7sbaIrf5aaMv8rbWX"
+Cc: Eric Van Hensbergen <ericvh@gmail.com>,
+	Ron Minnich <rminnich@sandia.gov>,
+	Latchesar Ionkov <lucho@ionkov.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	V9FS Develooper Mailing List
+	<v9fs-developer@lists.sourceforge.net>,
+	Linux Netdev Mailing List <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>,
+	Will Deacon <will.deacon@arm.com>,
+	Christopher Covington <cov@codeaurora.org>,
+	Matthew Thode <mthode@mthode.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>,
+	Mel Gorman <mgorman@suse.de>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	Steffen Hurrle <steffen@hurrle.net>,
-	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	linux-decnet-user@lists.sourceforge.net, josh@joshtriplett.org
-To: linux-kernel@vger.kernel.org
+	Rik van Riel <riel@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <6f029c895035908595957fb16ab445c82793c77d.1391888654.git.rashika.kheria@gmail.com>
+In-Reply-To: <CA+55aFx8TzOnW9xPFA4Ox-yFiSUo=cEqeQUmgw_JWjDNEZep8Q@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Move prototype declaration of functions to header file include/net/dn_r=
-oute.h
-from net/decnet/af_decnet.c because it is used by more than one file.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--uqXPEAPdQrvLxNhn7sbaIrf5aaMv8rbWX
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-This eliminates the following warning in net/decnet/dn_route.c:
-net/decnet/dn_route.c:629:5: warning: no previous prototype for =E2=80=98=
-dn_route_rcv=E2=80=99 [-Wmissing-prototypes]
+On 02/08/2014 02:45 PM, Linus Torvalds wrote:
+> On Sat, Feb 8, 2014 at 11:12 AM, Richard Yao <ryao@gentoo.org> wrote:
+> And what's the backtrace that gets mentioned - but not quoted - for
+> the horrible 9p crap? So that we can see who the guilty party is that
+> thinks that it's somehow ok to pass module addresses off to other
+> kernel users..
 
-Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
----
- include/net/dn_route.h |    2 ++
- net/decnet/af_decnet.c |    2 --
- 2 files changed, 2 insertions(+), 2 deletions(-)
+My apologies for that. Here is the backtrace:
 
-diff --git a/include/net/dn_route.h b/include/net/dn_route.h
-index b409ad6..55df993 100644
---- a/include/net/dn_route.h
-+++ b/include/net/dn_route.h
-@@ -20,6 +20,8 @@ int dn_route_output_sock(struct dst_entry __rcu **ppr=
-t, struct flowidn *,
- 			 struct sock *sk, int flags);
- int dn_cache_dump(struct sk_buff *skb, struct netlink_callback *cb);
- void dn_rt_cache_flush(int delay);
-+int dn_route_rcv(struct sk_buff *skb, struct net_device *dev,
-+		 struct packet_type *pt, struct net_device *orig_dev);
-=20
- /* Masks for flags field */
- #define DN_RT_F_PID 0x07 /* Mask for packet type                      =
-*/
-diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
-index 2954dcb..24d9193 100644
---- a/net/decnet/af_decnet.c
-+++ b/net/decnet/af_decnet.c
-@@ -2104,8 +2104,6 @@ static struct notifier_block dn_dev_notifier =3D =
-{
- 	.notifier_call =3D dn_device_event,
- };
-=20
--extern int dn_route_rcv(struct sk_buff *, struct net_device *, struct =
-packet_type *, struct net_device *);
--
- static struct packet_type dn_dix_packet_type __read_mostly =3D {
- 	.type =3D		cpu_to_be16(ETH_P_DNA_RT),
- 	.func =3D		dn_route_rcv,
---=20
-1.7.9.5
+[<ffffffff814878ce>] p9_virtio_zc_request+0x45e/0x510
+[<ffffffff814814ed>] p9_client_zc_rpc.constprop.16+0xfd/0x4f0
+[<ffffffff814839dd>] p9_client_read+0x15d/0x240
+[<ffffffff811c8440>] v9fs_fid_readn+0x50/0xa0
+[<ffffffff811c84a0>] v9fs_file_readn+0x10/0x20
+[<ffffffff811c84e7>] v9fs_file_read+0x37/0x70
+[<ffffffff8114e3fb>] vfs_read+0x9b/0x160
+[<ffffffff81153571>] kernel_read+0x41/0x60
+[<ffffffff810c83ab>] copy_module_from_fd.isra.34+0xfb/0x180
+[<ffffffff810cc420>] SyS_finit_module+0x70/0xd0
+[<ffffffff814a08fd>] system_call_fastpath+0x1a/0x1f
+[<ffffffffffffffff>] 0xffffffffffffffff
+
+The addresses are being passed to permit zero-copy between the guest and
+the host. You can see this in the original thread back from December,
+which is from before I knew how to submit patches properly:
+
+http://www.spinics.net/lists/linux-virtualization/msg21734.html
+
+> Please let's just fix the real problem, don't add more horridness on
+> top of it because somebody messed up earlier.
+
+This code avoids a copy between QEMU's 9p server and a guest Linux
+kernel. Without it, the 9p-virtio code must allocate additional buffers
+into which QEMU will write the data and then copy from those buffers
+into the actual kernel buffers. How would you like 9p-virtio to do this?
+
+
+--uqXPEAPdQrvLxNhn7sbaIrf5aaMv8rbWX
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iQIcBAEBAgAGBQJS9oxsAAoJECDuEZm+6ExkICMQAKrHlHG25+z85pdHS9RGXwaj
+Oblb2a5XZ1u7JIGsZbr1H5MiKBzeMKJn5+DwDjb/x4ZiC18KsllNDpXYVGJ2MAeV
+VkQQjUeMS8/KtDdKARbrF3NI1CqIJNz8jhdLj4jbU3eOn1lIltdyESaCCg9EAnIH
+yBSEcQ3M5fmwDumu1rZUonSwd5VamLkMcOorsPsXpeocskXLja4erjPHvD/gjl7/
+1DbQFFnYctlmWTNQbj4K4swS+IwHHhON1P3FMCqH9XXEyq7vpoAUpuubYPJe4Rs3
+NWIvd0LZ7N20Pa2Ygea1LBbyW2ikNz7Q8pCEr4O6H6fIBjVd5iAV2v3SoKv400UP
+slvgumfXdNfEkQMWIeKBzjRJbYuDdeRRr1UfPR+cpqSvTK1MrLFIGz1zmSIcaaM3
+J9IPMhyjasa6clqEQwPDalKKEBliblq8r9CAQDz6D+dx6/lYBE2+GkUjlzq5omxa
+4vruYz81yEfMmy/nbyMoxCZEMRC0jkIoWUWquRqqtVY34wE6woDzpIZfx5THAJcz
+87KGue07+kUxcN12JJGlI5THq0pHQJELhNdU2Mic51YvIlyCbESh9uAZ0ARg5uZJ
+IOmfv3ILI9lWuzs98/XAAAyfAdMKU/CWaf/MCQ9SWlmUsRcbx3p57qs+Ax3qkyPZ
+dbFyyhJFcYgiSGvrEa8w
+=OkRJ
+-----END PGP SIGNATURE-----
+
+--uqXPEAPdQrvLxNhn7sbaIrf5aaMv8rbWX--
