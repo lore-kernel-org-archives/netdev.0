@@ -1,81 +1,43 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH] net: rfkill-regulator: Add devicetree support.
-Date: Sat, 8 Feb 2014 01:22:25 -0500
-Message-ID: <20140208012225.d7a311c7.billfink@mindspring.com>
-References: <1391802529-29861-1-git-send-email-marek@goldelico.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	rob@landley.net, linville@tuxdriver.com, johannes@sipsolutions.net,
-	davem@davemloft.net, grant.likely@linaro.org, neilb@suse.de,
-	hns@goldelico.com, devicetree@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Marek Belisko <marek@goldelico.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-banded.atl.sa.earthlink.net ([209.86.89.70]:35195 "EHLO
-	elasmtp-banded.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750748AbaBHGYx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Feb 2014 01:24:53 -0500
-In-Reply-To: <1391802529-29861-1-git-send-email-marek@goldelico.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andi Kleen <ak@linux.intel.com>
+Subject: [PATCH] sections, ipvs: Remove useless __read_mostly for ipvs genl_ops
+Date: Sat,  8 Feb 2014 08:57:01 +0100
+Message-ID: <1391846221-30240-1-git-send-email-ak@linux.intel.com>
+Cc: linux-kernel@vger.kernel.org, Andi Kleen <ak@linux.intel.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Patrick McHardy <kaber@trash.net>, lvs-devel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri,  7 Feb 2014, Marek Belisko wrote:
+const __read_mostly does not make any sense, because const
+data is already read-only. Remove the __read_mostly
+for the ipvs genl_ops. This avoids a LTO
+section conflict compile problem.
 
-> Signed-off-by: NeilBrown <neilb@suse.de>
-> Signed-off-by: Marek Belisko <marek@goldelico.com>
-> ---
-> Based on Neil's patch and extend for documentation and bindings include.
-> 
->  .../bindings/net/rfkill/rfkill-relugator.txt       | 28 ++++++++++++++++
+Cc: Wensong Zhang <wensong@linux-vs.org>
+Cc: Simon Horman <horms@verge.net.au>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: lvs-devel@vger.kernel.org
+Signed-off-by: Andi Kleen <ak@linux.intel.com>
+---
+ net/netfilter/ipvs/ip_vs_ctl.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-                                  ^^^^^^^^^
-                                  Typo in file name.
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 35be035..2a68a38 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -3580,7 +3580,7 @@ out:
+ }
+ 
+ 
+-static const struct genl_ops ip_vs_genl_ops[] __read_mostly = {
++static const struct genl_ops ip_vs_genl_ops[] = {
+ 	{
+ 		.cmd	= IPVS_CMD_NEW_SERVICE,
+ 		.flags	= GENL_ADMIN_PERM,
+-- 
+1.8.5.2
 
-					-Bill
-
-
-
->  include/dt-bindings/net/rfkill-regulator.h         | 23 +++++++++++++
->  net/rfkill/rfkill-regulator.c                      | 38 ++++++++++++++++++++++
->  3 files changed, 89 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/rfkill/rfkill-relugator.txt
->  create mode 100644 include/dt-bindings/net/rfkill-regulator.h
-> 
-> diff --git a/Documentation/devicetree/bindings/net/rfkill/rfkill-relugator.txt b/Documentation/devicetree/bindings/net/rfkill/rfkill-relugator.txt
-> new file mode 100644
-> index 0000000..cdb7dd7
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/rfkill/rfkill-relugator.txt
-> @@ -0,0 +1,28 @@
-> +Regulator consumer for rfkill devices
-> +
-> +Required properties:
-> +- compatible   : Must be "rfkill-regulator".
-> +- label  : Name of rfkill device.
-> +- type  : Type of rfkill device.
-> +
-> +Possible values (defined in include/dt-bindings/net/rfkill-regulator.h):
-> +	RFKILL_TYPE_ALL
-> +	RFKILL_TYPE_WLAN
-> +	RFKILL_TYPE_BLUETOOTH
-> +	RFKILL_TYPE_UWB
-> +	RFKILL_TYPE_WIMAX
-> +	RFKILL_TYPE_WWAN
-> +	RFKILL_TYPE_GPS
-> +	RFKILL_TYPE_FM
-> +	RFKILL_TYPE_NFC
-> +
-> +- vrfkill-supply - regulator device.
-> +
-> +Example:
-> +	gps-rfkill {
-> +		compatible = "rfkill-regulator";
-> +		label = "GPS";
-> +		type = <RFKILL_TYPE_GPS>;
-> +		vrfkill-supply = <&reg>;
-> +	};
-> +
