@@ -1,131 +1,71 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH V2] staging: r8188eu: Fix missing header
-Date: Fri,  7 Feb 2014 18:38:50 -0600
-Message-ID: <1391819930-2549-1-git-send-email-Larry.Finger@lwfinger.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] net: Clear local_df only if crossing namespace.
+Date: Sat, 8 Feb 2014 01:58:43 +0100
+Message-ID: <20140208005843.GE16198@order.stressinduktion.org>
+References: <1391811158-11433-1-git-send-email-pshelar@nicira.com> <20140207222840.GD16198@order.stressinduktion.org> <CALnjE+pbcbENWjQcE8T0QLa=d0iia3EBBVJz-sGVzAZbsQarLQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- Larry Finger <Larry.Finger@lwfinger.net>
-To: gregkh@linuxfoundation.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"Templin, Fred L" <Fred.L.Templin@boeing.com>,
+	nicolas.dichtel@6wind.com
+To: Pravin Shelar <pshelar@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:38907 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750706AbaBHA6p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Feb 2014 19:58:45 -0500
+Content-Disposition: inline
+In-Reply-To: <CALnjE+pbcbENWjQcE8T0QLa=d0iia3EBBVJz-sGVzAZbsQarLQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 2397c6e0927675d983b34a03401affdb64818d07 entitled "staging: r8188eu:
-Remove wrappers around vmalloc and vzalloc" and
-commit: 03bd6aea7ba610a1a19f840c373624b8b0adde0d entitled "staging: r8188eu:
-Remove wrappers around vfree" failed to add the header file needed
-to provide vzalloc and vfree.
+[Cc Nicolas]
 
-This problem was reported by the kbuild test robot.
+On Fri, Feb 07, 2014 at 02:49:20PM -0800, Pravin Shelar wrote:
+> On Fri, Feb 7, 2014 at 2:28 PM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+> > Hi!
+> >
+> > On Fri, Feb 07, 2014 at 02:12:38PM -0800, Pravin wrote:
+> >> --- a/net/core/skbuff.c
+> >> +++ b/net/core/skbuff.c
+> >> @@ -3905,12 +3905,13 @@ EXPORT_SYMBOL(skb_try_coalesce);
+> >>   */
+> >>  void skb_scrub_packet(struct sk_buff *skb, bool xnet)
+> >>  {
+> >> -     if (xnet)
+> >> +     if (xnet) {
+> >>               skb_orphan(skb);
+> >> +             skb->local_df = 0;
+> >> +     }
+> >>       skb->tstamp.tv64 = 0;
+> >>       skb->pkt_type = PACKET_HOST;
+> >>       skb->skb_iif = 0;
+> >> -     skb->local_df = 0;
+> >>       skb_dst_drop(skb);
+> >>       skb->mark = 0;
+> >>       secpath_reset(skb);
+> >
+> > I wonder if this should be the right behaviour for tunnels, which should just
+> > do fragmentation based on IP_DF, even if the packet originated locally from a
+> > socket which allowed local fragmentation (inet->pmtudisc < IP_PMTUDISC_DO).
+> >
+> This is not about tunneling, skb_scrub_packet() is generic function
+> which should not reset local_df on all packets.
+> 
+> We can have separate discussion about use of local_df and tunneling in
+> another thread.
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
----
+This change only affects tunnel code as of current net branch, how do
+you not expect a discussion about that in this thread, I really wonder?
 
-V2 - add attribution to the build robot
----
+May I know because of wich vport, vxlan or gre, you did this change?
 
- drivers/staging/rtl8188eu/core/rtw_mlme.c      | 1 +
- drivers/staging/rtl8188eu/core/rtw_mp.c        | 1 +
- drivers/staging/rtl8188eu/core/rtw_recv.c      | 1 +
- drivers/staging/rtl8188eu/core/rtw_sta_mgt.c   | 1 +
- drivers/staging/rtl8188eu/core/rtw_xmit.c      | 1 +
- drivers/staging/rtl8188eu/os_dep/ioctl_linux.c | 1 +
- drivers/staging/rtl8188eu/os_dep/usb_intf.c    | 1 +
- 7 files changed, 7 insertions(+)
+I am feeling a bit uncomfortable handling remote and local packets that
+differently on lower tunnel output (local_df is mostly set on locally
+originating packets).
 
-diff --git a/drivers/staging/rtl8188eu/core/rtw_mlme.c b/drivers/staging/rtl8188eu/core/rtw_mlme.c
-index 2037be0..927fc72 100644
---- a/drivers/staging/rtl8188eu/core/rtw_mlme.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_mlme.c
-@@ -31,6 +31,7 @@
- #include <wlan_bssdef.h>
- #include <rtw_ioctl_set.h>
- #include <usb_osintf.h>
-+#include <linux/vmalloc.h>
- 
- extern unsigned char	MCS_rate_2R[16];
- extern unsigned char	MCS_rate_1R[16];
-diff --git a/drivers/staging/rtl8188eu/core/rtw_mp.c b/drivers/staging/rtl8188eu/core/rtw_mp.c
-index 9e97b57..99c06c4 100644
---- a/drivers/staging/rtl8188eu/core/rtw_mp.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_mp.c
-@@ -23,6 +23,7 @@
- 
- #include "odm_precomp.h"
- #include "rtl8188e_hal.h"
-+#include <linux/vmalloc.h>
- 
- u32 read_macreg(struct adapter *padapter, u32 addr, u32 sz)
- {
-diff --git a/drivers/staging/rtl8188eu/core/rtw_recv.c b/drivers/staging/rtl8188eu/core/rtw_recv.c
-index 8490d51..ed308ff 100644
---- a/drivers/staging/rtl8188eu/core/rtw_recv.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_recv.c
-@@ -28,6 +28,7 @@
- #include <ethernet.h>
- #include <usb_ops.h>
- #include <wifi.h>
-+#include <linux/vmalloc.h>
- 
- static u8 SNAP_ETH_TYPE_IPX[2] = {0x81, 0x37};
- static u8 SNAP_ETH_TYPE_APPLETALK_AARP[2] = {0x80, 0xf3};
-diff --git a/drivers/staging/rtl8188eu/core/rtw_sta_mgt.c b/drivers/staging/rtl8188eu/core/rtw_sta_mgt.c
-index 6df9669..e8a654d 100644
---- a/drivers/staging/rtl8188eu/core/rtw_sta_mgt.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_sta_mgt.c
-@@ -25,6 +25,7 @@
- #include <xmit_osdep.h>
- #include <mlme_osdep.h>
- #include <sta_info.h>
-+#include <linux/vmalloc.h>
- 
- static void _rtw_init_stainfo(struct sta_info *psta)
- {
-diff --git a/drivers/staging/rtl8188eu/core/rtw_xmit.c b/drivers/staging/rtl8188eu/core/rtw_xmit.c
-index aa77270..2c0a40f 100644
---- a/drivers/staging/rtl8188eu/core/rtw_xmit.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_xmit.c
-@@ -26,6 +26,7 @@
- #include <ip.h>
- #include <usb_ops.h>
- #include <usb_osintf.h>
-+#include <linux/vmalloc.h>
- 
- static u8 P802_1H_OUI[P80211_OUI_LEN] = { 0x00, 0x00, 0xf8 };
- static u8 RFC1042_OUI[P80211_OUI_LEN] = { 0x00, 0x00, 0x00 };
-diff --git a/drivers/staging/rtl8188eu/os_dep/ioctl_linux.c b/drivers/staging/rtl8188eu/os_dep/ioctl_linux.c
-index 0204082..f3584dd 100644
---- a/drivers/staging/rtl8188eu/os_dep/ioctl_linux.c
-+++ b/drivers/staging/rtl8188eu/os_dep/ioctl_linux.c
-@@ -35,6 +35,7 @@
- 
- #include <rtw_mp.h>
- #include <rtw_iol.h>
-+#include <linux/vmalloc.h>
- 
- #define RTL_IOCTL_WPA_SUPPLICANT	(SIOCIWFIRSTPRIV + 30)
- 
-diff --git a/drivers/staging/rtl8188eu/os_dep/usb_intf.c b/drivers/staging/rtl8188eu/os_dep/usb_intf.c
-index 0a585b2..8ad3948 100644
---- a/drivers/staging/rtl8188eu/os_dep/usb_intf.c
-+++ b/drivers/staging/rtl8188eu/os_dep/usb_intf.c
-@@ -26,6 +26,7 @@
- #include <hal_intf.h>
- #include <rtw_version.h>
- #include <linux/usb.h>
-+#include <linux/vmalloc.h>
- #include <osdep_intf.h>
- 
- #include <usb_vendor_req.h>
--- 
-1.8.4.5
+Thanks,
+
+  Hannes
