@@ -1,115 +1,86 @@
-From: Bart Van Assche <bvanassche@acm.org>
-Subject: [PATCH] bridge: Unbreak netconsole
-Date: Sat, 08 Feb 2014 19:41:15 +0100
-Message-ID: <52F67A4B.9000504@acm.org>
+From: Christian Engelmayer <cengelma@gmx.at>
+Subject: [PATCH/RESEND] 3c59x: Remove unused pointer in
+ vortex_eisa_cleanup()
+Date: Sat, 8 Feb 2014 20:10:23 +0100
+Message-ID: <20140208201023.731538cf@spike>
+References: <20140208181117.6776b154@spike>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: multipart/signed; micalg=PGP-SHA1;
+ boundary="Sig_//U2cwNAw6sHtmv/J7Hyx8HP"; protocol="application/pgp-signature"
+Cc: netdev@vger.kernel.org
+To: steffen@klassert.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp03.stone-is.org ([87.238.162.65]:60445 "EHLO
-	smtpgw.stone-is.be" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751022AbaBHTJf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Feb 2014 14:09:35 -0500
+Received: from mout.gmx.net ([212.227.15.15]:63646 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751159AbaBHTKY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Feb 2014 14:10:24 -0500
+Received: from spike ([81.217.122.98]) by mail.gmx.com (mrgmx002) with ESMTPSA
+ (Nemesis) id 0LngNT-1VZKpV2ymV-00hrgi for <netdev@vger.kernel.org>; Sat, 08
+ Feb 2014 20:10:22 +0100
+In-Reply-To: <20140208181117.6776b154@spike>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sending netconsole messages over a bridge network interface doesn't
-work anymore since kernel v3.12. Bisecting this led to the patch
-"bridge: cleanup netpoll code". Hence revert that patch (commit
-93d8bf9fb8f39d6d3e461db60f883d9f81006159).
+--Sig_//U2cwNAw6sHtmv/J7Hyx8HP
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Bart Van Assche <bvanassche@acm.org>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: Jiri Pirko <jiri@resnulli.us>
-Cc: Neil Horman <nhorman@tuxdriver.com>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: <stable@vger.kernel.org> # 3.12
-Reference: https://bugzilla.kernel.org/show_bug.cgi?id=70071
+Remove unused network device private data pointer 'vp' in function
+vortex_eisa_cleanup(). Detected by Coverity: CID 139826.
+
+Signed-off-by: Christian Engelmayer <cengelma@gmx.at>
 ---
- net/bridge/br_device.c  | 12 ++++++------
- net/bridge/br_if.c      |  3 +--
- net/bridge/br_private.h | 10 ++++++++++
- 3 files changed, 17 insertions(+), 8 deletions(-)
+Resend using address steffen@klassert.de as retrieved from the mail delivery
+fail notification by tu-chemnitz.de. Information in MAINTAINERS seems to be
+outdated on that point.
+---
+ drivers/net/ethernet/3com/3c59x.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index e4401a5..ab69594 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -252,22 +252,22 @@ fail:
- int br_netpoll_enable(struct net_bridge_port *p, gfp_t gfp)
+diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/=
+3c59x.c
+index 0f4241c..238ccea 100644
+--- a/drivers/net/ethernet/3com/3c59x.c
++++ b/drivers/net/ethernet/3com/3c59x.c
+@@ -3294,7 +3294,6 @@ static int __init vortex_init(void)
+=20
+ static void __exit vortex_eisa_cleanup(void)
  {
- 	struct netpoll *np;
--	int err;
--
--	if (!p->br->dev->npinfo)
--		return 0;
-+	int err = 0;
- 
- 	np = kzalloc(sizeof(*p->np), gfp);
-+	err = -ENOMEM;
- 	if (!np)
--		return -ENOMEM;
-+		goto out;
- 
- 	err = __netpoll_setup(np, p->dev, gfp);
- 	if (err) {
- 		kfree(np);
--		return err;
-+		goto out;
- 	}
- 
- 	p->np = np;
-+
-+out:
- 	return err;
- }
- 
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index cffe1d6..639231a 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -366,8 +366,7 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
- 	if (err)
- 		goto err2;
- 
--	err = br_netpoll_enable(p, GFP_KERNEL);
--	if (err)
-+	if (br_netpoll_info(br) && ((err = br_netpoll_enable(p, GFP_KERNEL))))
- 		goto err3;
- 
- 	err = netdev_master_upper_dev_link(dev, br->dev);
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index fcd1233..52d63bf 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -339,6 +339,11 @@ void br_dev_setup(struct net_device *dev);
- void br_dev_delete(struct net_device *dev, struct list_head *list);
- netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev);
- #ifdef CONFIG_NET_POLL_CONTROLLER
-+static inline struct netpoll_info *br_netpoll_info(struct net_bridge *br)
-+{
-+	return br->dev->npinfo;
-+}
-+
- static inline void br_netpoll_send_skb(const struct net_bridge_port *p,
- 				       struct sk_buff *skb)
- {
-@@ -351,6 +356,11 @@ static inline void br_netpoll_send_skb(const struct net_bridge_port *p,
- int br_netpoll_enable(struct net_bridge_port *p, gfp_t gfp);
- void br_netpoll_disable(struct net_bridge_port *p);
- #else
-+static inline struct netpoll_info *br_netpoll_info(struct net_bridge *br)
-+{
-+	return NULL;
-+}
-+
- static inline void br_netpoll_send_skb(const struct net_bridge_port *p,
- 				       struct sk_buff *skb)
- {
--- 
-1.8.4.5
+-	struct vortex_private *vp;
+ 	void __iomem *ioaddr;
+=20
+ #ifdef CONFIG_EISA
+@@ -3303,7 +3302,6 @@ static void __exit vortex_eisa_cleanup(void)
+ #endif
+=20
+ 	if (compaq_net_device) {
+-		vp =3D netdev_priv(compaq_net_device);
+ 		ioaddr =3D ioport_map(compaq_net_device->base_addr,
+ 		                    VORTEX_TOTAL_SIZE);
+=20
+--=20
+1.8.3.2
+
+--Sig_//U2cwNAw6sHtmv/J7Hyx8HP
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+
+iQIcBAEBAgAGBQJS9oEfAAoJEKssnEpaPQKEGasP/iEMEaLXzEZt4aV2AtpS/yxx
+G4Kra51I9eyAZXOBDdpDOAaPIp1n3CvtffbtghgLK5aLdiZn6GSemOk06p9X4jQs
+5MWieXsPQA58gBldwgNhLhtHGQ7V435hgNKfVgaGUOLPf+AC1Vv4qQkBZ5s6AHRC
+ZkvB8SZcfkEEKHjMvXBfVfwm3Lsjl3HvLSU+5gizp2Af0IIz4OEMwRVNJH/aS/4J
+171Ma4pfT8bkKcEF3mvWiDxmGVq6mBuNnJbXrH4E5uoawzopso2pIBOJay4dlIf0
+UiGJG2UFHjYEgAD+Iuge3Ukr3oxBr2AHIOLrEUr+KT54+VJnDGiE94mn3igOuVZI
+S/u+HjbE6NPeaeYyt0Q892r0CVegvwnXlCMWDS4vLu6YQZJLJHlpOkyG7YbmV1Ts
+BC2eMewzGZxtE182YegNUIv3FGDvp5MW8pRLIrNnpud0h+XTb6ZCg2W2X2P34DFk
+SdYVcDeyoXiNXJa33AvypLFSUziJ9KLyOIG8SsDrHldFn4k5n09gx5X7/UtVJEYS
+buW8kjdN7col6I3HLyYAGoPTL+CXJwV0UEgrAgwApzHyLtpU//H1yMmA7w/v3NlN
+SLUs3PRHAvUKcZrGAUoDzobG03M05DdHoLWmWb/p6q0oPSom+YkYktrD1rbfkZ4V
+FBIKzkEB82Ia6g1E8jbl
+=Edi/
+-----END PGP SIGNATURE-----
+
+--Sig_//U2cwNAw6sHtmv/J7Hyx8HP--
