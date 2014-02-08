@@ -1,79 +1,55 @@
-From: Christian Engelmayer <cengelma@gmx.at>
-Subject: [PATCH] 3c59x: Remove unused pointer in vortex_eisa_cleanup()
-Date: Sat, 8 Feb 2014 18:11:17 +0100
-Message-ID: <20140208181117.6776b154@spike>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: disable auto corking by default
+Date: Sat, 08 Feb 2014 09:12:38 -0800
+Message-ID: <1391879558.10160.112.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140206153640.GB4103@glanzmann.de>
+	 <1391727771.14985.41.camel@haakon3.risingtidesystems.com>
+	 <20140207051500.GB10916@glanzmann.de> <20140207075536.GB17815@glanzmann.de>
+	 <1391801597.1155.28.camel@haakon3.risingtidesystems.com>
+	 <20140207205142.GA8609@glanzmann.de> <20140208091828.GA16336@glanzmann.de>
+	 <20140208091944.GB16336@glanzmann.de>
+	 <1391871850.10160.103.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140208165539.GA22359@glanzmann.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=PGP-SHA1;
- boundary="Sig_/YibhGRdI9RNzRiIM2LAzWCu"; protocol="application/pgp-signature"
-Cc: netdev@vger.kernel.org
-To: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.22]:59400 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751453AbaBHRLX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Feb 2014 12:11:23 -0500
-Received: from spike ([81.217.122.98]) by mail.gmx.com (mrgmx003) with ESMTPSA
- (Nemesis) id 0MEnjW-1W0cy32OKI-00FyHB for <netdev@vger.kernel.org>; Sat, 08
- Feb 2014 18:11:21 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
+	target-devel <target-devel@vger.kernel.org>,
+	Linux Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Thomas Glanzmann <thomas@glanzmann.de>
+Return-path: <target-devel-owner@vger.kernel.org>
+In-Reply-To: <20140208165539.GA22359@glanzmann.de>
+Sender: target-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---Sig_/YibhGRdI9RNzRiIM2LAzWCu
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On Sat, 2014-02-08 at 17:55 +0100, Thomas Glanzmann wrote:
+> Hello Eric,
+> 
+> > > Disable auto corking by default
+> 
+> > We should let auto corking on during 3.14 development cycle so that we
+> > can fix the bugs, and thing of some optimizations.
+> 
+> I agree that leaving it enabled helps to find bugs, however I'm not
+> happy with the round trip time degradation.
+> 
+> > auto cork gives a strong incentive to applications to use
+> > TCP_CORK/MSG_MORE to avoid overhead of sending multiple small
+> > segments.
+> 
+> I agree. But if it breaks the application many people won't be happy,
+> for example I spend already 5 hours to track it down.
 
-Remove unused network device private data pointer 'vp' in function
-vortex_eisa_cleanup(). Detected by Coverity: CID 139826.
+Sure, but if we put this flag to zero, nobody will ever use it and find
+any bug.
 
-Signed-off-by: Christian Engelmayer <cengelma@gmx.at>
----
- drivers/net/ethernet/3com/3c59x.c | 2 --
- 1 file changed, 2 deletions(-)
+Thanks for running latest git tree and be part of linux improvement.
 
-diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/=
-3c59x.c
-index 0f4241c..238ccea 100644
---- a/drivers/net/ethernet/3com/3c59x.c
-+++ b/drivers/net/ethernet/3com/3c59x.c
-@@ -3294,7 +3294,6 @@ static int __init vortex_init(void)
-=20
- static void __exit vortex_eisa_cleanup(void)
- {
--	struct vortex_private *vp;
- 	void __iomem *ioaddr;
-=20
- #ifdef CONFIG_EISA
-@@ -3303,7 +3302,6 @@ static void __exit vortex_eisa_cleanup(void)
- #endif
-=20
- 	if (compaq_net_device) {
--		vp =3D netdev_priv(compaq_net_device);
- 		ioaddr =3D ioport_map(compaq_net_device->base_addr,
- 		                    VORTEX_TOTAL_SIZE);
-=20
---=20
-1.8.3.2
+If we can add the MSG_MORE at the right place, your workload might gain
+~20% exec time, and maybe 30% better efficiency, since you'll divide by
+2 the total number of network segments.
 
---Sig_/YibhGRdI9RNzRiIM2LAzWCu
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-
-iQIcBAEBAgAGBQJS9mU1AAoJEKssnEpaPQKE8gUQALGJZoEOSKAYc9jlesc4XmP7
-Um9k0/tfIQbd11XI61tvE1XK/PSqXZR3uYEhqneP7VJoSbYrLph8rckVsAEp9EFw
-0nb37ZkOVzYjLb6vFonVBcA/RxrtOAB5rynQkmQ61sI3HeBzIE6mOlIEtTJQHs4K
-McXIbv1WVm9gDr/evTNlnJxvv+vhlM+l34TLjINVaJJq6c08faQlWSccR8UaX6Hh
-l4GgS41VHkwOKAuPmzi7IP2dBLlOTTUnEhHH9zyr/rR+0Q/cjSG2kyRQyuMSkj6D
-zmWRjyKgctlEfYksWhEFMUM5agpbCudVDYIU1esA/zrO1jNcscDZM4zFg9Yd39Hi
-f0kXO5txTeS69LQM+XkGLYeie1mBr8Ibqg3rDuIQ3UgT9VQjJGMDs7OsKD7xamgH
-O0I967S8x+SYzsODfPiEgCUcp6RLs4+Ozd9ZA5sMICXcsrMyd3UQrG/ph35kQ8Pg
-W5VurQeRAFrY3u/3GLiwF259j3cT4Cfmv9Ug3JM1XC1+k7W6kuW6HVVligsiCytT
-hRWgdPlAeaz68eTAovsrVTX4S9QlXbANBDvQttJaeJUksdOsmuW0DKl74ve+t6Ke
-KcM0CkUwWBv2IPxjYkrSd5kVQnk75XMPRve2FFiTT5sJ5m5MKDstpFh1PvXvzgL5
-X+uQQABe88nQAqtokB0x
-=ZWH8
------END PGP SIGNATURE-----
-
---Sig_/YibhGRdI9RNzRiIM2LAzWCu--
+Just to be clear : No stable kernel has yet any issue, right ?
