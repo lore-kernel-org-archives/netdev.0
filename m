@@ -1,46 +1,60 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [ath5k-devel] [PATCH] ath5k: Remove AHB bus support.
-Date: Sat, 08 Feb 2014 21:05:56 +0100
-Message-ID: <1391889956.5420.4.camel@x41>
-References: <1320756113.14409.385.camel@x61.thuisdomein>
-	 <20111108141647.GA3390@hash.lan>
-	 <1342124352.22584.21.camel@x61.thuisdomein>
-	 <20120712203837.GA3045@localhost> <4FFFBDD8.6020305@neratec.com>
-	 <20120713124134.GA5567@localhost>
-	 <1362999998.3137.60.camel@x61.thuisdomein>
-	 <1368457391.1350.67.camel@x61.thuisdomein>
-	 <CAJ-VmokciVPxzJ0LptdQyL9koa8Bw7ecJdentPH5q9+MQ4=GpA@mail.gmail.com>
-	 <5191173D.3070709@gmail.com>
-	 <CAJ-Vmo=HOFqu8vB1=pvz79YwE8qAMDc4ZJACJHaSuxn4S92sFg@mail.gmail.com>
-	 <CAB=NE6UR+3uadczBt+2n4g8j2e_A6OBJ-+ZJiO4y2g4Z0cFywg@mail.gmail.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH 1/2] mm/vmalloc: export is_vmalloc_or_module_addr
+Date: Sat, 8 Feb 2014 12:06:40 -0800
+Message-ID: <CA+55aFw2BGS-sPYM1xkO7MfZ_-u=7nF4RYFmoCM99rkL=PxvpA@mail.gmail.com>
+References: <1391886730-19667-1-git-send-email-ryao@gentoo.org>
+	<1391886730-19667-2-git-send-email-ryao@gentoo.org>
+	<CA+55aFx8TzOnW9xPFA4Ox-yFiSUo=cEqeQUmgw_JWjDNEZep8Q@mail.gmail.com>
+	<52F68C67.6050606@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Adrian Chadd <adrian@freebsd.org>,
-	Jonathan Bither <jonbither@gmail.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Jiri Slaby <jirislaby@gmail.com>,
-	Wojciech Dubowik <Wojciech.Dubowik@neratec.com>,
-	"ath5k-devel@lists.ath5k.org" <ath5k-devel@lists.ath5k.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Mel Gorman <mgorman@suse.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Rik van Riel <riel@redhat.com>,
+	Eric Van Hensbergen <ericvh@gmail.com>,
+	Ron Minnich <rminnich@sandia.gov>,
+	Latchesar Ionkov <lucho@ionkov.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	V9FS Develooper Mailing List
+	<v9fs-developer@lists.sourceforge.net>,
+	Linux Netdev Mailing List <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>,
+	Will Deacon <will.deacon@arm.com>,
+	Christopher Covington <cov@codeaurora.org>,
+	Matthew Thode <mthode@mthode.org>
+To: Richard Yao <ryao@gentoo.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAB=NE6UR+3uadczBt+2n4g8j2e_A6OBJ-+ZJiO4y2g4Z0cFywg@mail.gmail.com>
+In-Reply-To: <52F68C67.6050606@gentoo.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Luis R. Rodriguez schreef op ma 13-05-2013 om 10:43 [-0700]:
-> NACK, looking forward to the linux-mips patches, in the future however
-> we want to avoid these type of placeholder patches.
+On Sat, Feb 8, 2014 at 11:58 AM, Richard Yao <ryao@gentoo.org> wrote:
+>
+> My apologies for that. Here is the backtrace:
+>
+> [<ffffffff814878ce>] p9_virtio_zc_request+0x45e/0x510
+> [<ffffffff814814ed>] p9_client_zc_rpc.constprop.16+0xfd/0x4f0
+> [<ffffffff814839dd>] p9_client_read+0x15d/0x240
+> [<ffffffff811c8440>] v9fs_fid_readn+0x50/0xa0
+> [<ffffffff811c84a0>] v9fs_file_readn+0x10/0x20
+> [<ffffffff811c84e7>] v9fs_file_read+0x37/0x70
+> [<ffffffff8114e3fb>] vfs_read+0x9b/0x160
+> [<ffffffff81153571>] kernel_read+0x41/0x60
+> [<ffffffff810c83ab>] copy_module_from_fd.isra.34+0xfb/0x180
 
-This thread was (likely) started when I submitted this patch (to remove
-AHB bus support) during the v3.10 development cycle. We're now at
-v3.14-rc1, and the patch still applies (perhaps requiring some trivial
-context changes).
+So copy_module_from_fd() does read into a vmalloc'ed buffer (which
+isn't pretty, but at least it's not like using some statically
+allocated module data), but that's a regular vmalloc() afaik.
 
-Should I resubmit?
+So I don't see the need for "is_vmalloc_or_module_addr()". The regular
+"is_vmalloc_addr()" should be fine, and *is* usable from modules (it's
+inline, not exported, but it comes to the same thing wrt module use),
+exactly because we have traditionally allowed vmalloc'ed memory to be
+used.
 
+So is there some reason why it's not just using that simpler function?
 
-Paul Bolle
+The kmap_to_page() thing is actually worse, but that's preexisting damage.
+
+            Linus
