@@ -1,86 +1,109 @@
-From: Josh Triplett <josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org>
-Subject: Re: [PATCH 13/13] net: Mark functions as static in
- net/sunrpc/svc_xprt.c
-Date: Sat, 8 Feb 2014 12:23:55 -0800
-Message-ID: <20140208202355.GA21612@leaf>
-References: <6f029c895035908595957fb16ab445c82793c77d.1391888654.git.rashika.kheria@gmail.com>
- <259f3dc38d7115eccf3aaa2aa7de2414a47f90a2.1391888654.git.rashika.kheria@gmail.com>
+From: Belisko Marek <marek.belisko@gmail.com>
+Subject: Re: [PATCH] net: rfkill-regulator: Add devicetree support.
+Date: Sat, 8 Feb 2014 21:42:33 +0100
+Message-ID: <CAAfyv34gykgnR6aTXwkH80A7CSphY-a99Ds7PgpNAO7t3cwxjg@mail.gmail.com>
+References: <1391802529-29861-1-git-send-email-marek@goldelico.com>
+	<20140208012225.d7a311c7.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Rashika Kheria <rashika.kheria-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <259f3dc38d7115eccf3aaa2aa7de2414a47f90a2.1391888654.git.rashika.kheria-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Rob Herring <robh+dt@kernel.org>, Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Rob Landley <rob@landley.net>,
+	linville <linville@tuxdriver.com>,
+	johannes <johannes@sipsolutions.net>,
+	davem <davem@davemloft.net>,
+	Grant Likely <grant.likely@linaro.org>,
+	NeilBrown <neilb@suse.de>,
+	"Dr. H. Nikolaus Schaller" <hns@goldelico.com>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Bill Fink <billfink@mindspring.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f49.google.com ([209.85.219.49]:55612 "EHLO
+	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751224AbaBHUme (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Feb 2014 15:42:34 -0500
+In-Reply-To: <20140208012225.d7a311c7.billfink@mindspring.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 09, 2014 at 01:40:54AM +0530, Rashika Kheria wrote:
-> Mark functions as static in net/sunrpc/svc_xprt.c because they are no=
-t
-> used outside this file.
->=20
-> This eliminates the following warning in net/sunrpc/svc_xprt.c:
-> net/sunrpc/svc_xprt.c:574:5: warning: no previous prototype for =E2=80=
-=98svc_alloc_arg=E2=80=99 [-Wmissing-prototypes]
-> net/sunrpc/svc_xprt.c:615:18: warning: no previous prototype for =E2=80=
-=98svc_get_next_xprt=E2=80=99 [-Wmissing-prototypes]
-> net/sunrpc/svc_xprt.c:694:6: warning: no previous prototype for =E2=80=
-=98svc_add_new_temp_xprt=E2=80=99 [-Wmissing-prototypes]
->=20
-> Signed-off-by: Rashika Kheria <rashika.kheria-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+On Sat, Feb 8, 2014 at 7:22 AM, Bill Fink <billfink@mindspring.com> wrote:
+> On Fri,  7 Feb 2014, Marek Belisko wrote:
+>
+>> Signed-off-by: NeilBrown <neilb@suse.de>
+>> Signed-off-by: Marek Belisko <marek@goldelico.com>
+>> ---
+>> Based on Neil's patch and extend for documentation and bindings include.
+>>
+>>  .../bindings/net/rfkill/rfkill-relugator.txt       | 28 ++++++++++++++++
+>
+>                                   ^^^^^^^^^
+>                                   Typo in file name.
+Ah. Right. Thanks.
+>
+>                                         -Bill
+>
+>
+>
+>>  include/dt-bindings/net/rfkill-regulator.h         | 23 +++++++++++++
+I also think this should be renamed to rfkill.h because same defines
+could be used for rfkill-gpio driver.
+>>  net/rfkill/rfkill-regulator.c                      | 38 ++++++++++++++++++++++
+>>  3 files changed, 89 insertions(+)
+>>  create mode 100644 Documentation/devicetree/bindings/net/rfkill/rfkill-relugator.txt
+>>  create mode 100644 include/dt-bindings/net/rfkill-regulator.h
+>>
+>> diff --git a/Documentation/devicetree/bindings/net/rfkill/rfkill-relugator.txt b/Documentation/devicetree/bindings/net/rfkill/rfkill-relugator.txt
+>> new file mode 100644
+>> index 0000000..cdb7dd7
+>> --- /dev/null
+>> +++ b/Documentation/devicetree/bindings/net/rfkill/rfkill-relugator.txt
+>> @@ -0,0 +1,28 @@
+>> +Regulator consumer for rfkill devices
+>> +
+>> +Required properties:
+>> +- compatible   : Must be "rfkill-regulator".
+>> +- label  : Name of rfkill device.
+>> +- type  : Type of rfkill device.
+>> +
+>> +Possible values (defined in include/dt-bindings/net/rfkill-regulator.h):
+>> +     RFKILL_TYPE_ALL
+>> +     RFKILL_TYPE_WLAN
+>> +     RFKILL_TYPE_BLUETOOTH
+>> +     RFKILL_TYPE_UWB
+>> +     RFKILL_TYPE_WIMAX
+>> +     RFKILL_TYPE_WWAN
+>> +     RFKILL_TYPE_GPS
+>> +     RFKILL_TYPE_FM
+>> +     RFKILL_TYPE_NFC
+>> +
+>> +- vrfkill-supply - regulator device.
+>> +
+>> +Example:
+>> +     gps-rfkill {
+>> +             compatible = "rfkill-regulator";
+>> +             label = "GPS";
+>> +             type = <RFKILL_TYPE_GPS>;
+>> +             vrfkill-supply = <&reg>;
+>> +     };
+>> +
 
-Reviewed-by: Josh Triplett <josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org>
+BR,
 
->  net/sunrpc/svc_xprt.c |    6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
->=20
-> diff --git a/net/sunrpc/svc_xprt.c b/net/sunrpc/svc_xprt.c
-> index 80a6640..06c6ff0 100644
-> --- a/net/sunrpc/svc_xprt.c
-> +++ b/net/sunrpc/svc_xprt.c
-> @@ -571,7 +571,7 @@ static void svc_check_conn_limits(struct svc_serv=
- *serv)
->  	}
->  }
-> =20
-> -int svc_alloc_arg(struct svc_rqst *rqstp)
-> +static int svc_alloc_arg(struct svc_rqst *rqstp)
->  {
->  	struct svc_serv *serv =3D rqstp->rq_server;
->  	struct xdr_buf *arg;
-> @@ -612,7 +612,7 @@ int svc_alloc_arg(struct svc_rqst *rqstp)
->  	return 0;
->  }
-> =20
-> -struct svc_xprt *svc_get_next_xprt(struct svc_rqst *rqstp, long time=
-out)
-> +static struct svc_xprt *svc_get_next_xprt(struct svc_rqst *rqstp, lo=
-ng timeout)
->  {
->  	struct svc_xprt *xprt;
->  	struct svc_pool		*pool =3D rqstp->rq_pool;
-> @@ -691,7 +691,7 @@ struct svc_xprt *svc_get_next_xprt(struct svc_rqs=
-t *rqstp, long timeout)
->  	return xprt;
->  }
-> =20
-> -void svc_add_new_temp_xprt(struct svc_serv *serv, struct svc_xprt *n=
-ewxpt)
-> +static void svc_add_new_temp_xprt(struct svc_serv *serv, struct svc_=
-xprt *newxpt)
->  {
->  	spin_lock_bh(&serv->sv_lock);
->  	set_bit(XPT_TEMP, &newxpt->xpt_flags);
-> --=20
-> 1.7.9.5
->=20
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+marek
+
+-- 
+as simple and primitive as possible
+-------------------------------------------------
+Marek Belisko - OPEN-NANDRA
+Freelance Developer
+
+Ruska Nova Ves 219 | Presov, 08005 Slovak Republic
+Tel: +421 915 052 184
+skype: marekwhite
+twitter: #opennandra
+web: http://open-nandra.com
