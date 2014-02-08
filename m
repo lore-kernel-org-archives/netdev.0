@@ -1,97 +1,70 @@
-From: Richard Yao <ryao@gentoo.org>
-Subject: Re: [PATCH 1/2] mm/vmalloc: export is_vmalloc_or_module_addr
-Date: Sat, 08 Feb 2014 14:58:31 -0500
-Message-ID: <52F68C67.6050606@gentoo.org>
-References: <1391886730-19667-1-git-send-email-ryao@gentoo.org>	<1391886730-19667-2-git-send-email-ryao@gentoo.org> <CA+55aFx8TzOnW9xPFA4Ox-yFiSUo=cEqeQUmgw_JWjDNEZep8Q@mail.gmail.com>
+From: Rashika Kheria <rashika.kheria@gmail.com>
+Subject: [PATCH 07/13] net: Move prototype declaration to header file
+ include/net/dn.h from net/decnet/af_decnet.c
+Date: Sun, 9 Feb 2014 01:29:55 +0530
+Message-ID: <45e9dd39b342bfb2308b75bd2b539de2c63bd6cb.1391888654.git.rashika.kheria@gmail.com>
+References: <6f029c895035908595957fb16ab445c82793c77d.1391888654.git.rashika.kheria@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="uqXPEAPdQrvLxNhn7sbaIrf5aaMv8rbWX"
-Cc: Eric Van Hensbergen <ericvh@gmail.com>,
-	Ron Minnich <rminnich@sandia.gov>,
-	Latchesar Ionkov <lucho@ionkov.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	V9FS Develooper Mailing List
-	<v9fs-developer@lists.sourceforge.net>,
-	Linux Netdev Mailing List <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>,
-	Will Deacon <will.deacon@arm.com>,
-	Christopher Covington <cov@codeaurora.org>,
-	Matthew Thode <mthode@mthode.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	Mel Gorman <mgorman@suse.de>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Rashika Kheria <rashika.kheria@gmail.com>,
+	Gao feng <gaofeng@cn.fujitsu.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	Rik van Riel <riel@redhat.com>
+	Steffen Hurrle <steffen@hurrle.net>,
+	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	linux-decnet-user@lists.sourceforge.net, josh@joshtriplett.org
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFx8TzOnW9xPFA4Ox-yFiSUo=cEqeQUmgw_JWjDNEZep8Q@mail.gmail.com>
+Content-Disposition: inline
+In-Reply-To: <6f029c895035908595957fb16ab445c82793c77d.1391888654.git.rashika.kheria@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---uqXPEAPdQrvLxNhn7sbaIrf5aaMv8rbWX
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Move prototype declaration of functions to header file include/net/dn.h
+from net/decnet/af_decnet.c because they are used by more than one file=
+=2E
 
-On 02/08/2014 02:45 PM, Linus Torvalds wrote:
-> On Sat, Feb 8, 2014 at 11:12 AM, Richard Yao <ryao@gentoo.org> wrote:
-> And what's the backtrace that gets mentioned - but not quoted - for
-> the horrible 9p crap? So that we can see who the guilty party is that
-> thinks that it's somehow ok to pass module addresses off to other
-> kernel users..
+This eliminates the following warning in net/decnet/af_decnet.c:
+net/decnet/sysctl_net_decnet.c:354:6: warning: no previous prototype fo=
+r =E2=80=98dn_register_sysctl=E2=80=99 [-Wmissing-prototypes]
+net/decnet/sysctl_net_decnet.c:359:6: warning: no previous prototype fo=
+r =E2=80=98dn_unregister_sysctl=E2=80=99 [-Wmissing-prototypes]
 
-My apologies for that. Here is the backtrace:
+Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
+---
+ include/net/dn.h       |    2 ++
+ net/decnet/af_decnet.c |    3 ---
+ 2 files changed, 2 insertions(+), 3 deletions(-)
 
-[<ffffffff814878ce>] p9_virtio_zc_request+0x45e/0x510
-[<ffffffff814814ed>] p9_client_zc_rpc.constprop.16+0xfd/0x4f0
-[<ffffffff814839dd>] p9_client_read+0x15d/0x240
-[<ffffffff811c8440>] v9fs_fid_readn+0x50/0xa0
-[<ffffffff811c84a0>] v9fs_file_readn+0x10/0x20
-[<ffffffff811c84e7>] v9fs_file_read+0x37/0x70
-[<ffffffff8114e3fb>] vfs_read+0x9b/0x160
-[<ffffffff81153571>] kernel_read+0x41/0x60
-[<ffffffff810c83ab>] copy_module_from_fd.isra.34+0xfb/0x180
-[<ffffffff810cc420>] SyS_finit_module+0x70/0xd0
-[<ffffffff814a08fd>] system_call_fastpath+0x1a/0x1f
-[<ffffffffffffffff>] 0xffffffffffffffff
-
-The addresses are being passed to permit zero-copy between the guest and
-the host. You can see this in the original thread back from December,
-which is from before I knew how to submit patches properly:
-
-http://www.spinics.net/lists/linux-virtualization/msg21734.html
-
-> Please let's just fix the real problem, don't add more horridness on
-> top of it because somebody messed up earlier.
-
-This code avoids a copy between QEMU's 9p server and a guest Linux
-kernel. Without it, the 9p-virtio code must allocate additional buffers
-into which QEMU will write the data and then copy from those buffers
-into the actual kernel buffers. How would you like 9p-virtio to do this?
-
-
---uqXPEAPdQrvLxNhn7sbaIrf5aaMv8rbWX
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iQIcBAEBAgAGBQJS9oxsAAoJECDuEZm+6ExkICMQAKrHlHG25+z85pdHS9RGXwaj
-Oblb2a5XZ1u7JIGsZbr1H5MiKBzeMKJn5+DwDjb/x4ZiC18KsllNDpXYVGJ2MAeV
-VkQQjUeMS8/KtDdKARbrF3NI1CqIJNz8jhdLj4jbU3eOn1lIltdyESaCCg9EAnIH
-yBSEcQ3M5fmwDumu1rZUonSwd5VamLkMcOorsPsXpeocskXLja4erjPHvD/gjl7/
-1DbQFFnYctlmWTNQbj4K4swS+IwHHhON1P3FMCqH9XXEyq7vpoAUpuubYPJe4Rs3
-NWIvd0LZ7N20Pa2Ygea1LBbyW2ikNz7Q8pCEr4O6H6fIBjVd5iAV2v3SoKv400UP
-slvgumfXdNfEkQMWIeKBzjRJbYuDdeRRr1UfPR+cpqSvTK1MrLFIGz1zmSIcaaM3
-J9IPMhyjasa6clqEQwPDalKKEBliblq8r9CAQDz6D+dx6/lYBE2+GkUjlzq5omxa
-4vruYz81yEfMmy/nbyMoxCZEMRC0jkIoWUWquRqqtVY34wE6woDzpIZfx5THAJcz
-87KGue07+kUxcN12JJGlI5THq0pHQJELhNdU2Mic51YvIlyCbESh9uAZ0ARg5uZJ
-IOmfv3ILI9lWuzs98/XAAAyfAdMKU/CWaf/MCQ9SWlmUsRcbx3p57qs+Ax3qkyPZ
-dbFyyhJFcYgiSGvrEa8w
-=OkRJ
------END PGP SIGNATURE-----
-
---uqXPEAPdQrvLxNhn7sbaIrf5aaMv8rbWX--
+diff --git a/include/net/dn.h b/include/net/dn.h
+index ccc1558..913b73d 100644
+--- a/include/net/dn.h
++++ b/include/net/dn.h
+@@ -200,6 +200,8 @@ static inline void dn_sk_ports_copy(struct flowidn =
+*fld, struct dn_scp *scp)
+ }
+=20
+ unsigned int dn_mss_from_pmtu(struct net_device *dev, int mtu);
++void dn_register_sysctl(void);
++void dn_unregister_sysctl(void);
+=20
+ #define DN_MENUVER_ACC 0x01
+ #define DN_MENUVER_USR 0x02
+diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
+index 24d9193..4c04848 100644
+--- a/net/decnet/af_decnet.c
++++ b/net/decnet/af_decnet.c
+@@ -2351,9 +2351,6 @@ static const struct proto_ops dn_proto_ops =3D {
+ 	.sendpage =3D	sock_no_sendpage,
+ };
+=20
+-void dn_register_sysctl(void);
+-void dn_unregister_sysctl(void);
+-
+ MODULE_DESCRIPTION("The Linux DECnet Network Protocol");
+ MODULE_AUTHOR("Linux DECnet Project Team");
+ MODULE_LICENSE("GPL");
+--=20
+1.7.9.5
