@@ -1,58 +1,63 @@
-From: Rashika Kheria <rashika.kheria@gmail.com>
-Subject: [PATCH 12/13] net: Include appropriate header file in
- netfilter/nft_lookup.c
-Date: Sun, 9 Feb 2014 01:39:20 +0530
-Message-ID: <401aceca1fc3f95097624fe8433635491b39248d.1391888654.git.rashika.kheria@gmail.com>
+From: Josh Triplett <josh@joshtriplett.org>
+Subject: Re: [PATCH 05/13] net: Mark function as static in core/filter.c
+Date: Sat, 8 Feb 2014 12:09:52 -0800
+Message-ID: <20140208200951.GE20885@leaf>
 References: <6f029c895035908595957fb16ab445c82793c77d.1391888654.git.rashika.kheria@gmail.com>
+ <b4fedb3d1984f8e1878015e12b7214c00a6588bb.1391888654.git.rashika.kheria@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+Cc: linux-kernel@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	josh@joshtriplett.org
-To: linux-kernel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+	Eric Dumazet <edumazet@google.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org
+To: Rashika Kheria <rashika.kheria@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <6f029c895035908595957fb16ab445c82793c77d.1391888654.git.rashika.kheria@gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+In-Reply-To: <b4fedb3d1984f8e1878015e12b7214c00a6588bb.1391888654.git.rashika.kheria@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Include appropriate header file net/netfilter/nf_tables_core.h in
-net/netfilter/nft_lookup.c because it has prototype declaration of
-functions defined in net/netfilter/nft_lookup.c.
+On Sun, Feb 09, 2014 at 01:25:05AM +0530, Rashika Kheria wrote:
+> Mark function as static in core/filter.c because it is not used outsi=
+de
+> this file.
+>=20
+> This eliminates the following warning in core/filter.c:
+> net/core/filter.c:48:7: warning: no previous prototype for =E2=80=98b=
+pf_internal_load_pointer_neg_helper=E2=80=99 [-Wmissing-prototypes]
+>=20
+> Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
 
-This eliminates the following warning in net/netfilter/nft_lookup.c:
-net/netfilter/nft_lookup.c:133:12: warning: no previous prototype for =E2=
-=80=98nft_lookup_module_init=E2=80=99 [-Wmissing-prototypes]
-net/netfilter/nft_lookup.c:138:6: warning: no previous prototype for =E2=
-=80=98nft_lookup_module_exit=E2=80=99 [-Wmissing-prototypes]
+This function actually is used outside this file, just not from C code;
+a couple of assembly files call it.  (See also the comment above this
+definition: "Exported for the bpf jit load helper.")
 
-Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
----
- net/netfilter/nft_lookup.c |    1 +
- 1 file changed, 1 insertion(+)
+I'd suggest prototyping this function in include/linux/filter.h , unles=
+s
+someone on CC has another preference.
 
-diff --git a/net/netfilter/nft_lookup.c b/net/netfilter/nft_lookup.c
-index 8a6116b..bb4ef4c 100644
---- a/net/netfilter/nft_lookup.c
-+++ b/net/netfilter/nft_lookup.c
-@@ -16,6 +16,7 @@
- #include <linux/netfilter.h>
- #include <linux/netfilter/nf_tables.h>
- #include <net/netfilter/nf_tables.h>
-+#include <net/netfilter/nf_tables_core.h>
-=20
- struct nft_lookup {
- 	struct nft_set			*set;
---=20
-1.7.9.5
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  net/core/filter.c |    3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+>=20
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index ad30d62..a022dad 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -44,7 +44,8 @@
+>   *
+>   * Exported for the bpf jit load helper.
+>   */
+> -void *bpf_internal_load_pointer_neg_helper(const struct sk_buff *skb=
+, int k, unsigned int size)
+> +static void *bpf_internal_load_pointer_neg_helper(const struct sk_bu=
+ff *skb,
+> +						  int k, unsigned int size)
+>  {
+>  	u8 *ptr =3D NULL;
+> =20
+> --=20
+> 1.7.9.5
+>=20
