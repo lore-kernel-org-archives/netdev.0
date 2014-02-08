@@ -1,52 +1,63 @@
-From: renevant@internode.on.net
-Subject: Re: ax88179 regression
-Date: Sat, 08 Feb 2014 14:56:17 +1100
-Message-ID: <1519315.vRJdGOYKiP@athas>
-References: <1890496.0JLCYTPnkG@athas>
+From: Aaron Brown <aaron.f.brown@intel.com>
+Subject: Re: [PATCH net-next] igb: enable VLAN stripping for
+	VMs with i350
+Date: Fri, 07 Feb 2014 21:29:39 -0800
+Message-ID: <1391837379.1875.8.camel@localhost>
+References: <1386754354-22039-1-git-send-email-sassmann@kpanic.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org
-To: renevant@internode.on.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ipmail06.adl2.internode.on.net ([150.101.137.129]:51366 "EHLO
-	ipmail06.adl2.internode.on.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751051AbaBHD4e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Feb 2014 22:56:34 -0500
-In-Reply-To: <1890496.0JLCYTPnkG@athas>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Stefan Assmann <sassmann@kpanic.de>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1386754354-22039-1-git-send-email-sassmann@kpanic.de>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Everything is still working at commit 63a67a72d63dd077c2313cf19eb29d8e4bfa6963 
+On Wed, 2013-12-11 at 10:32 +0100, Stefan Assmann wrote:
+> For i350 VLAN stripping for VMs is not enabled in the VMOLR register
+> but in
+> the DVMOLR register. Making the changes accordingly. It's not
+> necessary to
+> unset the E1000_VMOLR_STRVLAN bit on i350 as the hardware will simply
+> ignore
+> it.
+> 
+> Without this change if a VLAN is configured for a VF assigned to a
+> guest
+> via (i.e.)
+> ip link set p1p1 vf 0 vlan 10
+> the VLAN tag will not be stripped from packets going into the VM.
+> Which they
+> should be because the VM itself is not aware of the VLAN at all.
+> 
+> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
+Tested-by: Sibai Li <sibai.li@intel.com>
+Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
 
-At this point i'm beginning to think all the issues i've been having are 
-motherboard bios and compiler flag issues.
+> ---
+>  drivers/net/ethernet/intel/igb/e1000_82575.h | 4 ++++
+>  drivers/net/ethernet/intel/igb/e1000_regs.h  | 1 +
+>  drivers/net/ethernet/intel/igb/igb_main.c    | 7 +++++++
+>  3 files changed, 12 insertions(+)
 
-Regards,
-
-Will Trives
 
 
-On Saturday 08 February 2014 12:56:10 renevant@internode.on.net wrote:
-> Hello,
-> 
-> I have finally nailed down my other issues and i'm at a point where I can
-> bisect from a point that is 100% stable and working.
-> 
-> 
-> I am currently running a kernel checked out at commit
-> d194c031994d3fc1038fa09e9e92d9be24a21921
-> 
-> A point in 3.12rc4
-> 
-> At this point the ax88179 works without issue even with scatter gather
-> turned on. So somewhere from this point something goes wrong and there is
-> some condition that exists that can lock up the nic.
-> 
-> 
-> I will keep bisecting at report my findings.
-> 
-> 
-> Regards,
-> 
-> Will Trives
+------------------------------------------------------------------------------
+Managing the Performance of Cloud-Based Applications
+Take advantage of what the Cloud has to offer - Avoid Common Pitfalls.
+Read the Whitepaper.
+http://pubads.g.doubleclick.net/gampad/clk?id=121051231&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
