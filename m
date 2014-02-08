@@ -1,7 +1,7 @@
 From: Richard Yao <ryao@gentoo.org>
-Subject: [PATCH 1/2] mm/vmalloc: export is_vmalloc_or_module_addr
-Date: Sat,  8 Feb 2014 14:12:09 -0500
-Message-ID: <1391886730-19667-2-git-send-email-ryao@gentoo.org>
+Subject: [PATCH 2/2] 9p/trans_virtio.c: Fix broken zero-copy on vmalloc() buffers
+Date: Sat,  8 Feb 2014 14:12:10 -0500
+Message-ID: <1391886730-19667-3-git-send-email-ryao@gentoo.org>
 References: <1391886730-19667-1-git-send-email-ryao@gentoo.org>
 Cc: Eric Van Hensbergen <ericvh@gmail.com>,
 	Ron Minnich <rminnich@sandia.gov>,
@@ -21,31 +21,47 @@ In-Reply-To: <1391886730-19667-1-git-send-email-ryao@gentoo.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-9p-virtio needs is_vmalloc_or_module_addr exported before a patch can be
-merged to prevent the virtio zero-copy routines from triggering a
-hypervisor page fault when loading kernel modules:
+The 9p-virtio transport does zero copy on things larger than 1024 bytes
+in size. It accomplishes this by returning the physical addresses of
+pages to the virtio-pci device. At present, the translation is usually a
+bit shift.
 
-https://groups.google.com/forum/#!topic/linux.kernel/eRR7AyLE29Y
+However, that approach produces an invalid page address when we
+read/write to vmalloc buffers, such as those used for Linux kernle
+modules. This causes QEMU to die printing:
 
-Without this export, the kernel build breaks with that patch applied and
-CONFIG_NET_9P_VIRTIO=m. With this export in place, all is well.
+qemu-system-x86_64: virtio: trying to map MMIO memory
+
+This patch enables 9p-virtio to correctly handle this case. This not
+only enables us to load Linux kernel modules off virtfs, but also
+enables ZFS file-based vdevs on virtfs to be used without killing QEMU.
+
+Also, special thanks to both Avi Kivity and Alexander Graf for their
+interpretation of QEMU backtraces. Without their guidence, tracking down
+this bug would have taken much longer.
 
 Signed-off-by: Richard Yao <ryao@gentoo.org>
+Acked-by: Alexander Graf <agraf@suse.de>
+Reviewed-by: Will Deacon <will.deacon@arm.com>
 ---
- mm/vmalloc.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/9p/trans_virtio.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/mm/vmalloc.c b/mm/vmalloc.c
-index 0fdf968..8a2e54f 100644
---- a/mm/vmalloc.c
-+++ b/mm/vmalloc.c
-@@ -218,6 +218,7 @@ int is_vmalloc_or_module_addr(const void *x)
- #endif
- 	return is_vmalloc_addr(x);
- }
-+EXPORT_SYMBOL(is_vmalloc_or_module_addr);
- 
- /*
-  * Walk a vmap address to the struct page it maps.
+diff --git a/net/9p/trans_virtio.c b/net/9p/trans_virtio.c
+index cd1e1ed..b2009bc 100644
+--- a/net/9p/trans_virtio.c
++++ b/net/9p/trans_virtio.c
+@@ -340,7 +340,10 @@ static int p9_get_mapped_pages(struct virtio_chan *chan,
+ 		int count = nr_pages;
+ 		while (nr_pages) {
+ 			s = rest_of_page(data);
+-			pages[index++] = kmap_to_page(data);
++			if (is_vmalloc_or_module_addr(data))
++				pages[index++] = vmalloc_to_page(data);
++			else
++				pages[index++] = kmap_to_page(data);
+ 			data += s;
+ 			nr_pages--;
+ 		}
 -- 
 1.8.3.2
