@@ -1,20 +1,19 @@
 From: Rashika Kheria <rashika.kheria@gmail.com>
-Subject: [PATCH 07/13] net: Move prototype declaration to header file
- include/net/dn.h from net/decnet/af_decnet.c
-Date: Sun, 9 Feb 2014 01:29:55 +0530
-Message-ID: <45e9dd39b342bfb2308b75bd2b539de2c63bd6cb.1391888654.git.rashika.kheria@gmail.com>
+Subject: [PATCH 08/13] net: Move prototype declaration to include/net/ipx.h
+ from net/ipx/ipx_route.c
+Date: Sun, 9 Feb 2014 01:32:10 +0530
+Message-ID: <762c7626d7226370952bf599b266b26e00dd04b2.1391888654.git.rashika.kheria@gmail.com>
 References: <6f029c895035908595957fb16ab445c82793c77d.1391888654.git.rashika.kheria@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Rashika Kheria <rashika.kheria@gmail.com>,
-	Gao feng <gaofeng@cn.fujitsu.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Steffen Hurrle <steffen@hurrle.net>,
-	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	linux-decnet-user@lists.sourceforge.net, josh@joshtriplett.org
+Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	josh@joshtriplett.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
@@ -22,49 +21,59 @@ In-Reply-To: <6f029c895035908595957fb16ab445c82793c77d.1391888654.git.rashika.kh
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Move prototype declaration of functions to header file include/net/dn.h
-from net/decnet/af_decnet.c because they are used by more than one file=
-=2E
+Move prototype definition of function to header file include/net/ipx.h
+from net/ipx/ipx_route.c because they are used by more than one file.
 
-This eliminates the following warning in net/decnet/af_decnet.c:
-net/decnet/sysctl_net_decnet.c:354:6: warning: no previous prototype fo=
-r =E2=80=98dn_register_sysctl=E2=80=99 [-Wmissing-prototypes]
-net/decnet/sysctl_net_decnet.c:359:6: warning: no previous prototype fo=
-r =E2=80=98dn_unregister_sysctl=E2=80=99 [-Wmissing-prototypes]
+This eliminates the following warning from net/ipx/af_ipx.c:
+net/ipx/af_ipx.c:193:23: warning: no previous prototype for =E2=80=98ip=
+xitf_find_using_net=E2=80=99 [-Wmissing-prototypes]
+net/ipx/af_ipx.c:577:5: warning: no previous prototype for =E2=80=98ipx=
+itf_send=E2=80=99 [-Wmissing-prototypes]
+net/ipx/af_ipx.c:1219:8: warning: no previous prototype for =E2=80=98ip=
+x_cksum=E2=80=99 [-Wmissing-prototypes]
 
 Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
 ---
- include/net/dn.h       |    2 ++
- net/decnet/af_decnet.c |    3 ---
- 2 files changed, 2 insertions(+), 3 deletions(-)
+ include/net/ipx.h   |    3 +++
+ net/ipx/ipx_route.c |    4 ----
+ 2 files changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/dn.h b/include/net/dn.h
-index ccc1558..913b73d 100644
---- a/include/net/dn.h
-+++ b/include/net/dn.h
-@@ -200,6 +200,8 @@ static inline void dn_sk_ports_copy(struct flowidn =
-*fld, struct dn_scp *scp)
+diff --git a/include/net/ipx.h b/include/net/ipx.h
+index 9e9e354..75466ac 100644
+--- a/include/net/ipx.h
++++ b/include/net/ipx.h
+@@ -140,6 +140,9 @@ static __inline__ void ipxitf_hold(struct ipx_inter=
+face *intrfc)
  }
 =20
- unsigned int dn_mss_from_pmtu(struct net_device *dev, int mtu);
-+void dn_register_sysctl(void);
-+void dn_unregister_sysctl(void);
+ void ipxitf_down(struct ipx_interface *intrfc);
++struct ipx_interface *ipxitf_find_using_net(__be32 net);
++int ipxitf_send(struct ipx_interface *intrfc, struct sk_buff *skb, cha=
+r *node);
++__be16 ipx_cksum(struct ipxhdr *packet, int length);
 =20
- #define DN_MENUVER_ACC 0x01
- #define DN_MENUVER_USR 0x02
-diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
-index 24d9193..4c04848 100644
---- a/net/decnet/af_decnet.c
-+++ b/net/decnet/af_decnet.c
-@@ -2351,9 +2351,6 @@ static const struct proto_ops dn_proto_ops =3D {
- 	.sendpage =3D	sock_no_sendpage,
- };
+ static __inline__ void ipxitf_put(struct ipx_interface *intrfc)
+ {
+diff --git a/net/ipx/ipx_route.c b/net/ipx/ipx_route.c
+index 30f4519..c1f0318 100644
+--- a/net/ipx/ipx_route.c
++++ b/net/ipx/ipx_route.c
+@@ -20,15 +20,11 @@ DEFINE_RWLOCK(ipx_routes_lock);
 =20
--void dn_register_sysctl(void);
--void dn_unregister_sysctl(void);
--
- MODULE_DESCRIPTION("The Linux DECnet Network Protocol");
- MODULE_AUTHOR("Linux DECnet Project Team");
- MODULE_LICENSE("GPL");
+ extern struct ipx_interface *ipx_internal_net;
+=20
+-extern __be16 ipx_cksum(struct ipxhdr *packet, int length);
+ extern struct ipx_interface *ipxitf_find_using_net(__be32 net);
+ extern int ipxitf_demux_socket(struct ipx_interface *intrfc,
+ 			       struct sk_buff *skb, int copy);
+ extern int ipxitf_demux_socket(struct ipx_interface *intrfc,
+ 			       struct sk_buff *skb, int copy);
+-extern int ipxitf_send(struct ipx_interface *intrfc, struct sk_buff *s=
+kb,
+-		       char *node);
+-extern struct ipx_interface *ipxitf_find_using_net(__be32 net);
+=20
+ struct ipx_route *ipxrtr_lookup(__be32 net)
+ {
 --=20
 1.7.9.5
