@@ -1,78 +1,78 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v2] SUNRPC: Allow one callback request to be received
- from two sk_buff
-Date: Sat, 08 Feb 2014 23:14:51 +0400
-Message-ID: <52F6822B.1000804@cogentembedded.com>
-References: <no> <1391826543-3102-1-git-send-email-shaobingqing@bwstor.com.cn>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH 1/2] mm/vmalloc: export is_vmalloc_or_module_addr
+Date: Sat, 8 Feb 2014 11:45:53 -0800
+Message-ID: <CA+55aFx8TzOnW9xPFA4Ox-yFiSUo=cEqeQUmgw_JWjDNEZep8Q@mail.gmail.com>
+References: <1391886730-19667-1-git-send-email-ryao@gentoo.org>
+	<1391886730-19667-2-git-send-email-ryao@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: shaobingqing <shaobingqing-Gb3srWounXyPt1CcHtbs0g@public.gmane.org>,
-	trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org, bfields-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1391826543-3102-1-git-send-email-shaobingqing-Gb3srWounXyPt1CcHtbs0g@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Van Hensbergen <ericvh@gmail.com>,
+	Ron Minnich <rminnich@sandia.gov>,
+	Latchesar Ionkov <lucho@ionkov.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	V9FS Develooper Mailing List
+	<v9fs-developer@lists.sourceforge.net>,
+	Linux Netdev Mailing List <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>,
+	Will Deacon <will.deacon@arm.com>,
+	Christopher Covington <cov@codeaurora.org>,
+	Matthew Thode <mthode@mthode.org>
+To: Richard Yao <ryao@gentoo.org>, Mel Gorman <mgorman@suse.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Rik van Riel <riel@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1391886730-19667-2-git-send-email-ryao@gentoo.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
-
-On 08-02-2014 6:29, shaobingqing wrote:
-
-> In current code, there only one struct rpc_rqst is prealloced. If one
-> callback request is received from two sk_buff, the xprt_alloc_bc_request
-> would be execute two times with the same transport->xid. The first time
-> xprt_alloc_bc_request will alloc one struct rpc_rqst and the TCP_RCV_COPY_DATA
-> bit of transport->tcp_flags will not be cleared. The second time
-> xprt_alloc_bc_request could not alloc struct rpc_rqst any more and NULL
-> pointer will be returned, then xprt_force_disconnect occur. I think one
-> callback request can be allowed to be received from two sk_buff.
-
-> Signed-off-by: shaobingqing <shaobingqing-Gb3srWounXyPt1CcHtbs0g@public.gmane.org>
-[...]
-
-> diff --git a/include/linux/sunrpc/xprt.h b/include/linux/sunrpc/xprt.h
-> index cec7b9b..82bfe01 100644
-> --- a/include/linux/sunrpc/xprt.h
-> +++ b/include/linux/sunrpc/xprt.h
-> @@ -211,6 +211,7 @@ struct rpc_xprt {
->   						 * items */
->   	struct list_head	bc_pa_list;	/* List of preallocated
->   						 * backchannel rpc_rqst's */
-> +	struct rpc_rqst	*req_first;
-
-    Please align the variable name with the ones above and below.
-
->   #endif /* CONFIG_SUNRPC_BACKCHANNEL */
->   	struct list_head	recv;
+On Sat, Feb 8, 2014 at 11:12 AM, Richard Yao <ryao@gentoo.org> wrote:
+> 9p-virtio needs is_vmalloc_or_module_addr exported before a patch can be
+> merged to prevent the virtio zero-copy routines from triggering a
+> hypervisor page fault when loading kernel modules:
 >
-[...]
-> diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-> index ee03d35..c43dca4 100644
-> --- a/net/sunrpc/xprtsock.c
-> +++ b/net/sunrpc/xprtsock.c
-> @@ -1272,7 +1272,16 @@ static inline int xs_tcp_read_callback(struct rpc_xprt *xprt,
->   				container_of(xprt, struct sock_xprt, xprt);
->   	struct rpc_rqst *req;
+> https://groups.google.com/forum/#!topic/linux.kernel/eRR7AyLE29Y
 >
-> -	req = xprt_alloc_bc_request(xprt);
-> +	if (xprt->req_first != NULL &&
-> +			xprt->req_first->rq_xid == transport->tcp_xid) {
+> Without this export, the kernel build breaks with that patch applied and
+> CONFIG_NET_9P_VIRTIO=m. With this export in place, all is well.
 
-    The continuation line should be aligned right under 'xprt' on the broken 
-up line, according to the networking coding style.
+I absolutely *detest* this patch.
 
-> +		req = xprt->req_first;
-> +	} else if (xprt->req_first != NULL &&
-> +			xprt->req_first->rq_xid != transport->tcp_xid) {
+Not so much because is_vmalloc_or_module_addr() should never be used,
+but because the particular use in question is pure and utter garbage.
 
-    Same here.
+There are valid reasons to use "is_vmalloc_or_module_addr()", but
+those are along the lines of drivers/char/mem.c, which says "return
+-ENXIO for this crap".
 
-WBR, Sergei
+And btw, that horrid crap called "kmap_to_page()" needs to die too.
+When is it *ever* valid to use a kmap'ed page for IO? Here's a clue:
+never.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I notice that we have a similar abortion in "get_kernel_page[s]()",
+which probably has the same broken source.
+
+We need to get *rid* of this crap, rather than add more of it. I
+should have looked more closely, but it came in through Andrew, which
+generally makes me go "ok, Andrew sends me a VM patch - apply". In
+this case it was clearly a huge mistake.
+
+So who the f*ck sends static module data as IO? Just stop doing that.
+What's And that idiotic kmap_to_page() really needs to die too.
+
+Those *disgusting* get_kernel_page[s]() functions came with a
+commentary about "The initial user is expected to be NFS.." and that
+is still the *only* user. The fact that *everybody* else has been able
+to avoid that crap should tell us something.
+
+Mel, Rik, this needs to die. I'm sorry I didn't notice how crap it was earlier.
+
+And what's the backtrace that gets mentioned - but not quoted - for
+the horrible 9p crap? So that we can see who the guilty party is that
+thinks that it's somehow ok to pass module addresses off to other
+kernel users..
+
+Please let's just fix the real problem, don't add more horridness on
+top of it because somebody messed up earlier.
+
+                  Linus
