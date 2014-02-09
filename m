@@ -1,59 +1,68 @@
-From: Richard Yao <ryao@gentoo.org>
-Subject: Re: [PATCH 1/2] mm/vmalloc: export is_vmalloc_or_module_addr
-Date: Sat, 8 Feb 2014 18:39:12 -0500
-Message-ID: <F8F0FCFB-1123-4374-BF69-A77BB3AF800A@gentoo.org>
-References: <1391886730-19667-1-git-send-email-ryao@gentoo.org> <1391886730-19667-2-git-send-email-ryao@gentoo.org> <CA+55aFx8TzOnW9xPFA4Ox-yFiSUo=cEqeQUmgw_JWjDNEZep8Q@mail.gmail.com> <52F68C67.6050606@gentoo.org> <CA+55aFw2BGS-sPYM1xkO7MfZ_-u=7nF4RYFmoCM99rkL=PxvpA@mail.gmail.com> <52F6972C.2030307@gentoo.org> <CA+55aFzzxcrLrUaCrzFbwS_74B2iHd3OvQ=WC-DR-rqpOA0j0A@mail.gmail.com>
-Mime-Version: 1.0 (1.0)
-Content-Type: text/plain;
-	charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Mel Gorman <mgorman@suse.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Rik van Riel <riel@redhat.com>,
-	Eric Van Hensbergen <ericvh@gmail.com>,
-	Ron Minnich <rminnich@sandia.gov>,
-	Latchesar Ionkov <lucho@ionkov.net>,
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: REGRESSION f54b311142a92ea2e42598e347b84e1655caf8e3 tcp auto
+ corking slows down iSCSI file system creation by factor of 70 [WAS: 4 TB
+ VMFS creation takes 15 minutes vs 26 seconds]
+Date: Sat, 08 Feb 2014 16:15:28 -0800
+Message-ID: <1391904928.10160.118.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1391867404.10160.88.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1391868816.10160.93.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140208141905.GG20512@glanzmann.de>
+	 <1391869805.10160.97.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140208150001.GI20512@glanzmann.de>
+	 <1391871986.10160.105.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140208165732.GB22359@glanzmann.de>
+	 <1391879318.10160.108.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140208171531.GA23798@glanzmann.de>
+	 <1391886759.10160.114.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140208213608.GA24328@glanzmann.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: John Ogness <john.ogness@linutronix.de>,
+	Eric Dumazet <edumazet@google.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	V9FS Develooper Mailing List
-	<v9fs-developer@lists.sourceforge.net>,
-	Linux Netdev Mailing List <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>,
-	Will Deacon <will.deacon@arm.com>,
-	Christopher Covington <cov@codeaurora.org>,
-	Matthew Thode <mthode@mthode.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFzzxcrLrUaCrzFbwS_74B2iHd3OvQ=WC-DR-rqpOA0j0A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
+	target-devel <target-devel@vger.kernel.org>,
+	Linux Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Thomas Glanzmann <thomas@glanzmann.de>
+Return-path: <target-devel-owner@vger.kernel.org>
+In-Reply-To: <20140208213608.GA24328@glanzmann.de>
+Sender: target-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Feb 8, 2014, at 5:24 PM, Linus Torvalds <torvalds@linux-foundation.org> wrote:
+On Sat, 2014-02-08 at 22:36 +0100, Thomas Glanzmann wrote:
+> Hello Eric,
+> 
+> > I was simply thinking about something like :
+> > (might need further changes, but I guess this should solve your case)
+> 
+> thank you for your patch. It did not apply on top of Linux tip, so I put
+> in the changes manually and fixed up another call to tx_data that your
+> forgot in your initial patch to make it apply.
+> 
+> I gave it another run, can you confirm that it now behaves better?
+> 
+> https://thomas.glanzmann.de/tmp/tcp_auto_corking_on_patched_tcp_more.pcap.bz2
+> 
+> And look at that roundtrip graph it is perfect. Also filesystem is now
+> created in 3 seconds instead of 4.
 
-> On Sat, Feb 8, 2014 at 12:44 PM, Richard Yao <ryao@gentoo.org> wrote:
->> 
->> However, is_vmalloc_addr() only applies to the vmalloc region. While all
->> architectures load kernel modules into virtual memory (to my knowledge),
->> some architectures do not load them into the vmalloc region.
-> 
-> So?
-> 
-> People shouldn't do IO to module data, so who cares if something is a
-> module address or not?
-> 
-> The thing is, even module *loading* doesn't do IO to the magic module
-> addresses - it loads the module data into regular vmalloc space, and
-> then copies it into the final location separately.
-> 
-> And no module should ever do any IO on random static data (and
-> certainly not on code).
-> 
-> So there is _zero_ reason for a driver or a filesystem to use
-> is_vmalloc_or_module_addr(). It's just not a valid question to ask.
-> 
-> If somebody uses module data/code addresses, we're *better* off with a
-> oops or other nasty behavior than to try to make it "work".
-> 
->            Linus
+Yes, this is much better : 2 frames per request/response, instead of 4.
 
-I will modify this to use is_vmalloc_addr() and send it back to the appropriate subsystem maintainer(s). Thank-you for taking the time to write that explanation.
+13:32:04.665367 IP 10.101.0.12.43418 > 10.101.99.5.3260: Flags [P.], seq 384:432, ack 2529, win 514, options [nop,nop,TS val 1576981 ecr 4294913967], length 48
+13:32:04.665483 IP 10.101.99.5.3260 > 10.101.0.12.43418: Flags [P.], seq 2529:3089, ack 432, win 235, options [nop,nop,TS val 4294913967 ecr 1576981], length 560
+13:32:04.665642 IP 10.101.0.12.43418 > 10.101.99.5.3260: Flags [P.], seq 432:480, ack 3089, win 514, options [nop,nop,TS val 1576981 ecr 4294913967], length 48
+13:32:04.665756 IP 10.101.99.5.3260 > 10.101.0.12.43418: Flags [P.], seq 3089:3649, ack 480, win 235, options [nop,nop,TS val 4294913967 ecr 1576981], length 560
+13:32:04.665933 IP 10.101.0.12.43418 > 10.101.99.5.3260: Flags [P.], seq 480:528, ack 3649, win 514, options [nop,nop,TS val 1576981 ecr 4294913967], length 48
+13:32:04.666046 IP 10.101.99.5.3260 > 10.101.0.12.43418: Flags [P.], seq 3649:4209, ack 528, win 235, options [nop,nop,TS val 4294913967 ecr 1576981], length 560
+13:32:04.666214 IP 10.101.0.12.43418 > 10.101.99.5.3260: Flags [P.], seq 528:576, ack 4209, win 514, options [nop,nop,TS val 1576981 ecr 4294913967], length 48
+13:32:04.666333 IP 10.101.99.5.3260 > 10.101.0.12.43418: Flags [P.], seq 4209:4769, ack 576, win 235, options [nop,nop,TS val 4294913967 ecr 1576981], length 560
+13:32:04.666678 IP 10.101.0.12.43418 > 10.101.99.5.3260: Flags [P.], seq 576:624, ack 4769, win 514, options [nop,nop,TS val 1576981 ecr 4294913967], length 48
+13:32:04.666790 IP 10.101.99.5.3260 > 10.101.0.12.43418: Flags [P.], seq 4769:5329, ack 624, win 235, options [nop,nop,TS val 4294913967 ecr 1576981], length 560
+13:32:04.666983 IP 10.101.0.12.43418 > 10.101.99.5.3260: Flags [P.], seq 624:672, ack 5329, win 514, options [nop,nop,TS val 1576981 ecr 4294913967], length 48
+13:32:04.667097 IP 10.101.99.5.3260 > 10.101.0.12.43418: Flags [P.], seq 5329:5889, ack 672, win 235, options [nop,nop,TS val 4294913967 ecr 1576981], length 560
+13:32:04.667280 IP 10.101.0.12.43418 > 10.101.99.5.3260: Flags [P.], seq 672:720, ack 5889, win 514, options [nop,nop,TS val 1576981 ecr 4294913967], length 48
+13:32:04.667324 IP 10.101.99.5.3260 > 10.101.0.12.43418: Flags [P.], seq 5889:6449, ack 720, win 235, options [nop,nop,TS val 4294913967 ecr 1576981], length 560
+13:32:04.667500 IP 10.101.0.12.43418 > 10.101.99.5.3260: Flags [P.], seq 720:768, ack 6449, win 514, options [nop,nop,TS val 1576981 ecr 4294913967], length 48
+13:32:04.667540 IP 10.101.99.5.3260 > 10.101.0.12.43418: Flags [P.], seq 6449:7009, ack 768, win 235, options [nop,nop,TS val 4294913967 ecr 1576981], length 560
