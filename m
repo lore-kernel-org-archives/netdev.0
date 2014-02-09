@@ -1,90 +1,71 @@
 From: Rashika Kheria <rashika.kheria@gmail.com>
-Subject: =?UTF-8?q?=5BPATCH=20v2=2009/13=5D=20net=3A=20Move=20prototype=20declaration=20to=20header=20file=20include/net/ipx=2Eh=20from=20net/ipx/af=5Fipx=2Ec?=
-Date: Sun,  9 Feb 2014 22:26:32 +0530
-Message-ID: <820c61ec008de281d921d375bf6984acc74e1bf9.1391955925.git.rashika.kheria@gmail.com>
+Subject: =?UTF-8?q?=5BPATCH=20v2=2010/13=5D=20net=3A=20Move=20prototype=20declaration=20to=20header=20file=20include/net/datalink=2Eh=20from=20net/ipx/af=5Fipx=2Ec?=
+Date: Sun,  9 Feb 2014 22:27:41 +0530
+Message-ID: <b6f64a14cdcff5333ee2c83cefeca42f8e934b12.1391955925.git.rashika.kheria@gmail.com>
 References: <6f029c895035908595957fb16ab445c82793c77d.1391955924.git.rashika.kheria@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: linux-kernel@vger.kernel.org,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
 	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	josh@joshtriplett.org
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	netdev@vger.kernel.org, josh@joshtriplett.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <6f029c895035908595957fb16ab445c82793c77d.1391955924.git.rashika.kheria@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Move prototype declaration of functions to header file include/net/ipx.=
-h
-from net/ipx/af_ipx.c because they are used by more than one file.
+Move prototype declarations of function to header file
+include/net/datalink.h from net/ipx/af_ipx.c because they are used by
+more than one file.
 
-This eliminates the following warning in
-net/ipx/ipx_route.c:33:19: warning: no previous prototype for =E2=80=98=
-ipxrtr_lookup=E2=80=99 [-Wmissing-prototypes]
-net/ipx/ipx_route.c:52:5: warning: no previous prototype for =E2=80=98i=
-pxrtr_add_route=E2=80=99 [-Wmissing-prototypes]
-net/ipx/ipx_route.c:94:6: warning: no previous prototype for =E2=80=98i=
-pxrtr_del_routes=E2=80=99 [-Wmissing-prototypes]
-net/ipx/ipx_route.c:149:5: warning: no previous prototype for =E2=80=98=
-ipxrtr_route_skb=E2=80=99 [-Wmissing-prototypes]
-net/ipx/ipx_route.c:171:5: warning: no previous prototype for =E2=80=98=
-ipxrtr_route_packet=E2=80=99 [-Wmissing-prototypes]
-net/ipx/ipx_route.c:261:5: warning: no previous prototype for =E2=80=98=
-ipxrtr_ioctl=E2=80=99 [-Wmissing-prototypes]
+This eliminates the following warning in net/ipx/pe2.c:
+net/ipx/pe2.c:20:24: warning: no previous prototype for =E2=80=98make_E=
+II_client=E2=80=99 [-Wmissing-prototypes]
+net/ipx/pe2.c:32:6: warning: no previous prototype for =E2=80=98destroy=
+_EII_client=E2=80=99 [-Wmissing-prototypes]
 
 Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
 Reviewed-by: Josh Triplett <josh@joshtriplett.org>
 ---
- include/net/ipx.h |    8 ++++++++
- net/ipx/af_ipx.c  |    9 ---------
- 2 files changed, 8 insertions(+), 9 deletions(-)
+ include/net/datalink.h |    2 ++
+ net/ipx/af_ipx.c       |    4 +---
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/ipx.h b/include/net/ipx.h
-index 75466ac..0143180 100644
---- a/include/net/ipx.h
-+++ b/include/net/ipx.h
-@@ -143,6 +143,14 @@ void ipxitf_down(struct ipx_interface *intrfc);
- struct ipx_interface *ipxitf_find_using_net(__be32 net);
- int ipxitf_send(struct ipx_interface *intrfc, struct sk_buff *skb, cha=
-r *node);
- __be16 ipx_cksum(struct ipxhdr *packet, int length);
-+int ipxrtr_add_route(__be32 network, struct ipx_interface *intrfc,
-+		     unsigned char *node);
-+void ipxrtr_del_routes(struct ipx_interface *intrfc);
-+int ipxrtr_route_packet(struct sock *sk, struct sockaddr_ipx *usipx,
-+			struct iovec *iov, size_t len, int noblock);
-+int ipxrtr_route_skb(struct sk_buff *skb);
-+struct ipx_route *ipxrtr_lookup(__be32 net);
-+int ipxrtr_ioctl(unsigned int cmd, void __user *arg);
+diff --git a/include/net/datalink.h b/include/net/datalink.h
+index deb7ca7..93cb18f 100644
+--- a/include/net/datalink.h
++++ b/include/net/datalink.h
+@@ -15,4 +15,6 @@ struct datalink_proto {
+ 	struct list_head node;
+ };
 =20
- static __inline__ void ipxitf_put(struct ipx_interface *intrfc)
- {
++struct datalink_proto *make_EII_client(void);
++void destroy_EII_client(struct datalink_proto *dl);
+ #endif
 diff --git a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
-index 994e28b..e5a00a9 100644
+index e5a00a9..224d058 100644
 --- a/net/ipx/af_ipx.c
 +++ b/net/ipx/af_ipx.c
-@@ -84,15 +84,6 @@ DEFINE_SPINLOCK(ipx_interfaces_lock);
- struct ipx_interface *ipx_primary_net;
- struct ipx_interface *ipx_internal_net;
+@@ -52,6 +52,7 @@
+ #include <net/p8022.h>
+ #include <net/psnap.h>
+ #include <net/sock.h>
++#include <net/datalink.h>
+ #include <net/tcp_states.h>
 =20
--extern int ipxrtr_add_route(__be32 network, struct ipx_interface *intr=
-fc,
--			    unsigned char *node);
--extern void ipxrtr_del_routes(struct ipx_interface *intrfc);
--extern int ipxrtr_route_packet(struct sock *sk, struct sockaddr_ipx *u=
-sipx,
--			       struct iovec *iov, size_t len, int noblock);
--extern int ipxrtr_route_skb(struct sk_buff *skb);
--extern struct ipx_route *ipxrtr_lookup(__be32 net);
--extern int ipxrtr_ioctl(unsigned int cmd, void __user *arg);
--
- struct ipx_interface *ipx_interfaces_head(void)
+ #include <asm/uaccess.h>
+@@ -1977,9 +1978,6 @@ static struct notifier_block ipx_dev_notifier =3D=
  {
- 	struct ipx_interface *rc =3D NULL;
+ 	.notifier_call	=3D ipxitf_device_event,
+ };
+=20
+-extern struct datalink_proto *make_EII_client(void);
+-extern void destroy_EII_client(struct datalink_proto *);
+-
+ static const unsigned char ipx_8022_type =3D 0xE0;
+ static const unsigned char ipx_snap_id[5] =3D { 0x0, 0x0, 0x0, 0x81, 0=
+x37 };
+ static const char ipx_EII_err_msg[] __initconst =3D
 --=20
 1.7.9.5
