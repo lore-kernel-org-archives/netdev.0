@@ -1,76 +1,58 @@
-From: Rashika Kheria <rashika.kheria@gmail.com>
-Subject: =?UTF-8?q?=5BPATCH=20v2=2004/13=5D=20net=3A=20Mark=20functions=20as=20static=20in=20core/dev=2Ec?=
-Date: Sun,  9 Feb 2014 20:26:25 +0530
-Message-ID: <ccd9586270a8ebb87aeadc10feff52857b7f907c.1391955924.git.rashika.kheria@gmail.com>
-References: <6f029c895035908595957fb16ab445c82793c77d.1391955924.git.rashika.kheria@gmail.com>
+From: Daniel Exner <dex@dragonslave.de>
+Subject: Re: Poor network performance x86_64.. also with 3.13
+Date: Sun, 9 Feb 2014 16:05:11 +0100
+Message-ID: <20140209160511.2f67866f@Mycroft>
+References: <52DAD66F.7080306@dragonslave.de>
+	<20140118195026.GA15543@pd.tnic>
+	<52DB0439.2060905@dragonslave.de>
+	<52DDA2CD.9040001@dragonslave.de>
+	<20140120223752.GA3057@pd.tnic>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: linux-kernel@vger.kernel.org, josh@joshtriplett.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6f029c895035908595957fb16ab445c82793c77d.1391955924.git.rashika.kheria@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: base64
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Borislav Petkov <bp@alien8.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f67.google.com ([74.125.83.67]:38105 "EHLO
+	mail-ee0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751424AbaBIPFU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Feb 2014 10:05:20 -0500
+Received: by mail-ee0-f67.google.com with SMTP id d17so962445eek.2
+        for <netdev@vger.kernel.org>; Sun, 09 Feb 2014 07:05:17 -0800 (PST)
+In-Reply-To: <20140120223752.GA3057@pd.tnic>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mark functions as static in core/dev.c because they are not used outsid=
-e
-this file.
-
-This eliminates the following warning in core/dev.c:
-net/core/dev.c:2806:5: warning: no previous prototype for =E2=80=98__de=
-v_queue_xmit=E2=80=99 [-Wmissing-prototypes]
-net/core/dev.c:4640:5: warning: no previous prototype for =E2=80=98netd=
-ev_adjacent_sysfs_add=E2=80=99 [-Wmissing-prototypes]
-net/core/dev.c:4650:6: warning: no previous prototype for =E2=80=98netd=
-ev_adjacent_sysfs_del=E2=80=99 [-Wmissing-prototypes]
-
-Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
-Reviewed-by: Josh Triplett <josh@joshtriplett.org>
-Reviewed-by: Veaceslav Falico <vfalico@redhat.com>
----
- net/core/dev.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 3721db7..4ad1b78 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2803,7 +2803,7 @@ EXPORT_SYMBOL(dev_loopback_xmit);
-  *      the BH enable code must have IRQs enabled so that it will not =
-deadlock.
-  *          --BLG
-  */
--int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
-+static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
- {
- 	struct net_device *dev =3D skb->dev;
- 	struct netdev_queue *txq;
-@@ -4637,7 +4637,7 @@ struct net_device *netdev_master_upper_dev_get_rc=
-u(struct net_device *dev)
- }
- EXPORT_SYMBOL(netdev_master_upper_dev_get_rcu);
-=20
--int netdev_adjacent_sysfs_add(struct net_device *dev,
-+static int netdev_adjacent_sysfs_add(struct net_device *dev,
- 			      struct net_device *adj_dev,
- 			      struct list_head *dev_list)
- {
-@@ -4647,7 +4647,7 @@ int netdev_adjacent_sysfs_add(struct net_device *=
-dev,
- 	return sysfs_create_link(&(dev->dev.kobj), &(adj_dev->dev.kobj),
- 				 linkname);
- }
--void netdev_adjacent_sysfs_del(struct net_device *dev,
-+static void netdev_adjacent_sysfs_del(struct net_device *dev,
- 			       char *name,
- 			       struct list_head *dev_list)
- {
---=20
-1.7.9.5
+LS0tLS1CRUdJTiBQR1AgU0lHTkVEIE1FU1NBR0UtLS0tLQ0KSGFzaDogU0hBNTEyDQoNCkhpIGFs
+bCwNCg0KQW0gTW9uLCAyMCBKYW4gMjAxNCAyMzozNzo1MiArMDEwMA0Kc2NocmllYiBCb3Jpc2xh
+diBQZXRrb3YgPGJwQGFsaWVuOC5kZT46DQoNCj4gT24gTW9uLCBKYW4gMjAsIDIwMTQgYXQgMTE6
+Mjc6MjVQTSArMDEwMCwgRGFuaWVsIEV4bmVyIHdyb3RlOg0KPiA+IEkganVzdCBkaWQgdGhlIHNh
+bWUgcHJvY2VkdXJlIHdpdGggS2VybmVsIFZlcnNpb24gMy4xMzogc2FtZSBwb29yDQo+ID4gcmF0
+ZXMuDQo+ID4gDQo+ID4gSSB0aGluayBJIHdpbGwgdHJ5IHRvIHNlZSBvZiAzLjEyLjYgd2FzIHN0
+aWxsIG9rIGFuZCBiaXNlY3QgZnJvbQ0KPiA+IHRoZXJlLg0KPiANCj4gT3IgdHJ5IHNvbWV0aGlu
+ZyBtb3JlIGNvYXJzZS1ncmFpbmVkIGxpa2UgMy4xMSBmaXJzdCwgdGhlbiAzLjEyIGFuZA0KPiB0
+aGVuIHRoZSAtcmNzIGluIGJldHdlZW4uDQo+IA0KDQpJIG11c3QgYXBvbG9naXplIGZvciBzdXNw
+ZWN0aW5nIHRoZSBrZXJuZWwgZm9yIG15IHByb2JsZW1zLiBBZnRlciBzb21lDQpiaXNlY3QgYXR0
+ZW1wdHMgSSBmaW5hbHkgbm90aWNlZCB0aGUgZm9sbG93aW5nOg0KDQo+IGNhdCAvZXRjL3N5c2N0
+bC5kL25ldC5jb25mDQo+IG5ldC5pcHY0LnRjcF93aW5kb3dfc2NhbGluZyA9IDENCj4gbmV0LmNv
+cmUucm1lbV9tYXggPSAxNjc3NzIxNg0KPiBuZXQuaXB2NC50Y3Bfcm1lbSA9IDQwOTYgODczODAg
+MTY3NzcNCj4gbmV0LmlwdjQudGNwX3dtZW0gPSA0MDk2ICAgICAgIDE2MzgNCg0KQWZ0ZXIgcmVt
+b3ZpbmcgdGhvc2UgdmFsdWVzIEkgZmluYWxseSBoYWQgc2FuZSBpcGVyZiB2YWx1ZXMuDQpObyBp
+ZGVhIGhvdyB0aG9zZSBnb3QgdGhlcmUsIHBlcmhhcHMgdGhleSBtYWRlIHNlbnNlIHdoZW4gSSBm
+aXJzdCBzZXR1cA0KdGhlIGJveCwgd2hpY2ggaXMgc29tZSB5ZWFycyBhZ28uLg0KDQpBbnl3YXks
+IHRoYW5rcyBhbGwgZm9yIHlvdXIgaGVscCA6KQ0KDQpHcmVldGluZ3MNCkRhbmllbCBFeG5lcg0K
+LS0tLS1CRUdJTiBQR1AgU0lHTkFUVVJFLS0tLS0NClZlcnNpb246IEdudVBHIHYxLjQuMTQgKEdO
+VS9MaW51eCkNCg0KaVFJY0JBRUJDZ0FHQlFKUzk1a25BQW9KRVBJNnY2YkkvUWtmWllZUC8zN1dC
+dnlnUjdnTEtxRlRZZlFBMkFMRQ0KbjZjT0xyb2dvSlQ4Q2YzcTFmTHFLaVN6UFRveFN1UEJUVG1R
+dGFObmh4TEtUQ1BGSHhMWVBiVGR0bFhHVFBCMQ0KdkZWSm1YZzhXQU0va1FEL0lvSHJNc1pzSGZS
+V1pFK1J0UXJVZmVRNEF2YTZhYm1uaUJ1ZlZlN0VSTXVGNmRkVw0KMDJGNUNPdHc3NExKdVNieFM3
+MENuM3Jlb2cvRXhvSVlPWUtRbjYrRnBvS1RNRTRXblp0QThESnhvMXIwNzdSTA0KbU5xbzNENE9N
+cllkUGh4eVJqTHlndENubVh1WC95eW5WMmN6Qm5Ga01FNGYxQjRQLzFoSXpxWUN4YTJkQlFJTQ0K
+UGZyK2IvVHR5VlpBM0RzRTFkMjJmLyszNEVGV0UvMDZFTTVsOEt3SW1tUkhHQTlGZng3N2pLWDRz
+QXhOMEhoZw0KOVpKbGVlZGRrNE5haFh1cjVXTkFWNGxya2lMVWdHYXVDMGs3MjFLd0JGZWNGeTJn
+WUsvT1VJeU9tL29BM0lQVA0KV0FFZUdUNG5DZkNhMXZZZm9aVkJuNVVXT1pvMWVMbTVxaDZkbUdi
+OUZIdWttd1dURXBsUlJ2WURQeUpOZm1SZw0KMGo1bXZuN3ltRklibm1rVlNuQkZkZkpIMEk2WGho
+aUhROUgzY2I5SXQ5T0xINWVFSzF4NEFXMW9ra0F3cnF1UQ0Kb05Za3BxNTRhSlMvM29Eb2t5V04v
+R2t2a21tays0UTZ0cHhRZ2UwQVFQaHJOZWZ0NVg3YjhWaGZmc3RXaFRTRg0Ka08xVUxRK3pPdFJV
+SEY2VDU1MjNxVmNTM3B6RmZxUUtQWVBoaFFzcEd2dVBKRXIwTTk0aTJKUzAxNlo4NEN6Ng0Ka3Jt
+YUh2U08vTUtGa203dyt4NWQNCj05MEVuDQotLS0tLUVORCBQR1AgU0lHTkFUVVJFLS0tLS0NCg==
