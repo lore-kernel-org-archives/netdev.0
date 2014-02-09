@@ -1,58 +1,205 @@
-From: Daniel Exner <dex@dragonslave.de>
-Subject: Re: Poor network performance x86_64.. also with 3.13
-Date: Sun, 9 Feb 2014 16:05:11 +0100
-Message-ID: <20140209160511.2f67866f@Mycroft>
-References: <52DAD66F.7080306@dragonslave.de>
-	<20140118195026.GA15543@pd.tnic>
-	<52DB0439.2060905@dragonslave.de>
-	<52DDA2CD.9040001@dragonslave.de>
-	<20140120223752.GA3057@pd.tnic>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: RFC: bridge get fdb by bridge device
+Date: Sun, 09 Feb 2014 10:06:56 -0500
+Message-ID: <52F79990.3000400@mojatatu.com>
+References: <52F21F72.2090405@mojatatu.com> <52F29747.7040008@redhat.com> <52F3CF76.9090404@mojatatu.com> <52F3E357.4040006@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: base64
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Borislav Petkov <bp@alien8.de>
+Content-Type: multipart/mixed;
+ boundary="------------090501000001010305090103"
+Cc: vyasevic@redhat.com,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f67.google.com ([74.125.83.67]:38105 "EHLO
-	mail-ee0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751424AbaBIPFU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Feb 2014 10:05:20 -0500
-Received: by mail-ee0-f67.google.com with SMTP id d17so962445eek.2
-        for <netdev@vger.kernel.org>; Sun, 09 Feb 2014 07:05:17 -0800 (PST)
-In-Reply-To: <20140120223752.GA3057@pd.tnic>
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:38248 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751525AbaBIPHI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Feb 2014 10:07:08 -0500
+Received: by mail-ig0-f175.google.com with SMTP id uq10so5153881igb.2
+        for <netdev@vger.kernel.org>; Sun, 09 Feb 2014 07:07:07 -0800 (PST)
+In-Reply-To: <52F3E357.4040006@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-LS0tLS1CRUdJTiBQR1AgU0lHTkVEIE1FU1NBR0UtLS0tLQ0KSGFzaDogU0hBNTEyDQoNCkhpIGFs
-bCwNCg0KQW0gTW9uLCAyMCBKYW4gMjAxNCAyMzozNzo1MiArMDEwMA0Kc2NocmllYiBCb3Jpc2xh
-diBQZXRrb3YgPGJwQGFsaWVuOC5kZT46DQoNCj4gT24gTW9uLCBKYW4gMjAsIDIwMTQgYXQgMTE6
-Mjc6MjVQTSArMDEwMCwgRGFuaWVsIEV4bmVyIHdyb3RlOg0KPiA+IEkganVzdCBkaWQgdGhlIHNh
-bWUgcHJvY2VkdXJlIHdpdGggS2VybmVsIFZlcnNpb24gMy4xMzogc2FtZSBwb29yDQo+ID4gcmF0
-ZXMuDQo+ID4gDQo+ID4gSSB0aGluayBJIHdpbGwgdHJ5IHRvIHNlZSBvZiAzLjEyLjYgd2FzIHN0
-aWxsIG9rIGFuZCBiaXNlY3QgZnJvbQ0KPiA+IHRoZXJlLg0KPiANCj4gT3IgdHJ5IHNvbWV0aGlu
-ZyBtb3JlIGNvYXJzZS1ncmFpbmVkIGxpa2UgMy4xMSBmaXJzdCwgdGhlbiAzLjEyIGFuZA0KPiB0
-aGVuIHRoZSAtcmNzIGluIGJldHdlZW4uDQo+IA0KDQpJIG11c3QgYXBvbG9naXplIGZvciBzdXNw
-ZWN0aW5nIHRoZSBrZXJuZWwgZm9yIG15IHByb2JsZW1zLiBBZnRlciBzb21lDQpiaXNlY3QgYXR0
-ZW1wdHMgSSBmaW5hbHkgbm90aWNlZCB0aGUgZm9sbG93aW5nOg0KDQo+IGNhdCAvZXRjL3N5c2N0
-bC5kL25ldC5jb25mDQo+IG5ldC5pcHY0LnRjcF93aW5kb3dfc2NhbGluZyA9IDENCj4gbmV0LmNv
-cmUucm1lbV9tYXggPSAxNjc3NzIxNg0KPiBuZXQuaXB2NC50Y3Bfcm1lbSA9IDQwOTYgODczODAg
-MTY3NzcNCj4gbmV0LmlwdjQudGNwX3dtZW0gPSA0MDk2ICAgICAgIDE2MzgNCg0KQWZ0ZXIgcmVt
-b3ZpbmcgdGhvc2UgdmFsdWVzIEkgZmluYWxseSBoYWQgc2FuZSBpcGVyZiB2YWx1ZXMuDQpObyBp
-ZGVhIGhvdyB0aG9zZSBnb3QgdGhlcmUsIHBlcmhhcHMgdGhleSBtYWRlIHNlbnNlIHdoZW4gSSBm
-aXJzdCBzZXR1cA0KdGhlIGJveCwgd2hpY2ggaXMgc29tZSB5ZWFycyBhZ28uLg0KDQpBbnl3YXks
-IHRoYW5rcyBhbGwgZm9yIHlvdXIgaGVscCA6KQ0KDQpHcmVldGluZ3MNCkRhbmllbCBFeG5lcg0K
-LS0tLS1CRUdJTiBQR1AgU0lHTkFUVVJFLS0tLS0NClZlcnNpb246IEdudVBHIHYxLjQuMTQgKEdO
-VS9MaW51eCkNCg0KaVFJY0JBRUJDZ0FHQlFKUzk1a25BQW9KRVBJNnY2YkkvUWtmWllZUC8zN1dC
-dnlnUjdnTEtxRlRZZlFBMkFMRQ0KbjZjT0xyb2dvSlQ4Q2YzcTFmTHFLaVN6UFRveFN1UEJUVG1R
-dGFObmh4TEtUQ1BGSHhMWVBiVGR0bFhHVFBCMQ0KdkZWSm1YZzhXQU0va1FEL0lvSHJNc1pzSGZS
-V1pFK1J0UXJVZmVRNEF2YTZhYm1uaUJ1ZlZlN0VSTXVGNmRkVw0KMDJGNUNPdHc3NExKdVNieFM3
-MENuM3Jlb2cvRXhvSVlPWUtRbjYrRnBvS1RNRTRXblp0QThESnhvMXIwNzdSTA0KbU5xbzNENE9N
-cllkUGh4eVJqTHlndENubVh1WC95eW5WMmN6Qm5Ga01FNGYxQjRQLzFoSXpxWUN4YTJkQlFJTQ0K
-UGZyK2IvVHR5VlpBM0RzRTFkMjJmLyszNEVGV0UvMDZFTTVsOEt3SW1tUkhHQTlGZng3N2pLWDRz
-QXhOMEhoZw0KOVpKbGVlZGRrNE5haFh1cjVXTkFWNGxya2lMVWdHYXVDMGs3MjFLd0JGZWNGeTJn
-WUsvT1VJeU9tL29BM0lQVA0KV0FFZUdUNG5DZkNhMXZZZm9aVkJuNVVXT1pvMWVMbTVxaDZkbUdi
-OUZIdWttd1dURXBsUlJ2WURQeUpOZm1SZw0KMGo1bXZuN3ltRklibm1rVlNuQkZkZkpIMEk2WGho
-aUhROUgzY2I5SXQ5T0xINWVFSzF4NEFXMW9ra0F3cnF1UQ0Kb05Za3BxNTRhSlMvM29Eb2t5V04v
-R2t2a21tays0UTZ0cHhRZ2UwQVFQaHJOZWZ0NVg3YjhWaGZmc3RXaFRTRg0Ka08xVUxRK3pPdFJV
-SEY2VDU1MjNxVmNTM3B6RmZxUUtQWVBoaFFzcEd2dVBKRXIwTTk0aTJKUzAxNlo4NEN6Ng0Ka3Jt
-YUh2U08vTUtGa203dyt4NWQNCj05MEVuDQotLS0tLUVORCBQR1AgU0lHTkFUVVJFLS0tLS0NCg==
+This is a multi-part message in MIME format.
+--------------090501000001010305090103
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+
+This patch allows something equivalent to
+"brctl showmacs <bridge device>" with iproute2
+syntax "bridge link br <bridge device>"
+Filtering by bridge is done in the kernel.
+The current setup doesnt scale when you have many bridges each
+with large fdbs (preliminary fix with the kernel patch).
+
+iproute2 allows filtering by bridge port, example:
+"bridge link br br1234 dev port1234"
+but the filtering is done in user space.
+In a future patch i would like to do the port filtering
+in the kernel. As well, adding a MAC filter in the kernel
+makes sense.
+
+Kernel patch is against net-next.
+
+cheers,
+jamal
+
+--------------090501000001010305090103
+Content-Type: text/plain; charset=us-ascii;
+ name="bridge-fdb-filter1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="bridge-fdb-filter1"
+
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 393b1bc..507ea4e 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -2423,26 +2423,50 @@ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+ 	int idx = 0;
+ 	struct net *net = sock_net(skb->sk);
++	const struct net_device_ops *ops;
+ 	struct net_device *dev;
++	struct ndmsg *ndm;
+ 
+-	rcu_read_lock();
+-	for_each_netdev_rcu(net, dev) {
+-		if (dev->priv_flags & IFF_BRIDGE_PORT) {
+-			struct net_device *br_dev;
+-			const struct net_device_ops *ops;
+-
+-			br_dev = netdev_master_upper_dev_get(dev);
+-			ops = br_dev->netdev_ops;
+-			if (ops->ndo_fdb_dump)
+-				idx = ops->ndo_fdb_dump(skb, cb, dev, idx);
++	ndm = nlmsg_data(cb->nlh);
++	if (ndm->ndm_ifindex) {
++		dev = __dev_get_by_index(net, ndm->ndm_ifindex);
++		if (dev == NULL) {
++			pr_info("PF_BRIDGE: RTM_GETNEIGH with unknown ifindex\n");
++			return -ENODEV;
++		}
++	
++		if (!(dev->priv_flags & IFF_EBRIDGE)) {
++			pr_info("PF_BRIDGE: RTM_GETNEIGH %s not a bridge device\n",
++				dev->name);
++			return -EINVAL;
+ 		}
++		ops = dev->netdev_ops;
++		if (ops->ndo_fdb_dump) {
++			idx = ops->ndo_fdb_dump(skb, cb, dev, idx);
++		} else {
++			pr_info("PF_BRIDGE: RTM_GETNEIGH %s no dumper\n",
++				dev->name);
++			return -EINVAL;
++		}
++	} else {
++		rcu_read_lock();
++		for_each_netdev_rcu(net, dev) {
++			if (dev->priv_flags & IFF_BRIDGE_PORT) {
++				struct net_device *br_dev;
++				br_dev = netdev_master_upper_dev_get(dev);
++				ops = br_dev->netdev_ops;
++				if (ops->ndo_fdb_dump)
++					idx = ops->ndo_fdb_dump(skb, cb, dev, idx);
++			}
+ 
+-		if (dev->netdev_ops->ndo_fdb_dump)
+-			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev, idx);
+-		else
+-			idx = ndo_dflt_fdb_dump(skb, cb, dev, idx);
++			if (dev->netdev_ops->ndo_fdb_dump)
++				idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev,
++								    idx);
++			else
++				idx = ndo_dflt_fdb_dump(skb, cb, dev, idx);
++		}
++		rcu_read_unlock();
+ 	}
+-	rcu_read_unlock();
+ 
+ 	cb->args[0] = idx;
+ 	return skb->len;
+
+--------------090501000001010305090103
+Content-Type: text/plain; charset=us-ascii;
+ name="iprt-fdb-brfilter1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="iprt-fdb-brfilter1"
+
+diff --git a/bridge/fdb.c b/bridge/fdb.c
+index e2e53f1..f3073d6 100644
+--- a/bridge/fdb.c
++++ b/bridge/fdb.c
+@@ -33,7 +33,7 @@ static void usage(void)
+ 	fprintf(stderr, "Usage: bridge fdb { add | append | del | replace } ADDR dev DEV {self|master} [ temp ]\n"
+ 		        "              [router] [ dst IPADDR] [ vlan VID ]\n"
+ 		        "              [ port PORT] [ vni VNI ] [via DEV]\n");
+-	fprintf(stderr, "       bridge fdb {show} [ dev DEV ]\n");
++	fprintf(stderr, "       bridge fdb {show} [ br BRDEV ] [ dev DEV ]\n");
+ 	exit(-1);
+ }
+ 
+@@ -152,18 +152,35 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 
+ static int fdb_show(int argc, char **argv)
+ {
++	struct ndmsg ndm = { };
+ 	char *filter_dev = NULL;
++	char *br = NULL;
++
++	ndm.ndm_family = PF_BRIDGE;
++	ndm.ndm_state = NUD_NOARP;
+ 
+ 	while (argc > 0) {
+-		if (strcmp(*argv, "dev") == 0) {
++		if ((strcmp(*argv, "port") == 0) || strcmp(*argv, "dev") == 0) {
+ 			NEXT_ARG();
+-			if (filter_dev)
+-				duparg("dev", *argv);
+ 			filter_dev = *argv;
++		} else if (strcmp(*argv, "br") == 0) {
++			NEXT_ARG();
++			br = *argv;
++		} else {
++			if (matches(*argv, "help") == 0)
++				usage();
+ 		}
+ 		argc--; argv++;
+ 	}
+ 
++	if (br) {
++		ndm.ndm_ifindex = ll_name_to_index(br);
++		if (ndm.ndm_ifindex == 0) {
++			fprintf(stderr, "Cannot find bridge device \"%s\"\n", br);
++			return -1;
++		}
++	}
++
+ 	if (filter_dev) {
+ 		filter_index = if_nametoindex(filter_dev);
+ 		if (filter_index == 0) {
+@@ -171,13 +188,15 @@ static int fdb_show(int argc, char **argv)
+ 				filter_dev);
+ 			return -1;
+ 		}
++
+ 	}
+ 
+-	if (rtnl_wilddump_request(&rth, PF_BRIDGE, RTM_GETNEIGH) < 0) {
++	if (rtnl_dump_request(&rth, RTM_GETNEIGH, &ndm, sizeof(struct ndmsg)) < 0) {
+ 		perror("Cannot send dump request");
+ 		exit(1);
+ 	}
+ 
++
+ 	if (rtnl_dump_filter(&rth, print_fdb, stdout) < 0) {
+ 		fprintf(stderr, "Dump terminated\n");
+ 		exit(1);
+
+--------------090501000001010305090103--
