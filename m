@@ -1,53 +1,41 @@
-From: Richard Yao <ryao@gentoo.org>
-Subject: [PATCH] Fix broken zero-copy on vmalloc() buffers (4th and hopefully final submission)
-Date: Sat,  8 Feb 2014 19:32:00 -0500
-Message-ID: <1391905921-28378-1-git-send-email-ryao@gentoo.org>
-Cc: Eric Van Hensbergen <ericvh@gmail.com>,
-	Ron Minnich <rminnich@sandia.gov>,
-	Latchesar Ionkov <lucho@ionkov.net>,
-	V9FS Develooper Mailing List
-	<v9fs-developer@lists.sourceforge.net>,
-	Linux Netdev Mailing List <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>,
-	Will Deacon <will.deacon@arm.com>,
-	Christopher Covington <cov@codeaurora.org>,
-	Matthew Thode <mthode@mthode.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] bridge: Unbreak netconsole
+Date: Sat, 8 Feb 2014 18:05:11 -0700
+Message-ID: <20140208180511.533e1d98@samsung-9>
+References: <52F67A4B.9000504@acm.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Bart Van Assche <bvanassche@acm.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:63860 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751224AbaBIBFS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Feb 2014 20:05:18 -0500
+Received: by mail-pa0-f51.google.com with SMTP id ld10so4737248pab.10
+        for <netdev@vger.kernel.org>; Sat, 08 Feb 2014 17:05:17 -0800 (PST)
+In-Reply-To: <52F67A4B.9000504@acm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch has been submitted for a few times.
+On Sat, 08 Feb 2014 19:41:15 +0100
+Bart Van Assche <bvanassche@acm.org> wrote:
 
-The first time was my first time doing any sort of Linux patch
-submission. At the time, I was unaware of ./scripts/get_maintainer.pl
-and sent the patch to only a subset of the correct people. Consequently,
-it was not submitted properly for acceptance by the subsystem maintainer.
+> Sending netconsole messages over a bridge network interface doesn't
+> work anymore since kernel v3.12. Bisecting this led to the patch
+> "bridge: cleanup netpoll code". Hence revert that patch (commit
+> 93d8bf9fb8f39d6d3e461db60f883d9f81006159).
+> 
+> Signed-off-by: Bart Van Assche <bvanassche@acm.org>
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Cc: Jiri Pirko <jiri@resnulli.us>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: <stable@vger.kernel.org> # 3.12
+> Reference: https://bugzilla.kernel.org/show_bug.cgi?id=70071
 
-The second time was a week ago. I had taken advice from Greg Koah-Hartman to
-use ./scripts/get_maintainer.pl to determine the correct recipients. It was
-initially accepted by the subsystem maintainer and then rejected. This patch
-uses is_vmalloc_or_module_addr(), which is not exported for use in kernel
-modules. Using it causes a build failure when CONFIG_NET_9P_VIRTIO=m is set in
-.config.
-
-The third time was earlier today, when I sent it straight to Linus Torvalds
-because merging it required exporting is_vmalloc_or_module_addr(), which he
-wrote. A brief correspondence with Linus revealed that my earlier belief that
-it would be better to use is_vmalloc_or_module_addr() instead of
-is_vmalloc_addr() was incorrect.
-
-I expect this submission to be the last. I have changed the patch to use
-is_vmalloc_addr() as Linus Torvalds suggested. This resolves the build
-regression the problem David S. Miller found when CONFIG_NET_9P_VIRTIO=m was
-set and should resolve all criticism.
-
-Richard Yao (1):
-  9p/trans_virtio.c: Fix broken zero-copy on vmalloc() buffers
-
- net/9p/trans_virtio.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
--- 
-1.8.3.2
+Cong already send an alternative fix for this.
