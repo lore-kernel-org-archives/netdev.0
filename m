@@ -1,60 +1,39 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: Learning Linux
-Date: Sun, 09 Feb 2014 18:10:13 +0000
-Message-ID: <1391969413.25202.75.camel@deadeye.wl.decadent.org.uk>
-References: <1391963426.13367.1.camel@david>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Poor network performance x86_64.. also with 3.13
+Date: Sun, 09 Feb 2014 10:14:34 -0800
+Message-ID: <1391969674.10160.134.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <52DAD66F.7080306@dragonslave.de>
+	 <20140118195026.GA15543@pd.tnic> <52DB0439.2060905@dragonslave.de>
+	 <52DDA2CD.9040001@dragonslave.de> <20140120223752.GA3057@pd.tnic>
+	 <20140209160511.2f67866f@Mycroft> <20140209153107.GA8614@pd.tnic>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-6PeQ9ALpZbNf3svAPUi4"
-Cc: netdev@vger.kernel.org
-To: dranieri12@comcast.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:41206 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751907AbaBISKT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Feb 2014 13:10:19 -0500
-In-Reply-To: <1391963426.13367.1.camel@david>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---=-6PeQ9ALpZbNf3svAPUi4
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Exner <dex@dragonslave.de>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Borislav Petkov <bp@alien8.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140209153107.GA8614@pd.tnic>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2014-02-09 at 11:30 -0500, David Ranieri wrote:
-> Tired of windows however there is more to linux and drivers than meets
-> the eye. Can you tell me how to find a driver updater for debian linux
-> version wheezy
+On Sun, 2014-02-09 at 16:31 +0100, Borislav Petkov wrote:
+> On Sun, Feb 09, 2014 at 04:05:11PM +0100, Daniel Exner wrote:
+> > > cat /etc/sysctl.d/net.conf
+> > > net.ipv4.tcp_window_scaling = 1
+> > > net.core.rmem_max = 16777216
+> > > net.ipv4.tcp_rmem = 4096 87380 16777
+> > > net.ipv4.tcp_wmem = 4096       1638
+> > 
+> > After removing those values I finally had sane iperf values.
+> > No idea how those got there, perhaps they made sense when I first setup
+> > the box, which is some years ago..
+> 
+> The only question that is left to clarify now is why do those values
+> have effect on 3.12.x and not on 3.10...
 
-You can install a backported kernel: https://wiki.debian.org/Backports
+tcp_rmem[2] = 16777
 
-Ben.
+Come on, the 640KB barrier was broken a long time ago ;)
 
---=20
-Ben Hutchings
-If at first you don't succeed, you're doing about average.
-
---=-6PeQ9ALpZbNf3svAPUi4
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAUvfEhee/yOyVhhEJAQo3tRAAxTQmb6P0dXHVtZEvYikLd0RKp/9i0ZMr
-IN6mxwvq5s3t0yE0ulqPAISEPlpXyzdkx9KdVX99DgQIOWJTZve70XxeV9twgfvC
-nwP9PV5//vRFcC+s2nl9MpLu2P9G4WXLLwqg20etQvKQH/ztk52NHwJDJMcXr8Cz
-qq1/zuBPWV5OQZt8AfK+0CA2FjjBt3aFCa+q6zcusuiHJSTS/471RkQ8Rbf1fnbL
-U9VUuP90BEMrMh8L/l7I85RGcWhqv+PKRsl211uX1vQaxz+8uT3Gu1jk1dgV9+1L
-9+Auz6sjwt6Hb2hNastjjijUTTdgJkUWG6KvKlIPVd8+ZXFRTNZlQr51w4GtwLRK
-Z+8WZqYhju8Qh2Y2+E3W6njbx5SRrSDQG7ooqqztGH3vVWEhxknEoZ4IiM/xz/y4
-VnRDoBHNyO4EacyNZNkeT0C5a9YEnzoFbDkYkYkK/bUdbwD8wQnnWUVJFLF7OtrZ
-jN8mdu/PQzmRxkaD9p3zSQ++soCLZpPaItSPhhpuX8S78fw5uBlK/m9Jcp6cS35A
-ytXgAVf7QLddOfxHFUjIoo2eeFsBBxXjOY6rfrXmDAgE4cS6FWlxD32WgWij8YVR
-7MuOfoBdz8xPLz0tVxh7X1ITgLRJVIaU99dEsxyT0ucCB2FwHRm/RjBJTa74ctzJ
-b5xfB6D+5u0=
-=GCgT
------END PGP SIGNATURE-----
-
---=-6PeQ9ALpZbNf3svAPUi4--
+Feel free to investigate, I wont ;)
