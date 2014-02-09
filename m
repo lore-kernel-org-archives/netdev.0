@@ -1,57 +1,123 @@
-From: Bart Van Assche <bvanassche@acm.org>
-Subject: Re: [PATCH] bridge: Unbreak netconsole
-Date: Sun, 09 Feb 2014 09:46:11 +0100
-Message-ID: <52F74053.8030007@acm.org>
-References: <52F67A4B.9000504@acm.org>	<20140208180511.533e1d98@samsung-9> <CAHA+R7OavspZhWH=MEE2dwnj+iyekTttRyQiYHbVNgB_52t7WQ@mail.gmail.com>
+From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: 6lowpan: lockless tx queue of routing netlink
+	device
+Date: Sun, 9 Feb 2014 11:20:49 +0100
+Message-ID: <20140209102047.GA14770@omega>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp03.stone-is.org ([87.238.162.65]:38928 "EHLO
-	smtpgw.stone-is.be" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751403AbaBIIqR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Feb 2014 03:46:17 -0500
-In-Reply-To: <CAHA+R7OavspZhWH=MEE2dwnj+iyekTttRyQiYHbVNgB_52t7WQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 02/09/14 03:44, Cong Wang wrote:
-> On Sat, Feb 8, 2014 at 5:05 PM, Stephen Hemminger
-> <stephen@networkplumber.org> wrote:
->> On Sat, 08 Feb 2014 19:41:15 +0100
->> Bart Van Assche <bvanassche@acm.org> wrote:
->>
->>> Sending netconsole messages over a bridge network interface doesn't
->>> work anymore since kernel v3.12. Bisecting this led to the patch
->>> "bridge: cleanup netpoll code". Hence revert that patch (commit
->>> 93d8bf9fb8f39d6d3e461db60f883d9f81006159).
->>>
->>> Signed-off-by: Bart Van Assche <bvanassche@acm.org>
->>> Cc: Stephen Hemminger <stephen@networkplumber.org>
->>> Cc: Jiri Pirko <jiri@resnulli.us>
->>> Cc: Neil Horman <nhorman@tuxdriver.com>
->>> Cc: David S. Miller <davem@davemloft.net>
->>> Cc: <stable@vger.kernel.org> # 3.12
->>> Reference: https://bugzilla.kernel.org/show_bug.cgi?id=70071
->>
->> Cong already send an alternative fix for this.
-> 
-> And it is already in -net:
-> 
-> commit dbe173079ab58a444e12dbebe96f5aec1e0bed1a
-> Author: Cong Wang <cwang@twopensource.com>
-> Date:   Thu Feb 6 15:00:52 2014 -0800
-> 
->     bridge: fix netconsole setup over bridge
+Hi,
 
-Thanks Cong and Stephen for working on a fix, and sorry that I had not
-noticed that a fix was already available before I sent the patch at the
-start of this e-mail thread.
+I got some locking issues with CONFIG_PROVE_LOCKING enabled and need help.
 
-Bart.
+Full output:
+
+=============================================
+[ INFO: possible recursive locking detected ]
+3.13.0-08605-g8f2b630-dirty #105 Not tainted
+---------------------------------------------
+agetty/841 is trying to acquire lock:
+ (_xmit_IEEE802154#2){+.-...}, at: [<c0356b39>] sch_direct_xmit+0x34/0x122
+
+but task is already holding lock:
+ (_xmit_IEEE802154#2){+.-...}, at: [<c0346926>] __dev_queue_xmit+0x26e/0x329
+
+other info that might help us debug this:
+ Possible unsafe locking scenario:
+
+       CPU0
+       ----
+  lock(_xmit_IEEE802154#2);
+  lock(_xmit_IEEE802154#2);
+
+ *** DEADLOCK ***
+
+ May be due to missing lock nesting notation
+
+6 locks held by agetty/841:
+ #0:  (((&idev->mc_ifc_timer))){+.-...}, at: [<c012b6f2>] call_timer_fn+0x0/0xb3
+ #1:  (rcu_read_lock){.+.+..}, at: [<c03b4335>] rcu_read_lock+0x0/0x21
+ #2:  (rcu_read_lock_bh){.+....}, at: [<c039d39d>] rcu_lock_acquire+0x0/0x1c
+ #3:  (rcu_read_lock_bh){.+....}, at: [<c03426e5>] rcu_lock_acquire+0x0/0x1c
+ #4:  (_xmit_IEEE802154#2){+.-...}, at: [<c0346926>] __dev_queue_xmit+0x26e/0x329
+ #5:  (rcu_read_lock_bh){.+....}, at: [<c03426e5>] rcu_lock_acquire+0x0/0x1c
+
+
+
+The solution was for me to change
+dev->type = ARPHRD_IEEE802154
+to
+dev->type = ARPHRD_6LOWPAN
+of the rtnl device. What we really shall do in the near future. (I have
+a patch for this).
+
+
+Another solution was to add:
+dev->features           |= NETIF_F_LLTX;
+in setup callback of rtnl device.
+
+
+This enables a lockless tx queue.
+I am not sure if we can do a lockless tx queue here and the comment of
+NETIF_F_LLTX says it's deprecated "/* do not use LLTX in new drivers */".
+Exists there some alternative for this?
+
+
+
+So a little bit more information about the current architecture which is
+a little bit complex for tx. Maybe then it's more clear how to fix this
+issue correctly.
+
+To setup a lowpan interface you need to run:
+"ip link add link $WPAN_INTERFACE name $LOWPAN_INTERFACE type lowpan"
+
+This setups a lowpan interface which "sitting" on top of the
+$WPAN_INTERFACE.
+
+The lowpan rtnl implementation saves pointers from both interfaces we
+name it:
+
+"real_dev" <-- WPAN_INTERFACE
+"dev" <-- LOWPAN_INTERFACE
+
+
+If we get some "usually" ipv6 packets from LOWPAN_INTERFACE which calls
+header_create function, then we doing some manipulating of sk_buff there.
+
+After this we calling dev_hard_header with the callback of
+WPAN_INTERFACE to generate the mac header.
+
+Then we are in the xmit callback of LOWPAN_INTERFACE and doing a
+skb->dev pointer change from LOWPAN_INTERFACE to the WPAN_INTERFACE and
+calling dev_queue_xmit to send it via the WPAN_INTERFACE.
+The skb->dev switch is necessary because we call then the xmit callback
+of the WPAN_INTERFACE, the LOWPAN_INTERFACE is more a "virtual" interface.
+
+I think that's the problem. We have two dev_queue_xmit calls first from 
+LOWPAN_INTERFACE then the WPAN_INTERFACE, so we locking something twice.
+
+
+That's very much complicated and I think we doing some hacked stuff
+there but currently it works so (except the locking issue). :-)
+
+- Alex
+
+------------------------------------------------------------------------------
+Managing the Performance of Cloud-Based Applications
+Take advantage of what the Cloud has to offer - Avoid Common Pitfalls.
+Read the Whitepaper.
+http://pubads.g.doubleclick.net/gampad/clk?id=121051231&iu=/4140/ostg.clktrk
