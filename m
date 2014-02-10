@@ -1,44 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: icmp6_send: fix Oops when pinging a not set up
- IPv6 peer on a sit tunnel
-Date: Sun, 09 Feb 2014 18:13:09 -0800 (PST)
-Message-ID: <20140209.181309.693568109095582800.davem@davemloft.net>
-References: <1391768557-6337-1-git-send-email-fx.lebail@yahoo.com>
+Subject: Re: [PATCH] 6lowpan: Remove unused pointer in
+ lowpan_header_create()
+Date: Sun, 09 Feb 2014 18:38:29 -0800 (PST)
+Message-ID: <20140209.183829.1382019488417715676.davem@davemloft.net>
+References: <20140207225838.18ad2ffb@spike>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com
-To: fx.lebail@yahoo.com
+Cc: netdev@vger.kernel.org, alex.bluesman.smirnov@gmail.com,
+	dbaryshkov@gmail.com, jukka.rissanen@linux.intel.com
+To: cengelma@gmx.at
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49056 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49195 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752213AbaBJCNK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Feb 2014 21:13:10 -0500
-In-Reply-To: <1391768557-6337-1-git-send-email-fx.lebail@yahoo.com>
+	with ESMTP id S1752092AbaBJCic (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Feb 2014 21:38:32 -0500
+In-Reply-To: <20140207225838.18ad2ffb@spike>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
-Date: Fri,  7 Feb 2014 11:22:37 +0100
+From: Christian Engelmayer <cengelma@gmx.at>
+Date: Fri, 7 Feb 2014 22:58:38 +0100
 
-> The patch 446fab59333dea91e54688f033dd8d788d0486fb ("ipv6: enable anycast addresses
-> as source addresses in ICMPv6 error messages") causes an Oops when pinging a not
-> set up IPv6 peer on a sit tunnel.
+> Commit 8df8c56a (6lowpan: Moving generic compression code into 6lowpan_iphc.c)
+> left pointer 'hdr' unused - remove it.
 > 
-> The problem is that ipv6_anycast_destination() uses unconditionally skb_dst(skb),
-> which is NULL in this case.
+> Detected by Coverity: CID 1164868.
 > 
-> The solution is to use instead the ipv6_chk_acast_addr_src() function.
-> 
-> Here are the steps to reproduce it:
-> modprobe sit
-> ip link add sit1 type sit remote 10.16.0.121 local 10.16.0.249
-> ip l s sit1 up
-> ip -6 a a dev sit1 2001:1234::123 remote 2001:1234::121
-> ping6 2001:1234::121
-> 
-> Reported-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Tested-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+> Signed-off-by: Christian Engelmayer <cengelma@gmx.at>
 
-Applied, thank you.
+Applied, thanks.
