@@ -1,37 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Latest version of zero-copy fix
-Date: Mon, 10 Feb 2014 15:21:50 -0800 (PST)
-Message-ID: <20140210.152150.574073124161003333.davem@davemloft.net>
+Subject: Re: [PATCH] tcp: tsq: fix nonagle handling
+Date: Mon, 10 Feb 2014 15:24:16 -0800 (PST)
+Message-ID: <20140210.152416.1707361996340298057.davem@davemloft.net>
+References: <1392000011.6615.15.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ryao@gentoo.org
+Cc: netdev@vger.kernel.org, john.ogness@linutronix.de,
+	thomas@glanzmann.de
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56782 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56787 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752440AbaBJXVw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 18:21:52 -0500
+	with ESMTP id S1752873AbaBJXYR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 18:24:17 -0500
+In-Reply-To: <1392000011.6615.15.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 09 Feb 2014 18:40:11 -0800
 
-So now the patch only tests is_vmalloc_addr(), did you test this
-version with the situation that triggers the given backtrace?
+> From: John Ogness <john.ogness@linutronix.de>
+> 
+> Commit 46d3ceabd8d9 ("tcp: TCP Small Queues") introduced a possible
+> regression for applications using TCP_NODELAY.
+> 
+> If TCP session is throttled because of tsq, we should consult
+> tp->nonagle when TX completion is done and allow us to send additional
+> segment, especially if this segment is not a full MSS.
+> Otherwise this segment is sent after an RTO.
+> 
+> [edumazet] : Cooked the changelog, added another fix about testing
+> sk_wmem_alloc twice because TX completion can happen right before
+> setting TSQ_THROTTLED bit.
+> 
+> This problem is particularly visible with recent auto corking,
+> but might also be triggered with low tcp_limit_output_bytes
+> values or NIC drivers delaying TX completion by hundred of usec,
+> and very low rtt.
+> 
+> Thomas Glanzmann for example reported an iscsi regression, caused
+> by tcp auto corking making this bug quite visible.
+> 
+> Fixes: 46d3ceabd8d9 ("tcp: TCP Small Queues")
+> Signed-off-by: John Ogness <john.ogness@linutronix.de>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Thomas Glanzmann <thomas@glanzmann.de>
 
-[<ffffffff814878ce>] p9_virtio_zc_request+0x45e/0x510
-[<ffffffff814814ed>] p9_client_zc_rpc.constprop.16+0xfd/0x4f0
-[<ffffffff814839dd>] p9_client_read+0x15d/0x240
-[<ffffffff811c8440>] v9fs_fid_readn+0x50/0xa0
-[<ffffffff811c84a0>] v9fs_file_readn+0x10/0x20
-[<ffffffff811c84e7>] v9fs_file_read+0x37/0x70
-[<ffffffff8114e3fb>] vfs_read+0x9b/0x160
-[<ffffffff81153571>] kernel_read+0x41/0x60
-[<ffffffff810c83ab>] copy_module_from_fd.isra.34+0xfb/0x180
-
-This is reading from v9fs into a module address.
-
-It's going generate the same backtrace with your fix.
-
-I don't think the situation was sufficiently explained to Linus.  In
-fact, I didn't see the above backtrace mentioned at all.
+Applied and queued up for -stable, thanks!
