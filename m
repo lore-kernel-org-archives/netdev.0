@@ -1,78 +1,44 @@
-From: Sergey Ryazanov <ryazanov.s.a@gmail.com>
-Subject: Re: [PATCH 09/28] Remove ATHEROS_AR231X
-Date: Mon, 10 Feb 2014 16:38:17 +0400
-Message-ID: <CAHNKnsQF5Hdf3JT91moPraRQzn4kMpdD2NSiJ7b30wQhS1W4MA@mail.gmail.com>
-References: <1391971686-9517-1-git-send-email-richard@nod.at>
- <1391971686-9517-10-git-send-email-richard@nod.at> <52F7D480.1050106@hauke-m.de>
- <52F7DF21.70207@nod.at> <CAHNKnsS7Mv4ZhBWZa53go9L9nZimJ7_FG5HFJ9C3kkGMAEz-mA@mail.gmail.com>
- <52F8C373.9060108@rempel-privat.de>
+From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: [PATCH 1/2 v2] usbnet: fix bad header length bug
+Date: Mon, 10 Feb 2014 12:39:07 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6BBDD0@AcuExch.aculab.com>
+References: <1391987174-21828-1-git-send-email-emilgoode@gmail.com>
+	 <1392014458.21271.6.camel@linux-fkkt.site> <20140210115812.GA4278@lianli>
+ <1392034947.2082.30.camel@linux-fkkt.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Richard Weinberger <richard@nod.at>,
-	Jonathan Bither <jonbither@gmail.com>,
-	OpenWrt Development List <openwrt-devel@lists.openwrt.org>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	Jiri Slaby <jirislaby@gmail.com>,
-	Nick Kossifidis <mickflemm@gmail.com>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"open list:ATHEROS ATH5K WIR..." <linux-wireless@vger.kernel.org>,
-	"open list:ATHEROS ATH5K WIR..." <ath5k-devel@lists.ath5k.org>,
-	open@hauke-m.de,
-	"list@hauke-m.de:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
-	open list <linux-kernel@vger.kernel.org>,
-	"antonynpavlov@gmail.com" <antonynpavlov@gmail.com>
-To: Oleksij Rempel <linux@rempel-privat.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52F8C373.9060108@rempel-privat.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Mark Brown <broonie-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Glen Turner <gdt-pRLresKaOUyHXe+LvDLADg@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: 'Oliver Neukum' <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	Emil Goode <emilgoode-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1392034947.2082.30.camel-B2T3B9s34ElbnMAlSieJcQ@public.gmane.org>
+Content-Language: en-US
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-2014-02-10 16:17 GMT+04:00 Oleksij Rempel <linux@rempel-privat.de>:
-> Am 10.02.2014 13:05, schrieb Sergey Ryazanov:
->> 2014-02-10 0:03 GMT+04:00 Richard Weinberger <richard@nod.at>:
->>> Am 09.02.2014 20:18, schrieb Hauke Mehrtens:
->>>> On 02/09/2014 07:47 PM, Richard Weinberger wrote:
->>>>> The symbol is an orphan, get rid of it.
->>>>>
->>>>> Signed-off-by: Richard Weinberger <richard@nod.at>
->>>>> ---
->>>>>  drivers/net/wireless/ath/ath5k/Kconfig | 10 +++++-----
->>>>>  drivers/net/wireless/ath/ath5k/ath5k.h | 28 ----------------------------
->>>>>  drivers/net/wireless/ath/ath5k/base.c  | 14 --------------
->>>>>  drivers/net/wireless/ath/ath5k/led.c   |  7 -------
->>>>>  4 files changed, 5 insertions(+), 54 deletions(-)
->>>>>
->>>>
->>>> This code is used in OpenWrt with an out of tree arch code for the
->>>> Atheros 231x/531x SoC. [0] I do not think anyone is working on adding
->>>> this code to mainline Linux kernel, because of lack of time/interest.
->>>
->>> Sorry, we don't maintain out of tree code.
->>>
->>
->> Oleksij, Jonathan do you still working to make ar231x devices work
->> with upstream, since your posts [1, 2]? Or may be someone from OpenWRT
->> team would like to add upstream support?
->>
->> 1. https://lkml.org/lkml/2013/5/13/321
->> 2. https://lkml.org/lkml/2013/5/13/358
->>
->
-> Hi,
-> my current target was to provide barebox and openocd support.
-> - ar2313 is already upstream on barebox.
-> - ar2315-2318 (barebox) awaiting review by Anthony Pavlov.
-> - openocd (EJTAG) support is ready and i'll push it ASUP.
->
-WOW, Impressive.
-
-> I hope Jonathan do kernel part. If not, i can provide some work, since i
-> have testing boards and expiriance on this hardware.
->
-If you need, I can test kernel part, or even do some porting work. I
-have some AR231x based boards, e.g. Ubnt LS2 and NS2.
-
--- 
-BR,
-Sergey
+RnJvbTogT2xpdmVyIE5ldWt1bQ0KPiA8Y2Vuc29yZWQ+LiBPaCB3ZWxsLiBCdXQgaG93IGFib3V0
+IG1lcmdpbmcgaXQgd2l0aCBGTEFHX01VTFRJX1BBQ0tFVD8NCj4gSSByZWFsbHkgZG9uJ3Qgd2Fu
+dCB0byBhZGQgbW9yZSBmbGFncy4gVGhlcmUgaXMgYSBwb2ludCB3aGVyZSBlbm91Z2gNCj4gZmxh
+Z3MgbWFrZSBhYnN1cmQgaGF2aW5nIGEgY29tbW9uIGNvZGUuIFdlIGFyZSBjbG9zaW5nIGluIG9u
+IHRoYXQgcG9pbnQuDQoNCkFueSBzdWItZHJpdmVyIHRoYXQgc3VwcG9ydHMgbXVsdGktcGFja2V0
+IGVpdGhlciBoYXMgdG8gdXNlIHN0dXBpZGx5DQpsb25nIFVSQiBhbmQvb3Igc2V0IHRoZSByeF91
+cmJfc2l6ZSB0byBhIG11bHRpcGxlIG9mIHRoZSB1c2IgdHJhbnNmZXINCnNpemUuDQoNCkl0IHdp
+bGwgYWxzbyBoYXZlIHRvIGRldGVjdCBpbGxlZ2FsIHNob3J0IGhlYWRlcnMuDQoNCkFjdHVhbGx5
+IGl0IG1pZ2h0IGJlIHdvcnRoIGRvdWJsZS1jaGVja2luZyB0aGUgZW5jYXBzdWxhdGlvbnMgdXNl
+ZC4NCklJUkMgdGhlIGF4ODgxNzlfMTc4YSB1c2VzIGRpZmZlcmVudCBoZWFkZXJzIGZvciB0eCBh
+bmQgcnguDQpTbyB0aGVyZSBtaWdodCBiZSBzb21lIHRoYXQgc3VwcG9ydCBtdWx0aS1wYWNrZXQg
+YnV0IHN0aWxsIGhhdmUNCmEgc2hvcnQoaXNoKSBsaW1pdCBvbiB0aGUgYnVsayByZWNlaXZlIHNp
+emUgKGJlZm9yZSB0aGUgc2hvcnQgZnJhZ21lbnQpLg0KDQpJJ20gc2F0IGF0IHRoZSB3cm9uZyBk
+ZXNrIHRvIGxvb2sgYXQgdGhlIGNvZGUuLi4NCg0KCURhdmlkDQoNCg==
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
