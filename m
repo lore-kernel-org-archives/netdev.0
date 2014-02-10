@@ -1,108 +1,57 @@
-From: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
-Subject: [PATCH iproute2] ss: display interface name as zone index when needed
-Date: Mon, 10 Feb 2014 09:20:33 +0100
-Message-ID: <1392020433-27554-1-git-send-email-fx.lebail@yahoo.com>
-To: Stephen Hemminger <shemminger@linux-foundation.org>,
-	NETDEV <netdev@vger.kernel.org>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net] bonding: remove unwanted bond lock for enslave
+ processing
+Date: Mon, 10 Feb 2014 09:49:26 +0100
+Message-ID: <20140210084925.GD1205@redhat.com>
+References: <52F88EF7.606@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp04.smtpout.orange.fr ([80.12.242.126]:60420 "EHLO
-	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751886AbaBJIr7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 03:47:59 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:37973 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751240AbaBJItk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Feb 2014 03:49:40 -0500
+Content-Disposition: inline
+In-Reply-To: <52F88EF7.606@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change enable the ss command to display the interface name as zone index
-for local addresses when needed.
+On Mon, Feb 10, 2014 at 04:33:59PM +0800, Ding Tianhong wrote:
+>The bond enslave processing don't hold bond->lock anymore,
+>so release an unlocked rw lock will cause warning message,
+>remove the unwanted read_unlock(&bond->lock).
+>
+>Cc: Jay Vosburgh <fubar@us.ibm.com>
+>Cc: Veaceslav Falico <vfalico@redhat.com>
+>Cc: Andy Gospodarek <andy@greyhouse.net>
+>Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 
-For this enhanced display *_diag stuff is needed.
+Good catch.
 
-It is based on a first version by Bernd Eckenfels.
+Acked-by: Veaceslav Falico <vfalico@redhat.com>
 
-example:
-Netid  State   Recv-Q Send-Q                 Local Address:Port    Peer Address:Port
-udp    UNCONN  0      0      fe80::20c:29ff:fe1f:7406%eth1:9999              :::*
-udp    UNCONN  0      0                                 :::domain            :::*
-tcp    LISTEN  0      3                                 :::domain            :::*
-tcp    LISTEN  0      5      fe80::20c:29ff:fe1f:7410%eth2:99                :::*
-
-Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
----
- misc/ss.c |   29 +++++++++++++++++++++--------
- 1 file changed, 21 insertions(+), 8 deletions(-)
-
-diff --git a/misc/ss.c b/misc/ss.c
-index 764ffe2..8799cfc 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -41,6 +41,8 @@
- #include <linux/packet_diag.h>
- #include <linux/netlink_diag.h>
- 
-+extern char *if_indextoname(unsigned int ifindex, char *ifname);
-+
- int resolve_hosts = 0;
- int resolve_services = 1;
- int preferred_family = AF_UNSPEC;
-@@ -640,7 +642,7 @@ static const char *resolve_service(int port)
- 	return buf;
- }
- 
--static void formatted_print(const inet_prefix *a, int port)
-+static void formatted_print(const inet_prefix *a, int port, unsigned int ifindex)
- {
- 	char buf[1024];
- 	const char *ap = buf;
-@@ -663,7 +665,18 @@ static void formatted_print(const inet_prefix *a, int port)
- 		else
- 			est_len = addr_width + ((est_len-addr_width+3)/4)*4;
- 	}
--	printf("%*s:%-*s ", est_len, ap, serv_width, resolve_service(port));
-+	if (ifindex) {
-+		char ifname[IFNAMSIZ];
-+		int len;
-+		const char *ind = if_indextoname(ifindex, ifname);
-+
-+		if (!ind)
-+			snprintf(ifname, sizeof(ifname), "%u", ifindex);
-+		len = strlen(ifname) + 1;  /* +1 for percent char */
-+		printf("%*s%%%s:%-*s ", est_len - len, ap, ifname, serv_width,
-+		       resolve_service(port));
-+	} else
-+		printf("%*s:%-*s ", est_len, ap, serv_width, resolve_service(port));
- }
- 
- struct aafilter
-@@ -1254,8 +1267,8 @@ static int tcp_show_line(char *line, const struct filter *f, int family)
- 
- 	printf("%-6d %-6d ", s.rq, s.wq);
- 
--	formatted_print(&s.local, s.lport);
--	formatted_print(&s.remote, s.rport);
-+	formatted_print(&s.local, s.lport, 0);
-+	formatted_print(&s.remote, s.rport, 0);
- 
- 	if (show_options) {
- 		if (s.timer) {
-@@ -1493,8 +1506,8 @@ static int inet_show_sock(struct nlmsghdr *nlh, struct filter *f)
- 
- 	printf("%-6d %-6d ", r->idiag_rqueue, r->idiag_wqueue);
- 
--	formatted_print(&s.local, s.lport);
--	formatted_print(&s.remote, s.rport);
-+	formatted_print(&s.local, s.lport, r->id.idiag_if);
-+	formatted_print(&s.remote, s.rport, 0);
- 
- 	if (show_options) {
- 		if (r->idiag_timer) {
-@@ -1992,8 +2005,8 @@ static int dgram_show_line(char *line, const struct filter *f, int family)
- 
- 	printf("%-6d %-6d ", s.rq, s.wq);
- 
--	formatted_print(&s.local, s.lport);
--	formatted_print(&s.remote, s.rport);
-+	formatted_print(&s.local, s.lport, 0);
-+	formatted_print(&s.remote, s.rport, 0);
- 
- 	if (show_users) {
- 		char ubuf[4096];
+>---
+> drivers/net/bonding/bond_main.c | 1 -
+> 1 file changed, 1 deletion(-)
+>
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index a7db819..ccfb998 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -1505,7 +1505,6 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+> 	slave_dev->npinfo = bond->dev->npinfo;
+> 	if (slave_dev->npinfo) {
+> 		if (slave_enable_netpoll(new_slave)) {
+>-			read_unlock(&bond->lock);
+> 			pr_info("Error, %s: master_dev is using netpoll, "
+> 				 "but new slave device does not support netpoll.\n",
+> 				 bond_dev->name);
+>-- 
+>1.8.0
+>
+>
