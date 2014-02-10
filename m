@@ -1,101 +1,76 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net,v2] hyperv: Fix the carrier status setting
-Date: Mon, 10 Feb 2014 10:15:29 -0800
-Message-ID: <1392056129-29398-1-git-send-email-haiyangz@microsoft.com>
-Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
-	jasowang@redhat.com, linux-kernel@vger.kernel.org,
-	driverdev-devel@linuxdriverproject.org
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from p3plsmtps2ded01.prod.phx3.secureserver.net ([208.109.80.58]:34069
-	"EHLO p3plsmtps2ded01.prod.phx3.secureserver.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752293AbaBJRYo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Feb 2014 12:24:44 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: 6lowpan: lockless tx queue of routing
+	netlink device
+Date: Mon, 10 Feb 2014 18:33:18 +0100
+Message-ID: <20140210173314.GA12594@omega>
+References: <20140209102047.GA14770@omega>
+	<1391949707.10160.130.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1391949707.10160.130.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Without this patch, the "cat /sys/class/net/ethN/operstate" shows
-"unknown", and "ethtool ethN" shows "Link detected: yes", when VM
-boots up with or without vNIC connected.
+Hi Eric,
 
-This patch fixed the problem.
+On Sun, Feb 09, 2014 at 04:41:47AM -0800, Eric Dumazet wrote:
+> 
+> Please try the following fix, thanks for this report !
+> 
+> diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+> index 48b25c0af4d0..069af33013c4 100644
+> --- a/net/ieee802154/6lowpan.c
+> +++ b/net/ieee802154/6lowpan.c
+> @@ -533,7 +533,27 @@ static struct header_ops lowpan_header_ops = {
+>  	.create	= lowpan_header_create,
+>  };
+>  
+> +static struct lock_class_key lowpan_tx_busylock;
+> +static struct lock_class_key lowpan_netdev_xmit_lock_key;
+> +
+> +static void lowpan_set_lockdep_class_one(struct net_device *dev,
+> +					 struct netdev_queue *txq,
+> +					 void *_unused)
+> +{
+> +	lockdep_set_class(&txq->_xmit_lock,
+> +			  &lowpan_netdev_xmit_lock_key);
+> +}
+> +
+> +
+> +static int lowpan_dev_init(struct net_device *dev)
+> +{
+> +	netdev_for_each_tx_queue(dev, lowpan_set_lockdep_class_one, NULL);
+> +	dev->qdisc_tx_busylock = &lowpan_tx_busylock;
+> +	return 0;
+> +}
+> +
+>  static const struct net_device_ops lowpan_netdev_ops = {
+> +	.ndo_init		= lowpan_dev_init,
+>  	.ndo_start_xmit		= lowpan_xmit,
+>  	.ndo_set_mac_address	= lowpan_set_address,
+>  };
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
----
- drivers/net/hyperv/netvsc_drv.c |   24 +++++++++++++++---------
- 1 files changed, 15 insertions(+), 9 deletions(-)
+thanks, this fixed the issue. What we should do as next?
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 7756118..18916f7 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -88,8 +88,12 @@ static int netvsc_open(struct net_device *net)
- {
- 	struct net_device_context *net_device_ctx = netdev_priv(net);
- 	struct hv_device *device_obj = net_device_ctx->device_ctx;
-+	struct netvsc_device *nvdev;
-+	struct rndis_device *rdev;
- 	int ret = 0;
- 
-+	netif_carrier_off(net);
-+
- 	/* Open up the device */
- 	ret = rndis_filter_open(device_obj);
- 	if (ret != 0) {
-@@ -99,6 +103,11 @@ static int netvsc_open(struct net_device *net)
- 
- 	netif_start_queue(net);
- 
-+	nvdev = hv_get_drvdata(device_obj);
-+	rdev = nvdev->extension;
-+	if (!rdev->link_state)
-+		netif_carrier_on(net);
-+
- 	return ret;
- }
- 
-@@ -229,15 +238,17 @@ void netvsc_linkstatus_callback(struct hv_device *device_obj,
- 	struct net_device *net;
- 	struct net_device_context *ndev_ctx;
- 	struct netvsc_device *net_device;
-+	struct rndis_device *rdev;
- 
- 	net_device = hv_get_drvdata(device_obj);
-+	rdev = net_device->extension;
-+
-+	rdev->link_state = status != 1;
-+
- 	net = net_device->ndev;
- 
--	if (!net) {
--		netdev_err(net, "got link status but net device "
--				"not initialized yet\n");
-+	if (!net || net->reg_state != NETREG_REGISTERED)
- 		return;
--	}
- 
- 	if (status == 1) {
- 		netif_carrier_on(net);
-@@ -414,9 +425,6 @@ static int netvsc_probe(struct hv_device *dev,
- 	if (!net)
- 		return -ENOMEM;
- 
--	/* Set initial state */
--	netif_carrier_off(net);
--
- 	net_device_ctx = netdev_priv(net);
- 	net_device_ctx->device_ctx = dev;
- 	hv_set_drvdata(dev, net);
-@@ -443,8 +451,6 @@ static int netvsc_probe(struct hv_device *dev,
- 	}
- 	memcpy(net->dev_addr, device_info.mac_adr, ETH_ALEN);
- 
--	netif_carrier_on(net);
--
- 	ret = register_netdev(net);
- 	if (ret != 0) {
- 		pr_err("Unable to register netdev.\n");
--- 
-1.7.4.1
+Should I create a patch for this or do you want to make a patch?
+
+- Alex
+
+------------------------------------------------------------------------------
+Android&trade; apps run on BlackBerry&reg;10
+Introducing the new BlackBerry 10.2.1 Runtime for Android apps.
+Now with support for Jelly Bean, Bluetooth, Mapview and more.
+Get your Android app in front of a whole new audience.  Start now.
+http://pubads.g.doubleclick.net/gampad/clk?id=124407151&iu=/4140/ostg.clktrk
