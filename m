@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: vxge: Remove unused device pointer
-Date: Sun, 09 Feb 2014 19:11:36 -0800 (PST)
-Message-ID: <20140209.191136.502216712263464439.davem@davemloft.net>
-References: <20140209001617.1d1543d4@spike>
+Subject: Re: [PATCH][Trivial] tcp: correct code comment stating 3 min
+ timeout for FIN_WAIT2, we only do 1 min
+Date: Sun, 09 Feb 2014 19:14:53 -0800 (PST)
+Message-ID: <20140209.191453.505244720024526564.davem@davemloft.net>
+References: <alpine.LNX.2.00.1402092328270.8418@swampdragon.chaosbits.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jdmason@kudzu.us, netdev@vger.kernel.org, kaber@trash.net,
-	jg1.han@samsung.com, standby24x7@gmail.com, john.stultz@linaro.org,
-	dingtianhong@huawei.com, bhutchings@solarflare.com,
-	stephen@networkplumber.org, therbert@google.com
-To: cengelma@gmx.at
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49346 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752669AbaBJDLh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Feb 2014 22:11:37 -0500
-In-Reply-To: <20140209001617.1d1543d4@spike>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	trivial@kernel.org
+To: jj@chaosbits.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1402092328270.8418@swampdragon.chaosbits.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Christian Engelmayer <cengelma@gmx.at>
-Date: Sun, 9 Feb 2014 00:16:17 +0100
+From: Jesper Juhl <jj@chaosbits.net>
+Date: Sun, 9 Feb 2014 23:30:32 +0100 (CET)
 
-> Remove occurrences of unused struct __vxge_hw_device pointer in functions
-> vxge_learn_mac() and vxge_rem_isr().
+> As far as I can tell we have used a default of 60 seconds for
+> FIN_WAIT2 timeout for ages (since 2.x times??).
 > 
-> Detected by Coverity: CID 139839, CID 139842.
+> In any case, the timeout these days is 60 seconds, so the 3 min
+> comment is wrong (and cost me a few minutes of my life when I was
+> debugging a FIN_WAIT2 related problem in a userspace application and
+> checked the kernel source for details).
 > 
-> Signed-off-by: Christian Engelmayer <cengelma@gmx.at>
+> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
 
-Applied, thank you.
+Applied, thanks.
