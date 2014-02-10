@@ -1,49 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/3] net: stmmac:sti: Add STi SOC glue driver.
-Date: Mon, 10 Feb 2014 14:40:54 -0800 (PST)
-Message-ID: <20140210.144054.2066120014050984537.davem@davemloft.net>
-References: <1391770455-24291-1-git-send-email-srinivas.kandagatla@st.com>
-	<1391770525-24349-1-git-send-email-srinivas.kandagatla@st.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [Patch iproute2] pedit: do not print debugging information by
+ default
+Date: Mon, 10 Feb 2014 14:44:17 -0800
+Message-ID: <20140210144417.3f7bcec4@nehalam.linuxnetplumber.net>
+References: <1391037179-3510-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, rob@landley.net, linux@arm.linux.org.uk,
-	stuart.menefy@st.com, peppe.cavallaro@st.com,
-	devicetree@vger.kernel.org, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	kernel@stlinux.com
-To: srinivas.kandagatla@st.com
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1391770525-24349-1-git-send-email-srinivas.kandagatla@st.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f45.google.com ([209.85.160.45]:58238 "EHLO
+	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752226AbaBJWoU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 17:44:20 -0500
+Received: by mail-pb0-f45.google.com with SMTP id un15so6883687pbc.32
+        for <netdev@vger.kernel.org>; Mon, 10 Feb 2014 14:44:20 -0800 (PST)
+In-Reply-To: <1391037179-3510-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: <srinivas.kandagatla@st.com>
-Date: Fri, 7 Feb 2014 10:55:25 +0000
+On Wed, 29 Jan 2014 15:12:59 -0800
+Cong Wang <xiyou.wangcong@gmail.com> wrote:
 
-> +		if (dwmac->interface == PHY_INTERFACE_MODE_MII ||
-> +			dwmac->interface == PHY_INTERFACE_MODE_GMII) {
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> 
+> ---
+> diff --git a/tc/m_pedit.c b/tc/m_pedit.c
+> index 452d96f..16dd277 100644
+> --- a/tc/m_pedit.c
+> +++ b/tc/m_pedit.c
+> @@ -30,7 +30,7 @@
+>  #include "m_pedit.h"
+>  
+>  static struct m_pedit_util *pedit_list;
+> -int pedit_debug = 1;
+> +static int pedit_debug;
+>  
+>  static void
+>  explain(void)
 
-This is not indented correctly, the first character on the second line should
-line up exactly at the column after the openning parenthesis on the first
-line.
-
-The objective is not to indent using only TAB characters, which you
-are doing here.
-
-Rather, the objective is to use the appropriate number of TAB _and_
-space characters necessary to reach the proper column.
-
-> +		const char *rs;
-> +		err = of_property_read_string(np, "st,tx-retime-src", &rs);
-
-Please add an empty line after the local variable declaration.
-
-> +		if (!strcasecmp(rs, "clk_125"))
-> +			dwmac->is_tx_retime_src_clk_125 = true;
-> +
-> +	}
-
-That empty line is superfluous, please delete it.
+Applied
