@@ -1,59 +1,37 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] USB2NET : SR9800 : One chip USB2.0 USB2NET SR9800
- Device Driver Support
-Date: Sun, 09 Feb 2014 18:58:32 -0800
-Message-ID: <1392001112.3178.15.camel@joe-AO722>
-References: <1391755365-9202-1-git-send-email-liujunliang_ljl@163.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: fix 'ip rule' iif/oif device rename
+Date: Sun, 09 Feb 2014 19:03:28 -0800 (PST)
+Message-ID: <20140209.190328.124034590484592594.davem@davemloft.net>
+References: <1391819028-10722-1-git-send-email-zenczykowski@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, horms@verge.net.au, romieu@fr.zoreil.com,
-	gregkh@linuxfoundation.org, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sunhecheng@vip.126.com
-To: liujunliang_ljl@163.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1391755365-9202-1-git-send-email-liujunliang_ljl@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: maze@google.com, netdev@vger.kernel.org, willemb@google.com,
+	edumazet@google.com, chrismd@google.com, ccontavalli@google.com
+To: zenczykowski@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49311 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752567AbaBJDD3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Feb 2014 22:03:29 -0500
+In-Reply-To: <1391819028-10722-1-git-send-email-zenczykowski@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-02-07 at 14:42 +0800, liujunliang_ljl@163.com wrote:
+=46rom: Maciej =AFenczykowski <zenczykowski@gmail.com>
+Date: Fri,  7 Feb 2014 16:23:48 -0800
 
-> +		netdev_dbg(dev->net, "Write IPG,IPG1,IPG2 failed: %d", ret);
-[]
-> +	netdev_dbg(dev->net, "RX_CTL is 0x%04x after all initializations",
-[]
-> +	netdev_dbg(dev->net, "Medium Status : 0x%04x after all initializations",
-[]
-> +		netdev_dbg(dev->net, "Select PHY #1 failed: %d", ret);
-[]
-> +	netdev_dbg(dev->net, "RX_CTL is 0x%04x after software reset", rx_ctl);
-[]
-> +	netdev_dbg(dev->net, "RX_CTL is 0x%04x setting to 0x0000", rx_ctl);
-[]
-> +	memcpy(data->mac_addr, dev->net->dev_addr, ETH_ALEN);
+> From: Maciej =AFenczykowski <maze@google.com>
+>=20
+> ip rules with iif/oif references do not update:
+> (detach/attach) across interface renames.
+>=20
+> Signed-off-by: Maciej =AFenczykowski <maze@google.com>
+> CC: Willem de Bruijn <willemb@google.com>
+> CC: Eric Dumazet <edumazet@google.com>
+> CC: Chris Davis <chrismd@google.com>
+> CC: Carlo Contavalli <ccontavalli@google.com>
+>=20
+> Google-Bug-Id: 12936021
 
-ether_addr_copy
-
-> +		netdev_err(dev->net, "Failed to power down PHY : %d", ret);
-[]
-> +		netdev_err(dev->net, "Failed to reset PHY: %d", ret);
-[]
-> +		netdev_err(dev->net, "Failed to power up PHY: %d", ret);
-[]
-> +		netdev_err(dev->net, "Failed to reset PHY: %d", ret);
-[]
-> +			netdev_err(dev->net, "set LINK LED failed : %d", ret);
-[]
-> +		netdev_dbg(dev->net, "Failed to read MAC address: %d", ret);
-[]
-> +		netdev_dbg(dev->net, "Select PHY #1 failed: %d", ret);
-[]
-> +	netdev_dbg(dev->net, "RX_CTL is 0x%04x after software reset", rx_ctl);
-[]
-> +	netdev_dbg(dev->net, "RX_CTL is 0x%04x setting to 0x0000", rx_ctl);
-[]
-> +	netdev_dbg(dev->net, "PHYID=0x%08x", phyid);
-
-Please make sure all of the netdev_<level> uses have a '\n'
-line termination.
+Applied and queued up for -stable, thanks.
