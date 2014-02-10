@@ -1,174 +1,222 @@
 From: Yuval Mintz <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 7/9] bnx2x: Fix bnx2x_panic_dump for VFs
-Date: Mon, 10 Feb 2014 17:17:00 +0200
-Message-ID: <1392045422-5437-8-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net-next 8/9] bnx2x: (semantic) revise scheduling of sp_rtnl
+Date: Mon, 10 Feb 2014 17:17:01 +0200
+Message-ID: <1392045422-5437-9-git-send-email-yuvalmin@broadcom.com>
 References: <1392045422-5437-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <ariele@broadcom.com>, Yuval Mintz <yuvalmin@broadcom.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:27660 "EHLO
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:52074 "EHLO
 	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752151AbaBJPRQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 10:17:16 -0500
+	with ESMTP id S1752491AbaBJPRR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 10:17:17 -0500
 In-Reply-To: <1392045422-5437-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bnx2x_panic_dump() prints all kind of driver information, including slowpath
-information. Since VFs don't initialize slowpath information, a VF reaching
-this flow will likely cause a panic in the system as it will access NULL
-pointers.
+This removes the various points where the driver use bit operations in order
+to schedule the sp_rtnl_task from the code, adding a single utility function
+that does it instead.
 
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Ariel Elior <ariele@broadcom.com>
 ---
-Notice although this is a bug fix it's intended to net-next; The reason is
-that practically all of the bnx2x_panic() calls are made either as a result
-of bad FW/HW access, or due to some flow if driver was compiled with
-BNX2X_STOP_ON_ERROR. As the former is impossible for a VF, this in practice
-only fixes issues when BNX2X_STOP_ON_ERROR is used, which isn't mainstream.
-Also, it doesn't pass checkpatch (as it doesn't change print format).
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 97 ++++++++++++++----------
- 1 file changed, 57 insertions(+), 40 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       |  2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c   | 18 +++++++++++----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h   |  3 +++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c   |  8 ++-----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  | 28 +++++++----------------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 17 ++++----------
+ 6 files changed, 32 insertions(+), 44 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 7245059..8ff5326 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -918,7 +918,7 @@ void bnx2x_panic_dump(struct bnx2x *bp, bool disable_int)
- 	u16 start = 0, end = 0;
- 	u8 cos;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index c871d19..21fdd1b 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -1402,7 +1402,7 @@ struct bnx2x_fw_stats_data {
+ };
+ 
+ /* Public slow path states */
+-enum {
++enum sp_rtnl_flag {
+ 	BNX2X_SP_RTNL_SETUP_TC,
+ 	BNX2X_SP_RTNL_TX_TIMEOUT,
+ 	BNX2X_SP_RTNL_FAN_FAILURE,
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 9d7419e..9ded3db 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -4773,12 +4773,8 @@ void bnx2x_tx_timeout(struct net_device *dev)
+ 		bnx2x_panic();
  #endif
--	if (disable_int)
-+	if (IS_PF(bp) && disable_int)
- 		bnx2x_int_disable(bp);
  
- 	bp->stats_state = STATS_STATE_DISABLED;
-@@ -929,33 +929,41 @@ void bnx2x_panic_dump(struct bnx2x *bp, bool disable_int)
- 
- 	/* Indices */
- 	/* Common */
--	BNX2X_ERR("def_idx(0x%x)  def_att_idx(0x%x)  attn_state(0x%x)  spq_prod_idx(0x%x) next_stats_cnt(0x%x)\n",
--		  bp->def_idx, bp->def_att_idx, bp->attn_state,
--		  bp->spq_prod_idx, bp->stats_counter);
--	BNX2X_ERR("DSB: attn bits(0x%x)  ack(0x%x)  id(0x%x)  idx(0x%x)\n",
--		  bp->def_status_blk->atten_status_block.attn_bits,
--		  bp->def_status_blk->atten_status_block.attn_bits_ack,
--		  bp->def_status_blk->atten_status_block.status_block_id,
--		  bp->def_status_blk->atten_status_block.attn_bits_index);
--	BNX2X_ERR("     def (");
--	for (i = 0; i < HC_SP_SB_MAX_INDICES; i++)
--		pr_cont("0x%x%s",
--			bp->def_status_blk->sp_sb.index_values[i],
--			(i == HC_SP_SB_MAX_INDICES - 1) ? ")  " : " ");
+-	smp_mb__before_clear_bit();
+-	set_bit(BNX2X_SP_RTNL_TX_TIMEOUT, &bp->sp_rtnl_state);
+-	smp_mb__after_clear_bit();
 -
--	for (i = 0; i < sizeof(struct hc_sp_status_block_data)/sizeof(u32); i++)
--		*((u32 *)&sp_sb_data + i) = REG_RD(bp, BAR_CSTRORM_INTMEM +
--			CSTORM_SP_STATUS_BLOCK_DATA_OFFSET(func) +
--			i*sizeof(u32));
--
--	pr_cont("igu_sb_id(0x%x)  igu_seg_id(0x%x) pf_id(0x%x)  vnic_id(0x%x)  vf_id(0x%x)  vf_valid (0x%x) state(0x%x)\n",
--	       sp_sb_data.igu_sb_id,
--	       sp_sb_data.igu_seg_id,
--	       sp_sb_data.p_func.pf_id,
--	       sp_sb_data.p_func.vnic_id,
--	       sp_sb_data.p_func.vf_id,
--	       sp_sb_data.p_func.vf_valid,
--	       sp_sb_data.state);
-+	if (IS_PF(bp)) {
-+		struct host_sp_status_block *def_sb = bp->def_status_blk;
-+		int data_size, cstorm_offset;
-+
-+		BNX2X_ERR("def_idx(0x%x)  def_att_idx(0x%x)  attn_state(0x%x)  spq_prod_idx(0x%x) next_stats_cnt(0x%x)\n",
-+			  bp->def_idx, bp->def_att_idx, bp->attn_state,
-+			  bp->spq_prod_idx, bp->stats_counter);
-+		BNX2X_ERR("DSB: attn bits(0x%x)  ack(0x%x)  id(0x%x)  idx(0x%x)\n",
-+			  def_sb->atten_status_block.attn_bits,
-+			  def_sb->atten_status_block.attn_bits_ack,
-+			  def_sb->atten_status_block.status_block_id,
-+			  def_sb->atten_status_block.attn_bits_index);
-+		BNX2X_ERR("     def (");
-+		for (i = 0; i < HC_SP_SB_MAX_INDICES; i++)
-+			pr_cont("0x%x%s",
-+				def_sb->sp_sb.index_values[i],
-+				(i == HC_SP_SB_MAX_INDICES - 1) ? ")  " : " ");
-+
-+		data_size = sizeof(struct hc_sp_status_block_data) /
-+			    sizeof(u32);
-+		cstorm_offset = CSTORM_SP_STATUS_BLOCK_DATA_OFFSET(func);
-+		for (i = 0; i < data_size; i++)
-+			*((u32 *)&sp_sb_data + i) =
-+				REG_RD(bp, BAR_CSTRORM_INTMEM + cstorm_offset +
-+					   i * sizeof(u32));
-+
-+		pr_cont("igu_sb_id(0x%x)  igu_seg_id(0x%x) pf_id(0x%x)  vnic_id(0x%x)  vf_id(0x%x)  vf_valid (0x%x) state(0x%x)\n",
-+			sp_sb_data.igu_sb_id,
-+			sp_sb_data.igu_seg_id,
-+			sp_sb_data.p_func.pf_id,
-+			sp_sb_data.p_func.vnic_id,
-+			sp_sb_data.p_func.vf_id,
-+			sp_sb_data.p_func.vf_valid,
-+			sp_sb_data.state);
-+	}
- 
- 	for_each_eth_queue(bp, i) {
- 		struct bnx2x_fastpath *fp = &bp->fp[i];
-@@ -1013,6 +1021,11 @@ void bnx2x_panic_dump(struct bnx2x *bp, bool disable_int)
- 			pr_cont("0x%x%s",
- 			       fp->sb_index_values[j],
- 			       (j == loop - 1) ? ")" : " ");
-+
-+		/* VF cannot access FW refelection for status block */
-+		if (IS_VF(bp))
-+			continue;
-+
- 		/* fw sb data */
- 		data_size = CHIP_IS_E1x(bp) ?
- 			sizeof(struct hc_status_block_data_e1x) :
-@@ -1064,16 +1077,18 @@ void bnx2x_panic_dump(struct bnx2x *bp, bool disable_int)
- 	}
- 
- #ifdef BNX2X_STOP_ON_ERROR
--
--	/* event queue */
--	BNX2X_ERR("eq cons %x prod %x\n", bp->eq_cons, bp->eq_prod);
--	for (i = 0; i < NUM_EQ_DESC; i++) {
--		u32 *data = (u32 *)&bp->eq_ring[i].message.data;
--
--		BNX2X_ERR("event queue [%d]: header: opcode %d, error %d\n",
--			  i, bp->eq_ring[i].message.opcode,
--			  bp->eq_ring[i].message.error);
--		BNX2X_ERR("data: %x %x %x\n", data[0], data[1], data[2]);
-+	if (IS_PF(bp)) {
-+		/* event queue */
-+		BNX2X_ERR("eq cons %x prod %x\n", bp->eq_cons, bp->eq_prod);
-+		for (i = 0; i < NUM_EQ_DESC; i++) {
-+			u32 *data = (u32 *)&bp->eq_ring[i].message.data;
-+
-+			BNX2X_ERR("event queue [%d]: header: opcode %d, error %d\n",
-+				  i, bp->eq_ring[i].message.opcode,
-+				  bp->eq_ring[i].message.error);
-+			BNX2X_ERR("data: %x %x %x\n",
-+				  data[0], data[1], data[2]);
-+		}
- 	}
- 
- 	/* Rings */
-@@ -1140,8 +1155,10 @@ void bnx2x_panic_dump(struct bnx2x *bp, bool disable_int)
- 		}
- 	}
- #endif
--	bnx2x_fw_dump(bp);
--	bnx2x_mc_assert(bp);
-+	if (IS_PF(bp)) {
-+		bnx2x_fw_dump(bp);
-+		bnx2x_mc_assert(bp);
-+	}
- 	BNX2X_ERR("end crash dump -----------------\n");
+ 	/* This allows the netif to be shutdown gracefully before resetting */
+-	schedule_delayed_work(&bp->sp_rtnl_task, 0);
++	bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_TX_TIMEOUT, 0);
  }
  
+ int bnx2x_suspend(struct pci_dev *pdev, pm_message_t state)
+@@ -4906,3 +4902,15 @@ void bnx2x_update_coalesce_sb_index(struct bnx2x *bp, u8 fw_sb_id,
+ 	disable = disable ? 1 : (usec ? 0 : 1);
+ 	storm_memset_hc_disable(bp, port, fw_sb_id, sb_index, disable);
+ }
++
++void bnx2x_schedule_sp_rtnl(struct bnx2x *bp, enum sp_rtnl_flag flag,
++			    u32 verbose)
++{
++	smp_mb__before_clear_bit();
++	set_bit(flag, &bp->sp_rtnl_state);
++	smp_mb__after_clear_bit();
++	DP((BNX2X_MSG_SP | verbose), "Scheduling sp_rtnl task [Flag: %d]\n",
++	   flag);
++	schedule_delayed_work(&bp->sp_rtnl_task, 0);
++}
++EXPORT_SYMBOL(bnx2x_schedule_sp_rtnl);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index 17d1689..b2edcae 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -1324,4 +1324,7 @@ void bnx2x_fill_fw_str(struct bnx2x *bp, char *buf, size_t buf_len);
+ int bnx2x_drain_tx_queues(struct bnx2x *bp);
+ void bnx2x_squeeze_objects(struct bnx2x *bp);
+ 
++void bnx2x_schedule_sp_rtnl(struct bnx2x*, enum sp_rtnl_flag,
++			    u32 verbose);
++
+ #endif /* BNX2X_CMN_H */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
+index fdace20..97ea542 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
+@@ -710,8 +710,7 @@ static inline void bnx2x_dcbx_update_tc_mapping(struct bnx2x *bp)
+ 	 * as we are handling an attention on a work queue which must be
+ 	 * flushed at some rtnl-locked contexts (e.g. if down)
+ 	 */
+-	if (!test_and_set_bit(BNX2X_SP_RTNL_SETUP_TC, &bp->sp_rtnl_state))
+-		schedule_delayed_work(&bp->sp_rtnl_task, 0);
++	bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_SETUP_TC, 0);
+ }
+ 
+ void bnx2x_dcbx_set_params(struct bnx2x *bp, u32 state)
+@@ -764,10 +763,7 @@ void bnx2x_dcbx_set_params(struct bnx2x *bp, u32 state)
+ 			if (IS_MF(bp))
+ 				bnx2x_link_sync_notify(bp);
+ 
+-			set_bit(BNX2X_SP_RTNL_TX_STOP, &bp->sp_rtnl_state);
+-
+-			schedule_delayed_work(&bp->sp_rtnl_task, 0);
+-
++			bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_TX_STOP, 0);
+ 			return;
+ 		}
+ 	case BNX2X_DCBX_STATE_TX_PAUSED:
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 8ff5326..0132a7c 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -3908,10 +3908,7 @@ static void bnx2x_fan_failure(struct bnx2x *bp)
+ 	 * This is due to some boards consuming sufficient power when driver is
+ 	 * up to overheat if fan fails.
+ 	 */
+-	smp_mb__before_clear_bit();
+-	set_bit(BNX2X_SP_RTNL_FAN_FAILURE, &bp->sp_rtnl_state);
+-	smp_mb__after_clear_bit();
+-	schedule_delayed_work(&bp->sp_rtnl_task, 0);
++	bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_FAN_FAILURE, 0);
+ }
+ 
+ static void bnx2x_attn_int_deasserted0(struct bnx2x *bp, u32 attn)
+@@ -5303,6 +5300,8 @@ static void bnx2x_eq_int(struct bnx2x *bp)
+ 					break;
+ 
+ 			} else {
++				int cmd = BNX2X_SP_RTNL_AFEX_F_UPDATE;
++
+ 				DP(BNX2X_MSG_SP | BNX2X_MSG_MCP,
+ 				   "AFEX: ramrod completed FUNCTION_UPDATE\n");
+ 				f_obj->complete_cmd(bp, f_obj,
+@@ -5312,12 +5311,7 @@ static void bnx2x_eq_int(struct bnx2x *bp)
+ 				 * sp_rtnl task as all Queue SP operations
+ 				 * should run under rtnl_lock.
+ 				 */
+-				smp_mb__before_clear_bit();
+-				set_bit(BNX2X_SP_RTNL_AFEX_F_UPDATE,
+-					&bp->sp_rtnl_state);
+-				smp_mb__after_clear_bit();
+-
+-				schedule_delayed_work(&bp->sp_rtnl_task, 0);
++				bnx2x_schedule_sp_rtnl(bp, cmd, 0);
+ 			}
+ 
+ 			goto next_spqe;
+@@ -12082,11 +12076,8 @@ static void bnx2x_set_rx_mode(struct net_device *dev)
+ 		return;
+ 	} else {
+ 		/* Schedule an SP task to handle rest of change */
+-		DP(NETIF_MSG_IFUP, "Scheduling an Rx mode change\n");
+-		smp_mb__before_clear_bit();
+-		set_bit(BNX2X_SP_RTNL_RX_MODE, &bp->sp_rtnl_state);
+-		smp_mb__after_clear_bit();
+-		schedule_delayed_work(&bp->sp_rtnl_task, 0);
++		bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_RX_MODE,
++				       NETIF_MSG_IFUP);
+ 	}
+ }
+ 
+@@ -12119,11 +12110,8 @@ void bnx2x_set_rx_mode_inner(struct bnx2x *bp)
+ 			/* configuring mcast to a vf involves sleeping (when we
+ 			 * wait for the pf's response).
+ 			 */
+-			smp_mb__before_clear_bit();
+-			set_bit(BNX2X_SP_RTNL_VFPF_MCAST,
+-				&bp->sp_rtnl_state);
+-			smp_mb__after_clear_bit();
+-			schedule_delayed_work(&bp->sp_rtnl_task, 0);
++			bnx2x_schedule_sp_rtnl(bp,
++					       BNX2X_SP_RTNL_VFPF_MCAST, 0);
+ 		}
+ 	}
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+index 8af71d3..fbeec77 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+@@ -983,11 +983,8 @@ op_err:
+ op_done:
+ 	case BNX2X_VFOP_QSETUP_DONE:
+ 		vf->cfg_flags |= VF_CFG_VLAN;
+-		smp_mb__before_clear_bit();
+-		set_bit(BNX2X_SP_RTNL_HYPERVISOR_VLAN,
+-			&bp->sp_rtnl_state);
+-		smp_mb__after_clear_bit();
+-		schedule_delayed_work(&bp->sp_rtnl_task, 0);
++		bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_HYPERVISOR_VLAN,
++				       BNX2X_MSG_IOV);
+ 		bnx2x_vfop_end(bp, vf, vfop);
+ 		return;
+ 	default:
+@@ -3812,13 +3809,9 @@ void bnx2x_timer_sriov(struct bnx2x *bp)
+ 	bnx2x_sample_bulletin(bp);
+ 
+ 	/* if channel is down we need to self destruct */
+-	if (bp->old_bulletin.valid_bitmap & 1 << CHANNEL_DOWN) {
+-		smp_mb__before_clear_bit();
+-		set_bit(BNX2X_SP_RTNL_VFPF_CHANNEL_DOWN,
+-			&bp->sp_rtnl_state);
+-		smp_mb__after_clear_bit();
+-		schedule_delayed_work(&bp->sp_rtnl_task, 0);
+-	}
++	if (bp->old_bulletin.valid_bitmap & 1 << CHANNEL_DOWN)
++		bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_VFPF_CHANNEL_DOWN,
++				       BNX2X_MSG_IOV);
+ }
+ 
+ void __iomem *bnx2x_vf_doorbells(struct bnx2x *bp)
 -- 
 1.8.1.227.g44fe835
