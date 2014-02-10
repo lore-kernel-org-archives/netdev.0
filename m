@@ -1,51 +1,101 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: tsq: fix nonagle handling
-Date: Mon, 10 Feb 2014 15:24:16 -0800 (PST)
-Message-ID: <20140210.152416.1707361996340298057.davem@davemloft.net>
-References: <1392000011.6615.15.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Sergey Ryazanov <ryazanov.s.a@gmail.com>
+Subject: Re: [PATCH 09/28] Remove ATHEROS_AR231X
+Date: Tue, 11 Feb 2014 03:43:54 +0400
+Message-ID: <CAHNKnsRACSo=DfOyiHxqV3acv_wfZmz4tMnYAW0wo4OCibwdfA@mail.gmail.com>
+References: <1391971686-9517-1-git-send-email-richard@nod.at>
+ <1391971686-9517-10-git-send-email-richard@nod.at> <52F7D480.1050106@hauke-m.de>
+ <52F7DF21.70207@nod.at> <CAHNKnsS7Mv4ZhBWZa53go9L9nZimJ7_FG5HFJ9C3kkGMAEz-mA@mail.gmail.com>
+ <52F8C373.9060108@rempel-privat.de> <CAHNKnsQF5Hdf3JT91moPraRQzn4kMpdD2NSiJ7b30wQhS1W4MA@mail.gmail.com>
+ <CAGVrzcYnECx5Q=i+m6qZn29y4JALDpw5SWoUNP-S6HgPR3_ygQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.ogness@linutronix.de,
-	thomas@glanzmann.de
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Oleksij Rempel <linux@rempel-privat.de>,
+	Richard Weinberger <richard@nod.at>,
+	Jonathan Bither <jonbither@gmail.com>,
+	OpenWrt Development List <openwrt-devel@lists.openwrt.org>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	Jiri Slaby <jirislaby@gmail.com>,
+	Nick Kossifidis <mickflemm@gmail.com>,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"open list:ATHEROS ATH5K WIR..." <linux-wireless@vger.kernel.org>,
+	"open list:ATHEROS ATH5K WIR..." <ath5k-devel@lists.ath5k.org>,
+	open@hauke-m.de,
+	"list@hauke-m.de:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>,
+	"antonynpavlov@gmail.com" <antonynpavlov@gmail.com>
+To: Florian Fainelli <florian@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56787 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752873AbaBJXYR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 18:24:17 -0500
-In-Reply-To: <1392000011.6615.15.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-yh0-f46.google.com ([209.85.213.46]:44653 "EHLO
+	mail-yh0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752231AbaBJXoP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 18:44:15 -0500
+In-Reply-To: <CAGVrzcYnECx5Q=i+m6qZn29y4JALDpw5SWoUNP-S6HgPR3_ygQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 09 Feb 2014 18:40:11 -0800
+2014-02-11 2:37 GMT+04:00 Florian Fainelli <florian@openwrt.org>:
+> 2014-02-10 4:38 GMT-08:00 Sergey Ryazanov <ryazanov.s.a@gmail.com>:
+>> 2014-02-10 16:17 GMT+04:00 Oleksij Rempel <linux@rempel-privat.de>:
+>>> Am 10.02.2014 13:05, schrieb Sergey Ryazanov:
+>>>> 2014-02-10 0:03 GMT+04:00 Richard Weinberger <richard@nod.at>:
+>>>>> Am 09.02.2014 20:18, schrieb Hauke Mehrtens:
+>>>>>> On 02/09/2014 07:47 PM, Richard Weinberger wrote:
+>>>>>>> The symbol is an orphan, get rid of it.
+>>>>>>>
+>>>>>>> Signed-off-by: Richard Weinberger <richard@nod.at>
+>>>>>>> ---
+>>>>>>>  drivers/net/wireless/ath/ath5k/Kconfig | 10 +++++-----
+>>>>>>>  drivers/net/wireless/ath/ath5k/ath5k.h | 28 ----------------------------
+>>>>>>>  drivers/net/wireless/ath/ath5k/base.c  | 14 --------------
+>>>>>>>  drivers/net/wireless/ath/ath5k/led.c   |  7 -------
+>>>>>>>  4 files changed, 5 insertions(+), 54 deletions(-)
+>>>>>>>
+>>>>>>
+>>>>>> This code is used in OpenWrt with an out of tree arch code for the
+>>>>>> Atheros 231x/531x SoC. [0] I do not think anyone is working on adding
+>>>>>> this code to mainline Linux kernel, because of lack of time/interest.
+>>>>>
+>>>>> Sorry, we don't maintain out of tree code.
+>>>>>
+>>>>
+>>>> Oleksij, Jonathan do you still working to make ar231x devices work
+>>>> with upstream, since your posts [1, 2]? Or may be someone from OpenWRT
+>>>> team would like to add upstream support?
+>>>>
+>>>> 1. https://lkml.org/lkml/2013/5/13/321
+>>>> 2. https://lkml.org/lkml/2013/5/13/358
+>>>>
+>>>
+>>> Hi,
+>>> my current target was to provide barebox and openocd support.
+>>> - ar2313 is already upstream on barebox.
+>>> - ar2315-2318 (barebox) awaiting review by Anthony Pavlov.
+>>> - openocd (EJTAG) support is ready and i'll push it ASUP.
+>>>
+>> WOW, Impressive.
+>
+> That's a nice toy project, although since there are is an existing
+> bootloader with sources, I would have shifted the priority towards
+> getting the kernel support merged such that the bootloader can be used
+> for something. BTW I sent a few devices to Jonathan, not sure if he
+> ever got those...
+>
+>>
+>>> I hope Jonathan do kernel part. If not, i can provide some work, since i
+>>> have testing boards and expiriance on this hardware.
+>>>
+>> If you need, I can test kernel part, or even do some porting work. I
+>> have some AR231x based boards, e.g. Ubnt LS2 and NS2.
+>
+> I guess you could start splitting the OpenWrt patches into a format
+> that makes them suitable for being merged upstream and starting with
+> the MIPS parts. There might be a bunch of checkpatch.pl cleanup work
+> to do before getting those submitted.
 
-> From: John Ogness <john.ogness@linutronix.de>
-> 
-> Commit 46d3ceabd8d9 ("tcp: TCP Small Queues") introduced a possible
-> regression for applications using TCP_NODELAY.
-> 
-> If TCP session is throttled because of tsq, we should consult
-> tp->nonagle when TX completion is done and allow us to send additional
-> segment, especially if this segment is not a full MSS.
-> Otherwise this segment is sent after an RTO.
-> 
-> [edumazet] : Cooked the changelog, added another fix about testing
-> sk_wmem_alloc twice because TX completion can happen right before
-> setting TSQ_THROTTLED bit.
-> 
-> This problem is particularly visible with recent auto corking,
-> but might also be triggered with low tcp_limit_output_bytes
-> values or NIC drivers delaying TX completion by hundred of usec,
-> and very low rtt.
-> 
-> Thomas Glanzmann for example reported an iscsi regression, caused
-> by tcp auto corking making this bug quite visible.
-> 
-> Fixes: 46d3ceabd8d9 ("tcp: TCP Small Queues")
-> Signed-off-by: John Ogness <john.ogness@linutronix.de>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Thomas Glanzmann <thomas@glanzmann.de>
+I will do that if Jonathan does not have a working solution, which he
+would like to push upstream. So, let's wait for his reply.
 
-Applied and queued up for -stable, thanks!
+-- 
+BR,
+Sergey
