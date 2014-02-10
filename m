@@ -1,222 +1,374 @@
 From: Yuval Mintz <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 8/9] bnx2x: (semantic) revise scheduling of sp_rtnl
-Date: Mon, 10 Feb 2014 17:17:01 +0200
-Message-ID: <1392045422-5437-9-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net-next 6/9] bnx2x: Revise IOV vlan/mac validation
+Date: Mon, 10 Feb 2014 17:16:59 +0200
+Message-ID: <1392045422-5437-7-git-send-email-yuvalmin@broadcom.com>
 References: <1392045422-5437-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <ariele@broadcom.com>, Yuval Mintz <yuvalmin@broadcom.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:52074 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752491AbaBJPRR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 10:17:17 -0500
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:62591 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752557AbaBJPRO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 10:17:14 -0500
 In-Reply-To: <1392045422-5437-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This removes the various points where the driver use bit operations in order
-to schedule the sp_rtnl_task from the code, adding a single utility function
-that does it instead.
+There are several places in IOV related flows where PF needs to determine
+whether a VF slowpath elements have already been configured (i.e., this
+affect its ability to configure/remove classifications for the VF).
+
+This patch changes the conditions for the validation and performs a cleaner
+validation (e.g., by replacing several validations with a single one).
 
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Ariel Elior <ariele@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       |  2 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c   | 18 +++++++++++----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h   |  3 +++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c   |  8 ++-----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  | 28 +++++++----------------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 17 ++++----------
- 6 files changed, 32 insertions(+), 44 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c    |  10 --
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h    |   2 -
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 127 +++++++++++-----------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h |   1 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c  |   1 +
+ 5 files changed, 67 insertions(+), 74 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index c871d19..21fdd1b 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -1402,7 +1402,7 @@ struct bnx2x_fw_stats_data {
- };
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+index 270ba19..31297266 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+@@ -4158,16 +4158,6 @@ void bnx2x_init_rss_config_obj(struct bnx2x *bp,
+ 	rss_obj->config_rss = bnx2x_setup_rss;
+ }
  
- /* Public slow path states */
--enum {
-+enum sp_rtnl_flag {
- 	BNX2X_SP_RTNL_SETUP_TC,
- 	BNX2X_SP_RTNL_TX_TIMEOUT,
- 	BNX2X_SP_RTNL_FAN_FAILURE,
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 9d7419e..9ded3db 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -4773,12 +4773,8 @@ void bnx2x_tx_timeout(struct net_device *dev)
- 		bnx2x_panic();
- #endif
- 
--	smp_mb__before_clear_bit();
--	set_bit(BNX2X_SP_RTNL_TX_TIMEOUT, &bp->sp_rtnl_state);
--	smp_mb__after_clear_bit();
+-int validate_vlan_mac(struct bnx2x *bp,
+-		      struct bnx2x_vlan_mac_obj *vlan_mac)
+-{
+-	if (!vlan_mac->get_n_elements) {
+-		BNX2X_ERR("vlan mac object was not intialized\n");
+-		return -EINVAL;
+-	}
+-	return 0;
+-}
 -
- 	/* This allows the netif to be shutdown gracefully before resetting */
--	schedule_delayed_work(&bp->sp_rtnl_task, 0);
-+	bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_TX_TIMEOUT, 0);
- }
+ /********************** Queue state object ***********************************/
  
- int bnx2x_suspend(struct pci_dev *pdev, pm_message_t state)
-@@ -4906,3 +4902,15 @@ void bnx2x_update_coalesce_sb_index(struct bnx2x *bp, u8 fw_sb_id,
- 	disable = disable ? 1 : (usec ? 0 : 1);
- 	storm_memset_hc_disable(bp, port, fw_sb_id, sb_index, disable);
- }
-+
-+void bnx2x_schedule_sp_rtnl(struct bnx2x *bp, enum sp_rtnl_flag flag,
-+			    u32 verbose)
-+{
-+	smp_mb__before_clear_bit();
-+	set_bit(flag, &bp->sp_rtnl_state);
-+	smp_mb__after_clear_bit();
-+	DP((BNX2X_MSG_SP | verbose), "Scheduling sp_rtnl task [Flag: %d]\n",
-+	   flag);
-+	schedule_delayed_work(&bp->sp_rtnl_task, 0);
-+}
-+EXPORT_SYMBOL(bnx2x_schedule_sp_rtnl);
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-index 17d1689..b2edcae 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-@@ -1324,4 +1324,7 @@ void bnx2x_fill_fw_str(struct bnx2x *bp, char *buf, size_t buf_len);
- int bnx2x_drain_tx_queues(struct bnx2x *bp);
- void bnx2x_squeeze_objects(struct bnx2x *bp);
+ /**
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
+index f7af21f..80f6c79 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
+@@ -1422,6 +1422,4 @@ int bnx2x_config_rss(struct bnx2x *bp,
+ void bnx2x_get_rss_ind_table(struct bnx2x_rss_config_obj *rss_obj,
+ 			     u8 *ind_table);
  
-+void bnx2x_schedule_sp_rtnl(struct bnx2x*, enum sp_rtnl_flag,
-+			    u32 verbose);
-+
- #endif /* BNX2X_CMN_H */
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-index fdace20..97ea542 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-@@ -710,8 +710,7 @@ static inline void bnx2x_dcbx_update_tc_mapping(struct bnx2x *bp)
- 	 * as we are handling an attention on a work queue which must be
- 	 * flushed at some rtnl-locked contexts (e.g. if down)
- 	 */
--	if (!test_and_set_bit(BNX2X_SP_RTNL_SETUP_TC, &bp->sp_rtnl_state))
--		schedule_delayed_work(&bp->sp_rtnl_task, 0);
-+	bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_SETUP_TC, 0);
- }
- 
- void bnx2x_dcbx_set_params(struct bnx2x *bp, u32 state)
-@@ -764,10 +763,7 @@ void bnx2x_dcbx_set_params(struct bnx2x *bp, u32 state)
- 			if (IS_MF(bp))
- 				bnx2x_link_sync_notify(bp);
- 
--			set_bit(BNX2X_SP_RTNL_TX_STOP, &bp->sp_rtnl_state);
--
--			schedule_delayed_work(&bp->sp_rtnl_task, 0);
--
-+			bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_TX_STOP, 0);
- 			return;
- 		}
- 	case BNX2X_DCBX_STATE_TX_PAUSED:
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 8ff5326..0132a7c 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -3908,10 +3908,7 @@ static void bnx2x_fan_failure(struct bnx2x *bp)
- 	 * This is due to some boards consuming sufficient power when driver is
- 	 * up to overheat if fan fails.
- 	 */
--	smp_mb__before_clear_bit();
--	set_bit(BNX2X_SP_RTNL_FAN_FAILURE, &bp->sp_rtnl_state);
--	smp_mb__after_clear_bit();
--	schedule_delayed_work(&bp->sp_rtnl_task, 0);
-+	bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_FAN_FAILURE, 0);
- }
- 
- static void bnx2x_attn_int_deasserted0(struct bnx2x *bp, u32 attn)
-@@ -5303,6 +5300,8 @@ static void bnx2x_eq_int(struct bnx2x *bp)
- 					break;
- 
- 			} else {
-+				int cmd = BNX2X_SP_RTNL_AFEX_F_UPDATE;
-+
- 				DP(BNX2X_MSG_SP | BNX2X_MSG_MCP,
- 				   "AFEX: ramrod completed FUNCTION_UPDATE\n");
- 				f_obj->complete_cmd(bp, f_obj,
-@@ -5312,12 +5311,7 @@ static void bnx2x_eq_int(struct bnx2x *bp)
- 				 * sp_rtnl task as all Queue SP operations
- 				 * should run under rtnl_lock.
- 				 */
--				smp_mb__before_clear_bit();
--				set_bit(BNX2X_SP_RTNL_AFEX_F_UPDATE,
--					&bp->sp_rtnl_state);
--				smp_mb__after_clear_bit();
--
--				schedule_delayed_work(&bp->sp_rtnl_task, 0);
-+				bnx2x_schedule_sp_rtnl(bp, cmd, 0);
- 			}
- 
- 			goto next_spqe;
-@@ -12082,11 +12076,8 @@ static void bnx2x_set_rx_mode(struct net_device *dev)
- 		return;
- 	} else {
- 		/* Schedule an SP task to handle rest of change */
--		DP(NETIF_MSG_IFUP, "Scheduling an Rx mode change\n");
--		smp_mb__before_clear_bit();
--		set_bit(BNX2X_SP_RTNL_RX_MODE, &bp->sp_rtnl_state);
--		smp_mb__after_clear_bit();
--		schedule_delayed_work(&bp->sp_rtnl_task, 0);
-+		bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_RX_MODE,
-+				       NETIF_MSG_IFUP);
- 	}
- }
- 
-@@ -12119,11 +12110,8 @@ void bnx2x_set_rx_mode_inner(struct bnx2x *bp)
- 			/* configuring mcast to a vf involves sleeping (when we
- 			 * wait for the pf's response).
- 			 */
--			smp_mb__before_clear_bit();
--			set_bit(BNX2X_SP_RTNL_VFPF_MCAST,
--				&bp->sp_rtnl_state);
--			smp_mb__after_clear_bit();
--			schedule_delayed_work(&bp->sp_rtnl_task, 0);
-+			bnx2x_schedule_sp_rtnl(bp,
-+					       BNX2X_SP_RTNL_VFPF_MCAST, 0);
- 		}
- 	}
- 
+-int validate_vlan_mac(struct bnx2x *bp,
+-		      struct bnx2x_vlan_mac_obj *vlan_mac);
+ #endif /* BNX2X_SP_VERBS */
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index 8af71d3..fbeec77 100644
+index e72070a..8af71d3 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -983,11 +983,8 @@ op_err:
- op_done:
- 	case BNX2X_VFOP_QSETUP_DONE:
- 		vf->cfg_flags |= VF_CFG_VLAN;
--		smp_mb__before_clear_bit();
--		set_bit(BNX2X_SP_RTNL_HYPERVISOR_VLAN,
--			&bp->sp_rtnl_state);
--		smp_mb__after_clear_bit();
--		schedule_delayed_work(&bp->sp_rtnl_task, 0);
-+		bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_HYPERVISOR_VLAN,
-+				       BNX2X_MSG_IOV);
- 		bnx2x_vfop_end(bp, vf, vfop);
- 		return;
- 	default:
-@@ -3812,13 +3809,9 @@ void bnx2x_timer_sriov(struct bnx2x *bp)
- 	bnx2x_sample_bulletin(bp);
+@@ -102,6 +102,21 @@ static void bnx2x_vf_igu_ack_sb(struct bnx2x *bp, struct bnx2x_virtf *vf,
+ 	mmiowb();
+ 	barrier();
+ }
++
++static bool bnx2x_validate_vf_sp_objs(struct bnx2x *bp,
++				       struct bnx2x_virtf *vf,
++				       bool print_err)
++{
++	if (!bnx2x_leading_vfq(vf, sp_initialized)) {
++		if (print_err)
++			BNX2X_ERR("Slowpath objects not yet initialized!\n");
++		else
++			DP(BNX2X_MSG_IOV, "Slowpath objects not yet initialized!\n");
++		return false;
++	}
++	return true;
++}
++
+ /* VFOP - VF slow-path operation support */
  
- 	/* if channel is down we need to self destruct */
--	if (bp->old_bulletin.valid_bitmap & 1 << CHANNEL_DOWN) {
--		smp_mb__before_clear_bit();
--		set_bit(BNX2X_SP_RTNL_VFPF_CHANNEL_DOWN,
--			&bp->sp_rtnl_state);
--		smp_mb__after_clear_bit();
--		schedule_delayed_work(&bp->sp_rtnl_task, 0);
--	}
-+	if (bp->old_bulletin.valid_bitmap & 1 << CHANNEL_DOWN)
-+		bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_VFPF_CHANNEL_DOWN,
-+				       BNX2X_MSG_IOV);
+ #define BNX2X_VFOP_FILTER_ADD_CNT_MAX		0x10000
+@@ -721,7 +736,6 @@ static int bnx2x_vfop_mac_delall_cmd(struct bnx2x *bp,
+ 				     int qid, bool drv_only)
+ {
+ 	struct bnx2x_vfop *vfop = bnx2x_vfop_add(bp, vf);
+-	int rc;
+ 
+ 	if (vfop) {
+ 		struct bnx2x_vfop_args_filters filters = {
+@@ -741,9 +755,6 @@ static int bnx2x_vfop_mac_delall_cmd(struct bnx2x *bp,
+ 		bnx2x_vfop_mac_prep_ramrod(ramrod, &flags);
+ 
+ 		/* set object */
+-		rc = validate_vlan_mac(bp, &bnx2x_vfq(vf, qid, mac_obj));
+-		if (rc)
+-			return rc;
+ 		ramrod->vlan_mac_obj = &bnx2x_vfq(vf, qid, mac_obj);
+ 
+ 		/* set extra args */
+@@ -763,9 +774,12 @@ int bnx2x_vfop_mac_list_cmd(struct bnx2x *bp,
+ 			    struct bnx2x_vfop_filters *macs,
+ 			    int qid, bool drv_only)
+ {
+-	struct bnx2x_vfop *vfop = bnx2x_vfop_add(bp, vf);
+-	int rc;
++	struct bnx2x_vfop *vfop;
+ 
++	if (!bnx2x_validate_vf_sp_objs(bp, vf, true))
++			return -EINVAL;
++
++	vfop  = bnx2x_vfop_add(bp, vf);
+ 	if (vfop) {
+ 		struct bnx2x_vfop_args_filters filters = {
+ 			.multi_filter = macs,
+@@ -787,9 +801,6 @@ int bnx2x_vfop_mac_list_cmd(struct bnx2x *bp,
+ 		bnx2x_vfop_mac_prep_ramrod(ramrod, &flags);
+ 
+ 		/* set object */
+-		rc = validate_vlan_mac(bp, &bnx2x_vfq(vf, qid, mac_obj));
+-		if (rc)
+-			return rc;
+ 		ramrod->vlan_mac_obj = &bnx2x_vfq(vf, qid, mac_obj);
+ 
+ 		/* set extra args */
+@@ -809,9 +820,12 @@ static int bnx2x_vfop_vlan_set_cmd(struct bnx2x *bp,
+ 				   struct bnx2x_vfop_cmd *cmd,
+ 				   int qid, u16 vid, bool add)
+ {
+-	struct bnx2x_vfop *vfop = bnx2x_vfop_add(bp, vf);
+-	int rc;
++	struct bnx2x_vfop *vfop;
++
++	if (!bnx2x_validate_vf_sp_objs(bp, vf, true))
++		return -EINVAL;
+ 
++	vfop  = bnx2x_vfop_add(bp, vf);
+ 	if (vfop) {
+ 		struct bnx2x_vfop_args_filters filters = {
+ 			.multi_filter = NULL, /* single command */
+@@ -831,9 +845,6 @@ static int bnx2x_vfop_vlan_set_cmd(struct bnx2x *bp,
+ 		ramrod->user_req.u.vlan.vlan = vid;
+ 
+ 		/* set object */
+-		rc = validate_vlan_mac(bp, &bnx2x_vfq(vf, qid, vlan_obj));
+-		if (rc)
+-			return rc;
+ 		ramrod->vlan_mac_obj = &bnx2x_vfq(vf, qid, vlan_obj);
+ 
+ 		/* set extra args */
+@@ -853,7 +864,6 @@ static int bnx2x_vfop_vlan_delall_cmd(struct bnx2x *bp,
+ 			       int qid, bool drv_only)
+ {
+ 	struct bnx2x_vfop *vfop = bnx2x_vfop_add(bp, vf);
+-	int rc;
+ 
+ 	if (vfop) {
+ 		struct bnx2x_vfop_args_filters filters = {
+@@ -873,9 +883,6 @@ static int bnx2x_vfop_vlan_delall_cmd(struct bnx2x *bp,
+ 		bnx2x_vfop_vlan_mac_prep_ramrod(ramrod, &flags);
+ 
+ 		/* set object */
+-		rc = validate_vlan_mac(bp, &bnx2x_vfq(vf, qid, vlan_obj));
+-		if (rc)
+-			return rc;
+ 		ramrod->vlan_mac_obj = &bnx2x_vfq(vf, qid, vlan_obj);
+ 
+ 		/* set extra args */
+@@ -895,9 +902,12 @@ int bnx2x_vfop_vlan_list_cmd(struct bnx2x *bp,
+ 			     struct bnx2x_vfop_filters *vlans,
+ 			     int qid, bool drv_only)
+ {
+-	struct bnx2x_vfop *vfop = bnx2x_vfop_add(bp, vf);
+-	int rc;
++	struct bnx2x_vfop *vfop;
++
++	if (!bnx2x_validate_vf_sp_objs(bp, vf, true))
++		return -EINVAL;
+ 
++	vfop = bnx2x_vfop_add(bp, vf);
+ 	if (vfop) {
+ 		struct bnx2x_vfop_args_filters filters = {
+ 			.multi_filter = vlans,
+@@ -916,9 +926,6 @@ int bnx2x_vfop_vlan_list_cmd(struct bnx2x *bp,
+ 		bnx2x_vfop_vlan_mac_prep_ramrod(ramrod, &flags);
+ 
+ 		/* set object */
+-		rc = validate_vlan_mac(bp, &bnx2x_vfq(vf, qid, vlan_obj));
+-		if (rc)
+-			return rc;
+ 		ramrod->vlan_mac_obj = &bnx2x_vfq(vf, qid, vlan_obj);
+ 
+ 		/* set extra args */
+@@ -1030,34 +1037,20 @@ static void bnx2x_vfop_qflr(struct bnx2x *bp, struct bnx2x_virtf *vf)
+ 		/* vlan-clear-all: driver-only, don't consume credit */
+ 		vfop->state = BNX2X_VFOP_QFLR_CLR_MAC;
+ 
+-		if (!validate_vlan_mac(bp, &bnx2x_vfq(vf, qid, vlan_obj))) {
+-			/* the vlan_mac vfop will re-schedule us */
+-			vfop->rc = bnx2x_vfop_vlan_delall_cmd(bp, vf, &cmd,
+-							      qid, true);
+-			if (vfop->rc)
+-				goto op_err;
+-			return;
+-
+-		} else {
+-			/* need to reschedule ourselves */
+-			bnx2x_vfop_finalize(vf, vfop->rc, VFOP_CONT);
+-		}
++		/* the vlan_mac vfop will re-schedule us */
++		vfop->rc = bnx2x_vfop_vlan_delall_cmd(bp, vf, &cmd, qid, true);
++		if (vfop->rc)
++			goto op_err;
++		return;
+ 
+ 	case BNX2X_VFOP_QFLR_CLR_MAC:
+ 		/* mac-clear-all: driver only consume credit */
+ 		vfop->state = BNX2X_VFOP_QFLR_TERMINATE;
+-		if (!validate_vlan_mac(bp, &bnx2x_vfq(vf, qid, mac_obj))) {
+-			/* the vlan_mac vfop will re-schedule us */
+-			vfop->rc = bnx2x_vfop_mac_delall_cmd(bp, vf, &cmd,
+-							     qid, true);
+-			if (vfop->rc)
+-				goto op_err;
+-			return;
+-
+-		} else {
+-			/* need to reschedule ourselves */
+-			bnx2x_vfop_finalize(vf, vfop->rc, VFOP_CONT);
+-		}
++		/* the vlan_mac vfop will re-schedule us */
++		vfop->rc = bnx2x_vfop_mac_delall_cmd(bp, vf, &cmd, qid, true);
++		if (vfop->rc)
++			goto op_err;
++		return;
+ 
+ 	case BNX2X_VFOP_QFLR_TERMINATE:
+ 		qstate = &vfop->op_p->qctor.qstate;
+@@ -1100,8 +1093,13 @@ static int bnx2x_vfop_qflr_cmd(struct bnx2x *bp,
+ 
+ 	if (vfop) {
+ 		vfop->args.qx.qid = qid;
+-		bnx2x_vfop_opset(BNX2X_VFOP_QFLR_CLR_VLAN,
+-				 bnx2x_vfop_qflr, cmd->done);
++		if ((qid == LEADING_IDX) &&
++		    bnx2x_validate_vf_sp_objs(bp, vf, false))
++			bnx2x_vfop_opset(BNX2X_VFOP_QFLR_CLR_VLAN,
++					 bnx2x_vfop_qflr, cmd->done);
++		else
++			bnx2x_vfop_opset(BNX2X_VFOP_QFLR_TERMINATE,
++					 bnx2x_vfop_qflr, cmd->done);
+ 		return bnx2x_vfop_transition(bp, vf, bnx2x_vfop_qflr,
+ 					     cmd->block);
+ 	}
+@@ -1315,7 +1313,10 @@ static void bnx2x_vfop_qdown(struct bnx2x *bp, struct bnx2x_virtf *vf)
+ 	switch (state) {
+ 	case BNX2X_VFOP_QTEARDOWN_RXMODE:
+ 		/* Drop all */
+-		vfop->state = BNX2X_VFOP_QTEARDOWN_CLR_VLAN;
++		if (bnx2x_validate_vf_sp_objs(bp, vf, true))
++			vfop->state =  BNX2X_VFOP_QTEARDOWN_CLR_VLAN;
++		else
++			vfop->state = BNX2X_VFOP_QTEARDOWN_QDTOR;
+ 		vfop->rc = bnx2x_vfop_rxmode_cmd(bp, vf, &cmd, qid, 0);
+ 		if (vfop->rc)
+ 			goto op_err;
+@@ -2171,6 +2172,9 @@ static void bnx2x_vfq_init(struct bnx2x *bp, struct bnx2x_virtf *vf,
+ 			     bnx2x_vf_sp_map(bp, vf, q_data),
+ 			     q_type);
+ 
++	/* sp indication is set only when vlan/mac/etc. are initialized */
++	q->sp_initialized = false;
++
+ 	DP(BNX2X_MSG_IOV,
+ 	   "initialized vf %d's queue object. func id set to %d. cid set to 0x%x\n",
+ 	   vf->abs_vfid, q->sp_obj.func_id, q->cid);
+@@ -3478,13 +3482,13 @@ int bnx2x_get_vf_config(struct net_device *dev, int vfidx,
+ 	ivi->spoofchk = 1; /*always enabled */
+ 	if (vf->state == VF_ENABLED) {
+ 		/* mac and vlan are in vlan_mac objects */
+-		if (validate_vlan_mac(bp, &bnx2x_leading_vfq(vf, mac_obj)))
++		if (bnx2x_validate_vf_sp_objs(bp, vf, false)) {
+ 			mac_obj->get_n_elements(bp, mac_obj, 1, (u8 *)&ivi->mac,
+ 						0, ETH_ALEN);
+-		if (validate_vlan_mac(bp, &bnx2x_leading_vfq(vf, vlan_obj)))
+ 			vlan_obj->get_n_elements(bp, vlan_obj, 1,
+ 						 (u8 *)&ivi->vlan, 0,
+ 						 VLAN_HLEN);
++		}
+ 	} else {
+ 		/* mac */
+ 		if (bulletin->valid_bitmap & (1 << MAC_ADDR_VALID))
+@@ -3558,17 +3562,17 @@ int bnx2x_set_vf_mac(struct net_device *dev, int vfidx, u8 *mac)
+ 	    q_logical_state == BNX2X_Q_LOGICAL_STATE_ACTIVE) {
+ 		/* configure the mac in device on this vf's queue */
+ 		unsigned long ramrod_flags = 0;
+-		struct bnx2x_vlan_mac_obj *mac_obj =
+-			&bnx2x_leading_vfq(vf, mac_obj);
++		struct bnx2x_vlan_mac_obj *mac_obj;
+ 
+-		rc = validate_vlan_mac(bp, &bnx2x_leading_vfq(vf, mac_obj));
+-		if (rc)
+-			return rc;
++		/* User should be able to see failure reason in system logs */
++		if (!bnx2x_validate_vf_sp_objs(bp, vf, true))
++			return -EINVAL;
+ 
+ 		/* must lock vfpf channel to protect against vf flows */
+ 		bnx2x_lock_vf_pf_channel(bp, vf, CHANNEL_TLV_PF_SET_MAC);
+ 
+ 		/* remove existing eth macs */
++		mac_obj = &bnx2x_leading_vfq(vf, mac_obj);
+ 		rc = bnx2x_del_all_macs(bp, mac_obj, BNX2X_ETH_MAC, true);
+ 		if (rc) {
+ 			BNX2X_ERR("failed to delete eth macs\n");
+@@ -3642,17 +3646,16 @@ int bnx2x_set_vf_vlan(struct net_device *dev, int vfidx, u16 vlan, u8 qos)
+ 	    BNX2X_Q_LOGICAL_STATE_ACTIVE)
+ 		return rc;
+ 
+-	/* configure the vlan in device on this vf's queue */
+-	vlan_obj = &bnx2x_leading_vfq(vf, vlan_obj);
+-	rc = validate_vlan_mac(bp, &bnx2x_leading_vfq(vf, mac_obj));
+-	if (rc)
+-		return rc;
++	/* User should be able to see error in system logs */
++	if (!bnx2x_validate_vf_sp_objs(bp, vf, true))
++		return -EINVAL;
+ 
+ 	/* must lock vfpf channel to protect against vf flows */
+ 	bnx2x_lock_vf_pf_channel(bp, vf, CHANNEL_TLV_PF_SET_VLAN);
+ 
+ 	/* remove existing vlans */
+ 	__set_bit(RAMROD_COMP_WAIT, &ramrod_flags);
++	vlan_obj = &bnx2x_leading_vfq(vf, vlan_obj);
+ 	rc = vlan_obj->delete_all(bp, vlan_obj, &vlan_mac_flags,
+ 				  &ramrod_flags);
+ 	if (rc) {
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
+index 9b60e80..b1dc751 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
+@@ -83,6 +83,7 @@ struct bnx2x_vf_queue {
+ 	u16 index;
+ 	u16 sb_idx;
+ 	bool is_leading;
++	bool sp_initialized;
+ };
+ 
+ /* struct bnx2x_vfop_qctor_params - prepare queue construction parameters:
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+index dfaed28..1117ed7 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+@@ -548,6 +548,7 @@ static void bnx2x_leading_vfq_init(struct bnx2x *bp, struct bnx2x_virtf *vf,
+ 
+ 	vf->leading_rss = cl_id;
+ 	q->is_leading = true;
++	q->sp_initialized = true;
  }
  
- void __iomem *bnx2x_vf_doorbells(struct bnx2x *bp)
+ /* ask the pf to open a queue for the vf */
 -- 
 1.8.1.227.g44fe835
