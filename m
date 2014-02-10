@@ -1,37 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net 0/9] bridge: Fix corner case problems around
- local fdb entries
-Date: Mon, 10 Feb 2014 14:36:01 -0800 (PST)
-Message-ID: <20140210.143601.844510611024679530.davem@davemloft.net>
-References: <1391759306-24956-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] iproute: Properly handle protocol level diag module
+ absence
+Date: Mon, 10 Feb 2014 14:37:31 -0800
+Message-ID: <20140210143731.34b73a78@nehalam.linuxnetplumber.net>
+References: <52E7E990.7050501@parallels.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, vyasevic@redhat.com,
-	netdev@vger.kernel.org
-To: makita.toshiaki@lab.ntt.co.jp
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	=?ISO-8859-1?B?RnJhbudvaXMtWGF2aWVy?= Le Bail
+	<fx.lebail@yahoo.com>
+To: Pavel Emelyanov <xemul@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56541 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751791AbaBJWgC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 17:36:02 -0500
-In-Reply-To: <1391759306-24956-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:47987 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752260AbaBJWhf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 17:37:35 -0500
+Received: by mail-pa0-f45.google.com with SMTP id lf10so6772370pab.18
+        for <netdev@vger.kernel.org>; Mon, 10 Feb 2014 14:37:34 -0800 (PST)
+In-Reply-To: <52E7E990.7050501@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Date: Fri,  7 Feb 2014 16:48:17 +0900
+On Tue, 28 Jan 2014 21:32:00 +0400
+Pavel Emelyanov <xemul@parallels.com> wrote:
 
-> There are so many corner cases that are not handled properly around local
-> fdb entries.
-> - We might fail to delete the old entry and might delete an arbitrary local
->   entry when changing mac address of a bridge port.
-> - We always fail to delete the old entry when changing mac address of the
->   bridge device.
-> - We might incorrectly delete a necessary entry when detaching a bridge port.
-> - We might incorrectly delete a necessary entry when deleting a vlan.
-> and so on.
-> 
-> This is a patch series to fix these issues.
+> When *_diag module is missing in the kernel, the ss tool should go
+> ad read legacry /proc/* files.
+>=20
+> This is the case when all *_diag stuff is missing, but in case the
+> inet_diag.ko is loaded, but (tcp|udp)_diag.ko is not, the ss tool
+> doesn't notice this and produces empty output. The reason for that
+> is -- error from the inet_diag module (which means, that e.g. the
+> udp_diag is missing) is reported in the NLMSG_DONE message body.
+>=20
+> That said, we need to check the NLMSG_DONE's message return code
+> and act respectively.
+>=20
+> Reported-by: Fran=E7ois-Xavier Le Bail <fx.lebail@yahoo.com>
+> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+>=20
 
-Series applied, thanks.
+Silently ignoring the error seems wrong.
+The fallback is good, but we should try and report the error so that
+the user fixes the kernel config.
