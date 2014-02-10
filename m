@@ -1,88 +1,73 @@
-From: Christian Gmeiner <christian.gmeiner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC PATCHv2 0/4] Add DT support for fixed PHYs
-Date: Mon, 10 Feb 2014 11:30:30 +0100
-Message-ID: <CAH9NwWfutp6MitSuG-LNH=0Y0ffewuSawLXJOe2JUL7=tz7BWQ@mail.gmail.com>
-References: <1378480701-12908-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <20130911064248.GI30088@pengutronix.de> <CAH9NwWfBGHmZ+HfUndeh18NW+HyZ=c82W=O_4hJSOH-oZuM9jA@mail.gmail.com>
+From: Emil Goode <emilgoode-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 1/2 v2] usbnet: fix bad header length bug
+Date: Mon, 10 Feb 2014 13:00:48 +0100
+Message-ID: <20140210115812.GA4278@lianli>
+References: <1391987174-21828-1-git-send-email-emilgoode@gmail.com>
+ <1392014458.21271.6.camel@linux-fkkt.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Florian Fainelli <florian-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
-	Lior Amsalem <alior-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-	Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	Ezequiel Garcia <ezequiel.garcia-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Christian Gmeiner <christian.gmeiner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAH9NwWfBGHmZ+HfUndeh18NW+HyZ=c82W=O_4hJSOH-oZuM9jA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Mark Brown <broonie-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Glen Turner <gdt-pRLresKaOUyHXe+LvDLADg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1392014458.21271.6.camel-B2T3B9s34ElbnMAlSieJcQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-2013-09-25 9:12 GMT+02:00 Christian Gmeiner <christian.gmeiner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
-> Hi
+On Mon, Feb 10, 2014 at 07:40:58AM +0100, Oliver Neukum wrote:
+> On Mon, 2014-02-10 at 00:06 +0100, Emil Goode wrote:
+> > The AX88772B occasionally send rx packets that cross urb boundaries
+> > and the remaining partial packet is sent with no hardware header.
+> > When the buffer with a partial packet is of less number of octets
+> > than the value of hard_header_len the buffer is discarded by the
+> > usbnet module. This is causing dropped packages and error messages
+> > in dmesg.
+> > 
+> > This can be reproduced by using ping with a packet size
+> > between 1965-1976.
+> 
+> Well, then how about simply removing the check?
+> It seems to have outlived its usefulness.
+> 
+> 	Regards
+> 		Oliver
+> 
 >
->>> Hello,
->>>
->>> Here is a second version of the patch set that adds a Device Tree
->>> binding and the related code to support fixed PHYs. Marked as RFC,
->>> this patch set is obviously not intended for merging in 3.12.
->>>
->>> Since the first version, the changes have been:
->>>
->>>  * Instead of using a 'fixed-link' property inside the Ethernet device
->>>    DT node, with a fairly cryptic succession of integer values, we now
->>>    use a PHY subnode under the Ethernet device DT node, with explicit
->>>    properties to configure the duplex, speed, pause and other PHY
->>>    properties.
->>>
->>>  * The PHY address is automatically allocated by the kernel and no
->>>    longer visible in the Device Tree binding.
->>>
->>>  * The PHY device is created directly when the network driver calls
->>>    of_phy_connect_fixed_link(), and associated to the PHY DT node,
->>>    which allows the existing of_phy_connect() function to work,
->>>    without the need to use the deprecated of_phy_connect_fixed_link().
->>>
->>> The things I am not entirely happy with yet are:
->>>
->>>  * The PHY ID is hardcoded to 0xdeadbeef. Ideally, it should be a
->>>    properly reserved vendor/device identifier, but it isn't clear how
->>>    to get one allocated for this purpose.
->>>
->>>  * The fixed_phy_register() function in drivers/net/phy/fixed.c has
->>>    some OF references. So ideally, I would have preferred to put this
->>>    code in drivers/of/of_mdio.c, but to call get_phy_device(), we need
->>>    a reference to the mii_bus structure that represents the fixed MDIO
->>>    bus.
->>>
->>>  * There is some error management missing in fixed_phy_register(), but
->>>    it can certainly be added easily. This RFC is meant to sort out the
->>>    general idea.
->>
->> +1 for the general idea. This really looks good now. I've not much more
->> to say. Maybe someone from the devicetree corner has a few words for the
->> binding?
->>
->
-> I tested the whole series with an I.MX6D board with the FEC driver:
-> fec 2188000.ethernet eth0: Freescale FEC PHY driver [Generic PHY]
-> (mii_bus:phy_addr=fixed-0:00, irq=-1)
->
-> For me binding looks nice and I hope to see this patch series in 3.13.
->
-> Tested-by: Christian Gmeiner <christian.gmeiner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Is there any update on this patch series?
+I did consider that and I think it is probably the best thing to do.
+However, I think the removal of the check could have negative effects
+on the other minidrivers, at least the qmi_wwan minidriver explicitly
+states that it is depending on this check to be made in rx_complete().
 
+For safety the check could be added at the top of the rx_fixup callback
+of the affected minidrivers.
+
+There are devices that depend on the usbnet module that do not have
+a rx_fixup callback assigned to it's driver_info struct, the check
+could be added for these in the rx_process function.
+
+This led me to think it would be a lot of noise about a small check :)
+
+My conclusion is that 12 rx_fixup callbacks might need the check
+to be added. There are 18 driver_info structs with no rx_fixup
+callback assigned, these devices might need the check to be added
+to the rx_process function.
+
+Patches could be sent out to notify the affected minidrivers of the
+change and hopefully someone has the hardware to test if it's 
+necessary to add the check to the minidriver?
+
+I'm happy to do this if it seem like a good idea.
+
+Best regards,
+
+Emil Goode
 --
-Christian Gmeiner, MSc
-
-https://soundcloud.com/christian-gmeiner
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
