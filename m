@@ -1,44 +1,53 @@
-From: Dinh Nguyen <dinguyen-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCHv2 1/2] net: stmmac: Add SOCFPGA glue driver
-Date: Mon, 10 Feb 2014 09:52:36 -0600
-Message-ID: <1392047556.17499.0.camel@linux-builds1>
-References: <1391728795-30435-1-git-send-email-dinguyen@altera.com>
-	 <20140209.180642.1194468196963903290.davem@davemloft.net>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net] hyperv: Fix the carrier status setting
+Date: Mon, 10 Feb 2014 15:57:12 +0000
+Message-ID: <191b34a54dad423c875c05f084cb1021@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+References: <1391994478-25809-1-git-send-email-haiyangz@microsoft.com>
+ <20140210090359.GQ26722@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <dinh.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-	<robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	<ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	<vbridgers2013-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140209.180642.1194468196963903290.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"olaf@aepfle.de" <olaf@aepfle.de>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	"driverdev-devel@linuxdriverproject.org"
+	<driverdev-devel@linuxdriverproject.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na01-by1-obe.ptr.o365filtering.com ([64.4.22.89]:9288 "EHLO
+	na01-by1-obe.outbound.o365filtering.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751831AbaBJP5r convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Feb 2014 10:57:47 -0500
+In-Reply-To: <20140210090359.GQ26722@mwanda>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-02-09 at 18:06 -0800, David Miller wrote:
-> From: <dinguyen-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>
-> Date: Thu, 6 Feb 2014 17:19:54 -0600
-> 
-> > +MODULE_ALIAS("platform:socfpga-dwmac");
-> > +MODULE_AUTHOR("Dinh Nguyen <dinguyen-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>");
-> > +MODULE_LICENSE("GPL v2");
-> > +MODULE_DESCRIPTION("Altera SOCFPGA DWMAC Glue Layer");
-> > +
-> 
-> Do not add stray empty lines at the end of files.  Your second patch
-> has this problem is a few places too.
-> 
 
-Will fix in v3.
+
+> -----Original Message-----
+> From: Dan Carpenter [mailto:dan.carpenter@oracle.com]
+> Sent: Monday, February 10, 2014 4:04 AM
+> To: Haiyang Zhang
+> Cc: davem@davemloft.net; netdev@vger.kernel.org; olaf@aepfle.de;
+> jasowang@redhat.com; driverdev-devel@linuxdriverproject.org; linux-
+> kernel@vger.kernel.org
+> Subject: Re: [PATCH net] hyperv: Fix the carrier status setting
+> 
+> On Sun, Feb 09, 2014 at 05:07:58PM -0800, Haiyang Zhang wrote:
+> > Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> > Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> 
+> Changelog sucks.  What are the user visible effects of this bug?
+> 
+Without this patch, the "cat /sys/class/net/ethN/operstate" shows 
+"unknown", and "ethtool ethN" shows "Link detected: yes", when VM
+boots up with or without vNIC connected. This patch fixed the problem.
+
+I will include the comments.
 
 Thanks,
-Dinh
-
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+- Haiyang
