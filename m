@@ -1,31 +1,37 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] iproute: Fix Netid value for multi-families output
-Date: Mon, 10 Feb 2014 14:48:56 -0800
-Message-ID: <20140210144856.4c064f32@nehalam.linuxnetplumber.net>
-References: <52E74D0F.4050806@parallels.com>
+From: David Miller <davem@davemloft.net>
+Subject: Latest version of zero-copy fix
+Date: Mon, 10 Feb 2014 15:21:50 -0800 (PST)
+Message-ID: <20140210.152150.574073124161003333.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	=?ISO-8859-1?B?RnJhbudvaXMtWGF2aWVy?= Le Bail
-	<fx.lebail@yahoo.com>
-To: Pavel Emelyanov <xemul@parallels.com>
+Cc: netdev@vger.kernel.org
+To: ryao@gentoo.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:38087 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752223AbaBJWs7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 17:48:59 -0500
-Received: by mail-pd0-f175.google.com with SMTP id w10so6661343pde.6
-        for <netdev@vger.kernel.org>; Mon, 10 Feb 2014 14:48:58 -0800 (PST)
-In-Reply-To: <52E74D0F.4050806@parallels.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56782 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752440AbaBJXVw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 18:21:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 28 Jan 2014 10:24:15 +0400
-Pavel Emelyanov <xemul@parallels.com> wrote:
 
-> When requesting simultaneous output of TCP and UDP sockets
-> the netid field shows "tcp" always.
+So now the patch only tests is_vmalloc_addr(), did you test this
+version with the situation that triggers the given backtrace?
 
-Applied
+[<ffffffff814878ce>] p9_virtio_zc_request+0x45e/0x510
+[<ffffffff814814ed>] p9_client_zc_rpc.constprop.16+0xfd/0x4f0
+[<ffffffff814839dd>] p9_client_read+0x15d/0x240
+[<ffffffff811c8440>] v9fs_fid_readn+0x50/0xa0
+[<ffffffff811c84a0>] v9fs_file_readn+0x10/0x20
+[<ffffffff811c84e7>] v9fs_file_read+0x37/0x70
+[<ffffffff8114e3fb>] vfs_read+0x9b/0x160
+[<ffffffff81153571>] kernel_read+0x41/0x60
+[<ffffffff810c83ab>] copy_module_from_fd.isra.34+0xfb/0x180
+
+This is reading from v9fs into a module address.
+
+It's going generate the same backtrace with your fix.
+
+I don't think the situation was sufficiently explained to Linus.  In
+fact, I didn't see the above backtrace mentioned at all.
