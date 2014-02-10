@@ -1,217 +1,88 @@
-From: Mark Rutland <mark.rutland@arm.com>
-Subject: Re: [PATCH] net: rfkill-regulator: Add devicetree support.
-Date: Mon, 10 Feb 2014 10:18:42 +0000
-Message-ID: <20140210101842.GS25314@e106331-lin.cambridge.arm.com>
-References: <1391802529-29861-1-git-send-email-marek@goldelico.com>
+From: Christian Gmeiner <christian.gmeiner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC PATCHv2 0/4] Add DT support for fixed PHYs
+Date: Mon, 10 Feb 2014 11:30:30 +0100
+Message-ID: <CAH9NwWfutp6MitSuG-LNH=0Y0ffewuSawLXJOe2JUL7=tz7BWQ@mail.gmail.com>
+References: <1378480701-12908-1-git-send-email-thomas.petazzoni@free-electrons.com>
+ <20130911064248.GI30088@pengutronix.de> <CAH9NwWfBGHmZ+HfUndeh18NW+HyZ=c82W=O_4hJSOH-oZuM9jA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "robh+dt@kernel.org" <robh+dt@kernel.org>,
-	Pawel Moll <Pawel.Moll@arm.com>,
-	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
-	"galak@codeaurora.org" <galak@codeaurora.org>,
-	"rob@landley.net" <rob@landley.net>,
-	"linville@tuxdriver.com" <linville@tuxdriver.com>,
-	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"hns@goldelico.com" <hns@goldelico.com>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Marek Belisko <marek@goldelico.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1391802529-29861-1-git-send-email-marek@goldelico.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Florian Fainelli <florian-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
+	Lior Amsalem <alior-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+	Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	Ezequiel Garcia <ezequiel.garcia-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Christian Gmeiner <christian.gmeiner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAH9NwWfBGHmZ+HfUndeh18NW+HyZ=c82W=O_4hJSOH-oZuM9jA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 07, 2014 at 07:48:49PM +0000, Marek Belisko wrote:
-> Signed-off-by: NeilBrown <neilb@suse.de>
-> Signed-off-by: Marek Belisko <marek@goldelico.com>
-> ---
-> Based on Neil's patch and extend for documentation and bindings include.
-> 
->  .../bindings/net/rfkill/rfkill-relugator.txt       | 28 ++++++++++++++++
->  include/dt-bindings/net/rfkill-regulator.h         | 23 +++++++++++++
->  net/rfkill/rfkill-regulator.c                      | 38 ++++++++++++++++++++++
->  3 files changed, 89 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/rfkill/rfkill-relugator.txt
->  create mode 100644 include/dt-bindings/net/rfkill-regulator.h
-> 
-> diff --git a/Documentation/devicetree/bindings/net/rfkill/rfkill-relugator.txt b/Documentation/devicetree/bindings/net/rfkill/rfkill-relugator.txt
-> new file mode 100644
-> index 0000000..cdb7dd7
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/rfkill/rfkill-relugator.txt
-> @@ -0,0 +1,28 @@
-> +Regulator consumer for rfkill devices
+2013-09-25 9:12 GMT+02:00 Christian Gmeiner <christian.gmeiner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
+> Hi
+>
+>>> Hello,
+>>>
+>>> Here is a second version of the patch set that adds a Device Tree
+>>> binding and the related code to support fixed PHYs. Marked as RFC,
+>>> this patch set is obviously not intended for merging in 3.12.
+>>>
+>>> Since the first version, the changes have been:
+>>>
+>>>  * Instead of using a 'fixed-link' property inside the Ethernet device
+>>>    DT node, with a fairly cryptic succession of integer values, we now
+>>>    use a PHY subnode under the Ethernet device DT node, with explicit
+>>>    properties to configure the duplex, speed, pause and other PHY
+>>>    properties.
+>>>
+>>>  * The PHY address is automatically allocated by the kernel and no
+>>>    longer visible in the Device Tree binding.
+>>>
+>>>  * The PHY device is created directly when the network driver calls
+>>>    of_phy_connect_fixed_link(), and associated to the PHY DT node,
+>>>    which allows the existing of_phy_connect() function to work,
+>>>    without the need to use the deprecated of_phy_connect_fixed_link().
+>>>
+>>> The things I am not entirely happy with yet are:
+>>>
+>>>  * The PHY ID is hardcoded to 0xdeadbeef. Ideally, it should be a
+>>>    properly reserved vendor/device identifier, but it isn't clear how
+>>>    to get one allocated for this purpose.
+>>>
+>>>  * The fixed_phy_register() function in drivers/net/phy/fixed.c has
+>>>    some OF references. So ideally, I would have preferred to put this
+>>>    code in drivers/of/of_mdio.c, but to call get_phy_device(), we need
+>>>    a reference to the mii_bus structure that represents the fixed MDIO
+>>>    bus.
+>>>
+>>>  * There is some error management missing in fixed_phy_register(), but
+>>>    it can certainly be added easily. This RFC is meant to sort out the
+>>>    general idea.
+>>
+>> +1 for the general idea. This really looks good now. I've not much more
+>> to say. Maybe someone from the devicetree corner has a few words for the
+>> binding?
+>>
+>
+> I tested the whole series with an I.MX6D board with the FEC driver:
+> fec 2188000.ethernet eth0: Freescale FEC PHY driver [Generic PHY]
+> (mii_bus:phy_addr=fixed-0:00, irq=-1)
+>
+> For me binding looks nice and I hope to see this patch series in 3.13.
+>
+> Tested-by: Christian Gmeiner <christian.gmeiner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-What exactly is an "rfkill" device? How is it used? How does it relate
-to other devices in the DT?
+Is there any update on this patch series?
 
-To me, this looks like a leak of a Linux abstraction.
+--
+Christian Gmeiner, MSc
 
-> +
-> +Required properties:
-> +- compatible   : Must be "rfkill-regulator".
-> +- label  : Name of rfkill device.
-
-What's this for? Why does this need a label in the DT? Surely this can
-be implied by the relationship to a particular radio device?
-
-> +- type  : Type of rfkill device.
-> +
-> +Possible values (defined in include/dt-bindings/net/rfkill-regulator.h):
-> +	RFKILL_TYPE_ALL
-> +	RFKILL_TYPE_WLAN
-> +	RFKILL_TYPE_BLUETOOTH
-> +	RFKILL_TYPE_UWB
-> +	RFKILL_TYPE_WIMAX
-> +	RFKILL_TYPE_WWAN
-> +	RFKILL_TYPE_GPS
-> +	RFKILL_TYPE_FM
-> +	RFKILL_TYPE_NFC
-
-What do these mean? Why can these not be implied by a relationship to
-any devices of these particular types?
-
-> +
-> +- vrfkill-supply - regulator device.
-
-Why isn't this described on the radio revice node? It's a supply to the
-radio, not to the rfkill concept.
-
-> +
-> +Example:
-> +	gps-rfkill {
-> +		compatible = "rfkill-regulator";
-> +		label = "GPS";
-> +		type = <RFKILL_TYPE_GPS>;
-> +		vrfkill-supply = <&reg>;
-> +	};
-
-Why is this not bound to the particular GPS device in some way?
-
-What if I have more than one of any of the types of device this
-supports, which device is this expected to control?
-
-Why is it described as a separate device in the device tree at all?
-
-I do not think this binding is the right way to describe this.
-
-Thanks,
-Mark.
-
-> +
-> diff --git a/include/dt-bindings/net/rfkill-regulator.h b/include/dt-bindings/net/rfkill-regulator.h
-> new file mode 100644
-> index 0000000..ae32273
-> --- /dev/null
-> +++ b/include/dt-bindings/net/rfkill-regulator.h
-> @@ -0,0 +1,23 @@
-> +/*
-> + * This header provides macros for rfkill-regulator bindings.
-> + *
-> + * Copyright (C) 2014 Marek Belisko <marek@goldelico.com>
-> + *
-> + * GPLv2 only
-> + */
-> +
-> +#ifndef __DT_BINDINGS_RFKILL_REGULATOR_H__
-> +#define __DT_BINDINGS_RFKILL_REGULATOR_H__
-> +
-> +
-> +#define RFKILL_TYPE_ALL		(0)
-> +#define RFKILL_TYPE_WLAN	(1)
-> +#define RFKILL_TYPE_BLUETOOTH	(2)
-> +#define RFKILL_TYPE_UWB		(3)
-> +#define RFKILL_TYPE_WIMAX	(4)
-> +#define RFKILL_TYPE_WWAN	(5)
-> +#define RFKILL_TYPE_GPS		(6)
-> +#define RFKILL_TYPE_FM		(7)
-> +#define RFKILL_TYPE_NFC		(8)
-> +
-> +#endif /* __DT_BINDINGS_RFKILL_REGULATOR_H__ */
-> diff --git a/net/rfkill/rfkill-regulator.c b/net/rfkill/rfkill-regulator.c
-> index cf5b145..a04aff8 100644
-> --- a/net/rfkill/rfkill-regulator.c
-> +++ b/net/rfkill/rfkill-regulator.c
-> @@ -19,6 +19,7 @@
->  #include <linux/regulator/consumer.h>
->  #include <linux/rfkill.h>
->  #include <linux/rfkill-regulator.h>
-> +#include <linux/of_platform.h>
->  
->  struct rfkill_regulator_data {
->  	struct rfkill *rf_kill;
-> @@ -57,6 +58,31 @@ static struct rfkill_ops rfkill_regulator_ops = {
->  	.set_block = rfkill_regulator_set_block,
->  };
->  
-> +#ifdef CONFIG_OF
-> +static struct rfkill_regulator_platform_data *
-> +rfkill_regulator_parse_pdata(struct device *dev)
-> +{
-> +	struct rfkill_regulator_platform_data *pdata;
-> +	struct device_node *np = dev->of_node;
-> +	u32 num;
-> +	if (!np)
-> +		return NULL;
-> +	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
-> +	if (!pdata)
-> +		return NULL;
-> +	if (of_property_read_u32(np, "type", &num) == 0)
-> +		pdata->type = num;
-> +	of_property_read_string(np, "label", &pdata->name);
-> +	return pdata;
-> +}
-> +#else
-> +static inline struct rfkill_regulator_platform_data *
-> +rfkill_regulator_parse_pdata(struct device *dev)
-> +{
-> +	return NULL;
-> +}
-> +#endif
-> +
->  static int rfkill_regulator_probe(struct platform_device *pdev)
->  {
->  	struct rfkill_regulator_platform_data *pdata = pdev->dev.platform_data;
-> @@ -65,6 +91,9 @@ static int rfkill_regulator_probe(struct platform_device *pdev)
->  	struct rfkill *rf_kill;
->  	int ret = 0;
->  
-> +	if (!pdata)
-> +		pdata = rfkill_regulator_parse_pdata(&pdev->dev);
-> +
->  	if (pdata == NULL) {
->  		dev_err(&pdev->dev, "no platform data\n");
->  		return -ENODEV;
-> @@ -137,12 +166,21 @@ static int rfkill_regulator_remove(struct platform_device *pdev)
->  	return 0;
->  }
->  
-> +#ifdef CONFIG_OF
-> +static const struct of_device_id rfkill_regulator_match[] = {
-> +	{.compatible = "rfkill-regulator"},
-> +	{}
-> +};
-> +MODULE_DEVICE_TABLE(of, rfkill_regulator_match);
-> +#endif
-> +
->  static struct platform_driver rfkill_regulator_driver = {
->  	.probe = rfkill_regulator_probe,
->  	.remove = rfkill_regulator_remove,
->  	.driver = {
->  		.name = "rfkill-regulator",
->  		.owner = THIS_MODULE,
-> +		.of_match_table = of_match_ptr(rfkill_regulator_match),
->  	},
->  };
->  
-> -- 
-> 1.8.3.2
-> 
-> 
+https://soundcloud.com/christian-gmeiner
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
