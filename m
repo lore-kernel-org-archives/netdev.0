@@ -1,57 +1,34 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net] bonding: remove unwanted bond lock for enslave
- processing
-Date: Mon, 10 Feb 2014 09:49:26 +0100
-Message-ID: <20140210084925.GD1205@redhat.com>
-References: <52F88EF7.606@huawei.com>
+From: =?ISO-8859-1?Q?Ortwin_Gl=FCck?= <odi@odi.ch>
+Subject: xfrm: is pmtu broken with ESP tunneling?
+Date: Mon, 10 Feb 2014 09:41:54 +0100
+Message-ID: <52F890D2.2060109@odi.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Ding Tianhong <dingtianhong@huawei.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37973 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751240AbaBJItk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Feb 2014 03:49:40 -0500
-Content-Disposition: inline
-In-Reply-To: <52F88EF7.606@huawei.com>
+Received: from fep27.mx.upcmail.net ([62.179.121.47]:47607 "EHLO
+	fep27.mx.upcmail.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750972AbaBJI5E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 03:57:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 10, 2014 at 04:33:59PM +0800, Ding Tianhong wrote:
->The bond enslave processing don't hold bond->lock anymore,
->so release an unlocked rw lock will cause warning message,
->remove the unwanted read_unlock(&bond->lock).
->
->Cc: Jay Vosburgh <fubar@us.ibm.com>
->Cc: Veaceslav Falico <vfalico@redhat.com>
->Cc: Andy Gospodarek <andy@greyhouse.net>
->Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+Hi,
 
-Good catch.
+I am using Openswan to configure an IPSec VPN (using the xfrm/netkey 
+backend). Large HTTP POST requests from the client seem to get stuck, 
+because the outgoing packets are 1530 bytes (before being wrapped into 
+ESP packets). The problem goes away by setting sysctl 
+net.ipv4.ip_no_pmtu_disc=1.
 
-Acked-by: Veaceslav Falico <vfalico@redhat.com>
+May have something to do with it:
+The tunneled network is 10.6.6.6/32 and I am SNAT'ing some destinations 
+to that IP, so they get routed through the tunnel. Any other networks 
+are not to go through the tunnel.
 
->---
-> drivers/net/bonding/bond_main.c | 1 -
-> 1 file changed, 1 deletion(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index a7db819..ccfb998 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -1505,7 +1505,6 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
-> 	slave_dev->npinfo = bond->dev->npinfo;
-> 	if (slave_dev->npinfo) {
-> 		if (slave_enable_netpoll(new_slave)) {
->-			read_unlock(&bond->lock);
-> 			pr_info("Error, %s: master_dev is using netpoll, "
-> 				 "but new slave device does not support netpoll.\n",
-> 				 bond_dev->name);
->-- 
->1.8.0
->
->
+iptables -t nat -A POSTROUTING -d "${R}" -j SNAT --to-source 10.6.6.6
+
+It seems quite clear to me that xfrm is doing something wrong here.
+
+Ortwin
