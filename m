@@ -1,34 +1,45 @@
-From: =?ISO-8859-1?Q?Ortwin_Gl=FCck?= <odi@odi.ch>
-Subject: xfrm: is pmtu broken with ESP tunneling?
-Date: Mon, 10 Feb 2014 09:41:54 +0100
-Message-ID: <52F890D2.2060109@odi.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+From: "Dr. H. Nikolaus Schaller" <hns@goldelico.com>
+Subject: Re: [PATCH] net: rfkill-regulator: Add devicetree support.
+Date: Mon, 10 Feb 2014 09:54:34 +0100
+Message-ID: <BF9457FD-CEED-4290-9150-57F51F6E42FC@goldelico.com>
+References: <1391802529-29861-1-git-send-email-marek@goldelico.com> (sfid-20140207_204900_539631_47DCB6B7) <1392020862.4128.1.camel@jlt4.sipsolutions.net>
+Mime-Version: 1.0 (Apple Message framework v1085)
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fep27.mx.upcmail.net ([62.179.121.47]:47607 "EHLO
-	fep27.mx.upcmail.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750972AbaBJI5E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 03:57:04 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Marek Belisko <marek@goldelico.com>, robh+dt@kernel.org,
+	pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	rob@landley.net, "John W. Linville" <linville@tuxdriver.com>,
+	David Miller <davem@davemloft.net>, grant.likely@linaro.org,
+	NeilBrown Brown <neilb@suse.de>, devicetree@vger.kernel.org,
+	linux-doc@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1392020862.4128.1.camel@jlt4.sipsolutions.net>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Am 10.02.2014 um 09:27 schrieb Johannes Berg:
 
-I am using Openswan to configure an IPSec VPN (using the xfrm/netkey 
-backend). Large HTTP POST requests from the client seem to get stuck, 
-because the outgoing packets are 1530 bytes (before being wrapped into 
-ESP packets). The problem goes away by setting sysctl 
-net.ipv4.ip_no_pmtu_disc=1.
+> On Fri, 2014-02-07 at 20:48 +0100, Marek Belisko wrote:
+> 
+>> +#define RFKILL_TYPE_ALL		(0)
+>> +#define RFKILL_TYPE_WLAN	(1)
+>> +#define RFKILL_TYPE_BLUETOOTH	(2)
+>> +#define RFKILL_TYPE_UWB		(3)
+>> +#define RFKILL_TYPE_WIMAX	(4)
+>> +#define RFKILL_TYPE_WWAN	(5)
+>> +#define RFKILL_TYPE_GPS		(6)
+>> +#define RFKILL_TYPE_FM		(7)
+>> +#define RFKILL_TYPE_NFC		(8)
+> 
+> This seems like a bad idea since there's an enum elsewhere in userspace
+> API already.
 
-May have something to do with it:
-The tunneled network is 10.6.6.6/32 and I am SNAT'ing some destinations 
-to that IP, so they get routed through the tunnel. Any other networks 
-are not to go through the tunnel.
+Yes,
+you are right. It is defined in include/uapi/linux/rfkill.h
 
-iptables -t nat -A POSTROUTING -d "${R}" -j SNAT --to-source 10.6.6.6
+Tnx,
+Nikolaus
 
-It seems quite clear to me that xfrm is doing something wrong here.
-
-Ortwin
