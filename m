@@ -1,142 +1,83 @@
-From: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
-Subject: Re: [PATCH] dp83640: Get gpio and master/slave configuration from
- DT
-Date: Mon, 10 Feb 2014 13:42:38 +0000
-Message-ID: <20140210134237.GF29080@e106331-lin.cambridge.arm.com>
-References: <1392037240-30913-1-git-send-email-stefan.sorensen@spectralink.com>
+From: Dave Kleikamp <dave.kleikamp@oracle.com>
+Subject: Re: [PATCH 1/2] mm/vmalloc: export is_vmalloc_or_module_addr
+Date: Mon, 10 Feb 2014 08:40:48 -0600
+Message-ID: <52F8E4F0.5010903@oracle.com>
+References: <1391886730-19667-1-git-send-email-ryao@gentoo.org> <1391886730-19667-2-git-send-email-ryao@gentoo.org> <CA+55aFx8TzOnW9xPFA4Ox-yFiSUo=cEqeQUmgw_JWjDNEZep8Q@mail.gmail.com> <20140210121020.GC6732@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org" <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	"robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Stefan =?utf-8?B?U8O4cmVuc2Vu?= <stefan.sorensen-usnHOLptxrsHrNJx0XZkJA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1392037240-30913-1-git-send-email-stefan.sorensen-usnHOLptxrsHrNJx0XZkJA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Richard Yao <ryao@gentoo.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Rik van Riel <riel@redhat.com>,
+	Eric Van Hensbergen <ericvh@gmail.com>,
+	Ron Minnich <rminnich@sandia.gov>,
+	Latchesar Ionkov <lucho@ionkov.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	V9FS Develooper Mailing List
+	<v9fs-developer@lists.sourceforge.net>,
+	Linux Netdev Mailing List <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>,
+	Will Deacon <will.deacon@arm.com>,
+	Christopher Covington <cov@codeaurora.org>,
+	Matthew Thode <mthode@mthode.org>,
+	Al Viro <viro@ZenIV.linux.org.uk>
+To: Mel Gorman <mgorman@suse.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140210121020.GC6732@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 10, 2014 at 01:00:40PM +0000, Stefan S=C3=B8rensen wrote:
-> This patch removes the module parameters gpio_tab and chosen_phy in f=
-avour of
-> retrieving the configuration from DT through the properties
-> 	dp83640,slave
-> 	dp83640,calibrate-gpio
-> 	dp83640,perout-gpios
-> 	dp83640,extts-gpios
-> The configuration is now stored for each master clock device, allowin=
-g different=20
-> gpio setups for each master.
->=20
-> Furthermore the code is enhanced to handle more than one periodic out=
-put.
+On 02/10/2014 06:10 AM, Mel Gorman wrote:
+> On Sat, Feb 08, 2014 at 11:45:53AM -0800, Linus Torvalds wrote:
+>> On Sat, Feb 8, 2014 at 11:12 AM, Richard Yao <ryao@gentoo.org> wrote:
+>>> 9p-virtio needs is_vmalloc_or_module_addr exported before a patch can be
+>>> merged to prevent the virtio zero-copy routines from triggering a
+>>> hypervisor page fault when loading kernel modules:
+>>>
+>>> https://groups.google.com/forum/#!topic/linux.kernel/eRR7AyLE29Y
+>>>
+>>> Without this export, the kernel build breaks with that patch applied and
+>>> CONFIG_NET_9P_VIRTIO=m. With this export in place, all is well.
+>>
+>> I absolutely *detest* this patch.
+>>
+>> Not so much because is_vmalloc_or_module_addr() should never be used,
+>> but because the particular use in question is pure and utter garbage.
+>>
+>> There are valid reasons to use "is_vmalloc_or_module_addr()", but
+>> those are along the lines of drivers/char/mem.c, which says "return
+>> -ENXIO for this crap".
+>>
+>> And btw, that horrid crap called "kmap_to_page()" needs to die too.
+>> When is it *ever* valid to use a kmap'ed page for IO? Here's a clue:
+>> never.
+>>
+>> <SNIP>
+>>
+>> Those *disgusting* get_kernel_page[s]() functions came with a
+>> commentary about "The initial user is expected to be NFS.." and that
+>> is still the *only* user. The fact that *everybody* else has been able
+>> to avoid that crap should tell us something.
+> 
+> kmap_to_page, get_kernel_page and the NFS user for it are already scheduled
+> for death. Dave Kleikamp has been working on a series "Issue O_DIRECT aio
+> using bio_vec" that replaces what NFS currently does with something far
+> more sane. The series does not remove the helpers on top, probably because
+> of the 9P use of it, but if that was changed then the helpers would finally
+> die. I'm not sure why Dave's series never got merged so added him to the
+> cc to find out.
 
-Binding document please.
+The patchset I submitted was too ugly to live. Linus and Al Viro both
+had numerous issues with the implementation, but not the overall concept.
 
-I have some basic comments below, but without a description of what the
-properties mean, it's difficult to provide any meaningful review.
+Al has the same idea for a io-vector container that can hold either an
+iovec or a kernel vector and is starting to work on his own
+implementation. Once he settles on the particulars of new
+aio_write/aio_read methods, I should be able to get the rest of my
+patchset to fall into line with it.
 
-[...]
+http://www.spinics.net/lists/linux-fsdevel/msg71938.html
 
-> +static int dp83640_probe_dt(struct device_node *node,
-> +			    struct dp83640_private *dp83640)
-> +{
-> +	struct dp83640_clock *clock =3D dp83640->clock;
-> +	struct property *prop;
-> +	int err, proplen;
-> +
-> +	if (!node)
-> +		return 0;
-> +
-> +	if (of_find_property(node, "dp83640,slave", NULL))
-> +		dp83640->slave =3D true;
-
-Use of_property_read_bool.
-
-> +	if (!dp83640->slave && clock->chosen) {
-> +		pr_err("dp83640,slave must be set if more than one device on the s=
-ame bus");
-> +		return -EINVAL;
-> +	}
-> +
-> +	prop =3D of_find_property(node, "dp83640,perout-gpios", &proplen);
-> +	if (prop) {
-> +		if (dp83640->slave) {
-> +			pr_err("dp83640,perout-gpios property can not be set together wit=
-h dp83640,slave");
-> +			return -EINVAL;
-> +		}
-> +
-> +		clock->caps.n_per_out =3D proplen / sizeof(u32);
-> +		if (clock->caps.n_per_out > N_EXT) {
-> +			pr_err("dp83640,perout-gpios may not have more than %d entries",
-> +			       N_EXT);
-> +			return -EINVAL;
-> +		}
-> +		err =3D of_property_read_u32_array(node, "dp83640,perout-gpios",
-> +						 clock->perout_gpios,
-> +						 clock->caps.n_per_out);
-> +		if (err < 0)
-> +			return err;
-> +	}
-
-This looks nothing like the standard gpio bindings. What _exactly_ is
-this property describing?
-
-If this is not using the standard gpio bindings then this should be
-renamed.
-
-Either way this must be documented.
-
-> +
-> +	prop =3D of_find_property(node, "dp83640,extts-gpios", &proplen);
-> +	if (prop) {
-> +		if (dp83640->slave) {
-> +			pr_err("dp83640,extts-gpios property can not be set together with=
- dp83640,slave");
-> +			return -EINVAL;
-> +		}
-> +
-> +		clock->caps.n_ext_ts =3D proplen / sizeof(u32);
-> +		if (clock->caps.n_ext_ts > N_EXT) {
-> +			pr_err("dp83640,extts-gpios may not have more than %d entries",
-> +			       N_EXT);
-> +			return -EINVAL;
-> +		}
-> +		err =3D of_property_read_u32_array(node, "dp83640,extts-gpios",
-> +						 clock->extts_gpios,
-> +						 clock->caps.n_ext_ts);
-> +		if (err < 0)
-> +			return err;
-> +	}
-
-Similarly this does not look right for parsing a standard -gpios proper=
-ty.
-
-> +
-> +	prop =3D of_find_property(node, "dp83640,calibrate-gpio", &proplen)=
-;
-> +	if (prop) {
-> +		if (dp83640->slave) {
-> +			pr_err("dp83640,calibrate-gpio property can not be set together w=
-ith dp83640,slave");
-> +			return -EINVAL;
-> +		}
-> +		clock->calibrate_gpio =3D -1;
-> +		of_property_read_u32(node, "dp83640,calibrate-gpio",
-> +				     &clock->calibrate_gpio);
-> +	}
-
-And again, this doesn't look right.
-
-Thanks,
-Mark.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Shaggy
