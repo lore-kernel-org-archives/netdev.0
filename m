@@ -1,76 +1,99 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: 6lowpan: lockless tx queue of routing
-	netlink device
-Date: Mon, 10 Feb 2014 18:33:18 +0100
-Message-ID: <20140210173314.GA12594@omega>
-References: <20140209102047.GA14770@omega>
-	<1391949707.10160.130.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH v3 net 7/9] bridge: Properly check if local fdb entry
+ can be deleted in br_fdb_delete_by_port
+Date: Mon, 10 Feb 2014 12:37:04 -0500
+Message-ID: <52F90E40.5000900@redhat.com>
+References: <1391759306-24956-1-git-send-email-makita.toshiaki@lab.ntt.co.jp> <1391759306-24956-8-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1391949707.10160.130.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	"David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50610 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753300AbaBJRhL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Feb 2014 12:37:11 -0500
+In-Reply-To: <1391759306-24956-8-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+On 02/07/2014 02:48 AM, Toshiaki Makita wrote:
+> br_fdb_delete_by_port() doesn't care about vlan and mac address of the
+> bridge device.
+> 
+> As the check is almost the same as mac address changing, slightly modify
+> fdb_delete_local() and use it.
+> 
+> Note that we can always set added_by_user to 0 in fdb_delete_local() because
+> - br_fdb_delete_by_port() calls fdb_delete_local() for local entries
+>   regardless of its added_by_user. In this case, we have to check if another
+>   port has the same address and vlan, and if found, we have to create the
+>   entry (by changing dst). This is kernel-added entry, not user-added.
+> - br_fdb_changeaddr() doesn't call fdb_delete_local() for user-added entry.
+> 
+> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 
-On Sun, Feb 09, 2014 at 04:41:47AM -0800, Eric Dumazet wrote:
+Acked-by: Vlad Yasevich <vyasevic@redhat.com>
+
+-vlad
+
+> ---
+>  net/bridge/br_fdb.c | 25 ++++++-------------------
+>  1 file changed, 6 insertions(+), 19 deletions(-)
 > 
-> Please try the following fix, thanks for this report !
-> 
-> diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-> index 48b25c0af4d0..069af33013c4 100644
-> --- a/net/ieee802154/6lowpan.c
-> +++ b/net/ieee802154/6lowpan.c
-> @@ -533,7 +533,27 @@ static struct header_ops lowpan_header_ops = {
->  	.create	= lowpan_header_create,
->  };
+> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+> index 15bf13d..43e54d1 100644
+> --- a/net/bridge/br_fdb.c
+> +++ b/net/bridge/br_fdb.c
+> @@ -103,6 +103,7 @@ static void fdb_delete_local(struct net_bridge *br,
+>  		if (op != p && ether_addr_equal(op->dev->dev_addr, addr) &&
+>  		    (!vid || nbp_vlan_find(op, vid))) {
+>  			f->dst = op;
+> +			f->added_by_user = 0;
+>  			return;
+>  		}
+>  	}
+> @@ -111,6 +112,7 @@ static void fdb_delete_local(struct net_bridge *br,
+>  	if (p && ether_addr_equal(br->dev->dev_addr, addr) &&
+>  	    (!vid || br_vlan_find(br, vid))) {
+>  		f->dst = NULL;
+> +		f->added_by_user = 0;
+>  		return;
+>  	}
 >  
-> +static struct lock_class_key lowpan_tx_busylock;
-> +static struct lock_class_key lowpan_netdev_xmit_lock_key;
-> +
-> +static void lowpan_set_lockdep_class_one(struct net_device *dev,
-> +					 struct netdev_queue *txq,
-> +					 void *_unused)
-> +{
-> +	lockdep_set_class(&txq->_xmit_lock,
-> +			  &lowpan_netdev_xmit_lock_key);
-> +}
-> +
-> +
-> +static int lowpan_dev_init(struct net_device *dev)
-> +{
-> +	netdev_for_each_tx_queue(dev, lowpan_set_lockdep_class_one, NULL);
-> +	dev->qdisc_tx_busylock = &lowpan_tx_busylock;
-> +	return 0;
-> +}
-> +
->  static const struct net_device_ops lowpan_netdev_ops = {
-> +	.ndo_init		= lowpan_dev_init,
->  	.ndo_start_xmit		= lowpan_xmit,
->  	.ndo_set_mac_address	= lowpan_set_address,
->  };
-
-thanks, this fixed the issue. What we should do as next?
-
-Should I create a patch for this or do you want to make a patch?
-
-- Alex
-
-------------------------------------------------------------------------------
-Android&trade; apps run on BlackBerry&reg;10
-Introducing the new BlackBerry 10.2.1 Runtime for Android apps.
-Now with support for Jelly Bean, Bluetooth, Mapview and more.
-Get your Android app in front of a whole new audience.  Start now.
-http://pubads.g.doubleclick.net/gampad/clk?id=124407151&iu=/4140/ostg.clktrk
+> @@ -261,26 +263,11 @@ void br_fdb_delete_by_port(struct net_bridge *br,
+>  
+>  			if (f->is_static && !do_all)
+>  				continue;
+> -			/*
+> -			 * if multiple ports all have the same device address
+> -			 * then when one port is deleted, assign
+> -			 * the local entry to other port
+> -			 */
+> -			if (f->is_local) {
+> -				struct net_bridge_port *op;
+> -				list_for_each_entry(op, &br->port_list, list) {
+> -					if (op != p &&
+> -					    ether_addr_equal(op->dev->dev_addr,
+> -							     f->addr.addr)) {
+> -						f->dst = op;
+> -						f->added_by_user = 0;
+> -						goto skip_delete;
+> -					}
+> -				}
+> -			}
+>  
+> -			fdb_delete(br, f);
+> -		skip_delete: ;
+> +			if (f->is_local)
+> +				fdb_delete_local(br, p, f);
+> +			else
+> +				fdb_delete(br, f);
+>  		}
+>  	}
+>  	spin_unlock_bh(&br->hash_lock);
+> 
