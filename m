@@ -1,50 +1,82 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: irda: BUG: looking up invalid subclass: 4294967295
-Date: Mon, 10 Feb 2014 22:39:59 +0100
-Message-ID: <20140210213959.GY2936@laptop.programming.kicks-ass.net>
-References: <20140210213126.GA26078@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Dave Jones <davej@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:36866 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751594AbaBJVkC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 16:40:02 -0500
-Content-Disposition: inline
-In-Reply-To: <20140210213126.GA26078@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Grant Likely <grant.likely@linaro.org>
+Subject: Re: [PATCH] DT: net: document Ethernet bindings in one place
+Date: Mon, 10 Feb 2014 22:05:41 +0000
+Message-ID: <20140210220541.C7A56C408F7@trevor.secretlab.ca>
+References: <201401180405.07859.sergei.shtylyov@cogentembedded.com> < CAL_Jsq+oa9P=rh+p-dMZyGP8TcmpX7bTnMU0ynLvFxjxFDYbRg@mail.gmail.com> < 52DD98F7.4090202@cogentembedded.com> < CAL_JsqJXbF1-PcPHR2VP+Vi9A1aWizdsG_r3kDvRt3itXDhCGQ@mail.gmail.com> < CAGVrzcb3X3soJNJCE5+YSpQrr+EdycCRFkptPvBCgFg4CbGJ4Q@mail.gmail.com> < CAGVrzcb0dfw1orZzUt5-YkShOg-HNbUYvvo2vfmsZUZXy1Aqfg@mail.gmail.com> < 52DEE465.9000202@cogentembedded.com> <52E988FA.8040807@cogentembedded.com> <20140204172602.01420C4050F@trevor.secretlab.ca> <52F13410.8070205@ cogentembedded.com> <20140205120843.9ED08C40A89@trevor.secretlab.ca> < 52F25A63.3010608@cogentembedded.com> <20140206094301.03572C40B6A@trevor. secretlab.ca> <52F396DE.8010306@cogentembedded.com>
+Cc: netdev <netdev@vger.kernel.org>, Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Rob Landley <rob@landley.net>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Rob Herring <robherring2@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <52F396DE.8010306@cogentembedded.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 10, 2014 at 04:31:26PM -0500, Dave Jones wrote:
-> Is this irda being crap, or some weird lockdep corner case ?
+On Thu, 06 Feb 2014 18:06:22 +0400, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> wrote:
+> Hello.
 > 
-> (no idea what the W taint was, some unrelated spew pushed it out
->  of the dmesg buffer before it got chance to hit the log)
+> On 06-02-2014 13:43, Grant Likely wrote:
 > 
-> 	Dave
+> >>>>>>>>>>>        I'm afraid that's too late, it has spread very far, so that
+> >>>>>>>>>>> of_get_phy_mode() handles that property, not "phy-connection-type".
 > 
-> BUG: looking up invalid subclass: 4294967295
+> >>>>>>>>>> Uggg, I guess this is a case of a defacto standard then if the kernel
+> >>>>>>>>>> doesn't even support it.
+> 
+> >>>>>>>>> Maybe I forgot to CC you on patch sent to Grant only, I sent a patch a
+> >>>>>>>>> while ago for of_get_phy_mode() to look for both "phy-mode" and
+> >>>>>>>>> "phy-connection-type" since the former has been a Linux invention, but
+> >>>>>>>>> the latter is ePAPR specified.
+> 
+> >>>>>>>> Here is a link to the actual patch in question, not sure which tree
+> >>>>>>>> Grant applied it to though:
+> 
+> >>>>>>>> http://lkml.indiana.edu/hypermail/linux/kernel/1311.2/00048.html
+> 
+> >>>>>>>        It's not the patch mail, it's Grant's "applied" reply, patch is mangled in
+> >>>>>>> this reply, and I couldn't follow the thread. Here's the actual patch mail:
+> 
+> >>>>>>> http://marc.info/?l=devicetree&m=138449662807254
+> 
+> >>>>>>        Florian, I didn't find this patch in Grant's official tree, so maybe you
+> >>>>>> should ask him where is the patch already?
+> 
+> >>>>> Sorry, I accidentally dropped it. It will be in the next merge window.
+> 
+> >>>>       Already saw it, thanks. Would that it was in 3.14 instead of course, so
+> >>>> that I could use "phy-connection-type" in my binding...
+> 
+> >>> Is 3.14 broken because of missing the patch? If so I'll get it merged as
+> >>   > a bug fix.
+> 
+> >>      No, it's not. I could have used "phy-connection-type" in my binding
+> >> destined for 3.15 and document it as a preferred property as well.
+> 
+> > You still can. We just need to make sure that your patch is applied on
+> 
+>     Patches.
+> 
+> > top of the phy-connection-type patch.
+> 
+>     I'm not sure this trick is possible if the patches are merged via the 
+> different trees...
 
-That's -1 if I'm not mistaken, that's indeed an invalid subclass.
+There are two ways to do it. A) by having a common merge commit
+containing that patch and merged into both branches, or B) just merging
+the patch in the same tree.
 
-> turning off the locking correctness validator.
-> CPU: 0 PID: 1965 Comm: trinity-main Tainted: G        W    3.14.0-rc1+ #108
->  00000000ffffffff 00000000a8765326 ffff880205ee7c40 ffffffff9872ae0a
->  00000000ffffffff ffff880205ee7c58 ffffffff9872732c ffff880084069730
->  ffff880205ee7cd0 ffffffff980c10e2 000000010016000f 00000000ffffffff
-> Call Trace:
->  [<ffffffff9872ae0a>] dump_stack+0x4e/0x7a
->  [<ffffffff9872732c>] look_up_lock_class.part.18+0x2f/0x34
->  [<ffffffff980c10e2>] __lock_acquire.isra.28+0x722/0xa50
->  [<ffffffff9873a01b>] ? preempt_count_sub+0x6b/0xf0
->  [<ffffffff980c1b6d>] lock_acquire+0x8d/0x120
->  [<ffffffffc05438f2>] ? hashbin_delete+0xf2/0x100 [irda]
->  [<ffffffffc0545e30>] ? irias_delete_value+0x30/0x30 [irda]
->  [<ffffffff987357fc>] _raw_spin_lock_irqsave_nested+0x4c/0x70
->  [<ffffffffc05438f2>] ? hashbin_delete+0xf2/0x100 [irda]
->  [<ffffffffc05438f2>] hashbin_delete+0xf2/0x100 [irda]
+Normally I'd suggest B), but I've already picked up the patch and I try
+very hard not to rebase my commit tree. However, since the branch is
+stable, you can ask for my branch to be merged into the net branch
+before applying the dependant patches. The relevant commit id is
+cf4c9eb5a4, and it is in my devicetree/next branch on
+git://git.secretlab.ca/git/linux
 
-I tried looking at that code but gave up real quick.. That code is
-'creative'.
+g.
