@@ -1,96 +1,59 @@
-From: Oleksij Rempel <linux@rempel-privat.de>
-Subject: Re: [PATCH 09/28] Remove ATHEROS_AR231X
-Date: Mon, 10 Feb 2014 13:17:55 +0100
-Message-ID: <52F8C373.9060108@rempel-privat.de>
-References: <1391971686-9517-1-git-send-email-richard@nod.at> <1391971686-9517-10-git-send-email-richard@nod.at> <52F7D480.1050106@hauke-m.de> <52F7DF21.70207@nod.at> <CAHNKnsS7Mv4ZhBWZa53go9L9nZimJ7_FG5HFJ9C3kkGMAEz-mA@mail.gmail.com>
+From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 1/2 v2] usbnet: fix bad header length bug
+Date: Mon, 10 Feb 2014 13:22:27 +0100
+Message-ID: <1392034947.2082.30.camel@linux-fkkt.site>
+References: <1391987174-21828-1-git-send-email-emilgoode@gmail.com>
+	 <1392014458.21271.6.camel@linux-fkkt.site> <20140210115812.GA4278@lianli>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="JDWAQLMAn1UQWTOqbFvCwbPqUUSJtjr7V"
-Cc: Hauke Mehrtens <hauke@hauke-m.de>,
-	Jiri Slaby <jirislaby@gmail.com>,
-	Nick Kossifidis <mickflemm@gmail.com>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"open list:ATHEROS ATH5K WIR..." <linux-wireless@vger.kernel.org>,
-	"open list:ATHEROS ATH5K WIR..." <ath5k-devel@lists.ath5k.org>,
-	open@hauke-m.de,
-	"list@hauke-m.de:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
-	open list <linux-kernel@vger.kernel.org>,
-	"antonynpavlov@gmail.com" <antonynpavlov@gmail.com>
-To: Sergey Ryazanov <ryazanov.s.a@gmail.com>,
-	Richard Weinberger <richard@nod.at>,
-	Jonathan Bither <jonbither@gmail.com>,
-	OpenWrt Development List <openwrt-devel@lists.openwrt.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHNKnsS7Mv4ZhBWZa53go9L9nZimJ7_FG5HFJ9C3kkGMAEz-mA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Mark Brown <broonie-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Glen Turner <gdt-pRLresKaOUyHXe+LvDLADg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Emil Goode <emilgoode-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140210115812.GA4278@lianli>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---JDWAQLMAn1UQWTOqbFvCwbPqUUSJtjr7V
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+On Mon, 2014-02-10 at 13:00 +0100, Emil Goode wrote:
+> On Mon, Feb 10, 2014 at 07:40:58AM +0100, Oliver Neukum wrote:
+> > On Mon, 2014-02-10 at 00:06 +0100, Emil Goode wrote:
+> > > The AX88772B occasionally send rx packets that cross urb boundaries
+> > > and the remaining partial packet is sent with no hardware header.
+> > > When the buffer with a partial packet is of less number of octets
+> > > than the value of hard_header_len the buffer is discarded by the
+> > > usbnet module. This is causing dropped packages and error messages
+> > > in dmesg.
+> > > 
+> > > This can be reproduced by using ping with a packet size
+> > > between 1965-1976.
+> > 
+> > Well, then how about simply removing the check?
+> > It seems to have outlived its usefulness.
+> > 
+> > 	Regards
+> > 		Oliver
+> > 
+> >
+> 
+> I did consider that and I think it is probably the best thing to do.
+> However, I think the removal of the check could have negative effects
+> on the other minidrivers, at least the qmi_wwan minidriver explicitly
+> states that it is depending on this check to be made in rx_complete().
 
-Am 10.02.2014 13:05, schrieb Sergey Ryazanov:
-> 2014-02-10 0:03 GMT+04:00 Richard Weinberger <richard@nod.at>:
->> Am 09.02.2014 20:18, schrieb Hauke Mehrtens:
->>> On 02/09/2014 07:47 PM, Richard Weinberger wrote:
->>>> The symbol is an orphan, get rid of it.
->>>>
->>>> Signed-off-by: Richard Weinberger <richard@nod.at>
->>>> ---
->>>>  drivers/net/wireless/ath/ath5k/Kconfig | 10 +++++-----
->>>>  drivers/net/wireless/ath/ath5k/ath5k.h | 28 -----------------------=
------
->>>>  drivers/net/wireless/ath/ath5k/base.c  | 14 --------------
->>>>  drivers/net/wireless/ath/ath5k/led.c   |  7 -------
->>>>  4 files changed, 5 insertions(+), 54 deletions(-)
->>>>
->>>
->>> This code is used in OpenWrt with an out of tree arch code for the
->>> Atheros 231x/531x SoC. [0] I do not think anyone is working on adding=
+<censored>. Oh well. But how about merging it with FLAG_MULTI_PACKET?
+I really don't want to add more flags. There is a point where enough
+flags make absurd having a common code. We are closing in on that point.
 
->>> this code to mainline Linux kernel, because of lack of time/interest.=
-
->>
->> Sorry, we don't maintain out of tree code.
->>
->=20
-> Oleksij, Jonathan do you still working to make ar231x devices work
-> with upstream, since your posts [1, 2]? Or may be someone from OpenWRT
-> team would like to add upstream support?
->=20
-> 1. https://lkml.org/lkml/2013/5/13/321
-> 2. https://lkml.org/lkml/2013/5/13/358
->=20
-
-Hi,
-my current target was to provide barebox and openocd support.
-- ar2313 is already upstream on barebox.
-- ar2315-2318 (barebox) awaiting review by Anthony Pavlov.
-- openocd (EJTAG) support is ready and i'll push it ASUP.
-
-I hope Jonathan do kernel part. If not, i can provide some work, since i
-have testing boards and expiriance on this hardware.
-
---=20
-Regards,
-Oleksij
+	Regards
+		Oliver
 
 
---JDWAQLMAn1UQWTOqbFvCwbPqUUSJtjr7V
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iF4EAREIAAYFAlL4w3MACgkQHwImuRkmbWmHEgEAmUpmT5YkDvKgx0v24yzb1wE3
-lJRt74eb739s+Pc2mt8A/jnP8qfXkUwr7vSSBHUH9W266NrdqSTXjlWGgY3J3hgN
-=MGbj
------END PGP SIGNATURE-----
-
---JDWAQLMAn1UQWTOqbFvCwbPqUUSJtjr7V--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
