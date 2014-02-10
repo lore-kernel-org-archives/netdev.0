@@ -1,61 +1,55 @@
-From: Thomas Glanzmann <thomas@glanzmann.de>
-Subject: Re: [PATCH] This extends tx_data and and iscsit_do_tx_data with the
- additional parameter flags and avoids sending multiple TCP packets in
- iscsit_fe_sendpage_sg
-Date: Mon, 10 Feb 2014 22:14:45 +0100
-Message-ID: <20140210211445.GE19621@glanzmann.de>
-References: <20140208165732.GB22359@glanzmann.de>
- <1391879318.10160.108.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140208171531.GA23798@glanzmann.de>
- <1391886759.10160.114.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140209074027.GA8105@glanzmann.de>
- <20140209074227.GA8219@glanzmann.de>
- <1391949039.10160.129.camel@edumazet-glaptop2.roam.corp.google.com>
- <1392058718.17867.8.camel@haakon3.risingtidesystems.com>
- <20140210205634.GC19621@glanzmann.de>
- <1392066100.6615.55.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Dave Jones <davej@redhat.com>
+Subject: irda: BUG: looking up invalid subclass: 4294967295
+Date: Mon, 10 Feb 2014 16:31:26 -0500
+Message-ID: <20140210213126.GA26078@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Nicholas A. Bellinger" <nab@linux-iscsi.org>,
-	John Ogness <john.ogness@linutronix.de>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	target-devel <target-devel@vger.kernel.org>,
-	Linux Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:33334 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752291AbaBJVb7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Feb 2014 16:31:59 -0500
 Content-Disposition: inline
-In-Reply-To: <1392066100.6615.55.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Eric,
+Is this irda being crap, or some weird lockdep corner case ?
 
-> Hmm.. I was not aware of high RTT for some packets.
-> Can you spot this on the pcap you provided ?
+(no idea what the W taint was, some unrelated spew pushed it out
+ of the dmesg buffer before it got chance to hit the log)
 
-with the latest patch as in:
+	Dave
 
-(node-62) [~/work/linux-2.6] git diff | pbot
-http://pbot.rmdir.de/CQwqI6b7wJProw_xaukmEg
-
-with net.ipv4.tcp_min_tso_segs=2 we had this pcap:
-https://thomas.glanzmann.de/tmp/tcp_auto_corking_on_patched_tcp_more_notlast.pcap.bz2
-And here is the RTT TCP graph:
-Wireshark > Statistics > TCP Stream Graph > Round Trip Time Graph
-https://thomas.glanzmann.de/tmp/screenshot-mini-2014-02-10-22_04_30.png
-
-with net.ipv4.tcp_min_tso_segs=8 we have this pcap:
-https://thomas.glanzmann.de/tmp/tcp_auto_corking_on_patched_tcp_more_notlast_min_tso_segs_8.pcap.bz2
-And here is the RTT TCP graph:
-Wireshark > Statistics > TCP Stream Graph > Round Trip Time Graph
-
-This gives us 0.0015 seconds RTT (1.5 ms)
-
-Without TCP autocorking we had 0.0005 (0.5 ms).
-
-https://thomas.glanzmann.de/tmp/screenshot-mini-2014-02-08-09:53:17.png
-
-Cheers,
-        Thomas
+BUG: looking up invalid subclass: 4294967295
+turning off the locking correctness validator.
+CPU: 0 PID: 1965 Comm: trinity-main Tainted: G        W    3.14.0-rc1+ #108
+ 00000000ffffffff 00000000a8765326 ffff880205ee7c40 ffffffff9872ae0a
+ 00000000ffffffff ffff880205ee7c58 ffffffff9872732c ffff880084069730
+ ffff880205ee7cd0 ffffffff980c10e2 000000010016000f 00000000ffffffff
+Call Trace:
+ [<ffffffff9872ae0a>] dump_stack+0x4e/0x7a
+ [<ffffffff9872732c>] look_up_lock_class.part.18+0x2f/0x34
+ [<ffffffff980c10e2>] __lock_acquire.isra.28+0x722/0xa50
+ [<ffffffff9873a01b>] ? preempt_count_sub+0x6b/0xf0
+ [<ffffffff980c1b6d>] lock_acquire+0x8d/0x120
+ [<ffffffffc05438f2>] ? hashbin_delete+0xf2/0x100 [irda]
+ [<ffffffffc0545e30>] ? irias_delete_value+0x30/0x30 [irda]
+ [<ffffffff987357fc>] _raw_spin_lock_irqsave_nested+0x4c/0x70
+ [<ffffffffc05438f2>] ? hashbin_delete+0xf2/0x100 [irda]
+ [<ffffffffc05438f2>] hashbin_delete+0xf2/0x100 [irda]
+ [<ffffffffc0546266>] __irias_delete_object+0x26/0x40 [irda]
+ [<ffffffffc05462a4>] irias_delete_object+0x24/0x30 [irda]
+ [<ffffffffc05489a5>] irda_release+0x65/0x160 [irda]
+ [<ffffffff985fa59f>] sock_release+0x1f/0x80
+ [<ffffffff985fa612>] sock_close+0x12/0x20
+ [<ffffffff981bf0fa>] __fput+0xea/0x2c0
+ [<ffffffff981bf31e>] ____fput+0xe/0x10
+ [<ffffffff98090924>] task_work_run+0xb4/0xe0
+ [<ffffffff9806e791>] do_exit+0x2e1/0xb50
+ [<ffffffff980ab791>] ? vtime_account_user+0x91/0xa0
+ [<ffffffff9814f69b>] ? context_tracking_user_exit+0x9b/0x100
+ [<ffffffff9806ffec>] do_group_exit+0x4c/0xc0
+ [<ffffffff98070074>] SyS_exit_group+0x14/0x20
+ [<ffffffff9873e66a>] tracesys+0xd4/0xd9
