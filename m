@@ -1,63 +1,75 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH 1/2] mm/vmalloc: export is_vmalloc_or_module_addr
-Date: Mon, 10 Feb 2014 11:43:39 -0800
-Message-ID: <CA+55aFx1zipV70iTtuyciu36_dLRre7db09XRUDWUrLW2wLA0g@mail.gmail.com>
-References: <1391886730-19667-1-git-send-email-ryao@gentoo.org>
-	<1391886730-19667-2-git-send-email-ryao@gentoo.org>
-	<CA+55aFx8TzOnW9xPFA4Ox-yFiSUo=cEqeQUmgw_JWjDNEZep8Q@mail.gmail.com>
-	<52F68C67.6050606@gentoo.org>
-	<CA+55aFw2BGS-sPYM1xkO7MfZ_-u=7nF4RYFmoCM99rkL=PxvpA@mail.gmail.com>
-	<52F6972C.2030307@gentoo.org>
-	<CA+55aFzzxcrLrUaCrzFbwS_74B2iHd3OvQ=WC-DR-rqpOA0j0A@mail.gmail.com>
-	<52F929A6.8040209@mit.edu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] 6lowpan: fix lockdep splats
+Date: Mon, 10 Feb 2014 11:42:35 -0800
+Message-ID: <1392061355.6615.52.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140209102047.GA14770@omega>
+	 <1391949707.10160.130.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Richard Yao <ryao@gentoo.org>, Mel Gorman <mgorman@suse.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Rik van Riel <riel@redhat.com>,
-	Eric Van Hensbergen <ericvh@gmail.com>,
-	Ron Minnich <rminnich@sandia.gov>,
-	Latchesar Ionkov <lucho@ionkov.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	V9FS Develooper Mailing List
-	<v9fs-developer@lists.sourceforge.net>,
-	Linux Netdev Mailing List <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>,
-	Will Deacon <will.deacon@arm.com>,
-	Christopher Covington <cov@codeaurora.org>,
-	Matthew Thode <mthode@mthode.org>
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52F929A6.8040209@mit.edu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Alexander Aring <alex.aring@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:38793 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753284AbaBJTmi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 14:42:38 -0500
+Received: by mail-pa0-f51.google.com with SMTP id ld10so6642399pab.38
+        for <netdev@vger.kernel.org>; Mon, 10 Feb 2014 11:42:37 -0800 (PST)
+In-Reply-To: <1391949707.10160.130.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 10, 2014 at 11:33 AM, Andy Lutomirski <luto@amacapital.net> wrote:
->
-> I agree that reading to module space is awful, but is it obviously
-> terrible for a module to do this:
->
-> static const char header[] = {...};
-> kernel_write(file, header, sizeof(header), 0);
+From: Eric Dumazet <edumazet@google.com>
 
-Yes, it is terrible. Don't do it. It shouldn't work.
+When a device ndo_start_xmit() calls again dev_queue_xmit(),
+lockdep can complain because dev_queue_xmit() is re-entered and the
+spinlocks protecting tx queues share a common lockdep class.
 
-Now, whether it is "obvious" or not is immaterial. It might be hard to
-notice, but let's face it, we are kernel programmers. Our interfaces
-aren't designed for convenience, they are for working well and
-efficiently.  And if that happens to mean that you shouldn't do IO on
-kmap'ed pages, or use random static data in your modules, that is what
-it means.
+Same issue was fixed for bonding/l2tp/ppp in commits 
 
-We have lots of other rules too. People should deal with it, and
-realize that in the kernel we absolutely *have* to try to minimize the
-problem space as much as possible.
+0daa2303028a6 ("[PATCH] bonding: lockdep annotation")
+49ee49202b4ac ("bonding: set qdisc_tx_busylock to avoid LOCKDEP splat")
+23d3b8bfb8eb2 ("net: qdisc busylock needs lockdep annotations ")
+303c07db487be ("ppp: set qdisc_tx_busylock to avoid LOCKDEP splat ")
 
-The usual computer sciencey approach of "make things as generic as
-possible so that you can reuse the code" stuff is generally bullshit
-even in other contexts (example: STL), but it's _particularly_ bad for
-the kernel. It's much better to have strict rules about what is
-acceptable.
+Reported-by: Alexander Aring <alex.aring@gmail.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Tested-by: Alexander Aring <alex.aring@gmail.com>
+---
+ net/ieee802154/6lowpan.c |   20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
 
-                Linus
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index 8bfb40153fe7..8edfea5da572 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -530,7 +530,27 @@ static struct header_ops lowpan_header_ops = {
+ 	.create	= lowpan_header_create,
+ };
+ 
++static struct lock_class_key lowpan_tx_busylock;
++static struct lock_class_key lowpan_netdev_xmit_lock_key;
++
++static void lowpan_set_lockdep_class_one(struct net_device *dev,
++					 struct netdev_queue *txq,
++					 void *_unused)
++{
++	lockdep_set_class(&txq->_xmit_lock,
++			  &lowpan_netdev_xmit_lock_key);
++}
++
++
++static int lowpan_dev_init(struct net_device *dev)
++{
++	netdev_for_each_tx_queue(dev, lowpan_set_lockdep_class_one, NULL);
++	dev->qdisc_tx_busylock = &lowpan_tx_busylock;
++	return 0;
++}
++
+ static const struct net_device_ops lowpan_netdev_ops = {
++	.ndo_init		= lowpan_dev_init,
+ 	.ndo_start_xmit		= lowpan_xmit,
+ 	.ndo_set_mac_address	= lowpan_set_address,
+ };
