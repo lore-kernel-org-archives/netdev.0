@@ -1,34 +1,59 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH net] hyperv: Fix the carrier status setting
-Date: Mon, 10 Feb 2014 12:03:59 +0300
-Message-ID: <20140210090359.GQ26722@mwanda>
-References: <1391994478-25809-1-git-send-email-haiyangz@microsoft.com>
+From: =?UTF-8?Q?Nie=C5=9Bcierowicz_Adam?= <adam.niescierowicz@justnet.pl>
+Subject: SMP Affinity and 3.12.7
+Date: Mon, 10 Feb 2014 10:18:16 +0100
+Message-ID: <8f0f9783b81bab41bc19c2cae8f4fec1@justnet.pl>
+Reply-To: adam.niescierowicz@justnet.pl
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
- davem@davemloft.net
-To: Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <1391994478-25809-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+To: Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from host-91.230.163.37.ltv.pl ([91.230.163.37]:56603 "EHLO
+	mail.justnet.pl" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1751240AbaBJJSR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 04:18:17 -0500
+Received: from [91.230.163.37] (helo=mail.justnet.pl)
+	by service with esmtpa (Exim 4.72)
+	(envelope-from <adam.niescierowicz@justnet.pl>)
+	id 1WCn0K-0006gt-Uw
+	for netdev@vger.kernel.org; Mon, 10 Feb 2014 10:18:17 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 09, 2014 at 05:07:58PM -0800, Haiyang Zhang wrote:
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+Hi,
+i use 3.12.7 kernel when i set smp_affinity for network device kernel 
+hangs.
+SMP Affinity
+---
+             CPU0       CPU1       CPU2       CPU3       CPU4       CPU5  
+      CPU6       CPU7
+   67:        826        810    3962750    3962737        729        649  
+       729        744   PCI-MSI-edge      eth1
+   70:       4430       4476       4411       4431       4500       4466  
+   3706636    3706649   PCI-MSI-edge      eth4
 
-Changelog sucks.  What are the user visible effects of this bug?
+-- 
 
-regards,
-dan carpenter
+My network device
+---
+05:00.0 Ethernet controller: Intel Corporation 80003ES2LAN Gigabit 
+Ethernet Controller (Copper) (rev 01)
+05:00.1 Ethernet controller: Intel Corporation 80003ES2LAN Gigabit 
+Ethernet Controller (Copper) (rev 01)
+0a:00.0 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet 
+Controller (Copper) (rev 06)
+0a:00.1 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet 
+Controller (Copper) (rev 06)
+0b:00.0 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet 
+Controller (Copper) (rev 06)
+0b:00.1 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet 
+Controller (Copper) (rev 06)
+---
+
+Can anyone help?
+
+
+---
+Thanks,
+Adam N.
