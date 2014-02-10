@@ -1,272 +1,81 @@
-From: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-Subject: Re: [PATCH v2] SUNRPC: Allow one callback request to be received
- from two sk_buff
-Date: Mon, 10 Feb 2014 12:46:42 -0500
-Message-ID: <1392054402.16327.9.camel@leira.trondhjem.org>
-References: <no>
-	 <1391826543-3102-1-git-send-email-shaobingqing@bwstor.com.cn>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: 6lowpan: lockless tx queue of routing
+	netlink device
+Date: Mon, 10 Feb 2014 10:16:26 -0800
+Message-ID: <1392056186.6615.40.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140209102047.GA14770@omega>
+	<1391949707.10160.130.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140210173314.GA12594@omega>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: bfields-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: shaobingqing <shaobingqing-Gb3srWounXyPt1CcHtbs0g@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1391826543-3102-1-git-send-email-shaobingqing-Gb3srWounXyPt1CcHtbs0g@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <20140210173314.GA12594@omega>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2014-02-08 at 10:29 +0800, shaobingqing wrote:
-> In current code, there only one struct rpc_rqst is prealloced. If one
-> callback request is received from two sk_buff, the xprt_alloc_bc_request
-> would be execute two times with the same transport->xid. The first time
-> xprt_alloc_bc_request will alloc one struct rpc_rqst and the TCP_RCV_COPY_DATA
-> bit of transport->tcp_flags will not be cleared. The second time
-> xprt_alloc_bc_request could not alloc struct rpc_rqst any more and NULL
-> pointer will be returned, then xprt_force_disconnect occur. I think one
-> callback request can be allowed to be received from two sk_buff.
+On Mon, 2014-02-10 at 18:33 +0100, Alexander Aring wrote:
+> Hi Eric,
 > 
-> Signed-off-by: shaobingqing <shaobingqing-Gb3srWounXyPt1CcHtbs0g@public.gmane.org>
-> ---
+> On Sun, Feb 09, 2014 at 04:41:47AM -0800, Eric Dumazet wrote:
+> > 
+> > Please try the following fix, thanks for this report !
+> > 
+> > diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+> > index 48b25c0af4d0..069af33013c4 100644
+> > --- a/net/ieee802154/6lowpan.c
+> > +++ b/net/ieee802154/6lowpan.c
+> > @@ -533,7 +533,27 @@ static struct header_ops lowpan_header_ops = {
+> >  	.create	= lowpan_header_create,
+> >  };
+> >  
+> > +static struct lock_class_key lowpan_tx_busylock;
+> > +static struct lock_class_key lowpan_netdev_xmit_lock_key;
+> > +
+> > +static void lowpan_set_lockdep_class_one(struct net_device *dev,
+> > +					 struct netdev_queue *txq,
+> > +					 void *_unused)
+> > +{
+> > +	lockdep_set_class(&txq->_xmit_lock,
+> > +			  &lowpan_netdev_xmit_lock_key);
+> > +}
+> > +
+> > +
+> > +static int lowpan_dev_init(struct net_device *dev)
+> > +{
+> > +	netdev_for_each_tx_queue(dev, lowpan_set_lockdep_class_one, NULL);
+> > +	dev->qdisc_tx_busylock = &lowpan_tx_busylock;
+> > +	return 0;
+> > +}
+> > +
+> >  static const struct net_device_ops lowpan_netdev_ops = {
+> > +	.ndo_init		= lowpan_dev_init,
+> >  	.ndo_start_xmit		= lowpan_xmit,
+> >  	.ndo_set_mac_address	= lowpan_set_address,
+> >  };
+> 
+> thanks, this fixed the issue. What we should do as next?
+> 
+> Should I create a patch for this or do you want to make a patch?
 
-There are still several problems with this patch.
-For one thing, xprt->req_first is never cleared, which means that the
-tests you add in xs_tcp_read_callback() could trigger even if the
-request is in use by the callback server.
-Furthermore, if the xprt is destroyed before the RPC callback has been
-filled, then the request is leaked: it is no longer on the xprt
-backchannel list, so nothing will clean it up there, and nothing ever
-checks xprt->req_first, so it won't get cleaned up there either.
+I'll take care of this, don't worry ;)
 
-Instead of adding a new tracking mechanism, what say we just keep the
-request on the xprt callback list until it has been completely filled.
-
-IOW: something like the following patch:
-
-8<-------------------------------------------------------------------
->From 2aa57b6c6c6025e17d7ca164bbda01767af662be Mon Sep 17 00:00:00 2001
-From: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-Date: Mon, 10 Feb 2014 11:18:39 -0500
-Subject: [PATCH] SUNRPC: RPC callbacks may be split across several TCP
- segments
-
-Since TCP is a stream protocol, our callback read code needs to take into
-account the fact that RPC callbacks are not always confined to a single
-TCP segment.
-This patch adds support for multiple TCP segments by ensuring that we
-only remove the rpc_rqst structure from the 'free backchannel requests'
-list once the data has been completely received. We rely on the fact
-that TCP data is ordered for the duration of the connection.
-
-Reported-by: shaobingqing <shaobingqing-Gb3srWounXyPt1CcHtbs0g@public.gmane.org>
-Signed-off-by: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
----
- include/linux/sunrpc/bc_xprt.h |  3 +-
- net/sunrpc/backchannel_rqst.c  | 92 +++++++++++++++++++++++++++++-------------
- net/sunrpc/xprtsock.c          | 28 ++++---------
- 3 files changed, 73 insertions(+), 50 deletions(-)
-
-diff --git a/include/linux/sunrpc/bc_xprt.h b/include/linux/sunrpc/bc_xprt.h
-index 969c0a671dbf..2ca67b55e0fe 100644
---- a/include/linux/sunrpc/bc_xprt.h
-+++ b/include/linux/sunrpc/bc_xprt.h
-@@ -32,7 +32,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- #include <linux/sunrpc/sched.h>
- 
- #ifdef CONFIG_SUNRPC_BACKCHANNEL
--struct rpc_rqst *xprt_alloc_bc_request(struct rpc_xprt *xprt);
-+struct rpc_rqst *xprt_lookup_bc_request(struct rpc_xprt *xprt, __be32 xid);
-+void xprt_complete_bc_request(struct rpc_rqst *req, uint32_t copied);
- void xprt_free_bc_request(struct rpc_rqst *req);
- int xprt_setup_backchannel(struct rpc_xprt *, unsigned int min_reqs);
- void xprt_destroy_backchannel(struct rpc_xprt *, unsigned int max_reqs);
-diff --git a/net/sunrpc/backchannel_rqst.c b/net/sunrpc/backchannel_rqst.c
-index 890a29912d5a..7cceeb06b939 100644
---- a/net/sunrpc/backchannel_rqst.c
-+++ b/net/sunrpc/backchannel_rqst.c
-@@ -210,39 +210,23 @@ out:
- }
- EXPORT_SYMBOL_GPL(xprt_destroy_backchannel);
- 
--/*
-- * One or more rpc_rqst structure have been preallocated during the
-- * backchannel setup.  Buffer space for the send and private XDR buffers
-- * has been preallocated as well.  Use xprt_alloc_bc_request to allocate
-- * to this request.  Use xprt_free_bc_request to return it.
-- *
-- * We know that we're called in soft interrupt context, grab the spin_lock
-- * since there is no need to grab the bottom half spin_lock.
-- *
-- * Return an available rpc_rqst, otherwise NULL if non are available.
-- */
--struct rpc_rqst *xprt_alloc_bc_request(struct rpc_xprt *xprt)
-+static struct rpc_rqst *xprt_alloc_bc_request(struct rpc_xprt *xprt, __be32 xid)
- {
--	struct rpc_rqst *req;
-+	struct rpc_rqst *req = NULL;
- 
- 	dprintk("RPC:       allocate a backchannel request\n");
--	spin_lock(&xprt->bc_pa_lock);
--	if (!list_empty(&xprt->bc_pa_list)) {
--		req = list_first_entry(&xprt->bc_pa_list, struct rpc_rqst,
--				rq_bc_pa_list);
--		list_del(&req->rq_bc_pa_list);
--	} else {
--		req = NULL;
--	}
--	spin_unlock(&xprt->bc_pa_lock);
-+	if (list_empty(&xprt->bc_pa_list))
-+		goto not_found;
- 
--	if (req != NULL) {
--		set_bit(RPC_BC_PA_IN_USE, &req->rq_bc_pa_state);
--		req->rq_reply_bytes_recvd = 0;
--		req->rq_bytes_sent = 0;
--		memcpy(&req->rq_private_buf, &req->rq_rcv_buf,
-+	req = list_first_entry(&xprt->bc_pa_list, struct rpc_rqst,
-+				rq_bc_pa_list);
-+	req->rq_reply_bytes_recvd = 0;
-+	req->rq_bytes_sent = 0;
-+	memcpy(&req->rq_private_buf, &req->rq_rcv_buf,
- 			sizeof(req->rq_private_buf));
--	}
-+	req->rq_xid = xid;
-+	req->rq_connect_cookie = xprt->connect_cookie;
-+not_found:
- 	dprintk("RPC:       backchannel req=%p\n", req);
- 	return req;
- }
-@@ -257,6 +241,7 @@ void xprt_free_bc_request(struct rpc_rqst *req)
- 
- 	dprintk("RPC:       free backchannel req=%p\n", req);
- 
-+	req->rq_connect_cookie = xprt->connect_cookie - 1;
- 	smp_mb__before_clear_bit();
- 	WARN_ON_ONCE(!test_bit(RPC_BC_PA_IN_USE, &req->rq_bc_pa_state));
- 	clear_bit(RPC_BC_PA_IN_USE, &req->rq_bc_pa_state);
-@@ -279,7 +264,56 @@ void xprt_free_bc_request(struct rpc_rqst *req)
- 	 * may be reused by a new callback request.
- 	 */
- 	spin_lock_bh(&xprt->bc_pa_lock);
--	list_add(&req->rq_bc_pa_list, &xprt->bc_pa_list);
-+	list_add_tail(&req->rq_bc_pa_list, &xprt->bc_pa_list);
- 	spin_unlock_bh(&xprt->bc_pa_lock);
- }
- 
-+/*
-+ * One or more rpc_rqst structure have been preallocated during the
-+ * backchannel setup.  Buffer space for the send and private XDR buffers
-+ * has been preallocated as well.  Use xprt_alloc_bc_request to allocate
-+ * to this request.  Use xprt_free_bc_request to return it.
-+ *
-+ * We know that we're called in soft interrupt context, grab the spin_lock
-+ * since there is no need to grab the bottom half spin_lock.
-+ *
-+ * Return an available rpc_rqst, otherwise NULL if non are available.
-+ */
-+struct rpc_rqst *xprt_lookup_bc_request(struct rpc_xprt *xprt, __be32 xid)
-+{
-+	struct rpc_rqst *req;
-+
-+	spin_lock(&xprt->bc_pa_lock);
-+	list_for_each_entry(req, &xprt->bc_pa_list, rq_bc_pa_list) {
-+		if (req->rq_connect_cookie != xprt->connect_cookie)
-+			continue;
-+		if (req->rq_xid == xid)
-+			goto found;
-+	}
-+	req = xprt_alloc_bc_request(xprt, xid);
-+found:
-+	spin_unlock(&xprt->bc_pa_lock);
-+	return req;
-+}
-+
-+/*
-+ * Add callback request to callback list.  The callback
-+ * service sleeps on the sv_cb_waitq waiting for new
-+ * requests.  Wake it up after adding enqueing the
-+ * request.
-+ */
-+void xprt_complete_bc_request(struct rpc_rqst *req, uint32_t copied)
-+{
-+	struct rpc_xprt *xprt = req->rq_xprt;
-+	struct svc_serv *bc_serv = xprt->bc_serv;
-+
-+	req->rq_private_buf.len = copied;
-+	set_bit(RPC_BC_PA_IN_USE, &req->rq_bc_pa_state);
-+
-+	dprintk("RPC:       add callback request to list\n");
-+	spin_lock(&bc_serv->sv_cb_lock);
-+	list_move(&req->rq_bc_list, &bc_serv->sv_cb_list);
-+	wake_up(&bc_serv->sv_cb_waitq);
-+	spin_unlock(&bc_serv->sv_cb_lock);
-+}
-+
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index 817a1e523969..6497c221612c 100644
---- a/net/sunrpc/xprtsock.c
-+++ b/net/sunrpc/xprtsock.c
-@@ -1302,41 +1302,29 @@ static inline int xs_tcp_read_reply(struct rpc_xprt *xprt,
-  * If we're unable to obtain the rpc_rqst we schedule the closing of the
-  * connection and return -1.
-  */
--static inline int xs_tcp_read_callback(struct rpc_xprt *xprt,
-+static int xs_tcp_read_callback(struct rpc_xprt *xprt,
- 				       struct xdr_skb_reader *desc)
- {
- 	struct sock_xprt *transport =
- 				container_of(xprt, struct sock_xprt, xprt);
- 	struct rpc_rqst *req;
- 
--	req = xprt_alloc_bc_request(xprt);
-+	/* Look up and lock the request corresponding to the given XID */
-+	spin_lock(&xprt->transport_lock);
-+	req = xprt_lookup_bc_request(xprt, transport->tcp_xid);
- 	if (req == NULL) {
-+		spin_unlock(&xprt->transport_lock);
- 		printk(KERN_WARNING "Callback slot table overflowed\n");
- 		xprt_force_disconnect(xprt);
- 		return -1;
- 	}
- 
--	req->rq_xid = transport->tcp_xid;
- 	dprintk("RPC:       read callback  XID %08x\n", ntohl(req->rq_xid));
- 	xs_tcp_read_common(xprt, desc, req);
- 
--	if (!(transport->tcp_flags & TCP_RCV_COPY_DATA)) {
--		struct svc_serv *bc_serv = xprt->bc_serv;
--
--		/*
--		 * Add callback request to callback list.  The callback
--		 * service sleeps on the sv_cb_waitq waiting for new
--		 * requests.  Wake it up after adding enqueing the
--		 * request.
--		 */
--		dprintk("RPC:       add callback request to list\n");
--		spin_lock(&bc_serv->sv_cb_lock);
--		list_add(&req->rq_bc_list, &bc_serv->sv_cb_list);
--		spin_unlock(&bc_serv->sv_cb_lock);
--		wake_up(&bc_serv->sv_cb_waitq);
--	}
--
--	req->rq_private_buf.len = transport->tcp_copied;
-+	if (!(transport->tcp_flags & TCP_RCV_COPY_DATA))
-+		xprt_complete_bc_request(req, transport->tcp_copied);
-+	spin_unlock(&xprt->transport_lock);
- 
- 	return 0;
- }
--- 
-1.8.5.3
+Thanks for testing !
 
 
--- 
-Trond Myklebust
-Linux NFS client maintainer, PrimaryData
-trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org
 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+------------------------------------------------------------------------------
+Android&trade; apps run on BlackBerry&reg;10
+Introducing the new BlackBerry 10.2.1 Runtime for Android apps.
+Now with support for Jelly Bean, Bluetooth, Mapview and more.
+Get your Android app in front of a whole new audience.  Start now.
+http://pubads.g.doubleclick.net/gampad/clk?id=124407151&iu=/4140/ostg.clktrk
