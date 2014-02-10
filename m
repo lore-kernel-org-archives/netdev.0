@@ -1,128 +1,46 @@
-From: Bo Shen <voice.shen@atmel.com>
-Subject: [PATCH v3 1/2] ASoC: atmel_ssc_dai: make option to
-	choose clock
-Date: Mon, 10 Feb 2014 14:09:45 +0800
-Message-ID: <1392012586-30790-2-git-send-email-voice.shen@atmel.com>
-References: <1392012586-30790-1-git-send-email-voice.shen@atmel.com>
+From: "=?utf-8?B?bGl1anVubGlhbmdfbGps?=" <liujunliang_ljl-9Onoh4P/yGk@public.gmane.org>
+Subject: =?utf-8?B?UmU6IFJlOiBbUEFUQ0hdIFVTQjJORVQgOiBTUjk4MDAgOiBPbmUgY2hpcCBVU0IyLjAgVVNCMk5FVCBTUjk4MDBEZXZpY2UgRHJpdmVyIFN1cHBvcnQ=?=
+Date: Mon, 10 Feb 2014 14:32:36 +0800
+Message-ID: <201402101432356252495@163.com>
+References: <1392010419-5217-1-git-send-email-liujunliang_ljl@163.com>,
+ <1392011221.3178.18.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Chas Williams <chas@cmf.nrl.navy.mil>, alsa-devel@alsa-project.org,
- Lars-Peter Clausen <lars@metafoo.de>, linux-kernel@vger.kernel.org,
- Arnd Bergmann <arnd@arndb.de>, Takashi Iwai <tiwai@suse.de>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- linux-atm-general@lists.sourceforge.net, nicolas.ferre@atmel.com,
- Liam Girdwood <lgirdwood@gmail.com>, linux-sound@vger.kernel.org,
- Bo Shen <voice.shen@atmel.com>, netdev@vger.kernel.org, plagnioj@jcrosoft.com,
- linux-arm-kernel@lists.infradead.org
-To: broonie@kernel.org
-Return-path: <alsa-devel-bounces@alsa-project.org>
-In-Reply-To: <1392012586-30790-1-git-send-email-voice.shen@atmel.com>
-List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
-List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
-List-Post: <mailto:alsa-devel@alsa-project.org>
-List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
-List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
-Errors-To: alsa-devel-bounces@alsa-project.org
-Sender: alsa-devel-bounces@alsa-project.org
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "=?utf-8?B?ZGF2ZW0=?=" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"=?utf-8?B?aG9ybXM=?=" <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>,
+	"=?utf-8?B?cm9taWV1?=" <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>,
+	"=?utf-8?B?Z3JlZ2to?=" <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	"=?utf-8?B?bmV0ZGV2?=" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"=?utf-8?B?bGludXgtdXNi?=" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"=?utf-8?B?bGludXgta2VybmVs?=" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"=?utf-8?B?c3VuaGVjaGVuZw==?=" <sunhecheng-i49A8sVr+H5BDgjK7y7TUQ@public.gmane.org>
+To: "=?utf-8?B?Sm9lIFBlcmNoZXM=?=" <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-When SSC works in slave mode, according to the hardware design, the
-clock can get from TK pin, also can get from RK pin. So, add one
-parameter to choose where the clock from.
+RGVhciBKb2UgOg0KDQoJCVRoYW5rcyBhIGxvdCBmb3IgeW91ciBkZXRhaWwgY2hlY2tpbmcuDQoN
+Cg0KMjAxNC0wMi0xMCANCg0KDQoNCmxpdWp1bmxpYW5nX2xqbCANCg0KDQoNCuWPkeS7tuS6uu+8
+miBKb2UgUGVyY2hlcyANCuWPkemAgeaXtumXtO+8miAyMDE0LTAyLTEwICAxMzo0NzowOCANCuaU
+tuS7tuS6uu+8miBsaXVqdW5saWFuZ19samwgDQrmioTpgIHvvJogZGF2ZW07IGhvcm1zOyByb21p
+ZXU7IGdyZWdraDsgbmV0ZGV2OyBsaW51eC11c2I7IGxpbnV4LWtlcm5lbDsgc3VuaGVjaGVuZyAN
+CuS4u+mimO+8miBSZTogW1BBVENIXSBVU0IyTkVUIDogU1I5ODAwIDogT25lIGNoaXAgVVNCMi4w
+IFVTQjJORVQgU1I5ODAwRGV2aWNlIERyaXZlciBTdXBwb3J0IA0KIA0KT24gTW9uLCAyMDE0LTAy
+LTEwIGF0IDEzOjMzICswODAwLCBsaXVqdW5saWFuZ19samxAMTYzLmNvbSB3cm90ZToNCj4gZGlm
+ZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3VzYi9zcjk4MDAuYyBiL2RyaXZlcnMvbmV0L3VzYi9zcjk4
+MDAuYw0KW10NCj4gKyBuZXRkZXZfZGJnKGRldi0+bmV0LCAibWFjIGFkZHIgOiAweCV4OjB4JXg6
+MHgleDoweCV4OjB4JXg6MHgleFxuIiwNCj4gKyAgICBkZXYtPm5ldC0+ZGV2X2FkZHJbMF0sIGRl
+di0+bmV0LT5kZXZfYWRkclsxXSwNCj4gKyAgICBkZXYtPm5ldC0+ZGV2X2FkZHJbMl0sIGRldi0+
+bmV0LT5kZXZfYWRkclszXSwNCj4gKyAgICBkZXYtPm5ldC0+ZGV2X2FkZHJbNF0sIGRldi0+bmV0
+LT5kZXZfYWRkcls1XSk7DQptYWMgYWRkcmVzc2VzIGFyZSBhc3N1bWVkIHRvIGJlIGhleCBhbmQg
+ZG9uJ3QgbmVlZCAweCBwcmVmaXhlcy4NCkFsc28sIHRoZXJlJ3MgYSBrZXJuZWwgdnNwcmludGYg
+ZXh0ZW5zaW9uICIlcE0iIGZvciBtYWMgYWRkcmVzc2VzLg0KbmV0ZGV2X2RiZyhkZXYtPm5ldCwg
+Im1hYyBhZGRyOiAlcE1cbiIsIGRldi0+bmV0LT5kZXZfYWRkcik7DQouDQo=
 
-Signed-off-by: Bo Shen <voice.shen@atmel.com>
----
-Changes in v3:
-  - New, move clk-from-rk-pin property from card to ssc device
 
- drivers/misc/atmel-ssc.c        |  6 ++++++
- include/linux/atmel-ssc.h       |  1 +
- sound/soc/atmel/atmel_ssc_dai.c | 13 +++++++++----
- 3 files changed, 16 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/misc/atmel-ssc.c b/drivers/misc/atmel-ssc.c
-index 5be80840..22de137 100644
---- a/drivers/misc/atmel-ssc.c
-+++ b/drivers/misc/atmel-ssc.c
-@@ -150,6 +150,12 @@ static int ssc_probe(struct platform_device *pdev)
- 		return -ENODEV;
- 	ssc->pdata = (struct atmel_ssc_platform_data *)plat_dat;
- 
-+	if (pdev->dev.of_node) {
-+		struct device_node *np = pdev->dev.of_node;
-+		ssc->clk_from_rk_pin =
-+			of_property_read_bool(np, "atmel,clk-from-rk-pin");
-+	}
-+
- 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	ssc->regs = devm_ioremap_resource(&pdev->dev, regs);
- 	if (IS_ERR(ssc->regs))
-diff --git a/include/linux/atmel-ssc.h b/include/linux/atmel-ssc.h
-index 66a0e53..571a12e 100644
---- a/include/linux/atmel-ssc.h
-+++ b/include/linux/atmel-ssc.h
-@@ -18,6 +18,7 @@ struct ssc_device {
- 	struct clk		*clk;
- 	int			user;
- 	int			irq;
-+	bool			clk_from_rk_pin;
- };
- 
- struct ssc_device * __must_check ssc_request(unsigned int ssc_num);
-diff --git a/sound/soc/atmel/atmel_ssc_dai.c b/sound/soc/atmel/atmel_ssc_dai.c
-index 8697ced..ca1d8a3 100644
---- a/sound/soc/atmel/atmel_ssc_dai.c
-+++ b/sound/soc/atmel/atmel_ssc_dai.c
-@@ -341,6 +341,7 @@ static int atmel_ssc_hw_params(struct snd_pcm_substream *substream,
- {
- 	int id = dai->id;
- 	struct atmel_ssc_info *ssc_p = &ssc_info[id];
-+	struct ssc_device *ssc = ssc_p->ssc;
- 	struct atmel_pcm_dma_params *dma_params;
- 	int dir, channels, bits;
- 	u32 tfmr, rfmr, tcmr, rcmr;
-@@ -466,7 +467,8 @@ static int atmel_ssc_hw_params(struct snd_pcm_substream *substream,
- 			| SSC_BF(RCMR_START, start_event)
- 			| SSC_BF(RCMR_CKI, SSC_CKI_RISING)
- 			| SSC_BF(RCMR_CKO, SSC_CKO_NONE)
--			| SSC_BF(RCMR_CKS, SSC_CKS_CLOCK);
-+			| SSC_BF(RCMR_CKS, ssc->clk_from_rk_pin ?
-+					   SSC_CKS_PIN : SSC_CKS_CLOCK);
- 
- 		rfmr =	  SSC_BF(RFMR_FSEDGE, SSC_FSEDGE_POSITIVE)
- 			| SSC_BF(RFMR_FSOS, SSC_FSOS_NONE)
-@@ -481,7 +483,8 @@ static int atmel_ssc_hw_params(struct snd_pcm_substream *substream,
- 			| SSC_BF(TCMR_START, start_event)
- 			| SSC_BF(TCMR_CKI, SSC_CKI_FALLING)
- 			| SSC_BF(TCMR_CKO, SSC_CKO_NONE)
--			| SSC_BF(TCMR_CKS, SSC_CKS_PIN);
-+			| SSC_BF(TCMR_CKS, ssc->clk_from_rk_pin ?
-+					   SSC_CKS_CLOCK : SSC_CKS_PIN);
- 
- 		tfmr =	  SSC_BF(TFMR_FSEDGE, SSC_FSEDGE_POSITIVE)
- 			| SSC_BF(TFMR_FSDEN, 0)
-@@ -550,7 +553,8 @@ static int atmel_ssc_hw_params(struct snd_pcm_substream *substream,
- 			| SSC_BF(RCMR_START, SSC_START_RISING_RF)
- 			| SSC_BF(RCMR_CKI, SSC_CKI_RISING)
- 			| SSC_BF(RCMR_CKO, SSC_CKO_NONE)
--			| SSC_BF(RCMR_CKS, SSC_CKS_PIN);
-+			| SSC_BF(RCMR_CKS, ssc->clk_from_rk_pin ?
-+					   SSC_CKS_PIN : SSC_CKS_CLOCK);
- 
- 		rfmr =	  SSC_BF(RFMR_FSEDGE, SSC_FSEDGE_POSITIVE)
- 			| SSC_BF(RFMR_FSOS, SSC_FSOS_NONE)
-@@ -565,7 +569,8 @@ static int atmel_ssc_hw_params(struct snd_pcm_substream *substream,
- 			| SSC_BF(TCMR_START, SSC_START_RISING_RF)
- 			| SSC_BF(TCMR_CKI, SSC_CKI_FALLING)
- 			| SSC_BF(TCMR_CKO, SSC_CKO_NONE)
--			| SSC_BF(TCMR_CKS, SSC_CKS_PIN);
-+			| SSC_BF(RCMR_CKS, ssc->clk_from_rk_pin ?
-+					   SSC_CKS_CLOCK : SSC_CKS_PIN);
- 
- 		tfmr =	  SSC_BF(TFMR_FSEDGE, SSC_FSEDGE_POSITIVE)
- 			| SSC_BF(TFMR_FSDEN, 0)
--- 
-1.8.5.2
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
