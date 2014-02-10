@@ -1,70 +1,78 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/2] net: ip, ipv6: handle gso skbs in forwarding path
-Date: Mon, 10 Feb 2014 20:31:24 +0800
-Message-ID: <20140210123124.GA28752@gondor.apana.org.au>
-References: <1390810971-23959-1-git-send-email-fw@strlen.de>
- <1390810971-23959-2-git-send-email-fw@strlen.de>
- <1390846967.27806.75.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140128085706.GB30123@breakpoint.cc>
- <1390926883.28432.12.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140209025504.GB17395@gondor.apana.org.au>
- <20140210122331.GA25153@breakpoint.cc>
+From: Sergey Ryazanov <ryazanov.s.a@gmail.com>
+Subject: Re: [PATCH 09/28] Remove ATHEROS_AR231X
+Date: Mon, 10 Feb 2014 16:38:17 +0400
+Message-ID: <CAHNKnsQF5Hdf3JT91moPraRQzn4kMpdD2NSiJ7b30wQhS1W4MA@mail.gmail.com>
+References: <1391971686-9517-1-git-send-email-richard@nod.at>
+ <1391971686-9517-10-git-send-email-richard@nod.at> <52F7D480.1050106@hauke-m.de>
+ <52F7DF21.70207@nod.at> <CAHNKnsS7Mv4ZhBWZa53go9L9nZimJ7_FG5HFJ9C3kkGMAEz-mA@mail.gmail.com>
+ <52F8C373.9060108@rempel-privat.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:59632 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752644AbaBJMb2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 07:31:28 -0500
-Content-Disposition: inline
-In-Reply-To: <20140210122331.GA25153@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Richard Weinberger <richard@nod.at>,
+	Jonathan Bither <jonbither@gmail.com>,
+	OpenWrt Development List <openwrt-devel@lists.openwrt.org>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	Jiri Slaby <jirislaby@gmail.com>,
+	Nick Kossifidis <mickflemm@gmail.com>,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"open list:ATHEROS ATH5K WIR..." <linux-wireless@vger.kernel.org>,
+	"open list:ATHEROS ATH5K WIR..." <ath5k-devel@lists.ath5k.org>,
+	open@hauke-m.de,
+	"list@hauke-m.de:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>,
+	"antonynpavlov@gmail.com" <antonynpavlov@gmail.com>
+To: Oleksij Rempel <linux@rempel-privat.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52F8C373.9060108@rempel-privat.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 10, 2014 at 01:23:31PM +0100, Florian Westphal wrote:
-> Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> > > > static void ip_gso_adjust_seglen(struct sk_buff *skb)
-> > > > {
-> > > >         unsigned int mtu;
-> > > > 
-> > > >         if (!skb_is_gso(skb))
-> > > >                 return;
-> > > > 
-> > > >         mtu = ip_dst_mtu_maybe_forward(skb_dst(skb), true);
-> > > >         skb_shinfo(skb)->gso_size = mtu - sizeof(struct iphdr);
-> > > > }
-> > > > 
-> > > > But this yields
-> > > > 
-> > > > [   28.644776] kernel BUG at net/net/core/skbuff.c:2984!
-> > > 
-> > > Yep, lets CC Herbert Xu, as he 'owns' skb_segment()
-> > 
-> > IMHO we should just stop merging ~DF packets altogether, at least
-> > for TCP.
-> 
-> Eric, you added DF aggregation in db8caf3dbc77599dc90f4ea0a803cd1d97116f30
-> (gro: should aggregate frames without DF).
-> 
-> I guess you don't want to revert this commit?
-> Any other ideas?
-> 
-> skb_gso_segment() is already very complex, I don't want to add more code
-> to it.  And that seems unavoidable if we need to de-couple nr_frags and
-> gso_size.
+2014-02-10 16:17 GMT+04:00 Oleksij Rempel <linux@rempel-privat.de>:
+> Am 10.02.2014 13:05, schrieb Sergey Ryazanov:
+>> 2014-02-10 0:03 GMT+04:00 Richard Weinberger <richard@nod.at>:
+>>> Am 09.02.2014 20:18, schrieb Hauke Mehrtens:
+>>>> On 02/09/2014 07:47 PM, Richard Weinberger wrote:
+>>>>> The symbol is an orphan, get rid of it.
+>>>>>
+>>>>> Signed-off-by: Richard Weinberger <richard@nod.at>
+>>>>> ---
+>>>>>  drivers/net/wireless/ath/ath5k/Kconfig | 10 +++++-----
+>>>>>  drivers/net/wireless/ath/ath5k/ath5k.h | 28 ----------------------------
+>>>>>  drivers/net/wireless/ath/ath5k/base.c  | 14 --------------
+>>>>>  drivers/net/wireless/ath/ath5k/led.c   |  7 -------
+>>>>>  4 files changed, 5 insertions(+), 54 deletions(-)
+>>>>>
+>>>>
+>>>> This code is used in OpenWrt with an out of tree arch code for the
+>>>> Atheros 231x/531x SoC. [0] I do not think anyone is working on adding
+>>>> this code to mainline Linux kernel, because of lack of time/interest.
+>>>
+>>> Sorry, we don't maintain out of tree code.
+>>>
+>>
+>> Oleksij, Jonathan do you still working to make ar231x devices work
+>> with upstream, since your posts [1, 2]? Or may be someone from OpenWRT
+>> team would like to add upstream support?
+>>
+>> 1. https://lkml.org/lkml/2013/5/13/321
+>> 2. https://lkml.org/lkml/2013/5/13/358
+>>
+>
+> Hi,
+> my current target was to provide barebox and openocd support.
+> - ar2313 is already upstream on barebox.
+> - ar2315-2318 (barebox) awaiting review by Anthony Pavlov.
+> - openocd (EJTAG) support is ready and i'll push it ASUP.
+>
+WOW, Impressive.
 
-I don't think adding all this complexity just to be able to
-aggregate ~DF packets (which are just wrong to begin with) is
-worth it.
+> I hope Jonathan do kernel part. If not, i can provide some work, since i
+> have testing boards and expiriance on this hardware.
+>
+If you need, I can test kernel part, or even do some porting work. I
+have some AR231x based boards, e.g. Ubnt LS2 and NS2.
 
-If aggregating ~DF packets was a one-liner then sure, but there
-is a reason why I didn't aggregate them in the first place and
-you've found it :)
-
-Cheers,
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+BR,
+Sergey
