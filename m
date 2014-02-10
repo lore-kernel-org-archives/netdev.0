@@ -1,73 +1,59 @@
-From: Emil Goode <emilgoode-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/2 v2] usbnet: fix bad header length bug
-Date: Mon, 10 Feb 2014 13:00:48 +0100
-Message-ID: <20140210115812.GA4278@lianli>
-References: <1391987174-21828-1-git-send-email-emilgoode@gmail.com>
- <1392014458.21271.6.camel@linux-fkkt.site>
+From: Sergey Ryazanov <ryazanov.s.a@gmail.com>
+Subject: Re: [PATCH 09/28] Remove ATHEROS_AR231X
+Date: Mon, 10 Feb 2014 16:05:24 +0400
+Message-ID: <CAHNKnsS7Mv4ZhBWZa53go9L9nZimJ7_FG5HFJ9C3kkGMAEz-mA@mail.gmail.com>
+References: <1391971686-9517-1-git-send-email-richard@nod.at>
+ <1391971686-9517-10-git-send-email-richard@nod.at> <52F7D480.1050106@hauke-m.de>
+ <52F7DF21.70207@nod.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	Mark Brown <broonie-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Glen Turner <gdt-pRLresKaOUyHXe+LvDLADg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1392014458.21271.6.camel-B2T3B9s34ElbnMAlSieJcQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Hauke Mehrtens <hauke@hauke-m.de>,
+	Jiri Slaby <jirislaby@gmail.com>,
+	Nick Kossifidis <mickflemm@gmail.com>,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"open list:ATHEROS ATH5K WIR..." <linux-wireless@vger.kernel.org>,
+	"open list:ATHEROS ATH5K WIR..." <ath5k-devel@lists.ath5k.org>,
+	open@hauke-m.de,
+	"list@hauke-m.de:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: Richard Weinberger <richard@nod.at>,
+	Oleksij Rempel <linux@rempel-privat.de>,
+	Jonathan Bither <jonbither@gmail.com>,
+	OpenWrt Development List <openwrt-devel@lists.openwrt.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52F7DF21.70207@nod.at>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 10, 2014 at 07:40:58AM +0100, Oliver Neukum wrote:
-> On Mon, 2014-02-10 at 00:06 +0100, Emil Goode wrote:
-> > The AX88772B occasionally send rx packets that cross urb boundaries
-> > and the remaining partial packet is sent with no hardware header.
-> > When the buffer with a partial packet is of less number of octets
-> > than the value of hard_header_len the buffer is discarded by the
-> > usbnet module. This is causing dropped packages and error messages
-> > in dmesg.
-> > 
-> > This can be reproduced by using ping with a packet size
-> > between 1965-1976.
-> 
-> Well, then how about simply removing the check?
-> It seems to have outlived its usefulness.
-> 
-> 	Regards
-> 		Oliver
-> 
+2014-02-10 0:03 GMT+04:00 Richard Weinberger <richard@nod.at>:
+> Am 09.02.2014 20:18, schrieb Hauke Mehrtens:
+>> On 02/09/2014 07:47 PM, Richard Weinberger wrote:
+>>> The symbol is an orphan, get rid of it.
+>>>
+>>> Signed-off-by: Richard Weinberger <richard@nod.at>
+>>> ---
+>>>  drivers/net/wireless/ath/ath5k/Kconfig | 10 +++++-----
+>>>  drivers/net/wireless/ath/ath5k/ath5k.h | 28 ----------------------------
+>>>  drivers/net/wireless/ath/ath5k/base.c  | 14 --------------
+>>>  drivers/net/wireless/ath/ath5k/led.c   |  7 -------
+>>>  4 files changed, 5 insertions(+), 54 deletions(-)
+>>>
+>>
+>> This code is used in OpenWrt with an out of tree arch code for the
+>> Atheros 231x/531x SoC. [0] I do not think anyone is working on adding
+>> this code to mainline Linux kernel, because of lack of time/interest.
+>
+> Sorry, we don't maintain out of tree code.
 >
 
-I did consider that and I think it is probably the best thing to do.
-However, I think the removal of the check could have negative effects
-on the other minidrivers, at least the qmi_wwan minidriver explicitly
-states that it is depending on this check to be made in rx_complete().
+Oleksij, Jonathan do you still working to make ar231x devices work
+with upstream, since your posts [1, 2]? Or may be someone from OpenWRT
+team would like to add upstream support?
 
-For safety the check could be added at the top of the rx_fixup callback
-of the affected minidrivers.
+1. https://lkml.org/lkml/2013/5/13/321
+2. https://lkml.org/lkml/2013/5/13/358
 
-There are devices that depend on the usbnet module that do not have
-a rx_fixup callback assigned to it's driver_info struct, the check
-could be added for these in the rx_process function.
-
-This led me to think it would be a lot of noise about a small check :)
-
-My conclusion is that 12 rx_fixup callbacks might need the check
-to be added. There are 18 driver_info structs with no rx_fixup
-callback assigned, these devices might need the check to be added
-to the rx_process function.
-
-Patches could be sent out to notify the affected minidrivers of the
-change and hopefully someone has the hardware to test if it's 
-necessary to add the check to the minidriver?
-
-I'm happy to do this if it seem like a good idea.
-
-Best regards,
-
-Emil Goode
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+BR,
+Sergey
