@@ -1,49 +1,42 @@
-From: Stefan =?ISO-8859-1?Q?S=F8rensen?=
-	<stefan.sorensen@spectralink.com>
-Subject: Re: [PATCH] dp83640: Get gpio and master/slave configuration from DT
-Date: Tue, 11 Feb 2014 09:01:25 +0100
-Message-ID: <1392105685.2133.2.camel@e37108.spectralink.com>
-References: <1392037240-30913-1-git-send-email-stefan.sorensen@spectralink.com>
-	 <20140210184604.GA4296@netboy>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH 1/2 v2] usbnet: fix bad header length bug
+Date: Tue, 11 Feb 2014 08:43:53 +0100
+Message-ID: <1392104633.6668.14.camel@linux-fkkt.site>
+References: <1391987174-21828-1-git-send-email-emilgoode@gmail.com>
+	 <1392014458.21271.6.camel@linux-fkkt.site> <20140210115812.GA4278@lianli>
+	 <1392034947.2082.30.camel@linux-fkkt.site> <87iosn86en.fsf@nemi.mork.no>
+	 <20140210155436.GA4258@lianli>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <grant.likely@linaro.org>, <robh+dt@kernel.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<devicetree@vger.kernel.org>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ming Lei <ming.lei@canonical.com>,
+	Mark Brown <broonie@linaro.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Glen Turner <gdt@gdt.id.au>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Emil Goode <emilgoode@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2lp0210.outbound.protection.outlook.com ([207.46.163.210]:17640
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750776AbaBKIB6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Feb 2014 03:01:58 -0500
-In-Reply-To: <20140210184604.GA4296@netboy>
+Received: from cantor2.suse.de ([195.135.220.15]:36833 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750807AbaBKISf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Feb 2014 03:18:35 -0500
+In-Reply-To: <20140210155436.GA4258@lianli>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-02-10 at 19:46 +0100, Richard Cochran wrote:
-> On Mon, Feb 10, 2014 at 02:00:40PM +0100, Stefan S=C3=B8rensen wrote:
-> > This patch removes the module parameters gpio_tab and chosen_phy in=
- favour of
-> > retrieving the configuration from DT through the properties
->=20
-> Can we please keep the module parameters? I have two platforms with
-> phyters neither of which will ever support DT, namely ixp and m68k,
-> and I want to run recent kernels on them.
+On Mon, 2014-02-10 at 16:54 +0100, Emil Goode wrote:
 
-I will keep the module parameters as fallback. Will it be OK to split
-the gpio_tab parameter into separate calibrate-pin, perout-pins and
-extts-pins parameters?
+> Since the checks that need to be added in various places are all in
+> the same subsystem I think it could be done in as little as one patch?
 
-> > The configuration is now stored for each master clock device, allow=
-ing different=20
-> > gpio setups for each master.
->=20
-> What do you mean by "each master"? Do you mean each individual PHY de=
-vice
-> or each group of PHYs on the same MDIO bus?
+Yes, please definitely. Best for bisectability.
 
-I mean each group of PHYs. I will reword that.
+> If nobody have any objections I will try removing the generic check and
+> introduce checks where nessecary.
 
-Stefan
+Thank you
+
+	Regards
+		Oliver
