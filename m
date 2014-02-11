@@ -1,27 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Latest version of zero-copy fix
-Date: Mon, 10 Feb 2014 17:48:17 -0800 (PST)
-Message-ID: <20140210.174817.515546870536354612.davem@davemloft.net>
-References: <20140210.152150.574073124161003333.davem@davemloft.net>
-	<52F97D5F.4040100@gentoo.org>
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: [PATCH v2 2/2] sctp: optimize the sctp_sysctl_net_register
+Date: Tue, 11 Feb 2014 09:49:06 +0800
+Message-ID: <1392083346-9420-3-git-send-email-wangweidong1@huawei.com>
+References: <1392083346-9420-1-git-send-email-wangweidong1@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ryao@gentoo.org
+Content-Type: text/plain
+Cc: <dborkman@redhat.com>, <netdev@vger.kernel.org>
+To: <nhorman@tuxdriver.com>, <davem@davemloft.net>,
+	<vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57497 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752190AbaBKBsT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 20:48:19 -0500
-In-Reply-To: <52F97D5F.4040100@gentoo.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:42739 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752163AbaBKBtj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 20:49:39 -0500
+In-Reply-To: <1392083346-9420-1-git-send-email-wangweidong1@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Richard Yao <ryao@gentoo.org>
-Date: Mon, 10 Feb 2014 20:31:11 -0500
+Here, when the net is init_net, we needn't to kmemdup the ctl_table
+again. So add a check for net. Also we can save some memory.
 
-> 1. We allocate a temporary buffer with vmalloc().
-> 2. We read the module into that buffer.
+Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+---
+ net/sctp/sysctl.c | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
 
-Ok, I didn't catch this, I'll apply your patch thanks!
+diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
+index 2ddb401..b65396b 100644
+--- a/net/sctp/sysctl.c
++++ b/net/sctp/sysctl.c
+@@ -403,15 +403,17 @@ static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
+ 
+ int sctp_sysctl_net_register(struct net *net)
+ {
+-	struct ctl_table *table;
+-	int i;
++	struct ctl_table *table = sctp_net_table;
+ 
+-	table = kmemdup(sctp_net_table, sizeof(sctp_net_table), GFP_KERNEL);
+-	if (!table)
+-		return -ENOMEM;
++	if (!net_eq(net, &init_net)) {
++		int i;
++		table = kmemdup(sctp_net_table, sizeof(sctp_net_table), GFP_KERNEL);
++		if (!table)
++			return -ENOMEM;
+ 
+-	for (i = 0; table[i].data; i++)
+-		table[i].data += (char *)(&net->sctp) - (char *)&init_net.sctp;
++		for (i = 0; table[i].data; i++)
++			table[i].data += (char *)(&net->sctp) - (char *)&init_net.sctp;
++	}
+ 
+ 	net->sctp.sysctl_header = register_net_sysctl(net, "net/sctp", table);
+ 	return 0;
+-- 
+1.7.12
