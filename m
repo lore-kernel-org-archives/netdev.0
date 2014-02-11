@@ -1,84 +1,70 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: Bonding
-Date: Tue, 11 Feb 2014 15:15:49 +0100
-Message-ID: <20140211141549.GB29570@redhat.com>
-References: <8532C3BD1ECBC64BA47CE43AFED6D38EC37E5AA5@S103.efacec.pt>
+From: Qin Chuanyu <qinchuanyu@huawei.com>
+Subject: [PATCH] tun: use netif_receive_skb instead of netif_rx_ni
+Date: Tue, 11 Feb 2014 22:25:09 +0800
+Message-ID: <52FA32C5.9040601@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Gustavo Pimentel <gustavo.pimentel@efacec.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <jasowang@redhat.com>, "Michael S. Tsirkin" <mst@redhat.com>,
+	"Anthony Liguori" <anthony@codemonkey.ws>,
+	KVM list <kvm@vger.kernel.org>, <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45544 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751071AbaBKOQL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Feb 2014 09:16:11 -0500
-Content-Disposition: inline
-In-Reply-To: <8532C3BD1ECBC64BA47CE43AFED6D38EC37E5AA5@S103.efacec.pt>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:3534 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750984AbaBKOZm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 09:25:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 11, 2014 at 01:53:32PM +0000, Gustavo Pimentel wrote:
->Hi,
+we could xmit directly instead of going through softirq to gain 
+throughput and lantency improved.
+test model: VM-Host-Host just do transmit. with vhost thread and nic
+interrupt bind cpu1. netperf do throuhput test and qperf do lantency test.
+Host OS: suse11sp3, Guest OS: suse11sp3
 
-Hi Gustavo,
+latency result(us):
+packet_len 64 256 512 1460
+old(UDP)   44  47  48   66
+new(UDP)   38  41  42   66
 
->
->I'm writing you because because I'm have implemented a new mode (PRP P=
-arallel Redundancy Protocol) for bonding kernel driver. This new mode i=
-s quite simple, I don't know if you have heard about PRP, but it's a ne=
-w standard that allows to overcome any single network failure without a=
-ffecting the data transmission. The general idea resides on having two =
-separate LAN (A & B) very similar and transmitting the almost the same =
-frame=A0through both LANs and the end device should accept one frame an=
-d discard the other according to a known mechanism.
+old(TCP)   52  55  70  117
+new(TCP)   45  48  61  114
 
-Isn't that the current 'broadcast' mode, where every packet is transmit=
-ted
-over all the slaves? After quick googling/reading I don't see any
-difference there, though I might have missed something.
+throughput result(Gbit/s):
+packet_len   64   512   1024   1460
+old(UDP)   0.42  2.02   3.75   4.68
+new(UDP)   0.45  2.14   3.77   5.06
 
->
->I have implemented this new mode on bonding driver, but I have some di=
-fficulties:
->. Writing linux driver is quite new for me. I don't' know if exists gu=
-ide lines for driver coding.
+TCP due to the latency, client couldn't send packet big enough
+to get benefit from TSO of nic, so the result show it will send
+more packet per sencond but get lower throughput.
 
-You can find everything under Documentation/, but without the code I ca=
-n't
-tell you exact documents. CodingStyle and SubmittingPatches might be th=
-e
-first ones.
+Eric mentioned that it would has problem with cgroup, but the patch
+had been sent by Herbert Xu.
+patch_id f845172531fb7410c7fb7780b1a6e51ee6df7d52
 
-Also, try CC-ing relevant people for more feedback, specifically bondin=
-g
-maintainers.
+Signed-off-by: Chuanyu Qin <qinchuanyu@huawei.com>
+---
+  drivers/net/tun.c |    4 +++-
+  1 files changed, 3 insertions(+), 1 deletions(-)
 
->. I don't know how to submit the code to be include on kernel reposito=
-ry.
->. Maybe another pair of eyes could find help to improve the writing co=
-de for this mode.
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 44c4db8..90b4e58 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1184,7 +1184,9 @@ static ssize_t tun_get_user(struct tun_struct 
+*tun, struct tun_file *tfile,
+  	skb_probe_transport_header(skb, 0);
 
-Try sending an RFC when net-next opens.
+  	rxhash = skb_get_hash(skb);
+-	netif_rx_ni(skb);
++	rcu_read_lock_bh();
++	netif_receive_skb(skb);
++	rcu_read_unlock_bh();
 
->
->I think my driver code is 99% complete. I'm currently testing with 3 e=
-quipments (1 pc + 1 embedded device running both my modify bonding driv=
-er) and a third party equipment called RedBox.
->
->Would you be interested in participating / helping this project?
->
->With my best regards,
->
->Gustavo Gama da Rocha Pimentel
->Power Systems Automation / Innovation & Development
->Efacec Engenharia e Sistemas, S.A.
->Phone: +351229403391
->Disclaimer
->
->
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+  	tun->dev->stats.rx_packets++;
+  	tun->dev->stats.rx_bytes += len;
+-- 
+1.7.3.1.msysgit.0
