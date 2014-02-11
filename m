@@ -1,99 +1,110 @@
-From: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
-Subject: [PATCH iproute2 v2] ss: display interface name as zone index when needed
-Date: Tue, 11 Feb 2014 10:06:23 +0100
-Message-ID: <1392109583-25025-1-git-send-email-fx.lebail@yahoo.com>
-To: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Bernd Eckenfels <ecki@lina.inka.de>,
-	NETDEV <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp04.smtpout.orange.fr ([80.12.242.126]:51414 "EHLO
-	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750776AbaBKJfw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 04:35:52 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net,v2] hyperv: Fix the carrier status setting
+Date: Tue, 11 Feb 2014 17:51:15 +0800
+Message-ID: <52F9F293.7080601@redhat.com>
+References: <1392056129-29398-1-git-send-email-haiyangz@microsoft.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: driverdev-devel@linuxdriverproject.org, olaf@aepfle.de,
+ linux-kernel@vger.kernel.org
+To: Haiyang Zhang <haiyangz@microsoft.com>, davem@davemloft.net,
+ netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1392056129-29398-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-This change enable the ss command to display the interface name as zone index
-for local addresses when needed.
+On 02/11/2014 02:15 AM, Haiyang Zhang wrote:
+> Without this patch, the "cat /sys/class/net/ethN/operstate" shows
+> "unknown", and "ethtool ethN" shows "Link detected: yes", when VM
+> boots up with or without vNIC connected.
+>
+> This patch fixed the problem.
+>
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> ---
+>  drivers/net/hyperv/netvsc_drv.c |   24 +++++++++++++++---------
+>  1 files changed, 15 insertions(+), 9 deletions(-)
+>
+> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+> index 7756118..18916f7 100644
+> --- a/drivers/net/hyperv/netvsc_drv.c
+> +++ b/drivers/net/hyperv/netvsc_drv.c
+> @@ -88,8 +88,12 @@ static int netvsc_open(struct net_device *net)
+>  {
+>  	struct net_device_context *net_device_ctx = netdev_priv(net);
+>  	struct hv_device *device_obj = net_device_ctx->device_ctx;
+> +	struct netvsc_device *nvdev;
+> +	struct rndis_device *rdev;
+>  	int ret = 0;
+>  
+> +	netif_carrier_off(net);
+> +
+>  	/* Open up the device */
+>  	ret = rndis_filter_open(device_obj);
+>  	if (ret != 0) {
+> @@ -99,6 +103,11 @@ static int netvsc_open(struct net_device *net)
+>  
+>  	netif_start_queue(net);
+>  
+> +	nvdev = hv_get_drvdata(device_obj);
+> +	rdev = nvdev->extension;
+> +	if (!rdev->link_state)
 
-For this enhanced display *_diag stuff is needed.
-
-It is based on a first version by Bernd Eckenfels.
-
-example:
-Netid  State   Recv-Q Send-Q                 Local Address:Port    Peer Address:Port
-udp    UNCONN  0      0      fe80::20c:29ff:fe1f:7406%eth1:9999              :::*
-udp    UNCONN  0      0                                 :::domain            :::*
-tcp    LISTEN  0      3                                 :::domain            :::*
-tcp    LISTEN  0      5      fe80::20c:29ff:fe1f:7410%eth2:99                :::*
-
-Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
----
-v2: Consideration of Stephen's comment (thanks!):
-    Use ll_index_to_name() instead of if_indextoname(). 
-
- misc/ss.c |   23 +++++++++++++++--------
- 1 file changed, 15 insertions(+), 8 deletions(-)
-
-diff --git a/misc/ss.c b/misc/ss.c
-index 37dcc11..ce6a0a8 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -640,7 +640,7 @@ static const char *resolve_service(int port)
- 	return buf;
- }
- 
--static void formatted_print(const inet_prefix *a, int port)
-+static void formatted_print(const inet_prefix *a, int port, unsigned int ifindex)
- {
- 	char buf[1024];
- 	const char *ap = buf;
-@@ -663,7 +663,14 @@ static void formatted_print(const inet_prefix *a, int port)
- 		else
- 			est_len = addr_width + ((est_len-addr_width+3)/4)*4;
- 	}
--	printf("%*s:%-*s ", est_len, ap, serv_width, resolve_service(port));
-+	if (ifindex) {
-+		const char *ifname = ll_index_to_name(ifindex);
-+		const int len = strlen(ifname) + 1;  /* +1 for percent char */
-+
-+		printf("%*s%%%s:%-*s ", est_len - len, ap, ifname, serv_width,
-+		       resolve_service(port));
-+	} else
-+		printf("%*s:%-*s ", est_len, ap, serv_width, resolve_service(port));
- }
- 
- struct aafilter
-@@ -1254,8 +1261,8 @@ static int tcp_show_line(char *line, const struct filter *f, int family)
- 
- 	printf("%-6d %-6d ", s.rq, s.wq);
- 
--	formatted_print(&s.local, s.lport);
--	formatted_print(&s.remote, s.rport);
-+	formatted_print(&s.local, s.lport, 0);
-+	formatted_print(&s.remote, s.rport, 0);
- 
- 	if (show_options) {
- 		if (s.timer) {
-@@ -1507,8 +1514,8 @@ static int inet_show_sock(struct nlmsghdr *nlh, struct filter *f, int protocol)
- 
- 	printf("%-6d %-6d ", r->idiag_rqueue, r->idiag_wqueue);
- 
--	formatted_print(&s.local, s.lport);
--	formatted_print(&s.remote, s.rport);
-+	formatted_print(&s.local, s.lport, r->id.idiag_if);
-+	formatted_print(&s.remote, s.rport, 0);
- 
- 	if (show_options) {
- 		if (r->idiag_timer) {
-@@ -2006,8 +2013,8 @@ static int dgram_show_line(char *line, const struct filter *f, int family)
- 
- 	printf("%-6d %-6d ", s.rq, s.wq);
- 
--	formatted_print(&s.local, s.lport);
--	formatted_print(&s.remote, s.rport);
-+	formatted_print(&s.local, s.lport, 0);
-+	formatted_print(&s.remote, s.rport, 0);
- 
- 	if (show_users) {
- 		char ubuf[4096];
+What if the link status interrupt comes here at this time?
+> +		netif_carrier_on(net);
+> +
+>  	return ret;
+>  }
+>  
+> @@ -229,15 +238,17 @@ void netvsc_linkstatus_callback(struct hv_device *device_obj,
+>  	struct net_device *net;
+>  	struct net_device_context *ndev_ctx;
+>  	struct netvsc_device *net_device;
+> +	struct rndis_device *rdev;
+>  
+>  	net_device = hv_get_drvdata(device_obj);
+> +	rdev = net_device->extension;
+> +
+> +	rdev->link_state = status != 1;
+> +
+>  	net = net_device->ndev;
+>  
+> -	if (!net) {
+> -		netdev_err(net, "got link status but net device "
+> -				"not initialized yet\n");
+> +	if (!net || net->reg_state != NETREG_REGISTERED)
+>  		return;
+> -	}
+>  
+>  	if (status == 1) {
+>  		netif_carrier_on(net);
+> @@ -414,9 +425,6 @@ static int netvsc_probe(struct hv_device *dev,
+>  	if (!net)
+>  		return -ENOMEM;
+>  
+> -	/* Set initial state */
+> -	netif_carrier_off(net);
+> -
+>  	net_device_ctx = netdev_priv(net);
+>  	net_device_ctx->device_ctx = dev;
+>  	hv_set_drvdata(dev, net);
+> @@ -443,8 +451,6 @@ static int netvsc_probe(struct hv_device *dev,
+>  	}
+>  	memcpy(net->dev_addr, device_info.mac_adr, ETH_ALEN);
+>  
+> -	netif_carrier_on(net);
+> -
+>  	ret = register_netdev(net);
+>  	if (ret != 0) {
+>  		pr_err("Unable to register netdev.\n");
