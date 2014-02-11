@@ -1,36 +1,88 @@
-From: "liujunliang_ljl" <liujunliang_ljl@163.com>
-Subject: Re: Re: [PATCH] USB2NET : SR9800 : One chip USB2.0 USB2NET SR9800Device Driver Support
-Date: Tue, 11 Feb 2014 13:59:34 +0800
-Message-ID: <201402111359344538040@163.com>
-References: <1392013902-4875-1-git-send-email-liujunliang_ljl@163.com>,
- <20140210.165352.625954565773549494.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="gb2312"
-Content-Transfer-Encoding: base64
-Cc: "joe" <joe@perches.com>, "horms" <horms@verge.net.au>,
-	"romieu" <romieu@fr.zoreil.com>,
-	"gregkh" <gregkh@linuxfoundation.org>,
-	"netdev" <netdev@vger.kernel.org>,
-	"linux-usb" <linux-usb@vger.kernel.org>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	"sunhecheng" <sunhecheng@vip.126.com>
-To: "David Miller" <davem@davemloft.net>
+From: Tingwei Liu <tingw.liu@gmail.com>
+Subject: [PATCH] ipvs: Reduce checkpatch noise in ip_vs_lblc.c
+Date: Tue, 11 Feb 2014 14:29:39 +0800
+Message-ID: <1392100179-13325-1-git-send-email-tingw.liu@gmail.com>
+Cc: Tingwei Liu <tingw.liu@gmail.com>,
+	Tingwei Liu <liutingwei@hisense.com>,
+	Wensong Zhang <wensong@linux-vs.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-13.163.com ([220.181.12.13]:46405 "EHLO m12-13.163.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750721AbaBKGAJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Feb 2014 01:00:09 -0500
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:49043 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750762AbaBKGaU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 01:30:20 -0500
+Received: by mail-pb0-f52.google.com with SMTP id jt11so7314460pbb.11
+        for <netdev@vger.kernel.org>; Mon, 10 Feb 2014 22:30:20 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RGVhciBNaWxsZXIgOg0KDQoJCVRoYW5rcyBhIGxvdC4NCg0KDQoyMDE0LTAyLTExIA0KDQoNCg0K
-bGl1anVubGlhbmdfbGpsIA0KDQoNCg0Kt6K8/sjLo7ogRGF2aWQgTWlsbGVyIA0Kt6LLzcqxvOSj
-uiAyMDE0LTAyLTExICAwODo1NDowMCANCsrVvP7Iy6O6IGxpdWp1bmxpYW5nX2xqbCANCrOty82j
-uiBqb2U7IGhvcm1zOyByb21pZXU7IGdyZWdraDsgbmV0ZGV2OyBsaW51eC11c2I7IGxpbnV4LWtl
-cm5lbDsgc3VuaGVjaGVuZyANCtb3zOKjuiBSZTogW1BBVENIXSBVU0IyTkVUIDogU1I5ODAwIDog
-T25lIGNoaXAgVVNCMi4wIFVTQjJORVQgU1I5ODAwRGV2aWNlIERyaXZlciBTdXBwb3J0IA0KIA0K
-RnJvbTogbGl1anVubGlhbmdfbGpsQDE2My5jb20NCkRhdGU6IE1vbiwgMTAgRmViIDIwMTQgMTQ6
-MzE6NDIgKzA4MDANCj4gRnJvbTogTGl1IEp1bmxpYW5nIDxsaXVqdW5saWFuZ19samxAMTYzLmNv
-bT4NCj4gDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBMaXUgSnVubGlhbmcgPGxpdWp1bmxpYW5nX2xq
-bEAxNjMuY29tPg0KQXBwbGllZCwgdGhhbmtzLg0K
+Add whitespace after operator and put open brace { on the previous line
+
+Signed-off-by: Tingwei Liu <tingw.liu@gmail.com>
+Cc: Tingwei Liu <liutingwei@hisense.com>
+Cc: Wensong Zhang <wensong@linux-vs.org>
+---
+ net/netfilter/ipvs/ip_vs_lblc.c |   13 ++++++-------
+ 1 files changed, 6 insertions(+), 7 deletions(-)
+
+diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
+index ca056a3..547ff33 100644
+--- a/net/netfilter/ipvs/ip_vs_lblc.c
++++ b/net/netfilter/ipvs/ip_vs_lblc.c
+@@ -238,7 +238,7 @@ static void ip_vs_lblc_flush(struct ip_vs_service *svc)
+ 
+ 	spin_lock_bh(&svc->sched_lock);
+ 	tbl->dead = 1;
+-	for (i=0; i<IP_VS_LBLC_TAB_SIZE; i++) {
++	for (i = 0; i < IP_VS_LBLC_TAB_SIZE; i++) {
+ 		hlist_for_each_entry_safe(en, next, &tbl->bucket[i], list) {
+ 			ip_vs_lblc_del(en);
+ 			atomic_dec(&tbl->entries);
+@@ -265,7 +265,7 @@ static inline void ip_vs_lblc_full_check(struct ip_vs_service *svc)
+ 	unsigned long now = jiffies;
+ 	int i, j;
+ 
+-	for (i=0, j=tbl->rover; i<IP_VS_LBLC_TAB_SIZE; i++) {
++	for (i = 0, j = tbl->rover; i < IP_VS_LBLC_TAB_SIZE; i++) {
+ 		j = (j + 1) & IP_VS_LBLC_TAB_MASK;
+ 
+ 		spin_lock(&svc->sched_lock);
+@@ -321,7 +321,7 @@ static void ip_vs_lblc_check_expire(unsigned long data)
+ 	if (goal > tbl->max_size/2)
+ 		goal = tbl->max_size/2;
+ 
+-	for (i=0, j=tbl->rover; i<IP_VS_LBLC_TAB_SIZE; i++) {
++	for (i = 0, j = tbl->rover; i < IP_VS_LBLC_TAB_SIZE; i++) {
+ 		j = (j + 1) & IP_VS_LBLC_TAB_MASK;
+ 
+ 		spin_lock(&svc->sched_lock);
+@@ -340,7 +340,7 @@ static void ip_vs_lblc_check_expire(unsigned long data)
+ 	tbl->rover = j;
+ 
+   out:
+-	mod_timer(&tbl->periodic_timer, jiffies+CHECK_EXPIRE_INTERVAL);
++	mod_timer(&tbl->periodic_timer, jiffies + CHECK_EXPIRE_INTERVAL);
+ }
+ 
+ 
+@@ -363,7 +363,7 @@ static int ip_vs_lblc_init_svc(struct ip_vs_service *svc)
+ 	/*
+ 	 *    Initialize the hash buckets
+ 	 */
+-	for (i=0; i<IP_VS_LBLC_TAB_SIZE; i++) {
++	for (i = 0; i < IP_VS_LBLC_TAB_SIZE; i++) {
+ 		INIT_HLIST_HEAD(&tbl->bucket[i]);
+ 	}
+ 	tbl->max_size = IP_VS_LBLC_TAB_SIZE*16;
+@@ -536,8 +536,7 @@ out:
+ /*
+  *      IPVS LBLC Scheduler structure
+  */
+-static struct ip_vs_scheduler ip_vs_lblc_scheduler =
+-{
++static struct ip_vs_scheduler ip_vs_lblc_scheduler = {
+ 	.name =			"lblc",
+ 	.refcnt =		ATOMIC_INIT(0),
+ 	.module =		THIS_MODULE,
+-- 
+1.6.0.2
