@@ -1,94 +1,68 @@
-From: Marc Dietrich <marvin24@gmx.de>
-Subject: Re: [PATCH] net: rfkill-regulator: Add devicetree support.
-Date: Tue, 11 Feb 2014 09:42 +0100
-Message-ID: <1905162.oG8AgdvPKu@fb07-iapwap2>
-References: <1391802529-29861-1-git-send-email-marek@goldelico.com> <20140210101842.GS25314@e106331-lin.cambridge.arm.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [RFC 2/2] xen-netback: disable multicast and use a random hw
+ MAC address
+Date: Tue, 11 Feb 2014 08:43:25 +0000
+Message-ID: <1392108205.22033.16.camel@dagon.hellion.org.uk>
+References: <1392071391-13215-1-git-send-email-mcgrof@do-not-panic.com>
+	 <1392071391-13215-3-git-send-email-mcgrof@do-not-panic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Marek Belisko <marek@goldelico.com>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	Pawel Moll <Pawel.Moll@arm.com>,
-	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
-	"galak@codeaurora.org" <galak@codeaurora.org>,
-	"rob@landley.net" <rob@landley.net>,
-	"linville@tuxdriver.com" <linville@tuxdriver.com>,
-	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"hns@goldelico.com" <hns@goldelico.com>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Mark Rutland <mark.rutland@arm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140210101842.GS25314@e106331-lin.cambridge.arm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
+	"Luis R. Rodriguez" <mcgrof@suse.com>,
+	Paul Durrant <Paul.Durrant@citrix.com>,
+	"Wei Liu" <wei.liu2@citrix.com>
+To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:20719 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750812AbaBKIn1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 03:43:27 -0500
+In-Reply-To: <1392071391-13215-3-git-send-email-mcgrof@do-not-panic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Montag, 10. Februar 2014, 10:18:42 schrieb Mark Rutland:
-> On Fri, Feb 07, 2014 at 07:48:49PM +0000, Marek Belisko wrote:
-> > Signed-off-by: NeilBrown <neilb@suse.de>
-> > Signed-off-by: Marek Belisko <marek@goldelico.com>
-> > ---
-> > Based on Neil's patch and extend for documentation and bindings include.
-> > 
-> >  .../bindings/net/rfkill/rfkill-relugator.txt       | 28 ++++++++++++++++
-> >  include/dt-bindings/net/rfkill-regulator.h         | 23 +++++++++++++
-> >  net/rfkill/rfkill-regulator.c                      | 38
-> >  ++++++++++++++++++++++ 3 files changed, 89 insertions(+)
-> >  create mode 100644
-> >  Documentation/devicetree/bindings/net/rfkill/rfkill-relugator.txt create
-> >  mode 100644 include/dt-bindings/net/rfkill-regulator.h
-> > 
-> > diff --git
-> > a/Documentation/devicetree/bindings/net/rfkill/rfkill-relugator.txt
-> > b/Documentation/devicetree/bindings/net/rfkill/rfkill-relugator.txt new
-> > file mode 100644
-> > index 0000000..cdb7dd7
-> > --- /dev/null
-> > +++ b/Documentation/devicetree/bindings/net/rfkill/rfkill-relugator.txt
-> > @@ -0,0 +1,28 @@
-> > +Regulator consumer for rfkill devices
+On Mon, 2014-02-10 at 14:29 -0800, Luis R. Rodriguez wrote:
+> From: "Luis R. Rodriguez" <mcgrof@suse.com>
 > 
-> What exactly is an "rfkill" device? How is it used? How does it relate
-> to other devices in the DT?
-> 
-> To me, this looks like a leak of a Linux abstraction.
-> 
-> > +
-> > +Required properties:
-> > +- compatible   : Must be "rfkill-regulator".
-> > +- label  : Name of rfkill device.
-> 
-> What's this for? Why does this need a label in the DT? Surely this can
-> be implied by the relationship to a particular radio device?
-> 
-> > +- type  : Type of rfkill device.
-> > +
-> > +Possible values (defined in include/dt-bindings/net/rfkill-regulator.h):
-> > +	RFKILL_TYPE_ALL
-> > +	RFKILL_TYPE_WLAN
-> > +	RFKILL_TYPE_BLUETOOTH
-> > +	RFKILL_TYPE_UWB
-> > +	RFKILL_TYPE_WIMAX
-> > +	RFKILL_TYPE_WWAN
-> > +	RFKILL_TYPE_GPS
-> > +	RFKILL_TYPE_FM
-> > +	RFKILL_TYPE_NFC
-> 
-> What do these mean? Why can these not be implied by a relationship to
-> any devices of these particular types?
+> Although the xen-netback interfaces do not participate in the
+> link as a typical Ethernet device interfaces for them are
+> still required under the current archtitecture. IPv6 addresses
+> do not need to be created or assigned on the xen-netback interfaces
+> however, even if the frontend devices do need them, so clear the
+> multicast flag to ensure the net core does not initiate IPv6
+> Stateless Address Autoconfiguration.
 
-This problem comes up from time to time. rfkill-gpio has a similar problem, 
-btw. You can of course list an rfkill property inside the device node where it 
-is connected to, but what are you going to to if there is no device node, e.g. 
-the device is enumerated on a bus (e.g. usb, pci, ...)?
+How does disabling SAA flow from the absence of multicast? Surely these
+should be controlled logically independently even if there is some
+notional linkage. Can SAA not be disabled directly?
 
-In such cases it may be better to define a standalone rfkill node similar to 
-the "backlight" device, even if it just contains a gpio or regulator.
+>  Clearing the multicast
+> flag is required given that the net_device is using the
+> ether_setup() helper.
+> 
+> There's also no good reason why the special MAC address of
+> FE:FF:FF:FF:FF:FF is being used other than to avoid issues
+> with STP,
 
-Marc
+With your change there is a random probability on reboot that the bridge
+will end up with a randomly generated MAC address instead of a static
+MAC address (usually that of the physical NIC on the bridge), since the
+bridge tends to inherit the lowest MAC of any port.
+
+Since IP configuration is done on the bridge this will break DHCP,
+whether it is using static or dynamic mappings from MAC to IP address,
+and the host will randomly change IP address on reboot.
+
+So Nack for that reason.
+
+>  since using this can create an issue if a user
+> decides to enable multicast on the backend interfaces
+
+Please explain what this issue is.
+
+Also how can a user enable multicast on the b/e? AFAIK only Solaris ever
+implemented the m/c bits of the Xen PV network protocol (not that I
+wouldn't welcome attempts to add it to other platforms)
+
+Ian.
