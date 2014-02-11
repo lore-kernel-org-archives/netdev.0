@@ -1,46 +1,54 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [Patch net] macvlan: add NETIF_F_NETNS_LOCAL flag
-Date: Mon, 10 Feb 2014 18:25:51 -0800
-Message-ID: <CAHA+R7N2rxt5vyF+i8mi04dJaLk5bCgMAZOCexOLULLcQ-mT6w@mail.gmail.com>
-References: <1392082593-7742-1-git-send-email-xiyou.wangcong@gmail.com>
-	<20140211014535.GA11150@order.stressinduktion.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: xfrm: is pmtu broken with ESP tunneling?
+Date: Tue, 11 Feb 2014 03:32:58 +0100
+Message-ID: <20140211023258.GC11150@order.stressinduktion.org>
+References: <52F890D2.2060109@odi.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Cong Wang <xiyou.wangcong@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <cwang@twopensource.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Ortwin =?utf-8?B?R2zDvGNr?= <odi@odi.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f43.google.com ([209.85.215.43]:45900 "EHLO
-	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751779AbaBKCZx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 21:25:53 -0500
-Received: by mail-la0-f43.google.com with SMTP id pv20so5391507lab.16
-        for <netdev@vger.kernel.org>; Mon, 10 Feb 2014 18:25:51 -0800 (PST)
-In-Reply-To: <20140211014535.GA11150@order.stressinduktion.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:45049 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752133AbaBKCdA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 21:33:00 -0500
+Content-Disposition: inline
+In-Reply-To: <52F890D2.2060109@odi.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 10, 2014 at 5:45 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> On Mon, Feb 10, 2014 at 05:36:33PM -0800, Cong Wang wrote:
->> From: Cong Wang <cwang@twopensource.com>
->>
->> BZ: https://bugzilla.kernel.org/show_bug.cgi?id=66691
->>
->> There is no point to allow moving a macvlan device to
->> another namespace while the lower device is still in
->> this namespace. tunnels already set this flag.
->
-> Can't we solve this somehow differently, like not showing anything at all
-> etc.? I guess this is a feature some people use and haven't noticed yet.
->
+Hi!
 
-I don't understand what you mean by "not showing anything at all".
-I assume you mean mac1@xxx, not matter whether we show xxx
-here, mac1 relies on xxx to function.
+On Mon, Feb 10, 2014 at 09:41:54AM +0100, Ortwin Gl=C3=BCck wrote:
+> I am using Openswan to configure an IPSec VPN (using the xfrm/netkey=20
+> backend). Large HTTP POST requests from the client seem to get stuck,=
+=20
+> because the outgoing packets are 1530 bytes (before being wrapped int=
+o=20
+> ESP packets). The problem goes away by setting sysctl=20
+> net.ipv4.ip_no_pmtu_disc=3D1.
 
-Please give a real use case rather than just guessing, I don't think
-there is any valid case until we support moving multiple devices into
-a netns atomically.
+This setting will shrink the path mtu to min_pmtu when a frag needed ic=
+mp is
+received. It sounds like we calculate the path mtu incorreclty in case =
+of
+fragmentation.
+
+> May have something to do with it:
+> The tunneled network is 10.6.6.6/32 and I am SNAT'ing some destinatio=
+ns=20
+> to that IP, so they get routed through the tunnel. Any other networks=
+=20
+> are not to go through the tunnel.
+>=20
+> iptables -t nat -A POSTROUTING -d "${R}" -j SNAT --to-source 10.6.6.6
+>=20
+> It seems quite clear to me that xfrm is doing something wrong here.
+
+Can you send a ip route get <ip> to the problematic target to see how
+far off the calculated value is?
+
+Thanks,
+
+  Hannes
