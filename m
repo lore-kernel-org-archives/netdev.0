@@ -1,34 +1,33 @@
-From: "Steinar H. Gunderson" <sesse@samfundet.no>
-Subject: Re: fe80::/64 route missing on GRE tunnels
-Date: Tue, 11 Feb 2014 22:59:28 +0100
-Message-ID: <20140211215928.GA7862@sesse.net>
-References: <20140211215510.GA6994@sesse.net>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Q: why calling kobject_put() twice?
+Date: Tue, 11 Feb 2014 14:24:06 -0800
+Message-ID: <CAHA+R7NMp_cvVCVhaYk--Yh=0KrEE-TKZXfk1MFGjWymC8dzLQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org, itk-intern@samfundet.no
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cassarossa.samfundet.no ([193.35.52.29]:60829 "EHLO
-	cassarossa.samfundet.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752540AbaBKV7a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 16:59:30 -0500
-Content-Disposition: inline
-In-Reply-To: <20140211215510.GA6994@sesse.net>
+Received: from mail-la0-f42.google.com ([209.85.215.42]:59753 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750978AbaBKWYI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 17:24:08 -0500
+Received: by mail-la0-f42.google.com with SMTP id hr13so6529101lab.1
+        for <netdev@vger.kernel.org>; Tue, 11 Feb 2014 14:24:06 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 11, 2014 at 10:55:11PM +0100, Steinar H. Gunderson wrote:
-> but on 3.13.1, no such route shows up. I can add it manually, though.
+Hi,
 
-Correction; I can add it manually, but only to one GRE device at a time:
 
-  root@altersex:~$ ip -6 route add fe80::/64 dev k_molvenfinnoy
-  root@altersex:~$ ip -6 route add fe80::/64 dev k_sessesveits
-  RTNETLINK answers: File exists
-  root@altersex:~$ ip -6 route del fe80::/64 dev k_molvenfinnoy
-  root@altersex:~$ ip -6 route add fe80::/64 dev k_sessesveits
-  root@altersex:~$
+There are many drivers either using free_netdev() as ->destructor() or
+calling it in their own destructor(), and in free_netdev() we call
+put_device(&dev->dev) at last. But in netdev_run_todo(), we call
+kobject_put(&dev->dev.kobj) again after calling ->destructor(). So,
+what's the point of doing this?
 
-/* Steinar */
--- 
-ITK-pang
-http://www.sesse.net/
+Also, if free_netdev() is supposed to free the netdev as its name
+tells, then why it's still safe to read some field of it after that?
+
+I must miss something here.
+
+Thanks.
