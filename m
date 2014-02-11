@@ -1,57 +1,64 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [PATCH] macvlan: unregister net device when netdev_upper_dev_link() fails
-Date: Tue, 11 Feb 2014 15:51:29 -0800
-Message-ID: <1392162690-6647-2-git-send-email-xiyou.wangcong@gmail.com>
-References: <1392162690-6647-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: [PATCH] net: clear iflink when moving to a new netns
+Date: Tue, 11 Feb 2014 15:51:28 -0800
+Message-ID: <1392162690-6647-1-git-send-email-xiyou.wangcong@gmail.com>
 Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
 	"David S. Miller" <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Cong Wang <cwang@twopensource.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:55226 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751435AbaBKXvo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 18:51:44 -0500
-Received: by mail-pa0-f44.google.com with SMTP id kq14so8397395pab.3
-        for <netdev@vger.kernel.org>; Tue, 11 Feb 2014 15:51:43 -0800 (PST)
-In-Reply-To: <1392162690-6647-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:51548 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751435AbaBKXvm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 18:51:42 -0500
+Received: by mail-pb0-f44.google.com with SMTP id rq2so8457333pbb.3
+        for <netdev@vger.kernel.org>; Tue, 11 Feb 2014 15:51:42 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Cong Wang <cwang@twopensource.com>
 
-rtnl_newlink() doesn't unregister it for us on failure.
+BZ: https://bugzilla.kernel.org/show_bug.cgi?id=66691
 
-Cc: Patrick McHardy <kaber@trash.net>
+macvlan and vlan both use iflink to identify its lower device,
+however, after such device is moved to the new netns, its iflink
+would become meaningless as ifindex is per netns. So, instead of
+forbid them moving to another netns, just clear this field so that
+it will not be dumped at least.
+
 Cc: David S. Miller <davem@davemloft.net>
+Cc: Eric W. Biederman <ebiederm@xmission.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 Signed-off-by: Cong Wang <cwang@twopensource.com>
 ---
- drivers/net/macvlan.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ net/core/dev.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 8433de4..a5d2189 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -879,14 +879,15 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
- 	dev->priv_flags |= IFF_MACVLAN;
- 	err = netdev_upper_dev_link(lowerdev, dev);
- 	if (err)
--		goto destroy_port;
--
-+		goto unregister_netdev;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 4ad1b78..5e88b0c2 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6608,12 +6608,11 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
+ 	dev_net_set(dev, net);
  
- 	list_add_tail_rcu(&vlan->list, &port->vlans);
- 	netif_stacked_transfer_operstate(lowerdev, dev);
+ 	/* If there is an ifindex conflict assign a new one */
+-	if (__dev_get_by_index(net, dev->ifindex)) {
+-		int iflink = (dev->iflink == dev->ifindex);
++	if (__dev_get_by_index(net, dev->ifindex))
+ 		dev->ifindex = dev_new_index(net);
+-		if (iflink)
+-			dev->iflink = dev->ifindex;
+-	}
++
++	/* Old iflink is meaningless in the new namespace */
++	dev->iflink = dev->ifindex;
  
- 	return 0;
- 
-+unregister_netdev:
-+	unregister_netdevice(dev);
- destroy_port:
- 	port->count -= 1;
- 	if (!port->count)
+ 	/* Send a netdev-add uevent to the new namespace */
+ 	kobject_uevent(&dev->dev.kobj, KOBJ_ADD);
 -- 
 1.8.3.1
