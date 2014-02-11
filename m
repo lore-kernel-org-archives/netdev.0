@@ -1,85 +1,63 @@
-From: Tingwei Liu <tingw.liu@gmail.com>
-Subject: [PATCH] ipvs: Reduce checkpatch noise in ip_vs_lblc.c
-Date: Tue, 11 Feb 2014 13:35:55 +0800
-Message-ID: <1392096955-12967-1-git-send-email-tingw.liu@gmail.com>
-Cc: Tingwei Liu <tingw.liu@gmail.com>, Tony <liutingwei@hisense.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Patch net] macvlan: add NETIF_F_NETNS_LOCAL flag
+Date: Mon, 10 Feb 2014 21:37:12 -0800
+Message-ID: <1392097032.6615.73.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1392082593-7742-1-git-send-email-xiyou.wangcong@gmail.com>
+	 <20140211014535.GA11150@order.stressinduktion.org>
+	 <CAHA+R7N2rxt5vyF+i8mi04dJaLk5bCgMAZOCexOLULLcQ-mT6w@mail.gmail.com>
+	 <20140211024009.GD11150@order.stressinduktion.org>
+	 <1392092120.6615.64.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAHA+R7MhHuOPaT5oAF_S-a3u1_2mt=Vqd5HCdi9r3JV-fK-6Pw@mail.gmail.com>
+	 <1392096087.6615.72.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:60940 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750721AbaBKFgg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 00:36:36 -0500
-Received: by mail-pa0-f48.google.com with SMTP id kx10so7187804pab.35
-        for <netdev@vger.kernel.org>; Mon, 10 Feb 2014 21:36:35 -0800 (PST)
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:37720 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750721AbaBKFhN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 00:37:13 -0500
+Received: by mail-pa0-f54.google.com with SMTP id fa1so7187457pad.13
+        for <netdev@vger.kernel.org>; Mon, 10 Feb 2014 21:37:13 -0800 (PST)
+In-Reply-To: <1392096087.6615.72.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add whitespace after operator and put open brace { on the previous line
+On Mon, 2014-02-10 at 21:21 -0800, Eric Dumazet wrote:
+> On Mon, 2014-02-10 at 20:41 -0800, Cong Wang wrote:
+> 
+> > Exactly broken by design.
+> 
+> Design of what ? Do you have a pointer to a document about this
+> 'design' ?
+> 
+> > 
+> > IFA_LINK is an ifindex, ifindex is per-netns. macvlan should not use IFA_LINK.
+> 
+> When this was 'designed', ifindex were not per netns.
+> 
+> Apparently nobody spotted this when ifindexes become per netns.
+> 
+> I am sure we can find a solution, keeping this very useful
+> functionality.
 
-Cc: Tony <liutingwei@hisense.com>
-Signed-off-by: Tingwei Liu <tingw.liu@gmail.com>
----
- net/netfilter/ipvs/ip_vs_lblc.c |   13 ++++++-------
- 1 files changed, 6 insertions(+), 7 deletions(-)
+Simple patch would be :
 
-diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
-index ca056a3..547ff33 100644
---- a/net/netfilter/ipvs/ip_vs_lblc.c
-+++ b/net/netfilter/ipvs/ip_vs_lblc.c
-@@ -238,7 +238,7 @@ static void ip_vs_lblc_flush(struct ip_vs_service *svc)
- 
- 	spin_lock_bh(&svc->sched_lock);
- 	tbl->dead = 1;
--	for (i=0; i<IP_VS_LBLC_TAB_SIZE; i++) {
-+	for (i = 0; i < IP_VS_LBLC_TAB_SIZE; i++) {
- 		hlist_for_each_entry_safe(en, next, &tbl->bucket[i], list) {
- 			ip_vs_lblc_del(en);
- 			atomic_dec(&tbl->entries);
-@@ -265,7 +265,7 @@ static inline void ip_vs_lblc_full_check(struct ip_vs_service *svc)
- 	unsigned long now = jiffies;
- 	int i, j;
- 
--	for (i=0, j=tbl->rover; i<IP_VS_LBLC_TAB_SIZE; i++) {
-+	for (i = 0, j = tbl->rover; i < IP_VS_LBLC_TAB_SIZE; i++) {
- 		j = (j + 1) & IP_VS_LBLC_TAB_MASK;
- 
- 		spin_lock(&svc->sched_lock);
-@@ -321,7 +321,7 @@ static void ip_vs_lblc_check_expire(unsigned long data)
- 	if (goal > tbl->max_size/2)
- 		goal = tbl->max_size/2;
- 
--	for (i=0, j=tbl->rover; i<IP_VS_LBLC_TAB_SIZE; i++) {
-+	for (i = 0, j = tbl->rover; i < IP_VS_LBLC_TAB_SIZE; i++) {
- 		j = (j + 1) & IP_VS_LBLC_TAB_MASK;
- 
- 		spin_lock(&svc->sched_lock);
-@@ -340,7 +340,7 @@ static void ip_vs_lblc_check_expire(unsigned long data)
- 	tbl->rover = j;
- 
-   out:
--	mod_timer(&tbl->periodic_timer, jiffies+CHECK_EXPIRE_INTERVAL);
-+	mod_timer(&tbl->periodic_timer, jiffies + CHECK_EXPIRE_INTERVAL);
- }
- 
- 
-@@ -363,7 +363,7 @@ static int ip_vs_lblc_init_svc(struct ip_vs_service *svc)
- 	/*
- 	 *    Initialize the hash buckets
- 	 */
--	for (i=0; i<IP_VS_LBLC_TAB_SIZE; i++) {
-+	for (i = 0; i < IP_VS_LBLC_TAB_SIZE; i++) {
- 		INIT_HLIST_HEAD(&tbl->bucket[i]);
- 	}
- 	tbl->max_size = IP_VS_LBLC_TAB_SIZE*16;
-@@ -536,8 +536,7 @@ out:
- /*
-  *      IPVS LBLC Scheduler structure
-  */
--static struct ip_vs_scheduler ip_vs_lblc_scheduler =
--{
-+static struct ip_vs_scheduler ip_vs_lblc_scheduler = {
- 	.name =			"lblc",
- 	.refcnt =		ATOMIC_INIT(0),
- 	.module =		THIS_MODULE,
--- 
-1.6.0.2
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 048dc8d183aa..31bbba34fd1e 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -963,6 +963,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 	    nla_put_u32(skb, IFLA_NUM_RX_QUEUES, dev->num_rx_queues) ||
+ #endif
+ 	    (dev->ifindex != dev->iflink &&
++	     __dev_get_by_index(dev_net(dev), dev->iflink) &&
+ 	     nla_put_u32(skb, IFLA_LINK, dev->iflink)) ||
+ 	    (upper_dev &&
+ 	     nla_put_u32(skb, IFLA_MASTER, upper_dev->ifindex)) ||
