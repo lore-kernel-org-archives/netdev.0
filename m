@@ -1,125 +1,104 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: RFC: bridge get fdb by bridge device
-Date: Tue, 11 Feb 2014 13:21:24 -0500
-Message-ID: <52FA6A24.3030402@redhat.com>
-References: <52F21F72.2090405@mojatatu.com> <52F29747.7040008@redhat.com> <52F3CF76.9090404@mojatatu.com> <52F3E357.4040006@redhat.com> <52F79990.3000400@mojatatu.com> <52F8FEF1.60407@redhat.com> <52FA58E9.906@mojatatu.com>
-Reply-To: vyasevic@redhat.com
+From: Gustavo Pimentel <gustavo.pimentel@efacec.com>
+Subject: RE: Bonding
+Date: Tue, 11 Feb 2014 18:22:25 +0000
+Message-ID: <8532C3BD1ECBC64BA47CE43AFED6D38EC37E5B43@S103.efacec.pt>
+References: <8532C3BD1ECBC64BA47CE43AFED6D38EC37E5AA5@S103.efacec.pt>
+ <20140211141549.GB29570@redhat.com>
+ <8532C3BD1ECBC64BA47CE43AFED6D38EC37E5B04@S103.efacec.pt>
+ <27459.1392141335@death.nxdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Veaceslav Falico <vfalico@redhat.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39066 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751185AbaBKSVc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Feb 2014 13:21:32 -0500
-In-Reply-To: <52FA58E9.906@mojatatu.com>
+Received: from mail1.efacec.com ([213.58.212.93]:6118 "HELO mail1.efacec.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751367AbaBKSWV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Feb 2014 13:22:21 -0500
+In-Reply-To: <27459.1392141335@death.nxdomain>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/11/2014 12:07 PM, Jamal Hadi Salim wrote:
-> On 02/10/14 11:31, Vlad Yasevich wrote:
->> On 02/09/2014 10:06 AM, Jamal Hadi Salim wrote:
-> 
-> 
->>> +    ndm = nlmsg_data(cb->nlh);
->>> +    if (ndm->ndm_ifindex) {
->>
->> We get really lucky here that ndm_ifindex and ifi_index happen to map to
->> the same location.
->>
-> 
-> Didnt follow - but I have a feeling you are looking at the reference
-> point of a bridge port.
-> Note as per my response to John: The target is a bridge device, not
-> a bridge port.
-> 
-
-No, this was more the point that the current iproute code sends an
-ifinfomsg struct down, and you change that to send ndmsg struct.
-This is risky, but we luck out since the index is at the same offset
-in both structs.
-
-> 
-> 
->>
->> I agree with both of Johns commens fro the above code.
->> I think you can use ndo_dflt_fdb_dump() here and remove the first check
->> for IFF_EBRIDGE.
->>
-> 
-> Same comment i made to John. The goal is to emulate
-> brctl showmacs <bridge>
-> ndo_dflt_fdb_dump() gives me in theory all the bridge ports
-> unicast and multicast MAC addresses. There is a posibility that
-> the bridgeport is a bridge - in which case I can find out from
-> user space and safely request for it directly instead of via
-> its parent.
-> 
-
-But that would only happen if the user said:
-  # bridge fdb show br eth0
-
-If eth0 in this case is a hw bridge device, getting the device's
-version of fdb data is exactly what would be expected, isn't it?
-
-If you mean a 'software bridge' above, then that's not an issue
-since that's a disallowed config.  You can't stack software bridges
-without something in the middle like bond or vlan.
-
->> The only odd thing is that it would permit syntax like:
->>   # bridge fbd show br eth0
->> or
->>   # bridge fdb show br macvlan0
->>
->> but I think that's ok.
-> 
-> Ok, since both you and John point to macvlan - is that
-> considered as something with an fdb? It doesnt forward
-> packets between two devices.
-> 
-
-Yes, macvlan can forward data to other macvlans, but that's
-not the interesting thing.
-When you configure multiple macvlan devices on top of the
-same hw device, one could think of the hw device as a sort
-of a bridge.  It's not really, but you could define it in
-those terms.  The fdb entries, in this case, contain the mac
-addresses of the macvlan devices.
-
-> 
-> 
->>> diff --git a/bridge/fdb.c b/bridge/fdb.c
->>> index e2e53f1..f3073d6 100644
->>> --- a/bridge/fdb.c
->>> +++ b/bridge/fdb.c
->>> @@ -33,7 +33,7 @@ static void usage(void)
->>>       fprintf(stderr, "Usage: bridge fdb { add | append | del |
->>> replace }
->> ADDR dev DEV {self|master} [ temp ]\n"
->>>                   "              [router] [ dst IPADDR] [ vlan VID ]\n"
->>>                   "              [ port PORT] [ vni VNI ] [via DEV]\n");
->>> -    fprintf(stderr, "       bridge fdb {show} [ dev DEV ]\n");
->>> +    fprintf(stderr, "       bridge fdb {show} [ br BRDEV ] [ dev DEV
->>> ]\n");
->>
->> 'port' option is now allowed in the show operation
->>
-> 
-> Thanks - it is already taken seems by vxlan using the same interface.
-> 
-
-Sorry, I wasn't very clear. What I meant was that you now support
-  # bridge fdb show port <>
-
-The usage message should reflect it.
-
--vlad
-> 
-> cheers,
-> jamal
-> 
+SGkgSmF5LA0KDQpJIHdhcyBub3QgYXdhcmUgb2YgdGhhdC4gWW91IGFyZSBjb3JyZWN0LCBib3Ro
+IEhTUiBhbmQgUFJQIGFyZSBkZWZpbmVkIG9uIElFQyA2MjQzOS0zLiBJIHdpbGwgdHJ5IHRvIGNv
+bnRhY3QgdGhlIHBlcnNvbiBpbiBjaGFyZ2Ugb2YgSFNSLCB0byBhY3F1aXJlIG1vcmUgaW5mb3Jt
+YXRpb24gYWJvdXQgaGlzIGRyaXZlciBzdGF0dXMuDQoNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3Nh
+Z2UtLS0tLQ0KPiBGcm9tOiBKYXkgVm9zYnVyZ2ggW21haWx0bzpmdWJhckB1cy5pYm0uY29tXQ0K
+PiBTZW50OiB0ZXLDp2EtZmVpcmEsIDExIGRlIEZldmVyZWlybyBkZSAyMDE0IDE3OjU2DQo+IFRv
+OiBHdXN0YXZvIFBpbWVudGVsDQo+IENjOiBWZWFjZXNsYXYgRmFsaWNvOyBuZXRkZXZAdmdlci5r
+ZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBCb25kaW5nDQo+IA0KPiBHdXN0YXZvIFBpbWVudGVs
+IDxndXN0YXZvLnBpbWVudGVsQGVmYWNlYy5jb20+IHdyb3RlOg0KPiANCj4gPkhpIFZlYWNlc2xh
+diwNCj4gPg0KPiA+SXQncyBxdWl0ZSBkaWZmZXJlbnQgZnJvbSBicm9hZGNhc3QgbW9kZSwgZWFj
+aCBmcmFtZSBzZW50IHRocm91Z2ggdGhlIHNsYXZlcyBoYXMNCj4gYXR0YWNoZWQgYSBSZWR1bmRh
+bmN5IENvbnRyb2wgVHJhaWxlciBhbHNvIGtub3duIGFzIFJDVCAodGhpcyB0cmFpbGVyIGlzIGNv
+bXBvc2UNCj4gYnkgYSBMQU4gaWRlbnRpZmllciwgc2VxdWVuY2UgbnVtYmVyLCBhIExTRFUgc2l6
+ZSBhbmQgYSBQUlAgc3VmZml4KS4NCj4gPkFsc28gdGhlIGVxdWlwbWVudCB3aXRoIFBSUCBjYXBh
+YmlsaXR5IGhhcyB0byBzZW5kIHBlcmlvZGljYWxseSBhIHN1cGVydmlzaW9uDQo+IGZyYW1lIHRv
+IGJvdGggc2ltaWxhciBMQU5zLiBFYWNoIGRldmljZSBvbiB0aGUgbmV0d29yayBoYXMgdG8ga2Vl
+cCB0cmFjayBvZg0KPiByZWNlaXZlIHNlcXVlbmNlIG51bWJlcnMgcmVjZWl2ZWQsIGlmIHRoZSBy
+ZWNlaXZlZCBhIHNlcXVlbmNlIG51bWJlciBmb3INCj4gaW5zdGFuY2UgZnJvbSBMQU4gQSBvZiBz
+cGVjaWZpYyBkZXZpY2UgYW5kIGl0IGRvZXNuJ3QgZXhpc3Qgb24gaW50ZXJuYWwgdGFibGUsIHRo
+ZQ0KPiBkZXZpY2Ugc2hvdWxkIGFjY2VwdCB0aGUgZnJhbWUgYW5kIHVwZGF0ZSB0aGUgaW50ZXJu
+YWwgdGFibGUuIFdoZW4gcmVjZWl2aW5nIHRoZQ0KPiBzYW1lIHNlcXVlbmNlIG51bWJlciBmcm9t
+IHRoZSBMQU4gQiwgdGhlIGRldmljZSBzaG91bGQgZGlzY2FyZCBpdCwgcHJvdmlkaW5nDQo+IHpl
+cm8gZG93bnRpbWUgcmVkdW5kYW5jeS4NCj4gPg0KPiA+SSBjYW4gc3VwcGx5IHlvdSBpbmZvcm1h
+dGlvbiBhYm91dCB0aGlzIHJlZHVuZGFuY3kgcHJvdG9jb2wsIGlmIHlvdSBsaWtlLiBUaGlzDQo+
+IHR5cGUgb2YgbmV0d29yayByZWR1bmRhbmN5IGlzIG5vdyBiZWluZyBsYXJnZSBkZXBsb3llZCBv
+biBlbGVjdHJpY2FsIHBvd2VyDQo+IHN0YXRpb25zIChsaWtlIHRoZXJtYWwgYW5kIGh5ZHJvKSBh
+bmQgdHJhbnNtaXNzaW9uIHBvd2VyIHN0YXRpb25zIGluc3RlYWQgb2YNCj4gdGVhbWluZyAvIGJv
+bmRpbmcgdGhhdCBkZXBlbmRzIG9uIFJTVFAgZm9yIHJlZHVuZGFuY3kuDQo+IA0KPiAJQXJlIHlv
+dSBhd2FyZSB0aGF0IHRoZXJlIGlzIGFscmVhZHkgYW4gaW1wbGVtZW50YXRpb24gb2YgSFNSIChI
+aWdoLQ0KPiBhdmFpbGFiaWxpdHkgU2VhbWxlc3MgUmVkdW5kYW5jeSkgaW4gdGhlIGxpbnV4IGtl
+cm5lbD8gIEkgYmVsaWV2ZSBIU1IgYW5kIFBSUCBhcmUNCj4gZGVmaW5lZCBieSB0aGUgc2FtZSBz
+dGFuZGFyZCAoSUVDIDYyNDM5LTMpLCBhbmQgYXJlIHNpbWlsYXIgZW5vdWdoIHRvIGludGVyb3Bl
+cmF0ZQ0KPiB0byBzb21lIGRlZ3JlZS4gIFBlcmhhcHMgUFJQIHdvdWxkIGJlIGJldHRlciBpbXBs
+ZW1lbnRlZCBhcyBhIHZhcmlhbnQgd2l0aGluIHRoZQ0KPiBleGlzdGluZyBuZXQvaHNyLyBmcmFt
+ZXdvcmsuDQo+IA0KPiAJLUoNCj4gDQo+IA0KPiA+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0t
+LQ0KPiA+PiBGcm9tOiBWZWFjZXNsYXYgRmFsaWNvIFttYWlsdG86dmZhbGljb0ByZWRoYXQuY29t
+XQ0KPiA+PiBTZW50OiB0ZXLDp2EtZmVpcmEsIDExIGRlIEZldmVyZWlybyBkZSAyMDE0IDE0OjE2
+DQo+ID4+IFRvOiBHdXN0YXZvIFBpbWVudGVsDQo+ID4+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwu
+b3JnDQo+ID4+IFN1YmplY3Q6IFJlOiBCb25kaW5nDQo+ID4+DQo+ID4+IE9uIFR1ZSwgRmViIDEx
+LCAyMDE0IGF0IDAxOjUzOjMyUE0gKzAwMDAsIEd1c3Rhdm8gUGltZW50ZWwgd3JvdGU6DQo+ID4+
+ID5IaSwNCj4gPj4NCj4gPj4gSGkgR3VzdGF2bywNCj4gPj4NCj4gPj4gPg0KPiA+PiA+SSdtIHdy
+aXRpbmcgeW91IGJlY2F1c2UgYmVjYXVzZSBJJ20gaGF2ZSBpbXBsZW1lbnRlZCBhIG5ldyBtb2Rl
+IChQUlANCj4gPj4gPlBhcmFsbGVsDQo+ID4+IFJlZHVuZGFuY3kgUHJvdG9jb2wpIGZvciBib25k
+aW5nIGtlcm5lbCBkcml2ZXIuIFRoaXMgbmV3IG1vZGUgaXMNCj4gPj4gcXVpdGUgc2ltcGxlLCBJ
+IGRvbid0IGtub3cgaWYgeW91IGhhdmUgaGVhcmQgYWJvdXQgUFJQLCBidXQgaXQncyBhDQo+ID4+
+IG5ldyBzdGFuZGFyZCB0aGF0IGFsbG93cyB0byBvdmVyY29tZSBhbnkgc2luZ2xlIG5ldHdvcmsg
+ZmFpbHVyZQ0KPiA+PiB3aXRob3V0IGFmZmVjdGluZyB0aGUgZGF0YSB0cmFuc21pc3Npb24uIFRo
+ZSBnZW5lcmFsIGlkZWEgcmVzaWRlcyBvbg0KPiA+PiBoYXZpbmcgdHdvIHNlcGFyYXRlIExBTiAo
+QSAmIEIpIHZlcnkgc2ltaWxhciBhbmQgdHJhbnNtaXR0aW5nIHRoZQ0KPiA+PiBhbG1vc3QgdGhl
+IHNhbWUgZnJhbWXCoHRocm91Z2ggYm90aCBMQU5zIGFuZCB0aGUgZW5kIGRldmljZSBzaG91bGQg
+YWNjZXB0DQo+IG9uZSBmcmFtZSBhbmQgZGlzY2FyZCB0aGUgb3RoZXIgYWNjb3JkaW5nIHRvIGEg
+a25vd24gbWVjaGFuaXNtLg0KPiA+Pg0KPiA+PiBJc24ndCB0aGF0IHRoZSBjdXJyZW50ICdicm9h
+ZGNhc3QnIG1vZGUsIHdoZXJlIGV2ZXJ5IHBhY2tldCBpcw0KPiA+PiB0cmFuc21pdHRlZCBvdmVy
+IGFsbCB0aGUgc2xhdmVzPyBBZnRlciBxdWljayBnb29nbGluZy9yZWFkaW5nIEkgZG9uJ3QNCj4g
+Pj4gc2VlIGFueSBkaWZmZXJlbmNlIHRoZXJlLCB0aG91Z2ggSSBtaWdodCBoYXZlIG1pc3NlZCBz
+b21ldGhpbmcuDQo+ID4+DQo+ID4+ID4NCj4gPj4gPkkgaGF2ZSBpbXBsZW1lbnRlZCB0aGlzIG5l
+dyBtb2RlIG9uIGJvbmRpbmcgZHJpdmVyLCBidXQgSSBoYXZlIHNvbWUNCj4gPj4gZGlmZmljdWx0
+aWVzOg0KPiA+PiA+LiBXcml0aW5nIGxpbnV4IGRyaXZlciBpcyBxdWl0ZSBuZXcgZm9yIG1lLiBJ
+IGRvbid0JyBrbm93IGlmIGV4aXN0cw0KPiA+PiA+Z3VpZGUgbGluZXMgZm9yDQo+ID4+IGRyaXZl
+ciBjb2RpbmcuDQo+ID4+DQo+ID4+IFlvdSBjYW4gZmluZCBldmVyeXRoaW5nIHVuZGVyIERvY3Vt
+ZW50YXRpb24vLCBidXQgd2l0aG91dCB0aGUgY29kZSBJDQo+ID4+IGNhbid0IHRlbGwgeW91IGV4
+YWN0IGRvY3VtZW50cy4gQ29kaW5nU3R5bGUgYW5kIFN1Ym1pdHRpbmdQYXRjaGVzIG1pZ2h0IGJl
+DQo+IHRoZSBmaXJzdCBvbmVzLg0KPiA+Pg0KPiA+PiBBbHNvLCB0cnkgQ0MtaW5nIHJlbGV2YW50
+IHBlb3BsZSBmb3IgbW9yZSBmZWVkYmFjaywgc3BlY2lmaWNhbGx5DQo+ID4+IGJvbmRpbmcgbWFp
+bnRhaW5lcnMuDQo+ID4+DQo+ID4+ID4uIEkgZG9uJ3Qga25vdyBob3cgdG8gc3VibWl0IHRoZSBj
+b2RlIHRvIGJlIGluY2x1ZGUgb24ga2VybmVsIHJlcG9zaXRvcnkuDQo+ID4+ID4uIE1heWJlIGFu
+b3RoZXIgcGFpciBvZiBleWVzIGNvdWxkIGZpbmQgaGVscCB0byBpbXByb3ZlIHRoZSB3cml0aW5n
+DQo+ID4+ID5jb2RlIGZvciB0aGlzDQo+ID4+IG1vZGUuDQo+ID4+DQo+ID4+IFRyeSBzZW5kaW5n
+IGFuIFJGQyB3aGVuIG5ldC1uZXh0IG9wZW5zLg0KPiA+Pg0KPiA+PiA+DQo+ID4+ID5JIHRoaW5r
+IG15IGRyaXZlciBjb2RlIGlzIDk5JSBjb21wbGV0ZS4gSSdtIGN1cnJlbnRseSB0ZXN0aW5nIHdp
+dGggMw0KPiA+PiA+ZXF1aXBtZW50cyAoMQ0KPiA+PiBwYyArIDEgZW1iZWRkZWQgZGV2aWNlIHJ1
+bm5pbmcgYm90aCBteSBtb2RpZnkgYm9uZGluZyBkcml2ZXIpIGFuZCBhDQo+ID4+IHRoaXJkIHBh
+cnR5IGVxdWlwbWVudCBjYWxsZWQgUmVkQm94Lg0KPiA+PiA+DQo+ID4+ID5Xb3VsZCB5b3UgYmUg
+aW50ZXJlc3RlZCBpbiBwYXJ0aWNpcGF0aW5nIC8gaGVscGluZyB0aGlzIHByb2plY3Q/DQo+ID4+
+ID4NCj4gPj4gPldpdGggbXkgYmVzdCByZWdhcmRzLA0KPiA+PiA+DQo+ID4+ID5HdXN0YXZvIEdh
+bWEgZGEgUm9jaGEgUGltZW50ZWwNCj4gPj4gPlBvd2VyIFN5c3RlbXMgQXV0b21hdGlvbiAvIElu
+bm92YXRpb24gJiBEZXZlbG9wbWVudCBFZmFjZWMNCj4gPj4gPkVuZ2VuaGFyaWEgZSBTaXN0ZW1h
+cywgUy5BLg0KPiA+PiA+UGhvbmU6ICszNTEyMjk0MDMzOTENCj4gPj4gPkRpc2NsYWltZXINCj4g
+DQo+IC0tLQ0KPiAJLUpheSBWb3NidXJnaCwgSUJNIExpbnV4IFRlY2hub2xvZ3kgQ2VudGVyLCBm
+dWJhckB1cy5pYm0uY29tDQo+IA0KDQo=
