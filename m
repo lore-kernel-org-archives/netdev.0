@@ -1,49 +1,30 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH v2 1/2] sctp: fix a missed .data initialization
-Date: Tue, 11 Feb 2014 09:49:05 +0800
-Message-ID: <1392083346-9420-2-git-send-email-wangweidong1@huawei.com>
-References: <1392083346-9420-1-git-send-email-wangweidong1@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] alx: add missing stats_lock spinlock init
+Date: Mon, 10 Feb 2014 17:51:03 -0800 (PST)
+Message-ID: <20140210.175103.980140501807438730.davem@davemloft.net>
+References: <1392060844-30995-1-git-send-email-jogreene@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <dborkman@redhat.com>, <netdev@vger.kernel.org>
-To: <nhorman@tuxdriver.com>, <davem@davemloft.net>,
-	<vyasevich@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: jogreene@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:26048 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752131AbaBKBtx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 20:49:53 -0500
-In-Reply-To: <1392083346-9420-1-git-send-email-wangweidong1@huawei.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57518 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751503AbaBKBvE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 20:51:04 -0500
+In-Reply-To: <1392060844-30995-1-git-send-email-jogreene@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As commit 3c68198e75111a90("sctp: Make hmac algorithm selection for
- cookie generation dynamic"), we miss the .data initialization.
-If we don't use the net_namespace, the problem that parts of the
-sysctl configuration won't be isolation and won't occur.
+From: John Greene <jogreene@redhat.com>
+Date: Mon, 10 Feb 2014 14:34:04 -0500
 
-In sctp_sysctl_net_register(), we register the sysctl for each
-net, in the for(), we use the 'table[i].data' as check condition, so
-when the 'i' is the index of sctp_hmac_alg, the data is NULL, then
-break. So add the .data initialization.
+> Trivial fix for init time stack trace occuring in
+> alx_get_stats64 upon start up. Should have been part of
+> commit adding the spinlock:
+> f1b6b106 alx: add alx_get_stats64 operation
+> 
+> Signed-off-by: John Greene <jogreene@redhat.com>
 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
----
- net/sctp/sysctl.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-index b0565af..2ddb401 100644
---- a/net/sctp/sysctl.c
-+++ b/net/sctp/sysctl.c
-@@ -152,6 +152,7 @@ static struct ctl_table sctp_net_table[] = {
- 	},
- 	{
- 		.procname	= "cookie_hmac_alg",
-+		.data		= &init_net.sctp.sctp_hmac_alg,
- 		.maxlen		= 8,
- 		.mode		= 0644,
- 		.proc_handler	= proc_sctp_do_hmac_alg,
--- 
-1.7.12
+Applied, thank you.
