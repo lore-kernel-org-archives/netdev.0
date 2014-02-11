@@ -1,47 +1,54 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-Subject: Re: [PATCH] net: rtnetlink: fix correct size given to memset
-Date: Tue, 11 Feb 2014 08:01:25 -0800 (PST)
-Message-ID: <1392134485.29083.YahooMailNeo@web125506.mail.ne1.yahoo.com>
-References: <1392127598-3719-1-git-send-email-fx.lebail@yahoo.com> <1392132522.6615.85.camel@edumazet-glaptop2.roam.corp.google.com>
-Reply-To: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netfilter: nf_nat_snmp_basic: fix duplicates in if/else branches
+Date: Tue, 11 Feb 2014 16:11:02 +0000
+Message-ID: <ff58928d-2f4e-4572-a8c3-71a0ce1844c9@email.android.com>
+References: <1392130165-4313-1-git-send-email-fx.lebail@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: NETDEV <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm24-vm5.bullet.mail.ne1.yahoo.com ([98.138.91.246]:45497 "EHLO
-	nm24-vm5.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751891AbaBKQHd convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Feb 2014 11:07:33 -0500
-In-Reply-To: <1392132522.6615.85.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 8bit
+To: Francois-Xavier Le Bail <fx.lebail@yahoo.com>,
+	NETDEV <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org
+Return-path: <netfilter-owner@vger.kernel.org>
+In-Reply-To: <1392130165-4313-1-git-send-email-fx.lebail@yahoo.com>
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> From: Eric Dumazet <eric.dumazet@gmail.com>
+On 11. Februar 2014 14:49:25 GMT+00:00, Francois-Xavier Le Bail <fx.lebail@yahoo.com> wrote:
+>The solution was found by Patrick in 2.4 kernel sources.
+>
+>Cc: Patrick McHardy <kaber@trash.net>
 
-> To: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
->>  Find by cppcheck:
->>  [net/core/rtnetlink.c:1842]: (warning) Using size of pointer linkin=
-fo=20
-> instead of size of its data.
->>=20
->>  Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
->>  ---
->>=20
->>  The diagnosis of cppcheck seems relevant.
->>=20
->> =A0 net/core/rtnetlink.c |=A0 =A0 2 +-
->> =A0 1 file changed, 1 insertion(+), 1 deletion(-)
->>=20
-> This is absolutely wrong.
->=20
-> =A0=A0=A0 struct nlattr *linkinfo[IFLA_INFO_MAX+1];
->=20
-> sizeof(linkinfo) is totally appropriate=20
->=20
-> sizeof(*linkinfo) is equal to sizeof(void *), and this is not what we
-> need here.
+Acked-by: Patrick McHardy <kaber@trash.net>
 
-Oops, sorry for the noise.
+>Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+>---
+> net/ipv4/netfilter/nf_nat_snmp_basic.c |    4 ++--
+> 1 file changed, 2 insertions(+), 2 deletions(-)
+>
+>diff --git a/net/ipv4/netfilter/nf_nat_snmp_basic.c
+>b/net/ipv4/netfilter/nf_nat_snmp_basic.c
+>index d551e31..7c67667 100644
+>--- a/net/ipv4/netfilter/nf_nat_snmp_basic.c
+>+++ b/net/ipv4/netfilter/nf_nat_snmp_basic.c
+>@@ -1198,8 +1198,8 @@ static int snmp_translate(struct nf_conn *ct,
+> 		map.to = NOCT1(&ct->tuplehash[!dir].tuple.dst.u3.ip);
+> 	} else {
+> 		/* DNAT replies */
+>-		map.from = NOCT1(&ct->tuplehash[dir].tuple.src.u3.ip);
+>-		map.to = NOCT1(&ct->tuplehash[!dir].tuple.dst.u3.ip);
+>+		map.from = NOCT1(&ct->tuplehash[!dir].tuple.src.u3.ip);
+>+		map.to = NOCT1(&ct->tuplehash[dir].tuple.dst.u3.ip);
+> 	}
+> 
+> 	if (map.from == map.to)
+>--
+>To unsubscribe from this list: send the line "unsubscribe
+>netfilter-devel" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
