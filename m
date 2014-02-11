@@ -1,97 +1,303 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 3/3] net: GSO encapsulation for IP packets
-Date: Tue, 11 Feb 2014 09:43:56 -0800 (PST)
-Message-ID: <alpine.DEB.2.02.1402110928030.7010@tomh.mtv.corp.google.com>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH V3] net/dt: Add support for overriding phy configuration
+ from device tree
+Date: Tue, 11 Feb 2014 09:43:57 -0800
+Message-ID: <CAGVrzca7CV1SM0PfV2o=02Zd8z-65002kq6e-fhG6gWdkCadGA@mail.gmail.com>
+References: <7510122.cayuQ6qt8r@wuerfel> <CAGVrzcZ4TFd=9KP+aoG47QbmqDJ1i23WBcEWDbzNRUfGmPvZHQ@mail.gmail.com>
+ <52F8FB03.6040606@keymile.com> <29007785.iYrLORbRAN@lenovo> <52F9E8E6.1090006@keymile.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: ogerlitz@mellanox.com
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f73.google.com ([209.85.216.73]:54610 "EHLO
-	mail-qa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751753AbaBKRn6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 12:43:58 -0500
-Received: by mail-qa0-f73.google.com with SMTP id w5so1008509qac.2
-        for <netdev@vger.kernel.org>; Tue, 11 Feb 2014 09:43:57 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Matthew Garrett <matthew.garrett-05XSO3Yj/JvQT0dZR+AlfA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Kishon Vijay Abraham I <kishon-l0cyMroinI0@public.gmane.org>
+To: Gerlando Falauto <gerlando.falauto-SkAbAL50j+5BDgjK7y7TUQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <52F9E8E6.1090006-SkAbAL50j+5BDgjK7y7TUQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The UDP GSO code assume that only encapsulated packets are Ethernet
-frames. This patch fixes that so that we can support IP protocol
-encpasulation (GUE, GRE/UDP, etc.)
+Hi Gerlando,
 
-We overload the inner_protocol field in the skb to store either the
-Ethertype or the IP protocol (latter is indicated by ip_encapsulation
-bit). As far as I can tell this should not adversely affect preexiting
-uses for inner_protocol.
+2014-02-11 1:09 GMT-08:00 Gerlando Falauto <gerlando.falauto-SkAbAL50j+6IwRZHo2/mJg@public.gmane.org=
+m>:
+> Hi Florian,
+>
+> first of all, thank you for your answer.
+>
+>
+> On 02/10/2014 06:09 PM, Florian Fainelli wrote:
+>>
+>> Hi Gerlando,
+>>
+>> Le lundi 10 f=C3=A9vrier 2014, 17:14:59 Gerlando Falauto a =C3=A9cri=
+t :
+>>>
+>>> Hi,
+>>>
+>>> I'm currently trying to fix an issue for which this patch provides =
+a
+>>> partial solution, so apologies in advance for jumping into the
+>>> discussion for my own purposes...
+>>>
+>>> On 02/04/2014 09:39 PM, Florian Fainelli wrote:> 2014-01-17 Matthew
+>>>
+>>> Garrett <matthew.garrett-05XSO3Yj/JvQT0dZR+AlfA@public.gmane.org>:
+>>>   >> Some hardware may be broken in interesting and board-specific =
+ways,
+>>> such
+>>>   >> that various bits of functionality don't work. This patch prov=
+ides a
+>>>   >> mechanism for overriding mii registers during init based on th=
+e
+>>>
+>>> contents of
+>>>
+>>>   >> the device tree data, allowing board-specific fixups without h=
+aving
+>>> to
+>>>   >> pollute generic code.
+>>>   >
+>>>   > It would be good to explain exactly how your hardware is broken
+>>>   > exactly. I really do not think that such a fine-grained setting=
+ where
+>>>   > you could disable, e.g: 100BaseT_Full, but allow 100BaseT_Half =
+to
+>>>   > remain usable makes that much sense. In general, Gigabit might =
+be
+>>>   > badly broken, but 100 and 10Mbits/sec should work fine. How abo=
+ut the
+>>>   > MASTER-SLAVE bit, is overriding it really required?
+>>>   >
+>>>   > Is not a PHY fixup registered for a specific OUI the solution y=
+ou are
+>>>   > looking for? I am also concerned that this creates PHY
+>>> troubleshooting
+>>>   > issues much harder to debug than before as we may have no idea =
+about
+>>>   > how much information has been put in Device Tree to override th=
+at.
+>>>   >
+>>>   > Finally, how about making this more general just like the BCM87=
+xx PHY
+>>>   > driver, which is supplied value/reg pairs directly? There are 1=
+6
+>>>   > common MII registers, and 16 others for vendor specific registe=
+rs,
+>>>   > this is just covering for about 2% of the possible changes.
+>>>
+>>> Good point. That would easily help me with my current issue, which
+>>> requires autoneg to be disabled to begin with (by clearing BMCR_ANE=
+NABLE
+>>> from register 0).
+>>
+>>
+>> Is there a point in time (e.g: after some specific initial configura=
+tion
+>> has
+>> been made) where BMCR_ANENABLE can be used?
+>
+>
+> What do you mean? In my case, for some HW-related reason (due to the =
+PHY
+> counterpart I guess) autoneg needs to be disabled.
+> This is currently done by the bootloader code (which clears the bit).
+> What I'm looking for is some way for the kernel to either reinforce t=
+his
+> setting, or just take that into account and skip autoneg.
+> On top of that, there's a HW errata about that particular PHY, which
+> requires certain operations to be performed on the PHY as a workaroun=
+d *WHEN
+> AUTONEG IS DISABLED*. That I'd implement on a PHY-specif driver.
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- include/linux/skbuff.h |  8 ++++++--
- net/core/skbuff.c      |  1 +
- net/ipv4/udp.c         | 12 +++++++++++-
- 3 files changed, 18 insertions(+), 3 deletions(-)
+Ok.
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 1f689e6..757ed39 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -512,7 +512,11 @@ struct sk_buff {
- 	 * headers if needed
- 	 */
- 	__u8			encapsulation:1;
--	/* 6/8 bit hole (depending on ndisc_nodetype presence) */
-+	/* skbuf encpasulates an IP packet, inner_protocol should be
-+	 * interpreted as an IP protocol, encapsulation bit is also set
-+	 */
-+	__u8			ip_encapsulation:1;
-+	/* 5/7 bit hole (depending on ndisc_nodetype presence) */
- 	kmemcheck_bitfield_end(flags2);
- 
- #if defined CONFIG_NET_DMA || defined CONFIG_NET_RX_BUSY_POLL
-@@ -530,7 +534,7 @@ struct sk_buff {
- 		__u32		reserved_tailroom;
- 	};
- 
--	__be16			inner_protocol;
-+	__u16			inner_protocol;
- 	__u16			inner_transport_header;
- 	__u16			inner_network_header;
- 	__u16			inner_mac_header;
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 8f519db..64c6190 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -687,6 +687,7 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
- 	new->ooo_okay		= old->ooo_okay;
- 	new->no_fcs		= old->no_fcs;
- 	new->encapsulation	= old->encapsulation;
-+	new->ip_encapsulation	= old->ip_encapsulation;
- #ifdef CONFIG_XFRM
- 	new->sp			= secpath_get(old->sp);
- #endif
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 77bd16f..48d8cb2 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -2497,7 +2497,17 @@ struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
- 
- 	/* segment inner packet. */
- 	enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
--	segs = skb_mac_gso_segment(skb, enc_features);
-+
-+	if (skb->ip_encapsulation) {
-+		const struct net_offload *ops;
-+		ops = rcu_dereference(inet_offloads[skb->inner_protocol]);
-+		if (likely(ops && ops->callbacks.gso_segment))
-+			segs = ops->callbacks.gso_segment(skb, enc_features);
-+	} else {
-+		skb->protocol = htons(ETH_P_TEB);
-+		segs = skb_mac_gso_segment(skb, enc_features);
-+	}
-+
- 	if (!segs || IS_ERR(segs)) {
- 		skb_gso_error_unwind(skb, protocol, tnl_hlen, mac_offset,
- 				     mac_len);
--- 
-1.9.0.rc1.175.g0b1dcb5
+>
+>
+>>> This would not however fix it entirely (I tried a quick hardwired
+>>> implementation), as the whole PHY machinery would not take that int=
+o
+>>> account and would re-enable autoneg anyway.
+>>> I also tried changing the patch so that phydev->support gets update=
+d
+>>
+>>
+>> There are multiple things that you could try doing here:
+>>
+>> - override the PHY state machine in your read_status callback to mak=
+e sure
+>> that you always set phydev->autoneg set to AUTONEG_ENABLE
+>
+>
+> [you mean AUTONEG_DISABLE, right?]
+
+Right, I fat fingered here.
+
+> Uhm, but I don't want to implement a driver for that PHY that always
+> disables autoneg. I only want to disable autoneg for that particular =
+board.
+> I figure I might register a fixup for that board, but that kindof mak=
+es
+> everything more complicated and less clear. Plus, what should be the
+> criterion to determine whether we're running on that particular hardw=
+are?
+
+of_machine_is_compatible() plus reading the specific PHY OUI should
+provide you with with an unique machine + PHY tuple. If your machine
+name is too generic.
+
+>
+>
+>> - clear the SUPPORTED_Autoneg bits from phydev->supported right afte=
+r PHY
+>> registration and before the call to phy_start()
+>
+>
+> I actually tried clearing it by tweaking the patch on this thread, bu=
+t the
+> end result is that it does not produce any effect (see further commen=
+ts
+> below). Only thing that seems to play a role here is explictly settin=
+g
+> phydev->autoneg =3D AUTONEG_DISABLE.
+>
+>
+>> - set the PHY_HAS_MAGICANEG bit in your PHY driver flag
+>
+>
+> Again, this seems to play no role whatsoever here:
+>
+>                         } else if (0 =3D=3D phydev->link_timeout--) {
+>                                 needs_aneg =3D 1;
+>                                 /* If we have the magic_aneg bit,
+>                                  * we try again */
+>                                 if (phydev->drv->flags & PHY_HAS_MAGI=
+CANEG)
+>                                         break;
+>                         }
+>                         break;
+>                 case PHY_NOLINK:
+>
+> This code might have made sense when it was written in 2006 -- back t=
+hen,
+> the break statement was skipping some fallback code. But now it seems=
+ to do
+> nothing.
+>
+>
+>>
+>>>
+>>> (instead of phydev->advertising):
+>>>   >> +               if (!of_property_read_u32(np, override->prop, =
+&tmp))
+>>> {
+>>>   >> +                       if (tmp) {
+>>>   >> +                               *val |=3D override->value;
+>>>   >> +                               phydev->advertising |=3D
+>>>
+>>> override->supported;
+>>>
+>>>   >> +                       } else {
+>>>   >> +                               phydev->advertising &=3D
+>>>
+>>> ~(override->supported);
+>>>
+>>>   >> +                       }
+>>>   >> +
+>>>   >> +                       *mask |=3D override->value;
+>>>
+>>> What I find weird is that the only way phydev->autoneg could ever b=
+e set
+>>> to disabled is from here (phy.c):
+>>>
+>>> static void phy_sanitize_settings(struct phy_device *phydev)
+>>> {
+>>>         u32 features =3D phydev->supported;
+>>>         int idx;
+>>>
+>>>         /* Sanitize settings based on PHY capabilities */
+>>>         if ((features & SUPPORTED_Autoneg) =3D=3D 0)
+>>>                 phydev->autoneg =3D AUTONEG_DISABLE;
+>>>
+>>> which is in turn only called when phydev->autoneg is set to
+>>> AUTONEG_DISABLE to begin with:
+>>>
+>>> int phy_start_aneg(struct phy_device *phydev)
+>>> {
+>>>         int err;
+>>>
+>>>         mutex_lock(&phydev->lock);
+>>>
+>>>         if (AUTONEG_DISABLE =3D=3D phydev->autoneg)
+>>>                 phy_sanitize_settings(phydev);
+>>>
+>>> So could someone please help me figure out what I'm missing here?
+>>
+>>
+>> At first glance it looks like the PHY driver should be reading the p=
+hydev-
+>>>
+>>> autoneg value when the PHY driver config_aneg() callback is called =
+to be
+>>
+>> allowed to set the forced speed and settings.
+>>
+>> The way phy_sanitize_settings() is coded does not make it return a m=
+ask of
+>> features, but only the forced supported speed and duplex. Then when =
+the
+>> link
+>> is forced but we are having some issues getting a link status, libph=
+y
+>> tries
+>> lower speeds and this function is used again to provide the next
+>> speed/duplex
+>> pair to try.
+>>
+>
+> What I was trying to say is that phy_sanitize_settings() is only call=
+ed when
+> phydev->autoneg =3D=3D AUTONEG_DISABLE, and in turn it's the only gen=
+eric
+> function setting phydev->autoneg =3D AUTONEG_DISABLE.
+> So perhaps the condition should read:
+>
+> -       if (AUTONEG_DISABLE =3D=3D phydev->autoneg)
+> +       if ((features & SUPPORTED_Autoneg) =3D=3D 0)
+>                 phy_sanitize_settings(phydev);
+>
+> Or else, some other parts of the generic code should take care of set=
+ting it
+> to AUTONEG_DISABLE, depending on whether the feature is supported or =
+not.
+> What I found weird is explicitly setting a value (phydev->autoneg =3D
+> AUTONEG_DISABLE), from a static function which is only called when th=
+at
+> condition is already true.
+
+I do not think that this change is correct either, let me cook a patch
+for you to allow disabling autoneg from the start.
+
+>
+> BTW, I feel like disabling autoneg from the start has never been a us=
+e case
+> before, am I right?
+
+Not really no, and that is because most hardware does not need quirks
+to work correctly.
+
+>
+> Thanks!
+> Gerlando
+
+
+
+--=20
+=46lorian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
