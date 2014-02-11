@@ -1,70 +1,37 @@
-From: Qin Chuanyu <qinchuanyu@huawei.com>
-Subject: [PATCH] tun: use netif_receive_skb instead of netif_rx_ni
-Date: Tue, 11 Feb 2014 22:25:09 +0800
-Message-ID: <52FA32C5.9040601@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <jasowang@redhat.com>, "Michael S. Tsirkin" <mst@redhat.com>,
-	"Anthony Liguori" <anthony@codemonkey.ws>,
-	KVM list <kvm@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: <davem@davemloft.net>
+From: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+Subject: [PATCH] net: rtnetlink: fix correct size given to memset
+Date: Tue, 11 Feb 2014 15:06:38 +0100
+Message-ID: <1392127598-3719-1-git-send-email-fx.lebail@yahoo.com>
+To: NETDEV <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:3534 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750984AbaBKOZm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 09:25:42 -0500
+Received: from smtp05.smtpout.orange.fr ([80.12.242.127]:28742 "EHLO
+	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751840AbaBKOgf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 09:36:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-we could xmit directly instead of going through softirq to gain 
-throughput and lantency improved.
-test model: VM-Host-Host just do transmit. with vhost thread and nic
-interrupt bind cpu1. netperf do throuhput test and qperf do lantency test.
-Host OS: suse11sp3, Guest OS: suse11sp3
+Find by cppcheck:
+[net/core/rtnetlink.c:1842]: (warning) Using size of pointer linkinfo instead of size of its data.
 
-latency result(us):
-packet_len 64 256 512 1460
-old(UDP)   44  47  48   66
-new(UDP)   38  41  42   66
-
-old(TCP)   52  55  70  117
-new(TCP)   45  48  61  114
-
-throughput result(Gbit/s):
-packet_len   64   512   1024   1460
-old(UDP)   0.42  2.02   3.75   4.68
-new(UDP)   0.45  2.14   3.77   5.06
-
-TCP due to the latency, client couldn't send packet big enough
-to get benefit from TSO of nic, so the result show it will send
-more packet per sencond but get lower throughput.
-
-Eric mentioned that it would has problem with cgroup, but the patch
-had been sent by Herbert Xu.
-patch_id f845172531fb7410c7fb7780b1a6e51ee6df7d52
-
-Signed-off-by: Chuanyu Qin <qinchuanyu@huawei.com>
+Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
 ---
-  drivers/net/tun.c |    4 +++-
-  1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 44c4db8..90b4e58 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1184,7 +1184,9 @@ static ssize_t tun_get_user(struct tun_struct 
-*tun, struct tun_file *tfile,
-  	skb_probe_transport_header(skb, 0);
+The diagnosis of cppcheck seems relevant.
 
-  	rxhash = skb_get_hash(skb);
--	netif_rx_ni(skb);
-+	rcu_read_lock_bh();
-+	netif_receive_skb(skb);
-+	rcu_read_unlock_bh();
+ net/core/rtnetlink.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-  	tun->dev->stats.rx_packets++;
-  	tun->dev->stats.rx_bytes += len;
--- 
-1.7.3.1.msysgit.0
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 048dc8d..9a5dbf1 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1839,7 +1839,7 @@ replay:
+ 		if (err < 0)
+ 			return err;
+ 	} else
+-		memset(linkinfo, 0, sizeof(linkinfo));
++		memset(linkinfo, 0, sizeof(*linkinfo));
+ 
+ 	if (linkinfo[IFLA_INFO_KIND]) {
+ 		nla_strlcpy(kind, linkinfo[IFLA_INFO_KIND], sizeof(kind));
