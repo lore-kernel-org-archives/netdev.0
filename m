@@ -1,60 +1,35 @@
-From: =?UTF-8?B?T3J0d2luIEdsw7xjaw==?= <odi@odi.ch>
-Subject: Re: xfrm: is pmtu broken with ESP tunneling?
-Date: Tue, 11 Feb 2014 21:20:40 +0100
-Message-ID: <52FA8618.5030509@odi.ch>
-References: <52F890D2.2060109@odi.ch> <20140211023258.GC11150@order.stressinduktion.org>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: RFC: bridge get fdb by bridge device
+Date: Tue, 11 Feb 2014 12:21:45 -0800
+Message-ID: <52FA8659.9010001@intel.com>
+References: <52F21F72.2090405@mojatatu.com> <52F29747.7040008@redhat.com> <52F3CF76.9090404@mojatatu.com> <52F3E357.4040006@redhat.com> <52F79990.3000400@mojatatu.com> <52F8FEF1.60407@redhat.com> <52FA58E9.906@mojatatu.com> <52FA6A24.3030402@redhat.com> <52FA84FA.2030608@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140211023258.GC11150@order.stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: vyasevic@redhat.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:37759 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753822AbaBKUVr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Feb 2014 15:21:47 -0500
+In-Reply-To: <52FA84FA.2030608@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/11/2014 03:32 AM, Hannes Frederic Sowa wrote:
->> net.ipv4.ip_no_pmtu_disc=1.
+On 2/11/2014 12:15 PM, Jamal Hadi Salim wrote:
 >
-> This setting will shrink the path mtu to min_pmtu when a frag needed icmp is
-> received.
+>>
+>> Yes, macvlan can forward data to other macvlans, but that's
+>> not the interesting thing.
+>
+> Sample config?
 
-The UDP+ESP encapsulation adds 60 bytes to the original packet size.
+ip link add link ethx name mv1 type macvlan mode bridge
+ip link add link ethx name mv2 type macvlan mode bridge
 
-ifconfig wla0 shows an mtu of 1500.
-
-The size of the first big packet on the interface:
-net.ipv4.ip_no_pmtu_disc=1: packet length is 1300
-net.ipv4.ip_no_pmtu_disc=0: packet length is 1500
-
-Length is without the ESP wrapper and UDP encapsulation. The packets are so big 
-that they can't even leave the wireless interface and never show up on the 
-router. So no ICMP packets are received. PMTU can't work with initial packets of 
-that size.
-
-dump question: which layer discard these packets? qdisc? why no notification to 
-the sender?
-
-When I increase the mtu of the interface to 2000 with ifconfig, then I start 
-seeing ICMP fragmentation needed from the next hop, indicating 1500 as the mtu 
-as response to a 1560 byte UDP[ESP] packet.
-
-The next UDP[ESP] packet is shorter: 1360 bytes. It gets hard to see what's 
-going on after that, but the connection is still not working.
-
-So, instead of somehow losing these packets on the way out of the interface 
-should the kernel not start with a lower mtu in the first place? Now it seems it 
-is trying with the maximum of the interface and expecting to scale down with 
-pmtu - which can ever happen.
-
-> Can you send a ip route get <ip> to the problematic target to see how
-> far off the calculated value is?
-
-That command doesn't return anything useful. No hint on the mtu here.
-
-BTW, instead of disabling pmtu, setting mtu explicitly also helps:
-ip route add 10.6.6.0/24 via ${localip} mtu 1300
-
-Thanks,
-
-Ortwin
+Now you have a macvlan on ethx that will forward data between
+mv1 and mv2.
