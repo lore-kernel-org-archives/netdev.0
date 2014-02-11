@@ -1,40 +1,35 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: linux 3.13: problems with isatap tunnel device and UFO
-Date: Tue, 11 Feb 2014 03:44:03 +0100
-Message-ID: <20140211024403.GE11150@order.stressinduktion.org>
-References: <1682505.dP4nT04FC9@h2o.as.studentenwerk.mhn.de> <1720760.5dnaEcLin5@h2o.as.studentenwerk.mhn.de> <20140207222227.GC16198@order.stressinduktion.org> <1581659.JtJ1UQaXJr@h2o.as.studentenwerk.mhn.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Patch net] macvlan: add NETIF_F_NETNS_LOCAL flag
+Date: Mon, 10 Feb 2014 20:14:17 -0800
+Message-ID: <1392092057.6615.63.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1392082593-7742-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Wolfgang Walter <linux@stwm.de>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <cwang@twopensource.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:45064 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752171AbaBKCoE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 21:44:04 -0500
-Content-Disposition: inline
-In-Reply-To: <1581659.JtJ1UQaXJr@h2o.as.studentenwerk.mhn.de>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:46500 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752180AbaBKEOU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 23:14:20 -0500
+Received: by mail-pd0-f170.google.com with SMTP id p10so7047852pdj.1
+        for <netdev@vger.kernel.org>; Mon, 10 Feb 2014 20:14:19 -0800 (PST)
+In-Reply-To: <1392082593-7742-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 09, 2014 at 12:17:15AM +0100, Wolfgang Walter wrote:
-> host A (which shows the problem with kernel 3.13):
+On Mon, 2014-02-10 at 17:36 -0800, Cong Wang wrote:
+> From: Cong Wang <cwang@twopensource.com>
 > 
-> $ ip addr ls eth0
-> 4: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP 
-> group default qlen 1000
->     link/ether 11:22:33:44:55:66 brd ff:ff:ff:ff:ff:ff
->     inet 192.168.1.1/24 brd 192.168.1.255 scope global eth0
->        valid_lft forever preferred_lft forever
->     inet6 2001:1111:2222:aaaa:0:5efe:c0a8:101/120 scope global 
->        valid_lft forever preferred_lft forever
->     inet6 fe80::1322:33ff:fe44:5566/64 scope link 
->        valid_lft forever preferred_lft forever
+> BZ: https://bugzilla.kernel.org/show_bug.cgi?id=66691
+> 
+> There is no point to allow moving a macvlan device to
+> another namespace while the lower device is still in
+> this namespace. tunnels already set this flag.
 
-What driver does this interface use?
+What do you mean ?
 
-ethtool -i eth0
-
-Greetings,
-
-  Hannes
+This is probably one of the needed/useful feature of macvlan !
