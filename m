@@ -1,83 +1,89 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
 Subject: Re: RFC: bridge get fdb by bridge device
-Date: Tue, 11 Feb 2014 12:03:49 -0500
-Message-ID: <52FA57F5.3080400@mojatatu.com>
-References: <52F21F72.2090405@mojatatu.com> <52F29747.7040008@redhat.com> <52F3CF76.9090404@mojatatu.com> <52F3E357.4040006@redhat.com> <52F79990.3000400@mojatatu.com> <52F7D7EE.7010302@gmail.com>
+Date: Tue, 11 Feb 2014 12:07:53 -0500
+Message-ID: <52FA58E9.906@mojatatu.com>
+References: <52F21F72.2090405@mojatatu.com> <52F29747.7040008@redhat.com> <52F3CF76.9090404@mojatatu.com> <52F3E357.4040006@redhat.com> <52F79990.3000400@mojatatu.com> <52F8FEF1.60407@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	vyasevic@redhat.com,
-	Stephen Hemminger <stephen@networkplumber.org>,
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
 	Scott Feldman <sfeldma@cumulusnetworks.com>,
 	John Fastabend <john.r.fastabend@intel.com>
-To: John Fastabend <john.fastabend@gmail.com>
+To: vyasevic@redhat.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f172.google.com ([209.85.223.172]:48338 "EHLO
-	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750978AbaBKRDw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 12:03:52 -0500
-Received: by mail-ie0-f172.google.com with SMTP id u16so371653iet.31
-        for <netdev@vger.kernel.org>; Tue, 11 Feb 2014 09:03:52 -0800 (PST)
-In-Reply-To: <52F7D7EE.7010302@gmail.com>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:49216 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751760AbaBKRHz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 12:07:55 -0500
+Received: by mail-ie0-f179.google.com with SMTP id ar20so4723186iec.38
+        for <netdev@vger.kernel.org>; Tue, 11 Feb 2014 09:07:54 -0800 (PST)
+In-Reply-To: <52F8FEF1.60407@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/09/14 14:33, John Fastabend wrote:
-> On 02/09/2014 07:06 AM, Jamal Hadi Salim wrote:
+On 02/10/14 11:31, Vlad Yasevich wrote:
+> On 02/09/2014 10:06 AM, Jamal Hadi Salim wrote:
 
+
+>> +	ndm = nlmsg_data(cb->nlh);
+>> +	if (ndm->ndm_ifindex) {
 >
->> +    if (ndm->ndm_ifindex) {
->> +        dev = __dev_get_by_index(net, ndm->ndm_ifindex);
->> +        if (dev == NULL) {
->> +            pr_info("PF_BRIDGE: RTM_GETNEIGH with unknown ifindex\n");
->> +            return -ENODEV;
->> +        }
->> +
->> +        if (!(dev->priv_flags & IFF_EBRIDGE)) {
->
-> Can we drop this 'if case' and just use the 'if (ops->ndo_fdb_dump)'
-> below? IFF_EBRIDGE is specific to ./net/bridge so it will fail for
-> macvlans and I think the command is useful in both cases.
+> We get really lucky here that ndm_ifindex and ifi_index happen to map to
+> the same location.
 >
 
-My only worry is:
-The target ndm_ifindex is to a bridge device i.e something
-that has an "fdb" (user space says "br X" then we use X to
-mean we are talking about a bridge device. This is what
-brctl showmacs <X> means.
-I know this doesnt seem right relative to current point of
-view where the target is the bridge port ifindex.
-I'd be more than happy to make the change if it makes sense,
-but i am struggling with that thought.
+Didnt follow - but I have a feeling you are looking at the reference
+point of a bridge port.
+Note as per my response to John: The target is a bridge device, not
+a bridge port.
+
+
 
 >
->> +            pr_info("PF_BRIDGE: RTM_GETNEIGH %s not a bridge device\n",
->> +                dev->name);
->> +            return -EINVAL;
->>          }
->> +        ops = dev->netdev_ops;
->> +        if (ops->ndo_fdb_dump) {
->> +            idx = ops->ndo_fdb_dump(skb, cb, dev, idx);
->> +        } else {
->
-> Is there any problem with using the ndo_dflt_fdb_dump() in the else
-> here?
+> I agree with both of Johns commens fro the above code.
+> I think you can use ndo_dflt_fdb_dump() here and remove the first check
+> for IFF_EBRIDGE.
 >
 
-If the assumption is the target ifindex is to a bridge device, I would
-expect it MUST have a ops->ndo_fdb_dump(), no?
-the default dumper deals with bridge ports (which may be bridges, but
-if i wanted their databases i would address them)
+Same comment i made to John. The goal is to emulate
+brctl showmacs <bridge>
+ndo_dflt_fdb_dump() gives me in theory all the bridge ports
+unicast and multicast MAC addresses. There is a posibility that
+the bridgeport is a bridge - in which case I can find out from
+user space and safely request for it directly instead of via
+its parent.
 
-> Userspace should be able to easily learn which ports are ebridge ports
-> so I don't think that should be an issue. Anyways with the above
-> IFF_EBRIDGE check you should never hit this else case although I think
-> its safe to drop the above check as noted.
+> The only odd thing is that it would permit syntax like:
+>   # bridge fbd show br eth0
+> or
+>   # bridge fdb show br macvlan0
+>
+> but I think that's ok.
+
+Ok, since both you and John point to macvlan - is that
+considered as something with an fdb? It doesnt forward
+packets between two devices.
+
+
+
+>> diff --git a/bridge/fdb.c b/bridge/fdb.c
+>> index e2e53f1..f3073d6 100644
+>> --- a/bridge/fdb.c
+>> +++ b/bridge/fdb.c
+>> @@ -33,7 +33,7 @@ static void usage(void)
+>>   	fprintf(stderr, "Usage: bridge fdb { add | append | del | replace }
+> ADDR dev DEV {self|master} [ temp ]\n"
+>>   		        "              [router] [ dst IPADDR] [ vlan VID ]\n"
+>>   		        "              [ port PORT] [ vni VNI ] [via DEV]\n");
+>> -	fprintf(stderr, "       bridge fdb {show} [ dev DEV ]\n");
+>> +	fprintf(stderr, "       bridge fdb {show} [ br BRDEV ] [ dev DEV ]\n");
+>
+> 'port' option is now allowed in the show operation
 >
 
-Right - so if i can find out which is an ebridge i can send it the
-same request.
+Thanks - it is already taken seems by vxlan using the same interface.
+
 
 cheers,
 jamal
