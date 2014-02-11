@@ -1,58 +1,32 @@
 From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH v2 2/2] sctp: optimize the sctp_sysctl_net_register
-Date: Tue, 11 Feb 2014 09:49:06 +0800
-Message-ID: <1392083346-9420-3-git-send-email-wangweidong1@huawei.com>
-References: <1392083346-9420-1-git-send-email-wangweidong1@huawei.com>
+Subject: [PATCH v2 0/2] sctp: fix a problem with net_namespace
+Date: Tue, 11 Feb 2014 09:49:04 +0800
+Message-ID: <1392083346-9420-1-git-send-email-wangweidong1@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <dborkman@redhat.com>, <netdev@vger.kernel.org>
 To: <nhorman@tuxdriver.com>, <davem@davemloft.net>,
 	<vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:42739 "EHLO
+Received: from szxga02-in.huawei.com ([119.145.14.65]:42795 "EHLO
 	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752163AbaBKBtj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 20:49:39 -0500
-In-Reply-To: <1392083346-9420-1-git-send-email-wangweidong1@huawei.com>
+	with ESMTP id S1752475AbaBKBtq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 20:49:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Here, when the net is init_net, we needn't to kmemdup the ctl_table
-again. So add a check for net. Also we can save some memory.
+fix a problem with net_namespace, and optimize
+the sctp_sysctl_net_register.
 
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
----
- net/sctp/sysctl.c | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+v1 -> v2:
+  -patch1: add Neil's ACK.
 
-diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-index 2ddb401..b65396b 100644
---- a/net/sctp/sysctl.c
-+++ b/net/sctp/sysctl.c
-@@ -403,15 +403,17 @@ static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
- 
- int sctp_sysctl_net_register(struct net *net)
- {
--	struct ctl_table *table;
--	int i;
-+	struct ctl_table *table = sctp_net_table;
- 
--	table = kmemdup(sctp_net_table, sizeof(sctp_net_table), GFP_KERNEL);
--	if (!table)
--		return -ENOMEM;
-+	if (!net_eq(net, &init_net)) {
-+		int i;
-+		table = kmemdup(sctp_net_table, sizeof(sctp_net_table), GFP_KERNEL);
-+		if (!table)
-+			return -ENOMEM;
- 
--	for (i = 0; table[i].data; i++)
--		table[i].data += (char *)(&net->sctp) - (char *)&init_net.sctp;
-+		for (i = 0; table[i].data; i++)
-+			table[i].data += (char *)(&net->sctp) - (char *)&init_net.sctp;
-+	}
- 
- 	net->sctp.sysctl_header = register_net_sysctl(net, "net/sctp", table);
- 	return 0;
+Wang Weidong (2):
+  sctp: fix a missed .data initialization
+  sctp: optimize the sctp_sysctl_net_register
+
+ net/sctp/sysctl.c | 17 ++++++++++-------
+ 1 file changed, 10 insertions(+), 7 deletions(-)
+
 -- 
 1.7.12
