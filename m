@@ -1,60 +1,39 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [Patch net] macvlan: add NETIF_F_NETNS_LOCAL flag
-Date: Tue, 11 Feb 2014 03:40:09 +0100
-Message-ID: <20140211024009.GD11150@order.stressinduktion.org>
-References: <1392082593-7742-1-git-send-email-xiyou.wangcong@gmail.com> <20140211014535.GA11150@order.stressinduktion.org> <CAHA+R7N2rxt5vyF+i8mi04dJaLk5bCgMAZOCexOLULLcQ-mT6w@mail.gmail.com>
+Subject: Re: linux 3.13: problems with isatap tunnel device and UFO
+Date: Tue, 11 Feb 2014 03:44:03 +0100
+Message-ID: <20140211024403.GE11150@order.stressinduktion.org>
+References: <1682505.dP4nT04FC9@h2o.as.studentenwerk.mhn.de> <1720760.5dnaEcLin5@h2o.as.studentenwerk.mhn.de> <20140207222227.GC16198@order.stressinduktion.org> <1581659.JtJ1UQaXJr@h2o.as.studentenwerk.mhn.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <cwang@twopensource.com>
+Cc: netdev@vger.kernel.org
+To: Wolfgang Walter <linux@stwm.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:45058 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:45064 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751779AbaBKCkL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 21:40:11 -0500
+	with ESMTP id S1752171AbaBKCoE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 21:44:04 -0500
 Content-Disposition: inline
-In-Reply-To: <CAHA+R7N2rxt5vyF+i8mi04dJaLk5bCgMAZOCexOLULLcQ-mT6w@mail.gmail.com>
+In-Reply-To: <1581659.JtJ1UQaXJr@h2o.as.studentenwerk.mhn.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 10, 2014 at 06:25:51PM -0800, Cong Wang wrote:
-> On Mon, Feb 10, 2014 at 5:45 PM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
-> > On Mon, Feb 10, 2014 at 05:36:33PM -0800, Cong Wang wrote:
-> >> From: Cong Wang <cwang@twopensource.com>
-> >>
-> >> BZ: https://bugzilla.kernel.org/show_bug.cgi?id=66691
-> >>
-> >> There is no point to allow moving a macvlan device to
-> >> another namespace while the lower device is still in
-> >> this namespace. tunnels already set this flag.
-> >
-> > Can't we solve this somehow differently, like not showing anything at all
-> > etc.? I guess this is a feature some people use and haven't noticed yet.
-> >
+On Sun, Feb 09, 2014 at 12:17:15AM +0100, Wolfgang Walter wrote:
+> host A (which shows the problem with kernel 3.13):
 > 
-> I don't understand what you mean by "not showing anything at all".
-> I assume you mean mac1@xxx, not matter whether we show xxx
-> here, mac1 relies on xxx to function.
+> $ ip addr ls eth0
+> 4: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP 
+> group default qlen 1000
+>     link/ether 11:22:33:44:55:66 brd ff:ff:ff:ff:ff:ff
+>     inet 192.168.1.1/24 brd 192.168.1.255 scope global eth0
+>        valid_lft forever preferred_lft forever
+>     inet6 2001:1111:2222:aaaa:0:5efe:c0a8:101/120 scope global 
+>        valid_lft forever preferred_lft forever
+>     inet6 fe80::1322:33ff:fe44:5566/64 scope link 
+>        valid_lft forever preferred_lft forever
 
-Sorry, I have no idea how to resolve this easily, maybe set the ifindex to
-something generic. I'll try to think about it.
+What driver does this interface use?
 
-Maybe revserve an id and install a generic name for it, so old software
-doesn't get confused.
-
-> Please give a real use case rather than just guessing, I don't think
-> there is any valid case until we support moving multiple devices into
-> a netns atomically.
-
-Setting up a macvlan and moving it into another namespace without moving
-the parent device is a nice feature. I am not an administrator, so I don't
-use that stuff often, but given you can easily spawn namespaces and put
-applications into them, one of the easiest things to connect those to
-local network without routing over veth and such is the macvlan interface.
+ethtool -i eth0
 
 Greetings,
 
