@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] USB2NET : SR9800 : One chip USB2.0 USB2NET SR9800
- Device Driver Support
-Date: Mon, 10 Feb 2014 16:53:52 -0800 (PST)
-Message-ID: <20140210.165352.625954565773549494.davem@davemloft.net>
-References: <1392013902-4875-1-git-send-email-liujunliang_ljl@163.com>
+Subject: Re: [PATCH net] bonding: remove unwanted bond lock for enslave
+ processing
+Date: Mon, 10 Feb 2014 16:55:00 -0800 (PST)
+Message-ID: <20140210.165500.1896172830915784091.davem@davemloft.net>
+References: <52F88EF7.606@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, horms@verge.net.au, romieu@fr.zoreil.com,
-	gregkh@linuxfoundation.org, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sunhecheng@vip.126.com
-To: liujunliang_ljl@163.com
+Cc: fubar@us.ibm.com, vfalico@redhat.com, andy@greyhouse.net,
+	netdev@vger.kernel.org
+To: dingtianhong@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57267 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57283 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752622AbaBKAx4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 19:53:56 -0500
-In-Reply-To: <1392013902-4875-1-git-send-email-liujunliang_ljl@163.com>
+	with ESMTP id S1752881AbaBKAzB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Feb 2014 19:55:01 -0500
+In-Reply-To: <52F88EF7.606@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: liujunliang_ljl@163.com
-Date: Mon, 10 Feb 2014 14:31:42 +0800
+From: Ding Tianhong <dingtianhong@huawei.com>
+Date: Mon, 10 Feb 2014 16:33:59 +0800
 
-> From: Liu Junliang <liujunliang_ljl@163.com>
+> The bond enslave processing don't hold bond->lock anymore,
+> so release an unlocked rw lock will cause warning message,
+> remove the unwanted read_unlock(&bond->lock).
 > 
-> 
-> Signed-off-by: Liu Junliang <liujunliang_ljl@163.com>
+> Cc: Jay Vosburgh <fubar@us.ibm.com>
+> Cc: Veaceslav Falico <vfalico@redhat.com>
+> Cc: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 
 Applied, thanks.
