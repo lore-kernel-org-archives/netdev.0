@@ -1,74 +1,91 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v2 1/2] dp83640: Support a configurable number of
- periodic outputs
-Date: Tue, 11 Feb 2014 21:09:23 +0100
-Message-ID: <20140211200922.GA4254@netboy>
-References: <1392132562-23644-1-git-send-email-stefan.sorensen@spectralink.com>
- <1392132562-23644-2-git-send-email-stefan.sorensen@spectralink.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: RFC: bridge get fdb by bridge device
+Date: Tue, 11 Feb 2014 15:15:54 -0500
+Message-ID: <52FA84FA.2030608@mojatatu.com>
+References: <52F21F72.2090405@mojatatu.com> <52F29747.7040008@redhat.com> <52F3CF76.9090404@mojatatu.com> <52F3E357.4040006@redhat.com> <52F79990.3000400@mojatatu.com> <52F8FEF1.60407@redhat.com> <52FA58E9.906@mojatatu.com> <52FA6A24.3030402@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: grant.likely@linaro.org, robh+dt@kernel.org, mark.rutland@arm.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	devicetree@vger.kernel.org
-To: Stefan =?iso-8859-1?Q?S=F8rensen?=
-	<stefan.sorensen@spectralink.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1392132562-23644-2-git-send-email-stefan.sorensen@spectralink.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: vyasevic@redhat.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f170.google.com ([209.85.223.170]:35237 "EHLO
+	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754328AbaBKUP4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 15:15:56 -0500
+Received: by mail-ie0-f170.google.com with SMTP id lx4so876802iec.29
+        for <netdev@vger.kernel.org>; Tue, 11 Feb 2014 12:15:55 -0800 (PST)
+In-Reply-To: <52FA6A24.3030402@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 11, 2014 at 04:29:21PM +0100, Stefan S=F8rensen wrote:
+On 02/11/14 13:21, Vlad Yasevich wrote:
+> On 02/11/2014 12:07 PM, Jamal Hadi Salim wrote:
+>> On 02/10/14 11:31, Vlad Yasevich wrote:
 
-> diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
-> index 547725f..d4fe95d 100644
-> --- a/drivers/net/phy/dp83640.c
-> +++ b/drivers/net/phy/dp83640.c
-> @@ -38,15 +38,11 @@
->  #define LAYER4		0x02
->  #define LAYER2		0x01
->  #define MAX_RXTS	64
-> -#define N_EXT_TS	6
-> +#define N_EXT		8
->  #define PSF_PTPVER	2
->  #define PSF_EVNT	0x4000
->  #define PSF_RX		0x2000
->  #define PSF_TX		0x1000
-> -#define EXT_EVENT	1
+> No, this was more the point that the current iproute code sends an
+> ifinfomsg struct down, and you change that to send ndmsg struct.
+> This is risky, but we luck out since the index is at the same offset
+> in both structs.
+>
 
-Regarding this EXT_EVENT thing ...
+ah, ok, thanks for catching that. I should have said something - the
+original code was wrong and i felt it was safe to make the change
+given that the kernel code never even looked at what was being
+sent to it. There is asymetry desires which are violated.
+It doesnt make sense to send and ifm and expect back an ndm.
+I should send that separately as a bug fix.
 
-> @@ -430,12 +419,12 @@ static int ptp_dp83640_enable(struct ptp_clock_=
-info *ptp,
->  	switch (rq->type) {
->  	case PTP_CLK_REQ_EXTTS:
->  		index =3D rq->extts.index;
-> -		if (index < 0 || index >=3D N_EXT_TS)
-> +		if (index < 0 || index >=3D n_ext_ts)
->  			return -EINVAL;
-> -		event_num =3D EXT_EVENT + index;
-> +		event_num =3D index;
 
-there was a mapping between the "event numbers" and the external time
-stamp channels. I don't remember off the top of my head why this these
-two differ by one, but there was a good reason.
+> But that would only happen if the user said:
+>    # bridge fdb show br eth0
+>
+> If eth0 in this case is a hw bridge device, getting the device's
+> version of fdb data is exactly what would be expected, isn't it?
+>
 
-Are you sure this is still working with this change?
+Well, if it is a "bridge device" why would it not be tagged as a bridge
+device?
 
-I am especially wondering about the event decoding here:
+> If you mean a 'software bridge' above, then that's not an issue
+> since that's a disallowed config.  You can't stack software bridges
+> without something in the middle like bond or vlan.
+>
 
-> @@ -642,7 +631,7 @@ static void recalibrate(struct dp83640_clock *clo=
-ck)
-> =20
->  static inline u16 exts_chan_to_edata(int ch)
->  {
-> -	return 1 << ((ch + EXT_EVENT) * 2);
-> +	return 1 << ((ch) * 2);
->  }
+Ok, didnt realize that.
+So i cant add a bridge as a bridge port to another bridge?
 
-Maybe I am just paranoid, but can you remind me how these event
-numbers are supposed to work, before and after the change?
+>
+> Yes, macvlan can forward data to other macvlans, but that's
+> not the interesting thing.
 
-Thanks,
-Richard
+Sample config?
+
+> When you configure multiple macvlan devices on top of the
+> same hw device, one could think of the hw device as a sort
+> of a bridge.  It's not really, but you could define it in
+> those terms.  The fdb entries, in this case, contain the mac
+> addresses of the macvlan devices.
+>
+
+It certainly has some equivalent semantics (looks at dst MAC then
+picks the port). Possible to add Vlans as well?
+Why dont we tag such a thing as a bridge then?
+
+>
+> Sorry, I wasn't very clear. What I meant was that you now support
+>    # bridge fdb show port <>
+>
+> The usage message should reflect it.
+>
+
+Sorry - I noticed the word "port" at exactly where your quote came.
+So i thought you noticed that "port" was already taken - it is used
+for VXLAN fdb entries (for udp ports).
+
+
+cheers,
+jamal
