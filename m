@@ -1,39 +1,49 @@
-From: Alexander Gordeev <agordeev@redhat.com>
-Subject: Re: [PATCH 01/34] bnx2: Use pci_enable_msix_range()
-Date: Tue, 11 Feb 2014 09:01:28 +0100
-Message-ID: <20140211080128.GB16680@dhcp-26-207.brq.redhat.com>
-References: <cover.1391172839.git.agordeev@redhat.com>
- <434a34e01c353441131204edef36126a95e8928a.1391172839.git.agordeev@redhat.com>
- <20140131.133051.483295479425700960.davem@davemloft.net>
- <20140211003814.GC12851@google.com>
+From: Stefan =?ISO-8859-1?Q?S=F8rensen?=
+	<stefan.sorensen@spectralink.com>
+Subject: Re: [PATCH] dp83640: Get gpio and master/slave configuration from DT
+Date: Tue, 11 Feb 2014 09:01:25 +0100
+Message-ID: <1392105685.2133.2.camel@e37108.spectralink.com>
+References: <1392037240-30913-1-git-send-email-stefan.sorensen@spectralink.com>
+	 <20140210184604.GA4296@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	mchan@broadcom.com, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org
-To: Bjorn Helgaas <bhelgaas@google.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140211003814.GC12851@google.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <grant.likely@linaro.org>, <robh+dt@kernel.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<devicetree@vger.kernel.org>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2lp0210.outbound.protection.outlook.com ([207.46.163.210]:17640
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750776AbaBKIB6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Feb 2014 03:01:58 -0500
+In-Reply-To: <20140210184604.GA4296@netboy>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 10, 2014 at 05:38:14PM -0700, Bjorn Helgaas wrote:
-> I *think* this whole series applies to drivers/net (the usual patch sending
-> tools like "stg mail" insert the diffstat automatically in the 00/nn
-> message), and it sounds like David is willing to apply them via his tree,
-> so I'm ignoring these for now.  Let me know if you need me to do anything.
+On Mon, 2014-02-10 at 19:46 +0100, Richard Cochran wrote:
+> On Mon, Feb 10, 2014 at 02:00:40PM +0100, Stefan S=C3=B8rensen wrote:
+> > This patch removes the module parameters gpio_tab and chosen_phy in=
+ favour of
+> > retrieving the configuration from DT through the properties
+>=20
+> Can we please keep the module parameters? I have two platforms with
+> phyters neither of which will ever support DT, namely ixp and m68k,
+> and I want to run recent kernels on them.
 
-Hi Bjorn,
+I will keep the module parameters as fallback. Will it be OK to split
+the gpio_tab parameter into separate calibrate-pin, perout-pins and
+extts-pins parameters?
 
-Unlike just a handful of patches concerning pci_enable_msi_range(), some
-few dozens of pci_enable_msix_range() updates would be difficult to route
-thru your tree. So for net and scsi (and block is pending) I am putting
-linux-pci on CC just to let you know what is happening.
+> > The configuration is now stored for each master clock device, allow=
+ing different=20
+> > gpio setups for each master.
+>=20
+> What do you mean by "each master"? Do you mean each individual PHY de=
+vice
+> or each group of PHYs on the same MDIO bus?
 
-> Bjorn
+I mean each group of PHYs. I will reword that.
 
--- 
-Regards,
-Alexander Gordeev
-agordeev@redhat.com
+Stefan
