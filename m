@@ -1,79 +1,60 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v2 2/2] dp83640: Get pin and master/slave configuration
- from DT
-Date: Tue, 11 Feb 2014 21:19:18 +0100
-Message-ID: <20140211201917.GB4254@netboy>
-References: <1392132562-23644-1-git-send-email-stefan.sorensen@spectralink.com>
- <1392132562-23644-3-git-send-email-stefan.sorensen@spectralink.com>
+From: =?UTF-8?B?T3J0d2luIEdsw7xjaw==?= <odi@odi.ch>
+Subject: Re: xfrm: is pmtu broken with ESP tunneling?
+Date: Tue, 11 Feb 2014 21:20:40 +0100
+Message-ID: <52FA8618.5030509@odi.ch>
+References: <52F890D2.2060109@odi.ch> <20140211023258.GC11150@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: grant.likely@linaro.org, robh+dt@kernel.org, mark.rutland@arm.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	devicetree@vger.kernel.org
-To: Stefan =?iso-8859-1?Q?S=F8rensen?=
-	<stefan.sorensen@spectralink.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1392132562-23644-3-git-send-email-stefan.sorensen@spectralink.com>
+In-Reply-To: <20140211023258.GC11150@order.stressinduktion.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 11, 2014 at 04:29:22PM +0100, Stefan S=F8rensen wrote:
+On 02/11/2014 03:32 AM, Hannes Frederic Sowa wrote:
+>> net.ipv4.ip_no_pmtu_disc=1.
+>
+> This setting will shrink the path mtu to min_pmtu when a frag needed icmp is
+> received.
 
-> diff --git a/Documentation/devicetree/bindings/net/dp83640.txt b/Docu=
-mentation/devicetree/bindings/net/dp83640.txt
-> new file mode 100644
-> index 0000000..b9a57c0
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/dp83640.txt
-> @@ -0,0 +1,29 @@
-> +Required properties for the National DP83640 ethernet phy:
-> +
-> +- compatible : Must contain "national,dp83640"
-> +
-> +Optional properties:
-> +
-> +- dp83640,slave: If present, this phy will be slave to another dp836=
-40
-> +  on the same mdio bus.
+The UDP+ESP encapsulation adds 60 bytes to the original packet size.
 
-Wouldn't it be more natural to have one "dp83640,master" property
-rather than multiple slave properties?
+ifconfig wla0 shows an mtu of 1500.
 
-> @@ -949,6 +940,95 @@ static void dp83640_clock_put(struct dp83640_clo=
-ck *clock)
->  	mutex_unlock(&clock->clock_lock);
->  }
-> =20
-> +#ifdef CONFIG_OF
-> +static int dp83640_probe_dt(struct device_node *node,
-> +			    struct dp83640_private *dp83640)
-> +{
-> +	struct dp83640_clock *clock =3D dp83640->clock;
-> +	struct property *prop;
-> +	int err, proplen;
-> +
-> +	dp83640->slave =3D of_property_read_bool(node, "dp83640,slave");
-> +	if (!dp83640->slave && clock->chosen) {
-> +		pr_err("dp83640,slave must be set if more than one device on the s=
-ame bus");
+The size of the first big packet on the interface:
+net.ipv4.ip_no_pmtu_disc=1: packet length is 1300
+net.ipv4.ip_no_pmtu_disc=0: packet length is 1500
 
-Most of these pr_err lines are a bit _way_ too long for coding style.
+Length is without the ESP wrapper and UDP encapsulation. The packets are so big 
+that they can't even leave the wireless interface and never show up on the 
+router. So no ICMP packets are received. PMTU can't work with initial packets of 
+that size.
 
-> +		return -EINVAL;
-> +	}
-> +
-> +	prop =3D of_find_property(node, "dp83640,perout-pins", &proplen);
-> +	if (prop) {
-> +		if (dp83640->slave) {
-> +			pr_err("dp83640,perout-pins property can not be set together with=
- dp83640,slave");
+dump question: which layer discard these packets? qdisc? why no notification to 
+the sender?
 
-(Here especially and in the code that followed.)
+When I increase the mtu of the interface to 2000 with ifconfig, then I start 
+seeing ICMP fragmentation needed from the next hop, indicating 1500 as the mtu 
+as response to a 1560 byte UDP[ESP] packet.
 
-Overall the series is looking better. I will try to test the non-DT
-case later on this week.
+The next UDP[ESP] packet is shorter: 1360 bytes. It gets hard to see what's 
+going on after that, but the connection is still not working.
+
+So, instead of somehow losing these packets on the way out of the interface 
+should the kernel not start with a lower mtu in the first place? Now it seems it 
+is trying with the maximum of the interface and expecting to scale down with 
+pmtu - which can ever happen.
+
+> Can you send a ip route get <ip> to the problematic target to see how
+> far off the calculated value is?
+
+That command doesn't return anything useful. No hint on the mtu here.
+
+BTW, instead of disabling pmtu, setting mtu explicitly also helps:
+ip route add 10.6.6.0/24 via ${localip} mtu 1300
 
 Thanks,
-Richard
+
+Ortwin
