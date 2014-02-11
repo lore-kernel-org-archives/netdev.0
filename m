@@ -1,40 +1,81 @@
-From: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
-Subject: [PATCH] netfilter: nf_nat_snmp_basic: fix duplicates in if/else branches
-Date: Tue, 11 Feb 2014 15:49:25 +0100
-Message-ID: <1392130165-4313-1-git-send-email-fx.lebail@yahoo.com>
-To: NETDEV <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp05.smtpout.orange.fr ([80.12.242.127]:30669 "EHLO
-	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751096AbaBKPTY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 10:19:24 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tun: use netif_receive_skb instead of netif_rx_ni
+Date: Tue, 11 Feb 2014 07:24:04 -0800
+Message-ID: <1392132244.6615.83.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <52FA32C5.9040601@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jasowang@redhat.com,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Anthony Liguori <anthony@codemonkey.ws>,
+	KVM list <kvm@vger.kernel.org>, netdev@vger.kernel.org
+To: Qin Chuanyu <qinchuanyu@huawei.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <52FA32C5.9040601@huawei.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The solution was found by Patrick in 2.4 kernel sources.
+On Tue, 2014-02-11 at 22:25 +0800, Qin Chuanyu wrote:
+> we could xmit directly instead of going through softirq to gain 
+> throughput and lantency improved.
+> test model: VM-Host-Host just do transmit. with vhost thread and nic
+> interrupt bind cpu1. netperf do throuhput test and qperf do lantency test.
+> Host OS: suse11sp3, Guest OS: suse11sp3
+> 
+> latency result(us):
+> packet_len 64 256 512 1460
+> old(UDP)   44  47  48   66
+> new(UDP)   38  41  42   66
+> 
+> old(TCP)   52  55  70  117
+> new(TCP)   45  48  61  114
+> 
+> throughput result(Gbit/s):
+> packet_len   64   512   1024   1460
+> old(UDP)   0.42  2.02   3.75   4.68
+> new(UDP)   0.45  2.14   3.77   5.06
+> 
+> TCP due to the latency, client couldn't send packet big enough
+> to get benefit from TSO of nic, so the result show it will send
+> more packet per sencond but get lower throughput.
+> 
+> Eric mentioned that it would has problem with cgroup, but the patch
+> had been sent by Herbert Xu.
+> patch_id f845172531fb7410c7fb7780b1a6e51ee6df7d52
+> 
+> Signed-off-by: Chuanyu Qin <qinchuanyu@huawei.com>
+> ---
+>   drivers/net/tun.c |    4 +++-
+>   1 files changed, 3 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 44c4db8..90b4e58 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -1184,7 +1184,9 @@ static ssize_t tun_get_user(struct tun_struct 
+> *tun, struct tun_file *tfile,
+>   	skb_probe_transport_header(skb, 0);
+> 
+>   	rxhash = skb_get_hash(skb);
+> -	netif_rx_ni(skb);
+> +	rcu_read_lock_bh();
+> +	netif_receive_skb(skb);
+> +	rcu_read_unlock_bh();
+> 
+>   	tun->dev->stats.rx_packets++;
+>   	tun->dev->stats.rx_bytes += len;
 
-Cc: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
----
- net/ipv4/netfilter/nf_nat_snmp_basic.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+I already said this patch is not good :
 
-diff --git a/net/ipv4/netfilter/nf_nat_snmp_basic.c b/net/ipv4/netfilter/nf_nat_snmp_basic.c
-index d551e31..7c67667 100644
---- a/net/ipv4/netfilter/nf_nat_snmp_basic.c
-+++ b/net/ipv4/netfilter/nf_nat_snmp_basic.c
-@@ -1198,8 +1198,8 @@ static int snmp_translate(struct nf_conn *ct,
- 		map.to = NOCT1(&ct->tuplehash[!dir].tuple.dst.u3.ip);
- 	} else {
- 		/* DNAT replies */
--		map.from = NOCT1(&ct->tuplehash[dir].tuple.src.u3.ip);
--		map.to = NOCT1(&ct->tuplehash[!dir].tuple.dst.u3.ip);
-+		map.from = NOCT1(&ct->tuplehash[!dir].tuple.src.u3.ip);
-+		map.to = NOCT1(&ct->tuplehash[dir].tuple.dst.u3.ip);
- 	}
- 
- 	if (map.from == map.to)
+rcu_read_lock_bh() makes no sense here.
+
+What is really needed is local_bh_disable();
+
+Herbert patch ( http://patchwork.ozlabs.org/patch/52963/ ) had a much
+cleaner form.
+
+Just use it, CC him, credit him, please ?
+
+
+
