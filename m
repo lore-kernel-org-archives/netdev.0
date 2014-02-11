@@ -1,92 +1,77 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: large degradation in ip netns add/exec performance in 3.13?
-Date: Tue, 11 Feb 2014 14:26:46 -0800
-Message-ID: <52FAA3A6.9050608@hp.com>
-References: <52F1461D.8050703@hp.com>
+From: Grant Grundler <grundler@google.com>
+Subject: Re: RTL8153 fails to get link after applying c7de7dec2 to 3.8 kernel
+Date: Tue, 11 Feb 2014 14:26:47 -0800
+Message-ID: <CANEJEGtvY1v0AC7j+uo7-ZzN9YMOaE9JOtismt0ESxpVWkvHyQ@mail.gmail.com>
+References: <CANEJEGtzUF+rdSqgTHL0BmsDbCeoWki=aAWZwSx-dZ24jQ=nVg@mail.gmail.com>
+	<B88F103D217C4AF0B5D7AD58214655C6@realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Inki Yoo <inky.yoo@samsung.com>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: hayeswang <hayeswang@realtek.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:14462 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751379AbaBKW0q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 17:26:46 -0500
-Received: from g9t2301.houston.hp.com (g9t2301.houston.hp.com [16.216.185.78])
-	by g4t0016.houston.hp.com (Postfix) with ESMTP id 85CAB14002
-	for <netdev@vger.kernel.org>; Tue, 11 Feb 2014 22:26:46 +0000 (UTC)
-Received: from [16.103.148.51] (tardy.usa.hp.com [16.103.148.51])
-	by g9t2301.houston.hp.com (Postfix) with ESMTP id 6096B5C
-	for <netdev@vger.kernel.org>; Tue, 11 Feb 2014 22:26:46 +0000 (UTC)
-In-Reply-To: <52F1461D.8050703@hp.com>
+Received: from mail-ob0-f175.google.com ([209.85.214.175]:41498 "EHLO
+	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752136AbaBKW0s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 17:26:48 -0500
+Received: by mail-ob0-f175.google.com with SMTP id wn1so9544690obc.34
+        for <netdev@vger.kernel.org>; Tue, 11 Feb 2014 14:26:47 -0800 (PST)
+In-Reply-To: <B88F103D217C4AF0B5D7AD58214655C6@realtek.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/04/2014 11:57 AM, Rick Jones wrote:
-> Hi -
+On Mon, Feb 10, 2014 at 6:36 PM, hayeswang <hayeswang@realtek.com> wrote:
+>  Grant Grundler [mailto:grundler@google.com]
+>> Sent: Tuesday, February 11, 2014 9:39 AM
+>> To: Hayes Wang
+>> Cc: inky.yoo@samsung.com; netdev; David Miller
+>> Subject: RTL8153 fails to get link after applying c7de7dec2
+>> to 3.8 kernel
+>>
+>> Hi Hayes,
+>> "r8152: ecm and vendor modes coexist" patch prevents RTL8153 device
+>> from establishing a link in the backport I've worked on for
+>> chromeos-3.8 kernel. IIRC, r815x driver claims this device. Without
+>> this patch, r8152 is able to establish a link with RTL8153 device.
+>>
+>> This was the last patch in the series of 40 patches that I
+>> cherry-picked and r8152 driver seems to "basically" work WITHOUT this
+>> last patch.  I've not tested much yet...but DHCP worked and I'm able
+>> to run netperf tests. I've not investigated why this patch fails and
+>> probably won't.
+>>
+>> If you have opportunity, can you confirm RTL8153 devices work for you
+>> with any recent upstream kernel?
 >
-> I have a dinky little script which creates what I've been calling "fake
-> routers."  It is far from a complete fake router, but it shows what
-> appears to be a very large degradation in performance in 3.13 compared
-> to 3.12.9 which itself is slow compared to a 3.5.0-44 kernel canonical
-> kernel with some upstream commits included:
+> I had tested the patch before I sent it, and I didn't see any problem.
+
+Excellent - thank you! :)
+
+> I would test the RTL8153 again with kernel 3.14-RC2.
+
+Ok - if it worked before...I expect it will continue to work for you.
+
+> Does it work if you unplug and plug the dangle again?
+
+No, it didn't. Same symptom. I did try that.
+
+Offhand, do you know of a reason I should pursue fixing this on
+chromeos-3.8? (better performance or more robust?)
+
+Right now I don't think it's worth pursuing since ChromeOS moves to
+new kernels slowly but regularly and without this one patch seems to
+be working.  We have a fair number of USB and USBNET backports to
+support USB 3.0 devices.  So it's a bit of a mess that I really don't
+want to dig into unless I have a good reason to.
+
+As long as you are comfortable kernel.org releases are working for
+you, the driver should "just work" for ChromeOS when we get to 3.14
+(or later) kernels.
+
+thanks for the help!
+grant
+
 >
+> Best Regards,
+> Hayes
 >
-> Start/End    Average Rate of Creation per Second
-> "Router" Count  3.5.0-44+  3.12.9  3.13.0
-> ------------------------------------------------------
-> 0 to 250          7.58      5.56    2.55
-> 250 to 500        7.14      5.81    2.55
-> 500 to 750        6.41      5.56    2.55
-> 750 to 1000       6.10      4.90    2.55
-> 1000 to 1250      5.68      4.39    2.50
-> 1250 to 1500      5.21      4.24    2.36
-> 1500 to 1750      5.00      3.85    2.23
-> 1750 to 2000      4.81      3.62    2.21
-> 2000 to 2250      4.55      3.47    2.21
-> 2250 to 2500      4.31      3.29    2.14
-> 2500 to 2750      4.03      3.09    2.05
-> 2750 to 3000      3.73      3.09    2.02
-> 3000 to 3250      3.62      2.81    2.02
-> 3250 to 3500      3.38      2.72    1.97
-> 3500 to 3750      3.21      2.55    1.92
-> 3750 to 4000      3.01      2.48    1.87
-
-I see that the 3.13.0 kernel will scale rather well - out to 16 
-concurrent streams creating these "fake routers" - it drops-off at 32, 
-but this system is only 16 cores, 32 threads (two socket E5-2670) so I 
-suppose that really shouldn't come as a surprise.
-
-I did have the system lockup once at 16 concurrent streams on the 3.13.0 
-kernel.  Didn't happen the next two times I tried.
-
-happy benchmarking,
-
-rick jones
-
-Time,3.5.0-44+ 4streams,3.13.0 4 streams,3.13.0 8 streams,3.13.0 16 
-streams,3.13.0 32 streams
-0,0,0,0,0,0
-30,518,419,840,1357,1327
-60,914,826,1501,1988,1905
-90,1242,1189,1995,2465,2332
-120,1532,1519,2403,2872,2680
-150,1792,1811,2751,3228,2985
-180,2060,2089,3076,3537,3278
-210,,2347,3359,3830,3542
-232,,,,4016,
-240,2447,2588,3627,,3778
-270,,,3867,,
-276,,,,,4032
-289,,,4008,,
-300,2808,2999,,,
-330,,,,,
-360,3131,3379,,,
-390,,,,,
-420,3418,3747,,,
-450,,,,,
-468,,4004,,,
-480,3690,,,,
-510,,,,,
-540,3945,,,,
-556,4004,,,,
