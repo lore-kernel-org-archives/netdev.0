@@ -1,36 +1,34 @@
-From: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
-Subject: fe80::/64 route missing on GRE tunnels
-Date: Tue, 11 Feb 2014 22:55:11 +0100
-Message-ID: <20140211215510.GA6994@sesse.net>
+From: "Steinar H. Gunderson" <sesse@samfundet.no>
+Subject: Re: fe80::/64 route missing on GRE tunnels
+Date: Tue, 11 Feb 2014 22:59:28 +0100
+Message-ID: <20140211215928.GA7862@sesse.net>
+References: <20140211215510.GA6994@sesse.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: itk-intern@samfundet.no
-To: netdev@vger.kernel.org
+To: netdev@vger.kernel.org, itk-intern@samfundet.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cassarossa.samfundet.no ([193.35.52.29]:47990 "EHLO
+Received: from cassarossa.samfundet.no ([193.35.52.29]:60829 "EHLO
 	cassarossa.samfundet.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752680AbaBKVzQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 16:55:16 -0500
+	with ESMTP id S1752540AbaBKV7a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 16:59:30 -0500
 Content-Disposition: inline
+In-Reply-To: <20140211215510.GA6994@sesse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Tue, Feb 11, 2014 at 10:55:11PM +0100, Steinar H. Gunderson wrote:
+> but on 3.13.1, no such route shows up. I can add it manually, though.
 
-It seems that recent kernels no longer automatically add the link-local route
-to GRE tunnels. 3.10.27 does it right:
+Correction; I can add it manually, but only to one GRE device at a time:
 
-  root@morgental:~# ip tunnel add foo mode gre remote 1.2.3.4 ttl 64
-  root@morgental:~# ip link set foo up mtu 1468
-  root@morgental:~# ip -6 route show dev foo
-  fe80::/64  proto kernel  metric 256 
-
-but on 3.13.1, no such route shows up. I can add it manually, though.
-
-This broke our in-house IPv6 tunnel broker (which essentially uses link-local
-addresses over GRE tunnels to bring up BGP sessions). Do you think you could
-have a look?
+  root@altersex:~$ ip -6 route add fe80::/64 dev k_molvenfinnoy
+  root@altersex:~$ ip -6 route add fe80::/64 dev k_sessesveits
+  RTNETLINK answers: File exists
+  root@altersex:~$ ip -6 route del fe80::/64 dev k_molvenfinnoy
+  root@altersex:~$ ip -6 route add fe80::/64 dev k_sessesveits
+  root@altersex:~$
 
 /* Steinar */
 -- 
-Homepage: http://www.sesse.net/
+ITK-pang
+http://www.sesse.net/
