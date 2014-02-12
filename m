@@ -1,64 +1,51 @@
-From: Qin Chuanyu <qinchuanyu@huawei.com>
-Subject: Re: [PATCH] tun: use netif_receive_skb instead of netif_rx_ni
-Date: Wed, 12 Feb 2014 14:46:16 +0800
-Message-ID: <52FB18B8.4070401@huawei.com>
-References: <52FA32C5.9040601@huawei.com> <52FB066E.1020006@redhat.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next 1/2] bonding: remove the redundant judgements for bond_set_mac_address()
+Date: Wed, 12 Feb 2014 14:58:49 +0800
+Message-ID: <1392188330-17208-2-git-send-email-dingtianhong@huawei.com>
+References: <1392188330-17208-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	KVM list <kvm@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Jason Wang <jasowang@redhat.com>, <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <fubar@us.ibm.com>, <vfalico@redhat.com>, <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:36694 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750711AbaBLGrS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 01:47:18 -0500
-In-Reply-To: <52FB066E.1020006@redhat.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:58107 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750872AbaBLG7S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 01:59:18 -0500
+In-Reply-To: <1392188330-17208-1-git-send-email-dingtianhong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/2/12 13:28, Jason Wang wrote:
+The dev_set_mac_address() will check the dev->netdev_ops->ndo_set_mac_address,
+so no need to check it in bond_set_mac_address().
 
-> A question: without NAPI weight, could this starve other net devices?
-tap xmit skb use thread context=EF=BC=8Cthe poll func of physical nic d=
-river
-could be called in softirq context without change.
+Cc: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ drivers/net/bonding/bond_main.c | 8 --------
+ 1 file changed, 8 deletions(-)
 
-I had test it by binding vhost thread and physic nic interrupt on the=20
-same vcpu, use netperf xmit udp, test model is VM1-Host1-Host2.
-
-if only VM1 xmit skb, the top show as below :
-Cpu1 :0.0%us, 95.0%sy, 0.0%ni, 0.0%id,  0.0%wa, 0.0%hi, 5.0%si,  0.0%st
-
-then use host2 xmit skb to VM1, the top show as below :
-Cpu1 :0.0%us, 41.0%sy, 0.0%ni, 0.0%id,  0.0%wa, 0.0%hi, 59.0%si, 0.0%st
-
-so I think there is no problem with this change.
-
->>   drivers/net/tun.c |    4 +++-
->>   1 files changed, 3 insertions(+), 1 deletions(-)
->>
->> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
->> index 44c4db8..90b4e58 100644
->> --- a/drivers/net/tun.c
->> +++ b/drivers/net/tun.c
->> @@ -1184,7 +1184,9 @@ static ssize_t tun_get_user(struct tun_struct
->> *tun, struct tun_file *tfile,
->>       skb_probe_transport_header(skb, 0);
->>
->>       rxhash =3D skb_get_hash(skb);
->> -    netif_rx_ni(skb);
->> +    rcu_read_lock_bh();
->> +    netif_receive_skb(skb);
->> +    rcu_read_unlock_bh();
->>
->>       tun->dev->stats.rx_packets++;
->>       tun->dev->stats.rx_bytes +=3D len;
->
->
-> .
->
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 71ba18e..58aa531 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3461,15 +3461,7 @@ static int bond_set_mac_address(struct net_device *bond_dev, void *addr)
+ 	 */
+ 
+ 	bond_for_each_slave(bond, slave, iter) {
+-		const struct net_device_ops *slave_ops = slave->dev->netdev_ops;
+ 		pr_debug("slave %p %s\n", slave, slave->dev->name);
+-
+-		if (slave_ops->ndo_set_mac_address == NULL) {
+-			res = -EOPNOTSUPP;
+-			pr_debug("EOPNOTSUPP %s\n", slave->dev->name);
+-			goto unwind;
+-		}
+-
+ 		res = dev_set_mac_address(slave->dev, addr);
+ 		if (res) {
+ 			/* TODO: consider downing the slave
+-- 
+1.8.0
