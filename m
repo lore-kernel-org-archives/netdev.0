@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 04/14] tipc: redefine 'started'
-	flag in struct link to bitmap
-Date: Wed, 12 Feb 2014 13:31:04 -0500
-Message-ID: <1392229874-29675-5-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 01/14] tipc: stricter behavior of
+	message reassembly function
+Date: Wed, 12 Feb 2014 13:31:01 -0500
+Message-ID: <1392229874-29675-2-git-send-email-jon.maloy@ericsson.com>
 References: <1392229874-29675-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,112 +22,120 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-From: Ying Xue <ying.xue@windriver.com>
+The function tipc_link_recv_fragment(struct sk_buff **buf) currently
+leaves the value of the input buffer pointer undefined when it returns,
+except when the return code indicates that the reassembly is complete.
+This despite the fact that it always consumes the input buffer.
 
-Currently, the 'started' field in struct tipc_link represents only a
-binary state, 'started' or 'not started'. We need it to represent
-more link execution states in the coming commits in this series.
-Hence, we rename the field to 'flags', and define the current
-started/non-started state to be represented by the LSB bit of
-that field.
+Here, we enforce a stricter behavior by this function, ensuring that
+the returned buffer pointer is non-NULL if and only if the reassembly
+is complete. This makes it possible to test for the buffer pointer as
+criteria for successful reassembly.
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+We also rename the function to tipc_link_frag_rcv(), which is both
+shorter and more in line with common naming practice in the network
+subsystem.
+
+Apart from the new name, these changes have no impact on current
+users of the function, but makes it more practical for use in some
+planned future commits.
+
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Reviewed-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/link.c |    4 ++--
- net/tipc/link.h |   22 +++++++++++-----------
- 2 files changed, 13 insertions(+), 13 deletions(-)
+ net/tipc/bcast.c |    6 +++---
+ net/tipc/link.c  |   16 +++++++++-------
+ net/tipc/link.h  |    6 +++---
+ 3 files changed, 15 insertions(+), 13 deletions(-)
 
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index bf860d9..af35f76 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -481,9 +481,9 @@ receive:
+ 			tipc_link_recv_bundle(buf);
+ 		} else if (msg_user(msg) == MSG_FRAGMENTER) {
+ 			int ret;
+-			ret = tipc_link_recv_fragment(&node->bclink.reasm_head,
+-						      &node->bclink.reasm_tail,
+-						      &buf);
++			ret = tipc_link_frag_rcv(&node->bclink.reasm_head,
++						 &node->bclink.reasm_tail,
++						 &buf);
+ 			if (ret == LINK_REASM_ERROR)
+ 				goto unlock;
+ 			spin_lock_bh(&bc_lock);
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 424e9f3..2070d03 100644
+index d4b5de4..17fbd15 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -500,7 +500,7 @@ static void link_state_event(struct tipc_link *l_ptr, unsigned int event)
- 	struct tipc_link *other;
- 	u32 cont_intv = l_ptr->continuity_interval;
+@@ -1584,9 +1584,9 @@ deliver:
+ 			continue;
+ 		case MSG_FRAGMENTER:
+ 			l_ptr->stats.recv_fragments++;
+-			ret = tipc_link_recv_fragment(&l_ptr->reasm_head,
+-						      &l_ptr->reasm_tail,
+-						      &buf);
++			ret = tipc_link_frag_rcv(&l_ptr->reasm_head,
++						 &l_ptr->reasm_tail,
++						 &buf);
+ 			if (ret == LINK_REASM_COMPLETE) {
+ 				l_ptr->stats.recv_fragmented++;
+ 				msg = buf_msg(buf);
+@@ -2277,12 +2277,11 @@ static int link_send_long_buf(struct tipc_link *l_ptr, struct sk_buff *buf)
+ 	return dsz;
+ }
  
--	if (!l_ptr->started && (event != STARTING_EVT))
-+	if (!(l_ptr->flags & LINK_STARTED) && (event != STARTING_EVT))
- 		return;		/* Not yet. */
+-/*
+- * tipc_link_recv_fragment(): Called with node lock on. Returns
++/* tipc_link_frag_rcv(): Called with node lock on. Returns
+  * the reassembled buffer if message is complete.
+  */
+-int tipc_link_recv_fragment(struct sk_buff **head, struct sk_buff **tail,
+-			    struct sk_buff **fbuf)
++int tipc_link_frag_rcv(struct sk_buff **head, struct sk_buff **tail,
++		       struct sk_buff **fbuf)
+ {
+ 	struct sk_buff *frag = *fbuf;
+ 	struct tipc_msg *msg = buf_msg(frag);
+@@ -2296,6 +2295,7 @@ int tipc_link_recv_fragment(struct sk_buff **head, struct sk_buff **tail,
+ 			goto out_free;
+ 		*head = frag;
+ 		skb_frag_list_init(*head);
++		*fbuf = NULL;
+ 		return 0;
+ 	} else if (*head &&
+ 		   skb_try_coalesce(*head, frag, &headstolen, &delta)) {
+@@ -2315,10 +2315,12 @@ int tipc_link_recv_fragment(struct sk_buff **head, struct sk_buff **tail,
+ 		*tail = *head = NULL;
+ 		return LINK_REASM_COMPLETE;
+ 	}
++	*fbuf = NULL;
+ 	return 0;
+ out_free:
+ 	pr_warn_ratelimited("Link unable to reassemble fragmented message\n");
+ 	kfree_skb(*fbuf);
++	*fbuf = NULL;
+ 	return LINK_REASM_ERROR;
+ }
  
- 	/* Check whether changeover is going on */
-@@ -626,7 +626,7 @@ static void link_state_event(struct tipc_link *l_ptr, unsigned int event)
- 			link_set_timer(l_ptr, cont_intv);
- 			break;
- 		case STARTING_EVT:
--			l_ptr->started = 1;
-+			l_ptr->flags |= LINK_STARTED;
- 			/* fall through */
- 		case TIMEOUT_EVT:
- 			tipc_link_send_proto_msg(l_ptr, RESET_MSG, 0, 0, 0, 0, 0);
 diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 994ebd1..a900e74 100644
+index 3b6aa65..8addc5e 100644
 --- a/net/tipc/link.h
 +++ b/net/tipc/link.h
-@@ -1,7 +1,7 @@
- /*
-  * net/tipc/link.h: Include file for TIPC link code
-  *
-- * Copyright (c) 1995-2006, Ericsson AB
-+ * Copyright (c) 1995-2006, 2013, Ericsson AB
-  * Copyright (c) 2004-2005, 2010-2011, Wind River Systems
-  * All rights reserved.
-  *
-@@ -40,27 +40,27 @@
- #include "msg.h"
- #include "node.h"
- 
--/*
-- * Link reassembly status codes
-+/* Link reassembly status codes
-  */
- #define LINK_REASM_ERROR	-1
- #define LINK_REASM_COMPLETE	1
- 
--/*
-- * Out-of-range value for link sequence numbers
-+/* Out-of-range value for link sequence numbers
-  */
- #define INVALID_LINK_SEQ 0x10000
- 
--/*
-- * Link states
-+/* Link working states
-  */
- #define WORKING_WORKING 560810u
- #define WORKING_UNKNOWN 560811u
- #define RESET_UNKNOWN   560812u
- #define RESET_RESET     560813u
- 
--/*
-- * Starting value for maximum packet size negotiation on unicast links
-+/* Link endpoint execution states
-+ */
-+#define LINK_STARTED    0x0001
-+
-+/* Starting value for maximum packet size negotiation on unicast links
-  * (unless bearer MTU is less)
-  */
- #define MAX_PKT_DEFAULT 1500
-@@ -103,7 +103,7 @@ struct tipc_stats {
-  * @timer: link timer
-  * @owner: pointer to peer node
-  * @link_list: adjacent links in bearer's list of links
-- * @started: indicates if link has been started
-+ * @flags: execution state flags for link endpoint instance
-  * @checkpoint: reference point for triggering link continuity checking
-  * @peer_session: link session # being used by peer end of link
-  * @peer_bearer_id: bearer id used by link's peer endpoint
-@@ -152,7 +152,7 @@ struct tipc_link {
- 	struct list_head link_list;
- 
- 	/* Management and link supervision data */
--	int started;
-+	unsigned int flags;
- 	u32 checkpoint;
- 	u32 peer_session;
- 	u32 peer_bearer_id;
+@@ -239,9 +239,9 @@ int tipc_link_send_sections_fast(struct tipc_port *sender,
+ 				 struct iovec const *msg_sect,
+ 				 unsigned int len, u32 destnode);
+ void tipc_link_recv_bundle(struct sk_buff *buf);
+-int  tipc_link_recv_fragment(struct sk_buff **reasm_head,
+-			     struct sk_buff **reasm_tail,
+-			     struct sk_buff **fbuf);
++int  tipc_link_frag_rcv(struct sk_buff **reasm_head,
++			struct sk_buff **reasm_tail,
++			struct sk_buff **fbuf);
+ void tipc_link_send_proto_msg(struct tipc_link *l_ptr, u32 msg_typ, int prob,
+ 			      u32 gap, u32 tolerance, u32 priority,
+ 			      u32 acked_mtu);
 -- 
 1.7.9.5
 
