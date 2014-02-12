@@ -1,163 +1,73 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [Patch net-next v3 5/5] net_sched: act: clean up tca_action_flush()
-Date: Wed, 12 Feb 2014 07:44:32 -0500
-Message-ID: <52FB6CB0.3030801@mojatatu.com>
-References: <1392167255-21744-1-git-send-email-xiyou.wangcong@gmail.com> <1392167255-21744-6-git-send-email-xiyou.wangcong@gmail.com>
+From: qca_dlansky <qca_dlansky@qualcomm.com>
+Subject: team driver MAC addresses questions
+Date: Wed, 12 Feb 2014 13:04:45 +0000
+Message-ID: <65502A17874025489B7D8479C16CFA634E91D1D0@nasanexd02f.na.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	qca_vkondrat <qca_vkondrat@qca.qualcomm.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:45112 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752366AbaBLMof (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 07:44:35 -0500
-Received: by mail-ig0-f170.google.com with SMTP id m12so1567958iga.1
-        for <netdev@vger.kernel.org>; Wed, 12 Feb 2014 04:44:34 -0800 (PST)
-In-Reply-To: <1392167255-21744-6-git-send-email-xiyou.wangcong@gmail.com>
+Received: from wolverine01.qualcomm.com ([199.106.114.254]:23144 "EHLO
+	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751133AbaBLNEr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 08:04:47 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/11/14 20:07, Cong Wang wrote:
-> We could allocate tc_action on stack in tca_action_flush(),
-> since it is not large.
->
-> Also, we could use create_a() in tcf_action_get_1().
->
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Hi Jiri,
 
+We have couple of questions about the team driver with regards to MAC addresses assignment.
+For our testing, we have ath9k (wlan1) as the port being added into team0.
 
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Q1:
+When team device created it gets some random MAC address. When adding wlan1 into team device, team sticks to its random MAC and doesn't inherit from the added port.
+This is because inside team_dev_type_check_change():
 
-> ---
->   net/sched/act_api.c | 53 +++++++++++++++++++++++------------------------------
->   1 file changed, 23 insertions(+), 30 deletions(-)
->
-> diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-> index 27e4c53..8a5ba5a 100644
-> --- a/net/sched/act_api.c
-> +++ b/net/sched/act_api.c
-> @@ -685,6 +685,20 @@ act_get_notify(struct net *net, u32 portid, struct nlmsghdr *n,
->   	return rtnl_unicast(skb, net, portid);
->   }
->
-> +static struct tc_action *create_a(int i)
-> +{
-> +	struct tc_action *act;
-> +
-> +	act = kzalloc(sizeof(*act), GFP_KERNEL);
-> +	if (act == NULL) {
-> +		pr_debug("create_a: failed to alloc!\n");
-> +		return NULL;
-> +	}
-> +	act->order = i;
-> +	INIT_LIST_HEAD(&act->list);
-> +	return act;
-> +}
-> +
->   static struct tc_action *
->   tcf_action_get_1(struct nlattr *nla, struct nlmsghdr *n, u32 portid)
->   {
-> @@ -704,11 +718,10 @@ tcf_action_get_1(struct nlattr *nla, struct nlmsghdr *n, u32 portid)
->   	index = nla_get_u32(tb[TCA_ACT_INDEX]);
->
->   	err = -ENOMEM;
-> -	a = kzalloc(sizeof(struct tc_action), GFP_KERNEL);
-> +	a = create_a(0);
->   	if (a == NULL)
->   		goto err_out;
->
-> -	INIT_LIST_HEAD(&a->list);
->   	err = -EINVAL;
->   	a->ops = tc_lookup_action(tb[TCA_ACT_KIND]);
->   	if (a->ops == NULL) /* could happen in batch of actions */
-> @@ -738,20 +751,6 @@ static void cleanup_a(struct list_head *actions)
->   	}
->   }
->
-> -static struct tc_action *create_a(int i)
-> -{
-> -	struct tc_action *act;
-> -
-> -	act = kzalloc(sizeof(*act), GFP_KERNEL);
-> -	if (act == NULL) {
-> -		pr_debug("create_a: failed to alloc!\n");
-> -		return NULL;
-> -	}
-> -	act->order = i;
-> -	INIT_LIST_HEAD(&act->list);
-> -	return act;
-> -}
-> -
->   static int tca_action_flush(struct net *net, struct nlattr *nla,
->   			    struct nlmsghdr *n, u32 portid)
->   {
-> @@ -763,18 +762,12 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
->   	struct nlattr *nest;
->   	struct nlattr *tb[TCA_ACT_MAX + 1];
->   	struct nlattr *kind;
-> -	struct tc_action *a = create_a(0);
-> +	struct tc_action a;
->   	int err = -ENOMEM;
->
-> -	if (a == NULL) {
-> -		pr_debug("tca_action_flush: couldnt create tc_action\n");
-> -		return err;
-> -	}
-> -
->   	skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
->   	if (!skb) {
->   		pr_debug("tca_action_flush: failed skb alloc\n");
-> -		kfree(a);
->   		return err;
->   	}
->
-> @@ -786,8 +779,10 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
->
->   	err = -EINVAL;
->   	kind = tb[TCA_ACT_KIND];
-> -	a->ops = tc_lookup_action(kind);
-> -	if (a->ops == NULL) /*some idjot trying to flush unknown action */
-> +	memset(&a, 0, sizeof(struct tc_action));
-> +	INIT_LIST_HEAD(&a.list);
-> +	a.ops = tc_lookup_action(kind);
-> +	if (a.ops == NULL) /*some idjot trying to flush unknown action */
->   		goto err_out;
->
->   	nlh = nlmsg_put(skb, portid, n->nlmsg_seq, RTM_DELACTION, sizeof(*t), 0);
-> @@ -802,7 +797,7 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
->   	if (nest == NULL)
->   		goto out_module_put;
->
-> -	err = a->ops->walk(skb, &dcb, RTM_DELACTION, a);
-> +	err = a.ops->walk(skb, &dcb, RTM_DELACTION, &a);
->   	if (err < 0)
->   		goto out_module_put;
->   	if (err == 0)
-> @@ -812,8 +807,7 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
->
->   	nlh->nlmsg_len = skb_tail_pointer(skb) - b;
->   	nlh->nlmsg_flags |= NLM_F_ROOT;
-> -	module_put(a->ops->owner);
-> -	kfree(a);
-> +	module_put(a.ops->owner);
->   	err = rtnetlink_send(skb, net, portid, RTNLGRP_TC,
->   			     n->nlmsg_flags & NLM_F_ECHO);
->   	if (err > 0)
-> @@ -822,11 +816,10 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
->   	return err;
->
->   out_module_put:
-> -	module_put(a->ops->owner);
-> +	module_put(a.ops->owner);
->   err_out:
->   noflush_out:
->   	kfree_skb(skb);
-> -	kfree(a);
->   	return err;
->   }
->
->
+if (dev->type == port_dev->type)
+        return 0;
+
+What is the reason for this behavior? Doesn't it make sense to inherit MAC from the 1st port being added?
+
+Q2:
+We've noticed the following behavior:
+- wlan1 has some MAC address - m1
+- team0 created with random MAC address - m2
+
+root@lx-foo:~# ip link
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT 
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP mode DEFAULT qlen 1000
+    link/ether 00:21:70:be:4f:68 brd ff:ff:ff:ff:ff:ff
+4: wlan1: <BROADCAST,MULTICAST> mtu 1500 qdisc mq state DOWN mode DORMANT qlen 1000
+    link/ether 44:39:c4:18:b5:7a brd ff:ff:ff:ff:ff:ff
+12: team0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT 
+    link/ether 9a:ac:d5:91:df:aa brd ff:ff:ff:ff:ff:ff
+
+- When adding port wlan1 into team0, m1 gets assigned to team0 and m2 gets assigned to wlan1
+
+root@lx-foo:~# LD_LIBRARY_PATH=/usr/local/lib/ teamdctl team0 port add wlan1
+root@lx-foo:~# ip link
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT 
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP mode DEFAULT qlen 1000
+    link/ether 00:21:70:be:4f:68 brd ff:ff:ff:ff:ff:ff
+4: wlan1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq master team0 state UP mode DORMANT qlen 1000
+    link/ether 9a:ac:d5:91:df:aa brd ff:ff:ff:ff:ff:ff
+12: team0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT 
+    link/ether 44:39:c4:18:b5:7a brd ff:ff:ff:ff:ff:ff
+
+This is a bit strange for us. We were expecting both of them to have the same MAC address.
+
+Further investigation showed that when adding the port, the MAC address of the added port is set twice:
+once by team_add_slave(), when wlan1 is still down. The MAC address is set to m2.
+second time by team_set_mac_address(), after wlan1 is up. The MAC address is set to m1.
+
+However, the 2nd call fails which leaves wlan1 with m2. The reason for the failure is because ath9k doesn't support IFF_LIVE_ADDR_CHANGE.
+
+Our question: in team_set_mac_address(), in case there is a failure setting MAC address for any port inside port_list, doesn't it make sense to undo MAC address changes and report the failure up the stack?
+
+Thanks,
+  Vladimir & Dedy.
