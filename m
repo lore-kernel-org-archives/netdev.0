@@ -1,124 +1,78 @@
-From: Yuval Mintz <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 4/9] bnx2x: Semantic Validate vlan/mac changes
-Date: Wed, 12 Feb 2014 18:19:52 +0200
-Message-ID: <1392221997-25525-5-git-send-email-yuvalmin@broadcom.com>
-References: <1392221997-25525-1-git-send-email-yuvalmin@broadcom.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH net 3/3] vhost: fix a theoretical race in device cleanup
+Date: Wed, 12 Feb 2014 18:36:57 +0200
+Message-ID: <1392222846-26699-4-git-send-email-mst@redhat.com>
+References: <1392222846-26699-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <ariele@broadcom.com>, Yuval Mintz <yuvalmin@broadcom.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:19877 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751480AbaBLQUK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 11:20:10 -0500
-In-Reply-To: <1392221997-25525-1-git-send-email-yuvalmin@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: virtio-dev@lists.oasis-open.org, kvm@vger.kernel.org,
+	netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, qinchuanyu@huawei.com,
+	davem@davemloft.net
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1392222846-26699-1-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-This is purely semantic - break the flow in which PF validates the VF
-classification filtering requirement is valid into several sub-functions
-for better readable code.
+vhost_zerocopy_callback accesses VQ right after
+it drops the last ubuf reference.
+In theory, this could race with device removal
+which waits on the ubuf kref, and crash
+on use after free.
 
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
+Do all accesses within rcu read side critical
+section, and all synchronize on release.
+
+Since callbacks are always invoked from bh,
+synchronize_rcu_bh seems enough and will help
+release complete a bit faster.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c | 51 +++++++++++++++++++-----
- 1 file changed, 42 insertions(+), 9 deletions(-)
+ drivers/vhost/net.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-index 3fa6c2a..ebad48a 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-@@ -1694,16 +1694,12 @@ static int bnx2x_vfop_mbx_qfilters_cmd(struct bnx2x *bp,
- 	return -ENOMEM;
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 7eaf2de..78a9d42 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -308,6 +308,8 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
+ 	struct vhost_virtqueue *vq = ubufs->vq;
+ 	int cnt;
+ 
++	rcu_read_lock_bh();
++
+ 	/* set len to mark this desc buffers done DMA */
+ 	vq->heads[ubuf->desc].len = success ?
+ 		VHOST_DMA_DONE_LEN : VHOST_DMA_FAILED_LEN;
+@@ -322,6 +324,8 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
+ 	 */
+ 	if (cnt <= 1 || !(cnt % 16))
+ 		vhost_poll_queue(&vq->poll);
++
++	rcu_read_unlock_bh();
  }
  
--static void bnx2x_vf_mbx_set_q_filters(struct bnx2x *bp,
--				       struct bnx2x_virtf *vf,
--				       struct bnx2x_vf_mbx *mbx)
-+static int bnx2x_filters_validate_mac(struct bnx2x *bp,
-+				      struct bnx2x_virtf *vf,
-+				      struct vfpf_set_q_filters_tlv *filters)
- {
--	struct vfpf_set_q_filters_tlv *filters = &mbx->msg->req.set_q_filters;
- 	struct pf_vf_bulletin_content *bulletin = BP_VF_BULLETIN(bp, vf->index);
--	struct bnx2x_vfop_cmd cmd = {
--		.done = bnx2x_vf_mbx_resp,
--		.block = false,
--	};
-+	int rc = 0;
- 
- 	/* if a mac was already set for this VF via the set vf mac ndo, we only
- 	 * accept mac configurations of that mac. Why accept them at all?
-@@ -1716,6 +1712,7 @@ static void bnx2x_vf_mbx_set_q_filters(struct bnx2x *bp,
- 			BNX2X_ERR("VF[%d] requested the addition of multiple macs after set_vf_mac ndo was called\n",
- 				  vf->abs_vfid);
- 			vf->op_rc = -EPERM;
-+			rc = -EPERM;
- 			goto response;
- 		}
- 
-@@ -1726,9 +1723,22 @@ static void bnx2x_vf_mbx_set_q_filters(struct bnx2x *bp,
- 				  vf->abs_vfid);
- 
- 			vf->op_rc = -EPERM;
-+			rc = -EPERM;
- 			goto response;
- 		}
- 	}
-+
-+response:
-+	return rc;
-+}
-+
-+static int bnx2x_filters_validate_vlan(struct bnx2x *bp,
-+				       struct bnx2x_virtf *vf,
-+				       struct vfpf_set_q_filters_tlv *filters)
-+{
-+	struct pf_vf_bulletin_content *bulletin = BP_VF_BULLETIN(bp, vf->index);
-+	int rc = 0;
-+
- 	/* if vlan was set by hypervisor we don't allow guest to config vlan */
- 	if (bulletin->valid_bitmap & 1 << VLAN_VALID) {
- 		int i;
-@@ -1740,13 +1750,36 @@ static void bnx2x_vf_mbx_set_q_filters(struct bnx2x *bp,
- 				BNX2X_ERR("VF[%d] attempted to configure vlan but one was already set by Hypervisor. Aborting request\n",
- 					  vf->abs_vfid);
- 				vf->op_rc = -EPERM;
-+				rc = -EPERM;
- 				goto response;
- 			}
- 		}
- 	}
- 
- 	/* verify vf_qid */
--	if (filters->vf_qid > vf_rxq_count(vf))
-+	if (filters->vf_qid > vf_rxq_count(vf)) {
-+		rc = -EPERM;
-+		goto response;
-+	}
-+
-+response:
-+	return rc;
-+}
-+
-+static void bnx2x_vf_mbx_set_q_filters(struct bnx2x *bp,
-+				       struct bnx2x_virtf *vf,
-+				       struct bnx2x_vf_mbx *mbx)
-+{
-+	struct vfpf_set_q_filters_tlv *filters = &mbx->msg->req.set_q_filters;
-+	struct bnx2x_vfop_cmd cmd = {
-+		.done = bnx2x_vf_mbx_resp,
-+		.block = false,
-+	};
-+
-+	if (bnx2x_filters_validate_mac(bp, vf, filters))
-+		goto response;
-+
-+	if (bnx2x_filters_validate_vlan(bp, vf, filters))
- 		goto response;
- 
- 	DP(BNX2X_MSG_IOV, "VF[%d] Q_FILTERS: queue[%d]\n",
+ /* Expects to be always run from workqueue - which acts as
+@@ -804,6 +808,8 @@ static int vhost_net_release(struct inode *inode, struct file *f)
+ 		fput(tx_sock->file);
+ 	if (rx_sock)
+ 		fput(rx_sock->file);
++	/* Make sure no callbacks are outstanding */
++	synchronize_rcu_bh();
+ 	/* We do an extra flush before freeing memory,
+ 	 * since jobs can re-queue themselves. */
+ 	vhost_net_flush(n);
 -- 
-1.8.1.227.g44fe835
+MST
