@@ -1,57 +1,64 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next 3/3] cfg80211: add MPLS and 802.21 classification
-Date: Wed, 12 Feb 2014 03:49:43 -0800
-Message-ID: <1392205783.1868.5.camel@joe-AO722>
-References: <1392202386-8826-1-git-send-email-sw@simonwunderlich.de>
-	 <1392202386-8826-4-git-send-email-sw@simonwunderlich.de>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [Patch net-next v2] net: allow setting mac address of loopback
+ device
+Date: Wed, 12 Feb 2014 06:50:28 -0500
+Message-ID: <20140212115028.GA4038@hmsreliant.think-freely.org>
+References: <1392168086-25607-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-wireless@vger.kernel.org,
-	mathias.kretschmer@fokus.fraunhofer.de
-To: Simon Wunderlich <sw@simonwunderlich.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0001.hostedemail.com ([216.40.44.1]:58695 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751562AbaBLLtr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 06:49:47 -0500
-In-Reply-To: <1392202386-8826-4-git-send-email-sw@simonwunderlich.de>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:50825 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752253AbaBLLuo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 06:50:44 -0500
+Content-Disposition: inline
+In-Reply-To: <1392168086-25607-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-02-12 at 11:53 +0100, Simon Wunderlich wrote:
-> MPLS labels may contain traffic control information, which should be
-> evaluated and used by the wireless subsystem if present.
+On Tue, Feb 11, 2014 at 05:21:26PM -0800, Cong Wang wrote:
+> We are trying to mirror the local traffic from lo to eth0,
+> allowing setting mac address of lo to eth0 would make
+> the ether addresses in these packets correct, so that
+> we don't have to modify the ether header again.
+> 
+> Since usually no one cares about its mac address (all-zero),
+> it is safe to allow those who care to set its mac address.
+> 
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
 
-trivial notes:
-
-> diff --git a/net/wireless/util.c b/net/wireless/util.c
-[]
-> @@ -11,6 +11,7 @@
->  #include <net/ip.h>
->  #include <net/dsfield.h>
->  #include <linux/if_vlan.h>
-> +#include <uapi/linux/mpls.h>
-
-Please try not to #include uapi files.
-
-> @@ -710,6 +711,29 @@ unsigned int cfg80211_classify8021d(struct sk_buff *skb,
->  			return vlan_priority;
->  	}
+> ---
+> diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+> index c5011e0..e7c1d5f 100644
+> --- a/drivers/net/loopback.c
+> +++ b/drivers/net/loopback.c
+> @@ -160,6 +160,7 @@ static const struct net_device_ops loopback_ops = {
+>  	.ndo_init      = loopback_dev_init,
+>  	.ndo_start_xmit= loopback_xmit,
+>  	.ndo_get_stats64 = loopback_get_stats64,
+> +	.ndo_set_mac_address = eth_mac_addr,
+>  };
 >  
-> +	if (skb_headlen(skb) >= sizeof(struct ethhdr)) {
-> +		struct ethhdr *eh = (struct ethhdr *) skb->data;
-> +		struct mpls_label_stack mpls_tmp, *mpls;
-> +
-> +		switch (eh->h_proto) {
-> +		case __constant_htons(ETH_P_MPLS_UC):
-> +		case __constant_htons(ETH_P_MPLS_MC):
-
-__constant_ isn't necessary for these labels.
-
->  	switch (skb->protocol) {
->  	case htons(ETH_P_IP):
->  		dscp = ipv4_get_dsfield(ip_hdr(skb)) & 0xfc;
-
-like this, just case htons(ETH_<FOO>) is enough.
+>  /*
+> @@ -174,6 +175,7 @@ static void loopback_setup(struct net_device *dev)
+>  	dev->tx_queue_len	= 0;
+>  	dev->type		= ARPHRD_LOOPBACK;	/* 0x0001*/
+>  	dev->flags		= IFF_LOOPBACK;
+> +	dev->priv_flags		|= IFF_LIVE_ADDR_CHANGE;
+>  	dev->priv_flags	       &= ~IFF_XMIT_DST_RELEASE;
+>  	dev->hw_features	= NETIF_F_ALL_TSO | NETIF_F_UFO;
+>  	dev->features 		= NETIF_F_SG | NETIF_F_FRAGLIST
+> 
