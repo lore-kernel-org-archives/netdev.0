@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 06/14] tipc: change reception of
-	tunnelled duplicate packets
-Date: Wed, 12 Feb 2014 13:31:06 -0500
-Message-ID: <1392229874-29675-7-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 04/14] tipc: redefine 'started'
+	flag in struct link to bitmap
+Date: Wed, 12 Feb 2014 13:31:04 -0500
+Message-ID: <1392229874-29675-5-git-send-email-jon.maloy@ericsson.com>
 References: <1392229874-29675-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,134 +22,112 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-When a second link to a destination comes up, some sender sockets will
-steer their subsequent traffic through the new link. In order to
-guarantee preserved packet order and cardinality for those sockets, we
-tunnel a duplicate of the old link's send queue through the new link
-before we open it for regular traffic. The last arriving packet copy,
-on whichever link, will be dropped at the receiving end based on the
-original sequence number, to ensure that only one copy is delivered to
-the end receiver.
+From: Ying Xue <ying.xue@windriver.com>
 
-In this commit, we change the algorithm for receiving DUPLICATE_MSG
-packets, at the same time delegating it to a new subfunction,
-tipc_link_dup_rcv(). Instead of returning an extracted inner packet to
-the packet reception loop in tipc_rcv(), we just add it to the receiving
-(new) link's deferred packet queue. The packet will then be processed by
-that link when it receives its first non-tunneled packet, i.e., at
-latest when the changeover procedure is finished.
+Currently, the 'started' field in struct tipc_link represents only a
+binary state, 'started' or 'not started'. We need it to represent
+more link execution states in the coming commits in this series.
+Hence, we rename the field to 'flags', and define the current
+started/non-started state to be represented by the LSB bit of
+that field.
 
-Because tipc_link_tunnel_rcv()/tipc_link_dup_rcv() now is consuming all
-packets of type DUPLICATE_MSG, the calling tipc_rcv() function can omit
-testing for this. This in turn means that the current conditional jump
-to the label 'protocol_check' becomes redundant, and we can remove that
-label.
-
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Reviewed-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/link.c |   53 ++++++++++++++++++++++++++++++++---------------------
- 1 file changed, 32 insertions(+), 21 deletions(-)
+ net/tipc/link.c |    4 ++--
+ net/tipc/link.h |   22 +++++++++++-----------
+ 2 files changed, 13 insertions(+), 13 deletions(-)
 
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 736b30c..80f9eb2 100644
+index 424e9f3..2070d03 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -1436,7 +1436,6 @@ void tipc_rcv(struct sk_buff *head, struct tipc_bearer *b_ptr)
- 		u32 seq_no;
- 		u32 ackd;
- 		u32 released = 0;
--		int type;
+@@ -500,7 +500,7 @@ static void link_state_event(struct tipc_link *l_ptr, unsigned int event)
+ 	struct tipc_link *other;
+ 	u32 cont_intv = l_ptr->continuity_interval;
  
- 		head = head->next;
- 		buf->next = NULL;
-@@ -1524,7 +1523,6 @@ void tipc_rcv(struct sk_buff *head, struct tipc_bearer *b_ptr)
- 		}
+-	if (!l_ptr->started && (event != STARTING_EVT))
++	if (!(l_ptr->flags & LINK_STARTED) && (event != STARTING_EVT))
+ 		return;		/* Not yet. */
  
- 		/* Now (finally!) process the incoming message */
--protocol_check:
- 		if (unlikely(!link_working_working(l_ptr))) {
- 			if (msg_user(msg) == LINK_PROTOCOL) {
- 				link_recv_proto_msg(l_ptr, buf);
-@@ -1598,15 +1596,11 @@ deliver:
- 			tipc_node_unlock(n_ptr);
- 			continue;
- 		case CHANGEOVER_PROTOCOL:
--			type = msg_type(msg);
--			if (tipc_link_tunnel_rcv(&l_ptr, &buf)) {
--				msg = buf_msg(buf);
--				seq_no = msg_seqno(msg);
--				if (type == ORIGINAL_MSG)
--					goto deliver;
--				goto protocol_check;
--			}
--			break;
-+			if (!tipc_link_tunnel_rcv(&l_ptr, &buf))
-+				break;
-+			msg = buf_msg(buf);
-+			seq_no = msg_seqno(msg);
-+			goto deliver;
- 		default:
- 			kfree_skb(buf);
- 			buf = NULL;
-@@ -2106,7 +2100,30 @@ static struct sk_buff *buf_extract(struct sk_buff *skb, u32 from_pos)
- 	return eb;
- }
+ 	/* Check whether changeover is going on */
+@@ -626,7 +626,7 @@ static void link_state_event(struct tipc_link *l_ptr, unsigned int event)
+ 			link_set_timer(l_ptr, cont_intv);
+ 			break;
+ 		case STARTING_EVT:
+-			l_ptr->started = 1;
++			l_ptr->flags |= LINK_STARTED;
+ 			/* fall through */
+ 		case TIMEOUT_EVT:
+ 			tipc_link_send_proto_msg(l_ptr, RESET_MSG, 0, 0, 0, 0, 0);
+diff --git a/net/tipc/link.h b/net/tipc/link.h
+index 994ebd1..a900e74 100644
+--- a/net/tipc/link.h
++++ b/net/tipc/link.h
+@@ -1,7 +1,7 @@
+ /*
+  * net/tipc/link.h: Include file for TIPC link code
+  *
+- * Copyright (c) 1995-2006, Ericsson AB
++ * Copyright (c) 1995-2006, 2013, Ericsson AB
+  * Copyright (c) 2004-2005, 2010-2011, Wind River Systems
+  * All rights reserved.
+  *
+@@ -40,27 +40,27 @@
+ #include "msg.h"
+ #include "node.h"
  
--/*  tipc_link_tunnel_rcv(): Receive a tunneled packet, sent
-+
-+
-+/* tipc_link_dup_rcv(): Receive a tunnelled DUPLICATE_MSG packet.
-+ * Owner node is locked.
+-/*
+- * Link reassembly status codes
++/* Link reassembly status codes
+  */
+ #define LINK_REASM_ERROR	-1
+ #define LINK_REASM_COMPLETE	1
+ 
+-/*
+- * Out-of-range value for link sequence numbers
++/* Out-of-range value for link sequence numbers
+  */
+ #define INVALID_LINK_SEQ 0x10000
+ 
+-/*
+- * Link states
++/* Link working states
+  */
+ #define WORKING_WORKING 560810u
+ #define WORKING_UNKNOWN 560811u
+ #define RESET_UNKNOWN   560812u
+ #define RESET_RESET     560813u
+ 
+-/*
+- * Starting value for maximum packet size negotiation on unicast links
++/* Link endpoint execution states
 + */
-+static void tipc_link_dup_rcv(struct tipc_link *l_ptr,
-+			      struct sk_buff *t_buf)
-+{
-+	struct sk_buff *buf;
++#define LINK_STARTED    0x0001
 +
-+	if (!tipc_link_is_up(l_ptr))
-+		return;
-+
-+	buf = buf_extract(t_buf, INT_H_SIZE);
-+	if (buf == NULL) {
-+		pr_warn("%sfailed to extract inner dup pkt\n", link_co_err);
-+		return;
-+	}
-+
-+	/* Add buffer to deferred queue, if applicable: */
-+	link_handle_out_of_seq_msg(l_ptr, buf);
-+}
-+
-+/*  tipc_link_tunnel_rcv(): Receive a tunnelled packet, sent
-  *  via other link as result of a failover (ORIGINAL_MSG) or
-  *  a new active link (DUPLICATE_MSG). Failover packets are
-  *  returned to the active link for delivery upwards.
-@@ -2125,6 +2142,7 @@ static int tipc_link_tunnel_rcv(struct tipc_link **l_ptr,
++/* Starting value for maximum packet size negotiation on unicast links
+  * (unless bearer MTU is less)
+  */
+ #define MAX_PKT_DEFAULT 1500
+@@ -103,7 +103,7 @@ struct tipc_stats {
+  * @timer: link timer
+  * @owner: pointer to peer node
+  * @link_list: adjacent links in bearer's list of links
+- * @started: indicates if link has been started
++ * @flags: execution state flags for link endpoint instance
+  * @checkpoint: reference point for triggering link continuity checking
+  * @peer_session: link session # being used by peer end of link
+  * @peer_bearer_id: bearer id used by link's peer endpoint
+@@ -152,7 +152,7 @@ struct tipc_link {
+ 	struct list_head link_list;
  
- 	if (bearer_id >= MAX_BEARERS)
- 		goto exit;
-+
- 	dest_link = (*l_ptr)->owner->links[bearer_id];
- 	if (!dest_link)
- 		goto exit;
-@@ -2137,15 +2155,8 @@ static int tipc_link_tunnel_rcv(struct tipc_link **l_ptr,
- 	msg = msg_get_wrapped(tunnel_msg);
- 
- 	if (msg_typ == DUPLICATE_MSG) {
--		if (less(msg_seqno(msg), mod(dest_link->next_in_no)))
--			goto exit;
--		*buf = buf_extract(tunnel_buf, INT_H_SIZE);
--		if (*buf == NULL) {
--			pr_warn("%sduplicate msg dropped\n", link_co_err);
--			goto exit;
--		}
--		kfree_skb(tunnel_buf);
--		return 1;
-+		tipc_link_dup_rcv(dest_link, tunnel_buf);
-+		goto exit;
- 	}
- 
- 	/* First original message ?: */
+ 	/* Management and link supervision data */
+-	int started;
++	unsigned int flags;
+ 	u32 checkpoint;
+ 	u32 peer_session;
+ 	u32 peer_bearer_id;
 -- 
 1.7.9.5
 
