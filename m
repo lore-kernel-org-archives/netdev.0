@@ -1,84 +1,80 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net-next 11/14] ethtool: Expand documentation of struct
- ethtool_perm_addr
-Date: Wed, 12 Feb 2014 22:14:48 +0000
-Message-ID: <1392243288.15615.15.camel@deadeye.wl.decadent.org.uk>
+Subject: [PATCH net-next 12/14] ethtool: Document the general convention for
+ VLAs in kernel space
+Date: Wed, 12 Feb 2014 22:14:53 +0000
+Message-ID: <1392243293.15615.16.camel@deadeye.wl.decadent.org.uk>
 References: <1392243184.15615.4.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-dhWiugpJjCHa+qyMo/JZ"
+	protocol="application/pgp-signature"; boundary="=-zxUhAl1br4ly871i8BDv"
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:52806 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:52809 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753999AbaBLWO4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 17:14:56 -0500
+	by vger.kernel.org with ESMTP id S1753999AbaBLWPA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 17:15:00 -0500
 In-Reply-To: <1392243184.15615.4.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-dhWiugpJjCHa+qyMo/JZ
+--=-zxUhAl1br4ly871i8BDv
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
+Various ethtool command structures are declared with zero-length array
+at the end which are intended to be variable-length in userland
+(relying on lack of compiler bounds checking).  However, in the kernel
+the structure and array are always allocated and passed to driver
+operations separately.  Make that explicit.
+
 Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
- include/uapi/linux/ethtool.h | 13 ++++++++++++-
- 1 file changed, 12 insertions(+), 1 deletion(-)
+ include/linux/ethtool.h | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index e96aec0..79be416 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -614,8 +614,19 @@ struct ethtool_stats {
- 	__u64	data[0];
- };
-=20
-+/**
-+ * struct ethtool_perm_addr - permanent hardware address
-+ * @cmd: Command number =3D %ETHTOOL_GPERMADDR
-+ * @size: On entry, the size of the buffer.  On return, the size of the
-+ *	address.  The command fails if the buffer is too small.
-+ * @data: Buffer for the address
-+ *
-+ * Users must allocate the buffer immediately following this structure.
-+ * A buffer size of %MAX_ADDR_LEN should be sufficient for any address
-+ * type.
-+ */
- struct ethtool_perm_addr {
--	__u32	cmd;		/* ETHTOOL_GPERMADDR */
-+	__u32	cmd;
- 	__u32	size;
- 	__u8	data[0];
- };
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index c8e3e7e3..0a114d0 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -183,6 +183,9 @@ static inline u32 ethtool_rxfh_indir_default(u32 index,=
+ u32 n_rx_rings)
+  * hold the RTNL lock.
+  *
+  * See the structures used by these operations for further documentation.
++ * Note that for all operations using a structure ending with a zero-
++ * length array, the array is allocated separately in the kernel and
++ * is passed to the driver as an additional parameter.
+  *
+  * See &struct net_device and &struct net_device_ops for documentation
+  * of the generic netdev features interface.
 
 
 --=20
 Ben Hutchings
 If more than one person is responsible for a bug, no one is at fault.
 
---=-dhWiugpJjCHa+qyMo/JZ
+--=-zxUhAl1br4ly871i8BDv
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIVAwUAUvvyWOe/yOyVhhEJAQrc5Q//dgliPS1ikkfrlP4vNHPxF40evZcv/dxk
-0qp6PC5hpu50nFDXhikrTFFIQodRjzd1d3DCjneduuD6Zg/oOIuO88EH4UcSgJFW
-sBRHsGETV/kMxbRYbF3NuuVPsc6a2dM+Rpqrs534ICKvatwt0ys4arx3hre5jaBC
-ZULgtLpO54QuVc1f8QZhjSmgfmD1QLNY3xlojw6DLk2CnmC7rVCnzj2LJdZpZne7
-HciQjjGg45SEDRxfXDbI0RVSIQYWCKf4seT19Q/Rq4dK8DLTqD40AtQ1WIoHWfpK
-Axma3oTo99coJxEVInkyUfAImXnend9OknhduYs51yjt7jhhCoNqBRgCFuvkPjcp
-u9v5W5GvvJeRtBIaSP4sTIb/a/EqsLLjcoZdU/vpB2paQdrJsJX2pFZfEQqewitb
-H8Vriax0nXiUGNoRKzwdZIqX3Wazn5FUgOteFdEJ1ZigqEKvVOA2bImrOQ0bHeEg
-TnBzEul5rcvMHiFSN2ZeFkVII8vtzwFEBrEOfGZLE2orlz4iKykPATP2pIZ09Q5g
-h8rF6sH/JIgOYY2R1CjxLTEu8h+W3dcR3PvxfbLZXSJd27H+/KNR+0VBuR8wiisD
-MY91AC5Cf3NpfeTys1AvEC6VIsRt3b3guqFT/uksNne086e+VnbYJeQTbugQyscg
-U+ZCaTMVdzw=
-=8wze
+iQIVAwUAUvvyXee/yOyVhhEJAQojWBAAx1ZL2yEGKLcY8E0mtRfJV4XVzeFoa3EX
+kaU6KMg8JLGl6JOE3vXv8deHfkjxTInhGuHhvtGzSn5dKDoT9o4O7kqMvUmCXV8f
+oHr16ntuqFXQHBOh/Zyr+uqD9yxPZ/vNAwCgxaVhwCoyVQo4xvfl47lpvavgqNPm
+sKrkagwgi9b+kACCIL1KgLLe7ktWOwi1p+49sRsCSdtjwBk3iQEBIiY9RH2cCPxE
+bGe6y0exQHh2rB24IOPNfb0sOg7Eusi4SANjANA8F3TCJIulV7ze91OJRmPfHvAj
+vuFRQDfZwghjXGhrGeJ587sMuT6eDRbXZym44cAFbHHJIAPud7JqdppmwtEr6EAH
+LK7jWbEl5YyVJ/J63Gyjk86Tf29f3CVxJ4zFYtQqQH/BUN7LeHRVEI6/7vqpZDFj
+bKFqc7d0YmynxPwll/yoHjykq+4ENl157hyyOfzGDV2ds1YJofymflxLqx53WUOf
+aHKt1COjt5iJqoXBs9yZ4+Xq4ruHiKblx+l/IMXE1hlsc8+kbZT6zc/WXwXA/zwr
+yRua1FZyrsMeFTmM4SMuhACKH1PeBMqwpWdWhUWzcy6GghMFldqu9gZHde9KPve2
+O2zApcazeRqLXqEQc8TOi6P7nL2cjsI/3ioEnoHFXX9OJsn4vz93GwXhPJ2lAUYT
+rIl51/nZ81I=
+=Hqqu
 -----END PGP SIGNATURE-----
 
---=-dhWiugpJjCHa+qyMo/JZ--
+--=-zxUhAl1br4ly871i8BDv--
