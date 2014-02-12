@@ -1,173 +1,200 @@
-From: Yoann Juet <yoann.juet@univ-nantes.fr>
-Subject: bnx2x + SR-IOV, no internal L2 switching
-Date: Wed, 12 Feb 2014 14:33:55 +0100
-Message-ID: <52FB7843.6050601@univ-nantes.fr>
-Reply-To: yoann.juet@univ-nantes.fr
-Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pkcs7-signature"; micalg=sha1; boundary="------------ms030102030106030608000602"
-To: netdev@vger.kernel.org
+From: Stanislav Fomichev <stfomichev@yandex-team.ru>
+Subject: [PATCH] [CLEANUP] tcp: remove unused min_cwnd member of tcp_congestion_ops
+Date: Wed, 12 Feb 2014 17:35:21 +0400
+Message-ID: <1392212121-28574-1-git-send-email-stfomichev@yandex-team.ru>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, edumazet@google.com,
+	ncardwell@google.com, ycheng@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtptls1-lmb.cpub.univ-nantes.fr ([193.52.103.110]:54927 "EHLO
-	smtp-tls.univ-nantes.fr" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751354AbaBLNlm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 08:41:42 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by smtp-tls.univ-nantes.fr (Postfix) with ESMTP id 1E95FC03696
-	for <netdev@vger.kernel.org>; Wed, 12 Feb 2014 14:33:02 +0100 (CET)
-Received: from smtp-tls.univ-nantes.fr ([127.0.0.1])
-	by localhost (smtptls1-lmb.cpub.univ-nantes.fr [127.0.0.1]) (amavisd-new, port 10024)
-	with LMTP id QokfC19wx8UP for <netdev@vger.kernel.org>;
-	Wed, 12 Feb 2014 14:33:02 +0100 (CET)
-Received: from [IPv6:2001:660:7220:0:7016:a7c0:40d1:fe9a] (unknown [IPv6:2001:660:7220:0:7016:a7c0:40d1:fe9a])
-	(using TLSv1 with cipher ECDHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by smtp-tls.univ-nantes.fr (Postfix) with ESMTPSA id EF78DC03694
-	for <netdev@vger.kernel.org>; Wed, 12 Feb 2014 14:33:01 +0100 (CET)
+Received: from forward-corp1g.mail.yandex.net ([95.108.253.251]:56902 "EHLO
+	forward-corp1g.mail.yandex.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751065AbaBLNqj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 08:46:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a cryptographically signed message in MIME format.
+Commit 684bad110757 "tcp: use PRR to reduce cwin in CWR state" removed all
+calls to min_cwnd, so we can safely remove it.
+Also, remove tcp_reno_min_cwnd because it was only used for min_cwnd.
 
---------------ms030102030106030608000602
-Content-Type: multipart/mixed;
- boundary="------------000300020504010907090109"
-
-This is a multi-part message in MIME format.
---------------000300020504010907090109
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
-
-Hi all,
-
-I'm conducting experiments on SR-IOV with Broadcom and Intel cards on=20
-debian/unstable with KVM hypervisor. On Broadcom cards (bnx2x module,=20
-BCM57810 devices), Virtual Functions (VFs) get running, Virtual Machines =
-
-attached to such VFs inherit network connectivity with excellent=20
-performance.
-
-However, VMs attached to VFs on the Broadcom Physical Functions (PFs)=20
-behave like they were connected to an ancient hub, not a L2 switch. It=20
-is as if there was no internal L2 switching on the Broadcom card to=20
-process VF <-> VF or VF <-> PF communications. As a result, a VM sees=20
-all inbound/outbound traffic from/to others VMs as well as traffic=20
-destined to the PF (for instance, the physical ethX has an IP address).
-
-On the other hand, everything works like a charm with Intel cards (ixgbe =
-
-module, 82599EB devices). Traffic between VFs or VF/PF is switched=20
-internally by the card.
-
-I found very little literature about SR-IOV on Broadcom devices. I=20
-wonder if it's a normal behaviour, a misconfiguration on my side or=20
-perhaps a firmware/driver bug.
-
-Have you seen this issue before ?
-
+Signed-off-by: Stanislav Fomichev <stfomichev@yandex-team.ru>
 ---
-Kernel 3.12.9 (same behaviour with kernels 3.10.x)
-	driver: bnx2x
-	firmware-version: 7.8.17
-Debian/unstable
-	libvirt 1.2.1
-	QEMU 1.7.0
----
+ Documentation/networking/tcp.txt |  2 +-
+ include/net/tcp.h                |  3 ---
+ net/ipv4/tcp_cong.c              | 10 ----------
+ net/ipv4/tcp_highspeed.c         |  1 -
+ net/ipv4/tcp_hybla.c             |  1 -
+ net/ipv4/tcp_illinois.c          |  1 -
+ net/ipv4/tcp_lp.c                |  1 -
+ net/ipv4/tcp_scalable.c          |  1 -
+ net/ipv4/tcp_vegas.c             |  1 -
+ net/ipv4/tcp_westwood.c          |  1 -
+ net/ipv4/tcp_yeah.c              |  1 -
+ 11 files changed, 1 insertion(+), 22 deletions(-)
 
-Best regards,
---=20
-Universit=E9 de Nantes - Direction des Syst=E8mes d'Information
-
-
-
---------------000300020504010907090109
-Content-Type: text/x-vcard; charset=utf-8;
- name="yoann_juet.vcf"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: attachment;
- filename="yoann_juet.vcf"
-
-begin:vcard
-fn:Yoann Juet
-n:Juet;Yoann
-org;quoted-printable;quoted-printable:Direction des Syst=3DC3=3DA8mes d'I=
-nformation;P=3DC3=3DB4le R=3DC3=3DA9seau
-adr;quoted-printable:BP 92208;;2 rue de la Houssini=3DC3=3DA8re;Nantes Ce=
-dex 3;;44322;France
-email;internet:yoann.juet@univ-nantes.fr
-tel;work:02.53.48.49.26
-tel;fax:02.53.48.49.09
-tel;cell:06.73.15.42.19
-version:2.1
-end:vcard
-
-
---------------000300020504010907090109--
-
---------------ms030102030106030608000602
-Content-Type: application/pkcs7-signature; name="smime.p7s"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Description: S/MIME Cryptographic Signature
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIJcDCC
-BKUwggONoAMCAQICEQCaw9r4AWwhPTK3X2MyL6H8MA0GCSqGSIb3DQEBBQUAMDsxCzAJBgNV
-BAYTAk5MMQ8wDQYDVQQKEwZURVJFTkExGzAZBgNVBAMTElRFUkVOQSBQZXJzb25hbCBDQTAe
-Fw0xMTA4MTcwMDAwMDBaFw0xNDA4MTYyMzU5NTlaMGcxCzAJBgNVBAYTAkZSMR0wGwYDVQQK
-ExRVTklWRVJTSVRFIERFIE5BTlRFUzETMBEGA1UEAxMKWW9hbm4gSlVFVDEkMCIGCSqGSIb3
-DQEJAhYVanVldC15QHVuaXYtbmFudGVzLmZyMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB
-CgKCAQEAzT4cyMjT4IaRAql635iNoxjb9ticpoS8Qauq9qGkV2HzDOqjI5SIc0nlU1EOWnbO
-05cewhUbOcM1YunHBSahw5cltsC3Uu4D2XAVQ5vD9VmS9kV2eBn3T9vSB1Yz7r7xSPOhHN50
-8qspRwgRExu1tFANqG7TMJbFtN5iG22fiQkNzlVLDV3vgB6B9eJaAayfVlZSq+QUMv2dp6AI
-8g7Z1tInb7EWVMbB17d7rSfGXJnQHN9wlRduAg2r+PfHcH2Z6Bxmxl66GABxH9keZxdnfo6G
-ph0/l0FFj7VwitXEU7V1kTuq7+vZc5qAT/mcSPO471+KzfU14AgEc8qvALV6iQIDAQABo4IB
-djCCAXIwHwYDVR0jBBgwFoAUY01DWhlIP8RGwQK6v+4O5YK3ZqYwHQYDVR0OBBYEFKPfL4a9
-soFXobME5dHUc30NI4iCMA4GA1UdDwEB/wQEAwIFoDAMBgNVHRMBAf8EAjAAMB0GA1UdJQQW
-MBQGCCsGAQUFBwMEBggrBgEFBQcDAjAYBgNVHSAEETAPMA0GCysGAQQBsjEBAgIdMD8GA1Ud
-HwQ4MDYwNKAyoDCGLmh0dHA6Ly9jcmwudGNzLnRlcmVuYS5vcmcvVEVSRU5BUGVyc29uYWxD
-QS5jcmwwcgYIKwYBBQUHAQEEZjBkMDoGCCsGAQUFBzAChi5odHRwOi8vY3J0LnRjcy50ZXJl
-bmEub3JnL1RFUkVOQVBlcnNvbmFsQ0EuY3J0MCYGCCsGAQUFBzABhhpodHRwOi8vb2NzcC50
-Y3MudGVyZW5hLm9yZzAkBgNVHREEHTAbgRlZb2Fubi5KdWV0QHVuaXYtbmFudGVzLmZyMA0G
-CSqGSIb3DQEBBQUAA4IBAQCsH20G5ntaV5rBAKu+TjhdseCOkRFhExE6W+ImhXJb1aKFLtnt
-epvS6pTenXbBp+8OTjOXDJ9JpmA6sbGpy8FYIThiDiRLVMf1kVgU4ECDo2RE6AHtnRJ645Dw
-+fvXbFef9u+0aGehKREb6OVdl/6x9DFQvVm/bj9hQtXPusCXYUe1b/ZCbUKFQSfmXwFMLmFb
-U64YhP3YRczYaznadT8Cm0INpaYZJatUan74iufwiC71toLGOEnupbQGOLSHalBdAy+u9WGl
-5Nm+oE+R+m8tqbRFUn9GSiswSi7RQXxk4O/qOev3/aF+cG4W4D5DCVBsKqTpFcu1fgzdzWQE
-IxRTMIIEwzCCA6ugAwIBAgIQc/5X+t+4xQiBe2a5a/At7zANBgkqhkiG9w0BAQUFADCBrjEL
-MAkGA1UEBhMCVVMxCzAJBgNVBAgTAlVUMRcwFQYDVQQHEw5TYWx0IExha2UgQ2l0eTEeMBwG
-A1UEChMVVGhlIFVTRVJUUlVTVCBOZXR3b3JrMSEwHwYDVQQLExhodHRwOi8vd3d3LnVzZXJ0
-cnVzdC5jb20xNjA0BgNVBAMTLVVUTi1VU0VSRmlyc3QtQ2xpZW50IEF1dGhlbnRpY2F0aW9u
-IGFuZCBFbWFpbDAeFw0wOTA1MTgwMDAwMDBaFw0yODEyMzEyMzU5NTlaMDsxCzAJBgNVBAYT
-Ak5MMQ8wDQYDVQQKEwZURVJFTkExGzAZBgNVBAMTElRFUkVOQSBQZXJzb25hbCBDQTCCASIw
-DQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMgV2fUzaiOhkA3PuwVEw6sfSjWFGiGFoE/4
-8EDiSkOb/luxsL+0V9x1gEFLZBr2209vj9AlRTX56stK+vva0+1FiBGUNuTMqA3vxT037RZ7
-48KVnlgzfyL7+P/s5r7brgplJSKH2m+Ei0boQIYoP79WCOJK6YOi6SL7Lfq2KB+RwcNx+1PA
-K06kDKFunVXt7OEkhzoI4g0c5MRN0Msn+oRk5tGXnVYkW5O7KS5D4kFqPeJKZfyaX1qGh7yH
-x3mAlplRxpAPZJGZfRDdrCwDKuF4ZP7OPU70K1ARS9FY1JsD8H/1O1OwU0P7xS/EBCkaOqzX
-VenRDpXROzF/eE+uKS0CAwEAAaOCAU0wggFJMB8GA1UdIwQYMBaAFImCZ33EnSZwAEu0UEh8
-3j2uBG59MB0GA1UdDgQWBBRjTUNaGUg/xEbBArq/7g7lgrdmpjAOBgNVHQ8BAf8EBAMCAQYw
-EgYDVR0TAQH/BAgwBgEB/wIBADAYBgNVHSAEETAPMA0GCysGAQQBsjEBAgIdMFgGA1UdHwRR
-ME8wTaBLoEmGR2h0dHA6Ly9jcmwudXNlcnRydXN0LmNvbS9VVE4tVVNFUkZpcnN0LUNsaWVu
-dEF1dGhlbnRpY2F0aW9uYW5kRW1haWwuY3JsMG8GCCsGAQUFBwEBBGMwYTA4BggrBgEFBQcw
-AoYsaHR0cDovL2NydC51c2VydHJ1c3QuY29tL1VUTkFBQUNsaWVudF9DQS5jcnQwJQYIKwYB
-BQUHMAGGGWh0dHA6Ly9vY3NwLnVzZXJ0cnVzdC5jb20wDQYJKoZIhvcNAQEFBQADggEBAAYr
-qVMvE9xcORbMhp9eTHty++yNVYpemgr/U0x29AY9UM9X8KLPr5mMqv6gGXY+mQMy+nWDOIq7
-a5qlDBOy1Bt25pQuZ5hZ45FsApCanMhgS1WryohajSvlaZUDB9HUDvwkIi5ZsWOkX+3ZI3Lk
-nM46XGwfT6kAyR3++n9FLbYuhN0PJ6BZGE7VdiVF9JkmedtvnyP3Q7srDwSjgSYst3s1+T13
-X0Ah5n8dpZZavdDLFjpsu2GLiv0EOUQKyyzhy84uEJga2+CT7UlkZAggn7ejUPCi3cq0xnwM
-PedeFdwnhuQ6O1JaF6upBlMrnQlzZBwBw/0w0ocDb+QVA3o5X2gxggMKMIIDBgIBATBQMDsx
-CzAJBgNVBAYTAk5MMQ8wDQYDVQQKEwZURVJFTkExGzAZBgNVBAMTElRFUkVOQSBQZXJzb25h
-bCBDQQIRAJrD2vgBbCE9MrdfYzIvofwwCQYFKw4DAhoFAKCCAY8wGAYJKoZIhvcNAQkDMQsG
-CSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTQwMjEyMTMzMzU1WjAjBgkqhkiG9w0BCQQx
-FgQUyLIaseacFmBPsmMemRSMsbvHo9YwXwYJKwYBBAGCNxAEMVIwUDA7MQswCQYDVQQGEwJO
-TDEPMA0GA1UEChMGVEVSRU5BMRswGQYDVQQDExJURVJFTkEgUGVyc29uYWwgQ0ECEQCaw9r4
-AWwhPTK3X2MyL6H8MGEGCyqGSIb3DQEJEAILMVKgUDA7MQswCQYDVQQGEwJOTDEPMA0GA1UE
-ChMGVEVSRU5BMRswGQYDVQQDExJURVJFTkEgUGVyc29uYWwgQ0ECEQCaw9r4AWwhPTK3X2My
-L6H8MGwGCSqGSIb3DQEJDzFfMF0wCwYJYIZIAWUDBAEqMAsGCWCGSAFlAwQBAjAKBggqhkiG
-9w0DBzAOBggqhkiG9w0DAgICAIAwDQYIKoZIhvcNAwICAUAwBwYFKw4DAgcwDQYIKoZIhvcN
-AwICASgwDQYJKoZIhvcNAQEBBQAEggEAffoVQ/tAOLLsph9UTzIimDh5QPN3oGhmK3lARJ6K
-4DaK6a/mh069JpufmdeROZh0Cq5+790ytprBK/klr5Bc5q83MVuMfZLiQqbfumqxqDrO7e+M
-AxVZJO/rO1tT9qJmKrgKTXQoi8bzQxobsbY84wHkD8uqlr6runPcxoHE/YGGhtLrVYRwMqIR
-zx5ox4KaU+4xhH4cpZgOYXCzccgkXq2jZV573MFSE1BOzqVn867Gp1YfveQbu9pwa7kWE1od
-l/f1Y9GE8vsJJU50pe17TivEFv8D9oJ6Xel70cHaDgyi/GIPKLfhwKojegrRWns6UHI1Z0A8
-rZGHdT7WfHuqygAAAAAAAA==
---------------ms030102030106030608000602--
+diff --git a/Documentation/networking/tcp.txt b/Documentation/networking/tcp.txt
+index 7d11bb5dc30a..bdc4c0db51e1 100644
+--- a/Documentation/networking/tcp.txt
++++ b/Documentation/networking/tcp.txt
+@@ -30,7 +30,7 @@ A congestion control mechanism can be registered through functions in
+ tcp_cong.c. The functions used by the congestion control mechanism are
+ registered via passing a tcp_congestion_ops struct to
+ tcp_register_congestion_control. As a minimum name, ssthresh,
+-cong_avoid, min_cwnd must be valid.
++cong_avoid must be valid.
+ 
+ Private data for a congestion control mechanism is stored in tp->ca_priv.
+ tcp_ca(tp) returns a pointer to this space.  This is preallocated space - it
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 70e55d200610..8ccc431f7269 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -793,8 +793,6 @@ struct tcp_congestion_ops {
+ 
+ 	/* return slow start threshold (required) */
+ 	u32 (*ssthresh)(struct sock *sk);
+-	/* lower bound for congestion window (optional) */
+-	u32 (*min_cwnd)(const struct sock *sk);
+ 	/* do new cwnd calculation (required) */
+ 	void (*cong_avoid)(struct sock *sk, u32 ack, u32 acked, u32 in_flight);
+ 	/* call before changing ca_state (optional) */
+@@ -829,7 +827,6 @@ void tcp_cong_avoid_ai(struct tcp_sock *tp, u32 w);
+ extern struct tcp_congestion_ops tcp_init_congestion_ops;
+ u32 tcp_reno_ssthresh(struct sock *sk);
+ void tcp_reno_cong_avoid(struct sock *sk, u32 ack, u32 acked, u32 in_flight);
+-u32 tcp_reno_min_cwnd(const struct sock *sk);
+ extern struct tcp_congestion_ops tcp_reno;
+ 
+ static inline void tcp_set_ca_state(struct sock *sk, const u8 ca_state)
+diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+index ad37bf18ae4b..f49351edf97d 100644
+--- a/net/ipv4/tcp_cong.c
++++ b/net/ipv4/tcp_cong.c
+@@ -362,21 +362,12 @@ u32 tcp_reno_ssthresh(struct sock *sk)
+ }
+ EXPORT_SYMBOL_GPL(tcp_reno_ssthresh);
+ 
+-/* Lower bound on congestion window with halving. */
+-u32 tcp_reno_min_cwnd(const struct sock *sk)
+-{
+-	const struct tcp_sock *tp = tcp_sk(sk);
+-	return tp->snd_ssthresh/2;
+-}
+-EXPORT_SYMBOL_GPL(tcp_reno_min_cwnd);
+-
+ struct tcp_congestion_ops tcp_reno = {
+ 	.flags		= TCP_CONG_NON_RESTRICTED,
+ 	.name		= "reno",
+ 	.owner		= THIS_MODULE,
+ 	.ssthresh	= tcp_reno_ssthresh,
+ 	.cong_avoid	= tcp_reno_cong_avoid,
+-	.min_cwnd	= tcp_reno_min_cwnd,
+ };
+ 
+ /* Initial congestion control used (until SYN)
+@@ -388,6 +379,5 @@ struct tcp_congestion_ops tcp_init_congestion_ops  = {
+ 	.owner		= THIS_MODULE,
+ 	.ssthresh	= tcp_reno_ssthresh,
+ 	.cong_avoid	= tcp_reno_cong_avoid,
+-	.min_cwnd	= tcp_reno_min_cwnd,
+ };
+ EXPORT_SYMBOL_GPL(tcp_init_congestion_ops);
+diff --git a/net/ipv4/tcp_highspeed.c b/net/ipv4/tcp_highspeed.c
+index 8ed9305dfdf4..8b9e7bad77c0 100644
+--- a/net/ipv4/tcp_highspeed.c
++++ b/net/ipv4/tcp_highspeed.c
+@@ -162,7 +162,6 @@ static struct tcp_congestion_ops tcp_highspeed __read_mostly = {
+ 	.init		= hstcp_init,
+ 	.ssthresh	= hstcp_ssthresh,
+ 	.cong_avoid	= hstcp_cong_avoid,
+-	.min_cwnd	= tcp_reno_min_cwnd,
+ 
+ 	.owner		= THIS_MODULE,
+ 	.name		= "highspeed"
+diff --git a/net/ipv4/tcp_hybla.c b/net/ipv4/tcp_hybla.c
+index 478fe82611bf..2a1a9e2a4e51 100644
+--- a/net/ipv4/tcp_hybla.c
++++ b/net/ipv4/tcp_hybla.c
+@@ -166,7 +166,6 @@ static void hybla_cong_avoid(struct sock *sk, u32 ack, u32 acked,
+ static struct tcp_congestion_ops tcp_hybla __read_mostly = {
+ 	.init		= hybla_init,
+ 	.ssthresh	= tcp_reno_ssthresh,
+-	.min_cwnd	= tcp_reno_min_cwnd,
+ 	.cong_avoid	= hybla_cong_avoid,
+ 	.set_state	= hybla_state,
+ 
+diff --git a/net/ipv4/tcp_illinois.c b/net/ipv4/tcp_illinois.c
+index 8a520996f3d2..560d9879b89c 100644
+--- a/net/ipv4/tcp_illinois.c
++++ b/net/ipv4/tcp_illinois.c
+@@ -329,7 +329,6 @@ static struct tcp_congestion_ops tcp_illinois __read_mostly = {
+ 	.flags		= TCP_CONG_RTT_STAMP,
+ 	.init		= tcp_illinois_init,
+ 	.ssthresh	= tcp_illinois_ssthresh,
+-	.min_cwnd	= tcp_reno_min_cwnd,
+ 	.cong_avoid	= tcp_illinois_cong_avoid,
+ 	.set_state	= tcp_illinois_state,
+ 	.get_info	= tcp_illinois_info,
+diff --git a/net/ipv4/tcp_lp.c b/net/ipv4/tcp_lp.c
+index 991d62a2f9bb..503798f2fcd6 100644
+--- a/net/ipv4/tcp_lp.c
++++ b/net/ipv4/tcp_lp.c
+@@ -319,7 +319,6 @@ static struct tcp_congestion_ops tcp_lp __read_mostly = {
+ 	.init = tcp_lp_init,
+ 	.ssthresh = tcp_reno_ssthresh,
+ 	.cong_avoid = tcp_lp_cong_avoid,
+-	.min_cwnd = tcp_reno_min_cwnd,
+ 	.pkts_acked = tcp_lp_pkts_acked,
+ 
+ 	.owner = THIS_MODULE,
+diff --git a/net/ipv4/tcp_scalable.c b/net/ipv4/tcp_scalable.c
+index 19ea6c2951f3..0ac50836da4d 100644
+--- a/net/ipv4/tcp_scalable.c
++++ b/net/ipv4/tcp_scalable.c
+@@ -39,7 +39,6 @@ static u32 tcp_scalable_ssthresh(struct sock *sk)
+ static struct tcp_congestion_ops tcp_scalable __read_mostly = {
+ 	.ssthresh	= tcp_scalable_ssthresh,
+ 	.cong_avoid	= tcp_scalable_cong_avoid,
+-	.min_cwnd	= tcp_reno_min_cwnd,
+ 
+ 	.owner		= THIS_MODULE,
+ 	.name		= "scalable",
+diff --git a/net/ipv4/tcp_vegas.c b/net/ipv4/tcp_vegas.c
+index 06cae62bf208..a022c17c9cf1 100644
+--- a/net/ipv4/tcp_vegas.c
++++ b/net/ipv4/tcp_vegas.c
+@@ -310,7 +310,6 @@ static struct tcp_congestion_ops tcp_vegas __read_mostly = {
+ 	.init		= tcp_vegas_init,
+ 	.ssthresh	= tcp_reno_ssthresh,
+ 	.cong_avoid	= tcp_vegas_cong_avoid,
+-	.min_cwnd	= tcp_reno_min_cwnd,
+ 	.pkts_acked	= tcp_vegas_pkts_acked,
+ 	.set_state	= tcp_vegas_state,
+ 	.cwnd_event	= tcp_vegas_cwnd_event,
+diff --git a/net/ipv4/tcp_westwood.c b/net/ipv4/tcp_westwood.c
+index 76a1e23259e1..b94a04ae2ed5 100644
+--- a/net/ipv4/tcp_westwood.c
++++ b/net/ipv4/tcp_westwood.c
+@@ -276,7 +276,6 @@ static struct tcp_congestion_ops tcp_westwood __read_mostly = {
+ 	.init		= tcp_westwood_init,
+ 	.ssthresh	= tcp_reno_ssthresh,
+ 	.cong_avoid	= tcp_reno_cong_avoid,
+-	.min_cwnd	= tcp_westwood_bw_rttmin,
+ 	.cwnd_event	= tcp_westwood_event,
+ 	.get_info	= tcp_westwood_info,
+ 	.pkts_acked	= tcp_westwood_pkts_acked,
+diff --git a/net/ipv4/tcp_yeah.c b/net/ipv4/tcp_yeah.c
+index a347a078ee07..5d2d15c5295f 100644
+--- a/net/ipv4/tcp_yeah.c
++++ b/net/ipv4/tcp_yeah.c
+@@ -231,7 +231,6 @@ static struct tcp_congestion_ops tcp_yeah __read_mostly = {
+ 	.init		= tcp_yeah_init,
+ 	.ssthresh	= tcp_yeah_ssthresh,
+ 	.cong_avoid	= tcp_yeah_cong_avoid,
+-	.min_cwnd	= tcp_reno_min_cwnd,
+ 	.set_state	= tcp_vegas_state,
+ 	.cwnd_event	= tcp_vegas_cwnd_event,
+ 	.get_info	= tcp_vegas_get_info,
+-- 
+1.8.3.2
