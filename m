@@ -1,47 +1,73 @@
-From: Aleksander Morgado <aleksander@aleksander.es>
-Subject: [PATCH] net: qmi_wwan: add support for Cinterion PXS8 and PHS8
-Date: Wed, 12 Feb 2014 15:55:14 +0100
-Message-ID: <1392216914-11520-1-git-send-email-aleksander@aleksander.es>
-Cc: bjorn@mork.no, netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Aleksander Morgado <aleksander@aleksander.es>,
-	Hans-Christoph Schemmel <hans-christoph.schemmel@gemalto.com>,
-	Christian Schmiedl <christian.schmiedl@gemalto.com>,
-	Nicolaus Colberg <nicolaus.colberg@gemalto.com>,
-	David McCullough <david.mccullough@accelecon.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:61442 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751218AbaBLO4D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 09:56:03 -0500
-Received: by mail-wi0-f176.google.com with SMTP id hi5so7056012wib.3
-        for <netdev@vger.kernel.org>; Wed, 12 Feb 2014 06:56:01 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dan Williams <dan.j.williams@intel.com>
+Subject: Re: 3.14-mw regression: rtl8169 WARNING: DMA-API: exceeded 7
+ overlapping mappings of pfn 55ebe
+Date: Wed, 12 Feb 2014 06:56:36 -0800
+Message-ID: <CAPcyv4hrVBLghSWB=vRoe_iAcWzRL5ZiN6SXrLmCbHx++hixBA@mail.gmail.com>
+References: <1859471893.20140126115521@eikelenboom.it>
+	<20140127000305.GA14236@electric-eye.fr.zoreil.com>
+	<CAA9_cme2hgJ=jCDkPh5n5RP8fiJE-dVwbFr-apKv1=mNGPHYZg@mail.gmail.com>
+	<84816226.20140206123631@eikelenboom.it>
+	<942972114.20140206140909@eikelenboom.it>
+	<CAPcyv4g2EnCLFWfLfSDnjtwrid2tCq2k6wh-8sPYY06eJpM83A@mail.gmail.com>
+	<1434499348.20140211205617@eikelenboom.it>
+	<CAPcyv4juAS0ODRPKE-_wXYu5bixLnvsgs3jgo4vzWcatfnyVsw@mail.gmail.com>
+	<1392178661.1752.1.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Sander Eikelenboom <linux@eikelenboom.it>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Dave Jones <davej@redhat.com>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1392178661.1752.1.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When the PXS8 and PHS8 devices show up with PID 0x0053 they will expose both a
-QMI port and a WWAN interface.
+On Tue, Feb 11, 2014 at 8:17 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2014-02-11 at 18:07 -0800, Dan Williams wrote:
+>
+>> The overlap granularity is too large.  Multiple dma_map_single
+>> mappings are allowed to a given page as long as they don't collide on
+>> the same cache line.
+>>
+>
+> I am not sure why you try number of mappings of a page.
 
-CC: Hans-Christoph Schemmel <hans-christoph.schemmel@gemalto.com>
-CC: Christian Schmiedl <christian.schmiedl@gemalto.com>
-CC: Nicolaus Colberg <nicolaus.colberg@gemalto.com>
-CC: David McCullough <david.mccullough@accelecon.com>
-Signed-off-by: Aleksander Morgado <aleksander@aleksander.es>
----
- drivers/net/usb/qmi_wwan.c | 1 +
- 1 file changed, 1 insertion(+)
+For this debug facility I am tracking whether dma has completed by
+making sure there are no active dma_map entries in the address range
+of a page being cow'd.
 
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index ff5c871..1eddd43 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -732,6 +732,7 @@ static const struct usb_device_id products[] = {
- 	{QMI_FIXED_INTF(0x1bc7, 0x1201, 2)},	/* Telit LE920 */
- 	{QMI_FIXED_INTF(0x0b3c, 0xc005, 6)},    /* Olivetti Olicard 200 */
- 	{QMI_FIXED_INTF(0x1e2d, 0x0060, 4)},	/* Cinterion PLxx */
-+	{QMI_FIXED_INTF(0x1e2d, 0x0053, 4)},	/* Cinterion PHxx,PXxx */
- 
- 	/* 4. Gobi 1000 devices */
- 	{QMI_GOBI1K_DEVICE(0x05c6, 0x9212)},	/* Acer Gobi Modem Device */
--- 
-1.8.5.3
+> Try launching 100 concurrent netperf -t TCP_SENFILE
+>
+> Same page might be mapped more than 100 times, more than 10000 times in
+> some cases.
+>
+
+Aren't these mapping serialized by the device to some extent?
+Although multi-queue / multi-device would even defeat that...
+
+Hmm, then I think at a minimum the activity tracking needs to be
+constrained to overlapping DMA_FROM_DEVICE or DMA_BIDIRECTIONAL
+mappings.  However, I am still operating on the assumption that some
+architectures (especially non-io-coherent or dmabounce architectures)
+expect a dma mapping to reflect exclusive ownership of the buffer.
+>From the conversation I had with Russell, back in the day [1]:
+
+"When we get to the second async_xor(), as we haven't started to run any
+of these operations, the source and destination buffers are still mapped.
+However, we ignore that and call dma_map_page() on them again - this is
+illegal because the CPU does not own these buffers."
+
+It might be the case that we can't have a general overlap detection
+facility as it will flag stable use cases that nonetheless violate the
+exclusivity expectation.
+
+--
+Dan
+
+[1]: http://marc.info/?l=linux-arm-kernel&m=129389649101566&w=2
