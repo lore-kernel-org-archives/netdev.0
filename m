@@ -1,82 +1,45 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: RFC: bridge get fdb by bridge device
-Date: Wed, 12 Feb 2014 14:02:51 -0500
-Message-ID: <52FBC55B.9040505@redhat.com>
-References: <52F21F72.2090405@mojatatu.com> <52F29747.7040008@redhat.com> <52F3CF76.9090404@mojatatu.com> <52F3E357.4040006@redhat.com> <52F79990.3000400@mojatatu.com> <52F8FEF1.60407@redhat.com> <52FA58E9.906@mojatatu.com> <52FA6A24.3030402@redhat.com> <52FA84FA.2030608@mojatatu.com> <52FA8F8B.3080500@redhat.com> <52FA9167.2040305@mojatatu.com>
-Reply-To: vyasevic@redhat.com
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: Re: [RFC 2/2] xen-netback: disable multicast and use a random hw MAC address
+Date: Wed, 12 Feb 2014 11:52:00 -0800
+Message-ID: <CAB=NE6Wfy-+Z4-NksF9qspz3+6Cq9JNYFvzQ9i1=YoCe0KWpbQ@mail.gmail.com>
+References: <1392071391-13215-1-git-send-email-mcgrof@do-not-panic.com>
+ <1392071391-13215-3-git-send-email-mcgrof@do-not-panic.com>
+ <1392108205.22033.16.camel@dagon.hellion.org.uk> <CAB=NE6Vu=khpj_3J7r-u8DFkhyC-RgLikNFtOU-WO7te_4HMCw@mail.gmail.com>
+ <1392203708.13563.50.camel@kazak.uk.xensource.com> <20140212121739.ecb2f222.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47980 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752706AbaBLTC7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Feb 2014 14:02:59 -0500
-In-Reply-To: <52FA9167.2040305@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Ian Campbell <Ian.Campbell@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	xen-devel@lists.xenproject.org,
+	Paul Durrant <Paul.Durrant@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>, kvm@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Bill Fink <billfink@mindspring.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140212121739.ecb2f222.billfink@mindspring.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/11/2014 04:08 PM, Jamal Hadi Salim wrote:
-> On 02/11/14 16:00, Vlad Yasevich wrote:
->> On 02/11/2014 03:15 PM, Jamal Hadi Salim wrote:
-> 
->>
->> Because it just a multi-function nic that isn't tagged with any
->> kine of bridge flag.  As John said, this might be useful, but not
->> done yet.
->>
-> 
-> Ok, fair enough. Someone should send a patch - John perhaps.
-> 
->>
->> Not directly.  However, if you put a layered software device in between
->> (vlan, bond, macvlan), then you can add that device to another bridge.
->> In fact, people do that to get GVRP working with VMs.
->>
-> 
-> Do you recall the reasoning behind it?
+On Wed, Feb 12, 2014 at 9:17 AM, Bill Fink <billfink@mindspring.com> wrote:
+> On Wed, 12 Feb 2014, Ian Campbell wrote:
+>> IOW -- enabling/disabling multicast seems to me to be an odd proxy for
+>> disabling SLAAC or DAD and AIUI your patch fixes the opposite case,
+>> which is to avoid SLAAC and DAD on interfaces which don't do multicast
+>> (which makes sense since those protocols involve multicast).
+>
+> Forgive me if this doesn't make sense in this context since
+> I'm not a kernel developer, but I was just wondering if any of
+> the sysctls:
+>
+>         /proc/sys/net/ipv6/conf/<ifc>/disable_ipv6
+>         /proc/sys/net/ipv6/conf/<ifc>/accept_dad
+>         /proc/sys/net/ipv6/conf/<ifc>/accept_ra
+>         /proc/sys/net/ipv6/conf/<ifc>/autoconf
+>
+> would be apropos for the requirement being discussed.
 
-Before my time. It's there since before 2.6.12 :)
+These are run time configuration options, post initialization. What
+we're considering is internal net_device capability fields, to even
+avoid creating these in the first place.
 
--vlad
-
-> 
-> 
->>> It certainly has some equivalent semantics (looks at dst MAC then
->>> picks the port). Possible to add Vlans as well?
->>
->> I suppose.   You can do things like:
->> # ip link add link eth0 dev vlan100 protocol 8021Q id 100
->> # ip link add link vlan0 dev mac100 type macvlan
->>
->> Now, you have a macvlan (mac100) that will only receive vlan100 traffic.
->> Expressing this in terms of fdb would be a bit difficult since each
->> interface is separate and eth0 doesn't really know about the stack.
->> It would require quite a lot of code.
->>
-> 
-> nice.
-> 
->>> Why dont we tag such a thing as a bridge then?
->>>
->>
->> Because they are not always a bridge.  It could be just a nic capable of
->> mac filtering.
->>
-> 
-> I think in one of the modes it is merely a filter.
-> But you turn on this other feature it is a bridge.
-> 
->>
->> Didn't realize it has different connotation for vxlan.  The you probably
->> don't want to include and support in the bridge fdb show command.
-> 
-> Thats what i thought you said earlier ;->
-> 
-> cheers,
-> jamal
+  Luis
