@@ -1,29 +1,222 @@
 From: Yuval Mintz <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 0/9] bnx2x: Enhancements & semantic changes series
-Date: Wed, 12 Feb 2014 18:19:48 +0200
-Message-ID: <1392221997-25525-1-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net-next 8/9] bnx2x: (semantic) revise scheduling of sp_rtnl
+Date: Wed, 12 Feb 2014 18:19:56 +0200
+Message-ID: <1392221997-25525-9-git-send-email-yuvalmin@broadcom.com>
+References: <1392221997-25525-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <ariele@broadcom.com>
+Cc: <ariele@broadcom.com>, Yuval Mintz <yuvalmin@broadcom.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:2686 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752631AbaBLQUO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 11:20:14 -0500
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:40595 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752641AbaBLQUP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 11:20:15 -0500
+In-Reply-To: <1392221997-25525-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+This removes the various points where the driver use bit operations in order
+to schedule the sp_rtnl_task from the code, adding a single utility function
+that does it instead.
 
-This patch series contains several semantic (or mostly semantic) patches,
-as well as adding support for packet aggregations on the receive path
-of windows VMs and updating bnx2x to the new FW recently accepted upstream.
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       |  2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c   | 18 +++++++++++----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h   |  3 +++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c   |  8 ++-----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  | 28 +++++++----------------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 17 ++++----------
+ 6 files changed, 32 insertions(+), 44 deletions(-)
 
-Please consider applying these patches to `net-next'.
-
-(This is a repost as net-next was still closed when this was previously
-sent)
-
-Thanks,
-Yuval Mintz
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index c871d19..21fdd1b 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -1402,7 +1402,7 @@ struct bnx2x_fw_stats_data {
+ };
+ 
+ /* Public slow path states */
+-enum {
++enum sp_rtnl_flag {
+ 	BNX2X_SP_RTNL_SETUP_TC,
+ 	BNX2X_SP_RTNL_TX_TIMEOUT,
+ 	BNX2X_SP_RTNL_FAN_FAILURE,
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 9d7419e..9ded3db 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -4773,12 +4773,8 @@ void bnx2x_tx_timeout(struct net_device *dev)
+ 		bnx2x_panic();
+ #endif
+ 
+-	smp_mb__before_clear_bit();
+-	set_bit(BNX2X_SP_RTNL_TX_TIMEOUT, &bp->sp_rtnl_state);
+-	smp_mb__after_clear_bit();
+-
+ 	/* This allows the netif to be shutdown gracefully before resetting */
+-	schedule_delayed_work(&bp->sp_rtnl_task, 0);
++	bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_TX_TIMEOUT, 0);
+ }
+ 
+ int bnx2x_suspend(struct pci_dev *pdev, pm_message_t state)
+@@ -4906,3 +4902,15 @@ void bnx2x_update_coalesce_sb_index(struct bnx2x *bp, u8 fw_sb_id,
+ 	disable = disable ? 1 : (usec ? 0 : 1);
+ 	storm_memset_hc_disable(bp, port, fw_sb_id, sb_index, disable);
+ }
++
++void bnx2x_schedule_sp_rtnl(struct bnx2x *bp, enum sp_rtnl_flag flag,
++			    u32 verbose)
++{
++	smp_mb__before_clear_bit();
++	set_bit(flag, &bp->sp_rtnl_state);
++	smp_mb__after_clear_bit();
++	DP((BNX2X_MSG_SP | verbose), "Scheduling sp_rtnl task [Flag: %d]\n",
++	   flag);
++	schedule_delayed_work(&bp->sp_rtnl_task, 0);
++}
++EXPORT_SYMBOL(bnx2x_schedule_sp_rtnl);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index 17d1689..b2edcae 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -1324,4 +1324,7 @@ void bnx2x_fill_fw_str(struct bnx2x *bp, char *buf, size_t buf_len);
+ int bnx2x_drain_tx_queues(struct bnx2x *bp);
+ void bnx2x_squeeze_objects(struct bnx2x *bp);
+ 
++void bnx2x_schedule_sp_rtnl(struct bnx2x*, enum sp_rtnl_flag,
++			    u32 verbose);
++
+ #endif /* BNX2X_CMN_H */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
+index fdace20..97ea542 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
+@@ -710,8 +710,7 @@ static inline void bnx2x_dcbx_update_tc_mapping(struct bnx2x *bp)
+ 	 * as we are handling an attention on a work queue which must be
+ 	 * flushed at some rtnl-locked contexts (e.g. if down)
+ 	 */
+-	if (!test_and_set_bit(BNX2X_SP_RTNL_SETUP_TC, &bp->sp_rtnl_state))
+-		schedule_delayed_work(&bp->sp_rtnl_task, 0);
++	bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_SETUP_TC, 0);
+ }
+ 
+ void bnx2x_dcbx_set_params(struct bnx2x *bp, u32 state)
+@@ -764,10 +763,7 @@ void bnx2x_dcbx_set_params(struct bnx2x *bp, u32 state)
+ 			if (IS_MF(bp))
+ 				bnx2x_link_sync_notify(bp);
+ 
+-			set_bit(BNX2X_SP_RTNL_TX_STOP, &bp->sp_rtnl_state);
+-
+-			schedule_delayed_work(&bp->sp_rtnl_task, 0);
+-
++			bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_TX_STOP, 0);
+ 			return;
+ 		}
+ 	case BNX2X_DCBX_STATE_TX_PAUSED:
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 8ff5326..0132a7c 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -3908,10 +3908,7 @@ static void bnx2x_fan_failure(struct bnx2x *bp)
+ 	 * This is due to some boards consuming sufficient power when driver is
+ 	 * up to overheat if fan fails.
+ 	 */
+-	smp_mb__before_clear_bit();
+-	set_bit(BNX2X_SP_RTNL_FAN_FAILURE, &bp->sp_rtnl_state);
+-	smp_mb__after_clear_bit();
+-	schedule_delayed_work(&bp->sp_rtnl_task, 0);
++	bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_FAN_FAILURE, 0);
+ }
+ 
+ static void bnx2x_attn_int_deasserted0(struct bnx2x *bp, u32 attn)
+@@ -5303,6 +5300,8 @@ static void bnx2x_eq_int(struct bnx2x *bp)
+ 					break;
+ 
+ 			} else {
++				int cmd = BNX2X_SP_RTNL_AFEX_F_UPDATE;
++
+ 				DP(BNX2X_MSG_SP | BNX2X_MSG_MCP,
+ 				   "AFEX: ramrod completed FUNCTION_UPDATE\n");
+ 				f_obj->complete_cmd(bp, f_obj,
+@@ -5312,12 +5311,7 @@ static void bnx2x_eq_int(struct bnx2x *bp)
+ 				 * sp_rtnl task as all Queue SP operations
+ 				 * should run under rtnl_lock.
+ 				 */
+-				smp_mb__before_clear_bit();
+-				set_bit(BNX2X_SP_RTNL_AFEX_F_UPDATE,
+-					&bp->sp_rtnl_state);
+-				smp_mb__after_clear_bit();
+-
+-				schedule_delayed_work(&bp->sp_rtnl_task, 0);
++				bnx2x_schedule_sp_rtnl(bp, cmd, 0);
+ 			}
+ 
+ 			goto next_spqe;
+@@ -12082,11 +12076,8 @@ static void bnx2x_set_rx_mode(struct net_device *dev)
+ 		return;
+ 	} else {
+ 		/* Schedule an SP task to handle rest of change */
+-		DP(NETIF_MSG_IFUP, "Scheduling an Rx mode change\n");
+-		smp_mb__before_clear_bit();
+-		set_bit(BNX2X_SP_RTNL_RX_MODE, &bp->sp_rtnl_state);
+-		smp_mb__after_clear_bit();
+-		schedule_delayed_work(&bp->sp_rtnl_task, 0);
++		bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_RX_MODE,
++				       NETIF_MSG_IFUP);
+ 	}
+ }
+ 
+@@ -12119,11 +12110,8 @@ void bnx2x_set_rx_mode_inner(struct bnx2x *bp)
+ 			/* configuring mcast to a vf involves sleeping (when we
+ 			 * wait for the pf's response).
+ 			 */
+-			smp_mb__before_clear_bit();
+-			set_bit(BNX2X_SP_RTNL_VFPF_MCAST,
+-				&bp->sp_rtnl_state);
+-			smp_mb__after_clear_bit();
+-			schedule_delayed_work(&bp->sp_rtnl_task, 0);
++			bnx2x_schedule_sp_rtnl(bp,
++					       BNX2X_SP_RTNL_VFPF_MCAST, 0);
+ 		}
+ 	}
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+index 8af71d3..fbeec77 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+@@ -983,11 +983,8 @@ op_err:
+ op_done:
+ 	case BNX2X_VFOP_QSETUP_DONE:
+ 		vf->cfg_flags |= VF_CFG_VLAN;
+-		smp_mb__before_clear_bit();
+-		set_bit(BNX2X_SP_RTNL_HYPERVISOR_VLAN,
+-			&bp->sp_rtnl_state);
+-		smp_mb__after_clear_bit();
+-		schedule_delayed_work(&bp->sp_rtnl_task, 0);
++		bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_HYPERVISOR_VLAN,
++				       BNX2X_MSG_IOV);
+ 		bnx2x_vfop_end(bp, vf, vfop);
+ 		return;
+ 	default:
+@@ -3812,13 +3809,9 @@ void bnx2x_timer_sriov(struct bnx2x *bp)
+ 	bnx2x_sample_bulletin(bp);
+ 
+ 	/* if channel is down we need to self destruct */
+-	if (bp->old_bulletin.valid_bitmap & 1 << CHANNEL_DOWN) {
+-		smp_mb__before_clear_bit();
+-		set_bit(BNX2X_SP_RTNL_VFPF_CHANNEL_DOWN,
+-			&bp->sp_rtnl_state);
+-		smp_mb__after_clear_bit();
+-		schedule_delayed_work(&bp->sp_rtnl_task, 0);
+-	}
++	if (bp->old_bulletin.valid_bitmap & 1 << CHANNEL_DOWN)
++		bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_VFPF_CHANNEL_DOWN,
++				       BNX2X_MSG_IOV);
+ }
+ 
+ void __iomem *bnx2x_vf_doorbells(struct bnx2x *bp)
+-- 
+1.8.1.227.g44fe835
