@@ -1,139 +1,125 @@
 From: Somnath Kotur <somnath.kotur@emulex.com>
-Subject: [PATCH 1/3] be2net: Log a kernel message when UE is detected in BE & Skyhawk
-Date: Wed, 12 Feb 2014 16:07:54 +0530
-Message-ID: <d97754ad-2377-4520-b87f-aab71d740af8@CMEXHTCAS2.ad.emulex.com>
+Subject: [PATCH 2/3] be2net: Update copyright year
+Date: Wed, 12 Feb 2014 16:09:07 +0530
+Message-ID: <211183c0-6214-476a-9795-018241ccfbd0@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <davem@davemloft.net>, Somnath Kotur <somnath.kotur@emulex.com>
+Cc: <davem@davemloft.net>,
+	Vasundhara Volam <vasundhara.volam@emulex.com>,
+	Sathya Perla <sathya.perla@emulex.com>,
+	Somnath Kotur <somnath.kotur@emulex.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:28888 "EHLO
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:28895 "EHLO
 	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751460AbaBLKje (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 05:39:34 -0500
+	with ESMTP id S1750963AbaBLKkt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 05:40:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch logs a kernel message when a HW error(SLIPORT_ERROR in Lancer and UE
-in BEx/Skyhawk) is detected. The log message for BE3 was missing earlier.
-This patch also refactors the code by segregating error-detection and reporting
-code for Lancer and BEx/SH.
+From: Vasundhara Volam <vasundhara.volam@emulex.com>
 
+Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c |   82 +++++++++++++-------------
- 1 files changed, 41 insertions(+), 41 deletions(-)
+ drivers/net/ethernet/emulex/benet/be.h         |    2 +-
+ drivers/net/ethernet/emulex/benet/be_cmds.c    |    2 +-
+ drivers/net/ethernet/emulex/benet/be_cmds.h    |    2 +-
+ drivers/net/ethernet/emulex/benet/be_ethtool.c |    2 +-
+ drivers/net/ethernet/emulex/benet/be_hw.h      |    2 +-
+ drivers/net/ethernet/emulex/benet/be_main.c    |    2 +-
+ drivers/net/ethernet/emulex/benet/be_roce.c    |    2 +-
+ drivers/net/ethernet/emulex/benet/be_roce.h    |    2 +-
+ 8 files changed, 8 insertions(+), 8 deletions(-)
 
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index 8d09615..6c05f57 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2005 - 2013 Emulex
++ * Copyright (C) 2005 - 2014 Emulex
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 48076a6..a8106b3 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2005 - 2013 Emulex
++ * Copyright (C) 2005 - 2014 Emulex
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+index fc4e076..3959566 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.h
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2005 - 2013 Emulex
++ * Copyright (C) 2005 - 2014 Emulex
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
+diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+index e775ba0..507177a 100644
+--- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
++++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2005 - 2013 Emulex
++ * Copyright (C) 2005 - 2014 Emulex
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
+diff --git a/drivers/net/ethernet/emulex/benet/be_hw.h b/drivers/net/ethernet/emulex/benet/be_hw.h
+index dc88782..effa272 100644
+--- a/drivers/net/ethernet/emulex/benet/be_hw.h
++++ b/drivers/net/ethernet/emulex/benet/be_hw.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2005 - 2013 Emulex
++ * Copyright (C) 2005 - 2014 Emulex
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 04ac9c6..7057545 100644
+index 7057545..816d67b 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2423,6 +2423,9 @@ void be_detect_error(struct be_adapter *adapter)
- 	u32 ue_lo = 0, ue_hi = 0, ue_lo_mask = 0, ue_hi_mask = 0;
- 	u32 sliport_status = 0, sliport_err1 = 0, sliport_err2 = 0;
- 	u32 i;
-+	bool error_detected = false;
-+	struct device *dev = &adapter->pdev->dev;
-+	struct net_device *netdev = adapter->netdev;
- 
- 	if (be_hw_error(adapter))
- 		return;
-@@ -2434,6 +2437,21 @@ void be_detect_error(struct be_adapter *adapter)
- 					SLIPORT_ERROR1_OFFSET);
- 			sliport_err2 = ioread32(adapter->db +
- 					SLIPORT_ERROR2_OFFSET);
-+			adapter->hw_error = true;
-+			/* Do not log error messages if its a FW reset */
-+			if (sliport_err1 == SLIPORT_ERROR_FW_RESET1 &&
-+			    sliport_err2 == SLIPORT_ERROR_FW_RESET2) {
-+				dev_info(dev, "Firmware update in progress\n");
-+			} else {
-+				error_detected = true;
-+				dev_err(dev, "Error detected in the card\n");
-+				dev_err(dev, "ERR: sliport status 0x%x\n",
-+					sliport_status);
-+				dev_err(dev, "ERR: sliport error1 0x%x\n",
-+					sliport_err1);
-+				dev_err(dev, "ERR: sliport error2 0x%x\n",
-+					sliport_err2);
-+			}
- 		}
- 	} else {
- 		pci_read_config_dword(adapter->pdev,
-@@ -2447,51 +2465,33 @@ void be_detect_error(struct be_adapter *adapter)
- 
- 		ue_lo = (ue_lo & ~ue_lo_mask);
- 		ue_hi = (ue_hi & ~ue_hi_mask);
--	}
--
--	/* On certain platforms BE hardware can indicate spurious UEs.
--	 * Allow the h/w to stop working completely in case of a real UE.
--	 * Hence not setting the hw_error for UE detection.
--	 */
--	if (sliport_status & SLIPORT_STATUS_ERR_MASK) {
--		adapter->hw_error = true;
--		/* Do not log error messages if its a FW reset */
--		if (sliport_err1 == SLIPORT_ERROR_FW_RESET1 &&
--		    sliport_err2 == SLIPORT_ERROR_FW_RESET2) {
--			dev_info(&adapter->pdev->dev,
--				 "Firmware update in progress\n");
--			return;
--		} else {
--			dev_err(&adapter->pdev->dev,
--				"Error detected in the card\n");
--		}
--	}
- 
--	if (sliport_status & SLIPORT_STATUS_ERR_MASK) {
--		dev_err(&adapter->pdev->dev,
--			"ERR: sliport status 0x%x\n", sliport_status);
--		dev_err(&adapter->pdev->dev,
--			"ERR: sliport error1 0x%x\n", sliport_err1);
--		dev_err(&adapter->pdev->dev,
--			"ERR: sliport error2 0x%x\n", sliport_err2);
--	}
--
--	if (ue_lo) {
--		for (i = 0; ue_lo; ue_lo >>= 1, i++) {
--			if (ue_lo & 1)
--				dev_err(&adapter->pdev->dev,
--				"UE: %s bit set\n", ue_status_low_desc[i]);
--		}
--	}
-+		/* On certain platforms BE hardware can indicate spurious UEs.
-+		 * Allow HW to stop working completely in case of a real UE.
-+		 * Hence not setting the hw_error for UE detection.
-+		 */
- 
--	if (ue_hi) {
--		for (i = 0; ue_hi; ue_hi >>= 1, i++) {
--			if (ue_hi & 1)
--				dev_err(&adapter->pdev->dev,
--				"UE: %s bit set\n", ue_status_hi_desc[i]);
-+		if (ue_lo || ue_hi) {
-+			error_detected = true;
-+			dev_err(dev,
-+				"Unrecoverable Error detected in the adapter");
-+			dev_err(dev, "Please reboot server to recover");
-+			if (skyhawk_chip(adapter))
-+				adapter->hw_error = true;
-+			for (i = 0; ue_lo; ue_lo >>= 1, i++) {
-+				if (ue_lo & 1)
-+					dev_err(dev, "UE: %s bit set\n",
-+						ue_status_low_desc[i]);
-+			}
-+			for (i = 0; ue_hi; ue_hi >>= 1, i++) {
-+				if (ue_hi & 1)
-+					dev_err(dev, "UE: %s bit set\n",
-+						ue_status_hi_desc[i]);
-+			}
- 		}
- 	}
--
-+	if (error_detected)
-+		netif_carrier_off(netdev);
- }
- 
- static void be_msix_disable(struct be_adapter *adapter)
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2005 - 2013 Emulex
++ * Copyright (C) 2005 - 2014 Emulex
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
+diff --git a/drivers/net/ethernet/emulex/benet/be_roce.c b/drivers/net/ethernet/emulex/benet/be_roce.c
+index 9cd5415..a5dae4a 100644
+--- a/drivers/net/ethernet/emulex/benet/be_roce.c
++++ b/drivers/net/ethernet/emulex/benet/be_roce.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2005 - 2013 Emulex
++ * Copyright (C) 2005 - 2014 Emulex
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
+diff --git a/drivers/net/ethernet/emulex/benet/be_roce.h b/drivers/net/ethernet/emulex/benet/be_roce.h
+index 2cd1129..a3ef8f8 100644
+--- a/drivers/net/ethernet/emulex/benet/be_roce.h
++++ b/drivers/net/ethernet/emulex/benet/be_roce.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2005 - 2013 Emulex
++ * Copyright (C) 2005 - 2014 Emulex
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
 -- 
 1.5.6.1
