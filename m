@@ -1,200 +1,196 @@
-From: Stanislav Fomichev <stfomichev@yandex-team.ru>
-Subject: [PATCH] [CLEANUP] tcp: remove unused min_cwnd member of tcp_congestion_ops
-Date: Wed, 12 Feb 2014 17:35:21 +0400
-Message-ID: <1392212121-28574-1-git-send-email-stfomichev@yandex-team.ru>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, edumazet@google.com,
-	ncardwell@google.com, ycheng@google.com
+From: Horia Geanta <horia.geanta@freescale.com>
+Subject: [PATCH ipsec-next v2] xfrm: avoid creating temporary SA when there are no listeners
+Date: Wed, 12 Feb 2014 16:00:09 +0200
+Message-ID: <1392213609-20098-1-git-send-email-horia.geanta@freescale.com>
+References: <20140212120914.GB3438@secunet.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward-corp1g.mail.yandex.net ([95.108.253.251]:56902 "EHLO
-	forward-corp1g.mail.yandex.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751065AbaBLNqj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 08:46:39 -0500
+Received: from co1ehsobe001.messaging.microsoft.com ([216.32.180.184]:13134
+	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751868AbaBLOAh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 09:00:37 -0500
+In-Reply-To: <20140212120914.GB3438@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 684bad110757 "tcp: use PRR to reduce cwin in CWR state" removed all
-calls to min_cwnd, so we can safely remove it.
-Also, remove tcp_reno_min_cwnd because it was only used for min_cwnd.
+In the case when KMs have no listeners, km_query() will fail and
+temporary SAs are garbage collected immediately after their allocation.
+This causes strain on memory allocation, leading even to OOM since
+temporary SA alloc/free cycle is performed for every packet
+and garbage collection does not keep up the pace.
 
-Signed-off-by: Stanislav Fomichev <stfomichev@yandex-team.ru>
+The sane thing to do is to make sure we have audience before
+temporary SA allocation.
+
+Signed-off-by: Horia Geanta <horia.geanta@freescale.com>
 ---
- Documentation/networking/tcp.txt |  2 +-
- include/net/tcp.h                |  3 ---
- net/ipv4/tcp_cong.c              | 10 ----------
- net/ipv4/tcp_highspeed.c         |  1 -
- net/ipv4/tcp_hybla.c             |  1 -
- net/ipv4/tcp_illinois.c          |  1 -
- net/ipv4/tcp_lp.c                |  1 -
- net/ipv4/tcp_scalable.c          |  1 -
- net/ipv4/tcp_vegas.c             |  1 -
- net/ipv4/tcp_westwood.c          |  1 -
- net/ipv4/tcp_yeah.c              |  1 -
- 11 files changed, 1 insertion(+), 22 deletions(-)
+v2: rebased onto current ipsec-next and fixed build failure
 
-diff --git a/Documentation/networking/tcp.txt b/Documentation/networking/tcp.txt
-index 7d11bb5dc30a..bdc4c0db51e1 100644
---- a/Documentation/networking/tcp.txt
-+++ b/Documentation/networking/tcp.txt
-@@ -30,7 +30,7 @@ A congestion control mechanism can be registered through functions in
- tcp_cong.c. The functions used by the congestion control mechanism are
- registered via passing a tcp_congestion_ops struct to
- tcp_register_congestion_control. As a minimum name, ssthresh,
--cong_avoid, min_cwnd must be valid.
-+cong_avoid must be valid.
+ include/net/xfrm.h    | 15 +++++++++++++++
+ net/key/af_key.c      | 19 +++++++++++++++++++
+ net/xfrm/xfrm_state.c | 31 +++++++++++++++++++++++++++++++
+ net/xfrm/xfrm_user.c  |  6 ++++++
+ 4 files changed, 71 insertions(+)
+
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index afa5730..5313ccf 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -594,6 +594,7 @@ struct xfrm_mgr {
+ 					   const struct xfrm_migrate *m,
+ 					   int num_bundles,
+ 					   const struct xfrm_kmaddress *k);
++	bool			(*is_alive)(const struct km_event *c);
+ };
  
- Private data for a congestion control mechanism is stored in tp->ca_priv.
- tcp_ca(tp) returns a pointer to this space.  This is preallocated space - it
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 70e55d200610..8ccc431f7269 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -793,8 +793,6 @@ struct tcp_congestion_ops {
- 
- 	/* return slow start threshold (required) */
- 	u32 (*ssthresh)(struct sock *sk);
--	/* lower bound for congestion window (optional) */
--	u32 (*min_cwnd)(const struct sock *sk);
- 	/* do new cwnd calculation (required) */
- 	void (*cong_avoid)(struct sock *sk, u32 ack, u32 acked, u32 in_flight);
- 	/* call before changing ca_state (optional) */
-@@ -829,7 +827,6 @@ void tcp_cong_avoid_ai(struct tcp_sock *tp, u32 w);
- extern struct tcp_congestion_ops tcp_init_congestion_ops;
- u32 tcp_reno_ssthresh(struct sock *sk);
- void tcp_reno_cong_avoid(struct sock *sk, u32 ack, u32 acked, u32 in_flight);
--u32 tcp_reno_min_cwnd(const struct sock *sk);
- extern struct tcp_congestion_ops tcp_reno;
- 
- static inline void tcp_set_ca_state(struct sock *sk, const u8 ca_state)
-diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-index ad37bf18ae4b..f49351edf97d 100644
---- a/net/ipv4/tcp_cong.c
-+++ b/net/ipv4/tcp_cong.c
-@@ -362,21 +362,12 @@ u32 tcp_reno_ssthresh(struct sock *sk)
+ int xfrm_register_km(struct xfrm_mgr *km);
+@@ -1646,6 +1647,20 @@ static inline int xfrm_aevent_is_on(struct net *net)
+ 	rcu_read_unlock();
+ 	return ret;
  }
- EXPORT_SYMBOL_GPL(tcp_reno_ssthresh);
++
++static inline int xfrm_acquire_is_on(struct net *net)
++{
++	struct sock *nlsk;
++	int ret = 0;
++
++	rcu_read_lock();
++	nlsk = rcu_dereference(net->xfrm.nlsk);
++	if (nlsk)
++		ret = netlink_has_listeners(nlsk, XFRMNLGRP_ACQUIRE);
++	rcu_read_unlock();
++
++	return ret;
++}
+ #endif
  
--/* Lower bound on congestion window with halving. */
--u32 tcp_reno_min_cwnd(const struct sock *sk)
--{
--	const struct tcp_sock *tp = tcp_sk(sk);
--	return tp->snd_ssthresh/2;
--}
--EXPORT_SYMBOL_GPL(tcp_reno_min_cwnd);
--
- struct tcp_congestion_ops tcp_reno = {
- 	.flags		= TCP_CONG_NON_RESTRICTED,
- 	.name		= "reno",
- 	.owner		= THIS_MODULE,
- 	.ssthresh	= tcp_reno_ssthresh,
- 	.cong_avoid	= tcp_reno_cong_avoid,
--	.min_cwnd	= tcp_reno_min_cwnd,
+ static inline int xfrm_alg_len(const struct xfrm_algo *alg)
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 1a04c13..e1c69d0 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -3059,6 +3059,24 @@ static u32 get_acqseq(void)
+ 	return res;
+ }
+ 
++static bool pfkey_is_alive(const struct km_event *c)
++{
++	struct netns_pfkey *net_pfkey = net_generic(c->net, pfkey_net_id);
++	struct sock *sk;
++	bool is_alive = false;
++
++	rcu_read_lock();
++	sk_for_each_rcu(sk, &net_pfkey->table) {
++		if (pfkey_sk(sk)->registered) {
++			is_alive = true;
++			break;
++		}
++	}
++	rcu_read_unlock();
++
++	return is_alive;
++}
++
+ static int pfkey_send_acquire(struct xfrm_state *x, struct xfrm_tmpl *t, struct xfrm_policy *xp)
+ {
+ 	struct sk_buff *skb;
+@@ -3784,6 +3802,7 @@ static struct xfrm_mgr pfkeyv2_mgr =
+ 	.new_mapping	= pfkey_send_new_mapping,
+ 	.notify_policy	= pfkey_send_policy_notify,
+ 	.migrate	= pfkey_send_migrate,
++	.is_alive	= pfkey_is_alive,
  };
  
- /* Initial congestion control used (until SYN)
-@@ -388,6 +379,5 @@ struct tcp_congestion_ops tcp_init_congestion_ops  = {
- 	.owner		= THIS_MODULE,
- 	.ssthresh	= tcp_reno_ssthresh,
- 	.cong_avoid	= tcp_reno_cong_avoid,
--	.min_cwnd	= tcp_reno_min_cwnd,
+ static int __net_init pfkey_net_init(struct net *net)
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index a26b7aa..cea0dad 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -161,6 +161,7 @@ static DEFINE_SPINLOCK(xfrm_state_gc_lock);
+ int __xfrm_state_delete(struct xfrm_state *x);
+ 
+ int km_query(struct xfrm_state *x, struct xfrm_tmpl *t, struct xfrm_policy *pol);
++bool km_is_alive(const struct km_event *c);
+ void km_state_expired(struct xfrm_state *x, int hard, u32 portid);
+ 
+ static DEFINE_SPINLOCK(xfrm_type_lock);
+@@ -788,6 +789,7 @@ xfrm_state_find(const xfrm_address_t *daddr, const xfrm_address_t *saddr,
+ 	struct xfrm_state *best = NULL;
+ 	u32 mark = pol->mark.v & pol->mark.m;
+ 	unsigned short encap_family = tmpl->encap_family;
++	struct km_event c;
+ 
+ 	to_put = NULL;
+ 
+@@ -832,6 +834,17 @@ found:
+ 			error = -EEXIST;
+ 			goto out;
+ 		}
++
++		c.net = net;
++		/* If the KMs have no listeners (yet...), avoid allocating an SA
++		 * for each and every packet - garbage collection might not
++		 * handle the flood.
++		 */
++		if (!km_is_alive(&c)) {
++			error = -ESRCH;
++			goto out;
++		}
++
+ 		x = xfrm_state_alloc(net);
+ 		if (x == NULL) {
+ 			error = -ENOMEM;
+@@ -1793,6 +1806,24 @@ int km_report(struct net *net, u8 proto, struct xfrm_selector *sel, xfrm_address
+ }
+ EXPORT_SYMBOL(km_report);
+ 
++bool km_is_alive(const struct km_event *c)
++{
++	struct xfrm_mgr *km;
++	bool is_alive = false;
++
++	rcu_read_lock();
++	list_for_each_entry(km, &xfrm_km_list, list) {
++		if (km->is_alive && km->is_alive(c)) {
++			is_alive = true;
++			break;
++		}
++	}
++	rcu_read_unlock();
++
++	return is_alive;
++}
++EXPORT_SYMBOL(km_is_alive);
++
+ int xfrm_user_policy(struct sock *sk, int optname, u8 __user *optval, int optlen)
+ {
+ 	int err;
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index ade9988..d7694f2 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -2982,6 +2982,11 @@ static int xfrm_send_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr,
+ 	return nlmsg_multicast(net->xfrm.nlsk, skb, 0, XFRMNLGRP_MAPPING, GFP_ATOMIC);
+ }
+ 
++static bool xfrm_is_alive(const struct km_event *c)
++{
++	return (bool)xfrm_acquire_is_on(c->net);
++}
++
+ static struct xfrm_mgr netlink_mgr = {
+ 	.id		= "netlink",
+ 	.notify		= xfrm_send_state_notify,
+@@ -2991,6 +2996,7 @@ static struct xfrm_mgr netlink_mgr = {
+ 	.report		= xfrm_send_report,
+ 	.migrate	= xfrm_send_migrate,
+ 	.new_mapping	= xfrm_send_mapping,
++	.is_alive	= xfrm_is_alive,
  };
- EXPORT_SYMBOL_GPL(tcp_init_congestion_ops);
-diff --git a/net/ipv4/tcp_highspeed.c b/net/ipv4/tcp_highspeed.c
-index 8ed9305dfdf4..8b9e7bad77c0 100644
---- a/net/ipv4/tcp_highspeed.c
-+++ b/net/ipv4/tcp_highspeed.c
-@@ -162,7 +162,6 @@ static struct tcp_congestion_ops tcp_highspeed __read_mostly = {
- 	.init		= hstcp_init,
- 	.ssthresh	= hstcp_ssthresh,
- 	.cong_avoid	= hstcp_cong_avoid,
--	.min_cwnd	= tcp_reno_min_cwnd,
  
- 	.owner		= THIS_MODULE,
- 	.name		= "highspeed"
-diff --git a/net/ipv4/tcp_hybla.c b/net/ipv4/tcp_hybla.c
-index 478fe82611bf..2a1a9e2a4e51 100644
---- a/net/ipv4/tcp_hybla.c
-+++ b/net/ipv4/tcp_hybla.c
-@@ -166,7 +166,6 @@ static void hybla_cong_avoid(struct sock *sk, u32 ack, u32 acked,
- static struct tcp_congestion_ops tcp_hybla __read_mostly = {
- 	.init		= hybla_init,
- 	.ssthresh	= tcp_reno_ssthresh,
--	.min_cwnd	= tcp_reno_min_cwnd,
- 	.cong_avoid	= hybla_cong_avoid,
- 	.set_state	= hybla_state,
- 
-diff --git a/net/ipv4/tcp_illinois.c b/net/ipv4/tcp_illinois.c
-index 8a520996f3d2..560d9879b89c 100644
---- a/net/ipv4/tcp_illinois.c
-+++ b/net/ipv4/tcp_illinois.c
-@@ -329,7 +329,6 @@ static struct tcp_congestion_ops tcp_illinois __read_mostly = {
- 	.flags		= TCP_CONG_RTT_STAMP,
- 	.init		= tcp_illinois_init,
- 	.ssthresh	= tcp_illinois_ssthresh,
--	.min_cwnd	= tcp_reno_min_cwnd,
- 	.cong_avoid	= tcp_illinois_cong_avoid,
- 	.set_state	= tcp_illinois_state,
- 	.get_info	= tcp_illinois_info,
-diff --git a/net/ipv4/tcp_lp.c b/net/ipv4/tcp_lp.c
-index 991d62a2f9bb..503798f2fcd6 100644
---- a/net/ipv4/tcp_lp.c
-+++ b/net/ipv4/tcp_lp.c
-@@ -319,7 +319,6 @@ static struct tcp_congestion_ops tcp_lp __read_mostly = {
- 	.init = tcp_lp_init,
- 	.ssthresh = tcp_reno_ssthresh,
- 	.cong_avoid = tcp_lp_cong_avoid,
--	.min_cwnd = tcp_reno_min_cwnd,
- 	.pkts_acked = tcp_lp_pkts_acked,
- 
- 	.owner = THIS_MODULE,
-diff --git a/net/ipv4/tcp_scalable.c b/net/ipv4/tcp_scalable.c
-index 19ea6c2951f3..0ac50836da4d 100644
---- a/net/ipv4/tcp_scalable.c
-+++ b/net/ipv4/tcp_scalable.c
-@@ -39,7 +39,6 @@ static u32 tcp_scalable_ssthresh(struct sock *sk)
- static struct tcp_congestion_ops tcp_scalable __read_mostly = {
- 	.ssthresh	= tcp_scalable_ssthresh,
- 	.cong_avoid	= tcp_scalable_cong_avoid,
--	.min_cwnd	= tcp_reno_min_cwnd,
- 
- 	.owner		= THIS_MODULE,
- 	.name		= "scalable",
-diff --git a/net/ipv4/tcp_vegas.c b/net/ipv4/tcp_vegas.c
-index 06cae62bf208..a022c17c9cf1 100644
---- a/net/ipv4/tcp_vegas.c
-+++ b/net/ipv4/tcp_vegas.c
-@@ -310,7 +310,6 @@ static struct tcp_congestion_ops tcp_vegas __read_mostly = {
- 	.init		= tcp_vegas_init,
- 	.ssthresh	= tcp_reno_ssthresh,
- 	.cong_avoid	= tcp_vegas_cong_avoid,
--	.min_cwnd	= tcp_reno_min_cwnd,
- 	.pkts_acked	= tcp_vegas_pkts_acked,
- 	.set_state	= tcp_vegas_state,
- 	.cwnd_event	= tcp_vegas_cwnd_event,
-diff --git a/net/ipv4/tcp_westwood.c b/net/ipv4/tcp_westwood.c
-index 76a1e23259e1..b94a04ae2ed5 100644
---- a/net/ipv4/tcp_westwood.c
-+++ b/net/ipv4/tcp_westwood.c
-@@ -276,7 +276,6 @@ static struct tcp_congestion_ops tcp_westwood __read_mostly = {
- 	.init		= tcp_westwood_init,
- 	.ssthresh	= tcp_reno_ssthresh,
- 	.cong_avoid	= tcp_reno_cong_avoid,
--	.min_cwnd	= tcp_westwood_bw_rttmin,
- 	.cwnd_event	= tcp_westwood_event,
- 	.get_info	= tcp_westwood_info,
- 	.pkts_acked	= tcp_westwood_pkts_acked,
-diff --git a/net/ipv4/tcp_yeah.c b/net/ipv4/tcp_yeah.c
-index a347a078ee07..5d2d15c5295f 100644
---- a/net/ipv4/tcp_yeah.c
-+++ b/net/ipv4/tcp_yeah.c
-@@ -231,7 +231,6 @@ static struct tcp_congestion_ops tcp_yeah __read_mostly = {
- 	.init		= tcp_yeah_init,
- 	.ssthresh	= tcp_yeah_ssthresh,
- 	.cong_avoid	= tcp_yeah_cong_avoid,
--	.min_cwnd	= tcp_reno_min_cwnd,
- 	.set_state	= tcp_vegas_state,
- 	.cwnd_event	= tcp_vegas_cwnd_event,
- 	.get_info	= tcp_vegas_get_info,
+ static int __net_init xfrm_user_net_init(struct net *net)
 -- 
-1.8.3.2
+1.8.3.1
