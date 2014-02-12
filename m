@@ -1,16 +1,20 @@
 From: Michal Simek <michal.simek@xilinx.com>
-Subject: [PATCH 14/14] net: axienet: Fix kernel-doc warnings
-Date: Wed, 12 Feb 2014 16:55:48 +0100
-Message-ID: <7b5303f0d5d7531934c294463bd2fdeb6e311a09.1392220536.git.michal.simek@xilinx.com>
+Subject: [PATCH 10/14] net: axienet: Use pdev instead of op
+Date: Wed, 12 Feb 2014 16:55:44 +0100
+Message-ID: <99e22ae9202079e1c71815766a8b3f53ed464a29.1392220536.git.michal.simek@xilinx.com>
 References: <cover.1392220536.git.michal.simek@xilinx.com>
 Content-Type: multipart/signed;
-    boundary="=_mimegpg-monstr-desktop-2364-1392220642-0001";
+    boundary="=_mimegpg-monstr-desktop-2315-1392220625-0001";
     micalg=pgp-sha1; protocol="application/pgp-signature"
 Cc: Srikanth Thokala <sthokal@xilinx.com>,
+	Srikanth Thokala <srikanth.thokala@xilinx.com>,
 	Michal Simek <monstr@monstr.eu>,
 	Anirudha Sarangi <anirudh@xilinx.com>,
 	John Linn <John.Linn@xilinx.com>,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	devicetree@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1392220536.git.michal.simek@xilinx.com>
@@ -25,253 +29,181 @@ The Internet standard for MIME PGP messages, RFC 2015, was published in 1996.
 To open this message correctly you will need to install E-mail or Usenet
 software that supports modern Internet standards.
 
---=_mimegpg-monstr-desktop-2364-1392220642-0001
+--=_mimegpg-monstr-desktop-2315-1392220625-0001
 
-This patch remove kernel-doc warnings.
+From: Srikanth Thokala <srikanth.thokala@xilinx.com>
 
+Synchronize names with other drivers
+
+Signed-off-by: Srikanth Thokala <sthokal@xilinx.com>
 Signed-off-by: Michal Simek <michal.simek@xilinx.com>
 ---
 
- drivers/net/ethernet/xilinx/xilinx_axienet.h      |  6 +++-
- drivers/net/ethernet/xilinx/xilinx_axienet_main.c | 38 ++++++++++++++---------
- drivers/net/ethernet/xilinx/xilinx_axienet_mdio.c |  6 ++--
- 3 files changed, 32 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/xilinx/xilinx_axienet_main.c | 49 ++++++++++++-----------
+ 1 file changed, 25 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet.h b/drivers/net/ethernet/xilinx/xilinx_axienet.h
-index 995a6e7..ac6aae9 100644
---- a/drivers/net/ethernet/xilinx/xilinx_axienet.h
-+++ b/drivers/net/ethernet/xilinx/xilinx_axienet.h
-@@ -412,6 +412,10 @@ struct axidma_bd {
-  *		  supported, the maximum frame size would be 9k. Else it is
-  *		  1522 bytes (assuming support for basic VLAN)
-  * @rxmem:	Stores rx memory size for jumbo frame handling.
-+ * @csum_offload_on_tx_path:	Stores the checksum selection on TX side.
-+ * @csum_offload_on_rx_path:	Stores the checksum selection on RX side.
-+ * @coalesce_count_rx:	Store the irq coalesce on RX side.
-+ * @coalesce_count_tx:	Store the irq coalesce on TX side.
-  */
- struct axienet_local {
- 	struct net_device *ndev;
-@@ -476,7 +480,7 @@ struct axienet_option {
-  * @lp:         Pointer to axienet local structure
-  * @offset:     Address offset from the base address of Axi Ethernet core
-  *
-- * returns: The contents of the Axi Ethernet register
-+ * Return: The contents of the Axi Ethernet register
-  *
-  * This function returns the contents of the corresponding register.
-  */
 diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-index 6dd3eee..f88779e 100644
+index 4fd8a1d..324033c 100644
 --- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
 +++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-@@ -117,7 +117,7 @@ static struct axienet_option axienet_options[] = {
-  * @lp:		Pointer to axienet local structure
-  * @reg:	Address offset from the base address of the Axi DMA core
-  *
-- * returns: The contents of the Axi DMA register
-+ * Return: The contents of the Axi DMA register
-  *
-  * This function returns the contents of the corresponding Axi DMA register.
-  */
-@@ -179,8 +179,7 @@ static void axienet_dma_bd_release(struct net_device *ndev)
-  * axienet_dma_bd_init - Setup buffer descriptor rings for Axi DMA
-  * @ndev:	Pointer to the net_device structure
-  *
-- * returns: 0, on success
-- *	    -ENOMEM, on failure
-+ * Return: 0, on success -ENOMEM, on failure
-  *
-  * This function is called to initialize the Rx and Tx DMA descriptor
-  * rings. This initializes the descriptors with required default values
-@@ -320,7 +319,7 @@ static void axienet_set_mac_address(struct net_device *ndev, void *address)
-  * @ndev:	Pointer to the net_device structure
-  * @p:		6 byte Address to be written as MAC address
-  *
-- * returns: 0 for all conditions. Presently, there is no failure case.
-+ * Return: 0 for all conditions. Presently, there is no failure case.
-  *
-  * This function is called to initialize the MAC address of the Axi Ethernet
-  * core. It calls the core specific axienet_set_mac_address. This is the
-@@ -622,7 +621,7 @@ static void axienet_start_xmit_done(struct net_device *ndev)
-  * @lp:		Pointer to the axienet_local structure
-  * @num_frag:	The number of BDs to check for
-  *
-- * returns: 0, on success
-+ * Return: 0, on success
-  *	    NETDEV_TX_BUSY, if any of the descriptors are not free
-  *
-  * This function is invoked before BDs are allocated and transmission starts.
-@@ -645,7 +644,7 @@ static inline int axienet_check_tx_bd_space(struct axienet_local *lp,
-  * @skb:	sk_buff pointer that contains data to be Txed.
-  * @ndev:	Pointer to net_device structure.
-  *
-- * returns: NETDEV_TX_OK, on success
-+ * Return: NETDEV_TX_OK, on success
-  *	    NETDEV_TX_BUSY, if any of the descriptors are not free
-  *
-  * This function is invoked from upper layers to initiate transmission. The
-@@ -800,7 +799,7 @@ static void axienet_recv(struct net_device *ndev)
-  * @irq:	irq number
-  * @_ndev:	net_device pointer
-  *
-- * returns: IRQ_HANDLED for all cases.
-+ * Return: IRQ_HANDLED for all cases.
-  *
-  * This is the Axi DMA Tx done Isr. It invokes "axienet_start_xmit_done"
-  * to complete the BD processing.
-@@ -849,7 +848,7 @@ out:
-  * @irq:	irq number
-  * @_ndev:	net_device pointer
-  *
-- * returns: IRQ_HANDLED for all cases.
-+ * Return: IRQ_HANDLED for all cases.
-  *
-  * This is the Axi DMA Rx Isr. It invokes "axienet_recv" to complete the BD
-  * processing.
-@@ -899,7 +898,7 @@ static void axienet_dma_err_handler(unsigned long data);
-  * axienet_open - Driver open routine.
-  * @ndev:	Pointer to net_device structure
-  *
-- * returns: 0, on success.
-+ * Return: 0, on success.
-  *	    -ENODEV, if PHY cannot be connected to
-  *	    non-zero error value on failure
-  *
-@@ -980,7 +979,7 @@ err_tx_irq:
-  * axienet_stop - Driver stop routine.
-  * @ndev:	Pointer to net_device structure
-  *
-- * returns: 0, on success.
-+ * Return: 0, on success.
-  *
-  * This is the driver stop routine. It calls phy_disconnect to stop the PHY
-  * device. It also removes the interrupt handlers and disables the interrupts.
-@@ -1020,7 +1019,7 @@ static int axienet_stop(struct net_device *ndev)
-  * @ndev:	Pointer to net_device structure
-  * @new_mtu:	New mtu value to be applied
-  *
-- * returns: Always returns 0 (success).
-+ * Return: Always returns 0 (success).
-  *
-  * This is the change mtu driver routine. It checks if the Axi Ethernet
-  * hardware supports jumbo frames before changing the mtu. This can be
-@@ -1087,6 +1086,8 @@ static const struct net_device_ops axienet_netdev_ops = {
-  * not be found, the function returns -ENODEV. This function calls the
-  * relevant PHY ethtool API to get the PHY settings.
-  * Issue "ethtool ethX" under linux prompt to execute this function.
-+ *
-+ * Return: 0 on success, -ENODEV if PHY doesn't exist
-  */
- static int axienet_ethtools_get_settings(struct net_device *ndev,
- 					 struct ethtool_cmd *ecmd)
-@@ -1108,6 +1109,8 @@ static int axienet_ethtools_get_settings(struct net_device *ndev,
-  * relevant PHY ethtool API to set the PHY.
-  * Issue e.g. "ethtool -s ethX speed 1000" under linux prompt to execute this
-  * function.
-+ *
-+ * Return: 0 on success, -ENODEV if PHY doesn't exist
-  */
- static int axienet_ethtools_set_settings(struct net_device *ndev,
- 					 struct ethtool_cmd *ecmd)
-@@ -1142,6 +1145,8 @@ static void axienet_ethtools_get_drvinfo(struct net_device *ndev,
-  *
-  * This implements ethtool command for getting the total register length
-  * information.
-+ *
-+ * Return: the total regs length
-  */
- static int axienet_ethtools_get_regs_len(struct net_device *ndev)
- {
-@@ -1228,11 +1233,13 @@ axienet_ethtools_get_pauseparam(struct net_device *ndev,
-  * axienet_ethtools_set_pauseparam - Set device pause parameter(flow control)
-  *				     settings.
-  * @ndev:	Pointer to net_device structure
-- * @epauseparam:Pointer to ethtool_pauseparam structure
-+ * @epauseparm:Pointer to ethtool_pauseparam structure
-  *
-  * This implements ethtool command for enabling flow control on Rx and Tx
-  * paths. Issue "ethtool -A ethX tx on|off" under linux prompt to execute this
-  * function.
-+ *
-+ * Return: 0 on success, -EFAULT if device is running
-  */
- static int
- axienet_ethtools_set_pauseparam(struct net_device *ndev,
-@@ -1269,6 +1276,8 @@ axienet_ethtools_set_pauseparam(struct net_device *ndev,
-  * This implements ethtool command for getting the DMA interrupt coalescing
-  * count on Tx and Rx paths. Issue "ethtool -c ethX" under linux prompt to
-  * execute this function.
-+ *
-+ * Return: 0 always
-  */
- static int axienet_ethtools_get_coalesce(struct net_device *ndev,
- 					 struct ethtool_coalesce *ecoalesce)
-@@ -1292,6 +1301,8 @@ static int axienet_ethtools_get_coalesce(struct net_device *ndev,
-  * This implements ethtool command for setting the DMA interrupt coalescing
-  * count on Tx and Rx paths. Issue "ethtool -C ethX rx-frames 5" under linux
-  * prompt to execute this function.
-+ *
-+ * Return: 0, on success, Non-zero error value on failure.
-  */
- static int axienet_ethtools_set_coalesce(struct net_device *ndev,
- 					 struct ethtool_coalesce *ecoalesce)
-@@ -1481,9 +1492,8 @@ static void axienet_dma_err_handler(unsigned long data)
+@@ -1480,7 +1480,7 @@ static void axienet_dma_err_handler(unsigned long data)
+
  /**
-  * axienet_probe - Axi Ethernet probe function.
-  * @pdev:	Pointer to platform device structure.
-- * @match:	Pointer to device id structure
+  * axienet_of_probe - Axi Ethernet probe function.
+- * @op:		Pointer to platform device structure.
++ * @pdev:	Pointer to platform device structure.
+  * @match:	Pointer to device id structure
   *
-- * returns: 0, on success
-+ * Return: 0, on success
-  *	    Non-zero error value on failure.
-  *
-  * This is the probe routine for Axi Ethernet driver. This is called before
-diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_mdio.c b/drivers/net/ethernet/xilinx/xilinx_axienet_mdio.c
-index d6b72b0..46b6133 100644
---- a/drivers/net/ethernet/xilinx/xilinx_axienet_mdio.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_axienet_mdio.c
-@@ -37,7 +37,7 @@ int axienet_mdio_wait_until_ready(struct axienet_local *lp)
-  * @phy_id:	Address of the PHY device
-  * @reg:	PHY register to read
-  *
-- * returns:	The register contents on success, -ETIMEDOUT on a timeout
-+ * Return:	The register contents on success, -ETIMEDOUT on a timeout
-  *
-  * Reads the contents of the requested register from the requested PHY
-  * address by first writing the details into MCR register. After a while
-@@ -80,7 +80,7 @@ static int axienet_mdio_read(struct mii_bus *bus, int phy_id, int reg)
-  * @reg:	PHY register to write to
-  * @val:	Value to be written into the register
-  *
-- * returns:	0 on success, -ETIMEDOUT on a timeout
-+ * Return:	0 on success, -ETIMEDOUT on a timeout
-  *
-  * Writes the value to the requested register by first writing the value
-  * into MWD register. The the MCR register is then appropriately setup
-@@ -119,7 +119,7 @@ static int axienet_mdio_write(struct mii_bus *bus, int phy_id, int reg,
-  * @lp:		Pointer to axienet local data structure.
-  * @np:		Pointer to device node
-  *
-- * returns:	0 on success, -ETIMEDOUT on a timeout, -ENOMEM when
-+ * Return:	0 on success, -ETIMEDOUT on a timeout, -ENOMEM when
-  *		mdiobus_alloc (to allocate memory for mii bus structure) fails.
-  *
-  * Sets up the MDIO interface by initializing the MDIO clock and enabling the
+  * returns: 0, on success
+@@ -1491,7 +1491,7 @@ static void axienet_dma_err_handler(unsigned long data)
+  * device. Parses through device tree and populates fields of
+  * axienet_local. It registers the Ethernet device.
+  */
+-static int axienet_of_probe(struct platform_device *op)
++static int axienet_of_probe(struct platform_device *pdev)
+ {
+ 	__be32 *p;
+ 	int size, ret = 0;
+@@ -1505,9 +1505,9 @@ static int axienet_of_probe(struct platform_device *op)
+ 		return -ENOMEM;
+
+ 	ether_setup(ndev);
+-	platform_set_drvdata(op, ndev);
++	platform_set_drvdata(pdev, ndev);
+
+-	SET_NETDEV_DEV(ndev, &op->dev);
++	SET_NETDEV_DEV(ndev, &pdev->dev);
+ 	ndev->flags &= ~IFF_MULTICAST;  /* clear multicast */
+ 	ndev->features = NETIF_F_SG;
+ 	ndev->netdev_ops = &axienet_netdev_ops;
+@@ -1515,18 +1515,18 @@ static int axienet_of_probe(struct platform_device *op)
+
+ 	lp = netdev_priv(ndev);
+ 	lp->ndev = ndev;
+-	lp->dev = &op->dev;
++	lp->dev = &pdev->dev;
+ 	lp->options = XAE_OPTION_DEFAULTS;
+ 	/* Map device registers */
+-	lp->regs = of_iomap(op->dev.of_node, 0);
++	lp->regs = of_iomap(pdev->dev.of_node, 0);
+ 	if (!lp->regs) {
+-		dev_err(&op->dev, "could not map Axi Ethernet regs.\n");
++		dev_err(&pdev->dev, "could not map Axi Ethernet regs.\n");
+ 		goto nodev;
+ 	}
+ 	/* Setup checksum offload, but default to off if not specified */
+ 	lp->features = 0;
+
+-	p = (__be32 *) of_get_property(op->dev.of_node, "xlnx,txcsum", NULL);
++	p = (__be32 *) of_get_property(pdev->dev.of_node, "xlnx,txcsum", NULL);
+ 	if (p) {
+ 		switch (be32_to_cpup(p)) {
+ 		case 1:
+@@ -1547,7 +1547,7 @@ static int axienet_of_probe(struct platform_device *op)
+ 			lp->csum_offload_on_tx_path = XAE_NO_CSUM_OFFLOAD;
+ 		}
+ 	}
+-	p = (__be32 *) of_get_property(op->dev.of_node, "xlnx,rxcsum", NULL);
++	p = (__be32 *) of_get_property(pdev->dev.of_node, "xlnx,rxcsum", NULL);
+ 	if (p) {
+ 		switch (be32_to_cpup(p)) {
+ 		case 1:
+@@ -1570,43 +1570,44 @@ static int axienet_of_probe(struct platform_device *op)
+ 	 * Here we check for memory allocated for Rx/Tx in the hardware from
+ 	 * the device-tree and accordingly set flags.
+ 	 */
+-	p = (__be32 *) of_get_property(op->dev.of_node, "xlnx,rxmem", NULL);
++	p = (__be32 *) of_get_property(pdev->dev.of_node, "xlnx,rxmem", NULL);
+ 	if (p)
+ 		lp->rxmem = be32_to_cpup(p);
+-	p = (__be32 *) of_get_property(op->dev.of_node, "xlnx,temac-type",
++	p = (__be32 *) of_get_property(pdev->dev.of_node, "xlnx,temac-type",
+ 				       NULL);
+ 	if (p)
+ 		lp->temac_type = be32_to_cpup(p);
+-	p = (__be32 *) of_get_property(op->dev.of_node, "xlnx,phy-type", NULL);
++	p = (__be32 *) of_get_property(pdev->dev.of_node,
++						"xlnx,phy-type", NULL);
+ 	if (p)
+ 		lp->phy_type = be32_to_cpup(p);
+
+ 	/* Find the DMA node, map the DMA registers, and decode the DMA IRQs */
+-	np = of_parse_phandle(op->dev.of_node, "axistream-connected", 0);
++	np = of_parse_phandle(pdev->dev.of_node, "axistream-connected", 0);
+ 	if (!np) {
+-		dev_err(&op->dev, "could not find DMA node\n");
++		dev_err(&pdev->dev, "could not find DMA node\n");
+ 		goto err_iounmap;
+ 	}
+ 	lp->dma_regs = of_iomap(np, 0);
+ 	if (lp->dma_regs) {
+-		dev_dbg(&op->dev, "MEM base: %p\n", lp->dma_regs);
++		dev_dbg(&pdev->dev, "MEM base: %p\n", lp->dma_regs);
+ 	} else {
+-		dev_err(&op->dev, "unable to map DMA registers\n");
++		dev_err(&pdev->dev, "unable to map DMA registers\n");
+ 		of_node_put(np);
+ 	}
+ 	lp->rx_irq = irq_of_parse_and_map(np, 1);
+ 	lp->tx_irq = irq_of_parse_and_map(np, 0);
+ 	of_node_put(np);
+ 	if ((lp->rx_irq <= 0) || (lp->tx_irq <= 0)) {
+-		dev_err(&op->dev, "could not determine irqs\n");
++		dev_err(&pdev->dev, "could not determine irqs\n");
+ 		ret = -ENOMEM;
+ 		goto err_iounmap_2;
+ 	}
+
+ 	/* Retrieve the MAC address */
+-	addr = of_get_property(op->dev.of_node, "local-mac-address", &size);
++	addr = of_get_property(pdev->dev.of_node, "local-mac-address", &size);
+ 	if ((!addr) || (size != 6)) {
+-		dev_err(&op->dev, "could not find MAC address\n");
++		dev_err(&pdev->dev, "could not find MAC address\n");
+ 		ret = -ENODEV;
+ 		goto err_iounmap_2;
+ 	}
+@@ -1615,11 +1616,11 @@ static int axienet_of_probe(struct platform_device *op)
+ 	lp->coalesce_count_rx = XAXIDMA_DFT_RX_THRESHOLD;
+ 	lp->coalesce_count_tx = XAXIDMA_DFT_TX_THRESHOLD;
+
+-	lp->phy_node = of_parse_phandle(op->dev.of_node, "phy-handle", 0);
++	lp->phy_node = of_parse_phandle(pdev->dev.of_node, "phy-handle", 0);
+ 	if (lp->phy_node)
+-		ret = axienet_mdio_setup(lp, op->dev.of_node);
++		ret = axienet_mdio_setup(lp, pdev->dev.of_node);
+ 	if (ret)
+-		dev_warn(&op->dev, "error registering MDIO bus\n");
++		dev_warn(&pdev->dev, "error registering MDIO bus\n");
+
+ 	ret = register_netdev(lp->ndev);
+ 	if (ret) {
+@@ -1640,9 +1641,9 @@ nodev:
+ 	return ret;
+ }
+
+-static int axienet_of_remove(struct platform_device *op)
++static int axienet_of_remove(struct platform_device *pdev)
+ {
+-	struct net_device *ndev = platform_get_drvdata(op);
++	struct net_device *ndev = platform_get_drvdata(pdev);
+ 	struct axienet_local *lp = netdev_priv(ndev);
+
+ 	axienet_mdio_teardown(lp);
 --
 1.8.2.3
 
 
---=_mimegpg-monstr-desktop-2364-1392220642-0001
+--=_mimegpg-monstr-desktop-2315-1392220625-0001
 Content-Type: application/pgp-signature
 Content-Transfer-Encoding: 7bit
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.10 (GNU/Linux)
 
-iEYEABECAAYFAlL7meIACgkQykllyylKDCEZMQCfSn2yvmjnkZMcxXvbav9klkoX
-qGkAniIuZ0rtoBmpf/wwYHfWpNrW3Xdg
-=JoQ8
+iEYEABECAAYFAlL7mdEACgkQykllyylKDCHDwQCfbWJQM1RRBIZcoiIl1Mc4gXKp
+m/kAn2IhsbUcUoHQYvxioLRx3reI4/kT
+=akZh
 -----END PGP SIGNATURE-----
 
---=_mimegpg-monstr-desktop-2364-1392220642-0001--
+--=_mimegpg-monstr-desktop-2315-1392220625-0001--
