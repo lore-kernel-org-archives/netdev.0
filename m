@@ -1,180 +1,98 @@
-From: Michal Simek <michal.simek@xilinx.com>
-Subject: [PATCH 11/14] net: axienet: Use devm_* calls
-Date: Wed, 12 Feb 2014 16:55:45 +0100
-Message-ID: <1b09a985cd055344d7ff874eb27b30c9c3b27c6a.1392220536.git.michal.simek@xilinx.com>
-References: <cover.1392220536.git.michal.simek@xilinx.com>
-Content-Type: multipart/signed;
-    boundary="=_mimegpg-monstr-desktop-2329-1392220631-0001";
-    micalg=pgp-sha1; protocol="application/pgp-signature"
-Cc: Srikanth Thokala <sthokal@xilinx.com>,
-	Srikanth Thokala <srikanth.thokala@xilinx.com>,
-	Michal Simek <monstr@monstr.eu>,
-	Anirudha Sarangi <anirudh@xilinx.com>,
-	John Linn <John.Linn@xilinx.com>,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1392220536.git.michal.simek@xilinx.com>
-In-Reply-To: <cover.1392220536.git.michal.simek@xilinx.com>
-References: <cover.1392220536.git.michal.simek@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: team driver MAC addresses questions
+Date: Wed, 12 Feb 2014 17:16:27 +0100
+Message-ID: <20140212161627.GB3027@minipsycho.orion>
+References: <65502A17874025489B7D8479C16CFA634E91D1D0@nasanexd02f.na.qualcomm.com>
+ <20140212133726.GA3027@minipsycho.orion>
+ <65502A17874025489B7D8479C16CFA634E91D236@nasanexd02f.na.qualcomm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	qca_vkondrat <qca_vkondrat@qca.qualcomm.com>
+To: qca_dlansky <qca_dlansky@qualcomm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f43.google.com ([74.125.83.43]:50628 "EHLO
+	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752178AbaBLQSj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 11:18:39 -0500
+Received: by mail-ee0-f43.google.com with SMTP id c41so4420750eek.16
+        for <netdev@vger.kernel.org>; Wed, 12 Feb 2014 08:18:37 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <65502A17874025489B7D8479C16CFA634E91D236@nasanexd02f.na.qualcomm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a MIME GnuPG-signed message.  If you see this text, it means that
-your E-mail or Usenet software does not support MIME signed messages.
-The Internet standard for MIME PGP messages, RFC 2015, was published in 1996.
-To open this message correctly you will need to install E-mail or Usenet
-software that supports modern Internet standards.
-
---=_mimegpg-monstr-desktop-2329-1392220631-0001
-
-From: Srikanth Thokala <srikanth.thokala@xilinx.com>
-
-use devm_* calls
-
-Signed-off-by: Srikanth Thokala <sthokal@xilinx.com>
-Signed-off-by: Michal Simek <michal.simek@xilinx.com>
----
-
- drivers/net/ethernet/xilinx/xilinx_axienet_main.c | 54 ++++++++++++-----------
- 1 file changed, 28 insertions(+), 26 deletions(-)
-
-diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-index 324033c..936a14c 100644
---- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-@@ -1499,6 +1499,7 @@ static int axienet_of_probe(struct platform_device *pdev)
- 	struct axienet_local *lp;
- 	struct net_device *ndev;
- 	const void *addr;
-+	struct resource *ethres, dmares;
-
- 	ndev = alloc_etherdev(sizeof(*lp));
- 	if (!ndev)
-@@ -1518,11 +1519,14 @@ static int axienet_of_probe(struct platform_device *pdev)
- 	lp->dev = &pdev->dev;
- 	lp->options = XAE_OPTION_DEFAULTS;
- 	/* Map device registers */
--	lp->regs = of_iomap(pdev->dev.of_node, 0);
-+	ethres = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	lp->regs = devm_ioremap_resource(&pdev->dev, ethres);
- 	if (!lp->regs) {
- 		dev_err(&pdev->dev, "could not map Axi Ethernet regs.\n");
--		goto nodev;
-+		ret = -ENOMEM;
-+		goto free_netdev;
- 	}
-+
- 	/* Setup checksum offload, but default to off if not specified */
- 	lp->features = 0;
-
-@@ -1584,16 +1588,21 @@ static int axienet_of_probe(struct platform_device *pdev)
-
- 	/* Find the DMA node, map the DMA registers, and decode the DMA IRQs */
- 	np = of_parse_phandle(pdev->dev.of_node, "axistream-connected", 0);
--	if (!np) {
-+	if (IS_ERR(np)) {
- 		dev_err(&pdev->dev, "could not find DMA node\n");
--		goto err_iounmap;
-+		ret = PTR_ERR(np);
-+		goto free_netdev;
- 	}
--	lp->dma_regs = of_iomap(np, 0);
--	if (lp->dma_regs) {
--		dev_dbg(&pdev->dev, "MEM base: %p\n", lp->dma_regs);
--	} else {
--		dev_err(&pdev->dev, "unable to map DMA registers\n");
--		of_node_put(np);
-+	ret = of_address_to_resource(np, 0, &dmares);
-+	if (ret) {
-+		dev_err(&pdev->dev, "unable to get DMA resource\n");
-+		goto free_netdev;
-+	}
-+	lp->dma_regs = devm_ioremap_resource(&pdev->dev, &dmares);
-+	if (!lp->dma_regs) {
-+		dev_err(&pdev->dev, "could not map DMA regs\n");
-+		ret = -ENOMEM;
-+		goto free_netdev;
- 	}
- 	lp->rx_irq = irq_of_parse_and_map(np, 1);
- 	lp->tx_irq = irq_of_parse_and_map(np, 0);
-@@ -1601,7 +1610,7 @@ static int axienet_of_probe(struct platform_device *pdev)
- 	if ((lp->rx_irq <= 0) || (lp->tx_irq <= 0)) {
- 		dev_err(&pdev->dev, "could not determine irqs\n");
- 		ret = -ENOMEM;
--		goto err_iounmap_2;
-+		goto free_netdev;
- 	}
-
- 	/* Retrieve the MAC address */
-@@ -1609,7 +1618,7 @@ static int axienet_of_probe(struct platform_device *pdev)
- 	if ((!addr) || (size != 6)) {
- 		dev_err(&pdev->dev, "could not find MAC address\n");
- 		ret = -ENODEV;
--		goto err_iounmap_2;
-+		goto free_netdev;
- 	}
- 	axienet_set_mac_address(ndev, (void *) addr);
-
-@@ -1617,27 +1626,23 @@ static int axienet_of_probe(struct platform_device *pdev)
- 	lp->coalesce_count_tx = XAXIDMA_DFT_TX_THRESHOLD;
-
- 	lp->phy_node = of_parse_phandle(pdev->dev.of_node, "phy-handle", 0);
--	if (lp->phy_node)
-+	if (lp->phy_node) {
- 		ret = axienet_mdio_setup(lp, pdev->dev.of_node);
--	if (ret)
--		dev_warn(&pdev->dev, "error registering MDIO bus\n");
-+		if (ret)
-+			dev_warn(&pdev->dev, "error registering MDIO bus\n");
-+	}
-
- 	ret = register_netdev(lp->ndev);
- 	if (ret) {
- 		dev_err(lp->dev, "register_netdev() error (%i)\n", ret);
--		goto err_iounmap_2;
-+		goto free_netdev;
- 	}
-
- 	return 0;
-
--err_iounmap_2:
--	if (lp->dma_regs)
--		iounmap(lp->dma_regs);
--err_iounmap:
--	iounmap(lp->regs);
--nodev:
-+free_netdev:
- 	free_netdev(ndev);
--	ndev = NULL;
-+
- 	return ret;
- }
-
-@@ -1653,9 +1658,6 @@ static int axienet_of_remove(struct platform_device *pdev)
- 		of_node_put(lp->phy_node);
- 	lp->phy_node = NULL;
-
--	iounmap(lp->regs);
--	if (lp->dma_regs)
--		iounmap(lp->dma_regs);
- 	free_netdev(ndev);
-
- 	return 0;
---
-1.8.2.3
+Wed, Feb 12, 2014 at 03:17:10PM CET, qca_dlansky@qualcomm.com wrote:
+>>Q2:
+>>We've noticed the following behavior:
+>>- wlan1 has some MAC address - m1
+>>- team0 created with random MAC address - m2
+>>
+>>root@lx-foo:~# ip link
+>>1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT 
+>>    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+>>2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP mode DEFAULT qlen 1000
+>>    link/ether 00:21:70:be:4f:68 brd ff:ff:ff:ff:ff:ff
+>>4: wlan1: <BROADCAST,MULTICAST> mtu 1500 qdisc mq state DOWN mode DORMANT qlen 1000
+>>    link/ether 44:39:c4:18:b5:7a brd ff:ff:ff:ff:ff:ff
+>>12: team0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT 
+>>    link/ether 9a:ac:d5:91:df:aa brd ff:ff:ff:ff:ff:ff
+>>
+>>- When adding port wlan1 into team0, m1 gets assigned to team0 and m2 
+>>gets assigned to wlan1
+>>
+>>root@lx-foo:~# LD_LIBRARY_PATH=/usr/local/lib/ teamdctl team0 port add 
+>>wlan1 root@lx-foo:~# ip link
+>>1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT 
+>>    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+>>2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP mode DEFAULT qlen 1000
+>>    link/ether 00:21:70:be:4f:68 brd ff:ff:ff:ff:ff:ff
+>>4: wlan1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq master team0 state UP mode DORMANT qlen 1000
+>>    link/ether 9a:ac:d5:91:df:aa brd ff:ff:ff:ff:ff:ff
+>>12: team0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT 
+>>    link/ether 44:39:c4:18:b5:7a brd ff:ff:ff:ff:ff:ff
+>>
+>>This is a bit strange for us. We were expecting both of them to have the same MAC address.
+>>
+>>Further investigation showed that when adding the port, the MAC address of the added port is set twice:
+>>once by team_add_slave(), when wlan1 is still down. The MAC address is set to m2.
+>>second time by team_set_mac_address(), after wlan1 is up. The MAC address is set to m1.
+>
+>Are you using teamd? What config?
+>
+>[DL]  just 'teamd -d', no config at all
 
 
---=_mimegpg-monstr-desktop-2329-1392220631-0001
-Content-Type: application/pgp-signature
-Content-Transfer-Encoding: 7bit
+Ok. So here's what is going on:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
+During the port enslave when the port device is down, team driver
+changes hwaddr of the port to team one (round robin mode does that).
 
-iEYEABECAAYFAlL7mdcACgkQykllyylKDCGxiwCeKG+6tUQt9Q/gio4o+8JomWCD
-JFwAnAw1+5B7K7fiP4q9gdA4ECRa8j6P
-=AT1j
------END PGP SIGNATURE-----
+After that, teamd detects that port was added and sets team hwaddr
+according to the first enslaved port. That will lead to change of hwaddr
+of port again, now it is upped.
 
---=_mimegpg-monstr-desktop-2329-1392220631-0001--
+The reason for this behaviour is that userspace controls hwaddr
+assignement.
+
+So for you case the workaround is to specify hwaddr in teamd config.
+After that, teamd will not set hwaddr according to first enslaved port.
+
+>
+>>
+>>However, the 2nd call fails which leaves wlan1 with m2. The reason for the failure is because ath9k doesn't support IFF_LIVE_ADDR_CHANGE.
+>>
+>>Our question: in team_set_mac_address(), in case there is a failure setting MAC address for any port inside port_list, doesn't it make sense to undo MAC address changes and report the failure up the stack?
+>>
+>
+>Yes. That would be probably the proper thing to do. WOuld you send the patch or I should do it? Would be needed to do something similar what bonding does.
+>
+>[DL] Let us think about it. We want to prepare patch, but we need time to do so.
+>
+
+Feel free to send me draft, questions, anything you need.
+
+Jiri
+
+>>Thanks,
+>>  Vladimir & Dedy.
