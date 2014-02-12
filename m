@@ -1,98 +1,123 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: team driver MAC addresses questions
-Date: Wed, 12 Feb 2014 17:16:27 +0100
-Message-ID: <20140212161627.GB3027@minipsycho.orion>
-References: <65502A17874025489B7D8479C16CFA634E91D1D0@nasanexd02f.na.qualcomm.com>
- <20140212133726.GA3027@minipsycho.orion>
- <65502A17874025489B7D8479C16CFA634E91D236@nasanexd02f.na.qualcomm.com>
+From: Yuval Mintz <yuvalmin@broadcom.com>
+Subject: [PATCH net-next 1/9] bnx2x: [Debug] change verbosity of some prints
+Date: Wed, 12 Feb 2014 18:19:49 +0200
+Message-ID: <1392221997-25525-2-git-send-email-yuvalmin@broadcom.com>
+References: <1392221997-25525-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	qca_vkondrat <qca_vkondrat@qca.qualcomm.com>
-To: qca_dlansky <qca_dlansky@qualcomm.com>
+Content-Type: text/plain
+Cc: <ariele@broadcom.com>, Yuval Mintz <yuvalmin@broadcom.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f43.google.com ([74.125.83.43]:50628 "EHLO
-	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752178AbaBLQSj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 11:18:39 -0500
-Received: by mail-ee0-f43.google.com with SMTP id c41so4420750eek.16
-        for <netdev@vger.kernel.org>; Wed, 12 Feb 2014 08:18:37 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <65502A17874025489B7D8479C16CFA634E91D236@nasanexd02f.na.qualcomm.com>
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:19877 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751480AbaBLQUI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 11:20:08 -0500
+In-Reply-To: <1392221997-25525-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Feb 12, 2014 at 03:17:10PM CET, qca_dlansky@qualcomm.com wrote:
->>Q2:
->>We've noticed the following behavior:
->>- wlan1 has some MAC address - m1
->>- team0 created with random MAC address - m2
->>
->>root@lx-foo:~# ip link
->>1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT 
->>    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
->>2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP mode DEFAULT qlen 1000
->>    link/ether 00:21:70:be:4f:68 brd ff:ff:ff:ff:ff:ff
->>4: wlan1: <BROADCAST,MULTICAST> mtu 1500 qdisc mq state DOWN mode DORMANT qlen 1000
->>    link/ether 44:39:c4:18:b5:7a brd ff:ff:ff:ff:ff:ff
->>12: team0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT 
->>    link/ether 9a:ac:d5:91:df:aa brd ff:ff:ff:ff:ff:ff
->>
->>- When adding port wlan1 into team0, m1 gets assigned to team0 and m2 
->>gets assigned to wlan1
->>
->>root@lx-foo:~# LD_LIBRARY_PATH=/usr/local/lib/ teamdctl team0 port add 
->>wlan1 root@lx-foo:~# ip link
->>1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT 
->>    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
->>2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP mode DEFAULT qlen 1000
->>    link/ether 00:21:70:be:4f:68 brd ff:ff:ff:ff:ff:ff
->>4: wlan1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq master team0 state UP mode DORMANT qlen 1000
->>    link/ether 9a:ac:d5:91:df:aa brd ff:ff:ff:ff:ff:ff
->>12: team0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT 
->>    link/ether 44:39:c4:18:b5:7a brd ff:ff:ff:ff:ff:ff
->>
->>This is a bit strange for us. We were expecting both of them to have the same MAC address.
->>
->>Further investigation showed that when adding the port, the MAC address of the added port is set twice:
->>once by team_add_slave(), when wlan1 is still down. The MAC address is set to m2.
->>second time by team_set_mac_address(), after wlan1 is up. The MAC address is set to m1.
->
->Are you using teamd? What config?
->
->[DL]  just 'teamd -d', no config at all
+There are some debug prints (mostly iov/statistics related) which clobber
+system logs whenever their verbosity level is set for an interface.
+This patch puts harsher verbosity requirements for such debug prints to be
+printed.
 
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       | 17 +++++++++++++----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |  6 +++---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 17 +++++++++--------
+ 3 files changed, 25 insertions(+), 15 deletions(-)
 
-Ok. So here's what is going on:
-
-During the port enslave when the port device is down, team driver
-changes hwaddr of the port to team one (round robin mode does that).
-
-After that, teamd detects that port was added and sets team hwaddr
-according to the first enslaved port. That will lead to change of hwaddr
-of port again, now it is upped.
-
-The reason for this behaviour is that userspace controls hwaddr
-assignement.
-
-So for you case the workaround is to specify hwaddr in teamd config.
-After that, teamd will not set hwaddr according to first enslaved port.
-
->
->>
->>However, the 2nd call fails which leaves wlan1 with m2. The reason for the failure is because ath9k doesn't support IFF_LIVE_ADDR_CHANGE.
->>
->>Our question: in team_set_mac_address(), in case there is a failure setting MAC address for any port inside port_list, doesn't it make sense to undo MAC address changes and report the failure up the stack?
->>
->
->Yes. That would be probably the proper thing to do. WOuld you send the patch or I should do it? Would be needed to do something similar what bonding does.
->
->[DL] Let us think about it. We want to prepare patch, but we need time to do so.
->
-
-Feel free to send me draft, questions, anything you need.
-
-Jiri
-
->>Thanks,
->>  Vladimir & Dedy.
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 391f29e..ae91e8f 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -75,13 +75,22 @@ enum bnx2x_int_mode {
+ #define BNX2X_MSG_DCB			0x8000000
+ 
+ /* regular debug print */
++#define DP_INNER(fmt, ...)					\
++	pr_notice("[%s:%d(%s)]" fmt,				\
++		  __func__, __LINE__,				\
++		  bp->dev ? (bp->dev->name) : "?",		\
++		  ##__VA_ARGS__);
++
+ #define DP(__mask, fmt, ...)					\
+ do {								\
+ 	if (unlikely(bp->msg_enable & (__mask)))		\
+-		pr_notice("[%s:%d(%s)]" fmt,			\
+-			  __func__, __LINE__,			\
+-			  bp->dev ? (bp->dev->name) : "?",	\
+-			  ##__VA_ARGS__);			\
++		DP_INNER(fmt, ##__VA_ARGS__);			\
++} while (0)
++
++#define DP_AND(__mask, fmt, ...)				\
++do {								\
++	if (unlikely((bp->msg_enable & (__mask)) == __mask))	\
++		DP_INNER(fmt, ##__VA_ARGS__);			\
+ } while (0)
+ 
+ #define DP_CONT(__mask, fmt, ...)				\
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index e118a3e..72ff5d2 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -5221,9 +5221,9 @@ static void bnx2x_eq_int(struct bnx2x *bp)
+ 			continue;
+ 
+ 		case EVENT_RING_OPCODE_STAT_QUERY:
+-			DP(BNX2X_MSG_SP | BNX2X_MSG_STATS,
+-			   "got statistics comp event %d\n",
+-			   bp->stats_comp++);
++			DP_AND((BNX2X_MSG_SP | BNX2X_MSG_STATS),
++			       "got statistics comp event %d\n",
++			       bp->stats_comp++);
+ 			/* nothing to do with stats comp */
+ 			goto next_spqe;
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+index aec5ef2..04805b6 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+@@ -2527,10 +2527,10 @@ void bnx2x_iov_adjust_stats_req(struct bnx2x *bp)
+ 	first_queue_query_index = BNX2X_FIRST_QUEUE_QUERY_IDX -
+ 		(is_fcoe ? 0 : 1);
+ 
+-	DP(BNX2X_MSG_IOV,
+-	   "BNX2X_NUM_ETH_QUEUES %d, is_fcoe %d, first_queue_query_index %d => determined the last non virtual statistics query index is %d. Will add queries on top of that\n",
+-	   BNX2X_NUM_ETH_QUEUES(bp), is_fcoe, first_queue_query_index,
+-	   first_queue_query_index + num_queues_req);
++	DP_AND((BNX2X_MSG_IOV | BNX2X_MSG_STATS),
++	       "BNX2X_NUM_ETH_QUEUES %d, is_fcoe %d, first_queue_query_index %d => determined the last non virtual statistics query index is %d. Will add queries on top of that\n",
++	       BNX2X_NUM_ETH_QUEUES(bp), is_fcoe, first_queue_query_index,
++	       first_queue_query_index + num_queues_req);
+ 
+ 	cur_data_offset = bp->fw_stats_data_mapping +
+ 		offsetof(struct bnx2x_fw_stats_data, queue_stats) +
+@@ -2544,9 +2544,9 @@ void bnx2x_iov_adjust_stats_req(struct bnx2x *bp)
+ 		struct bnx2x_virtf *vf = BP_VF(bp, i);
+ 
+ 		if (vf->state != VF_ENABLED) {
+-			DP(BNX2X_MSG_IOV,
+-			   "vf %d not enabled so no stats for it\n",
+-			   vf->abs_vfid);
++			DP_AND((BNX2X_MSG_IOV | BNX2X_MSG_STATS),
++			       "vf %d not enabled so no stats for it\n",
++			       vf->abs_vfid);
+ 			continue;
+ 		}
+ 
+@@ -2597,7 +2597,8 @@ void bnx2x_iov_sp_task(struct bnx2x *bp)
+ 	/* Iterate over all VFs and invoke state transition for VFs with
+ 	 * 'in-progress' slow-path operations
+ 	 */
+-	DP(BNX2X_MSG_IOV, "searching for pending vf operations\n");
++	DP_AND((BNX2X_MSG_IOV | BNX2X_MSG_SP),
++	       "searching for pending vf operations\n");
+ 	for_each_vf(bp, i) {
+ 		struct bnx2x_virtf *vf = BP_VF(bp, i);
+ 
+-- 
+1.8.1.227.g44fe835
