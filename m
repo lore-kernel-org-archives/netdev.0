@@ -1,73 +1,54 @@
-From: qca_dlansky <qca_dlansky@qualcomm.com>
-Subject: RE: team driver MAC addresses questions
-Date: Wed, 12 Feb 2014 14:17:10 +0000
-Message-ID: <65502A17874025489B7D8479C16CFA634E91D236@nasanexd02f.na.qualcomm.com>
-References: <65502A17874025489B7D8479C16CFA634E91D1D0@nasanexd02f.na.qualcomm.com>
- <20140212133726.GA3027@minipsycho.orion>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: netfilter: nf_tables: add reject module for NFPROTO_INET
+Date: Wed, 12 Feb 2014 09:18:27 -0500
+Message-ID: <20140212141827.GA7129@redhat.com>
+References: <20140211203359.56ED7660CD3@gitolite.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	qca_vkondrat <qca_vkondrat@qca.qualcomm.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, pablo@netfilter.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sabertooth02.qualcomm.com ([65.197.215.38]:17796 "EHLO
-	sabertooth02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751460AbaBLORM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 09:17:12 -0500
-In-Reply-To: <20140212133726.GA3027@minipsycho.orion>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:35909 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751557AbaBLOSm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Feb 2014 09:18:42 -0500
+Content-Disposition: inline
+In-Reply-To: <20140211203359.56ED7660CD3@gitolite.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->Q2:
->We've noticed the following behavior:
->- wlan1 has some MAC address - m1
->- team0 created with random MAC address - m2
->
->root@lx-foo:~# ip link
->1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT 
->    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
->2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP mode DEFAULT qlen 1000
->    link/ether 00:21:70:be:4f:68 brd ff:ff:ff:ff:ff:ff
->4: wlan1: <BROADCAST,MULTICAST> mtu 1500 qdisc mq state DOWN mode DORMANT qlen 1000
->    link/ether 44:39:c4:18:b5:7a brd ff:ff:ff:ff:ff:ff
->12: team0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT 
->    link/ether 9a:ac:d5:91:df:aa brd ff:ff:ff:ff:ff:ff
->
->- When adding port wlan1 into team0, m1 gets assigned to team0 and m2 
->gets assigned to wlan1
->
->root@lx-foo:~# LD_LIBRARY_PATH=/usr/local/lib/ teamdctl team0 port add 
->wlan1 root@lx-foo:~# ip link
->1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT 
->    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
->2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP mode DEFAULT qlen 1000
->    link/ether 00:21:70:be:4f:68 brd ff:ff:ff:ff:ff:ff
->4: wlan1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq master team0 state UP mode DORMANT qlen 1000
->    link/ether 9a:ac:d5:91:df:aa brd ff:ff:ff:ff:ff:ff
->12: team0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT 
->    link/ether 44:39:c4:18:b5:7a brd ff:ff:ff:ff:ff:ff
->
->This is a bit strange for us. We were expecting both of them to have the same MAC address.
->
->Further investigation showed that when adding the port, the MAC address of the added port is set twice:
->once by team_add_slave(), when wlan1 is still down. The MAC address is set to m2.
->second time by team_set_mac_address(), after wlan1 is up. The MAC address is set to m1.
+On Tue, Feb 11, 2014 at 08:33:59PM +0000, Linux Kernel wrote:
+ > Gitweb:     http://git.kernel.org/linus/;a=commit;h=05513e9e33dbded8124567466a444d32173eecc6
+ > Commit:     05513e9e33dbded8124567466a444d32173eecc6
+ > Parent:     cc4723ca316742891954efa346298e7c747c0d17
+ > Author:     Patrick McHardy <kaber@trash.net>
+ > AuthorDate: Wed Feb 5 15:03:39 2014 +0000
+ > Committer:  Pablo Neira Ayuso <pablo@netfilter.org>
+ > CommitDate: Thu Feb 6 09:44:18 2014 +0100
+ > 
+ >     netfilter: nf_tables: add reject module for NFPROTO_INET
+ >     
+ >     Add a reject module for NFPROTO_INET. It does nothing but dispatch
+ >     to the AF-specific modules based on the hook family.
+ >     
+ >     Signed-off-by: Patrick McHardy <kaber@trash.net>
+ >     Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+ > ---
 
-Are you using teamd? What config?
+....
 
-[DL]  just 'teamd -d', no config at all
+ > +static void nft_reject_inet_eval(const struct nft_expr *expr,
+ > +				 struct nft_data data[NFT_REG_MAX + 1],
+ > +				 const struct nft_pktinfo *pkt)
+ > +{
+ > +	switch (pkt->ops->pf) {
+ > +	case NFPROTO_IPV4:
+ > +		nft_reject_ipv4_eval(expr, data, pkt);
+ > +	case NFPROTO_IPV6:
+ > +		nft_reject_ipv6_eval(expr, data, pkt);
+ > +	}
+ > +}
 
->
->However, the 2nd call fails which leaves wlan1 with m2. The reason for the failure is because ath9k doesn't support IFF_LIVE_ADDR_CHANGE.
->
->Our question: in team_set_mac_address(), in case there is a failure setting MAC address for any port inside port_list, doesn't it make sense to undo MAC address changes and report the failure up the stack?
->
+Is the fallthrough intentional here, or is there a missing break ?
 
-Yes. That would be probably the proper thing to do. WOuld you send the patch or I should do it? Would be needed to do something similar what bonding does.
-
-[DL] Let us think about it. We want to prepare patch, but we need time to do so.
-
->Thanks,
->  Vladimir & Dedy.
+	Dave
