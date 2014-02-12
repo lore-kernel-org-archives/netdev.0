@@ -1,75 +1,45 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] net: clear iflink when moving to a new netns
-Date: Wed, 12 Feb 2014 23:18:25 +0000
-Message-ID: <1392247105.15615.41.camel@deadeye.wl.decadent.org.uk>
-References: <1392162690-6647-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] net: Clear local_df only if crossing namespace.
+Date: Thu, 13 Feb 2014 00:35:18 +0100
+Message-ID: <20140212233518.GG11150@order.stressinduktion.org>
+References: <1391811158-11433-1-git-send-email-pshelar@nicira.com> <20140207222840.GD16198@order.stressinduktion.org> <CALnjE+pbcbENWjQcE8T0QLa=d0iia3EBBVJz-sGVzAZbsQarLQ@mail.gmail.com> <20140208005843.GE16198@order.stressinduktion.org> <CALnjE+qiRbLWBJyhig7DFETRLRgAZHqJqUEYGVuJ6nXc7cPguw@mail.gmail.com> <20140211021150.GB11150@order.stressinduktion.org> <CALnjE+r5zUs0GKUESoum2YumjbfU2XKhDjjcoWUv2D8yiGEYkA@mail.gmail.com> <52FB3FC1.8080603@6wind.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-AE/5geNfkk6Uyt5piPHa"
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Cong Wang <cwang@twopensource.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Pravin Shelar <pshelar@nicira.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"Templin, Fred L" <Fred.L.Templin@boeing.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:52971 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752760AbaBLXSj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 18:18:39 -0500
-In-Reply-To: <1392162690-6647-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:50685 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751095AbaBLXfT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 18:35:19 -0500
+Content-Disposition: inline
+In-Reply-To: <52FB3FC1.8080603@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Feb 12, 2014 at 10:32:49AM +0100, Nicolas Dichtel wrote:
+> Le 12/02/2014 05:26, Pravin Shelar a =C3=A9crit :
+> >On Mon, Feb 10, 2014 at 6:11 PM, Hannes Frederic Sowa
+> >I am not sure why the caller can not just set skb->local_df before
+> >calling iptunnel_xmit() rather than passing extra arg to this
+> >function?
+> >There are not that many caller of this function.
+> The benefit is that it ensures that future callers will think about t=
+his=20
+> point
+> ;-)
 
---=-AE/5geNfkk6Uyt5piPHa
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Exactly, I thought about adding skb->local_df =3D 0 to all the tunnel c=
+ode but
+wanted to force users of the interface to think about the parameter and=
+ its
+consequences.
 
-On Tue, 2014-02-11 at 15:51 -0800, Cong Wang wrote:
-> From: Cong Wang <cwang@twopensource.com>
->=20
-> BZ: https://bugzilla.kernel.org/show_bug.cgi?id=3D66691
->=20
-> macvlan and vlan both use iflink to identify its lower device,
-> however, after such device is moved to the new netns, its iflink
-> would become meaningless as ifindex is per netns. So, instead of
-> forbid them moving to another netns, just clear this field so that
-> it will not be dumped at least.
-[...]
+Greetings,
 
-And what if it's moved back into the same netns?
-
-I think iflink should be changed to a net_device pointer, so it remains
-valid for in-kernel users but rtnetlink can do the netns check before
-revealing it to userland.
-
-Ben.
-
---=20
-Ben Hutchings
-If more than one person is responsible for a bug, no one is at fault.
-
---=-AE/5geNfkk6Uyt5piPHa
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAUvwBQee/yOyVhhEJAQqP4RAAsnimQK/DEEiBe2EJAdpXsgGgG/QUMxmn
-Tg1n2iLawT6653tigdVd59VROZiasXHJ0ryxYZL7lggOe8FntkIItuy67edD++tD
-vr/tmGCl/YUfDGK6j5bbU6LZYNHIyk3vz4sslk/nNMyEin1WsFD0jhnr+mAURzWE
-pwH4px/BGqz62fOPpBVdrdls+XS/VV4FHesjP12b9SrmeunInxGfNpM2vF1kbVyq
-RNbMJxi3zyNdQknKiTZktV7n2baY19B5kj1GVxHsrnO9gELjBLIlHFF7bTIUM+2A
-ctuXhsD98oJRhrC3MGhMLY97qlShQytnxQae6nhf9mhh0By/MDv+nIfw3HgpQlxS
-+buj8wC0Bi2RtTKuod8osVrxSYZ4uJiCUvokTZTYFMOKBfjR5dpFwz0PhIGgcagX
-SxcUkM2ctoSN8+zjAJEsxO8guWuLCOK6z53YTrbnQ+Cf6CuE8WykaScyghE5SVQ4
-lhRWdlhXLN9vv9fA6R22cvH6a3HP+hkRGeVqUcfGe8013ubyFnHfV2/mFUX5zRIU
-O250ilTjTA7tLBp5Tp9mzBlz/zsbCDHlpLldPjWqo74ScM9Ue3xJIcWvYqDa4K3s
-xnMtsS+aWqn17ASYvjQ0OAwQHB4NNuVgSwrFCRafE5FkuHRHYytvbKQCMBBkPtM5
-TnTpkWXUC0g=
-=JMV3
------END PGP SIGNATURE-----
-
---=-AE/5geNfkk6Uyt5piPHa--
+  Hannes
