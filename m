@@ -1,80 +1,82 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 04/10] ieee802154: support 100kbps QPSK/EU in
- at86rf230
-Date: Wed, 12 Feb 2014 23:01:11 +0300
-Message-ID: <52FBD307.9080909@cogentembedded.com>
-References: <1392223034-19955-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de> <1392223034-19955-5-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: RFC: bridge get fdb by bridge device
+Date: Wed, 12 Feb 2014 14:02:51 -0500
+Message-ID: <52FBC55B.9040505@redhat.com>
+References: <52F21F72.2090405@mojatatu.com> <52F29747.7040008@redhat.com> <52F3CF76.9090404@mojatatu.com> <52F3E357.4040006@redhat.com> <52F79990.3000400@mojatatu.com> <52F8FEF1.60407@redhat.com> <52FA58E9.906@mojatatu.com> <52FA6A24.3030402@redhat.com> <52FA84FA.2030608@mojatatu.com> <52FA8F8B.3080500@redhat.com> <52FA9167.2040305@mojatatu.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net
-To: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>,
-	netdev@vger.kernel.org
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:38579 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752706AbaBLTBM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 14:01:12 -0500
-Received: by mail-lb0-f176.google.com with SMTP id w7so7318759lbi.21
-        for <netdev@vger.kernel.org>; Wed, 12 Feb 2014 11:01:11 -0800 (PST)
-In-Reply-To: <1392223034-19955-5-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Received: from mx1.redhat.com ([209.132.183.28]:47980 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752706AbaBLTC7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Feb 2014 14:02:59 -0500
+In-Reply-To: <52FA9167.2040305@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On 02/11/2014 04:08 PM, Jamal Hadi Salim wrote:
+> On 02/11/14 16:00, Vlad Yasevich wrote:
+>> On 02/11/2014 03:15 PM, Jamal Hadi Salim wrote:
+> 
+>>
+>> Because it just a multi-function nic that isn't tagged with any
+>> kine of bridge flag.  As John said, this might be useful, but not
+>> done yet.
+>>
+> 
+> Ok, fair enough. Someone should send a patch - John perhaps.
+> 
+>>
+>> Not directly.  However, if you put a layered software device in between
+>> (vlan, bond, macvlan), then you can add that device to another bridge.
+>> In fact, people do that to get GVRP working with VMs.
+>>
+> 
+> Do you recall the reasoning behind it?
 
-On 02/12/2014 07:37 PM, Phoebe Buckheister wrote:
+Before my time. It's there since before 2.6.12 :)
 
-> The standard assigns channel 0 on page 2 to be 100kbps QPSK in the
-> 868.3MHz band. Add support to the at86rf230 driver for this channel and
-> page, at the moment predicated only for the RF212 chip.
+-vlad
 
-> Per the datasheet, configurations for page 0, channels 0 to 10 and page
-> 2, channels 0 to 10 differ only in the BPSK_QPSK bit. Support for
-> channels 1 to 10 is untested.
-
-> Signed-off-by: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
-> ---
->   drivers/net/ieee802154/at86rf230.c |   17 ++++++++++++++---
->   1 file changed, 14 insertions(+), 3 deletions(-)
-
-> diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-> index 99bc822..f6338c4 100644
-> --- a/drivers/net/ieee802154/at86rf230.c
-> +++ b/drivers/net/ieee802154/at86rf230.c
-[...]
-> @@ -595,6 +596,14 @@ at86rf212_set_channel(struct at86rf230_local *lp, int page, int channel)
->   	if (rc < 0)
->   		return rc;
->
-> +	if (page == 0)
-> +		rc = at86rf230_write_subreg(lp, SR_BPSK_QPSK, 0);
-> +	else
-> +		rc = at86rf230_write_subreg(lp, SR_BPSK_QPSK, 1);
-> +
-
-    Don't think empty line is needed here.
-
-> +	if (rc < 0)
-> +		return rc;
-> +
->   	return at86rf230_write_subreg(lp, SR_CHANNEL, channel);
->   }
->
-[...]
-> @@ -1067,9 +1077,10 @@ static int at86rf230_probe(struct spi_device *spi)
->
->   	spi_set_drvdata(spi, lp);
->
-> -	if (is_rf212(lp))
-> +	if (is_rf212(lp)) {
->   		dev->phy->channels_supported[0] = 0x00007FF;
-> -	else
-> +		dev->phy->channels_supported[2] = 0x00007FF;
-> +	} else
->   		dev->phy->channels_supported[0] = 0x7FFF800;
-
-    Have to use {} in both arms of the *if* statement now -- see 
-Documentation/CodingStyle.
-
-WBR, Sergei
+> 
+> 
+>>> It certainly has some equivalent semantics (looks at dst MAC then
+>>> picks the port). Possible to add Vlans as well?
+>>
+>> I suppose.   You can do things like:
+>> # ip link add link eth0 dev vlan100 protocol 8021Q id 100
+>> # ip link add link vlan0 dev mac100 type macvlan
+>>
+>> Now, you have a macvlan (mac100) that will only receive vlan100 traffic.
+>> Expressing this in terms of fdb would be a bit difficult since each
+>> interface is separate and eth0 doesn't really know about the stack.
+>> It would require quite a lot of code.
+>>
+> 
+> nice.
+> 
+>>> Why dont we tag such a thing as a bridge then?
+>>>
+>>
+>> Because they are not always a bridge.  It could be just a nic capable of
+>> mac filtering.
+>>
+> 
+> I think in one of the modes it is merely a filter.
+> But you turn on this other feature it is a bridge.
+> 
+>>
+>> Didn't realize it has different connotation for vxlan.  The you probably
+>> don't want to include and support in the bridge fdb show command.
+> 
+> Thats what i thought you said earlier ;->
+> 
+> cheers,
+> jamal
