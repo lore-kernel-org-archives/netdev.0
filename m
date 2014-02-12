@@ -1,64 +1,57 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net] vhost_net: do not report a used len larger than
-	receive buffer size
-Date: Wed, 12 Feb 2014 13:52:20 +0200
-Message-ID: <20140212115220.GA23006@redhat.com>
-References: <1392184666-17616-1-git-send-email-jasowang@redhat.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next 3/3] cfg80211: add MPLS and 802.21 classification
+Date: Wed, 12 Feb 2014 03:49:43 -0800
+Message-ID: <1392205783.1868.5.camel@joe-AO722>
+References: <1392202386-8826-1-git-send-email-sw@simonwunderlich.de>
+	 <1392202386-8826-4-git-send-email-sw@simonwunderlich.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: virtio-dev@lists.oasis-open.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1392184666-17616-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-wireless@vger.kernel.org,
+	mathias.kretschmer@fokus.fraunhofer.de
+To: Simon Wunderlich <sw@simonwunderlich.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0001.hostedemail.com ([216.40.44.1]:58695 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751562AbaBLLtr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 06:49:47 -0500
+In-Reply-To: <1392202386-8826-4-git-send-email-sw@simonwunderlich.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 12, 2014 at 01:57:46PM +0800, Jason Wang wrote:
-> Currently, even if the packet were truncated by lower socket, we still
-> report the packet size as the used len which may confuse guest
-> driver. Fixes this by returning the size of guest receive buffer instead.
-> 
-> Fixes 3a4d5c94e959359ece6d6b55045c3f046677f55c
-> (vhost_net: a kernel-level virtio server)
-> 
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+On Wed, 2014-02-12 at 11:53 +0100, Simon Wunderlich wrote:
+> MPLS labels may contain traffic control information, which should be
+> evaluated and used by the wireless subsystem if present.
 
-As discussed off-line:
+trivial notes:
 
-NAK
+> diff --git a/net/wireless/util.c b/net/wireless/util.c
+[]
+> @@ -11,6 +11,7 @@
+>  #include <net/ip.h>
+>  #include <net/dsfield.h>
+>  #include <linux/if_vlan.h>
+> +#include <uapi/linux/mpls.h>
 
-and a fixed version will be sent.
+Please try not to #include uapi files.
 
-> ---
->  drivers/vhost/net.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index 9a68409..06268a0 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -525,7 +525,8 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
->  		++headcount;
->  		seg += in;
+> @@ -710,6 +711,29 @@ unsigned int cfg80211_classify8021d(struct sk_buff *skb,
+>  			return vlan_priority;
 >  	}
-> -	heads[headcount - 1].len += datalen;
-> +	if (likely(datalen < 0))
-> +		heads[headcount - 1].len += datalen;
->  	*iovcount = seg;
->  	if (unlikely(log))
->  		*log_num = nlogs;
-> -- 
-> 1.8.3.2
+>  
+> +	if (skb_headlen(skb) >= sizeof(struct ethhdr)) {
+> +		struct ethhdr *eh = (struct ethhdr *) skb->data;
+> +		struct mpls_label_stack mpls_tmp, *mpls;
+> +
+> +		switch (eh->h_proto) {
+> +		case __constant_htons(ETH_P_MPLS_UC):
+> +		case __constant_htons(ETH_P_MPLS_MC):
+
+__constant_ isn't necessary for these labels.
+
+>  	switch (skb->protocol) {
+>  	case htons(ETH_P_IP):
+>  		dscp = ipv4_get_dsfield(ip_hdr(skb)) & 0xfc;
+
+like this, just case htons(ETH_<FOO>) is enough.
