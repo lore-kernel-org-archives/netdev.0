@@ -1,8 +1,9 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 00/14] tipc: clean up media and
-	bearer layer
-Date: Wed, 12 Feb 2014 13:31:00 -0500
-Message-ID: <1392229874-29675-1-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 02/14] tipc: move code for
+	resetting links from bearer.c to link.c
+Date: Wed, 12 Feb 2014 13:31:02 -0500
+Message-ID: <1392229874-29675-3-git-send-email-jon.maloy@ericsson.com>
+References: <1392229874-29675-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -10,6 +11,7 @@ Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
 	tipc-discussion@lists.sourceforge.net
 To: davem@davemloft.net
 Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1392229874-29675-1-git-send-email-jon.maloy@ericsson.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
@@ -20,62 +22,86 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-This commit series aims at facilitating future changes to the
-locking policy around nodes, links and bearers.
+From: Ying Xue <ying.xue@windriver.com>
 
-Currently, we have a big read/write lock (net_lock) that is used for
-serializing all changes to the node, link and bearer lists, as well
-as to their mutual pointers and references.
+We break out the code for resetting attached links in the
+function tipc_reset_bearer(), and define a new function named
+tipc_link_reset_list() to do this job.
 
-But, in order to allow for concurrent access to the contents of these
-structures, net_lock is only used in read mode by the data path code,
-and hence a finer granular locking policy must be applied inside the
-scope of net_lock: a spinlock (node_lock) for each node structure,
-and another one (bearer_lock) for protection of bearer structures.
+This commit incurs no functional changes, but makes the code
+of function tipc_reset_bearer() cleaner. It is also a preparation
+for a more important change to the bearer code, in a subsequent
+commit in this series.
 
-This locking policy has proved hard to maintain. We have several 
-times encountered contention problems between node_lock and 
-bearer_lock, and with the advent of the RCU locking mechanism we
-feel it is anyway obsolete and ripe for improvements.
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Reviewed-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/bearer.c |   11 +----------
+ net/tipc/link.c   |   12 ++++++++++++
+ net/tipc/link.h   |    1 +
+ 3 files changed, 14 insertions(+), 10 deletions(-)
 
-We now plan to replace net_lock with an RCU lock, as well as
-getting rid of bearer_lock altogether. This will both reduce data
-path overhead and make the code more manageable, while reducing the
-risk of future lock contention problems.
-
-Prior to these changes, we need to do some necessary cleanup and
-code consolidation. This is what we do with this commit series,
-before we finally remove bearer_lock. In a later series we will
-replace net_lock with an RCU lock.
-
-
-Jon Maloy (9):
-  tipc: stricter behavior of message reassembly function
-  tipc: change reception of tunnelled duplicate packets
-  tipc: change reception of tunnelled failover packets
-  tipc: change signature of tunnelling reception function
-  tipc: more cleanup of tunnelling reception function
-  tipc: rename stack variables in function tipc_link_tunnel_rcv
-  tipc: changes to general packet reception algorithm
-  tipc: delay delete of link when failover is needed
-  tipc: add node_lock protection to link lookup function
-
-Ying Xue (5):
-  tipc: move code for resetting links from bearer.c to link.c
-  tipc: move code for deleting links from bearer.c to link.c
-  tipc: redefine 'started' flag in struct link to bitmap
-  tipc: remove 'links' list from tipc_bearer struct
-  tipc: remove bearer_lock from tipc_bearer struct
-
- net/tipc/bcast.c  |    7 +-
- net/tipc/bearer.c |   42 ++----
- net/tipc/bearer.h |    7 +-
- net/tipc/core.c   |    2 +-
- net/tipc/link.c   |  433 ++++++++++++++++++++++++++++++-----------------------
- net/tipc/link.h   |   34 ++---
- net/tipc/node.c   |    8 +-
- 7 files changed, 283 insertions(+), 250 deletions(-)
-
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index a38c899..a3bdf5c 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -350,19 +350,10 @@ exit:
+  */
+ static int tipc_reset_bearer(struct tipc_bearer *b_ptr)
+ {
+-	struct tipc_link *l_ptr;
+-	struct tipc_link *temp_l_ptr;
+-
+ 	read_lock_bh(&tipc_net_lock);
+ 	pr_info("Resetting bearer <%s>\n", b_ptr->name);
+ 	spin_lock_bh(&b_ptr->lock);
+-	list_for_each_entry_safe(l_ptr, temp_l_ptr, &b_ptr->links, link_list) {
+-		struct tipc_node *n_ptr = l_ptr->owner;
+-
+-		spin_lock_bh(&n_ptr->lock);
+-		tipc_link_reset(l_ptr);
+-		spin_unlock_bh(&n_ptr->lock);
+-	}
++	tipc_link_reset_list(b_ptr);
+ 	spin_unlock_bh(&b_ptr->lock);
+ 	read_unlock_bh(&tipc_net_lock);
+ 	return 0;
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 17fbd15..3ff34e8 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -461,6 +461,18 @@ void tipc_link_reset(struct tipc_link *l_ptr)
+ 	link_reset_statistics(l_ptr);
+ }
+ 
++void tipc_link_reset_list(struct tipc_bearer *b_ptr)
++{
++	struct tipc_link *l_ptr;
++
++	list_for_each_entry(l_ptr, &b_ptr->links, link_list) {
++		struct tipc_node *n_ptr = l_ptr->owner;
++
++		spin_lock_bh(&n_ptr->lock);
++		tipc_link_reset(l_ptr);
++		spin_unlock_bh(&n_ptr->lock);
++	}
++}
+ 
+ static void link_activate(struct tipc_link *l_ptr)
+ {
+diff --git a/net/tipc/link.h b/net/tipc/link.h
+index 8addc5e..73beecb 100644
+--- a/net/tipc/link.h
++++ b/net/tipc/link.h
+@@ -231,6 +231,7 @@ struct sk_buff *tipc_link_cmd_show_stats(const void *req_tlv_area,
+ struct sk_buff *tipc_link_cmd_reset_stats(const void *req_tlv_area,
+ 					  int req_tlv_space);
+ void tipc_link_reset(struct tipc_link *l_ptr);
++void tipc_link_reset_list(struct tipc_bearer *b_ptr);
+ int tipc_link_send(struct sk_buff *buf, u32 dest, u32 selector);
+ void tipc_link_send_names(struct list_head *message_list, u32 dest);
+ int tipc_link_send_buf(struct tipc_link *l_ptr, struct sk_buff *buf);
 -- 
 1.7.9.5
 
