@@ -1,108 +1,115 @@
-From: Anatol Pomozov <anatol.pomozov@gmail.com>
-Subject: Re: [PATCH net 1/3] kref: add kref_sub_return
-Date: Wed, 12 Feb 2014 10:39:17 -0800
-Message-ID: <CAOMFOmWwtQL4TXhWgXoOef3P+o0GL=cSdbdMZ449_A9CdndLbQ@mail.gmail.com>
-References: <1392222846-26699-1-git-send-email-mst@redhat.com>
-	<1392222846-26699-2-git-send-email-mst@redhat.com>
-	<20140212165630.GA22991@kroah.com>
-	<20140212173524.GA26860@redhat.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: RFC: bridge get fdb by bridge device
+Date: Wed, 12 Feb 2014 10:50:42 -0800
+Message-ID: <52FBC282.6020301@intel.com>
+References: <52F21F72.2090405@mojatatu.com> <52F29747.7040008@redhat.com> <52F3CF76.9090404@mojatatu.com> <52F3E357.4040006@redhat.com> <52F79990.3000400@mojatatu.com> <52F8FEF1.60407@redhat.com> <52FA58E9.906@mojatatu.com> <52FA6A24.3030402@redhat.com> <52FA84FA.2030608@mojatatu.com> <52FA8865.1070302@intel.com> <52FA9074.2060900@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Jason Wang <jasowang@redhat.com>,
-	virtio-dev@lists.oasis-open.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	davem@davemloft.net, qinchuanyu@huawei.com,
-	Joern Engel <joern@logfs.org>,
-	Nicholas Bellinger <nab@linux-iscsi.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140212173524.GA26860@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: vyasevic@redhat.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:22127 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752814AbaBLSun (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Feb 2014 13:50:43 -0500
+In-Reply-To: <52FA9074.2060900@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi
+On 2/11/2014 1:04 PM, Jamal Hadi Salim wrote:
+> On 02/11/14 15:30, John Fastabend wrote:
+>> On 2/11/2014 12:15 PM, Jamal Hadi Salim wrote:
+>
+> Thanks for the example on the other email.
+>
 
-On Wed, Feb 12, 2014 at 9:35 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> On Wed, Feb 12, 2014 at 08:56:30AM -0800, Greg Kroah-Hartman wrote:
->> On Wed, Feb 12, 2014 at 06:38:21PM +0200, Michael S. Tsirkin wrote:
->> > It is sometimes useful to get the value of the reference count after
->> > decrement.
->> > For example, vhost wants to execute some periodic cleanup operations
->> > once number of references drops below a specific value, before it
->> > reaches zero (for efficiency).
->>
->> You should never care about what the value of the kref is, if you are
->> using it correctly :)
->>
->> So I really don't want to add this function, as I'm sure people will use
->> it incorrectly.  You should only care if the reference drops to 0, if
->> not, then your usage doesn't really fit into the "kref" model, and so,
->> just use an atomic variable.
->
-> This happens when you have code that keeps
-> reference itself implicitly or explicitly.
->
->         foo(struct kref *k, int bar) {
->
->         sub = kref_sub(k)
->
->         if (sub == 1)
+Just to wrap things up in one email. Changing between VEB and VEPA
+modes already triggers an event. So management applications can listen
+for this.
 
-At this moment you cannot be sure that refcount is 1. It might be
-changed between kref_sub call and this point. The refcount might be 0,
-1, ... or any other value.
+And I can send out a patch to add a flag to hardware bridge devices
+I'll likely get to it next week sometime unless someone beats me
+to it.
 
-The only value that you can be sure is zero. Once refcount becomes
-zero there is no way to increase it to positive value as there are no
-alive pointers to the object.
+>
+>> What do you mean by "bridge device" are you specifically talking about
+>> IFF_BRIDGE flag? This flag is used only for ./net/bridge devices.
+>
+> Right - the simple definition is this thing has an fdb.
+> Yes, I know weve added vlan filtering and multicast snooping
+> but thats all lipstick. If it has an (ethernet) fdb it is a bridge.
+>
 
->                 FOO(k, bar) /* Here I am the only one
->                                with a reference */
+Sure, IEEE802.1Q would call these edge relays.
+
+>> For
+>> example macvlan uses its own flag. I think there is a good case to be
+>> made for netdevices which are acting as the management interface for a
+>> hardware bridge to set an identifying flag. Perhaps IFF_HWBRIDGE.
+>>
 >
->         }
+> If you introduce IFF_HWBRIDGE - I think that would satisfy the
+> distinction. The question then is why not just tag it IFF_BRIDGE?
 >
->         kref_get(k)
->         foo(k, bar);
->         ....
->         kref_put(k)
+
+Because it is not the same type of object as the software bridge.
+Most notably it doesn't do learning. If anything its more like a
+macvlan device and we could just as easily tag it IFF_MACVLAN. So
+because it doesn't really match 1:1 with either of those object I
+would just presume give its own flag. Userspace can always create
+a small macro call it is_bridge_like() and check for any of the
+handful of bridge like objects.
+
+>>
+>> # ip link set dev bridge0 master bridge1
+>> RTNETLINK answers: Too many levels of symbolic links
+>>
 >
-> Why not do FOO in destructor you ask?
-> Absolutely but this will be called much later.
+> pourquoi?  If the original rationale was to limit the
+> broadcast domain scope it sounds strange that a bridge in
+> the form a macvlan is allowed.
 >
-> Maybe you will reconsider if I document this
-> as the only legal use?
+
+Agreed. But there it is.
+
+>> in the bridge case this doesn't work. But you can stack a macvlan
+>> on top of the bridge port,
+>>
+>> # ip link add link bridge0 type macvlan mode vepa
+>>
+>> 11: macvlan0@bridge0: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop
+>> state DOWN mode DEFAULT group default
+>>
+>> And macvlans on macvlans is OK as well.
+>>
+>> # ip link add link macvlan0 type macvlan mode vepa
+>>
+>> [...]
+>>
+>
+> Ok, I need to let that sink in. Cool actually.
+>
+
+Also note you can mix VEB and VEPA modes and if you do it correctly
+can create blocks of virtual ports that can do east-west traffic and
+isolate others.
+
 >
 >>
->> I really want to know why it matters for "efficiency" that you know this
->> number.  How does that help anything, as the number could then go up
->> later on, and the work you did at a "lower" number is obsolete, right?
+>> If its useful then we should. You can track them down in userspace
+>> via /sys/class/net/ or looking for offloaded netdevices that point
+>> to the interface but a flag is definitely more direct.
 >>
->> thanks,
->>
->> greg k-h
 >
-> The issue is that if number dropped to 1, this means
-> we must do the cleanup work since there are
-> no outstanding buffers, (last user is ourselves)
-> if we do not cleanup,
-> guest will hang waiting for us.
+> I prefer a flag. Then i can deal with it via netlink.
 >
-> But it never drops to 0 since we have our own reference
-> in the device.
-> If it goes up again this means we didn't have
-> to do cleanup, but an alternative is doing
-> it all the time and that is slow.
+
+OK. I'll add one here shortly.
+
+> cheers,
+> jamal
 >
-> Yes I can rework vhost to open-code this kref use, it's
-> no big deal.
-> Alternatively since most of the use does match kref
-> model, maybe __kref_sub_return with disclaimers
-> that you must know what you are doing?
-> Please let me know.
->
-> Thanks!
->
-> --
-> MST
