@@ -1,94 +1,72 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH net 2/3] vhost: fix ref cnt checking deadlock
-Date: Wed, 12 Feb 2014 18:38:00 +0200
-Message-ID: <1392222846-26699-3-git-send-email-mst@redhat.com>
-References: <1392222846-26699-1-git-send-email-mst@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] net: clear iflink when moving to a new netns
+Date: Wed, 12 Feb 2014 08:33:22 -0800
+Message-ID: <20140212083322.1559f441@nehalam.linuxnetplumber.net>
+References: <1392162690-6647-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: virtio-dev@lists.oasis-open.org, kvm@vger.kernel.org,
-	netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, qinchuanyu@huawei.com,
-	davem@davemloft.net
-To: linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1392222846-26699-1-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Cong Wang <cwang@twopensource.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:33736 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752339AbaBLQd0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 11:33:26 -0500
+Received: by mail-pd0-f176.google.com with SMTP id w10so9181195pde.21
+        for <netdev@vger.kernel.org>; Wed, 12 Feb 2014 08:33:26 -0800 (PST)
+In-Reply-To: <1392162690-6647-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-vhost checked the counter within the refcnt before decrementing.  It
-really wanted to know that there aren't too many references, as a way to
-batch freeing resources a bit more efficiently.
+On Tue, 11 Feb 2014 15:51:28 -0800
+Cong Wang <xiyou.wangcong@gmail.com> wrote:
 
-This works well but it we now access the
-ref counter twice so there's a race:
-all users might see a high count and decide
-to defer freeing resources.
-In the end no one initiates freeing resources
-until the last reference is gone (which is on VM shotdown
-so might happen after a looooong time).
+> From: Cong Wang <cwang@twopensource.com>
+> 
+> BZ: https://bugzilla.kernel.org/show_bug.cgi?id=66691
+> 
+> macvlan and vlan both use iflink to identify its lower device,
+> however, after such device is moved to the new netns, its iflink
+> would become meaningless as ifindex is per netns. So, instead of
+> forbid them moving to another netns, just clear this field so that
+> it will not be dumped at least.
+> 
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Eric W. Biederman <ebiederm@xmission.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Cong Wang <cwang@twopensource.com>
+> ---
+>  net/core/dev.c | 9 ++++-----
+>  1 file changed, 4 insertions(+), 5 deletions(-)
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 4ad1b78..5e88b0c2 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -6608,12 +6608,11 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
+>  	dev_net_set(dev, net);
+>  
+>  	/* If there is an ifindex conflict assign a new one */
+> -	if (__dev_get_by_index(net, dev->ifindex)) {
+> -		int iflink = (dev->iflink == dev->ifindex);
+> +	if (__dev_get_by_index(net, dev->ifindex))
+>  		dev->ifindex = dev_new_index(net);
+> -		if (iflink)
+> -			dev->iflink = dev->ifindex;
+> -	}
+> +
+> +	/* Old iflink is meaningless in the new namespace */
+> +	dev->iflink = dev->ifindex;
+>  
+>  	/* Send a netdev-add uevent to the new namespace */
+>  	kobject_uevent(&dev->dev.kobj, KOBJ_ADD);
 
-Let's do what we should have done straight away:
-add a kref API to return the kref value atomically,
-and use that to avoid the deadlock.
-
-Reported-by: Qin Chuanyu <qinchuanyu@huawei.com>
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- drivers/vhost/net.c | 13 ++++++-------
- 1 file changed, 6 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 831eb4f..7eaf2de 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -140,9 +140,9 @@ vhost_net_ubuf_alloc(struct vhost_virtqueue *vq, bool zcopy)
- 	return ubufs;
- }
- 
--static void vhost_net_ubuf_put(struct vhost_net_ubuf_ref *ubufs)
-+static int vhost_net_ubuf_put(struct vhost_net_ubuf_ref *ubufs)
- {
--	kref_put(&ubufs->kref, vhost_net_zerocopy_done_signal);
-+	return kref_sub_return(&ubufs->kref, 1, vhost_net_zerocopy_done_signal);
- }
- 
- static void vhost_net_ubuf_put_and_wait(struct vhost_net_ubuf_ref *ubufs)
-@@ -306,22 +306,21 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
- {
- 	struct vhost_net_ubuf_ref *ubufs = ubuf->ctx;
- 	struct vhost_virtqueue *vq = ubufs->vq;
--	int cnt = atomic_read(&ubufs->kref.refcount);
-+	int cnt;
- 
- 	/* set len to mark this desc buffers done DMA */
- 	vq->heads[ubuf->desc].len = success ?
- 		VHOST_DMA_DONE_LEN : VHOST_DMA_FAILED_LEN;
--	vhost_net_ubuf_put(ubufs);
-+	cnt = vhost_net_ubuf_put(ubufs);
- 
- 	/*
- 	 * Trigger polling thread if guest stopped submitting new buffers:
--	 * in this case, the refcount after decrement will eventually reach 1
--	 * so here it is 2.
-+	 * in this case, the refcount after decrement will eventually reach 1.
- 	 * We also trigger polling periodically after each 16 packets
- 	 * (the value 16 here is more or less arbitrary, it's tuned to trigger
- 	 * less than 10% of times).
- 	 */
--	if (cnt <= 2 || !(cnt % 16))
-+	if (cnt <= 1 || !(cnt % 16))
- 		vhost_poll_queue(&vq->poll);
- }
- 
--- 
-MST
+This also breaks propogation of state changes from lower device
+to upper device. Things like carrier and up/down.
