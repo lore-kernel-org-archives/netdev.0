@@ -1,112 +1,108 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net-next 06/14] ethtool: Expand documentation of struct
- ethtool_ringparam
-Date: Wed, 12 Feb 2014 22:14:23 +0000
-Message-ID: <1392243263.15615.10.camel@deadeye.wl.decadent.org.uk>
-References: <1392243184.15615.4.camel@deadeye.wl.decadent.org.uk>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] staging: r8188eu: Fix more Smatch warnings and errors
+Date: Wed, 12 Feb 2014 16:14:35 -0600
+Message-ID: <1392243275-23697-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-QR2CrnNZ89FzdqvGVSTB"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:52788 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754475AbaBLWOa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 17:14:30 -0500
-In-Reply-To: <1392243184.15615.4.camel@deadeye.wl.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+ Larry Finger <Larry.Finger@lwfinger.net>
+To: gregkh@linuxfoundation.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
+After updating Smatch, the following new errors and warnings are reported:
 
---=-QR2CrnNZ89FzdqvGVSTB
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+drivers/staging/rtl8188eu/core/rtw_recv.c:368 recvframe_chkmic() warn: variable dereferenced before check 'psecuritypriv' (see line 364)
+drivers/staging/rtl8188eu/os_dep/ioctl_linux.c:2642 rtw_wps_start() warn: variable dereferenced before check 'pdata' (see line 2636)
+drivers/staging/rtl8188eu/os_dep/ioctl_linux.c:4461 rtw_dbg_port() error: we previously assumed 'pregpriv' could be null (see line 4453)
+drivers/staging/rtl8188eu/os_dep/ioctl_linux.c:4473 rtw_dbg_port() error: we previously assumed 'pregpriv' could be null (see line 4469)
 
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- include/uapi/linux/ethtool.h | 37 ++++++++++++++++++++++++++-----------
- 1 file changed, 26 insertions(+), 11 deletions(-)
+ drivers/staging/rtl8188eu/core/rtw_recv.c      |  7 +++----
+ drivers/staging/rtl8188eu/os_dep/ioctl_linux.c | 18 +++++++++---------
+ 2 files changed, 12 insertions(+), 13 deletions(-)
 
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index d5a0d20..e602cd0 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -401,22 +401,37 @@ struct ethtool_coalesce {
- 	__u32	rate_sample_interval;
- };
-=20
--/* for configuring RX/TX ring parameters */
-+/**
-+ * struct ethtool_ringparam - RX/TX ring parameters
-+ * @cmd: Command number =3D %ETHTOOL_GRINGPARAM or %ETHTOOL_SRINGPARAM
-+ * @rx_max_pending: Maximum supported number of pending entries per
-+ *	RX ring.  Read-only.
-+ * @rx_mini_max_pending: Maximum supported number of pending entries
-+ *	per RX mini ring.  Read-only.
-+ * @rx_jumbo_max_pending: Maximum supported number of pending entries
-+ *	per RX jumbo ring.  Read-only.
-+ * @tx_max_pending: Maximum supported number of pending entries per
-+ *	TX ring.  Read-only.
-+ * @rx_pending: Current maximum number of pending entries per RX ring
-+ * @rx_mini_pending: Current maximum number of pending entries per RX
-+ *	mini ring
-+ * @rx_jumbo_pending: Current maximum number of pending entries per RX
-+ *	jumbo ring
-+ * @tx_pending: Current maximum supported number of pending entries
-+ *	per TX ring
-+ *
-+ * If the interface does not have separate RX mini and/or jumbo rings,
-+ * @rx_mini_max_pending and/or @rx_jumbo_max_pending will be 0.
-+ *
-+ * There may also be driver-dependent minimum values for the number
-+ * of entries per ring.
-+ */
- struct ethtool_ringparam {
--	__u32	cmd;	/* ETHTOOL_{G,S}RINGPARAM */
+diff --git a/drivers/staging/rtl8188eu/core/rtw_recv.c b/drivers/staging/rtl8188eu/core/rtw_recv.c
+index 35397bd..bc5baf2 100644
+--- a/drivers/staging/rtl8188eu/core/rtw_recv.c
++++ b/drivers/staging/rtl8188eu/core/rtw_recv.c
+@@ -361,16 +361,15 @@ static int recvframe_chkmic(struct adapter *adapter,  union recv_frame *precvfra
+ 		/* calculate mic code */
+ 		if (stainfo != NULL) {
+ 			if (IS_MCAST(prxattrib->ra)) {
+-				mickey = &psecuritypriv->dot118021XGrprxmickey[prxattrib->key_index].skey[0];
 -
--	/* Read only attributes.  These indicate the maximum number
--	 * of pending RX/TX ring entries the driver will allow the
--	 * user to set.
--	 */
-+	__u32	cmd;
- 	__u32	rx_max_pending;
- 	__u32	rx_mini_max_pending;
- 	__u32	rx_jumbo_max_pending;
- 	__u32	tx_max_pending;
+-				RT_TRACE(_module_rtl871x_recv_c_, _drv_info_, ("\n recvframe_chkmic: bcmc key\n"));
 -
--	/* Values changeable by the user.  The valid values are
--	 * in the range 1 to the "*_max_pending" counterpart above.
--	 */
- 	__u32	rx_pending;
- 	__u32	rx_mini_pending;
- 	__u32	rx_jumbo_pending;
-
-
---=20
-Ben Hutchings
-If more than one person is responsible for a bug, no one is at fault.
-
---=-QR2CrnNZ89FzdqvGVSTB
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAUvvyP+e/yOyVhhEJAQoXVBAAoComrstPrZjzci10qBY9WRNRnTHw9F2m
-W3x6eSZ1lV7Zfh1PjDU8aWi+6DWfP+eaIDCbyNbp/JuxJRAwWvA3ukTFwJ7Zky87
-xa7StSsryYNRsPxM4qKSAWDx+zv4CHDm3fzGUlFfAb/kPiMspbNiwMMeenaDus3A
-Ch3LDaoVO7sfN3uG9eN7sW2vCWJBll3UM02Clk7xzmUlGcdo1mLGY4HutgVlrAPG
-jIDyBenT7KzoSY13ZQrFVoQ5aXQGm+SQBwdZPTbOAPVbldo7NE7pGLASMnUEChPa
-3vn3Z+PI73jD7fDGG+mhNTR4k7D2E9CdSc3ic8cquNHoa2CfOB4J906HzKpoz+EI
-JB9NeKpIZrvOVPwW52w2NrFh3g4omuaIZUXsF9LcpdSxLxE4JuvYk8WxkSMfPphW
-pYdaZ/mHG/zDuZxHfcoupfqbfqZmqxoFpTjmRiOLWKD89p4BXxWblymPCXu5CD8h
-45xEAAHPBb8eV02rWavueVSdYccvXTS03JdSl36kFIgeBkjDcx3CPFhljUiAM5iC
-usuxDUn+bUNLVnDo8rgzSKbVOJn44U8F7HhQ8ER6UnvbazAlsL5Z8HcTgC9DU9AF
-0qHIyXk9qQeEoMFl5cqmcAWycb3MoGpR3FrRtktjixObGNDzMRNG6ATg5PSEVVpY
-U3DyT+gfnDU=
-=CSho
------END PGP SIGNATURE-----
-
---=-QR2CrnNZ89FzdqvGVSTB--
+ 				if (!psecuritypriv) {
+ 					res = _FAIL;
+ 					RT_TRACE(_module_rtl871x_recv_c_, _drv_err_, ("\n recvframe_chkmic:didn't install group key!!!!!!!!!!\n"));
+ 					DBG_88E("\n recvframe_chkmic:didn't install group key!!!!!!!!!!\n");
+ 					goto exit;
+ 				}
++				mickey = &psecuritypriv->dot118021XGrprxmickey[prxattrib->key_index].skey[0];
++
++				RT_TRACE(_module_rtl871x_recv_c_, _drv_info_, ("\n recvframe_chkmic: bcmc key\n"));
+ 			} else {
+ 				mickey = &stainfo->dot11tkiprxmickey.skey[0];
+ 				RT_TRACE(_module_rtl871x_recv_c_, _drv_err_, ("\n recvframe_chkmic: unicast key\n"));
+diff --git a/drivers/staging/rtl8188eu/os_dep/ioctl_linux.c b/drivers/staging/rtl8188eu/os_dep/ioctl_linux.c
+index 7de8139..3691007 100644
+--- a/drivers/staging/rtl8188eu/os_dep/ioctl_linux.c
++++ b/drivers/staging/rtl8188eu/os_dep/ioctl_linux.c
+@@ -2633,13 +2633,13 @@ static int rtw_wps_start(struct net_device *dev,
+ 	struct iw_point *pdata = &wrqu->data;
+ 	u32   u32wps_start = 0;
+ 
+-	ret = copy_from_user((void *)&u32wps_start, pdata->pointer, 4);
+-	if (ret) {
++	if ((padapter->bDriverStopped) || (pdata == NULL)) {
+ 		ret = -EINVAL;
+ 		goto exit;
+ 	}
+ 
+-	if ((padapter->bDriverStopped) || (pdata == NULL)) {
++	ret = copy_from_user((void *)&u32wps_start, pdata->pointer, 4);
++	if (ret) {
+ 		ret = -EINVAL;
+ 		goto exit;
+ 	}
+@@ -4450,11 +4450,9 @@ static int rtw_dbg_port(struct net_device *dev,
+ 			struct registry_priv	*pregpriv = &padapter->registrypriv;
+ 			/*  0: disable, bit(0):enable 2.4g, bit(1):enable 5g, 0x3: enable both 2.4g and 5g */
+ 			/* default is set to enable 2.4GHZ for IOT issue with bufflao's AP at 5GHZ */
+-			if (pregpriv &&
+-			    (extra_arg == 0 ||
+-			     extra_arg == 1 ||
+-			     extra_arg == 2 ||
+-			     extra_arg == 3)) {
++			if (!pregpriv)
++				break;
++			if (extra_arg >= 0 && extra_arg <= 3) {
+ 				pregpriv->rx_stbc = extra_arg;
+ 				DBG_88E("set rx_stbc =%d\n", pregpriv->rx_stbc);
+ 			} else {
+@@ -4466,7 +4464,9 @@ static int rtw_dbg_port(struct net_device *dev,
+ 		{
+ 			struct registry_priv	*pregpriv = &padapter->registrypriv;
+ 			/*  0: disable, 0x1:enable (but wifi_spec should be 0), 0x2: force enable (don't care wifi_spec) */
+-			if (pregpriv && extra_arg >= 0 && extra_arg < 3) {
++			if (!pregpriv)
++				break;
++			if (extra_arg >= 0 && extra_arg < 3) {
+ 				pregpriv->ampdu_enable = extra_arg;
+ 				DBG_88E("set ampdu_enable =%d\n", pregpriv->ampdu_enable);
+ 			} else {
+-- 
+1.8.4.5
