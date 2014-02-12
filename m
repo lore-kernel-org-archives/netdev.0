@@ -1,98 +1,42 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: 3.14-mw regression: rtl8169 WARNING: DMA-API: exceeded 7
- overlapping mappings of pfn 55ebe
-Date: Wed, 12 Feb 2014 22:52:42 +0000
-Message-ID: <1392245562.15615.29.camel@deadeye.wl.decadent.org.uk>
-References: <1859471893.20140126115521@eikelenboom.it>
-	 <20140127000305.GA14236@electric-eye.fr.zoreil.com>
-	 <CAA9_cme2hgJ=jCDkPh5n5RP8fiJE-dVwbFr-apKv1=mNGPHYZg@mail.gmail.com>
-	 <84816226.20140206123631@eikelenboom.it>
-	 <942972114.20140206140909@eikelenboom.it>
-	 <CAPcyv4g2EnCLFWfLfSDnjtwrid2tCq2k6wh-8sPYY06eJpM83A@mail.gmail.com>
-	 <1434499348.20140211205617@eikelenboom.it>
-	 <1392154132.6615.91.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-EmbTK6wluDjoMCIYjqB1"
-Cc: Sander Eikelenboom <linux@eikelenboom.it>,
-	Dan Williams <dan.j.williams@intel.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1392154132.6615.91.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] staging: rtl8821ae: Fix potential infinite loop
+Date: Wed, 12 Feb 2014 17:10:28 -0600
+Message-ID: <1392246628-30049-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
+	Larry Finger <Larry.Finger@lwfinger.net>
+To: gregkh@linuxfoundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f51.google.com ([209.85.219.51]:35771 "EHLO
+	mail-oa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754039AbaBLXKf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 18:10:35 -0500
+Received: by mail-oa0-f51.google.com with SMTP id h16so11694720oag.24
+        for <netdev@vger.kernel.org>; Wed, 12 Feb 2014 15:10:35 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Smatch reports the following:
+drivers/staging/rtl8821ae/rtl8821ae/hw.c:153 _rtl8821ae_set_fw_clock_on() info: ignoring unreachable code.
 
---=-EmbTK6wluDjoMCIYjqB1
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Upon investigation, the code in this region has the capability of creating
+an infinite loop.
 
-On Tue, 2014-02-11 at 13:28 -0800, Eric Dumazet wrote:
-[...]
-> Incoming frames might be taken out of order-3 pages.
->=20
-> With regular Ethernet frames, this is 21 frames per order-3 pages.
->=20
-> ACTIVE_PFN_MAX_OVERLAP seems too small.
->=20
-> Alternative would be to user order-0 only pages if CONFIG_DMA_API_DEBUG
-> is set. Not sure if it works if PAGE_SIZE=3D66536 ....
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+---
+ drivers/staging/rtl8821ae/rtl8821ae/hw.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Indeed, you can get a lot of packet buffers into a 64K page...
-
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index f589c9af8cbf..1b9995adfd29 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -1924,7 +1924,11 @@ static inline void __skb_queue_purge(struct sk_buf=
-f_head *list)
->  		kfree_skb(skb);
->  }
-> =20
-> +#if defined(CONFIG_DMA_API_DEBUG)
-> +#define NETDEV_FRAG_PAGE_MAX_ORDER 0
-> +#else
->  #define NETDEV_FRAG_PAGE_MAX_ORDER get_order(32768)
-> +#endif
->  #define NETDEV_FRAG_PAGE_MAX_SIZE  (PAGE_SIZE << NETDEV_FRAG_PAGE_MAX_OR=
-DER)
->  #define NETDEV_PAGECNT_MAX_BIAS	   NETDEV_FRAG_PAGE_MAX_SIZE
-> =20
-
-That may be useful for debugging this particular problem, but please
-don't make debugging options change behaviour like this.
-
-Ben.
-
---=20
-Ben Hutchings
-If more than one person is responsible for a bug, no one is at fault.
-
---=-EmbTK6wluDjoMCIYjqB1
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAUvv7Oue/yOyVhhEJAQpPYg//eVX07ZxPLbB2YCGGRLGXfVVNdaHNxK1s
-6EU7QxjEm2PI8clWDsY9rl5qJWTAwadXmt00GpcgUXBiPYoLy5zBXqDkzF0fxHnR
-H9CmjQ8Hs443zPUQUHas7cdvj4RZGjqXpJ2xddQaeOth/sh9E0Cww3uQEs++lUgQ
-2wgU7Gjv4JXA4R9UJOtdI9C6XGY3zXZmfhxsRbWaeu1nsQsheNCn01Q/PrtlbyAq
-IMKEnx3+WcQugayWs3BHO1Yny0sOItKo6aBOq5Y4ytnaUWbZk3Yq/IJCfxBF0PMl
-NkLoiM2tkjNyxWna5NzlcXEqguwG6nwnxGEVkTbFaF1igmFDHYTuwFC+ZQAexRDO
-CaXbDbHnyHwNl7mKK53D5TmFg9d7cIF6j8Qh/Cs/rAzKlglbQs3KLqiIQjOVWUTw
-9XLk1XLD9zzrXs4x7hnWHIzxnzwE3SBkbj4QEkveEq3SxpYHmrsfYvnCaHYUCPeI
-b8QGks9kOi+2sPnrHMndRo/AA60lARsxwZw2UTFza89Re2kwnFfoozM30juZAGHP
-2ZuXR1N/mwLY4+xLz+yeHRXY8LCzJU0SvEjTigN0KtlA53a1Awm9K+V3SBqRqv8Y
-hAQmchN9W2pDCx1WqhoQ2mueNeRq3chlsjrWKvTtCL/9S6i0pFAdbDZ/ySWSO9fW
-qvD0XOdrIzU=
-=fBIt
------END PGP SIGNATURE-----
-
---=-EmbTK6wluDjoMCIYjqB1--
+diff --git a/drivers/staging/rtl8821ae/rtl8821ae/hw.c b/drivers/staging/rtl8821ae/rtl8821ae/hw.c
+index 5ed7a11..e8344be 100644
+--- a/drivers/staging/rtl8821ae/rtl8821ae/hw.c
++++ b/drivers/staging/rtl8821ae/rtl8821ae/hw.c
+@@ -147,6 +147,7 @@ static void _rtl8821ae_set_fw_clock_on(struct ieee80211_hw *hw,
+ 		} else {
+ 			rtlhal->bfw_clk_change_in_progress = false;
+ 			spin_unlock_bh(&rtlpriv->locks.fw_ps_lock);
++			break;
+ 		}
+ 	}
+ 
+-- 
+1.8.4.5
