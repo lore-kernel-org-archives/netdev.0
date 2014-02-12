@@ -1,58 +1,70 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: [PATCH] netfilter: nft_meta: fix typo "CONFIG_NET_CLS_ROUTE"
-Date: Wed, 12 Feb 2014 10:53:01 +0100
-Message-ID: <1392198781.23759.15.camel@x220>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [Patch net] macvlan: add NETIF_F_NETNS_LOCAL flag
+Date: Wed, 12 Feb 2014 11:03:37 +0100
+Message-ID: <52FB46F9.5050304@6wind.com>
+References: <1392082593-7742-1-git-send-email-xiyou.wangcong@gmail.com>	 <20140211014535.GA11150@order.stressinduktion.org>	 <CAHA+R7N2rxt5vyF+i8mi04dJaLk5bCgMAZOCexOLULLcQ-mT6w@mail.gmail.com>	 <20140211024009.GD11150@order.stressinduktion.org>	 <1392092120.6615.64.camel@edumazet-glaptop2.roam.corp.google.com>	 <CAHA+R7MhHuOPaT5oAF_S-a3u1_2mt=Vqd5HCdi9r3JV-fK-6Pw@mail.gmail.com>	 <1392096087.6615.72.camel@edumazet-glaptop2.roam.corp.google.com>	 <1392097032.6615.73.camel@edumazet-glaptop2.roam.corp.google.com> <1392097099.6615.74.camel@edumazet-glaptop2.roam.corp.google.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Richard Weinberger <richard@nod.at>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
 	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
 	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f48.google.com ([74.125.83.48]:50395 "EHLO
+	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750916AbaBLKDk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 05:03:40 -0500
+Received: by mail-ee0-f48.google.com with SMTP id t10so4164129eei.35
+        for <netdev@vger.kernel.org>; Wed, 12 Feb 2014 02:03:39 -0800 (PST)
+In-Reply-To: <1392097099.6615.74.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There are two checks for CONFIG_NET_CLS_ROUTE, but the corresponding
-Kconfig symbol was dropped in v2.6.39. Since the code guards access to
-dst_entry.tclassid it seems CONFIG_IP_ROUTE_CLASSID should be used
-instead.
+Le 11/02/2014 06:38, Eric Dumazet a =C3=A9crit :
+> On Mon, 2014-02-10 at 21:37 -0800, Eric Dumazet wrote:
+>
+>>
+>> Simple patch would be :
+>>
+>> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+>> index 048dc8d183aa..31bbba34fd1e 100644
+>> --- a/net/core/rtnetlink.c
+>> +++ b/net/core/rtnetlink.c
+>> @@ -963,6 +963,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb,=
+ struct net_device *dev,
+>>   	    nla_put_u32(skb, IFLA_NUM_RX_QUEUES, dev->num_rx_queues) ||
+>>   #endif
+>>   	    (dev->ifindex !=3D dev->iflink &&
+>> +	     __dev_get_by_index(dev_net(dev), dev->iflink) &&
+>>   	     nla_put_u32(skb, IFLA_LINK, dev->iflink)) ||
+>>   	    (upper_dev &&
+>>   	     nla_put_u32(skb, IFLA_MASTER, upper_dev->ifindex)) ||
+>>
+>
+> Hmm, not enough.
+>
+> We probably need to keep a pointer to iflink net structure.
+This is also used in ip tunnels, but when i/o device is not in the same=
+ netns
+that the tunnel device, the userland can not interpret that IFLA_LINK a=
+ttribute
+(userland don't have necessary information to access another netns, may=
+be they
+will be able to do it in the future ;-)).
 
-Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
----
-Untested! I don't use CONFIG_NF_TABLES in my .config (yet). Besides, I
-would have no clue how to runtime test this.
+The goal of your patch was to avoid filling this attribute when iflink =
+is
+into a netns !=3D from dev_net(dev)?
 
-And, yes, typo is stretching it a bit.
-
- net/netfilter/nft_meta.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/netfilter/nft_meta.c b/net/netfilter/nft_meta.c
-index e8254ad..425cf39 100644
---- a/net/netfilter/nft_meta.c
-+++ b/net/netfilter/nft_meta.c
-@@ -116,7 +116,7 @@ static void nft_meta_get_eval(const struct nft_expr *expr,
- 				 skb->sk->sk_socket->file->f_cred->fsgid);
- 		read_unlock_bh(&skb->sk->sk_callback_lock);
- 		break;
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 	case NFT_META_RTCLASSID: {
- 		const struct dst_entry *dst = skb_dst(skb);
- 
-@@ -199,7 +199,7 @@ static int nft_meta_init_validate_get(uint32_t key)
- 	case NFT_META_OIFTYPE:
- 	case NFT_META_SKUID:
- 	case NFT_META_SKGID:
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 	case NFT_META_RTCLASSID:
- #endif
- #ifdef CONFIG_NETWORK_SECMARK
--- 
-1.8.5.3
+If yes, I agree that we need to keep a pointer to the net structure of =
+iflink.
+This information is already available in ip tunnels (struct ip_tunnel->=
+net,
+struct ip6_tnl->net) but is not generic. Maybe we can move it to struct
+net_device?
