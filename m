@@ -1,13 +1,13 @@
 From: Michal Simek <michal.simek@xilinx.com>
-Subject: [PATCH 05/14] net: axienet: Service completion interrupts ASAP
-Date: Wed, 12 Feb 2014 16:55:39 +0100
-Message-ID: <cafb13f2ebe4bb996bafb91e405d8609454bb920.1392220536.git.michal.simek@xilinx.com>
+Subject: [PATCH 07/14] net: axienet: Support phy-less mode of operation
+Date: Wed, 12 Feb 2014 16:55:41 +0100
+Message-ID: <2dce248d6285beb10f3d4fcfba3c3a087e2c139f.1392220536.git.michal.simek@xilinx.com>
 References: <cover.1392220536.git.michal.simek@xilinx.com>
 Content-Type: multipart/signed;
-    boundary="=_mimegpg-monstr-desktop-2250-1392220593-0001";
+    boundary="=_mimegpg-monstr-desktop-2277-1392220612-0001";
     micalg=pgp-sha1; protocol="application/pgp-signature"
 Cc: Srikanth Thokala <sthokal@xilinx.com>,
-	Peter Crosthwaite <peter.crosthwaite@xilinx.com>,
+	Srikanth Thokala <srikanth.thokala@xilinx.com>,
 	Michal Simek <monstr@monstr.eu>,
 	Anirudha Sarangi <anirudh@xilinx.com>,
 	John Linn <John.Linn@xilinx.com>,
@@ -26,81 +26,62 @@ The Internet standard for MIME PGP messages, RFC 2015, was published in 1996.
 To open this message correctly you will need to install E-mail or Usenet
 software that supports modern Internet standards.
 
---=_mimegpg-monstr-desktop-2250-1392220593-0001
+--=_mimegpg-monstr-desktop-2277-1392220612-0001
 
-From: Peter Crosthwaite <peter.crosthwaite@xilinx.com>
+From: Srikanth Thokala <srikanth.thokala@xilinx.com>
 
-The packet completion interrupts for TX and RX should be serviced before
-the packets are consumed. This ensures against the degenerate case when a
-new completion interrupt is raised after the handler has exited but before
-the interrupts are cleared. In this case its possible for the ISR to clear
-an unhandled interrupt (leading to potential deadlock).
+This patch adds proper checks to handle the PHY-less case.
 
-Signed-off-by: Peter Crosthwaite <peter.crosthwaite@xilinx.com>
+Signed-off-by: Srikanth Thokala <sthokal@xilinx.com>
 Signed-off-by: Michal Simek <michal.simek@xilinx.com>
-Acked-by: Michal Simek <michal.simek@xilinx.com>
-Tested-by: Jason Wu <huanyu@xilinx.com>
 ---
 
- drivers/net/ethernet/xilinx/xilinx_axienet_main.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/xilinx/xilinx_axienet_main.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-index 2e21ab2..3c24f97 100644
+index 9595403..9cc9e59 100644
 --- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
 +++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-@@ -809,6 +809,7 @@ static irqreturn_t axienet_tx_irq(int irq, void *_ndev)
+@@ -940,11 +940,10 @@ static int axienet_open(struct net_device *ndev)
+ 					     PHY_INTERFACE_MODE_RGMII_ID);
+ 		}
 
- 	status = axienet_dma_in32(lp, XAXIDMA_TX_SR_OFFSET);
- 	if (status & (XAXIDMA_IRQ_IOC_MASK | XAXIDMA_IRQ_DELAY_MASK)) {
-+		axienet_dma_out32(lp, XAXIDMA_TX_SR_OFFSET, status);
- 		axienet_start_xmit_done(lp->ndev);
- 		goto out;
+-		if (!lp->phy_dev) {
++		if (!lp->phy_dev)
+ 			dev_err(lp->dev, "of_phy_connect() failed\n");
+-			return -ENODEV;
+-		}
+-		phy_start(lp->phy_dev);
++		else
++			phy_start(lp->phy_dev);
  	}
-@@ -832,9 +833,9 @@ static irqreturn_t axienet_tx_irq(int irq, void *_ndev)
- 		axienet_dma_out32(lp, XAXIDMA_RX_CR_OFFSET, cr);
 
- 		tasklet_schedule(&lp->dma_err_tasklet);
-+		axienet_dma_out32(lp, XAXIDMA_TX_SR_OFFSET, status);
- 	}
- out:
--	axienet_dma_out32(lp, XAXIDMA_TX_SR_OFFSET, status);
- 	return IRQ_HANDLED;
- }
+ 	/* Enable tasklets for Axi DMA error handling */
+@@ -1609,7 +1608,8 @@ static int axienet_of_probe(struct platform_device *op)
+ 	lp->coalesce_count_tx = XAXIDMA_DFT_TX_THRESHOLD;
 
-@@ -857,6 +858,7 @@ static irqreturn_t axienet_rx_irq(int irq, void *_ndev)
-
- 	status = axienet_dma_in32(lp, XAXIDMA_RX_SR_OFFSET);
- 	if (status & (XAXIDMA_IRQ_IOC_MASK | XAXIDMA_IRQ_DELAY_MASK)) {
-+		axienet_dma_out32(lp, XAXIDMA_RX_SR_OFFSET, status);
- 		axienet_recv(lp->ndev);
- 		goto out;
- 	}
-@@ -880,9 +882,9 @@ static irqreturn_t axienet_rx_irq(int irq, void *_ndev)
- 		axienet_dma_out32(lp, XAXIDMA_RX_CR_OFFSET, cr);
-
- 		tasklet_schedule(&lp->dma_err_tasklet);
-+		axienet_dma_out32(lp, XAXIDMA_RX_SR_OFFSET, status);
- 	}
- out:
--	axienet_dma_out32(lp, XAXIDMA_RX_SR_OFFSET, status);
- 	return IRQ_HANDLED;
- }
+ 	lp->phy_node = of_parse_phandle(op->dev.of_node, "phy-handle", 0);
+-	ret = axienet_mdio_setup(lp, op->dev.of_node);
++	if (lp->phy_node)
++		ret = axienet_mdio_setup(lp, op->dev.of_node);
+ 	if (ret)
+ 		dev_warn(&op->dev, "error registering MDIO bus\n");
 
 --
 1.8.2.3
 
 
---=_mimegpg-monstr-desktop-2250-1392220593-0001
+--=_mimegpg-monstr-desktop-2277-1392220612-0001
 Content-Type: application/pgp-signature
 Content-Transfer-Encoding: 7bit
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.10 (GNU/Linux)
 
-iEYEABECAAYFAlL7mbEACgkQykllyylKDCHtlwCfTI9ClBX3i864IZnybUa4EjnJ
-p1YAnA4BPJKHzVS7ND+Xehh/N41Vdtmk
-=RDWK
+iEYEABECAAYFAlL7mcQACgkQykllyylKDCHv2ACfUjek6VEAZQ4YnnJMMyNpyNbI
+xFkAmQEIjhoGcFvcYG6XcDYRLhSQZrm8
+=KeIM
 -----END PGP SIGNATURE-----
 
---=_mimegpg-monstr-desktop-2250-1392220593-0001--
+--=_mimegpg-monstr-desktop-2277-1392220612-0001--
