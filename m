@@ -1,58 +1,30 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 04/10] net: phy: add genphy_aneg_done()
-Date: Wed, 12 Feb 2014 18:43:38 +0400
-Message-ID: <52FB889A.4000207@cogentembedded.com>
-References: <1392168462-18888-1-git-send-email-f.fainelli@gmail.com> <1392168462-18888-5-git-send-email-f.fainelli@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ipv4: ip_forward: perform skb->pkt_type check
+ at the beginning
+Date: Wed, 12 Feb 2014 09:44:36 -0500 (EST)
+Message-ID: <20140212.094436.2293140925107427190.davem@davemloft.net>
+References: <1392192632-24513-1-git-send-email-kda@linux-powerpc.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: kda@linux-powerpc.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f171.google.com ([209.85.217.171]:53424 "EHLO
-	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751218AbaBLOnm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 09:43:42 -0500
-Received: by mail-lb0-f171.google.com with SMTP id c11so7091793lbj.2
-        for <netdev@vger.kernel.org>; Wed, 12 Feb 2014 06:43:40 -0800 (PST)
-In-Reply-To: <1392168462-18888-5-git-send-email-f.fainelli@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54426 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751218AbaBLOok (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 09:44:40 -0500
+In-Reply-To: <1392192632-24513-1-git-send-email-kda@linux-powerpc.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Date: Wed, 12 Feb 2014 12:10:32 +0400
 
-On 12-02-2014 5:27, Florian Fainelli wrote:
-
-> In preparation for allowing PHY drivers to potentially override their
-> auto-negotiation done callback, move the contents of phy_aneg_done() to
-> genphy_aneg_done() since that function really is the generic
-> implementation based on the BMSR_ANEGCOMPLETE status.
-
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-[...]
-
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index 82514e7..4e7db72 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -865,6 +865,22 @@ int genphy_config_aneg(struct phy_device *phydev)
->   }
->   EXPORT_SYMBOL(genphy_config_aneg);
->
-> +/**
-> + * genphy_aneg_done - return auto-negotiation status
-> + * @phydev: target phy_device struct
-> + *
-> + * Description: Reads the status register and returns 0 either if
-> + *   auto-negotiation is incomplete, or if there was an error.
-> + *   Returns BMSR_ANEGCOMPLETE if auto-negotiation is done.
-> + */
-> +int genphy_aneg_done(struct phy_device *phydev)
-> +{
-> +	int retval = phy_read(phydev, MII_BMSR);
+> +    /* that should never happen */
+> +    if (skb->pkt_type != PACKET_HOST)
+> +        goto drop;
 > +
-> +	return (retval < 0) ? retval : (retval & BMSR_ANEGCOMPLETE);
 
-    I doubt parens are needed here.
-
-WBR, Sergei
+At a minimum, this is not formatted properly.  You are using spaces
+instead of TAB characters.
