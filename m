@@ -1,59 +1,58 @@
-From: Ariel Elior <ariele@broadcom.com>
-Subject: RE: bnx2x + SR-IOV, no internal L2 switching
-Date: Wed, 12 Feb 2014 14:38:41 +0000
-Message-ID: <6AE768456CEC4B4A9B2248CB6B87EB3E1BFF7EEE@SJEXCHMB05.corp.ad.broadcom.com>
-References: <52FB7843.6050601@univ-nantes.fr>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 04/10] net: phy: add genphy_aneg_done()
+Date: Wed, 12 Feb 2014 18:43:38 +0400
+Message-ID: <52FB889A.4000207@cogentembedded.com>
+References: <1392168462-18888-1-git-send-email-f.fainelli@gmail.com> <1392168462-18888-5-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "yoann.juet@univ-nantes.fr" <yoann.juet@univ-nantes.fr>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:15993 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751630AbaBLOim convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 09:38:42 -0500
-In-Reply-To: <52FB7843.6050601@univ-nantes.fr>
-Content-Language: en-US
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:53424 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751218AbaBLOnm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 09:43:42 -0500
+Received: by mail-lb0-f171.google.com with SMTP id c11so7091793lbj.2
+        for <netdev@vger.kernel.org>; Wed, 12 Feb 2014 06:43:40 -0800 (PST)
+In-Reply-To: <1392168462-18888-5-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Yoann Juet
-> Sent: Wednesday, February 12, 2014 3:34 PM
-> To: netdev@vger.kernel.org
-> Subject: bnx2x + SR-IOV, no internal L2 switching
+Hello.
 
-Hi Yoan,
-57810 device does support l2 switching.
-I find your terminology a little bit confusing and I have some further questions besides:
+On 12-02-2014 5:27, Florian Fainelli wrote:
 
-[Q1]: Are you attaching physical functions to VMs? I.e. are you passing through PFs to the VMs, or only virtual functions?
+> In preparation for allowing PHY drivers to potentially override their
+> auto-negotiation done callback, move the contents of phy_aneg_done() to
+> genphy_aneg_done() since that function really is the generic
+> implementation based on the BMSR_ANEGCOMPLETE status.
 
-[Q2]: Are you using VFs only on VMs, or directly from the Hypervisor too?
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+[...]
 
-[Q3]: You wrote "for instance the physical ethX has an IP address". That in itself is no problem and no surprise. You gave this as an example to traffic arriving where is shouldn't. Please elaborate.
+> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+> index 82514e7..4e7db72 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -865,6 +865,22 @@ int genphy_config_aneg(struct phy_device *phydev)
+>   }
+>   EXPORT_SYMBOL(genphy_config_aneg);
+>
+> +/**
+> + * genphy_aneg_done - return auto-negotiation status
+> + * @phydev: target phy_device struct
+> + *
+> + * Description: Reads the status register and returns 0 either if
+> + *   auto-negotiation is incomplete, or if there was an error.
+> + *   Returns BMSR_ANEGCOMPLETE if auto-negotiation is done.
+> + */
+> +int genphy_aneg_done(struct phy_device *phydev)
+> +{
+> +	int retval = phy_read(phydev, MII_BMSR);
+> +
+> +	return (retval < 0) ? retval : (retval & BMSR_ANEGCOMPLETE);
 
-[Q4]: Do you have vlan filters configured anywhere in your topology? Are they configured from Host or from Guest?
-(in this respect host tagging would be 'ip link set eth0 vf 5 vlan 100' on the hypervisor while guest tagging would be 'ip link add link eth4 type vlan id 100' or 'vconfig add eth4 100' where eth0 is a PF and eth4 is a VF).
+    I doubt parens are needed here.
 
-[Q5]: In the case you mentioned where you saw in a VM traffic which was destined to another VM: Did both VMs contain VFs? Were the VFs created from the same Physical Function? If not, what were the BDFs pf the respective PFs? Which mac addresses did you give the VFs?
-
-[Q6]: Please isolate a specific case where switching is not behaving as expected and describe it in more detail:
-Please describe the topology (which PFs are involved and which VFs. Who is assigned to which VMs)
-Where are you sending data from (a VF, a PF, some peer on the network) and where is it arriving (perhaps arriving in multiple places)
-Please detail the behavior you expect and the behavior you observe.
-Please supply:
-Mac addresses, ip addresses and masks, configured vlans (if any), promiscuous setting, etc.
-ip -d -d link show on hypervisor and each of the VMs involved
-ethtool -d from Hypervisor PFs 
-dmesg from hypervisor
-
-Please note we recently submitted some fixes to our tx-switching behavior:
-In e8379c79 "bnx2x: fix VLAN configuration for VFs" we fixed an issue where traffic with the wrong vlan could still end up in a VM configured to a different vlan (hence my questions on vlans).
-In c14db202 "bnx2x: Correct default Tx switching behavior" we fixed a connectivity issue with pf to vf connectivity.
-Depending on your answers to the above, perhaps these might be relevant to your case.
-
-Thanks,
-Ariel
+WBR, Sergei
