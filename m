@@ -1,293 +1,57 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next v3 2/5] net_sched: act: refactor cleanup ops
-Date: Tue, 11 Feb 2014 17:07:32 -0800
-Message-ID: <1392167255-21744-3-git-send-email-xiyou.wangcong@gmail.com>
-References: <1392167255-21744-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>
+Subject: [Patch net-next v2] net: allow setting mac address of loopback device
+Date: Tue, 11 Feb 2014 17:21:26 -0800
+Message-ID: <1392168086-25607-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <xiyou.wangcong@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:44185 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751656AbaBLBHq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 20:07:46 -0500
-Received: by mail-pb0-f49.google.com with SMTP id up15so8406215pbc.8
-        for <netdev@vger.kernel.org>; Tue, 11 Feb 2014 17:07:45 -0800 (PST)
-In-Reply-To: <1392167255-21744-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:44153 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752037AbaBLBVk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 20:21:40 -0500
+Received: by mail-pd0-f172.google.com with SMTP id p10so8268209pdj.17
+        for <netdev@vger.kernel.org>; Tue, 11 Feb 2014 17:21:40 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For bindcnt and refcnt etc., they are common for all actions,
-not need to repeat such operations for their own, they can be unified
-now. Actions just need to do its specific cleanup if needed.
+We are trying to mirror the local traffic from lo to eth0,
+allowing setting mac address of lo to eth0 would make
+the ether addresses in these packets correct, so that
+we don't have to modify the ether header again.
 
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Since usually no one cares about its mac address (all-zero),
+it is safe to allow those who care to set its mac address.
+
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Eric Dumazet <edumazet@google.com>
 Cc: David S. Miller <davem@davemloft.net>
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- include/net/act_api.h   |  2 +-
- net/sched/act_api.c     |  8 +++++---
- net/sched/act_csum.c    |  1 -
- net/sched/act_gact.c    |  1 -
- net/sched/act_ipt.c     | 21 +++++----------------
- net/sched/act_mirred.c  | 20 +++++---------------
- net/sched/act_nat.c     |  1 -
- net/sched/act_pedit.c   | 13 +++----------
- net/sched/act_police.c  |  1 -
- net/sched/act_simple.c  | 17 +++--------------
- net/sched/act_skbedit.c |  1 -
- 11 files changed, 22 insertions(+), 64 deletions(-)
 
-diff --git a/include/net/act_api.h b/include/net/act_api.h
-index 24ae910..3d22f42 100644
---- a/include/net/act_api.h
-+++ b/include/net/act_api.h
-@@ -89,7 +89,7 @@ struct tc_action_ops {
- 	struct module		*owner;
- 	int     (*act)(struct sk_buff *, const struct tc_action *, struct tcf_result *);
- 	int     (*dump)(struct sk_buff *, struct tc_action *, int, int);
--	int     (*cleanup)(struct tc_action *, int bind);
-+	void	(*cleanup)(struct tc_action *, int bind);
- 	int     (*lookup)(struct tc_action *, u32);
- 	int     (*init)(struct net *net, struct nlattr *nla,
- 			struct nlattr *est, struct tc_action *act, int ovr,
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index 4f2b807..a5bf935 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -56,6 +56,8 @@ int tcf_hash_release(struct tc_action *a, int bind)
- 
- 		p->tcfc_refcnt--;
- 		if (p->tcfc_bindcnt <= 0 && p->tcfc_refcnt <= 0) {
-+			if (a->ops->cleanup)
-+				a->ops->cleanup(a, bind);
- 			tcf_hash_destroy(a);
- 			ret = 1;
- 		}
-@@ -277,8 +279,8 @@ int tcf_register_action(struct tc_action_ops *act)
- {
- 	struct tc_action_ops *a;
- 
--	/* Must supply act, dump, cleanup and init */
--	if (!act->act || !act->dump || !act->cleanup || !act->init)
-+	/* Must supply act, dump and init */
-+	if (!act->act || !act->dump || !act->init)
- 		return -EINVAL;
- 
- 	/* Supply defaults */
-@@ -390,7 +392,7 @@ void tcf_action_destroy(struct list_head *actions, int bind)
- 	struct tc_action *a, *tmp;
- 
- 	list_for_each_entry_safe(a, tmp, actions, list) {
--		if (a->ops->cleanup(a, bind) == ACT_P_DELETED)
-+		if (tcf_hash_release(a, bind) == ACT_P_DELETED)
- 			module_put(a->ops->owner);
- 		list_del(&a->list);
- 		kfree(a);
-diff --git a/net/sched/act_csum.c b/net/sched/act_csum.c
-index f0f6e7a..8df3060 100644
---- a/net/sched/act_csum.c
-+++ b/net/sched/act_csum.c
-@@ -566,7 +566,6 @@ static struct tc_action_ops act_csum_ops = {
- 	.owner		= THIS_MODULE,
- 	.act		= tcf_csum,
- 	.dump		= tcf_csum_dump,
--	.cleanup	= tcf_hash_release,
- 	.init		= tcf_csum_init,
+---
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index c5011e0..e7c1d5f 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -160,6 +160,7 @@ static const struct net_device_ops loopback_ops = {
+ 	.ndo_init      = loopback_dev_init,
+ 	.ndo_start_xmit= loopback_xmit,
+ 	.ndo_get_stats64 = loopback_get_stats64,
++	.ndo_set_mac_address = eth_mac_addr,
  };
  
-diff --git a/net/sched/act_gact.c b/net/sched/act_gact.c
-index af6c0ac..094a1b5 100644
---- a/net/sched/act_gact.c
-+++ b/net/sched/act_gact.c
-@@ -185,7 +185,6 @@ static struct tc_action_ops act_gact_ops = {
- 	.owner		=	THIS_MODULE,
- 	.act		=	tcf_gact,
- 	.dump		=	tcf_gact_dump,
--	.cleanup	=	tcf_hash_release,
- 	.init		=	tcf_gact_init,
- };
- 
-diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
-index f5e6978..71f29f1 100644
---- a/net/sched/act_ipt.c
-+++ b/net/sched/act_ipt.c
-@@ -69,23 +69,12 @@ static void ipt_destroy_target(struct xt_entry_target *t)
- 	module_put(par.target->me);
- }
- 
--static int tcf_ipt_release(struct tc_action *a, int bind)
-+static void tcf_ipt_release(struct tc_action *a, int bind)
- {
- 	struct tcf_ipt *ipt = to_ipt(a);
--	int ret = 0;
--	if (ipt) {
--		if (bind)
--			ipt->tcf_bindcnt--;
--		ipt->tcf_refcnt--;
--		if (ipt->tcf_bindcnt <= 0 && ipt->tcf_refcnt <= 0) {
--			ipt_destroy_target(ipt->tcfi_t);
--			kfree(ipt->tcfi_tname);
--			kfree(ipt->tcfi_t);
--			tcf_hash_destroy(a);
--			ret = ACT_P_DELETED;
--		}
--	}
--	return ret;
-+	ipt_destroy_target(ipt->tcfi_t);
-+	kfree(ipt->tcfi_tname);
-+	kfree(ipt->tcfi_t);
- }
- 
- static const struct nla_policy ipt_policy[TCA_IPT_MAX + 1] = {
-@@ -133,7 +122,7 @@ static int tcf_ipt_init(struct net *net, struct nlattr *nla, struct nlattr *est,
- 	} else {
- 		if (bind)/* dont override defaults */
- 			return 0;
--		tcf_ipt_release(a, bind);
-+		tcf_hash_release(a, bind);
- 
- 		if (!ovr)
- 			return -EEXIST;
-diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-index 3edeeca..0f00eb9 100644
---- a/net/sched/act_mirred.c
-+++ b/net/sched/act_mirred.c
-@@ -33,22 +33,12 @@
- static LIST_HEAD(mirred_list);
- static struct tcf_hashinfo mirred_hash_info;
- 
--static int tcf_mirred_release(struct tc_action *a, int bind)
-+static void tcf_mirred_release(struct tc_action *a, int bind)
- {
- 	struct tcf_mirred *m = to_mirred(a);
--	if (m) {
--		if (bind)
--			m->tcf_bindcnt--;
--		m->tcf_refcnt--;
--		if (!m->tcf_bindcnt && m->tcf_refcnt <= 0) {
--			list_del(&m->tcfm_list);
--			if (m->tcfm_dev)
--				dev_put(m->tcfm_dev);
--			tcf_hash_destroy(a);
--			return 1;
--		}
--	}
--	return 0;
-+	list_del(&m->tcfm_list);
-+	if (m->tcfm_dev)
-+		dev_put(m->tcfm_dev);
- }
- 
- static const struct nla_policy mirred_policy[TCA_MIRRED_MAX + 1] = {
-@@ -110,7 +100,7 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
- 		ret = ACT_P_CREATED;
- 	} else {
- 		if (!ovr) {
--			tcf_mirred_release(a, bind);
-+			tcf_hash_release(a, bind);
- 			return -EEXIST;
- 		}
- 	}
-diff --git a/net/sched/act_nat.c b/net/sched/act_nat.c
-index ce9a391..9a3cb1d 100644
---- a/net/sched/act_nat.c
-+++ b/net/sched/act_nat.c
-@@ -289,7 +289,6 @@ static struct tc_action_ops act_nat_ops = {
- 	.owner		=	THIS_MODULE,
- 	.act		=	tcf_nat,
- 	.dump		=	tcf_nat_dump,
--	.cleanup	=	tcf_hash_release,
- 	.init		=	tcf_nat_init,
- };
- 
-diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
-index 091ced3..8aa795b 100644
---- a/net/sched/act_pedit.c
-+++ b/net/sched/act_pedit.c
-@@ -99,18 +99,11 @@ static int tcf_pedit_init(struct net *net, struct nlattr *nla,
- 	return ret;
- }
- 
--static int tcf_pedit_cleanup(struct tc_action *a, int bind)
-+static void tcf_pedit_cleanup(struct tc_action *a, int bind)
- {
- 	struct tcf_pedit *p = a->priv;
--
--	if (p) {
--		struct tc_pedit_key *keys = p->tcfp_keys;
--		if (tcf_hash_release(a, bind)) {
--			kfree(keys);
--			return 1;
--		}
--	}
--	return 0;
-+	struct tc_pedit_key *keys = p->tcfp_keys;
-+	kfree(keys);
- }
- 
- static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
-diff --git a/net/sched/act_police.c b/net/sched/act_police.c
-index 4695d02..7ff7bef 100644
---- a/net/sched/act_police.c
-+++ b/net/sched/act_police.c
-@@ -354,7 +354,6 @@ static struct tc_action_ops act_police_ops = {
- 	.owner		=	THIS_MODULE,
- 	.act		=	tcf_act_police,
- 	.dump		=	tcf_act_police_dump,
--	.cleanup	=	tcf_hash_release,
- 	.init		=	tcf_act_police_locate,
- 	.walk		=	tcf_act_police_walker
- };
-diff --git a/net/sched/act_simple.c b/net/sched/act_simple.c
-index 11c2922..14b5e36 100644
---- a/net/sched/act_simple.c
-+++ b/net/sched/act_simple.c
-@@ -47,21 +47,10 @@ static int tcf_simp(struct sk_buff *skb, const struct tc_action *a,
- 	return d->tcf_action;
- }
- 
--static int tcf_simp_release(struct tc_action *a, int bind)
-+static void tcf_simp_release(struct tc_action *a, int bind)
- {
- 	struct tcf_defact *d = to_defact(a);
--	int ret = 0;
--	if (d) {
--		if (bind)
--			d->tcf_bindcnt--;
--		d->tcf_refcnt--;
--		if (d->tcf_bindcnt <= 0 && d->tcf_refcnt <= 0) {
--			kfree(d->tcfd_defdata);
--			tcf_hash_destroy(a);
--			ret = 1;
--		}
--	}
--	return ret;
-+	kfree(d->tcfd_defdata);
- }
- 
- static int alloc_defdata(struct tcf_defact *d, char *defdata)
-@@ -132,7 +121,7 @@ static int tcf_simp_init(struct net *net, struct nlattr *nla,
- 
- 		if (bind)
- 			return 0;
--		tcf_simp_release(a, bind);
-+		tcf_hash_release(a, bind);
- 		if (!ovr)
- 			return -EEXIST;
- 
-diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
-index 71fd2d4..9f91928 100644
---- a/net/sched/act_skbedit.c
-+++ b/net/sched/act_skbedit.c
-@@ -180,7 +180,6 @@ static struct tc_action_ops act_skbedit_ops = {
- 	.owner		=	THIS_MODULE,
- 	.act		=	tcf_skbedit,
- 	.dump		=	tcf_skbedit_dump,
--	.cleanup	=	tcf_hash_release,
- 	.init		=	tcf_skbedit_init,
- };
- 
--- 
-1.8.3.1
+ /*
+@@ -174,6 +175,7 @@ static void loopback_setup(struct net_device *dev)
+ 	dev->tx_queue_len	= 0;
+ 	dev->type		= ARPHRD_LOOPBACK;	/* 0x0001*/
+ 	dev->flags		= IFF_LOOPBACK;
++	dev->priv_flags		|= IFF_LIVE_ADDR_CHANGE;
+ 	dev->priv_flags	       &= ~IFF_XMIT_DST_RELEASE;
+ 	dev->hw_features	= NETIF_F_ALL_TSO | NETIF_F_UFO;
+ 	dev->features 		= NETIF_F_SG | NETIF_F_FRAGLIST
