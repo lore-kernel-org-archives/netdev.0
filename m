@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 03/14] tipc: move code for
-	deleting links from bearer.c to link.c
-Date: Wed, 12 Feb 2014 13:31:03 -0500
-Message-ID: <1392229874-29675-4-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 08/14] tipc: change signature of
+	tunnelling reception function
+Date: Wed, 12 Feb 2014 13:31:08 -0500
+Message-ID: <1392229874-29675-9-git-send-email-jon.maloy@ericsson.com>
 References: <1392229874-29675-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,80 +22,73 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-From: Ying Xue <ying.xue@windriver.com>
+After the earlier commits in this series related to the function
+tipc_link_tunnel_rcv(), we can now go further and simplify its
+signature.
 
-We break out the code for deleting attached links in the
-function bearer_disable(), and define a new function named
-tipc_link_delete_list() to do this job.
+The function now consumes all DUPLICATE packets, and only returns such
+ORIGINAL packets that are ready for immediate delivery, i.e., no
+more link level protocol processing needs to be done by the caller.
+As a consequence, the the caller, tipc_rcv(), does not access the link
+pointer after call return, and it becomes unnecessary to pass a link
+pointer reference in the call. Instead, we now only pass it the tunnel
+link's owner node, which is sufficient to find the destination link for
+the tunnelled packet.
 
-This commit incurs no functional changes, but makes the code of
-function bearer_disable() cleaner. It is also a preparation
-for a more important change to the bearer code, in a subsequent
-commit in this series.
-
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Reviewed-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/bearer.c |    6 +-----
- net/tipc/link.c   |    9 +++++++++
- net/tipc/link.h   |    1 +
- 3 files changed, 11 insertions(+), 5 deletions(-)
+ net/tipc/link.c |   14 ++++----------
+ 1 file changed, 4 insertions(+), 10 deletions(-)
 
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index a3bdf5c..a5be053 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -366,16 +366,12 @@ static int tipc_reset_bearer(struct tipc_bearer *b_ptr)
-  */
- static void bearer_disable(struct tipc_bearer *b_ptr)
- {
--	struct tipc_link *l_ptr;
--	struct tipc_link *temp_l_ptr;
- 	struct tipc_link_req *temp_req;
- 
- 	pr_info("Disabling bearer <%s>\n", b_ptr->name);
- 	spin_lock_bh(&b_ptr->lock);
- 	b_ptr->media->disable_media(b_ptr);
--	list_for_each_entry_safe(l_ptr, temp_l_ptr, &b_ptr->links, link_list) {
--		tipc_link_delete(l_ptr);
--	}
-+	tipc_link_delete_list(b_ptr);
- 	temp_req = b_ptr->link_req;
- 	b_ptr->link_req = NULL;
- 	spin_unlock_bh(&b_ptr->lock);
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 3ff34e8..424e9f3 100644
+index 978fd3a..76adca6 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -313,6 +313,15 @@ void tipc_link_delete(struct tipc_link *l_ptr)
- 	kfree(l_ptr);
- }
+@@ -78,7 +78,7 @@ static const char *link_unk_evt = "Unknown link event ";
+ static void link_handle_out_of_seq_msg(struct tipc_link *l_ptr,
+ 				       struct sk_buff *buf);
+ static void link_recv_proto_msg(struct tipc_link *l_ptr, struct sk_buff *buf);
+-static int  tipc_link_tunnel_rcv(struct tipc_link **l_ptr,
++static int  tipc_link_tunnel_rcv(struct tipc_node *n_ptr,
+ 				 struct sk_buff **buf);
+ static void link_set_supervision_props(struct tipc_link *l_ptr, u32 tolerance);
+ static int  link_send_sections_long(struct tipc_port *sender,
+@@ -1596,7 +1596,7 @@ deliver:
+ 			tipc_node_unlock(n_ptr);
+ 			continue;
+ 		case CHANGEOVER_PROTOCOL:
+-			if (!tipc_link_tunnel_rcv(&l_ptr, &buf))
++			if (!tipc_link_tunnel_rcv(n_ptr, &buf))
+ 				break;
+ 			msg = buf_msg(buf);
+ 			seq_no = msg_seqno(msg);
+@@ -2173,7 +2173,7 @@ exit:
+  *  returned to the active link for delivery upwards.
+  *  Owner node is locked.
+  */
+-static int tipc_link_tunnel_rcv(struct tipc_link **l_ptr,
++static int tipc_link_tunnel_rcv(struct tipc_node *n_ptr,
+ 				struct sk_buff **buf)
+ {
+ 	struct sk_buff *tunnel_buf = *buf;
+@@ -2185,15 +2185,9 @@ static int tipc_link_tunnel_rcv(struct tipc_link **l_ptr,
+ 	if (bearer_id >= MAX_BEARERS)
+ 		goto exit;
  
-+void tipc_link_delete_list(struct tipc_bearer *b_ptr)
-+{
-+	struct tipc_link *l_ptr;
-+	struct tipc_link *temp_l_ptr;
-+
-+	list_for_each_entry_safe(l_ptr, temp_l_ptr, &b_ptr->links, link_list) {
-+		tipc_link_delete(l_ptr);
-+	}
-+}
+-	dest_link = (*l_ptr)->owner->links[bearer_id];
++	dest_link = n_ptr->links[bearer_id];
+ 	if (!dest_link)
+ 		goto exit;
+-	if (dest_link == *l_ptr) {
+-		pr_err("Unexpected changeover message on link <%s>\n",
+-		       (*l_ptr)->name);
+-		goto exit;
+-	}
+-	*l_ptr = dest_link;
  
- /**
-  * link_schedule_port - schedule port for deferred sending
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 73beecb..994ebd1 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -219,6 +219,7 @@ void tipc_link_delete(struct tipc_link *l_ptr);
- void tipc_link_failover_send_queue(struct tipc_link *l_ptr);
- void tipc_link_dup_send_queue(struct tipc_link *l_ptr,
- 			      struct tipc_link *dest);
-+void tipc_link_delete_list(struct tipc_bearer *b_ptr);
- void tipc_link_reset_fragments(struct tipc_link *l_ptr);
- int tipc_link_is_up(struct tipc_link *l_ptr);
- int tipc_link_is_active(struct tipc_link *l_ptr);
+ 	if (msg_typ == DUPLICATE_MSG) {
+ 		tipc_link_dup_rcv(dest_link, tunnel_buf);
 -- 
 1.7.9.5
 
