@@ -1,45 +1,34 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: Re: [RFC 2/2] xen-netback: disable multicast and use a random hw MAC address
-Date: Wed, 12 Feb 2014 11:52:00 -0800
-Message-ID: <CAB=NE6Wfy-+Z4-NksF9qspz3+6Cq9JNYFvzQ9i1=YoCe0KWpbQ@mail.gmail.com>
-References: <1392071391-13215-1-git-send-email-mcgrof@do-not-panic.com>
- <1392071391-13215-3-git-send-email-mcgrof@do-not-panic.com>
- <1392108205.22033.16.camel@dagon.hellion.org.uk> <CAB=NE6Vu=khpj_3J7r-u8DFkhyC-RgLikNFtOU-WO7te_4HMCw@mail.gmail.com>
- <1392203708.13563.50.camel@kazak.uk.xensource.com> <20140212121739.ecb2f222.billfink@mindspring.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH] staging: r8188eu: Fix Smatch warnings
+Date: Wed, 12 Feb 2014 23:11:35 +0300
+Message-ID: <20140212201135.GA26722@mwanda>
+References: <1392226065-21778-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ian Campbell <Ian.Campbell@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	xen-devel@lists.xenproject.org,
-	Paul Durrant <Paul.Durrant@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>, kvm@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Bill Fink <billfink@mindspring.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140212121739.ecb2f222.billfink@mindspring.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, gregkh@linuxfoundation.org,
+ netdev@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <1392226065-21778-1-git-send-email-Larry.Finger@lwfinger.net>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 12, 2014 at 9:17 AM, Bill Fink <billfink@mindspring.com> wrote:
-> On Wed, 12 Feb 2014, Ian Campbell wrote:
->> IOW -- enabling/disabling multicast seems to me to be an odd proxy for
->> disabling SLAAC or DAD and AIUI your patch fixes the opposite case,
->> which is to avoid SLAAC and DAD on interfaces which don't do multicast
->> (which makes sense since those protocols involve multicast).
->
-> Forgive me if this doesn't make sense in this context since
-> I'm not a kernel developer, but I was just wondering if any of
-> the sysctls:
->
->         /proc/sys/net/ipv6/conf/<ifc>/disable_ipv6
->         /proc/sys/net/ipv6/conf/<ifc>/accept_dad
->         /proc/sys/net/ipv6/conf/<ifc>/accept_ra
->         /proc/sys/net/ipv6/conf/<ifc>/autoconf
->
-> would be apropos for the requirement being discussed.
+On Wed, Feb 12, 2014 at 11:27:45AM -0600, Larry Finger wrote:
 
-These are run time configuration options, post initialization. What
-we're considering is internal net_device capability fields, to even
-avoid creating these in the first place.
+> These warnings were reported by the 0-DAY kernel build testing backend.
 
-  Luis
+It's actually me who goes through those ones and reports them.  But it's
+probably not the first time someone has called me a backend today.  :P
+
+regards,
+dan carpenter
