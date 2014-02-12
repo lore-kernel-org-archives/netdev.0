@@ -1,7 +1,8 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 00/10] Support for Broadcom GENET driver
-Date: Tue, 11 Feb 2014 20:07:23 -0800
-Message-ID: <1392178053-3143-1-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 10/10] MAINTAINERS: add entry for the Broadcom GENET driver
+Date: Tue, 11 Feb 2014 20:07:33 -0800
+Message-ID: <1392178053-3143-11-git-send-email-f.fainelli@gmail.com>
+References: <1392178053-3143-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <cernekee@gmail.com>,
@@ -11,51 +12,35 @@ To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:5879 "EHLO
 	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751745AbaBLEIR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 23:08:17 -0500
+	with ESMTP id S1751687AbaBLEIQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 23:08:16 -0500
+In-Reply-To: <1392178053-3143-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Add myself as a maintainer of the Broadcom GENET driver.
 
-This patchset adds support for the Broadcom GENET Gigabit Ethernet MAC
-controller. This controller is found on the Broadcom BCM7xxx Set Top Box
-System-on-a-Chip.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ MAINTAINERS | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-Florian Fainelli (10):
-  net: phy: add "internal" PHY mode
-  net: phy: add MoCA PHY type
-  net: phy: update port type for MoCA PHYs
-  net: phy: add Broadcom BCM7xxx internal PHY driver
-  net: bcmgenet: add driver definitions and private structure
-  net: bcmgenet: add main driver file
-  net: bcmgenet: add MDIO routines
-  net: bcmgenet: hook into the build system
-  Documentation: add Device tree bindings for Broadcom GENET
-  MAINTAINERS: add entry for the Broadcom GENET driver
-
- .../devicetree/bindings/net/broadcom-bcmgenet.txt  |  111 +
- MAINTAINERS                                        |    6 +
- drivers/net/ethernet/broadcom/Kconfig              |   10 +
- drivers/net/ethernet/broadcom/Makefile             |    1 +
- drivers/net/ethernet/broadcom/genet/Makefile       |    2 +
- drivers/net/ethernet/broadcom/genet/bcmgenet.c     | 2685 ++++++++++++++++++++
- drivers/net/ethernet/broadcom/genet/bcmgenet.h     |  631 +++++
- drivers/net/ethernet/broadcom/genet/bcmmii.c       |  483 ++++
- drivers/net/phy/Kconfig                            |    6 +
- drivers/net/phy/Makefile                           |    1 +
- drivers/net/phy/bcm7xxx.c                          |  322 +++
- drivers/net/phy/phy.c                              |    5 +-
- drivers/of/of_net.c                                |    2 +
- include/linux/brcmphy.h                            |    9 +
- include/linux/phy.h                                |    5 +-
- 15 files changed, 4277 insertions(+), 2 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
- create mode 100644 drivers/net/ethernet/broadcom/genet/Makefile
- create mode 100644 drivers/net/ethernet/broadcom/genet/bcmgenet.c
- create mode 100644 drivers/net/ethernet/broadcom/genet/bcmgenet.h
- create mode 100644 drivers/net/ethernet/broadcom/genet/bcmmii.c
- create mode 100644 drivers/net/phy/bcm7xxx.c
-
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 091b50e..5a7b3ec 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -1845,6 +1845,12 @@ L:	netdev@vger.kernel.org
+ S:	Supported
+ F:	drivers/net/ethernet/broadcom/b44.*
+ 
++BROADCOM GENET ETHERNET DRIVER
++M:	Florian Fainelli <f.fainelli@gmail.com>
++L:	netdev@vger.kernel.org
++S:	Supported
++F:	drivers/net/ethernet/broadcom/genet/
++
+ BROADCOM BNX2 GIGABIT ETHERNET DRIVER
+ M:	Michael Chan <mchan@broadcom.com>
+ L:	netdev@vger.kernel.org
 -- 
 1.8.3.2
