@@ -1,308 +1,282 @@
 From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
-Subject: [PATCH net-next 03/10] ieee802154: add TX power control to wpan_phy
-Date: Wed, 12 Feb 2014 17:37:07 +0100
-Message-ID: <1392223034-19955-4-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Subject: [PATCH net-next 09/10] ieee802154: add netlink APIs for smartMAC configuration
+Date: Wed, 12 Feb 2014 17:37:13 +0100
+Message-ID: <1392223034-19955-10-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 References: <1392223034-19955-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Cc: linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net,
 	Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw1.uni-kl.de ([131.246.120.220]:46824 "EHLO
+Received: from mailgw1.uni-kl.de ([131.246.120.220]:46841 "EHLO
 	mailgw1.uni-kl.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753041AbaBLQhp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 11:37:45 -0500
+	with ESMTP id S1753274AbaBLQhu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 11:37:50 -0500
 Received: from itwm2.itwm.fhg.de (itwm2.itwm.fhg.de [131.246.191.3])
-	by mailgw1.uni-kl.de (8.14.3/8.14.3/Debian-9.4) with ESMTP id s1CGbgUP030882
+	by mailgw1.uni-kl.de (8.14.3/8.14.3/Debian-9.4) with ESMTP id s1CGbiII030944
 	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 12 Feb 2014 17:37:42 +0100
+	for <netdev@vger.kernel.org>; Wed, 12 Feb 2014 17:37:44 +0100
 In-Reply-To: <1392223034-19955-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace the current u8 transmit_power in wpan_phy with s8 transmit_power.
-The u8 field contained the actual tx power and a tolerance field,
-which no physical radio every used. Adjust sysfs entries to keep
-compatibility with userspace, give tolerances of +-1dB statically there.
+Introduce new netlink attributes for SET_PHY_ATTRS:
+ * CSMA minimal backoff exponent
+ * CSMA maximal backoff exponent
+ * CSMA retry limit
+ * frame retransmission limit
 
-This patch only adds support for this in the at86rf230 driver and the
-RF212 chip. Configuration calculation for RF212 is also somewhat basic,
-but does the job - the RF212 datasheet gives a large table with
-suggested values for combinations of TX power and page/channel, if this
-does not work well, we might have to copy the whole table.
+The CSMA attributes shall correspond to minBE, maxBE and maxCSMABackoffs of
+802.15.4, respectively. The frame retransmission shall correspond to
+maxFrameRetries of 802.15.4, unless given as -1: then the old behaviour
+of the stack shall apply. For RF2xy, the old behaviour is to not do
+channel sensing at all and simply send *right now*, which is not
+intended behaviour for most applications and actually prohibited for
+some channel/page combinations.
+
+For all values except frame retransmission limit, the defaults of
+802.15.4 apply. Frame retransmission limits are set to -1 to indicate
+backward-compatible behaviour.
 
 Signed-off-by: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
 ---
- drivers/net/ieee802154/at86rf230.c |   25 ++++++++++++++++++
- include/linux/nl802154.h           |    4 +++
- include/net/mac802154.h            |    5 ++++
- include/net/wpan-phy.h             |    6 +++--
- net/ieee802154/ieee802154.h        |    1 +
- net/ieee802154/netlink.c           |    1 +
- net/ieee802154/nl-phy.c            |   49 +++++++++++++++++++++++++++++++++++-
- net/ieee802154/nl_policy.c         |    2 ++
- net/ieee802154/wpan-class.c        |    4 +--
- net/mac802154/ieee802154_dev.c     |   11 ++++++++
- 10 files changed, 102 insertions(+), 6 deletions(-)
+ include/linux/nl802154.h       |    5 ++++
+ include/net/mac802154.h        |   12 ++++++++
+ include/net/wpan-phy.h         |    7 +++++
+ net/ieee802154/nl-phy.c        |   63 +++++++++++++++++++++++++++++++++++++++-
+ net/ieee802154/nl_policy.c     |    5 ++++
+ net/ieee802154/wpan-class.c    |    6 ++++
+ net/mac802154/ieee802154_dev.c |   23 +++++++++++++++
+ 7 files changed, 120 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index 8cd2d83..99bc822 100644
---- a/drivers/net/ieee802154/at86rf230.c
-+++ b/drivers/net/ieee802154/at86rf230.c
-@@ -756,6 +756,30 @@ at86rf230_set_hw_addr_filt(struct ieee802154_dev *dev,
- 	return 0;
- }
- 
-+static int
-+at86rf212_set_txpower(struct ieee802154_dev *dev, int db)
-+{
-+	struct at86rf230_local *lp = dev->priv;
-+	int rc;
-+
-+	/* typical maximum output is 5dBm with RG_PHY_TX_PWR 0x60, lower five
-+	 * bits decrease power in 1dB steps. 0x60 represents extra PA gain of
-+	 * 0dB.
-+	 * thus, supported values for db range from -26 to 5, for 31dB of
-+	 * reduction to 0dB of reduction.
-+	 */
-+	if (db > 5 || db < -26)
-+		return -EINVAL;
-+
-+	db = -(db - 5);
-+
-+	rc = __at86rf230_write(lp, RG_PHY_TX_PWR, 0x60 | db);
-+	if (rc)
-+		return rc;
-+
-+	return 0;
-+}
-+
- static struct ieee802154_ops at86rf230_ops = {
- 	.owner = THIS_MODULE,
- 	.xmit = at86rf230_xmit,
-@@ -774,6 +798,7 @@ static struct ieee802154_ops at86rf212_ops = {
- 	.start = at86rf230_start,
- 	.stop = at86rf230_stop,
- 	.set_hw_addr_filt = at86rf230_set_hw_addr_filt,
-+	.set_txpower = at86rf212_set_txpower,
- };
- 
- static void at86rf230_irqwork(struct work_struct *work)
 diff --git a/include/linux/nl802154.h b/include/linux/nl802154.h
-index fd4f2d1..625d19e 100644
+index 0594a0a..e110b8c 100644
 --- a/include/linux/nl802154.h
 +++ b/include/linux/nl802154.h
-@@ -70,6 +70,8 @@ enum {
- 	IEEE802154_ATTR_PHY_NAME,
- 	IEEE802154_ATTR_DEV_TYPE,
- 
-+	IEEE802154_ATTR_TXPOWER,
+@@ -74,6 +74,11 @@ enum {
+ 	IEEE802154_ATTR_LBT_ENABLED,
+ 	IEEE802154_ATTR_CCA_MODE,
+ 	IEEE802154_ATTR_CCA_ED_LEVEL,
++	IEEE802154_ATTR_CSMA_RETRIES,
++	IEEE802154_ATTR_CSMA_MIN_BE,
++	IEEE802154_ATTR_CSMA_MAX_BE,
 +
++	IEEE802154_ATTR_FRAME_RETRIES,
+ 
  	__IEEE802154_ATTR_MAX,
  };
- 
-@@ -122,6 +124,8 @@ enum {
- 	IEEE802154_ADD_IFACE,
- 	IEEE802154_DEL_IFACE,
- 
-+	IEEE802154_SET_PHYPARAMS,
-+
- 	__IEEE802154_CMD_MAX,
- };
- 
 diff --git a/include/net/mac802154.h b/include/net/mac802154.h
-index 807d6b7..8bd2785 100644
+index 15fe6bc..8ca3d04 100644
 --- a/include/net/mac802154.h
 +++ b/include/net/mac802154.h
-@@ -113,6 +113,10 @@ struct ieee802154_dev {
-  *	  Set radio for listening on specific address.
-  *	  Set the device for listening on specified address.
+@@ -131,6 +131,14 @@ struct ieee802154_dev {
+  *	  Sets the CCA energy detection threshold in dBm. Called with pib_lock
+  *	  held.
   *	  Returns either zero, or negative errno.
 + *
-+ * set_txpower:
-+ *	  Set radio transmit power in dB. Called with pib_lock held.
++ * set_csma_params
++ *	  Sets the CSMA parameter set for the PHY. Called with pib_lock held.
++ *	  Returns either zero, or negative errno.
++ *
++ * set_frame_retries
++ *	  Sets the retransmission attempt limit. Called with pib_lock held.
 + *	  Returns either zero, or negative errno.
   */
  struct ieee802154_ops {
  	struct module	*owner;
-@@ -129,6 +133,7 @@ struct ieee802154_ops {
- 					    unsigned long changed);
- 	int		(*ieee_addr)(struct ieee802154_dev *dev,
- 				     u8 addr[IEEE802154_ADDR_LEN]);
-+	int		(*set_txpower)(struct ieee802154_dev *dev, int db);
+@@ -152,6 +160,10 @@ struct ieee802154_ops {
+ 	int		(*set_cca_mode)(struct ieee802154_dev *dev, u8 mode);
+ 	int		(*set_cca_ed_level)(struct ieee802154_dev *dev,
+ 					    s32 level);
++	int		(*set_csma_params)(struct ieee802154_dev *dev,
++					   u8 min_be, u8 max_be, u8 retries);
++	int		(*set_frame_retries)(struct ieee802154_dev *dev,
++					     s8 retries);
  };
  
  /* Basic interface to register ieee802154 device */
 diff --git a/include/net/wpan-phy.h b/include/net/wpan-phy.h
-index b52bda8..47fc0c1 100644
+index 0b570ad..10ab0fc 100644
 --- a/include/net/wpan-phy.h
 +++ b/include/net/wpan-phy.h
-@@ -37,14 +37,14 @@ struct wpan_phy {
- 	struct mutex pib_lock;
- 
- 	/*
--	 * This is a PIB according to 802.15.4-2006.
-+	 * This is a PIB according to 802.15.4-2011.
- 	 * We do not provide timing-related variables, as they
- 	 * aren't used outside of driver
- 	 */
- 	u8 current_channel;
- 	u8 current_page;
+@@ -46,6 +46,10 @@ struct wpan_phy {
  	u32 channels_supported[32];
--	u8 transmit_power;
-+	s8 transmit_power;
+ 	s8 transmit_power;
  	u8 cca_mode;
++	u8 min_be;
++	u8 max_be;
++	u8 csma_retries;
++	s8 frame_retries;
  
- 	struct device dev;
-@@ -54,6 +54,8 @@ struct wpan_phy {
- 					const char *name, int type);
- 	void (*del_iface)(struct wpan_phy *phy, struct net_device *dev);
+ 	bool lbt;
+ 	s32 cca_ed_level;
+@@ -61,6 +65,9 @@ struct wpan_phy {
+ 	int (*set_lbt)(struct wpan_phy *phy, bool on);
+ 	int (*set_cca_mode)(struct wpan_phy *phy, u8 cca_mode);
+ 	int (*set_cca_ed_level)(struct wpan_phy *phy, int level);
++	int (*set_csma_params)(struct wpan_phy *phy, u8 min_be, u8 max_be,
++			       u8 retries);
++	int (*set_frame_retries)(struct wpan_phy *phy, s8 retries);
  
-+	int (*set_txpower)(struct wpan_phy *phy, int db);
-+
  	char priv[0] __attribute__((__aligned__(NETDEV_ALIGN)));
  };
- 
-diff --git a/net/ieee802154/ieee802154.h b/net/ieee802154/ieee802154.h
-index cee4425..6cbc896 100644
---- a/net/ieee802154/ieee802154.h
-+++ b/net/ieee802154/ieee802154.h
-@@ -53,6 +53,7 @@ int ieee802154_list_phy(struct sk_buff *skb, struct genl_info *info);
- int ieee802154_dump_phy(struct sk_buff *skb, struct netlink_callback *cb);
- int ieee802154_add_iface(struct sk_buff *skb, struct genl_info *info);
- int ieee802154_del_iface(struct sk_buff *skb, struct genl_info *info);
-+int ieee802154_set_phyparams(struct sk_buff *skb, struct genl_info *info);
- 
- enum ieee802154_mcgrp_ids {
- 	IEEE802154_COORD_MCGRP,
-diff --git a/net/ieee802154/netlink.c b/net/ieee802154/netlink.c
-index 43f1b2b..67c151b 100644
---- a/net/ieee802154/netlink.c
-+++ b/net/ieee802154/netlink.c
-@@ -115,6 +115,7 @@ static const struct genl_ops ieee8021154_ops[] = {
- 			ieee802154_dump_phy),
- 	IEEE802154_OP(IEEE802154_ADD_IFACE, ieee802154_add_iface),
- 	IEEE802154_OP(IEEE802154_DEL_IFACE, ieee802154_del_iface),
-+	IEEE802154_OP(IEEE802154_SET_PHYPARAMS, ieee802154_set_phyparams),
- 	/* see nl-mac.c */
- 	IEEE802154_OP(IEEE802154_ASSOCIATE_REQ, ieee802154_associate_req),
- 	IEEE802154_OP(IEEE802154_ASSOCIATE_RESP, ieee802154_associate_resp),
 diff --git a/net/ieee802154/nl-phy.c b/net/ieee802154/nl-phy.c
-index 89b265a..d3ee62f 100644
+index 23365fa..7331bc6 100644
 --- a/net/ieee802154/nl-phy.c
 +++ b/net/ieee802154/nl-phy.c
-@@ -55,7 +55,8 @@ static int ieee802154_nl_fill_phy(struct sk_buff *msg, u32 portid,
- 	mutex_lock(&phy->pib_lock);
- 	if (nla_put_string(msg, IEEE802154_ATTR_PHY_NAME, wpan_phy_name(phy)) ||
- 	    nla_put_u8(msg, IEEE802154_ATTR_PAGE, phy->current_page) ||
--	    nla_put_u8(msg, IEEE802154_ATTR_CHANNEL, phy->current_channel))
-+	    nla_put_u8(msg, IEEE802154_ATTR_CHANNEL, phy->current_channel) ||
-+	    nla_put_s8(msg, IEEE802154_ATTR_TXPOWER, phy->transmit_power))
- 		goto nla_put_failure;
- 	for (i = 0; i < 32; i++) {
- 		if (phy->channels_supported[i])
-@@ -354,3 +355,49 @@ out_dev:
- 
- 	return rc;
+@@ -418,6 +418,49 @@ static int phy_set_cca_ed_level(struct wpan_phy *phy, struct genl_info *info)
+ 	return 0;
  }
-+
-+int ieee802154_set_phyparams(struct sk_buff *skb, struct genl_info *info)
+ 
++static int phy_set_csma_params(struct wpan_phy *phy, struct genl_info *info)
 +{
-+	struct wpan_phy *phy;
-+	const char *name;
-+	int txpower;
-+	int rc = -EINVAL;
++	int rc;
++	u8 min_be = phy->min_be;
++	u8 max_be = phy->max_be;
++	u8 retries = phy->csma_retries;
 +
-+	pr_debug("%s\n", __func__);
++	if (info->attrs[IEEE802154_ATTR_CSMA_RETRIES])
++		retries = nla_get_u8(info->attrs[IEEE802154_ATTR_CSMA_RETRIES]);
++	if (info->attrs[IEEE802154_ATTR_CSMA_MIN_BE])
++		min_be = nla_get_u8(info->attrs[IEEE802154_ATTR_CSMA_MIN_BE]);
++	if (info->attrs[IEEE802154_ATTR_CSMA_MAX_BE])
++		max_be = nla_get_u8(info->attrs[IEEE802154_ATTR_CSMA_MAX_BE]);
 +
-+	if (!info->attrs[IEEE802154_ATTR_PHY_NAME])
++	if (retries > 5 || max_be > 8 || min_be > max_be ||
++		retries < -1 || retries > 7)
 +		return -EINVAL;
 +
-+	name = nla_data(info->attrs[IEEE802154_ATTR_PHY_NAME]);
-+	if (name[nla_len(info->attrs[IEEE802154_ATTR_PHY_NAME]) - 1] != '\0')
-+		return -EINVAL; /* phy name should be null-terminated */
++	rc = phy->set_csma_params(phy, min_be, max_be, retries);
++	if (rc < 0)
++		return rc;
 +
-+	txpower = nla_get_s8(info->attrs[IEEE802154_ATTR_TXPOWER]);
-+
-+	phy = wpan_phy_find(name);
-+	if (!phy)
-+		return -ENODEV;
-+
-+	if (!phy->set_txpower)
-+		goto out;
-+
-+	mutex_lock(&phy->pib_lock);
-+
-+	rc = phy->set_txpower(phy, txpower);
-+	if (rc < 0) {
-+		mutex_unlock(&phy->pib_lock);
-+		goto out;
-+	}
-+
-+	phy->transmit_power = txpower;
-+
-+	mutex_unlock(&phy->pib_lock);
-+
-+	wpan_phy_put(phy);
++	phy->min_be = min_be;
++	phy->max_be = max_be;
++	phy->csma_retries = retries;
 +
 +	return 0;
-+
-+out:
-+	wpan_phy_put(phy);
-+	return rc;
 +}
++
++static int phy_set_frame_retries(struct wpan_phy *phy, struct genl_info *info)
++{
++	s8 retries = nla_get_s8(info->attrs[IEEE802154_ATTR_FRAME_RETRIES]);
++	int rc;
++
++	rc = phy->set_frame_retries(phy, retries);
++	if (rc < 0)
++		return rc;
++
++	phy->frame_retries = retries;
++
++	return 0;
++}
++
+ int ieee802154_set_phyparams(struct sk_buff *skb, struct genl_info *info)
+ {
+ 	struct wpan_phy *phy;
+@@ -429,7 +472,11 @@ int ieee802154_set_phyparams(struct sk_buff *skb, struct genl_info *info)
+ 	if (!info->attrs[IEEE802154_ATTR_PHY_NAME] &&
+ 		!info->attrs[IEEE802154_ATTR_LBT_ENABLED] &&
+ 		!info->attrs[IEEE802154_ATTR_CCA_MODE] &&
+-		!info->attrs[IEEE802154_ATTR_CCA_ED_LEVEL])
++		!info->attrs[IEEE802154_ATTR_CCA_ED_LEVEL] &&
++		!info->attrs[IEEE802154_ATTR_CSMA_RETRIES] &&
++		!info->attrs[IEEE802154_ATTR_CSMA_MIN_BE] &&
++		!info->attrs[IEEE802154_ATTR_CSMA_MAX_BE] &&
++		!info->attrs[IEEE802154_ATTR_FRAME_RETRIES])
+ 		return -EINVAL;
+ 
+ 	name = nla_data(info->attrs[IEEE802154_ATTR_PHY_NAME]);
+@@ -473,6 +520,20 @@ int ieee802154_set_phyparams(struct sk_buff *skb, struct genl_info *info)
+ 			goto error;
+ 	}
+ 
++	if (info->attrs[IEEE802154_ATTR_CSMA_RETRIES] ||
++		info->attrs[IEEE802154_ATTR_CSMA_MIN_BE] ||
++		info->attrs[IEEE802154_ATTR_CSMA_MAX_BE]) {
++		rc = phy_set_csma_params(phy, info);
++		if (rc < 0)
++			goto error;
++	}
++
++	if (info->attrs[IEEE802154_ATTR_FRAME_RETRIES]) {
++		rc = phy_set_frame_retries(phy, info);
++		if (rc < 0)
++			goto error;
++	}
++
+ 	mutex_unlock(&phy->pib_lock);
+ 
+ 	wpan_phy_put(phy);
 diff --git a/net/ieee802154/nl_policy.c b/net/ieee802154/nl_policy.c
-index 6adda4d..90b1d0d 100644
+index 55b5616..fd7be5e 100644
 --- a/net/ieee802154/nl_policy.c
 +++ b/net/ieee802154/nl_policy.c
-@@ -52,5 +52,7 @@ const struct nla_policy ieee802154_policy[IEEE802154_ATTR_MAX + 1] = {
- 	[IEEE802154_ATTR_DURATION] = { .type = NLA_U8, },
- 	[IEEE802154_ATTR_ED_LIST] = { .len = 27 },
- 	[IEEE802154_ATTR_CHANNEL_PAGE_LIST] = { .len = 32 * 4, },
+@@ -57,5 +57,10 @@ const struct nla_policy ieee802154_policy[IEEE802154_ATTR_MAX + 1] = {
+ 	[IEEE802154_ATTR_LBT_ENABLED] = { .type = NLA_U8, },
+ 	[IEEE802154_ATTR_CCA_MODE] = { .type = NLA_U8, },
+ 	[IEEE802154_ATTR_CCA_ED_LEVEL] = { .type = NLA_S32, },
++	[IEEE802154_ATTR_CSMA_RETRIES] = { .type = NLA_U8, },
++	[IEEE802154_ATTR_CSMA_MIN_BE] = { .type = NLA_U8, },
++	[IEEE802154_ATTR_CSMA_MAX_BE] = { .type = NLA_U8, },
 +
-+	[IEEE802154_ATTR_TXPOWER] = { .type = NLA_S8, },
++	[IEEE802154_ATTR_FRAME_RETRIES] = { .type = NLA_S8, },
  };
  
 diff --git a/net/ieee802154/wpan-class.c b/net/ieee802154/wpan-class.c
-index 4dd3761..8d6f670 100644
+index 8d6f670..edd0962 100644
 --- a/net/ieee802154/wpan-class.c
 +++ b/net/ieee802154/wpan-class.c
-@@ -44,9 +44,7 @@ static DEVICE_ATTR_RO(name);
+@@ -169,6 +169,12 @@ struct wpan_phy *wpan_phy_alloc(size_t priv_size)
+ 	phy->current_channel = -1; /* not initialised */
+ 	phy->current_page = 0; /* for compatibility */
  
- MASTER_SHOW(current_channel, "%d");
- MASTER_SHOW(current_page, "%d");
--MASTER_SHOW_COMPLEX(transmit_power, "%d +- %d dB",
--	((signed char) (phy->transmit_power << 2)) >> 2,
--	(phy->transmit_power >> 6) ? (phy->transmit_power >> 6) * 3 : 1);
-+MASTER_SHOW(transmit_power, "%d +- 1 dB");
- MASTER_SHOW(cca_mode, "%d");
++	/* defaults per 802.15.4-2011 */
++	phy->min_be = 3;
++	phy->max_be = 5;
++	phy->csma_retries = 4;
++	phy->frame_retries = -1; /* for compatibility, actual default is 3 */
++
+ 	return phy;
  
- static ssize_t channels_supported_show(struct device *dev,
+ out:
 diff --git a/net/mac802154/ieee802154_dev.c b/net/mac802154/ieee802154_dev.c
-index 52ae664..9eb49e0 100644
+index 4707f36..b75bb01 100644
 --- a/net/mac802154/ieee802154_dev.c
 +++ b/net/mac802154/ieee802154_dev.c
-@@ -165,6 +165,16 @@ err:
- 	return ERR_PTR(err);
+@@ -205,6 +205,27 @@ static int mac802154_set_cca_ed_level(struct wpan_phy *phy, s32 level)
+ 	return priv->ops->set_cca_ed_level(&priv->hw, level);
  }
  
-+static int mac802154_set_txpower(struct wpan_phy *phy, int db)
++static int mac802154_set_csma_params(struct wpan_phy *phy, u8 min_be,
++				     u8 max_be, u8 retries)
 +{
 +	struct mac802154_priv *priv = wpan_phy_priv(phy);
 +
-+	if (!priv->ops->set_txpower)
++	if (!priv->ops->set_csma_params)
 +		return -ENOTSUPP;
 +
-+	return priv->ops->set_txpower(&priv->hw, db);
++	return priv->ops->set_csma_params(&priv->hw, min_be, max_be, retries);
++}
++
++static int mac802154_set_frame_retries(struct wpan_phy *phy, s8 retries)
++{
++	struct mac802154_priv *priv = wpan_phy_priv(phy);
++
++	if (!priv->ops->set_frame_retries)
++		return -ENOTSUPP;
++
++	return priv->ops->set_frame_retries(&priv->hw, retries);
 +}
 +
  struct ieee802154_dev *
  ieee802154_alloc_device(size_t priv_data_len, struct ieee802154_ops *ops)
  {
-@@ -242,6 +252,7 @@ int ieee802154_register_device(struct ieee802154_dev *dev)
- 
- 	priv->phy->add_iface = mac802154_add_iface;
- 	priv->phy->del_iface = mac802154_del_iface;
-+	priv->phy->set_txpower = mac802154_set_txpower;
+@@ -286,6 +307,8 @@ int ieee802154_register_device(struct ieee802154_dev *dev)
+ 	priv->phy->set_lbt = mac802154_set_lbt;
+ 	priv->phy->set_cca_mode = mac802154_set_cca_mode;
+ 	priv->phy->set_cca_ed_level = mac802154_set_cca_ed_level;
++	priv->phy->set_csma_params = mac802154_set_csma_params;
++	priv->phy->set_frame_retries = mac802154_set_frame_retries;
  
  	rc = wpan_phy_register(priv->phy);
  	if (rc < 0)
