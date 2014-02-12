@@ -1,39 +1,53 @@
 From: Denis Kirjanov <kda@linux-powerpc.org>
-Subject: [PATCH net-next] net: remove useless if check from register_netdevice()
-Date: Wed, 12 Feb 2014 11:45:52 +0400
-Message-ID: <1392191152-24182-1-git-send-email-kda@linux-powerpc.org>
+Subject: [PATCH net-next] ipv4: ip_forward: perform skb->pkt_type check at the beginning
+Date: Wed, 12 Feb 2014 12:10:32 +0400
+Message-ID: <1392192632-24513-1-git-send-email-kda@linux-powerpc.org>
 Cc: Denis Kirjanov <kda@linux-powerpc.org>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f49.google.com ([209.85.215.49]:36409 "EHLO
-	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751041AbaBLHqY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 02:46:24 -0500
-Received: by mail-la0-f49.google.com with SMTP id y1so6636941lam.22
-        for <netdev@vger.kernel.org>; Tue, 11 Feb 2014 23:46:23 -0800 (PST)
+Received: from mail-lb0-f182.google.com ([209.85.217.182]:49699 "EHLO
+	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750711AbaBLILD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 03:11:03 -0500
+Received: by mail-lb0-f182.google.com with SMTP id w7so6705860lbi.41
+        for <netdev@vger.kernel.org>; Wed, 12 Feb 2014 00:11:02 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-remove useless if check from register_netdevice()
+Packets which have L2 address different from ours should be
+already filtered before entering into ip_forward().
+
+Perform that check at the beginning to avoid processing such packets.
 
 Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
 ---
- net/core/dev.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ net/ipv4/ip_forward.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 4ad1b78..4be9a37 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5876,8 +5876,7 @@ int register_netdevice(struct net_device *dev)
- 	if (dev->netdev_ops->ndo_init) {
- 		ret = dev->netdev_ops->ndo_init(dev);
- 		if (ret) {
--			if (ret > 0)
--				ret = -EIO;
-+            ret = -EIO;
- 			goto out;
- 		}
- 	}
+diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
+index e9f1217..1a07056 100644
+--- a/net/ipv4/ip_forward.c
++++ b/net/ipv4/ip_forward.c
+@@ -59,6 +59,10 @@ int ip_forward(struct sk_buff *skb)
+ 	struct rtable *rt;	/* Route we use */
+ 	struct ip_options *opt	= &(IPCB(skb)->opt);
+ 
++    /* that should never happen */
++    if (skb->pkt_type != PACKET_HOST)
++        goto drop;
++
+ 	if (skb_warn_if_lro(skb))
+ 		goto drop;
+ 
+@@ -68,9 +72,6 @@ int ip_forward(struct sk_buff *skb)
+ 	if (IPCB(skb)->opt.router_alert && ip_call_ra_chain(skb))
+ 		return NET_RX_SUCCESS;
+ 
+-	if (skb->pkt_type != PACKET_HOST)
+-		goto drop;
+-
+ 	skb_forward_csum(skb);
+ 
+ 	/*
 -- 
 1.8.3.2
