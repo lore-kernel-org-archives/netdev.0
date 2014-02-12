@@ -1,72 +1,47 @@
-From: Qin Chuanyu <qinchuanyu@huawei.com>
-Subject: Re: [PATCH V2 5/6] vhost_net: poll vhost queue after marking DMA
- is done
-Date: Wed, 12 Feb 2014 15:38:18 +0800
-Message-ID: <52FB24EA.3060001@huawei.com>
-References: <1377836962-49780-1-git-send-email-jasowang@redhat.com> <1377836962-49780-6-git-send-email-jasowang@redhat.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH] tun: use netif_receive_skb instead of netif_rx_ni
+Date: Wed, 12 Feb 2014 15:40:36 +0800
+Message-ID: <52FB2574.4070004@redhat.com>
+References: <52FA32C5.9040601@huawei.com> <52FB066E.1020006@redhat.com> <52FB18B8.4070401@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <mst@redhat.com>, <kvm@vger.kernel.org>
-To: Jason Wang <jasowang@redhat.com>,
-	<virtualization@lists.linux-foundation.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1377836962-49780-6-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Anthony Liguori <anthony@codemonkey.ws>,
+	KVM list <kvm@vger.kernel.org>, netdev@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Qin Chuanyu <qinchuanyu@huawei.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:30468 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751786AbaBLHk7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Feb 2014 02:40:59 -0500
+In-Reply-To: <52FB18B8.4070401@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2013/8/30 12:29, Jason Wang wrote:
-> We used to poll vhost queue before making DMA is done, this is racy if vhost
-> thread were waked up before marking DMA is done which can result the signal to
-> be missed. Fix this by always poll the vhost thread before DMA is done.
+On 02/12/2014 02:46 PM, Qin Chuanyu wrote:
+> On 2014/2/12 13:28, Jason Wang wrote:
 >
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->   drivers/vhost/net.c |    9 +++++----
->   1 files changed, 5 insertions(+), 4 deletions(-)
+>> A question: without NAPI weight, could this starve other net devices=
+?
+> tap xmit skb use thread context=EF=BC=8Cthe poll func of physical nic=
+ driver
+> could be called in softirq context without change.
 >
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index ff60c2a..d09c17c 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -308,6 +308,11 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
->   	struct vhost_virtqueue *vq = ubufs->vq;
->   	int cnt = atomic_read(&ubufs->kref.refcount);
+> I had test it by binding vhost thread and physic nic interrupt on the
+> same vcpu, use netperf xmit udp, test model is VM1-Host1-Host2.
 >
-> +	/* set len to mark this desc buffers done DMA */
-> +	vq->heads[ubuf->desc].len = success ?
-> +		VHOST_DMA_DONE_LEN : VHOST_DMA_FAILED_LEN;
-> +	vhost_net_ubuf_put(ubufs);
-> +
->   	/*
->   	 * Trigger polling thread if guest stopped submitting new buffers:
->   	 * in this case, the refcount after decrement will eventually reach 1
-> @@ -318,10 +323,6 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
->   	 */
->   	if (cnt <= 2 || !(cnt % 16))
->   		vhost_poll_queue(&vq->poll);
-> -	/* set len to mark this desc buffers done DMA */
-> -	vq->heads[ubuf->desc].len = success ?
-> -		VHOST_DMA_DONE_LEN : VHOST_DMA_FAILED_LEN;
-> -	vhost_net_ubuf_put(ubufs);
->   }
+> if only VM1 xmit skb, the top show as below :
+> Cpu1 :0.0%us, 95.0%sy, 0.0%ni, 0.0%id,  0.0%wa, 0.0%hi, 5.0%si,  0.0%=
+st
 >
->   /* Expects to be always run from workqueue - which acts as
+> then use host2 xmit skb to VM1, the top show as below :
+> Cpu1 :0.0%us, 41.0%sy, 0.0%ni, 0.0%id,  0.0%wa, 0.0%hi, 59.0%si, 0.0%=
+st
 >
-with this change, vq would lose protection that provided by ubufs->kref.
-if another thread is waiting at vhost_net_ubuf_put_and_wait called by
-vhost_net_release, then after vhost_net_ubuf_put, vq would been free
-by vhost_net_release soon, vhost_poll_queue(&vq->poll) may cause NULL
-pointer Exception.
+> so I think there is no problem with this change.
 
-another question is that vhost_zerocopy_callback is called by kfree_skb,
-it may called in different thread context.
-vhost_poll_queue is called decided by ubufs->kref.refcount, this may 
-cause there isn't any thread call  vhost_poll_queue, but at least one is 
-needed. and this cause network break.
-We could repeat it by using 8 netperf thread in guest to xmit tcp to its 
-host.
+Yes, I realize it was ok after Eric's comment.
 
-I think if using atomic_read to decide while do vhost_poll_queue or not,
-at least a spink_lock is needed.
+Thanks
