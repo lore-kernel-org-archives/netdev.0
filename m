@@ -1,100 +1,84 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH V2 5/6] vhost_net: poll vhost queue after marking DMA
-	is done
-Date: Wed, 12 Feb 2014 18:06:15 +0800
-Message-ID: <52FB4797.2020101@redhat.com>
-References: <1377836962-49780-1-git-send-email-jasowang@redhat.com>
-	<1377836962-49780-6-git-send-email-jasowang@redhat.com>
-	<52FB24EA.3060001@huawei.com>
+From: Thierry Reding <thierry.reding@gmail.com>
+Subject: Re: [PATCH] USB2NET : SR9800 : One chip USB2.0 USB2NET SR9800 Device
+ Driver Support
+Date: Wed, 12 Feb 2014 11:12:46 +0100
+Message-ID: <20140212101245.GA3409@ulmo.nvidia.com>
+References: <1392010419-5217-1-git-send-email-liujunliang_ljl@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, mst@redhat.com
-To: Qin Chuanyu <qinchuanyu@huawei.com>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <52FB24EA.3060001@huawei.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="EVF5PPMfhYS0aIcm"
+Cc: davem@davemloft.net, horms@verge.net.au, joe@perches.com,
+	romieu@fr.zoreil.com, gregkh@linuxfoundation.org,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org, sunhecheng@vip.126.com
+To: liujunliang_ljl@163.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1392010419-5217-1-git-send-email-liujunliang_ljl@163.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/12/2014 03:38 PM, Qin Chuanyu wrote:
-> On 2013/8/30 12:29, Jason Wang wrote:
->> We used to poll vhost queue before making DMA is done, this is racy
->> if vhost
->> thread were waked up before marking DMA is done which can result the
->> signal to
->> be missed. Fix this by always poll the vhost thread before DMA is done.
->>
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
->> ---
->>   drivers/vhost/net.c |    9 +++++----
->>   1 files changed, 5 insertions(+), 4 deletions(-)
->>
->> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
->> index ff60c2a..d09c17c 100644
->> --- a/drivers/vhost/net.c
->> +++ b/drivers/vhost/net.c
->> @@ -308,6 +308,11 @@ static void vhost_zerocopy_callback(struct
->> ubuf_info *ubuf, bool success)
->>       struct vhost_virtqueue *vq = ubufs->vq;
->>       int cnt = atomic_read(&ubufs->kref.refcount);
->>
->> +    /* set len to mark this desc buffers done DMA */
->> +    vq->heads[ubuf->desc].len = success ?
->> +        VHOST_DMA_DONE_LEN : VHOST_DMA_FAILED_LEN;
->> +    vhost_net_ubuf_put(ubufs);
->> +
->>       /*
->>        * Trigger polling thread if guest stopped submitting new buffers:
->>        * in this case, the refcount after decrement will eventually
->> reach 1
->> @@ -318,10 +323,6 @@ static void vhost_zerocopy_callback(struct
->> ubuf_info *ubuf, bool success)
->>        */
->>       if (cnt <= 2 || !(cnt % 16))
->>           vhost_poll_queue(&vq->poll);
->> -    /* set len to mark this desc buffers done DMA */
->> -    vq->heads[ubuf->desc].len = success ?
->> -        VHOST_DMA_DONE_LEN : VHOST_DMA_FAILED_LEN;
->> -    vhost_net_ubuf_put(ubufs);
->>   }
->>
->>   /* Expects to be always run from workqueue - which acts as
->>
-> with this change, vq would lose protection that provided by ubufs->kref.
-> if another thread is waiting at vhost_net_ubuf_put_and_wait called by
-> vhost_net_release, then after vhost_net_ubuf_put, vq would been free
-> by vhost_net_release soon, vhost_poll_queue(&vq->poll) may cause NULL
-> pointer Exception.
->
 
-Good catch.
-> another question is that vhost_zerocopy_callback is called by kfree_skb,
-> it may called in different thread context.
-> vhost_poll_queue is called decided by ubufs->kref.refcount, this may
-> cause there isn't any thread call  vhost_poll_queue, but at least one
-> is needed. and this cause network break.
-> We could repeat it by using 8 netperf thread in guest to xmit tcp to
-> its host.
->
-> I think if using atomic_read to decide while do vhost_poll_queue or not,
-> at least a spink_lock is needed.
+--EVF5PPMfhYS0aIcm
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Then you need another ref count to protect that spinlock? Care to send
-patches?
+On Mon, Feb 10, 2014 at 01:33:39PM +0800, liujunliang_ljl@163.com wrote:
+> From: Liu Junliang <liujunliang_ljl@163.com>
+>=20
+>=20
+> Signed-off-by: Liu Junliang <liujunliang_ljl@163.com>
+> ---
+>  drivers/net/usb/Kconfig  |   16 +
+>  drivers/net/usb/Makefile |    1 +
+>  drivers/net/usb/sr9800.c |  873 ++++++++++++++++++++++++++++++++++++++++=
+++++++
+>  drivers/net/usb/sr9800.h |  202 +++++++++++
+>  4 files changed, 1092 insertions(+), 0 deletions(-)
+>  create mode 100644 drivers/net/usb/sr9800.c
+>  create mode 100644 drivers/net/usb/sr9800.h
+>=20
+> diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
+> index 47b0f73..2551bf6 100644
+> --- a/drivers/net/usb/Kconfig
+> +++ b/drivers/net/usb/Kconfig
+> @@ -291,6 +291,22 @@ config USB_NET_SR9700
+>  	  This option adds support for CoreChip-sz SR9700 based USB 1.1
+>  	  10/100 Ethernet adapters.
+> =20
+> +config USB_NET_SR9800
+> +	tristate "CoreChip-sz SR9800 based USB 2.0 10/100 ethernet devices"
+> +	depends on USB_USBNET
+> +	select CRC32
+> +	default y
 
-Thanks
->
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Why is this selected by default? I can see that some of the other USB
+network drivers are also selected by default, but not all of them. Is
+there some rule of thumb as to which should default to y and which
+shouldn't?
+
+Thierry
+
+--EVF5PPMfhYS0aIcm
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBAgAGBQJS+0kdAAoJEN0jrNd/PrOhXvwQAJIW4vgv0NkyQVo5jSvzeLY4
+9PFCrtd6N1n+O7P99x38JCCD9lWtfdin1EZfj+UicCanup2WzpyBWHeBhdSN4oZA
+/+C+TgEIuX0+Be11IXeUOGMP9a3k/12HY3oHuz7BA2JjcK6PnfMxaEC7iGGJSjgz
+q4Goa5kSqjvNgbP8h5bQPTNtMnRdsSytI7PMJbl4t1ho0V7H3pSo9zD7rxaPhmtE
+v/18VQawGcY83Hr0B0Q18XAnNXaQMLZTvdhVfDUxB5VKT4Xhcri0m4adbAzMI9kR
+K9CEChkDn68y13drJVILKqUjW+4LMQHAsQV07yl98Sqk7LYOedL9mQOnIL0crjWa
+OAmLHwLv0ED25W1Hv3UdeSpBdIkO9cD0PCa7vHQnv7lpTlkaDyYelKLQ2D+GXrCw
+1L/341ak9QEGiCU1TiOHDblnsN+OtCt0Pt+hijLHFl4TQKw3QIUoZLa4bQuDPM8M
+juTSV63HRjiDlNGvtjBezlR9GFu5w3SJuNSNsFkZ7ADJwjz9On9JaDwH/Ad7AqmZ
+ylE+zzbIpOWjyNToMH2dattpeVZkIfGkS02y6PcIx51EGMw5B8l6qKLB9YpkJpwR
+7rhMYjpLKIn/6rRGlwmZKYnWYl7p/FdI0yOnVbtMYx406ivUNc+kgvmx5l1mXhT7
+b8gKKYYA0pMEMXjgnkK1
+=3y7X
+-----END PGP SIGNATURE-----
+
+--EVF5PPMfhYS0aIcm--
