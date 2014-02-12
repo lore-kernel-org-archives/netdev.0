@@ -1,50 +1,84 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH] net: clear iflink when moving to a new netns
-Date: Wed, 12 Feb 2014 16:43:22 +0100
-Message-ID: <52FB969A.607@6wind.com>
-References: <1392162690-6647-1-git-send-email-xiyou.wangcong@gmail.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: Experimental Privacy Functions and TCP SYN Payloads
+Date: Wed, 12 Feb 2014 07:51:11 -0800
+Message-ID: <CAK6E8=dRAdigL9LTodtvVSAiXxEDnG1UasiYW9PxmtqQmW1AxA@mail.gmail.com>
+References: <CAM83q7AiCBc5qSH18KhBHYknYf67Pnjkd3JUbC_WrBwefxHJMg@mail.gmail.com>
+ <52FB5C87.50408@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Cong Wang <cwang@twopensource.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Quinn Wood <wood.quinn.s@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Daniel Borkmann <borkmann@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f179.google.com ([209.85.215.179]:53875 "EHLO
-	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752002AbaBLPn2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 10:43:28 -0500
-Received: by mail-ea0-f179.google.com with SMTP id q10so3914328ead.38
-        for <netdev@vger.kernel.org>; Wed, 12 Feb 2014 07:43:27 -0800 (PST)
-In-Reply-To: <1392162690-6647-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-ob0-f177.google.com ([209.85.214.177]:41836 "EHLO
+	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751630AbaBLPvw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 10:51:52 -0500
+Received: by mail-ob0-f177.google.com with SMTP id wp18so10593847obc.22
+        for <netdev@vger.kernel.org>; Wed, 12 Feb 2014 07:51:52 -0800 (PST)
+In-Reply-To: <52FB5C87.50408@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 12/02/2014 00:51, Cong Wang a =C3=A9crit :
-> From: Cong Wang <cwang@twopensource.com>
+On Wed, Feb 12, 2014 at 3:35 AM, Daniel Borkmann <borkmann@iogearbox.net> wrote:
+> (please cc netdev)
 >
-> BZ: https://bugzilla.kernel.org/show_bug.cgi?id=3D66691
+> On 02/12/2014 11:25 AM, Quinn Wood wrote:
+>>
+>> If program on host A spoofs the source address of an outgoing IPv4 packet
+>> then
+>> places that address in the first 32 bits of a UDP payload, a program on
+>> host B
+>> that is aware of these behaviors can still reply to the program on host A.
+>> [1]
+>>
+>> Continuing with this approach the program on host A could encrypt the UDP
+>> pay-
+>> load in a way that the program on host B can decrypt, and effectively
+>> reduce
+>> the ability of others in the wide network to passively determine who host
+>> A is
+>> sending transmissions to while simultaneously ensuring the program on host
+>> B
+>> can respond to the program on host A. [2]
+>>
+>> I'm uncertain how to proceed if I want to use TCP for stateful
+>> connections.
+>> The requirement of a handshake before data is handed off to the program
+>> means
+>> this approach won't work out of the box. I'm looking for any insight folks
+>> may
+>> have regarding this.
+>>
+>> My original approach to the handshake included setting one of the reserved
+>> bits in the TCP header to indicate the first 32 bits of the payload were
+>> the
+>> real source address. However this would be reliant on SYN packets
+>> containing
+>> a payload. Does the Linux kernel allow this?
+For 3.7+ you can use TCP Fast Open.
+
+For a quick trial experiment, you can just set
+sysctl net.ipv4.tcp_fastopen=0x603 on both end hosts and use
+sendmsg(..., MSG_FASTOPEN) instead of connect() then send(). the
+sendmsg() will behave as a combo call of connect() and send() and
+return similar errno. accept() will return after data in the SYN is
+received instead of after handshake is completed.
+
+>>
+>> -
+>>
+>> [1] Barring any non store-and-forward network behavior like dropping
+>> packets
+>>      with questionable source addresses. Considering recent NTP-related
+>> news
+>>      this seems to be a not-entirely common activity :)
+>> [2] This is of course reliant on both programs knowing the proper key for
+>> the
+>>      other.
 >
-> macvlan and vlan both use iflink to identify its lower device,
-> however, after such device is moved to the new netns, its iflink
-> would become meaningless as ifindex is per netns. So, instead of
-> forbid them moving to another netns, just clear this field so that
-> it will not be dumped at least.
->
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: Eric W. Biederman <ebiederm@xmission.com>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> Signed-off-by: Cong Wang <cwang@twopensource.com>
-I wonder if this patch breaks things in ip tunnels.
-=46or example, ip6_tunnel uses iflink to find tunnels that are bound to=
- an interface.
-If you reset this field, ipip6_tunnel_lookup() will fail when the tunne=
-l moves
-to another netns.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
