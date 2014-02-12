@@ -1,137 +1,72 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH 07/10] net: phy: re-design phy_modes to be self-contained
-Date: Tue, 11 Feb 2014 17:27:39 -0800
-Message-ID: <1392168462-18888-8-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH 10/10] net: phy: expose phydev->has_fixups to sysfs
+Date: Tue, 11 Feb 2014 17:27:42 -0800
+Message-ID: <1392168462-18888-11-git-send-email-f.fainelli@gmail.com>
 References: <1392168462-18888-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, Florian Fainelli <f.fainelli@gmail.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:22446 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752635AbaBLB2T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 20:28:19 -0500
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:60332 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752635AbaBLB2a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 20:28:30 -0500
 In-Reply-To: <1392168462-18888-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-of_get_phy_mode() uses a local array to map phy_interface_t values from
-include/linux/net/phy.h to a string which is read from the 'phy-mode' or
-'phy-connection-type' property. In preparation for exposing the PHY
-interface mode through sysfs, perform the following:
-
-- mode phy_modes from drivers/of/of_net.c to include/linux/phy.h such
-  that it is right below the phy_interface_t enum
-- make it a static inline function returning the string such that we can
-  use it by just including include/linux/net/phy.h
-- add a PHY_INTERFACE_MODE_MAX enum value to guard the iteration in
-  of_get_phy_mode()
+Expose the PHY device has_fixups boolean as a sysfs property to help
+troubleshooting PHY configurations.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/of/of_net.c | 26 ++------------------------
- include/linux/phy.h | 42 ++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 44 insertions(+), 24 deletions(-)
+ Documentation/ABI/testing/sysfs-bus-mdio | 11 +++++++++++
+ drivers/net/phy/mdio_bus.c               | 10 ++++++++++
+ 2 files changed, 21 insertions(+)
 
-diff --git a/drivers/of/of_net.c b/drivers/of/of_net.c
-index a208a45..84215c1 100644
---- a/drivers/of/of_net.c
-+++ b/drivers/of/of_net.c
-@@ -12,28 +12,6 @@
- #include <linux/export.h>
- 
- /**
-- * It maps 'enum phy_interface_t' found in include/linux/phy.h
-- * into the device tree binding of 'phy-mode', so that Ethernet
-- * device driver can get phy interface from device tree.
-- */
--static const char *phy_modes[] = {
--	[PHY_INTERFACE_MODE_NA]		= "",
--	[PHY_INTERFACE_MODE_MII]	= "mii",
--	[PHY_INTERFACE_MODE_GMII]	= "gmii",
--	[PHY_INTERFACE_MODE_SGMII]	= "sgmii",
--	[PHY_INTERFACE_MODE_TBI]	= "tbi",
--	[PHY_INTERFACE_MODE_REVMII]	= "rev-mii",
--	[PHY_INTERFACE_MODE_RMII]	= "rmii",
--	[PHY_INTERFACE_MODE_RGMII]	= "rgmii",
--	[PHY_INTERFACE_MODE_RGMII_ID]	= "rgmii-id",
--	[PHY_INTERFACE_MODE_RGMII_RXID]	= "rgmii-rxid",
--	[PHY_INTERFACE_MODE_RGMII_TXID] = "rgmii-txid",
--	[PHY_INTERFACE_MODE_RTBI]	= "rtbi",
--	[PHY_INTERFACE_MODE_SMII]	= "smii",
--	[PHY_INTERFACE_MODE_XGMII]	= "xgmii",
--};
--
--/**
-  * of_get_phy_mode - Get phy mode for given device_node
-  * @np:	Pointer to the given device_node
-  *
-@@ -49,8 +27,8 @@ int of_get_phy_mode(struct device_node *np)
- 	if (err < 0)
- 		return err;
- 
--	for (i = 0; i < ARRAY_SIZE(phy_modes); i++)
--		if (!strcasecmp(pm, phy_modes[i]))
-+	for (i = 0; i < PHY_INTERFACE_MODE_MAX; i++)
-+		if (!strcasecmp(pm, phy_modes(i)))
- 			return i;
- 
- 	return -ENODEV;
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index eede657..ef7fa11 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -74,8 +74,50 @@ typedef enum {
- 	PHY_INTERFACE_MODE_RTBI,
- 	PHY_INTERFACE_MODE_SMII,
- 	PHY_INTERFACE_MODE_XGMII,
-+	PHY_INTERFACE_MODE_MAX,
- } phy_interface_t;
- 
-+/**
-+ * It maps 'enum phy_interface_t' found in include/linux/phy.h
-+ * into the device tree binding of 'phy-mode', so that Ethernet
-+ * device driver can get phy interface from device tree.
-+ */
-+static inline const char *phy_modes(phy_interface_t interface)
-+{
-+	switch (interface) {
-+	case PHY_INTERFACE_MODE_NA:
-+		return "";
-+	case PHY_INTERFACE_MODE_MII:
-+		return "mii";
-+	case PHY_INTERFACE_MODE_GMII:
-+		return "gmii";
-+	case PHY_INTERFACE_MODE_SGMII:
-+		return "sgmii";
-+	case PHY_INTERFACE_MODE_TBI:
-+		return "tbi";
-+	case PHY_INTERFACE_MODE_REVMII:
-+		return "rev-mii";
-+	case PHY_INTERFACE_MODE_RMII:
-+		return "rmii";
-+	case PHY_INTERFACE_MODE_RGMII:
-+		return "rgmii";
-+	case PHY_INTERFACE_MODE_RGMII_ID:
-+		return "rgmii-id";
-+	case PHY_INTERFACE_MODE_RGMII_RXID:
-+		return "rgmii-rxid";
-+	case PHY_INTERFACE_MODE_RGMII_TXID:
-+		return "rgmii-txid";
-+	case PHY_INTERFACE_MODE_RTBI:
-+		return "rtbi";
-+	case PHY_INTERFACE_MODE_SMII:
-+		return "smii";
-+	case PHY_INTERFACE_MODE_XGMII:
-+		return "xgmii";
-+	default:
-+		return "unknown";
-+	}
-+}
+diff --git a/Documentation/ABI/testing/sysfs-bus-mdio b/Documentation/ABI/testing/sysfs-bus-mdio
+index 2133afd..fcab995 100644
+--- a/Documentation/ABI/testing/sysfs-bus-mdio
++++ b/Documentation/ABI/testing/sysfs-bus-mdio
+@@ -17,3 +17,14 @@ Description:
+ 		Ethernet driver during bus enumeration, encoded in string.
+ 		This interface mode is used to configure the Ethernet MAC with the
+ 		appropriate mode for its data lines to the PHY hardware.
 +
++What:		/sys/bus/mdio_bus/devices/.../phy_has_fixups
++Date:		February 2014
++KernelVersion:	3.15
++Contact:	netdev@vger.kernel.org
++Description:
++		This attribute contains the boolean value whether a given PHY
++		device has had any "fixup" workaround running on it, encoded as
++		a boolean. This information is provided to help troubleshooting
++		PHY configurations.
++
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 7c66ea0..76f54b3 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -441,9 +441,19 @@ phy_interface_show(struct device *dev, struct device_attribute *attr, char *buf)
+ }
+ static DEVICE_ATTR_RO(phy_interface);
  
- #define PHY_INIT_TIMEOUT	100000
- #define PHY_STATE_TIME		1
++static ssize_t
++phy_has_fixups_show(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	struct phy_device *phydev = to_phy_device(dev);
++
++	return sprintf(buf, "%d\n", phydev->has_fixups);
++}
++static DEVICE_ATTR_RO(phy_has_fixups);
++
+ static struct attribute *mdio_dev_attrs[] = {
+ 	&dev_attr_phy_id.attr,
+ 	&dev_attr_phy_interface.attr,
++	&dev_attr_phy_has_fixups.attr,
+ 	NULL,
+ };
+ ATTRIBUTE_GROUPS(mdio_dev);
 -- 
 1.8.3.2
