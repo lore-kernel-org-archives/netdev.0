@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH 08/10] net: phy: expose PHY device interface mode
-Date: Tue, 11 Feb 2014 17:27:40 -0800
-Message-ID: <1392168462-18888-9-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH 04/10] net: phy: add genphy_aneg_done()
+Date: Tue, 11 Feb 2014 17:27:36 -0800
+Message-ID: <1392168462-18888-5-git-send-email-f.fainelli@gmail.com>
 References: <1392168462-18888-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,62 +10,77 @@ To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:60332 "EHLO
 	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752640AbaBLB2a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 20:28:30 -0500
+	with ESMTP id S1752696AbaBLB2b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 20:28:31 -0500
 In-Reply-To: <1392168462-18888-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Expose the PHY device interface mode through sysfs since this is an
-useful piece of information for knowing how the attached networking
-device will have configured its transmit/receive path.
+In preparation for allowing PHY drivers to potentially override their
+auto-negotiation done callback, move the contents of phy_aneg_done() to
+genphy_aneg_done() since that function really is the generic
+implementation based on the BMSR_ANEGCOMPLETE status.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- Documentation/ABI/testing/sysfs-bus-mdio | 10 ++++++++++
- drivers/net/phy/mdio_bus.c               | 10 ++++++++++
- 2 files changed, 20 insertions(+)
+ drivers/net/phy/phy.c        |  4 +---
+ drivers/net/phy/phy_device.c | 16 ++++++++++++++++
+ include/linux/phy.h          |  1 +
+ 3 files changed, 18 insertions(+), 3 deletions(-)
 
-diff --git a/Documentation/ABI/testing/sysfs-bus-mdio b/Documentation/ABI/testing/sysfs-bus-mdio
-index 6349749..2133afd 100644
---- a/Documentation/ABI/testing/sysfs-bus-mdio
-+++ b/Documentation/ABI/testing/sysfs-bus-mdio
-@@ -7,3 +7,13 @@ Description:
- 		by the device during bus enumeration, encoded in hexadecimal.
- 		This ID is used to match the device with the appropriate
- 		driver.
-+
-+What:		/sys/bus/mdio_bus/devices/.../phy_interface
-+Date:		February 2014
-+KernelVersion:	3.15
-+Contact:	netdev@vger.kernel.org
-+Description:
-+		This attribute contains the PHY interface as configured by the
-+		Ethernet driver during bus enumeration, encoded in string.
-+		This interface mode is used to configure the Ethernet MAC with the
-+		appropriate mode for its data lines to the PHY hardware.
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 71e4900..7c66ea0 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -432,8 +432,18 @@ phy_id_show(struct device *dev, struct device_attribute *attr, char *buf)
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 36fc6e1..db9c543 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -120,9 +120,7 @@ static int phy_config_interrupt(struct phy_device *phydev, u32 interrupts)
+  */
+ static inline int phy_aneg_done(struct phy_device *phydev)
+ {
+-	int retval = phy_read(phydev, MII_BMSR);
+-
+-	return (retval < 0) ? retval : (retval & BMSR_ANEGCOMPLETE);
++	return genphy_aneg_done(phydev);
  }
- static DEVICE_ATTR_RO(phy_id);
  
-+static ssize_t
-+phy_interface_show(struct device *dev, struct device_attribute *attr, char *buf)
+ /* A structure for mapping a particular speed and duplex
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 82514e7..4e7db72 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -865,6 +865,22 @@ int genphy_config_aneg(struct phy_device *phydev)
+ }
+ EXPORT_SYMBOL(genphy_config_aneg);
+ 
++/**
++ * genphy_aneg_done - return auto-negotiation status
++ * @phydev: target phy_device struct
++ *
++ * Description: Reads the status register and returns 0 either if
++ *   auto-negotiation is incomplete, or if there was an error.
++ *   Returns BMSR_ANEGCOMPLETE if auto-negotiation is done.
++ */
++int genphy_aneg_done(struct phy_device *phydev)
 +{
-+	struct phy_device *phydev = to_phy_device(dev);
++	int retval = phy_read(phydev, MII_BMSR);
 +
-+	return sprintf(buf, "%s\n", phy_modes(phydev->interface));
++	return (retval < 0) ? retval : (retval & BMSR_ANEGCOMPLETE);
 +}
-+static DEVICE_ATTR_RO(phy_interface);
++EXPORT_SYMBOL(genphy_aneg_done);
 +
- static struct attribute *mdio_dev_attrs[] = {
- 	&dev_attr_phy_id.attr,
-+	&dev_attr_phy_interface.attr,
- 	NULL,
- };
- ATTRIBUTE_GROUPS(mdio_dev);
+ static int gen10g_config_aneg(struct phy_device *phydev)
+ {
+ 	return 0;
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 565188c..c572842 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -612,6 +612,7 @@ static inline int phy_read_status(struct phy_device *phydev)
+ int genphy_setup_forced(struct phy_device *phydev);
+ int genphy_restart_aneg(struct phy_device *phydev);
+ int genphy_config_aneg(struct phy_device *phydev);
++int genphy_aneg_done(struct phy_device *phydev);
+ int genphy_update_link(struct phy_device *phydev);
+ int genphy_read_status(struct phy_device *phydev);
+ int genphy_suspend(struct phy_device *phydev);
 -- 
 1.8.3.2
