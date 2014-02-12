@@ -1,358 +1,107 @@
-From: Somnath Kotur <somnath.kotur@emulex.com>
-Subject: [PATCH 3/3] be2net: refactor multi-channel config code for Skyhawk-R chip
-Date: Wed, 12 Feb 2014 16:09:25 +0530
-Message-ID: <3af5417e-f1a8-4f79-8eb5-1eda81b53d3e@CMEXHTCAS2.ad.emulex.com>
+From: Sergey Ryazanov <ryazanov.s.a@gmail.com>
+Subject: Re: [PATCH 09/28] Remove ATHEROS_AR231X
+Date: Wed, 12 Feb 2014 14:50:30 +0400
+Message-ID: <CAHNKnsRQp7WLSJNAXEYPTd=qs1DquOfNgKtHES-Utvcy1=FEgQ@mail.gmail.com>
+References: <1391971686-9517-1-git-send-email-richard@nod.at>
+ <1391971686-9517-10-git-send-email-richard@nod.at> <52F7D480.1050106@hauke-m.de>
+ <52F7DF21.70207@nod.at> <CAHNKnsS7Mv4ZhBWZa53go9L9nZimJ7_FG5HFJ9C3kkGMAEz-mA@mail.gmail.com>
+ <52F8C373.9060108@rempel-privat.de> <CAHNKnsQF5Hdf3JT91moPraRQzn4kMpdD2NSiJ7b30wQhS1W4MA@mail.gmail.com>
+ <CAGVrzcYnECx5Q=i+m6qZn29y4JALDpw5SWoUNP-S6HgPR3_ygQ@mail.gmail.com> <CAHNKnsRACSo=DfOyiHxqV3acv_wfZmz4tMnYAW0wo4OCibwdfA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>,
-	Vasundhara Volam <vasundhara.volam@emulex.com>,
-	Sathya Perla <sathya.perla@emulex.com>,
-	Somnath Kotur <somnath.kotur@emulex.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Oleksij Rempel <linux@rempel-privat.de>,
+	Richard Weinberger <richard@nod.at>,
+	Jonathan Bither <jonbither@gmail.com>,
+	OpenWrt Development List <openwrt-devel@lists.openwrt.org>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	Jiri Slaby <jirislaby@gmail.com>,
+	Nick Kossifidis <mickflemm@gmail.com>,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	"open list:ATHEROS ATH5K WIR..." <linux-wireless@vger.kernel.org>,
+	"open list:ATHEROS ATH5K WIR..." <ath5k-devel@lists.ath5k.org>,
+	open@hauke-m.de,
+	"list@hauke-m.de:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>,
+	"antonynpavlov@gmail.com" <antonynpavlov@gmail.com>,
+	Florian Fainelli <florian@openwrt.org>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:39603 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751031AbaBLKlJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 05:41:09 -0500
+Received: from mail-yk0-f175.google.com ([209.85.160.175]:51623 "EHLO
+	mail-yk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752103AbaBLKuv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 05:50:51 -0500
+In-Reply-To: <CAHNKnsRACSo=DfOyiHxqV3acv_wfZmz4tMnYAW0wo4OCibwdfA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vasundhara Volam <vasundhara.volam@emulex.com>
+2014-02-11 3:43 GMT+04:00 Sergey Ryazanov <ryazanov.s.a@gmail.com>:
+> 2014-02-11 2:37 GMT+04:00 Florian Fainelli <florian@openwrt.org>:
+>> 2014-02-10 4:38 GMT-08:00 Sergey Ryazanov <ryazanov.s.a@gmail.com>:
+>>> 2014-02-10 16:17 GMT+04:00 Oleksij Rempel <linux@rempel-privat.de>:
+>>>> Am 10.02.2014 13:05, schrieb Sergey Ryazanov:
+>>>>> 2014-02-10 0:03 GMT+04:00 Richard Weinberger <richard@nod.at>:
+>>>>>> Am 09.02.2014 20:18, schrieb Hauke Mehrtens:
+>>>>>>> On 02/09/2014 07:47 PM, Richard Weinberger wrote:
+>>>>>>>> The symbol is an orphan, get rid of it.
+>>>>>>>>
+>>>>>>>> Signed-off-by: Richard Weinberger <richard@nod.at>
+>>>>>>>> ---
+>>>>>>>>  drivers/net/wireless/ath/ath5k/Kconfig | 10 +++++-----
+>>>>>>>>  drivers/net/wireless/ath/ath5k/ath5k.h | 28 ----------------------------
+>>>>>>>>  drivers/net/wireless/ath/ath5k/base.c  | 14 --------------
+>>>>>>>>  drivers/net/wireless/ath/ath5k/led.c   |  7 -------
+>>>>>>>>  4 files changed, 5 insertions(+), 54 deletions(-)
+>>>>>>>>
+>>>>>>>
+>>>>>>> This code is used in OpenWrt with an out of tree arch code for the
+>>>>>>> Atheros 231x/531x SoC. [0] I do not think anyone is working on adding
+>>>>>>> this code to mainline Linux kernel, because of lack of time/interest.
+>>>>>>
+>>>>>> Sorry, we don't maintain out of tree code.
+>>>>>>
+>>>>>
+>>>>> Oleksij, Jonathan do you still working to make ar231x devices work
+>>>>> with upstream, since your posts [1, 2]? Or may be someone from OpenWRT
+>>>>> team would like to add upstream support?
+>>>>>
+>>>>> 1. https://lkml.org/lkml/2013/5/13/321
+>>>>> 2. https://lkml.org/lkml/2013/5/13/358
+>>>>>
+>>>>
+>>>> Hi,
+>>>> my current target was to provide barebox and openocd support.
+>>>> - ar2313 is already upstream on barebox.
+>>>> - ar2315-2318 (barebox) awaiting review by Anthony Pavlov.
+>>>> - openocd (EJTAG) support is ready and i'll push it ASUP.
+>>>>
+>>> WOW, Impressive.
+>>
+>> That's a nice toy project, although since there are is an existing
+>> bootloader with sources, I would have shifted the priority towards
+>> getting the kernel support merged such that the bootloader can be used
+>> for something. BTW I sent a few devices to Jonathan, not sure if he
+>> ever got those...
+>>
+>>>
+>>>> I hope Jonathan do kernel part. If not, i can provide some work, since i
+>>>> have testing boards and expiriance on this hardware.
+>>>>
+>>> If you need, I can test kernel part, or even do some porting work. I
+>>> have some AR231x based boards, e.g. Ubnt LS2 and NS2.
+>>
+>> I guess you could start splitting the OpenWrt patches into a format
+>> that makes them suitable for being merged upstream and starting with
+>> the MIPS parts. There might be a bunch of checkpatch.pl cleanup work
+>> to do before getting those submitted.
+>
+> I will do that if Jonathan does not have a working solution, which he
+> would like to push upstream. So, let's wait for his reply.
+>
 
-Currently multi-channel configuration is read via the QUERY_FW_CONFIG cmd.
-This method has been deprecated by the Skyhawk-R FW. Instead,
-GET_PROFILE_CONFIG::port-desc must be used to query this configuration.
+John, can you delay the merging of this patch for a few months, I will
+try to prepare the necessary patches to add AR231x architecture to the
+kernel and send them to linux-mips.
 
-This patch also:
-a) introduces a few macros to identify certain categories of multi-channel
-configs
-2) re-factors the be_cmd_set_profile_config() code to be able to read any kind
-of desc (and not just the nic-desc.)
-
-Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
-Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be.h      |   12 +++-
- drivers/net/ethernet/emulex/benet/be_cmds.c |   20 ++++++
- drivers/net/ethernet/emulex/benet/be_cmds.h |   36 +++++++++---
- drivers/net/ethernet/emulex/benet/be_hw.h   |    4 +-
- drivers/net/ethernet/emulex/benet/be_main.c |   87 ++++++++++++++++++++------
- 5 files changed, 127 insertions(+), 32 deletions(-)
-
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 6c05f57..a150401 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -88,7 +88,6 @@ static inline char *nic_name(struct pci_dev *pdev)
- #define BE_MIN_MTU		256
- 
- #define BE_NUM_VLANS_SUPPORTED	64
--#define BE_UMC_NUM_VLANS_SUPPORTED	15
- #define BE_MAX_EQD		128u
- #define	BE_MAX_TX_FRAG_COUNT	30
- 
-@@ -293,7 +292,7 @@ struct be_rx_compl_info {
- 	u8 ip_csum;
- 	u8 l4_csum;
- 	u8 ipv6;
--	u8 vtm;
-+	u8 qnq;
- 	u8 pkt_type;
- 	u8 ip_frag;
- };
-@@ -465,6 +464,7 @@ struct be_adapter {
- 
- 	u32 port_num;
- 	bool promiscuous;
-+	u8 mc_type;
- 	u32 function_mode;
- 	u32 function_caps;
- 	u32 rx_fc;		/* Rx flow control */
-@@ -534,6 +534,14 @@ static inline u16 be_max_qs(struct be_adapter *adapter)
- 	return min_t(u16, num, num_online_cpus());
- }
- 
-+/* Is BE in pvid_tagging mode */
-+#define be_pvid_tagging_enabled(adapter)	(adapter->pvid)
-+
-+/* Is BE in QNQ multi-channel mode */
-+#define be_is_qnq_mode(adapter)		(adapter->mc_type == FLEX10 ||  \
-+					 adapter->mc_type == vNIC1 ||	\
-+					 adapter->mc_type == UFP)
-+
- #define lancer_chip(adapter)	(adapter->pdev->device == OC_DEVICE_ID3 || \
- 				 adapter->pdev->device == OC_DEVICE_ID4)
- 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index a8106b3..72bde5d 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -3296,6 +3296,21 @@ static struct be_pcie_res_desc *be_get_pcie_desc(u8 devfn, u8 *buf,
- 	return NULL;
- }
- 
-+static struct be_port_res_desc *be_get_port_desc(u8 *buf, u32 desc_count)
-+{
-+	struct be_res_desc_hdr *hdr = (struct be_res_desc_hdr *)buf;
-+	int i;
-+
-+	for (i = 0; i < desc_count; i++) {
-+		if (hdr->desc_type == PORT_RESOURCE_DESC_TYPE_V1)
-+			return (struct be_port_res_desc *)hdr;
-+
-+		hdr->desc_len = hdr->desc_len ? : RESOURCE_DESC_SIZE_V0;
-+		hdr = (void *)hdr + hdr->desc_len;
-+	}
-+	return NULL;
-+}
-+
- static void be_copy_nic_desc(struct be_resources *res,
- 			     struct be_nic_res_desc *desc)
- {
-@@ -3439,6 +3454,7 @@ int be_cmd_get_profile_config(struct be_adapter *adapter,
- {
- 	struct be_cmd_resp_get_profile_config *resp;
- 	struct be_pcie_res_desc *pcie;
-+	struct be_port_res_desc *port;
- 	struct be_nic_res_desc *nic;
- 	struct be_queue_info *mccq = &adapter->mcc_obj.q;
- 	struct be_dma_mem cmd;
-@@ -3466,6 +3482,10 @@ int be_cmd_get_profile_config(struct be_adapter *adapter,
- 	if (pcie)
- 		res->max_vfs = le16_to_cpu(pcie->num_vfs);
- 
-+	port = be_get_port_desc(resp->func_param, desc_count);
-+	if (port)
-+		adapter->mc_type = port->mc_type;
-+
- 	nic = be_get_nic_desc(resp->func_param, desc_count);
- 	if (nic)
- 		be_copy_nic_desc(res, nic);
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 3959566..d0ab980 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -1098,14 +1098,6 @@ struct be_cmd_resp_query_fw_cfg {
- 	u32 function_caps;
- };
- 
--/* Is BE in a multi-channel mode */
--static inline bool be_is_mc(struct be_adapter *adapter)
--{
--	return adapter->function_mode & FLEX10_MODE ||
--		adapter->function_mode & VNIC_MODE ||
--		adapter->function_mode & UMC_ENABLED;
--}
--
- /******************** RSS Config ****************************************/
- /* RSS type		Input parameters used to compute RX hash
-  * RSS_ENABLE_IPV4	SRC IPv4, DST IPv4
-@@ -1828,6 +1820,7 @@ struct be_cmd_req_set_ext_fat_caps {
- #define NIC_RESOURCE_DESC_TYPE_V0		0x41
- #define PCIE_RESOURCE_DESC_TYPE_V1		0x50
- #define NIC_RESOURCE_DESC_TYPE_V1		0x51
-+#define PORT_RESOURCE_DESC_TYPE_V1		0x55
- #define MAX_RESOURCE_DESC			264
- 
- /* QOS unit number */
-@@ -1891,6 +1884,33 @@ struct be_nic_res_desc {
- 	u32 rsvd8[7];
- } __packed;
- 
-+/************ Multi-Channel type ***********/
-+enum mc_type {
-+	MC_NONE = 0x01,
-+	UMC = 0x02,
-+	FLEX10 = 0x03,
-+	vNIC1 = 0x04,
-+	nPAR = 0x05,
-+	UFP = 0x06,
-+	vNIC2 = 0x07
-+};
-+
-+struct be_port_res_desc {
-+	struct be_res_desc_hdr hdr;
-+	u8 rsvd0;
-+	u8 flags;
-+	u8 rsvd1;
-+	u8 mc_type;
-+	u16 rsvd2;
-+	u32 rsvd3[20];
-+} __packed;
-+
-+/* Is BE in a multi-channel mode */
-+static inline bool be_is_mc(struct be_adapter *adapter)
-+{
-+	return adapter->mc_type > MC_NONE;
-+}
-+
- struct be_cmd_req_get_func_config {
- 	struct be_cmd_req_hdr hdr;
- };
-diff --git a/drivers/net/ethernet/emulex/benet/be_hw.h b/drivers/net/ethernet/emulex/benet/be_hw.h
-index effa272..28ac8dd 100644
---- a/drivers/net/ethernet/emulex/benet/be_hw.h
-+++ b/drivers/net/ethernet/emulex/benet/be_hw.h
-@@ -368,7 +368,7 @@ struct amap_eth_rx_compl_v0 {
- 	u8 numfrags[3];		/* dword 1 */
- 	u8 rss_flush;		/* dword 2 */
- 	u8 cast_enc[2];		/* dword 2 */
--	u8 vtm;			/* dword 2 */
-+	u8 qnq;			/* dword 2 */
- 	u8 rss_bank;		/* dword 2 */
- 	u8 rsvd1[23];		/* dword 2 */
- 	u8 lro_pkt;		/* dword 2 */
-@@ -401,7 +401,7 @@ struct amap_eth_rx_compl_v1 {
- 	u8 numfrags[3];		/* dword 1 */
- 	u8 rss_flush;		/* dword 2 */
- 	u8 cast_enc[2];		/* dword 2 */
--	u8 vtm;			/* dword 2 */
-+	u8 qnq;			/* dword 2 */
- 	u8 rss_bank;		/* dword 2 */
- 	u8 port[2];		/* dword 2 */
- 	u8 vntagp;		/* dword 2 */
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 816d67b..a8cf03e 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -945,9 +945,9 @@ static struct sk_buff *be_xmit_workarounds(struct be_adapter *adapter,
- 	}
- 
- 	/* If vlan tag is already inlined in the packet, skip HW VLAN
--	 * tagging in UMC mode
-+	 * tagging in pvid-tagging mode
- 	 */
--	if ((adapter->function_mode & UMC_ENABLED) &&
-+	if (be_pvid_tagging_enabled(adapter) &&
- 	    veh->h_vlan_proto == htons(ETH_P_8021Q))
- 			*skip_hw_vlan = true;
- 
-@@ -1660,7 +1660,7 @@ static void be_parse_rx_compl_v1(struct be_eth_rx_compl *compl,
- 	rxcp->rss_hash =
- 		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, rsshash, compl);
- 	if (rxcp->vlanf) {
--		rxcp->vtm = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, vtm,
-+		rxcp->qnq = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, qnq,
- 					  compl);
- 		rxcp->vlan_tag = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, vlan_tag,
- 					       compl);
-@@ -1690,7 +1690,7 @@ static void be_parse_rx_compl_v0(struct be_eth_rx_compl *compl,
- 	rxcp->rss_hash =
- 		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, rsshash, compl);
- 	if (rxcp->vlanf) {
--		rxcp->vtm = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, vtm,
-+		rxcp->qnq = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, qnq,
- 					  compl);
- 		rxcp->vlan_tag = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, vlan_tag,
- 					       compl);
-@@ -1723,9 +1723,11 @@ static struct be_rx_compl_info *be_rx_compl_get(struct be_rx_obj *rxo)
- 		rxcp->l4_csum = 0;
- 
- 	if (rxcp->vlanf) {
--		/* vlanf could be wrongly set in some cards.
--		 * ignore if vtm is not set */
--		if ((adapter->function_mode & FLEX10_MODE) && !rxcp->vtm)
-+		/* In QNQ modes, if qnq bit is not set, then the packet was
-+		 * tagged only with the transparent outer vlan-tag and must
-+		 * not be treated as a vlan packet by host
-+		 */
-+		if (be_is_qnq_mode(adapter) && !rxcp->qnq)
- 			rxcp->vlanf = 0;
- 
- 		if (!lancer_chip(adapter))
-@@ -3109,6 +3111,22 @@ err:
- 	return status;
- }
- 
-+/* Converting function_mode bits on BE3 to SH mc_type enums */
-+
-+static u8 be_convert_mc_type(u32 function_mode)
-+{
-+	if (function_mode & VNIC_MODE && function_mode & FLEX10_MODE)
-+		return vNIC1;
-+	else if (function_mode & FLEX10_MODE)
-+		return FLEX10;
-+	else if (function_mode & VNIC_MODE)
-+		return vNIC2;
-+	else if (function_mode & UMC_ENABLED)
-+		return UMC;
-+	else
-+		return MC_NONE;
-+}
-+
- /* On BE2/BE3 FW does not suggest the supported limits */
- static void BEx_get_resources(struct be_adapter *adapter,
- 			      struct be_resources *res)
-@@ -3129,12 +3147,23 @@ static void BEx_get_resources(struct be_adapter *adapter,
- 	else
- 		res->max_uc_mac = BE_VF_UC_PMAC_COUNT;
- 
--	if (adapter->function_mode & FLEX10_MODE)
--		res->max_vlans = BE_NUM_VLANS_SUPPORTED/8;
--	else if (adapter->function_mode & UMC_ENABLED)
--		res->max_vlans = BE_UMC_NUM_VLANS_SUPPORTED;
--	else
-+	adapter->mc_type = be_convert_mc_type(adapter->function_mode);
-+
-+	if (be_is_mc(adapter)) {
-+		/* Assuming that there are 4 channels per port,
-+		 * when multi-channel is enabled
-+		 */
-+		if (be_is_qnq_mode(adapter))
-+			res->max_vlans = BE_NUM_VLANS_SUPPORTED/8;
-+		else
-+			/* In a non-qnq multichannel mode, the pvid
-+			 * takes up one vlan entry
-+			 */
-+			res->max_vlans = (BE_NUM_VLANS_SUPPORTED / 4) - 1;
-+	} else {
- 		res->max_vlans = BE_NUM_VLANS_SUPPORTED;
-+	}
-+
- 	res->max_mcast_mac = BE_MAX_MC;
- 
- 	/* For BE3 1Gb ports, F/W does not properly support multiple TXQs */
-@@ -4417,14 +4446,32 @@ static bool be_reset_required(struct be_adapter *adapter)
- 
- static char *mc_name(struct be_adapter *adapter)
- {
--	if (adapter->function_mode & FLEX10_MODE)
--		return "FLEX10";
--	else if (adapter->function_mode & VNIC_MODE)
--		return "vNIC";
--	else if (adapter->function_mode & UMC_ENABLED)
--		return "UMC";
--	else
--		return "";
-+	char *str = "";	/* default */
-+
-+	switch (adapter->mc_type) {
-+	case UMC:
-+		str = "UMC";
-+		break;
-+	case FLEX10:
-+		str = "FLEX10";
-+		break;
-+	case vNIC1:
-+		str = "vNIC-1";
-+		break;
-+	case nPAR:
-+		str = "nPAR";
-+		break;
-+	case UFP:
-+		str = "UFP";
-+		break;
-+	case vNIC2:
-+		str = "vNIC-2";
-+		break;
-+	default:
-+		str = "";
-+	}
-+
-+	return str;
- }
- 
- static inline char *func_name(struct be_adapter *adapter)
 -- 
-1.5.6.1
+BR,
+Sergey
