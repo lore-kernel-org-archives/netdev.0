@@ -1,46 +1,84 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH] ipv4: arp: process only if ipv4 address configured
-Date: Wed, 12 Feb 2014 18:27:47 +0100
-Message-ID: <1392226067-21736-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:39704 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753430AbaBLRbi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 12:31:38 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mark Brown <broonie@kernel.org>
+Subject: Re: [PATCH v3 0/2] ASoC: atmel_ssc_dai: add option to
+	choose clock
+Date: Wed, 12 Feb 2014 17:23:42 +0000
+Message-ID: <20140212172342.GI28112@sirena.org.uk>
+References: <1392012586-30790-1-git-send-email-voice.shen@atmel.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============2586537175153997943=="
+Cc: Mark Rutland <mark.rutland@arm.com>, alsa-devel@alsa-project.org,
+ Stephen Warren <swarren@wwwdotorg.org>, linux-doc@vger.kernel.org,
+ Takashi Iwai <tiwai@suse.de>, nicolas.ferre@atmel.com,
+ Liam Girdwood <lgirdwood@gmail.com>, Chas Williams <chas@cmf.nrl.navy.mil>,
+ Lars-Peter Clausen <lars@metafoo.de>, Arnd Bergmann <arnd@arndb.de>,
+ linux-atm-general@lists.sourceforge.net, plagnioj@jcrosoft.com,
+ devicetree@vger.kernel.org, Pawel Moll <pawel.moll@arm.com>,
+ Ian Campbell <ijc+devicetree@hellion.org.uk>, linux-sound@vger.kernel.org,
+ Rob Herring <rob.herring@calxeda.com>, linux-arm-kernel@lists.infradead.org,
+ Richard Genoud <richard.genoud@gmail.com>,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-kernel@vger.kernel.org,
+ Rob Landley <rob@landley.net>, netdev@vger.kernel.org
+To: Bo Shen <voice.shen@atmel.com>
+Return-path: <alsa-devel-bounces@alsa-project.org>
+In-Reply-To: <1392012586-30790-1-git-send-email-voice.shen@atmel.com>
+List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
+List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
+List-Post: <mailto:alsa-devel@alsa-project.org>
+List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
+List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
+Errors-To: alsa-devel-bounces@alsa-project.org
+Sender: alsa-devel-bounces@alsa-project.org
+List-Id: netdev.vger.kernel.org
 
-8030f54499925d073a88c09f ([IPV4] devinet: Register inetdev earlier.)
-changed arp behaviour (2.6.22 onwards).
 
-Before this, inetdev_init() was called only when the first address was
-added to the interface, i.e. arp_process always dropped incoming arp
-packets as __in_dev_get_rcu() returned NULL when no IP address was set
-on the interface.
+--===============2586537175153997943==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="+NAfxSaP7cKOSWOx"
+Content-Disposition: inline
 
-With >= 2.6.22 we now process arp packets even if no address is assigned.
-It can cause issues if the machine has several interfaces in the same
-segment; requests receive answers from multiple macs.
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
-IMO such configurations are just asking for trouble, but it used
-to work on older kernels.  Do we care about such setups?
+--+NAfxSaP7cKOSWOx
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 1a9b99e..8a44ed2 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -738,7 +738,7 @@ static int arp_process(struct sk_buff *skb)
- 	 * is ARP'able.
- 	 */
- 
--	if (in_dev == NULL)
-+	if (in_dev == NULL || in_dev->ifa_list == NULL)
- 		goto out;
- 
- 	arp = arp_hdr(skb);
--- 
-1.8.1.5
+On Mon, Feb 10, 2014 at 02:09:44PM +0800, Bo Shen wrote:
+> When SSC work in slave mode, the clock can come from TK pin and also
+> can come from RK pin, this is hardware design decided. So, make it
+> available to choose where the clock from.
+
+Applied, thanks.
+
+--+NAfxSaP7cKOSWOx
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBAgAGBQJS+64aAAoJELSic+t+oim9HdEP/1s3b2zCDKiZwxz8pMZEXXZL
+PLWDH6glrCLjH0UBXgXvlC2wVgjNlX8EK8HCBWTYBYKEEM0d1TrPojWFG+SMptDV
+41WSQhbPOA7zsuP8dWqk6DwGTgTKgfgSd9G6UZQ8EQ9C87xwvpeuCj0QQNsYYHt8
+7YhksW+zOl5qXuW1Vcf3UX7JFgQ/ihQOPAp+g5CBjM0BkX2a9bH44qWtWNnS9FJo
+vt4GWngybTU/NSB/PQ+bF0abpnGuu2qKjQjc73GBgtCtxkn6NNyQuqi0hPF/PiDP
+2ShBveB6k9UOrYw1qyxzh/ojXNRpBYyRAO1uEKU9dfBFVhri9I0sVGR447h69NEy
+068FPY7kjNYpasyK8OF9lUQzk8llZvenapVhjgaSCV7oqygix4p4S+TetsOJ+/3m
+MuY8Y8XGipyXxRTCI4aGynZp2I4XsQRCXQJWFjZdJWU6i1/2UZQ/YJIuyU1NcyhK
+vAD0qyigXsGaYLyGgyB4wQcG2q8ugL+DnqYygc2/QWPtu2fG4m2P5ca/tKXomBET
+ItcQoVKGOOBpuXY2IG+nRs991r9rDVsiMBYRxd1t9lX7gbTITigIln3JuW9Y8eQx
+Qpb/PnzvP7YSzSgkd2bKFMv9jxffekTlhG+PYATVlYY2gaps/5JnuHh3FwR/kRUq
+vCUR3GvJPsUlOPJRVskW
+=H++v
+-----END PGP SIGNATURE-----
+
+--+NAfxSaP7cKOSWOx--
+
+--===============2586537175153997943==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+
+--===============2586537175153997943==--
