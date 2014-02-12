@@ -1,47 +1,59 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 01/10] net: phy: add "internal" PHY mode
-Date: Wed, 12 Feb 2014 18:35:00 +0400
-Message-ID: <52FB8694.4080403@cogentembedded.com>
-References: <1392178053-3143-1-git-send-email-f.fainelli@gmail.com> <1392178053-3143-2-git-send-email-f.fainelli@gmail.com>
+From: Ariel Elior <ariele@broadcom.com>
+Subject: RE: bnx2x + SR-IOV, no internal L2 switching
+Date: Wed, 12 Feb 2014 14:38:41 +0000
+Message-ID: <6AE768456CEC4B4A9B2248CB6B87EB3E1BFF7EEE@SJEXCHMB05.corp.ad.broadcom.com>
+References: <52FB7843.6050601@univ-nantes.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, cernekee@gmail.com, devicetree@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "yoann.juet@univ-nantes.fr" <yoann.juet@univ-nantes.fr>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:35972 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751320AbaBLOfD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 09:35:03 -0500
-Received: by mail-lb0-f178.google.com with SMTP id u14so7015253lbd.23
-        for <netdev@vger.kernel.org>; Wed, 12 Feb 2014 06:35:01 -0800 (PST)
-In-Reply-To: <1392178053-3143-2-git-send-email-f.fainelli@gmail.com>
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:15993 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751630AbaBLOim convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 09:38:42 -0500
+In-Reply-To: <52FB7843.6050601@univ-nantes.fr>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+> On Behalf Of Yoann Juet
+> Sent: Wednesday, February 12, 2014 3:34 PM
+> To: netdev@vger.kernel.org
+> Subject: bnx2x + SR-IOV, no internal L2 switching
 
-On 12-02-2014 8:07, Florian Fainelli wrote:
+Hi Yoan,
+57810 device does support l2 switching.
+I find your terminology a little bit confusing and I have some further questions besides:
 
-> On some systems, the PHY can be internal, in the same package as the
-> Ethernet MAC, and still be responding to a specific address on the MDIO
-> bus, in that case, the Ethernet MAC might need to know about it to
-> properly configure a port multiplexer to switch to an internal or
-> external PHY. Add a new PHY interface mode for this and update the
-> Device Tree of_get_phy_mode() function to look for it.
+[Q1]: Are you attaching physical functions to VMs? I.e. are you passing through PFs to the VMs, or only virtual functions?
 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-[...]
+[Q2]: Are you using VFs only on VMs, or directly from the Hypervisor too?
 
-> @@ -553,7 +554,8 @@ static inline bool phy_interrupt_is_valid(struct phy_device *phydev)
->    */
->   static inline bool phy_is_internal(struct phy_device *phydev)
->   {
-> -	return phydev->is_internal;
-> +	return phydev->is_internal ||
-> +		phydev->interface == PHY_INTERFACE_MODE_INTERNAL;
+[Q3]: You wrote "for instance the physical ethX has an IP address". That in itself is no problem and no surprise. You gave this as an example to traffic arriving where is shouldn't. Please elaborate.
 
-    Shouldn't the continuation line be aligned under 'phydev' on the borken up 
-line)?
+[Q4]: Do you have vlan filters configured anywhere in your topology? Are they configured from Host or from Guest?
+(in this respect host tagging would be 'ip link set eth0 vf 5 vlan 100' on the hypervisor while guest tagging would be 'ip link add link eth4 type vlan id 100' or 'vconfig add eth4 100' where eth0 is a PF and eth4 is a VF).
 
-WBR, Sergei
+[Q5]: In the case you mentioned where you saw in a VM traffic which was destined to another VM: Did both VMs contain VFs? Were the VFs created from the same Physical Function? If not, what were the BDFs pf the respective PFs? Which mac addresses did you give the VFs?
+
+[Q6]: Please isolate a specific case where switching is not behaving as expected and describe it in more detail:
+Please describe the topology (which PFs are involved and which VFs. Who is assigned to which VMs)
+Where are you sending data from (a VF, a PF, some peer on the network) and where is it arriving (perhaps arriving in multiple places)
+Please detail the behavior you expect and the behavior you observe.
+Please supply:
+Mac addresses, ip addresses and masks, configured vlans (if any), promiscuous setting, etc.
+ip -d -d link show on hypervisor and each of the VMs involved
+ethtool -d from Hypervisor PFs 
+dmesg from hypervisor
+
+Please note we recently submitted some fixes to our tx-switching behavior:
+In e8379c79 "bnx2x: fix VLAN configuration for VFs" we fixed an issue where traffic with the wrong vlan could still end up in a VM configured to a different vlan (hence my questions on vlans).
+In c14db202 "bnx2x: Correct default Tx switching behavior" we fixed a connectivity issue with pf to vf connectivity.
+Depending on your answers to the above, perhaps these might be relevant to your case.
+
+Thanks,
+Ariel
