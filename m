@@ -1,101 +1,64 @@
 From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH net-next 1/4] sch_netem: return errcode before setting params
-Date: Wed, 12 Feb 2014 10:58:12 +0800
-Message-ID: <1392173895-5012-2-git-send-email-yangyingliang@huawei.com>
+Subject: [PATCH net-next 3/4] sch_netem: replace magic numbers with enumerate in GE model
+Date: Wed, 12 Feb 2014 10:58:14 +0800
+Message-ID: <1392173895-5012-4-git-send-email-yangyingliang@huawei.com>
 References: <1392173895-5012-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <stephen@networkplumber.org>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:60310 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751745AbaBLC61 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 21:58:27 -0500
+Received: from szxga03-in.huawei.com ([119.145.14.66]:23974 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751745AbaBLC6a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 21:58:30 -0500
 In-Reply-To: <1392173895-5012-1-git-send-email-yangyingliang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-get_dist_table() and get_loss_clg() may be failed. These
-two functions should be called after setting the members
-of qdisc_priv(sch), or it will break the old settings while
-either of them is failed.
+Replace some magic numbers which describe states of GE model
+loss generator with enumerate.
 
 Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
 ---
- net/sched/sch_netem.c | 39 +++++++++++++++++++++++++++++----------
- 1 file changed, 29 insertions(+), 10 deletions(-)
+ net/sched/sch_netem.c | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
 
 diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index de1059a..b341943 100644
+index 4a5eb28..4fced67 100644
 --- a/net/sched/sch_netem.c
 +++ b/net/sched/sch_netem.c
-@@ -821,6 +821,8 @@ static int netem_change(struct Qdisc *sch, struct nlattr *opt)
- 	struct netem_sched_data *q = qdisc_priv(sch);
- 	struct nlattr *tb[TCA_NETEM_MAX + 1];
- 	struct tc_netem_qopt *qopt;
-+	struct clgstate old_clg;
-+	int old_loss_model = CLG_RANDOM;
- 	int ret;
+@@ -117,6 +117,11 @@ struct netem_sched_data {
+ 		LOST_IN_BURST_PERIOD,
+ 	} _4_state_model;
  
- 	if (opt == NULL)
-@@ -831,6 +833,33 @@ static int netem_change(struct Qdisc *sch, struct nlattr *opt)
- 	if (ret < 0)
- 		return ret;
- 
-+	/* backup q->clg and q->loss_model */
-+	old_clg = q->clg;
-+	old_loss_model = q->loss_model;
++	enum {
++		GOOD_STATE = 1,
++		BAD_STATE,
++	} GE_state_model;
 +
-+	if (tb[TCA_NETEM_LOSS]) {
-+		ret = get_loss_clg(sch, tb[TCA_NETEM_LOSS]);
-+		if (ret) {
-+			q->loss_model = old_loss_model;
-+			return ret;
-+		}
-+	} else {
-+		q->loss_model = CLG_RANDOM;
-+	}
-+
-+	if (tb[TCA_NETEM_DELAY_DIST]) {
-+		ret = get_dist_table(sch, tb[TCA_NETEM_DELAY_DIST]);
-+		if (ret) {
-+			/* recover clg and loss_model, in case of
-+			 * q->clg and q->loss_model were modified
-+			 * in get_loss_clg()
-+			 */
-+			q->clg = old_clg;
-+			q->loss_model = old_loss_model;
-+			return ret;
-+		}
-+	}
-+
- 	sch->limit = qopt->limit;
+ 	/* Correlated Loss Generation models */
+ 	struct clgstate {
+ 		/* state of the Markov chain */
+@@ -272,15 +277,15 @@ static bool loss_gilb_ell(struct netem_sched_data *q)
+ 	struct clgstate *clg = &q->clg;
  
- 	q->latency = qopt->latency;
-@@ -850,12 +879,6 @@ static int netem_change(struct Qdisc *sch, struct nlattr *opt)
- 	if (tb[TCA_NETEM_CORR])
- 		get_correlation(sch, tb[TCA_NETEM_CORR]);
- 
--	if (tb[TCA_NETEM_DELAY_DIST]) {
--		ret = get_dist_table(sch, tb[TCA_NETEM_DELAY_DIST]);
--		if (ret)
--			return ret;
--	}
--
- 	if (tb[TCA_NETEM_REORDER])
- 		get_reorder(sch, tb[TCA_NETEM_REORDER]);
- 
-@@ -872,10 +895,6 @@ static int netem_change(struct Qdisc *sch, struct nlattr *opt)
- 	if (tb[TCA_NETEM_ECN])
- 		q->ecn = nla_get_u32(tb[TCA_NETEM_ECN]);
- 
--	q->loss_model = CLG_RANDOM;
--	if (tb[TCA_NETEM_LOSS])
--		ret = get_loss_clg(sch, tb[TCA_NETEM_LOSS]);
--
- 	return ret;
- }
- 
+ 	switch (clg->state) {
+-	case 1:
++	case GOOD_STATE:
+ 		if (prandom_u32() < clg->a1)
+-			clg->state = 2;
++			clg->state = BAD_STATE;
+ 		if (prandom_u32() < clg->a4)
+ 			return true;
+ 		break;
+-	case 2:
++	case BAD_STATE:
+ 		if (prandom_u32() < clg->a2)
+-			clg->state = 1;
++			clg->state = GOOD_STATE;
+ 		if (prandom_u32() > clg->a3)
+ 			return true;
+ 	}
 -- 
 1.8.0
