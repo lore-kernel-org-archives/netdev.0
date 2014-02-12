@@ -1,62 +1,75 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v3 2/2] sctp: optimize the sctp_sysctl_net_register
-Date: Wed, 12 Feb 2014 06:53:44 -0500
-Message-ID: <20140212115344.GB4038@hmsreliant.think-freely.org>
-References: <1392169484-8256-1-git-send-email-wangweidong1@huawei.com>
- <1392169484-8256-3-git-send-email-wangweidong1@huawei.com>
+From: Daniel Borkmann <borkmann@iogearbox.net>
+Subject: Re: [BUG] at include/linux/page-flags.h:415 (PageTransHuge)
+Date: Wed, 12 Feb 2014 13:02:54 +0100
+Message-ID: <52FB62EE.7070205@iogearbox.net>
+References: <52D03A9E.2030309@iogearbox.net> <20140110222248.4e8419ca.akpm@linux-foundation.org> <52D147F1.3040803@iogearbox.net> <52D3BCE9.4020405@suse.cz> <52D3D060.1010301@iogearbox.net> <52D69AB4.6000309@suse.cz> <52D6B213.4020602@iogearbox.net> <52EBB5E6.8010007@suse.cz> <20140207185816.GA7764@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, vyasevich@gmail.com, dborkman@redhat.com,
-	sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org
-To: Wang Weidong <wangweidong1@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:50856 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751105AbaBLLyD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 06:54:03 -0500
-Content-Disposition: inline
-In-Reply-To: <1392169484-8256-3-git-send-email-wangweidong1@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Vlastimil Babka <vbabka@suse.cz>,
+ Andrew Morton <akpm@linux-foundation.org>,
+ linux-kernel <linux-kernel@vger.kernel.org>,
+ Michel Lespinasse <walken@google.com>,
+ linux-mm <linux-mm@kvack.org>, Jared Hulbert <jaredeh@gmail.com>,
+ netdev <netdev@vger.kernel.org>,
+ Thomas Hellstrom <thellstrom@vmware.com>,
+ John David Anglin <dave.anglin@bell.net>,
+ HATAYAMA Daisuke <d.hatayama@jp.fujitsu.com>,
+ Konstantin Khlebnikov <khlebnikov@openvz.org>,
+ Carsten Otte <cotte@de.ibm.com>, Peter Zijlstra <peterz@infradead.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20140207185816.GA7764@order.stressinduktion.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 12, 2014 at 09:44:44AM +0800, Wang Weidong wrote:
-> Here, when the net is init_net, we needn't to kmemdup the ctl_table
-> again. So add a check for net. Also we can save some memory.
-> 
-> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
-> ---
->  net/sctp/sysctl.c | 17 ++++++++++-------
->  1 file changed, 10 insertions(+), 7 deletions(-)
-> 
-> diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-> index d354de5..35c8923 100644
-> --- a/net/sctp/sysctl.c
-> +++ b/net/sctp/sysctl.c
-> @@ -402,15 +402,18 @@ static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
->  
->  int sctp_sysctl_net_register(struct net *net)
->  {
-> -	struct ctl_table *table;
-> -	int i;
-> +	struct ctl_table *table = sctp_net_table;
-> +
-> +	if (!net_eq(net, &init_net)) {
-> +		int i;
->  
-> -	table = kmemdup(sctp_net_table, sizeof(sctp_net_table), GFP_KERNEL);
-> -	if (!table)
-> -		return -ENOMEM;
-> +		table = kmemdup(sctp_net_table, sizeof(sctp_net_table), GFP_KERNEL);
-> +		if (!table)
-> +			return -ENOMEM;
->  
-> -	for (i = 0; table[i].data; i++)
-> -		table[i].data += (char *)(&net->sctp) - (char *)&init_net.sctp;
-> +		for (i = 0; table[i].data; i++)
-> +			table[i].data += (char *)(&net->sctp) - (char *)&init_net.sctp;
-> +	}
->  
-In the first version of this patch you complained about a lockdep issue.  Did
-you figure out what that was, and if it related to these changes?
+Hi Vlastimil,
 
-Neil
+On 02/07/2014 07:58 PM, Hannes Frederic Sowa wrote:
+> On Fri, Jan 31, 2014 at 03:40:38PM +0100, Vlastimil Babka wrote:
+>> From: Vlastimil Babka <vbabka@suse.cz>
+>> Date: Fri, 31 Jan 2014 11:50:21 +0100
+>> Subject: [PATCH] mm: include VM_MIXEDMAP flag in the VM_SPECIAL list to avoid
+>>   m(un)locking
+>>
+>> Daniel Borkmann reported a bug with VM_BUG_ON assertions failing where
+>> munlock_vma_pages_range() thinks it's unexpectedly in the middle of a THP page.
+>> This can be reproduced in tools/testing/selftests/net/ by running make and
+>> then ./psock_tpacket.
+>>
+>> The problem is that an order=2 compound page (allocated by
+>> alloc_one_pg_vec_page() is part of the munlocked VM_MIXEDMAP vma (mapped by
+>> packet_mmap()) and mistaken for a THP page and assumed to be order=9.
+>>
+>> The checks for THP in munlock came with commit ff6a6da60b89 ("mm: accelerate
+>> munlock() treatment of THP pages"), i.e. since 3.9, but did not trigger a bug.
+>> It just makes munlock_vma_pages_range() skip such compound pages until the next
+>> 512-pages-aligned page, when it encounters a head page. This is however not a
+>> problem for vma's where mlocking has no effect anyway, but it can distort the
+>> accounting.
+>> Since commit 7225522bb ("mm: munlock: batch non-THP page isolation and
+>> munlock+putback using pagevec") this can trigger a VM_BUG_ON in PageTransHuge()
+>> check.
+>>
+>> This patch fixes the issue by adding VM_MIXEDMAP flag to VM_SPECIAL - a list of
+>> flags that make vma's non-mlockable and non-mergeable. The reasoning is that
+>> VM_MIXEDMAP vma's are similar to VM_PFNMAP, which is already on the VM_SPECIAL
+>> list, and both are intended for non-LRU pages where mlocking makes no sense
+>> anyway.
+
+Thanks a lot for your efforts.
+
+Is your patch queued up somewhere for mainline and stable?
+
+> I also ran into this problem and wanted to ask what the status of this
+> patch is? Does it need further testing? I can surely help with that. ;)
+>
+> Thanks,
+>
+>    Hannes
+>
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
