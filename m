@@ -1,12 +1,12 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 11/14] tipc: changes to general
-	packet reception algorithm
-Date: Wed, 12 Feb 2014 13:31:11 -0500
-Message-ID: <1392229874-29675-12-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 13/14] tipc: remove bearer_lock
+	from tipc_bearer struct
+Date: Wed, 12 Feb 2014 13:31:13 -0500
+Message-ID: <1392229874-29675-14-git-send-email-jon.maloy@ericsson.com>
 References: <1392229874-29675-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
 	tipc-discussion@lists.sourceforge.net
 To: davem@davemloft.net
@@ -22,164 +22,88 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-We change the order of checking for destination users when processing
-incoming packets. By placing the checks for users that may potentially
-replace the processed buffer, i.e., CHANGEOVER_PROTOCOL and
-MSG_FRAGMENTER, in a separate step before we check for the true end
-users, we get rid of a label and a 'goto', at the same time making the
-code more comprehensible and easy to follow.
-
-This commit does not change any functionality, it is just a cosmetic
-code reshuffle.
-
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-Reviewed-by: Ying Xue <ying.xue@windriver.com>
----
- net/tipc/link.c |   76 +++++++++++++++++++++++++++++--------------------------
- 1 file changed, 40 insertions(+), 36 deletions(-)
-
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 758f7cd..1228d6c 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -1483,7 +1483,7 @@ void tipc_rcv(struct sk_buff *head, struct tipc_bearer *b_ptr)
- 		if ((n_ptr->block_setup & WAIT_PEER_DOWN) &&
- 			msg_user(msg) == LINK_PROTOCOL &&
- 			(msg_type(msg) == RESET_MSG ||
--					msg_type(msg) == ACTIVATE_MSG) &&
-+			 msg_type(msg) == ACTIVATE_MSG) &&
- 			!msg_redundant_link(msg))
- 			n_ptr->block_setup &= ~WAIT_PEER_DOWN;
- 
-@@ -1502,7 +1502,6 @@ void tipc_rcv(struct sk_buff *head, struct tipc_bearer *b_ptr)
- 		while ((crs != l_ptr->next_out) &&
- 		       less_eq(buf_seqno(crs), ackd)) {
- 			struct sk_buff *next = crs->next;
--
- 			kfree_skb(crs);
- 			crs = next;
- 			released++;
-@@ -1515,14 +1514,17 @@ void tipc_rcv(struct sk_buff *head, struct tipc_bearer *b_ptr)
- 		/* Try sending any messages link endpoint has pending */
- 		if (unlikely(l_ptr->next_out))
- 			tipc_link_push_queue(l_ptr);
-+
- 		if (unlikely(!list_empty(&l_ptr->waiting_ports)))
- 			tipc_link_wakeup_ports(l_ptr, 0);
-+
- 		if (unlikely(++l_ptr->unacked_window >= TIPC_MIN_LINK_WIN)) {
- 			l_ptr->stats.sent_acks++;
--			tipc_link_send_proto_msg(l_ptr, STATE_MSG, 0, 0, 0, 0, 0);
-+			tipc_link_send_proto_msg(l_ptr, STATE_MSG,
-+						 0, 0, 0, 0, 0);
- 		}
- 
--		/* Now (finally!) process the incoming message */
-+		/* Process the incoming packet */
- 		if (unlikely(!link_working_working(l_ptr))) {
- 			if (msg_user(msg) == LINK_PROTOCOL) {
- 				link_recv_proto_msg(l_ptr, buf);
-@@ -1554,14 +1556,40 @@ void tipc_rcv(struct sk_buff *head, struct tipc_bearer *b_ptr)
- 		l_ptr->next_in_no++;
- 		if (unlikely(l_ptr->oldest_deferred_in))
- 			head = link_insert_deferred_queue(l_ptr, head);
--deliver:
--		if (likely(msg_isdata(msg))) {
-+
-+		/* Deliver packet/message to correct user: */
-+		if (unlikely(msg_user(msg) ==  CHANGEOVER_PROTOCOL)) {
-+			if (!tipc_link_tunnel_rcv(n_ptr, &buf)) {
-+				tipc_node_unlock(n_ptr);
-+				continue;
-+			}
-+			msg = buf_msg(buf);
-+		} else if (msg_user(msg) == MSG_FRAGMENTER) {
-+			int rc;
-+
-+			l_ptr->stats.recv_fragments++;
-+			rc = tipc_link_frag_rcv(&l_ptr->reasm_head,
-+						&l_ptr->reasm_tail,
-+						&buf);
-+			if (rc == LINK_REASM_COMPLETE) {
-+				l_ptr->stats.recv_fragmented++;
-+				msg = buf_msg(buf);
-+			} else {
-+				if (rc == LINK_REASM_ERROR)
-+					tipc_link_reset(l_ptr);
-+				tipc_node_unlock(n_ptr);
-+				continue;
-+			}
-+		}
-+
-+		switch (msg_user(msg)) {
-+		case TIPC_LOW_IMPORTANCE:
-+		case TIPC_MEDIUM_IMPORTANCE:
-+		case TIPC_HIGH_IMPORTANCE:
-+		case TIPC_CRITICAL_IMPORTANCE:
- 			tipc_node_unlock(n_ptr);
- 			tipc_port_recv_msg(buf);
- 			continue;
--		}
--		switch (msg_user(msg)) {
--			int ret;
- 		case MSG_BUNDLER:
- 			l_ptr->stats.recv_bundles++;
- 			l_ptr->stats.recv_bundled += msg_msgcnt(msg);
-@@ -1573,44 +1601,20 @@ deliver:
- 			tipc_node_unlock(n_ptr);
- 			tipc_named_recv(buf);
- 			continue;
--		case BCAST_PROTOCOL:
--			tipc_link_recv_sync(n_ptr, buf);
--			tipc_node_unlock(n_ptr);
--			continue;
- 		case CONN_MANAGER:
- 			tipc_node_unlock(n_ptr);
- 			tipc_port_recv_proto_msg(buf);
- 			continue;
--		case MSG_FRAGMENTER:
--			l_ptr->stats.recv_fragments++;
--			ret = tipc_link_frag_rcv(&l_ptr->reasm_head,
--						 &l_ptr->reasm_tail,
--						 &buf);
--			if (ret == LINK_REASM_COMPLETE) {
--				l_ptr->stats.recv_fragmented++;
--				msg = buf_msg(buf);
--				goto deliver;
--			}
--			if (ret == LINK_REASM_ERROR)
--				tipc_link_reset(l_ptr);
--			tipc_node_unlock(n_ptr);
--			continue;
--		case CHANGEOVER_PROTOCOL:
--			if (!tipc_link_tunnel_rcv(n_ptr, &buf))
--				break;
--			msg = buf_msg(buf);
--			seq_no = msg_seqno(msg);
--			goto deliver;
-+		case BCAST_PROTOCOL:
-+			tipc_link_recv_sync(n_ptr, buf);
-+			break;
- 		default:
- 			kfree_skb(buf);
--			buf = NULL;
- 			break;
- 		}
- 		tipc_node_unlock(n_ptr);
--		tipc_net_route_msg(buf);
- 		continue;
- unlock_discard:
--
- 		tipc_node_unlock(n_ptr);
- discard:
- 		kfree_skb(buf);
--- 
-1.7.9.5
-
-
-------------------------------------------------------------------------------
-Android apps run on BlackBerry 10
-Introducing the new BlackBerry 10.2.1 Runtime for Android apps.
-Now with support for Jelly Bean, Bluetooth, Mapview and more.
-Get your Android app in front of a whole new audience.  Start now.
-http://pubads.g.doubleclick.net/gampad/clk?id=124407151&iu=/4140/ostg.clktrk
+RnJvbTogWWluZyBYdWUgPHlpbmcueHVlQHdpbmRyaXZlci5jb20+CgpBZnRlciB0aGUgZWFybGll
+ciBjb21taXRzICgidGlwYzogcmVtb3ZlICdsaW5rcycgbGlzdCBmcm9tCnRpcGNfYmVhcmVyIHN0
+cnVjdCIpIGFuZCAoInRpcGM6IGludHJvZHVjZSBuZXcgc3BpbmxvY2sgdG8gcHJvdGVjdApzdHJ1
+Y3QgbGlua19yZXEiKSwgdGhlcmUgaXMgbm8gbG9uZ2VyIGFueSBuZWVkIHRvIHByb3RlY3Qgc3Ry
+dWN0CmxpbmtfcmVxIG9yIG9yIGFueSBsaW5rIGxpc3QgYnkgdXNlIG9mIGJlYXJlcl9sb2NrLiBG
+dXJ0aGVybW9yZSwKd2UgaGF2ZSBlbGltaW5hdGVkIHRoZSBuZWVkIGZvciB1c2luZyBiZWFyZXJf
+bG9jayBkdXJpbmcgZG93bmNhbGxzCihzZW5kKSBmcm9tIHRoZSBsaW5rIHRvIHRoZSBiZWFyZXIs
+IHNpbmNlIHdlIGhhdmUgZW5zdXJlZCB0aGF0CmJlYXJlcnMgYWx3YXlzIGhhdmUgYSBsb25nZXIg
+bGlmZSBjeWNsZSB0aGF0IHRoZWlyIGFzc29jaWF0ZWQgbGlua3MsCmFuZCBhbHdheXMgY29udGFp
+biB2YWxpZCBkYXRhLgoKU28sIHRoZSBvbmx5IG5lZWQgbm93IGZvciBhIGxvY2sgcHJvdGVjdGlu
+ZyBiZWFyZXJzIGlzIGZvciBndWFyYW50ZWVpbmcKY29uc2lzdGVuY3kgb2YgdGhlIGJlYXJlciBs
+aXN0IGl0c2VsZi4gRm9yIHRoaXMsIGl0IGlzIHN1ZmZpY2llbnQsIGF0CmxlYXN0IGZvciB0aGUg
+dGltZSBiZWluZywgdG8gY29udGludWUgYXBwbHlpbmcgJ25ldF9sb2NrwrQgaW4gd3JpdGUgbW9k
+ZS4KCkJ5IHJlbW92aW5nIGJlYXJlcl9sb2NrIHdlIGFsc28gcHJlLWVtcHQgaW50cm9kdWN0aW9u
+IG9mIGlzc3VlIGIpIGRlc2NpYmVkCmluIHRoZSBwcmV2aW91cyBjb21taXQgInRpcGM6IHJlbW92
+ZSAnbGlua3MnIGxpc3QgZnJvbSB0aXBjX2JlYXJlciBzdHJ1Y3QiOgoKImIpIFdoZW4gdGhlIG91
+dGVyIHByb3RlY3Rpb24gZnJvbSBuZXRfbG9jayBpcyBnb25lLCB0YWtpbmcKICAgIGJlYXJlcl9s
+b2NrIGFuZCBub2RlX2xvY2sgaW4gb3Bwb3NpdGUgb3JkZXIgb2YgbWV0aG9kIDEpIGFuZCAyKQog
+ICAgd2lsbCBiZWNvbWUgYW4gb2J2aW91cyBkZWFkbG9jayBoYXphcmQiLgoKVGhlcmVmb3JlLCB3
+ZSBub3cgZWxpbWluYXRlIHRoZSBiZWFyZXJfbG9jayBzcGlubG9jay4KClNpZ25lZC1vZmYtYnk6
+IFlpbmcgWHVlIDx5aW5nLnh1ZUB3aW5kcml2ZXIuY29tPgpSZXZpZXdlZC1ieTogUGF1bCBHb3J0
+bWFrZXIgPHBhdWwuZ29ydG1ha2VyQHdpbmRyaXZlci5jb20+ClNpZ25lZC1vZmYtYnk6IEpvbiBN
+YWxveSA8am9uLm1hbG95QGVyaWNzc29uLmNvbT4KLS0tCiBuZXQvdGlwYy9iY2FzdC5jICB8ICAg
+IDEgLQogbmV0L3RpcGMvYmVhcmVyLmMgfCAgIDE2ICsrKy0tLS0tLS0tLS0tLS0KIG5ldC90aXBj
+L2JlYXJlci5oIHwgICAgNSArLS0tLQogMyBmaWxlcyBjaGFuZ2VkLCA0IGluc2VydGlvbnMoKyks
+IDE4IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL25ldC90aXBjL2JjYXN0LmMgYi9uZXQvdGlw
+Yy9iY2FzdC5jCmluZGV4IGFmMzVmNzYuLjA2YTYzOWMgMTAwNjQ0Ci0tLSBhL25ldC90aXBjL2Jj
+YXN0LmMKKysrIGIvbmV0L3RpcGMvYmNhc3QuYwpAQCAtNzg1LDcgKzc4NSw2IEBAIHZvaWQgdGlw
+Y19iY2xpbmtfaW5pdCh2b2lkKQogCWJjbC0+b3duZXIgPSAmYmNsaW5rLT5ub2RlOwogCWJjbC0+
+bWF4X3BrdCA9IE1BWF9QS1RfREVGQVVMVF9NQ0FTVDsKIAl0aXBjX2xpbmtfc2V0X3F1ZXVlX2xp
+bWl0cyhiY2wsIEJDTElOS19XSU5fREVGQVVMVCk7Ci0Jc3Bpbl9sb2NrX2luaXQoJmJjYmVhcmVy
+LT5iZWFyZXIubG9jayk7CiAJYmNsLT5iX3B0ciA9ICZiY2JlYXJlci0+YmVhcmVyOwogCWJjbC0+
+c3RhdGUgPSBXT1JLSU5HX1dPUktJTkc7CiAJc3RybGNweShiY2wtPm5hbWUsIHRpcGNfYmNsaW5r
+X25hbWUsIFRJUENfTUFYX0xJTktfTkFNRSk7CmRpZmYgLS1naXQgYS9uZXQvdGlwYy9iZWFyZXIu
+YyBiL25ldC90aXBjL2JlYXJlci5jCmluZGV4IDYwY2FhNDUuLjI0MmNkZGQgMTAwNjQ0Ci0tLSBh
+L25ldC90aXBjL2JlYXJlci5jCisrKyBiL25ldC90aXBjL2JlYXJlci5jCkBAIC0zMjcsNyArMzI3
+LDYgQEAgcmVzdGFydDoKIAliX3B0ci0+bmV0X3BsYW5lID0gYmVhcmVyX2lkICsgJ0EnOwogCWJf
+cHRyLT5hY3RpdmUgPSAxOwogCWJfcHRyLT5wcmlvcml0eSA9IHByaW9yaXR5OwotCXNwaW5fbG9j
+a19pbml0KCZiX3B0ci0+bG9jayk7CiAKIAlyZXMgPSB0aXBjX2Rpc2NfY3JlYXRlKGJfcHRyLCAm
+Yl9wdHItPmJjYXN0X2FkZHIsIGRpc2NfZG9tYWluKTsKIAlpZiAocmVzKSB7CkBAIC0zNTEsOSAr
+MzUwLDcgQEAgc3RhdGljIGludCB0aXBjX3Jlc2V0X2JlYXJlcihzdHJ1Y3QgdGlwY19iZWFyZXIg
+KmJfcHRyKQogewogCXJlYWRfbG9ja19iaCgmdGlwY19uZXRfbG9jayk7CiAJcHJfaW5mbygiUmVz
+ZXR0aW5nIGJlYXJlciA8JXM+XG4iLCBiX3B0ci0+bmFtZSk7Ci0Jc3Bpbl9sb2NrX2JoKCZiX3B0
+ci0+bG9jayk7CiAJdGlwY19saW5rX3Jlc2V0X2xpc3QoYl9wdHItPmlkZW50aXR5KTsKLQlzcGlu
+X3VubG9ja19iaCgmYl9wdHItPmxvY2spOwogCXJlYWRfdW5sb2NrX2JoKCZ0aXBjX25ldF9sb2Nr
+KTsKIAlyZXR1cm4gMDsKIH0KQEAgLTM2NSwxOSArMzYyLDEyIEBAIHN0YXRpYyBpbnQgdGlwY19y
+ZXNldF9iZWFyZXIoc3RydWN0IHRpcGNfYmVhcmVyICpiX3B0cikKICAqLwogc3RhdGljIHZvaWQg
+YmVhcmVyX2Rpc2FibGUoc3RydWN0IHRpcGNfYmVhcmVyICpiX3B0ciwgYm9vbCBzaHV0dGluZ19k
+b3duKQogewotCXN0cnVjdCB0aXBjX2xpbmtfcmVxICp0ZW1wX3JlcTsKLQogCXByX2luZm8oIkRp
+c2FibGluZyBiZWFyZXIgPCVzPlxuIiwgYl9wdHItPm5hbWUpOwotCXNwaW5fbG9ja19iaCgmYl9w
+dHItPmxvY2spOwogCWJfcHRyLT5tZWRpYS0+ZGlzYWJsZV9tZWRpYShiX3B0cik7Ci0JdGlwY19s
+aW5rX2RlbGV0ZV9saXN0KGJfcHRyLT5pZGVudGl0eSwgc2h1dHRpbmdfZG93bik7Ci0JdGVtcF9y
+ZXEgPSBiX3B0ci0+bGlua19yZXE7Ci0JYl9wdHItPmxpbmtfcmVxID0gTlVMTDsKLQlzcGluX3Vu
+bG9ja19iaCgmYl9wdHItPmxvY2spOwotCi0JaWYgKHRlbXBfcmVxKQotCQl0aXBjX2Rpc2NfZGVs
+ZXRlKHRlbXBfcmVxKTsKIAorCXRpcGNfbGlua19kZWxldGVfbGlzdChiX3B0ci0+aWRlbnRpdHks
+IHNodXR0aW5nX2Rvd24pOworCWlmIChiX3B0ci0+bGlua19yZXEpCisJCXRpcGNfZGlzY19kZWxl
+dGUoYl9wdHItPmxpbmtfcmVxKTsKIAltZW1zZXQoYl9wdHIsIDAsIHNpemVvZihzdHJ1Y3QgdGlw
+Y19iZWFyZXIpKTsKIH0KIApkaWZmIC0tZ2l0IGEvbmV0L3RpcGMvYmVhcmVyLmggYi9uZXQvdGlw
+Yy9iZWFyZXIuaAppbmRleCA2NDdjYjFkLi40MjVkZDgxIDEwMDY0NAotLS0gYS9uZXQvdGlwYy9i
+ZWFyZXIuaAorKysgYi9uZXQvdGlwYy9iZWFyZXIuaApAQCAtMTA3LDEwICsxMDcsOCBAQCBzdHJ1
+Y3QgdGlwY19tZWRpYSB7CiAKIC8qKgogICogc3RydWN0IHRpcGNfYmVhcmVyIC0gR2VuZXJpYyBU
+SVBDIGJlYXJlciBzdHJ1Y3R1cmUKLSAqIEBkZXY6IHB0ciB0byBhc3NvY2lhdGVkIG5ldHdvcmsg
+ZGV2aWNlCi0gKiBAdXNyX2hhbmRsZTogcG9pbnRlciB0byBhZGRpdGlvbmFsIG1lZGlhLXNwZWNp
+ZmljIGluZm9ybWF0aW9uIGFib3V0IGJlYXJlcgorICogQG1lZGlhX3B0cjogcG9pbnRlciB0byBh
+ZGRpdGlvbmFsIG1lZGlhLXNwZWNpZmljIGluZm9ybWF0aW9uIGFib3V0IGJlYXJlcgogICogQG10
+dTogbWF4IHBhY2tldCBzaXplIGJlYXJlciBjYW4gc3VwcG9ydAotICogQGxvY2s6IHNwaW5sb2Nr
+IGZvciBjb250cm9sbGluZyBhY2Nlc3MgdG8gYmVhcmVyCiAgKiBAYWRkcjogbWVkaWEtc3BlY2lm
+aWMgYWRkcmVzcyBhc3NvY2lhdGVkIHdpdGggYmVhcmVyCiAgKiBAbmFtZTogYmVhcmVyIG5hbWUg
+KGZvcm1hdCA9IG1lZGlhOmludGVyZmFjZSkKICAqIEBtZWRpYTogcHRyIHRvIG1lZGlhIHN0cnVj
+dHVyZSBhc3NvY2lhdGVkIHdpdGggYmVhcmVyCkBAIC0xMzMsNyArMTMxLDYgQEAgc3RydWN0IHRp
+cGNfYmVhcmVyIHsKIAl1MzIgbXR1OwkJCQkvKiBpbml0YWxpemVkIGJ5IG1lZGlhICovCiAJc3Ry
+dWN0IHRpcGNfbWVkaWFfYWRkciBhZGRyOwkJLyogaW5pdGFsaXplZCBieSBtZWRpYSAqLwogCWNo
+YXIgbmFtZVtUSVBDX01BWF9CRUFSRVJfTkFNRV07Ci0Jc3BpbmxvY2tfdCBsb2NrOwogCXN0cnVj
+dCB0aXBjX21lZGlhICptZWRpYTsKIAlzdHJ1Y3QgdGlwY19tZWRpYV9hZGRyIGJjYXN0X2FkZHI7
+CiAJdTMyIHByaW9yaXR5OwotLSAKMS43LjkuNQoKCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpBbmRy
+b2lkIGFwcHMgcnVuIG9uIEJsYWNrQmVycnkgMTAKSW50cm9kdWNpbmcgdGhlIG5ldyBCbGFja0Jl
+cnJ5IDEwLjIuMSBSdW50aW1lIGZvciBBbmRyb2lkIGFwcHMuCk5vdyB3aXRoIHN1cHBvcnQgZm9y
+IEplbGx5IEJlYW4sIEJsdWV0b290aCwgTWFwdmlldyBhbmQgbW9yZS4KR2V0IHlvdXIgQW5kcm9p
+ZCBhcHAgaW4gZnJvbnQgb2YgYSB3aG9sZSBuZXcgYXVkaWVuY2UuICBTdGFydCBub3cuCmh0dHA6
+Ly9wdWJhZHMuZy5kb3VibGVjbGljay5uZXQvZ2FtcGFkL2Nsaz9pZD0xMjQ0MDcxNTEmaXU9LzQx
+NDAvb3N0Zy5jbGt0cmsKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX18KdGlwYy1kaXNjdXNzaW9uIG1haWxpbmcgbGlzdAp0aXBjLWRpc2N1c3Npb25AbGlzdHMu
+c291cmNlZm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3Rp
+bmZvL3RpcGMtZGlzY3Vzc2lvbgo=
