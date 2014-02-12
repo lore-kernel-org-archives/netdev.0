@@ -1,101 +1,163 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH net 1/3] kref: add kref_sub_return
-Date: Wed, 12 Feb 2014 18:38:21 +0200
-Message-ID: <1392222846-26699-2-git-send-email-mst@redhat.com>
-References: <1392222846-26699-1-git-send-email-mst@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: virtio-dev@lists.oasis-open.org, Joern Engel <joern@logfs.org>,
-	Anatol Pomozov <anatol.pomozov@gmail.com>, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	qinchuanyu@huawei.com, davem@davemloft.net
-To: linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1392222846-26699-1-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+Subject: [PATCH net-next 10/10] ieee802154: enable smart transmitter features of RF212
+Date: Wed, 12 Feb 2014 17:37:14 +0100
+Message-ID: <1392223034-19955-11-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+References: <1392223034-19955-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Cc: linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net,
+	Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw1.uni-kl.de ([131.246.120.220]:47104 "EHLO
+	mailgw1.uni-kl.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752339AbaBLQm2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 11:42:28 -0500
+Received: from itwm2.itwm.fhg.de (itwm2.itwm.fhg.de [131.246.191.3])
+	by mailgw1.uni-kl.de (8.14.3/8.14.3/Debian-9.4) with ESMTP id s1CGgQMI000325
+	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 12 Feb 2014 17:42:26 +0100
+In-Reply-To: <1392223034-19955-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It is sometimes useful to get the value of the reference count after
-decrement.
-For example, vhost wants to execute some periodic cleanup operations
-once number of references drops below a specific value, before it
-reaches zero (for efficiency).
+This patch does multiple things:
 
-Add an API to do this atomically and efficiently using
-atomic_sub_return.
+ * add .set_csma_params and .set_frame_retries for the RF212 radio.
+   This should work fine with RF230, but since I have no RF230 radios to
+   test with, RF230 does not implement these right now
+ * enable TX_ARET for frame retransmission limits greater than -1
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Since RF230 has no operations to change CSMA parameters or frame retry
+limits, RF230 will not be able to enter TX_ARET with this patch.
+
+Signed-off-by: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
 ---
+ drivers/net/ieee802154/at86rf230.c |   65 +++++++++++++++++++++++++++++++++++-
+ 1 file changed, 64 insertions(+), 1 deletion(-)
 
-Greg, could you ack this API extension please?
-I think it is cleanest to merge this through -net together
-with the first user.
-
- include/linux/kref.h | 34 +++++++++++++++++++++++++++++++++-
- 1 file changed, 33 insertions(+), 1 deletion(-)
-
-diff --git a/include/linux/kref.h b/include/linux/kref.h
-index 484604d..cb20550 100644
---- a/include/linux/kref.h
-+++ b/include/linux/kref.h
-@@ -61,7 +61,7 @@ static inline void kref_get(struct kref *kref)
-  *
-  * Subtract @count from the refcount, and if 0, call release().
-  * Return 1 if the object was removed, otherwise return 0.  Beware, if this
-- * function returns 0, you still can not count on the kref from remaining in
-+ * function returns 0, you still can not count on the kref remaining in
-  * memory.  Only use the return value if you want to see if the kref is now
-  * gone, not present.
-  */
-@@ -78,6 +78,38 @@ static inline int kref_sub(struct kref *kref, unsigned int count,
+diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
+index 77b8111..4f87102 100644
+--- a/drivers/net/ieee802154/at86rf230.c
++++ b/drivers/net/ieee802154/at86rf230.c
+@@ -52,6 +52,7 @@ struct at86rf230_local {
+ 	spinlock_t lock;
+ 	bool irq_busy;
+ 	bool is_tx;
++	bool tx_aret;
+ 
+ 	int rssi_base_val;
+ };
+@@ -549,7 +550,10 @@ at86rf230_state(struct ieee802154_dev *dev, int state)
+ 	} while (val == STATE_TRANSITION_IN_PROGRESS);
+ 
+ 
+-	if (val == desired_status)
++	if (val == desired_status ||
++		(desired_status == STATE_RX_ON && val == STATE_BUSY_RX) ||
++		(desired_status == STATE_RX_AACK_ON &&
++			val == STATE_BUSY_RX_AACK))
+ 		return 0;
+ 
+ 	pr_err("unexpected state change: %d, asked for %d\n", val, state);
+@@ -570,6 +574,10 @@ at86rf230_start(struct ieee802154_dev *dev)
+ 	if (rc)
+ 		return rc;
+ 
++	rc = at86rf230_state(dev, STATE_FORCE_TX_ON);
++	if (rc)
++		return rc;
++
+ 	return at86rf230_state(dev, STATE_RX_AACK_ON);
  }
  
- /**
-+ * kref_sub_return - subtract a number of refcounts for object.
-+ * @kref: object.
-+ * @count: Number of recounts to subtract.
-+ * @release: pointer to the function that will clean up the object when the
-+ *	     last reference to the object is released.
-+ *	     This pointer is required, and it is not acceptable to pass kfree
-+ *	     in as this function.  If the caller does pass kfree to this
-+ *	     function, you will be publicly mocked mercilessly by the kref
-+ *	     maintainer, and anyone else who happens to notice it.  You have
-+ *	     been warned.
-+ *
-+ * Subtract @count from the refcount, and if 0, call release().
-+ * Return the new refcount.  Beware, if this function returns > N, you still
-+ * can not count on there being at least N other references, and in
-+ * particular, on the kref remaining in memory.
-+ * Only use the return value if you want to see if there are at most,
-+ * not at least, N other references to kref,
-+ */
-+static inline int kref_sub_return(struct kref *kref, unsigned int count,
-+				  void (*release)(struct kref *kref))
+@@ -673,6 +681,12 @@ at86rf230_xmit(struct ieee802154_dev *dev, struct sk_buff *skb)
+ 	if (rc)
+ 		goto err_rx;
+ 
++	if (lp->tx_aret) {
++		rc = at86rf230_write_subreg(lp, SR_TRX_CMD, STATE_TX_ARET_ON);
++		if (rc)
++			goto err_rx;
++	}
++
+ 	rc = at86rf230_write_subreg(lp, SR_TRX_CMD, STATE_BUSY_TX);
+ 	if (rc)
+ 		goto err_rx;
+@@ -827,6 +841,44 @@ at86rf212_set_cca_ed_level(struct ieee802154_dev *dev, s32 level)
+ 	return at86rf230_write_subreg(lp, SR_CCA_ED_THRES, desens_steps);
+ }
+ 
++static int
++at86rf212_set_csma_params(struct ieee802154_dev *dev, u8 min_be, u8 max_be,
++			  u8 retries)
 +{
-+	int r;
++	struct at86rf230_local *lp = dev->priv;
++	int rc;
 +
-+	WARN_ON(release == NULL);
++	if (min_be > max_be || max_be > 8 || retries > 5)
++		return -EINVAL;
 +
-+	r = atomic_sub_return((int) count, &kref->refcount);
-+	if (!r)
-+		release(kref);
-+	return r;
++	rc = at86rf230_write_subreg(lp, SR_MIN_BE, min_be);
++	if (rc)
++		return rc;
++
++	rc = at86rf230_write_subreg(lp, SR_MAX_BE, max_be);
++	if (rc)
++		return rc;
++
++	return at86rf230_write_subreg(lp, SR_MAX_CSMA_RETRIES, max_be);
 +}
 +
-+/**
-  * kref_put - decrement refcount for object.
-  * @kref: object.
-  * @release: pointer to the function that will clean up the object when the
++static int
++at86rf212_set_frame_retries(struct ieee802154_dev *dev, s8 retries)
++{
++	struct at86rf230_local *lp = dev->priv;
++	int rc = 0;
++
++	if (retries < -1 || retries > 15)
++		return -EINVAL;
++
++	lp->tx_aret = retries >= 0;
++
++	if (retries >= 0)
++		rc = at86rf230_write_subreg(lp, SR_MAX_FRAME_RETRIES, retries);
++
++	return rc;
++}
++
+ static struct ieee802154_ops at86rf230_ops = {
+ 	.owner = THIS_MODULE,
+ 	.xmit = at86rf230_xmit,
+@@ -849,6 +901,8 @@ static struct ieee802154_ops at86rf212_ops = {
+ 	.set_lbt = at86rf212_set_lbt,
+ 	.set_cca_mode = at86rf212_set_cca_mode,
+ 	.set_cca_ed_level = at86rf212_set_cca_ed_level,
++	.set_csma_params = at86rf212_set_csma_params,
++	.set_frame_retries = at86rf212_set_frame_retries,
+ };
+ 
+ static void at86rf230_irqwork(struct work_struct *work)
+@@ -925,6 +979,7 @@ static int at86rf230_hw_init(struct at86rf230_local *lp)
+ 	struct at86rf230_platform_data *pdata = lp->spi->dev.platform_data;
+ 	int rc, irq_pol;
+ 	u8 status;
++	u8 csma_seed[2];
+ 
+ 	rc = at86rf230_read_subreg(lp, SR_TRX_STATUS, &status);
+ 	if (rc)
+@@ -948,6 +1003,14 @@ static int at86rf230_hw_init(struct at86rf230_local *lp)
+ 	if (rc)
+ 		return rc;
+ 
++	get_random_bytes(csma_seed, ARRAY_SIZE(csma_seed));
++	rc = at86rf230_write_subreg(lp, SR_CSMA_SEED_0, csma_seed[0]);
++	if (rc)
++		return rc;
++	rc = at86rf230_write_subreg(lp, SR_CSMA_SEED_1, csma_seed[1]);
++	if (rc)
++		return rc;
++
+ 	/* CLKM changes are applied immediately */
+ 	rc = at86rf230_write_subreg(lp, SR_CLKM_SHA_SEL, 0x00);
+ 	if (rc)
 -- 
-MST
+1.7.9.5
