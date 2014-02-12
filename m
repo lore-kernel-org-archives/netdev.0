@@ -1,75 +1,66 @@
-From: Daniel Borkmann <borkmann@iogearbox.net>
-Subject: Re: [BUG] at include/linux/page-flags.h:415 (PageTransHuge)
-Date: Wed, 12 Feb 2014 13:02:54 +0100
-Message-ID: <52FB62EE.7070205@iogearbox.net>
-References: <52D03A9E.2030309@iogearbox.net> <20140110222248.4e8419ca.akpm@linux-foundation.org> <52D147F1.3040803@iogearbox.net> <52D3BCE9.4020405@suse.cz> <52D3D060.1010301@iogearbox.net> <52D69AB4.6000309@suse.cz> <52D6B213.4020602@iogearbox.net> <52EBB5E6.8010007@suse.cz> <20140207185816.GA7764@order.stressinduktion.org>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCHv5 net-next 0/6] xfrm: Add ESN support for AH
+Date: Wed, 12 Feb 2014 13:06:04 +0100
+Message-ID: <20140212120604.GA3438@secunet.com>
+References: <1390010068-15715-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Vlastimil Babka <vbabka@suse.cz>,
- Andrew Morton <akpm@linux-foundation.org>,
- linux-kernel <linux-kernel@vger.kernel.org>,
- Michel Lespinasse <walken@google.com>,
- linux-mm <linux-mm@kvack.org>, Jared Hulbert <jaredeh@gmail.com>,
- netdev <netdev@vger.kernel.org>,
- Thomas Hellstrom <thellstrom@vmware.com>,
- John David Anglin <dave.anglin@bell.net>,
- HATAYAMA Daisuke <d.hatayama@jp.fujitsu.com>,
- Konstantin Khlebnikov <khlebnikov@openvz.org>,
- Carsten Otte <cotte@de.ibm.com>, Peter Zijlstra <peterz@infradead.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20140207185816.GA7764@order.stressinduktion.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Fan Du <fan.du@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:38902 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751015AbaBLMGL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Feb 2014 07:06:11 -0500
+Content-Disposition: inline
+In-Reply-To: <1390010068-15715-1-git-send-email-fan.du@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Vlastimil,
+On Sat, Jan 18, 2014 at 09:54:22AM +0800, Fan Du wrote:
+> Hi,
+> 
+> This is initial Extended Sequence Number support for AH based on IPv4/6.
+> The rationale is totally by the RFC 4302, which states:
+> 
+> 3.3.3.2.2.  Implicit Packet Padding and ESN
+> 
+>    If the ESN option is elected for an SA, then the high-order 32 bits
+>    of the ESN must be included in the ICV computation.  For purposes of
+>    ICV computation, these bits are appended (implicitly) immediately
+>    after the end of the payload, and before any implicit packet padding.
+> 
+> So we attach the high-order 32bits as a scatterlist right after the packet
+> payload to compute ICV value. 
+> 
+> Test:
+> I add a knob in iproute2/ip/xfrm_state.c to enable esn when setting SA,
+> which make it possible to test with-esn and without-esn scenarios, both
+> cases works ok with ping using packetsize(-s) from default to 32768. 
+> 
+> v2:
+>   - Patch3/5 and Patch4/5 add IPv6 part as requested by Steffen.
+>   - Patch5/5 restrict ESN feature only to ESP and AH.
+> v3:
+>   - Fix double parens spotted by Sergei, and thanks for reporting.
+> v4:
+>   - Incorperate feedbacks from Steffen by simplify the code flow.
+>   - Add Patch1/6 to introduce skb_to_sgvec_nomark
+>   - Patch2/6 remove rebundant inclusion crypto/scatterwalk.h
+> v5:
+>   - Before calling type 'input' method, XFRM_SKB_CB(skb)->seq.input.hi
+>     has already been set in network byte order in xfrm_input, so no
+>     need to change the byte once in type 'input' method. So fix
+>     Patch3/6 and Patch5/6.
+> 
+> 
+> Fan Du (6):
+>   skbuff: Introduce skb_to_sgvec_nomark to map skb without mark new end
+>   {IPv4,xfrm} Add ESN support for AH egress part
+>   {IPv4,xfrm} Add ESN support for AH ingress part
+>   {IPv6,xfrm} Add ESN support for AH egress part
+>   {IPv6,xfrm} Add ESN support for AH ingress part
+>   xfrm: Don't prohibit AH from using ESN feature
+> 
 
-On 02/07/2014 07:58 PM, Hannes Frederic Sowa wrote:
-> On Fri, Jan 31, 2014 at 03:40:38PM +0100, Vlastimil Babka wrote:
->> From: Vlastimil Babka <vbabka@suse.cz>
->> Date: Fri, 31 Jan 2014 11:50:21 +0100
->> Subject: [PATCH] mm: include VM_MIXEDMAP flag in the VM_SPECIAL list to avoid
->>   m(un)locking
->>
->> Daniel Borkmann reported a bug with VM_BUG_ON assertions failing where
->> munlock_vma_pages_range() thinks it's unexpectedly in the middle of a THP page.
->> This can be reproduced in tools/testing/selftests/net/ by running make and
->> then ./psock_tpacket.
->>
->> The problem is that an order=2 compound page (allocated by
->> alloc_one_pg_vec_page() is part of the munlocked VM_MIXEDMAP vma (mapped by
->> packet_mmap()) and mistaken for a THP page and assumed to be order=9.
->>
->> The checks for THP in munlock came with commit ff6a6da60b89 ("mm: accelerate
->> munlock() treatment of THP pages"), i.e. since 3.9, but did not trigger a bug.
->> It just makes munlock_vma_pages_range() skip such compound pages until the next
->> 512-pages-aligned page, when it encounters a head page. This is however not a
->> problem for vma's where mlocking has no effect anyway, but it can distort the
->> accounting.
->> Since commit 7225522bb ("mm: munlock: batch non-THP page isolation and
->> munlock+putback using pagevec") this can trigger a VM_BUG_ON in PageTransHuge()
->> check.
->>
->> This patch fixes the issue by adding VM_MIXEDMAP flag to VM_SPECIAL - a list of
->> flags that make vma's non-mlockable and non-mergeable. The reasoning is that
->> VM_MIXEDMAP vma's are similar to VM_PFNMAP, which is already on the VM_SPECIAL
->> list, and both are intended for non-LRU pages where mlocking makes no sense
->> anyway.
-
-Thanks a lot for your efforts.
-
-Is your patch queued up somewhere for mainline and stable?
-
-> I also ran into this problem and wanted to ask what the status of this
-> patch is? Does it need further testing? I can surely help with that. ;)
->
-> Thanks,
->
->    Hannes
->
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+All applied to ipsec-next, thanks a lot for your work Fan!
