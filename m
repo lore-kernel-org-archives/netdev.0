@@ -1,109 +1,121 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 13/14] tipc: remove bearer_lock
-	from tipc_bearer struct
-Date: Wed, 12 Feb 2014 13:31:13 -0500
-Message-ID: <1392229874-29675-14-git-send-email-jon.maloy@ericsson.com>
-References: <1392229874-29675-1-git-send-email-jon.maloy@ericsson.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH net 1/3] kref: add kref_sub_return
+Date: Wed, 12 Feb 2014 10:37:57 -0800
+Message-ID: <20140212183757.GA27840@kroah.com>
+References: <1392222846-26699-1-git-send-email-mst@redhat.com>
+	<1392222846-26699-2-git-send-email-mst@redhat.com>
+	<20140212165630.GA22991@kroah.com>
+	<20140212173524.GA26860@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
-To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1392229874-29675-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: virtio-dev@lists.oasis-open.org, Joern Engel <joern@logfs.org>,
+	Anatol Pomozov <anatol.pomozov@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, qinchuanyu@huawei.com,
+	davem@davemloft.net
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20140212173524.GA26860@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogWWluZyBYdWUgPHlpbmcueHVlQHdpbmRyaXZlci5jb20+CgpBZnRlciB0aGUgZWFybGll
-ciBjb21taXRzICgidGlwYzogcmVtb3ZlICdsaW5rcycgbGlzdCBmcm9tCnRpcGNfYmVhcmVyIHN0
-cnVjdCIpIGFuZCAoInRpcGM6IGludHJvZHVjZSBuZXcgc3BpbmxvY2sgdG8gcHJvdGVjdApzdHJ1
-Y3QgbGlua19yZXEiKSwgdGhlcmUgaXMgbm8gbG9uZ2VyIGFueSBuZWVkIHRvIHByb3RlY3Qgc3Ry
-dWN0CmxpbmtfcmVxIG9yIG9yIGFueSBsaW5rIGxpc3QgYnkgdXNlIG9mIGJlYXJlcl9sb2NrLiBG
-dXJ0aGVybW9yZSwKd2UgaGF2ZSBlbGltaW5hdGVkIHRoZSBuZWVkIGZvciB1c2luZyBiZWFyZXJf
-bG9jayBkdXJpbmcgZG93bmNhbGxzCihzZW5kKSBmcm9tIHRoZSBsaW5rIHRvIHRoZSBiZWFyZXIs
-IHNpbmNlIHdlIGhhdmUgZW5zdXJlZCB0aGF0CmJlYXJlcnMgYWx3YXlzIGhhdmUgYSBsb25nZXIg
-bGlmZSBjeWNsZSB0aGF0IHRoZWlyIGFzc29jaWF0ZWQgbGlua3MsCmFuZCBhbHdheXMgY29udGFp
-biB2YWxpZCBkYXRhLgoKU28sIHRoZSBvbmx5IG5lZWQgbm93IGZvciBhIGxvY2sgcHJvdGVjdGlu
-ZyBiZWFyZXJzIGlzIGZvciBndWFyYW50ZWVpbmcKY29uc2lzdGVuY3kgb2YgdGhlIGJlYXJlciBs
-aXN0IGl0c2VsZi4gRm9yIHRoaXMsIGl0IGlzIHN1ZmZpY2llbnQsIGF0CmxlYXN0IGZvciB0aGUg
-dGltZSBiZWluZywgdG8gY29udGludWUgYXBwbHlpbmcgJ25ldF9sb2NrwrQgaW4gd3JpdGUgbW9k
-ZS4KCkJ5IHJlbW92aW5nIGJlYXJlcl9sb2NrIHdlIGFsc28gcHJlLWVtcHQgaW50cm9kdWN0aW9u
-IG9mIGlzc3VlIGIpIGRlc2NpYmVkCmluIHRoZSBwcmV2aW91cyBjb21taXQgInRpcGM6IHJlbW92
-ZSAnbGlua3MnIGxpc3QgZnJvbSB0aXBjX2JlYXJlciBzdHJ1Y3QiOgoKImIpIFdoZW4gdGhlIG91
-dGVyIHByb3RlY3Rpb24gZnJvbSBuZXRfbG9jayBpcyBnb25lLCB0YWtpbmcKICAgIGJlYXJlcl9s
-b2NrIGFuZCBub2RlX2xvY2sgaW4gb3Bwb3NpdGUgb3JkZXIgb2YgbWV0aG9kIDEpIGFuZCAyKQog
-ICAgd2lsbCBiZWNvbWUgYW4gb2J2aW91cyBkZWFkbG9jayBoYXphcmQiLgoKVGhlcmVmb3JlLCB3
-ZSBub3cgZWxpbWluYXRlIHRoZSBiZWFyZXJfbG9jayBzcGlubG9jay4KClNpZ25lZC1vZmYtYnk6
-IFlpbmcgWHVlIDx5aW5nLnh1ZUB3aW5kcml2ZXIuY29tPgpSZXZpZXdlZC1ieTogUGF1bCBHb3J0
-bWFrZXIgPHBhdWwuZ29ydG1ha2VyQHdpbmRyaXZlci5jb20+ClNpZ25lZC1vZmYtYnk6IEpvbiBN
-YWxveSA8am9uLm1hbG95QGVyaWNzc29uLmNvbT4KLS0tCiBuZXQvdGlwYy9iY2FzdC5jICB8ICAg
-IDEgLQogbmV0L3RpcGMvYmVhcmVyLmMgfCAgIDE2ICsrKy0tLS0tLS0tLS0tLS0KIG5ldC90aXBj
-L2JlYXJlci5oIHwgICAgNSArLS0tLQogMyBmaWxlcyBjaGFuZ2VkLCA0IGluc2VydGlvbnMoKyks
-IDE4IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL25ldC90aXBjL2JjYXN0LmMgYi9uZXQvdGlw
-Yy9iY2FzdC5jCmluZGV4IGFmMzVmNzYuLjA2YTYzOWMgMTAwNjQ0Ci0tLSBhL25ldC90aXBjL2Jj
-YXN0LmMKKysrIGIvbmV0L3RpcGMvYmNhc3QuYwpAQCAtNzg1LDcgKzc4NSw2IEBAIHZvaWQgdGlw
-Y19iY2xpbmtfaW5pdCh2b2lkKQogCWJjbC0+b3duZXIgPSAmYmNsaW5rLT5ub2RlOwogCWJjbC0+
-bWF4X3BrdCA9IE1BWF9QS1RfREVGQVVMVF9NQ0FTVDsKIAl0aXBjX2xpbmtfc2V0X3F1ZXVlX2xp
-bWl0cyhiY2wsIEJDTElOS19XSU5fREVGQVVMVCk7Ci0Jc3Bpbl9sb2NrX2luaXQoJmJjYmVhcmVy
-LT5iZWFyZXIubG9jayk7CiAJYmNsLT5iX3B0ciA9ICZiY2JlYXJlci0+YmVhcmVyOwogCWJjbC0+
-c3RhdGUgPSBXT1JLSU5HX1dPUktJTkc7CiAJc3RybGNweShiY2wtPm5hbWUsIHRpcGNfYmNsaW5r
-X25hbWUsIFRJUENfTUFYX0xJTktfTkFNRSk7CmRpZmYgLS1naXQgYS9uZXQvdGlwYy9iZWFyZXIu
-YyBiL25ldC90aXBjL2JlYXJlci5jCmluZGV4IDYwY2FhNDUuLjI0MmNkZGQgMTAwNjQ0Ci0tLSBh
-L25ldC90aXBjL2JlYXJlci5jCisrKyBiL25ldC90aXBjL2JlYXJlci5jCkBAIC0zMjcsNyArMzI3
-LDYgQEAgcmVzdGFydDoKIAliX3B0ci0+bmV0X3BsYW5lID0gYmVhcmVyX2lkICsgJ0EnOwogCWJf
-cHRyLT5hY3RpdmUgPSAxOwogCWJfcHRyLT5wcmlvcml0eSA9IHByaW9yaXR5OwotCXNwaW5fbG9j
-a19pbml0KCZiX3B0ci0+bG9jayk7CiAKIAlyZXMgPSB0aXBjX2Rpc2NfY3JlYXRlKGJfcHRyLCAm
-Yl9wdHItPmJjYXN0X2FkZHIsIGRpc2NfZG9tYWluKTsKIAlpZiAocmVzKSB7CkBAIC0zNTEsOSAr
-MzUwLDcgQEAgc3RhdGljIGludCB0aXBjX3Jlc2V0X2JlYXJlcihzdHJ1Y3QgdGlwY19iZWFyZXIg
-KmJfcHRyKQogewogCXJlYWRfbG9ja19iaCgmdGlwY19uZXRfbG9jayk7CiAJcHJfaW5mbygiUmVz
-ZXR0aW5nIGJlYXJlciA8JXM+XG4iLCBiX3B0ci0+bmFtZSk7Ci0Jc3Bpbl9sb2NrX2JoKCZiX3B0
-ci0+bG9jayk7CiAJdGlwY19saW5rX3Jlc2V0X2xpc3QoYl9wdHItPmlkZW50aXR5KTsKLQlzcGlu
-X3VubG9ja19iaCgmYl9wdHItPmxvY2spOwogCXJlYWRfdW5sb2NrX2JoKCZ0aXBjX25ldF9sb2Nr
-KTsKIAlyZXR1cm4gMDsKIH0KQEAgLTM2NSwxOSArMzYyLDEyIEBAIHN0YXRpYyBpbnQgdGlwY19y
-ZXNldF9iZWFyZXIoc3RydWN0IHRpcGNfYmVhcmVyICpiX3B0cikKICAqLwogc3RhdGljIHZvaWQg
-YmVhcmVyX2Rpc2FibGUoc3RydWN0IHRpcGNfYmVhcmVyICpiX3B0ciwgYm9vbCBzaHV0dGluZ19k
-b3duKQogewotCXN0cnVjdCB0aXBjX2xpbmtfcmVxICp0ZW1wX3JlcTsKLQogCXByX2luZm8oIkRp
-c2FibGluZyBiZWFyZXIgPCVzPlxuIiwgYl9wdHItPm5hbWUpOwotCXNwaW5fbG9ja19iaCgmYl9w
-dHItPmxvY2spOwogCWJfcHRyLT5tZWRpYS0+ZGlzYWJsZV9tZWRpYShiX3B0cik7Ci0JdGlwY19s
-aW5rX2RlbGV0ZV9saXN0KGJfcHRyLT5pZGVudGl0eSwgc2h1dHRpbmdfZG93bik7Ci0JdGVtcF9y
-ZXEgPSBiX3B0ci0+bGlua19yZXE7Ci0JYl9wdHItPmxpbmtfcmVxID0gTlVMTDsKLQlzcGluX3Vu
-bG9ja19iaCgmYl9wdHItPmxvY2spOwotCi0JaWYgKHRlbXBfcmVxKQotCQl0aXBjX2Rpc2NfZGVs
-ZXRlKHRlbXBfcmVxKTsKIAorCXRpcGNfbGlua19kZWxldGVfbGlzdChiX3B0ci0+aWRlbnRpdHks
-IHNodXR0aW5nX2Rvd24pOworCWlmIChiX3B0ci0+bGlua19yZXEpCisJCXRpcGNfZGlzY19kZWxl
-dGUoYl9wdHItPmxpbmtfcmVxKTsKIAltZW1zZXQoYl9wdHIsIDAsIHNpemVvZihzdHJ1Y3QgdGlw
-Y19iZWFyZXIpKTsKIH0KIApkaWZmIC0tZ2l0IGEvbmV0L3RpcGMvYmVhcmVyLmggYi9uZXQvdGlw
-Yy9iZWFyZXIuaAppbmRleCA2NDdjYjFkLi40MjVkZDgxIDEwMDY0NAotLS0gYS9uZXQvdGlwYy9i
-ZWFyZXIuaAorKysgYi9uZXQvdGlwYy9iZWFyZXIuaApAQCAtMTA3LDEwICsxMDcsOCBAQCBzdHJ1
-Y3QgdGlwY19tZWRpYSB7CiAKIC8qKgogICogc3RydWN0IHRpcGNfYmVhcmVyIC0gR2VuZXJpYyBU
-SVBDIGJlYXJlciBzdHJ1Y3R1cmUKLSAqIEBkZXY6IHB0ciB0byBhc3NvY2lhdGVkIG5ldHdvcmsg
-ZGV2aWNlCi0gKiBAdXNyX2hhbmRsZTogcG9pbnRlciB0byBhZGRpdGlvbmFsIG1lZGlhLXNwZWNp
-ZmljIGluZm9ybWF0aW9uIGFib3V0IGJlYXJlcgorICogQG1lZGlhX3B0cjogcG9pbnRlciB0byBh
-ZGRpdGlvbmFsIG1lZGlhLXNwZWNpZmljIGluZm9ybWF0aW9uIGFib3V0IGJlYXJlcgogICogQG10
-dTogbWF4IHBhY2tldCBzaXplIGJlYXJlciBjYW4gc3VwcG9ydAotICogQGxvY2s6IHNwaW5sb2Nr
-IGZvciBjb250cm9sbGluZyBhY2Nlc3MgdG8gYmVhcmVyCiAgKiBAYWRkcjogbWVkaWEtc3BlY2lm
-aWMgYWRkcmVzcyBhc3NvY2lhdGVkIHdpdGggYmVhcmVyCiAgKiBAbmFtZTogYmVhcmVyIG5hbWUg
-KGZvcm1hdCA9IG1lZGlhOmludGVyZmFjZSkKICAqIEBtZWRpYTogcHRyIHRvIG1lZGlhIHN0cnVj
-dHVyZSBhc3NvY2lhdGVkIHdpdGggYmVhcmVyCkBAIC0xMzMsNyArMTMxLDYgQEAgc3RydWN0IHRp
-cGNfYmVhcmVyIHsKIAl1MzIgbXR1OwkJCQkvKiBpbml0YWxpemVkIGJ5IG1lZGlhICovCiAJc3Ry
-dWN0IHRpcGNfbWVkaWFfYWRkciBhZGRyOwkJLyogaW5pdGFsaXplZCBieSBtZWRpYSAqLwogCWNo
-YXIgbmFtZVtUSVBDX01BWF9CRUFSRVJfTkFNRV07Ci0Jc3BpbmxvY2tfdCBsb2NrOwogCXN0cnVj
-dCB0aXBjX21lZGlhICptZWRpYTsKIAlzdHJ1Y3QgdGlwY19tZWRpYV9hZGRyIGJjYXN0X2FkZHI7
-CiAJdTMyIHByaW9yaXR5OwotLSAKMS43LjkuNQoKCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpBbmRy
-b2lkIGFwcHMgcnVuIG9uIEJsYWNrQmVycnkgMTAKSW50cm9kdWNpbmcgdGhlIG5ldyBCbGFja0Jl
-cnJ5IDEwLjIuMSBSdW50aW1lIGZvciBBbmRyb2lkIGFwcHMuCk5vdyB3aXRoIHN1cHBvcnQgZm9y
-IEplbGx5IEJlYW4sIEJsdWV0b290aCwgTWFwdmlldyBhbmQgbW9yZS4KR2V0IHlvdXIgQW5kcm9p
-ZCBhcHAgaW4gZnJvbnQgb2YgYSB3aG9sZSBuZXcgYXVkaWVuY2UuICBTdGFydCBub3cuCmh0dHA6
-Ly9wdWJhZHMuZy5kb3VibGVjbGljay5uZXQvZ2FtcGFkL2Nsaz9pZD0xMjQ0MDcxNTEmaXU9LzQx
-NDAvb3N0Zy5jbGt0cmsKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX18KdGlwYy1kaXNjdXNzaW9uIG1haWxpbmcgbGlzdAp0aXBjLWRpc2N1c3Npb25AbGlzdHMu
-c291cmNlZm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3Rp
-bmZvL3RpcGMtZGlzY3Vzc2lvbgo=
+On Wed, Feb 12, 2014 at 07:35:24PM +0200, Michael S. Tsirkin wrote:
+> On Wed, Feb 12, 2014 at 08:56:30AM -0800, Greg Kroah-Hartman wrote:
+> > On Wed, Feb 12, 2014 at 06:38:21PM +0200, Michael S. Tsirkin wrote:
+> > > It is sometimes useful to get the value of the reference count after
+> > > decrement.
+> > > For example, vhost wants to execute some periodic cleanup operations
+> > > once number of references drops below a specific value, before it
+> > > reaches zero (for efficiency).
+> > 
+> > You should never care about what the value of the kref is, if you are
+> > using it correctly :)
+> > 
+> > So I really don't want to add this function, as I'm sure people will use
+> > it incorrectly.  You should only care if the reference drops to 0, if
+> > not, then your usage doesn't really fit into the "kref" model, and so,
+> > just use an atomic variable.
+> 
+> This happens when you have code that keeps
+> reference itself implicitly or explicitly.
+> 
+> 	foo(struct kref *k, int bar) {
+> 
+> 	sub = kref_sub(k)
+> 
+> 	if (sub == 1)
+> 		FOO(k, bar) /* Here I am the only one
+> 			       with a reference */
+
+Why do you care if you are the only one with a reference?
+
+If you do, then just don't grab that reference and do the work in the
+cleanup callback :)
+
+> 	}
+> 
+> 	kref_get(k)
+> 	foo(k, bar);
+> 	....
+> 	kref_put(k)
+> 
+> Why not do FOO in destructor you ask?
+> Absolutely but this will be called much later.
+> 
+> Maybe you will reconsider if I document this
+> as the only legal use?
+
+No one reads documentation :(
+
+> > I really want to know why it matters for "efficiency" that you know this
+> > number.  How does that help anything, as the number could then go up
+> > later on, and the work you did at a "lower" number is obsolete, right?
+> > 
+> > thanks,
+> > 
+> > greg k-h
+> 
+> The issue is that if number dropped to 1, this means
+> we must do the cleanup work since there are
+> no outstanding buffers, (last user is ourselves)
+> if we do not cleanup,
+> guest will hang waiting for us.
+
+This doesn't make sense, nor does it sound like a use for a kref (or you
+are using it wrong.)
+
+> But it never drops to 0 since we have our own reference
+> in the device.
+
+Then don't do that.
+
+> If it goes up again this means we didn't have
+> to do cleanup, but an alternative is doing
+> it all the time and that is slow.
+
+Then just cleanup when it hits 0, like the rest of the world does.
+
+> Yes I can rework vhost to open-code this kref use, it's
+> no big deal.
+> Alternatively since most of the use does match kref
+> model, maybe __kref_sub_return with disclaimers
+> that you must know what you are doing?
+
+No, no one reads documentation, sorry.  Either fix your use of kref
+(i.e. don't care about the count), or do something else, as you don't
+want a kref, but rather, an atomic count of what is going on and "1"
+means something "special" to you.
+
+sorry,
+
+greg k-h
