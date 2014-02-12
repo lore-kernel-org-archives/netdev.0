@@ -1,64 +1,67 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [Patch net-next v2] net: allow setting mac address of loopback
- device
-Date: Wed, 12 Feb 2014 06:50:28 -0500
-Message-ID: <20140212115028.GA4038@hmsreliant.think-freely.org>
-References: <1392168086-25607-1-git-send-email-xiyou.wangcong@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net] virtio-net: alloc big buffers also when guest can
+	receive UFO
+Date: Wed, 12 Feb 2014 13:59:01 +0200
+Message-ID: <20140212115901.GC23006@redhat.com>
+References: <1392183808-16789-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:50825 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752253AbaBLLuo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 06:50:44 -0500
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: virtio-dev@lists.oasis-open.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Sridhar Samudrala <sri@us.ibm.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <1392168086-25607-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1392183808-16789-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 11, 2014 at 05:21:26PM -0800, Cong Wang wrote:
-> We are trying to mirror the local traffic from lo to eth0,
-> allowing setting mac address of lo to eth0 would make
-> the ether addresses in these packets correct, so that
-> we don't have to modify the ether header again.
-> 
-> Since usually no one cares about its mac address (all-zero),
-> it is safe to allow those who care to set its mac address.
-> 
-> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+On Wed, Feb 12, 2014 at 01:43:28PM +0800, Jason Wang wrote:
+> We should alloc big buffers also when guest can receive UFO
+> pakcets. Otherwise the big packets will be truncated when mergeable rx
+> buffer is disabled.
+
+Not truncated, they will be dropped.
+
+> Fixes 5c5167515d80f78f6bb538492c423adcae31ad65
+> (virtio-net: Allow UFO feature to be set and advertised.)
+>
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Cc: Sridhar Samudrala <sri@us.ibm.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+
+for patch but please fix commit message.
+
 
 > ---
-> diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
-> index c5011e0..e7c1d5f 100644
-> --- a/drivers/net/loopback.c
-> +++ b/drivers/net/loopback.c
-> @@ -160,6 +160,7 @@ static const struct net_device_ops loopback_ops = {
->  	.ndo_init      = loopback_dev_init,
->  	.ndo_start_xmit= loopback_xmit,
->  	.ndo_get_stats64 = loopback_get_stats64,
-> +	.ndo_set_mac_address = eth_mac_addr,
->  };
->  
->  /*
-> @@ -174,6 +175,7 @@ static void loopback_setup(struct net_device *dev)
->  	dev->tx_queue_len	= 0;
->  	dev->type		= ARPHRD_LOOPBACK;	/* 0x0001*/
->  	dev->flags		= IFF_LOOPBACK;
-> +	dev->priv_flags		|= IFF_LIVE_ADDR_CHANGE;
->  	dev->priv_flags	       &= ~IFF_XMIT_DST_RELEASE;
->  	dev->hw_features	= NETIF_F_ALL_TSO | NETIF_F_UFO;
->  	dev->features 		= NETIF_F_SG | NETIF_F_FRAGLIST
+>  drivers/net/virtio_net.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
 > 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index d75f8ed..5632a99 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1711,7 +1711,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  	/* If we can receive ANY GSO packets, we must allocate large ones. */
+>  	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO4) ||
+>  	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO6) ||
+> -	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_ECN))
+> +	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_ECN) ||
+> +	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_UFO))
+>  		vi->big_packets = true;
+>  
+>  	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
+> -- 
+> 1.8.3.2
