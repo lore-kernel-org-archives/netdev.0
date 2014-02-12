@@ -1,27 +1,26 @@
 From: Michal Simek <michal.simek@xilinx.com>
-Subject: [PATCH 02/14] net: axienet: Fix compilation warnings
-Date: Wed, 12 Feb 2014 16:55:36 +0100
-Message-ID: <74d9ca89c57b2467bc8b2c669ac09f7e5f74b1b7.1392220536.git.michal.simek@xilinx.com>
+Subject: [PATCH 12/14] net: axienet: Use of_property_* calls
+Date: Wed, 12 Feb 2014 16:55:46 +0100
+Message-ID: <77b9c5c033a54916c3e5be6f67dbd59c0155bc4c.1392220536.git.michal.simek@xilinx.com>
 References: <cover.1392220536.git.michal.simek@xilinx.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============7192279073494987455=="
-Cc: Michal Simek <monstr@monstr.eu>, linux-kernel@vger.kernel.org,
- Srikanth Thokala <sthokal@xilinx.com>, Anirudha Sarangi <anirudh@xilinx.com>,
- John Linn <John.Linn@xilinx.com>, linux-arm-kernel@lists.infradead.org
+Content-Type: multipart/signed;
+    boundary="=_mimegpg-monstr-desktop-2341-1392220635-0001";
+    micalg=pgp-sha1; protocol="application/pgp-signature"
+Cc: Srikanth Thokala <sthokal@xilinx.com>,
+	Srikanth Thokala <srikanth.thokala@xilinx.com>,
+	Michal Simek <monstr@monstr.eu>,
+	Anirudha Sarangi <anirudh@xilinx.com>,
+	John Linn <John.Linn@xilinx.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	devicetree@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1392220536.git.michal.simek@xilinx.com>
 In-Reply-To: <cover.1392220536.git.michal.simek@xilinx.com>
 References: <cover.1392220536.git.michal.simek@xilinx.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is a MIME GnuPG-signed message.  If you see this text, it means that
@@ -30,108 +29,120 @@ The Internet standard for MIME PGP messages, RFC 2015, was published in 1996.
 To open this message correctly you will need to install E-mail or Usenet
 software that supports modern Internet standards.
 
---===============7192279073494987455==
-Content-Type: multipart/signed;
-    boundary="=_mimegpg-monstr-desktop-2210-1392220577-0001";
-    micalg=pgp-sha1; protocol="application/pgp-signature"
+--=_mimegpg-monstr-desktop-2341-1392220635-0001
 
-This is a MIME GnuPG-signed message.  If you see this text, it means that
-your E-mail or Usenet software does not support MIME signed messages.
-The Internet standard for MIME PGP messages, RFC 2015, was published in 1996.
-To open this message correctly you will need to install E-mail or Usenet
-software that supports modern Internet standards.
+From: Srikanth Thokala <srikanth.thokala@xilinx.com>
 
---=_mimegpg-monstr-desktop-2210-1392220577-0001
+Use of_property_* calls
 
-Warning log:
-xilinx_axienet_main.c: In function 'axienet_start_xmit_done':
-xilinx_axienet_main.c:617:16: warning: operation on 'lp->tx_bd_ci' may be undefined [-Wsequence-point]
-xilinx_axienet_main.c: In function 'axienet_start_xmit':
-xilinx_axienet_main.c:703:18: warning: operation on 'lp->tx_bd_tail' may be undefined [-Wsequence-point]
-xilinx_axienet_main.c:719:17: warning: operation on 'lp->tx_bd_tail' may be undefined [-Wsequence-point]
-xilinx_axienet_main.c: In function 'axienet_recv':
-xilinx_axienet_main.c:792:16: warning: operation on 'lp->rx_bd_ci' may be undefined [-Wsequence-point]
-xilinx_axienet_main.c: In function 'axienet_of_probe':
-xilinx_axienet_main.c:1501:21: warning: unused variable 'rc' [-Wunused-variable]
-
+Signed-off-by: Srikanth Thokala <sthokal@xilinx.com>
 Signed-off-by: Michal Simek <michal.simek@xilinx.com>
 ---
 
- drivers/net/ethernet/xilinx/xilinx_axienet_main.c | 12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/xilinx/xilinx_axienet_main.c | 41 ++++++++++-------------
+ 1 file changed, 17 insertions(+), 24 deletions(-)
 
 diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-index 9fb8ab2..4bfdf8c 100644
+index 936a14c..9a9ffbc 100644
 --- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
 +++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-@@ -601,7 +601,8 @@ static void axienet_start_xmit_done(struct net_device *ndev)
- 		size += status & XAXIDMA_BD_STS_ACTUAL_LEN_MASK;
- 		packets++;
+@@ -1493,13 +1493,13 @@ static void axienet_dma_err_handler(unsigned long data)
+  */
+ static int axienet_of_probe(struct platform_device *pdev)
+ {
+-	__be32 *p;
+-	int size, ret = 0;
++	int ret;
+ 	struct device_node *np;
+ 	struct axienet_local *lp;
+ 	struct net_device *ndev;
+-	const void *addr;
++	u8 mac_addr[6];
+ 	struct resource *ethres, dmares;
++	u32 value;
 
--		lp->tx_bd_ci = ++lp->tx_bd_ci % TX_BD_NUM;
-+		++lp->tx_bd_ci;
-+		lp->tx_bd_ci %= TX_BD_NUM;
- 		cur_p = &lp->tx_bd_v[lp->tx_bd_ci];
- 		status = cur_p->status;
+ 	ndev = alloc_etherdev(sizeof(*lp));
+ 	if (!ndev)
+@@ -1530,9 +1530,9 @@ static int axienet_of_probe(struct platform_device *pdev)
+ 	/* Setup checksum offload, but default to off if not specified */
+ 	lp->features = 0;
+
+-	p = (__be32 *) of_get_property(pdev->dev.of_node, "xlnx,txcsum", NULL);
+-	if (p) {
+-		switch (be32_to_cpup(p)) {
++	ret = of_property_read_u32(pdev->dev.of_node, "xlnx,txcsum", &value);
++	if (!ret) {
++		switch (value) {
+ 		case 1:
+ 			lp->csum_offload_on_tx_path =
+ 				XAE_FEATURE_PARTIAL_TX_CSUM;
+@@ -1551,9 +1551,9 @@ static int axienet_of_probe(struct platform_device *pdev)
+ 			lp->csum_offload_on_tx_path = XAE_NO_CSUM_OFFLOAD;
+ 		}
  	}
-@@ -687,7 +688,8 @@ static int axienet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 				     skb_headlen(skb), DMA_TO_DEVICE);
+-	p = (__be32 *) of_get_property(pdev->dev.of_node, "xlnx,rxcsum", NULL);
+-	if (p) {
+-		switch (be32_to_cpup(p)) {
++	ret = of_property_read_u32(pdev->dev.of_node, "xlnx,rxcsum", &value);
++	if (!ret) {
++		switch (value) {
+ 		case 1:
+ 			lp->csum_offload_on_rx_path =
+ 				XAE_FEATURE_PARTIAL_RX_CSUM;
+@@ -1574,17 +1574,10 @@ static int axienet_of_probe(struct platform_device *pdev)
+ 	 * Here we check for memory allocated for Rx/Tx in the hardware from
+ 	 * the device-tree and accordingly set flags.
+ 	 */
+-	p = (__be32 *) of_get_property(pdev->dev.of_node, "xlnx,rxmem", NULL);
+-	if (p)
+-		lp->rxmem = be32_to_cpup(p);
+-	p = (__be32 *) of_get_property(pdev->dev.of_node, "xlnx,temac-type",
+-				       NULL);
+-	if (p)
+-		lp->temac_type = be32_to_cpup(p);
+-	p = (__be32 *) of_get_property(pdev->dev.of_node,
+-						"xlnx,phy-type", NULL);
+-	if (p)
+-		lp->phy_type = be32_to_cpup(p);
++	of_property_read_u32(pdev->dev.of_node, "xlnx,rxmem", &lp->rxmem);
++	of_property_read_u32(pdev->dev.of_node, "xlnx,temac-type",
++					&lp->temac_type);
++	of_property_read_u32(pdev->dev.of_node, "xlnx,phy-type", &lp->phy_type);
 
- 	for (ii = 0; ii < num_frag; ii++) {
--		lp->tx_bd_tail = ++lp->tx_bd_tail % TX_BD_NUM;
-+		++lp->tx_bd_tail;
-+		lp->tx_bd_tail %= TX_BD_NUM;
- 		cur_p = &lp->tx_bd_v[lp->tx_bd_tail];
- 		frag = &skb_shinfo(skb)->frags[ii];
- 		cur_p->phys = dma_map_single(ndev->dev.parent,
-@@ -703,7 +705,8 @@ static int axienet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	tail_p = lp->tx_bd_p + sizeof(*lp->tx_bd_v) * lp->tx_bd_tail;
- 	/* Start the transfer */
- 	axienet_dma_out32(lp, XAXIDMA_TX_TDESC_OFFSET, tail_p);
--	lp->tx_bd_tail = ++lp->tx_bd_tail % TX_BD_NUM;
-+	++lp->tx_bd_tail;
-+	lp->tx_bd_tail %= TX_BD_NUM;
-
- 	return NETDEV_TX_OK;
- }
-@@ -775,7 +778,8 @@ static void axienet_recv(struct net_device *ndev)
- 		cur_p->status = 0;
- 		cur_p->sw_id_offset = (u32) new_skb;
-
--		lp->rx_bd_ci = ++lp->rx_bd_ci % RX_BD_NUM;
-+		++lp->rx_bd_ci;
-+		lp->rx_bd_ci %= RX_BD_NUM;
- 		cur_p = &lp->rx_bd_v[lp->rx_bd_ci];
+ 	/* Find the DMA node, map the DMA registers, and decode the DMA IRQs */
+ 	np = of_parse_phandle(pdev->dev.of_node, "axistream-connected", 0);
+@@ -1614,13 +1607,13 @@ static int axienet_of_probe(struct platform_device *pdev)
  	}
 
+ 	/* Retrieve the MAC address */
+-	addr = of_get_property(pdev->dev.of_node, "local-mac-address", &size);
+-	if ((!addr) || (size != 6)) {
++	ret = of_property_read_u8_array(pdev->dev.of_node,
++			"local-mac-address", mac_addr, 6);
++	if (ret) {
+ 		dev_err(&pdev->dev, "could not find MAC address\n");
+-		ret = -ENODEV;
+ 		goto free_netdev;
+ 	}
+-	axienet_set_mac_address(ndev, (void *) addr);
++	axienet_set_mac_address(ndev, (void *) mac_addr);
+
+ 	lp->coalesce_count_rx = XAXIDMA_DFT_RX_THRESHOLD;
+ 	lp->coalesce_count_tx = XAXIDMA_DFT_TX_THRESHOLD;
 --
 1.8.2.3
 
 
---=_mimegpg-monstr-desktop-2210-1392220577-0001
+--=_mimegpg-monstr-desktop-2341-1392220635-0001
 Content-Type: application/pgp-signature
 Content-Transfer-Encoding: 7bit
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.10 (GNU/Linux)
 
-iEYEABECAAYFAlL7maEACgkQykllyylKDCG4hQCfanC3cN3IUvoF9TA/RDofkrif
-7jYAnj39Z3rNPtz2oxKNwOHDHCf0i5Sn
-=5TMU
+iEYEABECAAYFAlL7mdsACgkQykllyylKDCEWRgCffzarn5nPBwiT5RU+2Ww54H+s
+BywAoJNOxHLQKkMizSACkNBIcncoUAjt
+=AzlB
 -----END PGP SIGNATURE-----
 
---=_mimegpg-monstr-desktop-2210-1392220577-0001--
-
-
---===============7192279073494987455==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-linux-arm-kernel mailing list
-linux-arm-kernel@lists.infradead.org
-http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-
---===============7192279073494987455==--
+--=_mimegpg-monstr-desktop-2341-1392220635-0001--
