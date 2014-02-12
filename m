@@ -1,71 +1,58 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH 03/10] net: phy: display human readable PHY speed settings
-Date: Tue, 11 Feb 2014 17:27:35 -0800
-Message-ID: <1392168462-18888-4-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH 01/10] net: phy: use network device in phy_print_status
+Date: Tue, 11 Feb 2014 17:27:33 -0800
+Message-ID: <1392168462-18888-2-git-send-email-f.fainelli@gmail.com>
 References: <1392168462-18888-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, Florian Fainelli <f.fainelli@gmail.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:11050 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752179AbaBLB2T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 20:28:19 -0500
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:22446 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752037AbaBLB2S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 20:28:18 -0500
 In-Reply-To: <1392168462-18888-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use a convenience function: phy_speed_to_str() which will display human
-readable speeds.
+phy_print_status() currently uses dev_name(&phydev->dev) which will
+usually result in printing something along those lines for Device Tree
+aware drivers:
 
-Suggested-by: Joe Perches <joe@perches.com>
+libphy: f0b60000.etherne:0a - Link is Down
+libphy: f0ba0000.etherne:00 - Link is Up - 1000/Full
+
+This is not terribly useful for network administrators or users since we
+expect a network interface name to be able to correlate link events with
+interfaces. Update phy_print_status() to use netdev_info() with
+phydev->attached_dev which is the backing network device for our PHY
+device. The leading dash is removed since netdev_info() prefixes the
+messages with "<interface>: " already.
+
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/phy/phy.c | 24 ++++++++++++++++++++++--
- 1 file changed, 22 insertions(+), 2 deletions(-)
+ drivers/net/phy/phy.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 8ae2260..36fc6e1 100644
+index 19c9eca..c35b2e7 100644
 --- a/drivers/net/phy/phy.c
 +++ b/drivers/net/phy/phy.c
-@@ -38,6 +38,26 @@
- 
- #include <asm/irq.h>
- 
-+static const char *phy_speed_to_str(int speed)
-+{
-+	switch (speed) {
-+	case SPEED_10:
-+		return "10Mbps";
-+	case SPEED_100:
-+		return "100Mbps";
-+	case SPEED_1000:
-+		return "1Gbps";
-+	case SPEED_2500:
-+		return "2.5Gbps";
-+	case SPEED_10000:
-+		return "10Gbps";
-+	case SPEED_UNKNOWN:
-+		return "Unknown";
-+	default:
-+		return "Unsupported (update phy.c)";
-+	}
-+}
-+
- /**
-  * phy_print_status - Convenience function to print out the current phy status
-  * @phydev: the phy_device struct
-@@ -46,8 +66,8 @@ void phy_print_status(struct phy_device *phydev)
+@@ -45,12 +45,11 @@
+ void phy_print_status(struct phy_device *phydev)
  {
  	if (phydev->link) {
- 		netdev_info(phydev->attached_dev,
--			"Link is Up - %d/%s - flow control %s\n",
--			phydev->speed,
-+			"Link is Up - %s/%s - flow control %s\n",
-+			phy_speed_to_str(phydev->speed),
- 			DUPLEX_FULL == phydev->duplex ? "Full" : "Half",
- 			phydev->pause ? "rx/tx" : "off");
+-		pr_info("%s - Link is Up - %d/%s\n",
+-			dev_name(&phydev->dev),
++		netdev_info(phydev->attached_dev, "Link is Up - %d/%s\n",
+ 			phydev->speed,
+ 			DUPLEX_FULL == phydev->duplex ? "Full" : "Half");
  	} else	{
+-		pr_info("%s - Link is Down\n", dev_name(&phydev->dev));
++		netdev_info(phydev->attached_dev, "Link is Down\n");
+ 	}
+ }
+ EXPORT_SYMBOL(phy_print_status);
 -- 
 1.8.3.2
