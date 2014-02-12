@@ -1,65 +1,56 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] ipv4: ip_forward: perform skb->pkt_type check
- at the beginning
-Date: Wed, 12 Feb 2014 18:25:11 +0400
-Message-ID: <52FB8447.9080004@cogentembedded.com>
-References: <1392192632-24513-1-git-send-email-kda@linux-powerpc.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: netfilter: nf_tables: add reject module for NFPROTO_INET
+Date: Wed, 12 Feb 2014 14:27:54 +0000
+Message-ID: <20140212142754.GA303@macbook.localnet>
+References: <20140211203359.56ED7660CD3@gitolite.kernel.org>
+ <20140212141827.GA7129@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Denis Kirjanov <kda@linux-powerpc.org>, davem@davemloft.net,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, pablo@netfilter.org
+To: Dave Jones <davej@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:35255 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751269AbaBLOZO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 09:25:14 -0500
-Received: by mail-lb0-f176.google.com with SMTP id w7so7028028lbi.21
-        for <netdev@vger.kernel.org>; Wed, 12 Feb 2014 06:25:13 -0800 (PST)
-In-Reply-To: <1392192632-24513-1-git-send-email-kda@linux-powerpc.org>
+Received: from stinky.trash.net ([213.144.137.162]:62958 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751988AbaBLO17 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 09:27:59 -0500
+Content-Disposition: inline
+In-Reply-To: <20140212141827.GA7129@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Wed, Feb 12, 2014 at 09:18:27AM -0500, Dave Jones wrote:
+> On Tue, Feb 11, 2014 at 08:33:59PM +0000, Linux Kernel wrote:
+>  > Gitweb:     http://git.kernel.org/linus/;a=commit;h=05513e9e33dbded8124567466a444d32173eecc6
+>  > Commit:     05513e9e33dbded8124567466a444d32173eecc6
+>  > Parent:     cc4723ca316742891954efa346298e7c747c0d17
+>  > Author:     Patrick McHardy <kaber@trash.net>
+>  > AuthorDate: Wed Feb 5 15:03:39 2014 +0000
+>  > Committer:  Pablo Neira Ayuso <pablo@netfilter.org>
+>  > CommitDate: Thu Feb 6 09:44:18 2014 +0100
+>  > 
+>  >     netfilter: nf_tables: add reject module for NFPROTO_INET
+>  >     
+>  >     Add a reject module for NFPROTO_INET. It does nothing but dispatch
+>  >     to the AF-specific modules based on the hook family.
+>  >     
+>  >     Signed-off-by: Patrick McHardy <kaber@trash.net>
+>  >     Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+>  > ---
+> 
+> ....
+> 
+>  > +static void nft_reject_inet_eval(const struct nft_expr *expr,
+>  > +				 struct nft_data data[NFT_REG_MAX + 1],
+>  > +				 const struct nft_pktinfo *pkt)
+>  > +{
+>  > +	switch (pkt->ops->pf) {
+>  > +	case NFPROTO_IPV4:
+>  > +		nft_reject_ipv4_eval(expr, data, pkt);
+>  > +	case NFPROTO_IPV6:
+>  > +		nft_reject_ipv6_eval(expr, data, pkt);
+>  > +	}
+>  > +}
+> 
+> Is the fallthrough intentional here, or is there a missing break ?
 
-On 12-02-2014 12:10, Denis Kirjanov wrote:
-
-> Packets which have L2 address different from ours should be
-> already filtered before entering into ip_forward().
-
-> Perform that check at the beginning to avoid processing such packets.
-
-> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
-> ---
->   net/ipv4/ip_forward.c | 7 ++++---
->   1 file changed, 4 insertions(+), 3 deletions(-)
-
-> diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-> index e9f1217..1a07056 100644
-> --- a/net/ipv4/ip_forward.c
-> +++ b/net/ipv4/ip_forward.c
-> @@ -59,6 +59,10 @@ int ip_forward(struct sk_buff *skb)
->   	struct rtable *rt;	/* Route we use */
->   	struct ip_options *opt	= &(IPCB(skb)->opt);
->
-> +    /* that should never happen */
-> +    if (skb->pkt_type != PACKET_HOST)
-> +        goto drop;
-> +
-
-    Please indent the code with tabs, not spaces.
-
->   	if (skb_warn_if_lro(skb))
->   		goto drop;
->
-> @@ -68,9 +72,6 @@ int ip_forward(struct sk_buff *skb)
->   	if (IPCB(skb)->opt.router_alert && ip_call_ra_chain(skb))
->   		return NET_RX_SUCCESS;
->
-> -	if (skb->pkt_type != PACKET_HOST)
-> -		goto drop;
-> -
-
-    Like it was here.
-
-WBR, Sergei
+Crap. Thanks for catching this, I'll send a fix later.
