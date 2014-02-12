@@ -1,70 +1,100 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [Patch net] macvlan: add NETIF_F_NETNS_LOCAL flag
-Date: Wed, 12 Feb 2014 11:03:37 +0100
-Message-ID: <52FB46F9.5050304@6wind.com>
-References: <1392082593-7742-1-git-send-email-xiyou.wangcong@gmail.com>	 <20140211014535.GA11150@order.stressinduktion.org>	 <CAHA+R7N2rxt5vyF+i8mi04dJaLk5bCgMAZOCexOLULLcQ-mT6w@mail.gmail.com>	 <20140211024009.GD11150@order.stressinduktion.org>	 <1392092120.6615.64.camel@edumazet-glaptop2.roam.corp.google.com>	 <CAHA+R7MhHuOPaT5oAF_S-a3u1_2mt=Vqd5HCdi9r3JV-fK-6Pw@mail.gmail.com>	 <1392096087.6615.72.camel@edumazet-glaptop2.roam.corp.google.com>	 <1392097032.6615.73.camel@edumazet-glaptop2.roam.corp.google.com> <1392097099.6615.74.camel@edumazet-glaptop2.roam.corp.google.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH V2 5/6] vhost_net: poll vhost queue after marking DMA
+	is done
+Date: Wed, 12 Feb 2014 18:06:15 +0800
+Message-ID: <52FB4797.2020101@redhat.com>
+References: <1377836962-49780-1-git-send-email-jasowang@redhat.com>
+	<1377836962-49780-6-git-send-email-jasowang@redhat.com>
+	<52FB24EA.3060001@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f48.google.com ([74.125.83.48]:50395 "EHLO
-	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750916AbaBLKDk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 05:03:40 -0500
-Received: by mail-ee0-f48.google.com with SMTP id t10so4164129eei.35
-        for <netdev@vger.kernel.org>; Wed, 12 Feb 2014 02:03:39 -0800 (PST)
-In-Reply-To: <1392097099.6615.74.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, mst@redhat.com
+To: Qin Chuanyu <qinchuanyu@huawei.com>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <52FB24EA.3060001@huawei.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Le 11/02/2014 06:38, Eric Dumazet a =C3=A9crit :
-> On Mon, 2014-02-10 at 21:37 -0800, Eric Dumazet wrote:
->
+On 02/12/2014 03:38 PM, Qin Chuanyu wrote:
+> On 2013/8/30 12:29, Jason Wang wrote:
+>> We used to poll vhost queue before making DMA is done, this is racy
+>> if vhost
+>> thread were waked up before marking DMA is done which can result the
+>> signal to
+>> be missed. Fix this by always poll the vhost thread before DMA is done.
 >>
->> Simple patch would be :
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> ---
+>>   drivers/vhost/net.c |    9 +++++----
+>>   1 files changed, 5 insertions(+), 4 deletions(-)
 >>
->> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
->> index 048dc8d183aa..31bbba34fd1e 100644
->> --- a/net/core/rtnetlink.c
->> +++ b/net/core/rtnetlink.c
->> @@ -963,6 +963,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb,=
- struct net_device *dev,
->>   	    nla_put_u32(skb, IFLA_NUM_RX_QUEUES, dev->num_rx_queues) ||
->>   #endif
->>   	    (dev->ifindex !=3D dev->iflink &&
->> +	     __dev_get_by_index(dev_net(dev), dev->iflink) &&
->>   	     nla_put_u32(skb, IFLA_LINK, dev->iflink)) ||
->>   	    (upper_dev &&
->>   	     nla_put_u32(skb, IFLA_MASTER, upper_dev->ifindex)) ||
+>> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+>> index ff60c2a..d09c17c 100644
+>> --- a/drivers/vhost/net.c
+>> +++ b/drivers/vhost/net.c
+>> @@ -308,6 +308,11 @@ static void vhost_zerocopy_callback(struct
+>> ubuf_info *ubuf, bool success)
+>>       struct vhost_virtqueue *vq = ubufs->vq;
+>>       int cnt = atomic_read(&ubufs->kref.refcount);
 >>
+>> +    /* set len to mark this desc buffers done DMA */
+>> +    vq->heads[ubuf->desc].len = success ?
+>> +        VHOST_DMA_DONE_LEN : VHOST_DMA_FAILED_LEN;
+>> +    vhost_net_ubuf_put(ubufs);
+>> +
+>>       /*
+>>        * Trigger polling thread if guest stopped submitting new buffers:
+>>        * in this case, the refcount after decrement will eventually
+>> reach 1
+>> @@ -318,10 +323,6 @@ static void vhost_zerocopy_callback(struct
+>> ubuf_info *ubuf, bool success)
+>>        */
+>>       if (cnt <= 2 || !(cnt % 16))
+>>           vhost_poll_queue(&vq->poll);
+>> -    /* set len to mark this desc buffers done DMA */
+>> -    vq->heads[ubuf->desc].len = success ?
+>> -        VHOST_DMA_DONE_LEN : VHOST_DMA_FAILED_LEN;
+>> -    vhost_net_ubuf_put(ubufs);
+>>   }
+>>
+>>   /* Expects to be always run from workqueue - which acts as
+>>
+> with this change, vq would lose protection that provided by ubufs->kref.
+> if another thread is waiting at vhost_net_ubuf_put_and_wait called by
+> vhost_net_release, then after vhost_net_ubuf_put, vq would been free
+> by vhost_net_release soon, vhost_poll_queue(&vq->poll) may cause NULL
+> pointer Exception.
 >
-> Hmm, not enough.
->
-> We probably need to keep a pointer to iflink net structure.
-This is also used in ip tunnels, but when i/o device is not in the same=
- netns
-that the tunnel device, the userland can not interpret that IFLA_LINK a=
-ttribute
-(userland don't have necessary information to access another netns, may=
-be they
-will be able to do it in the future ;-)).
 
-The goal of your patch was to avoid filling this attribute when iflink =
-is
-into a netns !=3D from dev_net(dev)?
+Good catch.
+> another question is that vhost_zerocopy_callback is called by kfree_skb,
+> it may called in different thread context.
+> vhost_poll_queue is called decided by ubufs->kref.refcount, this may
+> cause there isn't any thread call  vhost_poll_queue, but at least one
+> is needed. and this cause network break.
+> We could repeat it by using 8 netperf thread in guest to xmit tcp to
+> its host.
+>
+> I think if using atomic_read to decide while do vhost_poll_queue or not,
+> at least a spink_lock is needed.
 
-If yes, I agree that we need to keep a pointer to the net structure of =
-iflink.
-This information is already available in ip tunnels (struct ip_tunnel->=
-net,
-struct ip6_tnl->net) but is not generic. Maybe we can move it to struct
-net_device?
+Then you need another ref count to protect that spinlock? Care to send
+patches?
+
+Thanks
+>
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
