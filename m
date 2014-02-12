@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 02/14] tipc: move code for
-	resetting links from bearer.c to link.c
-Date: Wed, 12 Feb 2014 13:31:02 -0500
-Message-ID: <1392229874-29675-3-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 06/14] tipc: change reception of
+	tunnelled duplicate packets
+Date: Wed, 12 Feb 2014 13:31:06 -0500
+Message-ID: <1392229874-29675-7-git-send-email-jon.maloy@ericsson.com>
 References: <1392229874-29675-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,86 +22,134 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-From: Ying Xue <ying.xue@windriver.com>
+When a second link to a destination comes up, some sender sockets will
+steer their subsequent traffic through the new link. In order to
+guarantee preserved packet order and cardinality for those sockets, we
+tunnel a duplicate of the old link's send queue through the new link
+before we open it for regular traffic. The last arriving packet copy,
+on whichever link, will be dropped at the receiving end based on the
+original sequence number, to ensure that only one copy is delivered to
+the end receiver.
 
-We break out the code for resetting attached links in the
-function tipc_reset_bearer(), and define a new function named
-tipc_link_reset_list() to do this job.
+In this commit, we change the algorithm for receiving DUPLICATE_MSG
+packets, at the same time delegating it to a new subfunction,
+tipc_link_dup_rcv(). Instead of returning an extracted inner packet to
+the packet reception loop in tipc_rcv(), we just add it to the receiving
+(new) link's deferred packet queue. The packet will then be processed by
+that link when it receives its first non-tunneled packet, i.e., at
+latest when the changeover procedure is finished.
 
-This commit incurs no functional changes, but makes the code
-of function tipc_reset_bearer() cleaner. It is also a preparation
-for a more important change to the bearer code, in a subsequent
-commit in this series.
+Because tipc_link_tunnel_rcv()/tipc_link_dup_rcv() now is consuming all
+packets of type DUPLICATE_MSG, the calling tipc_rcv() function can omit
+testing for this. This in turn means that the current conditional jump
+to the label 'protocol_check' becomes redundant, and we can remove that
+label.
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/bearer.c |   11 +----------
- net/tipc/link.c   |   12 ++++++++++++
- net/tipc/link.h   |    1 +
- 3 files changed, 14 insertions(+), 10 deletions(-)
+ net/tipc/link.c |   53 ++++++++++++++++++++++++++++++++---------------------
+ 1 file changed, 32 insertions(+), 21 deletions(-)
 
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index a38c899..a3bdf5c 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -350,19 +350,10 @@ exit:
-  */
- static int tipc_reset_bearer(struct tipc_bearer *b_ptr)
- {
--	struct tipc_link *l_ptr;
--	struct tipc_link *temp_l_ptr;
--
- 	read_lock_bh(&tipc_net_lock);
- 	pr_info("Resetting bearer <%s>\n", b_ptr->name);
- 	spin_lock_bh(&b_ptr->lock);
--	list_for_each_entry_safe(l_ptr, temp_l_ptr, &b_ptr->links, link_list) {
--		struct tipc_node *n_ptr = l_ptr->owner;
--
--		spin_lock_bh(&n_ptr->lock);
--		tipc_link_reset(l_ptr);
--		spin_unlock_bh(&n_ptr->lock);
--	}
-+	tipc_link_reset_list(b_ptr);
- 	spin_unlock_bh(&b_ptr->lock);
- 	read_unlock_bh(&tipc_net_lock);
- 	return 0;
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 17fbd15..3ff34e8 100644
+index 736b30c..80f9eb2 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -461,6 +461,18 @@ void tipc_link_reset(struct tipc_link *l_ptr)
- 	link_reset_statistics(l_ptr);
+@@ -1436,7 +1436,6 @@ void tipc_rcv(struct sk_buff *head, struct tipc_bearer *b_ptr)
+ 		u32 seq_no;
+ 		u32 ackd;
+ 		u32 released = 0;
+-		int type;
+ 
+ 		head = head->next;
+ 		buf->next = NULL;
+@@ -1524,7 +1523,6 @@ void tipc_rcv(struct sk_buff *head, struct tipc_bearer *b_ptr)
+ 		}
+ 
+ 		/* Now (finally!) process the incoming message */
+-protocol_check:
+ 		if (unlikely(!link_working_working(l_ptr))) {
+ 			if (msg_user(msg) == LINK_PROTOCOL) {
+ 				link_recv_proto_msg(l_ptr, buf);
+@@ -1598,15 +1596,11 @@ deliver:
+ 			tipc_node_unlock(n_ptr);
+ 			continue;
+ 		case CHANGEOVER_PROTOCOL:
+-			type = msg_type(msg);
+-			if (tipc_link_tunnel_rcv(&l_ptr, &buf)) {
+-				msg = buf_msg(buf);
+-				seq_no = msg_seqno(msg);
+-				if (type == ORIGINAL_MSG)
+-					goto deliver;
+-				goto protocol_check;
+-			}
+-			break;
++			if (!tipc_link_tunnel_rcv(&l_ptr, &buf))
++				break;
++			msg = buf_msg(buf);
++			seq_no = msg_seqno(msg);
++			goto deliver;
+ 		default:
+ 			kfree_skb(buf);
+ 			buf = NULL;
+@@ -2106,7 +2100,30 @@ static struct sk_buff *buf_extract(struct sk_buff *skb, u32 from_pos)
+ 	return eb;
  }
  
-+void tipc_link_reset_list(struct tipc_bearer *b_ptr)
+-/*  tipc_link_tunnel_rcv(): Receive a tunneled packet, sent
++
++
++/* tipc_link_dup_rcv(): Receive a tunnelled DUPLICATE_MSG packet.
++ * Owner node is locked.
++ */
++static void tipc_link_dup_rcv(struct tipc_link *l_ptr,
++			      struct sk_buff *t_buf)
 +{
-+	struct tipc_link *l_ptr;
++	struct sk_buff *buf;
 +
-+	list_for_each_entry(l_ptr, &b_ptr->links, link_list) {
-+		struct tipc_node *n_ptr = l_ptr->owner;
++	if (!tipc_link_is_up(l_ptr))
++		return;
 +
-+		spin_lock_bh(&n_ptr->lock);
-+		tipc_link_reset(l_ptr);
-+		spin_unlock_bh(&n_ptr->lock);
++	buf = buf_extract(t_buf, INT_H_SIZE);
++	if (buf == NULL) {
++		pr_warn("%sfailed to extract inner dup pkt\n", link_co_err);
++		return;
 +	}
++
++	/* Add buffer to deferred queue, if applicable: */
++	link_handle_out_of_seq_msg(l_ptr, buf);
 +}
++
++/*  tipc_link_tunnel_rcv(): Receive a tunnelled packet, sent
+  *  via other link as result of a failover (ORIGINAL_MSG) or
+  *  a new active link (DUPLICATE_MSG). Failover packets are
+  *  returned to the active link for delivery upwards.
+@@ -2125,6 +2142,7 @@ static int tipc_link_tunnel_rcv(struct tipc_link **l_ptr,
  
- static void link_activate(struct tipc_link *l_ptr)
- {
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 8addc5e..73beecb 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -231,6 +231,7 @@ struct sk_buff *tipc_link_cmd_show_stats(const void *req_tlv_area,
- struct sk_buff *tipc_link_cmd_reset_stats(const void *req_tlv_area,
- 					  int req_tlv_space);
- void tipc_link_reset(struct tipc_link *l_ptr);
-+void tipc_link_reset_list(struct tipc_bearer *b_ptr);
- int tipc_link_send(struct sk_buff *buf, u32 dest, u32 selector);
- void tipc_link_send_names(struct list_head *message_list, u32 dest);
- int tipc_link_send_buf(struct tipc_link *l_ptr, struct sk_buff *buf);
+ 	if (bearer_id >= MAX_BEARERS)
+ 		goto exit;
++
+ 	dest_link = (*l_ptr)->owner->links[bearer_id];
+ 	if (!dest_link)
+ 		goto exit;
+@@ -2137,15 +2155,8 @@ static int tipc_link_tunnel_rcv(struct tipc_link **l_ptr,
+ 	msg = msg_get_wrapped(tunnel_msg);
+ 
+ 	if (msg_typ == DUPLICATE_MSG) {
+-		if (less(msg_seqno(msg), mod(dest_link->next_in_no)))
+-			goto exit;
+-		*buf = buf_extract(tunnel_buf, INT_H_SIZE);
+-		if (*buf == NULL) {
+-			pr_warn("%sduplicate msg dropped\n", link_co_err);
+-			goto exit;
+-		}
+-		kfree_skb(tunnel_buf);
+-		return 1;
++		tipc_link_dup_rcv(dest_link, tunnel_buf);
++		goto exit;
+ 	}
+ 
+ 	/* First original message ?: */
 -- 
 1.7.9.5
 
