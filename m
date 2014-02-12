@@ -1,35 +1,116 @@
 From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH net-next 0/4] sch_netem: some improvements and cleanups.
-Date: Wed, 12 Feb 2014 10:58:11 +0800
-Message-ID: <1392173895-5012-1-git-send-email-yangyingliang@huawei.com>
+Subject: [PATCH net-next 2/4] sch_netem: change some func's param from "struct Qdisc *" to "struct netem_sched_data *"
+Date: Wed, 12 Feb 2014 10:58:13 +0800
+Message-ID: <1392173895-5012-3-git-send-email-yangyingliang@huawei.com>
+References: <1392173895-5012-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <stephen@networkplumber.org>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:60432 "EHLO
+Received: from szxga01-in.huawei.com ([119.145.14.64]:60648 "EHLO
 	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752823AbaBLC6h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 21:58:37 -0500
+	with ESMTP id S1753331AbaBLC66 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Feb 2014 21:58:58 -0500
+In-Reply-To: <1392173895-5012-1-git-send-email-yangyingliang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- patch 1/4: To avoid breaking old settings when we change failed,
-	    do return errcode before doing setup.
- pacth 2/4: Replace some functions' parameters, these functions
-	    only need struct netem_sched_data *q.
- patch 3/4: Replace magic numbers with enumerate for better readability.
- patch 4/4: Replace spin_(un)lock_bh with sch_tree_(un)lock.
+In netem_change(), we have already get "struct netem_sched_data *q".
+Replace params of get_correlation() and other similar functions with
+"struct netem_sched_data *q".
 
-Yang Yingliang (4):
-  sch_netem: return errcode before setting params
-  sch_netem: change some func's param from "struct Qdisc *" to "struct
-    netem_sched_data *"
-  sch_netem: replace magic numbers with enumerate in GE model
-  sch_netem: replace spin_(un)lock_bh with sch_tree_(un)lock
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+---
+ net/sched/sch_netem.c | 25 ++++++++++---------------
+ 1 file changed, 10 insertions(+), 15 deletions(-)
 
- net/sched/sch_netem.c | 82 ++++++++++++++++++++++++++++++---------------------
- 1 file changed, 49 insertions(+), 33 deletions(-)
-
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index b341943..4a5eb28 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -689,9 +689,8 @@ static int get_dist_table(struct Qdisc *sch, const struct nlattr *attr)
+ 	return 0;
+ }
+ 
+-static void get_correlation(struct Qdisc *sch, const struct nlattr *attr)
++static void get_correlation(struct netem_sched_data *q, const struct nlattr *attr)
+ {
+-	struct netem_sched_data *q = qdisc_priv(sch);
+ 	const struct tc_netem_corr *c = nla_data(attr);
+ 
+ 	init_crandom(&q->delay_cor, c->delay_corr);
+@@ -699,27 +698,24 @@ static void get_correlation(struct Qdisc *sch, const struct nlattr *attr)
+ 	init_crandom(&q->dup_cor, c->dup_corr);
+ }
+ 
+-static void get_reorder(struct Qdisc *sch, const struct nlattr *attr)
++static void get_reorder(struct netem_sched_data *q, const struct nlattr *attr)
+ {
+-	struct netem_sched_data *q = qdisc_priv(sch);
+ 	const struct tc_netem_reorder *r = nla_data(attr);
+ 
+ 	q->reorder = r->probability;
+ 	init_crandom(&q->reorder_cor, r->correlation);
+ }
+ 
+-static void get_corrupt(struct Qdisc *sch, const struct nlattr *attr)
++static void get_corrupt(struct netem_sched_data *q, const struct nlattr *attr)
+ {
+-	struct netem_sched_data *q = qdisc_priv(sch);
+ 	const struct tc_netem_corrupt *r = nla_data(attr);
+ 
+ 	q->corrupt = r->probability;
+ 	init_crandom(&q->corrupt_cor, r->correlation);
+ }
+ 
+-static void get_rate(struct Qdisc *sch, const struct nlattr *attr)
++static void get_rate(struct netem_sched_data *q, const struct nlattr *attr)
+ {
+-	struct netem_sched_data *q = qdisc_priv(sch);
+ 	const struct tc_netem_rate *r = nla_data(attr);
+ 
+ 	q->rate = r->rate;
+@@ -732,9 +728,8 @@ static void get_rate(struct Qdisc *sch, const struct nlattr *attr)
+ 		q->cell_size_reciprocal = (struct reciprocal_value) { 0 };
+ }
+ 
+-static int get_loss_clg(struct Qdisc *sch, const struct nlattr *attr)
++static int get_loss_clg(struct netem_sched_data *q, const struct nlattr *attr)
+ {
+-	struct netem_sched_data *q = qdisc_priv(sch);
+ 	const struct nlattr *la;
+ 	int rem;
+ 
+@@ -838,7 +833,7 @@ static int netem_change(struct Qdisc *sch, struct nlattr *opt)
+ 	old_loss_model = q->loss_model;
+ 
+ 	if (tb[TCA_NETEM_LOSS]) {
+-		ret = get_loss_clg(sch, tb[TCA_NETEM_LOSS]);
++		ret = get_loss_clg(q, tb[TCA_NETEM_LOSS]);
+ 		if (ret) {
+ 			q->loss_model = old_loss_model;
+ 			return ret;
+@@ -877,16 +872,16 @@ static int netem_change(struct Qdisc *sch, struct nlattr *opt)
+ 		q->reorder = ~0;
+ 
+ 	if (tb[TCA_NETEM_CORR])
+-		get_correlation(sch, tb[TCA_NETEM_CORR]);
++		get_correlation(q, tb[TCA_NETEM_CORR]);
+ 
+ 	if (tb[TCA_NETEM_REORDER])
+-		get_reorder(sch, tb[TCA_NETEM_REORDER]);
++		get_reorder(q, tb[TCA_NETEM_REORDER]);
+ 
+ 	if (tb[TCA_NETEM_CORRUPT])
+-		get_corrupt(sch, tb[TCA_NETEM_CORRUPT]);
++		get_corrupt(q, tb[TCA_NETEM_CORRUPT]);
+ 
+ 	if (tb[TCA_NETEM_RATE])
+-		get_rate(sch, tb[TCA_NETEM_RATE]);
++		get_rate(q, tb[TCA_NETEM_RATE]);
+ 
+ 	if (tb[TCA_NETEM_RATE64])
+ 		q->rate = max_t(u64, q->rate,
 -- 
 1.8.0
