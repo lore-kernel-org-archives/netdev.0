@@ -1,62 +1,66 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net-next 04/14] ethtool: Expand documentation of struct
- ethtool_regs
-Date: Wed, 12 Feb 2014 22:14:13 +0000
-Message-ID: <1392243253.15615.8.camel@deadeye.wl.decadent.org.uk>
+Subject: [PATCH net-next 05/14] ethtool: Expand documentation of struct
+ ethtool_eeprom
+Date: Wed, 12 Feb 2014 22:14:17 +0000
+Message-ID: <1392243257.15615.9.camel@deadeye.wl.decadent.org.uk>
 References: <1392243184.15615.4.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-5OhdzbrYZIo6kAbQCjug"
+	protocol="application/pgp-signature"; boundary="=-SoYsFFYAnEVWS2NH3Y6P"
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:52782 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:52785 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754333AbaBLWOU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 17:14:20 -0500
+	by vger.kernel.org with ESMTP id S1754333AbaBLWOY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 17:14:24 -0500
 In-Reply-To: <1392243184.15615.4.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-5OhdzbrYZIo6kAbQCjug
+--=-SoYsFFYAnEVWS2NH3Y6P
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
- include/uapi/linux/ethtool.h | 20 +++++++++++++++++---
- 1 file changed, 17 insertions(+), 3 deletions(-)
+ include/uapi/linux/ethtool.h | 23 ++++++++++++++++++++---
+ 1 file changed, 20 insertions(+), 3 deletions(-)
 
 diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index 15a42de..441bd31 100644
+index 441bd31..d5a0d20 100644
 --- a/include/uapi/linux/ethtool.h
 +++ b/include/uapi/linux/ethtool.h
-@@ -209,11 +209,25 @@ struct ethtool_value {
- 	__u32	data;
+@@ -231,12 +231,29 @@ struct ethtool_regs {
+ 	__u8	data[0];
  };
 =20
--/* for passing big chunks of data */
+-/* for passing EEPROM chunks */
 +/**
-+ * struct ethtool_regs - hardware register dump
-+ * @cmd: Command number =3D %ETHTOOL_GREGS
-+ * @version: Dump format version.  This is driver-specific and may
-+ *	distinguish different chips/revisions.  Drivers must use new
-+ *	version numbers whenever the dump format changes in an
-+ *	incompatible way.
-+ * @len: On entry, the real length of @data.  On return, the number of
-+ *	bytes used.
-+ * @data: Buffer for the register dump
++ * struct ethtool_eeprom - EEPROM dump
++ * @cmd: Command number =3D %ETHTOOL_GEEPROM, %ETHTOOL_GMODULEEEPROM or
++ *	%ETHTOOL_SEEPROM
++ * @magic: A 'magic cookie' value to guard against accidental changes.
++ *	The value passed in to %ETHTOOL_SEEPROM must match the value
++ *	returned by %ETHTOOL_GEEPROM for the same device.  This is
++ *	unused when @cmd is %ETHTOOL_GMODULEEEPROM.
++ * @offset: Offset within the EEPROM to begin reading/writing, in bytes
++ * @len: On entry, number of bytes to read/write.  On successful
++ *	return, number of bytes actually read/written.  In case of
++ *	error, this may indicate at what point the error occurred.
++ * @data: Buffer to read/write from
 + *
-+ * Users should use %ETHTOOL_GDRVINFO to find the maximum length of
-+ * a register dump for the interface.  They must allocate the buffer
-+ * immediately following this structure.
++ * Users may use %ETHTOOL_GDRVINFO or %ETHTOOL_GMODULEINFO to find
++ * the length of an on-board or module EEPROM, respectively.  They
++ * must allocate the buffer immediately following this structure.
 + */
- struct ethtool_regs {
+ struct ethtool_eeprom {
  	__u32	cmd;
--	__u32	version; /* driver-specific, indicates different chips/revs */
--	__u32	len; /* bytes */
-+	__u32	version;
+ 	__u32	magic;
+-	__u32	offset; /* in bytes */
+-	__u32	len; /* in bytes */
++	__u32	offset;
 +	__u32	len;
  	__u8	data[0];
  };
@@ -67,26 +71,26 @@ index 15a42de..441bd31 100644
 Ben Hutchings
 If more than one person is responsible for a bug, no one is at fault.
 
---=-5OhdzbrYZIo6kAbQCjug
+--=-SoYsFFYAnEVWS2NH3Y6P
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIVAwUAUvvyNee/yOyVhhEJAQp1Qg/8CoFTLp0rul0Te/HeOHchxBk8JCfCYfVm
-yepJl/4DaK/uPGhe8ZMM9KBliRpE1lzcE4j7KaSc6R7T86A0Z7EXWlVsO3NiXzSk
-o6KP5+ee+rVZ/SF+4jzlq4G2yGdtqSAE5ciUMKJ3DBmsNw1pzsk5cgkSSfjcV6Ni
-sQ03K9u5y03YsSsa78xHnErrGmFB0HJG7uLR6CB0QOAE4WNcp2VQfUEwNyQs41iI
-8lTqxL/Rq/N3ehpEaeLdWNVPW8hjsL/cyhei6XQMeINPF8XPJP9fXGAjUJIGyCYs
-I/iSilSEfwH2LBxgC0XwsLL10RbfbBvJhqwNUty6EICd7HSZY59m2QclgBwolFiI
-YDnuTzccup9psD5B13adZnJwo9BfxVAQR+XAxxrwLr1s5Jg83y/TSr6TlsEwfIru
-YhDgduTX4kcReg5fmro0DMs9Q8E0j5aIOPOsF/y7pV/7FmvNdveVENfFdq4P7cnk
-fqLKkJP0hSSslGlAkFohd3p/JFTB0oIRy/V7PhybnNhaJfz0s6wUvQYXAXcuH6ig
-lj0ooETdzGA0k+q0IIpuA41DaTNDQVc5BPaz4iXrmTMeC6zSzPchAbyHvu1bm//D
-4V+XKoYCCqyZ9zKFaVgbxzUlQRWacA4SwmOtE4dHAXK3Rh+XfDZU0IUDNC0UxHP2
-h+gsiAtLTiM=
-=iStP
+iQIVAwUAUvvyOee/yOyVhhEJAQqZKw//Z6vjzwd7GFfcP6RBN5CC0qgew77z/D88
+U6tTqEeLKwcaIVlQBJu4FpUSLDrCL3WzQSnWQl4sGdHBTqX1MxJuX/yZMZfHe3h6
+6j2+X1On01Z4AsS7BXLhtAm41AbEjuQZnmvO3YCo2ueV1Inh/h9FO+dVgfJJCr7V
+F/w0ES9pO62Cm9BQ3HFfeZqG5jXJvTtvj0Q5c8yhRILnyV3pcOlJP2PIs+Xf6bwX
+j9jQT69LeFXglY7LH+YokYHgd87gVLEh2qE+Yay8QPBg4ZZkrqDAaBsl17AXiZnc
+k70UGcsZmbKIKWPNd5rcGCZ903kvtxjFjhbf0SAnRV7HFcTxzwAqUR7YlRMCdRuc
+PWJfxmcC97gpiue5/YEmaFGWHHERBduaZkvVdUKhSYLzcGZGKUMKu7x5Qlddl27Z
+GzXSJqHMNMh72Os/OdehJRGraGP82h3N7FQuutsNt2OytzDqNYYievoMERKfZFxI
+7JWow5opVkiargnMlc5aRnXdTHrSQLmF92oVL65pSiZha1zHI+yBEh5r7ehxZsPC
+X8+24PoBGq8wmKHe+Iar1Z4N/lCq5qEGxZ2/b+WWwZipLTTBH/kA3+KxVF+sD6ze
+T2twDIRBVVMvWPJpPiDyzRyVjPzg2f0fmCQxErUsV+bu+S12kP7qocsyDjdiAOux
+9sPDqjg3T1M=
+=UDG4
 -----END PGP SIGNATURE-----
 
---=-5OhdzbrYZIo6kAbQCjug--
+--=-SoYsFFYAnEVWS2NH3Y6P--
