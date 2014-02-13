@@ -1,38 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 01/10] net: phy: use network device in phy_print_status
-Date: Wed, 12 Feb 2014 19:13:13 -0500 (EST)
-Message-ID: <20140212.191313.1073971139703427607.davem@davemloft.net>
-References: <1392168462-18888-1-git-send-email-f.fainelli@gmail.com>
-	<1392168462-18888-2-git-send-email-f.fainelli@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next v2] IPv6: enable bind() to assign an anycast address
+Date: Thu, 13 Feb 2014 01:16:24 +0100
+Message-ID: <20140213001624.GJ11150@order.stressinduktion.org>
+References: <1392212332-10463-1-git-send-email-fx.lebail@yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: f.fainelli@gmail.com
+Content-Type: text/plain; charset=utf-8
+Cc: NETDEV <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	christoph.paasch@uclouvain.be, eric.dumazet@gmail.com
+To: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34333 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750767AbaBMANO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 19:13:14 -0500
-In-Reply-To: <1392168462-18888-2-git-send-email-f.fainelli@gmail.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:50761 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751076AbaBMAQZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 19:16:25 -0500
+Content-Disposition: inline
+In-Reply-To: <1392212332-10463-1-git-send-email-fx.lebail@yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi!
 
-Series applied, but this patch series had several problems which I want you
-absolutely to correct in future submissions.
+[added Cc list from old thread]
 
-First of all, when you submit more than one patch at a time, you must
-provide a leading "PATCH 00/NN" posting which gives a top-level,
-detailed, description of the overall nature of the changes you are
-submitting.
+On Wed, Feb 12, 2014 at 02:38:51PM +0100, Francois-Xavier Le Bail wrote:
+> - Use ipv6_chk_acast_addr_src() in inet6_bind().
+> 
+> Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
 
-It also gives me a single, specific, posting to reply to when I reply
-the whole series.  Otherwise I have only two options, 1) pick an
-arbitrary patch to reply to (which I am doing right now) or 2) reply
-to every single patch (which is a serious waste of everyone's time).
+I would agree with the change but would like to see some people from the old
+thread about this change to agree with it, too.
 
-Furthermore, some of your patches added empty lines to the end of files.
-I corrected this by hand, but please avoid this in the future.
+> ---
+> v2: ipv6_chk_acast_addr_src() was previously added.
+> 
+>  net/ipv6/af_inet6.c |    4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+> index c921d5d..68b81e9 100644
+> --- a/net/ipv6/af_inet6.c
+> +++ b/net/ipv6/af_inet6.c
+> @@ -347,7 +347,9 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+>  			if (!(addr_type & IPV6_ADDR_MULTICAST))	{
+>  				if (!(inet->freebind || inet->transparent) &&
+>  				    !ipv6_chk_addr(net, &addr->sin6_addr,
+> -						   dev, 0)) {
+> +						   dev, 0) &&
+> +				    !ipv6_chk_acast_addr_src(net, dev,
+> +							     &addr->sin6_addr)) {
+>  					err = -EADDRNOTAVAIL;
+>  					goto out_unlock;
+>  				}
 
-Thank you.
+Thanks,
+
+  Hannes
