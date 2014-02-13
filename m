@@ -1,80 +1,168 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: [PATCH net] net: sched: Cleanup PIE comments
-Date: Wed, 12 Feb 2014 18:58:21 -0800
-Message-ID: <1392260301-8340-1-git-send-email-subramanian.vijay@gmail.com>
-Cc: davem@davemloft.net,
-	Vijay Subramanian <subramanian.vijay@gmail.com>,
-	Mythili Prabhu <mysuryan@cisco.com>,
-	Norbert Kiesel <nkiesel@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f43.google.com ([209.85.160.43]:65190 "EHLO
-	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753197AbaBMDDV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 22:03:21 -0500
-Received: by mail-pb0-f43.google.com with SMTP id md12so10131422pbc.16
-        for <netdev@vger.kernel.org>; Wed, 12 Feb 2014 19:03:20 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net,v3] hyperv: Fix the carrier status setting
+Date: Thu, 13 Feb 2014 11:51:35 +0800
+Message-ID: <52FC4147.7060803@redhat.com>
+References: <1392252867-21146-1-git-send-email-haiyangz@microsoft.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: driverdev-devel@linuxdriverproject.org, olaf@aepfle.de,
+ linux-kernel@vger.kernel.org
+To: Haiyang Zhang <haiyangz@microsoft.com>, davem@davemloft.net,
+ netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1392252867-21146-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-From: Vijay Subramanian <vijaynsu@cisco.com>
+On 02/13/2014 08:54 AM, Haiyang Zhang wrote:
+> Without this patch, the "cat /sys/class/net/ethN/operstate" shows
+> "unknown", and "ethtool ethN" shows "Link detected: yes", when VM
+> boots up with or without vNIC connected.
+>
+> This patch fixed the problem.
+>
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> ---
+>  drivers/net/hyperv/netvsc_drv.c |   53 ++++++++++++++++++++++++++++-----------
+>  1 files changed, 38 insertions(+), 15 deletions(-)
+>
+> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+> index 7756118..7141a19 100644
+> --- a/drivers/net/hyperv/netvsc_drv.c
+> +++ b/drivers/net/hyperv/netvsc_drv.c
+> @@ -88,8 +88,12 @@ static int netvsc_open(struct net_device *net)
+>  {
+>  	struct net_device_context *net_device_ctx = netdev_priv(net);
+>  	struct hv_device *device_obj = net_device_ctx->device_ctx;
+> +	struct netvsc_device *nvdev;
+> +	struct rndis_device *rdev;
+>  	int ret = 0;
+>  
+> +	netif_carrier_off(net);
+> +
+>  	/* Open up the device */
+>  	ret = rndis_filter_open(device_obj);
+>  	if (ret != 0) {
+> @@ -99,6 +103,11 @@ static int netvsc_open(struct net_device *net)
+>  
+>  	netif_start_queue(net);
+>  
+> +	nvdev = hv_get_drvdata(device_obj);
+> +	rdev = nvdev->extension;
+> +	if (!rdev->link_state)
+> +		netif_carrier_on(net);
+> +
 
-Fix incorrect comment reported by Norbert Kiesel. Edit another comment to add
-more details. Also add references to algorithm (IETF draft and paper) to top of
-file.
+Maybe you can just schedule the work here and then you can drop the
+rtnl_lock in netvsc_link_change() ?
+>  	return ret;
+>  }
+>  
+> @@ -229,23 +238,24 @@ void netvsc_linkstatus_callback(struct hv_device *device_obj,
+>  	struct net_device *net;
+>  	struct net_device_context *ndev_ctx;
+>  	struct netvsc_device *net_device;
+> +	struct rndis_device *rdev;
+>  
+>  	net_device = hv_get_drvdata(device_obj);
+> +	rdev = net_device->extension;
+> +
+> +	rdev->link_state = status != 1;
+> +
+>  	net = net_device->ndev;
+>  
+> -	if (!net) {
+> -		netdev_err(net, "got link status but net device "
+> -				"not initialized yet\n");
+> +	if (!net || net->reg_state != NETREG_REGISTERED)
+>  		return;
+> -	}
+>  
+> +	ndev_ctx = netdev_priv(net);
+>  	if (status == 1) {
+> -		netif_carrier_on(net);
+> -		ndev_ctx = netdev_priv(net);
+>  		schedule_delayed_work(&ndev_ctx->dwork, 0);
+>  		schedule_delayed_work(&ndev_ctx->dwork, msecs_to_jiffies(20));
+>  	} else {
+> -		netif_carrier_off(net);
+> +		schedule_delayed_work(&ndev_ctx->dwork, 0);
+>  	}
+>  }
+>  
+> @@ -388,17 +398,35 @@ static const struct net_device_ops device_ops = {
+>   * current context when receiving RNDIS_STATUS_MEDIA_CONNECT event. So, add
+>   * another netif_notify_peers() into a delayed work, otherwise GARP packet
+>   * will not be sent after quick migration, and cause network disconnection.
+> + * Also, we update the carrier status here.
+>   */
+> -static void netvsc_send_garp(struct work_struct *w)
+> +static void netvsc_link_change(struct work_struct *w)
+>  {
+>  	struct net_device_context *ndev_ctx;
+>  	struct net_device *net;
+>  	struct netvsc_device *net_device;
+> +	struct rndis_device *rdev;
+> +	bool notify;
+> +
+> +	rtnl_lock();
+>  
+>  	ndev_ctx = container_of(w, struct net_device_context, dwork.work);
+>  	net_device = hv_get_drvdata(ndev_ctx->device_ctx);
+> +	rdev = net_device->extension;
+>  	net = net_device->ndev;
+> -	netdev_notify_peers(net);
+> +
+> +	if (rdev->link_state) {
+> +		netif_carrier_off(net);
+> +		notify = false;
+> +	} else {
+> +		netif_carrier_on(net);
+> +		notify = true;
+> +	}
+> +
+> +	rtnl_unlock();
+> +
+> +	if (notify)
+> +		netdev_notify_peers(net);
+>  }
+>  
 
-Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
-CC: Mythili Prabhu <mysuryan@cisco.com>
-CC: Norbert Kiesel <nkiesel@gmail.com>
----
- net/sched/sch_pie.c |   21 ++++++++++++++++-----
- 1 file changed, 16 insertions(+), 5 deletions(-)
+Looks like this forces arp_notify here. Is it expected?
 
-diff --git a/net/sched/sch_pie.c b/net/sched/sch_pie.c
-index a255d02..fefeeb7 100644
---- a/net/sched/sch_pie.c
-+++ b/net/sched/sch_pie.c
-@@ -15,6 +15,11 @@
-  *
-  * ECN support is added by Naeem Khademi <naeemk@ifi.uio.no>
-  * University of Oslo, Norway.
-+ *
-+ * References:
-+ * IETF draft submission: http://tools.ietf.org/html/draft-pan-aqm-pie-00
-+ * IEEE  Conference on High Performance Switching and Routing 2013 :
-+ * "PIE: A * Lightweight Control Scheme to Address the Bufferbloat Problem"
-  */
- 
- #include <linux/module.h>
-@@ -36,7 +41,7 @@ struct pie_params {
- 	psched_time_t target;	/* user specified target delay in pschedtime */
- 	u32 tupdate;		/* timer frequency (in jiffies) */
- 	u32 limit;		/* number of packets that can be enqueued */
--	u32 alpha;		/* alpha and beta are between -4 and 4 */
-+	u32 alpha;		/* alpha and beta are between 0 and 32 */
- 	u32 beta;		/* and are used for shift relative to 1 */
- 	bool ecn;		/* true if ecn is enabled */
- 	bool bytemode;		/* to scale drop early prob based on pkt size */
-@@ -326,10 +331,16 @@ static void calculate_probability(struct Qdisc *sch)
- 	if (qdelay == 0 && qlen != 0)
- 		update_prob = false;
- 
--	/* Add ranges for alpha and beta, more aggressive for high dropping
--	 * mode and gentle steps for light dropping mode
--	 * In light dropping mode, take gentle steps; in medium dropping mode,
--	 * take medium steps; in high dropping mode, take big steps.
-+	/* In the algorithm, alpha and beta are between 0 and 2 with typical
-+	 * value for alpha as 0.125. In this implementation, we use values 0-32
-+	 * passed from user space to represent this. Also, alpha and beta have
-+	 * unit of HZ and need to be scaled before they can used to update
-+	 * probability. alpha/beta are updated locally below by 1) scaling them
-+	 * appropriately 2) scaling down by 16 to come to 0-2 range.
-+	 * Please see paper for details.
-+	 *
-+	 * We scale alpha and beta differently depending on whether we are in
-+	 * light, medium or high dropping mode.
- 	 */
- 	if (q->vars.prob < MAX_PROB / 100) {
- 		alpha =
--- 
-1.7.9.5
+Other looks good.
+>  
+> @@ -414,13 +442,10 @@ static int netvsc_probe(struct hv_device *dev,
+>  	if (!net)
+>  		return -ENOMEM;
+>  
+> -	/* Set initial state */
+> -	netif_carrier_off(net);
+> -
+>  	net_device_ctx = netdev_priv(net);
+>  	net_device_ctx->device_ctx = dev;
+>  	hv_set_drvdata(dev, net);
+> -	INIT_DELAYED_WORK(&net_device_ctx->dwork, netvsc_send_garp);
+> +	INIT_DELAYED_WORK(&net_device_ctx->dwork, netvsc_link_change);
+>  	INIT_WORK(&net_device_ctx->work, do_set_multicast);
+>  
+>  	net->netdev_ops = &device_ops;
+> @@ -443,8 +468,6 @@ static int netvsc_probe(struct hv_device *dev,
+>  	}
+>  	memcpy(net->dev_addr, device_info.mac_adr, ETH_ALEN);
+>  
+> -	netif_carrier_on(net);
+> -
+>  	ret = register_netdev(net);
+>  	if (ret != 0) {
+>  		pr_err("Unable to register netdev.\n");
