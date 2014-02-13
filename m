@@ -1,25 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can 2014-02-12
-Date: Thu, 13 Feb 2014 18:17:56 -0500 (EST)
-Message-ID: <20140213.181756.1724218328769353398.davem@davemloft.net>
-References: <1392201340-6909-1-git-send-email-mkl@pengutronix.de>
+Subject: Re: [PATCH net-next] be2net patches
+Date: Thu, 13 Feb 2014 18:19:33 -0500 (EST)
+Message-ID: <20140213.181933.583780347563248418.davem@davemloft.net>
+References: <ba23fbc6-39a0-4925-890a-6059ab5186a8@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1392201340-6909-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: somnath.kotur@emulex.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51270 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751031AbaBMXTf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 18:19:35 -0500
+In-Reply-To: <ba23fbc6-39a0-4925-890a-6059ab5186a8@CMEXHTCAS2.ad.emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Wed, 12 Feb 2014 11:35:39 +0100
+From: Somnath Kotur <somnath.kotur@emulex.com>
+Date: Wed, 12 Feb 2014 16:07:22 +0530
 
-> this is a pull request with one patch for net/master, for the current release
-> cycle. Olivier Sobrie noticed and fixed that the kvaser_usb driver doesn't
-> check the number of channels value from the hardware, which may result in
-> writing over the bounds of an array in the driver.
+> Please apply.
+> 
+> Somnath Kotur (1):
+>   be2net: This patch logs a kernel message when a HW
+>     error(SLIPORT_ERROR in Lancer and UE in BEx/Skyhawk)
+> 
+> Vasundhara Volam (2):
+>   be2net: Update copyright year
+>   be2net: refactor multi-channel config code for Skyhawk-R chip
 
-Pulled, thank you.
+Series applied to net-next, thanks.
