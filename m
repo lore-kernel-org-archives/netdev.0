@@ -1,54 +1,71 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [RFC PATCH v2 tip 0/7] 64-bit BPF insn set and tracing filters
-Date: Thu, 13 Feb 2014 14:32:25 -0800
-Message-ID: <52FD47F9.2090907@zytor.com>
-References: <1391649046-4383-1-git-send-email-ast@plumgrid.com>	<52F3670D.5090608@redhat.com> <CAMEtUuza3NuM7L0RnVVgU-MTfjE2M==8wb4UY2TAo0Pg6DKZqA@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v3 0/3] dp83640: Get pin and master/slave configuration
+ from DT
+Date: Thu, 13 Feb 2014 17:39:57 -0500 (EST)
+Message-ID: <20140213.173957.2126489785330496380.davem@davemloft.net>
+References: <1392302129-24947-1-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	Tom Zanussi <tom.zanussi@linux.intel.com>,
-	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Pekka Enberg <penberg@iki.fi>,
-	Arjan van de Ven <arjan@infradead.org>,
-	Christoph Hellwig <hch@infradead.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from terminus.zytor.com ([198.137.202.10]:45115 "EHLO mail.zytor.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751795AbaBMWd3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Feb 2014 17:33:29 -0500
-In-Reply-To: <CAMEtUuza3NuM7L0RnVVgU-MTfjE2M==8wb4UY2TAo0Pg6DKZqA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
+	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: stefan.sorensen-usnHOLptxrsHrNJx0XZkJA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1392302129-24947-1-git-send-email-stefan.sorensen-usnHOLptxrsHrNJx0XZkJA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 02/06/2014 05:20 PM, Alexei Starovoitov wrote:
-> 
-> I believe that old BPF outlived itself and BPF64 should
-> replace it in all current use cases plus a lot more.
-> It just cannot happen at once.
-> BPF64 can come in. bpf32->bpf64 converter functioning.
-> JIT from bpf64->aarch64 and may be sparc64 needs to be in place.
-> Then old bpf can fade away.
-> 
+=46rom: Stefan S=F8rensen <stefan.sorensen-usnHOLptxrsHrNJx0XZkJA@public.gmane.org>
+Date: Thu, 13 Feb 2014 15:35:22 +0100
 
-I don't think that is doable any time soon.  Right now pretty much all
-mobile devices, for example, are 32 bits and they really want to use
-syscall filtering for security.  Performance matters greatly there.
+> This patch series add DT configuration to the DP83640 PHY driver and =
+makes
+> the configuration of periodic output pins dynamic.
+>=20
+> Changes since v2:
+>  - Add patch to properly configure perout triggers 0+1
+>  - Keep extts and perout numbers separate
+>  - Shorten pr_err lines
+>=20
+> Changes since v1:
+>  - Add bindings documentation
+>  - Keep module parameters
+>  - Rename gpio->pin
+>  - Split patch into DT part and dynamic periodic output support
+>=20
+> Stefan S=F8rensen (3):
+>   net:phy:dp83640: Program pulsewidth2 values of perout triggers 0 an=
+d 1
+>   net:phy:dp83640: Support a configurable number of periodic outputs
+>   net:phy:dp83640: Get pin and master/slave configuration from DT
 
-As such, 32-bit JIT support is going to be very important for a long
-time to come.
+I'm not applying this.
 
-	-hpa
+This is a great example of why I hate module parameters.
+
+Whoever added these module parameters in the first place took the easy
+road and didn't have to think about whether this was a good way or not
+to specify these parameters.  Do you really think we can, like magic,
+just remove this module parameter without having to think about the
+consequences of that action at all?
+
+The entities currently specifying this parameter, do they just lose?
+
+Sorry, that's unacceptable.
+
+You'll have to code this in a way such that people who currently specif=
+y
+this parameter keep working.
+
+If you don't like it, be angry at whoever added this module parameter
+in the first place, not me.  Module parameters are 99 times out of 100
+not the right way to configure something, really.
+
+Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
