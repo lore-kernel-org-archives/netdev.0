@@ -1,42 +1,55 @@
-From: Michal Simek <michal.simek@xilinx.com>
-Subject: Re: [PATCH 0/14] Xilinx axi ethernet patches
-Date: Thu, 13 Feb 2014 08:00:10 +0100
-Message-ID: <3744167b-7f37-4a86-8569-2a17bd5d3845@CH1EHSMHS035.ehs.local>
-References: <cover.1392220536.git.michal.simek@xilinx.com> <20140212.191846.1464564509609498703.davem@davemloft.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] sections, ipvs: Remove useless __read_mostly for ipvs
+ genl_ops
+Date: Thu, 13 Feb 2014 16:05:38 +0900
+Message-ID: <20140213070538.GA11245@verge.net.au>
+References: <1391846221-30240-1-git-send-email-ak@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <michal.simek@xilinx.com>, <netdev@vger.kernel.org>,
-	<sthokal@xilinx.com>, <devicetree@vger.kernel.org>,
-	<monstr@monstr.eu>, <John.Linn@xilinx.com>, <anirudh@xilinx.com>,
-	<linux-kernel@vger.kernel.org>, <grant.likely@linaro.org>,
-	<robh+dt@kernel.org>, <linux-arm-kernel@lists.infradead.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Patrick McHardy <kaber@trash.net>, lvs-devel@vger.kernel.org
+To: Andi Kleen <ak@linux.intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140212.191846.1464564509609498703.davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <1391846221-30240-1-git-send-email-ak@linux.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/13/2014 01:18 AM, David Miller wrote:
-> From: Michal Simek <michal.simek@xilinx.com>
-> Date: Wed, 12 Feb 2014 16:55:34 +0100
-> 
->> I have exctracted patches which I have in our
->> xilinx git tree which are missing in the mainline.
->>
->> The first two patches fix compilation error and
->> warnings. Then 5 feature patches
->> and the rest is OF cleanup and with kernel-doc
->> and checkpatch problems.
-> 
-> You should not combine bug fix and feature patches.
-> 
-> Rather, you should submit bug fixes against the 'net' tree.  Then when
-> those bug fixes get applied and propagate to the 'net-next' tree you
-> can submit the feature patches and cleanups against the 'net-next'
-> tree.
+On Sat, Feb 08, 2014 at 08:57:01AM +0100, Andi Kleen wrote:
+> const __read_mostly does not make any sense, because const
+> data is already read-only. Remove the __read_mostly
+> for the ipvs genl_ops. This avoids a LTO
+> section conflict compile problem.
 
-Ok. I will.
+Thanks Andi, applied to ipvs-next.
 
-Thanks,
-Michal
+> Cc: Simon Horman <horms@verge.net.au>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: lvs-devel@vger.kernel.org
+> Signed-off-by: Andi Kleen <ak@linux.intel.com>
+> ---
+>  net/netfilter/ipvs/ip_vs_ctl.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+> index 35be035..2a68a38 100644
+> --- a/net/netfilter/ipvs/ip_vs_ctl.c
+> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
+> @@ -3580,7 +3580,7 @@ out:
+>  }
+>  
+>  
+> -static const struct genl_ops ip_vs_genl_ops[] __read_mostly = {
+> +static const struct genl_ops ip_vs_genl_ops[] = {
+>  	{
+>  		.cmd	= IPVS_CMD_NEW_SERVICE,
+>  		.flags	= GENL_ADMIN_PERM,
+> -- 
+> 1.8.5.2
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe lvs-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
