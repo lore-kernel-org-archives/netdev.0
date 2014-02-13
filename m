@@ -1,36 +1,52 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH] net: cpsw: catch of_get_phy_mode failing and propagate
- error
-Date: Thu, 13 Feb 2014 19:41:36 +0530
-Message-ID: <52FCD298.5050005@ti.com>
-References: <1392244402-24823-1-git-send-email-u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH] drivers: net: cpsw: fix buggy loop condition
+Date: Thu, 13 Feb 2014 19:44:46 +0530
+Message-ID: <52FCD356.4060201@ti.com>
+References: <1392299247-16917-1-git-send-email-hs@denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <kernel@pengutronix.de>, "David S. Miller" <davem@davemloft.net>
-To: =?UTF-8?B?VXdlIEtsZWluZS1Lw7ZuaWc=?=
-	<u.kleine-koenig@pengutronix.de>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:43899 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751001AbaBMOLz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 09:11:55 -0500
-In-Reply-To: <1392244402-24823-1-git-send-email-u.kleine-koenig@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Sebastian Siewior <bigeasy@linutronix.de>,
+	Daniel Mack <zonque@gmail.com>, Felipe Balbi <balbi@ti.com>,
+	Markus Pargmann <mpa@pengutronix.de>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Heiko Schocher <hs@denx.de>, <linux-arm-kernel@lists.infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1392299247-16917-1-git-send-email-hs@denx.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thursday 13 February 2014 04:03 AM, Uwe Kleine-K=C3=B6nig wrote:
-> It's wrong if the device tree doesn't provide a phy-mode property for
-> the cpsw slaves as it is documented to be required in
-> Documentation/devicetree/bindings/net/cpsw.txt.
+On Thursday 13 February 2014 07:17 PM, Heiko Schocher wrote:
+> commit:
+> From 0cd8f9cc0654c06adde353c6532114c5f53a18e8 Mon Sep 17 00:00:00 2001
+> From: Mugunthan V N <mugunthanvnm@ti.com>
+> Date: Thu, 23 Jan 2014 00:03:12 +0530
+> Subject: [PATCH] drivers: net: cpsw: enable promiscuous mode support
 >
-> Anyhow it's nice to catch that problem, still more as it used to work
-> without this property up to commit 388367a5a9fb (drivers: net: cpsw: =
-use
-> cpsw-phy-sel driver to configure phy mode) which is in v3.13-rc1.
+> Enable promiscuous mode support for CPSW.
 >
-> Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
-Good catch
+> Introduced a crash on an am335x based board (similiar to am335x-evm).
+> Reason is buggy end condition in for loop in cpsw_set_promiscious()
+>
+> for (i = 0; i <= priv->data.slaves; i++)
+>
+> should be
+>
+> for (i = 0; i < priv->data.slaves; i++)
+>
+> Fix this ...
+>
+> Signed-off-by: Heiko Schocher <hs@denx.de>
+> Cc: Mugunthan V N <mugunthanvnm@ti.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Sebastian Siewior <bigeasy@linutronix.de>
+> Cc: Daniel Mack <zonque@gmail.com>
+> Cc: Felipe Balbi <balbi@ti.com>
+> Cc: Markus Pargmann <mpa@pengutronix.de>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+Ah, it's copy paste error, thanks for the fix.
 
 Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
 
