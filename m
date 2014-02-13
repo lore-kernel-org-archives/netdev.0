@@ -1,36 +1,82 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: RFC: bridge get fdb by bridge device
-Date: Thu, 13 Feb 2014 10:37:03 -0500
-Message-ID: <52FCE69F.5080602@mojatatu.com>
-References: <52F21F72.2090405@mojatatu.com> <52F29747.7040008@redhat.com> <52F3CF76.9090404@mojatatu.com> <52F3E357.4040006@redhat.com> <52F79990.3000400@mojatatu.com> <52F8FEF1.60407@redhat.com> <52FA58E9.906@mojatatu.com> <52FA6A24.3030402@redhat.com> <52FA84FA.2030608@mojatatu.com> <52FA8865.1070302@intel.com> <52FA9074.2060900@mojatatu.com> <52FBC282.6020301@intel.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 08/14] net: axienet: Removed checkpatch errors/warnings
+Date: Thu, 13 Feb 2014 07:51:47 -0800
+Message-ID: <1392306707.2214.65.camel@joe-AO722>
+References: <cover.1392220536.git.michal.simek@xilinx.com>
+	 <75b669c0a947effe74b291093abfa8c71f83736a.1392220536.git.michal.simek@xilinx.com>
+	 <1392251494.2214.11.camel@joe-AO722>
+	 <ff5b1f6a-a6a7-405c-9e83-59ad33852b93@TX2EHSMHS044.ehs.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: vyasevic@redhat.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:32958 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752026AbaBMPhF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 10:37:05 -0500
-Received: by mail-ig0-f180.google.com with SMTP id m12so13080920iga.1
-        for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 07:37:05 -0800 (PST)
-In-Reply-To: <52FBC282.6020301@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Srikanth Thokala <sthokal@xilinx.com>,
+	Srikanth Thokala <srikanth.thokala@xilinx.com>,
+	Michal Simek <monstr@monstr.eu>,
+	Anirudha Sarangi <anirudh@xilinx.com>,
+	John Linn <John.Linn@xilinx.com>,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Michal Simek <michal.simek@xilinx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <ff5b1f6a-a6a7-405c-9e83-59ad33852b93@TX2EHSMHS044.ehs.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/12/14 13:50, John Fastabend wrote:
-> On 2/11/2014 1:04 PM, Jamal Hadi Salim wrote:
->
-> Because it is not the same type of object as the software bridge.
-> Most notably it doesn't do learning.
+On Thu, 2014-02-13 at 08:19 +0100, Michal Simek wrote:
+> On 02/13/2014 01:31 AM, Joe Perches wrote:
+> > On Wed, 2014-02-12 at 16:55 +0100, Michal Simek wrote:
 
-This kept nagging at me.
-Learning is optional for a bridge. So is flooding.
-I think we got this right in recent kernels.
+Hi again Michal.
 
-cheers,
-jamal
+> >> +		netdev_warn(lp->ndev,
+> >> +			 "Could not find clock ethernet controller property.");
+> > 
+> > here too. (and alignment)
+> 
+> This is problematic. I would like to keep 80 char limits and keeping
+> this align just break it. That's why I was using tab alignment.
+> Probably the solution is just to shorten message.
+
+(overly long, tiresomely trivial stuff below)
+
+Your choice.  I'm not an 80 column zealot but
+please don't shorten the message just to fit
+80 columns if it impacts intelligibility.
+
+Generally, I'd write this something like:
+
+		netdev_warn(lp->ndev,
+			    "Could not find clock ethernet controller property\n");
+
+(without the period) which is 83 columns.
+
+checkpatch makes exceptions for 80 column line
+length maximums for format strings.
+
+I've no real issue if you indent it back one.
+
+fyi: this is 77 columns
+
+		netdev_warn(lp->ndev,
+			    "No clock ethernet controller property found\n");
+
+About the message itself.
+
+You dropped the "axienet_mdio_setup" function name.
+
+I believe the dmesg output will look something like:
+
+xilinx_temac 0000:01:00.0 (unregistered net_device): Could not find clock ethernet controller property.
+xilinx_temac 0000:01:00.0 (unregistered net_device): Setting MDIO clock divisor to default 29
+
+Because these 2 messages are effectively linked,
+my preference would be to emit them on a single line,
+
+Something like:
+
+xilinx_temac 0000:01:00.0 (unregistered net_device): of_get_property("clock-frequency") not found - setting MDIO clock divisor to default 29
+
+or
+
+		netdev_warn(lp->ndev,
+			    "of_get_property(\"clock-frequency\") not found - setting MDIO clock divisor to default %u\n",
+			    DEFAULT_CLOCK_DIVISOR);
