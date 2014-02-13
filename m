@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 05/10] net: bcmgenet: add driver definitions and private structure
-Date: Wed, 12 Feb 2014 21:29:50 -0800
-Message-ID: <1392269395-23513-6-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 07/10] net: bcmgenet: add MDIO routines
+Date: Wed, 12 Feb 2014 21:29:52 -0800
+Message-ID: <1392269395-23513-8-git-send-email-f.fainelli@gmail.com>
 References: <1392269395-23513-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,37 +10,46 @@ Cc: <davem@davemloft.net>, <cernekee@gmail.com>,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:57389 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751831AbaBMFaZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 00:30:25 -0500
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:48067 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753409AbaBMFa2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 00:30:28 -0500
 In-Reply-To: <1392269395-23513-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchs adds the bcmgenet.h header file which contains all the
-hardware definitions for the GENETv1 to v4 hardware blocks as well as
-the driver private structure and MIB counters.
+This patch adds support for configuring the port multiplexer hardware
+which resides in front of the GENET Ethernet MAC controller. This allows
+us to support:
+
+- internal PHYs (using drivers/net/phy/bcm7xxx.c)
+- MoCA PHYs which are an entirely separate hardware block not covered
+  here
+- external PHYs and switches
+
+Note that MoCA and switches are currently supported using the emulated
+"fixed PHY" driver.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
 Changes since v1:
-- removed priv->phy_type usage and use priv->phy_interface which
-- remove BRCM_PHY_TYPE_{INT,MOCA} defines, now replaced by their
-  PHY_INTERFACE_MODE counterparts
-- small line suppression cleanups
+- fixed MDIO crash/warning when Device Tree probing fails
+- removed the use of priv->phy_type and use priv->phy_interface
+  directly
 
- drivers/net/ethernet/broadcom/genet/bcmgenet.h | 624 +++++++++++++++++++++++++
- 1 file changed, 624 insertions(+)
- create mode 100644 drivers/net/ethernet/broadcom/genet/bcmgenet.h
+ drivers/net/ethernet/broadcom/genet/bcmmii.c | 481 +++++++++++++++++++++++++++
+ 1 file changed, 481 insertions(+)
+ create mode 100644 drivers/net/ethernet/broadcom/genet/bcmmii.c
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
 new file mode 100644
-index 0000000..879fb30
+index 0000000..bf8e3e0
 --- /dev/null
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-@@ -0,0 +1,624 @@
++++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+@@ -0,0 +1,481 @@
 +/*
++ * Broadcom GENET MDIO routines
++ *
 + * Copyright (c) 2014 Broadcom Corporation
 + *
 + * This program is free software; you can redistribute it and/or modify
@@ -55,614 +64,469 @@ index 0000000..879fb30
 + * You should have received a copy of the GNU General Public License
 + * along with this program; if not, write to the Free Software
 + * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-+ *
-+ *
-+*/
-+#ifndef __BCMGENET_H__
-+#define __BCMGENET_H__
++ */
 +
-+#include <linux/skbuff.h>
-+#include <linux/netdevice.h>
-+#include <linux/spinlock.h>
-+#include <linux/clk.h>
++
++#include <linux/types.h>
++#include <linux/delay.h>
++#include <linux/wait.h>
 +#include <linux/mii.h>
-+#include <linux/if_vlan.h>
++#include <linux/ethtool.h>
++#include <linux/bitops.h>
++#include <linux/netdevice.h>
++#include <linux/platform_device.h>
 +#include <linux/phy.h>
-+
-+/* total number of Buffer Descriptors, same for Rx/Tx */
-+#define TOTAL_DESC				256
-+
-+/* which ring is descriptor based */
-+#define DESC_INDEX				16
-+
-+/* Body(1500) + EH_SIZE(14) + VLANTAG(4) + BRCMTAG(6) + FCS(4) = 1528.
-+ * 1536 is multiple of 256 bytes
-+ */
-+#define ENET_BRCM_TAG_LEN	6
-+#define ENET_PAD		8
-+#define ENET_MAX_MTU_SIZE	(ETH_DATA_LEN + ETH_HLEN + VLAN_HLEN + \
-+				 ENET_BRCM_TAG_LEN + ETH_FCS_LEN + ENET_PAD)
-+#define DMA_MAX_BURST_LENGTH    0x10
-+
-+/* misc. configuration */
-+#define CLEAR_ALL_HFB			0xFF
-+#define DMA_FC_THRESH_HI		(TOTAL_DESC >> 4)
-+#define DMA_FC_THRESH_LO		5
-+
-+/* 64B receive/transmit status block */
-+struct status_64 {
-+	u32	length_status;		/* length and peripheral status */
-+	u32	ext_status;		/* Extended status*/
-+	u32	rx_csum;		/* partial rx checksum */
-+	u32	unused1[9];		/* unused */
-+	u32	tx_csum_info;		/* Tx checksum info. */
-+	u32	unused2[3];		/* unused */
-+};
-+
-+/* Rx status bits */
-+#define STATUS_RX_EXT_MASK		0x1FFFFF
-+#define STATUS_RX_CSUM_MASK		0xFFFF
-+#define STATUS_RX_CSUM_OK		0x10000
-+#define STATUS_RX_CSUM_FR		0x20000
-+#define STATUS_RX_PROTO_TCP		0
-+#define STATUS_RX_PROTO_UDP		1
-+#define STATUS_RX_PROTO_ICMP		2
-+#define STATUS_RX_PROTO_OTHER		3
-+#define STATUS_RX_PROTO_MASK		3
-+#define STATUS_RX_PROTO_SHIFT		18
-+#define STATUS_FILTER_INDEX_MASK	0xFFFF
-+/* Tx status bits */
-+#define STATUS_TX_CSUM_START_MASK	0X7FFF
-+#define STATUS_TX_CSUM_START_SHIFT	16
-+#define STATUS_TX_CSUM_PROTO_UDP	0x8000
-+#define STATUS_TX_CSUM_OFFSET_MASK	0x7FFF
-+#define STATUS_TX_CSUM_LV		0x80000000
-+
-+/* DMA Descriptor */
-+#define DMA_DESC_LENGTH_STATUS	0x00	/* in bytes of data in buffer */
-+#define DMA_DESC_ADDRESS_LO	0x04	/* lower bits of PA */
-+#define DMA_DESC_ADDRESS_HI	0x08	/* upper 32 bits of PA, GENETv4+ */
-+
-+/* Rx/Tx common counter group */
-+struct bcmgenet_pkt_counters {
-+	u32	cnt_64;		/* RO Received/Transmited 64 bytes packet */
-+	u32	cnt_127;	/* RO Rx/Tx 127 bytes packet */
-+	u32	cnt_255;	/* RO Rx/Tx 65-255 bytes packet */
-+	u32	cnt_511;	/* RO Rx/Tx 256-511 bytes packet */
-+	u32	cnt_1023;	/* RO Rx/Tx 512-1023 bytes packet */
-+	u32	cnt_1518;	/* RO Rx/Tx 1024-1518 bytes packet */
-+	u32	cnt_mgv;	/* RO Rx/Tx 1519-1522 good VLAN packet */
-+	u32	cnt_2047;	/* RO Rx/Tx 1522-2047 bytes packet*/
-+	u32	cnt_4095;	/* RO Rx/Tx 2048-4095 bytes packet*/
-+	u32	cnt_9216;	/* RO Rx/Tx 4096-9216 bytes packet*/
-+};
-+
-+/* RSV, Receive Status Vector */
-+struct bcmgenet_rx_counters {
-+	struct  bcmgenet_pkt_counters pkt_cnt;
-+	u32	pkt;		/* RO (0x428) Received pkt count*/
-+	u32	bytes;		/* RO Received byte count */
-+	u32	mca;		/* RO # of Received multicast pkt */
-+	u32	bca;		/* RO # of Receive broadcast pkt */
-+	u32	fcs;		/* RO # of Received FCS error  */
-+	u32	cf;		/* RO # of Received control frame pkt*/
-+	u32	pf;		/* RO # of Received pause frame pkt */
-+	u32	uo;		/* RO # of unknown op code pkt */
-+	u32	aln;		/* RO # of alignment error count */
-+	u32	flr;		/* RO # of frame length out of range count */
-+	u32	cde;		/* RO # of code error pkt */
-+	u32	fcr;		/* RO # of carrier sense error pkt */
-+	u32	ovr;		/* RO # of oversize pkt*/
-+	u32	jbr;		/* RO # of jabber count */
-+	u32	mtue;		/* RO # of MTU error pkt*/
-+	u32	pok;		/* RO # of Received good pkt */
-+	u32	uc;		/* RO # of unicast pkt */
-+	u32	ppp;		/* RO # of PPP pkt */
-+	u32	rcrc;		/* RO (0x470),# of CRC match pkt */
-+};
-+
-+/* TSV, Transmit Status Vector */
-+struct bcmgenet_tx_counters {
-+	struct bcmgenet_pkt_counters pkt_cnt;
-+	u32	pkts;		/* RO (0x4a8) Transmited pkt */
-+	u32	mca;		/* RO # of xmited multicast pkt */
-+	u32	bca;		/* RO # of xmited broadcast pkt */
-+	u32	pf;		/* RO # of xmited pause frame count */
-+	u32	cf;		/* RO # of xmited control frame count */
-+	u32	fcs;		/* RO # of xmited FCS error count */
-+	u32	ovr;		/* RO # of xmited oversize pkt */
-+	u32	drf;		/* RO # of xmited deferral pkt */
-+	u32	edf;		/* RO # of xmited Excessive deferral pkt*/
-+	u32	scl;		/* RO # of xmited single collision pkt */
-+	u32	mcl;		/* RO # of xmited multiple collision pkt*/
-+	u32	lcl;		/* RO # of xmited late collision pkt */
-+	u32	ecl;		/* RO # of xmited excessive collision pkt*/
-+	u32	frg;		/* RO # of xmited fragments pkt*/
-+	u32	ncl;		/* RO # of xmited total collision count */
-+	u32	jbr;		/* RO # of xmited jabber count*/
-+	u32	bytes;		/* RO # of xmited byte count */
-+	u32	pok;		/* RO # of xmited good pkt */
-+	u32	uc;		/* RO (0x0x4f0)# of xmited unitcast pkt */
-+};
-+
-+struct bcmgenet_mib_counters {
-+	struct bcmgenet_rx_counters rx;
-+	struct bcmgenet_tx_counters tx;
-+	u32	rx_runt_cnt;
-+	u32	rx_runt_fcs;
-+	u32	rx_runt_fcs_align;
-+	u32	rx_runt_bytes;
-+	u32	rbuf_ovflow_cnt;
-+	u32	rbuf_err_cnt;
-+	u32	mdf_err_cnt;
-+};
-+
-+#define UMAC_HD_BKP_CTRL		0x004
-+#define	 HD_FC_EN			(1 << 0)
-+#define  HD_FC_BKOFF_OK			(1 << 1)
-+#define  IPG_CONFIG_RX_SHIFT		2
-+#define  IPG_CONFIG_RX_MASK		0x1F
-+
-+#define UMAC_CMD			0x008
-+#define  CMD_TX_EN			(1 << 0)
-+#define  CMD_RX_EN			(1 << 1)
-+#define  UMAC_SPEED_10			0
-+#define  UMAC_SPEED_100			1
-+#define  UMAC_SPEED_1000		2
-+#define  UMAC_SPEED_2500		3
-+#define  CMD_SPEED_SHIFT		2
-+#define  CMD_SPEED_MASK			3
-+#define  CMD_PROMISC			(1 << 4)
-+#define  CMD_PAD_EN			(1 << 5)
-+#define  CMD_CRC_FWD			(1 << 6)
-+#define  CMD_PAUSE_FWD			(1 << 7)
-+#define  CMD_RX_PAUSE_IGNORE		(1 << 8)
-+#define  CMD_TX_ADDR_INS		(1 << 9)
-+#define  CMD_HD_EN			(1 << 10)
-+#define  CMD_SW_RESET			(1 << 13)
-+#define  CMD_LCL_LOOP_EN		(1 << 15)
-+#define  CMD_AUTO_CONFIG		(1 << 22)
-+#define  CMD_CNTL_FRM_EN		(1 << 23)
-+#define  CMD_NO_LEN_CHK			(1 << 24)
-+#define  CMD_RMT_LOOP_EN		(1 << 25)
-+#define  CMD_PRBL_EN			(1 << 27)
-+#define  CMD_TX_PAUSE_IGNORE		(1 << 28)
-+#define  CMD_TX_RX_EN			(1 << 29)
-+#define  CMD_RUNT_FILTER_DIS		(1 << 30)
-+
-+#define UMAC_MAC0			0x00C
-+#define UMAC_MAC1			0x010
-+#define UMAC_MAX_FRAME_LEN		0x014
-+
-+#define UMAC_TX_FLUSH			0x334
-+
-+#define UMAC_MIB_START			0x400
-+
-+#define UMAC_MDIO_CMD			0x614
-+#define  MDIO_START_BUSY		(1 << 29)
-+#define  MDIO_READ_FAIL			(1 << 28)
-+#define  MDIO_RD			(2 << 26)
-+#define  MDIO_WR			(1 << 26)
-+#define  MDIO_PMD_SHIFT			21
-+#define  MDIO_PMD_MASK			0x1F
-+#define  MDIO_REG_SHIFT			16
-+#define  MDIO_REG_MASK			0x1F
-+
-+#define UMAC_RBUF_OVFL_CNT		0x61C
-+
-+#define UMAC_MPD_CTRL			0x620
-+#define  MPD_EN				(1 << 0)
-+#define  MPD_PW_EN			(1 << 27)
-+#define  MPD_MSEQ_LEN_SHIFT		16
-+#define  MPD_MSEQ_LEN_MASK		0xFF
-+
-+#define UMAC_MPD_PW_MS			0x624
-+#define UMAC_MPD_PW_LS			0x628
-+#define UMAC_RBUF_ERR_CNT		0x634
-+#define UMAC_MDF_ERR_CNT		0x638
-+#define UMAC_MDF_CTRL			0x650
-+#define UMAC_MDF_ADDR			0x654
-+#define UMAC_MIB_CTRL			0x580
-+#define  MIB_RESET_RX			(1 << 0)
-+#define  MIB_RESET_RUNT			(1 << 1)
-+#define  MIB_RESET_TX			(1 << 2)
-+
-+#define RBUF_CTRL			0x00
-+#define  RBUF_64B_EN			(1 << 0)
-+#define  RBUF_ALIGN_2B			(1 << 1)
-+#define  RBUF_BAD_DIS			(1 << 2)
-+
-+#define RBUF_STATUS			0x0C
-+#define  RBUF_STATUS_WOL		(1 << 0)
-+#define  RBUF_STATUS_MPD_INTR_ACTIVE	(1 << 1)
-+#define  RBUF_STATUS_ACPI_INTR_ACTIVE	(1 << 2)
-+
-+#define RBUF_CHK_CTRL			0x14
-+#define  RBUF_RXCHK_EN			(1 << 0)
-+#define  RBUF_SKIP_FCS			(1 << 4)
-+
-+#define RBUF_TBUF_SIZE_CTRL		0xb4
-+
-+#define RBUF_HFB_CTRL_V1		0x38
-+#define  RBUF_HFB_FILTER_EN_SHIFT	16
-+#define  RBUF_HFB_FILTER_EN_MASK	0xffff0000
-+#define  RBUF_HFB_EN			(1 << 0)
-+#define  RBUF_HFB_256B			(1 << 1)
-+#define  RBUF_ACPI_EN			(1 << 2)
-+
-+#define RBUF_HFB_LEN_V1			0x3C
-+#define  RBUF_FLTR_LEN_MASK		0xFF
-+#define  RBUF_FLTR_LEN_SHIFT		8
-+
-+#define TBUF_CTRL			0x00
-+#define TBUF_BP_MC			0x0C
-+
-+#define TBUF_CTRL_V1			0x80
-+#define TBUF_BP_MC_V1			0xA0
-+
-+#define HFB_CTRL			0x00
-+#define HFB_FLT_ENABLE_V3PLUS		0x04
-+#define HFB_FLT_LEN_V2			0x04
-+#define HFB_FLT_LEN_V3PLUS		0x1C
-+
-+/* uniMac intrl2 registers */
-+#define INTRL2_CPU_STAT			0x00
-+#define INTRL2_CPU_SET			0x04
-+#define INTRL2_CPU_CLEAR		0x08
-+#define INTRL2_CPU_MASK_STATUS		0x0C
-+#define INTRL2_CPU_MASK_SET		0x10
-+#define INTRL2_CPU_MASK_CLEAR		0x14
-+
-+/* INTRL2 instance 0 definitions */
-+#define UMAC_IRQ_SCB			(1 << 0)
-+#define UMAC_IRQ_EPHY			(1 << 1)
-+#define UMAC_IRQ_PHY_DET_R		(1 << 2)
-+#define UMAC_IRQ_PHY_DET_F		(1 << 3)
-+#define UMAC_IRQ_LINK_UP		(1 << 4)
-+#define UMAC_IRQ_LINK_DOWN		(1 << 5)
-+#define UMAC_IRQ_UMAC			(1 << 6)
-+#define UMAC_IRQ_UMAC_TSV		(1 << 7)
-+#define UMAC_IRQ_TBUF_UNDERRUN		(1 << 8)
-+#define UMAC_IRQ_RBUF_OVERFLOW		(1 << 9)
-+#define UMAC_IRQ_HFB_SM			(1 << 10)
-+#define UMAC_IRQ_HFB_MM			(1 << 11)
-+#define UMAC_IRQ_MPD_R			(1 << 12)
-+#define UMAC_IRQ_RXDMA_MBDONE		(1 << 13)
-+#define UMAC_IRQ_RXDMA_PDONE		(1 << 14)
-+#define UMAC_IRQ_RXDMA_BDONE		(1 << 15)
-+#define UMAC_IRQ_TXDMA_MBDONE		(1 << 16)
-+#define UMAC_IRQ_TXDMA_PDONE		(1 << 17)
-+#define UMAC_IRQ_TXDMA_BDONE		(1 << 18)
-+/* Only valid for GENETv3+ */
-+#define UMAC_IRQ_MDIO_DONE		(1 << 23)
-+#define UMAC_IRQ_MDIO_ERROR		(1 << 24)
-+
-+/* Register block offsets */
-+#define GENET_SYS_OFF			0x0000
-+#define GENET_GR_BRIDGE_OFF		0x0040
-+#define GENET_EXT_OFF			0x0080
-+#define GENET_INTRL2_0_OFF		0x0200
-+#define GENET_INTRL2_1_OFF		0x0240
-+#define GENET_RBUF_OFF			0x0300
-+#define GENET_UMAC_OFF			0x0800
-+
-+/* SYS block offsets and register definitions */
-+#define SYS_REV_CTRL			0x00
-+#define SYS_PORT_CTRL			0x04
-+#define  PORT_MODE_INT_EPHY		0
-+#define  PORT_MODE_INT_GPHY		1
-+#define  PORT_MODE_EXT_EPHY		2
-+#define  PORT_MODE_EXT_GPHY		3
-+#define  PORT_MODE_EXT_RVMII_25		(4 | BIT(4))
-+#define  PORT_MODE_EXT_RVMII_50		4
-+#define  LED_ACT_SOURCE_MAC		(1 << 9)
-+
-+#define SYS_RBUF_FLUSH_CTRL		0x08
-+#define SYS_TBUF_FLUSH_CTRL		0x0C
-+#define RBUF_FLUSH_CTRL_V1		0x04
-+
-+/* Ext block register offsets and definitions */
-+#define EXT_EXT_PWR_MGMT		0x00
-+#define  EXT_PWR_DOWN_BIAS		(1 << 0)
-+#define  EXT_PWR_DOWN_DLL		(1 << 1)
-+#define  EXT_PWR_DOWN_PHY		(1 << 2)
-+#define  EXT_PWR_DN_EN_LD		(1 << 3)
-+#define  EXT_ENERGY_DET			(1 << 4)
-+#define  EXT_IDDQ_FROM_PHY		(1 << 5)
-+#define  EXT_PHY_RESET			(1 << 8)
-+#define  EXT_ENERGY_DET_MASK		(1 << 12)
-+
-+#define EXT_RGMII_OOB_CTRL		0x0C
-+#define  RGMII_MODE_EN			(1 << 0)
-+#define  RGMII_LINK			(1 << 4)
-+#define  OOB_DISABLE			(1 << 5)
-+#define  ID_MODE_DIS			(1 << 16)
-+
-+#define EXT_GPHY_CTRL			0x1C
-+#define  EXT_CFG_IDDQ_BIAS		(1 << 0)
-+#define  EXT_CFG_PWR_DOWN		(1 << 1)
-+#define  EXT_GPHY_RESET			(1 << 5)
-+
-+/* DMA rings size */
-+#define DMA_RING_SIZE			(0x40)
-+#define DMA_RINGS_SIZE			(DMA_RING_SIZE * (DESC_INDEX + 1))
-+
-+/* DMA registers common definitions */
-+#define DMA_RW_POINTER_MASK		0x1FF
-+#define DMA_P_INDEX_DISCARD_CNT_MASK	0xFFFF
-+#define DMA_P_INDEX_DISCARD_CNT_SHIFT	16
-+#define DMA_BUFFER_DONE_CNT_MASK	0xFFFF
-+#define DMA_BUFFER_DONE_CNT_SHIFT	16
-+#define DMA_P_INDEX_MASK		0xFFFF
-+#define DMA_C_INDEX_MASK		0xFFFF
-+
-+/* DMA ring size register */
-+#define DMA_RING_SIZE_MASK		0xFFFF
-+#define DMA_RING_SIZE_SHIFT		16
-+#define DMA_RING_BUFFER_SIZE_MASK	0xFFFF
-+
-+/* DMA interrupt threshold register */
-+#define DMA_INTR_THRESHOLD_MASK		0x00FF
-+
-+/* DMA XON/XOFF register */
-+#define DMA_XON_THREHOLD_MASK		0xFFFF
-+#define DMA_XOFF_THRESHOLD_MASK		0xFFFF
-+#define DMA_XOFF_THRESHOLD_SHIFT	16
-+
-+/* DMA flow period register */
-+#define DMA_FLOW_PERIOD_MASK		0xFFFF
-+#define DMA_MAX_PKT_SIZE_MASK		0xFFFF
-+#define DMA_MAX_PKT_SIZE_SHIFT		16
-+
-+
-+/* DMA control register */
-+#define DMA_EN				(1 << 0)
-+#define DMA_RING_BUF_EN_SHIFT		0x01
-+#define DMA_RING_BUF_EN_MASK		0xFFFF
-+#define DMA_TSB_SWAP_EN			(1 << 20)
-+
-+/* DMA status register */
-+#define DMA_DISABLED			(1 << 0)
-+#define DMA_DESC_RAM_INIT_BUSY		(1 << 1)
-+
-+/* DMA SCB burst size register */
-+#define DMA_SCB_BURST_SIZE_MASK		0x1F
-+
-+/* DMA activity vector register */
-+#define DMA_ACTIVITY_VECTOR_MASK	0x1FFFF
-+
-+/* DMA backpressure mask register */
-+#define DMA_BACKPRESSURE_MASK		0x1FFFF
-+#define DMA_PFC_ENABLE			(1 << 31)
-+
-+/* DMA backpressure status register */
-+#define DMA_BACKPRESSURE_STATUS_MASK	0x1FFFF
-+
-+/* DMA override register */
-+#define DMA_LITTLE_ENDIAN_MODE		(1 << 0)
-+#define DMA_REGISTER_MODE		(1 << 1)
-+
-+/* DMA timeout register */
-+#define DMA_TIMEOUT_MASK		0xFFFF
-+
-+/* TDMA rate limiting control register */
-+#define DMA_RATE_LIMIT_EN_MASK		0xFFFF
-+
-+/* TDMA arbitration control register */
-+#define DMA_ARBITER_MODE_MASK		0x03
-+#define DMA_RING_BUF_PRIORITY_MASK	0x1F
-+#define DMA_RING_BUF_PRIORITY_SHIFT	5
-+#define DMA_RATE_ADJ_MASK		0xFF
-+
-+/* Tx/Rx Dma Descriptor common bits*/
-+#define DMA_BUFLENGTH_MASK		0x0fff
-+#define DMA_BUFLENGTH_SHIFT		16
-+#define DMA_OWN				0x8000
-+#define DMA_EOP				0x4000
-+#define DMA_SOP				0x2000
-+#define DMA_WRAP			0x1000
-+/* Tx specific Dma descriptor bits */
-+#define DMA_TX_UNDERRUN			0x0200
-+#define DMA_TX_APPEND_CRC		0x0040
-+#define DMA_TX_OW_CRC			0x0020
-+#define DMA_TX_DO_CSUM			0x0010
-+#define DMA_TX_QTAG_SHIFT		7
-+
-+/* Rx Specific Dma descriptor bits */
-+#define DMA_RX_CHK_V3PLUS		0x8000
-+#define DMA_RX_CHK_V12			0x1000
-+#define DMA_RX_BRDCAST			0x0040
-+#define DMA_RX_MULT			0x0020
-+#define DMA_RX_LG			0x0010
-+#define DMA_RX_NO			0x0008
-+#define DMA_RX_RXER			0x0004
-+#define DMA_RX_CRC_ERROR		0x0002
-+#define DMA_RX_OV			0x0001
-+#define DMA_RX_FI_MASK			0x001F
-+#define DMA_RX_FI_SHIFT			0x0007
-+#define DMA_DESC_ALLOC_MASK		0x00FF
-+
-+#define DMA_ARBITER_RR			0x00
-+#define DMA_ARBITER_WRR			0x01
-+#define DMA_ARBITER_SP			0x02
-+
-+struct enet_cb {
-+	struct sk_buff      *skb;
-+	void __iomem *bd_addr;
-+	DEFINE_DMA_UNMAP_ADDR(dma_addr);
-+	DEFINE_DMA_UNMAP_LEN(dma_len);
-+};
-+
-+/* power management mode */
-+enum bcmgenet_power_mode {
-+	GENET_POWER_CABLE_SENSE = 0,
-+	GENET_POWER_WOL_MAGIC,
-+	GENET_POWER_WOL_ACPI,
-+	GENET_POWER_PASSIVE,
-+};
-+
-+struct bcmgenet_priv;
-+
-+/* We support both runtime GENET detection and compile-time
-+ * to optimize code-paths for a given hardware
-+ */
-+enum bcmgenet_version {
-+	GENET_V1 = 1,
-+	GENET_V2,
-+	GENET_V3,
-+	GENET_V4
-+};
-+
-+#define GENET_IS_V1(p)	((p)->version == GENET_V1)
-+#define GENET_IS_V2(p)	((p)->version == GENET_V2)
-+#define GENET_IS_V3(p)	((p)->version == GENET_V3)
-+#define GENET_IS_V4(p)	((p)->version == GENET_V4)
-+
-+/* Hardware flags */
-+#define GENET_HAS_40BITS	(1 << 0)
-+#define GENET_HAS_EXT		(1 << 1)
-+#define GENET_HAS_MDIO_INTR	(1 << 2)
-+
-+/* BCMGENET hardware parameters, keep this structure nicely aligned
-+ * since it is going to be used in hot paths
-+ */
-+struct bcmgenet_hw_params {
-+	u8		tx_queues;
-+	u8		rx_queues;
-+	u8		bds_cnt;
-+	u8		bp_in_en_shift;
-+	u32		bp_in_mask;
-+	u8		hfb_filter_cnt;
-+	u8		qtag_mask;
-+	u16		tbuf_offset;
-+	u32		hfb_offset;
-+	u32		hfb_reg_offset;
-+	u32		rdma_offset;
-+	u32		tdma_offset;
-+	u32		words_per_bd;
-+	u32		flags;
-+};
-+
-+struct bcmgenet_tx_ring {
-+	spinlock_t	lock;		/* ring lock */
-+	unsigned int	index;		/* ring index */
-+	unsigned int	queue;		/* queue index */
-+	struct enet_cb	*cbs;		/* tx ring buffer control block*/
-+	unsigned int	size;		/* size of each tx ring */
-+	unsigned int	c_index;	/* last consumer index of each ring*/
-+	unsigned int	free_bds;	/* # of free bds for each ring */
-+	unsigned int	write_ptr;	/* Tx ring write pointer SW copy */
-+	unsigned int	prod_index;	/* Tx ring producer index SW copy */
-+	unsigned int	cb_ptr;		/* Tx ring initial CB ptr */
-+	unsigned int	end_ptr;	/* Tx ring end CB ptr */
-+	void (*int_enable)(struct bcmgenet_priv *priv,
-+				struct bcmgenet_tx_ring *);
-+	void (*int_disable)(struct bcmgenet_priv *priv,
-+				struct bcmgenet_tx_ring *);
-+};
-+
-+/* device context */
-+struct bcmgenet_priv {
-+	void __iomem *base;
-+	enum bcmgenet_version version;
-+	struct net_device *dev;
-+	spinlock_t lock;
-+	spinlock_t bh_lock;
-+	u32 int0_mask;
-+	u32 int1_mask;
-+
-+	/* NAPI for descriptor based rx */
-+	struct napi_struct napi ____cacheline_aligned;
-+
-+	/* transmit variables */
-+	void __iomem *tx_bds;
-+	struct enet_cb *tx_cbs;
-+	unsigned int num_tx_bds;
-+
-+	struct bcmgenet_tx_ring tx_rings[DESC_INDEX + 1];
-+
-+	/* receive variables */
-+	void __iomem *rx_bds;
-+	void __iomem *rx_bd_assign_ptr;
-+	int rx_bd_assign_index;
-+	struct enet_cb *rx_cbs;
-+	unsigned int num_rx_bds;
-+	unsigned int rx_buf_len;
-+	unsigned int rx_read_ptr;
-+	unsigned int rx_c_index;
-+
-+	/* other misc variables */
-+	struct bcmgenet_hw_params *hw_params;
-+	wait_queue_head_t wq;
-+	struct phy_device *phydev;
-+	struct device_node *phy_dn;
-+	struct mii_bus *mii_bus;
-+	int old_duplex;
-+	int old_link;
-+	int old_pause;
-+	phy_interface_t phy_interface;
-+	u32 phy_supported;
-+	int irq0;
-+	int irq1;
-+	int phy_addr;
-+	int phy_speed;
-+	int ext_phy;
-+	unsigned int irq0_stat;
-+	unsigned int irq1_stat;
-+	unsigned int desc_64b_en;
-+	unsigned int desc_rxchk_en;
-+	unsigned int dma_rx_chk_bit;
-+	unsigned int crc_fwd_en;
-+	u32 msg_enable;
-+
-+	struct work_struct bcmgenet_irq_work;
-+	struct clk *clk;
-+	struct platform_device *pdev;
-+
-+	/* WOL */
-+	unsigned long wol_enabled;
-+	struct clk *clk_wol;
-+	u32 wolopts;
-+
-+	struct mutex mib_mutex;
-+	struct bcmgenet_mib_counters mib;
-+};
-+
-+#define GENET_IO_MACRO(name, offset)					\
-+static inline u32 bcmgenet_##name##_readl(struct bcmgenet_priv *priv,	\
-+					u32 off)			\
-+{									\
-+	return __raw_readl(priv->base + offset + off);			\
-+}									\
-+static inline void bcmgenet_##name##_writel(struct bcmgenet_priv *priv,	\
-+					u32 val, u32 off)		\
-+{									\
-+	__raw_writel(val, priv->base + offset + off);			\
++#include <linux/phy_fixed.h>
++#include <linux/brcmphy.h>
++#include <linux/of.h>
++#include <linux/of_net.h>
++#include <linux/of_mdio.h>
++
++#include "bcmgenet.h"
++
++/* read a value from the MII */
++static int bcmgenet_mii_read(struct mii_bus *bus, int phy_id, int location)
++{
++	int ret;
++	struct net_device *dev = bus->priv;
++	struct bcmgenet_priv *priv = netdev_priv(dev);
++	u32 reg;
++
++	bcmgenet_umac_writel(priv, (MDIO_RD | (phy_id << MDIO_PMD_SHIFT) |
++			(location << MDIO_REG_SHIFT)), UMAC_MDIO_CMD);
++	/* Start MDIO transaction*/
++	reg = bcmgenet_umac_readl(priv, UMAC_MDIO_CMD);
++	reg |= MDIO_START_BUSY;
++	bcmgenet_umac_writel(priv, reg, UMAC_MDIO_CMD);
++	wait_event_timeout(priv->wq,
++			!(bcmgenet_umac_readl(priv, UMAC_MDIO_CMD)
++				& MDIO_START_BUSY),
++			HZ / 100);
++	ret = bcmgenet_umac_readl(priv, UMAC_MDIO_CMD);
++
++	if (ret & MDIO_READ_FAIL)
++		return -EIO;
++
++	return ret & 0xffff;
 +}
 +
-+GENET_IO_MACRO(ext, GENET_EXT_OFF);
-+GENET_IO_MACRO(umac, GENET_UMAC_OFF);
-+GENET_IO_MACRO(sys, GENET_SYS_OFF);
++/* write a value to the MII */
++static int bcmgenet_mii_write(struct mii_bus *bus, int phy_id,
++			int location, u16 val)
++{
++	struct net_device *dev = bus->priv;
++	struct bcmgenet_priv *priv = netdev_priv(dev);
++	u32 reg;
 +
-+/* interrupt l2 registers accessors */
-+GENET_IO_MACRO(intrl2_0, GENET_INTRL2_0_OFF);
-+GENET_IO_MACRO(intrl2_1, GENET_INTRL2_1_OFF);
++	bcmgenet_umac_writel(priv, (MDIO_WR | (phy_id << MDIO_PMD_SHIFT) |
++			(location << MDIO_REG_SHIFT) | (0xffff & val)),
++			UMAC_MDIO_CMD);
++	reg = bcmgenet_umac_readl(priv, UMAC_MDIO_CMD);
++	reg |= MDIO_START_BUSY;
++	bcmgenet_umac_writel(priv, reg, UMAC_MDIO_CMD);
++	wait_event_timeout(priv->wq,
++			!(bcmgenet_umac_readl(priv, UMAC_MDIO_CMD) &
++				MDIO_START_BUSY),
++			HZ / 100);
 +
-+/* HFB register accessors  */
-+GENET_IO_MACRO(hfb, priv->hw_params->hfb_offset);
++	return 0;
++}
 +
-+/* GENET v2+ HFB control and filter len helpers */
-+GENET_IO_MACRO(hfb_reg, priv->hw_params->hfb_reg_offset);
++/* setup netdev link state when PHY link status change and
++ * update UMAC and RGMII block when link up
++ */
++static void bcmgenet_mii_setup(struct net_device *dev)
++{
++	struct bcmgenet_priv *priv = netdev_priv(dev);
++	struct phy_device *phydev = priv->phydev;
++	u32 reg, cmd_bits = 0;
++	unsigned int status_changed = 0;
 +
-+/* RBUF register accessors */
-+GENET_IO_MACRO(rbuf, GENET_RBUF_OFF);
++	if (priv->old_link != phydev->link) {
++		status_changed = 1;
++		priv->old_link = phydev->link;
++	}
 +
-+/* MDIO routines */
-+int bcmgenet_mii_init(struct net_device *dev);
-+int bcmgenet_mii_config(struct net_device *dev);
-+void bcmgenet_mii_exit(struct net_device *dev);
-+void bcmgenet_mii_reset(struct net_device *dev);
++	if (phydev->link) {
++		/* program UMAC and RGMII block based on established link
++		 * speed, pause, and duplex.
++		 * the speed set in umac->cmd tell RGMII block which clock
++		 * 25MHz(100Mbps)/125MHz(1Gbps) to use for transmit.
++		 * receive clock is provided by PHY.
++		 */
++		reg = bcmgenet_ext_readl(priv, EXT_RGMII_OOB_CTRL);
++		reg &= ~OOB_DISABLE;
++		reg |= RGMII_LINK;
++		bcmgenet_ext_writel(priv, reg, EXT_RGMII_OOB_CTRL);
 +
-+#endif /* __BCMGENET_H__ */
++		/* speed */
++		if (phydev->speed == SPEED_1000)
++			cmd_bits = UMAC_SPEED_1000;
++		else if (phydev->speed == SPEED_100)
++			cmd_bits = UMAC_SPEED_100;
++		else
++			cmd_bits = UMAC_SPEED_10;
++		cmd_bits <<= CMD_SPEED_SHIFT;
++
++		if (priv->old_duplex != phydev->duplex) {
++			status_changed = 1;
++			priv->old_duplex = phydev->duplex;
++		}
++
++		/* duplex */
++		if (phydev->duplex != DUPLEX_FULL)
++			cmd_bits |= CMD_HD_EN;
++
++		if (priv->old_pause != phydev->pause) {
++			status_changed = 1;
++			priv->old_pause = phydev->pause;
++		}
++
++		/* pause capability */
++		if (!phydev->pause)
++			cmd_bits |= CMD_RX_PAUSE_IGNORE | CMD_TX_PAUSE_IGNORE;
++
++		reg = bcmgenet_umac_readl(priv, UMAC_CMD);
++		reg &= ~((CMD_SPEED_MASK << CMD_SPEED_SHIFT) |
++			       CMD_HD_EN |
++			       CMD_RX_PAUSE_IGNORE | CMD_TX_PAUSE_IGNORE);
++		reg |= cmd_bits;
++		bcmgenet_umac_writel(priv, reg, UMAC_CMD);
++	}
++
++	if (status_changed)
++		phy_print_status(phydev);
++}
++
++void bcmgenet_mii_reset(struct net_device *dev)
++{
++	struct bcmgenet_priv *priv = netdev_priv(dev);
++
++	if (priv->phydev) {
++		phy_init_hw(priv->phydev);
++		phy_start_aneg(priv->phydev);
++	}
++}
++
++static void bcmgenet_ephy_power_up(struct net_device *dev)
++{
++	struct bcmgenet_priv *priv = netdev_priv(dev);
++	u32 reg = 0;
++
++	/* EXT_GPHY_CTRL is only valid for GENETv4 and onward */
++	if (!GENET_IS_V4(priv))
++		return;
++
++	reg = bcmgenet_ext_readl(priv, EXT_GPHY_CTRL);
++	reg &= ~(EXT_CFG_IDDQ_BIAS | EXT_CFG_PWR_DOWN);
++	reg |= EXT_GPHY_RESET;
++	bcmgenet_ext_writel(priv, reg, EXT_GPHY_CTRL);
++	mdelay(2);
++
++	reg &= ~EXT_GPHY_RESET;
++	bcmgenet_ext_writel(priv, reg, EXT_GPHY_CTRL);
++	udelay(20);
++}
++
++static int bcmgenet_mii_probe(struct net_device *dev)
++{
++	struct bcmgenet_priv *priv = netdev_priv(dev);
++	struct phy_device *phydev;
++	unsigned int phy_flags;
++
++	if (priv->phydev) {
++		pr_info("PHY already attached\n");
++		return 0;
++	}
++
++	phy_flags = PHY_BRCM_100MBPS_WAR;
++
++	/* workarounds are only needed for 100Mbps PHYs */
++	if (priv->phy_speed == SPEED_1000)
++		phy_flags = 0;
++
++	/* workarounds are only needed for some 40nm chips, exclude
++	 * GENET v1
++	 */
++	if (GENET_IS_V1(priv))
++		phy_flags = 0;
++
++	if (priv->phy_dn)
++		phydev = of_phy_connect(dev, priv->phy_dn,
++					bcmgenet_mii_setup, phy_flags,
++					priv->phy_interface);
++	else
++		phydev = of_phy_connect_fixed_link(dev,
++					bcmgenet_mii_setup,
++					priv->phy_interface);
++
++	if (!phydev) {
++		pr_err("could not attach to PHY\n");
++		return -ENODEV;
++	}
++
++	phydev->supported &= priv->phy_supported;
++	/* Adjust advertised speeds based on configured speed */
++	if (priv->phy_speed == SPEED_1000)
++		phydev->advertising = PHY_GBIT_FEATURES;
++	else
++		phydev->advertising = PHY_BASIC_FEATURES;
++
++	pr_info("attached PHY at address %d [%s]\n",
++			phydev->addr, phydev->drv->name);
++
++	priv->old_link = -1;
++	priv->old_duplex = -1;
++	priv->old_pause = -1;
++	priv->phydev = phydev;
++
++	return 0;
++}
++
++static int bcmgenet_mii_alloc(struct bcmgenet_priv *priv)
++{
++	struct mii_bus *bus;
++	int ret = 0;
++
++	if (priv->mii_bus)
++		return 0;
++
++	priv->mii_bus = mdiobus_alloc();
++	if (!priv->mii_bus) {
++		pr_err("failed to allocate\n");
++		return -ENOMEM;
++	}
++
++	bus = priv->mii_bus;
++	bus->priv = priv->dev;
++	bus->name = "bcmgenet MII bus";
++	bus->parent = &priv->pdev->dev;
++	bus->read = bcmgenet_mii_read;
++	bus->write = bcmgenet_mii_write;
++	snprintf(bus->id, MII_BUS_ID_SIZE, "%s-%d",
++			priv->pdev->name, priv->pdev->id);
++
++	bus->irq = kzalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
++	if (!bus->irq) {
++		ret = -ENOMEM;
++		goto out_mdio_free;
++	}
++
++	/* The internal PHY has its link interrupts routed to the
++	 * Ethernet MAC ISRs
++	 */
++	if (priv->phy_interface == PHY_INTERFACE_MODE_INTERNAL)
++		bus->irq[priv->phy_addr] = PHY_IGNORE_INTERRUPT;
++	else
++		bus->irq[priv->phy_addr] = PHY_POLL;
++
++	return 0;
++
++out_mdio_free:
++	mdiobus_free(priv->mii_bus);
++	return ret;
++}
++
++static void bcmgenet_internal_phy_setup(struct net_device *dev)
++{
++	struct bcmgenet_priv *priv = netdev_priv(dev);
++	u32 reg;
++
++	/* Power up EPHY */
++	bcmgenet_ephy_power_up(dev);
++	/* enable APD */
++	reg = bcmgenet_ext_readl(priv, EXT_EXT_PWR_MGMT);
++	reg |= EXT_PWR_DN_EN_LD;
++	bcmgenet_ext_writel(priv, reg, EXT_EXT_PWR_MGMT);
++	bcmgenet_mii_reset(dev);
++}
++
++static void bcmgenet_moca_phy_setup(struct bcmgenet_priv *priv)
++{
++	u32 reg;
++
++	/* Speed settings are set in bcmgenet_mii_setup() */
++	reg = bcmgenet_sys_readl(priv, SYS_PORT_CTRL);
++	reg |= LED_ACT_SOURCE_MAC;
++	bcmgenet_sys_writel(priv, reg, SYS_PORT_CTRL);
++}
++
++int bcmgenet_mii_config(struct net_device *dev)
++{
++	struct bcmgenet_priv *priv = netdev_priv(dev);
++	struct device *kdev = &priv->pdev->dev;
++	const char *phy_name = NULL;
++	u32 id_mode_dis = 0;
++	u32 port_ctrl;
++	u32 reg;
++
++	priv->ext_phy = (priv->phy_interface != PHY_INTERFACE_MODE_INTERNAL) &&
++			(priv->phy_interface != PHY_INTERFACE_MODE_MOCA);
++
++	switch (priv->phy_interface) {
++	case PHY_INTERFACE_MODE_INTERNAL:
++	case PHY_INTERFACE_MODE_MOCA:
++		/* Irrespective of the actually configured PHY speed (100 or
++		 * 1000) GENETv4 only has an internal GPHY so we will just end
++		 * up masking the Gigabit features from what we support, not
++		 * switching to the EPHY
++		 */
++		if (GENET_IS_V4(priv)) {
++			priv->phy_supported = PHY_GBIT_FEATURES;
++			port_ctrl = PORT_MODE_INT_GPHY;
++		} else {
++			priv->phy_supported = PHY_BASIC_FEATURES;
++			port_ctrl = PORT_MODE_INT_EPHY;
++		}
++
++		bcmgenet_sys_writel(priv, port_ctrl, SYS_PORT_CTRL);
++
++		if (priv->phy_interface == PHY_INTERFACE_MODE_INTERNAL) {
++			phy_name = "internal PHY";
++			bcmgenet_internal_phy_setup(dev);
++		} else if (priv->phy_interface == PHY_INTERFACE_MODE_MOCA) {
++			phy_name = "MoCA";
++			bcmgenet_moca_phy_setup(priv);
++		}
++		break;
++
++	case PHY_INTERFACE_MODE_MII:
++		phy_name = "external MII";
++		priv->phy_supported = PHY_BASIC_FEATURES;
++		bcmgenet_sys_writel(priv,
++				PORT_MODE_EXT_EPHY, SYS_PORT_CTRL);
++		break;
++
++	case PHY_INTERFACE_MODE_REVMII:
++		phy_name = "external RvMII";
++		if (priv->phy_speed == SPEED_100) {
++			priv->phy_supported = PHY_BASIC_FEATURES;
++			port_ctrl = PORT_MODE_EXT_RVMII_25;
++		} else {
++			priv->phy_supported = PHY_GBIT_FEATURES;
++			port_ctrl = PORT_MODE_EXT_RVMII_50;
++		}
++		bcmgenet_sys_writel(priv, port_ctrl, SYS_PORT_CTRL);
++		break;
++
++	case PHY_INTERFACE_MODE_RGMII:
++		/* RGMII_NO_ID: TXC transitions at the same time as TXD
++		 *		(requires PCB or receiver-side delay)
++		 * RGMII:	Add 2ns delay on TXC (90 degree shift)
++		 *
++		 * ID is implicitly disabled for 100Mbps (RG)MII operation.
++		 */
++		id_mode_dis = BIT(16);
++		/* fall through */
++	case PHY_INTERFACE_MODE_RGMII_TXID:
++		if (id_mode_dis)
++			phy_name = "external RGMII (no delay)";
++		else
++			phy_name = "external RGMII (TX delay)";
++		reg = bcmgenet_ext_readl(priv, EXT_RGMII_OOB_CTRL);
++		reg |= RGMII_MODE_EN | id_mode_dis;
++		bcmgenet_ext_writel(priv, reg, EXT_RGMII_OOB_CTRL);
++		bcmgenet_sys_writel(priv,
++				PORT_MODE_EXT_GPHY, SYS_PORT_CTRL);
++		priv->phy_supported = PHY_GBIT_FEATURES;
++		/* setup mii based on configure speed and RGMII txclk is set in
++		 * umac->cmd, mii_setup() after link established.
++		 */
++		break;
++	default:
++		dev_err(kdev, "unknown phy mode: %d\n", priv->phy_interface);
++		return -EINVAL;
++	}
++
++	dev_info(kdev, "configuring instance for %s\n", phy_name);
++
++	return 0;
++}
++
++static int bcmgenet_mii_of_init(struct bcmgenet_priv *priv)
++{
++	struct device_node *dn = priv->pdev->dev.of_node;
++	struct device *kdev = &priv->pdev->dev;
++	struct device_node *mdio_dn;
++	const __be32 *fixed_link;
++	u32 propval;
++	int ret, sz;
++
++	mdio_dn = of_get_next_child(dn, NULL);
++	if (!mdio_dn) {
++		dev_err(kdev, "unable to find MDIO bus node\n");
++		return -ENODEV;
++	}
++
++	ret = of_mdiobus_register(priv->mii_bus, mdio_dn);
++	if (ret) {
++		dev_err(kdev, "failed to register MDIO bus\n");
++		return ret;
++	}
++
++	/* Check if we have an internal or external PHY */
++	priv->phy_dn = of_parse_phandle(dn, "phy-handle", 0);
++	if (priv->phy_dn) {
++		if (!of_property_read_u32(priv->phy_dn, "max-speed", &propval))
++			priv->phy_speed = propval;
++	} else {
++		/* Read the link speed from the fixed-link property */
++		fixed_link = of_get_property(dn, "fixed-link", &sz);
++		if (!fixed_link || sz < sizeof(*fixed_link)) {
++			ret = -ENODEV;
++			goto out;
++		}
++
++		priv->phy_speed = be32_to_cpu(fixed_link[2]);
++	}
++
++	/* Get the link mode */
++	priv->phy_interface = of_get_phy_mode(dn);
++
++	return 0;
++out:
++	mdiobus_unregister(priv->mii_bus);
++	return ret;
++}
++
++int bcmgenet_mii_init(struct net_device *dev)
++{
++	struct bcmgenet_priv *priv = netdev_priv(dev);
++	int ret;
++
++	ret = bcmgenet_mii_alloc(priv);
++	if (ret)
++		return ret;
++
++	ret = bcmgenet_mii_of_init(priv);
++	if (ret)
++		goto out_free;
++
++	ret = bcmgenet_mii_config(dev);
++	if (ret)
++		goto out;
++
++	ret = bcmgenet_mii_probe(dev);
++	if (ret)
++		goto out;
++
++	return 0;
++
++out:
++	mdiobus_unregister(priv->mii_bus);
++out_free:
++	kfree(priv->mii_bus->irq);
++	mdiobus_free(priv->mii_bus);
++	return ret;
++}
++
++void bcmgenet_mii_exit(struct net_device *dev)
++{
++	struct bcmgenet_priv *priv = netdev_priv(dev);
++
++	mdiobus_unregister(priv->mii_bus);
++	kfree(priv->mii_bus->irq);
++	mdiobus_free(priv->mii_bus);
++}
 -- 
 1.8.3.2
