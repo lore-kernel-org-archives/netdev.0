@@ -1,35 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: cpsw: catch of_get_phy_mode failing and propagate
- error
-Date: Thu, 13 Feb 2014 18:26:00 -0500 (EST)
-Message-ID: <20140213.182600.1501969529994633708.davem@davemloft.net>
-References: <1392244402-24823-1-git-send-email-u.kleine-koenig@pengutronix.de>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next v4 00/10] Support for the Broadcom GENET driver
+Date: Thu, 13 Feb 2014 15:30:12 -0800
+Message-ID: <1392334222-1089-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, kernel@pengutronix.de, mugunthanvnm@ti.com
-To: u.kleine-koenig@pengutronix.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51335 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751185AbaBMX0D convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 18:26:03 -0500
-In-Reply-To: <1392244402-24823-1-git-send-email-u.kleine-koenig@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<cernekee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	<romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
-Date: Wed, 12 Feb 2014 23:33:22 +0100
+This patchset adds support for the Broadcom GENET Gigabit Ethernet MAC
+controller. This controller is found on the Broadcom BCM7xxx Set Top Box
+System-on-a-chips.
 
-> It's wrong if the device tree doesn't provide a phy-mode property for
-> the cpsw slaves as it is documented to be required in
-> Documentation/devicetree/bindings/net/cpsw.txt.
->=20
-> Anyhow it's nice to catch that problem, still more as it used to work
-> without this property up to commit 388367a5a9fb (drivers: net: cpsw: =
-use
-> cpsw-phy-sel driver to configure phy mode) which is in v3.13-rc1.
->=20
-> Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+Changes since v3:
+- fixed Kconfig dependency on FIXED_PHY
 
-Applied, thanks.
+Changes since v2:
+- dropped the patch that adds an "internal" phy-mode
+
+Florian Fainelli (10):
+  net: phy: add MoCA PHY type
+  net: phy: update port type for MoCA PHYs
+  net: phy: broadcom: extract register definitions
+  net: phy: add Broadcom BCM7xxx internal PHY driver
+  net: bcmgenet: add driver definitions and private structure
+  net: bcmgenet: add main driver file
+  net: bcmgenet: add MDIO routines
+  net: bcmgenet: hook into the build system
+  Documentation: add Device tree bindings for Broadcom GENET
+  MAINTAINERS: add entry for the Broadcom GENET driver
+
+ .../devicetree/bindings/net/broadcom-bcmgenet.txt  |  121 +
+ MAINTAINERS                                        |    6 +
+ drivers/net/ethernet/broadcom/Kconfig              |   10 +
+ drivers/net/ethernet/broadcom/Makefile             |    1 +
+ drivers/net/ethernet/broadcom/genet/Makefile       |    2 +
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c     | 2595 ++++++++++++++++++++
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h     |  630 +++++
+ drivers/net/ethernet/broadcom/genet/bcmmii.c       |  470 ++++
+ drivers/net/phy/Kconfig                            |    6 +
+ drivers/net/phy/Makefile                           |    1 +
+ drivers/net/phy/bcm7xxx.c                          |  343 +++
+ drivers/net/phy/broadcom.c                         |   52 -
+ drivers/net/phy/phy.c                              |    5 +-
+ include/linux/brcmphy.h                            |   60 +
+ include/linux/phy.h                                |    3 +
+ 15 files changed, 4252 insertions(+), 53 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
+ create mode 100644 drivers/net/ethernet/broadcom/genet/Makefile
+ create mode 100644 drivers/net/ethernet/broadcom/genet/bcmgenet.c
+ create mode 100644 drivers/net/ethernet/broadcom/genet/bcmgenet.h
+ create mode 100644 drivers/net/ethernet/broadcom/genet/bcmmii.c
+ create mode 100644 drivers/net/phy/bcm7xxx.c
+
+-- 
+1.8.3.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
