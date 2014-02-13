@@ -1,7 +1,8 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 00/10] Support for the Broadcom GENET driver
-Date: Wed, 12 Feb 2014 21:29:45 -0800
-Message-ID: <1392269395-23513-1-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 08/10] net: bcmgenet: hook into the build system
+Date: Wed, 12 Feb 2014 21:29:53 -0800
+Message-ID: <1392269395-23513-9-git-send-email-f.fainelli@gmail.com>
+References: <1392269395-23513-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <cernekee@gmail.com>,
@@ -11,50 +12,67 @@ To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:8684 "EHLO
 	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753382AbaBMFa0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 00:30:26 -0500
+	with ESMTP id S1753399AbaBMFa2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 00:30:28 -0500
+In-Reply-To: <1392269395-23513-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+This patch adds a new configuration symbol: CONFIG_BCMGENET which allows
+us to build the Broadcom GENET driver and hook the driver files into the
+build system.
 
-This patchset adds support for the Broadcom GENET Gigabita Ethernet MAC
-controllers version 1 to v4. This controller is found on the Broadcom
-BCM7xxx Set Top Box System-on-a-Chip hardware.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+Changes since v1:
+- rebased
 
-Florian Fainelli (10):
-  net: phy: add "internal" PHY mode
-  net: phy: add MoCA PHY type
-  net: phy: update port type for MoCA PHYs
-  net: phy: add Broadcom BCM7xxx internal PHY driver
-  net: bcmgenet: add driver definitions and private structure
-  net: bcmgenet: add main driver file
-  net: bcmgenet: add MDIO routines
-  net: bcmgenet: hook into the build system
-  Documentation: add Device tree bindings for Broadcom GENET
-  MAINTAINERS: add entry for the Broadcom GENET driver
-
- .../devicetree/bindings/net/broadcom-bcmgenet.txt  |  111 +
- MAINTAINERS                                        |    6 +
- drivers/net/ethernet/broadcom/Kconfig              |   10 +
- drivers/net/ethernet/broadcom/Makefile             |    1 +
- drivers/net/ethernet/broadcom/genet/Makefile       |    2 +
- drivers/net/ethernet/broadcom/genet/bcmgenet.c     | 2664 ++++++++++++++++++++
- drivers/net/ethernet/broadcom/genet/bcmgenet.h     |  624 +++++
- drivers/net/ethernet/broadcom/genet/bcmmii.c       |  481 ++++
- drivers/net/phy/Kconfig                            |    6 +
- drivers/net/phy/Makefile                           |    1 +
- drivers/net/phy/bcm7xxx.c                          |  322 +++
- drivers/net/phy/phy.c                              |    5 +-
- include/linux/brcmphy.h                            |    9 +
- include/linux/phy.h                                |    9 +-
- 14 files changed, 4249 insertions(+), 2 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
+ drivers/net/ethernet/broadcom/Kconfig        | 10 ++++++++++
+ drivers/net/ethernet/broadcom/Makefile       |  1 +
+ drivers/net/ethernet/broadcom/genet/Makefile |  2 ++
+ 3 files changed, 13 insertions(+)
  create mode 100644 drivers/net/ethernet/broadcom/genet/Makefile
- create mode 100644 drivers/net/ethernet/broadcom/genet/bcmgenet.c
- create mode 100644 drivers/net/ethernet/broadcom/genet/bcmgenet.h
- create mode 100644 drivers/net/ethernet/broadcom/genet/bcmmii.c
- create mode 100644 drivers/net/phy/bcm7xxx.c
 
+diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
+index 3f97d9f..a489712 100644
+--- a/drivers/net/ethernet/broadcom/Kconfig
++++ b/drivers/net/ethernet/broadcom/Kconfig
+@@ -60,6 +60,16 @@ config BCM63XX_ENET
+ 	  This driver supports the ethernet MACs in the Broadcom 63xx
+ 	  MIPS chipset family (BCM63XX).
+ 
++config BCMGENET
++	tristate "Broadcom GENET internal MAC support"
++	select MII
++	select PHYLIB
++	select FIXED_PHY
++	select BCM7XXX_PHY
++	help
++	  This driver supports the built-in Ethernet MACs found in the
++	  Broadcom BCM7xxx Set Top Box family chipset.
++
+ config BNX2
+ 	tristate "Broadcom NetXtremeII support"
+ 	depends on PCI
+diff --git a/drivers/net/ethernet/broadcom/Makefile b/drivers/net/ethernet/broadcom/Makefile
+index 68efa1a..fd639a0 100644
+--- a/drivers/net/ethernet/broadcom/Makefile
++++ b/drivers/net/ethernet/broadcom/Makefile
+@@ -4,6 +4,7 @@
+ 
+ obj-$(CONFIG_B44) += b44.o
+ obj-$(CONFIG_BCM63XX_ENET) += bcm63xx_enet.o
++obj-$(CONFIG_BCMGENET) += genet/
+ obj-$(CONFIG_BNX2) += bnx2.o
+ obj-$(CONFIG_CNIC) += cnic.o
+ obj-$(CONFIG_BNX2X) += bnx2x/
+diff --git a/drivers/net/ethernet/broadcom/genet/Makefile b/drivers/net/ethernet/broadcom/genet/Makefile
+new file mode 100644
+index 0000000..31f55a9
+--- /dev/null
++++ b/drivers/net/ethernet/broadcom/genet/Makefile
+@@ -0,0 +1,2 @@
++obj-$(CONFIG_BCMGENET) += genet.o
++genet-objs := bcmgenet.o bcmmii.o
 -- 
 1.8.3.2
