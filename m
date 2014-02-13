@@ -1,159 +1,124 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v2 09/10] Documentation: add Device tree bindings
- for Broadcom GENET
-Date: Thu, 13 Feb 2014 08:57:44 -0800
-Message-ID: <CAGVrzca1L-5TTnp4aEn9JY6-Yb8GtiMfzUzxgqr5vp0qCdxQZw@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2 07/10] net: bcmgenet: add MDIO routines
+Date: Thu, 13 Feb 2014 09:00:41 -0800
+Message-ID: <CAGVrzcba6dfpJUkzVvj2VQGxVgs+CyVkJOmqQNTE902BdU5dww@mail.gmail.com>
 References: <1392269395-23513-1-git-send-email-f.fainelli@gmail.com>
- <1392269395-23513-10-git-send-email-f.fainelli@gmail.com> <20140213111328.GB30705@e106331-lin.cambridge.arm.com>
+ <1392269395-23513-8-git-send-email-f.fainelli@gmail.com> <20140213115008.GB5871@e106331-lin.cambridge.arm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"cernekee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <cernekee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140213111328.GB30705-NuALmloUBlrZROr8t4l/smS4ubULX0JqMm0uRHvK7Nw@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"cernekee@gmail.com" <cernekee@gmail.com>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Mark Rutland <mark.rutland@arm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:58344 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752089AbaBMRBV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 12:01:21 -0500
+In-Reply-To: <20140213115008.GB5871@e106331-lin.cambridge.arm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hi Mark,
 
-2014-02-13 3:13 GMT-08:00 Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>:
-> On Thu, Feb 13, 2014 at 05:29:54AM +0000, Florian Fainelli wrote:
->> This patch adds the Device Tree bindings for the Broadcom GENET Gigabit
->> Ethernet controller. A bunch of examples are provided to illustrate the
->> versatile aspect of the hardare.
+2014-02-13 3:50 GMT-08:00 Mark Rutland <mark.rutland@arm.com>:
+> On Thu, Feb 13, 2014 at 05:29:52AM +0000, Florian Fainelli wrote:
+>> This patch adds support for configuring the port multiplexer hardware
+>> which resides in front of the GENET Ethernet MAC controller. This allows
+>> us to support:
 >>
->> Signed-off-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>> - internal PHYs (using drivers/net/phy/bcm7xxx.c)
+>> - MoCA PHYs which are an entirely separate hardware block not covered
+>>   here
+>> - external PHYs and switches
+>>
+>> Note that MoCA and switches are currently supported using the emulated
+>> "fixed PHY" driver.
+>>
+>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 >> ---
 >> Changes since v1:
->> - rebased
+>> - fixed MDIO crash/warning when Device Tree probing fails
+>> - removed the use of priv->phy_type and use priv->phy_interface
+>>   directly
 >>
->>  .../devicetree/bindings/net/broadcom-bcmgenet.txt  | 111 +++++++++++++++++++++
->>  1 file changed, 111 insertions(+)
->>  create mode 100644 Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
->>
->> diff --git a/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt b/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
->> new file mode 100644
->> index 0000000..93c58e9
->> --- /dev/null
->> +++ b/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
->> @@ -0,0 +1,111 @@
->> +* Broadcom BCM7xxx Ethernet Controller (GENET)
+>>  drivers/net/ethernet/broadcom/genet/bcmmii.c | 481 +++++++++++++++++++++++++++
+>>  1 file changed, 481 insertions(+)
+>>  create mode 100644 drivers/net/ethernet/broadcom/genet/bcmmii.c
+>
+> [...]
+>
+>> +static int bcmgenet_mii_of_init(struct bcmgenet_priv *priv)
+>> +{
+>> +       struct device_node *dn = priv->pdev->dev.of_node;
+>> +       struct device *kdev = &priv->pdev->dev;
+>> +       struct device_node *mdio_dn;
+>> +       const __be32 *fixed_link;
+>
+> This looks a bit odd. Could we not have a common parser for fixed-link
+> properties?
+
+Do you remember the fixed-link revamp that Thomas Petazzoni submitted
+a while ago? I was planning on using it, but there were still some
+disagreements on how to do it, so I ended up using the good old
+"fixed-link" property as-is.
+
+>
+>> +       u32 propval;
+>> +       int ret, sz;
 >> +
->> +Required properties:
->> +- compatible: should be "brcm,genet-v1", "brcm,genet-v2", "brcm,genet-v3",
->> +  "brcm,genet-v4".
+>> +       mdio_dn = of_get_next_child(dn, NULL);
+>> +       if (!mdio_dn) {
+>> +               dev_err(kdev, "unable to find MDIO bus node\n");
+>> +               return -ENODEV;
+>> +       }
 >
-> Presumably "should contain one of" is a better description than "should
-> be"?
->
-> Are the newer revisions compatible with older revisions?
+> Could you please check that this is the node you expect (by looking at
+> the compatible string list).
 
-Not entirely, the driver has internal macros: GENET_IS_V<N>() to help
-figuring out which parts are different.
-
->
->> +- reg: address and length of the register set for the device.
->> +- interrupts: interrupt for the device
->> +- mdio bus node: this node should always be present regarless of the PHY
->> +  configuration of the GENET instance
->
-> Nit: a node is not a property, list it after properties.
->
->> +- phy-mode: The interface between the SoC and the PHY (a string that
->> +  of_get_phy_mode() can understand).
->
-> Do we not have a document under bindings listing these? I really don't
-> like referring to code in bindings docs.
-
-Sergei has been working on a patch that centralizes the Ethernet DT
-binding, but I am targetting the net-next/master tree in which this is
-not yet present. I could probably pro-actively mention it though.
+Makes sense.
 
 >
 >> +
->> +MDIO bus node required properties:
+>> +       ret = of_mdiobus_register(priv->mii_bus, mdio_dn);
+>> +       if (ret) {
+>> +               dev_err(kdev, "failed to register MDIO bus\n");
+>> +               return ret;
+>> +       }
 >> +
->> +- compatible: should be "brcm,genet-v<N>-mdio"
+>> +       /* Check if we have an internal or external PHY */
+>> +       priv->phy_dn = of_parse_phandle(dn, "phy-handle", 0);
+>> +       if (priv->phy_dn) {
+>> +               if (!of_property_read_u32(priv->phy_dn, "max-speed", &propval))
+>> +                       priv->phy_speed = propval;
 >
-> Where N is? Could this not be an explicit list as above? It helps when
-> searching for bindings.
+> Is there no way to find this out without reading values directly off of
+> the PHY? It seems like something we should have an abstraction for.
 
-Yes, this should match the genet-v<N> compatible string.
-
->
->> +- reg: address and length relative to the parent node base register address
->
-> The parent node will require #address-cells and #size-cells too then.
-
-Correct.
+In fact, this is a remnant from when I did not submit the patch doing
+this in of_mdiobus_register(), so this is now useless.
 
 >
->> +- address-cells: address cell for MDIO bus addressing, should be 1
->> +- size-cells: size of the cells for MDIO bus addressing, should be 0
+>> +       } else {
+>> +               /* Read the link speed from the fixed-link property */
+>> +               fixed_link = of_get_property(dn, "fixed-link", &sz);
+>> +               if (!fixed_link || sz < sizeof(*fixed_link)) {
+>> +                       ret = -ENODEV;
+>> +                       goto out;
+>> +               }
 >> +
->> +Optional properties:
->> +- phy-handle: A phandle to a phy node defining the PHY address (as the reg
->> +  property, a single integer), used to describe configurations where a PHY
->> +  (internal or external) is used.
+>> +               priv->phy_speed = be32_to_cpu(fixed_link[2]);
 >
-> Is there not a phy binding you could refer to instead?
+> Similarly can we not have a common fixed-link parser? Or abstraction
+> such that you query the phy regardless of what it is and how its binding
+> represents this?
 
-This is ePAPR, but once again, Sergei's document centralizes that nicely.
-
->
->> +
->> +- fixed-link: When the GENET interface is connected to a MoCA hardware block
->> +  or when operating in a RGMII to RGMII type of connection, or when the
->> +  MDIO bus is voluntarily disabled, this property should be used to describe
->> +  the "fixed link", the property is described as follows:
->> +
->> +  fixed-link: <a b c d e> where a is emulated phy id - choose any,
->> +  but unique to the all specified fixed-links, b is duplex - 0 half,
->> +  1 full, c is link speed - d#10/d#100/d#1000, d is pause - 0 no
->> +  pause, 1 pause, e is asym_pause - 0 no asym_pause, 1 asym_pause.
->
-> Is this not documented elsewhere such that it can be referred to?
-
-The Freescale FEC driver is the one holding most of the documentation
-for fixed-link, I can refer to it until Sergei's patch which
-centralizes the Ethernet DT bindings gets merged.
-
->
->> +
->> +Internal Gigabit PHY example:
->> +
->> +ethernet@f0b60000 {
->> +     phy-mode = "internal";
->> +     phy-handle = <&phy1>;
->> +     mac-address = [ 00 10 18 36 23 1a ];
->> +     compatible = "brcm,genet-v4";
->> +     #address-cells = <0x1>;
->> +     #size-cells = <0x1>;
->> +     device_type = "ethernet";
->
-> What's this needed by? I can't see any other devices with this
-> device_type, and I was under the impression that we didn't want new
-> device_type properties cropping up.
-
-This is just an oversight, and is not required per-se, I will get it removed.
-
->
->> +     reg = <0xf0b60000 0xfc4c>;
->> +     interrupts = <0x0 0x14 0x0 0x0 0x15 0x0>;
->
-> How many? The binding implied only one, and I'm not away of any
-> interrupt controller bindings with #interrupt-cells = <6>.
-
-In fact, only two interrupts, cells, this is a bad copy-pasting from
-the bootloader providing the DTB.
+I do not think I need this line anymore. I will do some more testing
+and will remove this parsing. I do agree that we need a common
+fixed-link parser, but that is part of the discussion initiated by
+Thomas Petazzoni.
 
 Thanks for the review!
 -- 
 Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
