@@ -1,25 +1,21 @@
 From: Rick Jones <rick.jones2@hp.com>
 Subject: Occasional lockups creating/manipulating namespaces in 3.13.0 and
  3.14.0-rc2
-Date: Thu, 13 Feb 2014 11:41:04 -0800
-Message-ID: <52FD1FD0.7070809@hp.com>
+Date: Thu, 13 Feb 2014 11:45:34 -0800
+Message-ID: <52FD20DE.4040400@hp.com>
 References: <52F1461D.8050703@hp.com> <52FAA3A6.9050608@hp.com> <52FAC6D1.50702@hp.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------080206070406060203060000"
+ boundary="------------070908020506000706050204"
 Cc: netdev@vger.kernel.org
-To: lkml@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:27124 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750892AbaBMTlG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 14:41:06 -0500
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <52FAC6D1.50702@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------080206070406060203060000
+--------------070908020506000706050204
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
 
@@ -75,7 +71,8 @@ data/spreadsheet if another thread is warranted.
 Start of the netdev thread - 
 http://marc.info/?l=linux-netdev&m=139154384317278&w=2
 
---------------080206070406060203060000
+
+--------------070908020506000706050204
 Content-Type: text/plain; charset=UTF-8;
  name="16_stream_lockup_dmesg.txt"
 Content-Transfer-Encoding: base64
@@ -3108,4 +3105,4 @@ YzAgNDggMzkgY2EgNzQgMmIgNDggODkgZDAgZWIgMTMgMGYgMWYgMDAgNDggOGIgMDAgNDgg
 ODkgNDUgZjggNDggOGIgNDUgZjggNDggMzkgYzggNzQgMTggNDggOGIgNTAgMTAgPDQ4PiA4
 MyBjMiAyMCA0OCAzOSBkNyA3NSBlMyA0OCAzOSA3MCAxOCA3NSBkZCBjOSBjMyAwZiAxZiAw
 MCAzMSAK
---------------080206070406060203060000--
+--------------070908020506000706050204--
