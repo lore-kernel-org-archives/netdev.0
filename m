@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next v2 10/14] tipc: rename stack variables in function tipc_link_tunnel_rcv
-Date: Thu, 13 Feb 2014 17:29:14 -0500
-Message-ID: <1392330558-19048-11-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next v2 11/14] tipc: changes to general packet reception algorithm
+Date: Thu, 13 Feb 2014 17:29:15 -0500
+Message-ID: <1392330558-19048-12-git-send-email-jon.maloy@ericsson.com>
 References: <1392330558-19048-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
@@ -10,70 +10,164 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp103.biz.mail.ne1.yahoo.com ([98.138.207.10]:21088 "HELO
+Received: from smtp103.biz.mail.ne1.yahoo.com ([98.138.207.10]:21104 "HELO
 	smtp103.biz.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752557AbaBMW3o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:29:44 -0500
+	by vger.kernel.org with SMTP id S1752508AbaBMW3q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:29:46 -0500
 In-Reply-To: <1392330558-19048-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After the previous redesign of the tunnel reception algorithm and
-functions, we finalize it by renaming a couple of stack variables
-in tipc_tunnel_rcv(). This makes it more consistent with the naming
-scheme elsewhere in this part of the code.
+We change the order of checking for destination users when processing
+incoming packets. By placing the checks for users that may potentially
+replace the processed buffer, i.e., CHANGEOVER_PROTOCOL and
+MSG_FRAGMENTER, in a separate step before we check for the true end
+users, we get rid of a label and a 'goto', at the same time making the
+code more comprehensible and easy to follow.
 
-This change is purely cosmetic, with no functional changes.
+This commit does not change any functionality, it is just a cosmetic
+code reshuffle.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Reviewed-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/link.c |   22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
+ net/tipc/link.c |   76 +++++++++++++++++++++++++++++--------------------------
+ 1 file changed, 40 insertions(+), 36 deletions(-)
 
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 3136788..b678c2e 100644
+index b678c2e..663623c 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -2177,29 +2177,29 @@ exit:
- static int tipc_link_tunnel_rcv(struct tipc_node *n_ptr,
- 				struct sk_buff **buf)
- {
--	struct sk_buff *tunnel_buf = *buf;
--	struct tipc_link *dest_link;
--	struct tipc_msg *tunnel_msg = buf_msg(tunnel_buf);
--	u32 bearer_id = msg_bearer_id(tunnel_msg);
-+	struct sk_buff *t_buf = *buf;
-+	struct tipc_link *l_ptr;
-+	struct tipc_msg *t_msg = buf_msg(t_buf);
-+	u32 bearer_id = msg_bearer_id(t_msg);
+@@ -1484,7 +1484,7 @@ void tipc_rcv(struct sk_buff *head, struct tipc_bearer *b_ptr)
+ 		if ((n_ptr->block_setup & WAIT_PEER_DOWN) &&
+ 			msg_user(msg) == LINK_PROTOCOL &&
+ 			(msg_type(msg) == RESET_MSG ||
+-					msg_type(msg) == ACTIVATE_MSG) &&
++			 msg_type(msg) == ACTIVATE_MSG) &&
+ 			!msg_redundant_link(msg))
+ 			n_ptr->block_setup &= ~WAIT_PEER_DOWN;
  
- 	*buf = NULL;
+@@ -1503,7 +1503,6 @@ void tipc_rcv(struct sk_buff *head, struct tipc_bearer *b_ptr)
+ 		while ((crs != l_ptr->next_out) &&
+ 		       less_eq(buf_seqno(crs), ackd)) {
+ 			struct sk_buff *next = crs->next;
+-
+ 			kfree_skb(crs);
+ 			crs = next;
+ 			released++;
+@@ -1516,14 +1515,17 @@ void tipc_rcv(struct sk_buff *head, struct tipc_bearer *b_ptr)
+ 		/* Try sending any messages link endpoint has pending */
+ 		if (unlikely(l_ptr->next_out))
+ 			tipc_link_push_queue(l_ptr);
++
+ 		if (unlikely(!list_empty(&l_ptr->waiting_ports)))
+ 			tipc_link_wakeup_ports(l_ptr, 0);
++
+ 		if (unlikely(++l_ptr->unacked_window >= TIPC_MIN_LINK_WIN)) {
+ 			l_ptr->stats.sent_acks++;
+-			tipc_link_send_proto_msg(l_ptr, STATE_MSG, 0, 0, 0, 0, 0);
++			tipc_link_send_proto_msg(l_ptr, STATE_MSG,
++						 0, 0, 0, 0, 0);
+ 		}
  
- 	if (bearer_id >= MAX_BEARERS)
- 		goto exit;
- 
--	dest_link = n_ptr->links[bearer_id];
--	if (!dest_link)
-+	l_ptr = n_ptr->links[bearer_id];
-+	if (!l_ptr)
- 		goto exit;
- 
--	if (msg_type(tunnel_msg) == DUPLICATE_MSG)
--		tipc_link_dup_rcv(dest_link, tunnel_buf);
--	else if (msg_type(tunnel_msg) == ORIGINAL_MSG)
--		*buf = tipc_link_failover_rcv(dest_link, tunnel_buf);
-+	if (msg_type(t_msg) == DUPLICATE_MSG)
-+		tipc_link_dup_rcv(l_ptr, t_buf);
-+	else if (msg_type(t_msg) == ORIGINAL_MSG)
-+		*buf = tipc_link_failover_rcv(l_ptr, t_buf);
- 	else
- 		pr_warn("%sunknown tunnel pkt received\n", link_co_err);
- 
- exit:
--	kfree_skb(tunnel_buf);
-+	kfree_skb(t_buf);
- 	return *buf != NULL;
- }
- 
+-		/* Now (finally!) process the incoming message */
++		/* Process the incoming packet */
+ 		if (unlikely(!link_working_working(l_ptr))) {
+ 			if (msg_user(msg) == LINK_PROTOCOL) {
+ 				link_recv_proto_msg(l_ptr, buf);
+@@ -1555,14 +1557,40 @@ void tipc_rcv(struct sk_buff *head, struct tipc_bearer *b_ptr)
+ 		l_ptr->next_in_no++;
+ 		if (unlikely(l_ptr->oldest_deferred_in))
+ 			head = link_insert_deferred_queue(l_ptr, head);
+-deliver:
+-		if (likely(msg_isdata(msg))) {
++
++		/* Deliver packet/message to correct user: */
++		if (unlikely(msg_user(msg) ==  CHANGEOVER_PROTOCOL)) {
++			if (!tipc_link_tunnel_rcv(n_ptr, &buf)) {
++				tipc_node_unlock(n_ptr);
++				continue;
++			}
++			msg = buf_msg(buf);
++		} else if (msg_user(msg) == MSG_FRAGMENTER) {
++			int rc;
++
++			l_ptr->stats.recv_fragments++;
++			rc = tipc_link_frag_rcv(&l_ptr->reasm_head,
++						&l_ptr->reasm_tail,
++						&buf);
++			if (rc == LINK_REASM_COMPLETE) {
++				l_ptr->stats.recv_fragmented++;
++				msg = buf_msg(buf);
++			} else {
++				if (rc == LINK_REASM_ERROR)
++					tipc_link_reset(l_ptr);
++				tipc_node_unlock(n_ptr);
++				continue;
++			}
++		}
++
++		switch (msg_user(msg)) {
++		case TIPC_LOW_IMPORTANCE:
++		case TIPC_MEDIUM_IMPORTANCE:
++		case TIPC_HIGH_IMPORTANCE:
++		case TIPC_CRITICAL_IMPORTANCE:
+ 			tipc_node_unlock(n_ptr);
+ 			tipc_port_recv_msg(buf);
+ 			continue;
+-		}
+-		switch (msg_user(msg)) {
+-			int ret;
+ 		case MSG_BUNDLER:
+ 			l_ptr->stats.recv_bundles++;
+ 			l_ptr->stats.recv_bundled += msg_msgcnt(msg);
+@@ -1574,44 +1602,20 @@ deliver:
+ 			tipc_node_unlock(n_ptr);
+ 			tipc_named_recv(buf);
+ 			continue;
+-		case BCAST_PROTOCOL:
+-			tipc_link_recv_sync(n_ptr, buf);
+-			tipc_node_unlock(n_ptr);
+-			continue;
+ 		case CONN_MANAGER:
+ 			tipc_node_unlock(n_ptr);
+ 			tipc_port_recv_proto_msg(buf);
+ 			continue;
+-		case MSG_FRAGMENTER:
+-			l_ptr->stats.recv_fragments++;
+-			ret = tipc_link_frag_rcv(&l_ptr->reasm_head,
+-						 &l_ptr->reasm_tail,
+-						 &buf);
+-			if (ret == LINK_REASM_COMPLETE) {
+-				l_ptr->stats.recv_fragmented++;
+-				msg = buf_msg(buf);
+-				goto deliver;
+-			}
+-			if (ret == LINK_REASM_ERROR)
+-				tipc_link_reset(l_ptr);
+-			tipc_node_unlock(n_ptr);
+-			continue;
+-		case CHANGEOVER_PROTOCOL:
+-			if (!tipc_link_tunnel_rcv(n_ptr, &buf))
+-				break;
+-			msg = buf_msg(buf);
+-			seq_no = msg_seqno(msg);
+-			goto deliver;
++		case BCAST_PROTOCOL:
++			tipc_link_recv_sync(n_ptr, buf);
++			break;
+ 		default:
+ 			kfree_skb(buf);
+-			buf = NULL;
+ 			break;
+ 		}
+ 		tipc_node_unlock(n_ptr);
+-		tipc_net_route_msg(buf);
+ 		continue;
+ unlock_discard:
+-
+ 		tipc_node_unlock(n_ptr);
+ discard:
+ 		kfree_skb(buf);
 -- 
 1.7.9.5
