@@ -1,65 +1,127 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next v2 06/10] net: bcmgenet: add main driver file
-Date: Thu, 13 Feb 2014 02:58:43 -0800
-Message-ID: <1392289123.2214.36.camel@joe-AO722>
+From: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
+Subject: Re: [PATCH net-next v2 09/10] Documentation: add Device tree
+ bindings for Broadcom GENET
+Date: Thu, 13 Feb 2014 11:13:28 +0000
+Message-ID: <20140213111328.GB30705@e106331-lin.cambridge.arm.com>
 References: <1392269395-23513-1-git-send-email-f.fainelli@gmail.com>
-	 <1392269395-23513-7-git-send-email-f.fainelli@gmail.com>
-	 <20140213103506.GB14941@electric-eye.fr.zoreil.com>
+ <1392269395-23513-10-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, cernekee@gmail.com, devicetree@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0249.hostedemail.com ([216.40.44.249]:59212 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751440AbaBMK6t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 05:58:49 -0500
-In-Reply-To: <20140213103506.GB14941@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"cernekee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <cernekee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1392269395-23513-10-git-send-email-f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-02-13 at 11:35 +0100, Francois Romieu wrote:
-> Florian Fainelli <f.fainelli@gmail.com> :
-> [...]
-> > diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-[]
-> > +static int bcmgenet_set_rx_csum(struct net_device *dev,
-> > +				netdev_features_t wanted)
-> > +{
-> > +	struct bcmgenet_priv *priv = netdev_priv(dev);
-> > +	u32 rbuf_chk_ctrl;
-> > +	int rx_csum_en;
-> > +
-> > +	rx_csum_en = !!(wanted & NETIF_F_RXCSUM);
+On Thu, Feb 13, 2014 at 05:29:54AM +0000, Florian Fainelli wrote:
+> This patch adds the Device Tree bindings for the Broadcom GENET Gigabit
+> Ethernet controller. A bunch of examples are provided to illustrate the
+> versatile aspect of the hardare.
 > 
-> It's a bool.
+> Signed-off-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+> Changes since v1:
+> - rebased
+> 
+>  .../devicetree/bindings/net/broadcom-bcmgenet.txt  | 111 +++++++++++++++++++++
+>  1 file changed, 111 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt b/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
+> new file mode 100644
+> index 0000000..93c58e9
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
+> @@ -0,0 +1,111 @@
+> +* Broadcom BCM7xxx Ethernet Controller (GENET)
+> +
+> +Required properties:
+> +- compatible: should be "brcm,genet-v1", "brcm,genet-v2", "brcm,genet-v3",
+> +  "brcm,genet-v4".
 
-It could be a bool.
+Presumably "should contain one of" is a better description than "should
+be"?
 
-The struct definition has:
+Are the newer revisions compatible with older revisions?
 
-+	unsigned int desc_rxchk_en;
+> +- reg: address and length of the register set for the device.
+> +- interrupts: interrupt for the device
+> +- mdio bus node: this node should always be present regarless of the PHY
+> +  configuration of the GENET instance
 
-but perhaps a lot of these members could be bool.
+Nit: a node is not a property, list it after properties.
 
-It'd be nicer if the variable types were the same.
+> +- phy-mode: The interface between the SoC and the PHY (a string that
+> +  of_get_phy_mode() can understand).
 
-> > +	spin_lock_bh(&priv->bh_lock);
-> > +	rbuf_chk_ctrl = bcmgenet_rbuf_readl(priv, RBUF_CHK_CTRL);
-> > +
-> > +	/* enable rx checksumming */
-> > +	if (!rx_csum_en)
-> > +		rbuf_chk_ctrl &= ~RBUF_RXCHK_EN;
-> > +	else
-> > +		rbuf_chk_ctrl |= RBUF_RXCHK_EN;
+Do we not have a document under bindings listing these? I really don't
+like referring to code in bindings docs.
 
-This is more normally written with a positive test like:
+> +
+> +MDIO bus node required properties:
+> +
+> +- compatible: should be "brcm,genet-v<N>-mdio"
 
-	if (rx_csum_en)
-		rbuf_chk_ctrl |= RBUF_RXCHK_EN;
-	else
-		rbuf_chk_ctrl &= RBUF_RXCHK_EN;
+Where N is? Could this not be an explicit list as above? It helps when
+searching for bindings.
 
-> > +	priv->desc_rxchk_en = rx_csum_en;
+> +- reg: address and length relative to the parent node base register address
+
+The parent node will require #address-cells and #size-cells too then.
+
+> +- address-cells: address cell for MDIO bus addressing, should be 1
+> +- size-cells: size of the cells for MDIO bus addressing, should be 0
+> +
+> +Optional properties:
+> +- phy-handle: A phandle to a phy node defining the PHY address (as the reg
+> +  property, a single integer), used to describe configurations where a PHY
+> +  (internal or external) is used.
+
+Is there not a phy binding you could refer to instead?
+
+> +
+> +- fixed-link: When the GENET interface is connected to a MoCA hardware block
+> +  or when operating in a RGMII to RGMII type of connection, or when the
+> +  MDIO bus is voluntarily disabled, this property should be used to describe
+> +  the "fixed link", the property is described as follows:
+> +
+> +  fixed-link: <a b c d e> where a is emulated phy id - choose any,
+> +  but unique to the all specified fixed-links, b is duplex - 0 half,
+> +  1 full, c is link speed - d#10/d#100/d#1000, d is pause - 0 no
+> +  pause, 1 pause, e is asym_pause - 0 no asym_pause, 1 asym_pause.
+
+Is this not documented elsewhere such that it can be referred to?
+
+> +
+> +Internal Gigabit PHY example:
+> +
+> +ethernet@f0b60000 {
+> +	phy-mode = "internal";
+> +	phy-handle = <&phy1>;
+> +	mac-address = [ 00 10 18 36 23 1a ];
+> +	compatible = "brcm,genet-v4";
+> +	#address-cells = <0x1>;
+> +	#size-cells = <0x1>;
+> +	device_type = "ethernet";
+
+What's this needed by? I can't see any other devices with this
+device_type, and I was under the impression that we didn't want new
+device_type properties cropping up.
+
+> +	reg = <0xf0b60000 0xfc4c>;
+> +	interrupts = <0x0 0x14 0x0 0x0 0x15 0x0>;
+
+How many? The binding implied only one, and I'm not away of any
+interrupt controller bindings with #interrupt-cells = <6>.
+
+Cheers,
+Mark.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
