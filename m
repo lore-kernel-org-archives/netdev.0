@@ -1,167 +1,102 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net] packet: check for ndo_select_queue during queue selection
-Date: Thu, 13 Feb 2014 18:18:55 +0100
-Message-ID: <1392311935-10275-1-git-send-email-dborkman@redhat.com>
-Cc: mathias.kretschmer@fokus.fraunhofer.de, netdev@vger.kernel.org,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-To: davem@davemloft.net
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH v2] net: sctp: Fix a_rwnd/rwnd management to reflect real
+ state of the receiver's buffer
+Date: Thu, 13 Feb 2014 12:14:43 -0500
+Message-ID: <52FCFD83.7050204@gmail.com>
+References: <52F72AFE.4060802@nsn.com> <52FA3914.90002@gmail.com> <52FA8073.2060607@nsn.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Alexander Sverdlin <alexander.sverdlin@nsn.com>
+To: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57744 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751884AbaBMRTB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Feb 2014 12:19:01 -0500
+Received: from mail-qa0-f51.google.com ([209.85.216.51]:42027 "EHLO
+	mail-qa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751323AbaBMRVs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 12:21:48 -0500
+In-Reply-To: <52FA8073.2060607@nsn.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mathias reported that on an AMD Geode LX embedded board (ALiX)
-with ath9k driver PACKET_QDISC_BYPASS triggers a WARN_ON()
-coming from the driver itself via 066dae93bdf ("ath9k: rework
-tx queue selection and fix queue stopping/waking"). The reason
-why this happened is that ndo_select_queue() call is not
-invoked from direct xmit path i.e. for ieee80211 subsystem
-that sets queue and TID (similar to 802.1d tag) which is being
-put into the frame through 802.11e (WMM, QoS). If that is not
-set, pending frame counter for e.g. ath9k can get messed up.
-So the WARN_ON() in ath9k is absolutely legitimate. Generally,
-the hw queue selection in ieee80211 depends on the type of
-traffic, and priorities are set according to ieee80211_ac_numbers
-mapping; working in a similar way as DiffServ only on a lower
-layer, so that the AP can favour frames that have "real-time"
-requirements like voice or video data frames. We were evaluating
-this and concluded that it's best for PACKET_QDISC_BYPASS to
-just probe for existance of this function and invoke it if
-available so that drivers that implement it can make an
-informed decision to which hw queue the frame should be
-dispatched to. Only few drivers implement this function, so
-for the majority of drivers nothing changes. The original
-pktgen scenario for which PACKET_QDISC_BYPASS was designed
-for is still intact with this change anyway. We think
-restricting this feature only to ethernet drivers would be an
-artificial barrier where we would instead only need to call
-ndo_select_queue(). Besides, checking for ARPHRD_ETHER as pktgen
-does wouldn't be sufficient as also many ieee80211 drivers
-use it as dev->type. If side-effects that we documented are
-undesired or use case involves buffering, then people just go
-with the normal dev_queue_xmit() that is on default enabled.
+On 02/11/2014 02:56 PM, Matija Glavinic Pecotic wrote:
+> Hello Vlad,
+>
+> On 02/11/2014 03:52 PM, ext Vlad Yasevich wrote:
+>> Hi Matija
+>>
+>> On 02/09/2014 02:15 AM, Matija Glavinic Pecotic wrote:
+>>>
+>>> --- net-next.orig/net/sctp/ulpevent.c
+>>> +++ net-next/net/sctp/ulpevent.c
+>>> @@ -989,7 +989,7 @@ static void sctp_ulpevent_receive_data(s
+>>>  	skb = sctp_event2skb(event);
+>>>  	/* Set the owner and charge rwnd for bytes received.  */
+>>>  	sctp_ulpevent_set_owner(event, asoc);
+>>> -	sctp_assoc_rwnd_decrease(asoc, skb_headlen(skb));
+>>> +	sctp_assoc_rwnd_update(asoc, false);
+>>>
+>>>  	if (!skb->data_len)
+>>>  		return;
+>>> @@ -1035,8 +1035,9 @@ static void sctp_ulpevent_release_data(s
+>>>  	}
+>>>
+>>>  done:
+>>> -	sctp_assoc_rwnd_increase(event->asoc, len);
+>>> -	sctp_ulpevent_release_owner(event);
+>>> +	atomic_sub(event->rmem_len, &event->asoc->rmem_alloc);
+>>> +	sctp_assoc_rwnd_update(event->asoc, true);
+>>> +	sctp_association_put(event->asoc)
+>>
+>> Can't we simply change the order of window update and release instead
+>> of open coding it like this?
+>
+> that was the initial idea, but sctp_ulpevent_release_owner puts
+> the association and calls sctp_association_destroy if its time to
+> do so. IMHO, in the case if we would switch it, we would open a
+> potential race condition.
 
-Reported-by: Mathias Kretschmer <mathias.kretschmer@fokus.fraunhofer.de>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>
----
- Intended for 3.14.
+On the tx side, I agree that there would be race.  One the recieve side,
+I don't think you could ever be in the codition where the last reference
+on the asoc is held by a data chunk you are feeing.
 
- include/linux/netdevice.h | 20 ++++++++++++++++++++
- net/core/flow_dissector.c | 13 +------------
- net/packet/af_packet.c    | 20 ++++++++++++++++----
- 3 files changed, 37 insertions(+), 16 deletions(-)
+However, to be completely safe we could do:
+    asoc = event->asoc;
+    sctp_association_hold(asoc);
+    sctp_ulpevent_release_owner(event);
+    sctp_assoc_rwnd_update(asoc, true);
+    sctp_assocition_put(asoc);
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 440a02e..5f8c860 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2276,6 +2276,26 @@ static inline void netdev_reset_queue(struct net_device *dev_queue)
- }
- 
- /**
-+ * 	netdev_cap_txqueue - check if selected tx queue exceeds device queues
-+ * 	@dev: network device
-+ * 	@queue_index: given tx queue index
-+ *
-+ * 	Returns 0 if given tx queue index >= number of device tx queues,
-+ * 	otherwise returns the originally passed tx queue index.
-+ */
-+static inline u16 netdev_cap_txqueue(struct net_device *dev, u16 queue_index)
-+{
-+	if (unlikely(queue_index >= dev->real_num_tx_queues)) {
-+		net_warn_ratelimited("%s selects TX queue %d, but real number of TX queues is %d\n",
-+				     dev->name, queue_index,
-+				     dev->real_num_tx_queues);
-+		return 0;
-+	}
-+
-+	return queue_index;
-+}
-+
-+/**
-  *	netif_running - test if up
-  *	@dev: network device
-  *
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 87577d4..d0e1fb1 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -323,17 +323,6 @@ u32 __skb_get_poff(const struct sk_buff *skb)
- 	return poff;
- }
- 
--static inline u16 dev_cap_txqueue(struct net_device *dev, u16 queue_index)
--{
--	if (unlikely(queue_index >= dev->real_num_tx_queues)) {
--		net_warn_ratelimited("%s selects TX queue %d, but real number of TX queues is %d\n",
--				     dev->name, queue_index,
--				     dev->real_num_tx_queues);
--		return 0;
--	}
--	return queue_index;
--}
--
- static inline int get_xps_queue(struct net_device *dev, struct sk_buff *skb)
- {
- #ifdef CONFIG_XPS
-@@ -409,7 +398,7 @@ struct netdev_queue *netdev_pick_tx(struct net_device *dev,
- 			queue_index = __netdev_pick_tx(dev, skb);
- 
- 		if (!accel_priv)
--			queue_index = dev_cap_txqueue(dev, queue_index);
-+			queue_index = netdev_cap_txqueue(dev, queue_index);
- 	}
- 
- 	skb_set_queue_mapping(skb, queue_index);
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 6a2bb37..562ced9 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -308,9 +308,19 @@ static bool packet_use_direct_xmit(const struct packet_sock *po)
- 	return po->xmit == packet_direct_xmit;
- }
- 
--static u16 packet_pick_tx_queue(struct net_device *dev)
-+static void packet_pick_tx_queue(struct net_device *dev, struct sk_buff *skb)
- {
--	return (u16) raw_smp_processor_id() % dev->real_num_tx_queues;
-+	const struct net_device_ops *ops = dev->netdev_ops;
-+	u16 queue_index;
-+
-+	if (ops->ndo_select_queue) {
-+		queue_index = ops->ndo_select_queue(dev, skb, NULL);
-+		queue_index = netdev_cap_txqueue(dev, queue_index);
-+	} else {
-+		queue_index = raw_smp_processor_id() % dev->real_num_tx_queues;
-+	}
-+
-+	skb_set_queue_mapping(skb, queue_index);
- }
- 
- /* register_prot_hook must be invoked with the po->bind_lock held,
-@@ -2285,7 +2295,8 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 			}
- 		}
- 
--		skb_set_queue_mapping(skb, packet_pick_tx_queue(dev));
-+		packet_pick_tx_queue(dev, skb);
-+
- 		skb->destructor = tpacket_destruct_skb;
- 		__packet_set_status(po, ph, TP_STATUS_SENDING);
- 		packet_inc_pending(&po->tx_ring);
-@@ -2499,7 +2510,8 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
- 	skb->dev = dev;
- 	skb->priority = sk->sk_priority;
- 	skb->mark = sk->sk_mark;
--	skb_set_queue_mapping(skb, packet_pick_tx_queue(dev));
-+
-+	packet_pick_tx_queue(dev, skb);
- 
- 	if (po->has_vnet_hdr) {
- 		if (vnet_hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
--- 
-1.7.11.7
+
+The reason I don't like to open-code release owner is that if it
+ever changes, we'll have to rememeber to change this open-coded
+implementation as well.
+
+Thanks
+-vlad
+
+>
+> I agree this doesn't look the best. But since we should call
+> sctp_assoc_rwnd_update after accounting and before put, we have only
+> option to move sctp_assoc_rwnd_update to _ulpevent_release_owner. As on
+> this path we wish to update peer and generate sack, but we for sure do not
+> want it on all paths where ulpevent_release_owner is used, I see no
+> alternative but to add additional parameter to ulpevent_release_owner
+> which would be just passed to rwnd_update - bool update_peer. On the
+> other hand, I wonder whether ulpevent_release_owner would do more then
+> it should in that case?
+>
+>>
+>> -vlad
+>>
+>>>  }
+>>>
+>>>  static void sctp_ulpevent_release_frag_data(struct sctp_ulpevent
+*event)
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>>
+>>
