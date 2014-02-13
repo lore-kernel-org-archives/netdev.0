@@ -1,31 +1,48 @@
 From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH v2 net-next] net: remove useless if check from register_netdevice()
-Date: Thu, 13 Feb 2014 10:28:53 -0800
-Message-ID: <CAHA+R7PENByJxTc2c09NCJX8q_EHgk7vM1vV=5PxqWHdMe+M9g@mail.gmail.com>
-References: <1392266829-2365-1-git-send-email-kda@linux-powerpc.org>
-	<CAADnVQJwP+ThozpeKOEvzoJRkYQvZgWyM9U+ixyeKKH9nkNb6w@mail.gmail.com>
-	<CAOJe8K2iTsv-HUEotjwpc7s9LMEU6+nMfK5VWWF0tcMLhYBS6Q@mail.gmail.com>
+Subject: Re: ip_set: protocol %u message -- useful?
+Date: Thu, 13 Feb 2014 10:32:45 -0800
+Message-ID: <CAHA+R7MeEEfqz-7RhCUjsoWPx_BKHVXFV3Y32xjf0B1WwjNdRQ@mail.gmail.com>
+References: <CAKb7UvhsLi2Sv4SWA2nVTgoFV8dzrY=3R1-SUk9D-aa0VdizSA@mail.gmail.com>
+	<alpine.DEB.2.10.1402131117120.16734@blackhole.kfki.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Denis Kirjanov <kda@linux-powerpc.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f180.google.com ([209.85.217.180]:65325 "EHLO
-	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752738AbaBMS2y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 13:28:54 -0500
-Received: by mail-lb0-f180.google.com with SMTP id n15so8326333lbi.25
-        for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 10:28:53 -0800 (PST)
-In-Reply-To: <CAOJe8K2iTsv-HUEotjwpc7s9LMEU6+nMfK5VWWF0tcMLhYBS6Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ilia Mirkin <imirkin@alum.mit.edu>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>, Vitaly Lavrov <lve@guap.ru>
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.10.1402131117120.16734@blackhole.kfki.hu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 13, 2014 at 9:15 AM, Denis Kirjanov <kda@linux-powerpc.org> wrote:
-> All of the users of ndo_init return negative error code on error path.
-> Only staging stuff tries to use positive codes like octeon ethernet
-> which does request_irq inside ndo_open...
+On Thu, Feb 13, 2014 at 2:30 AM, Jozsef Kadlecsik
+<kadlec@blackhole.kfki.hu> wrote:
+> On Thu, 13 Feb 2014, Ilia Mirkin wrote:
+>> messages in my dmesg. This might be because of some local
+>> configuration changes I've made, or perhaps a kernel upgrade. Either
+>> way, it appears this message has been a pr_notice since the original
+>> code added it in a7b4f989a62 ("netfilter: ipset: IP set core
+>> support").
+>>
+>> Does this message provide a lot of value? Or could it be made into a pr_debug?
 >
+> That's a report message on the protocol version used by the ipset
+> subsystem. There was (and possibly will be) multiple protocols, so it
+> helps to catch basic userpsace/kernelspace communication issues.
 
-You should put this explanation in the changelog.
+But still it doesn't deserve a pr_notice()... pr_info() should be enough.
+
+diff --git a/net/netfilter/ipset/ip_set_core.c
+b/net/netfilter/ipset/ip_set_core.c
+index de770ec..5ea063f 100644
+--- a/net/netfilter/ipset/ip_set_core.c
++++ b/net/netfilter/ipset/ip_set_core.c
+@@ -1945,7 +1945,7 @@ ip_set_net_init(struct net *net)
+                return -ENOMEM;
+        inst->is_deleted = 0;
+        rcu_assign_pointer(inst->ip_set_list, list);
+-       pr_notice("ip_set: protocol %u\n", IPSET_PROTOCOL);
++       pr_info("ip_set: protocol %u\n", IPSET_PROTOCOL);
+        return 0;
+ }
