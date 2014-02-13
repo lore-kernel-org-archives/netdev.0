@@ -1,71 +1,62 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH -next V2] gre: return more precise errno value when adding tunnel fails
-Date: Thu, 13 Feb 2014 09:58:35 +0100
-Message-ID: <1392281915-29075-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:42404 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752156AbaBMJCX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 04:02:23 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tommie Gannert <tommie@gannert.se>
+Subject: [PATCH] irtty-sir.c: Do not set_termios() on irtty_close()
+Date: Thu, 13 Feb 2014 08:52:06 +0000
+Message-ID: <52FC87B6.4070001@gannert.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Samuel Ortiz <samuel@sortiz.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently this always returns ENOBUFS, because the return value of
-__ip_tunnel_create is discarded.
+From: Tommie Gannert <tommie@gannert.se>
 
-A more common failure is a duplicate name (EEXIST).  Propagate the real
-error code so userspace can display a more meaningful error message.
+Issuing set_termios() from irtty_close() causes kernel Oops for
+unplugged usb-serial devices.
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Since no other tty_ldisc calls set_termios() on close and no tty driver
+seem to check if tty->device_data is NULL or not on entry to set_termios(),
+the only solution I can come up with is to remove the irtty_stop_receiver()
+call, which only updates termios.
+
+Signed-off-by: Tommie Gannert <tommie@gannert.se>
+
 ---
- Changes since v1:
-  Use ERR_CAST() (suggested by Ben Hutchings)
+I know very little of this code, and I'm not sure this is a good solution,
+so here's some background:
 
- net/ipv4/ip_tunnel.c | 15 ++++++++++-----
- 1 file changed, 10 insertions(+), 5 deletions(-)
+I have a gadget using IrLAP over RS-232, and it's connected to a
+USB-RS232 converter. I have udev rules to start/stop irattach on USB
+connect/disconnect, but I see an oops if I simply disconnect the device
+while irattach is still running:
 
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index 50228be..f137c5d 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -443,7 +443,7 @@ static struct ip_tunnel *ip_tunnel_create(struct net *net,
- 	fbt = netdev_priv(itn->fb_tunnel_dev);
- 	dev = __ip_tunnel_create(net, itn->fb_tunnel_dev->rtnl_link_ops, parms);
- 	if (IS_ERR(dev))
--		return NULL;
-+		return ERR_CAST(dev);
- 
- 	dev->mtu = ip_tunnel_bind_dev(dev);
- 
-@@ -796,9 +796,13 @@ int ip_tunnel_ioctl(struct net_device *dev, struct ip_tunnel_parm *p, int cmd)
- 
- 		t = ip_tunnel_find(itn, p, itn->fb_tunnel_dev->type);
- 
--		if (!t && (cmd == SIOCADDTUNNEL))
-+		if (!t && (cmd == SIOCADDTUNNEL)) {
- 			t = ip_tunnel_create(net, itn, p);
--
-+			if (IS_ERR(t)) {
-+				err = PTR_ERR(t);
-+				break;
-+			}
-+		}
- 		if (dev != itn->fb_tunnel_dev && cmd == SIOCCHGTUNNEL) {
- 			if (t != NULL) {
- 				if (t->dev != dev) {
-@@ -825,8 +829,9 @@ int ip_tunnel_ioctl(struct net_device *dev, struct ip_tunnel_parm *p, int cmd)
- 		if (t) {
- 			err = 0;
- 			ip_tunnel_update(itn, t, dev, p, true);
--		} else
--			err = (cmd == SIOCADDTUNNEL ? -ENOBUFS : -ENOENT);
-+		} else {
-+			err = -ENOENT;
-+		}
- 		break;
- 
- 	case SIOCDELTUNNEL:
--- 
-1.8.1.5
+Crash log:
+
+[  631.791294] BUG: unable to handle kernel NULL pointer dereference at 0000000000000024
+[  631.791390] IP: [<ffffffffa0c07e42>] ftdi_set_termios+0x42/0x670 [ftdi_sio]
+...
+[  631.793963]  [<ffffffffa0b7fba3>] serial_set_termios+0x43/0x90 [usbserial]
+[  631.794031]  [<ffffffffa0c013ec>] irtty_close+0x10c/0x190 [irtty_sir]
+[  631.794096]  [<ffffffff81356e88>] tty_ldisc_close.isra.1+0x38/0x50
+[  631.794157]  [<ffffffff81356eb8>] tty_ldisc_kill+0x18/0x90
+[  631.794209]  [<ffffffff81357894>] tty_ldisc_release+0x34/0x90
+[  631.794266]  [<ffffffff8134fe00>] tty_release+0x470/0x600
+
+There is a comment in irtty_close() speculating about potential problems
+with usb-serial. I'm not sure if that comment belongs to sirdev_put_instance() or
+the irtty_stop_receiver() call. I would guess both, so I let it be.
+
+The effect of this is that /dev/ttyUSB* is still in use, and thus leaking
+at least dev nodes. This is a minimal patch that solves that oops.
+--- linux-3.12/drivers/net/irda/irtty-sir.c.orig	2014-02-12 21:36:46.132496089 +0000
++++ linux-3.12/drivers/net/irda/irtty-sir.c	2014-02-12 21:57:21.635843884 +0000
+@@ -521,7 +521,6 @@ static void irtty_close(struct tty_struc
+  	sirdev_put_instance(priv->dev);
+  
+  	/* Stop tty */
+-	irtty_stop_receiver(tty, TRUE);
+  	clear_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
+  	if (tty->ops->stop)
+  		tty->ops->stop(tty);
