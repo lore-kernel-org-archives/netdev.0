@@ -1,69 +1,49 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v2 01/10] net: phy: add "internal" PHY mode
-Date: Wed, 12 Feb 2014 21:29:46 -0800
-Message-ID: <1392269395-23513-2-git-send-email-f.fainelli@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 03/10] net: phy: update port type for MoCA PHYs
+Date: Wed, 12 Feb 2014 21:29:48 -0800
+Message-ID: <1392269395-23513-4-git-send-email-f.fainelli@gmail.com>
 References: <1392269395-23513-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <cernekee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1392269395-23513-1-git-send-email-f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <davem@davemloft.net>, <cernekee@gmail.com>,
+	<devicetree@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:48067 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753384AbaBMFa0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 00:30:26 -0500
+In-Reply-To: <1392269395-23513-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On some systems, the PHY can be internal, in the same package as the
-Ethernet MAC, and still be responding to a specific address on the MDIO
-bus, in that case, the Ethernet MAC might need to know about it to
-properly configure a port multiplexer to switch to an internal or
-external PHY. Add a new PHY interface mode for this and update the
-Device Tree of_get_phy_mode() function to look for it.
+MoCA PHYs are using coaxial (BNC-like) connectors, update the
+transceiver port type when replying to ethtool.
 
-Signed-off-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
 Changes since v1:
-- rebased against lastest net-next master branch
+- rebased
 
- include/linux/phy.h | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ drivers/net/phy/phy.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 42f1bc7..743c90e 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -74,6 +74,7 @@ typedef enum {
- 	PHY_INTERFACE_MODE_RTBI,
- 	PHY_INTERFACE_MODE_SMII,
- 	PHY_INTERFACE_MODE_XGMII,
-+	PHY_INTERFACE_MODE_INTERNAL,
- 	PHY_INTERFACE_MODE_MAX,
- } phy_interface_t;
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index fc918b6..643b5d6 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -305,7 +305,10 @@ int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd)
  
-@@ -113,6 +114,8 @@ static inline const char *phy_modes(phy_interface_t interface)
- 		return "smii";
- 	case PHY_INTERFACE_MODE_XGMII:
- 		return "xgmii";
-+	case PHY_INTERFACE_MODE_INTERNAL:
-+		return "internal";
- 	default:
- 		return "unknown";
- 	}
-@@ -599,7 +602,8 @@ static inline bool phy_interrupt_is_valid(struct phy_device *phydev)
-  */
- static inline bool phy_is_internal(struct phy_device *phydev)
- {
--	return phydev->is_internal;
-+	return phydev->is_internal ||
-+		phydev->interface == PHY_INTERFACE_MODE_INTERNAL;
- }
- 
- /**
+ 	ethtool_cmd_speed_set(cmd, phydev->speed);
+ 	cmd->duplex = phydev->duplex;
+-	cmd->port = PORT_MII;
++	if (phydev->interface == PHY_INTERFACE_MODE_MOCA)
++		cmd->port = PORT_BNC;
++	else
++		cmd->port = PORT_MII;
+ 	cmd->phy_address = phydev->addr;
+ 	cmd->transceiver = phy_is_internal(phydev) ?
+ 		XCVR_INTERNAL : XCVR_EXTERNAL;
 -- 
 1.8.3.2
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
