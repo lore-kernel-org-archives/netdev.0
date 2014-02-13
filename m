@@ -1,32 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can-next 2014-02-12
-Date: Thu, 13 Feb 2014 18:16:43 -0500 (EST)
-Message-ID: <20140213.181643.67929297945814536.davem@davemloft.net>
-References: <52FB49B7.8090403@pengutronix.de>
+Subject: Re: pull-request: can 2014-02-12
+Date: Thu, 13 Feb 2014 18:17:56 -0500 (EST)
+Message-ID: <20140213.181756.1724218328769353398.davem@davemloft.net>
+References: <1392201340-6909-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
 	kernel@pengutronix.de
 To: mkl@pengutronix.de
 Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <52FB49B7.8090403@pengutronix.de>
+In-Reply-To: <1392201340-6909-1-git-send-email-mkl@pengutronix.de>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Wed, 12 Feb 2014 11:15:19 +0100
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Wed, 12 Feb 2014 11:35:39 +0100
 
-> this is a pull request of eight patches for net-next/master.
->=20
-> Florian Vaussard contributed a series that merged the sja1000 of_plat=
-form
-> into the platform driver. The of_platform driver is finally removed.
-> Stephane Grosjean supplied a patch to allocate CANFD skbs. In a patch
-> by Uwe Kleine-K=F6nig another missing copyright information was added=
- to
-> a userspace header. And a patch by Yoann DI RUZZA that adds listen on=
-ly
-> mode to the at91_can driver.
+> this is a pull request with one patch for net/master, for the current release
+> cycle. Olivier Sobrie noticed and fixed that the kvaser_usb driver doesn't
+> check the number of channels value from the hardware, which may result in
+> writing over the bounds of an array in the driver.
 
-Pulled, thanks Marc.
+Pulled, thank you.
