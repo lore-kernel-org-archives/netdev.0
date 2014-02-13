@@ -1,58 +1,59 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH V2] USB2NET: SR9800: use %zu for size_t
-Date: Thu, 13 Feb 2014 16:09:58 +0900
-Message-ID: <000101cf288a$9afc0800$d0f41800$%han@samsung.com>
-References: <000101cf2885$395755a0$ac0600e0$%han@samsung.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+From: Michal Simek <michal.simek@xilinx.com>
+Subject: [PATCH v2 0/2] Xilinx axi ethernet bug fixes
+Date: Thu, 13 Feb 2014 08:10:41 +0100
+Message-ID: <cover.1392275432.git.michal.simek@xilinx.com>
+Content-Type: multipart/signed;
+    boundary="=_mimegpg-monstr-desktop-8689-1392275443-0001";
+    micalg=pgp-sha1; protocol="application/pgp-signature"
+Cc: Srikanth Thokala <sthokal@xilinx.com>, monstr@monstr.eu,
+	John Linn <John.Linn@xilinx.com>,
+	Anirudha Sarangi <anirudh@xilinx.com>,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+This is a MIME GnuPG-signed message.  If you see this text, it means that
+your E-mail or Usenet software does not support MIME signed messages.
+The Internet standard for MIME PGP messages, RFC 2015, was published in 1996.
+To open this message correctly you will need to install E-mail or Usenet
+software that supports modern Internet standards.
+
+--=_mimegpg-monstr-desktop-8689-1392275443-0001
+
+Hi,
+
+Based on our discussion I am sending 2 bug fixes for axi ethernet
+driver against your net tree.
+
+Thanks,
+Michal
+
+Changes in v2:
+- Separate bug fixes from features and cleanups
+
+Michal Simek (2):
+  net: axienet: Fix compilation error
+  net: axienet: Fix compilation warnings
+
+ drivers/net/ethernet/xilinx/xilinx_axienet_main.c | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
+
+--
+1.8.2.3
+
+
+--=_mimegpg-monstr-desktop-8689-1392275443-0001
+Content-Type: application/pgp-signature
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 'Liu Junliang' <liujunliang_ljl@163.com>,
-	'Joe Perches' <joe@perches.com>,
-	'Jingoo Han' <jg1.han@samsung.com>
-To: 'David Miller' <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout4.samsung.com ([203.254.224.34]:30690 "EHLO
-	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751174AbaBMHKA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 02:10:00 -0500
-Received: from epcpsbgr4.samsung.com
- (u144.gpu120.samsung.co.kr [203.254.230.144])
- by mailout4.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0N0X00KEWAKNSE00@mailout4.samsung.com> for
- netdev@vger.kernel.org; Thu, 13 Feb 2014 16:09:59 +0900 (KST)
-In-reply-to: <000101cf2885$395755a0$ac0600e0$%han@samsung.com>
-Content-language: ko
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-Use %zu for size_t in order to avoid the following build
-warning in printks.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
 
-drivers/net/usb/sr9800.c: In function 'sr9800_bind'
-drivers/net/usb/sr9800.c:826:2: warning: format '%ld' expects argument of type 'long int' but argument 5 has type 'size_t'
-[-Wformat]
+iEYEABECAAYFAlL8b/MACgkQykllyylKDCHyCACgjqv47KMKIfebYTiCVTRVOC9q
+SN8AniECpoRBPXSvMRsqjkwM4TBevyTp
+=pEsV
+-----END PGP SIGNATURE-----
 
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
----
-Changes since V1:
-- Fix the subject of the commit.
-
- drivers/net/usb/sr9800.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/usb/sr9800.c b/drivers/net/usb/sr9800.c
-index 4175eb9..8017108 100644
---- a/drivers/net/usb/sr9800.c
-+++ b/drivers/net/usb/sr9800.c
-@@ -823,7 +823,7 @@ static int sr9800_bind(struct usbnet *dev, struct usb_interface *intf)
- 		dev->rx_urb_size =
- 			SR9800_BULKIN_SIZE[SR9800_MAX_BULKIN_2K].size;
- 	}
--	netdev_dbg(dev->net, "%s : setting rx_urb_size with : %ld\n", __func__,
-+	netdev_dbg(dev->net, "%s : setting rx_urb_size with : %zu\n", __func__,
- 		   dev->rx_urb_size);
- 	return 0;
- 
--- 
-1.7.10.4
+--=_mimegpg-monstr-desktop-8689-1392275443-0001--
