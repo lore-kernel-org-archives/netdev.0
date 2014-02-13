@@ -1,39 +1,76 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: ip_set: protocol %u message -- useful?
-Date: Thu, 13 Feb 2014 20:59:08 +0100
-Message-ID: <20140213195908.GK25153@breakpoint.cc>
-References: <CAKb7UvhsLi2Sv4SWA2nVTgoFV8dzrY=3R1-SUk9D-aa0VdizSA@mail.gmail.com>
- <alpine.DEB.2.10.1402131117120.16734@blackhole.kfki.hu>
- <CAHA+R7MeEEfqz-7RhCUjsoWPx_BKHVXFV3Y32xjf0B1WwjNdRQ@mail.gmail.com>
- <20140213184254.GF14175@macbook.localnet>
- <CAKb7UvjdPco0zrP9Ry4mPv40r-bnfNgKEfwcOvJb4JU-5XcTaw@mail.gmail.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [net-next 5/5] ixgbe: fixup warning regarding max_vfs parameter
+Date: Thu, 13 Feb 2014 20:01:32 +0000
+Message-ID: <1392321692.15615.48.camel@deadeye.wl.decadent.org.uk>
+References: <1392278450-27062-1-git-send-email-aaron.f.brown@intel.com>
+	 <1392278450-27062-6-git-send-email-aaron.f.brown@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	Cong Wang <cwang@twopensource.com>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Vitaly Lavrov <lve@guap.ru>
-To: Ilia Mirkin <imirkin@alum.mit.edu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAKb7UvjdPco0zrP9Ry4mPv40r-bnfNgKEfwcOvJb4JU-5XcTaw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-KzHmcNUu+Nng4zpE74SV"
+Cc: davem@davemloft.net, Jacob Keller <jacob.e.keller@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Aaron Brown <aaron.f.brown@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:55748 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750892AbaBMUBu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 15:01:50 -0500
+In-Reply-To: <1392278450-27062-6-git-send-email-aaron.f.brown@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ilia Mirkin <imirkin@alum.mit.edu> wrote:
-> > Maybe printing "using protocol version X" will make it appear less like
-> > a debugging message referring to packet contents or something similar.
-> 
-> With pr_info it'll still appear in dmesg, and it'll still be "random
-> non-sensical message appears over and over in dmesg" type of
-> situation, to the vast majority of users. Do we need a print every
-> time someone creates a new tcp connection too? I'm still not totally
-> clear on the cause of this message getting printed, but I was seeing
-> it a whole bunch in my configuration...
 
-Yes, because it erronously got moved into the netns init function.
+--=-KzHmcNUu+Nng4zpE74SV
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-And thats what causes the spew.  Moving it back into module init
-function should be enough.
+On Thu, 2014-02-13 at 00:00 -0800, Aaron Brown wrote:
+> From: Jacob Keller <jacob.e.keller@intel.com>
+>=20
+> The max_vfs parameter for ixgbe is deprecated in favor of using the
+> sysfs sriov_numvfs field to assign VFs as needed, instead of fixing the
+> value at module load time. The current message only indicates that you
+> should use this, without adequately explaining how to do so.
+
+I don't think the kernel log is the correct place to put documentation.
+A reference alone should be enough.
+
+[...]
+> +               e_dev_warn("See 'Documentation/PCI/pci-iov-howto.txt for =
+more information.\n");
+[...]
+
+This doesn't seem very helpful to non-developers.  You could instead
+give the URL:
+
+https://www.kernel.org/doc/Documentation/PCI/pci-iov-howto.txt
+
+Ben.
+
+--=20
+Ben Hutchings
+The world is coming to an end.	Please log off.
+
+--=-KzHmcNUu+Nng4zpE74SV
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAUv0knOe/yOyVhhEJAQrhDxAAu9NS+FgQZlsIQ6xSFdzK6Rn1kdSwKsOG
+h9zCBYZRQsDJrmhUpJstGiwtYvYF7Oenx3KZLuRUeuPyGhcQOLUKADeCfnftyScj
+/G7IqOUP8t53jkVn2lI8DCb6cHccnIDV+fE93TEZQZ6XOmnvG2uyNrGLW1xclS9j
+y+aIsUPOaRSic2DyQMt7t1Li2WuShf160kJBhjr5m9EYJejWhDycsCNgrKPXXTOs
+Hnpy6plIhlEl5U/x6PCg8+9oYCR8OciWB12YVFr5PrXV7biktaU6RU4M+u3Uydfa
+x1YQeNoIiNhmqea/DAqKUF0SnH8RO6wYmKmgxkDqCcUl7jJzSs573eHCeqWMbrA+
+PSE+gGQMQCyjrKyMbSFCsJ717wSKu948i2VZsGZ8xz4WlEyo5+wPUYi1XUzS+T6/
+I4LdNsuAYGirZvHRDMeExVKe/T4Cgzlm76ljvyh+uX/8q4goLnZ61oUzA2w1t7Ko
+joT43Qa0+c3CDk/rvx1jGpWzuX16VLWMaDgv0EnxNBOSlad17fgd9PC1M+XkCoq9
+T3R8FSP4xpz8BWX4AEJ0dAnYYil5U1WtjAOZBgIgG0r7u9jMMuswGqHy9hHfiTwY
+TPTMBHLYnBhHriSuzx9CJwzTVZ4305QSdD7PJoKB37txmxNxmupRbYRgqXgVYiBG
+w/HmJLAf7kI=
+=5bn9
+-----END PGP SIGNATURE-----
+
+--=-KzHmcNUu+Nng4zpE74SV--
