@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 08/10] net: bcmgenet: hook into the build system
-Date: Wed, 12 Feb 2014 21:29:53 -0800
-Message-ID: <1392269395-23513-9-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 10/10] MAINTAINERS: add entry for the Broadcom GENET driver
+Date: Wed, 12 Feb 2014 21:29:55 -0800
+Message-ID: <1392269395-23513-11-git-send-email-f.fainelli@gmail.com>
 References: <1392269395-23513-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,69 +10,40 @@ Cc: <davem@davemloft.net>, <cernekee@gmail.com>,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:8684 "EHLO
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:8568 "EHLO
 	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753399AbaBMFa2 (ORCPT
+	with ESMTP id S1753403AbaBMFa2 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 00:30:28 -0500
 In-Reply-To: <1392269395-23513-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a new configuration symbol: CONFIG_BCMGENET which allows
-us to build the Broadcom GENET driver and hook the driver files into the
-build system.
+Add myself as a maintainer of the Broadcom GENET driver.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
 Changes since v1:
 - rebased
 
- drivers/net/ethernet/broadcom/Kconfig        | 10 ++++++++++
- drivers/net/ethernet/broadcom/Makefile       |  1 +
- drivers/net/ethernet/broadcom/genet/Makefile |  2 ++
- 3 files changed, 13 insertions(+)
- create mode 100644 drivers/net/ethernet/broadcom/genet/Makefile
+ MAINTAINERS | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
-index 3f97d9f..a489712 100644
---- a/drivers/net/ethernet/broadcom/Kconfig
-+++ b/drivers/net/ethernet/broadcom/Kconfig
-@@ -60,6 +60,16 @@ config BCM63XX_ENET
- 	  This driver supports the ethernet MACs in the Broadcom 63xx
- 	  MIPS chipset family (BCM63XX).
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 091b50e..5a7b3ec 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -1845,6 +1845,12 @@ L:	netdev@vger.kernel.org
+ S:	Supported
+ F:	drivers/net/ethernet/broadcom/b44.*
  
-+config BCMGENET
-+	tristate "Broadcom GENET internal MAC support"
-+	select MII
-+	select PHYLIB
-+	select FIXED_PHY
-+	select BCM7XXX_PHY
-+	help
-+	  This driver supports the built-in Ethernet MACs found in the
-+	  Broadcom BCM7xxx Set Top Box family chipset.
++BROADCOM GENET ETHERNET DRIVER
++M:	Florian Fainelli <f.fainelli@gmail.com>
++L:	netdev@vger.kernel.org
++S:	Supported
++F:	drivers/net/ethernet/broadcom/genet/
 +
- config BNX2
- 	tristate "Broadcom NetXtremeII support"
- 	depends on PCI
-diff --git a/drivers/net/ethernet/broadcom/Makefile b/drivers/net/ethernet/broadcom/Makefile
-index 68efa1a..fd639a0 100644
---- a/drivers/net/ethernet/broadcom/Makefile
-+++ b/drivers/net/ethernet/broadcom/Makefile
-@@ -4,6 +4,7 @@
- 
- obj-$(CONFIG_B44) += b44.o
- obj-$(CONFIG_BCM63XX_ENET) += bcm63xx_enet.o
-+obj-$(CONFIG_BCMGENET) += genet/
- obj-$(CONFIG_BNX2) += bnx2.o
- obj-$(CONFIG_CNIC) += cnic.o
- obj-$(CONFIG_BNX2X) += bnx2x/
-diff --git a/drivers/net/ethernet/broadcom/genet/Makefile b/drivers/net/ethernet/broadcom/genet/Makefile
-new file mode 100644
-index 0000000..31f55a9
---- /dev/null
-+++ b/drivers/net/ethernet/broadcom/genet/Makefile
-@@ -0,0 +1,2 @@
-+obj-$(CONFIG_BCMGENET) += genet.o
-+genet-objs := bcmgenet.o bcmmii.o
+ BROADCOM BNX2 GIGABIT ETHERNET DRIVER
+ M:	Michael Chan <mchan@broadcom.com>
+ L:	netdev@vger.kernel.org
 -- 
 1.8.3.2
