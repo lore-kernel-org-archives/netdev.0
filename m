@@ -1,54 +1,118 @@
-From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 04/15] i40evf: clean up memsets
-Date: Thu, 13 Feb 2014 03:48:42 -0800
-Message-ID: <1392292133-32120-5-git-send-email-aaron.f.brown@intel.com>
-References: <1392292133-32120-1-git-send-email-aaron.f.brown@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Kevin Scott <kevin.c.scott@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Aaron Brown <aaron.f.brown@intel.com>
-To: davem@davemloft.net
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH next resend] tcp: use zero-window when free_space is low
+Date: Thu, 13 Feb 2014 12:52:30 +0100
+Message-ID: <1392292350-28800-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>,
+	Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:20333 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754200AbaBMLvL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Feb 2014 06:51:11 -0500
-In-Reply-To: <1392292133-32120-1-git-send-email-aaron.f.brown@intel.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:43061 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752989AbaBML4W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 06:56:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+Currently the kernel tries to announce a zero window when free_space
+is below the current receiver mss estimate.
 
-As politely pointed out by Dave Miller, calls to memset do not need a
-void pointer cast. Additionally, it is preferred to use sizeof(*the
-actual object) instead of sizeof(type).
+When a sender is transmitting small packets and reader consumes data
+slowly (or not at all), receiver might be unable to shrink the receive
+win because
 
-Change-ID: Id6a02429b7040111531f3865ea03fbe619167cb3
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Signed-off-by: Kevin Scott <kevin.c.scott@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
+a) we cannot withdraw already-commited receive window, and,
+b) we have to round the current rwin up to a multiple of the wscale
+   factor, else we would shrink the current window.
+
+This causes the receive buffer to fill up until the rmem limit is hit.
+When this happens, we start dropping packets.
+
+Moreover, tcp_clamp_window may continue to grow sk_rcvbuf towards rmem[2]
+even if socket is not being read from.
+
+As we cannot avoid the "current_win is rounded up to multiple of mss"
+issue [we would violate a) above] at least try to prevent the receive buf
+growth towards tcp_rmem[2] limit by attempting to move to zero-window
+announcement when free_space becomes less than 1/16 of the current
+allowed receive buffer maximum.  If tcp_rmem[2] is large, this will
+increase our chances to get a zero-window announcement out in time.
+
+Reproducer:
+On server:
+$ nc -l -p 12345
+<suspend it: CTRL-Z>
+
+Client:
+#!/usr/bin/env python
+import socket
+import time
+
+sock = socket.socket()
+sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+sock.connect(("192.168.4.1", 12345));
+while True:
+   sock.send('A' * 23)
+   time.sleep(0.005)
+
+
+socket buffer on server-side will grow until tcp_rmem[2] is hit,
+at which point the client rexmits data until -EDTIMEOUT:
+
+tcp_data_queue invokes tcp_try_rmem_schedule which will call
+tcp_prune_queue which calls tcp_clamp_window().  And that function will
+grow sk->sk_rcvbuf up until it eventually hits tcp_rmem[2].
+
+Cc: Neal Cardwell <ncardwell@google.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ V1 of this patch was deferred, resending to get discussion going again.
+ Changes since v1:
+  - add reproducer to commit message
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-index a50e6b3..ed3902b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-@@ -647,9 +647,8 @@ static u16 i40e_clean_asq(struct i40e_hw *hw)
- 			desc_cb = *desc;
- 			cb_func(hw, &desc_cb);
- 		}
--		memset((void *)desc, 0, sizeof(struct i40e_aq_desc));
--		memset((void *)details, 0,
--		       sizeof(struct i40e_asq_cmd_details));
-+		memset(desc, 0, sizeof(*desc));
-+		memset(details, 0, sizeof(*details));
- 		ntc++;
- 		if (ntc == asq->count)
- 			ntc = 0;
+ Unfortunately I couldn't come up with something that has no magic
+ ('allowed >> 4') value.  I chose >>4 (1/16th) because it didn't cause
+ tput limitations in my 'full-mss-sized, steady state' netcat tests.
+
+ Maybe someone has better idea?
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 2a69f42..fd8d821 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2145,7 +2145,8 @@ u32 __tcp_select_window(struct sock *sk)
+ 	 */
+ 	int mss = icsk->icsk_ack.rcv_mss;
+ 	int free_space = tcp_space(sk);
+-	int full_space = min_t(int, tp->window_clamp, tcp_full_space(sk));
++	int allowed_space = tcp_full_space(sk);
++	int full_space = min_t(int, tp->window_clamp, allowed_space);
+ 	int window;
+ 
+ 	if (mss > full_space)
+@@ -2158,7 +2159,19 @@ u32 __tcp_select_window(struct sock *sk)
+ 			tp->rcv_ssthresh = min(tp->rcv_ssthresh,
+ 					       4U * tp->advmss);
+ 
+-		if (free_space < mss)
++		/* free_space might become our new window, make sure we don't
++		 * increase it due to wscale.
++		 */
++		free_space = round_down(free_space, 1 << tp->rx_opt.rcv_wscale);
++
++		/* if free space is less than mss estimate, or is below 1/16th
++		 * of the maximum allowed, try to move to zero-window, else
++		 * tcp_clamp_window() will grow rcv buf up to tcp_rmem[2], and
++		 * new incoming data is dropped due to memory limits.
++		 * With large window, mss test triggers way too late in order
++		 * to announce zero window in time before rmem limit kicks in.
++		 */
++		if (free_space < (allowed_space >> 4) || free_space < mss)
+ 			return 0;
+ 	}
+ 
 -- 
-1.8.5.GIT
+1.8.1.5
