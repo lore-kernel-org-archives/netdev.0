@@ -1,73 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH next resend] tcp: use zero-window when free_space is low
-Date: Thu, 13 Feb 2014 08:19:46 -0800
-Message-ID: <1392308386.1752.27.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1392292350-28800-1-git-send-email-fw@strlen.de>
-	 <1392303499.1752.19.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140213153441.GJ25153@breakpoint.cc>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v2 net-next] net: remove useless if check from register_netdevice()
+Date: Thu, 13 Feb 2014 08:23:08 -0800
+Message-ID: <CAADnVQJwP+ThozpeKOEvzoJRkYQvZgWyM9U+ixyeKKH9nkNb6w@mail.gmail.com>
+References: <1392266829-2365-1-git-send-email-kda@linux-powerpc.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Denis Kirjanov <kda@linux-powerpc.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:48647 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751667AbaBMQUA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 11:20:00 -0500
-Received: by mail-pb0-f54.google.com with SMTP id uo5so10962308pbc.41
-        for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 08:20:00 -0800 (PST)
-In-Reply-To: <20140213153441.GJ25153@breakpoint.cc>
+Received: from mail-qc0-f171.google.com ([209.85.216.171]:38478 "EHLO
+	mail-qc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751775AbaBMQXJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 11:23:09 -0500
+Received: by mail-qc0-f171.google.com with SMTP id n7so18415660qcx.30
+        for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 08:23:08 -0800 (PST)
+In-Reply-To: <1392266829-2365-1-git-send-email-kda@linux-powerpc.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-02-13 at 16:34 +0100, Florian Westphal wrote:
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Wed, Feb 12, 2014 at 8:47 PM, Denis Kirjanov <kda@linux-powerpc.org> wrote:
+> remove useless if check from register_netdevice()
+>
+> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
+> ---
+> v1 -> v2: Fixed identation
+> ---
+>  net/core/dev.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+>
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 4ad1b78..21a72ad 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -5876,8 +5876,7 @@ int register_netdevice(struct net_device *dev)
+>         if (dev->netdev_ops->ndo_init) {
+>                 ret = dev->netdev_ops->ndo_init(dev);
+>                 if (ret) {
+> -                       if (ret > 0)
+> -                               ret = -EIO;
+> +                       ret = -EIO;
+>                         goto out;
 
-> > Would you mind waiting we run our packetdrill tests before acknowledging
-> > this patch, because I suspect this might have some impact ?
-> 
-> Of course not.  I am very happy that you folks have these kinds of tests
-> and are willing to double-check.  Take all time you need, there is no
-> need to haste.
-> 
-
-
-We have today 348 different packetdrill tests, and this number keeps
-increasing ;)
-
-> Many Thanks Eric.
-> 
-> Do you think it makes sense to add counters for this?
-> 
-> The caveat is that decision to send 0 window doesn't mean we end
-> up sending one, since we cannot shrink already offered window.
-> 
-> static u16 tcp_select_window(struct sock *sk)
-> {
->     struct tcp_sock *tp = tcp_sk(sk);
->     u32 cur_win = tcp_receive_window(tp);
->     u32 new_win = __tcp_select_window(sk);
-> 
->     /* Never shrink the offered window */
->     if (new_win < cur_win) {
-> 
-> Would you add SNMP counter for '__tcp_select_window() wants 0 window'
-> or for 'tcp_select_window() does pick 0 window' ?
-> 
-> [ or even different counters for both ? ]
-
-Ideally, having counters of transitions would be nice.
-
-This would help us to spot regressions in TCP stacks or network drivers,
-or wrong application tunings.
-
-One counter tracking number of times a socket went from a non zero
-window to a zero window (as you said, I am referring to effective window
-being sent)
-
-One counter tracking the reverse.
-
-If it proves being too complex or expensive, a single counter tracking
-"win 0" sent to the peers.
+why is it a useless check?
+seems perfectly valid to me.
+most of the time ndo_init() returns negative error code like -ENOMEM
+which we want
+to propagate further down and want to override it to -EIO if it's > 0
