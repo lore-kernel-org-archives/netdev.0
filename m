@@ -1,58 +1,36 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH next resend] tcp: use zero-window when free_space is low
-Date: Thu, 13 Feb 2014 16:34:41 +0100
-Message-ID: <20140213153441.GJ25153@breakpoint.cc>
-References: <1392292350-28800-1-git-send-email-fw@strlen.de>
- <1392303499.1752.19.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: RFC: bridge get fdb by bridge device
+Date: Thu, 13 Feb 2014 10:37:03 -0500
+Message-ID: <52FCE69F.5080602@mojatatu.com>
+References: <52F21F72.2090405@mojatatu.com> <52F29747.7040008@redhat.com> <52F3CF76.9090404@mojatatu.com> <52F3E357.4040006@redhat.com> <52F79990.3000400@mojatatu.com> <52F8FEF1.60407@redhat.com> <52FA58E9.906@mojatatu.com> <52FA6A24.3030402@redhat.com> <52FA84FA.2030608@mojatatu.com> <52FA8865.1070302@intel.com> <52FA9074.2060900@mojatatu.com> <52FBC282.6020301@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: vyasevic@redhat.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:43905 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751824AbaBMPen (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 10:34:43 -0500
-Content-Disposition: inline
-In-Reply-To: <1392303499.1752.19.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:32958 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752026AbaBMPhF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 10:37:05 -0500
+Received: by mail-ig0-f180.google.com with SMTP id m12so13080920iga.1
+        for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 07:37:05 -0800 (PST)
+In-Reply-To: <52FBC282.6020301@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> Do we have one SNMP counter tracking number of time we took the decision
-> to send a 0 window ?
+On 02/12/14 13:50, John Fastabend wrote:
+> On 2/11/2014 1:04 PM, Jamal Hadi Salim wrote:
+>
+> Because it is not the same type of object as the software bridge.
+> Most notably it doesn't do learning.
 
-No.
+This kept nagging at me.
+Learning is optional for a bridge. So is flooding.
+I think we got this right in recent kernels.
 
-> Would you mind waiting we run our packetdrill tests before acknowledging
-> this patch, because I suspect this might have some impact ?
-
-Of course not.  I am very happy that you folks have these kinds of tests
-and are willing to double-check.  Take all time you need, there is no
-need to haste.
-
-Many Thanks Eric.
-
-Do you think it makes sense to add counters for this?
-
-The caveat is that decision to send 0 window doesn't mean we end
-up sending one, since we cannot shrink already offered window.
-
-static u16 tcp_select_window(struct sock *sk)
-{
-    struct tcp_sock *tp = tcp_sk(sk);
-    u32 cur_win = tcp_receive_window(tp);
-    u32 new_win = __tcp_select_window(sk);
-
-    /* Never shrink the offered window */
-    if (new_win < cur_win) {
-
-Would you add SNMP counter for '__tcp_select_window() wants 0 window'
-or for 'tcp_select_window() does pick 0 window' ?
-
-[ or even different counters for both ? ]
-
-Cheers,
-Florian
+cheers,
+jamal
