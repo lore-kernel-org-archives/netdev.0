@@ -1,42 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3 1/2] net: stmmac: Add SOCFPGA glue driver
-Date: Wed, 12 Feb 2014 23:47:44 -0500 (EST)
-Message-ID: <20140212.234744.177250076586323680.davem@davemloft.net>
-References: <1392061697-20193-1-git-send-email-dinguyen@altera.com>
-	<20140212.193539.38124529344029793.davem@davemloft.net>
-	<52FC4B0A.4010406@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net] virtio-net: alloc big buffers also when guest can
+	receive UFO
+Date: Thu, 13 Feb 2014 07:15:59 +0200
+Message-ID: <20140213051559.GB31352@redhat.com>
+References: <1392183808-16789-1-git-send-email-jasowang@redhat.com>
+	<20140212115901.GC23006@redhat.com> <52FC35B5.6000900@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: dinguyen@altera.com, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org, peppe.cavallaro@st.com,
-	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	vbridgers2013@gmail.com
-To: dinh.linux@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36627 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751831AbaBMEx4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 23:53:56 -0500
-In-Reply-To: <52FC4B0A.4010406@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: virtio-dev@lists.oasis-open.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Sridhar Samudrala <sri@us.ibm.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <52FC35B5.6000900@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Dinh Nguyen <dinh.linux@gmail.com>
-Date: Wed, 12 Feb 2014 22:33:14 -0600
+On Thu, Feb 13, 2014 at 11:02:13AM +0800, Jason Wang wrote:
+> On 02/12/2014 07:59 PM, Michael S. Tsirkin wrote:
+> > On Wed, Feb 12, 2014 at 01:43:28PM +0800, Jason Wang wrote:
+> >> > We should alloc big buffers also when guest can receive UFO
+> >> > pakcets. Otherwise the big packets will be truncated when mergeable rx
+> >> > buffer is disabled.
+> > Not truncated, they will be dropped.
+> >
+> 
+> Why dropped? We enable the ufo on tap0 if VIRTIO_NET_F_GUEST_UFO is
+> negotiated. So skb was queued on the receive queue. But since the
+> receive buffer is small, it will be truncated during tun_put_user().
 
-> On 2/12/14 6:35 PM, David Miller wrote:
->> From: <dinguyen@altera.com>
->> Date: Mon, 10 Feb 2014 13:48:16 -0600
->> Why don't you push both of these patches through whatever tree that
->> file is maintained under.  You can add my ack:
-> I'm not sure if Peppe has a tree, but it should go into his tree
-> if there is one. If not, can you apply patch 1 to your tree?
->>
->> Acked-by: David S. Miller <davem@davemloft.net>
+Hypervisor shouldn't truncate packets silently - if it does
+it's a hypervisor bug. Passing malformed packets to guest is
+a bad idea.
 
-You're going to have to send patch #2 somewhere, so for the second
-time I'm going to ask you to please send #1 to the same place.
-
-Thanks.
+-- 
+MST
