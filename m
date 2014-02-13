@@ -1,529 +1,461 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v3 07/10] net: bcmgenet: add MDIO routines
-Date: Thu, 13 Feb 2014 14:53:46 -0800
-Message-ID: <1392332029-24669-8-git-send-email-f.fainelli@gmail.com>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next v3 04/10] net: phy: add Broadcom BCM7xxx internal PHY driver
+Date: Thu, 13 Feb 2014 14:53:43 -0800
+Message-ID: <1392332029-24669-5-git-send-email-f.fainelli@gmail.com>
 References: <1392332029-24669-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <davem@davemloft.net>, <devicetree@vger.kernel.org>,
-	<cernekee@gmail.com>, <mark.rutland@arm.com>,
-	<romieu@fr.zoreil.com>, Florian Fainelli <f.fainelli@gmail.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:3228 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752097AbaBMWz0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:55:26 -0500
-In-Reply-To: <1392332029-24669-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<cernekee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	<romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1392332029-24669-1-git-send-email-f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds support for configuring the port multiplexer hardware
-which resides in front of the GENET Ethernet MAC controller. This allows
-us to support:
+This patch adds support for the Broadcom BCM7xxx Set Top Box SoCs
+internal PHYs. This driver supports the following generation of SoCs:
 
-- internal PHYs (using drivers/net/phy/bcm7xxx.c)
-- MoCA PHYs which are an entirely separate hardware block not covered
-  here
-- external PHYs and switches
+- BCM7366, BCM7439, BCM7445 (28nm process)
+- all 40nm and 65nm (older MIPS-based SoCs)
 
-Note that MoCA and switches are currently supported using the emulated
-"fixed PHY" driver.
+The PHYs on these SoCs require a bunch of workarounds to operate
+correctly, both during configuration time and at suspend/resume time,
+the driver handles that for us.
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
-Changes since v2:
-- remove the need to parse the 'max-speed' or 'fixed-link' properties to know
-  the PHY configured speed
-- re-order MDIO bus probing to perform port multiplexer configuration after
-  probing the PHYs, simplifying logic
-- check that the MDIO bus node compatible string matches our major version as
-  pointed out by Mark
+Changes in v3:
+- use register definitions from brcmphy.h where applicable
+- add new register definitions for 40nm workaround
+- check return code of phy_set_clr_bits
+- minor stylistic changes as reported by Francois Romieu
 
-Changes since v1:
-- fixed MDIO crash/warning when Device Tree probing fails
-- removed the use of priv->phy_type and use priv->phy_interface
-  directly
+Changes in v2:
+- update the 28nm AFE workaround to clear the EEE LPI
+  timer (value 0xeb17 previously now 0xeb19)
 
- drivers/net/ethernet/broadcom/genet/bcmmii.c | 470 +++++++++++++++++++++++++++
- 1 file changed, 470 insertions(+)
- create mode 100644 drivers/net/ethernet/broadcom/genet/bcmmii.c
+ drivers/net/phy/Kconfig   |   6 +
+ drivers/net/phy/Makefile  |   1 +
+ drivers/net/phy/bcm7xxx.c | 343 ++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/brcmphy.h   |   9 ++
+ 4 files changed, 359 insertions(+)
+ create mode 100644 drivers/net/phy/bcm7xxx.c
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 9b5d46c..6a17f92 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -71,6 +71,12 @@ config BCM63XX_PHY
+ 	---help---
+ 	  Currently supports the 6348 and 6358 PHYs.
+ 
++config BCM7XXX_PHY
++	tristate "Drivers for Broadcom 7xxx SOCs internal PHYs"
++	---help---
++	  Currently supports the BCM7366, BCM7439, BCM7445, and
++	  40nm and 65nm generation of BCM7xxx Set Top Box SoCs.
++
+ config BCM87XX_PHY
+ 	tristate "Driver for Broadcom BCM8706 and BCM8727 PHYs"
+ 	help
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index 9013dfa..07d2402 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -12,6 +12,7 @@ obj-$(CONFIG_SMSC_PHY)		+= smsc.o
+ obj-$(CONFIG_VITESSE_PHY)	+= vitesse.o
+ obj-$(CONFIG_BROADCOM_PHY)	+= broadcom.o
+ obj-$(CONFIG_BCM63XX_PHY)	+= bcm63xx.o
++obj-$(CONFIG_BCM7XXX_PHY)	+= bcm7xxx.o
+ obj-$(CONFIG_BCM87XX_PHY)	+= bcm87xx.o
+ obj-$(CONFIG_ICPLUS_PHY)	+= icplus.o
+ obj-$(CONFIG_REALTEK_PHY)	+= realtek.o
+diff --git a/drivers/net/phy/bcm7xxx.c b/drivers/net/phy/bcm7xxx.c
 new file mode 100644
-index 0000000..3b1e04e
+index 0000000..6973372
 --- /dev/null
-+++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-@@ -0,0 +1,470 @@
++++ b/drivers/net/phy/bcm7xxx.c
+@@ -0,0 +1,343 @@
 +/*
-+ * Broadcom GENET MDIO routines
++ * Broadcom BCM7xxx internal transceivers support.
 + *
-+ * Copyright (c) 2014 Broadcom Corporation
++ * Copyright (C) 2014, Broadcom Corporation
 + *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version
++ * 2 of the License, or (at your option) any later version.
 + */
 +
-+
-+#include <linux/types.h>
-+#include <linux/delay.h>
-+#include <linux/wait.h>
-+#include <linux/mii.h>
-+#include <linux/ethtool.h>
-+#include <linux/bitops.h>
-+#include <linux/netdevice.h>
-+#include <linux/platform_device.h>
++#include <linux/module.h>
 +#include <linux/phy.h>
-+#include <linux/phy_fixed.h>
++#include <linux/delay.h>
++#include <linux/bitops.h>
 +#include <linux/brcmphy.h>
-+#include <linux/of.h>
-+#include <linux/of_net.h>
-+#include <linux/of_mdio.h>
 +
-+#include "bcmgenet.h"
++/* Broadcom BCM7xxx internal PHY registers */
++#define MII_BCM7XXX_CHANNEL_WIDTH	0x2000
 +
-+/* read a value from the MII */
-+static int bcmgenet_mii_read(struct mii_bus *bus, int phy_id, int location)
++/* 40nm only register definitions */
++#define MII_BCM7XXX_100TX_AUX_CTL	0x10
++#define MII_BCM7XXX_100TX_FALSE_CAR	0x13
++#define MII_BCM7XXX_100TX_DISC		0x14
++#define MII_BCM7XXX_AUX_MODE		0x1d
++#define  MII_BCM7XX_64CLK_MDIO		BIT(12)
++#define MII_BCM7XXX_CORE_BASE1E		0x1e
++#define MII_BCM7XXX_TEST		0x1f
++#define  MII_BCM7XXX_SHD_MODE_2		BIT(2)
++
++static int bcm7445_config_init(struct phy_device *phydev)
 +{
 +	int ret;
-+	struct net_device *dev = bus->priv;
-+	struct bcmgenet_priv *priv = netdev_priv(dev);
-+	u32 reg;
++	const struct bcm7445_regs {
++		int reg;
++		u16 value;
++	} bcm7445_regs_cfg[] = {
++		/* increases ADC latency by 24ns */
++		{ MII_BCM54XX_EXP_SEL, 0x0038 },
++		{ MII_BCM54XX_EXP_DATA, 0xAB95 },
++		/* increases internal 1V LDO voltage by 5% */
++		{ MII_BCM54XX_EXP_SEL, 0x2038 },
++		{ MII_BCM54XX_EXP_DATA, 0xBB22 },
++		/* reduce RX low pass filter corner frequency */
++		{ MII_BCM54XX_EXP_SEL, 0x6038 },
++		{ MII_BCM54XX_EXP_DATA, 0xFFC5 },
++		/* reduce RX high pass filter corner frequency */
++		{ MII_BCM54XX_EXP_SEL, 0x003a },
++		{ MII_BCM54XX_EXP_DATA, 0x2002 },
++	};
++	unsigned int i;
 +
-+	bcmgenet_umac_writel(priv, (MDIO_RD | (phy_id << MDIO_PMD_SHIFT) |
-+			(location << MDIO_REG_SHIFT)), UMAC_MDIO_CMD);
-+	/* Start MDIO transaction*/
-+	reg = bcmgenet_umac_readl(priv, UMAC_MDIO_CMD);
-+	reg |= MDIO_START_BUSY;
-+	bcmgenet_umac_writel(priv, reg, UMAC_MDIO_CMD);
-+	wait_event_timeout(priv->wq,
-+			!(bcmgenet_umac_readl(priv, UMAC_MDIO_CMD)
-+				& MDIO_START_BUSY),
-+			HZ / 100);
-+	ret = bcmgenet_umac_readl(priv, UMAC_MDIO_CMD);
-+
-+	if (ret & MDIO_READ_FAIL)
-+		return -EIO;
-+
-+	return ret & 0xffff;
-+}
-+
-+/* write a value to the MII */
-+static int bcmgenet_mii_write(struct mii_bus *bus, int phy_id,
-+			int location, u16 val)
-+{
-+	struct net_device *dev = bus->priv;
-+	struct bcmgenet_priv *priv = netdev_priv(dev);
-+	u32 reg;
-+
-+	bcmgenet_umac_writel(priv, (MDIO_WR | (phy_id << MDIO_PMD_SHIFT) |
-+			(location << MDIO_REG_SHIFT) | (0xffff & val)),
-+			UMAC_MDIO_CMD);
-+	reg = bcmgenet_umac_readl(priv, UMAC_MDIO_CMD);
-+	reg |= MDIO_START_BUSY;
-+	bcmgenet_umac_writel(priv, reg, UMAC_MDIO_CMD);
-+	wait_event_timeout(priv->wq,
-+			!(bcmgenet_umac_readl(priv, UMAC_MDIO_CMD) &
-+				MDIO_START_BUSY),
-+			HZ / 100);
++	for (i = 0; i < ARRAY_SIZE(bcm7445_regs_cfg); i++) {
++		ret = phy_write(phydev,
++				bcm7445_regs_cfg[i].reg,
++				bcm7445_regs_cfg[i].value);
++		if (ret)
++			return ret;
++	}
 +
 +	return 0;
 +}
 +
-+/* setup netdev link state when PHY link status change and
-+ * update UMAC and RGMII block when link up
++static void phy_write_exp(struct phy_device *phydev,
++					u16 reg, u16 value)
++{
++	phy_write(phydev, MII_BCM54XX_EXP_SEL, MII_BCM54XX_EXP_SEL_ER | reg);
++	phy_write(phydev, MII_BCM54XX_EXP_DATA, value);
++}
++
++static void phy_write_misc(struct phy_device *phydev,
++					u16 reg, u16 chl, u16 value)
++{
++	int tmp;
++
++	phy_write(phydev, MII_BCM54XX_AUX_CTL, MII_BCM54XX_AUXCTL_SHDWSEL_MISC);
++
++	tmp = phy_read(phydev, MII_BCM54XX_AUX_CTL);
++	tmp |= MII_BCM54XX_AUXCTL_ACTL_SMDSP_ENA;
++	phy_write(phydev, MII_BCM54XX_AUX_CTL, tmp);
++
++	tmp = (chl * MII_BCM7XXX_CHANNEL_WIDTH) | reg;
++	phy_write(phydev, MII_BCM54XX_EXP_SEL, tmp);
++
++	phy_write(phydev, MII_BCM54XX_EXP_DATA, value);
++}
++
++static int bcm7xxx_28nm_afe_config_init(struct phy_device *phydev)
++{
++	/* write AFE_RXCONFIG_0 */
++	phy_write_misc(phydev, 0x38, 0x0000, 0xeb19);
++
++	/* write AFE_RXCONFIG_1 */
++	phy_write_misc(phydev, 0x38, 0x0001, 0x9a3f);
++
++	/* write AFE_RX_LP_COUNTER */
++	phy_write_misc(phydev, 0x38, 0x0003, 0x7fc7);
++
++	/* write AFE_HPF_TRIM_OTHERS */
++	phy_write_misc(phydev, 0x3A, 0x0000, 0x000b);
++
++	/* write AFTE_TX_CONFIG */
++	phy_write_misc(phydev, 0x39, 0x0000, 0x0800);
++
++	/* Increase VCO range to prevent unlocking problem of PLL at low
++	 * temp
++	 */
++	phy_write_misc(phydev, 0x0032, 0x0001, 0x0048);
++
++	/* Change Ki to 011 */
++	phy_write_misc(phydev, 0x0032, 0x0002, 0x021b);
++
++	/* Disable loading of TVCO buffer to bandgap, set bandgap trim
++	 * to 111
++	 */
++	phy_write_misc(phydev, 0x0033, 0x0000, 0x0e20);
++
++	/* Adjust bias current trim by -3 */
++	phy_write_misc(phydev, 0x000a, 0x0000, 0x690b);
++
++	/* Switch to CORE_BASE1E */
++	phy_write(phydev, MII_BCM7XXX_CORE_BASE1E, 0xd);
++
++	/* Reset R_CAL/RC_CAL Engine */
++	phy_write_exp(phydev, 0x00b0, 0x0010);
++
++	/* Disable Reset R_CAL/RC_CAL Engine */
++	phy_write_exp(phydev, 0x00b0, 0x0000);
++
++	return 0;
++}
++
++static int bcm7xxx_28nm_config_init(struct phy_device *phydev)
++{
++	int ret;
++
++	ret = bcm7445_config_init(phydev);
++	if (ret)
++		return ret;
++
++	return bcm7xxx_28nm_afe_config_init(phydev);
++}
++
++static int phy_set_clr_bits(struct phy_device *dev, int location,
++					int set_mask, int clr_mask)
++{
++	int v, ret;
++
++	v = phy_read(dev, location);
++	if (v < 0)
++		return v;
++
++	v &= ~clr_mask;
++	v |= set_mask;
++
++	ret = phy_write(dev, location, v);
++	if (ret < 0)
++		return ret;
++
++	return v;
++}
++
++static int bcm7xxx_config_init(struct phy_device *phydev)
++{
++	int ret;
++
++	/* Enable 64 clock MDIO */
++	phy_write(phydev, MII_BCM7XXX_AUX_MODE, MII_BCM7XX_64CLK_MDIO);
++	phy_read(phydev, MII_BCM7XXX_AUX_MODE);
++
++	/* Workaround only required for 100Mbits/sec */
++	if (!(phydev->dev_flags & PHY_BRCM_100MBPS_WAR))
++		return 0;
++
++	/* set shadow mode 2 */
++	ret = phy_set_clr_bits(phydev, MII_BCM7XXX_TEST,
++			MII_BCM7XXX_SHD_MODE_2, MII_BCM7XXX_SHD_MODE_2);
++	if (ret < 0)
++		return ret;
++
++	/* set iddq_clkbias */
++	phy_write(phydev, MII_BCM7XXX_100TX_DISC, 0x0F00);
++	udelay(10);
++
++	/* reset iddq_clkbias */
++	phy_write(phydev, MII_BCM7XXX_100TX_DISC, 0x0C00);
++
++	phy_write(phydev, MII_BCM7XXX_100TX_FALSE_CAR, 0x7555);
++
++	/* reset shadow mode 2 */
++	ret = phy_set_clr_bits(phydev, MII_BCM7XXX_TEST, MII_BCM7XXX_SHD_MODE_2, 0);
++	if (ret < 0)
++		return ret;
++
++	return 0;
++}
++
++/* Workaround for putting the PHY in IDDQ mode, required
++ * for all BCM7XXX PHYs
 + */
-+static void bcmgenet_mii_setup(struct net_device *dev)
++static int bcm7xxx_suspend(struct phy_device *phydev)
 +{
-+	struct bcmgenet_priv *priv = netdev_priv(dev);
-+	struct phy_device *phydev = priv->phydev;
-+	u32 reg, cmd_bits = 0;
-+	unsigned int status_changed = 0;
-+
-+	if (priv->old_link != phydev->link) {
-+		status_changed = 1;
-+		priv->old_link = phydev->link;
-+	}
-+
-+	if (phydev->link) {
-+		/* program UMAC and RGMII block based on established link
-+		 * speed, pause, and duplex.
-+		 * the speed set in umac->cmd tell RGMII block which clock
-+		 * 25MHz(100Mbps)/125MHz(1Gbps) to use for transmit.
-+		 * receive clock is provided by PHY.
-+		 */
-+		reg = bcmgenet_ext_readl(priv, EXT_RGMII_OOB_CTRL);
-+		reg &= ~OOB_DISABLE;
-+		reg |= RGMII_LINK;
-+		bcmgenet_ext_writel(priv, reg, EXT_RGMII_OOB_CTRL);
-+
-+		/* speed */
-+		if (phydev->speed == SPEED_1000)
-+			cmd_bits = UMAC_SPEED_1000;
-+		else if (phydev->speed == SPEED_100)
-+			cmd_bits = UMAC_SPEED_100;
-+		else
-+			cmd_bits = UMAC_SPEED_10;
-+		cmd_bits <<= CMD_SPEED_SHIFT;
-+
-+		if (priv->old_duplex != phydev->duplex) {
-+			status_changed = 1;
-+			priv->old_duplex = phydev->duplex;
-+		}
-+
-+		/* duplex */
-+		if (phydev->duplex != DUPLEX_FULL)
-+			cmd_bits |= CMD_HD_EN;
-+
-+		if (priv->old_pause != phydev->pause) {
-+			status_changed = 1;
-+			priv->old_pause = phydev->pause;
-+		}
-+
-+		/* pause capability */
-+		if (!phydev->pause)
-+			cmd_bits |= CMD_RX_PAUSE_IGNORE | CMD_TX_PAUSE_IGNORE;
-+
-+		reg = bcmgenet_umac_readl(priv, UMAC_CMD);
-+		reg &= ~((CMD_SPEED_MASK << CMD_SPEED_SHIFT) |
-+			       CMD_HD_EN |
-+			       CMD_RX_PAUSE_IGNORE | CMD_TX_PAUSE_IGNORE);
-+		reg |= cmd_bits;
-+		bcmgenet_umac_writel(priv, reg, UMAC_CMD);
-+	}
-+
-+	if (status_changed)
-+		phy_print_status(phydev);
-+}
-+
-+void bcmgenet_mii_reset(struct net_device *dev)
-+{
-+	struct bcmgenet_priv *priv = netdev_priv(dev);
-+
-+	if (priv->phydev) {
-+		phy_init_hw(priv->phydev);
-+		phy_start_aneg(priv->phydev);
-+	}
-+}
-+
-+static void bcmgenet_ephy_power_up(struct net_device *dev)
-+{
-+	struct bcmgenet_priv *priv = netdev_priv(dev);
-+	u32 reg = 0;
-+
-+	/* EXT_GPHY_CTRL is only valid for GENETv4 and onward */
-+	if (!GENET_IS_V4(priv))
-+		return;
-+
-+	reg = bcmgenet_ext_readl(priv, EXT_GPHY_CTRL);
-+	reg &= ~(EXT_CFG_IDDQ_BIAS | EXT_CFG_PWR_DOWN);
-+	reg |= EXT_GPHY_RESET;
-+	bcmgenet_ext_writel(priv, reg, EXT_GPHY_CTRL);
-+	mdelay(2);
-+
-+	reg &= ~EXT_GPHY_RESET;
-+	bcmgenet_ext_writel(priv, reg, EXT_GPHY_CTRL);
-+	udelay(20);
-+}
-+
-+static void bcmgenet_internal_phy_setup(struct net_device *dev)
-+{
-+	struct bcmgenet_priv *priv = netdev_priv(dev);
-+	u32 reg;
-+
-+	/* Power up EPHY */
-+	bcmgenet_ephy_power_up(dev);
-+	/* enable APD */
-+	reg = bcmgenet_ext_readl(priv, EXT_EXT_PWR_MGMT);
-+	reg |= EXT_PWR_DN_EN_LD;
-+	bcmgenet_ext_writel(priv, reg, EXT_EXT_PWR_MGMT);
-+	bcmgenet_mii_reset(dev);
-+}
-+
-+static void bcmgenet_moca_phy_setup(struct bcmgenet_priv *priv)
-+{
-+	u32 reg;
-+
-+	/* Speed settings are set in bcmgenet_mii_setup() */
-+	reg = bcmgenet_sys_readl(priv, SYS_PORT_CTRL);
-+	reg |= LED_ACT_SOURCE_MAC;
-+	bcmgenet_sys_writel(priv, reg, SYS_PORT_CTRL);
-+}
-+
-+int bcmgenet_mii_config(struct net_device *dev)
-+{
-+	struct bcmgenet_priv *priv = netdev_priv(dev);
-+	struct phy_device *phydev = priv->phydev;
-+	struct device *kdev = &priv->pdev->dev;
-+	const char *phy_name = NULL;
-+	u32 id_mode_dis = 0;
-+	u32 port_ctrl;
-+	u32 reg;
-+
-+	priv->ext_phy = !phy_is_internal(priv->phydev) &&
-+			(priv->phy_interface != PHY_INTERFACE_MODE_MOCA);
-+
-+	if (phy_is_internal(priv->phydev))
-+		priv->phy_interface = PHY_INTERFACE_MODE_NA;
-+
-+	switch (priv->phy_interface) {
-+	case PHY_INTERFACE_MODE_NA:
-+	case PHY_INTERFACE_MODE_MOCA:
-+		/* Irrespective of the actually configured PHY speed (100 or
-+		 * 1000) GENETv4 only has an internal GPHY so we will just end
-+		 * up masking the Gigabit features from what we support, not
-+		 * switching to the EPHY
-+		 */
-+		if (GENET_IS_V4(priv))
-+			port_ctrl = PORT_MODE_INT_GPHY;
-+		else
-+			port_ctrl = PORT_MODE_INT_EPHY;
-+
-+		bcmgenet_sys_writel(priv, port_ctrl, SYS_PORT_CTRL);
-+
-+		if (phy_is_internal(priv->phydev)) {
-+			phy_name = "internal PHY";
-+			bcmgenet_internal_phy_setup(dev);
-+		} else if (priv->phy_interface == PHY_INTERFACE_MODE_MOCA) {
-+			phy_name = "MoCA";
-+			bcmgenet_moca_phy_setup(priv);
-+		}
-+		break;
-+
-+	case PHY_INTERFACE_MODE_MII:
-+		phy_name = "external MII";
-+		phydev->supported &= PHY_BASIC_FEATURES;
-+		bcmgenet_sys_writel(priv,
-+				PORT_MODE_EXT_EPHY, SYS_PORT_CTRL);
-+		break;
-+
-+	case PHY_INTERFACE_MODE_REVMII:
-+		phy_name = "external RvMII";
-+		/* of_mdiobus_register took care of reading the 'max-speed'
-+		 * PHY property for us, effectively limiting the PHY supported
-+		 * capabilities, use that knowledge to also configure the
-+		 * Reverse MII interface correctly.
-+		 */
-+		if ((priv->phydev->supported & PHY_BASIC_FEATURES) ==
-+				PHY_BASIC_FEATURES)
-+			port_ctrl = PORT_MODE_EXT_RVMII_25;
-+		else
-+			port_ctrl = PORT_MODE_EXT_RVMII_50;
-+		bcmgenet_sys_writel(priv, port_ctrl, SYS_PORT_CTRL);
-+		break;
-+
-+	case PHY_INTERFACE_MODE_RGMII:
-+		/* RGMII_NO_ID: TXC transitions at the same time as TXD
-+		 *		(requires PCB or receiver-side delay)
-+		 * RGMII:	Add 2ns delay on TXC (90 degree shift)
-+		 *
-+		 * ID is implicitly disabled for 100Mbps (RG)MII operation.
-+		 */
-+		id_mode_dis = BIT(16);
-+		/* fall through */
-+	case PHY_INTERFACE_MODE_RGMII_TXID:
-+		if (id_mode_dis)
-+			phy_name = "external RGMII (no delay)";
-+		else
-+			phy_name = "external RGMII (TX delay)";
-+		reg = bcmgenet_ext_readl(priv, EXT_RGMII_OOB_CTRL);
-+		reg |= RGMII_MODE_EN | id_mode_dis;
-+		bcmgenet_ext_writel(priv, reg, EXT_RGMII_OOB_CTRL);
-+		bcmgenet_sys_writel(priv,
-+				PORT_MODE_EXT_GPHY, SYS_PORT_CTRL);
-+		break;
-+	default:
-+		dev_err(kdev, "unknown phy mode: %d\n", priv->phy_interface);
-+		return -EINVAL;
-+	}
-+
-+	dev_info(kdev, "configuring instance for %s\n", phy_name);
-+
-+	return 0;
-+}
-+
-+static int bcmgenet_mii_probe(struct net_device *dev)
-+{
-+	struct bcmgenet_priv *priv = netdev_priv(dev);
-+	struct phy_device *phydev;
-+	unsigned int phy_flags;
 +	int ret;
++	const struct bcm7xxx_regs {
++		int reg;
++		u16 value;
++	} bcm7xxx_suspend_cfg[] = {
++		{ MII_BCM7XXX_TEST, 0x008b },
++		{ MII_BCM7XXX_100TX_AUX_CTL, 0x01c0 },
++		{ MII_BCM7XXX_100TX_DISC, 0x7000 },
++		{ MII_BCM7XXX_TEST, 0x000f },
++		{ MII_BCM7XXX_100TX_AUX_CTL, 0x20d0 },
++		{ MII_BCM7XXX_TEST, 0x000b },
++	};
++	unsigned int i;
 +
-+	if (priv->phydev) {
-+		pr_info("PHY already attached\n");
-+		return 0;
-+	}
-+
-+	if (priv->phy_dn)
-+		phydev = of_phy_connect(dev, priv->phy_dn,
-+					bcmgenet_mii_setup, 0,
-+					priv->phy_interface);
-+	else
-+		phydev = of_phy_connect_fixed_link(dev,
-+					bcmgenet_mii_setup,
-+					priv->phy_interface);
-+
-+	if (!phydev) {
-+		pr_err("could not attach to PHY\n");
-+		return -ENODEV;
-+	}
-+
-+	priv->old_link = -1;
-+	priv->old_duplex = -1;
-+	priv->old_pause = -1;
-+	priv->phydev = phydev;
-+
-+	/* Configure port multiplexer based on what the probed PHY device since
-+	 * reading the 'max-speed' property determines the maximum supported
-+	 * PHY speed which is needed for bcmgenet_mii_config() to configure
-+	 * things appropriately.
-+	 */
-+	ret = bcmgenet_mii_config(dev);
-+	if (ret) {
-+		phy_disconnect(priv->phydev);
-+		return ret;
-+	}
-+
-+	phy_flags = PHY_BRCM_100MBPS_WAR;
-+
-+	/* workarounds are only needed for 100Mpbs PHYs, and
-+	 * never on GENET V1 hardware
-+	 */
-+	if ((phydev->supported & PHY_GBIT_FEATURES) || GENET_IS_V1(priv))
-+		phy_flags = 0;
-+
-+	phydev->dev_flags |= phy_flags;
-+	phydev->advertising = phydev->supported;
-+
-+	/* The internal PHY has its link interrupts routed to the
-+	 * Ethernet MAC ISRs
-+	 */
-+	if (phy_is_internal(priv->phydev))
-+		priv->mii_bus->irq[phydev->addr] = PHY_IGNORE_INTERRUPT;
-+	else
-+		priv->mii_bus->irq[phydev->addr] = PHY_POLL;
-+
-+	pr_info("attached PHY at address %d [%s]\n",
-+			phydev->addr, phydev->drv->name);
-+
-+	return 0;
-+}
-+
-+static int bcmgenet_mii_alloc(struct bcmgenet_priv *priv)
-+{
-+	struct mii_bus *bus;
-+
-+	if (priv->mii_bus)
-+		return 0;
-+
-+	priv->mii_bus = mdiobus_alloc();
-+	if (!priv->mii_bus) {
-+		pr_err("failed to allocate\n");
-+		return -ENOMEM;
-+	}
-+
-+	bus = priv->mii_bus;
-+	bus->priv = priv->dev;
-+	bus->name = "bcmgenet MII bus";
-+	bus->parent = &priv->pdev->dev;
-+	bus->read = bcmgenet_mii_read;
-+	bus->write = bcmgenet_mii_write;
-+	snprintf(bus->id, MII_BUS_ID_SIZE, "%s-%d",
-+			priv->pdev->name, priv->pdev->id);
-+
-+	bus->irq = kzalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
-+	if (!bus->irq) {
-+		mdiobus_free(priv->mii_bus);
-+		return -ENOMEM;
++	for (i = 0; i < ARRAY_SIZE(bcm7xxx_suspend_cfg); i++) {
++		ret = phy_write(phydev,
++				bcm7xxx_suspend_cfg[i].reg,
++				bcm7xxx_suspend_cfg[i].value);
++		if (ret)
++			return ret;
 +	}
 +
 +	return 0;
 +}
 +
-+static int bcmgenet_mii_of_init(struct bcmgenet_priv *priv)
++static int bcm7xxx_dummy_config_init(struct phy_device *phydev)
 +{
-+	struct device_node *dn = priv->pdev->dev.of_node;
-+	struct device *kdev = &priv->pdev->dev;
-+	struct device_node *mdio_dn;
-+	char *compat;
-+	int ret;
-+
-+	mdio_dn = of_get_next_child(dn, NULL);
-+	if (!mdio_dn) {
-+		dev_err(kdev, "unable to find MDIO bus node\n");
-+		return -ENODEV;
-+	}
-+
-+	compat = kasprintf(GFP_KERNEL, "brcm,genet-mdio-v%d", priv->version);
-+	if (!compat)
-+		return -ENOMEM;
-+
-+	ret = of_device_is_compatible(mdio_dn, compat);
-+	kfree(compat);
-+	if (ret == 0) {
-+		dev_err(kdev, "invalid MDIO bus node\n");
-+		return -EINVAL;
-+	}
-+
-+	ret = of_mdiobus_register(priv->mii_bus, mdio_dn);
-+	if (ret) {
-+		dev_err(kdev, "failed to register MDIO bus\n");
-+		return ret;
-+	}
-+
-+	/* Fetch the PHY phandle */
-+	priv->phy_dn = of_parse_phandle(dn, "phy-handle", 0);
-+
-+	/* Get the link mode */
-+	priv->phy_interface = of_get_phy_mode(dn);
-+
 +	return 0;
 +}
 +
-+int bcmgenet_mii_init(struct net_device *dev)
++static struct phy_driver bcm7xxx_driver[] = {
 +{
-+	struct bcmgenet_priv *priv = netdev_priv(dev);
-+	int ret;
++	.phy_id		= PHY_ID_BCM7366,
++	.phy_id_mask	= 0xfffffff0,
++	.name		= "Broadcom BCM7366",
++	.features	= PHY_GBIT_FEATURES |
++			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.flags		= PHY_IS_INTERNAL,
++	.config_init	= bcm7xxx_28nm_afe_config_init,
++	.config_aneg	= genphy_config_aneg,
++	.read_status	= genphy_read_status,
++	.suspend	= bcm7xxx_suspend,
++	.resume		= bcm7xxx_28nm_afe_config_init,
++	.driver		= { .owner = THIS_MODULE },
++}, {
++	.phy_id		= PHY_ID_BCM7439,
++	.phy_id_mask	= 0xfffffff0,
++	.name		= "Broadcom BCM7439",
++	.features	= PHY_GBIT_FEATURES |
++			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.flags		= PHY_IS_INTERNAL,
++	.config_init	= bcm7xxx_28nm_afe_config_init,
++	.config_aneg	= genphy_config_aneg,
++	.read_status	= genphy_read_status,
++	.suspend	= bcm7xxx_suspend,
++	.resume		= bcm7xxx_28nm_afe_config_init,
++	.driver		= { .owner = THIS_MODULE },
++}, {
++	.phy_id		= PHY_ID_BCM7445,
++	.phy_id_mask	= 0xfffffff0,
++	.name		= "Broadcom BCM7445",
++	.features	= PHY_GBIT_FEATURES |
++			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.flags		= PHY_IS_INTERNAL,
++	.config_init	= bcm7xxx_28nm_config_init,
++	.config_aneg	= genphy_config_aneg,
++	.read_status	= genphy_read_status,
++	.suspend	= bcm7xxx_suspend,
++	.resume		= bcm7xxx_28nm_config_init,
++	.driver		= { .owner = THIS_MODULE },
++}, {
++	.name		= "Broadcom BCM7XXX 28nm",
++	.phy_id		= PHY_ID_BCM7XXX_28,
++	.phy_id_mask	= PHY_BCM_OUI_MASK,
++	.features	= PHY_GBIT_FEATURES |
++			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.flags		= PHY_IS_INTERNAL,
++	.config_init	= bcm7xxx_28nm_config_init,
++	.config_aneg	= genphy_config_aneg,
++	.read_status	= genphy_read_status,
++	.suspend	= bcm7xxx_suspend,
++	.resume		= bcm7xxx_28nm_config_init,
++	.driver		= { .owner = THIS_MODULE },
++}, {
++	.phy_id		= PHY_BCM_OUI_4,
++	.phy_id_mask	= 0xffff0000,
++	.name		= "Broadcom BCM7XXX 40nm",
++	.features	= PHY_GBIT_FEATURES |
++			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.flags		= PHY_IS_INTERNAL,
++	.config_init	= bcm7xxx_config_init,
++	.config_aneg	= genphy_config_aneg,
++	.read_status	= genphy_read_status,
++	.suspend	= bcm7xxx_suspend,
++	.resume		= bcm7xxx_config_init,
++	.driver		= { .owner = THIS_MODULE },
++}, {
++	.phy_id		= PHY_BCM_OUI_5,
++	.phy_id_mask	= 0xffffff00,
++	.name		= "Broadcom BCM7XXX 65nm",
++	.features	= PHY_BASIC_FEATURES |
++			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.flags		= PHY_IS_INTERNAL,
++	.config_init	= bcm7xxx_dummy_config_init,
++	.config_aneg	= genphy_config_aneg,
++	.read_status	= genphy_read_status,
++	.suspend	= bcm7xxx_suspend,
++	.resume		= bcm7xxx_config_init,
++	.driver		= { .owner = THIS_MODULE },
++} };
 +
-+	ret = bcmgenet_mii_alloc(priv);
-+	if (ret)
-+		return ret;
++static struct mdio_device_id __maybe_unused bcm7xxx_tbl[] = {
++	{ PHY_ID_BCM7366, 0xfffffff0, },
++	{ PHY_ID_BCM7439, 0xfffffff0, },
++	{ PHY_ID_BCM7445, 0xfffffff0, },
++	{ PHY_ID_BCM7XXX_28, 0xfffffc00 },
++	{ PHY_BCM_OUI_4, 0xffff0000 },
++	{ PHY_BCM_OUI_5, 0xffffff00 },
++	{ }
++};
 +
-+	ret = bcmgenet_mii_of_init(priv);
-+	if (ret)
-+		goto out_free;
-+
-+	ret = bcmgenet_mii_probe(dev);
-+	if (ret)
-+		goto out;
-+
-+	return 0;
-+
-+out:
-+	mdiobus_unregister(priv->mii_bus);
-+out_free:
-+	kfree(priv->mii_bus->irq);
-+	mdiobus_free(priv->mii_bus);
-+	return ret;
++static int __init bcm7xxx_phy_init(void)
++{
++	return phy_drivers_register(bcm7xxx_driver,
++			ARRAY_SIZE(bcm7xxx_driver));
 +}
 +
-+void bcmgenet_mii_exit(struct net_device *dev)
++static void __exit bcm7xxx_phy_exit(void)
 +{
-+	struct bcmgenet_priv *priv = netdev_priv(dev);
-+
-+	mdiobus_unregister(priv->mii_bus);
-+	kfree(priv->mii_bus->irq);
-+	mdiobus_free(priv->mii_bus);
++	phy_drivers_unregister(bcm7xxx_driver,
++			ARRAY_SIZE(bcm7xxx_driver));
 +}
++
++module_init(bcm7xxx_phy_init);
++module_exit(bcm7xxx_phy_exit);
++
++MODULE_DEVICE_TABLE(mdio, bcm7xxx_tbl);
++
++MODULE_DESCRIPTION("Broadcom BCM7xxx internal PHY driver");
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Broadcom Corporation");
+diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
+index 104e3ef..6f76277 100644
+--- a/include/linux/brcmphy.h
++++ b/include/linux/brcmphy.h
+@@ -13,10 +13,17 @@
+ #define PHY_ID_BCM5461			0x002060c0
+ #define PHY_ID_BCM57780			0x03625d90
+ 
++#define PHY_ID_BCM7366			0x600d8490
++#define PHY_ID_BCM7439			0x600d8480
++#define PHY_ID_BCM7445			0x600d8510
++#define PHY_ID_BCM7XXX_28		0x600d8400
++
+ #define PHY_BCM_OUI_MASK		0xfffffc00
+ #define PHY_BCM_OUI_1			0x00206000
+ #define PHY_BCM_OUI_2			0x0143bc00
+ #define PHY_BCM_OUI_3			0x03625c00
++#define PHY_BCM_OUI_4			0x600d0000
++#define PHY_BCM_OUI_5			0x03625e00
+ 
+ 
+ #define PHY_BCM_FLAGS_MODE_COPPER	0x00000001
+@@ -31,6 +38,8 @@
+ #define PHY_BRCM_EXT_IBND_TX_ENABLE	0x00002000
+ #define PHY_BRCM_CLEAR_RGMII_MODE	0x00004000
+ #define PHY_BRCM_DIS_TXCRXC_NOENRGY	0x00008000
++/* Broadcom BCM7xxx specific workarounds */
++#define PHY_BRCM_100MBPS_WAR		0x00010000
+ #define PHY_BCM_FLAGS_VALID		0x80000000
+ 
+ /* Broadcom BCM54XX register definitions, common to most Broadcom PHYs */
 -- 
 1.8.3.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
