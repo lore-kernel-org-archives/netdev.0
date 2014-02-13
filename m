@@ -1,51 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/3] kref: add kref_sub_return
-Date: Wed, 12 Feb 2014 19:06:37 -0500 (EST)
-Message-ID: <20140212.190637.328045386111912135.davem@davemloft.net>
-References: <1392222846-26699-1-git-send-email-mst@redhat.com>
-	<1392222846-26699-2-git-send-email-mst@redhat.com>
-	<20140212165630.GA22991@kroah.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next] ipv6: do not set "u" bit for temporary addresses
+Date: Thu, 13 Feb 2014 01:11:49 +0100
+Message-ID: <20140213001149.GI11150@order.stressinduktion.org>
+References: <1392203286-17833-1-git-send-email-florent.fourcot@enst-bretagne.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: virtio-dev@lists.oasis-open.org, anatol.pomozov@gmail.com, mst@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, qinchuanyu@huawei.com,
-	joern@logfs.org
-To: gregkh@linuxfoundation.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140212165630.GA22991@kroah.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:50750 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751381AbaBMAMK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 19:12:10 -0500
+Content-Disposition: inline
+In-Reply-To: <1392203286-17833-1-git-send-email-florent.fourcot@enst-bretagne.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Wed, 12 Feb 2014 08:56:30 -0800
-
-> On Wed, Feb 12, 2014 at 06:38:21PM +0200, Michael S. Tsirkin wrote:
->> It is sometimes useful to get the value of the reference count after
->> decrement.
->> For example, vhost wants to execute some periodic cleanup operations
->> once number of references drops below a specific value, before it
->> reaches zero (for efficiency).
+On Wed, Feb 12, 2014 at 12:08:06PM +0100, Florent Fourcot wrote:
+> The bit 6 of interface identifier was before the "universal/local bit",
+> indicating local significance only. This rule is now obsoleted by the
+> RFC 7136, removing all significance of bits in interface identifier.
 > 
-> You should never care about what the value of the kref is, if you are
-> using it correctly :)
+> The new rule is "In all cases, the bits in an IID have no generic
+> semantics; in other words, they have opaque values.", so we can remove
+> the setting of bit 6, it will improve the entropy of random addresses.
+> 
+> Signed-off-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
 
-It isn't being used to determine when to destroy things.
+Hmm, the RFC only talks about new methods of IID generation. Not sure
+if old software depends on that. I actually know about one commercial
+available ip management system which does make use of those bits to
+classify ipv6 addresses for displaying purposes (that's how I actually
+learned about those bits ;) ).
 
-They use it to as a heuristic of when to trigger polling.
+Greetings,
 
-Each ubuf attached gets a kref to the higher level virtio_net buffer
-holding object, they want to trigger polling when that reference drops
-to 1 or lower.
-
-Right now they are reading the atomic refcount directly, which
-I think is much worse than this helper.
+  Hannes
