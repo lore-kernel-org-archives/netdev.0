@@ -1,28 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix Default to 'y' for SR9800 Device Driver, setting
- to 'n'
-Date: Thu, 13 Feb 2014 18:32:37 -0500 (EST)
-Message-ID: <20140213.183237.1108958546198981160.davem@davemloft.net>
-References: <1392265339-14841-1-git-send-email-liujunliang_ljl@163.com>
+Subject: Re: [PATCH net-next] net: remove unnecessary return's
+Date: Thu, 13 Feb 2014 18:33:57 -0500 (EST)
+Message-ID: <20140213.183357.2022405581708903362.davem@davemloft.net>
+References: <20140212205122.5783660e@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: thierry.reding@gmail.com, horms@verge.net.au, joe@perches.com,
-	romieu@fr.zoreil.com, gregkh@linuxfoundation.org,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org, sunhecheng@vip.126.com
-To: liujunliang_ljl@163.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1392265339-14841-1-git-send-email-liujunliang_ljl@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51419 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751320AbaBMXd6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 18:33:58 -0500
+In-Reply-To: <20140212205122.5783660e@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: liujunliang_ljl@163.com
-Date: Thu, 13 Feb 2014 12:22:19 +0800
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Wed, 12 Feb 2014 20:51:22 -0800
 
-> From: Liu Junliang <liujunliang_ljl@163.com>
+> One of my pet coding style peeves is the practice of
+> adding extra return; at the end of function.
+> Kill several instances of this in network code.
 > 
+> I suppose some coccinelle wizardy could do this automatically.
 > 
-> Signed-off-by: Liu Junliang <liujunliang_ljl@163.com>
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-I think it's more canonical to specify no default at all.
+These are all straight-forward cases, applied, thanks.
