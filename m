@@ -1,46 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6 2/2] net: ip, ipv6: handle gso skbs in forwarding
- path
-Date: Thu, 13 Feb 2014 17:17:57 -0500 (EST)
-Message-ID: <20140213.171757.1460052863443832827.davem@davemloft.net>
-References: <1392329352-31606-1-git-send-email-fw@strlen.de>
-	<1392329352-31606-2-git-send-email-fw@strlen.de>
+From: Grant Grundler <grundler@google.com>
+Subject: Re: RTL8153 fails to get link after applying c7de7dec2 to 3.8 kernel
+Date: Thu, 13 Feb 2014 14:22:57 -0800
+Message-ID: <CANEJEGtGSHAACM=Bk0BAHrM=-1q4pHoboO5FYN7YM4wquMMmXA@mail.gmail.com>
+References: <CANEJEGtzUF+rdSqgTHL0BmsDbCeoWki=aAWZwSx-dZ24jQ=nVg@mail.gmail.com>
+	<B88F103D217C4AF0B5D7AD58214655C6@realtek.com.tw>
+	<CANEJEGtvY1v0AC7j+uo7-ZzN9YMOaE9JOtismt0ESxpVWkvHyQ@mail.gmail.com>
+	<6929A44AB95D46C6B919DDD537CDD37B@realtek.com.tw>
+	<CANEJEGtj5b6z3L1AeiqTPgVs0qCe=pv=cyRHYi04_yNXpPMOCA@mail.gmail.com>
+	<FD21003FF7E540DCA7F8F39A2BC046B4@realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fw@strlen.de
+Content-Type: text/plain; charset=UTF-8
+Cc: Inki Yoo <inky.yoo@samsung.com>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: hayeswang <hayeswang@realtek.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50670 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751464AbaBMWR6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:17:58 -0500
-In-Reply-To: <1392329352-31606-2-git-send-email-fw@strlen.de>
+Received: from mail-oa0-f45.google.com ([209.85.219.45]:57488 "EHLO
+	mail-oa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750932AbaBMWW5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:22:57 -0500
+Received: by mail-oa0-f45.google.com with SMTP id i11so13655679oag.32
+        for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 14:22:57 -0800 (PST)
+In-Reply-To: <FD21003FF7E540DCA7F8F39A2BC046B4@realtek.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Thu, 13 Feb 2014 23:09:12 +0100
+On Wed, Feb 12, 2014 at 6:55 PM, hayeswang <hayeswang@realtek.com> wrote:
+...
+> According to the information from our FAE about the dangles for samsung,
+> the default values of some device power are disabled or off. I don't know
+> the history about this. However, it would cause the dangle no link, because
+> the ecm driver wouldn't enable them. That is, the dangle couldn't use the
+> ECM mode.
 
-> Marcelo Ricardo Leitner reported problems when the forwarding link path
-> has a lower mtu than the incoming one if the inbound interface supports GRO.
- ...
-> However it turns out that skb_segment() assumes skb nr_frags is related
-> to mss size so we would BUG there.  I don't want to mess with it considering
-> Herbert and Eric disagree on what the correct behavior should be.
-> 
-> Hannes Frederic Sowa notes that when we would shrink gso_size
-> skb_segment would then also need to deal with the case where
-> SKB_MAX_FRAGS would be exceeded.
-> 
-> This uses sofware segmentation in the forward path when we hit ipv4
-> non-DF packets and the outgoing link mtu is too small.  Its not perfect,
-> but given the lack of bug reports wrt. GRO fwd being broken this is a
-> rare case anyway.  Also its not like this could not be improved later
-> once the dust settles.
-> 
-> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
-> Reported-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+That makes sense. How can I check that?
 
-Also applied and queued up for -stable, thanks.
+> I think you should create a udev rule to change the configuration
+> to 1 when the dangle is plugged. Then, it could load the vendor mode driver.
+
+Which "configuration" are you referring to?
+Something like this? /sys/devices/12110000.usb/usb3/3-2/bConfigurationValue
+
+I'm happy to try any command line you give me.
+
+If that command works, I can write the udev rule for future testing
+with these devices.
+
+> I don't think so. The reason is as above. Change the configuration of the
+> device to 1 (vendor mode) is what you have to do.
+
+Ok...just need one more bit of guidance from you and this will be
+resolved I think.
+
+cheers,
+grant
