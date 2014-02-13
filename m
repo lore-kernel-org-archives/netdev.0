@@ -1,32 +1,40 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] Fix Default to 'y' for SR9800 Device Driver, setting
- to 'n'
-Date: Fri, 14 Feb 2014 03:38:17 +0300
-Message-ID: <52FD6579.5070104@cogentembedded.com>
-References: <1392265339-14841-1-git-send-email-liujunliang_ljl@163.com> <20140213.183237.1108958546198981160.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v4 00/10] Support for the Broadcom GENET driver
+Date: Thu, 13 Feb 2014 18:39:14 -0500 (EST)
+Message-ID: <20140213.183914.1533527602267985176.davem@davemloft.net>
+References: <1392334222-1089-1-git-send-email-f.fainelli@gmail.com>
+	<20140213.183806.278183709549075615.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: thierry.reding@gmail.com, horms@verge.net.au, joe@perches.com,
-	romieu@fr.zoreil.com, gregkh@linuxfoundation.org,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org, sunhecheng@vip.126.com
-To: David Miller <davem@davemloft.net>, liujunliang_ljl@163.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140213.183237.1108958546198981160.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	cernekee@gmail.com, mark.rutland@arm.com, romieu@fr.zoreil.com
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51474 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751749AbaBMXjQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 18:39:16 -0500
+In-Reply-To: <20140213.183806.278183709549075615.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 02/14/2014 02:32 AM, David Miller wrote:
-
->> From: Liu Junliang <liujunliang_ljl@163.com>
-
->> Signed-off-by: Liu Junliang <liujunliang_ljl@163.com>
-
-> I think it's more canonical to specify no default at all.
-
-    That's what he did, no?
-
-WBR, Sergei
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVGh1LCAxMyBG
+ZWIgMjAxNCAxODozODowNiAtMDUwMCAoRVNUKQ0KDQo+IEZyb206IEZsb3JpYW4gRmFpbmVsbGkg
+PGYuZmFpbmVsbGlAZ21haWwuY29tPg0KPiBEYXRlOiBUaHUsIDEzIEZlYiAyMDE0IDE1OjMwOjEy
+IC0wODAwDQo+IA0KPj4gVGhpcyBwYXRjaHNldCBhZGRzIHN1cHBvcnQgZm9yIHRoZSBCcm9hZGNv
+bSBHRU5FVCBHaWdhYml0IEV0aGVybmV0IE1BQw0KPj4gY29udHJvbGxlci4gVGhpcyBjb250cm9s
+bGVyIGlzIGZvdW5kIG9uIHRoZSBCcm9hZGNvbSBCQ003eHh4IFNldCBUb3AgQm94DQo+PiBTeXN0
+ZW0tb24tYS1jaGlwcy4NCj4+IA0KPj4gQ2hhbmdlcyBzaW5jZSB2MzoNCj4+IC0gZml4ZWQgS2Nv
+bmZpZyBkZXBlbmRlbmN5IG9uIEZJWEVEX1BIWQ0KPj4gDQo+PiBDaGFuZ2VzIHNpbmNlIHYyOg0K
+Pj4gLSBkcm9wcGVkIHRoZSBwYXRjaCB0aGF0IGFkZHMgYW4gImludGVybmFsIiBwaHktbW9kZQ0K
+PiANCj4gTG9va3MgYmV0dGVyLCBzZXJpZXMgYXBwbGllZCwgdGhhbmtzLg0KDQpBY3R1YWxseSwg
+SSBoYXZlIHRvIHJldmVydCwgdGhpcyBicmVha3MgdGhlIGFsbG1vZGNvbmZpZyBidWlsZCBvbiB4
+ODZfNjQ6DQoNCmRyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29tL2dlbmV0L2JjbW1paS5jOiBJ
+biBmdW5jdGlvbiChYmNtZ2VuZXRfbWlpX29mX2luaXSiOg0KZHJpdmVycy9uZXQvZXRoZXJuZXQv
+YnJvYWRjb20vZ2VuZXQvYmNtbWlpLmM6NDA0OjI6IGVycm9yOiBpbXBsaWNpdCBkZWNsYXJhdGlv
+biBvZiBmdW5jdGlvbiChb2ZfZ2V0X25leHRfY2hpbGSiIFstV2Vycm9yPWltcGxpY2l0LWZ1bmN0
+aW9uLWRlY2xhcmF0aW9uXQ0KZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vZ2VuZXQvYmNt
+bWlpLmM6NDA0OjEwOiB3YXJuaW5nOiBhc3NpZ25tZW50IG1ha2VzIHBvaW50ZXIgZnJvbSBpbnRl
+Z2VyIHdpdGhvdXQgYSBjYXN0IFtlbmFibGVkIGJ5IGRlZmF1bHRdDQpjYzE6IHNvbWUgd2Fybmlu
+Z3MgYmVpbmcgdHJlYXRlZCBhcyBlcnJvcnMNCg==
