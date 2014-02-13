@@ -1,29 +1,27 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next v4 00/10] Support for the Broadcom GENET driver
-Date: Thu, 13 Feb 2014 18:53:19 -0500 (EST)
-Message-ID: <20140213.185319.1984798829692586686.davem@davemloft.net>
-References: <20140213.183806.278183709549075615.davem@davemloft.net>
-	<20140213.183914.1533527602267985176.davem@davemloft.net>
-	<CAGVrzcaJJBspF6o_0+kWHwh4hs7Q3YCknqZdFzS-ouyfBUecbQ@mail.gmail.com>
+From: Mark Reyes Guus <markguusreyes01@yahoo.nl>
+Subject: Good Day!
+Date: Thu, 13 Feb 2014 15:41:12 +0000
+Message-ID: <20140213154112.Horde.z-8XQyn3hm_vsZItfTSc8Q2@webmail.kidz-potc.com.sg>
+Reply-To: guusmarkreyes212@yahoo.com.tw
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	cernekee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org
-To: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAGVrzcaJJBspF6o_0+kWHwh4hs7Q3YCknqZdFzS-ouyfBUecbQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed; DelSp=Yes
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from runnex.hostcentral.net ([123.100.245.40]:35468 "EHLO
+	runnex.hostcentral.net" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751320AbaBMX6R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 18:58:17 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Thu, 13 Feb 2014 15:41:03 -0800
 
-> Ok, would you agree in having a big fat "depends on OF" for now until
-> I can get an empty stub going with the DT people?
 
-Yes.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Good day. I am Mark Reyes Guus, I work with Abn Amro Bank as an  
+auditor. I have a proposition to discuss with you. Should you be  
+interested, please e-mail back to me.
+
+Private Email: markreyesguus@abnmrob.co.uk OR markguus.reyes01@yahoo.nl
+
+Yours Sincerely,
+Mark Reyes Guus.
