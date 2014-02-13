@@ -1,37 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/2] sctp: fix a problem with net_namespace
-Date: Thu, 13 Feb 2014 17:13:39 -0500 (EST)
-Message-ID: <20140213.171339.128629799445150745.davem@davemloft.net>
-References: <1392169484-8256-1-git-send-email-wangweidong1@huawei.com>
+Subject: Re: [PATCH net] bonding: Fix deadlock in bonding driver when using
+ netpoll
+Date: Thu, 13 Feb 2014 17:13:57 -0500 (EST)
+Message-ID: <20140213.171357.1018720142829787554.davem@davemloft.net>
+References: <52FAF350.80005@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, vyasevich@gmail.com, dborkman@redhat.com,
-	sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org
-To: wangweidong1@huawei.com
+Cc: fubar@us.ibm.com, vfalico@redhat.com, andy@greyhouse.net,
+	netdev@vger.kernel.org
+To: dingtianhong@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50613 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50622 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752153AbaBMWNl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:13:41 -0500
-In-Reply-To: <1392169484-8256-1-git-send-email-wangweidong1@huawei.com>
+	with ESMTP id S1752297AbaBMWN7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:13:59 -0500
+In-Reply-To: <52FAF350.80005@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wang Weidong <wangweidong1@huawei.com>
-Date: Wed, 12 Feb 2014 09:44:42 +0800
+From: Ding Tianhong <dingtianhong@huawei.com>
+Date: Wed, 12 Feb 2014 12:06:40 +0800
 
-> fix a problem with net_namespace, and optimize
-> the sctp_sysctl_net_register.
+> The bonding driver take write locks and spin locks that are shared
+> by the tx path in enslave processing and notification processing,
+> If the netconsole is in use, the bonding can call printk which puts
+> us in the netpoll tx path, if the netconsole is attached to the bonding
+> driver, result in deadlock.
 > 
-> v2 -> v3:
->   -patch2: add empty line after declaration as potined out by Sergei.
+> So add protection for these place, by checking the netpoll_block_tx
+> state, we can defer the sending of the netconsole frames until a later
+> time using the retransmit feature of netpoll_send_skb that is triggered
+> on the return code NETDEV_TX_BUSY.
 > 
-> v1 -> v2:
->   -patch1: add Neil's ACK.
-> 
-> Wang Weidong (2):
->   sctp: fix a missed .data initialization
->   sctp: optimize the sctp_sysctl_net_register
+> Cc: Jay Vosburgh <fubar@us.ibm.com>
+> Cc: Veaceslav Falico <vfalico@redhat.com>
+> Cc: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 
-Series applied, thanks.
+Applied.
