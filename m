@@ -1,109 +1,141 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next v2 13/14] tipc: remove
-	bearer_lock from tipc_bearer struct
-Date: Thu, 13 Feb 2014 17:29:17 -0500
-Message-ID: <1392330558-19048-14-git-send-email-jon.maloy@ericsson.com>
-References: <1392330558-19048-1-git-send-email-jon.maloy@ericsson.com>
+From: Dan Williams <dan.j.williams@intel.com>
+Subject: Re: [PATCH regression] dma debug: account for cachelines and
+ read-only mappings in overlap tracking
+Date: Thu, 13 Feb 2014 14:33:03 -0800
+Message-ID: <CAPcyv4jbc5vHpXVcvnT2DoiwYvcQPO9ivAO+zThbw_-YYRyrHA@mail.gmail.com>
+References: <20140213215652.22950.12180.stgit@viggo.jf.intel.com>
+	<20140213140523.099fd03418d8fe1467db3bd9@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
-To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1392330558-19048-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Sander Eikelenboom <linux@eikelenboom.it>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Dave Jones <davej@redhat.com>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140213140523.099fd03418d8fe1467db3bd9@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogWWluZyBYdWUgPHlpbmcueHVlQHdpbmRyaXZlci5jb20+CgpBZnRlciB0aGUgZWFybGll
-ciBjb21taXRzICgidGlwYzogcmVtb3ZlICdsaW5rcycgbGlzdCBmcm9tCnRpcGNfYmVhcmVyIHN0
-cnVjdCIpIGFuZCAoInRpcGM6IGludHJvZHVjZSBuZXcgc3BpbmxvY2sgdG8gcHJvdGVjdApzdHJ1
-Y3QgbGlua19yZXEiKSwgdGhlcmUgaXMgbm8gbG9uZ2VyIGFueSBuZWVkIHRvIHByb3RlY3Qgc3Ry
-dWN0CmxpbmtfcmVxIG9yIG9yIGFueSBsaW5rIGxpc3QgYnkgdXNlIG9mIGJlYXJlcl9sb2NrLiBG
-dXJ0aGVybW9yZSwKd2UgaGF2ZSBlbGltaW5hdGVkIHRoZSBuZWVkIGZvciB1c2luZyBiZWFyZXJf
-bG9jayBkdXJpbmcgZG93bmNhbGxzCihzZW5kKSBmcm9tIHRoZSBsaW5rIHRvIHRoZSBiZWFyZXIs
-IHNpbmNlIHdlIGhhdmUgZW5zdXJlZCB0aGF0CmJlYXJlcnMgYWx3YXlzIGhhdmUgYSBsb25nZXIg
-bGlmZSBjeWNsZSB0aGF0IHRoZWlyIGFzc29jaWF0ZWQgbGlua3MsCmFuZCBhbHdheXMgY29udGFp
-biB2YWxpZCBkYXRhLgoKU28sIHRoZSBvbmx5IG5lZWQgbm93IGZvciBhIGxvY2sgcHJvdGVjdGlu
-ZyBiZWFyZXJzIGlzIGZvciBndWFyYW50ZWVpbmcKY29uc2lzdGVuY3kgb2YgdGhlIGJlYXJlciBs
-aXN0IGl0c2VsZi4gRm9yIHRoaXMsIGl0IGlzIHN1ZmZpY2llbnQsIGF0CmxlYXN0IGZvciB0aGUg
-dGltZSBiZWluZywgdG8gY29udGludWUgYXBwbHlpbmcgJ25ldF9sb2NrwrQgaW4gd3JpdGUgbW9k
-ZS4KCkJ5IHJlbW92aW5nIGJlYXJlcl9sb2NrIHdlIGFsc28gcHJlLWVtcHQgaW50cm9kdWN0aW9u
-IG9mIGlzc3VlIGIpIGRlc2NpYmVkCmluIHRoZSBwcmV2aW91cyBjb21taXQgInRpcGM6IHJlbW92
-ZSAnbGlua3MnIGxpc3QgZnJvbSB0aXBjX2JlYXJlciBzdHJ1Y3QiOgoKImIpIFdoZW4gdGhlIG91
-dGVyIHByb3RlY3Rpb24gZnJvbSBuZXRfbG9jayBpcyBnb25lLCB0YWtpbmcKICAgIGJlYXJlcl9s
-b2NrIGFuZCBub2RlX2xvY2sgaW4gb3Bwb3NpdGUgb3JkZXIgb2YgbWV0aG9kIDEpIGFuZCAyKQog
-ICAgd2lsbCBiZWNvbWUgYW4gb2J2aW91cyBkZWFkbG9jayBoYXphcmQiLgoKVGhlcmVmb3JlLCB3
-ZSBub3cgZWxpbWluYXRlIHRoZSBiZWFyZXJfbG9jayBzcGlubG9jay4KClNpZ25lZC1vZmYtYnk6
-IFlpbmcgWHVlIDx5aW5nLnh1ZUB3aW5kcml2ZXIuY29tPgpSZXZpZXdlZC1ieTogUGF1bCBHb3J0
-bWFrZXIgPHBhdWwuZ29ydG1ha2VyQHdpbmRyaXZlci5jb20+ClNpZ25lZC1vZmYtYnk6IEpvbiBN
-YWxveSA8am9uLm1hbG95QGVyaWNzc29uLmNvbT4KLS0tCiBuZXQvdGlwYy9iY2FzdC5jICB8ICAg
-IDEgLQogbmV0L3RpcGMvYmVhcmVyLmMgfCAgIDE2ICsrKy0tLS0tLS0tLS0tLS0KIG5ldC90aXBj
-L2JlYXJlci5oIHwgICAgNSArLS0tLQogMyBmaWxlcyBjaGFuZ2VkLCA0IGluc2VydGlvbnMoKyks
-IDE4IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL25ldC90aXBjL2JjYXN0LmMgYi9uZXQvdGlw
-Yy9iY2FzdC5jCmluZGV4IGFmMzVmNzYuLjA2YTYzOWMgMTAwNjQ0Ci0tLSBhL25ldC90aXBjL2Jj
-YXN0LmMKKysrIGIvbmV0L3RpcGMvYmNhc3QuYwpAQCAtNzg1LDcgKzc4NSw2IEBAIHZvaWQgdGlw
-Y19iY2xpbmtfaW5pdCh2b2lkKQogCWJjbC0+b3duZXIgPSAmYmNsaW5rLT5ub2RlOwogCWJjbC0+
-bWF4X3BrdCA9IE1BWF9QS1RfREVGQVVMVF9NQ0FTVDsKIAl0aXBjX2xpbmtfc2V0X3F1ZXVlX2xp
-bWl0cyhiY2wsIEJDTElOS19XSU5fREVGQVVMVCk7Ci0Jc3Bpbl9sb2NrX2luaXQoJmJjYmVhcmVy
-LT5iZWFyZXIubG9jayk7CiAJYmNsLT5iX3B0ciA9ICZiY2JlYXJlci0+YmVhcmVyOwogCWJjbC0+
-c3RhdGUgPSBXT1JLSU5HX1dPUktJTkc7CiAJc3RybGNweShiY2wtPm5hbWUsIHRpcGNfYmNsaW5r
-X25hbWUsIFRJUENfTUFYX0xJTktfTkFNRSk7CmRpZmYgLS1naXQgYS9uZXQvdGlwYy9iZWFyZXIu
-YyBiL25ldC90aXBjL2JlYXJlci5jCmluZGV4IDYwY2FhNDUuLjI0MmNkZGQgMTAwNjQ0Ci0tLSBh
-L25ldC90aXBjL2JlYXJlci5jCisrKyBiL25ldC90aXBjL2JlYXJlci5jCkBAIC0zMjcsNyArMzI3
-LDYgQEAgcmVzdGFydDoKIAliX3B0ci0+bmV0X3BsYW5lID0gYmVhcmVyX2lkICsgJ0EnOwogCWJf
-cHRyLT5hY3RpdmUgPSAxOwogCWJfcHRyLT5wcmlvcml0eSA9IHByaW9yaXR5OwotCXNwaW5fbG9j
-a19pbml0KCZiX3B0ci0+bG9jayk7CiAKIAlyZXMgPSB0aXBjX2Rpc2NfY3JlYXRlKGJfcHRyLCAm
-Yl9wdHItPmJjYXN0X2FkZHIsIGRpc2NfZG9tYWluKTsKIAlpZiAocmVzKSB7CkBAIC0zNTEsOSAr
-MzUwLDcgQEAgc3RhdGljIGludCB0aXBjX3Jlc2V0X2JlYXJlcihzdHJ1Y3QgdGlwY19iZWFyZXIg
-KmJfcHRyKQogewogCXJlYWRfbG9ja19iaCgmdGlwY19uZXRfbG9jayk7CiAJcHJfaW5mbygiUmVz
-ZXR0aW5nIGJlYXJlciA8JXM+XG4iLCBiX3B0ci0+bmFtZSk7Ci0Jc3Bpbl9sb2NrX2JoKCZiX3B0
-ci0+bG9jayk7CiAJdGlwY19saW5rX3Jlc2V0X2xpc3QoYl9wdHItPmlkZW50aXR5KTsKLQlzcGlu
-X3VubG9ja19iaCgmYl9wdHItPmxvY2spOwogCXJlYWRfdW5sb2NrX2JoKCZ0aXBjX25ldF9sb2Nr
-KTsKIAlyZXR1cm4gMDsKIH0KQEAgLTM2NSwxOSArMzYyLDEyIEBAIHN0YXRpYyBpbnQgdGlwY19y
-ZXNldF9iZWFyZXIoc3RydWN0IHRpcGNfYmVhcmVyICpiX3B0cikKICAqLwogc3RhdGljIHZvaWQg
-YmVhcmVyX2Rpc2FibGUoc3RydWN0IHRpcGNfYmVhcmVyICpiX3B0ciwgYm9vbCBzaHV0dGluZ19k
-b3duKQogewotCXN0cnVjdCB0aXBjX2xpbmtfcmVxICp0ZW1wX3JlcTsKLQogCXByX2luZm8oIkRp
-c2FibGluZyBiZWFyZXIgPCVzPlxuIiwgYl9wdHItPm5hbWUpOwotCXNwaW5fbG9ja19iaCgmYl9w
-dHItPmxvY2spOwogCWJfcHRyLT5tZWRpYS0+ZGlzYWJsZV9tZWRpYShiX3B0cik7Ci0JdGlwY19s
-aW5rX2RlbGV0ZV9saXN0KGJfcHRyLT5pZGVudGl0eSwgc2h1dHRpbmdfZG93bik7Ci0JdGVtcF9y
-ZXEgPSBiX3B0ci0+bGlua19yZXE7Ci0JYl9wdHItPmxpbmtfcmVxID0gTlVMTDsKLQlzcGluX3Vu
-bG9ja19iaCgmYl9wdHItPmxvY2spOwotCi0JaWYgKHRlbXBfcmVxKQotCQl0aXBjX2Rpc2NfZGVs
-ZXRlKHRlbXBfcmVxKTsKIAorCXRpcGNfbGlua19kZWxldGVfbGlzdChiX3B0ci0+aWRlbnRpdHks
-IHNodXR0aW5nX2Rvd24pOworCWlmIChiX3B0ci0+bGlua19yZXEpCisJCXRpcGNfZGlzY19kZWxl
-dGUoYl9wdHItPmxpbmtfcmVxKTsKIAltZW1zZXQoYl9wdHIsIDAsIHNpemVvZihzdHJ1Y3QgdGlw
-Y19iZWFyZXIpKTsKIH0KIApkaWZmIC0tZ2l0IGEvbmV0L3RpcGMvYmVhcmVyLmggYi9uZXQvdGlw
-Yy9iZWFyZXIuaAppbmRleCA2NDdjYjFkLi40MjVkZDgxIDEwMDY0NAotLS0gYS9uZXQvdGlwYy9i
-ZWFyZXIuaAorKysgYi9uZXQvdGlwYy9iZWFyZXIuaApAQCAtMTA3LDEwICsxMDcsOCBAQCBzdHJ1
-Y3QgdGlwY19tZWRpYSB7CiAKIC8qKgogICogc3RydWN0IHRpcGNfYmVhcmVyIC0gR2VuZXJpYyBU
-SVBDIGJlYXJlciBzdHJ1Y3R1cmUKLSAqIEBkZXY6IHB0ciB0byBhc3NvY2lhdGVkIG5ldHdvcmsg
-ZGV2aWNlCi0gKiBAdXNyX2hhbmRsZTogcG9pbnRlciB0byBhZGRpdGlvbmFsIG1lZGlhLXNwZWNp
-ZmljIGluZm9ybWF0aW9uIGFib3V0IGJlYXJlcgorICogQG1lZGlhX3B0cjogcG9pbnRlciB0byBh
-ZGRpdGlvbmFsIG1lZGlhLXNwZWNpZmljIGluZm9ybWF0aW9uIGFib3V0IGJlYXJlcgogICogQG10
-dTogbWF4IHBhY2tldCBzaXplIGJlYXJlciBjYW4gc3VwcG9ydAotICogQGxvY2s6IHNwaW5sb2Nr
-IGZvciBjb250cm9sbGluZyBhY2Nlc3MgdG8gYmVhcmVyCiAgKiBAYWRkcjogbWVkaWEtc3BlY2lm
-aWMgYWRkcmVzcyBhc3NvY2lhdGVkIHdpdGggYmVhcmVyCiAgKiBAbmFtZTogYmVhcmVyIG5hbWUg
-KGZvcm1hdCA9IG1lZGlhOmludGVyZmFjZSkKICAqIEBtZWRpYTogcHRyIHRvIG1lZGlhIHN0cnVj
-dHVyZSBhc3NvY2lhdGVkIHdpdGggYmVhcmVyCkBAIC0xMzMsNyArMTMxLDYgQEAgc3RydWN0IHRp
-cGNfYmVhcmVyIHsKIAl1MzIgbXR1OwkJCQkvKiBpbml0YWxpemVkIGJ5IG1lZGlhICovCiAJc3Ry
-dWN0IHRpcGNfbWVkaWFfYWRkciBhZGRyOwkJLyogaW5pdGFsaXplZCBieSBtZWRpYSAqLwogCWNo
-YXIgbmFtZVtUSVBDX01BWF9CRUFSRVJfTkFNRV07Ci0Jc3BpbmxvY2tfdCBsb2NrOwogCXN0cnVj
-dCB0aXBjX21lZGlhICptZWRpYTsKIAlzdHJ1Y3QgdGlwY19tZWRpYV9hZGRyIGJjYXN0X2FkZHI7
-CiAJdTMyIHByaW9yaXR5OwotLSAKMS43LjkuNQoKCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpBbmRy
-b2lkIGFwcHMgcnVuIG9uIEJsYWNrQmVycnkgMTAKSW50cm9kdWNpbmcgdGhlIG5ldyBCbGFja0Jl
-cnJ5IDEwLjIuMSBSdW50aW1lIGZvciBBbmRyb2lkIGFwcHMuCk5vdyB3aXRoIHN1cHBvcnQgZm9y
-IEplbGx5IEJlYW4sIEJsdWV0b290aCwgTWFwdmlldyBhbmQgbW9yZS4KR2V0IHlvdXIgQW5kcm9p
-ZCBhcHAgaW4gZnJvbnQgb2YgYSB3aG9sZSBuZXcgYXVkaWVuY2UuICBTdGFydCBub3cuCmh0dHA6
-Ly9wdWJhZHMuZy5kb3VibGVjbGljay5uZXQvZ2FtcGFkL2Nsaz9pZD0xMjQ0MDcxNTEmaXU9LzQx
-NDAvb3N0Zy5jbGt0cmsKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX18KdGlwYy1kaXNjdXNzaW9uIG1haWxpbmcgbGlzdAp0aXBjLWRpc2N1c3Npb25AbGlzdHMu
-c291cmNlZm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3Rp
-bmZvL3RpcGMtZGlzY3Vzc2lvbgo=
+On Thu, Feb 13, 2014 at 2:05 PM, Andrew Morton
+<akpm@linux-foundation.org> wrote:
+> On Thu, 13 Feb 2014 13:58:00 -0800 Dan Williams <dan.j.williams@intel.com> wrote:
+>
+>> While debug_dma_assert_idle() checks if a given *page* is actively
+>> undergoing dma the valid granularity of a dma mapping is a *cacheline*.
+>> Sander's testing shows that the warning message "DMA-API: exceeded 7
+>> overlapping mappings of pfn..." is falsely triggering.  The test is
+>> simply mapping multiple cachelines in a given page.
+>>
+>> Ultimately we want overlap tracking to be valid as it is a real api
+>> violation, so we need to track active mappings by cachelines.  Update
+>> the active dma tracking to use the page-frame-relative cacheline of the
+>> mapping as the key, and update debug_dma_assert_idle() to check for all
+>> possible mapped cachelines for a given page.
+>>
+>> However, the need to track active mappings is only relevant when the
+>> dma-mapping is writable by the device.  In fact it is fairly standard
+>> for read-only mappings to have hundreds or thousands of overlapping
+>> mappings at once.  Limiting the overlap tracking to writable
+>> (!DMA_TO_DEVICE) eliminates this class of false-positive overlap
+>> reports.
+>>
+>> Note, the radix gang lookup is sub-optimal.  It would be best if it
+>> stopped fetching entries once the search passed a page boundary.
+>> Nevertheless, this implementation does not perturb the original net_dma
+>> failing case.  That is to say the extra overhead does not show up in
+>> terms of making the failing case pass due to a timing change.
+>>
+>> References:
+>> http://marc.info/?l=linux-netdev&m=139232263419315&w=2
+>> http://marc.info/?l=linux-netdev&m=139217088107122&w=2
+>>
+>> ...
+>>
+>> --- a/lib/dma-debug.c
+>> +++ b/lib/dma-debug.c
+>> @@ -424,111 +424,132 @@ void debug_dma_dump_mappings(struct device *dev)
+>>  EXPORT_SYMBOL(debug_dma_dump_mappings);
+>>
+>>  /*
+>> - * For each page mapped (initial page in the case of
+>> - * dma_alloc_coherent/dma_map_{single|page}, or each page in a
+>> - * scatterlist) insert into this tree using the pfn as the key. At
+>> + * For each mapping (initial cacheline in the case of
+>> + * dma_alloc_coherent/dma_map_page, initial cacheline in each page of a
+>> + * scatterlist, or the cacheline specified in dma_map_single) insert
+>> + * into this tree using the cacheline as the key. At
+>>   * dma_unmap_{single|sg|page} or dma_free_coherent delete the entry.  If
+>> - * the pfn already exists at insertion time add a tag as a reference
+>> + * the entry already exists at insertion time add a tag as a reference
+>>   * count for the overlapping mappings.  For now, the overlap tracking
+>> - * just ensures that 'unmaps' balance 'maps' before marking the pfn
+>> - * idle, but we should also be flagging overlaps as an API violation.
+>> + * just ensures that 'unmaps' balance 'maps' before marking the
+>> + * cacheline idle, but we should also be flagging overlaps as an API
+>> + * violation.
+>>   *
+>>   * Memory usage is mostly constrained by the maximum number of available
+>>   * dma-debug entries in that we need a free dma_debug_entry before
+>> - * inserting into the tree.  In the case of dma_map_{single|page} and
+>> - * dma_alloc_coherent there is only one dma_debug_entry and one pfn to
+>> - * track per event.  dma_map_sg(), on the other hand,
+>> - * consumes a single dma_debug_entry, but inserts 'nents' entries into
+>> - * the tree.
+>> + * inserting into the tree.  In the case of dma_map_page and
+>> + * dma_alloc_coherent there is only one dma_debug_entry and one
+>> + * dma_active_cacheline entry to track per event.  dma_map_sg(), on the
+>> + * other hand, consumes a single dma_debug_entry, but inserts 'nents'
+>> + * entries into the tree.
+>>   *
+>>   * At any time debug_dma_assert_idle() can be called to trigger a
+>> - * warning if the given page is in the active set.
+>> + * warning if any cachelines in the given page are in the active set.
+>>   */
+>> -static RADIX_TREE(dma_active_pfn, GFP_NOWAIT);
+>> +static RADIX_TREE(dma_active_cacheline, GFP_NOWAIT);
+>>  static DEFINE_SPINLOCK(radix_lock);
+>> -#define ACTIVE_PFN_MAX_OVERLAP ((1 << RADIX_TREE_MAX_TAGS) - 1)
+>> +#define ACTIVE_CLN_MAX_OVERLAP ((1 << RADIX_TREE_MAX_TAGS) - 1)
+>> +#define CACHELINE_PER_PAGE_SHIFT (PAGE_SHIFT - L1_CACHE_SHIFT)
+>> +#define CACHELINES_PER_PAGE (1 << CACHELINE_PER_PAGE_SHIFT)
+>>
+>> -static int active_pfn_read_overlap(unsigned long pfn)
+>> +unsigned long to_cln(struct dma_debug_entry *entry)
+>> +{
+>> +     return (entry->pfn << CACHELINE_PER_PAGE_SHIFT) +
+>> +             (entry->offset >> L1_CACHE_SHIFT);
+>> +}
+>
+> "cln" is ugly and isn't a well-known kernel abbreviation.  We typically
+> spell these things out, so "cacheline".  But I think you mean
+> "cacheline number", and that is too long to spell out.
+>
+
+I do mean cacheline number.
+
+> So I guess "cln" just became a well-known kernel abbreviation.
+
+I can at least make the function names use "cacheline" to give better
+context about the local 'cln' variable.
+
+>> ....
+>>
+>>  void debug_dma_assert_idle(struct page *page)
+>>  {
+>> +     unsigned long cln = page_to_pfn(page) << CACHELINE_PER_PAGE_SHIFT;
+>
+> This worries me.  Are you sure we cannot overflow the ulong here under
+> any circumstances?  32GB PAE with sparsemem or whatever?
+
+You're right, I can't be sure.  Certainly page_to_pfn() and max_pfn
+are unsigned long, but I don't know how much headroom we have to play
+with on all memory-models...  so better make a 'cacheline number' be a
+phys_addr_t to be safe.
+
+--
+Dan
