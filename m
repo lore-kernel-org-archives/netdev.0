@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: remove unnecessary return's
-Date: Thu, 13 Feb 2014 18:33:57 -0500 (EST)
-Message-ID: <20140213.183357.2022405581708903362.davem@davemloft.net>
-References: <20140212205122.5783660e@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH v2 net-next] ipv4: ip_forward: perform skb->pkt_type
+ check at the beginning
+Date: Thu, 13 Feb 2014 18:36:26 -0500 (EST)
+Message-ID: <20140213.183626.638882408860157037.davem@davemloft.net>
+References: <1392267536-2453-1-git-send-email-kda@linux-powerpc.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: stephen@networkplumber.org
+To: kda@linux-powerpc.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51419 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51447 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751320AbaBMXd6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 18:33:58 -0500
-In-Reply-To: <20140212205122.5783660e@nehalam.linuxnetplumber.net>
+	with ESMTP id S1751694AbaBMXg1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 18:36:27 -0500
+In-Reply-To: <1392267536-2453-1-git-send-email-kda@linux-powerpc.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Wed, 12 Feb 2014 20:51:22 -0800
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Date: Thu, 13 Feb 2014 08:58:56 +0400
 
-> One of my pet coding style peeves is the practice of
-> adding extra return; at the end of function.
-> Kill several instances of this in network code.
+> Packets which have L2 address different from ours should be
+> already filtered before entering into ip_forward().
 > 
-> I suppose some coccinelle wizardy could do this automatically.
+> Perform that check at the beginning to avoid processing such packets.
 > 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
 
-These are all straight-forward cases, applied, thanks.
+Looks good, applied, thanks.
