@@ -1,13 +1,12 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH net v2] vhost: fix ref cnt checking deadlock
-Date: Thu, 13 Feb 2014 11:42:05 +0200
-Message-ID: <1392284448-1977-1-git-send-email-mst@redhat.com>
+Subject: [PATCH net v2] vhost: fix a theoretical race in device cleanup
+Date: Thu, 13 Feb 2014 11:45:11 +0200
+Message-ID: <1392284540-2031-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: virtio-dev@lists.oasis-open.org, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Qin Chuanyu <qinchuanyu@huawei.com>
+Cc: virtio-dev@lists.oasis-open.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, virtualization@lists.linux-foundation.org
 To: linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
@@ -22,139 +21,59 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-vhost checked the counter within the refcnt before decrementing.  It
-really wanted to know that it is the one that has the last reference, as
-a way to batch freeing resources a bit more efficiently.
+vhost_zerocopy_callback accesses VQ right after it drops a ubuf
+reference.  In theory, this could race with device removal which waits
+on the ubuf kref, and crash on use after free.
 
-Note: we only let refcount go to 0 on device release.
+Do all accesses within rcu read side critical section, and synchronize
+on release.
 
-This works well but we now access the ref counter twice so there's a
-race: all users might see a high count and decide to defer freeing
-resources.
-In the end no one initiates freeing resources until the last reference
-is gone (which is on VM shotdown so might happen after a looooong time).
+Since callbacks are always invoked from bh, synchronize_rcu_bh seems
+enough and will help release complete a bit faster.
 
-Let's do what we probably should have done straight away:
-switch from kref to plain atomic, documenting the
-semantics, return the refcount value atomically after decrement,
-then use that to avoid the deadlock.
-
-Reported-by: Qin Chuanyu <qinchuanyu@huawei.com>
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
 
-This patch is needed for 3.14 and -stable.
+This is was previously posted as part of patch
+series, but it's an independent fix really.
+Theoretical race so not needed for stable I think.
 
- drivers/vhost/net.c | 41 ++++++++++++++++++++---------------------
- 1 file changed, 20 insertions(+), 21 deletions(-)
+changes from v1:
+	fixed typo in commit log
+
+ drivers/vhost/net.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
 diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 831eb4f..b12176f 100644
+index b12176f..f1be80d 100644
 --- a/drivers/vhost/net.c
 +++ b/drivers/vhost/net.c
-@@ -70,7 +70,12 @@ enum {
- };
- 
- struct vhost_net_ubuf_ref {
--	struct kref kref;
-+	/* refcount follows semantics similar to kref:
-+	 *  0: object is released
-+	 *  1: no outstanding ubufs
-+	 * >1: outstanding ubufs
-+	 */
-+	atomic_t refcount;
- 	wait_queue_head_t wait;
- 	struct vhost_virtqueue *vq;
- };
-@@ -116,14 +121,6 @@ static void vhost_net_enable_zcopy(int vq)
- 	vhost_net_zcopy_mask |= 0x1 << vq;
- }
- 
--static void vhost_net_zerocopy_done_signal(struct kref *kref)
--{
--	struct vhost_net_ubuf_ref *ubufs;
--
--	ubufs = container_of(kref, struct vhost_net_ubuf_ref, kref);
--	wake_up(&ubufs->wait);
--}
--
- static struct vhost_net_ubuf_ref *
- vhost_net_ubuf_alloc(struct vhost_virtqueue *vq, bool zcopy)
- {
-@@ -134,21 +131,24 @@ vhost_net_ubuf_alloc(struct vhost_virtqueue *vq, bool zcopy)
- 	ubufs = kmalloc(sizeof(*ubufs), GFP_KERNEL);
- 	if (!ubufs)
- 		return ERR_PTR(-ENOMEM);
--	kref_init(&ubufs->kref);
-+	atomic_set(&ubufs->refcount, 1);
- 	init_waitqueue_head(&ubufs->wait);
- 	ubufs->vq = vq;
- 	return ubufs;
- }
- 
--static void vhost_net_ubuf_put(struct vhost_net_ubuf_ref *ubufs)
-+static int vhost_net_ubuf_put(struct vhost_net_ubuf_ref *ubufs)
- {
--	kref_put(&ubufs->kref, vhost_net_zerocopy_done_signal);
-+	int r = atomic_sub_return(1, &ubufs->refcount);
-+	if (unlikely(!r))
-+		wake_up(&ubufs->wait);
-+	return r;
- }
- 
- static void vhost_net_ubuf_put_and_wait(struct vhost_net_ubuf_ref *ubufs)
- {
--	kref_put(&ubufs->kref, vhost_net_zerocopy_done_signal);
--	wait_event(ubufs->wait, !atomic_read(&ubufs->kref.refcount));
-+	vhost_net_ubuf_put(ubufs);
-+	wait_event(ubufs->wait, !atomic_read(&ubufs->refcount));
- }
- 
- static void vhost_net_ubuf_put_wait_and_free(struct vhost_net_ubuf_ref *ubufs)
-@@ -306,22 +306,21 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
- {
- 	struct vhost_net_ubuf_ref *ubufs = ubuf->ctx;
+@@ -308,6 +308,8 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
  	struct vhost_virtqueue *vq = ubufs->vq;
--	int cnt = atomic_read(&ubufs->kref.refcount);
-+	int cnt;
+ 	int cnt;
  
++	rcu_read_lock_bh();
++
  	/* set len to mark this desc buffers done DMA */
  	vq->heads[ubuf->desc].len = success ?
  		VHOST_DMA_DONE_LEN : VHOST_DMA_FAILED_LEN;
--	vhost_net_ubuf_put(ubufs);
-+	cnt = vhost_net_ubuf_put(ubufs);
- 
- 	/*
- 	 * Trigger polling thread if guest stopped submitting new buffers:
--	 * in this case, the refcount after decrement will eventually reach 1
--	 * so here it is 2.
-+	 * in this case, the refcount after decrement will eventually reach 1.
- 	 * We also trigger polling periodically after each 16 packets
- 	 * (the value 16 here is more or less arbitrary, it's tuned to trigger
- 	 * less than 10% of times).
+@@ -322,6 +324,8 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
  	 */
--	if (cnt <= 2 || !(cnt % 16))
-+	if (cnt <= 1 || !(cnt % 16))
+ 	if (cnt <= 1 || !(cnt % 16))
  		vhost_poll_queue(&vq->poll);
++
++	rcu_read_unlock_bh();
  }
  
-@@ -420,7 +419,7 @@ static void handle_tx(struct vhost_net *net)
- 			msg.msg_control = ubuf;
- 			msg.msg_controllen = sizeof(ubuf);
- 			ubufs = nvq->ubufs;
--			kref_get(&ubufs->kref);
-+			atomic_inc(&ubufs->refcount);
- 			nvq->upend_idx = (nvq->upend_idx + 1) % UIO_MAXIOV;
- 		} else {
- 			msg.msg_control = NULL;
-@@ -785,7 +784,7 @@ static void vhost_net_flush(struct vhost_net *n)
- 		vhost_net_ubuf_put_and_wait(n->vqs[VHOST_NET_VQ_TX].ubufs);
- 		mutex_lock(&n->vqs[VHOST_NET_VQ_TX].vq.mutex);
- 		n->tx_flush = false;
--		kref_init(&n->vqs[VHOST_NET_VQ_TX].ubufs->kref);
-+		atomic_set(&n->vqs[VHOST_NET_VQ_TX].ubufs->refcount, 1);
- 		mutex_unlock(&n->vqs[VHOST_NET_VQ_TX].vq.mutex);
- 	}
- }
+ /* Expects to be always run from workqueue - which acts as
+@@ -804,6 +808,8 @@ static int vhost_net_release(struct inode *inode, struct file *f)
+ 		fput(tx_sock->file);
+ 	if (rx_sock)
+ 		fput(rx_sock->file);
++	/* Make sure no callbacks are outstanding */
++	synchronize_rcu_bh();
+ 	/* We do an extra flush before freeing memory,
+ 	 * since jobs can re-queue themselves. */
+ 	vhost_net_flush(n);
 -- 
 MST
