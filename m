@@ -1,41 +1,52 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Intermittent lockups creating/manipulating network namespaces (was
-  Re: large degradation in ip netns add/exec performance in 3.13?)
-Date: Thu, 13 Feb 2014 10:02:24 -0800
-Message-ID: <52FD08B0.2050102@hp.com>
-References: <52F1461D.8050703@hp.com> <52FAA3A6.9050608@hp.com> <52FAC6D1.50702@hp.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net-sysfs: get_netdev_queue_index() cleanup
+Date: Thu, 13 Feb 2014 10:07:13 -0800
+Message-ID: <1392314833.1752.30.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:34630 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752067AbaBMSC0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 13:02:26 -0500
-Received: from g9t2301.houston.hp.com (g9t2301.houston.hp.com [16.216.185.78])
-	by g4t0016.houston.hp.com (Postfix) with ESMTP id C14EF14003
-	for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 18:02:25 +0000 (UTC)
-Received: from [16.103.148.51] (tardy.usa.hp.com [16.103.148.51])
-	by g9t2301.houston.hp.com (Postfix) with ESMTP id EC83C5C
-	for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 18:02:24 +0000 (UTC)
-In-Reply-To: <52FAC6D1.50702@hp.com>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:64141 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751600AbaBMSHO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 13:07:14 -0500
+Received: by mail-pd0-f169.google.com with SMTP id v10so10867712pde.0
+        for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 10:07:14 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/11/2014 04:56 PM, Rick Jones wrote:
-> On 02/11/2014 02:26 PM, Rick Jones wrote:
->> I did have the system lockup once at 16 concurrent streams on the 3.13.0
->> kernel.  Didn't happen the next two times I tried.
->
-> I've had it happen again with a slightly tweaked ("heavier") fake router
-> creation.  I'm guessing the attached soft lockup messages are related
-> and may help point somewhere.
+From: Eric Dumazet <edumazet@google.com>
 
-The 16 concurrent streams lockup.  The "rest of the system" keeps going.
+Remove one inline keyword, and no need for a loop to find
+an index into a table.
 
-I've had the same hang happen with 3.14.0-rc2 as well.  I was able to 
-take a crash dump via "echo c > /proc/sysrq-trigger" but I have no clue 
-how to look at it.  More than willing to upload it to netperf.org.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/core/net-sysfs.c |    9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
 
-rick jones
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 93886246a0b4..73aa594674ef 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -996,15 +996,12 @@ static struct attribute_group dql_group = {
+ #endif /* CONFIG_BQL */
+ 
+ #ifdef CONFIG_XPS
+-static inline unsigned int get_netdev_queue_index(struct netdev_queue *queue)
++static unsigned int get_netdev_queue_index(struct netdev_queue *queue)
+ {
+ 	struct net_device *dev = queue->dev;
+-	int i;
+-
+-	for (i = 0; i < dev->num_tx_queues; i++)
+-		if (queue == &dev->_tx[i])
+-			break;
++	unsigned int i;
+ 
++	i = queue - dev->_tx;
+ 	BUG_ON(i >= dev->num_tx_queues);
+ 
+ 	return i;
