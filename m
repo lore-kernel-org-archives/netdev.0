@@ -1,51 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 5/5] ixgbe: fixup warning regarding max_vfs parameter
-Date: Thu, 13 Feb 2014 15:20:38 -0500 (EST)
-Message-ID: <20140213.152038.941752640893223419.davem@davemloft.net>
-References: <1392278450-27062-1-git-send-email-aaron.f.brown@intel.com>
-	<1392278450-27062-6-git-send-email-aaron.f.brown@intel.com>
-	<1392321692.15615.48.camel@deadeye.wl.decadent.org.uk>
+Subject: Re: [PATCH net-next v2 01/10] net: phy: add "internal" PHY mode
+Date: Thu, 13 Feb 2014 15:34:09 -0500 (EST)
+Message-ID: <20140213.153409.1193335923050383308.davem@davemloft.net>
+References: <1392269395-23513-1-git-send-email-f.fainelli@gmail.com>
+	<1392269395-23513-2-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: aaron.f.brown@intel.com, jacob.e.keller@intel.com,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: ben@decadent.org.uk
+Cc: netdev@vger.kernel.org, cernekee@gmail.com,
+	devicetree@vger.kernel.org
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49514 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49702 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751001AbaBMUUl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 15:20:41 -0500
-In-Reply-To: <1392321692.15615.48.camel@deadeye.wl.decadent.org.uk>
+	with ESMTP id S1751277AbaBMUeL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 15:34:11 -0500
+In-Reply-To: <1392269395-23513-2-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Thu, 13 Feb 2014 20:01:32 +0000
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Wed, 12 Feb 2014 21:29:46 -0800
 
-> On Thu, 2014-02-13 at 00:00 -0800, Aaron Brown wrote:
->> From: Jacob Keller <jacob.e.keller@intel.com>
->> 
->> The max_vfs parameter for ixgbe is deprecated in favor of using the
->> sysfs sriov_numvfs field to assign VFs as needed, instead of fixing the
->> value at module load time. The current message only indicates that you
->> should use this, without adequately explaining how to do so.
+> On some systems, the PHY can be internal, in the same package as the
+> Ethernet MAC, and still be responding to a specific address on the MDIO
+> bus, in that case, the Ethernet MAC might need to know about it to
+> properly configure a port multiplexer to switch to an internal or
+> external PHY. Add a new PHY interface mode for this and update the
+> Device Tree of_get_phy_mode() function to look for it.
 > 
-> I don't think the kernel log is the correct place to put documentation.
-> A reference alone should be enough.
-> 
-> [...]
->> +               e_dev_warn("See 'Documentation/PCI/pci-iov-howto.txt for more information.\n");
-> [...]
-> 
-> This doesn't seem very helpful to non-developers.  You could instead
-> give the URL:
-> 
-> https://www.kernel.org/doc/Documentation/PCI/pci-iov-howto.txt
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+> Changes since v1:
+> - rebased against lastest net-next master branch
 
-I even think this is not desirable.  The kernel log isn't supposed to be
-a hyper-linked "all the information you could possibly need" repository
-for every interesting situation the kernel encounters.
+This is over-engineering.
 
-Just say plainly what the problem is, people need a certainly level of
-understanding to interpret kernel messages properly.
+The only thing that even uses this value is phy_is_internal(), and
+the only user of phy_is_internal() is the generic PHY layer ethtool
+operation for get-settings.
+
+The PHY layer already has a place to indicate whether a PHY is
+internal or not, overriding that using the PHY mode is trouble
+waiting to happen.
+
+Please, just provide some way to propagate this device tree property
+into phy->is_internal.
