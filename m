@@ -1,12 +1,12 @@
 From: Stefan =?ISO-8859-1?Q?S=F8rensen?=
 	<stefan.sorensen@spectralink.com>
-Subject: Re: [PATCH v2 1/2] dp83640: Support a configurable number of
- periodic outputs
-Date: Thu, 13 Feb 2014 15:21:51 +0100
-Message-ID: <1392301311.2585.9.camel@e37108.spectralink.com>
+Subject: Re: [PATCH v2 2/2] dp83640: Get pin and master/slave configuration
+ from DT
+Date: Thu, 13 Feb 2014 15:23:23 +0100
+Message-ID: <1392301403.2585.11.camel@e37108.spectralink.com>
 References: <1392132562-23644-1-git-send-email-stefan.sorensen@spectralink.com>
-	 <1392132562-23644-2-git-send-email-stefan.sorensen@spectralink.com>
-	 <20140211200922.GA4254@netboy>
+	 <1392132562-23644-3-git-send-email-stefan.sorensen@spectralink.com>
+	 <20140211201917.GB4254@netboy>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -15,59 +15,22 @@ Cc: <grant.likely@linaro.org>, <robh+dt@kernel.org>,
 	<linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>
 To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140211200922.GA4254@netboy>
+In-Reply-To: <20140211201917.GB4254@netboy>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-02-11 at 21:09 +0100, Richard Cochran wrote:
-
-> > -#define EXT_EVENT	1
+On Tue, 2014-02-11 at 21:19 +0100, Richard Cochran wrote:
+> > +- dp83640,slave: If present, this phy will be slave to another dp83640
+> > +  on the same mdio bus.
 > 
-> Regarding this EXT_EVENT thing ...
-> 
-> > @@ -430,12 +419,12 @@ static int ptp_dp83640_enable(struct ptp_clock_info *ptp,
-> >  	switch (rq->type) {
-> >  	case PTP_CLK_REQ_EXTTS:
-> >  		index = rq->extts.index;
-> > -		if (index < 0 || index >= N_EXT_TS)
-> > +		if (index < 0 || index >= n_ext_ts)
-> >  			return -EINVAL;
-> > -		event_num = EXT_EVENT + index;
-> > +		event_num = index;
-> 
-> there was a mapping between the "event numbers" and the external time
-> stamp channels. I don't remember off the top of my head why this these
-> two differ by one, but there was a good reason.
+> Wouldn't it be more natural to have one "dp83640,master" property
+> rather than multiple slave properties?
 
-I haven't seen anything in the documentation regarding this, output
-triggers 0 and 1 are special, but the events should all behave the same.
-Could be be a mixup between events and pins? Pin0 means disable the
-event.
+I wanted to keep the common case of a single phy simple, i.e. no need to
+specify any master/slave properties. 
 
-> Are you sure this is still working with this change?
+> Most of these pr_err lines are a bit _way_ too long for coding style.
 
-It has been running with event 0 in one of our products for at least the
-last 3 months....
-
-> I am especially wondering about the event decoding here:
-> 
-> > @@ -642,7 +631,7 @@ static void recalibrate(struct dp83640_clock *clock)
-> >  
-> >  static inline u16 exts_chan_to_edata(int ch)
-> >  {
-> > -	return 1 << ((ch + EXT_EVENT) * 2);
-> > +	return 1 << ((ch) * 2);
-> >  }
-> 
-> Maybe I am just paranoid, but can you remind me how these event
-> numbers are supposed to work, before and after the change?
-
-The mapping was hardcoded to map events 0-5 to event channels 1-6, the
-periodic output trigger at channel 6 and the calibration event+trigger
-both at channel 7.
-
-The patch will (at least in v3 that I will post shortly) change both the
-event and trigger mapping to a direct mapping and keep the calibration
-at channel 7.
+I will fix that in the next version.
 
 Stefan
