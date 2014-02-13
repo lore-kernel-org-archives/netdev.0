@@ -1,56 +1,159 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: ip_set: protocol %u message -- useful?
-Date: Thu, 13 Feb 2014 11:30:20 +0100 (CET)
-Message-ID: <alpine.DEB.2.10.1402131117120.16734@blackhole.kfki.hu>
-References: <CAKb7UvhsLi2Sv4SWA2nVTgoFV8dzrY=3R1-SUk9D-aa0VdizSA@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net v2] vhost: fix ref cnt checking deadlock
+Date: Thu, 13 Feb 2014 18:00:11 +0800
+Message-ID: <52FC97AB.7040901@redhat.com>
+References: <1392284448-1977-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>, Vitaly Lavrov <lve@guap.ru>
-To: Ilia Mirkin <imirkin@alum.mit.edu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKb7UvhsLi2Sv4SWA2nVTgoFV8dzrY=3R1-SUk9D-aa0VdizSA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Qin Chuanyu <qinchuanyu@huawei.com>, kvm@vger.kernel.org,
+        virtio-dev@lists.oasis-open.org,
+        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org,
+        David Miller <davem@davemloft.net>
+Return-path: <virtio-dev-return-385-gcvd-virtio-dev=m.gmane.org@lists.oasis-open.org>
+Sender: <virtio-dev@lists.oasis-open.org>
+List-Post: <mailto:virtio-dev@lists.oasis-open.org>
+List-Help: <mailto:virtio-dev-help@lists.oasis-open.org>
+List-Unsubscribe: <mailto:virtio-dev-unsubscribe@lists.oasis-open.org>
+List-Subscribe: <mailto:virtio-dev-subscribe@lists.oasis-open.org>
+In-Reply-To: <1392284448-1977-1-git-send-email-mst@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-On Thu, 13 Feb 2014, Ilia Mirkin wrote:
+On 02/13/2014 05:42 PM, Michael S. Tsirkin wrote:
+> vhost checked the counter within the refcnt before decrementing.  It
+> really wanted to know that it is the one that has the last reference, as
+> a way to batch freeing resources a bit more efficiently.
+>
+> Note: we only let refcount go to 0 on device release.
+>
+> This works well but we now access the ref counter twice so there's a
+> race: all users might see a high count and decide to defer freeing
+> resources.
+> In the end no one initiates freeing resources until the last reference
+> is gone (which is on VM shotdown so might happen after a looooong time).
+>
+> Let's do what we probably should have done straight away:
+> switch from kref to plain atomic, documenting the
+> semantics, return the refcount value atomically after decrement,
+> then use that to avoid the deadlock.
+>
+> Reported-by: Qin Chuanyu <qinchuanyu@huawei.com>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+>
+> This patch is needed for 3.14 and -stable.
+>
+>  drivers/vhost/net.c | 41 ++++++++++++++++++++---------------------
+>  1 file changed, 20 insertions(+), 21 deletions(-)
+>
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index 831eb4f..b12176f 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -70,7 +70,12 @@ enum {
+>  };
+>  
+>  struct vhost_net_ubuf_ref {
+> -	struct kref kref;
+> +	/* refcount follows semantics similar to kref:
+> +	 *  0: object is released
+> +	 *  1: no outstanding ubufs
+> +	 * >1: outstanding ubufs
+> +	 */
+> +	atomic_t refcount;
+>  	wait_queue_head_t wait;
+>  	struct vhost_virtqueue *vq;
+>  };
+> @@ -116,14 +121,6 @@ static void vhost_net_enable_zcopy(int vq)
+>  	vhost_net_zcopy_mask |= 0x1 << vq;
+>  }
+>  
+> -static void vhost_net_zerocopy_done_signal(struct kref *kref)
+> -{
+> -	struct vhost_net_ubuf_ref *ubufs;
+> -
+> -	ubufs = container_of(kref, struct vhost_net_ubuf_ref, kref);
+> -	wake_up(&ubufs->wait);
+> -}
+> -
+>  static struct vhost_net_ubuf_ref *
+>  vhost_net_ubuf_alloc(struct vhost_virtqueue *vq, bool zcopy)
+>  {
+> @@ -134,21 +131,24 @@ vhost_net_ubuf_alloc(struct vhost_virtqueue *vq, bool zcopy)
+>  	ubufs = kmalloc(sizeof(*ubufs), GFP_KERNEL);
+>  	if (!ubufs)
+>  		return ERR_PTR(-ENOMEM);
+> -	kref_init(&ubufs->kref);
+> +	atomic_set(&ubufs->refcount, 1);
+>  	init_waitqueue_head(&ubufs->wait);
+>  	ubufs->vq = vq;
+>  	return ubufs;
+>  }
+>  
+> -static void vhost_net_ubuf_put(struct vhost_net_ubuf_ref *ubufs)
+> +static int vhost_net_ubuf_put(struct vhost_net_ubuf_ref *ubufs)
+>  {
+> -	kref_put(&ubufs->kref, vhost_net_zerocopy_done_signal);
+> +	int r = atomic_sub_return(1, &ubufs->refcount);
+> +	if (unlikely(!r))
+> +		wake_up(&ubufs->wait);
+> +	return r;
+>  }
+>  
+>  static void vhost_net_ubuf_put_and_wait(struct vhost_net_ubuf_ref *ubufs)
+>  {
+> -	kref_put(&ubufs->kref, vhost_net_zerocopy_done_signal);
+> -	wait_event(ubufs->wait, !atomic_read(&ubufs->kref.refcount));
+> +	vhost_net_ubuf_put(ubufs);
+> +	wait_event(ubufs->wait, !atomic_read(&ubufs->refcount));
+>  }
+>  
+>  static void vhost_net_ubuf_put_wait_and_free(struct vhost_net_ubuf_ref *ubufs)
+> @@ -306,22 +306,21 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
+>  {
+>  	struct vhost_net_ubuf_ref *ubufs = ubuf->ctx;
+>  	struct vhost_virtqueue *vq = ubufs->vq;
+> -	int cnt = atomic_read(&ubufs->kref.refcount);
+> +	int cnt;
+>  
+>  	/* set len to mark this desc buffers done DMA */
+>  	vq->heads[ubuf->desc].len = success ?
+>  		VHOST_DMA_DONE_LEN : VHOST_DMA_FAILED_LEN;
+> -	vhost_net_ubuf_put(ubufs);
+> +	cnt = vhost_net_ubuf_put(ubufs);
+>  
+>  	/*
+>  	 * Trigger polling thread if guest stopped submitting new buffers:
+> -	 * in this case, the refcount after decrement will eventually reach 1
+> -	 * so here it is 2.
+> +	 * in this case, the refcount after decrement will eventually reach 1.
+>  	 * We also trigger polling periodically after each 16 packets
+>  	 * (the value 16 here is more or less arbitrary, it's tuned to trigger
+>  	 * less than 10% of times).
+>  	 */
+> -	if (cnt <= 2 || !(cnt % 16))
+> +	if (cnt <= 1 || !(cnt % 16))
+>  		vhost_poll_queue(&vq->poll);
+>  }
+>  
+> @@ -420,7 +419,7 @@ static void handle_tx(struct vhost_net *net)
+>  			msg.msg_control = ubuf;
+>  			msg.msg_controllen = sizeof(ubuf);
+>  			ubufs = nvq->ubufs;
+> -			kref_get(&ubufs->kref);
+> +			atomic_inc(&ubufs->refcount);
+>  			nvq->upend_idx = (nvq->upend_idx + 1) % UIO_MAXIOV;
+>  		} else {
+>  			msg.msg_control = NULL;
+> @@ -785,7 +784,7 @@ static void vhost_net_flush(struct vhost_net *n)
+>  		vhost_net_ubuf_put_and_wait(n->vqs[VHOST_NET_VQ_TX].ubufs);
+>  		mutex_lock(&n->vqs[VHOST_NET_VQ_TX].vq.mutex);
+>  		n->tx_flush = false;
+> -		kref_init(&n->vqs[VHOST_NET_VQ_TX].ubufs->kref);
+> +		atomic_set(&n->vqs[VHOST_NET_VQ_TX].ubufs->refcount, 1);
+>  		mutex_unlock(&n->vqs[VHOST_NET_VQ_TX].vq.mutex);
+>  	}
+>  }
 
-> I've recently noticed a lot of
-> 
-> [356872.380595] ip_set: protocol 6
-
-That means the ip_set module has been loaded in multiple times.
- 
-> messages in my dmesg. This might be because of some local
-> configuration changes I've made, or perhaps a kernel upgrade. Either
-> way, it appears this message has been a pr_notice since the original
-> code added it in a7b4f989a62 ("netfilter: ipset: IP set core
-> support").
-> 
-> Does this message provide a lot of value? Or could it be made into a pr_debug?
-
-That's a report message on the protocol version used by the ipset 
-subsystem. There was (and possibly will be) multiple protocols, so it 
-helps to catch basic userpsace/kernelspace communication issues.
- 
-> FWIW commit 1785e8f473 ("netfiler: ipset: Add net namespace for
-> ipset"), merged in v3.13-rc1 changed the code around which may have
-> made it more likely to appear in dmesg (with the namespace stuff). Not
-> sure though. I don't (purposely) use namespaces.
-
-Namespaces can explain why you see the message so many times, but then you 
-must have namespaces activated.
- 
-> I'm happy to put together a patch demoting it to pr_debug if people
-> think it's OK.
-
-I'm fine with it, it's OK.
-
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
+Acked-by: Jason Wang <jasowang@redhat.com>
