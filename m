@@ -1,49 +1,57 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [RFC 2/2] xen-netback: disable multicast and use a random hw
- MAC address
-Date: Thu, 13 Feb 2014 11:35:21 +0000
-Message-ID: <1392291321.27366.17.camel@kazak.uk.xensource.com>
-References: <1392071391-13215-1-git-send-email-mcgrof@do-not-panic.com>
-	 <1392071391-13215-3-git-send-email-mcgrof@do-not-panic.com>
-	 <1392108205.22033.16.camel@dagon.hellion.org.uk>
-	 <CAB=NE6Vu=khpj_3J7r-u8DFkhyC-RgLikNFtOU-WO7te_4HMCw@mail.gmail.com>
-	 <1392203708.13563.50.camel@kazak.uk.xensource.com>
-	 <CAB=NE6WFDWW1faoCYJP9zh6rPPvET+dbHxjHnGkYXtRx6z2LOQ@mail.gmail.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH] usbnet: remove generic hard_header_len check
+Date: Thu, 13 Feb 2014 12:36:30 +0100
+Message-ID: <87y51f2qip.fsf@nemi.mork.no>
+References: <1392249836-27151-1-git-send-email-emilgoode@gmail.com>
+	<87fvnn4c2k.fsf@nemi.mork.no> <20140213112016.GA4245@lianli>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	<xen-devel@lists.xenproject.org>,
-	Paul Durrant <Paul.Durrant@citrix.com>,
-	"Wei Liu" <wei.liu2@citrix.com>, <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Steve Glendinning <steve.glendinning@shawell.net>,
+	Oliver Neukum <oneukum@suse.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Freddy Xin <freddy@asix.com.tw>,
+	Eric Dumazet <edumazet@google.com>,
+	Ming Lei <ming.lei@canonical.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Liu Junliang <liujunliang_ljl@163.com>,
+	Octavian Purdila <octavian.purdila@intel.com>,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Emil Goode <emilgoode@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAB=NE6WFDWW1faoCYJP9zh6rPPvET+dbHxjHnGkYXtRx6z2LOQ@mail.gmail.com>
+In-Reply-To: <20140213112016.GA4245@lianli> (Emil Goode's message of "Thu, 13
+	Feb 2014 12:20:16 +0100")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-02-12 at 14:05 -0800, Luis R. Rodriguez wrote:
-> > I meant the PV protocol extension which allows guests (netfront) to
-> > register to receive multicast frames across the PV ring -- i.e. for
-> > multicast to work from the guests PoV.
-> 
-> Not quite sure I understand, ipv6 works on guests so multicast works,
-> so its unclear what you mean by multicast frames across the PV ring.
-> Is there any code or or documents I can look at ?
+Emil Goode <emilgoode@gmail.com> writes:
 
-xen/include/public/io/netif.h talks about 'feature-multicast-control'
-and XEN_NETIF_EXTRA_TYPE_MCAST_{ADD,DEL}.
+> Yes I should have put a comment in the changelog about this. All skbs=
+ that
+> are passed to rx_process have their state set to rx_cleanup and just =
+because
+> the skb was cloned doesn't mean that we should free the original in a
+> different way. As it is I think we are acctually missing a call to
+> usb_free_urb that is called on the common rx_cleanup path.
 
-Looking at it now in the absence of those then flooding is the
-default...
+Yes, I wondered about that as well, thinking that this part actually
+should be a separate patch for net+stable.
 
-> > (maybe that was just an optimisation though and the default is to flood
-> > everything, it was a long time ago)
-> 
-> From a networking perspective everything is being flooded as I've seen
-> it so far.
+But then I wondered how we could possibly have had a bug like that
+living here for so long, and the answer is we haven't.  You don't want
+to free the URB.  It is already resubmitted with a different skb as its
+buffer.  The call to usb_free_urb in the rx_cleanup path is there only
+for the cases where the URB is not resubmitted. The rx_complete callbac=
+k
+is controlling this by updating entry->urb as appropriate.  So it will
+always be NULL if rx_process is called, and the call to usb_free_urb ha=
+s
+no effect.
 
-... which is why it works ;-)
+Rearranging this code to always take the same cleanup path is still a
+very nice cleanup IMHO.
 
-Ian.
+
+Bj=C3=B8rn
