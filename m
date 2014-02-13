@@ -1,40 +1,69 @@
-From: liujunliang_ljl@163.com
-Subject: [PATCH] Fix Default to 'y' for SR9800 Device Driver, setting to 'n'
-Date: Thu, 13 Feb 2014 12:22:19 +0800
-Message-ID: <1392265339-14841-1-git-send-email-liujunliang_ljl@163.com>
-Cc: davem@davemloft.net, horms@verge.net.au, joe@perches.com,
-	romieu@fr.zoreil.com, gregkh@linuxfoundation.org,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org, sunhecheng@vip.126.com,
-	Liu Junliang <liujunliang_ljl@163.com>
-To: thierry.reding@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-12.163.com ([220.181.12.12]:45888 "EHLO m12-12.163.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751320AbaBMEXI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Feb 2014 23:23:08 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "liujunliang_ljl" <liujunliang_ljl@163.com>
+Subject: Re: Re: [PATCH] USB2NET : SR9800 : One chip USB2.0 USB2NET SR9800 DeviceDriver Support
+Date: Thu, 13 Feb 2014 12:23:44 +0800
+Message-ID: <201402131223440786692@163.com>
+References: <1392010419-5217-1-git-send-email-liujunliang_ljl@163.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="gb2312"
+Content-Transfer-Encoding: base64
+Cc: "davem" <davem@davemloft.net>, "horms" <horms@verge.net.au>,
+	"joe" <joe@perches.com>, "romieu" <romieu@fr.zoreil.com>,
+	"gregkh" <gregkh@linuxfoundation.org>,
+	"netdev" <netdev@vger.kernel.org>,
+	"linux-usb" <linux-usb@vger.kernel.org>,
+	"linux-kernel" <linux-kernel@vger.kernel.org>,
+	"sunhecheng" <sunhecheng@vip.126.com>
+To: "Thierry Reding" <thierry.reding@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Liu Junliang <liujunliang_ljl@163.com>
-
-
-Signed-off-by: Liu Junliang <liujunliang_ljl@163.com>
----
- drivers/net/usb/Kconfig |    1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
-index 2551bf6..82df7c3 100644
---- a/drivers/net/usb/Kconfig
-+++ b/drivers/net/usb/Kconfig
-@@ -295,7 +295,6 @@ config USB_NET_SR9800
- 	tristate "CoreChip-sz SR9800 based USB 2.0 10/100 ethernet devices"
- 	depends on USB_USBNET
- 	select CRC32
--	default y
- 	---help---
- 	  Say Y if you want to use one of the following 100Mbps USB Ethernet
- 	  device based on the CoreChip-sz SR9800 chip.
--- 
-1.7.9.5
+RGVhciBUaGllcnJ5IDoNCg0KCQkJRm9yIHRoaXMgZHJpdmVyLCB3ZSBjYW4gc2V0IGl0IGFzICdu
+JywgYW5kIFRoZXJlIGlzIG5vIHJ1bGUgb2YgdGh1bWIgYXMgdG8gd2hpY2ggc2hvdWxkIGRlZmF1
+bHQgdG8geS4NCg0KCQkJVGhhbmtzIGZvciB5b3VyIGFkdmljZS4NCg0KCQkJVGhhbmtzIGFnYWlu
+Lg0KCQkNCg0KDQoyMDE0LTAyLTEzIA0KDQoNCg0KbGl1anVubGlhbmdfbGpsIA0KDQoNCiAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICANCreivP7Iy6O6IFRoaWVycnkgUmVkaW5nIA0Kt6LLzcqxvOSjuiAy
+MDE0LTAyLTEyICAxODoxMjo1MiANCsrVvP7Iy6O6IGxpdWp1bmxpYW5nX2xqbCANCrOty82juiBk
+YXZlbTsgaG9ybXM7IGpvZTsgcm9taWV1OyBncmVna2g7IG5ldGRldjsgbGludXgtdXNiOyBsaW51
+eC1rZXJuZWw7IHN1bmhlY2hlbmcgDQrW98zio7ogUmU6IFtQQVRDSF0gVVNCMk5FVCA6IFNSOTgw
+MCA6IE9uZSBjaGlwIFVTQjIuMCBVU0IyTkVUIFNSOTgwMCBEZXZpY2VEcml2ZXIgU3VwcG9ydCAN
+CiANCk9uIE1vbiwgRmViIDEwLCAyMDE0IGF0IDAxOjMzOjM5UE0gKzA4MDAsIGxpdWp1bmxpYW5n
+X2xqbEAxNjMuY29tIHdyb3RlOg0KPiBGcm9tOiBMaXUgSnVubGlhbmcgPGxpdWp1bmxpYW5nX2xq
+bEAxNjMuY29tPg0KPiANCj4gDQo+IFNpZ25lZC1vZmYtYnk6IExpdSBKdW5saWFuZyA8bGl1anVu
+bGlhbmdfbGpsQDE2My5jb20+DQo+IC0tLQ0KPiAgZHJpdmVycy9uZXQvdXNiL0tjb25maWcgIHwg
+ICAxNiArDQo+ICBkcml2ZXJzL25ldC91c2IvTWFrZWZpbGUgfCAgICAxICsNCj4gIGRyaXZlcnMv
+bmV0L3VzYi9zcjk4MDAuYyB8ICA4NzMgKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr
+KysrKysrKysrKysrKw0KPiAgZHJpdmVycy9uZXQvdXNiL3NyOTgwMC5oIHwgIDIwMiArKysrKysr
+KysrKw0KPiAgNCBmaWxlcyBjaGFuZ2VkLCAxMDkyIGluc2VydGlvbnMoKyksIDAgZGVsZXRpb25z
+KC0pDQo+ICBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvdXNiL3NyOTgwMC5jDQo+ICBj
+cmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvdXNiL3NyOTgwMC5oDQo+IA0KPiBkaWZmIC0t
+Z2l0IGEvZHJpdmVycy9uZXQvdXNiL0tjb25maWcgYi9kcml2ZXJzL25ldC91c2IvS2NvbmZpZw0K
+PiBpbmRleCA0N2IwZjczLi4yNTUxYmY2IDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC91c2Iv
+S2NvbmZpZw0KPiArKysgYi9kcml2ZXJzL25ldC91c2IvS2NvbmZpZw0KPiBAQCAtMjkxLDYgKzI5
+MSwyMiBAQCBjb25maWcgVVNCX05FVF9TUjk3MDANCj4gICAgIFRoaXMgb3B0aW9uIGFkZHMgc3Vw
+cG9ydCBmb3IgQ29yZUNoaXAtc3ogU1I5NzAwIGJhc2VkIFVTQiAxLjENCj4gICAgIDEwLzEwMCBF
+dGhlcm5ldCBhZGFwdGVycy4NCj4gIA0KPiArY29uZmlnIFVTQl9ORVRfU1I5ODAwDQo+ICsgdHJp
+c3RhdGUgIkNvcmVDaGlwLXN6IFNSOTgwMCBiYXNlZCBVU0IgMi4wIDEwLzEwMCBldGhlcm5ldCBk
+ZXZpY2VzIg0KPiArIGRlcGVuZHMgb24gVVNCX1VTQk5FVA0KPiArIHNlbGVjdCBDUkMzMg0KPiAr
+IGRlZmF1bHQgeQ0KV2h5IGlzIHRoaXMgc2VsZWN0ZWQgYnkgZGVmYXVsdD8gSSBjYW4gc2VlIHRo
+YXQgc29tZSBvZiB0aGUgb3RoZXIgVVNCDQpuZXR3b3JrIGRyaXZlcnMgYXJlIGFsc28gc2VsZWN0
+ZWQgYnkgZGVmYXVsdCwgYnV0IG5vdCBhbGwgb2YgdGhlbS4gSXMNCnRoZXJlIHNvbWUgcnVsZSBv
+ZiB0aHVtYiBhcyB0byB3aGljaCBzaG91bGQgZGVmYXVsdCB0byB5IGFuZCB3aGljaA0Kc2hvdWxk
+bid0Pw0KVGhpZXJyeQ0KLS0tLS1CRUdJTiBQR1AgU0lHTkFUVVJFLS0tLS0NClZlcnNpb246IEdu
+dVBHIHYyLjAuMjIgKEdOVS9MaW51eCkNCmlRSWNCQUVCQWdBR0JRSlMrMGtkQUFvSkVOMGpyTmQv
+UHJPaFh2d1FBSklXNHZndjBOa3lRVm81alN2emVMWTQNCjlQRkNydGQ2TjFuK083UDk5eDM4SkND
+RDlsV3RmZGluMUVaZmorVWljQ2FudXAyV3pweUJXSGVCaGRTTjRvWkENCi8rQytUZ0VJdVgwK0Jl
+MTFJWGVVT0dNUDlhM2svMTJIWTNvSHV6N0JBMkpqY0s2UG5mTXhhRUM3aUdHSlNqZ3oNCnE0R29h
+NWtTcWp2TmdiUDhoNWJRUFROdE1uUmRzU3l0STdQTUpibDR0MWhvMFY3SDNwU285ekQ3cnhhUGht
+dEUNCnYvMThWUWF3R2NZODNIcjBCMFExOFhBbk5YYVFNTFpUdmRoVmZEVXhCNVZLVDRYaGNyaTBt
+NGFkYkF6TUk5a1INCks5Q0VDaGtEbjY4eTEzZHJKVklMS3FValcrNExNUUhBc1FWMDd5bDk4U3Fr
+N0xZT2VkTDltUU9uSUwwY3JqV2ENCk9BbUxId0x2MEVEMjVXMUh2M1VkZVNwQmRJa085Y0QwUENh
+N3ZIUW52N2xwVGxrYUR5WWVsS0xRMkQrR1hyQ3cNCjFMLzM0MWFrOVFFR2lDVTFUaU9IRGJsbnNO
+K090Q3QwUHQraGlqTEhGbDRUUUt3M1FJVW9aTGE0YlF1RFBNOE0NCmp1VFNWNjNIUmppRGxOR3Z0
+akJlemxSOUdGdTV3M1NKdU5TTnNGa1o3QURKd2p6OU9uOUphRHdIL0FkN0FxbVoNCnlsRSt6emJJ
+cE9XanlOVG9NSDJkYXR0cGVWWmtJZkdrUzAyeTZQY0l4NTFFR013NUI4bDZxS0xCOVlwa0pwd1IN
+CjdyaE1ZanBMS0luLzZyUkdsd21aS1luV1lsN3AvRmRJMHlPblZidE1ZeDQwNml2VU5jK2tndm14
+NWwxbVhoVDcNCmI4Z0tLWVlBMHBNRU1Yamdua0sxDQo9M3k3WA0KLS0tLS1FTkQgUEdQIFNJR05B
+VFVSRS0tLS0tDQo=
