@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next v2 14/14] tipc: add node_lock protection to link lookup function
-Date: Thu, 13 Feb 2014 17:29:18 -0500
-Message-ID: <1392330558-19048-15-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next v2 12/14] tipc: delay delete of link when failover is needed
+Date: Thu, 13 Feb 2014 17:29:16 -0500
+Message-ID: <1392330558-19048-13-git-send-email-jon.maloy@ericsson.com>
 References: <1392330558-19048-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
@@ -10,218 +10,196 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp103.biz.mail.ne1.yahoo.com ([98.138.207.10]:21160 "HELO
+Received: from smtp103.biz.mail.ne1.yahoo.com ([98.138.207.10]:21117 "HELO
 	smtp103.biz.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752580AbaBMW3u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:29:50 -0500
+	by vger.kernel.org with SMTP id S1752557AbaBMW3r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:29:47 -0500
 In-Reply-To: <1392330558-19048-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In an earlier commit, ("tipc: remove links list from bearer struct")
-we described three issues that need to be pre-emptively resolved before
-we can remove tipc_net_lock. Here we resolve issue a) described in that
-commit:
+When a bearer is disabled, all its attached links are deleted.
+Ideally, we should do link failover to redundant links on other bearers,
+if there are any, in such cases. This would be consistent with current
+behavior when a link is reset, but not deleted. However, due to the
+complexity involved, and the (wrongly) perceived low demand for this
+feature, it was never implemented until now.
 
-"a) In access method #2, we access the link before taking the
-    protecting node_lock. This will not work once net_lock is gone,
-    so we will have to change the access order. We will deal with
-    this in a later commit in this series."
-
-Here, we change that access order, by ensuring that the function
-link_find_link() returns only a safe reference for finding
-the link, i.e., a node pointer and an index into its 'links' array,
-not the link pointer itself. We also change all callers of this
-function to first take the node lock before they can check if there
-still is a valid link pointer at the returned index. Since the
-function now returns a node pointer rather than a link pointer,
-we rename it to the more appropriate 'tipc_link_find_owner().
+We mark the doomed link for deletion with a new flag, but wait until the
+failover process is finished before we actually delete it. With the
+improved link tunnelling/failover code introduced earlier in this commit
+series, it is now easy to identify a spot in the code where the failover
+is finished and it is safe to delete the marked link. Moreover, the test
+for the flag and the deletion can be done synchronously, and outside the
+most time critical data path.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/link.c |  110 ++++++++++++++++++++++++++++++++-----------------------
- 1 file changed, 65 insertions(+), 45 deletions(-)
+ net/tipc/bearer.c |   12 ++++++------
+ net/tipc/link.c   |   31 ++++++++++++++++++++++---------
+ net/tipc/link.h   |    2 +-
+ net/tipc/node.c   |    8 +++++++-
+ 4 files changed, 36 insertions(+), 17 deletions(-)
 
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index 4931eea..60caa45 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -51,7 +51,7 @@ static struct tipc_media * const media_info_array[] = {
+ 
+ struct tipc_bearer tipc_bearers[MAX_BEARERS];
+ 
+-static void bearer_disable(struct tipc_bearer *b_ptr);
++static void bearer_disable(struct tipc_bearer *b_ptr, bool shutting_down);
+ 
+ /**
+  * tipc_media_find - locates specified media object by name
+@@ -331,7 +331,7 @@ restart:
+ 
+ 	res = tipc_disc_create(b_ptr, &b_ptr->bcast_addr, disc_domain);
+ 	if (res) {
+-		bearer_disable(b_ptr);
++		bearer_disable(b_ptr, false);
+ 		pr_warn("Bearer <%s> rejected, discovery object creation failed\n",
+ 			name);
+ 		goto exit;
+@@ -363,14 +363,14 @@ static int tipc_reset_bearer(struct tipc_bearer *b_ptr)
+  *
+  * Note: This routine assumes caller holds tipc_net_lock.
+  */
+-static void bearer_disable(struct tipc_bearer *b_ptr)
++static void bearer_disable(struct tipc_bearer *b_ptr, bool shutting_down)
+ {
+ 	struct tipc_link_req *temp_req;
+ 
+ 	pr_info("Disabling bearer <%s>\n", b_ptr->name);
+ 	spin_lock_bh(&b_ptr->lock);
+ 	b_ptr->media->disable_media(b_ptr);
+-	tipc_link_delete_list(b_ptr->identity);
++	tipc_link_delete_list(b_ptr->identity, shutting_down);
+ 	temp_req = b_ptr->link_req;
+ 	b_ptr->link_req = NULL;
+ 	spin_unlock_bh(&b_ptr->lock);
+@@ -392,7 +392,7 @@ int tipc_disable_bearer(const char *name)
+ 		pr_warn("Attempt to disable unknown bearer <%s>\n", name);
+ 		res = -EINVAL;
+ 	} else {
+-		bearer_disable(b_ptr);
++		bearer_disable(b_ptr, false);
+ 		res = 0;
+ 	}
+ 	write_unlock_bh(&tipc_net_lock);
+@@ -612,6 +612,6 @@ void tipc_bearer_stop(void)
+ 
+ 	for (i = 0; i < MAX_BEARERS; i++) {
+ 		if (tipc_bearers[i].active)
+-			bearer_disable(&tipc_bearers[i]);
++			bearer_disable(&tipc_bearers[i], true);
+ 	}
+ }
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 0307516..4fb4ae0 100644
+index 663623c..0307516 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -2390,35 +2390,40 @@ void tipc_link_set_queue_limits(struct tipc_link *l_ptr, u32 window)
- 	l_ptr->queue_limit[MSG_FRAGMENTER] = 4000;
+@@ -281,7 +281,7 @@ struct tipc_link *tipc_link_create(struct tipc_node *n_ptr,
  }
  
--/**
-- * link_find_link - locate link by name
-- * @name: ptr to link name string
-- * @node: ptr to area to be filled with ptr to associated node
-- *
-+/* tipc_link_find_owner - locate owner node of link by link's name
-+ * @name: pointer to link name string
-+ * @bearer_id: pointer to index in 'node->links' array where the link was found.
-  * Caller must hold 'tipc_net_lock' to ensure node and bearer are not deleted;
-  * this also prevents link deletion.
-  *
-- * Returns pointer to link (or 0 if invalid link name).
-+ * Returns pointer to node owning the link, or 0 if no matching link is found.
-  */
--static struct tipc_link *link_find_link(const char *name,
--					struct tipc_node **node)
-+static struct tipc_node *tipc_link_find_owner(const char *link_name,
-+					      unsigned int *bearer_id)
+ 
+-void tipc_link_delete_list(unsigned int bearer_id)
++void tipc_link_delete_list(unsigned int bearer_id, bool shutting_down)
  {
  	struct tipc_link *l_ptr;
  	struct tipc_node *n_ptr;
-+	struct tipc_node *tmp_n_ptr;
-+	struct tipc_node *found_node = 0;
+@@ -291,12 +291,20 @@ void tipc_link_delete_list(unsigned int bearer_id)
+ 		l_ptr = n_ptr->links[bearer_id];
+ 		if (l_ptr) {
+ 			tipc_link_reset(l_ptr);
+-			tipc_node_detach_link(n_ptr, l_ptr);
+-			spin_unlock_bh(&n_ptr->lock);
+-
+-			/* Nobody else can access this link now: */
+-			del_timer_sync(&l_ptr->timer);
+-			kfree(l_ptr);
++			if (shutting_down || !tipc_node_is_up(n_ptr)) {
++				tipc_node_detach_link(l_ptr->owner, l_ptr);
++				tipc_link_reset_fragments(l_ptr);
++				spin_unlock_bh(&n_ptr->lock);
 +
- 	int i;
- 
--	list_for_each_entry(n_ptr, &tipc_node_list, list) {
-+	*bearer_id = 0;
-+	list_for_each_entry_safe(n_ptr, tmp_n_ptr, &tipc_node_list, list) {
-+		spin_lock(&n_ptr->lock);
- 		for (i = 0; i < MAX_BEARERS; i++) {
- 			l_ptr = n_ptr->links[i];
--			if (l_ptr && !strcmp(l_ptr->name, name))
--				goto found;
-+			if (l_ptr && !strcmp(l_ptr->name, link_name)) {
-+				*bearer_id = i;
-+				found_node = n_ptr;
-+				break;
++				/* Nobody else can access this link now: */
++				del_timer_sync(&l_ptr->timer);
++				kfree(l_ptr);
++			} else {
++				/* Detach/delete when failover is finished: */
++				l_ptr->flags |= LINK_STOPPED;
++				spin_unlock_bh(&n_ptr->lock);
++				del_timer_sync(&l_ptr->timer);
 +			}
+ 			continue;
  		}
-+		spin_unlock(&n_ptr->lock);
-+		if (found_node)
-+			break;
+ 		spin_unlock_bh(&n_ptr->lock);
+@@ -481,6 +489,9 @@ static void link_state_event(struct tipc_link *l_ptr, unsigned int event)
+ 	struct tipc_link *other;
+ 	u32 cont_intv = l_ptr->continuity_interval;
+ 
++	if (l_ptr->flags & LINK_STOPPED)
++		return;
++
+ 	if (!(l_ptr->flags & LINK_STARTED) && (event != STARTING_EVT))
+ 		return;		/* Not yet. */
+ 
+@@ -2167,8 +2178,11 @@ static struct sk_buff *tipc_link_failover_rcv(struct tipc_link *l_ptr,
+ 					   &buf);
+ 		}
  	}
--	l_ptr = NULL;
--	n_ptr = NULL;
--found:
--	*node = n_ptr;
--	return l_ptr;
-+	return found_node;
+-
+ exit:
++	if ((l_ptr->exp_msg_count == 0) && (l_ptr->flags & LINK_STOPPED)) {
++		tipc_node_detach_link(l_ptr->owner, l_ptr);
++		kfree(l_ptr);
++	}
+ 	return buf;
  }
  
- /**
-@@ -2460,32 +2465,33 @@ static int link_cmd_set_value(const char *name, u32 new_value, u16 cmd)
- 	struct tipc_link *l_ptr;
- 	struct tipc_bearer *b_ptr;
- 	struct tipc_media *m_ptr;
-+	int bearer_id;
- 	int res = 0;
- 
--	l_ptr = link_find_link(name, &node);
--	if (l_ptr) {
--		/*
--		 * acquire node lock for tipc_link_send_proto_msg().
--		 * see "TIPC locking policy" in net.c.
--		 */
-+	node = tipc_link_find_owner(name, &bearer_id);
-+	if (node) {
- 		tipc_node_lock(node);
--		switch (cmd) {
--		case TIPC_CMD_SET_LINK_TOL:
--			link_set_supervision_props(l_ptr, new_value);
--			tipc_link_send_proto_msg(l_ptr,
--				STATE_MSG, 0, 0, new_value, 0, 0);
--			break;
--		case TIPC_CMD_SET_LINK_PRI:
--			l_ptr->priority = new_value;
--			tipc_link_send_proto_msg(l_ptr,
--				STATE_MSG, 0, 0, 0, new_value, 0);
--			break;
--		case TIPC_CMD_SET_LINK_WINDOW:
--			tipc_link_set_queue_limits(l_ptr, new_value);
--			break;
--		default:
--			res = -EINVAL;
--			break;
-+		l_ptr = node->links[bearer_id];
-+
-+		if (l_ptr) {
-+			switch (cmd) {
-+			case TIPC_CMD_SET_LINK_TOL:
-+				link_set_supervision_props(l_ptr, new_value);
-+				tipc_link_send_proto_msg(l_ptr, STATE_MSG, 0,
-+							 0, new_value, 0, 0);
-+				break;
-+			case TIPC_CMD_SET_LINK_PRI:
-+				l_ptr->priority = new_value;
-+				tipc_link_send_proto_msg(l_ptr, STATE_MSG, 0,
-+							 0, 0, new_value, 0);
-+				break;
-+			case TIPC_CMD_SET_LINK_WINDOW:
-+				tipc_link_set_queue_limits(l_ptr, new_value);
-+				break;
-+			default:
-+				res = -EINVAL;
-+				break;
-+			}
- 		}
- 		tipc_node_unlock(node);
- 		return res;
-@@ -2580,6 +2586,7 @@ struct sk_buff *tipc_link_cmd_reset_stats(const void *req_tlv_area, int req_tlv_
- 	char *link_name;
- 	struct tipc_link *l_ptr;
- 	struct tipc_node *node;
-+	unsigned int bearer_id;
- 
- 	if (!TLV_CHECK(req_tlv_area, req_tlv_space, TIPC_TLV_LINK_NAME))
- 		return tipc_cfg_reply_error_string(TIPC_CFG_TLV_ERROR);
-@@ -2590,15 +2597,19 @@ struct sk_buff *tipc_link_cmd_reset_stats(const void *req_tlv_area, int req_tlv_
- 			return tipc_cfg_reply_error_string("link not found");
- 		return tipc_cfg_reply_none();
- 	}
+@@ -2201,7 +2215,6 @@ static int tipc_link_tunnel_rcv(struct tipc_node *n_ptr,
+ 		*buf = tipc_link_failover_rcv(l_ptr, t_buf);
+ 	else
+ 		pr_warn("%sunknown tunnel pkt received\n", link_co_err);
 -
- 	read_lock_bh(&tipc_net_lock);
--	l_ptr = link_find_link(link_name, &node);
-+	node = tipc_link_find_owner(link_name, &bearer_id);
-+	if (!node) {
-+		read_unlock_bh(&tipc_net_lock);
-+		return tipc_cfg_reply_error_string("link not found");
-+	}
-+	spin_lock(&node->lock);
-+	l_ptr = node->links[bearer_id];
- 	if (!l_ptr) {
-+		tipc_node_unlock(node);
- 		read_unlock_bh(&tipc_net_lock);
- 		return tipc_cfg_reply_error_string("link not found");
- 	}
--
--	tipc_node_lock(node);
- 	link_reset_statistics(l_ptr);
- 	tipc_node_unlock(node);
- 	read_unlock_bh(&tipc_net_lock);
-@@ -2628,18 +2639,27 @@ static int tipc_link_stats(const char *name, char *buf, const u32 buf_size)
- 	struct tipc_node *node;
- 	char *status;
- 	u32 profile_total = 0;
-+	unsigned int bearer_id;
- 	int ret;
+ exit:
+ 	kfree_skb(t_buf);
+ 	return *buf != NULL;
+diff --git a/net/tipc/link.h b/net/tipc/link.h
+index 3340fc1..45b9cd0 100644
+--- a/net/tipc/link.h
++++ b/net/tipc/link.h
+@@ -214,7 +214,7 @@ struct tipc_port;
+ struct tipc_link *tipc_link_create(struct tipc_node *n_ptr,
+ 			      struct tipc_bearer *b_ptr,
+ 			      const struct tipc_media_addr *media_addr);
+-void tipc_link_delete_list(unsigned int bearer_id);
++void tipc_link_delete_list(unsigned int bearer_id, bool shutting_down);
+ void tipc_link_failover_send_queue(struct tipc_link *l_ptr);
+ void tipc_link_dup_send_queue(struct tipc_link *l_ptr,
+ 			      struct tipc_link *dest);
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index efe4d41..833324b 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -249,7 +249,13 @@ void tipc_node_attach_link(struct tipc_node *n_ptr, struct tipc_link *l_ptr)
  
- 	if (!strcmp(name, tipc_bclink_name))
- 		return tipc_bclink_stats(buf, buf_size);
- 
- 	read_lock_bh(&tipc_net_lock);
--	l = link_find_link(name, &node);
--	if (!l) {
-+	node = tipc_link_find_owner(name, &bearer_id);
-+	if (!node) {
- 		read_unlock_bh(&tipc_net_lock);
- 		return 0;
- 	}
- 	tipc_node_lock(node);
+ void tipc_node_detach_link(struct tipc_node *n_ptr, struct tipc_link *l_ptr)
+ {
+-	n_ptr->links[l_ptr->b_ptr->identity] = NULL;
++	int i;
 +
-+	l = node->links[bearer_id];
-+	if (!l) {
-+		tipc_node_unlock(node);
-+		read_unlock_bh(&tipc_net_lock);
-+		return 0;
++	for (i = 0; i < MAX_BEARERS; i++) {
++		if (l_ptr == n_ptr->links[i])
++			break;
 +	}
-+
- 	s = &l->stats;
- 
- 	if (tipc_link_is_active(l))
++	n_ptr->links[i] = NULL;
+ 	atomic_dec(&tipc_num_links);
+ 	n_ptr->link_cnt--;
+ }
 -- 
 1.7.9.5
