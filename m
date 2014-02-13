@@ -1,102 +1,72 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH v2] net: sctp: Fix a_rwnd/rwnd management to reflect real
- state of the receiver's buffer
-Date: Thu, 13 Feb 2014 12:14:43 -0500
-Message-ID: <52FCFD83.7050204@gmail.com>
-References: <52F72AFE.4060802@nsn.com> <52FA3914.90002@gmail.com> <52FA8073.2060607@nsn.com>
+From: Emil Goode <emilgoode@gmail.com>
+Subject: Re: [PATCH v2] usbnet: remove generic hard_header_len check
+Date: Thu, 13 Feb 2014 18:29:08 +0100
+Message-ID: <20140213172908.GA4250@lianli>
+References: <1392310219-5719-1-git-send-email-emilgoode@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6D0F6BEF3A@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Steve Glendinning <steve.glendinning@shawell.net>,
+	Oliver Neukum <oneukum@suse.de>,
+	=?utf-8?B?QmrDuHJu?= Mork <bjorn@mork.no>,
+	"David S. Miller" <davem@davemloft.net>,
+	Freddy Xin <freddy@asix.com.tw>,
+	Eric Dumazet <edumazet@google.com>,
+	Ming Lei <ming.lei@canonical.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Liu Junliang <liujunliang_ljl@163.com>,
+	Octavian Purdila <octavian.purdila@intel.com>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Alexander Sverdlin <alexander.sverdlin@nsn.com>
-To: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f51.google.com ([209.85.216.51]:42027 "EHLO
-	mail-qa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751323AbaBMRVs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 12:21:48 -0500
-In-Reply-To: <52FA8073.2060607@nsn.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6BEF3A@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/11/2014 02:56 PM, Matija Glavinic Pecotic wrote:
-> Hello Vlad,
->
-> On 02/11/2014 03:52 PM, ext Vlad Yasevich wrote:
->> Hi Matija
->>
->> On 02/09/2014 02:15 AM, Matija Glavinic Pecotic wrote:
->>>
->>> --- net-next.orig/net/sctp/ulpevent.c
->>> +++ net-next/net/sctp/ulpevent.c
->>> @@ -989,7 +989,7 @@ static void sctp_ulpevent_receive_data(s
->>>  	skb = sctp_event2skb(event);
->>>  	/* Set the owner and charge rwnd for bytes received.  */
->>>  	sctp_ulpevent_set_owner(event, asoc);
->>> -	sctp_assoc_rwnd_decrease(asoc, skb_headlen(skb));
->>> +	sctp_assoc_rwnd_update(asoc, false);
->>>
->>>  	if (!skb->data_len)
->>>  		return;
->>> @@ -1035,8 +1035,9 @@ static void sctp_ulpevent_release_data(s
->>>  	}
->>>
->>>  done:
->>> -	sctp_assoc_rwnd_increase(event->asoc, len);
->>> -	sctp_ulpevent_release_owner(event);
->>> +	atomic_sub(event->rmem_len, &event->asoc->rmem_alloc);
->>> +	sctp_assoc_rwnd_update(event->asoc, true);
->>> +	sctp_association_put(event->asoc)
->>
->> Can't we simply change the order of window update and release instead
->> of open coding it like this?
->
-> that was the initial idea, but sctp_ulpevent_release_owner puts
-> the association and calls sctp_association_destroy if its time to
-> do so. IMHO, in the case if we would switch it, we would open a
-> potential race condition.
+On Thu, Feb 13, 2014 at 04:56:58PM +0000, David Laight wrote:
+> From: Of Emil Goode
+> > This patch removes a generic hard_header_len check from the usbnet
+> > module that is causing dropped packages under certain circumstances
+> > for devices that send rx packets that cross urb boundaries.
+> > 
+> > One example is the AX88772B which occasionally send rx packets that
+> > cross urb boundaries where the remaining partial packet is sent with
+> > no hardware header. When the buffer with a partial packet is of less
+> > number of octets than the value of hard_header_len the buffer is
+> > discarded by the usbnet module.
+> ...
+> > diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
+> > index d6f64da..955df81 100644
+> > --- a/drivers/net/usb/ax88179_178a.c
+> > +++ b/drivers/net/usb/ax88179_178a.c
+> > @@ -1118,6 +1118,10 @@ static int ax88179_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+> >  	u16 hdr_off;
+> >  	u32 *pkt_hdr;
+> > 
+> > +	/* This check is no longer done by usbnet */
+> > +	if (skb->len < dev->net->hard_header_len)
+> > +		return 0;
+> > +
+> 
+> The ax88179 driver can also receive ethernet frames that cross the
+> end of rx URB.
+> It should have the code to save the last fragment (of a urb) until
+> the next data arrives, and then correctly merge the fragments.
+> 
+> It is likely that any sub-driver that sets the receive urb length
+> to a multiple of 1k (rather than leaving it at hard_hdr+mtu) can defrag
+> rx data that crosses urb boundaries.
 
-On the tx side, I agree that there would be race.  One the recieve side,
-I don't think you could ever be in the codition where the last reference
-on the asoc is held by a data chunk you are feeing.
+Yes probably the check is unnecessary to many of the devices but
+it should be tested by someone who has the hardware.
+If you have a ax88179 device to test this patch but without the
+hard_header_len check added to the ax88179_rx_fixup function that
+would be great. Then we don't need to introduce that check.
 
-However, to be completely safe we could do:
-    asoc = event->asoc;
-    sctp_association_hold(asoc);
-    sctp_ulpevent_release_owner(event);
-    sctp_assoc_rwnd_update(asoc, true);
-    sctp_assocition_put(asoc);
+Best regards,
 
-
-The reason I don't like to open-code release owner is that if it
-ever changes, we'll have to rememeber to change this open-coded
-implementation as well.
-
-Thanks
--vlad
-
->
-> I agree this doesn't look the best. But since we should call
-> sctp_assoc_rwnd_update after accounting and before put, we have only
-> option to move sctp_assoc_rwnd_update to _ulpevent_release_owner. As on
-> this path we wish to update peer and generate sack, but we for sure do not
-> want it on all paths where ulpevent_release_owner is used, I see no
-> alternative but to add additional parameter to ulpevent_release_owner
-> which would be just passed to rwnd_update - bool update_peer. On the
-> other hand, I wonder whether ulpevent_release_owner would do more then
-> it should in that case?
->
->>
->> -vlad
->>
->>>  }
->>>
->>>  static void sctp_ulpevent_release_frag_data(struct sctp_ulpevent
-*event)
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>>
->>
+Emil Goode
