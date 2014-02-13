@@ -1,69 +1,40 @@
-From: "liujunliang_ljl" <liujunliang_ljl@163.com>
-Subject: Re: Re: [PATCH] USB2NET : SR9800 : One chip USB2.0 USB2NET SR9800 DeviceDriver Support
-Date: Thu, 13 Feb 2014 12:23:44 +0800
-Message-ID: <201402131223440786692@163.com>
-References: <1392010419-5217-1-git-send-email-liujunliang_ljl@163.com>
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: Re: [RFC 2/2] xen-netback: disable multicast and use a random hw MAC address
+Date: Wed, 12 Feb 2014 20:27:52 -0800
+Message-ID: <CAB=NE6Vf4KHyMGiGZuuvZ8uWhw51UXbhHPt5RxqZaJbLHOU71w@mail.gmail.com>
+References: <1392071391-13215-1-git-send-email-mcgrof@do-not-panic.com>
+ <1392071391-13215-3-git-send-email-mcgrof@do-not-panic.com>
+ <1392108205.22033.16.camel@dagon.hellion.org.uk> <CAB=NE6Vu=khpj_3J7r-u8DFkhyC-RgLikNFtOU-WO7te_4HMCw@mail.gmail.com>
+ <1392203708.13563.50.camel@kazak.uk.xensource.com> <CAB=NE6WFDWW1faoCYJP9zh6rPPvET+dbHxjHnGkYXtRx6z2LOQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="gb2312"
-Content-Transfer-Encoding: base64
-Cc: "davem" <davem@davemloft.net>, "horms" <horms@verge.net.au>,
-	"joe" <joe@perches.com>, "romieu" <romieu@fr.zoreil.com>,
-	"gregkh" <gregkh@linuxfoundation.org>,
-	"netdev" <netdev@vger.kernel.org>,
-	"linux-usb" <linux-usb@vger.kernel.org>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	"sunhecheng" <sunhecheng@vip.126.com>
-To: "Thierry Reding" <thierry.reding@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	xen-devel@lists.xenproject.org,
+	Paul Durrant <Paul.Durrant@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>, kvm@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAB=NE6WFDWW1faoCYJP9zh6rPPvET+dbHxjHnGkYXtRx6z2LOQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RGVhciBUaGllcnJ5IDoNCg0KCQkJRm9yIHRoaXMgZHJpdmVyLCB3ZSBjYW4gc2V0IGl0IGFzICdu
-JywgYW5kIFRoZXJlIGlzIG5vIHJ1bGUgb2YgdGh1bWIgYXMgdG8gd2hpY2ggc2hvdWxkIGRlZmF1
-bHQgdG8geS4NCg0KCQkJVGhhbmtzIGZvciB5b3VyIGFkdmljZS4NCg0KCQkJVGhhbmtzIGFnYWlu
-Lg0KCQkNCg0KDQoyMDE0LTAyLTEzIA0KDQoNCg0KbGl1anVubGlhbmdfbGpsIA0KDQoNCiAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICANCreivP7Iy6O6IFRoaWVycnkgUmVkaW5nIA0Kt6LLzcqxvOSjuiAy
-MDE0LTAyLTEyICAxODoxMjo1MiANCsrVvP7Iy6O6IGxpdWp1bmxpYW5nX2xqbCANCrOty82juiBk
-YXZlbTsgaG9ybXM7IGpvZTsgcm9taWV1OyBncmVna2g7IG5ldGRldjsgbGludXgtdXNiOyBsaW51
-eC1rZXJuZWw7IHN1bmhlY2hlbmcgDQrW98zio7ogUmU6IFtQQVRDSF0gVVNCMk5FVCA6IFNSOTgw
-MCA6IE9uZSBjaGlwIFVTQjIuMCBVU0IyTkVUIFNSOTgwMCBEZXZpY2VEcml2ZXIgU3VwcG9ydCAN
-CiANCk9uIE1vbiwgRmViIDEwLCAyMDE0IGF0IDAxOjMzOjM5UE0gKzA4MDAsIGxpdWp1bmxpYW5n
-X2xqbEAxNjMuY29tIHdyb3RlOg0KPiBGcm9tOiBMaXUgSnVubGlhbmcgPGxpdWp1bmxpYW5nX2xq
-bEAxNjMuY29tPg0KPiANCj4gDQo+IFNpZ25lZC1vZmYtYnk6IExpdSBKdW5saWFuZyA8bGl1anVu
-bGlhbmdfbGpsQDE2My5jb20+DQo+IC0tLQ0KPiAgZHJpdmVycy9uZXQvdXNiL0tjb25maWcgIHwg
-ICAxNiArDQo+ICBkcml2ZXJzL25ldC91c2IvTWFrZWZpbGUgfCAgICAxICsNCj4gIGRyaXZlcnMv
-bmV0L3VzYi9zcjk4MDAuYyB8ICA4NzMgKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr
-KysrKysrKysrKysrKw0KPiAgZHJpdmVycy9uZXQvdXNiL3NyOTgwMC5oIHwgIDIwMiArKysrKysr
-KysrKw0KPiAgNCBmaWxlcyBjaGFuZ2VkLCAxMDkyIGluc2VydGlvbnMoKyksIDAgZGVsZXRpb25z
-KC0pDQo+ICBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvdXNiL3NyOTgwMC5jDQo+ICBj
-cmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvdXNiL3NyOTgwMC5oDQo+IA0KPiBkaWZmIC0t
-Z2l0IGEvZHJpdmVycy9uZXQvdXNiL0tjb25maWcgYi9kcml2ZXJzL25ldC91c2IvS2NvbmZpZw0K
-PiBpbmRleCA0N2IwZjczLi4yNTUxYmY2IDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC91c2Iv
-S2NvbmZpZw0KPiArKysgYi9kcml2ZXJzL25ldC91c2IvS2NvbmZpZw0KPiBAQCAtMjkxLDYgKzI5
-MSwyMiBAQCBjb25maWcgVVNCX05FVF9TUjk3MDANCj4gICAgIFRoaXMgb3B0aW9uIGFkZHMgc3Vw
-cG9ydCBmb3IgQ29yZUNoaXAtc3ogU1I5NzAwIGJhc2VkIFVTQiAxLjENCj4gICAgIDEwLzEwMCBF
-dGhlcm5ldCBhZGFwdGVycy4NCj4gIA0KPiArY29uZmlnIFVTQl9ORVRfU1I5ODAwDQo+ICsgdHJp
-c3RhdGUgIkNvcmVDaGlwLXN6IFNSOTgwMCBiYXNlZCBVU0IgMi4wIDEwLzEwMCBldGhlcm5ldCBk
-ZXZpY2VzIg0KPiArIGRlcGVuZHMgb24gVVNCX1VTQk5FVA0KPiArIHNlbGVjdCBDUkMzMg0KPiAr
-IGRlZmF1bHQgeQ0KV2h5IGlzIHRoaXMgc2VsZWN0ZWQgYnkgZGVmYXVsdD8gSSBjYW4gc2VlIHRo
-YXQgc29tZSBvZiB0aGUgb3RoZXIgVVNCDQpuZXR3b3JrIGRyaXZlcnMgYXJlIGFsc28gc2VsZWN0
-ZWQgYnkgZGVmYXVsdCwgYnV0IG5vdCBhbGwgb2YgdGhlbS4gSXMNCnRoZXJlIHNvbWUgcnVsZSBv
-ZiB0aHVtYiBhcyB0byB3aGljaCBzaG91bGQgZGVmYXVsdCB0byB5IGFuZCB3aGljaA0Kc2hvdWxk
-bid0Pw0KVGhpZXJyeQ0KLS0tLS1CRUdJTiBQR1AgU0lHTkFUVVJFLS0tLS0NClZlcnNpb246IEdu
-dVBHIHYyLjAuMjIgKEdOVS9MaW51eCkNCmlRSWNCQUVCQWdBR0JRSlMrMGtkQUFvSkVOMGpyTmQv
-UHJPaFh2d1FBSklXNHZndjBOa3lRVm81alN2emVMWTQNCjlQRkNydGQ2TjFuK083UDk5eDM4SkND
-RDlsV3RmZGluMUVaZmorVWljQ2FudXAyV3pweUJXSGVCaGRTTjRvWkENCi8rQytUZ0VJdVgwK0Jl
-MTFJWGVVT0dNUDlhM2svMTJIWTNvSHV6N0JBMkpqY0s2UG5mTXhhRUM3aUdHSlNqZ3oNCnE0R29h
-NWtTcWp2TmdiUDhoNWJRUFROdE1uUmRzU3l0STdQTUpibDR0MWhvMFY3SDNwU285ekQ3cnhhUGht
-dEUNCnYvMThWUWF3R2NZODNIcjBCMFExOFhBbk5YYVFNTFpUdmRoVmZEVXhCNVZLVDRYaGNyaTBt
-NGFkYkF6TUk5a1INCks5Q0VDaGtEbjY4eTEzZHJKVklMS3FValcrNExNUUhBc1FWMDd5bDk4U3Fr
-N0xZT2VkTDltUU9uSUwwY3JqV2ENCk9BbUxId0x2MEVEMjVXMUh2M1VkZVNwQmRJa085Y0QwUENh
-N3ZIUW52N2xwVGxrYUR5WWVsS0xRMkQrR1hyQ3cNCjFMLzM0MWFrOVFFR2lDVTFUaU9IRGJsbnNO
-K090Q3QwUHQraGlqTEhGbDRUUUt3M1FJVW9aTGE0YlF1RFBNOE0NCmp1VFNWNjNIUmppRGxOR3Z0
-akJlemxSOUdGdTV3M1NKdU5TTnNGa1o3QURKd2p6OU9uOUphRHdIL0FkN0FxbVoNCnlsRSt6emJJ
-cE9XanlOVG9NSDJkYXR0cGVWWmtJZkdrUzAyeTZQY0l4NTFFR013NUI4bDZxS0xCOVlwa0pwd1IN
-CjdyaE1ZanBMS0luLzZyUkdsd21aS1luV1lsN3AvRmRJMHlPblZidE1ZeDQwNml2VU5jK2tndm14
-NWwxbVhoVDcNCmI4Z0tLWVlBMHBNRU1Yamdua0sxDQo9M3k3WA0KLS0tLS1FTkQgUEdQIFNJR05B
-VFVSRS0tLS0tDQo=
+On Wed, Feb 12, 2014 at 2:05 PM, Luis R. Rodriguez
+<mcgrof@do-not-panic.com> wrote:
+> We have to be careful for sure, I'll try to test all cases including
+> kvm, but architecturally as I see it so far these things are simply
+> exchanging over data through their respective backend channels, I know
+> ipv6 interfaces are unused and I'm going to dig further to see why at
+> least one ipv4 interfaces is needed. I cannot fathom why either of
+> these interfaces would be required. I'll do a bit more digging.
+>
+> The TAP interface requirements may be different, I haven't yet dug into that.
+
+I have a test patch that now works that restricts xen-netback from
+getting any IPv4 and IPv6 addresses, and disables multicast. With this
+set in place the xen-frontend still gets IPv4 and IPv6 addresses and
+Multicast still works. This was tested under a shared physical
+environment, I'll have to test NAT next, and also see if we can enable
+this as an option for KVM for their TAP 'backend' interfaces.
+
+  Luis
