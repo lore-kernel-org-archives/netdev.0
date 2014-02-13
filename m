@@ -1,47 +1,30 @@
 From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next] net: remove unnecessary return's
-Date: Wed, 12 Feb 2014 22:32:05 -0800
-Message-ID: <1392273125.2214.25.camel@joe-AO722>
-References: <20140212205122.5783660e@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH] USB2NET: SR9800: use %zu for dma_addr_t
+Date: Wed, 12 Feb 2014 22:49:17 -0800
+Message-ID: <1392274157.2214.27.camel@joe-AO722>
+References: <000101cf2885$395755a0$ac0600e0$%han@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: 'David Miller' <davem@davemloft.net>, netdev@vger.kernel.org,
+	'Liu Junliang' <liujunliang_ljl@163.com>
+To: Jingoo Han <jg1.han@samsung.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0116.hostedemail.com ([216.40.44.116]:47390 "EHLO
+Received: from smtprelay0080.hostedemail.com ([216.40.44.80]:59653 "EHLO
 	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751174AbaBMGcI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 01:32:08 -0500
-In-Reply-To: <20140212205122.5783660e@nehalam.linuxnetplumber.net>
+	by vger.kernel.org with ESMTP id S1751417AbaBMGtV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 01:49:21 -0500
+In-Reply-To: <000101cf2885$395755a0$ac0600e0$%han@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-02-12 at 20:51 -0800, Stephen Hemminger wrote:
-> One of my pet coding style peeves is the practice of
-> adding extra return; at the end of function.
-> Kill several instances of this in network code.
-> I suppose some coccinelle wizardy could do this automatically.
+On Thu, 2014-02-13 at 15:31 +0900, Jingoo Han wrote:
+> Use %zu for size_t in order to avoid the following build
+> warning in printks.
 
-Maybe, but grep version 2.5.4 will show most of them.
+Perhaps your subject is wrong.
 
-$ grep-2.5.4 -rP --include=*.[ch] "return;\n}" *
-[...]
+This doesn't seem like a dma_addr_t.
 
-Fixing them has to make sure that there's no
-label before the close brace.
-
-gcc has to have a statement before the close brace
-of a void return after a label.
-
-label:
-}
-
-must be:
-
-label:
-	;
-}
-
-to compile.
+If it is, it should be printed with
+"%pad", &dma_addr_t
