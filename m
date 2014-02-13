@@ -1,74 +1,242 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: large degradation in ip netns add/exec performance in 3.13?
-Date: Thu, 13 Feb 2014 10:38:44 -0800
-Message-ID: <1392316724.1752.32.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <52F1461D.8050703@hp.com> <52FAA3A6.9050608@hp.com>
-	 <52FAC6D1.50702@hp.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2 04/10] net: phy: add Broadcom BCM7xxx internal
+ PHY driver
+Date: Thu, 13 Feb 2014 10:41:25 -0800
+Message-ID: <CAGVrzcbs38nrkKFQ_QhOmeTGNkrp+ca+T-TSOYnXPm29ikqkJQ@mail.gmail.com>
+References: <1392269395-23513-1-git-send-email-f.fainelli@gmail.com>
+ <1392269395-23513-5-git-send-email-f.fainelli@gmail.com> <20140213103454.GA14941@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Kevin Cernekee <cernekee@gmail.com>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:58741 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752402AbaBMSip (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 13:38:45 -0500
-Received: by mail-pd0-f181.google.com with SMTP id y10so10731259pdj.26
-        for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 10:38:45 -0800 (PST)
-In-Reply-To: <52FAC6D1.50702@hp.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:40462 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750839AbaBMSmG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 13:42:06 -0500
+In-Reply-To: <20140213103454.GA14941@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-02-11 at 16:56 -0800, Rick Jones wrote:
-> On 02/11/2014 02:26 PM, Rick Jones wrote:
-> > I did have the system lockup once at 16 concurrent streams on the 3.13.0
-> > kernel.  Didn't happen the next two times I tried.
-> 
-> I've had it happen again with a slightly tweaked ("heavier") fake router 
-> creation.  I'm guessing the attached soft lockup messages are related 
-> and may help point somewhere.
-> 
-> happy benchmarking,
-> 
-> rick jones
-> 
+Hi Francois,
+
+2014-02-13 2:34 GMT-08:00 Francois Romieu <romieu@fr.zoreil.com>:
+> Florian Fainelli <f.fainelli@gmail.com> :
+> [...]
+>> diff --git a/drivers/net/phy/bcm7xxx.c b/drivers/net/phy/bcm7xxx.c
+>> new file mode 100644
+>> index 0000000..6aea6e2
+>> --- /dev/null
+>> +++ b/drivers/net/phy/bcm7xxx.c
+> [...]
+>> +static int bcm7445_config_init(struct phy_device *phydev)
+>> +{
+>> +     int ret;
+>
+> It could be declared after 'i' below.
+>
+>> +     const struct bcm7445_regs {
+>
+> static const
+>
+>> +             int reg;
+>> +             u16 value;
+>> +     } bcm7445_regs_cfg[] = {
+>> +             /* increases ADC latency by 24ns */
+>> +             { 0x17, 0x0038 },
+>> +             { 0x15, 0xAB95 },
+>> +             /* increases internal 1V LDO voltage by 5% */
+>> +             { 0x17, 0x2038 },
+>> +             { 0x15, 0xBB22 },
+>> +             /* reduce RX low pass filter corner frequency */
+>> +             { 0x17, 0x6038 },
+>> +             { 0x15, 0xFFC5 },
+>> +             /* reduce RX high pass filter corner frequency */
+>> +             { 0x17, 0x003a },
+>> +             { 0x15, 0x2002 },
+>> +     };
+>> +     unsigned int i;
+>> +
+>> +     for (i = 0; i < ARRAY_SIZE(bcm7445_regs_cfg); i++) {
+>> +             ret = phy_write(phydev,
+>> +                             bcm7445_regs_cfg[i].reg,
+>> +                             bcm7445_regs_cfg[i].value);
+>> +             if (ret)
+>> +                     return ret;
+>> +     }
+>> +
+>> +     return 0;
+>> +}
+>> +
+>> +static void phy_write_exp(struct phy_device *phydev,
+>> +                                     u16 reg, u16 value)
+>
+> static void phy_write_exp(struct phy_device *phydev, u16 reg, u16 value)
+>
+>> +{
+>> +     phy_write(phydev, 0x17, 0xf00 | reg);
+>> +     phy_write(phydev, 0x15, value);
+>> +}
+>> +
+>> +static void phy_write_misc(struct phy_device *phydev,
+>> +                                     u16 reg, u16 chl, u16 value)
+>    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ all tabs that don't line up
+>
+> static void phy_write_misc(struct phy_device *phydev,
+>                            u16 reg, u16 chl, u16 value)
+>
+> static void phy_write_misc(struct phy_device *phydev, u16 reg, u16 chl,
+>                            u16 value)
+>
+> static void phy_write_misc(struct phy_device *phydev, u16 reg, u16 chl, u16 val)
+>
+>
+>> +{
+>> +     int tmp;
+>> +
+>> +     phy_write(phydev, 0x18, 0x7);
+>> +
+>> +     tmp = phy_read(phydev, 0x18);
+>> +     tmp |= 0x800;
+>> +     phy_write(phydev, 0x18, tmp);
+>> +
+>> +     tmp = (chl * 0x2000) | reg;
+>> +     phy_write(phydev, 0x17, tmp);
+>> +
+>> +     phy_write(phydev, 0x15, value);
+>
+> You may use some #define for the 0x15, 0x17 and 0x18 values.
+
+Right, those are actually inherited from the BCM54xx PHY driver, I
+will move those register to a common location e.g: brcmphy.h
+
+>
+>> +}
+>> +
+>> +static int bcm7xxx_28nm_afe_config_init(struct phy_device *phydev)
+>> +{
+>> +     /* write AFE_RXCONFIG_0 */
+>> +     phy_write_misc(phydev, 0x38, 0x0000, 0xeb19);
+>> +
+>> +     /* write AFE_RXCONFIG_1 */
+>> +     phy_write_misc(phydev, 0x38, 0x0001, 0x9a3f);
+>> +
+>> +     /* write AFE_RX_LP_COUNTER */
+>> +     phy_write_misc(phydev, 0x38, 0x0003, 0x7fc7);
+>> +
+>> +     /* write AFE_HPF_TRIM_OTHERS */
+>> +     phy_write_misc(phydev, 0x3A, 0x0000, 0x000b);
+>> +
+>> +     /* write AFTE_TX_CONFIG */
+>> +     phy_write_misc(phydev, 0x39, 0x0000, 0x0800);
+>
+> Some #define may be welcome to replace the comments.
+
+I would rather keep those as comments as they might change over time
+if I get to incorporate a new workaround sequence.
+
+>
+> [...]
+>> +static int bcm7xxx_28nm_config_init(struct phy_device *phydev)
+>> +{
+>> +     int ret;
+>> +
+>> +     ret = bcm7445_config_init(phydev);
+>> +     if (ret)
+>> +             return ret;
+>> +
+>> +     return bcm7xxx_28nm_afe_config_init(phydev);
+>> +}
+>> +
+>> +static int phy_set_clr_bits(struct phy_device *dev, int location,
+>> +                                     int set_mask, int clr_mask)
+>> +{
+>> +     int v, ret;
+>> +
+>> +     v = phy_read(dev, location);
+>> +     if (v < 0)
+>> +             return v;
+>> +
+>> +     v &= ~clr_mask;
+>> +     v |= set_mask;
+>> +
+>> +     ret = phy_write(dev, location, v);
+>> +     if (ret < 0)
+>> +             return ret;
+>> +
+>> +     return v;
+>> +}
+>> +
+>> +static int bcm7xxx_config_init(struct phy_device *phydev)
+>> +{
+>> +     /* Enable 64 clock MDIO */
+>> +     phy_write(phydev, 0x1d, 0x1000);
+>> +     phy_read(phydev, 0x1d);
+>> +
+>> +     /* Workaround only required for 100Mbits/sec */
+>> +     if (!(phydev->dev_flags & PHY_BRCM_100MBPS_WAR))
+>> +             return 0;
+>> +
+>> +     /* set shadow mode 2 */
+>> +     phy_set_clr_bits(phydev, 0x1f, 0x0004, 0x0004);
+>
+> phy_set_clr_bits returned status code is not checked.
+>
+>> +
+>> +     /* set iddq_clkbias */
+>> +     phy_write(phydev, 0x14, 0x0F00);
+>> +     udelay(10);
+>> +
+>> +     /* reset iddq_clkbias */
+>> +     phy_write(phydev, 0x14, 0x0C00);
+>> +
+>> +     phy_write(phydev, 0x13, 0x7555);
+>> +
+>> +     /* reset shadow mode 2 */
+>> +     phy_set_clr_bits(phydev, 0x1f, 0x0004, 0);
+>
+> phy_set_clr_bits returned status code is not checked.
+>
+>> +
+>> +     return 0;
+>> +}
+>> +
+>> +/* Workaround for putting the PHY in IDDQ mode, required
+>> + * for all BCM7XXX PHYs
+>> + */
+>> +static int bcm7xxx_suspend(struct phy_device *phydev)
+>
+> Factor out with bcm7445_config_init and some helper ?
+
+I would rather keep this function simple like it is today since this
+really is only required for entering suspend mode properly while
+bcm7445_config_init() as the name suggests is specific to 7445 only.
+
+Thanks for the review!
+
+>
+>> +{
+>> +     int ret;
+>> +     const struct bcm7xxx_regs {
+>> +             int reg;
+>> +             u16 value;
+>> +     } bcm7xxx_suspend_cfg[] = {
+>> +             { 0x1f, 0x008b },
+>> +             { 0x10, 0x01c0 },
+>> +             { 0x14, 0x7000 },
+>> +             { 0x1f, 0x000f },
+>> +             { 0x10, 0x20d0 },
+>> +             { 0x1f, 0x000b },
+>> +     };
+>> +     unsigned int i;
+>
+> --
+> Ueimor
 
 
-It doesnt seem to be network related but vfs, you might copy lkml to
-your report ...
 
-[  200.884083] BUG: soft lockup - CPU#12 stuck for 23s! [ip:34798]
-[  200.911571] Modules linked in: veth ipmi_devintf 8021q garp xt_CHECKSUM iptable_mangle bridge stp llc kvm_intel kvm bonding ipt_REJECT xt_LOG xt_limit xt_tcpudp xt_addrtype nf_conntrack_ipv4 nf_defrag_ipv4 xt_state nf_conntrack ip6table_filter psmouse ip6_tables iptable_filter ip_tables x_tables gpio_ich igb mpt2sas i2c_algo_bit sb_edac scsi_transport_sas ptp ioatdma ipmi_si serio_raw hpwdt edac_core lpc_ich pps_core hpilo be2net dca ipmi_msghandler raid_class mac_hid acpi_power_meter lp parport shpchp hpsa
-[  200.911599] CPU: 12 PID: 34798 Comm: ip Not tainted 3.13.0 #1
-[  200.911600] Hardware name: HP ProLiant SL230s Gen8/, BIOS P75 08/20/2012
-[  200.911602] task: ffff880fe4d3ae60 ti: ffff880fe4c9e000 task.ti: ffff880fe4c9e000
-[  200.911603] RIP: 0010:[<ffffffff811ad1e8>]  [<ffffffff811ad1e8>] __lookup_mnt+0x68/0x80
-[  200.911609] RSP: 0018:ffff880fe4c9fcd8  EFLAGS: 00000282
-[  200.911610] RAX: ffff880fe7151400 RBX: ffffffff8119859b RCX: ffff881ff9464370
-[  200.911612] RDX: ffff880fe7151420 RSI: ffff8800b985e9c0 RDI: ffff880fe94cd1a0
-[  200.911613] RBP: ffff880fe4c9fce8 R08: 326f6d7500737973 R09: ffff8800b985e9c0
-[  200.911614] R10: 003f010100030103 R11: ffffc90000002000 R12: ffff880fe4c9fe00
-[  200.911615] R13: ffff880fe244bc08 R14: 0000000000000000 R15: ffff881fe9ce21f0
-[  200.911616] FS:  00007fe7048e0700(0000) GS:ffff88203f880000(0000) knlGS:0000000000000000
-[  200.911617] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[  200.911618] CR2: 000000000043e408 CR3: 0000001fe94bf000 CR4: 00000000000407e0
-[  200.911620] Stack:
-[  200.911621]  ffff881fe87c62fc ffff880fe7151400 ffff880fe4c9fd18 ffffffff811ad2b0
-[  200.911624]  ffff880fe4c9fdb8 ffff880fe4c9ff28 ffff881ff65949c0 ffff880fe4c9ff28
-[  200.911626]  ffff880fe4c9fd38 ffffffff8119855e ffff880fe4c9fda8 ffff881ff65949c0
-[  200.911629] Call Trace:
-[  200.911632]  [<ffffffff811ad2b0>] lookup_mnt+0x30/0x70
-[  200.911636]  [<ffffffff8119855e>] follow_mount+0x5e/0x70
-[  200.911639]  [<ffffffff81199070>] mountpoint_last+0xc0/0x1d0
-[  200.911641]  [<ffffffff8119ad47>] path_mountpoint+0xd7/0x440
-[  200.911646]  [<ffffffff810953c9>] ? __rwsem_do_wake+0x119/0x170
-[  200.911651]  [<ffffffff81352e17>] ? call_rwsem_wake+0x17/0x30
-[  200.911655]  [<ffffffff8117f551>] ? kmem_cache_alloc+0x31/0x160
-[  200.911657]  [<ffffffff8119922c>] ? getname_flags+0x5c/0x190
-[  200.911659]  [<ffffffff8119b0e4>] filename_mountpoint+0x34/0xc0
-[  200.911661]  [<ffffffff8119e65a>] user_path_mountpoint_at+0x4a/0x70
-[  200.911664]  [<ffffffff811adcef>] SyS_umount+0x7f/0x3b0
-[  200.911665]  [<ffffffff811af548>] ? SyS_mount+0xb8/0xe0
-[  200.911669]  [<ffffffff816c3552>] system_call_fastpath+0x16/0x1b
-[  200.911670] Code: 48 8b 55 f8 31 c0 48 39 ca 74 2b 48 89 d0 eb 13 0f 1f 00 48 8b 00 48 89 45 f8 48 8b 45 f8 48 39 c8 74 18 48 8b 50 10 48 83 c2 20 <48> 39 d7 75 e3 48 39 70 18 75 dd c9 c3 0f 1f 00 31 c0 c9 c3 0f 
+-- 
+Florian
