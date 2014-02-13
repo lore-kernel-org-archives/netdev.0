@@ -1,63 +1,56 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 5/5] ixgbe: fixup warning regarding max_vfs parameter
-Date: Thu, 13 Feb 2014 00:00:50 -0800
-Message-ID: <1392278450-27062-6-git-send-email-aaron.f.brown@intel.com>
+Subject: [net-next 4/5] ixgbe: Add WoL support for a new device
+Date: Thu, 13 Feb 2014 00:00:49 -0800
+Message-ID: <1392278450-27062-5-git-send-email-aaron.f.brown@intel.com>
 References: <1392278450-27062-1-git-send-email-aaron.f.brown@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Aaron Brown <aaron.f.brown@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:61219 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:36961 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753114AbaBMIDM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752156AbaBMIDM (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 13 Feb 2014 03:03:12 -0500
 In-Reply-To: <1392278450-27062-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Mark Rustad <mark.d.rustad@intel.com>
 
-The max_vfs parameter for ixgbe is deprecated in favor of using the
-sysfs sriov_numvfs field to assign VFs as needed, instead of fixing the
-value at module load time. The current message only indicates that you
-should use this, without adequately explaining how to do so.
+Add WoL support for port 0 of a new 82599-based device.
 
-This patch modifies the warning message to include the command necessary
-to spawn VFs via sysfs, and points users to the Documentation for more
-information.
-
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 14 ++++++++++++--
- 1 file changed, 12 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h | 1 +
+ 2 files changed, 2 insertions(+)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index e65a5be..bbd41a1 100644
+index 84ca49b..e65a5be 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -5068,8 +5068,18 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 	hw->fc.disable_fc_autoneg = ixgbe_device_supports_autoneg_fc(hw);
- 
- #ifdef CONFIG_PCI_IOV
--	if (max_vfs > 0)
--		e_dev_warn("Enabling SR-IOV VFs using the max_vfs module parameter is deprecated - please use the pci sysfs interface instead.\n");
-+	if (max_vfs > 0) {
-+		e_dev_warn("Enabling SR-IOV VFs using the max_vfs module parameter is deprecated.\n");
-+		e_dev_warn("Please use the pci sysfs interface instead. Ex:\n");
-+		e_dev_warn("echo '%d' > /sys/bus/pci/devices/%04x:%02x:%02x.%1x/sriov_numvfs\n",
-+			   max_vfs,
-+			   pci_domain_nr(pdev->bus),
-+			   pdev->bus->number,
-+			   PCI_SLOT(pdev->devfn),
-+			   PCI_FUNC(pdev->devfn)
-+			   );
-+		e_dev_warn("See 'Documentation/PCI/pci-iov-howto.txt for more information.\n");
-+	}
- 
- 	/* assign number of SR-IOV VFs */
- 	if (hw->mac.type != ixgbe_mac_82598EB) {
+@@ -7800,6 +7800,7 @@ int ixgbe_wol_supported(struct ixgbe_adapter *adapter, u16 device_id,
+ 	case IXGBE_DEV_ID_82599_SFP:
+ 		/* Only these subdevices could supports WOL */
+ 		switch (subdevice_id) {
++		case IXGBE_SUBDEV_ID_82599_SFP_WOL0:
+ 		case IXGBE_SUBDEV_ID_82599_560FLR:
+ 			/* only support first port */
+ 			if (hw->bus.func != 0)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 0d39cfc..9283cff 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -54,6 +54,7 @@
+ #define IXGBE_DEV_ID_82599_BACKPLANE_FCOE       0x152a
+ #define IXGBE_DEV_ID_82599_SFP_FCOE      0x1529
+ #define IXGBE_SUBDEV_ID_82599_SFP        0x11A9
++#define IXGBE_SUBDEV_ID_82599_SFP_WOL0   0x1071
+ #define IXGBE_SUBDEV_ID_82599_RNDC       0x1F72
+ #define IXGBE_SUBDEV_ID_82599_560FLR     0x17D0
+ #define IXGBE_SUBDEV_ID_82599_SP_560FLR  0x211B
 -- 
 1.8.5.GIT
