@@ -1,83 +1,70 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next v2 00/14] tipc: clean up media and bearer layer
-Date: Thu, 13 Feb 2014 17:27:29 -0500
-Message-ID: <1392330463-18954-1-git-send-email-jon.maloy@ericsson.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: add pacing_rate information into tcp_info
+Date: Thu, 13 Feb 2014 14:27:40 -0800
+Message-ID: <1392330460.1752.42.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.biz.mail.ne1.yahoo.com ([98.138.207.11]:44586 "HELO
-	smtp104.biz.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752282AbaBMW1u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:27:50 -0500
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:55530 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751968AbaBMW1n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:27:43 -0500
+Received: by mail-pd0-f179.google.com with SMTP id fp1so10719665pdb.38
+        for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 14:27:42 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit series aims at facilitating future changes to the
-locking policy around nodes, links and bearers.
+From: Eric Dumazet <edumazet@google.com>
 
-Currently, we have a big read/write lock (net_lock) that is used for
-serializing all changes to the node, link and bearer lists, as well
-as to their mutual pointers and references.
+Add two new fields to struct tcp_info, to report sk_pacing_rate
+and sk_max_pacing_rate to monitoring applications, as ss from iproute2.
 
-But, in order to allow for concurrent access to the contents of these
-structures, net_lock is only used in read mode by the data path code,
-and hence a finer granular locking policy must be applied inside the
-scope of net_lock: a spinlock (node_lock) for each node structure,
-and another one (bearer_lock) for protection of bearer structures.
+User exported fields are 64bit, even if kernel is currently using 32bit
+fields.
 
-This locking policy has proved hard to maintain. We have several 
-times encountered contention problems between node_lock and 
-bearer_lock, and with the advent of the RCU locking mechanism we
-feel it is anyway obsolete and ripe for improvements.
+lpaa5:~# ss -i 
+..
+	 skmem:(r0,rb357120,t0,tb2097152,f1584,w1980880,o0,bl0) ts sack cubic
+wscale:6,6 rto:400 rtt:0.875/0.75 mss:1448 cwnd:1 ssthresh:12 send
+13.2Mbps pacing_rate 3336.2Mbps unacked:15 retrans:1/5448 lost:15
+rcv_space:29200
 
-We now plan to replace net_lock with an RCU lock, as well as
-getting rid of bearer_lock altogether. This will both reduce data
-path overhead and make the code more manageable, while reducing the
-risk of future lock contention problems.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/uapi/linux/tcp.h |    3 +++
+ net/ipv4/tcp.c           |    5 +++++
+ 2 files changed, 8 insertions(+)
 
-Prior to these changes, we need to do some necessary cleanup and
-code consolidation. This is what we do with this commit series,
-before we finally remove bearer_lock. In a later series we will
-replace net_lock with an RCU lock.
-
-v2:
- - Re-inserted a removed kerneldoc entry in commit#5, based on 
-   feedback from D. Miller.
-
-
-Jon Maloy (9):
-  tipc: stricter behavior of message reassembly function
-  tipc: change reception of tunnelled duplicate packets
-  tipc: change reception of tunnelled failover packets
-  tipc: change signature of tunnelling reception function
-  tipc: more cleanup of tunnelling reception function
-  tipc: rename stack variables in function tipc_link_tunnel_rcv
-  tipc: changes to general packet reception algorithm
-  tipc: delay delete of link when failover is needed
-  tipc: add node_lock protection to link lookup function
-
-Ying Xue (5):
-  tipc: move code for resetting links from bearer.c to link.c
-  tipc: move code for deleting links from bearer.c to link.c
-  tipc: redefine 'started' flag in struct link to bitmap
-  tipc: remove 'links' list from tipc_bearer struct
-  tipc: remove bearer_lock from tipc_bearer struct
-
- net/tipc/bcast.c  |    7 +-
- net/tipc/bearer.c |   42 ++----
- net/tipc/bearer.h |    7 +-
- net/tipc/core.c   |    2 +-
- net/tipc/link.c   |  432 ++++++++++++++++++++++++++++++-----------------------
- net/tipc/link.h   |   34 ++---
- net/tipc/node.c   |    8 +-
- 7 files changed, 283 insertions(+), 249 deletions(-)
-
--- 
-1.7.9.5
+diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
+index 377f1e59411d..3b9718328d8b 100644
+--- a/include/uapi/linux/tcp.h
++++ b/include/uapi/linux/tcp.h
+@@ -186,6 +186,9 @@ struct tcp_info {
+ 	__u32	tcpi_rcv_space;
+ 
+ 	__u32	tcpi_total_retrans;
++
++	__u64	tcpi_pacing_rate;
++	__u64	tcpi_max_pacing_rate;
+ };
+ 
+ /* for TCP_MD5SIG socket option */
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 9f3a2db9109e..bed379c7abcd 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2794,6 +2794,11 @@ void tcp_get_info(const struct sock *sk, struct tcp_info *info)
+ 	info->tcpi_rcv_space = tp->rcvq_space.space;
+ 
+ 	info->tcpi_total_retrans = tp->total_retrans;
++
++	info->tcpi_pacing_rate = sk->sk_pacing_rate != ~0U ?
++					sk->sk_pacing_rate : ~0ULL;
++	info->tcpi_max_pacing_rate = sk->sk_max_pacing_rate != ~0U ?
++					sk->sk_max_pacing_rate : ~0ULL;
+ }
+ EXPORT_SYMBOL_GPL(tcp_get_info);
+ 
