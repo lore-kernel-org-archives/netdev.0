@@ -1,36 +1,45 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH] net: clear iflink when moving to a new netns
-Date: Wed, 12 Feb 2014 17:20:16 -0800
-Message-ID: <CAHA+R7NJ2uPbVdcdktD9R-_1QZnbwJXV+NP6jK0_ZTn=TF687g@mail.gmail.com>
-References: <1392162690-6647-1-git-send-email-xiyou.wangcong@gmail.com>
-	<20140212083322.1559f441@nehalam.linuxnetplumber.net>
+From: =?utf-8?B?SsO2cm4=?= Engel <joern@logfs.org>
+Subject: Re: [PATCH net 1/3] kref: add kref_sub_return
+Date: Wed, 12 Feb 2014 20:25:48 -0500
+Message-ID: <20140213012548.GA20953@logfs.org>
+References: <1392222846-26699-1-git-send-email-mst@redhat.com>
+	<1392222846-26699-2-git-send-email-mst@redhat.com>
+	<20140212165630.GA22991@kroah.com>
+	<20140212.190637.328045386111912135.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f43.google.com ([209.85.215.43]:59244 "EHLO
-	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751645AbaBMBUS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 20:20:18 -0500
-Received: by mail-la0-f43.google.com with SMTP id pv20so7627948lab.2
-        for <netdev@vger.kernel.org>; Wed, 12 Feb 2014 17:20:16 -0800 (PST)
-In-Reply-To: <20140212083322.1559f441@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: virtio-dev@lists.oasis-open.org, anatol.pomozov@gmail.com, mst@redhat.com,
+	gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, qinchuanyu@huawei.com
+To: David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20140212.190637.328045386111912135.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 12, 2014 at 8:33 AM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
->
-> This also breaks propogation of state changes from lower device
-> to upper device. Things like carrier and up/down.
->
-
-macvlan_device_event() handles this pretty well by using a pointer to
-net_device.
-I don't see it is a problem from the code.
+T24gV2VkLCAxMiBGZWJydWFyeSAyMDE0IDE5OjA2OjM3IC0wNTAwLCBEYXZpZCBNaWxsZXIgd3Jv
+dGU6Cj4gCj4gSXQgaXNuJ3QgYmVpbmcgdXNlZCB0byBkZXRlcm1pbmUgd2hlbiB0byBkZXN0cm95
+IHRoaW5ncy4KPiAKPiBUaGV5IHVzZSBpdCB0byBhcyBhIGhldXJpc3RpYyBvZiB3aGVuIHRvIHRy
+aWdnZXIgcG9sbGluZy4KPiAKPiBFYWNoIHVidWYgYXR0YWNoZWQgZ2V0cyBhIGtyZWYgdG8gdGhl
+IGhpZ2hlciBsZXZlbCB2aXJ0aW9fbmV0IGJ1ZmZlcgo+IGhvbGRpbmcgb2JqZWN0LCB0aGV5IHdh
+bnQgdG8gdHJpZ2dlciBwb2xsaW5nIHdoZW4gdGhhdCByZWZlcmVuY2UgZHJvcHMKPiB0byAxIG9y
+IGxvd2VyLgo+IAo+IFJpZ2h0IG5vdyB0aGV5IGFyZSByZWFkaW5nIHRoZSBhdG9taWMgcmVmY291
+bnQgZGlyZWN0bHksIHdoaWNoCj4gSSB0aGluayBpcyBtdWNoIHdvcnNlIHRoYW4gdGhpcyBoZWxw
+ZXIuCgpJIGRpc2FncmVlLiAgUmVhZGluZyB0aGUgcmVmY291bnQgZGlyZWN0bHkgaXMgbGVhdmlu
+ZyBub29uZSB1bmRlciBhbnkKaWxsdXNpb24gdGhhdCB0aGlzIG1pZ2h0IGJlIGEgZ29vZCBpZGVh
+LgoKSsO2cm4KCi0tClZpY3RvcnkgaW4gd2FyIGlzIG5vdCByZXBldGl0aW91cy4KLS0gU3VuIFR6
+dQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFs
+aXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlv
+bi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8v
+dmlydHVhbGl6YXRpb24=
