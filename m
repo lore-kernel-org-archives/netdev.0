@@ -1,47 +1,57 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net] virtio-net: alloc big buffers also when guest can
-	receive UFO
-Date: Thu, 13 Feb 2014 07:15:59 +0200
-Message-ID: <20140213051559.GB31352@redhat.com>
-References: <1392183808-16789-1-git-send-email-jasowang@redhat.com>
-	<20140212115901.GC23006@redhat.com> <52FC35B5.6000900@redhat.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 02/10] net: phy: add MoCA PHY type
+Date: Wed, 12 Feb 2014 21:29:47 -0800
+Message-ID: <1392269395-23513-3-git-send-email-f.fainelli@gmail.com>
+References: <1392269395-23513-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: virtio-dev@lists.oasis-open.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Sridhar Samudrala <sri@us.ibm.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <52FC35B5.6000900@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <cernekee@gmail.com>,
+	<devicetree@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:36719 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753385AbaBMFa0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 00:30:26 -0500
+In-Reply-To: <1392269395-23513-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 13, 2014 at 11:02:13AM +0800, Jason Wang wrote:
-> On 02/12/2014 07:59 PM, Michael S. Tsirkin wrote:
-> > On Wed, Feb 12, 2014 at 01:43:28PM +0800, Jason Wang wrote:
-> >> > We should alloc big buffers also when guest can receive UFO
-> >> > pakcets. Otherwise the big packets will be truncated when mergeable rx
-> >> > buffer is disabled.
-> > Not truncated, they will be dropped.
-> >
-> 
-> Why dropped? We enable the ufo on tap0 if VIRTIO_NET_F_GUEST_UFO is
-> negotiated. So skb was queued on the receive queue. But since the
-> receive buffer is small, it will be truncated during tun_put_user().
+Some Ethernet MACs are connected to a MoCA PHY which will handle the
+low-level job of sending Ethernet frames on the coaxial cable, these
+Ethernet MACs need to know about it to be properly configured.
+Add a new PHY mode "moca" and update the Device Tree parsing logic to
+look for it.
 
-Hypervisor shouldn't truncate packets silently - if it does
-it's a hypervisor bug. Passing malformed packets to guest is
-a bad idea.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+Changes since v1:
+- rebased against the latest net-next master branch
 
+ include/linux/phy.h | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 743c90e..950d2c9 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -75,6 +75,7 @@ typedef enum {
+ 	PHY_INTERFACE_MODE_SMII,
+ 	PHY_INTERFACE_MODE_XGMII,
+ 	PHY_INTERFACE_MODE_INTERNAL,
++	PHY_INTERFACE_MODE_MOCA,
+ 	PHY_INTERFACE_MODE_MAX,
+ } phy_interface_t;
+ 
+@@ -116,6 +117,8 @@ static inline const char *phy_modes(phy_interface_t interface)
+ 		return "xgmii";
+ 	case PHY_INTERFACE_MODE_INTERNAL:
+ 		return "internal";
++	case PHY_INTERFACE_MODE_MOCA:
++		return "moca";
+ 	default:
+ 		return "unknown";
+ 	}
 -- 
-MST
+1.8.3.2
