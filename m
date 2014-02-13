@@ -1,96 +1,97 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH next resend] tcp: use zero-window when free_space is low
-Date: Thu, 13 Feb 2014 06:58:19 -0800
-Message-ID: <1392303499.1752.19.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1392292350-28800-1-git-send-email-fw@strlen.de>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net,v3] hyperv: Fix the carrier status setting
+Date: Thu, 13 Feb 2014 15:04:45 +0000
+Message-ID: <900caa9031c345a6a21604ca7bb02174@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+References: <1392252867-21146-1-git-send-email-haiyangz@microsoft.com>
+ <52FC4147.7060803@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:47049 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751105AbaBMO6X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 09:58:23 -0500
-Received: by mail-pd0-f179.google.com with SMTP id fp1so10227413pdb.38
-        for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 06:58:23 -0800 (PST)
-In-Reply-To: <1392292350-28800-1-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>, "olaf@aepfle.de" <olaf@aepfle.de>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Jason Wang <jasowang@redhat.com>, "davem@davemloft.net"
+ <davem@davemloft.net>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <52FC4147.7060803@redhat.com>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-02-13 at 12:52 +0100, Florian Westphal wrote:
-> Currently the kernel tries to announce a zero window when free_space
-> is below the current receiver mss estimate.
-> 
-> When a sender is transmitting small packets and reader consumes data
-> slowly (or not at all), receiver might be unable to shrink the receive
-> win because
-> 
-> a) we cannot withdraw already-commited receive window, and,
-> b) we have to round the current rwin up to a multiple of the wscale
->    factor, else we would shrink the current window.
-> 
-> This causes the receive buffer to fill up until the rmem limit is hit.
-> When this happens, we start dropping packets.
-> 
-> Moreover, tcp_clamp_window may continue to grow sk_rcvbuf towards rmem[2]
-> even if socket is not being read from.
-> 
-> As we cannot avoid the "current_win is rounded up to multiple of mss"
-> issue [we would violate a) above] at least try to prevent the receive buf
-> growth towards tcp_rmem[2] limit by attempting to move to zero-window
-> announcement when free_space becomes less than 1/16 of the current
-> allowed receive buffer maximum.  If tcp_rmem[2] is large, this will
-> increase our chances to get a zero-window announcement out in time.
-> 
-> Reproducer:
-> On server:
-> $ nc -l -p 12345
-> <suspend it: CTRL-Z>
-> 
-> Client:
-> #!/usr/bin/env python
-> import socket
-> import time
-> 
-> sock = socket.socket()
-> sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-> sock.connect(("192.168.4.1", 12345));
-> while True:
->    sock.send('A' * 23)
->    time.sleep(0.005)
-> 
-> 
-> socket buffer on server-side will grow until tcp_rmem[2] is hit,
-> at which point the client rexmits data until -EDTIMEOUT:
-> 
-> tcp_data_queue invokes tcp_try_rmem_schedule which will call
-> tcp_prune_queue which calls tcp_clamp_window().  And that function will
-> grow sk->sk_rcvbuf up until it eventually hits tcp_rmem[2].
-> 
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> ---
->  V1 of this patch was deferred, resending to get discussion going again.
->  Changes since v1:
->   - add reproducer to commit message
-> 
->  Unfortunately I couldn't come up with something that has no magic
->  ('allowed >> 4') value.  I chose >>4 (1/16th) because it didn't cause
->  tput limitations in my 'full-mss-sized, steady state' netcat tests.
-> 
->  Maybe someone has better idea?
 
-Thanks a lot Florian looking at this.
 
-Do we have one SNMP counter tracking number of time we took the decision
-to send a 0 window ?
+> -----Original Message-----
+> From: Jason Wang [mailto:jasowang@redhat.com]
+> Sent: Wednesday, February 12, 2014 10:52 PM
+> To: Haiyang Zhang; davem@davemloft.net; netdev@vger.kernel.org
+> Cc: KY Srinivasan; olaf@aepfle.de; linux-kernel@vger.kernel.org; driverdev-
+> devel@linuxdriverproject.org
+> Subject: Re: [PATCH net,v3] hyperv: Fix the carrier status setting
+> 
+> On 02/13/2014 08:54 AM, Haiyang Zhang wrote:
+> > Without this patch, the "cat /sys/class/net/ethN/operstate" shows
+> > "unknown", and "ethtool ethN" shows "Link detected: yes", when VM
+> > boots up with or without vNIC connected.
+> >
+> > This patch fixed the problem.
+> >
+> > Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> > Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> > ---
+> >  drivers/net/hyperv/netvsc_drv.c |   53
+> ++++++++++++++++++++++++++++-----------
+> >  1 files changed, 38 insertions(+), 15 deletions(-)
+> >
+> > diff --git a/drivers/net/hyperv/netvsc_drv.c
+> > b/drivers/net/hyperv/netvsc_drv.c index 7756118..7141a19 100644
+> > --- a/drivers/net/hyperv/netvsc_drv.c
+> > +++ b/drivers/net/hyperv/netvsc_drv.c
+> > @@ -88,8 +88,12 @@ static int netvsc_open(struct net_device *net)  {
+> >  	struct net_device_context *net_device_ctx = netdev_priv(net);
+> >  	struct hv_device *device_obj = net_device_ctx->device_ctx;
+> > +	struct netvsc_device *nvdev;
+> > +	struct rndis_device *rdev;
+> >  	int ret = 0;
+> >
+> > +	netif_carrier_off(net);
+> > +
+> >  	/* Open up the device */
+> >  	ret = rndis_filter_open(device_obj);
+> >  	if (ret != 0) {
+> > @@ -99,6 +103,11 @@ static int netvsc_open(struct net_device *net)
+> >
+> >  	netif_start_queue(net);
+> >
+> > +	nvdev = hv_get_drvdata(device_obj);
+> > +	rdev = nvdev->extension;
+> > +	if (!rdev->link_state)
+> > +		netif_carrier_on(net);
+> > +
+> 
+> Maybe you can just schedule the work here and then you can drop the
+> rtnl_lock in netvsc_link_change() ?
 
-Would you mind waiting we run our packetdrill tests before acknowledging
-this patch, because I suspect this might have some impact ?
+The rtnl_lock will still be necessary in the netvsc_link_change(), because 
+we want to prevent it getting wrong rdev pointer when netvsc_change_mtu
+is removing/adding rndis device.
 
-Thanks !
+> > +
+> > +	if (notify)
+> > +		netdev_notify_peers(net);
+> >  }
+> >
+> 
+> Looks like this forces arp_notify here. Is it expected?
+
+Yes, this is expected. It's required after live migration.
+
+Thanks,
+- Haiyang
