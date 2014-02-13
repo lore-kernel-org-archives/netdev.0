@@ -1,58 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net: remove useless if check from
- register_netdevice()
-Date: Thu, 13 Feb 2014 14:21:48 -0500 (EST)
-Message-ID: <20140213.142148.477625151411590832.davem@davemloft.net>
-References: <1392266829-2365-1-git-send-email-kda@linux-powerpc.org>
-	<CAADnVQJwP+ThozpeKOEvzoJRkYQvZgWyM9U+ixyeKKH9nkNb6w@mail.gmail.com>
+Subject: Re: ovs inconsistent lock state
+Date: Thu, 13 Feb 2014 14:26:54 -0500 (EST)
+Message-ID: <20140213.142654.2111989507538583557.davem@davemloft.net>
+References: <20140213171307.GC2829@minipsycho.orion>
+	<CALnjE+oKrqMVWCrS3kSomxnsSJMFDpFsK8KY+oK1kVTd0Lb8Wg@mail.gmail.com>
+	<20140213181257.GD2829@minipsycho.orion>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kda@linux-powerpc.org, netdev@vger.kernel.org
-To: alexei.starovoitov@gmail.com
+Cc: pshelar@nicira.com, netdev@vger.kernel.org, jesse@nicira.com,
+	dev@openvswitch.org
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48770 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48830 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751959AbaBMTVt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 14:21:49 -0500
-In-Reply-To: <CAADnVQJwP+ThozpeKOEvzoJRkYQvZgWyM9U+ixyeKKH9nkNb6w@mail.gmail.com>
+	with ESMTP id S1750839AbaBMT05 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 14:26:57 -0500
+In-Reply-To: <20140213181257.GD2829@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Date: Thu, 13 Feb 2014 08:23:08 -0800
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Thu, 13 Feb 2014 19:12:57 +0100
 
-> On Wed, Feb 12, 2014 at 8:47 PM, Denis Kirjanov <kda@linux-powerpc.org> wrote:
->> remove useless if check from register_netdevice()
->>
->> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
->> ---
->> v1 -> v2: Fixed identation
->> ---
->>  net/core/dev.c | 3 +--
->>  1 file changed, 1 insertion(+), 2 deletions(-)
->>
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index 4ad1b78..21a72ad 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -5876,8 +5876,7 @@ int register_netdevice(struct net_device *dev)
->>         if (dev->netdev_ops->ndo_init) {
->>                 ret = dev->netdev_ops->ndo_init(dev);
->>                 if (ret) {
->> -                       if (ret > 0)
->> -                               ret = -EIO;
->> +                       ret = -EIO;
->>                         goto out;
-> 
-> why is it a useless check?
-> seems perfectly valid to me.
-> most of the time ndo_init() returns negative error code like -ENOMEM
-> which we want
-> to propagate further down and want to override it to -EIO if it's > 0
+>>> [ 3014.524118]  [<ffffffff815eb585>] ? __dev_queue_xmit+0x5/0x6a0
+  ...
+> I fail to see where bh is disabled. ovs_dp_process_received_packet() is
+> called with rcu_read_lock...
 
-Agreed, and if it is useless then unconditionally returining -EIO is
-absolutely the wrong thing to do.  We should always use whatever negative
-error code ndo_init() gave us.
-
-I'm not applying this patch.
+It happens in __dev_queue_xmit(), which does rcu_read_lock_bh().
