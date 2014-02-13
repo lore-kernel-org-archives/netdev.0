@@ -1,68 +1,34 @@
-From: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
-	<stefan.sorensen@spectralink.com>
-Subject: [PATCH] net:phy:dp83640: Move all HW initialization to dp83640_config_init
-Date: Thu, 13 Feb 2014 15:26:57 +0100
-Message-ID: <1392301617-24354-1-git-send-email-stefan.sorensen@spectralink.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 1/2] bonding: remove the redundant judgements
+ for bond_set_mac_address()
+Date: Thu, 13 Feb 2014 15:29:49 +0100
+Message-ID: <20140213142949.GA2829@minipsycho.orion>
+References: <1392188330-17208-1-git-send-email-dingtianhong@huawei.com>
+ <1392188330-17208-2-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
-	<stefan.sorensen@spectralink.com>
-To: richardcochran@gmail.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: fubar@us.ibm.com, vfalico@redhat.com, andy@greyhouse.net,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 213083164162.static.sonofon.dk ([213.83.164.162]:57713 "EHLO
-	HORWDSPRD01.spectralink.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751908AbaBMO1B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 09:27:01 -0500
+Received: from mail-ea0-f173.google.com ([209.85.215.173]:49927 "EHLO
+	mail-ea0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751001AbaBMO3y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 09:29:54 -0500
+Received: by mail-ea0-f173.google.com with SMTP id d10so5177027eaj.4
+        for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 06:29:53 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1392188330-17208-2-git-send-email-dingtianhong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-phy_init_hw not does a full PHY reset after the driver probe has
-finished, so any hw initialization done in the probe will be lost.
-Part of the timestamping functionality of the dp83640 is set up in the
-probe and with that lost, enabling timestamping will cause a PHY
-lockup, requiring a hard reset / power cycle to recover.
+Wed, Feb 12, 2014 at 07:58:49AM CET, dingtianhong@huawei.com wrote:
+>The dev_set_mac_address() will check the dev->netdev_ops->ndo_set_mac_address,
+>so no need to check it in bond_set_mac_address().
+>
+>Cc: Jay Vosburgh <fubar@us.ibm.com>
+>Cc: Veaceslav Falico <vfalico@redhat.com>
+>Cc: Andy Gospodarek <andy@greyhouse.net>
+>Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 
-This patch moves all the HW initialization in dp83640_probe to
-dp83640_config_init.
-
-Signed-off-by: Stefan S=C3=B8rensen <stefan.sorensen@spectralink.com>
----
- drivers/net/phy/dp83640.c | 13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
-index 0de863c..5ff221d 100644
---- a/drivers/net/phy/dp83640.c
-+++ b/drivers/net/phy/dp83640.c
-@@ -1017,11 +1017,6 @@ static int dp83640_probe(struct phy_device *phyd=
-ev)
- 	} else
- 		list_add_tail(&dp83640->list, &clock->phylist);
-=20
--	if (clock->chosen && !list_empty(&clock->phylist))
--		recalibrate(clock);
--	else
--		enable_broadcast(dp83640->phydev, clock->page, 1);
--
- 	dp83640_clock_put(clock);
- 	return 0;
-=20
-@@ -1074,6 +1069,14 @@ static void dp83640_remove(struct phy_device *ph=
-ydev)
-=20
- static int dp83640_config_init(struct phy_device *phydev)
- {
-+	struct dp83640_private *dp83640 =3D phydev->priv;
-+	struct dp83640_clock *clock =3D dp83640->clock;
-+
-+	if (clock->chosen && !list_empty(&clock->phylist))
-+		recalibrate(clock);
-+	else
-+		enable_broadcast(phydev, clock->page, 1);
-+
- 	enable_status_frames(phydev, true);
- 	ext_write(0, phydev, PAGE4, PTP_CTL, PTP_ENABLE);
- 	return 0;
---=20
-1.8.5.3
+Reviewed-by: Jiri Pirko <jiri@resnulli.us>
