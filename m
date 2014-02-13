@@ -1,8 +1,8 @@
 From: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
 	<stefan.sorensen@spectralink.com>
 Subject: [PATCH v3 3/3] net:phy:dp83640: Get pin and master/slave configuration from DT
-Date: Thu, 13 Feb 2014 15:35:25 +0100
-Message-ID: <1392302129-24947-4-git-send-email-stefan.sorensen@spectralink.com>
+Date: Thu, 13 Feb 2014 15:35:29 +0100
+Message-ID: <1392302129-24947-8-git-send-email-stefan.sorensen@spectralink.com>
 References: <1392302129-24947-1-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
