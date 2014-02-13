@@ -1,108 +1,76 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next v2 03/14] tipc: move code for
-	deleting links from bearer.c to link.c
-Date: Thu, 13 Feb 2014 17:29:07 -0500
-Message-ID: <1392330558-19048-4-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next v2 09/14] tipc: more cleanup of tunnelling reception function
+Date: Thu, 13 Feb 2014 17:29:13 -0500
+Message-ID: <1392330558-19048-10-git-send-email-jon.maloy@ericsson.com>
 References: <1392330558-19048-1-git-send-email-jon.maloy@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp103.biz.mail.ne1.yahoo.com ([98.138.207.10]:21063 "HELO
+	smtp103.biz.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752511AbaBMW3n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:29:43 -0500
 In-Reply-To: <1392330558-19048-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ying Xue <ying.xue@windriver.com>
+We simplify and slim down the code in function tipc_tunnel_rcv()
+No impact on the users of this function.
 
-We break out the code for deleting attached links in the
-function bearer_disable(), and define a new function named
-tipc_link_delete_list() to do this job.
-
-This commit incurs no functional changes, but makes the code of
-function bearer_disable() cleaner. It is also a preparation
-for a more important change to the bearer code, in a subsequent
-commit in this series.
-
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/bearer.c |    6 +-----
- net/tipc/link.c   |    9 +++++++++
- net/tipc/link.h   |    1 +
- 3 files changed, 11 insertions(+), 5 deletions(-)
+ net/tipc/link.c |   21 +++++++--------------
+ 1 file changed, 7 insertions(+), 14 deletions(-)
 
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index a3bdf5c..a5be053 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -366,16 +366,12 @@ static int tipc_reset_bearer(struct tipc_bearer *b_ptr)
-  */
- static void bearer_disable(struct tipc_bearer *b_ptr)
- {
--	struct tipc_link *l_ptr;
--	struct tipc_link *temp_l_ptr;
- 	struct tipc_link_req *temp_req;
- 
- 	pr_info("Disabling bearer <%s>\n", b_ptr->name);
- 	spin_lock_bh(&b_ptr->lock);
- 	b_ptr->media->disable_media(b_ptr);
--	list_for_each_entry_safe(l_ptr, temp_l_ptr, &b_ptr->links, link_list) {
--		tipc_link_delete(l_ptr);
--	}
-+	tipc_link_delete_list(b_ptr);
- 	temp_req = b_ptr->link_req;
- 	b_ptr->link_req = NULL;
- 	spin_unlock_bh(&b_ptr->lock);
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 3ff34e8..424e9f3 100644
+index f9f9068..3136788 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -313,6 +313,15 @@ void tipc_link_delete(struct tipc_link *l_ptr)
- 	kfree(l_ptr);
+@@ -2180,9 +2180,10 @@ static int tipc_link_tunnel_rcv(struct tipc_node *n_ptr,
+ 	struct sk_buff *tunnel_buf = *buf;
+ 	struct tipc_link *dest_link;
+ 	struct tipc_msg *tunnel_msg = buf_msg(tunnel_buf);
+-	u32 msg_typ = msg_type(tunnel_msg);
+ 	u32 bearer_id = msg_bearer_id(tunnel_msg);
+ 
++	*buf = NULL;
++
+ 	if (bearer_id >= MAX_BEARERS)
+ 		goto exit;
+ 
+@@ -2190,24 +2191,16 @@ static int tipc_link_tunnel_rcv(struct tipc_node *n_ptr,
+ 	if (!dest_link)
+ 		goto exit;
+ 
+-	if (msg_typ == DUPLICATE_MSG) {
++	if (msg_type(tunnel_msg) == DUPLICATE_MSG)
+ 		tipc_link_dup_rcv(dest_link, tunnel_buf);
+-		goto exit;
+-	}
+-
+-	if (msg_type(tunnel_msg) == ORIGINAL_MSG) {
++	else if (msg_type(tunnel_msg) == ORIGINAL_MSG)
+ 		*buf = tipc_link_failover_rcv(dest_link, tunnel_buf);
++	else
++		pr_warn("%sunknown tunnel pkt received\n", link_co_err);
+ 
+-		/* Do we have a buffer/buffer chain to return? */
+-		if (*buf != NULL) {
+-			kfree_skb(tunnel_buf);
+-			return 1;
+-		}
+-	}
+ exit:
+-	*buf = NULL;
+ 	kfree_skb(tunnel_buf);
+-	return 0;
++	return *buf != NULL;
  }
  
-+void tipc_link_delete_list(struct tipc_bearer *b_ptr)
-+{
-+	struct tipc_link *l_ptr;
-+	struct tipc_link *temp_l_ptr;
-+
-+	list_for_each_entry_safe(l_ptr, temp_l_ptr, &b_ptr->links, link_list) {
-+		tipc_link_delete(l_ptr);
-+	}
-+}
- 
- /**
-  * link_schedule_port - schedule port for deferred sending
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 73beecb..994ebd1 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -219,6 +219,7 @@ void tipc_link_delete(struct tipc_link *l_ptr);
- void tipc_link_failover_send_queue(struct tipc_link *l_ptr);
- void tipc_link_dup_send_queue(struct tipc_link *l_ptr,
- 			      struct tipc_link *dest);
-+void tipc_link_delete_list(struct tipc_bearer *b_ptr);
- void tipc_link_reset_fragments(struct tipc_link *l_ptr);
- int tipc_link_is_up(struct tipc_link *l_ptr);
- int tipc_link_is_active(struct tipc_link *l_ptr);
+ /*
 -- 
 1.7.9.5
-
-
-------------------------------------------------------------------------------
-Android apps run on BlackBerry 10
-Introducing the new BlackBerry 10.2.1 Runtime for Android apps.
-Now with support for Jelly Bean, Bluetooth, Mapview and more.
-Get your Android app in front of a whole new audience.  Start now.
-http://pubads.g.doubleclick.net/gampad/clk?id=124407151&iu=/4140/ostg.clktrk
