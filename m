@@ -1,71 +1,44 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v3 0/3] dp83640: Get pin and master/slave configuration
- from DT
-Date: Thu, 13 Feb 2014 17:39:57 -0500 (EST)
-Message-ID: <20140213.173957.2126489785330496380.davem@davemloft.net>
-References: <1392302129-24947-1-git-send-email-stefan.sorensen@spectralink.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH] net: clear iflink when moving to a new netns
+Date: Thu, 13 Feb 2014 14:44:05 -0800
+Message-ID: <CAHA+R7O4_a3wJct+rHhaQv+0OZHYV=c4+=QS9MTrQy5=rB1jLA@mail.gmail.com>
+References: <1392162690-6647-1-git-send-email-xiyou.wangcong@gmail.com>
+	<52FB969A.607@6wind.com>
+	<CAHA+R7Pd07-3-ikK9=o=6ZhwT1PY6iZTmLUnCCsJ2-e=KS5jOA@mail.gmail.com>
+	<87sirn4vqo.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
-	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: stefan.sorensen-usnHOLptxrsHrNJx0XZkJA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1392302129-24947-1-git-send-email-stefan.sorensen-usnHOLptxrsHrNJx0XZkJA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:54613 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751218AbaBMWoH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:44:07 -0500
+Received: by mail-lb0-f175.google.com with SMTP id p9so8626876lbv.6
+        for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 14:44:05 -0800 (PST)
+In-Reply-To: <87sirn4vqo.fsf@xmission.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Stefan S=F8rensen <stefan.sorensen-usnHOLptxrsHrNJx0XZkJA@public.gmane.org>
-Date: Thu, 13 Feb 2014 15:35:22 +0100
+On Wed, Feb 12, 2014 at 6:00 PM, Eric W. Biederman
+<ebiederm@xmission.com> wrote:
+>
+> There was an effort not long ago to make tunnels safe to pass between
+> namespaces.  NETIF_F_NETNS_LOCAL was removed from ip6_tunnel in that
+> effort.  Apparently something was overlooked.
+>
+> Making iflink a netdevice reference or finding a way to remove it
+> entirely seems better that masking the problem.
+>
 
-> This patch series add DT configuration to the DP83640 PHY driver and =
-makes
-> the configuration of periodic output pins dynamic.
->=20
-> Changes since v2:
->  - Add patch to properly configure perout triggers 0+1
->  - Keep extts and perout numbers separate
->  - Shorten pr_err lines
->=20
-> Changes since v1:
->  - Add bindings documentation
->  - Keep module parameters
->  - Rename gpio->pin
->  - Split patch into DT part and dynamic periodic output support
->=20
-> Stefan S=F8rensen (3):
->   net:phy:dp83640: Program pulsewidth2 values of perout triggers 0 an=
-d 1
->   net:phy:dp83640: Support a configurable number of periodic outputs
->   net:phy:dp83640: Get pin and master/slave configuration from DT
-
-I'm not applying this.
-
-This is a great example of why I hate module parameters.
-
-Whoever added these module parameters in the first place took the easy
-road and didn't have to think about whether this was a good way or not
-to specify these parameters.  Do you really think we can, like magic,
-just remove this module parameter without having to think about the
-consequences of that action at all?
-
-The entities currently specifying this parameter, do they just lose?
-
-Sorry, that's unacceptable.
-
-You'll have to code this in a way such that people who currently specif=
-y
-this parameter keep working.
-
-If you don't like it, be angry at whoever added this module parameter
-in the first place, not me.  Module parameters are 99 times out of 100
-not the right way to configure something, really.
+Yeah, looks like the trend is allowing more stacked devices to move to
+a new netns.
+Sounds good. I am working on a draft patch now.
 
 Thanks.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
