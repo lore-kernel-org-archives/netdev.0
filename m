@@ -1,51 +1,66 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net] net: of_mdio: fix of_set_phy_supported after driver probing
-Date: Thu, 13 Feb 2014 13:14:48 -0800
-Message-ID: <1392326088-3990-1-git-send-email-f.fainelli@gmail.com>
+From: folkert <folkert@vanheusden.com>
+Subject: AX.25
+Date: Thu, 13 Feb 2014 22:08:37 +0100
+Message-ID: <20140213210837.GO30054@belle.intranet.vanheusden.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, Florian Fainelli <f.fainelli@gmail.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:38938 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751460AbaBMVPV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 16:15:21 -0500
+Received: from keetweej.vanheusden.com ([80.101.105.103]:21231 "EHLO
+	keetweej.vanheusden.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751902AbaBMVQn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 16:16:43 -0500
+Received: from belle.intranet.vanheusden.com (unknown [192.168.64.100])
+	by keetweej.vanheusden.com (Postfix) with ESMTP id 152D61611FE
+	for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 22:08:38 +0100 (CET)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 8fdade4 ("net: of_mdio: parse "max-speed" property to set PHY
-supported features") introduced a typo in of_set_phy_supported for the
-first assignment of phydev->supported which will not effectively limit
-the PHY device supported features bits if the PHY driver contains
-"higher" features (e.g: max-speed = <100> and PHY driver has
-PHY_GBIT_FEATURES set).
+Hi,
 
-Fix this by making sure that the very first thing is to reset to sane
-defaults (PHY_BASIC_FEATURES) and then progressively add speed features
-as we parse them.
+In my neighbourhood (the Netherlands) I'm trying to make people
+enthousiast again for packet radio (AX.25) over CB radio (27mc).
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/of/of_mdio.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+For that I'm setting up a couple of nodes spread out of the netherlands
+which I want to interconnect over the internet (untill there is enough
+coverage).
+Each node has a radio and a pc with a baycom- or soundmodem setup (and
+maybe in the future these nice tnc-pi devices).
 
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index 875b7b6..495facc 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -24,7 +24,11 @@ MODULE_LICENSE("GPL");
- 
- static void of_set_phy_supported(struct phy_device *phydev, u32 max_speed)
- {
--	phydev->supported |= PHY_DEFAULT_FEATURES;
-+	/* The default values for phydev->supported are provided by the PHY
-+	 * driver "features" member, we want to reset to sane defaults fist
-+	 * before supporting higher speeds.
-+	 */
-+	phydev->supported &= PHY_DEFAULT_FEATURES;
- 
- 	switch (max_speed) {
- 	default:
+I've been investigating how to do this. For the distribution over the
+internet there's ax25ipd. Documention is a bit sparse though. Also I
+could not find how to bridge the ax.25 device of the baycom/sound-modem
+and the network device brought up by ax25ipd. It does mention bpqether
+module but from the name (and the modinfo output) I concluded that it is
+for bridging over ethernet, so not for bridging between two ax.25
+devices. Also I did not find anything like "ax25_forward" or so
+underneath /proc (like the /proc/sys/net/ipv4/ip_forward we have for
+ipv4).
+I think I read something about interfacing to TNC devices directly by
+ax25ipd but that won't work with baycom- and soundmodems.
+
+I'm capable of developing my own software, I wrote a network sniffer
+(in "sysopview") and stuff that creates raw-packets for IP, so how
+difficult can ax.25 be?
+	My plan is: using pcap sniff each packet from the two network
+devices and then using raw sockets feed them to the opposite interface.
+Yeah or I could create my own ax25ipd alike program, that does not
+matter.
+	My question is: apart from the design, is this the way to go?
+Should I indeed inject packets using raw ax25 sockets and retrieve them
+using pcap? Or also retrieve them using raw sockets? Or is there maybe
+even ready-made solution that I overlooked during the lengthy google
+search?
+
+
+regards,
+
+Folkert van Heusden
+
 -- 
-1.8.3.2
+MultiTail is a versatile tool for watching logfiles and output of
+commands. Filtering, coloring, merging, diff-view, etc.
+http://www.vanheusden.com/multitail/
+----------------------------------------------------------------------
+Phone: +31-6-41278122, PGP-key: 1F28D8AE, www.vanheusden.com
