@@ -1,168 +1,48 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net,v3] hyperv: Fix the carrier status setting
-Date: Thu, 13 Feb 2014 11:51:35 +0800
-Message-ID: <52FC4147.7060803@redhat.com>
-References: <1392252867-21146-1-git-send-email-haiyangz@microsoft.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/3] kref: add kref_sub_return
+Date: Wed, 12 Feb 2014 23:05:06 -0500 (EST)
+Message-ID: <20140212.230506.1305102368255894549.davem@davemloft.net>
+References: <20140212165630.GA22991@kroah.com>
+	<20140212.190637.328045386111912135.davem@davemloft.net>
+	<20140213013902.GA21261@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: driverdev-devel@linuxdriverproject.org, olaf@aepfle.de,
- linux-kernel@vger.kernel.org
-To: Haiyang Zhang <haiyangz@microsoft.com>, davem@davemloft.net,
- netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1392252867-21146-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Cc: virtio-dev@lists.oasis-open.org, anatol.pomozov@gmail.com, mst@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, qinchuanyu@huawei.com,
+	joern@logfs.org
+To: gregkh@linuxfoundation.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140213013902.GA21261@kroah.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 02/13/2014 08:54 AM, Haiyang Zhang wrote:
-> Without this patch, the "cat /sys/class/net/ethN/operstate" shows
-> "unknown", and "ethtool ethN" shows "Link detected: yes", when VM
-> boots up with or without vNIC connected.
->
-> This patch fixed the problem.
->
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
-> ---
->  drivers/net/hyperv/netvsc_drv.c |   53 ++++++++++++++++++++++++++++-----------
->  1 files changed, 38 insertions(+), 15 deletions(-)
->
-> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-> index 7756118..7141a19 100644
-> --- a/drivers/net/hyperv/netvsc_drv.c
-> +++ b/drivers/net/hyperv/netvsc_drv.c
-> @@ -88,8 +88,12 @@ static int netvsc_open(struct net_device *net)
->  {
->  	struct net_device_context *net_device_ctx = netdev_priv(net);
->  	struct hv_device *device_obj = net_device_ctx->device_ctx;
-> +	struct netvsc_device *nvdev;
-> +	struct rndis_device *rdev;
->  	int ret = 0;
->  
-> +	netif_carrier_off(net);
-> +
->  	/* Open up the device */
->  	ret = rndis_filter_open(device_obj);
->  	if (ret != 0) {
-> @@ -99,6 +103,11 @@ static int netvsc_open(struct net_device *net)
->  
->  	netif_start_queue(net);
->  
-> +	nvdev = hv_get_drvdata(device_obj);
-> +	rdev = nvdev->extension;
-> +	if (!rdev->link_state)
-> +		netif_carrier_on(net);
-> +
+From: Greg KH <gregkh@linuxfoundation.org>
+Date: Wed, 12 Feb 2014 17:39:02 -0800
 
-Maybe you can just schedule the work here and then you can drop the
-rtnl_lock in netvsc_link_change() ?
->  	return ret;
->  }
->  
-> @@ -229,23 +238,24 @@ void netvsc_linkstatus_callback(struct hv_device *device_obj,
->  	struct net_device *net;
->  	struct net_device_context *ndev_ctx;
->  	struct netvsc_device *net_device;
-> +	struct rndis_device *rdev;
->  
->  	net_device = hv_get_drvdata(device_obj);
-> +	rdev = net_device->extension;
-> +
-> +	rdev->link_state = status != 1;
-> +
->  	net = net_device->ndev;
->  
-> -	if (!net) {
-> -		netdev_err(net, "got link status but net device "
-> -				"not initialized yet\n");
-> +	if (!net || net->reg_state != NETREG_REGISTERED)
->  		return;
-> -	}
->  
-> +	ndev_ctx = netdev_priv(net);
->  	if (status == 1) {
-> -		netif_carrier_on(net);
-> -		ndev_ctx = netdev_priv(net);
->  		schedule_delayed_work(&ndev_ctx->dwork, 0);
->  		schedule_delayed_work(&ndev_ctx->dwork, msecs_to_jiffies(20));
->  	} else {
-> -		netif_carrier_off(net);
-> +		schedule_delayed_work(&ndev_ctx->dwork, 0);
->  	}
->  }
->  
-> @@ -388,17 +398,35 @@ static const struct net_device_ops device_ops = {
->   * current context when receiving RNDIS_STATUS_MEDIA_CONNECT event. So, add
->   * another netif_notify_peers() into a delayed work, otherwise GARP packet
->   * will not be sent after quick migration, and cause network disconnection.
-> + * Also, we update the carrier status here.
->   */
-> -static void netvsc_send_garp(struct work_struct *w)
-> +static void netvsc_link_change(struct work_struct *w)
->  {
->  	struct net_device_context *ndev_ctx;
->  	struct net_device *net;
->  	struct netvsc_device *net_device;
-> +	struct rndis_device *rdev;
-> +	bool notify;
-> +
-> +	rtnl_lock();
->  
->  	ndev_ctx = container_of(w, struct net_device_context, dwork.work);
->  	net_device = hv_get_drvdata(ndev_ctx->device_ctx);
-> +	rdev = net_device->extension;
->  	net = net_device->ndev;
-> -	netdev_notify_peers(net);
-> +
-> +	if (rdev->link_state) {
-> +		netif_carrier_off(net);
-> +		notify = false;
-> +	} else {
-> +		netif_carrier_on(net);
-> +		notify = true;
-> +	}
-> +
-> +	rtnl_unlock();
-> +
-> +	if (notify)
-> +		netdev_notify_peers(net);
->  }
->  
+> Yes, that's horrible as well, but as was already pointed out in this
+> thread, you can't rely on that value to really be "1" after reading it
+> due to the way krefs work, what happened if someone else just grabbed
+> it?
+> 
+> If all they want is a "count" for when to start polling, then use a
+> separate atomic count, but don't abuse the kref interface for this, I
+> don't think that will work properly at all.
 
-Looks like this forces arp_notify here. Is it expected?
+They want to know which thread of control decrements the count to "1"
+as buffers are released.
 
-Other looks good.
->  
-> @@ -414,13 +442,10 @@ static int netvsc_probe(struct hv_device *dev,
->  	if (!net)
->  		return -ENOMEM;
->  
-> -	/* Set initial state */
-> -	netif_carrier_off(net);
-> -
->  	net_device_ctx = netdev_priv(net);
->  	net_device_ctx->device_ctx = dev;
->  	hv_set_drvdata(dev, net);
-> -	INIT_DELAYED_WORK(&net_device_ctx->dwork, netvsc_send_garp);
-> +	INIT_DELAYED_WORK(&net_device_ctx->dwork, netvsc_link_change);
->  	INIT_WORK(&net_device_ctx->work, do_set_multicast);
->  
->  	net->netdev_ops = &device_ops;
-> @@ -443,8 +468,6 @@ static int netvsc_probe(struct hv_device *dev,
->  	}
->  	memcpy(net->dev_addr, device_info.mac_adr, ETH_ALEN);
->  
-> -	netif_carrier_on(net);
-> -
->  	ret = register_netdev(net);
->  	if (ret != 0) {
->  		pr_err("Unable to register netdev.\n");
+That seems entirely reasonable to me.
+
+They could add another atomic counter for this, but that's rather
+silly since the kref already has an atomic they can use for this
+purpose.
