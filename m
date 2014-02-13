@@ -1,34 +1,51 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 2/2] bonding: remove the redundant judgements
- for bond_option_queue_id_set()
-Date: Thu, 13 Feb 2014 15:30:09 +0100
-Message-ID: <20140213143009.GB2829@minipsycho.orion>
-References: <1392188330-17208-1-git-send-email-dingtianhong@huawei.com>
- <1392188330-17208-3-git-send-email-dingtianhong@huawei.com>
+From: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
+	<stefan.sorensen@spectralink.com>
+Subject: [PATCH v3 0/3] dp83640: Get pin and master/slave configuration from DT
+Date: Thu, 13 Feb 2014 15:35:22 +0100
+Message-ID: <1392302129-24947-1-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: fubar@us.ibm.com, vfalico@redhat.com, andy@greyhouse.net,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Ding Tianhong <dingtianhong@huawei.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
+	<stefan.sorensen@spectralink.com>
+To: richardcochran@gmail.com, grant.likely@linaro.org,
+	robh+dt@kernel.org, mark.rutland@arm.com,
+	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f178.google.com ([209.85.215.178]:36773 "EHLO
-	mail-ea0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751014AbaBMOaM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 09:30:12 -0500
-Received: by mail-ea0-f178.google.com with SMTP id a15so5108791eae.23
-        for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 06:30:11 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1392188330-17208-3-git-send-email-dingtianhong@huawei.com>
+Received: from 213083164162.static.sonofon.dk ([213.83.164.162]:47746 "EHLO
+	HORWDSPRD01.spectralink.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751323AbaBMOfg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 09:35:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Feb 12, 2014 at 07:58:50AM CET, dingtianhong@huawei.com wrote:
->The dev_valid_name() will check the buffer length for input name, no need to
->check it twice.
->
->Cc: Jay Vosburgh <fubar@us.ibm.com>
->Cc: Veaceslav Falico <vfalico@redhat.com>
->Cc: Andy Gospodarek <andy@greyhouse.net>
->Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+This patch series add DT configuration to the DP83640 PHY driver and ma=
+kes
+the configuration of periodic output pins dynamic.
 
-Reviewed-by: Jiri Pirko <jiri@resnulli.us>
+Changes since v2:
+ - Add patch to properly configure perout triggers 0+1
+ - Keep extts and perout numbers separate
+ - Shorten pr_err lines
+
+Changes since v1:
+ - Add bindings documentation
+ - Keep module parameters
+ - Rename gpio->pin
+ - Split patch into DT part and dynamic periodic output support
+
+Stefan S=C3=B8rensen (3):
+  net:phy:dp83640: Program pulsewidth2 values of perout triggers 0 and =
+1
+  net:phy:dp83640: Support a configurable number of periodic outputs
+  net:phy:dp83640: Get pin and master/slave configuration from DT
+
+ Documentation/devicetree/bindings/net/dp83640.txt |  29 ++++
+ drivers/net/phy/dp83640.c                         | 199 ++++++++++++++=
++-------
+ 2 files changed, 170 insertions(+), 58 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/dp83640.txt
+
+--=20
+1.8.5.3
