@@ -1,52 +1,57 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [RFC PATCH v2 tip 0/7] 64-bit BPF insn set and tracing filters
-Date: Thu, 13 Feb 2014 23:55:52 +0100
-Message-ID: <52FD4D78.4050709@redhat.com>
-References: <1391649046-4383-1-git-send-email-ast@plumgrid.com>	<52F3670D.5090608@redhat.com> <CAMEtUuza3NuM7L0RnVVgU-MTfjE2M==8wb4UY2TAo0Pg6DKZqA@mail.gmail.com> <52FD47F9.2090907@zytor.com> <52FD4AC0.7090502@redhat.com> <52FD4B97.9020306@zytor.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 00/14] tipc: clean up media and bearer layer
+Date: Thu, 13 Feb 2014 17:57:32 -0500 (EST)
+Message-ID: <20140213.175732.676150849615456691.davem@davemloft.net>
+References: <1392330558-19048-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	Ingo Molnar <mingo@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	Tom Zanussi <tom.zanussi@linux.intel.com>,
-	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Pekka Enberg <penberg@iki.fi>,
-	Arjan van de Ven <arjan@infradead.org>,
-	Christoph Hellwig <hch@infradead.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "H. Peter Anvin" <hpa@zytor.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52FD4B97.9020306@zytor.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51077 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751533AbaBMW5g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:57:36 -0500
+In-Reply-To: <1392330558-19048-1-git-send-email-jon.maloy@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/13/2014 11:47 PM, H. Peter Anvin wrote:
-> On 02/13/2014 02:44 PM, Daniel Borkmann wrote:
->>
->> Well, if that would be the case, then seccomp would have had JIT support
->> long ago. ;-) Right now BPF filters with seccomp are not JIT compiled
->> for _any_ architecture.
->
-> Really, I was under the impression there were.  They *should be*, that
-> was an important concept in the development of the seccomp filters.
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Thu, 13 Feb 2014 17:29:04 -0500
 
-$ git grep -n BPF_S_ANC_SECCOMP_LD_W
-include/linux/filter.h:153:     BPF_S_ANC_SECCOMP_LD_W,
-kernel/seccomp.c:136:                   ftest->code = BPF_S_ANC_SECCOMP_LD_W;
-net/core/filter.c:389:          case BPF_S_ANC_SECCOMP_LD_W:
-net/core/filter.c:812:          [BPF_S_ANC_SECCOMP_LD_W] = BPF_LD|BPF_B|BPF_ABS,
+> This commit series aims at facilitating future changes to the
+> locking policy around nodes, links and bearers.
+> 
+> Currently, we have a big read/write lock (net_lock) that is used for
+> serializing all changes to the node, link and bearer lists, as well
+> as to their mutual pointers and references.
+> 
+> But, in order to allow for concurrent access to the contents of these
+> structures, net_lock is only used in read mode by the data path code,
+> and hence a finer granular locking policy must be applied inside the
+> scope of net_lock: a spinlock (node_lock) for each node structure,
+> and another one (bearer_lock) for protection of bearer structures.
+> 
+> This locking policy has proved hard to maintain. We have several 
+> times encountered contention problems between node_lock and 
+> bearer_lock, and with the advent of the RCU locking mechanism we
+> feel it is anyway obsolete and ripe for improvements.
+> 
+> We now plan to replace net_lock with an RCU lock, as well as
+> getting rid of bearer_lock altogether. This will both reduce data
+> path overhead and make the code more manageable, while reducing the
+> risk of future lock contention problems.
+> 
+> Prior to these changes, we need to do some necessary cleanup and
+> code consolidation. This is what we do with this commit series,
+> before we finally remove bearer_lock. In a later series we will
+> replace net_lock with an RCU lock.
+> 
+> v2:
+>  - Re-inserted a removed kerneldoc entry in commit#5, based on 
+>    feedback from D. Miller.
 
-Afaik, there had been attempts to support it, but had flaws in it.
-
-> 	-hpa
->
+Series applied, thanks.
