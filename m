@@ -1,67 +1,70 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH net 1/3] kref: add kref_sub_return
-Date: Wed, 12 Feb 2014 17:39:02 -0800
-Message-ID: <20140213013902.GA21261@kroah.com>
-References: <1392222846-26699-1-git-send-email-mst@redhat.com>
-	<1392222846-26699-2-git-send-email-mst@redhat.com>
-	<20140212165630.GA22991@kroah.com>
-	<20140212.190637.328045386111912135.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] net: clear iflink when moving to a new netns
+Date: Wed, 12 Feb 2014 18:00:47 -0800
+Message-ID: <87sirn4vqo.fsf@xmission.com>
+References: <1392162690-6647-1-git-send-email-xiyou.wangcong@gmail.com>
+	<52FB969A.607@6wind.com>
+	<CAHA+R7Pd07-3-ikK9=o=6ZhwT1PY6iZTmLUnCCsJ2-e=KS5jOA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: virtio-dev@lists.oasis-open.org, anatol.pomozov@gmail.com, mst@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, qinchuanyu@huawei.com,
-	joern@logfs.org
-To: David Miller <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20140212.190637.328045386111912135.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:39661 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751585AbaBMCAz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 21:00:55 -0500
+In-Reply-To: <CAHA+R7Pd07-3-ikK9=o=6ZhwT1PY6iZTmLUnCCsJ2-e=KS5jOA@mail.gmail.com>
+	(Cong Wang's message of "Wed, 12 Feb 2014 17:18:08 -0800")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 12, 2014 at 07:06:37PM -0500, David Miller wrote:
-> From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> Date: Wed, 12 Feb 2014 08:56:30 -0800
-> 
-> > On Wed, Feb 12, 2014 at 06:38:21PM +0200, Michael S. Tsirkin wrote:
-> >> It is sometimes useful to get the value of the reference count after
-> >> decrement.
-> >> For example, vhost wants to execute some periodic cleanup operations
-> >> once number of references drops below a specific value, before it
-> >> reaches zero (for efficiency).
-> > 
-> > You should never care about what the value of the kref is, if you are
-> > using it correctly :)
-> 
-> It isn't being used to determine when to destroy things.
-> 
-> They use it to as a heuristic of when to trigger polling.
-> 
-> Each ubuf attached gets a kref to the higher level virtio_net buffer
-> holding object, they want to trigger polling when that reference drops
-> to 1 or lower.
-> 
-> Right now they are reading the atomic refcount directly, which
-> I think is much worse than this helper.
+Cong Wang <cwang@twopensource.com> writes:
 
-Yes, that's horrible as well, but as was already pointed out in this
-thread, you can't rely on that value to really be "1" after reading it
-due to the way krefs work, what happened if someone else just grabbed
-it?
+> On Wed, Feb 12, 2014 at 7:43 AM, Nicolas Dichtel
+> <nicolas.dichtel@6wind.com> wrote:
+>> Le 12/02/2014 00:51, Cong Wang a =C3=A9crit :
+>>
+>>> From: Cong Wang <cwang@twopensource.com>
+>>>
+>>> BZ: https://bugzilla.kernel.org/show_bug.cgi?id=3D66691
+>>>
+>>> macvlan and vlan both use iflink to identify its lower device,
+>>> however, after such device is moved to the new netns, its iflink
+>>> would become meaningless as ifindex is per netns. So, instead of
+>>> forbid them moving to another netns, just clear this field so that
+>>> it will not be dumped at least.
+>>>
+>>> Cc: David S. Miller <davem@davemloft.net>
+>>> Cc: Eric W. Biederman <ebiederm@xmission.com>
+>>> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+>>> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+>>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>>> Signed-off-by: Cong Wang <cwang@twopensource.com>
+>>
+>> I wonder if this patch breaks things in ip tunnels.
+>> For example, ip6_tunnel uses iflink to find tunnels that are bound t=
+o an
+>> interface.
+>> If you reset this field, ipip6_tunnel_lookup() will fail when the tu=
+nnel
+>> moves
+>> to another netns.
+>
+> Most tunnels set NETIF_F_NETNS_LOCAL, ip6_tunnel should set it too
+> (need a patch). So this is not a problem.
 
-If all they want is a "count" for when to start polling, then use a
-separate atomic count, but don't abuse the kref interface for this, I
-don't think that will work properly at all.
+There was an effort not long ago to make tunnels safe to pass between
+namespaces.  NETIF_F_NETNS_LOCAL was removed from ip6_tunnel in that
+effort.  Apparently something was overlooked.
 
-thanks,
+Making iflink a netdevice reference or finding a way to remove it
+entirely seems better that masking the problem.
 
-greg k-h
+Eric
