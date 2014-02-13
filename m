@@ -1,48 +1,50 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v2 net-next] net: remove useless if check from register_netdevice()
-Date: Thu, 13 Feb 2014 08:23:08 -0800
-Message-ID: <CAADnVQJwP+ThozpeKOEvzoJRkYQvZgWyM9U+ixyeKKH9nkNb6w@mail.gmail.com>
-References: <1392266829-2365-1-git-send-email-kda@linux-powerpc.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Denis Kirjanov <kda@linux-powerpc.org>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH iproute2 v2] iplink_bond: fix parameter value matching
+Date: Thu, 13 Feb 2014 17:31:59 +0100 (CET)
+Message-ID: <20140213163159.7F73CE668E@unicorn.suse.cz>
+References: <52F448AF.3060604@huawei.com>
+Cc: netdev@vger.kernel.org, Ding Tianhong <dingtianhong@huawei.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f171.google.com ([209.85.216.171]:38478 "EHLO
-	mail-qc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751775AbaBMQXJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 11:23:09 -0500
-Received: by mail-qc0-f171.google.com with SMTP id n7so18415660qcx.30
-        for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 08:23:08 -0800 (PST)
-In-Reply-To: <1392266829-2365-1-git-send-email-kda@linux-powerpc.org>
+Received: from cantor2.suse.de ([195.135.220.15]:40980 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751676AbaBMQcA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Feb 2014 11:32:00 -0500
+In-Reply-To: <52F448AF.3060604@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 12, 2014 at 8:47 PM, Denis Kirjanov <kda@linux-powerpc.org> wrote:
-> remove useless if check from register_netdevice()
->
-> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
-> ---
-> v1 -> v2: Fixed identation
-> ---
->  net/core/dev.c | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
->
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 4ad1b78..21a72ad 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -5876,8 +5876,7 @@ int register_netdevice(struct net_device *dev)
->         if (dev->netdev_ops->ndo_init) {
->                 ret = dev->netdev_ops->ndo_init(dev);
->                 if (ret) {
-> -                       if (ret > 0)
-> -                               ret = -EIO;
-> +                       ret = -EIO;
->                         goto out;
+Lookup function get_index() compares argument with table entries
+only up to the length of the table entry so that if an entry
+with lower index is a substring of a later one, earlier entry is
+used even if the argument is equal to the other. For example,
 
-why is it a useless check?
-seems perfectly valid to me.
-most of the time ndo_init() returns negative error code like -ENOMEM
-which we want
-to propagate further down and want to override it to -EIO if it's > 0
+  ip link set bond0 type bond xmit_hash_policy layer2+3
+
+sets xmit_hash_policy to 0 (layer2) as this is found before
+"layer2+3" can be checked.
+
+Use strcmp() to compare whole strings instead.
+
+v2: look for an exact match only
+
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+---
+ ip/iplink_bond.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/ip/iplink_bond.c b/ip/iplink_bond.c
+index f22151e..7a950df 100644
+--- a/ip/iplink_bond.c
++++ b/ip/iplink_bond.c
+@@ -106,7 +106,7 @@ static int get_index(const char **tbl, char *name)
+ 				return i;
+ 
+ 	for (i = 0; tbl[i]; i++)
+-		if (strncmp(tbl[i], name, strlen(tbl[i])) == 0)
++		if (strcmp(tbl[i], name) == 0)
+ 			return i;
+ 
+ 	return -1;
+-- 
+1.8.1.4
