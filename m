@@ -1,159 +1,86 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net v2] vhost: fix ref cnt checking deadlock
-Date: Thu, 13 Feb 2014 18:00:11 +0800
-Message-ID: <52FC97AB.7040901@redhat.com>
-References: <1392284448-1977-1-git-send-email-mst@redhat.com>
+From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Subject: Re: [net-next 3/3] cfg80211: add MPLS and 802.21 classification
+Date: Thu, 13 Feb 2014 11:46:01 +0100
+Message-ID: <201402131146.01749.sw@simonwunderlich.de>
+References: <1392202386-8826-1-git-send-email-sw@simonwunderlich.de> <1392202386-8826-4-git-send-email-sw@simonwunderlich.de> <1392205783.1868.5.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Qin Chuanyu <qinchuanyu@huawei.com>, kvm@vger.kernel.org,
-        virtio-dev@lists.oasis-open.org,
-        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org,
-        David Miller <davem@davemloft.net>
-Return-path: <virtio-dev-return-385-gcvd-virtio-dev=m.gmane.org@lists.oasis-open.org>
-Sender: <virtio-dev@lists.oasis-open.org>
-List-Post: <mailto:virtio-dev@lists.oasis-open.org>
-List-Help: <mailto:virtio-dev-help@lists.oasis-open.org>
-List-Unsubscribe: <mailto:virtio-dev-unsubscribe@lists.oasis-open.org>
-List-Subscribe: <mailto:virtio-dev-subscribe@lists.oasis-open.org>
-In-Reply-To: <1392284448-1977-1-git-send-email-mst@redhat.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	mathias.kretschmer-8LS2qeF34IpklNlQbfROjRvVK+yQ3ZXh@public.gmane.org
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1392205783.1868.5.camel@joe-AO722>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 02/13/2014 05:42 PM, Michael S. Tsirkin wrote:
-> vhost checked the counter within the refcnt before decrementing.  It
-> really wanted to know that it is the one that has the last reference, as
-> a way to batch freeing resources a bit more efficiently.
->
-> Note: we only let refcount go to 0 on device release.
->
-> This works well but we now access the ref counter twice so there's a
-> race: all users might see a high count and decide to defer freeing
-> resources.
-> In the end no one initiates freeing resources until the last reference
-> is gone (which is on VM shotdown so might happen after a looooong time).
->
-> Let's do what we probably should have done straight away:
-> switch from kref to plain atomic, documenting the
-> semantics, return the refcount value atomically after decrement,
-> then use that to avoid the deadlock.
->
-> Reported-by: Qin Chuanyu <qinchuanyu@huawei.com>
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
->
-> This patch is needed for 3.14 and -stable.
->
->  drivers/vhost/net.c | 41 ++++++++++++++++++++---------------------
->  1 file changed, 20 insertions(+), 21 deletions(-)
->
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index 831eb4f..b12176f 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -70,7 +70,12 @@ enum {
->  };
->  
->  struct vhost_net_ubuf_ref {
-> -	struct kref kref;
-> +	/* refcount follows semantics similar to kref:
-> +	 *  0: object is released
-> +	 *  1: no outstanding ubufs
-> +	 * >1: outstanding ubufs
-> +	 */
-> +	atomic_t refcount;
->  	wait_queue_head_t wait;
->  	struct vhost_virtqueue *vq;
->  };
-> @@ -116,14 +121,6 @@ static void vhost_net_enable_zcopy(int vq)
->  	vhost_net_zcopy_mask |= 0x1 << vq;
->  }
->  
-> -static void vhost_net_zerocopy_done_signal(struct kref *kref)
-> -{
-> -	struct vhost_net_ubuf_ref *ubufs;
-> -
-> -	ubufs = container_of(kref, struct vhost_net_ubuf_ref, kref);
-> -	wake_up(&ubufs->wait);
-> -}
-> -
->  static struct vhost_net_ubuf_ref *
->  vhost_net_ubuf_alloc(struct vhost_virtqueue *vq, bool zcopy)
->  {
-> @@ -134,21 +131,24 @@ vhost_net_ubuf_alloc(struct vhost_virtqueue *vq, bool zcopy)
->  	ubufs = kmalloc(sizeof(*ubufs), GFP_KERNEL);
->  	if (!ubufs)
->  		return ERR_PTR(-ENOMEM);
-> -	kref_init(&ubufs->kref);
-> +	atomic_set(&ubufs->refcount, 1);
->  	init_waitqueue_head(&ubufs->wait);
->  	ubufs->vq = vq;
->  	return ubufs;
->  }
->  
-> -static void vhost_net_ubuf_put(struct vhost_net_ubuf_ref *ubufs)
-> +static int vhost_net_ubuf_put(struct vhost_net_ubuf_ref *ubufs)
->  {
-> -	kref_put(&ubufs->kref, vhost_net_zerocopy_done_signal);
-> +	int r = atomic_sub_return(1, &ubufs->refcount);
-> +	if (unlikely(!r))
-> +		wake_up(&ubufs->wait);
-> +	return r;
->  }
->  
->  static void vhost_net_ubuf_put_and_wait(struct vhost_net_ubuf_ref *ubufs)
->  {
-> -	kref_put(&ubufs->kref, vhost_net_zerocopy_done_signal);
-> -	wait_event(ubufs->wait, !atomic_read(&ubufs->kref.refcount));
-> +	vhost_net_ubuf_put(ubufs);
-> +	wait_event(ubufs->wait, !atomic_read(&ubufs->refcount));
->  }
->  
->  static void vhost_net_ubuf_put_wait_and_free(struct vhost_net_ubuf_ref *ubufs)
-> @@ -306,22 +306,21 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
->  {
->  	struct vhost_net_ubuf_ref *ubufs = ubuf->ctx;
->  	struct vhost_virtqueue *vq = ubufs->vq;
-> -	int cnt = atomic_read(&ubufs->kref.refcount);
-> +	int cnt;
->  
->  	/* set len to mark this desc buffers done DMA */
->  	vq->heads[ubuf->desc].len = success ?
->  		VHOST_DMA_DONE_LEN : VHOST_DMA_FAILED_LEN;
-> -	vhost_net_ubuf_put(ubufs);
-> +	cnt = vhost_net_ubuf_put(ubufs);
->  
->  	/*
->  	 * Trigger polling thread if guest stopped submitting new buffers:
-> -	 * in this case, the refcount after decrement will eventually reach 1
-> -	 * so here it is 2.
-> +	 * in this case, the refcount after decrement will eventually reach 1.
->  	 * We also trigger polling periodically after each 16 packets
->  	 * (the value 16 here is more or less arbitrary, it's tuned to trigger
->  	 * less than 10% of times).
->  	 */
-> -	if (cnt <= 2 || !(cnt % 16))
-> +	if (cnt <= 1 || !(cnt % 16))
->  		vhost_poll_queue(&vq->poll);
->  }
->  
-> @@ -420,7 +419,7 @@ static void handle_tx(struct vhost_net *net)
->  			msg.msg_control = ubuf;
->  			msg.msg_controllen = sizeof(ubuf);
->  			ubufs = nvq->ubufs;
-> -			kref_get(&ubufs->kref);
-> +			atomic_inc(&ubufs->refcount);
->  			nvq->upend_idx = (nvq->upend_idx + 1) % UIO_MAXIOV;
->  		} else {
->  			msg.msg_control = NULL;
-> @@ -785,7 +784,7 @@ static void vhost_net_flush(struct vhost_net *n)
->  		vhost_net_ubuf_put_and_wait(n->vqs[VHOST_NET_VQ_TX].ubufs);
->  		mutex_lock(&n->vqs[VHOST_NET_VQ_TX].vq.mutex);
->  		n->tx_flush = false;
-> -		kref_init(&n->vqs[VHOST_NET_VQ_TX].ubufs->kref);
-> +		atomic_set(&n->vqs[VHOST_NET_VQ_TX].ubufs->refcount, 1);
->  		mutex_unlock(&n->vqs[VHOST_NET_VQ_TX].vq.mutex);
->  	}
->  }
+Hey Joe,
 
-Acked-by: Jason Wang <jasowang@redhat.com>
+thanks for the comments!
+
+> On Wed, 2014-02-12 at 11:53 +0100, Simon Wunderlich wrote:
+> > MPLS labels may contain traffic control information, which should be
+> > evaluated and used by the wireless subsystem if present.
+> 
+> trivial notes:
+> > diff --git a/net/wireless/util.c b/net/wireless/util.c
+> 
+> []
+> 
+> > @@ -11,6 +11,7 @@
+> > 
+> >  #include <net/ip.h>
+> >  #include <net/dsfield.h>
+> >  #include <linux/if_vlan.h>
+> > 
+> > +#include <uapi/linux/mpls.h>
+> 
+> Please try not to #include uapi files.
+> 
+
+why not? The packet definition header has been put in UAPI, so I need that 
+there ... or should we move that to some place else? Other protocol definition 
+headers like IP, udp, tcp have been defined in uapi too the same way, so I 
+figured that would be the right position.
+
+> > @@ -710,6 +711,29 @@ unsigned int cfg80211_classify8021d(struct sk_buff
+> > *skb,
+> > 
+> >  			return vlan_priority;
+> >  	
+> >  	}
+> > 
+> > +	if (skb_headlen(skb) >= sizeof(struct ethhdr)) {
+> > +		struct ethhdr *eh = (struct ethhdr *) skb->data;
+> > +		struct mpls_label_stack mpls_tmp, *mpls;
+> > +
+> > +		switch (eh->h_proto) {
+> > +		case __constant_htons(ETH_P_MPLS_UC):
+> 
+> > +		case __constant_htons(ETH_P_MPLS_MC):
+> __constant_ isn't necessary for these labels.
+> 
+
+OK, I will change that.
+
+> >  	switch (skb->protocol) {
+> >  	
+> >  	case htons(ETH_P_IP):
+> >  		dscp = ipv4_get_dsfield(ip_hdr(skb)) & 0xfc;
+> 
+> like this, just case htons(ETH_<FOO>) is enough.
+
+OK.
+
+I can rework and resend this particular patch - probably to linux wireless. If 
+the other patches are ok, would you guys merge the first two patches to net-
+next then?
+
+Thanks,
+    Simon
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
