@@ -1,71 +1,55 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 08/14] net: axienet: Removed checkpatch errors/warnings
-Date: Wed, 12 Feb 2014 16:31:34 -0800
-Message-ID: <1392251494.2214.11.camel@joe-AO722>
-References: <cover.1392220536.git.michal.simek@xilinx.com>
-	 <75b669c0a947effe74b291093abfa8c71f83736a.1392220536.git.michal.simek@xilinx.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv3 1/2] net: stmmac: Add SOCFPGA glue driver
+Date: Wed, 12 Feb 2014 19:35:39 -0500 (EST)
+Message-ID: <20140212.193539.38124529344029793.davem@davemloft.net>
+References: <1392061697-20193-1-git-send-email-dinguyen@altera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Srikanth Thokala <sthokal@xilinx.com>,
-	Srikanth Thokala <srikanth.thokala@xilinx.com>,
-	Michal Simek <monstr@monstr.eu>,
-	Anirudha Sarangi <anirudh@xilinx.com>,
-	John Linn <John.Linn@xilinx.com>,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Michal Simek <michal.simek@xilinx.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <75b669c0a947effe74b291093abfa8c71f83736a.1392220536.git.michal.simek@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	dinh.linux@gmail.com, peppe.cavallaro@st.com, robh+dt@kernel.org,
+	pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	vbridgers2013@gmail.com
+To: dinguyen@altera.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34669 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751566AbaBMAfl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 19:35:41 -0500
+In-Reply-To: <1392061697-20193-1-git-send-email-dinguyen@altera.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-02-12 at 16:55 +0100, Michal Simek wrote:
-> From: Srikanth Thokala <srikanth.thokala@xilinx.com>
+From: <dinguyen@altera.com>
+Date: Mon, 10 Feb 2014 13:48:16 -0600
 
-trivia:
-
-> diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-
-> +			netdev_err(lp->ndev,
-> +				"axienet_device_reset DMA reset timeout!\n");
-
-could you please align multi-line arguments to the
-appropriate open parenthesis?
-
-			netdev_err(lp->ndev,
-				   "axienet_device_reset DMA reset timeout!\n");
-
-or maybe:
-
-			netdev_err(lp->ndev, "%s: "DMA reset timeout!\n",
-				   __func__);
-
-> @@ -484,8 +484,8 @@ static void axienet_device_reset(struct net_device *ndev)
->  	}
+> From: Dinh Nguyen <dinguyen@altera.com>
 > 
->  	if (axienet_dma_bd_init(ndev)) {
-> -		dev_err(&ndev->dev, "axienet_device_reset descriptor "
-> -			"allocation failed\n");
-> +		netdev_err(ndev,
-> +			"axienet_device_reset descriptor allocation failed\n");
-
-etc, et al.
-
-> diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_mdio.c b/drivers/net/ethernet/xilinx/xilinx_axienet_mdio.c
-[]
-> @@ -161,19 +161,19 @@ int axienet_mdio_setup(struct axienet_local *lp, struct device_node *np)
+> Like the STi series SOCs, Altera's SOCFPGA also needs a glue layer on top of the
+> Synopsys gmac IP.
 > 
->  	np1 = of_find_node_by_name(NULL, "cpu");
->  	if (!np1) {
-> -		printk(KERN_WARNING "%s(): Could not find CPU device node.",
-> -		       __func__);
-> -		printk(KERN_WARNING "Setting MDIO clock divisor to "
-> -		       "default %d\n", DEFAULT_CLOCK_DIVISOR);
-> +		netdev_warn(lp->ndev, "Could not find CPU device node.");
+> This patch adds the platform driver for the glue layer which configures the IP
+> before the generic STMMAC driver takes over.
+> 
+> Signed-off-by: Dinh Nguyen <dinguyen@altera.com>
+> Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> Cc: Rob Herring <robh+dt@kernel.org>
+> Cc: Pawel Moll <pawel.moll@arm.com>
+> Cc: Mark Rutland <mark.rutland@arm.com>
+> Cc: Ian Campbell <ijc+devicetree@hellion.org.uk>
+> Cc: Kumar Gala <galak@codeaurora.org>
+> Cc: Vince Bridgers <vbridgers2013@gmail.com>
+> ---
+> v3: Remove stray empty line at end of dwmac-socfpga.c.
+> v2: Use the dwmac-sti as an example for a glue layer and split patch up
+> to have dts as a separate patch. Also cc dts maintainers since there is
+> a new binding.
 
-missing trailing "\n" to terminate message.
+The second patch for the DTS update doesn't apply cleanly at all to
+mainline.
 
-> +		netdev_warn(lp->ndev,
-> +			 "Could not find clock ethernet controller property.");
+Why don't you push both of these patches through whatever tree that
+file is maintained under.  You can add my ack:
 
-here too. (and alignment)
+Acked-by: David S. Miller <davem@davemloft.net>
