@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next v2 04/14] tipc: redefine
-	'started' flag in struct link to bitmap
-Date: Thu, 13 Feb 2014 17:29:08 -0500
-Message-ID: <1392330558-19048-5-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next v2 03/14] tipc: move code for
+	deleting links from bearer.c to link.c
+Date: Thu, 13 Feb 2014 17:29:07 -0500
+Message-ID: <1392330558-19048-4-git-send-email-jon.maloy@ericsson.com>
 References: <1392330558-19048-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,110 +24,78 @@ List-Id: netdev.vger.kernel.org
 
 From: Ying Xue <ying.xue@windriver.com>
 
-Currently, the 'started' field in struct tipc_link represents only a
-binary state, 'started' or 'not started'. We need it to represent
-more link execution states in the coming commits in this series.
-Hence, we rename the field to 'flags', and define the current
-started/non-started state to be represented by the LSB bit of
-that field.
+We break out the code for deleting attached links in the
+function bearer_disable(), and define a new function named
+tipc_link_delete_list() to do this job.
+
+This commit incurs no functional changes, but makes the code of
+function bearer_disable() cleaner. It is also a preparation
+for a more important change to the bearer code, in a subsequent
+commit in this series.
 
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 Reviewed-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/link.c |    4 ++--
- net/tipc/link.h |   22 +++++++++++-----------
- 2 files changed, 13 insertions(+), 13 deletions(-)
+ net/tipc/bearer.c |    6 +-----
+ net/tipc/link.c   |    9 +++++++++
+ net/tipc/link.h   |    1 +
+ 3 files changed, 11 insertions(+), 5 deletions(-)
 
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index a3bdf5c..a5be053 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -366,16 +366,12 @@ static int tipc_reset_bearer(struct tipc_bearer *b_ptr)
+  */
+ static void bearer_disable(struct tipc_bearer *b_ptr)
+ {
+-	struct tipc_link *l_ptr;
+-	struct tipc_link *temp_l_ptr;
+ 	struct tipc_link_req *temp_req;
+ 
+ 	pr_info("Disabling bearer <%s>\n", b_ptr->name);
+ 	spin_lock_bh(&b_ptr->lock);
+ 	b_ptr->media->disable_media(b_ptr);
+-	list_for_each_entry_safe(l_ptr, temp_l_ptr, &b_ptr->links, link_list) {
+-		tipc_link_delete(l_ptr);
+-	}
++	tipc_link_delete_list(b_ptr);
+ 	temp_req = b_ptr->link_req;
+ 	b_ptr->link_req = NULL;
+ 	spin_unlock_bh(&b_ptr->lock);
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 424e9f3..2070d03 100644
+index 3ff34e8..424e9f3 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -500,7 +500,7 @@ static void link_state_event(struct tipc_link *l_ptr, unsigned int event)
- 	struct tipc_link *other;
- 	u32 cont_intv = l_ptr->continuity_interval;
+@@ -313,6 +313,15 @@ void tipc_link_delete(struct tipc_link *l_ptr)
+ 	kfree(l_ptr);
+ }
  
--	if (!l_ptr->started && (event != STARTING_EVT))
-+	if (!(l_ptr->flags & LINK_STARTED) && (event != STARTING_EVT))
- 		return;		/* Not yet. */
++void tipc_link_delete_list(struct tipc_bearer *b_ptr)
++{
++	struct tipc_link *l_ptr;
++	struct tipc_link *temp_l_ptr;
++
++	list_for_each_entry_safe(l_ptr, temp_l_ptr, &b_ptr->links, link_list) {
++		tipc_link_delete(l_ptr);
++	}
++}
  
- 	/* Check whether changeover is going on */
-@@ -626,7 +626,7 @@ static void link_state_event(struct tipc_link *l_ptr, unsigned int event)
- 			link_set_timer(l_ptr, cont_intv);
- 			break;
- 		case STARTING_EVT:
--			l_ptr->started = 1;
-+			l_ptr->flags |= LINK_STARTED;
- 			/* fall through */
- 		case TIMEOUT_EVT:
- 			tipc_link_send_proto_msg(l_ptr, RESET_MSG, 0, 0, 0, 0, 0);
+ /**
+  * link_schedule_port - schedule port for deferred sending
 diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 994ebd1..a900e74 100644
+index 73beecb..994ebd1 100644
 --- a/net/tipc/link.h
 +++ b/net/tipc/link.h
-@@ -1,7 +1,7 @@
- /*
-  * net/tipc/link.h: Include file for TIPC link code
-  *
-- * Copyright (c) 1995-2006, Ericsson AB
-+ * Copyright (c) 1995-2006, 2013, Ericsson AB
-  * Copyright (c) 2004-2005, 2010-2011, Wind River Systems
-  * All rights reserved.
-  *
-@@ -40,27 +40,27 @@
- #include "msg.h"
- #include "node.h"
- 
--/*
-- * Link reassembly status codes
-+/* Link reassembly status codes
-  */
- #define LINK_REASM_ERROR	-1
- #define LINK_REASM_COMPLETE	1
- 
--/*
-- * Out-of-range value for link sequence numbers
-+/* Out-of-range value for link sequence numbers
-  */
- #define INVALID_LINK_SEQ 0x10000
- 
--/*
-- * Link states
-+/* Link working states
-  */
- #define WORKING_WORKING 560810u
- #define WORKING_UNKNOWN 560811u
- #define RESET_UNKNOWN   560812u
- #define RESET_RESET     560813u
- 
--/*
-- * Starting value for maximum packet size negotiation on unicast links
-+/* Link endpoint execution states
-+ */
-+#define LINK_STARTED    0x0001
-+
-+/* Starting value for maximum packet size negotiation on unicast links
-  * (unless bearer MTU is less)
-  */
- #define MAX_PKT_DEFAULT 1500
-@@ -103,7 +103,7 @@ struct tipc_stats {
-  * @timer: link timer
-  * @owner: pointer to peer node
-  * @link_list: adjacent links in bearer's list of links
-- * @started: indicates if link has been started
-+ * @flags: execution state flags for link endpoint instance
-  * @checkpoint: reference point for triggering link continuity checking
-  * @peer_session: link session # being used by peer end of link
-  * @peer_bearer_id: bearer id used by link's peer endpoint
-@@ -152,7 +152,7 @@ struct tipc_link {
- 	struct list_head link_list;
- 
- 	/* Management and link supervision data */
--	int started;
-+	unsigned int flags;
- 	u32 checkpoint;
- 	u32 peer_session;
- 	u32 peer_bearer_id;
+@@ -219,6 +219,7 @@ void tipc_link_delete(struct tipc_link *l_ptr);
+ void tipc_link_failover_send_queue(struct tipc_link *l_ptr);
+ void tipc_link_dup_send_queue(struct tipc_link *l_ptr,
+ 			      struct tipc_link *dest);
++void tipc_link_delete_list(struct tipc_bearer *b_ptr);
+ void tipc_link_reset_fragments(struct tipc_link *l_ptr);
+ int tipc_link_is_up(struct tipc_link *l_ptr);
+ int tipc_link_is_active(struct tipc_link *l_ptr);
 -- 
 1.7.9.5
 
