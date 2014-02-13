@@ -1,61 +1,61 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH 2/3] net: UDP gro_receive accept csum=0
-Date: Thu, 13 Feb 2014 14:27:54 -0800
-Message-ID: <CA+mtBx_+fc5YdQE+M49QD5ymuD7bfDdedfi2AuCDhU2=CawN6Q@mail.gmail.com>
-References: <alpine.DEB.2.02.1402110928070.7090@tomh.mtv.corp.google.com>
-	<52FC7D0C.1020601@mellanox.com>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [PATCH net-next] net: remove unnecessary return's
+Date: Thu, 13 Feb 2014 23:28:27 +0100 (CET)
+Message-ID: <alpine.DEB.2.02.1402132327480.1967@localhost6.localdomain6>
+References: <20140212205122.5783660e@nehalam.linuxnetplumber.net> <1392273125.2214.25.camel@joe-AO722> <alpine.DEB.2.02.1402132252290.1967@localhost6.localdomain6> <20140213220021.GA1174@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	Jerry Chu <hkchu@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Julia Lawall <julia.lawall@lip6.fr>, Joe Perches <joe@perches.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Dave Jones <davej@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f171.google.com ([209.85.223.171]:38829 "EHLO
-	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752294AbaBMW1z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:27:55 -0500
-Received: by mail-ie0-f171.google.com with SMTP id as1so6922789iec.16
-        for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 14:27:54 -0800 (PST)
-In-Reply-To: <52FC7D0C.1020601@mellanox.com>
+Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:40144 "EHLO
+	mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752482AbaBMW2a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:28:30 -0500
+In-Reply-To: <20140213220021.GA1174@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Hi Tom,
->
-> Considering the patch just "as is" vs. the current code, its OK.
->
-> However, as skbs have only one indicator for the status of the checksum
-> checks done by the receiving hardware, the basic assertion I thought we
-> needed here is to reject skb if either it has the udp mark set or the
-> encapsulation field is false, this is according to the conventions set by
-> these two commits
->
-> 0afb166 vxlan: Add capability of Rx checksum offload for inner packet
-> 6a674e9 net: Add support for hardware-offloaded encapsulation
->
-> B/c after finalizing the GRO work and decapsulating, skb injected up into
-> the TCP stack with ip_summed equals to CHECKSUM_NONE are rejected. If this
-> assumption is wrong, maybe we can remove testing the ip_summed field here
-> altogether?
->
-If I'm interpreting the semantics correctly, when skb->encapsulation
-is set the ip_summed is valid for both the inner and outer header
-(e.g. CHECKSUM_COMPLETE is always assumed okay for both layers). If
-skb->encapsulation is not set then ip_summed is only valid for outer
-header. So then the patch is broken in the case that encap is not set,
-ip_summed is CHECKSUM_UNNECESSARY, csum == 0, and we need to validate
-the inner checksum.
 
-But even worse, is there a fundamental issue where udp4_csum_init is
-able to change ip_summed to be CHECKSUM_UNNECESSARY (either check == 0
-or ip_summed == CHECKSUM_UNNECESSARY) regardless of
-skb->encapsulation, sending the packet into encap_rcv which could
-ultimately incorrectly apply ip_summed on the inner TCP/UDP packet?
 
-Tom
+On Thu, 13 Feb 2014, Dave Jones wrote:
 
-> Or.
->
+> On Thu, Feb 13, 2014 at 10:55:23PM +0100, Julia Lawall wrote:
+> 
+>  > The patch below converts label: return; } to label: ; }.  I have only 
+>  > scanned through the patches, not patched the code and looked at the 
+>  > results, so I am not sure that it is completely correct.  On the other 
+>  > hand, I'm also not sure that label: ; } is better than label: return; }, 
+>  > either.  If people think it is, then I can cheack the results in more 
+>  > detail.
+> 
+> Why not delete the label, and just replace the goto with a return if
+> the label is at the end of the function ?
+
+Here is an example.  Perhaps the uniformity of the if ... goto pattern is 
+valuable, though?
+
+julia
+
+diff -u -p a/drivers/mfd/ab3100-core.c b/drivers/mfd/ab3100-core.c
+--- a/drivers/mfd/ab3100-core.c
++++ b/drivers/mfd/ab3100-core.c
+@@ -586,7 +586,7 @@ static void ab3100_setup_debugfs(struct
+ 
+ 	ab3100_dir = debugfs_create_dir("ab3100", NULL);
+ 	if (!ab3100_dir)
+-		goto exit_no_debugfs;
++		return;
+ 
+ 	ab3100_reg_file = debugfs_create_file("registers",
+ 				S_IRUGO, ab3100_dir, ab3100,
+@@ -623,7 +623,6 @@ static void ab3100_setup_debugfs(struct
+ 	debugfs_remove(ab3100_reg_file);
+  exit_destroy_dir:
+ 	debugfs_remove(ab3100_dir);
+- exit_no_debugfs:
+ 	return;
+ }
+ static inline void ab3100_remove_debugfs(void)
