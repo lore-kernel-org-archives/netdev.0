@@ -1,35 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ipx: implement shutdown()
-Date: Wed, 12 Feb 2014 19:26:54 -0500 (EST)
-Message-ID: <20140212.192654.429559794659508939.davem@davemloft.net>
-References: <1391901818-13338-1-git-send-email-sd@queasysnail.net>
+Subject: Re: [PATCH] ipv4: ipconfig.c: add parentheses in an if statement
+Date: Wed, 12 Feb 2014 19:29:05 -0500 (EST)
+Message-ID: <20140212.192905.1167027853810586236.davem@davemloft.net>
+References: <1392047214-21237-1-git-send-email-fx.lebail@yahoo.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: acme@ghostprotocols.net, netdev@vger.kernel.org, 00cpxxx@gmail.com
-To: sd@queasysnail.net
+Cc: netdev@vger.kernel.org
+To: fx.lebail@yahoo.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34557 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34571 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751462AbaBMA0z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 19:26:55 -0500
-In-Reply-To: <1391901818-13338-1-git-send-email-sd@queasysnail.net>
+	with ESMTP id S1752721AbaBMA3H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 19:29:07 -0500
+In-Reply-To: <1392047214-21237-1-git-send-email-fx.lebail@yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sabrina Dubroca <sd@queasysnail.net>
-Date: Sun,  9 Feb 2014 00:23:38 +0100
+From: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+Date: Mon, 10 Feb 2014 16:46:54 +0100
 
-> IPX doesn't implement shutdown, which poses a problem to some users:
+> Even if the 'time_before' macro expand with parentheses, the look is bad.
 > 
-> https://bugzilla.kernel.org/show_bug.cgi?id=67841
-> 
-> This patch is heavily based on the shutdown implementation for unix
-> sockets.
-> 
-> Reported-by: Bruno Jesus <00cpxxx@gmail.com>
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-> ---
-> v2, without debug messages
+> Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
 
-Applied to net-next, thanks.
+Applied, thanks.
