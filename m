@@ -1,55 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers: net: cpsw: fix buggy loop condition
-Date: Thu, 13 Feb 2014 18:51:31 -0500 (EST)
-Message-ID: <20140213.185131.1052801902077727878.davem@davemloft.net>
-References: <1392299247-16917-1-git-send-email-hs@denx.de>
+Subject: Re: [PATCH] net:phy:dp83640: Move all HW initialization to
+ dp83640_config_init
+Date: Thu, 13 Feb 2014 18:52:48 -0500 (EST)
+Message-ID: <20140213.185248.1522198499299798192.davem@davemloft.net>
+References: <1392301617-24354-1-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org, mugunthanvnm@ti.com,
-	bigeasy@linutronix.de, zonque@gmail.com, balbi@ti.com,
-	mpa@pengutronix.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: hs@denx.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1392299247-16917-1-git-send-email-hs@denx.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: richardcochran@gmail.com, netdev@vger.kernel.org
+To: stefan.sorensen@spectralink.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51591 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751837AbaBMXwu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 18:52:50 -0500
+In-Reply-To: <1392301617-24354-1-git-send-email-stefan.sorensen@spectralink.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Heiko Schocher <hs@denx.de>
-Date: Thu, 13 Feb 2014 14:47:27 +0100
+=46rom: Stefan S=F8rensen <stefan.sorensen@spectralink.com>
+Date: Thu, 13 Feb 2014 15:26:57 +0100
 
-> commit:
-> From 0cd8f9cc0654c06adde353c6532114c5f53a18e8 Mon Sep 17 00:00:00 2001
-> From: Mugunthan V N <mugunthanvnm@ti.com>
-> Date: Thu, 23 Jan 2014 00:03:12 +0530
-> Subject: [PATCH] drivers: net: cpsw: enable promiscuous mode support
+> phy_init_hw not does a full PHY reset after the driver probe has
+> finished, so any hw initialization done in the probe will be lost.
+> Part of the timestamping functionality of the dp83640 is set up in th=
+e
+> probe and with that lost, enabling timestamping will cause a PHY
+> lockup, requiring a hard reset / power cycle to recover.
+>=20
+> This patch moves all the HW initialization in dp83640_probe to
+> dp83640_config_init.
+>=20
+> Signed-off-by: Stefan S=F8rensen <stefan.sorensen@spectralink.com>
 
-The correct way to reference a commit is:
-
-$(SHA1_ID) ("Commit message header text.")
-
-So in this case it would be:
-
-Commit 0cd8f9cc0654c06adde353c6532114c5f53a18e8 ("drivers: net: cpsw:
-enable promiscuous mode support")
-
-I fixed this up when applying this patch.  I will not extend this same
-courtesy next time.
-
-> Enable promiscuous mode support for CPSW.
-> 
-> Introduced a crash on an am335x based board (similiar to am335x-evm).
-> Reason is buggy end condition in for loop in cpsw_set_promiscious()
-> 
-> for (i = 0; i <= priv->data.slaves; i++)
-> 
-> should be
-> 
-> for (i = 0; i < priv->data.slaves; i++)
-> 
-> Fix this ...
-> 
-> Signed-off-by: Heiko Schocher <hs@denx.de>
-
-Applied, thanks.
+Applied, thank you.
