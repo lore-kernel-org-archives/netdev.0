@@ -1,56 +1,49 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH 2/3] net: UDP gro_receive accept csum=0
-Date: Fri, 14 Feb 2014 00:50:49 +0200
-Message-ID: <CAJZOPZKRiR-XZo1b9-TQG9ULpVhL31bTBD+4Z7T+ODZcPX_L2g@mail.gmail.com>
-References: <alpine.DEB.2.02.1402110928070.7090@tomh.mtv.corp.google.com>
-	<52FC7D0C.1020601@mellanox.com>
-	<CA+mtBx_+fc5YdQE+M49QD5ymuD7bfDdedfi2AuCDhU2=CawN6Q@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v3 02/10] net: phy: update port type for MoCA PHYs
+Date: Thu, 13 Feb 2014 14:53:41 -0800
+Message-ID: <1392332029-24669-3-git-send-email-f.fainelli@gmail.com>
+References: <1392332029-24669-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Jerry Chu <hkchu@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Tom Herbert <therbert@google.com>,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <devicetree@vger.kernel.org>,
+	<cernekee@gmail.com>, <mark.rutland@arm.com>,
+	<romieu@fr.zoreil.com>, Florian Fainelli <f.fainelli@gmail.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:61091 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751993AbaBMWuu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:50:50 -0500
-Received: by mail-pd0-f171.google.com with SMTP id g10so11091787pdj.30
-        for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 14:50:50 -0800 (PST)
-In-Reply-To: <CA+mtBx_+fc5YdQE+M49QD5ymuD7bfDdedfi2AuCDhU2=CawN6Q@mail.gmail.com>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:57032 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750932AbaBMWzW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:55:22 -0500
+In-Reply-To: <1392332029-24669-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 14, 2014 at 12:27 AM, Tom Herbert <therbert@google.com> wrote:
+MoCA PHYs are using coaxial (BNC-like) connectors, update the
+transceiver port type when replying to ethtool.
 
->> [...] this is according to the conventions set by
->> 0afb166 vxlan: Add capability of Rx checksum offload for inner packet
->> 6a674e9 net: Add support for hardware-offloaded encapsulation
->> B/c after finalizing the GRO work and decapsulating, skb injected up into
->> the TCP stack with ip_summed equals to CHECKSUM_NONE are rejected. If >> this assumption is wrong, maybe we can remove testing the ip_summed field
->> here altogether?
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+Changes in v1 and v2:
+- rebased against latest net-next/master
 
-> If I'm interpreting the semantics correctly, when skb->encapsulation
-> is set the ip_summed is valid for both the inner and outer header
-> (e.g. CHECKSUM_COMPLETE is always assumed okay for both layers). If
-> skb->encapsulation is not set then ip_summed is only valid for outer header.
+ drivers/net/phy/phy.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-Yep, I think this would be correct interpertation, Joseph, agree?
-
-> So then the patch is broken in the case that encap is not set,
-> ip_summed is CHECKSUM_UNNECESSARY, csum == 0, and we need to
-> validate the inner checksum.
-
-Just to make sure, by "the patch" you refer to your patch or the current code?
-
-> But even worse, is there a fundamental issue where udp4_csum_init is able
-> to change ip_summed to be CHECKSUM_UNNECESSARY (either check == 0
-> or ip_summed == CHECKSUM_UNNECESSARY) regardless of
-> skb->encapsulation, sending the packet into encap_rcv which could
-> ultimately incorrectly apply ip_summed on the inner TCP/UDP packet?
-
-By fundamental you mean performance issue or functionality issue (bug) or both?
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index fc918b6..643b5d6 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -305,7 +305,10 @@ int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd)
+ 
+ 	ethtool_cmd_speed_set(cmd, phydev->speed);
+ 	cmd->duplex = phydev->duplex;
+-	cmd->port = PORT_MII;
++	if (phydev->interface == PHY_INTERFACE_MODE_MOCA)
++		cmd->port = PORT_BNC;
++	else
++		cmd->port = PORT_MII;
+ 	cmd->phy_address = phydev->addr;
+ 	cmd->transceiver = phy_is_internal(phydev) ?
+ 		XCVR_INTERNAL : XCVR_EXTERNAL;
+-- 
+1.8.3.2
