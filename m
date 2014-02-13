@@ -1,69 +1,68 @@
 From: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
 	<stefan.sorensen@spectralink.com>
-Subject: [PATCH v2] net:cpsw: Pass unhandled ioctl's on to generic phy ioctl
-Date: Thu, 13 Feb 2014 15:26:14 +0100
-Message-ID: <1392301574-24233-1-git-send-email-stefan.sorensen@spectralink.com>
+Subject: [PATCH] net:phy:dp83640: Move all HW initialization to dp83640_config_init
+Date: Thu, 13 Feb 2014 15:26:57 +0100
+Message-ID: <1392301617-24354-1-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
 	<stefan.sorensen@spectralink.com>
-To: mugunthanvnm@ti.com, davem@davemloft.net, netdev@vger.kernel.org
+To: richardcochran@gmail.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 213083164162.static.sonofon.dk ([213.83.164.162]:58742 "EHLO
+Received: from 213083164162.static.sonofon.dk ([213.83.164.162]:57713 "EHLO
 	HORWDSPRD01.spectralink.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750809AbaBMO00 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 09:26:26 -0500
+	by vger.kernel.org with ESMTP id S1751908AbaBMO1B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 09:27:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch allows the use of a generic timestamping phy connected
-to the cpsw if CPTS support is not enabled. This also adds support
-of the SIOCGMIIREG and SIOCSMIIREG, and moves handling of SIOCGMIIPHY
-to the generic driver.
+phy_init_hw not does a full PHY reset after the driver probe has
+finished, so any hw initialization done in the probe will be lost.
+Part of the timestamping functionality of the dp83640 is set up in the
+probe and with that lost, enabling timestamping will cause a PHY
+lockup, requiring a hard reset / power cycle to recover.
+
+This patch moves all the HW initialization in dp83640_probe to
+dp83640_config_init.
 
 Signed-off-by: Stefan S=C3=B8rensen <stefan.sorensen@spectralink.com>
 ---
-Changes since v1:
-  - Remove SIOCGMIIPHY from cpsw
-  - Mention that SIOCGMIIREG and SIOCSMIIREG support is gained
+ drivers/net/phy/dp83640.c | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
 
- drivers/net/ethernet/ti/cpsw.c | 10 +++-------
- 1 file changed, 3 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/c=
-psw.c
-index 1d860ce..6ecea1d 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1471,7 +1471,6 @@ static int cpsw_hwtstamp_get(struct net_device *d=
-ev, struct ifreq *ifr)
- static int cpsw_ndo_ioctl(struct net_device *dev, struct ifreq *req, i=
-nt cmd)
+diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
+index 0de863c..5ff221d 100644
+--- a/drivers/net/phy/dp83640.c
++++ b/drivers/net/phy/dp83640.c
+@@ -1017,11 +1017,6 @@ static int dp83640_probe(struct phy_device *phyd=
+ev)
+ 	} else
+ 		list_add_tail(&dp83640->list, &clock->phylist);
+=20
+-	if (clock->chosen && !list_empty(&clock->phylist))
+-		recalibrate(clock);
+-	else
+-		enable_broadcast(dp83640->phydev, clock->page, 1);
+-
+ 	dp83640_clock_put(clock);
+ 	return 0;
+=20
+@@ -1074,6 +1069,14 @@ static void dp83640_remove(struct phy_device *ph=
+ydev)
+=20
+ static int dp83640_config_init(struct phy_device *phydev)
  {
- 	struct cpsw_priv *priv =3D netdev_priv(dev);
--	struct mii_ioctl_data *data =3D if_mii(req);
- 	int slave_no =3D cpsw_slave_index(priv);
-=20
- 	if (!netif_running(dev))
-@@ -1484,14 +1483,11 @@ static int cpsw_ndo_ioctl(struct net_device *de=
-v, struct ifreq *req, int cmd)
- 	case SIOCGHWTSTAMP:
- 		return cpsw_hwtstamp_get(dev, req);
- #endif
--	case SIOCGMIIPHY:
--		data->phy_id =3D priv->slaves[slave_no].phy->addr;
--		break;
--	default:
--		return -ENOTSUPP;
- 	}
-=20
--	return 0;
-+	if (!priv->slaves[slave_no].phy)
-+		return -EINVAL;
-+	return phy_mii_ioctl(priv->slaves[slave_no].phy, req, cmd);
- }
-=20
- static void cpsw_ndo_tx_timeout(struct net_device *ndev)
++	struct dp83640_private *dp83640 =3D phydev->priv;
++	struct dp83640_clock *clock =3D dp83640->clock;
++
++	if (clock->chosen && !list_empty(&clock->phylist))
++		recalibrate(clock);
++	else
++		enable_broadcast(phydev, clock->page, 1);
++
+ 	enable_status_frames(phydev, true);
+ 	ext_write(0, phydev, PAGE4, PTP_CTL, PTP_ENABLE);
+ 	return 0;
 --=20
 1.8.5.3
