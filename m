@@ -1,33 +1,80 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net] virtio-net: alloc big buffers also when guest can
- receive UFO
-Date: Thu, 13 Feb 2014 11:02:13 +0800
-Message-ID: <52FC35B5.6000900@redhat.com>
-References: <1392183808-16789-1-git-send-email-jasowang@redhat.com> <20140212115901.GC23006@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, virtio-dev@lists.oasis-open.org,
-        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Sridhar Samudrala <sri@us.ibm.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtio-dev-return-379-gcvd-virtio-dev=m.gmane.org@lists.oasis-open.org>
-Sender: <virtio-dev@lists.oasis-open.org>
-List-Post: <mailto:virtio-dev@lists.oasis-open.org>
-List-Help: <mailto:virtio-dev-help@lists.oasis-open.org>
-List-Unsubscribe: <mailto:virtio-dev-unsubscribe@lists.oasis-open.org>
-List-Subscribe: <mailto:virtio-dev-subscribe@lists.oasis-open.org>
-In-Reply-To: <20140212115901.GC23006@redhat.com>
-List-Id: netdev.vger.kernel.org
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: [PATCH net] net: sched: Cleanup PIE comments
+Date: Wed, 12 Feb 2014 18:58:21 -0800
+Message-ID: <1392260301-8340-1-git-send-email-subramanian.vijay@gmail.com>
+Cc: davem@davemloft.net,
+	Vijay Subramanian <subramanian.vijay@gmail.com>,
+	Mythili Prabhu <mysuryan@cisco.com>,
+	Norbert Kiesel <nkiesel@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f43.google.com ([209.85.160.43]:65190 "EHLO
+	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753197AbaBMDDV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 22:03:21 -0500
+Received: by mail-pb0-f43.google.com with SMTP id md12so10131422pbc.16
+        for <netdev@vger.kernel.org>; Wed, 12 Feb 2014 19:03:20 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/12/2014 07:59 PM, Michael S. Tsirkin wrote:
-> On Wed, Feb 12, 2014 at 01:43:28PM +0800, Jason Wang wrote:
->> > We should alloc big buffers also when guest can receive UFO
->> > pakcets. Otherwise the big packets will be truncated when mergeable rx
->> > buffer is disabled.
-> Not truncated, they will be dropped.
->
+From: Vijay Subramanian <vijaynsu@cisco.com>
 
-Why dropped? We enable the ufo on tap0 if VIRTIO_NET_F_GUEST_UFO is
-negotiated. So skb was queued on the receive queue. But since the
-receive buffer is small, it will be truncated during tun_put_user().
+Fix incorrect comment reported by Norbert Kiesel. Edit another comment to add
+more details. Also add references to algorithm (IETF draft and paper) to top of
+file.
+
+Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+CC: Mythili Prabhu <mysuryan@cisco.com>
+CC: Norbert Kiesel <nkiesel@gmail.com>
+---
+ net/sched/sch_pie.c |   21 ++++++++++++++++-----
+ 1 file changed, 16 insertions(+), 5 deletions(-)
+
+diff --git a/net/sched/sch_pie.c b/net/sched/sch_pie.c
+index a255d02..fefeeb7 100644
+--- a/net/sched/sch_pie.c
++++ b/net/sched/sch_pie.c
+@@ -15,6 +15,11 @@
+  *
+  * ECN support is added by Naeem Khademi <naeemk@ifi.uio.no>
+  * University of Oslo, Norway.
++ *
++ * References:
++ * IETF draft submission: http://tools.ietf.org/html/draft-pan-aqm-pie-00
++ * IEEE  Conference on High Performance Switching and Routing 2013 :
++ * "PIE: A * Lightweight Control Scheme to Address the Bufferbloat Problem"
+  */
+ 
+ #include <linux/module.h>
+@@ -36,7 +41,7 @@ struct pie_params {
+ 	psched_time_t target;	/* user specified target delay in pschedtime */
+ 	u32 tupdate;		/* timer frequency (in jiffies) */
+ 	u32 limit;		/* number of packets that can be enqueued */
+-	u32 alpha;		/* alpha and beta are between -4 and 4 */
++	u32 alpha;		/* alpha and beta are between 0 and 32 */
+ 	u32 beta;		/* and are used for shift relative to 1 */
+ 	bool ecn;		/* true if ecn is enabled */
+ 	bool bytemode;		/* to scale drop early prob based on pkt size */
+@@ -326,10 +331,16 @@ static void calculate_probability(struct Qdisc *sch)
+ 	if (qdelay == 0 && qlen != 0)
+ 		update_prob = false;
+ 
+-	/* Add ranges for alpha and beta, more aggressive for high dropping
+-	 * mode and gentle steps for light dropping mode
+-	 * In light dropping mode, take gentle steps; in medium dropping mode,
+-	 * take medium steps; in high dropping mode, take big steps.
++	/* In the algorithm, alpha and beta are between 0 and 2 with typical
++	 * value for alpha as 0.125. In this implementation, we use values 0-32
++	 * passed from user space to represent this. Also, alpha and beta have
++	 * unit of HZ and need to be scaled before they can used to update
++	 * probability. alpha/beta are updated locally below by 1) scaling them
++	 * appropriately 2) scaling down by 16 to come to 0-2 range.
++	 * Please see paper for details.
++	 *
++	 * We scale alpha and beta differently depending on whether we are in
++	 * light, medium or high dropping mode.
+ 	 */
+ 	if (q->vars.prob < MAX_PROB / 100) {
+ 		alpha =
+-- 
+1.7.9.5
