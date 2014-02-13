@@ -1,59 +1,39 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next] net: remove unnecessary return's
-Date: Thu, 13 Feb 2014 08:02:39 -0800
-Message-ID: <20140213080239.3e70d546@nehalam.linuxnetplumber.net>
-References: <20140212205122.5783660e@nehalam.linuxnetplumber.net>
-	<1392273125.2214.25.camel@joe-AO722>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: RFC: bridge get fdb by bridge device
+Date: Thu, 13 Feb 2014 08:03:03 -0800
+Message-ID: <52FCECB7.8080105@intel.com>
+References: <52F21F72.2090405@mojatatu.com> <52F29747.7040008@redhat.com> <52F3CF76.9090404@mojatatu.com> <52F3E357.4040006@redhat.com> <52F79990.3000400@mojatatu.com> <52F8FEF1.60407@redhat.com> <52FA58E9.906@mojatatu.com> <52FA6A24.3030402@redhat.com> <52FA84FA.2030608@mojatatu.com> <52FA8865.1070302@intel.com> <52FA9074.2060900@mojatatu.com> <52FBC282.6020301@intel.com> <52FCE69F.5080602@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Joe Perches <joe@perches.com>
+Cc: vyasevic@redhat.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:39295 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751620AbaBMQCo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 11:02:44 -0500
-Received: by mail-pa0-f53.google.com with SMTP id lj1so10952466pab.12
-        for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 08:02:43 -0800 (PST)
-In-Reply-To: <1392273125.2214.25.camel@joe-AO722>
+Received: from mga02.intel.com ([134.134.136.20]:45553 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751252AbaBMQGh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Feb 2014 11:06:37 -0500
+In-Reply-To: <52FCE69F.5080602@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 12 Feb 2014 22:32:05 -0800
-Joe Perches <joe@perches.com> wrote:
+On 2/13/2014 7:37 AM, Jamal Hadi Salim wrote:
+> On 02/12/14 13:50, John Fastabend wrote:
+>> On 2/11/2014 1:04 PM, Jamal Hadi Salim wrote:
+>>
+>> Because it is not the same type of object as the software bridge.
+>> Most notably it doesn't do learning.
+>
+> This kept nagging at me.
+> Learning is optional for a bridge. So is flooding.
+> I think we got this right in recent kernels.
+>
+> cheers,
+> jamal
 
-> On Wed, 2014-02-12 at 20:51 -0800, Stephen Hemminger wrote:
-> > One of my pet coding style peeves is the practice of
-> > adding extra return; at the end of function.
-> > Kill several instances of this in network code.
-> > I suppose some coccinelle wizardy could do this automatically.
-> 
-> Maybe, but grep version 2.5.4 will show most of them.
-> 
-> $ grep-2.5.4 -rP --include=*.[ch] "return;\n}" *
-> [...]
-> 
-> Fixing them has to make sure that there's no
-> label before the close brace.
-> 
-> gcc has to have a statement before the close brace
-> of a void return after a label.
-> 
-> label:
-> }
-> 
-> must be:
-> 
-> label:
-> 	;
-> }
-> 
-> to compile.
-> 
-
-My method was to use:
- find . -name '*.c' | xargs grep -Pzo '(?s)^(\s*)\Nreturn;.}'
-Then ignore cases where it was done for final label and where return
-was alone in stub function.
+Yeah I remember now Vlad added them. The real distinction
+is macvlan devices only have _one_ uplink port and support
+other forwarding modes, VEPA, etc.
