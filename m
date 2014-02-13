@@ -1,33 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/9] bnx2x: Enhancements & semantic changes
- series
-Date: Wed, 12 Feb 2014 19:16:25 -0500 (EST)
-Message-ID: <20140212.191625.1991251591201836729.davem@davemloft.net>
-References: <1392221997-25525-1-git-send-email-yuvalmin@broadcom.com>
+Subject: Re: [PATCH 0/14] Xilinx axi ethernet patches
+Date: Wed, 12 Feb 2014 19:18:46 -0500 (EST)
+Message-ID: <20140212.191846.1464564509609498703.davem@davemloft.net>
+References: <cover.1392220536.git.michal.simek@xilinx.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ariele@broadcom.com
-To: yuvalmin@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34376 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751076AbaBMAQ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Feb 2014 19:16:27 -0500
-In-Reply-To: <1392221997-25525-1-git-send-email-yuvalmin@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, sthokal@xilinx.com,
+	devicetree@vger.kernel.org, monstr@monstr.eu, John.Linn@xilinx.com,
+	anirudh@xilinx.com, linux-kernel@vger.kernel.org,
+	grant.likely@linaro.org, robh+dt@kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: michal.simek@xilinx.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1392220536.git.michal.simek@xilinx.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yuval Mintz <yuvalmin@broadcom.com>
-Date: Wed, 12 Feb 2014 18:19:48 +0200
+From: Michal Simek <michal.simek@xilinx.com>
+Date: Wed, 12 Feb 2014 16:55:34 +0100
 
-> This patch series contains several semantic (or mostly semantic) patches,
-> as well as adding support for packet aggregations on the receive path
-> of windows VMs and updating bnx2x to the new FW recently accepted upstream.
+> I have exctracted patches which I have in our
+> xilinx git tree which are missing in the mainline.
 > 
-> Please consider applying these patches to `net-next'.
-> 
-> (This is a repost as net-next was still closed when this was previously
-> sent)
+> The first two patches fix compilation error and
+> warnings. Then 5 feature patches
+> and the rest is OF cleanup and with kernel-doc
+> and checkpatch problems.
 
-Series applied, thanks.
+You should not combine bug fix and feature patches.
+
+Rather, you should submit bug fixes against the 'net' tree.  Then when
+those bug fixes get applied and propagate to the 'net-next' tree you
+can submit the feature patches and cleanups against the 'net-next'
+tree.
