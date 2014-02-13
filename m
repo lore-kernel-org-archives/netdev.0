@@ -1,31 +1,136 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/15] Intel Wired LAN Driver Updates
-Date: Thu, 13 Feb 2014 17:27:54 -0500 (EST)
-Message-ID: <20140213.172754.2143025631014243071.davem@davemloft.net>
-References: <1392292133-32120-1-git-send-email-aaron.f.brown@intel.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: aaron.f.brown@intel.com
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net-next v2 01/14] tipc: stricter behavior of message reassembly function
+Date: Thu, 13 Feb 2014 17:29:05 -0500
+Message-ID: <1392330558-19048-2-git-send-email-jon.maloy@ericsson.com>
+References: <1392330558-19048-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50741 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752312AbaBMW15 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:27:57 -0500
-In-Reply-To: <1392292133-32120-1-git-send-email-aaron.f.brown@intel.com>
+Received: from smtp103.biz.mail.ne1.yahoo.com ([98.138.207.10]:20939 "HELO
+	smtp103.biz.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752511AbaBMW3c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:29:32 -0500
+In-Reply-To: <1392330558-19048-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Aaron Brown <aaron.f.brown@intel.com>
-Date: Thu, 13 Feb 2014 03:48:38 -0800
+The function tipc_link_recv_fragment(struct sk_buff **buf) currently
+leaves the value of the input buffer pointer undefined when it returns,
+except when the return code indicates that the reassembly is complete.
+This despite the fact that it always consumes the input buffer.
 
-> This series contains updates to i40e and i40evf, primarily reset
-> handling / refactoring along with a fair amount of minor cleanup.
-> 
-> Jesse fixes some spelling, bumps the version and other trivial fixes.
-> Akeem sets a bit that is needed before shutdown in the case of 
-> tx_timeout recovery failure.  Mitch refactors reset handling along 
-> with a whole bunch of clean up.
+Here, we enforce a stricter behavior by this function, ensuring that
+the returned buffer pointer is non-NULL if and only if the reassembly
+is complete. This makes it possible to test for the buffer pointer as
+criteria for successful reassembly.
 
-Series applied, thanks.
+We also rename the function to tipc_link_frag_rcv(), which is both
+shorter and more in line with common naming practice in the network
+subsystem.
+
+Apart from the new name, these changes have no impact on current
+users of the function, but makes it more practical for use in some
+planned future commits.
+
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Reviewed-by: Ying Xue <ying.xue@windriver.com>
+---
+ net/tipc/bcast.c |    6 +++---
+ net/tipc/link.c  |   16 +++++++++-------
+ net/tipc/link.h  |    6 +++---
+ 3 files changed, 15 insertions(+), 13 deletions(-)
+
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index bf860d9..af35f76 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -481,9 +481,9 @@ receive:
+ 			tipc_link_recv_bundle(buf);
+ 		} else if (msg_user(msg) == MSG_FRAGMENTER) {
+ 			int ret;
+-			ret = tipc_link_recv_fragment(&node->bclink.reasm_head,
+-						      &node->bclink.reasm_tail,
+-						      &buf);
++			ret = tipc_link_frag_rcv(&node->bclink.reasm_head,
++						 &node->bclink.reasm_tail,
++						 &buf);
+ 			if (ret == LINK_REASM_ERROR)
+ 				goto unlock;
+ 			spin_lock_bh(&bc_lock);
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index d4b5de4..17fbd15 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1584,9 +1584,9 @@ deliver:
+ 			continue;
+ 		case MSG_FRAGMENTER:
+ 			l_ptr->stats.recv_fragments++;
+-			ret = tipc_link_recv_fragment(&l_ptr->reasm_head,
+-						      &l_ptr->reasm_tail,
+-						      &buf);
++			ret = tipc_link_frag_rcv(&l_ptr->reasm_head,
++						 &l_ptr->reasm_tail,
++						 &buf);
+ 			if (ret == LINK_REASM_COMPLETE) {
+ 				l_ptr->stats.recv_fragmented++;
+ 				msg = buf_msg(buf);
+@@ -2277,12 +2277,11 @@ static int link_send_long_buf(struct tipc_link *l_ptr, struct sk_buff *buf)
+ 	return dsz;
+ }
+ 
+-/*
+- * tipc_link_recv_fragment(): Called with node lock on. Returns
++/* tipc_link_frag_rcv(): Called with node lock on. Returns
+  * the reassembled buffer if message is complete.
+  */
+-int tipc_link_recv_fragment(struct sk_buff **head, struct sk_buff **tail,
+-			    struct sk_buff **fbuf)
++int tipc_link_frag_rcv(struct sk_buff **head, struct sk_buff **tail,
++		       struct sk_buff **fbuf)
+ {
+ 	struct sk_buff *frag = *fbuf;
+ 	struct tipc_msg *msg = buf_msg(frag);
+@@ -2296,6 +2295,7 @@ int tipc_link_recv_fragment(struct sk_buff **head, struct sk_buff **tail,
+ 			goto out_free;
+ 		*head = frag;
+ 		skb_frag_list_init(*head);
++		*fbuf = NULL;
+ 		return 0;
+ 	} else if (*head &&
+ 		   skb_try_coalesce(*head, frag, &headstolen, &delta)) {
+@@ -2315,10 +2315,12 @@ int tipc_link_recv_fragment(struct sk_buff **head, struct sk_buff **tail,
+ 		*tail = *head = NULL;
+ 		return LINK_REASM_COMPLETE;
+ 	}
++	*fbuf = NULL;
+ 	return 0;
+ out_free:
+ 	pr_warn_ratelimited("Link unable to reassemble fragmented message\n");
+ 	kfree_skb(*fbuf);
++	*fbuf = NULL;
+ 	return LINK_REASM_ERROR;
+ }
+ 
+diff --git a/net/tipc/link.h b/net/tipc/link.h
+index 3b6aa65..8addc5e 100644
+--- a/net/tipc/link.h
++++ b/net/tipc/link.h
+@@ -239,9 +239,9 @@ int tipc_link_send_sections_fast(struct tipc_port *sender,
+ 				 struct iovec const *msg_sect,
+ 				 unsigned int len, u32 destnode);
+ void tipc_link_recv_bundle(struct sk_buff *buf);
+-int  tipc_link_recv_fragment(struct sk_buff **reasm_head,
+-			     struct sk_buff **reasm_tail,
+-			     struct sk_buff **fbuf);
++int  tipc_link_frag_rcv(struct sk_buff **reasm_head,
++			struct sk_buff **reasm_tail,
++			struct sk_buff **fbuf);
+ void tipc_link_send_proto_msg(struct tipc_link *l_ptr, u32 msg_typ, int prob,
+ 			      u32 gap, u32 tolerance, u32 priority,
+ 			      u32 acked_mtu);
+-- 
+1.7.9.5
