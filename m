@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next v2 02/14] tipc: move code for resetting links from bearer.c to link.c
-Date: Thu, 13 Feb 2014 17:29:06 -0500
-Message-ID: <1392330558-19048-3-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next v2 07/14] tipc: change reception of tunnelled failover packets
+Date: Thu, 13 Feb 2014 17:29:11 -0500
+Message-ID: <1392330558-19048-8-git-send-email-jon.maloy@ericsson.com>
 References: <1392330558-19048-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
@@ -10,93 +10,154 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp103.biz.mail.ne1.yahoo.com ([98.138.207.10]:20953 "HELO
+Received: from smtp103.biz.mail.ne1.yahoo.com ([98.138.207.10]:21029 "HELO
 	smtp103.biz.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752471AbaBMW3d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:29:33 -0500
+	by vger.kernel.org with SMTP id S1752511AbaBMW3k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:29:40 -0500
 In-Reply-To: <1392330558-19048-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ying Xue <ying.xue@windriver.com>
+When a link is reset, and there is a redundant link available, all
+sender sockets will steer their subsequent traffic through the
+remaining link. In order to guarantee preserved packet order and
+cardinality during the transition, we tunnel the failing link's send
+queue through the remaining link before we allow any sockets to use it.
 
-We break out the code for resetting attached links in the
-function tipc_reset_bearer(), and define a new function named
-tipc_link_reset_list() to do this job.
+In this commit, we change the algorithm for receiving failover
+("ORIGINAL_MSG") packets in tipc_link_tunnel_rcv(), at the same time
+delegating it to a new subfuncton, tipc_link_failover_rcv(). Instead
+of directly returning an extracted inner packet to the packet reception
+loop in tipc_rcv(), we first check if it is a message fragment, in which
+case we append it to the reset link's fragment chain. If the fragment
+chain is complete, we return the whole chain instead of the individual
+buffer, eliminating any need for the tipc_rcv() loop to do reassembly of
+tunneled packets.
 
-This commit incurs no functional changes, but makes the code
-of function tipc_reset_bearer() cleaner. It is also a preparation
-for a more important change to the bearer code, in a subsequent
-commit in this series.
+This change makes it possible to further simplify tipc_link_tunnel_rcv(),
+as well as the calling tipc_rcv() loop. We will do that in later
+commits. It also makes it possible to identify a single spot in the code
+where we can tell that a failover procedure is finished, something that
+is useful when we are deleting links after a failover. This will also
+be done in a later commit.
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Reviewed-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/bearer.c |   11 +----------
- net/tipc/link.c   |   12 ++++++++++++
- net/tipc/link.h   |    1 +
- 3 files changed, 14 insertions(+), 10 deletions(-)
+ net/tipc/link.c |   75 ++++++++++++++++++++++++++++++++++---------------------
+ 1 file changed, 47 insertions(+), 28 deletions(-)
 
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index a38c899..a3bdf5c 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -350,19 +350,10 @@ exit:
-  */
- static int tipc_reset_bearer(struct tipc_bearer *b_ptr)
- {
--	struct tipc_link *l_ptr;
--	struct tipc_link *temp_l_ptr;
--
- 	read_lock_bh(&tipc_net_lock);
- 	pr_info("Resetting bearer <%s>\n", b_ptr->name);
- 	spin_lock_bh(&b_ptr->lock);
--	list_for_each_entry_safe(l_ptr, temp_l_ptr, &b_ptr->links, link_list) {
--		struct tipc_node *n_ptr = l_ptr->owner;
--
--		spin_lock_bh(&n_ptr->lock);
--		tipc_link_reset(l_ptr);
--		spin_unlock_bh(&n_ptr->lock);
--	}
-+	tipc_link_reset_list(b_ptr);
- 	spin_unlock_bh(&b_ptr->lock);
- 	read_unlock_bh(&tipc_net_lock);
- 	return 0;
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 17fbd15..3ff34e8 100644
+index f227a38..26a54f4 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -461,6 +461,18 @@ void tipc_link_reset(struct tipc_link *l_ptr)
- 	link_reset_statistics(l_ptr);
+@@ -2124,6 +2124,50 @@ static void tipc_link_dup_rcv(struct tipc_link *l_ptr,
+ 	link_handle_out_of_seq_msg(l_ptr, buf);
  }
  
-+void tipc_link_reset_list(struct tipc_bearer *b_ptr)
++/*  tipc_link_failover_rcv(): Receive a tunnelled ORIGINAL_MSG packet
++ *  Owner node is locked.
++ */
++static struct sk_buff *tipc_link_failover_rcv(struct tipc_link *l_ptr,
++					      struct sk_buff *t_buf)
 +{
-+	struct tipc_link *l_ptr;
++	struct tipc_msg *t_msg = buf_msg(t_buf);
++	struct sk_buff *buf = NULL;
++	struct tipc_msg *msg;
 +
-+	list_for_each_entry(l_ptr, &b_ptr->links, link_list) {
-+		struct tipc_node *n_ptr = l_ptr->owner;
-+
-+		spin_lock_bh(&n_ptr->lock);
++	if (tipc_link_is_up(l_ptr))
 +		tipc_link_reset(l_ptr);
-+		spin_unlock_bh(&n_ptr->lock);
++
++	/* First failover packet? */
++	if (l_ptr->exp_msg_count == START_CHANGEOVER)
++		l_ptr->exp_msg_count = msg_msgcnt(t_msg);
++
++	/* Should there be an inner packet? */
++	if (l_ptr->exp_msg_count) {
++		l_ptr->exp_msg_count--;
++		buf = buf_extract(t_buf, INT_H_SIZE);
++		if (buf == NULL) {
++			pr_warn("%sno inner failover pkt\n", link_co_err);
++			goto exit;
++		}
++		msg = buf_msg(buf);
++
++		if (less(msg_seqno(msg), l_ptr->reset_checkpoint)) {
++			kfree_skb(buf);
++			buf = NULL;
++			goto exit;
++		}
++		if (msg_user(msg) == MSG_FRAGMENTER) {
++			l_ptr->stats.recv_fragments++;
++			tipc_link_frag_rcv(&l_ptr->reasm_head,
++					   &l_ptr->reasm_tail,
++					   &buf);
++		}
 +	}
++
++exit:
++	return buf;
 +}
- 
- static void link_activate(struct tipc_link *l_ptr)
++
+ /*  tipc_link_tunnel_rcv(): Receive a tunnelled packet, sent
+  *  via other link as result of a failover (ORIGINAL_MSG) or
+  *  a new active link (DUPLICATE_MSG). Failover packets are
+@@ -2135,10 +2179,8 @@ static int tipc_link_tunnel_rcv(struct tipc_link **l_ptr,
  {
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 8addc5e..73beecb 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -231,6 +231,7 @@ struct sk_buff *tipc_link_cmd_show_stats(const void *req_tlv_area,
- struct sk_buff *tipc_link_cmd_reset_stats(const void *req_tlv_area,
- 					  int req_tlv_space);
- void tipc_link_reset(struct tipc_link *l_ptr);
-+void tipc_link_reset_list(struct tipc_bearer *b_ptr);
- int tipc_link_send(struct sk_buff *buf, u32 dest, u32 selector);
- void tipc_link_send_names(struct list_head *message_list, u32 dest);
- int tipc_link_send_buf(struct tipc_link *l_ptr, struct sk_buff *buf);
+ 	struct sk_buff *tunnel_buf = *buf;
+ 	struct tipc_link *dest_link;
+-	struct tipc_msg *msg;
+ 	struct tipc_msg *tunnel_msg = buf_msg(tunnel_buf);
+ 	u32 msg_typ = msg_type(tunnel_msg);
+-	u32 msg_count = msg_msgcnt(tunnel_msg);
+ 	u32 bearer_id = msg_bearer_id(tunnel_msg);
+ 
+ 	if (bearer_id >= MAX_BEARERS)
+@@ -2153,42 +2195,19 @@ static int tipc_link_tunnel_rcv(struct tipc_link **l_ptr,
+ 		goto exit;
+ 	}
+ 	*l_ptr = dest_link;
+-	msg = msg_get_wrapped(tunnel_msg);
+ 
+ 	if (msg_typ == DUPLICATE_MSG) {
+ 		tipc_link_dup_rcv(dest_link, tunnel_buf);
+ 		goto exit;
+ 	}
+ 
+-	/* First original message ?: */
+-	if (tipc_link_is_up(dest_link)) {
+-		pr_info("%s<%s>, changeover initiated by peer\n", link_rst_msg,
+-			dest_link->name);
+-		tipc_link_reset(dest_link);
+-		dest_link->exp_msg_count = msg_count;
+-		if (!msg_count)
+-			goto exit;
+-	} else if (dest_link->exp_msg_count == START_CHANGEOVER) {
+-		dest_link->exp_msg_count = msg_count;
+-		if (!msg_count)
+-			goto exit;
+-	}
++	if (msg_type(tunnel_msg) == ORIGINAL_MSG) {
++		*buf = tipc_link_failover_rcv(dest_link, tunnel_buf);
+ 
+-	/* Receive original message */
+-	if (dest_link->exp_msg_count == 0) {
+-		pr_warn("%sgot too many tunnelled messages\n", link_co_err);
+-		goto exit;
+-	}
+-	dest_link->exp_msg_count--;
+-	if (less(msg_seqno(msg), dest_link->reset_checkpoint)) {
+-		goto exit;
+-	} else {
+-		*buf = buf_extract(tunnel_buf, INT_H_SIZE);
++		/* Do we have a buffer/buffer chain to return? */
+ 		if (*buf != NULL) {
+ 			kfree_skb(tunnel_buf);
+ 			return 1;
+-		} else {
+-			pr_warn("%soriginal msg dropped\n", link_co_err);
+ 		}
+ 	}
+ exit:
 -- 
 1.7.9.5
