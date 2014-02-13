@@ -1,61 +1,31 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH net-next] net: remove unnecessary return's
-Date: Thu, 13 Feb 2014 23:28:27 +0100 (CET)
-Message-ID: <alpine.DEB.2.02.1402132327480.1967@localhost6.localdomain6>
-References: <20140212205122.5783660e@nehalam.linuxnetplumber.net> <1392273125.2214.25.camel@joe-AO722> <alpine.DEB.2.02.1402132252290.1967@localhost6.localdomain6> <20140213220021.GA1174@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/15] Intel Wired LAN Driver Updates
+Date: Thu, 13 Feb 2014 17:27:54 -0500 (EST)
+Message-ID: <20140213.172754.2143025631014243071.davem@davemloft.net>
+References: <1392292133-32120-1-git-send-email-aaron.f.brown@intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Julia Lawall <julia.lawall@lip6.fr>, Joe Perches <joe@perches.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Dave Jones <davej@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: aaron.f.brown@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:40144 "EHLO
-	mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752482AbaBMW2a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:28:30 -0500
-In-Reply-To: <20140213220021.GA1174@redhat.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50741 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752312AbaBMW15 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:27:57 -0500
+In-Reply-To: <1392292133-32120-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Aaron Brown <aaron.f.brown@intel.com>
+Date: Thu, 13 Feb 2014 03:48:38 -0800
 
-
-On Thu, 13 Feb 2014, Dave Jones wrote:
-
-> On Thu, Feb 13, 2014 at 10:55:23PM +0100, Julia Lawall wrote:
+> This series contains updates to i40e and i40evf, primarily reset
+> handling / refactoring along with a fair amount of minor cleanup.
 > 
->  > The patch below converts label: return; } to label: ; }.  I have only 
->  > scanned through the patches, not patched the code and looked at the 
->  > results, so I am not sure that it is completely correct.  On the other 
->  > hand, I'm also not sure that label: ; } is better than label: return; }, 
->  > either.  If people think it is, then I can cheack the results in more 
->  > detail.
-> 
-> Why not delete the label, and just replace the goto with a return if
-> the label is at the end of the function ?
+> Jesse fixes some spelling, bumps the version and other trivial fixes.
+> Akeem sets a bit that is needed before shutdown in the case of 
+> tx_timeout recovery failure.  Mitch refactors reset handling along 
+> with a whole bunch of clean up.
 
-Here is an example.  Perhaps the uniformity of the if ... goto pattern is 
-valuable, though?
-
-julia
-
-diff -u -p a/drivers/mfd/ab3100-core.c b/drivers/mfd/ab3100-core.c
---- a/drivers/mfd/ab3100-core.c
-+++ b/drivers/mfd/ab3100-core.c
-@@ -586,7 +586,7 @@ static void ab3100_setup_debugfs(struct
- 
- 	ab3100_dir = debugfs_create_dir("ab3100", NULL);
- 	if (!ab3100_dir)
--		goto exit_no_debugfs;
-+		return;
- 
- 	ab3100_reg_file = debugfs_create_file("registers",
- 				S_IRUGO, ab3100_dir, ab3100,
-@@ -623,7 +623,6 @@ static void ab3100_setup_debugfs(struct
- 	debugfs_remove(ab3100_reg_file);
-  exit_destroy_dir:
- 	debugfs_remove(ab3100_dir);
-- exit_no_debugfs:
- 	return;
- }
- static inline void ab3100_remove_debugfs(void)
+Series applied, thanks.
