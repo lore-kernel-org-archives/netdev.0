@@ -1,97 +1,58 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net,v3] hyperv: Fix the carrier status setting
-Date: Thu, 13 Feb 2014 15:04:45 +0000
-Message-ID: <900caa9031c345a6a21604ca7bb02174@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <1392252867-21146-1-git-send-email-haiyangz@microsoft.com>
- <52FC4147.7060803@redhat.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH next resend] tcp: use zero-window when free_space is low
+Date: Thu, 13 Feb 2014 16:34:41 +0100
+Message-ID: <20140213153441.GJ25153@breakpoint.cc>
+References: <1392292350-28800-1-git-send-email-fw@strlen.de>
+ <1392303499.1752.19.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>, "olaf@aepfle.de" <olaf@aepfle.de>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Jason Wang <jasowang@redhat.com>, "davem@davemloft.net"
- <davem@davemloft.net>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <52FC4147.7060803@redhat.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:43905 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751824AbaBMPen (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 10:34:43 -0500
+Content-Disposition: inline
+In-Reply-To: <1392303499.1752.19.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> Do we have one SNMP counter tracking number of time we took the decision
+> to send a 0 window ?
 
+No.
 
-> -----Original Message-----
-> From: Jason Wang [mailto:jasowang@redhat.com]
-> Sent: Wednesday, February 12, 2014 10:52 PM
-> To: Haiyang Zhang; davem@davemloft.net; netdev@vger.kernel.org
-> Cc: KY Srinivasan; olaf@aepfle.de; linux-kernel@vger.kernel.org; driverdev-
-> devel@linuxdriverproject.org
-> Subject: Re: [PATCH net,v3] hyperv: Fix the carrier status setting
-> 
-> On 02/13/2014 08:54 AM, Haiyang Zhang wrote:
-> > Without this patch, the "cat /sys/class/net/ethN/operstate" shows
-> > "unknown", and "ethtool ethN" shows "Link detected: yes", when VM
-> > boots up with or without vNIC connected.
-> >
-> > This patch fixed the problem.
-> >
-> > Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> > Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
-> > ---
-> >  drivers/net/hyperv/netvsc_drv.c |   53
-> ++++++++++++++++++++++++++++-----------
-> >  1 files changed, 38 insertions(+), 15 deletions(-)
-> >
-> > diff --git a/drivers/net/hyperv/netvsc_drv.c
-> > b/drivers/net/hyperv/netvsc_drv.c index 7756118..7141a19 100644
-> > --- a/drivers/net/hyperv/netvsc_drv.c
-> > +++ b/drivers/net/hyperv/netvsc_drv.c
-> > @@ -88,8 +88,12 @@ static int netvsc_open(struct net_device *net)  {
-> >  	struct net_device_context *net_device_ctx = netdev_priv(net);
-> >  	struct hv_device *device_obj = net_device_ctx->device_ctx;
-> > +	struct netvsc_device *nvdev;
-> > +	struct rndis_device *rdev;
-> >  	int ret = 0;
-> >
-> > +	netif_carrier_off(net);
-> > +
-> >  	/* Open up the device */
-> >  	ret = rndis_filter_open(device_obj);
-> >  	if (ret != 0) {
-> > @@ -99,6 +103,11 @@ static int netvsc_open(struct net_device *net)
-> >
-> >  	netif_start_queue(net);
-> >
-> > +	nvdev = hv_get_drvdata(device_obj);
-> > +	rdev = nvdev->extension;
-> > +	if (!rdev->link_state)
-> > +		netif_carrier_on(net);
-> > +
-> 
-> Maybe you can just schedule the work here and then you can drop the
-> rtnl_lock in netvsc_link_change() ?
+> Would you mind waiting we run our packetdrill tests before acknowledging
+> this patch, because I suspect this might have some impact ?
 
-The rtnl_lock will still be necessary in the netvsc_link_change(), because 
-we want to prevent it getting wrong rdev pointer when netvsc_change_mtu
-is removing/adding rndis device.
+Of course not.  I am very happy that you folks have these kinds of tests
+and are willing to double-check.  Take all time you need, there is no
+need to haste.
 
-> > +
-> > +	if (notify)
-> > +		netdev_notify_peers(net);
-> >  }
-> >
-> 
-> Looks like this forces arp_notify here. Is it expected?
+Many Thanks Eric.
 
-Yes, this is expected. It's required after live migration.
+Do you think it makes sense to add counters for this?
 
-Thanks,
-- Haiyang
+The caveat is that decision to send 0 window doesn't mean we end
+up sending one, since we cannot shrink already offered window.
+
+static u16 tcp_select_window(struct sock *sk)
+{
+    struct tcp_sock *tp = tcp_sk(sk);
+    u32 cur_win = tcp_receive_window(tp);
+    u32 new_win = __tcp_select_window(sk);
+
+    /* Never shrink the offered window */
+    if (new_win < cur_win) {
+
+Would you add SNMP counter for '__tcp_select_window() wants 0 window'
+or for 'tcp_select_window() does pick 0 window' ?
+
+[ or even different counters for both ? ]
+
+Cheers,
+Florian
