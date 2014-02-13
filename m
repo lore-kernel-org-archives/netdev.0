@@ -1,205 +1,109 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next v2 12/14] tipc: delay delete of link when failover is needed
-Date: Thu, 13 Feb 2014 17:29:16 -0500
-Message-ID: <1392330558-19048-13-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next v2 13/14] tipc: remove
+	bearer_lock from tipc_bearer struct
+Date: Thu, 13 Feb 2014 17:29:17 -0500
+Message-ID: <1392330558-19048-14-git-send-email-jon.maloy@ericsson.com>
 References: <1392330558-19048-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp103.biz.mail.ne1.yahoo.com ([98.138.207.10]:21117 "HELO
-	smtp103.biz.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752557AbaBMW3r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:29:47 -0500
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
 In-Reply-To: <1392330558-19048-1-git-send-email-jon.maloy@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-When a bearer is disabled, all its attached links are deleted.
-Ideally, we should do link failover to redundant links on other bearers,
-if there are any, in such cases. This would be consistent with current
-behavior when a link is reset, but not deleted. However, due to the
-complexity involved, and the (wrongly) perceived low demand for this
-feature, it was never implemented until now.
-
-We mark the doomed link for deletion with a new flag, but wait until the
-failover process is finished before we actually delete it. With the
-improved link tunnelling/failover code introduced earlier in this commit
-series, it is now easy to identify a spot in the code where the failover
-is finished and it is safe to delete the marked link. Moreover, the test
-for the flag and the deletion can be done synchronously, and outside the
-most time critical data path.
-
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-Reviewed-by: Ying Xue <ying.xue@windriver.com>
----
- net/tipc/bearer.c |   12 ++++++------
- net/tipc/link.c   |   31 ++++++++++++++++++++++---------
- net/tipc/link.h   |    2 +-
- net/tipc/node.c   |    8 +++++++-
- 4 files changed, 36 insertions(+), 17 deletions(-)
-
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index 4931eea..60caa45 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -51,7 +51,7 @@ static struct tipc_media * const media_info_array[] = {
- 
- struct tipc_bearer tipc_bearers[MAX_BEARERS];
- 
--static void bearer_disable(struct tipc_bearer *b_ptr);
-+static void bearer_disable(struct tipc_bearer *b_ptr, bool shutting_down);
- 
- /**
-  * tipc_media_find - locates specified media object by name
-@@ -331,7 +331,7 @@ restart:
- 
- 	res = tipc_disc_create(b_ptr, &b_ptr->bcast_addr, disc_domain);
- 	if (res) {
--		bearer_disable(b_ptr);
-+		bearer_disable(b_ptr, false);
- 		pr_warn("Bearer <%s> rejected, discovery object creation failed\n",
- 			name);
- 		goto exit;
-@@ -363,14 +363,14 @@ static int tipc_reset_bearer(struct tipc_bearer *b_ptr)
-  *
-  * Note: This routine assumes caller holds tipc_net_lock.
-  */
--static void bearer_disable(struct tipc_bearer *b_ptr)
-+static void bearer_disable(struct tipc_bearer *b_ptr, bool shutting_down)
- {
- 	struct tipc_link_req *temp_req;
- 
- 	pr_info("Disabling bearer <%s>\n", b_ptr->name);
- 	spin_lock_bh(&b_ptr->lock);
- 	b_ptr->media->disable_media(b_ptr);
--	tipc_link_delete_list(b_ptr->identity);
-+	tipc_link_delete_list(b_ptr->identity, shutting_down);
- 	temp_req = b_ptr->link_req;
- 	b_ptr->link_req = NULL;
- 	spin_unlock_bh(&b_ptr->lock);
-@@ -392,7 +392,7 @@ int tipc_disable_bearer(const char *name)
- 		pr_warn("Attempt to disable unknown bearer <%s>\n", name);
- 		res = -EINVAL;
- 	} else {
--		bearer_disable(b_ptr);
-+		bearer_disable(b_ptr, false);
- 		res = 0;
- 	}
- 	write_unlock_bh(&tipc_net_lock);
-@@ -612,6 +612,6 @@ void tipc_bearer_stop(void)
- 
- 	for (i = 0; i < MAX_BEARERS; i++) {
- 		if (tipc_bearers[i].active)
--			bearer_disable(&tipc_bearers[i]);
-+			bearer_disable(&tipc_bearers[i], true);
- 	}
- }
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 663623c..0307516 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -281,7 +281,7 @@ struct tipc_link *tipc_link_create(struct tipc_node *n_ptr,
- }
- 
- 
--void tipc_link_delete_list(unsigned int bearer_id)
-+void tipc_link_delete_list(unsigned int bearer_id, bool shutting_down)
- {
- 	struct tipc_link *l_ptr;
- 	struct tipc_node *n_ptr;
-@@ -291,12 +291,20 @@ void tipc_link_delete_list(unsigned int bearer_id)
- 		l_ptr = n_ptr->links[bearer_id];
- 		if (l_ptr) {
- 			tipc_link_reset(l_ptr);
--			tipc_node_detach_link(n_ptr, l_ptr);
--			spin_unlock_bh(&n_ptr->lock);
--
--			/* Nobody else can access this link now: */
--			del_timer_sync(&l_ptr->timer);
--			kfree(l_ptr);
-+			if (shutting_down || !tipc_node_is_up(n_ptr)) {
-+				tipc_node_detach_link(l_ptr->owner, l_ptr);
-+				tipc_link_reset_fragments(l_ptr);
-+				spin_unlock_bh(&n_ptr->lock);
-+
-+				/* Nobody else can access this link now: */
-+				del_timer_sync(&l_ptr->timer);
-+				kfree(l_ptr);
-+			} else {
-+				/* Detach/delete when failover is finished: */
-+				l_ptr->flags |= LINK_STOPPED;
-+				spin_unlock_bh(&n_ptr->lock);
-+				del_timer_sync(&l_ptr->timer);
-+			}
- 			continue;
- 		}
- 		spin_unlock_bh(&n_ptr->lock);
-@@ -481,6 +489,9 @@ static void link_state_event(struct tipc_link *l_ptr, unsigned int event)
- 	struct tipc_link *other;
- 	u32 cont_intv = l_ptr->continuity_interval;
- 
-+	if (l_ptr->flags & LINK_STOPPED)
-+		return;
-+
- 	if (!(l_ptr->flags & LINK_STARTED) && (event != STARTING_EVT))
- 		return;		/* Not yet. */
- 
-@@ -2167,8 +2178,11 @@ static struct sk_buff *tipc_link_failover_rcv(struct tipc_link *l_ptr,
- 					   &buf);
- 		}
- 	}
--
- exit:
-+	if ((l_ptr->exp_msg_count == 0) && (l_ptr->flags & LINK_STOPPED)) {
-+		tipc_node_detach_link(l_ptr->owner, l_ptr);
-+		kfree(l_ptr);
-+	}
- 	return buf;
- }
- 
-@@ -2201,7 +2215,6 @@ static int tipc_link_tunnel_rcv(struct tipc_node *n_ptr,
- 		*buf = tipc_link_failover_rcv(l_ptr, t_buf);
- 	else
- 		pr_warn("%sunknown tunnel pkt received\n", link_co_err);
--
- exit:
- 	kfree_skb(t_buf);
- 	return *buf != NULL;
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 3340fc1..45b9cd0 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -214,7 +214,7 @@ struct tipc_port;
- struct tipc_link *tipc_link_create(struct tipc_node *n_ptr,
- 			      struct tipc_bearer *b_ptr,
- 			      const struct tipc_media_addr *media_addr);
--void tipc_link_delete_list(unsigned int bearer_id);
-+void tipc_link_delete_list(unsigned int bearer_id, bool shutting_down);
- void tipc_link_failover_send_queue(struct tipc_link *l_ptr);
- void tipc_link_dup_send_queue(struct tipc_link *l_ptr,
- 			      struct tipc_link *dest);
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index efe4d41..833324b 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -249,7 +249,13 @@ void tipc_node_attach_link(struct tipc_node *n_ptr, struct tipc_link *l_ptr)
- 
- void tipc_node_detach_link(struct tipc_node *n_ptr, struct tipc_link *l_ptr)
- {
--	n_ptr->links[l_ptr->b_ptr->identity] = NULL;
-+	int i;
-+
-+	for (i = 0; i < MAX_BEARERS; i++) {
-+		if (l_ptr == n_ptr->links[i])
-+			break;
-+	}
-+	n_ptr->links[i] = NULL;
- 	atomic_dec(&tipc_num_links);
- 	n_ptr->link_cnt--;
- }
--- 
-1.7.9.5
+RnJvbTogWWluZyBYdWUgPHlpbmcueHVlQHdpbmRyaXZlci5jb20+CgpBZnRlciB0aGUgZWFybGll
+ciBjb21taXRzICgidGlwYzogcmVtb3ZlICdsaW5rcycgbGlzdCBmcm9tCnRpcGNfYmVhcmVyIHN0
+cnVjdCIpIGFuZCAoInRpcGM6IGludHJvZHVjZSBuZXcgc3BpbmxvY2sgdG8gcHJvdGVjdApzdHJ1
+Y3QgbGlua19yZXEiKSwgdGhlcmUgaXMgbm8gbG9uZ2VyIGFueSBuZWVkIHRvIHByb3RlY3Qgc3Ry
+dWN0CmxpbmtfcmVxIG9yIG9yIGFueSBsaW5rIGxpc3QgYnkgdXNlIG9mIGJlYXJlcl9sb2NrLiBG
+dXJ0aGVybW9yZSwKd2UgaGF2ZSBlbGltaW5hdGVkIHRoZSBuZWVkIGZvciB1c2luZyBiZWFyZXJf
+bG9jayBkdXJpbmcgZG93bmNhbGxzCihzZW5kKSBmcm9tIHRoZSBsaW5rIHRvIHRoZSBiZWFyZXIs
+IHNpbmNlIHdlIGhhdmUgZW5zdXJlZCB0aGF0CmJlYXJlcnMgYWx3YXlzIGhhdmUgYSBsb25nZXIg
+bGlmZSBjeWNsZSB0aGF0IHRoZWlyIGFzc29jaWF0ZWQgbGlua3MsCmFuZCBhbHdheXMgY29udGFp
+biB2YWxpZCBkYXRhLgoKU28sIHRoZSBvbmx5IG5lZWQgbm93IGZvciBhIGxvY2sgcHJvdGVjdGlu
+ZyBiZWFyZXJzIGlzIGZvciBndWFyYW50ZWVpbmcKY29uc2lzdGVuY3kgb2YgdGhlIGJlYXJlciBs
+aXN0IGl0c2VsZi4gRm9yIHRoaXMsIGl0IGlzIHN1ZmZpY2llbnQsIGF0CmxlYXN0IGZvciB0aGUg
+dGltZSBiZWluZywgdG8gY29udGludWUgYXBwbHlpbmcgJ25ldF9sb2NrwrQgaW4gd3JpdGUgbW9k
+ZS4KCkJ5IHJlbW92aW5nIGJlYXJlcl9sb2NrIHdlIGFsc28gcHJlLWVtcHQgaW50cm9kdWN0aW9u
+IG9mIGlzc3VlIGIpIGRlc2NpYmVkCmluIHRoZSBwcmV2aW91cyBjb21taXQgInRpcGM6IHJlbW92
+ZSAnbGlua3MnIGxpc3QgZnJvbSB0aXBjX2JlYXJlciBzdHJ1Y3QiOgoKImIpIFdoZW4gdGhlIG91
+dGVyIHByb3RlY3Rpb24gZnJvbSBuZXRfbG9jayBpcyBnb25lLCB0YWtpbmcKICAgIGJlYXJlcl9s
+b2NrIGFuZCBub2RlX2xvY2sgaW4gb3Bwb3NpdGUgb3JkZXIgb2YgbWV0aG9kIDEpIGFuZCAyKQog
+ICAgd2lsbCBiZWNvbWUgYW4gb2J2aW91cyBkZWFkbG9jayBoYXphcmQiLgoKVGhlcmVmb3JlLCB3
+ZSBub3cgZWxpbWluYXRlIHRoZSBiZWFyZXJfbG9jayBzcGlubG9jay4KClNpZ25lZC1vZmYtYnk6
+IFlpbmcgWHVlIDx5aW5nLnh1ZUB3aW5kcml2ZXIuY29tPgpSZXZpZXdlZC1ieTogUGF1bCBHb3J0
+bWFrZXIgPHBhdWwuZ29ydG1ha2VyQHdpbmRyaXZlci5jb20+ClNpZ25lZC1vZmYtYnk6IEpvbiBN
+YWxveSA8am9uLm1hbG95QGVyaWNzc29uLmNvbT4KLS0tCiBuZXQvdGlwYy9iY2FzdC5jICB8ICAg
+IDEgLQogbmV0L3RpcGMvYmVhcmVyLmMgfCAgIDE2ICsrKy0tLS0tLS0tLS0tLS0KIG5ldC90aXBj
+L2JlYXJlci5oIHwgICAgNSArLS0tLQogMyBmaWxlcyBjaGFuZ2VkLCA0IGluc2VydGlvbnMoKyks
+IDE4IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL25ldC90aXBjL2JjYXN0LmMgYi9uZXQvdGlw
+Yy9iY2FzdC5jCmluZGV4IGFmMzVmNzYuLjA2YTYzOWMgMTAwNjQ0Ci0tLSBhL25ldC90aXBjL2Jj
+YXN0LmMKKysrIGIvbmV0L3RpcGMvYmNhc3QuYwpAQCAtNzg1LDcgKzc4NSw2IEBAIHZvaWQgdGlw
+Y19iY2xpbmtfaW5pdCh2b2lkKQogCWJjbC0+b3duZXIgPSAmYmNsaW5rLT5ub2RlOwogCWJjbC0+
+bWF4X3BrdCA9IE1BWF9QS1RfREVGQVVMVF9NQ0FTVDsKIAl0aXBjX2xpbmtfc2V0X3F1ZXVlX2xp
+bWl0cyhiY2wsIEJDTElOS19XSU5fREVGQVVMVCk7Ci0Jc3Bpbl9sb2NrX2luaXQoJmJjYmVhcmVy
+LT5iZWFyZXIubG9jayk7CiAJYmNsLT5iX3B0ciA9ICZiY2JlYXJlci0+YmVhcmVyOwogCWJjbC0+
+c3RhdGUgPSBXT1JLSU5HX1dPUktJTkc7CiAJc3RybGNweShiY2wtPm5hbWUsIHRpcGNfYmNsaW5r
+X25hbWUsIFRJUENfTUFYX0xJTktfTkFNRSk7CmRpZmYgLS1naXQgYS9uZXQvdGlwYy9iZWFyZXIu
+YyBiL25ldC90aXBjL2JlYXJlci5jCmluZGV4IDYwY2FhNDUuLjI0MmNkZGQgMTAwNjQ0Ci0tLSBh
+L25ldC90aXBjL2JlYXJlci5jCisrKyBiL25ldC90aXBjL2JlYXJlci5jCkBAIC0zMjcsNyArMzI3
+LDYgQEAgcmVzdGFydDoKIAliX3B0ci0+bmV0X3BsYW5lID0gYmVhcmVyX2lkICsgJ0EnOwogCWJf
+cHRyLT5hY3RpdmUgPSAxOwogCWJfcHRyLT5wcmlvcml0eSA9IHByaW9yaXR5OwotCXNwaW5fbG9j
+a19pbml0KCZiX3B0ci0+bG9jayk7CiAKIAlyZXMgPSB0aXBjX2Rpc2NfY3JlYXRlKGJfcHRyLCAm
+Yl9wdHItPmJjYXN0X2FkZHIsIGRpc2NfZG9tYWluKTsKIAlpZiAocmVzKSB7CkBAIC0zNTEsOSAr
+MzUwLDcgQEAgc3RhdGljIGludCB0aXBjX3Jlc2V0X2JlYXJlcihzdHJ1Y3QgdGlwY19iZWFyZXIg
+KmJfcHRyKQogewogCXJlYWRfbG9ja19iaCgmdGlwY19uZXRfbG9jayk7CiAJcHJfaW5mbygiUmVz
+ZXR0aW5nIGJlYXJlciA8JXM+XG4iLCBiX3B0ci0+bmFtZSk7Ci0Jc3Bpbl9sb2NrX2JoKCZiX3B0
+ci0+bG9jayk7CiAJdGlwY19saW5rX3Jlc2V0X2xpc3QoYl9wdHItPmlkZW50aXR5KTsKLQlzcGlu
+X3VubG9ja19iaCgmYl9wdHItPmxvY2spOwogCXJlYWRfdW5sb2NrX2JoKCZ0aXBjX25ldF9sb2Nr
+KTsKIAlyZXR1cm4gMDsKIH0KQEAgLTM2NSwxOSArMzYyLDEyIEBAIHN0YXRpYyBpbnQgdGlwY19y
+ZXNldF9iZWFyZXIoc3RydWN0IHRpcGNfYmVhcmVyICpiX3B0cikKICAqLwogc3RhdGljIHZvaWQg
+YmVhcmVyX2Rpc2FibGUoc3RydWN0IHRpcGNfYmVhcmVyICpiX3B0ciwgYm9vbCBzaHV0dGluZ19k
+b3duKQogewotCXN0cnVjdCB0aXBjX2xpbmtfcmVxICp0ZW1wX3JlcTsKLQogCXByX2luZm8oIkRp
+c2FibGluZyBiZWFyZXIgPCVzPlxuIiwgYl9wdHItPm5hbWUpOwotCXNwaW5fbG9ja19iaCgmYl9w
+dHItPmxvY2spOwogCWJfcHRyLT5tZWRpYS0+ZGlzYWJsZV9tZWRpYShiX3B0cik7Ci0JdGlwY19s
+aW5rX2RlbGV0ZV9saXN0KGJfcHRyLT5pZGVudGl0eSwgc2h1dHRpbmdfZG93bik7Ci0JdGVtcF9y
+ZXEgPSBiX3B0ci0+bGlua19yZXE7Ci0JYl9wdHItPmxpbmtfcmVxID0gTlVMTDsKLQlzcGluX3Vu
+bG9ja19iaCgmYl9wdHItPmxvY2spOwotCi0JaWYgKHRlbXBfcmVxKQotCQl0aXBjX2Rpc2NfZGVs
+ZXRlKHRlbXBfcmVxKTsKIAorCXRpcGNfbGlua19kZWxldGVfbGlzdChiX3B0ci0+aWRlbnRpdHks
+IHNodXR0aW5nX2Rvd24pOworCWlmIChiX3B0ci0+bGlua19yZXEpCisJCXRpcGNfZGlzY19kZWxl
+dGUoYl9wdHItPmxpbmtfcmVxKTsKIAltZW1zZXQoYl9wdHIsIDAsIHNpemVvZihzdHJ1Y3QgdGlw
+Y19iZWFyZXIpKTsKIH0KIApkaWZmIC0tZ2l0IGEvbmV0L3RpcGMvYmVhcmVyLmggYi9uZXQvdGlw
+Yy9iZWFyZXIuaAppbmRleCA2NDdjYjFkLi40MjVkZDgxIDEwMDY0NAotLS0gYS9uZXQvdGlwYy9i
+ZWFyZXIuaAorKysgYi9uZXQvdGlwYy9iZWFyZXIuaApAQCAtMTA3LDEwICsxMDcsOCBAQCBzdHJ1
+Y3QgdGlwY19tZWRpYSB7CiAKIC8qKgogICogc3RydWN0IHRpcGNfYmVhcmVyIC0gR2VuZXJpYyBU
+SVBDIGJlYXJlciBzdHJ1Y3R1cmUKLSAqIEBkZXY6IHB0ciB0byBhc3NvY2lhdGVkIG5ldHdvcmsg
+ZGV2aWNlCi0gKiBAdXNyX2hhbmRsZTogcG9pbnRlciB0byBhZGRpdGlvbmFsIG1lZGlhLXNwZWNp
+ZmljIGluZm9ybWF0aW9uIGFib3V0IGJlYXJlcgorICogQG1lZGlhX3B0cjogcG9pbnRlciB0byBh
+ZGRpdGlvbmFsIG1lZGlhLXNwZWNpZmljIGluZm9ybWF0aW9uIGFib3V0IGJlYXJlcgogICogQG10
+dTogbWF4IHBhY2tldCBzaXplIGJlYXJlciBjYW4gc3VwcG9ydAotICogQGxvY2s6IHNwaW5sb2Nr
+IGZvciBjb250cm9sbGluZyBhY2Nlc3MgdG8gYmVhcmVyCiAgKiBAYWRkcjogbWVkaWEtc3BlY2lm
+aWMgYWRkcmVzcyBhc3NvY2lhdGVkIHdpdGggYmVhcmVyCiAgKiBAbmFtZTogYmVhcmVyIG5hbWUg
+KGZvcm1hdCA9IG1lZGlhOmludGVyZmFjZSkKICAqIEBtZWRpYTogcHRyIHRvIG1lZGlhIHN0cnVj
+dHVyZSBhc3NvY2lhdGVkIHdpdGggYmVhcmVyCkBAIC0xMzMsNyArMTMxLDYgQEAgc3RydWN0IHRp
+cGNfYmVhcmVyIHsKIAl1MzIgbXR1OwkJCQkvKiBpbml0YWxpemVkIGJ5IG1lZGlhICovCiAJc3Ry
+dWN0IHRpcGNfbWVkaWFfYWRkciBhZGRyOwkJLyogaW5pdGFsaXplZCBieSBtZWRpYSAqLwogCWNo
+YXIgbmFtZVtUSVBDX01BWF9CRUFSRVJfTkFNRV07Ci0Jc3BpbmxvY2tfdCBsb2NrOwogCXN0cnVj
+dCB0aXBjX21lZGlhICptZWRpYTsKIAlzdHJ1Y3QgdGlwY19tZWRpYV9hZGRyIGJjYXN0X2FkZHI7
+CiAJdTMyIHByaW9yaXR5OwotLSAKMS43LjkuNQoKCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpBbmRy
+b2lkIGFwcHMgcnVuIG9uIEJsYWNrQmVycnkgMTAKSW50cm9kdWNpbmcgdGhlIG5ldyBCbGFja0Jl
+cnJ5IDEwLjIuMSBSdW50aW1lIGZvciBBbmRyb2lkIGFwcHMuCk5vdyB3aXRoIHN1cHBvcnQgZm9y
+IEplbGx5IEJlYW4sIEJsdWV0b290aCwgTWFwdmlldyBhbmQgbW9yZS4KR2V0IHlvdXIgQW5kcm9p
+ZCBhcHAgaW4gZnJvbnQgb2YgYSB3aG9sZSBuZXcgYXVkaWVuY2UuICBTdGFydCBub3cuCmh0dHA6
+Ly9wdWJhZHMuZy5kb3VibGVjbGljay5uZXQvZ2FtcGFkL2Nsaz9pZD0xMjQ0MDcxNTEmaXU9LzQx
+NDAvb3N0Zy5jbGt0cmsKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX18KdGlwYy1kaXNjdXNzaW9uIG1haWxpbmcgbGlzdAp0aXBjLWRpc2N1c3Npb25AbGlzdHMu
+c291cmNlZm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3Rp
+bmZvL3RpcGMtZGlzY3Vzc2lvbgo=
