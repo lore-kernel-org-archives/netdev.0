@@ -1,8 +1,10 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next v2 01/14] tipc: stricter behavior of message reassembly function
-Date: Thu, 13 Feb 2014 17:29:05 -0500
-Message-ID: <1392330558-19048-2-git-send-email-jon.maloy@ericsson.com>
-References: <1392330558-19048-1-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next v2 00/14] tipc: clean up media and bearer layer
+Date: Thu, 13 Feb 2014 17:29:04 -0500
+Message-ID: <1392330558-19048-1-git-send-email-jon.maloy@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
 	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
@@ -10,127 +12,72 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp103.biz.mail.ne1.yahoo.com ([98.138.207.10]:20939 "HELO
+Received: from smtp103.biz.mail.ne1.yahoo.com ([98.138.207.10]:20921 "HELO
 	smtp103.biz.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752511AbaBMW3c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:29:32 -0500
-In-Reply-To: <1392330558-19048-1-git-send-email-jon.maloy@ericsson.com>
+	by vger.kernel.org with SMTP id S1752471AbaBMW3a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:29:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The function tipc_link_recv_fragment(struct sk_buff **buf) currently
-leaves the value of the input buffer pointer undefined when it returns,
-except when the return code indicates that the reassembly is complete.
-This despite the fact that it always consumes the input buffer.
+This commit series aims at facilitating future changes to the
+locking policy around nodes, links and bearers.
 
-Here, we enforce a stricter behavior by this function, ensuring that
-the returned buffer pointer is non-NULL if and only if the reassembly
-is complete. This makes it possible to test for the buffer pointer as
-criteria for successful reassembly.
+Currently, we have a big read/write lock (net_lock) that is used for
+serializing all changes to the node, link and bearer lists, as well
+as to their mutual pointers and references.
 
-We also rename the function to tipc_link_frag_rcv(), which is both
-shorter and more in line with common naming practice in the network
-subsystem.
+But, in order to allow for concurrent access to the contents of these
+structures, net_lock is only used in read mode by the data path code,
+and hence a finer granular locking policy must be applied inside the
+scope of net_lock: a spinlock (node_lock) for each node structure,
+and another one (bearer_lock) for protection of bearer structures.
 
-Apart from the new name, these changes have no impact on current
-users of the function, but makes it more practical for use in some
-planned future commits.
+This locking policy has proved hard to maintain. We have several 
+times encountered contention problems between node_lock and 
+bearer_lock, and with the advent of the RCU locking mechanism we
+feel it is anyway obsolete and ripe for improvements.
 
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-Reviewed-by: Ying Xue <ying.xue@windriver.com>
----
- net/tipc/bcast.c |    6 +++---
- net/tipc/link.c  |   16 +++++++++-------
- net/tipc/link.h  |    6 +++---
- 3 files changed, 15 insertions(+), 13 deletions(-)
+We now plan to replace net_lock with an RCU lock, as well as
+getting rid of bearer_lock altogether. This will both reduce data
+path overhead and make the code more manageable, while reducing the
+risk of future lock contention problems.
 
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index bf860d9..af35f76 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -481,9 +481,9 @@ receive:
- 			tipc_link_recv_bundle(buf);
- 		} else if (msg_user(msg) == MSG_FRAGMENTER) {
- 			int ret;
--			ret = tipc_link_recv_fragment(&node->bclink.reasm_head,
--						      &node->bclink.reasm_tail,
--						      &buf);
-+			ret = tipc_link_frag_rcv(&node->bclink.reasm_head,
-+						 &node->bclink.reasm_tail,
-+						 &buf);
- 			if (ret == LINK_REASM_ERROR)
- 				goto unlock;
- 			spin_lock_bh(&bc_lock);
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index d4b5de4..17fbd15 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -1584,9 +1584,9 @@ deliver:
- 			continue;
- 		case MSG_FRAGMENTER:
- 			l_ptr->stats.recv_fragments++;
--			ret = tipc_link_recv_fragment(&l_ptr->reasm_head,
--						      &l_ptr->reasm_tail,
--						      &buf);
-+			ret = tipc_link_frag_rcv(&l_ptr->reasm_head,
-+						 &l_ptr->reasm_tail,
-+						 &buf);
- 			if (ret == LINK_REASM_COMPLETE) {
- 				l_ptr->stats.recv_fragmented++;
- 				msg = buf_msg(buf);
-@@ -2277,12 +2277,11 @@ static int link_send_long_buf(struct tipc_link *l_ptr, struct sk_buff *buf)
- 	return dsz;
- }
- 
--/*
-- * tipc_link_recv_fragment(): Called with node lock on. Returns
-+/* tipc_link_frag_rcv(): Called with node lock on. Returns
-  * the reassembled buffer if message is complete.
-  */
--int tipc_link_recv_fragment(struct sk_buff **head, struct sk_buff **tail,
--			    struct sk_buff **fbuf)
-+int tipc_link_frag_rcv(struct sk_buff **head, struct sk_buff **tail,
-+		       struct sk_buff **fbuf)
- {
- 	struct sk_buff *frag = *fbuf;
- 	struct tipc_msg *msg = buf_msg(frag);
-@@ -2296,6 +2295,7 @@ int tipc_link_recv_fragment(struct sk_buff **head, struct sk_buff **tail,
- 			goto out_free;
- 		*head = frag;
- 		skb_frag_list_init(*head);
-+		*fbuf = NULL;
- 		return 0;
- 	} else if (*head &&
- 		   skb_try_coalesce(*head, frag, &headstolen, &delta)) {
-@@ -2315,10 +2315,12 @@ int tipc_link_recv_fragment(struct sk_buff **head, struct sk_buff **tail,
- 		*tail = *head = NULL;
- 		return LINK_REASM_COMPLETE;
- 	}
-+	*fbuf = NULL;
- 	return 0;
- out_free:
- 	pr_warn_ratelimited("Link unable to reassemble fragmented message\n");
- 	kfree_skb(*fbuf);
-+	*fbuf = NULL;
- 	return LINK_REASM_ERROR;
- }
- 
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 3b6aa65..8addc5e 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -239,9 +239,9 @@ int tipc_link_send_sections_fast(struct tipc_port *sender,
- 				 struct iovec const *msg_sect,
- 				 unsigned int len, u32 destnode);
- void tipc_link_recv_bundle(struct sk_buff *buf);
--int  tipc_link_recv_fragment(struct sk_buff **reasm_head,
--			     struct sk_buff **reasm_tail,
--			     struct sk_buff **fbuf);
-+int  tipc_link_frag_rcv(struct sk_buff **reasm_head,
-+			struct sk_buff **reasm_tail,
-+			struct sk_buff **fbuf);
- void tipc_link_send_proto_msg(struct tipc_link *l_ptr, u32 msg_typ, int prob,
- 			      u32 gap, u32 tolerance, u32 priority,
- 			      u32 acked_mtu);
+Prior to these changes, we need to do some necessary cleanup and
+code consolidation. This is what we do with this commit series,
+before we finally remove bearer_lock. In a later series we will
+replace net_lock with an RCU lock.
+
+v2:
+ - Re-inserted a removed kerneldoc entry in commit#5, based on 
+   feedback from D. Miller.
+
+
+Jon Maloy (9):
+  tipc: stricter behavior of message reassembly function
+  tipc: change reception of tunnelled duplicate packets
+  tipc: change reception of tunnelled failover packets
+  tipc: change signature of tunnelling reception function
+  tipc: more cleanup of tunnelling reception function
+  tipc: rename stack variables in function tipc_link_tunnel_rcv
+  tipc: changes to general packet reception algorithm
+  tipc: delay delete of link when failover is needed
+  tipc: add node_lock protection to link lookup function
+
+Ying Xue (5):
+  tipc: move code for resetting links from bearer.c to link.c
+  tipc: move code for deleting links from bearer.c to link.c
+  tipc: redefine 'started' flag in struct link to bitmap
+  tipc: remove 'links' list from tipc_bearer struct
+  tipc: remove bearer_lock from tipc_bearer struct
+
+ net/tipc/bcast.c  |    7 +-
+ net/tipc/bearer.c |   42 ++----
+ net/tipc/bearer.h |    7 +-
+ net/tipc/core.c   |    2 +-
+ net/tipc/link.c   |  432 ++++++++++++++++++++++++++++++-----------------------
+ net/tipc/link.h   |   34 ++---
+ net/tipc/node.c   |    8 +-
+ 7 files changed, 283 insertions(+), 249 deletions(-)
+
 -- 
 1.7.9.5
