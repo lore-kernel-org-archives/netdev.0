@@ -1,7 +1,7 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 04/14] i40evf: get rid of pci_using_dac
-Date: Fri, 14 Feb 2014 14:57:58 -0800
-Message-ID: <1392418688-23895-5-git-send-email-aaron.f.brown@intel.com>
+Subject: [net-next 05/14] i40evf: fix up strings in init task
+Date: Fri, 14 Feb 2014 14:57:59 -0800
+Message-ID: <1392418688-23895-6-git-send-email-aaron.f.brown@intel.com>
 References: <1392418688-23895-1-git-send-email-aaron.f.brown@intel.com>
 Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -9,74 +9,128 @@ Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	Aaron Brown <aaron.f.brown@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:33318 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:50864 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753166AbaBNXBU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Feb 2014 18:01:20 -0500
+	id S1753162AbaBNXBZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Feb 2014 18:01:25 -0500
 In-Reply-To: <1392418688-23895-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mitch Williams <mitch.a.williams@intel.com>
 
-PCI DAC doesn't really mean much on a virtualized PCI Express part, so
-get rid of that check and just always set the HIGHDMA flag in the net
-device.
+Make sure errors are reported at the correct log level, quit printing
+the function name every time, and make the messages more consistent in
+format.
 
-Change-ID: I2040272be0e7934323f470c2bc73fbdd4f93e2b6
+Change-ID: I50e443467519ad3850def131d84626c50612c611
 Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 10 +++-------
- 1 file changed, 3 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 34 ++++++++++++-------------
+ 1 file changed, 16 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index e0eb27d..e9da5d5 100644
+index e9da5d5..682c341 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
 +++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -2034,8 +2034,8 @@ static void i40evf_init_task(struct work_struct *work)
- 	netdev->netdev_ops = &i40evf_netdev_ops;
- 	i40evf_set_ethtool_ops(netdev);
- 	netdev->watchdog_timeo = 5 * HZ;
--
--	netdev->features |= NETIF_F_SG |
-+	netdev->features |= NETIF_F_HIGHDMA |
-+			    NETIF_F_SG |
- 			    NETIF_F_IP_CSUM |
- 			    NETIF_F_SCTP_CSUM |
- 			    NETIF_F_IPV6_CSUM |
-@@ -2180,20 +2180,18 @@ static int i40evf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	struct net_device *netdev;
- 	struct i40evf_adapter *adapter = NULL;
- 	struct i40e_hw *hw = NULL;
--	int err, pci_using_dac;
-+	int err;
+@@ -1939,14 +1939,14 @@ static void i40evf_init_task(struct work_struct *work)
+ 		adapter->flags &= ~I40EVF_FLAG_RESET_PENDING;
+ 		err = i40e_set_mac_type(hw);
+ 		if (err) {
+-			dev_info(&pdev->dev, "%s: set_mac_type failed: %d\n",
+-				__func__, err);
++			dev_err(&pdev->dev, "Failed to set MAC type (%d)\n",
++				err);
+ 		goto err;
+ 		}
+ 		err = i40evf_check_reset_complete(hw);
+ 		if (err) {
+-			dev_info(&pdev->dev, "%s: device is still in reset (%d).\n",
+-				__func__, err);
++			dev_err(&pdev->dev, "Device is still in reset (%d).\n",
++				err);
+ 			goto err;
+ 		}
+ 		hw->aq.num_arq_entries = I40EVF_AQ_LEN;
+@@ -1956,14 +1956,14 @@ static void i40evf_init_task(struct work_struct *work)
  
- 	err = pci_enable_device(pdev);
- 	if (err)
- 		return err;
+ 		err = i40evf_init_adminq(hw);
+ 		if (err) {
+-			dev_info(&pdev->dev, "%s: init_adminq failed: %d\n",
+-				__func__, err);
++			dev_err(&pdev->dev, "Failed to init Admin Queue (%d)\n",
++				err);
+ 			goto err;
+ 		}
+ 		err = i40evf_send_api_ver(adapter);
+ 		if (err) {
+-			dev_info(&pdev->dev, "%s: unable to send to PF (%d)\n",
+-				__func__, err);
++			dev_err(&pdev->dev, "Unable to send to PF (%d)\n",
++				err);
+ 			i40evf_shutdown_adminq(hw);
+ 			goto err;
+ 		}
+@@ -1977,13 +1977,13 @@ static void i40evf_init_task(struct work_struct *work)
+ 		/* aq msg sent, awaiting reply */
+ 		err = i40evf_verify_api_ver(adapter);
+ 		if (err) {
+-			dev_err(&pdev->dev, "Unable to verify API version, error %d\n",
++			dev_err(&pdev->dev, "Unable to verify API version (%d)\n",
+ 				err);
+ 			goto err;
+ 		}
+ 		err = i40evf_send_vf_config_msg(adapter);
+ 		if (err) {
+-			dev_err(&pdev->dev, "Unable send config request, error %d\n",
++			dev_err(&pdev->dev, "Unable send config request (%d)\n",
+ 				err);
+ 			goto err;
+ 		}
+@@ -1998,8 +1998,7 @@ static void i40evf_init_task(struct work_struct *work)
+ 				 sizeof(struct i40e_virtchnl_vsi_resource));
+ 			adapter->vf_res = kzalloc(bufsz, GFP_KERNEL);
+ 			if (!adapter->vf_res) {
+-				dev_err(&pdev->dev, "%s: unable to allocate memory\n",
+-					__func__);
++				dev_err(&pdev->dev, "Unable to allocate memory for vf resources.\n");
+ 				goto err;
+ 			}
+ 		}
+@@ -2007,8 +2006,8 @@ static void i40evf_init_task(struct work_struct *work)
+ 		if (err == I40E_ERR_ADMIN_QUEUE_NO_WORK)
+ 			goto restart;
+ 		if (err) {
+-			dev_info(&pdev->dev, "%s: unable to get VF config (%d)\n",
+-				__func__, err);
++			dev_err(&pdev->dev, "Unable to get VF config (%d)\n",
++				err);
+ 			goto err_alloc;
+ 		}
+ 		adapter->state = __I40EVF_INIT_SW;
+@@ -2022,7 +2021,7 @@ static void i40evf_init_task(struct work_struct *work)
+ 			adapter->vsi_res = &adapter->vf_res->vsi_res[i];
+ 	}
+ 	if (!adapter->vsi_res) {
+-		dev_info(&pdev->dev, "%s: no LAN VSI found\n", __func__);
++		dev_err(&pdev->dev, "No LAN VSI found.\n");
+ 		goto err_alloc;
+ 	}
  
- 	if (!dma_set_mask(&pdev->dev, DMA_BIT_MASK(64))) {
--		pci_using_dac = true;
- 		/* coherent mask for the same size will always succeed if
- 		 * dma_set_mask does
- 		 */
- 		dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64));
- 	} else if (!dma_set_mask(&pdev->dev, DMA_BIT_MASK(32))) {
--		pci_using_dac = false;
- 		dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
- 	} else {
- 		dev_err(&pdev->dev, "%s: DMA configuration failed: %d\n",
-@@ -2224,8 +2222,6 @@ static int i40evf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+@@ -2053,9 +2052,8 @@ static void i40evf_init_task(struct work_struct *work)
  
- 	pci_set_drvdata(pdev, netdev);
- 	adapter = netdev_priv(netdev);
--	if (pci_using_dac)
--		netdev->features |= NETIF_F_HIGHDMA;
- 
- 	adapter->netdev = netdev;
- 	adapter->pdev = pdev;
+ 	/* The HW MAC address was set and/or determined in sw_init */
+ 	if (!is_valid_ether_addr(adapter->hw.mac.addr)) {
+-		dev_info(&pdev->dev,
+-			"Invalid MAC address %pMAC, using random\n",
+-			adapter->hw.mac.addr);
++		dev_info(&pdev->dev, "Invalid MAC address %pMAC, using random.\n",
++			 adapter->hw.mac.addr);
+ 		random_ether_addr(adapter->hw.mac.addr);
+ 	}
+ 	memcpy(netdev->dev_addr, adapter->hw.mac.addr, netdev->addr_len);
 -- 
 1.8.5.GIT
