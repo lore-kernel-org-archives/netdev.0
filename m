@@ -1,7 +1,7 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 08/14] i40evf: store ring size in ring structs
-Date: Fri, 14 Feb 2014 14:58:02 -0800
-Message-ID: <1392418688-23895-9-git-send-email-aaron.f.brown@intel.com>
+Subject: [net-next 03/14] i40evf: fix multiple crashes on remove
+Date: Fri, 14 Feb 2014 14:57:57 -0800
+Message-ID: <1392418688-23895-4-git-send-email-aaron.f.brown@intel.com>
 References: <1392418688-23895-1-git-send-email-aaron.f.brown@intel.com>
 Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -9,99 +9,65 @@ Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	Aaron Brown <aaron.f.brown@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:50864 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:61878 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753001AbaBNXB0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Feb 2014 18:01:26 -0500
+	id S1753173AbaBNXBU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Feb 2014 18:01:20 -0500
 In-Reply-To: <1392418688-23895-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mitch Williams <mitch.a.williams@intel.com>
 
-Keep the descriptor ring size in the actual ring structs instead of in
-the adapter struct. This enables us to use common tx and rx code with
-the i40e PF driver.
+Depending upon the state of the driver, there are several potential
+pitfalls on remove. Kill the watchdog task so rmmod doesn't hang.
+Check the adapter->msix_entries field, not the num_msix_vectors field,
+which is never cleared.
 
-Also update copyrights.
-
-Change-ID: I2861e599b2b4c76441c062ea14400f4750f54d0e
+Change-ID: I0546048477f09fc19e481bd37efa30daae4faa88
 Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf.h         |  2 --
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 13 ++++++++-----
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  3 ---
- 3 files changed, 8 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-index ec54ebb..827b79f 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -198,8 +198,6 @@ struct i40evf_adapter {
- 
- 	/* RX */
- 	struct i40e_ring *rx_rings[I40E_MAX_VSI_QP];
--	int txd_count;
--	int rxd_count;
- 	u64 hw_csum_rx_error;
- 	int num_msix_vectors;
- 	struct msix_entry *msix_entries;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-index b0b1f4b..8b0db1c 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
-  *
-  * Intel Ethernet Controller XL710 Family Linux Virtual Function Driver
-- * Copyright(c) 2013 Intel Corporation.
-+ * Copyright(c) 2013 - 2014 Intel Corporation.
-  *
-  * This program is free software; you can redistribute it and/or modify it
-  * under the terms and conditions of the GNU General Public License,
-@@ -241,6 +241,7 @@ static int i40evf_set_ringparam(struct net_device *netdev,
- {
- 	struct i40evf_adapter *adapter = netdev_priv(netdev);
- 	u32 new_rx_count, new_tx_count;
-+	int i;
- 
- 	if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending))
- 		return -EINVAL;
-@@ -256,12 +257,14 @@ static int i40evf_set_ringparam(struct net_device *netdev,
- 	new_rx_count = ALIGN(new_rx_count, I40EVF_REQ_DESCRIPTOR_MULTIPLE);
- 
- 	/* if nothing to do return success */
--	if ((new_tx_count == adapter->txd_count) &&
--	    (new_rx_count == adapter->rxd_count))
-+	if ((new_tx_count == adapter->tx_rings[0]->count) &&
-+	    (new_rx_count == adapter->rx_rings[0]->count))
- 		return 0;
- 
--	adapter->txd_count = new_tx_count;
--	adapter->rxd_count = new_rx_count;
-+	for (i = 0; i < adapter->vsi_res->num_queue_pairs; i++) {
-+		adapter->tx_rings[0]->count = new_tx_count;
-+		adapter->rx_rings[0]->count = new_rx_count;
-+	}
- 
- 	if (netif_running(netdev))
- 		i40evf_reinit_locked(adapter);
 diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 4a75e84..6b844af 100644
+index 75a2c6f..e0eb27d 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
 +++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -2027,9 +2027,6 @@ static void i40evf_init_task(struct work_struct *work)
+@@ -215,6 +215,9 @@ static void i40evf_irq_disable(struct i40evf_adapter *adapter)
+ 	int i;
+ 	struct i40e_hw *hw = &adapter->hw;
  
- 	adapter->flags |= I40EVF_FLAG_RX_CSUM_ENABLED;
++	if (!adapter->msix_entries)
++		return;
++
+ 	for (i = 1; i < adapter->num_msix_vectors; i++) {
+ 		wr32(hw, I40E_VFINT_DYN_CTLN1(i - 1), 0);
+ 		synchronize_irq(adapter->msix_entries[i].vector);
+@@ -2372,17 +2375,15 @@ static void i40evf_remove(struct pci_dev *pdev)
+ 	}
+ 	adapter->state = __I40EVF_REMOVE;
  
--	adapter->txd_count = I40EVF_DEFAULT_TXD;
--	adapter->rxd_count = I40EVF_DEFAULT_RXD;
+-	if (adapter->num_msix_vectors) {
++	if (adapter->msix_entries) {
+ 		i40evf_misc_irq_disable(adapter);
+-		del_timer_sync(&adapter->watchdog_timer);
 -
- 	netdev->netdev_ops = &i40evf_netdev_ops;
- 	i40evf_set_ethtool_ops(netdev);
- 	netdev->watchdog_timeo = 5 * HZ;
+-		flush_scheduled_work();
+-
+ 		i40evf_free_misc_irq(adapter);
+-
+ 		i40evf_reset_interrupt_capability(adapter);
+ 	}
+ 
++	del_timer_sync(&adapter->watchdog_timer);
++	flush_scheduled_work();
++
+ 	if (hw->aq.asq.count)
+ 		i40evf_shutdown_adminq(hw);
+ 
 -- 
 1.8.5.GIT
