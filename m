@@ -1,64 +1,86 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: RTL8153 fails to get link after applying c7de7dec2 to 3.8 kernel
-Date: Fri, 14 Feb 2014 11:13:06 +0800
-Message-ID: <65183A93811745C58958ECBAD0B8E00F@realtek.com.tw>
-References: <CANEJEGtzUF+rdSqgTHL0BmsDbCeoWki=aAWZwSx-dZ24jQ=nVg@mail.gmail.com><B88F103D217C4AF0B5D7AD58214655C6@realtek.com.tw><CANEJEGtvY1v0AC7j+uo7-ZzN9YMOaE9JOtismt0ESxpVWkvHyQ@mail.gmail.com><6929A44AB95D46C6B919DDD537CDD37B@realtek.com.tw><CANEJEGtj5b6z3L1AeiqTPgVs0qCe=pv=cyRHYi04_yNXpPMOCA@mail.gmail.com><FD21003FF7E540DCA7F8F39A2BC046B4@realtek.com.tw> <CANEJEGtGSHAACM=Bk0BAHrM=-1q4pHoboO5FYN7YM4wquMMmXA@mail.gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the devicetree tree with the net-next
+ tree
+Date: Fri, 14 Feb 2014 14:16:39 +1100
+Message-ID: <20140214141639.74ea45728f39a8ee874ce986@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: 'Inki Yoo' <inky.yoo@samsung.com>,
-	'netdev' <netdev@vger.kernel.org>,
-	'David Miller' <davem@davemloft.net>
-To: 'Grant Grundler' <grundler@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [60.250.210.242] ([60.250.210.242]:59128 "EHLO
-	rtits2.realtek.com" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751050AbaBNDNx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 22:13:53 -0500
-In-Reply-To: <CANEJEGtGSHAACM=Bk0BAHrM=-1q4pHoboO5FYN7YM4wquMMmXA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Fri__14_Feb_2014_14_16_39_+1100_sjO5N6.pESqgo9wY"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Grant Likely <grant.likely@secretlab.ca>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Grant Grundler [mailto:grundler@google.com] 
-> Sent: Friday, February 14, 2014 6:23 AM
-> To: hayeswang
-> Cc: Inki Yoo; netdev; David Miller
-> Subject: Re: RTL8153 fails to get link after applying 
-> c7de7dec2 to 3.8 kernel
-[...]
-> That makes sense. How can I check that?
+--Signature=_Fri__14_Feb_2014_14_16_39_+1100_sjO5N6.pESqgo9wY
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-The simple way is to see the led on the device to check the linking
-with the cable attatched before any driver is loaded. Normally, I
-would see the linking before running the OS when I plug the dangle
-and then power on the PC. If you couldn't see the led on the device,
-you could check the one on the switch.
+Hi Grant,
 
-> > I think you should create a udev rule to change the configuration
-> > to 1 when the dangle is plugged. Then, it could load the 
-> vendor mode driver.
-> 
-> Which "configuration" are you referring to?
+Today's linux-next merge of the devicetree tree got a conflict in
+drivers/of/of_net.c between commit 8a2fe56e8827 ("net: phy: re-design
+phy_modes to be self-contained") from the net-next tree and commit
+cf4c9eb5a451 ("of: make of_get_phy_mode parse 'phy-connection-type'")
+from the devicetree tree.
 
-Configuration 1. That has more power saving features.
+I fixed it up (I applied the following merge fix patch) and can carry the
+fix as necessary (no action is required).
 
-> Something like this? 
-> /sys/devices/12110000.usb/usb3/3-2/bConfigurationValue
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Fri, 14 Feb 2014 14:14:31 +1100
+Subject: [PATCH] net: of: merges fix for a moved comment
 
-Yes. Modify the value from 2 to 1.
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ include/linux/phy.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-> I'm happy to try any command line you give me.
-> 
-> If that command works, I can write the udev rule for future testing
-> with these devices.
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 42f1bc7eaeb0..bc77c174e0a3 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -79,8 +79,8 @@ typedef enum {
+=20
+ /**
+  * It maps 'enum phy_interface_t' found in include/linux/phy.h
+- * into the device tree binding of 'phy-mode', so that Ethernet
+- * device driver can get phy interface from device tree.
++ * into the device tree binding of 'phy-mode' or 'phy-connection-type',
++ * so that Ethernet device driver can get phy interface from device tree.
+  */
+ static inline const char *phy_modes(phy_interface_t interface)
+ {
+--=20
+1.9.0.rc3
 
-My udev rule (50-usb-realtek-net.rules) likes the following.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-ACTION!="add", GOTO="usb_realtek_net_end"
-SUBSYSTEM!="usb", GOTO="usb_realtek_net_end"
-ENV{DEVTYPE}!="usb_device", GOTO="usb_realtek_net_end"
-ATTR{idVendor}=="0bda", ATTR{idProduct}=="8153", ATTR{bConfigurationValue}!="1", ATTR{bConfigurationValue}="1"
-LABEL="usb_realtek_net_end"
- 
-Best Regards,
-Hayes
+--Signature=_Fri__14_Feb_2014_14_16_39_+1100_sjO5N6.pESqgo9wY
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJS/YqcAAoJEMDTa8Ir7ZwV7ZEQAIHF/EtycQCpIQV297/Ksqgk
+e6C6vJhT+lX/2/2BPbA370X/eeWqB8ceHiwvbgVGwB95mTkw+Q8D9blSPZn6/5CI
+OkuQsLjkqHGO5EwUtbllcHaFU4iUZXI6o2Jz+V7up/WY6UYuPi+8E6Lm2+3wzlWq
+nys63I+BJTU7UXFpOKDcF34WZw+Dbcqxx6RfUbTJAUbi5x5R/GKAq5sNNiVdffm6
+tyZvWrrpSIoezgLkjHPo99ZeOLNPDqHpKduc4cxwRxZArdAwmuUkaGRAgi0Aj8SY
+SH6crWxCpoYuAl6RyhsceMjxz1FLPaS3WzPu2sozng+SxJ+tCt5NmsT3hlg3TMH1
+/NcNL8h0khZW8j2TvbTQR4nIZ2z6CYutKTrzwiuk4jI+DoY5/dz6tbIeuGdHIAuG
+CyvNfIrQDklCl2V5TF5yMNynlEKak6g3tOoNl0sWLDM++Z2LUo8N3N+mvwcKbhul
+jUK0kB3noTGGaVzwHDthgFSm9Kn9TQH6gpvLB2VAC7H0wL4LGYSNE+mEcd670pNB
+ftzQm+6lmn2hteQ4sNPphNRE7OsQlFqSRqdJivV3h3jD5ngvJqwtxO1jkMxWXKFl
+lJzNahReCtQLdJwlabNG73QK7iQPhLdl2gYLMl0GiaH8ln3h38qX2IisDrGVrsBc
+S68f0QoY+SFvG6IuyR3C
+=aTXQ
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__14_Feb_2014_14_16_39_+1100_sjO5N6.pESqgo9wY--
