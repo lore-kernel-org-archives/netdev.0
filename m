@@ -1,94 +1,73 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH] DT: net: document Ethernet bindings in one place
-Date: Sat, 15 Feb 2014 02:05:32 +0300
-Message-ID: <52FEA13C.4080402@cogentembedded.com>
-References: <201401180405.07859.sergei.shtylyov@cogentembedded.com> < CAL_Jsq+oa9P=rh+p-dMZyGP8TcmpX7bTnMU0ynLvFxjxFDYbRg@mail.gmail.com> < 52DD98F7.4090202@cogentembedded.com> < CAL_JsqJXbF1-PcPHR2VP+Vi9A1aWizdsG_r3kDvRt3itXDhCGQ@mail.gmail.com> < CAGVrzcb3X3soJNJCE5+YSpQrr+EdycCRFkptPvBCgFg4CbGJ4Q@mail.gmail.com> < CAGVrzcb0dfw1orZzUt5-YkShOg-HNbUYvvo2vfmsZUZXy1Aqfg@mail.gmail.com> < 52DEE465.9000202@cogentembedded.com> <52E988FA.8040807@cogentembedded.com> <20140204172602.01420C4050F@trevor.secretlab.ca> <52F13410.8070205@ cogentembedded.com> <20140205120843.9ED08C40A89@trevor.secretlab.ca> < 52F25A63.3010608@cogentembedded.com> <20140206094301.03572C40B6A@trevor. secretlab.ca> <52F396DE.8010306@cogentembedded.com> <20140210220541.C7A56C408F7@trevor.secretlab.ca>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH 00/13] Cleanups for r8188eu
+Date: Fri, 14 Feb 2014 16:54:04 -0600
+Message-ID: <1392418457-3203-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Rob Landley <rob-VoJi6FS/r0vR7s880joybQ@public.gmane.org>,
-	"linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140210220541.C7A56C408F7-WNowdnHR2B42iJbIjFUEsiwD8/FfD2ys@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+ Larry Finger <Larry.Finger@lwfinger.net>
+To: gregkh@linuxfoundation.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+This set of patches removes a number of wrappers that only tend to obfuscate
+the code. These do not cause any functional changes.
 
-On 02/11/2014 01:05 AM, Grant Likely wrote:
+The one exception is the last patch. It changes the code to hold the firmware
+image in memory until the device is closed. That way, it is no longer necessary
+to reread the disk file every time the device reinits.
 
->>>>>>>>>>>>>         I'm afraid that's too late, it has spread very far, so that
->>>>>>>>>>>>> of_get_phy_mode() handles that property, not "phy-connection-type".
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 
->>>>>>>>>>>> Uggg, I guess this is a case of a defacto standard then if the kernel
->>>>>>>>>>>> doesn't even support it.
 
->>>>>>>>>>> Maybe I forgot to CC you on patch sent to Grant only, I sent a patch a
->>>>>>>>>>> while ago for of_get_phy_mode() to look for both "phy-mode" and
->>>>>>>>>>> "phy-connection-type" since the former has been a Linux invention, but
->>>>>>>>>>> the latter is ePAPR specified.
+Larry Finger (12):
+  staging: r8188eu: Remove unnecessary list_head entry from recv_frame
+    union
+  staging: r8188eu: Remove pointless "alignment" entry in recv_frame
+  staging: r8188eu: Remove union wrapping of recv_frame
+  staging: r8188eu: Remove pkt_to_recv{frame,data,mem} routines
+  staging: r8188eu: Remove unused get_rxbuf_desc()
+  staging: r8188eu: Remove get_recvframe_len()
+  staging: r8188eu: Remove get_recvframe_data()
+  staging: r8188eu: Remove unused union
+  staging: r8188eu: Remove wrapper _exit_critical_mutex()
+  staging: r8188eu: Remove wrapper _enter_critical_mutex()
+  staging: r8188eu: Remove wrapper routine _init_workitem()
+  staging: r8188eu: Remove wrapper routine _set_workitem()
 
->>>>>>>>>> Here is a link to the actual patch in question, not sure which tree
->>>>>>>>>> Grant applied it to though:
+Stas Sergeev (1):
+  staging: r8188eu: Make firmware buffer persistent
 
->>>>>>>>>> http://lkml.indiana.edu/hypermail/linux/kernel/1311.2/00048.html
+ drivers/staging/rtl8188eu/core/rtw_cmd.c          |   2 +-
+ drivers/staging/rtl8188eu/core/rtw_led.c          |   4 +-
+ drivers/staging/rtl8188eu/core/rtw_mlme_ext.c     | 148 ++++-----
+ drivers/staging/rtl8188eu/core/rtw_recv.c         | 352 ++++++++++++----------
+ drivers/staging/rtl8188eu/core/rtw_security.c     |  18 +-
+ drivers/staging/rtl8188eu/core/rtw_sta_mgt.c      |  10 +-
+ drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c |  80 ++---
+ drivers/staging/rtl8188eu/hal/rtl8188e_rxdesc.c   |  33 +-
+ drivers/staging/rtl8188eu/hal/usb_ops_linux.c     |  48 +--
+ drivers/staging/rtl8188eu/include/drv_types.h     |   6 +
+ drivers/staging/rtl8188eu/include/osdep_service.h |  27 --
+ drivers/staging/rtl8188eu/include/recv_osdep.h    |  10 +-
+ drivers/staging/rtl8188eu/include/rtl8188e_hal.h  |  11 -
+ drivers/staging/rtl8188eu/include/rtl8188e_recv.h |   7 +-
+ drivers/staging/rtl8188eu/include/rtw_mlme_ext.h  |  49 +--
+ drivers/staging/rtl8188eu/include/rtw_recv.h      | 139 +++------
+ drivers/staging/rtl8188eu/include/rtw_xmit.h      |   5 -
+ drivers/staging/rtl8188eu/os_dep/os_intfs.c       |   9 +-
+ drivers/staging/rtl8188eu/os_dep/recv_linux.c     |  36 +--
+ 19 files changed, 472 insertions(+), 522 deletions(-)
 
->>>>>>>>>         It's not the patch mail, it's Grant's "applied" reply, patch is mangled in
->>>>>>>>> this reply, and I couldn't follow the thread. Here's the actual patch mail:
-
->>>>>>>>> http://marc.info/?l=devicetree&m=138449662807254
-
->>>>>>>>         Florian, I didn't find this patch in Grant's official tree, so maybe you
->>>>>>>> should ask him where is the patch already?
-
->>>>>>> Sorry, I accidentally dropped it. It will be in the next merge window.
-
->>>>>>        Already saw it, thanks. Would that it was in 3.14 instead of course, so
->>>>>> that I could use "phy-connection-type" in my binding...
-
->>>>> Is 3.14 broken because of missing the patch? If so I'll get it merged as
->>>>> a bug fix.
-
->>>>       No, it's not. I could have used "phy-connection-type" in my binding
->>>> destined for 3.15 and document it as a preferred property as well.
-
->>> You still can. We just need to make sure that your patch is applied on
-
->>      Patches.
-
->>> top of the phy-connection-type patch.
-
->>      I'm not sure this trick is possible if the patches are merged via the
->> different trees...
-
-> There are two ways to do it. A) by having a common merge commit
-> containing that patch and merged into both branches, or B) just merging
-> the patch in the same tree.
-
-> Normally I'd suggest B), but I've already picked up the patch and I try
-> very hard not to rebase my commit tree. However, since the branch is
-> stable, you can ask for my branch to be merged into the net branch
-> before applying the dependant patches. The relevant commit id is
-> cf4c9eb5a4, and it is in my devicetree/next branch on
-> git://git.secretlab.ca/git/linux
-
-    David, would it be possible for you to merge this into net-next?
-
-> g.
-
-WBR, Sergei
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+1.8.4.5
