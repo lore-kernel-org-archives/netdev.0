@@ -1,40 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: add pacing_rate information into tcp_info
-Date: Fri, 14 Feb 2014 16:10:07 -0500 (EST)
-Message-ID: <20140214.161007.1770559518795699535.davem@davemloft.net>
-References: <1392330460.1752.42.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH] bonding: 802.3ad: make aggregator_identifier bond-private
+Date: Fri, 14 Feb 2014 13:16:19 -0800
+Message-ID: <21312.1392412579@death.nxdomain>
+References: <20140214171350.GC11688@midget.suse.cz> <20140214191243.GA3173@localhost.localdomain> <20140214205147.GA1798@midget.suse.cz>
+Cc: Flavio Leitner <fbl@redhat.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
+To: Jiri Bohac <jbohac@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38149 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751838AbaBNVKJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 16:10:09 -0500
-In-Reply-To: <1392330460.1752.42.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:47757 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751845AbaBNVQZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 16:16:25 -0500
+Received: from /spool/local
+	by e33.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Fri, 14 Feb 2014 14:16:25 -0700
+Received: from b03cxnp07029.gho.boulder.ibm.com (b03cxnp07029.gho.boulder.ibm.com [9.17.130.16])
+	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id ED2D819D804C
+	for <netdev@vger.kernel.org>; Fri, 14 Feb 2014 14:16:21 -0700 (MST)
+Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
+	by b03cxnp07029.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s1EJDkQL54329470
+	for <netdev@vger.kernel.org>; Fri, 14 Feb 2014 20:13:46 +0100
+Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id s1ELJj1F028747
+	for <netdev@vger.kernel.org>; Fri, 14 Feb 2014 14:19:45 -0700
+In-reply-to: <20140214205147.GA1798@midget.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 13 Feb 2014 14:27:40 -0800
+Jiri Bohac <jbohac@suse.cz> wrote:
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Add two new fields to struct tcp_info, to report sk_pacing_rate
-> and sk_max_pacing_rate to monitoring applications, as ss from iproute2.
-> 
-> User exported fields are 64bit, even if kernel is currently using 32bit
-> fields.
-> 
-> lpaa5:~# ss -i 
-> ..
-> 	 skmem:(r0,rb357120,t0,tb2097152,f1584,w1980880,o0,bl0) ts sack cubic
-> wscale:6,6 rto:400 rtt:0.875/0.75 mss:1448 cwnd:1 ssthresh:12 send
-> 13.2Mbps pacing_rate 3336.2Mbps unacked:15 retrans:1/5448 lost:15
-> rcv_space:29200
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>On Fri, Feb 14, 2014 at 05:12:43PM -0200, Flavio Leitner wrote:
+>> On Fri, Feb 14, 2014 at 06:13:50PM +0100, Jiri Bohac wrote:
+>> > Fix this by making aggregator_identifier private to the bond.
+>> 
+>> I don't see how you fix the duplicate agg id with this patch because
+>> you initialize for each bond to 0, then use the same algo further on.
+>> So, what is changing?
+>
+>My understanding is that the aggregator identifier is used
+>internally by the bond and never appears anywhere in the LACP
+>traffic.
+>
+>So having duplicate aggregator ids between two bonds on the same
+>machine does not matter. But it is a problem if two aggregators
+>in the same bond share the same id.
+>
+>Is my understanding wrong?
 
-Looks good, applied, thanks Eric.
+	Your understanding is correct.
+
+>> Actually, aggregator_identifier is a global variable to make sure the
+>> counter is always increasing for new bonds.  So, the fix would be to
+>> not reset it to zero, isn't it?
+>
+>I was considering this fix, but my concern was that the variable
+>(u16) would overflow sooner than it does now. It would take 2^16
+>enslavings on the machine, while with my patch you need 2^16
+>enslavings on a single bond.
+>
+>Hypothetically, a rogue NET_ADMIN in one net namespace may cause
+>this overflow to break a bond in another nemespace.
+>
+>Maybe I'm being paranoid? ;)
+
+	Personally, for ease of reading debug messages, I would prefer
+the globally unique ID (or a patch to update the pr_debugs to add the
+bond name).  From a technical point of view either way will function
+correctly.  I'm not too worried about the overflow of the ID.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
