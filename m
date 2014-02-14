@@ -1,8 +1,9 @@
 From: Sebastian Reichel <sre@debian.org>
-Subject: [RESEND] [PATCHv2 0/5] wl1251 device tree support
-Date: Sat, 15 Feb 2014 00:05:51 +0100
-Message-ID: <1392419156-14394-1-git-send-email-sre@debian.org>
+Subject: [PATCHv2 4/5] wl1251: spi: add device tree support
+Date: Sat, 15 Feb 2014 00:05:55 +0100
+Message-ID: <1392419156-14394-5-git-send-email-sre@debian.org>
 References: <20140125000929.GD25488@atomide.com>
+ <1392419156-14394-1-git-send-email-sre@debian.org>
 Cc: Rob Herring <rob.herring@calxeda.com>,
 	Pawel Moll <pawel.moll@arm.com>,
 	Mark Rutland <mark.rutland@arm.com>,
@@ -15,47 +16,76 @@ Cc: Rob Herring <rob.herring@calxeda.com>,
 To: Sebastian Reichel <sre@ring0.de>, Luciano Coelho <luca@coelho.fi>,
 	Tony Lindgren <tony@atomide.com>,
 	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ring0.de ([5.45.105.125]:32928 "EHLO smtp.ring0.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752282AbaBNXGn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Feb 2014 18:06:43 -0500
-In-Reply-To: <20140125000929.GD25488@atomide.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1392419156-14394-1-git-send-email-sre@debian.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi John,
+Add device tree support for the spi variant of wl1251.
 
-The following patchset adds device tree support to the spi variant of the
-wl1251 driver, which is used in the Nokia N900. Tony requested, that you
-take the whole series even if that may introduce merge conflicts:
+Signed-off-by: Sebastian Reichel <sre@debian.org>
+---
+ drivers/net/wireless/ti/wl1251/spi.c | 23 +++++++++++++++++------
+ 1 file changed, 17 insertions(+), 6 deletions(-)
 
-> Sebastian, please resend the whole series to John and feel free to add my
-> acks.  It's best that John picks them all up, otherwise we'll have the same
-> issue for v3.15. It seems that we should have just taken the merge conflict
-> rather than going back and forth with this.
-
--- Sebastian
-
-Luciano Coelho (1):
-  wl1251: split wl251 platform data to a separate structure
-
-Sebastian Reichel (4):
-  wl1251: move power GPIO handling into the driver
-  wl1251: spi: add vio regulator support
-  wl1251: spi: add device tree support
-  Documentation: dt: wireless: Add wl1251
-
- .../devicetree/bindings/net/wireless/ti,wl1251.txt | 39 ++++++++++++
- arch/arm/mach-omap2/board-omap3pandora.c           |  6 +-
- arch/arm/mach-omap2/board-rx51-peripherals.c       | 13 +---
- drivers/net/wireless/ti/wilink_platform_data.c     | 37 +++++++++--
- drivers/net/wireless/ti/wl1251/sdio.c              | 31 +++++++---
- drivers/net/wireless/ti/wl1251/spi.c               | 71 ++++++++++++++++------
- drivers/net/wireless/ti/wl1251/wl1251.h            |  4 +-
- include/linux/wl12xx.h                             | 24 +++++++-
- 8 files changed, 176 insertions(+), 49 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/wireless/ti,wl1251.txt
-
+diff --git a/drivers/net/wireless/ti/wl1251/spi.c b/drivers/net/wireless/ti/wl1251/spi.c
+index 0a8aacc..b06d36d 100644
+--- a/drivers/net/wireless/ti/wl1251/spi.c
++++ b/drivers/net/wireless/ti/wl1251/spi.c
+@@ -27,6 +27,8 @@
+ #include <linux/spi/spi.h>
+ #include <linux/wl12xx.h>
+ #include <linux/gpio.h>
++#include <linux/of.h>
++#include <linux/of_gpio.h>
+ #include <linux/regulator/consumer.h>
+ 
+ #include "wl1251.h"
+@@ -240,13 +242,13 @@ static const struct wl1251_if_operations wl1251_spi_ops = {
+ 
+ static int wl1251_spi_probe(struct spi_device *spi)
+ {
+-	struct wl1251_platform_data *pdata;
++	struct wl1251_platform_data *pdata = dev_get_platdata(&spi->dev);
++	struct device_node *np = spi->dev.of_node;
+ 	struct ieee80211_hw *hw;
+ 	struct wl1251 *wl;
+ 	int ret;
+ 
+-	pdata = dev_get_platdata(&spi->dev);
+-	if (!pdata) {
++	if (!np && !pdata) {
+ 		wl1251_error("no platform data");
+ 		return -ENODEV;
+ 	}
+@@ -273,7 +275,18 @@ static int wl1251_spi_probe(struct spi_device *spi)
+ 		goto out_free;
+ 	}
+ 
+-	wl->power_gpio = pdata->power_gpio;
++	if (np) {
++		wl->use_eeprom = of_property_read_bool(np, "ti,wl1251-has-eeprom");
++		wl->power_gpio = of_get_named_gpio(np, "ti,power-gpio", 0);
++	} else if (pdata) {
++		wl->power_gpio = pdata->power_gpio;
++		wl->use_eeprom = pdata->use_eeprom;
++	}
++
++	if (wl->power_gpio == -EPROBE_DEFER) {
++		ret = -EPROBE_DEFER;
++		goto out_free;
++	}
+ 
+ 	if (gpio_is_valid(wl->power_gpio)) {
+ 		ret = devm_gpio_request_one(&spi->dev, wl->power_gpio,
+@@ -295,8 +308,6 @@ static int wl1251_spi_probe(struct spi_device *spi)
+ 		goto out_free;
+ 	}
+ 
+-	wl->use_eeprom = pdata->use_eeprom;
+-
+ 	irq_set_status_flags(wl->irq, IRQ_NOAUTOEN);
+ 	ret = devm_request_irq(&spi->dev, wl->irq, wl1251_irq, 0,
+ 							DRIVER_NAME, wl);
 -- 
 1.8.5.3
