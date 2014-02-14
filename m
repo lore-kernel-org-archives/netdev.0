@@ -1,44 +1,29 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net] ovs: fix dp check in ovs_dp_reset_user_features
-Date: Fri, 14 Feb 2014 11:42:36 +0100
-Message-ID: <1392374556-8375-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, jesse@nicira.com, dev@openvswitch.org,
-	tgraf@suug.ch
-To: netdev@vger.kernel.org
+From: David Howells <dhowells@redhat.com>
+Subject: Re: suspicious code in net/rxrpc/ar-error.c
+Date: Fri, 14 Feb 2014 11:21:39 +0000
+Message-ID: <20486.1392376899@warthog.procyon.org.uk>
+References: <20140214022815.GA19030@redhat.com>
+Cc: dhowells@redhat.com, netdev@vger.kernel.org
+To: Dave Jones <davej@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f52.google.com ([74.125.83.52]:62254 "EHLO
-	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751374AbaBNKmk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 05:42:40 -0500
-Received: by mail-ee0-f52.google.com with SMTP id e53so5602204eek.39
-        for <netdev@vger.kernel.org>; Fri, 14 Feb 2014 02:42:38 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:55129 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752403AbaBNLVm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Feb 2014 06:21:42 -0500
+Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s1EBLfuU032284
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Fri, 14 Feb 2014 06:21:41 -0500
+In-Reply-To: <20140214022815.GA19030@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes crash when userspace does "ovs-dpctl add-dp dev" where dev is
-existing non-dp netdevice.
+Dave Jones <davej@redhat.com> wrote:
 
-Introduced by:
-commit 44da5ae5fbea4686f667dc854e5ea16814e44c59
-"openvswitch: Drop user features if old user space attempted to create datapath"
+> What was intended here ? Perhaps one of those mtu comparisons should be
+> comparing peer->mtu ?
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- net/openvswitch/datapath.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Good spot, thanks.  Yeah, I should be loading mtu with peer->mtu immediately
+after the comment.
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index e9a48ba..e42340d 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -1174,7 +1174,7 @@ static void ovs_dp_reset_user_features(struct sk_buff *skb, struct genl_info *in
- 	struct datapath *dp;
- 
- 	dp = lookup_datapath(sock_net(skb->sk), info->userhdr, info->attrs);
--	if (!dp)
-+	if (IS_ERR(dp))
- 		return;
- 
- 	WARN(dp->user_features, "Dropping previously announced user features\n");
--- 
-1.8.5.3
+David
