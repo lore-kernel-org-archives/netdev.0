@@ -1,54 +1,76 @@
-From: Wangyufen <wangyufen@huawei.com>
-Subject: [PATCH 2/6] bonding:fix checkpatch errors comments and space
-Date: Fri, 14 Feb 2014 17:15:13 +0800
-Message-ID: <1392369317-8072-3-git-send-email-wangyufen@huawei.com>
-References: <1392369317-8072-1-git-send-email-wangyufen@huawei.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v2] can: xilinx CAN controller support.
+Date: Fri, 14 Feb 2014 10:16:20 +0100
+Message-ID: <52FDDEE4.9060902@pengutronix.de>
+References: <\> <0dc128ac-e5cd-47bd-9ab1-3a545c3e2043@CO9EHSMHS012.ehs.local> <52FD1B16.6020600@pengutronix.de> <52FDD9FE.8040908@monstr.eu> <52FDDC24.8070805@pengutronix.de> <52FDDE30.8020405@monstr.eu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:64458 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752376AbaBNJPs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 04:15:48 -0500
-In-Reply-To: <1392369317-8072-1-git-send-email-wangyufen@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="4UQTvQD5XCcNvDjoJ5wUCVPt9UOHhh50p"
+Cc: Kedareswara rao Appana <appana.durga.rao@xilinx.com>,
+	wg@grandegger.com, michal.simek@xilinx.com,
+	grant.likely@linaro.org, robh+dt@kernel.org,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	devicetree@vger.kernel.org,
+	Kedareswara rao Appana <appanad@xilinx.com>
+To: monstr@monstr.eu
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52FDDE30.8020405@monstr.eu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wang Yufen <wangyufen@huawei.com>
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--4UQTvQD5XCcNvDjoJ5wUCVPt9UOHhh50p
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+On 02/14/2014 10:13 AM, Michal Simek wrote:
+>>> That's not entirely truth. If you look at Microblaze then you will se=
+e
+>>> that Microblaze can be BE and LE.
+>>> There is just missing endian detection which we will add to the next =
+version.
+>>
+>> As far as I know the endianess of the kernel is fixed and known during=
+
+>> compile time. Correct me if I'm wrong. So there is no need for a runti=
+me
+>> detection of the endianess and so no need for {read,write}_reg functio=
+n
+>> pointers.
+>=20
+> Endianess of the kernel is fixed and know during compile time
+> but what it is not fixed is endianess of that IP at compile time.
+>=20
+> On fpga you can use bridges, partial reconfiguration, etc where
+> the only solution which is run-time endian detection via registers.
+>=20
+> For example: drivers/block/xsysace.c, drivers/spi/spi-xilinx.c, etc
+
+Okay, now I get it. You can make it more complex then it used to be :D
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
-Signed-off-by: Wang Yufen <wangyufen@huawei.com>
----
- drivers/net/bonding/bond_alb.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+--4UQTvQD5XCcNvDjoJ5wUCVPt9UOHhh50p
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index b3b26b0..af5ea21 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -610,10 +610,10 @@ static void rlb_req_update_slave_clients(struct bonding *bond, struct slave *sla
- 		}
- 	}
- 
--	// update the team's flag only after the whole iteration
-+	/* update the team's flag only after the whole iteration */
- 	if (ntt) {
- 		bond_info->rx_ntt = 1;
--		//fasten the change
-+		/* fasten the change */
- 		bond_info->rlb_update_retry_counter = RLB_UPDATE_RETRY;
- 	}
- 
-@@ -771,7 +771,7 @@ static struct slave *rlb_arp_xmit(struct sk_buff *skb, struct bonding *bond)
- 		*/
- 		tx_slave = rlb_choose_channel(skb, bond);
- 		if (tx_slave) {
--			memcpy(arp->mac_src,tx_slave->dev->dev_addr, ETH_ALEN);
-+			memcpy(arp->mac_src, tx_slave->dev->dev_addr, ETH_ALEN);
- 		}
- 		pr_debug("Server sent ARP Reply packet\n");
- 	} else if (arp->op_code == htons(ARPOP_REQUEST)) {
--- 
-1.7.12
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlL93uQACgkQjTAFq1RaXHM5nwCggs0uUUYPbJ19vDd7HKsWoy6/
+E5QAn1RTNztWr/e94iUSTdzPUSw+Th9Y
+=v8+D
+-----END PGP SIGNATURE-----
+
+--4UQTvQD5XCcNvDjoJ5wUCVPt9UOHhh50p--
