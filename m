@@ -1,61 +1,37 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: Re: [PATCH] bonding: 802.3ad: make aggregator_identifier bond-private
-Date: Fri, 14 Feb 2014 21:51:47 +0100
-Message-ID: <20140214205147.GA1798@midget.suse.cz>
-References: <20140214171350.GC11688@midget.suse.cz>
- <20140214191243.GA3173@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: of_mdio: fix of_set_phy_supported after
+ driver probing
+Date: Fri, 14 Feb 2014 15:52:18 -0500 (EST)
+Message-ID: <20140214.155218.1787090679183722329.davem@davemloft.net>
+References: <1392326088-3990-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
-To: Flavio Leitner <fbl@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:33460 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751838AbaBNUvv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Feb 2014 15:51:51 -0500
-Content-Disposition: inline
-In-Reply-To: <20140214191243.GA3173@localhost.localdomain>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37871 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752333AbaBNUwU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 15:52:20 -0500
+In-Reply-To: <1392326088-3990-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 14, 2014 at 05:12:43PM -0200, Flavio Leitner wrote:
-> On Fri, Feb 14, 2014 at 06:13:50PM +0100, Jiri Bohac wrote:
-> > Fix this by making aggregator_identifier private to the bond.
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Thu, 13 Feb 2014 13:14:48 -0800
+
+> Commit 8fdade4 ("net: of_mdio: parse "max-speed" property to set PHY
+> supported features") introduced a typo in of_set_phy_supported for the
+> first assignment of phydev->supported which will not effectively limit
+> the PHY device supported features bits if the PHY driver contains
+> "higher" features (e.g: max-speed = <100> and PHY driver has
+> PHY_GBIT_FEATURES set).
 > 
-> I don't see how you fix the duplicate agg id with this patch because
-> you initialize for each bond to 0, then use the same algo further on.
-> So, what is changing?
+> Fix this by making sure that the very first thing is to reset to sane
+> defaults (PHY_BASIC_FEATURES) and then progressively add speed features
+> as we parse them.
+> 
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-My understanding is that the aggregator identifier is used
-internally by the bond and never appears anywhere in the LACP
-traffic.
-
-So having duplicate aggregator ids between two bonds on the same
-machine does not matter. But it is a problem if two aggregators
-in the same bond share the same id.
-
-Is my understanding wrong?
- 
-> Actually, aggregator_identifier is a global variable to make sure the
-> counter is always increasing for new bonds.  So, the fix would be to
-> not reset it to zero, isn't it?
-
-I was considering this fix, but my concern was that the variable
-(u16) would overflow sooner than it does now. It would take 2^16
-enslavings on the machine, while with my patch you need 2^16
-enslavings on a single bond.
-
-Hypothetically, a rogue NET_ADMIN in one net namespace may cause
-this overflow to break a bond in another nemespace.
-
-Maybe I'm being paranoid? ;)
-
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
-
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+Applied and queued up for -stable, thanks.
