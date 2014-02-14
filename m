@@ -1,57 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 00/14] tipc: clean up media and bearer layer
-Date: Thu, 13 Feb 2014 17:57:32 -0500 (EST)
-Message-ID: <20140213.175732.676150849615456691.davem@davemloft.net>
-References: <1392330558-19048-1-git-send-email-jon.maloy@ericsson.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH] sh_eth: use ETH_ZLEN instead of home-grown #define
+Date: Fri, 14 Feb 2014 03:05:42 +0300
+Message-ID: <201402140305.42833.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51077 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751533AbaBMW5g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 17:57:36 -0500
-In-Reply-To: <1392330558-19048-1-git-send-email-jon.maloy@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Thu, 13 Feb 2014 17:29:04 -0500
+The driver #define's and uses ETHERSMALL macro for the minimum Ethernet frame
+size for which we have a standard macro ETH_ZLEN.  Use the latter  instead of
+the home-grown one.
 
-> This commit series aims at facilitating future changes to the
-> locking policy around nodes, links and bearers.
-> 
-> Currently, we have a big read/write lock (net_lock) that is used for
-> serializing all changes to the node, link and bearer lists, as well
-> as to their mutual pointers and references.
-> 
-> But, in order to allow for concurrent access to the contents of these
-> structures, net_lock is only used in read mode by the data path code,
-> and hence a finer granular locking policy must be applied inside the
-> scope of net_lock: a spinlock (node_lock) for each node structure,
-> and another one (bearer_lock) for protection of bearer structures.
-> 
-> This locking policy has proved hard to maintain. We have several 
-> times encountered contention problems between node_lock and 
-> bearer_lock, and with the advent of the RCU locking mechanism we
-> feel it is anyway obsolete and ripe for improvements.
-> 
-> We now plan to replace net_lock with an RCU lock, as well as
-> getting rid of bearer_lock altogether. This will both reduce data
-> path overhead and make the code more manageable, while reducing the
-> risk of future lock contention problems.
-> 
-> Prior to these changes, we need to do some necessary cleanup and
-> code consolidation. This is what we do with this commit series,
-> before we finally remove bearer_lock. In a later series we will
-> replace net_lock with an RCU lock.
-> 
-> v2:
->  - Re-inserted a removed kerneldoc entry in commit#5, based on 
->    feedback from D. Miller.
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-Series applied, thanks.
+---
+The patch is against DaveM's 'net-next.git' repo.
+
+ drivers/net/ethernet/renesas/sh_eth.c |    4 ++--
+ drivers/net/ethernet/renesas/sh_eth.h |    3 +--
+ 2 files changed, 3 insertions(+), 4 deletions(-)
+
+Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
++++ net-next/drivers/net/ethernet/renesas/sh_eth.c
+@@ -2098,8 +2098,8 @@ static int sh_eth_start_xmit(struct sk_b
+ 				 skb->len + 2);
+ 	txdesc->addr = dma_map_single(&ndev->dev, skb->data, skb->len,
+ 				      DMA_TO_DEVICE);
+-	if (skb->len < ETHERSMALL)
+-		txdesc->buffer_length = ETHERSMALL;
++	if (skb->len < ETH_ZLEN)
++		txdesc->buffer_length = ETH_ZLEN;
+ 	else
+ 		txdesc->buffer_length = skb->len;
+ 
+Index: net-next/drivers/net/ethernet/renesas/sh_eth.h
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/sh_eth.h
++++ net-next/drivers/net/ethernet/renesas/sh_eth.h
+@@ -27,8 +27,7 @@
+ #define RX_RING_MIN	64
+ #define TX_RING_MAX	1024
+ #define RX_RING_MAX	1024
+-#define ETHERSMALL		60
+-#define PKT_BUF_SZ		1538
++#define PKT_BUF_SZ	1538
+ #define SH_ETH_TSU_TIMEOUT_MS	500
+ #define SH_ETH_TSU_CAM_ENTRIES	32
+ 
