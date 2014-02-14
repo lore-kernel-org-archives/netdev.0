@@ -1,36 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH Resend] net: asix: add missing flag to struct
- driver_info
-Date: Fri, 14 Feb 2014 15:48:53 -0500 (EST)
-Message-ID: <20140214.154853.1291869116525546930.davem@davemloft.net>
-References: <1392316239-17335-1-git-send-email-emilgoode@gmail.com>
+Subject: Re: [Patch net-next] net: introduce netdev_alloc_pcpu_stats() for
+ drivers
+Date: Fri, 14 Feb 2014 15:50:27 -0500 (EST)
+Message-ID: <20140214.155027.85978951908473915.davem@davemloft.net>
+References: <1392320788-17962-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ming.lei@canonical.com, broonie@linaro.org,
-	jeffrey.t.kirsher@intel.com, gdt@gdt.id.au,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: emilgoode@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1392316239-17335-1-git-send-email-emilgoode@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37858 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751525AbaBNUu3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 15:50:29 -0500
+In-Reply-To: <1392320788-17962-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Emil Goode <emilgoode@gmail.com>
-Date: Thu, 13 Feb 2014 19:30:39 +0100
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Thu, 13 Feb 2014 11:46:28 -0800
 
-> The struct driver_info ax88178_info is assigned the function
-> asix_rx_fixup_common as it's rx_fixup callback. This means that
-> FLAG_MULTI_PACKET must be set as this function is cloning the
-> data and calling usbnet_skb_return. Not setting this flag leads
-> to usbnet_skb_return beeing called a second time from within
-> the rx_process function in the usbnet module.
->=20
-> Signed-off-by: Emil Goode <emilgoode@gmail.com>
-> Reported-by: Bj=F8rn Mork <bjorn@mork.no>
+> There are many drivers calling alloc_percpu() to allocate pcpu stats
+> and then initializing ->syncp. So just introduce a helper function for them.
+> 
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Applied and queued up for -stable.
-
-It would be great if there were some way to validate these
-callback flags requirements and catch such errors.
+Looks good, applied, thanks.
