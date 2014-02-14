@@ -1,112 +1,242 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [RFC PATCH v2 tip 0/7] 64-bit BPF insn set and tracing filters
-Date: Fri, 14 Feb 2014 12:17:37 -0800
-Message-ID: <CAMEtUux0K6xTy=wtoutny+HXv8yrTMurPWB6q_LVf7KAOAkzhw@mail.gmail.com>
-References: <1391649046-4383-1-git-send-email-ast@plumgrid.com>
-	<52F3670D.5090608@redhat.com>
-	<CAMEtUuza3NuM7L0RnVVgU-MTfjE2M==8wb4UY2TAo0Pg6DKZqA@mail.gmail.com>
-	<52FD2908.8000009@redhat.com>
-	<CAMEtUuySNdj4_YBxQtaGu3qJ6TZhp65mSBy7DbhzL_Lvn9YiPw@mail.gmail.com>
-	<52FE51E9.8000203@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Ingo Molnar <mingo@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	Tom Zanussi <tom.zanussi@linux.intel.com>,
-	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
+From: Christoph Lameter <cl@linux.com>
+Subject: [PATCH 26/48] net: Replace get_cpu_var through this_cpu_ptr
+Date: Fri, 14 Feb 2014 14:19:07 -0600
+Message-ID: <20140214201906.712135690@linux.com>
+References: <20140214201841.826179349@linux.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: akpm@linuxfoundation.org, rostedt@goodmis.org,
+	linux-kernel@vger.kernel.org, Ingo Molnar <mingo@kernel.org>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
 	Eric Dumazet <edumazet@google.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Pekka Enberg <penberg@iki.fi>,
-	Arjan van de Ven <arjan@infradead.org>,
-	Christoph Hellwig <hch@infradead.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+	"David S. Miller" <davem@davemloft.net>
+To: Tejun Heo <tj@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52FE51E9.8000203@redhat.com>
+Content-Disposition: inline; filename=this_net
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 14, 2014 at 9:27 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> On 02/14/2014 05:47 AM, Alexei Starovoitov wrote:
-> ...
->>>
->>> Do you see a possibility to integrate your work step by step? That is,
->>
->>
->> Sure. let's see how we can do it.
->>
->>> to first integrate the interpreter part only; meaning, to detect "old"
->>> BPF programs e.g. coming from SO_ATTACH_FILTER et al and run them in
->>> compatibility mode while extended BPF is fully integrated and replaces
->>> the old engine in net/core/filter.c. Maybe, "old" programs can be
->>
->>
->> do you mean drop bfp64_jit, checker and just have bpf32->bpf64 converter
->> and bpf64 interpreter as phase 1 ?
->> Checking is done by old bpf32,
->> all existing bpf32 jits, if available, can convert bpf32 to native,
->> but interpreter will be running on bpf64 ?
->> phase 2 to introduce bpf64_x86 jit and so on?
->> Sounds fine.
->
->
-> If that's possible, so first step would be to migrate bpf_run() from patch1
-> into sk_run_filter() form net/core/filter.c, and also bring in related
-> include file into include/linux/filter.h resp. include/uapi/linux/filter.h.
-> Plus code that is needed to verify the image in new (and old) format e.g.
-> bpf_load_image() et al, and to either convert old programs into the new
-> format, for example; generally, to find a way to still handle them
-> (bpf/seccomp)
-> while having the new code included and leaving new JITs aside. That I think
-> could be phase 1. Phase 2 would be to successively replace current JITs,
-> etc.
+[Patch depends on another patch in this series that introduces raw_cpu_ops]
 
-Sounds good.
-Let me rephrase.
-step 1:
-sk_attach_filter() -> __sk_prepare_filter() -> sk_chk_filter() all stays as-is.
-sk_chk_filter() calls new bpf_convert() that converts old bpf to new bpf insns.
-Old sk_run_filter() is gone and replaced with bpf_run() that iterates
-over new insns.
-Here would need to make sure that all sk_run_filter() users (seccomp,
-ppp, isdn, team)
-are unaffected.
+Replace uses of get_cpu_var for address calculation through this_cpu_ptr.
 
-step 2:
-use 'len' field of 'struct sock_fprog' to differentiate between old and new bpf.
-len < 4096 -> old bpf insns, go to step 1
-len > 4096 -> new bpf insns, verify them through new bpf_check()
-and run them via the same new sk_run_filter()==bpf_run()
-This way all current users of bpf can load new programs through the
-same interfaces.
+Cc: netdev@vger.kernel.org
+Cc: Eric Dumazet <edumazet@google.com>
+Acked-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Christoph Lameter <cl@linux.com>
 
-step 3:
-replace bpf32_x86 jit with bpf64_jit.
-
-step 4:
-old filter attach interfaces do not allow the most interesting bpf64 programs
-with bpf_tables (like the one for kernel tracing), extend them or add new
-
-Initially I extended include/uapi/linux/filter.h, but then decided
-it's too aggressive
-to change uapi header and split it into include/linux/bpf.h instead.
-It's definitely cleaner to have one. I guess with a comment that bpf64 insn set
-may change, it should be ok. I'll go back to single filter.h
-
-As far as making bpf64 interpreter to perform at bpf32 speeds on i386 and arm32,
-I think I have to reconsider 32-bit subregs. Peter Anvin should be happy :)
-If old bpf is like 8086, bpf64 with 32-bit subregs and 64-bit
-registers is like x86-64 with x32.
-
-Sounds like we're converging. What other stake holders have to say?
-
-Thanks
-Alexei
+Index: linux/net/core/dev.c
+===================================================================
+--- linux.orig/net/core/dev.c	2014-02-03 13:23:33.324833855 -0600
++++ linux/net/core/dev.c	2014-02-03 13:25:26.382485504 -0600
+@@ -2134,7 +2134,7 @@
+ 	unsigned long flags;
+ 
+ 	local_irq_save(flags);
+-	sd = &__get_cpu_var(softnet_data);
++	sd = this_cpu_ptr(&softnet_data);
+ 	q->next_sched = NULL;
+ 	*sd->output_queue_tailp = q;
+ 	sd->output_queue_tailp = &q->next_sched;
+@@ -3125,7 +3125,7 @@
+ static int rps_ipi_queued(struct softnet_data *sd)
+ {
+ #ifdef CONFIG_RPS
+-	struct softnet_data *mysd = &__get_cpu_var(softnet_data);
++	struct softnet_data *mysd = this_cpu_ptr(&softnet_data);
+ 
+ 	if (sd != mysd) {
+ 		sd->rps_ipi_next = mysd->rps_ipi_list;
+@@ -3152,7 +3152,7 @@
+ 	if (qlen < (netdev_max_backlog >> 1))
+ 		return false;
+ 
+-	sd = &__get_cpu_var(softnet_data);
++	sd = this_cpu_ptr(&softnet_data);
+ 
+ 	rcu_read_lock();
+ 	fl = rcu_dereference(sd->flow_limit);
+@@ -3303,7 +3303,7 @@
+ 
+ static void net_tx_action(struct softirq_action *h)
+ {
+-	struct softnet_data *sd = &__get_cpu_var(softnet_data);
++	struct softnet_data *sd = this_cpu_ptr(&softnet_data);
+ 
+ 	if (sd->completion_queue) {
+ 		struct sk_buff *clist;
+@@ -3733,7 +3733,7 @@
+ static void flush_backlog(void *arg)
+ {
+ 	struct net_device *dev = arg;
+-	struct softnet_data *sd = &__get_cpu_var(softnet_data);
++	struct softnet_data *sd = this_cpu_ptr(&softnet_data);
+ 	struct sk_buff *skb, *tmp;
+ 
+ 	rps_lock(sd);
+@@ -4205,7 +4205,7 @@
+ 	unsigned long flags;
+ 
+ 	local_irq_save(flags);
+-	____napi_schedule(&__get_cpu_var(softnet_data), n);
++	____napi_schedule(this_cpu_ptr(&softnet_data), n);
+ 	local_irq_restore(flags);
+ }
+ EXPORT_SYMBOL(__napi_schedule);
+@@ -4326,7 +4326,7 @@
+ 
+ static void net_rx_action(struct softirq_action *h)
+ {
+-	struct softnet_data *sd = &__get_cpu_var(softnet_data);
++	struct softnet_data *sd = this_cpu_ptr(&softnet_data);
+ 	unsigned long time_limit = jiffies + 2;
+ 	int budget = netdev_budget;
+ 	void *have;
+Index: linux/net/core/drop_monitor.c
+===================================================================
+--- linux.orig/net/core/drop_monitor.c	2014-02-03 13:23:33.324833855 -0600
++++ linux/net/core/drop_monitor.c	2014-02-03 13:23:33.314834063 -0600
+@@ -146,7 +146,7 @@
+ 	unsigned long flags;
+ 
+ 	local_irq_save(flags);
+-	data = &__get_cpu_var(dm_cpu_data);
++	data = this_cpu_ptr(&dm_cpu_data);
+ 	spin_lock(&data->lock);
+ 	dskb = data->skb;
+ 
+Index: linux/net/core/skbuff.c
+===================================================================
+--- linux.orig/net/core/skbuff.c	2014-02-03 13:23:33.324833855 -0600
++++ linux/net/core/skbuff.c	2014-02-03 13:23:33.314834063 -0600
+@@ -344,7 +344,7 @@
+ 	unsigned long flags;
+ 
+ 	local_irq_save(flags);
+-	nc = &__get_cpu_var(netdev_alloc_cache);
++	nc = this_cpu_ptr(&netdev_alloc_cache);
+ 	if (unlikely(!nc->frag.page)) {
+ refill:
+ 		for (order = NETDEV_FRAG_PAGE_MAX_ORDER; ;) {
+Index: linux/net/ipv4/tcp_output.c
+===================================================================
+--- linux.orig/net/ipv4/tcp_output.c	2014-02-03 13:23:33.324833855 -0600
++++ linux/net/ipv4/tcp_output.c	2014-02-03 13:23:33.314834063 -0600
+@@ -817,7 +817,7 @@
+ 
+ 		/* queue this socket to tasklet queue */
+ 		local_irq_save(flags);
+-		tsq = &__get_cpu_var(tsq_tasklet);
++		tsq = this_cpu_ptr(&tsq_tasklet);
+ 		list_add(&tp->tsq_node, &tsq->head);
+ 		tasklet_schedule(&tsq->tasklet);
+ 		local_irq_restore(flags);
+Index: linux/net/ipv6/syncookies.c
+===================================================================
+--- linux.orig/net/ipv6/syncookies.c	2014-02-03 13:23:33.324833855 -0600
++++ linux/net/ipv6/syncookies.c	2014-02-03 13:23:33.314834063 -0600
+@@ -67,7 +67,7 @@
+ 
+ 	net_get_random_once(syncookie6_secret, sizeof(syncookie6_secret));
+ 
+-	tmp  = __get_cpu_var(ipv6_cookie_scratch);
++	tmp  = this_cpu_ptr(ipv6_cookie_scratch);
+ 
+ 	/*
+ 	 * we have 320 bits of information to hash, copy in the remaining
+Index: linux/net/rds/ib_rdma.c
+===================================================================
+--- linux.orig/net/rds/ib_rdma.c	2014-02-03 13:23:33.324833855 -0600
++++ linux/net/rds/ib_rdma.c	2014-02-03 13:23:33.314834063 -0600
+@@ -267,7 +267,7 @@
+ 	unsigned long *flag;
+ 
+ 	preempt_disable();
+-	flag = &__get_cpu_var(clean_list_grace);
++	flag = this_cpu_ptr(&clean_list_grace);
+ 	set_bit(CLEAN_LIST_BUSY_BIT, flag);
+ 	ret = llist_del_first(&pool->clean_list);
+ 	if (ret)
+Index: linux/include/net/netfilter/nf_conntrack.h
+===================================================================
+--- linux.orig/include/net/netfilter/nf_conntrack.h	2014-02-03 13:23:33.324833855 -0600
++++ linux/include/net/netfilter/nf_conntrack.h	2014-02-03 13:23:33.314834063 -0600
+@@ -235,7 +235,7 @@
+ DECLARE_PER_CPU(struct nf_conn, nf_conntrack_untracked);
+ static inline struct nf_conn *nf_ct_untracked_get(void)
+ {
+-	return &__raw_get_cpu_var(nf_conntrack_untracked);
++	return raw_cpu_ptr(&nf_conntrack_untracked);
+ }
+ void nf_ct_untracked_status_or(unsigned long bits);
+ 
+Index: linux/include/net/snmp.h
+===================================================================
+--- linux.orig/include/net/snmp.h	2014-02-03 13:23:33.324833855 -0600
++++ linux/include/net/snmp.h	2014-02-03 13:23:33.314834063 -0600
+@@ -170,7 +170,7 @@
+ 
+ #define SNMP_ADD_STATS64_BH(mib, field, addend) 			\
+ 	do {								\
+-		__typeof__(*mib[0]) *ptr = __this_cpu_ptr((mib)[0]);	\
++		__typeof__(*mib[0]) *ptr = raw_cpu_ptr((mib)[0]);	\
+ 		u64_stats_update_begin(&ptr->syncp);			\
+ 		ptr->mibs[field] += addend;				\
+ 		u64_stats_update_end(&ptr->syncp);			\
+@@ -192,7 +192,7 @@
+ #define SNMP_UPD_PO_STATS64_BH(mib, basefield, addend)			\
+ 	do {								\
+ 		__typeof__(*mib[0]) *ptr;				\
+-		ptr = __this_cpu_ptr((mib)[0]);				\
++		ptr = raw_cpu_ptr((mib)[0]);				\
+ 		u64_stats_update_begin(&ptr->syncp);			\
+ 		ptr->mibs[basefield##PKTS]++;				\
+ 		ptr->mibs[basefield##OCTETS] += addend;			\
+Index: linux/net/ipv4/route.c
+===================================================================
+--- linux.orig/net/ipv4/route.c	2014-02-03 13:23:33.324833855 -0600
++++ linux/net/ipv4/route.c	2014-02-03 13:23:33.314834063 -0600
+@@ -1303,7 +1303,7 @@
+ 	if (rt_is_input_route(rt)) {
+ 		p = (struct rtable **)&nh->nh_rth_input;
+ 	} else {
+-		p = (struct rtable **)__this_cpu_ptr(nh->nh_pcpu_rth_output);
++		p = (struct rtable **)raw_cpu_ptr(nh->nh_pcpu_rth_output);
+ 	}
+ 	orig = *p;
+ 
+@@ -1929,7 +1929,7 @@
+ 				do_cache = false;
+ 				goto add;
+ 			}
+-			prth = __this_cpu_ptr(nh->nh_pcpu_rth_output);
++			prth = raw_cpu_ptr(nh->nh_pcpu_rth_output);
+ 		}
+ 		rth = rcu_dereference(*prth);
+ 		if (rt_cache_valid(rth)) {
+Index: linux/net/ipv4/tcp.c
+===================================================================
+--- linux.orig/net/ipv4/tcp.c	2014-02-03 13:23:33.324833855 -0600
++++ linux/net/ipv4/tcp.c	2014-02-03 13:23:33.314834063 -0600
+@@ -3024,7 +3024,7 @@
+ 	local_bh_disable();
+ 	p = ACCESS_ONCE(tcp_md5sig_pool);
+ 	if (p)
+-		return __this_cpu_ptr(p);
++		return raw_cpu_ptr(p);
+ 
+ 	local_bh_enable();
+ 	return NULL;
+Index: linux/net/ipv4/syncookies.c
+===================================================================
+--- linux.orig/net/ipv4/syncookies.c	2014-02-03 13:23:33.324833855 -0600
++++ linux/net/ipv4/syncookies.c	2014-02-03 13:23:33.324833855 -0600
+@@ -40,7 +40,7 @@
+ 
+ 	net_get_random_once(syncookie_secret, sizeof(syncookie_secret));
+ 
+-	tmp  = __get_cpu_var(ipv4_cookie_scratch);
++	tmp  = this_cpu_ptr(ipv4_cookie_scratch);
+ 	memcpy(tmp + 4, syncookie_secret[c], sizeof(syncookie_secret[c]));
+ 	tmp[0] = (__force u32)saddr;
+ 	tmp[1] = (__force u32)daddr;
