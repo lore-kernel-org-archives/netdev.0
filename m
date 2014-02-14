@@ -1,31 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] dccp: re-enable debug macro
-Date: Fri, 14 Feb 2014 00:35:06 -0500 (EST)
-Message-ID: <20140214.003506.1226905800810452794.davem@davemloft.net>
-References: <20140213190233.0f0889a4@liptov.cs.ualberta.ca>
+Subject: Re: [PATCH net,v3] hyperv: Fix the carrier status setting
+Date: Fri, 14 Feb 2014 00:37:04 -0500 (EST)
+Message-ID: <20140214.003704.2200785743998021561.davem@davemloft.net>
+References: <1392252867-21146-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53183 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750990AbaBNFfI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 00:35:08 -0500
-In-Reply-To: <20140213190233.0f0889a4@liptov.cs.ualberta.ca>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1392252867-21146-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Thu, 13 Feb 2014 19:02:33 -0700
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Wed, 12 Feb 2014 16:54:27 -0800
 
-> dccp tfrc: revert
+> Without this patch, the "cat /sys/class/net/ethN/operstate" shows
+> "unknown", and "ethtool ethN" shows "Link detected: yes", when VM
+> boots up with or without vNIC connected.
 > 
-> This reverts 6aee49c558de (Jan 4, 2014) since the variable tfrc_debug is
-> referenced by the tfrc_pr_debug(fmt, ...) macro when TFRC debugging is
-> enabled. If it is enabled, use of the macro produces a compilation error.
+> This patch fixed the problem.
 > 
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
-Applied, thanks Gerrit.
+Applied and queued up for -stable, thanks.
