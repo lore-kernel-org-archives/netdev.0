@@ -1,15 +1,18 @@
 From: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
-Subject: [PATCH V2 net-next 0/5] xen-net{back,
-	front}: Multiple transmit and receive queues
-Date: Fri, 14 Feb 2014 11:50:19 +0000
-Message-ID: <1392378624-6123-1-git-send-email-andrew.bennieston@citrix.com>
+Subject: [PATCH V2 net-next 2/5] xen-netback: Add support for
+	multiple queues
+Date: Fri, 14 Feb 2014 11:50:21 +0000
+Message-ID: <1392378624-6123-3-git-send-email-andrew.bennieston@citrix.com>
+References: <1392378624-6123-1-git-send-email-andrew.bennieston@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.durrant@citrix.com, wei.liu2@citrix.com,
-	ian.campbell@citrix.com
+Cc: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>,
+	netdev@vger.kernel.org, paul.durrant@citrix.com,
+	wei.liu2@citrix.com, ian.campbell@citrix.com
 To: <xen-devel@lists.xenproject.org>
 Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <1392378624-6123-1-git-send-email-andrew.bennieston@citrix.com>
 List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
 	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
 List-Post: <mailto:xen-devel@lists.xen.org>
@@ -20,63 +23,219 @@ Sender: xen-devel-bounces@lists.xen.org
 Errors-To: xen-devel-bounces@lists.xen.org
 List-Id: netdev.vger.kernel.org
 
+From: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
 
-This patch series implements multiple transmit and receive queues (i.e.
-multiple shared rings) for the xen virtual network interfaces.
+Builds on the refactoring of the previous patch to implement multiple
+queues between xen-netfront and xen-netback.
 
-The series is split up as follows:
- - Patches 1 and 3 factor out the queue-specific data for netback and
-    netfront respectively, and modify the rest of the code to use these
-    as appropriate.
- - Patches 2 and 4 introduce new XenStore keys to negotiate and use
-   multiple shared rings and event channels, and code to connect these
-   as appropriate.
- - Patch 5 documents the XenStore keys required for the new feature
-   in include/xen/interface/io/netif.h
+Writes the maximum supported number of queues into XenStore, and reads
+the values written by the frontend to determine how many queues to use.
 
-All other transmit and receive processing remains unchanged, i.e. there
-is a kthread per queue and a NAPI context per queue.
+Ring references and event channels are read from XenStore on a per-queue
+basis and rings are connected accordingly.
 
-The performance of these patches has been analysed in detail, with
-results available at:
+Signed-off-by: Andrew J. Bennieston <andrew.bennieston@citrix.com>
+---
+ drivers/net/xen-netback/common.h    |    2 +
+ drivers/net/xen-netback/interface.c |    7 +++-
+ drivers/net/xen-netback/netback.c   |    6 +++
+ drivers/net/xen-netback/xenbus.c    |   76 ++++++++++++++++++++++++++++++-----
+ 4 files changed, 80 insertions(+), 11 deletions(-)
 
-http://wiki.xenproject.org/wiki/Xen-netback_and_xen-netfront_multi-queue_performance_testing
-
-To summarise:
-  * Using multiple queues allows a VM to transmit at line rate on a 10
-    Gbit/s NIC, compared with a maximum aggregate throughput of 6 Gbit/s
-    with a single queue.
-  * For intra-host VM--VM traffic, eight queues provide 171% of the
-    throughput of a single queue; almost 12 Gbit/s instead of 6 Gbit/s.
-  * There is a corresponding increase in total CPU usage, i.e. this is a
-    scaling out over available resources, not an efficiency improvement.
-  * Results depend on the availability of sufficient CPUs, as well as the
-    distribution of interrupts and the distribution of TCP streams across
-    the queues.
-
-Queue selection is currently achieved via an L4 hash on the packet (i.e.
-TCP src/dst port, IP src/dst address) and is not negotiated between the
-frontend and backend, since only one option exists. Future patches to
-support other frontends (particularly Windows) will need to add some
-capability to negotiate not only the hash algorithm selection, but also
-allow the frontend to specify some parameters to this.
-
-Queue-specific XenStore entries for ring references and event channels
-are stored hierarchically, i.e. under .../queue-N/... where N varies
-from 0 to one less than the requested number of queues (inclusive). If
-only one queue is requested, it falls back to the flat structure where
-the ring references and event channels are written at the same level as
-other vif information.
-
-V2:
-- Rebase onto net-next
-- Change queue->number to queue->id
-- Add atomic operations around the small number of stats variables that
-  are not queue-specific or per-cpu
-- Fixup formatting and style issues
-- XenStore protocol changes documented in netif.h
-- Default max. number of queues to num_online_cpus()
-- Check requested number of queues does not exceed maximum
-
---
-Andrew J. Bennieston
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index 2550867..8180929 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -261,4 +261,6 @@ void xenvif_carrier_on(struct xenvif *vif);
+ 
+ extern bool separate_tx_rx_irq;
+ 
++extern unsigned int xenvif_max_queues;
++
+ #endif /* __XEN_NETBACK__COMMON_H__ */
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 4cde112..4dc092c 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -373,7 +373,12 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+ 	char name[IFNAMSIZ] = {};
+ 
+ 	snprintf(name, IFNAMSIZ - 1, "vif%u.%u", domid, handle);
+-	dev = alloc_netdev_mq(sizeof(struct xenvif), name, ether_setup, 1);
++	/* Allocate a netdev with the max. supported number of queues.
++	 * When the guest selects the desired number, it will be updated
++	 * via netif_set_real_num_tx_queues().
++	 */
++	dev = alloc_netdev_mq(sizeof(struct xenvif), name, ether_setup,
++						  xenvif_max_queues);
+ 	if (dev == NULL) {
+ 		pr_warn("Could not allocate netdev for %s\n", name);
+ 		return ERR_PTR(-ENOMEM);
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 46b2f5b..aeb5ffa 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -54,6 +54,9 @@
+ bool separate_tx_rx_irq = 1;
+ module_param(separate_tx_rx_irq, bool, 0644);
+ 
++unsigned int xenvif_max_queues;
++module_param(xenvif_max_queues, uint, 0644);
++
+ /*
+  * This is the maximum slots a skb can have. If a guest sends a skb
+  * which exceeds this limit it is considered malicious.
+@@ -1585,6 +1588,9 @@ static int __init netback_init(void)
+ 	if (!xen_domain())
+ 		return -ENODEV;
+ 
++	/* Allow as many queues as there are CPUs, by default */
++	xenvif_max_queues = num_online_cpus();
++
+ 	if (fatal_skb_slots < XEN_NETBK_LEGACY_SLOTS_MAX) {
+ 		pr_info("fatal_skb_slots too small (%d), bump it to XEN_NETBK_LEGACY_SLOTS_MAX (%d)\n",
+ 			fatal_skb_slots, XEN_NETBK_LEGACY_SLOTS_MAX);
+diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+index f23ea0a..3f97f6f 100644
+--- a/drivers/net/xen-netback/xenbus.c
++++ b/drivers/net/xen-netback/xenbus.c
+@@ -20,6 +20,7 @@
+ 
+ #include "common.h"
+ #include <linux/vmalloc.h>
++#include <linux/rtnetlink.h>
+ 
+ struct backend_info {
+ 	struct xenbus_device *dev;
+@@ -159,6 +160,12 @@ static int netback_probe(struct xenbus_device *dev,
+ 	if (err)
+ 		pr_debug("Error writing feature-split-event-channels\n");
+ 
++	/* Multi-queue support: This is an optional feature. */
++	err = xenbus_printf(XBT_NIL, dev->nodename,
++			"multi-queue-max-queues", "%u", xenvif_max_queues);
++	if (err)
++		pr_debug("Error writing multi-queue-max-queues\n");
++
+ 	err = xenbus_switch_state(dev, XenbusStateInitWait);
+ 	if (err)
+ 		goto fail;
+@@ -490,6 +497,23 @@ static void connect(struct backend_info *be)
+ 	unsigned long credit_bytes, credit_usec;
+ 	unsigned int queue_index;
+ 	struct xenvif_queue *queue;
++	unsigned int requested_num_queues;
++
++	/* Check whether the frontend requested multiple queues
++	 * and read the number requested.
++	 */
++	err = xenbus_scanf(XBT_NIL, dev->otherend,
++			"multi-queue-num-queues",
++			"%u", &requested_num_queues);
++	if (err < 0) {
++		requested_num_queues = 1; /* Fall back to single queue */
++	} else if (requested_num_queues > xenvif_max_queues) {
++		/* buggy or malicious guest */
++		xenbus_dev_fatal(dev, err,
++						 "guest requested %u queues, exceeding the maximum of %u.",
++						 requested_num_queues, xenvif_max_queues);
++		return;
++	}
+ 
+ 	err = xen_net_read_mac(dev, be->vif->fe_dev_addr);
+ 	if (err) {
+@@ -500,9 +524,13 @@ static void connect(struct backend_info *be)
+ 	xen_net_read_rate(dev, &credit_bytes, &credit_usec);
+ 	read_xenbus_vif_flags(be);
+ 
+-	be->vif->num_queues = 1;
++	/* Use the number of queues requested by the frontend */
++	be->vif->num_queues = requested_num_queues;
+ 	be->vif->queues = vzalloc(be->vif->num_queues *
+ 			sizeof(struct xenvif_queue));
++	rtnl_lock();
++	netif_set_real_num_tx_queues(be->vif->dev, be->vif->num_queues);
++	rtnl_unlock();
+ 
+ 	for (queue_index = 0; queue_index < be->vif->num_queues; ++queue_index) {
+ 		queue = &be->vif->queues[queue_index];
+@@ -547,29 +575,52 @@ static int connect_rings(struct backend_info *be, struct xenvif_queue *queue)
+ 	unsigned long tx_ring_ref, rx_ring_ref;
+ 	unsigned int tx_evtchn, rx_evtchn;
+ 	int err;
++	char *xspath = NULL;
++	size_t xspathsize;
++	const size_t xenstore_path_ext_size = 11; /* sufficient for "/queue-NNN" */
++
++	/* If the frontend requested 1 queue, or we have fallen back
++	 * to single queue due to lack of frontend support for multi-
++	 * queue, expect the remaining XenStore keys in the toplevel
++	 * directory. Otherwise, expect them in a subdirectory called
++	 * queue-N.
++	 */
++	if (queue->vif->num_queues == 1)
++		xspath = (char *)dev->otherend;
++	else {
++		xspathsize = strlen(dev->otherend) + xenstore_path_ext_size;
++		xspath = kzalloc(xspathsize, GFP_KERNEL);
++		if (!xspath) {
++			xenbus_dev_fatal(dev, -ENOMEM,
++					"reading ring references");
++			return -ENOMEM;
++		}
++		snprintf(xspath, xspathsize, "%s/queue-%u", dev->otherend,
++				 queue->id);
++	}
+ 
+-	err = xenbus_gather(XBT_NIL, dev->otherend,
++	err = xenbus_gather(XBT_NIL, xspath,
+ 			    "tx-ring-ref", "%lu", &tx_ring_ref,
+ 			    "rx-ring-ref", "%lu", &rx_ring_ref, NULL);
+ 	if (err) {
+ 		xenbus_dev_fatal(dev, err,
+ 				 "reading %s/ring-ref",
+-				 dev->otherend);
+-		return err;
++				 xspath);
++		goto err;
+ 	}
+ 
+ 	/* Try split event channels first, then single event channel. */
+-	err = xenbus_gather(XBT_NIL, dev->otherend,
++	err = xenbus_gather(XBT_NIL, xspath,
+ 			    "event-channel-tx", "%u", &tx_evtchn,
+ 			    "event-channel-rx", "%u", &rx_evtchn, NULL);
+ 	if (err < 0) {
+-		err = xenbus_scanf(XBT_NIL, dev->otherend,
++		err = xenbus_scanf(XBT_NIL, xspath,
+ 				   "event-channel", "%u", &tx_evtchn);
+ 		if (err < 0) {
+ 			xenbus_dev_fatal(dev, err,
+ 					 "reading %s/event-channel(-tx/rx)",
+-					 dev->otherend);
+-			return err;
++					 xspath);
++			goto err;
+ 		}
+ 		rx_evtchn = tx_evtchn;
+ 	}
+@@ -582,10 +633,15 @@ static int connect_rings(struct backend_info *be, struct xenvif_queue *queue)
+ 				 "mapping shared-frames %lu/%lu port tx %u rx %u",
+ 				 tx_ring_ref, rx_ring_ref,
+ 				 tx_evtchn, rx_evtchn);
+-		return err;
++		goto err;
+ 	}
+ 
+-	return 0;
++	err = 0;
++err: /* Regular return falls through with err == 0 */
++	if (xspath != dev->otherend)
++		kfree(xspath);
++
++	return err;
+ }
+ 
+ static int read_xenbus_vif_flags(struct backend_info *be)
+-- 
+1.7.10.4
