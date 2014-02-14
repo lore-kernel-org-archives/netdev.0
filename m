@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC v4 09/12] vti4: Use the on xfrm_lookup returned dst_entry directly
-Date: Fri, 14 Feb 2014 09:30:17 +0100
-Message-ID: <1392366620-31923-10-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH RFC v4 06/12] ip_tunnel: Make vti work with i_key set
+Date: Fri, 14 Feb 2014 09:30:14 +0100
+Message-ID: <1392366620-31923-7-git-send-email-steffen.klassert@secunet.com>
 References: <1392366620-31923-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,85 +9,60 @@ Cc: Steffen Klassert <steffen.klassert@secunet.com>,
 	Christophe Gouault <christophe.gouault@6wind.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:39121 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:39127 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752097AbaBNIas (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752101AbaBNIas (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 14 Feb 2014 03:30:48 -0500
 In-Reply-To: <1392366620-31923-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We need to be protocol family indepenent to support
-inter addresss family tunneling with vti. So use a
-dst_entry instead of the ipv4 rtable in vti_tunnel_xmit.
+Vti uses the o_key to mark packets that were transmitted or received
+by a vti interface. Unfortunately we can't apply different marks
+to in and outbound packets with only one key availabe. Vti interfaces
+typically use wildcard selectors for vti IPsec policies. On forwarding,
+the same output policy will match for both directions. This generates
+a loop between the IPsec gateways until the ttl of the packet is
+exceeded.
+
+The gre i_key/o_key are usually there to find the right gre tunnel
+during a lookup. When vti uses the i_key to mark packets, the tunnel
+lookup does not work any more because vti does not use the gre keys
+as a hash key for the lookup.
+
+This patch workarounds this my not including the i_key when comupting
+the hash for the tunnel lookup in case of vti tunnels.
+
+With this we have separate keys available for the transmitting and
+receiving side of the vti interface.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/ipv4/ip_vti.c |   22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
+ net/ipv4/ip_tunnel.c |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index b23f9e6..0dc341d 100644
---- a/net/ipv4/ip_vti.c
-+++ b/net/ipv4/ip_vti.c
-@@ -128,7 +128,7 @@ static int vti_rcv_cb(struct sk_buff *skb, int err)
- static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index 50228be..28a5131 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -280,13 +280,17 @@ static struct hlist_head *ip_bucket(struct ip_tunnel_net *itn,
  {
- 	struct ip_tunnel *tunnel = netdev_priv(dev);
--	struct rtable *rt;		/* Route to the other host */
-+	struct dst_entry *dst = skb_dst(skb);
- 	struct net_device *tdev;	/* Device to other host */
- 	struct flowi fl;
- 	int err;
-@@ -140,14 +140,14 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 	skb->mark = be32_to_cpu(tunnel->parms.o_key);
- 	xfrm_decode_session(skb, &fl, AF_INET);
+ 	unsigned int h;
+ 	__be32 remote;
++	__be32 i_key = parms->i_key;
  
--	if (!skb_dst(skb)) {
-+	if (!dst) {
- 		dev->stats.tx_carrier_errors++;
- 		goto tx_error_icmp;
- 	}
+ 	if (parms->iph.daddr && !ipv4_is_multicast(parms->iph.daddr))
+ 		remote = parms->iph.daddr;
+ 	else
+ 		remote = 0;
  
--	dst_hold(skb_dst(skb));
--	rt = (struct rtable *)xfrm_lookup(tunnel->net, skb_dst(skb), &fl, NULL, 0);
--	if (IS_ERR(rt)) {
-+	dst_hold(dst);
-+	dst = xfrm_lookup(tunnel->net, dst, &fl, NULL, 0);
-+	if (IS_ERR(dst)) {
- 		dev->stats.tx_carrier_errors++;
- 		goto tx_error_icmp;
- 	}
-@@ -155,16 +155,16 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 	/* if there is no transform then this tunnel is not functional.
- 	 * Or if the xfrm is not mode tunnel.
- 	 */
--	if (!rt->dst.xfrm ||
--	    rt->dst.xfrm->props.mode != XFRM_MODE_TUNNEL) {
-+	if (!dst->xfrm ||
-+	    dst->xfrm->props.mode != XFRM_MODE_TUNNEL) {
- 		dev->stats.tx_carrier_errors++;
--		ip_rt_put(rt);
-+		dst_release(dst);
- 		goto tx_error_icmp;
- 	}
--	tdev = rt->dst.dev;
-+	tdev = dst->dev;
+-	h = ip_tunnel_hash(parms->i_key, remote);
++	if (!(parms->i_flags & TUNNEL_KEY) && (parms->i_flags & VTI_ISVTI))
++		i_key = 0;
++
++	h = ip_tunnel_hash(i_key, remote);
+ 	return &itn->tunnels[h];
+ }
  
- 	if (tdev == dev) {
--		ip_rt_put(rt);
-+		dst_release(dst);
- 		dev->stats.collisions++;
- 		goto tx_error;
- 	}
-@@ -180,7 +180,7 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
- 	skb_scrub_packet(skb, !net_eq(tunnel->net, dev_net(dev)));
--	skb_dst_set(skb, &rt->dst);
-+	skb_dst_set(skb, dst);
- 	skb->dev = skb_dst(skb)->dev;
- 
- 	err = dst_output(skb);
 -- 
 1.7.9.5
