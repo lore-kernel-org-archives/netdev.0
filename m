@@ -1,104 +1,98 @@
-From: Michal Simek <monstr@monstr.eu>
-Subject: Re: [PATCH v2] can: xilinx CAN controller support.
-Date: Fri, 14 Feb 2014 10:13:20 +0100
-Message-ID: <52FDDE30.8020405@monstr.eu>
-References: <\> <0dc128ac-e5cd-47bd-9ab1-3a545c3e2043@CO9EHSMHS012.ehs.local> <52FD1B16.6020600@pengutronix.de> <52FDD9FE.8040908@monstr.eu> <52FDDC24.8070805@pengutronix.de>
-Reply-To: monstr@monstr.eu
+From: Wangyufen <wangyufen@huawei.com>
+Subject: [PATCH 4/6] bonding:fix checkpatch warnings braces {}
+Date: Fri, 14 Feb 2014 17:15:15 +0800
+Message-ID: <1392369317-8072-5-git-send-email-wangyufen@huawei.com>
+References: <1392369317-8072-1-git-send-email-wangyufen@huawei.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="IAqrsduxW59jcuq7j5qiGeoO7xK8x3mlo"
-Cc: monstr@monstr.eu,
-	Kedareswara rao Appana <appana.durga.rao@xilinx.com>,
-	wg@grandegger.com, michal.simek@xilinx.com,
-	grant.likely@linaro.org, robh+dt@kernel.org,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	devicetree@vger.kernel.org,
-	Kedareswara rao Appana <appanad@xilinx.com>
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52FDDC24.8070805@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:64055 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751815AbaBNJPa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 04:15:30 -0500
+In-Reply-To: <1392369317-8072-1-git-send-email-wangyufen@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---IAqrsduxW59jcuq7j5qiGeoO7xK8x3mlo
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-On 02/14/2014 10:04 AM, Marc Kleine-Budde wrote:
-> On 02/14/2014 09:55 AM, Michal Simek wrote:
->> Hi Marc,
->>
->>>> +	int waiting_ech_skb_num;
->>>> +	int xcan_echo_skb_max_tx;
->>>> +	int xcan_echo_skb_max_rx;
->>>> +	struct napi_struct napi;
->>>> +	spinlock_t ech_skb_lock;
->>>> +	u32 (*read_reg)(const struct xcan_priv *priv, int reg);
->>>> +	void (*write_reg)(const struct xcan_priv *priv, int reg, u32 val);=
-
->>>
->>> Please remove read_reg, write_reg, as long as there isn't any BE supp=
-ort
->>> in the driver, call them directly.
->>
->> That's not entirely truth. If you look at Microblaze then you will see=
-
->> that Microblaze can be BE and LE.
->> There is just missing endian detection which we will add to the next v=
-ersion.
->=20
-> As far as I know the endianess of the kernel is fixed and known during
-> compile time. Correct me if I'm wrong. So there is no need for a runtim=
-e
-> detection of the endianess and so no need for {read,write}_reg function=
-
-> pointers.
-
-Endianess of the kernel is fixed and know during compile time
-but what it is not fixed is endianess of that IP at compile time.
-
-On fpga you can use bridges, partial reconfiguration, etc where
-the only solution which is run-time endian detection via registers.
-
-For example: drivers/block/xsysace.c, drivers/spi/spi-xilinx.c, etc
-
->> But because MB io helper functions are broken for a while you should b=
-e
->> able to use this driver on both endianess.
->>
->> btw: I would prefer to use ioread32 and ioread32be instead of readl.
->> Is it OK for you?
->=20
-> Make it so. :)
-
-Thanks,
-Michal
+From: Wang Yufen <wangyufen@huawei.com>
 
 
---=20
-Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
-w: www.monstr.eu p: +42-0-721842854
-Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
-Maintainer of Linux kernel - Xilinx Zynq ARM architecture
-Microblaze U-BOOT custodian and responsible for u-boot arm zynq platform
+Signed-off-by: Wang Yufen <wangyufen@huawei.com>
+---
+ drivers/net/bonding/bond_alb.c | 18 ++++++------------
+ 1 file changed, 6 insertions(+), 12 deletions(-)
 
-
-
---IAqrsduxW59jcuq7j5qiGeoO7xK8x3mlo
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iEYEARECAAYFAlL93jAACgkQykllyylKDCHSDACfc7WGeB91YLgi5VQKrYape2v9
-T9cAnjfgT8wgB2bb5xILUuBM0TGFsCbB
-=wKwg
------END PGP SIGNATURE-----
-
---IAqrsduxW59jcuq7j5qiGeoO7xK8x3mlo--
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index a1d4e7a..cde39f0 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -518,9 +518,8 @@ static void rlb_update_client(struct rlb_client_info *client_info)
+ {
+ 	int i;
+ 
+-	if (!client_info->slave) {
++	if (!client_info->slave)
+ 		return;
+-	}
+ 
+ 	for (i = 0; i < RLB_ARP_BURST_SIZE; i++) {
+ 		struct sk_buff *skb;
+@@ -568,9 +567,8 @@ static void rlb_update_rx_clients(struct bonding *bond)
+ 		client_info = &(bond_info->rx_hashtbl[hash_index]);
+ 		if (client_info->ntt) {
+ 			rlb_update_client(client_info);
+-			if (bond_info->rlb_update_retry_counter == 0) {
++			if (bond_info->rlb_update_retry_counter == 0)
+ 				client_info->ntt = 0;
+-			}
+ 		}
+ 	}
+ 
+@@ -764,9 +762,8 @@ static struct slave *rlb_arp_xmit(struct sk_buff *skb, struct bonding *bond)
+ 		* rx channel
+ 		*/
+ 		tx_slave = rlb_choose_channel(skb, bond);
+-		if (tx_slave) {
++		if (tx_slave)
+ 			memcpy(arp->mac_src, tx_slave->dev->dev_addr, ETH_ALEN);
+-		}
+ 		pr_debug("Server sent ARP Reply packet\n");
+ 	} else if (arp->op_code == htons(ARPOP_REQUEST)) {
+ 		/* Create an entry in the rx_hashtbl for this client as a
+@@ -818,9 +815,8 @@ static void rlb_rebalance(struct bonding *bond)
+ 	}
+ 
+ 	/* update the team's flag only after the whole iteration */
+-	if (ntt) {
++	if (ntt)
+ 		bond_info->rx_ntt = 1;
+-	}
+ 	_unlock_rx_hashtbl_bh(bond);
+ }
+ 
+@@ -951,9 +947,8 @@ static int rlb_initialize(struct bonding *bond)
+ 
+ 	bond_info->rx_hashtbl_used_head = RLB_NULL_INDEX;
+ 
+-	for (i = 0; i < RLB_HASH_TABLE_SIZE; i++) {
++	for (i = 0; i < RLB_HASH_TABLE_SIZE; i++)
+ 		rlb_init_table_entry(bond_info->rx_hashtbl + i);
+-	}
+ 
+ 	_unlock_rx_hashtbl_bh(bond);
+ 
+@@ -1324,9 +1319,8 @@ int bond_alb_initialize(struct bonding *bond, int rlb_enabled)
+ 	int res;
+ 
+ 	res = tlb_initialize(bond);
+-	if (res) {
++	if (res)
+ 		return res;
+-	}
+ 
+ 	if (rlb_enabled) {
+ 		bond->alb_info.rlb_enabled = 1;
+-- 
+1.7.12
