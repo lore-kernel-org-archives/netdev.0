@@ -1,37 +1,55 @@
-From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: Re: [PATCH net-next V2] intel: Remove unnecessary OOM messages
-Date: Thu, 13 Feb 2014 16:03:36 -0800
-Message-ID: <1392336216.1831.16.camel@localhost>
-References: <1392168397.23721.2.camel@joe-AO722>
-	 <1392168652.1868.1.camel@joe-AO722>
-	 <20140213.174723.1145739288167542959.davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v5 10/10] MAINTAINERS: add entry for the Broadcom GENET driver
+Date: Thu, 13 Feb 2014 16:08:51 -0800
+Message-ID: <1392336531-28875-11-git-send-email-f.fainelli@gmail.com>
+References: <1392336531-28875-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, jeffrey.t.kirsher@intel.com,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <devicetree@vger.kernel.org>,
+	<cernekee@gmail.com>, <mark.rutland@arm.com>,
+	<romieu@fr.zoreil.com>, Florian Fainelli <f.fainelli@gmail.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:20407 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751861AbaBNADy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Feb 2014 19:03:54 -0500
-In-Reply-To: <20140213.174723.1145739288167542959.davem@davemloft.net>
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:9148 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751763AbaBNAJz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 19:09:55 -0500
+In-Reply-To: <1392336531-28875-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-02-13 at 17:47 -0500, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> Date: Tue, 11 Feb 2014 17:30:52 -0800
-> 
-> > Don't emit these as there's a generic OOM with a dump_stack()
-> > on allocation failures.
-> > 
-> > Signed-off-by: Joe Perches <joe@perches.com>
-> > ---
-> > 
-> > With patch attached this time...
-> 
-> I expect the Intel folks to pick this up.
+Add myself as a maintainer of the Broadcom GENET driver.
 
-Yes indeed, I have already pulled it into our test queue.  Thanks...
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+Changes in v5:
+- respin due to the CONFIG_OF dependency fix
+
+Changes in v4:
+- respin due to the Kconfig dependency fix
+
+Changes in v2, v3:
+- rebased against latest net-next/master
+
+ MAINTAINERS | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 091b50e..5a7b3ec 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -1845,6 +1845,12 @@ L:	netdev@vger.kernel.org
+ S:	Supported
+ F:	drivers/net/ethernet/broadcom/b44.*
+ 
++BROADCOM GENET ETHERNET DRIVER
++M:	Florian Fainelli <f.fainelli@gmail.com>
++L:	netdev@vger.kernel.org
++S:	Supported
++F:	drivers/net/ethernet/broadcom/genet/
++
+ BROADCOM BNX2 GIGABIT ETHERNET DRIVER
+ M:	Michael Chan <mchan@broadcom.com>
+ L:	netdev@vger.kernel.org
+-- 
+1.8.3.2
