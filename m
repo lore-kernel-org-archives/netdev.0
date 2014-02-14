@@ -1,55 +1,159 @@
 From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
-Subject: [PATCH net-next v2 0/10] ieee802154: support rf212 and extended mac features
-Date: Fri, 14 Feb 2014 23:49:22 +0100
-Message-ID: <1392418172-5305-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
-Cc: linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net
+Subject: [PATCH net-next v2 10/10] ieee802154: enable smart transmitter features of RF212
+Date: Fri, 14 Feb 2014 23:49:32 +0100
+Message-ID: <1392418172-5305-11-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+References: <1392418172-5305-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Cc: linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net,
+	Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from selenium.quasiparticle.net ([188.40.96.248]:43995 "EHLO
+Received: from selenium.quasiparticle.net ([188.40.96.248]:43987 "EHLO
 	quasiparticle.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752829AbaBNW6a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 17:58:30 -0500
+	with ESMTP id S1752158AbaBNW63 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 17:58:29 -0500
+In-Reply-To: <1392418172-5305-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+This patch does multiple things:
 
-this patch set adds support for the RF212 radio chip to the existing
-at86rf230 driver and adds support for numerous features of the RF212
-chips to the ieee802154 stack. These features include CSMA parameter
-configuration, transmit power control, CCA parameter configuration, and
-automatic retransmission of frames. Netlink APIs are provided for all
-new options introduced in this set.
+ * add .set_csma_params and .set_frame_retries for the RF212 radio.
+   This should work fine with RF230, but since I have no RF230 radios to
+   test with, RF230 does not implement these right now
+ * enable TX_ARET for frame retransmission limits greater than -1
 
-Many features might also work for RF230, but since I have no such chips
-at my disposal, most new features are implemented only for RF212.
+Since RF230 has no operations to change CSMA parameters or frame retry
+limits, RF230 will not be able to enter TX_ARET with this patch.
 
-Changes since v1:
- * CodingStyle compliance. Thanks Sergei Shtylyov
- * Add CSMA parameters to netlink phy list that were forgotten in v1
+Signed-off-by: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+---
+ drivers/net/ieee802154/at86rf230.c | 65 +++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 64 insertions(+), 1 deletion(-)
 
-
-Phoebe Buckheister (10):
-      ieee802154: add basic support for RF212 to at86rf230 driver
-      ieee802154: default to AACK in at86rf230
-      ieee802154: add TX power control to wpan_phy
-      ieee802154: support 100kbps QPSK/EU in at86rf230
-      ieee802154: add support for listen-before-talk in wpan_phy
-      ieee802154: add support for CCA mode in wpan phys
-      ieee802154: add support for setting CCA energy detection levels
-      ieee802154: ensure that first RF212 state comes from TRX_OFF
-      ieee802154: add netlink APIs for smartMAC configuration
-      ieee802154: enable smart transmitter features of RF212
-
-
- drivers/net/ieee802154/at86rf230.c | 435 +++++++++++++++++++++--------
- include/linux/nl802154.h           |  12 +
- include/net/mac802154.h            |  35 +++
- include/net/wpan-phy.h             |  19 +-
- net/ieee802154/ieee802154.h        |   1 +
- net/ieee802154/netlink.c           |   1 +
- net/ieee802154/nl-phy.c            | 198 ++++++++++++-
- net/ieee802154/nl_policy.c         |  10 +
- net/ieee802154/wpan-class.c        |  10 +-
- net/mac802154/ieee802154_dev.c     |  67 +++++
- 10 files changed, 670 insertions(+), 118 deletions(-)
+diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
+index 879e6b2..c8b5733 100644
+--- a/drivers/net/ieee802154/at86rf230.c
++++ b/drivers/net/ieee802154/at86rf230.c
+@@ -52,6 +52,7 @@ struct at86rf230_local {
+ 	spinlock_t lock;
+ 	bool irq_busy;
+ 	bool is_tx;
++	bool tx_aret;
+ 
+ 	int rssi_base_val;
+ };
+@@ -549,7 +550,10 @@ at86rf230_state(struct ieee802154_dev *dev, int state)
+ 	} while (val == STATE_TRANSITION_IN_PROGRESS);
+ 
+ 
+-	if (val == desired_status)
++	if (val == desired_status ||
++		(desired_status == STATE_RX_ON && val == STATE_BUSY_RX) ||
++		(desired_status == STATE_RX_AACK_ON &&
++			val == STATE_BUSY_RX_AACK))
+ 		return 0;
+ 
+ 	pr_err("unexpected state change: %d, asked for %d\n", val, state);
+@@ -570,6 +574,10 @@ at86rf230_start(struct ieee802154_dev *dev)
+ 	if (rc)
+ 		return rc;
+ 
++	rc = at86rf230_state(dev, STATE_FORCE_TX_ON);
++	if (rc)
++		return rc;
++
+ 	return at86rf230_state(dev, STATE_RX_AACK_ON);
+ }
+ 
+@@ -670,6 +678,12 @@ at86rf230_xmit(struct ieee802154_dev *dev, struct sk_buff *skb)
+ 	if (rc)
+ 		goto err_rx;
+ 
++	if (lp->tx_aret) {
++		rc = at86rf230_write_subreg(lp, SR_TRX_CMD, STATE_TX_ARET_ON);
++		if (rc)
++			goto err_rx;
++	}
++
+ 	rc = at86rf230_write_subreg(lp, SR_TRX_CMD, STATE_BUSY_TX);
+ 	if (rc)
+ 		goto err_rx;
+@@ -824,6 +838,44 @@ at86rf212_set_cca_ed_level(struct ieee802154_dev *dev, s32 level)
+ 	return at86rf230_write_subreg(lp, SR_CCA_ED_THRES, desens_steps);
+ }
+ 
++static int
++at86rf212_set_csma_params(struct ieee802154_dev *dev, u8 min_be, u8 max_be,
++			  u8 retries)
++{
++	struct at86rf230_local *lp = dev->priv;
++	int rc;
++
++	if (min_be > max_be || max_be > 8 || retries > 5)
++		return -EINVAL;
++
++	rc = at86rf230_write_subreg(lp, SR_MIN_BE, min_be);
++	if (rc)
++		return rc;
++
++	rc = at86rf230_write_subreg(lp, SR_MAX_BE, max_be);
++	if (rc)
++		return rc;
++
++	return at86rf230_write_subreg(lp, SR_MAX_CSMA_RETRIES, max_be);
++}
++
++static int
++at86rf212_set_frame_retries(struct ieee802154_dev *dev, s8 retries)
++{
++	struct at86rf230_local *lp = dev->priv;
++	int rc = 0;
++
++	if (retries < -1 || retries > 15)
++		return -EINVAL;
++
++	lp->tx_aret = retries >= 0;
++
++	if (retries >= 0)
++		rc = at86rf230_write_subreg(lp, SR_MAX_FRAME_RETRIES, retries);
++
++	return rc;
++}
++
+ static struct ieee802154_ops at86rf230_ops = {
+ 	.owner = THIS_MODULE,
+ 	.xmit = at86rf230_xmit,
+@@ -846,6 +898,8 @@ static struct ieee802154_ops at86rf212_ops = {
+ 	.set_lbt = at86rf212_set_lbt,
+ 	.set_cca_mode = at86rf212_set_cca_mode,
+ 	.set_cca_ed_level = at86rf212_set_cca_ed_level,
++	.set_csma_params = at86rf212_set_csma_params,
++	.set_frame_retries = at86rf212_set_frame_retries,
+ };
+ 
+ static void at86rf230_irqwork(struct work_struct *work)
+@@ -922,6 +976,7 @@ static int at86rf230_hw_init(struct at86rf230_local *lp)
+ 	struct at86rf230_platform_data *pdata = lp->spi->dev.platform_data;
+ 	int rc, irq_pol;
+ 	u8 status;
++	u8 csma_seed[2];
+ 
+ 	rc = at86rf230_read_subreg(lp, SR_TRX_STATUS, &status);
+ 	if (rc)
+@@ -945,6 +1000,14 @@ static int at86rf230_hw_init(struct at86rf230_local *lp)
+ 	if (rc)
+ 		return rc;
+ 
++	get_random_bytes(csma_seed, ARRAY_SIZE(csma_seed));
++	rc = at86rf230_write_subreg(lp, SR_CSMA_SEED_0, csma_seed[0]);
++	if (rc)
++		return rc;
++	rc = at86rf230_write_subreg(lp, SR_CSMA_SEED_1, csma_seed[1]);
++	if (rc)
++		return rc;
++
+ 	/* CLKM changes are applied immediately */
+ 	rc = at86rf230_write_subreg(lp, SR_CLKM_SHA_SEL, 0x00);
+ 	if (rc)
+-- 
+1.8.5.4
