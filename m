@@ -1,36 +1,51 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCH V3 net-next 5/5] xen-net{back,	front}: Document
- multi-queue feature in netif.h
-Date: Fri, 14 Feb 2014 18:23:16 +0000
-Message-ID: <52FE5F14.50203@citrix.com>
-References: <1392399353-11973-1-git-send-email-andrew.bennieston@citrix.com> <1392399353-11973-6-git-send-email-andrew.bennieston@citrix.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 51/52] net/core/flow.c: Fix CPU hotplug callback
+ registration
+Date: Fri, 14 Feb 2014 13:31:28 -0500 (EST)
+Message-ID: <20140214.133128.1668791415154760386.davem@davemloft.net>
+References: <20140214074750.22701.47330.stgit@srivatsabhat.in.ibm.com>
+	<20140214080042.22701.50086.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<paul.durrant@citrix.com>, <wei.liu2@citrix.com>,
-	<ian.campbell@citrix.com>
-To: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:18704 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751721AbaBNSXS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Feb 2014 13:23:18 -0500
-In-Reply-To: <1392399353-11973-6-git-send-email-andrew.bennieston@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: paulus@samba.org, oleg@redhat.com, mingo@kernel.org,
+	rusty@rustcorp.com.au, peterz@infradead.org, tglx@linutronix.de,
+	akpm@linux-foundation.org, paulmck@linux.vnet.ibm.com,
+	tj@kernel.org, walken@google.com, ego@linux.vnet.ibm.com,
+	linux@arm.linux.org.uk, rjw@rjwysocki.net,
+	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	roy.qing.li@gmail.com, sasha.levin@oracle.com, cmetcalf@tilera.com,
+	netdev@vger.kernel.org
+To: srivatsa.bhat@linux.vnet.ibm.com
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <20140214080042.22701.50086.stgit@srivatsabhat.in.ibm.com>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 14/02/14 17:35, Andrew J. Bennieston wrote:
-> From: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Date: Fri, 14 Feb 2014 13:30:43 +0530
+
+> Subsystems that want to register CPU hotplug callbacks, as well as perform
+> initialization for the CPUs that are already online, often do it as shown
+> below:
+ ...
+> This is wrong, since it is prone to ABBA deadlocks involving the
+> cpu_add_remove_lock and the cpu_hotplug.lock (when running concurrently
+> with CPU hotplug operations).
 > 
-> Document the multi-queue feature in terms of XenStore keys to be written
-> by the backend and by the frontend.
+> Instead, the correct and race-free way of performing the callback
+> registration is:
+ ...
+> Fix the code in net/core/flow.c by using this latter form of callback
+> registration.
 > 
-> Signed-off-by: Andrew J. Bennieston <andrew.bennieston@citrix.com>
-> ---
->  include/xen/interface/io/netif.h |   21 +++++++++++++++++++++
+> Cc: Li RongQing <roy.qing.li@gmail.com>
+> Cc: Sasha Levin <sasha.levin@oracle.com>
+> Cc: Andrew Morton <akpm@linux-foundation.org>
+> Cc: Chris Metcalf <cmetcalf@tilera.com>
+> Cc: Ingo Molnar <mingo@kernel.org>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 
-The master copy of this file is in Xen. You will need to prepare and
-submit a similar patch to xen-devel.
-
-David
+Acked-by: David S. Miller <davem@davemloft.net>
