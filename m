@@ -1,50 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 52/52] net/iucv/iucv.c: Fix CPU hotplug callback
- registration
-Date: Fri, 14 Feb 2014 13:31:47 -0500 (EST)
-Message-ID: <20140214.133147.1908176449942033339.davem@davemloft.net>
-References: <20140214074750.22701.47330.stgit@srivatsabhat.in.ibm.com>
-	<20140214080057.22701.94737.stgit@srivatsabhat.in.ibm.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v3 0/3] dp83640: Get pin and master/slave configuration
+ from DT
+Date: Fri, 14 Feb 2014 13:36:17 -0500 (EST)
+Message-ID: <20140214.133617.1389101802638585879.davem@davemloft.net>
+References: <1392302129-24947-1-git-send-email-stefan.sorensen@spectralink.com>
+	<20140213.173957.2126489785330496380.davem@davemloft.net>
+	<20140214090601.GA3906@netboy>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paulus@samba.org, oleg@redhat.com, mingo@kernel.org,
-	rusty@rustcorp.com.au, peterz@infradead.org, tglx@linutronix.de,
-	akpm@linux-foundation.org, paulmck@linux.vnet.ibm.com,
-	tj@kernel.org, walken@google.com, ego@linux.vnet.ibm.com,
-	linux@arm.linux.org.uk, rjw@rjwysocki.net,
-	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	ursula.braun@de.ibm.com, linux-s390@vger.kernel.org,
-	netdev@vger.kernel.org
-To: srivatsa.bhat@linux.vnet.ibm.com
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <20140214080057.22701.94737.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-arch-owner@vger.kernel.org
+Cc: stefan.sorensen-usnHOLptxrsHrNJx0XZkJA@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
+	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140214090601.GA3906@netboy>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Date: Fri, 14 Feb 2014 13:30:58 +0530
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Fri, 14 Feb 2014 10:06:01 +0100
 
-> Subsystems that want to register CPU hotplug callbacks, as well as perform
-> initialization for the CPUs that are already online, often do it as shown
-> below:
- ...
-> This is wrong, since it is prone to ABBA deadlocks involving the
-> cpu_add_remove_lock and the cpu_hotplug.lock (when running concurrently
-> with CPU hotplug operations).
+> People want to be able to configure the auxiliary functions on the
+> pins of their PTP devices. My preference for supporting this is:
 > 
-> Instead, the correct and race-free way of performing the callback
-> registration is:
- ...
-> Fix the code in net/iucv/iucv.c by using this latter form of callback
-> registration. Also, provide helper functions to perform the common memory
-> allocations and frees, to condense repetitive code.
+> 1. additional ioctl on the PTP character device
+> 2. ethtool ioctl
+> 3. DT and/or ACPI
 > 
-> Cc: Ursula Braun <ursula.braun@de.ibm.com>
-> Cc: Ingo Molnar <mingo@kernel.org>
-> Cc: linux-s390@vger.kernel.org
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+> The first option seems best because that is how you activate the
+> auxiliary functions. I am working on something in this direction.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Probably since PTP already uses ioctls, and that is the activation
+point, yes that seems the best approach.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
