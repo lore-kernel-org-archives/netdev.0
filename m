@@ -1,30 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next] net: introduce netdev_alloc_pcpu_stats() for
- drivers
-Date: Fri, 14 Feb 2014 15:50:27 -0500 (EST)
-Message-ID: <20140214.155027.85978951908473915.davem@davemloft.net>
-References: <1392320788-17962-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: Re: [PATCH] bonding: 802.3ad: make aggregator_identifier bond-private
+Date: Fri, 14 Feb 2014 21:51:47 +0100
+Message-ID: <20140214205147.GA1798@midget.suse.cz>
+References: <20140214171350.GC11688@midget.suse.cz>
+ <20140214191243.GA3173@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xiyou.wangcong@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
+To: Flavio Leitner <fbl@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37858 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751525AbaBNUu3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 15:50:29 -0500
-In-Reply-To: <1392320788-17962-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from cantor2.suse.de ([195.135.220.15]:33460 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751838AbaBNUvv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Feb 2014 15:51:51 -0500
+Content-Disposition: inline
+In-Reply-To: <20140214191243.GA3173@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Thu, 13 Feb 2014 11:46:28 -0800
-
-> There are many drivers calling alloc_percpu() to allocate pcpu stats
-> and then initializing ->syncp. So just introduce a helper function for them.
+On Fri, Feb 14, 2014 at 05:12:43PM -0200, Flavio Leitner wrote:
+> On Fri, Feb 14, 2014 at 06:13:50PM +0100, Jiri Bohac wrote:
+> > Fix this by making aggregator_identifier private to the bond.
 > 
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> I don't see how you fix the duplicate agg id with this patch because
+> you initialize for each bond to 0, then use the same algo further on.
+> So, what is changing?
 
-Looks good, applied, thanks.
+My understanding is that the aggregator identifier is used
+internally by the bond and never appears anywhere in the LACP
+traffic.
+
+So having duplicate aggregator ids between two bonds on the same
+machine does not matter. But it is a problem if two aggregators
+in the same bond share the same id.
+
+Is my understanding wrong?
+ 
+> Actually, aggregator_identifier is a global variable to make sure the
+> counter is always increasing for new bonds.  So, the fix would be to
+> not reset it to zero, isn't it?
+
+I was considering this fix, but my concern was that the variable
+(u16) would overflow sooner than it does now. It would take 2^16
+enslavings on the machine, while with my patch you need 2^16
+enslavings on a single bond.
+
+Hypothetically, a rogue NET_ADMIN in one net namespace may cause
+this overflow to break a bond in another nemespace.
+
+Maybe I'm being paranoid? ;)
+
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
+
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
