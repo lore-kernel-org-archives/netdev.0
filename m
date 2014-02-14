@@ -1,56 +1,49 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: Re: [PATCH net-next 4/4] sch_netem: replace spin_(un)lock_bh with
- sch_tree_(un)lock
-Date: Fri, 14 Feb 2014 09:32:24 +0800
-Message-ID: <52FD7228.3010804@huawei.com>
-References: <1392173895-5012-1-git-send-email-yangyingliang@huawei.com>	<1392173895-5012-5-git-send-email-yangyingliang@huawei.com> <20140213.174606.334208738068503053.davem@davemloft.net>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 1/1] dccp: re-enable debug macro
+Date: Thu, 13 Feb 2014 19:02:33 -0700
+Message-ID: <20140213190233.0f0889a4@liptov.cs.ualberta.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <stephen@networkplumber.org>
-To: David Miller <davem@davemloft.net>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:3595 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750932AbaBNBcq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 20:32:46 -0500
-In-Reply-To: <20140213.174606.334208738068503053.davem@davemloft.net>
+Received: from spey.erg.abdn.ac.uk ([139.133.204.173]:34814 "EHLO
+	spey.erg.abdn.ac.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751582AbaBNCCu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 21:02:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/2/14 6:46, David Miller wrote:
-> From: Yang Yingliang <yangyingliang@huawei.com>
-> Date: Wed, 12 Feb 2014 10:58:15 +0800
-> 
->> spin_(un)lock_bh(root_lock) is same as sch_tree_(un)lock.
->>
->> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
->  ...
->> @@ -684,11 +683,9 @@ static int get_dist_table(struct Qdisc *sch, const struct nlattr *attr)
->>  	for (i = 0; i < n; i++)
->>  		d->table[i] = data[i];
->>  
->> -	root_lock = qdisc_root_sleeping_lock(sch);
->> -
->> -	spin_lock_bh(root_lock);
->> +	sch_tree_lock(sch);
->>  	swap(q->delay_dist, d);
->> -	spin_unlock_bh(root_lock);
->> +	sch_tree_unlock(sch);
->>  
->>  	dist_free(d);
->>  	return 0;
-> 
-> This is more expensive than the existing code.
-> 
-> We will now calculate qdisc_root_sleeping_lock() twice which is at
-> least two pointer dereferences each.
-> 
-> Without explicitly open-coding this, the compiler cannot cache the
-> result, because the spin lock operations have memory barriers (if
-> implemented inline) or are considered to potentially modify all memory
-> (if implemented as function calls).
-> 
-> 
-OK, thanks!
-I'll send v2 without this patch.
+dccp tfrc: revert
+
+This reverts 6aee49c558de (Jan 4, 2014) since the variable tfrc_debug is
+referenced by the tfrc_pr_debug(fmt, ...) macro when TFRC debugging is
+enabled. If it is enabled, use of the macro produces a compilation error.
+
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/dccp/ccids/lib/tfrc.c |    2 +-
+ net/dccp/ccids/lib/tfrc.h |    1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+--- a/net/dccp/ccids/lib/tfrc.c
++++ b/net/dccp/ccids/lib/tfrc.c
+@@ -8,7 +8,7 @@
+ #include "tfrc.h"
+ 
+ #ifdef CONFIG_IP_DCCP_TFRC_DEBUG
+-static bool tfrc_debug;
++bool tfrc_debug;
+ module_param(tfrc_debug, bool, 0644);
+ MODULE_PARM_DESC(tfrc_debug, "Enable TFRC debug messages");
+ #endif
+--- a/net/dccp/ccids/lib/tfrc.h
++++ b/net/dccp/ccids/lib/tfrc.h
+@@ -21,6 +21,7 @@
+ #include "packet_history.h"
+ 
+ #ifdef CONFIG_IP_DCCP_TFRC_DEBUG
++extern bool tfrc_debug;
+ #define tfrc_pr_debug(format, a...)	DCCP_PR_DEBUG(tfrc_debug, format, ##a)
+ #else
+ #define tfrc_pr_debug(format, a...)
