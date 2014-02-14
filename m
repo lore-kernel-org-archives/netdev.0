@@ -1,39 +1,58 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net] packet: check for ndo_select_queue during queue selection
-Date: Fri, 14 Feb 2014 11:21:22 +0100
-Message-ID: <52FDEE22.9010503@redhat.com>
-References: <1392311935-10275-1-git-send-email-dborkman@redhat.com> <20140214.004048.616136663605863975.davem@davemloft.net>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: [PATCH] ipv4: distinguish EHOSTUNREACH from the ENETUNREACH
+Date: Fri, 14 Feb 2014 18:26:22 +0800
+Message-ID: <52FDEF4E.3010806@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: mathias.kretschmer@fokus.fraunhofer.de, netdev@vger.kernel.org,
-	brouer@redhat.com
+Cc: netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12119 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751972AbaBNKVa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Feb 2014 05:21:30 -0500
-In-Reply-To: <20140214.004048.616136663605863975.davem@davemloft.net>
+Received: from cn.fujitsu.com ([222.73.24.84]:1545 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750975AbaBNK10 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Feb 2014 05:27:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/14/2014 06:40 AM, David Miller wrote:
-> From: Daniel Borkmann <dborkman@redhat.com>
-> Date: Thu, 13 Feb 2014 18:18:55 +0100
->
->> The original pktgen scenario for which PACKET_QDISC_BYPASS was
->> designed for is still intact with this change anyway. We think
->
-> I guess you have no intention of using this feature on bnx2x, ixgbe,
-> or mlx4 devices then?  That covers a rather large component of gigabit
-> ethernet devices out there, doesn't it?
->
-> They both hook up an ndo_select_queue method.
 
-Yes, it's suboptimal :/ The other two possibilities I see is 1) to check
-for dev->ieee80211_ptr on setsockopt(2) and bind(2) (which could happen
-_after_ the option was set) and just disallow that option for those cases
-(doesn't make sense to use it for ieee80211 devs anyway, and they seem to
-be the only special-cased users), or, preferably 2) to just leave the
-code as it currently is, that is, similar to pktgen.
+since commit 251da413("ipv4: Cache ip_error() routes even when not forwarding."),
+the counter IPSTATS_MIB_INADDRERRORS can't work correctly, because the value of
+err was always set to ENETUNREACH.
+
+Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+---
+ net/ipv4/route.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 25071b4..6f6dd85 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1695,8 +1695,11 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	fl4.daddr = daddr;
+ 	fl4.saddr = saddr;
+ 	err = fib_lookup(net, &fl4, &res);
+-	if (err != 0)
++	if (err != 0) {
++		if (!IN_DEV_FORWARD(in_dev))
++			err = -EHOSTUNREACH;
+ 		goto no_route;
++	}
+ 
+ 	RT_CACHE_STAT_INC(in_slow_tot);
+ 
+@@ -1712,8 +1715,10 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 		goto local_input;
+ 	}
+ 
+-	if (!IN_DEV_FORWARD(in_dev))
++	if (!IN_DEV_FORWARD(in_dev)) {
++		err = -EHOSTUNREACH;
+ 		goto no_route;
++	}
+ 	if (res.type != RTN_UNICAST)
+ 		goto martian_destination;
+ 
+-- 
+1.8.3.1
