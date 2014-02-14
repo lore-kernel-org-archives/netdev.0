@@ -1,47 +1,77 @@
 From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
-Subject: [PATCH net-next v2 02/10] ieee802154: default to AACK in at86rf230
-Date: Fri, 14 Feb 2014 23:49:24 +0100
-Message-ID: <1392418172-5305-3-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Subject: [PATCH net-next v2 08/10] ieee802154: ensure that first RF212 state comes from TRX_OFF
+Date: Fri, 14 Feb 2014 23:49:30 +0100
+Message-ID: <1392418172-5305-9-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 References: <1392418172-5305-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Cc: linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net,
 	Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from selenium.quasiparticle.net ([188.40.96.248]:43989 "EHLO
+Received: from selenium.quasiparticle.net ([188.40.96.248]:43996 "EHLO
 	quasiparticle.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751598AbaBNW63 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 17:58:29 -0500
+	with ESMTP id S1752807AbaBNW6a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 17:58:30 -0500
 In-Reply-To: <1392418172-5305-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current IEEE802.15.4 stack assumes that a radio will never deliver
-packets with a bad CRC into the stack, as required by the standard.
-at86rf230 driven radios violates this assumption because of another
-incompatibility: devices are required to send ACKs if requested by a
-sender, but RF2xx will only send ACKs from a special receive mode that
-is currently not used by the driver.
+A documented erratum of the RF212 chip describes that some versions of
+RF212 may not be properly reset by the standard reset procedure. The
+described workaround seems to not fully work either; my RF212 chips will
+not correctly receive any frames unless they are taken from RX mode to
+TRX_OFF and back to RX mode, effectively forcing a up-down-up-cycle.
+Going to TRX_OFF and to RX without intermediate state changes at least
+once fixes this.
 
-Enable this receive mode to fix both bugs. Frames with bad CRCs will not
-be received at all, and ACKs will be sent if so requested.
+The same transition is allowed for RF230, so simply do it all the time.
 
 Signed-off-by: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
 ---
- drivers/net/ieee802154/at86rf230.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ieee802154/at86rf230.c | 25 +++----------------------
+ 1 file changed, 3 insertions(+), 22 deletions(-)
 
 diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index 2df5d80..230258f 100644
+index d28ea97..879e6b2 100644
 --- a/drivers/net/ieee802154/at86rf230.c
 +++ b/drivers/net/ieee802154/at86rf230.c
-@@ -567,7 +567,7 @@ at86rf230_start(struct ieee802154_dev *dev)
+@@ -927,18 +927,9 @@ static int at86rf230_hw_init(struct at86rf230_local *lp)
  	if (rc)
  		return rc;
  
--	return at86rf230_state(dev, STATE_RX_ON);
-+	return at86rf230_state(dev, STATE_RX_AACK_ON);
- }
+-	dev_info(&lp->spi->dev, "Status: %02x\n", status);
+-	if (status == STATE_P_ON) {
+-		rc = at86rf230_write_subreg(lp, SR_TRX_CMD,
+-			STATE_FORCE_TRX_OFF);
+-		if (rc)
+-			return rc;
+-		msleep(1);
+-		rc = at86rf230_read_subreg(lp, SR_TRX_STATUS, &status);
+-		if (rc)
+-			return rc;
+-		dev_info(&lp->spi->dev, "Status: %02x\n", status);
+-	}
++	rc = at86rf230_write_subreg(lp, SR_TRX_CMD, STATE_FORCE_TRX_OFF);
++	if (rc)
++		return rc;
  
- static void
+ 	/* configure irq polarity, defaults to high active */
+ 	if (pdata->irq_type & (IRQF_TRIGGER_FALLING | IRQF_TRIGGER_LOW))
+@@ -966,16 +957,6 @@ static int at86rf230_hw_init(struct at86rf230_local *lp)
+ 	/* Wait the next SLEEP cycle */
+ 	msleep(100);
+ 
+-	rc = at86rf230_write_subreg(lp, SR_TRX_CMD, STATE_TX_ON);
+-	if (rc)
+-		return rc;
+-	msleep(1);
+-
+-	rc = at86rf230_read_subreg(lp, SR_TRX_STATUS, &status);
+-	if (rc)
+-		return rc;
+-	dev_info(&lp->spi->dev, "Status: %02x\n", status);
+-
+ 	rc = at86rf230_read_subreg(lp, SR_DVDD_OK, &status);
+ 	if (rc)
+ 		return rc;
 -- 
 1.8.5.4
