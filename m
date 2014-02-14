@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC v4 05/12] xfrm: Add xfrm_tunnel_skb_cb to the skb common buffer
-Date: Fri, 14 Feb 2014 09:30:13 +0100
-Message-ID: <1392366620-31923-6-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH RFC v4 01/12] xfrm4: Add IPsec protocol multiplexer
+Date: Fri, 14 Feb 2014 09:30:09 +0100
+Message-ID: <1392366620-31923-2-git-send-email-steffen.klassert@secunet.com>
 References: <1392366620-31923-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,174 +9,455 @@ Cc: Steffen Klassert <steffen.klassert@secunet.com>,
 	Christophe Gouault <christophe.gouault@6wind.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:39121 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:39111 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752114AbaBNIau (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Feb 2014 03:30:50 -0500
+	id S1752039AbaBNIap (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Feb 2014 03:30:45 -0500
 In-Reply-To: <1392366620-31923-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IPsec vti_rcv needs to remind the tunnel pointer to
-check it later at the vti_rcv_cb callback. So add
-this pointer to the IPsec common buffer, initialize
-it and check it to avoid transport state matching of
-a tunneled packet.
+This patch add an IPsec protocol multiplexer. With this
+it is possible to add alternative protocol handlers as
+needed for IPsec virtual tunnel interfaces.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/net/xfrm.h        |   50 ++++++++++++++++++++++++++++++++++-----------
- net/ipv4/xfrm4_protocol.c |    7 +++++++
- net/xfrm/xfrm_input.c     |    5 +++++
- 3 files changed, 50 insertions(+), 12 deletions(-)
+ include/net/xfrm.h        |   29 ++++-
+ net/ipv4/Makefile         |    2 +-
+ net/ipv4/xfrm4_input.c    |    9 --
+ net/ipv4/xfrm4_protocol.c |  268 +++++++++++++++++++++++++++++++++++++++++++++
+ net/xfrm/xfrm_input.c     |   17 ++-
+ 5 files changed, 308 insertions(+), 17 deletions(-)
+ create mode 100644 net/ipv4/xfrm4_protocol.c
 
 diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 5621cd1..5d3faed 100644
+index afa5730..5621cd1 100644
 --- a/include/net/xfrm.h
 +++ b/include/net/xfrm.h
-@@ -599,16 +599,27 @@ struct xfrm_mgr {
- int xfrm_register_km(struct xfrm_mgr *km);
- int xfrm_unregister_km(struct xfrm_mgr *km);
+@@ -1347,6 +1347,18 @@ struct xfrm_algo_desc {
+ 	struct sadb_alg desc;
+ };
  
-+struct xfrm_tunnel_skb_cb {
-+	union {
-+		struct inet_skb_parm h4;
-+		struct inet6_skb_parm h6;
-+	} header;
++/* XFRM protocol handlers.  */
++struct xfrm4_protocol {
++	int (*handler)(struct sk_buff *skb);
++	int (*input_handler)(struct sk_buff *skb, int nexthdr, __be32 spi,
++			     int encap_type);
++	int (*cb_handler)(struct sk_buff *skb, int err);
++	int (*err_handler)(struct sk_buff *skb, u32 info);
 +
-+	union {
-+		struct ip_tunnel *ip4;
-+		struct ip6_tnl *ip6;
-+	} tunnel;
++	struct xfrm4_protocol __rcu *next;
++	int priority;
 +};
 +
-+#define XFRM_TUNNEL_SKB_CB(__skb) ((struct xfrm_tunnel_skb_cb *)&((__skb)->cb[0]))
-+
- /*
-  * This structure is used for the duration where packets are being
-  * transformed by IPsec.  As soon as the packet leaves IPsec the
-  * area beyond the generic IP part may be overwritten.
-  */
- struct xfrm_skb_cb {
--	union {
--		struct inet_skb_parm h4;
--		struct inet6_skb_parm h6;
--        } header;
-+	struct xfrm_tunnel_skb_cb header;
- 
-         /* Sequence number for replay protection. */
- 	union {
-@@ -630,10 +641,7 @@ struct xfrm_skb_cb {
-  * to transmit header information to the mode input/output functions.
-  */
- struct xfrm_mode_skb_cb {
--	union {
--		struct inet_skb_parm h4;
--		struct inet6_skb_parm h6;
--	} header;
-+	struct xfrm_tunnel_skb_cb header;
- 
- 	/* Copied from header for IPv4, always set to zero and DF for IPv6. */
- 	__be16 id;
-@@ -665,10 +673,7 @@ struct xfrm_mode_skb_cb {
-  * related information.
-  */
- struct xfrm_spi_skb_cb {
--	union {
--		struct inet_skb_parm h4;
--		struct inet6_skb_parm h6;
--	} header;
-+	struct xfrm_tunnel_skb_cb header;
- 
- 	unsigned int daddroff;
- 	unsigned int family;
-@@ -1509,6 +1514,7 @@ int xfrm4_rcv(struct sk_buff *skb);
+ /* XFRM tunnel handlers.  */
+ struct xfrm_tunnel {
+ 	int (*handler)(struct sk_buff *skb);
+@@ -1497,13 +1509,18 @@ int xfrm4_rcv(struct sk_buff *skb);
  
  static inline int xfrm4_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi)
  {
-+	XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4 = NULL;
- 	XFRM_SPI_SKB_CB(skb)->family = AF_INET;
- 	XFRM_SPI_SKB_CB(skb)->daddroff = offsetof(struct iphdr, daddr);
- 	return xfrm_input(skb, nexthdr, spi, 0);
-@@ -1764,4 +1770,24 @@ static inline int xfrm_rcv_cb(struct sk_buff *skb, unsigned int family,
- 	return 0;
+-	return xfrm4_rcv_encap(skb, nexthdr, spi, 0);
++	XFRM_SPI_SKB_CB(skb)->family = AF_INET;
++	XFRM_SPI_SKB_CB(skb)->daddroff = offsetof(struct iphdr, daddr);
++	return xfrm_input(skb, nexthdr, spi, 0);
  }
  
-+static inline int xfrm_tunnel_check(struct sk_buff *skb, struct xfrm_state *x,
-+				    unsigned int family)
+ int xfrm4_extract_output(struct xfrm_state *x, struct sk_buff *skb);
+ int xfrm4_prepare_output(struct xfrm_state *x, struct sk_buff *skb);
+ int xfrm4_output(struct sk_buff *skb);
+ int xfrm4_output_finish(struct sk_buff *skb);
++int xfrm4_rcv_cb(struct sk_buff *skb, u8 protocol, int err);
++int xfrm4_protocol_register(struct xfrm4_protocol *handler, unsigned char protocol);
++int xfrm4_protocol_deregister(struct xfrm4_protocol *handler, unsigned char protocol);
+ int xfrm4_tunnel_register(struct xfrm_tunnel *handler, unsigned short family);
+ int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler, unsigned short family);
+ void xfrm4_local_error(struct sk_buff *skb, u32 mtu);
+@@ -1737,4 +1754,14 @@ static inline int xfrm_mark_put(struct sk_buff *skb, const struct xfrm_mark *m)
+ 	return ret;
+ }
+ 
++static inline int xfrm_rcv_cb(struct sk_buff *skb, unsigned int family,
++			      u8 protocol, int err)
 +{
-+	bool tunnel = false;
-+
 +	switch(family) {
 +	case AF_INET:
-+		if (XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4)
-+			tunnel = true;
-+		break;
-+	case AF_INET6:
-+		if (XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6)
-+			tunnel = true;
-+		break;
++		return xfrm4_rcv_cb(skb, protocol, err);
 +	}
-+	if (tunnel && !(x->outer_mode->flags & XFRM_MODE_FLAG_TUNNEL))
-+		return -EINVAL;
++	return 0;
++}
++
+ #endif	/* _NET_XFRM_H */
+diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+index f8c49ce..f032688 100644
+--- a/net/ipv4/Makefile
++++ b/net/ipv4/Makefile
+@@ -55,4 +55,4 @@ obj-$(CONFIG_MEMCG_KMEM) += tcp_memcontrol.o
+ obj-$(CONFIG_NETLABEL) += cipso_ipv4.o
+ 
+ obj-$(CONFIG_XFRM) += xfrm4_policy.o xfrm4_state.o xfrm4_input.o \
+-		      xfrm4_output.o
++		      xfrm4_output.o xfrm4_protocol.o
+diff --git a/net/ipv4/xfrm4_input.c b/net/ipv4/xfrm4_input.c
+index 1f12c8b..aac6197 100644
+--- a/net/ipv4/xfrm4_input.c
++++ b/net/ipv4/xfrm4_input.c
+@@ -37,15 +37,6 @@ drop:
+ 	return NET_RX_DROP;
+ }
+ 
+-int xfrm4_rcv_encap(struct sk_buff *skb, int nexthdr, __be32 spi,
+-		    int encap_type)
+-{
+-	XFRM_SPI_SKB_CB(skb)->family = AF_INET;
+-	XFRM_SPI_SKB_CB(skb)->daddroff = offsetof(struct iphdr, daddr);
+-	return xfrm_input(skb, nexthdr, spi, encap_type);
+-}
+-EXPORT_SYMBOL(xfrm4_rcv_encap);
+-
+ int xfrm4_transport_finish(struct sk_buff *skb, int async)
+ {
+ 	struct iphdr *iph = ip_hdr(skb);
+diff --git a/net/ipv4/xfrm4_protocol.c b/net/ipv4/xfrm4_protocol.c
+new file mode 100644
+index 0000000..862a26c
+--- /dev/null
++++ b/net/ipv4/xfrm4_protocol.c
+@@ -0,0 +1,268 @@
++/* xfrm4_protocol.c - Generic xfrm protocol multiplexer.
++ *
++ * Copyright (C) 2013 secunet Security Networks AG
++ *
++ * Author:
++ * Steffen Klassert <steffen.klassert@secunet.com>
++ *
++ * Based on:
++ * net/ipv4/tunnel4.c
++ *
++ *	This program is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU General Public License
++ *	as published by the Free Software Foundation; either version
++ *	2 of the License, or (at your option) any later version.
++ */
++
++#include <linux/init.h>
++#include <linux/mutex.h>
++#include <linux/skbuff.h>
++#include <net/icmp.h>
++#include <net/ip.h>
++#include <net/protocol.h>
++#include <net/xfrm.h>
++
++static struct xfrm4_protocol __rcu *esp4_handlers __read_mostly;
++static struct xfrm4_protocol __rcu *ah4_handlers __read_mostly;
++static struct xfrm4_protocol __rcu *ipcomp4_handlers __read_mostly;
++static DEFINE_MUTEX(xfrm4_protocol_mutex);
++
++static inline struct xfrm4_protocol __rcu **proto_handlers(u8 protocol)
++{
++	switch (protocol) {
++	case IPPROTO_ESP:
++		return &esp4_handlers;
++	case IPPROTO_AH:
++		return &ah4_handlers;
++	case IPPROTO_COMP:
++		return &ipcomp4_handlers;
++	}
++
++	return NULL;
++}
++
++#define for_each_protocol_rcu(head, handler)		\
++	for (handler = rcu_dereference(head);		\
++	     handler != NULL;				\
++	     handler = rcu_dereference(handler->next))	\
++
++int xfrm4_rcv_cb(struct sk_buff *skb, u8 protocol, int err)
++{
++	int ret;
++	struct xfrm4_protocol *handler;
++
++	for_each_protocol_rcu(*proto_handlers(protocol), handler)
++		if ((ret = handler->cb_handler(skb, err)) <= 0)
++			return ret;
 +
 +	return 0;
 +}
- #endif	/* _NET_XFRM_H */
-diff --git a/net/ipv4/xfrm4_protocol.c b/net/ipv4/xfrm4_protocol.c
-index 862a26c..cdc09ef 100644
---- a/net/ipv4/xfrm4_protocol.c
-+++ b/net/ipv4/xfrm4_protocol.c
-@@ -65,6 +65,7 @@ int xfrm4_rcv_encap(struct sk_buff *skb, int nexthdr, __be32 spi,
- 	int ret;
- 	struct xfrm4_protocol *handler;
- 
-+	XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4 = NULL;
- 	XFRM_SPI_SKB_CB(skb)->family = AF_INET;
- 	XFRM_SPI_SKB_CB(skb)->daddroff = offsetof(struct iphdr, daddr);
- 
-@@ -84,6 +85,8 @@ static int xfrm4_esp_rcv(struct sk_buff *skb)
- 	int ret;
- 	struct xfrm4_protocol *handler;
- 
-+	XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4 = NULL;
++EXPORT_SYMBOL(xfrm4_rcv_cb);
 +
- 	for_each_protocol_rcu(esp4_handlers, handler)
- 		if ((ret = handler->handler(skb)) != -EINVAL)
- 			return ret;
-@@ -108,6 +111,8 @@ static int xfrm4_ah_rcv(struct sk_buff *skb)
- 	int ret;
- 	struct xfrm4_protocol *handler;
- 
-+	XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4 = NULL;
++int xfrm4_rcv_encap(struct sk_buff *skb, int nexthdr, __be32 spi,
++		    int encap_type)
++{
++	int ret;
++	struct xfrm4_protocol *handler;
 +
- 	for_each_protocol_rcu(ah4_handlers, handler)
- 		if ((ret = handler->handler(skb)) != -EINVAL)
- 			return ret;;
-@@ -132,6 +137,8 @@ static int xfrm4_ipcomp_rcv(struct sk_buff *skb)
- 	int ret;
- 	struct xfrm4_protocol *handler;
- 
-+	XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4 = NULL;
++	XFRM_SPI_SKB_CB(skb)->family = AF_INET;
++	XFRM_SPI_SKB_CB(skb)->daddroff = offsetof(struct iphdr, daddr);
 +
- 	for_each_protocol_rcu(ipcomp4_handlers, handler)
- 		if ((ret = handler->handler(skb)) != -EINVAL)
- 			return ret;
++	for_each_protocol_rcu(*proto_handlers(nexthdr), handler)
++		if ((ret = handler->input_handler(skb, nexthdr, spi, encap_type)) != -EINVAL)
++			return ret;
++
++	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
++
++	kfree_skb(skb);
++	return 0;
++}
++EXPORT_SYMBOL(xfrm4_rcv_encap);
++
++static int xfrm4_esp_rcv(struct sk_buff *skb)
++{
++	int ret;
++	struct xfrm4_protocol *handler;
++
++	for_each_protocol_rcu(esp4_handlers, handler)
++		if ((ret = handler->handler(skb)) != -EINVAL)
++			return ret;
++
++	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
++
++	kfree_skb(skb);
++	return 0;
++}
++
++static void xfrm4_esp_err(struct sk_buff *skb, u32 info)
++{
++	struct xfrm4_protocol *handler;
++
++	for_each_protocol_rcu(esp4_handlers, handler)
++		if (!handler->err_handler(skb, info))
++			break;
++}
++
++static int xfrm4_ah_rcv(struct sk_buff *skb)
++{
++	int ret;
++	struct xfrm4_protocol *handler;
++
++	for_each_protocol_rcu(ah4_handlers, handler)
++		if ((ret = handler->handler(skb)) != -EINVAL)
++			return ret;;
++
++	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
++
++	kfree_skb(skb);
++	return 0;
++}
++
++static void xfrm4_ah_err(struct sk_buff *skb, u32 info)
++{
++	struct xfrm4_protocol *handler;
++
++	for_each_protocol_rcu(ah4_handlers, handler)
++		if (!handler->err_handler(skb, info))
++			break;
++}
++
++static int xfrm4_ipcomp_rcv(struct sk_buff *skb)
++{
++	int ret;
++	struct xfrm4_protocol *handler;
++
++	for_each_protocol_rcu(ipcomp4_handlers, handler)
++		if ((ret = handler->handler(skb)) != -EINVAL)
++			return ret;
++
++	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
++
++	kfree_skb(skb);
++	return 0;
++}
++
++static void xfrm4_ipcomp_err(struct sk_buff *skb, u32 info)
++{
++	struct xfrm4_protocol *handler;
++
++	for_each_protocol_rcu(ipcomp4_handlers, handler)
++		if (!handler->err_handler(skb, info))
++			break;
++}
++
++static const struct net_protocol esp4_protocol = {
++	.handler	=	xfrm4_esp_rcv,
++	.err_handler	=	xfrm4_esp_err,
++	.no_policy	=	1,
++	.netns_ok	=	1,
++};
++
++static const struct net_protocol ah4_protocol = {
++	.handler	=	xfrm4_ah_rcv,
++	.err_handler	=	xfrm4_ah_err,
++	.no_policy	=	1,
++	.netns_ok	=	1,
++};
++
++static const struct net_protocol ipcomp4_protocol = {
++	.handler	=	xfrm4_ipcomp_rcv,
++	.err_handler	=	xfrm4_ipcomp_err,
++	.no_policy	=	1,
++	.netns_ok	=	1,
++};
++
++static inline const struct net_protocol *netproto(unsigned char protocol)
++{
++	switch (protocol) {
++	case IPPROTO_ESP:
++		return &esp4_protocol;
++	case IPPROTO_AH:
++		return &ah4_protocol;
++	case IPPROTO_COMP:
++		return &ipcomp4_protocol;
++	}
++
++	return NULL;
++}
++
++int xfrm4_protocol_register(struct xfrm4_protocol *handler,
++			    unsigned char protocol)
++{
++	struct xfrm4_protocol __rcu **pprev;
++	struct xfrm4_protocol *t;
++	bool add_netproto = false;
++
++	int ret = -EEXIST;
++	int priority = handler->priority;
++
++	mutex_lock(&xfrm4_protocol_mutex);
++
++	if (!rcu_dereference_protected(*proto_handlers(protocol),
++				       lockdep_is_held(&xfrm4_protocol_mutex)))
++		add_netproto = true;
++
++	for (pprev = proto_handlers(protocol);
++	     (t = rcu_dereference_protected(*pprev,
++			lockdep_is_held(&xfrm4_protocol_mutex))) != NULL;
++	     pprev = &t->next) {
++		if (t->priority < priority)
++			break;
++		if (t->priority == priority)
++			goto err;
++	}
++
++	handler->next = *pprev;
++	rcu_assign_pointer(*pprev, handler);
++
++	ret = 0;
++
++err:
++	mutex_unlock(&xfrm4_protocol_mutex);
++
++	if (add_netproto) {
++		if (inet_add_protocol(netproto(protocol), protocol)) {
++			pr_err("%s: can't add protocol\n", __func__);
++			ret = -EAGAIN;
++		}
++	}
++
++	return ret;
++}
++EXPORT_SYMBOL(xfrm4_protocol_register);
++
++int xfrm4_protocol_deregister(struct xfrm4_protocol *handler,
++			      unsigned char protocol)
++{
++	struct xfrm4_protocol __rcu **pprev;
++	struct xfrm4_protocol *t;
++	int ret = -ENOENT;
++
++	mutex_lock(&xfrm4_protocol_mutex);
++
++	for (pprev = proto_handlers(protocol);
++	     (t = rcu_dereference_protected(*pprev,
++			lockdep_is_held(&xfrm4_protocol_mutex))) != NULL;
++	     pprev = &t->next) {
++		if (t == handler) {
++			*pprev = handler->next;
++			ret = 0;
++			break;
++		}
++	}
++
++	if (!rcu_dereference_protected(*proto_handlers(protocol),
++				       lockdep_is_held(&xfrm4_protocol_mutex))) {
++		if (inet_del_protocol(netproto(protocol), protocol) < 0) {
++			pr_err("%s: can't remove protocol\n", __func__);
++			ret = -EAGAIN;
++		}
++	}
++
++	mutex_unlock(&xfrm4_protocol_mutex);
++
++	synchronize_net();
++
++	return ret;
++}
++EXPORT_SYMBOL(xfrm4_protocol_deregister);
 diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-index 99e3a9e..4218164 100644
+index 6c7ac01..99e3a9e 100644
 --- a/net/xfrm/xfrm_input.c
 +++ b/net/xfrm/xfrm_input.c
-@@ -163,6 +163,11 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+@@ -108,7 +108,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 	int err;
+ 	__be32 seq;
+ 	__be32 seq_hi;
+-	struct xfrm_state *x;
++	struct xfrm_state *x = NULL;
+ 	xfrm_address_t *daddr;
+ 	struct xfrm_mode *inner_mode;
+ 	unsigned int family;
+@@ -120,9 +120,14 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 		async = 1;
+ 		x = xfrm_input_state(skb);
+ 		seq = XFRM_SKB_CB(skb)->seq.input.low;
++		family = x->outer_mode->afinfo->family;
+ 		goto resume;
+ 	}
  
- 		skb->sp->xvec[skb->sp->len++] = x;
- 
-+		if (xfrm_tunnel_check(skb, x, family)) {
-+			XFRM_INC_STATS(net, LINUX_MIB_XFRMINSTATEMODEERROR);
-+			goto drop;
-+		}
++	daddr = (xfrm_address_t *)(skb_network_header(skb) +
++				   XFRM_SPI_SKB_CB(skb)->daddroff);
++	family = XFRM_SPI_SKB_CB(skb)->family;
 +
+ 	/* Allocate new secpath or COW existing one. */
+ 	if (!skb->sp || atomic_read(&skb->sp->refcnt) != 1) {
+ 		struct sec_path *sp;
+@@ -137,10 +142,6 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 		skb->sp = sp;
+ 	}
+ 
+-	daddr = (xfrm_address_t *)(skb_network_header(skb) +
+-				   XFRM_SPI_SKB_CB(skb)->daddroff);
+-	family = XFRM_SPI_SKB_CB(skb)->family;
+-
+ 	seq = 0;
+ 	if (!spi && (err = xfrm_parse_spi(skb, nexthdr, &spi, &seq)) != 0) {
+ 		XFRM_INC_STATS(net, LINUX_MIB_XFRMINHDRERROR);
+@@ -201,7 +202,6 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 
+ 		if (nexthdr == -EINPROGRESS)
+ 			return 0;
+-
+ resume:
  		spin_lock(&x->lock);
- 		if (unlikely(x->km.state == XFRM_STATE_ACQ)) {
- 			XFRM_INC_STATS(net, LINUX_MIB_XFRMACQUIREERROR);
+ 		if (nexthdr <= 0) {
+@@ -263,6 +263,10 @@ resume:
+ 		}
+ 	} while (!err);
+ 
++	err = xfrm_rcv_cb(skb, family, x->type->proto, 0);
++	if (err)
++		goto drop;
++
+ 	nf_reset(skb);
+ 
+ 	if (decaps) {
+@@ -276,6 +280,7 @@ resume:
+ drop_unlock:
+ 	spin_unlock(&x->lock);
+ drop:
++	xfrm_rcv_cb(skb, family, x && x->type ? x->type->proto : nexthdr, -1);
+ 	kfree_skb(skb);
+ 	return 0;
+ }
 -- 
 1.7.9.5
