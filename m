@@ -1,64 +1,53 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: linux-next: manual merge of the devicetree tree with the net-next
- tree
-Date: Thu, 13 Feb 2014 19:47:58 -0800
-Message-ID: <52FD91EE.4010403@gmail.com>
-References: <20140214141639.74ea45728f39a8ee874ce986@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140214141639.74ea45728f39a8ee874ce986@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+Subject: [PATCH] virtio_net: fix the potential NULL pointer in xmit_skb()
+Date: Fri, 14 Feb 2014 12:00:08 +0800
+Message-ID: <1392350408-3811-1-git-send-email-wuzhy@linux.vnet.ibm.com>
+Cc: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e39.co.us.ibm.com ([32.97.110.160]:51742 "EHLO
+	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752463AbaBNEAe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 23:00:34 -0500
+Received: from /spool/local
+	by e39.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <wuzhy@linux.vnet.ibm.com>;
+	Thu, 13 Feb 2014 21:00:34 -0700
+Received: from b01cxnp22036.gho.pok.ibm.com (b01cxnp22036.gho.pok.ibm.com [9.57.198.26])
+	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id 8F9C26E803A
+	for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 23:00:26 -0500 (EST)
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by b01cxnp22036.gho.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s1E40V4966519220
+	for <netdev@vger.kernel.org>; Fri, 14 Feb 2014 04:00:31 GMT
+Received: from d01av04.pok.ibm.com (localhost [127.0.0.1])
+	by d01av04.pok.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s1E40UKm026658
+	for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 23:00:30 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
+The pointer hdr isn't assigned before hdr->mhdr and hdr->hdr
+are used, so it could be one invalid pointer.
 
-Le 13/02/2014 19:16, Stephen Rothwell a =E9crit :
-> Hi Grant,
->
-> Today's linux-next merge of the devicetree tree got a conflict in
-> drivers/of/of_net.c between commit 8a2fe56e8827 ("net: phy: re-design
-> phy_modes to be self-contained") from the net-next tree and commit
-> cf4c9eb5a451 ("of: make of_get_phy_mode parse 'phy-connection-type'")
-> from the devicetree tree.
->
-> I fixed it up (I applied the following merge fix patch) and can carry=
- the
-> fix as necessary (no action is required).
+Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+---
+ drivers/net/virtio_net.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Looks good to me, thanks for fixing that!
-
->
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Fri, 14 Feb 2014 14:14:31 +1100
-> Subject: [PATCH] net: of: merges fix for a moved comment
->
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> ---
->   include/linux/phy.h | 4 ++--
->   1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/include/linux/phy.h b/include/linux/phy.h
-> index 42f1bc7eaeb0..bc77c174e0a3 100644
-> --- a/include/linux/phy.h
-> +++ b/include/linux/phy.h
-> @@ -79,8 +79,8 @@ typedef enum {
->
->   /**
->    * It maps 'enum phy_interface_t' found in include/linux/phy.h
-> - * into the device tree binding of 'phy-mode', so that Ethernet
-> - * device driver can get phy interface from device tree.
-> + * into the device tree binding of 'phy-mode' or 'phy-connection-typ=
-e',
-> + * so that Ethernet device driver can get phy interface from device =
-tree.
->    */
->   static inline const char *phy_modes(phy_interface_t interface)
->   {
->
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index d75f8ed..bf6397f 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -807,9 +807,9 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
+ 
+ 	pr_debug("%s: xmit %p %pM\n", vi->dev->name, skb, dest);
+ 	if (vi->mergeable_rx_bufs)
+-		hdr_len = sizeof hdr->mhdr;
++		hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
+ 	else
+-		hdr_len = sizeof hdr->hdr;
++		hdr_len = sizeof(struct virtio_net_hdr);
+ 
+ 	can_push = vi->any_header_sg &&
+ 		!((unsigned long)skb->data & (__alignof__(*hdr) - 1)) &&
+-- 
+1.8.4.2
