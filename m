@@ -1,248 +1,142 @@
 From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH net-next 5/6] gianfar: Add missing graceful reset steps and fixes
-Date: Fri, 14 Feb 2014 14:04:04 +0200
-Message-ID: <1392379445-28358-6-git-send-email-claudiu.manoil@freescale.com>
+Subject: [PATCH net-next 4/6] gianfar: Factor out enabling/disabling of hw interrupts
+Date: Fri, 14 Feb 2014 14:04:03 +0200
+Message-ID: <1392379445-28358-5-git-send-email-claudiu.manoil@freescale.com>
 References: <1392379445-28358-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: "David S. Miller" <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from co9ehsobe002.messaging.microsoft.com ([207.46.163.25]:7711 "EHLO
-	co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751584AbaBNMEV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 07:04:21 -0500
+Received: from tx2ehsobe003.messaging.microsoft.com ([65.55.88.13]:42703 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752216AbaBNMET (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 07:04:19 -0500
 In-Reply-To: <1392379445-28358-1-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-gfar_halt() and gfar_start() are responsible for stopping
-and starting the DMA and the Rx/Tx hw rings. They implement
-the support for the "graceful Rx/Tx stop/start" hw procedure,
-and also disable/enable eTSEC's hw interrupts in the process.
-
-The GRS/GTS procedure requires however to have the RQUEUE/TQUEUE
-registers cleared first and to wait for a period of time for the
-current frame to pass through the interface (around ~10ms for a
-jumbo frame). Only then may the GTS and GRS bits from DMACTRL be
-set to shut down the DMA, and finally the Tx_EN and Rx_EN bits in
-MACCFG1 may be cleared to disable the Tx/Rx blocks.
-
-The same register programming order applies to start the Rx/Tx:
-enabling the RQUEUE/TQUEUE *before* clearing the GRS/GTS bits.
-
-This is a HW recommendation in order to avoid a possible
-controller "lock up" during graceful reset.
-
-Cleanup the gfar_halt()/start() prototypes, to take priv instead
-of ndev as their purpose is to operate on HW. Enabling the
-RQUEUE/TQUEUE in the hw_init() is not needed anymore since
-that's the job of gfar_start().
+Throughout the code there are places where the controller's
+hw interrupt sources need to get disabled/enabled (masked/
+un-masked) all at once.  The recommendation for disabling
+the interrupts is to clear the ievent first then the imask
+register (not the other way around).
+Use the gfar_ints_enable/disable() helpers to make these
+operations consistent.
 
 Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
 ---
- drivers/net/ethernet/freescale/gianfar.c         | 53 ++++++++++++------------
- drivers/net/ethernet/freescale/gianfar.h         |  3 +-
- drivers/net/ethernet/freescale/gianfar_ethtool.c |  5 +--
- 3 files changed, 31 insertions(+), 30 deletions(-)
+ drivers/net/ethernet/freescale/gianfar.c | 60 ++++++++++++++++----------------
+ 1 file changed, 30 insertions(+), 30 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 158c4e8..7418b2c 100644
+index 7c7d3aa..158c4e8 100644
 --- a/drivers/net/ethernet/freescale/gianfar.c
 +++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -138,9 +138,7 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit);
- static void gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue);
- static void gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
- 			       int amount_pull, struct napi_struct *napi);
--void gfar_halt(struct net_device *dev);
--static void gfar_halt_nodisable(struct net_device *dev);
--void gfar_start(struct net_device *dev);
-+static void gfar_halt_nodisable(struct gfar_private *priv);
- static void gfar_clear_exact_match(struct net_device *dev);
- static void gfar_set_mac_for_addr(struct net_device *dev, int num,
- 				  const u8 *addr);
-@@ -1070,10 +1068,6 @@ static void gfar_hw_init(struct gfar_private *priv)
- 	/* Program the interrupt steering regs, only for MG devices */
- 	if (priv->num_grps > 1)
- 		gfar_write_isrg(priv);
+@@ -448,6 +448,29 @@ static const struct net_device_ops gfar_netdev_ops = {
+ #endif
+ };
+ 
++static void gfar_ints_disable(struct gfar_private *priv)
++{
++	int i;
++	for (i = 0; i < priv->num_grps; i++) {
++		struct gfar __iomem *regs = priv->gfargrp[i].regs;
++		/* Clear IEVENT */
++		gfar_write(&regs->ievent, IEVENT_INIT_CLEAR);
++
++		/* Initialize IMASK */
++		gfar_write(&regs->imask, IMASK_INIT_CLEAR);
++	}
++}
++
++static void gfar_ints_enable(struct gfar_private *priv)
++{
++	int i;
++	for (i = 0; i < priv->num_grps; i++) {
++		struct gfar __iomem *regs = priv->gfargrp[i].regs;
++		/* Unmask the interrupts we look for */
++		gfar_write(&regs->imask, IMASK_DEFAULT);
++	}
++}
++
+ void lock_rx_qs(struct gfar_private *priv)
+ {
+ 	int i;
+@@ -1551,19 +1574,10 @@ static void gfar_configure_serdes(struct net_device *dev)
+ static void init_registers(struct net_device *dev)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
+-	struct gfar __iomem *regs = NULL;
+-	int i;
 -
--	/* Enable all Rx/Tx queues after MAC reset */
--	gfar_write(&regs->rqueue, priv->rqueue);
--	gfar_write(&regs->tqueue, priv->tqueue);
- }
+-	for (i = 0; i < priv->num_grps; i++) {
+-		regs = priv->gfargrp[i].regs;
+-		/* Clear IEVENT */
+-		gfar_write(&regs->ievent, IEVENT_INIT_CLEAR);
++	struct gfar __iomem *regs = priv->gfargrp[0].regs;
  
- static void __init gfar_init_addr_hash_table(struct gfar_private *priv)
-@@ -1149,7 +1143,7 @@ static int gfar_probe(struct platform_device *ofdev)
- 	/* Stop the DMA engine now, in case it was running before
- 	 * (The firmware could have used it, and left it running).
- 	 */
--	gfar_halt(dev);
-+	gfar_halt(priv);
+-		/* Initialize IMASK */
+-		gfar_write(&regs->imask, IMASK_INIT_CLEAR);
+-	}
++	gfar_ints_disable(priv);
  
- 	gfar_hw_init(priv);
- 
-@@ -1317,7 +1311,7 @@ static int gfar_suspend(struct device *dev)
- 		lock_tx_qs(priv);
- 		lock_rx_qs(priv);
- 
--		gfar_halt_nodisable(ndev);
-+		gfar_halt_nodisable(priv);
- 
- 		/* Disable Tx, and Rx if wake-on-LAN is disabled. */
- 		tempval = gfar_read(&regs->maccfg1);
-@@ -1381,7 +1375,7 @@ static int gfar_resume(struct device *dev)
- 	tempval &= ~MACCFG2_MPEN;
- 	gfar_write(&regs->maccfg2, tempval);
- 
--	gfar_start(ndev);
-+	gfar_start(priv);
- 
- 	unlock_rx_qs(priv);
- 	unlock_tx_qs(priv);
-@@ -1413,7 +1407,7 @@ static int gfar_restore(struct device *dev)
- 	init_registers(ndev);
- 	gfar_set_mac_address(ndev);
- 	gfar_init_mac(ndev);
--	gfar_start(ndev);
-+	gfar_start(priv);
- 
- 	priv->oldlink = 0;
- 	priv->oldspeed = 0;
-@@ -1636,9 +1630,8 @@ static int __gfar_is_rx_idle(struct gfar_private *priv)
- }
- 
- /* Halt the receive and transmit queues */
--static void gfar_halt_nodisable(struct net_device *dev)
-+static void gfar_halt_nodisable(struct gfar_private *priv)
+-	regs = priv->gfargrp[0].regs;
+ 	/* Init hash registers to zero */
+ 	gfar_write(&regs->igaddr0, 0);
+ 	gfar_write(&regs->igaddr1, 0);
+@@ -1625,20 +1639,11 @@ static int __gfar_is_rx_idle(struct gfar_private *priv)
+ static void gfar_halt_nodisable(struct net_device *dev)
  {
--	struct gfar_private *priv = netdev_priv(dev);
- 	struct gfar __iomem *regs = priv->gfargrp[0].regs;
+ 	struct gfar_private *priv = netdev_priv(dev);
+-	struct gfar __iomem *regs = NULL;
++	struct gfar __iomem *regs = priv->gfargrp[0].regs;
  	u32 tempval;
+-	int i;
+-
+-	for (i = 0; i < priv->num_grps; i++) {
+-		regs = priv->gfargrp[i].regs;
+-		/* Mask all interrupts */
+-		gfar_write(&regs->imask, IMASK_INIT_CLEAR);
  
-@@ -1664,15 +1657,20 @@ static void gfar_halt_nodisable(struct net_device *dev)
- }
+-		/* Clear all interrupts */
+-		gfar_write(&regs->ievent, IEVENT_INIT_CLEAR);
+-	}
++	gfar_ints_disable(priv);
  
- /* Halt the receive and transmit queues */
--void gfar_halt(struct net_device *dev)
-+void gfar_halt(struct gfar_private *priv)
- {
--	struct gfar_private *priv = netdev_priv(dev);
- 	struct gfar __iomem *regs = priv->gfargrp[0].regs;
- 	u32 tempval;
- 
--	gfar_halt_nodisable(dev);
-+	/* Dissable the Rx/Tx hw queues */
-+	gfar_write(&regs->rqueue, 0);
-+	gfar_write(&regs->tqueue, 0);
- 
--	/* Disable Rx and Tx */
-+	mdelay(10);
-+
-+	gfar_halt_nodisable(priv);
-+
-+	/* Disable Rx/Tx DMA */
- 	tempval = gfar_read(&regs->maccfg1);
- 	tempval &= ~(MACCFG1_RX_EN | MACCFG1_TX_EN);
- 	gfar_write(&regs->maccfg1, tempval);
-@@ -1699,7 +1697,7 @@ void stop_gfar(struct net_device *dev)
- 	lock_tx_qs(priv);
- 	lock_rx_qs(priv);
- 
--	gfar_halt(dev);
-+	gfar_halt(priv);
- 
- 	unlock_rx_qs(priv);
- 	unlock_tx_qs(priv);
-@@ -1804,17 +1802,15 @@ static void free_skb_resources(struct gfar_private *priv)
- 			  priv->tx_queue[0]->tx_bd_dma_base);
- }
- 
--void gfar_start(struct net_device *dev)
-+void gfar_start(struct gfar_private *priv)
- {
--	struct gfar_private *priv = netdev_priv(dev);
- 	struct gfar __iomem *regs = priv->gfargrp[0].regs;
- 	u32 tempval;
- 	int i = 0;
- 
--	/* Enable Rx and Tx in MACCFG1 */
--	tempval = gfar_read(&regs->maccfg1);
--	tempval |= (MACCFG1_RX_EN | MACCFG1_TX_EN);
--	gfar_write(&regs->maccfg1, tempval);
-+	/* Enable Rx/Tx hw queues */
-+	gfar_write(&regs->rqueue, priv->rqueue);
-+	gfar_write(&regs->tqueue, priv->tqueue);
- 
- 	/* Initialize DMACTRL to have WWR and WOP */
+-	regs = priv->gfargrp[0].regs;
+ 	/* Stop the DMA, and wait for it to stop */
  	tempval = gfar_read(&regs->dmactrl);
-@@ -1833,9 +1829,14 @@ void gfar_start(struct net_device *dev)
+ 	if ((tempval & (DMACTRL_GRS | DMACTRL_GTS)) !=
+@@ -1826,10 +1831,10 @@ void gfar_start(struct net_device *dev)
+ 		/* Clear THLT/RHLT, so that the DMA starts polling now */
+ 		gfar_write(&regs->tstat, priv->gfargrp[i].tstat);
  		gfar_write(&regs->rstat, priv->gfargrp[i].rstat);
+-		/* Unmask the interrupts we look for */
+-		gfar_write(&regs->imask, IMASK_DEFAULT);
  	}
  
-+	/* Enable Rx/Tx DMA */
-+	tempval = gfar_read(&regs->maccfg1);
-+	tempval |= (MACCFG1_RX_EN | MACCFG1_TX_EN);
-+	gfar_write(&regs->maccfg1, tempval);
++	gfar_ints_enable(priv);
 +
- 	gfar_ints_enable(priv);
- 
--	dev->trans_start = jiffies; /* prevent tx timeout */
-+	priv->ndev->trans_start = jiffies; /* prevent tx timeout */
+ 	dev->trans_start = jiffies; /* prevent tx timeout */
  }
  
- static void gfar_configure_coalescing(struct gfar_private *priv,
-@@ -1959,7 +1960,7 @@ int startup_gfar(struct net_device *ndev)
- 	}
+@@ -1934,15 +1939,10 @@ err_irq_fail:
+ int startup_gfar(struct net_device *ndev)
+ {
+ 	struct gfar_private *priv = netdev_priv(ndev);
+-	struct gfar __iomem *regs = NULL;
+ 	int err, i, j;
  
- 	/* Start the controller */
--	gfar_start(ndev);
-+	gfar_start(priv);
+-	for (i = 0; i < priv->num_grps; i++) {
+-		regs= priv->gfargrp[i].regs;
+-		gfar_write(&regs->imask, IMASK_INIT_CLEAR);
+-	}
++	gfar_ints_disable(priv);
  
- 	phy_start(priv->phydev);
- 
-diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
-index 9fcde7c..f288ee9 100644
---- a/drivers/net/ethernet/freescale/gianfar.h
-+++ b/drivers/net/ethernet/freescale/gianfar.h
-@@ -1209,7 +1209,8 @@ void unlock_tx_qs(struct gfar_private *priv);
- irqreturn_t gfar_receive(int irq, void *dev_id);
- int startup_gfar(struct net_device *dev);
- void stop_gfar(struct net_device *dev);
--void gfar_halt(struct net_device *dev);
-+void gfar_halt(struct gfar_private *priv);
-+void gfar_start(struct gfar_private *priv);
- void gfar_phy_test(struct mii_bus *bus, struct phy_device *phydev, int enable,
- 		   u32 regnum, u32 read);
- void gfar_configure_coalescing_all(struct gfar_private *priv);
-diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-index 63d2344..69fab72 100644
---- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
-+++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-@@ -44,7 +44,6 @@
- 
- #include "gianfar.h"
- 
--extern void gfar_start(struct net_device *dev);
- extern int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue,
- 			      int rx_work_limit);
- 
-@@ -504,7 +503,7 @@ static int gfar_sringparam(struct net_device *dev,
- 		lock_tx_qs(priv);
- 		lock_rx_qs(priv);
- 
--		gfar_halt(dev);
-+		gfar_halt(priv);
- 
- 		unlock_rx_qs(priv);
- 		unlock_tx_qs(priv);
-@@ -627,7 +626,7 @@ int gfar_set_features(struct net_device *dev, netdev_features_t features)
- 		lock_tx_qs(priv);
- 		lock_rx_qs(priv);
- 
--		gfar_halt(dev);
-+		gfar_halt(priv);
- 
- 		unlock_tx_qs(priv);
- 		unlock_rx_qs(priv);
+-	regs= priv->gfargrp[0].regs;
+ 	err = gfar_alloc_skb_resources(ndev);
+ 	if (err)
+ 		return err;
 -- 
 1.7.11.7
