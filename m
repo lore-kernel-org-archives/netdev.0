@@ -1,52 +1,67 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: [PATCH net-next] net: remove unnecessary return's
-Date: Fri, 14 Feb 2014 13:48:03 -0500
-Message-ID: <20140214184803.GA16115@redhat.com>
-References: <alpine.DEB.2.02.1402132327480.1967@localhost6.localdomain6>
- <20140213.181416.1185115361356253646.davem@davemloft.net>
- <alpine.DEB.2.10.1402141055270.2118@hadrien>
- <20140214.134137.2289581685154413307.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] packet: check for ndo_select_queue during queue
+ selection
+Date: Fri, 14 Feb 2014 13:48:43 -0500 (EST)
+Message-ID: <20140214.134843.1912150240271947468.davem@davemloft.net>
+References: <1392311935-10275-1-git-send-email-dborkman@redhat.com>
+	<20140214.004048.616136663605863975.davem@davemloft.net>
+	<52FDEE22.9010503@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: julia.lawall@lip6.fr, joe@perches.com, stephen@networkplumber.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mathias.kretschmer@fokus.fraunhofer.de, netdev@vger.kernel.org,
+	brouer@redhat.com
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49713 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752102AbaBNSsU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Feb 2014 13:48:20 -0500
-Content-Disposition: inline
-In-Reply-To: <20140214.134137.2289581685154413307.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35391 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751757AbaBNSsq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 13:48:46 -0500
+In-Reply-To: <52FDEE22.9010503@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 14, 2014 at 01:41:37PM -0500, David Miller wrote:
- > From: Julia Lawall <julia.lawall@lip6.fr>
- > Date: Fri, 14 Feb 2014 10:58:00 +0100 (CET)
- > 
- > > On Thu, 13 Feb 2014, David Miller wrote:
- > > 
- > >> I think it is valuable, it's so much easier to audit the return paths
- > >> via a process of elimination with that kind of layout.  A return in
- > >> the middle of that looks out of place at best.
- > > 
- > > Actually, I had a student who made a tool that went the other way around,
- > > and introduced goto labels for sharable error handling code.  We didn't
- > > get around to using it to send patches, though.  In that tool, we didn't
- > > create labels just for returns, with the thought that in that case there
- > > was no point to introduce a goto if there was nothing to share.
- > 
- > That's one perspective.
- > 
- > But think of it this way, if there is a seqeuence of labels already and
- > you're scanning for a large body of code for control transfers during
- > an audit, what are your eyes more likely to miss?
- > 
- > A sequence goto statements targetting well named and distinct labels
- > or that "return" hidding there somewhere in the middle?
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Fri, 14 Feb 2014 11:21:22 +0100
 
-No argument about 'in the middle', but the suggestion upthread was for
-the very first case before there are any allocations etc that need unwinding.
+> The other two possibilities I see is 1) to check for
+> dev->ieee80211_ptr on setsockopt(2) and bind(2) (which could happen
+> _after_ the option was set) and just disallow that option for those
+> cases (doesn't make sense to use it for ieee80211 devs anyway, and
+> they seem to be the only special-cased users), or, preferably 2) to
+> just leave the code as it currently is, that is, similar to pktgen.
 
-	Dave
+Don't sell yourself so short, think out of the box:
+
+typedef u16 (*select_queue_fallback_t)(struct net_device *dev, struct sk_buff *skb);
+ ...
+	u16 (*ndo_select_queue)(struct net_device *dev, struct sk_buff *skb,
+				void *accel_priv, select_queue_fallback_t fallback);
+
+And your packet code would do something like:
+
+static u16 __packet_pick_tx_queue(struct net_device *dev, struct sk_buff *skb)
+{
+	return (u16) raw_smp_processor_id() % dev->real_num_tx_queues;
+}
+
+static u16 packet_pick_tx_queue(struct net_device *dev, struct sk_buff *skb)
+{
+	u16 queue_index;
+
+	if (ops->ndo_select_queue)
+		queue_index = ops->ndo_select_queue(dev, skb, NULL, __packet_pick_tx_queue);
+	else
+		queue_index = __packet_pick_tx_queue(dev, skb);
+	skb_set_queue_mapping(skb, queue_index);
+}
+
+Then you go through the existing ndo_select_queue implementations, you'll notice
+a lot of them are of the form:
+
+	if (special_stuff)
+		queue_index = whatever;
+	else
+		queue_index = __netdev_pick_tx(...);
+
+replace that __netdev_pick_tx call with one to "fallback".
