@@ -1,86 +1,57 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: [PATCH 04/48] net: Replace __this_cpu_inc in route.c with raw_cpu_inc
-Date: Fri, 14 Feb 2014 14:18:45 -0600
-Message-ID: <20140214201904.326059608@linux.com>
-References: <20140214201841.826179349@linux.com>
-Content-Type: text/plain; charset=UTF-8
-Cc: akpm@linuxfoundation.org, rostedt@goodmis.org,
-	linux-kernel@vger.kernel.org, Ingo Molnar <mingo@kernel.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	edumazet@google.com, "David S. Miller" <davem@davemloft.net>
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline; filename=preempt_rt_cache_stat
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next v5 10/10] MAINTAINERS: add entry for the Broadcom
+ GENET driver
+Date: Sat, 15 Feb 2014 00:37:09 +0300
+Message-ID: <52FE8C85.5070008@cogentembedded.com>
+References: <1392336531-28875-1-git-send-email-f.fainelli@gmail.com> <1392336531-28875-11-git-send-email-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, devicetree@vger.kernel.org,
+	cernekee@gmail.com, mark.rutland@arm.com, romieu@fr.zoreil.com
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f170.google.com ([209.85.217.170]:59519 "EHLO
+	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752365AbaBNUhH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 15:37:07 -0500
+Received: by mail-lb0-f170.google.com with SMTP id u14so9843338lbd.1
+        for <netdev@vger.kernel.org>; Fri, 14 Feb 2014 12:37:05 -0800 (PST)
+In-Reply-To: <1392336531-28875-11-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[Patch depends on another patch in this series that introduces raw_cpu_ops]
+Hello.
 
-The RT_CACHE_STAT_INC macro triggers the new preemption checks
-for __this_cpu ops.
+On 02/14/2014 03:08 AM, Florian Fainelli wrote:
 
-I do not see any other synchronization that would allow the use
-of a __this_cpu operation here however in commit
-dbd2915ce87e811165da0717f8e159276ebb803e Andrew justifies
-the use of raw_smp_processor_id() here because "we do not care"
-about races. In the past we agreed that the price of disabling
-interrupts here to get consistent counters would be too high.
-These counters may be inaccurate due to race conditions.
+> Add myself as a maintainer of the Broadcom GENET driver.
 
-The use of __this_cpu op improves the situation already from what commit
-dbd2915ce87e811165da0717f8e159276ebb803e did since the single instruction
-emitted on x86 does not allow the race to occur anymore. However,
-non x86 platforms could still experience a race here.
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+[...]
 
-Trace:
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index 091b50e..5a7b3ec 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -1845,6 +1845,12 @@ L:	netdev@vger.kernel.org
+>   S:	Supported
+>   F:	drivers/net/ethernet/broadcom/b44.*
+>
+> +BROADCOM GENET ETHERNET DRIVER
+> +M:	Florian Fainelli <f.fainelli@gmail.com>
+> +L:	netdev@vger.kernel.org
+> +S:	Supported
+> +F:	drivers/net/ethernet/broadcom/genet/
+> +
 
-[ 1277.189084] __this_cpu_add operation in preemptible [00000000] code: avahi-daemon/1193
-[ 1277.189085] caller is __this_cpu_preempt_check+0x38/0x60
-[ 1277.189086] CPU: 1 PID: 1193 Comm: avahi-daemon Tainted: GF            3.12.0-rc4+ #187
-[ 1277.189087] Hardware name: FUJITSU CELSIUS W530 Power/D3227-A1, BIOS V4.6.5.4 R1.10.0 for D3227-A1x 09/16/2013
-[ 1277.189088]  0000000000000001 ffff8807ef78fa00 ffffffff816d5a57 ffff8807ef78ffd8
-[ 1277.189089]  ffff8807ef78fa30 ffffffff8137359c ffff8807ef78fba0 ffff88079f822b40
-[ 1277.189091]  0000000020000000 ffff8807ee32c800 ffff8807ef78fa70 ffffffff813735f8
-[ 1277.189093] Call Trace:
-[ 1277.189094]  [<ffffffff816d5a57>] dump_stack+0x4e/0x82
-[ 1277.189096]  [<ffffffff8137359c>] check_preemption_disabled+0xec/0x110
-[ 1277.189097]  [<ffffffff813735f8>] __this_cpu_preempt_check+0x38/0x60
-[ 1277.189098]  [<ffffffff81610d65>] __ip_route_output_key+0x575/0x8c0
-[ 1277.189100]  [<ffffffff816110d7>] ip_route_output_flow+0x27/0x70
-[ 1277.189101]  [<ffffffff81616c80>] ? ip_copy_metadata+0x1a0/0x1a0
-[ 1277.189102]  [<ffffffff81640b15>] udp_sendmsg+0x825/0xa20
-[ 1277.189104]  [<ffffffff811b4aa9>] ? do_sys_poll+0x449/0x5d0
-[ 1277.189105]  [<ffffffff8164c695>] inet_sendmsg+0x85/0xc0
-[ 1277.189106]  [<ffffffff815c6e3c>] sock_sendmsg+0x9c/0xd0
-[ 1277.189108]  [<ffffffff813735f8>] ? __this_cpu_preempt_check+0x38/0x60
-[ 1277.189109]  [<ffffffff815c7550>] ? move_addr_to_kernel+0x40/0xa0
-[ 1277.189111]  [<ffffffff815c71ec>] ___sys_sendmsg+0x37c/0x390
-[ 1277.189112]  [<ffffffff8136613a>] ? string.isra.3+0x3a/0xd0
-[ 1277.189113]  [<ffffffff8136613a>] ? string.isra.3+0x3a/0xd0
-[ 1277.189115]  [<ffffffff81367b54>] ? vsnprintf+0x364/0x650
-[ 1277.189116]  [<ffffffff81367ee9>] ? snprintf+0x39/0x40
-[ 1277.189118]  [<ffffffff813735f8>] ? __this_cpu_preempt_check+0x38/0x60
-[ 1277.189119]  [<ffffffff815c7ff9>] __sys_sendmsg+0x49/0x90
-[ 1277.189121]  [<ffffffff815c8052>] SyS_sendmsg+0x12/0x20
-[ 1277.189122]  [<ffffffff816e4fd3>] tracesys+0xe1/0xe6
+    Aren't these entries supposed to be sorted alphabetically? If so, in my 
+alphabet BNX2 comes before GENET...
 
-Cc: netdev@vger.kernel.org
-Cc: edumazet@google.com
-Acked-by: David S. Miller <davem@davemloft.net>
-Acked-by: Ingo Molnar <mingo@kernel.org>
-Signed-off-by: Christoph Lameter <cl@linux.com>
+>   BROADCOM BNX2 GIGABIT ETHERNET DRIVER
+>   M:	Michael Chan <mchan@broadcom.com>
+>   L:	netdev@vger.kernel.org
 
-Index: linux/net/ipv4/route.c
-===================================================================
---- linux.orig/net/ipv4/route.c	2014-01-30 14:40:44.276650882 -0600
-+++ linux/net/ipv4/route.c	2014-01-30 14:40:44.276650882 -0600
-@@ -194,7 +194,7 @@
- EXPORT_SYMBOL(ip_tos2prio);
- 
- static DEFINE_PER_CPU(struct rt_cache_stat, rt_cache_stat);
--#define RT_CACHE_STAT_INC(field) __this_cpu_inc(rt_cache_stat.field)
-+#define RT_CACHE_STAT_INC(field) raw_cpu_inc(rt_cache_stat.field)
- 
- #ifdef CONFIG_PROC_FS
- static void *rt_cache_seq_start(struct seq_file *seq, loff_t *pos)
+PS: I'm probably wrong, the entries don't appear to be sorted on the 2nd word...
+
+WBR, Sergei
