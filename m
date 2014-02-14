@@ -1,40 +1,64 @@
-From: Dave Jones <davej@redhat.com>
-Subject: suspicious code in net/rxrpc/ar-error.c
-Date: Thu, 13 Feb 2014 21:28:15 -0500
-Message-ID: <20140214022815.GA19030@redhat.com>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH net-next v2 3/3] sch_netem: replace magic numbers with enumerate in GE model
+Date: Fri, 14 Feb 2014 10:30:43 +0800
+Message-ID: <1392345043-12208-4-git-send-email-yangyingliang@huawei.com>
+References: <1392345043-12208-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dhowells@redhat.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <stephen@networkplumber.org>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42417 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750987AbaBNC2X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Feb 2014 21:28:23 -0500
-Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s1E2SMap023687
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 21:28:22 -0500
-Content-Disposition: inline
+Received: from szxga03-in.huawei.com ([119.145.14.66]:31032 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751742AbaBNCax (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 21:30:53 -0500
+In-Reply-To: <1392345043-12208-1-git-send-email-yangyingliang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While looking through old coverity reports, I came across this..
+Replace some magic numbers which describe states of GE model
+loss generator with enumerate.
 
- 84                 if (mtu == 0) {
- 85                         /* they didn't give us a size, estimate one */
- 86                         if (mtu > 1500) {
- 87                                 mtu >>= 1;
- 88                                 if (mtu < 1500)
- 89                                         mtu = 1500;
- 90                         } else {
- 91                                 mtu -= 100;
- 92                                 if (mtu < peer->hdrsize)
- 93                                         mtu = peer->hdrsize + 4;
- 94                         }
- 95                 }
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+---
+ net/sched/sch_netem.c | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
 
-What was intended here ? Perhaps one of those mtu comparisons should be
-comparing peer->mtu ?
-
-	Dave
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index 4a5eb28..4fced67 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -117,6 +117,11 @@ struct netem_sched_data {
+ 		LOST_IN_BURST_PERIOD,
+ 	} _4_state_model;
+ 
++	enum {
++		GOOD_STATE = 1,
++		BAD_STATE,
++	} GE_state_model;
++
+ 	/* Correlated Loss Generation models */
+ 	struct clgstate {
+ 		/* state of the Markov chain */
+@@ -272,15 +277,15 @@ static bool loss_gilb_ell(struct netem_sched_data *q)
+ 	struct clgstate *clg = &q->clg;
+ 
+ 	switch (clg->state) {
+-	case 1:
++	case GOOD_STATE:
+ 		if (prandom_u32() < clg->a1)
+-			clg->state = 2;
++			clg->state = BAD_STATE;
+ 		if (prandom_u32() < clg->a4)
+ 			return true;
+ 		break;
+-	case 2:
++	case BAD_STATE:
+ 		if (prandom_u32() < clg->a2)
+-			clg->state = 1;
++			clg->state = GOOD_STATE;
+ 		if (prandom_u32() > clg->a3)
+ 			return true;
+ 	}
+-- 
+1.8.0
