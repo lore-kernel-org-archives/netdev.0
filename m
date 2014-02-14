@@ -1,88 +1,73 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 09/13] staging: r8188eu: Remove wrapper _exit_critical_mutex()
-Date: Fri, 14 Feb 2014 16:54:13 -0600
-Message-ID: <1392418457-3203-10-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 11/13] staging: r8188eu: Remove wrapper routine _init_workitem()
+Date: Fri, 14 Feb 2014 16:54:15 -0600
+Message-ID: <1392418457-3203-12-git-send-email-Larry.Finger@lwfinger.net>
 References: <1392418457-3203-1-git-send-email-Larry.Finger@lwfinger.net>
 Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
 	Larry Finger <Larry.Finger@lwfinger.net>
 To: gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:59421 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753030AbaBNWy5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 17:54:57 -0500
-Received: by mail-ob0-f174.google.com with SMTP id uy5so14579769obc.5
-        for <netdev@vger.kernel.org>; Fri, 14 Feb 2014 14:54:57 -0800 (PST)
+Received: from mail-ob0-f175.google.com ([209.85.214.175]:60167 "EHLO
+	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753067AbaBNWzD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 17:55:03 -0500
+Received: by mail-ob0-f175.google.com with SMTP id wn1so14520576obc.6
+        for <netdev@vger.kernel.org>; Fri, 14 Feb 2014 14:55:02 -0800 (PST)
 In-Reply-To: <1392418457-3203-1-git-send-email-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This wrapper is a simple call to mutex_exit().
+This is simply another name for INIT_WORK().
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/staging/rtl8188eu/core/rtw_mlme_ext.c     | 2 +-
- drivers/staging/rtl8188eu/hal/usb_ops_linux.c     | 2 +-
- drivers/staging/rtl8188eu/include/osdep_service.h | 7 -------
- drivers/staging/rtl8188eu/os_dep/os_intfs.c       | 2 +-
- 4 files changed, 3 insertions(+), 10 deletions(-)
+ drivers/staging/rtl8188eu/core/rtw_cmd.c          | 2 +-
+ drivers/staging/rtl8188eu/core/rtw_led.c          | 2 +-
+ drivers/staging/rtl8188eu/include/osdep_service.h | 6 ------
+ 3 files changed, 2 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/staging/rtl8188eu/core/rtw_mlme_ext.c b/drivers/staging/rtl8188eu/core/rtw_mlme_ext.c
-index faeec73..c197b22 100644
---- a/drivers/staging/rtl8188eu/core/rtw_mlme_ext.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_mlme_ext.c
-@@ -4438,7 +4438,7 @@ s32 dump_mgntframe_and_wait_ack(struct adapter *padapter, struct xmit_frame *pmg
- 	}
+diff --git a/drivers/staging/rtl8188eu/core/rtw_cmd.c b/drivers/staging/rtl8188eu/core/rtw_cmd.c
+index bc78736..c0a0a52 100644
+--- a/drivers/staging/rtl8188eu/core/rtw_cmd.c
++++ b/drivers/staging/rtl8188eu/core/rtw_cmd.c
+@@ -84,7 +84,7 @@ int _rtw_init_evt_priv(struct evt_priv *pevtpriv)
+ 	atomic_set(&pevtpriv->event_seq, 0);
+ 	pevtpriv->evt_done_cnt = 0;
  
- 	pxmitpriv->ack_tx = false;
--	_exit_critical_mutex(&pxmitpriv->ack_tx_mutex, NULL);
-+	mutex_unlock(&pxmitpriv->ack_tx_mutex);
+-	_init_workitem(&pevtpriv->c2h_wk, c2h_wk_callback, NULL);
++	INIT_WORK(&pevtpriv->c2h_wk, c2h_wk_callback);
+ 	pevtpriv->c2h_wk_alive = false;
+ 	pevtpriv->c2h_queue = rtw_cbuf_alloc(C2H_QUEUE_MAX_LEN+1);
  
- 	 return ret;
+diff --git a/drivers/staging/rtl8188eu/core/rtw_led.c b/drivers/staging/rtl8188eu/core/rtw_led.c
+index afac537..b9c9fc0 100644
+--- a/drivers/staging/rtl8188eu/core/rtw_led.c
++++ b/drivers/staging/rtl8188eu/core/rtw_led.c
+@@ -80,7 +80,7 @@ void InitLed871x(struct adapter *padapter, struct LED_871x *pLed, enum LED_PIN_8
+ 
+ 	_init_timer(&(pLed->BlinkTimer), padapter->pnetdev, BlinkTimerCallback, pLed);
+ 
+-	_init_workitem(&(pLed->BlinkWorkItem), BlinkWorkItemCallback, pLed);
++	INIT_WORK(&(pLed->BlinkWorkItem), BlinkWorkItemCallback);
  }
-diff --git a/drivers/staging/rtl8188eu/hal/usb_ops_linux.c b/drivers/staging/rtl8188eu/hal/usb_ops_linux.c
-index 1bfe497..1fa5370 100644
---- a/drivers/staging/rtl8188eu/hal/usb_ops_linux.c
-+++ b/drivers/staging/rtl8188eu/hal/usb_ops_linux.c
-@@ -111,7 +111,7 @@ static int usbctrl_vendorreq(struct intf_hdl *pintfhdl, u8 request, u16 value, u
- 			break;
- 	}
- release_mutex:
--	_exit_critical_mutex(&dvobjpriv->usb_vendor_req_mutex, NULL);
-+	mutex_unlock(&dvobjpriv->usb_vendor_req_mutex);
- exit:
- 	return status;
- }
+ 
+ 
 diff --git a/drivers/staging/rtl8188eu/include/osdep_service.h b/drivers/staging/rtl8188eu/include/osdep_service.h
-index 09e2d48..5cf13a6 100644
+index 64a7c34..76f5827 100644
 --- a/drivers/staging/rtl8188eu/include/osdep_service.h
 +++ b/drivers/staging/rtl8188eu/include/osdep_service.h
-@@ -76,13 +76,6 @@ static inline int _enter_critical_mutex(struct mutex *pmutex,
- 	return ret;
- }
+@@ -97,12 +97,6 @@ static inline void _cancel_timer(struct timer_list *ptimer, u8 *bcancelled)
+ #define RTW_DECLARE_TIMER_HDL(name) \
+ 	void RTW_TIMER_HDL_NAME(name)(RTW_TIMER_HDL_ARGS)
  
--
--static inline void _exit_critical_mutex(struct mutex *pmutex,
--					unsigned long *pirqL)
+-static inline void _init_workitem(struct work_struct *pwork, void *pfunc,
+-				  void *cntx)
 -{
--		mutex_unlock(pmutex);
+-	INIT_WORK(pwork, pfunc);
 -}
 -
- static inline void rtw_list_delete(struct list_head *plist)
+ static inline void _set_workitem(struct work_struct *pwork)
  {
- 	list_del_init(plist);
-diff --git a/drivers/staging/rtl8188eu/os_dep/os_intfs.c b/drivers/staging/rtl8188eu/os_dep/os_intfs.c
-index cf4107a..bc9ae1d 100644
---- a/drivers/staging/rtl8188eu/os_dep/os_intfs.c
-+++ b/drivers/staging/rtl8188eu/os_dep/os_intfs.c
-@@ -1111,7 +1111,7 @@ int netdev_open(struct net_device *pnetdev)
- 
- 	_enter_critical_mutex(padapter->hw_init_mutex, NULL);
- 	ret = _netdev_open(pnetdev);
--	_exit_critical_mutex(padapter->hw_init_mutex, NULL);
-+	mutex_unlock(padapter->hw_init_mutex);
- 	return ret;
- }
- 
+ 	schedule_work(pwork);
 -- 
 1.8.4.5
