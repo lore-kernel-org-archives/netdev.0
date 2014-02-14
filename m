@@ -1,9 +1,9 @@
 From: Andrew Bennieston <andrew.bennieston@citrix.com>
-Subject: Re: [PATCH V2 net-next 0/5] xen-net{back,front}: Multiple transmit
- and receive queues
-Date: Fri, 14 Feb 2014 14:53:48 +0000
-Message-ID: <52FE2DFC.8050702@citrix.com>
-References: <1392378624-6123-1-git-send-email-andrew.bennieston@citrix.com> <20140214140635.GA18398@zion.uk.xensource.com>
+Subject: Re: [PATCH V2 net-next 2/5] xen-netback: Add support for multiple
+ queues
+Date: Fri, 14 Feb 2014 14:57:25 +0000
+Message-ID: <52FE2ED5.3020905@citrix.com>
+References: <1392378624-6123-1-git-send-email-andrew.bennieston@citrix.com> <1392378624-6123-3-git-send-email-andrew.bennieston@citrix.com> <20140214141125.GB18398@zion.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -11,80 +11,107 @@ Cc: <xen-devel@lists.xenproject.org>, <ian.campbell@citrix.com>,
 	<paul.durrant@citrix.com>, <netdev@vger.kernel.org>
 To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:15612 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751948AbaBNOxv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Feb 2014 09:53:51 -0500
-In-Reply-To: <20140214140635.GA18398@zion.uk.xensource.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:63360 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752335AbaBNO5d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 09:57:33 -0500
+In-Reply-To: <20140214141125.GB18398@zion.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14/02/14 14:06, Wei Liu wrote:
-> On Fri, Feb 14, 2014 at 11:50:19AM +0000, Andrew J. Bennieston wrote:
+On 14/02/14 14:11, Wei Liu wrote:
+> On Fri, Feb 14, 2014 at 11:50:21AM +0000, Andrew J. Bennieston wrote:
+> [...]
 >>
->> This patch series implements multiple transmit and receive queues (i.e.
->> multiple shared rings) for the xen virtual network interfaces.
+>> +extern unsigned int xenvif_max_queues;
+>> +
+>>   #endif /* __XEN_NETBACK__COMMON_H__ */
+>> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+>> index 4cde112..4dc092c 100644
+>> --- a/drivers/net/xen-netback/interface.c
+>> +++ b/drivers/net/xen-netback/interface.c
+>> @@ -373,7 +373,12 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+>>   	char name[IFNAMSIZ] = {};
 >>
->> The series is split up as follows:
->>   - Patches 1 and 3 factor out the queue-specific data for netback and
->>      netfront respectively, and modify the rest of the code to use these
->>      as appropriate.
->>   - Patches 2 and 4 introduce new XenStore keys to negotiate and use
->>     multiple shared rings and event channels, and code to connect these
->>     as appropriate.
->>   - Patch 5 documents the XenStore keys required for the new feature
->>     in include/xen/interface/io/netif.h
->>
->> All other transmit and receive processing remains unchanged, i.e. there
->> is a kthread per queue and a NAPI context per queue.
->>
->> The performance of these patches has been analysed in detail, with
->> results available at:
->>
->> http://wiki.xenproject.org/wiki/Xen-netback_and_xen-netfront_multi-queue_performance_testing
->>
->> To summarise:
->>    * Using multiple queues allows a VM to transmit at line rate on a 10
->>      Gbit/s NIC, compared with a maximum aggregate throughput of 6 Gbit/s
->>      with a single queue.
->>    * For intra-host VM--VM traffic, eight queues provide 171% of the
->>      throughput of a single queue; almost 12 Gbit/s instead of 6 Gbit/s.
->>    * There is a corresponding increase in total CPU usage, i.e. this is a
->>      scaling out over available resources, not an efficiency improvement.
->>    * Results depend on the availability of sufficient CPUs, as well as the
->>      distribution of interrupts and the distribution of TCP streams across
->>      the queues.
->>
->> Queue selection is currently achieved via an L4 hash on the packet (i.e.
->> TCP src/dst port, IP src/dst address) and is not negotiated between the
->> frontend and backend, since only one option exists. Future patches to
->> support other frontends (particularly Windows) will need to add some
->> capability to negotiate not only the hash algorithm selection, but also
->> allow the frontend to specify some parameters to this.
->>
+>>   	snprintf(name, IFNAMSIZ - 1, "vif%u.%u", domid, handle);
+>> -	dev = alloc_netdev_mq(sizeof(struct xenvif), name, ether_setup, 1);
+>> +	/* Allocate a netdev with the max. supported number of queues.
+>> +	 * When the guest selects the desired number, it will be updated
+>> +	 * via netif_set_real_num_tx_queues().
+>> +	 */
+>> +	dev = alloc_netdev_mq(sizeof(struct xenvif), name, ether_setup,
+>> +						  xenvif_max_queues);
 >
-> This has an impact on the protocol. If the key to select hash algorithm
-> is missing then we're assuming L4 is in use.
->
-> This either needs to be documented (which is missing in your patch to
-> netif.h) or you need to write that key explicitly in XenStore.
->
-> I also have a question what would happen if one end advertises one hash
-> algorithm then use a different one. This can happen when the
-> driver is rogue or buggy. Will it cause the "good guy" to stall? We
-> certainly don't want to stall backend, at the very least.
+> Indentation.
 
-I'm not sure I understand. There is no negotiable selection of hash 
-algorithm here. This paragraph refers to a possible future in which we 
-may have to support multiple such. These issues will absolutely have to 
-be addressed then, but it is completely irrelevant for now.
+How would you like this to be indented? The CodingStyle says (and I quote):
+Chapter 2: Breaking long lines and strings:
+	... descendants are always substantially shorter than the
+	parent and placed substantially to the right...
 
-Andrew.
+There is no further advice to this point in CodingStyle, so please 
+explain how you'd prefer this.
+
 >
-> I don't see relevant code in this series to handle "rogue other end". I
-> presume for a simple hash algorithm like L4 is not very important (say,
-> even a packet ends up in the wrong queue we can still safely process
-> it), or core driver can deal with this all by itself (dropping)?
+>>   	if (dev == NULL) {
+>>   		pr_warn("Could not allocate netdev for %s\n", name);
+>>   		return ERR_PTR(-ENOMEM);
+>> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+>> index 46b2f5b..aeb5ffa 100644
+>> --- a/drivers/net/xen-netback/netback.c
+>> +++ b/drivers/net/xen-netback/netback.c
+>> @@ -54,6 +54,9 @@
+> [...]
+>> @@ -490,6 +497,23 @@ static void connect(struct backend_info *be)
+>>   	unsigned long credit_bytes, credit_usec;
+>>   	unsigned int queue_index;
+>>   	struct xenvif_queue *queue;
+>> +	unsigned int requested_num_queues;
+>> +
+>> +	/* Check whether the frontend requested multiple queues
+>> +	 * and read the number requested.
+>> +	 */
+>> +	err = xenbus_scanf(XBT_NIL, dev->otherend,
+>> +			"multi-queue-num-queues",
+>> +			"%u", &requested_num_queues);
+>> +	if (err < 0) {
+>> +		requested_num_queues = 1; /* Fall back to single queue */
+>> +	} else if (requested_num_queues > xenvif_max_queues) {
+>> +		/* buggy or malicious guest */
+>> +		xenbus_dev_fatal(dev, err,
+>> +						 "guest requested %u queues, exceeding the maximum of %u.",
+>> +						 requested_num_queues, xenvif_max_queues);
+>
+> Indentation.
+Ditto.
+
+>
+>> +		return;
+>> +	}
+>>
+> [...]
+>> @@ -547,29 +575,52 @@ static int connect_rings(struct backend_info *be, struct xenvif_queue *queue)
+>>   	unsigned long tx_ring_ref, rx_ring_ref;
+>>   	unsigned int tx_evtchn, rx_evtchn;
+>>   	int err;
+>> +	char *xspath = NULL;
+>> +	size_t xspathsize;
+>> +	const size_t xenstore_path_ext_size = 11; /* sufficient for "/queue-NNN" */
+>> +
+>> +	/* If the frontend requested 1 queue, or we have fallen back
+>> +	 * to single queue due to lack of frontend support for multi-
+>> +	 * queue, expect the remaining XenStore keys in the toplevel
+>> +	 * directory. Otherwise, expect them in a subdirectory called
+>> +	 * queue-N.
+>> +	 */
+>> +	if (queue->vif->num_queues == 1)
+>> +		xspath = (char *)dev->otherend;
+>
+> Coding style.
+>
+Ok; I thought I'd caught all of those. I'll change it.
+
+>> +	else {
 >
 > Wei.
 >
