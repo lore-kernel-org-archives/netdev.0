@@ -1,96 +1,39 @@
-From: Mark Rutland <mark.rutland@arm.com>
-Subject: Re: [PATCH net-next v5 09/10] Documentation: add Device tree
- bindings for Broadcom GENET
-Date: Fri, 14 Feb 2014 10:19:42 +0000
-Message-ID: <20140214101942.GA9907@e106331-lin.cambridge.arm.com>
-References: <1392336531-28875-1-git-send-email-f.fainelli@gmail.com>
- <1392336531-28875-10-git-send-email-f.fainelli@gmail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net] packet: check for ndo_select_queue during queue selection
+Date: Fri, 14 Feb 2014 11:21:22 +0100
+Message-ID: <52FDEE22.9010503@redhat.com>
+References: <1392311935-10275-1-git-send-email-dborkman@redhat.com> <20140214.004048.616136663605863975.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"cernekee@gmail.com" <cernekee@gmail.com>,
-	"romieu@fr.zoreil.com" <romieu@fr.zoreil.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: mathias.kretschmer@fokus.fraunhofer.de, netdev@vger.kernel.org,
+	brouer@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cam-admin0.cambridge.arm.com ([217.140.96.50]:61849 "EHLO
-	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750832AbaBNKTr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 05:19:47 -0500
-Content-Disposition: inline
-In-Reply-To: <1392336531-28875-10-git-send-email-f.fainelli@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:12119 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751972AbaBNKVa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Feb 2014 05:21:30 -0500
+In-Reply-To: <20140214.004048.616136663605863975.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 14, 2014 at 12:08:50AM +0000, Florian Fainelli wrote:
-> This patch adds the Device Tree bindings for the Broadcom GENET Gigabit
-> Ethernet controller. A bunch of examples are provided to illustrate the
-> versatile aspect of the hardare.
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
-> Changes in v5:
-> - respin due to the CONFIG_OF dependency fix
-> 
-> Changes in v4:
-> - respin due to the Kconfig dependency
-> 
-> Changes in v3
-> - improve compatible property description to specify all compatible strings
->   supported
-> - move MDIO bus node to a separate section, to separate from the properties
-> - detail which exact phy-mode strings are supported and that this refers to
->   the ePAPR 'phy-connection-type' modes
-> - fixed MDIO bus node compatible string to match what is really provided by
->   the bootloader and use the same details as for the GENET compatible string
-> - add address-cells and size-cells required properties for the GENET device
->   tree node
-> - add a better description for the 'fixed-link' property with reference to
->   existing binding documentation
-> - add a reference to the Ethernet PHY device tree binding
-> - add a description for the interrupts properties
-> - add a documentation for the optional clocks properties
-> - removed unused and deprecated device_type properties
-> 
-> Changes in v2:
-> - rebased against net-next/master
-> 
->  .../devicetree/bindings/net/broadcom-bcmgenet.txt  | 121 +++++++++++++++++++++
->  1 file changed, 121 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
-> 
-> diff --git a/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt b/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
-> new file mode 100644
-> index 0000000..afd31f9
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
-> @@ -0,0 +1,121 @@
-> +* Broadcom BCM7xxx Ethernet Controller (GENET)
-> +
-> +Required properties:
-> +- compatible: should contain one of "brcm,genet-v1", "brcm,genet-v2",
-> +  "brcm,genet-v3", "brcm,genet-v4".
-> +- reg: address and length of the register set for the device
-> +- interrupts: must be two cells, the first cell is the general purpose
-> +  interrupt line, while the second cell is the interrupt for the ring
-> +  RX and TX queues operating in ring mode
-> +- phy-mode: String, operation mode of the PHY interface. Supported values are
-> +  "mii", "rgmii", "rgmii-txid", "rev-mii", "moca". Analogous to ePAPR
-> +  "phy-connection-type" values
-> +- address-cells: should be 1
-> +- size-cells: should be 1
-> +
-> +Optional properties:
-> +- clocks: When provided, must be two cells, first one is the main GENET clock
-> +  and the second cell is the Genet Wake-on-LAN clock.
+On 02/14/2014 06:40 AM, David Miller wrote:
+> From: Daniel Borkmann <dborkman@redhat.com>
+> Date: Thu, 13 Feb 2014 18:18:55 +0100
+>
+>> The original pktgen scenario for which PACKET_QDISC_BYPASS was
+>> designed for is still intact with this change anyway. We think
+>
+> I guess you have no intention of using this feature on bnx2x, ixgbe,
+> or mlx4 devices then?  That covers a rather large component of gigabit
+> ethernet devices out there, doesn't it?
+>
+> They both hook up an ndo_select_queue method.
 
-Clocks aren't just cells. They are referred to with phandle +
-clock-specificer pairs.
-
-This doesn't document the names that the driver requests the clocks by.
-Just listing the clocks isn't sufficient, as any dts will have to add a
-clock-names property to get those clocks probed.
-
-Thanks,
-Mark.
+Yes, it's suboptimal :/ The other two possibilities I see is 1) to check
+for dev->ieee80211_ptr on setsockopt(2) and bind(2) (which could happen
+_after_ the option was set) and just disallow that option for those cases
+(doesn't make sense to use it for ieee80211 devs anyway, and they seem to
+be the only special-cased users), or, preferably 2) to just leave the
+code as it currently is, that is, similar to pktgen.
