@@ -1,97 +1,92 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v5 09/10] Documentation: add Device tree bindings
- for Broadcom GENET
-Date: Fri, 14 Feb 2014 09:36:26 -0800
-Message-ID: <CAGVrzcYY+sf2JtscO+fDZ+Z9SoEbzVdMQYXtV+_0+e9pY0be9w@mail.gmail.com>
-References: <1392336531-28875-1-git-send-email-f.fainelli@gmail.com>
- <1392336531-28875-10-git-send-email-f.fainelli@gmail.com> <20140214101942.GA9907@e106331-lin.cambridge.arm.com>
+From: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
+Subject: [PATCH V3 net-next 0/5] xen-net{back,
+	front}: Multiple transmit and receive queues
+Date: Fri, 14 Feb 2014 17:35:48 +0000
+Message-ID: <1392399353-11973-1-git-send-email-andrew.bennieston@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"cernekee@gmail.com" <cernekee@gmail.com>,
-	"romieu@fr.zoreil.com" <romieu@fr.zoreil.com>
-To: Mark Rutland <mark.rutland@arm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f41.google.com ([209.85.160.41]:62617 "EHLO
-	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751246AbaBNRhH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 12:37:07 -0500
-In-Reply-To: <20140214101942.GA9907@e106331-lin.cambridge.arm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, paul.durrant@citrix.com, wei.liu2@citrix.com,
+	ian.campbell@citrix.com
+To: <xen-devel@lists.xenproject.org>
+Return-path: <xen-devel-bounces@lists.xen.org>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
+List-Id: netdev.vger.kernel.org
 
-2014-02-14 2:19 GMT-08:00 Mark Rutland <mark.rutland@arm.com>:
-> On Fri, Feb 14, 2014 at 12:08:50AM +0000, Florian Fainelli wrote:
->> This patch adds the Device Tree bindings for the Broadcom GENET Gigabit
->> Ethernet controller. A bunch of examples are provided to illustrate the
->> versatile aspect of the hardare.
->>
->> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
->> ---
->> Changes in v5:
->> - respin due to the CONFIG_OF dependency fix
->>
->> Changes in v4:
->> - respin due to the Kconfig dependency
->>
->> Changes in v3
->> - improve compatible property description to specify all compatible strings
->>   supported
->> - move MDIO bus node to a separate section, to separate from the properties
->> - detail which exact phy-mode strings are supported and that this refers to
->>   the ePAPR 'phy-connection-type' modes
->> - fixed MDIO bus node compatible string to match what is really provided by
->>   the bootloader and use the same details as for the GENET compatible string
->> - add address-cells and size-cells required properties for the GENET device
->>   tree node
->> - add a better description for the 'fixed-link' property with reference to
->>   existing binding documentation
->> - add a reference to the Ethernet PHY device tree binding
->> - add a description for the interrupts properties
->> - add a documentation for the optional clocks properties
->> - removed unused and deprecated device_type properties
->>
->> Changes in v2:
->> - rebased against net-next/master
->>
->>  .../devicetree/bindings/net/broadcom-bcmgenet.txt  | 121 +++++++++++++++++++++
->>  1 file changed, 121 insertions(+)
->>  create mode 100644 Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
->>
->> diff --git a/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt b/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
->> new file mode 100644
->> index 0000000..afd31f9
->> --- /dev/null
->> +++ b/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
->> @@ -0,0 +1,121 @@
->> +* Broadcom BCM7xxx Ethernet Controller (GENET)
->> +
->> +Required properties:
->> +- compatible: should contain one of "brcm,genet-v1", "brcm,genet-v2",
->> +  "brcm,genet-v3", "brcm,genet-v4".
->> +- reg: address and length of the register set for the device
->> +- interrupts: must be two cells, the first cell is the general purpose
->> +  interrupt line, while the second cell is the interrupt for the ring
->> +  RX and TX queues operating in ring mode
->> +- phy-mode: String, operation mode of the PHY interface. Supported values are
->> +  "mii", "rgmii", "rgmii-txid", "rev-mii", "moca". Analogous to ePAPR
->> +  "phy-connection-type" values
->> +- address-cells: should be 1
->> +- size-cells: should be 1
->> +
->> +Optional properties:
->> +- clocks: When provided, must be two cells, first one is the main GENET clock
->> +  and the second cell is the Genet Wake-on-LAN clock.
->
-> Clocks aren't just cells. They are referred to with phandle +
-> clock-specificer pairs.
->
-> This doesn't document the names that the driver requests the clocks by.
-> Just listing the clocks isn't sufficient, as any dts will have to add a
-> clock-names property to get those clocks probed.
 
-I will follow up with a fix for this, thanks!
--- 
-Florian
+
+This patch series implements multiple transmit and receive queues (i.e.
+multiple shared rings) for the xen virtual network interfaces.
+
+The series is split up as follows:
+ - Patches 1 and 3 factor out the queue-specific data for netback and
+    netfront respectively, and modify the rest of the code to use these
+    as appropriate.
+ - Patches 2 and 4 introduce new XenStore keys to negotiate and use
+   multiple shared rings and event channels, and code to connect these
+   as appropriate.
+ - Patch 5 documents the XenStore keys required for the new feature
+   in include/xen/interface/io/netif.h
+
+All other transmit and receive processing remains unchanged, i.e. there
+is a kthread per queue and a NAPI context per queue.
+
+The performance of these patches has been analysed in detail, with
+results available at:
+
+http://wiki.xenproject.org/wiki/Xen-netback_and_xen-netfront_multi-queue_performance_testing
+
+To summarise:
+  * Using multiple queues allows a VM to transmit at line rate on a 10
+    Gbit/s NIC, compared with a maximum aggregate throughput of 6 Gbit/s
+    with a single queue.
+  * For intra-host VM--VM traffic, eight queues provide 171% of the
+    throughput of a single queue; almost 12 Gbit/s instead of 6 Gbit/s.
+  * There is a corresponding increase in total CPU usage, i.e. this is a
+    scaling out over available resources, not an efficiency improvement.
+  * Results depend on the availability of sufficient CPUs, as well as the
+    distribution of interrupts and the distribution of TCP streams across
+    the queues.
+
+Queue selection is currently achieved via an L4 hash on the packet (i.e.
+TCP src/dst port, IP src/dst address) and is not negotiated between the
+frontend and backend, since only one option exists. Future patches to
+support other frontends (particularly Windows) will need to add some
+capability to negotiate not only the hash algorithm selection, but also
+allow the frontend to specify some parameters to this.
+
+Note that queue selection is a decision by the transmitting system about
+which queue to use for a particular packet. In general, the algorithm
+may differ between the frontend and the backend with no adverse effects.
+
+Queue-specific XenStore entries for ring references and event channels
+are stored hierarchically, i.e. under .../queue-N/... where N varies
+from 0 to one less than the requested number of queues (inclusive). If
+only one queue is requested, it falls back to the flat structure where
+the ring references and event channels are written at the same level as
+other vif information.
+
+
+
+V3:
+- Further indentation and style fixups
+
+V2:
+- Rebase onto net-next
+- Change queue->number to queue->id
+- Add atomic operations around the small number of stats variables that
+  are not queue-specific or per-cpu
+- Fixup formatting and style issues
+- XenStore protocol changes documented in netif.h
+- Default max. number of queues to num_online_cpus()
+- Check requested number of queues does not exceed maximum
+
+--
+Andrew J. Bennieston
