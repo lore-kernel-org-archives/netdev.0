@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 2/2] tipc: correct usage of spin_lock() vs spin_lock_bh()
-Date: Fri, 14 Feb 2014 16:40:44 -0500
-Message-ID: <1392414044-14326-3-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 1/2] tipc: fix a loop style problem
+Date: Fri, 14 Feb 2014 16:40:43 -0500
+Message-ID: <1392414044-14326-2-git-send-email-jon.maloy@ericsson.com>
 References: <1392414044-14326-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
@@ -10,59 +10,53 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:21117 "HELO
+Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:21118 "HELO
 	smtp104.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752701AbaBNVr7 (ORCPT
+	by vger.kernel.org with SMTP id S1752778AbaBNVr7 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 16:47:59 -0500
 In-Reply-To: <1392414044-14326-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I commit e099e86c9e24fe9aff36773600543eb31d8954d
-("tipc: add node_lock protection to link lookup function")
-we are calling spin_lock(&node->lock) directly instead of indirectly
-via the tipc_node_lock(node) function. However, tipc_node_lock() is
-using spin_lock_bh(), not spin_lock(), something leading to
-unbalanced usage in one place, and a smatch warning.
+In commit 7d33939f475d403e79124e3143d7951dcfe8629f
+("tipc: delay delete of link when failover is needed") we
+introduced a loop for finding and removing a link pointer
+in an array. The removal is done after we have left the loop,
+giving the impression that one may remove the wrong pointer
+if no matching element is found.
 
-We fix this by consistently using tipc_node_lock()/unlock() in
-in the places touched by the mentioned commit.
+This is not really a bug, since we know that there will always
+be a matching element, but it looks wrong, and causes a smatch
+warning.
+
+We fix this loop with this commit.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/link.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/tipc/node.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 4fb4ae0..5422e96 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -2410,7 +2410,7 @@ static struct tipc_node *tipc_link_find_owner(const char *link_name,
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index 833324b..8596880 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -252,12 +252,12 @@ void tipc_node_detach_link(struct tipc_node *n_ptr, struct tipc_link *l_ptr)
+ 	int i;
  
- 	*bearer_id = 0;
- 	list_for_each_entry_safe(n_ptr, tmp_n_ptr, &tipc_node_list, list) {
--		spin_lock(&n_ptr->lock);
-+		tipc_node_lock(n_ptr);
- 		for (i = 0; i < MAX_BEARERS; i++) {
- 			l_ptr = n_ptr->links[i];
- 			if (l_ptr && !strcmp(l_ptr->name, link_name)) {
-@@ -2419,7 +2419,7 @@ static struct tipc_node *tipc_link_find_owner(const char *link_name,
- 				break;
- 			}
- 		}
--		spin_unlock(&n_ptr->lock);
-+		tipc_node_unlock(n_ptr);
- 		if (found_node)
- 			break;
+ 	for (i = 0; i < MAX_BEARERS; i++) {
+-		if (l_ptr == n_ptr->links[i])
+-			break;
++		if (l_ptr != n_ptr->links[i])
++			continue;
++		n_ptr->links[i] = NULL;
++		atomic_dec(&tipc_num_links);
++		n_ptr->link_cnt--;
  	}
-@@ -2603,7 +2603,7 @@ struct sk_buff *tipc_link_cmd_reset_stats(const void *req_tlv_area, int req_tlv_
- 		read_unlock_bh(&tipc_net_lock);
- 		return tipc_cfg_reply_error_string("link not found");
- 	}
--	spin_lock(&node->lock);
-+	tipc_node_lock(node);
- 	l_ptr = node->links[bearer_id];
- 	if (!l_ptr) {
- 		tipc_node_unlock(node);
+-	n_ptr->links[i] = NULL;
+-	atomic_dec(&tipc_num_links);
+-	n_ptr->link_cnt--;
+ }
+ 
+ static void node_established_contact(struct tipc_node *n_ptr)
 -- 
 1.7.9.5
