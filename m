@@ -1,162 +1,171 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v5 03/10] net: phy: broadcom: extract register definitions
-Date: Thu, 13 Feb 2014 16:08:44 -0800
-Message-ID: <1392336531-28875-4-git-send-email-f.fainelli@gmail.com>
-References: <1392336531-28875-1-git-send-email-f.fainelli@gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [RFC PATCH v2 tip 0/7] 64-bit BPF insn set and tracing filters
+Date: Thu, 13 Feb 2014 16:59:56 -0800
+Message-ID: <CAMEtUuwfSYr=7+_8jKryUMUTL1NE-wRV_h=PX7uKdkUebgGiPg@mail.gmail.com>
+References: <1391649046-4383-1-git-send-email-ast@plumgrid.com>
+	<52F3670D.5090608@redhat.com>
+	<CAMEtUuza3NuM7L0RnVVgU-MTfjE2M==8wb4UY2TAo0Pg6DKZqA@mail.gmail.com>
+	<52FD2908.8000009@redhat.com>
+	<52FD458D.6020107@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <devicetree@vger.kernel.org>,
-	<cernekee@gmail.com>, <mark.rutland@arm.com>,
-	<romieu@fr.zoreil.com>, Florian Fainelli <f.fainelli@gmail.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:34589 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751962AbaBNAKx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 19:10:53 -0500
-In-Reply-To: <1392336531-28875-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Ingo Molnar <mingo@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	Tom Zanussi <tom.zanussi@linux.intel.com>,
+	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Pekka Enberg <penberg@iki.fi>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52FD458D.6020107@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The Broadcom BCM54xx register definitions are shared between BCM54xx and
-BCM7xx internal PHYs for which we are adding support. Extract these
-register definitions and put them in include/linux/brcmphy.h for use by
-the BCM7xxx internal PHY driver.
+On Thu, Feb 13, 2014 at 2:22 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> On 02/13/2014 09:20 PM, Daniel Borkmann wrote:
+>>
+>> On 02/07/2014 02:20 AM, Alexei Starovoitov wrote:
+>> ...
+>>>
+>>> Hi Daniel,
+>>
+>>
+>> Thanks for your answer and sorry for the late reply.
+>>
+>>> Thank you for taking a look. Good questions. I had the same concerns.
+>>> Old BPF was carefully extended in specific places.
+>>> End result may look big at first glance, but every extension has specific
+>>> reason behind it. I tried to explain the reasoning in
+>>> Documentation/bpf_jit.txt
+>>>
+>>> I'm planning to write an on-the-fly converter from old BPF to BPF64
+>>> when BPF64 manages to demonstrate that it is equally safe.
+>>> It is straight forward to convert. Encoding is very similar.
+>>> Core concepts are the same.
+>>> Try diff include/uapi/linux/filter.h include/linux/bpf.h
+>>> to see how much is reused.
+>>>
+>>> I believe that old BPF outlived itself and BPF64 should
+>>> replace it in all current use cases plus a lot more.
+>>> It just cannot happen at once.
+>>> BPF64 can come in. bpf32->bpf64 converter functioning.
+>>> JIT from bpf64->aarch64 and may be sparc64 needs to be in place.
+>>> Then old bpf can fade away.
+>>
+>>
+>> Do you see a possibility to integrate your work step by step? That is,
+>> to first integrate the interpreter part only; meaning, to detect "old"
+>> BPF programs e.g. coming from SO_ATTACH_FILTER et al and run them in
+>> compatibility mode while extended BPF is fully integrated and replaces
+>> the old engine in net/core/filter.c. Maybe, "old" programs can be
+>> transformed transparently to the new representation and then would be
+>> good to execute in eBPF. If possible, in such a way that in the first
+>> step JIT compilers won't need any upgrades. Once that is resolved,
+>> JIT compilers could successively migrate, arch by arch, to compile the
+>> new code? And last but not least the existing tools as well for handling
+>> eBPF. I think, if possible, that would be great. Also, I unfortunately
+>> haven't looked into your code too deeply yet due to time constraints,
+>> but I'm wondering e.g. for accessing some skb fields we currently use
+>> the "hack" to "overload" load instructions with negative arguments. Do
+>> we have a sort of "meta" instruction that is extendible in eBPF to avoid
+>> such things in future?
+>>
+>>>> First of all, I think it's very interesting work ! I'm just a bit
+>>>> concerned
+>>>> that this _huge_ patchset with 64 bit BPF, or however we call it, will
+>>>> line
+>>>
+>>>
+>>> Huge?
+>>> kernel is only 2k
+>>> the rest is 6k of userspace LLVM backend where most of it is llvm's
+>>> boilerplate code. GCC backend for BPF is 3k.
+>>> The goal is to have both GCC and LLVM backends to be upstreamed
+>>> when kernel pieces are agreed upon.
+>>> For comparison existing tools/net/bpf* is 2.5k
+>>> but here with 6k we get optimizing compiler from C and assembler.
+>>>
+>>>> up in one row next to the BPF code we currently have and next to new
+>>>> nftables
+>>>> engine and we will end up with three such engines which do quite similar
+>>>> things and are all exposed to user space thus they need to be maintained
+>>>> _forever_, adding up legacy even more. What would be the long-term
+>>>> future
+>>>> use
+>>>> cases where the 64 bit engine comes into place compared to the current
+>>>> BPF
+>>>> engine? What are the concrete killer features? I didn't went through
+>>>> your
+>>>
+>>>
+>>> killer features vs old bpf are:
+>>> - zero-cost function calls
+>>> - 32-bit vs 64-bit
+>>> - optimizing compiler that can compile C into BPF64
+>>>
+>>> Why call kernel function from BPF?
+>>> So that BPF instruction set has to be extended only once and JITs are
+>>> written only once.
+>>> Over the years many extensions crept into old BPF as 'negative offsets'.
+>>> but JITs don't support all of them and assume bpf input as 'skb' only.
+>>> seccomp is using old bpf, but, because of these limitations, cannot use
+>>> JIT.
+>>> BPF64 allows seccomp to be JITed, since bpf input is generalized
+>>> as 'struct bpf_context'.
+>>> New 'negative offset' extension for old bpf would mean implementing it in
+>>> JITs of all architectures? Painful, but doable. We can do better.
+>
+>
+> I'm very curious, do you also have any performance numbers, e.g. for
+> networking by taking JIT'ed/non-JIT'ed BPF filters and compare them against
+> JIT'ed/non-JIT'ed eBPF filters to see how many pps we gain or loose e.g.
+> for a scenario with a middle box running cls_bpf .. or some other macro/
+> micro benchmark just to get a picture where both stand in terms of
+> performance? Who knows, maybe it would outperform nftables engine as
+> well? ;-) How would that look on a 32bit arch with eBPF that is 64bit?
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
-Changes in v5:
-- respin due to the CONFIG_OF dependency fix
+I don't have jited/non-jited numbers, but I suspect for micro-benchmarks
+the gap should be big. I was shooting for near native performance after JIT.
 
-Changes in v3, v4:
-- new patch
+So I took flow_dissector() function, tweaked it a bit and compiled into BPF.
+x86_64 skb_flow_dissect() same skb (all cached)          -  42 nsec per call
+x86_64 skb_flow_dissect() different skbs (cache misses)  - 141 nsec per call
+bpf_jit skb_flow_dissect() same skb (all cached)         -  51 nsec per call
+bpf_jit skb_flow_dissect() different skbs (cache misses) - 135 nsec per call
 
- drivers/net/phy/broadcom.c | 52 ----------------------------------------------
- include/linux/brcmphy.h    | 51 +++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 51 insertions(+), 52 deletions(-)
+C->BPF64->x86_64 is slower than C->x86_64 when all data is in cache,
+but presence of cache misses hide extra insns.
 
-diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
-index f8c90ea..34088d6 100644
---- a/drivers/net/phy/broadcom.c
-+++ b/drivers/net/phy/broadcom.c
-@@ -25,58 +25,6 @@
- #define BRCM_PHY_REV(phydev) \
- 	((phydev)->drv->phy_id & ~((phydev)->drv->phy_id_mask))
- 
--
--#define MII_BCM54XX_ECR		0x10	/* BCM54xx extended control register */
--#define MII_BCM54XX_ECR_IM	0x1000	/* Interrupt mask */
--#define MII_BCM54XX_ECR_IF	0x0800	/* Interrupt force */
--
--#define MII_BCM54XX_ESR		0x11	/* BCM54xx extended status register */
--#define MII_BCM54XX_ESR_IS	0x1000	/* Interrupt status */
--
--#define MII_BCM54XX_EXP_DATA	0x15	/* Expansion register data */
--#define MII_BCM54XX_EXP_SEL	0x17	/* Expansion register select */
--#define MII_BCM54XX_EXP_SEL_SSD	0x0e00	/* Secondary SerDes select */
--#define MII_BCM54XX_EXP_SEL_ER	0x0f00	/* Expansion register select */
--
--#define MII_BCM54XX_AUX_CTL	0x18	/* Auxiliary control register */
--#define MII_BCM54XX_ISR		0x1a	/* BCM54xx interrupt status register */
--#define MII_BCM54XX_IMR		0x1b	/* BCM54xx interrupt mask register */
--#define MII_BCM54XX_INT_CRCERR	0x0001	/* CRC error */
--#define MII_BCM54XX_INT_LINK	0x0002	/* Link status changed */
--#define MII_BCM54XX_INT_SPEED	0x0004	/* Link speed change */
--#define MII_BCM54XX_INT_DUPLEX	0x0008	/* Duplex mode changed */
--#define MII_BCM54XX_INT_LRS	0x0010	/* Local receiver status changed */
--#define MII_BCM54XX_INT_RRS	0x0020	/* Remote receiver status changed */
--#define MII_BCM54XX_INT_SSERR	0x0040	/* Scrambler synchronization error */
--#define MII_BCM54XX_INT_UHCD	0x0080	/* Unsupported HCD negotiated */
--#define MII_BCM54XX_INT_NHCD	0x0100	/* No HCD */
--#define MII_BCM54XX_INT_NHCDL	0x0200	/* No HCD link */
--#define MII_BCM54XX_INT_ANPR	0x0400	/* Auto-negotiation page received */
--#define MII_BCM54XX_INT_LC	0x0800	/* All counters below 128 */
--#define MII_BCM54XX_INT_HC	0x1000	/* Counter above 32768 */
--#define MII_BCM54XX_INT_MDIX	0x2000	/* MDIX status change */
--#define MII_BCM54XX_INT_PSERR	0x4000	/* Pair swap error */
--
--#define MII_BCM54XX_SHD		0x1c	/* 0x1c shadow registers */
--#define MII_BCM54XX_SHD_WRITE	0x8000
--#define MII_BCM54XX_SHD_VAL(x)	((x & 0x1f) << 10)
--#define MII_BCM54XX_SHD_DATA(x)	((x & 0x3ff) << 0)
--
--/*
-- * AUXILIARY CONTROL SHADOW ACCESS REGISTERS.  (PHY REG 0x18)
-- */
--#define MII_BCM54XX_AUXCTL_SHDWSEL_AUXCTL	0x0000
--#define MII_BCM54XX_AUXCTL_ACTL_TX_6DB		0x0400
--#define MII_BCM54XX_AUXCTL_ACTL_SMDSP_ENA	0x0800
--
--#define MII_BCM54XX_AUXCTL_MISC_WREN	0x8000
--#define MII_BCM54XX_AUXCTL_MISC_FORCE_AMDIX	0x0200
--#define MII_BCM54XX_AUXCTL_MISC_RDSEL_MISC	0x7000
--#define MII_BCM54XX_AUXCTL_SHDWSEL_MISC	0x0007
--
--#define MII_BCM54XX_AUXCTL_SHDWSEL_AUXCTL	0x0000
--
--
- /*
-  * Broadcom LED source encodings.  These are used in BCM5461, BCM5481,
-  * BCM5482, and possibly some others.
-diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
-index 677b4f0..104e3ef 100644
---- a/include/linux/brcmphy.h
-+++ b/include/linux/brcmphy.h
-@@ -33,4 +33,55 @@
- #define PHY_BRCM_DIS_TXCRXC_NOENRGY	0x00008000
- #define PHY_BCM_FLAGS_VALID		0x80000000
- 
-+/* Broadcom BCM54XX register definitions, common to most Broadcom PHYs */
-+#define MII_BCM54XX_ECR		0x10	/* BCM54xx extended control register */
-+#define MII_BCM54XX_ECR_IM	0x1000	/* Interrupt mask */
-+#define MII_BCM54XX_ECR_IF	0x0800	/* Interrupt force */
-+
-+#define MII_BCM54XX_ESR		0x11	/* BCM54xx extended status register */
-+#define MII_BCM54XX_ESR_IS	0x1000	/* Interrupt status */
-+
-+#define MII_BCM54XX_EXP_DATA	0x15	/* Expansion register data */
-+#define MII_BCM54XX_EXP_SEL	0x17	/* Expansion register select */
-+#define MII_BCM54XX_EXP_SEL_SSD	0x0e00	/* Secondary SerDes select */
-+#define MII_BCM54XX_EXP_SEL_ER	0x0f00	/* Expansion register select */
-+
-+#define MII_BCM54XX_AUX_CTL	0x18	/* Auxiliary control register */
-+#define MII_BCM54XX_ISR		0x1a	/* BCM54xx interrupt status register */
-+#define MII_BCM54XX_IMR		0x1b	/* BCM54xx interrupt mask register */
-+#define MII_BCM54XX_INT_CRCERR	0x0001	/* CRC error */
-+#define MII_BCM54XX_INT_LINK	0x0002	/* Link status changed */
-+#define MII_BCM54XX_INT_SPEED	0x0004	/* Link speed change */
-+#define MII_BCM54XX_INT_DUPLEX	0x0008	/* Duplex mode changed */
-+#define MII_BCM54XX_INT_LRS	0x0010	/* Local receiver status changed */
-+#define MII_BCM54XX_INT_RRS	0x0020	/* Remote receiver status changed */
-+#define MII_BCM54XX_INT_SSERR	0x0040	/* Scrambler synchronization error */
-+#define MII_BCM54XX_INT_UHCD	0x0080	/* Unsupported HCD negotiated */
-+#define MII_BCM54XX_INT_NHCD	0x0100	/* No HCD */
-+#define MII_BCM54XX_INT_NHCDL	0x0200	/* No HCD link */
-+#define MII_BCM54XX_INT_ANPR	0x0400	/* Auto-negotiation page received */
-+#define MII_BCM54XX_INT_LC	0x0800	/* All counters below 128 */
-+#define MII_BCM54XX_INT_HC	0x1000	/* Counter above 32768 */
-+#define MII_BCM54XX_INT_MDIX	0x2000	/* MDIX status change */
-+#define MII_BCM54XX_INT_PSERR	0x4000	/* Pair swap error */
-+
-+#define MII_BCM54XX_SHD		0x1c	/* 0x1c shadow registers */
-+#define MII_BCM54XX_SHD_WRITE	0x8000
-+#define MII_BCM54XX_SHD_VAL(x)	((x & 0x1f) << 10)
-+#define MII_BCM54XX_SHD_DATA(x)	((x & 0x3ff) << 0)
-+
-+/*
-+ * AUXILIARY CONTROL SHADOW ACCESS REGISTERS.  (PHY REG 0x18)
-+ */
-+#define MII_BCM54XX_AUXCTL_SHDWSEL_AUXCTL	0x0000
-+#define MII_BCM54XX_AUXCTL_ACTL_TX_6DB		0x0400
-+#define MII_BCM54XX_AUXCTL_ACTL_SMDSP_ENA	0x0800
-+
-+#define MII_BCM54XX_AUXCTL_MISC_WREN	0x8000
-+#define MII_BCM54XX_AUXCTL_MISC_FORCE_AMDIX	0x0200
-+#define MII_BCM54XX_AUXCTL_MISC_RDSEL_MISC	0x7000
-+#define MII_BCM54XX_AUXCTL_SHDWSEL_MISC	0x0007
-+
-+#define MII_BCM54XX_AUXCTL_SHDWSEL_AUXCTL	0x0000
-+
- #endif /* _LINUX_BRCMPHY_H */
--- 
-1.8.3.2
+For gre flow_dissector() looks into inner packet, but for vxlan it does not,
+since it needs to know udp port number. We can extend it with if (static_key)
+and walk the list of udp_offload_base->offload->port like we do in
+udp_gro_receive(),
+but for RPS we just need a hash. I think custom loadable
+flow_dissector() is the way to go.
+If we know that majority of the traffic on the given machine is vxlan to port N
+we can hard code this into BPF program. Don't need to walk outer packet either.
+Just pick ip/port from inner. It's doable with old BPF too.
+
+What we used to think as dynamic, with BPF can be hard coded.
+
+As soon as I have time I'm thinking to play with nftables. The idea is:
+rules are changed rarely, but a lot of traffic goes through them,
+so we can spend time optimizing them.
+
+Either user input or nft program can be converted to C, then LLVM invoked
+to optimize the whole thing, generate BPF and load it.
+Adding a rule will take time, but if execution of such ip/nftables
+will be faster
+the end user will benefit.
