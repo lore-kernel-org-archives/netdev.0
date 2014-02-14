@@ -1,273 +1,304 @@
 From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
-Subject: [PATCH net-next v2 07/10] ieee802154: add support for setting CCA energy detection levels
-Date: Fri, 14 Feb 2014 23:49:29 +0100
-Message-ID: <1392418172-5305-8-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Subject: [PATCH net-next v2 03/10] ieee802154: add TX power control to wpan_phy
+Date: Fri, 14 Feb 2014 23:49:25 +0100
+Message-ID: <1392418172-5305-4-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 References: <1392418172-5305-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Cc: linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net,
 	Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from selenium.quasiparticle.net ([188.40.96.248]:43991 "EHLO
+Received: from selenium.quasiparticle.net ([188.40.96.248]:43985 "EHLO
 	quasiparticle.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752738AbaBNW63 (ORCPT
+	with ESMTP id S1751460AbaBNW63 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 17:58:29 -0500
 In-Reply-To: <1392418172-5305-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since three of the four clear channel assesment modes make use of energy
-detection, provide an API to set the energy detection threshold.
-Driver support for this is available in at86rf230 for the RF212 chips.
-Since for these chips the minimal energy detection threshold depends on
-page and channel used, add a field to struct at86rf230_local that stores
-the minimal threshold. Actual ED thresholds are configured as offsets
-from this value.
+Replace the current u8 transmit_power in wpan_phy with s8 transmit_power.
+The u8 field contained the actual tx power and a tolerance field,
+which no physical radio every used. Adjust sysfs entries to keep
+compatibility with userspace, give tolerances of +-1dB statically there.
 
-For RF212, setting the ED threshold will not work before a channel/page
-has been set due to the dependency of energy detection in the chip and
-the actual channel/page selected.
+This patch only adds support for this in the at86rf230 driver and the
+RF212 chip. Configuration calculation for RF212 is also somewhat basic,
+but does the job - the RF212 datasheet gives a large table with
+suggested values for combinations of TX power and page/channel, if this
+does not work well, we might have to copy the whole table.
 
 Signed-off-by: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
 ---
- drivers/net/ieee802154/at86rf230.c | 26 ++++++++++++++++++++++++--
- include/linux/nl802154.h           |  1 +
- include/net/mac802154.h            |  7 +++++++
- include/net/wpan-phy.h             |  2 ++
- net/ieee802154/nl-phy.c            | 30 +++++++++++++++++++++++++++---
- net/ieee802154/nl_policy.c         |  1 +
- net/mac802154/ieee802154_dev.c     | 11 +++++++++++
- 7 files changed, 73 insertions(+), 5 deletions(-)
+ drivers/net/ieee802154/at86rf230.c | 25 +++++++++++++++++++
+ include/linux/nl802154.h           |  4 ++++
+ include/net/mac802154.h            |  5 ++++
+ include/net/wpan-phy.h             |  6 +++--
+ net/ieee802154/ieee802154.h        |  1 +
+ net/ieee802154/netlink.c           |  1 +
+ net/ieee802154/nl-phy.c            | 49 +++++++++++++++++++++++++++++++++++++-
+ net/ieee802154/nl_policy.c         |  2 ++
+ net/ieee802154/wpan-class.c        |  4 +---
+ net/mac802154/ieee802154_dev.c     | 11 +++++++++
+ 10 files changed, 102 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index abdad66..d28ea97 100644
+index 230258f..d2841b8 100644
 --- a/drivers/net/ieee802154/at86rf230.c
 +++ b/drivers/net/ieee802154/at86rf230.c
-@@ -52,6 +52,8 @@ struct at86rf230_local {
- 	spinlock_t lock;
- 	bool irq_busy;
- 	bool is_tx;
-+
-+	int rssi_base_val;
- };
- 
- static inline int is_rf212(struct at86rf230_local *local)
-@@ -580,6 +582,8 @@ at86rf230_stop(struct ieee802154_dev *dev)
- static int
- at86rf230_set_channel(struct at86rf230_local *lp, int page, int channel)
- {
-+	lp->rssi_base_val = -91;
-+
- 	return at86rf230_write_subreg(lp, SR_CHANNEL, channel);
- }
- 
-@@ -595,10 +599,13 @@ at86rf212_set_channel(struct at86rf230_local *lp, int page, int channel)
- 	if (rc < 0)
- 		return rc;
- 
--	if (page == 0)
-+	if (page == 0) {
- 		rc = at86rf230_write_subreg(lp, SR_BPSK_QPSK, 0);
--	else
-+		lp->rssi_base_val = -100;
-+	} else {
- 		rc = at86rf230_write_subreg(lp, SR_BPSK_QPSK, 1);
-+		lp->rssi_base_val = -98;
-+	}
- 	if (rc < 0)
- 		return rc;
- 
-@@ -803,6 +810,20 @@ at86rf212_set_cca_mode(struct ieee802154_dev *dev, u8 mode)
- 	return at86rf230_write_subreg(lp, SR_CCA_MODE, mode);
+@@ -754,6 +754,30 @@ at86rf230_set_hw_addr_filt(struct ieee802154_dev *dev,
+ 	return 0;
  }
  
 +static int
-+at86rf212_set_cca_ed_level(struct ieee802154_dev *dev, s32 level)
++at86rf212_set_txpower(struct ieee802154_dev *dev, int db)
 +{
 +	struct at86rf230_local *lp = dev->priv;
-+	int desens_steps;
++	int rc;
 +
-+	if (level < lp->rssi_base_val || level > 30)
++	/* typical maximum output is 5dBm with RG_PHY_TX_PWR 0x60, lower five
++	 * bits decrease power in 1dB steps. 0x60 represents extra PA gain of
++	 * 0dB.
++	 * thus, supported values for db range from -26 to 5, for 31dB of
++	 * reduction to 0dB of reduction.
++	 */
++	if (db > 5 || db < -26)
 +		return -EINVAL;
 +
-+	desens_steps = (level - lp->rssi_base_val) * 100 / 207;
++	db = -(db - 5);
 +
-+	return at86rf230_write_subreg(lp, SR_CCA_ED_THRES, desens_steps);
++	rc = __at86rf230_write(lp, RG_PHY_TX_PWR, 0x60 | db);
++	if (rc)
++		return rc;
++
++	return 0;
 +}
 +
  static struct ieee802154_ops at86rf230_ops = {
  	.owner = THIS_MODULE,
  	.xmit = at86rf230_xmit,
-@@ -824,6 +845,7 @@ static struct ieee802154_ops at86rf212_ops = {
- 	.set_txpower = at86rf212_set_txpower,
- 	.set_lbt = at86rf212_set_lbt,
- 	.set_cca_mode = at86rf212_set_cca_mode,
-+	.set_cca_ed_level = at86rf212_set_cca_ed_level,
+@@ -772,6 +796,7 @@ static struct ieee802154_ops at86rf212_ops = {
+ 	.start = at86rf230_start,
+ 	.stop = at86rf230_stop,
+ 	.set_hw_addr_filt = at86rf230_set_hw_addr_filt,
++	.set_txpower = at86rf212_set_txpower,
  };
  
  static void at86rf230_irqwork(struct work_struct *work)
 diff --git a/include/linux/nl802154.h b/include/linux/nl802154.h
-index 5edefc1..0594a0a 100644
+index fd4f2d1..625d19e 100644
 --- a/include/linux/nl802154.h
 +++ b/include/linux/nl802154.h
-@@ -73,6 +73,7 @@ enum {
- 	IEEE802154_ATTR_TXPOWER,
- 	IEEE802154_ATTR_LBT_ENABLED,
- 	IEEE802154_ATTR_CCA_MODE,
-+	IEEE802154_ATTR_CCA_ED_LEVEL,
+@@ -70,6 +70,8 @@ enum {
+ 	IEEE802154_ATTR_PHY_NAME,
+ 	IEEE802154_ATTR_DEV_TYPE,
  
++	IEEE802154_ATTR_TXPOWER,
++
  	__IEEE802154_ATTR_MAX,
  };
+ 
+@@ -122,6 +124,8 @@ enum {
+ 	IEEE802154_ADD_IFACE,
+ 	IEEE802154_DEL_IFACE,
+ 
++	IEEE802154_SET_PHYPARAMS,
++
+ 	__IEEE802154_CMD_MAX,
+ };
+ 
 diff --git a/include/net/mac802154.h b/include/net/mac802154.h
-index 1a98e50..15fe6bc 100644
+index 807d6b7..8bd2785 100644
 --- a/include/net/mac802154.h
 +++ b/include/net/mac802154.h
-@@ -126,6 +126,11 @@ struct ieee802154_dev {
-  * set_cca_mode
-  *	  Sets the CCA mode used by the device. Called with pib_lock held.
+@@ -113,6 +113,10 @@ struct ieee802154_dev {
+  *	  Set radio for listening on specific address.
+  *	  Set the device for listening on specified address.
   *	  Returns either zero, or negative errno.
 + *
-+ * set_cca_ed_level
-+ *	  Sets the CCA energy detection threshold in dBm. Called with pib_lock
-+ *	  held.
++ * set_txpower:
++ *	  Set radio transmit power in dB. Called with pib_lock held.
 + *	  Returns either zero, or negative errno.
   */
  struct ieee802154_ops {
  	struct module	*owner;
-@@ -145,6 +150,8 @@ struct ieee802154_ops {
- 	int		(*set_txpower)(struct ieee802154_dev *dev, int db);
- 	int		(*set_lbt)(struct ieee802154_dev *dev, bool on);
- 	int		(*set_cca_mode)(struct ieee802154_dev *dev, u8 mode);
-+	int		(*set_cca_ed_level)(struct ieee802154_dev *dev,
-+					    s32 level);
+@@ -129,6 +133,7 @@ struct ieee802154_ops {
+ 					    unsigned long changed);
+ 	int		(*ieee_addr)(struct ieee802154_dev *dev,
+ 				     u8 addr[IEEE802154_ADDR_LEN]);
++	int		(*set_txpower)(struct ieee802154_dev *dev, int db);
  };
  
  /* Basic interface to register ieee802154 device */
 diff --git a/include/net/wpan-phy.h b/include/net/wpan-phy.h
-index 03b5905..0b570ad 100644
+index b52bda8..47fc0c1 100644
 --- a/include/net/wpan-phy.h
 +++ b/include/net/wpan-phy.h
-@@ -48,6 +48,7 @@ struct wpan_phy {
+@@ -37,14 +37,14 @@ struct wpan_phy {
+ 	struct mutex pib_lock;
+ 
+ 	/*
+-	 * This is a PIB according to 802.15.4-2006.
++	 * This is a PIB according to 802.15.4-2011.
+ 	 * We do not provide timing-related variables, as they
+ 	 * aren't used outside of driver
+ 	 */
+ 	u8 current_channel;
+ 	u8 current_page;
+ 	u32 channels_supported[32];
+-	u8 transmit_power;
++	s8 transmit_power;
  	u8 cca_mode;
  
- 	bool lbt;
-+	s32 cca_ed_level;
- 
  	struct device dev;
- 	int idx;
-@@ -59,6 +60,7 @@ struct wpan_phy {
- 	int (*set_txpower)(struct wpan_phy *phy, int db);
- 	int (*set_lbt)(struct wpan_phy *phy, bool on);
- 	int (*set_cca_mode)(struct wpan_phy *phy, u8 cca_mode);
-+	int (*set_cca_ed_level)(struct wpan_phy *phy, int level);
+@@ -54,6 +54,8 @@ struct wpan_phy {
+ 					const char *name, int type);
+ 	void (*del_iface)(struct wpan_phy *phy, struct net_device *dev);
  
++	int (*set_txpower)(struct wpan_phy *phy, int db);
++
  	char priv[0] __attribute__((__aligned__(NETDEV_ALIGN)));
  };
+ 
+diff --git a/net/ieee802154/ieee802154.h b/net/ieee802154/ieee802154.h
+index cee4425..6cbc896 100644
+--- a/net/ieee802154/ieee802154.h
++++ b/net/ieee802154/ieee802154.h
+@@ -53,6 +53,7 @@ int ieee802154_list_phy(struct sk_buff *skb, struct genl_info *info);
+ int ieee802154_dump_phy(struct sk_buff *skb, struct netlink_callback *cb);
+ int ieee802154_add_iface(struct sk_buff *skb, struct genl_info *info);
+ int ieee802154_del_iface(struct sk_buff *skb, struct genl_info *info);
++int ieee802154_set_phyparams(struct sk_buff *skb, struct genl_info *info);
+ 
+ enum ieee802154_mcgrp_ids {
+ 	IEEE802154_COORD_MCGRP,
+diff --git a/net/ieee802154/netlink.c b/net/ieee802154/netlink.c
+index 43f1b2b..67c151b 100644
+--- a/net/ieee802154/netlink.c
++++ b/net/ieee802154/netlink.c
+@@ -115,6 +115,7 @@ static const struct genl_ops ieee8021154_ops[] = {
+ 			ieee802154_dump_phy),
+ 	IEEE802154_OP(IEEE802154_ADD_IFACE, ieee802154_add_iface),
+ 	IEEE802154_OP(IEEE802154_DEL_IFACE, ieee802154_del_iface),
++	IEEE802154_OP(IEEE802154_SET_PHYPARAMS, ieee802154_set_phyparams),
+ 	/* see nl-mac.c */
+ 	IEEE802154_OP(IEEE802154_ASSOCIATE_REQ, ieee802154_associate_req),
+ 	IEEE802154_OP(IEEE802154_ASSOCIATE_RESP, ieee802154_associate_resp),
 diff --git a/net/ieee802154/nl-phy.c b/net/ieee802154/nl-phy.c
-index 026b21a..23365fa 100644
+index 89b265a..d3ee62f 100644
 --- a/net/ieee802154/nl-phy.c
 +++ b/net/ieee802154/nl-phy.c
-@@ -58,7 +58,8 @@ static int ieee802154_nl_fill_phy(struct sk_buff *msg, u32 portid,
- 	    nla_put_u8(msg, IEEE802154_ATTR_CHANNEL, phy->current_channel) ||
- 	    nla_put_s8(msg, IEEE802154_ATTR_TXPOWER, phy->transmit_power) ||
- 	    nla_put_u8(msg, IEEE802154_ATTR_LBT_ENABLED, phy->lbt) ||
--	    nla_put_u8(msg, IEEE802154_ATTR_CCA_MODE, phy->cca_mode))
-+	    nla_put_u8(msg, IEEE802154_ATTR_CCA_MODE, phy->cca_mode) ||
-+	    nla_put_s32(msg, IEEE802154_ATTR_CCA_ED_LEVEL, phy->cca_ed_level))
+@@ -55,7 +55,8 @@ static int ieee802154_nl_fill_phy(struct sk_buff *msg, u32 portid,
+ 	mutex_lock(&phy->pib_lock);
+ 	if (nla_put_string(msg, IEEE802154_ATTR_PHY_NAME, wpan_phy_name(phy)) ||
+ 	    nla_put_u8(msg, IEEE802154_ATTR_PAGE, phy->current_page) ||
+-	    nla_put_u8(msg, IEEE802154_ATTR_CHANNEL, phy->current_channel))
++	    nla_put_u8(msg, IEEE802154_ATTR_CHANNEL, phy->current_channel) ||
++	    nla_put_s8(msg, IEEE802154_ATTR_TXPOWER, phy->transmit_power))
  		goto nla_put_failure;
  	for (i = 0; i < 32; i++) {
  		if (phy->channels_supported[i])
-@@ -403,6 +404,20 @@ static int phy_set_cca_mode(struct wpan_phy *phy, struct genl_info *info)
- 	return 0;
+@@ -354,3 +355,49 @@ out_dev:
+ 
+ 	return rc;
  }
- 
-+static int phy_set_cca_ed_level(struct wpan_phy *phy, struct genl_info *info)
++
++int ieee802154_set_phyparams(struct sk_buff *skb, struct genl_info *info)
 +{
-+	s32 level = nla_get_s32(info->attrs[IEEE802154_ATTR_CCA_ED_LEVEL]);
-+	int rc;
++	struct wpan_phy *phy;
++	const char *name;
++	int txpower;
++	int rc = -EINVAL;
 +
-+	rc = phy->set_cca_ed_level(phy, level);
-+	if (rc < 0)
-+		return rc;
++	pr_debug("%s\n", __func__);
 +
-+	phy->cca_ed_level = level;
++	if (!info->attrs[IEEE802154_ATTR_PHY_NAME])
++		return -EINVAL;
 +
-+	return 0;
-+}
++	name = nla_data(info->attrs[IEEE802154_ATTR_PHY_NAME]);
++	if (name[nla_len(info->attrs[IEEE802154_ATTR_PHY_NAME]) - 1] != '\0')
++		return -EINVAL; /* phy name should be null-terminated */
 +
- int ieee802154_set_phyparams(struct sk_buff *skb, struct genl_info *info)
- {
- 	struct wpan_phy *phy;
-@@ -413,7 +428,8 @@ int ieee802154_set_phyparams(struct sk_buff *skb, struct genl_info *info)
- 
- 	if (!info->attrs[IEEE802154_ATTR_PHY_NAME] &&
- 		!info->attrs[IEEE802154_ATTR_LBT_ENABLED] &&
--		!info->attrs[IEEE802154_ATTR_CCA_MODE])
-+		!info->attrs[IEEE802154_ATTR_CCA_MODE] &&
-+		!info->attrs[IEEE802154_ATTR_CCA_ED_LEVEL])
- 		return -EINVAL;
- 
- 	name = nla_data(info->attrs[IEEE802154_ATTR_PHY_NAME]);
-@@ -426,7 +442,9 @@ int ieee802154_set_phyparams(struct sk_buff *skb, struct genl_info *info)
- 
- 	if ((!phy->set_txpower && info->attrs[IEEE802154_ATTR_TXPOWER]) ||
- 		(!phy->set_lbt && info->attrs[IEEE802154_ATTR_LBT_ENABLED]) ||
--		(!phy->set_cca_mode && info->attrs[IEEE802154_ATTR_CCA_MODE]))
-+		(!phy->set_cca_mode && info->attrs[IEEE802154_ATTR_CCA_MODE]) ||
-+		(!phy->set_cca_ed_level &&
-+			info->attrs[IEEE802154_ATTR_CCA_ED_LEVEL]))
- 		goto out;
- 
- 	mutex_lock(&phy->pib_lock);
-@@ -449,6 +467,12 @@ int ieee802154_set_phyparams(struct sk_buff *skb, struct genl_info *info)
- 			goto error;
- 	}
- 
-+	if (info->attrs[IEEE802154_ATTR_CCA_ED_LEVEL]) {
-+		rc = phy_set_cca_ed_level(phy, info);
-+		if (rc < 0)
-+			goto error;
++	txpower = nla_get_s8(info->attrs[IEEE802154_ATTR_TXPOWER]);
++
++	phy = wpan_phy_find(name);
++	if (!phy)
++		return -ENODEV;
++
++	if (!phy->set_txpower)
++		goto out;
++
++	mutex_lock(&phy->pib_lock);
++
++	rc = phy->set_txpower(phy, txpower);
++	if (rc < 0) {
++		mutex_unlock(&phy->pib_lock);
++		goto out;
 +	}
 +
- 	mutex_unlock(&phy->pib_lock);
- 
- 	wpan_phy_put(phy);
++	phy->transmit_power = txpower;
++
++	mutex_unlock(&phy->pib_lock);
++
++	wpan_phy_put(phy);
++
++	return 0;
++
++out:
++	wpan_phy_put(phy);
++	return rc;
++}
 diff --git a/net/ieee802154/nl_policy.c b/net/ieee802154/nl_policy.c
-index d87c2c9..55b5616 100644
+index 6adda4d..90b1d0d 100644
 --- a/net/ieee802154/nl_policy.c
 +++ b/net/ieee802154/nl_policy.c
-@@ -56,5 +56,6 @@ const struct nla_policy ieee802154_policy[IEEE802154_ATTR_MAX + 1] = {
- 	[IEEE802154_ATTR_TXPOWER] = { .type = NLA_S8, },
- 	[IEEE802154_ATTR_LBT_ENABLED] = { .type = NLA_U8, },
- 	[IEEE802154_ATTR_CCA_MODE] = { .type = NLA_U8, },
-+	[IEEE802154_ATTR_CCA_ED_LEVEL] = { .type = NLA_S32, },
+@@ -52,5 +52,7 @@ const struct nla_policy ieee802154_policy[IEEE802154_ATTR_MAX + 1] = {
+ 	[IEEE802154_ATTR_DURATION] = { .type = NLA_U8, },
+ 	[IEEE802154_ATTR_ED_LIST] = { .len = 27 },
+ 	[IEEE802154_ATTR_CHANNEL_PAGE_LIST] = { .len = 32 * 4, },
++
++	[IEEE802154_ATTR_TXPOWER] = { .type = NLA_S8, },
  };
  
+diff --git a/net/ieee802154/wpan-class.c b/net/ieee802154/wpan-class.c
+index 4dd3761..8d6f670 100644
+--- a/net/ieee802154/wpan-class.c
++++ b/net/ieee802154/wpan-class.c
+@@ -44,9 +44,7 @@ static DEVICE_ATTR_RO(name);
+ 
+ MASTER_SHOW(current_channel, "%d");
+ MASTER_SHOW(current_page, "%d");
+-MASTER_SHOW_COMPLEX(transmit_power, "%d +- %d dB",
+-	((signed char) (phy->transmit_power << 2)) >> 2,
+-	(phy->transmit_power >> 6) ? (phy->transmit_power >> 6) * 3 : 1);
++MASTER_SHOW(transmit_power, "%d +- 1 dB");
+ MASTER_SHOW(cca_mode, "%d");
+ 
+ static ssize_t channels_supported_show(struct device *dev,
 diff --git a/net/mac802154/ieee802154_dev.c b/net/mac802154/ieee802154_dev.c
-index 4965e4c..4707f36 100644
+index 52ae664..9eb49e0 100644
 --- a/net/mac802154/ieee802154_dev.c
 +++ b/net/mac802154/ieee802154_dev.c
-@@ -195,6 +195,16 @@ static int mac802154_set_cca_mode(struct wpan_phy *phy, u8 mode)
- 	return priv->ops->set_cca_mode(&priv->hw, mode);
+@@ -165,6 +165,16 @@ err:
+ 	return ERR_PTR(err);
  }
  
-+static int mac802154_set_cca_ed_level(struct wpan_phy *phy, s32 level)
++static int mac802154_set_txpower(struct wpan_phy *phy, int db)
 +{
 +	struct mac802154_priv *priv = wpan_phy_priv(phy);
 +
-+	if (!priv->ops->set_cca_ed_level)
++	if (!priv->ops->set_txpower)
 +		return -ENOTSUPP;
 +
-+	return priv->ops->set_cca_ed_level(&priv->hw, level);
++	return priv->ops->set_txpower(&priv->hw, db);
 +}
 +
  struct ieee802154_dev *
  ieee802154_alloc_device(size_t priv_data_len, struct ieee802154_ops *ops)
  {
-@@ -275,6 +285,7 @@ int ieee802154_register_device(struct ieee802154_dev *dev)
- 	priv->phy->set_txpower = mac802154_set_txpower;
- 	priv->phy->set_lbt = mac802154_set_lbt;
- 	priv->phy->set_cca_mode = mac802154_set_cca_mode;
-+	priv->phy->set_cca_ed_level = mac802154_set_cca_ed_level;
+@@ -242,6 +252,7 @@ int ieee802154_register_device(struct ieee802154_dev *dev)
+ 
+ 	priv->phy->add_iface = mac802154_add_iface;
+ 	priv->phy->del_iface = mac802154_del_iface;
++	priv->phy->set_txpower = mac802154_set_txpower;
  
  	rc = wpan_phy_register(priv->phy);
  	if (rc < 0)
