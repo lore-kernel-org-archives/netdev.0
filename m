@@ -1,30 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net-sysfs: get_netdev_queue_index() cleanup
-Date: Fri, 14 Feb 2014 15:47:01 -0500 (EST)
-Message-ID: <20140214.154701.204137326352984674.davem@davemloft.net>
-References: <1392314833.1752.30.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH Resend] net: asix: add missing flag to struct
+ driver_info
+Date: Fri, 14 Feb 2014 15:48:53 -0500 (EST)
+Message-ID: <20140214.154853.1291869116525546930.davem@davemloft.net>
+References: <1392316239-17335-1-git-send-email-emilgoode@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37775 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751538AbaBNUrE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 15:47:04 -0500
-In-Reply-To: <1392314833.1752.30.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ming.lei@canonical.com, broonie@linaro.org,
+	jeffrey.t.kirsher@intel.com, gdt@gdt.id.au,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: emilgoode@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1392316239-17335-1-git-send-email-emilgoode@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 13 Feb 2014 10:07:13 -0800
+=46rom: Emil Goode <emilgoode@gmail.com>
+Date: Thu, 13 Feb 2014 19:30:39 +0100
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Remove one inline keyword, and no need for a loop to find
-> an index into a table.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> The struct driver_info ax88178_info is assigned the function
+> asix_rx_fixup_common as it's rx_fixup callback. This means that
+> FLAG_MULTI_PACKET must be set as this function is cloning the
+> data and calling usbnet_skb_return. Not setting this flag leads
+> to usbnet_skb_return beeing called a second time from within
+> the rx_process function in the usbnet module.
+>=20
+> Signed-off-by: Emil Goode <emilgoode@gmail.com>
+> Reported-by: Bj=F8rn Mork <bjorn@mork.no>
 
-Applied, thanks Eric.
+Applied and queued up for -stable.
+
+It would be great if there were some way to validate these
+callback flags requirements and catch such errors.
