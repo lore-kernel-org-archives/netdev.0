@@ -1,241 +1,75 @@
-From: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
-Subject: [PATCH V3 net-next 2/5] xen-netback: Add support for
-	multiple queues
-Date: Fri, 14 Feb 2014 17:35:50 +0000
-Message-ID: <1392399353-11973-3-git-send-email-andrew.bennieston@citrix.com>
-References: <1392399353-11973-1-git-send-email-andrew.bennieston@citrix.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [RFC PATCH v2 tip 0/7] 64-bit BPF insn set and tracing filters
+Date: Fri, 14 Feb 2014 09:55:38 -0800
+Message-ID: <CAMEtUuyZtE1hSBP5xXOjTy1sed2iV1JK8pEGQATiwmxsj+GUFw@mail.gmail.com>
+References: <1391649046-4383-1-git-send-email-ast@plumgrid.com>
+	<52F3670D.5090608@redhat.com>
+	<CAMEtUuza3NuM7L0RnVVgU-MTfjE2M==8wb4UY2TAo0Pg6DKZqA@mail.gmail.com>
+	<52FD2908.8000009@redhat.com>
+	<52FD458D.6020107@redhat.com>
+	<CAMEtUuwfSYr=7+_8jKryUMUTL1NE-wRV_h=PX7uKdkUebgGiPg@mail.gmail.com>
+	<52FE4C0C.1090008@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>,
-	netdev@vger.kernel.org, paul.durrant@citrix.com,
-	wei.liu2@citrix.com, ian.campbell@citrix.com
-To: <xen-devel@lists.xenproject.org>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1392399353-11973-1-git-send-email-andrew.bennieston@citrix.com>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Ingo Molnar <mingo@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	Tom Zanussi <tom.zanussi@linux.intel.com>,
+	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Pekka Enberg <penberg@iki.fi>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52FE4C0C.1090008@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
+On Fri, Feb 14, 2014 at 9:02 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> On 02/14/2014 01:59 AM, Alexei Starovoitov wrote:
+> ...
+>>>
+>>> I'm very curious, do you also have any performance numbers, e.g. for
+>>>
+>>> networking by taking JIT'ed/non-JIT'ed BPF filters and compare them
+>>> against
+>>> JIT'ed/non-JIT'ed eBPF filters to see how many pps we gain or loose e.g.
+>>> for a scenario with a middle box running cls_bpf .. or some other macro/
+>>> micro benchmark just to get a picture where both stand in terms of
+>>> performance? Who knows, maybe it would outperform nftables engine as
+>>> well? ;-) How would that look on a 32bit arch with eBPF that is 64bit?
+>>
+>>
+>> I don't have jited/non-jited numbers, but I suspect for micro-benchmarks
+>> the gap should be big. I was shooting for near native performance after
+>> JIT.
+>
+>
+> Ohh, I meant it would be interesting to see a comparison of e.g. common
+> libpcap
+> high-level filters that are in 32bit BPF + JIT (current code) vs 64bit BPF +
+> JIT
+> (new code). I'm wondering how 32bit-only archs should be handled to not
+> regress
+> in evaluation performance to the current code.
 
-Builds on the refactoring of the previous patch to implement multiple
-queues between xen-netfront and xen-netback.
+Agreed. If we want to rip off old bpf interpreter and replace it with old->new
+converter + new bpf interpreter, the performance of it should be very close.
+In grand scheme some differences are ok, since libpcap bpf filters are not hot.
+So much is happening before and after that tcpdump won't notice whether
+filter was jited or not. cls_bpf is a different story, though I don't know what
+specific use case you have there.
+Could you define a bpf micro benchmark ? cls_bpf with pktgen?
 
-Writes the maximum supported number of queues into XenStore, and reads
-the values written by the frontend to determine how many queues to use.
-
-Ring references and event channels are read from XenStore on a per-queue
-basis and rings are connected accordingly.
-
-Signed-off-by: Andrew J. Bennieston <andrew.bennieston@citrix.com>
----
- drivers/net/xen-netback/common.h    |    2 +
- drivers/net/xen-netback/interface.c |    7 +++-
- drivers/net/xen-netback/netback.c   |    6 +++
- drivers/net/xen-netback/xenbus.c    |   76 ++++++++++++++++++++++++++++++-----
- 4 files changed, 80 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index 2550867..8180929 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -261,4 +261,6 @@ void xenvif_carrier_on(struct xenvif *vif);
- 
- extern bool separate_tx_rx_irq;
- 
-+extern unsigned int xenvif_max_queues;
-+
- #endif /* __XEN_NETBACK__COMMON_H__ */
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index daf93f6..bc7a82d 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -373,7 +373,12 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
- 	char name[IFNAMSIZ] = {};
- 
- 	snprintf(name, IFNAMSIZ - 1, "vif%u.%u", domid, handle);
--	dev = alloc_netdev_mq(sizeof(struct xenvif), name, ether_setup, 1);
-+	/* Allocate a netdev with the max. supported number of queues.
-+	 * When the guest selects the desired number, it will be updated
-+	 * via netif_set_real_num_tx_queues().
-+	 */
-+	dev = alloc_netdev_mq(sizeof(struct xenvif), name, ether_setup,
-+			      xenvif_max_queues);
- 	if (dev == NULL) {
- 		pr_warn("Could not allocate netdev for %s\n", name);
- 		return ERR_PTR(-ENOMEM);
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 46b2f5b..aeb5ffa 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -54,6 +54,9 @@
- bool separate_tx_rx_irq = 1;
- module_param(separate_tx_rx_irq, bool, 0644);
- 
-+unsigned int xenvif_max_queues;
-+module_param(xenvif_max_queues, uint, 0644);
-+
- /*
-  * This is the maximum slots a skb can have. If a guest sends a skb
-  * which exceeds this limit it is considered malicious.
-@@ -1585,6 +1588,9 @@ static int __init netback_init(void)
- 	if (!xen_domain())
- 		return -ENODEV;
- 
-+	/* Allow as many queues as there are CPUs, by default */
-+	xenvif_max_queues = num_online_cpus();
-+
- 	if (fatal_skb_slots < XEN_NETBK_LEGACY_SLOTS_MAX) {
- 		pr_info("fatal_skb_slots too small (%d), bump it to XEN_NETBK_LEGACY_SLOTS_MAX (%d)\n",
- 			fatal_skb_slots, XEN_NETBK_LEGACY_SLOTS_MAX);
-diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-index f23ea0a..d11f51e 100644
---- a/drivers/net/xen-netback/xenbus.c
-+++ b/drivers/net/xen-netback/xenbus.c
-@@ -20,6 +20,7 @@
- 
- #include "common.h"
- #include <linux/vmalloc.h>
-+#include <linux/rtnetlink.h>
- 
- struct backend_info {
- 	struct xenbus_device *dev;
-@@ -159,6 +160,12 @@ static int netback_probe(struct xenbus_device *dev,
- 	if (err)
- 		pr_debug("Error writing feature-split-event-channels\n");
- 
-+	/* Multi-queue support: This is an optional feature. */
-+	err = xenbus_printf(XBT_NIL, dev->nodename,
-+			"multi-queue-max-queues", "%u", xenvif_max_queues);
-+	if (err)
-+		pr_debug("Error writing multi-queue-max-queues\n");
-+
- 	err = xenbus_switch_state(dev, XenbusStateInitWait);
- 	if (err)
- 		goto fail;
-@@ -490,6 +497,23 @@ static void connect(struct backend_info *be)
- 	unsigned long credit_bytes, credit_usec;
- 	unsigned int queue_index;
- 	struct xenvif_queue *queue;
-+	unsigned int requested_num_queues;
-+
-+	/* Check whether the frontend requested multiple queues
-+	 * and read the number requested.
-+	 */
-+	err = xenbus_scanf(XBT_NIL, dev->otherend,
-+			"multi-queue-num-queues",
-+			"%u", &requested_num_queues);
-+	if (err < 0) {
-+		requested_num_queues = 1; /* Fall back to single queue */
-+	} else if (requested_num_queues > xenvif_max_queues) {
-+		/* buggy or malicious guest */
-+		xenbus_dev_fatal(dev, err,
-+			"guest requested %u queues, exceeding the maximum of %u.",
-+			requested_num_queues, xenvif_max_queues);
-+		return;
-+	}
- 
- 	err = xen_net_read_mac(dev, be->vif->fe_dev_addr);
- 	if (err) {
-@@ -500,9 +524,13 @@ static void connect(struct backend_info *be)
- 	xen_net_read_rate(dev, &credit_bytes, &credit_usec);
- 	read_xenbus_vif_flags(be);
- 
--	be->vif->num_queues = 1;
-+	/* Use the number of queues requested by the frontend */
-+	be->vif->num_queues = requested_num_queues;
- 	be->vif->queues = vzalloc(be->vif->num_queues *
- 			sizeof(struct xenvif_queue));
-+	rtnl_lock();
-+	netif_set_real_num_tx_queues(be->vif->dev, be->vif->num_queues);
-+	rtnl_unlock();
- 
- 	for (queue_index = 0; queue_index < be->vif->num_queues; ++queue_index) {
- 		queue = &be->vif->queues[queue_index];
-@@ -547,29 +575,52 @@ static int connect_rings(struct backend_info *be, struct xenvif_queue *queue)
- 	unsigned long tx_ring_ref, rx_ring_ref;
- 	unsigned int tx_evtchn, rx_evtchn;
- 	int err;
-+	char *xspath = NULL;
-+	size_t xspathsize;
-+	const size_t xenstore_path_ext_size = 11; /* sufficient for "/queue-NNN" */
-+
-+	/* If the frontend requested 1 queue, or we have fallen back
-+	 * to single queue due to lack of frontend support for multi-
-+	 * queue, expect the remaining XenStore keys in the toplevel
-+	 * directory. Otherwise, expect them in a subdirectory called
-+	 * queue-N.
-+	 */
-+	if (queue->vif->num_queues == 1) {
-+		xspath = (char *)dev->otherend;
-+	} else {
-+		xspathsize = strlen(dev->otherend) + xenstore_path_ext_size;
-+		xspath = kzalloc(xspathsize, GFP_KERNEL);
-+		if (!xspath) {
-+			xenbus_dev_fatal(dev, -ENOMEM,
-+					"reading ring references");
-+			return -ENOMEM;
-+		}
-+		snprintf(xspath, xspathsize, "%s/queue-%u", dev->otherend,
-+				 queue->id);
-+	}
- 
--	err = xenbus_gather(XBT_NIL, dev->otherend,
-+	err = xenbus_gather(XBT_NIL, xspath,
- 			    "tx-ring-ref", "%lu", &tx_ring_ref,
- 			    "rx-ring-ref", "%lu", &rx_ring_ref, NULL);
- 	if (err) {
- 		xenbus_dev_fatal(dev, err,
- 				 "reading %s/ring-ref",
--				 dev->otherend);
--		return err;
-+				 xspath);
-+		goto err;
- 	}
- 
- 	/* Try split event channels first, then single event channel. */
--	err = xenbus_gather(XBT_NIL, dev->otherend,
-+	err = xenbus_gather(XBT_NIL, xspath,
- 			    "event-channel-tx", "%u", &tx_evtchn,
- 			    "event-channel-rx", "%u", &rx_evtchn, NULL);
- 	if (err < 0) {
--		err = xenbus_scanf(XBT_NIL, dev->otherend,
-+		err = xenbus_scanf(XBT_NIL, xspath,
- 				   "event-channel", "%u", &tx_evtchn);
- 		if (err < 0) {
- 			xenbus_dev_fatal(dev, err,
- 					 "reading %s/event-channel(-tx/rx)",
--					 dev->otherend);
--			return err;
-+					 xspath);
-+			goto err;
- 		}
- 		rx_evtchn = tx_evtchn;
- 	}
-@@ -582,10 +633,15 @@ static int connect_rings(struct backend_info *be, struct xenvif_queue *queue)
- 				 "mapping shared-frames %lu/%lu port tx %u rx %u",
- 				 tx_ring_ref, rx_ring_ref,
- 				 tx_evtchn, rx_evtchn);
--		return err;
-+		goto err;
- 	}
- 
--	return 0;
-+	err = 0;
-+err: /* Regular return falls through with err == 0 */
-+	if (xspath != dev->otherend)
-+		kfree(xspath);
-+
-+	return err;
- }
- 
- static int read_xenbus_vif_flags(struct backend_info *be)
--- 
-1.7.10.4
+Thanks
+Alexei
