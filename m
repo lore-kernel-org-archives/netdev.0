@@ -1,90 +1,104 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 13/14] i40e: Change MSIX to MSI-X
-Date: Fri, 14 Feb 2014 14:58:07 -0800
-Message-ID: <1392418688-23895-14-git-send-email-aaron.f.brown@intel.com>
+Subject: [net-next 12/14] i40e: tighten up ring enable/disable flow
+Date: Fri, 14 Feb 2014 14:58:06 -0800
+Message-ID: <1392418688-23895-13-git-send-email-aaron.f.brown@intel.com>
 References: <1392418688-23895-1-git-send-email-aaron.f.brown@intel.com>
-Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Aaron Brown <aaron.f.brown@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:50864 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:23819 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753214AbaBNXB1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753204AbaBNXB1 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 14 Feb 2014 18:01:27 -0500
 In-Reply-To: <1392418688-23895-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Catherine Sullivan <catherine.sullivan@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Fix inconsistent use of MSIX and MSI-X in messages.
+Change the do/while to a for loop, so we don't hit the delay each
+time, even when the register is ready for action.
+Don't bother to set or clear the QENA_STAT bit as it is
+read-only.
 
-Change-ID: Iae9ffb42819677c34544719044ed77632e06147d
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Change-ID: Ie464718804dd79f6d726f291caa9b0c872b49978
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 9 +++++----
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 3 ++-
- 2 files changed, 7 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 32 ++++++++++++++---------------
+ 1 file changed, 15 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 4a19073..7562af7 100644
+index 628e917..4a19073 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5946,7 +5946,7 @@ static int i40e_init_msix(struct i40e_pf *pf)
+@@ -3108,13 +3108,13 @@ static int i40e_vsi_control_tx(struct i40e_vsi *vsi, bool enable)
  
- 	} else if (vec == I40E_MIN_MSIX) {
- 		/* Adjust for minimal MSIX use */
--		dev_info(&pf->pdev->dev, "Features disabled, not enough MSIX vectors\n");
-+		dev_info(&pf->pdev->dev, "Features disabled, not enough MSI-X vectors\n");
- 		pf->flags &= ~I40E_FLAG_VMDQ_ENABLED;
- 		pf->num_vmdq_vsis = 0;
- 		pf->num_vmdq_qps = 0;
-@@ -6075,7 +6075,7 @@ static void i40e_init_interrupt_scheme(struct i40e_pf *pf)
- 
- 	if (!(pf->flags & I40E_FLAG_MSIX_ENABLED) &&
- 	    (pf->flags & I40E_FLAG_MSI_ENABLED)) {
--		dev_info(&pf->pdev->dev, "MSIX not available, trying MSI\n");
-+		dev_info(&pf->pdev->dev, "MSI-X not available, trying MSI\n");
- 		err = pci_enable_msi(pf->pdev);
- 		if (err) {
- 			dev_info(&pf->pdev->dev, "MSI init failed - %d\n", err);
-@@ -6084,7 +6084,7 @@ static void i40e_init_interrupt_scheme(struct i40e_pf *pf)
- 	}
- 
- 	if (!(pf->flags & (I40E_FLAG_MSIX_ENABLED | I40E_FLAG_MSI_ENABLED)))
--		dev_info(&pf->pdev->dev, "MSIX and MSI not available, falling back to Legacy IRQ\n");
-+		dev_info(&pf->pdev->dev, "MSI-X and MSI not available, falling back to Legacy IRQ\n");
- 
- 	/* track first vector for misc interrupts */
- 	err = i40e_get_lump(pf, pf->irq_pile, 1, I40E_PILE_VALID_BIT-1);
-@@ -6111,7 +6111,8 @@ static int i40e_setup_misc_vector(struct i40e_pf *pf)
- 				  i40e_intr, 0, pf->misc_int_name, pf);
- 		if (err) {
- 			dev_info(&pf->pdev->dev,
--				 "request_irq for msix_misc failed: %d\n", err);
-+				 "request_irq for %s failed: %d\n",
-+				 pf->misc_int_name, err);
- 			return -EFAULT;
+ 	pf_q = vsi->base_queue;
+ 	for (i = 0; i < vsi->num_queue_pairs; i++, pf_q++) {
+-		j = 1000;
+-		do {
+-			usleep_range(1000, 2000);
++		for (j = 0; j < 50; j++) {
+ 			tx_reg = rd32(hw, I40E_QTX_ENA(pf_q));
+-		} while (j-- && ((tx_reg >> I40E_QTX_ENA_QENA_REQ_SHIFT)
+-			       ^ (tx_reg >> I40E_QTX_ENA_QENA_STAT_SHIFT)) & 1);
+-
++			if (((tx_reg >> I40E_QTX_ENA_QENA_REQ_SHIFT) & 1) ==
++			    ((tx_reg >> I40E_QTX_ENA_QENA_STAT_SHIFT) & 1))
++				break;
++			usleep_range(1000, 2000);
++		}
+ 		/* Skip if the queue is already in the requested state */
+ 		if (enable && (tx_reg & I40E_QTX_ENA_QENA_STAT_MASK))
+ 			continue;
+@@ -3124,8 +3124,7 @@ static int i40e_vsi_control_tx(struct i40e_vsi *vsi, bool enable)
+ 		/* turn on/off the queue */
+ 		if (enable) {
+ 			wr32(hw, I40E_QTX_HEAD(pf_q), 0);
+-			tx_reg |= I40E_QTX_ENA_QENA_REQ_MASK |
+-				  I40E_QTX_ENA_QENA_STAT_MASK;
++			tx_reg |= I40E_QTX_ENA_QENA_REQ_MASK;
+ 		} else {
+ 			tx_reg &= ~I40E_QTX_ENA_QENA_REQ_MASK;
  		}
- 	}
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 5bcbdcc..e0d2799 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -524,7 +524,8 @@ static int i40evf_request_misc_irq(struct i40evf_adapter *adapter)
- 			  adapter->misc_vector_name, netdev);
- 	if (err) {
- 		dev_err(&adapter->pdev->dev,
--			"request_irq for msix_aq failed: %d\n", err);
-+			"request_irq for %s failed: %d\n",
-+			adapter->misc_vector_name, err);
- 		free_irq(adapter->msix_entries[0].vector, netdev);
- 	}
- 	return err;
+@@ -3172,12 +3171,13 @@ static int i40e_vsi_control_rx(struct i40e_vsi *vsi, bool enable)
+ 
+ 	pf_q = vsi->base_queue;
+ 	for (i = 0; i < vsi->num_queue_pairs; i++, pf_q++) {
+-		j = 1000;
+-		do {
+-			usleep_range(1000, 2000);
++		for (j = 0; j < 50; j++) {
+ 			rx_reg = rd32(hw, I40E_QRX_ENA(pf_q));
+-		} while (j-- && ((rx_reg >> I40E_QRX_ENA_QENA_REQ_SHIFT)
+-			       ^ (rx_reg >> I40E_QRX_ENA_QENA_STAT_SHIFT)) & 1);
++			if (((rx_reg >> I40E_QRX_ENA_QENA_REQ_SHIFT) & 1) ==
++			    ((rx_reg >> I40E_QRX_ENA_QENA_STAT_SHIFT) & 1))
++				break;
++			usleep_range(1000, 2000);
++		}
+ 
+ 		if (enable) {
+ 			/* is STAT set ? */
+@@ -3191,11 +3191,9 @@ static int i40e_vsi_control_rx(struct i40e_vsi *vsi, bool enable)
+ 
+ 		/* turn on/off the queue */
+ 		if (enable)
+-			rx_reg |= I40E_QRX_ENA_QENA_REQ_MASK |
+-				  I40E_QRX_ENA_QENA_STAT_MASK;
++			rx_reg |= I40E_QRX_ENA_QENA_REQ_MASK;
+ 		else
+-			rx_reg &= ~(I40E_QRX_ENA_QENA_REQ_MASK |
+-				  I40E_QRX_ENA_QENA_STAT_MASK);
++			rx_reg &= ~I40E_QRX_ENA_QENA_REQ_MASK;
+ 		wr32(hw, I40E_QRX_ENA(pf_q), rx_reg);
+ 
+ 		/* wait for the change to finish */
 -- 
 1.8.5.GIT
