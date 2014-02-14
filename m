@@ -1,97 +1,112 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH] bonding: 802.3ad: make aggregator_identifier bond-private
-Date: Fri, 14 Feb 2014 18:18:42 +0100
-Message-ID: <20140214171842.GB20303@redhat.com>
-References: <20140214171350.GC11688@midget.suse.cz>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [RFC PATCH v2 tip 0/7] 64-bit BPF insn set and tracing filters
+Date: Fri, 14 Feb 2014 18:27:05 +0100
+Message-ID: <52FE51E9.8000203@redhat.com>
+References: <1391649046-4383-1-git-send-email-ast@plumgrid.com> <52F3670D.5090608@redhat.com> <CAMEtUuza3NuM7L0RnVVgU-MTfjE2M==8wb4UY2TAo0Pg6DKZqA@mail.gmail.com> <52FD2908.8000009@redhat.com> <CAMEtUuySNdj4_YBxQtaGu3qJ6TZhp65mSBy7DbhzL_Lvn9YiPw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
-To: Jiri Bohac <jiri@boha.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39315 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751246AbaBNRSv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Feb 2014 12:18:51 -0500
-Content-Disposition: inline
-In-Reply-To: <20140214171350.GC11688@midget.suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	Tom Zanussi <tom.zanussi@linux.intel.com>,
+	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Pekka Enberg <penberg@iki.fi>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAMEtUuySNdj4_YBxQtaGu3qJ6TZhp65mSBy7DbhzL_Lvn9YiPw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 14, 2014 at 06:13:50PM +0100, Jiri Bohac wrote:
->aggregator_identifier is used to assign unique aggregator identifiers
->to aggregators of a bond during device enslaving.
+On 02/14/2014 05:47 AM, Alexei Starovoitov wrote:
+...
+>> Do you see a possibility to integrate your work step by step? That is,
 >
->aggregator_identifier is currently a global variable that is zeroed in
->bond_3ad_initialize().
+> Sure. let's see how we can do it.
 >
->This sequence will lead to duplicate aggregator identifiers for eth1 and eth3:
+>> to first integrate the interpreter part only; meaning, to detect "old"
+>> BPF programs e.g. coming from SO_ATTACH_FILTER et al and run them in
+>> compatibility mode while extended BPF is fully integrated and replaces
+>> the old engine in net/core/filter.c. Maybe, "old" programs can be
 >
->create bond0
->change bond0 mode to 802.3ad
->enslave eth0 to bond0 		//eth0 gets agg id 1
->enslave eth1 to bond0 		//eth1 gets agg id 2
->create bond1
->change bond1 mode to 802.3ad
->enslave eth2 to bond1		//aggregator_identifier is reset to 0
->				//eth2 gets agg id 1
->enslave eth3 to bond0 		//eth3 gets agg id 2
->
->Fix this by making aggregator_identifier private to the bond.
->
->Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+> do you mean drop bfp64_jit, checker and just have bpf32->bpf64 converter
+> and bpf64 interpreter as phase 1 ?
+> Checking is done by old bpf32,
+> all existing bpf32 jits, if available, can convert bpf32 to native,
+> but interpreter will be running on bpf64 ?
+> phase 2 to introduce bpf64_x86 jit and so on?
+> Sounds fine.
 
-Acked-by: Veaceslav Falico <vfalico@redhat.com>
+If that's possible, so first step would be to migrate bpf_run() from patch1
+into sk_run_filter() form net/core/filter.c, and also bring in related
+include file into include/linux/filter.h resp. include/uapi/linux/filter.h.
+Plus code that is needed to verify the image in new (and old) format e.g.
+bpf_load_image() et al, and to either convert old programs into the new
+format, for example; generally, to find a way to still handle them (bpf/seccomp)
+while having the new code included and leaving new JITs aside. That I think
+could be phase 1. Phase 2 would be to successively replace current JITs, etc.
 
->---
-> drivers/net/bonding/bond_3ad.c | 6 ++----
-> drivers/net/bonding/bond_3ad.h | 1 +
-> 2 files changed, 3 insertions(+), 4 deletions(-)
+> Today I didn't try to optimize bpf64 interpreter, since insn set is designed
+> for eventual JITing and interpreter is there to support archs that don't
+> have jit yet.
+> I guess I have to tweak it to perform at bpf32 interpreter speeds.
 >
->diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
->index 4ced594..dcf2ee8 100644
->--- a/drivers/net/bonding/bond_3ad.c
->+++ b/drivers/net/bonding/bond_3ad.c
->@@ -1806,8 +1806,6 @@ void bond_3ad_initiate_agg_selection(struct bonding *bond, int timeout)
-> 	BOND_AD_INFO(bond).agg_select_timer = timeout;
-> }
+>> transformed transparently to the new representation and then would be
+>> good to execute in eBPF. If possible, in such a way that in the first
+>> step JIT compilers won't need any upgrades. Once that is resolved,
+>> JIT compilers could successively migrate, arch by arch, to compile the
+>> new code? And last but not least the existing tools as well for handling
+>> eBPF. I think, if possible, that would be great. Also, I unfortunately
+>> haven't looked into your code too deeply yet due to time constraints,
+>> but I'm wondering e.g. for accessing some skb fields we currently use
+>> the "hack" to "overload" load instructions with negative arguments. Do
+>> we have a sort of "meta" instruction that is extendible in eBPF to avoid
+>> such things in future?
 >
->-static u16 aggregator_identifier;
->-
-> /**
->  * bond_3ad_initialize - initialize a bond's 802.3ad parameters and structures
->  * @bond: bonding struct to work on
->@@ -1821,7 +1819,7 @@ void bond_3ad_initialize(struct bonding *bond, u16 tick_resolution)
-> 	if (MAC_ADDRESS_COMPARE(&(BOND_AD_INFO(bond).system.sys_mac_addr),
-> 				bond->dev->dev_addr)) {
+> Exactly.
+> This 'negative offset' hack of bpf32 isn't very clean, since jits for all archs
+> need to change when new offsets added.
+> For bpf64 I'm proposing a customizable 'bpf_context' and variable set
+> of bpf-callable functions, so JITs don't need to change and verifier
+> stays the same.
+> That's the idea behind 'bpf_callbacks' in include/linux/bpf_jit.h
 >
->-		aggregator_identifier = 0;
->+		BOND_AD_INFO(bond).aggregator_identifier = 0;
+> Some meta data makes sense to pass as input into bpf program.
+> Like for seccomp 'bpf_context' can be 'struct seccomp_data'
 >
-> 		BOND_AD_INFO(bond).system.sys_priority = 0xFFFF;
-> 		BOND_AD_INFO(bond).system.sys_mac_addr = *((struct mac_addr *)bond->dev->dev_addr);
->@@ -1892,7 +1890,7 @@ int bond_3ad_bind_slave(struct slave *slave)
-> 		ad_initialize_agg(aggregator);
+> For networking, bpf_context can be 'skb',
+> then bpf_s_anc_protocol becomes a normal 2-byte bpf64 load
+> from skb->protocol field. Allowing access to other fields of skb
+> is just a matter of defining permissions of 'struct bpf_context' in
+> bpf_callback->get_context_access()
 >
-> 		aggregator->aggregator_mac_address = *((struct mac_addr *)bond->dev->dev_addr);
->-		aggregator->aggregator_identifier = (++aggregator_identifier);
->+		aggregator->aggregator_identifier = ++BOND_AD_INFO(bond).aggregator_identifier;
-> 		aggregator->slave = slave;
-> 		aggregator->is_active = 0;
-> 		aggregator->num_of_ports = 0;
->diff --git a/drivers/net/bonding/bond_3ad.h b/drivers/net/bonding/bond_3ad.h
->index 5d91ad0..1f081c8 100644
->--- a/drivers/net/bonding/bond_3ad.h
->+++ b/drivers/net/bonding/bond_3ad.h
->@@ -253,6 +253,7 @@ struct ad_system {
-> struct ad_bond_info {
-> 	struct ad_system system;	    /* 802.3ad system structure */
-> 	u32 agg_select_timer;	    // Timer to select aggregator after all adapter's hand shakes
->+	u16 aggregator_identifier;
-> };
+> Some other meta data and extensions are cleaner when defined
+> as function calls from bpf, since calls are free.
+> I think bpf_table_lookup() is a fundamental one that allows to define
+> arbitrary tables within bpf and access them from the program.
+> (here I need feedback the most whether to access tables
+> via netlink from userspace or via debugfs...)
 >
-> struct ad_slave_info {
+> It probably will be easier to read the code of bpf32-bpf64 converter
+> to understand the differences between the two.
+> I guess I have to start working on the converter sooner than I thought...
 >
->-- 
->Jiri Bohac
->e-mail/jabber: jiri@boha.cz
+> Thanks
+> Alexei
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
