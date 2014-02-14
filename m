@@ -1,62 +1,68 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 1/2] tipc: fix a loop style problem
-Date: Fri, 14 Feb 2014 16:40:43 -0500
-Message-ID: <1392414044-14326-2-git-send-email-jon.maloy@ericsson.com>
-References: <1392414044-14326-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
-To: davem@davemloft.net
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH] bonding: 802.3ad: make aggregator_identifier bond-private
+Date: Fri, 14 Feb 2014 19:48:37 -0200
+Message-ID: <20140214214837.GB3173@localhost.localdomain>
+References: <20140214171350.GC11688@midget.suse.cz>
+ <20140214191243.GA3173@localhost.localdomain>
+ <20140214205147.GA1798@midget.suse.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
+To: Jiri Bohac <jbohac@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:21118 "HELO
-	smtp104.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752778AbaBNVr7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 16:47:59 -0500
-In-Reply-To: <1392414044-14326-1-git-send-email-jon.maloy@ericsson.com>
+Received: from mx1.redhat.com ([209.132.183.28]:4125 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752774AbaBNVuI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Feb 2014 16:50:08 -0500
+Content-Disposition: inline
+In-Reply-To: <20140214205147.GA1798@midget.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In commit 7d33939f475d403e79124e3143d7951dcfe8629f
-("tipc: delay delete of link when failover is needed") we
-introduced a loop for finding and removing a link pointer
-in an array. The removal is done after we have left the loop,
-giving the impression that one may remove the wrong pointer
-if no matching element is found.
+On Fri, Feb 14, 2014 at 09:51:47PM +0100, Jiri Bohac wrote:
+> On Fri, Feb 14, 2014 at 05:12:43PM -0200, Flavio Leitner wrote:
+> > On Fri, Feb 14, 2014 at 06:13:50PM +0100, Jiri Bohac wrote:
+> > > Fix this by making aggregator_identifier private to the bond.
+> > 
+> > I don't see how you fix the duplicate agg id with this patch because
+> > you initialize for each bond to 0, then use the same algo further on.
+> > So, what is changing?
+> 
+> My understanding is that the aggregator identifier is used
+> internally by the bond and never appears anywhere in the LACP
+> traffic.
+> 
+> So having duplicate aggregator ids between two bonds on the same
+> machine does not matter. But it is a problem if two aggregators
+> in the same bond share the same id.
+> 
+> Is my understanding wrong?
 
-This is not really a bug, since we know that there will always
-be a matching element, but it looks wrong, and causes a smatch
-warning.
+No, I agree that having two agg id in the same bond is a problem
+while we can have the same agg id in different bonds.
 
-We fix this loop with this commit.
+> > Actually, aggregator_identifier is a global variable to make sure the
+> > counter is always increasing for new bonds.  So, the fix would be to
+> > not reset it to zero, isn't it?
+> 
+> I was considering this fix, but my concern was that the variable
+> (u16) would overflow sooner than it does now. It would take 2^16
+> enslavings on the machine, while with my patch you need 2^16
+> enslavings on a single bond.
+> 
+> Hypothetically, a rogue NET_ADMIN in one net namespace may cause
+> this overflow to break a bond in another nemespace.
 
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/node.c |   10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 833324b..8596880 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -252,12 +252,12 @@ void tipc_node_detach_link(struct tipc_node *n_ptr, struct tipc_link *l_ptr)
- 	int i;
+Well, I think it is easier to troubleshoot if you have one agg id
+regardless of bonding. Also, the id is visible in /proc and I
+recall to have seen a script using it somehow, but yeah you made a
+good point.
  
- 	for (i = 0; i < MAX_BEARERS; i++) {
--		if (l_ptr == n_ptr->links[i])
--			break;
-+		if (l_ptr != n_ptr->links[i])
-+			continue;
-+		n_ptr->links[i] = NULL;
-+		atomic_dec(&tipc_num_links);
-+		n_ptr->link_cnt--;
- 	}
--	n_ptr->links[i] = NULL;
--	atomic_dec(&tipc_num_links);
--	n_ptr->link_cnt--;
- }
- 
- static void node_established_contact(struct tipc_node *n_ptr)
--- 
-1.7.9.5
+> Maybe I'm being paranoid? ;)
+
+I will defer to bonding maintainer to decide. :P
+
+Thanks,
+fbl
