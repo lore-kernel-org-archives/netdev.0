@@ -1,66 +1,66 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v4 00/10] Support for the Broadcom GENET driver
-Date: Thu, 13 Feb 2014 15:42:53 -0800
-Message-ID: <CAGVrzcau3=oKrOJhRvbtkE8d_Ywhj=H4q-WbDcORww7NZJf_6A@mail.gmail.com>
-References: <1392334222-1089-1-git-send-email-f.fainelli@gmail.com>
- <20140213.183806.278183709549075615.davem@davemloft.net> <20140213.183914.1533527602267985176.davem@davemloft.net>
- <CAGVrzcaJJBspF6o_0+kWHwh4hs7Q3YCknqZdFzS-ouyfBUecbQ@mail.gmail.com>
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Subject: Re: [PATCH 2/3] net: UDP gro_receive accept csum=0
+Date: Thu, 13 Feb 2014 16:04:02 -0800 (PST)
+Message-ID: <alpine.LFD.2.03.1402131600120.8285@intel.com>
+References: <alpine.DEB.2.02.1402110928070.7090@tomh.mtv.corp.google.com> <52FC7D0C.1020601@mellanox.com> <CA+mtBx_+fc5YdQE+M49QD5ymuD7bfDdedfi2AuCDhU2=CawN6Q@mail.gmail.com> <CAJZOPZKRiR-XZo1b9-TQG9ULpVhL31bTBD+4Z7T+ODZcPX_L2g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Kevin Cernekee <cernekee@gmail.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Tom Herbert <therbert@google.com>,
+	Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Jerry Chu <hkchu@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:48553 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751199AbaBMXnd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 18:43:33 -0500
-In-Reply-To: <CAGVrzcaJJBspF6o_0+kWHwh4hs7Q3YCknqZdFzS-ouyfBUecbQ@mail.gmail.com>
+Received: from mga09.intel.com ([134.134.136.24]:49683 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751031AbaBMXpR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Feb 2014 18:45:17 -0500
+In-Reply-To: <CAJZOPZKRiR-XZo1b9-TQG9ULpVhL31bTBD+4Z7T+ODZcPX_L2g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-02-13 15:41 GMT-08:00 Florian Fainelli <f.fainelli@gmail.com>:
-> 2014-02-13 15:39 GMT-08:00 David Miller <davem@davemloft.net>:
->> From: David Miller <davem@davemloft.net>
->> Date: Thu, 13 Feb 2014 18:38:06 -0500 (EST)
->>
->>> From: Florian Fainelli <f.fainelli@gmail.com>
->>> Date: Thu, 13 Feb 2014 15:30:12 -0800
->>>
->>>> This patchset adds support for the Broadcom GENET Gigabit Ethernet=
- MAC
->>>> controller. This controller is found on the Broadcom BCM7xxx Set T=
-op Box
->>>> System-on-a-chips.
->>>>
->>>> Changes since v3:
->>>> - fixed Kconfig dependency on FIXED_PHY
->>>>
->>>> Changes since v2:
->>>> - dropped the patch that adds an "internal" phy-mode
->>>
->>> Looks better, series applied, thanks.
->>
->> Actually, I have to revert, this breaks the allmodconfig build on x8=
-6_64:
->>
->> drivers/net/ethernet/broadcom/genet/bcmmii.c: In function =E2=80=98b=
-cmgenet_mii_of_init=E2=80=99:
->> drivers/net/ethernet/broadcom/genet/bcmmii.c:404:2: error: implicit =
-declaration of function =E2=80=98of_get_next_child=E2=80=99 [-Werror=3D=
-implicit-function-declaration]
->> drivers/net/ethernet/broadcom/genet/bcmmii.c:404:10: warning: assign=
-ment makes pointer from integer without a cast [enabled by default]
->> cc1: some warnings being treated as errors
->
-> Ok, would you agree in having a big fat "depends on OF" for now until
-> I can get an empty stub going with the DT people?
 
-There is an alternate solution which will not require such a big
-hammer Kconfig dependency.
---=20
-=46lorian
+
+On Thu, 13 Feb 2014, Or Gerlitz wrote:
+
+> On Fri, Feb 14, 2014 at 12:27 AM, Tom Herbert <therbert@google.com> wrote:
+> 
+> >> [...] this is according to the conventions set by
+> >> 0afb166 vxlan: Add capability of Rx checksum offload for inner packet
+> >> 6a674e9 net: Add support for hardware-offloaded encapsulation
+> >> B/c after finalizing the GRO work and decapsulating, skb injected up into
+> >> the TCP stack with ip_summed equals to CHECKSUM_NONE are rejected. If >> this assumption is wrong, maybe we can remove testing the ip_summed field
+> >> here altogether?
+> 
+> > If I'm interpreting the semantics correctly, when skb->encapsulation
+> > is set the ip_summed is valid for both the inner and outer header
+> > (e.g. CHECKSUM_COMPLETE is always assumed okay for both layers). If
+> > skb->encapsulation is not set then ip_summed is only valid for outer header.
+> 
+> Yep, I think this would be correct interpertation, Joseph, agree?
+
+Agreed.
+
+> 
+> > So then the patch is broken in the case that encap is not set,
+> > ip_summed is CHECKSUM_UNNECESSARY, csum == 0, and we need to
+> > validate the inner checksum.
+> 
+> Just to make sure, by "the patch" you refer to your patch or the current code?
+> 
+> > But even worse, is there a fundamental issue where udp4_csum_init is able
+> > to change ip_summed to be CHECKSUM_UNNECESSARY (either check == 0
+> > or ip_summed == CHECKSUM_UNNECESSARY) regardless of
+> > skb->encapsulation, sending the packet into encap_rcv which could
+> > ultimately incorrectly apply ip_summed on the inner TCP/UDP packet?
+> 
+> By fundamental you mean performance issue or functionality issue (bug) or both?
+> 
+
+I would expect the check to be for ip_summed == CHECKSUM_UNNECESSARY. This 
+was the original thought behind commit:
+
+0afb166 vxlan: Add capability of Rx checksum offload for inner packet
