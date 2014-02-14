@@ -1,49 +1,88 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 1/1] dccp: re-enable debug macro
-Date: Thu, 13 Feb 2014 19:02:33 -0700
-Message-ID: <20140213190233.0f0889a4@liptov.cs.ualberta.ca>
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: Re: [PATCH v3 2/2] sctp: optimize the sctp_sysctl_net_register
+Date: Fri, 14 Feb 2014 10:18:05 +0800
+Message-ID: <52FD7CDD.1010206@huawei.com>
+References: <1392169484-8256-1-git-send-email-wangweidong1@huawei.com> <1392169484-8256-3-git-send-email-wangweidong1@huawei.com> <20140212115344.GB4038@hmsreliant.think-freely.org> <52FC1D9D.3090500@huawei.com> <20140213124434.GA27319@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: <davem@davemloft.net>, <vyasevich@gmail.com>,
+	<dborkman@redhat.com>, <sergei.shtylyov@cogentembedded.com>,
+	<netdev@vger.kernel.org>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spey.erg.abdn.ac.uk ([139.133.204.173]:34814 "EHLO
-	spey.erg.abdn.ac.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751582AbaBNCCu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 21:02:50 -0500
+Received: from szxga03-in.huawei.com ([119.145.14.66]:25701 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750987AbaBNCSp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 21:18:45 -0500
+In-Reply-To: <20140213124434.GA27319@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dccp tfrc: revert
+On 2014/2/13 20:44, Neil Horman wrote:
+> On Thu, Feb 13, 2014 at 09:19:25AM +0800, Wang Weidong wrote:
+>> On 2014/2/12 19:53, Neil Horman wrote:
+>>> On Wed, Feb 12, 2014 at 09:44:44AM +0800, Wang Weidong wrote:
+>>>> Here, when the net is init_net, we needn't to kmemdup the ctl_table
+>>>> again. So add a check for net. Also we can save some memory.
+>>>>
+>>>> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+>>>> ---
+>>>>  net/sctp/sysctl.c | 17 ++++++++++-------
+>>>>  1 file changed, 10 insertions(+), 7 deletions(-)
+>>>>
+>>>> diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
+>>>> index d354de5..35c8923 100644
+>>>> --- a/net/sctp/sysctl.c
+>>>> +++ b/net/sctp/sysctl.c
+>>>> @@ -402,15 +402,18 @@ static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
+>>>>  
+>>>>  int sctp_sysctl_net_register(struct net *net)
+>>>>  {
+>>>> -	struct ctl_table *table;
+>>>> -	int i;
+>>>> +	struct ctl_table *table = sctp_net_table;
+>>>> +
+>>>> +	if (!net_eq(net, &init_net)) {
+>>>> +		int i;
+>>>>  
+>>>> -	table = kmemdup(sctp_net_table, sizeof(sctp_net_table), GFP_KERNEL);
+>>>> -	if (!table)
+>>>> -		return -ENOMEM;
+>>>> +		table = kmemdup(sctp_net_table, sizeof(sctp_net_table), GFP_KERNEL);
+>>>> +		if (!table)
+>>>> +			return -ENOMEM;
+>>>>  
+>>>> -	for (i = 0; table[i].data; i++)
+>>>> -		table[i].data += (char *)(&net->sctp) - (char *)&init_net.sctp;
+>>>> +		for (i = 0; table[i].data; i++)
+>>>> +			table[i].data += (char *)(&net->sctp) - (char *)&init_net.sctp;
+>>>> +	}
+>>>>  
+>>> In the first version of this patch you complained about a lockdep issue.  Did
+>>> you figure out what that was, and if it related to these changes?
+>>>
+>>> Neil
+>>>
+>>>
+>> Hi Neil,
+>>
+>> The lockdep issue doesn't relate to these changes. I should send it
+>> by the another email. Sorry for confusing you.
+>>
+>> Regards
+>> Wang
+>>
+> Then you probably don't need to mention it in the same note that you're
+> proposing changes.
+> 
+Ok. Got it!
 
-This reverts 6aee49c558de (Jan 4, 2014) since the variable tfrc_debug is
-referenced by the tfrc_pr_debug(fmt, ...) macro when TFRC debugging is
-enabled. If it is enabled, use of the macro produces a compilation error.
+Thanks
+Wang
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/dccp/ccids/lib/tfrc.c |    2 +-
- net/dccp/ccids/lib/tfrc.h |    1 +
- 2 files changed, 2 insertions(+), 1 deletion(-)
-
---- a/net/dccp/ccids/lib/tfrc.c
-+++ b/net/dccp/ccids/lib/tfrc.c
-@@ -8,7 +8,7 @@
- #include "tfrc.h"
- 
- #ifdef CONFIG_IP_DCCP_TFRC_DEBUG
--static bool tfrc_debug;
-+bool tfrc_debug;
- module_param(tfrc_debug, bool, 0644);
- MODULE_PARM_DESC(tfrc_debug, "Enable TFRC debug messages");
- #endif
---- a/net/dccp/ccids/lib/tfrc.h
-+++ b/net/dccp/ccids/lib/tfrc.h
-@@ -21,6 +21,7 @@
- #include "packet_history.h"
- 
- #ifdef CONFIG_IP_DCCP_TFRC_DEBUG
-+extern bool tfrc_debug;
- #define tfrc_pr_debug(format, a...)	DCCP_PR_DEBUG(tfrc_debug, format, ##a)
- #else
- #define tfrc_pr_debug(format, a...)
+> Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> 
+> 
+> .
+> 
