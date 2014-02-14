@@ -1,95 +1,88 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 07/13] staging: r8188eu: Remove get_recvframe_data()
-Date: Fri, 14 Feb 2014 16:54:11 -0600
-Message-ID: <1392418457-3203-8-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 09/13] staging: r8188eu: Remove wrapper _exit_critical_mutex()
+Date: Fri, 14 Feb 2014 16:54:13 -0600
+Message-ID: <1392418457-3203-10-git-send-email-Larry.Finger@lwfinger.net>
 References: <1392418457-3203-1-git-send-email-Larry.Finger@lwfinger.net>
 Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Jes Sorensen <Jes.Sorensen@redhat.com>
+	Larry Finger <Larry.Finger@lwfinger.net>
 To: gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f171.google.com ([209.85.214.171]:56780 "EHLO
-	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752993AbaBNWyw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 17:54:52 -0500
-Received: by mail-ob0-f171.google.com with SMTP id wp4so14671666obc.2
-        for <netdev@vger.kernel.org>; Fri, 14 Feb 2014 14:54:52 -0800 (PST)
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:59421 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753030AbaBNWy5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 17:54:57 -0500
+Received: by mail-ob0-f174.google.com with SMTP id uy5so14579769obc.5
+        for <netdev@vger.kernel.org>; Fri, 14 Feb 2014 14:54:57 -0800 (PST)
 In-Reply-To: <1392418457-3203-1-git-send-email-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This inline function checks that the pointer is not NULL and then returns
-the rx_data member. Unfortunately, all 3 callers of this function have
-dereferenced that pointer before this routine is called. As the check for
-NULL is useless, eliminate the routine.
+This wrapper is a simple call to mutex_exit().
 
-Reported-by: Jes Sorensen <Jes.Sorensen@redhat.com>
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Jes Sorensen <Jes.Sorensen@redhat.com>
 ---
- drivers/staging/rtl8188eu/core/rtw_recv.c       | 6 ++----
- drivers/staging/rtl8188eu/hal/rtl8188e_rxdesc.c | 2 +-
- drivers/staging/rtl8188eu/include/rtw_recv.h    | 9 ---------
- 3 files changed, 3 insertions(+), 14 deletions(-)
+ drivers/staging/rtl8188eu/core/rtw_mlme_ext.c     | 2 +-
+ drivers/staging/rtl8188eu/hal/usb_ops_linux.c     | 2 +-
+ drivers/staging/rtl8188eu/include/osdep_service.h | 7 -------
+ drivers/staging/rtl8188eu/os_dep/os_intfs.c       | 2 +-
+ 4 files changed, 3 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/staging/rtl8188eu/core/rtw_recv.c b/drivers/staging/rtl8188eu/core/rtw_recv.c
-index d174a6c..a618426 100644
---- a/drivers/staging/rtl8188eu/core/rtw_recv.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_recv.c
-@@ -562,7 +562,7 @@ static struct recv_frame *portctrl(struct adapter *adapter,
+diff --git a/drivers/staging/rtl8188eu/core/rtw_mlme_ext.c b/drivers/staging/rtl8188eu/core/rtw_mlme_ext.c
+index faeec73..c197b22 100644
+--- a/drivers/staging/rtl8188eu/core/rtw_mlme_ext.c
++++ b/drivers/staging/rtl8188eu/core/rtw_mlme_ext.c
+@@ -4438,7 +4438,7 @@ s32 dump_mgntframe_and_wait_ack(struct adapter *padapter, struct xmit_frame *pmg
+ 	}
  
- 	auth_alg = adapter->securitypriv.dot11AuthAlgrthm;
+ 	pxmitpriv->ack_tx = false;
+-	_exit_critical_mutex(&pxmitpriv->ack_tx_mutex, NULL);
++	mutex_unlock(&pxmitpriv->ack_tx_mutex);
  
--	ptr = get_recvframe_data(precv_frame);
-+	ptr = precv_frame->rx_data;
- 	pfhdr = precv_frame;
- 	pattrib = &pfhdr->attrib;
- 	psta_addr = pattrib->ta;
-@@ -1440,11 +1440,9 @@ static int wlanhdr_to_ethhdr(struct recv_frame *precvframe)
- 	int ret = _SUCCESS;
- 	struct adapter		*adapter = precvframe->adapter;
- 	struct mlme_priv	*pmlmepriv = &adapter->mlmepriv;
--
--	u8	*ptr = get_recvframe_data(precvframe); /*  point to frame_ctrl field */
-+	u8 *ptr = precvframe->rx_data;
- 	struct rx_pkt_attrib *pattrib = &precvframe->attrib;
- 
--
- 	if (pattrib->encrypt)
- 		recvframe_pull_tail(precvframe, pattrib->icv_len);
- 
-diff --git a/drivers/staging/rtl8188eu/hal/rtl8188e_rxdesc.c b/drivers/staging/rtl8188eu/hal/rtl8188e_rxdesc.c
-index f29bb79..43eb960 100644
---- a/drivers/staging/rtl8188eu/hal/rtl8188e_rxdesc.c
-+++ b/drivers/staging/rtl8188eu/hal/rtl8188e_rxdesc.c
-@@ -157,7 +157,7 @@ void update_recvframe_phyinfo_88e(struct recv_frame *precvframe,
- 	pkt_info.bPacketToSelf = false;
- 	pkt_info.bPacketBeacon = false;
- 
--	wlanhdr = get_recvframe_data(precvframe);
-+	wlanhdr = precvframe->rx_data;
- 
- 	pkt_info.bPacketMatchBSSID = ((!IsFrameTypeCtrl(wlanhdr)) &&
- 		!pattrib->icv_err && !pattrib->crc_err &&
-diff --git a/drivers/staging/rtl8188eu/include/rtw_recv.h b/drivers/staging/rtl8188eu/include/rtw_recv.h
-index 1f4d984..bcbce46 100644
---- a/drivers/staging/rtl8188eu/include/rtw_recv.h
-+++ b/drivers/staging/rtl8188eu/include/rtw_recv.h
-@@ -321,15 +321,6 @@ static inline u8 *get_rx_status(struct recv_frame *precvframe)
- 	return get_rxmem(precvframe);
+ 	 return ret;
+ }
+diff --git a/drivers/staging/rtl8188eu/hal/usb_ops_linux.c b/drivers/staging/rtl8188eu/hal/usb_ops_linux.c
+index 1bfe497..1fa5370 100644
+--- a/drivers/staging/rtl8188eu/hal/usb_ops_linux.c
++++ b/drivers/staging/rtl8188eu/hal/usb_ops_linux.c
+@@ -111,7 +111,7 @@ static int usbctrl_vendorreq(struct intf_hdl *pintfhdl, u8 request, u16 value, u
+ 			break;
+ 	}
+ release_mutex:
+-	_exit_critical_mutex(&dvobjpriv->usb_vendor_req_mutex, NULL);
++	mutex_unlock(&dvobjpriv->usb_vendor_req_mutex);
+ exit:
+ 	return status;
+ }
+diff --git a/drivers/staging/rtl8188eu/include/osdep_service.h b/drivers/staging/rtl8188eu/include/osdep_service.h
+index 09e2d48..5cf13a6 100644
+--- a/drivers/staging/rtl8188eu/include/osdep_service.h
++++ b/drivers/staging/rtl8188eu/include/osdep_service.h
+@@ -76,13 +76,6 @@ static inline int _enter_critical_mutex(struct mutex *pmutex,
+ 	return ret;
  }
  
--static inline u8 *get_recvframe_data(struct recv_frame *precvframe)
--{
--	/* always return rx_data */
--	if (precvframe == NULL)
--		return NULL;
 -
--	return precvframe->rx_data;
+-static inline void _exit_critical_mutex(struct mutex *pmutex,
+-					unsigned long *pirqL)
+-{
+-		mutex_unlock(pmutex);
 -}
 -
- static inline u8 *recvframe_push(struct recv_frame *precvframe, int sz)
+ static inline void rtw_list_delete(struct list_head *plist)
  {
- 	/*  append data before rx_data */
+ 	list_del_init(plist);
+diff --git a/drivers/staging/rtl8188eu/os_dep/os_intfs.c b/drivers/staging/rtl8188eu/os_dep/os_intfs.c
+index cf4107a..bc9ae1d 100644
+--- a/drivers/staging/rtl8188eu/os_dep/os_intfs.c
++++ b/drivers/staging/rtl8188eu/os_dep/os_intfs.c
+@@ -1111,7 +1111,7 @@ int netdev_open(struct net_device *pnetdev)
+ 
+ 	_enter_critical_mutex(padapter->hw_init_mutex, NULL);
+ 	ret = _netdev_open(pnetdev);
+-	_exit_critical_mutex(padapter->hw_init_mutex, NULL);
++	mutex_unlock(padapter->hw_init_mutex);
+ 	return ret;
+ }
+ 
 -- 
 1.8.4.5
