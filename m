@@ -1,64 +1,56 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH 2/3] net: UDP gro_receive accept csum=0
-Date: Thu, 13 Feb 2014 16:59:19 -0800
-Message-ID: <CA+mtBx8qbLU3vgDjPQPtU47+FS9R7f24gYw5wE+yNC7DGg-E4A@mail.gmail.com>
-References: <alpine.DEB.2.02.1402110928070.7090@tomh.mtv.corp.google.com>
-	<52FC7D0C.1020601@mellanox.com>
-	<CA+mtBx_+fc5YdQE+M49QD5ymuD7bfDdedfi2AuCDhU2=CawN6Q@mail.gmail.com>
-	<CAJZOPZKRiR-XZo1b9-TQG9ULpVhL31bTBD+4Z7T+ODZcPX_L2g@mail.gmail.com>
-	<alpine.LFD.2.03.1402131600120.8285@intel.com>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: Re: [PATCH net-next 4/4] sch_netem: replace spin_(un)lock_bh with
+ sch_tree_(un)lock
+Date: Fri, 14 Feb 2014 09:32:24 +0800
+Message-ID: <52FD7228.3010804@huawei.com>
+References: <1392173895-5012-1-git-send-email-yangyingliang@huawei.com>	<1392173895-5012-5-git-send-email-yangyingliang@huawei.com> <20140213.174606.334208738068503053.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <or.gerlitz@gmail.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Jerry Chu <hkchu@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <stephen@networkplumber.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f171.google.com ([209.85.223.171]:59207 "EHLO
-	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752095AbaBNA7U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 19:59:20 -0500
-Received: by mail-ie0-f171.google.com with SMTP id as1so7006895iec.2
-        for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 16:59:19 -0800 (PST)
-In-Reply-To: <alpine.LFD.2.03.1402131600120.8285@intel.com>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:3595 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750932AbaBNBcq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 20:32:46 -0500
+In-Reply-To: <20140213.174606.334208738068503053.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> > But even worse, is there a fundamental issue where udp4_csum_init is able
->> > to change ip_summed to be CHECKSUM_UNNECESSARY (either check == 0
->> > or ip_summed == CHECKSUM_UNNECESSARY) regardless of
->> > skb->encapsulation, sending the packet into encap_rcv which could
->> > ultimately incorrectly apply ip_summed on the inner TCP/UDP packet?
+On 2014/2/14 6:46, David Miller wrote:
+> From: Yang Yingliang <yangyingliang@huawei.com>
+> Date: Wed, 12 Feb 2014 10:58:15 +0800
+> 
+>> spin_(un)lock_bh(root_lock) is same as sch_tree_(un)lock.
 >>
->> By fundamental you mean performance issue or functionality issue (bug) or both?
->>
->
-> I would expect the check to be for ip_summed == CHECKSUM_UNNECESSARY. This
-> was the original thought behind commit:
->
-> 0afb166 vxlan: Add capability of Rx checksum offload for inner packet
-
-It looks like udp4_csum_init turns CHECKSUM_COMPLETE and check==0 into
-CHECKSUM_UNNECESSARY which could bypass the checksum validation for
-the encapsulated packet. This would be a significant functionality
-bug. Unfortunately udp4_csum_init writes ip_summed without regard to
-encapsulation.
-
-Seems like the logic in the UDP rcv path should be:
-
-if ip_summed == CHECKSUM_COMPLETE, ensure this is same value when
-calling encap_rcv
-if ip_summed == CHECKSUM_UNNECESSARY && !skb->encap change to
-CHECKSUM_NONE before calling encap_rcv
-if ip_summed == CHECKSUM_UNNECESSARY && skb->encap ip_summed value is okay
-
-In any case, we need to consider the orignal ip_summed value from the
-driver, not the one that udp4_csum_init (udp_gro or anywhere else in
-the path) would set.
-
-Also, udp_gro_receive should be able to handle the case where
-ip_summed == CHECKSUM_UNNECESSARY and !skb->encapsulation, that will
-be very common scenario. Probably CHECKSUM_NONE also.
+>> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+>  ...
+>> @@ -684,11 +683,9 @@ static int get_dist_table(struct Qdisc *sch, const struct nlattr *attr)
+>>  	for (i = 0; i < n; i++)
+>>  		d->table[i] = data[i];
+>>  
+>> -	root_lock = qdisc_root_sleeping_lock(sch);
+>> -
+>> -	spin_lock_bh(root_lock);
+>> +	sch_tree_lock(sch);
+>>  	swap(q->delay_dist, d);
+>> -	spin_unlock_bh(root_lock);
+>> +	sch_tree_unlock(sch);
+>>  
+>>  	dist_free(d);
+>>  	return 0;
+> 
+> This is more expensive than the existing code.
+> 
+> We will now calculate qdisc_root_sleeping_lock() twice which is at
+> least two pointer dereferences each.
+> 
+> Without explicitly open-coding this, the compiler cannot cache the
+> result, because the spin lock operations have memory barriers (if
+> implemented inline) or are considered to potentially modify all memory
+> (if implemented as function calls).
+> 
+> 
+OK, thanks!
+I'll send v2 without this patch.
