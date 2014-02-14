@@ -1,24 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] net,bonding: fix bond_options.c direct rwlock.h include
-Date: Fri, 14 Feb 2014 16:21:01 -0500 (EST)
-Message-ID: <20140214.162101.359269415805856434.davem@davemloft.net>
-References: <1392362464.5579.41.camel@marge.simpson.net>
+Subject: Re: [PATCH net-next 1/4] appletalk: fix checkpatch errors with
+ space required or prohibited
+Date: Fri, 14 Feb 2014 16:21:07 -0500 (EST)
+Message-ID: <20140214.162107.536550005374692755.davem@davemloft.net>
+References: <1392363826-8256-1-git-send-email-wangweidong1@huawei.com>
+	<1392363826-8256-2-git-send-email-wangweidong1@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: bitbucket@online.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1392362464.5579.41.camel@marge.simpson.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: acme@ghostprotocols.net, netdev@vger.kernel.org
+To: wangweidong1@huawei.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38335 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753138AbaBNVVJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 16:21:09 -0500
+In-Reply-To: <1392363826-8256-2-git-send-email-wangweidong1@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mike Galbraith <bitbucket@online.de>
-Date: Fri, 14 Feb 2014 08:21:04 +0100
+From: Wang Weidong <wangweidong1@huawei.com>
+Date: Fri, 14 Feb 2014 15:43:43 +0800
 
-> drivers/net/bonding/bond_options.c includes rwlock.h directly,
-> which is a nono, and which also breaks RT kernel build.
+> fix checkpatch errors while the space is required or prohibited
 > 
-> Signed-off-by: Mike Galbraith <bitbucket@online.de>
+> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
 
-Applied, thank you.
+Applied.
