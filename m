@@ -1,44 +1,37 @@
-From: Zhi Yong Wu <zwu.kernel@gmail.com>
-Subject: Re: [PATCH] virtio_net: fix the potential NULL pointer in xmit_skb()
-Date: Fri, 14 Feb 2014 13:25:36 +0800
-Message-ID: <CAEH94Lg_Oe77BDWhvJ3BZJsu0ZzaDkr5Rq5RO7oVKjJd75VkcQ@mail.gmail.com>
-References: <1392350408-3811-1-git-send-email-wuzhy@linux.vnet.ibm.com>
-	<20140214.001252.1994875881466995036.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next v5 00/10] Support for the Broadcom GENET driver
+Date: Fri, 14 Feb 2014 00:29:01 -0500 (EST)
+Message-ID: <20140214.002901.293996041341946875.davem@davemloft.net>
+References: <1392336531-28875-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f50.google.com ([209.85.213.50]:42403 "EHLO
-	mail-yh0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751050AbaBNFZg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 00:25:36 -0500
-Received: by mail-yh0-f50.google.com with SMTP id 29so11261842yhl.9
-        for <netdev@vger.kernel.org>; Thu, 13 Feb 2014 21:25:36 -0800 (PST)
-In-Reply-To: <20140214.001252.1994875881466995036.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	cernekee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org
+To: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1392336531-28875-1-git-send-email-f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 14, 2014 at 1:12 PM, David Miller <davem@davemloft.net> wrote:
-> From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-> Date: Fri, 14 Feb 2014 12:00:08 +0800
->
->> The pointer hdr isn't assigned before hdr->mhdr and hdr->hdr
->> are used, so it could be one invalid pointer.
->>
->> Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
->
-> sizeof(x) does not evaluate any dereferences made by 'x'
-thanks for your explanation.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Thu, 13 Feb 2014 16:08:41 -0800
 
+> This patchset adds support for the Broadcom GENET Gigabit Ethernet MAC
+> controller. This controller is found on the Broadcom BCM7xxx Set Top Box
+> System-on-a-chips.
+> 
+> Changes since v4:
+> - add dependency on CONFIG_OF
+> 
+> Changes since v3:
+> - fixed Kconfig dependency on FIXED_PHY
+> 
+> Changes since v2:
+> - dropped the patch that adds an "internal" phy-mode
 
-
--- 
-Regards,
-
-Zhi Yong Wu
+Series applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
