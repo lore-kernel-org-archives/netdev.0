@@ -1,130 +1,43 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH net-next 4/4] appletalk: fix checkpatch error with indent
-Date: Fri, 14 Feb 2014 15:43:46 +0800
-Message-ID: <1392363826-8256-5-git-send-email-wangweidong1@huawei.com>
-References: <1392363826-8256-1-git-send-email-wangweidong1@huawei.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH RFC v3 0/12] vti4: prepare namespace and interfamily
+ support.
+Date: Fri, 14 Feb 2014 08:48:01 +0100
+Message-ID: <20140214074801.GD3438@secunet.com>
+References: <1390818577-19589-1-git-send-email-steffen.klassert@secunet.com>
+ <52E8DE2C.7060706@6wind.com>
+ <20140130095610.GR31491@secunet.com>
+ <52F0C962.5080804@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <acme@ghostprotocols.net>, <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, Saurabh Mohan <saurabh.mohan@vyatta.com>
+To: Christophe Gouault <christophe.gouault@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:19549 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751139AbaBNHoK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 02:44:10 -0500
-In-Reply-To: <1392363826-8256-1-git-send-email-wangweidong1@huawei.com>
+Received: from a.mx.secunet.com ([195.81.216.161]:38427 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751578AbaBNHsF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Feb 2014 02:48:05 -0500
+Content-Disposition: inline
+In-Reply-To: <52F0C962.5080804@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-checkpatch error: switch and case should be at the same indent.
+On Tue, Feb 04, 2014 at 12:05:06PM +0100, Christophe Gouault wrote:
+> 
+> Hi Steffen, and thank you for the patch.
+> 
+> I tested it within a single netns, then with cross-netns.
 
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
----
- net/appletalk/ddp.c | 90 ++++++++++++++++++++++++++---------------------------
- 1 file changed, 45 insertions(+), 45 deletions(-)
+Thaks a lot for testing!
 
-diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
-index 786255c..5fd5122 100644
---- a/net/appletalk/ddp.c
-+++ b/net/appletalk/ddp.c
-@@ -1789,53 +1789,53 @@ static int atalk_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
- 	void __user *argp = (void __user *)arg;
- 
- 	switch (cmd) {
--		/* Protocol layer */
--		case TIOCOUTQ: {
--			long amount = sk->sk_sndbuf - sk_wmem_alloc_get(sk);
-+	/* Protocol layer */
-+	case TIOCOUTQ: {
-+		long amount = sk->sk_sndbuf - sk_wmem_alloc_get(sk);
- 
--			if (amount < 0)
--				amount = 0;
--			rc = put_user(amount, (int __user *)argp);
--			break;
--		}
--		case TIOCINQ: {
--			/*
--			 * These two are safe on a single CPU system as only
--			 * user tasks fiddle here
--			 */
--			struct sk_buff *skb = skb_peek(&sk->sk_receive_queue);
--			long amount = 0;
-+		if (amount < 0)
-+			amount = 0;
-+		rc = put_user(amount, (int __user *)argp);
-+		break;
-+	}
-+	case TIOCINQ: {
-+		/*
-+		 * These two are safe on a single CPU system as only
-+		 * user tasks fiddle here
-+		 */
-+		struct sk_buff *skb = skb_peek(&sk->sk_receive_queue);
-+		long amount = 0;
- 
--			if (skb)
--				amount = skb->len - sizeof(struct ddpehdr);
--			rc = put_user(amount, (int __user *)argp);
--			break;
--		}
--		case SIOCGSTAMP:
--			rc = sock_get_timestamp(sk, argp);
--			break;
--		case SIOCGSTAMPNS:
--			rc = sock_get_timestampns(sk, argp);
--			break;
--		/* Routing */
--		case SIOCADDRT:
--		case SIOCDELRT:
--			rc = -EPERM;
--			if (capable(CAP_NET_ADMIN))
--				rc = atrtr_ioctl(cmd, argp);
--			break;
--		/* Interface */
--		case SIOCGIFADDR:
--		case SIOCSIFADDR:
--		case SIOCGIFBRDADDR:
--		case SIOCATALKDIFADDR:
--		case SIOCDIFADDR:
--		case SIOCSARP:		/* proxy AARP */
--		case SIOCDARP:		/* proxy AARP */
--			rtnl_lock();
--			rc = atif_ioctl(cmd, argp);
--			rtnl_unlock();
--			break;
-+		if (skb)
-+		amount = skb->len - sizeof(struct ddpehdr);
-+		rc = put_user(amount, (int __user *)argp);
-+		break;
-+	}
-+	case SIOCGSTAMP:
-+		rc = sock_get_timestamp(sk, argp);
-+		break;
-+	case SIOCGSTAMPNS:
-+		rc = sock_get_timestampns(sk, argp);
-+		break;
-+	/* Routing */
-+	case SIOCADDRT:
-+	case SIOCDELRT:
-+		rc = -EPERM;
-+		if (capable(CAP_NET_ADMIN))
-+			rc = atrtr_ioctl(cmd, argp);
-+		break;
-+	/* Interface */
-+	case SIOCGIFADDR:
-+	case SIOCSIFADDR:
-+	case SIOCGIFBRDADDR:
-+	case SIOCATALKDIFADDR:
-+	case SIOCDIFADDR:
-+	case SIOCSARP:		/* proxy AARP */
-+	case SIOCDARP:		/* proxy AARP */
-+		rtnl_lock();
-+		rc = atif_ioctl(cmd, argp);
-+		rtnl_unlock();
-+		break;
- 	}
- 
- 	return rc;
--- 
-1.7.12
+> 
+> Unfortunately, the inbound/forward policy checks do not take the inbound
+> interface into account (__xfrm_decode_session does not properly fill in
+> the iif field of the flowi), so in the last global policy check, there
+> is no way of differentiating a plaintext packet directly received from
+> the network from a plaintext packet that was processed by a vti interface.
+
+Input interface maching is not implemented, the xfrm_selector has
+one ifindex field and this is interpreted as the output interface.
+But I would not mind if someone would implement input interface maching.
+
+I'll do another, hopefully final, RFC version of the vti4 paches today.
