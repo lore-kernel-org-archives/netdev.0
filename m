@@ -1,43 +1,108 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH RFC v3 0/12] vti4: prepare namespace and interfamily
- support.
-Date: Fri, 14 Feb 2014 08:48:01 +0100
-Message-ID: <20140214074801.GD3438@secunet.com>
-References: <1390818577-19589-1-git-send-email-steffen.klassert@secunet.com>
- <52E8DE2C.7060706@6wind.com>
- <20140130095610.GR31491@secunet.com>
- <52F0C962.5080804@6wind.com>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Subject: [PATCH v2 51/52] net/core/flow.c: Fix CPU hotplug callback
+ registration
+Date: Fri, 14 Feb 2014 13:30:43 +0530
+Message-ID: <20140214080042.22701.50086.stgit@srivatsabhat.in.ibm.com>
+References: <20140214074750.22701.47330.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, Saurabh Mohan <saurabh.mohan@vyatta.com>
-To: Christophe Gouault <christophe.gouault@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:38427 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751578AbaBNHsF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Feb 2014 02:48:05 -0500
-Content-Disposition: inline
-In-Reply-To: <52F0C962.5080804@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: paulmck@linux.vnet.ibm.com, tj@kernel.org, walken@google.com,
+	ego@linux.vnet.ibm.com, linux@arm.linux.org.uk, rjw@rjwysocki.net,
+	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	srivatsa.bhat@linux.vnet.ibm.com,
+	Li RongQing <roy.qing.li@gmail.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Chris Metcalf <cmetcalf@tilera.com>,
+	Ingo Molnar <mingo@kernel.org>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+To: paulus@samba.org, oleg@redhat.com, mingo@kernel.org,
+	rusty@rustcorp.com.au, peterz@infradead.org, tglx@linutronix.de,
+	akpm@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140214074750.22701.47330.stgit@srivatsabhat.in.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 04, 2014 at 12:05:06PM +0100, Christophe Gouault wrote:
-> 
-> Hi Steffen, and thank you for the patch.
-> 
-> I tested it within a single netns, then with cross-netns.
+Subsystems that want to register CPU hotplug callbacks, as well as perform
+initialization for the CPUs that are already online, often do it as shown
+below:
 
-Thaks a lot for testing!
+	get_online_cpus();
 
-> 
-> Unfortunately, the inbound/forward policy checks do not take the inbound
-> interface into account (__xfrm_decode_session does not properly fill in
-> the iif field of the flowi), so in the last global policy check, there
-> is no way of differentiating a plaintext packet directly received from
-> the network from a plaintext packet that was processed by a vti interface.
+	for_each_online_cpu(cpu)
+		init_cpu(cpu);
 
-Input interface maching is not implemented, the xfrm_selector has
-one ifindex field and this is interpreted as the output interface.
-But I would not mind if someone would implement input interface maching.
+	register_cpu_notifier(&foobar_cpu_notifier);
 
-I'll do another, hopefully final, RFC version of the vti4 paches today.
+	put_online_cpus();
+
+This is wrong, since it is prone to ABBA deadlocks involving the
+cpu_add_remove_lock and the cpu_hotplug.lock (when running concurrently
+with CPU hotplug operations).
+
+Instead, the correct and race-free way of performing the callback
+registration is:
+
+	cpu_notifier_register_begin();
+
+	for_each_online_cpu(cpu)
+		init_cpu(cpu);
+
+	/* Note the use of the double underscored version of the API */
+	__register_cpu_notifier(&foobar_cpu_notifier);
+
+	cpu_notifier_register_done();
+
+
+Fix the code in net/core/flow.c by using this latter form of callback
+registration.
+
+Cc: Li RongQing <roy.qing.li@gmail.com>
+Cc: Sasha Levin <sasha.levin@oracle.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Chris Metcalf <cmetcalf@tilera.com>
+Cc: Ingo Molnar <mingo@kernel.org>
+Cc: netdev@vger.kernel.org
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+---
+
+ net/core/flow.c |    8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/net/core/flow.c b/net/core/flow.c
+index dfa602c..9a2151f 100644
+--- a/net/core/flow.c
++++ b/net/core/flow.c
+@@ -456,6 +456,8 @@ static int __init flow_cache_init(struct flow_cache *fc)
+ 	if (!fc->percpu)
+ 		return -ENOMEM;
+ 
++	cpu_notifier_register_begin();
++
+ 	for_each_online_cpu(i) {
+ 		if (flow_cache_cpu_prepare(fc, i))
+ 			goto err;
+@@ -463,7 +465,9 @@ static int __init flow_cache_init(struct flow_cache *fc)
+ 	fc->hotcpu_notifier = (struct notifier_block){
+ 		.notifier_call = flow_cache_cpu,
+ 	};
+-	register_hotcpu_notifier(&fc->hotcpu_notifier);
++	__register_hotcpu_notifier(&fc->hotcpu_notifier);
++
++	cpu_notifier_register_done();
+ 
+ 	setup_timer(&fc->rnd_timer, flow_cache_new_hashrnd,
+ 		    (unsigned long) fc);
+@@ -479,6 +483,8 @@ err:
+ 		fcp->hash_table = NULL;
+ 	}
+ 
++	cpu_notifier_register_done();
++
+ 	free_percpu(fc->percpu);
+ 	fc->percpu = NULL;
+ 
