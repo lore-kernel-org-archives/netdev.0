@@ -1,98 +1,50 @@
-From: Michal Simek <michal.simek@xilinx.com>
-Subject: Re: [PATCH 08/14] net: axienet: Removed checkpatch errors/warnings
-Date: Fri, 14 Feb 2014 10:21:52 +0100
-Message-ID: <6d50c843-86d3-4333-ac6f-9901dbad36ed@AM1EHSMHS007.ehs.local>
-References: <cover.1392220536.git.michal.simek@xilinx.com>  <75b669c0a947effe74b291093abfa8c71f83736a.1392220536.git.michal.simek@xilinx.com>  <1392251494.2214.11.camel@joe-AO722>  <ff5b1f6a-a6a7-405c-9e83-59ad33852b93@TX2EHSMHS044.ehs.local> <1392306707.2214.65.camel@joe-AO722>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: [PATCH] ipv4: use daddr to get inet_peer
+Date: Fri, 14 Feb 2014 17:25:35 +0800
+Message-ID: <52FDE10F.5010903@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: Michal Simek <michal.simek@xilinx.com>, <netdev@vger.kernel.org>,
-	Srikanth Thokala <sthokal@xilinx.com>,
-	Srikanth Thokala <srikanth.thokala@xilinx.com>,
-	Michal Simek <monstr@monstr.eu>,
-	Anirudha Sarangi <anirudh@xilinx.com>,
-	John Linn <John.Linn@xilinx.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1392306707.2214.65.camel@joe-AO722>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On 02/13/2014 04:51 PM, Joe Perches wrote:
-> On Thu, 2014-02-13 at 08:19 +0100, Michal Simek wrote:
->> On 02/13/2014 01:31 AM, Joe Perches wrote:
->>> On Wed, 2014-02-12 at 16:55 +0100, Michal Simek wrote:
-> 
-> Hi again Michal.
-> 
->>>> +		netdev_warn(lp->ndev,
->>>> +			 "Could not find clock ethernet controller property.");
->>>
->>> here too. (and alignment)
->>
->> This is problematic. I would like to keep 80 char limits and keeping
->> this align just break it. That's why I was using tab alignment.
->> Probably the solution is just to shorten message.
-> 
-> (overly long, tiresomely trivial stuff below)
-> 
-> Your choice.  I'm not an 80 column zealot but
-> please don't shorten the message just to fit
-> 80 columns if it impacts intelligibility.
-
-I am trying to keep 80 chars and follow subsystem
-standards.
-
-> Generally, I'd write this something like:
-> 
-> 		netdev_warn(lp->ndev,
-> 			    "Could not find clock ethernet controller property\n");
-> 
-> (without the period) which is 83 columns.
-
-ok.
-
-> checkpatch makes exceptions for 80 column line
-> length maximums for format strings.
-
-yes but testing systems reports it because that 80 chars
-is still default value.
+Cc: netdev <netdev@vger.kernel.org>, hannes@stressinduktion.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:36700 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751740AbaBNJ0f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Feb 2014 04:26:35 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-> 
-> I've no real issue if you indent it back one.
-> 
-> fyi: this is 77 columns
-> 
-> 		netdev_warn(lp->ndev,
-> 			    "No clock ethernet controller property found\n");
-> 
-> About the message itself.
-> 
-> You dropped the "axienet_mdio_setup" function name.
-> 
-> I believe the dmesg output will look something like:
-> 
-> xilinx_temac 0000:01:00.0 (unregistered net_device): Could not find clock ethernet controller property.
-> xilinx_temac 0000:01:00.0 (unregistered net_device): Setting MDIO clock divisor to default 29
-> 
-> Because these 2 messages are effectively linked,
-> my preference would be to emit them on a single line,
-> 
-> Something like:
-> 
-> xilinx_temac 0000:01:00.0 (unregistered net_device): of_get_property("clock-frequency") not found - setting MDIO clock divisor to default 29
-> 
-> or
-> 
-> 		netdev_warn(lp->ndev,
-> 			    "of_get_property(\"clock-frequency\") not found - setting MDIO clock divisor to default %u\n",
-> 			    DEFAULT_CLOCK_DIVISOR);
-> 
+since commit 1d861aa4("inet: Minimize use of cached route inetpeer"),
+ip_error() uses saddr to get inet_peer, so ip_error() and icmpv4_xrlim_allow()
+use the same inet_peer to limit icmp error message twice.
 
-But then you are breaking 80 char limits a lot.
+In ip_error(), peer->rate_tokens is set to ip_rt_error_burst, but in
+inet_peer_xrlim_allow() peer->rate_tokens is set to XRLIM_BURST_FACTOR.
+XRLIM_BURST_FACTOR is defined to 6, so user seting ip_rt_error_burst makes
+no sense.
 
-Thanks,
-Michal
+In my opinion, the ip_rt_error_burst is used to limit icmp error messages
+for daddr instead of saddr.
+
+Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+---
+ net/ipv4/route.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 25071b4..4da5588 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -933,7 +933,7 @@ static int ip_error(struct sk_buff *skb)
+ 		break;
+ 	}
+ 
+-	peer = inet_getpeer_v4(net->ipv4.peers, ip_hdr(skb)->saddr, 1);
++	peer = inet_getpeer_v4(net->ipv4.peers, ip_hdr(skb)->daddr, 1);
+ 
+ 	send = true;
+ 	if (peer) {
+-- 
+1.8.3.1
