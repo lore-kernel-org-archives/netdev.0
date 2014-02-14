@@ -1,44 +1,86 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 02/13] staging: r8188eu: Remove pointless "alignment" entry in recv_frame
-Date: Fri, 14 Feb 2014 16:54:06 -0600
-Message-ID: <1392418457-3203-3-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 04/13] staging: r8188eu: Remove pkt_to_recv{frame, data,
+ mem} routines
+Date: Fri, 14 Feb 2014 16:54:08 -0600
+Message-ID: <1392418457-3203-5-git-send-email-Larry.Finger@lwfinger.net>
 References: <1392418457-3203-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Jes.Sorensen@redhat.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+ Jes Sorensen <Jes.Sorensen@redhat.com>,
+ Larry Finger <Larry.Finger@lwfinger.net>
 To: gregkh@linuxfoundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f42.google.com ([209.85.219.42]:39654 "EHLO
-	mail-oa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752910AbaBNWyj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 17:54:39 -0500
-Received: by mail-oa0-f42.google.com with SMTP id i7so15375833oag.1
-        for <netdev@vger.kernel.org>; Fri, 14 Feb 2014 14:54:39 -0800 (PST)
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
 In-Reply-To: <1392418457-3203-1-git-send-email-Larry.Finger@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-This alignment entry in union recv_frame does nothing. It certainly
-dues not ensure alignment.
+These functions are not called from the outside source.
 
-Suggested-by: Jes.Sorensen@redhat.com
+Suggested-by: Jes Sorensen <Jes.Sorensen@redhat.com>
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Jes.Sorensen@redhat.com
+Cc: Jes Sorensen <Jes.Sorensen@redhat.com>
 ---
- drivers/staging/rtl8188eu/include/rtw_recv.h | 1 -
- 1 file changed, 1 deletion(-)
+ drivers/staging/rtl8188eu/include/rtw_recv.h | 38 ----------------------------
+ 1 file changed, 38 deletions(-)
 
 diff --git a/drivers/staging/rtl8188eu/include/rtw_recv.h b/drivers/staging/rtl8188eu/include/rtw_recv.h
-index 866c9e4..c6d7a65 100644
+index e579c38..81fdcf5 100644
 --- a/drivers/staging/rtl8188eu/include/rtw_recv.h
 +++ b/drivers/staging/rtl8188eu/include/rtw_recv.h
-@@ -292,7 +292,6 @@ struct recv_frame_hdr {
- union recv_frame {
- 	union {
- 		struct recv_frame_hdr hdr;
--		uint mem[RECVFRAME_HDR_ALIGN>>2];
- 	} u;
- };
+@@ -415,44 +415,6 @@ static inline unsigned char *get_rxbuf_desc(struct recv_frame *precvframe)
+ 	return buf_desc;
+ }
  
+-static inline struct recv_frame *rxmem_to_recvframe(u8 *rxmem)
+-{
+-	/* due to the design of 2048 bytes alignment of recv_frame,
+-	 * we can reference the struct recv_frame */
+-	/* from any given member of recv_frame. */
+-	/*  rxmem indicates the any member/address in recv_frame */
+-
+-	return (struct recv_frame *)(((size_t)rxmem >> RXFRAME_ALIGN) <<
+-				     RXFRAME_ALIGN);
+-}
+-
+-static inline struct recv_frame *pkt_to_recvframe(struct sk_buff *pkt)
+-{
+-	u8 *buf_star;
+-	struct recv_frame *precv_frame;
+-	precv_frame = rxmem_to_recvframe((unsigned char *)buf_star);
+-
+-	return precv_frame;
+-}
+-
+-static inline u8 *pkt_to_recvmem(struct sk_buff *pkt)
+-{
+-	/*  return the rx_head */
+-
+-	struct recv_frame *precv_frame = pkt_to_recvframe(pkt);
+-
+-	return	precv_frame->rx_head;
+-}
+-
+-static inline u8 *pkt_to_recvdata(struct sk_buff *pkt)
+-{
+-	/*  return the rx_data */
+-
+-	struct recv_frame *precv_frame = pkt_to_recvframe(pkt);
+-
+-	return	precv_frame->rx_data;
+-}
+-
+ static inline int get_recvframe_len(struct recv_frame *precvframe)
+ {
+ 	return precvframe->len;
 -- 
 1.8.4.5
