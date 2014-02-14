@@ -1,59 +1,53 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 00/14] Intel Wired LAN Driver Updates
-Date: Fri, 14 Feb 2014 14:57:54 -0800
-Message-ID: <1392418688-23895-1-git-send-email-aaron.f.brown@intel.com>
-Cc: Aaron Brown <aaron.f.brown@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 02/14] i40evf: remove VLAN filters on close
+Date: Fri, 14 Feb 2014 14:57:56 -0800
+Message-ID: <1392418688-23895-3-git-send-email-aaron.f.brown@intel.com>
+References: <1392418688-23895-1-git-send-email-aaron.f.brown@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Aaron Brown <aaron.f.brown@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:61878 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753059AbaBNXBT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Feb 2014 18:01:19 -0500
+	id S1753162AbaBNXBU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Feb 2014 18:01:20 -0500
+In-Reply-To: <1392418688-23895-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and (mostly to) i40evf.
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Mitch provides most the work for this series.  For the vf driver
-he requests a reset on a tx hang, removes vlan filtes on close since
-we already remove the MAC filters, fixes some crashes, gets rid of 
-PCI DAC as it does not mean much on virtualized PCIe parts, skips
-assigning the device name that just gets renamed anyway, stores the
-descriptor ring size in a manner that allows the use of common tx
-and rx code with the PF driver and makes a handful of cosmetic fixes.
-For i40e he removes a delay left over from debugging and changes a 
-do/while loop to a for loop to avoid hitting another delay each time.
+We remove all the MAC filters, so remove the VLAN filters, too.
 
-Catherine fixes inconsistent MSI and MSI-X messages and bumps
-the driver version.
+Change-ID: I4f7559acdf005dc3f359bf6460ce32d183c8878b
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
+Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
+---
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-Mitch Williams (12):
-  i40evf: request reset on tx hang
-  i40evf: remove VLAN filters on close
-  i40evf: fix multiple crashes on remove
-  i40evf: get rid of pci_using_dac
-  i40evf: fix up strings in init task
-  i40evf: remove bogus comment
-  i40evf: don't guess device name
-  i40evf: store ring size in ring structs
-  i40evf: update version and copyright date
-  i40evf: remove errant space
-  i40e: remove unnecessary delay
-  i40e: tighten up ring enable/disable flow
-
-Catherine Sullivan (2):
-  i40e: Change MSIX to MSI-X
-  i40e and i40evf: Bump driver versions
-
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 43 ++++++-----
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  1 -
- .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    |  2 +-
- drivers/net/ethernet/intel/i40evf/i40evf.h         |  3 +-
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 13 ++--
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 85 +++++++++++-----------
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    | 12 +++
- 7 files changed, 85 insertions(+), 74 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 1629b73..75a2c6f 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -972,9 +972,14 @@ void i40evf_down(struct i40evf_adapter *adapter)
+ 	list_for_each_entry(f, &adapter->mac_filter_list, list) {
+ 		f->remove = true;
+ 	}
++	/* remove all VLAN filters */
++	list_for_each_entry(f, &adapter->vlan_filter_list, list) {
++		f->remove = true;
++	}
+ 	if (!(adapter->flags & I40EVF_FLAG_PF_COMMS_FAILED) &&
+ 	    adapter->state != __I40EVF_RESETTING) {
+ 		adapter->aq_required |= I40EVF_FLAG_AQ_DEL_MAC_FILTER;
++		adapter->aq_required |= I40EVF_FLAG_AQ_DEL_VLAN_FILTER;
+ 		/* disable receives */
+ 		adapter->aq_required |= I40EVF_FLAG_AQ_DISABLE_QUEUES;
+ 		mod_timer_pending(&adapter->watchdog_timer, jiffies + 1);
 -- 
 1.8.5.GIT
