@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v5 04/10] net: phy: add Broadcom BCM7xxx internal PHY driver
-Date: Thu, 13 Feb 2014 16:08:45 -0800
-Message-ID: <1392336531-28875-5-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v5 05/10] net: bcmgenet: add driver definitions and private structure
+Date: Thu, 13 Feb 2014 16:08:46 -0800
+Message-ID: <1392336531-28875-6-git-send-email-f.fainelli@gmail.com>
 References: <1392336531-28875-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,457 +10,675 @@ Cc: <davem@davemloft.net>, <devicetree@vger.kernel.org>,
 	<romieu@fr.zoreil.com>, Florian Fainelli <f.fainelli@gmail.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:30145 "EHLO
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:49712 "EHLO
 	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751763AbaBNAJ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 19:09:56 -0500
+	with ESMTP id S1751962AbaBNAJz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 19:09:55 -0500
 In-Reply-To: <1392336531-28875-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for the Broadcom BCM7xxx Set Top Box SoCs
-internal PHYs. This driver supports the following generation of SoCs:
-
-- BCM7366, BCM7439, BCM7445 (28nm process)
-- all 40nm and 65nm (older MIPS-based SoCs)
-
-The PHYs on these SoCs require a bunch of workarounds to operate
-correctly, both during configuration time and at suspend/resume time,
-the driver handles that for us.
+This patchs adds the bcmgenet.h header file which contains all the
+hardware definitions for the GENETv1 to v4 hardware blocks as well as
+the driver private structure and MIB counters.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
 Changes in v5:
-- respin due to CONFIG_OF dependency fix
+- respind due to the CONFIG_OF dependency
 
-Changes in v4:
-- respin due to the Kconfig dependency fix
+Change in v4:
+- respin for Kconfig dependency
 
-Changes in v3:
-- use register definitions from brcmphy.h where applicable
-- add new register definitions for 40nm workaround
-- check return code of phy_set_clr_bits
-- minor stylistic changes as reported by Francois Romieu
+Change in v3:
+- removed more unused members such as phy_supported and phy_addr
+- group member by logical use and comment about their use
 
 Changes in v2:
-- update the 28nm AFE workaround to clear the EEE LPI
-  timer (value 0xeb17 previously now 0xeb19)
+- removed priv->phy_type usage and use priv->phy_interface which
+- remove BRCM_PHY_TYPE_{INT,MOCA} defines, now replaced by their
+  PHY_INTERFACE_MODE counterparts
+- small line suppression cleanups
 
- drivers/net/phy/Kconfig   |   6 +
- drivers/net/phy/Makefile  |   1 +
- drivers/net/phy/bcm7xxx.c | 343 ++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/brcmphy.h   |   9 ++
- 4 files changed, 359 insertions(+)
- create mode 100644 drivers/net/phy/bcm7xxx.c
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h | 630 +++++++++++++++++++++++++
+ 1 file changed, 630 insertions(+)
+ create mode 100644 drivers/net/ethernet/broadcom/genet/bcmgenet.h
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 9b5d46c..6a17f92 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -71,6 +71,12 @@ config BCM63XX_PHY
- 	---help---
- 	  Currently supports the 6348 and 6358 PHYs.
- 
-+config BCM7XXX_PHY
-+	tristate "Drivers for Broadcom 7xxx SOCs internal PHYs"
-+	---help---
-+	  Currently supports the BCM7366, BCM7439, BCM7445, and
-+	  40nm and 65nm generation of BCM7xxx Set Top Box SoCs.
-+
- config BCM87XX_PHY
- 	tristate "Driver for Broadcom BCM8706 and BCM8727 PHYs"
- 	help
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index 9013dfa..07d2402 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -12,6 +12,7 @@ obj-$(CONFIG_SMSC_PHY)		+= smsc.o
- obj-$(CONFIG_VITESSE_PHY)	+= vitesse.o
- obj-$(CONFIG_BROADCOM_PHY)	+= broadcom.o
- obj-$(CONFIG_BCM63XX_PHY)	+= bcm63xx.o
-+obj-$(CONFIG_BCM7XXX_PHY)	+= bcm7xxx.o
- obj-$(CONFIG_BCM87XX_PHY)	+= bcm87xx.o
- obj-$(CONFIG_ICPLUS_PHY)	+= icplus.o
- obj-$(CONFIG_REALTEK_PHY)	+= realtek.o
-diff --git a/drivers/net/phy/bcm7xxx.c b/drivers/net/phy/bcm7xxx.c
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
 new file mode 100644
-index 0000000..6973372
+index 0000000..8e48db8
 --- /dev/null
-+++ b/drivers/net/phy/bcm7xxx.c
-@@ -0,0 +1,343 @@
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+@@ -0,0 +1,630 @@
 +/*
-+ * Broadcom BCM7xxx internal transceivers support.
++ * Copyright (c) 2014 Broadcom Corporation
 + *
-+ * Copyright (C) 2014, Broadcom Corporation
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
 + *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
++ *
++ *
++*/
++#ifndef __BCMGENET_H__
++#define __BCMGENET_H__
 +
-+#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/netdevice.h>
++#include <linux/spinlock.h>
++#include <linux/clk.h>
++#include <linux/mii.h>
++#include <linux/if_vlan.h>
 +#include <linux/phy.h>
-+#include <linux/delay.h>
-+#include <linux/bitops.h>
-+#include <linux/brcmphy.h>
 +
-+/* Broadcom BCM7xxx internal PHY registers */
-+#define MII_BCM7XXX_CHANNEL_WIDTH	0x2000
++/* total number of Buffer Descriptors, same for Rx/Tx */
++#define TOTAL_DESC				256
 +
-+/* 40nm only register definitions */
-+#define MII_BCM7XXX_100TX_AUX_CTL	0x10
-+#define MII_BCM7XXX_100TX_FALSE_CAR	0x13
-+#define MII_BCM7XXX_100TX_DISC		0x14
-+#define MII_BCM7XXX_AUX_MODE		0x1d
-+#define  MII_BCM7XX_64CLK_MDIO		BIT(12)
-+#define MII_BCM7XXX_CORE_BASE1E		0x1e
-+#define MII_BCM7XXX_TEST		0x1f
-+#define  MII_BCM7XXX_SHD_MODE_2		BIT(2)
++/* which ring is descriptor based */
++#define DESC_INDEX				16
 +
-+static int bcm7445_config_init(struct phy_device *phydev)
-+{
-+	int ret;
-+	const struct bcm7445_regs {
-+		int reg;
-+		u16 value;
-+	} bcm7445_regs_cfg[] = {
-+		/* increases ADC latency by 24ns */
-+		{ MII_BCM54XX_EXP_SEL, 0x0038 },
-+		{ MII_BCM54XX_EXP_DATA, 0xAB95 },
-+		/* increases internal 1V LDO voltage by 5% */
-+		{ MII_BCM54XX_EXP_SEL, 0x2038 },
-+		{ MII_BCM54XX_EXP_DATA, 0xBB22 },
-+		/* reduce RX low pass filter corner frequency */
-+		{ MII_BCM54XX_EXP_SEL, 0x6038 },
-+		{ MII_BCM54XX_EXP_DATA, 0xFFC5 },
-+		/* reduce RX high pass filter corner frequency */
-+		{ MII_BCM54XX_EXP_SEL, 0x003a },
-+		{ MII_BCM54XX_EXP_DATA, 0x2002 },
-+	};
-+	unsigned int i;
-+
-+	for (i = 0; i < ARRAY_SIZE(bcm7445_regs_cfg); i++) {
-+		ret = phy_write(phydev,
-+				bcm7445_regs_cfg[i].reg,
-+				bcm7445_regs_cfg[i].value);
-+		if (ret)
-+			return ret;
-+	}
-+
-+	return 0;
-+}
-+
-+static void phy_write_exp(struct phy_device *phydev,
-+					u16 reg, u16 value)
-+{
-+	phy_write(phydev, MII_BCM54XX_EXP_SEL, MII_BCM54XX_EXP_SEL_ER | reg);
-+	phy_write(phydev, MII_BCM54XX_EXP_DATA, value);
-+}
-+
-+static void phy_write_misc(struct phy_device *phydev,
-+					u16 reg, u16 chl, u16 value)
-+{
-+	int tmp;
-+
-+	phy_write(phydev, MII_BCM54XX_AUX_CTL, MII_BCM54XX_AUXCTL_SHDWSEL_MISC);
-+
-+	tmp = phy_read(phydev, MII_BCM54XX_AUX_CTL);
-+	tmp |= MII_BCM54XX_AUXCTL_ACTL_SMDSP_ENA;
-+	phy_write(phydev, MII_BCM54XX_AUX_CTL, tmp);
-+
-+	tmp = (chl * MII_BCM7XXX_CHANNEL_WIDTH) | reg;
-+	phy_write(phydev, MII_BCM54XX_EXP_SEL, tmp);
-+
-+	phy_write(phydev, MII_BCM54XX_EXP_DATA, value);
-+}
-+
-+static int bcm7xxx_28nm_afe_config_init(struct phy_device *phydev)
-+{
-+	/* write AFE_RXCONFIG_0 */
-+	phy_write_misc(phydev, 0x38, 0x0000, 0xeb19);
-+
-+	/* write AFE_RXCONFIG_1 */
-+	phy_write_misc(phydev, 0x38, 0x0001, 0x9a3f);
-+
-+	/* write AFE_RX_LP_COUNTER */
-+	phy_write_misc(phydev, 0x38, 0x0003, 0x7fc7);
-+
-+	/* write AFE_HPF_TRIM_OTHERS */
-+	phy_write_misc(phydev, 0x3A, 0x0000, 0x000b);
-+
-+	/* write AFTE_TX_CONFIG */
-+	phy_write_misc(phydev, 0x39, 0x0000, 0x0800);
-+
-+	/* Increase VCO range to prevent unlocking problem of PLL at low
-+	 * temp
-+	 */
-+	phy_write_misc(phydev, 0x0032, 0x0001, 0x0048);
-+
-+	/* Change Ki to 011 */
-+	phy_write_misc(phydev, 0x0032, 0x0002, 0x021b);
-+
-+	/* Disable loading of TVCO buffer to bandgap, set bandgap trim
-+	 * to 111
-+	 */
-+	phy_write_misc(phydev, 0x0033, 0x0000, 0x0e20);
-+
-+	/* Adjust bias current trim by -3 */
-+	phy_write_misc(phydev, 0x000a, 0x0000, 0x690b);
-+
-+	/* Switch to CORE_BASE1E */
-+	phy_write(phydev, MII_BCM7XXX_CORE_BASE1E, 0xd);
-+
-+	/* Reset R_CAL/RC_CAL Engine */
-+	phy_write_exp(phydev, 0x00b0, 0x0010);
-+
-+	/* Disable Reset R_CAL/RC_CAL Engine */
-+	phy_write_exp(phydev, 0x00b0, 0x0000);
-+
-+	return 0;
-+}
-+
-+static int bcm7xxx_28nm_config_init(struct phy_device *phydev)
-+{
-+	int ret;
-+
-+	ret = bcm7445_config_init(phydev);
-+	if (ret)
-+		return ret;
-+
-+	return bcm7xxx_28nm_afe_config_init(phydev);
-+}
-+
-+static int phy_set_clr_bits(struct phy_device *dev, int location,
-+					int set_mask, int clr_mask)
-+{
-+	int v, ret;
-+
-+	v = phy_read(dev, location);
-+	if (v < 0)
-+		return v;
-+
-+	v &= ~clr_mask;
-+	v |= set_mask;
-+
-+	ret = phy_write(dev, location, v);
-+	if (ret < 0)
-+		return ret;
-+
-+	return v;
-+}
-+
-+static int bcm7xxx_config_init(struct phy_device *phydev)
-+{
-+	int ret;
-+
-+	/* Enable 64 clock MDIO */
-+	phy_write(phydev, MII_BCM7XXX_AUX_MODE, MII_BCM7XX_64CLK_MDIO);
-+	phy_read(phydev, MII_BCM7XXX_AUX_MODE);
-+
-+	/* Workaround only required for 100Mbits/sec */
-+	if (!(phydev->dev_flags & PHY_BRCM_100MBPS_WAR))
-+		return 0;
-+
-+	/* set shadow mode 2 */
-+	ret = phy_set_clr_bits(phydev, MII_BCM7XXX_TEST,
-+			MII_BCM7XXX_SHD_MODE_2, MII_BCM7XXX_SHD_MODE_2);
-+	if (ret < 0)
-+		return ret;
-+
-+	/* set iddq_clkbias */
-+	phy_write(phydev, MII_BCM7XXX_100TX_DISC, 0x0F00);
-+	udelay(10);
-+
-+	/* reset iddq_clkbias */
-+	phy_write(phydev, MII_BCM7XXX_100TX_DISC, 0x0C00);
-+
-+	phy_write(phydev, MII_BCM7XXX_100TX_FALSE_CAR, 0x7555);
-+
-+	/* reset shadow mode 2 */
-+	ret = phy_set_clr_bits(phydev, MII_BCM7XXX_TEST, MII_BCM7XXX_SHD_MODE_2, 0);
-+	if (ret < 0)
-+		return ret;
-+
-+	return 0;
-+}
-+
-+/* Workaround for putting the PHY in IDDQ mode, required
-+ * for all BCM7XXX PHYs
++/* Body(1500) + EH_SIZE(14) + VLANTAG(4) + BRCMTAG(6) + FCS(4) = 1528.
++ * 1536 is multiple of 256 bytes
 + */
-+static int bcm7xxx_suspend(struct phy_device *phydev)
-+{
-+	int ret;
-+	const struct bcm7xxx_regs {
-+		int reg;
-+		u16 value;
-+	} bcm7xxx_suspend_cfg[] = {
-+		{ MII_BCM7XXX_TEST, 0x008b },
-+		{ MII_BCM7XXX_100TX_AUX_CTL, 0x01c0 },
-+		{ MII_BCM7XXX_100TX_DISC, 0x7000 },
-+		{ MII_BCM7XXX_TEST, 0x000f },
-+		{ MII_BCM7XXX_100TX_AUX_CTL, 0x20d0 },
-+		{ MII_BCM7XXX_TEST, 0x000b },
-+	};
-+	unsigned int i;
++#define ENET_BRCM_TAG_LEN	6
++#define ENET_PAD		8
++#define ENET_MAX_MTU_SIZE	(ETH_DATA_LEN + ETH_HLEN + VLAN_HLEN + \
++				 ENET_BRCM_TAG_LEN + ETH_FCS_LEN + ENET_PAD)
++#define DMA_MAX_BURST_LENGTH    0x10
 +
-+	for (i = 0; i < ARRAY_SIZE(bcm7xxx_suspend_cfg); i++) {
-+		ret = phy_write(phydev,
-+				bcm7xxx_suspend_cfg[i].reg,
-+				bcm7xxx_suspend_cfg[i].value);
-+		if (ret)
-+			return ret;
-+	}
++/* misc. configuration */
++#define CLEAR_ALL_HFB			0xFF
++#define DMA_FC_THRESH_HI		(TOTAL_DESC >> 4)
++#define DMA_FC_THRESH_LO		5
 +
-+	return 0;
-+}
-+
-+static int bcm7xxx_dummy_config_init(struct phy_device *phydev)
-+{
-+	return 0;
-+}
-+
-+static struct phy_driver bcm7xxx_driver[] = {
-+{
-+	.phy_id		= PHY_ID_BCM7366,
-+	.phy_id_mask	= 0xfffffff0,
-+	.name		= "Broadcom BCM7366",
-+	.features	= PHY_GBIT_FEATURES |
-+			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
-+	.flags		= PHY_IS_INTERNAL,
-+	.config_init	= bcm7xxx_28nm_afe_config_init,
-+	.config_aneg	= genphy_config_aneg,
-+	.read_status	= genphy_read_status,
-+	.suspend	= bcm7xxx_suspend,
-+	.resume		= bcm7xxx_28nm_afe_config_init,
-+	.driver		= { .owner = THIS_MODULE },
-+}, {
-+	.phy_id		= PHY_ID_BCM7439,
-+	.phy_id_mask	= 0xfffffff0,
-+	.name		= "Broadcom BCM7439",
-+	.features	= PHY_GBIT_FEATURES |
-+			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
-+	.flags		= PHY_IS_INTERNAL,
-+	.config_init	= bcm7xxx_28nm_afe_config_init,
-+	.config_aneg	= genphy_config_aneg,
-+	.read_status	= genphy_read_status,
-+	.suspend	= bcm7xxx_suspend,
-+	.resume		= bcm7xxx_28nm_afe_config_init,
-+	.driver		= { .owner = THIS_MODULE },
-+}, {
-+	.phy_id		= PHY_ID_BCM7445,
-+	.phy_id_mask	= 0xfffffff0,
-+	.name		= "Broadcom BCM7445",
-+	.features	= PHY_GBIT_FEATURES |
-+			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
-+	.flags		= PHY_IS_INTERNAL,
-+	.config_init	= bcm7xxx_28nm_config_init,
-+	.config_aneg	= genphy_config_aneg,
-+	.read_status	= genphy_read_status,
-+	.suspend	= bcm7xxx_suspend,
-+	.resume		= bcm7xxx_28nm_config_init,
-+	.driver		= { .owner = THIS_MODULE },
-+}, {
-+	.name		= "Broadcom BCM7XXX 28nm",
-+	.phy_id		= PHY_ID_BCM7XXX_28,
-+	.phy_id_mask	= PHY_BCM_OUI_MASK,
-+	.features	= PHY_GBIT_FEATURES |
-+			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
-+	.flags		= PHY_IS_INTERNAL,
-+	.config_init	= bcm7xxx_28nm_config_init,
-+	.config_aneg	= genphy_config_aneg,
-+	.read_status	= genphy_read_status,
-+	.suspend	= bcm7xxx_suspend,
-+	.resume		= bcm7xxx_28nm_config_init,
-+	.driver		= { .owner = THIS_MODULE },
-+}, {
-+	.phy_id		= PHY_BCM_OUI_4,
-+	.phy_id_mask	= 0xffff0000,
-+	.name		= "Broadcom BCM7XXX 40nm",
-+	.features	= PHY_GBIT_FEATURES |
-+			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
-+	.flags		= PHY_IS_INTERNAL,
-+	.config_init	= bcm7xxx_config_init,
-+	.config_aneg	= genphy_config_aneg,
-+	.read_status	= genphy_read_status,
-+	.suspend	= bcm7xxx_suspend,
-+	.resume		= bcm7xxx_config_init,
-+	.driver		= { .owner = THIS_MODULE },
-+}, {
-+	.phy_id		= PHY_BCM_OUI_5,
-+	.phy_id_mask	= 0xffffff00,
-+	.name		= "Broadcom BCM7XXX 65nm",
-+	.features	= PHY_BASIC_FEATURES |
-+			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
-+	.flags		= PHY_IS_INTERNAL,
-+	.config_init	= bcm7xxx_dummy_config_init,
-+	.config_aneg	= genphy_config_aneg,
-+	.read_status	= genphy_read_status,
-+	.suspend	= bcm7xxx_suspend,
-+	.resume		= bcm7xxx_config_init,
-+	.driver		= { .owner = THIS_MODULE },
-+} };
-+
-+static struct mdio_device_id __maybe_unused bcm7xxx_tbl[] = {
-+	{ PHY_ID_BCM7366, 0xfffffff0, },
-+	{ PHY_ID_BCM7439, 0xfffffff0, },
-+	{ PHY_ID_BCM7445, 0xfffffff0, },
-+	{ PHY_ID_BCM7XXX_28, 0xfffffc00 },
-+	{ PHY_BCM_OUI_4, 0xffff0000 },
-+	{ PHY_BCM_OUI_5, 0xffffff00 },
-+	{ }
++/* 64B receive/transmit status block */
++struct status_64 {
++	u32	length_status;		/* length and peripheral status */
++	u32	ext_status;		/* Extended status*/
++	u32	rx_csum;		/* partial rx checksum */
++	u32	unused1[9];		/* unused */
++	u32	tx_csum_info;		/* Tx checksum info. */
++	u32	unused2[3];		/* unused */
 +};
 +
-+static int __init bcm7xxx_phy_init(void)
-+{
-+	return phy_drivers_register(bcm7xxx_driver,
-+			ARRAY_SIZE(bcm7xxx_driver));
++/* Rx status bits */
++#define STATUS_RX_EXT_MASK		0x1FFFFF
++#define STATUS_RX_CSUM_MASK		0xFFFF
++#define STATUS_RX_CSUM_OK		0x10000
++#define STATUS_RX_CSUM_FR		0x20000
++#define STATUS_RX_PROTO_TCP		0
++#define STATUS_RX_PROTO_UDP		1
++#define STATUS_RX_PROTO_ICMP		2
++#define STATUS_RX_PROTO_OTHER		3
++#define STATUS_RX_PROTO_MASK		3
++#define STATUS_RX_PROTO_SHIFT		18
++#define STATUS_FILTER_INDEX_MASK	0xFFFF
++/* Tx status bits */
++#define STATUS_TX_CSUM_START_MASK	0X7FFF
++#define STATUS_TX_CSUM_START_SHIFT	16
++#define STATUS_TX_CSUM_PROTO_UDP	0x8000
++#define STATUS_TX_CSUM_OFFSET_MASK	0x7FFF
++#define STATUS_TX_CSUM_LV		0x80000000
++
++/* DMA Descriptor */
++#define DMA_DESC_LENGTH_STATUS	0x00	/* in bytes of data in buffer */
++#define DMA_DESC_ADDRESS_LO	0x04	/* lower bits of PA */
++#define DMA_DESC_ADDRESS_HI	0x08	/* upper 32 bits of PA, GENETv4+ */
++
++/* Rx/Tx common counter group */
++struct bcmgenet_pkt_counters {
++	u32	cnt_64;		/* RO Received/Transmited 64 bytes packet */
++	u32	cnt_127;	/* RO Rx/Tx 127 bytes packet */
++	u32	cnt_255;	/* RO Rx/Tx 65-255 bytes packet */
++	u32	cnt_511;	/* RO Rx/Tx 256-511 bytes packet */
++	u32	cnt_1023;	/* RO Rx/Tx 512-1023 bytes packet */
++	u32	cnt_1518;	/* RO Rx/Tx 1024-1518 bytes packet */
++	u32	cnt_mgv;	/* RO Rx/Tx 1519-1522 good VLAN packet */
++	u32	cnt_2047;	/* RO Rx/Tx 1522-2047 bytes packet*/
++	u32	cnt_4095;	/* RO Rx/Tx 2048-4095 bytes packet*/
++	u32	cnt_9216;	/* RO Rx/Tx 4096-9216 bytes packet*/
++};
++
++/* RSV, Receive Status Vector */
++struct bcmgenet_rx_counters {
++	struct  bcmgenet_pkt_counters pkt_cnt;
++	u32	pkt;		/* RO (0x428) Received pkt count*/
++	u32	bytes;		/* RO Received byte count */
++	u32	mca;		/* RO # of Received multicast pkt */
++	u32	bca;		/* RO # of Receive broadcast pkt */
++	u32	fcs;		/* RO # of Received FCS error  */
++	u32	cf;		/* RO # of Received control frame pkt*/
++	u32	pf;		/* RO # of Received pause frame pkt */
++	u32	uo;		/* RO # of unknown op code pkt */
++	u32	aln;		/* RO # of alignment error count */
++	u32	flr;		/* RO # of frame length out of range count */
++	u32	cde;		/* RO # of code error pkt */
++	u32	fcr;		/* RO # of carrier sense error pkt */
++	u32	ovr;		/* RO # of oversize pkt*/
++	u32	jbr;		/* RO # of jabber count */
++	u32	mtue;		/* RO # of MTU error pkt*/
++	u32	pok;		/* RO # of Received good pkt */
++	u32	uc;		/* RO # of unicast pkt */
++	u32	ppp;		/* RO # of PPP pkt */
++	u32	rcrc;		/* RO (0x470),# of CRC match pkt */
++};
++
++/* TSV, Transmit Status Vector */
++struct bcmgenet_tx_counters {
++	struct bcmgenet_pkt_counters pkt_cnt;
++	u32	pkts;		/* RO (0x4a8) Transmited pkt */
++	u32	mca;		/* RO # of xmited multicast pkt */
++	u32	bca;		/* RO # of xmited broadcast pkt */
++	u32	pf;		/* RO # of xmited pause frame count */
++	u32	cf;		/* RO # of xmited control frame count */
++	u32	fcs;		/* RO # of xmited FCS error count */
++	u32	ovr;		/* RO # of xmited oversize pkt */
++	u32	drf;		/* RO # of xmited deferral pkt */
++	u32	edf;		/* RO # of xmited Excessive deferral pkt*/
++	u32	scl;		/* RO # of xmited single collision pkt */
++	u32	mcl;		/* RO # of xmited multiple collision pkt*/
++	u32	lcl;		/* RO # of xmited late collision pkt */
++	u32	ecl;		/* RO # of xmited excessive collision pkt*/
++	u32	frg;		/* RO # of xmited fragments pkt*/
++	u32	ncl;		/* RO # of xmited total collision count */
++	u32	jbr;		/* RO # of xmited jabber count*/
++	u32	bytes;		/* RO # of xmited byte count */
++	u32	pok;		/* RO # of xmited good pkt */
++	u32	uc;		/* RO (0x0x4f0)# of xmited unitcast pkt */
++};
++
++struct bcmgenet_mib_counters {
++	struct bcmgenet_rx_counters rx;
++	struct bcmgenet_tx_counters tx;
++	u32	rx_runt_cnt;
++	u32	rx_runt_fcs;
++	u32	rx_runt_fcs_align;
++	u32	rx_runt_bytes;
++	u32	rbuf_ovflow_cnt;
++	u32	rbuf_err_cnt;
++	u32	mdf_err_cnt;
++};
++
++#define UMAC_HD_BKP_CTRL		0x004
++#define	 HD_FC_EN			(1 << 0)
++#define  HD_FC_BKOFF_OK			(1 << 1)
++#define  IPG_CONFIG_RX_SHIFT		2
++#define  IPG_CONFIG_RX_MASK		0x1F
++
++#define UMAC_CMD			0x008
++#define  CMD_TX_EN			(1 << 0)
++#define  CMD_RX_EN			(1 << 1)
++#define  UMAC_SPEED_10			0
++#define  UMAC_SPEED_100			1
++#define  UMAC_SPEED_1000		2
++#define  UMAC_SPEED_2500		3
++#define  CMD_SPEED_SHIFT		2
++#define  CMD_SPEED_MASK			3
++#define  CMD_PROMISC			(1 << 4)
++#define  CMD_PAD_EN			(1 << 5)
++#define  CMD_CRC_FWD			(1 << 6)
++#define  CMD_PAUSE_FWD			(1 << 7)
++#define  CMD_RX_PAUSE_IGNORE		(1 << 8)
++#define  CMD_TX_ADDR_INS		(1 << 9)
++#define  CMD_HD_EN			(1 << 10)
++#define  CMD_SW_RESET			(1 << 13)
++#define  CMD_LCL_LOOP_EN		(1 << 15)
++#define  CMD_AUTO_CONFIG		(1 << 22)
++#define  CMD_CNTL_FRM_EN		(1 << 23)
++#define  CMD_NO_LEN_CHK			(1 << 24)
++#define  CMD_RMT_LOOP_EN		(1 << 25)
++#define  CMD_PRBL_EN			(1 << 27)
++#define  CMD_TX_PAUSE_IGNORE		(1 << 28)
++#define  CMD_TX_RX_EN			(1 << 29)
++#define  CMD_RUNT_FILTER_DIS		(1 << 30)
++
++#define UMAC_MAC0			0x00C
++#define UMAC_MAC1			0x010
++#define UMAC_MAX_FRAME_LEN		0x014
++
++#define UMAC_TX_FLUSH			0x334
++
++#define UMAC_MIB_START			0x400
++
++#define UMAC_MDIO_CMD			0x614
++#define  MDIO_START_BUSY		(1 << 29)
++#define  MDIO_READ_FAIL			(1 << 28)
++#define  MDIO_RD			(2 << 26)
++#define  MDIO_WR			(1 << 26)
++#define  MDIO_PMD_SHIFT			21
++#define  MDIO_PMD_MASK			0x1F
++#define  MDIO_REG_SHIFT			16
++#define  MDIO_REG_MASK			0x1F
++
++#define UMAC_RBUF_OVFL_CNT		0x61C
++
++#define UMAC_MPD_CTRL			0x620
++#define  MPD_EN				(1 << 0)
++#define  MPD_PW_EN			(1 << 27)
++#define  MPD_MSEQ_LEN_SHIFT		16
++#define  MPD_MSEQ_LEN_MASK		0xFF
++
++#define UMAC_MPD_PW_MS			0x624
++#define UMAC_MPD_PW_LS			0x628
++#define UMAC_RBUF_ERR_CNT		0x634
++#define UMAC_MDF_ERR_CNT		0x638
++#define UMAC_MDF_CTRL			0x650
++#define UMAC_MDF_ADDR			0x654
++#define UMAC_MIB_CTRL			0x580
++#define  MIB_RESET_RX			(1 << 0)
++#define  MIB_RESET_RUNT			(1 << 1)
++#define  MIB_RESET_TX			(1 << 2)
++
++#define RBUF_CTRL			0x00
++#define  RBUF_64B_EN			(1 << 0)
++#define  RBUF_ALIGN_2B			(1 << 1)
++#define  RBUF_BAD_DIS			(1 << 2)
++
++#define RBUF_STATUS			0x0C
++#define  RBUF_STATUS_WOL		(1 << 0)
++#define  RBUF_STATUS_MPD_INTR_ACTIVE	(1 << 1)
++#define  RBUF_STATUS_ACPI_INTR_ACTIVE	(1 << 2)
++
++#define RBUF_CHK_CTRL			0x14
++#define  RBUF_RXCHK_EN			(1 << 0)
++#define  RBUF_SKIP_FCS			(1 << 4)
++
++#define RBUF_TBUF_SIZE_CTRL		0xb4
++
++#define RBUF_HFB_CTRL_V1		0x38
++#define  RBUF_HFB_FILTER_EN_SHIFT	16
++#define  RBUF_HFB_FILTER_EN_MASK	0xffff0000
++#define  RBUF_HFB_EN			(1 << 0)
++#define  RBUF_HFB_256B			(1 << 1)
++#define  RBUF_ACPI_EN			(1 << 2)
++
++#define RBUF_HFB_LEN_V1			0x3C
++#define  RBUF_FLTR_LEN_MASK		0xFF
++#define  RBUF_FLTR_LEN_SHIFT		8
++
++#define TBUF_CTRL			0x00
++#define TBUF_BP_MC			0x0C
++
++#define TBUF_CTRL_V1			0x80
++#define TBUF_BP_MC_V1			0xA0
++
++#define HFB_CTRL			0x00
++#define HFB_FLT_ENABLE_V3PLUS		0x04
++#define HFB_FLT_LEN_V2			0x04
++#define HFB_FLT_LEN_V3PLUS		0x1C
++
++/* uniMac intrl2 registers */
++#define INTRL2_CPU_STAT			0x00
++#define INTRL2_CPU_SET			0x04
++#define INTRL2_CPU_CLEAR		0x08
++#define INTRL2_CPU_MASK_STATUS		0x0C
++#define INTRL2_CPU_MASK_SET		0x10
++#define INTRL2_CPU_MASK_CLEAR		0x14
++
++/* INTRL2 instance 0 definitions */
++#define UMAC_IRQ_SCB			(1 << 0)
++#define UMAC_IRQ_EPHY			(1 << 1)
++#define UMAC_IRQ_PHY_DET_R		(1 << 2)
++#define UMAC_IRQ_PHY_DET_F		(1 << 3)
++#define UMAC_IRQ_LINK_UP		(1 << 4)
++#define UMAC_IRQ_LINK_DOWN		(1 << 5)
++#define UMAC_IRQ_UMAC			(1 << 6)
++#define UMAC_IRQ_UMAC_TSV		(1 << 7)
++#define UMAC_IRQ_TBUF_UNDERRUN		(1 << 8)
++#define UMAC_IRQ_RBUF_OVERFLOW		(1 << 9)
++#define UMAC_IRQ_HFB_SM			(1 << 10)
++#define UMAC_IRQ_HFB_MM			(1 << 11)
++#define UMAC_IRQ_MPD_R			(1 << 12)
++#define UMAC_IRQ_RXDMA_MBDONE		(1 << 13)
++#define UMAC_IRQ_RXDMA_PDONE		(1 << 14)
++#define UMAC_IRQ_RXDMA_BDONE		(1 << 15)
++#define UMAC_IRQ_TXDMA_MBDONE		(1 << 16)
++#define UMAC_IRQ_TXDMA_PDONE		(1 << 17)
++#define UMAC_IRQ_TXDMA_BDONE		(1 << 18)
++/* Only valid for GENETv3+ */
++#define UMAC_IRQ_MDIO_DONE		(1 << 23)
++#define UMAC_IRQ_MDIO_ERROR		(1 << 24)
++
++/* Register block offsets */
++#define GENET_SYS_OFF			0x0000
++#define GENET_GR_BRIDGE_OFF		0x0040
++#define GENET_EXT_OFF			0x0080
++#define GENET_INTRL2_0_OFF		0x0200
++#define GENET_INTRL2_1_OFF		0x0240
++#define GENET_RBUF_OFF			0x0300
++#define GENET_UMAC_OFF			0x0800
++
++/* SYS block offsets and register definitions */
++#define SYS_REV_CTRL			0x00
++#define SYS_PORT_CTRL			0x04
++#define  PORT_MODE_INT_EPHY		0
++#define  PORT_MODE_INT_GPHY		1
++#define  PORT_MODE_EXT_EPHY		2
++#define  PORT_MODE_EXT_GPHY		3
++#define  PORT_MODE_EXT_RVMII_25		(4 | BIT(4))
++#define  PORT_MODE_EXT_RVMII_50		4
++#define  LED_ACT_SOURCE_MAC		(1 << 9)
++
++#define SYS_RBUF_FLUSH_CTRL		0x08
++#define SYS_TBUF_FLUSH_CTRL		0x0C
++#define RBUF_FLUSH_CTRL_V1		0x04
++
++/* Ext block register offsets and definitions */
++#define EXT_EXT_PWR_MGMT		0x00
++#define  EXT_PWR_DOWN_BIAS		(1 << 0)
++#define  EXT_PWR_DOWN_DLL		(1 << 1)
++#define  EXT_PWR_DOWN_PHY		(1 << 2)
++#define  EXT_PWR_DN_EN_LD		(1 << 3)
++#define  EXT_ENERGY_DET			(1 << 4)
++#define  EXT_IDDQ_FROM_PHY		(1 << 5)
++#define  EXT_PHY_RESET			(1 << 8)
++#define  EXT_ENERGY_DET_MASK		(1 << 12)
++
++#define EXT_RGMII_OOB_CTRL		0x0C
++#define  RGMII_MODE_EN			(1 << 0)
++#define  RGMII_LINK			(1 << 4)
++#define  OOB_DISABLE			(1 << 5)
++#define  ID_MODE_DIS			(1 << 16)
++
++#define EXT_GPHY_CTRL			0x1C
++#define  EXT_CFG_IDDQ_BIAS		(1 << 0)
++#define  EXT_CFG_PWR_DOWN		(1 << 1)
++#define  EXT_GPHY_RESET			(1 << 5)
++
++/* DMA rings size */
++#define DMA_RING_SIZE			(0x40)
++#define DMA_RINGS_SIZE			(DMA_RING_SIZE * (DESC_INDEX + 1))
++
++/* DMA registers common definitions */
++#define DMA_RW_POINTER_MASK		0x1FF
++#define DMA_P_INDEX_DISCARD_CNT_MASK	0xFFFF
++#define DMA_P_INDEX_DISCARD_CNT_SHIFT	16
++#define DMA_BUFFER_DONE_CNT_MASK	0xFFFF
++#define DMA_BUFFER_DONE_CNT_SHIFT	16
++#define DMA_P_INDEX_MASK		0xFFFF
++#define DMA_C_INDEX_MASK		0xFFFF
++
++/* DMA ring size register */
++#define DMA_RING_SIZE_MASK		0xFFFF
++#define DMA_RING_SIZE_SHIFT		16
++#define DMA_RING_BUFFER_SIZE_MASK	0xFFFF
++
++/* DMA interrupt threshold register */
++#define DMA_INTR_THRESHOLD_MASK		0x00FF
++
++/* DMA XON/XOFF register */
++#define DMA_XON_THREHOLD_MASK		0xFFFF
++#define DMA_XOFF_THRESHOLD_MASK		0xFFFF
++#define DMA_XOFF_THRESHOLD_SHIFT	16
++
++/* DMA flow period register */
++#define DMA_FLOW_PERIOD_MASK		0xFFFF
++#define DMA_MAX_PKT_SIZE_MASK		0xFFFF
++#define DMA_MAX_PKT_SIZE_SHIFT		16
++
++
++/* DMA control register */
++#define DMA_EN				(1 << 0)
++#define DMA_RING_BUF_EN_SHIFT		0x01
++#define DMA_RING_BUF_EN_MASK		0xFFFF
++#define DMA_TSB_SWAP_EN			(1 << 20)
++
++/* DMA status register */
++#define DMA_DISABLED			(1 << 0)
++#define DMA_DESC_RAM_INIT_BUSY		(1 << 1)
++
++/* DMA SCB burst size register */
++#define DMA_SCB_BURST_SIZE_MASK		0x1F
++
++/* DMA activity vector register */
++#define DMA_ACTIVITY_VECTOR_MASK	0x1FFFF
++
++/* DMA backpressure mask register */
++#define DMA_BACKPRESSURE_MASK		0x1FFFF
++#define DMA_PFC_ENABLE			(1 << 31)
++
++/* DMA backpressure status register */
++#define DMA_BACKPRESSURE_STATUS_MASK	0x1FFFF
++
++/* DMA override register */
++#define DMA_LITTLE_ENDIAN_MODE		(1 << 0)
++#define DMA_REGISTER_MODE		(1 << 1)
++
++/* DMA timeout register */
++#define DMA_TIMEOUT_MASK		0xFFFF
++#define DMA_TIMEOUT_VAL			5000	/* micro seconds */
++
++/* TDMA rate limiting control register */
++#define DMA_RATE_LIMIT_EN_MASK		0xFFFF
++
++/* TDMA arbitration control register */
++#define DMA_ARBITER_MODE_MASK		0x03
++#define DMA_RING_BUF_PRIORITY_MASK	0x1F
++#define DMA_RING_BUF_PRIORITY_SHIFT	5
++#define DMA_RATE_ADJ_MASK		0xFF
++
++/* Tx/Rx Dma Descriptor common bits*/
++#define DMA_BUFLENGTH_MASK		0x0fff
++#define DMA_BUFLENGTH_SHIFT		16
++#define DMA_OWN				0x8000
++#define DMA_EOP				0x4000
++#define DMA_SOP				0x2000
++#define DMA_WRAP			0x1000
++/* Tx specific Dma descriptor bits */
++#define DMA_TX_UNDERRUN			0x0200
++#define DMA_TX_APPEND_CRC		0x0040
++#define DMA_TX_OW_CRC			0x0020
++#define DMA_TX_DO_CSUM			0x0010
++#define DMA_TX_QTAG_SHIFT		7
++
++/* Rx Specific Dma descriptor bits */
++#define DMA_RX_CHK_V3PLUS		0x8000
++#define DMA_RX_CHK_V12			0x1000
++#define DMA_RX_BRDCAST			0x0040
++#define DMA_RX_MULT			0x0020
++#define DMA_RX_LG			0x0010
++#define DMA_RX_NO			0x0008
++#define DMA_RX_RXER			0x0004
++#define DMA_RX_CRC_ERROR		0x0002
++#define DMA_RX_OV			0x0001
++#define DMA_RX_FI_MASK			0x001F
++#define DMA_RX_FI_SHIFT			0x0007
++#define DMA_DESC_ALLOC_MASK		0x00FF
++
++#define DMA_ARBITER_RR			0x00
++#define DMA_ARBITER_WRR			0x01
++#define DMA_ARBITER_SP			0x02
++
++struct enet_cb {
++	struct sk_buff      *skb;
++	void __iomem *bd_addr;
++	DEFINE_DMA_UNMAP_ADDR(dma_addr);
++	DEFINE_DMA_UNMAP_LEN(dma_len);
++};
++
++/* power management mode */
++enum bcmgenet_power_mode {
++	GENET_POWER_CABLE_SENSE = 0,
++	GENET_POWER_PASSIVE,
++};
++
++struct bcmgenet_priv;
++
++/* We support both runtime GENET detection and compile-time
++ * to optimize code-paths for a given hardware
++ */
++enum bcmgenet_version {
++	GENET_V1 = 1,
++	GENET_V2,
++	GENET_V3,
++	GENET_V4
++};
++
++#define GENET_IS_V1(p)	((p)->version == GENET_V1)
++#define GENET_IS_V2(p)	((p)->version == GENET_V2)
++#define GENET_IS_V3(p)	((p)->version == GENET_V3)
++#define GENET_IS_V4(p)	((p)->version == GENET_V4)
++
++/* Hardware flags */
++#define GENET_HAS_40BITS	(1 << 0)
++#define GENET_HAS_EXT		(1 << 1)
++#define GENET_HAS_MDIO_INTR	(1 << 2)
++
++/* BCMGENET hardware parameters, keep this structure nicely aligned
++ * since it is going to be used in hot paths
++ */
++struct bcmgenet_hw_params {
++	u8		tx_queues;
++	u8		rx_queues;
++	u8		bds_cnt;
++	u8		bp_in_en_shift;
++	u32		bp_in_mask;
++	u8		hfb_filter_cnt;
++	u8		qtag_mask;
++	u16		tbuf_offset;
++	u32		hfb_offset;
++	u32		hfb_reg_offset;
++	u32		rdma_offset;
++	u32		tdma_offset;
++	u32		words_per_bd;
++	u32		flags;
++};
++
++struct bcmgenet_tx_ring {
++	spinlock_t	lock;		/* ring lock */
++	unsigned int	index;		/* ring index */
++	unsigned int	queue;		/* queue index */
++	struct enet_cb	*cbs;		/* tx ring buffer control block*/
++	unsigned int	size;		/* size of each tx ring */
++	unsigned int	c_index;	/* last consumer index of each ring*/
++	unsigned int	free_bds;	/* # of free bds for each ring */
++	unsigned int	write_ptr;	/* Tx ring write pointer SW copy */
++	unsigned int	prod_index;	/* Tx ring producer index SW copy */
++	unsigned int	cb_ptr;		/* Tx ring initial CB ptr */
++	unsigned int	end_ptr;	/* Tx ring end CB ptr */
++	void (*int_enable)(struct bcmgenet_priv *priv,
++				struct bcmgenet_tx_ring *);
++	void (*int_disable)(struct bcmgenet_priv *priv,
++				struct bcmgenet_tx_ring *);
++};
++
++/* device context */
++struct bcmgenet_priv {
++	void __iomem *base;
++	enum bcmgenet_version version;
++	struct net_device *dev;
++	spinlock_t lock;
++	spinlock_t bh_lock;
++	u32 int0_mask;
++	u32 int1_mask;
++
++	/* NAPI for descriptor based rx */
++	struct napi_struct napi ____cacheline_aligned;
++
++	/* transmit variables */
++	void __iomem *tx_bds;
++	struct enet_cb *tx_cbs;
++	unsigned int num_tx_bds;
++
++	struct bcmgenet_tx_ring tx_rings[DESC_INDEX + 1];
++
++	/* receive variables */
++	void __iomem *rx_bds;
++	void __iomem *rx_bd_assign_ptr;
++	int rx_bd_assign_index;
++	struct enet_cb *rx_cbs;
++	unsigned int num_rx_bds;
++	unsigned int rx_buf_len;
++	unsigned int rx_read_ptr;
++	unsigned int rx_c_index;
++
++	/* other misc variables */
++	struct bcmgenet_hw_params *hw_params;
++
++	/* MDIO bus variables */
++	wait_queue_head_t wq;
++	struct phy_device *phydev;
++	struct device_node *phy_dn;
++	struct mii_bus *mii_bus;
++
++	/* PHY device variables */
++	int old_duplex;
++	int old_link;
++	int old_pause;
++	phy_interface_t phy_interface;
++	int phy_addr;
++	int ext_phy;
++
++	/* Interrupt variables */
++	struct work_struct bcmgenet_irq_work;
++	int irq0;
++	int irq1;
++	unsigned int irq0_stat;
++	unsigned int irq1_stat;
++
++	/* HW descriptors/checksum variables */
++	bool desc_64b_en;
++	bool desc_rxchk_en;
++	bool crc_fwd_en;
++
++	unsigned int dma_rx_chk_bit;
++
++	u32 msg_enable;
++
++	struct clk *clk;
++	struct platform_device *pdev;
++
++	/* WOL */
++	unsigned long wol_enabled;
++	struct clk *clk_wol;
++	u32 wolopts;
++
++	struct bcmgenet_mib_counters mib;
++};
++
++#define GENET_IO_MACRO(name, offset)					\
++static inline u32 bcmgenet_##name##_readl(struct bcmgenet_priv *priv,	\
++					u32 off)			\
++{									\
++	return __raw_readl(priv->base + offset + off);			\
++}									\
++static inline void bcmgenet_##name##_writel(struct bcmgenet_priv *priv,	\
++					u32 val, u32 off)		\
++{									\
++	__raw_writel(val, priv->base + offset + off);			\
 +}
 +
-+static void __exit bcm7xxx_phy_exit(void)
-+{
-+	phy_drivers_unregister(bcm7xxx_driver,
-+			ARRAY_SIZE(bcm7xxx_driver));
-+}
++GENET_IO_MACRO(ext, GENET_EXT_OFF);
++GENET_IO_MACRO(umac, GENET_UMAC_OFF);
++GENET_IO_MACRO(sys, GENET_SYS_OFF);
 +
-+module_init(bcm7xxx_phy_init);
-+module_exit(bcm7xxx_phy_exit);
++/* interrupt l2 registers accessors */
++GENET_IO_MACRO(intrl2_0, GENET_INTRL2_0_OFF);
++GENET_IO_MACRO(intrl2_1, GENET_INTRL2_1_OFF);
 +
-+MODULE_DEVICE_TABLE(mdio, bcm7xxx_tbl);
++/* HFB register accessors  */
++GENET_IO_MACRO(hfb, priv->hw_params->hfb_offset);
 +
-+MODULE_DESCRIPTION("Broadcom BCM7xxx internal PHY driver");
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Broadcom Corporation");
-diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
-index 104e3ef..6f76277 100644
---- a/include/linux/brcmphy.h
-+++ b/include/linux/brcmphy.h
-@@ -13,10 +13,17 @@
- #define PHY_ID_BCM5461			0x002060c0
- #define PHY_ID_BCM57780			0x03625d90
- 
-+#define PHY_ID_BCM7366			0x600d8490
-+#define PHY_ID_BCM7439			0x600d8480
-+#define PHY_ID_BCM7445			0x600d8510
-+#define PHY_ID_BCM7XXX_28		0x600d8400
++/* GENET v2+ HFB control and filter len helpers */
++GENET_IO_MACRO(hfb_reg, priv->hw_params->hfb_reg_offset);
 +
- #define PHY_BCM_OUI_MASK		0xfffffc00
- #define PHY_BCM_OUI_1			0x00206000
- #define PHY_BCM_OUI_2			0x0143bc00
- #define PHY_BCM_OUI_3			0x03625c00
-+#define PHY_BCM_OUI_4			0x600d0000
-+#define PHY_BCM_OUI_5			0x03625e00
- 
- 
- #define PHY_BCM_FLAGS_MODE_COPPER	0x00000001
-@@ -31,6 +38,8 @@
- #define PHY_BRCM_EXT_IBND_TX_ENABLE	0x00002000
- #define PHY_BRCM_CLEAR_RGMII_MODE	0x00004000
- #define PHY_BRCM_DIS_TXCRXC_NOENRGY	0x00008000
-+/* Broadcom BCM7xxx specific workarounds */
-+#define PHY_BRCM_100MBPS_WAR		0x00010000
- #define PHY_BCM_FLAGS_VALID		0x80000000
- 
- /* Broadcom BCM54XX register definitions, common to most Broadcom PHYs */
++/* RBUF register accessors */
++GENET_IO_MACRO(rbuf, GENET_RBUF_OFF);
++
++/* MDIO routines */
++int bcmgenet_mii_init(struct net_device *dev);
++int bcmgenet_mii_config(struct net_device *dev);
++void bcmgenet_mii_exit(struct net_device *dev);
++void bcmgenet_mii_reset(struct net_device *dev);
++
++#endif /* __BCMGENET_H__ */
 -- 
 1.8.3.2
