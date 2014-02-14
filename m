@@ -1,87 +1,55 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v5 08/10] net: bcmgenet: hook into the build system
-Date: Thu, 13 Feb 2014 16:08:49 -0800
-Message-ID: <1392336531-28875-9-git-send-email-f.fainelli@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v5 02/10] net: phy: update port type for MoCA PHYs
+Date: Thu, 13 Feb 2014 16:08:43 -0800
+Message-ID: <1392336531-28875-3-git-send-email-f.fainelli@gmail.com>
 References: <1392336531-28875-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<cernekee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	<romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1392336531-28875-1-git-send-email-f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <davem@davemloft.net>, <devicetree@vger.kernel.org>,
+	<cernekee@gmail.com>, <mark.rutland@arm.com>,
+	<romieu@fr.zoreil.com>, Florian Fainelli <f.fainelli@gmail.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:49712 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752054AbaBNAJ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Feb 2014 19:09:56 -0500
+In-Reply-To: <1392336531-28875-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds a new configuration symbol: CONFIG_BCMGENET which allows
-us to build the Broadcom GENET driver and hook the driver files into the
-build system.
+MoCA PHYs are using coaxial (BNC-like) connectors, update the
+transceiver port type when replying to ethtool.
 
-Signed-off-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
 Changes in v5:
-- add a dependency on CONFIG_OF
+- respin due to the CONFIG_OF dependency fix
 
 Changes in v4:
-- fixed Kconfig dependency against FIXED_PHY which can only be
-  selected if BCMGENET is not modular
+- respin due to the Kconfig dependency fix
 
-Changes in v1, v2, v3:
-- rebased against net-next/master
+Changes in v1, v2 and v3:
+- rebased against latest net-next/master
 
- drivers/net/ethernet/broadcom/Kconfig        | 11 +++++++++++
- drivers/net/ethernet/broadcom/Makefile       |  1 +
- drivers/net/ethernet/broadcom/genet/Makefile |  2 ++
- 3 files changed, 14 insertions(+)
- create mode 100644 drivers/net/ethernet/broadcom/genet/Makefile
+ drivers/net/phy/phy.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
-index 3f97d9f..85dbddd 100644
---- a/drivers/net/ethernet/broadcom/Kconfig
-+++ b/drivers/net/ethernet/broadcom/Kconfig
-@@ -60,6 +60,17 @@ config BCM63XX_ENET
- 	  This driver supports the ethernet MACs in the Broadcom 63xx
- 	  MIPS chipset family (BCM63XX).
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index fc918b6..643b5d6 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -305,7 +305,10 @@ int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd)
  
-+config BCMGENET
-+	tristate "Broadcom GENET internal MAC support"
-+	depends on OF
-+	select MII
-+	select PHYLIB
-+	select FIXED_PHY if BCMGENET=y
-+	select BCM7XXX_PHY
-+	help
-+	  This driver supports the built-in Ethernet MACs found in the
-+	  Broadcom BCM7xxx Set Top Box family chipset.
-+
- config BNX2
- 	tristate "Broadcom NetXtremeII support"
- 	depends on PCI
-diff --git a/drivers/net/ethernet/broadcom/Makefile b/drivers/net/ethernet/broadcom/Makefile
-index 68efa1a..fd639a0 100644
---- a/drivers/net/ethernet/broadcom/Makefile
-+++ b/drivers/net/ethernet/broadcom/Makefile
-@@ -4,6 +4,7 @@
- 
- obj-$(CONFIG_B44) += b44.o
- obj-$(CONFIG_BCM63XX_ENET) += bcm63xx_enet.o
-+obj-$(CONFIG_BCMGENET) += genet/
- obj-$(CONFIG_BNX2) += bnx2.o
- obj-$(CONFIG_CNIC) += cnic.o
- obj-$(CONFIG_BNX2X) += bnx2x/
-diff --git a/drivers/net/ethernet/broadcom/genet/Makefile b/drivers/net/ethernet/broadcom/genet/Makefile
-new file mode 100644
-index 0000000..31f55a9
---- /dev/null
-+++ b/drivers/net/ethernet/broadcom/genet/Makefile
-@@ -0,0 +1,2 @@
-+obj-$(CONFIG_BCMGENET) += genet.o
-+genet-objs := bcmgenet.o bcmmii.o
+ 	ethtool_cmd_speed_set(cmd, phydev->speed);
+ 	cmd->duplex = phydev->duplex;
+-	cmd->port = PORT_MII;
++	if (phydev->interface == PHY_INTERFACE_MODE_MOCA)
++		cmd->port = PORT_BNC;
++	else
++		cmd->port = PORT_MII;
+ 	cmd->phy_address = phydev->addr;
+ 	cmd->transceiver = phy_is_internal(phydev) ?
+ 		XCVR_INTERNAL : XCVR_EXTERNAL;
 -- 
 1.8.3.2
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
