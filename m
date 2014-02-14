@@ -1,84 +1,684 @@
 From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH net-next 3/6] gianfar: Remove useless HAS_PADDING device flag
-Date: Fri, 14 Feb 2014 14:04:02 +0200
-Message-ID: <1392379445-28358-4-git-send-email-claudiu.manoil@freescale.com>
+Subject: [PATCH net-next 2/6] gianfar: Replace sysfs stubs with module params (fix)
+Date: Fri, 14 Feb 2014 14:04:01 +0200
+Message-ID: <1392379445-28358-3-git-send-email-claudiu.manoil@freescale.com>
 References: <1392379445-28358-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: "David S. Miller" <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from co1ehsobe004.messaging.microsoft.com ([216.32.180.187]:54742
-	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751833AbaBNMES (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 07:04:18 -0500
+Received: from co9ehsobe001.messaging.microsoft.com ([207.46.163.24]:32694
+	"EHLO co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752362AbaBNMEW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 07:04:22 -0500
 In-Reply-To: <1392379445-28358-1-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The RCTRL updates of the FSL_GIANFAR_DEV_HAS_PADDING device
-flag get overriden by the FSL_GIANFAR_DEV_HAS_TIMER flag
-settings, which impose a Rx padding alignment of 8 bytes.
-As all the eTSEC devices that set HAS_PADDING also set the
-HAS_TIMER flag, the HAS_PADDING flag is now obsolete.
+Removing the sysfs stubs for the Tx FIFOCFG and ATTRELI
+(stashing) config registers, as these registers may only
+be configured after a MAC reset, with the controller stopped
+(i.e. during hw init, at probe() time). The current sysfs
+stubs allow on-the-fly updates of these registers (the locking
+measures are useless and only add unecessary code).
+
+Changing these registers on-the-fly is strogly discouraged.
+In this regard, this patch may be seen as a security fix.
+
+To address this issue and not lose entirely these config
+params, they are now accessible as driver module parameters,
+and their names and default values have been preserved.
+
+Moreover, the stasing configuration options were effectively
+disabled (didn't get to the hw anyway if changed) because
+the stashing device_flags (HAS_BD_STASHING|HAS_BUF_STASHING)
+were "accidentally" cleared during probe(). The patch fixes
+this bug as well.
 
 Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
 ---
- drivers/net/ethernet/freescale/gianfar.c | 15 +++------------
- drivers/net/ethernet/freescale/gianfar.h |  1 -
- 2 files changed, 3 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/freescale/Makefile        |   2 +-
+ drivers/net/ethernet/freescale/gianfar.c       |  60 ++---
+ drivers/net/ethernet/freescale/gianfar.h       |   3 +-
+ drivers/net/ethernet/freescale/gianfar_param.c | 123 +++++++++
+ drivers/net/ethernet/freescale/gianfar_sysfs.c | 340 -------------------------
+ 5 files changed, 155 insertions(+), 373 deletions(-)
+ create mode 100644 drivers/net/ethernet/freescale/gianfar_param.c
+ delete mode 100644 drivers/net/ethernet/freescale/gianfar_sysfs.c
 
+diff --git a/drivers/net/ethernet/freescale/Makefile b/drivers/net/ethernet/freescale/Makefile
+index 549ce13..e324b7d 100644
+--- a/drivers/net/ethernet/freescale/Makefile
++++ b/drivers/net/ethernet/freescale/Makefile
+@@ -15,6 +15,6 @@ obj-$(CONFIG_GIANFAR) += gianfar_driver.o
+ obj-$(CONFIG_PTP_1588_CLOCK_GIANFAR) += gianfar_ptp.o
+ gianfar_driver-objs := gianfar.o \
+ 		gianfar_ethtool.o \
+-		gianfar_sysfs.o
++		gianfar_param.o
+ obj-$(CONFIG_UCC_GETH) += ucc_geth_driver.o
+ ucc_geth_driver-objs := ucc_geth.o ucc_geth_ethtool.o
 diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 27cc8b2..7c7d3aa 100644
+index ab915b0..27cc8b2 100644
 --- a/drivers/net/ethernet/freescale/gianfar.c
 +++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -375,13 +375,6 @@ static void gfar_init_mac(struct net_device *ndev)
- 		rctrl |= RCTRL_PADDING(priv->padding);
+@@ -338,7 +338,6 @@ static void gfar_init_mac(struct net_device *ndev)
+ 	struct gfar __iomem *regs = priv->gfargrp[0].regs;
+ 	u32 rctrl = 0;
+ 	u32 tctrl = 0;
+-	u32 attrs = 0;
+ 
+ 	/* write the tx/rx base registers */
+ 	gfar_init_tx_rx_base(priv);
+@@ -409,29 +408,6 @@ static void gfar_init_mac(struct net_device *ndev)
  	}
  
--	/* Insert receive time stamps into padding alignment bytes */
--	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_TIMER) {
--		rctrl &= ~RCTRL_PAL_MASK;
--		rctrl |= RCTRL_PADDING(8);
--		priv->padding = 8;
--	}
+ 	gfar_write(&regs->tctrl, tctrl);
 -
- 	/* Enable HW time stamping if requested from user space */
- 	if (priv->hwts_rx_en) {
- 		rctrl |= RCTRL_PRSDEP_INIT | RCTRL_TS_ENABLE;
-@@ -770,7 +763,6 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
+-	/* Set the extraction length and index */
+-	attrs = ATTRELI_EL(priv->rx_stash_size) |
+-		ATTRELI_EI(priv->rx_stash_index);
+-
+-	gfar_write(&regs->attreli, attrs);
+-
+-	/* Start with defaults, and add stashing or locking
+-	 * depending on the approprate variables
+-	 */
+-	attrs = ATTR_INIT_SETTINGS;
+-
+-	if (priv->bd_stash_en)
+-		attrs |= ATTR_BDSTASH;
+-
+-	if (priv->rx_stash_size != 0)
+-		attrs |= ATTR_BUFSTASH;
+-
+-	gfar_write(&regs->attr, attrs);
+-
+-	gfar_write(&regs->fifo_tx_thr, priv->fifo_threshold);
+-	gfar_write(&regs->fifo_tx_starve, priv->fifo_starve);
+-	gfar_write(&regs->fifo_tx_starve_shutoff, priv->fifo_starve_off);
+ }
+ 
+ static struct net_device_stats *gfar_get_stats(struct net_device *dev)
+@@ -784,13 +760,13 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
+ 		memcpy(dev->dev_addr, mac_addr, ETH_ALEN);
+ 
+ 	if (model && !strcasecmp(model, "TSEC"))
+-		priv->device_flags = FSL_GIANFAR_DEV_HAS_GIGABIT |
++		priv->device_flags |= FSL_GIANFAR_DEV_HAS_GIGABIT |
+ 				     FSL_GIANFAR_DEV_HAS_COALESCE |
+ 				     FSL_GIANFAR_DEV_HAS_RMON |
+ 				     FSL_GIANFAR_DEV_HAS_MULTI_INTR;
+ 
+ 	if (model && !strcasecmp(model, "eTSEC"))
+-		priv->device_flags = FSL_GIANFAR_DEV_HAS_GIGABIT |
++		priv->device_flags |= FSL_GIANFAR_DEV_HAS_GIGABIT |
  				     FSL_GIANFAR_DEV_HAS_COALESCE |
  				     FSL_GIANFAR_DEV_HAS_RMON |
  				     FSL_GIANFAR_DEV_HAS_MULTI_INTR |
--				     FSL_GIANFAR_DEV_HAS_PADDING |
- 				     FSL_GIANFAR_DEV_HAS_CSUM |
- 				     FSL_GIANFAR_DEV_HAS_VLAN |
- 				     FSL_GIANFAR_DEV_HAS_MAGIC_PACKET |
-@@ -1171,10 +1163,9 @@ static int gfar_probe(struct platform_device *ofdev)
+@@ -1030,7 +1006,7 @@ static void gfar_detect_errata(struct gfar_private *priv)
+ static void gfar_hw_init(struct gfar_private *priv)
+ {
+ 	struct gfar __iomem *regs = priv->gfargrp[0].regs;
+-	u32 tempval;
++	u32 tempval, attrs;
  
- 	gfar_init_addr_hash_table(priv);
+ 	/* Reset MAC layer */
+ 	gfar_write(&regs->maccfg1, MACCFG1_SOFT_RESET);
+@@ -1052,6 +1028,30 @@ static void gfar_hw_init(struct gfar_private *priv)
+ 	/* Initialize ECNTRL */
+ 	gfar_write(&regs->ecntrl, ECNTRL_INIT_SETTINGS);
  
--	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_PADDING)
--		priv->padding = DEFAULT_PADDING;
--	else
--		priv->padding = 0;
-+	/* Insert receive time stamps into padding alignment bytes */
-+	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_TIMER)
-+		priv->padding = 8;
++	/* Set the extraction length and index */
++	attrs = ATTRELI_EL(priv->rx_stash_size) |
++		ATTRELI_EI(priv->rx_stash_index);
++
++	gfar_write(&regs->attreli, attrs);
++
++	/* Start with defaults, and add stashing
++	 * depending on driver parameters
++	 */
++	attrs = ATTR_INIT_SETTINGS;
++
++	if (priv->bd_stash_en)
++		attrs |= ATTR_BDSTASH;
++
++	if (priv->rx_stash_size != 0)
++		attrs |= ATTR_BUFSTASH;
++
++	gfar_write(&regs->attr, attrs);
++
++	/* FIFO configs */
++	gfar_write(&regs->fifo_tx_thr, priv->fifo_threshold);
++	gfar_write(&regs->fifo_tx_starve, priv->fifo_starve);
++	gfar_write(&regs->fifo_tx_starve_shutoff, priv->fifo_starve_off);
++
+ 	/* Program the interrupt steering regs, only for MG devices */
+ 	if (priv->num_grps > 1)
+ 		gfar_write_isrg(priv);
+@@ -1108,6 +1108,7 @@ static int gfar_probe(struct platform_device *ofdev)
+ {
+ 	struct net_device *dev = NULL;
+ 	struct gfar_private *priv = NULL;
++	static int dev_idx;
+ 	int err = 0, i;
  
- 	if (dev->features & NETIF_F_IP_CSUM ||
- 	    priv->device_flags & FSL_GIANFAR_DEV_HAS_TIMER)
+ 	err = gfar_of_init(ofdev, &dev);
+@@ -1128,6 +1129,8 @@ static int gfar_probe(struct platform_device *ofdev)
+ 
+ 	gfar_detect_errata(priv);
+ 
++	gfar_get_params(dev, dev_idx++);
++
+ 	/* Stop the DMA engine now, in case it was running before
+ 	 * (The firmware could have used it, and left it running).
+ 	 */
+@@ -1232,9 +1235,6 @@ static int gfar_probe(struct platform_device *ofdev)
+ 	/* Initialize the filer table */
+ 	gfar_init_filer_table(priv);
+ 
+-	/* Create all the sysfs files */
+-	gfar_init_sysfs(dev);
+-
+ 	/* Print out the device info */
+ 	netdev_info(dev, "mac: %pM\n", dev->dev_addr);
+ 
 diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
-index 20121ef..9fcde7c 100644
+index 63c830c..20121ef 100644
 --- a/drivers/net/ethernet/freescale/gianfar.h
 +++ b/drivers/net/ethernet/freescale/gianfar.h
-@@ -879,7 +879,6 @@ struct gfar {
- #define FSL_GIANFAR_DEV_HAS_CSUM		0x00000010
- #define FSL_GIANFAR_DEV_HAS_VLAN		0x00000020
- #define FSL_GIANFAR_DEV_HAS_EXTENDED_HASH	0x00000040
--#define FSL_GIANFAR_DEV_HAS_PADDING		0x00000080
- #define FSL_GIANFAR_DEV_HAS_MAGIC_PACKET	0x00000100
- #define FSL_GIANFAR_DEV_HAS_BD_STASHING		0x00000200
- #define FSL_GIANFAR_DEV_HAS_BUF_STASHING	0x00000400
+@@ -17,7 +17,6 @@
+  * option) any later version.
+  *
+  *  Still left to do:
+- *      -Add support for module parameters
+  *	-Add patch for ethtool phys id
+  */
+ #ifndef __GIANFAR_H
+@@ -1215,7 +1214,7 @@ void gfar_halt(struct net_device *dev);
+ void gfar_phy_test(struct mii_bus *bus, struct phy_device *phydev, int enable,
+ 		   u32 regnum, u32 read);
+ void gfar_configure_coalescing_all(struct gfar_private *priv);
+-void gfar_init_sysfs(struct net_device *dev);
++void gfar_get_params(struct net_device *dev, int i);
+ int gfar_set_features(struct net_device *dev, netdev_features_t features);
+ void gfar_check_rx_parser_mode(struct gfar_private *priv);
+ void gfar_vlan_mode(struct net_device *dev, netdev_features_t features);
+diff --git a/drivers/net/ethernet/freescale/gianfar_param.c b/drivers/net/ethernet/freescale/gianfar_param.c
+new file mode 100644
+index 0000000..7ed6745
+--- /dev/null
++++ b/drivers/net/ethernet/freescale/gianfar_param.c
+@@ -0,0 +1,123 @@
++/* Copyright 2002-2009, 2013 Freescale Semiconductor, Inc.
++ *
++ * This program is free software; you can redistribute  it and/or modify it
++ * under  the terms of  the GNU General  Public License as published by the
++ * Free Software Foundation;  either version 2 of the  License, or (at your
++ * option) any later version.
++ *
++ * Derived from:
++ * drivers/net/ethernet/freescale/gianfar_sysfs.c
++ */
++
++#include "gianfar.h"
++
++#define GFAR_DEV_MAXCNT 8
++
++#define PARAM_UNSET	-1
++
++#define GFAR_PARAM_INIT { [0 ... GFAR_DEV_MAXCNT - 1] = PARAM_UNSET }
++#define GFAR_PARAM(X, desc) \
++	static int X[GFAR_DEV_MAXCNT] = GFAR_PARAM_INIT; \
++	module_param_array_named(X, X, int, NULL, S_IRUGO); \
++	MODULE_PARM_DESC(X, desc);
++
++
++GFAR_PARAM(fifo_threshold, "Tx FIFO threshold to trigger frame unload");
++GFAR_PARAM(fifo_starve, "Tx FIFO thershold to enter starve mode");
++GFAR_PARAM(fifo_starve_off, "Tx FIFO thershold to exit starve mode");
++GFAR_PARAM(bd_stash, "Stash Rx buffer descriptors to L2");
++GFAR_PARAM(rx_stash_size, "Stash this many Rx frame bytes to L2");
++GFAR_PARAM(rx_stash_index, "Stash Rx frame starting from this offset");
++
++
++/* FIFO Tx Threshold - the numerical SRAM entry (0-511 for 2-Kbyte FIFO)
++ * to trigger the unloading of FIFO data to the PHY
++ */
++static void gfar_fifo_threshold_update(struct gfar_private *priv, int thr)
++{
++	if (thr >= 0 && thr <= GFAR_MAX_FIFO_THRESHOLD)
++		priv->fifo_threshold = thr;
++}
++
++/* FIFO Tx Starve/Shutoff - numerical SRAM entry (0-511 for 2-Kbyte FIFO).
++ * If the # of valid entries in the FIFO is less than or equal to the
++ * starve register value the controller enters starve state
++ * (i.e. triggers diagnostic interrupt to signal that Tx underrun is
++ * imminent and increases priority of Tx memory transactions).
++ * If the starve state is in effect and the number of valid entries in the
++ * FIFO becomes greater than or equal to the value in the FIFO transmit starve
++ * shutoff register, the starve condition ends.
++ */
++static void gfar_fifo_starve_update(struct gfar_private *priv,
++				    int thr_strv, int thr_strv_off)
++{
++	if (thr_strv >= 0 && thr_strv <= GFAR_MAX_FIFO_STARVE &&
++	    thr_strv_off >= 0 && thr_strv_off <= GFAR_MAX_FIFO_STARVE_OFF &&
++	    thr_strv < thr_strv_off) {
++		priv->fifo_starve = thr_strv;
++		priv->fifo_starve_off = thr_strv_off;
++	}
++}
++
++static void gfar_bd_stash_update(struct gfar_private *priv, int en)
++{
++	if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_BD_STASHING))
++		return;
++
++	if (en == 0 || en == 1)
++		priv->bd_stash_en = en;
++}
++
++static void gfar_rx_stash_update(struct gfar_private *priv, int size, int idx)
++{
++	if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_BUF_STASHING))
++		return;
++
++	/* valid sizes are multiples of 8 */
++	if (size <= 0 || size > DEFAULT_RX_BUFFER_SIZE || size & 0x7)
++		return;
++
++	/* index must be multiple of 64 */
++	if (idx < 0 || idx > size || idx & 0x3f)
++		return;
++
++	priv->rx_stash_index = idx;
++	priv->rx_stash_size = size;
++}
++
++void __init gfar_get_params(struct net_device *ndev, int i)
++{
++	struct gfar_private *priv = netdev_priv(ndev);
++
++	/* Initialize the default values */
++	priv->fifo_threshold = DEFAULT_FIFO_TX_THR;
++	priv->fifo_starve = DEFAULT_FIFO_TX_STARVE;
++	priv->fifo_starve_off = DEFAULT_FIFO_TX_STARVE_OFF;
++
++	if (i >= GFAR_DEV_MAXCNT) {
++		netdev_warn(ndev, "dev config missing, using defaults\n");
++		return;
++	}
++
++	/* FIFO threshold validation */
++	if (fifo_threshold[i] != PARAM_UNSET)
++		gfar_fifo_threshold_update(priv, fifo_threshold[i]);
++
++	/* FIFO starve mode hysteresis thresholds validation */
++	if (fifo_starve[i] != PARAM_UNSET &&
++	    fifo_starve_off[i] != PARAM_UNSET) {
++		gfar_fifo_starve_update(priv, fifo_starve[i],
++					fifo_starve_off[i]);
++	}
++
++	/* BD stashing validation */
++	if (bd_stash[i] != PARAM_UNSET)
++		gfar_bd_stash_update(priv, bd_stash[i]);
++
++	/* Rx frame stashing validation */
++	if (rx_stash_size[i] != PARAM_UNSET &&
++	    rx_stash_index[i] != PARAM_UNSET) {
++		gfar_rx_stash_update(priv, rx_stash_size[i],
++				     rx_stash_index[i]);
++	}
++}
+diff --git a/drivers/net/ethernet/freescale/gianfar_sysfs.c b/drivers/net/ethernet/freescale/gianfar_sysfs.c
+deleted file mode 100644
+index e02dd13..0000000
+--- a/drivers/net/ethernet/freescale/gianfar_sysfs.c
++++ /dev/null
+@@ -1,340 +0,0 @@
+-/*
+- * drivers/net/ethernet/freescale/gianfar_sysfs.c
+- *
+- * Gianfar Ethernet Driver
+- * This driver is designed for the non-CPM ethernet controllers
+- * on the 85xx and 83xx family of integrated processors
+- * Based on 8260_io/fcc_enet.c
+- *
+- * Author: Andy Fleming
+- * Maintainer: Kumar Gala (galak@kernel.crashing.org)
+- * Modifier: Sandeep Gopalpet <sandeep.kumar@freescale.com>
+- *
+- * Copyright 2002-2009 Freescale Semiconductor, Inc.
+- *
+- * This program is free software; you can redistribute  it and/or modify it
+- * under  the terms of  the GNU General  Public License as published by the
+- * Free Software Foundation;  either version 2 of the  License, or (at your
+- * option) any later version.
+- *
+- * Sysfs file creation and management
+- */
+-
+-#include <linux/kernel.h>
+-#include <linux/string.h>
+-#include <linux/errno.h>
+-#include <linux/unistd.h>
+-#include <linux/delay.h>
+-#include <linux/etherdevice.h>
+-#include <linux/spinlock.h>
+-#include <linux/mm.h>
+-#include <linux/device.h>
+-
+-#include <asm/uaccess.h>
+-#include <linux/module.h>
+-
+-#include "gianfar.h"
+-
+-static ssize_t gfar_show_bd_stash(struct device *dev,
+-				  struct device_attribute *attr, char *buf)
+-{
+-	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+-
+-	return sprintf(buf, "%s\n", priv->bd_stash_en ? "on" : "off");
+-}
+-
+-static ssize_t gfar_set_bd_stash(struct device *dev,
+-				 struct device_attribute *attr,
+-				 const char *buf, size_t count)
+-{
+-	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+-	struct gfar __iomem *regs = priv->gfargrp[0].regs;
+-	int new_setting = 0;
+-	u32 temp;
+-	unsigned long flags;
+-
+-	if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_BD_STASHING))
+-		return count;
+-
+-
+-	/* Find out the new setting */
+-	if (!strncmp("on", buf, count - 1) || !strncmp("1", buf, count - 1))
+-		new_setting = 1;
+-	else if (!strncmp("off", buf, count - 1) ||
+-		 !strncmp("0", buf, count - 1))
+-		new_setting = 0;
+-	else
+-		return count;
+-
+-
+-	local_irq_save(flags);
+-	lock_rx_qs(priv);
+-
+-	/* Set the new stashing value */
+-	priv->bd_stash_en = new_setting;
+-
+-	temp = gfar_read(&regs->attr);
+-
+-	if (new_setting)
+-		temp |= ATTR_BDSTASH;
+-	else
+-		temp &= ~(ATTR_BDSTASH);
+-
+-	gfar_write(&regs->attr, temp);
+-
+-	unlock_rx_qs(priv);
+-	local_irq_restore(flags);
+-
+-	return count;
+-}
+-
+-static DEVICE_ATTR(bd_stash, 0644, gfar_show_bd_stash, gfar_set_bd_stash);
+-
+-static ssize_t gfar_show_rx_stash_size(struct device *dev,
+-				       struct device_attribute *attr, char *buf)
+-{
+-	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+-
+-	return sprintf(buf, "%d\n", priv->rx_stash_size);
+-}
+-
+-static ssize_t gfar_set_rx_stash_size(struct device *dev,
+-				      struct device_attribute *attr,
+-				      const char *buf, size_t count)
+-{
+-	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+-	struct gfar __iomem *regs = priv->gfargrp[0].regs;
+-	unsigned int length = simple_strtoul(buf, NULL, 0);
+-	u32 temp;
+-	unsigned long flags;
+-
+-	if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_BUF_STASHING))
+-		return count;
+-
+-	local_irq_save(flags);
+-	lock_rx_qs(priv);
+-
+-	if (length > priv->rx_buffer_size)
+-		goto out;
+-
+-	if (length == priv->rx_stash_size)
+-		goto out;
+-
+-	priv->rx_stash_size = length;
+-
+-	temp = gfar_read(&regs->attreli);
+-	temp &= ~ATTRELI_EL_MASK;
+-	temp |= ATTRELI_EL(length);
+-	gfar_write(&regs->attreli, temp);
+-
+-	/* Turn stashing on/off as appropriate */
+-	temp = gfar_read(&regs->attr);
+-
+-	if (length)
+-		temp |= ATTR_BUFSTASH;
+-	else
+-		temp &= ~(ATTR_BUFSTASH);
+-
+-	gfar_write(&regs->attr, temp);
+-
+-out:
+-	unlock_rx_qs(priv);
+-	local_irq_restore(flags);
+-
+-	return count;
+-}
+-
+-static DEVICE_ATTR(rx_stash_size, 0644, gfar_show_rx_stash_size,
+-		   gfar_set_rx_stash_size);
+-
+-/* Stashing will only be enabled when rx_stash_size != 0 */
+-static ssize_t gfar_show_rx_stash_index(struct device *dev,
+-					struct device_attribute *attr,
+-					char *buf)
+-{
+-	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+-
+-	return sprintf(buf, "%d\n", priv->rx_stash_index);
+-}
+-
+-static ssize_t gfar_set_rx_stash_index(struct device *dev,
+-				       struct device_attribute *attr,
+-				       const char *buf, size_t count)
+-{
+-	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+-	struct gfar __iomem *regs = priv->gfargrp[0].regs;
+-	unsigned short index = simple_strtoul(buf, NULL, 0);
+-	u32 temp;
+-	unsigned long flags;
+-
+-	if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_BUF_STASHING))
+-		return count;
+-
+-	local_irq_save(flags);
+-	lock_rx_qs(priv);
+-
+-	if (index > priv->rx_stash_size)
+-		goto out;
+-
+-	if (index == priv->rx_stash_index)
+-		goto out;
+-
+-	priv->rx_stash_index = index;
+-
+-	temp = gfar_read(&regs->attreli);
+-	temp &= ~ATTRELI_EI_MASK;
+-	temp |= ATTRELI_EI(index);
+-	gfar_write(&regs->attreli, temp);
+-
+-out:
+-	unlock_rx_qs(priv);
+-	local_irq_restore(flags);
+-
+-	return count;
+-}
+-
+-static DEVICE_ATTR(rx_stash_index, 0644, gfar_show_rx_stash_index,
+-		   gfar_set_rx_stash_index);
+-
+-static ssize_t gfar_show_fifo_threshold(struct device *dev,
+-					struct device_attribute *attr,
+-					char *buf)
+-{
+-	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+-
+-	return sprintf(buf, "%d\n", priv->fifo_threshold);
+-}
+-
+-static ssize_t gfar_set_fifo_threshold(struct device *dev,
+-				       struct device_attribute *attr,
+-				       const char *buf, size_t count)
+-{
+-	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+-	struct gfar __iomem *regs = priv->gfargrp[0].regs;
+-	unsigned int length = simple_strtoul(buf, NULL, 0);
+-	u32 temp;
+-	unsigned long flags;
+-
+-	if (length > GFAR_MAX_FIFO_THRESHOLD)
+-		return count;
+-
+-	local_irq_save(flags);
+-	lock_tx_qs(priv);
+-
+-	priv->fifo_threshold = length;
+-
+-	temp = gfar_read(&regs->fifo_tx_thr);
+-	temp &= ~FIFO_TX_THR_MASK;
+-	temp |= length;
+-	gfar_write(&regs->fifo_tx_thr, temp);
+-
+-	unlock_tx_qs(priv);
+-	local_irq_restore(flags);
+-
+-	return count;
+-}
+-
+-static DEVICE_ATTR(fifo_threshold, 0644, gfar_show_fifo_threshold,
+-		   gfar_set_fifo_threshold);
+-
+-static ssize_t gfar_show_fifo_starve(struct device *dev,
+-				     struct device_attribute *attr, char *buf)
+-{
+-	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+-
+-	return sprintf(buf, "%d\n", priv->fifo_starve);
+-}
+-
+-static ssize_t gfar_set_fifo_starve(struct device *dev,
+-				    struct device_attribute *attr,
+-				    const char *buf, size_t count)
+-{
+-	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+-	struct gfar __iomem *regs = priv->gfargrp[0].regs;
+-	unsigned int num = simple_strtoul(buf, NULL, 0);
+-	u32 temp;
+-	unsigned long flags;
+-
+-	if (num > GFAR_MAX_FIFO_STARVE)
+-		return count;
+-
+-	local_irq_save(flags);
+-	lock_tx_qs(priv);
+-
+-	priv->fifo_starve = num;
+-
+-	temp = gfar_read(&regs->fifo_tx_starve);
+-	temp &= ~FIFO_TX_STARVE_MASK;
+-	temp |= num;
+-	gfar_write(&regs->fifo_tx_starve, temp);
+-
+-	unlock_tx_qs(priv);
+-	local_irq_restore(flags);
+-
+-	return count;
+-}
+-
+-static DEVICE_ATTR(fifo_starve, 0644, gfar_show_fifo_starve,
+-		   gfar_set_fifo_starve);
+-
+-static ssize_t gfar_show_fifo_starve_off(struct device *dev,
+-					 struct device_attribute *attr,
+-					 char *buf)
+-{
+-	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+-
+-	return sprintf(buf, "%d\n", priv->fifo_starve_off);
+-}
+-
+-static ssize_t gfar_set_fifo_starve_off(struct device *dev,
+-					struct device_attribute *attr,
+-					const char *buf, size_t count)
+-{
+-	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+-	struct gfar __iomem *regs = priv->gfargrp[0].regs;
+-	unsigned int num = simple_strtoul(buf, NULL, 0);
+-	u32 temp;
+-	unsigned long flags;
+-
+-	if (num > GFAR_MAX_FIFO_STARVE_OFF)
+-		return count;
+-
+-	local_irq_save(flags);
+-	lock_tx_qs(priv);
+-
+-	priv->fifo_starve_off = num;
+-
+-	temp = gfar_read(&regs->fifo_tx_starve_shutoff);
+-	temp &= ~FIFO_TX_STARVE_OFF_MASK;
+-	temp |= num;
+-	gfar_write(&regs->fifo_tx_starve_shutoff, temp);
+-
+-	unlock_tx_qs(priv);
+-	local_irq_restore(flags);
+-
+-	return count;
+-}
+-
+-static DEVICE_ATTR(fifo_starve_off, 0644, gfar_show_fifo_starve_off,
+-		   gfar_set_fifo_starve_off);
+-
+-void gfar_init_sysfs(struct net_device *dev)
+-{
+-	struct gfar_private *priv = netdev_priv(dev);
+-	int rc;
+-
+-	/* Initialize the default values */
+-	priv->fifo_threshold = DEFAULT_FIFO_TX_THR;
+-	priv->fifo_starve = DEFAULT_FIFO_TX_STARVE;
+-	priv->fifo_starve_off = DEFAULT_FIFO_TX_STARVE_OFF;
+-
+-	/* Create our sysfs files */
+-	rc = device_create_file(&dev->dev, &dev_attr_bd_stash);
+-	rc |= device_create_file(&dev->dev, &dev_attr_rx_stash_size);
+-	rc |= device_create_file(&dev->dev, &dev_attr_rx_stash_index);
+-	rc |= device_create_file(&dev->dev, &dev_attr_fifo_threshold);
+-	rc |= device_create_file(&dev->dev, &dev_attr_fifo_starve);
+-	rc |= device_create_file(&dev->dev, &dev_attr_fifo_starve_off);
+-	if (rc)
+-		dev_err(&dev->dev, "Error creating gianfar sysfs files\n");
+-}
 -- 
 1.7.11.7
