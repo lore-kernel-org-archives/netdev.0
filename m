@@ -1,47 +1,41 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: fe80::/64 route missing on GRE tunnels
-Date: Sat, 15 Feb 2014 08:45:59 +0100
-Message-ID: <20140215074559.GA8634@order.stressinduktion.org>
-References: <20140211215510.GA6994@sesse.net> <20140211215928.GA7862@sesse.net>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH 10/13] staging: r8188eu: Remove wrapper
+ _enter_critical_mutex()
+Date: Sat, 15 Feb 2014 13:41:55 +0300
+Message-ID: <20140215104155.GC26776@mwanda>
+References: <1392418457-3203-1-git-send-email-Larry.Finger@lwfinger.net>
+ <1392418457-3203-11-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org, itk-intern@samfundet.no
+Content-Type: text/plain; charset=us-ascii
+Cc: gregkh@linuxfoundation.org, devel@driverdev.osuosl.org,
+	netdev@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:56669 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751753AbaBOHqB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Feb 2014 02:46:01 -0500
+Received: from aserp1040.oracle.com ([141.146.126.69]:38911 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752496AbaBOKmM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Feb 2014 05:42:12 -0500
 Content-Disposition: inline
-In-Reply-To: <20140211215928.GA7862@sesse.net>
+In-Reply-To: <1392418457-3203-11-git-send-email-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 11, 2014 at 10:59:28PM +0100, Steinar H. Gunderson wrote:
-> On Tue, Feb 11, 2014 at 10:55:11PM +0100, Steinar H. Gunderson wrote:
-> > but on 3.13.1, no such route shows up. I can add it manually, though.
-> 
-> Correction; I can add it manually, but only to one GRE device at a time:
-> 
->   root@altersex:~$ ip -6 route add fe80::/64 dev k_molvenfinnoy
->   root@altersex:~$ ip -6 route add fe80::/64 dev k_sessesveits
->   RTNETLINK answers: File exists
->   root@altersex:~$ ip -6 route del fe80::/64 dev k_molvenfinnoy
->   root@altersex:~$ ip -6 route add fe80::/64 dev k_sessesveits
->   root@altersex:~$
+On Fri, Feb 14, 2014 at 04:54:14PM -0600, Larry Finger wrote:
+> diff --git a/drivers/staging/rtl8188eu/hal/usb_ops_linux.c b/drivers/staging/rtl8188eu/hal/usb_ops_linux.c
+> index 1fa5370..d5f6a32 100644
+> --- a/drivers/staging/rtl8188eu/hal/usb_ops_linux.c
+> +++ b/drivers/staging/rtl8188eu/hal/usb_ops_linux.c
+> @@ -49,7 +49,9 @@ static int usbctrl_vendorreq(struct intf_hdl *pintfhdl, u8 request, u16 value, u
+>  		goto exit;
+>  	}
+>  
+> -	_enter_critical_mutex(&dvobjpriv->usb_vendor_req_mutex, NULL);
+> +	if (mutex_lock_interruptible(&dvobjpriv->usb_vendor_req_mutex))
+> +		status = -ENOMEM;
+> +		goto exit;
+>  
 
-Sorry for the long delay, I was busy with other stuff...
+Missing curly braces.
 
-So basically a workaround you can do for the time being is to add the tunnel
-with a local address:
-
-ip tunnel add foo mode gre local 4.3.2.1 remote 1.2.3.4 ttl 64
-
-The reason is that link local address generation fails in ipv6/addrconf as
-long as dev->dev_addr is zero.
-
-I have not yet found the change which causes this change in behaviour, but
-will do so soon.
-
-Bye,
-
-  Hannes
+regards,
+dan carpenter
