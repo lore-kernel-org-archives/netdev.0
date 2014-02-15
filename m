@@ -1,31 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next] openvswitch: rename ->sync to ->syncp
-Date: Sat, 15 Feb 2014 02:06:49 -0500 (EST)
-Message-ID: <20140215.020649.996515212700851070.davem@davemloft.net>
-References: <1392419446-4559-1-git-send-email-xiyou.wangcong@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43232 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751754AbaBOHGx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Feb 2014 02:06:53 -0500
-In-Reply-To: <1392419446-4559-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH 3/3] caif: delete unnecessary field initialization
+Date: Sat, 15 Feb 2014 08:36:13 +0100
+Message-ID: <1392449773-23429-3-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Fri, 14 Feb 2014 15:10:46 -0800
+From: Julia Lawall <Julia.Lawall@lip6.fr>
 
-> Openvswitch defines u64_stats_sync as ->sync rather than ->syncp,
-> so fails to compile with netdev_alloc_pcpu_stats(). So just rename it to ->syncp.
-> 
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Fixes: 1c213bd24ad04f4430031 (net: introduce netdev_alloc_pcpu_stats() for drivers)
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+On success, the function netdev_alloc_skb initializes the dev field of its
+result to its first argument, so this doesn't have to be done in the
+calling context.
 
-Applied, thanks.
+The semantic patch that fixes this problem is as follows:
+(http://coccinelle.lip6.fr/)
+
+// <smpl>
+@@
+expression skb,privn,e;
+@@
+
+skb = netdev_alloc_skb(privn,...);
+... when strict
+(
+-skb->dev = privn;
+|
+?skb = e
+)
+// </smpl>
+
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+
+---
+ drivers/net/caif/caif_serial.c |    1 -
+ drivers/net/caif/caif_spi.c    |    1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/drivers/net/caif/caif_serial.c b/drivers/net/caif/caif_serial.c
+index 88a6a58..fc73865 100644
+--- a/drivers/net/caif/caif_serial.c
++++ b/drivers/net/caif/caif_serial.c
+@@ -204,7 +204,6 @@ static void ldisc_receive(struct tty_struct *tty, const u8 *data,
+ 
+ 	skb->protocol = htons(ETH_P_CAIF);
+ 	skb_reset_mac_header(skb);
+-	skb->dev = ser->dev;
+ 	debugfs_rx(ser, data, count);
+ 	/* Push received packet up the stack. */
+ 	ret = netif_rx_ni(skb);
+diff --git a/drivers/net/caif/caif_spi.c b/drivers/net/caif/caif_spi.c
+index 155db68..ff54c0e 100644
+--- a/drivers/net/caif/caif_spi.c
++++ b/drivers/net/caif/caif_spi.c
+@@ -554,7 +554,6 @@ int cfspi_rxfrm(struct cfspi *cfspi, u8 *buf, size_t len)
+ 
+ 		skb->protocol = htons(ETH_P_CAIF);
+ 		skb_reset_mac_header(skb);
+-		skb->dev = cfspi->ndev;
+ 
+ 		/*
+ 		 * Push received packet up the stack.
+
