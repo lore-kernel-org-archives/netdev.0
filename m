@@ -1,51 +1,49 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH 2/3] net: UDP gro_receive accept csum=0
-Date: Fri, 14 Feb 2014 15:54:04 -0800
-Message-ID: <CA+mtBx-oAByUKKMhQkgH2VATHQEKqwdC4BDTVKtNwXqxDyEfxA@mail.gmail.com>
-References: <alpine.DEB.2.02.1402110928070.7090@tomh.mtv.corp.google.com>
-	<52FC7D0C.1020601@mellanox.com>
-	<CA+mtBx_+fc5YdQE+M49QD5ymuD7bfDdedfi2AuCDhU2=CawN6Q@mail.gmail.com>
-	<CAJZOPZKRiR-XZo1b9-TQG9ULpVhL31bTBD+4Z7T+ODZcPX_L2g@mail.gmail.com>
-	<alpine.LFD.2.03.1402131600120.8285@intel.com>
-	<CA+mtBx8qbLU3vgDjPQPtU47+FS9R7f24gYw5wE+yNC7DGg-E4A@mail.gmail.com>
-	<alpine.LFD.2.03.1402141034180.25492@intel.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next 05/14] i40evf: fix up strings in init task
+Date: Fri, 14 Feb 2014 16:05:55 -0800
+Message-ID: <1392422755.12157.8.camel@joe-AO722>
+References: <1392418688-23895-1-git-send-email-aaron.f.brown@intel.com>
+	 <1392418688-23895-6-git-send-email-aaron.f.brown@intel.com>
+	 <1392421409.12157.3.camel@joe-AO722>
+	 <AAEA33E297BCAC4B9BB20A7C2DF0AB8D65517F5F@FMSMSX113.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <or.gerlitz@gmail.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Jerry Chu <hkchu@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Brown, Aaron F" <aaron.f.brown@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: "Williams, Mitch A" <mitch.a.williams@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:47631 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751838AbaBNXyG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 18:54:06 -0500
-Received: by mail-ig0-f170.google.com with SMTP id m12so1910540iga.1
-        for <netdev@vger.kernel.org>; Fri, 14 Feb 2014 15:54:04 -0800 (PST)
-In-Reply-To: <alpine.LFD.2.03.1402141034180.25492@intel.com>
+Received: from smtprelay0222.hostedemail.com ([216.40.44.222]:43340 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752948AbaBOAF7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 19:05:59 -0500
+In-Reply-To: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D65517F5F@FMSMSX113.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> In any case, we need to consider the orignal ip_summed value from the
->> driver, not the one that udp4_csum_init (udp_gro or anywhere else in
->> the path) would set.
->>
->> Also, udp_gro_receive should be able to handle the case where
->> ip_summed == CHECKSUM_UNNECESSARY and !skb->encapsulation, that will
->> be very common scenario. Probably CHECKSUM_NONE also.
->>
->
-> Yes, I now see your point and totaly agree. Thanks.
+On Fri, 2014-02-14 at 23:53 +0000, Williams, Mitch A wrote:
+> With regard to periods on the end of log messages,
+> is this a hard rule?
 
-Okay, I'll look at fixing this. I suspect we want to maintain
-CHECKSUM_COMPLETE as long as possible in UDP receive path (or any
-other encap path) and not be converting to CHECKSUM_UNNECESSARY.  When
-crossing  the encapsulation layer we'll need to deal with
-skb->encapsulation and CHECKSUM_UNNECESSARY.
+No.
 
-Note to HW vendors: can you please start providing the full packet
-checksum (CHECKSUM_COMPLETE) and stop perpetuating the extremely
-protocol specific, restrictive checksum validation!
+>  The grammar pedant in me likes to see periods on the end of sentences,
+
+Opinions vary.
+
+I think kernel logging output lines aren't sentences
+and are just notifications that don't need periods.
+
+If you look at a normal log, there are relatively few
+entries with periods.
+
+For instance, my current dmesg:
+
+$ dmesg | wc -l
+1568
+$ dmesg | grep "[^\.]\.$" | wc -l
+84
