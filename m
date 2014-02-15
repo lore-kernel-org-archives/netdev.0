@@ -1,181 +1,79 @@
-From: Ravi Patel <rapatel@apm.com>
-Subject: [PATCH V3 1/4] Documentation: mailbox: APM X-Gene SoC QMTM
-Date: Fri, 14 Feb 2014 18:21:59 -0800
-Message-ID: <1392430922-24643-2-git-send-email-rapatel@apm.com>
-References: <1392430922-24643-1-git-send-email-rapatel@apm.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	jcm@redhat.com, patches@apm.com, Ravi Patel <rapatel@apm.com>,
-	Keyur Chudgar <kchudgar@apm.com>
-To: arnd@arndb.de, gregkh@linuxfoundation.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1392430922-24643-1-git-send-email-rapatel@apm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 0/7] clear old options when old qdisc's replaced
+Date: Fri, 14 Feb 2014 18:53:01 -0800
+Message-ID: <1392432781.24974.9.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1392366970-11592-1-git-send-email-yangyingliang@huawei.com>
+	 <1392381841.24974.5.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <52FECEF6.2070605@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	stephen@networkplumber.org
+To: Yang Yingliang <yangyingliang@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:41872 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751480AbaBOCxE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Feb 2014 21:53:04 -0500
+Received: by mail-pd0-f170.google.com with SMTP id p10so12804012pdj.1
+        for <netdev@vger.kernel.org>; Fri, 14 Feb 2014 18:53:03 -0800 (PST)
+In-Reply-To: <52FECEF6.2070605@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds documentation for APM X-Gene SoC Queue Manager/Traffic Manager.
+On Sat, 2014-02-15 at 10:20 +0800, Yang Yingliang wrote:
+> On 2014/2/14 20:44, Eric Dumazet wrote:
+> > On Fri, 2014-02-14 at 16:36 +0800, Yang Yingliang wrote:
+> >> I've added a netem qdisc with rate option, then I replace this qdisc
+> >> without rate option but with latency option. The rate option is still
+> >> there.
+> >>
+> >> E.g.
+> >>   # tc qdisc add dev eth4 handle 1: root netem rate 10mbit
+> >>   # tc qdisc show
+> >>     qdisc netem 1: dev eth4 root refcnt 2 limit 1000 rate 10Mbit
+> >>
+> >>   # tc qdisc replace dev eth4 handle 1: root netem latency 10ms
+> >>   # tc qdisc show
+> >>     qdisc netem 1: dev eth4 root refcnt 2 limit 1000 delay 10.0ms rate 10Mbit
+> >>
+> >> The old options need be cleared after the qdisc is replaced.
+> > 
+> > Not at all. Test your changes with "tc qdisc change ... "
+> > 
+> > 
+> With "tc qdisc change ... ", it will only change the options that specified in command.
+> It's proper, I think.
+> 
+>    # tc qdisc add dev eth4 handle 1: root netem rate 10mbit
+>    # tc qdisc show
+>      qdisc netem 1: dev eth4 root refcnt 2 limit 1000 rate 10Mbit
+> 
+>    # tc qdisc replace dev eth4 handle 1: root netem latency 10ms
+>    # tc qdisc show
+>      qdisc netem 1: dev eth4 root refcnt 2 limit 1000 delay 10.0ms rate 10Mbit
+> 
+> "rate" is not cleared.
+> 
+> But with other qdiscs, such as tbf and htb etc, their usage not complete same as netem's,
+> when we use "tc qdisc change ... ", the old options will be cleared. Maybe we should make
+> their useages of "change" same as netem's?
 
-Signed-off-by: Ravi Patel <rapatel@apm.com>
-Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
----
- Documentation/mailbox/apm-xgene-qmtm.txt |  149 ++++++++++++++++++++++++++++++
- 1 file changed, 149 insertions(+)
- create mode 100644 Documentation/mailbox/apm-xgene-qmtm.txt
+qdisc change should only change the parameters you specified in the
+command line.
 
-diff --git a/Documentation/mailbox/apm-xgene-qmtm.txt b/Documentation/mailbox/apm-xgene-qmtm.txt
-new file mode 100644
-index 0000000..2b4ff09
---- /dev/null
-+++ b/Documentation/mailbox/apm-xgene-qmtm.txt
-@@ -0,0 +1,149 @@
-+AppliedMicro X-Gene SOC Queue Manager/Traffic Manager Document
-+
-+Copyright (c) 2013 Applied Micro Circuits Corporation.
-+Author: Ravi Patel <rapatel@apm.com>
-+
-+This program is free software; you can redistribute it and/or modify it
-+under the terms of the GNU General Public License version 2 as published by
-+the Free Software Foundation.
-+
-+This program is distributed in the hope that it will be useful,
-+but WITHOUT ANY WARRANTY; without even the implied warranty of
-+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+GNU General Public License for more details.
-+
-+
-+Overview:
-+QMTM is a device which interacts with CPU, Ethernet, PktDMA and Security
-+subsystems through AXI BUS. Its centralized resource manager/driver exports
-+APIs for CPU, Ethernet, PktDMA and Security subsystems to
-+1. Initialize & allocate queue & pbn.
-+2. Read queue state so that subsystems driver knows how much more work it can
-+   offload to its subsystem.
-+3. Apply QoS for subsystems on their queues.
-+
-+Layout:
-+The layout represents run-time flow of messages between Ethernet subsystem, CPU
-+and QMTM in APM X-Gene SOC. PktDMA and Security subsystems interfaces with QMTM
-+in the same way as Ethernet.
-+
-+
-+                          CPU
-+              o-------------------------o
-+              |                         |
-+         +----|[2]                   {5}|----+
-+         |    |     [1]         {4}     |    |
-+Register |    o------+-----------+------o    | Register
-+Write    |    CPU WR |           | CPU RD    | Write
-+to start v      MSG  v           ^  MSG      v to notify
-+packet   |           |    DDR    |           | packet
-+transmit |  o--------+-----o-----+--------o  | received
-+         |  | Q0   M . M M | M M . M   Q1 |  |
-+         |  | for  S . S S | S S . S  for |  |
-+         |  | ETH  G . G G | G G . G  ETH |  |
-+         |  | TX   n . 2 1 | 1 2 . n   RX |  |
-+         |  o----------+---o---+----------o  |
-+         |             |       |             |
-+         v             v       ^             v
-+         |             |       |             |
-+o--------|-------------|-------|-------------|--------o
-+|        |             |       |             |        | Coherent
-+|        v             v       ^             v        | I/O
-+|        |             |       |             |        | BUS
-+o--------|-------------|-------|-------------|--------o
-+         |         [3] |       | {3}         |
-+         v     QMTM RD v       ^ QMTM WR     v
-+         |       MSG   |       |   MSG       |
-+    o----+----o--------+---o---+--------o----+----o
-+    | Queue 0 |            |            | Queue 1 |
-+    | Command o ETH PBN 0  o  CPU PBN 0 o Command | Queue Manager/
-+    | Register|            |            |Register | Traffic Manager
-+    o---------o---+--------o--------+---o---------o
-+                  |                 |
-+                  v                 ^
-+Ethernet RD MSG   | [4]   ETH   {2} |  Ethernet WR MSG
-+from its PBN  o---+-----------------+---o to CPU PBN
-+              |                         |
-+              | Egress MAC  Ingress MAC |
-+              |     [5]         {1}     |
-+              o------|-----------|------o
-+                     v           ^
-+                     |           |
-+                  TX Data     RX Data
-+
-+Transmit Flow
-+[1] CPU (Ethernet driver) prepares 32 byte Ethernet egress work message and
-+    enqueues the message to the queue in DDR.
-+[2] CPU (Ethernet driver) notifies QMTM that there is a message enqueued in
-+    Ethernet transmit queue (e.g. Q0).
-+[3] QMTM prefetches the Ethernet egress work messages into Ethernet PBN
-+    (e.g. ETH PBN 0).
-+[4] Ethernet reads work messages from its PBN.
-+[5] Ethernet DMAs payload from DDR to its egress FIFO and transmits data out.
-+
-+Receive Flow
-+{1} Ethernet receives data and DMAs payload from its ingress FIFO to DDR and
-+    prepares a Ethernet ingress work message.
-+{2} Ethernet pushes work message to QMTM.
-+{3} QMTM prefetches the Ethernet ingress work messages into CPU PBN
-+    (e.g. CPU PBN 0) and then interrupts CPU.
-+{4} CPU (Ethernet driver) dequeues the 32 bytes Ethernet ingress work message
-+    from the queue in DDR.
-+{5} CPU (Ethernet driver) notifies QMTM that it dequeued a message from
-+    Ethernet receive queue (e.g. Q1).
-+
-+
-+Definition:
-+1. QMTM (Queue/Traffic Manager)
-+   QMTM manages queues and pbns for CPU, Ethernet, PktDMA and Security
-+   Subsystems. It also performs flow control and QoS on queues.
-+
-+2. Slave/Client/Agent
-+   Ethernet, PktDMA (XOR Engine) and Security Engine Subsystems & CPU whose
-+   queues and pbn are managed by QMTM are called slave/client/agent.
-+
-+3. Queue
-+   Queue is circular FIFO memory for QMTM hardware in which a 16 bytes,
-+   32 bytes or 64 bytes message is dequeued OR enqueued between CPU and
-+   Ethernet, PktDMA and Security Engine Subsystems.
-+
-+4. PB
-+   Each subsystem in the APM X-Gene SoC device has a prefetch buffer for
-+   storing messages in order to pipeline the QMTM processing latency with the
-+   subsystem processing latency. The number of buffers prefetched depends on
-+   the QM/TM processing latency and the subsystem data rate.
-+
-+   There are multiple PB for a subsystem, each PB is assigned a number which is
-+   called PBN. Each subsystem and CPU can have max 32 pbns, however QMTM limits
-+   how many pbns it supports for each subsystem.
-+
-+5. Message
-+   The subsystems in the APM X-Gene SoC communicate with a central Queue Manager
-+   (QM) that manages all the messages queued to the subsystems. The subsystems
-+   communicate with the QM using messages that include information about the
-+   work to be performed and the location of the buffers or data on which the
-+   work is to be performed.
-+
-+   A message consists of 16, 32 or 64 bytes which resides in a queue. A message
-+   which is
-+   a. 16 bytes contains information of data buffer, length, etc. allocated by
-+      subsystem driver.
-+   b. 32 or 64 bytes contains information about the work to be done for a
-+      subsystem. Each subsystem defines its own format of work message.
-+
-+   Each subsystem defines their own format of work message. A message (or queue
-+   descriptor) has attribute fields (QMTM specific) which are common for all
-+   subsystem work messages. The remaining fields of a message are specific to
-+   subsystem. QMTM device doesn't have any knowledge of these subsystems
-+   specific fields and the data operation which subsystem is going to perform
-+   using these fields.
-+
-+   e.g.
-+   1. Ethernet work message includes data address & length which is used by
-+      Ethernet DMA engine for copying the data to/from its internal FIFO.
-+   2. PktDMA work message includes multiple data addresses & lengths for
-+      doing scatter/gather, XOR operations and result data address/es to give
-+      back result to the CPU (driver).
-+   3. Security work message includes data address & length for doing encryption
-+      or decryption, the type of encryption or decryption and result data
-+      address to give back result to the CPU (driver).
--- 
-1.7.9.5
+For example, if I want to change my fq qdisc pacing I use :
+
+tc qdisc change dev eth0 root fq pacing
+
+or
+
+tc qdisc change dev eth0 root fq nopacing
+
+In your patches, you for example clear ecn if not specified, its wrong.
+
+        if (tb[TCA_NETEM_ECN])
+                q->ecn = nla_get_u32(tb[TCA_NETEM_ECN]);
++       else
++               q->ecn = 0;
