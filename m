@@ -1,61 +1,53 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: socket bind to local address ::ffff:127.0.0.1 question
-Date: Sat, 15 Feb 2014 18:10:41 +0100
-Message-ID: <20140215171041.GE8634@order.stressinduktion.org>
-References: <CAK3+h2zzx5AocGeJxu9cW0kNkiRew6GNDMrbsNq-7H8co=T0_Q@mail.gmail.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH 10/13] staging: r8188eu: Remove wrapper
+ _enter_critical_mutex()
+Date: Sat, 15 Feb 2014 11:23:48 -0600
+Message-ID: <52FFA2A4.2010405@lwfinger.net>
+References: <1392418457-3203-1-git-send-email-Larry.Finger@lwfinger.net>
+ <1392418457-3203-11-git-send-email-Larry.Finger@lwfinger.net>
+ <20140215104155.GC26776@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Vincent Li <vincent.mc.li@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:57447 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753443AbaBORKn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Feb 2014 12:10:43 -0500
-Content-Disposition: inline
-In-Reply-To: <CAK3+h2zzx5AocGeJxu9cW0kNkiRew6GNDMrbsNq-7H8co=T0_Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, gregkh@linuxfoundation.org,
+ netdev@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20140215104155.GC26776@mwanda>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 12, 2014 at 12:41:21PM -0800, Vincent Li wrote:
-> we have a traffic path like <BIGIP monitor userland process on Linux>
-> <------> router<------->pool/real server
-> 
-> there is a  weird issue that intermittently, a socket is bound to
-> loopback address '::ffff:127.0.0.1' which caused issue for us because
-> remote end host can't SYN+ACK the SYN source from 127.0.0.1, strace
-> the userland process shows:
-> 
-> 6797  12:36:48.815296 connect(11, {sa_family=AF_INET6,
-> sin6_port=htons(8180), inet_pton(AF_INET6, "::ffff:172.16.3.165",
-> &sin6_addr), sin6_flowinfo=0, sin6_scope_id=875638834}, 28) = -1
-> EINPROGRESS (Operation now in progress)
+On 02/15/2014 04:41 AM, Dan Carpenter wrote:
+> On Fri, Feb 14, 2014 at 04:54:14PM -0600, Larry Finger wrote:
+>> diff --git a/drivers/staging/rtl8188eu/hal/usb_ops_linux.c b/drivers/staging/rtl8188eu/hal/usb_ops_linux.c
+>> index 1fa5370..d5f6a32 100644
+>> --- a/drivers/staging/rtl8188eu/hal/usb_ops_linux.c
+>> +++ b/drivers/staging/rtl8188eu/hal/usb_ops_linux.c
+>> @@ -49,7 +49,9 @@ static int usbctrl_vendorreq(struct intf_hdl *pintfhdl, u8 request, u16 value, u
+>>   		goto exit;
+>>   	}
+>>
+>> -	_enter_critical_mutex(&dvobjpriv->usb_vendor_req_mutex, NULL);
+>> +	if (mutex_lock_interruptible(&dvobjpriv->usb_vendor_req_mutex))
+>> +		status = -ENOMEM;
+>> +		goto exit;
+>>
+>
+> Missing curly braces.
 
-Have you checked the connect operation completed successfully in this
-case? Error state would be interesting to see (SO_ERROR).
+Thanks for seeing this. Fixing this also removes the uninitialized variable 
+warnings, which should have been a clue. Perhaps my wife is right, and I am 
+getting senile!
 
-> 6797  12:36:48.815464 gettimeofday({1391744208, 815499}, NULL) = 0
-> 6797  12:36:48.815552 time(NULL)        = 1391744208
-> 6797  12:36:48.815657 stat64("/etc/localtime", {st_mode=S_IFREG|0644,
-> st_size=331, ...}) = 0
-> ...................
-> 6797  12:36:48.816948 getsockname(11, {sa_family=AF_INET6,
-> sin6_port=htons(45621), inet_pton(AF_INET6, "::ffff:127.0.0.1",
-> &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0},
-> [18433145657494601756]) = 0
-   ^^^
-Urks!
+Actually a simple "return -ENOMEM" is sufficient as nothing happens at label 
+exit other than "return status".
 
-What kernel version are you using?
-
-Do you have a reproducer, sample code in C where this problem sometimes
-happens or could you expand the strace listings a bit (maybe setsockopts,
-bindv6only settings)?
-
-Also you seem to not initialize your struct sockaddr_in6 given to connect, as
-the sin6_scope_id seems bogus (uninitialized memory?). But should not
-matter with v4mapped addresses though.
-
-Greetings,
-
-  Hannes
+Larry
