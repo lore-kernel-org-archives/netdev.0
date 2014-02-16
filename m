@@ -1,37 +1,47 @@
-From: Govindarajulu Varadarajan <gvaradar@cisco.com>
-Subject: Re: [net-next 08/14] i40evf: store ring size in ring structs
-Date: Sun, 16 Feb 2014 14:43:29 +0530 (IST)
-Message-ID: <alpine.LNX.2.03.1402161441170.23286@cisco.com>
-References: <1392418688-23895-1-git-send-email-aaron.f.brown@intel.com> <1392418688-23895-9-git-send-email-aaron.f.brown@intel.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH net] net/mlx4_en: Fixed crash when port type is changed
+Date: Sun, 16 Feb 2014 12:03:09 +0200
+Message-ID: <20140216100307.GA3859@mtl-eit-vdi-22.mtl.labs.mlnx>
+References: <1383815310-19116-1-git-send-email-amirv@mellanox.com>
+ <20131107.191418.2145129150067281446.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: davem@davemloft.net, Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Aaron Brown <aaron.f.brown@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, yevgenyp@mellanox.com,
+	ogerlitz@mellanox.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bgl-iport-2.cisco.com ([72.163.197.26]:11010 "EHLO
-	bgl-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750986AbaBPJW1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Feb 2014 04:22:27 -0500
-In-Reply-To: <1392418688-23895-9-git-send-email-aaron.f.brown@intel.com>
+Received: from mail-ea0-f179.google.com ([209.85.215.179]:36707 "EHLO
+	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750986AbaBPKDN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Feb 2014 05:03:13 -0500
+Received: by mail-ea0-f179.google.com with SMTP id q10so6016670ead.38
+        for <netdev@vger.kernel.org>; Sun, 16 Feb 2014 02:03:12 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20131107.191418.2145129150067281446.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 07/11/13 19:14 -0500, David Miller wrote:
+> From: Amir Vadai <amirv@mellanox.com>
+> Date: Thu,  7 Nov 2013 11:08:30 +0200
+> 
+> > timecounter_init() was was called only after first potential
+> > timecounter_read().
+> > Moved mlx4_en_init_timestamp() before mlx4_en_init_netdev()
+> > 
+> > Signed-off-by: Amir Vadai <amirv@mellanox.com>
+> > ---
+> > Please pull into -stable for kernels >= 3.10
+> 
+> Applied and queued up for -stable, thanks.
 
+Hi,
 
-On Fri, 14 Feb 2014, Aaron Brown wrote:
+I see that this patch [1] was applied to 3.10.y and 3.12.y.
+But somehow it was dropped from 3.11.y
+Please pull it there too.
 
-> From: Mitch Williams <mitch.a.williams@intel.com>
->
-> Also update copyrights.
-[.]
->  * Intel Ethernet Controller XL710 Family Linux Virtual Function Driver
-> - * Copyright(c) 2013 Intel Corporation.
-> + * Copyright(c) 2013 - 2014 Intel Corporation.
+Thanks,
+Amir
 
-Since you have a separate patch for this (patch 09/14), may be you can
-move this change to 09/14?
-
-thanks
-//govind
+[1] - 1ec4864 net/mlx4_en: Fixed crash when port type is changed
