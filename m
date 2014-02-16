@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 3/4] bonding: Convert c99 comments
-Date: Sat, 15 Feb 2014 16:02:03 -0800
-Message-ID: <204a6287bbd9f26437bfe2ff33e00167c143cb77.1392508410.git.joe@perches.com>
+Subject: [PATCH net-next 4/4] bonding: Convert memcpy(foo, bar, ETH_ALEN) to ether_addr_copy(foo, bar)
+Date: Sat, 15 Feb 2014 16:02:17 -0800
+Message-ID: <0022868482b6f5a6d723992e0802470771066cb1.1392508410.git.joe@perches.com>
 References: <cover.1392508410.git.joe@perches.com>
 Cc: Jay Vosburgh <fubar@us.ibm.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
@@ -13,315 +13,213 @@ In-Reply-To: <cover.1392508410.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Neatening only.
+ether_addr_copy is smaller and faster for some architectures.
+
+This relies on a stack frame being at least __aligned(2)
+for one use of an Ethernet address on the stack.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/bonding/bond_3ad.h | 175 ++++++++++++++++++++---------------------
- 1 file changed, 87 insertions(+), 88 deletions(-)
+ drivers/net/bonding/bond_3ad.c  |  8 ++++----
+ drivers/net/bonding/bond_alb.c  | 30 +++++++++++++++---------------
+ drivers/net/bonding/bond_main.c | 12 ++++++------
+ 3 files changed, 25 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_3ad.h b/drivers/net/bonding/bond_3ad.h
-index 13dc9d3..3b97fe48 100644
---- a/drivers/net/bonding/bond_3ad.h
-+++ b/drivers/net/bonding/bond_3ad.h
-@@ -28,7 +28,7 @@
- #include <linux/netdevice.h>
- #include <linux/if_ether.h>
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index f6eda2d..e9edd84 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -768,11 +768,11 @@ static int ad_lacpdu_send(struct port *port)
  
--// General definitions
-+/* General definitions */
- #define PKT_TYPE_LACPDU         cpu_to_be16(ETH_P_SLOW)
- #define AD_TIMER_INTERVAL       100 /*msec*/
+ 	lacpdu_header = (struct lacpdu_header *)skb_put(skb, length);
  
-@@ -47,54 +47,54 @@ enum {
- 	BOND_AD_COUNT = 2,
- };
+-	memcpy(lacpdu_header->hdr.h_dest, lacpdu_mcast_addr, ETH_ALEN);
++	ether_addr_copy(lacpdu_header->hdr.h_dest, lacpdu_mcast_addr);
+ 	/* Note: source address is set to be the member's PERMANENT address,
+ 	 * because we use it to identify loopback lacpdus in receive.
+ 	 */
+-	memcpy(lacpdu_header->hdr.h_source, slave->perm_hwaddr, ETH_ALEN);
++	ether_addr_copy(lacpdu_header->hdr.h_source, slave->perm_hwaddr);
+ 	lacpdu_header->hdr.h_proto = PKT_TYPE_LACPDU;
  
--// rx machine states(43.4.11 in the 802.3ad standard)
-+/* rx machine states(43.4.11 in the 802.3ad standard) */
- typedef enum {
- 	AD_RX_DUMMY,
--	AD_RX_INITIALIZE,     // rx Machine
--	AD_RX_PORT_DISABLED,  // rx Machine
--	AD_RX_LACP_DISABLED,  // rx Machine
--	AD_RX_EXPIRED,	      // rx Machine
--	AD_RX_DEFAULTED,      // rx Machine
--	AD_RX_CURRENT	      // rx Machine
-+	AD_RX_INITIALIZE,	/* rx Machine */
-+	AD_RX_PORT_DISABLED,	/* rx Machine */
-+	AD_RX_LACP_DISABLED,	/* rx Machine */
-+	AD_RX_EXPIRED,		/* rx Machine */
-+	AD_RX_DEFAULTED,	/* rx Machine */
-+	AD_RX_CURRENT		/* rx Machine */
- } rx_states_t;
+ 	lacpdu_header->lacpdu = port->lacpdu;
+@@ -810,11 +810,11 @@ static int ad_marker_send(struct port *port, struct bond_marker *marker)
  
--// periodic machine states(43.4.12 in the 802.3ad standard)
-+/* periodic machine states(43.4.12 in the 802.3ad standard) */
- typedef enum {
- 	AD_PERIODIC_DUMMY,
--	AD_NO_PERIODIC,	       // periodic machine
--	AD_FAST_PERIODIC,      // periodic machine
--	AD_SLOW_PERIODIC,      // periodic machine
--	AD_PERIODIC_TX	   // periodic machine
-+	AD_NO_PERIODIC,		/* periodic machine */
-+	AD_FAST_PERIODIC,	/* periodic machine */
-+	AD_SLOW_PERIODIC,	/* periodic machine */
-+	AD_PERIODIC_TX		/* periodic machine */
- } periodic_states_t;
+ 	marker_header = (struct bond_marker_header *)skb_put(skb, length);
  
--// mux machine states(43.4.13 in the 802.3ad standard)
-+/* mux machine states(43.4.13 in the 802.3ad standard) */
- typedef enum {
- 	AD_MUX_DUMMY,
--	AD_MUX_DETACHED,       // mux machine
--	AD_MUX_WAITING,	       // mux machine
--	AD_MUX_ATTACHED,       // mux machine
--	AD_MUX_COLLECTING_DISTRIBUTING // mux machine
-+	AD_MUX_DETACHED,	/* mux machine */
-+	AD_MUX_WAITING,		/* mux machine */
-+	AD_MUX_ATTACHED,	/* mux machine */
-+	AD_MUX_COLLECTING_DISTRIBUTING	/* mux machine */
- } mux_states_t;
+-	memcpy(marker_header->hdr.h_dest, lacpdu_mcast_addr, ETH_ALEN);
++	ether_addr_copy(marker_header->hdr.h_dest, lacpdu_mcast_addr);
+ 	/* Note: source address is set to be the member's PERMANENT address,
+ 	 * because we use it to identify loopback MARKERs in receive.
+ 	 */
+-	memcpy(marker_header->hdr.h_source, slave->perm_hwaddr, ETH_ALEN);
++	ether_addr_copy(marker_header->hdr.h_source, slave->perm_hwaddr);
+ 	marker_header->hdr.h_proto = PKT_TYPE_LACPDU;
  
--// tx machine states(43.4.15 in the 802.3ad standard)
-+/* tx machine states(43.4.15 in the 802.3ad standard) */
- typedef enum {
- 	AD_TX_DUMMY,
--	AD_TRANSMIT	   // tx Machine
-+	AD_TRANSMIT		/* tx Machine */
- } tx_states_t;
+ 	marker_header->marker = *marker;
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index e9f0a98..538913e 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -333,7 +333,7 @@ static void rlb_update_entry_from_arp(struct bonding *bond, struct arp_pkt *arp)
+ 	    (client_info->ip_dst == arp->ip_src) &&
+ 	    (!ether_addr_equal_64bits(client_info->mac_dst, arp->mac_src))) {
+ 		/* update the clients MAC address */
+-		memcpy(client_info->mac_dst, arp->mac_src, ETH_ALEN);
++		ether_addr_copy(client_info->mac_dst, arp->mac_src);
+ 		client_info->ntt = 1;
+ 		bond_info->rx_ntt = 1;
+ 	}
+@@ -669,9 +669,9 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+ 			/* the entry is already assigned to this client */
+ 			if (!ether_addr_equal_64bits(arp->mac_dst, mac_bcast)) {
+ 				/* update mac address from arp */
+-				memcpy(client_info->mac_dst, arp->mac_dst, ETH_ALEN);
++				ether_addr_copy(client_info->mac_dst, arp->mac_dst);
+ 			}
+-			memcpy(client_info->mac_src, arp->mac_src, ETH_ALEN);
++			ether_addr_copy(client_info->mac_src, arp->mac_src);
  
--// rx indication types
-+/* rx indication types */
- typedef enum {
--	AD_TYPE_LACPDU = 1,    // type lacpdu
--	AD_TYPE_MARKER	   // type marker
-+	AD_TYPE_LACPDU = 1,	/* type lacpdu */
-+	AD_TYPE_MARKER		/* type marker */
- } pdu_type_t;
+ 			assigned_slave = client_info->slave;
+ 			if (assigned_slave) {
+@@ -711,8 +711,8 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+ 		 * will be updated with clients actual unicast mac address
+ 		 * upon receiving an arp reply.
+ 		 */
+-		memcpy(client_info->mac_dst, arp->mac_dst, ETH_ALEN);
+-		memcpy(client_info->mac_src, arp->mac_src, ETH_ALEN);
++		ether_addr_copy(client_info->mac_dst, arp->mac_dst);
++		ether_addr_copy(client_info->mac_src, arp->mac_src);
+ 		client_info->slave = assigned_slave;
  
--// rx marker indication types
-+/* rx marker indication types */
- typedef enum {
--	AD_MARKER_INFORMATION_SUBTYPE = 1, // marker imformation subtype
--	AD_MARKER_RESPONSE_SUBTYPE     // marker response subtype
-+	AD_MARKER_INFORMATION_SUBTYPE = 1,	/* marker imformation subtype */
-+	AD_MARKER_RESPONSE_SUBTYPE		/* marker response subtype */
- } bond_marker_subtype_t;
+ 		if (!ether_addr_equal_64bits(client_info->mac_dst, mac_bcast)) {
+@@ -763,7 +763,7 @@ static struct slave *rlb_arp_xmit(struct sk_buff *skb, struct bonding *bond)
+ 		*/
+ 		tx_slave = rlb_choose_channel(skb, bond);
+ 		if (tx_slave)
+-			memcpy(arp->mac_src, tx_slave->dev->dev_addr, ETH_ALEN);
++			ether_addr_copy(arp->mac_src, tx_slave->dev->dev_addr);
+ 		pr_debug("Server sent ARP Reply packet\n");
+ 	} else if (arp->op_code == htons(ARPOP_REQUEST)) {
+ 		/* Create an entry in the rx_hashtbl for this client as a
+@@ -1003,8 +1003,8 @@ static void alb_send_lp_vid(struct slave *slave, u8 mac_addr[],
+ 	char *data;
  
--// timers types(43.4.9 in the 802.3ad standard)
-+/* timers types(43.4.9 in the 802.3ad standard) */
- typedef enum {
- 	AD_CURRENT_WHILE_TIMER,
- 	AD_ACTOR_CHURN_TIMER,
-@@ -105,35 +105,35 @@ typedef enum {
+ 	memset(&pkt, 0, size);
+-	memcpy(pkt.mac_dst, mac_addr, ETH_ALEN);
+-	memcpy(pkt.mac_src, mac_addr, ETH_ALEN);
++	ether_addr_copy(pkt.mac_dst, mac_addr);
++	ether_addr_copy(pkt.mac_src, mac_addr);
+ 	pkt.type = cpu_to_be16(ETH_P_LOOP);
  
- #pragma pack(1)
+ 	skb = dev_alloc_skb(size);
+@@ -1086,7 +1086,7 @@ static void alb_swap_mac_addr(struct slave *slave1, struct slave *slave2)
+ {
+ 	u8 tmp_mac_addr[ETH_ALEN];
  
--// Link Aggregation Control Protocol(LACP) data unit structure(43.4.2.2 in the 802.3ad standard)
-+/* Link Aggregation Control Protocol(LACP) data unit structure(43.4.2.2 in the 802.3ad standard) */
- typedef struct lacpdu {
--	u8 subtype;		     // = LACP(= 0x01)
-+	u8 subtype;		/* = LACP(= 0x01) */
- 	u8 version_number;
--	u8 tlv_type_actor_info;	      // = actor information(type/length/value)
--	u8 actor_information_length; // = 20
-+	u8 tlv_type_actor_info;	/* = actor information(type/length/value) */
-+	u8 actor_information_length;	/* = 20 */
- 	__be16 actor_system_priority;
- 	struct mac_addr actor_system;
- 	__be16 actor_key;
- 	__be16 actor_port_priority;
- 	__be16 actor_port;
- 	u8 actor_state;
--	u8 reserved_3_1[3];	     // = 0
--	u8 tlv_type_partner_info;     // = partner information
--	u8 partner_information_length;	 // = 20
-+	u8 reserved_3_1[3];		/* = 0 */
-+	u8 tlv_type_partner_info;	/* = partner information */
-+	u8 partner_information_length;	/* = 20 */
- 	__be16 partner_system_priority;
- 	struct mac_addr partner_system;
- 	__be16 partner_key;
- 	__be16 partner_port_priority;
- 	__be16 partner_port;
- 	u8 partner_state;
--	u8 reserved_3_2[3];	     // = 0
--	u8 tlv_type_collector_info;	  // = collector information
--	u8 collector_information_length; // = 16
-+	u8 reserved_3_2[3];		/* = 0 */
-+	u8 tlv_type_collector_info;	/* = collector information */
-+	u8 collector_information_length;/* = 16 */
- 	__be16 collector_max_delay;
- 	u8 reserved_12[12];
--	u8 tlv_type_terminator;	     // = terminator
--	u8 terminator_length;	     // = 0
--	u8 reserved_50[50];	     // = 0
-+	u8 tlv_type_terminator;		/* = terminator */
-+	u8 terminator_length;		/* = 0 */
-+	u8 reserved_50[50];		/* = 0 */
- } __packed lacpdu_t;
+-	memcpy(tmp_mac_addr, slave1->dev->dev_addr, ETH_ALEN);
++	ether_addr_copy(tmp_mac_addr, slave1->dev->dev_addr);
+ 	alb_set_slave_mac_addr(slave1, slave2->dev->dev_addr);
+ 	alb_set_slave_mac_addr(slave2, tmp_mac_addr);
  
- typedef struct lacpdu_header {
-@@ -141,20 +141,20 @@ typedef struct lacpdu_header {
- 	struct lacpdu lacpdu;
- } __packed lacpdu_header_t;
+@@ -1283,12 +1283,12 @@ static int alb_set_mac_address(struct bonding *bond, void *addr)
  
--// Marker Protocol Data Unit(PDU) structure(43.5.3.2 in the 802.3ad standard)
-+/* Marker Protocol Data Unit(PDU) structure(43.5.3.2 in the 802.3ad standard) */
- typedef struct bond_marker {
--	u8 subtype;		 //  = 0x02  (marker PDU)
--	u8 version_number;	 //  = 0x01
--	u8 tlv_type;		 //  = 0x01  (marker information)
--	//  = 0x02  (marker response information)
--	u8 marker_length;	 //  = 0x16
--	u16 requester_port;	 //   The number assigned to the port by the requester
--	struct mac_addr requester_system;      //   The requester's system id
--	u32 requester_transaction_id;	//   The transaction id allocated by the requester,
--	u16 pad;		 //  = 0
--	u8 tlv_type_terminator;	     //  = 0x00
--	u8 terminator_length;	     //  = 0x00
--	u8 reserved_90[90];	     //  = 0
-+	u8 subtype;		/* = 0x02  (marker PDU) */
-+	u8 version_number;	/* = 0x01 */
-+	u8 tlv_type;		/* = 0x01  (marker information) */
-+	/* = 0x02  (marker response information) */
-+	u8 marker_length;	/* = 0x16 */
-+	u16 requester_port;	/* The number assigned to the port by the requester */
-+	struct mac_addr requester_system;	/* The requester's system id */
-+	u32 requester_transaction_id;		/* The transaction id allocated by the requester, */
-+	u16 pad;		/* = 0 */
-+	u8 tlv_type_terminator;	/* = 0x00 */
-+	u8 terminator_length;	/* = 0x00 */
-+	u8 reserved_90[90];	/* = 0 */
- } __packed bond_marker_t;
+ 	bond_for_each_slave(bond, slave, iter) {
+ 		/* save net_device's current hw address */
+-		memcpy(tmp_addr, slave->dev->dev_addr, ETH_ALEN);
++		ether_addr_copy(tmp_addr, slave->dev->dev_addr);
  
- typedef struct bond_marker_header {
-@@ -173,7 +173,7 @@ struct port;
- #pragma pack(8)
- #endif
+ 		res = dev_set_mac_address(slave->dev, addr);
  
--// aggregator structure(43.4.5 in the 802.3ad standard)
-+/* aggregator structure(43.4.5 in the 802.3ad standard) */
- typedef struct aggregator {
- 	struct mac_addr aggregator_mac_address;
- 	u16 aggregator_identifier;
-@@ -183,12 +183,12 @@ typedef struct aggregator {
- 	struct mac_addr partner_system;
- 	u16 partner_system_priority;
- 	u16 partner_oper_aggregator_key;
--	u16 receive_state;		// BOOLEAN
--	u16 transmit_state;		// BOOLEAN
-+	u16 receive_state;	/* BOOLEAN */
-+	u16 transmit_state;	/* BOOLEAN */
- 	struct port *lag_ports;
--	// ****** PRIVATE PARAMETERS ******
--	struct slave *slave;	    // pointer to the bond slave that this aggregator belongs to
--	u16 is_active;	    // BOOLEAN. Indicates if this aggregator is active
-+	/* ****** PRIVATE PARAMETERS ****** */
-+	struct slave *slave;	/* pointer to the bond slave that this aggregator belongs to */
-+	u16 is_active;		/* BOOLEAN. Indicates if this aggregator is active */
- 	u16 num_of_ports;
- } aggregator_t;
+ 		/* restore net_device's hw address */
+-		memcpy(slave->dev->dev_addr, tmp_addr, ETH_ALEN);
++		ether_addr_copy(slave->dev->dev_addr, tmp_addr);
  
-@@ -201,12 +201,12 @@ struct port_params {
- 	u16 port_state;
- };
+ 		if (res)
+ 			goto unwind;
+@@ -1304,9 +1304,9 @@ unwind:
+ 	bond_for_each_slave(bond, rollback_slave, iter) {
+ 		if (rollback_slave == slave)
+ 			break;
+-		memcpy(tmp_addr, rollback_slave->dev->dev_addr, ETH_ALEN);
++		ether_addr_copy(tmp_addr, rollback_slave->dev->dev_addr);
+ 		dev_set_mac_address(rollback_slave->dev, &sa);
+-		memcpy(rollback_slave->dev->dev_addr, tmp_addr, ETH_ALEN);
++		ether_addr_copy(rollback_slave->dev->dev_addr, tmp_addr);
+ 	}
  
--// port structure(43.4.6 in the 802.3ad standard)
-+/* port structure(43.4.6 in the 802.3ad standard) */
- typedef struct port {
- 	u16 actor_port_number;
- 	u16 actor_port_priority;
--	struct mac_addr actor_system;	       // This parameter is added here although it is not specified in the standard, just for simplification
--	u16 actor_system_priority;	 // This parameter is added here although it is not specified in the standard, just for simplification
-+	struct mac_addr actor_system;	/* This parameter is added here although it is not specified in the standard, just for simplification */
-+	u16 actor_system_priority;	/* This parameter is added here although it is not specified in the standard, just for simplification */
- 	u16 actor_port_aggregator_identifier;
- 	bool ntt;
- 	u16 actor_admin_port_key;
-@@ -219,24 +219,24 @@ typedef struct port {
+ 	return res;
+@@ -1704,14 +1704,14 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
+ 		struct sockaddr sa;
+ 		u8 tmp_addr[ETH_ALEN];
  
- 	bool is_enabled;
+-		memcpy(tmp_addr, new_slave->dev->dev_addr, ETH_ALEN);
++		ether_addr_copy(tmp_addr, new_slave->dev->dev_addr);
  
--	// ****** PRIVATE PARAMETERS ******
--	u16 sm_vars;	      // all state machines variables for this port
--	rx_states_t sm_rx_state;	// state machine rx state
--	u16 sm_rx_timer_counter;    // state machine rx timer counter
--	periodic_states_t sm_periodic_state;// state machine periodic state
--	u16 sm_periodic_timer_counter;	// state machine periodic timer counter
--	mux_states_t sm_mux_state;	// state machine mux state
--	u16 sm_mux_timer_counter;   // state machine mux timer counter
--	tx_states_t sm_tx_state;	// state machine tx state
--	u16 sm_tx_timer_counter;    // state machine tx timer counter(allways on - enter to transmit state 3 time per second)
--	struct slave *slave;	    // pointer to the bond slave that this port belongs to
--	struct aggregator *aggregator;	   // pointer to an aggregator that this port related to
--	struct port *next_port_in_aggregator; // Next port on the linked list of the parent aggregator
--	u32 transaction_id;	    // continuous number for identification of Marker PDU's;
--	struct lacpdu lacpdu;	       // the lacpdu that will be sent for this port
-+	/* ****** PRIVATE PARAMETERS ****** */
-+	u16 sm_vars;		/* all state machines variables for this port */
-+	rx_states_t sm_rx_state;	/* state machine rx state */
-+	u16 sm_rx_timer_counter;	/* state machine rx timer counter */
-+	periodic_states_t sm_periodic_state;	/* state machine periodic state */
-+	u16 sm_periodic_timer_counter;	/* state machine periodic timer counter */
-+	mux_states_t sm_mux_state;	/* state machine mux state */
-+	u16 sm_mux_timer_counter;	/* state machine mux timer counter */
-+	tx_states_t sm_tx_state;	/* state machine tx state */
-+	u16 sm_tx_timer_counter;	/* state machine tx timer counter(allways on - enter to transmit state 3 time per second) */
-+	struct slave *slave;		/* pointer to the bond slave that this port belongs to */
-+	struct aggregator *aggregator;	/* pointer to an aggregator that this port related to */
-+	struct port *next_port_in_aggregator;	/* Next port on the linked list of the parent aggregator */
-+	u32 transaction_id;		/* continuous number for identification of Marker PDU's; */
-+	struct lacpdu lacpdu;		/* the lacpdu that will be sent for this port */
- } port_t;
+ 		memcpy(sa.sa_data, bond->dev->dev_addr, bond->dev->addr_len);
+ 		sa.sa_family = bond->dev->type;
+ 		/* we don't care if it can't change its mac, best effort */
+ 		dev_set_mac_address(new_slave->dev, &sa);
  
--// system structure
-+/* system structure */
- struct ad_system {
- 	u16 sys_priority;
- 	struct mac_addr sys_mac_addr;
-@@ -246,26 +246,25 @@ struct ad_system {
- #pragma pack()
- #endif
+-		memcpy(new_slave->dev->dev_addr, tmp_addr, ETH_ALEN);
++		ether_addr_copy(new_slave->dev->dev_addr, tmp_addr);
+ 	}
  
--// ================= AD Exported structures to the main bonding code ==================
-+/* ========== AD Exported structures to the main bonding code ========== */
- #define BOND_AD_INFO(bond)   ((bond)->ad_info)
- #define SLAVE_AD_INFO(slave) ((slave)->ad_info)
+ 	/* curr_active_slave must be set before calling alb_swap_mac_addr */
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 90994ed..3bce855 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -673,12 +673,12 @@ static void bond_do_fail_over_mac(struct bonding *bond,
+ 		write_unlock_bh(&bond->curr_slave_lock);
  
- struct ad_bond_info {
--	struct ad_system system;	    /* 802.3ad system structure */
--	u32 agg_select_timer;	    // Timer to select aggregator after all adapter's hand shakes
-+	struct ad_system system;	/* 802.3ad system structure */
-+	u32 agg_select_timer;		/* Timer to select aggregator after all adapter's hand shakes */
- };
+ 		if (old_active) {
+-			memcpy(tmp_mac, new_active->dev->dev_addr, ETH_ALEN);
++			ether_addr_copy(tmp_mac, new_active->dev->dev_addr);
+ 			memcpy(saddr.sa_data, old_active->dev->dev_addr,
+ 			       ETH_ALEN);
+ 			saddr.sa_family = new_active->dev->type;
+ 		} else {
+-			memcpy(saddr.sa_data, bond->dev->dev_addr, ETH_ALEN);
++			ether_addr_copy(saddr.sa_data, bond->dev->dev_addr);
+ 			saddr.sa_family = bond->dev->type;
+ 		}
  
- struct ad_slave_info {
--	struct aggregator aggregator;	    // 802.3ad aggregator structure
--	struct port port;		    // 802.3ad port structure
--	spinlock_t state_machine_lock; /* mutex state machines vs.
--					  incoming LACPDU */
-+	struct aggregator aggregator;	/* 802.3ad aggregator structure */
-+	struct port port;		/* 802.3ad port structure */
-+	spinlock_t state_machine_lock;	/* mutex state machines vs. incoming LACPDU */
- 	u16 id;
- };
+@@ -692,7 +692,7 @@ static void bond_do_fail_over_mac(struct bonding *bond,
+ 		if (!old_active)
+ 			goto out;
  
--// ================= AD Exported functions to the main bonding code ==================
-+/* ========== AD Exported functions to the main bonding code ========== */
- void bond_3ad_initialize(struct bonding *bond, u16 tick_resolution);
--void  bond_3ad_bind_slave(struct slave *slave);
-+void bond_3ad_bind_slave(struct slave *slave);
- void bond_3ad_unbind_slave(struct slave *slave);
- void bond_3ad_state_machine_handler(struct work_struct *);
- void bond_3ad_initiate_agg_selection(struct bonding *bond, int timeout);
-@@ -280,5 +279,5 @@ int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
- 			 struct slave *slave);
- int bond_3ad_set_carrier(struct bonding *bond);
- void bond_3ad_update_lacp_rate(struct bonding *bond);
--#endif //__BOND_3AD_H__
-+#endif /* __BOND_3AD_H__ */
+-		memcpy(saddr.sa_data, tmp_mac, ETH_ALEN);
++		ether_addr_copy(saddr.sa_data, tmp_mac);
+ 		saddr.sa_family = old_active->dev->type;
  
+ 		rv = dev_set_mac_address(old_active->dev, &saddr);
+@@ -1316,7 +1316,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	 * that need it, and for restoring it upon release, and then
+ 	 * set it to the master's address
+ 	 */
+-	memcpy(new_slave->perm_hwaddr, slave_dev->dev_addr, ETH_ALEN);
++	ether_addr_copy(new_slave->perm_hwaddr, slave_dev->dev_addr);
+ 
+ 	if (!bond->params.fail_over_mac ||
+ 	    bond->params.mode != BOND_MODE_ACTIVEBACKUP) {
+@@ -1587,7 +1587,7 @@ err_restore_mac:
+ 		 * MAC if this slave's MAC is in use by the bond, or at
+ 		 * least print a warning.
+ 		 */
+-		memcpy(addr.sa_data, new_slave->perm_hwaddr, ETH_ALEN);
++		ether_addr_copy(addr.sa_data, new_slave->perm_hwaddr);
+ 		addr.sa_family = slave_dev->type;
+ 		dev_set_mac_address(slave_dev, &addr);
+ 	}
+@@ -1776,7 +1776,7 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 	if (bond->params.fail_over_mac != BOND_FOM_ACTIVE ||
+ 	    bond->params.mode != BOND_MODE_ACTIVEBACKUP) {
+ 		/* restore original ("permanent") mac address */
+-		memcpy(addr.sa_data, slave->perm_hwaddr, ETH_ALEN);
++		ether_addr_copy(addr.sa_data, slave->perm_hwaddr);
+ 		addr.sa_family = slave_dev->type;
+ 		dev_set_mac_address(slave_dev, &addr);
+ 	}
 -- 
 1.8.1.2.459.gbcd45b4.dirty
