@@ -1,36 +1,64 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: net/mlx4_en: Fixed crash when port type is changed
-Date: Sun, 16 Feb 2014 13:13:54 +0200
-Message-ID: <20140216111351.GB3859@mtl-eit-vdi-22.mtl.labs.mlnx>
-References: <1383815310-19116-1-git-send-email-amirv@mellanox.com>
- <20131107.191418.2145129150067281446.davem@davemloft.net>
- <20140216100307.GA3859@mtl-eit-vdi-22.mtl.labs.mlnx>
- <alpine.LNX.2.03.1402161623240.23286@cisco.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH net-next v2 3/3] sch_netem: replace magic numbers with
+ enumerate in GE model
+Date: Sun, 16 Feb 2014 12:44:30 +0000
+Message-ID: <1392554670.15615.93.camel@deadeye.wl.decadent.org.uk>
+References: <1392345043-12208-1-git-send-email-yangyingliang@huawei.com>
+	 <1392345043-12208-4-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	yevgenyp@mellanox.com, ogerlitz@mellanox.com
-To: Govindarajulu Varadarajan <gvaradar@cisco.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-8M0Rtb8uFBC2L1lqFNC8"
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	stephen@networkplumber.org
+To: Yang Yingliang <yangyingliang@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f179.google.com ([74.125.82.179]:62384 "EHLO
-	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751040AbaBPLN5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Feb 2014 06:13:57 -0500
-Received: by mail-we0-f179.google.com with SMTP id q58so9646585wes.24
-        for <netdev@vger.kernel.org>; Sun, 16 Feb 2014 03:13:56 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <alpine.LNX.2.03.1402161623240.23286@cisco.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:35844 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751477AbaBPMop (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Feb 2014 07:44:45 -0500
+In-Reply-To: <1392345043-12208-4-git-send-email-yangyingliang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16/02/14 16:25 +0530, Govindarajulu Varadarajan wrote:
-> 
-> I think 3.11 is EOL. Check https://www.kernel.org/
-> 
-> //govind
-> 
 
-Oh - missed it.
+--=-8M0Rtb8uFBC2L1lqFNC8
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Thanks,
-Amir
+On Fri, 2014-02-14 at 10:30 +0800, Yang Yingliang wrote:
+> Replace some magic numbers which describe states of GE model
+> loss generator with enumerate.
+[...]
+
+The name GOOD_STATE should also be used in get_loss_clg() where
+clgstate::state is initialised.
+
+Ben.
+
+--=20
+Ben Hutchings
+Any sufficiently advanced bug is indistinguishable from a feature.
+
+--=-8M0Rtb8uFBC2L1lqFNC8
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAUwCyrue/yOyVhhEJAQqLLBAAsv+d8d2zfVSxlGoFpBNG7Pe7j+k0ix4c
+SGJlRvUKsxARu+q2172mBMLA+DErCuLc1eFq88ekXX0xUF+5Epme84RWwKgXOwsR
+WCt5bKHNm1kaZb2gyDiyFOyBUmy4uIsWJM21iwFV7/HBBiWUZxL4j9VvbObcsKbH
+UoZHJfs1GysPBtwE9rEcG5+OHPf4mFnKZGeAso9EcCM9/axJBEgVT2zXHcdiYUp9
+yl5Sd6WiiPyYkFFtsBhVBJZlj5jx34I9ynPkEDjpoY0DyvS7Q5AKg0TtplXaM774
+E4fvM051NINjktWGxvwFg0DvYqSgx3NK8XODYa8Pi8E4a8KNgyjbCbYD94FkC+C1
+kQMU+mFmVSiSTCIEBNLiIQJya3iBk5kIDMSR8OqYedrViZgLPtuKgMzZyNTefF/K
+oEsxjGNtLl4gYYOGqur5MS8kdTc8oUGvfaL8l+7Dedc+98fLCCfZK1B/fRwtKBKt
+ifCtdpVj7Xc8WILuJKgb0uigDKI4fdWydehk9HGsoP5MKZMQaKNoynUM5xAk7oax
+VS2UeXwbUkRGc2OOWqZ8QyZ+5qj1sLN7eEGwAiza2Rn9goGfi9YBF4HmaLlbSaGu
+CqNcrmpzl4Y+SCuIuoJT6rzIJxiUHLt76aDW8CuQlPn5HczZ3r3aHTZODyOR32dj
+i0Et3Sonheo=
+=KNYG
+-----END PGP SIGNATURE-----
+
+--=-8M0Rtb8uFBC2L1lqFNC8--
