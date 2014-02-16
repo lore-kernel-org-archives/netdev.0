@@ -1,38 +1,20 @@
-From: Casey Leedom <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCHv6 net-next 00/31] Misc. fixes for cxgb4 and iw_cxgb4
-Date: Wed, 12 Mar 2014 16:48:18 -0700
-Message-ID: <C0E17A65-945A-4030-8D58-4DBD2076BCAC@chelsio.com>
-References: <1394639446-6504-1-git-send-email-hariprasad@chelsio.com> <20140312.155125.1045693666130935765.davem@davemloft.net>
-Mime-Version: 1.0 (Mac OS X Mail 7.2 \(1874\))
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140312.155125.1045693666130935765.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: "Skye Loan Finance Limited" <fun@beachbar.com.au>
+Subject: Re: Get an online loan
+Date: Mon, 17 Feb 2014 03:39:48 +0530
+Message-ID: <20140216220951.CBF3F21A38@serverelintec.it>
+Reply-To: loanapplication_department2222@slf-online.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: fun@beachbar.com.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from host27-145-static.87-94-b.business.telecomitalia.it ([94.87.145.27]:48090
+	"EHLO serverelintec.it" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751166AbaCLXyB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 19:54:01 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[[Sorry, the first effort at this reply fell afoul of netdev=92s HTML e=
-mail filter and my Mail Agent=92s default modes. =97 Casey]]
-
-On Mar 12, 2014, at 12:51 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
->
-> This is becomming beyond tiring.
-
-  Im really sorry for how much work this has turned into David.  Hari i=
-s trying to do the right thing but it=92s an insanely large patch set. =
- A while back someone recommended backing off and restarting with a ser=
-ies of much smaller patch sets.  I think the decision at that time was =
-that too much time had gone into this patch set so Hari should proceed =
-with the effort.  Should we revisit that decision and ask Hari to submi=
-t a series of much smaller patch sets (one at a time obviously)?
-
-Casey--
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Get an online loan at Skye Loan Finance Limited is favorably disposed to
+broker and facilitate the transfer of a Loan(s) to vise  nominated account(s) of fund destination upon authentication and compliance of all procedural guidelines. Our loans are  available from GBP 50,000.00, GBP 750,000.00 to GBP 950 Millions over 3-20 years at rates ranging from 3.5% to 6.5% APR E-mail: loanapplication_department2222@slf-online.com
