@@ -1,37 +1,20 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next 0/4] bonding cleaning
-Date: Mon, 17 Feb 2014 09:00:47 +0800
-Message-ID: <53015F3F.30409@huawei.com>
-References: <cover.1392508410.git.joe@perches.com>
+From: "Skye Loan Finance Limited" <fun@beachbar.com.au>
+Subject: Re: Get an online loan
+Date: Mon, 17 Feb 2014 04:19:53 +0530
+Message-ID: <20140216224956.0C6172C3D8@serverelintec.it>
+Reply-To: loanapplication_department2222@slf-online.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>
-To: Joe Perches <joe@perches.com>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1392508410.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: fun@beachbar.com.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from host27-145-static.87-94-b.business.telecomitalia.it ([94.87.145.27]:34726
+	"EHLO serverelintec.it" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750793AbaBQCoP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Feb 2014 21:44:15 -0500
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2014/2/16 7:57, Joe Perches wrote:
-> Miscellaneous cleanups
-> 
-> Joe Perches (4):
->   bonding: Convert pr_warning to pr_warn, neatening
->   bonding: Neaten pr_<level>
->   bonding: Convert c99 comments
->   bonding: Convert memcpy(foo, bar, ETH_ALEN) to ether_addr_copy(foo, bar)
-> 
->  drivers/net/bonding/bond_3ad.c     |  19 +--
->  drivers/net/bonding/bond_3ad.h     | 175 ++++++++++++++--------------
->  drivers/net/bonding/bond_alb.c     |  36 +++---
->  drivers/net/bonding/bond_debugfs.c |  10 +-
->  drivers/net/bonding/bond_main.c    | 231 ++++++++++++++++++-------------------
->  drivers/net/bonding/bond_netlink.c |   6 +-
->  drivers/net/bonding/bond_options.c | 102 ++++++++--------
->  drivers/net/bonding/bond_procfs.c  |   8 +-
->  drivers/net/bonding/bond_sysfs.c   |   8 +-
->  9 files changed, 288 insertions(+), 307 deletions(-)
-> 
-
-Reviewed-by: Ding Tianhong <dingtianhong@huawei.com>
+Get an online loan at Skye Loan Finance Limited is favorably disposed to
+broker and facilitate the transfer of a Loan(s) to vise  nominated account(s) of fund destination upon authentication and compliance of all procedural guidelines. Our loans are  available from GBP 50,000.00, GBP 750,000.00 to GBP 950 Millions over 3-20 years at rates ranging from 3.5% to 6.5% APR E-mail: loanapplication_department2222@slf-online.com
