@@ -1,19 +1,16 @@
 From: Steven Barth <cyrus@openwrt.org>
-Subject: [PATCH] ipv6: fix inconsistent prefix route handling
-Date: Sun, 16 Feb 2014 16:48:01 +0100
-Message-ID: <5300DDB1.9000404@openwrt.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Subject: [PATCH v2] ipv6: fix inconsistent prefix route handling
+Date: Sun, 16 Feb 2014 17:25:54 +0100
+Message-ID: <1392567954-25752-1-git-send-email-cyrus@openwrt.org>
+References: <5300DDB1.9000404@openwrt.org>
+Cc: Steven Barth <cyrus@openwrt.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chi.subsignal.org ([188.40.166.11]:40075 "EHLO
+Received: from chi.subsignal.org ([188.40.166.11]:40108 "EHLO
 	chi.subsignal.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752474AbaBPP5u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Feb 2014 10:57:50 -0500
-Received: from [192.168.2.103] (pD9FEBE4B.dip0.t-ipconnect.de [217.254.190.75])
-	by chi.subsignal.org (Postfix) with ESMTPSA id 2FC1E12619C
-	for <netdev@vger.kernel.org>; Sun, 16 Feb 2014 16:49:14 +0100 (CET)
+	with ESMTP id S1752474AbaBPQ0K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Feb 2014 11:26:10 -0500
+In-Reply-To: <5300DDB1.9000404@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -43,9 +40,11 @@ index ad23569..55c35d5 100644
 @@ -1013,7 +1013,7 @@ static void ipv6_del_addr(struct inet6_ifaddr *ifp)
  		__in6_ifa_put(ifp);
  	}
- -	if (ifp->flags & IFA_F_PERMANENT && !(ifp->flags & IFA_F_NOPREFIXROUTE))
+ 
+-	if (ifp->flags & IFA_F_PERMANENT && !(ifp->flags & IFA_F_NOPREFIXROUTE))
 +	if (!(ifp->flags & IFA_F_NOPREFIXROUTE))
  		action = check_cleanup_prefix_route(ifp, &expires);
-  	list_del_init(&ifp->if_list);
+ 
+ 	list_del_init(&ifp->if_list);
 -- 
 1.8.3.2
