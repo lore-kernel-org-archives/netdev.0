@@ -1,50 +1,46 @@
-From: Steven Barth <cyrus@openwrt.org>
-Subject: [PATCH v2] ipv6: fix inconsistent prefix route handling
-Date: Sun, 16 Feb 2014 17:25:54 +0100
-Message-ID: <1392567954-25752-1-git-send-email-cyrus@openwrt.org>
-References: <5300DDB1.9000404@openwrt.org>
-Cc: Steven Barth <cyrus@openwrt.org>
-To: netdev@vger.kernel.org
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH 02/13] staging: r8188eu: Remove pointless "alignment"
+ entry in recv_frame
+Date: Sun, 16 Feb 2014 10:26:19 -0600
+Message-ID: <5300E6AB.7010704@lwfinger.net>
+References: <1392418457-3203-1-git-send-email-Larry.Finger@lwfinger.net> <1392418457-3203-3-git-send-email-Larry.Finger@lwfinger.net> <87ob27bvz7.fsf@will.lan> <20140216090956.GG26722@mwanda>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, gregkh@linuxfoundation.org,
+	Jes.Sorensen@redhat.com, netdev@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>,
+	"Zhao, Gang" <gamerh2o@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chi.subsignal.org ([188.40.166.11]:40108 "EHLO
-	chi.subsignal.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752474AbaBPQ0K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Feb 2014 11:26:10 -0500
-In-Reply-To: <5300DDB1.9000404@openwrt.org>
+Received: from mail-oa0-f41.google.com ([209.85.219.41]:58499 "EHLO
+	mail-oa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752474AbaBPQ0W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Feb 2014 11:26:22 -0500
+Received: by mail-oa0-f41.google.com with SMTP id j17so16619526oag.14
+        for <netdev@vger.kernel.org>; Sun, 16 Feb 2014 08:26:21 -0800 (PST)
+In-Reply-To: <20140216090956.GG26722@mwanda>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When temporary addresses are created in userspace an accompanying
-on-link prefix-route is created alongside. However when said address is
-afterwards removed in userspace the respective prefix route remains
-until it expires. Similarly when userspace turns a permanent address
-into a temporary one the prefix route remains and is not removed when
-the address expires and is thus dangling until removed manually.
+On 02/16/2014 03:09 AM, Dan Carpenter wrote:
+> On Sun, Feb 16, 2014 at 11:02:52AM +0800, Zhao, Gang wrote:
+>> On Sat, 2014-02-15 at 06:54:06 +0800, Larry Finger wrote:
+>>> This alignment entry in union recv_frame does nothing. It certainly
+>>> dues not ensure alignment.
+>>     ^
+>>     typo here.
+>>
+>>     I accidently sent this as a private mail before, better to resend to
+>>     the list.
+>>
+>
+> This was already applied.  You can still understand the meaning so it's
+> fine.  No need to redo.  Typos in the code are more important.
+>
+> It's hard to run spell checkers on patches since so much of the words
+> are code and not English.
 
-This behavior is inconsistent with the addition and removal of permanent
-addresses and can potentially cause lots of dangling routes on
-downstream interfaces on an IPv6-router with changing prefixes.
+In addition, this typo resulted in a correctly spelled word. It was just the 
+wrong one.
 
-This patch runs the on-link prefix removal check also when a temporary
-address is removed and thus unifies the prefix route handling.
-
-Signed-off-by: Steven Barth <cyrus@openwrt.org>
----
- net/ipv6/addrconf.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index ad23569..55c35d5 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1013,7 +1013,7 @@ static void ipv6_del_addr(struct inet6_ifaddr *ifp)
- 		__in6_ifa_put(ifp);
- 	}
- 
--	if (ifp->flags & IFA_F_PERMANENT && !(ifp->flags & IFA_F_NOPREFIXROUTE))
-+	if (!(ifp->flags & IFA_F_NOPREFIXROUTE))
- 		action = check_cleanup_prefix_route(ifp, &expires);
- 
- 	list_del_init(&ifp->if_list);
--- 
-1.8.3.2
+Larry
