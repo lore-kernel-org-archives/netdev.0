@@ -1,65 +1,55 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: [PATCH] netfilter: ipset: move registration message to init from
- net_init
-Date: Sun, 16 Feb 2014 11:21:28 +0100 (CET)
-Message-ID: <alpine.DEB.2.10.1402161119450.26733@blackhole.kfki.hu>
-References: <1392537700-7002-1-git-send-email-imirkin@alum.mit.edu>
+From: Govindarajulu Varadarajan <gvaradar@cisco.com>
+Subject: Re: [PATCH net] net/mlx4_en: Fixed crash when port type is changed
+Date: Sun, 16 Feb 2014 16:25:58 +0530 (IST)
+Message-ID: <alpine.LNX.2.03.1402161623240.23286@cisco.com>
+References: <1383815310-19116-1-git-send-email-amirv@mellanox.com> <20131107.191418.2145129150067281446.davem@davemloft.net> <20140216100307.GA3859@mtl-eit-vdi-22.mtl.labs.mlnx>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
-To: Ilia Mirkin <imirkin@alum.mit.edu>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	yevgenyp@mellanox.com, ogerlitz@mellanox.com
+To: Amir Vadai <amirv@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-in.kfki.hu ([148.6.0.28]:49016 "EHLO smtp2.kfki.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751141AbaBPKVc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Feb 2014 05:21:32 -0500
-In-Reply-To: <1392537700-7002-1-git-send-email-imirkin@alum.mit.edu>
+Received: from bgl-iport-4.cisco.com ([72.163.197.28]:31307 "EHLO
+	bgl-iport-4.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751040AbaBPKyj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Feb 2014 05:54:39 -0500
+In-Reply-To: <20140216100307.GA3859@mtl-eit-vdi-22.mtl.labs.mlnx>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 16 Feb 2014, Ilia Mirkin wrote:
+On Sun, 16 Feb 2014, Amir Vadai wrote:
 
-> Commit 1785e8f473 ("netfiler: ipset: Add net namespace for ipset") moved
-> the initialization print into net_init, which can get called a lot due
-> to namespaces. Move it back into init, reduce to pr_info.
-> 
-> Signed-off-by: Ilia Mirkin <imirkin@alum.mit.edu>
+> On 07/11/13 19:14 -0500, David Miller wrote:
+>> From: Amir Vadai <amirv@mellanox.com>
+>> Date: Thu,  7 Nov 2013 11:08:30 +0200
+>>
+>>> timecounter_init() was was called only after first potential
+>>> timecounter_read().
+>>> Moved mlx4_en_init_timestamp() before mlx4_en_init_netdev()
+>>>
+>>> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+>>> ---
+>>> Please pull into -stable for kernels >= 3.10
+>>
+>> Applied and queued up for -stable, thanks.
+>
+> Hi,
+>
+> I see that this patch [1] was applied to 3.10.y and 3.12.y.
+> But somehow it was dropped from 3.11.y
+> Please pull it there too.
+>
 
-I applied your patch in the ipset git tree and will submit the usual way 
-for kernel inclusion. Thanks!
+I think 3.11 is EOL. Check https://www.kernel.org/
 
-Best regards,
-Jozsef
- 
-> The description is based on my meager understanding of what's going on. Feel
-> free to adjust it to match reality.
-> 
->  net/netfilter/ipset/ip_set_core.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
-> index bac7e01..0fa2d9c 100644
-> --- a/net/netfilter/ipset/ip_set_core.c
-> +++ b/net/netfilter/ipset/ip_set_core.c
-> @@ -1973,7 +1973,6 @@ ip_set_net_init(struct net *net)
->  		return -ENOMEM;
->  	inst->is_deleted = 0;
->  	rcu_assign_pointer(inst->ip_set_list, list);
-> -	pr_notice("ip_set: protocol %u\n", IPSET_PROTOCOL);
->  	return 0;
->  }
->  
-> @@ -2024,6 +2023,7 @@ ip_set_init(void)
->  		nfnetlink_subsys_unregister(&ip_set_netlink_subsys);
->  		return ret;
->  	}
-> +	pr_info("ip_set: protocol %u\n", IPSET_PROTOCOL);
->  	return 0;
->  }
+//govind
 
-
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
+> Thanks,
+> Amir
+>
+> [1] - 1ec4864 net/mlx4_en: Fixed crash when port type is changed
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
