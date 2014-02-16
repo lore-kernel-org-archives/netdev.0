@@ -1,8 +1,8 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH RFC net-next 5/6] net: ns: add
-	ieee802154_6lowpan namespace
-Date: Sun, 16 Feb 2014 09:34:27 +0100
-Message-ID: <1392539668-2349-6-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH RFC net-next 4/6] 6lowpan: fix some
+	checkpatch issues
+Date: Sun, 16 Feb 2014 09:34:26 +0100
+Message-ID: <1392539668-2349-5-git-send-email-alex.aring@gmail.com>
 References: <1392539668-2349-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,58 +22,98 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds necessary ieee802154 6lowpan namespace to provide the
-inet_frag information. This is a initial support for handling 6lowpan
-fragmentation with the inet_frag api.
+Detected with:
+
+./scripts/checkpatch.pl --strict -f net/ieee802154/6lowpan_rtnl.c
 
 Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- include/net/net_namespace.h            |  4 ++++
- include/net/netns/ieee802154_6lowpan.h | 13 +++++++++++++
- 2 files changed, 17 insertions(+)
- create mode 100644 include/net/netns/ieee802154_6lowpan.h
+ net/ieee802154/6lowpan_rtnl.c | 27 +++++++++------------------
+ 1 file changed, 9 insertions(+), 18 deletions(-)
 
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index 991dcd9..79387f7 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -15,6 +15,7 @@
- #include <net/netns/packet.h>
- #include <net/netns/ipv4.h>
- #include <net/netns/ipv6.h>
-+#include <net/netns/ieee802154_6lowpan.h>
- #include <net/netns/sctp.h>
- #include <net/netns/dccp.h>
- #include <net/netns/netfilter.h>
-@@ -90,6 +91,9 @@ struct net {
- #if IS_ENABLED(CONFIG_IPV6)
- 	struct netns_ipv6	ipv6;
- #endif
-+#if IS_ENABLED(CONFIG_IEEE802154_6LOWPAN)
-+	struct netns_ieee802154_lowpan	ieee802154_lowpan;
-+#endif
- #if defined(CONFIG_IP_SCTP) || defined(CONFIG_IP_SCTP_MODULE)
- 	struct netns_sctp	sctp;
- #endif
-diff --git a/include/net/netns/ieee802154_6lowpan.h b/include/net/netns/ieee802154_6lowpan.h
-new file mode 100644
-index 0000000..88110b7
---- /dev/null
-+++ b/include/net/netns/ieee802154_6lowpan.h
-@@ -0,0 +1,13 @@
-+/*
-+ * ieee802154 6lowpan in net namespaces
-+ */
-+
-+#include <net/inet_frag.h>
-+
-+#ifndef __NETNS_IEEE802154_6LOWPAN_H__
-+#define __NETNS_IEEE802154_6LOWPAN_H__
-+
-+struct netns_ieee802154_lowpan {
-+};
-+
-+#endif
+diff --git a/net/ieee802154/6lowpan_rtnl.c b/net/ieee802154/6lowpan_rtnl.c
+index 0fe0173..b543488 100644
+--- a/net/ieee802154/6lowpan_rtnl.c
++++ b/net/ieee802154/6lowpan_rtnl.c
+@@ -1,10 +1,8 @@
+-/*
+- * Copyright 2011, Siemens AG
++/* Copyright 2011, Siemens AG
+  * written by Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+  */
+ 
+-/*
+- * Based on patches from Jon Smirl <jonsmirl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
++/* Based on patches from Jon Smirl <jonsmirl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+  * Copyright (c) 2011 Jon Smirl <jonsmirl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+  *
+  * This program is free software; you can redistribute it and/or modify
+@@ -15,10 +13,6 @@
+  * but WITHOUT ANY WARRANTY; without even the implied warranty of
+  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License along
+- * with this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+  */
+ 
+ /* Jon's code is based on 6lowpan implementation for Contiki which is:
+@@ -133,13 +127,11 @@ static int lowpan_header_create(struct sk_buff *skb,
+ 
+ 	lowpan_header_compress(skb, dev, type, daddr, saddr, len);
+ 
+-	/*
+-	 * NOTE1: I'm still unsure about the fact that compression and WPAN
++	/* NOTE1: I'm still unsure about the fact that compression and WPAN
+ 	 * header are created here and not later in the xmit. So wait for
+ 	 * an opinion of net maintainers.
+ 	 */
+-	/*
+-	 * NOTE2: to be absolutely correct, we must derive PANid information
++	/* NOTE2: to be absolutely correct, we must derive PANid information
+ 	 * from MAC subif of the 'dev' and 'real_dev' network devices, but
+ 	 * this isn't implemented in mainline yet, so currently we assign 0xff
+ 	 */
+@@ -154,8 +146,7 @@ static int lowpan_header_create(struct sk_buff *skb,
+ 	/* intra-PAN communications */
+ 	da.pan_id = ieee802154_mlme_ops(dev)->get_pan_id(dev);
+ 
+-	/*
+-	 * if the destination address is the broadcast address, use the
++	/* if the destination address is the broadcast address, use the
+ 	 * corresponding short address
+ 	 */
+ 	if (lowpan_is_addr_broadcast(daddr)) {
+@@ -395,7 +386,7 @@ static int lowpan_set_address(struct net_device *dev, void *p)
+ 
+ static int
+ lowpan_fragment_xmit(struct sk_buff *skb, u8 *head,
+-			int mlen, int plen, int offset, int type)
++		     int mlen, int plen, int offset, int type)
+ {
+ 	struct sk_buff *frag;
+ 	int hlen;
+@@ -484,8 +475,8 @@ lowpan_skb_fragmentation(struct sk_buff *skb, struct net_device *dev)
+ 		err = lowpan_fragment_xmit(skb, head, header_length, len,
+ 					   offset, LOWPAN_DISPATCH_FRAGN);
+ 		if (err) {
+-			pr_debug("%s unable to send a subsequent FRAGN packet "
+-				 "(tag: %d, offset: %d", __func__, tag, offset);
++			pr_debug("%s unable to send a FRAGN packet.", __func__);
++			pr_debug("tag: %d, offset: %d", tag, offset);
+ 			goto exit;
+ 		}
+ 
+@@ -692,7 +683,7 @@ static int lowpan_newlink(struct net *src_net, struct net_device *dev,
+ 	lowpan_dev_info(dev)->fragment_tag = 0;
+ 	mutex_init(&lowpan_dev_info(dev)->dev_list_mtx);
+ 
+-	entry = kzalloc(sizeof(struct lowpan_dev_record), GFP_KERNEL);
++	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+ 	if (!entry) {
+ 		dev_put(real_dev);
+ 		lowpan_dev_info(dev)->real_dev = NULL;
 -- 
 1.8.5.4
 
