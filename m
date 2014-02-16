@@ -1,47 +1,65 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH net] net/mlx4_en: Fixed crash when port type is changed
-Date: Sun, 16 Feb 2014 12:03:09 +0200
-Message-ID: <20140216100307.GA3859@mtl-eit-vdi-22.mtl.labs.mlnx>
-References: <1383815310-19116-1-git-send-email-amirv@mellanox.com>
- <20131107.191418.2145129150067281446.davem@davemloft.net>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: [PATCH] netfilter: ipset: move registration message to init from
+ net_init
+Date: Sun, 16 Feb 2014 11:21:28 +0100 (CET)
+Message-ID: <alpine.DEB.2.10.1402161119450.26733@blackhole.kfki.hu>
+References: <1392537700-7002-1-git-send-email-imirkin@alum.mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, yevgenyp@mellanox.com,
-	ogerlitz@mellanox.com
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
+To: Ilia Mirkin <imirkin@alum.mit.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f179.google.com ([209.85.215.179]:36707 "EHLO
-	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750986AbaBPKDN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Feb 2014 05:03:13 -0500
-Received: by mail-ea0-f179.google.com with SMTP id q10so6016670ead.38
-        for <netdev@vger.kernel.org>; Sun, 16 Feb 2014 02:03:12 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20131107.191418.2145129150067281446.davem@davemloft.net>
+Received: from smtp-in.kfki.hu ([148.6.0.28]:49016 "EHLO smtp2.kfki.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751141AbaBPKVc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Feb 2014 05:21:32 -0500
+In-Reply-To: <1392537700-7002-1-git-send-email-imirkin@alum.mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/11/13 19:14 -0500, David Miller wrote:
-> From: Amir Vadai <amirv@mellanox.com>
-> Date: Thu,  7 Nov 2013 11:08:30 +0200
+On Sun, 16 Feb 2014, Ilia Mirkin wrote:
+
+> Commit 1785e8f473 ("netfiler: ipset: Add net namespace for ipset") moved
+> the initialization print into net_init, which can get called a lot due
+> to namespaces. Move it back into init, reduce to pr_info.
 > 
-> > timecounter_init() was was called only after first potential
-> > timecounter_read().
-> > Moved mlx4_en_init_timestamp() before mlx4_en_init_netdev()
-> > 
-> > Signed-off-by: Amir Vadai <amirv@mellanox.com>
-> > ---
-> > Please pull into -stable for kernels >= 3.10
+> Signed-off-by: Ilia Mirkin <imirkin@alum.mit.edu>
+
+I applied your patch in the ipset git tree and will submit the usual way 
+for kernel inclusion. Thanks!
+
+Best regards,
+Jozsef
+ 
+> The description is based on my meager understanding of what's going on. Feel
+> free to adjust it to match reality.
 > 
-> Applied and queued up for -stable, thanks.
+>  net/netfilter/ipset/ip_set_core.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
+> index bac7e01..0fa2d9c 100644
+> --- a/net/netfilter/ipset/ip_set_core.c
+> +++ b/net/netfilter/ipset/ip_set_core.c
+> @@ -1973,7 +1973,6 @@ ip_set_net_init(struct net *net)
+>  		return -ENOMEM;
+>  	inst->is_deleted = 0;
+>  	rcu_assign_pointer(inst->ip_set_list, list);
+> -	pr_notice("ip_set: protocol %u\n", IPSET_PROTOCOL);
+>  	return 0;
+>  }
+>  
+> @@ -2024,6 +2023,7 @@ ip_set_init(void)
+>  		nfnetlink_subsys_unregister(&ip_set_netlink_subsys);
+>  		return ret;
+>  	}
+> +	pr_info("ip_set: protocol %u\n", IPSET_PROTOCOL);
+>  	return 0;
+>  }
 
-Hi,
 
-I see that this patch [1] was applied to 3.10.y and 3.12.y.
-But somehow it was dropped from 3.11.y
-Please pull it there too.
-
-Thanks,
-Amir
-
-[1] - 1ec4864 net/mlx4_en: Fixed crash when port type is changed
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
+          H-1525 Budapest 114, POB. 49, Hungary
