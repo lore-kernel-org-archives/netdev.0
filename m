@@ -1,121 +1,71 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] ss: Add support for retrieving SELinux contexts
-Date: Sun, 16 Feb 2014 13:18:10 +0000
-Message-ID: <1392556690.15615.97.camel@deadeye.wl.decadent.org.uk>
-References: <1392391214-14547-1-git-send-email-richard_c_haines@btinternet.com>
+From: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
+	<stefan.sorensen@spectralink.com>
+Subject: [PATCH v3] net:cpsw: Pass unhandled ioctl's on to generic phy ioctl
+Date: Sun, 16 Feb 2014 14:54:25 +0100
+Message-ID: <1392558865-18388-1-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-YcR0awmDqCDHO6bXVpEz"
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov
-To: Richard Haines <richard_c_haines@btinternet.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
+	<stefan.sorensen@spectralink.com>
+To: mugunthanvnm@ti.com, davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:35915 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751822AbaBPNST (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Feb 2014 08:18:19 -0500
-In-Reply-To: <1392391214-14547-1-git-send-email-richard_c_haines@btinternet.com>
+Received: from 213083164162.static.sonofon.dk ([213.83.164.162]:60230 "EHLO
+	HORWDSPRD01.spectralink.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752127AbaBPNy3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Feb 2014 08:54:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch allows the use of a generic timestamping phy connected
+to the cpsw if CPTS support is not enabled. This also adds support
+of the SIOCGMIIREG and SIOCSMIIREG, and moves handling of SIOCGMIIPHY
+to the generic driver.
 
---=-YcR0awmDqCDHO6bXVpEz
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Stefan S=C3=B8rensen <stefan.sorensen@spectralink.com>
+---
+Changes since v2:
+  - Return -EOPNOTSUPP on unsupported request
+Changes since v1:
+  - Remove SIOCGMIIPHY from cpsw
+  - Mention that SIOCGMIIREG and SIOCSMIIREG support is gained
 
-On Fri, 2014-02-14 at 15:20 +0000, Richard Haines wrote:
-> The process SELinux contexts can be added to the output using the -Z
-> option. Using the -z option will show the process and socket contexts (se=
-e
-> the man page for details).
-> For netlink sockets: if valid process show process context, if pid =3D 0
-> show kernel initial context, if unknown show "not available".
->=20
-> Signed-off-by: Richard Haines <richard_c_haines@btinternet.com>
-> ---
->  configure     |  16 +++
->  man/man8/ss.8 |  34 ++++++
->  misc/Makefile |  12 ++
->  misc/ss.c     | 375 ++++++++++++++++++++++++++++++++++++++++++++++++++--=
-------
->  4 files changed, 387 insertions(+), 50 deletions(-)
->=20
-> diff --git a/configure b/configure
-> index da01c19..854837e 100755
-> --- a/configure
-> +++ b/configure
-> @@ -231,6 +231,19 @@ EOF
->      rm -f $TMPDIR/ipsettest.c $TMPDIR/ipsettest
->  }
-> =20
-> +check_selinux()
-> +# SELinux is a compile time option in the ss utility
-> +{
-> +	SELINUX_LIB=3D$(${PKG_CONFIG} --silence-errors libselinux --libs)
-> +	if [ -n "$SELINUX_LIB" ]
+ drivers/net/ethernet/ti/cpsw.c | 10 +++-------
+ 1 file changed, 3 insertions(+), 7 deletions(-)
 
-This should be just:
-	if pkg-config libselinux --exists
-
-> +	then
-> +	echo "HAVE_SELINUX:=3Dy" >>Config
-> +	echo "yes"
-> +    else
-> +	echo "no"
-> +	fi
-> +}
-[...]
-> --- a/misc/Makefile
-> +++ b/misc/Makefile
-> @@ -8,6 +8,18 @@ include ../Config
->  all: $(TARGETS)
-> =20
->  ss: $(SSOBJ)
-> +ifeq ($(HAVE_SELINUX),y)
-> +	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(SSOBJ) $(LDLIBS) -lselinux
-
-This should use the output of 'pkg-config libselinux --libs'.
-
-> +else
-> +	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(SSOBJ) $(LDLIBS)
-> +endif
-> +
-> +ss.o: ss.c
-> +ifeq ($(HAVE_SELINUX),y)
-> +	$(CC) $(CFLAGS) -DHAVE_SELINUX -c $+
-
-This should use the output of 'pkg-config libselinux --cflags'.
-
-> +else
-> +	$(CC) $(CFLAGS) -c $+
-> +endif
-[...]
-
-Ben.
-
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/c=
+psw.c
+index 1d860ce..39d1253 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1471,7 +1471,6 @@ static int cpsw_hwtstamp_get(struct net_device *d=
+ev, struct ifreq *ifr)
+ static int cpsw_ndo_ioctl(struct net_device *dev, struct ifreq *req, i=
+nt cmd)
+ {
+ 	struct cpsw_priv *priv =3D netdev_priv(dev);
+-	struct mii_ioctl_data *data =3D if_mii(req);
+ 	int slave_no =3D cpsw_slave_index(priv);
+=20
+ 	if (!netif_running(dev))
+@@ -1484,14 +1483,11 @@ static int cpsw_ndo_ioctl(struct net_device *de=
+v, struct ifreq *req, int cmd)
+ 	case SIOCGHWTSTAMP:
+ 		return cpsw_hwtstamp_get(dev, req);
+ #endif
+-	case SIOCGMIIPHY:
+-		data->phy_id =3D priv->slaves[slave_no].phy->addr;
+-		break;
+-	default:
+-		return -ENOTSUPP;
+ 	}
+=20
+-	return 0;
++	if (!priv->slaves[slave_no].phy)
++		return -EOPNOTSUPP;
++	return phy_mii_ioctl(priv->slaves[slave_no].phy, req, cmd);
+ }
+=20
+ static void cpsw_ndo_tx_timeout(struct net_device *ndev)
 --=20
-Ben Hutchings
-Any sufficiently advanced bug is indistinguishable from a feature.
-
---=-YcR0awmDqCDHO6bXVpEz
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAUwC6kue/yOyVhhEJAQrQxQ/+K85gJR4yLa2gZ9JsDsizWOHY8XSB1zq0
-jaYICqhjN0XXyUPRQtfTDTKqXLgURZIQSFk4LmOqpIfaTENxqSPntloW7ORCG92L
-Fr0215p3almKuPWcJ6KnI9F/EdlXVUMoUIZ4fdyg+yygZyVG+ZK47PLyS1KJLVSg
-P+wxpGPMrYtJxdYFflyxjkf7f7CIpSkITQl3JkrkRD6jtlJ6hldRoyQy8cIWaR75
-lc9aHB7GNAiMrCR+WhbdFEwndDFnaA+7Ls7SJ3I8IRPKupGluHV2nZphxR2c0fRE
-Zo9ylqbwzlERV7P3cjpjEHkYL+Wv2MldhdLzUxBSrI1KCxIIoBg+YVYIMAxRmZIG
-uGE6xW110CvyI5K2nQY8IQP96xYUDxnZ6N78HZMihlQAWqvoMXSEvffsYUlhbTs8
-/nD1tb11vr/TnYGkVmA9GtQFrPm0T43OsJAcQ52kg3xquQ7BGj+7ihK292h6nY9W
-QgYNNiND6lLabUNgeFBbXl5q2on6lWZwmUvspxlpkzIzLBlU6/4gcG8NcFNpyhU3
-yyeVLHXQAWkK9sEHEOteHZerm83suzRdL/Y+/A9WEQfj38UBZGHAmuFI/lC7gRD/
-SlhIsXgVf0vCiKsX9ag+rPCzpSDaOSKSmgP+lhnuSqQhsKmBL+WynqHcbi0BN/ZB
-LkyHDO++F1o=
-=Fe/D
------END PGP SIGNATURE-----
-
---=-YcR0awmDqCDHO6bXVpEz--
+1.8.5.3
