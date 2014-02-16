@@ -1,8 +1,8 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH RFC net-next 4/6] 6lowpan: fix some
-	checkpatch issues
-Date: Sun, 16 Feb 2014 09:34:26 +0100
-Message-ID: <1392539668-2349-5-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH RFC net-next 2/6] 6lowpan: fix
+	fragmentation on sending side
+Date: Sun, 16 Feb 2014 09:34:24 +0100
+Message-ID: <1392539668-2349-3-git-send-email-alex.aring@gmail.com>
 References: <1392539668-2349-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,98 +22,131 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Detected with:
+This patch fix the fragmentation on sending side according to rfc4944.
 
-./scripts/checkpatch.pl --strict -f net/ieee802154/6lowpan_rtnl.c
+Also add improvement to use the full payload of a PDU which calculate
+the nearest divided to 8 payload length for the fragmentation datagram
+size attribute.
+
+The main issue is that the datagram size of fragmentation header use the
+ipv6 payload length, but rfc4944 says it's the ipv6 payload length inclusive
+network header size (and transport header size if compressed).
 
 Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- net/ieee802154/6lowpan_rtnl.c | 27 +++++++++------------------
- 1 file changed, 9 insertions(+), 18 deletions(-)
+ net/ieee802154/6lowpan.c | 44 ++++++++++++++++++++++++++++++++++----------
+ 1 file changed, 34 insertions(+), 10 deletions(-)
 
-diff --git a/net/ieee802154/6lowpan_rtnl.c b/net/ieee802154/6lowpan_rtnl.c
-index 0fe0173..b543488 100644
---- a/net/ieee802154/6lowpan_rtnl.c
-+++ b/net/ieee802154/6lowpan_rtnl.c
-@@ -1,10 +1,8 @@
--/*
-- * Copyright 2011, Siemens AG
-+/* Copyright 2011, Siemens AG
-  * written by Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-  */
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index 8edfea5..0fe0173 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -106,6 +106,7 @@ static int lowpan_header_create(struct sk_buff *skb,
+ 			   unsigned short type, const void *_daddr,
+ 			   const void *_saddr, unsigned int len)
+ {
++	struct ipv6hdr *hdr;
+ 	const u8 *saddr = _saddr;
+ 	const u8 *daddr = _daddr;
+ 	struct ieee802154_addr sa, da;
+@@ -116,12 +117,20 @@ static int lowpan_header_create(struct sk_buff *skb,
+ 	if (type != ETH_P_IPV6)
+ 		return 0;
  
--/*
-- * Based on patches from Jon Smirl <jonsmirl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-+/* Based on patches from Jon Smirl <jonsmirl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-  * Copyright (c) 2011 Jon Smirl <jonsmirl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-  *
-  * This program is free software; you can redistribute it and/or modify
-@@ -15,10 +13,6 @@
-  * but WITHOUT ANY WARRANTY; without even the implied warranty of
-  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  * GNU General Public License for more details.
-- *
-- * You should have received a copy of the GNU General Public License along
-- * with this program; if not, write to the Free Software Foundation, Inc.,
-- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-  */
++	hdr = ipv6_hdr(skb);
++
+ 	if (!saddr)
+ 		saddr = dev->dev_addr;
  
- /* Jon's code is based on 6lowpan implementation for Contiki which is:
-@@ -133,13 +127,11 @@ static int lowpan_header_create(struct sk_buff *skb,
+ 	raw_dump_inline(__func__, "saddr", (unsigned char *)saddr, 8);
+ 	raw_dump_inline(__func__, "daddr", (unsigned char *)daddr, 8);
  
++	/* Before replace ipv6hdr to 6lowpan header we save the dgram_size */
++	mac_cb(skb)->frag_info.d_size = len;
++	mac_cb(skb)->frag_info.d_offset = sizeof(struct ipv6hdr);
++	if (hdr->nexthdr == UIP_PROTO_UDP)
++		mac_cb(skb)->frag_info.d_offset += sizeof(struct udphdr);
++
  	lowpan_header_compress(skb, dev, type, daddr, saddr, len);
  
--	/*
--	 * NOTE1: I'm still unsure about the fact that compression and WPAN
-+	/* NOTE1: I'm still unsure about the fact that compression and WPAN
- 	 * header are created here and not later in the xmit. So wait for
- 	 * an opinion of net maintainers.
- 	 */
--	/*
--	 * NOTE2: to be absolutely correct, we must derive PANid information
-+	/* NOTE2: to be absolutely correct, we must derive PANid information
- 	 * from MAC subif of the 'dev' and 'real_dev' network devices, but
- 	 * this isn't implemented in mainline yet, so currently we assign 0xff
- 	 */
-@@ -154,8 +146,7 @@ static int lowpan_header_create(struct sk_buff *skb,
- 	/* intra-PAN communications */
- 	da.pan_id = ieee802154_mlme_ops(dev)->get_pan_id(dev);
- 
--	/*
--	 * if the destination address is the broadcast address, use the
-+	/* if the destination address is the broadcast address, use the
- 	 * corresponding short address
- 	 */
- 	if (lowpan_is_addr_broadcast(daddr)) {
-@@ -395,7 +386,7 @@ static int lowpan_set_address(struct net_device *dev, void *p)
- 
+ 	/*
+@@ -422,44 +431,58 @@ lowpan_fragment_xmit(struct sk_buff *skb, u8 *head,
  static int
- lowpan_fragment_xmit(struct sk_buff *skb, u8 *head,
--			int mlen, int plen, int offset, int type)
-+		     int mlen, int plen, int offset, int type)
+ lowpan_skb_fragmentation(struct sk_buff *skb, struct net_device *dev)
  {
- 	struct sk_buff *frag;
- 	int hlen;
-@@ -484,8 +475,8 @@ lowpan_skb_fragmentation(struct sk_buff *skb, struct net_device *dev)
- 		err = lowpan_fragment_xmit(skb, head, header_length, len,
- 					   offset, LOWPAN_DISPATCH_FRAGN);
+-	int  err, header_length, payload_length, tag, offset = 0;
++	int err, header_length, payload_length, tag, dgram_size,
++	    dgram_offset, lowpan_size, frag_plen, offset = 0;
+ 	u8 head[5];
+ 
+ 	header_length = skb->mac_len;
+ 	payload_length = skb->len - header_length;
+ 	tag = lowpan_dev_info(dev)->fragment_tag++;
++	lowpan_size = skb_network_header_len(skb);
++	dgram_size = mac_cb(skb)->frag_info.d_size;
+ 
+ 	/* first fragment header */
+-	head[0] = LOWPAN_DISPATCH_FRAG1 | ((payload_length >> 8) & 0x7);
+-	head[1] = payload_length & 0xff;
++	head[0] = LOWPAN_DISPATCH_FRAG1 | ((dgram_size >> 8) & 0x7);
++	head[1] = dgram_size & 0xff;
+ 	head[2] = tag >> 8;
+ 	head[3] = tag & 0xff;
+ 
+-	err = lowpan_fragment_xmit(skb, head, header_length, LOWPAN_FRAG_SIZE,
+-				   0, LOWPAN_DISPATCH_FRAG1);
++	/* calc the nearest payload length(divided to 8) for first fragment
++	 * which fits into a IEEE802154_MTU
++	 */
++	frag_plen = round_down(IEEE802154_MTU - header_length -
++			       LOWPAN_FRAG1_HEAD_SIZE - lowpan_size -
++			       IEEE802154_MFR_SIZE, 8);
+ 
++	err = lowpan_fragment_xmit(skb, head, header_length,
++				   frag_plen + lowpan_size, 0,
++				   LOWPAN_DISPATCH_FRAG1);
+ 	if (err) {
+ 		pr_debug("%s unable to send FRAG1 packet (tag: %d)",
+ 			 __func__, tag);
+ 		goto exit;
+ 	}
+ 
+-	offset = LOWPAN_FRAG_SIZE;
++	offset = lowpan_size + frag_plen;
++	dgram_offset = mac_cb(skb)->frag_info.d_offset + frag_plen;
+ 
+ 	/* next fragment header */
+ 	head[0] &= ~LOWPAN_DISPATCH_FRAG1;
+ 	head[0] |= LOWPAN_DISPATCH_FRAGN;
+ 
++	frag_plen = round_down(IEEE802154_MTU - header_length -
++			       LOWPAN_FRAGN_HEAD_SIZE - IEEE802154_MFR_SIZE, 8);
++
+ 	while (payload_length - offset > 0) {
+-		int len = LOWPAN_FRAG_SIZE;
++		int len = frag_plen;
+ 
+-		head[4] = offset / 8;
++		head[4] = dgram_offset >> 3;
+ 
+ 		if (payload_length - offset < len)
+ 			len = payload_length - offset;
+ 
+-		err = lowpan_fragment_xmit(skb, head, header_length,
+-					   len, offset, LOWPAN_DISPATCH_FRAGN);
++		err = lowpan_fragment_xmit(skb, head, header_length, len,
++					   offset, LOWPAN_DISPATCH_FRAGN);
  		if (err) {
--			pr_debug("%s unable to send a subsequent FRAGN packet "
--				 "(tag: %d, offset: %d", __func__, tag, offset);
-+			pr_debug("%s unable to send a FRAGN packet.", __func__);
-+			pr_debug("tag: %d, offset: %d", tag, offset);
- 			goto exit;
+ 			pr_debug("%s unable to send a subsequent FRAGN packet "
+ 				 "(tag: %d, offset: %d", __func__, tag, offset);
+@@ -467,6 +490,7 @@ lowpan_skb_fragmentation(struct sk_buff *skb, struct net_device *dev)
  		}
  
-@@ -692,7 +683,7 @@ static int lowpan_newlink(struct net *src_net, struct net_device *dev,
- 	lowpan_dev_info(dev)->fragment_tag = 0;
- 	mutex_init(&lowpan_dev_info(dev)->dev_list_mtx);
+ 		offset += len;
++		dgram_offset += len;
+ 	}
  
--	entry = kzalloc(sizeof(struct lowpan_dev_record), GFP_KERNEL);
-+	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
- 	if (!entry) {
- 		dev_put(real_dev);
- 		lowpan_dev_info(dev)->real_dev = NULL;
+ exit:
 -- 
 1.8.5.4
 
