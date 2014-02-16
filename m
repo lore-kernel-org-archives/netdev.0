@@ -1,8 +1,8 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH RFC net-next 1/6] 6lowpan: add frag
-	information struct
-Date: Sun, 16 Feb 2014 09:34:23 +0100
-Message-ID: <1392539668-2349-2-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH RFC net-next 3/6] 6lowpan: move
+	6lowpan.c to 6lowpan_rtnl.c
+Date: Sun, 16 Feb 2014 09:34:25 +0100
+Message-ID: <1392539668-2349-4-git-send-email-alex.aring@gmail.com>
 References: <1392539668-2349-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,39 +22,32 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds a 6lowpan fragmentation struct into cb of skb which
-is necessary to hold fragmentation information.
+We have a 6lowpan.c file and 6lowpan.ko file. To avoid confusing we
+should move 6lowpan.c to 6lowpan.ko. Then we can support multiple source
+files for 6lowpan module.
 
 Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- include/net/ieee802154_netdev.h | 7 +++++++
- 1 file changed, 7 insertions(+)
+ net/ieee802154/{6lowpan.c => 6lowpan_rtnl.c} | 0
+ net/ieee802154/Makefile                      | 1 +
+ 2 files changed, 1 insertion(+)
+ rename net/ieee802154/{6lowpan.c => 6lowpan_rtnl.c} (100%)
 
-diff --git a/include/net/ieee802154_netdev.h b/include/net/ieee802154_netdev.h
-index 8196d5d..97b2e34 100644
---- a/include/net/ieee802154_netdev.h
-+++ b/include/net/ieee802154_netdev.h
-@@ -29,6 +29,12 @@
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan_rtnl.c
+similarity index 100%
+rename from net/ieee802154/6lowpan.c
+rename to net/ieee802154/6lowpan_rtnl.c
+diff --git a/net/ieee802154/Makefile b/net/ieee802154/Makefile
+index e8f0588..3d08adf 100644
+--- a/net/ieee802154/Makefile
++++ b/net/ieee802154/Makefile
+@@ -2,5 +2,6 @@ obj-$(CONFIG_IEEE802154) += ieee802154.o af_802154.o
+ obj-$(CONFIG_IEEE802154_6LOWPAN) += 6lowpan.o
+ obj-$(CONFIG_6LOWPAN_IPHC) += 6lowpan_iphc.o
  
- #include <net/af_ieee802154.h>
- 
-+struct ieee802154_frag_info {
-+	__be16 d_tag;
-+	u16 d_size;
-+	u8 d_offset;
-+};
-+
- /*
-  * A control block of skb passed between the ARPHRD_IEEE802154 device
-  * and other stack parts.
-@@ -39,6 +45,7 @@ struct ieee802154_mac_cb {
- 	struct ieee802154_addr da;
- 	u8 flags;
- 	u8 seq;
-+	struct ieee802154_frag_info frag_info;
- };
- 
- static inline struct ieee802154_mac_cb *mac_cb(struct sk_buff *skb)
++6lowpan-y := 6lowpan_rtnl.o
+ ieee802154-y := netlink.o nl-mac.o nl-phy.o nl_policy.o wpan-class.o
+ af_802154-y := af_ieee802154.o raw.o dgram.o
 -- 
 1.8.5.4
 
