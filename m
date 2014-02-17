@@ -1,56 +1,71 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v3 net-next 01/12] bonding: remove bond->lock from bond_arp_rcv
-Date: Mon, 17 Feb 2014 14:39:10 +0100
-Message-ID: <1392644361-8510-2-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v3 net-next 02/12] bonding: permit using arp_validate with non-ab modes
+Date: Mon, 17 Feb 2014 14:39:11 +0100
+Message-ID: <1392644361-8510-3-git-send-email-vfalico@redhat.com>
 References: <1392644361-8510-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9539 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:19149 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752893AbaBQNoX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Feb 2014 08:44:23 -0500
+	id S1753103AbaBQNoY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Feb 2014 08:44:24 -0500
 In-Reply-To: <1392644361-8510-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We're always called with rcu_read_lock() held (bond_arp_rcv() is only
-called from bond_handle_frame(), which is rx_handler and always called
-under rcu from __netif_receive_skb_core() ).
+Currently it's diabled because it's sometimes hard, in typical configs, to
+make it work - because of the nature how the loadbalance modes work - as
+it's hard to deliver valid arp replies to correct slaves by the switch.
 
-The slave active/passive and/or bonding params can change in-flight, however
-we don't really care about that - we only modify the last time packet was
-received, which is harmless.
+However we still can use arp_validation in loadbalance in several other
+configs, per example with arp_validate == 2 for backup with one broadcast
+domain, without the switch(es) doing any balancing - this way we'd be (a
+bit more) sure that the slave is up.
+
+So, enable it to let users decide which one works/suits them best.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_main.c | 3 ---
- 1 file changed, 3 deletions(-)
+ Documentation/networking/bonding.txt | 6 +++---
+ drivers/net/bonding/bond_main.c      | 4 ----
+ 2 files changed, 3 insertions(+), 7 deletions(-)
 
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index 5cdb229..96b4ad8 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -270,9 +270,9 @@ arp_ip_target
+ arp_validate
+ 
+ 	Specifies whether or not ARP probes and replies should be
+-	validated in the active-backup mode.  This causes the ARP
+-	monitor to examine the incoming ARP requests and replies, and
+-	only consider a slave to be up if it is receiving the
++	validated in any mode that supports arp monitoring.  This causes
++	the ARP monitor to examine the incoming ARP requests and replies,
++	and only consider a slave to be up if it is receiving the
+ 	appropriate ARP traffic.
+ 
+ 	Possible values are:
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 3bce855..3c50bec 100644
+index 3c50bec..91c0248 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -2260,8 +2260,6 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
- 	if (skb->protocol != __cpu_to_be16(ETH_P_ARP))
- 		return RX_HANDLER_ANOTHER;
+@@ -4183,10 +4183,6 @@ static int bond_check_params(struct bond_params *params)
+ 	}
  
--	read_lock(&bond->lock);
--
- 	if (!slave_do_arp_validate(bond, slave))
- 		goto out_unlock;
- 
-@@ -2318,7 +2316,6 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
- 		bond_validate_arp(bond, slave, tip, sip);
- 
- out_unlock:
--	read_unlock(&bond->lock);
- 	if (arp != (struct arphdr *)skb->data)
- 		kfree(arp);
- 	return RX_HANDLER_ANOTHER;
+ 	if (arp_validate) {
+-		if (bond_mode != BOND_MODE_ACTIVEBACKUP) {
+-			pr_err("arp_validate only supported in active-backup mode\n");
+-			return -EINVAL;
+-		}
+ 		if (!arp_interval) {
+ 			pr_err("arp_validate requires arp_interval\n");
+ 			return -EINVAL;
 -- 
 1.8.4
