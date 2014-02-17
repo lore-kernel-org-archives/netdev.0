@@ -1,35 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2 3/3] cfg80211: add MPLS and 802.21 classification
-Date: Mon, 17 Feb 2014 14:06:53 -0500 (EST)
-Message-ID: <20140217.140653.1309552047403078220.davem@davemloft.net>
-References: <1392656174-14791-4-git-send-email-sw@simonwunderlich.de>
-	<5302474B.6090609@broadcom.com>
-	<D53252F45158EF44B1DF124FDC9AF2A35AD9E12C@FEYNMAN.fokus.fraunhofer.de>
+Subject: Re: [PATCH net] gre: add link local route when local addr is any
+Date: Mon, 17 Feb 2014 14:09:20 -0500 (EST)
+Message-ID: <20140217.140920.2121605616455173237.davem@davemloft.net>
+References: <5301E59F.5090506@6wind.com>
+	<1392643341-4288-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: arend@broadcom.com, sw@simonwunderlich.de, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: mathias.kretschmer@fokus.fraunhofer.de
+Cc: sesse@samfundet.no, hannes@stressinduktion.org,
+	itk-intern@samfundet.no, netdev@vger.kernel.org
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50336 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50349 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752436AbaBQTHA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 14:07:00 -0500
-In-Reply-To: <D53252F45158EF44B1DF124FDC9AF2A35AD9E12C@FEYNMAN.fokus.fraunhofer.de>
+	with ESMTP id S1752966AbaBQTJX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 14:09:23 -0500
+In-Reply-To: <1392643341-4288-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Kretschmer, Mathias" <mathias.kretschmer@fokus.fraunhofer.de>
-Date: Mon, 17 Feb 2014 17:34:34 +0000
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Mon, 17 Feb 2014 14:22:21 +0100
 
-> Thought so, as well. But it seems that skb->protocol is not properly
-> set when the packet originates from a packet socket.  And in our
-> case we cannot set it to a fixed etherType in the bind() call since
-> we use three different etherTypes on the same socket.
+> This bug was reported by Steinar H. Gunderson and was introduced by commit
+> f7cb8886335d ("sit/gre6: don't try to add the same route two times").
+> 
+> root@morgental:~# ip tunnel add foo mode gre remote 1.2.3.4 ttl 64
+> root@morgental:~# ip link set foo up mtu 1468
+> root@morgental:~# ip -6 route show dev foo
+> fe80::/64  proto kernel  metric 256
+> 
+> but after the above commit, no such route shows up.
+> 
+> There is no link local route because dev->dev_addr is 0 (because local ipv4
+> address is 0), hence no link local address is configured.
+> 
+> In this scenario, the link local address is added manually: 'ip -6 addr add
+> fe80::1 dev foo' and because prefix is /128, no link local route is added by the
+> kernel.
+> 
+> Even if the right things to do is to add the link local address with a /64
+> prefix, we need to restore the previous behavior to avoid breaking userpace.
+> 
+> Reported-by: Steinar H. Gunderson <sesse@samfundet.no>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-So many things break if the skb->protocol isn't set correctly that I
-would consider such SKBs mal-formed.
-
-You can specify the protocol number in the msghdr passed into the
-send.
+Applied and queued up for -stable, thanks.
