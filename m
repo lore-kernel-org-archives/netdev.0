@@ -1,472 +1,275 @@
-From: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-Subject: [PATCH net-next v3 01/10] ieee802154: add
-	basic support for RF212 to at86rf230 driver
-Date: Mon, 17 Feb 2014 11:34:06 +0100
-Message-ID: <1392633255-26605-2-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+Subject: [PATCH net-next v3 05/10] ieee802154: add support for listen-before-talk in wpan_phy
+Date: Mon, 17 Feb 2014 11:34:10 +0100
+Message-ID: <1392633255-26605-6-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 References: <1392633255-26605-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1392633255-26605-1-git-send-email-phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net,
+	Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from selenium.quasiparticle.net ([188.40.96.248]:59600 "EHLO
+	quasiparticle.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752314AbaBQKeW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 05:34:22 -0500
+In-Reply-To: <1392633255-26605-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Since the AT86RF2xy chips are mostly compatible, this is only a small
-change to the actual driver code. The at86rf230 driver already supports the
-RF212 in most places, only three small adjustments are required:
+Listen-before-talk is an alternative to CSMA in uncoordinated networks
+and prescribed by european regulations if one wants to have a device
+with radio duty cycles above 10% (or less in some bands). Add a phy
+property to enable/disable LBT in the phy, including support in the
+at86rf230 driver for RF212 chips.
 
- * force the initial state after P_ON to FORCE_TRX_OFF to work around a
-   documented erratum
- * channels_supported depends on the frequency of the transceiver, and
-   thus is_rf212
- * do early detection of chip version select an appropriate _ops struct
-   based on the chip version.
-
-Signed-off-by: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
+Signed-off-by: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
 ---
- drivers/net/ieee802154/at86rf230.c | 268 +++++++++++++++++++++++++------------
- 1 file changed, 179 insertions(+), 89 deletions(-)
+ drivers/net/ieee802154/at86rf230.c | 11 +++++++-
+ include/linux/nl802154.h           |  1 +
+ include/net/mac802154.h            |  6 ++++
+ include/net/wpan-phy.h             |  3 ++
+ net/ieee802154/nl-phy.c            | 58 ++++++++++++++++++++++++++++++--------
+ net/ieee802154/nl_policy.c         |  1 +
+ net/mac802154/ieee802154_dev.c     | 11 ++++++++
+ 7 files changed, 78 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index ab31544..6dd9782 100644
+index 04a995d..3d40c23 100644
 --- a/drivers/net/ieee802154/at86rf230.c
 +++ b/drivers/net/ieee802154/at86rf230.c
-@@ -37,7 +37,6 @@
- 
- struct at86rf230_local {
- 	struct spi_device *spi;
--	int rstn, slp_tr, dig2;
- 
- 	u8 part;
- 	u8 vers;
-@@ -55,6 +54,11 @@ struct at86rf230_local {
- 	bool is_tx;
- };
- 
-+static inline int is_rf212(struct at86rf230_local *local)
-+{
-+	return local->part == 7;
-+}
-+
- #define	RG_TRX_STATUS	(0x01)
- #define	SR_TRX_STATUS		0x01, 0x1f, 0
- #define	SR_RESERVED_01_3	0x01, 0x20, 5
-@@ -100,7 +104,9 @@ struct at86rf230_local {
- #define	SR_SFD_VALUE		0x0b, 0xff, 0
- #define	RG_TRX_CTRL_2	(0x0c)
- #define	SR_OQPSK_DATA_RATE	0x0c, 0x03, 0
--#define	SR_RESERVED_0c_2	0x0c, 0x7c, 2
-+#define	SR_SUB_MODE		0x0c, 0x04, 2
-+#define	SR_BPSK_QPSK		0x0c, 0x08, 3
-+#define	SR_RESERVED_0c_4	0x0c, 0x70, 4
- #define	SR_RX_SAFE_MODE		0x0c, 0x80, 7
- #define	RG_ANT_DIV	(0x0d)
- #define	SR_ANT_CTRL		0x0d, 0x03, 0
-@@ -244,6 +250,57 @@ struct at86rf230_local {
- #define STATE_TRANSITION_IN_PROGRESS 0x1F
- 
- static int
-+__at86rf230_detect_device(struct spi_device *spi, u16 *man_id, u8 *part,
-+		u8 *version)
-+{
-+	u8 data[4];
-+	u8 *buf = kmalloc(2, GFP_KERNEL);
-+	int status;
-+	struct spi_message msg;
-+	struct spi_transfer xfer = {
-+		.len	= 2,
-+		.tx_buf	= buf,
-+		.rx_buf	= buf,
-+	};
-+	u8 reg;
-+
-+	if (!buf)
-+		return -ENOMEM;
-+
-+	for (reg = RG_PART_NUM; reg <= RG_MAN_ID_1; reg++) {
-+		buf[0] = (reg & CMD_REG_MASK) | CMD_REG;
-+		buf[1] = 0xff;
-+		dev_vdbg(&spi->dev, "buf[0] = %02x\n", buf[0]);
-+		spi_message_init(&msg);
-+		spi_message_add_tail(&xfer, &msg);
-+
-+		status = spi_sync(spi, &msg);
-+		dev_vdbg(&spi->dev, "status = %d\n", status);
-+		if (msg.status)
-+			status = msg.status;
-+
-+		dev_vdbg(&spi->dev, "status = %d\n", status);
-+		dev_vdbg(&spi->dev, "buf[0] = %02x\n", buf[0]);
-+		dev_vdbg(&spi->dev, "buf[1] = %02x\n", buf[1]);
-+
-+		if (status == 0)
-+			data[reg - RG_PART_NUM] = buf[1];
-+		else
-+			break;
-+	}
-+
-+	if (status == 0) {
-+		*part = data[0];
-+		*version = data[1];
-+		*man_id = (data[3] << 8) | data[2];
-+	}
-+
-+	kfree(buf);
-+
-+	return status;
-+}
-+
-+static int
- __at86rf230_write(struct at86rf230_local *lp, u8 addr, u8 data)
- {
- 	u8 *buf = lp->buf;
-@@ -520,6 +577,27 @@ at86rf230_stop(struct ieee802154_dev *dev)
- }
- 
- static int
-+at86rf230_set_channel(struct at86rf230_local *lp, int page, int channel)
-+{
-+	return at86rf230_write_subreg(lp, SR_CHANNEL, channel);
-+}
-+
-+static int
-+at86rf212_set_channel(struct at86rf230_local *lp, int page, int channel)
-+{
-+	int rc;
-+
-+	if (channel == 0)
-+		rc = at86rf230_write_subreg(lp, SR_SUB_MODE, 0);
-+	else
-+		rc = at86rf230_write_subreg(lp, SR_SUB_MODE, 1);
-+	if (rc < 0)
-+		return rc;
-+
-+	return at86rf230_write_subreg(lp, SR_CHANNEL, channel);
-+}
-+
-+static int
- at86rf230_channel(struct ieee802154_dev *dev, int page, int channel)
- {
- 	struct at86rf230_local *lp = dev->priv;
-@@ -527,12 +605,19 @@ at86rf230_channel(struct ieee802154_dev *dev, int page, int channel)
- 
- 	might_sleep();
- 
--	if (page != 0 || channel < 11 || channel > 26) {
-+	if (page < 0 || page > 31 ||
-+	    !(lp->dev->phy->channels_supported[page] & BIT(channel))) {
- 		WARN_ON(1);
- 		return -EINVAL;
- 	}
- 
--	rc = at86rf230_write_subreg(lp, SR_CHANNEL, channel);
-+	if (is_rf212(lp))
-+		rc = at86rf212_set_channel(lp, page, channel);
-+	else
-+		rc = at86rf230_set_channel(lp, page, channel);
-+	if (rc < 0)
-+		return rc;
-+
- 	msleep(1); /* Wait for PLL */
- 	dev->phy->current_channel = channel;
- 
-@@ -678,6 +763,16 @@ static struct ieee802154_ops at86rf230_ops = {
- 	.set_hw_addr_filt = at86rf230_set_hw_addr_filt,
- };
- 
-+static struct ieee802154_ops at86rf212_ops = {
-+	.owner = THIS_MODULE,
-+	.xmit = at86rf230_xmit,
-+	.ed = at86rf230_ed,
-+	.set_channel = at86rf230_channel,
-+	.start = at86rf230_start,
-+	.stop = at86rf230_stop,
-+	.set_hw_addr_filt = at86rf230_set_hw_addr_filt,
-+};
-+
- static void at86rf230_irqwork(struct work_struct *work)
- {
- 	struct at86rf230_local *lp =
-@@ -759,7 +854,8 @@ static int at86rf230_hw_init(struct at86rf230_local *lp)
- 
- 	dev_info(&lp->spi->dev, "Status: %02x\n", status);
- 	if (status == STATE_P_ON) {
--		rc = at86rf230_write_subreg(lp, SR_TRX_CMD, STATE_TRX_OFF);
-+		rc = at86rf230_write_subreg(lp, SR_TRX_CMD,
-+					    STATE_FORCE_TRX_OFF);
- 		if (rc)
- 			return rc;
- 		msleep(1);
-@@ -824,26 +920,18 @@ static int at86rf230_hw_init(struct at86rf230_local *lp)
+@@ -152,7 +152,7 @@ static inline int is_rf212(struct at86rf230_local *local)
+ #define	SR_RESERVED_17_5	0x17, 0x08, 3
+ #define	SR_AACK_UPLD_RES_FT	0x17, 0x10, 4
+ #define	SR_AACK_FLTR_RES_FT	0x17, 0x20, 5
+-#define	SR_RESERVED_17_2	0x17, 0x40, 6
++#define	SR_CSMA_LBT_MODE	0x17, 0x40, 6
+ #define	SR_RESERVED_17_1	0x17, 0x80, 7
+ #define	RG_FTN_CTRL	(0x18)
+ #define	SR_RESERVED_18_2	0x18, 0x7f, 0
+@@ -786,6 +786,14 @@ at86rf212_set_txpower(struct ieee802154_dev *dev, int db)
  	return 0;
  }
  
--static void at86rf230_fill_data(struct spi_device *spi)
--{
--	struct at86rf230_local *lp = spi_get_drvdata(spi);
--	struct at86rf230_platform_data *pdata = spi->dev.platform_data;
--
--	lp->rstn = pdata->rstn;
--	lp->slp_tr = pdata->slp_tr;
--	lp->dig2 = pdata->dig2;
--}
--
- static int at86rf230_probe(struct spi_device *spi)
- {
- 	struct at86rf230_platform_data *pdata;
- 	struct ieee802154_dev *dev;
- 	struct at86rf230_local *lp;
--	u8 man_id_0, man_id_1, status;
-+	u16 man_id = 0;
-+	u8 part = 0, version = 0, status;
- 	irq_handler_t irq_handler;
- 	work_func_t irq_worker;
--	int rc, supported = 0;
-+	int rc;
- 	const char *chip;
-+	struct ieee802154_ops *ops = NULL;
- 
- 	if (!spi->irq) {
- 		dev_err(&spi->dev, "no IRQ specified\n");
-@@ -856,116 +944,115 @@ static int at86rf230_probe(struct spi_device *spi)
- 		return -EINVAL;
- 	}
- 
--	dev = ieee802154_alloc_device(sizeof(*lp), &at86rf230_ops);
--	if (!dev)
--		return -ENOMEM;
--
--	lp = dev->priv;
--	lp->dev = dev;
--
--	lp->spi = spi;
--
--	dev->parent = &spi->dev;
--	dev->extra_tx_headroom = 0;
--	/* We do support only 2.4 Ghz */
--	dev->phy->channels_supported[0] = 0x7FFF800;
--	dev->flags = IEEE802154_HW_OMIT_CKSUM;
--
--	if (pdata->irq_type & (IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING)) {
--		irq_worker = at86rf230_irqwork;
--		irq_handler = at86rf230_isr;
--	} else {
--		irq_worker = at86rf230_irqwork_level;
--		irq_handler = at86rf230_isr_level;
--	}
--
--	mutex_init(&lp->bmux);
--	INIT_WORK(&lp->irqwork, irq_worker);
--	spin_lock_init(&lp->lock);
--	init_completion(&lp->tx_complete);
--
--	spi_set_drvdata(spi, lp);
--
--	at86rf230_fill_data(spi);
--
--	rc = gpio_request(lp->rstn, "rstn");
-+	rc = gpio_request(pdata->rstn, "rstn");
- 	if (rc)
--		goto err_rstn;
-+		return rc;
- 
--	if (gpio_is_valid(lp->slp_tr)) {
--		rc = gpio_request(lp->slp_tr, "slp_tr");
-+	if (gpio_is_valid(pdata->slp_tr)) {
-+		rc = gpio_request(pdata->slp_tr, "slp_tr");
- 		if (rc)
- 			goto err_slp_tr;
- 	}
- 
--	rc = gpio_direction_output(lp->rstn, 1);
-+	rc = gpio_direction_output(pdata->rstn, 1);
- 	if (rc)
- 		goto err_gpio_dir;
- 
--	if (gpio_is_valid(lp->slp_tr)) {
--		rc = gpio_direction_output(lp->slp_tr, 0);
-+	if (gpio_is_valid(pdata->slp_tr)) {
-+		rc = gpio_direction_output(pdata->slp_tr, 0);
- 		if (rc)
- 			goto err_gpio_dir;
- 	}
- 
- 	/* Reset */
- 	msleep(1);
--	gpio_set_value(lp->rstn, 0);
-+	gpio_set_value(pdata->rstn, 0);
- 	msleep(1);
--	gpio_set_value(lp->rstn, 1);
-+	gpio_set_value(pdata->rstn, 1);
- 	msleep(1);
- 
--	rc = at86rf230_read_subreg(lp, SR_MAN_ID_0, &man_id_0);
--	if (rc)
--		goto err_gpio_dir;
--	rc = at86rf230_read_subreg(lp, SR_MAN_ID_1, &man_id_1);
--	if (rc)
-+	rc = __at86rf230_detect_device(spi, &man_id, &part, &version);
-+	if (rc < 0)
- 		goto err_gpio_dir;
- 
--	if (man_id_1 != 0x00 || man_id_0 != 0x1f) {
-+	if (man_id != 0x001f) {
- 		dev_err(&spi->dev, "Non-Atmel dev found (MAN_ID %02x %02x)\n",
--			man_id_1, man_id_0);
-+			man_id >> 8, man_id & 0xFF);
- 		rc = -EINVAL;
- 		goto err_gpio_dir;
- 	}
- 
--	rc = at86rf230_read_subreg(lp, SR_PART_NUM, &lp->part);
--	if (rc)
--		goto err_gpio_dir;
--
--	rc = at86rf230_read_subreg(lp, SR_VERSION_NUM, &lp->vers);
--	if (rc)
--		goto err_gpio_dir;
--
--	switch (lp->part) {
-+	switch (part) {
- 	case 2:
- 		chip = "at86rf230";
--		/* supported = 1;  FIXME: should be easy to support; */
-+		/* FIXME: should be easy to support; */
- 		break;
- 	case 3:
- 		chip = "at86rf231";
--		supported = 1;
-+		ops = &at86rf230_ops;
-+		break;
-+	case 7:
-+		chip = "at86rf212";
-+		if (version == 1)
-+			ops = &at86rf212_ops;
- 		break;
- 	default:
- 		chip = "UNKNOWN";
- 		break;
- 	}
- 
--	dev_info(&spi->dev, "Detected %s chip version %d\n", chip, lp->vers);
--	if (!supported) {
-+	dev_info(&spi->dev, "Detected %s chip version %d\n", chip, version);
-+	if (!ops) {
- 		rc = -ENOTSUPP;
- 		goto err_gpio_dir;
- 	}
- 
-+	dev = ieee802154_alloc_device(sizeof(*lp), ops);
-+	if (!dev) {
-+		rc = -ENOMEM;
-+		goto err_gpio_dir;
-+	}
++static int
++at86rf212_set_lbt(struct ieee802154_dev *dev, bool on)
++{
++	struct at86rf230_local *lp = dev->priv;
 +
-+	lp = dev->priv;
-+	lp->dev = dev;
-+	lp->part = part;
-+	lp->vers = version;
++	return at86rf230_write_subreg(lp, SR_CSMA_LBT_MODE, on);
++}
 +
-+	lp->spi = spi;
-+
-+	dev->parent = &spi->dev;
-+	dev->extra_tx_headroom = 0;
-+	dev->flags = IEEE802154_HW_OMIT_CKSUM | IEEE802154_HW_AACK;
-+
-+	if (pdata->irq_type & (IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING)) {
-+		irq_worker = at86rf230_irqwork;
-+		irq_handler = at86rf230_isr;
-+	} else {
-+		irq_worker = at86rf230_irqwork_level;
-+		irq_handler = at86rf230_isr_level;
-+	}
-+
-+	mutex_init(&lp->bmux);
-+	INIT_WORK(&lp->irqwork, irq_worker);
-+	spin_lock_init(&lp->lock);
-+	init_completion(&lp->tx_complete);
-+
-+	spi_set_drvdata(spi, lp);
-+
-+	if (is_rf212(lp))
-+		dev->phy->channels_supported[0] = 0x00007FF;
-+	else
-+		dev->phy->channels_supported[0] = 0x7FFF800;
-+
- 	rc = at86rf230_hw_init(lp);
- 	if (rc)
--		goto err_gpio_dir;
-+		goto err_hw_init;
+ static struct ieee802154_ops at86rf230_ops = {
+ 	.owner = THIS_MODULE,
+ 	.xmit = at86rf230_xmit,
+@@ -805,6 +813,7 @@ static struct ieee802154_ops at86rf212_ops = {
+ 	.stop = at86rf230_stop,
+ 	.set_hw_addr_filt = at86rf230_set_hw_addr_filt,
+ 	.set_txpower = at86rf212_set_txpower,
++	.set_lbt = at86rf212_set_lbt,
+ };
  
- 	rc = request_irq(spi->irq, irq_handler,
- 			 IRQF_SHARED | pdata->irq_type,
- 			 dev_name(&spi->dev), lp);
- 	if (rc)
--		goto err_gpio_dir;
-+		goto err_hw_init;
+ static void at86rf230_irqwork(struct work_struct *work)
+diff --git a/include/linux/nl802154.h b/include/linux/nl802154.h
+index 625d19e..326baee 100644
+--- a/include/linux/nl802154.h
++++ b/include/linux/nl802154.h
+@@ -71,6 +71,7 @@ enum {
+ 	IEEE802154_ATTR_DEV_TYPE,
  
- 	/* Read irq status register to reset irq line */
- 	rc = at86rf230_read_subreg(lp, RG_IRQ_STATUS, 0xff, 0, &status);
-@@ -980,30 +1067,33 @@ static int at86rf230_probe(struct spi_device *spi)
+ 	IEEE802154_ATTR_TXPOWER,
++	IEEE802154_ATTR_LBT_ENABLED,
  
- err_irq:
- 	free_irq(spi->irq, lp);
-+err_hw_init:
- 	flush_work(&lp->irqwork);
--err_gpio_dir:
--	if (gpio_is_valid(lp->slp_tr))
--		gpio_free(lp->slp_tr);
--err_slp_tr:
--	gpio_free(lp->rstn);
--err_rstn:
-+	spi_set_drvdata(spi, NULL);
- 	mutex_destroy(&lp->bmux);
- 	ieee802154_free_device(lp->dev);
+ 	__IEEE802154_ATTR_MAX,
+ };
+diff --git a/include/net/mac802154.h b/include/net/mac802154.h
+index 8bd2785..521edcb 100644
+--- a/include/net/mac802154.h
++++ b/include/net/mac802154.h
+@@ -117,6 +117,11 @@ struct ieee802154_dev {
+  * set_txpower:
+  *	  Set radio transmit power in dB. Called with pib_lock held.
+  *	  Returns either zero, or negative errno.
++ *
++ * set_lbt
++ *	  Enables or disables listen before talk on the device. Called with
++ *	  pib_lock held.
++ *	  Returns either zero, or negative errno.
+  */
+ struct ieee802154_ops {
+ 	struct module	*owner;
+@@ -134,6 +139,7 @@ struct ieee802154_ops {
+ 	int		(*ieee_addr)(struct ieee802154_dev *dev,
+ 				     u8 addr[IEEE802154_ADDR_LEN]);
+ 	int		(*set_txpower)(struct ieee802154_dev *dev, int db);
++	int		(*set_lbt)(struct ieee802154_dev *dev, bool on);
+ };
+ 
+ /* Basic interface to register ieee802154 device */
+diff --git a/include/net/wpan-phy.h b/include/net/wpan-phy.h
+index 47fc0c1..804e6c4 100644
+--- a/include/net/wpan-phy.h
++++ b/include/net/wpan-phy.h
+@@ -47,6 +47,8 @@ struct wpan_phy {
+ 	s8 transmit_power;
+ 	u8 cca_mode;
+ 
++	bool lbt;
 +
-+err_gpio_dir:
-+	if (gpio_is_valid(pdata->slp_tr))
-+		gpio_free(pdata->slp_tr);
-+err_slp_tr:
-+	gpio_free(pdata->rstn);
+ 	struct device dev;
+ 	int idx;
+ 
+@@ -55,6 +57,7 @@ struct wpan_phy {
+ 	void (*del_iface)(struct wpan_phy *phy, struct net_device *dev);
+ 
+ 	int (*set_txpower)(struct wpan_phy *phy, int db);
++	int (*set_lbt)(struct wpan_phy *phy, bool on);
+ 
+ 	char priv[0] __attribute__((__aligned__(NETDEV_ALIGN)));
+ };
+diff --git a/net/ieee802154/nl-phy.c b/net/ieee802154/nl-phy.c
+index d3ee62f..f029310 100644
+--- a/net/ieee802154/nl-phy.c
++++ b/net/ieee802154/nl-phy.c
+@@ -56,7 +56,8 @@ static int ieee802154_nl_fill_phy(struct sk_buff *msg, u32 portid,
+ 	if (nla_put_string(msg, IEEE802154_ATTR_PHY_NAME, wpan_phy_name(phy)) ||
+ 	    nla_put_u8(msg, IEEE802154_ATTR_PAGE, phy->current_page) ||
+ 	    nla_put_u8(msg, IEEE802154_ATTR_CHANNEL, phy->current_channel) ||
+-	    nla_put_s8(msg, IEEE802154_ATTR_TXPOWER, phy->transmit_power))
++	    nla_put_s8(msg, IEEE802154_ATTR_TXPOWER, phy->transmit_power) ||
++	    nla_put_u8(msg, IEEE802154_ATTR_LBT_ENABLED, phy->lbt))
+ 		goto nla_put_failure;
+ 	for (i = 0; i < 32; i++) {
+ 		if (phy->channels_supported[i])
+@@ -356,40 +357,71 @@ out_dev:
  	return rc;
  }
  
- static int at86rf230_remove(struct spi_device *spi)
++static int phy_set_txpower(struct wpan_phy *phy, struct genl_info *info)
++{
++	int txpower = nla_get_s8(info->attrs[IEEE802154_ATTR_TXPOWER]);
++	int rc;
++
++	rc = phy->set_txpower(phy, txpower);
++	if (rc < 0)
++		return rc;
++
++	phy->transmit_power = txpower;
++
++	return 0;
++}
++
++static int phy_set_lbt(struct wpan_phy *phy, struct genl_info *info)
++{
++	u8 on = !!nla_get_u8(info->attrs[IEEE802154_ATTR_LBT_ENABLED]);
++	int rc;
++
++	rc = phy->set_lbt(phy, on);
++	if (rc < 0)
++		return rc;
++
++	phy->lbt = on;
++
++	return 0;
++}
++
+ int ieee802154_set_phyparams(struct sk_buff *skb, struct genl_info *info)
  {
- 	struct at86rf230_local *lp = spi_get_drvdata(spi);
-+	struct at86rf230_platform_data *pdata = spi->dev.platform_data;
+ 	struct wpan_phy *phy;
+ 	const char *name;
+-	int txpower;
+-	int rc = -EINVAL;
++	int rc = -ENOTSUPP;
  
- 	ieee802154_unregister_device(lp->dev);
+ 	pr_debug("%s\n", __func__);
  
- 	free_irq(spi->irq, lp);
- 	flush_work(&lp->irqwork);
+-	if (!info->attrs[IEEE802154_ATTR_PHY_NAME])
++	if (!info->attrs[IEEE802154_ATTR_PHY_NAME] &&
++	    !info->attrs[IEEE802154_ATTR_LBT_ENABLED])
+ 		return -EINVAL;
  
--	if (gpio_is_valid(lp->slp_tr))
--		gpio_free(lp->slp_tr);
--	gpio_free(lp->rstn);
-+	if (gpio_is_valid(pdata->slp_tr))
-+		gpio_free(pdata->slp_tr);
-+	gpio_free(pdata->rstn);
+ 	name = nla_data(info->attrs[IEEE802154_ATTR_PHY_NAME]);
+ 	if (name[nla_len(info->attrs[IEEE802154_ATTR_PHY_NAME]) - 1] != '\0')
+ 		return -EINVAL; /* phy name should be null-terminated */
  
- 	mutex_destroy(&lp->bmux);
- 	ieee802154_free_device(lp->dev);
+-	txpower = nla_get_s8(info->attrs[IEEE802154_ATTR_TXPOWER]);
+-
+ 	phy = wpan_phy_find(name);
+ 	if (!phy)
+ 		return -ENODEV;
+ 
+-	if (!phy->set_txpower)
++	if ((!phy->set_txpower && info->attrs[IEEE802154_ATTR_TXPOWER]) ||
++	    (!phy->set_lbt && info->attrs[IEEE802154_ATTR_LBT_ENABLED]))
+ 		goto out;
+ 
+ 	mutex_lock(&phy->pib_lock);
+ 
+-	rc = phy->set_txpower(phy, txpower);
+-	if (rc < 0) {
+-		mutex_unlock(&phy->pib_lock);
+-		goto out;
++	if (info->attrs[IEEE802154_ATTR_TXPOWER]) {
++		rc = phy_set_txpower(phy, info);
++		if (rc < 0)
++			goto error;
+ 	}
+ 
+-	phy->transmit_power = txpower;
++	if (info->attrs[IEEE802154_ATTR_LBT_ENABLED]) {
++		rc = phy_set_lbt(phy, info);
++		if (rc < 0)
++			goto error;
++	}
+ 
+ 	mutex_unlock(&phy->pib_lock);
+ 
+@@ -397,6 +429,8 @@ int ieee802154_set_phyparams(struct sk_buff *skb, struct genl_info *info)
+ 
+ 	return 0;
+ 
++error:
++	mutex_unlock(&phy->pib_lock);
+ out:
+ 	wpan_phy_put(phy);
+ 	return rc;
+diff --git a/net/ieee802154/nl_policy.c b/net/ieee802154/nl_policy.c
+index 90b1d0d..a09f642 100644
+--- a/net/ieee802154/nl_policy.c
++++ b/net/ieee802154/nl_policy.c
+@@ -54,5 +54,6 @@ const struct nla_policy ieee802154_policy[IEEE802154_ATTR_MAX + 1] = {
+ 	[IEEE802154_ATTR_CHANNEL_PAGE_LIST] = { .len = 32 * 4, },
+ 
+ 	[IEEE802154_ATTR_TXPOWER] = { .type = NLA_S8, },
++	[IEEE802154_ATTR_LBT_ENABLED] = { .type = NLA_U8, },
+ };
+ 
+diff --git a/net/mac802154/ieee802154_dev.c b/net/mac802154/ieee802154_dev.c
+index 9eb49e0..56338c8 100644
+--- a/net/mac802154/ieee802154_dev.c
++++ b/net/mac802154/ieee802154_dev.c
+@@ -175,6 +175,16 @@ static int mac802154_set_txpower(struct wpan_phy *phy, int db)
+ 	return priv->ops->set_txpower(&priv->hw, db);
+ }
+ 
++static int mac802154_set_lbt(struct wpan_phy *phy, bool on)
++{
++	struct mac802154_priv *priv = wpan_phy_priv(phy);
++
++	if (!priv->ops->set_lbt)
++		return -ENOTSUPP;
++
++	return priv->ops->set_lbt(&priv->hw, on);
++}
++
+ struct ieee802154_dev *
+ ieee802154_alloc_device(size_t priv_data_len, struct ieee802154_ops *ops)
+ {
+@@ -253,6 +263,7 @@ int ieee802154_register_device(struct ieee802154_dev *dev)
+ 	priv->phy->add_iface = mac802154_add_iface;
+ 	priv->phy->del_iface = mac802154_del_iface;
+ 	priv->phy->set_txpower = mac802154_set_txpower;
++	priv->phy->set_lbt = mac802154_set_lbt;
+ 
+ 	rc = wpan_phy_register(priv->phy);
+ 	if (rc < 0)
 -- 
 1.9.0
-
-
-------------------------------------------------------------------------------
-Android apps run on BlackBerry 10
-Introducing the new BlackBerry 10.2.1 Runtime for Android apps.
-Now with support for Jelly Bean, Bluetooth, Mapview and more.
-Get your Android app in front of a whole new audience.  Start now.
-http://pubads.g.doubleclick.net/gampad/clk?id=124407151&iu=/4140/ostg.clktrk
