@@ -1,59 +1,58 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 3/3] Documentation: networking: update phy.txt with recent changes
-Date: Mon, 17 Feb 2014 12:52:46 -0800
-Message-ID: <1392670366-31457-4-git-send-email-f.fainelli@gmail.com>
-References: <1392670366-31457-1-git-send-email-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <Shaohui.Xie@freescale.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: <netdev@vger.kernel.org>
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: [PATCH 09/10] batman-adv: avoid double free when orig_node initialization fails
+Date: Mon, 17 Feb 2014 21:48:48 +0100
+Message-ID: <1392670129-2498-10-git-send-email-antonio@meshcoding.com>
+References: <1392670129-2498-1-git-send-email-antonio@meshcoding.com>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Antonio Quartulli <antonio@meshcoding.com>,
+	Marek Lindner <mareklindner@neomailbox.ch>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:49339 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752954AbaBQUxM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 15:53:12 -0500
-In-Reply-To: <1392670366-31457-1-git-send-email-f.fainelli@gmail.com>
+Received: from s3.neomailbox.net ([178.209.62.157]:26187 "EHLO
+	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753097AbaBQUxT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 15:53:19 -0500
+In-Reply-To: <1392670129-2498-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The PHY library was missing a bunch of newly added PHY driver callbacks
-along with a smallish description of what they do, fix that.
+In the failure path of the orig_node initialization routine
+the orig_node->bat_iv.bcast_own field is free'd twice: first
+in batadv_iv_ogm_orig_get() and then later in
+batadv_orig_node_free_rcu().
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Fix it by removing the kfree in batadv_iv_ogm_orig_get().
+
+Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
+Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 ---
- Documentation/networking/phy.txt | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ net/batman-adv/bat_iv_ogm.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/Documentation/networking/phy.txt b/Documentation/networking/phy.txt
-index ebf2707..88b9336 100644
---- a/Documentation/networking/phy.txt
-+++ b/Documentation/networking/phy.txt
-@@ -253,16 +253,25 @@ Writing a PHY driver
+diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
+index 42cbc0a..8323bce 100644
+--- a/net/batman-adv/bat_iv_ogm.c
++++ b/net/batman-adv/bat_iv_ogm.c
+@@ -241,18 +241,16 @@ batadv_iv_ogm_orig_get(struct batadv_priv *bat_priv, const uint8_t *addr)
+ 	size = bat_priv->num_ifaces * sizeof(uint8_t);
+ 	orig_node->bat_iv.bcast_own_sum = kzalloc(size, GFP_ATOMIC);
+ 	if (!orig_node->bat_iv.bcast_own_sum)
+-		goto free_bcast_own;
++		goto free_orig_node;
  
-  Each driver consists of a number of function pointers:
+ 	hash_added = batadv_hash_add(bat_priv->orig_hash, batadv_compare_orig,
+ 				     batadv_choose_orig, orig_node,
+ 				     &orig_node->hash_entry);
+ 	if (hash_added != 0)
+-		goto free_bcast_own;
++		goto free_orig_node;
  
-+   soft_reset: performa s PHY software reset
-    config_init: configures PHY into a sane state after a reset.
-      For instance, a Davicom PHY requires descrambling disabled.
-    probe: Allocate phy->priv, optionally refuse to bind.
-    PHY may not have been reset or had fixups run yet.
-    suspend/resume: power management
-    config_aneg: Changes the speed/duplex/negotiation settings
-+   aneg_done: Determines the auto-negotiation result
-    read_status: Reads the current speed/duplex/negotiation settings
-    ack_interrupt: Clear a pending interrupt
-+   did_interrupt: Checks if the PHY generated an interrupt
-    config_intr: Enable or disable interrupts
-    remove: Does any driver take-down
-+   ts_info: Queries about the HW timestamping status
-+   hwtstamp: Set the PHY HW timestamping configuration
-+   rxtstamp: Requests a receive timestamp at the PHY level for a 'skb'
-+   txtsamp: Requests a transmit timestamp at the PHY level for a 'skb'
-+   set_wol: Enable Wake-on-LAN at the PHY level
-+   get_wol: Get the Wake-on-LAN status at the PHY level
+ 	return orig_node;
  
-  Of these, only config_aneg and read_status are required to be
-  assigned by the driver code.  The rest are optional.  Also, it is
+-free_bcast_own:
+-	kfree(orig_node->bat_iv.bcast_own);
+ free_orig_node:
+ 	/* free twice, as batadv_orig_node_new sets refcount to 2 */
+ 	batadv_orig_node_free_ref(orig_node);
 -- 
-1.8.3.2
+1.8.5.3
