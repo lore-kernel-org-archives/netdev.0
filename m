@@ -1,63 +1,87 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v4 net-next 04/12] bonding: always set recv_probe to bond_arp_rcv in arp monitor
-Date: Mon, 17 Feb 2014 15:41:20 +0100
-Message-ID: <1392648088-21336-5-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v4 net-next 05/12] bonding: extend arp_validate to be able to receive unvalidated arp-only traffic
+Date: Mon, 17 Feb 2014 15:41:21 +0100
+Message-ID: <1392648088-21336-6-git-send-email-vfalico@redhat.com>
 References: <1392648088-21336-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:10052 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:57918 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753376AbaBQOpv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Feb 2014 09:45:51 -0500
+	id S1753376AbaBQOpw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Feb 2014 09:45:52 -0500
 In-Reply-To: <1392648088-21336-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently we only set bond_arp_rcv() if we're using arp_validate, however
-this makes us skip updating last_arp_rx if we're not validating incoming
-ARPs - thus, if arp_validate is off, last_arp_rx will never be updated.
+Currently we can either receive any traffic as a proff of slave being up,
+or only *validated* arp traffic (i.e. with src/dst ip checked).
 
-Fix this by always setting up recv_probe = bond_arp_rcv, even if we're not
-using arp_validate.
+Add an option to be able to specify if we want to receive non-validated arp
+traffic only.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_main.c    | 3 +--
- drivers/net/bonding/bond_options.c | 3 +--
- 2 files changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/bonding/bond_options.c | 13 ++++++++-----
+ drivers/net/bonding/bonding.h      | 11 +++++++++++
+ 2 files changed, 19 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 7747cc5..257ee7f 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3059,8 +3059,7 @@ static int bond_open(struct net_device *bond_dev)
- 
- 	if (bond->params.arp_interval) {  /* arp interval, in milliseconds. */
- 		queue_delayed_work(bond->wq, &bond->arp_work, 0);
--		if (bond->params.arp_validate)
--			bond->recv_probe = bond_arp_rcv;
-+		bond->recv_probe = bond_arp_rcv;
- 	}
- 
- 	if (bond->params.mode == BOND_MODE_8023AD) {
 diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index d566cab..6324baf 100644
+index 6324baf..713a90e 100644
 --- a/drivers/net/bonding/bond_options.c
 +++ b/drivers/net/bonding/bond_options.c
-@@ -808,8 +808,7 @@ int bond_option_arp_interval_set(struct bonding *bond,
- 			cancel_delayed_work_sync(&bond->arp_work);
- 		} else {
- 			/* arp_validate can be set only in active-backup mode */
--			if (bond->params.arp_validate)
--				bond->recv_probe = bond_arp_rcv;
-+			bond->recv_probe = bond_arp_rcv;
- 			cancel_delayed_work_sync(&bond->mii_work);
- 			queue_delayed_work(bond->wq, &bond->arp_work, 0);
- 		}
+@@ -47,11 +47,14 @@ static struct bond_opt_value bond_xmit_hashtype_tbl[] = {
+ };
+ 
+ static struct bond_opt_value bond_arp_validate_tbl[] = {
+-	{ "none",   BOND_ARP_VALIDATE_NONE,   BOND_VALFLAG_DEFAULT},
+-	{ "active", BOND_ARP_VALIDATE_ACTIVE, 0},
+-	{ "backup", BOND_ARP_VALIDATE_BACKUP, 0},
+-	{ "all",    BOND_ARP_VALIDATE_ALL,    0},
+-	{ NULL,     -1,                       0},
++	{ "none",		BOND_ARP_VALIDATE_NONE,		BOND_VALFLAG_DEFAULT},
++	{ "active",		BOND_ARP_VALIDATE_ACTIVE,	0},
++	{ "backup",		BOND_ARP_VALIDATE_BACKUP,	0},
++	{ "all",		BOND_ARP_VALIDATE_ALL,		0},
++	{ "filter",		BOND_ARP_FILTER,		0},
++	{ "filter_active",	BOND_ARP_FILTER_ACTIVE,		0},
++	{ "filter_backup",	BOND_ARP_FILTER_BACKUP,		0},
++	{ NULL,			-1,				0},
+ };
+ 
+ static struct bond_opt_value bond_arp_all_targets_tbl[] = {
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 86ccfb9..ab2e651 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -342,6 +342,11 @@ static inline bool bond_is_active_slave(struct slave *slave)
+ #define BOND_ARP_VALIDATE_BACKUP	(1 << BOND_STATE_BACKUP)
+ #define BOND_ARP_VALIDATE_ALL		(BOND_ARP_VALIDATE_ACTIVE | \
+ 					 BOND_ARP_VALIDATE_BACKUP)
++#define BOND_ARP_FILTER			(BOND_ARP_VALIDATE_ALL + 1)
++#define BOND_ARP_FILTER_ACTIVE		(BOND_ARP_VALIDATE_ACTIVE | \
++					 BOND_ARP_FILTER)
++#define BOND_ARP_FILTER_BACKUP		(BOND_ARP_VALIDATE_BACKUP | \
++					 BOND_ARP_FILTER)
+ 
+ static inline int slave_do_arp_validate(struct bonding *bond,
+ 					struct slave *slave)
+@@ -349,6 +354,12 @@ static inline int slave_do_arp_validate(struct bonding *bond,
+ 	return bond->params.arp_validate & (1 << bond_slave_state(slave));
+ }
+ 
++static inline int slave_do_arp_validate_only(struct bonding *bond,
++					     struct slave *slave)
++{
++	return bond->params.arp_validate & BOND_ARP_FILTER;
++}
++
+ /* Get the oldest arp which we've received on this slave for bond's
+  * arp_targets.
+  */
 -- 
 1.8.4
