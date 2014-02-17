@@ -1,104 +1,71 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: add init-regs for of_phy support
-Date: Tue, 18 Feb 2014 00:33:19 +0300
-Message-ID: <5302801F.6000903@cogentembedded.com>
-References: <1392642484-19938-1-git-send-email-ben.dooks@codethink.co.uk> <1392642484-19938-2-git-send-email-ben.dooks@codethink.co.uk> <CAGVrzcYbw5xLj-gwcup5i0gBdKDDGdyy5wAaEBp7m2E7f2bytg@mail.gmail.com>
+From: Kevin Bowling <kevin.bowling@kev009.com>
+Subject: Re: netmap, VALE and netmap pipes
+Date: Mon, 17 Feb 2014 13:33:36 -0700
+Message-ID: <ldtrmj$5vq$1@ger.gmane.org>
+References: <CA+hQ2+gbs9aBneUaDGAnKVoPHspzc=5o+h+f_K=T+Cy8sRxr+w@mail.gmail.com>	<ldtmun$dqj$1@ger.gmane.org> <20140217121440.21a96821@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Linux-sh list <linux-sh@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	Ben Dooks <ben.dooks@codethink.co.uk>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <CAGVrzcYbw5xLj-gwcup5i0gBdKDDGdyy5wAaEBp7m2E7f2bytg@mail.gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: freebsd-net@freebsd.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:50468 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754310AbaBQUdt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Feb 2014 15:33:49 -0500
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1WFUst-0006BO-4c
+	for netdev@vger.kernel.org; Mon, 17 Feb 2014 21:33:47 +0100
+Received: from tempe0.bbox.io ([24.249.180.233])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 17 Feb 2014 21:33:47 +0100
+Received: from kevin.bowling by tempe0.bbox.io with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 17 Feb 2014 21:33:47 +0100
+In-Reply-To: <20140217121440.21a96821@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 02/17/2014 08:33 PM, Florian Fainelli wrote:
-
->> Add new init-regs field for of_phy nodes and make sure these
->> get applied when the phy is configured.
-
->> This allows any phy node in an fdt to initialise registers
->> that may not be set as standard by the driver at initialisation
->> time, such as LED controls.
-
->> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
->> ---
->>   Documentation/devicetree/bindings/net/phy.txt | 12 ++++++
->>   drivers/net/phy/phy_device.c                  | 59 ++++++++++++++++++++++++++-
->>   2 files changed, 70 insertions(+), 1 deletion(-)
-
->> diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentation/devicetree/bindings/net/phy.txt
->> index 58307d0..48d8ded 100644
->> --- a/Documentation/devicetree/bindings/net/phy.txt
->> +++ b/Documentation/devicetree/bindings/net/phy.txt
->> @@ -20,6 +20,8 @@ Optional Properties:
->>     assume clause 22. The compatible list may also contain other
->>     elements.
->>   - max-speed: Maximum PHY supported speed (10, 100, 1000...)
->> +- init-regs: Set of registers to modify at initialisation as a
->> +    a set of <register set clear>
-
-> Should be:
-
-> "micrel,led-control-init-val" or something like that.
-
-> first cell is the register address, according to the IEEE 802.3 clause 22
-> second cell is the set bitmask to apply to the register address
-> specified in the first cell
-> third cell is the clear bitmask to apply to the register address
-> specified in the second cell
-
-> I would rather see this as a specific PHY node DT property for setting
-> the LED control register, because this is totally non-standard and you
-> are touching a proprietary register here.
-
-    Yes, I agree.
-
->> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
->> index 82514e7..6741cdb 100644
->> --- a/drivers/net/phy/phy_device.c
->> +++ b/drivers/net/phy/phy_device.c
-[...]
->> @@ -532,6 +533,57 @@ static int phy_poll_reset(struct phy_device *phydev)
->>          return 0;
->>   }
+On 2/17/2014 1:14 PM, Stephen Hemminger wrote:
+> On Mon, 17 Feb 2014 12:12:36 -0700
+> Kevin Bowling <kevin.bowling@kev009.com> wrote:
+>
+>> On 2/17/2014 3:11 AM, Luigi Rizzo wrote:
+>>> Hi,
+>>> we have recently made a few extensions to netmap/VALE and put various
+>>> pieces of code on public repositories, so i thought i'd share the
+>>> pointers. All the code below runs with equal features and performance
+>>> on FreeBSD and Linux, and we are trying to upstream it in the relevant
+>>> projects if possible (as an example, QEMU recently added a netmap backend),
+>>> at which point some of these clone repositories will become unnecessary.
 >>
->> +#ifdef CONFIG_OF
->> +static int of_phy_configure(struct phy_device *phydev)
->> +{
->> +       struct device *dev = &phydev->dev;
->> +       struct device_node *of_node = dev->of_node;
->> +       struct property *prop;
->> +       const __be32 *ptr;
->> +       u32 reg, set, clear;
->> +       int len;
->> +       int val;
+>> Just a thought, maybe this is a good time for The FreeBSD Foundation to
+>> reach out to The Linux Foundation for lobbying netmap into their main
+>> line kernel.  It would be nice if netmap becomes the de facto UNIX
+>> standard for this type of programming (it is vendor neutral and broadly
+>> applicable vs other solutions), and avoid not-invented-here APIs like
+>> non-blocking I/O went through with all the UNIX flavors.
+>>
+>> Regards,
+>> Kevin Bowling
 
-> This does not belong in the generic PHY code unless we are very clear
-> on what we want to do, and how to do it, which I do not think we are
-> yet. What exactly is needed here:
+Hi Stephen,
 
-> - fixing up some design mistake?
-> - accounting for a specific board design?
+> You do not understand the role of Linux Foundation.
+> Lobbying would only serve to annoy the developers.
 
-    Kind of both. This was invented to defy the necessity of having platform 
-fixup in the DT case (where there should be no board file to place it into).
-I have already described that platform fixup necessary on the Renesas 
-Lager/Koelsch boards where the LED0 signat is connected to ETH_LINK signal on 
-the SoC and the PHY reset sets the LED control bits to default 0 which means 
-that LED0 will be LINK/ACTIVITY signal and thus blink on activity and cause 
-ETH_LINK to bounce off/on after each packet.
+I attempted to say that with tongue in cheek and am sorry if I offended 
+anyone.
 
-> In any case a PHY fixup would do the job for you.
+> Netmap was submitted and rejected for a number of issues.
+> Read the netdev mailing list archives if you want to follow what
+> is going on.
 
-    Not in any case. In case of DT we have no place for it, so should invent 
-something involving DT.
+I am not familiar with the situation on the Linux side.  My hope is that 
+the opportunity window is not lost if there is a possibility for one API 
+on both platforms.
 
-WBR, Sergei
-
+Regards,
+Kevin Bowling
