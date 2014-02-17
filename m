@@ -1,33 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] irtty-sir.c: Do not set_termios() on irtty_close()
-Date: Mon, 17 Feb 2014 14:29:32 -0500 (EST)
-Message-ID: <20140217.142932.2241202017756551476.davem@davemloft.net>
-References: <52FC87B6.4070001@gannert.se>
+Subject: Re: [PATCH next resend] tcp: use zero-window when free_space is low
+Date: Mon, 17 Feb 2014 14:34:31 -0500 (EST)
+Message-ID: <20140217.143431.349062553619161172.davem@davemloft.net>
+References: <1392292350-28800-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: tommie@gannert.se
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52FC87B6.4070001@gannert.se>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ncardwell@google.com,
+	eric.dumazet@gmail.com, ycheng@google.com
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50492 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753903AbaBQTed (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 14:34:33 -0500
+In-Reply-To: <1392292350-28800-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tommie Gannert <tommie@gannert.se>
-Date: Thu, 13 Feb 2014 08:52:06 +0000
+From: Florian Westphal <fw@strlen.de>
+Date: Thu, 13 Feb 2014 12:52:30 +0100
 
-> --- linux-3.12/drivers/net/irda/irtty-sir.c.orig 2014-02-12
-> --- 21:36:46.132496089 +0000
-> +++ linux-3.12/drivers/net/irda/irtty-sir.c 2014-02-12
-> 21:57:21.635843884 +0000
-> @@ -521,7 +521,6 @@ static void irtty_close(struct tty_struc
->  	sirdev_put_instance(priv->dev);
->    	/* Stop tty */
-> -	irtty_stop_receiver(tty, TRUE);
->  	clear_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
->  	if (tty->ops->stop)
->  		tty->ops->stop(tty);
+>  V1 of this patch was deferred, resending to get discussion going again.
+>  Changes since v1:
+>   - add reproducer to commit message
+> 
+>  Unfortunately I couldn't come up with something that has no magic
+>  ('allowed >> 4') value.  I chose >>4 (1/16th) because it didn't cause
+>  tput limitations in my 'full-mss-sized, steady state' netcat tests.
+> 
+>  Maybe someone has better idea?
 
-This patch has been corrupted by your email client.  Please fix this
-up and resubmit, thanks.
+I know this is going to be frustrating, but I've marked this 'deferred'
+again.  Please resubmit after the testing and further discussions have
+been worked out.
+
+Thank you.
