@@ -1,38 +1,61 @@
-From: Mathias Kretschmer <mathias.kretschmer@fokus.fraunhofer.de>
-Subject: Re: [PATCH net 0/3] pf_packet fix
-Date: Mon, 17 Feb 2014 07:59:36 +0100
-Message-ID: <5301B358.6030701@fokus.fraunhofer.de>
-References: <1392562522-15585-1-git-send-email-dborkman@redhat.com> <20140217.004915.457539963937571200.davem@davemloft.net>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: [PATCH] ipv4: fix counter in_slow_tot
+Date: Mon, 17 Feb 2014 15:23:43 +0800
+Message-ID: <5301B8FF.6030800@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: <brouer@redhat.com>, <netdev@vger.kernel.org>,
-	Simon Wunderlich <sw@simonwunderlich.de>
-To: David Miller <davem@davemloft.net>, <dborkman@redhat.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx-relay04-dus.antispameurope.com ([94.100.134.204]:45456 "EHLO
-	mx-relay04-dus.antispameurope.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751626AbaBQHAO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 02:00:14 -0500
-In-Reply-To: <20140217.004915.457539963937571200.davem@davemloft.net>
+Received: from cn.fujitsu.com ([222.73.24.84]:45152 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750903AbaBQHYr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Feb 2014 02:24:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/17/2014 06:49 AM, David Miller wrote:
-> From: Daniel Borkmann <dborkman@redhat.com>
-> Date: Sun, 16 Feb 2014 15:55:19 +0100
->
->> Addressed all feedback from Dave and reworked the original patch
->> from [1]. Set is intended for 3.14.
->
-> Looks great, series applied, thanks Daniel.
->
 
-Initial feedback (linux-3.14-rc3 + your patches):
-The WARNING from within 80211 is gone.
+since commit 89aef8921bf("ipv4: Delete routing cache."), the counter
+in_slow_tot can't work correctly.
 
-A more extensive evaluation is still pending.
+The counter in_slow_tot increase by one when fib_lookup() return successfully
+in ip_route_input_slow(), but actually the dst struct maybe not be created and
+cached, so we can increase in_slow_tot after the dst struct is created.
 
-Thanks,
+Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+---
+ net/ipv4/route.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Mathias
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 25071b4..9df3819 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1597,6 +1597,7 @@ static int __mkroute_input(struct sk_buff *skb,
+ 	rth->rt_gateway	= 0;
+ 	rth->rt_uses_gateway = 0;
+ 	INIT_LIST_HEAD(&rth->rt_uncached);
++	RT_CACHE_STAT_INC(in_slow_tot);
+ 
+ 	rth->dst.input = ip_forward;
+ 	rth->dst.output = ip_output;
+@@ -1698,8 +1699,6 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	if (err != 0)
+ 		goto no_route;
+ 
+-	RT_CACHE_STAT_INC(in_slow_tot);
+-
+ 	if (res.type == RTN_BROADCAST)
+ 		goto brd_input;
+ 
+@@ -1768,6 +1767,7 @@ local_input:
+ 	rth->rt_gateway	= 0;
+ 	rth->rt_uses_gateway = 0;
+ 	INIT_LIST_HEAD(&rth->rt_uncached);
++	RT_CACHE_STAT_INC(in_slow_tot);
+ 	if (res.type == RTN_UNREACHABLE) {
+ 		rth->dst.input= ip_error;
+ 		rth->dst.error= -err;
+-- 
+1.8.3.1
