@@ -1,43 +1,50 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net] net: sctp: fix sctp_connectx abi for ia32 emulation/compat
- mode
-Date: Mon, 17 Feb 2014 10:52:20 -0500
-Message-ID: <53023034.3090700@gmail.com>
-References: <1392635471-31528-1-git-send-email-dborkman@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: linux 3.13: problems with isatap tunnel device and UFO
+Date: Mon, 17 Feb 2014 17:09:16 +0100
+Message-ID: <20140217160916.GE22833@order.stressinduktion.org>
+References: <1682505.dP4nT04FC9@h2o.as.studentenwerk.mhn.de> <1581659.JtJ1UQaXJr@h2o.as.studentenwerk.mhn.de> <20140211024403.GE11150@order.stressinduktion.org> <5911515.kv7YDRiZP1@h2o.as.studentenwerk.mhn.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com
+To: Wolfgang Walter <linux@stwm.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f182.google.com ([209.85.216.182]:35913 "EHLO
-	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753688AbaBQPwX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 10:52:23 -0500
-In-Reply-To: <1392635471-31528-1-git-send-email-dborkman@redhat.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:32827 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750939AbaBQQJR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 11:09:17 -0500
+Content-Disposition: inline
+In-Reply-To: <5911515.kv7YDRiZP1@h2o.as.studentenwerk.mhn.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/17/2014 06:11 AM, Daniel Borkmann wrote:
-> SCTP's sctp_connectx() abi breaks for 64bit kernels compiled with 32bit
-> emulation (e.g. ia32 emulation or x86_x32). Due to internal usage of
-> 'struct sctp_getaddrs_old' which includes a struct sockaddr pointer,
-> sizeof(param) check will always fail in kernel as the structure in
-> 64bit kernel space is 4bytes larger than for user binaries compiled
-> in 32bit mode. Thus, applications making use of sctp_connectx() won't
-> be able to run under such circumstances.
-> 
-> Introduce a compat interface in the kernel to deal with such
-> situations by using a 'struct compat_sctp_getaddrs_old' structure
-> where user data is copied into it, and then sucessively transformed
-> into a 'struct sctp_getaddrs_old' structure with the help of
-> compat_ptr(). That fixes sctp_connectx() abi without any changes
-> needed in user space, and lets the SCTP test suite pass when compiled
-> in 32bit and run on 64bit kernels.
-> 
-> Fixes: f9c67811ebc0 ("sctp: Fix regression introduced by new sctp_connectx api")
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+[+Cc Cong Wang]
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+Hi Cong!
 
--vlad
+In commit d949d826c09fb ("ipv6: Add generic UDP Tunnel segmentation") you
+patched ip6_offload.c:
+
+@@ -126,7 +128,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
+                ipv6h = ipv6_hdr(skb);
+                ipv6h->payload_len = htons(skb->len - skb->mac_len -
+                                           sizeof(*ipv6h));
+-               if (proto == IPPROTO_UDP) {
++               if (!tunnel && proto == IPPROTO_UDP) {
+                        unfrag_ip6hlen = ip6_find_1stfragopt(skb, &prevhdr);
+                        fptr = (struct frag_hdr *)(skb_network_header(skb) +
+                                unfrag_ip6hlen);
+
+
+I wonder about the !tunnel exception. This now seems to be a problem in sit
+ufo output path, where we don't update fragmentation offsets any more thus
+generating invalid frames.
+
+I am not too firm with segmentation in case of tunnels but don't we need to
+always update the fragmentation offset no matter what, if upper gso callback
+produced more segments?
+
+I'll try to dig deeper...
+
+Thanks,
+
+  Hannes
