@@ -1,45 +1,50 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH] csum_partial_copy_from_user: clean up inconsistencies
- in implementations
-Date: Mon, 17 Feb 2014 23:31:12 +0100
-Message-ID: <53028DB0.6000501@redhat.com>
-References: <alpine.LRH.2.02.1402151044010.25662@file01.intranet.prod.int.rdu2.redhat.com> <20140217.162105.899153264722449005.davem@davemloft.net> <alpine.LRH.2.02.1402171714030.21254@file01.intranet.prod.int.rdu2.redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next v2 3/3] Documentation: networking: update phy.txt
+ with recent changes
+Date: Tue, 18 Feb 2014 02:32:18 +0300
+Message-ID: <53029C02.4020009@cogentembedded.com>
+References: <1392672844-1767-1-git-send-email-f.fainelli@gmail.com> <1392672844-1767-4-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mcree@orcon.net.nz,
-	mattst88@gmail.com, mathieu.desnoyers@efficios.com,
-	jay.estabrook@gmail.com
-To: Mikulas Patocka <mpatocka@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LRH.2.02.1402171714030.21254@file01.intranet.prod.int.rdu2.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, Shaohui.Xie@freescale.com
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f48.google.com ([209.85.215.48]:33645 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752968AbaBQWcV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 17:32:21 -0500
+Received: by mail-la0-f48.google.com with SMTP id mc6so11490938lab.7
+        for <netdev@vger.kernel.org>; Mon, 17 Feb 2014 14:32:19 -0800 (PST)
+In-Reply-To: <1392672844-1767-4-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/17/2014 11:20 PM, Mikulas Patocka wrote:
-...
->> The proper way to add commentary is to put it after the "---" delimiter
->> at the end of the commit message and before the actual patch.
+Hello.
+
+On 02/18/2014 12:34 AM, Florian Fainelli wrote:
+
+> The PHY library was missing a bunch of newly added PHY driver callbacks
+> along with a smallish description of what they do, fix that.
+
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+[...]
+
+    Again too quick merge, not all types have been fixed. :-/
+
+> diff --git a/Documentation/networking/phy.txt b/Documentation/networking/phy.txt
+> index ebf2707..e602c6f 100644
+> --- a/Documentation/networking/phy.txt
+> +++ b/Documentation/networking/phy.txt
+> @@ -253,16 +253,25 @@ Writing a PHY driver
 >
-> Interesting - I used "---" as a delimiter between the commentary and the
-> git message in the past and some people said that their patch parser can't
-> detect "---" and that I should use "From:" line as a delimiter. And now I
-> see that your patch parser doesn't detect "From:" and needs "---".
+>    Each driver consists of a number of function pointers:
+[...]
+> +   ts_info: Queries about the HW timestamping status
+> +   hwtstamp: Set the PHY HW timestamping configuration
+> +   rxtstamp: Requests a receive timestamp at the PHY level for a 'skb'
+> +   txtsamp: Requests a transmit timestamp at the PHY level for a 'skb'
 
-It's simple: Documentation/SubmittingPatches +582  says ...
+    s/txtsamp/txtstamp/.
 
-The "---" marker line serves the essential purpose of marking for patch
-handling tools where the changelog message ends.
-
-One good use for the additional comments after the "---" marker is for
-a diffstat, to show what files have changed, and the number of
-inserted and deleted lines per file.  A diffstat is especially useful
-on bigger patches.  Other comments relevant only to the moment or the
-maintainer, not suitable for the permanent changelog, should also go
-here.  A good example of such comments might be "patch changelogs"
-which describe what has changed between the v1 and v2 version of the
-patch.
-
-So, between "---" and the diffstat you could have put your comment.
-That's what the official document says in that regard. ;)
+WBR, Sergei
