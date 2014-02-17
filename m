@@ -1,93 +1,51 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 1/3] net: phy: move PHY software reset to genphy_soft_reset
-Date: Mon, 17 Feb 2014 12:52:44 -0800
-Message-ID: <1392670366-31457-2-git-send-email-f.fainelli@gmail.com>
-References: <1392670366-31457-1-git-send-email-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <Shaohui.Xie@freescale.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: <netdev@vger.kernel.org>
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: [PATCH 08/10] batman-adv: free skb on TVLV parsing success
+Date: Mon, 17 Feb 2014 21:48:47 +0100
+Message-ID: <1392670129-2498-9-git-send-email-antonio@meshcoding.com>
+References: <1392670129-2498-1-git-send-email-antonio@meshcoding.com>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Antonio Quartulli <antonio@open-mesh.com>,
+	Marek Lindner <mareklindner@neomailbox.ch>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:49339 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752935AbaBQUxM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 15:53:12 -0500
-In-Reply-To: <1392670366-31457-1-git-send-email-f.fainelli@gmail.com>
+Received: from s3.neomailbox.net ([178.209.62.157]:47531 "EHLO
+	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752954AbaBQUxQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 15:53:16 -0500
+In-Reply-To: <1392670129-2498-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As pointed out by Shaohui, this function is generic for 10/100/1000
-PHYs, but 10G PHYs might have a slightly different reset sequence which
-prevents most of them from using this function.
+From: Antonio Quartulli <antonio@open-mesh.com>
 
-Move the BMCR_RESET based software resent sequence to
-genphy_soft_reset() in preparation for allowing PHY drivers to implement
-a soft_reset() callback.
+When the TVLV parsing routine succeed the skb is left
+untouched thus leading to a memory leak.
 
-Reported-by: Shaohui Xie <Shaohui.Xie@freescale.com>
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Fix this by consuming the skb in case of success.
+
+Introduced by ef26157747d42254453f6b3ac2bd8bd3c53339c3
+("batman-adv: tvlv - basic infrastructure")
+
+Reported-by: Russel Senior <russell@personaltelco.net>
+Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
+Tested-by: Russell Senior <russell@personaltelco.net>
+Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 ---
- drivers/net/phy/phy_device.c | 27 ++++++++++++++++++++++-----
- include/linux/phy.h          |  1 +
- 2 files changed, 23 insertions(+), 5 deletions(-)
+ net/batman-adv/routing.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index c2d778d..7c21b82 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -540,11 +540,7 @@ int phy_init_hw(struct phy_device *phydev)
- 	if (!phydev->drv || !phydev->drv->config_init)
- 		return 0;
+diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+index c26f073..a953d5b 100644
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@ -918,6 +918,8 @@ int batadv_recv_unicast_tvlv(struct sk_buff *skb,
  
--	ret = phy_write(phydev, MII_BMCR, BMCR_RESET);
--	if (ret < 0)
--		return ret;
--
--	ret = phy_poll_reset(phydev);
-+	ret = genphy_soft_reset(phydev);
- 	if (ret < 0)
- 		return ret;
+ 	if (ret != NET_RX_SUCCESS)
+ 		ret = batadv_route_unicast_packet(skb, recv_if);
++	else
++		consume_skb(skb);
  
-@@ -1045,6 +1041,27 @@ static int gen10g_read_status(struct phy_device *phydev)
- 	return 0;
+ 	return ret;
  }
- 
-+/**
-+ * genphy_soft_reset - software reset the PHY via BMCR_RESET bit
-+ * @phydev: target phy_device struct
-+ *
-+ * Description: Perform a software PHY reset using the standard
-+ * BMCR_RESET bit and poll for the reset bit to be cleared.
-+ *
-+ * Returns: 0 on success, < 0 on failure
-+ */
-+int genphy_soft_reset(struct phy_device *phydev)
-+{
-+	int ret;
-+
-+	ret = phy_write(phydev, MII_BMCR, BMCR_RESET);
-+	if (ret < 0)
-+		return ret;
-+
-+	return phy_poll_reset(phydev);
-+}
-+EXPORT_SYMBOL(genphy_soft_reset);
-+
- static int genphy_config_init(struct phy_device *phydev)
- {
- 	int val;
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index f7fe546..bffe0ec 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -666,6 +666,7 @@ int genphy_update_link(struct phy_device *phydev);
- int genphy_read_status(struct phy_device *phydev);
- int genphy_suspend(struct phy_device *phydev);
- int genphy_resume(struct phy_device *phydev);
-+int genphy_soft_reset(struct phy_device *phydev);
- void phy_driver_unregister(struct phy_driver *drv);
- void phy_drivers_unregister(struct phy_driver *drv, int n);
- int phy_driver_register(struct phy_driver *new_driver);
 -- 
-1.8.3.2
+1.8.5.3
