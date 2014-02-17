@@ -1,50 +1,72 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: linux 3.13: problems with isatap tunnel device and UFO
-Date: Mon, 17 Feb 2014 17:09:16 +0100
-Message-ID: <20140217160916.GE22833@order.stressinduktion.org>
-References: <1682505.dP4nT04FC9@h2o.as.studentenwerk.mhn.de> <1581659.JtJ1UQaXJr@h2o.as.studentenwerk.mhn.de> <20140211024403.GE11150@order.stressinduktion.org> <5911515.kv7YDRiZP1@h2o.as.studentenwerk.mhn.de>
+From: =?utf-8?Q?BOURSE_D=E2=80=99=C3=89TUDE_SUISSE?=
+	<limane.aissatou@cnps.cm>
+Subject: BOURSE SUISSE (2014-2015)
+Date: Mon, 17 Feb 2014 17:15:17 +0100 (WAT)
+Message-ID: <15404889.38529.1392653717364.JavaMail.root@mail.cnps.cm>
+Reply-To: =?utf-8?Q?BOURSE_D=E2=80=99=C3=89TUDE_SUISSE?=
+	  <cfbes.avis@laposte.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com
-To: Wolfgang Walter <linux@stwm.de>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:32827 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750939AbaBQQJR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 11:09:17 -0500
-Content-Disposition: inline
-In-Reply-To: <5911515.kv7YDRiZP1@h2o.as.studentenwerk.mhn.de>
+Received: from [195.24.201.5] ([195.24.201.5]:40702 "EHLO mail.cnps.cm"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750830AbaBQQV0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 11:21:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[+Cc Cong Wang]
-
-Hi Cong!
-
-In commit d949d826c09fb ("ipv6: Add generic UDP Tunnel segmentation") you
-patched ip6_offload.c:
-
-@@ -126,7 +128,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
-                ipv6h = ipv6_hdr(skb);
-                ipv6h->payload_len = htons(skb->len - skb->mac_len -
-                                           sizeof(*ipv6h));
--               if (proto == IPPROTO_UDP) {
-+               if (!tunnel && proto == IPPROTO_UDP) {
-                        unfrag_ip6hlen = ip6_find_1stfragopt(skb, &prevhdr);
-                        fptr = (struct frag_hdr *)(skb_network_header(skb) +
-                                unfrag_ip6hlen);
 
 
-I wonder about the !tunnel exception. This now seems to be a problem in sit
-ufo output path, where we don't update fragmentation offsets any more thus
-generating invalid frames.
 
-I am not too firm with segmentation in case of tunnels but don't we need to
-always update the fragmentation offset no matter what, if upper gso callback
-produced more segments?
-
-I'll try to dig deeper...
-
-Thanks,
-
-  Hannes
+PAR L'INTERMEDIAIRE DE LA COMMISSION FEDERALE DES BOURSES ETRANGERES (C=
+=46BE-SUISSE) , LE SECRETARIAT D'ETAT D'ETUDE ET A LA RECHERCHE DE LA C=
+ONFEDERATION LANCE UN APPEL A LA CANDIDATURE POUR 500 BOURSES D'ETUDES =
+SUISSES AU TITRE DE L'ANNEE ACADEMIQUE 2014 - 2015 CES BOURSES SONT DES=
+TINEES AUX RESSORTISSANTS DES PAYS
+DE LA CATEGORIE A
+(pays industrialis=C3=A9s europ=C3=A9ens, et extra-europ=C3=A9ens)
+ET CEUX DES PAYS DE LA CATEGORIE B
+( pays en developpement, du tiers monde et extra - europ=C3=A9ens).=20
+ELLES DOIVENT LEUR PERMETTRE DE POURSUIVRE LEURS ETUDES, DE PARFAIRE LE=
+URS CONNAISSANCES POUR LES TRAVAUX DE RECHERCHES DANS LES DOMAINES AUXQ=
+UELS LES UNIVERSITES SUISSES ACCORDENT UNE ATTENTION PARTICULIERE.
+DUREE DE LA BOURSE
+LES BOURSES COUVRENT LA PERIODE D'UN CYCLE DE FORMATION OU AU MAXIMUM S=
+IX (06) SEMESTRES .
+=46RAIS DE VOYAGE
+LES BILLETS D'AVION ALLER-RETOUR ( PAYS DE PROVENANCE -GENEVE) , SONT P=
+RIS EN CHARGE PAR LA COMMISSION FEDERALE DES BOURSES ETRANGERES.
+CONDITIONS PREALABLES A LA CANDIDATURE
+EN REGLE GENERALE, LES CANDIDATS AUX BOURSES ETRANGERES SUISSES DOIVENT=
+:
+- AVOIR AU MAXIMUM 18 ANS a 45 ANS ;
+- COMPRENDRE ET PARLER CORRECTEMENT L'UNE DES LANGUES D'ENSEIGNEMENT EN=
+ SUISSE
+( ESPAGNOL, ALLEMAND, ANGLAIS, ITALIE, FRANCAIS) ;
+- AVOIR UN DIPLOME EQUIVALENT AU BREVET D'ETUDE DE PREMIER CYCLE D'ENSE=
+IGNEMENT, AU BACCALAUREAT OU AU BREVET D'APTITUDE PROFESSIONELLE DES PA=
+YS DE L'UNION EUROPEENNE.
+PROCEDURE DE SELECTION
+- RETIRER AUPRES DE LA COMMISSION FEDERALE DES BOURSES ETRANGERES SUISS=
+Es(CFBES)LE FORMULAIRE DE DEMANDE DE
+BOURSE VIA
+A LEUR ADRESSE EMAIL: cfbesavis01@nokiamail.com- REMPLIR ET ENVOYER PAR=
+ PIECE JOINTE LE FORMULAIRE.
+- LA COMMISSION FEDERALE DES BOURSES ETRANGERES FERA ETUDIER VOTRE DOSS=
+IER PAR LA REPRESENTATION SUISSE DELEGUEE
+DE VOTRE ZONE ET CATEGORIE DE PAYS.
+- - LES CANDIDATS RETENUS RECEVRONT UNE ATTESTATION DU SECRETARIAT D'ET=
+AT A L'ETUDE ET A LA RECHERCHE POUR NOTIFICATION DE LA BOURSE. LES CAND=
+IDATS DESIREUX DE PARTICIPER AUX BOURSES D'ETUDES 2014 - 2015 DOIVENT R=
+ETIRER LEUR FORMULAIRE A REMPLIR AUPRES DE LA CFBES: A LEUR ADRESSE EMA=
+IL: cfbesavis01@nokiamail.com
+DATE LIMITE DE DEP=C3=96T DES DOSSIERS
+LA DATE LIMITE DE DEP=C3=96T DES DOSSIERS EST PREVUE POUR LE
+ 15 Mars 2014.
+ CEPENDANT, LA COMMISSION FEDERALE DES BOURSES ETRANGERES SUISSEs(CFBES=
+) SE RESERVE LE DROIT DE CLOTURER L'OCTROI DES BOURSES A CONCURRENCE DE=
+S BOURSES DISPONIBLES.
+LE PRESIDENT DE LA COMMISSION FEDERALE
+DES BOURSES ETRANGERES SUISSES
