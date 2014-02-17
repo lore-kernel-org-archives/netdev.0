@@ -1,42 +1,98 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: REGRESSION f54b311142a92ea2e42598e347b84e1655caf8e3 tcp auto
- corking slows down iSCSI file system creation by factor of 70 [WAS: 4 TB
- VMFS creation takes 15 minutes vs 26 seconds]
-Date: Mon, 17 Feb 2014 07:26:47 -0800
-Message-ID: <1392650807.24974.12.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140206153640.GB4103@glanzmann.de>
-	 <1391727771.14985.41.camel@haakon3.risingtidesystems.com>
-	 <20140207051500.GB10916@glanzmann.de> <20140207075536.GB17815@glanzmann.de>
-	 <1391801597.1155.28.camel@haakon3.risingtidesystems.com>
-	 <20140207205142.GA8609@glanzmann.de> <20140208093808.GD16336@glanzmann.de>
-	 <1391865273.10160.76.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140208133744.GA20512@glanzmann.de>
-	 <1391868564.10160.91.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140217140821.GD6211@glanzmann.de>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH v4 net-next 02/12] bonding: permit using arp_validate
+ with non-ab modes
+Date: Mon, 17 Feb 2014 16:22:21 +0100
+Message-ID: <5302292D.4050206@redhat.com>
+References: <1392648088-21336-1-git-send-email-vfalico@redhat.com> <1392648088-21336-3-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: John Ogness <john.ogness@linutronix.de>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
-	target-devel <target-devel@vger.kernel.org>,
-	Linux Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Thomas Glanzmann <thomas@glanzmann.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140217140821.GD6211@glanzmann.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Veaceslav Falico <vfalico@redhat.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51267 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753567AbaBQP0y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Feb 2014 10:26:54 -0500
+In-Reply-To: <1392648088-21336-3-git-send-email-vfalico@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-02-17 at 15:08 +0100, Thomas Glanzmann wrote:
-> Hello Eric,
-> may submit your latest patch for upstream? Or do you plan on doing that
-> yourself?
+On 02/17/2014 03:41 PM, Veaceslav Falico wrote:
+> Currently it's disabled because it's sometimes hard, in typical configs, to
+> make it work - because of the nature how the loadbalance modes work - as
+> it's hard to deliver valid arp replies to correct slaves by the switch.
+> 
+> However we still can use arp_validation in loadbalance with several other
+> configs, per example with arp_validate == 2 for backup with one broadcast
+> domain, without the switch(es) doing any balancing - this way we'd be (a
+> bit more) sure that the slave is up.
+> 
+> So, enable it to let users decide which one works/suits them best. Also
+> remove the mode limitation from BOND_OPT_ARP_VALIDATE.
+> 
+> CC: Jay Vosburgh <fubar@us.ibm.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> ---
+>  Documentation/networking/bonding.txt | 6 +++---
+>  drivers/net/bonding/bond_main.c      | 4 ----
+>  drivers/net/bonding/bond_options.c   | 1 -
+>  3 files changed, 3 insertions(+), 8 deletions(-)
+> 
+> diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+> index 5cdb229..96b4ad8 100644
+> --- a/Documentation/networking/bonding.txt
+> +++ b/Documentation/networking/bonding.txt
+> @@ -270,9 +270,9 @@ arp_ip_target
+>  arp_validate
+>  
+>  	Specifies whether or not ARP probes and replies should be
+> -	validated in the active-backup mode.  This causes the ARP
+> -	monitor to examine the incoming ARP requests and replies, and
+> -	only consider a slave to be up if it is receiving the
+> +	validated in any mode that supports arp monitoring.  This causes
+> +	the ARP monitor to examine the incoming ARP requests and replies,
+> +	and only consider a slave to be up if it is receiving the
+>  	appropriate ARP traffic.
+>  
+>  	Possible values are:
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 3c50bec..91c0248 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -4183,10 +4183,6 @@ static int bond_check_params(struct bond_params *params)
+>  	}
+>  
+>  	if (arp_validate) {
+> -		if (bond_mode != BOND_MODE_ACTIVEBACKUP) {
+> -			pr_err("arp_validate only supported in active-backup mode\n");
+> -			return -EINVAL;
+> -		}
+>  		if (!arp_interval) {
+>  			pr_err("arp_validate requires arp_interval\n");
+>  			return -EINVAL;
+> diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+> index f3eb44d..d566cab 100644
+> --- a/drivers/net/bonding/bond_options.c
+> +++ b/drivers/net/bonding/bond_options.c
+> @@ -151,7 +151,6 @@ static struct bond_option bond_opts[] = {
+>  		.id = BOND_OPT_ARP_VALIDATE,
+>  		.name = "arp_validate",
+>  		.desc = "validate src/dst of ARP probes",
+> -		.unsuppmodes = BOND_MODE_ALL_EX(BIT(BOND_MODE_ACTIVEBACKUP)),
+>  		.values = bond_arp_validate_tbl,
+>  		.set = bond_option_arp_validate_set
+>  	},
+> 
+Sorry for not noticing before, but I just remembered the reason why all the
+checks are there when changing the recv_probe, especially from the options.
+The problem was that lacp mode also uses the recv_probe, so after this patch we
+can overwrite the recv_probe while it's running in lacp mode, because
+bond_option_arp_validate_set changes the recv_probe. We can actually only set it
+to NULL because arp_interval can't be set in those modes, but still we can break
+the mode and there'll be need for at least down/up cycle to fix it.
+I think rlb also uses the recv_probe so this applies to it as well.
 
-Unfortunately you did not had good results with the MSG_MORE applied to
-the page fragments.
-
-I think I'll submit the part only dealing with the metadata.
-
-Then later we might take care of the page themselves.
+Nik
