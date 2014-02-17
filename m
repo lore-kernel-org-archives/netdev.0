@@ -1,56 +1,40 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v4 net-next 01/12] bonding: remove bond->lock from bond_arp_rcv
-Date: Mon, 17 Feb 2014 15:41:17 +0100
-Message-ID: <1392648088-21336-2-git-send-email-vfalico@redhat.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v4 net-next 11/12] bonding: trivial: rename
+ slave->jiffies to ->last_link_up
+Date: Mon, 17 Feb 2014 15:02:36 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6C18F7@AcuExch.aculab.com>
 References: <1392648088-21336-1-git-send-email-vfalico@redhat.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
+ <1392648088-21336-12-git-send-email-vfalico@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
-To: netdev@vger.kernel.org
+To: 'Veaceslav Falico' <vfalico@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63604 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752218AbaBQOpx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Feb 2014 09:45:53 -0500
-In-Reply-To: <1392648088-21336-1-git-send-email-vfalico@redhat.com>
+Received: from mx0.aculab.com ([213.249.233.131]:33995 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752537AbaBQPDK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 10:03:10 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 07132-09 for <netdev@vger.kernel.org>;
+ Mon, 17 Feb 2014 15:03:06 +0000 (GMT)
+In-Reply-To: <1392648088-21336-12-git-send-email-vfalico@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We're always called with rcu_read_lock() held (bond_arp_rcv() is only
-called from bond_handle_frame(), which is rx_handler and always called
-under rcu from __netif_receive_skb_core() ).
+> -	unsigned long jiffies;
+> +	/* all three in jiffies */
+> +	unsigned long last_link_up;
+>  	unsigned long last_arp_rx;
+>  	unsigned long target_last_arp_rx[BOND_MAX_ARP_TARGETS];
 
-The slave active/passive and/or bonding params can change in-flight, however
-we don't really care about that - we only modify the last time packet was
-received, which is harmless.
+Personally I'd add _time to the member names (maybe not the last
+as that is long enough already).
+I sometimes go as far as adding the time units (eg _ms or _sec)
+just to avoid confusion when reading the code much later on.
 
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
----
- drivers/net/bonding/bond_main.c | 3 ---
- 1 file changed, 3 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 3bce855..3c50bec 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2260,8 +2260,6 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
- 	if (skb->protocol != __cpu_to_be16(ETH_P_ARP))
- 		return RX_HANDLER_ANOTHER;
- 
--	read_lock(&bond->lock);
--
- 	if (!slave_do_arp_validate(bond, slave))
- 		goto out_unlock;
- 
-@@ -2318,7 +2316,6 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
- 		bond_validate_arp(bond, slave, tip, sip);
- 
- out_unlock:
--	read_unlock(&bond->lock);
- 	if (arp != (struct arphdr *)skb->data)
- 		kfree(arp);
- 	return RX_HANDLER_ANOTHER;
--- 
-1.8.4
+	David
