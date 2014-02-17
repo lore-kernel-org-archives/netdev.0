@@ -1,42 +1,35 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 v2] iplink_bond: fix parameter value matching
-Date: Mon, 17 Feb 2014 11:00:03 -0800
-Message-ID: <20140217110003.320dcd20@nehalam.linuxnetplumber.net>
-References: <52F448AF.3060604@huawei.com>
-	<20140213163159.7F73CE668E@unicorn.suse.cz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next v2 3/3] cfg80211: add MPLS and 802.21 classification
+Date: Mon, 17 Feb 2014 14:06:53 -0500 (EST)
+Message-ID: <20140217.140653.1309552047403078220.davem@davemloft.net>
+References: <1392656174-14791-4-git-send-email-sw@simonwunderlich.de>
+	<5302474B.6090609@broadcom.com>
+	<D53252F45158EF44B1DF124FDC9AF2A35AD9E12C@FEYNMAN.fokus.fraunhofer.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ding Tianhong <dingtianhong@huawei.com>
-To: Michal Kubecek <mkubecek@suse.cz>
+Cc: arend@broadcom.com, sw@simonwunderlich.de, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: mathias.kretschmer@fokus.fraunhofer.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:46447 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753395AbaBQTAG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 14:00:06 -0500
-Received: by mail-pd0-f171.google.com with SMTP id g10so15153440pdj.16
-        for <netdev@vger.kernel.org>; Mon, 17 Feb 2014 11:00:06 -0800 (PST)
-In-Reply-To: <20140213163159.7F73CE668E@unicorn.suse.cz>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50336 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752436AbaBQTHA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 14:07:00 -0500
+In-Reply-To: <D53252F45158EF44B1DF124FDC9AF2A35AD9E12C@FEYNMAN.fokus.fraunhofer.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 13 Feb 2014 17:31:59 +0100 (CET)
-Michal Kubecek <mkubecek@suse.cz> wrote:
+From: "Kretschmer, Mathias" <mathias.kretschmer@fokus.fraunhofer.de>
+Date: Mon, 17 Feb 2014 17:34:34 +0000
 
-> Lookup function get_index() compares argument with table entries
-> only up to the length of the table entry so that if an entry
-> with lower index is a substring of a later one, earlier entry is
-> used even if the argument is equal to the other. For example,
-> 
->   ip link set bond0 type bond xmit_hash_policy layer2+3
-> 
-> sets xmit_hash_policy to 0 (layer2) as this is found before
-> "layer2+3" can be checked.
-> 
-> Use strcmp() to compare whole strings instead.
-> 
-> v2: look for an exact match only
-> 
-> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+> Thought so, as well. But it seems that skb->protocol is not properly
+> set when the packet originates from a packet socket.  And in our
+> case we cannot set it to a fixed etherType in the bind() call since
+> we use three different etherTypes on the same socket.
 
-Applied
+So many things break if the skb->protocol isn't set correctly that I
+would consider such SKBs mal-formed.
+
+You can specify the protocol number in the msghdr passed into the
+send.
