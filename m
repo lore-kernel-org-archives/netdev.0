@@ -1,38 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Getting a NIC's MTU size
-Date: Mon, 17 Feb 2014 00:21:53 -0500 (EST)
-Message-ID: <20140217.002153.1121569813590047048.davem@davemloft.net>
-References: <26474.1392388608@warthog.procyon.org.uk>
-	<26769.1392390042@warthog.procyon.org.uk>
-	<27696.1392392957@warthog.procyon.org.uk>
+Subject: Re: [PATCH net-next 0/2] tipc: eliminate smatch
+	warnings
+Date: Mon, 17 Feb 2014 00:26:57 -0500 (EST)
+Message-ID: <20140217.002657.140060186952246127.davem@davemloft.net>
+References: <1392414044-14326-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, netdev@vger.kernel.org
-To: dhowells@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40154 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750904AbaBQFVz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 00:21:55 -0500
-In-Reply-To: <27696.1392392957@warthog.procyon.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1392414044-14326-1-git-send-email-jon.maloy@ericsson.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: David Howells <dhowells@redhat.com>
-Date: Fri, 14 Feb 2014 15:49:17 +0000
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Fri, 14 Feb 2014 16:40:42 -0500
 
-> One further question:  If I want to get the MTU size of the NIC through which
-> packets will go to get to a particular peer, can I do:
+> We fix a couple of issues introduced by the series 
+> "tipc: clean up media and bearer layer". 
+> 
+> Thanks to Dan Carpenter and Walter Harms for highlighting this.
 
-As has been suggested or at least hinted to by others, you have to use
-the route dst's device pointer.
+Both patches applied, thanks.
 
-Practically speaking, this means you'll have to cache the route, just
-like we do in ipv4 sockets.  And on each packet send 1) validate the
-route and relookup if it's become obsolute 2) dereference the dst->dev
-to get the mtu.
-
-This is because routes can change dynamically as can the physical
-device's MTU setting, you'll therefore have to evaluate everything
-on every packet send.
+------------------------------------------------------------------------------
+Android apps run on BlackBerry 10
+Introducing the new BlackBerry 10.2.1 Runtime for Android apps.
+Now with support for Jelly Bean, Bluetooth, Mapview and more.
+Get your Android app in front of a whole new audience.  Start now.
+http://pubads.g.doubleclick.net/gampad/clk?id=124407151&iu=/4140/ostg.clktrk
