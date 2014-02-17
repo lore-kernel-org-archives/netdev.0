@@ -1,18 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] USB2NET : SR9800 : Use %zu to format size_t
-Date: Mon, 17 Feb 2014 16:21:47 -0500 (EST)
-Message-ID: <20140217.162147.705587499600284443.davem@davemloft.net>
-References: <1392671920-11489-1-git-send-email-geert@linux-m68k.org>
+Subject: Re: [PATCH net-next 2/3] net: phy: allow PHY drivers to implement
+ their own software reset
+Date: Mon, 17 Feb 2014 16:23:43 -0500 (EST)
+Message-ID: <20140217.162343.325745613056866328.davem@davemloft.net>
+References: <1392670366-31457-1-git-send-email-f.fainelli@gmail.com>
+	<1392670366-31457-3-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: liujunliang_ljl@163.com, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: geert@linux-m68k.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1392671920-11489-1-git-send-email-geert@linux-m68k.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Shaohui.Xie@freescale.com
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51303 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751097AbaBQVXp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 16:23:45 -0500
+In-Reply-To: <1392670366-31457-3-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Mon, 17 Feb 2014 12:52:45 -0800
 
-Already fixed in the net tree.
+> +	if (phydev->drv->soft_reset(phydev))
+> +		ret = phydev->drv->soft_reset(phydev);
+
+You're not testing if the method is NULL, you're actually invoking it.
