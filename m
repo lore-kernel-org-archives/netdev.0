@@ -1,97 +1,220 @@
-From: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-Subject: [PATCH net-next v3 04/10] ieee802154: support
-	100kbps QPSK/EU in at86rf230
-Date: Mon, 17 Feb 2014 11:34:09 +0100
-Message-ID: <1392633255-26605-5-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+Subject: [PATCH net-next v3 06/10] ieee802154: add support for CCA mode in wpan phys
+Date: Mon, 17 Feb 2014 11:34:11 +0100
+Message-ID: <1392633255-26605-7-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 References: <1392633255-26605-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1392633255-26605-1-git-send-email-phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net,
+	Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from selenium.quasiparticle.net ([188.40.96.248]:59601 "EHLO
+	quasiparticle.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752282AbaBQKeW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 05:34:22 -0500
+In-Reply-To: <1392633255-26605-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The standard assigns channel 0 on page 2 to be 100kbps QPSK in the
-868.3MHz band. Add support to the at86rf230 driver for this channel and
-page, at the moment predicated only for the RF212 chip.
+The standard describes four modes of clear channel assesment: "energy
+above threshold", "carrier found", and the logical and/or of these two.
+Support for CCA mode setting is included in the at86rf230 driver,
+predicated for RF212 chips.
 
-Per the datasheet, configurations for page 0, channels 0 to 10 and page
-2, channels 0 to 10 differ only in the BPSK_QPSK bit. Support for
-channels 1 to 10 is untested.
-
-Signed-off-by: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
+Signed-off-by: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
 ---
- drivers/net/ieee802154/at86rf230.c | 17 ++++++++++++++---
- 1 file changed, 14 insertions(+), 3 deletions(-)
+ drivers/net/ieee802154/at86rf230.c |  9 +++++++++
+ include/linux/nl802154.h           |  1 +
+ include/net/mac802154.h            |  5 +++++
+ include/net/wpan-phy.h             |  1 +
+ net/ieee802154/nl-phy.c            | 32 +++++++++++++++++++++++++++++---
+ net/ieee802154/nl_policy.c         |  1 +
+ net/mac802154/ieee802154_dev.c     | 11 +++++++++++
+ 7 files changed, 57 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index 9afb4b9d..04a995d 100644
+index 3d40c23..c60871a 100644
 --- a/drivers/net/ieee802154/at86rf230.c
 +++ b/drivers/net/ieee802154/at86rf230.c
-@@ -106,7 +106,8 @@ static inline int is_rf212(struct at86rf230_local *local)
- #define	SR_OQPSK_DATA_RATE	0x0c, 0x03, 0
- #define	SR_SUB_MODE		0x0c, 0x04, 2
- #define	SR_BPSK_QPSK		0x0c, 0x08, 3
--#define	SR_RESERVED_0c_4	0x0c, 0x70, 4
-+#define	SR_OQPSK_SUB1_RC_EN	0x0c, 0x10, 4
-+#define	SR_RESERVED_0c_5	0x0c, 0x60, 5
- #define	SR_RX_SAFE_MODE		0x0c, 0x80, 7
- #define	RG_ANT_DIV	(0x0d)
- #define	SR_ANT_CTRL		0x0d, 0x03, 0
-@@ -594,6 +595,13 @@ at86rf212_set_channel(struct at86rf230_local *lp, int page, int channel)
- 	if (rc < 0)
- 		return rc;
+@@ -794,6 +794,14 @@ at86rf212_set_lbt(struct ieee802154_dev *dev, bool on)
+ 	return at86rf230_write_subreg(lp, SR_CSMA_LBT_MODE, on);
+ }
  
-+	if (page == 0)
-+		rc = at86rf230_write_subreg(lp, SR_BPSK_QPSK, 0);
-+	else
-+		rc = at86rf230_write_subreg(lp, SR_BPSK_QPSK, 1);
++static int
++at86rf212_set_cca_mode(struct ieee802154_dev *dev, u8 mode)
++{
++	struct at86rf230_local *lp = dev->priv;
++
++	return at86rf230_write_subreg(lp, SR_CCA_MODE, mode);
++}
++
+ static struct ieee802154_ops at86rf230_ops = {
+ 	.owner = THIS_MODULE,
+ 	.xmit = at86rf230_xmit,
+@@ -814,6 +822,7 @@ static struct ieee802154_ops at86rf212_ops = {
+ 	.set_hw_addr_filt = at86rf230_set_hw_addr_filt,
+ 	.set_txpower = at86rf212_set_txpower,
+ 	.set_lbt = at86rf212_set_lbt,
++	.set_cca_mode = at86rf212_set_cca_mode,
+ };
+ 
+ static void at86rf230_irqwork(struct work_struct *work)
+diff --git a/include/linux/nl802154.h b/include/linux/nl802154.h
+index 326baee..5edefc1 100644
+--- a/include/linux/nl802154.h
++++ b/include/linux/nl802154.h
+@@ -72,6 +72,7 @@ enum {
+ 
+ 	IEEE802154_ATTR_TXPOWER,
+ 	IEEE802154_ATTR_LBT_ENABLED,
++	IEEE802154_ATTR_CCA_MODE,
+ 
+ 	__IEEE802154_ATTR_MAX,
+ };
+diff --git a/include/net/mac802154.h b/include/net/mac802154.h
+index 521edcb..1a98e50 100644
+--- a/include/net/mac802154.h
++++ b/include/net/mac802154.h
+@@ -122,6 +122,10 @@ struct ieee802154_dev {
+  *	  Enables or disables listen before talk on the device. Called with
+  *	  pib_lock held.
+  *	  Returns either zero, or negative errno.
++ *
++ * set_cca_mode
++ *	  Sets the CCA mode used by the device. Called with pib_lock held.
++ *	  Returns either zero, or negative errno.
+  */
+ struct ieee802154_ops {
+ 	struct module	*owner;
+@@ -140,6 +144,7 @@ struct ieee802154_ops {
+ 				     u8 addr[IEEE802154_ADDR_LEN]);
+ 	int		(*set_txpower)(struct ieee802154_dev *dev, int db);
+ 	int		(*set_lbt)(struct ieee802154_dev *dev, bool on);
++	int		(*set_cca_mode)(struct ieee802154_dev *dev, u8 mode);
+ };
+ 
+ /* Basic interface to register ieee802154 device */
+diff --git a/include/net/wpan-phy.h b/include/net/wpan-phy.h
+index 804e6c4..03b5905 100644
+--- a/include/net/wpan-phy.h
++++ b/include/net/wpan-phy.h
+@@ -58,6 +58,7 @@ struct wpan_phy {
+ 
+ 	int (*set_txpower)(struct wpan_phy *phy, int db);
+ 	int (*set_lbt)(struct wpan_phy *phy, bool on);
++	int (*set_cca_mode)(struct wpan_phy *phy, u8 cca_mode);
+ 
+ 	char priv[0] __attribute__((__aligned__(NETDEV_ALIGN)));
+ };
+diff --git a/net/ieee802154/nl-phy.c b/net/ieee802154/nl-phy.c
+index f029310..36f58d6 100644
+--- a/net/ieee802154/nl-phy.c
++++ b/net/ieee802154/nl-phy.c
+@@ -57,7 +57,8 @@ static int ieee802154_nl_fill_phy(struct sk_buff *msg, u32 portid,
+ 	    nla_put_u8(msg, IEEE802154_ATTR_PAGE, phy->current_page) ||
+ 	    nla_put_u8(msg, IEEE802154_ATTR_CHANNEL, phy->current_channel) ||
+ 	    nla_put_s8(msg, IEEE802154_ATTR_TXPOWER, phy->transmit_power) ||
+-	    nla_put_u8(msg, IEEE802154_ATTR_LBT_ENABLED, phy->lbt))
++	    nla_put_u8(msg, IEEE802154_ATTR_LBT_ENABLED, phy->lbt) ||
++	    nla_put_u8(msg, IEEE802154_ATTR_CCA_MODE, phy->cca_mode))
+ 		goto nla_put_failure;
+ 	for (i = 0; i < 32; i++) {
+ 		if (phy->channels_supported[i])
+@@ -385,6 +386,23 @@ static int phy_set_lbt(struct wpan_phy *phy, struct genl_info *info)
+ 	return 0;
+ }
+ 
++static int phy_set_cca_mode(struct wpan_phy *phy, struct genl_info *info)
++{
++	u8 mode = nla_get_u8(info->attrs[IEEE802154_ATTR_CCA_MODE]);
++	int rc;
++
++	if (mode > 3)
++		return -EINVAL;
++
++	rc = phy->set_cca_mode(phy, mode);
 +	if (rc < 0)
 +		return rc;
 +
- 	return at86rf230_write_subreg(lp, SR_CHANNEL, channel);
- }
++	phy->cca_mode = mode;
++
++	return 0;
++}
++
+ int ieee802154_set_phyparams(struct sk_buff *skb, struct genl_info *info)
+ {
+ 	struct wpan_phy *phy;
+@@ -394,7 +412,8 @@ int ieee802154_set_phyparams(struct sk_buff *skb, struct genl_info *info)
+ 	pr_debug("%s\n", __func__);
  
-@@ -620,6 +628,7 @@ at86rf230_channel(struct ieee802154_dev *dev, int page, int channel)
+ 	if (!info->attrs[IEEE802154_ATTR_PHY_NAME] &&
+-	    !info->attrs[IEEE802154_ATTR_LBT_ENABLED])
++	    !info->attrs[IEEE802154_ATTR_LBT_ENABLED] &&
++	    !info->attrs[IEEE802154_ATTR_CCA_MODE])
+ 		return -EINVAL;
  
- 	msleep(1); /* Wait for PLL */
- 	dev->phy->current_channel = channel;
-+	dev->phy->current_page = page;
+ 	name = nla_data(info->attrs[IEEE802154_ATTR_PHY_NAME]);
+@@ -406,7 +425,8 @@ int ieee802154_set_phyparams(struct sk_buff *skb, struct genl_info *info)
+ 		return -ENODEV;
  
- 	return 0;
- }
-@@ -1064,10 +1073,12 @@ static int at86rf230_probe(struct spi_device *spi)
+ 	if ((!phy->set_txpower && info->attrs[IEEE802154_ATTR_TXPOWER]) ||
+-	    (!phy->set_lbt && info->attrs[IEEE802154_ATTR_LBT_ENABLED]))
++	    (!phy->set_lbt && info->attrs[IEEE802154_ATTR_LBT_ENABLED]) ||
++	    (!phy->set_cca_mode && info->attrs[IEEE802154_ATTR_CCA_MODE]))
+ 		goto out;
  
- 	spi_set_drvdata(spi, lp);
+ 	mutex_lock(&phy->pib_lock);
+@@ -423,6 +443,12 @@ int ieee802154_set_phyparams(struct sk_buff *skb, struct genl_info *info)
+ 			goto error;
+ 	}
  
--	if (is_rf212(lp))
-+	if (is_rf212(lp)) {
- 		dev->phy->channels_supported[0] = 0x00007FF;
--	else
-+		dev->phy->channels_supported[2] = 0x00007FF;
-+	} else {
- 		dev->phy->channels_supported[0] = 0x7FFF800;
++	if (info->attrs[IEEE802154_ATTR_CCA_MODE]) {
++		rc = phy_set_cca_mode(phy, info);
++		if (rc < 0)
++			goto error;
 +	}
++
+ 	mutex_unlock(&phy->pib_lock);
  
- 	rc = at86rf230_hw_init(lp);
- 	if (rc)
+ 	wpan_phy_put(phy);
+diff --git a/net/ieee802154/nl_policy.c b/net/ieee802154/nl_policy.c
+index a09f642..d87c2c9 100644
+--- a/net/ieee802154/nl_policy.c
++++ b/net/ieee802154/nl_policy.c
+@@ -55,5 +55,6 @@ const struct nla_policy ieee802154_policy[IEEE802154_ATTR_MAX + 1] = {
+ 
+ 	[IEEE802154_ATTR_TXPOWER] = { .type = NLA_S8, },
+ 	[IEEE802154_ATTR_LBT_ENABLED] = { .type = NLA_U8, },
++	[IEEE802154_ATTR_CCA_MODE] = { .type = NLA_U8, },
+ };
+ 
+diff --git a/net/mac802154/ieee802154_dev.c b/net/mac802154/ieee802154_dev.c
+index 56338c8..4965e4c 100644
+--- a/net/mac802154/ieee802154_dev.c
++++ b/net/mac802154/ieee802154_dev.c
+@@ -185,6 +185,16 @@ static int mac802154_set_lbt(struct wpan_phy *phy, bool on)
+ 	return priv->ops->set_lbt(&priv->hw, on);
+ }
+ 
++static int mac802154_set_cca_mode(struct wpan_phy *phy, u8 mode)
++{
++	struct mac802154_priv *priv = wpan_phy_priv(phy);
++
++	if (!priv->ops->set_cca_mode)
++		return -ENOTSUPP;
++
++	return priv->ops->set_cca_mode(&priv->hw, mode);
++}
++
+ struct ieee802154_dev *
+ ieee802154_alloc_device(size_t priv_data_len, struct ieee802154_ops *ops)
+ {
+@@ -264,6 +274,7 @@ int ieee802154_register_device(struct ieee802154_dev *dev)
+ 	priv->phy->del_iface = mac802154_del_iface;
+ 	priv->phy->set_txpower = mac802154_set_txpower;
+ 	priv->phy->set_lbt = mac802154_set_lbt;
++	priv->phy->set_cca_mode = mac802154_set_cca_mode;
+ 
+ 	rc = wpan_phy_register(priv->phy);
+ 	if (rc < 0)
 -- 
 1.9.0
-
-
-------------------------------------------------------------------------------
-Android apps run on BlackBerry 10
-Introducing the new BlackBerry 10.2.1 Runtime for Android apps.
-Now with support for Jelly Bean, Bluetooth, Mapview and more.
-Get your Android app in front of a whole new audience.  Start now.
-http://pubads.g.doubleclick.net/gampad/clk?id=124407151&iu=/4140/ostg.clktrk
