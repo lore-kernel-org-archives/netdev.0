@@ -1,146 +1,105 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v4 net-next 06/12] bonding: document the new _arp options for arp_validate
-Date: Mon, 17 Feb 2014 15:41:22 +0100
-Message-ID: <1392648088-21336-7-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v4 net-next 12/12] bonding: rename last_arp_rx to last_rx
+Date: Mon, 17 Feb 2014 15:41:28 +0100
+Message-ID: <1392648088-21336-13-git-send-email-vfalico@redhat.com>
 References: <1392648088-21336-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24228 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:51432 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753619AbaBQOp6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Feb 2014 09:45:58 -0500
+	id S1753861AbaBQOqD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Feb 2014 09:46:03 -0500
 In-Reply-To: <1392648088-21336-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+To reflect the new meaning.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- Documentation/networking/bonding.txt | 96 +++++++++++++++++++++++++-----------
- 1 file changed, 66 insertions(+), 30 deletions(-)
+ drivers/net/bonding/bond_main.c | 12 ++++++------
+ drivers/net/bonding/bonding.h   |  4 ++--
+ 2 files changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
-index 96b4ad8..a383c00 100644
---- a/Documentation/networking/bonding.txt
-+++ b/Documentation/networking/bonding.txt
-@@ -270,16 +270,15 @@ arp_ip_target
- arp_validate
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index f6d56d9..ac4a1b8 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1397,10 +1397,10 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
  
- 	Specifies whether or not ARP probes and replies should be
--	validated in any mode that supports arp monitoring.  This causes
--	the ARP monitor to examine the incoming ARP requests and replies,
--	and only consider a slave to be up if it is receiving the
--	appropriate ARP traffic.
-+	validated in any mode that supports arp monitoring, or whether
-+	non-ARP traffic should be filtered (disregarded) for link
-+	monitoring purposes.
+ 	bond_update_speed_duplex(new_slave);
  
- 	Possible values are:
+-	new_slave->last_arp_rx = jiffies -
++	new_slave->last_rx = jiffies -
+ 		(msecs_to_jiffies(bond->params.arp_interval) + 1);
+ 	for (i = 0; i < BOND_MAX_ARP_TARGETS; i++)
+-		new_slave->target_last_arp_rx[i] = new_slave->last_arp_rx;
++		new_slave->target_last_arp_rx[i] = new_slave->last_rx;
  
- 	none or 0
+ 	if (bond->params.miimon && !bond->params.use_carrier) {
+ 		link_reporting = bond_check_dev_link(bond, slave_dev, 1);
+@@ -2242,7 +2242,7 @@ static void bond_validate_arp(struct bonding *bond, struct slave *slave, __be32
+ 		pr_debug("bva: sip %pI4 not found in targets\n", &sip);
+ 		return;
+ 	}
+-	slave->last_arp_rx = jiffies;
++	slave->last_rx = jiffies;
+ 	slave->target_last_arp_rx[i] = jiffies;
+ }
  
--		No validation is performed.  This is the default.
-+		No validation or filtering is performed.
+@@ -2257,7 +2257,7 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
+ 	if (!slave_do_arp_validate(bond, slave)) {
+ 		if ((slave_do_arp_validate_only(bond, slave) && is_arp) ||
+ 		    !slave_do_arp_validate_only(bond, slave))
+-			slave->last_arp_rx = jiffies;
++			slave->last_rx = jiffies;
+ 		return RX_HANDLER_ANOTHER;
+ 	} else if (!is_arp) {
+ 		return RX_HANDLER_ANOTHER;
+@@ -2369,7 +2369,7 @@ static void bond_loadbalance_arp_mon(struct work_struct *work)
  
- 	active or 1
+ 		if (slave->link != BOND_LINK_UP) {
+ 			if (bond_time_in_interval(bond, trans_start, 1) &&
+-			    bond_time_in_interval(bond, slave->last_arp_rx, 1)) {
++			    bond_time_in_interval(bond, slave->last_rx, 1)) {
  
-@@ -293,31 +292,68 @@ arp_validate
+ 				slave->link  = BOND_LINK_UP;
+ 				slave_state_changed = 1;
+@@ -2398,7 +2398,7 @@ static void bond_loadbalance_arp_mon(struct work_struct *work)
+ 			 * if we don't know our ip yet
+ 			 */
+ 			if (!bond_time_in_interval(bond, trans_start, 2) ||
+-			    !bond_time_in_interval(bond, slave->last_arp_rx, 2)) {
++			    !bond_time_in_interval(bond, slave->last_rx, 2)) {
  
- 		Validation is performed for all slaves.
+ 				slave->link  = BOND_LINK_DOWN;
+ 				slave_state_changed = 1;
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 36db702..4303628 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -190,7 +190,7 @@ struct slave {
+ 	int    delay;
+ 	/* all three in jiffies */
+ 	unsigned long last_link_up;
+-	unsigned long last_arp_rx;
++	unsigned long last_rx;
+ 	unsigned long target_last_arp_rx[BOND_MAX_ARP_TARGETS];
+ 	s8     link;    /* one of BOND_LINK_XXXX */
+ 	s8     new_link;
+@@ -383,7 +383,7 @@ static inline unsigned long slave_last_rx(struct bonding *bond,
+ 	if (bond->params.arp_all_targets == BOND_ARP_TARGETS_ALL)
+ 		return slave_oldest_target_arp_rx(bond, slave);
  
--	For the active slave, the validation checks ARP replies to
--	confirm that they were generated by an arp_ip_target.  Since
--	backup slaves do not typically receive these replies, the
--	validation performed for backup slaves is on the ARP request
--	sent out via the active slave.  It is possible that some
--	switch or network configurations may result in situations
--	wherein the backup slaves do not receive the ARP requests; in
--	such a situation, validation of backup slaves must be
--	disabled.
--
--	The validation of ARP requests on backup slaves is mainly
--	helping bonding to decide which slaves are more likely to
--	work in case of the active slave failure, it doesn't really
--	guarantee that the backup slave will work if it's selected
--	as the next active slave.
--
--	This option is useful in network configurations in which
--	multiple bonding hosts are concurrently issuing ARPs to one or
--	more targets beyond a common switch.  Should the link between
--	the switch and target fail (but not the switch itself), the
--	probe traffic generated by the multiple bonding instances will
--	fool the standard ARP monitor into considering the links as
--	still up.  Use of the arp_validate option can resolve this, as
--	the ARP monitor will only consider ARP requests and replies
--	associated with its own instance of bonding.
-+	filter or 4
-+
-+		Filtering is applied to all slaves. No validation is
-+		performed.
-+
-+	filter_active or 5
-+
-+		Filtering is applied to all slaves, validation is performed
-+		only for the active slave.
-+
-+	filter_backup or 6
-+
-+		Filtering is applied to all slaves, validation is performed
-+		only for backup slaves.
-+
-+	Validation:
-+
-+	Enabling validation causes the ARP monitor to examine the incoming
-+	ARP requests and replies, and only consider a slave to be up if it
-+	is receiving the appropriate ARP traffic.
-+
-+	For an active slave, the validation checks ARP replies to confirm
-+	that they were generated by an arp_ip_target.  Since backup slaves
-+	do not typically receive these replies, the validation performed
-+	for backup slaves is on the broadcast ARP request sent out via the
-+	active slave.  It is possible that some switch or network
-+	configurations may result in situations wherein the backup slaves
-+	do not receive the ARP requests; in such a situation, validation
-+	of backup slaves must be disabled.
-+
-+	The validation of ARP requests on backup slaves is mainly helping
-+	bonding to decide which slaves are more likely to work in case of
-+	the active slave failure, it doesn't really guarantee that the
-+	backup slave will work if it's selected as the next active slave.
-+
-+	Validation is useful in network configurations in which multiple
-+	bonding hosts are concurrently issuing ARPs to one or more targets
-+	beyond a common switch.  Should the link between the switch and
-+	target fail (but not the switch itself), the probe traffic
-+	generated by the multiple bonding instances will fool the standard
-+	ARP monitor into considering the links as still up.  Use of
-+	validation can resolve this, as the ARP monitor will only consider
-+	ARP requests and replies associated with its own instance of
-+	bonding.
-+
-+	Filtering:
-+
-+	Enabling filtering causes the ARP monitor to only use incoming ARP
-+	packets for link availability purposes.  Arriving packets that are
-+	not ARPs are delivered normally, but do not count when determining
-+	if a slave is available.
-+
-+	Filtering operates by only considering the reception of ARP
-+	packets (any ARP packet, regardless of source or destination) when
-+	determining if a slave has received traffic for link availability
-+	purposes.
-+
-+	Filtering is useful in network configurations in which significant
-+	levels of third party broadcast traffic would fool the standard
-+	ARP monitor into considering the links as still up.  Use of
-+	filtering can resolve this, as only ARP traffic is considered for
-+	link availability purposes.
+-	return slave->last_arp_rx;
++	return slave->last_rx;
+ }
  
- 	This option was added in bonding version 3.1.0.
- 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
 -- 
 1.8.4
