@@ -1,79 +1,40 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v3 net-next 0/12] bonding: add an option to rely on unvalidated arp packets
-Date: Mon, 17 Feb 2014 14:39:09 +0100
-Message-ID: <1392644361-8510-1-git-send-email-vfalico@redhat.com>
-Cc: Rob Landley <rob@landley.net>, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	dingtianhong <dingtianhong@huawei.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Cong Wang <amwang@redhat.com>, linux-doc@vger.kernel.org,
-	Veaceslav Falico <vfalico@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-doc-owner@vger.kernel.org>
-Sender: linux-doc-owner@vger.kernel.org
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: Re: [PATCH] net: add init-regs for of_phy support
+Date: Mon, 17 Feb 2014 13:50:28 +0000
+Message-ID: <530213A4.4030400@codethink.co.uk>
+References: <1392642484-19938-1-git-send-email-ben.dooks@codethink.co.uk> <1392642484-19938-2-git-send-email-ben.dooks@codethink.co.uk> <20140217134448.GA19308@e106331-lin.cambridge.arm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>
+To: Mark Rutland <mark.rutland@arm.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20140217134448.GA19308@e106331-lin.cambridge.arm.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On 17/02/14 13:44, Mark Rutland wrote:
+> On Mon, Feb 17, 2014 at 01:08:04PM +0000, Ben Dooks wrote:
+>> Add new init-regs field for of_phy nodes and make sure these
+>> get applied when the phy is configured.
+>>
+>> This allows any phy node in an fdt to initialise registers
+>> that may not be set as standard by the driver at initialisation
+>> time, such as LED controls.
+>
+> Why not have a driver for the particular PHY? If it's not standard we
+> don't need to pretend it is. If it has some extensions then the standard
+> compatible string can be a fallback entry in the compatible list.
 
-v2 -> v3:
-Per Jay's advise, use the 'filter' keyword instead of 'arp' one, and use
-his text for documentation. Also, rebase on the latest net-next. Sorry for
-the delay, didn't manage to send it before net-next was closed.
+I was trying to provide some useful and reasonably generic code
+to setup PHYs without having to add specific arguments to each of
+them.
 
-v1 -> v2:
-Don't remove the 'all traffic' functionality - rather, add new arp_validate
-options to specify that we want *only* unvalidated arps.
+I could have added something like ksz8041,led-mode1 = <1> and
+updated the micrel driver.
 
-Currently, if arp_validate is off (0), slave_last_rx() returns the
-slave->dev->last_rx, which is always updated on *any* packet received by
-slave, and not only arps. This means that, if the validation of arps is
-off, we're treating *any* incoming packet as a proof of slave being up, and
-not only arps.
-
-This might seem logical at the first glance, however it can cause a lot of
-troubles and false-positives, one example would be:
-
-The arp_ip_target is NOT accessible, however someone in the broadcast domain
-spams with any broadcast traffic. This way bonding will be tricked that the
-slave is still up (as in - can access arp_ip_target), while it's not.
-
-The net_device->last_rx is already used in a lot of drivers (even though the
-comment states to NOT do it :)), and it's also ugly to modify it from bonding.
-
-However, some loadbalance setups might rely on the fact that even non-arp
-traffic is a sign of slave being up - and we definitely can't break anyones
-config - so an extension to arp_validate is needed.
-
-So, to fix this, add an option for the user to specify if he wants to
-filter out non-arp traffic on unvalidated slaves, remove the last_rx from
-bonding, *always* call bond_arp_rcv() in slave's rx_handler (which is
-bond_handle_frame), and if we spot an arp there with this option on - update
-the slave->last_arp_rx - and use it instead of net_device->last_rx. Finally,
-rename last_arp_rx to last_rx to reflect the changes.
-
-Also rename slave->jiffies to ->last_link_up, to reflect better its
-meaning, add the new option's documentation and update the arp_validate one
-to be a bit more descriptive.
-
-
-CC: Rob Landley <rob@landley.net>
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: dingtianhong <dingtianhong@huawei.com>
-CC: Nikolay Aleksandrov <nikolay@redhat.com>
-CC: Neil Horman <nhorman@tuxdriver.com>
-CC: Cong Wang <amwang@redhat.com>
-CC: linux-doc@vger.kernel.org
-CC: netdev@vger.kernel.org
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
-
----
- Documentation/networking/bonding.txt | 96 +++++++++++++++++++++++++-----------
- drivers/net/bonding/bond_main.c      | 56 +++++++++------------
- drivers/net/bonding/bond_options.c   | 16 +++---
- drivers/net/bonding/bonding.h        | 26 ++++++----
- include/linux/netdevice.h            |  8 +--
- 5 files changed, 117 insertions(+), 85 deletions(-)
+-- 
+Ben Dooks				http://www.codethink.co.uk/
+Senior Engineer				Codethink - Providing Genius
