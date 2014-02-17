@@ -1,83 +1,52 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v4 net-next 0/12] bonding: add an option to rely on unvalidated arp packets
-Date: Mon, 17 Feb 2014 15:41:16 +0100
-Message-ID: <1392648088-21336-1-git-send-email-vfalico@redhat.com>
-Cc: Rob Landley <rob@landley.net>, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	dingtianhong <dingtianhong@huawei.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Cong Wang <amwang@redhat.com>, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH v4 net-next 08/12] bonding: use last_arp_rx in slave_last_rx()
+Date: Mon, 17 Feb 2014 15:41:24 +0100
+Message-ID: <1392648088-21336-9-git-send-email-vfalico@redhat.com>
+References: <1392648088-21336-1-git-send-email-vfalico@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:47490 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753274AbaBQOq4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Feb 2014 09:46:56 -0500
+In-Reply-To: <1392648088-21336-1-git-send-email-vfalico@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Now that last_arp_rx really has the last time we've received any (validated or
+not) ARP, we can use it in slave_last_rx() instead of slave->dev->last_rx.
 
-v3 -> v4:
-Per Nikolay's advise, remove the new bond_opts restriction on modes setting
-for arp_validate.
-
-v2 -> v3:
-Per Jay's advise, use the 'filter' keyword instead of 'arp' one, and use
-his text for documentation. Also, rebase on the latest net-next. Sorry for
-the delay, didn't manage to send it before net-next was closed.
-
-v1 -> v2:
-Don't remove the 'all traffic' functionality - rather, add new arp_validate
-options to specify that we want *only* unvalidated arps.
-
-Currently, if arp_validate is off (0), slave_last_rx() returns the
-slave->dev->last_rx, which is always updated on *any* packet received by
-slave, and not only arps. This means that, if the validation of arps is
-off, we're treating *any* incoming packet as a proof of slave being up, and
-not only arps.
-
-This might seem logical at the first glance, however it can cause a lot of
-troubles and false-positives, one example would be:
-
-The arp_ip_target is NOT accessible, however someone in the broadcast domain
-spams with any broadcast traffic. This way bonding will be tricked that the
-slave is still up (as in - can access arp_ip_target), while it's not.
-
-The net_device->last_rx is already used in a lot of drivers (even though the
-comment states to NOT do it :)), and it's also ugly to modify it from bonding.
-
-However, some loadbalance setups might rely on the fact that even non-arp
-traffic is a sign of slave being up - and we definitely can't break anyones
-config - so an extension to arp_validate is needed.
-
-So, to fix this, add an option for the user to specify if he wants to
-filter out non-arp traffic on unvalidated slaves, remove the last_rx from
-bonding, *always* call bond_arp_rcv() in slave's rx_handler (which is
-bond_handle_frame), and if we spot an arp there with this option on - update
-the slave->last_arp_rx - and use it instead of net_device->last_rx. Finally,
-rename last_arp_rx to last_rx to reflect the changes.
-
-Also rename slave->jiffies to ->last_link_up, to reflect better its
-meaning, add the new option's documentation and update the arp_validate one
-to be a bit more descriptive.
-
-CC: Rob Landley <rob@landley.net>
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: dingtianhong <dingtianhong@huawei.com>
-CC: Nikolay Aleksandrov <nikolay@redhat.com>
-CC: Neil Horman <nhorman@tuxdriver.com>
-CC: Cong Wang <amwang@redhat.com>
-CC: linux-doc@vger.kernel.org
-CC: linux-kernel@vger.kernel.org
-CC: netdev@vger.kernel.org
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
-
 ---
- Documentation/networking/bonding.txt | 96 +++++++++++++++++++++++++-----------
- drivers/net/bonding/bond_main.c      | 56 +++++++++------------
- drivers/net/bonding/bond_options.c   | 17 ++++---
- drivers/net/bonding/bonding.h        | 26 ++++++----
- include/linux/netdevice.h            |  8 +--
- 5 files changed, 117 insertions(+), 86 deletions(-)
+ drivers/net/bonding/bonding.h | 10 +++-------
+ 1 file changed, 3 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index ab2e651..ae20c5a 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -379,14 +379,10 @@ static inline unsigned long slave_oldest_target_arp_rx(struct bonding *bond,
+ static inline unsigned long slave_last_rx(struct bonding *bond,
+ 					struct slave *slave)
+ {
+-	if (slave_do_arp_validate(bond, slave)) {
+-		if (bond->params.arp_all_targets == BOND_ARP_TARGETS_ALL)
+-			return slave_oldest_target_arp_rx(bond, slave);
+-		else
+-			return slave->last_arp_rx;
+-	}
++	if (bond->params.arp_all_targets == BOND_ARP_TARGETS_ALL)
++		return slave_oldest_target_arp_rx(bond, slave);
+ 
+-	return slave->dev->last_rx;
++	return slave->last_arp_rx;
+ }
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+-- 
+1.8.4
