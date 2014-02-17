@@ -1,119 +1,37 @@
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH 3/3] Drivers: net: hyperv: Cleanup the netvsc receive callback
- functio
-Date: Sun, 16 Feb 2014 16:38:45 -0800
-Message-ID: <1392597525-13346-3-git-send-email-kys@microsoft.com>
-References: <1392597483-13307-1-git-send-email-kys@microsoft.com>
- <1392597525-13346-1-git-send-email-kys@microsoft.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next 0/4] bonding cleaning
+Date: Mon, 17 Feb 2014 09:00:47 +0800
+Message-ID: <53015F3F.30409@huawei.com>
+References: <cover.1392508410.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
- jasowang@redhat.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1392597525-13346-1-git-send-email-kys@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Cc: <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1392508410.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Get rid of the buffer allocation in the receive path for normal packets.
+On 2014/2/16 7:57, Joe Perches wrote:
+> Miscellaneous cleanups
+> 
+> Joe Perches (4):
+>   bonding: Convert pr_warning to pr_warn, neatening
+>   bonding: Neaten pr_<level>
+>   bonding: Convert c99 comments
+>   bonding: Convert memcpy(foo, bar, ETH_ALEN) to ether_addr_copy(foo, bar)
+> 
+>  drivers/net/bonding/bond_3ad.c     |  19 +--
+>  drivers/net/bonding/bond_3ad.h     | 175 ++++++++++++++--------------
+>  drivers/net/bonding/bond_alb.c     |  36 +++---
+>  drivers/net/bonding/bond_debugfs.c |  10 +-
+>  drivers/net/bonding/bond_main.c    | 231 ++++++++++++++++++-------------------
+>  drivers/net/bonding/bond_netlink.c |   6 +-
+>  drivers/net/bonding/bond_options.c | 102 ++++++++--------
+>  drivers/net/bonding/bond_procfs.c  |   8 +-
+>  drivers/net/bonding/bond_sysfs.c   |   8 +-
+>  9 files changed, 288 insertions(+), 307 deletions(-)
+> 
 
-Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
----
- drivers/net/hyperv/hyperv_net.h |    2 ++
- drivers/net/hyperv/netvsc.c     |   33 ++++++++++-----------------------
- 2 files changed, 12 insertions(+), 23 deletions(-)
-
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 7645ba3..01a16ea 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -506,6 +506,8 @@ struct netvsc_device {
- 
- 	/* Holds rndis device info */
- 	void *extension;
-+	/* The recive buffer for this device */
-+	unsigned char cb_buffer[NETVSC_PACKET_SIZE];
- };
- 
- /* NdisInitialize message */
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 7fa2bba..9a0e9c6 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -795,22 +795,16 @@ static void netvsc_channel_cb(void *context)
- 	struct netvsc_device *net_device;
- 	u32 bytes_recvd;
- 	u64 request_id;
--	unsigned char *packet;
- 	struct vmpacket_descriptor *desc;
- 	unsigned char *buffer;
- 	int bufferlen = NETVSC_PACKET_SIZE;
- 	struct net_device *ndev;
- 
--	packet = kzalloc(NETVSC_PACKET_SIZE * sizeof(unsigned char),
--			 GFP_ATOMIC);
--	if (!packet)
--		return;
--	buffer = packet;
--
- 	net_device = get_inbound_net_device(device);
- 	if (!net_device)
--		goto out;
-+		return;
- 	ndev = net_device->ndev;
-+	buffer = net_device->cb_buffer;
- 
- 	do {
- 		ret = vmbus_recvpacket_raw(device->channel, buffer, bufferlen,
-@@ -838,23 +832,16 @@ static void netvsc_channel_cb(void *context)
- 					break;
- 				}
- 
--				/* reset */
--				if (bufferlen > NETVSC_PACKET_SIZE) {
--					kfree(buffer);
--					buffer = packet;
--					bufferlen = NETVSC_PACKET_SIZE;
--				}
- 			} else {
--				/* reset */
--				if (bufferlen > NETVSC_PACKET_SIZE) {
--					kfree(buffer);
--					buffer = packet;
--					bufferlen = NETVSC_PACKET_SIZE;
--				}
--
-+				/*
-+				 * We are done for this pass.
-+				 */
- 				break;
- 			}
-+
- 		} else if (ret == -ENOBUFS) {
-+			if (bufferlen > NETVSC_PACKET_SIZE)
-+				kfree(buffer);
- 			/* Handle large packet */
- 			buffer = kmalloc(bytes_recvd, GFP_ATOMIC);
- 			if (buffer == NULL) {
-@@ -869,8 +856,8 @@ static void netvsc_channel_cb(void *context)
- 		}
- 	} while (1);
- 
--out:
--	kfree(buffer);
-+	if (bufferlen > NETVSC_PACKET_SIZE)
-+		kfree(buffer);
- 	return;
- }
- 
--- 
-1.7.4.1
+Reviewed-by: Ding Tianhong <dingtianhong@huawei.com>
