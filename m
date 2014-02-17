@@ -1,81 +1,110 @@
-From: Andrew Bennieston <andrew.bennieston@citrix.com>
-Subject: Re: [Xen-devel] [PATCH V3 net-next 3/5] xen-netfront: Factor	queue-specific
- data into queue struct.
-Date: Mon, 17 Feb 2014 11:10:23 +0000
-Message-ID: <5301EE1F.8080305@citrix.com>
-References: <1392399353-11973-1-git-send-email-andrew.bennieston@citrix.com> <1392399353-11973-4-git-send-email-andrew.bennieston@citrix.com> <52FE5AC6.9000300@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<paul.durrant@citrix.com>, <wei.liu2@citrix.com>,
-	<ian.campbell@citrix.com>
-To: David Vrabel <david.vrabel@citrix.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net] net: sctp: fix sctp_connectx abi for ia32 emulation/compat mode
+Date: Mon, 17 Feb 2014 12:11:11 +0100
+Message-ID: <1392635471-31528-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:43848 "EHLO SMTP.CITRIX.COM"
+Received: from mx1.redhat.com ([209.132.183.28]:44366 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751936AbaBQLKs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Feb 2014 06:10:48 -0500
-In-Reply-To: <52FE5AC6.9000300@citrix.com>
+	id S1751936AbaBQLLY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Feb 2014 06:11:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14/02/14 18:04, David Vrabel wrote:
-> On 14/02/14 17:35, Andrew J. Bennieston wrote:
->> From: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
->>
->> In preparation for multi-queue support in xen-netfront, move the
->> queue-specific data from struct netfront_info to struct netfront_queue,
->> and update the rest of the code to use this.
->>
->> Also adds loops over queues where appropriate, even though only one is
->> configured at this point, and uses alloc_etherdev_mq() and the
->> corresponding multi-queue netif wake/start/stop functions in preparation
->> for multiple active queues.
->>
->> Finally, implements a trivial queue selection function suitable for
->> ndo_select_queue, which simply returns 0, selecting the first (and
->> only) queue.
-> [...]
->> --- a/drivers/net/xen-netfront.c
->> +++ b/drivers/net/xen-netfront.c
-> [...]
->> @@ -2048,17 +2196,27 @@ static const struct xenbus_device_id netfront_ids[] = {
-> [...]
->> +	for (i = 0; i < info->num_queues; ++i) {
->> +		queue = &info->queues[i];
->> +		del_timer_sync(&queue->rx_refill_timer);
->> +	}
->> +
->> +	if (info->num_queues) {
->> +		kfree(info->queues);
->> +		info->queues = NULL;
->> +	}
->> +
->>   	xennet_sysfs_delif(info->netdev);
->>
->>   	unregister_netdev(info->netdev);
->>
->> -	del_timer_sync(&info->rx_refill_timer);
->> -
->
-> This has reordered the del_timer_sync() to before the
-> unregister_netdev() call.
->
-> Can you be sure that the timer cannot be restarted after deleting it?
->
-> David
->
-Looking at the code, mod_timer() is called from 
-xennet_alloc_rx_buffers(), only. This, in turn, is called from 
-xennet_poll, which is the registered NAPI handler function. This should 
-not be called after a napi_disable(), which is done in xennet_close(). 
-xennet_close() is called to stop the interface, which should be done 
-before the module is removed (unless I'm mistaken here). So this should 
-be safe.
+SCTP's sctp_connectx() abi breaks for 64bit kernels compiled with 32bit
+emulation (e.g. ia32 emulation or x86_x32). Due to internal usage of
+'struct sctp_getaddrs_old' which includes a struct sockaddr pointer,
+sizeof(param) check will always fail in kernel as the structure in
+64bit kernel space is 4bytes larger than for user binaries compiled
+in 32bit mode. Thus, applications making use of sctp_connectx() won't
+be able to run under such circumstances.
 
-That said, there is no reason that the queue cleanup has to happen 
-before the unregister_netdev() call. I'll move it to after that point, 
-just to be safe.
+Introduce a compat interface in the kernel to deal with such
+situations by using a 'struct compat_sctp_getaddrs_old' structure
+where user data is copied into it, and then sucessively transformed
+into a 'struct sctp_getaddrs_old' structure with the help of
+compat_ptr(). That fixes sctp_connectx() abi without any changes
+needed in user space, and lets the SCTP test suite pass when compiled
+in 32bit and run on 64bit kernels.
 
--Andrew
+Fixes: f9c67811ebc0 ("sctp: Fix regression introduced by new sctp_connectx api")
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ net/sctp/socket.c | 41 ++++++++++++++++++++++++++++++++---------
+ 1 file changed, 32 insertions(+), 9 deletions(-)
+
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 7075ac8..9145ffc 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -64,6 +64,7 @@
+ #include <linux/crypto.h>
+ #include <linux/slab.h>
+ #include <linux/file.h>
++#include <linux/compat.h>
+ 
+ #include <net/ip.h>
+ #include <net/icmp.h>
+@@ -1368,11 +1369,19 @@ static int sctp_setsockopt_connectx(struct sock *sk,
+ /*
+  * New (hopefully final) interface for the API.
+  * We use the sctp_getaddrs_old structure so that use-space library
+- * can avoid any unnecessary allocations.   The only defferent part
++ * can avoid any unnecessary allocations. The only different part
+  * is that we store the actual length of the address buffer into the
+- * addrs_num structure member.  That way we can re-use the existing
++ * addrs_num structure member. That way we can re-use the existing
+  * code.
+  */
++#ifdef CONFIG_COMPAT
++struct compat_sctp_getaddrs_old {
++	sctp_assoc_t	assoc_id;
++	s32		addr_num;
++	compat_uptr_t	addrs;		/* struct sockaddr * */
++};
++#endif
++
+ static int sctp_getsockopt_connectx3(struct sock *sk, int len,
+ 				     char __user *optval,
+ 				     int __user *optlen)
+@@ -1381,16 +1390,30 @@ static int sctp_getsockopt_connectx3(struct sock *sk, int len,
+ 	sctp_assoc_t assoc_id = 0;
+ 	int err = 0;
+ 
+-	if (len < sizeof(param))
+-		return -EINVAL;
++#ifdef CONFIG_COMPAT
++	if (is_compat_task()) {
++		struct compat_sctp_getaddrs_old param32;
+ 
+-	if (copy_from_user(&param, optval, sizeof(param)))
+-		return -EFAULT;
++		if (len < sizeof(param32))
++			return -EINVAL;
++		if (copy_from_user(&param32, optval, sizeof(param32)))
++			return -EFAULT;
+ 
+-	err = __sctp_setsockopt_connectx(sk,
+-			(struct sockaddr __user *)param.addrs,
+-			param.addr_num, &assoc_id);
++		param.assoc_id = param32.assoc_id;
++		param.addr_num = param32.addr_num;
++		param.addrs = compat_ptr(param32.addrs);
++	} else
++#endif
++	{
++		if (len < sizeof(param))
++			return -EINVAL;
++		if (copy_from_user(&param, optval, sizeof(param)))
++			return -EFAULT;
++	}
+ 
++	err = __sctp_setsockopt_connectx(sk, (struct sockaddr __user *)
++					 param.addrs, param.addr_num,
++					 &assoc_id);
+ 	if (err == 0 || err == -EINPROGRESS) {
+ 		if (copy_to_user(optval, &assoc_id, sizeof(assoc_id)))
+ 			return -EFAULT;
+-- 
+1.7.11.7
