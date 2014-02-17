@@ -1,53 +1,108 @@
-From: John <da_audiophile-/E1597aS9LQAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [BUG] unable to handle kernel NULL pointer dereference
-Date: Mon, 17 Feb 2014 12:12:54 -0800 (PST)
-Message-ID: <1392667974.22806.YahooMailNeo@web140003.mail.bf1.yahoo.com>
-References: <1392466251.41282.YahooMailNeo@web140003.mail.bf1.yahoo.com>	 <1392494917.71728.YahooMailNeo@web140002.mail.bf1.yahoo.com>	 <20140215203015.GA4528@pd.tnic>	 <1392498262.98385.YahooMailNeo@web140003.mail.bf1.yahoo.com>	 <20140215232508.GB4508@pd.tnic> <1392571653.44773.4.camel@leira.trondhjem.org>
-Reply-To: John <da_audiophile-/E1597aS9LQAvxtiuMwx3w@public.gmane.org>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [RFC v2 2/4] net: enables interface option to skip IP
+Date: Mon, 17 Feb 2014 14:23:58 -0600
+Message-ID: <1392668638.21106.5.camel@dcbw.local>
+References: <1392433180-16052-1-git-send-email-mcgrof@do-not-panic.com>
+	 <1392433180-16052-3-git-send-email-mcgrof@do-not-panic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org" <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-	"mlindner-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org" <mlindner-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-To: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	Borislav Petkov <bp-Gina5bIWoIWzQB+pC5nmwQ@public.gmane.org>,
-	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1392571653.44773.4.camel-5lNtUQgoD8Pfa3cDbr2K10B+6BGkLq7r@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Luis R. Rodriguez" <mcgrof@suse.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1392433180-16052-3-git-send-email-mcgrof@do-not-panic.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, 2014-02-14 at 18:59 -0800, Luis R. Rodriguez wrote:
+> From: "Luis R. Rodriguez" <mcgrof@suse.com>
+> 
+> Some interfaces do not need to have any IPv4 or IPv6
+> addresses, so enable an option to specify this. One
+> example where this is observed are virtualization
+> backend interfaces which just use the net_device
+> constructs to help with their respective frontends.
+> 
+> This should optimize boot time and complexity on
+> virtualization environments for each backend interface
+> while also avoiding triggering SLAAC and DAD, which is
+> simply pointless for these type of interfaces.
 
+Would it not be better/cleaner to use disable_ipv6 and then add a
+disable_ipv4 sysctl, then use those with that interface?  The
+IFF_SKIP_IP seems to duplicate at least part of what disable_ipv6 is
+already doing.
 
+Dan
 
-
------ Original Message -----
-> From: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-> To: Borislav Petkov <bp-Gina5bIWoIWzQB+pC5nmwQ@public.gmane.org>; Linux NFS Mailing List <linux-nfs=
-@vger.kernel.org>
-> Cc: John <da_audiophile-/E1597aS9LQAvxtiuMwx3w@public.gmane.org>; lkml <linux-kernel-u79uwXL29TaqPxH82wqD4g@public.gmane.org=
-g>; "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; "stephen@network=
-plumber.org" <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>; "mlindner-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org" <mlin=
-dner-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>; J. Bruce Fields <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-> Sent: Sunday, February 16, 2014 12:27 PM
-> Subject: Re: [BUG] unable to handle kernel NULL pointer dereference
->=20
-> Please ensure that you post to the linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org when
-> reporting NFS and RPC related bugs.
-> =A0
-> Does the following patch help?
->=20
-
-
-Trond. =A0Yes, your patch fixes the regression for me; tested on v3.13.=
-3, =A0I do not know the process by which patches get into the next stab=
-le release (minor version). =A0My hope is that once peer-reviewed, this=
- patch gets into the 3.13.4 and since the 3.12 series is not EOL yet, i=
-nto 3.12.12 as well. =A0Thank you for the time and effort!
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Cc: "David S. Miller" <davem@davemloft.net>
+> cC: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+> Cc: James Morris <jmorris@namei.org>
+> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
+> ---
+>  include/uapi/linux/if.h | 1 +
+>  net/ipv4/devinet.c      | 3 +++
+>  net/ipv6/addrconf.c     | 6 ++++++
+>  3 files changed, 10 insertions(+)
+> 
+> diff --git a/include/uapi/linux/if.h b/include/uapi/linux/if.h
+> index 8d10382..566d856 100644
+> --- a/include/uapi/linux/if.h
+> +++ b/include/uapi/linux/if.h
+> @@ -85,6 +85,7 @@
+>  					 * change when it's running */
+>  #define IFF_MACVLAN 0x200000		/* Macvlan device */
+>  #define IFF_BRIDGE_NON_ROOT 0x400000    /* Don't consider for root bridge */
+> +#define IFF_SKIP_IP	0x800000	/* Skip IPv4, IPv6 */
+>  
+> 
+>  #define IF_GET_IFACE	0x0001		/* for querying only */
+> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+> index a1b5bcb..8e9ef07 100644
+> --- a/net/ipv4/devinet.c
+> +++ b/net/ipv4/devinet.c
+> @@ -1342,6 +1342,9 @@ static int inetdev_event(struct notifier_block *this, unsigned long event,
+>  
+>  	ASSERT_RTNL();
+>  
+> +	if (dev->priv_flags & IFF_SKIP_IP)
+> +		goto out;
+> +
+>  	if (!in_dev) {
+>  		if (event == NETDEV_REGISTER) {
+>  			in_dev = inetdev_init(dev);
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 4b6b720..57f58e3 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -314,6 +314,9 @@ static struct inet6_dev *ipv6_add_dev(struct net_device *dev)
+>  
+>  	ASSERT_RTNL();
+>  
+> +	if (dev->priv_flags & IFF_SKIP_IP)
+> +		return NULL;
+> +
+>  	if (dev->mtu < IPV6_MIN_MTU)
+>  		return NULL;
+>  
+> @@ -2749,6 +2752,9 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+>  	int run_pending = 0;
+>  	int err;
+>  
+> +	if (dev->priv_flags & IFF_SKIP_IP)
+> +		return NOTIFY_OK;
+> +
+>  	switch (event) {
+>  	case NETDEV_REGISTER:
+>  		if (!idev && dev->mtu >= IPV6_MIN_MTU) {
