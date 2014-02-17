@@ -1,38 +1,60 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next resend] tcp: use zero-window when free_space is low
-Date: Mon, 17 Feb 2014 14:34:31 -0500 (EST)
-Message-ID: <20140217.143431.349062553619161172.davem@davemloft.net>
-References: <1392292350-28800-1-git-send-email-fw@strlen.de>
+Subject: Re: [PATCH v2] usbnet: remove generic hard_header_len check
+Date: Mon, 17 Feb 2014 14:36:06 -0500 (EST)
+Message-ID: <20140217.143606.1431722446347147819.davem@davemloft.net>
+References: <1392310219-5719-1-git-send-email-emilgoode@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ncardwell@google.com,
-	eric.dumazet@gmail.com, ycheng@google.com
-To: fw@strlen.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50492 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753903AbaBQTed (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 14:34:33 -0500
-In-Reply-To: <1392292350-28800-1-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: steve.glendinning@shawell.net, oneukum@suse.de, bjorn@mork.no,
+	freddy@asix.com.tw, edumazet@google.com, ming.lei@canonical.com,
+	paul.gortmaker@windriver.com, jeffrey.t.kirsher@intel.com,
+	liujunliang_ljl@163.com, octavian.purdila@intel.com,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: emilgoode@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1392310219-5719-1-git-send-email-emilgoode@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
-Date: Thu, 13 Feb 2014 12:52:30 +0100
+From: Emil Goode <emilgoode@gmail.com>
+Date: Thu, 13 Feb 2014 17:50:19 +0100
 
->  V1 of this patch was deferred, resending to get discussion going again.
->  Changes since v1:
->   - add reproducer to commit message
+> This patch removes a generic hard_header_len check from the usbnet
+> module that is causing dropped packages under certain circumstances
+> for devices that send rx packets that cross urb boundaries.
 > 
->  Unfortunately I couldn't come up with something that has no magic
->  ('allowed >> 4') value.  I chose >>4 (1/16th) because it didn't cause
->  tput limitations in my 'full-mss-sized, steady state' netcat tests.
+> One example is the AX88772B which occasionally send rx packets that
+> cross urb boundaries where the remaining partial packet is sent with
+> no hardware header. When the buffer with a partial packet is of less
+> number of octets than the value of hard_header_len the buffer is
+> discarded by the usbnet module.
 > 
->  Maybe someone has better idea?
+> With AX88772B this can be reproduced by using ping with a packet
+> size between 1965-1976.
+> 
+> The bug has been reported here:
+> 
+> https://bugzilla.kernel.org/show_bug.cgi?id=29082
+> 
+> This patch introduces the following changes:
+> - Removes the generic hard_header_len check in the rx_complete
+>   function in the usbnet module.
+> - Introduces a ETH_HLEN check for skbs that are not cloned from
+>   within a rx_fixup callback.
+> - For safety a hard_header_len check is added to each rx_fixup
+>   callback function that could be affected by this change.
+>   These extra checks could possibly be removed by someone
+>   who has the hardware to test.
+> - Removes a call to dev_kfree_skb_any() and instead utilizes the
+>   dev->done list to queue skbs for cleanup.
+> 
+> The changes place full responsibility on the rx_fixup callback
+> functions that clone skbs to only pass valid skbs to the
+> usbnet_skb_return function.
+> 
+> Signed-off-by: Emil Goode <emilgoode@gmail.com>
+> Reported-by: Igor Gnatenko <i.gnatenko.brain@gmail.com>
 
-I know this is going to be frustrating, but I've marked this 'deferred'
-again.  Please resubmit after the testing and further discussions have
-been worked out.
-
-Thank you.
+Applied and queued up for -stable, thanks.
