@@ -1,69 +1,50 @@
-From: Ben Dooks <ben.dooks-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
-Subject: [PATCH] of_mdio: fix phy interrupt passing
-Date: Mon, 17 Feb 2014 16:29:40 +0000
-Message-ID: <1392654580-3706-1-git-send-email-ben.dooks@codethink.co.uk>
-Cc: linux-kernel-81qHHgoATdFT9dQujB1mzip2UmYkHbXO@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org,
-	Ben Dooks <ben.dooks-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
-To: grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: Re: [Linux-kernel] [PATCH] sh_eth: call of_mdiobus_register() to
+ register phys
+Date: Mon, 17 Feb 2014 16:44:24 +0000
+Message-ID: <53023C68.8010201@codethink.co.uk>
+References: <1392650895-1422-1-git-send-email-ben.dooks@codethink.co.uk> <53023B60.4030201@cogentembedded.com> <53022EE4.50607@codethink.co.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@lists.codethink.co.uk, netdev@vger.kernel.org,
+	magnus@opensource.se, linux-sh@vger.kernel.org,
+	horms+renesas@verge.net.au
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <53022EE4.50607@codethink.co.uk>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The of_mdiobus_register_phy() is not setting phy->irq this causing
-some drivers to incorrectly assume that the PHY does not have an
-IRQ associated with it or install an interrupt handler for the
-PHY.
+On 17/02/14 15:46, Ben Dooks wrote:
+> On 17/02/14 16:40, Sergei Shtylyo
 
-Simplify the code setting irq and set the phy->irq at the same
-time so that the case if mdio->irq is not NULL is easier to read.
+[snip]
 
-This fixes the issue:
- net eth0: attached PHY 1 (IRQ -1) to driver Micrel KSZ8041RNLI
+>
+>>> +        return 0;
+>>> +    }
+>>> +
+>>>       /* PHY IRQ */
+>>>       mdp->mii_bus->irq = devm_kzalloc(&ndev->dev,
+>>>                        sizeof(int) * PHY_MAX_ADDR,
+>>>
+>>
+>>      Hm, I can only hope this works with PHY IRQ in DT mode.
+>> Would you mind if I include your patch into my Ether DT patch?
+>
+> You are welcome to include it in your series, but I would like
+> to keep the credit for finding this.
+>
+> Also, FYI, for some reason the probe is not finding the correct
+> IRQ for this. I will have a look later when I get the board back
+> as to why this is:
+>
+> net eth0: attached PHY 1 (IRQ -1) to driver Micrel KSZ8041RNLI
 
-to the correct:
- net eth0: attached PHY 1 (IRQ 416) to driver Micrel KSZ8041RNLI
+I've sent a fix for of_mdio to set phy->irq correctly and will
+re-send this as a v2 patch shortly.
 
-Signed-off-by: Ben Dooks <ben.dooks-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
----
- drivers/of/of_mdio.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index 875b7b6..7b3e7b0 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -44,7 +44,7 @@ static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *chi
- {
- 	struct phy_device *phy;
- 	bool is_c45;
--	int rc, prev_irq;
-+	int rc;
- 	u32 max_speed = 0;
- 
- 	is_c45 = of_device_is_compatible(child,
-@@ -55,11 +55,11 @@ static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *chi
- 		return 1;
- 
- 	if (mdio->irq) {
--		prev_irq = mdio->irq[addr];
--		mdio->irq[addr] =
--			irq_of_parse_and_map(child, 0);
--		if (!mdio->irq[addr])
--			mdio->irq[addr] = prev_irq;
-+		rc = irq_of_parse_and_map(child, 0);
-+		if (rc > 0) {
-+			mdio->irq[addr] = rc;
-+			phy->irq = rc;
-+		}
- 	}
- 
- 	/* Associate the OF node with the device structure so it
 -- 
-1.8.5.3
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ben Dooks				http://www.codethink.co.uk/
+Senior Engineer				Codethink - Providing Genius
