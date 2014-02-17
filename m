@@ -1,32 +1,37 @@
-From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
-Subject: Re: [PATCH net-next] ipv6: do not set "u" bit for temporary addresses
-Date: Sun, 16 Feb 2014 21:03:09 +0100
-Message-ID: <5301197D.1030404@enst-bretagne.fr>
-References: <1392203286-17833-1-git-send-email-florent.fourcot@enst-bretagne.fr> <20140213.182201.1286350698724437652.davem@davemloft.net>
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Subject: [PATCH 0/3] Drivers: net: hyperv: Cleanup the hyper-V networking code
+Date: Sun, 16 Feb 2014 16:38:03 -0800
+Message-ID: <1392597483-13307-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fourcot.fr ([217.70.191.14]:46684 "EHLO olfflo.fourcot.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753280AbaBPUDM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Feb 2014 15:03:12 -0500
-In-Reply-To: <20140213.182201.1286350698724437652.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
+ jasowang@redhat.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
+Get rid of some unnecessary code and some general cleanup.
 
-> 
-> I'm hesistent to apply this given the feedback you've been given.
+K. Y. Srinivasan (3):
+  Drivers: net: hyperv: Get rid of the rndis_filter_packet structure
+  Drivers: net: hyperv: Cleanup the receive path
+  Drivers: net: hyperv: Cleanup the netvsc receive callback functio
 
-
-I understand. I will try to found more convincing references, and
-re-send the patch.
-
-Regards,
+ drivers/net/hyperv/hyperv_net.h   |    8 +---
+ drivers/net/hyperv/netvsc.c       |   62 +++++++++++++-----------------------
+ drivers/net/hyperv/netvsc_drv.c   |    2 +-
+ drivers/net/hyperv/rndis_filter.c |   41 ++----------------------
+ 4 files changed, 29 insertions(+), 84 deletions(-)
 
 -- 
-Florent.
+1.7.4.1
