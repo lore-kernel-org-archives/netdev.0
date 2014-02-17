@@ -1,73 +1,85 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [Xen-devel] [RFC v2 4/4] xen-netback: skip IPv4 and IPv6 interfaces
-Date: Mon, 17 Feb 2014 14:36:55 +0000
-Message-ID: <53021E87.6020607@citrix.com>
-References: <1392433180-16052-1-git-send-email-mcgrof@do-not-panic.com> <1392433180-16052-5-git-send-email-mcgrof@do-not-panic.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>, <kvm@vger.kernel.org>,
-	"Luis R. Rodriguez" <mcgrof@suse.com>,
-	<linux-kernel@vger.kernel.org>,
-	Paul Durrant <Paul.Durrant@citrix.com>,
-	<xen-devel@lists.xenproject.org>
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	<netdev@vger.kernel.org>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH v4 net-next 02/12] bonding: permit using arp_validate with non-ab modes
+Date: Mon, 17 Feb 2014 15:41:18 +0100
+Message-ID: <1392648088-21336-3-git-send-email-vfalico@redhat.com>
+References: <1392648088-21336-1-git-send-email-vfalico@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:59183 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750830AbaBQOhV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 09:37:21 -0500
-In-Reply-To: <1392433180-16052-5-git-send-email-mcgrof@do-not-panic.com>
+Received: from mx1.redhat.com ([209.132.183.28]:23793 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751487AbaBQOpr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Feb 2014 09:45:47 -0500
+In-Reply-To: <1392648088-21336-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is a valid scenario to put IP addresses on the backend VIFs:
+Currently it's disabled because it's sometimes hard, in typical configs, to
+make it work - because of the nature how the loadbalance modes work - as
+it's hard to deliver valid arp replies to correct slaves by the switch.
 
-http://wiki.xen.org/wiki/Xen_Networking#Routing
+However we still can use arp_validation in loadbalance with several other
+configs, per example with arp_validate == 2 for backup with one broadcast
+domain, without the switch(es) doing any balancing - this way we'd be (a
+bit more) sure that the slave is up.
 
-Also, the backend is not necessarily Dom0, you can connect twou guests 
-with backend/frontend pairs.
+So, enable it to let users decide which one works/suits them best. Also
+remove the mode limitation from BOND_OPT_ARP_VALIDATE.
 
-Zoli
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+---
+ Documentation/networking/bonding.txt | 6 +++---
+ drivers/net/bonding/bond_main.c      | 4 ----
+ drivers/net/bonding/bond_options.c   | 1 -
+ 3 files changed, 3 insertions(+), 8 deletions(-)
 
-On 15/02/14 02:59, Luis R. Rodriguez wrote:
-> From: "Luis R. Rodriguez" <mcgrof@suse.com>
->
-> The xen-netback driver is used only to provide a backend
-> interface for the frontend. The link is the only thing we
-> use, and that is used internally for letting us know when the
-> xen-netfront is ready, when it switches to XenbusStateConnected.
->
-> Note that only when the both the xen-netfront and xen-netback
-> are both in state XenbusStateConnected will xen-netback allow
-> userspace on the host (backend) to bring up the interface. Enabling
-> and disabling the interface will simply enable or disable NAPI
-> respectively, and that's used for IRQ communication set up with
-> the xen event channels.
->
-> Cc: Paul Durrant <Paul.Durrant@citrix.com>
-> Cc: Ian Campbell <ian.campbell@citrix.com>
-> Cc: Wei Liu <wei.liu2@citrix.com>
-> Cc: xen-devel@lists.xenproject.org
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
-> ---
->   drivers/net/xen-netback/interface.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-> index d380e3f..07e6fd2 100644
-> --- a/drivers/net/xen-netback/interface.c
-> +++ b/drivers/net/xen-netback/interface.c
-> @@ -351,7 +351,7 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
->
->   	eth_hw_addr_random(dev);
->   	memcpy(dev->dev_addr, xen_oui, 3);
-> -	dev->priv_flags |= IFF_BRIDGE_NON_ROOT;
-> +	dev->priv_flags |= IFF_BRIDGE_NON_ROOT | IFF_SKIP_IP;
->   	netif_napi_add(dev, &vif->napi, xenvif_poll, XENVIF_NAPI_WEIGHT);
->
->   	netif_carrier_off(dev);
->
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index 5cdb229..96b4ad8 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -270,9 +270,9 @@ arp_ip_target
+ arp_validate
+ 
+ 	Specifies whether or not ARP probes and replies should be
+-	validated in the active-backup mode.  This causes the ARP
+-	monitor to examine the incoming ARP requests and replies, and
+-	only consider a slave to be up if it is receiving the
++	validated in any mode that supports arp monitoring.  This causes
++	the ARP monitor to examine the incoming ARP requests and replies,
++	and only consider a slave to be up if it is receiving the
+ 	appropriate ARP traffic.
+ 
+ 	Possible values are:
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 3c50bec..91c0248 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4183,10 +4183,6 @@ static int bond_check_params(struct bond_params *params)
+ 	}
+ 
+ 	if (arp_validate) {
+-		if (bond_mode != BOND_MODE_ACTIVEBACKUP) {
+-			pr_err("arp_validate only supported in active-backup mode\n");
+-			return -EINVAL;
+-		}
+ 		if (!arp_interval) {
+ 			pr_err("arp_validate requires arp_interval\n");
+ 			return -EINVAL;
+diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+index f3eb44d..d566cab 100644
+--- a/drivers/net/bonding/bond_options.c
++++ b/drivers/net/bonding/bond_options.c
+@@ -151,7 +151,6 @@ static struct bond_option bond_opts[] = {
+ 		.id = BOND_OPT_ARP_VALIDATE,
+ 		.name = "arp_validate",
+ 		.desc = "validate src/dst of ARP probes",
+-		.unsuppmodes = BOND_MODE_ALL_EX(BIT(BOND_MODE_ACTIVEBACKUP)),
+ 		.values = bond_arp_validate_tbl,
+ 		.set = bond_option_arp_validate_set
+ 	},
+-- 
+1.8.4
