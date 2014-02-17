@@ -1,56 +1,48 @@
-From: Ben Dooks <ben.dooks@codethink.co.uk>
-Subject: [PATCH] sh_eth: call of_mdiobus_register() to register phys
-Date: Mon, 17 Feb 2014 15:28:15 +0000
-Message-ID: <1392650895-1422-1-git-send-email-ben.dooks@codethink.co.uk>
-Cc: horms+renesas@verge.net.au, sergei.shtylyov@cogentembedded.com,
-	linux-sh@vger.kernel.org, magnus@opensource.se,
-	linux-kernel@lists.codethink.co.uk,
-	Ben Dooks <ben.dooks@codethink.co.uk>
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
+From: Thomas Glanzmann <thomas@glanzmann.de>
+Subject: Re: REGRESSION f54b311142a92ea2e42598e347b84e1655caf8e3 tcp auto
+ corking slows down iSCSI file system creation by factor of 70 [WAS: 4 TB
+ VMFS creation takes 15 minutes vs 26 seconds]
+Date: Mon, 17 Feb 2014 16:32:13 +0100
+Message-ID: <20140217153213.GA12054@glanzmann.de>
+References: <20140207051500.GB10916@glanzmann.de>
+ <20140207075536.GB17815@glanzmann.de>
+ <1391801597.1155.28.camel@haakon3.risingtidesystems.com>
+ <20140207205142.GA8609@glanzmann.de>
+ <20140208093808.GD16336@glanzmann.de>
+ <1391865273.10160.76.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140208133744.GA20512@glanzmann.de>
+ <1391868564.10160.91.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140217140821.GD6211@glanzmann.de>
+ <1392650807.24974.12.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: John Ogness <john.ogness@linutronix.de>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
+	target-devel <target-devel@vger.kernel.org>,
+	Linux Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1392650807.24974.12.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If the sh_eth device is registered using OF, then the driver
-should call of_mdiobus_register() to register any PHYs connected
-to the system.
+Hello Eric,
 
-Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
----
- drivers/net/ethernet/renesas/sh_eth.c | 13 +++++++++++++
- 1 file changed, 13 insertions(+)
+> Unfortunately you did not had good results with the MSG_MORE applied
+> to the page fragments.
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 06970ac..165f0c4 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -40,6 +40,7 @@
- #include <linux/if_vlan.h>
- #include <linux/clk.h>
- #include <linux/sh_eth.h>
-+#include <linux/of_mdio.h>
- 
- #include "sh_eth.h"
- 
-@@ -2629,6 +2630,18 @@ static int sh_mdio_init(struct net_device *ndev, int id,
- 	snprintf(mdp->mii_bus->id, MII_BUS_ID_SIZE, "%s-%x",
- 		 mdp->pdev->name, id);
- 
-+	if (ndev->dev.parent->of_node) {
-+		dev_set_drvdata(&ndev->dev, mdp->mii_bus);
-+		ret = of_mdiobus_register(mdp->mii_bus,
-+					  ndev->dev.parent->of_node);
-+		if (ret != 0) {
-+			dev_err(&ndev->dev, "of_mdiobus_register() failed\n");
-+			goto out_free_bus;
-+		}
-+
-+		return 0;
-+	}
-+
- 	/* PHY IRQ */
- 	mdp->mii_bus->irq = devm_kzalloc(&ndev->dev,
- 					 sizeof(int) * PHY_MAX_ADDR,
--- 
-1.8.5.3
+I agree. We should submit only the submit the patch from this message:
 
+Message-ID: <1391886759.10160.114.camel@edumazet-glaptop2.roam.corp.google.com>
+http://mid.gmane.org/1391886759.10160.114.camel@edumazet-glaptop2.roam.corp.google.com
+
+> I think I'll submit the part only dealing with the metadata.
+
+May I submit the patch or do you want to do it yourself?
+
+Cheers,
+        Thomas
