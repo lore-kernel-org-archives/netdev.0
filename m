@@ -1,69 +1,39 @@
-From: Luigi Rizzo <rizzo@iet.unipi.it>
-Subject: netmap, VALE and netmap pipes
-Date: Mon, 17 Feb 2014 02:11:21 -0800
-Message-ID: <CA+hQ2+gbs9aBneUaDGAnKVoPHspzc=5o+h+f_K=T+Cy8sRxr+w@mail.gmail.com>
+From: "Steinar H. Gunderson" <sesse@samfundet.no>
+Subject: Re: fe80::/64 route missing on GRE tunnels
+Date: Mon, 17 Feb 2014 11:17:30 +0100
+Message-ID: <20140217101730.GC32630@sesse.net>
+References: <20140211215510.GA6994@sesse.net>
+ <20140211215928.GA7862@sesse.net>
+ <20140215074559.GA8634@order.stressinduktion.org>
+ <20140215121027.GC8634@order.stressinduktion.org>
+ <5301D843.4020802@6wind.com>
+ <20140217094557.GB32630@sesse.net>
+ <5301DD8A.10808@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, "freebsd-net@freebsd.org" <net@freebsd.org>
-Return-path: <owner-freebsd-net@freebsd.org>
-List-Unsubscribe: <http://lists.freebsd.org/mailman/options/freebsd-net>,
- <mailto:freebsd-net-request@freebsd.org?subject=unsubscribe>
-List-Archive: <http://lists.freebsd.org/pipermail/freebsd-net/>
-List-Post: <mailto:freebsd-net@freebsd.org>
-List-Help: <mailto:freebsd-net-request@freebsd.org?subject=help>
-List-Subscribe: <http://lists.freebsd.org/mailman/listinfo/freebsd-net>,
- <mailto:freebsd-net-request@freebsd.org?subject=subscribe>
-Errors-To: owner-freebsd-net@freebsd.org
-Sender: owner-freebsd-net@freebsd.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, itk-intern@samfundet.no,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cassarossa.samfundet.no ([193.35.52.29]:48133 "EHLO
+	cassarossa.samfundet.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751790AbaBQKRd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 05:17:33 -0500
+Content-Disposition: inline
+In-Reply-To: <5301DD8A.10808@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
-we have recently made a few extensions to netmap/VALE and put various
-pieces of code on public repositories, so i thought i'd share the
-pointers. All the code below runs with equal features and performance
-on FreeBSD and Linux, and we are trying to upstream it in the relevant
-projects if possible (as an example, QEMU recently added a netmap backend),
-at which point some of these clone repositories will become unnecessary.
+On Mon, Feb 17, 2014 at 10:59:38AM +0100, Nicolas Dichtel wrote:
+>> It is added (ip -6 addr add fe80::1 dev foo), but it doesn't help without the
+>> /64 being present.
+> With 'ip -6 addr add fe80::1/64 dev foo', the link local route will be added.
 
-See http://info.iet.unipi.it/~luigi/netmap for more details.
+Possible, but you're still breaking userspace. You could argue the tunnel
+setup system in question should have added a /64 in the first place, but it
+is deployed at a number of locations and changing all of them is not trivial.
 
-https://code.google.com/p/netmap/
-    The latest netmap code for FreeBSD/Linux. It has native support
-    for certain NICs; emulated netmap over unmodified drivers;
-    enhanced parallelism in the VALE switch (20 Mpps/source, scaling
-    up to ~50Mpps); and a new feature called "netmap pipe" that
-    does zero-copy blocking I/O at over 100 Mpps.
-        Other features are the ability to allocate tons of extra
-    netmap buffers, and configurable sharing of memory among NICs,
-    VALE ports and netmap pipes. This increases the opportunity for
-    zero copy operation.
-        The user API is also greatly simplified, with a naming
-    scheme that permits easy access to all types of ports including
-    individual NIC queues.
-
-https://code.google.com/p/netmap-libpcap
-    a netmap-enabled version of libpcap. With this, basically any
-    pcap client can read/write traffic at 10+ Mpps, with zerocopy
-    reads and (soon) support for zerocopy writes. Whether applications
-    can cope with these packet rates, of course, is another story.
-
-https://code.google.com/p/netmap-click
-    a netmap-enabled version of the Click Modular Router.  This
-    code matches the current version of netmap, supporting all
-    features (including netmap pipes).
-
-https://code.google.com/p/netmap-ipfw
-    a netmap-enabled, userspace version of the ipfw firewall and
-    dummynet network emulator. This version reaches 7-10 Mpps for
-    filtering and over 2.5 Mpps for emulation.
-
-
-Hope you'll find it useful.
-
-cheers
-luigi
-_______________________________________________
-freebsd-net@freebsd.org mailing list
-http://lists.freebsd.org/mailman/listinfo/freebsd-net
-To unsubscribe, send any mail to "freebsd-net-unsubscribe@freebsd.org"
+/* Steinar */
+-- 
+ITK-pang
+http://www.sesse.net/
