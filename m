@@ -1,58 +1,40 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 09/10] batman-adv: avoid double free when orig_node initialization fails
-Date: Mon, 17 Feb 2014 21:48:48 +0100
-Message-ID: <1392670129-2498-10-git-send-email-antonio@meshcoding.com>
-References: <1392670129-2498-1-git-send-email-antonio@meshcoding.com>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <antonio@meshcoding.com>,
-	Marek Lindner <mareklindner@neomailbox.ch>
-To: davem@davemloft.net
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 0/3] net: phy: soft reset rework for 10G PHYs
+Date: Mon, 17 Feb 2014 12:52:43 -0800
+Message-ID: <1392670366-31457-1-git-send-email-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <Shaohui.Xie@freescale.com>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:26187 "EHLO
-	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753097AbaBQUxT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 15:53:19 -0500
-In-Reply-To: <1392670129-2498-1-git-send-email-antonio@meshcoding.com>
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:7655 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752938AbaBQUxM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 15:53:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the failure path of the orig_node initialization routine
-the orig_node->bat_iv.bcast_own field is free'd twice: first
-in batadv_iv_ogm_orig_get() and then later in
-batadv_orig_node_free_rcu().
+Hi David,
 
-Fix it by removing the kfree in batadv_iv_ogm_orig_get().
+As reported by Shaohui, 10G PHYs may have a slightly more complex reset
+sequence for which a BMCR_RESET software reset might not suffice. This
+patchset offers a solution for those by allowing them to implement their
+own soft_reset() callback. Finally there is an update to the PHY library
+Documentation to cover for the newly added callbacks of the PHY driver
+structure.
 
-Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
----
- net/batman-adv/bat_iv_ogm.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+Thanks!
 
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index 42cbc0a..8323bce 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -241,18 +241,16 @@ batadv_iv_ogm_orig_get(struct batadv_priv *bat_priv, const uint8_t *addr)
- 	size = bat_priv->num_ifaces * sizeof(uint8_t);
- 	orig_node->bat_iv.bcast_own_sum = kzalloc(size, GFP_ATOMIC);
- 	if (!orig_node->bat_iv.bcast_own_sum)
--		goto free_bcast_own;
-+		goto free_orig_node;
- 
- 	hash_added = batadv_hash_add(bat_priv->orig_hash, batadv_compare_orig,
- 				     batadv_choose_orig, orig_node,
- 				     &orig_node->hash_entry);
- 	if (hash_added != 0)
--		goto free_bcast_own;
-+		goto free_orig_node;
- 
- 	return orig_node;
- 
--free_bcast_own:
--	kfree(orig_node->bat_iv.bcast_own);
- free_orig_node:
- 	/* free twice, as batadv_orig_node_new sets refcount to 2 */
- 	batadv_orig_node_free_ref(orig_node);
+Florian Fainelli (3):
+  net: phy: move PHY software reset to genphy_soft_reset
+  net: phy: allow PHY drivers to implement their own software reset
+  Documentation: networking: update phy.txt with recent changes
+
+ Documentation/networking/phy.txt |  9 +++++++++
+ drivers/net/phy/phy_device.c     | 39 ++++++++++++++++++++++++++++++++++-----
+ include/linux/phy.h              |  6 ++++++
+ 3 files changed, 49 insertions(+), 5 deletions(-)
+
 -- 
-1.8.5.3
+1.8.3.2
