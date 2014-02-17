@@ -1,38 +1,58 @@
-From: Thomas Glanzmann <thomas@glanzmann.de>
-Subject: Re: REGRESSION f54b311142a92ea2e42598e347b84e1655caf8e3 tcp auto
- corking slows down iSCSI file system creation by factor of 70 [WAS: 4 TB
- VMFS creation takes 15 minutes vs 26 seconds]
-Date: Mon, 17 Feb 2014 15:08:21 +0100
-Message-ID: <20140217140821.GD6211@glanzmann.de>
-References: <20140206153640.GB4103@glanzmann.de>
- <1391727771.14985.41.camel@haakon3.risingtidesystems.com>
- <20140207051500.GB10916@glanzmann.de>
- <20140207075536.GB17815@glanzmann.de>
- <1391801597.1155.28.camel@haakon3.risingtidesystems.com>
- <20140207205142.GA8609@glanzmann.de>
- <20140208093808.GD16336@glanzmann.de>
- <1391865273.10160.76.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140208133744.GA20512@glanzmann.de>
- <1391868564.10160.91.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2] ipv6: fix inconsistent prefix route handling
+Date: Mon, 17 Feb 2014 15:08:26 +0100
+Message-ID: <20140217140826.GD22833@order.stressinduktion.org>
+References: <20140216165128.GF8634@order.stressinduktion.org> <5301AF26.7080102@openwrt.org> <20140217130557.GC22833@order.stressinduktion.org> <53020AF7.60702@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Ogness <john.ogness@linutronix.de>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
-	target-devel <target-devel@vger.kernel.org>,
-	Linux Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Steven Barth <cyrus@openwrt.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:60804 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752832AbaBQOI2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 09:08:28 -0500
 Content-Disposition: inline
-In-Reply-To: <1391868564.10160.91.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <53020AF7.60702@openwrt.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Eric,
-may submit your latest patch for upstream? Or do you plan on doing that
-yourself?
+On Mon, Feb 17, 2014 at 02:13:27PM +0100, Steven Barth wrote:
+> Ah sorry, maybe I was a bit unclear about this. With temporary addresses 
+> I meant addresses created like this:
+> 
+> ip address add 2001:db8::1/64 dev eth0 valid_lft 1234 preferred_lft 1001
+> 
+> or the equivalent netlink-calls and with permanent addresses i was 
+> referring to addresses created similarly but with an infinite lifetime 
+> (e.g. through ip without giving valid_lft or preferred_lft arguments).
+> 
+> Hope that makes it clear.
 
-Cheers,
-        Thomas
+Yes, makes sense, thanks!
+
+I fear there is currently no combination of ifp->flags which can test for
+that. Your first patch seems to be too dangerous in removing neighbour
+discovery brought in on-link state, I fear. It may even be a problem for
+permanent ones, but that's how it is done, currently.
+
+Best option would be to fully decouple prefix routes from address handling,
+but that would break current userspace.
+
+Current iproute has support for no-prefix-route address addition (see
+iproute2 commit 58c69b226fb3a ("add support for IFA_F_NOPREFIXROUTE")), so you
+could manage those address and route combination directly from user space.
+
+So if we want to clean up those routes we either must set IFA_F_PERMANENT to
+the ifp flags of the address in inet6_addr_add and really make sure nothing
+breaks because of this. Or introduce a new flag, like IFA_F_USERINSTALLED e.g.
+
+Current ifp flags handling is really complex and we had some bad bugs
+in recent changes, so I guess, it is not a trivial task (I reviewed the
+last patches changing code in that for hours and they still had bugs :/), so I
+am unsure what is the right approach. Both ways (adding PERMANENT) and adding
+a new IFP_P_USERINSTALLED would need to be considered and reviewed.
+
+Thanks,
+
+  Hannes
