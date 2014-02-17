@@ -1,54 +1,104 @@
-From: Borislav Petkov <bp-Gina5bIWoIWzQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [BUG] unable to handle kernel NULL pointer dereference
-Date: Mon, 17 Feb 2014 21:30:57 +0100
-Message-ID: <20140217203057.GJ4559@pd.tnic>
-References: <1392466251.41282.YahooMailNeo@web140003.mail.bf1.yahoo.com>
- <1392494917.71728.YahooMailNeo@web140002.mail.bf1.yahoo.com>
- <20140215203015.GA4528@pd.tnic>
- <1392498262.98385.YahooMailNeo@web140003.mail.bf1.yahoo.com>
- <20140215232508.GB4508@pd.tnic>
- <1392571653.44773.4.camel@leira.trondhjem.org>
- <1392667974.22806.YahooMailNeo@web140003.mail.bf1.yahoo.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: add init-regs for of_phy support
+Date: Tue, 18 Feb 2014 00:33:19 +0300
+Message-ID: <5302801F.6000903@cogentembedded.com>
+References: <1392642484-19938-1-git-send-email-ben.dooks@codethink.co.uk> <1392642484-19938-2-git-send-email-ben.dooks@codethink.co.uk> <CAGVrzcYbw5xLj-gwcup5i0gBdKDDGdyy5wAaEBp7m2E7f2bytg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org" <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-	"mlindner-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org" <mlindner-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-To: John <da_audiophile-/E1597aS9LQAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1392667974.22806.YahooMailNeo-KjDqn544//seBhY5O9xny5EhsgyP+Z75VpNB7YpNyf8@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Ben Dooks <ben.dooks@codethink.co.uk>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <CAGVrzcYbw5xLj-gwcup5i0gBdKDDGdyy5wAaEBp7m2E7f2bytg@mail.gmail.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 17, 2014 at 12:12:54PM -0800, John wrote:
-> Trond. =C2=A0Yes, your patch fixes the regression for me; tested on
-> v3.13.3, =C2=A0I do not know the process by which patches get into
-> the next stable release (minor version). =C2=A0My hope is that once
-> peer-reviewed, this patch gets into the 3.13.4 and since the 3.12
-> series is not EOL yet, into 3.12.12 as well. =C2=A0Thank you for the =
-time
-> and effort!
+Hello.
 
-Basically you say
+On 02/17/2014 08:33 PM, Florian Fainelli wrote:
 
-Tested-by: John <da_audiophile-/E1597aS9LQAvxtiuMwx3w@public.gmane.org>
+>> Add new init-regs field for of_phy nodes and make sure these
+>> get applied when the phy is configured.
 
-Trond adds stable to CC, sends it to Linus and it trickles down to
-3.12.x and 3.13.x stable.
+>> This allows any phy node in an fdt to initialise registers
+>> that may not be set as standard by the driver at initialisation
+>> time, such as LED controls.
 
---=20
-Regards/Gruss,
-    Boris.
+>> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
+>> ---
+>>   Documentation/devicetree/bindings/net/phy.txt | 12 ++++++
+>>   drivers/net/phy/phy_device.c                  | 59 ++++++++++++++++++++++++++-
+>>   2 files changed, 70 insertions(+), 1 deletion(-)
 
-Sent from a fat crate under my desk. Formatting is fine.
---
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentation/devicetree/bindings/net/phy.txt
+>> index 58307d0..48d8ded 100644
+>> --- a/Documentation/devicetree/bindings/net/phy.txt
+>> +++ b/Documentation/devicetree/bindings/net/phy.txt
+>> @@ -20,6 +20,8 @@ Optional Properties:
+>>     assume clause 22. The compatible list may also contain other
+>>     elements.
+>>   - max-speed: Maximum PHY supported speed (10, 100, 1000...)
+>> +- init-regs: Set of registers to modify at initialisation as a
+>> +    a set of <register set clear>
+
+> Should be:
+
+> "micrel,led-control-init-val" or something like that.
+
+> first cell is the register address, according to the IEEE 802.3 clause 22
+> second cell is the set bitmask to apply to the register address
+> specified in the first cell
+> third cell is the clear bitmask to apply to the register address
+> specified in the second cell
+
+> I would rather see this as a specific PHY node DT property for setting
+> the LED control register, because this is totally non-standard and you
+> are touching a proprietary register here.
+
+    Yes, I agree.
+
+>> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+>> index 82514e7..6741cdb 100644
+>> --- a/drivers/net/phy/phy_device.c
+>> +++ b/drivers/net/phy/phy_device.c
+[...]
+>> @@ -532,6 +533,57 @@ static int phy_poll_reset(struct phy_device *phydev)
+>>          return 0;
+>>   }
+>>
+>> +#ifdef CONFIG_OF
+>> +static int of_phy_configure(struct phy_device *phydev)
+>> +{
+>> +       struct device *dev = &phydev->dev;
+>> +       struct device_node *of_node = dev->of_node;
+>> +       struct property *prop;
+>> +       const __be32 *ptr;
+>> +       u32 reg, set, clear;
+>> +       int len;
+>> +       int val;
+
+> This does not belong in the generic PHY code unless we are very clear
+> on what we want to do, and how to do it, which I do not think we are
+> yet. What exactly is needed here:
+
+> - fixing up some design mistake?
+> - accounting for a specific board design?
+
+    Kind of both. This was invented to defy the necessity of having platform 
+fixup in the DT case (where there should be no board file to place it into).
+I have already described that platform fixup necessary on the Renesas 
+Lager/Koelsch boards where the LED0 signat is connected to ETH_LINK signal on 
+the SoC and the PHY reset sets the LED control bits to default 0 which means 
+that LED0 will be LINK/ACTIVITY signal and thus blink on activity and cause 
+ETH_LINK to bounce off/on after each packet.
+
+> In any case a PHY fixup would do the job for you.
+
+    Not in any case. In case of DT we have no place for it, so should invent 
+something involving DT.
+
+WBR, Sergei
+
