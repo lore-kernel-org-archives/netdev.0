@@ -1,31 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net:cpsw: Pass unhandled ioctl's on to generic phy
- ioctl
-Date: Mon, 17 Feb 2014 00:30:49 -0500 (EST)
-Message-ID: <20140217.003049.1770259997160293076.davem@davemloft.net>
-References: <1392558865-18388-1-git-send-email-stefan.sorensen@spectralink.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH 10/13] staging: r8188eu: Remove wrapper _enter_critical_mutex()
+Date: Sun, 16 Feb 2014 23:35:46 -0600
+Message-ID: <53019FB2.6070804@lwfinger.net>
+References: <1392418457-3203-1-git-send-email-Larry.Finger@lwfinger.net> <1392418457-3203-11-git-send-email-Larry.Finger@lwfinger.net> <20140215203811.GA17742@kroah.com> <20140215204112.GA14963@kroah.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mugunthanvnm@ti.com, netdev@vger.kernel.org
-To: stefan.sorensen@spectralink.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org
+To: Greg KH <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40300 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751180AbaBQFau convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 00:30:50 -0500
-In-Reply-To: <1392558865-18388-1-git-send-email-stefan.sorensen@spectralink.com>
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:44426 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750896AbaBQFft (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 00:35:49 -0500
+Received: by mail-ob0-f169.google.com with SMTP id wo20so16621877obc.28
+        for <netdev@vger.kernel.org>; Sun, 16 Feb 2014 21:35:48 -0800 (PST)
+In-Reply-To: <20140215204112.GA14963@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Stefan S=F8rensen <stefan.sorensen@spectralink.com>
-Date: Sun, 16 Feb 2014 14:54:25 +0100
+On 02/15/2014 02:41 PM, Greg KH wrote:
+> On Sat, Feb 15, 2014 at 12:38:11PM -0800, Greg KH wrote:
+>> I've applied this series up to here.
+>
+> Nevermind, the others applied, so I've merged them, just not this patch.
 
-> This patch allows the use of a generic timestamping phy connected
-> to the cpsw if CPTS support is not enabled. This also adds support
-> of the SIOCGMIIREG and SIOCSMIIREG, and moves handling of SIOCGMIIPHY
-> to the generic driver.
->=20
-> Signed-off-by: Stefan S=F8rensen <stefan.sorensen@spectralink.com>
+I have split this patch into two parts that I will send tomorrow. The first one 
+just replaces the wrapper. The second uses the returned value to report any 
+errors that occur, a step that original code skipped.
 
-Applied to net-next, thanks.
+Larry
