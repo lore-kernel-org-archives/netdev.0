@@ -1,62 +1,35 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 3/3] Documentation: networking: update phy.txt with recent changes
-Date: Mon, 17 Feb 2014 13:34:04 -0800
-Message-ID: <1392672844-1767-4-git-send-email-f.fainelli@gmail.com>
-References: <1392672844-1767-1-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 2/3] net: phy: allow PHY drivers to implement
+ their own software reset
+Date: Mon, 17 Feb 2014 13:34:50 -0800
+Message-ID: <CAGVrzcbejiyp1V=FMzLb6fTLyQkzmMLtyakLoikY_6yRhRjduA@mail.gmail.com>
+References: <1392670366-31457-1-git-send-email-f.fainelli@gmail.com>
+ <1392670366-31457-3-git-send-email-f.fainelli@gmail.com> <20140217.162343.325745613056866328.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <Shaohui.Xie@freescale.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Shaohui Xie <Shaohui.Xie@freescale.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:34937 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752847AbaBQVec (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 16:34:32 -0500
-In-Reply-To: <1392672844-1767-1-git-send-email-f.fainelli@gmail.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:60521 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751097AbaBQVfa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 16:35:30 -0500
+Received: by mail-pa0-f48.google.com with SMTP id kx10so15761880pab.7
+        for <netdev@vger.kernel.org>; Mon, 17 Feb 2014 13:35:30 -0800 (PST)
+In-Reply-To: <20140217.162343.325745613056866328.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The PHY library was missing a bunch of newly added PHY driver callbacks
-along with a smallish description of what they do, fix that.
+2014-02-17 13:23 GMT-08:00 David Miller <davem@davemloft.net>:
+> From: Florian Fainelli <f.fainelli@gmail.com>
+> Date: Mon, 17 Feb 2014 12:52:45 -0800
+>
+>> +     if (phydev->drv->soft_reset(phydev))
+>> +             ret = phydev->drv->soft_reset(phydev);
+>
+> You're not testing if the method is NULL, you're actually invoking it.
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
-Changes in v2:
-- fix typo on the soft_reset description
-
- Documentation/networking/phy.txt | 9 +++++++++
- 1 file changed, 9 insertions(+)
-
-diff --git a/Documentation/networking/phy.txt b/Documentation/networking/phy.txt
-index ebf2707..e602c6f 100644
---- a/Documentation/networking/phy.txt
-+++ b/Documentation/networking/phy.txt
-@@ -253,16 +253,25 @@ Writing a PHY driver
- 
-  Each driver consists of a number of function pointers:
- 
-+   soft_reset: perform a PHY software reset
-    config_init: configures PHY into a sane state after a reset.
-      For instance, a Davicom PHY requires descrambling disabled.
-    probe: Allocate phy->priv, optionally refuse to bind.
-    PHY may not have been reset or had fixups run yet.
-    suspend/resume: power management
-    config_aneg: Changes the speed/duplex/negotiation settings
-+   aneg_done: Determines the auto-negotiation result
-    read_status: Reads the current speed/duplex/negotiation settings
-    ack_interrupt: Clear a pending interrupt
-+   did_interrupt: Checks if the PHY generated an interrupt
-    config_intr: Enable or disable interrupts
-    remove: Does any driver take-down
-+   ts_info: Queries about the HW timestamping status
-+   hwtstamp: Set the PHY HW timestamping configuration
-+   rxtstamp: Requests a receive timestamp at the PHY level for a 'skb'
-+   txtsamp: Requests a transmit timestamp at the PHY level for a 'skb'
-+   set_wol: Enable Wake-on-LAN at the PHY level
-+   get_wol: Get the Wake-on-LAN status at the PHY level
- 
-  Of these, only config_aneg and read_status are required to be
-  assigned by the driver code.  The rest are optional.  Also, it is
+That, and there was a typo in the Documentation patch, all fixed now, thanks!
 -- 
-1.8.3.2
+Florian
