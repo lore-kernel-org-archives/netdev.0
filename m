@@ -1,98 +1,61 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: add init-regs for of_phy support
-Date: Mon, 17 Feb 2014 09:53:03 -0800
-Message-ID: <CAGVrzcahSCf8uMsf5jQ3DiS1y1AdBZrFgxN2p6GdWtEPzXFSig@mail.gmail.com>
-References: <1392642484-19938-1-git-send-email-ben.dooks@codethink.co.uk>
- <1392642484-19938-2-git-send-email-ben.dooks@codethink.co.uk>
- <CAGVrzcYbw5xLj-gwcup5i0gBdKDDGdyy5wAaEBp7m2E7f2bytg@mail.gmail.com> <53024A62.4050208@codethink.co.uk>
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: Re: [PATCH] of_mdio: fix phy interrupt passing
+Date: Mon, 17 Feb 2014 17:56:27 +0000
+Message-ID: <53024D4B.9010103@codethink.co.uk>
+References: <1392654580-3706-1-git-send-email-ben.dooks@codethink.co.uk> <CAGVrzcYeuTA0Yd5YyOTuWQfnwLw9zP87MaYJOLwprZRCtvuaXw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Grant Likely <grant.likely@linaro.org>,
+	linux-kernel@lists.codethink.co.uk,
 	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Linux-sh list <linux-sh@vger.kernel.org>
-To: Ben Dooks <ben.dooks@codethink.co.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:36977 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752945AbaBQRxo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 12:53:44 -0500
-In-Reply-To: <53024A62.4050208@codethink.co.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <CAGVrzcYeuTA0Yd5YyOTuWQfnwLw9zP87MaYJOLwprZRCtvuaXw@mail.gmail.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2014-02-17 9:44 GMT-08:00 Ben Dooks <ben.dooks@codethink.co.uk>:
-> On 17/02/14 17:33, Florian Fainelli wrote:
->>
->> Hi Ben,
->>
->> 2014-02-17 5:08 GMT-08:00 Ben Dooks <ben.dooks@codethink.co.uk>:
->>>
->>> Add new init-regs field for of_phy nodes and make sure these
->>> get applied when the phy is configured.
->>>
->>> This allows any phy node in an fdt to initialise registers
->>> that may not be set as standard by the driver at initialisation
->>> time, such as LED controls.
->>>
->>> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
->>> ---
->>>   Documentation/devicetree/bindings/net/phy.txt | 12 ++++++
->>>   drivers/net/phy/phy_device.c                  | 59
->>> ++++++++++++++++++++++++++-
->>>   2 files changed, 70 insertions(+), 1 deletion(-)
->>>
->>> diff --git a/Documentation/devicetree/bindings/net/phy.txt
->>> b/Documentation/devicetree/bindings/net/phy.txt
->>> index 58307d0..48d8ded 100644
->>> --- a/Documentation/devicetree/bindings/net/phy.txt
->>> +++ b/Documentation/devicetree/bindings/net/phy.txt
->>> @@ -20,6 +20,8 @@ Optional Properties:
->>>     assume clause 22. The compatible list may also contain other
->>>     elements.
->>>   - max-speed: Maximum PHY supported speed (10, 100, 1000...)
->>> +- init-regs: Set of registers to modify at initialisation as a
->>> +    a set of <register set clear>
->>
->>
->> Should be:
->>
->> "micrel,led-control-init-val" or something like that.
->>
->> first cell is the register address, according to the IEEE 802.3 clause 22
->> second cell is the set bitmask to apply to the register address
->> specified in the first cell
->> third cell is the clear bitmask to apply to the register address
->> specified in the second cell
->>
->> I would rather see this as a specific PHY node DT property for setting
->> the LED control register, because this is totally non-standard and you
->> are touching a proprietary register here.
+On 17/02/14 17:26, Florian Fainelli wrote:
+> Hi Ben,
 >
+> 2014-02-17 8:29 GMT-08:00 Ben Dooks <ben.dooks@codethink.co.uk>:
+>> The of_mdiobus_register_phy() is not setting phy->irq this causing
+>> some drivers to incorrectly assume that the PHY does not have an
+>> IRQ associated with it or install an interrupt handler for the
+>> PHY.
+>>
+>> Simplify the code setting irq and set the phy->irq at the same
+>> time so that the case if mdio->irq is not NULL is easier to read.
 >
-> I'd rather stay with this than splattering lots and lots of
-> phy specific additions to each phy driver.
+> The real bug fix, which is not properly explained here, is that
+> irq_of_parse_and_map() should return values > 0 when the interrupt is
+> valid, so this makes me wonder why we are not propagating the return
+> value from irq_of_parse_and_map() in case the call to
+> of_irq_parse_one() does return something non-zero?
 
-And I would rather not do it because:
+	rc = irq_of_parse_and_map(child, 0);
+	if (rc > 0) {
+		mdio->irq[addr] = rc;
+		phy->irq = rc;
+	}
 
-- Device Tree related problems are already hard enough to debug that
-we do not want DT to act as a firmware and provide values for Linux to
-digest without even a bit of parsing and validation
-- this is not capture by a PHY fixup, and will not be reported as such
-in /sys/class/mdio_bus/*/*/phy_has_fixups
-- this covers the one time initialization that might be needed, but
-does not cover the suspend/resume/reset times where this is also
-needed
-- this is vendor-specific and sort of calls for being moved into the PHY driver
+Unfortunately we do not get any idea of what error went wrong
+when doing this, all we get it 0 on failure. So we cannot tell
+if the problem was due to no interrupt being there or there was
+an interrupt and it could not be parsed properly.
 
->
-> This has the plus it lets board developers set registers in
-> case of board specific initialisation values that are not
-> already in the drivers.
+The best we can do is assume that the PHY is happy with being
+polled and the specific driver will error out if it expects to
+be able to work with an interrupt.
 
-And this bloats the code for the other 99% people that do not use
-things like this. Do not get me wrong, Ethernet PHYs never work as we
-want them to, but we libphy comes with PHY fixups callbacks which
-allows you to capture quirks and will ensure that they are run again
-at the right time in the PHY state machine cycle.
+If we error out, we may end up stopping any PHYs where there is
+no interrupt available from working. Also, if we fail to parse
+then we can generally fall back to polling.
+
 -- 
-Florian
+Ben Dooks				http://www.codethink.co.uk/
+Senior Engineer				Codethink - Providing Genius
