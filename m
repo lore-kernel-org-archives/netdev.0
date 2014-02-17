@@ -1,481 +1,408 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: [PATCH v5] DT: net: document Ethernet bindings in one place
-Date: Tue, 18 Feb 2014 02:41:59 +0300
-Message-ID: <201402180242.00796.sergei.shtylyov@cogentembedded.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless 2014-02-17
+Date: Mon, 17 Feb 2014 17:39:21 -0500
+Message-ID: <20140217223921.GA29923@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: rob-VoJi6FS/r0vR7s880joybQ@public.gmane.org, linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jcmvbkbc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="LQksG6bCIzRHxTLp"
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch is an attempt to gather the Ethernet related bindings in one file,
-like it's done in the MMC and some other subsystems. It should save some of
-the trouble of documenting several properties over and over in each binding
-document, instead only making reference to the main file.
 
-I have used the Embedded Power Architecture(TM) Platform Requirements (ePAPR)
-standard as a base for the properties description, also documenting some ad-hoc
-properties that have been introduced over time despite having direct analogs in
-ePAPR.
+--LQksG6bCIzRHxTLp
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Dave,
+
+Please pull this batch of fixes intended for the 3.14 stream...
+
+For the iwlwifi one, Emmanuel says:
+
+"As explicitly written in the commit message, we prefer to disable Tx
+AMPDU on NICs supported by iwldvm. This feature gives a big boost in
+Tx performance, but the firmware is buggy and we can't rely on it.
+Our hope is that most of the users out there want wifi to surf on
+the web which means that they care more for Rx traffic than for Tx.
+People who want to enable it can do so with the help of a module
+parameter."
+
+On top of that...
+
+Dan Carpenter fixes a typo/thinko in ath5k.
+
+Olivier Langlois fixes a couple of rtlwifi issues, one which leaves
+IRQs disabled too long (causing a variety of problems elsewhere),
+and one which fixes an incorrect return code when failing to enable
+the NIC.
+
+Russell King fixes a NULL pointer dereference in hostap.
+
+Stanislaw Gruszka fixes a DMA coherence issue in the rtl8187 driver.
+
+Please let me know if there are problems!
+
+Thanks,
+
+John
 
 ---
-The patch is against DaveM's 'net-next.git' repo.
 
-Changes in version 5:
-- added references to common file in the Broadcom GENET binding;
-- resolved reject, refreshed the patch.
+The following changes since commit eb85569fe2d06c2fbf4de7b66c263ca095b397aa:
 
-Changes in version 4:
-- documented "phy-mode" property as a de-facto standard;
-- added "phy-device" property to the common file;
-- removed "[local-]mac-address" properties being mentioned in cases where they
-  were optional.
+  usbnet: remove generic hard_header_len check (2014-02-17 14:35:46 -0500)
 
-Changes in version 3:
-- noted about the "max-frame-size" property's contradictory definition in ePAPR
-  1.1, reformatted the description (forgot to save the file last time).
+are available in the git repository at:
 
-Changes in version 2:
-- restored the mentions of the common properties in the individual bindings, but
-  made them reference the common file instead;
-- edited some property descriptions in the common file, indicating preferred and  not recommended properties;
-- moved the "max-frame-size" property definition to the common file;
-- resolved rejects, refreshed the patch.
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git for-d=
+avem
 
- Documentation/devicetree/bindings/net/allwinner,sun4i-emac.txt    |    6 --
- Documentation/devicetree/bindings/net/arc_emac.txt                |   11 ----
- Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt       |    9 +--
- Documentation/devicetree/bindings/net/cavium-mix.txt              |    7 --
- Documentation/devicetree/bindings/net/cavium-pip.txt              |    7 --
- Documentation/devicetree/bindings/net/cdns-emac.txt               |    6 --
- Documentation/devicetree/bindings/net/cpsw.txt                    |    5 --
- Documentation/devicetree/bindings/net/davicom-dm9000.txt          |    2 
- Documentation/devicetree/bindings/net/davinci_emac.txt            |    3 -
- Documentation/devicetree/bindings/net/ethernet.txt                |   25 ++++++++++
- Documentation/devicetree/bindings/net/fsl-fec.txt                 |    5 --
- Documentation/devicetree/bindings/net/fsl-tsec-phy.txt            |   13 +----
- Documentation/devicetree/bindings/net/lpc-eth.txt                 |    5 --
- Documentation/devicetree/bindings/net/macb.txt                    |    6 --
- Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt |    6 --
- Documentation/devicetree/bindings/net/marvell-orion-net.txt       |    4 -
- Documentation/devicetree/bindings/net/micrel-ks8851.txt           |    3 -
- Documentation/devicetree/bindings/net/smsc-lan91c111.txt          |    3 -
- Documentation/devicetree/bindings/net/smsc911x.txt                |    5 --
- Documentation/devicetree/bindings/net/stmmac.txt                  |    7 --
- 20 files changed, 53 insertions(+), 85 deletions(-)
+for you to fetch changes up to ff95fe382c658d81ebe01ba68dca2e00ca814ff0:
 
-Index: net-next/Documentation/devicetree/bindings/net/allwinner,sun4i-emac.txt
-===================================================================
---- net-next.orig/Documentation/devicetree/bindings/net/allwinner,sun4i-emac.txt
-+++ net-next/Documentation/devicetree/bindings/net/allwinner,sun4i-emac.txt
-@@ -5,13 +5,9 @@ Required properties:
-               "allwinner,sun4i-emac")
- - reg: address and length of the register set for the device.
- - interrupts: interrupt for the device
--- phy: A phandle to a phy node defining the PHY address (as the reg
--  property, a single integer).
-+- phy: see ethernet.txt file in the same directory.
- - clocks: A phandle to the reference clock for this device
- 
--Optional properties:
--- (local-)mac-address: mac address to be used by this driver
--
- Example:
- 
- emac: ethernet@01c0b000 {
-Index: net-next/Documentation/devicetree/bindings/net/arc_emac.txt
-===================================================================
---- net-next.orig/Documentation/devicetree/bindings/net/arc_emac.txt
-+++ net-next/Documentation/devicetree/bindings/net/arc_emac.txt
-@@ -6,19 +6,12 @@ Required properties:
- - interrupts: Should contain the EMAC interrupts
- - clock-frequency: CPU frequency. It is needed to calculate and set polling
- period of EMAC.
--- max-speed: Maximum supported data-rate in Mbit/s. In some HW configurations
--bandwidth of external memory controller might be a limiting factor. That's why
--it's required to specify which data-rate is supported on current SoC or FPGA.
--For example if only 10 Mbit/s is supported (10BASE-T) set "10". If 100 Mbit/s is
--supported (100BASE-TX) set "100".
--- phy: PHY device attached to the EMAC via MDIO bus
-+- max-speed: see ethernet.txt file in the same directory.
-+- phy: see ethernet.txt file in the same directory.
- 
- Child nodes of the driver are the individual PHY devices connected to the
- MDIO bus. They must have a "reg" property given the PHY address on the MDIO bus.
- 
--Optional properties:
--- mac-address: 6 bytes, mac address
--
- Examples:
- 
- 	ethernet@c0fc2000 {
-Index: net-next/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
-===================================================================
---- net-next.orig/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
-+++ net-next/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
-@@ -7,9 +7,7 @@ Required properties:
- - interrupts: must be two cells, the first cell is the general purpose
-   interrupt line, while the second cell is the interrupt for the ring
-   RX and TX queues operating in ring mode
--- phy-mode: String, operation mode of the PHY interface. Supported values are
--  "mii", "rgmii", "rgmii-txid", "rev-mii", "moca". Analogous to ePAPR
--  "phy-connection-type" values
-+- phy-mode: see ethernet.txt file in the same directory
- - address-cells: should be 1
- - size-cells: should be 1
- 
-@@ -20,9 +18,8 @@ Optional properties:
- - clock-names: When provided, names of the functional clock phandles, first
-   name should be "enet" and second should be "enet-wol".
- 
--- phy-handle: A phandle to a phy node defining the PHY address (as the reg
--  property, a single integer), used to describe configurations where a PHY
--  (internal or external) is used.
-+- phy-handle: See ethernet.txt file in the same directory; used to describe
-+  configurations where a PHY (internal or external) is used.
- 
- - fixed-link: When the GENET interface is connected to a MoCA hardware block or
-   when operating in a RGMII to RGMII type of connection, or when the MDIO bus is
-Index: net-next/Documentation/devicetree/bindings/net/cavium-mix.txt
-===================================================================
---- net-next.orig/Documentation/devicetree/bindings/net/cavium-mix.txt
-+++ net-next/Documentation/devicetree/bindings/net/cavium-mix.txt
-@@ -18,12 +18,7 @@ Properties:
- - interrupts: Two interrupt specifiers.  The first is the MIX
-   interrupt routing and the second the routing for the AGL interrupts.
- 
--- mac-address: Optional, the MAC address to assign to the device.
--
--- local-mac-address: Optional, the MAC address to assign to the device
--  if mac-address is not specified.
--
--- phy-handle: Optional, a phandle for the PHY device connected to this device.
-+- phy-handle: Optional, see ethernet.txt file in the same directory.
- 
- Example:
- 	ethernet@1070000100800 {
-Index: net-next/Documentation/devicetree/bindings/net/cavium-pip.txt
-===================================================================
---- net-next.orig/Documentation/devicetree/bindings/net/cavium-pip.txt
-+++ net-next/Documentation/devicetree/bindings/net/cavium-pip.txt
-@@ -35,12 +35,7 @@ Properties for PIP port which is a child
- 
- - reg: The port number within the interface group.
- 
--- mac-address: Optional, the MAC address to assign to the device.
--
--- local-mac-address: Optional, the MAC address to assign to the device
--  if mac-address is not specified.
--
--- phy-handle: Optional, a phandle for the PHY device connected to this device.
-+- phy-handle: Optional, see ethernet.txt file in the same directory.
- 
- Example:
- 
-Index: net-next/Documentation/devicetree/bindings/net/cdns-emac.txt
-===================================================================
---- net-next.orig/Documentation/devicetree/bindings/net/cdns-emac.txt
-+++ net-next/Documentation/devicetree/bindings/net/cdns-emac.txt
-@@ -6,11 +6,7 @@ Required properties:
-   or the generic form: "cdns,emac".
- - reg: Address and length of the register set for the device
- - interrupts: Should contain macb interrupt
--- phy-mode: String, operation mode of the PHY interface.
--  Supported values are: "mii", "rmii".
--
--Optional properties:
--- local-mac-address: 6 bytes, mac address
-+- phy-mode: see ethernet.txt file in the same directory.
- 
- Examples:
- 
-Index: net-next/Documentation/devicetree/bindings/net/cpsw.txt
-===================================================================
---- net-next.orig/Documentation/devicetree/bindings/net/cpsw.txt
-+++ net-next/Documentation/devicetree/bindings/net/cpsw.txt
-@@ -28,9 +28,8 @@ Optional properties:
- Slave Properties:
- Required properties:
- - phy_id		: Specifies slave phy id
--- phy-mode		: The interface between the SoC and the PHY (a string
--			  that of_get_phy_mode() can understand)
--- mac-address		: Specifies slave MAC address
-+- phy-mode		: See ethernet.txt file in the same directory
-+- mac-address		: See ethernet.txt file in the same directory
- 
- Optional properties:
- - dual_emac_res_vlan	: Specifies VID to be used to segregate the ports
-Index: net-next/Documentation/devicetree/bindings/net/davicom-dm9000.txt
-===================================================================
---- net-next.orig/Documentation/devicetree/bindings/net/davicom-dm9000.txt
-+++ net-next/Documentation/devicetree/bindings/net/davicom-dm9000.txt
-@@ -9,8 +9,6 @@ Required properties:
- - interrupts : interrupt specifier specific to interrupt controller
- 
- Optional properties:
--- local-mac-address : A bytestring of 6 bytes specifying Ethernet MAC address
--    to use (from firmware or bootloader)
- - davicom,no-eeprom : Configuration EEPROM is not available
- - davicom,ext-phy : Use external PHY
- 
-Index: net-next/Documentation/devicetree/bindings/net/davinci_emac.txt
-===================================================================
---- net-next.orig/Documentation/devicetree/bindings/net/davinci_emac.txt
-+++ net-next/Documentation/devicetree/bindings/net/davinci_emac.txt
-@@ -17,9 +17,8 @@ Required properties:
- 			  Miscellaneous Interrupt>
- 
- Optional properties:
--- phy-handle: Contains a phandle to an Ethernet PHY.
-+- phy-handle: See ethernet.txt file in the same directory.
-               If absent, davinci_emac driver defaults to 100/FULL.
--- local-mac-address : 6 bytes, mac address
- - ti,davinci-rmii-en: 1 byte, 1 means use RMII
- - ti,davinci-no-bd-ram: boolean, does EMAC have BD RAM?
- 
-Index: net-next/Documentation/devicetree/bindings/net/ethernet.txt
-===================================================================
---- /dev/null
-+++ net-next/Documentation/devicetree/bindings/net/ethernet.txt
-@@ -0,0 +1,25 @@
-+The following properties are common to the Ethernet controllers:
+  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/li=
+nville/wireless into for-davem (2014-02-17 15:54:31 -0500)
+
+----------------------------------------------------------------
+
+Dan Carpenter (1):
+      ath5k: shifting the wrong variable for AR5K_AR5210
+
+Emmanuel Grumbach (1):
+      iwlwifi: disable TX AMPDU by default for iwldvm
+
+John W. Linville (2):
+      Merge git://git.kernel.org/.../iwlwifi/iwlwifi-fixes
+      Merge branch 'master' of git://git.kernel.org/.../linville/wireless i=
+nto for-davem
+
+Olivier Langlois (2):
+      rtlwifi: rtl8192ce: Fix too long disable of IRQs
+      rtlwifi: Fix incorrect return from rtl_ps_enable_nic()
+
+Russell King - ARM Linux (1):
+      hostap: fix "hostap: proc: Use remove_proc_subtree()"
+
+Stanislaw Gruszka (1):
+      rtl8187: fix regression on MIPS without coherent DMA
+
+ drivers/net/wireless/ath/ath5k/phy.c           |  2 +-
+ drivers/net/wireless/hostap/hostap_proc.c      |  2 +-
+ drivers/net/wireless/iwlwifi/dvm/mac80211.c    | 22 ++++++++++++++++++++--
+ drivers/net/wireless/iwlwifi/iwl-drv.c         |  2 +-
+ drivers/net/wireless/iwlwifi/iwl-modparams.h   | 11 +++++++----
+ drivers/net/wireless/iwlwifi/mvm/mac80211.c    | 22 ++++++++++++++++++++--
+ drivers/net/wireless/rtl818x/rtl8187/rtl8187.h | 10 ++++++++--
+ drivers/net/wireless/rtlwifi/ps.c              |  2 +-
+ drivers/net/wireless/rtlwifi/rtl8192ce/hw.c    | 18 ++++++++++++++++--
+ 9 files changed, 75 insertions(+), 16 deletions(-)
+diff --git a/drivers/net/wireless/ath/ath5k/phy.c b/drivers/net/wireless/at=
+h/ath5k/phy.c
+index d6bc7cb61bfb..1a2973b7acf2 100644
+--- a/drivers/net/wireless/ath/ath5k/phy.c
++++ b/drivers/net/wireless/ath/ath5k/phy.c
+@@ -110,7 +110,7 @@ ath5k_hw_radio_revision(struct ath5k_hw *ah, enum ieee8=
+0211_band band)
+ 		ath5k_hw_reg_write(ah, 0x00010000, AR5K_PHY(0x20));
+=20
+ 	if (ah->ah_version =3D=3D AR5K_AR5210) {
+-		srev =3D ath5k_hw_reg_read(ah, AR5K_PHY(256) >> 28) & 0xf;
++		srev =3D (ath5k_hw_reg_read(ah, AR5K_PHY(256)) >> 28) & 0xf;
+ 		ret =3D (u16)ath5k_hw_bitswap(srev, 4) + 1;
+ 	} else {
+ 		srev =3D (ath5k_hw_reg_read(ah, AR5K_PHY(0x100)) >> 24) & 0xff;
+diff --git a/drivers/net/wireless/hostap/hostap_proc.c b/drivers/net/wirele=
+ss/hostap/hostap_proc.c
+index aa7ad3a7a69b..4e5c0f8c9496 100644
+--- a/drivers/net/wireless/hostap/hostap_proc.c
++++ b/drivers/net/wireless/hostap/hostap_proc.c
+@@ -496,7 +496,7 @@ void hostap_init_proc(local_info_t *local)
+=20
+ void hostap_remove_proc(local_info_t *local)
+ {
+-	remove_proc_subtree(local->ddev->name, hostap_proc);
++	proc_remove(local->proc);
+ }
+=20
+=20
+diff --git a/drivers/net/wireless/iwlwifi/dvm/mac80211.c b/drivers/net/wire=
+less/iwlwifi/dvm/mac80211.c
+index c24d1d3d55f6..73086c1629ca 100644
+--- a/drivers/net/wireless/iwlwifi/dvm/mac80211.c
++++ b/drivers/net/wireless/iwlwifi/dvm/mac80211.c
+@@ -696,6 +696,24 @@ static int iwlagn_mac_set_key(struct ieee80211_hw *hw,=
+ enum set_key_cmd cmd,
+ 	return ret;
+ }
+=20
++static inline bool iwl_enable_rx_ampdu(const struct iwl_cfg *cfg)
++{
++	if (iwlwifi_mod_params.disable_11n & IWL_DISABLE_HT_RXAGG)
++		return false;
++	return true;
++}
 +
-+- local-mac-address: array of 6 bytes, specifies the MAC address that was
-+  assigned to the network device;
-+- mac-address: array of 6 bytes, specifies the MAC address that was last used by
-+  the boot program; should be used in cases where the MAC address assigned to
-+  the device by the boot program is different from the "local-mac-address"
-+  property;
-+- max-speed: number, specifies maximum speed in Mbit/s supported by the device;
-+- max-frame-size: number, maximum transfer unit (IEEE defined MTU), rather than
-+  the maximum frame size (there's contradiction in ePAPR).
-+- phy-mode: string, operation mode of the PHY interface; supported values are
-+  "mii", "gmii", "sgmii", "tbi", "rev-mii", "rmii", "rgmii", "rgmii-id",
-+  "rgmii-rxid", "rgmii-txid", "rtbi", "smii", "xgmii"; this is now a de-facto
-+  standard property;
-+- phy-connection-type: the same as "phy-mode" property but described in ePAPR;
-+- phy-handle: phandle, specifies a reference to a node representing a PHY
-+  device; this property is described in ePAPR and so preferred;
-+- phy: the same as "phy-handle" property, not recommended for new bindings.
-+- phy-device: the same as "phy-handle" property, not recommended for new
-+  bindings.
++static inline bool iwl_enable_tx_ampdu(const struct iwl_cfg *cfg)
++{
++	if (iwlwifi_mod_params.disable_11n & IWL_DISABLE_HT_TXAGG)
++		return false;
++	if (iwlwifi_mod_params.disable_11n & IWL_ENABLE_HT_TXAGG)
++		return true;
 +
-+Child nodes of the Ethernet controller are typically the individual PHY devices
-+connected via the MDIO bus (sometimes the MDIO bus controller is separate).
-+They are described in the phy.txt file in this same directory.
-Index: net-next/Documentation/devicetree/bindings/net/fsl-fec.txt
-===================================================================
---- net-next.orig/Documentation/devicetree/bindings/net/fsl-fec.txt
-+++ net-next/Documentation/devicetree/bindings/net/fsl-fec.txt
-@@ -4,12 +4,9 @@ Required properties:
- - compatible : Should be "fsl,<soc>-fec"
- - reg : Address and length of the register set for the device
- - interrupts : Should contain fec interrupt
--- phy-mode : String, operation mode of the PHY interface.
--  Supported values are: "mii", "gmii", "sgmii", "tbi", "rmii",
--  "rgmii", "rgmii-id", "rgmii-rxid", "rgmii-txid", "rtbi", "smii".
-+- phy-mode : See ethernet.txt file in the same directory
- 
- Optional properties:
--- local-mac-address : 6 bytes, mac address
- - phy-reset-gpios : Should specify the gpio for phy reset
- - phy-reset-duration : Reset duration in milliseconds.  Should present
-   only if property "phy-reset-gpios" is available.  Missing the property
-Index: net-next/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
-===================================================================
---- net-next.orig/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
-+++ net-next/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
-@@ -38,22 +38,17 @@ Properties:
-   - model : Model of the device.  Can be "TSEC", "eTSEC", or "FEC"
-   - compatible : Should be "gianfar"
-   - reg : Offset and length of the register set for the device
--  - local-mac-address : List of bytes representing the ethernet address of
--    this controller
-   - interrupts : For FEC devices, the first interrupt is the device's
-     interrupt.  For TSEC and eTSEC devices, the first interrupt is
-     transmit, the second is receive, and the third is error.
--  - phy-handle : The phandle for the PHY connected to this ethernet
--    controller.
-+  - phy-handle : See ethernet.txt file in the same directory.
-   - fixed-link : <a b c d e> where a is emulated phy id - choose any,
-     but unique to the all specified fixed-links, b is duplex - 0 half,
-     1 full, c is link speed - d#10/d#100/d#1000, d is pause - 0 no
-     pause, 1 pause, e is asym_pause - 0 no asym_pause, 1 asym_pause.
--  - phy-connection-type : a string naming the controller/PHY interface type,
--    i.e., "mii" (default), "rmii", "gmii", "rgmii", "rgmii-id", "sgmii",
--    "tbi", or "rtbi".  This property is only really needed if the connection
--    is of type "rgmii-id", as all other connection types are detected by
--    hardware.
-+  - phy-connection-type : See ethernet.txt file in the same directory.
-+    This property is only really needed if the connection is of type
-+    "rgmii-id", as all other connection types are detected by hardware.
-   - fsl,magic-packet : If present, indicates that the hardware supports
-     waking up via magic packet.
-   - bd-stash : If present, indicates that the hardware supports stashing
-Index: net-next/Documentation/devicetree/bindings/net/lpc-eth.txt
-===================================================================
---- net-next.orig/Documentation/devicetree/bindings/net/lpc-eth.txt
-+++ net-next/Documentation/devicetree/bindings/net/lpc-eth.txt
-@@ -6,10 +6,9 @@ Required properties:
- - interrupts: Should contain ethernet controller interrupt
- 
- Optional properties:
--- phy-mode: String, operation mode of the PHY interface.
--  Supported values are: "mii", "rmii" (default)
-+- phy-mode: See ethernet.txt file in the same directory. If the property is
-+  absent, "rmii" is assumed.
- - use-iram: Use LPC32xx internal SRAM (IRAM) for DMA buffering
--- local-mac-address : 6 bytes, mac address
- 
- Example:
- 
-Index: net-next/Documentation/devicetree/bindings/net/macb.txt
-===================================================================
---- net-next.orig/Documentation/devicetree/bindings/net/macb.txt
-+++ net-next/Documentation/devicetree/bindings/net/macb.txt
-@@ -8,16 +8,12 @@ Required properties:
-   the Cadence GEM, or the generic form: "cdns,gem".
- - reg: Address and length of the register set for the device
- - interrupts: Should contain macb interrupt
--- phy-mode: String, operation mode of the PHY interface.
--  Supported values are: "mii", "rmii", "gmii", "rgmii".
-+- phy-mode: See ethernet.txt file in the same directory.
- - clock-names: Tuple listing input clock names.
- 	Required elements: 'pclk', 'hclk'
- 	Optional elements: 'tx_clk'
- - clocks: Phandles to input clocks.
- 
--Optional properties:
--- local-mac-address: 6 bytes, mac address
--
- Examples:
- 
- 	macb0: ethernet@fffc4000 {
-Index: net-next/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
-===================================================================
---- net-next.orig/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
-+++ net-next/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
-@@ -4,10 +4,8 @@ Required properties:
- - compatible: should be "marvell,armada-370-neta".
- - reg: address and length of the register set for the device.
- - interrupts: interrupt for the device
--- phy: A phandle to a phy node defining the PHY address (as the reg
--  property, a single integer).
--- phy-mode: The interface between the SoC and the PHY (a string that
--  of_get_phy_mode() can understand)
-+- phy: See ethernet.txt file in the same directory.
-+- phy-mode: See ethernet.txt file in the same directory
- - clocks: a pointer to the reference clock for this device.
- 
- Example:
-Index: net-next/Documentation/devicetree/bindings/net/marvell-orion-net.txt
-===================================================================
---- net-next.orig/Documentation/devicetree/bindings/net/marvell-orion-net.txt
-+++ net-next/Documentation/devicetree/bindings/net/marvell-orion-net.txt
-@@ -36,7 +36,7 @@ Required port properties:
-       "marvell,kirkwood-eth-port".
-  - reg: port number relative to ethernet controller, shall be 0, 1, or 2.
-  - interrupts: port interrupt.
-- - local-mac-address: 6 bytes MAC address.
-+ - local-mac-address: See ethernet.txt file in the same directory.
- 
- Optional port properties:
-  - marvell,tx-queue-size: size of the transmit ring buffer.
-@@ -48,7 +48,7 @@ Optional port properties:
- 
- and
- 
-- - phy-handle: phandle reference to ethernet PHY.
-+ - phy-handle: See ethernet.txt file in the same directory.
- 
- or
- 
-Index: net-next/Documentation/devicetree/bindings/net/micrel-ks8851.txt
-===================================================================
---- net-next.orig/Documentation/devicetree/bindings/net/micrel-ks8851.txt
-+++ net-next/Documentation/devicetree/bindings/net/micrel-ks8851.txt
-@@ -4,6 +4,3 @@ Required properties:
- - compatible = "micrel,ks8851-ml" of parallel interface
- - reg : 2 physical address and size of registers for data and command
- - interrupts : interrupt connection
--
--Optional properties:
--- local-mac-address : Ethernet mac address to use
-Index: net-next/Documentation/devicetree/bindings/net/smsc-lan91c111.txt
-===================================================================
---- net-next.orig/Documentation/devicetree/bindings/net/smsc-lan91c111.txt
-+++ net-next/Documentation/devicetree/bindings/net/smsc-lan91c111.txt
-@@ -6,8 +6,7 @@ Required properties:
- - interrupts : interrupt connection
- 
- Optional properties:
--- phy-device : phandle to Ethernet phy
--- local-mac-address : Ethernet mac address to use
-+- phy-device : see ethernet.txt file in the same directory
- - reg-io-width : Mask of sizes (in bytes) of the IO accesses that
-   are supported on the device.  Valid value for SMSC LAN91c111 are
-   1, 2 or 4.  If it's omitted or invalid, the size would be 2 meaning
-Index: net-next/Documentation/devicetree/bindings/net/smsc911x.txt
-===================================================================
---- net-next.orig/Documentation/devicetree/bindings/net/smsc911x.txt
-+++ net-next/Documentation/devicetree/bindings/net/smsc911x.txt
-@@ -6,9 +6,7 @@ Required properties:
- - interrupts : Should contain SMSC LAN interrupt line
- - interrupt-parent : Should be the phandle for the interrupt controller
-   that services interrupts for this device
--- phy-mode : String, operation mode of the PHY interface.
--  Supported values are: "mii", "gmii", "sgmii", "tbi", "rmii",
--  "rgmii", "rgmii-id", "rgmii-rxid", "rgmii-txid", "rtbi", "smii".
-+- phy-mode : See ethernet.txt file in the same directory
- 
- Optional properties:
- - reg-shift : Specify the quantity to shift the register offsets by
-@@ -23,7 +21,6 @@ Optional properties:
-   external PHY
- - smsc,save-mac-address : Indicates that mac address needs to be saved
-   before resetting the controller
--- local-mac-address : 6 bytes, mac address
- 
- Examples:
- 
-Index: net-next/Documentation/devicetree/bindings/net/stmmac.txt
-===================================================================
---- net-next.orig/Documentation/devicetree/bindings/net/stmmac.txt
-+++ net-next/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -10,8 +10,7 @@ Required properties:
- - interrupt-names: Should contain the interrupt names "macirq"
-   "eth_wake_irq" if this interrupt is supported in the "interrupts"
-   property
--- phy-mode: String, operation mode of the PHY interface.
--  Supported values are: "mii", "rmii", "gmii", "rgmii".
-+- phy-mode: See ethernet.txt file in the same directory.
- - snps,reset-gpio 	gpio number for phy reset.
- - snps,reset-active-low boolean flag to indicate if phy reset is active low.
- - snps,reset-delays-us  is triplet of delays
-@@ -28,12 +27,10 @@ Required properties:
- 				ignored if force_thresh_dma_mode is set.
- 
- Optional properties:
--- mac-address: 6 bytes, mac address
- - resets: Should contain a phandle to the STMMAC reset signal, if any
- - reset-names: Should contain the reset signal name "stmmaceth", if a
- 	reset phandle is given
--- max-frame-size:	Maximum Transfer Unit (IEEE defined MTU), rather
--			than the maximum frame size.
-+- max-frame-size: See ethernet.txt file in the same directory
- 
- Examples:
- 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
++	/* disabled by default */
++	return false;
++}
++
+ static int iwlagn_mac_ampdu_action(struct ieee80211_hw *hw,
+ 				   struct ieee80211_vif *vif,
+ 				   enum ieee80211_ampdu_mlme_action action,
+@@ -717,7 +735,7 @@ static int iwlagn_mac_ampdu_action(struct ieee80211_hw =
+*hw,
+=20
+ 	switch (action) {
+ 	case IEEE80211_AMPDU_RX_START:
+-		if (iwlwifi_mod_params.disable_11n & IWL_DISABLE_HT_RXAGG)
++		if (!iwl_enable_rx_ampdu(priv->cfg))
+ 			break;
+ 		IWL_DEBUG_HT(priv, "start Rx\n");
+ 		ret =3D iwl_sta_rx_agg_start(priv, sta, tid, *ssn);
+@@ -729,7 +747,7 @@ static int iwlagn_mac_ampdu_action(struct ieee80211_hw =
+*hw,
+ 	case IEEE80211_AMPDU_TX_START:
+ 		if (!priv->trans->ops->txq_enable)
+ 			break;
+-		if (iwlwifi_mod_params.disable_11n & IWL_DISABLE_HT_TXAGG)
++		if (!iwl_enable_tx_ampdu(priv->cfg))
+ 			break;
+ 		IWL_DEBUG_HT(priv, "start Tx\n");
+ 		ret =3D iwlagn_tx_agg_start(priv, vif, sta, tid, ssn);
+diff --git a/drivers/net/wireless/iwlwifi/iwl-drv.c b/drivers/net/wireless/=
+iwlwifi/iwl-drv.c
+index c3728163be46..75103554cd63 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-drv.c
++++ b/drivers/net/wireless/iwlwifi/iwl-drv.c
+@@ -1286,7 +1286,7 @@ module_param_named(swcrypto, iwlwifi_mod_params.sw_cr=
+ypto, int, S_IRUGO);
+ MODULE_PARM_DESC(swcrypto, "using crypto in software (default 0 [hardware]=
+)");
+ module_param_named(11n_disable, iwlwifi_mod_params.disable_11n, uint, S_IR=
+UGO);
+ MODULE_PARM_DESC(11n_disable,
+-	"disable 11n functionality, bitmap: 1: full, 2: agg TX, 4: agg RX");
++	"disable 11n functionality, bitmap: 1: full, 2: disable agg TX, 4: disabl=
+e agg RX, 8 enable agg TX");
+ module_param_named(amsdu_size_8K, iwlwifi_mod_params.amsdu_size_8K,
+ 		   int, S_IRUGO);
+ MODULE_PARM_DESC(amsdu_size_8K, "enable 8K amsdu size (default 0)");
+diff --git a/drivers/net/wireless/iwlwifi/iwl-modparams.h b/drivers/net/wir=
+eless/iwlwifi/iwl-modparams.h
+index 0a84ade7edac..b29075c3da8e 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-modparams.h
++++ b/drivers/net/wireless/iwlwifi/iwl-modparams.h
+@@ -79,9 +79,12 @@ enum iwl_power_level {
+ 	IWL_POWER_NUM
+ };
+=20
+-#define IWL_DISABLE_HT_ALL	BIT(0)
+-#define IWL_DISABLE_HT_TXAGG	BIT(1)
+-#define IWL_DISABLE_HT_RXAGG	BIT(2)
++enum iwl_disable_11n {
++	IWL_DISABLE_HT_ALL	 =3D BIT(0),
++	IWL_DISABLE_HT_TXAGG	 =3D BIT(1),
++	IWL_DISABLE_HT_RXAGG	 =3D BIT(2),
++	IWL_ENABLE_HT_TXAGG	 =3D BIT(3),
++};
+=20
+ /**
+  * struct iwl_mod_params
+@@ -90,7 +93,7 @@ enum iwl_power_level {
+  *
+  * @sw_crypto: using hardware encryption, default =3D 0
+  * @disable_11n: disable 11n capabilities, default =3D 0,
+- *	use IWL_DISABLE_HT_* constants
++ *	use IWL_[DIS,EN]ABLE_HT_* constants
+  * @amsdu_size_8K: enable 8K amsdu size, default =3D 0
+  * @restart_fw: restart firmware, default =3D 1
+  * @wd_disable: enable stuck queue check, default =3D 0
+diff --git a/drivers/net/wireless/iwlwifi/mvm/mac80211.c b/drivers/net/wire=
+less/iwlwifi/mvm/mac80211.c
+index 6bf9766e5982..c35b8661b395 100644
+--- a/drivers/net/wireless/iwlwifi/mvm/mac80211.c
++++ b/drivers/net/wireless/iwlwifi/mvm/mac80211.c
+@@ -328,6 +328,24 @@ static void iwl_mvm_mac_tx(struct ieee80211_hw *hw,
+ 	ieee80211_free_txskb(hw, skb);
+ }
+=20
++static inline bool iwl_enable_rx_ampdu(const struct iwl_cfg *cfg)
++{
++	if (iwlwifi_mod_params.disable_11n & IWL_DISABLE_HT_RXAGG)
++		return false;
++	return true;
++}
++
++static inline bool iwl_enable_tx_ampdu(const struct iwl_cfg *cfg)
++{
++	if (iwlwifi_mod_params.disable_11n & IWL_DISABLE_HT_TXAGG)
++		return false;
++	if (iwlwifi_mod_params.disable_11n & IWL_ENABLE_HT_TXAGG)
++		return true;
++
++	/* enabled by default */
++	return true;
++}
++
+ static int iwl_mvm_mac_ampdu_action(struct ieee80211_hw *hw,
+ 				    struct ieee80211_vif *vif,
+ 				    enum ieee80211_ampdu_mlme_action action,
+@@ -347,7 +365,7 @@ static int iwl_mvm_mac_ampdu_action(struct ieee80211_hw=
+ *hw,
+=20
+ 	switch (action) {
+ 	case IEEE80211_AMPDU_RX_START:
+-		if (iwlwifi_mod_params.disable_11n & IWL_DISABLE_HT_RXAGG) {
++		if (!iwl_enable_rx_ampdu(mvm->cfg)) {
+ 			ret =3D -EINVAL;
+ 			break;
+ 		}
+@@ -357,7 +375,7 @@ static int iwl_mvm_mac_ampdu_action(struct ieee80211_hw=
+ *hw,
+ 		ret =3D iwl_mvm_sta_rx_agg(mvm, sta, tid, 0, false);
+ 		break;
+ 	case IEEE80211_AMPDU_TX_START:
+-		if (iwlwifi_mod_params.disable_11n & IWL_DISABLE_HT_TXAGG) {
++		if (!iwl_enable_tx_ampdu(mvm->cfg)) {
+ 			ret =3D -EINVAL;
+ 			break;
+ 		}
+diff --git a/drivers/net/wireless/rtl818x/rtl8187/rtl8187.h b/drivers/net/w=
+ireless/rtl818x/rtl8187/rtl8187.h
+index 56aee067f324..a6ad79f61bf9 100644
+--- a/drivers/net/wireless/rtl818x/rtl8187/rtl8187.h
++++ b/drivers/net/wireless/rtl818x/rtl8187/rtl8187.h
+@@ -15,6 +15,8 @@
+ #ifndef RTL8187_H
+ #define RTL8187_H
+=20
++#include <linux/cache.h>
++
+ #include "rtl818x.h"
+ #include "leds.h"
+=20
+@@ -139,7 +141,10 @@ struct rtl8187_priv {
+ 	u8 aifsn[4];
+ 	u8 rfkill_mask;
+ 	struct {
+-		__le64 buf;
++		union {
++			__le64 buf;
++			u8 dummy1[L1_CACHE_BYTES];
++		} ____cacheline_aligned;
+ 		struct sk_buff_head queue;
+ 	} b_tx_status; /* This queue is used by both -b and non-b devices */
+ 	struct mutex io_mutex;
+@@ -147,7 +152,8 @@ struct rtl8187_priv {
+ 		u8 bits8;
+ 		__le16 bits16;
+ 		__le32 bits32;
+-	} *io_dmabuf;
++		u8 dummy2[L1_CACHE_BYTES];
++	} *io_dmabuf ____cacheline_aligned;
+ 	bool rfkill_off;
+ 	u16 seqno;
+ };
+diff --git a/drivers/net/wireless/rtlwifi/ps.c b/drivers/net/wireless/rtlwi=
+fi/ps.c
+index deedae3c5449..d1c0191a195b 100644
+--- a/drivers/net/wireless/rtlwifi/ps.c
++++ b/drivers/net/wireless/rtlwifi/ps.c
+@@ -48,7 +48,7 @@ bool rtl_ps_enable_nic(struct ieee80211_hw *hw)
+=20
+ 	/*<2> Enable Adapter */
+ 	if (rtlpriv->cfg->ops->hw_init(hw))
+-		return 1;
++		return false;
+ 	RT_CLEAR_PS_LEVEL(ppsc, RT_RF_OFF_LEVL_HALT_NIC);
+=20
+ 	/*<3> Enable Interrupt */
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c b/drivers/net/wire=
+less/rtlwifi/rtl8192ce/hw.c
+index a82b30a1996c..2eb0b38384dd 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
+@@ -937,14 +937,26 @@ int rtl92ce_hw_init(struct ieee80211_hw *hw)
+ 	bool is92c;
+ 	int err;
+ 	u8 tmp_u1b;
++	unsigned long flags;
+=20
+ 	rtlpci->being_init_adapter =3D true;
++
++	/* Since this function can take a very long time (up to 350 ms)
++	 * and can be called with irqs disabled, reenable the irqs
++	 * to let the other devices continue being serviced.
++	 *
++	 * It is safe doing so since our own interrupts will only be enabled
++	 * in a subsequent step.
++	 */
++	local_save_flags(flags);
++	local_irq_enable();
++
+ 	rtlpriv->intf_ops->disable_aspm(hw);
+ 	rtstatus =3D _rtl92ce_init_mac(hw);
+ 	if (!rtstatus) {
+ 		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG, "Init MAC failed\n");
+ 		err =3D 1;
+-		return err;
++		goto exit;
+ 	}
+=20
+ 	err =3D rtl92c_download_fw(hw);
+@@ -952,7 +964,7 @@ int rtl92ce_hw_init(struct ieee80211_hw *hw)
+ 		RT_TRACE(rtlpriv, COMP_ERR, DBG_WARNING,
+ 			 "Failed to download FW. Init HW without FW now..\n");
+ 		err =3D 1;
+-		return err;
++		goto exit;
+ 	}
+=20
+ 	rtlhal->last_hmeboxnum =3D 0;
+@@ -1032,6 +1044,8 @@ int rtl92ce_hw_init(struct ieee80211_hw *hw)
+ 		RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE, "under 1.5V\n");
+ 	}
+ 	rtl92c_dm_init(hw);
++exit:
++	local_irq_restore(flags);
+ 	rtlpci->being_init_adapter =3D false;
+ 	return err;
+ }
+--=20
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
+
+--LQksG6bCIzRHxTLp
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJTAo+ZAAoJEJctW/TcYTgGSY8P/1P8VeyEeBYHzfZzpoABf3IS
+kH2WPMdl0Q7tz53ZsvqVfhhxuuRE2Cqt6z3FkH6Qh4315VEdSlTK0/m94HQ4a7E4
+5lTKHiHaNVffioUsGt+zFfFk+TJkhBLCLNsaIJFhCuu+mzjE6Y1qu05es6VxOkvK
+eqXF6le5QIW86zwHxw+19ieIbsVgUljRSNSVNSDSjq96LGl0M+n6lU8iSb+OZ2X9
+hDETQa56h7rm26FQ0YsQosKXkJ5+datrxEFeJ4TtoRrU+Zj5l1jOG9iEXl62abp+
+wXY3x9hwnCP0xESDQXPcD8jcjIUBR1OyW2XK1ViBtCNWl/+aoFbWmkMM5UCJhcsX
+KmLmsQN/2so6dTFI4OlQ6r7M0FCOIpgv1oDx8d3kE/bshA1TOsZ94J1E6MZ479LK
+6MUhD7fst34Tf9bnGDcAxBrdCR15bAixQgZbqLda9PXJLo89Q1uN8ocMwDUmhy9G
+hiVzhQ2zbNGqCsb1LSs4PApMUhIrfuP0kSSPHYcurDB2aqIKesPHcwCDkQhbpQr8
+YrwZMVDQ285fMwNIHSpEK+Mhg4Z0rJxPl+ipblYSm/0sPsHJVad0rcopHgvEdGSh
+DTFtM4S6Y3HBfUhKmiP3nVHZa7oAGKiufhdE6p9UFPu+vV2YBZpnQCGF+SlZWw0L
+h1BLcI0RXDVnU2msJul5
+=+E8f
+-----END PGP SIGNATURE-----
+
+--LQksG6bCIzRHxTLp--
