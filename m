@@ -1,46 +1,53 @@
-From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [net-next v2 0/3] 802.21 and MPLS headers and classification
-Date: Mon, 17 Feb 2014 17:56:10 +0100
-Message-ID: <1392656174-14791-1-git-send-email-sw@simonwunderlich.de>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	mathias.kretschmer-8LS2qeF34IpklNlQbfROjRvVK+yQ3ZXh@public.gmane.org,
-	Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH] ethtool: check the ethtool_ops is NULL in dev_ethtool
+Date: Mon, 17 Feb 2014 18:09:58 +0100
+Message-ID: <53024266.8010700@redhat.com>
+References: <5301F32C.4040704@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Wang Weidong <wangweidong1@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:23433 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752056AbaBQRKM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Feb 2014 12:10:12 -0500
+In-Reply-To: <5301F32C.4040704@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 02/17/2014 12:31 PM, Wang Weidong wrote:
+> some drivers maybe not implement the ethtool_ops with only
+> set NULL. So when call the ethtool cmds will lead to a
+> 'NULL pointer dereference'.
+>
+> So add a checking in dev_ethtool.
+>
+> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+> ---
+>   net/core/ethtool.c | 3 +++
+>   1 file changed, 3 insertions(+)
+>
+> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+> index 30071de..f418dcb 100644
+> --- a/net/core/ethtool.c
+> +++ b/net/core/ethtool.c
+> @@ -1499,6 +1499,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+>   		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+>   			return -EPERM;
+>   	}
+> +	
 
-this series contains a header file proposal for MPLS labels. These
-labels do not seem to be properly defined in the kernel so far. We are
-developing a wired/wireless 802.21/MPLS switch and need to check the
-MPLS labels to use the traffic control info for transmissions over
-802.11 networks.
+You have a trailing whitespace/tab in the line above. Please
+use checkpatch for detecting such things.
 
-Thanks to Joe Perches for comments - changes have been made according
-to his suggestions, check the individual patches for details.
+Can you be more specific with "some drivers"? Any driver that
+is in the mainline tree?
 
-Thanks,
-     Simon
-
-Simon Wunderlich (3):
-  if_ether.h: add IEEE 802.21 Ethertype
-  UAPI: add MPLS label stack definition
-  cfg80211: add MPLS and 802.21 classification
-
- include/linux/mpls.h          |    6 ++++++
- include/uapi/linux/if_ether.h |    1 +
- include/uapi/linux/mpls.h     |   34 ++++++++++++++++++++++++++++++++++
- net/wireless/util.c           |   24 ++++++++++++++++++++++++
- 4 files changed, 65 insertions(+)
- create mode 100644 include/linux/mpls.h
- create mode 100644 include/uapi/linux/mpls.h
-
--- 
-1.7.10.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> +	if (!dev->ethtool_ops)
+> +		return -EOPNOTSUPP;
+>
+>   	if (dev->ethtool_ops->begin) {
+>   		rc = dev->ethtool_ops->begin(dev);
+>
