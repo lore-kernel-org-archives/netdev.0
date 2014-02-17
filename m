@@ -1,87 +1,105 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v3 net-next 05/12] bonding: extend arp_validate to be able to receive unvalidated arp-only traffic
-Date: Mon, 17 Feb 2014 14:39:14 +0100
-Message-ID: <1392644361-8510-6-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v3 net-next 12/12] bonding: rename last_arp_rx to last_rx
+Date: Mon, 17 Feb 2014 14:39:21 +0100
+Message-ID: <1392644361-8510-13-git-send-email-vfalico@redhat.com>
 References: <1392644361-8510-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57679 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:34528 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753287AbaBQNo3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Feb 2014 08:44:29 -0500
+	id S1753287AbaBQNoi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Feb 2014 08:44:38 -0500
 In-Reply-To: <1392644361-8510-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently we can either receive any traffic as a proff of slave being up,
-or only *validated* arp traffic (i.e. with src/dst ip checked).
-
-Add an option to be able to specify if we want to receive non-validated arp
-traffic only.
+To reflect the new meaning.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_options.c | 13 ++++++++-----
- drivers/net/bonding/bonding.h      | 11 +++++++++++
- 2 files changed, 19 insertions(+), 5 deletions(-)
+ drivers/net/bonding/bond_main.c | 12 ++++++------
+ drivers/net/bonding/bonding.h   |  4 ++--
+ 2 files changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index cda686d..beeec4c 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -47,11 +47,14 @@ static struct bond_opt_value bond_xmit_hashtype_tbl[] = {
- };
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index f6d56d9..ac4a1b8 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1397,10 +1397,10 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
  
- static struct bond_opt_value bond_arp_validate_tbl[] = {
--	{ "none",   BOND_ARP_VALIDATE_NONE,   BOND_VALFLAG_DEFAULT},
--	{ "active", BOND_ARP_VALIDATE_ACTIVE, 0},
--	{ "backup", BOND_ARP_VALIDATE_BACKUP, 0},
--	{ "all",    BOND_ARP_VALIDATE_ALL,    0},
--	{ NULL,     -1,                       0},
-+	{ "none",		BOND_ARP_VALIDATE_NONE,		BOND_VALFLAG_DEFAULT},
-+	{ "active",		BOND_ARP_VALIDATE_ACTIVE,	0},
-+	{ "backup",		BOND_ARP_VALIDATE_BACKUP,	0},
-+	{ "all",		BOND_ARP_VALIDATE_ALL,		0},
-+	{ "filter",		BOND_ARP_FILTER,		0},
-+	{ "filter_active",	BOND_ARP_FILTER_ACTIVE,		0},
-+	{ "filter_backup",	BOND_ARP_FILTER_BACKUP,		0},
-+	{ NULL,			-1,				0},
- };
+ 	bond_update_speed_duplex(new_slave);
  
- static struct bond_opt_value bond_arp_all_targets_tbl[] = {
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 86ccfb9..ab2e651 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -342,6 +342,11 @@ static inline bool bond_is_active_slave(struct slave *slave)
- #define BOND_ARP_VALIDATE_BACKUP	(1 << BOND_STATE_BACKUP)
- #define BOND_ARP_VALIDATE_ALL		(BOND_ARP_VALIDATE_ACTIVE | \
- 					 BOND_ARP_VALIDATE_BACKUP)
-+#define BOND_ARP_FILTER			(BOND_ARP_VALIDATE_ALL + 1)
-+#define BOND_ARP_FILTER_ACTIVE		(BOND_ARP_VALIDATE_ACTIVE | \
-+					 BOND_ARP_FILTER)
-+#define BOND_ARP_FILTER_BACKUP		(BOND_ARP_VALIDATE_BACKUP | \
-+					 BOND_ARP_FILTER)
+-	new_slave->last_arp_rx = jiffies -
++	new_slave->last_rx = jiffies -
+ 		(msecs_to_jiffies(bond->params.arp_interval) + 1);
+ 	for (i = 0; i < BOND_MAX_ARP_TARGETS; i++)
+-		new_slave->target_last_arp_rx[i] = new_slave->last_arp_rx;
++		new_slave->target_last_arp_rx[i] = new_slave->last_rx;
  
- static inline int slave_do_arp_validate(struct bonding *bond,
- 					struct slave *slave)
-@@ -349,6 +354,12 @@ static inline int slave_do_arp_validate(struct bonding *bond,
- 	return bond->params.arp_validate & (1 << bond_slave_state(slave));
+ 	if (bond->params.miimon && !bond->params.use_carrier) {
+ 		link_reporting = bond_check_dev_link(bond, slave_dev, 1);
+@@ -2242,7 +2242,7 @@ static void bond_validate_arp(struct bonding *bond, struct slave *slave, __be32
+ 		pr_debug("bva: sip %pI4 not found in targets\n", &sip);
+ 		return;
+ 	}
+-	slave->last_arp_rx = jiffies;
++	slave->last_rx = jiffies;
+ 	slave->target_last_arp_rx[i] = jiffies;
  }
  
-+static inline int slave_do_arp_validate_only(struct bonding *bond,
-+					     struct slave *slave)
-+{
-+	return bond->params.arp_validate & BOND_ARP_FILTER;
-+}
-+
- /* Get the oldest arp which we've received on this slave for bond's
-  * arp_targets.
-  */
+@@ -2257,7 +2257,7 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
+ 	if (!slave_do_arp_validate(bond, slave)) {
+ 		if ((slave_do_arp_validate_only(bond, slave) && is_arp) ||
+ 		    !slave_do_arp_validate_only(bond, slave))
+-			slave->last_arp_rx = jiffies;
++			slave->last_rx = jiffies;
+ 		return RX_HANDLER_ANOTHER;
+ 	} else if (!is_arp) {
+ 		return RX_HANDLER_ANOTHER;
+@@ -2369,7 +2369,7 @@ static void bond_loadbalance_arp_mon(struct work_struct *work)
+ 
+ 		if (slave->link != BOND_LINK_UP) {
+ 			if (bond_time_in_interval(bond, trans_start, 1) &&
+-			    bond_time_in_interval(bond, slave->last_arp_rx, 1)) {
++			    bond_time_in_interval(bond, slave->last_rx, 1)) {
+ 
+ 				slave->link  = BOND_LINK_UP;
+ 				slave_state_changed = 1;
+@@ -2398,7 +2398,7 @@ static void bond_loadbalance_arp_mon(struct work_struct *work)
+ 			 * if we don't know our ip yet
+ 			 */
+ 			if (!bond_time_in_interval(bond, trans_start, 2) ||
+-			    !bond_time_in_interval(bond, slave->last_arp_rx, 2)) {
++			    !bond_time_in_interval(bond, slave->last_rx, 2)) {
+ 
+ 				slave->link  = BOND_LINK_DOWN;
+ 				slave_state_changed = 1;
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 36db702..4303628 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -190,7 +190,7 @@ struct slave {
+ 	int    delay;
+ 	/* all three in jiffies */
+ 	unsigned long last_link_up;
+-	unsigned long last_arp_rx;
++	unsigned long last_rx;
+ 	unsigned long target_last_arp_rx[BOND_MAX_ARP_TARGETS];
+ 	s8     link;    /* one of BOND_LINK_XXXX */
+ 	s8     new_link;
+@@ -383,7 +383,7 @@ static inline unsigned long slave_last_rx(struct bonding *bond,
+ 	if (bond->params.arp_all_targets == BOND_ARP_TARGETS_ALL)
+ 		return slave_oldest_target_arp_rx(bond, slave);
+ 
+-	return slave->last_arp_rx;
++	return slave->last_rx;
+ }
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
 -- 
 1.8.4
