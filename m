@@ -1,60 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] usbnet: remove generic hard_header_len check
-Date: Mon, 17 Feb 2014 14:36:06 -0500 (EST)
-Message-ID: <20140217.143606.1431722446347147819.davem@davemloft.net>
-References: <1392310219-5719-1-git-send-email-emilgoode@gmail.com>
+From: Theodore Ts'o <tytso@mit.edu>
+Subject: Re: [REGRESSION v3.14-rc2] NULL dereference in icmp6_send()
+Date: Mon, 17 Feb 2014 14:43:14 -0500
+Message-ID: <20140217194314.GD16660@thunk.org>
+References: <nsxzjlp4lxm.fsf@closure.thunk.org>
+ <20140217185053.GF22833@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: steve.glendinning@shawell.net, oneukum@suse.de, bjorn@mork.no,
-	freddy@asix.com.tw, edumazet@google.com, ming.lei@canonical.com,
-	paul.gortmaker@windriver.com, jeffrey.t.kirsher@intel.com,
-	liujunliang_ljl@163.com, octavian.purdila@intel.com,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: emilgoode@gmail.com
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1392310219-5719-1-git-send-email-emilgoode@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <20140217185053.GF22833@order.stressinduktion.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Emil Goode <emilgoode@gmail.com>
-Date: Thu, 13 Feb 2014 17:50:19 +0100
+On Mon, Feb 17, 2014 at 07:50:53PM +0100, Hannes Frederic Sowa wrote:
+> At that point the skb does not have a dst attached, so we panic in
+> icmp6_send.
+> 
+> This is fixed here:
+> https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=d94c1f92bbf2c42c5febd68bbea51fffeac90834
 
-> This patch removes a generic hard_header_len check from the usbnet
-> module that is causing dropped packages under certain circumstances
-> for devices that send rx packets that cross urb boundaries.
-> 
-> One example is the AX88772B which occasionally send rx packets that
-> cross urb boundaries where the remaining partial packet is sent with
-> no hardware header. When the buffer with a partial packet is of less
-> number of octets than the value of hard_header_len the buffer is
-> discarded by the usbnet module.
-> 
-> With AX88772B this can be reproduced by using ping with a packet
-> size between 1965-1976.
-> 
-> The bug has been reported here:
-> 
-> https://bugzilla.kernel.org/show_bug.cgi?id=29082
-> 
-> This patch introduces the following changes:
-> - Removes the generic hard_header_len check in the rx_complete
->   function in the usbnet module.
-> - Introduces a ETH_HLEN check for skbs that are not cloned from
->   within a rx_fixup callback.
-> - For safety a hard_header_len check is added to each rx_fixup
->   callback function that could be affected by this change.
->   These extra checks could possibly be removed by someone
->   who has the hardware to test.
-> - Removes a call to dev_kfree_skb_any() and instead utilizes the
->   dev->done list to queue skbs for cleanup.
-> 
-> The changes place full responsibility on the rx_fixup callback
-> functions that clone skbs to only pass valid skbs to the
-> usbnet_skb_return function.
-> 
-> Signed-off-by: Emil Goode <emilgoode@gmail.com>
-> Reported-by: Igor Gnatenko <i.gnatenko.brain@gmail.com>
+Thanks!!
 
-Applied and queued up for -stable, thanks.
+BTW, apologies for the inadvertent share of the photo to my G+ stream.
+I had taken the photo using my cell phone, and I was trying to make
+sure the URL was publically viewable before I filed the bug report.
+
+					- Ted
