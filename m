@@ -1,564 +1,144 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH net-next v2 1/6] gianfar: Cleanup/Fix gfar_probe and the hw init code
-Date: Mon, 17 Feb 2014 12:53:14 +0200
-Message-ID: <1392634399-5456-2-git-send-email-claudiu.manoil@freescale.com>
-References: <1392634399-5456-1-git-send-email-claudiu.manoil@freescale.com>
+From: =?ISO-8859-1?Q?Fran=E7ois_Cachereul?= <f.cachereul@alphalink.fr>
+Subject: Re: [PATCH net] bonding: fix arp requests sends with isolated routes
+Date: Mon, 17 Feb 2014 12:07:28 +0100
+Message-ID: <5301ED70.5060304@alphalink.fr>
+References: <52FE3D5B.6060103@alphalink.fr> <20140217093618.GA13038@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe001.messaging.microsoft.com ([216.32.180.11]:30316
-	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752127AbaBQKxt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 05:53:49 -0500
-In-Reply-To: <1392634399-5456-1-git-send-email-claudiu.manoil@freescale.com>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:48797 "EHLO
+	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752046AbaBQLGT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 06:06:19 -0500
+In-Reply-To: <20140217093618.GA13038@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Factor out gfar_hw_init() to contain all the controller hw
-initialization steps for a better control of register writes,
-and to significantly simplify the tangled code from gfar_probe().
-This results in code size and stack usage reduction (besides
-code readability).
+Le 17/02/2014 10:36, Veaceslav Falico a =E9crit :
+> On Fri, Feb 14, 2014 at 04:59:23PM +0100, Fran=E7ois Cachereul wrote:
+>> Make arp_send_all() try to send arp packets through slave devices ev=
+ent
+>> if no route to arp_ip_target is found. This is useful when the route
+>> is in an isolated routing table with routing rule parameters like oi=
+f or
+>> iif in which case ip_route_output() return an error.
+>> Thus, the arp packet is send without vlan and with the bond ip addre=
+ss
+>> as sender.
+>=20
+> I'm not sure I understand it completely, specifically I don't really
+> understand the term "isolated routing table". Do you mean that it's a=
+n
+> routing table different from local/main, which is enabled by
+> CONFIG_IP_MULTIPLE_TABLES=3Dy ? I think they should be all 'catched' =
+by
+> ip_route_output(), or am I missing something?
 
-Fix memory leak on device removal, by freeing the rx_/tx_queue
-structures.
+That what I meant, but like I said when the rule to lookup a table cont=
+ains
+iif or oif parameters (for example with the bond device value),
+ip_route_output() can't lookup this table as flowi4_iif is set to
+LOOPBACK_INDEX and we set flowi4_oif to 0 because we are searching for =
+it.
 
-Replace custom bit swapping function with a library one (bitrev8).
+>=20
+> Anyway, with this fix bonding will send packets even if it doesn't fi=
+nd
+> route AND src addr (bond_confirm_addr() can return 0 if bond doesn't =
+have
+> the required ip assigned), which isn't good at all.
 
-Move allocation of rx_/tx_queue struct arrays before the group
-structure init, because in order to assign Rx/Tx queues
-to groups we need to have the queues first.  This also allows
-earlier bail out of gfar_probe(), in case the memory allocation
-fails.
+We may had a test to avoid this case but that should also be done if th=
+e
+route is found because bond_confirm_addr() could likewise return 0.
 
-The flow control checks for maccfg1 were removed from gfar_probe(),
-since flow control is disabled at probe time (priv->rx_/tx_pause_en
-are 0). Redundant initializations (by 0) also removed.
+>=20
+> If my assumption about the routing tables is correct and ip_route_out=
+put()
+> doesn't find addition tables, we should at least try to fix it via sc=
+anning
+> those tables.
 
-Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
----
- drivers/net/ethernet/freescale/gianfar.c | 331 +++++++++++++++----------------
- drivers/net/ethernet/freescale/gianfar.h |  34 +++-
- 2 files changed, 188 insertions(+), 177 deletions(-)
+ip_route_output() scan all tables for which the rule match parameters l=
+ike
+src network, dst network, oif or iif. In my case, it can't match iif or=
+ oif.
+If we want to search all tables in any configurations we would have to =
+bypass
+route lookup process or at least the "rule match" part. I don't know if=
+ it's
+a good idea.
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index ad5a5aa..ab915b0 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -9,7 +9,7 @@
-  * Maintainer: Kumar Gala
-  * Modifier: Sandeep Gopalpet <sandeep.kumar@freescale.com>
-  *
-- * Copyright 2002-2009, 2011 Freescale Semiconductor, Inc.
-+ * Copyright 2002-2009, 2011-2013 Freescale Semiconductor, Inc.
-  * Copyright 2007 MontaVista Software, Inc.
-  *
-  * This program is free software; you can redistribute  it and/or modify it
-@@ -511,7 +511,43 @@ void unlock_tx_qs(struct gfar_private *priv)
- 		spin_unlock(&priv->tx_queue[i]->txlock);
- }
- 
--static void free_tx_pointers(struct gfar_private *priv)
-+static int gfar_alloc_tx_queues(struct gfar_private *priv)
-+{
-+	int i;
-+
-+	for (i = 0; i < priv->num_tx_queues; i++) {
-+		priv->tx_queue[i] = kzalloc(sizeof(struct gfar_priv_tx_q),
-+					    GFP_KERNEL);
-+		if (!priv->tx_queue[i])
-+			return -ENOMEM;
-+
-+		priv->tx_queue[i]->tx_skbuff = NULL;
-+		priv->tx_queue[i]->qindex = i;
-+		priv->tx_queue[i]->dev = priv->ndev;
-+		spin_lock_init(&(priv->tx_queue[i]->txlock));
-+	}
-+	return 0;
-+}
-+
-+static int gfar_alloc_rx_queues(struct gfar_private *priv)
-+{
-+	int i;
-+
-+	for (i = 0; i < priv->num_rx_queues; i++) {
-+		priv->rx_queue[i] = kzalloc(sizeof(struct gfar_priv_rx_q),
-+					    GFP_KERNEL);
-+		if (!priv->rx_queue[i])
-+			return -ENOMEM;
-+
-+		priv->rx_queue[i]->rx_skbuff = NULL;
-+		priv->rx_queue[i]->qindex = i;
-+		priv->rx_queue[i]->dev = priv->ndev;
-+		spin_lock_init(&(priv->rx_queue[i]->rxlock));
-+	}
-+	return 0;
-+}
-+
-+static void gfar_free_tx_queues(struct gfar_private *priv)
- {
- 	int i;
- 
-@@ -519,7 +555,7 @@ static void free_tx_pointers(struct gfar_private *priv)
- 		kfree(priv->tx_queue[i]);
- }
- 
--static void free_rx_pointers(struct gfar_private *priv)
-+static void gfar_free_rx_queues(struct gfar_private *priv)
- {
- 	int i;
- 
-@@ -608,6 +644,30 @@ static int gfar_parse_group(struct device_node *np,
- 		grp->rx_bit_map = 0xFF;
- 		grp->tx_bit_map = 0xFF;
- 	}
-+
-+	/* bit_map's MSB is q0 (from q0 to q7) but, for_each_set_bit parses
-+	 * right to left, so we need to revert the 8 bits to get the q index
-+	 */
-+	grp->rx_bit_map = bitrev8(grp->rx_bit_map);
-+	grp->tx_bit_map = bitrev8(grp->tx_bit_map);
-+
-+	/* Calculate RSTAT, TSTAT, RQUEUE and TQUEUE values,
-+	 * also assign queues to groups
-+	 */
-+	for_each_set_bit(i, &grp->rx_bit_map, priv->num_rx_queues) {
-+		grp->num_rx_queues++;
-+		grp->rstat |= (RSTAT_CLEAR_RHALT >> i);
-+		priv->rqueue |= ((RQUEUE_EN0 | RQUEUE_EX0) >> i);
-+		priv->rx_queue[i]->grp = grp;
-+	}
-+
-+	for_each_set_bit(i, &grp->tx_bit_map, priv->num_tx_queues) {
-+		grp->num_tx_queues++;
-+		grp->tstat |= (TSTAT_CLEAR_THALT >> i);
-+		priv->tqueue |= (TQUEUE_EN0 >> i);
-+		priv->tx_queue[i]->grp = grp;
-+	}
-+
- 	priv->num_grps++;
- 
- 	return 0;
-@@ -664,7 +724,14 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
- 	priv->num_tx_queues = num_tx_qs;
- 	netif_set_real_num_rx_queues(dev, num_rx_qs);
- 	priv->num_rx_queues = num_rx_qs;
--	priv->num_grps = 0x0;
-+
-+	err = gfar_alloc_tx_queues(priv);
-+	if (err)
-+		goto tx_alloc_failed;
-+
-+	err = gfar_alloc_rx_queues(priv);
-+	if (err)
-+		goto rx_alloc_failed;
- 
- 	/* Init Rx queue filer rule set linked list */
- 	INIT_LIST_HEAD(&priv->rx_list.list);
-@@ -691,38 +758,6 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
- 			goto err_grp_init;
- 	}
- 
--	for (i = 0; i < priv->num_tx_queues; i++)
--		priv->tx_queue[i] = NULL;
--	for (i = 0; i < priv->num_rx_queues; i++)
--		priv->rx_queue[i] = NULL;
--
--	for (i = 0; i < priv->num_tx_queues; i++) {
--		priv->tx_queue[i] = kzalloc(sizeof(struct gfar_priv_tx_q),
--					    GFP_KERNEL);
--		if (!priv->tx_queue[i]) {
--			err = -ENOMEM;
--			goto tx_alloc_failed;
--		}
--		priv->tx_queue[i]->tx_skbuff = NULL;
--		priv->tx_queue[i]->qindex = i;
--		priv->tx_queue[i]->dev = dev;
--		spin_lock_init(&(priv->tx_queue[i]->txlock));
--	}
--
--	for (i = 0; i < priv->num_rx_queues; i++) {
--		priv->rx_queue[i] = kzalloc(sizeof(struct gfar_priv_rx_q),
--					    GFP_KERNEL);
--		if (!priv->rx_queue[i]) {
--			err = -ENOMEM;
--			goto rx_alloc_failed;
--		}
--		priv->rx_queue[i]->rx_skbuff = NULL;
--		priv->rx_queue[i]->qindex = i;
--		priv->rx_queue[i]->dev = dev;
--		spin_lock_init(&(priv->rx_queue[i]->rxlock));
--	}
--
--
- 	stash = of_get_property(np, "bd-stash", NULL);
- 
- 	if (stash) {
-@@ -784,12 +819,12 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
- 
- 	return 0;
- 
--rx_alloc_failed:
--	free_rx_pointers(priv);
--tx_alloc_failed:
--	free_tx_pointers(priv);
- err_grp_init:
- 	unmap_group_regs(priv);
-+rx_alloc_failed:
-+	gfar_free_rx_queues(priv);
-+tx_alloc_failed:
-+	gfar_free_tx_queues(priv);
- 	free_gfar_dev(priv);
- 	return err;
- }
-@@ -875,19 +910,6 @@ static int gfar_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 	return phy_mii_ioctl(priv->phydev, rq, cmd);
- }
- 
--static unsigned int reverse_bitmap(unsigned int bit_map, unsigned int max_qs)
--{
--	unsigned int new_bit_map = 0x0;
--	int mask = 0x1 << (max_qs - 1), i;
--
--	for (i = 0; i < max_qs; i++) {
--		if (bit_map & mask)
--			new_bit_map = new_bit_map + (1 << i);
--		mask = mask >> 0x1;
--	}
--	return new_bit_map;
--}
--
- static u32 cluster_entry_per_class(struct gfar_private *priv, u32 rqfar,
- 				   u32 class)
- {
-@@ -1005,19 +1027,88 @@ static void gfar_detect_errata(struct gfar_private *priv)
- 			 priv->errata);
- }
- 
-+static void gfar_hw_init(struct gfar_private *priv)
-+{
-+	struct gfar __iomem *regs = priv->gfargrp[0].regs;
-+	u32 tempval;
-+
-+	/* Reset MAC layer */
-+	gfar_write(&regs->maccfg1, MACCFG1_SOFT_RESET);
-+
-+	/* We need to delay at least 3 TX clocks */
-+	udelay(2);
-+
-+	/* the soft reset bit is not self-resetting, so we need to
-+	 * clear it before resuming normal operation
-+	 */
-+	gfar_write(&regs->maccfg1, 0);
-+
-+	/* Initialize MACCFG2. */
-+	tempval = MACCFG2_INIT_SETTINGS;
-+	if (gfar_has_errata(priv, GFAR_ERRATA_74))
-+		tempval |= MACCFG2_HUGEFRAME | MACCFG2_LENGTHCHECK;
-+	gfar_write(&regs->maccfg2, tempval);
-+
-+	/* Initialize ECNTRL */
-+	gfar_write(&regs->ecntrl, ECNTRL_INIT_SETTINGS);
-+
-+	/* Program the interrupt steering regs, only for MG devices */
-+	if (priv->num_grps > 1)
-+		gfar_write_isrg(priv);
-+
-+	/* Enable all Rx/Tx queues after MAC reset */
-+	gfar_write(&regs->rqueue, priv->rqueue);
-+	gfar_write(&regs->tqueue, priv->tqueue);
-+}
-+
-+static void __init gfar_init_addr_hash_table(struct gfar_private *priv)
-+{
-+	struct gfar __iomem *regs = priv->gfargrp[0].regs;
-+
-+	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_EXTENDED_HASH) {
-+		priv->extended_hash = 1;
-+		priv->hash_width = 9;
-+
-+		priv->hash_regs[0] = &regs->igaddr0;
-+		priv->hash_regs[1] = &regs->igaddr1;
-+		priv->hash_regs[2] = &regs->igaddr2;
-+		priv->hash_regs[3] = &regs->igaddr3;
-+		priv->hash_regs[4] = &regs->igaddr4;
-+		priv->hash_regs[5] = &regs->igaddr5;
-+		priv->hash_regs[6] = &regs->igaddr6;
-+		priv->hash_regs[7] = &regs->igaddr7;
-+		priv->hash_regs[8] = &regs->gaddr0;
-+		priv->hash_regs[9] = &regs->gaddr1;
-+		priv->hash_regs[10] = &regs->gaddr2;
-+		priv->hash_regs[11] = &regs->gaddr3;
-+		priv->hash_regs[12] = &regs->gaddr4;
-+		priv->hash_regs[13] = &regs->gaddr5;
-+		priv->hash_regs[14] = &regs->gaddr6;
-+		priv->hash_regs[15] = &regs->gaddr7;
-+
-+	} else {
-+		priv->extended_hash = 0;
-+		priv->hash_width = 8;
-+
-+		priv->hash_regs[0] = &regs->gaddr0;
-+		priv->hash_regs[1] = &regs->gaddr1;
-+		priv->hash_regs[2] = &regs->gaddr2;
-+		priv->hash_regs[3] = &regs->gaddr3;
-+		priv->hash_regs[4] = &regs->gaddr4;
-+		priv->hash_regs[5] = &regs->gaddr5;
-+		priv->hash_regs[6] = &regs->gaddr6;
-+		priv->hash_regs[7] = &regs->gaddr7;
-+	}
-+}
-+
- /* Set up the ethernet device structure, private data,
-  * and anything else we need before we start
-  */
- static int gfar_probe(struct platform_device *ofdev)
- {
--	u32 tempval;
- 	struct net_device *dev = NULL;
- 	struct gfar_private *priv = NULL;
--	struct gfar __iomem *regs = NULL;
--	int err = 0, i, grp_idx = 0;
--	u32 rstat = 0, tstat = 0, rqueue = 0, tqueue = 0;
--	u32 isrg = 0;
--	u32 __iomem *baddr;
-+	int err = 0, i;
- 
- 	err = gfar_of_init(ofdev, &dev);
- 
-@@ -1034,7 +1125,6 @@ static int gfar_probe(struct platform_device *ofdev)
- 	INIT_WORK(&priv->reset_task, gfar_reset_task);
- 
- 	platform_set_drvdata(ofdev, priv);
--	regs = priv->gfargrp[0].regs;
- 
- 	gfar_detect_errata(priv);
- 
-@@ -1043,33 +1133,10 @@ static int gfar_probe(struct platform_device *ofdev)
- 	 */
- 	gfar_halt(dev);
- 
--	/* Reset MAC layer */
--	gfar_write(&regs->maccfg1, MACCFG1_SOFT_RESET);
--
--	/* We need to delay at least 3 TX clocks */
--	udelay(2);
--
--	tempval = 0;
--	if (!priv->pause_aneg_en && priv->tx_pause_en)
--		tempval |= MACCFG1_TX_FLOW;
--	if (!priv->pause_aneg_en && priv->rx_pause_en)
--		tempval |= MACCFG1_RX_FLOW;
--	/* the soft reset bit is not self-resetting, so we need to
--	 * clear it before resuming normal operation
--	 */
--	gfar_write(&regs->maccfg1, tempval);
--
--	/* Initialize MACCFG2. */
--	tempval = MACCFG2_INIT_SETTINGS;
--	if (gfar_has_errata(priv, GFAR_ERRATA_74))
--		tempval |= MACCFG2_HUGEFRAME | MACCFG2_LENGTHCHECK;
--	gfar_write(&regs->maccfg2, tempval);
--
--	/* Initialize ECNTRL */
--	gfar_write(&regs->ecntrl, ECNTRL_INIT_SETTINGS);
-+	gfar_hw_init(priv);
- 
- 	/* Set the dev->base_addr to the gfar reg region */
--	dev->base_addr = (unsigned long) regs;
-+	dev->base_addr = (unsigned long) priv->gfargrp[0].regs;
- 
- 	/* Fill in the dev structure */
- 	dev->watchdog_timeo = TX_TIMEOUT;
-@@ -1099,40 +1166,7 @@ static int gfar_probe(struct platform_device *ofdev)
- 		dev->features |= NETIF_F_HW_VLAN_CTAG_RX;
- 	}
- 
--	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_EXTENDED_HASH) {
--		priv->extended_hash = 1;
--		priv->hash_width = 9;
--
--		priv->hash_regs[0] = &regs->igaddr0;
--		priv->hash_regs[1] = &regs->igaddr1;
--		priv->hash_regs[2] = &regs->igaddr2;
--		priv->hash_regs[3] = &regs->igaddr3;
--		priv->hash_regs[4] = &regs->igaddr4;
--		priv->hash_regs[5] = &regs->igaddr5;
--		priv->hash_regs[6] = &regs->igaddr6;
--		priv->hash_regs[7] = &regs->igaddr7;
--		priv->hash_regs[8] = &regs->gaddr0;
--		priv->hash_regs[9] = &regs->gaddr1;
--		priv->hash_regs[10] = &regs->gaddr2;
--		priv->hash_regs[11] = &regs->gaddr3;
--		priv->hash_regs[12] = &regs->gaddr4;
--		priv->hash_regs[13] = &regs->gaddr5;
--		priv->hash_regs[14] = &regs->gaddr6;
--		priv->hash_regs[15] = &regs->gaddr7;
--
--	} else {
--		priv->extended_hash = 0;
--		priv->hash_width = 8;
--
--		priv->hash_regs[0] = &regs->gaddr0;
--		priv->hash_regs[1] = &regs->gaddr1;
--		priv->hash_regs[2] = &regs->gaddr2;
--		priv->hash_regs[3] = &regs->gaddr3;
--		priv->hash_regs[4] = &regs->gaddr4;
--		priv->hash_regs[5] = &regs->gaddr5;
--		priv->hash_regs[6] = &regs->gaddr6;
--		priv->hash_regs[7] = &regs->gaddr7;
--	}
-+	gfar_init_addr_hash_table(priv);
- 
- 	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_PADDING)
- 		priv->padding = DEFAULT_PADDING;
-@@ -1143,59 +1177,6 @@ static int gfar_probe(struct platform_device *ofdev)
- 	    priv->device_flags & FSL_GIANFAR_DEV_HAS_TIMER)
- 		dev->needed_headroom = GMAC_FCB_LEN;
- 
--	/* Program the isrg regs only if number of grps > 1 */
--	if (priv->num_grps > 1) {
--		baddr = &regs->isrg0;
--		for (i = 0; i < priv->num_grps; i++) {
--			isrg |= (priv->gfargrp[i].rx_bit_map << ISRG_SHIFT_RX);
--			isrg |= (priv->gfargrp[i].tx_bit_map << ISRG_SHIFT_TX);
--			gfar_write(baddr, isrg);
--			baddr++;
--			isrg = 0x0;
--		}
--	}
--
--	/* Need to reverse the bit maps as  bit_map's MSB is q0
--	 * but, for_each_set_bit parses from right to left, which
--	 * basically reverses the queue numbers
--	 */
--	for (i = 0; i< priv->num_grps; i++) {
--		priv->gfargrp[i].tx_bit_map =
--			reverse_bitmap(priv->gfargrp[i].tx_bit_map, MAX_TX_QS);
--		priv->gfargrp[i].rx_bit_map =
--			reverse_bitmap(priv->gfargrp[i].rx_bit_map, MAX_RX_QS);
--	}
--
--	/* Calculate RSTAT, TSTAT, RQUEUE and TQUEUE values,
--	 * also assign queues to groups
--	 */
--	for (grp_idx = 0; grp_idx < priv->num_grps; grp_idx++) {
--		priv->gfargrp[grp_idx].num_rx_queues = 0x0;
--
--		for_each_set_bit(i, &priv->gfargrp[grp_idx].rx_bit_map,
--				 priv->num_rx_queues) {
--			priv->gfargrp[grp_idx].num_rx_queues++;
--			priv->rx_queue[i]->grp = &priv->gfargrp[grp_idx];
--			rstat = rstat | (RSTAT_CLEAR_RHALT >> i);
--			rqueue = rqueue | ((RQUEUE_EN0 | RQUEUE_EX0) >> i);
--		}
--		priv->gfargrp[grp_idx].num_tx_queues = 0x0;
--
--		for_each_set_bit(i, &priv->gfargrp[grp_idx].tx_bit_map,
--				 priv->num_tx_queues) {
--			priv->gfargrp[grp_idx].num_tx_queues++;
--			priv->tx_queue[i]->grp = &priv->gfargrp[grp_idx];
--			tstat = tstat | (TSTAT_CLEAR_THALT >> i);
--			tqueue = tqueue | (TQUEUE_EN0 >> i);
--		}
--		priv->gfargrp[grp_idx].rstat = rstat;
--		priv->gfargrp[grp_idx].tstat = tstat;
--		rstat = tstat =0;
--	}
--
--	gfar_write(&regs->rqueue, rqueue);
--	gfar_write(&regs->tqueue, tqueue);
--
- 	priv->rx_buffer_size = DEFAULT_RX_BUFFER_SIZE;
- 
- 	/* Initializing some of the rx/tx queue level parameters */
-@@ -1272,8 +1253,8 @@ static int gfar_probe(struct platform_device *ofdev)
- 
- register_fail:
- 	unmap_group_regs(priv);
--	free_tx_pointers(priv);
--	free_rx_pointers(priv);
-+	gfar_free_rx_queues(priv);
-+	gfar_free_tx_queues(priv);
- 	if (priv->phy_node)
- 		of_node_put(priv->phy_node);
- 	if (priv->tbi_node)
-@@ -1293,6 +1274,8 @@ static int gfar_remove(struct platform_device *ofdev)
- 
- 	unregister_netdev(priv->ndev);
- 	unmap_group_regs(priv);
-+	gfar_free_rx_queues(priv);
-+	gfar_free_tx_queues(priv);
- 	free_gfar_dev(priv);
- 
- 	return 0;
-diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
-index 52bb2b0..63c830c 100644
---- a/drivers/net/ethernet/freescale/gianfar.h
-+++ b/drivers/net/ethernet/freescale/gianfar.h
-@@ -9,7 +9,7 @@
-  * Maintainer: Kumar Gala
-  * Modifier: Sandeep Gopalpet <sandeep.kumar@freescale.com>
-  *
-- * Copyright 2002-2009, 2011 Freescale Semiconductor, Inc.
-+ * Copyright 2002-2009, 2011-2013 Freescale Semiconductor, Inc.
-  *
-  * This program is free software; you can redistribute  it and/or modify it
-  * under  the terms of  the GNU General  Public License as published by the
-@@ -892,8 +892,8 @@ struct gfar {
- #define DEFAULT_MAPPING 	0xFF
- #endif
- 
--#define ISRG_SHIFT_TX	0x10
--#define ISRG_SHIFT_RX	0x18
-+#define ISRG_RR0	0x80000000
-+#define ISRG_TR0	0x00800000
- 
- /* The same driver can operate in two modes */
- /* SQ_SG_MODE: Single Queue Single Group Mode
-@@ -1113,6 +1113,9 @@ struct gfar_private {
- 	unsigned int total_tx_ring_size;
- 	unsigned int total_rx_ring_size;
- 
-+	u32 rqueue;
-+	u32 tqueue;
-+
- 	/* RX per device parameters */
- 	unsigned int rx_stash_size;
- 	unsigned int rx_stash_index;
-@@ -1176,6 +1179,31 @@ static inline void gfar_read_filer(struct gfar_private *priv,
- 	*fpr = gfar_read(&regs->rqfpr);
- }
- 
-+static inline void gfar_write_isrg(struct gfar_private *priv)
-+{
-+	struct gfar __iomem *regs = priv->gfargrp[0].regs;
-+	u32 __iomem *baddr = &regs->isrg0;
-+	u32 isrg = 0;
-+	int grp_idx, i;
-+
-+	for (grp_idx = 0; grp_idx < priv->num_grps; grp_idx++) {
-+		struct gfar_priv_grp *grp = &priv->gfargrp[grp_idx];
-+
-+		for_each_set_bit(i, &grp->rx_bit_map, priv->num_rx_queues) {
-+			isrg |= (ISRG_RR0 >> i);
-+		}
-+
-+		for_each_set_bit(i, &grp->tx_bit_map, priv->num_tx_queues) {
-+			isrg |= (ISRG_TR0 >> i);
-+		}
-+
-+		gfar_write(baddr, isrg);
-+
-+		baddr++;
-+		isrg = 0;
-+	}
-+}
-+
- void lock_rx_qs(struct gfar_private *priv);
- void lock_tx_qs(struct gfar_private *priv);
- void unlock_rx_qs(struct gfar_private *priv);
--- 
-1.7.11.7
+Anyway, what I understand is that we are searching for a route only to =
+find
+a vlan to add to the output packet, but we don't care of the route. We =
+just
+want the packet to pass filtering switches to test the link.
+I just propose a default configuration in order to succeed most time
+(when we can't find any route) in a way to find a previous behavior in =
+which
+this use case worked.
+
+> Sorry if I didn't understand you correctly...
+
+No problem, you understand it well. Thanks for the reply.
+
+>=20
+>>
+>> Signed-off-by: Fran=E7ois CACHEREUL <f.cachereul@alphalink.fr>
+>> ---
+>> This previously worked, the problem was added in 2.6.35 with vlan 0
+>> added by default when the module 8021q is loaded. Before that no rou=
+te
+>> lookup was done if the bond device did not have any vlan. The proble=
+m
+>> now exists event if the module 8021q is not loaded.
+>>
+>> drivers/net/bonding/bond_main.c |    9 ++++++---
+>> 1 file changed, 6 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/b=
+ond_main.c
+>> index 8676649..300e5b8 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -2168,17 +2168,19 @@ static void bond_arp_send_all(struct bonding=
+ *bond, struct slave *slave)
+>>     for (i =3D 0; i < BOND_MAX_ARP_TARGETS && targets[i]; i++) {
+>>         pr_debug("basa: target %pI4\n", &targets[i]);
+>>
+>> +        vlan_id =3D 0;
+>> +
+>>         /* Find out through which dev should the packet go */
+>>         rt =3D ip_route_output(dev_net(bond->dev), targets[i], 0,
+>>                      RTO_ONLINK, 0);
+>>         if (IS_ERR(rt)) {
+>>             pr_debug("%s: no route to arp_ip_target %pI4\n",
+>>                  bond->dev->name, &targets[i]);
+>> -            continue;
+>> +            /* no route found, trying with bond->dev */
+>> +            addr =3D bond_confirm_addr(bond->dev, targets[i], 0);
+>> +            goto rt_err_try;
+>>         }
+>>
+>> -        vlan_id =3D 0;
+>> -
+>>         /* bond device itself */
+>>         if (rt->dst.dev =3D=3D bond->dev)
+>>             goto found;
+>> @@ -2232,6 +2234,7 @@ static void bond_arp_send_all(struct bonding *=
+bond, struct slave *slave)
+>> found:
+>>         addr =3D bond_confirm_addr(rt->dst.dev, targets[i], 0);
+>>         ip_rt_put(rt);
+>> +rt_err_try:
+>>         bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
+>>                   addr, vlan_id);
+>>     }
+>> --=20
+>> 1.7.10.4
+>>
