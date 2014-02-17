@@ -1,48 +1,66 @@
-From: Thomas Glanzmann <thomas@glanzmann.de>
-Subject: Re: REGRESSION f54b311142a92ea2e42598e347b84e1655caf8e3 tcp auto
- corking slows down iSCSI file system creation by factor of 70 [WAS: 4 TB
- VMFS creation takes 15 minutes vs 26 seconds]
-Date: Mon, 17 Feb 2014 16:32:13 +0100
-Message-ID: <20140217153213.GA12054@glanzmann.de>
-References: <20140207051500.GB10916@glanzmann.de>
- <20140207075536.GB17815@glanzmann.de>
- <1391801597.1155.28.camel@haakon3.risingtidesystems.com>
- <20140207205142.GA8609@glanzmann.de>
- <20140208093808.GD16336@glanzmann.de>
- <1391865273.10160.76.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140208133744.GA20512@glanzmann.de>
- <1391868564.10160.91.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140217140821.GD6211@glanzmann.de>
- <1392650807.24974.12.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] sh_eth: call of_mdiobus_register() to register phys
+Date: Mon, 17 Feb 2014 19:40:00 +0300
+Message-ID: <53023B60.4030201@cogentembedded.com>
+References: <1392650895-1422-1-git-send-email-ben.dooks@codethink.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Ogness <john.ogness@linutronix.de>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
-	target-devel <target-devel@vger.kernel.org>,
-	Linux Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1392650807.24974.12.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: horms+renesas@verge.net.au, linux-sh@vger.kernel.org,
+	magnus@opensource.se, linux-kernel@lists.codethink.co.uk
+To: Ben Dooks <ben.dooks@codethink.co.uk>, netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1392650895-1422-1-git-send-email-ben.dooks@codethink.co.uk>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Eric,
+Hello.
 
-> Unfortunately you did not had good results with the MSG_MORE applied
-> to the page fragments.
+On 02/17/2014 06:28 PM, Ben Dooks wrote:
 
-I agree. We should submit only the submit the patch from this message:
+> If the sh_eth device is registered using OF, then the driver
 
-Message-ID: <1391886759.10160.114.camel@edumazet-glaptop2.roam.corp.google.com>
-http://mid.gmane.org/1391886759.10160.114.camel@edumazet-glaptop2.roam.corp.google.com
+    Which is not supported yet as my DT patch hasn't been merged.
+This patch seems somewhat premature.
 
-> I think I'll submit the part only dealing with the metadata.
+> should call of_mdiobus_register() to register any PHYs connected
+> to the system.
 
-May I submit the patch or do you want to do it yourself?
+    That's not necessary (but good to have).
 
-Cheers,
-        Thomas
+> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
+> ---
+>   drivers/net/ethernet/renesas/sh_eth.c | 13 +++++++++++++
+>   1 file changed, 13 insertions(+)
+
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+> index 06970ac..165f0c4 100644
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+[...]
+> @@ -2629,6 +2630,18 @@ static int sh_mdio_init(struct net_device *ndev, int id,
+>   	snprintf(mdp->mii_bus->id, MII_BUS_ID_SIZE, "%s-%x",
+>   		 mdp->pdev->name, id);
+>
+> +	if (ndev->dev.parent->of_node) {
+> +		dev_set_drvdata(&ndev->dev, mdp->mii_bus);
+> +		ret = of_mdiobus_register(mdp->mii_bus,
+> +					  ndev->dev.parent->of_node);
+> +		if (ret != 0) {
+> +			dev_err(&ndev->dev, "of_mdiobus_register() failed\n");
+> +			goto out_free_bus;
+> +		}
+> +
+> +		return 0;
+> +	}
+> +
+>   	/* PHY IRQ */
+>   	mdp->mii_bus->irq = devm_kzalloc(&ndev->dev,
+>   					 sizeof(int) * PHY_MAX_ADDR,
+>
+
+     Hm, I can only hope this works with PHY IRQ in DT mode.
+Would you mind if I include your patch into my Ether DT patch?
+
+WBR, Sergei
+
