@@ -1,40 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/10] ieee802154: support rf212 and
- extended mac features
-Date: Mon, 17 Feb 2014 16:45:47 -0500 (EST)
-Message-ID: <20140217.164547.104924757912644737.davem@davemloft.net>
-References: <1392633255-26605-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Subject: Re: [PATCH] ipv4: fix counter in_slow_tot
+Date: Mon, 17 Feb 2014 16:55:10 -0500 (EST)
+Message-ID: <20140217.165510.2229610155761716628.davem@davemloft.net>
+References: <5301B8FF.6030800@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net
-To: phoebe.buckheister@itwm.fraunhofer.de
+Cc: netdev@vger.kernel.org
+To: duanj.fnst@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51549 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51604 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752270AbaBQVpt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 16:45:49 -0500
-In-Reply-To: <1392633255-26605-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+	with ESMTP id S1751615AbaBQVzM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 16:55:12 -0500
+In-Reply-To: <5301B8FF.6030800@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
-Date: Mon, 17 Feb 2014 11:34:05 +0100
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Date: Mon, 17 Feb 2014 15:23:43 +0800
 
-> this patch set adds support for the RF212 radio chip to the existing
-> at86rf230 driver and adds support for numerous features of the RF212
-> chips to the ieee802154 stack. These features include CSMA parameter
-> configuration, transmit power control, CCA parameter configuration, and
-> automatic retransmission of frames. Netlink APIs are provided for all
-> new options introduced in this set.
+> since commit 89aef8921bf("ipv4: Delete routing cache."), the counter
+> in_slow_tot can't work correctly.
 > 
-> Many features might also work for RF230, but since I have no such chips
-> at my disposal, most new features are implemented only for RF212.
+> The counter in_slow_tot increase by one when fib_lookup() return successfully
+> in ip_route_input_slow(), but actually the dst struct maybe not be created and
+> cached, so we can increase in_slow_tot after the dst struct is created.
 > 
-> Changes since v2:
->  * Indentation
-> Changes since v1:
->  * CodingStyle compliance. Thanks Sergei Shtylyov
->  * Add CSMA parameters to netlink phy list that were forgotten in v1
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 
-Series applied, thanks.
+Applied and queued up for -stable, thanks.
