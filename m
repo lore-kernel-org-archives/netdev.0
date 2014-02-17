@@ -1,27 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] bonding cleaning
-Date: Mon, 17 Feb 2014 00:29:47 -0500 (EST)
-Message-ID: <20140217.002947.1273623195685496622.davem@davemloft.net>
-References: <cover.1392508410.git.joe@perches.com>
+Subject: Re: [PATCH v3] net:cpsw: Pass unhandled ioctl's on to generic phy
+ ioctl
+Date: Mon, 17 Feb 2014 00:30:49 -0500 (EST)
+Message-ID: <20140217.003049.1770259997160293076.davem@davemloft.net>
+References: <1392558865-18388-1-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1392508410.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: mugunthanvnm@ti.com, netdev@vger.kernel.org
+To: stefan.sorensen@spectralink.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40300 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751180AbaBQFau convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 00:30:50 -0500
+In-Reply-To: <1392558865-18388-1-git-send-email-stefan.sorensen@spectralink.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Sat, 15 Feb 2014 15:57:03 -0800
+=46rom: Stefan S=F8rensen <stefan.sorensen@spectralink.com>
+Date: Sun, 16 Feb 2014 14:54:25 +0100
 
-> Miscellaneous cleanups
-> 
-> Joe Perches (4):
->   bonding: Convert pr_warning to pr_warn, neatening
->   bonding: Neaten pr_<level>
->   bonding: Convert c99 comments
->   bonding: Convert memcpy(foo, bar, ETH_ALEN) to ether_addr_copy(foo, bar)
+> This patch allows the use of a generic timestamping phy connected
+> to the cpsw if CPTS support is not enabled. This also adds support
+> of the SIOCGMIIREG and SIOCSMIIREG, and moves handling of SIOCGMIIPHY
+> to the generic driver.
+>=20
+> Signed-off-by: Stefan S=F8rensen <stefan.sorensen@spectralink.com>
 
-Series applied, thanks.
+Applied to net-next, thanks.
