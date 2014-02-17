@@ -1,61 +1,53 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH] ipv4: fix counter in_slow_tot
-Date: Mon, 17 Feb 2014 15:23:43 +0800
-Message-ID: <5301B8FF.6030800@cn.fujitsu.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next 0/3] bonding: Fix RTNL: assertion failed at net/core/rtnetlink.c
+Date: Mon, 17 Feb 2014 16:35:48 +0800
+Message-ID: <1392626151-23916-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <cwang@twopensource.com>, <jiri@resnulli.us>,
+	<thomas@glanzmann.de>, <eric.dumazet@gmail.com>,
+	<sfeldma@cumulusnetworks.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
+To: <fubar@us.ibm.com>, <vfalico@redhat.com>, <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:45152 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750903AbaBQHYr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Feb 2014 02:24:47 -0500
+Received: from szxga02-in.huawei.com ([119.145.14.65]:49262 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751122AbaBQIge (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 03:36:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The problem was introduced by the commit 1d3ee88ae0d
+(bonding: add netlink attributes to slave link dev).
+The bond_set_active_slave() and bond_set_backup_slave()
+will use rtmsg_ifinfo to send slave's states, so these
+two functions should be called in RTNL.
 
-since commit 89aef8921bf("ipv4: Delete routing cache."), the counter
-in_slow_tot can't work correctly.
+In 802.3ad mode, acquiring RTNL for the __enable_port and
+__disable_port cases is difficult, as those calls generally
+already hold the state machine lock, and cannot unconditionally
+call rtnl_lock because either they already hold RTNL (for calls
+via bond_3ad_unbind_slave) or due to the potential for deadlock
+with bond_3ad_adapter_speed_changed, bond_3ad_adapter_duplex_changed,
+bond_3ad_link_change, or bond_3ad_update_lacp_rate.  All four of
+those are called with RTNL held, and acquire the state machine lock
+second.  The calling contexts for __enable_port and __disable_port
+already hold the state machine lock, and may or may not need RTNL.
 
-The counter in_slow_tot increase by one when fib_lookup() return successfully
-in ip_route_input_slow(), but actually the dst struct maybe not be created and
-cached, so we can increase in_slow_tot after the dst struct is created.
+According to the Jay's opinion, I don't think it is a problem that
+the slave don't send notify message synchronously when the status
+changed, normally the state machine is running every 100 ms, send
+the notify message at the end of the state machine if the slave's
+state changed should be better.
 
-Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
----
- net/ipv4/route.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Ding Tianhong (3):
+  bonding: add bond_set_slave_state/flags()
+  bonding: add new slave param and  bond_slave_state_notify()
+  bonding: Fix the RTNL assertion failed for 802.3ad state machine
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 25071b4..9df3819 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1597,6 +1597,7 @@ static int __mkroute_input(struct sk_buff *skb,
- 	rth->rt_gateway	= 0;
- 	rth->rt_uses_gateway = 0;
- 	INIT_LIST_HEAD(&rth->rt_uncached);
-+	RT_CACHE_STAT_INC(in_slow_tot);
- 
- 	rth->dst.input = ip_forward;
- 	rth->dst.output = ip_output;
-@@ -1698,8 +1699,6 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	if (err != 0)
- 		goto no_route;
- 
--	RT_CACHE_STAT_INC(in_slow_tot);
--
- 	if (res.type == RTN_BROADCAST)
- 		goto brd_input;
- 
-@@ -1768,6 +1767,7 @@ local_input:
- 	rth->rt_gateway	= 0;
- 	rth->rt_uses_gateway = 0;
- 	INIT_LIST_HEAD(&rth->rt_uncached);
-+	RT_CACHE_STAT_INC(in_slow_tot);
- 	if (res.type == RTN_UNREACHABLE) {
- 		rth->dst.input= ip_error;
- 		rth->dst.error= -err;
+ drivers/net/bonding/bond_3ad.c |  5 ++--
+ drivers/net/bonding/bonding.h  | 68 +++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 70 insertions(+), 3 deletions(-)
+
 -- 
-1.8.3.1
+1.8.0
