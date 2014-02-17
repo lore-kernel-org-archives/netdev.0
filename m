@@ -1,92 +1,180 @@
-From: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [net-next v2 3/3] cfg80211: add MPLS and 802.21 classification
-Date: Mon, 17 Feb 2014 18:30:51 +0100
-Message-ID: <5302474B.6090609@broadcom.com>
-References: <1392656174-14791-1-git-send-email-sw@simonwunderlich.de> <1392656174-14791-4-git-send-email-sw@simonwunderlich.de>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: add init-regs for of_phy support
+Date: Mon, 17 Feb 2014 09:33:36 -0800
+Message-ID: <CAGVrzcYbw5xLj-gwcup5i0gBdKDDGdyy5wAaEBp7m2E7f2bytg@mail.gmail.com>
+References: <1392642484-19938-1-git-send-email-ben.dooks@codethink.co.uk> <1392642484-19938-2-git-send-email-ben.dooks@codethink.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<mathias.kretschmer-8LS2qeF34IpklNlQbfROjRvVK+yQ3ZXh@public.gmane.org>
-To: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1392656174-14791-4-git-send-email-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>
+To: Ben Dooks <ben.dooks@codethink.co.uk>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1392642484-19938-2-git-send-email-ben.dooks@codethink.co.uk>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/17/14 17:56, Simon Wunderlich wrote:
-> MPLS labels may contain traffic control information, which should be
-> evaluated and used by the wireless subsystem if present.
+Hi Ben,
+
+2014-02-17 5:08 GMT-08:00 Ben Dooks <ben.dooks@codethink.co.uk>:
+> Add new init-regs field for of_phy nodes and make sure these
+> get applied when the phy is configured.
 >
-> Also check for IEEE 802.21 which is always network control traffic.
+> This allows any phy node in an fdt to initialise registers
+> that may not be set as standard by the driver at initialisation
+> time, such as LED controls.
 >
-> Signed-off-by: Simon Wunderlich<sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-> Signed-off-by: Mathias Kretschmer<mathias.kretschmer-8LS2qeF34IpklNlQbfROjRvVK+yQ3ZXh@public.gmane.org>
+> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
 > ---
-> Changes to first version:
+>  Documentation/devicetree/bindings/net/phy.txt | 12 ++++++
+>  drivers/net/phy/phy_device.c                  | 59 ++++++++++++++++++++++++++-
+>  2 files changed, 70 insertions(+), 1 deletion(-)
 >
->   * include linux/mpls.h, not the UAPI one
->   * change __constant_htons to htons
-> ---
->   net/wireless/util.c |   24 ++++++++++++++++++++++++
->   1 file changed, 24 insertions(+)
->
-> diff --git a/net/wireless/util.c b/net/wireless/util.c
-> index d39c371..54956eb 100644
-> --- a/net/wireless/util.c
-> +++ b/net/wireless/util.c
-> @@ -11,6 +11,7 @@
->   #include<net/ip.h>
->   #include<net/dsfield.h>
->   #include<linux/if_vlan.h>
-> +#include<linux/mpls.h>
->   #include "core.h"
->   #include "rdev-ops.h"
->
-> @@ -710,6 +711,29 @@ unsigned int cfg80211_classify8021d(struct sk_buff *skb,
+> diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentation/devicetree/bindings/net/phy.txt
+> index 58307d0..48d8ded 100644
+> --- a/Documentation/devicetree/bindings/net/phy.txt
+> +++ b/Documentation/devicetree/bindings/net/phy.txt
+> @@ -20,6 +20,8 @@ Optional Properties:
+>    assume clause 22. The compatible list may also contain other
+>    elements.
+>  - max-speed: Maximum PHY supported speed (10, 100, 1000...)
+> +- init-regs: Set of registers to modify at initialisation as a
+> +    a set of <register set clear>
 
-So does the name still covers what it is doing now or should we just 
-callit cfg80211_classify_skb()?
+Should be:
 
->   			return vlan_priority;
->   	}
+"micrel,led-control-init-val" or something like that.
+
+first cell is the register address, according to the IEEE 802.3 clause 22
+second cell is the set bitmask to apply to the register address
+specified in the first cell
+third cell is the clear bitmask to apply to the register address
+specified in the second cell
+
+I would rather see this as a specific PHY node DT property for setting
+the LED control register, because this is totally non-standard and you
+are touching a proprietary register here.
+
 >
-> +	if (skb_headlen(skb)>= sizeof(struct ethhdr)) {
-> +		struct ethhdr *eh = (struct ethhdr *)skb->data;
-> +		struct mpls_label_stack mpls_tmp, *mpls;
+>  Example:
+>
+> @@ -29,3 +31,13 @@ ethernet-phy@0 {
+>         interrupts = <35 1>;
+>         reg = <0>;
+>  };
 > +
-> +		switch (eh->h_proto) {
-
-It seem eh->h_proto should be the same as skb->protocol, right? So why 
-not add these case statements to the switch below?
-
-Regards,
-Arend
-
-> +		case htons(ETH_P_MPLS_UC):
-> +		case htons(ETH_P_MPLS_MC):
-> +			/* MPLS */
-> +			mpls = skb_header_pointer(skb, sizeof(*eh),
-> +						  sizeof(*mpls),&mpls_tmp);
-> +			if (!mpls)
-> +				break;
+> +ethernet-phy@0 {
+> +       compatible = "ethernet-phy-ieee802.3-c22";
+> +       interrupt-parent = <40000>;
+> +       interrupts = <35 1>;
+> +       reg = <0>;
 > +
-> +			return (ntohl(mpls->entry)&  MPLS_LS_TC_MASK)
-> +				>>  MPLS_LS_TC_SHIFT;
-> +		case htons(ETH_P_80221):
-> +			/* 802.21 is always network control traffic */
-> +			return 7;
-> +		default:
-> +			break;
-> +		}
-> +	}
-> +
->   	switch (skb->protocol) {
->   	case htons(ETH_P_IP):
->   		dscp = ipv4_get_dsfield(ip_hdr(skb))&  0xfc;
+> +       /* set KSZ8041 LED mode bits correctly */
+> +       init-reg = <0x1e 0x4000 0xc000>;
+> +};
+> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+> index 82514e7..6741cdb 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -33,6 +33,7 @@
+>  #include <linux/mdio.h>
+>  #include <linux/io.h>
+>  #include <linux/uaccess.h>
+> +#include <linux/of.h>
+>
+>  #include <asm/irq.h>
+>
+> @@ -532,6 +533,57 @@ static int phy_poll_reset(struct phy_device *phydev)
+>         return 0;
+>  }
+>
+> +#ifdef CONFIG_OF
+> +static int of_phy_configure(struct phy_device *phydev)
+> +{
+> +       struct device *dev = &phydev->dev;
+> +       struct device_node *of_node = dev->of_node;
+> +       struct property *prop;
+> +       const __be32 *ptr;
+> +       u32 reg, set, clear;
+> +       int len;
+> +       int val;
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This does not belong in the generic PHY code unless we are very clear
+on what we want to do, and how to do it, which I do not think we are
+yet. What exactly is needed here:
+
+- fixing up some design mistake?
+- accounting for a specific board design?
+
+In any case a PHY fixup would do the job for you.
+
+> +
+> +       if (!of_node)
+> +               of_node = dev->parent->of_node;
+> +       if (!of_node)
+> +               return 0;
+> +
+> +       prop = of_find_property(of_node, "init-regs", &len);
+> +       if (prop) {
+> +               if (len % (sizeof(__be32) * 3)) {
+> +                       dev_err(dev, "init-regs not multiple of 3 entries\n");
+> +                       return -EINVAL;
+> +               }
+> +
+> +               ptr = of_prop_next_u32(prop, ptr, &reg);
+> +               while (ptr != NULL) {
+> +                       ptr = of_prop_next_u32(prop, ptr, &reg);
+> +                       ptr = of_prop_next_u32(prop, ptr, &set);
+> +                       ptr = of_prop_next_u32(prop, ptr, &clear);
+> +
+> +                       val = phy_read(phydev, reg);
+> +                       if (val < 0) {
+> +                               dev_err(dev, "failed to read %d\n", reg);
+> +                               return val;
+> +                       }
+> +
+> +                       val &= ~clear;
+> +                       val |= set;
+> +                       phy_write(phydev, reg, val);
+> +
+> +                       dev_info(dev, "set d to %04x\n", reg, val);
+> +
+> +                       ptr = of_prop_next_u32(prop, ptr, &reg);
+> +               }
+> +       }
+> +
+> +       return 0;
+> +}
+> +#else
+> +static inline int of_phy_configure(struct phy_device *phydev) { return 0; }
+> +#endif
+> +
+>  int phy_init_hw(struct phy_device *phydev)
+>  {
+>         int ret;
+> @@ -551,7 +603,12 @@ int phy_init_hw(struct phy_device *phydev)
+>         if (ret < 0)
+>                 return ret;
+>
+> -       return phydev->drv->config_init(phydev);
+> +       ret = phydev->drv->config_init(phydev);
+> +
+> +       if (ret == 0)
+> +               ret = of_phy_configure(phydev);
+> +
+> +       return ret;
+>  }
+>  EXPORT_SYMBOL(phy_init_hw);
+>
+> --
+> 1.8.5.3
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe devicetree" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+-- 
+Florian
