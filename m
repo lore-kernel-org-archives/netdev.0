@@ -1,43 +1,69 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [PATCH net-next v2] IPv6: enable bind() to assign an anycast address
-Date: Mon, 17 Feb 2014 14:02:02 +0400
-Message-ID: <CAMrnHh5osKyOpmObYmWNswZuxYAc0SYUrmfohkg2GaafKmPK0w@mail.gmail.com>
-References: <1392212332-10463-1-git-send-email-fx.lebail@yahoo.com>
-	<20140213001624.GJ11150@order.stressinduktion.org>
-	<20140217.001545.981758741332832466.davem@davemloft.net>
-	<20140217093231.GA4609@cpaasch-mac>
+From: Luigi Rizzo <rizzo@iet.unipi.it>
+Subject: netmap, VALE and netmap pipes
+Date: Mon, 17 Feb 2014 02:11:21 -0800
+Message-ID: <CA+hQ2+gbs9aBneUaDGAnKVoPHspzc=5o+h+f_K=T+Cy8sRxr+w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, hannes@stressinduktion.org,
-	fx.lebail@yahoo.com, netdev@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Christoph Paasch <christoph.paasch@uclouvain.be>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:38343 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752939AbaBQKHv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 05:07:51 -0500
-Received: by mail-ig0-f171.google.com with SMTP id uy17so4858179igb.4
-        for <netdev@vger.kernel.org>; Mon, 17 Feb 2014 02:07:51 -0800 (PST)
-In-Reply-To: <20140217093231.GA4609@cpaasch-mac>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, "freebsd-net@freebsd.org" <net@freebsd.org>
+Return-path: <owner-freebsd-net@freebsd.org>
+List-Unsubscribe: <http://lists.freebsd.org/mailman/options/freebsd-net>,
+ <mailto:freebsd-net-request@freebsd.org?subject=unsubscribe>
+List-Archive: <http://lists.freebsd.org/pipermail/freebsd-net/>
+List-Post: <mailto:freebsd-net@freebsd.org>
+List-Help: <mailto:freebsd-net-request@freebsd.org?subject=help>
+List-Subscribe: <http://lists.freebsd.org/mailman/listinfo/freebsd-net>,
+ <mailto:freebsd-net-request@freebsd.org?subject=subscribe>
+Errors-To: owner-freebsd-net@freebsd.org
+Sender: owner-freebsd-net@freebsd.org
+List-Id: netdev.vger.kernel.org
 
-Hello!
+Hi,
+we have recently made a few extensions to netmap/VALE and put various
+pieces of code on public repositories, so i thought i'd share the
+pointers. All the code below runs with equal features and performance
+on FreeBSD and Linux, and we are trying to upstream it in the relevant
+projects if possible (as an example, QEMU recently added a netmap backend),
+at which point some of these clone repositories will become unnecessary.
 
-On Mon, Feb 17, 2014 at 1:32 PM, Christoph Paasch
-<christoph.paasch@uclouvain.be> wrote:
-> I don't have strong opinions for or against this patch.
->
-> I was only involved in the original thread because F-X claimed that
-> draft-iab-anycast-arch-implications (now RFC 7094) allows the use of anycast
-> addresses for TCP, which is not what RFC 7094 is saying. There is no
-> recommendation concerning TCP in the RFC and the situation is rather unclear.
+See http://info.iet.unipi.it/~luigi/netmap for more details.
 
-The same is here.
+https://code.google.com/p/netmap/
+    The latest netmap code for FreeBSD/Linux. It has native support
+    for certain NICs; emulated netmap over unmodified drivers;
+    enhanced parallelism in the VALE switch (20 Mpps/source, scaling
+    up to ~50Mpps); and a new feature called "netmap pipe" that
+    does zero-copy blocking I/O at over 100 Mpps.
+        Other features are the ability to allocate tons of extra
+    netmap buffers, and configurable sharing of memory among NICs,
+    VALE ports and netmap pipes. This increases the opportunity for
+    zero copy operation.
+        The user API is also greatly simplified, with a naming
+    scheme that permits easy access to all types of ports including
+    individual NIC queues.
 
-Using anycast as source or bind address, why not?
+https://code.google.com/p/netmap-libpcap
+    a netmap-enabled version of libpcap. With this, basically any
+    pcap client can read/write traffic at 10+ Mpps, with zerocopy
+    reads and (soon) support for zerocopy writes. Whether applications
+    can cope with these packet rates, of course, is another story.
 
-Use of anycast with TCP? Logically impossible, ergo prohibited.
-If someone wants to play with fire, the option can be left hidden behind
-a sysctl disabled by default.
+https://code.google.com/p/netmap-click
+    a netmap-enabled version of the Click Modular Router.  This
+    code matches the current version of netmap, supporting all
+    features (including netmap pipes).
+
+https://code.google.com/p/netmap-ipfw
+    a netmap-enabled, userspace version of the ipfw firewall and
+    dummynet network emulator. This version reaches 7-10 Mpps for
+    filtering and over 2.5 Mpps for emulation.
+
+
+Hope you'll find it useful.
+
+cheers
+luigi
+_______________________________________________
+freebsd-net@freebsd.org mailing list
+http://lists.freebsd.org/mailman/listinfo/freebsd-net
+To unsubscribe, send any mail to "freebsd-net-unsubscribe@freebsd.org"
