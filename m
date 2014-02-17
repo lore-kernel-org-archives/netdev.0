@@ -1,52 +1,56 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v4 net-next 09/12] bonding: use last_arp_rx in bond_loadbalance_arp_mon()
-Date: Mon, 17 Feb 2014 15:41:25 +0100
-Message-ID: <1392648088-21336-10-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v4 net-next 01/12] bonding: remove bond->lock from bond_arp_rcv
+Date: Mon, 17 Feb 2014 15:41:17 +0100
+Message-ID: <1392648088-21336-2-git-send-email-vfalico@redhat.com>
 References: <1392648088-21336-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40798 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:63604 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753557AbaBQOp7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Feb 2014 09:45:59 -0500
+	id S1752218AbaBQOpx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Feb 2014 09:45:53 -0500
 In-Reply-To: <1392648088-21336-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that last_arp_rx correctly show the last time we've received an ARP, we
-can use it safely instead of slave->dev->last_rx.
+We're always called with rcu_read_lock() held (bond_arp_rcv() is only
+called from bond_handle_frame(), which is rx_handler and always called
+under rcu from __netif_receive_skb_core() ).
+
+The slave active/passive and/or bonding params can change in-flight, however
+we don't really care about that - we only modify the last time packet was
+received, which is harmless.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/bonding/bond_main.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 3fe81cd..e7aab9a 100644
+index 3bce855..3c50bec 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -2372,7 +2372,7 @@ static void bond_loadbalance_arp_mon(struct work_struct *work)
+@@ -2260,8 +2260,6 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
+ 	if (skb->protocol != __cpu_to_be16(ETH_P_ARP))
+ 		return RX_HANDLER_ANOTHER;
  
- 		if (slave->link != BOND_LINK_UP) {
- 			if (bond_time_in_interval(bond, trans_start, 1) &&
--			    bond_time_in_interval(bond, slave->dev->last_rx, 1)) {
-+			    bond_time_in_interval(bond, slave->last_arp_rx, 1)) {
+-	read_lock(&bond->lock);
+-
+ 	if (!slave_do_arp_validate(bond, slave))
+ 		goto out_unlock;
  
- 				slave->link  = BOND_LINK_UP;
- 				slave_state_changed = 1;
-@@ -2401,7 +2401,7 @@ static void bond_loadbalance_arp_mon(struct work_struct *work)
- 			 * if we don't know our ip yet
- 			 */
- 			if (!bond_time_in_interval(bond, trans_start, 2) ||
--			    !bond_time_in_interval(bond, slave->dev->last_rx, 2)) {
-+			    !bond_time_in_interval(bond, slave->last_arp_rx, 2)) {
+@@ -2318,7 +2316,6 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
+ 		bond_validate_arp(bond, slave, tip, sip);
  
- 				slave->link  = BOND_LINK_DOWN;
- 				slave_state_changed = 1;
+ out_unlock:
+-	read_unlock(&bond->lock);
+ 	if (arp != (struct arphdr *)skb->data)
+ 		kfree(arp);
+ 	return RX_HANDLER_ANOTHER;
 -- 
 1.8.4
