@@ -1,39 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] tipc: eliminate smatch
-	warnings
-Date: Mon, 17 Feb 2014 00:26:57 -0500 (EST)
-Message-ID: <20140217.002657.140060186952246127.davem@davemloft.net>
-References: <1392414044-14326-1-git-send-email-jon.maloy@ericsson.com>
+Subject: Re: [PATCH net-next] Documentation: broadcom-bcmgenet: add better
+ clocks documentation
+Date: Mon, 17 Feb 2014 00:27:56 -0500 (EST)
+Message-ID: <20140217.002756.923050575326336892.davem@davemloft.net>
+References: <1392420102-8785-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1392414044-14326-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, mark.rutland@arm.com
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40235 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751278AbaBQF15 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 00:27:57 -0500
+In-Reply-To: <1392420102-8785-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Fri, 14 Feb 2014 16:40:42 -0500
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Fri, 14 Feb 2014 15:21:42 -0800
 
-> We fix a couple of issues introduced by the series 
-> "tipc: clean up media and bearer layer". 
+> Document the required "clocks" phandles and their corresponding
+> "clock-names" properties for the two clocks used by the GENET hardware
+> block ("enet" and "enet-wol").
 > 
-> Thanks to Dan Carpenter and Walter Harms for highlighting this.
+> CC: Mark Rutland <mark.rutland@arm.com>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Both patches applied, thanks.
-
-------------------------------------------------------------------------------
-Android apps run on BlackBerry 10
-Introducing the new BlackBerry 10.2.1 Runtime for Android apps.
-Now with support for Jelly Bean, Bluetooth, Mapview and more.
-Get your Android app in front of a whole new audience.  Start now.
-http://pubads.g.doubleclick.net/gampad/clk?id=124407151&iu=/4140/ostg.clktrk
+Applied, thanks.
