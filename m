@@ -1,73 +1,89 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: fe80::/64 route missing on GRE tunnels
-Date: Mon, 17 Feb 2014 10:37:07 +0100
-Message-ID: <5301D843.4020802@6wind.com>
-References: <20140211215510.GA6994@sesse.net> <20140211215928.GA7862@sesse.net> <20140215074559.GA8634@order.stressinduktion.org> <20140215121027.GC8634@order.stressinduktion.org>
-Reply-To: nicolas.dichtel@6wind.com
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] can: xilinx CAN controller support.
+Date: Mon, 17 Feb 2014 10:42:46 +0100
+Message-ID: <5301D996.6040704@pengutronix.de>
+References: <93c7272e-d8bf-43af-b39b-aaa0e0b70b6f@TX2EHSMHS036.ehs.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org, itk-intern@samfundet.no,
-	sesse@samfundet.no,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f175.google.com ([74.125.82.175]:42832 "EHLO
-	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750939AbaBQJhK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 04:37:10 -0500
-Received: by mail-we0-f175.google.com with SMTP id q59so10526283wes.34
-        for <netdev@vger.kernel.org>; Mon, 17 Feb 2014 01:37:09 -0800 (PST)
-In-Reply-To: <20140215121027.GC8634@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="SQw0GDVe2fpDd3PnHnxv7f5e917nkH2o3"
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
+	Kedareswara rao Appana <appanad@xilinx.com>
+To: Kedareswara rao Appana <appana.durga.rao@xilinx.com>,
+	wg@grandegger.com, michal.simek@xilinx.com,
+	grant.likely@linaro.org, robh+dt@kernel.org,
+	linux-can@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <93c7272e-d8bf-43af-b39b-aaa0e0b70b6f@TX2EHSMHS036.ehs.local>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 15/02/2014 13:10, Hannes Frederic Sowa a =C3=A9crit :
-> Hi Nicolas!
->
-> On Sat, Feb 15, 2014 at 08:45:59AM +0100, Hannes Frederic Sowa wrote:
->> On Tue, Feb 11, 2014 at 10:59:28PM +0100, Steinar H. Gunderson wrote=
-:
->>> On Tue, Feb 11, 2014 at 10:55:11PM +0100, Steinar H. Gunderson wrot=
-e:
->>>> but on 3.13.1, no such route shows up. I can add it manually, thou=
-gh.
->>>
->>> Correction; I can add it manually, but only to one GRE device at a =
-time:
->>>
->>>    root@altersex:~$ ip -6 route add fe80::/64 dev k_molvenfinnoy
->>>    root@altersex:~$ ip -6 route add fe80::/64 dev k_sessesveits
->>>    RTNETLINK answers: File exists
->>>    root@altersex:~$ ip -6 route del fe80::/64 dev k_molvenfinnoy
->>>    root@altersex:~$ ip -6 route add fe80::/64 dev k_sessesveits
->>>    root@altersex:~$
->>
->> Sorry for the long delay, I was busy with other stuff...
->>
->> So basically a workaround you can do for the time being is to add th=
-e tunnel
->> with a local address:
->>
->> ip tunnel add foo mode gre local 4.3.2.1 remote 1.2.3.4 ttl 64
->>
->> The reason is that link local address generation fails in ipv6/addrc=
-onf as
->> long as dev->dev_addr is zero.
->>
->> I have not yet found the change which causes this change in behaviou=
-r, but
->> will do so soon.
->
-> f7cb8886335dea ("sit/gre6: don't try to add the same route two times"=
-) causes
-> this problem, because dev->dev_addr will never get initialized and th=
-us
-> ipv6_generate_eui64 and addrconf_add_linklocal will never get called.
->
-> Ok for revert or do you have a better idea?
-I'm not sure to understand the problem. In the case described above, th=
-ere is no
-fe80::/64 route because there is no link local address.
-What source address will be used to communicate over this gre interface=
-?
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--SQw0GDVe2fpDd3PnHnxv7f5e917nkH2o3
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+On 02/17/2014 10:23 AM, Kedareswara rao Appana wrote:
+> +/**
+> + * xcan_get_berr_counter - error counter routine
+> + * @ndev:	Pointer to net_device structure
+> + * @bec:	Pointer to can_berr_counter structure
+> + *
+> + * This is the driver error counter routine.
+> + * Return: 0 always
+> + */
+> +static int xcan_get_berr_counter(const struct net_device *ndev,
+> +					struct can_berr_counter *bec)
+> +{
+> +	struct xcan_priv *priv =3D netdev_priv(ndev);
+> +	int ret;
+> +
+> +	ret =3D clk_prepare_enable(priv->devclk);
+> +	if (ret)
+> +		goto err;
+> +
+> +	ret =3D clk_prepare_enable(priv->aperclk);
+> +	if (ret)
+> +		goto err_clk;
+> +
+> +	bec->txerr =3D priv->read_reg(priv, XCAN_ECR_OFFSET) & XCAN_ECR_TEC_M=
+ASK;
+> +	bec->rxerr =3D ((priv->read_reg(priv, XCAN_ECR_OFFSET) &
+> +			XCAN_ECR_REC_MASK) >> XCAN_ESR_REC_SHIFT);
+
+You have to disable the clock when leaving this function. Otherwise the
+clocks will be unbalanced.
+
+> +	return 0;
+> +
+> +err_clk:
+> +	clk_disable_unprepare(priv->devclk);
+> +err:
+> +	return ret;
+> +}
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--SQw0GDVe2fpDd3PnHnxv7f5e917nkH2o3
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlMB2ZYACgkQjTAFq1RaXHO7nwCglMLlduskfM/vsZwt+24Hwg0Q
+etkAmwQTAlnddknr1sRKfFVhAefKIfg9
+=ZTwN
+-----END PGP SIGNATURE-----
+
+--SQw0GDVe2fpDd3PnHnxv7f5e917nkH2o3--
