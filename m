@@ -1,36 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/6] gianfar: Device configuration fixes
-Date: Tue, 18 Feb 2014 15:03:26 -0500 (EST)
-Message-ID: <20140218.150326.345866777429417518.davem@davemloft.net>
-References: <1392634399-5456-1-git-send-email-claudiu.manoil@freescale.com>
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: Re: [Xen-devel] [RFC v2 4/4] xen-netback: skip IPv4 and IPv6 interfaces
+Date: Tue, 18 Feb 2014 12:16:36 -0800
+Message-ID: <CAB=NE6WwPfPi-8Yudxs4-OA2LPOjo8-XxUiVbtu6=BQ8FhEEOA@mail.gmail.com>
+References: <1392433180-16052-1-git-send-email-mcgrof@do-not-panic.com>
+ <1392433180-16052-5-git-send-email-mcgrof@do-not-panic.com> <53021E87.6020607@citrix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: claudiu.manoil@freescale.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35207 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751162AbaBRUDb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 15:03:31 -0500
-In-Reply-To: <1392634399-5456-1-git-send-email-claudiu.manoil@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>, kvm@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Paul Durrant <Paul.Durrant@citrix.com>,
+	xen-devel@lists.xenproject.org
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <53021E87.6020607@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Date: Mon, 17 Feb 2014 12:53:13 +0200
+On Mon, Feb 17, 2014 at 6:36 AM, Zoltan Kiss <zoltan.kiss@citrix.com> wrote:
+> There is a valid scenario to put IP addresses on the backend VIFs:
+>
+> http://wiki.xen.org/wiki/Xen_Networking#Routing
 
-> This patchset represents the first part of an effort
-> to solve some old device configuration issues in gianfar,
-> especially run-time reset and re-configuration problems.
-> I'm referring to "on-the-fly" configuration of registers
-> against HW specification, concurrency issues during device
-> reset / re-configuration operations, and implementing HW
-> advisories for these operations.
-> 
-> There's also a good deal of code cleanup and refactoring,
-> and some other (minor) fixes as well.
-> 
-> Thank you. 
+This is useful thanks!
 
-Series applied, thanks.
+> Also, the backend is not necessarily Dom0, you can connect two guests with
+> backend/frontend pairs.
+
+Can you elaborate a bit more on this type of setup?
+
+  Luis
