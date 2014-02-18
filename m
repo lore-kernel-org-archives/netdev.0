@@ -1,11 +1,11 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH net-next 23/35] forcedeth: Fix invalid errno reporting in nv_request_irq()
-Date: Tue, 18 Feb 2014 11:11:52 +0100
-Message-ID: <d9b66ce651ddfc5ac7930cd1ac3574745ef4b511.1392717503.git.agordeev@redhat.com>
+Subject: [PATCH net-next 32/35] niu: Use pci_enable_msix_range() instead of pci_enable_msix()
+Date: Tue, 18 Feb 2014 11:12:01 +0100
+Message-ID: <8832462673133006827fa3eb2fd0c92e34fb7b69.1392717503.git.agordeev@redhat.com>
 References: <cover.1392717502.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	Jingoo Han <jg1.han@samsung.com>, netdev@vger.kernel.org,
 	linux-pci@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -13,75 +13,57 @@ In-Reply-To: <cover.1392717502.git.agordeev@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+As result of deprecation of MSI-X/MSI enablement functions
+pci_enable_msix() and pci_enable_msi_block() all drivers
+using these two interfaces need to be updated to use the
+new pci_enable_msi_range() and pci_enable_msix_range()
+interfaces.
+
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Patrick McHardy <kaber@trash.net>
+Cc: Jingoo Han <jg1.han@samsung.com>
 Cc: netdev@vger.kernel.org
 Cc: linux-pci@vger.kernel.org
 ---
- drivers/net/ethernet/nvidia/forcedeth.c |   22 ++++++++++++++--------
- 1 files changed, 14 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/sun/niu.c |   11 +++--------
+ 1 files changed, 3 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index 70cf97f..f4270b8 100644
---- a/drivers/net/ethernet/nvidia/forcedeth.c
-+++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -3952,8 +3952,9 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
- 			if (optimization_mode == NV_OPTIMIZATION_MODE_THROUGHPUT && !intr_test) {
- 				/* Request irq for rx handling */
- 				sprintf(np->name_rx, "%s-rx", dev->name);
--				if (request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_RX].vector,
--						nv_nic_irq_rx, IRQF_SHARED, np->name_rx, dev) != 0) {
-+				ret = request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_RX].vector,
-+						  nv_nic_irq_rx, IRQF_SHARED, np->name_rx, dev);
-+				if (ret) {
- 					netdev_info(dev,
- 						    "request_irq failed for rx %d\n",
- 						    ret);
-@@ -3963,8 +3964,9 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
- 				}
- 				/* Request irq for tx handling */
- 				sprintf(np->name_tx, "%s-tx", dev->name);
--				if (request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_TX].vector,
--						nv_nic_irq_tx, IRQF_SHARED, np->name_tx, dev) != 0) {
-+				ret = request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_TX].vector,
-+						  nv_nic_irq_tx, IRQF_SHARED, np->name_tx, dev);
-+				if (ret) {
- 					netdev_info(dev,
- 						    "request_irq failed for tx %d\n",
- 						    ret);
-@@ -3974,8 +3976,9 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
- 				}
- 				/* Request irq for link and timer handling */
- 				sprintf(np->name_other, "%s-other", dev->name);
--				if (request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_OTHER].vector,
--						nv_nic_irq_other, IRQF_SHARED, np->name_other, dev) != 0) {
-+				ret = request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_OTHER].vector,
-+						  nv_nic_irq_other, IRQF_SHARED, np->name_other, dev);
-+				if (ret) {
- 					netdev_info(dev,
- 						    "request_irq failed for link %d\n",
- 						    ret);
-@@ -3991,7 +3994,9 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
- 				set_msix_vector_map(dev, NV_MSI_X_VECTOR_OTHER, NVREG_IRQ_OTHER);
- 			} else {
- 				/* Request irq for all interrupts */
--				if (request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_ALL].vector, handler, IRQF_SHARED, dev->name, dev) != 0) {
-+				ret = request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_ALL].vector,
-+						  handler, IRQF_SHARED, dev->name, dev);
-+				if (ret) {
- 					netdev_info(dev,
- 						    "request_irq failed %d\n",
- 						    ret);
-@@ -4011,7 +4016,8 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
- 		ret = pci_enable_msi(np->pci_dev);
- 		if (ret == 0) {
- 			np->msi_flags |= NV_MSI_ENABLED;
--			if (request_irq(np->pci_dev->irq, handler, IRQF_SHARED, dev->name, dev) != 0) {
-+			ret = request_irq(np->pci_dev->irq, handler, IRQF_SHARED, dev->name, dev);
-+			if (ret) {
- 				netdev_info(dev, "request_irq failed %d\n",
- 					    ret);
- 				pci_disable_msi(np->pci_dev);
+diff --git a/drivers/net/ethernet/sun/niu.c b/drivers/net/ethernet/sun/niu.c
+index 8e2266e..79606f47a 100644
+--- a/drivers/net/ethernet/sun/niu.c
++++ b/drivers/net/ethernet/sun/niu.c
+@@ -9041,7 +9041,7 @@ static void niu_try_msix(struct niu *np, u8 *ldg_num_map)
+ 	struct msix_entry msi_vec[NIU_NUM_LDG];
+ 	struct niu_parent *parent = np->parent;
+ 	struct pci_dev *pdev = np->pdev;
+-	int i, num_irqs, err;
++	int i, num_irqs;
+ 	u8 first_ldg;
+ 
+ 	first_ldg = (NIU_NUM_LDG / parent->num_ports) * np->port;
+@@ -9053,21 +9053,16 @@ static void niu_try_msix(struct niu *np, u8 *ldg_num_map)
+ 		    (np->port == 0 ? 3 : 1));
+ 	BUG_ON(num_irqs > (NIU_NUM_LDG / parent->num_ports));
+ 
+-retry:
+ 	for (i = 0; i < num_irqs; i++) {
+ 		msi_vec[i].vector = 0;
+ 		msi_vec[i].entry = i;
+ 	}
+ 
+-	err = pci_enable_msix(pdev, msi_vec, num_irqs);
+-	if (err < 0) {
++	num_irqs = pci_enable_msix_range(pdev, msi_vec, 1, num_irqs);
++	if (num_irqs < 0) {
+ 		np->flags &= ~NIU_FLAGS_MSIX;
+ 		return;
+ 	}
+-	if (err > 0) {
+-		num_irqs = err;
+-		goto retry;
+-	}
+ 
+ 	np->flags |= NIU_FLAGS_MSIX;
+ 	for (i = 0; i < num_irqs; i++)
 -- 
 1.7.7.6
