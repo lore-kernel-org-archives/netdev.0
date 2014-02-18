@@ -1,113 +1,76 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH v4 net-next 02/12] bonding: permit using arp_validate
- with non-ab modes
-Date: Tue, 18 Feb 2014 07:39:13 +0100
-Message-ID: <20140218063913.GB18373@redhat.com>
-References: <1392648088-21336-1-git-send-email-vfalico@redhat.com>
- <1392648088-21336-3-git-send-email-vfalico@redhat.com>
- <5302292D.4050206@redhat.com>
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: Re: [B.A.T.M.A.N.] [PATCH 01/10] batman-adv: fix soft-interface MTU
+ computation
+Date: Tue, 18 Feb 2014 07:44:53 +0100
+Message-ID: <53030165.2050404@meshcoding.com>
+References: <1392670129-2498-1-git-send-email-antonio@meshcoding.com> <1392670129-2498-2-git-send-email-antonio@meshcoding.com> <20140217.161314.741869447870850076.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="lwUKLMUudfQxo5RbpvCitHEBpt16U01JW"
+Cc: netdev@vger.kernel.org, mareklindner@neomailbox.ch
+To: The list for a Better Approach To Mobile Ad-hoc
+	 Networking <b.a.t.m.a.n@lists.open-mesh.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39845 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750991AbaBRGjX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Feb 2014 01:39:23 -0500
-Content-Disposition: inline
-In-Reply-To: <5302292D.4050206@redhat.com>
+Received: from s3.neomailbox.net ([178.209.62.157]:20663 "EHLO
+	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751006AbaBRGqg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 01:46:36 -0500
+In-Reply-To: <20140217.161314.741869447870850076.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 17, 2014 at 04:22:21PM +0100, Nikolay Aleksandrov wrote:
->On 02/17/2014 03:41 PM, Veaceslav Falico wrote:
->> Currently it's disabled because it's sometimes hard, in typical configs, to
->> make it work - because of the nature how the loadbalance modes work - as
->> it's hard to deliver valid arp replies to correct slaves by the switch.
->>
->> However we still can use arp_validation in loadbalance with several other
->> configs, per example with arp_validate == 2 for backup with one broadcast
->> domain, without the switch(es) doing any balancing - this way we'd be (a
->> bit more) sure that the slave is up.
->>
->> So, enable it to let users decide which one works/suits them best. Also
->> remove the mode limitation from BOND_OPT_ARP_VALIDATE.
->>
->> CC: Jay Vosburgh <fubar@us.ibm.com>
->> CC: Andy Gospodarek <andy@greyhouse.net>
->> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
->> ---
->>  Documentation/networking/bonding.txt | 6 +++---
->>  drivers/net/bonding/bond_main.c      | 4 ----
->>  drivers/net/bonding/bond_options.c   | 1 -
->>  3 files changed, 3 insertions(+), 8 deletions(-)
->>
->> diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
->> index 5cdb229..96b4ad8 100644
->> --- a/Documentation/networking/bonding.txt
->> +++ b/Documentation/networking/bonding.txt
->> @@ -270,9 +270,9 @@ arp_ip_target
->>  arp_validate
->>
->>  	Specifies whether or not ARP probes and replies should be
->> -	validated in the active-backup mode.  This causes the ARP
->> -	monitor to examine the incoming ARP requests and replies, and
->> -	only consider a slave to be up if it is receiving the
->> +	validated in any mode that supports arp monitoring.  This causes
->> +	the ARP monitor to examine the incoming ARP requests and replies,
->> +	and only consider a slave to be up if it is receiving the
->>  	appropriate ARP traffic.
->>
->>  	Possible values are:
->> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->> index 3c50bec..91c0248 100644
->> --- a/drivers/net/bonding/bond_main.c
->> +++ b/drivers/net/bonding/bond_main.c
->> @@ -4183,10 +4183,6 @@ static int bond_check_params(struct bond_params *params)
->>  	}
->>
->>  	if (arp_validate) {
->> -		if (bond_mode != BOND_MODE_ACTIVEBACKUP) {
->> -			pr_err("arp_validate only supported in active-backup mode\n");
->> -			return -EINVAL;
->> -		}
->>  		if (!arp_interval) {
->>  			pr_err("arp_validate requires arp_interval\n");
->>  			return -EINVAL;
->> diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
->> index f3eb44d..d566cab 100644
->> --- a/drivers/net/bonding/bond_options.c
->> +++ b/drivers/net/bonding/bond_options.c
->> @@ -151,7 +151,6 @@ static struct bond_option bond_opts[] = {
->>  		.id = BOND_OPT_ARP_VALIDATE,
->>  		.name = "arp_validate",
->>  		.desc = "validate src/dst of ARP probes",
->> -		.unsuppmodes = BOND_MODE_ALL_EX(BIT(BOND_MODE_ACTIVEBACKUP)),
->>  		.values = bond_arp_validate_tbl,
->>  		.set = bond_option_arp_validate_set
->>  	},
->>
->Sorry for not noticing before, but I just remembered the reason why all the
->checks are there when changing the recv_probe, especially from the options.
->The problem was that lacp mode also uses the recv_probe, so after this patch we
->can overwrite the recv_probe while it's running in lacp mode, because
->bond_option_arp_validate_set changes the recv_probe. We can actually only set it
->to NULL because arp_interval can't be set in those modes, but still we can break
->the mode and there'll be need for at least down/up cycle to fix it.
->I think rlb also uses the recv_probe so this applies to it as well.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--lwUKLMUudfQxo5RbpvCitHEBpt16U01JW
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Yep, missed that too, thanks a lot Nik. It should just be the same as for
-BOND_OPT_ARP_INTERVAL:
+On 17/02/14 22:13, David Miller wrote:
+> From: Antonio Quartulli <antonio@meshcoding.com>
+> Date: Mon, 17 Feb 2014 21:48:40 +0100
+>=20
+>> +	atomic_set(&bat_priv->packet_size_max, min_mtu);
+>=20
+> Please fix this.
+>=20
+> The only operations performed on packet_size_max are 'set' and
+> 'read'.  This is not what one uses atomic_t's for.
+>=20
+> The use of an atomic_t in this context is a NOP.  You aren't
+> getting any kind of synchronization at all.
 
-  177                 .unsuppmodes = BIT(BOND_MODE_8023AD) | BIT(BOND_MODE_TLB) |
-  178                                BIT(BOND_MODE_ALB),
+True. Thanks for the suggestion.
+Unfortunately this is not the only "fake-atomic" variable we have.
 
-which makes sense - as in those modes it's indeed more than useless.
+We'll send a change for this later within our pull request for net-next, =
+ok?
 
-I'll change it and send v5.
 
->
->Nik
->
+--=20
+Antonio Quartulli
+
+
+--lwUKLMUudfQxo5RbpvCitHEBpt16U01JW
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJTAwFyAAoJEEKTMo6mOh1VZpUP/Amp8NL6jJnQFsJG5UrqvLoa
+NHupYrSV4pokOfDg6LPfLpVYXPNSy0kQFqUsP6lLyrmSTnhuMIWYYFL31+dm4A0Z
+e5WDX+WhmbbGc+LCGygPmftUA8uEyIritcpVd7QBc+botqMR6CN5og35hMYrd9Cb
+OX+IDFusxJfDbprpfmlyYv/l+D5kHZ/Wyuk929XaAy1uR4fm5loBgcprKQGtLVPy
+1ipBkOZvZEJw54iy24oX+qKqqP5+7s0JCR9FaxyTEXDk5yND+8MAHXkhoVY2AhDD
+hXrOdrefbw55UYnNRYjRaN3vGSLNwZmr8sTg+MRJ5YvAQorPEknGUWLPD8udmK5b
+frSiGYhtL39IUUexwDIH1GDT1I0h8HutSDXDoicEi0vmUQj+GXnIO7GPZNe3gZzH
+97xgpSAzGdx4Q85G3PIlAfXqm91vJrQQ4hF8DQSqExgGxIMcsftBRgXeEOe69N9c
+dT4on7RS6MO6LLbMnxmIlPhN/RoVQjvc3lLxJx15A9fZXZEh7r74ahAoF+lS68o9
+B8o10JS3EB9fvwHtP3Se+1RblC1AcdBmc5efB2B5iQSZjCMcMzhz+VqNeqV0uMlF
+3U4QodFQty2W6/pPfvAf//3Dhfc1bqZe7Y10VobPdxahNUwynBgA7E+cSM45Wfpg
+B1iZBXVOim2VrIVxzNnJ
+=lcZh
+-----END PGP SIGNATURE-----
+
+--lwUKLMUudfQxo5RbpvCitHEBpt16U01JW--
