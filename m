@@ -1,138 +1,120 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH 1/1] net: tcp: RTO restart
-Date: Tue, 18 Feb 2014 10:46:18 -0800
-Message-ID: <CAK6E8=ekVXA9JrajwmJk88bUKcJSi=T5+SFXs0VoG5iQkWBcRw@mail.gmail.com>
-References: <20140218181205.GA7780@kau.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Anna Brunstrom <anna.brunstrom@kau.se>,
-	Andreas Petlund <apetlund@simula.no>,
-	Michael Welzl <michawe@ifi.uio.no>,
-	=?UTF-8?Q?Ilpo_J=C3=A4rvinen?= <ilpo.jarvinen@helsinki.fi>
-To: Per Hurtig <per.hurtig@kau.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f180.google.com ([209.85.223.180]:58772 "EHLO
-	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751151AbaBRSq6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 13:46:58 -0500
-Received: by mail-ie0-f180.google.com with SMTP id ar20so3899488iec.11
-        for <netdev@vger.kernel.org>; Tue, 18 Feb 2014 10:46:58 -0800 (PST)
-In-Reply-To: <20140218181205.GA7780@kau.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-next] openvswitch: Use ether_addr_copy
+Date: Tue, 18 Feb 2014 11:15:45 -0800
+Message-ID: <fee7d53a1cfdec0aec7ea35a1f2f4b5e66766ee3.1392750899.git.joe@perches.com>
+Cc: Jesse Gross <jesse@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>, dev@openvswitch.org,
+	linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 18, 2014 at 10:12 AM, Per Hurtig <per.hurtig@kau.se> wrote:
-> This patch implements the RTO restart modification described in
-> http://tools.ietf.org/html/draft-ietf-tcpm-rtorestart-02
->
-> RTO Restart's goal is to provide quicker loss recovery for segments lost in the
-> end of a burst/connection. To accomplish this the algorithm adjusts the RTO
-> value on each rearm of the retransmission timer to be exactly RTO ms after the
-> earliest outstanding segment was sent. The offsetting against the earliest
-> outstanding segment is not done by the regular rearm algorithm, which causes
-> RTOs to occur, on average, after RTO+RTT ms.
->
-> As a faster timeout is only beneficial in scenarios where fast retransmit/early
-> retransmit cannot be triggered the algorithm will only kick in when there is a
-> small amount of outstanding segments.
-(repost in plaine-text, sorry for the duplication)
+It's slightly smaller/faster for some architectures.
 
-I am not sure this works well with Linux min-RTO=200ms, and don't feel
-comfortable this is default on without some real experiments.
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ net/openvswitch/actions.c      |  4 ++--
+ net/openvswitch/flow.c         | 16 ++++++++--------
+ net/openvswitch/flow_netlink.c | 12 ++++++------
+ 3 files changed, 16 insertions(+), 16 deletions(-)
 
-I've implemented (a nearly identical version of) rto-restart on Google
-web servers and found #timeouts increased by ~30%. Although the fast
-timeout helps really short flows, it has a very negative side-effect:
-resetting cwnd to 1. Thus the next HTTP response may start with a
-small cwnd. In contrast, TCP loss probe has fast timeout (1.5RTT) to
-do fast recovery to avoid the side-effect. In other words, I am
-doubtful we need rto-restart with TCP loss probe, but applying
-RTO-restart on TLP timer may be useful.
-
-I've voiced this concern multiple times in ietf tcpm discussion when
-we discuss this draft: that the idea itself is fine, but we'll need to
-change Linux RTO algorithm together, not just the timer itself.
-
-I am happy to post some more detailed data if people are interested.
-
->
-> The RTO Restart proposal is accepted as a working group item in the IETF TCP
-> Maintenance and Minor Extensions (tcpm) TCP wg and is intended for experimental
-> RFC status.
->
-> Signed-off-by: Per Hurtig <per.hurtig@kau.se>
-> ---
->  include/net/tcp.h          |    1 +
->  net/ipv4/sysctl_net_ipv4.c |    7 +++++++
->  net/ipv4/tcp_input.c       |   11 +++++++++++
->  3 files changed, 19 insertions(+)
->
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index 56fc366..575e82a 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -278,6 +278,7 @@ extern int sysctl_tcp_slow_start_after_idle;
->  extern int sysctl_tcp_thin_linear_timeouts;
->  extern int sysctl_tcp_thin_dupack;
->  extern int sysctl_tcp_early_retrans;
-> +extern int sysctl_tcp_rto_restart;
->  extern int sysctl_tcp_limit_output_bytes;
->  extern int sysctl_tcp_challenge_ack_limit;
->  extern unsigned int sysctl_tcp_notsent_lowat;
-> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-> index 44eba05..c605f4f 100644
-> --- a/net/ipv4/sysctl_net_ipv4.c
-> +++ b/net/ipv4/sysctl_net_ipv4.c
-> @@ -717,6 +717,13 @@ static struct ctl_table ipv4_table[] = {
->                 .extra2         = &four,
->         },
->         {
-> +               .procname       = "tcp_rto_restart",
-> +               .data           = &sysctl_tcp_rto_restart,
-> +               .maxlen         = sizeof(int),
-> +               .mode           = 0644,
-> +               .proc_handler   = proc_dointvec,
-> +       },
-> +       {
->                 .procname       = "tcp_min_tso_segs",
->                 .data           = &sysctl_tcp_min_tso_segs,
->                 .maxlen         = sizeof(int),
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 227cba7..450ee30 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -98,6 +98,7 @@ int sysctl_tcp_thin_dupack __read_mostly;
->
->  int sysctl_tcp_moderate_rcvbuf __read_mostly = 1;
->  int sysctl_tcp_early_retrans __read_mostly = 3;
-> +int sysctl_tcp_rto_restart __read_mostly = 1;
->
->  #define FLAG_DATA              0x01 /* Incoming frame contained data.          */
->  #define FLAG_WIN_UPDATE                0x02 /* Incoming ACK was a window update.       */
-> @@ -2972,6 +2973,16 @@ void tcp_rearm_rto(struct sock *sk)
->                          */
->                         if (delta > 0)
->                                 rto = delta;
-> +               } else if (icsk->icsk_pending == ICSK_TIME_RETRANS &&
-> +                          sysctl_tcp_rto_restart &&
-> +                          sk->sk_send_head == NULL &&
-> +                          tp->packets_out < 4) {
-> +                       struct sk_buff *skb = tcp_write_queue_head(sk);
-> +                       const u32 rto_time_stamp = TCP_SKB_CB(skb)->when;
-> +                       s32 delta = (s32)(tcp_time_stamp - rto_time_stamp);
-> +
-> +                       if (delta > 0)
-> +                               rto -= delta;
->                 }
->                 inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS, rto,
->                                           TCP_RTO_MAX);
-> --
-> 1.7.9.5
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 2c77e7b..c36856a 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -134,8 +134,8 @@ static int set_eth_addr(struct sk_buff *skb,
+ 
+ 	skb_postpull_rcsum(skb, eth_hdr(skb), ETH_ALEN * 2);
+ 
+-	memcpy(eth_hdr(skb)->h_source, eth_key->eth_src, ETH_ALEN);
+-	memcpy(eth_hdr(skb)->h_dest, eth_key->eth_dst, ETH_ALEN);
++	ether_addr_copy(eth_hdr(skb)->h_source, eth_key->eth_src);
++	ether_addr_copy(eth_hdr(skb)->h_dest, eth_key->eth_dst);
+ 
+ 	ovs_skb_postpush_rcsum(skb, eth_hdr(skb), ETH_ALEN * 2);
+ 
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index 16f4b46..bd67bb4 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -385,14 +385,14 @@ static int parse_icmpv6(struct sk_buff *skb, struct sw_flow_key *key,
+ 			    && opt_len == 8) {
+ 				if (unlikely(!is_zero_ether_addr(key->ipv6.nd.sll)))
+ 					goto invalid;
+-				memcpy(key->ipv6.nd.sll,
+-				    &nd->opt[offset+sizeof(*nd_opt)], ETH_ALEN);
++				ether_addr_copy(key->ipv6.nd.sll,
++						&nd->opt[offset+sizeof(*nd_opt)]);
+ 			} else if (nd_opt->nd_opt_type == ND_OPT_TARGET_LL_ADDR
+ 				   && opt_len == 8) {
+ 				if (unlikely(!is_zero_ether_addr(key->ipv6.nd.tll)))
+ 					goto invalid;
+-				memcpy(key->ipv6.nd.tll,
+-				    &nd->opt[offset+sizeof(*nd_opt)], ETH_ALEN);
++				ether_addr_copy(key->ipv6.nd.tll,
++						&nd->opt[offset+sizeof(*nd_opt)]);
+ 			}
+ 
+ 			icmp_len -= opt_len;
+@@ -452,8 +452,8 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key)
+ 	 * header in the linear data area.
+ 	 */
+ 	eth = eth_hdr(skb);
+-	memcpy(key->eth.src, eth->h_source, ETH_ALEN);
+-	memcpy(key->eth.dst, eth->h_dest, ETH_ALEN);
++	ether_addr_copy(key->eth.src, eth->h_source);
++	ether_addr_copy(key->eth.dst, eth->h_dest);
+ 
+ 	__skb_pull(skb, 2 * ETH_ALEN);
+ 	/* We are going to push all headers that we pull, so no need to
+@@ -551,8 +551,8 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key)
+ 				key->ip.proto = ntohs(arp->ar_op);
+ 			memcpy(&key->ipv4.addr.src, arp->ar_sip, sizeof(key->ipv4.addr.src));
+ 			memcpy(&key->ipv4.addr.dst, arp->ar_tip, sizeof(key->ipv4.addr.dst));
+-			memcpy(key->ipv4.arp.sha, arp->ar_sha, ETH_ALEN);
+-			memcpy(key->ipv4.arp.tha, arp->ar_tha, ETH_ALEN);
++			ether_addr_copy(key->ipv4.arp.sha, arp->ar_sha);
++			ether_addr_copy(key->ipv4.arp.tha, arp->ar_tha);
+ 		}
+ 	} else if (key->eth.type == htons(ETH_P_IPV6)) {
+ 		int nh_len;             /* IPv6 Header + Extensions */
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index 4d000ac..c883b18 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -982,8 +982,8 @@ int ovs_nla_put_flow(const struct sw_flow_key *swkey,
+ 		goto nla_put_failure;
+ 
+ 	eth_key = nla_data(nla);
+-	memcpy(eth_key->eth_src, output->eth.src, ETH_ALEN);
+-	memcpy(eth_key->eth_dst, output->eth.dst, ETH_ALEN);
++	ether_addr_copy(eth_key->eth_src, output->eth.src);
++	ether_addr_copy(eth_key->eth_dst, output->eth.dst);
+ 
+ 	if (swkey->eth.tci || swkey->eth.type == htons(ETH_P_8021Q)) {
+ 		__be16 eth_type;
+@@ -1055,8 +1055,8 @@ int ovs_nla_put_flow(const struct sw_flow_key *swkey,
+ 		arp_key->arp_sip = output->ipv4.addr.src;
+ 		arp_key->arp_tip = output->ipv4.addr.dst;
+ 		arp_key->arp_op = htons(output->ip.proto);
+-		memcpy(arp_key->arp_sha, output->ipv4.arp.sha, ETH_ALEN);
+-		memcpy(arp_key->arp_tha, output->ipv4.arp.tha, ETH_ALEN);
++		ether_addr_copy(arp_key->arp_sha, output->ipv4.arp.sha);
++		ether_addr_copy(arp_key->arp_tha, output->ipv4.arp.tha);
+ 	}
+ 
+ 	if ((swkey->eth.type == htons(ETH_P_IP) ||
+@@ -1143,8 +1143,8 @@ int ovs_nla_put_flow(const struct sw_flow_key *swkey,
+ 				nd_key = nla_data(nla);
+ 				memcpy(nd_key->nd_target, &output->ipv6.nd.target,
+ 							sizeof(nd_key->nd_target));
+-				memcpy(nd_key->nd_sll, output->ipv6.nd.sll, ETH_ALEN);
+-				memcpy(nd_key->nd_tll, output->ipv6.nd.tll, ETH_ALEN);
++				ether_addr_copy(nd_key->nd_sll, output->ipv6.nd.sll);
++				ether_addr_copy(nd_key->nd_tll, output->ipv6.nd.tll);
+ 			}
+ 		}
+ 	}
+-- 
+1.8.1.2.459.gbcd45b4.dirty
