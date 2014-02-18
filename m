@@ -1,140 +1,74 @@
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: Re: [PATCH net-next 30/35] qlge: Use pci_enable_msix_range()
- instead of pci_enable_msix()
-Date: Tue, 18 Feb 2014 19:20:46 +0000
-Message-ID: <BECD8E8A1B550B48A1BF97C13991F60E46D21C7E@avmb2.qlogic.org>
-References: <cover.1392717502.git.agordeev@redhat.com>
- <443a0172bc2fe0aa92fca6044d7374475e2ad4c1.1392717503.git.agordeev@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2] of_mdio: fix phy interrupt passing
+Date: Tue, 18 Feb 2014 23:29:14 +0300
+Message-ID: <5303C29A.6080200@cogentembedded.com>
+References: <1392725818-558-1-git-send-email-ben.dooks@codethink.co.uk>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="_000_BECD8E8A1B550B48A1BF97C13991F60E46D21C7Eavmb2qlogicorg_"
-Cc: Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Ron Mercer <ron.mercer@qlogic.com>,
-	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-pci <linux-pci@vger.kernel.org>
-To: Alexander Gordeev <agordeev@redhat.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <443a0172bc2fe0aa92fca6044d7374475e2ad4c1.1392717503.git.agordeev@redhat.com>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@lists.codethink.co.uk, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org
+To: Ben Dooks <ben.dooks@codethink.co.uk>, grant.likely@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1392725818-558-1-git-send-email-ben.dooks@codethink.co.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---_000_BECD8E8A1B550B48A1BF97C13991F60E46D21C7Eavmb2qlogicorg_
-Content-Type: text/plain; charset="us-ascii"
-Content-ID: <7DE3D9FC4C038C4BACC636F4083881EA@qlogic.com>
-Content-Transfer-Encoding: quoted-printable
+Hello.
 
+On 02/18/2014 03:16 PM, Ben Dooks wrote:
 
-On 2/18/14 2:11 AM, "Alexander Gordeev" <agordeev@redhat.com> wrote:
+> The of_mdiobus_register_phy() is not setting phy->irq thus causing
+> some drivers to incorrectly assume that the PHY does not have an
+> IRQ associated with it. Not only do some drivers report no IRQ
+> they do not install an interrupt handler for the PHY.
 
->As result of deprecation of MSI-X/MSI enablement functions
->pci_enable_msix() and pci_enable_msi_block() all drivers
->using these two interfaces need to be updated to use the
->new pci_enable_msi_range() and pci_enable_msix_range()
->interfaces.
+> Simplify the code setting irq and set the phy->irq at the same
+> time so that we cover the following issues, which should cover
+> all the cases the code will find:
+
+> - Set phy->irq if node has irq property and mdio->irq is NULL
+> - Set phy->irq if node has no irq and mdio->irq is not NULL
+> - Leave phy->irq as PHY_POLL default if none of the above
+
+> This fixes the issue:
+>   net eth0: attached PHY 1 (IRQ -1) to driver Micrel KSZ8041RNLI
+
+> to the correct:
+>   net eth0: attached PHY 1 (IRQ 416) to driver Micrel KSZ8041RNLI
+
+> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
+
+[...]
+
+> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+> index 875b7b6..46d95fc 100644
+> --- a/drivers/of/of_mdio.c
+> +++ b/drivers/of/of_mdio.c
+[...]
+> @@ -54,12 +54,14 @@ static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *chi
+>   	if (!phy || IS_ERR(phy))
+>   		return 1;
 >
->Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
->Cc: Shahed Shaikh <shahed.shaikh@qlogic.com>
->Cc: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
->Cc: Ron Mercer <ron.mercer@qlogic.com>
->Cc: linux-driver@qlogic.com
->Cc: netdev@vger.kernel.org
->Cc: linux-pci@vger.kernel.org
->---
-> drivers/net/ethernet/qlogic/qlge/qlge_main.c |   15 ++++-----------
-> 1 files changed, 4 insertions(+), 11 deletions(-)
+> -	if (mdio->irq) {
+> -		prev_irq = mdio->irq[addr];
+> -		mdio->irq[addr] =
+> -			irq_of_parse_and_map(child, 0);
+> -		if (!mdio->irq[addr])
+> -			mdio->irq[addr] = prev_irq;
+> +	rc = irq_of_parse_and_map(child, 0);
+> +	if (rc > 0) {
+> +		phy->irq = rc;
+> +		if (mdio->irq)
+> +			mdio->irq[addr] = rc;
+> +	} else {
+> +		if (mdio->irq)
+> +			phy->irq = mdio->irq[addr];
 
-Acked-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+    I have now looked thru the of_mdio.c code and the code it calls.
+    This case seems to be cared about by phy_device_create() called earlier 
+via get_phy_device() call just above this hunk; in any case the value will be 
+PHY_POLL. I don't think this branch is needed at all.
 
-
---_000_BECD8E8A1B550B48A1BF97C13991F60E46D21C7Eavmb2qlogicorg_
-Content-Disposition: attachment; filename="winmail.dat"
-Content-Transfer-Encoding: base64
-Content-Type: application/ms-tnef; name="winmail.dat"
-
-eJ8+IgETAQaQCAAEAAAAAAABAAEAAQeQBgAIAAAA5AQAAAAAAADoAAEJgAEAIQAAAEExNzgyNTc0
-QUE3Q0EwNEQ5NzJBOEY0REY5N0ZEMUVEAGsHAQ2ABAACAAAAAgACAAEFgAMADgAAAN4HAgASABMA
-FAAuAAIAUAEBIIADAA4AAADeBwIAEgATABQALgACAFABAQiABwAYAAAASVBNLk1pY3Jvc29mdCBN
-YWlsLk5vdGUAMQgBBIABAFoAAABSZTogW1BBVENIIG5ldC1uZXh0IDMwLzM1XSBxbGdlOiBVc2Ug
-cGNpX2VuYWJsZV9tc2l4X3JhbmdlKCkgaW5zdGVhZCBvZiBwY2lfZW5hYmxlX21zaXgoKQCFHgED
-kAYA9BAAADUAAAACAX8AAQAAADwAAAA8QkVDRDhFOEExQjU1MEI0OEExQkY5N0MxMzk5MUY2MEU0
-NkQyMUM3RUBhdm1iMi5xbG9naWMub3JnPgALAB8OAQAAAAIBCRABAAAAAAMAAPwCAADoBAAATFpG
-dVmQLJ1hAApmYmlkBAAAY2PAcGcxMjUyAP4DQ/B0ZXh0AfcCpAPjAgAEY2gKwHNldDAg7wdtAoMA
-UBFNMgqABrQCgJZ9CoAIyDsJYjE5DsC/CcMWcgoyFnECgBViKgmwcwnwBJBhdAWyDlADYHOibwGA
-IEV4EcFuGDBdBlJ2BJAXtgIQcgDAdH0IUG4aMRAgBcAFoBtkZJogA1IgECIXslx2CJDkd2sLgGQ1
-HVME8AdADRdwMApxF/Jia21rBnMBkAAgIEJNX0LgRUdJTn0K/AHxC/IqbAuAZQqATwOgMi8UMTgi
-QDQiIDoxMYAgQU0sICJBHnBmeABwBIEgRwWwAQBlQHYiIDxhZyQEQBMJcRHQdC4FoG0+IDZ3A2AQ
-IDohlSGVPkFjBCAJcHN1bAVAGTAgzQEAcAlwHlB0aQIgJ8KhBeBJLVgvKPEgCfAfAaAecAeAAjAc
-cHVuY4cocg4AJsVwY2lfKZSEX20AkHgoKSAjkYogK1xfAmBvY2ssQrpsAyBkBRAaMSrHdQCQGxnA
-HMBoB5AZ4HR3b/YgC4AboWYA0AeRGFAcUYkYkCBiGeB1cGQYgP8xJC9QL/EvwCa2GFAH4Cy9fxhw
-GcEsTyvzNHYmtjBYLiMmtia2U2lnGFBkLcEZMGYtYnk6IvAjbqckfyWDJrZDYzmwUxHQRy/AHGA9
-AWlraDrgc009Ey498T2hQHEJAGdzDlA7/0ppECAdwBhwILpLB0BzCsAHMDrgakBVfC5rQOU+zzyV
-CAADoE2XBJAwwAXAPANgbi4HgI9EYkKPPJUhoXV4LS5kt0VpPEoYUHQBACUAdhgwRnJB8ASRZWwu
-BbBn3UYvLStRSX8mxS1NQCa29S5WL0kRLxIQL8BJ8U6gf0V0T0EYME+zK/ALcSWAIIR8IFDgMTUg
-K1FB701BUYZNdyLgZgMQB5EZlH5kIyAikAuAEgAAICqSKHwrKSMgItEBAB5wVEQt+zamIZVBLdA5
-ITmSQE9BXw9CbyZ5FUJbcB8AQgABAAAAJAAAAEoAaQB0AGUAbgBkAHIAYQAgAEsAYQBsAHMAYQBy
-AGkAYQAAAB8AZQABAAAAOgAAAGoAaQB0AGUAbgBkAHIAYQAuAGsAYQBsAHMAYQByAGkAYQBAAHEA
-bABvAGcAaQBjAC4AYwBvAG0AAAAAAB8AZAABAAAACgAAAFMATQBUAFAAAAAAAAIBQQABAAAAgAAA
-AAAAAACBKx+kvqMQGZ1uAN0BD1QCAAAAgEoAaQB0AGUAbgBkAHIAYQAgAEsAYQBsAHMAYQByAGkA
-YQAAAFMATQBUAFAAAABqAGkAdABlAG4AZAByAGEALgBrAGEAbABzAGEAcgBpAGEAQABxAGwAbwBn
-AGkAYwAuAGMAbwBtAAAAHwACXQEAAAA6AAAAagBpAHQAZQBuAGQAcgBhAC4AawBhAGwAcwBhAHIA
-aQBhAEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAAAAHwDlXwEAAABCAAAAcwBpAHAAOgBqAGkAdABl
-AG4AZAByAGEALgBrAGEAbABzAGEAcgBpAGEAQABxAGwAbwBnAGkAYwAuAGMAbwBtAAAAAAAfABoM
-AQAAACQAAABKAGkAdABlAG4AZAByAGEAIABLAGEAbABzAGEAcgBpAGEAAAAfAB8MAQAAADoAAABq
-AGkAdABlAG4AZAByAGEALgBrAGEAbABzAGEAcgBpAGEAQABxAGwAbwBnAGkAYwAuAGMAbwBtAAAA
-AAAfAB4MAQAAAAoAAABTAE0AVABQAAAAAAACARkMAQAAAIAAAAAAAAAAgSsfpL6jEBmdbgDdAQ9U
-AgAAAIBKAGkAdABlAG4AZAByAGEAIABLAGEAbABzAGEAcgBpAGEAAABTAE0AVABQAAAAagBpAHQA
-ZQBuAGQAcgBhAC4AawBhAGwAcwBhAHIAaQBhAEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAB8AAV0B
-AAAAOgAAAGoAaQB0AGUAbgBkAHIAYQAuAGsAYQBsAHMAYQByAGkAYQBAAHEAbABvAGcAaQBjAC4A
-YwBvAG0AAAAAAB8A+D8BAAAAJAAAAEoAaQB0AGUAbgBkAHIAYQAgAEsAYQBsAHMAYQByAGkAYQAA
-AB8AI0ABAAAAOgAAAGoAaQB0AGUAbgBkAHIAYQAuAGsAYQBsAHMAYQByAGkAYQBAAHEAbABvAGcA
-aQBjAC4AYwBvAG0AAAAAAB8AIkABAAAACgAAAFMATQBUAFAAAAAAAAIB+T8BAAAAgAAAAAAAAACB
-Kx+kvqMQGZ1uAN0BD1QCAAAAgEoAaQB0AGUAbgBkAHIAYQAgAEsAYQBsAHMAYQByAGkAYQAAAFMA
-TQBUAFAAAABqAGkAdABlAG4AZAByAGEALgBrAGEAbABzAGEAcgBpAGEAQABxAGwAbwBnAGkAYwAu
-AGMAbwBtAAAAHwAJXQEAAAA6AAAAagBpAHQAZQBuAGQAcgBhAC4AawBhAGwAcwBhAHIAaQBhAEAA
-cQBsAG8AZwBpAGMALgBjAG8AbQAAAAAAHwAxQAEAAAACAAAAAAAAAAsAQDoBAAAAHwAwQAEAAAAC
-AAAAAAAAAB8AGgABAAAAEgAAAEkAUABNAC4ATgBvAHQAZQAAAAAAAwDxPwkEAAALAEA6AQAAAAMA
-/T/kBAAAAgELMAEAAAAQAAAAoXgldKp8oE2XKo9N+X/R7QMAFwABAAAAQAA5AAD7BobeLM8BQAAI
-MOGGmobeLM8BCwAAgAggBgAAAAAAwAAAAAAAAEYAAAAAFIUAAAEAAAAfAACAhgMCAAAAAADAAAAA
-AAAARgEAAAAeAAAAYQBjAGMAZQBwAHQAbABhAG4AZwB1AGEAZwBlAAAAAAABAAAADAAAAGUAbgAt
-AFUAUwAAAAsAAIAIIAYAAAAAAMAAAAAAAABGAAAAAAaFAAAAAAAAHwA3AAEAAAC0AAAAUgBlADoA
-IABbAFAAQQBUAEMASAAgAG4AZQB0AC0AbgBlAHgAdAAgADMAMAAvADMANQBdACAAcQBsAGcAZQA6
-ACAAVQBzAGUAIABwAGMAaQBfAGUAbgBhAGIAbABlAF8AbQBzAGkAeABfAHIAYQBuAGcAZQAoACkA
-IABpAG4AcwB0AGUAYQBkACAAbwBmACAAcABjAGkAXwBlAG4AYQBiAGwAZQBfAG0AcwBpAHgAKAAp
-AAAAHwA9AAEAAAAKAAAAUgBlADoAIAAAAAAAAwA2AAAAAAAfAEIQAQAAAJwAAAA8ADQANAAzAGEA
-MAAxADcAMgBiAGMAMgBmAGUAMABhAGEAOQAyAGYAYwBhADYAMAA0ADQAZAA3ADMANwA0ADQANwA1
-AGUAMgBhAGQANABjADEALgAxADMAOQAyADcAMQA3ADUAMAAzAC4AZwBpAHQALgBhAGcAbwByAGQA
-ZQBlAHYAQAByAGUAZABoAGEAdAAuAGMAbwBtAD4AAAACAXEAAQAAABsAAAABAc8skcDb392GqXKI
-QqaYZeKFDpEumrtj5gAAHwBwAAEAAACsAAAAWwBQAEEAVABDAEgAIABuAGUAdAAtAG4AZQB4AHQA
-IAAzADAALwAzADUAXQAgAHEAbABnAGUAOgAgAFUAcwBlACAAcABjAGkAXwBlAG4AYQBiAGwAZQBf
-AG0AcwBpAHgAXwByAGEAbgBnAGUAKAApACAAaQBuAHMAdABlAGEAZAAgAG8AZgAgAHAAYwBpAF8A
-ZQBuAGEAYgBsAGUAXwBtAHMAaQB4ACgAKQAAAB8ANRABAAAAeAAAADwAQgBFAEMARAA4AEUAOABB
-ADEAQgA1ADUAMABCADQAOABBADEAQgBGADkANwBDADEAMwA5ADkAMQBGADYAMABFADQANgBEADIA
-MQBDADcARQBAAGEAdgBtAGIAMgAuAHEAbABvAGcAaQBjAC4AbwByAGcAPgAAAB8AORABAAAA8gAA
-ADwAYwBvAHYAZQByAC4AMQAzADkAMgA3ADEANwA1ADAAMgAuAGcAaQB0AC4AYQBnAG8AcgBkAGUA
-ZQB2AEAAcgBlAGQAaABhAHQALgBjAG8AbQA+ACAAPAA0ADQAMwBhADAAMQA3ADIAYgBjADIAZgBl
-ADAAYQBhADkAMgBmAGMAYQA2ADAANAA0AGQANwAzADcANAA0ADcANQBlADIAYQBkADQAYwAxAC4A
-MQAzADkAMgA3ADEANwA1ADAAMwAuAGcAaQB0AC4AYQBnAG8AcgBkAGUAZQB2AEAAcgBlAGQAaABh
-AHQALgBjAG8AbQA+AAAAAAADAN4/n04AAEAABzAgxJWG3izPAQMAJgAAAAAAAgFHAAEAAAAvAAAA
-Yz1VUzthPSA7cD1RTG9naWM7bD1BVk1CMi0xNDAyMTgxOTIwNDZaLTEzODQwMgAAHwAVEAEAAABY
-AAAANwBEAEUAMwBEADkARgBDADQAQwAwADMAOABDADQAQgBBAEMAQwA2ADMANgBGADQAMAA4ADMA
-OAA4ADEARQBBAEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAAIBFDABAAAADAAAADwAAACPy3ktTwAA
-AB8A+j8BAAAAJAAAAEoAaQB0AGUAbgBkAHIAYQAgAEsAYQBsAHMAYQByAGkAYQAAAB8AAICGAwIA
-AAAAAMAAAAAAAABGAQAAABYAAAB1AHMAZQByAC0AYQBnAGUAbgB0AAAAAAABAAAARgAAAE0AaQBj
-AHIAbwBzAG8AZgB0AC0ATQBhAGMATwB1AHQAbABvAG8AawAvADEANAAuADMALgA5AC4AMQAzADEA
-MAAzADAAAAAAAB8AAIAfpOszqHouQr57eeGpjlSzAQAAADgAAABDAG8AbgB2AGUAcgBzAGEAdABp
-AG8AbgBJAG4AZABlAHgAVAByAGEAYwBrAGkAbgBnAEUAeAAAAAEAAABsAQAASQBJAD0AMAAxADAA
-MQBDAEYAMgBDAEQARQA4ADYARQAxAEQAQgBFAEUANgBCADgANwBFAEEANQBEADQARgBBADIANgA3
-AEUARAA0AEQAMQBBADIAMQA2AEEARQA3ADsAUwBCAE0ASQBEAD0AMQA7AFMAMQA9ADwANAA0ADMA
-YQAwADEANwAyAGIAYwAyAGYAZQAwAGEAYQA5ADIAZgBjAGEANgAwADQANABkADcAMwA3ADQANAA3
-ADUAZQAyAGEAZAA0AGMAMQAuADEAMwA5ADIANwAxADcANQAwADMALgBnAGkAdAAuAGEAZwBvAHIA
-ZABlAGUAdgBAAHIAZQBkAGgAYQB0AC4AYwBvAG0APgA7AFYAZQByAHMAaQBvAG4APQBWAGUAcgBz
-AGkAbwBuACAAMQA0AC4AMgAgACgAQgB1AGkAbABkACAAMwA4ADcALgAwACkALAAgAFMAdABhAGcA
-ZQA9AEgAMgAAAAMADTT9PwAAHwAAgIYDAgAAAAAAwAAAAAAAAEYBAAAAIAAAAHgALQBtAHMALQBo
-AGEAcwAtAGEAdAB0AGEAYwBoAAAAAQAAAAIAAAAAAAAAHwAAgIYDAgAAAAAAwAAAAAAAAEYBAAAA
-IgAAAHgALQBvAHIAaQBnAGkAbgBhAHQAaQBuAGcALQBpAHAAAAAAAAEAAAAYAAAAWwAxADAALgAx
-AC4ANAAuADEAMABdAAAA4R0=
-
---_000_BECD8E8A1B550B48A1BF97C13991F60E46D21C7Eavmb2qlogicorg_--
+WBR, Sergei
