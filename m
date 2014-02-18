@@ -1,57 +1,38 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH RFC] sctp: Update HEARTBEAT timer immediately after user
- changed HB.interval
-Date: Tue, 18 Feb 2014 07:23:26 -0500
-Message-ID: <20140218122326.GA4590@hmsreliant.think-freely.org>
-References: <1392703010-6128-1-git-send-email-xufeng.zhang@windriver.com>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [PATCH net-next 1/2] pcnet32: fix reallocation error
+Date: Tue, 18 Feb 2014 21:29:00 +0900
+Message-ID: <201402182129.BDD57369.FVOQHFOFtJSLOM@I-love.SAKURA.ne.jp>
+References: <1392699466.4020.27.camel@Linux>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: vyasevich@gmail.com, davem@davemloft.net,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Xufeng Zhang <xufeng.zhang@windriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1392703010-6128-1-git-send-email-xufeng.zhang@windriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: pcnet32@frontier.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www262.sakura.ne.jp ([202.181.97.72]:65042 "EHLO
+	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755167AbaBRM3I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 07:29:08 -0500
+In-Reply-To: <1392699466.4020.27.camel@Linux>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 18, 2014 at 01:56:50PM +0800, Xufeng Zhang wrote:
-> For an established association, if user has updated the HB.interval
-> parameter by setsockopt(), this new heartbeat interval will not
-> take effect until:
->   - the expiry of the heartbeat timer and new hearbeat is sent.
->   - DATA chunk has been sent and the transport resets the timer.
-> This could not meet the requirement of the user who need to
-> get HEARTBEAT sent at the specified time.
-> 
-> Thus, we need to update the heartbeat timer immediately after
-> user has changed HB.interval.
-> 
-> Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Don Fry wrote:
+> pcnet32_realloc_rx_ring() only worked on the first log2 number of
+> entries in the receive ring instead of the all the entries.
+> Replaced "1 << size" with more descriptive variable.
 
-> ---
->  net/sctp/socket.c |    5 +++++
->  1 files changed, 5 insertions(+), 0 deletions(-)
-> 
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 9e91d6e..699ae1e 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -2344,6 +2344,11 @@ static int sctp_apply_peer_addr_params(struct sctp_paddrparams *params,
->  			if (trans) {
->  				trans->hbinterval =
->  				    msecs_to_jiffies(params->spp_hbinterval);
-> +
-> +				/* Update the heartbeat timer immediately. */
-> +				if (!mod_timer(&trans->hb_timer,
-> +					    sctp_transport_timeout(trans)))
-> +					sctp_transport_hold(trans);
->  			} else if (asoc) {
->  				asoc->hbinterval =
->  				    msecs_to_jiffies(params->spp_hbinterval);
-> -- 
-> 1.7.0.2
-> 
-> 
+>  	/* first copy the current receive buffers */
+> -	overlap = min(size, lp->rx_ring_size);
+> +	overlap = min(entries, lp->rx_ring_size);
+
+>  	/* now allocate any new buffers needed */
+> -	for (; new < size; new++) {
+> +	for (; new < entries; new++) {
+
+Until this fix, lp->rx_skbuff[size...(1<<size)-1] were not allocated by
+netdev_alloc_skb() and lp->rx_ring_dma_addr[size...(1<<size)-1] were not mapped
+by pci_map_single(), right?
+
+Since lp->rx_ring_size was set to (1<<size), wasn't there possibility that
+something bad happens by accessing lp->rx_skbuff[] and lp->rx_ring_dma_addr[]
+up to (1<<size)-1 ? (In other words, don't we want to backport this fix?)
