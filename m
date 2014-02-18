@@ -1,86 +1,59 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next] bonding: Fix RTNL: assertion failed at net/core/rtnetlink.c
- for 802.3ad mode
-Date: Tue, 18 Feb 2014 12:53:46 +0100
-Message-ID: <530349CA.9070209@redhat.com>
-References: <53034312.1060203@huawei.com> <530348C4.4050408@redhat.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH v5 net-next 01/12] bonding: remove bond->lock from bond_arp_rcv
+Date: Tue, 18 Feb 2014 19:54:15 +0800
+Message-ID: <530349E7.3070403@huawei.com>
+References: <1392706127-28390-1-git-send-email-vfalico@redhat.com> <1392706127-28390-2-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Ding Tianhong <dingtianhong@huawei.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Cong Wang <cwang@twopensource.com>,
-	Thomas Glanzmann <thomas@glanzmann.de>,
-	Jiri Pirko <jiri@resnulli.us>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Netdev <netdev@vger.kernel.org>
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Veaceslav Falico <vfalico@redhat.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62531 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752047AbaBRLyK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Feb 2014 06:54:10 -0500
-In-Reply-To: <530348C4.4050408@redhat.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:55289 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754280AbaBRLy3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 06:54:29 -0500
+In-Reply-To: <1392706127-28390-2-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/18/2014 12:49 PM, Nikolay Aleksandrov wrote:
-> On 02/18/2014 12:25 PM, Ding Tianhong wrote:
->> The problem was introduced by the commit 1d3ee88ae0d
->> (bonding: add netlink attributes to slave link dev).
->> The bond_set_active_slave() and bond_set_backup_slave()
->> will use rtmsg_ifinfo to send slave's states, so these
->> two functions should be called in RTNL.
->>
->> In 802.3ad mode, acquiring RTNL for the __enable_port and
->> __disable_port cases is difficult, as those calls generally
->> already hold the state machine lock, and cannot unconditionally
->> call rtnl_lock because either they already hold RTNL (for calls
->> via bond_3ad_unbind_slave) or due to the potential for deadlock
->> with bond_3ad_adapter_speed_changed, bond_3ad_adapter_duplex_changed,
->> bond_3ad_link_change, or bond_3ad_update_lacp_rate.  All four of
->> those are called with RTNL held, and acquire the state machine lock
->> second.  The calling contexts for __enable_port and __disable_port
->> already hold the state machine lock, and may or may not need RTNL.
->>
->> According to the Jay's opinion, I don't think it is a problem that
->> the slave don't send notify message synchronously when the status
->> changed, normally the state machine is running every 100 ms, send
->> the notify message at the end of the state machine if the slave's
->> state changed should be better.
->>
->> I fix the problem through these steps:
->>
->> 1). add a new function bond_set_slave_state() which could change
->>     the slave's state and call rtmsg_ifinfo() according to the input
->>     parameters called notify.
->>
->> 2). Add a new slave parameter which called should_notify, if the slave's state
->>     changed and don't notify yet, the parameter will be set to 1, and then if
->>     the slave's state changed again, the param will be set to 0, it indicate that
->>     the slave's state has been restored, no need to notify any one.
->>
->> 3). the __enable_port and __disable_port should not call rtmsg_ifinfo
->>     in the state machine lock, any change in the state of slave could
->>     set a flag in the slave, it will indicated that an rtmsg_ifinfo
->>     should be called at the end of the state machine.
->>
->> Cc: Jay Vosburgh <fubar@us.ibm.com>
->> Cc: Veaceslav Falico <vfalico@redhat.com>
->> Cc: Andy Gospodarek <andy@greyhouse.net>
->> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->> ---
-> Hi Ding,
-> I think there's a possible race condition which could lead to inconsistent
-> state because you set slave->should_notify to 0 under RTNL but
-> __disable_port can update it without RTNL e.g. can be called via
-> bond_3ad_state_machine_handler -> ad_agg_selection_logic so in theory (I
-> haven't tested it) they can execute concurrently. This is not a big deal
-> though, but it would make this kind of message unreliable.
+On 2014/2/18 14:48, Veaceslav Falico wrote:
+> We're always called with rcu_read_lock() held (bond_arp_rcv() is only
+> called from bond_handle_frame(), which is rx_handler and always called
+> under rcu from __netif_receive_skb_core() ).
 > 
-> Nik
+> The slave active/passive and/or bonding params can change in-flight, however
+> we don't really care about that - we only modify the last time packet was
+> received, which is harmless.
 > 
-Ah, missed where it gets updated, never mind this comment, it's fine.
+> CC: Jay Vosburgh <fubar@us.ibm.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> ---
+>  drivers/net/bonding/bond_main.c | 3 ---
+>  1 file changed, 3 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 3bce855..3c50bec 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -2260,8 +2260,6 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
+>  	if (skb->protocol != __cpu_to_be16(ETH_P_ARP))
+>  		return RX_HANDLER_ANOTHER;
+>  
+> -	read_lock(&bond->lock);
+> -
+>  	if (!slave_do_arp_validate(bond, slave))
+>  		goto out_unlock;
+>  
+> @@ -2318,7 +2316,6 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
+>  		bond_validate_arp(bond, slave, tip, sip);
+>  
+>  out_unlock:
+> -	read_unlock(&bond->lock);
+>  	if (arp != (struct arphdr *)skb->data)
+>  		kfree(arp);
+>  	return RX_HANDLER_ANOTHER;
+> 
+Acked-by: Ding Tianhong <dingtianhong@huawei.com>
