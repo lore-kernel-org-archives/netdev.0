@@ -1,34 +1,47 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next] rtnl: make ifla_policy static
-Date: Tue, 18 Feb 2014 22:51:28 +0100
-Message-ID: <20140218215128.GA3348@minipsycho.orion>
-References: <1392753198-9437-1-git-send-email-jiri@resnulli.us>
- <CAM_iQpUzp7xkj21dyzzXRjZgyO+z5+k4cDM9LoYkzy4OL8807w@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless 2014-02-17
+Date: Tue, 18 Feb 2014 16:58:28 -0500 (EST)
+Message-ID: <20140218.165828.242891846729845555.davem@davemloft.net>
+References: <20140217223921.GA29923@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	vyasevic@redhat.com, jbenc@redhat.com
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f42.google.com ([74.125.83.42]:63207 "EHLO
-	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751054AbaBRVvc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 16:51:32 -0500
-Received: by mail-ee0-f42.google.com with SMTP id b15so8090366eek.29
-        for <netdev@vger.kernel.org>; Tue, 18 Feb 2014 13:51:31 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CAM_iQpUzp7xkj21dyzzXRjZgyO+z5+k4cDM9LoYkzy4OL8807w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140217223921.GA29923@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Feb 18, 2014 at 10:40:55PM CET, xiyou.wangcong@gmail.com wrote:
->On Tue, Feb 18, 2014 at 11:53 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> The only place this is used outside rtnetlink.c is veth. So provide
->> wrapper function for this usage.
->
->Looks good. Or make rtnl_nla_parse_ifla() static inline?
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Mon, 17 Feb 2014 17:39:21 -0500
 
-Not possible if we want to kill ifla_policy export...
+> Please pull this batch of fixes intended for the 3.14 stream...
+> 
+> For the iwlwifi one, Emmanuel says:
+> 
+> "As explicitly written in the commit message, we prefer to disable Tx
+> AMPDU on NICs supported by iwldvm. This feature gives a big boost in
+> Tx performance, but the firmware is buggy and we can't rely on it.
+> Our hope is that most of the users out there want wifi to surf on
+> the web which means that they care more for Rx traffic than for Tx.
+> People who want to enable it can do so with the help of a module
+> parameter."
+> 
+> On top of that...
+> 
+> Dan Carpenter fixes a typo/thinko in ath5k.
+> 
+> Olivier Langlois fixes a couple of rtlwifi issues, one which leaves
+> IRQs disabled too long (causing a variety of problems elsewhere),
+> and one which fixes an incorrect return code when failing to enable
+> the NIC.
+> 
+> Russell King fixes a NULL pointer dereference in hostap.
+> 
+> Stanislaw Gruszka fixes a DMA coherence issue in the rtl8187 driver.
+> 
+> Please let me know if there are problems!
+
+Pulled, thanks a lot John.
