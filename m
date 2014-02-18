@@ -1,32 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: fix counter in_slow_tot
-Date: Tue, 18 Feb 2014 16:24:21 -0500 (EST)
-Message-ID: <20140218.162421.2171545203891910634.davem@davemloft.net>
-References: <5301B8FF.6030800@cn.fujitsu.com>
+Subject: Re: [PATCH net-next 0/8] Adds support for Chelsio T5 40G adapter
+ and Misc. fixes
+Date: Tue, 18 Feb 2014 16:24:29 -0500 (EST)
+Message-ID: <20140218.162429.784586789632410725.davem@davemloft.net>
+References: <1392726375-32001-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: duanj.fnst@cn.fujitsu.com
+Cc: netdev@vger.kernel.org, dm@chelsio.com, leedom@chelsio.com,
+	nirranjan@chelsio.com, kumaras@chelsio.com, santosh@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35988 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35991 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750871AbaBRVYX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 16:24:23 -0500
-In-Reply-To: <5301B8FF.6030800@cn.fujitsu.com>
+	with ESMTP id S1751116AbaBRVYb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 16:24:31 -0500
+In-Reply-To: <1392726375-32001-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Date: Mon, 17 Feb 2014 15:23:43 +0800
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Tue, 18 Feb 2014 17:56:07 +0530
 
-> since commit 89aef8921bf("ipv4: Delete routing cache."), the counter
-> in_slow_tot can't work correctly.
+> This patch series adds support for Chelsio T5 40G adapters and provides
+> miscelleneous fixes for cxgb4 driver.
 > 
-> The counter in_slow_tot increase by one when fib_lookup() return successfully
-> in ip_route_input_slow(), but actually the dst struct maybe not be created and
-> cached, so we can increase in_slow_tot after the dst struct is created.
+> It also adds device ids of two new T5 adapters.
 > 
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> We would like to request this patch series to get merged via David Miller's
+> 'net-next' tree.
+> 
+> We have included all the maintainers of respective drivers. Kindly review the
+> change and let us know in case of any review comments.
 
-Applied, thanks.
+Series applied, thanks.
