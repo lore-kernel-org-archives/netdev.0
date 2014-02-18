@@ -1,12 +1,13 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH net-next 25/35] forcedeth: Use pci_enable_msix_range() instead of pci_enable_msix()
-Date: Tue, 18 Feb 2014 11:11:54 +0100
-Message-ID: <437d3cd09e304168f525a3097d89e46adc4e73fa.1392717503.git.agordeev@redhat.com>
+Subject: [PATCH net-next 26/35] netxen: Use pci_enable_msix_range() instead of pci_enable_msix()
+Date: Tue, 18 Feb 2014 11:11:55 +0100
+Message-ID: <3f60c6b3767b7596d5d5d7bb236b7dde303594d9.1392717503.git.agordeev@redhat.com>
 References: <cover.1392717502.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org
+	Manish Chopra <manish.chopra@qlogic.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	netdev@vger.kernel.org, linux-pci@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1392717502.git.agordeev@redhat.com>
@@ -20,31 +21,30 @@ new pci_enable_msi_range() and pci_enable_msix_range()
 interfaces.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Patrick McHardy <kaber@trash.net>
+Cc: Manish Chopra <manish.chopra@qlogic.com>
+Cc: Sony Chacko <sony.chacko@qlogic.com>
+Cc: Rajesh Borundia <rajesh.borundia@qlogic.com>
 Cc: netdev@vger.kernel.org
 Cc: linux-pci@vger.kernel.org
 ---
- drivers/net/ethernet/nvidia/forcedeth.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
+ .../net/ethernet/qlogic/netxen/netxen_nic_main.c   |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index 74da489..bad3c05 100644
---- a/drivers/net/ethernet/nvidia/forcedeth.c
-+++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -3946,8 +3946,11 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
- 	if (np->msi_flags & NV_MSI_X_CAPABLE) {
- 		for (i = 0; i < (np->msi_flags & NV_MSI_X_VECTORS_MASK); i++)
- 			np->msi_x_entry[i].entry = i;
--		ret = pci_enable_msix(np->pci_dev, np->msi_x_entry, (np->msi_flags & NV_MSI_X_VECTORS_MASK));
--		if (ret == 0) {
-+		ret = pci_enable_msix_range(np->pci_dev,
-+					    np->msi_x_entry,
-+					    np->msi_flags & NV_MSI_X_VECTORS_MASK,
-+					    np->msi_flags & NV_MSI_X_VECTORS_MASK);
-+		if (ret > 0) {
- 			np->msi_flags |= NV_MSI_X_ENABLED;
- 			if (optimization_mode == NV_OPTIMIZATION_MODE_THROUGHPUT && !intr_test) {
- 				/* Request irq for rx handling */
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+index 70849de..f09c35d 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+@@ -643,8 +643,9 @@ static int netxen_setup_msi_interrupts(struct netxen_adapter *adapter,
+ 
+ 	if (adapter->msix_supported) {
+ 		netxen_init_msix_entries(adapter, num_msix);
+-		err = pci_enable_msix(pdev, adapter->msix_entries, num_msix);
+-		if (err == 0) {
++		err = pci_enable_msix_range(pdev, adapter->msix_entries,
++					    num_msix, num_msix);
++		if (err > 0) {
+ 			adapter->flags |= NETXEN_NIC_MSIX_ENABLED;
+ 			netxen_set_msix_bit(pdev, 1);
+ 
 -- 
 1.7.7.6
