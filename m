@@ -1,13 +1,11 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH net-next 27/35] qlcnic: Cleanup qlcnic_enable_msix() return values
-Date: Tue, 18 Feb 2014 11:11:56 +0100
-Message-ID: <137c27c94c88423a6627162e9926f50ab681b30c.1392717503.git.agordeev@redhat.com>
+Subject: [PATCH net-next 23/35] forcedeth: Fix invalid errno reporting in nv_request_irq()
+Date: Tue, 18 Feb 2014 11:11:52 +0100
+Message-ID: <d9b66ce651ddfc5ac7930cd1ac3574745ef4b511.1392717503.git.agordeev@redhat.com>
 References: <cover.1392717502.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
-	Himanshu Madhani <himanshu.madhani@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	linux-driver@qlogic.com, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
 	linux-pci@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -16,61 +14,74 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
-Cc: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Cc: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Cc: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Cc: linux-driver@qlogic.com
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Patrick McHardy <kaber@trash.net>
 Cc: netdev@vger.kernel.org
 Cc: linux-pci@vger.kernel.org
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/nvidia/forcedeth.c |   22 ++++++++++++++--------
+ 1 files changed, 14 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index ba78c74..0c077cf 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -684,7 +684,7 @@ restore:
- int qlcnic_enable_msix(struct qlcnic_adapter *adapter, u32 num_msix)
- {
- 	struct pci_dev *pdev = adapter->pdev;
--	int err = -1, vector;
-+	int err, vector;
- 
- 	if (!adapter->msix_entries) {
- 		adapter->msix_entries = kcalloc(num_msix,
-@@ -706,7 +706,7 @@ enable_msix:
- 			adapter->flags |= QLCNIC_MSIX_ENABLED;
- 			adapter->ahw->num_msix = num_msix;
- 			dev_info(&pdev->dev, "using msi-x interrupts\n");
--			return err;
-+			return 0;
- 		} else if (err > 0) {
- 			dev_info(&pdev->dev,
- 				 "Unable to allocate %d MSI-X vectors, Available vectors %d\n",
-@@ -715,12 +715,12 @@ enable_msix:
- 			if (qlcnic_82xx_check(adapter)) {
- 				num_msix = rounddown_pow_of_two(err);
- 				if (err < QLCNIC_82XX_MINIMUM_VECTOR)
--					return -EIO;
-+					return -ENOSPC;
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index 70cf97f..f4270b8 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -3952,8 +3952,9 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
+ 			if (optimization_mode == NV_OPTIMIZATION_MODE_THROUGHPUT && !intr_test) {
+ 				/* Request irq for rx handling */
+ 				sprintf(np->name_rx, "%s-rx", dev->name);
+-				if (request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_RX].vector,
+-						nv_nic_irq_rx, IRQF_SHARED, np->name_rx, dev) != 0) {
++				ret = request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_RX].vector,
++						  nv_nic_irq_rx, IRQF_SHARED, np->name_rx, dev);
++				if (ret) {
+ 					netdev_info(dev,
+ 						    "request_irq failed for rx %d\n",
+ 						    ret);
+@@ -3963,8 +3964,9 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
+ 				}
+ 				/* Request irq for tx handling */
+ 				sprintf(np->name_tx, "%s-tx", dev->name);
+-				if (request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_TX].vector,
+-						nv_nic_irq_tx, IRQF_SHARED, np->name_tx, dev) != 0) {
++				ret = request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_TX].vector,
++						  nv_nic_irq_tx, IRQF_SHARED, np->name_tx, dev);
++				if (ret) {
+ 					netdev_info(dev,
+ 						    "request_irq failed for tx %d\n",
+ 						    ret);
+@@ -3974,8 +3976,9 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
+ 				}
+ 				/* Request irq for link and timer handling */
+ 				sprintf(np->name_other, "%s-other", dev->name);
+-				if (request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_OTHER].vector,
+-						nv_nic_irq_other, IRQF_SHARED, np->name_other, dev) != 0) {
++				ret = request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_OTHER].vector,
++						  nv_nic_irq_other, IRQF_SHARED, np->name_other, dev);
++				if (ret) {
+ 					netdev_info(dev,
+ 						    "request_irq failed for link %d\n",
+ 						    ret);
+@@ -3991,7 +3994,9 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
+ 				set_msix_vector_map(dev, NV_MSI_X_VECTOR_OTHER, NVREG_IRQ_OTHER);
  			} else {
- 				num_msix = rounddown_pow_of_two(err - 1);
- 				num_msix += 1;
- 				if (err < QLCNIC_83XX_MINIMUM_VECTOR)
--					return -EIO;
-+					return -ENOSPC;
- 			}
- 
- 			if (qlcnic_82xx_check(adapter) &&
-@@ -747,7 +747,7 @@ enable_msix:
- 		}
- 	}
- 
--	return err;
-+	return -EIO;
- }
- 
- static int qlcnic_82xx_calculate_msix_vector(struct qlcnic_adapter *adapter)
+ 				/* Request irq for all interrupts */
+-				if (request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_ALL].vector, handler, IRQF_SHARED, dev->name, dev) != 0) {
++				ret = request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_ALL].vector,
++						  handler, IRQF_SHARED, dev->name, dev);
++				if (ret) {
+ 					netdev_info(dev,
+ 						    "request_irq failed %d\n",
+ 						    ret);
+@@ -4011,7 +4016,8 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
+ 		ret = pci_enable_msi(np->pci_dev);
+ 		if (ret == 0) {
+ 			np->msi_flags |= NV_MSI_ENABLED;
+-			if (request_irq(np->pci_dev->irq, handler, IRQF_SHARED, dev->name, dev) != 0) {
++			ret = request_irq(np->pci_dev->irq, handler, IRQF_SHARED, dev->name, dev);
++			if (ret) {
+ 				netdev_info(dev, "request_irq failed %d\n",
+ 					    ret);
+ 				pci_disable_msi(np->pci_dev);
 -- 
 1.7.7.6
