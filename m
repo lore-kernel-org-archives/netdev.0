@@ -1,46 +1,78 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next v5 00/10] Support for the Broadcom GENET driver
-Date: Tue, 18 Feb 2014 08:37:50 +0100
-Message-ID: <20140218073750.GA6316@netboy>
-References: <1392336531-28875-1-git-send-email-f.fainelli@gmail.com>
- <52FDC094.1020104@gmail.com>
- <20140214091943.GB3906@netboy>
- <12896228.bQPud9hHaP@lenovo>
+From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
+Subject: [PATCH net-next] ethtool: Remove inactive code snippet in
+ ethtool_set_rxfh_indir
+Date: Tue, 18 Feb 2014 07:38:28 +0000
+Message-ID: <BF3270C86E8B1349A26C34E4EC1C44CB2C87A575@CMEXMB1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org, cernekee@gmail.com,
-	mark.rutland@arm.com, romieu@fr.zoreil.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:61332 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751239AbaBRHh7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 02:37:59 -0500
-Content-Disposition: inline
-In-Reply-To: <12896228.bQPud9hHaP@lenovo>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:6360 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751239AbaBRHia convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 02:38:30 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 16, 2014 at 10:34:16AM -0800, Florian Fainelli wrote:
-> Le vendredi 14 f=E9vrier 2014, 10:19:43 Richard Cochran a =E9crit :
-> > On Thu, Feb 13, 2014 at 11:07:00PM -0800, Florian Fainelli wrote:
-> > > Le 13/02/2014 21:29, David Miller a =E9crit :
-> > > >Series applied, thanks.
-> > >=20
-> > > Great, thanks David!
-> >=20
-> > Sorry for the late comment, but how about adding a call to
-> > skb_tx_timestamp(), in order to support so_timestamping?
->=20
-> The MAC itself is capable of providing a HW timestamp, I will look in=
-to this a=20
-> little later.
+ethtool_rxfh_indir_default is invoked inside ethtool_get_rxfh_indir when user_size is zero. However user_size can only be zero when dev_size is zero in which case ethtool_get_rxfh_indir itself would have returned -EOPNOTSUPP error. User_size = 0 can never occur unless a buggy ethtool sends user_size as zero beforing invoking the ioctl in which case we should return -EINVAL.
 
-Hardware time stamping is great to have, but it is more work to
-implement. In the mean time, adding transmit software time stamping is
-just adding a one-liner.
 
-Thanks,
-Richard
+Signed-off-by: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
+---
+ net/core/ethtool.c |   33 ++++++++++++++-------------------
+ 1 files changed, 14 insertions(+), 19 deletions(-)
+
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c index 30071de..9d96516 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -626,7 +626,7 @@ static noinline_for_stack int ethtool_set_rxfh_indir(struct net_device *dev,
+ 			   sizeof(user_size)))
+ 		return -EFAULT;
+ 
+-	if (user_size != 0 && user_size != dev_size)
++	if (!user_size || user_size != dev_size)
+ 		return -EINVAL;
+ 
+ 	indir = kcalloc(dev_size, sizeof(indir[0]), GFP_USER); @@ -638,25 +638,20 @@ static noinline_for_stack int ethtool_set_rxfh_indir(struct net_device *dev,
+ 	if (ret)
+ 		goto out;
+ 
+-	if (user_size == 0) {
+-		for (i = 0; i < dev_size; i++)
+-			indir[i] = ethtool_rxfh_indir_default(i, rx_rings.data);
+-	} else {
+-		if (copy_from_user(indir,
+-				  useraddr +
+-				  offsetof(struct ethtool_rxfh_indir,
+-					   ring_index[0]),
+-				  dev_size * sizeof(indir[0]))) {
+-			ret = -EFAULT;
+-			goto out;
+-		}
++	if (copy_from_user(indir,
++			   useraddr +
++			   offsetof(struct ethtool_rxfh_indir,
++				    ring_index[0]),
++			   dev_size * sizeof(indir[0]))) {
++		ret = -EFAULT;
++		goto out;
++	}
+ 
+-		/* Validate ring indices */
+-		for (i = 0; i < dev_size; i++) {
+-			if (indir[i] >= rx_rings.data) {
+-				ret = -EINVAL;
+-				goto out;
+-			}
++	/* Validate ring indices */
++	for (i = 0; i < dev_size; i++) {
++		if (indir[i] >= rx_rings.data) {
++			ret = -EINVAL;
++			goto out;
+ 		}
+ 	}
+ 
+--
+1.7.1
