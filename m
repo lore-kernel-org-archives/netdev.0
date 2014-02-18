@@ -1,55 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH next resend] tcp: use zero-window when free_space is low
-Date: Tue, 18 Feb 2014 09:30:16 -0800
-Message-ID: <1392744616.24974.14.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1392292350-28800-1-git-send-email-fw@strlen.de>
-	 <20140217.143431.349062553619161172.davem@davemloft.net>
-	 <20140217205219.GH31125@breakpoint.cc>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [net-next v2 3/3] cfg80211: add MPLS and 802.21 classification
+Date: Tue, 18 Feb 2014 18:30:30 +0100
+Message-ID: <530398B6.2060806@broadcom.com>
+References: <1392656174-14791-4-git-send-email-sw@simonwunderlich.de>	<5302474B.6090609@broadcom.com>	<D53252F45158EF44B1DF124FDC9AF2A35AD9E12C@FEYNMAN.fokus.fraunhofer.de> <20140217.140653.1309552047403078220.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	ncardwell@google.com, ycheng@google.com
-To: Florian Westphal <fw@strlen.de>
+Cc: <sw@simonwunderlich.de>, <netdev@vger.kernel.org>,
+	<linux-wireless@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	<mathias.kretschmer@fokus.fraunhofer.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:36515 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751774AbaBRRaR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 12:30:17 -0500
-Received: by mail-pd0-f172.google.com with SMTP id p10so16574328pdj.3
-        for <netdev@vger.kernel.org>; Tue, 18 Feb 2014 09:30:17 -0800 (PST)
-In-Reply-To: <20140217205219.GH31125@breakpoint.cc>
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:38345 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751239AbaBRRbD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 12:31:03 -0500
+In-Reply-To: <20140217.140653.1309552047403078220.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-02-17 at 21:52 +0100, Florian Westphal wrote:
-> David Miller <davem@davemloft.net> wrote:
-> > From: Florian Westphal <fw@strlen.de>
-> > Date: Thu, 13 Feb 2014 12:52:30 +0100
-> > 
-> > >  V1 of this patch was deferred, resending to get discussion going again.
-> > >  Changes since v1:
-> > >   - add reproducer to commit message
-> > > 
-> > >  Unfortunately I couldn't come up with something that has no magic
-> > >  ('allowed >> 4') value.  I chose >>4 (1/16th) because it didn't cause
-> > >  tput limitations in my 'full-mss-sized, steady state' netcat tests.
-> > > 
-> > >  Maybe someone has better idea?
-> > 
-> > I know this is going to be frustrating, but I've marked this 'deferred'
-> > again.  Please resubmit after the testing and further discussions have
-> > been worked out.
+On 02/17/2014 08:06 PM, David Miller wrote:
+> From: "Kretschmer, Mathias" <mathias.kretschmer@fokus.fraunhofer.de>
+> Date: Mon, 17 Feb 2014 17:34:34 +0000
 > 
-> Thanks for letting me know.  I understand why you are reluctant to just
-> apply this.
+>> Thought so, as well. But it seems that skb->protocol is not properly
+>> set when the packet originates from a packet socket.  And in our
+>> case we cannot set it to a fixed etherType in the bind() call since
+>> we use three different etherTypes on the same socket.
 > 
-> I will submit another patch shortly that introduces snmp counter for zero-window
-> (what Eric suggested), perhaps it helps him or others to find a better solution
-> in the scenario.
+> So many things break if the skb->protocol isn't set correctly that I
+> would consider such SKBs mal-formed.
 
-Sorry for the delay guys, I was on vacation.
+That was my take as well, but how does the kernel code consider this?
 
-I started the tests this morning, results in about 2/3 hours.
+> You can specify the protocol number in the msghdr passed into the
+> send.
+> 
 
-Thanks !
+Regards,
+Arend
