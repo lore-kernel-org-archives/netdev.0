@@ -1,38 +1,67 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [PATCH net-next 1/2] pcnet32: fix reallocation error
-Date: Tue, 18 Feb 2014 21:29:00 +0900
-Message-ID: <201402182129.BDD57369.FVOQHFOFtJSLOM@I-love.SAKURA.ne.jp>
-References: <1392699466.4020.27.camel@Linux>
+From: Jason Cooper <jason@lakedaemon.net>
+Subject: Re: [PATCH] net: ethernet: remove unneeded dependency of mvneta
+ and update help text
+Date: Tue, 18 Feb 2014 07:29:52 -0500
+Message-ID: <20140218122952.GM7862@titan.lakedaemon.net>
+References: <1392719391-8851-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: pcnet32@frontier.com
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	linux-arm-kernel@lists.infradead.org
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www262.sakura.ne.jp ([202.181.97.72]:65042 "EHLO
-	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755167AbaBRM3I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 07:29:08 -0500
-In-Reply-To: <1392699466.4020.27.camel@Linux>
+Received: from mho-02-ewr.mailhop.org ([204.13.248.72]:21164 "EHLO
+	mho-02-ewr.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755039AbaBRMaH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 07:30:07 -0500
+Content-Disposition: inline
+In-Reply-To: <1392719391-8851-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Don Fry wrote:
-> pcnet32_realloc_rx_ring() only worked on the first log2 number of
-> entries in the receive ring instead of the all the entries.
-> Replaced "1 << size" with more descriptive variable.
+On Tue, Feb 18, 2014 at 11:29:51AM +0100, Thomas Petazzoni wrote:
+> With the introduction of the support for Armada 375 and Armada 38x,
+> the hidden Kconfig option MACH_ARMADA_370_XP is being renamed to
+> MACH_MVEBU_V7. Therefore, the dependency that was used for the mvneta
+> driver can no longer work.
+> 
+> However, such a dependency is not really necessary: there is no point
+> in preventing this driver from being built in other situations, just
+> like the mv643xx_eth driver. As a consequence, this commit removes the
+> unnecessary Kconfig dependency.
+> 
+> In addition to this, it takes this opportunity to adjust the
+> description and help text to indicate that the driver can is also used
+> for Armada 38x. Note that Armada 375 cannot use this driver as it has
+> a completely different networking unit, which will require a separate
+> driver.
+> 
+> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+> ---
+>  drivers/net/ethernet/marvell/Kconfig | 5 ++---
+>  1 file changed, 2 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
+> index 6300fd2..97b91f7 100644
+> --- a/drivers/net/ethernet/marvell/Kconfig
+> +++ b/drivers/net/ethernet/marvell/Kconfig
+> @@ -43,12 +43,11 @@ config MVMDIO
+>  	  This driver is used by the MV643XX_ETH and MVNETA drivers.
+>  
+>  config MVNETA
+> -	tristate "Marvell Armada 370/XP network interface support"
+> -	depends on MACH_ARMADA_370_XP
 
->  	/* first copy the current receive buffers */
-> -	overlap = min(size, lp->rx_ring_size);
-> +	overlap = min(entries, lp->rx_ring_size);
+Have you build-tested this on the usual fail scenarios?  eg x86_64,
+powerpc, s390, allno, allyes, allmod, etc?
 
->  	/* now allocate any new buffers needed */
-> -	for (; new < size; new++) {
-> +	for (; new < entries; new++) {
+I think you might be opening up pandora's box here without needing to.
+:)
 
-Until this fix, lp->rx_skbuff[size...(1<<size)-1] were not allocated by
-netdev_alloc_skb() and lp->rx_ring_dma_addr[size...(1<<size)-1] were not mapped
-by pci_map_single(), right?
+thx,
 
-Since lp->rx_ring_size was set to (1<<size), wasn't there possibility that
-something bad happens by accessing lp->rx_skbuff[] and lp->rx_ring_dma_addr[]
-up to (1<<size)-1 ? (In other words, don't we want to backport this fix?)
+Jason.
