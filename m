@@ -1,10 +1,13 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH net-next 22/35] vxge: Use pci_enable_msix_range() instead of pci_enable_msix()
-Date: Tue, 18 Feb 2014 11:11:51 +0100
-Message-ID: <799aa59d70b2e96f094917a8581a331afa068702.1392717503.git.agordeev@redhat.com>
+Subject: [PATCH net-next 27/35] qlcnic: Cleanup qlcnic_enable_msix() return values
+Date: Tue, 18 Feb 2014 11:11:56 +0100
+Message-ID: <137c27c94c88423a6627162e9926f50ab681b30c.1392717503.git.agordeev@redhat.com>
 References: <cover.1392717502.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
-	Jon Mason <jdmason@kudzu.us>, netdev@vger.kernel.org,
+	Himanshu Madhani <himanshu.madhani@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>,
+	linux-driver@qlogic.com, netdev@vger.kernel.org,
 	linux-pci@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -12,55 +15,62 @@ In-Reply-To: <cover.1392717502.git.agordeev@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-As result of deprecation of MSI-X/MSI enablement functions
-pci_enable_msix() and pci_enable_msi_block() all drivers
-using these two interfaces need to be updated to use the
-new pci_enable_msi_range() and pci_enable_msix_range()
-interfaces.
-
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
-Cc: Jon Mason <jdmason@kudzu.us>
+Cc: Himanshu Madhani <himanshu.madhani@qlogic.com>
+Cc: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Cc: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Cc: linux-driver@qlogic.com
 Cc: netdev@vger.kernel.org
 Cc: linux-pci@vger.kernel.org
 ---
- drivers/net/ethernet/neterion/vxge/vxge-main.c |   15 +++++++++------
- 1 files changed, 9 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/neterion/vxge/vxge-main.c b/drivers/net/ethernet/neterion/vxge/vxge-main.c
-index e46e869..c83cedd 100644
---- a/drivers/net/ethernet/neterion/vxge/vxge-main.c
-+++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c
-@@ -2349,12 +2349,18 @@ start:
- 	vdev->vxge_entries[j].entry = VXGE_ALARM_MSIX_ID;
- 	vdev->vxge_entries[j].in_use = 0;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index ba78c74..0c077cf 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -684,7 +684,7 @@ restore:
+ int qlcnic_enable_msix(struct qlcnic_adapter *adapter, u32 num_msix)
+ {
+ 	struct pci_dev *pdev = adapter->pdev;
+-	int err = -1, vector;
++	int err, vector;
  
--	ret = pci_enable_msix(vdev->pdev, vdev->entries, vdev->intr_cnt);
--	if (ret > 0) {
-+	ret = pci_enable_msix_range(vdev->pdev,
-+				    vdev->entries, 3, vdev->intr_cnt);
-+	if (ret < 0) {
-+		ret = -ENODEV;
-+		goto enable_msix_failed;
-+	} else if (ret < vdev->intr_cnt) {
-+		pci_disable_msix(vdev->pdev);
-+
- 		vxge_debug_init(VXGE_ERR,
- 			"%s: MSI-X enable failed for %d vectors, ret: %d",
- 			VXGE_DRIVER_NAME, vdev->intr_cnt, ret);
--		if ((max_config_vpath != VXGE_USE_DEFAULT) || (ret < 3)) {
-+		if (max_config_vpath != VXGE_USE_DEFAULT) {
- 			ret = -ENODEV;
- 			goto enable_msix_failed;
+ 	if (!adapter->msix_entries) {
+ 		adapter->msix_entries = kcalloc(num_msix,
+@@ -706,7 +706,7 @@ enable_msix:
+ 			adapter->flags |= QLCNIC_MSIX_ENABLED;
+ 			adapter->ahw->num_msix = num_msix;
+ 			dev_info(&pdev->dev, "using msi-x interrupts\n");
+-			return err;
++			return 0;
+ 		} else if (err > 0) {
+ 			dev_info(&pdev->dev,
+ 				 "Unable to allocate %d MSI-X vectors, Available vectors %d\n",
+@@ -715,12 +715,12 @@ enable_msix:
+ 			if (qlcnic_82xx_check(adapter)) {
+ 				num_msix = rounddown_pow_of_two(err);
+ 				if (err < QLCNIC_82XX_MINIMUM_VECTOR)
+-					return -EIO;
++					return -ENOSPC;
+ 			} else {
+ 				num_msix = rounddown_pow_of_two(err - 1);
+ 				num_msix += 1;
+ 				if (err < QLCNIC_83XX_MINIMUM_VECTOR)
+-					return -EIO;
++					return -ENOSPC;
+ 			}
+ 
+ 			if (qlcnic_82xx_check(adapter) &&
+@@ -747,7 +747,7 @@ enable_msix:
  		}
-@@ -2368,9 +2374,6 @@ start:
- 		vxge_close_vpaths(vdev, temp);
- 		vdev->no_of_vpath = temp;
- 		goto start;
--	} else if (ret < 0) {
--		ret = -ENODEV;
--		goto enable_msix_failed;
  	}
- 	return 0;
  
+-	return err;
++	return -EIO;
+ }
+ 
+ static int qlcnic_82xx_calculate_msix_vector(struct qlcnic_adapter *adapter)
 -- 
 1.7.7.6
