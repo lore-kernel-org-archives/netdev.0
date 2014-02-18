@@ -1,68 +1,73 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH v2] net: ethernet: update dependency and help text of mvneta
-Date: Tue, 18 Feb 2014 14:18:11 +0100
-Message-ID: <1392729491-24913-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Cc: Jason Cooper <jason@lakedaemon.net>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	linux-arm-kernel@lists.infradead.org
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: <erik.hugne@ericsson.com>
+Subject: [PATCH net-next] tipc: failed transmissions should return error
+Date: Tue, 18 Feb 2014 14:29:50 +0100
+Message-ID: <1392730190-20050-1-git-send-email-erik.hugne@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <tipc-discussion@lists.sourceforge.net>, <ying.xue@windriver.com>,
+	<paul.gortmaker@windriver.com>, <jon.maloy@ericsson.com>,
+	<maloy@donjonn.com>, Erik Hugne <erik.hugne@ericsson.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:44805 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754956AbaBRNSN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 08:18:13 -0500
+Received: from mailgw1.ericsson.se ([193.180.251.45]:57480 "EHLO
+	mailgw1.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753505AbaBRNaJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 08:30:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With the introduction of the support for Armada 375 and Armada 38x,
-the hidden Kconfig option MACH_ARMADA_370_XP is being renamed to
-MACH_MVEBU_V7. Therefore, the dependency that was used for the mvneta
-driver can no longer work. This commit replaces this dependency by a
-dependency on PLAT_ORION, which is used similarly for the mv643xx_eth
-driver.
+From: Erik Hugne <erik.hugne@ericsson.com>
 
-In addition to this, it takes this opportunity to adjust the
-description and help text to indicate that the driver can is also used
-for Armada 38x. Note that Armada 375 cannot use this driver as it has
-a completely different networking unit, which will require a separate
-driver.
+When a message could not be sent out because the destination
+node or link could not be found, the full message size is
+returned from sendmsg() as if it had been sent successfully.
+An application will then get a false indication that it's
+making forward progress. This problem has existed since the
+initial commit in 2.6.16.
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+We change this to return -ENETUNREACH if the message cannot be
+delivered due to the destination node/link being unavailable.
+We also get rid of the redundant tipc_reject_msg call since
+freeing the buffer and doing a tipc_port_reject_sections
+accomplishes exactly the same thing.
+
+Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
-Changes since v1:
- - Instead of removing the Kconfig dependency, replace it by a
-   dependency on PLAT_ORION, in order to avoid building mvneta on too
-   many architectures and getting weird build issues. Suggested by
-   Jason Cooper.
- - Fix capitalization in the Kconfig help text.
+ net/tipc/link.c |   14 ++++++--------
+ 1 file changed, 6 insertions(+), 8 deletions(-)
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
----
- drivers/net/ethernet/marvell/Kconfig | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
-index 6300fd2..68e6a66 100644
---- a/drivers/net/ethernet/marvell/Kconfig
-+++ b/drivers/net/ethernet/marvell/Kconfig
-@@ -43,12 +43,12 @@ config MVMDIO
- 	  This driver is used by the MV643XX_ETH and MVNETA drivers.
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 5422e96..e79f0f4 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1016,12 +1016,9 @@ exit:
+ 	read_unlock_bh(&tipc_net_lock);
  
- config MVNETA
--	tristate "Marvell Armada 370/XP network interface support"
--	depends on MACH_ARMADA_370_XP
-+	tristate "Marvell Armada 370/38x/XP network interface support"
-+	depends on PLAT_ORION
- 	select MVMDIO
- 	---help---
- 	  This driver supports the network interface units in the
--	  Marvell ARMADA XP and ARMADA 370 SoC family.
-+	  Marvell ARMADA XP, ARMADA 370 and ARMADA 38x SoC family.
+ 	/* Couldn't find a link to the destination node */
+-	if (buf)
+-		return tipc_reject_msg(buf, TIPC_ERR_NO_NODE);
+-	if (res >= 0)
+-		return tipc_port_reject_sections(sender, hdr, msg_sect,
+-						 len, TIPC_ERR_NO_NODE);
+-	return res;
++	kfree_skb(buf);
++	tipc_port_reject_sections(sender, hdr, msg_sect, len, TIPC_ERR_NO_NODE);
++	return -ENETUNREACH;
+ }
  
- 	  Note that this driver is distinct from the mv643xx_eth
- 	  driver, which should be used for the older Marvell SoCs
+ /*
+@@ -1159,8 +1156,9 @@ error:
+ 	} else {
+ reject:
+ 		kfree_skb_list(buf_chain);
+-		return tipc_port_reject_sections(sender, hdr, msg_sect,
+-						 len, TIPC_ERR_NO_NODE);
++		tipc_port_reject_sections(sender, hdr, msg_sect,
++					  len, TIPC_ERR_NO_NODE);
++		return -ENETUNREACH;
+ 	}
+ 
+ 	/* Append chain of fragments to send queue & send them */
 -- 
-1.8.3.2
+1.7.9.5
