@@ -1,43 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tipc: failed transmissions should return error
-Date: Tue, 18 Feb 2014 18:11:28 -0500 (EST)
-Message-ID: <20140218.181128.1171749217306683994.davem@davemloft.net>
-References: <1392730190-20050-1-git-send-email-erik.hugne@ericsson.com>
+Subject: Re: [PATCH net-next] ieee802154: fix faulty check in
+ set_phy_params api
+Date: Tue, 18 Feb 2014 18:11:34 -0500 (EST)
+Message-ID: <20140218.181134.1567312251794761780.davem@davemloft.net>
+References: <1392730767-24858-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
-	ying.xue@windriver.com, paul.gortmaker@windriver.com,
-	jon.maloy@ericsson.com, maloy@donjonn.com
-To: erik.hugne@ericsson.com
+Cc: netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net
+To: phoebe.buckheister@itwm.fraunhofer.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37065 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37070 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753357AbaBRXLb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 18:11:31 -0500
-In-Reply-To: <1392730190-20050-1-git-send-email-erik.hugne@ericsson.com>
+	with ESMTP id S1753344AbaBRXLg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 18:11:36 -0500
+In-Reply-To: <1392730767-24858-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <erik.hugne@ericsson.com>
-Date: Tue, 18 Feb 2014 14:29:50 +0100
+From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+Date: Tue, 18 Feb 2014 14:39:27 +0100
 
-> From: Erik Hugne <erik.hugne@ericsson.com>
+> phy_set_csma_params has a redundant (and impossible) check for
+> "retries", found by smatch. The check was supposed to be for
+> frame_retries, but wasn't moved during development when
+> phy_set_frame_retries was introduced. Also, maxBE >= 3 as required by
+> the standard is not enforced.
 > 
-> When a message could not be sent out because the destination
-> node or link could not be found, the full message size is
-> returned from sendmsg() as if it had been sent successfully.
-> An application will then get a false indication that it's
-> making forward progress. This problem has existed since the
-> initial commit in 2.6.16.
+> Remove the redundant check, assure max_be >= 3 and check -1 <=
+> frame_retries <= 7 in the correct function.
 > 
-> We change this to return -ENETUNREACH if the message cannot be
-> delivered due to the destination node/link being unavailable.
-> We also get rid of the redundant tipc_reject_msg call since
-> freeing the buffer and doing a tipc_port_reject_sections
-> accomplishes exactly the same thing.
-> 
-> Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-> Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+> Signed-off-by: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
 
-This does not apply cleanly to net-next, please respin.
+Applied.
