@@ -1,58 +1,55 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH RFC] sctp: Update HEARTBEAT timer immediately after user
- changed HB.interval
-Date: Tue, 18 Feb 2014 15:39:50 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6C2AEE@AcuExch.aculab.com>
-References: <1392703010-6128-1-git-send-email-xufeng.zhang@windriver.com>
- <5303731C.8020308@gmail.com>
+From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Subject: Re: [PATCH] net: ethernet: remove unneeded dependency of mvneta and
+ update help text
+Date: Tue, 18 Feb 2014 12:45:12 -0300
+Message-ID: <20140218154512.GA10691@localhost>
+References: <1392719391-8851-1-git-send-email-thomas.petazzoni@free-electrons.com>
+ <20140218122952.GM7862@titan.lakedaemon.net>
+ <20140218134532.7607a616@skate>
+ <20140218125206.GN7862@titan.lakedaemon.net>
+ <20140218141303.77c77272@skate>
+ <20140218135809.GD17984@lunn.ch>
+ <20140218151027.710ab2f3@skate>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Vlad Yasevich' <vyasevich@gmail.com>,
-	Xufeng Zhang <xufeng.zhang@windriver.com>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5303731C.8020308@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	linux-arm-kernel@lists.infradead.org
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from top.free-electrons.com ([176.31.233.9]:46354 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755478AbaBRPpU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 10:45:20 -0500
+Content-Disposition: inline
+In-Reply-To: <20140218151027.710ab2f3@skate>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > +
-> > +				/* Update the heartbeat timer immediately. */
-> > +				if (!mod_timer(&trans->hb_timer,
-> > +					    sctp_transport_timeout(trans)))
-> > +					sctp_transport_hold(trans);
-> 
-> This is causes a rather inconsistent behavior in that it doesn't
-> account of the amount of time left on the hb timer.  Thus it doesn't
-> always do what commit log implies.  If the remaining time is shorter
-> then the new timeout value, it will take longer till the next HB
-> the application expects.
+On Tue, Feb 18, 2014 at 03:10:27PM +0100, Thomas Petazzoni wrote:
+[..]
+>=20
+> At the very end of the clean up, when even Orion5x support will be
+> merged in mach-mvebu/, then we can certainly replace these dependenci=
+es
+> by a "depends on ARCH_MVEBU". But for the time being, PLAT_ORION seem=
+s
+> like the right common denominator for all these platforms.
+>=20
 
-Being able to stop heartbeats being sent by repeatedly configuring
-the interval is certainly not a good idea!
+Last time we talked about this with Sebastian and Andrew it was decided
+that the right choice is:
 
-> If the application has very strict timing requirement on the HBs, it
-> should trigger the HB manually.
-> 
-> We could rework the code to allow the combination of
-> SPP_HB_DEMAND | SPP_HB_ENABLE to work as follows:
->   1) update the timer to the new value
->   2) Send an immediate HB
->      a) Update the hb timeout.
-> 
-> 2a should probably be done regardless since it can cause 2 HB to be
-> outstanding at the same time.
+  MACH_KIRKWOOD || MACH_DOVE || MACH_ARMADA_370_XP
 
-Sending a heartbeat 'on demand' might be problematic if one
-has also just been sent (from the timer).
+Which would become MACH_MVEBU.
 
-I'd have thought that you wouldn't want to send a heartbeat while
-still expecting a response from the previous one (this might require
-splitting the time interval in two).
-
-	David
+Of course, this is near the nitpick boundary, so AFAIC you can leave
+PLAT_ORION as in v2, if you feel like.
+--=20
+Ezequiel Garc=C3=ADa, Free Electrons
+Embedded Linux, Kernel and Android Engineering
+http://free-electrons.com
