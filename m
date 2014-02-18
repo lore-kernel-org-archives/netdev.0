@@ -1,11 +1,13 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH net-next 02/35] bnx2x: Use pci_enable_msix_range() instead of pci_enable_msix()
-Date: Tue, 18 Feb 2014 11:07:54 +0100
-Message-ID: <f8822086d21320729a274f5920d5ed613016501b.1392717502.git.agordeev@redhat.com>
+Subject: [PATCH net-next 11/35] benet: Use pci_enable_msix_range() instead of pci_enable_msix()
+Date: Tue, 18 Feb 2014 11:11:40 +0100
+Message-ID: <184bdb56228bd3ecd2df5f02cc89c240fa90a5cb.1392717503.git.agordeev@redhat.com>
 References: <cover.1392717502.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
-	Ariel Elior <ariele@broadcom.com>, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org
+	Sathya Perla <sathya.perla@emulex.com>,
+	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
+	Ajit Khaparde <ajit.khaparde@emulex.com>,
+	netdev@vger.kernel.org, linux-pci@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1392717502.git.agordeev@redhat.com>
@@ -19,82 +21,72 @@ new pci_enable_msi_range() and pci_enable_msix_range()
 interfaces.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
-Cc: Ariel Elior <ariele@broadcom.com>
+Cc: Sathya Perla <sathya.perla@emulex.com>
+Cc: Subbu Seetharaman <subbu.seetharaman@emulex.com>
+Cc: Ajit Khaparde <ajit.khaparde@emulex.com>
 Cc: netdev@vger.kernel.org
 Cc: linux-pci@vger.kernel.org
+Acked-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |   46 ++++++++++-------------
- 1 files changed, 20 insertions(+), 26 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_main.c |   31 +++++++++++---------------
+ 1 files changed, 13 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 9ded3db..8363b9d 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -1638,36 +1638,16 @@ int bnx2x_enable_msix(struct bnx2x *bp)
- 	DP(BNX2X_MSG_SP, "about to request enable msix with %d vectors\n",
- 	   msix_vec);
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index a8cf03e..4f87f5c 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -2507,7 +2507,7 @@ static void be_msix_disable(struct be_adapter *adapter)
  
--	rc = pci_enable_msix(bp->pdev, &bp->msix_table[0], msix_vec);
--
-+	rc = pci_enable_msix_range(bp->pdev, &bp->msix_table[0],
-+				   BNX2X_MIN_MSIX_VEC_CNT(bp), msix_vec);
- 	/*
- 	 * reconfigure number of tx/rx queues according to available
- 	 * MSI-X vectors
- 	 */
--	if (rc >= BNX2X_MIN_MSIX_VEC_CNT(bp)) {
--		/* how less vectors we will have? */
--		int diff = msix_vec - rc;
--
--		BNX2X_DEV_INFO("Trying to use less MSI-X vectors: %d\n", rc);
--
--		rc = pci_enable_msix(bp->pdev, &bp->msix_table[0], rc);
--
--		if (rc) {
--			BNX2X_DEV_INFO("MSI-X is not attainable rc %d\n", rc);
--			goto no_msix;
--		}
--		/*
--		 * decrease number of queues by number of unallocated entries
--		 */
--		bp->num_ethernet_queues -= diff;
--		bp->num_queues = bp->num_ethernet_queues + bp->num_cnic_queues;
--
--		BNX2X_DEV_INFO("New queue configuration set: %d\n",
--			       bp->num_queues);
--	} else if (rc > 0) {
-+	if (rc == -ENOSPC) {
- 		/* Get by with single vector */
--		rc = pci_enable_msix(bp->pdev, &bp->msix_table[0], 1);
--		if (rc) {
-+		rc = pci_enable_msix_range(bp->pdev, &bp->msix_table[0], 1, 1);
-+		if (rc < 0) {
- 			BNX2X_DEV_INFO("Single MSI-X is not attainable rc %d\n",
- 				       rc);
- 			goto no_msix;
-@@ -1680,8 +1660,22 @@ int bnx2x_enable_msix(struct bnx2x *bp)
- 		bp->num_ethernet_queues = 1;
- 		bp->num_queues = bp->num_ethernet_queues + bp->num_cnic_queues;
- 	} else if (rc < 0) {
--		BNX2X_DEV_INFO("MSI-X is not attainable  rc %d\n", rc);
-+		BNX2X_DEV_INFO("MSI-X is not attainable rc %d\n", rc);
- 		goto no_msix;
-+	} else if (rc < msix_vec) {
-+		/* how less vectors we will have? */
-+		int diff = msix_vec - rc;
-+
-+		BNX2X_DEV_INFO("Trying to use less MSI-X vectors: %d\n", rc);
-+
-+		/*
-+		 * decrease number of queues by number of unallocated entries
-+		 */
-+		bp->num_ethernet_queues -= diff;
-+		bp->num_queues = bp->num_ethernet_queues + bp->num_cnic_queues;
-+
-+		BNX2X_DEV_INFO("New queue configuration set: %d\n",
-+			       bp->num_queues);
- 	}
+ static int be_msix_enable(struct be_adapter *adapter)
+ {
+-	int i, status, num_vec;
++	int i, num_vec;
+ 	struct device *dev = &adapter->pdev->dev;
  
- 	bp->flags |= USING_MSIX_FLAG;
+ 	/* If RoCE is supported, program the max number of NIC vectors that
+@@ -2523,24 +2523,11 @@ static int be_msix_enable(struct be_adapter *adapter)
+ 	for (i = 0; i < num_vec; i++)
+ 		adapter->msix_entries[i].entry = i;
+ 
+-	status = pci_enable_msix(adapter->pdev, adapter->msix_entries, num_vec);
+-	if (status == 0) {
+-		goto done;
+-	} else if (status >= MIN_MSIX_VECTORS) {
+-		num_vec = status;
+-		status = pci_enable_msix(adapter->pdev, adapter->msix_entries,
+-					 num_vec);
+-		if (!status)
+-			goto done;
+-	}
++	num_vec = pci_enable_msix_range(adapter->pdev, adapter->msix_entries,
++					MIN_MSIX_VECTORS, num_vec);
++	if (num_vec < 0)
++		goto fail;
+ 
+-	dev_warn(dev, "MSIx enable failed\n");
+-
+-	/* INTx is not supported in VFs, so fail probe if enable_msix fails */
+-	if (!be_physfn(adapter))
+-		return status;
+-	return 0;
+-done:
+ 	if (be_roce_supported(adapter) && num_vec > MIN_MSIX_VECTORS) {
+ 		adapter->num_msix_roce_vec = num_vec / 2;
+ 		dev_info(dev, "enabled %d MSI-x vector(s) for RoCE\n",
+@@ -2552,6 +2539,14 @@ done:
+ 	dev_info(dev, "enabled %d MSI-x vector(s) for NIC\n",
+ 		 adapter->num_msix_vec);
+ 	return 0;
++
++fail:
++	dev_warn(dev, "MSIx enable failed\n");
++
++	/* INTx is not supported in VFs, so fail probe if enable_msix fails */
++	if (!be_physfn(adapter))
++		return num_vec;
++	return 0;
+ }
+ 
+ static inline int be_msix_vec_get(struct be_adapter *adapter,
 -- 
 1.7.7.6
