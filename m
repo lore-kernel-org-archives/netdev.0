@@ -1,43 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: sctp: fix sctp_connectx abi for ia32
- emulation/compat mode
-Date: Tue, 18 Feb 2014 16:07:30 -0500 (EST)
-Message-ID: <20140218.160730.1363339001953107311.davem@davemloft.net>
-References: <1392635471-31528-1-git-send-email-dborkman@redhat.com>
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: Re: [RFC v2 2/4] net: enables interface option to skip IP
+Date: Tue, 18 Feb 2014 13:19:15 -0800
+Message-ID: <CAB=NE6XGBp1RwO63W0ac6tTr9JcRM9TB9sap4pa+8PMWwjxu6g@mail.gmail.com>
+References: <1392433180-16052-1-git-send-email-mcgrof@do-not-panic.com>
+ <1392433180-16052-3-git-send-email-mcgrof@do-not-panic.com> <1392668638.21106.5.camel@dcbw.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: dborkman@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35893 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751216AbaBRVHc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 16:07:32 -0500
-In-Reply-To: <1392635471-31528-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	xen-devel@lists.xenproject.org, kvm@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Dan Williams <dcbw@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1392668638.21106.5.camel@dcbw.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Mon, 17 Feb 2014 12:11:11 +0100
+On Mon, Feb 17, 2014 at 12:23 PM, Dan Williams <dcbw@redhat.com> wrote:
+> On Fri, 2014-02-14 at 18:59 -0800, Luis R. Rodriguez wrote:
+>> From: "Luis R. Rodriguez" <mcgrof@suse.com>
+>>
+>> Some interfaces do not need to have any IPv4 or IPv6
+>> addresses, so enable an option to specify this. One
+>> example where this is observed are virtualization
+>> backend interfaces which just use the net_device
+>> constructs to help with their respective frontends.
+>>
+>> This should optimize boot time and complexity on
+>> virtualization environments for each backend interface
+>> while also avoiding triggering SLAAC and DAD, which is
+>> simply pointless for these type of interfaces.
+>
+> Would it not be better/cleaner to use disable_ipv6 and then add a
+> disable_ipv4 sysctl, then use those with that interface?
 
-> SCTP's sctp_connectx() abi breaks for 64bit kernels compiled with 32bit
-> emulation (e.g. ia32 emulation or x86_x32). Due to internal usage of
-> 'struct sctp_getaddrs_old' which includes a struct sockaddr pointer,
-> sizeof(param) check will always fail in kernel as the structure in
-> 64bit kernel space is 4bytes larger than for user binaries compiled
-> in 32bit mode. Thus, applications making use of sctp_connectx() won't
-> be able to run under such circumstances.
-> 
-> Introduce a compat interface in the kernel to deal with such
-> situations by using a 'struct compat_sctp_getaddrs_old' structure
-> where user data is copied into it, and then sucessively transformed
-> into a 'struct sctp_getaddrs_old' structure with the help of
-> compat_ptr(). That fixes sctp_connectx() abi without any changes
-> needed in user space, and lets the SCTP test suite pass when compiled
-> in 32bit and run on 64bit kernels.
-> 
-> Fixes: f9c67811ebc0 ("sctp: Fix regression introduced by new sctp_connectx api")
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Sure, but note that the both disable_ipv6 and accept_dada sysctl
+parameters are global. ipv4 and ipv6 interfaces are created upon
+NETDEVICE_REGISTER, which will get triggered when a driver calls
+register_netdev(). The goal of this patch was to enable an early
+optimization for drivers that have no need ever for ipv4 or ipv6
+interfaces.
 
-Applied and queued up for -stable, thanks.
+Zoltan has noted though some use cases of IPv4 or IPv6 addresses on
+backends though, as such this is no longer applicable as a
+requirement. The ipv4 sysctl however still seems like a reasonable
+approach to enable optimizations of the network in topologies where
+its known we won't need them but -- we'd need to consider a much more
+granular solution, not just global as it is now for disable_ipv6, and
+we'd also have to figure out a clean way to do this to not incur the
+cost of early address interface addition upon register_netdev().
+
+Given that we have a use case for ipv4 and ipv6 addresses on
+xen-netback we no longer have an immediate use case for such early
+optimization primitives though, so I'll drop this.
+
+> The IFF_SKIP_IP seems to duplicate at least part of what disable_ipv6 is
+> already doing.
+
+disable_ipv6 is global, the goal was to make this granular and skip
+the cost upon early boot, but its been clarified we don't need this.
+
+   Luis
