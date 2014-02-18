@@ -1,94 +1,112 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Tue, 18 Feb 2014 12:52:35 +1100
-Message-ID: <20140218125235.255d20c138b514902bd9fd0c@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Tue__18_Feb_2014_12_52_35_+1100_CZX=QCV6juD2VVq8"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dingtianhong <dingtianhong@huawei.com>,
-	Joe Perches <joe@perches.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH net-next 3/3] bonding: Fix the RTNL assertion failed for 802.3ad state machine
+Date: Mon, 17 Feb 2014 18:06:12 -0800
+Message-ID: <5300.1392689172@death.nxdomain>
+References: <1392626151-23916-1-git-send-email-dingtianhong@huawei.com> <1392626151-23916-4-git-send-email-dingtianhong@huawei.com>
+Cc: vfalico@redhat.com, andy@greyhouse.net, cwang@twopensource.com,
+	jiri@resnulli.us, thomas@glanzmann.de, eric.dumazet@gmail.com,
+	sfeldma@cumulusnetworks.com, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:38179 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752209AbaBRCGT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 21:06:19 -0500
+Received: from /spool/local
+	by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Mon, 17 Feb 2014 19:06:19 -0700
+Received: from b03cxnp07028.gho.boulder.ibm.com (b03cxnp07028.gho.boulder.ibm.com [9.17.130.15])
+	by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id 47B461FF003F
+	for <netdev@vger.kernel.org>; Mon, 17 Feb 2014 19:06:16 -0700 (MST)
+Received: from d03av05.boulder.ibm.com (d03av05.boulder.ibm.com [9.17.195.85])
+	by b03cxnp07028.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s1I25kHP6553970
+	for <netdev@vger.kernel.org>; Tue, 18 Feb 2014 03:05:46 +0100
+Received: from d03av05.boulder.ibm.com (localhost [127.0.0.1])
+	by d03av05.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s1I26ELr011877
+	for <netdev@vger.kernel.org>; Mon, 17 Feb 2014 19:06:15 -0700
+In-reply-to: <1392626151-23916-4-git-send-email-dingtianhong@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Tue__18_Feb_2014_12_52_35_+1100_CZX=QCV6juD2VVq8
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Ding Tianhong <dingtianhong@huawei.com> wrote:
 
-Hi all,
+>The 802.3ad state machine don't run in RTNL, but when the slave's
+>state changed, the rtmsg_ifinfo will be called, it will cause
+>warning message because the RTML is not locked, acquiring RTNL
+>for the __enable_port and __disable_port cases is difficult, as
+>those calls generally already hold the state machine lock, and
+>can't unconditionally call rtnl_lock because either they already
+>hold RTNL (for calls via bond_3ad_unbind_slave) or due to the
+>potential for deadlock with bond_3ad_adapter_speed_changed,
+>bond_3ad_adapter_duplex_changed, bond_3ad_link_change, or
+>bond_3ad_update_lacp_rate. All four of those are called with RTNL
+>held, and acquire the state machine lock second, The calling contexts for
+>__enable_port and __disable_port already hold the state machine lock,
+>and may or may not need RTNL.
+>
+>So according to the Jay's opinion, the __enable_port and __disable_port
+>should not call rtmsg_ifinfo in the state machine lock, any change in
+>the state of slave could set a flag in the slave, it will indicated that
+>an rtmsg_ifinfo should be called at the end of the state machine.
 
-Today's linux-next merge of the net-next tree got a conflict in
-drivers/net/bonding/bond_main.c between commit f80889a5b79c ("bonding:
-Fix deadlock in bonding driver when using netpoll") from the net tree and
-commit 90194264ceff ("bonding: Neaten pr_<level>") from the net-next tree.
+	To clarify, my opinion being referenced here was really asking
+Scott Feldman <sfeldma@cumulusnetworks.com> if: (a) the calls had to be
+synchronous, and, (b) if the intermediate calls to adjust flags within
+the ARP monitor "cycle through slaves looking for a functional slave"
+all required notifications.  My suspicion is that the answer to both of
+those is "no," but I haven't heard from Scott.
 
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
+>Cc: Jay Vosburgh <fubar@us.ibm.com>
+>Cc: Veaceslav Falico <vfalico@redhat.com>
+>Cc: Andy Gospodarek <andy@greyhouse.net>
+>Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>---
+> drivers/net/bonding/bond_3ad.c | 5 +++--
+> 1 file changed, 3 insertions(+), 2 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+>index cce1f1b..e80b78f 100644
+>--- a/drivers/net/bonding/bond_3ad.c
+>+++ b/drivers/net/bonding/bond_3ad.c
+>@@ -181,7 +181,7 @@ static inline int __agg_has_partner(struct aggregator *agg)
+>  */
+> static inline void __disable_port(struct port *port)
+> {
+>-	bond_set_slave_inactive_flags(port->slave);
+>+	bond_set_slave_flags(port->slave, BOND_STATE_BACKUP, false);
+> }
+>
+> /**
+>@@ -193,7 +193,7 @@ static inline void __enable_port(struct port *port)
+> 	struct slave *slave = port->slave;
+>
+> 	if ((slave->link == BOND_LINK_UP) && IS_UP(slave->dev))
+>-		bond_set_slave_active_flags(slave);
+>+		bond_set_slave_flags(slave, BOND_STATE_ACTIVE, false);
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+	I don't agree that we need to have two separate systems (your
+new bond_set_slave_flags plus bond_set_slave_{active,inactive}_flags)
+that both tweak the "active" or "inactive" flags for a slave.  It would
+be much cleaner and consistent with the current code to add a "notify"
+boolean to the existing functions.
 
-diff --cc drivers/net/bonding/bond_main.c
-index 1c6104d3501d,3bce855e627b..000000000000
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@@ -1547,13 -1544,12 +1545,13 @@@ int bond_enslave(struct net_device *bon
-  		write_lock_bh(&bond->curr_slave_lock);
-  		bond_select_active_slave(bond);
-  		write_unlock_bh(&bond->curr_slave_lock);
- +		unblock_netpoll_tx();
-  	}
- =20
-- 	pr_info("%s: enslaving %s as a%s interface with a%s link.\n",
-+ 	pr_info("%s: Enslaving %s as %s interface with %s link\n",
-  		bond_dev->name, slave_dev->name,
-- 		bond_is_active_slave(new_slave) ? "n active" : " backup",
-- 		new_slave->link !=3D BOND_LINK_DOWN ? "n up" : " down");
-+ 		bond_is_active_slave(new_slave) ? "an active" : "a backup",
-+ 		new_slave->link !=3D BOND_LINK_DOWN ? "an up" : "a down");
- =20
-  	/* enslave is successful */
-  	return 0;
-@@@ -2865,11 -2858,9 +2862,11 @@@ static int bond_slave_netdev_event(unsi
-  			break;
-  		}
- =20
-- 		pr_info("%s: Primary slave changed to %s, reselecting active slave.\n",
-- 			bond->dev->name, bond->primary_slave ? slave_dev->name :
-- 							       "none");
-+ 		pr_info("%s: Primary slave changed to %s, reselecting active slave\n",
-+ 			bond->dev->name,
-+ 			bond->primary_slave ? slave_dev->name : "none");
- +
- +		block_netpoll_tx();
-  		write_lock_bh(&bond->curr_slave_lock);
-  		bond_select_active_slave(bond);
-  		write_unlock_bh(&bond->curr_slave_lock);
+	-J
 
---Signature=_Tue__18_Feb_2014_12_52_35_+1100_CZX=QCV6juD2VVq8
-Content-Type: application/pgp-signature
+> }
+>
+> /**
+>@@ -2123,6 +2123,7 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
+> re_arm:
+> 	rcu_read_unlock();
+> 	read_unlock(&bond->lock);
+>+	bond_slave_state_notify(bond, false);
+> 	queue_delayed_work(bond->wq, &bond->ad_work, ad_delta_in_ticks);
+> }
+>
+>-- 
+>1.8.0
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAEBCAAGBQJTArzoAAoJEMDTa8Ir7ZwVEP8P+gLhzr8/LuMY7B8iHeBNKFsB
-vIaDS0TyhZC8F4awQkHY5D9HeQaVbHZzE+1EOMS6qwp/RaDqHxd39XVjgFLp3GxZ
-4kSDyxTK6iinPQbLtjWMBE0CYjLkrgvtAGnhyi1Frz8fH0gqr7NBx6aYvvotSgsX
-sZIP6AY2/p7d7ZPwKzCYAX5Icdn7Y4vzJW/tmFCmXXEZoM/WKrXXkM5tI2czRFLW
-s8yS4ThwrwsXIU28ImJlPuvTkMmz6X1WKmzdhMy3ER44/U77brNlLRgJqGntJz+A
-LGMdlTEiEfjNIcsbgJRhBYLVsq3PsuVOnRPUq4I/xm3+cUx0Py2MjBXOFsGVrRic
-6INCafXW+TsadaB8N6Pe+z4X7TCNuNWGf2nWcUbkUpN6/4Y7bO2h1weaOpZecHNB
-ZhfSjdlF5NrjIOk7ESyh/OGYgzscVhPgBwkMqz50+9jEjd708hv95YoVOp5f+gYz
-bDKiAdmWsXgjMS6M95uo0VWFYrMz79XuwgI8Hx8QJIJU54f7lCx2Sy1bwnxKmttP
-ljUiWNpu5+qGJ1KqMfLMxsZasoQF4tDAIplpw24UIyUkFMJgR3KTkU3XOavoBuIT
-EamWmdamR/R6mP/Bm4vL4G7+zxkJZ5DfOrbU9J/p+be7EPFqUiEL8P/eVaZ3GeIR
-dUCRxcdkR0wdK0fdhRYF
-=a1jx
------END PGP SIGNATURE-----
-
---Signature=_Tue__18_Feb_2014_12_52_35_+1100_CZX=QCV6juD2VVq8--
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
