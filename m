@@ -1,82 +1,200 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: Re: [Xen-devel] [RFC v2 0/4] net: bridge / ip optimizations for
- virtual net backends
-Date: Tue, 18 Feb 2014 11:43:59 -0800
-Message-ID: <CAB=NE6VxNByeWGk6_Ow7WgxA3HCwGBjrjL9MNVRGsEfFyeKTdw@mail.gmail.com>
-References: <1392433180-16052-1-git-send-email-mcgrof@do-not-panic.com> <5301E411.5060908@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	xen-devel@lists.xenproject.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	kvm@vger.kernel.org
-To: David Vrabel <david.vrabel@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5301E411.5060908@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] rtnl: make ifla_policy static
+Date: Tue, 18 Feb 2014 20:53:18 +0100
+Message-ID: <1392753198-9437-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, kaber@trash.net, xiyou.wangcong@gmail.com,
+	stephen@networkplumber.org, vyasevic@redhat.com, jbenc@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f173.google.com ([209.85.215.173]:65448 "EHLO
+	mail-ea0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750864AbaBRTxW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 14:53:22 -0500
+Received: by mail-ea0-f173.google.com with SMTP id d10so8155526eaj.4
+        for <netdev@vger.kernel.org>; Tue, 18 Feb 2014 11:53:21 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 17, 2014 at 2:27 AM, David Vrabel <david.vrabel@citrix.com> wrote:
-> On 15/02/14 02:59, Luis R. Rodriguez wrote:
->> From: "Luis R. Rodriguez" <mcgrof@suse.com>
->>
->> This v2 series changes the approach from my original virtualization
->> multicast patch series [0] by abandoning completely the multicast
->> issues and instead generalizing an approach for virtualization
->> backends. There are two things in common with virtualization
->> backends:
->>
->>   0) they should not become the root bridge
->>   1) they don't need ipv4 / ipv6 interfaces
->
-> Why?  There's no real difference between a backend network device and a
-> physical device (from the point of view of the backend domain).  I do
-> not think these are intrinsic properties of backend devices.
+The only place this is used outside rtnetlink.c is veth. So provide
+wrapper function for this usage.
 
-Let me clarify the original motivation as that can likely help explain
-how I ended up with this patch series.
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ drivers/net/veth.c      |   8 ++--
+ include/net/rtnetlink.h |   2 +-
+ net/core/rtnetlink.c    | 107 +++++++++++++++++++++++++-----------------------
+ 3 files changed, 61 insertions(+), 56 deletions(-)
 
-SUSE has had reports of xen backend interfaces ending up with
-duplicate address notification filling up logs on systems with a
-series of guests, these reports go back to 2006. This was root caused
-to DAD on IPv6 interfaces, and a work around implemented to disable
-DAD [0] on multicast links. Even though this patch as a work around
-should not be applicable anymore given that since the xen-netback
-upstreaming since 2.6.39 ether_setup is used and that enables the
-multicast flag, we should try ensure the issue doesn't creep up
-anymore. As per the IPv6 RFCs and Linux IPv6 implementation -- DAD
-should be triggered even in the case of manual IP configuration and
-when the link goes up, as such SLAAC will always take place on IPv6
-interfaces. Although not documented upon my review I determined the
-original issue could also be attributed to the corner case documented
-on Appendix A of RFC 4862 [1] and this could be more prevalent for
-xen-netback given we stuck to the same MAC address for all xen-netback
-interfaces. I first tried to generalize the work around and address
-the multicast case requirement for IPv6 [2], and explicitly disabling
-multicast on xen-netback. Although this approach could likely be
-generalized further by taking into account for NBMA links by checking
-dev->type I determined we didn't need IPv6 interfaces at all on the
-xent-netback interfaces. This lead me to further review if we even
-needed IPv4 interfaces as well, and it turns out we do not.
-
-New motivation: removing IPv4 and IPv6 from the backend interfaces can
-save up a lot of boiler plate run time code, triggers from ever taking
-place, and simplifying the backend interaces. If there is no use for
-IPv4 and IPv6 interfaces why do we have them? Note: I have yet to test
-the NAT case.
-
-> I can see these being useful knobs for administrators (or management
-> toolstacks) to turn on, on a per-device basis.
-
-Agreed but these knobs don't even exist for drivers yet, let alone for
-system administrators. I certainly can shoot for another series to let
-administrators configure this as a preference but -- if we know a
-driver won't need IPv4 and IPv6 interfaces why not just allow drivers
-to disable them all together? Consider the simplification of the
-interfaces on the host.
-
-[0] https://gitorious.org/opensuse/kernel-source/source/8e16582178a29b03e850468004a47e7be5ed3005:patches.xen/ipv6-no-autoconf
-[1] http://tools.ietf.org/html/rfc4862
-[2] http://marc.info/?l=linux-netdev&m=139207142110536&w=2
-
-  Luis
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index 91c33c1..34b5263 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -14,6 +14,7 @@
+ #include <linux/etherdevice.h>
+ #include <linux/u64_stats_sync.h>
+ 
++#include <net/rtnetlink.h>
+ #include <net/dst.h>
+ #include <net/xfrm.h>
+ #include <linux/veth.h>
+@@ -323,10 +324,9 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
+ 
+ 		nla_peer = data[VETH_INFO_PEER];
+ 		ifmp = nla_data(nla_peer);
+-		err = nla_parse(peer_tb, IFLA_MAX,
+-				nla_data(nla_peer) + sizeof(struct ifinfomsg),
+-				nla_len(nla_peer) - sizeof(struct ifinfomsg),
+-				ifla_policy);
++		err = rtnl_nla_parse_ifla(peer_tb,
++					  nla_data(nla_peer) + sizeof(struct ifinfomsg),
++					  nla_len(nla_peer) - sizeof(struct ifinfomsg));
+ 		if (err < 0)
+ 			return err;
+ 
+diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
+index 661e45d..72240e5 100644
+--- a/include/net/rtnetlink.h
++++ b/include/net/rtnetlink.h
+@@ -140,7 +140,7 @@ struct net_device *rtnl_create_link(struct net *net, char *ifname,
+ 				    struct nlattr *tb[]);
+ int rtnl_configure_link(struct net_device *dev, const struct ifinfomsg *ifm);
+ 
+-extern const struct nla_policy ifla_policy[IFLA_MAX+1];
++int rtnl_nla_parse_ifla(struct nlattr **tb, const struct nlattr *head, int len);
+ 
+ #define MODULE_ALIAS_RTNL_LINK(kind) MODULE_ALIAS("rtnl-link-" kind)
+ 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 048dc8d..7b2ad56 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1121,56 +1121,7 @@ nla_put_failure:
+ 	return -EMSGSIZE;
+ }
+ 
+-static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+-{
+-	struct net *net = sock_net(skb->sk);
+-	int h, s_h;
+-	int idx = 0, s_idx;
+-	struct net_device *dev;
+-	struct hlist_head *head;
+-	struct nlattr *tb[IFLA_MAX+1];
+-	u32 ext_filter_mask = 0;
+-
+-	s_h = cb->args[0];
+-	s_idx = cb->args[1];
+-
+-	rcu_read_lock();
+-	cb->seq = net->dev_base_seq;
+-
+-	if (nlmsg_parse(cb->nlh, sizeof(struct ifinfomsg), tb, IFLA_MAX,
+-			ifla_policy) >= 0) {
+-
+-		if (tb[IFLA_EXT_MASK])
+-			ext_filter_mask = nla_get_u32(tb[IFLA_EXT_MASK]);
+-	}
+-
+-	for (h = s_h; h < NETDEV_HASHENTRIES; h++, s_idx = 0) {
+-		idx = 0;
+-		head = &net->dev_index_head[h];
+-		hlist_for_each_entry_rcu(dev, head, index_hlist) {
+-			if (idx < s_idx)
+-				goto cont;
+-			if (rtnl_fill_ifinfo(skb, dev, RTM_NEWLINK,
+-					     NETLINK_CB(cb->skb).portid,
+-					     cb->nlh->nlmsg_seq, 0,
+-					     NLM_F_MULTI,
+-					     ext_filter_mask) <= 0)
+-				goto out;
+-
+-			nl_dump_check_consistent(cb, nlmsg_hdr(skb));
+-cont:
+-			idx++;
+-		}
+-	}
+-out:
+-	rcu_read_unlock();
+-	cb->args[1] = idx;
+-	cb->args[0] = h;
+-
+-	return skb->len;
+-}
+-
+-const struct nla_policy ifla_policy[IFLA_MAX+1] = {
++static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 	[IFLA_IFNAME]		= { .type = NLA_STRING, .len = IFNAMSIZ-1 },
+ 	[IFLA_ADDRESS]		= { .type = NLA_BINARY, .len = MAX_ADDR_LEN },
+ 	[IFLA_BROADCAST]	= { .type = NLA_BINARY, .len = MAX_ADDR_LEN },
+@@ -1197,7 +1148,6 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 	[IFLA_NUM_RX_QUEUES]	= { .type = NLA_U32 },
+ 	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_PORT_ID_LEN },
+ };
+-EXPORT_SYMBOL(ifla_policy);
+ 
+ static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
+ 	[IFLA_INFO_KIND]	= { .type = NLA_STRING },
+@@ -1235,6 +1185,61 @@ static const struct nla_policy ifla_port_policy[IFLA_PORT_MAX+1] = {
+ 	[IFLA_PORT_RESPONSE]	= { .type = NLA_U16, },
+ };
+ 
++static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	struct net *net = sock_net(skb->sk);
++	int h, s_h;
++	int idx = 0, s_idx;
++	struct net_device *dev;
++	struct hlist_head *head;
++	struct nlattr *tb[IFLA_MAX+1];
++	u32 ext_filter_mask = 0;
++
++	s_h = cb->args[0];
++	s_idx = cb->args[1];
++
++	rcu_read_lock();
++	cb->seq = net->dev_base_seq;
++
++	if (nlmsg_parse(cb->nlh, sizeof(struct ifinfomsg), tb, IFLA_MAX,
++			ifla_policy) >= 0) {
++
++		if (tb[IFLA_EXT_MASK])
++			ext_filter_mask = nla_get_u32(tb[IFLA_EXT_MASK]);
++	}
++
++	for (h = s_h; h < NETDEV_HASHENTRIES; h++, s_idx = 0) {
++		idx = 0;
++		head = &net->dev_index_head[h];
++		hlist_for_each_entry_rcu(dev, head, index_hlist) {
++			if (idx < s_idx)
++				goto cont;
++			if (rtnl_fill_ifinfo(skb, dev, RTM_NEWLINK,
++					     NETLINK_CB(cb->skb).portid,
++					     cb->nlh->nlmsg_seq, 0,
++					     NLM_F_MULTI,
++					     ext_filter_mask) <= 0)
++				goto out;
++
++			nl_dump_check_consistent(cb, nlmsg_hdr(skb));
++cont:
++			idx++;
++		}
++	}
++out:
++	rcu_read_unlock();
++	cb->args[1] = idx;
++	cb->args[0] = h;
++
++	return skb->len;
++}
++
++int rtnl_nla_parse_ifla(struct nlattr **tb, const struct nlattr *head, int len)
++{
++	return nla_parse(tb, IFLA_MAX, head, len, ifla_policy);
++}
++EXPORT_SYMBOL(rtnl_nla_parse_ifla);
++
+ struct net *rtnl_link_get_net(struct net *src_net, struct nlattr *tb[])
+ {
+ 	struct net *net;
+-- 
+1.8.5.3
