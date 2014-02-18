@@ -1,41 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] igb: Fix Null-pointer dereference in
- igb_reset_q_vector
-Date: Tue, 18 Feb 2014 18:08:08 -0500 (EST)
-Message-ID: <20140218.180808.558822435914770314.davem@davemloft.net>
-References: <1392728817-21693-1-git-send-email-christoph.paasch@uclouvain.be>
+Subject: Re: [PATCH] NET: fec: only enable napi if we are successful
+Date: Tue, 18 Feb 2014 18:07:30 -0500 (EST)
+Message-ID: <20140218.180730.54681622364091114.davem@davemloft.net>
+References: <E1WFkD8-0004pj-Pr@rmk-PC.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	carolyn.wyborny@intel.com
-To: christoph.paasch@uclouvain.be
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	dmalek@jlc.net, gerg@snapgear.com, phdm@macqel.be,
+	fabio.estevam@freescale.com
+To: rmk+kernel@arm.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36989 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36980 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752056AbaBRXIK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 18:08:10 -0500
-In-Reply-To: <1392728817-21693-1-git-send-email-christoph.paasch@uclouvain.be>
+	with ESMTP id S1753666AbaBRXHd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 18:07:33 -0500
+In-Reply-To: <E1WFkD8-0004pj-Pr@rmk-PC.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Date: Tue, 18 Feb 2014 14:06:57 +0100
+From: Russell King <rmk+kernel@arm.linux.org.uk>
+Date: Tue, 18 Feb 2014 12:55:42 +0000
 
-> When igb_set_interrupt_capability() calls
-> igb_reset_interrupt_capability() (e.g., because CONFIG_PCI_MSI is unset),
-> num_q_vectors has been set but no vector has yet been allocated.
+> If napi is left enabled after a failed attempt to bring the interface
+> up, we BUG:
 > 
-> igb_reset_interrupt_capability() will then call igb_reset_q_vector,
-> which assumes that the vector is allocated. As this is not the case, we
-> are accessing a NULL-pointer.
+> fec 2188000.ethernet eth0: no PHY, assuming direct connection to switch
+> libphy: PHY fixed-0:00 not found
+> fec 2188000.ethernet eth0: could not attach to PHY
+> ------------[ cut here ]------------
+> kernel BUG at include/linux/netdevice.h:502!
+> Internal error: Oops - BUG: 0 [#1] SMP ARM
+> ...
+> PC is at fec_enet_open+0x4d0/0x500
+> LR is at __dev_open+0xa4/0xfc
 > 
-> This patch fixes it by checking that q_vector is indeed different from
-> NULL.
+> Only enable napi after we are past all the failure paths.
 > 
-> Fixes: 02ef6e1d0b0023 (igb: Fix queue allocation method to accommodate changing during runtime)
-> Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 
-Intel folks, please queue this up, thanks.
+Applied, thanks a lot Russell.
