@@ -1,61 +1,51 @@
 From: Wang Weidong <wangweidong1@huawei.com>
-Subject: Re: [PATCH] ethtool: check the ethtool_ops is NULL in dev_ethtool
-Date: Tue, 18 Feb 2014 09:20:58 +0800
-Message-ID: <5302B57A.1040806@huawei.com>
-References: <5301F32C.4040704@huawei.com> <53024266.8010700@redhat.com>
+Subject: [PATCH v2] ethtool: check the ethtool_ops is NULL in dev_ethtool
+Date: Tue, 18 Feb 2014 09:42:56 +0800
+Message-ID: <5302BAA0.9060905@huawei.com>
+References: <5301F32C.4040704@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>
+Cc: <netdev@vger.kernel.org>, Daniel Borkmann <dborkman@redhat.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:55902 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751221AbaBRBVP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 20:21:15 -0500
-In-Reply-To: <53024266.8010700@redhat.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:35962 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752394AbaBRBnX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 20:43:23 -0500
+In-Reply-To: <5301F32C.4040704@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/2/18 1:09, Daniel Borkmann wrote:
-> On 02/17/2014 12:31 PM, Wang Weidong wrote:
->> some drivers maybe not implement the ethtool_ops with only
->> set NULL. So when call the ethtool cmds will lead to a
->> 'NULL pointer dereference'.
->>
->> So add a checking in dev_ethtool.
->>
->> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
->> ---
->>   net/core/ethtool.c | 3 +++
->>   1 file changed, 3 insertions(+)
->>
->> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
->> index 30071de..f418dcb 100644
->> --- a/net/core/ethtool.c
->> +++ b/net/core/ethtool.c
->> @@ -1499,6 +1499,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
->>           if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
->>               return -EPERM;
->>       }
->> +   
-> 
-> You have a trailing whitespace/tab in the line above. Please
-> use checkpatch for detecting such things.
-> 
-Sorry for that. I will fix it soon.
+some drivers maybe not implement the ethtool_ops with only
+set NULL to ethtool_ops. So when call the ethtool devx will
+lead to a 'NULL pointer dereference'.
 
-> Can you be more specific with "some drivers"? Any driver that
-> is in the mainline tree?
-> 
-No. My team implements a driver without considering the ethtool_ops.
-So I got the problem.
+So add a check in dev_ethtool
 
->> +    if (!dev->ethtool_ops)
->> +        return -EOPNOTSUPP;
->>
->>       if (dev->ethtool_ops->begin) {
->>           rc = dev->ethtool_ops->begin(dev);
->>
-> 
-> 
+Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+---
+Change note:
+
+v2: fix a trailing whitespace/tab pointed out by Daniel
+
+---
+ net/core/ethtool.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 30071de..c8cfd8f 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1500,6 +1500,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 			return -EPERM;
+ 	}
+ 
++	if (!dev->ethtool_ops)
++		return -EOPNOTSUPP;
++
+ 	if (dev->ethtool_ops->begin) {
+ 		rc = dev->ethtool_ops->begin(dev);
+ 		if (rc  < 0)
+-- 
+1.7.12
