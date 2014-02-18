@@ -1,63 +1,103 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v5 net-next 04/12] bonding: always set recv_probe to bond_arp_rcv in arp monitor
-Date: Tue, 18 Feb 2014 07:48:39 +0100
-Message-ID: <1392706127-28390-5-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v5 net-next 0/12] bonding: add an option to rely on
+ unvalidated arp packets
+Date: Tue, 18 Feb 2014 07:58:39 +0100
+Message-ID: <20140218065839.GA14534@redhat.com>
 References: <1392706127-28390-1-git-send-email-vfalico@redhat.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Rob Landley <rob@landley.net>, Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	dingtianhong <dingtianhong@huawei.com>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47946 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:44781 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753147AbaBRGxK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Feb 2014 01:53:10 -0500
+	id S1751222AbaBRG7C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Feb 2014 01:59:02 -0500
+Content-Disposition: inline
 In-Reply-To: <1392706127-28390-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently we only set bond_arp_rcv() if we're using arp_validate, however
-this makes us skip updating last_arp_rx if we're not validating incoming
-ARPs - thus, if arp_validate is off, last_arp_rx will never be updated.
+On Tue, Feb 18, 2014 at 07:48:35AM +0100, Veaceslav Falico wrote:
+>From Veaceslav Falico <vfalico@redhat.com> # This line is ignored.
+>From: Veaceslav Falico <vfalico@redhat.com>
+>Subject: [PATCH v5 net-next 0/12] bonding: add an option to rely on unvalidated arp packets
+>In-Reply-To:
 
-Fix this by always setting up recv_probe = bond_arp_rcv, even if we're not
-using arp_validate.
+Nice, cover letter got fucked up, sorry for that. Patches are ok though.
 
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
----
- drivers/net/bonding/bond_main.c    | 3 +--
- drivers/net/bonding/bond_options.c | 3 +--
- 2 files changed, 2 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 7747cc5..257ee7f 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3059,8 +3059,7 @@ static int bond_open(struct net_device *bond_dev)
- 
- 	if (bond->params.arp_interval) {  /* arp interval, in milliseconds. */
- 		queue_delayed_work(bond->wq, &bond->arp_work, 0);
--		if (bond->params.arp_validate)
--			bond->recv_probe = bond_arp_rcv;
-+		bond->recv_probe = bond_arp_rcv;
- 	}
- 
- 	if (bond->params.mode == BOND_MODE_8023AD) {
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 4d58645..ad20c8c 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -810,8 +810,7 @@ int bond_option_arp_interval_set(struct bonding *bond,
- 			cancel_delayed_work_sync(&bond->arp_work);
- 		} else {
- 			/* arp_validate can be set only in active-backup mode */
--			if (bond->params.arp_validate)
--				bond->recv_probe = bond_arp_rcv;
-+			bond->recv_probe = bond_arp_rcv;
- 			cancel_delayed_work_sync(&bond->mii_work);
- 			queue_delayed_work(bond->wq, &bond->arp_work, 0);
- 		}
--- 
-1.8.4
+>
+>Hi,
+>
+>v4 -> v5:
+>Again per Nik's advise correct the bond_opts restrictions for arp_validate
+>- set it the same as arp_interval.
+>
+>v3 -> v4:
+>Per Nikolay's advise, remove the new bond_opts restriction on modes setting
+>for arp_validate.
+>
+>v2 -> v3:
+>Per Jay's advise, use the 'filter' keyword instead of 'arp' one, and use
+>his text for documentation. Also, rebase on the latest net-next. Sorry for
+>the delay, didn't manage to send it before net-next was closed.
+>
+>v1 -> v2:
+>Don't remove the 'all traffic' functionality - rather, add new arp_validate
+>options to specify that we want *only* unvalidated arps.
+>
+>Currently, if arp_validate is off (0), slave_last_rx() returns the
+>slave->dev->last_rx, which is always updated on *any* packet received by
+>slave, and not only arps. This means that, if the validation of arps is
+>off, we're treating *any* incoming packet as a proof of slave being up, and
+>not only arps.
+>
+>This might seem logical at the first glance, however it can cause a lot of
+>troubles and false-positives, one example would be:
+>
+>The arp_ip_target is NOT accessible, however someone in the broadcast domain
+>spams with any broadcast traffic. This way bonding will be tricked that the
+>slave is still up (as in - can access arp_ip_target), while it's not.
+>
+>The net_device->last_rx is already used in a lot of drivers (even though the
+>comment states to NOT do it :)), and it's also ugly to modify it from bonding.
+>
+>However, some loadbalance setups might rely on the fact that even non-arp
+>traffic is a sign of slave being up - and we definitely can't break anyones
+>config - so an extension to arp_validate is needed.
+>
+>So, to fix this, add an option for the user to specify if he wants to
+>filter out non-arp traffic on unvalidated slaves, remove the last_rx from
+>bonding, *always* call bond_arp_rcv() in slave's rx_handler (which is
+>bond_handle_frame), and if we spot an arp there with this option on - update
+>the slave->last_arp_rx - and use it instead of net_device->last_rx. Finally,
+>rename last_arp_rx to last_rx to reflect the changes.
+>
+>Also rename slave->jiffies to ->last_link_up, to reflect better its
+>meaning, add the new option's documentation and update the arp_validate one
+>to be a bit more descriptive.
+>
+>CC: Rob Landley <rob@landley.net>
+>CC: Jay Vosburgh <fubar@us.ibm.com>
+>CC: Andy Gospodarek <andy@greyhouse.net>
+>CC: "David S. Miller" <davem@davemloft.net>
+>CC: dingtianhong <dingtianhong@huawei.com>
+>CC: Nikolay Aleksandrov <nikolay@redhat.com>
+>CC: Neil Horman <nhorman@tuxdriver.com>
+>CC: Cong Wang <amwang@redhat.com>
+>CC: netdev@vger.kernel.org
+>Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+>
+>---
+> Documentation/networking/bonding.txt | 96 +++++++++++++++++++++++++-----------
+> drivers/net/bonding/bond_main.c      | 56 +++++++++------------
+> drivers/net/bonding/bond_options.c   | 19 ++++---
+> drivers/net/bonding/bonding.h        | 26 ++++++----
+> include/linux/netdevice.h            |  8 +--
+> 5 files changed, 119 insertions(+), 86 deletions(-)
