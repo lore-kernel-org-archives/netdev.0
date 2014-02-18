@@ -1,88 +1,52 @@
-From: Ben Dooks <ben.dooks@codethink.co.uk>
-Subject: Re: [PATCH] net: add init-regs for of_phy support
-Date: Tue, 18 Feb 2014 08:16:46 +0000
-Message-ID: <530316EE.5010104@codethink.co.uk>
-References: <1392642484-19938-1-git-send-email-ben.dooks@codethink.co.uk> <1392642484-19938-2-git-send-email-ben.dooks@codethink.co.uk> <CAGVrzcYbw5xLj-gwcup5i0gBdKDDGdyy5wAaEBp7m2E7f2bytg@mail.gmail.com> <5302801F.6000903@cogentembedded.com> <CAGVrzcbZC3t0oexc5Aj-KyGj-qC8J9eYp8+rb8V-AqKtrSjyYw@mail.gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: Fw:[Bug 70471] xfrm policy node will double unlink.
+Date: Tue, 18 Feb 2014 09:37:38 +0100
+Message-ID: <20140218083737.GB32371@secunet.com>
+References: <tencent_0D7FA5355C7998793C100B23@qq.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Mark Rutland <mark.rutland@arm.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <CAGVrzcbZC3t0oexc5Aj-KyGj-qC8J9eYp8+rb8V-AqKtrSjyYw@mail.gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: netdev <netdev@vger.kernel.org>, alan <alan@lxorguk.ukuu.org.uk>
+To: Xianpeng Zhao <673321875@qq.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:47917 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754212AbaBRIhl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Feb 2014 03:37:41 -0500
+Content-Disposition: inline
+In-Reply-To: <tencent_0D7FA5355C7998793C100B23@qq.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 17/02/14 20:48, Florian Fainelli wrote:
+On Tue, Feb 18, 2014 at 10:55:57AM +0800, Xianpeng Zhao wrote:
+> Hi Group,
+>      I found a problem about xfrm policy.
+> 
+>      In corner case, xfrm policy node will be double unlinked from the list.
+> 
+>     The scenario like this:
+>     In thread context, After removed the node from list, before remove the xfrm policy expire timer. At this point, a timer interrupt come, and call the run_timer_softirq to execute the xfrm_policy_timer to remove the expired policy node; because this policy node had already removed from list. this remove will cause the node double unlinked.
 
-[snip]
+Good catch!
 
->>> - fixing up some design mistake?
->>> - accounting for a specific board design?
->>
->>
->>     Kind of both. This was invented to defy the necessity of having platform
->> fixup in the DT case (where there should be no board file to place it into).
->> I have already described that platform fixup necessary on the Renesas
->> Lager/Koelsch boards where the LED0 signat is connected to ETH_LINK signal
->> on the SoC and the PHY reset sets the LED control bits to default 0 which
->> means that LED0 will be LINK/ACTIVITY signal and thus blink on activity and
->> cause ETH_LINK to bounce off/on after each packet.
->>
->>
->>> In any case a PHY fixup would do the job for you.
->>
->>
->>     Not in any case. In case of DT we have no place for it, so should invent
->> something involving DT.
->
-> How is DT different than any machine probing mechanism here? The way
-> to involve DT is to do the following:
->
-> if (of_machine_is_compatible("renesas,foo-board-with-broken-micrel-phy"))
->             phy_register_fixup(&foo_board_with_broken_micrel_phy);
+I wonder why I've never seen this. Do you have a reproducer for this bug?
 
-Oh yes, but now I have to do that for Linux, for $BSD, and for
-anything else I want to run on the device. I thought dt was meant
-to allow us to describe the hardware.
+Looks like it is sufficient to reinitialize the bydst hlist in
+__xfrm_policy_unlink(). Then hlist_unhashed() will notice that
+this policy is not linked.
 
-If this is the case, let's just call this linuxtree and let everyone
-else get on with their own thing again.
-
-See also comment below.
-
-> If your machine compatible string does not allow you to uniquely
-> identify your machine, this is a DT problem, as this should really be
-> the case. If you do not want to add this code to wherever this is
-> relevant in arch/arm/mach-shmobile/board-*.c, neither is
-> drivers/net/phy/phy_device.c this the place to add it.
-
-So where should it be added? If we keep piling stuff into board files
-in arch/arm.... then we're just back to the pre-dt case and going to
-keep getting shouted at.
-
-> Dealing with quirks applying to industry standard blocks is to update
-> the relevant driver, based on information provided by the specifically
-> affected systems. Failure to identify either of those correctly is a
-> problem that must not lead to a generic "let's override PHY registers
-> from DT" type of solution.
->
-> As usual, mechanism vs policy applies even more when DT is involved.
-
-There's an industry standard for the access method, but every PHY seems
-to have different extra setup registers for their own cases.
-
-I will leave this out here in case anyone else finds it useful, there
-may be a case where there are PHYs that need an amount of register
-initialisation and this code may be smaller than putting a pile of
-dt properties in.
+Does the patch below help?
 
 
--- 
-Ben Dooks				http://www.codethink.co.uk/
-Senior Engineer				Codethink - Providing Genius
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 121399d..225f439 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1156,7 +1156,7 @@ static struct xfrm_policy *__xfrm_policy_unlink(struct xfrm_policy *pol,
+ 	if (hlist_unhashed(&pol->bydst))
+ 		return NULL;
+ 
+-	hlist_del(&pol->bydst);
++	hlist_del_init(&pol->bydst);
+ 	hlist_del(&pol->byidx);
+ 	list_del(&pol->walk.all);
+ 	net->xfrm.policy_count[dir]--;
