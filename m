@@ -1,120 +1,156 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next] openvswitch: Use ether_addr_copy
-Date: Tue, 18 Feb 2014 11:15:45 -0800
-Message-ID: <fee7d53a1cfdec0aec7ea35a1f2f4b5e66766ee3.1392750899.git.joe@perches.com>
-Cc: Jesse Gross <jesse@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>, dev@openvswitch.org,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Subject: Re: [PATCH net-next 29/35] qlge: Get rid of an redundant assignment
+Date: Tue, 18 Feb 2014 19:19:49 +0000
+Message-ID: <BECD8E8A1B550B48A1BF97C13991F60E46D21C6F@avmb2.qlogic.org>
+References: <cover.1392717502.git.agordeev@redhat.com>
+ <bffe424063b212553530f64b3282e260e2a37074.1392717503.git.agordeev@redhat.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="_000_BECD8E8A1B550B48A1BF97C13991F60E46D21C6Favmb2qlogicorg_"
+Cc: Shahed Shaikh <shahed.shaikh@qlogic.com>,
+	Ron Mercer <ron.mercer@qlogic.com>,
+	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-pci <linux-pci@vger.kernel.org>
+To: Alexander Gordeev <agordeev@redhat.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <bffe424063b212553530f64b3282e260e2a37074.1392717503.git.agordeev@redhat.com>
+Content-Language: en-US
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It's slightly smaller/faster for some architectures.
+--_000_BECD8E8A1B550B48A1BF97C13991F60E46D21C6Favmb2qlogicorg_
+Content-Type: text/plain; charset="us-ascii"
+Content-ID: <DC580FF9B3149B419EAC0A774EE653D2@qlogic.com>
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- net/openvswitch/actions.c      |  4 ++--
- net/openvswitch/flow.c         | 16 ++++++++--------
- net/openvswitch/flow_netlink.c | 12 ++++++------
- 3 files changed, 16 insertions(+), 16 deletions(-)
 
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 2c77e7b..c36856a 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -134,8 +134,8 @@ static int set_eth_addr(struct sk_buff *skb,
- 
- 	skb_postpull_rcsum(skb, eth_hdr(skb), ETH_ALEN * 2);
- 
--	memcpy(eth_hdr(skb)->h_source, eth_key->eth_src, ETH_ALEN);
--	memcpy(eth_hdr(skb)->h_dest, eth_key->eth_dst, ETH_ALEN);
-+	ether_addr_copy(eth_hdr(skb)->h_source, eth_key->eth_src);
-+	ether_addr_copy(eth_hdr(skb)->h_dest, eth_key->eth_dst);
- 
- 	ovs_skb_postpush_rcsum(skb, eth_hdr(skb), ETH_ALEN * 2);
- 
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index 16f4b46..bd67bb4 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -385,14 +385,14 @@ static int parse_icmpv6(struct sk_buff *skb, struct sw_flow_key *key,
- 			    && opt_len == 8) {
- 				if (unlikely(!is_zero_ether_addr(key->ipv6.nd.sll)))
- 					goto invalid;
--				memcpy(key->ipv6.nd.sll,
--				    &nd->opt[offset+sizeof(*nd_opt)], ETH_ALEN);
-+				ether_addr_copy(key->ipv6.nd.sll,
-+						&nd->opt[offset+sizeof(*nd_opt)]);
- 			} else if (nd_opt->nd_opt_type == ND_OPT_TARGET_LL_ADDR
- 				   && opt_len == 8) {
- 				if (unlikely(!is_zero_ether_addr(key->ipv6.nd.tll)))
- 					goto invalid;
--				memcpy(key->ipv6.nd.tll,
--				    &nd->opt[offset+sizeof(*nd_opt)], ETH_ALEN);
-+				ether_addr_copy(key->ipv6.nd.tll,
-+						&nd->opt[offset+sizeof(*nd_opt)]);
- 			}
- 
- 			icmp_len -= opt_len;
-@@ -452,8 +452,8 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key)
- 	 * header in the linear data area.
- 	 */
- 	eth = eth_hdr(skb);
--	memcpy(key->eth.src, eth->h_source, ETH_ALEN);
--	memcpy(key->eth.dst, eth->h_dest, ETH_ALEN);
-+	ether_addr_copy(key->eth.src, eth->h_source);
-+	ether_addr_copy(key->eth.dst, eth->h_dest);
- 
- 	__skb_pull(skb, 2 * ETH_ALEN);
- 	/* We are going to push all headers that we pull, so no need to
-@@ -551,8 +551,8 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key)
- 				key->ip.proto = ntohs(arp->ar_op);
- 			memcpy(&key->ipv4.addr.src, arp->ar_sip, sizeof(key->ipv4.addr.src));
- 			memcpy(&key->ipv4.addr.dst, arp->ar_tip, sizeof(key->ipv4.addr.dst));
--			memcpy(key->ipv4.arp.sha, arp->ar_sha, ETH_ALEN);
--			memcpy(key->ipv4.arp.tha, arp->ar_tha, ETH_ALEN);
-+			ether_addr_copy(key->ipv4.arp.sha, arp->ar_sha);
-+			ether_addr_copy(key->ipv4.arp.tha, arp->ar_tha);
- 		}
- 	} else if (key->eth.type == htons(ETH_P_IPV6)) {
- 		int nh_len;             /* IPv6 Header + Extensions */
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index 4d000ac..c883b18 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -982,8 +982,8 @@ int ovs_nla_put_flow(const struct sw_flow_key *swkey,
- 		goto nla_put_failure;
- 
- 	eth_key = nla_data(nla);
--	memcpy(eth_key->eth_src, output->eth.src, ETH_ALEN);
--	memcpy(eth_key->eth_dst, output->eth.dst, ETH_ALEN);
-+	ether_addr_copy(eth_key->eth_src, output->eth.src);
-+	ether_addr_copy(eth_key->eth_dst, output->eth.dst);
- 
- 	if (swkey->eth.tci || swkey->eth.type == htons(ETH_P_8021Q)) {
- 		__be16 eth_type;
-@@ -1055,8 +1055,8 @@ int ovs_nla_put_flow(const struct sw_flow_key *swkey,
- 		arp_key->arp_sip = output->ipv4.addr.src;
- 		arp_key->arp_tip = output->ipv4.addr.dst;
- 		arp_key->arp_op = htons(output->ip.proto);
--		memcpy(arp_key->arp_sha, output->ipv4.arp.sha, ETH_ALEN);
--		memcpy(arp_key->arp_tha, output->ipv4.arp.tha, ETH_ALEN);
-+		ether_addr_copy(arp_key->arp_sha, output->ipv4.arp.sha);
-+		ether_addr_copy(arp_key->arp_tha, output->ipv4.arp.tha);
- 	}
- 
- 	if ((swkey->eth.type == htons(ETH_P_IP) ||
-@@ -1143,8 +1143,8 @@ int ovs_nla_put_flow(const struct sw_flow_key *swkey,
- 				nd_key = nla_data(nla);
- 				memcpy(nd_key->nd_target, &output->ipv6.nd.target,
- 							sizeof(nd_key->nd_target));
--				memcpy(nd_key->nd_sll, output->ipv6.nd.sll, ETH_ALEN);
--				memcpy(nd_key->nd_tll, output->ipv6.nd.tll, ETH_ALEN);
-+				ether_addr_copy(nd_key->nd_sll, output->ipv6.nd.sll);
-+				ether_addr_copy(nd_key->nd_tll, output->ipv6.nd.tll);
- 			}
- 		}
- 	}
--- 
-1.8.1.2.459.gbcd45b4.dirty
+On 2/18/14 2:11 AM, "Alexander Gordeev" <agordeev@redhat.com> wrote:
+
+>Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
+>Cc: Shahed Shaikh <shahed.shaikh@qlogic.com>
+>Cc: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+>Cc: Ron Mercer <ron.mercer@qlogic.com>
+>Cc: linux-driver@qlogic.com
+>Cc: netdev@vger.kernel.org
+>Cc: linux-pci@vger.kernel.org
+>---
+> drivers/net/ethernet/qlogic/qlge/qlge_main.c |    1 -
+> 1 files changed, 0 insertions(+), 1 deletions(-)
+
+Acked-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+>
+>diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+>b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+>index ce2cfdd..82bace5 100644
+>--- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+>+++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+>@@ -3346,7 +3346,6 @@ static void ql_enable_msix(struct ql_adapter *qdev)
+> 			qdev->msi_x_entry =3D NULL;
+> 			netif_warn(qdev, ifup, qdev->ndev,
+> 				   "MSI-X Enable failed, trying MSI.\n");
+>-			qdev->intr_count =3D 1;
+> 			qlge_irq_type =3D MSI_IRQ;
+> 		} else if (err =3D=3D 0) {
+> 			set_bit(QL_MSIX_ENABLED, &qdev->flags);
+>--=20
+>1.7.7.6
+>
+
+Thanks
+
+-Jiten
+
+
+--_000_BECD8E8A1B550B48A1BF97C13991F60E46D21C6Favmb2qlogicorg_
+Content-Disposition: attachment; filename="winmail.dat"
+Content-Transfer-Encoding: base64
+Content-Type: application/ms-tnef; name="winmail.dat"
+
+eJ8+IidIAQaQCAAEAAAAAAABAAEAAQeQBgAIAAAA5AQAAAAAAADoAAEJgAEAIQAAADYzMjQ2QzFE
+MjgyMDMzNEU5Njg2Njc3QkRDQkREMzEzABMHAQ2ABAACAAAAAgACAAEFgAMADgAAAN4HAgASABMA
+EwAxAAIAUgEBIIADAA4AAADeBwIAEgATABMAMQACAFIBAQiABwAYAAAASVBNLk1pY3Jvc29mdCBN
+YWlsLk5vdGUAMQgBBIABAEQAAABSZTogW1BBVENIIG5ldC1uZXh0IDI5LzM1XSBxbGdlOiBHZXQg
+cmlkIG9mIGFuIHJlZHVuZGFudCBhc3NpZ25tZW50AHIWAQOQBgCEEQAANQAAAAIBfwABAAAAPAAA
+ADxCRUNEOEU4QTFCNTUwQjQ4QTFCRjk3QzEzOTkxRjYwRTQ2RDIxQzZGQGF2bWIyLnFsb2dpYy5v
+cmc+AAsAHw4BAAAAAgEJEAEAAADkAwAA4AMAANwGAABMWkZ1JfWdrWEACmZiaWQEAABjY8BwZzEy
+NTIA/gND8HRleHQB9wKkA+MCAARjaArAc2V0MCDvB20CgwBQEU0yCoAGtAKAln0KgAjIOwliMTkO
+wL8JwxZyCjIWcQKAFWIqCbBzCfAEkGF0BbIOUANgc6JvAYAgRXgRwW4YMF0GUnYEkBe2AhByAMB0
+fQhQbhoxECAFwAWgG2RkmiADUiAQIheyXHYIkOR3awuAZDUdUwTwB0ANF3AwCnEX8mJrbWsGcwGQ
+ACAgQk1fQuBFR0lOfQr8AfEL8ipsC4BlCoBPA6AyLxQxOCJANCIgOjExgCBBTSwgIkEecGZ4AHAE
+gSBHBbABAGVAdiIgPGFnJARAEwlxEdB0LgWgbT4gNncDYBAgOiGVIZU+UyRpZxhQZC0ZMGYt+GJ5
+OiLwI24kfyWDJrbUQ2MoAFMR0GgcUStRqGlraCkwcytjLixBaSvxQHEJAGcOUCpPSk5pECAdwBhw
+IEsHQHOXCsAHMCkwai6lLmsvNa8tHyrlCAADoE0EkGMbsfI8A2BuLgeAMrIw3yrl0SGhdXgtLuBp
+GjEzuVsqmhhQdAEAJQB2GDByozBABJFlbC4FsGc0f7AtcGNpN88mxS07kKUmtiA1lHMvN2EvEhB/
+K4A4QTzwM8Q9kRgwPgNfxwDAC4AlgCB8ID8xIuC7O7gi4GYDEAeRGZRkIyAvEjALgBIAACBpAiBz
+KHwrKSMgIuABAB5wQbQt8ikmTEFjOnAngCfiLp9/L68wvybjJrYN4AEgP4At8zPwBUBhLzxfPW8+
+eCa2/mJJf0qPS58nEB2xEDAb0BhlMmMFcCyQLjgyMmIA0GU1P2AeoDY0vjQ7GUlfTc9O3ybyK1YQ
+niBMz1PPVN8nAUBAP4AAMzM0Niw3ICt5WfM2IFmxH2FBsD8AdupvDdAgRwBfCfABoB5wEz6gAJB4
+KB9gcnVjYwVAW9FhZGEFMBuxKv5xN5FDJiXADIRe9FvAN5FkLT5ccV94W/Fc0HnEID0HsFVMTBYg
+Xl8nX2I3YQaQX3cKwG4o513yIyAGkHVwIyBfpCOhL2NwYT9fFz8xIgXgSS3+WBlgXBMccAtwHnBB
+EWCBBQuAZwXRSS5cXG58IilhJzuwXu9QEVzQX+0FoHUCMGCxMWEvX0U+coBpcnFfdHlwGeDDYMBm
+kV9JUlFrn1+AOFx9IDhgEgBjkSAoywSQBcA9YMAwKQMwAAAXa79fYhIBXw3AdChRBExfZpFYX0VO
+QVBCTEVEIyAmX6RmOQtgZ3No2VKQJrYxLto3djE2R70hlVQZoR9QPSZMLUSzJkwVQnqwHwBCAAEA
+AAAkAAAASgBpAHQAZQBuAGQAcgBhACAASwBhAGwAcwBhAHIAaQBhAAAAHwBlAAEAAAA6AAAAagBp
+AHQAZQBuAGQAcgBhAC4AawBhAGwAcwBhAHIAaQBhAEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAAAA
+HwBkAAEAAAAKAAAAUwBNAFQAUAAAAAAAAgFBAAEAAACAAAAAAAAAAIErH6S+oxAZnW4A3QEPVAIA
+AACASgBpAHQAZQBuAGQAcgBhACAASwBhAGwAcwBhAHIAaQBhAAAAUwBNAFQAUAAAAGoAaQB0AGUA
+bgBkAHIAYQAuAGsAYQBsAHMAYQByAGkAYQBAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAfAAJdAQAA
+ADoAAABqAGkAdABlAG4AZAByAGEALgBrAGEAbABzAGEAcgBpAGEAQABxAGwAbwBnAGkAYwAuAGMA
+bwBtAAAAAAAfAOVfAQAAAEIAAABzAGkAcAA6AGoAaQB0AGUAbgBkAHIAYQAuAGsAYQBsAHMAYQBy
+AGkAYQBAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAAAB8AGgwBAAAAJAAAAEoAaQB0AGUAbgBkAHIA
+YQAgAEsAYQBsAHMAYQByAGkAYQAAAB8AHwwBAAAAOgAAAGoAaQB0AGUAbgBkAHIAYQAuAGsAYQBs
+AHMAYQByAGkAYQBAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAAAB8AHgwBAAAACgAAAFMATQBUAFAA
+AAAAAAIBGQwBAAAAgAAAAAAAAACBKx+kvqMQGZ1uAN0BD1QCAAAAgEoAaQB0AGUAbgBkAHIAYQAg
+AEsAYQBsAHMAYQByAGkAYQAAAFMATQBUAFAAAABqAGkAdABlAG4AZAByAGEALgBrAGEAbABzAGEA
+cgBpAGEAQABxAGwAbwBnAGkAYwAuAGMAbwBtAAAAHwABXQEAAAA6AAAAagBpAHQAZQBuAGQAcgBh
+AC4AawBhAGwAcwBhAHIAaQBhAEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAAAAHwD4PwEAAAAkAAAA
+SgBpAHQAZQBuAGQAcgBhACAASwBhAGwAcwBhAHIAaQBhAAAAHwAjQAEAAAA6AAAAagBpAHQAZQBu
+AGQAcgBhAC4AawBhAGwAcwBhAHIAaQBhAEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAAAAHwAiQAEA
+AAAKAAAAUwBNAFQAUAAAAAAAAgH5PwEAAACAAAAAAAAAAIErH6S+oxAZnW4A3QEPVAIAAACASgBp
+AHQAZQBuAGQAcgBhACAASwBhAGwAcwBhAHIAaQBhAAAAUwBNAFQAUAAAAGoAaQB0AGUAbgBkAHIA
+YQAuAGsAYQBsAHMAYQByAGkAYQBAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAfAAldAQAAADoAAABq
+AGkAdABlAG4AZAByAGEALgBrAGEAbABzAGEAcgBpAGEAQABxAGwAbwBnAGkAYwAuAGMAbwBtAAAA
+AAAfADFAAQAAAAIAAAAAAAAACwBAOgEAAAAfADBAAQAAAAIAAAAAAAAAHwAaAAEAAAASAAAASQBQ
+AE0ALgBOAG8AdABlAAAAAAADAPE/CQQAAAsAQDoBAAAAAwD9P+QEAAACAQswAQAAABAAAABjJGwd
+KCAzTpaGZ3vcvdMTAwAXAAEAAABAADkAgHgNZN4szwFAAAgwgHeGZN4szwELAACACCAGAAAAAADA
+AAAAAAAARgAAAAAUhQAAAQAAAB8AAICGAwIAAAAAAMAAAAAAAABGAQAAAB4AAABhAGMAYwBlAHAA
+dABsAGEAbgBnAHUAYQBnAGUAAAAAAAEAAAAMAAAAZQBuAC0AVQBTAAAACwAAgAggBgAAAAAAwAAA
+AAAAAEYAAAAABoUAAAAAAAAfADcAAQAAAIgAAABSAGUAOgAgAFsAUABBAFQAQwBIACAAbgBlAHQA
+LQBuAGUAeAB0ACAAMgA5AC8AMwA1AF0AIABxAGwAZwBlADoAIABHAGUAdAAgAHIAaQBkACAAbwBm
+ACAAYQBuACAAcgBlAGQAdQBuAGQAYQBuAHQAIABhAHMAcwBpAGcAbgBtAGUAbgB0AAAAHwA9AAEA
+AAAKAAAAUgBlADoAIAAAAAAAAwA2AAAAAAAfAEIQAQAAAJwAAAA8AGIAZgBmAGUANAAyADQAMAA2
+ADMAYgAyADEAMgA1ADUAMwA1ADMAMABmADYANABiADMAMgA4ADIAZQAyADYAMABlADIAYQAzADcA
+MAA3ADQALgAxADMAOQAyADcAMQA3ADUAMAAzAC4AZwBpAHQALgBhAGcAbwByAGQAZQBlAHYAQABy
+AGUAZABoAGEAdAAuAGMAbwBtAD4AAAACAXEAAQAAABsAAAABAc8skb5GhUzG4531Qrpq3kRr9TmN
+mrtjn4AAHwBwAAEAAACAAAAAWwBQAEEAVABDAEgAIABuAGUAdAAtAG4AZQB4AHQAIAAyADkALwAz
+ADUAXQAgAHEAbABnAGUAOgAgAEcAZQB0ACAAcgBpAGQAIABvAGYAIABhAG4AIAByAGUAZAB1AG4A
+ZABhAG4AdAAgAGEAcwBzAGkAZwBuAG0AZQBuAHQAAAAfADUQAQAAAHgAAAA8AEIARQBDAEQAOABF
+ADgAQQAxAEIANQA1ADAAQgA0ADgAQQAxAEIARgA5ADcAQwAxADMAOQA5ADEARgA2ADAARQA0ADYA
+RAAyADEAQwA2AEYAQABhAHYAbQBiADIALgBxAGwAbwBnAGkAYwAuAG8AcgBnAD4AAAAfADkQAQAA
+APIAAAA8AGMAbwB2AGUAcgAuADEAMwA5ADIANwAxADcANQAwADIALgBnAGkAdAAuAGEAZwBvAHIA
+ZABlAGUAdgBAAHIAZQBkAGgAYQB0AC4AYwBvAG0APgAgADwAYgBmAGYAZQA0ADIANAAwADYAMwBi
+ADIAMQAyADUANQAzADUAMwAwAGYANgA0AGIAMwAyADgAMgBlADIANgAwAGUAMgBhADMANwAwADcA
+NAAuADEAMwA5ADIANwAxADcANQAwADMALgBnAGkAdAAuAGEAZwBvAHIAZABlAGUAdgBAAHIAZQBk
+AGgAYQB0AC4AYwBvAG0APgAAAAAAAwDeP59OAABAAAcwAPJ8ZN4szwEDACYAAAAAAAIBRwABAAAA
+LwAAAGM9VVM7YT0gO3A9UUxvZ2ljO2w9QVZNQjItMTQwMjE4MTkxOTQ5Wi0xMzg0MDEAAB8AFRAB
+AAAAWAAAAEQAQwA1ADgAMABGAEYAOQBCADMAMQA0ADkAQgA0ADEAOQBFAEEAQwAwAEEANwA3ADQA
+RQBFADYANQAzAEQAMgBAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAACARQwAQAAAAwAAABIAAAAigea
+Sk8AAAAfAPo/AQAAACQAAABKAGkAdABlAG4AZAByAGEAIABLAGEAbABzAGEAcgBpAGEAAAAfAACA
+hgMCAAAAAADAAAAAAAAARgEAAAAWAAAAdQBzAGUAcgAtAGEAZwBlAG4AdAAAAAAAAQAAAEYAAABN
+AGkAYwByAG8AcwBvAGYAdAAtAE0AYQBjAE8AdQB0AGwAbwBvAGsALwAxADQALgAzAC4AOQAuADEA
+MwAxADAAMwAwAAAAAAAfAACAH6TrM6h6LkK+e3nhqY5UswEAAAA4AAAAQwBvAG4AdgBlAHIAcwBh
+AHQAaQBvAG4ASQBuAGQAZQB4AFQAcgBhAGMAawBpAG4AZwBFAHgAAAABAAAAbgEAAEkASQA9ADAA
+MQAwADEAQwBGADIAQwBEAEUANgA0AEIAMQBEAEEANwBFAEMAMAA1ADkANQAzAEYANQA0ADUAOABB
+AEIARgA0AEUARgAwADAANQA1AEMAMQBCADAAQwA7AFMAQgBNAEkARAA9ADIAMgA7AFMAMQA9ADwA
+YgBmAGYAZQA0ADIANAAwADYAMwBiADIAMQAyADUANQAzADUAMwAwAGYANgA0AGIAMwAyADgAMgBl
+ADIANgAwAGUAMgBhADMANwAwADcANAAuADEAMwA5ADIANwAxADcANQAwADMALgBnAGkAdAAuAGEA
+ZwBvAHIAZABlAGUAdgBAAHIAZQBkAGgAYQB0AC4AYwBvAG0APgA7AFYAZQByAHMAaQBvAG4APQBW
+AGUAcgBzAGkAbwBuACAAMQA0AC4AMgAgACgAQgB1AGkAbABkACAAMwA4ADcALgAwACkALAAgAFMA
+dABhAGcAZQA9AEgAMgAAAAAAAwANNP0/AAAfAACAhgMCAAAAAADAAAAAAAAARgEAAAAgAAAAeAAt
+AG0AcwAtAGgAYQBzAC0AYQB0AHQAYQBjAGgAAAABAAAAAgAAAAAAAAAfAACAhgMCAAAAAADAAAAA
+AAAARgEAAAAiAAAAeAAtAG8AcgBpAGcAaQBuAGEAdABpAG4AZwAtAGkAcAAAAAAAAQAAABgAAABb
+ADEAMAAuADEALgA0AC4AMQAwAF0AAADJWQ==
+
+--_000_BECD8E8A1B550B48A1BF97C13991F60E46D21C6Favmb2qlogicorg_--
