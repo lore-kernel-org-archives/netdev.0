@@ -1,26 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Drivers: net: ethernet: 3com: 3c589_cs fixed coding
- style issues
-Date: Tue, 18 Feb 2014 17:00:08 -0500 (EST)
-Message-ID: <20140218.170008.1990454894524404750.davem@davemloft.net>
-References: <1392677926-13219-1-git-send-email-justinvanwijngaarden@gmail.com>
+Subject: Re: [PATCH v5] DT: net: document Ethernet bindings in one place
+Date: Tue, 18 Feb 2014 17:05:57 -0500 (EST)
+Message-ID: <20140218.170557.1748698882332547218.davem@davemloft.net>
+References: <201402180242.00796.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paul.gortmaker@windriver.com, gregkh@linuxfoundation.org,
-	hsweeten@visionengravers.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: justinvanwijngaarden@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1392677926-13219-1-git-send-email-justinvanwijngaarden@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	devicetree@vger.kernel.org, netdev@vger.kernel.org,
+	rob@landley.net, linux-doc@vger.kernel.org, jcmvbkbc@gmail.com,
+	linux-sh@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <201402180242.00796.sergei.shtylyov@cogentembedded.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Justin van Wijngaarden <justinvanwijngaarden@gmail.com>
-Date: Mon, 17 Feb 2014 23:58:46 +0100
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Tue, 18 Feb 2014 02:41:59 +0300
 
-> checkpatch.pl clean-up, from 14 error/ 277 warnings, to 0 errors, 7 warnings
+> This patch is an attempt to gather the Ethernet related bindings in one file,
+> like it's done in the MMC and some other subsystems. It should save some of
+> the trouble of documenting several properties over and over in each binding
+> document, instead only making reference to the main file.
 > 
-> Signed-off-by: Justin van Wijngaarden <justinvanwijngaarden@gmail.com>
+> I have used the Embedded Power Architecture(TM) Platform Requirements (ePAPR)
+> standard as a base for the properties description, also documenting some ad-hoc
+> properties that have been introduced over time despite having direct analogs in
+> ePAPR.
+> 
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-Applied to net-next, thanks.
+Applied, thanks Sergei.
