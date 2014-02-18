@@ -1,103 +1,89 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v5 net-next 0/12] bonding: add an option to rely on
- unvalidated arp packets
-Date: Tue, 18 Feb 2014 07:58:39 +0100
-Message-ID: <20140218065839.GA14534@redhat.com>
-References: <1392706127-28390-1-git-send-email-vfalico@redhat.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH v4 net-next 01/12] bonding: remove bond->lock from bond_arp_rcv
+Date: Tue, 18 Feb 2014 15:07:46 +0800
+Message-ID: <530306C2.1050003@huawei.com>
+References: <1392648088-21336-1-git-send-email-vfalico@redhat.com> <1392648088-21336-2-git-send-email-vfalico@redhat.com> <5302DB61.4070505@huawei.com> <20140218061222.GA18373@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Rob Landley <rob@landley.net>, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	dingtianhong <dingtianhong@huawei.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44781 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751222AbaBRG7C (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Feb 2014 01:59:02 -0500
-Content-Disposition: inline
-In-Reply-To: <1392706127-28390-1-git-send-email-vfalico@redhat.com>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:29077 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753605AbaBRHIJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 02:08:09 -0500
+In-Reply-To: <20140218061222.GA18373@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 18, 2014 at 07:48:35AM +0100, Veaceslav Falico wrote:
->From Veaceslav Falico <vfalico@redhat.com> # This line is ignored.
->From: Veaceslav Falico <vfalico@redhat.com>
->Subject: [PATCH v5 net-next 0/12] bonding: add an option to rely on unvalidated arp packets
->In-Reply-To:
-
-Nice, cover letter got fucked up, sorry for that. Patches are ok though.
-
->
->Hi,
->
->v4 -> v5:
->Again per Nik's advise correct the bond_opts restrictions for arp_validate
->- set it the same as arp_interval.
->
->v3 -> v4:
->Per Nikolay's advise, remove the new bond_opts restriction on modes setting
->for arp_validate.
->
->v2 -> v3:
->Per Jay's advise, use the 'filter' keyword instead of 'arp' one, and use
->his text for documentation. Also, rebase on the latest net-next. Sorry for
->the delay, didn't manage to send it before net-next was closed.
->
->v1 -> v2:
->Don't remove the 'all traffic' functionality - rather, add new arp_validate
->options to specify that we want *only* unvalidated arps.
->
->Currently, if arp_validate is off (0), slave_last_rx() returns the
->slave->dev->last_rx, which is always updated on *any* packet received by
->slave, and not only arps. This means that, if the validation of arps is
->off, we're treating *any* incoming packet as a proof of slave being up, and
->not only arps.
->
->This might seem logical at the first glance, however it can cause a lot of
->troubles and false-positives, one example would be:
->
->The arp_ip_target is NOT accessible, however someone in the broadcast domain
->spams with any broadcast traffic. This way bonding will be tricked that the
->slave is still up (as in - can access arp_ip_target), while it's not.
->
->The net_device->last_rx is already used in a lot of drivers (even though the
->comment states to NOT do it :)), and it's also ugly to modify it from bonding.
->
->However, some loadbalance setups might rely on the fact that even non-arp
->traffic is a sign of slave being up - and we definitely can't break anyones
->config - so an extension to arp_validate is needed.
->
->So, to fix this, add an option for the user to specify if he wants to
->filter out non-arp traffic on unvalidated slaves, remove the last_rx from
->bonding, *always* call bond_arp_rcv() in slave's rx_handler (which is
->bond_handle_frame), and if we spot an arp there with this option on - update
->the slave->last_arp_rx - and use it instead of net_device->last_rx. Finally,
->rename last_arp_rx to last_rx to reflect the changes.
->
->Also rename slave->jiffies to ->last_link_up, to reflect better its
->meaning, add the new option's documentation and update the arp_validate one
->to be a bit more descriptive.
->
->CC: Rob Landley <rob@landley.net>
->CC: Jay Vosburgh <fubar@us.ibm.com>
->CC: Andy Gospodarek <andy@greyhouse.net>
->CC: "David S. Miller" <davem@davemloft.net>
->CC: dingtianhong <dingtianhong@huawei.com>
->CC: Nikolay Aleksandrov <nikolay@redhat.com>
->CC: Neil Horman <nhorman@tuxdriver.com>
->CC: Cong Wang <amwang@redhat.com>
->CC: netdev@vger.kernel.org
->Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
->
->---
-> Documentation/networking/bonding.txt | 96 +++++++++++++++++++++++++-----------
-> drivers/net/bonding/bond_main.c      | 56 +++++++++------------
-> drivers/net/bonding/bond_options.c   | 19 ++++---
-> drivers/net/bonding/bonding.h        | 26 ++++++----
-> include/linux/netdevice.h            |  8 +--
-> 5 files changed, 119 insertions(+), 86 deletions(-)
+On 2014/2/18 14:12, Veaceslav Falico wrote:
+> On Tue, Feb 18, 2014 at 12:02:41PM +0800, Ding Tianhong wrote:
+>> On 2014/2/17 22:41, Veaceslav Falico wrote:
+>>> We're always called with rcu_read_lock() held (bond_arp_rcv() is on=
+ly
+>>> called from bond_handle_frame(), which is rx_handler and always cal=
+led
+>>> under rcu from __netif_receive_skb_core() ).
+>>>
+>>> The slave active/passive and/or bonding params can change in-flight=
+, however
+>>> we don't really care about that - we only modify the last time pack=
+et was
+>>> received, which is harmless.
+>>>
+>>> CC: Jay Vosburgh <fubar@us.ibm.com>
+>>> CC: Andy Gospodarek <andy@greyhouse.net>
+>>> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+>>> ---
+>>>  drivers/net/bonding/bond_main.c | 3 ---
+>>>  1 file changed, 3 deletions(-)
+>>>
+>>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/=
+bond_main.c
+>>> index 3bce855..3c50bec 100644
+>>> --- a/drivers/net/bonding/bond_main.c
+>>> +++ b/drivers/net/bonding/bond_main.c
+>>> @@ -2260,8 +2260,6 @@ int bond_arp_rcv(const struct sk_buff *skb, s=
+truct bonding *bond,
+>>>      if (skb->protocol !=3D __cpu_to_be16(ETH_P_ARP))
+>>>          return RX_HANDLER_ANOTHER;
+>>>
+>>> -    read_lock(&bond->lock);
+>>> -
+>>>      if (!slave_do_arp_validate(bond, slave))
+>>>          goto out_unlock;
+>>>
+>>> @@ -2318,7 +2316,6 @@ int bond_arp_rcv(const struct sk_buff *skb, s=
+truct bonding *bond,
+>>>          bond_validate_arp(bond, slave, tip, sip);
+>>>
+>>>  out_unlock:
+>>> -    read_unlock(&bond->lock);
+>>>      if (arp !=3D (struct arphdr *)skb->data)
+>>>          kfree(arp);
+>>>      return RX_HANDLER_ANOTHER;
+>>>
+>>
+>> I think it is not enough, you should add rcu_dereference for bond->c=
+urr_active_slave, it may be changed during
+>> the recv processing.
+>=20
+> bond->lock has absolutely nothing to du with bond->curr_active_slave =
+=2E
+>=20
+Yep, this problem is introduced by commit aeea64ac7=EF=BC=8C there is n=
+o way to protect the curr_active_slave, so
+I think you could fix it in this patch together.
+=20
+	else if (bond->curr_active_slave &&
+		 time_after(slave_last_rx(bond, bond->curr_active_slave),
+			    bond->curr_active_slave->jiffies))
+>>
+>> Regards
+>> Ding
+>>
+>>
+>=20
+>=20
