@@ -1,53 +1,50 @@
-From: poma <pomidorabelisima-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: WARNING: CPU: 0 PID: 0 at net/sched/sch_generic.c:264
-	dev_watchdog+0x276/0x280()
-Date: Tue, 18 Feb 2014 11:15:19 +0100
-Message-ID: <530332B7.10909@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Mailing-List fedora-kernel <kernel-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>,
-	Josh Boyer <jwboyer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Linux Kernel list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	"Justin M. Forbes" <jforbes-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
-	Intel Corporation <linux.nics-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>
-List-Unsubscribe: <https://admin.fedoraproject.org/mailman/options/kernel>,
-	<mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.fedoraproject.org/pipermail/kernel/>
-List-Post: <mailto:kernel-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>
-List-Help: <mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=help>
-List-Subscribe: <https://admin.fedoraproject.org/mailman/listinfo/kernel>,
-	<mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=subscribe>
-Sender: kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org
-Errors-To: kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org
+From: Alexander Gordeev <agordeev@redhat.com>
+Subject: [PATCH net-next 25/35] forcedeth: Use pci_enable_msix_range() instead of pci_enable_msix()
+Date: Tue, 18 Feb 2014 11:11:54 +0100
+Message-ID: <437d3cd09e304168f525a3097d89e46adc4e73fa.1392717503.git.agordeev@redhat.com>
+References: <cover.1392717502.git.agordeev@redhat.com>
+Cc: Alexander Gordeev <agordeev@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1392717502.git.agordeev@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-CkFob3khCgpEZWJ1Z2dpbmcgUzMgYWthIHN1c3BlbmQgcHJvZHVjZXMgJ1dBUk5JTkdTJzoKClN0
-ZXBzIHRvIFJlcHJvZHVjZToKIyBlY2hvIGNvcmUgPiAvc3lzL3Bvd2VyL3BtX3Rlc3QKIyBjYXQg
-L3N5cy9wb3dlci9wbV90ZXN0Cm5vbmUgW2NvcmVdIHByb2Nlc3NvcnMgcGxhdGZvcm0gZGV2aWNl
-cyBmcmVlemVyCiMgZWNobyBtZW0gPiAvc3lzL3Bvd2VyL3N0YXRlClJlc3VsdHM6Ci0gZG1lc2ct
-My4xNC4wLTAucmMzLmdpdDAuMS5mYzIxLng4Nl82NCtkZWJ1Zy1wbV90ZXN0LWNvcmUuZGlmZgog
-IGh0dHBzOi8vYnVnemlsbGEucmVkaGF0LmNvbS9hdHRhY2htZW50LmNnaT9pZD04NjQ0MzYKClN0
-ZXBzIHRvIFJlcHJvZHVjZToKIyBlY2hvIHByb2Nlc3NvcnMgPiAvc3lzL3Bvd2VyL3BtX3Rlc3QK
-IyBjYXQgL3N5cy9wb3dlci9wbV90ZXN0Cm5vbmUgY29yZSBbcHJvY2Vzc29yc10gcGxhdGZvcm0g
-ZGV2aWNlcyBmcmVlemVyCiMgZWNobyBtZW0gPiAvc3lzL3Bvd2VyL3N0YXRlClJlc3VsdHM6Ci0g
-ZG1lc2ctMy4xNC4wLTAucmMzLmdpdDAuMS5mYzIxLng4Nl82NCtkZWJ1Zy1wbV90ZXN0LXByb2Nl
-c3NvcnMuZGlmZgogIGh0dHBzOi8vYnVnemlsbGEucmVkaGF0LmNvbS9hdHRhY2htZW50LmNnaT9p
-ZD04NjQ0MzgKClN0ZXBzIHRvIFJlcHJvZHVjZToKIyBlY2hvIHBsYXRmb3JtID4gL3N5cy9wb3dl
-ci9wbV90ZXN0CiMgY2F0IC9zeXMvcG93ZXIvcG1fdGVzdApub25lIGNvcmUgcHJvY2Vzc29ycyBb
-cGxhdGZvcm1dIGRldmljZXMgZnJlZXplcgojIGVjaG8gbWVtID4gL3N5cy9wb3dlci9zdGF0ZQpS
-ZXN1bHRzOgotIGRtZXNnLTMuMTQuMC0wLnJjMy5naXQwLjEuZmMyMS54ODZfNjQrZGVidWctcG1f
-dGVzdC1wbGF0Zm9ybS5kaWZmCiAgaHR0cHM6Ly9idWd6aWxsYS5yZWRoYXQuY29tL2F0dGFjaG1l
-bnQuY2dpP2lkPTg2NDQzOQoKUkhCWiAxMDEwNzY0OgoiW2FicnRdIE5FVERFViBXQVRDSERPRzog
-ZW0xIChlMTAwMGUpOiB0cmFuc21pdCBxdWV1ZSAwIHRpbWVkIG91dCIKaHR0cHM6Ly9idWd6aWxs
-YS5yZWRoYXQuY29tL3Nob3dfYnVnLmNnaT9pZD0xMDEwNzY0CgpUZXN0ZWQgd2l0aCBSYXdoaWRl
-ICdrZXJuZWwtZGVidWctMy4xNC4wLTAucmMzLmdpdDAuMS5mYzIxLng4Nl82NCcKaHR0cDovL2tv
-amkuZmVkb3JhcHJvamVjdC5vcmcva29qaS9idWlsZGluZm8/YnVpbGRJRD00OTg3MTEKCgpwb21h
-CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwprZXJuZWwg
-bWFpbGluZyBsaXN0Cmtlcm5lbEBsaXN0cy5mZWRvcmFwcm9qZWN0Lm9yZwpodHRwczovL2FkbWlu
-LmZlZG9yYXByb2plY3Qub3JnL21haWxtYW4vbGlzdGluZm8va2VybmVs
+As result of deprecation of MSI-X/MSI enablement functions
+pci_enable_msix() and pci_enable_msi_block() all drivers
+using these two interfaces need to be updated to use the
+new pci_enable_msi_range() and pci_enable_msix_range()
+interfaces.
+
+Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org
+Cc: linux-pci@vger.kernel.org
+---
+ drivers/net/ethernet/nvidia/forcedeth.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index 74da489..bad3c05 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -3946,8 +3946,11 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
+ 	if (np->msi_flags & NV_MSI_X_CAPABLE) {
+ 		for (i = 0; i < (np->msi_flags & NV_MSI_X_VECTORS_MASK); i++)
+ 			np->msi_x_entry[i].entry = i;
+-		ret = pci_enable_msix(np->pci_dev, np->msi_x_entry, (np->msi_flags & NV_MSI_X_VECTORS_MASK));
+-		if (ret == 0) {
++		ret = pci_enable_msix_range(np->pci_dev,
++					    np->msi_x_entry,
++					    np->msi_flags & NV_MSI_X_VECTORS_MASK,
++					    np->msi_flags & NV_MSI_X_VECTORS_MASK);
++		if (ret > 0) {
+ 			np->msi_flags |= NV_MSI_X_ENABLED;
+ 			if (optimization_mode == NV_OPTIMIZATION_MODE_THROUGHPUT && !intr_test) {
+ 				/* Request irq for rx handling */
+-- 
+1.7.7.6
