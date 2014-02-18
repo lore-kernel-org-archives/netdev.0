@@ -1,122 +1,43 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE: [PATCH net] igb: Unset IGB_FLAG_HAS_MSIX-flag when falling back
- to msi-only
-Date: Tue, 18 Feb 2014 23:55:44 +0000
-Message-ID: <9BBC4E0CF881AA4299206E2E1412B6264FA69352@ORSMSX102.amr.corp.intel.com>
-References: <1392766595-14454-1-git-send-email-christoph.paasch@uclouvain.be>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: Re: [PATCH net] igb: Fix Null-pointer dereference in
+ igb_reset_q_vector
+Date: Tue, 18 Feb 2014 23:57:32 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B73157E33@ORSMSX101.amr.corp.intel.com>
+References: <1392728817-21693-1-git-send-email-christoph.paasch@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: Christoph Paasch <christoph.paasch@uclouvain.be>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
+	<e1000-devel@lists.sourceforge.net>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "christoph.paasch@uclouvain.be" <christoph.paasch@uclouvain.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:16799 "EHLO mga02.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:33922 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751100AbaBRXzp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 18:55:45 -0500
-In-Reply-To: <1392766595-14454-1-git-send-email-christoph.paasch@uclouvain.be>
+	id S1752362AbaBRX5w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Feb 2014 18:57:52 -0500
+In-Reply-To: <1392728817-21693-1-git-send-email-christoph.paasch@uclouvain.be>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Christoph Paasch
-> Sent: Tuesday, February 18, 2014 3:37 PM
-> To: netdev@vger.kernel.org; e1000-devel@lists.sourceforge.net
-> Cc: David Miller; Kirsher, Jeffrey T; Brandeburg, Jesse; Wyborny, Carolyn
-> Subject: [PATCH net] igb: Unset IGB_FLAG_HAS_MSIX-flag when falling back to
-> msi-only
-> 
-> Prior to cd14ef54d25 (igb: Change to use statically allocated array for MSIx
-> entries), having msix_entries different from NULL was an indicator that MSIX is
-> enabled.
-> In igb_set_interrupt_capabiliy we may fall back to MSI-only. Prior to the above
-> patch msix_entries was set to NULL by igb_reset_interrupt_capability.
-> 
-> However, now we are checking the flag for IGB_FLAG_HAS_MSIX and so the
-> stack gets completly confused:
-> 
-> [   42.659791] ------------[ cut here ]------------
-> [   42.715032] WARNING: CPU: 7 PID: 0 at net/sched/sch_generic.c:264
-> dev_watchdog+0x15c/0x1fb()
-> [   42.848263] NETDEV WATCHDOG: eth0 (igb): transmit queue 0 timed out
-> [   42.923253] Modules linked in:
-> [   42.959875] CPU: 7 PID: 0 Comm: swapper/7 Not tainted 3.14.0-rc2-mptcp
-> #437
-> [   43.043184] Hardware name: HP ProLiant DL165 G7, BIOS O37 01/26/2011
-> [   43.119215]  0000000000000108 ffff88023fdc3da8 ffffffff81487847
-> 0000000000000108
-> [   43.208165]  ffff88023fdc3df8 ffff88023fdc3de8 ffffffff81034e7d
-> ffff88023fdc3dd8
-> [   43.297120]  ffffffff813fff10 ffff880236018000 ffff880236b178c0
-> 0000000000000008
-> [   43.386071] Call Trace:
-> [   43.415303]  <IRQ>  [<ffffffff81487847>] dump_stack+0x49/0x62
-> [   43.484174]  [<ffffffff81034e7d>] warn_slowpath_common+0x77/0x91
-> [   43.556049]  [<ffffffff813fff10>] ? dev_watchdog+0x15c/0x1fb
-> [   43.623759]  [<ffffffff81034f2b>] warn_slowpath_fmt+0x41/0x43
-> [   43.692511]  [<ffffffff813fff10>] dev_watchdog+0x15c/0x1fb
-> [   43.758141]  [<ffffffff813ffdb4>] ? __netdev_watchdog_up+0x64/0x64
-> [   43.832091]  [<ffffffff8103cd04>] call_timer_fn+0x17/0x6f
-> [   43.896682]  [<ffffffff8103cebe>] run_timer_softirq+0x162/0x1a2
-> [   43.967511]  [<ffffffff81038520>] __do_softirq+0xcd/0x1cc
-> [   44.032104]  [<ffffffff81038689>] irq_exit+0x3a/0x48
-> [   44.091492]  [<ffffffff81026d43>] smp_apic_timer_interrupt+0x43/0x50
-> [   44.167525]  [<ffffffff8148c24a>] apic_timer_interrupt+0x6a/0x70
-> [   44.239392]  <EOI>  [<ffffffff8100992c>] ? default_idle+0x6/0x8
-> [   44.310343]  [<ffffffff81009b31>] arch_cpu_idle+0x13/0x18
-> [   44.374934]  [<ffffffff81066126>] cpu_startup_entry+0xa7/0x101
-> [   44.444724]  [<ffffffff81025660>] start_secondary+0x1b2/0x1b7
-> [   44.513472] ---[ end trace a5a075fd4e7f854f ]---
-> [   44.568753] igb 0000:04:00.0 eth0: Reset adapter
-> [   46.206945] random: nonblocking pool is initialized
-> [   46.465670] irq 44: nobody cared (try booting with the "irqpoll" option)
-> [   46.545862] CPU: 7 PID: 0 Comm: swapper/7 Tainted: G        W    3.14.0-rc2-
-> mptcp #437
-> [   46.640610] Hardware name: HP ProLiant DL165 G7, BIOS O37 01/26/2011
-> [   46.716641]  ffff8802363f8c84 ffff88023fdc3e38 ffffffff81487847
-> 00000000a03cdb6d
-> [   46.805598]  ffff8802363f8c00 ffff88023fdc3e68 ffffffff81068489
-> 0000007f81825400
-> [   46.894539]  ffff8802363f8c00 0000000000000000 0000000000000000
-> ffff88023fdc3ea8
-> [   46.983484] Call Trace:
-> [   47.012714]  <IRQ>  [<ffffffff81487847>] dump_stack+0x49/0x62
-> [   47.081585]  [<ffffffff81068489>] __report_bad_irq+0x35/0xc1
-> [   47.149295]  [<ffffffff81068683>] note_interrupt+0x16e/0x1ea
-> [   47.217006]  [<ffffffff8106679e>] handle_irq_event_percpu+0x116/0x12e
-> [   47.294075]  [<ffffffff810667e9>] handle_irq_event+0x33/0x4f
-> [   47.361787]  [<ffffffff81068c95>] handle_fasteoi_irq+0x83/0xd1
-> [   47.431577]  [<ffffffff81003d5b>] handle_irq+0x1f/0x28
-> [   47.493047]  [<ffffffff81003567>] do_IRQ+0x4e/0xd4
-> [   47.550358]  [<ffffffff8148b06a>] common_interrupt+0x6a/0x6a
-> [   47.618066]  <EOI>  [<ffffffff8100992c>] ? default_idle+0x6/0x8
-> [   47.689016]  [<ffffffff81009b31>] arch_cpu_idle+0x13/0x18
-> [   47.753605]  [<ffffffff81066126>] cpu_startup_entry+0xa7/0x101
-> [   47.823397]  [<ffffffff81025660>] start_secondary+0x1b2/0x1b7
-> [   47.892146] handlers:
-> [   47.919301] [<ffffffff812fbd7d>] igb_intr
-> 
-> So, this patch unsets the flag to indicate that we are not using MSIX.
-> This patch does exactly this: Unsetting the flag when falling back to MSI.
-> 
-> Fixes: cd14ef54d25b (igb: Change to use statically allocated array for MSIx
-> entries)
-> Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
-> ---
-
-Thanks Christoph for these patches, Aaron will be taking them into our queue as Jeff's coverage.
-
-Carolyn
-
-Carolyn Wyborny 
-Linux Development 
-Networking Division 
-Intel Corporation 
+T24gVHVlLCAyMDE0LTAyLTE4IGF0IDE0OjA2ICswMTAwLCBDaHJpc3RvcGggUGFhc2NoIHdyb3Rl
+Ogo+IFdoZW4gaWdiX3NldF9pbnRlcnJ1cHRfY2FwYWJpbGl0eSgpIGNhbGxzCj4gaWdiX3Jlc2V0
+X2ludGVycnVwdF9jYXBhYmlsaXR5KCkgKGUuZy4sIGJlY2F1c2UgQ09ORklHX1BDSV9NU0kgaXMg
+dW5zZXQpLAo+IG51bV9xX3ZlY3RvcnMgaGFzIGJlZW4gc2V0IGJ1dCBubyB2ZWN0b3IgaGFzIHll
+dCBiZWVuIGFsbG9jYXRlZC4KPiAKPiBpZ2JfcmVzZXRfaW50ZXJydXB0X2NhcGFiaWxpdHkoKSB3
+aWxsIHRoZW4gY2FsbCBpZ2JfcmVzZXRfcV92ZWN0b3IsCj4gd2hpY2ggYXNzdW1lcyB0aGF0IHRo
+ZSB2ZWN0b3IgaXMgYWxsb2NhdGVkLiBBcyB0aGlzIGlzIG5vdCB0aGUgY2FzZSwgd2UKPiBhcmUg
+YWNjZXNzaW5nIGEgTlVMTC1wb2ludGVyLgo+IAo+IFRoaXMgcGF0Y2ggZml4ZXMgaXQgYnkgY2hl
+Y2tpbmcgdGhhdCBxX3ZlY3RvciBpcyBpbmRlZWQgZGlmZmVyZW50IGZyb20KPiBOVUxMLgo+IAo+
+IEZpeGVzOiAwMmVmNmUxZDBiMDAyMyAoaWdiOiBGaXggcXVldWUgYWxsb2NhdGlvbiBtZXRob2Qg
+dG8gYWNjb21tb2RhdGUgY2hhbmdpbmcgZHVyaW5nIHJ1bnRpbWUpCj4gQ2M6IENhcm9seW4gV3li
+b3JueSA8Y2Fyb2x5bi53eWJvcm55QGludGVsLmNvbT4KPiBTaWduZWQtb2ZmLWJ5OiBDaHJpc3Rv
+cGggUGFhc2NoIDxjaHJpc3RvcGgucGFhc2NoQHVjbG91dmFpbi5iZT4KPiAtLS0KPiAgZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2lnYl9tYWluLmMgfCA2ICsrKysrKwo+ICAxIGZpbGUg
+Y2hhbmdlZCwgNiBpbnNlcnRpb25zKCspCgpUaGFua3MgQ2hyaXN0b3BoLCBJIGhhdmUgYWRkZWQg
+dGhpcyB0byBvdXIgSmVmZidzIGludGVybmFsIHF1ZXVlLgoK
