@@ -1,10 +1,10 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH net-next 06/35] cxgb3: Use pci_enable_msix_range() instead of pci_enable_msix()
-Date: Tue, 18 Feb 2014 11:07:58 +0100
-Message-ID: <985df9ebc23ee76c17abfba4e26f91ff03d2d857.1392717503.git.agordeev@redhat.com>
+Subject: [PATCH net-next 07/35] cxgb4: Use pci_enable_msix_range() instead of pci_enable_msix()
+Date: Tue, 18 Feb 2014 11:07:59 +0100
+Message-ID: <1d6d822d670b3492cd9cbc03c5383dec570a3a31.1392717503.git.agordeev@redhat.com>
 References: <cover.1392717502.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
-	Santosh Raspatur <santosh@chelsio.com>, netdev@vger.kernel.org,
+	Dimitris Michailidis <dm@chelsio.com>, netdev@vger.kernel.org,
 	linux-pci@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -19,53 +19,81 @@ new pci_enable_msi_range() and pci_enable_msix_range()
 interfaces.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
-Cc: Santosh Raspatur <santosh@chelsio.com>
+Cc: Dimitris Michailidis <dm@chelsio.com>
 Cc: netdev@vger.kernel.org
 Cc: linux-pci@vger.kernel.org
 ---
- drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c |   23 +++++++++--------------
- 1 files changed, 9 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   50 +++++++++++------------
+ 1 files changed, 24 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
-index b72d2ed..07bbb71 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
-@@ -3088,27 +3088,22 @@ static int cxgb_enable_msix(struct adapter *adap)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 43ab35f..bd0321d 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -5737,7 +5737,7 @@ static void reduce_ethqs(struct adapter *adap, int n)
+ static int enable_msix(struct adapter *adap)
  {
- 	struct msix_entry entries[SGE_QSETS + 1];
- 	int vectors;
--	int i, err;
-+	int i;
+ 	int ofld_need = 0;
+-	int i, err, want, need;
++	int i, want, need;
+ 	struct sge *s = &adap->sge;
+ 	unsigned int nchan = adap->params.nports;
+ 	struct msix_entry entries[MAX_INGQ + 1];
+@@ -5753,32 +5753,30 @@ static int enable_msix(struct adapter *adap)
+ 	}
+ 	need = adap->params.nports + EXTRA_VECS + ofld_need;
  
- 	vectors = ARRAY_SIZE(entries);
- 	for (i = 0; i < vectors; ++i)
- 		entries[i].entry = i;
- 
--	while ((err = pci_enable_msix(adap->pdev, entries, vectors)) > 0)
--		vectors = err;
--
--	if (!err && vectors < (adap->params.nports + 1)) {
--		pci_disable_msix(adap->pdev);
--		err = -1;
--	}
-+	vectors = pci_enable_msix_range(adap->pdev, entries,
-+					adap->params.nports + 1, vectors);
-+	if (vectors < 0)
-+		return vectors;
+-	while ((err = pci_enable_msix(adap->pdev, entries, want)) >= need)
+-		want = err;
++	want = pci_enable_msix_range(adap->pdev, entries, need, want);
++	if (want < 0)
++		return want;
  
 -	if (!err) {
--		for (i = 0; i < vectors; ++i)
+-		/*
+-		 * Distribute available vectors to the various queue groups.
+-		 * Every group gets its minimum requirement and NIC gets top
+-		 * priority for leftovers.
+-		 */
+-		i = want - EXTRA_VECS - ofld_need;
+-		if (i < s->max_ethqsets) {
+-			s->max_ethqsets = i;
+-			if (i < s->ethqsets)
+-				reduce_ethqs(adap, i);
+-		}
+-		if (is_offload(adap)) {
+-			i = want - EXTRA_VECS - s->max_ethqsets;
+-			i -= ofld_need - nchan;
+-			s->ofldqsets = (i / nchan) * nchan;  /* round down */
+-		}
+-		for (i = 0; i < want; ++i)
 -			adap->msix_info[i].vec = entries[i].vector;
--		adap->msix_nvectors = vectors;
--	}
-+	for (i = 0; i < vectors; ++i)
-+		adap->msix_info[i].vec = entries[i].vector;
-+	adap->msix_nvectors = vectors;
- 
+-	} else if (err > 0)
+-		dev_info(adap->pdev_dev,
+-			 "only %d MSI-X vectors left, not using MSI-X\n", err);
 -	return err;
++	/*
++	 * Distribute available vectors to the various queue groups.
++	 * Every group gets its minimum requirement and NIC gets top
++	 * priority for leftovers.
++	 */
++	i = want - EXTRA_VECS - ofld_need;
++	if (i < s->max_ethqsets) {
++		s->max_ethqsets = i;
++		if (i < s->ethqsets)
++			reduce_ethqs(adap, i);
++	}
++	if (is_offload(adap)) {
++		i = want - EXTRA_VECS - s->max_ethqsets;
++		i -= ofld_need - nchan;
++		s->ofldqsets = (i / nchan) * nchan;  /* round down */
++	}
++	for (i = 0; i < want; ++i)
++		adap->msix_info[i].vec = entries[i].vector;
++
 +	return 0;
  }
  
- static void print_port_info(struct adapter *adap, const struct adapter_info *ai)
+ #undef EXTRA_VECS
 -- 
 1.7.7.6
