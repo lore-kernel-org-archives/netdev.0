@@ -1,116 +1,72 @@
-From: Ben Dooks <ben.dooks@codethink.co.uk>
-Subject: Re: [PATCH] sh_eth: call of_mdiobus_register() to register phys
-Date: Tue, 18 Feb 2014 16:00:59 +0000
-Message-ID: <530383BB.60102@codethink.co.uk>
-References: <1392650895-1422-1-git-send-email-ben.dooks@codethink.co.uk> <53023B60.4030201@cogentembedded.com> <53022EE4.50607@codethink.co.uk> <53038C6A.1000600@cogentembedded.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH RFC] sctp: Update HEARTBEAT timer immediately after user
+ changed HB.interval
+Date: Tue, 18 Feb 2014 11:14:55 -0500
+Message-ID: <530386FF.6090903@gmail.com>
+References: <1392703010-6128-1-git-send-email-xufeng.zhang@windriver.com> <5303731C.8020308@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D0F6C2AEE@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, horms+renesas@verge.net.au,
-	linux-sh@vger.kernel.org, magnus@opensource.se,
-	linux-kernel@lists.codethink.co.uk
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <53038C6A.1000600@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+Cc: "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>,
+	Xufeng Zhang <xufeng.zhang@windriver.com>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6C2AEE@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 18/02/14 16:38, Sergei Shtylyov wrote:
-> Hello.
->
-> On 02/17/2014 06:46 PM, Ben Dooks wrote:
->
->>>> If the sh_eth device is registered using OF, then the driver
->
->>>     Which is not supported yet as my DT patch hasn't been merged.
->>> This patch seems somewhat premature.
->
->> I've got your OF patches in my local tree to test with, this
->> is what I found during that testing.
->
->     The issue is that I didn't post my v3 patch to netdev due to
-> net-next.git repo being closed at this moment and DaveM not wanting to
-> see any patch targeted to it during this time. I've now posted v4 of my
-> Ether DT patch to netdev.
+On 02/18/2014 10:39 AM, David Laight wrote:
+>>> +
+>>> +				/* Update the heartbeat timer immediately. */
+>>> +				if (!mod_timer(&trans->hb_timer,
+>>> +					    sctp_transport_timeout(trans)))
+>>> +					sctp_transport_hold(trans);
+>>
+>> This is causes a rather inconsistent behavior in that it doesn't
+>> account of the amount of time left on the hb timer.  Thus it doesn't
+>> always do what commit log implies.  If the remaining time is shorter
+>> then the new timeout value, it will take longer till the next HB
+>> the application expects.
+> 
+> Being able to stop heartbeats being sent by repeatedly configuring
+> the interval is certainly not a good idea!
+> 
+>> If the application has very strict timing requirement on the HBs, it
+>> should trigger the HB manually.
+>>
+>> We could rework the code to allow the combination of
+>> SPP_HB_DEMAND | SPP_HB_ENABLE to work as follows:
+>>   1) update the timer to the new value
+>>   2) Send an immediate HB
+>>      a) Update the hb timeout.
+>>
+>> 2a should probably be done regardless since it can cause 2 HB to be
+>> outstanding at the same time.
+> 
+> Sending a heartbeat 'on demand' might be problematic if one
+> has also just been sent (from the timer).
 
-Ok, I will look for these tomorrow.
+Yes, you are right.  This will trigger an rto doubling since we'll
+be in a state where we have an outstanding HB without an ack.
 
->>>> should call of_mdiobus_register() to register any PHYs connected
->>>> to the system.
->
->>>     That's not necessary (but good to have).
->
->> Well, it is necessary if you then want any PHYS bound to
->> the device to have their OF information to hand,
->
->     Ether DT support worked for me without this fragment, at least.
+> 
+> I'd have thought that you wouldn't want to send a heartbeat while
+> still expecting a response from the previous one (this might require
+> splitting the time interval in two).
 
-Yes, it just that the PHY is not being linked to the relevant
-OF node. The PHY gets bound, it will not be able to find the
-DT info passed.
+This one is interesting.  Technically, a user can request an immediate
+HB any time, and if the user requests it, we should honor the request.
+Also, the user may not know that there is an outstanding HB.  I'll need
+to think about this a bit.
 
->>>> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
->>>> ---
->>>>   drivers/net/ethernet/renesas/sh_eth.c | 13 +++++++++++++
->>>>   1 file changed, 13 insertions(+)
->
->>>> diff --git a/drivers/net/ethernet/renesas/sh_eth.c
->>>> b/drivers/net/ethernet/renesas/sh_eth.c
->>>> index 06970ac..165f0c4 100644
->>>> --- a/drivers/net/ethernet/renesas/sh_eth.c
->>>> +++ b/drivers/net/ethernet/renesas/sh_eth.c
->>> [...]
->>>> @@ -2629,6 +2630,18 @@ static int sh_mdio_init(struct net_device
->>>> *ndev, int id,
->>>>       snprintf(mdp->mii_bus->id, MII_BUS_ID_SIZE, "%s-%x",
->>>>            mdp->pdev->name, id);
->>>>
->>>> +    if (ndev->dev.parent->of_node) {
->>>> +        dev_set_drvdata(&ndev->dev, mdp->mii_bus);
->>>> +        ret = of_mdiobus_register(mdp->mii_bus,
->>>> +                      ndev->dev.parent->of_node);
->>>> +        if (ret != 0) {
->>>> +            dev_err(&ndev->dev, "of_mdiobus_register() failed\n");
->>>> +            goto out_free_bus;
->>>> +        }
->
->> I should probably only set the drvdata if the
->> of_mdiobus_register() succeeds.
->
->     Yes. Probably should use *goto* as well since in that case the
-> success path would be the same as the existing one.
-
-I will look into that, not the biggest fan of gotos for
-success cases.
-
->>>> +        return 0;
->>>> +    }
->>>> +
->>>>       /* PHY IRQ */
->>>>       mdp->mii_bus->irq = devm_kzalloc(&ndev->dev,
->>>>                        sizeof(int) * PHY_MAX_ADDR,
->
->>>      Hm, I can only hope this works with PHY IRQ in DT mode.
->>> Would you mind if I include your patch into my Ether DT patch?
->
->> You are welcome to include it in your series, but I would like
->> to keep the credit for finding this.
->
->     OK.
->
->> Also, FYI, for some reason the probe is not finding the correct
->> IRQ for this. I will have a look later when I get the board back
->> as to why this is:
->
->> net eth0: attached PHY 1 (IRQ -1) to driver Micrel KSZ8041RNLI
->
->     Thanks for quickly fixing this. I've yet to study of_mdio.c code...
->
-> WBR, Sergei
-
-No problem,
-
-
--- 
-Ben Dooks				http://www.codethink.co.uk/
-Senior Engineer				Codethink - Providing Genius
+Thanks for bringing this up.
+-vlad
+> 
+> 	David
+> 
+> 
+> 
