@@ -1,41 +1,85 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: ixgbevf: Use pci_enable_msix_range() instead of pci_enable_msix()
-Date: Tue, 18 Feb 2014 14:14:35 +0200
-Message-ID: <20140218121433.GB8770@mtl-eit-vdi-22.mtl.labs.mlnx>
-References: <cover.1392717502.git.agordeev@redhat.com>
- <9ee830cfd4b417f230f77dd37256ca8e4396ecbe.1392717503.git.agordeev@redhat.com>
- <20140218120136.GA8770@mtl-eit-vdi-22.mtl.labs.mlnx>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org
-To: Alexander Gordeev <agordeev@redhat.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140218120136.GA8770@mtl-eit-vdi-22.mtl.labs.mlnx>
-Sender: linux-pci-owner@vger.kernel.org
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: [PATCH v2] of_mdio: fix phy interrupt passing
+Date: Tue, 18 Feb 2014 12:16:58 +0000
+Message-ID: <1392725818-558-1-git-send-email-ben.dooks@codethink.co.uk>
+Cc: linux-kernel@lists.codethink.co.uk, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
+	Ben Dooks <ben.dooks@codethink.co.uk>
+To: grant.likely@linaro.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 18/02/14 14:01 +0200, Amir Vadai wrote:
-> On 18/02/14 11:11 +0100, Alexander Gordeev wrote:
-> > As result of deprecation of MSI-X/MSI enablement functions
-> > pci_enable_msix() and pci_enable_msi_block() all drivers
-> > using these two interfaces need to be updated to use the
-> > new pci_enable_msi_range() and pci_enable_msix_range()
-> > interfaces.
-> > 
-> > Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
-> > Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> > Cc: Bruce Allan <bruce.w.allan@intel.com>
-> > Cc: e1000-devel@lists.sourceforge.net
-> > Cc: netdev@vger.kernel.org
-> > Cc: linux-pci@vger.kernel.org
-> > ---
-> 
-> Acked-By: Amir Vadai <amirv@mellanox.com>
-Oh, I'm still working for Mellanox - just replied to the wrong mail :)
+The of_mdiobus_register_phy() is not setting phy->irq thus causing
+some drivers to incorrectly assume that the PHY does not have an
+IRQ associated with it. Not only do some drivers report no IRQ
+they do not install an interrupt handler for the PHY.
+
+Simplify the code setting irq and set the phy->irq at the same
+time so that we cover the following issues, which should cover
+all the cases the code will find:
+
+- Set phy->irq if node has irq property and mdio->irq is NULL
+- Set phy->irq if node has no irq and mdio->irq is not NULL
+- Leave phy->irq as PHY_POLL default if none of the above
+
+This fixes the issue:
+ net eth0: attached PHY 1 (IRQ -1) to driver Micrel KSZ8041RNLI
+
+to the correct:
+ net eth0: attached PHY 1 (IRQ 416) to driver Micrel KSZ8041RNLI
+
+Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
+
+---
+Since v1:
+	- Updated phy->irq setting code
+	- Deal with issue if mdio->irq array NULL
+
+Notes:
+
+It was discussed if this should be two patches, but we end up
+making enough changes in #2 the same area as #1 means that we
+basically rewrite #1 in #2. So keep it as 1 patch.
+---
+ drivers/of/of_mdio.c | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+index 875b7b6..46d95fc 100644
+--- a/drivers/of/of_mdio.c
++++ b/drivers/of/of_mdio.c
+@@ -44,7 +44,7 @@ static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *chi
+ {
+ 	struct phy_device *phy;
+ 	bool is_c45;
+-	int rc, prev_irq;
++	int rc;
+ 	u32 max_speed = 0;
+ 
+ 	is_c45 = of_device_is_compatible(child,
+@@ -54,12 +54,14 @@ static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *chi
+ 	if (!phy || IS_ERR(phy))
+ 		return 1;
+ 
+-	if (mdio->irq) {
+-		prev_irq = mdio->irq[addr];
+-		mdio->irq[addr] =
+-			irq_of_parse_and_map(child, 0);
+-		if (!mdio->irq[addr])
+-			mdio->irq[addr] = prev_irq;
++	rc = irq_of_parse_and_map(child, 0);
++	if (rc > 0) {
++		phy->irq = rc;
++		if (mdio->irq)
++			mdio->irq[addr] = rc;
++	} else {
++		if (mdio->irq)
++			phy->irq = mdio->irq[addr];
+ 	}
+ 
+ 	/* Associate the OF node with the device structure so it
+-- 
+1.8.5.3
+
