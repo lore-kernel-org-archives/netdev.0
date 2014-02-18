@@ -1,337 +1,121 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Tue, 18 Feb 2014 18:34:21 -0500 (EST)
-Message-ID: <20140218.183421.1907590648974367512.davem@davemloft.net>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: [PATCH net] igb: Unset IGB_FLAG_HAS_MSIX-flag when
+	falling back to msi-only
+Date: Wed, 19 Feb 2014 00:36:35 +0100
+Message-ID: <1392766595-14454-1-git-send-email-christoph.paasch@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-
-1) kvaser CAN driver has fixed limits of some of it's table, validate t=
-hat
-   we won't exceed those limits at probe time.  Fix from Olivier Sobrie=
-=2E
-
-2) Fix rtl8192ce disabling interrupts for too long, from Olivier Langlo=
-is.
-
-3) Fix botched shift in ath5k driver, from Dan Carpenter.
-
-4) Fix corruption of deferred packets in TIPC, from Erik Hugne.
-
-5) Fix newlink error path in macvlan driver, from Cong Wang.
-
-6) Fix netpoll deadlock in bonding, from Ding Tianhong.
-
-7) Handle GSO packets properly in forwarding path when fragmentation
-   is necessary on egress, from Florian Westphal.
-
-8) Fix axienet build errors, from Michal Simek.
-
-9) Fix refcounting of ubufs on tx in vhost net driver, from Michael
-   S. Tsirkin.
-
-10) Carrier status isn't set properly in hyperv driver, from Haiyang
-    Zhang.
-
-11) Missing pci_disable_device() in tulip_remove_one), from Ingo Molnar=
-=2E
-
-12) AF_PACKET qdisc bypass mode doesn't adhere to driver provided TX
-    queue selection method.  Add a fallback method mechanism to fix
-    this bug, from Daniel Borkmann.
-
-13) Fix regression in link local route handling on GRE tunnels, from
-    Nicolas Dichtel.
-
-14) Bonding can assign dup aggregator IDs in some sequences of
-    configuration, fix by making the allocation counter per-bond
-    instead of global.  From Jiri Bohac.
-
-15) sctp_connectx() needs compat translations, from Daniel Borkmann.
-
-16) Fix of_mdio PHY interrupt parsing, from Ben Dooks.
-
-Please pull, thanks a lot!
-
-The following changes since commit 738b52bb9845da183b6ff46a8f685b56a633=
-79d1:
-
-  Merge tag 'microblaze-3.14-rc3' of git://git.monstr.eu/linux-2.6-micr=
-oblaze (2014-02-11 12:24:35 -0800)
-
-are available in the git repository at:
-
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net master
-
-for you to fetch changes up to 22f08ad9721d4d1a92061b60026144627a60d644=
-:
-
-  MAINTAINERS: add entry for the PHY library (2014-02-18 18:13:40 -0500=
-)
-
-----------------------------------------------------------------
-Aleksander Morgado (1):
-      net: qmi_wwan: add support for Cinterion PXS8 and PHS8
-
-Antonio Quartulli (9):
-      batman-adv: fix soft-interface MTU computation
-      batman-adv: fix TT-TVLV parsing on OGM reception
-      batman-adv: release vlan object after checking the CRC
-      batman-adv: properly check pskb_may_pull return value
-      batman-adv: avoid potential race condition when adding a new neig=
-hbour
-      batman-adv: fix TT CRC computation by ensuring byte order
-      batman-adv: free skb on TVLV parsing success
-      batman-adv: avoid double free when orig_node initialization fails
-      batman-adv: fix potential kernel paging error for unicast transmi=
-ssions
-
-Ben Dooks (1):
-      of_mdio: fix phy interrupt passing
-
-Cong Wang (2):
-      macvlan: unregister net device when netdev_upper_dev_link() fails
-      net: correct error path in rtnl_newlink()
-
-Dan Carpenter (2):
-      ath5k: shifting the wrong variable for AR5K_AR5210
-      af_packet: remove a stray tab in packet_set_ring()
-
-Daniel Borkmann (4):
-      netdevice: add queue selection fallback handler for ndo_select_qu=
-eue
-      netdevice: move netdev_cap_txqueue for shared usage to header
-      packet: check for ndo_select_queue during queue selection
-      net: sctp: fix sctp_connectx abi for ia32 emulation/compat mode
-
-David S. Miller (3):
-      Merge tag 'linux-can-fixes-for-3.14-20140212' of git://gitorious.=
-org/linux-can/linux-can
-      Merge tag 'batman-adv-fix-for-davem' of git://git.open-mesh.org/l=
-inux-merge
-      Merge branch 'for-davem' of git://git.kernel.org/.../linville/wir=
-eless
-
-Duan Jiong (2):
-      ipv4: distinguish EHOSTUNREACH from the ENETUNREACH
-      ipv4: fix counter in_slow_tot
-
-Emil Goode (2):
-      net: asix: add missing flag to struct driver_info
-      usbnet: remove generic hard_header_len check
-
-Emmanuel Grumbach (1):
-      iwlwifi: disable TX AMPDU by default for iwldvm
-
-Erik Hugne (1):
-      tipc: fix message corruption bug for deferred packets
-
-=46X Le Bail (1):
-      ipv4: ipconfig.c: add parentheses in an if statement
-
-=46lorian Fainelli (2):
-      net: of_mdio: fix of_set_phy_supported after driver probing
-      MAINTAINERS: add entry for the PHY library
-
-=46lorian Westphal (2):
-      net: core: introduce netif_skb_dev_features
-      net: ip, ipv6: handle gso skbs in forwarding path
-
-Gerrit Renker (1):
-      dccp: re-enable debug macro
-
-Haiyang Zhang (1):
-      hyperv: Fix the carrier status setting
-
-Heiko Schocher (1):
-      drivers: net: cpsw: fix buggy loop condition
-
-Ingo Molnar (1):
-      drivers/net: tulip_remove_one needs to call pci_disable_device()
-
-Jan Luebbe (1):
-      net: fix macvtap type name in Kconfig
-
-Jingoo Han (1):
-      USB2NET: SR9800: use %zu for size_t
-
-Jiri Bohac (1):
-      bonding: 802.3ad: make aggregator_identifier bond-private
-
-John W. Linville (2):
-      Merge git://git.kernel.org/.../iwlwifi/iwlwifi-fixes
-      Merge branch 'master' of git://git.kernel.org/.../linville/wirele=
-ss into for-davem
-
-Liu Junliang (1):
-      USB2NET: Fix Default to 'y' for SR9800 Device Driver, setting to =
-'n'
-
-Matija Glavinic Pecotic (1):
-      net: sctp: Fix a_rwnd/rwnd management to reflect real state of th=
-e receiver's buffer
-
-Michael S. Tsirkin (2):
-      vhost: fix ref cnt checking deadlock
-      vhost: fix a theoretical race in device cleanup
-
-Michal Simek (2):
-      net: axienet: Fix compilation error
-      net: axienet: Fix compilation warnings
-
-Mike Galbraith (1):
-      net,bonding: fix bond_options.c direct rwlock.h include
-
-Nicolas Dichtel (1):
-      gre: add link local route when local addr is any
-
-Olivier Langlois (2):
-      rtlwifi: rtl8192ce: Fix too long disable of IRQs
-      rtlwifi: Fix incorrect return from rtl_ps_enable_nic()
-
-Olivier Sobrie (1):
-      can: kvaser_usb: check number of channels returned by HW
-
-Paul Gortmaker (1):
-      Documentation/networking: delete orphaned 3c505.txt file.
-
-Russell King (1):
-      NET: fec: only enable napi if we are successful
-
-Russell King - ARM Linux (1):
-      hostap: fix "hostap: proc: Use remove_proc_subtree()"
-
-Simon Wunderlich (1):
-      batman-adv: fix potential orig_node reference leak
-
-Srinivas Kandagatla (1):
-      net: stmmac:sti: Add STi SOC glue driver.
-
-Stanislaw Gruszka (1):
-      rtl8187: fix regression on MIPS without coherent DMA
-
-Stefan S=F8rensen (1):
-      net:phy:dp83640: Move all HW initialization to dp83640_config_ini=
-t
-
-Thomas Petazzoni (1):
-      net: ethernet: update dependency and help text of mvneta
-
-Tommie Gannert (1):
-      irtty-sir.c: Do not set_termios() on irtty_close()
-
-Uwe Kleine-K=F6nig (1):
-      net: cpsw: catch of_get_phy_mode failing and propagate error
-
-Vijay Subramanian (1):
-      net: sched: Cleanup PIE comments
-
-dingtianhong (1):
-      bonding: Fix deadlock in bonding driver when using netpoll
-
-wangweidong (2):
-      sctp: fix a missed .data initialization
-      sctp: optimize the sctp_sysctl_net_register
-
- .../devicetree/bindings/net/sti-dwmac.txt          |  58 ++++
- Documentation/networking/3c505.txt                 |  45 ---
- MAINTAINERS                                        |  11 +
- drivers/net/Kconfig                                |   2 +-
- drivers/net/bonding/bond_3ad.c                     |   6 +-
- drivers/net/bonding/bond_3ad.h                     |   1 +
- drivers/net/bonding/bond_main.c                    |   9 +-
- drivers/net/bonding/bond_options.c                 |   2 +-
- drivers/net/can/usb/kvaser_usb.c                   |   2 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c    |   4 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h    |   2 +-
- drivers/net/ethernet/dec/tulip/tulip_core.c        |   1 +
- drivers/net/ethernet/freescale/fec_main.c          |   4 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |   6 +-
- drivers/net/ethernet/lantiq_etop.c                 |   2 +-
- drivers/net/ethernet/marvell/Kconfig               |   6 +-
- drivers/net/ethernet/mellanox/mlx4/en_tx.c         |   4 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h       |   2 +-
- drivers/net/ethernet/stmicro/stmmac/Kconfig        |  11 +
- drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
- drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c    | 330 +++++++++++++=
-++++++++
- drivers/net/ethernet/stmicro/stmmac/stmmac.h       |   3 +
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   5 +
- drivers/net/ethernet/ti/cpsw.c                     |  11 +-
- drivers/net/ethernet/tile/tilegx.c                 |   2 +-
- drivers/net/ethernet/xilinx/xilinx_axienet_main.c  |  13 +-
- drivers/net/hyperv/netvsc_drv.c                    |  53 +++-
- drivers/net/irda/irtty-sir.c                       |   1 -
- drivers/net/macvlan.c                              |   5 +-
- drivers/net/phy/dp83640.c                          |  13 +-
- drivers/net/team/team.c                            |   2 +-
- drivers/net/tun.c                                  |   2 +-
- drivers/net/usb/Kconfig                            |   1 -
- drivers/net/usb/asix_devices.c                     |   3 +-
- drivers/net/usb/ax88179_178a.c                     |   4 +
- drivers/net/usb/gl620a.c                           |   4 +
- drivers/net/usb/mcs7830.c                          |   5 +-
- drivers/net/usb/net1080.c                          |   4 +
- drivers/net/usb/qmi_wwan.c                         |   9 +-
- drivers/net/usb/rndis_host.c                       |   4 +
- drivers/net/usb/smsc75xx.c                         |   4 +
- drivers/net/usb/smsc95xx.c                         |   4 +
- drivers/net/usb/sr9800.c                           |   6 +-
- drivers/net/usb/usbnet.c                           |  25 +-
- drivers/net/wireless/ath/ath5k/phy.c               |   2 +-
- drivers/net/wireless/hostap/hostap_proc.c          |   2 +-
- drivers/net/wireless/iwlwifi/dvm/mac80211.c        |  22 +-
- drivers/net/wireless/iwlwifi/iwl-drv.c             |   2 +-
- drivers/net/wireless/iwlwifi/iwl-modparams.h       |  11 +-
- drivers/net/wireless/iwlwifi/mvm/mac80211.c        |  22 +-
- drivers/net/wireless/mwifiex/main.c                |   2 +-
- drivers/net/wireless/rtl818x/rtl8187/rtl8187.h     |  10 +-
- drivers/net/wireless/rtlwifi/ps.c                  |   2 +-
- drivers/net/wireless/rtlwifi/rtl8192ce/hw.c        |  18 +-
- drivers/of/of_mdio.c                               |  22 +-
- drivers/staging/bcm/Bcmnet.c                       |   2 +-
- drivers/staging/netlogic/xlr_net.c                 |   2 +-
- drivers/staging/rtl8188eu/os_dep/os_intfs.c        |   2 +-
- drivers/vhost/net.c                                |  47 +--
- include/linux/netdevice.h                          |  36 ++-
- include/linux/skbuff.h                             |  17 ++
- include/net/sctp/structs.h                         |  14 +-
- net/batman-adv/bat_iv_ogm.c                        |  30 +-
- net/batman-adv/hard-interface.c                    |  22 +-
- net/batman-adv/originator.c                        |  36 +++
- net/batman-adv/originator.h                        |   4 +
- net/batman-adv/routing.c                           |   4 +-
- net/batman-adv/send.c                              |   9 +-
- net/batman-adv/translation-table.c                 |  23 +-
- net/core/dev.c                                     |  22 +-
- net/core/flow_dissector.c                          |  20 +-
- net/core/rtnetlink.c                               |  19 +-
- net/dccp/ccids/lib/tfrc.c                          |   2 +-
- net/dccp/ccids/lib/tfrc.h                          |   1 +
- net/ipv4/ip_forward.c                              |  71 ++++-
- net/ipv4/ipconfig.c                                |   2 +-
- net/ipv4/route.c                                   |  13 +-
- net/ipv6/addrconf.c                                |   2 +
- net/ipv6/ip6_output.c                              |  17 +-
- net/mac80211/iface.c                               |   6 +-
- net/packet/af_packet.c                             |  26 +-
- net/sched/sch_pie.c                                |  21 +-
- net/sctp/associola.c                               |  82 ++---
- net/sctp/sm_statefuns.c                            |   2 +-
- net/sctp/socket.c                                  |  47 ++-
- net/sctp/sysctl.c                                  |  18 +-
- net/sctp/ulpevent.c                                |   8 +-
- net/tipc/core.h                                    |   1 +
- net/tipc/link.c                                    |   7 +
- 89 files changed, 1081 insertions(+), 361 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/sti-dwmac.txt
- delete mode 100644 Documentation/networking/3c505.txt
- create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
+Prior to cd14ef54d25 (igb: Change to use statically allocated array for
+MSIx entries), having msix_entries different from NULL was an indicator
+that MSIX is enabled.
+In igb_set_interrupt_capabiliy we may fall back to MSI-only. Prior to
+the above patch msix_entries was set to NULL by
+igb_reset_interrupt_capability.
+
+However, now we are checking the flag for IGB_FLAG_HAS_MSIX and so the
+stack gets completly confused:
+
+[   42.659791] ------------[ cut here ]------------
+[   42.715032] WARNING: CPU: 7 PID: 0 at net/sched/sch_generic.c:264 dev_watchdog+0x15c/0x1fb()
+[   42.848263] NETDEV WATCHDOG: eth0 (igb): transmit queue 0 timed out
+[   42.923253] Modules linked in:
+[   42.959875] CPU: 7 PID: 0 Comm: swapper/7 Not tainted 3.14.0-rc2-mptcp #437
+[   43.043184] Hardware name: HP ProLiant DL165 G7, BIOS O37 01/26/2011
+[   43.119215]  0000000000000108 ffff88023fdc3da8 ffffffff81487847 0000000000000108
+[   43.208165]  ffff88023fdc3df8 ffff88023fdc3de8 ffffffff81034e7d ffff88023fdc3dd8
+[   43.297120]  ffffffff813fff10 ffff880236018000 ffff880236b178c0 0000000000000008
+[   43.386071] Call Trace:
+[   43.415303]  <IRQ>  [<ffffffff81487847>] dump_stack+0x49/0x62
+[   43.484174]  [<ffffffff81034e7d>] warn_slowpath_common+0x77/0x91
+[   43.556049]  [<ffffffff813fff10>] ? dev_watchdog+0x15c/0x1fb
+[   43.623759]  [<ffffffff81034f2b>] warn_slowpath_fmt+0x41/0x43
+[   43.692511]  [<ffffffff813fff10>] dev_watchdog+0x15c/0x1fb
+[   43.758141]  [<ffffffff813ffdb4>] ? __netdev_watchdog_up+0x64/0x64
+[   43.832091]  [<ffffffff8103cd04>] call_timer_fn+0x17/0x6f
+[   43.896682]  [<ffffffff8103cebe>] run_timer_softirq+0x162/0x1a2
+[   43.967511]  [<ffffffff81038520>] __do_softirq+0xcd/0x1cc
+[   44.032104]  [<ffffffff81038689>] irq_exit+0x3a/0x48
+[   44.091492]  [<ffffffff81026d43>] smp_apic_timer_interrupt+0x43/0x50
+[   44.167525]  [<ffffffff8148c24a>] apic_timer_interrupt+0x6a/0x70
+[   44.239392]  <EOI>  [<ffffffff8100992c>] ? default_idle+0x6/0x8
+[   44.310343]  [<ffffffff81009b31>] arch_cpu_idle+0x13/0x18
+[   44.374934]  [<ffffffff81066126>] cpu_startup_entry+0xa7/0x101
+[   44.444724]  [<ffffffff81025660>] start_secondary+0x1b2/0x1b7
+[   44.513472] ---[ end trace a5a075fd4e7f854f ]---
+[   44.568753] igb 0000:04:00.0 eth0: Reset adapter
+[   46.206945] random: nonblocking pool is initialized
+[   46.465670] irq 44: nobody cared (try booting with the "irqpoll" option)
+[   46.545862] CPU: 7 PID: 0 Comm: swapper/7 Tainted: G        W    3.14.0-rc2-mptcp #437
+[   46.640610] Hardware name: HP ProLiant DL165 G7, BIOS O37 01/26/2011
+[   46.716641]  ffff8802363f8c84 ffff88023fdc3e38 ffffffff81487847 00000000a03cdb6d
+[   46.805598]  ffff8802363f8c00 ffff88023fdc3e68 ffffffff81068489 0000007f81825400
+[   46.894539]  ffff8802363f8c00 0000000000000000 0000000000000000 ffff88023fdc3ea8
+[   46.983484] Call Trace:
+[   47.012714]  <IRQ>  [<ffffffff81487847>] dump_stack+0x49/0x62
+[   47.081585]  [<ffffffff81068489>] __report_bad_irq+0x35/0xc1
+[   47.149295]  [<ffffffff81068683>] note_interrupt+0x16e/0x1ea
+[   47.217006]  [<ffffffff8106679e>] handle_irq_event_percpu+0x116/0x12e
+[   47.294075]  [<ffffffff810667e9>] handle_irq_event+0x33/0x4f
+[   47.361787]  [<ffffffff81068c95>] handle_fasteoi_irq+0x83/0xd1
+[   47.431577]  [<ffffffff81003d5b>] handle_irq+0x1f/0x28
+[   47.493047]  [<ffffffff81003567>] do_IRQ+0x4e/0xd4
+[   47.550358]  [<ffffffff8148b06a>] common_interrupt+0x6a/0x6a
+[   47.618066]  <EOI>  [<ffffffff8100992c>] ? default_idle+0x6/0x8
+[   47.689016]  [<ffffffff81009b31>] arch_cpu_idle+0x13/0x18
+[   47.753605]  [<ffffffff81066126>] cpu_startup_entry+0xa7/0x101
+[   47.823397]  [<ffffffff81025660>] start_secondary+0x1b2/0x1b7
+[   47.892146] handlers:
+[   47.919301] [<ffffffff812fbd7d>] igb_intr
+
+So, this patch unsets the flag to indicate that we are not using MSIX.
+This patch does exactly this: Unsetting the flag when falling back to MSI.
+
+Fixes: cd14ef54d25b (igb: Change to use statically allocated array for MSIx entries)
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+---
+ drivers/net/ethernet/intel/igb/igb_main.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 46d31a49f5ea..893b52393b56 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -1121,6 +1121,7 @@ static void igb_set_interrupt_capability(struct igb_adapter *adapter, bool msix)
+ 
+ 	/* If we can't do MSI-X, try MSI */
+ msi_only:
++	adapter->flags &= ~IGB_FLAG_HAS_MSIX;
+ #ifdef CONFIG_PCI_IOV
+ 	/* disable SR-IOV for non MSI-X configurations */
+ 	if (adapter->vf_data) {
+-- 
+1.8.3.2
+
+
+------------------------------------------------------------------------------
+Managing the Performance of Cloud-Based Applications
+Take advantage of what the Cloud has to offer - Avoid Common Pitfalls.
+Read the Whitepaper.
+http://pubads.g.doubleclick.net/gampad/clk?id=121054471&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
