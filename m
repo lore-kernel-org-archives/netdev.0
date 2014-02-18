@@ -1,70 +1,95 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] Documentation: broadcom-bcmgenet: fix address and cells properties
-Date: Mon, 17 Feb 2014 20:37:24 -0800
-Message-ID: <1632803.vUVKaAhEaF@lenovo>
-References: <1392683255-28136-1-git-send-email-f.fainelli@gmail.com>
+From: Don Fry <pcnet32@frontier.com>
+Subject: [PATCH net-next 1/2] pcnet32: fix reallocation error
+Date: Mon, 17 Feb 2014 20:57:46 -0800
+Message-ID: <1392699466.4020.27.camel@Linux>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, sergei.shtylyov@cogentembedded.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:52556 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753092AbaBREh1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 23:37:27 -0500
-Received: by mail-ob0-f174.google.com with SMTP id uy5so17956761obc.19
-        for <netdev@vger.kernel.org>; Mon, 17 Feb 2014 20:37:27 -0800 (PST)
-In-Reply-To: <1392683255-28136-1-git-send-email-f.fainelli@gmail.com>
+Received: from filter03.roch.ny.frontiernet.net ([66.133.183.233]:53697 "EHLO
+	filter03.roch.ny.frontiernet.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750792AbaBRFEF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 00:04:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 17 f=E9vrier 2014, 16:27:35 Florian Fainelli a =E9crit :
-> This patch fixes a typo in the Device Tree binding for the
-> leading '#'.
->=20
-> Reported-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
+pcnet32_realloc_rx_ring() only worked on the first log2 number of
+entries in the receive ring instead of the all the entries.
+Replaced "1 << size" with more descriptive variable.
+This is my original bug from 2006.  Found while testing another problem.
+Tested on 79C972 and 79C976.
 
-=46orgot to mention that this patch is for the net-next tree. Thanks!
+Signed-off-by: Don Fry <pcnet32@frontier.com>
+---
+ drivers/net/ethernet/amd/pcnet32.c |   18 +++++++++---------
+ 1 files changed, 9 insertions(+), 9 deletions(-)
 
->  Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt | 8 ++++=
-----
->  1 file changed, 4 insertions(+), 4 deletions(-)
->=20
-> diff --git a/Documentation/devicetree/bindings/net/broadcom-bcmgenet.=
-txt
-> b/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt index
-> 88c3d04..25339ee 100644
-> --- a/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
-> +++ b/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
-> @@ -10,8 +10,8 @@ Required properties:
->  - phy-mode: String, operation mode of the PHY interface. Supported v=
-alues
-> are "mii", "rgmii", "rgmii-txid", "rev-mii", "moca". Analogous to ePA=
-PR
-> "phy-connection-type" values
-> -- address-cells: should be 1
-> -- size-cells: should be 1
-> +- #address-cells: should be 1
-> +- #size-cells: should be 1
->=20
->  Optional properties:
->  - clocks: When provided, must be two phandles to the functional cloc=
-ks
-> nodes @@ -42,8 +42,8 @@ MDIO bus node required properties:
->    parent node compatible property (e.g: brcm,genet-v4 pairs with
->    brcm,genet-mdio-v4)
->  - reg: address and length relative to the parent node base register =
-address
-> -- address-cells: address cell for MDIO bus addressing, should be 1 -=
--
-> size-cells: size of the cells for MDIO bus addressing, should be 0 +-
-> #address-cells: address cell for MDIO bus addressing, should be 1 +-
-> #size-cells: size of the cells for MDIO bus addressing, should be 0
->=20
->  Ethernet PHY node properties:
-
---=20
-=46lorian
+diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
+index 9339ccc..25cd04a 100644
+--- a/drivers/net/ethernet/amd/pcnet32.c
++++ b/drivers/net/ethernet/amd/pcnet32.c
+@@ -549,35 +549,36 @@ static void pcnet32_realloc_rx_ring(struct net_device *dev,
+ 	struct pcnet32_rx_head *new_rx_ring;
+ 	struct sk_buff **new_skb_list;
+ 	int new, overlap;
++	unsigned int entries = 1 << size;
+ 
+ 	new_rx_ring = pci_alloc_consistent(lp->pci_dev,
+ 					   sizeof(struct pcnet32_rx_head) *
+-					   (1 << size),
++					   entries,
+ 					   &new_ring_dma_addr);
+ 	if (new_rx_ring == NULL) {
+ 		netif_err(lp, drv, dev, "Consistent memory allocation failed\n");
+ 		return;
+ 	}
+-	memset(new_rx_ring, 0, sizeof(struct pcnet32_rx_head) * (1 << size));
++	memset(new_rx_ring, 0, sizeof(struct pcnet32_rx_head) * entries);
+ 
+-	new_dma_addr_list = kcalloc(1 << size, sizeof(dma_addr_t), GFP_ATOMIC);
++	new_dma_addr_list = kcalloc(entries, sizeof(dma_addr_t), GFP_ATOMIC);
+ 	if (!new_dma_addr_list)
+ 		goto free_new_rx_ring;
+ 
+-	new_skb_list = kcalloc(1 << size, sizeof(struct sk_buff *),
++	new_skb_list = kcalloc(entries, sizeof(struct sk_buff *),
+ 			       GFP_ATOMIC);
+ 	if (!new_skb_list)
+ 		goto free_new_lists;
+ 
+ 	/* first copy the current receive buffers */
+-	overlap = min(size, lp->rx_ring_size);
++	overlap = min(entries, lp->rx_ring_size);
+ 	for (new = 0; new < overlap; new++) {
+ 		new_rx_ring[new] = lp->rx_ring[new];
+ 		new_dma_addr_list[new] = lp->rx_dma_addr[new];
+ 		new_skb_list[new] = lp->rx_skbuff[new];
+ 	}
+ 	/* now allocate any new buffers needed */
+-	for (; new < size; new++) {
++	for (; new < entries; new++) {
+ 		struct sk_buff *rx_skbuff;
+ 		new_skb_list[new] = netdev_alloc_skb(dev, PKT_BUF_SKB);
+ 		rx_skbuff = new_skb_list[new];
+@@ -612,7 +613,7 @@ static void pcnet32_realloc_rx_ring(struct net_device *dev,
+ 			    lp->rx_ring_size, lp->rx_ring,
+ 			    lp->rx_ring_dma_addr);
+ 
+-	lp->rx_ring_size = (1 << size);
++	lp->rx_ring_size = entries;
+ 	lp->rx_mod_mask = lp->rx_ring_size - 1;
+ 	lp->rx_len_bits = (size << 4);
+ 	lp->rx_ring = new_rx_ring;
+@@ -634,8 +635,7 @@ free_new_lists:
+ 	kfree(new_dma_addr_list);
+ free_new_rx_ring:
+ 	pci_free_consistent(lp->pci_dev,
+-			    sizeof(struct pcnet32_rx_head) *
+-			    (1 << size),
++			    sizeof(struct pcnet32_rx_head) * entries,
+ 			    new_rx_ring,
+ 			    new_ring_dma_addr);
+ }
+-- 
+1.7.2.3
