@@ -1,51 +1,61 @@
-From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH net-next 03/35] tg3: Use pci_enable_msix_range() instead of pci_enable_msix()
-Date: Tue, 18 Feb 2014 11:07:55 +0100
-Message-ID: <0a7f2b8a12cdd300aa3e2ec2649e3e401381181c.1392717502.git.agordeev@redhat.com>
-References: <cover.1392717502.git.agordeev@redhat.com>
-Cc: Alexander Gordeev <agordeev@redhat.com>,
-	Nithin Nayak Sujir <nsujir@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1392717502.git.agordeev@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: [PATCH] net: ethernet: remove unneeded dependency of mvneta and update help text
+Date: Tue, 18 Feb 2014 11:29:51 +0100
+Message-ID: <1392719391-8851-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Cc: Jason Cooper <jason@lakedaemon.net>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	linux-arm-kernel@lists.infradead.org
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from top.free-electrons.com ([176.31.233.9]:43653 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754484AbaBRK3x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 05:29:53 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As result of deprecation of MSI-X/MSI enablement functions
-pci_enable_msix() and pci_enable_msi_block() all drivers
-using these two interfaces need to be updated to use the
-new pci_enable_msi_range() and pci_enable_msix_range()
-interfaces.
+With the introduction of the support for Armada 375 and Armada 38x,
+the hidden Kconfig option MACH_ARMADA_370_XP is being renamed to
+MACH_MVEBU_V7. Therefore, the dependency that was used for the mvneta
+driver can no longer work.
 
-Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
-Cc: Nithin Nayak Sujir <nsujir@broadcom.com>
-Cc: Michael Chan <mchan@broadcom.com>
-Cc: netdev@vger.kernel.org
-Cc: linux-pci@vger.kernel.org
+However, such a dependency is not really necessary: there is no point
+in preventing this driver from being built in other situations, just
+like the mv643xx_eth driver. As a consequence, this commit removes the
+unnecessary Kconfig dependency.
+
+In addition to this, it takes this opportunity to adjust the
+description and help text to indicate that the driver can is also used
+for Armada 38x. Note that Armada 375 cannot use this driver as it has
+a completely different networking unit, which will require a separate
+driver.
+
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/marvell/Kconfig | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 3167ed6..6e5e7c0 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -11362,12 +11362,10 @@ static bool tg3_enable_msix(struct tg3 *tp)
- 		msix_ent[i].vector = 0;
- 	}
+diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
+index 6300fd2..97b91f7 100644
+--- a/drivers/net/ethernet/marvell/Kconfig
++++ b/drivers/net/ethernet/marvell/Kconfig
+@@ -43,12 +43,11 @@ config MVMDIO
+ 	  This driver is used by the MV643XX_ETH and MVNETA drivers.
  
--	rc = pci_enable_msix(tp->pdev, msix_ent, tp->irq_cnt);
-+	rc = pci_enable_msix_range(tp->pdev, msix_ent, 1, tp->irq_cnt);
- 	if (rc < 0) {
- 		return false;
--	} else if (rc != 0) {
--		if (pci_enable_msix(tp->pdev, msix_ent, rc))
--			return false;
-+	} else if (rc < tp->irq_cnt) {
- 		netdev_notice(tp->dev, "Requested %d MSI-X vectors, received %d\n",
- 			      tp->irq_cnt, rc);
- 		tp->irq_cnt = rc;
+ config MVNETA
+-	tristate "Marvell Armada 370/XP network interface support"
+-	depends on MACH_ARMADA_370_XP
++	tristate "Marvell Armada 370/38x/XP network interface support"
+ 	select MVMDIO
+ 	---help---
+ 	  This driver supports the network interface units in the
+-	  Marvell ARMADA XP and ARMADA 370 SoC family.
++	  Marvell ARMADA XP, ARMADA 370 and Armada 38x SoC family.
+ 
+ 	  Note that this driver is distinct from the mv643xx_eth
+ 	  driver, which should be used for the older Marvell SoCs
 -- 
-1.7.7.6
+1.8.3.2
