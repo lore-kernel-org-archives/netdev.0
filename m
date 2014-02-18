@@ -1,41 +1,36 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [PATCH RFC net-next 0/6] 6lowpan: reimplementation of
- fragmentation handling
-Date: Tue, 18 Feb 2014 20:58:27 +0100
-Message-ID: <20140218195824.GA935@omega>
-References: <1392539668-2349-1-git-send-email-alex.aring@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/6] gianfar: Device configuration fixes
+Date: Tue, 18 Feb 2014 15:03:26 -0500 (EST)
+Message-ID: <20140218.150326.345866777429417518.davem@davemloft.net>
+References: <1392634399-5456-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: dbaryshkov@gmail.com, davem@davemloft.net,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	martin.townsend@xsilon.com
-To: alex.bluesman.smirnov@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: claudiu.manoil@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f178.google.com ([209.85.215.178]:42190 "EHLO
-	mail-ea0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751151AbaBRT6o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 14:58:44 -0500
-Received: by mail-ea0-f178.google.com with SMTP id a15so8299649eae.9
-        for <netdev@vger.kernel.org>; Tue, 18 Feb 2014 11:58:43 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1392539668-2349-1-git-send-email-alex.aring@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35207 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751162AbaBRUDb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 15:03:31 -0500
+In-Reply-To: <1392634399-5456-1-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Date: Mon, 17 Feb 2014 12:53:13 +0200
 
-any suggestions to this patch stack?
+> This patchset represents the first part of an effort
+> to solve some old device configuration issues in gianfar,
+> especially run-time reset and re-configuration problems.
+> I'm referring to "on-the-fly" configuration of registers
+> against HW specification, concurrency issues during device
+> reset / re-configuration operations, and implementing HW
+> advisories for these operations.
+> 
+> There's also a good deal of code cleanup and refactoring,
+> and some other (minor) fixes as well.
+> 
+> Thank you. 
 
-I got a:
-
-Tested-by: Martin Townsend <martin.townsend@xsilon.com>
-
-while this time. He is happy that all things works fine now. :-)
-
-Of course I tested it myself with a linux<->linux and linux<->contiki
-connection.
-
-If all seems fine. Is there a chance to bring this patch stack mainline?
-
-
-- Alex
+Series applied, thanks.
