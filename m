@@ -1,27 +1,15 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH net-next 12/35] e1000e: Use
-	pci_enable_msix_range() instead of pci_enable_msix()
-Date: Tue, 18 Feb 2014 11:11:41 +0100
-Message-ID: <535cdf2dd9a61b8272b6323b72f1dca6a2460ab3.1392717503.git.agordeev@redhat.com>
+Subject: [PATCH net-next 22/35] vxge: Use pci_enable_msix_range() instead of pci_enable_msix()
+Date: Tue, 18 Feb 2014 11:11:51 +0100
+Message-ID: <799aa59d70b2e96f094917a8581a331afa068702.1392717503.git.agordeev@redhat.com>
 References: <cover.1392717502.git.agordeev@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Alexander Gordeev <agordeev@redhat.com>, linux-pci@vger.kernel.org
+Cc: Alexander Gordeev <agordeev@redhat.com>,
+	Jon Mason <jdmason@kudzu.us>, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1392717502.git.agordeev@redhat.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 As result of deprecation of MSI-X/MSI enablement functions
@@ -31,52 +19,48 @@ new pci_enable_msi_range() and pci_enable_msix_range()
 interfaces.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>
-Cc: e1000-devel@lists.sourceforge.net
+Cc: Jon Mason <jdmason@kudzu.us>
 Cc: netdev@vger.kernel.org
 Cc: linux-pci@vger.kernel.org
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c |   11 +++++++----
- 1 files changed, 7 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/neterion/vxge/vxge-main.c |   15 +++++++++------
+ 1 files changed, 9 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 6d91933..e6f8961d 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -2038,13 +2038,16 @@ void e1000e_set_interrupt_capability(struct e1000_adapter *adapter)
- 							       msix_entry),
- 							GFP_KERNEL);
- 			if (adapter->msix_entries) {
-+				struct e1000_adapter *a = adapter;
-+
- 				for (i = 0; i < adapter->num_vectors; i++)
- 					adapter->msix_entries[i].entry = i;
+diff --git a/drivers/net/ethernet/neterion/vxge/vxge-main.c b/drivers/net/ethernet/neterion/vxge/vxge-main.c
+index e46e869..c83cedd 100644
+--- a/drivers/net/ethernet/neterion/vxge/vxge-main.c
++++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c
+@@ -2349,12 +2349,18 @@ start:
+ 	vdev->vxge_entries[j].entry = VXGE_ALARM_MSIX_ID;
+ 	vdev->vxge_entries[j].in_use = 0;
  
--				err = pci_enable_msix(adapter->pdev,
--						      adapter->msix_entries,
--						      adapter->num_vectors);
--				if (err == 0)
-+				err = pci_enable_msix_range(a->pdev,
-+							    a->msix_entries,
-+							    a->num_vectors,
-+							    a->num_vectors);
-+				if (err > 0)
- 					return;
- 			}
- 			/* MSI-X failed, so fall through and try MSI */
+-	ret = pci_enable_msix(vdev->pdev, vdev->entries, vdev->intr_cnt);
+-	if (ret > 0) {
++	ret = pci_enable_msix_range(vdev->pdev,
++				    vdev->entries, 3, vdev->intr_cnt);
++	if (ret < 0) {
++		ret = -ENODEV;
++		goto enable_msix_failed;
++	} else if (ret < vdev->intr_cnt) {
++		pci_disable_msix(vdev->pdev);
++
+ 		vxge_debug_init(VXGE_ERR,
+ 			"%s: MSI-X enable failed for %d vectors, ret: %d",
+ 			VXGE_DRIVER_NAME, vdev->intr_cnt, ret);
+-		if ((max_config_vpath != VXGE_USE_DEFAULT) || (ret < 3)) {
++		if (max_config_vpath != VXGE_USE_DEFAULT) {
+ 			ret = -ENODEV;
+ 			goto enable_msix_failed;
+ 		}
+@@ -2368,9 +2374,6 @@ start:
+ 		vxge_close_vpaths(vdev, temp);
+ 		vdev->no_of_vpath = temp;
+ 		goto start;
+-	} else if (ret < 0) {
+-		ret = -ENODEV;
+-		goto enable_msix_failed;
+ 	}
+ 	return 0;
+ 
 -- 
 1.7.7.6
-
-
-------------------------------------------------------------------------------
-Managing the Performance of Cloud-Based Applications
-Take advantage of what the Cloud has to offer - Avoid Common Pitfalls.
-Read the Whitepaper.
-http://pubads.g.doubleclick.net/gampad/clk?id=121054471&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
