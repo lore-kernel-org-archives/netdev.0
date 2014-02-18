@@ -1,94 +1,45 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next] bonding: Fix RTNL: assertion failed at net/core/rtnetlink.c
- for 802.3ad mode
-Date: Tue, 18 Feb 2014 20:16:49 +0800
-Message-ID: <53034F31.2090005@huawei.com>
-References: <53034312.1060203@huawei.com> <20140218121417.GB30299@glanzmann.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Cong Wang <cwang@twopensource.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Thomas Glanzmann <thomas@glanzmann.de>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH net] veth: Fix vlan_features so as to be able to use stacked vlan interfaces
+Date: Tue, 18 Feb 2014 21:20:08 +0900
+Message-ID: <1392726009-8083-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	Flavio Leitner <fbl@redhat.com>, netdev@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:8889 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754440AbaBRMRW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 07:17:22 -0500
-In-Reply-To: <20140218121417.GB30299@glanzmann.de>
+Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:52160 "EHLO
+	tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753906AbaBRMUb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 07:20:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/2/18 20:14, Thomas Glanzmann wrote:
-> Hello Ding,
-> 
-> * Ding Tianhong <dingtianhong@huawei.com> [2014-02-18 12:25]:
->> The problem was introduced by the commit 1d3ee88ae0d
->> (bonding: add netlink attributes to slave link dev).
->> The bond_set_active_slave() and bond_set_backup_slave()
->> will use rtmsg_ifinfo to send slave's states, so these
->> two functions should be called in RTNL.
-> 
->> In 802.3ad mode, acquiring RTNL for the __enable_port and
->> __disable_port cases is difficult, as those calls generally
->> already hold the state machine lock, and cannot unconditionally
->> call rtnl_lock because either they already hold RTNL (for calls
->> via bond_3ad_unbind_slave) or due to the potential for deadlock
->> with bond_3ad_adapter_speed_changed, bond_3ad_adapter_duplex_changed,
->> bond_3ad_link_change, or bond_3ad_update_lacp_rate.  All four of
->> those are called with RTNL held, and acquire the state machine lock
->> second.  The calling contexts for __enable_port and __disable_port
->> already hold the state machine lock, and may or may not need RTNL.
-> 
->> According to the Jay's opinion, I don't think it is a problem that
->> the slave don't send notify message synchronously when the status
->> changed, normally the state machine is running every 100 ms, send
->> the notify message at the end of the state machine if the slave's
->> state changed should be better.
-> 
->> I fix the problem through these steps:
-> 
->> 1). add a new function bond_set_slave_state() which could change
->>     the slave's state and call rtmsg_ifinfo() according to the input
->>     parameters called notify.
-> 
->> 2). Add a new slave parameter which called should_notify, if the slave's state
->>     changed and don't notify yet, the parameter will be set to 1, and then if
->>     the slave's state changed again, the param will be set to 0, it indicate that
->>     the slave's state has been restored, no need to notify any one.
-> 
->> 3). the __enable_port and __disable_port should not call rtmsg_ifinfo
->>     in the state machine lock, any change in the state of slave could
->>     set a flag in the slave, it will indicated that an rtmsg_ifinfo
->>     should be called at the end of the state machine.
-> 
-> I applied the same on top of Linus Tip and tested:
-> 
-> (node-62) [~] dmesg | pbot
-> http://pbot.rmdir.de/tlM017PXoi9PsV3j32z4gA
-> (node-62) [~] pbot /proc/net/bonding/bond0
-> http://pbot.rmdir.de/zNSSqmjSI0o1Qvt6DrSEQw
-> (node-62) [~] pbot /proc/net/bonding/bond1
-> http://pbot.rmdir.de/CoI00Rguie2P-kOQytOM9w
-> 
-> Looks good to me.
-> 
-> Tested-by: Thomas Glanzmann <thomas@glanzmann.de>
-> 
-> Cheers,
->         Thomas
-> 
-> .
+Even if we create a stacked vlan interface such as veth0.10.20, it sends
+single tagged frames (tagged with only vid 10).
+Because vlan_features of a veth interface has the
+NETIF_F_HW_VLAN_[CTAG/STAG]_TX bits, veth0.10 also has that feature, so
+dev_hard_start_xmit(veth0.10) doesn't call __vlan_put_tag() and
+vlan_dev_hard_start_xmit(veth0.10) overwrites vlan_tci.
+This prevents us from using a combination of 802.1ad and 802.1Q
+in containers, etc.
 
-Thanks for testing this patch again.
+Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+---
+ drivers/net/veth.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Regards
-Ding
-> 
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index 2ec2041..5b37437 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -285,7 +285,8 @@ static void veth_setup(struct net_device *dev)
+ 	dev->ethtool_ops = &veth_ethtool_ops;
+ 	dev->features |= NETIF_F_LLTX;
+ 	dev->features |= VETH_FEATURES;
+-	dev->vlan_features = dev->features;
++	dev->vlan_features = dev->features &
++			     ~(NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_STAG_TX);
+ 	dev->destructor = veth_dev_free;
+ 
+ 	dev->hw_features = VETH_FEATURES;
+-- 
+1.8.1.2
