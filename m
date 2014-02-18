@@ -1,69 +1,112 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [patch] af_packet: remove a stray tab in packet_set_ring()
-Date: Tue, 18 Feb 2014 16:52:15 +0100
-Message-ID: <530381AF.7090409@redhat.com>
-References: <20140218122050.GB9604@elgon.mountain>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: add init-regs for of_phy support
+Date: Tue, 18 Feb 2014 20:00:03 +0300
+Message-ID: <53039193.4010500@cogentembedded.com>
+References: <1392642484-19938-1-git-send-email-ben.dooks@codethink.co.uk> <1392642484-19938-2-git-send-email-ben.dooks@codethink.co.uk> <CAGVrzcYbw5xLj-gwcup5i0gBdKDDGdyy5wAaEBp7m2E7f2bytg@mail.gmail.com> <5302801F.6000903@cogentembedded.com> <CAGVrzcbZC3t0oexc5Aj-KyGj-qC8J9eYp8+rb8V-AqKtrSjyYw@mail.gmail.com> <530316EE.5010104@codethink.co.uk> <20140218115443.GC6051@e106331-lin.cambridge.arm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Willem de Bruijn <willemb@google.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <edumazet@google.com>, Phil Sutter <phil@nwl.cc>,
-	Atzm Watanabe <atzm@stratosphere.co.jp>,
-	Richard Cochran <richardcochran@gmail.com>,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35265 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755593AbaBRPwy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Feb 2014 10:52:54 -0500
-In-Reply-To: <20140218122050.GB9604@elgon.mountain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Mark Rutland <mark.rutland@arm.com>,
+	Ben Dooks <ben.dooks@codethink.co.uk>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20140218115443.GC6051@e106331-lin.cambridge.arm.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/18/2014 01:20 PM, Dan Carpenter wrote:
-> At first glance it looks like there is a missing curly brace but
-> actually the code works the same either way.  I have adjusted the
-> indenting but left the code the same.
->
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Hello.
 
-Agreed.
+On 02/18/2014 02:54 PM, Mark Rutland wrote:
 
-Actually, this whole construct could have been simplified ...
+>> [snip]
 
-     switch (po->tp_version) {
-     case TPACKET_V3:
-     /* Transmit path is not supported. We checked
-      * it above but just being paranoid
-      */
-         if (!tx_ring)
-             init_prb_bdqc(po, rb, pg_vec, req_u, tx_ring);
-             break;
-     default:
-         break;
-     }
+>>>>> - fixing up some design mistake?
+>>>>> - accounting for a specific board design?
 
-... into just one if condition. Looks a bit unnecessary as
-there's just one case. Feel free to change that as well.
+>>>>      Kind of both. This was invented to defy the necessity of having platform
+>>>> fixup in the DT case (where there should be no board file to place it into).
+>>>> I have already described that platform fixup necessary on the Renesas
+>>>> Lager/Koelsch boards where the LED0 signat is connected to ETH_LINK signal
+>>>> on the SoC and the PHY reset sets the LED control bits to default 0 which
+>>>> means that LED0 will be LINK/ACTIVITY signal and thus blink on activity and
+>>>> cause ETH_LINK to bounce off/on after each packet.
 
-Otherwise ...
+>>>>> In any case a PHY fixup would do the job for you.
 
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+>>>>      Not in any case. In case of DT we have no place for it, so should invent
+>>>> something involving DT.
 
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index 6a2bb37506c5..7fd37de503d1 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -3786,7 +3786,7 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
->   		 */
->   			if (!tx_ring)
->   				init_prb_bdqc(po, rb, pg_vec, req_u, tx_ring);
-> -				break;
-> +			break;
->   		default:
->   			break;
->   		}
->
+>>> How is DT different than any machine probing mechanism here? The way
+>>> to involve DT is to do the following:
+
+>>> if (of_machine_is_compatible("renesas,foo-board-with-broken-micrel-phy"))
+>>>              phy_register_fixup(&foo_board_with_broken_micrel_phy);
+
+>> Oh yes, but now I have to do that for Linux, for $BSD, and for
+>> anything else I want to run on the device. I thought dt was meant
+>> to allow us to describe the hardware.
+
+> It does allow you to describe the hardware. Arbitrary register writes
+> aren't a description of the hardware, they're a sequence of instructions
+> that tells the OS nothing about the hardware and limit the ability of an
+> OS to do something different that might be better.
+
+> It's already the case that the OS has to have some knowledge of the
+> hardware that's implicit in a binding. We don't expect to have to
+> include bytecode to tell the OS how to poke a particular UART when it
+> can figure that out from a compatible string.
+
+>> If this is the case, let's just call this linuxtree and let everyone
+>> else get on with their own thing again.
+
+> This doesn't follow at all. Any OS needs to have some understanding of
+> the hardware it will try to poke. Describing a specific sequence of
+> writes in a DT is no more operating system independent than identifying
+> the hardware and expecting the OS to have a driver for it. The
+> requirements aren't any more suited to an individual OS in either case.
+
+>> See also comment below.
+
+>>> If your machine compatible string does not allow you to uniquely
+>>> identify your machine, this is a DT problem, as this should really be
+>>> the case. If you do not want to add this code to wherever this is
+>>> relevant in arch/arm/mach-shmobile/board-*.c, neither is
+>>> drivers/net/phy/phy_device.c this the place to add it.
+
+>> So where should it be added? If we keep piling stuff into board files
+>> in arch/arm.... then we're just back to the pre-dt case and going to
+>> keep getting shouted at.
+
+> The general trend has been to allocate new compatible strings for
+> components and let individual drivers handle this.
+
+> As far as I can see your case doesn't involve any components external to
+> the PHY, so should probably live in a PHY driver. The PHY can have a
+
+    It does involve LEDs which should function in the way described by their 
+labels, and it does involve SoC for which ETH_LINK signal should remain stable 
+and not bouncing after each packet.
+
+> specific compatible string with the generic string as a fallback (if it
+> works to some degree without special poking).
+
+    It can but that doesn't solve this issue in any way. The issue is board 
+specific, not only PHY specific.
+
+> I don't see that we need anything board-specific.
+
+    Did you read the text substantially above this in this mail for more 
+complete description of the issue? We're trying to emulate the PHY *platform* 
+fixup here which didn't belong with the PHY driver.
+
+[...]
+
+> Cheers,
+> Mark.
+
+WBR, Sergei
+
