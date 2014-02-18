@@ -1,91 +1,74 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2] of_mdio: fix phy interrupt passing
-Date: Tue, 18 Feb 2014 18:48:18 +0400
-Message-ID: <530372B2.8050900@cogentembedded.com>
-References: <1392725818-558-1-git-send-email-ben.dooks@codethink.co.uk>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH RFC] sctp: Update HEARTBEAT timer immediately after user
+ changed HB.interval
+Date: Tue, 18 Feb 2014 09:50:04 -0500
+Message-ID: <5303731C.8020308@gmail.com>
+References: <1392703010-6128-1-git-send-email-xufeng.zhang@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@lists.codethink.co.uk, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org
-To: Ben Dooks <ben.dooks@codethink.co.uk>, grant.likely@linaro.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:63018 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755871AbaBROsZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 09:48:25 -0500
-Received: by mail-lb0-f174.google.com with SMTP id l4so12200001lbv.5
-        for <netdev@vger.kernel.org>; Tue, 18 Feb 2014 06:48:24 -0800 (PST)
-In-Reply-To: <1392725818-558-1-git-send-email-ben.dooks@codethink.co.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Xufeng Zhang <xufeng.zhang@windriver.com>, nhorman@tuxdriver.com,
+	davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1392703010-6128-1-git-send-email-xufeng.zhang@windriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
-
-On 18-02-2014 16:16, Ben Dooks wrote:
-
-> The of_mdiobus_register_phy() is not setting phy->irq thus causing
-> some drivers to incorrectly assume that the PHY does not have an
-> IRQ associated with it. Not only do some drivers report no IRQ
-> they do not install an interrupt handler for the PHY.
-
-> Simplify the code setting irq and set the phy->irq at the same
-> time so that we cover the following issues, which should cover
-> all the cases the code will find:
-
-> - Set phy->irq if node has irq property and mdio->irq is NULL
-> - Set phy->irq if node has no irq and mdio->irq is not NULL
-> - Leave phy->irq as PHY_POLL default if none of the above
-
-> This fixes the issue:
->   net eth0: attached PHY 1 (IRQ -1) to driver Micrel KSZ8041RNLI
-
-> to the correct:
->   net eth0: attached PHY 1 (IRQ 416) to driver Micrel KSZ8041RNLI
-
-> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
-
+On 02/18/2014 12:56 AM, Xufeng Zhang wrote:
+> For an established association, if user has updated the HB.interval
+> parameter by setsockopt(), this new heartbeat interval will not
+> take effect until:
+>   - the expiry of the heartbeat timer and new hearbeat is sent.
+>   - DATA chunk has been sent and the transport resets the timer.
+> This could not meet the requirement of the user who need to
+> get HEARTBEAT sent at the specified time.
+> 
+> Thus, we need to update the heartbeat timer immediately after
+> user has changed HB.interval.
+> 
+> Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
 > ---
-> Since v1:
-> 	- Updated phy->irq setting code
-> 	- Deal with issue if mdio->irq array NULL
+>  net/sctp/socket.c |    5 +++++
+>  1 files changed, 5 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 9e91d6e..699ae1e 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -2344,6 +2344,11 @@ static int sctp_apply_peer_addr_params(struct sctp_paddrparams *params,
+>  			if (trans) {
+>  				trans->hbinterval =
+>  				    msecs_to_jiffies(params->spp_hbinterval);
+> +
+> +				/* Update the heartbeat timer immediately. */
+> +				if (!mod_timer(&trans->hb_timer,
+> +					    sctp_transport_timeout(trans)))
+> +					sctp_transport_hold(trans);
 
-> Notes:
+This is causes a rather inconsistent behavior in that it doesn't
+account of the amount of time left on the hb timer.  Thus it doesn't
+always do what commit log implies.  If the remaining time is shorter
+then the new timeout value, it will take longer till the next HB
+the application expects.
 
-> It was discussed if this should be two patches, but we end up
-> making enough changes in #2 the same area as #1 means that we
-> basically rewrite #1 in #2. So keep it as 1 patch.
-> ---
->   drivers/of/of_mdio.c | 16 +++++++++-------
->   1 file changed, 9 insertions(+), 7 deletions(-)
+If the application has very strict timing requirement on the HBs, it
+should trigger the HB manually.
 
-> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-> index 875b7b6..46d95fc 100644
-> --- a/drivers/of/of_mdio.c
-> +++ b/drivers/of/of_mdio.c
-[...]
-> @@ -54,12 +54,14 @@ static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *chi
->   	if (!phy || IS_ERR(phy))
->   		return 1;
->
-> -	if (mdio->irq) {
-> -		prev_irq = mdio->irq[addr];
-> -		mdio->irq[addr] =
-> -			irq_of_parse_and_map(child, 0);
-> -		if (!mdio->irq[addr])
-> -			mdio->irq[addr] = prev_irq;
-> +	rc = irq_of_parse_and_map(child, 0);
-> +	if (rc > 0) {
-> +		phy->irq = rc;
-> +		if (mdio->irq)
-> +			mdio->irq[addr] = rc;
-> +	} else {
-> +		if (mdio->irq)
+We could rework the code to allow the combination of
+SPP_HB_DEMAND | SPP_HB_ENABLE to work as follows:
+  1) update the timer to the new value
+  2) Send an immediate HB
+     a) Update the hb timeout.
 
-    You could write that as *else if* and save a line of code...
+2a should probably be done regardless since it can cause 2 HB to be
+outstanding at the same time.
 
-> +			phy->irq = mdio->irq[addr];
->   	}
+-vlad
 
-WBR, Sergei
+
+>  			} else if (asoc) {
+>  				asoc->hbinterval =
+>  				    msecs_to_jiffies(params->spp_hbinterval);
+> 
