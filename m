@@ -1,76 +1,91 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH] net: ethernet: remove unneeded dependency of mvneta and
- update help text
-Date: Tue, 18 Feb 2014 15:10:27 +0100
-Message-ID: <20140218151027.710ab2f3@skate>
-References: <1392719391-8851-1-git-send-email-thomas.petazzoni@free-electrons.com>
-	<20140218122952.GM7862@titan.lakedaemon.net>
-	<20140218134532.7607a616@skate>
-	<20140218125206.GN7862@titan.lakedaemon.net>
-	<20140218141303.77c77272@skate>
-	<20140218135809.GD17984@lunn.ch>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2] of_mdio: fix phy interrupt passing
+Date: Tue, 18 Feb 2014 18:48:18 +0400
+Message-ID: <530372B2.8050900@cogentembedded.com>
+References: <1392725818-558-1-git-send-email-ben.dooks@codethink.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jason Cooper <jason@lakedaemon.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	linux-arm-kernel@lists.infradead.org
-To: Andrew Lunn <andrew@lunn.ch>
+Cc: linux-kernel@lists.codethink.co.uk, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org
+To: Ben Dooks <ben.dooks@codethink.co.uk>, grant.likely@linaro.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:45237 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755298AbaBROKa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 09:10:30 -0500
-In-Reply-To: <20140218135809.GD17984@lunn.ch>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:63018 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755871AbaBROsZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 09:48:25 -0500
+Received: by mail-lb0-f174.google.com with SMTP id l4so12200001lbv.5
+        for <netdev@vger.kernel.org>; Tue, 18 Feb 2014 06:48:24 -0800 (PST)
+In-Reply-To: <1392725818-558-1-git-send-email-ben.dooks@codethink.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Andrew Lunn,
+Hello.
 
-On Tue, 18 Feb 2014 14:58:09 +0100, Andrew Lunn wrote:
+On 18-02-2014 16:16, Ben Dooks wrote:
 
-> PLAT_ORION is a bit of an odd thing now.
-> 
-> For me, PLAT_ORION means arch/arm/plat-orion. 
+> The of_mdiobus_register_phy() is not setting phy->irq thus causing
+> some drivers to incorrectly assume that the PHY does not have an
+> IRQ associated with it. Not only do some drivers report no IRQ
+> they do not install an interrupt handler for the PHY.
 
-No, it is PLAT_ORION_LEGACY which means arch/arm/plat-orion.
+> Simplify the code setting irq and set the phy->irq at the same
+> time so that we cover the following issues, which should cover
+> all the cases the code will find:
 
-> But as far as i know, 370/XP does not actually use anything from
-> arch/arm/plat-orion. When kirkwood moves into mach-mvebu, it also will
-> not use any code from it, and i suspect dove is the same.
+> - Set phy->irq if node has irq property and mdio->irq is NULL
+> - Set phy->irq if node has no irq and mdio->irq is not NULL
+> - Leave phy->irq as PHY_POLL default if none of the above
 
-Interestingly, we have -I$(srctree)/arch/arm/plat-orion/include in
-mach-mvebu/Makefile. Might be something to revisit later on.
+> This fixes the issue:
+>   net eth0: attached PHY 1 (IRQ -1) to driver Micrel KSZ8041RNLI
 
-> So maybe in a few cycles, when only mach-orion5x is left, we can merge
-> arch/arm/plat-orion into arch/arm/mach-orion5x and PLAT_ORION goes
-> away?
+> to the correct:
+>   net eth0: attached PHY 1 (IRQ 416) to driver Micrel KSZ8041RNLI
 
-We also have mach-mv78xx0 to worry about, unless we decide to remove
-support for it entirely. And even if plat-orion is merged into
-mach-orion5x, we will keep PLAT_ORION as a way to indicate that the
-platform needs to use a certain number of drivers (see below).
+> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
 
-> Or do we want to define that PLAT_ORION means any system which can
-> make use of mvebu drivers?
+> ---
+> Since v1:
+> 	- Updated phy->irq setting code
+> 	- Deal with issue if mdio->irq array NULL
 
-This is what it means today. The MV_XOR driver is under PLAT_ORION, the
-gpio driver is under PLAT_ORION, the Device Bus driver is under
-PLAT_ORION, the I2C driver is under PLAT_ORION, the pinctrl driver as
-well, and so on and so on.
+> Notes:
 
-At the very end of the clean up, when even Orion5x support will be
-merged in mach-mvebu/, then we can certainly replace these dependencies
-by a "depends on ARCH_MVEBU". But for the time being, PLAT_ORION seems
-like the right common denominator for all these platforms.
+> It was discussed if this should be two patches, but we end up
+> making enough changes in #2 the same area as #1 means that we
+> basically rewrite #1 in #2. So keep it as 1 patch.
+> ---
+>   drivers/of/of_mdio.c | 16 +++++++++-------
+>   1 file changed, 9 insertions(+), 7 deletions(-)
 
-Best regards,
+> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+> index 875b7b6..46d95fc 100644
+> --- a/drivers/of/of_mdio.c
+> +++ b/drivers/of/of_mdio.c
+[...]
+> @@ -54,12 +54,14 @@ static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *chi
+>   	if (!phy || IS_ERR(phy))
+>   		return 1;
+>
+> -	if (mdio->irq) {
+> -		prev_irq = mdio->irq[addr];
+> -		mdio->irq[addr] =
+> -			irq_of_parse_and_map(child, 0);
+> -		if (!mdio->irq[addr])
+> -			mdio->irq[addr] = prev_irq;
+> +	rc = irq_of_parse_and_map(child, 0);
+> +	if (rc > 0) {
+> +		phy->irq = rc;
+> +		if (mdio->irq)
+> +			mdio->irq[addr] = rc;
+> +	} else {
+> +		if (mdio->irq)
 
-Thomas
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+    You could write that as *else if* and save a line of code...
+
+> +			phy->irq = mdio->irq[addr];
+>   	}
+
+WBR, Sergei
