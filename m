@@ -1,67 +1,32 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: Re: [RFC v2 2/4] net: enables interface option to skip IP
-Date: Tue, 18 Feb 2014 13:19:15 -0800
-Message-ID: <CAB=NE6XGBp1RwO63W0ac6tTr9JcRM9TB9sap4pa+8PMWwjxu6g@mail.gmail.com>
-References: <1392433180-16052-1-git-send-email-mcgrof@do-not-panic.com>
- <1392433180-16052-3-git-send-email-mcgrof@do-not-panic.com> <1392668638.21106.5.camel@dcbw.local>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv4: fix counter in_slow_tot
+Date: Tue, 18 Feb 2014 16:24:21 -0500 (EST)
+Message-ID: <20140218.162421.2171545203891910634.davem@davemloft.net>
+References: <5301B8FF.6030800@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	xen-devel@lists.xenproject.org, kvm@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Dan Williams <dcbw@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1392668638.21106.5.camel@dcbw.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: duanj.fnst@cn.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35988 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750871AbaBRVYX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 16:24:23 -0500
+In-Reply-To: <5301B8FF.6030800@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 17, 2014 at 12:23 PM, Dan Williams <dcbw@redhat.com> wrote:
-> On Fri, 2014-02-14 at 18:59 -0800, Luis R. Rodriguez wrote:
->> From: "Luis R. Rodriguez" <mcgrof@suse.com>
->>
->> Some interfaces do not need to have any IPv4 or IPv6
->> addresses, so enable an option to specify this. One
->> example where this is observed are virtualization
->> backend interfaces which just use the net_device
->> constructs to help with their respective frontends.
->>
->> This should optimize boot time and complexity on
->> virtualization environments for each backend interface
->> while also avoiding triggering SLAAC and DAD, which is
->> simply pointless for these type of interfaces.
->
-> Would it not be better/cleaner to use disable_ipv6 and then add a
-> disable_ipv4 sysctl, then use those with that interface?
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Date: Mon, 17 Feb 2014 15:23:43 +0800
 
-Sure, but note that the both disable_ipv6 and accept_dada sysctl
-parameters are global. ipv4 and ipv6 interfaces are created upon
-NETDEVICE_REGISTER, which will get triggered when a driver calls
-register_netdev(). The goal of this patch was to enable an early
-optimization for drivers that have no need ever for ipv4 or ipv6
-interfaces.
+> since commit 89aef8921bf("ipv4: Delete routing cache."), the counter
+> in_slow_tot can't work correctly.
+> 
+> The counter in_slow_tot increase by one when fib_lookup() return successfully
+> in ip_route_input_slow(), but actually the dst struct maybe not be created and
+> cached, so we can increase in_slow_tot after the dst struct is created.
+> 
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 
-Zoltan has noted though some use cases of IPv4 or IPv6 addresses on
-backends though, as such this is no longer applicable as a
-requirement. The ipv4 sysctl however still seems like a reasonable
-approach to enable optimizations of the network in topologies where
-its known we won't need them but -- we'd need to consider a much more
-granular solution, not just global as it is now for disable_ipv6, and
-we'd also have to figure out a clean way to do this to not incur the
-cost of early address interface addition upon register_netdev().
-
-Given that we have a use case for ipv4 and ipv6 addresses on
-xen-netback we no longer have an immediate use case for such early
-optimization primitives though, so I'll drop this.
-
-> The IFF_SKIP_IP seems to duplicate at least part of what disable_ipv6 is
-> already doing.
-
-disable_ipv6 is global, the goal was to make this granular and skip
-the cost upon early boot, but its been clarified we don't need this.
-
-   Luis
+Applied, thanks.
