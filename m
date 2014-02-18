@@ -1,85 +1,41 @@
-From: Thomas Glanzmann <thomas@glanzmann.de>
-Subject: Re: [PATCH net-next] bonding: Fix RTNL: assertion failed at
- net/core/rtnetlink.c for 802.3ad mode
-Date: Tue, 18 Feb 2014 13:14:17 +0100
-Message-ID: <20140218121417.GB30299@glanzmann.de>
-References: <53034312.1060203@huawei.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: ixgbevf: Use pci_enable_msix_range() instead of pci_enable_msix()
+Date: Tue, 18 Feb 2014 14:14:35 +0200
+Message-ID: <20140218121433.GB8770@mtl-eit-vdi-22.mtl.labs.mlnx>
+References: <cover.1392717502.git.agordeev@redhat.com>
+ <9ee830cfd4b417f230f77dd37256ca8e4396ecbe.1392717503.git.agordeev@redhat.com>
+ <20140218120136.GA8770@mtl-eit-vdi-22.mtl.labs.mlnx>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Cong Wang <cwang@twopensource.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from infra.glanzmann.de ([88.198.249.254]:46867 "EHLO
-	infra.glanzmann.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751312AbaBRMOV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 07:14:21 -0500
+Cc: linux-kernel@vger.kernel.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org
+To: Alexander Gordeev <agordeev@redhat.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <53034312.1060203@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20140218120136.GA8770@mtl-eit-vdi-22.mtl.labs.mlnx>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Ding,
-
-* Ding Tianhong <dingtianhong@huawei.com> [2014-02-18 12:25]:
-> The problem was introduced by the commit 1d3ee88ae0d
-> (bonding: add netlink attributes to slave link dev).
-> The bond_set_active_slave() and bond_set_backup_slave()
-> will use rtmsg_ifinfo to send slave's states, so these
-> two functions should be called in RTNL.
-
-> In 802.3ad mode, acquiring RTNL for the __enable_port and
-> __disable_port cases is difficult, as those calls generally
-> already hold the state machine lock, and cannot unconditionally
-> call rtnl_lock because either they already hold RTNL (for calls
-> via bond_3ad_unbind_slave) or due to the potential for deadlock
-> with bond_3ad_adapter_speed_changed, bond_3ad_adapter_duplex_changed,
-> bond_3ad_link_change, or bond_3ad_update_lacp_rate.  All four of
-> those are called with RTNL held, and acquire the state machine lock
-> second.  The calling contexts for __enable_port and __disable_port
-> already hold the state machine lock, and may or may not need RTNL.
-
-> According to the Jay's opinion, I don't think it is a problem that
-> the slave don't send notify message synchronously when the status
-> changed, normally the state machine is running every 100 ms, send
-> the notify message at the end of the state machine if the slave's
-> state changed should be better.
-
-> I fix the problem through these steps:
-
-> 1). add a new function bond_set_slave_state() which could change
->     the slave's state and call rtmsg_ifinfo() according to the input
->     parameters called notify.
-
-> 2). Add a new slave parameter which called should_notify, if the slave's state
->     changed and don't notify yet, the parameter will be set to 1, and then if
->     the slave's state changed again, the param will be set to 0, it indicate that
->     the slave's state has been restored, no need to notify any one.
-
-> 3). the __enable_port and __disable_port should not call rtmsg_ifinfo
->     in the state machine lock, any change in the state of slave could
->     set a flag in the slave, it will indicated that an rtmsg_ifinfo
->     should be called at the end of the state machine.
-
-I applied the same on top of Linus Tip and tested:
-
-(node-62) [~] dmesg | pbot
-http://pbot.rmdir.de/tlM017PXoi9PsV3j32z4gA
-(node-62) [~] pbot /proc/net/bonding/bond0
-http://pbot.rmdir.de/zNSSqmjSI0o1Qvt6DrSEQw
-(node-62) [~] pbot /proc/net/bonding/bond1
-http://pbot.rmdir.de/CoI00Rguie2P-kOQytOM9w
-
-Looks good to me.
-
-Tested-by: Thomas Glanzmann <thomas@glanzmann.de>
-
-Cheers,
-        Thomas
+On 18/02/14 14:01 +0200, Amir Vadai wrote:
+> On 18/02/14 11:11 +0100, Alexander Gordeev wrote:
+> > As result of deprecation of MSI-X/MSI enablement functions
+> > pci_enable_msix() and pci_enable_msi_block() all drivers
+> > using these two interfaces need to be updated to use the
+> > new pci_enable_msi_range() and pci_enable_msix_range()
+> > interfaces.
+> > 
+> > Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
+> > Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> > Cc: Bruce Allan <bruce.w.allan@intel.com>
+> > Cc: e1000-devel@lists.sourceforge.net
+> > Cc: netdev@vger.kernel.org
+> > Cc: linux-pci@vger.kernel.org
+> > ---
+> 
+> Acked-By: Amir Vadai <amirv@mellanox.com>
+Oh, I'm still working for Mellanox - just replied to the wrong mail :)
