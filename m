@@ -1,95 +1,125 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: (unknown)
-Date: Tue, 18 Feb 2014 07:48:35 +0100
-Message-ID: <1392706127-28390-1-git-send-email-vfalico@redhat.com>
-Cc: Rob Landley <rob@landley.net>, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	dingtianhong <dingtianhong@huawei.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Cong Wang <amwang@redhat.com>,
-	Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH v5 net-next 11/12] bonding: trivial: rename slave->jiffies to ->last_link_up
+Date: Tue, 18 Feb 2014 07:48:46 +0100
+Message-ID: <1392706127-28390-12-git-send-email-vfalico@redhat.com>
+References: <1392706127-28390-1-git-send-email-vfalico@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27171 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:34974 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753958AbaBRGxo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Feb 2014 01:53:44 -0500
-Subject: 
+	id S1753936AbaBRGxV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Feb 2014 01:53:21 -0500
+In-Reply-To: <1392706127-28390-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From Veaceslav Falico <vfalico@redhat.com> # This line is ignored.
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v5 net-next 0/12] bonding: add an option to rely on unvalidated arp packets
-In-Reply-To: 
+slave->jiffies is updated every time the slave becomes active, which, for
+bonding, means that its link is 'up'.
 
-Hi,
-
-v4 -> v5:
-Again per Nik's advise correct the bond_opts restrictions for arp_validate
-- set it the same as arp_interval.
-
-v3 -> v4:
-Per Nikolay's advise, remove the new bond_opts restriction on modes setting
-for arp_validate.
-
-v2 -> v3:
-Per Jay's advise, use the 'filter' keyword instead of 'arp' one, and use
-his text for documentation. Also, rebase on the latest net-next. Sorry for
-the delay, didn't manage to send it before net-next was closed.
-
-v1 -> v2:
-Don't remove the 'all traffic' functionality - rather, add new arp_validate
-options to specify that we want *only* unvalidated arps.
-
-Currently, if arp_validate is off (0), slave_last_rx() returns the
-slave->dev->last_rx, which is always updated on *any* packet received by
-slave, and not only arps. This means that, if the validation of arps is
-off, we're treating *any* incoming packet as a proof of slave being up, and
-not only arps.
-
-This might seem logical at the first glance, however it can cause a lot of
-troubles and false-positives, one example would be:
-
-The arp_ip_target is NOT accessible, however someone in the broadcast domain
-spams with any broadcast traffic. This way bonding will be tricked that the
-slave is still up (as in - can access arp_ip_target), while it's not.
-
-The net_device->last_rx is already used in a lot of drivers (even though the
-comment states to NOT do it :)), and it's also ugly to modify it from bonding.
-
-However, some loadbalance setups might rely on the fact that even non-arp
-traffic is a sign of slave being up - and we definitely can't break anyones
-config - so an extension to arp_validate is needed.
-
-So, to fix this, add an option for the user to specify if he wants to
-filter out non-arp traffic on unvalidated slaves, remove the last_rx from
-bonding, *always* call bond_arp_rcv() in slave's rx_handler (which is
-bond_handle_frame), and if we spot an arp there with this option on - update
-the slave->last_arp_rx - and use it instead of net_device->last_rx. Finally,
-rename last_arp_rx to last_rx to reflect the changes.
-
-Also rename slave->jiffies to ->last_link_up, to reflect better its
-meaning, add the new option's documentation and update the arp_validate one
-to be a bit more descriptive.
-
-CC: Rob Landley <rob@landley.net>
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: dingtianhong <dingtianhong@huawei.com>
-CC: Nikolay Aleksandrov <nikolay@redhat.com>
-CC: Neil Horman <nhorman@tuxdriver.com>
-CC: Cong Wang <amwang@redhat.com>
-CC: netdev@vger.kernel.org
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
-
 ---
- Documentation/networking/bonding.txt | 96 +++++++++++++++++++++++++-----------
- drivers/net/bonding/bond_main.c      | 56 +++++++++------------
- drivers/net/bonding/bond_options.c   | 19 ++++---
- drivers/net/bonding/bonding.h        | 26 ++++++----
- include/linux/netdevice.h            |  8 +--
- 5 files changed, 119 insertions(+), 86 deletions(-)
+ drivers/net/bonding/bond_main.c | 20 ++++++++++----------
+ drivers/net/bonding/bonding.h   |  3 ++-
+ 2 files changed, 12 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 14e023d..f6d56d9 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -798,7 +798,7 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+ 		return;
+ 
+ 	if (new_active) {
+-		new_active->jiffies = jiffies;
++		new_active->last_link_up = jiffies;
+ 
+ 		if (new_active->link == BOND_LINK_BACK) {
+ 			if (USES_PRIMARY(bond->params.mode)) {
+@@ -1444,7 +1444,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	}
+ 
+ 	if (new_slave->link != BOND_LINK_DOWN)
+-		new_slave->jiffies = jiffies;
++		new_slave->last_link_up = jiffies;
+ 	pr_debug("Initial state of slave_dev is BOND_LINK_%s\n",
+ 		 new_slave->link == BOND_LINK_DOWN ? "DOWN" :
+ 		 (new_slave->link == BOND_LINK_UP ? "UP" : "BACK"));
+@@ -1891,7 +1891,7 @@ static int bond_miimon_inspect(struct bonding *bond)
+ 				 * recovered before downdelay expired
+ 				 */
+ 				slave->link = BOND_LINK_UP;
+-				slave->jiffies = jiffies;
++				slave->last_link_up = jiffies;
+ 				pr_info("%s: link status up again after %d ms for interface %s\n",
+ 					bond->dev->name,
+ 					(bond->params.downdelay - slave->delay) *
+@@ -1966,7 +1966,7 @@ static void bond_miimon_commit(struct bonding *bond)
+ 
+ 		case BOND_LINK_UP:
+ 			slave->link = BOND_LINK_UP;
+-			slave->jiffies = jiffies;
++			slave->last_link_up = jiffies;
+ 
+ 			if (bond->params.mode == BOND_MODE_8023AD) {
+ 				/* prevent it from being the active one */
+@@ -2312,7 +2312,7 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
+ 		bond_validate_arp(bond, slave, sip, tip);
+ 	else if (bond->curr_active_slave &&
+ 		 time_after(slave_last_rx(bond, bond->curr_active_slave),
+-			    bond->curr_active_slave->jiffies))
++			    bond->curr_active_slave->last_link_up))
+ 		bond_validate_arp(bond, slave, tip, sip);
+ 
+ out_unlock:
+@@ -2358,9 +2358,9 @@ static void bond_loadbalance_arp_mon(struct work_struct *work)
+ 	oldcurrent = ACCESS_ONCE(bond->curr_active_slave);
+ 	/* see if any of the previous devices are up now (i.e. they have
+ 	 * xmt and rcv traffic). the curr_active_slave does not come into
+-	 * the picture unless it is null. also, slave->jiffies is not needed
+-	 * here because we send an arp on each slave and give a slave as
+-	 * long as it needs to get the tx/rx within the delta.
++	 * the picture unless it is null. also, slave->last_link_up is not
++	 * needed here because we send an arp on each slave and give a slave
++	 * as long as it needs to get the tx/rx within the delta.
+ 	 * TODO: what about up/down delay in arp mode? it wasn't here before
+ 	 *       so it can wait
+ 	 */
+@@ -2486,7 +2486,7 @@ static int bond_ab_arp_inspect(struct bonding *bond)
+ 		 * active.  This avoids bouncing, as the last receive
+ 		 * times need a full ARP monitor cycle to be updated.
+ 		 */
+-		if (bond_time_in_interval(bond, slave->jiffies, 2))
++		if (bond_time_in_interval(bond, slave->last_link_up, 2))
+ 			continue;
+ 
+ 		/*
+@@ -2687,7 +2687,7 @@ static bool bond_ab_arp_probe(struct bonding *bond)
+ 	new_slave->link = BOND_LINK_BACK;
+ 	bond_set_slave_active_flags(new_slave);
+ 	bond_arp_send_all(bond, new_slave);
+-	new_slave->jiffies = jiffies;
++	new_slave->last_link_up = jiffies;
+ 	rcu_assign_pointer(bond->current_arp_slave, new_slave);
+ 	rtnl_unlock();
+ 
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index ae20c5a..36db702 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -188,7 +188,8 @@ struct slave {
+ 	struct net_device *dev; /* first - useful for panic debug */
+ 	struct bonding *bond; /* our master */
+ 	int    delay;
+-	unsigned long jiffies;
++	/* all three in jiffies */
++	unsigned long last_link_up;
+ 	unsigned long last_arp_rx;
+ 	unsigned long target_last_arp_rx[BOND_MAX_ARP_TARGETS];
+ 	s8     link;    /* one of BOND_LINK_XXXX */
+-- 
+1.8.4
