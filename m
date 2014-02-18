@@ -1,62 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH next resend] tcp: use zero-window when free_space is low
-Date: Tue, 18 Feb 2014 15:12:13 -0800
-Message-ID: <1392765133.18849.0.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1392292350-28800-1-git-send-email-fw@strlen.de>
-	 <20140217.143431.349062553619161172.davem@davemloft.net>
-	 <20140217205219.GH31125@breakpoint.cc>
-	 <1392744616.24974.14.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] of_mdio: fix phy interrupt passing
+Date: Tue, 18 Feb 2014 18:13:17 -0500 (EST)
+Message-ID: <20140218.181317.1712776234149210938.davem@davemloft.net>
+References: <1392725818-558-1-git-send-email-ben.dooks@codethink.co.uk>
+	<20140218161551.44A52C40517@trevor.secretlab.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	ncardwell@google.com, ycheng@google.com
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:62263 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753118AbaBRXMP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 18:12:15 -0500
-Received: by mail-pa0-f51.google.com with SMTP id ld10so17453908pab.38
-        for <netdev@vger.kernel.org>; Tue, 18 Feb 2014 15:12:14 -0800 (PST)
-In-Reply-To: <1392744616.24974.14.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ben.dooks@codethink.co.uk, linux-kernel@lists.codethink.co.uk,
+	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	sergei.shtylyov@cogentembedded.com
+To: grant.likely@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140218161551.44A52C40517@trevor.secretlab.ca>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-02-18 at 09:30 -0800, Eric Dumazet wrote:
-> On Mon, 2014-02-17 at 21:52 +0100, Florian Westphal wrote:
-> > David Miller <davem@davemloft.net> wrote:
-> > > From: Florian Westphal <fw@strlen.de>
-> > > Date: Thu, 13 Feb 2014 12:52:30 +0100
-> > > 
-> > > >  V1 of this patch was deferred, resending to get discussion going again.
-> > > >  Changes since v1:
-> > > >   - add reproducer to commit message
-> > > > 
-> > > >  Unfortunately I couldn't come up with something that has no magic
-> > > >  ('allowed >> 4') value.  I chose >>4 (1/16th) because it didn't cause
-> > > >  tput limitations in my 'full-mss-sized, steady state' netcat tests.
-> > > > 
-> > > >  Maybe someone has better idea?
-> > > 
-> > > I know this is going to be frustrating, but I've marked this 'deferred'
-> > > again.  Please resubmit after the testing and further discussions have
-> > > been worked out.
-> > 
-> > Thanks for letting me know.  I understand why you are reluctant to just
-> > apply this.
-> > 
-> > I will submit another patch shortly that introduces snmp counter for zero-window
-> > (what Eric suggested), perhaps it helps him or others to find a better solution
-> > in the scenario.
+From: Grant Likely <grant.likely@linaro.org>
+Date: Tue, 18 Feb 2014 16:15:51 +0000
+
+> On Tue, 18 Feb 2014 12:16:58 +0000, Ben Dooks <ben.dooks@codethink.co.uk> wrote:
+>> The of_mdiobus_register_phy() is not setting phy->irq thus causing
+>> some drivers to incorrectly assume that the PHY does not have an
+>> IRQ associated with it. Not only do some drivers report no IRQ
+>> they do not install an interrupt handler for the PHY.
+>> 
+>> Simplify the code setting irq and set the phy->irq at the same
+>> time so that we cover the following issues, which should cover
+>> all the cases the code will find:
+>> 
+>> - Set phy->irq if node has irq property and mdio->irq is NULL
+>> - Set phy->irq if node has no irq and mdio->irq is not NULL
+>> - Leave phy->irq as PHY_POLL default if none of the above
+>> 
+>> This fixes the issue:
+>>  net eth0: attached PHY 1 (IRQ -1) to driver Micrel KSZ8041RNLI
+>> 
+>> to the correct:
+>>  net eth0: attached PHY 1 (IRQ 416) to driver Micrel KSZ8041RNLI
+>> 
+>> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
 > 
-> Sorry for the delay guys, I was on vacation.
+> Looks okay to me
 > 
-> I started the tests this morning, results in about 2/3 hours.
+> Reviewed-by: Grant Likely <grant.likely@linaro.org>
 
-No regression found, feel free to add my :
-
-Acked-by: Eric Dumazet <edumazet@google.com>
-Tested-by: Eric Dumazet <edumazet@google.com>
-
-Thanks !
+Applied, thanks.
