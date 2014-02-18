@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 13/14] r8152: set disable_hub_initiated_lpm
-Date: Tue, 18 Feb 2014 21:49:10 +0800
-Message-ID: <1392731351-25502-14-git-send-email-hayeswang@realtek.com>
+Subject: [PATCH net-next 12/14] r8152: replace netif_rx with netif_receive_skb
+Date: Tue, 18 Feb 2014 21:49:09 +0800
+Message-ID: <1392731351-25502-13-git-send-email-hayeswang@realtek.com>
 References: <1392731351-25502-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,24 +13,26 @@ In-Reply-To: <1392731351-25502-1-git-send-email-hayeswang@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Set disable_hub_initiated_lpm = 1.
+Replace netif_rx with netif_receive_skb to avoid disabling irq frequently
+for increasing the efficiency.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/usb/r8152.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index ff02d5d..db98842 100644
+index 3ff11ed..ff02d5d 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -3159,6 +3159,7 @@ static struct usb_driver rtl8152_driver = {
- 	.resume =	rtl8152_resume,
- 	.reset_resume =	rtl8152_resume,
- 	.supports_autosuspend = 1,
-+	.disable_hub_initiated_lpm = 1,
- };
+@@ -1464,7 +1464,7 @@ static void rx_bottom(struct r8152 *tp)
+ 			memcpy(skb->data, rx_data, pkt_len);
+ 			skb_put(skb, pkt_len);
+ 			skb->protocol = eth_type_trans(skb, netdev);
+-			netif_rx(skb);
++			netif_receive_skb(skb);
+ 			stats->rx_packets++;
+ 			stats->rx_bytes += pkt_len;
  
- module_usb_driver(rtl8152_driver);
 -- 
 1.8.4.2
