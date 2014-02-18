@@ -1,8 +1,9 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next 2/3] bonding: add new slave param and bond_slave_state_notify()
-Date: Tue, 18 Feb 2014 11:49:44 +0800
-Message-ID: <5302D858.5020802@huawei.com>
-References: <1392626151-23916-1-git-send-email-dingtianhong@huawei.com> <1392626151-23916-3-git-send-email-dingtianhong@huawei.com> <5310.1392689226@death.nxdomain>
+Subject: Re: [PATCH net-next 3/3] bonding: Fix the RTNL assertion failed for
+ 802.3ad state machine
+Date: Tue, 18 Feb 2014 11:47:30 +0800
+Message-ID: <5302D7D2.2020601@huawei.com>
+References: <1392626151-23916-1-git-send-email-dingtianhong@huawei.com> <1392626151-23916-4-git-send-email-dingtianhong@huawei.com> <5300.1392689172@death.nxdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -13,117 +14,115 @@ Cc: <vfalico@redhat.com>, <andy@greyhouse.net>,
 	<netdev@vger.kernel.org>
 To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:50462 "EHLO
+Received: from szxga03-in.huawei.com ([119.145.14.66]:51100 "EHLO
 	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752230AbaBRDus (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 22:50:48 -0500
-In-Reply-To: <5310.1392689226@death.nxdomain>
+	with ESMTP id S1752230AbaBRDvl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 22:51:41 -0500
+In-Reply-To: <5300.1392689172@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/2/18 10:07, Jay Vosburgh wrote:
+On 2014/2/18 10:06, Jay Vosburgh wrote:
 > Ding Tianhong <dingtianhong@huawei.com> wrote:
 > 
->> Add a new slave parameter which called should_notify, if the slave's state
->> changed and don't notify yet, the parameter will be set to 1, and then if
->> the slave's state changed again, the param will be set to 0, it indicate that
->> the slave's state has been restored, no need to notify any one.
+>> The 802.3ad state machine don't run in RTNL, but when the slave's
+>> state changed, the rtmsg_ifinfo will be called, it will cause
+>> warning message because the RTML is not locked, acquiring RTNL
+>> for the __enable_port and __disable_port cases is difficult, as
+>> those calls generally already hold the state machine lock, and
+>> can't unconditionally call rtnl_lock because either they already
+>> hold RTNL (for calls via bond_3ad_unbind_slave) or due to the
+>> potential for deadlock with bond_3ad_adapter_speed_changed,
+>> bond_3ad_adapter_duplex_changed, bond_3ad_link_change, or
+>> bond_3ad_update_lacp_rate. All four of those are called with RTNL
+>> held, and acquire the state machine lock second, The calling contexts for
+>> __enable_port and __disable_port already hold the state machine lock,
+>> and may or may not need RTNL.
 >>
->> The bond_slave_state_notify() will check whether the status changed and then
->> decide to notify or not.
->>
+>> So according to the Jay's opinion, the __enable_port and __disable_port
+>> should not call rtmsg_ifinfo in the state machine lock, any change in
+>> the state of slave could set a flag in the slave, it will indicated that
+>> an rtmsg_ifinfo should be called at the end of the state machine.
+> 
+> 	To clarify, my opinion being referenced here was really asking
+> Scott Feldman <sfeldma@cumulusnetworks.com> if: (a) the calls had to be
+> synchronous, and, (b) if the intermediate calls to adjust flags within
+> the ARP monitor "cycle through slaves looking for a functional slave"
+> all required notifications.  My suspicion is that the answer to both of
+> those is "no," but I haven't heard from Scott.
+> 
+
+Yes, this question has been in existence for a long time, and I admin your opinions, it is very
+clear and reasonable, so I try to fix it by this way, in my original idea, I think not only
+the 802.3ad state machine, but the ab, loadbalance monitor is still need to modify, the existing
+solution for bond_ab_arp_probe which I think is not good enough, so I think it will be a big
+patchset, so I send this patchset just only fix for 802.3ad for review.
+
 >> Cc: Jay Vosburgh <fubar@us.ibm.com>
 >> Cc: Veaceslav Falico <vfalico@redhat.com>
 >> Cc: Andy Gospodarek <andy@greyhouse.net>
 >> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 >> ---
->> drivers/net/bonding/bonding.h | 44 +++++++++++++++++++++++++++++++++++++++++--
->> 1 file changed, 42 insertions(+), 2 deletions(-)
+>> drivers/net/bonding/bond_3ad.c | 5 +++--
+>> 1 file changed, 3 insertions(+), 2 deletions(-)
 >>
->> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
->> index d210124..4d0cd41 100644
->> --- a/drivers/net/bonding/bonding.h
->> +++ b/drivers/net/bonding/bonding.h
->> @@ -195,7 +195,8 @@ struct slave {
->> 	s8     new_link;
->> 	u8     backup:1,   /* indicates backup slave. Value corresponds with
->> 			      BOND_STATE_ACTIVE and BOND_STATE_BACKUP */
->> -	       inactive:1; /* indicates inactive slave */
->> +	       inactive:1, /* indicates inactive slave */
->> +	       should_notify:1; /* indicateds whether the state changed */
->> 	u8     duplex;
->> 	u32    original_mtu;
->> 	u32    link_failure_count;
->> @@ -311,8 +312,47 @@ static inline void bond_set_slave_state(struct slave *slave,
->> 	else
->> 		return;
->>
->> -	if (notify)
->> +	if (notify) {
->> 		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_KERNEL);
->> +		slave->should_notify = 0;
->> +	} else {
->> +		if (slave->should_notify)
->> +			slave->should_notify = 0;
->> +		else
->> +			slave->should_notify = 1;
->> +	}
->> +}
->> +
->> +static inline void bond_slave_state_notify(struct bonding *bond,
->> +					   bool rtnl_locked)
->> +{
->> +	struct list_head *iter;
->> +	struct slave *tmp;
->> +
->> +	rcu_read_lock();
->> +	bond_for_each_slave_rcu(bond, tmp, iter) {
->> +		if (tmp->should_notify) {
->> +			rcu_read_unlock();
->> +			goto should_notify;
->> +		}
->> +	}
->> +	rcu_read_unlock();
->> +	return;
->> +
->> +should_notify:
->> +
->> +	if (!rtnl_locked && !rtnl_trylock())
->> +		return;
->> +
->> +	bond_for_each_slave(bond, tmp, iter) {
->> +		if (tmp->should_notify) {
->> +			rtmsg_ifinfo(RTM_NEWLINK, tmp->dev, 0, GFP_KERNEL);
->> +			tmp->should_notify = 0;
->> +		}
->> +	}
->> +
->> +	if (!rtnl_locked)
->> +		rtnl_unlock();
+>> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+>> index cce1f1b..e80b78f 100644
+>> --- a/drivers/net/bonding/bond_3ad.c
+>> +++ b/drivers/net/bonding/bond_3ad.c
+>> @@ -181,7 +181,7 @@ static inline int __agg_has_partner(struct aggregator *agg)
+>>  */
+>> static inline void __disable_port(struct port *port)
+>> {
+>> -	bond_set_slave_inactive_flags(port->slave);
+>> +	bond_set_slave_flags(port->slave, BOND_STATE_BACKUP, false);
 >> }
+>>
+>> /**
+>> @@ -193,7 +193,7 @@ static inline void __enable_port(struct port *port)
+>> 	struct slave *slave = port->slave;
+>>
+>> 	if ((slave->link == BOND_LINK_UP) && IS_UP(slave->dev))
+>> -		bond_set_slave_active_flags(slave);
+>> +		bond_set_slave_flags(slave, BOND_STATE_ACTIVE, false);
 > 
-> 	This function (bond_slave_state_notify) seems overly complicated
-> given that there appears to be only one caller.  In particular, why
-> bother with the "rtnl_locked" flag at all, when it is never called with
-> it set to true?  Really, with only one caller (in patch 3 of the
-> series), I'm not convinced this even needs to be a separate function.
+> 	I don't agree that we need to have two separate systems (your
+> new bond_set_slave_flags plus bond_set_slave_{active,inactive}_flags)
+> that both tweak the "active" or "inactive" flags for a slave.  It would
+> be much cleaner and consistent with the current code to add a "notify"
+> boolean to the existing functions.
 > 
 > 	-J
-> 
-In my original opinion, I think it may be used in RTNL for other monitor,
-so add this one, I will remove it, thanks.
+
+Yep, this problem has troubled me for a long time, whether to add a new function
+or modify current function, I think your answer has gave me the right direction,
+thanks.
 
 Regards
-Ding
+Ding 
 
+> 
+>> }
 >>
->> static inline void bond_slave_state_change(struct bonding *bond)
+>> /**
+>> @@ -2123,6 +2123,7 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
+>> re_arm:
+>> 	rcu_read_unlock();
+>> 	read_unlock(&bond->lock);
+>> +	bond_slave_state_notify(bond, false);
+>> 	queue_delayed_work(bond->wq, &bond->ad_work, ad_delta_in_ticks);
+>> }
+>>
 >> -- 
 >> 1.8.0
 > 
 > ---
 > 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
 > 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 > 
 > .
 > 
