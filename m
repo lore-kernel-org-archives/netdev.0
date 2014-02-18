@@ -1,67 +1,56 @@
-From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH] NET: fec: only enable napi if we are successful
-Date: Tue, 18 Feb 2014 12:55:42 +0000
-Message-ID: <E1WFkD8-0004pj-Pr@rmk-PC.arm.linux.org.uk>
-Cc: linux-arm-kernel@lists.infradead.org, dmalek@jlc.net,
-	gerg@snapgear.com, phdm@macqel.be,
-	Fabio Estevam <fabio.estevam@freescale.com>
-To: netdev@vger.kernel.org
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: [PATCH net] igb: Fix Null-pointer dereference in igb_reset_q_vector
+Date: Tue, 18 Feb 2014 14:06:57 +0100
+Message-ID: <1392728817-21693-1-git-send-email-christoph.paasch@uclouvain.be>
+Cc: David Miller <davem@davemloft.net>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>
+To: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:40165 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754902AbaBRMzu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 07:55:50 -0500
+Received: from mail-wg0-f51.google.com ([74.125.82.51]:56935 "EHLO
+	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755322AbaBRNHZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 08:07:25 -0500
+Received: by mail-wg0-f51.google.com with SMTP id n12so3202103wgh.6
+        for <netdev@vger.kernel.org>; Tue, 18 Feb 2014 05:07:24 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If napi is left enabled after a failed attempt to bring the interface
-up, we BUG:
+When igb_set_interrupt_capability() calls
+igb_reset_interrupt_capability() (e.g., because CONFIG_PCI_MSI is unset),
+num_q_vectors has been set but no vector has yet been allocated.
 
-fec 2188000.ethernet eth0: no PHY, assuming direct connection to switch
-libphy: PHY fixed-0:00 not found
-fec 2188000.ethernet eth0: could not attach to PHY
-------------[ cut here ]------------
-kernel BUG at include/linux/netdevice.h:502!
-Internal error: Oops - BUG: 0 [#1] SMP ARM
-...
-PC is at fec_enet_open+0x4d0/0x500
-LR is at __dev_open+0xa4/0xfc
+igb_reset_interrupt_capability() will then call igb_reset_q_vector,
+which assumes that the vector is allocated. As this is not the case, we
+are accessing a NULL-pointer.
 
-Only enable napi after we are past all the failure paths.
+This patch fixes it by checking that q_vector is indeed different from
+NULL.
 
-Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+Fixes: 02ef6e1d0b0023 (igb: Fix queue allocation method to accommodate changing during runtime)
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
 ---
-No individual is apparently listed as a maintainer for this driver, so
-I'm just guesing...
+ drivers/net/ethernet/intel/igb/igb_main.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-I noticed this error when there were other problems with the driver
-which resulted in the phy not being found, but it would be a good idea
-to fix this error too.
-
- drivers/net/ethernet/freescale/fec_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index d4782b42401b..903362a7b584 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1778,8 +1778,6 @@ fec_enet_open(struct net_device *ndev)
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 	int ret;
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 46d31a49f5ea..bfcf192ee87d 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -1014,6 +1014,12 @@ static void igb_reset_q_vector(struct igb_adapter *adapter, int v_idx)
+ {
+ 	struct igb_q_vector *q_vector = adapter->q_vector[v_idx];
  
--	napi_enable(&fep->napi);
--
- 	/* I should reset the ring buffers here, but I don't yet know
- 	 * a simple way to do that.
- 	 */
-@@ -1794,6 +1792,8 @@ fec_enet_open(struct net_device *ndev)
- 		fec_enet_free_buffers(ndev);
- 		return ret;
- 	}
++	/* Coming from igb_set_interrupt_capability, the vectors are not yet
++	 * allocated. So, q_vector is NULL so we should stop here.
++	 */
++	if (!q_vector)
++		return;
 +
-+	napi_enable(&fep->napi);
- 	phy_start(fep->phy_dev);
- 	netif_start_queue(ndev);
- 	fep->opened = 1;
+ 	if (q_vector->tx.ring)
+ 		adapter->tx_ring[q_vector->tx.ring->queue_index] = NULL;
+ 
 -- 
-1.8.3.1
+1.8.3.2
