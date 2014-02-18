@@ -1,42 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET: fec: only enable napi if we are successful
-Date: Tue, 18 Feb 2014 18:07:30 -0500 (EST)
-Message-ID: <20140218.180730.54681622364091114.davem@davemloft.net>
-References: <E1WFkD8-0004pj-Pr@rmk-PC.arm.linux.org.uk>
+Subject: Re: [PATCH v2] net: ethernet: update dependency and help text of
+ mvneta
+Date: Tue, 18 Feb 2014 18:09:18 -0500 (EST)
+Message-ID: <20140218.180918.2278994810974129533.davem@davemloft.net>
+References: <1392729491-24913-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	dmalek@jlc.net, gerg@snapgear.com, phdm@macqel.be,
-	fabio.estevam@freescale.com
-To: rmk+kernel@arm.linux.org.uk
+Cc: netdev@vger.kernel.org, jason@lakedaemon.net,
+	gregory.clement@free-electrons.com, andrew@lunn.ch,
+	sebastian.hesselbarth@gmail.com,
+	ezequiel.garcia@free-electrons.com,
+	linux-arm-kernel@lists.infradead.org
+To: thomas.petazzoni@free-electrons.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36980 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37020 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753666AbaBRXHd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 18:07:33 -0500
-In-Reply-To: <E1WFkD8-0004pj-Pr@rmk-PC.arm.linux.org.uk>
+	with ESMTP id S1753189AbaBRXJV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 18:09:21 -0500
+In-Reply-To: <1392729491-24913-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Russell King <rmk+kernel@arm.linux.org.uk>
-Date: Tue, 18 Feb 2014 12:55:42 +0000
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Date: Tue, 18 Feb 2014 14:18:11 +0100
 
-> If napi is left enabled after a failed attempt to bring the interface
-> up, we BUG:
+> With the introduction of the support for Armada 375 and Armada 38x,
+> the hidden Kconfig option MACH_ARMADA_370_XP is being renamed to
+> MACH_MVEBU_V7. Therefore, the dependency that was used for the mvneta
+> driver can no longer work. This commit replaces this dependency by a
+> dependency on PLAT_ORION, which is used similarly for the mv643xx_eth
+> driver.
 > 
-> fec 2188000.ethernet eth0: no PHY, assuming direct connection to switch
-> libphy: PHY fixed-0:00 not found
-> fec 2188000.ethernet eth0: could not attach to PHY
-> ------------[ cut here ]------------
-> kernel BUG at include/linux/netdevice.h:502!
-> Internal error: Oops - BUG: 0 [#1] SMP ARM
-> ...
-> PC is at fec_enet_open+0x4d0/0x500
-> LR is at __dev_open+0xa4/0xfc
+> In addition to this, it takes this opportunity to adjust the
+> description and help text to indicate that the driver can is also used
+> for Armada 38x. Note that Armada 375 cannot use this driver as it has
+> a completely different networking unit, which will require a separate
+> driver.
 > 
-> Only enable napi after we are past all the failure paths.
-> 
-> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 
-Applied, thanks a lot Russell.
+Applied, thanks.
