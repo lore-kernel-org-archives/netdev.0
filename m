@@ -1,73 +1,113 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH v4 net-next 01/12] bonding: remove bond->lock from
- bond_arp_rcv
-Date: Tue, 18 Feb 2014 07:12:22 +0100
-Message-ID: <20140218061222.GA18373@redhat.com>
+Subject: Re: [PATCH v4 net-next 02/12] bonding: permit using arp_validate
+ with non-ab modes
+Date: Tue, 18 Feb 2014 07:39:13 +0100
+Message-ID: <20140218063913.GB18373@redhat.com>
 References: <1392648088-21336-1-git-send-email-vfalico@redhat.com>
- <1392648088-21336-2-git-send-email-vfalico@redhat.com>
- <5302DB61.4070505@huawei.com>
+ <1392648088-21336-3-git-send-email-vfalico@redhat.com>
+ <5302292D.4050206@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
-To: Ding Tianhong <dingtianhong@huawei.com>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34571 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:39845 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751222AbaBRGMe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Feb 2014 01:12:34 -0500
+	id S1750991AbaBRGjX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Feb 2014 01:39:23 -0500
 Content-Disposition: inline
-In-Reply-To: <5302DB61.4070505@huawei.com>
+In-Reply-To: <5302292D.4050206@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 18, 2014 at 12:02:41PM +0800, Ding Tianhong wrote:
->On 2014/2/17 22:41, Veaceslav Falico wrote:
->> We're always called with rcu_read_lock() held (bond_arp_rcv() is only
->> called from bond_handle_frame(), which is rx_handler and always called
->> under rcu from __netif_receive_skb_core() ).
+On Mon, Feb 17, 2014 at 04:22:21PM +0100, Nikolay Aleksandrov wrote:
+>On 02/17/2014 03:41 PM, Veaceslav Falico wrote:
+>> Currently it's disabled because it's sometimes hard, in typical configs, to
+>> make it work - because of the nature how the loadbalance modes work - as
+>> it's hard to deliver valid arp replies to correct slaves by the switch.
 >>
->> The slave active/passive and/or bonding params can change in-flight, however
->> we don't really care about that - we only modify the last time packet was
->> received, which is harmless.
+>> However we still can use arp_validation in loadbalance with several other
+>> configs, per example with arp_validate == 2 for backup with one broadcast
+>> domain, without the switch(es) doing any balancing - this way we'd be (a
+>> bit more) sure that the slave is up.
+>>
+>> So, enable it to let users decide which one works/suits them best. Also
+>> remove the mode limitation from BOND_OPT_ARP_VALIDATE.
 >>
 >> CC: Jay Vosburgh <fubar@us.ibm.com>
 >> CC: Andy Gospodarek <andy@greyhouse.net>
 >> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 >> ---
->>  drivers/net/bonding/bond_main.c | 3 ---
->>  1 file changed, 3 deletions(-)
+>>  Documentation/networking/bonding.txt | 6 +++---
+>>  drivers/net/bonding/bond_main.c      | 4 ----
+>>  drivers/net/bonding/bond_options.c   | 1 -
+>>  3 files changed, 3 insertions(+), 8 deletions(-)
 >>
+>> diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+>> index 5cdb229..96b4ad8 100644
+>> --- a/Documentation/networking/bonding.txt
+>> +++ b/Documentation/networking/bonding.txt
+>> @@ -270,9 +270,9 @@ arp_ip_target
+>>  arp_validate
+>>
+>>  	Specifies whether or not ARP probes and replies should be
+>> -	validated in the active-backup mode.  This causes the ARP
+>> -	monitor to examine the incoming ARP requests and replies, and
+>> -	only consider a slave to be up if it is receiving the
+>> +	validated in any mode that supports arp monitoring.  This causes
+>> +	the ARP monitor to examine the incoming ARP requests and replies,
+>> +	and only consider a slave to be up if it is receiving the
+>>  	appropriate ARP traffic.
+>>
+>>  	Possible values are:
 >> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->> index 3bce855..3c50bec 100644
+>> index 3c50bec..91c0248 100644
 >> --- a/drivers/net/bonding/bond_main.c
 >> +++ b/drivers/net/bonding/bond_main.c
->> @@ -2260,8 +2260,6 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
->>  	if (skb->protocol != __cpu_to_be16(ETH_P_ARP))
->>  		return RX_HANDLER_ANOTHER;
+>> @@ -4183,10 +4183,6 @@ static int bond_check_params(struct bond_params *params)
+>>  	}
 >>
->> -	read_lock(&bond->lock);
->> -
->>  	if (!slave_do_arp_validate(bond, slave))
->>  		goto out_unlock;
+>>  	if (arp_validate) {
+>> -		if (bond_mode != BOND_MODE_ACTIVEBACKUP) {
+>> -			pr_err("arp_validate only supported in active-backup mode\n");
+>> -			return -EINVAL;
+>> -		}
+>>  		if (!arp_interval) {
+>>  			pr_err("arp_validate requires arp_interval\n");
+>>  			return -EINVAL;
+>> diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+>> index f3eb44d..d566cab 100644
+>> --- a/drivers/net/bonding/bond_options.c
+>> +++ b/drivers/net/bonding/bond_options.c
+>> @@ -151,7 +151,6 @@ static struct bond_option bond_opts[] = {
+>>  		.id = BOND_OPT_ARP_VALIDATE,
+>>  		.name = "arp_validate",
+>>  		.desc = "validate src/dst of ARP probes",
+>> -		.unsuppmodes = BOND_MODE_ALL_EX(BIT(BOND_MODE_ACTIVEBACKUP)),
+>>  		.values = bond_arp_validate_tbl,
+>>  		.set = bond_option_arp_validate_set
+>>  	},
 >>
->> @@ -2318,7 +2316,6 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
->>  		bond_validate_arp(bond, slave, tip, sip);
->>
->>  out_unlock:
->> -	read_unlock(&bond->lock);
->>  	if (arp != (struct arphdr *)skb->data)
->>  		kfree(arp);
->>  	return RX_HANDLER_ANOTHER;
->>
->
->I think it is not enough, you should add rcu_dereference for bond->curr_active_slave, it may be changed during
->the recv processing.
+>Sorry for not noticing before, but I just remembered the reason why all the
+>checks are there when changing the recv_probe, especially from the options.
+>The problem was that lacp mode also uses the recv_probe, so after this patch we
+>can overwrite the recv_probe while it's running in lacp mode, because
+>bond_option_arp_validate_set changes the recv_probe. We can actually only set it
+>to NULL because arp_interval can't be set in those modes, but still we can break
+>the mode and there'll be need for at least down/up cycle to fix it.
+>I think rlb also uses the recv_probe so this applies to it as well.
 
-bond->lock has absolutely nothing to du with bond->curr_active_slave .
+Yep, missed that too, thanks a lot Nik. It should just be the same as for
+BOND_OPT_ARP_INTERVAL:
+
+  177                 .unsuppmodes = BIT(BOND_MODE_8023AD) | BIT(BOND_MODE_TLB) |
+  178                                BIT(BOND_MODE_ALB),
+
+which makes sense - as in those modes it's indeed more than useless.
+
+I'll change it and send v5.
 
 >
->Regards
->Ding
->
+>Nik
 >
