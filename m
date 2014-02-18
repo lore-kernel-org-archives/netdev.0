@@ -1,52 +1,69 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: Fw:[Bug 70471] xfrm policy node will double unlink.
-Date: Tue, 18 Feb 2014 09:37:38 +0100
-Message-ID: <20140218083737.GB32371@secunet.com>
-References: <tencent_0D7FA5355C7998793C100B23@qq.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH] ethtool: check the ethtool_ops is NULL in dev_ethtool
+Date: Tue, 18 Feb 2014 10:22:01 +0100
+Message-ID: <53032639.3060701@redhat.com>
+References: <5301F32C.4040704@huawei.com> <53024266.8010700@redhat.com> <5302B57A.1040806@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: netdev <netdev@vger.kernel.org>, alan <alan@lxorguk.ukuu.org.uk>
-To: Xianpeng Zhao <673321875@qq.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Wang Weidong <wangweidong1@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:47917 "EHLO a.mx.secunet.com"
+Received: from mx1.redhat.com ([209.132.183.28]:47419 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754212AbaBRIhl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Feb 2014 03:37:41 -0500
-Content-Disposition: inline
-In-Reply-To: <tencent_0D7FA5355C7998793C100B23@qq.com>
+	id S1754473AbaBRJWJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Feb 2014 04:22:09 -0500
+In-Reply-To: <5302B57A.1040806@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 18, 2014 at 10:55:57AM +0800, Xianpeng Zhao wrote:
-> Hi Group,
->      I found a problem about xfrm policy.
-> 
->      In corner case, xfrm policy node will be double unlinked from the list.
-> 
->     The scenario like this:
->     In thread context, After removed the node from list, before remove the xfrm policy expire timer. At this point, a timer interrupt come, and call the run_timer_softirq to execute the xfrm_policy_timer to remove the expired policy node; because this policy node had already removed from list. this remove will cause the node double unlinked.
+On 02/18/2014 02:20 AM, Wang Weidong wrote:
+> On 2014/2/18 1:09, Daniel Borkmann wrote:
+>> On 02/17/2014 12:31 PM, Wang Weidong wrote:
+>>> some drivers maybe not implement the ethtool_ops with only
+>>> set NULL. So when call the ethtool cmds will lead to a
+>>> 'NULL pointer dereference'.
+>>>
+>>> So add a checking in dev_ethtool.
+>>>
+>>> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+>>> ---
+>>>    net/core/ethtool.c | 3 +++
+>>>    1 file changed, 3 insertions(+)
+>>>
+>>> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+>>> index 30071de..f418dcb 100644
+>>> --- a/net/core/ethtool.c
+>>> +++ b/net/core/ethtool.c
+>>> @@ -1499,6 +1499,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+>>>            if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+>>>                return -EPERM;
+>>>        }
+>>> +
+>>
+>> You have a trailing whitespace/tab in the line above. Please
+>> use checkpatch for detecting such things.
+>>
+> Sorry for that. I will fix it soon.
+>
+>> Can you be more specific with "some drivers"? Any driver that
+>> is in the mainline tree?
+>>
+> No. My team implements a driver without considering the ethtool_ops.
+> So I got the problem.
 
-Good catch!
+If it's code that is out of the mainline tree, then why should the
+kernel support that? Submit your driver to the tree first, and then
+such a change could be considered. Or, even better, let them implement
+ethtool ops/stubs.
 
-I wonder why I've never seen this. Do you have a reproducer for this bug?
-
-Looks like it is sufficient to reinitialize the bydst hlist in
-__xfrm_policy_unlink(). Then hlist_unhashed() will notice that
-this policy is not linked.
-
-Does the patch below help?
-
-
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 121399d..225f439 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1156,7 +1156,7 @@ static struct xfrm_policy *__xfrm_policy_unlink(struct xfrm_policy *pol,
- 	if (hlist_unhashed(&pol->bydst))
- 		return NULL;
- 
--	hlist_del(&pol->bydst);
-+	hlist_del_init(&pol->bydst);
- 	hlist_del(&pol->byidx);
- 	list_del(&pol->walk.all);
- 	net->xfrm.policy_count[dir]--;
+>>> +    if (!dev->ethtool_ops)
+>>> +        return -EOPNOTSUPP;
+>>>
+>>>        if (dev->ethtool_ops->begin) {
+>>>            rc = dev->ethtool_ops->begin(dev);
+>>>
+>>
+>>
+>
+>
