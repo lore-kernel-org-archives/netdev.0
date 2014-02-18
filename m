@@ -1,117 +1,64 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next 1/3] bonding: add bond_set_slave_state/flags()
-Date: Tue, 18 Feb 2014 11:50:29 +0800
-Message-ID: <5302D885.7070407@huawei.com>
-References: <1392626151-23916-1-git-send-email-dingtianhong@huawei.com> <1392626151-23916-2-git-send-email-dingtianhong@huawei.com> <5329.1392689302@death.nxdomain>
+Subject: Re: [PATCH v4 net-next 01/12] bonding: remove bond->lock from bond_arp_rcv
+Date: Tue, 18 Feb 2014 12:02:41 +0800
+Message-ID: <5302DB61.4070505@huawei.com>
+References: <1392648088-21336-1-git-send-email-vfalico@redhat.com> <1392648088-21336-2-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <vfalico@redhat.com>, <andy@greyhouse.net>,
-	<cwang@twopensource.com>, <jiri@resnulli.us>,
-	<thomas@glanzmann.de>, <eric.dumazet@gmail.com>,
-	<sfeldma@cumulusnetworks.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Veaceslav Falico <vfalico@redhat.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:51659 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752230AbaBRDyC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 22:54:02 -0500
-In-Reply-To: <5329.1392689302@death.nxdomain>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:18304 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752209AbaBREDO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 23:03:14 -0500
+In-Reply-To: <1392648088-21336-2-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/2/18 10:08, Jay Vosburgh wrote:
-> Ding Tianhong <dingtianhong@huawei.com> wrote:
+On 2014/2/17 22:41, Veaceslav Falico wrote:
+> We're always called with rcu_read_lock() held (bond_arp_rcv() is only
+> called from bond_handle_frame(), which is rx_handler and always called
+> under rcu from __netif_receive_skb_core() ).
 > 
->> The new function could change the slave state and flags, then call
->> rtmsg_ifinfo() according to the input parameters notify.
->>
->> Cc: Jay Vosburgh <fubar@us.ibm.com>
->> Cc: Veaceslav Falico <vfalico@redhat.com>
->> Cc: Andy Gospodarek <andy@greyhouse.net>
->> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->> ---
->> drivers/net/bonding/bonding.h | 26 ++++++++++++++++++++++++++
->> 1 file changed, 26 insertions(+)
->>
->> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
->> index 86ccfb9..d210124 100644
->> --- a/drivers/net/bonding/bonding.h
->> +++ b/drivers/net/bonding/bonding.h
->> @@ -303,6 +303,18 @@ static inline void bond_set_backup_slave(struct slave *slave)
->> 	}
->> }
->>
->> +static inline void bond_set_slave_state(struct slave *slave,
->> +					int slave_state, bool notify)
->> +{
->> +	if (slave->backup != slave_state)
->> +		slave->backup = slave_state;
->> +	else
->> +		return;
->> +
->> +	if (notify)
->> +		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_KERNEL);
+> The slave active/passive and/or bonding params can change in-flight, however
+> we don't really care about that - we only modify the last time packet was
+> received, which is harmless.
 > 
-> 	I think this would be clearer if coded as:
-> 
-> 	if (slave->backup == slave_slave)
-> 		return;
-> 
-> 	slave->backup = slave_state;
-> 	if (notify)
-> 		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_KERNEL);
-> 
-Yes, more simple.
-
->> +}
->> +
->> static inline void bond_slave_state_change(struct bonding *bond)
->> {
->> 	struct list_head *iter;
->> @@ -408,6 +420,20 @@ static inline void bond_set_slave_active_flags(struct slave *slave)
->> 	slave->inactive = 0;
->> }
->>
->> +static inline void bond_set_slave_flags(struct slave *slave,
->> +					int state, bool notify)
->> +
->> +{
->> +	if (state == BOND_STATE_ACTIVE) {
->> +		bond_set_slave_state(slave, state, notify);
->> +		slave->inactive = 0;
->> +	} else if (state == BOND_STATE_BACKUP && !bond_is_lb(slave->bond)) {
->> +		bond_set_slave_state(slave, state, notify);
->> +		if (!slave->bond->params.all_slaves_active)
->> +			slave->inactive = 1;
->> +	}
->> +}
-> 
-> 	As I said in my other reply, I don't see why this shouldn't be
-> integrated into the existing state change functions instead of creating
-> a new function.
-> 
-> 	-J
-
-Ok, thanks.
-
-Ding
-
-> 
->> static inline bool bond_is_slave_inactive(struct slave *slave)
->> {
->> 	return slave->inactive;
->> -- 
->> 1.8.0
-> 
+> CC: Jay Vosburgh <fubar@us.ibm.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 > ---
-> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+>  drivers/net/bonding/bond_main.c | 3 ---
+>  1 file changed, 3 deletions(-)
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 3bce855..3c50bec 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -2260,8 +2260,6 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
+>  	if (skb->protocol != __cpu_to_be16(ETH_P_ARP))
+>  		return RX_HANDLER_ANOTHER;
+>  
+> -	read_lock(&bond->lock);
+> -
+>  	if (!slave_do_arp_validate(bond, slave))
+>  		goto out_unlock;
+>  
+> @@ -2318,7 +2316,6 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
+>  		bond_validate_arp(bond, slave, tip, sip);
+>  
+>  out_unlock:
+> -	read_unlock(&bond->lock);
+>  	if (arp != (struct arphdr *)skb->data)
+>  		kfree(arp);
+>  	return RX_HANDLER_ANOTHER;
 > 
-> .
-> 
+
+I think it is not enough, you should add rcu_dereference for bond->curr_active_slave, it may be changed during
+the recv processing.
+
+Regards
+Ding
