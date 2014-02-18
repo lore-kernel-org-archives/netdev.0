@@ -1,13 +1,10 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH net-next 10/35] enic: Use pci_enable_msix_range() instead of pci_enable_msix()
-Date: Tue, 18 Feb 2014 11:08:02 +0100
-Message-ID: <a5aee403375068dd23e6f22851effe47a7e89cee.1392717503.git.agordeev@redhat.com>
+Subject: [PATCH net-next 08/35] cxgb4vf: Remove superfluous call to pci_disable_msix()
+Date: Tue, 18 Feb 2014 11:08:00 +0100
+Message-ID: <88e8e62d2dd643c9237c9cdb86fe19444f3651b8.1392717503.git.agordeev@redhat.com>
 References: <cover.1392717502.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
-	Christian Benvenuti <benve@cisco.com>,
-	Sujith Sankar <ssujith@cisco.com>,
-	Govindarajulu Varadarajan <govindarajulu90@gmail.com>,
-	Neel Patel <neepatel@cisco.com>, netdev@vger.kernel.org,
+	Casey Leedom <leedom@chelsio.com>, netdev@vger.kernel.org,
 	linux-pci@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -15,46 +12,28 @@ In-Reply-To: <cover.1392717502.git.agordeev@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-As result of deprecation of MSI-X/MSI enablement functions
-pci_enable_msix() and pci_enable_msi_block() all drivers
-using these two interfaces need to be updated to use the
-new pci_enable_msi_range() and pci_enable_msix_range()
-interfaces.
+There is no need to call pci_disable_msix() in case
+the previous call to pci_enable_msix() failed
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
-Cc: Christian Benvenuti <benve@cisco.com>
-Cc: Sujith Sankar <ssujith@cisco.com>
-Cc: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
-Cc: Neel Patel <neepatel@cisco.com>
+Cc: Casey Leedom <leedom@chelsio.com>
 Cc: netdev@vger.kernel.org
 Cc: linux-pci@vger.kernel.org
 ---
- drivers/net/ethernet/cisco/enic/enic_main.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+ .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index b740bfc..dcd58f2 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -1796,7 +1796,8 @@ static int enic_set_intr_mode(struct enic *enic)
- 	    enic->cq_count >= n + m &&
- 	    enic->intr_count >= n + m + 2) {
- 
--		if (!pci_enable_msix(enic->pdev, enic->msix_entry, n + m + 2)) {
-+		if (pci_enable_msix_range(enic->pdev, enic->msix_entry,
-+					  n + m + 2, n + m + 2) > 0) {
- 
- 			enic->rq_count = n;
- 			enic->wq_count = m;
-@@ -1815,7 +1816,8 @@ static int enic_set_intr_mode(struct enic *enic)
- 	    enic->wq_count >= m &&
- 	    enic->cq_count >= 1 + m &&
- 	    enic->intr_count >= 1 + m + 2) {
--		if (!pci_enable_msix(enic->pdev, enic->msix_entry, 1 + m + 2)) {
-+		if (pci_enable_msix_range(enic->pdev, enic->msix_entry,
-+					  1 + m + 2, 1 + m + 2) > 0) {
- 
- 			enic->rq_count = 1;
- 			enic->wq_count = m;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+index 0899c09..509fed9 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+@@ -2475,7 +2475,6 @@ static int enable_msix(struct adapter *adapter)
+ 		for (i = 0; i < want; ++i)
+ 			adapter->msix_info[i].vec = entries[i].vector;
+ 	} else if (err > 0) {
+-		pci_disable_msix(adapter->pdev);
+ 		dev_info(adapter->pdev_dev, "only %d MSI-X vectors left,"
+ 			 " not using MSI-X\n", err);
+ 	}
 -- 
 1.7.7.6
