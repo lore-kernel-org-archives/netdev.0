@@ -1,15 +1,15 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH net-next 04/35] bna: Use pci_enable_msix_range() instead of pci_enable_msix()
-Date: Tue, 18 Feb 2014 11:07:56 +0100
-Message-ID: <1801e713e466f57908766fe69678a48d1204f499.1392717503.git.agordeev@redhat.com>
+Subject: [PATCH net-next 09/35] cxgb4vf: Use pci_enable_msix_range() instead of pci_enable_msix()
+Date: Tue, 18 Feb 2014 11:08:01 +0100
+Message-ID: <fe62af829f2021225aaaf8ef2bf43e1bfa143585.1392717503.git.agordeev@redhat.com>
 References: <cover.1392717502.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
-	Rasesh Mody <rmody@brocade.com>, netdev@vger.kernel.org,
+	Casey Leedom <leedom@chelsio.com>, netdev@vger.kernel.org,
 	linux-pci@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
 In-Reply-To: <cover.1392717502.git.agordeev@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 As result of deprecation of MSI-X/MSI enablement functions
@@ -19,54 +19,66 @@ new pci_enable_msi_range() and pci_enable_msix_range()
 interfaces.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
-Cc: Rasesh Mody <rmody@brocade.com>
+Cc: Casey Leedom <leedom@chelsio.com>
 Cc: netdev@vger.kernel.org
 Cc: linux-pci@vger.kernel.org
 ---
- drivers/net/ethernet/brocade/bna/bnad.c |   23 +++++++++--------------
- 1 files changed, 9 insertions(+), 14 deletions(-)
+ .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |   34 +++++++++----------
+ 1 files changed, 16 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index cf64f3d..bf436d0 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -2666,9 +2666,11 @@ bnad_enable_msix(struct bnad *bnad)
- 	for (i = 0; i < bnad->msix_num; i++)
- 		bnad->msix_table[i].entry = i;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+index 509fed9..1d0fe9b 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+@@ -2444,7 +2444,7 @@ static void reduce_ethqs(struct adapter *adapter, int n)
+  */
+ static int enable_msix(struct adapter *adapter)
+ {
+-	int i, err, want, need;
++	int i, want, need, nqsets;
+ 	struct msix_entry entries[MSIX_ENTRIES];
+ 	struct sge *s = &adapter->sge;
  
--	ret = pci_enable_msix(bnad->pcidev, bnad->msix_table, bnad->msix_num);
--	if (ret > 0) {
--		/* Not enough MSI-X vectors. */
-+	ret = pci_enable_msix_range(bnad->pcidev, bnad->msix_table,
-+				    1, bnad->msix_num);
-+	if (ret < 0) {
-+		goto intx_mode;
-+	} else if (ret < bnad->msix_num) {
- 		pr_warn("BNA: %d MSI-X vectors allocated < %d requested\n",
- 			ret, bnad->msix_num);
+@@ -2460,25 +2460,23 @@ static int enable_msix(struct adapter *adapter)
+ 	 */
+ 	want = s->max_ethqsets + MSIX_EXTRAS;
+ 	need = adapter->params.nports + MSIX_EXTRAS;
+-	while ((err = pci_enable_msix(adapter->pdev, entries, want)) >= need)
+-		want = err;
  
-@@ -2681,18 +2683,11 @@ bnad_enable_msix(struct bnad *bnad)
- 		bnad->msix_num = BNAD_NUM_TXQ + BNAD_NUM_RXP +
- 			 BNAD_MAILBOX_MSIX_VECTORS;
+-	if (err == 0) {
+-		int nqsets = want - MSIX_EXTRAS;
+-		if (nqsets < s->max_ethqsets) {
+-			dev_warn(adapter->pdev_dev, "only enough MSI-X vectors"
+-				 " for %d Queue Sets\n", nqsets);
+-			s->max_ethqsets = nqsets;
+-			if (nqsets < s->ethqsets)
+-				reduce_ethqs(adapter, nqsets);
+-		}
+-		for (i = 0; i < want; ++i)
+-			adapter->msix_info[i].vec = entries[i].vector;
+-	} else if (err > 0) {
+-		dev_info(adapter->pdev_dev, "only %d MSI-X vectors left,"
+-			 " not using MSI-X\n", err);
++	want = pci_enable_msix_range(adapter->pdev, entries, need, want);
++	if (want < 0)
++		return want;
++
++	nqsets = want - MSIX_EXTRAS;
++	if (nqsets < s->max_ethqsets) {
++		dev_warn(adapter->pdev_dev, "only enough MSI-X vectors"
++			 " for %d Queue Sets\n", nqsets);
++		s->max_ethqsets = nqsets;
++		if (nqsets < s->ethqsets)
++			reduce_ethqs(adapter, nqsets);
+ 	}
+-	return err;
++	for (i = 0; i < want; ++i)
++		adapter->msix_info[i].vec = entries[i].vector;
++
++	return 0;
+ }
  
--		if (bnad->msix_num > ret)
--			goto intx_mode;
--
--		/* Try once more with adjusted numbers */
--		/* If this fails, fall back to INTx */
--		ret = pci_enable_msix(bnad->pcidev, bnad->msix_table,
--				      bnad->msix_num);
--		if (ret)
-+		if (bnad->msix_num > ret) {
-+			pci_disable_msix(bnad->pcidev);
- 			goto intx_mode;
--
--	} else if (ret < 0)
--		goto intx_mode;
-+		}
-+	}
- 
- 	pci_intx(bnad->pcidev, 0);
- 
+ static const struct net_device_ops cxgb4vf_netdev_ops	= {
 -- 
 1.7.7.6
