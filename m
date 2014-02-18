@@ -1,11 +1,11 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH net-next 19/35] mlx5: Use pci_enable_msix_range() instead of pci_enable_msix()
-Date: Tue, 18 Feb 2014 11:11:48 +0100
-Message-ID: <3a48ed13ea35014e0fcdf7bf18b928d9de525779.1392717503.git.agordeev@redhat.com>
+Subject: [PATCH net-next 20/35] myri10ge: Use pci_enable_msix_range() instead of pci_enable_msix()
+Date: Tue, 18 Feb 2014 11:11:49 +0100
+Message-ID: <4174e05e893a4b62b9c39692691b926cec2dc2c3.1392717503.git.agordeev@redhat.com>
 References: <cover.1392717502.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
-	Eli Cohen <eli@mellanox.com>, linux-rdma@vger.kernel.org,
-	netdev@vger.kernel.org, linux-pci@vger.kernel.org
+	Hyong-Youb Kim <hykim@myri.com>, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1392717502.git.agordeev@redhat.com>
@@ -19,48 +19,86 @@ new pci_enable_msi_range() and pci_enable_msix_range()
 interfaces.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
-Cc: Eli Cohen <eli@mellanox.com>
-Cc: linux-rdma@vger.kernel.org
+Cc: Hyong-Youb Kim <hykim@myri.com>
 Cc: netdev@vger.kernel.org
 Cc: linux-pci@vger.kernel.org
 ---
- drivers/net/ethernet/mellanox/mlx5/core/main.c |   16 +++++-----------
- 1 files changed, 5 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/myricom/myri10ge/myri10ge.c |   40 +++++++++++-----------
+ 1 files changed, 20 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index a064f06..81df046 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -116,7 +116,6 @@ static int mlx5_enable_msix(struct mlx5_core_dev *dev)
- 	struct mlx5_eq_table *table = &dev->priv.eq_table;
- 	int num_eqs = 1 << dev->caps.log_max_eq;
- 	int nvec;
--	int err;
- 	int i;
+diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+index 68026f7..130f6b2 100644
+--- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
++++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+@@ -2329,16 +2329,14 @@ static int myri10ge_request_irq(struct myri10ge_priv *mgp)
+ 	status = 0;
+ 	if (myri10ge_msi) {
+ 		if (mgp->num_slices > 1) {
+-			status =
+-			    pci_enable_msix(pdev, mgp->msix_vectors,
+-					    mgp->num_slices);
+-			if (status == 0) {
+-				mgp->msix_enabled = 1;
+-			} else {
++			status = pci_enable_msix_range(pdev, mgp->msix_vectors,
++					mgp->num_slices, mgp->num_slices);
++			if (status < 0) {
+ 				dev_err(&pdev->dev,
+ 					"Error %d setting up MSI-X\n", status);
+ 				return status;
+ 			}
++			mgp->msix_enabled = 1;
+ 		}
+ 		if (mgp->msix_enabled == 0) {
+ 			status = pci_enable_msi(pdev);
+@@ -3895,32 +3893,34 @@ static void myri10ge_probe_slices(struct myri10ge_priv *mgp)
+ 	mgp->msix_vectors = kcalloc(mgp->num_slices, sizeof(*mgp->msix_vectors),
+ 				    GFP_KERNEL);
+ 	if (mgp->msix_vectors == NULL)
+-		goto disable_msix;
++		goto no_msix;
+ 	for (i = 0; i < mgp->num_slices; i++) {
+ 		mgp->msix_vectors[i].entry = i;
+ 	}
  
- 	nvec = dev->caps.num_ports * num_online_cpus() + MLX5_EQ_VEC_COMP_BASE;
-@@ -131,17 +130,12 @@ static int mlx5_enable_msix(struct mlx5_core_dev *dev)
- 	for (i = 0; i < nvec; i++)
- 		table->msix_arr[i].entry = i;
+ 	while (mgp->num_slices > 1) {
+-		/* make sure it is a power of two */
+-		while (!is_power_of_2(mgp->num_slices))
+-			mgp->num_slices--;
++		mgp->num_slices = rounddown_pow_of_two(mgp->num_slices);
+ 		if (mgp->num_slices == 1)
+-			goto disable_msix;
+-		status = pci_enable_msix(pdev, mgp->msix_vectors,
+-					 mgp->num_slices);
+-		if (status == 0) {
+-			pci_disable_msix(pdev);
++			goto no_msix;
++		status = pci_enable_msix_range(pdev,
++					       mgp->msix_vectors,
++					       mgp->num_slices,
++					       mgp->num_slices);
++		if (status < 0)
++			goto no_msix;
++
++		pci_disable_msix(pdev);
++
++		if (status == mgp->num_slices) {
+ 			if (old_allocated)
+ 				kfree(old_fw);
+ 			return;
+-		}
+-		if (status > 0)
++		} else {
+ 			mgp->num_slices = status;
+-		else
+-			goto disable_msix;
++		}
+ 	}
  
--retry:
--	table->num_comp_vectors = nvec - MLX5_EQ_VEC_COMP_BASE;
--	err = pci_enable_msix(dev->pdev, table->msix_arr, nvec);
--	if (err <= 0) {
--		return err;
--	} else if (err > 2) {
--		nvec = err;
--		goto retry;
--	}
-+	nvec = pci_enable_msix_range(dev->pdev, table->msix_arr,
-+				     MLX5_EQ_VEC_COMP_BASE, nvec);
-+	if (nvec < 0)
-+		return nvec;
- 
--	mlx5_core_dbg(dev, "received %d MSI vectors out of %d requested\n", err, nvec);
-+	table->num_comp_vectors = nvec - MLX5_EQ_VEC_COMP_BASE;
- 
- 	return 0;
- }
+-disable_msix:
++no_msix:
+ 	if (mgp->msix_vectors != NULL) {
+ 		kfree(mgp->msix_vectors);
+ 		mgp->msix_vectors = NULL;
 -- 
 1.7.7.6
