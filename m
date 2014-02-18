@@ -1,41 +1,53 @@
-From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH net-next 29/35] qlge: Get rid of an redundant assignment
-Date: Tue, 18 Feb 2014 11:11:58 +0100
-Message-ID: <bffe424063b212553530f64b3282e260e2a37074.1392717503.git.agordeev@redhat.com>
-References: <cover.1392717502.git.agordeev@redhat.com>
-Cc: Alexander Gordeev <agordeev@redhat.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
-	Ron Mercer <ron.mercer@qlogic.com>, linux-driver@qlogic.com,
-	netdev@vger.kernel.org, linux-pci@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1392717502.git.agordeev@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: poma <pomidorabelisima-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: WARNING: CPU: 0 PID: 0 at net/sched/sch_generic.c:264
+	dev_watchdog+0x276/0x280()
+Date: Tue, 18 Feb 2014 11:15:19 +0100
+Message-ID: <530332B7.10909@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Mailing-List fedora-kernel <kernel-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>,
+	Josh Boyer <jwboyer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Linux Kernel list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	"Justin M. Forbes" <jforbes-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
+	Intel Corporation <linux.nics-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>
+List-Unsubscribe: <https://admin.fedoraproject.org/mailman/options/kernel>,
+	<mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.fedoraproject.org/pipermail/kernel/>
+List-Post: <mailto:kernel-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>
+List-Help: <mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=help>
+List-Subscribe: <https://admin.fedoraproject.org/mailman/listinfo/kernel>,
+	<mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=subscribe>
+Sender: kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org
+Errors-To: kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
-Cc: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Cc: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Cc: Ron Mercer <ron.mercer@qlogic.com>
-Cc: linux-driver@qlogic.com
-Cc: netdev@vger.kernel.org
-Cc: linux-pci@vger.kernel.org
----
- drivers/net/ethernet/qlogic/qlge/qlge_main.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-index ce2cfdd..82bace5 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-@@ -3346,7 +3346,6 @@ static void ql_enable_msix(struct ql_adapter *qdev)
- 			qdev->msi_x_entry = NULL;
- 			netif_warn(qdev, ifup, qdev->ndev,
- 				   "MSI-X Enable failed, trying MSI.\n");
--			qdev->intr_count = 1;
- 			qlge_irq_type = MSI_IRQ;
- 		} else if (err == 0) {
- 			set_bit(QL_MSIX_ENABLED, &qdev->flags);
--- 
-1.7.7.6
+CkFob3khCgpEZWJ1Z2dpbmcgUzMgYWthIHN1c3BlbmQgcHJvZHVjZXMgJ1dBUk5JTkdTJzoKClN0
+ZXBzIHRvIFJlcHJvZHVjZToKIyBlY2hvIGNvcmUgPiAvc3lzL3Bvd2VyL3BtX3Rlc3QKIyBjYXQg
+L3N5cy9wb3dlci9wbV90ZXN0Cm5vbmUgW2NvcmVdIHByb2Nlc3NvcnMgcGxhdGZvcm0gZGV2aWNl
+cyBmcmVlemVyCiMgZWNobyBtZW0gPiAvc3lzL3Bvd2VyL3N0YXRlClJlc3VsdHM6Ci0gZG1lc2ct
+My4xNC4wLTAucmMzLmdpdDAuMS5mYzIxLng4Nl82NCtkZWJ1Zy1wbV90ZXN0LWNvcmUuZGlmZgog
+IGh0dHBzOi8vYnVnemlsbGEucmVkaGF0LmNvbS9hdHRhY2htZW50LmNnaT9pZD04NjQ0MzYKClN0
+ZXBzIHRvIFJlcHJvZHVjZToKIyBlY2hvIHByb2Nlc3NvcnMgPiAvc3lzL3Bvd2VyL3BtX3Rlc3QK
+IyBjYXQgL3N5cy9wb3dlci9wbV90ZXN0Cm5vbmUgY29yZSBbcHJvY2Vzc29yc10gcGxhdGZvcm0g
+ZGV2aWNlcyBmcmVlemVyCiMgZWNobyBtZW0gPiAvc3lzL3Bvd2VyL3N0YXRlClJlc3VsdHM6Ci0g
+ZG1lc2ctMy4xNC4wLTAucmMzLmdpdDAuMS5mYzIxLng4Nl82NCtkZWJ1Zy1wbV90ZXN0LXByb2Nl
+c3NvcnMuZGlmZgogIGh0dHBzOi8vYnVnemlsbGEucmVkaGF0LmNvbS9hdHRhY2htZW50LmNnaT9p
+ZD04NjQ0MzgKClN0ZXBzIHRvIFJlcHJvZHVjZToKIyBlY2hvIHBsYXRmb3JtID4gL3N5cy9wb3dl
+ci9wbV90ZXN0CiMgY2F0IC9zeXMvcG93ZXIvcG1fdGVzdApub25lIGNvcmUgcHJvY2Vzc29ycyBb
+cGxhdGZvcm1dIGRldmljZXMgZnJlZXplcgojIGVjaG8gbWVtID4gL3N5cy9wb3dlci9zdGF0ZQpS
+ZXN1bHRzOgotIGRtZXNnLTMuMTQuMC0wLnJjMy5naXQwLjEuZmMyMS54ODZfNjQrZGVidWctcG1f
+dGVzdC1wbGF0Zm9ybS5kaWZmCiAgaHR0cHM6Ly9idWd6aWxsYS5yZWRoYXQuY29tL2F0dGFjaG1l
+bnQuY2dpP2lkPTg2NDQzOQoKUkhCWiAxMDEwNzY0OgoiW2FicnRdIE5FVERFViBXQVRDSERPRzog
+ZW0xIChlMTAwMGUpOiB0cmFuc21pdCBxdWV1ZSAwIHRpbWVkIG91dCIKaHR0cHM6Ly9idWd6aWxs
+YS5yZWRoYXQuY29tL3Nob3dfYnVnLmNnaT9pZD0xMDEwNzY0CgpUZXN0ZWQgd2l0aCBSYXdoaWRl
+ICdrZXJuZWwtZGVidWctMy4xNC4wLTAucmMzLmdpdDAuMS5mYzIxLng4Nl82NCcKaHR0cDovL2tv
+amkuZmVkb3JhcHJvamVjdC5vcmcva29qaS9idWlsZGluZm8/YnVpbGRJRD00OTg3MTEKCgpwb21h
+CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwprZXJuZWwg
+bWFpbGluZyBsaXN0Cmtlcm5lbEBsaXN0cy5mZWRvcmFwcm9qZWN0Lm9yZwpodHRwczovL2FkbWlu
+LmZlZG9yYXByb2plY3Qub3JnL21haWxtYW4vbGlzdGluZm8va2VybmVs
