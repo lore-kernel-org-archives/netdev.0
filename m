@@ -1,64 +1,41 @@
-From: Max Filippov <jcmvbkbc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v2] net: ethoc: document OF bindings
-Date: Wed, 19 Feb 2014 02:46:50 +0400
-Message-ID: <1392763610-19197-1-git-send-email-jcmvbkbc@gmail.com>
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Max Filippov <jcmvbkbc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] igb: Fix Null-pointer dereference in
+ igb_reset_q_vector
+Date: Tue, 18 Feb 2014 18:08:08 -0500 (EST)
+Message-ID: <20140218.180808.558822435914770314.davem@davemloft.net>
+References: <1392728817-21693-1-git-send-email-christoph.paasch@uclouvain.be>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	carolyn.wyborny@intel.com
+To: christoph.paasch@uclouvain.be
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36989 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752056AbaBRXIK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 18:08:10 -0500
+In-Reply-To: <1392728817-21693-1-git-send-email-christoph.paasch@uclouvain.be>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Max Filippov <jcmvbkbc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
-Changes v1->v2:
-- drop local-mac-address optional property description
-  (described in the common ethernet.txt);
-- drop optional properties for MDIO bus frequency and MAC frequency
-  (removed from the implementation);
-- add clocks property.
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Date: Tue, 18 Feb 2014 14:06:57 +0100
 
- .../devicetree/bindings/net/opencores-ethoc.txt    | 22 ++++++++++++++++++++++
- 1 file changed, 22 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/opencores-ethoc.txt
+> When igb_set_interrupt_capability() calls
+> igb_reset_interrupt_capability() (e.g., because CONFIG_PCI_MSI is unset),
+> num_q_vectors has been set but no vector has yet been allocated.
+> 
+> igb_reset_interrupt_capability() will then call igb_reset_q_vector,
+> which assumes that the vector is allocated. As this is not the case, we
+> are accessing a NULL-pointer.
+> 
+> This patch fixes it by checking that q_vector is indeed different from
+> NULL.
+> 
+> Fixes: 02ef6e1d0b0023 (igb: Fix queue allocation method to accommodate changing during runtime)
+> Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
+> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
 
-diff --git a/Documentation/devicetree/bindings/net/opencores-ethoc.txt b/Documentation/devicetree/bindings/net/opencores-ethoc.txt
-new file mode 100644
-index 0000000..41e2675
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/opencores-ethoc.txt
-@@ -0,0 +1,22 @@
-+* OpenCores MAC 10/100 Mbps
-+
-+Required properties:
-+- compatible: Should be "opencores,ethoc".
-+- reg: two memory regions (address and length),
-+  first region is for the device registers and descriptor rings,
-+  second is for the device packet memory.
-+- interrupts: interrupt for the device.
-+
-+Optional properties:
-+- clocks: phandle to refer to the clk used as per
-+  Documentation/devicetree/bindings/clock/clock-bindings.txt
-+
-+Examples:
-+
-+	enet0: ethoc@fd030000 {
-+		compatible = "opencores,ethoc";
-+		reg = <0xfd030000 0x4000 0xfd800000 0x4000>;
-+		interrupts = <1>;
-+		local-mac-address = [00 50 c2 13 6f 00];
-+		clocks = <&osc>;
-+        };
--- 
-1.8.1.4
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Intel folks, please queue this up, thanks.
