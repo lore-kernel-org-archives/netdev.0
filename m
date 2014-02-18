@@ -1,7 +1,7 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 1/8] cxgb4: Add support to recognize 40G links
-Date: Tue, 18 Feb 2014 17:56:08 +0530
-Message-ID: <1392726375-32001-2-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 2/8] cxgb4: Print adapter VPD Part Number instead of Engineering Change field
+Date: Tue, 18 Feb 2014 17:56:09 +0530
+Message-ID: <1392726375-32001-3-git-send-email-hariprasad@chelsio.com>
 References: <1392726375-32001-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, dm@chelsio.com, leedom@chelsio.com,
 	nirranjan@chelsio.com, kumaras@chelsio.com, santosh@chelsio.com,
@@ -10,194 +10,88 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from stargate.chelsio.com ([67.207.112.58]:31324 "EHLO
 	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754609AbaBRNgH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 08:36:07 -0500
+	by vger.kernel.org with ESMTP id S1755128AbaBRNgJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 08:36:09 -0500
 In-Reply-To: <1392726375-32001-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Kumar Sanghvi <kumaras@chelsio.com>
 
-Also, create a new Common Code interface to translate Firmware Port Technology
-Type values (enum fw_port_type) to string descriptions.  This will allow us
-to maintain the description translation table in one place rather than in
-every driver.
-
-Based on original work by Scott Bardone and Casey Leedom <leedom@chelsio.com>
+When we attach to adapter, print VPD Part Number instead of Engineering Change field.
+Based on original work by Casey Leedom <leedom@chelsio.com>
 
 Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  2 +-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 24 +++++++++++------
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      | 35 ++++++++++++++++++++++++-
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |  3 +++
- 4 files changed, 54 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      | 2 ++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 4 ++--
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      | 5 ++++-
+ 3 files changed, 8 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 1f4b9b3..0c4edd1 100644
+index 0c4edd1..028b5e5 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -957,7 +957,7 @@ int t4_mc_read(struct adapter *adap, int idx, u32 addr, __be32 *data,
- 	       u64 *parity);
- int t4_edc_read(struct adapter *adap, int idx, u32 addr, __be32 *data,
- 		u64 *parity);
--
-+const char *t4_get_port_type_description(enum fw_port_type port_type);
- void t4_get_port_stats(struct adapter *adap, int idx, struct port_stats *p);
- void t4_read_mtu_tbl(struct adapter *adap, u16 *mtus, u8 *mtu_log);
- void t4_tp_wr_bits_indirect(struct adapter *adap, unsigned int addr,
+@@ -66,6 +66,7 @@ enum {
+ 	SERNUM_LEN = 24,    /* Serial # length */
+ 	EC_LEN     = 16,    /* E/C length */
+ 	ID_LEN     = 16,    /* ID length */
++	PN_LEN     = 16,    /* Part Number length */
+ };
+ 
+ enum {
+@@ -254,6 +255,7 @@ struct vpd_params {
+ 	u8 ec[EC_LEN + 1];
+ 	u8 sn[SERNUM_LEN + 1];
+ 	u8 id[ID_LEN + 1];
++	u8 pn[PN_LEN + 1];
+ };
+ 
+ struct pci_params {
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 43ab35f..ee2f123 100644
+index ee2f123..5e345bc 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -432,6 +432,9 @@ static void link_report(struct net_device *dev)
- 		case SPEED_100:
- 			s = "100Mbps";
- 			break;
-+		case 40000: /* Need a SPEED_40000 in ethtool.h */
-+			s = "40Gbps";
-+			break;
- 		}
- 
- 		netdev_info(dev, "link up, %s, full-duplex, %s PAUSE\n", s,
-@@ -2199,6 +2202,8 @@ static unsigned int from_fw_linkcaps(unsigned int type, unsigned int caps)
- 	else if (type == FW_PORT_TYPE_FIBER_XFI ||
- 		 type == FW_PORT_TYPE_FIBER_XAUI || type == FW_PORT_TYPE_SFP)
- 		v |= SUPPORTED_FIBRE;
-+	else if (type == FW_PORT_TYPE_BP40_BA)
-+		v |= SUPPORTED_40000baseSR4_Full;
- 
- 	if (caps & FW_PORT_CAP_ANEG)
- 		v |= SUPPORTED_Autoneg;
-@@ -2215,6 +2220,8 @@ static unsigned int to_fw_linkcaps(unsigned int caps)
- 		v |= FW_PORT_CAP_SPEED_1G;
- 	if (caps & ADVERTISED_10000baseT_Full)
- 		v |= FW_PORT_CAP_SPEED_10G;
-+	if (caps & ADVERTISED_40000baseSR4_Full)
-+		v |= FW_PORT_CAP_SPEED_40G;
- 	return v;
+@@ -5841,8 +5841,8 @@ static void print_port_info(const struct net_device *dev)
+ 		    is_offload(adap) ? "R" : "", adap->params.pci.width, spd,
+ 		    (adap->flags & USING_MSIX) ? " MSI-X" :
+ 		    (adap->flags & USING_MSI) ? " MSI" : "");
+-	netdev_info(dev, "S/N: %s, E/C: %s\n",
+-		    adap->params.vpd.sn, adap->params.vpd.ec);
++	netdev_info(dev, "S/N: %s, P/N: %s\n",
++		    adap->params.vpd.sn, adap->params.vpd.pn);
  }
  
-@@ -2269,6 +2276,8 @@ static unsigned int speed_to_caps(int speed)
- 		return FW_PORT_CAP_SPEED_1G;
- 	if (speed == SPEED_10000)
- 		return FW_PORT_CAP_SPEED_10G;
-+	if (speed == 40000) /* Need SPEED_40000 in ethtool.h */
-+		return FW_PORT_CAP_SPEED_40G;
- 	return 0;
- }
- 
-@@ -2296,8 +2305,10 @@ static int set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	if (cmd->autoneg == AUTONEG_DISABLE) {
- 		cap = speed_to_caps(speed);
- 
--		if (!(lc->supported & cap) || (speed == SPEED_1000) ||
--		    (speed == SPEED_10000))
-+		if (!(lc->supported & cap) ||
-+		    (speed == SPEED_1000) ||
-+		    (speed == SPEED_10000) ||
-+		    (speed == 40000))
- 			return -EINVAL;
- 		lc->requested_speed = cap;
- 		lc->advertising = 0;
-@@ -5801,11 +5812,6 @@ static int init_rss(struct adapter *adap)
- 
- static void print_port_info(const struct net_device *dev)
- {
--	static const char *base[] = {
--		"R XFI", "R XAUI", "T SGMII", "T XFI", "T XAUI", "KX4", "CX4",
--		"KX", "KR", "R SFP+", "KR/KX", "KR/KX/KX4"
--	};
--
- 	char buf[80];
- 	char *bufp = buf;
- 	const char *spd = "";
-@@ -5823,9 +5829,11 @@ static void print_port_info(const struct net_device *dev)
- 		bufp += sprintf(bufp, "1000/");
- 	if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_10G)
- 		bufp += sprintf(bufp, "10G/");
-+	if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_40G)
-+		bufp += sprintf(bufp, "40G/");
- 	if (bufp != buf)
- 		--bufp;
--	sprintf(bufp, "BASE-%s", base[pi->port_type]);
-+	sprintf(bufp, "BASE-%s", t4_get_port_type_description(pi->port_type));
- 
- 	netdev_info(dev, "Chelsio %s rev %d %s %sNIC PCIe x%d%s%s\n",
- 		    adap->params.vpd.id,
+ static void enable_pcie_relaxed_ordering(struct pci_dev *dev)
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 2c10934..514c525 100644
+index 514c525..7ae756d 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -1155,7 +1155,8 @@ out:
- }
+@@ -573,7 +573,7 @@ int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
+ {
+ 	u32 cclk_param, cclk_val;
+ 	int i, ret, addr;
+-	int ec, sn;
++	int ec, sn, pn;
+ 	u8 *vpd, csum;
+ 	unsigned int vpdr_len, kw_offset, id_len;
  
- #define ADVERT_MASK (FW_PORT_CAP_SPEED_100M | FW_PORT_CAP_SPEED_1G |\
--		     FW_PORT_CAP_SPEED_10G | FW_PORT_CAP_ANEG)
-+		     FW_PORT_CAP_SPEED_10G | FW_PORT_CAP_SPEED_40G | \
-+		     FW_PORT_CAP_ANEG)
+@@ -638,6 +638,7 @@ int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
  
- /**
-  *	t4_link_start - apply link configuration to MAC/PHY
-@@ -2247,6 +2248,36 @@ static unsigned int get_mps_bg_map(struct adapter *adap, int idx)
- }
+ 	FIND_VPD_KW(ec, "EC");
+ 	FIND_VPD_KW(sn, "SN");
++	FIND_VPD_KW(pn, "PN");
+ #undef FIND_VPD_KW
  
- /**
-+ *      t4_get_port_type_description - return Port Type string description
-+ *      @port_type: firmware Port Type enumeration
-+ */
-+const char *t4_get_port_type_description(enum fw_port_type port_type)
-+{
-+	static const char *const port_type_description[] = {
-+		"R XFI",
-+		"R XAUI",
-+		"T SGMII",
-+		"T XFI",
-+		"T XAUI",
-+		"KX4",
-+		"CX4",
-+		"KX",
-+		"KR",
-+		"R SFP+",
-+		"KR/KX",
-+		"KR/KX/KX4",
-+		"R QSFP_10G",
-+		"",
-+		"R QSFP",
-+		"R BP40_BA",
-+	};
-+
-+	if (port_type < ARRAY_SIZE(port_type_description))
-+		return port_type_description[port_type];
-+	return "UNKNOWN";
-+}
-+
-+/**
-  *	t4_get_port_stats - collect port statistics
-  *	@adap: the adapter
-  *	@idx: the port index
-@@ -3538,6 +3569,8 @@ int t4_handle_fw_rpl(struct adapter *adap, const __be64 *rpl)
- 			speed = SPEED_1000;
- 		else if (stat & FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_10G))
- 			speed = SPEED_10000;
-+		else if (stat & FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_40G))
-+			speed = 40000; /* Need SPEED_40000 in ethtool.h */
+ 	memcpy(p->id, vpd + PCI_VPD_LRDT_TAG_SIZE, id_len);
+@@ -647,6 +648,8 @@ int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
+ 	i = pci_vpd_info_field_size(vpd + sn - PCI_VPD_INFO_FLD_HDR_SIZE);
+ 	memcpy(p->sn, vpd + sn, min(i, SERNUM_LEN));
+ 	strim(p->sn);
++	memcpy(p->pn, vpd + pn, min(i, PN_LEN));
++	strim(p->pn);
  
- 		if (link_ok != lc->link_ok || speed != lc->speed ||
- 		    fc != lc->fc) {                    /* something changed */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-index 74fea74..af6e124 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-@@ -1742,6 +1742,9 @@ enum fw_port_type {
- 	FW_PORT_TYPE_SFP,
- 	FW_PORT_TYPE_BP_AP,
- 	FW_PORT_TYPE_BP4_AP,
-+	FW_PORT_TYPE_QSFP_10G,
-+	FW_PORT_TYPE_QSFP,
-+	FW_PORT_TYPE_BP40_BA,
- 
- 	FW_PORT_TYPE_NONE = FW_PORT_CMD_PTYPE_MASK
- };
+ 	/*
+ 	 * Ask firmware for the Core Clock since it knows how to translate the
 -- 
 1.8.0
