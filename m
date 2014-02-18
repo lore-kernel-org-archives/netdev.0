@@ -1,17 +1,12 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: ethernet: remove unneeded dependency of mvneta and
- update help text
-Date: Tue, 18 Feb 2014 14:58:09 +0100
-Message-ID: <20140218135809.GD17984@lunn.ch>
-References: <1392719391-8851-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <20140218122952.GM7862@titan.lakedaemon.net>
- <20140218134532.7607a616@skate>
- <20140218125206.GN7862@titan.lakedaemon.net>
- <20140218141303.77c77272@skate>
+From: Jason Cooper <jason@lakedaemon.net>
+Subject: Re: [PATCH v2] net: ethernet: update dependency and help text of
+ mvneta
+Date: Tue, 18 Feb 2014 09:06:04 -0500
+Message-ID: <20140218140604.GO7862@titan.lakedaemon.net>
+References: <1392729491-24913-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jason Cooper <jason@lakedaemon.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Gregory Clement <gregory.clement@free-electrons.com>,
 	Andrew Lunn <andrew@lunn.ch>,
 	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
@@ -19,34 +14,45 @@ Cc: Jason Cooper <jason@lakedaemon.net>,
 	linux-arm-kernel@lists.infradead.org
 To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:58525 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755341AbaBRN6v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Feb 2014 08:58:51 -0500
+Received: from mho-02-ewr.mailhop.org ([204.13.248.72]:59774 "EHLO
+	mho-02-ewr.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755636AbaBROGR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 09:06:17 -0500
 Content-Disposition: inline
-In-Reply-To: <20140218141303.77c77272@skate>
+In-Reply-To: <1392729491-24913-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> At this point, I don't expect to see this IP in any other SOCs than
-> Marvell Armada EBU, so I'll resend with a "depends on PLAT_ORION", as I
-> agree it is much safer in terms of build problems.
+On Tue, Feb 18, 2014 at 02:18:11PM +0100, Thomas Petazzoni wrote:
+> With the introduction of the support for Armada 375 and Armada 38x,
+> the hidden Kconfig option MACH_ARMADA_370_XP is being renamed to
+> MACH_MVEBU_V7. Therefore, the dependency that was used for the mvneta
+> driver can no longer work. This commit replaces this dependency by a
+> dependency on PLAT_ORION, which is used similarly for the mv643xx_eth
+> driver.
+> 
+> In addition to this, it takes this opportunity to adjust the
+> description and help text to indicate that the driver can is also used
+> for Armada 38x. Note that Armada 375 cannot use this driver as it has
+> a completely different networking unit, which will require a separate
+> driver.
+> 
+> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+> ---
+> Changes since v1:
+>  - Instead of removing the Kconfig dependency, replace it by a
+>    dependency on PLAT_ORION, in order to avoid building mvneta on too
+>    many architectures and getting weird build issues. Suggested by
+>    Jason Cooper.
+>  - Fix capitalization in the Kconfig help text.
+> 
+> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+> ---
+>  drivers/net/ethernet/marvell/Kconfig | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
 
-Hi Thomas
+Acked-by: Jason Cooper <jason@lakedaemon.net>
 
-PLAT_ORION is a bit of an odd thing now.
+thx,
 
-For me, PLAT_ORION means arch/arm/plat-orion. 
-
-But as far as i know, 370/XP does not actually use anything from
-arch/arm/plat-orion. When kirkwood moves into mach-mvebu, it also will
-not use any code from it, and i suspect dove is the same.
-
-So maybe in a few cycles, when only mach-orion5x is left, we can merge
-arch/arm/plat-orion into arch/arm/mach-orion5x and PLAT_ORION goes
-away?
-
-Or do we want to define that PLAT_ORION means any system which can
-make use of mvebu drivers?
-
-     Andrew
+Jason.
