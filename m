@@ -1,38 +1,57 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] af_packet: remove a stray tab in packet_set_ring()
-Date: Tue, 18 Feb 2014 15:20:51 +0300
-Message-ID: <20140218122050.GB9604@elgon.mountain>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH RFC] sctp: Update HEARTBEAT timer immediately after user
+ changed HB.interval
+Date: Tue, 18 Feb 2014 07:23:26 -0500
+Message-ID: <20140218122326.GA4590@hmsreliant.think-freely.org>
+References: <1392703010-6128-1-git-send-email-xufeng.zhang@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <edumazet@google.com>, Phil Sutter <phil@nwl.cc>,
-	Atzm Watanabe <atzm@stratosphere.co.jp>,
-	Richard Cochran <richardcochran@gmail.com>,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
+Cc: vyasevich@gmail.com, davem@davemloft.net,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Xufeng Zhang <xufeng.zhang@windriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
+In-Reply-To: <1392703010-6128-1-git-send-email-xufeng.zhang@windriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-At first glance it looks like there is a missing curly brace but
-actually the code works the same either way.  I have adjusted the
-indenting but left the code the same.
+On Tue, Feb 18, 2014 at 01:56:50PM +0800, Xufeng Zhang wrote:
+> For an established association, if user has updated the HB.interval
+> parameter by setsockopt(), this new heartbeat interval will not
+> take effect until:
+>   - the expiry of the heartbeat timer and new hearbeat is sent.
+>   - DATA chunk has been sent and the transport resets the timer.
+> This could not meet the requirement of the user who need to
+> get HEARTBEAT sent at the specified time.
+> 
+> Thus, we need to update the heartbeat timer immediately after
+> user has changed HB.interval.
+> 
+> Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 6a2bb37506c5..7fd37de503d1 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -3786,7 +3786,7 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
- 		 */
- 			if (!tx_ring)
- 				init_prb_bdqc(po, rb, pg_vec, req_u, tx_ring);
--				break;
-+			break;
- 		default:
- 			break;
- 		}
+> ---
+>  net/sctp/socket.c |    5 +++++
+>  1 files changed, 5 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 9e91d6e..699ae1e 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -2344,6 +2344,11 @@ static int sctp_apply_peer_addr_params(struct sctp_paddrparams *params,
+>  			if (trans) {
+>  				trans->hbinterval =
+>  				    msecs_to_jiffies(params->spp_hbinterval);
+> +
+> +				/* Update the heartbeat timer immediately. */
+> +				if (!mod_timer(&trans->hb_timer,
+> +					    sctp_transport_timeout(trans)))
+> +					sctp_transport_hold(trans);
+>  			} else if (asoc) {
+>  				asoc->hbinterval =
+>  				    msecs_to_jiffies(params->spp_hbinterval);
+> -- 
+> 1.7.0.2
+> 
+> 
