@@ -1,50 +1,107 @@
-From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
-Subject: [PATCH net-next] ipv6: remove some unused include in flowlabel
-Date: Tue, 18 Feb 2014 14:45:42 +0100
-Message-ID: <1392731142-3840-1-git-send-email-florent.fourcot@enst-bretagne.fr>
-Cc: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fourcot.fr ([217.70.191.14]:58487 "EHLO olfflo.fourcot.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754917AbaBRNps (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Feb 2014 08:45:48 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next 03/14] r8152: replace some types from int to bool
+Date: Tue, 18 Feb 2014 21:49:00 +0800
+Message-ID: <1392731351-25502-4-git-send-email-hayeswang@realtek.com>
+References: <1392731351-25502-1-git-send-email-hayeswang@realtek.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1392731351-25502-1-git-send-email-hayeswang@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-These include are here since kernel 2.2.7, but probably never used.
+Modify the following functions.
+ - r8153_u1u2en
+ - r8153_u2p3en
+ - r8153_power_cut_en
 
-Signed-off-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- net/ipv6/ip6_flowlabel.c | 6 ------
- 1 file changed, 6 deletions(-)
+ drivers/net/usb/r8152.c | 20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
 
-diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
-index dfa41bb..0961b5e 100644
---- a/net/ipv6/ip6_flowlabel.c
-+++ b/net/ipv6/ip6_flowlabel.c
-@@ -15,9 +15,7 @@
- #include <linux/socket.h>
- #include <linux/net.h>
- #include <linux/netdevice.h>
--#include <linux/if_arp.h>
- #include <linux/in6.h>
--#include <linux/route.h>
- #include <linux/proc_fs.h>
- #include <linux/seq_file.h>
- #include <linux/slab.h>
-@@ -28,12 +26,8 @@
- #include <net/sock.h>
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 2d5e761..4888e4f 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -1989,7 +1989,7 @@ static void r8153_hw_phy_cfg(struct r8152 *tp)
+ 	sram_write(tp, SRAM_10M_AMP2, data);
+ }
  
- #include <net/ipv6.h>
--#include <net/ndisc.h>
--#include <net/protocol.h>
--#include <net/ip6_route.h>
- #include <net/addrconf.h>
- #include <net/rawv6.h>
--#include <net/icmp.h>
- #include <net/transp_v6.h>
+-static void r8153_u1u2en(struct r8152 *tp, int enable)
++static void r8153_u1u2en(struct r8152 *tp, bool enable)
+ {
+ 	u8 u1u2[8];
  
- #include <asm/uaccess.h>
+@@ -2001,7 +2001,7 @@ static void r8153_u1u2en(struct r8152 *tp, int enable)
+ 	usb_ocp_write(tp, USB_TOLERANCE, BYTE_EN_SIX_BYTES, sizeof(u1u2), u1u2);
+ }
+ 
+-static void r8153_u2p3en(struct r8152 *tp, int enable)
++static void r8153_u2p3en(struct r8152 *tp, bool enable)
+ {
+ 	u32 ocp_data;
+ 
+@@ -2013,7 +2013,7 @@ static void r8153_u2p3en(struct r8152 *tp, int enable)
+ 	ocp_write_word(tp, MCU_TYPE_USB, USB_U2P3_CTRL, ocp_data);
+ }
+ 
+-static void r8153_power_cut_en(struct r8152 *tp, int enable)
++static void r8153_power_cut_en(struct r8152 *tp, bool enable)
+ {
+ 	u32 ocp_data;
+ 
+@@ -2261,8 +2261,8 @@ static void rtl8152_down(struct r8152 *tp)
+ 
+ static void rtl8153_down(struct r8152 *tp)
+ {
+-	r8153_u1u2en(tp, 0);
+-	r8153_power_cut_en(tp, 0);
++	r8153_u1u2en(tp, false);
++	r8153_power_cut_en(tp, false);
+ 	r8153_disable_aldps(tp);
+ 	r8153_enter_oob(tp);
+ 	r8153_enable_aldps(tp);
+@@ -2455,7 +2455,7 @@ static void r8153_init(struct r8152 *tp)
+ 	u32 ocp_data;
+ 	int i;
+ 
+-	r8153_u1u2en(tp, 0);
++	r8153_u1u2en(tp, false);
+ 
+ 	for (i = 0; i < 500; i++) {
+ 		if (ocp_read_word(tp, MCU_TYPE_PLA, PLA_BOOT_CTRL) &
+@@ -2471,7 +2471,7 @@ static void r8153_init(struct r8152 *tp)
+ 		msleep(20);
+ 	}
+ 
+-	r8153_u2p3en(tp, 0);
++	r8153_u2p3en(tp, false);
+ 
+ 	ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_WDT11_CTRL);
+ 	ocp_data &= ~TIMER11_EN;
+@@ -2496,8 +2496,8 @@ static void r8153_init(struct r8152 *tp)
+ 	ocp_data |= SEN_VAL_NORMAL | SEL_RXIDLE;
+ 	ocp_write_word(tp, MCU_TYPE_USB, USB_AFE_CTRL2, ocp_data);
+ 
+-	r8153_power_cut_en(tp, 0);
+-	r8153_u1u2en(tp, 1);
++	r8153_power_cut_en(tp, false);
++	r8153_u1u2en(tp, true);
+ 
+ 	r8153_first_init(tp);
+ 
+@@ -2677,7 +2677,7 @@ static void rtl8152_unload(struct r8152 *tp)
+ 
+ static void rtl8153_unload(struct r8152 *tp)
+ {
+-	r8153_power_cut_en(tp, 1);
++	r8153_power_cut_en(tp, true);
+ }
+ 
+ static int rtl_ops_init(struct r8152 *tp, const struct usb_device_id *id)
 -- 
-1.8.5.3
+1.8.4.2
