@@ -1,10 +1,10 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH net-next 07/35] cxgb4: Use pci_enable_msix_range() instead of pci_enable_msix()
-Date: Tue, 18 Feb 2014 11:07:59 +0100
-Message-ID: <1d6d822d670b3492cd9cbc03c5383dec570a3a31.1392717503.git.agordeev@redhat.com>
+Subject: [PATCH net-next 02/35] bnx2x: Use pci_enable_msix_range() instead of pci_enable_msix()
+Date: Tue, 18 Feb 2014 11:07:54 +0100
+Message-ID: <f8822086d21320729a274f5920d5ed613016501b.1392717502.git.agordeev@redhat.com>
 References: <cover.1392717502.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
-	Dimitris Michailidis <dm@chelsio.com>, netdev@vger.kernel.org,
+	Ariel Elior <ariele@broadcom.com>, netdev@vger.kernel.org,
 	linux-pci@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -19,81 +19,82 @@ new pci_enable_msi_range() and pci_enable_msix_range()
 interfaces.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
-Cc: Dimitris Michailidis <dm@chelsio.com>
+Cc: Ariel Elior <ariele@broadcom.com>
 Cc: netdev@vger.kernel.org
 Cc: linux-pci@vger.kernel.org
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   50 +++++++++++------------
- 1 files changed, 24 insertions(+), 26 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |   46 ++++++++++-------------
+ 1 files changed, 20 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 43ab35f..bd0321d 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -5737,7 +5737,7 @@ static void reduce_ethqs(struct adapter *adap, int n)
- static int enable_msix(struct adapter *adap)
- {
- 	int ofld_need = 0;
--	int i, err, want, need;
-+	int i, want, need;
- 	struct sge *s = &adap->sge;
- 	unsigned int nchan = adap->params.nports;
- 	struct msix_entry entries[MAX_INGQ + 1];
-@@ -5753,32 +5753,30 @@ static int enable_msix(struct adapter *adap)
- 	}
- 	need = adap->params.nports + EXTRA_VECS + ofld_need;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 9ded3db..8363b9d 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -1638,36 +1638,16 @@ int bnx2x_enable_msix(struct bnx2x *bp)
+ 	DP(BNX2X_MSG_SP, "about to request enable msix with %d vectors\n",
+ 	   msix_vec);
  
--	while ((err = pci_enable_msix(adap->pdev, entries, want)) >= need)
--		want = err;
-+	want = pci_enable_msix_range(adap->pdev, entries, need, want);
-+	if (want < 0)
-+		return want;
- 
--	if (!err) {
+-	rc = pci_enable_msix(bp->pdev, &bp->msix_table[0], msix_vec);
+-
++	rc = pci_enable_msix_range(bp->pdev, &bp->msix_table[0],
++				   BNX2X_MIN_MSIX_VEC_CNT(bp), msix_vec);
+ 	/*
+ 	 * reconfigure number of tx/rx queues according to available
+ 	 * MSI-X vectors
+ 	 */
+-	if (rc >= BNX2X_MIN_MSIX_VEC_CNT(bp)) {
+-		/* how less vectors we will have? */
+-		int diff = msix_vec - rc;
+-
+-		BNX2X_DEV_INFO("Trying to use less MSI-X vectors: %d\n", rc);
+-
+-		rc = pci_enable_msix(bp->pdev, &bp->msix_table[0], rc);
+-
+-		if (rc) {
+-			BNX2X_DEV_INFO("MSI-X is not attainable rc %d\n", rc);
+-			goto no_msix;
+-		}
 -		/*
--		 * Distribute available vectors to the various queue groups.
--		 * Every group gets its minimum requirement and NIC gets top
--		 * priority for leftovers.
+-		 * decrease number of queues by number of unallocated entries
 -		 */
--		i = want - EXTRA_VECS - ofld_need;
--		if (i < s->max_ethqsets) {
--			s->max_ethqsets = i;
--			if (i < s->ethqsets)
--				reduce_ethqs(adap, i);
--		}
--		if (is_offload(adap)) {
--			i = want - EXTRA_VECS - s->max_ethqsets;
--			i -= ofld_need - nchan;
--			s->ofldqsets = (i / nchan) * nchan;  /* round down */
--		}
--		for (i = 0; i < want; ++i)
--			adap->msix_info[i].vec = entries[i].vector;
--	} else if (err > 0)
--		dev_info(adap->pdev_dev,
--			 "only %d MSI-X vectors left, not using MSI-X\n", err);
--	return err;
-+	/*
-+	 * Distribute available vectors to the various queue groups.
-+	 * Every group gets its minimum requirement and NIC gets top
-+	 * priority for leftovers.
-+	 */
-+	i = want - EXTRA_VECS - ofld_need;
-+	if (i < s->max_ethqsets) {
-+		s->max_ethqsets = i;
-+		if (i < s->ethqsets)
-+			reduce_ethqs(adap, i);
-+	}
-+	if (is_offload(adap)) {
-+		i = want - EXTRA_VECS - s->max_ethqsets;
-+		i -= ofld_need - nchan;
-+		s->ofldqsets = (i / nchan) * nchan;  /* round down */
-+	}
-+	for (i = 0; i < want; ++i)
-+		adap->msix_info[i].vec = entries[i].vector;
+-		bp->num_ethernet_queues -= diff;
+-		bp->num_queues = bp->num_ethernet_queues + bp->num_cnic_queues;
+-
+-		BNX2X_DEV_INFO("New queue configuration set: %d\n",
+-			       bp->num_queues);
+-	} else if (rc > 0) {
++	if (rc == -ENOSPC) {
+ 		/* Get by with single vector */
+-		rc = pci_enable_msix(bp->pdev, &bp->msix_table[0], 1);
+-		if (rc) {
++		rc = pci_enable_msix_range(bp->pdev, &bp->msix_table[0], 1, 1);
++		if (rc < 0) {
+ 			BNX2X_DEV_INFO("Single MSI-X is not attainable rc %d\n",
+ 				       rc);
+ 			goto no_msix;
+@@ -1680,8 +1660,22 @@ int bnx2x_enable_msix(struct bnx2x *bp)
+ 		bp->num_ethernet_queues = 1;
+ 		bp->num_queues = bp->num_ethernet_queues + bp->num_cnic_queues;
+ 	} else if (rc < 0) {
+-		BNX2X_DEV_INFO("MSI-X is not attainable  rc %d\n", rc);
++		BNX2X_DEV_INFO("MSI-X is not attainable rc %d\n", rc);
+ 		goto no_msix;
++	} else if (rc < msix_vec) {
++		/* how less vectors we will have? */
++		int diff = msix_vec - rc;
 +
-+	return 0;
- }
++		BNX2X_DEV_INFO("Trying to use less MSI-X vectors: %d\n", rc);
++
++		/*
++		 * decrease number of queues by number of unallocated entries
++		 */
++		bp->num_ethernet_queues -= diff;
++		bp->num_queues = bp->num_ethernet_queues + bp->num_cnic_queues;
++
++		BNX2X_DEV_INFO("New queue configuration set: %d\n",
++			       bp->num_queues);
+ 	}
  
- #undef EXTRA_VECS
+ 	bp->flags |= USING_MSIX_FLAG;
 -- 
 1.7.7.6
