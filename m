@@ -1,25 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hsr: Use ether_addr_copy
-Date: Tue, 18 Feb 2014 18:14:55 -0500 (EST)
-Message-ID: <20140218.181455.1318635286870307922.davem@davemloft.net>
-References: <675e6a59ebb87d5e18633df578a62a1202f6172e.1392748500.git.joe@perches.com>
+Subject: Re: [patch net-next] rtnl: make ifla_policy static
+Date: Tue, 18 Feb 2014 18:16:12 -0500 (EST)
+Message-ID: <20140218.181612.1865017891209094642.davem@davemloft.net>
+References: <1392753198-9437-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, arvid.brodin@alten.se,
-	linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <675e6a59ebb87d5e18633df578a62a1202f6172e.1392748500.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kaber@trash.net, xiyou.wangcong@gmail.com,
+	stephen@networkplumber.org, vyasevic@redhat.com, jbenc@redhat.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37143 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753795AbaBRXQP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 18:16:15 -0500
+In-Reply-To: <1392753198-9437-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 18 Feb 2014 10:37:20 -0800
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Tue, 18 Feb 2014 20:53:18 +0100
 
-> It's slightly smaller/faster for some architectures.
-> Make sure def_multicast_addr is __aligned(2)
+> The only place this is used outside rtnetlink.c is veth. So provide
+> wrapper function for this usage.
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-Applied.
+Applied, thanks.
