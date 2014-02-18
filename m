@@ -1,57 +1,104 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH] MAINTAINERS: add entry for the PHY library
-Date: Tue, 18 Feb 2014 09:47:49 -0800
-Message-ID: <1392745669-26645-1-git-send-email-f.fainelli@gmail.com>
+From: Per Hurtig <per.hurtig@kau.se>
+Subject: [PATCH 1/1] net: tcp: RTO restart
+Date: Tue, 18 Feb 2014 19:12:05 +0100
+Message-ID: <20140218181205.GA7780@kau.se>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, Florian Fainelli <f.fainelli@gmail.com>,
-	"Grant Likely" <grant.likely@linaro.org>,
-	Shaohui Xie <shaohui.xie@freescale.com>,
-	Andy Fleming <afleming@gmail.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: anna.brunstrom@kau.se, apetlund@simula.no, michawe@ifi.uio.no,
+	ilpo.jarvinen@helsinki.fi
+To: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:51666 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753548AbaBRRtX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 12:49:23 -0500
+Received: from smtp.kau.se ([193.10.220.38]:37452 "EHLO tiger.dc.kau.se"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750939AbaBRSTP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Feb 2014 13:19:15 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The PHY library has been subject to some changes, new drivers and DT
-interactions over the past few months. Add myself as a maintainer for
-the core PHY library parts and drivers. Make sure the PHY library entry
-also covers the Device Tree files which have a close interaction with
-the MDIO bus, PHY connection and Ethernet PHY mode parsing.
+This patch implements the RTO restart modification described in
+http://tools.ietf.org/html/draft-ietf-tcpm-rtorestart-02
 
-CC: Grant Likely <grant.likely@linaro.org>
-CC: Shaohui Xie <shaohui.xie@freescale.com>
-CC: Andy Fleming <afleming@gmail.com>
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+RTO Restart's goal is to provide quicker loss recovery for segments lost in the
+end of a burst/connection. To accomplish this the algorithm adjusts the RTO
+value on each rearm of the retransmission timer to be exactly RTO ms after the
+earliest outstanding segment was sent. The offsetting against the earliest
+outstanding segment is not done by the regular rearm algorithm, which causes
+RTOs to occur, on average, after RTO+RTT ms.
+
+As a faster timeout is only beneficial in scenarios where fast retransmit/early
+retransmit cannot be triggered the algorithm will only kick in when there is a
+small amount of outstanding segments.
+
+The RTO Restart proposal is accepted as a working group item in the IETF TCP
+Maintenance and Minor Extensions (tcpm) TCP wg and is intended for experimental
+RFC status.
+
+Signed-off-by: Per Hurtig <per.hurtig@kau.se>
 ---
- MAINTAINERS | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+ include/net/tcp.h          |    1 +
+ net/ipv4/sysctl_net_ipv4.c |    7 +++++++
+ net/ipv4/tcp_input.c       |   11 +++++++++++
+ 3 files changed, 19 insertions(+)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 5a7b3ec..2bfdb79 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -3330,6 +3330,17 @@ S:	Maintained
- F:	include/linux/netfilter_bridge/
- F:	net/bridge/
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 56fc366..575e82a 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -278,6 +278,7 @@ extern int sysctl_tcp_slow_start_after_idle;
+ extern int sysctl_tcp_thin_linear_timeouts;
+ extern int sysctl_tcp_thin_dupack;
+ extern int sysctl_tcp_early_retrans;
++extern int sysctl_tcp_rto_restart;
+ extern int sysctl_tcp_limit_output_bytes;
+ extern int sysctl_tcp_challenge_ack_limit;
+ extern unsigned int sysctl_tcp_notsent_lowat;
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 44eba05..c605f4f 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -717,6 +717,13 @@ static struct ctl_table ipv4_table[] = {
+ 		.extra2		= &four,
+ 	},
+ 	{
++		.procname	= "tcp_rto_restart",
++		.data		= &sysctl_tcp_rto_restart,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec,
++	},
++	{
+ 		.procname	= "tcp_min_tso_segs",
+ 		.data		= &sysctl_tcp_min_tso_segs,
+ 		.maxlen		= sizeof(int),
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 227cba7..450ee30 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -98,6 +98,7 @@ int sysctl_tcp_thin_dupack __read_mostly;
  
-+ETHERNET PHY LIBRARY
-+M:	Florian Fainelli <f.fainelli@gmail.com>
-+L:	netdev@vger.kernel.org
-+S:	Maintained
-+F:	include/linux/phy.h
-+F:	include/linux/phy_fixed.h
-+F:	drivers/net/phy/
-+F:	Documentation/networking/phy.txt
-+F:	drivers/of/of_mdio.c
-+F:	drivers/of/of_net.c
+ int sysctl_tcp_moderate_rcvbuf __read_mostly = 1;
+ int sysctl_tcp_early_retrans __read_mostly = 3;
++int sysctl_tcp_rto_restart __read_mostly = 1;
+ 
+ #define FLAG_DATA		0x01 /* Incoming frame contained data.		*/
+ #define FLAG_WIN_UPDATE		0x02 /* Incoming ACK was a window update.	*/
+@@ -2972,6 +2973,16 @@ void tcp_rearm_rto(struct sock *sk)
+ 			 */
+ 			if (delta > 0)
+ 				rto = delta;
++		} else if (icsk->icsk_pending == ICSK_TIME_RETRANS &&
++			   sysctl_tcp_rto_restart &&
++			   sk->sk_send_head == NULL &&
++			   tp->packets_out < 4) {
++			struct sk_buff *skb = tcp_write_queue_head(sk);
++			const u32 rto_time_stamp = TCP_SKB_CB(skb)->when;
++			s32 delta = (s32)(tcp_time_stamp - rto_time_stamp);
 +
- EXT2 FILE SYSTEM
- M:	Jan Kara <jack@suse.cz>
- L:	linux-ext4@vger.kernel.org
++			if (delta > 0)
++				rto -= delta;
+ 		}
+ 		inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS, rto,
+ 					  TCP_RTO_MAX);
 -- 
-1.8.3.2
+1.7.9.5
