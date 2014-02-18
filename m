@@ -1,56 +1,55 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: [PATCH net] igb: Fix Null-pointer dereference in igb_reset_q_vector
-Date: Tue, 18 Feb 2014 14:06:57 +0100
-Message-ID: <1392728817-21693-1-git-send-email-christoph.paasch@uclouvain.be>
-Cc: David Miller <davem@davemloft.net>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>
-To: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH] net: ethernet: remove unneeded dependency of mvneta and
+ update help text
+Date: Tue, 18 Feb 2014 14:13:03 +0100
+Message-ID: <20140218141303.77c77272@skate>
+References: <1392719391-8851-1-git-send-email-thomas.petazzoni@free-electrons.com>
+	<20140218122952.GM7862@titan.lakedaemon.net>
+	<20140218134532.7607a616@skate>
+	<20140218125206.GN7862@titan.lakedaemon.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	linux-arm-kernel@lists.infradead.org
+To: Jason Cooper <jason@lakedaemon.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f51.google.com ([74.125.82.51]:56935 "EHLO
-	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755322AbaBRNHZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 08:07:25 -0500
-Received: by mail-wg0-f51.google.com with SMTP id n12so3202103wgh.6
-        for <netdev@vger.kernel.org>; Tue, 18 Feb 2014 05:07:24 -0800 (PST)
+Received: from top.free-electrons.com ([176.31.233.9]:44772 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754956AbaBRNNG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 08:13:06 -0500
+In-Reply-To: <20140218125206.GN7862@titan.lakedaemon.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When igb_set_interrupt_capability() calls
-igb_reset_interrupt_capability() (e.g., because CONFIG_PCI_MSI is unset),
-num_q_vectors has been set but no vector has yet been allocated.
+Dear Jason Cooper,
 
-igb_reset_interrupt_capability() will then call igb_reset_q_vector,
-which assumes that the vector is allocated. As this is not the case, we
-are accessing a NULL-pointer.
+On Tue, 18 Feb 2014 07:52:06 -0500, Jason Cooper wrote:
 
-This patch fixes it by checking that q_vector is indeed different from
-NULL.
+> > No, I haven't tested all the build scenarios of course. If you feel
+> > that this is too dangerous, I can resend a patch that replaces 'depends
+> > on ARMADA_370_XP' by 'depends on PLAT_ORION'. Would this be OK for you?
+> 
+> I'm fine either way.  I'm definitely a "What's in the box?" kind of guy.
+> But I do like being prepared.
 
-Fixes: 02ef6e1d0b0023 (igb: Fix queue allocation method to accommodate changing during runtime)
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
----
- drivers/net/ethernet/intel/igb/igb_main.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+And it's all in your honour!
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 46d31a49f5ea..bfcf192ee87d 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -1014,6 +1014,12 @@ static void igb_reset_q_vector(struct igb_adapter *adapter, int v_idx)
- {
- 	struct igb_q_vector *q_vector = adapter->q_vector[v_idx];
- 
-+	/* Coming from igb_set_interrupt_capability, the vectors are not yet
-+	 * allocated. So, q_vector is NULL so we should stop here.
-+	 */
-+	if (!q_vector)
-+		return;
-+
- 	if (q_vector->tx.ring)
- 		adapter->tx_ring[q_vector->tx.ring->queue_index] = NULL;
- 
+> The real question is: Do you think this IP block will ever be found on
+> anything other than Marvell Armada boards?  If so, stick with this
+> version and build test the crap out of it.  Otherwise, let's save
+> opening the box for another day.
+
+At this point, I don't expect to see this IP in any other SOCs than
+Marvell Armada EBU, so I'll resend with a "depends on PLAT_ORION", as I
+agree it is much safer in terms of build problems.
+
+Thomas
 -- 
-1.8.3.2
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
