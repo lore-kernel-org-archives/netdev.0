@@ -1,75 +1,68 @@
-From: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
-Subject: Re: [PATCH net-next 10/35] enic: Use pci_enable_msix_range() instead
- of pci_enable_msix()
-Date: Tue, 18 Feb 2014 15:48:02 +0530 (IST)
-Message-ID: <alpine.LNX.2.03.1402181546150.11061@gmail.com>
-References: <cover.1392717502.git.agordeev@redhat.com> <a5aee403375068dd23e6f22851effe47a7e89cee.1392717503.git.agordeev@redhat.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: linux-kernel@vger.kernel.org,
-	Christian Benvenuti <benve@cisco.com>,
-	Sujith Sankar <ssujith@cisco.com>,
-	Govindarajulu Varadarajan <govindarajulu90@gmail.com>,
-	Neel Patel <neepatel@cisco.com>, netdev@vger.kernel.org,
+From: Alexander Gordeev <agordeev@redhat.com>
+Subject: [PATCH net-next 24/35] forcedeth: Cleanup MSI-X to MSI to INTx fallback code
+Date: Tue, 18 Feb 2014 11:11:53 +0100
+Message-ID: <717634ee6d507e7c868a898778d7fcd4300f9196.1392717503.git.agordeev@redhat.com>
+References: <cover.1392717502.git.agordeev@redhat.com>
+Cc: Alexander Gordeev <agordeev@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
 	linux-pci@vger.kernel.org
-To: Alexander Gordeev <agordeev@redhat.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <a5aee403375068dd23e6f22851effe47a7e89cee.1392717503.git.agordeev@redhat.com>
+In-Reply-To: <cover.1392717502.git.agordeev@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org
+Cc: linux-pci@vger.kernel.org
+---
+ drivers/net/ethernet/nvidia/forcedeth.c |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
 
-
-On Tue, 18 Feb 2014, Alexander Gordeev wrote:
-
-> As result of deprecation of MSI-X/MSI enablement functions
-> pci_enable_msix() and pci_enable_msi_block() all drivers
-> using these two interfaces need to be updated to use the
-> new pci_enable_msi_range() and pci_enable_msix_range()
-> interfaces.
->
-looks good, thanks
-
-Acked-by: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
-
-
-
-> Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
-> Cc: Christian Benvenuti <benve@cisco.com>
-> Cc: Sujith Sankar <ssujith@cisco.com>
-> Cc: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
-> Cc: Neel Patel <neepatel@cisco.com>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-pci@vger.kernel.org
-> ---
-> drivers/net/ethernet/cisco/enic/enic_main.c |    6 ++++--
-> 1 files changed, 4 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-> index b740bfc..dcd58f2 100644
-> --- a/drivers/net/ethernet/cisco/enic/enic_main.c
-> +++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-> @@ -1796,7 +1796,8 @@ static int enic_set_intr_mode(struct enic *enic)
-> 	    enic->cq_count >= n + m &&
-> 	    enic->intr_count >= n + m + 2) {
->
-> -		if (!pci_enable_msix(enic->pdev, enic->msix_entry, n + m + 2)) {
-> +		if (pci_enable_msix_range(enic->pdev, enic->msix_entry,
-> +					  n + m + 2, n + m + 2) > 0) {
->
-> 			enic->rq_count = n;
-> 			enic->wq_count = m;
-> @@ -1815,7 +1816,8 @@ static int enic_set_intr_mode(struct enic *enic)
-> 	    enic->wq_count >= m &&
-> 	    enic->cq_count >= 1 + m &&
-> 	    enic->intr_count >= 1 + m + 2) {
-> -		if (!pci_enable_msix(enic->pdev, enic->msix_entry, 1 + m + 2)) {
-> +		if (pci_enable_msix_range(enic->pdev, enic->msix_entry,
-> +					  1 + m + 2, 1 + m + 2) > 0) {
->
-> 			enic->rq_count = 1;
-> 			enic->wq_count = m;
-> -- 
-> 1.7.7.6
->
->
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index f4270b8..74da489 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -3930,7 +3930,7 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
+ {
+ 	struct fe_priv *np = get_nvpriv(dev);
+ 	u8 __iomem *base = get_hwbase(dev);
+-	int ret = 1;
++	int ret;
+ 	int i;
+ 	irqreturn_t (*handler)(int foo, void *data);
+ 
+@@ -4010,9 +4010,10 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
+ 				writel(0, base + NvRegMSIXMap1);
+ 			}
+ 			netdev_info(dev, "MSI-X enabled\n");
++			return 0;
+ 		}
+ 	}
+-	if (ret != 0 && np->msi_flags & NV_MSI_CAPABLE) {
++	if (np->msi_flags & NV_MSI_CAPABLE) {
+ 		ret = pci_enable_msi(np->pci_dev);
+ 		if (ret == 0) {
+ 			np->msi_flags |= NV_MSI_ENABLED;
+@@ -4031,13 +4032,12 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
+ 			/* enable msi vector 0 */
+ 			writel(NVREG_MSI_VECTOR_0_ENABLED, base + NvRegMSIIrqMask);
+ 			netdev_info(dev, "MSI enabled\n");
++			return 0;
+ 		}
+ 	}
+-	if (ret != 0) {
+-		if (request_irq(np->pci_dev->irq, handler, IRQF_SHARED, dev->name, dev) != 0)
+-			goto out_err;
+ 
+-	}
++	if (request_irq(np->pci_dev->irq, handler, IRQF_SHARED, dev->name, dev) != 0)
++		goto out_err;
+ 
+ 	return 0;
+ out_free_tx:
+-- 
+1.7.7.6
