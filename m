@@ -1,110 +1,45 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH net-next 1/3] bonding: add bond_set_slave_state/flags()
-Date: Mon, 17 Feb 2014 18:08:22 -0800
-Message-ID: <5329.1392689302@death.nxdomain>
-References: <1392626151-23916-1-git-send-email-dingtianhong@huawei.com> <1392626151-23916-2-git-send-email-dingtianhong@huawei.com>
-Cc: vfalico@redhat.com, andy@greyhouse.net, cwang@twopensource.com,
-	jiri@resnulli.us, thomas@glanzmann.de, eric.dumazet@gmail.com,
-	sfeldma@cumulusnetworks.com, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Ding Tianhong <dingtianhong@huawei.com>
+From: "=?ISO-8859-1?B?WGlhbnBlbmcgWmhhbw==?=" <673321875@qq.com>
+Subject: Fw:[Bug 70471] xfrm policy node will double unlink.
+Date: Tue, 18 Feb 2014 10:55:57 +0800
+Message-ID: <tencent_0D7FA5355C7998793C100B23@qq.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="ISO-8859-1"
+Content-Transfer-Encoding: base64
+Cc: "=?ISO-8859-1?B?YWxhbg==?=" <alan@lxorguk.ukuu.org.uk>
+To: "=?ISO-8859-1?B?bmV0ZGV2?=" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:44721 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751221AbaBRCIa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Feb 2014 21:08:30 -0500
-Received: from /spool/local
-	by e34.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Mon, 17 Feb 2014 19:08:29 -0700
-Received: from b03cxnp08028.gho.boulder.ibm.com (b03cxnp08028.gho.boulder.ibm.com [9.17.130.20])
-	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id 1C34919D8036
-	for <netdev@vger.kernel.org>; Mon, 17 Feb 2014 19:08:25 -0700 (MST)
-Received: from d03av05.boulder.ibm.com (d03av05.boulder.ibm.com [9.17.195.85])
-	by b03cxnp08028.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s1I28QWB8716772
-	for <netdev@vger.kernel.org>; Tue, 18 Feb 2014 03:08:26 +0100
-Received: from d03av05.boulder.ibm.com (localhost [127.0.0.1])
-	by d03av05.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s1I28OQK016547
-	for <netdev@vger.kernel.org>; Mon, 17 Feb 2014 19:08:25 -0700
-In-reply-to: <1392626151-23916-2-git-send-email-dingtianhong@huawei.com>
+Received: from SMTPBG5.QQ.COM ([183.60.61.230]:42192 "HELO smtpbg5.qq.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752075AbaBRDJ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Feb 2014 22:09:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ding Tianhong <dingtianhong@huawei.com> wrote:
-
->The new function could change the slave state and flags, then call
->rtmsg_ifinfo() according to the input parameters notify.
->
->Cc: Jay Vosburgh <fubar@us.ibm.com>
->Cc: Veaceslav Falico <vfalico@redhat.com>
->Cc: Andy Gospodarek <andy@greyhouse.net>
->Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->---
-> drivers/net/bonding/bonding.h | 26 ++++++++++++++++++++++++++
-> 1 file changed, 26 insertions(+)
->
->diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
->index 86ccfb9..d210124 100644
->--- a/drivers/net/bonding/bonding.h
->+++ b/drivers/net/bonding/bonding.h
->@@ -303,6 +303,18 @@ static inline void bond_set_backup_slave(struct slave *slave)
-> 	}
-> }
->
->+static inline void bond_set_slave_state(struct slave *slave,
->+					int slave_state, bool notify)
->+{
->+	if (slave->backup != slave_state)
->+		slave->backup = slave_state;
->+	else
->+		return;
->+
->+	if (notify)
->+		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_KERNEL);
-
-	I think this would be clearer if coded as:
-
-	if (slave->backup == slave_slave)
-		return;
-
-	slave->backup = slave_state;
-	if (notify)
-		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_KERNEL);
-
->+}
->+
-> static inline void bond_slave_state_change(struct bonding *bond)
-> {
-> 	struct list_head *iter;
->@@ -408,6 +420,20 @@ static inline void bond_set_slave_active_flags(struct slave *slave)
-> 	slave->inactive = 0;
-> }
->
->+static inline void bond_set_slave_flags(struct slave *slave,
->+					int state, bool notify)
->+
->+{
->+	if (state == BOND_STATE_ACTIVE) {
->+		bond_set_slave_state(slave, state, notify);
->+		slave->inactive = 0;
->+	} else if (state == BOND_STATE_BACKUP && !bond_is_lb(slave->bond)) {
->+		bond_set_slave_state(slave, state, notify);
->+		if (!slave->bond->params.all_slaves_active)
->+			slave->inactive = 1;
->+	}
->+}
-
-	As I said in my other reply, I don't see why this shouldn't be
-integrated into the existing state change functions instead of creating
-a new function.
-
-	-J
-
-> static inline bool bond_is_slave_inactive(struct slave *slave)
-> {
-> 	return slave->inactive;
->-- 
->1.8.0
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+SGkgR3JvdXAsCiAgICAgSSBmb3VuZCBhIHByb2JsZW0gYWJvdXQgeGZybSBwb2xpY3kuCgog
+ICAgIEluIGNvcm5lciBjYXNlLCB4ZnJtIHBvbGljeSBub2RlIHdpbGwgYmUgZG91YmxlIHVu
+bGlua2VkIGZyb20gdGhlIGxpc3QuCgogICAgVGhlIHNjZW5hcmlvIGxpa2UgdGhpczoKICAg
+IEluIHRocmVhZCBjb250ZXh0LCBBZnRlciByZW1vdmVkIHRoZSBub2RlIGZyb20gbGlzdCwg
+YmVmb3JlIHJlbW92ZSB0aGUgeGZybSBwb2xpY3kgZXhwaXJlIHRpbWVyLiBBdCB0aGlzIHBv
+aW50LCBhIHRpbWVyIGludGVycnVwdCBjb21lLCBhbmQgY2FsbCB0aGUgcnVuX3RpbWVyX3Nv
+ZnRpcnEgdG8gZXhlY3V0ZSB0aGUgeGZybV9wb2xpY3lfdGltZXIgdG8gcmVtb3ZlIHRoZSBl
+eHBpcmVkIHBvbGljeSBub2RlOyBiZWNhdXNlIHRoaXMgcG9saWN5IG5vZGUgaGFkIGFscmVh
+ZHkgcmVtb3ZlZCBmcm9tIGxpc3QuIHRoaXMgcmVtb3ZlIHdpbGwgY2F1c2UgdGhlIG5vZGUg
+ZG91YmxlIHVubGlua2VkLgoKICAgICBJIGhhdmUgZG9uZSBzdWNoIHBhdGNoIHRvIHByb3Rl
+Y3QgdGhpcyBjYXNlLiBJIGFtIG5vdCBzdXJlIGhlcmUgdGhlIHBvbGljeS0+d2Fsay5kZWFk
+IG1lYW5zLiBGcm9tIHRoZSBuYW1lLCBJIHRoaW5rIGl0IG1hcmsgdGhlIHBvbGljeSBub2Rl
+IHdhcyBkZWFkLiBNYXliZSBJIHVzZSB0aGlzIGZsYWcgaXMgbm90IGNvcnJlY3QsIHBsZWFz
+ZSB0aGUgZXhwZXJ0IGNvcnJlY3QgbWUgaWYgSSBhbSB3cm9uZy4gTW9yZSBkZXRhaWwgaW5m
+b3JtYXRpb24gY2FuIHJlZmVyZW5jZSBidWd6aWxsYTogaHR0cHM6Ly9idWd6aWxsYS5rZXJu
+ZWwub3JnL3Nob3dfYnVnLmNnaT9pZD03MDQ3MQoKICAgICAgICBteSBwYXRjaDoKLS0tIG5l
+dC94ZnJtL3hmcm1fcG9saWN5LmNfb2xkCTIwMTQtMDItMTAgMTA6MTg6MjguNDIxNTA0MzE3
+ICswODAwCisrKyBuZXQveGZybS94ZnJtX3BvbGljeS5jCTIwMTQtMDItMTAgMTA6MTk6MDEu
+NjYxNTAzMzM0ICswODAwCkBAIC0zMzAsNyArMzMwLDYgQEAgc3RhdGljIHZvaWQgeGZybV9x
+dWV1ZV9wdXJnZShzdHJ1Y3Qgc2tfYgogCiBzdGF0aWMgdm9pZCB4ZnJtX3BvbGljeV9raWxs
+KHN0cnVjdCB4ZnJtX3BvbGljeSAqcG9saWN5KQogewotCXBvbGljeS0+d2Fsay5kZWFkID0g
+MTsKIAogCWF0b21pY19pbmMoJnBvbGljeS0+Z2VuaWQpOwogCkBAIC0xMTU2LDYgKzExNTUs
+NyBAQCBzdGF0aWMgc3RydWN0IHhmcm1fcG9saWN5ICpfX3hmcm1fcG9saWN5CiAJaWYgKGhs
+aXN0X3VuaGFzaGVkKCZwb2wtPmJ5ZHN0KSkKIAkJcmV0dXJuIE5VTEw7CiAKKwlwb2wtPndh
+bGsuZGVhZCA9IDE7CiAJaGxpc3RfZGVsKCZwb2wtPmJ5ZHN0KTsKIAlobGlzdF9kZWwoJnBv
+bC0+YnlpZHgpOwogCWxpc3RfZGVsKCZwb2wtPndhbGsuYWxsKTsKCi0tLS0tLS0tLS0tLS0t
+LS0tLQpCZXN0IFJlZ2FyZHMKWGlhbnBlbmc=
