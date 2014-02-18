@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4] sh_eth: add device tree support
-Date: Tue, 18 Feb 2014 17:21:55 -0500 (EST)
-Message-ID: <20140218.172155.1805423700591358551.davem@davemloft.net>
-References: <201402180312.44775.sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] Documentation: broadcom-bcmgenet: fix address and
+ cells properties
+Date: Tue, 18 Feb 2014 17:23:58 -0500 (EST)
+Message-ID: <20140218.172358.664228775501919671.davem@davemloft.net>
+References: <1392683255-28136-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	grant.likely@linaro.org, devicetree@vger.kernel.org,
-	linux-sh@vger.kernel.org, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, netdev@vger.kernel.org,
-	nobuhiro.iwamatsu.yj@renesas.com, rob@landley.net,
-	linux-doc@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <201402180312.44775.sergei.shtylyov@cogentembedded.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, sergei.shtylyov@cogentembedded.com
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36564 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752534AbaBRWYA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 17:24:00 -0500
+In-Reply-To: <1392683255-28136-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Tue, 18 Feb 2014 03:12:43 +0300
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Mon, 17 Feb 2014 16:27:35 -0800
 
-> Add support of the device tree probing for the Renesas SH-Mobile SoCs
-> documenting the device tree binding as necessary.
+> This patch fixes a typo in the Device Tree binding for the
+> leading '#'.
 > 
-> This work is loosely based on the original patch by Nobuhiro Iwamatsu
-> <nobuhiro.iwamatsu.yj@renesas.com>.
-> 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Reported-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Also applied, thanks.
+Sergei put the phy-mode documentation to a common location, so you'll
+need to respin this.
+
+Thanks.
