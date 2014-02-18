@@ -1,42 +1,52 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH ipsec-next v2] ipsec: add support of limited SA dump
-Date: Tue, 18 Feb 2014 06:46:15 +0100
-Message-ID: <20140218054615.GA32371@secunet.com>
-References: <1392223581-25554-1-git-send-email-nicolas.dichtel@6wind.com>
- <1392388236-3093-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Xufeng Zhang <xufeng.zhang@windriver.com>
+Subject: [PATCH RFC] sctp: Update HEARTBEAT timer immediately after user changed HB.interval
+Date: Tue, 18 Feb 2014 13:56:50 +0800
+Message-ID: <1392703010-6128-1-git-send-email-xufeng.zhang@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <herbert@gondor.apana.org.au>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, <fengguang.wu@intel.com>,
-	<kbuild-all@01.org>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain
+Cc: <linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <xufeng.zhang@windriver.com>
+To: <vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
+	<davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:45918 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751054AbaBRFqT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Feb 2014 00:46:19 -0500
-Content-Disposition: inline
-In-Reply-To: <1392388236-3093-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mail.windriver.com ([147.11.1.11]:52113 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751054AbaBRFqV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 00:46:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 14, 2014 at 03:30:36PM +0100, Nicolas Dichtel wrote:
-> The goal of this patch is to allow userland to dump only a part of SA by
-> specifying a filter during the dump.
-> The kernel is in charge to filter SA, this avoids to generate useless netlink
-> traffic (it save also some cpu cycles). This is particularly useful when there
-> is a big number of SA set on the system.
-> 
-> Note that I removed the union in struct xfrm_state_walk to fix a problem on arm.
-> struct netlink_callback->args is defined as a array of 6 long and the first long
-> is used in xfrm code to flag the cb as initialized. Hence, we must have:
-> sizeof(struct xfrm_state_walk) <= sizeof(long) * 5.
-> With the union, it was false on arm (sizeof(struct xfrm_state_walk) was
-> sizeof(long) * 7), due to the padding.
-> In fact, whatever the arch is, this union seems useless, there will be always
-> padding after it. Removing it will not increase the size of this struct (and
-> reduce it on arm).
-> 
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+For an established association, if user has updated the HB.interval
+parameter by setsockopt(), this new heartbeat interval will not
+take effect until:
+  - the expiry of the heartbeat timer and new hearbeat is sent.
+  - DATA chunk has been sent and the transport resets the timer.
+This could not meet the requirement of the user who need to
+get HEARTBEAT sent at the specified time.
 
-Applied to ipsec-next, thanks Nicolas!
+Thus, we need to update the heartbeat timer immediately after
+user has changed HB.interval.
+
+Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
+---
+ net/sctp/socket.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
+
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 9e91d6e..699ae1e 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -2344,6 +2344,11 @@ static int sctp_apply_peer_addr_params(struct sctp_paddrparams *params,
+ 			if (trans) {
+ 				trans->hbinterval =
+ 				    msecs_to_jiffies(params->spp_hbinterval);
++
++				/* Update the heartbeat timer immediately. */
++				if (!mod_timer(&trans->hb_timer,
++					    sctp_transport_timeout(trans)))
++					sctp_transport_hold(trans);
+ 			} else if (asoc) {
+ 				asoc->hbinterval =
+ 				    msecs_to_jiffies(params->spp_hbinterval);
+-- 
+1.7.0.2
