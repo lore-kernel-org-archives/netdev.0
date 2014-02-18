@@ -1,33 +1,39 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: Re: [Xen-devel] [RFC v2 4/4] xen-netback: skip IPv4 and IPv6 interfaces
-Date: Tue, 18 Feb 2014 12:16:36 -0800
-Message-ID: <CAB=NE6WwPfPi-8Yudxs4-OA2LPOjo8-XxUiVbtu6=BQ8FhEEOA@mail.gmail.com>
-References: <1392433180-16052-1-git-send-email-mcgrof@do-not-panic.com>
- <1392433180-16052-5-git-send-email-mcgrof@do-not-panic.com> <53021E87.6020607@citrix.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/35] net: Use pci_enable_msix_range()
+ instead of pci_enable_msix()
+Date: Tue, 18 Feb 2014 15:34:34 -0500 (EST)
+Message-ID: <20140218.153434.1953797715072458396.davem@davemloft.net>
+References: <cover.1392717502.git.agordeev@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>, kvm@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Paul Durrant <Paul.Durrant@citrix.com>,
-	xen-devel@lists.xenproject.org
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	linux-driver@qlogic.com, linux-net-drivers@solarflare.com,
+	linux-pci@vger.kernel.org, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org, pv-drivers@vmware.com,
+	wil6210@qca.qualcomm.com
+To: agordeev@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53021E87.6020607@citrix.com>
+In-Reply-To: <cover.1392717502.git.agordeev@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 17, 2014 at 6:36 AM, Zoltan Kiss <zoltan.kiss@citrix.com> wrote:
-> There is a valid scenario to put IP addresses on the backend VIFs:
->
-> http://wiki.xen.org/wiki/Xen_Networking#Routing
+From: Alexander Gordeev <agordeev@redhat.com>
+Date: Tue, 18 Feb 2014 11:07:52 +0100
 
-This is useful thanks!
+> As result of deprecation of MSI-X/MSI enablement functions
+> pci_enable_msix() and pci_enable_msi_block() all drivers
+> using these two interfaces need to be updated to use the
+> new pci_enable_msi_range() and pci_enable_msix_range()
+> interfaces.
+> 
+> Cc: e1000-devel@lists.sourceforge.net
+> Cc: linux-driver@qlogic.com
+> Cc: linux-net-drivers@solarflare.com
+> Cc: linux-pci@vger.kernel.org
+> Cc: linux-rdma@vger.kernel.org
+> Cc: netdev@vger.kernel.org
+> Cc: pv-drivers@vmware.com
+> Cc: wil6210@qca.qualcomm.com
 
-> Also, the backend is not necessarily Dom0, you can connect two guests with
-> backend/frontend pairs.
-
-Can you elaborate a bit more on this type of setup?
-
-  Luis
+Series applied, thanks.
