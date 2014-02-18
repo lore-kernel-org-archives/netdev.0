@@ -1,189 +1,82 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net-next] hyperv: Add latest NetVSP versions to auto
- negotiation
-Date: Tue, 18 Feb 2014 12:28:54 -0800
-Message-ID: <1392755334-25884-1-git-send-email-haiyangz@microsoft.com>
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: Re: [Xen-devel] [RFC v2 0/4] net: bridge / ip optimizations for
+ virtual net backends
+Date: Tue, 18 Feb 2014 11:43:59 -0800
+Message-ID: <CAB=NE6VxNByeWGk6_Ow7WgxA3HCwGBjrjL9MNVRGsEfFyeKTdw@mail.gmail.com>
+References: <1392433180-16052-1-git-send-email-mcgrof@do-not-panic.com> <5301E411.5060908@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
- linux-kernel@vger.kernel.org, haiyangz@microsoft.com
-To: davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	xen-devel@lists.xenproject.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	kvm@vger.kernel.org
+To: David Vrabel <david.vrabel@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5301E411.5060908@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It auto negotiates the highest NetVSP version supported by both guest and host.
+On Mon, Feb 17, 2014 at 2:27 AM, David Vrabel <david.vrabel@citrix.com> wrote:
+> On 15/02/14 02:59, Luis R. Rodriguez wrote:
+>> From: "Luis R. Rodriguez" <mcgrof@suse.com>
+>>
+>> This v2 series changes the approach from my original virtualization
+>> multicast patch series [0] by abandoning completely the multicast
+>> issues and instead generalizing an approach for virtualization
+>> backends. There are two things in common with virtualization
+>> backends:
+>>
+>>   0) they should not become the root bridge
+>>   1) they don't need ipv4 / ipv6 interfaces
+>
+> Why?  There's no real difference between a backend network device and a
+> physical device (from the point of view of the backend domain).  I do
+> not think these are intrinsic properties of backend devices.
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
----
- drivers/net/hyperv/hyperv_net.h |   53 +++++++++++++++++++++++++++++++++++++++
- drivers/net/hyperv/netvsc.c     |   26 ++++++++++++------
- drivers/net/hyperv/netvsc_drv.c |    2 +-
- 3 files changed, 71 insertions(+), 10 deletions(-)
+Let me clarify the original motivation as that can likely help explain
+how I ended up with this patch series.
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 01a16ea..39fc230 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -139,6 +139,8 @@ int rndis_filter_set_device_mac(struct hv_device *hdev, char *mac);
- 
- #define NVSP_PROTOCOL_VERSION_1		2
- #define NVSP_PROTOCOL_VERSION_2		0x30002
-+#define NVSP_PROTOCOL_VERSION_4		0x40000
-+#define NVSP_PROTOCOL_VERSION_5		0x50000
- 
- enum {
- 	NVSP_MSG_TYPE_NONE = 0,
-@@ -193,6 +195,23 @@ enum {
- 
- 	NVSP_MSG2_TYPE_ALLOC_CHIMNEY_HANDLE,
- 	NVSP_MSG2_TYPE_ALLOC_CHIMNEY_HANDLE_COMP,
-+
-+	NVSP_MSG2_MAX = NVSP_MSG2_TYPE_ALLOC_CHIMNEY_HANDLE_COMP,
-+
-+	/* Version 4 messages */
-+	NVSP_MSG4_TYPE_SEND_VF_ASSOCIATION,
-+	NVSP_MSG4_TYPE_SWITCH_DATA_PATH,
-+	NVSP_MSG4_TYPE_UPLINK_CONNECT_STATE_DEPRECATED,
-+
-+	NVSP_MSG4_MAX = NVSP_MSG4_TYPE_UPLINK_CONNECT_STATE_DEPRECATED,
-+
-+	/* Version 5 messages */
-+	NVSP_MSG5_TYPE_OID_QUERY_EX,
-+	NVSP_MSG5_TYPE_OID_QUERY_EX_COMP,
-+	NVSP_MSG5_TYPE_SUBCHANNEL,
-+	NVSP_MSG5_TYPE_SEND_INDIRECTION_TABLE,
-+
-+	NVSP_MSG5_MAX = NVSP_MSG5_TYPE_SEND_INDIRECTION_TABLE,
- };
- 
- enum {
-@@ -447,10 +466,44 @@ union nvsp_2_message_uber {
- 	struct nvsp_2_free_rxbuf free_rxbuf;
- } __packed;
- 
-+enum nvsp_subchannel_operation {
-+	NVSP_SUBCHANNEL_NONE = 0,
-+	NVSP_SUBCHANNEL_ALLOCATE,
-+	NVSP_SUBCHANNEL_MAX
-+};
-+
-+struct nvsp_5_subchannel_request {
-+	u32 op;
-+	u32 num_subchannels;
-+} __packed;
-+
-+struct nvsp_5_subchannel_complete {
-+	u32 status;
-+	u32 num_subchannels; /* Actual number of subchannels allocated */
-+} __packed;
-+
-+struct nvsp_5_send_indirect_table {
-+	/* The number of entries in the send indirection table */
-+	u32 count;
-+
-+	/* The offset of the send indireciton table from top of this struct.
-+	 * The send indirection table tells which channel to put the send
-+	 * traffic on. Each entry is a channel number.
-+	 */
-+	u32 offset;
-+} __packed;
-+
-+union nvsp_5_message_uber {
-+	struct nvsp_5_subchannel_request subchn_req;
-+	struct nvsp_5_subchannel_complete subchn_comp;
-+	struct nvsp_5_send_indirect_table send_table;
-+} __packed;
-+
- union nvsp_all_messages {
- 	union nvsp_message_init_uber init_msg;
- 	union nvsp_1_message_uber v1_msg;
- 	union nvsp_2_message_uber v2_msg;
-+	union nvsp_5_message_uber v5_msg;
- } __packed;
- 
- /* ALL Messages */
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 9a0e9c6..fc2941c 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -290,7 +290,7 @@ static int negotiate_nvsp_ver(struct hv_device *device,
- 	    NVSP_STAT_SUCCESS)
- 		return -EINVAL;
- 
--	if (nvsp_ver != NVSP_PROTOCOL_VERSION_2)
-+	if (nvsp_ver == NVSP_PROTOCOL_VERSION_1)
- 		return 0;
- 
- 	/* NVSPv2 only: Send NDIS config */
-@@ -314,6 +314,10 @@ static int netvsc_connect_vsp(struct hv_device *device)
- 	struct nvsp_message *init_packet;
- 	int ndis_version;
- 	struct net_device *ndev;
-+	u32 ver_list[] = {NVSP_PROTOCOL_VERSION_1, NVSP_PROTOCOL_VERSION_2,
-+		NVSP_PROTOCOL_VERSION_4, NVSP_PROTOCOL_VERSION_5};
-+	int i, num_ver = 4; /* number of different NVSP versions */
-+
- 
- 	net_device = get_outbound_net_device(device);
- 	if (!net_device)
-@@ -323,13 +327,14 @@ static int netvsc_connect_vsp(struct hv_device *device)
- 	init_packet = &net_device->channel_init_pkt;
- 
- 	/* Negotiate the latest NVSP protocol supported */
--	if (negotiate_nvsp_ver(device, net_device, init_packet,
--			       NVSP_PROTOCOL_VERSION_2) == 0) {
--		net_device->nvsp_version = NVSP_PROTOCOL_VERSION_2;
--	} else if (negotiate_nvsp_ver(device, net_device, init_packet,
--				    NVSP_PROTOCOL_VERSION_1) == 0) {
--		net_device->nvsp_version = NVSP_PROTOCOL_VERSION_1;
--	} else {
-+	for (i = num_ver - 1; i >= 0; i--)
-+		if (negotiate_nvsp_ver(device, net_device, init_packet,
-+			ver_list[i])  == 0) {
-+			net_device->nvsp_version = ver_list[i];
-+			break;
-+		}
-+
-+	if (i < 0) {
- 		ret = -EPROTO;
- 		goto cleanup;
- 	}
-@@ -339,7 +344,10 @@ static int netvsc_connect_vsp(struct hv_device *device)
- 	/* Send the ndis version */
- 	memset(init_packet, 0, sizeof(struct nvsp_message));
- 
--	ndis_version = 0x00050001;
-+	if (net_device->nvsp_version <= NVSP_PROTOCOL_VERSION_4)
-+		ndis_version = 0x00050001;
-+	else
-+		ndis_version = 0x0006001e;
- 
- 	init_packet->hdr.msg_type = NVSP_MSG1_TYPE_SEND_NDIS_VER;
- 	init_packet->msg.v1_msg.
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 1eadc13..3cc9eb3 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -317,7 +317,7 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
- 	if (nvdev == NULL || nvdev->destroy)
- 		return -ENODEV;
- 
--	if (nvdev->nvsp_version == NVSP_PROTOCOL_VERSION_2)
-+	if (nvdev->nvsp_version >= NVSP_PROTOCOL_VERSION_2)
- 		limit = NETVSC_MTU;
- 
- 	if (mtu < 68 || mtu > limit)
--- 
-1.7.4.1
+SUSE has had reports of xen backend interfaces ending up with
+duplicate address notification filling up logs on systems with a
+series of guests, these reports go back to 2006. This was root caused
+to DAD on IPv6 interfaces, and a work around implemented to disable
+DAD [0] on multicast links. Even though this patch as a work around
+should not be applicable anymore given that since the xen-netback
+upstreaming since 2.6.39 ether_setup is used and that enables the
+multicast flag, we should try ensure the issue doesn't creep up
+anymore. As per the IPv6 RFCs and Linux IPv6 implementation -- DAD
+should be triggered even in the case of manual IP configuration and
+when the link goes up, as such SLAAC will always take place on IPv6
+interfaces. Although not documented upon my review I determined the
+original issue could also be attributed to the corner case documented
+on Appendix A of RFC 4862 [1] and this could be more prevalent for
+xen-netback given we stuck to the same MAC address for all xen-netback
+interfaces. I first tried to generalize the work around and address
+the multicast case requirement for IPv6 [2], and explicitly disabling
+multicast on xen-netback. Although this approach could likely be
+generalized further by taking into account for NBMA links by checking
+dev->type I determined we didn't need IPv6 interfaces at all on the
+xent-netback interfaces. This lead me to further review if we even
+needed IPv4 interfaces as well, and it turns out we do not.
+
+New motivation: removing IPv4 and IPv6 from the backend interfaces can
+save up a lot of boiler plate run time code, triggers from ever taking
+place, and simplifying the backend interaces. If there is no use for
+IPv4 and IPv6 interfaces why do we have them? Note: I have yet to test
+the NAT case.
+
+> I can see these being useful knobs for administrators (or management
+> toolstacks) to turn on, on a per-device basis.
+
+Agreed but these knobs don't even exist for drivers yet, let alone for
+system administrators. I certainly can shoot for another series to let
+administrators configure this as a preference but -- if we know a
+driver won't need IPv4 and IPv6 interfaces why not just allow drivers
+to disable them all together? Consider the simplification of the
+interfaces on the host.
+
+[0] https://gitorious.org/opensuse/kernel-source/source/8e16582178a29b03e850468004a47e7be5ed3005:patches.xen/ipv6-no-autoconf
+[1] http://tools.ietf.org/html/rfc4862
+[2] http://marc.info/?l=linux-netdev&m=139207142110536&w=2
+
+  Luis
