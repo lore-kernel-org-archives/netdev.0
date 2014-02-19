@@ -1,38 +1,40 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH -next] net: tcp: add mib counters to track zero window transitions
-Date: Wed, 19 Feb 2014 20:32:13 +0100
-Message-ID: <20140219193213.GD1179@order.stressinduktion.org>
-References: <1392674268-26005-1-git-send-email-fw@strlen.de> <20140219.131708.562226572566677127.davem@davemloft.net> <1392835787.18849.11.camel@edumazet-glaptop2.roam.corp.google.com> <20140219185949.GA1179@order.stressinduktion.org> <20140219191831.GA7119@breakpoint.cc> <20140219193038.GC1179@order.stressinduktion.org>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [ovs-dev] [PATCH net-next] openvswitch: Use ether_addr_copy
+Date: Wed, 19 Feb 2014 11:32:41 -0800
+Message-ID: <CALnjE+rvh7Rqpw1expkhJtRGt7Quy8MVWkUVfjVh4BsPaj2jVg@mail.gmail.com>
+References: <fee7d53a1cfdec0aec7ea35a1f2f4b5e66766ee3.1392750899.git.joe@perches.com>
+	<20140218.181507.1046967430290052114.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: Florian Westphal <fw@strlen.de>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: joe@perches.com, "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:39064 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754542AbaBSTcO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 14:32:14 -0500
-Content-Disposition: inline
-In-Reply-To: <20140219193038.GC1179@order.stressinduktion.org>
+Received: from na6sys009bog039.obsmtp.com ([74.125.150.113]:59346 "HELO
+	na6sys009bog039.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754875AbaBSTcm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 14:32:42 -0500
+Received: by mail-ve0-f179.google.com with SMTP id jx11so882974veb.10
+        for <netdev@vger.kernel.org>; Wed, 19 Feb 2014 11:32:42 -0800 (PST)
+In-Reply-To: <20140218.181507.1046967430290052114.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry...
+Jesse is on vacation. So I applied it to ovs master.
 
-On Wed, Feb 19, 2014 at 08:30:38PM +0100, Hannes Frederic Sowa wrote:
-> NET_STATS only use 32 bit counter and thus need not be protected with a
-> seqlock on 32 bit platforms. As such, it does not matter, but e.g. the IP
-> counter are prone to deadlocks if used with wrong postfix because of 64 bit
-> counter thus protected by seqlock.
-> 
-> A pitty that the _STATS_BH postfixes have the opposite meaning of the bottom
+Thanks.
 
-	s/bottom$/locking/
-
-> _bh postfixes.
-> 
-> Basically always safe is _STATS and if we are sure we can omit the bh disable
-> call because we only call the function from bh, we can use _STATS_BH calls.
-
-Should read mails again before sending. ;)
+On Tue, Feb 18, 2014 at 3:15 PM, David Miller <davem@davemloft.net> wrote:
+> From: Joe Perches <joe@perches.com>
+> Date: Tue, 18 Feb 2014 11:15:45 -0800
+>
+>> It's slightly smaller/faster for some architectures.
+>>
+>> Signed-off-by: Joe Perches <joe@perches.com>
+>
+> I'll let Jesse take this via his tree, thanks Joe.
+> _______________________________________________
+> dev mailing list
+> dev@openvswitch.org
+> http://openvswitch.org/mailman/listinfo/dev
