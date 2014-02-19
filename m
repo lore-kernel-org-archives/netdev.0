@@ -1,36 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] ethtool: Remove inactive code snippet in
- ethtool_set_rxfh_indir
-Date: Wed, 19 Feb 2014 16:42:43 -0500 (EST)
-Message-ID: <20140219.164243.2046477353509124098.davem@davemloft.net>
-References: <d966666f-7494-449a-a48f-728f77614738@CMEXHTCAS2.ad.emulex.com>
+Subject: Re: [PATCH] be2net: Bugfix for packet drop with kernel param
+ swiotlb=force
+Date: Wed, 19 Feb 2014 16:44:16 -0500 (EST)
+Message-ID: <20140219.164416.129376508868063340.davem@davemloft.net>
+References: <OF433C3BAF.359D84C5-ON48257C84.002D80B1-48257C84.002E4C8C@zte.com.cn>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: VenkatKumar.Duvvuru@Emulex.com
+Cc: netdev@vger.kernel.org, sathya.perla@emulex.com,
+	subbu.seetharaman@emulex.com, ajit.khaparde@emulex.com,
+	wang.liang82@zte.com.cn, cai.qu@zte.com.cn, li.fengmao@zte.com.cn,
+	long.chun@zte.com.cn
+To: jiang.biao2@zte.com.cn
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47060 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47069 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752144AbaBSVmp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 16:42:45 -0500
-In-Reply-To: <d966666f-7494-449a-a48f-728f77614738@CMEXHTCAS2.ad.emulex.com>
+	with ESMTP id S1753703AbaBSVoS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 16:44:18 -0500
+In-Reply-To: <OF433C3BAF.359D84C5-ON48257C84.002D80B1-48257C84.002E4C8C@zte.com.cn>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
-Date: Wed, 19 Feb 2014 13:20:25 +0530
+From: jiang.biao2@zte.com.cn
+Date: Wed, 19 Feb 2014 16:25:40 +0800
 
-> ethtool_rxfh_indir_default is invoked inside ethtool_set_rxfh_indir when
-> user_size is zero. However user_size can only be zero when dev_size is
-> zero in which case ethtool_get_rxfh_indir itself would return
-> EOPNOTSUPP error. "user_size = 0" can never happen unless userspace
-> ethtool sends user_size as zero beforing invoking the ioctl for
-> ETHTOOL_SRSSH, in which case we should return -EINVAL.
-> 
-> v2: Modified commit message.
-> 
-> Signed-off-by: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
+> +        dma_unmap_page(&adapter->pdev->dev,
+> +               dma_unmap_addr(rx_page_info, bus),
+> +               rx_frag_size, DMA_FROM_DEVICE);
 
-It looks like the author of this code intended user_size == 0 as a way
-to reset the indirection table to the default, did this ever work?
+This is not indented properly.
+
+Arguments on the second and subsequent lines of a function call must
+start exactly at the first column after the openning parenthesis of the
+function call on the first line.
+
+You must use the appropriate number of TAB and SPACE characters
+necessary to do so.
+
+If you are indenting only using TAB characters, you are doing it wrong.
