@@ -1,54 +1,55 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net-next] ipcomp: Convert struct xt_ipcomp spis into
- 16bits
-Date: Wed, 19 Feb 2014 11:14:03 +0100
-Message-ID: <20140219101403.GA9160@localhost>
-References: <1390011374-21760-1-git-send-email-fan.du@windriver.com>
- <20140118122437.GA4309@localhost>
- <52DC821E.3000309@windriver.com>
+From: Thomas Glanzmann <thomas@glanzmann.de>
+Subject: Re: [PATCH net v2 0/2] Fix RTNL: assertion failed at
+ net/core/rtnetlink.c
+Date: Wed, 19 Feb 2014 11:52:00 +0100
+Message-ID: <20140219105200.GA18298@glanzmann.de>
+References: <1392800711-19264-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: steffen.klassert@secunet.com, davem@davemloft.net,
-	netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: fubar@us.ibm.com, vfalico@redhat.com, andy@greyhouse.net,
+	cwang@twopensource.com, jiri@resnulli.us, eric.dumazet@gmail.com,
+	sfeldma@cumulusnetworks.com, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:42892 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753546AbaBSKON (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Feb 2014 05:14:13 -0500
+Received: from infra.glanzmann.de ([88.198.249.254]:48594 "EHLO
+	infra.glanzmann.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751205AbaBSKwD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 05:52:03 -0500
 Content-Disposition: inline
-In-Reply-To: <52DC821E.3000309@windriver.com>
+In-Reply-To: <1392800711-19264-1-git-send-email-dingtianhong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 20, 2014 at 09:55:42AM +0800, Fan Du wrote:
-> On 2014=E5=B9=B401=E6=9C=8818=E6=97=A5 20:24, Pablo Neira Ayuso wrote=
-:
-> >Didn't you find any way to fix this without change the layout of
-> >xt_ipcomp?
->=20
-> My bad for not catching this in the initial ipcomp version.
-> It would be easier to just use ntohs here to ease sparse checking.
->=20
->=20
-> From dbf796e63d600256fd40000669b83227ddccebc4 Mon Sep 17 00:00:00 200=
-1
-> From: Fan Du <fan.du@windriver.com>
-> Date: Mon, 20 Jan 2014 09:42:12 +0800
-> Subject: [PATCHv2 net-next] ipcomp: Use ntohs to ease sparse warning
->=20
-> 0-DAY kernel build testing backend reported:
->=20
-> sparse warnings: (new ones prefixed by >>)
->=20
-> >> >> net/netfilter/xt_ipcomp.c:63:26: sparse: restricted __be16 degr=
-ades to integer
-> >> >> net/netfilter/xt_ipcomp.c:63:26: sparse: cast to restricted __b=
-e32
->=20
-> Fix this by using ntohs without shifting.
->=20
-> Tested with: make C=3D1 CF=3D-D__CHECK_ENDIAN__
+Hello Ding,
 
-Applied to nf-next, thanks.
+> v1->v2: Add new micro to indicate that the notification should be send
+> 	later, not never.
+> 	And add a new patch to fix the same problem for ARP mode.
+
+> Ding Tianhong (2):
+>   bonding: Fix RTNL: assertion failed at net/core/rtnetlink.c for
+>     802.3ad mode
+>   bonding: Fix RTNL: assertion failed at net/core/rtnetlink.c for ab
+>     arp monitor
+
+the patch did not apply cleanly for me, so I manually merged it.
+
+The resulting patch is here:
+
+(node-62) [~/work/linux-2.6] git diff | pbot
+http://pbot.rmdir.de/TDMvhGB775BVPpKvm6NOXg
+
+Find the results here:
+
+(node-62) [~] dmesg | pbot
+http://pbot.rmdir.de/nogPmqfGRxxk9zMNBlr0QQ
+(node-62) [~] pbot /proc/net/bonding/bond0
+http://pbot.rmdir.de/zNSSqmjSI0o1Qvt6DrSEQw
+(node-62) [~] pbot /proc/net/bonding/bond1
+http://pbot.rmdir.de/CoI00Rguie2P-kOQytOM9w
+
+Tested-by: Thomas Glanzmann <thomas@glanzmann.de>
+
+Cheers,
+        Thomas
