@@ -1,176 +1,51 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH net-next 3/5] gianfar: Don't free/request irqs on device reset
-Date: Wed, 19 Feb 2014 15:22:16 +0200
-Message-ID: <1392816138-31645-4-git-send-email-claudiu.manoil@freescale.com>
-References: <1392816138-31645-1-git-send-email-claudiu.manoil@freescale.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2] of_mdio: fix phy interrupt passing
+Date: Wed, 19 Feb 2014 17:27:39 +0400
+Message-ID: <5304B14B.2070402@cogentembedded.com>
+References: <1392725818-558-1-git-send-email-ben.dooks@codethink.co.uk>	<20140218161551.44A52C40517@trevor.secretlab.ca> <20140218.181317.1712776234149210938.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe006.messaging.microsoft.com ([216.32.180.16]:55947
-	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753665AbaBSNWx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 08:22:53 -0500
-In-Reply-To: <1392816138-31645-1-git-send-email-claudiu.manoil@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ben.dooks@codethink.co.uk, linux-kernel@lists.codethink.co.uk,
+	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: David Miller <davem@davemloft.net>, grant.likely@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140218.181317.1712776234149210938.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Resetting the device (stop_gfar()/startup_gfar()) should
-be fast and to the point, in order to timely recover
-from an error condition (like Tx timeout) or during
-device reconfig.  The irq free/ request routines are just
-redundant here, and they should be part of the device
-close/ open routines instead.
+Hello.
 
-Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
----
- drivers/net/ethernet/freescale/gianfar.c | 77 +++++++++++++++++++-------------
- 1 file changed, 45 insertions(+), 32 deletions(-)
+On 19-02-2014 3:13, David Miller wrote:
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 728078f..6c054b5 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -1715,18 +1715,10 @@ void gfar_halt(struct gfar_private *priv)
- 	gfar_write(&regs->maccfg1, tempval);
- }
- 
--static void free_grp_irqs(struct gfar_priv_grp *grp)
--{
--	free_irq(gfar_irq(grp, TX)->irq, grp);
--	free_irq(gfar_irq(grp, RX)->irq, grp);
--	free_irq(gfar_irq(grp, ER)->irq, grp);
--}
--
- void stop_gfar(struct net_device *dev)
- {
- 	struct gfar_private *priv = netdev_priv(dev);
- 	unsigned long flags;
--	int i;
- 
- 	phy_stop(priv->phydev);
- 
-@@ -1742,16 +1734,6 @@ void stop_gfar(struct net_device *dev)
- 	unlock_tx_qs(priv);
- 	local_irq_restore(flags);
- 
--	/* Free the IRQs */
--	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_MULTI_INTR) {
--		for (i = 0; i < priv->num_grps; i++)
--			free_grp_irqs(&priv->gfargrp[i]);
--	} else {
--		for (i = 0; i < priv->num_grps; i++)
--			free_irq(gfar_irq(&priv->gfargrp[i], TX)->irq,
--				 &priv->gfargrp[i]);
--	}
--
- 	free_skb_resources(priv);
- }
- 
-@@ -1919,6 +1901,13 @@ void gfar_configure_coalescing_all(struct gfar_private *priv)
- 	gfar_configure_coalescing(priv, 0xFF, 0xFF);
- }
- 
-+static void free_grp_irqs(struct gfar_priv_grp *grp)
-+{
-+	free_irq(gfar_irq(grp, TX)->irq, grp);
-+	free_irq(gfar_irq(grp, RX)->irq, grp);
-+	free_irq(gfar_irq(grp, ER)->irq, grp);
-+}
-+
- static int register_grp_irqs(struct gfar_priv_grp *grp)
- {
- 	struct gfar_private *priv = grp->priv;
-@@ -1975,11 +1964,42 @@ err_irq_fail:
- 
- }
- 
-+static void gfar_free_irq(struct gfar_private *priv)
-+{
-+	int i;
-+
-+	/* Free the IRQs */
-+	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_MULTI_INTR) {
-+		for (i = 0; i < priv->num_grps; i++)
-+			free_grp_irqs(&priv->gfargrp[i]);
-+	} else {
-+		for (i = 0; i < priv->num_grps; i++)
-+			free_irq(gfar_irq(&priv->gfargrp[i], TX)->irq,
-+				 &priv->gfargrp[i]);
-+	}
-+}
-+
-+static int gfar_request_irq(struct gfar_private *priv)
-+{
-+	int err, i, j;
-+
-+	for (i = 0; i < priv->num_grps; i++) {
-+		err = register_grp_irqs(&priv->gfargrp[i]);
-+		if (err) {
-+			for (j = 0; j < i; j++)
-+				free_grp_irqs(&priv->gfargrp[j]);
-+			return err;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
- /* Bring the controller up and running */
- int startup_gfar(struct net_device *ndev)
- {
- 	struct gfar_private *priv = netdev_priv(ndev);
--	int err, i, j;
-+	int err;
- 
- 	gfar_mac_reset(priv);
- 
-@@ -1989,25 +2009,12 @@ int startup_gfar(struct net_device *ndev)
- 
- 	gfar_init_tx_rx_base(priv);
- 
--	for (i = 0; i < priv->num_grps; i++) {
--		err = register_grp_irqs(&priv->gfargrp[i]);
--		if (err) {
--			for (j = 0; j < i; j++)
--				free_grp_irqs(&priv->gfargrp[j]);
--			goto irq_fail;
--		}
--	}
--
- 	/* Start the controller */
- 	gfar_start(priv);
- 
- 	phy_start(priv->phydev);
- 
- 	return 0;
--
--irq_fail:
--	free_skb_resources(priv);
--	return err;
- }
- 
- /* Called when something needs to use the ethernet device
-@@ -2027,6 +2034,10 @@ static int gfar_enet_open(struct net_device *dev)
- 		return err;
- 	}
- 
-+	err = gfar_request_irq(priv);
-+	if (err)
-+		return err;
-+
- 	err = startup_gfar(dev);
- 	if (err) {
- 		disable_napi(priv);
-@@ -2369,6 +2380,8 @@ static int gfar_close(struct net_device *dev)
- 
- 	netif_tx_stop_all_queues(dev);
- 
-+	gfar_free_irq(priv);
-+
- 	return 0;
- }
- 
--- 
-1.7.11.7
+>>> The of_mdiobus_register_phy() is not setting phy->irq thus causing
+>>> some drivers to incorrectly assume that the PHY does not have an
+>>> IRQ associated with it. Not only do some drivers report no IRQ
+>>> they do not install an interrupt handler for the PHY.
+
+>>> Simplify the code setting irq and set the phy->irq at the same
+>>> time so that we cover the following issues, which should cover
+>>> all the cases the code will find:
+
+>>> - Set phy->irq if node has irq property and mdio->irq is NULL
+>>> - Set phy->irq if node has no irq and mdio->irq is not NULL
+>>> - Leave phy->irq as PHY_POLL default if none of the above
+
+>>> This fixes the issue:
+>>>   net eth0: attached PHY 1 (IRQ -1) to driver Micrel KSZ8041RNLI
+
+>>> to the correct:
+>>>   net eth0: attached PHY 1 (IRQ 416) to driver Micrel KSZ8041RNLI
+
+>>> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
+
+>> Looks okay to me
+
+>> Reviewed-by: Grant Likely <grant.likely@linaro.org>
+
+> Applied, thanks.
+
+    So, you decided to ignore my comment about unneeded *else* branch?
+
+WBR, Sergei
