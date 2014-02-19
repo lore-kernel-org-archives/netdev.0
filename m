@@ -1,114 +1,56 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net] net,IB/mlx: Bump all Mellanox driver versions
-Date: Wed, 19 Feb 2014 17:47:31 +0200
-Message-ID: <1392824851-8667-1-git-send-email-amirv@mellanox.com>
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
-	Eli Cohen <eli@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net] sit: fix panic with route cache in ip tunnels
+Date: Wed, 19 Feb 2014 17:15:32 +0100
+Message-ID: <1392826532-19282-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Tom Herbert <therbert@google.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:42103 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753595AbaBSPri (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Feb 2014 10:47:38 -0500
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:37348 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753977AbaBSQPu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 11:15:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bump all Mellanox driver versions.
+Bug introduced by commit 7d442fab0a67 ("ipv4: Cache dst in tunnels").
 
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
+Because sit code does not call ip_tunnel_init(), the dst_cache was not
+initialized.
+
+CC: Tom Herbert <therbert@google.com>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
-Hi,
+ net/ipv6/sit.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-We're changing the version scheme of our drivers.
-I would be happy if it goes to net. Also, added here drivers from rdma tree,
-because I would like it to be unified accorss all Mellanox's drivers.
-
-Thanks,
-Amir
-
- drivers/infiniband/hw/mlx4/main.c              | 4 ++--
- drivers/infiniband/hw/mlx5/main.c              | 4 ++--
- drivers/net/ethernet/mellanox/mlx4/mlx4.h      | 4 ++--
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   | 4 ++--
- drivers/net/ethernet/mellanox/mlx5/core/main.c | 4 ++--
- 5 files changed, 10 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
-index e81c554..f9c12e9 100644
---- a/drivers/infiniband/hw/mlx4/main.c
-+++ b/drivers/infiniband/hw/mlx4/main.c
-@@ -53,8 +53,8 @@
- #include "user.h"
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 3dfbcf1dcb1c..5ff33d9bd5de 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -1326,6 +1326,9 @@ static const struct net_device_ops ipip6_netdev_ops = {
  
- #define DRV_NAME	MLX4_IB_DRV_NAME
--#define DRV_VERSION	"1.0"
--#define DRV_RELDATE	"April 4, 2008"
-+#define DRV_VERSION	"2.2-1"
-+#define DRV_RELDATE	"Feb 2014"
+ static void ipip6_dev_free(struct net_device *dev)
+ {
++	struct ip_tunnel *tunnel = netdev_priv(dev);
++
++	free_percpu(tunnel->dst_cache);
+ 	free_percpu(dev->tstats);
+ 	free_netdev(dev);
+ }
+@@ -1375,6 +1378,12 @@ static int ipip6_tunnel_init(struct net_device *dev)
+ 		u64_stats_init(&ipip6_tunnel_stats->syncp);
+ 	}
  
- #define MLX4_IB_FLOW_MAX_PRIO 0xFFF
- #define MLX4_IB_FLOW_QPN_MASK 0xFFFFFF
-diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
-index aa03e73..bf90057 100644
---- a/drivers/infiniband/hw/mlx5/main.c
-+++ b/drivers/infiniband/hw/mlx5/main.c
-@@ -46,8 +46,8 @@
- #include "mlx5_ib.h"
++	tunnel->dst_cache = alloc_percpu(struct ip_tunnel_dst);
++	if (!tunnel->dst_cache) {
++		free_percpu(dev->tstats);
++		return -ENOMEM;
++	}
++
+ 	return 0;
+ }
  
- #define DRIVER_NAME "mlx5_ib"
--#define DRIVER_VERSION "1.0"
--#define DRIVER_RELDATE	"June 2013"
-+#define DRIVER_VERSION "2.2-1"
-+#define DRIVER_RELDATE	"Feb 2014"
- 
- MODULE_AUTHOR("Eli Cohen <eli@mellanox.com>");
- MODULE_DESCRIPTION("Mellanox Connect-IB HCA IB driver");
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index 6b65f77..7aec6c8 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -51,8 +51,8 @@
- 
- #define DRV_NAME	"mlx4_core"
- #define PFX		DRV_NAME ": "
--#define DRV_VERSION	"1.1"
--#define DRV_RELDATE	"Dec, 2011"
-+#define DRV_VERSION	"2.2-1"
-+#define DRV_RELDATE	"Feb, 2014"
- 
- #define MLX4_FS_UDP_UC_EN		(1 << 1)
- #define MLX4_FS_TCP_UC_EN		(1 << 2)
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 9ca223b..b57e8c8 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -57,8 +57,8 @@
- #include "en_port.h"
- 
- #define DRV_NAME	"mlx4_en"
--#define DRV_VERSION	"2.0"
--#define DRV_RELDATE	"Dec 2011"
-+#define DRV_VERSION	"2.2-1"
-+#define DRV_RELDATE	"Feb 2014"
- 
- #define MLX4_EN_MSG_LEVEL	(NETIF_MSG_LINK | NETIF_MSG_IFDOWN)
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index a064f06..23b7e2d 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -46,8 +46,8 @@
- #include "mlx5_core.h"
- 
- #define DRIVER_NAME "mlx5_core"
--#define DRIVER_VERSION "1.0"
--#define DRIVER_RELDATE	"June 2013"
-+#define DRIVER_VERSION "2.2-1"
-+#define DRIVER_RELDATE	"Feb 2014"
- 
- MODULE_AUTHOR("Eli Cohen <eli@mellanox.com>");
- MODULE_DESCRIPTION("Mellanox ConnectX-IB HCA core library");
 -- 
-1.8.3.4
+1.8.5.4
