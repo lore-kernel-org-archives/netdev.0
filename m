@@ -1,115 +1,125 @@
-From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
-Subject: [PATCH net] qeth: postpone freeing of qdio memory
-Date: Wed, 19 Feb 2014 10:14:51 +0100
-Message-ID: <20140219091451.GA17591@tuxmaker.boeblingen.de.ibm.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: [PATCH net-next] xfrm: Correctly parse netlink msg from 32bits ip command on 64bits host
+Date: Wed, 19 Feb 2014 17:12:56 +0800
+Message-ID: <1392801176-2656-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp13.uk.ibm.com ([195.75.94.109]:60017 "EHLO
-	e06smtp13.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752586AbaBSJO5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 04:14:57 -0500
-Received: from /spool/local
-	by e06smtp13.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <blaschka@linux.vnet.ibm.com>;
-	Wed, 19 Feb 2014 09:14:55 -0000
-Content-Disposition: inline
+Received: from mail1.windriver.com ([147.11.146.13]:60534 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751589AbaBSJRH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 04:17:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ursula.braun@de.ibm.com>
+When trying to setup IPsec configuration on a 64bits host with
+iproute2(32bits compiled), the intended xfrm policy and sa is
+either deficit or wrong when kernel trying to parse user land
+information.
 
-To guarantee that a qdio ccw_device no longer touches the
-qdio memory shared with Linux, the qdio ccw_device should
-be offline when freeing the qdio memory. Thus this patch
-postpones freeing of qdio memory.
+Add compat support for 32bits compiled ip command for 64bits host.
 
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
-Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
-Reviewed-by: Sebastian Ott <sebott@linux.vnet.ibm.com>
+Signed-off-by: Fan Du <fan.du@windriver.com>
 ---
- drivers/s390/net/qeth_core_main.c |    3 ++-
- drivers/s390/net/qeth_l2_main.c   |    3 +++
- drivers/s390/net/qeth_l3_main.c   |    3 +++
- 3 files changed, 8 insertions(+), 1 deletion(-)
+ include/uapi/linux/xfrm.h |   44 ++++++++++++++++++++++++++++++++++++++++++++
+ net/xfrm/xfrm_user.c      |   16 +++++++++++++++-
+ 2 files changed, 59 insertions(+), 1 deletion(-)
 
---- a/drivers/s390/net/qeth_core_main.c
-+++ b/drivers/s390/net/qeth_core_main.c
-@@ -1660,7 +1660,6 @@ int qeth_qdio_clear_card(struct qeth_car
- 				QDIO_FLAG_CLEANUP_USING_CLEAR);
- 		if (rc)
- 			QETH_CARD_TEXT_(card, 3, "1err%d", rc);
--		qdio_free(CARD_DDEV(card));
- 		atomic_set(&card->qdio.state, QETH_QDIO_ALLOCATED);
- 		break;
- 	case QETH_QDIO_CLEANING:
-@@ -2605,6 +2604,7 @@ static int qeth_mpc_initialize(struct qe
- 	return 0;
- out_qdio:
- 	qeth_qdio_clear_card(card, card->info.type != QETH_CARD_TYPE_IQD);
-+	qdio_free(CARD_DDEV(card));
- 	return rc;
- }
+diff --git a/include/uapi/linux/xfrm.h b/include/uapi/linux/xfrm.h
+index a8cd6a4..8d2fa8d 100644
+--- a/include/uapi/linux/xfrm.h
++++ b/include/uapi/linux/xfrm.h
+@@ -506,4 +506,48 @@ enum xfrm_nlgroups {
+ };
+ #define XFRMNLGRP_MAX	(__XFRMNLGRP_MAX - 1)
  
-@@ -4919,6 +4919,7 @@ retry:
- 	if (rc)
- 		goto retriable;
- 	rc = qeth_qdio_clear_card(card, card->info.type != QETH_CARD_TYPE_IQD);
-+	qdio_free(CARD_DDEV(card));
- retriable:
- 	if (rc == -ERESTARTSYS) {
- 		QETH_DBF_TEXT(SETUP, 2, "break1");
---- a/drivers/s390/net/qeth_l2_main.c
-+++ b/drivers/s390/net/qeth_l2_main.c
-@@ -1091,6 +1091,7 @@ out_remove:
- 	ccw_device_set_offline(CARD_DDEV(card));
- 	ccw_device_set_offline(CARD_WDEV(card));
- 	ccw_device_set_offline(CARD_RDEV(card));
-+	qdio_free(CARD_DDEV(card));
- 	if (recover_flag == CARD_STATE_RECOVER)
- 		card->state = CARD_STATE_RECOVER;
- 	else
-@@ -1132,6 +1133,7 @@ static int __qeth_l2_set_offline(struct
- 		rc = (rc2) ? rc2 : rc3;
- 	if (rc)
- 		QETH_DBF_TEXT_(SETUP, 2, "1err%d", rc);
-+	qdio_free(CARD_DDEV(card));
- 	if (recover_flag == CARD_STATE_UP)
- 		card->state = CARD_STATE_RECOVER;
- 	/* let user_space know that device is offline */
-@@ -1194,6 +1196,7 @@ static void qeth_l2_shutdown(struct ccwg
- 		qeth_hw_trap(card, QETH_DIAGS_TRAP_DISARM);
- 	qeth_qdio_clear_card(card, 0);
- 	qeth_clear_qdio_buffers(card);
-+	qdio_free(CARD_DDEV(card));
- }
++#ifdef CONFIG_COMPAT
++
++struct compat_xfrm_userpolicy_info {
++	struct xfrm_selector		sel;
++	struct xfrm_lifetime_cfg	lft;
++	struct xfrm_lifetime_cur	curlft;
++	__u32				priority;
++	__u32				index;
++	__u8				dir;
++	__u8				action;
++#define XFRM_POLICY_ALLOW	0
++#define XFRM_POLICY_BLOCK	1
++	__u8				flags;
++#define XFRM_POLICY_LOCALOK	1	/* Allow user to override global policy */
++	/* Automatically expand selector to include matching ICMP payloads. */
++#define XFRM_POLICY_ICMP	2
++	__u8				share;
++} __attribute__((packed));
++
++struct compat_xfrm_usersa_info {
++	struct xfrm_selector		sel;
++	struct xfrm_id			id;
++	xfrm_address_t			saddr;
++	struct xfrm_lifetime_cfg	lft;
++	struct xfrm_lifetime_cur	curlft;
++	struct xfrm_stats		stats;
++	__u32				seq;
++	__u32				reqid;
++	__u16				family;
++	__u8				mode;		/* XFRM_MODE_xxx */
++	__u8				replay_window;
++	__u8				flags;
++#define XFRM_STATE_NOECN	1
++#define XFRM_STATE_DECAP_DSCP	2
++#define XFRM_STATE_NOPMTUDISC	4
++#define XFRM_STATE_WILDRECV	8
++#define XFRM_STATE_ICMP		16
++#define XFRM_STATE_AF_UNSPEC	32
++#define XFRM_STATE_ALIGN4	64
++#define XFRM_STATE_ESN		128
++} __attribute__((packed));
++
++#endif
++
+ #endif /* _LINUX_XFRM_H */
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 1ae3ec7..8bfbd95 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -2281,6 +2281,12 @@ static const int xfrm_msg_min[XFRM_NR_MSGTYPES] = {
+ 	[XFRM_MSG_GETSPDINFO  - XFRM_MSG_BASE] = sizeof(u32),
+ };
  
- static int qeth_l2_pm_suspend(struct ccwgroup_device *gdev)
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -3447,6 +3447,7 @@ out_remove:
- 	ccw_device_set_offline(CARD_DDEV(card));
- 	ccw_device_set_offline(CARD_WDEV(card));
- 	ccw_device_set_offline(CARD_RDEV(card));
-+	qdio_free(CARD_DDEV(card));
- 	if (recover_flag == CARD_STATE_RECOVER)
- 		card->state = CARD_STATE_RECOVER;
- 	else
-@@ -3493,6 +3494,7 @@ static int __qeth_l3_set_offline(struct
- 		rc = (rc2) ? rc2 : rc3;
- 	if (rc)
- 		QETH_DBF_TEXT_(SETUP, 2, "1err%d", rc);
-+	qdio_free(CARD_DDEV(card));
- 	if (recover_flag == CARD_STATE_UP)
- 		card->state = CARD_STATE_RECOVER;
- 	/* let user_space know that device is offline */
-@@ -3545,6 +3547,7 @@ static void qeth_l3_shutdown(struct ccwg
- 		qeth_hw_trap(card, QETH_DIAGS_TRAP_DISARM);
- 	qeth_qdio_clear_card(card, 0);
- 	qeth_clear_qdio_buffers(card);
-+	qdio_free(CARD_DDEV(card));
- }
++static const int compat_xfrm_msg_min[XFRM_NR_MSGTYPES] = {
++	[XFRM_MSG_NEWSA       - XFRM_MSG_BASE] = XMSGSIZE(compat_xfrm_usersa_info),
++	[XFRM_MSG_NEWPOLICY   - XFRM_MSG_BASE] = XMSGSIZE(compat_xfrm_userpolicy_info),
++	[XFRM_MSG_UPDPOLICY   - XFRM_MSG_BASE] = XMSGSIZE(compat_xfrm_userpolicy_info),
++};
++
+ #undef XMSGSIZE
  
- static int qeth_l3_pm_suspend(struct ccwgroup_device *gdev)
+ static const struct nla_policy xfrma_policy[XFRMA_MAX+1] = {
+@@ -2346,6 +2352,7 @@ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	struct nlattr *attrs[XFRMA_MAX+1];
+ 	const struct xfrm_link *link;
+ 	int type, err;
++	int len;
+ 
+ 	type = nlh->nlmsg_type;
+ 	if (type > XFRM_MSG_MAX)
+@@ -2373,7 +2380,14 @@ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		}
+ 	}
+ 
+-	err = nlmsg_parse(nlh, xfrm_msg_min[type], attrs, XFRMA_MAX,
++#ifdef CONFIG_COMPAT
++	if (is_compat_task())
++		len = compat_xfrm_msg_min[type];
++	else
++#endif
++		len = xfrm_msg_min[type];
++
++	err = nlmsg_parse(nlh, len, attrs, XFRMA_MAX,
+ 			  xfrma_policy);
+ 	if (err < 0)
+ 		return err;
+-- 
+1.7.9.5
