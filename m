@@ -1,42 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] net: tcp: RTO restart
-Date: Wed, 19 Feb 2014 10:01:47 -0800
-Message-ID: <1392832907.18849.10.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140218181205.GA7780@kau.se>
-	 <50334B08-CD60-4C4C-9556-ACC758F75D7E@simula.no>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/6] Netfilter fixes for net
+Date: Wed, 19 Feb 2014 13:16:33 -0500 (EST)
+Message-ID: <20140219.131633.393853748123176532.davem@davemloft.net>
+References: <1392810102-13877-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Per Hurtig <per.hurtig@kau.se>, netdev@vger.kernel.org,
-	davem@davemloft.net, edumazet@google.com,
-	Anna =?ISO-8859-1?Q?Brunstr=F6m?= <anna.brunstrom@kau.se>,
-	Michael Welzl <michawe@ifi.uio.no>, ilpo.jarvinen@helsinki.fi
-To: Andreas Petlund <apetlund@simula.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:52487 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754458AbaBSSBt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 13:01:49 -0500
-Received: by mail-pa0-f51.google.com with SMTP id ld10so724284pab.38
-        for <netdev@vger.kernel.org>; Wed, 19 Feb 2014 10:01:48 -0800 (PST)
-In-Reply-To: <50334B08-CD60-4C4C-9556-ACC758F75D7E@simula.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1392810102-13877-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-02-19 at 18:17 +0100, Andreas Petlund wrote:
-> I=E2=80=99ve applied and tested the patch on VMs with both 32 bit and=
- 64 bit kernel.
->=20
-> Acked-by: Andreas Petlund <apetlund@simula.no>
-> Tested-by: Andreas Petlund <apetlund@simula.no>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Wed, 19 Feb 2014 12:41:36 +0100
 
-Sure the patch applies, but what experimental results did you get ?
+> The following patchset contains Netfilter fixes for your net tree,
+> they are:
+> 
+> * Fix nf_trace in nftables if XT_TRACE=n, from Florian Westphal.
+> 
+> * Don't use the fast payload operation in nf_tables if the length is
+>   not power of 2 or it is not aligned, from Nikolay Aleksandrov.
+> 
+> * Fix missing break statement the inet flavour of nft_reject, which
+>   results in evaluating IPv4 packets with the IPv6 evaluation routine,
+>   from Patrick McHardy.
+> 
+> * Fix wrong kconfig symbol in nft_meta to match the routing realm,
+>   from Paul Bolle.
+> 
+> * Allocate the NAT null binding when creating new conntracks via
+>   ctnetlink to avoid that several packets race at initializing the
+>   the conntrack NAT extension, original patch from Florian Westphal,
+>   revisited version from me.
+> 
+> * Fix DNAT handling in the snmp NAT helper, the same handling was being
+>   done for SNAT and DNAT and 2.4 already contains that fix, from
+>   Francois-Xavier Le Bail.
+> 
+> You can pull these changes from:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
 
-My concern is that TCP_SKB_CB(skb)->when doesn't account for sojourn
-time in host queues (qdisc and device).=20
-
-Note : Missing documentation for this new sysctl.
-
-This patch certainly cannot be applied as is.
-
-Thanks !
+Pulled, thanks a lot Pablo.
