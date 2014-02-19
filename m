@@ -1,26 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] of_mdio: fix phy interrupt passing
-Date: Wed, 19 Feb 2014 12:54:32 -0500 (EST)
-Message-ID: <20140219.125432.903199758409719335.davem@davemloft.net>
-References: <20140218161551.44A52C40517@trevor.secretlab.ca>
-	<20140218.181317.1712776234149210938.davem@davemloft.net>
-	<5304B14B.2070402@cogentembedded.com>
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: Re: [Xen-devel] [RFC v2 1/4] bridge: enable interfaces to
+ opt out from becoming the root bridge
+Date: Wed, 19 Feb 2014 09:59:33 -0800
+Message-ID: <CAB=NE6UAqoiFAJdckE1d7cgMZnU6_=8X+N=tSc6qH2bgH08M7Q@mail.gmail.com>
+References: <1392433180-16052-1-git-send-email-mcgrof@do-not-panic.com>
+	<1392433180-16052-2-git-send-email-mcgrof@do-not-panic.com>
+	<20140216105754.63738163@nehalam.linuxnetplumber.net>
+	<CAB=NE6WwbOXNLO_Mn42i7y62pEsmDOWd35B621eiJk4iaE3Hfg@mail.gmail.com>
+	<1392803559.23084.99.camel@kazak.uk.xensource.com>
+	<5304C13F.3030802@citrix.com>
+	<CAB=NE6X6Vuo3iib0W-c5cxv0QBpnZtCC0sFyuULugQoEZAbRtg@mail.gmail.com>
+	<20140219090855.610c0e04@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: grant.likely@linaro.org, ben.dooks@codethink.co.uk,
-	linux-kernel@lists.codethink.co.uk, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5304B14B.2070402@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Ian Campbell <Ian.Campbell@citrix.com>, kvm@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	bridge@lists.linux-foundation.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>, xen-devel@lists.xenproject.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140219090855.610c0e04@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Wed, 19 Feb 2014 17:27:39 +0400
+On Wed, Feb 19, 2014 at 9:08 AM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> On Wed, 19 Feb 2014 09:02:06 -0800
+> "Luis R. Rodriguez" <mcgrof@do-not-panic.com> wrote:
+>
+>> Folks, what if I repurpose my patch to use the IFF_BRIDGE_NON_ROOT (or
+>> relabel to IFF_ROOT_BLOCK_DEF) flag for a default driver preference
+>> upon initialization so that root block will be used once the device
+>> gets added to a bridge. The purpose would be to avoid drivers from
+>> using the high MAC address hack, streamline to use a random MAC
+>> address thereby avoiding the possible duplicate address situation for
+>> IPv6. In the STP use case for these interfaces we'd just require
+>> userspace to unset the root block. I'd consider the STP use case the
+>> most odd of all. The caveat to this approach is 3.8 would be needed
+>> (or its the root block patches cherry picked) for base kernels older
+>> than 3.8.
+>>
+>> Stephen?
+>>
+>>   Luis
+>
+> Don't add IFF_ flags that adds yet another API hook into bridge.
 
->    So, you decided to ignore my comment about unneeded *else* branch?
+The goal was not to add a userspace API, but rather consider a driver
+initialization preference.
 
-Not ignored, just figured that a follow-up patch could fix it.
+> Please only use the netlink/sysfs flags fields that already exist
+> for new features.
+
+Sure, but what if we know a driver in most cases wants the root block
+and we'd want to make it the default, thereby only requiring userspace
+for toggling it off.
+
+  Luis
