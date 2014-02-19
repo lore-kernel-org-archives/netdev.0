@@ -1,56 +1,46 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH net] xen-netfront: reset skb network header before checksum
-Date: Wed, 19 Feb 2014 18:48:34 +0000
-Message-ID: <1392835714-26480-1-git-send-email-wei.liu2@citrix.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH -next] net: tcp: add mib counters to track zero window
+ transitions
+Date: Wed, 19 Feb 2014 10:49:47 -0800
+Message-ID: <1392835787.18849.11.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1392674268-26005-1-git-send-email-fw@strlen.de>
+	 <20140219.131708.562226572566677127.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux@eikelenboom.it>, Wei Liu <wei.liu2@citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Paul Durrant <paul.durrant@citrix.com>
-To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: fw@strlen.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:64209 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754395AbaBSSsj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 13:48:39 -0500
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:40502 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754121AbaBSStt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 13:49:49 -0500
+Received: by mail-pd0-f169.google.com with SMTP id v10so740522pde.0
+        for <netdev@vger.kernel.org>; Wed, 19 Feb 2014 10:49:48 -0800 (PST)
+In-Reply-To: <20140219.131708.562226572566677127.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In ed1f50c3a ("net: add skb_checksum_setup") we introduced some checksum
-functions in core driver. Subsequent change b5cf66cd1 ("xen-netfront:
-use new skb_checksum_setup function") made use of those functions to
-replace its own implementation.
+On Wed, 2014-02-19 at 13:17 -0500, David Miller wrote:
+> From: Florian Westphal <fw@strlen.de>
+> Date: Mon, 17 Feb 2014 22:57:48 +0100
+> 
+> > Three counters are added:
+> > - one to track when we went from non-zero to zero window
+> > - one to track the reverse
+> > - one counter incremented when we want to announce zero window.
+> > 
+> > The latter is added because it can show cases where we want to close the
+> > window but can't because we would shrink window.
+> > 
+> > Suggested-by: Eric Dumazet <edumazet@google.com>
+> > Signed-off-by: Florian Westphal <fw@strlen.de>
+> > ---
+> >  Eric, is this what you had in mind?
+> > 
+> >  I re-ran my 'slow-sender-with-reader-that-does-not-drain-socket'
+> >  scenario and, as expected, only TCPWANTZEROWINDOW increases.
+> 
+> Eric, ping?
 
-However with that change netfront is broken. It sees a lot of checksum
-error. That's because its own implementation of checksum function was a
-bit hacky (dereferencing skb->data directly) while the new function was
-implemented using ip_hdr(). The network header is not reset before skb
-is passed to the new function. When the new function tries to do its
-job, it's confused and reports error.
-
-The fix is simple, we need to reset network header before passing skb to
-checksum function. Netback is not affected as it already does the right
-thing.
-
-Reported-by: Sander Eikelenboom <linux@eikelenboom.it>
-Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Cc: Paul Durrant <paul.durrant@citrix.com>
----
- drivers/net/xen-netfront.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index ff04d4f..95041b6 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -907,6 +907,7 @@ static int handle_incoming_queue(struct net_device *dev,
- 
- 		/* Ethernet work: Delayed to here as it peeks the header. */
- 		skb->protocol = eth_type_trans(skb, dev);
-+		skb_reset_network_header(skb);
- 
- 		if (checksum_setup(dev, skb)) {
- 			kfree_skb(skb);
--- 
-1.7.10.4
+Thanks, I missed this patch. Let me think about it, thanks !
