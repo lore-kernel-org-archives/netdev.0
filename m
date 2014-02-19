@@ -1,47 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6] Netfilter fixes for net
-Date: Wed, 19 Feb 2014 13:16:33 -0500 (EST)
-Message-ID: <20140219.131633.393853748123176532.davem@davemloft.net>
-References: <1392810102-13877-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH -next] net: tcp: add mib counters to track zero window
+ transitions
+Date: Wed, 19 Feb 2014 13:17:08 -0500 (EST)
+Message-ID: <20140219.131708.562226572566677127.davem@davemloft.net>
+References: <1392674268-26005-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1392810102-13877-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45755 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754127AbaBSSRK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 13:17:10 -0500
+In-Reply-To: <1392674268-26005-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Wed, 19 Feb 2014 12:41:36 +0100
+From: Florian Westphal <fw@strlen.de>
+Date: Mon, 17 Feb 2014 22:57:48 +0100
 
-> The following patchset contains Netfilter fixes for your net tree,
-> they are:
+> Three counters are added:
+> - one to track when we went from non-zero to zero window
+> - one to track the reverse
+> - one counter incremented when we want to announce zero window.
 > 
-> * Fix nf_trace in nftables if XT_TRACE=n, from Florian Westphal.
+> The latter is added because it can show cases where we want to close the
+> window but can't because we would shrink window.
 > 
-> * Don't use the fast payload operation in nf_tables if the length is
->   not power of 2 or it is not aligned, from Nikolay Aleksandrov.
+> Suggested-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> ---
+>  Eric, is this what you had in mind?
 > 
-> * Fix missing break statement the inet flavour of nft_reject, which
->   results in evaluating IPv4 packets with the IPv6 evaluation routine,
->   from Patrick McHardy.
-> 
-> * Fix wrong kconfig symbol in nft_meta to match the routing realm,
->   from Paul Bolle.
-> 
-> * Allocate the NAT null binding when creating new conntracks via
->   ctnetlink to avoid that several packets race at initializing the
->   the conntrack NAT extension, original patch from Florian Westphal,
->   revisited version from me.
-> 
-> * Fix DNAT handling in the snmp NAT helper, the same handling was being
->   done for SNAT and DNAT and 2.4 already contains that fix, from
->   Francois-Xavier Le Bail.
-> 
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
+>  I re-ran my 'slow-sender-with-reader-that-does-not-drain-socket'
+>  scenario and, as expected, only TCPWANTZEROWINDOW increases.
 
-Pulled, thanks a lot Pablo.
+Eric, ping?
