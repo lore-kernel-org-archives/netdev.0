@@ -1,83 +1,47 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: [sctp] ef2820a735: -50% netperf Throughput_Mbps
-Date: Wed, 19 Feb 2014 21:20:34 +0800
-Message-ID: <20140219132034.GC8704@localhost>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: [PATCH net-next 0/5] Device reset and reconfig fixes
+Date: Wed, 19 Feb 2014 15:22:13 +0200
+Message-ID: <1392816138-31645-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from va3ehsobe001.messaging.microsoft.com ([216.32.180.11]:39974
+	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753483AbaBSNWt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 08:22:49 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Matija,
+These patches end up fixing some notable device reset & reconfig
+related problems.  One issue is on-the-fly (Rx/Tx on) programming
+of interrupt coalescing (IC) registers on the processing path,
+against HW recommendation.  This is an old issue that became visible
+after BQL introduction, as under certain conditions (low traffic)
+one TX interrupt gets lost and BQL fires Tx timeout as a result.
+Another notable issue is a race on the Tx path (xmit, clean_tx)
+during device reset (i.e. during Tx timeout watchdog firing)
+that leads to NULL access.
+Fixing the problematic on-thy-fly register writes (i.e. the IC regs)
+required the implementation of a MAC soft reset procedure.
+The race leading to NULL access was addressed by fixing the
+stop_gfar()/startup_gfar() pair (disable/enable napi a.s.o.)
+and adding the device state DOWN to sync with the TX path.
 
-We noticed the below changes on commit ef2820a735f74ea60335f8ba3801b844f0cb184d
-(" net: sctp: Fix a_rwnd/rwnd management to reflect real state of the receiver's buffer")
-in netperf SCTP_STREAM tests:
+Thanks.
 
-cd0f0b95fd2cd2b  ef2820a735f74ea60335f8ba3  
----------------  -------------------------  
-         8 ~ 0%     -50.0%          4 ~ 0%  TOTAL netperf.Throughput_Mbps
-     54287 ~44%    +338.1%     237842 ~48%  TOTAL cpuidle.C1E-NHM.time
-  12008353 ~12%     -56.0%    5281848 ~ 0%  TOTAL proc-vmstat.pgalloc_normal
-    114861 ~ 0%     -50.3%      57085 ~ 3%  TOTAL softirqs.NET_RX
-  12964639 ~11%     -55.1%    5818663 ~ 0%  TOTAL proc-vmstat.pgfree
-    866489 ~ 0%     -43.3%     491417 ~ 0%  TOTAL proc-vmstat.pgalloc_dma32
-    119373 ~17%     -39.1%      72661 ~ 1%  TOTAL softirqs.SCHED
-      1985 ~13%     -24.3%       1502 ~19%  TOTAL slabinfo.kmalloc-128.active_objs
-      2139 ~20%     -28.4%       1532 ~ 4%  TOTAL proc-vmstat.nr_alloc_batch
-    124360 ~33%     -31.0%      85748 ~ 2%  TOTAL softirqs.RCU
-      1977 ~ 9%     -18.5%       1610 ~ 9%  TOTAL slabinfo.UDP.active_objs
-      1977 ~ 9%     -18.5%       1610 ~ 9%  TOTAL slabinfo.UDP.num_objs
-      2066 ~ 6%     -12.9%       1800 ~ 7%  TOTAL slabinfo.kmalloc-128.num_objs
-      1738 ~10%     -18.4%       1418 ~ 9%  TOTAL slabinfo.UDPv6.active_objs
-      1738 ~10%     -18.4%       1418 ~ 9%  TOTAL slabinfo.UDPv6.num_objs
-       923 ~10%     -17.7%        760 ~ 8%  TOTAL slabinfo.TCPv6.active_objs
-       923 ~10%     -17.7%        760 ~ 8%  TOTAL slabinfo.TCPv6.num_objs
-       989 ~ 9%     -17.1%        820 ~ 7%  TOTAL slabinfo.TCP.active_objs
-       989 ~ 9%     -17.1%        820 ~ 7%  TOTAL slabinfo.TCP.num_objs
-    398761 ~44%     -32.6%     268792 ~ 3%  TOTAL numa-vmstat.node2.numa_hit
-    389672 ~49%     -32.9%     261443 ~ 3%  TOTAL numa-vmstat.node0.numa_hit
-       447 ~ 1%     -13.8%        385 ~ 0%  TOTAL vmstat.system.cs
+Claudiu Manoil (5):
+  gianfar: Implement MAC reset and reconfig procedure
+  gianfar: Fix on-the-fly vlan and mtu updates
+  gianfar: Don't free/request irqs on device reset
+  gianfar: Fix device reset races (oops) for Tx
+  gianfar: Fix Tx int miss, dont write IC on-the-fly
 
-Note: the "~ XX%" numbers are stddev percent.
+ drivers/net/ethernet/freescale/gianfar.c         | 599 ++++++++++-------------
+ drivers/net/ethernet/freescale/gianfar.h         |  18 +-
+ drivers/net/ethernet/freescale/gianfar_ethtool.c | 104 ++--
+ 3 files changed, 325 insertions(+), 396 deletions(-)
 
-                              netperf.Throughput_Mbps
-
-     4 *+-*--*--*--*-*--*--*--*--*--*--*--*-*--*--*--*--*--*--*--*-*--*--*--*
-       |                                                                    |
-       |                                                                    |
-   3.5 ++                                                                   |
-       |                                                                    |
-       |                                                                    |
-       |                                                                    |
-     3 ++                                                                   |
-       |                                                                    |
-       |                                                                    |
-   2.5 ++                                                                   |
-       |                                                                    |
-       |                                                                    |
-       |                                                                    |
-     2 O+-O--O--O--O-O--O--O--O--O--O--O--O-O--O--O--O--O--O--O-------------+
-
-
-                                 vmstat.system.cs
-
-   460 ++------------------------*--*----------------*----------------------+
-       |       .*..    .*..     :    +              +              *..     .*
-   450 ++    *.     .*.    *..  :     +    .*..*.. +    *..*..*.. +     .*. |
-   440 *+   :      *           :       *..*       *              *    *.    |
-       |:   :                 *                                             |
-   430 ++: :                                                                |
-   420 ++: :                                                                |
-       |  *                                                                 |
-   410 ++                                                                   |
-   400 ++                                                                   |
-       |                                                                    |
-   390 ++            O        O             O     O        O                |
-   380 O+ O  O  O       O  O     O  O  O  O    O     O  O     O             |
-       |           O                                                        |
-   370 ++-------------------------------------------------------------------+
+-- 
+1.7.11.7
