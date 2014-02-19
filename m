@@ -1,110 +1,56 @@
 From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [Xen-devel] [RFC v2 1/4] bridge: enable interfaces to
- opt out from becoming the root bridge
-Date: Wed, 19 Feb 2014 09:52:39 +0000
-Message-ID: <1392803559.23084.99.camel@kazak.uk.xensource.com>
-References: <1392433180-16052-1-git-send-email-mcgrof@do-not-panic.com>
-	<1392433180-16052-2-git-send-email-mcgrof@do-not-panic.com>
-	<20140216105754.63738163@nehalam.linuxnetplumber.net>
-	<CAB=NE6WwbOXNLO_Mn42i7y62pEsmDOWd35B621eiJk4iaE3Hfg@mail.gmail.com>
+Subject: Re: [Xen-devel] [PATCH net-next v5 2/9] xen-netback: Change TX path
+ from grant copy to mapping
+Date: Wed, 19 Feb 2014 09:54:30 +0000
+Message-ID: <1392803670.23084.100.camel@kazak.uk.xensource.com>
+References: <1390253069-25507-1-git-send-email-zoltan.kiss@citrix.com>
+		<1390253069-25507-3-git-send-email-zoltan.kiss@citrix.com>
+	 <1392745235.23084.60.camel@kazak.uk.xensource.com>
+	 <5303AA97.3010202@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	bridge@lists.linux-foundation.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	xen-devel@lists.xenproject.org
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAB=NE6WwbOXNLO_Mn42i7y62pEsmDOWd35B621eiJk4iaE3Hfg@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <jonathan.davies@citrix.com>,
+	<wei.liu2@citrix.com>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: David Vrabel <david.vrabel@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5303AA97.3010202@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-02-18 at 13:02 -0800, Luis R. Rodriguez wrote:
-> On Sun, Feb 16, 2014 at 10:57 AM, Stephen Hemminger
-> <stephen@networkplumber.org> wrote:
-> > On Fri, 14 Feb 2014 18:59:37 -0800
-> > "Luis R. Rodriguez" <mcgrof@do-not-panic.com> wrote:
-> >
-> >> From: "Luis R. Rodriguez" <mcgrof@suse.com>
-> >>
-> >> It doesn't make sense for some interfaces to become a root bridge
-> >> at any point in time. One example is virtual backend interfaces
-> >> which rely on other entities on the bridge for actual physical
-> >> connectivity. They only provide virtual access.
-> >>
-> >> Device drivers that know they should never become part of the
-> >> root bridge have been using a trick of setting their MAC address
-> >> to a high broadcast MAC address such as FE:FF:FF:FF:FF:FF. Instead
-> >> of using these hacks lets the interfaces annotate its intent and
-> >> generalizes a solution for multiple drivers, while letting the
-> >> drivers use a random MAC address or one prefixed with a proper OUI.
-> >> This sort of hack is used by both qemu and xen for their backend
-> >> interfaces.
-> >>
-> >> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> >> Cc: bridge@lists.linux-foundation.org
-> >> Cc: netdev@vger.kernel.org
-> >> Cc: linux-kernel@vger.kernel.org
-> >> Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
-> >
-> > This is already supported in a more standard way via the root
-> > block flag.
+On Tue, 2014-02-18 at 18:46 +0000, David Vrabel wrote:
+> On 18/02/14 17:40, Ian Campbell wrote:
+> > On Mon, 2014-01-20 at 21:24 +0000, Zoltan Kiss wrote:
+> >> 
+> >> @@ -344,8 +346,26 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+> >>  	vif->pending_prod = MAX_PENDING_REQS;
+> >>  	for (i = 0; i < MAX_PENDING_REQS; i++)
+> >>  		vif->pending_ring[i] = i;
+> >> -	for (i = 0; i < MAX_PENDING_REQS; i++)
+> >> -		vif->mmap_pages[i] = NULL;
+> >> +	spin_lock_init(&vif->dealloc_lock);
+> >> +	spin_lock_init(&vif->response_lock);
+> >> +	/* If ballooning is disabled, this will consume real memory, so you
+> >> +	 * better enable it.
+> > 
+> > Almost no one who would be affected by this is going to read this
+> > comment. And it doesn't just require enabling ballooning, but actually
+> > booting with some maxmem "slack" to leave space.
+> > 
+> > Classic-xen kernels used to add 8M of slop to the physical address space
+> > to leave a suitable pool for exactly this sort of thing. I never liked
+> > that but perhaps it should be reconsidered (or at least raised as a
+> > possibility with the core-Xen Linux guys).
 > 
-> Great! For documentation purposes the root_block flag is a sysfs
-> attribute, added via 3.8 through commit 1007dd1a. The respective
-> interface flag is IFLA_BRPORT_PROTECT and can be set via the iproute2
-> bridge utility or through sysfs:
-> 
-> mcgrof@garbanzo ~/linux (git::master)$ find /sys/ -name root_block
-> /sys/devices/pci0000:00/0000:00:04.0/0000:02:00.0/net/eth0/brport/root_block
-> /sys/devices/vif-3-0/net/vif3.0/brport/root_block
-> /sys/devices/virtual/net/vif3.0-emu/brport/root_block
-> 
-> mcgrof@garbanzo ~/devel/iproute2 (git::master)$ cat
-> /sys/devices/vif-3-0/net/vif3.0/brport/root_block
-> 0
-> mcgrof@garbanzo ~/devel/iproute2 (git::master)$ sudo bridge link set
-> dev vif3.0 root_block on
-> mcgrof@garbanzo ~/devel/iproute2 (git::master)$ cat
-> /sys/devices/vif-3-0/net/vif3.0/brport/root_block
-> 1
-> 
-> So if we'd want to avoid using the MAC address hack alternative to
-> skip a root port userspace would need to be updated to simply set this
-> attribute after adding the device to the bridge. Based on Zoltan's
-> feedback there seems to be use cases to not enable this always for all
-> xen-netback interfaces though as such we can just punt this to
-> userspace for the topologies that require this.
-> 
-> The original motivation for this series was to avoid the IPv6
-> duplicate address incurred by the MAC address hack for avoiding the
-> root bridge. Given that Zoltan also noted a use case whereby IPv4 and
-> IPv6 addresses can be assigned to the backend interfaces we should be
-> able to avoid the duplicate address situation for IPv6 by using a
-> proper random MAC address *once* userspace has been updated also to
-> use IFLA_BRPORT_PROTECT. New userspace can't and won't need to set
-> this flag for older kernels (older than 3.8) as root_block is not
-> implemented on those kernels and the MAC address hack would still be
-> used there. This strategy however does put a requirement on new
-> kernels to use new userspace as otherwise the MAC address workaround
-> would not be in place and root_block would not take effect.
+> I plan to fix the balloon memory hotplug stuff to do the right thing
 
-Can't we arrange things in the Xen hotplug scripts such that if the
-root_block stuff isn't available/doesn't work we fallback to the
-existing fe:ff:ff:ff:ff usage?
+Which is for alloc_xenballoon_pages to hotplug a new empty region,
+rather than inflating the balloon if it doesn't have enough pages to
+satisfy the allocation? Or something else?
 
-That would avoid concerns about forward/backwards compat I think. It
-wouldn't solve the issue you are targeting on old systems, but it also
-doesn't regress them any further.
-
-Ian.
+> (it's almost there -- it just tries to overlap the new memory with
+> existing stuff).
+> 
+> David
