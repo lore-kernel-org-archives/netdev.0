@@ -1,61 +1,80 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [PATCH net] veth: Fix vlan_features so as to be able to use
- stacked vlan interfaces
-Date: Wed, 19 Feb 2014 01:13:57 -0300
-Message-ID: <20140219041357.GB2491@localhost.localdomain>
-References: <1392726009-8083-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+From: poma <pomidorabelisima-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: WARNING: CPU: 0 PID: 0 at net/sched/sch_generic.c:264
+	dev_watchdog+0x276/0x280()
+Date: Wed, 19 Feb 2014 05:37:53 +0100
+Message-ID: <53043521.4060206@gmail.com>
+References: <530332B7.10909@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51110 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751101AbaBSEOQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Feb 2014 23:14:16 -0500
-Content-Disposition: inline
-In-Reply-To: <1392726009-8083-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Mailing-List fedora-kernel <kernel-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>,
+	Josh Boyer <jwboyer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Linux Kernel list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	"Justin M. Forbes" <jforbes-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
+	Intel Corporation <linux.nics-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>
+In-Reply-To: <530332B7.10909-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://admin.fedoraproject.org/mailman/options/kernel>,
+	<mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.fedoraproject.org/pipermail/kernel/>
+List-Post: <mailto:kernel-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>
+List-Help: <mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=help>
+List-Subscribe: <https://admin.fedoraproject.org/mailman/listinfo/kernel>,
+	<mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=subscribe>
+Sender: kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org
+Errors-To: kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 18, 2014 at 09:20:08PM +0900, Toshiaki Makita wrote:
-> Even if we create a stacked vlan interface such as veth0.10.20, it sends
-> single tagged frames (tagged with only vid 10).
-> Because vlan_features of a veth interface has the
-> NETIF_F_HW_VLAN_[CTAG/STAG]_TX bits, veth0.10 also has that feature, so
-> dev_hard_start_xmit(veth0.10) doesn't call __vlan_put_tag() and
-> vlan_dev_hard_start_xmit(veth0.10) overwrites vlan_tci.
-> This prevents us from using a combination of 802.1ad and 802.1Q
-> in containers, etc.
-> 
-> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> ---
->  drivers/net/veth.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-> index 2ec2041..5b37437 100644
-> --- a/drivers/net/veth.c
-> +++ b/drivers/net/veth.c
-> @@ -285,7 +285,8 @@ static void veth_setup(struct net_device *dev)
->  	dev->ethtool_ops = &veth_ethtool_ops;
->  	dev->features |= NETIF_F_LLTX;
->  	dev->features |= VETH_FEATURES;
-> -	dev->vlan_features = dev->features;
-> +	dev->vlan_features = dev->features &
-> +			     ~(NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_STAG_TX);
->  	dev->destructor = veth_dev_free;
->  
->  	dev->hw_features = VETH_FEATURES;
-> -- 
-> 1.8.1.2
-> 
-
-Why that isn't a problem with another software device?
-Although this patch might fix the issue, it seems to me that
-the middle devices shouldn't use the same feature flags.
-I mean, vlan.20 should add the header, then vlan.10 should
-offload the tag to veth.  Otherwise, for any vlan on top of
-veth there will be an unneeded memmove().
-
-fbl
+T24gMTguMDIuMjAxNCAxMToxNSwgcG9tYSB3cm90ZToKPiAKPiBBaG95IQo+IAo+IERlYnVnZ2lu
+ZyBTMyBha2Egc3VzcGVuZCBwcm9kdWNlcyAnV0FSTklOR1MnOgo+IAo+IFN0ZXBzIHRvIFJlcHJv
+ZHVjZToKPiAjIGVjaG8gY29yZSA+IC9zeXMvcG93ZXIvcG1fdGVzdAo+ICMgY2F0IC9zeXMvcG93
+ZXIvcG1fdGVzdAo+IG5vbmUgW2NvcmVdIHByb2Nlc3NvcnMgcGxhdGZvcm0gZGV2aWNlcyBmcmVl
+emVyCj4gIyBlY2hvIG1lbSA+IC9zeXMvcG93ZXIvc3RhdGUKPiBSZXN1bHRzOgo+IC0gZG1lc2ct
+My4xNC4wLTAucmMzLmdpdDAuMS5mYzIxLng4Nl82NCtkZWJ1Zy1wbV90ZXN0LWNvcmUuZGlmZgo+
+ICAgaHR0cHM6Ly9idWd6aWxsYS5yZWRoYXQuY29tL2F0dGFjaG1lbnQuY2dpP2lkPTg2NDQzNgo+
+IAo+IFN0ZXBzIHRvIFJlcHJvZHVjZToKPiAjIGVjaG8gcHJvY2Vzc29ycyA+IC9zeXMvcG93ZXIv
+cG1fdGVzdAo+ICMgY2F0IC9zeXMvcG93ZXIvcG1fdGVzdAo+IG5vbmUgY29yZSBbcHJvY2Vzc29y
+c10gcGxhdGZvcm0gZGV2aWNlcyBmcmVlemVyCj4gIyBlY2hvIG1lbSA+IC9zeXMvcG93ZXIvc3Rh
+dGUKPiBSZXN1bHRzOgo+IC0gZG1lc2ctMy4xNC4wLTAucmMzLmdpdDAuMS5mYzIxLng4Nl82NCtk
+ZWJ1Zy1wbV90ZXN0LXByb2Nlc3NvcnMuZGlmZgo+ICAgaHR0cHM6Ly9idWd6aWxsYS5yZWRoYXQu
+Y29tL2F0dGFjaG1lbnQuY2dpP2lkPTg2NDQzOAo+IAo+IFN0ZXBzIHRvIFJlcHJvZHVjZToKPiAj
+IGVjaG8gcGxhdGZvcm0gPiAvc3lzL3Bvd2VyL3BtX3Rlc3QKPiAjIGNhdCAvc3lzL3Bvd2VyL3Bt
+X3Rlc3QKPiBub25lIGNvcmUgcHJvY2Vzc29ycyBbcGxhdGZvcm1dIGRldmljZXMgZnJlZXplcgo+
+ICMgZWNobyBtZW0gPiAvc3lzL3Bvd2VyL3N0YXRlCj4gUmVzdWx0czoKPiAtIGRtZXNnLTMuMTQu
+MC0wLnJjMy5naXQwLjEuZmMyMS54ODZfNjQrZGVidWctcG1fdGVzdC1wbGF0Zm9ybS5kaWZmCj4g
+ICBodHRwczovL2J1Z3ppbGxhLnJlZGhhdC5jb20vYXR0YWNobWVudC5jZ2k/aWQ9ODY0NDM5Cj4g
+Cj4gUkhCWiAxMDEwNzY0Ogo+ICJbYWJydF0gTkVUREVWIFdBVENIRE9HOiBlbTEgKGUxMDAwZSk6
+IHRyYW5zbWl0IHF1ZXVlIDAgdGltZWQgb3V0Igo+IGh0dHBzOi8vYnVnemlsbGEucmVkaGF0LmNv
+bS9zaG93X2J1Zy5jZ2k/aWQ9MTAxMDc2NAo+IAo+IFRlc3RlZCB3aXRoIFJhd2hpZGUgJ2tlcm5l
+bC1kZWJ1Zy0zLjE0LjAtMC5yYzMuZ2l0MC4xLmZjMjEueDg2XzY0Jwo+IGh0dHA6Ly9rb2ppLmZl
+ZG9yYXByb2plY3Qub3JnL2tvamkvYnVpbGRpbmZvP2J1aWxkSUQ9NDk4NzExCgpBIGNvbXBhcmlz
+b24gb2YgJ1JlYWxUZWsgUlRMLTgxNjkgR0UnICYgJ1N5c0tvbm5lY3QgR0UnCgpEZWJ1Z2dpbmcg
+UzMgLSBjb3JlOgojIGVjaG8gY29yZSA+IC9zeXMvcG93ZXIvcG1fdGVzdAojIGVjaG8gbWVtID4g
+L3N5cy9wb3dlci9zdGF0ZQogIFJUTDgxNjk6Ci0gZG1lc2ctMy4xNC4wLTAucmMzLmdpdDIuMS5m
+YzIxLng4Nl82NC1yODE2OS1wbV90ZXN0LWNvcmUuZGlmZgogIGh0dHBzOi8vYnVnemlsbGEucmVk
+aGF0LmNvbS9hdHRhY2htZW50LmNnaT9pZD04NjQ5NTkKICBTS0dFOgotIGRtZXNnLTMuMTQuMC0w
+LnJjMy5naXQyLjEuZmMyMS54ODZfNjQtc2tnZS1wbV90ZXN0LWNvcmUuZGlmZgogIGh0dHBzOi8v
+YnVnemlsbGEucmVkaGF0LmNvbS9hdHRhY2htZW50LmNnaT9pZD04NjQ5NjAKCkRlYnVnZ2luZyBT
+MyAtIHByb2Nlc3NvcnM6CiMgZWNobyBwcm9jZXNzb3JzID4gL3N5cy9wb3dlci9wbV90ZXN0CiMg
+ZWNobyBtZW0gPiAvc3lzL3Bvd2VyL3N0YXRlCiAgUlRMODE2OToKLSBkbWVzZy0zLjE0LjAtMC5y
+YzMuZ2l0Mi4xLmZjMjEueDg2XzY0LXI4MTY5LXBtX3Rlc3QtcHJvY2Vzc29ycy5kaWZmCiAgaHR0
+cHM6Ly9idWd6aWxsYS5yZWRoYXQuY29tL2F0dGFjaG1lbnQuY2dpP2lkPTg2NDk2MQogIFNLR0U6
+Ci0gZG1lc2ctMy4xNC4wLTAucmMzLmdpdDIuMS5mYzIxLng4Nl82NC1za2dlLXBtX3Rlc3QtcHJv
+Y2Vzc29ycy5kaWZmCiAgaHR0cHM6Ly9idWd6aWxsYS5yZWRoYXQuY29tL2F0dGFjaG1lbnQuY2dp
+P2lkPTg2NDk2MgoKRGVidWdnaW5nIFMzIC0gcGxhdGZvcm06CiMgZWNobyBwbGF0Zm9ybSA+IC9z
+eXMvcG93ZXIvcG1fdGVzdAojIGVjaG8gbWVtID4gL3N5cy9wb3dlci9zdGF0ZQogIFJUTDgxNjk6
+Ci0gZG1lc2ctMy4xNC4wLTAucmMzLmdpdDIuMS5mYzIxLng4Nl82NC1yODE2OS1wbV90ZXN0LXBs
+YXRmb3JtLmRpZmYKICBodHRwczovL2J1Z3ppbGxhLnJlZGhhdC5jb20vYXR0YWNobWVudC5jZ2k/
+aWQ9ODY0OTYzCiAgU0tHRToKLSBkbWVzZy0zLjE0LjAtMC5yYzMuZ2l0Mi4xLmZjMjEueDg2XzY0
+LXNrZ2UtcG1fdGVzdC1wbGF0Zm9ybS5kaWZmCiAgaHR0cHM6Ly9idWd6aWxsYS5yZWRoYXQuY29t
+L2F0dGFjaG1lbnQuY2dpP2lkPTg2NDk2NAoKUkhCWgpodHRwczovL2J1Z3ppbGxhLnJlZGhhdC5j
+b20vc2hvd19idWcuY2dpP2lkPTEwMTA3NjQKClRlc3RlZCB3aXRoIFJhd2hpZGUgJyBrZXJuZWwt
+My4xNC4wLTAucmMzLmdpdDIuMS5mYzIxLng4Nl82NCcKaHR0cDovL2tvamkuZmVkb3JhcHJvamVj
+dC5vcmcva29qaS9idWlsZGluZm8/YnVpbGRJRD00OTkwNjEKCgpwb21hCgpfX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwprZXJuZWwgbWFpbGluZyBsaXN0Cmtl
+cm5lbEBsaXN0cy5mZWRvcmFwcm9qZWN0Lm9yZwpodHRwczovL2FkbWluLmZlZG9yYXByb2plY3Qu
+b3JnL21haWxtYW4vbGlzdGluZm8va2VybmVs
