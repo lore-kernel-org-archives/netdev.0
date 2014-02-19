@@ -1,46 +1,29 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: Re: [Xen-devel] [RFC v2 0/4] net: bridge / ip optimizations for
- virtual net backends
-Date: Wed, 19 Feb 2014 09:10:03 -0800
-Message-ID: <CAB=NE6Wp+qypMkjkXc9QjnnLRjkS_PRMQLbj0QGnR8KTTaL5oA@mail.gmail.com>
-References: <1392433180-16052-1-git-send-email-mcgrof@do-not-panic.com>
- <5301E411.5060908@citrix.com> <CAB=NE6VxNByeWGk6_Ow7WgxA3HCwGBjrjL9MNVRGsEfFyeKTdw@mail.gmail.com>
- <1392803304.23084.95.camel@kazak.uk.xensource.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] sit: fix panic with route cache in ip tunnels
+Date: Wed, 19 Feb 2014 09:10:35 -0800
+Message-ID: <1392829835.18849.5.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1392826532-19282-1-git-send-email-nicolas.dichtel@6wind.com>
+	 <1392828209.18849.4.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5304E0BE.3020900@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Vrabel <david.vrabel@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	kvm@vger.kernel.org, xen-devel@lists.xenproject.org
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1392803304.23084.95.camel@kazak.uk.xensource.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Tom Herbert <therbert@google.com>
+To: nicolas.dichtel@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:58531 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754222AbaBSRKi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 12:10:38 -0500
+Received: by mail-pd0-f169.google.com with SMTP id v10so631203pde.0
+        for <netdev@vger.kernel.org>; Wed, 19 Feb 2014 09:10:38 -0800 (PST)
+In-Reply-To: <5304E0BE.3020900@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 19, 2014 at 1:48 AM, Ian Campbell <Ian.Campbell@citrix.com> wrote:
-> On Tue, 2014-02-18 at 11:43 -0800, Luis R. Rodriguez wrote:
->>
->> New motivation: removing IPv4 and IPv6 from the backend interfaces can
->> save up a lot of boiler plate run time code, triggers from ever taking
->> place, and simplifying the backend interaces. If there is no use for
->> IPv4 and IPv6 interfaces why do we have them? Note: I have yet to test
->> the NAT case.
->
-> I think you need to do that test that before you can unequivocally state
-> that there is no use for IPv4/6 interfaces here.
+On Wed, 2014-02-19 at 17:50 +0100, Nicolas Dichtel wrote:
 
-Agreed but note that Zoltan stated that in the routing case IPv4 or
-IPv6 addresses can be used on the backends, so that already rules that
-out. Unless of course we want to enable this by default (for
-simplicity) and have userpace poke to get out IPv4 / IPv6 if by
-default no interfaces were enabled. Even though backend interfaces
-would stand to gain on the average situation from this simplicity I
-don't think the userspace requirements are worth it. Someone with
-hundreds of guests (that don't do routing on the backend as clarified
-by Zoltan) may want to test my patch though to see if there's any
-reasonable cuts on getting these guests up and running.
+> Yes, it's why I ask David to drop it ;-)
 
-Anyone itching for the above?
-
-  Luis
+Yep, your mail reached my box after my answer ;)
