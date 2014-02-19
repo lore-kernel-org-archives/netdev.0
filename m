@@ -1,100 +1,83 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V1 3/3] net/mlx4: Fix limiting number of IRQ's instead of RSS queues
-Date: Wed, 19 Feb 2014 14:58:04 +0200
-Message-ID: <1392814684-2129-4-git-send-email-amirv@mellanox.com>
-References: <1392814684-2129-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>,
-	Yuval Mintz <yuvalmin@broadcom.com>,
-	Amir Vadai <amirv@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:40934 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753407AbaBSM62 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Feb 2014 07:58:28 -0500
-In-Reply-To: <1392814684-2129-1-git-send-email-amirv@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Fengguang Wu <fengguang.wu@intel.com>
+Subject: [sctp] ef2820a735: -50% netperf Throughput_Mbps
+Date: Wed, 19 Feb 2014 21:20:34 +0800
+Message-ID: <20140219132034.GC8704@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ido Shamay <idos@mellanox.com>
+Hi Matija,
 
-This fix a performance bug introduced by commit 90b1ebe "mlx4: set
-maximal number of default RSS queues", which limits the numbers of IRQs
-opened by core module.
-The limit should be on the number of queues in the indirection table -
-rx_rings, and not on the number of IRQ's. Also, limiting on mlx4_core
-initialization instead of in mlx4_en, prevented using "ethtool -L" to
-utilize all the CPU's, when performance mode is prefered, since limiting
-this number to 8 reduces overall packet rate by 15%-50% in multiple TCP
-streams applications.
+We noticed the below changes on commit ef2820a735f74ea60335f8ba3801b844f0cb184d
+(" net: sctp: Fix a_rwnd/rwnd management to reflect real state of the receiver's buffer")
+in netperf SCTP_STREAM tests:
 
-For example, after running ethtool -L <ethx> rx 16
+cd0f0b95fd2cd2b  ef2820a735f74ea60335f8ba3  
+---------------  -------------------------  
+         8 ~ 0%     -50.0%          4 ~ 0%  TOTAL netperf.Throughput_Mbps
+     54287 ~44%    +338.1%     237842 ~48%  TOTAL cpuidle.C1E-NHM.time
+  12008353 ~12%     -56.0%    5281848 ~ 0%  TOTAL proc-vmstat.pgalloc_normal
+    114861 ~ 0%     -50.3%      57085 ~ 3%  TOTAL softirqs.NET_RX
+  12964639 ~11%     -55.1%    5818663 ~ 0%  TOTAL proc-vmstat.pgfree
+    866489 ~ 0%     -43.3%     491417 ~ 0%  TOTAL proc-vmstat.pgalloc_dma32
+    119373 ~17%     -39.1%      72661 ~ 1%  TOTAL softirqs.SCHED
+      1985 ~13%     -24.3%       1502 ~19%  TOTAL slabinfo.kmalloc-128.active_objs
+      2139 ~20%     -28.4%       1532 ~ 4%  TOTAL proc-vmstat.nr_alloc_batch
+    124360 ~33%     -31.0%      85748 ~ 2%  TOTAL softirqs.RCU
+      1977 ~ 9%     -18.5%       1610 ~ 9%  TOTAL slabinfo.UDP.active_objs
+      1977 ~ 9%     -18.5%       1610 ~ 9%  TOTAL slabinfo.UDP.num_objs
+      2066 ~ 6%     -12.9%       1800 ~ 7%  TOTAL slabinfo.kmalloc-128.num_objs
+      1738 ~10%     -18.4%       1418 ~ 9%  TOTAL slabinfo.UDPv6.active_objs
+      1738 ~10%     -18.4%       1418 ~ 9%  TOTAL slabinfo.UDPv6.num_objs
+       923 ~10%     -17.7%        760 ~ 8%  TOTAL slabinfo.TCPv6.active_objs
+       923 ~10%     -17.7%        760 ~ 8%  TOTAL slabinfo.TCPv6.num_objs
+       989 ~ 9%     -17.1%        820 ~ 7%  TOTAL slabinfo.TCP.active_objs
+       989 ~ 9%     -17.1%        820 ~ 7%  TOTAL slabinfo.TCP.num_objs
+    398761 ~44%     -32.6%     268792 ~ 3%  TOTAL numa-vmstat.node2.numa_hit
+    389672 ~49%     -32.9%     261443 ~ 3%  TOTAL numa-vmstat.node0.numa_hit
+       447 ~ 1%     -13.8%        385 ~ 0%  TOTAL vmstat.system.cs
 
-          Packet rate
-Before the fix  897799
-After the fix   1142070
+Note: the "~ XX%" numbers are stddev percent.
 
-Results were obtained using netperf:
+                              netperf.Throughput_Mbps
 
-S=200 ; ( for i in $(seq 1 $S) ; do ( \
-  netperf -H 11.7.13.55 -t TCP_RR -l 30 &) ; \
-  wait ; done | grep "1        1" | awk '{SUM+=$6} END {print SUM}' )
+     4 *+-*--*--*--*-*--*--*--*--*--*--*--*-*--*--*--*--*--*--*--*-*--*--*--*
+       |                                                                    |
+       |                                                                    |
+   3.5 ++                                                                   |
+       |                                                                    |
+       |                                                                    |
+       |                                                                    |
+     3 ++                                                                   |
+       |                                                                    |
+       |                                                                    |
+   2.5 ++                                                                   |
+       |                                                                    |
+       |                                                                    |
+       |                                                                    |
+     2 O+-O--O--O--O-O--O--O--O--O--O--O--O-O--O--O--O--O--O--O-------------+
 
 
-CC: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Ido Shamay <idos@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_rx.c | 5 ++++-
- drivers/net/ethernet/mellanox/mlx4/main.c  | 3 +--
- 2 files changed, 5 insertions(+), 3 deletions(-)
+                                 vmstat.system.cs
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 61e44ae..630ec03 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -322,6 +322,7 @@ void mlx4_en_set_num_rx_rings(struct mlx4_en_dev *mdev)
- {
- 	int i;
- 	int num_of_eqs;
-+	int num_rx_rings;
- 	struct mlx4_dev *dev = mdev->dev;
- 
- 	mlx4_foreach_port(i, dev, MLX4_PORT_TYPE_ETH) {
-@@ -335,8 +336,10 @@ void mlx4_en_set_num_rx_rings(struct mlx4_en_dev *mdev)
- 					   dev->caps.comp_pool/
- 					   dev->caps.num_ports) - 1;
- 
-+		num_rx_rings = min_t(int, num_of_eqs,
-+				     netif_get_num_default_rss_queues());
- 		mdev->profile.prof[i].rx_ring_num =
--			rounddown_pow_of_two(num_of_eqs);
-+			rounddown_pow_of_two(num_rx_rings);
- 	}
- }
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index d711158..8c82a6b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -41,7 +41,6 @@
- #include <linux/slab.h>
- #include <linux/io-mapping.h>
- #include <linux/delay.h>
--#include <linux/netdevice.h>
- #include <linux/kmod.h>
- 
- #include <linux/mlx4/device.h>
-@@ -1974,7 +1973,7 @@ static void mlx4_enable_msi_x(struct mlx4_dev *dev)
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 	struct msix_entry *entries;
- 	int nreq = min_t(int, dev->caps.num_ports *
--			 min_t(int, netif_get_num_default_rss_queues() + 1,
-+			 min_t(int, num_online_cpus() + 1,
- 			       MAX_MSIX_P_PORT) + MSIX_LEGACY_SZ, MAX_MSIX);
- 	int err;
- 	int i;
--- 
-1.8.3.4
+   460 ++------------------------*--*----------------*----------------------+
+       |       .*..    .*..     :    +              +              *..     .*
+   450 ++    *.     .*.    *..  :     +    .*..*.. +    *..*..*.. +     .*. |
+   440 *+   :      *           :       *..*       *              *    *.    |
+       |:   :                 *                                             |
+   430 ++: :                                                                |
+   420 ++: :                                                                |
+       |  *                                                                 |
+   410 ++                                                                   |
+   400 ++                                                                   |
+       |                                                                    |
+   390 ++            O        O             O     O        O                |
+   380 O+ O  O  O       O  O     O  O  O  O    O     O  O     O             |
+       |           O                                                        |
+   370 ++-------------------------------------------------------------------+
