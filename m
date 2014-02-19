@@ -1,83 +1,75 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [RFC v2 2/4] net: enables interface option to skip IP
-Date: Wed, 19 Feb 2014 10:45:25 -0600
-Message-ID: <1392828325.21976.6.camel@dcbw.local>
-References: <1392433180-16052-1-git-send-email-mcgrof@do-not-panic.com>
-	 <1392433180-16052-3-git-send-email-mcgrof@do-not-panic.com>
-	 <1392668638.21106.5.camel@dcbw.local>
-	 <CAB=NE6XGBp1RwO63W0ac6tTr9JcRM9TB9sap4pa+8PMWwjxu6g@mail.gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net] sit: fix panic with route cache in ip tunnels
+Date: Wed, 19 Feb 2014 17:50:06 +0100
+Message-ID: <5304E0BE.3020900@6wind.com>
+References: <1392826532-19282-1-git-send-email-nicolas.dichtel@6wind.com> <1392828209.18849.4.camel@edumazet-glaptop2.roam.corp.google.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	xen-devel@lists.xenproject.org, kvm@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAB=NE6XGBp1RwO63W0ac6tTr9JcRM9TB9sap4pa+8PMWwjxu6g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Tom Herbert <therbert@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:62296 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753833AbaBSQuO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 11:50:14 -0500
+Received: by mail-wi0-f169.google.com with SMTP id e4so4745877wiv.4
+        for <netdev@vger.kernel.org>; Wed, 19 Feb 2014 08:50:13 -0800 (PST)
+In-Reply-To: <1392828209.18849.4.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-02-18 at 13:19 -0800, Luis R. Rodriguez wrote:
-> On Mon, Feb 17, 2014 at 12:23 PM, Dan Williams <dcbw@redhat.com> wrote:
-> > On Fri, 2014-02-14 at 18:59 -0800, Luis R. Rodriguez wrote:
-> >> From: "Luis R. Rodriguez" <mcgrof@suse.com>
-> >>
-> >> Some interfaces do not need to have any IPv4 or IPv6
-> >> addresses, so enable an option to specify this. One
-> >> example where this is observed are virtualization
-> >> backend interfaces which just use the net_device
-> >> constructs to help with their respective frontends.
-> >>
-> >> This should optimize boot time and complexity on
-> >> virtualization environments for each backend interface
-> >> while also avoiding triggering SLAAC and DAD, which is
-> >> simply pointless for these type of interfaces.
-> >
-> > Would it not be better/cleaner to use disable_ipv6 and then add a
-> > disable_ipv4 sysctl, then use those with that interface?
-> 
-> Sure, but note that the both disable_ipv6 and accept_dada sysctl
-> parameters are global. ipv4 and ipv6 interfaces are created upon
-> NETDEVICE_REGISTER, which will get triggered when a driver calls
-> register_netdev(). The goal of this patch was to enable an early
-> optimization for drivers that have no need ever for ipv4 or ipv6
-> interfaces.
+Le 19/02/2014 17:43, Eric Dumazet a =C3=A9crit :
+> On Wed, 2014-02-19 at 17:15 +0100, Nicolas Dichtel wrote:
+>> Bug introduced by commit 7d442fab0a67 ("ipv4: Cache dst in tunnels")=
+=2E
+>>
+>> Because sit code does not call ip_tunnel_init(), the dst_cache was n=
+ot
+>> initialized.
+>>
+>> CC: Tom Herbert <therbert@google.com>
+>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>> ---
+>>   net/ipv6/sit.c | 9 +++++++++
+>>   1 file changed, 9 insertions(+)
+>>
+>> diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+>> index 3dfbcf1dcb1c..5ff33d9bd5de 100644
+>> --- a/net/ipv6/sit.c
+>> +++ b/net/ipv6/sit.c
+>> @@ -1326,6 +1326,9 @@ static const struct net_device_ops ipip6_netde=
+v_ops =3D {
+>>
+>>   static void ipip6_dev_free(struct net_device *dev)
+>>   {
+>> +	struct ip_tunnel *tunnel =3D netdev_priv(dev);
+>> +
+>> +	free_percpu(tunnel->dst_cache);
+>>   	free_percpu(dev->tstats);
+>>   	free_netdev(dev);
+>>   }
+>> @@ -1375,6 +1378,12 @@ static int ipip6_tunnel_init(struct net_devic=
+e *dev)
+>>   		u64_stats_init(&ipip6_tunnel_stats->syncp);
+>>   	}
+>>
+>> +	tunnel->dst_cache =3D alloc_percpu(struct ip_tunnel_dst);
+>> +	if (!tunnel->dst_cache) {
+>> +		free_percpu(dev->tstats);
+>> +		return -ENOMEM;
+>> +	}
+>> +
+>>   	return 0;
+>>   }
+>>
+>
+> I do not think this patch is complete.
+>
+> It seems to lack a tunnel_dst_reset_all() or something to properly
+> release the dst.
 
-Each interface gets override sysctls too though, eg:
-
-/proc/sys/net/ipv6/conf/enp0s25/disable_ipv6
-
-which is the one I meant; you're obviously right that the global ones
-aren't what you want here.  But the specific ones should be suitable?
-If you set that on a per-interface basis, then you'll get EPERM or
-something whenever you try to add IPv6 addresses or do IPv6 routing.
-
-> Zoltan has noted though some use cases of IPv4 or IPv6 addresses on
-> backends though, as such this is no longer applicable as a
-> requirement. The ipv4 sysctl however still seems like a reasonable
-> approach to enable optimizations of the network in topologies where
-> its known we won't need them but -- we'd need to consider a much more
-> granular solution, not just global as it is now for disable_ipv6, and
-> we'd also have to figure out a clean way to do this to not incur the
-> cost of early address interface addition upon register_netdev().
-> 
-> Given that we have a use case for ipv4 and ipv6 addresses on
-> xen-netback we no longer have an immediate use case for such early
-> optimization primitives though, so I'll drop this.
-> 
-> > The IFF_SKIP_IP seems to duplicate at least part of what disable_ipv6 is
-> > already doing.
-> 
-> disable_ipv6 is global, the goal was to make this granular and skip
-> the cost upon early boot, but its been clarified we don't need this.
-
-Like Stephen says, you need to make sure you set them before IFF_UP, but
-beyond that, wouldn't the interface-specific sysctls work?
-
-Dan
+Yes, it's why I ask David to drop it ;-)
