@@ -1,117 +1,56 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH 1/1] net: tcp: RTO restart
-Date: Wed, 19 Feb 2014 13:20:01 -0500
-Message-ID: <20140219132001.12a9cf65.billfink@mindspring.com>
-References: <20140218181205.GA7780@kau.se>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: [PATCH net] xen-netfront: reset skb network header before checksum
+Date: Wed, 19 Feb 2014 18:48:34 +0000
+Message-ID: <1392835714-26480-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	anna.brunstrom@kau.se, apetlund@simula.no, michawe@ifi.uio.no,
-	ilpo.jarvinen@helsinki.fi
-To: Per Hurtig <per.hurtig@kau.se>
+Content-Type: text/plain
+Cc: <linux@eikelenboom.it>, Wei Liu <wei.liu2@citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Paul Durrant <paul.durrant@citrix.com>
+To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-curtail.atl.sa.earthlink.net ([209.86.89.64]:50145 "EHLO
-	elasmtp-curtail.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754034AbaBSSUf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 13:20:35 -0500
-In-Reply-To: <20140218181205.GA7780@kau.se>
+Received: from smtp02.citrix.com ([66.165.176.63]:64209 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754395AbaBSSsj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 13:48:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 18 Feb 2014, Per Hurtig wrote:
+In ed1f50c3a ("net: add skb_checksum_setup") we introduced some checksum
+functions in core driver. Subsequent change b5cf66cd1 ("xen-netfront:
+use new skb_checksum_setup function") made use of those functions to
+replace its own implementation.
 
-> This patch implements the RTO restart modification described in
-> http://tools.ietf.org/html/draft-ietf-tcpm-rtorestart-02
-> 
-> RTO Restart's goal is to provide quicker loss recovery for segments lost in the
-> end of a burst/connection. To accomplish this the algorithm adjusts the RTO
-> value on each rearm of the retransmission timer to be exactly RTO ms after the
-> earliest outstanding segment was sent. The offsetting against the earliest
-> outstanding segment is not done by the regular rearm algorithm, which causes
-> RTOs to occur, on average, after RTO+RTT ms.
-> 
-> As a faster timeout is only beneficial in scenarios where fast retransmit/early
-> retransmit cannot be triggered the algorithm will only kick in when there is a
-> small amount of outstanding segments.
-> 
-> The RTO Restart proposal is accepted as a working group item in the IETF TCP
-> Maintenance and Minor Extensions (tcpm) TCP wg and is intended for experimental
-> RFC status.
-> 
-> Signed-off-by: Per Hurtig <per.hurtig@kau.se>
-> ---
->  include/net/tcp.h          |    1 +
->  net/ipv4/sysctl_net_ipv4.c |    7 +++++++
->  net/ipv4/tcp_input.c       |   11 +++++++++++
->  3 files changed, 19 insertions(+)
+However with that change netfront is broken. It sees a lot of checksum
+error. That's because its own implementation of checksum function was a
+bit hacky (dereferencing skb->data directly) while the new function was
+implemented using ip_hdr(). The network header is not reset before skb
+is passed to the new function. When the new function tries to do its
+job, it's confused and reports error.
 
-This should also have a documentation update to ip-sysctl.txt.
-A separate patch for the TCP(7) man page would also be useful
-if the kernel patch is approved.
+The fix is simple, we need to reset network header before passing skb to
+checksum function. Netback is not affected as it already does the right
+thing.
 
-					-Bill
+Reported-by: Sander Eikelenboom <linux@eikelenboom.it>
+Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Cc: Paul Durrant <paul.durrant@citrix.com>
+---
+ drivers/net/xen-netfront.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-
-
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index 56fc366..575e82a 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -278,6 +278,7 @@ extern int sysctl_tcp_slow_start_after_idle;
->  extern int sysctl_tcp_thin_linear_timeouts;
->  extern int sysctl_tcp_thin_dupack;
->  extern int sysctl_tcp_early_retrans;
-> +extern int sysctl_tcp_rto_restart;
->  extern int sysctl_tcp_limit_output_bytes;
->  extern int sysctl_tcp_challenge_ack_limit;
->  extern unsigned int sysctl_tcp_notsent_lowat;
-> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-> index 44eba05..c605f4f 100644
-> --- a/net/ipv4/sysctl_net_ipv4.c
-> +++ b/net/ipv4/sysctl_net_ipv4.c
-> @@ -717,6 +717,13 @@ static struct ctl_table ipv4_table[] = {
->  		.extra2		= &four,
->  	},
->  	{
-> +		.procname	= "tcp_rto_restart",
-> +		.data		= &sysctl_tcp_rto_restart,
-> +		.maxlen		= sizeof(int),
-> +		.mode		= 0644,
-> +		.proc_handler	= proc_dointvec,
-> +	},
-> +	{
->  		.procname	= "tcp_min_tso_segs",
->  		.data		= &sysctl_tcp_min_tso_segs,
->  		.maxlen		= sizeof(int),
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 227cba7..450ee30 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -98,6 +98,7 @@ int sysctl_tcp_thin_dupack __read_mostly;
->  
->  int sysctl_tcp_moderate_rcvbuf __read_mostly = 1;
->  int sysctl_tcp_early_retrans __read_mostly = 3;
-> +int sysctl_tcp_rto_restart __read_mostly = 1;
->  
->  #define FLAG_DATA		0x01 /* Incoming frame contained data.		*/
->  #define FLAG_WIN_UPDATE		0x02 /* Incoming ACK was a window update.	*/
-> @@ -2972,6 +2973,16 @@ void tcp_rearm_rto(struct sock *sk)
->  			 */
->  			if (delta > 0)
->  				rto = delta;
-> +		} else if (icsk->icsk_pending == ICSK_TIME_RETRANS &&
-> +			   sysctl_tcp_rto_restart &&
-> +			   sk->sk_send_head == NULL &&
-> +			   tp->packets_out < 4) {
-> +			struct sk_buff *skb = tcp_write_queue_head(sk);
-> +			const u32 rto_time_stamp = TCP_SKB_CB(skb)->when;
-> +			s32 delta = (s32)(tcp_time_stamp - rto_time_stamp);
-> +
-> +			if (delta > 0)
-> +				rto -= delta;
->  		}
->  		inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS, rto,
->  					  TCP_RTO_MAX);
-> -- 
-> 1.7.9.5
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index ff04d4f..95041b6 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -907,6 +907,7 @@ static int handle_incoming_queue(struct net_device *dev,
+ 
+ 		/* Ethernet work: Delayed to here as it peeks the header. */
+ 		skb->protocol = eth_type_trans(skb, dev);
++		skb_reset_network_header(skb);
+ 
+ 		if (checksum_setup(dev, skb)) {
+ 			kfree_skb(skb);
+-- 
+1.7.10.4
