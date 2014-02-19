@@ -1,115 +1,53 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH next v3] tcp: use zero-window when free_space is low
-Date: Wed, 19 Feb 2014 12:51:10 +0100
-Message-ID: <1392810670-3543-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:59894 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751454AbaBSLzH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 06:55:07 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next v5 2/9] xen-netback: Change TX path
+ from grant copy to mapping
+Date: Wed, 19 Feb 2014 12:27:58 +0000
+Message-ID: <5304A34E.1090503@citrix.com>
+References: <1390253069-25507-1-git-send-email-zoltan.kiss@citrix.com>		<1390253069-25507-3-git-send-email-zoltan.kiss@citrix.com>	 <1392745235.23084.60.camel@kazak.uk.xensource.com>	 <5303AA97.3010202@citrix.com> <1392803670.23084.100.camel@kazak.uk.xensource.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <jonathan.davies@citrix.com>,
+	<wei.liu2@citrix.com>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1392803670.23084.100.camel@kazak.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently the kernel tries to announce a zero window when free_space
-is below the current receiver mss estimate.
+On 19/02/14 09:54, Ian Campbell wrote:
+> On Tue, 2014-02-18 at 18:46 +0000, David Vrabel wrote:
+>> On 18/02/14 17:40, Ian Campbell wrote:
+>>> On Mon, 2014-01-20 at 21:24 +0000, Zoltan Kiss wrote:
+>>>>
+>>>> @@ -344,8 +346,26 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+>>>>  	vif->pending_prod = MAX_PENDING_REQS;
+>>>>  	for (i = 0; i < MAX_PENDING_REQS; i++)
+>>>>  		vif->pending_ring[i] = i;
+>>>> -	for (i = 0; i < MAX_PENDING_REQS; i++)
+>>>> -		vif->mmap_pages[i] = NULL;
+>>>> +	spin_lock_init(&vif->dealloc_lock);
+>>>> +	spin_lock_init(&vif->response_lock);
+>>>> +	/* If ballooning is disabled, this will consume real memory, so you
+>>>> +	 * better enable it.
+>>>
+>>> Almost no one who would be affected by this is going to read this
+>>> comment. And it doesn't just require enabling ballooning, but actually
+>>> booting with some maxmem "slack" to leave space.
+>>>
+>>> Classic-xen kernels used to add 8M of slop to the physical address space
+>>> to leave a suitable pool for exactly this sort of thing. I never liked
+>>> that but perhaps it should be reconsidered (or at least raised as a
+>>> possibility with the core-Xen Linux guys).
+>>
+>> I plan to fix the balloon memory hotplug stuff to do the right thing
+> 
+> Which is for alloc_xenballoon_pages to hotplug a new empty region,
+> rather than inflating the balloon if it doesn't have enough pages to
+> satisfy the allocation?
 
-When a sender is transmitting small packets and reader consumes data
-slowly (or not at all), receiver might be unable to shrink the receive
-win because
+Yes.
 
-a) we cannot withdraw already-commited receive window, and,
-b) we have to round the current rwin up to a multiple of the wscale
-   factor, else we would shrink the current window.
-
-This causes the receive buffer to fill up until the rmem limit is hit.
-When this happens, we start dropping packets.
-
-Moreover, tcp_clamp_window may continue to grow sk_rcvbuf towards rmem[2]
-even if socket is not being read from.
-
-As we cannot avoid the "current_win is rounded up to multiple of mss"
-issue [we would violate a) above] at least try to prevent the receive buf
-growth towards tcp_rmem[2] limit by attempting to move to zero-window
-announcement when free_space becomes less than 1/16 of the current
-allowed receive buffer maximum.  If tcp_rmem[2] is large, this will
-increase our chances to get a zero-window announcement out in time.
-
-Reproducer:
-On server:
-$ nc -l -p 12345
-<suspend it: CTRL-Z>
-
-Client:
-#!/usr/bin/env python
-import socket
-import time
-
-sock = socket.socket()
-sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-sock.connect(("192.168.4.1", 12345));
-while True:
-   sock.send('A' * 23)
-   time.sleep(0.005)
-
-
-socket buffer on server-side will grow until tcp_rmem[2] is hit,
-at which point the client rexmits data until -EDTIMEOUT:
-
-tcp_data_queue invokes tcp_try_rmem_schedule which will call
-tcp_prune_queue which calls tcp_clamp_window().  And that function will
-grow sk->sk_rcvbuf up until it eventually hits tcp_rmem[2].
-
-Thanks to Eric Dumazet for running regression tests.
-
-Cc: Neal Cardwell <ncardwell@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
-Acked-by: Eric Dumazet <edumazet@google.com>
-Tested-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- no changes since v2; resend with Erics Ack/Tested-by tags
- V1 of this patch was deferred, resending to get discussion going again.
- Changes since v1:
-  - add reproducer to commit message
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 2a69f42..fd8d821 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2145,7 +2145,8 @@ u32 __tcp_select_window(struct sock *sk)
- 	 */
- 	int mss = icsk->icsk_ack.rcv_mss;
- 	int free_space = tcp_space(sk);
--	int full_space = min_t(int, tp->window_clamp, tcp_full_space(sk));
-+	int allowed_space = tcp_full_space(sk);
-+	int full_space = min_t(int, tp->window_clamp, allowed_space);
- 	int window;
- 
- 	if (mss > full_space)
-@@ -2158,7 +2159,19 @@ u32 __tcp_select_window(struct sock *sk)
- 			tp->rcv_ssthresh = min(tp->rcv_ssthresh,
- 					       4U * tp->advmss);
- 
--		if (free_space < mss)
-+		/* free_space might become our new window, make sure we don't
-+		 * increase it due to wscale.
-+		 */
-+		free_space = round_down(free_space, 1 << tp->rx_opt.rcv_wscale);
-+
-+		/* if free space is less than mss estimate, or is below 1/16th
-+		 * of the maximum allowed, try to move to zero-window, else
-+		 * tcp_clamp_window() will grow rcv buf up to tcp_rmem[2], and
-+		 * new incoming data is dropped due to memory limits.
-+		 * With large window, mss test triggers way too late in order
-+		 * to announce zero window in time before rmem limit kicks in.
-+		 */
-+		if (free_space < (allowed_space >> 4) || free_space < mss)
- 			return 0;
- 	}
- 
--- 
-1.8.1.5
+David
