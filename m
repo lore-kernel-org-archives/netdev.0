@@ -1,68 +1,66 @@
-From: Jisheng Zhang <jszhang@marvell.com>
-Subject: Re: [PATCH] net: ethernet: remove unneeded dependency of mvneta and
- update help text
-Date: Wed, 19 Feb 2014 10:10:43 +0800
-Message-ID: <20140219101043.5d403398@xhacker>
-References: <1392719391-8851-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <20140218122952.GM7862@titan.lakedaemon.net>
- <20140218134532.7607a616@skate>
- <20140218125206.GN7862@titan.lakedaemon.net>
- <20140218141303.77c77272@skate>
+From: "=?ISO-8859-1?B?WGlhbnBlbmcgWmhhbw==?=" <673321875@qq.com>
+Subject: Re: Fw:[Bug 70471] xfrm policy node will double unlink.
+Date: Wed, 19 Feb 2014 10:07:14 +0800
+Message-ID: <tencent_4CE06FA903D8DCB54F951A30@qq.com>
+References: <tencent_0D7FA5355C7998793C100B23@qq.com>
+	<20140218083737.GB32371@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- "David S. Miller" <davem@davemloft.net>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Jason Cooper
- <jason@lakedaemon.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20140218141303.77c77272@skate>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="ISO-8859-1"
+Content-Transfer-Encoding: base64
+Cc: "=?ISO-8859-1?B?bmV0ZGV2?=" <netdev@vger.kernel.org>,
+	"=?ISO-8859-1?B?YWxhbg==?=" <alan@lxorguk.ukuu.org.uk>
+To: "=?ISO-8859-1?B?U3RlZmZlbiBLbGFzc2VydA==?="
+	<steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from SMTPBG7.QQ.COM ([183.60.61.200]:43224 "HELO smtpbg7.qq.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752059AbaBSCNG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Feb 2014 21:13:06 -0500
+In-Reply-To: <20140218083737.GB32371@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dear Thomas,
-
-On Tue, 18 Feb 2014 05:13:03 -0800
-Thomas Petazzoni <thomas.petazzoni@free-electrons.com> wrote:
-
-> Dear Jason Cooper,
-> 
-> On Tue, 18 Feb 2014 07:52:06 -0500, Jason Cooper wrote:
-> 
-> > > No, I haven't tested all the build scenarios of course. If you feel
-> > > that this is too dangerous, I can resend a patch that replaces 'depends
-> > > on ARMADA_370_XP' by 'depends on PLAT_ORION'. Would this be OK for you?
-> > 
-> > I'm fine either way.  I'm definitely a "What's in the box?" kind of guy.
-> > But I do like being prepared.
-> 
-> And it's all in your honour!
-> 
-> > The real question is: Do you think this IP block will ever be found on
-> > anything other than Marvell Armada boards?  If so, stick with this
-> > version and build test the crap out of it.  Otherwise, let's save
-> > opening the box for another day.
-> 
-> At this point, I don't expect to see this IP in any other SOCs than
-> Marvell Armada EBU, so I'll resend with a "depends on PLAT_ORION", as I
-
-This IP is used in Marvell Berlin SoCs too ;)
-
-But Berlin SoC doesn't have a mbus concept. Currently, we just hack the
-mvneta to configure the mbus window.
-
-Thanks,
-Jisheng
+SGkgU3RlZmZlbiwKCiAgICAgIFRoaXMgcHJvYmxlbSBpcyBoYXBwZW5lZCB3aGVuIHJ1bm5p
+bmcgc3RyZXNzIHRlc3Q7IFZlcnkgbGl0dGxlIGNoYW5jZSBjYW4gZ2V0IHRoaXMgY2FzZS4K
+CiAgICAgIEFzIHlvdSBzYXksIGFkZCBhIGxvbmcgdGltZSBzbGVlcCBpbiBmdW5jdGlvbiB4
+ZnJtX3BvbGljeV9ieXNlbF9jdHggYmV0d2VlbiBfX3hmcm1fcG9saWN5X3VubGluayBhbmQg
+Cnhmcm1fcG9saWN5X2tpbGwsIHdpbGwgcmVwcm9kdWNlIHRoaXMgaXNzdWUgbWFudWFsbHku
+IAoKICAgICAgQWJvdXQgbXkgcGF0Y2gsIEkgYW0gbm90IHN1cmUgaXQgaXMgT0ssIGJlY2F1
+c2UgYWZ0ZXIgaXQgcGF0Y2hlZCwgdGhlIGlzc3VlIGhhZCByZXByb2R1Y2VkIG9uY2UsIGJ1
+dCBhZnRlciBzb21lIGRheXMgdGVzdCByZWNlbnRseSwgaGF2ZSBub3QgcmVwcm9kdWNlZCBh
+Z2Fpbi4gCgogICAgICBCdXQgSSBjYW4gbWFrZSBzdXJlIHdoZW4gX194ZnJtX3BvbGljeV91
+bmxpbmsgZmluZCB0aGUgbm9kZSBoYWQgYmVlbiByZW1vdmVkLCByZXR1cm4gTlVMTCBpbnN0
+ZWFkIG9mIGRlbGV0ZSBhZ2FpbiB3aWxsIGZpeCB0aGlzIHByb2JsZW0uCgogICAgICBXaGF0
+J3MgeW91ciBzdWdnZXN0aW9ucz8KCi0tLS0tLS0tLS0tLS0tLS0tLQpCZXN0IFJlZ2FyZHMK
+WGlhbnBlbmcKCi0tLS0tLS0tLS0tLS0tLS0tLSBPcmlnaW5hbCAtLS0tLS0tLS0tLS0tLS0t
+LS0KRnJvbTogICJTdGVmZmVuIEtsYXNzZXJ0Ijs8c3RlZmZlbi5rbGFzc2VydEBzZWN1bmV0
+LmNvbT47CkRhdGU6ICBUdWUsIEZlYiAxOCwgMjAxNCAwNDozNyBQTQpUbzogICJYaWFucGVu
+ZyBaaGFvIjw2NzMzMjE4NzVAcXEuY29tPjsgCkNjOiAgIm5ldGRldiI8bmV0ZGV2QHZnZXIu
+a2VybmVsLm9yZz47ICJhbGFuIjxhbGFuQGx4b3JndWsudWt1dS5vcmcudWs+OyAKU3ViamVj
+dDogIFJlOiBGdzpbQnVnIDcwNDcxXSB4ZnJtIHBvbGljeSBub2RlIHdpbGwgZG91YmxlIHVu
+bGluay4KCgoKT24gVHVlLCBGZWIgMTgsIDIwMTQgYXQgMTA6NTU6NTdBTSArMDgwMCwgWGlh
+bnBlbmcgWmhhbyB3cm90ZToKPiBIaSBHcm91cCwKPiAgICAgIEkgZm91bmQgYSBwcm9ibGVt
+IGFib3V0IHhmcm0gcG9saWN5Lgo+IAo+ICAgICAgSW4gY29ybmVyIGNhc2UsIHhmcm0gcG9s
+aWN5IG5vZGUgd2lsbCBiZSBkb3VibGUgdW5saW5rZWQgZnJvbSB0aGUgbGlzdC4KPiAKPiAg
+ICAgVGhlIHNjZW5hcmlvIGxpa2UgdGhpczoKPiAgICAgSW4gdGhyZWFkIGNvbnRleHQsIEFm
+dGVyIHJlbW92ZWQgdGhlIG5vZGUgZnJvbSBsaXN0LCBiZWZvcmUgcmVtb3ZlIHRoZSB4ZnJt
+IHBvbGljeSBleHBpcmUgdGltZXIuIEF0IHRoaXMgcG9pbnQsIGEgdGltZXIgaW50ZXJydXB0
+IGNvbWUsIGFuZCBjYWxsIHRoZSBydW5fdGltZXJfc29mdGlycSB0byBleGVjdXRlIHRoZSB4
+ZnJtX3BvbGljeV90aW1lciB0byByZW1vdmUgdGhlIGV4cGlyZWQgcG9saWN5IG5vZGU7IGJl
+Y2F1c2UgdGhpcyBwb2xpY3kgbm9kZSBoYWQgYWxyZWFkeSByZW1vdmVkIGZyb20gbGlzdC4g
+dGhpcyByZW1vdmUgd2lsbCBjYXVzZSB0aGUgbm9kZSBkb3VibGUgdW5saW5rZWQuCgpHb29k
+IGNhdGNoIQoKSSB3b25kZXIgd2h5IEkndmUgbmV2ZXIgc2VlbiB0aGlzLiBEbyB5b3UgaGF2
+ZSBhIHJlcHJvZHVjZXIgZm9yIHRoaXMgYnVnPwoKTG9va3MgbGlrZSBpdCBpcyBzdWZmaWNp
+ZW50IHRvIHJlaW5pdGlhbGl6ZSB0aGUgYnlkc3QgaGxpc3QgaW4KX194ZnJtX3BvbGljeV91
+bmxpbmsoKS4gVGhlbiBobGlzdF91bmhhc2hlZCgpIHdpbGwgbm90aWNlIHRoYXQKdGhpcyBw
+b2xpY3kgaXMgbm90IGxpbmtlZC4KCkRvZXMgdGhlIHBhdGNoIGJlbG93IGhlbHA/CgoKZGlm
+ZiAtLWdpdCBhL25ldC94ZnJtL3hmcm1fcG9saWN5LmMgYi9uZXQveGZybS94ZnJtX3BvbGlj
+eS5jCmluZGV4IDEyMTM5OWQuLjIyNWY0MzkgMTAwNjQ0Ci0tLSBhL25ldC94ZnJtL3hmcm1f
+cG9saWN5LmMKKysrIGIvbmV0L3hmcm0veGZybV9wb2xpY3kuYwpAQCAtMTE1Niw3ICsxMTU2
+LDcgQEAgc3RhdGljIHN0cnVjdCB4ZnJtX3BvbGljeSAqX194ZnJtX3BvbGljeV91bmxpbmso
+c3RydWN0IHhmcm1fcG9saWN5ICpwb2wsCiAJaWYgKGhsaXN0X3VuaGFzaGVkKCZwb2wtPmJ5
+ZHN0KSkKIAkJcmV0dXJuIE5VTEw7CiAKLQlobGlzdF9kZWwoJnBvbC0+Ynlkc3QpOworCWhs
+aXN0X2RlbF9pbml0KCZwb2wtPmJ5ZHN0KTsKIAlobGlzdF9kZWwoJnBvbC0+YnlpZHgpOwog
+CWxpc3RfZGVsKCZwb2wtPndhbGsuYWxsKTsKIAluZXQtPnhmcm0ucG9saWN5X2NvdW50W2Rp
+cl0tLTsKLg==
