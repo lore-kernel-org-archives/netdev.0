@@ -1,32 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] unix: add read side socket memory
- accounting for dgram sockets
-Date: Wed, 19 Feb 2014 14:49:27 -0500 (EST)
-Message-ID: <20140219.144927.1558282069067885839.davem@davemloft.net>
-References: <20140217035826.GG8634@order.stressinduktion.org>
-	<20140217130353.GA22833@order.stressinduktion.org>
+Subject: Re: [PATCH net-next 1/2] pcnet32: fix reallocation error
+Date: Wed, 19 Feb 2014 14:59:43 -0500 (EST)
+Message-ID: <20140219.145943.1938903560872720656.davem@davemloft.net>
+References: <1392699466.4020.27.camel@Linux>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yannick@koehler.name,
-	eric.dumazet@gmail.com, xiyou.wangcong@gmail.com, dan@mindstab.net
-To: hannes@stressinduktion.org
+Cc: netdev@vger.kernel.org
+To: pcnet32@frontier.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46388 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46399 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754034AbaBST6L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 14:58:11 -0500
-In-Reply-To: <20140217130353.GA22833@order.stressinduktion.org>
+	with ESMTP id S1754877AbaBST7p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 14:59:45 -0500
+In-Reply-To: <1392699466.4020.27.camel@Linux>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Mon, 17 Feb 2014 14:03:53 +0100
+From: Don Fry <pcnet32@frontier.com>
+Date: Mon, 17 Feb 2014 20:57:46 -0800
 
-> We still allocate dgram packets with sock_alloc_send_pskb, which now
-> does normally not block if the socket has too many packets in flight.
+> pcnet32_realloc_rx_ring() only worked on the first log2 number of
+> entries in the receive ring instead of the all the entries.
+> Replaced "1 << size" with more descriptive variable.
+> This is my original bug from 2006.  Found while testing another problem.
+> Tested on 79C972 and 79C976.
+> 
+> Signed-off-by: Don Fry <pcnet32@frontier.com>
 
-It seems like it does to me, it does sock_wait_for_wmem(), right?
-
-Or are you trying to say that usually this is not the point at which
-we block, but rather it's when we check the peer's receive queue?
+Applied.
