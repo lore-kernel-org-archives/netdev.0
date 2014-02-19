@@ -1,32 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] atm: solos-pci: make solos_bh() as static
-Date: Wed, 19 Feb 2014 16:39:53 -0500 (EST)
-Message-ID: <20140219.163953.1781109081917971221.davem@davemloft.net>
-References: <1547067.MtNWZjBp8J@daeseok-laptop.cloud.net>
+Subject: Re: [PATCH net-next v2] tipc: failed transmissions should return
+ error
+Date: Wed, 19 Feb 2014 16:41:10 -0500 (EST)
+Message-ID: <20140219.164110.1433043026929645851.davem@davemloft.net>
+References: <1392795478-13434-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: chas@cmf.nrl.navy.mil, linux-atm-general@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: daeseok.youn@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1547067.MtNWZjBp8J@daeseok-laptop.cloud.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
+	ying.xue@windriver.com, paul.gortmaker@windriver.com,
+	jon.maloy@ericsson.com, maloy@donjonn.com
+To: erik.hugne@ericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47043 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752516AbaBSVlM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 16:41:12 -0500
+In-Reply-To: <1392795478-13434-1-git-send-email-erik.hugne@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Daeseok Youn <daeseok.youn@gmail.com>
-Date: Wed, 19 Feb 2014 14:13:54 +0900
+From: <erik.hugne@ericsson.com>
+Date: Wed, 19 Feb 2014 08:37:58 +0100
 
-> From 6297aabeff748777b520cc0ee835af0a3ddc79e2 Mon Sep 17 00:00:00 2001
-> From: Daeseok Youn <daeseok.youn@gmail.com>
-> Date: Wed, 19 Feb 2014 10:49:12 +0900
-> Subject: [PATCH] atm: solos-pci: make solos_bh() as static
+> From: Erik Hugne <erik.hugne@ericsson.com>
 > 
-> sparse says:
+> When a message could not be sent out because the destination node
+> or link could not be found, the full message size is returned from
+> sendmsg() as if it had been sent successfully. An application will
+> then get a false indication that it's making forward progress. This
+> problem has existed since the initial commit in 2.6.16.
 > 
-> drivers/atm/solos-pci.c:763:6: warning:
->  symbol 'solos_bh' was not declared. Should it be static?
+> We change this to return -ENETUNREACH if the message cannot be
+> delivered due to the destination node/link being unavailable. We
+> also get rid of the redundant tipc_reject_msg call since freeing
+> the buffer and doing a tipc_port_iovec_reject accomplishes exactly
+> the same thing.
 > 
-> Signed-off-by: Daeseok Youn <daeseok.youn@gmail.com>
+> Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+> Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 
-Applied.
+Applied, thank you.
