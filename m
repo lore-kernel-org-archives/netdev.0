@@ -1,68 +1,42 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: Re: [Xen-devel] [RFC v2 1/4] bridge: enable interfaces to
- opt out from becoming the root bridge
-Date: Wed, 19 Feb 2014 09:59:33 -0800
-Message-ID: <CAB=NE6UAqoiFAJdckE1d7cgMZnU6_=8X+N=tSc6qH2bgH08M7Q@mail.gmail.com>
-References: <1392433180-16052-1-git-send-email-mcgrof@do-not-panic.com>
-	<1392433180-16052-2-git-send-email-mcgrof@do-not-panic.com>
-	<20140216105754.63738163@nehalam.linuxnetplumber.net>
-	<CAB=NE6WwbOXNLO_Mn42i7y62pEsmDOWd35B621eiJk4iaE3Hfg@mail.gmail.com>
-	<1392803559.23084.99.camel@kazak.uk.xensource.com>
-	<5304C13F.3030802@citrix.com>
-	<CAB=NE6X6Vuo3iib0W-c5cxv0QBpnZtCC0sFyuULugQoEZAbRtg@mail.gmail.com>
-	<20140219090855.610c0e04@nehalam.linuxnetplumber.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] net: tcp: RTO restart
+Date: Wed, 19 Feb 2014 10:01:47 -0800
+Message-ID: <1392832907.18849.10.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140218181205.GA7780@kau.se>
+	 <50334B08-CD60-4C4C-9556-ACC758F75D7E@simula.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Ian Campbell <Ian.Campbell@citrix.com>, kvm@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	bridge@lists.linux-foundation.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>, xen-devel@lists.xenproject.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140219090855.610c0e04@nehalam.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Per Hurtig <per.hurtig@kau.se>, netdev@vger.kernel.org,
+	davem@davemloft.net, edumazet@google.com,
+	Anna =?ISO-8859-1?Q?Brunstr=F6m?= <anna.brunstrom@kau.se>,
+	Michael Welzl <michawe@ifi.uio.no>, ilpo.jarvinen@helsinki.fi
+To: Andreas Petlund <apetlund@simula.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:52487 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754458AbaBSSBt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 13:01:49 -0500
+Received: by mail-pa0-f51.google.com with SMTP id ld10so724284pab.38
+        for <netdev@vger.kernel.org>; Wed, 19 Feb 2014 10:01:48 -0800 (PST)
+In-Reply-To: <50334B08-CD60-4C4C-9556-ACC758F75D7E@simula.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 19, 2014 at 9:08 AM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Wed, 19 Feb 2014 09:02:06 -0800
-> "Luis R. Rodriguez" <mcgrof@do-not-panic.com> wrote:
->
->> Folks, what if I repurpose my patch to use the IFF_BRIDGE_NON_ROOT (or
->> relabel to IFF_ROOT_BLOCK_DEF) flag for a default driver preference
->> upon initialization so that root block will be used once the device
->> gets added to a bridge. The purpose would be to avoid drivers from
->> using the high MAC address hack, streamline to use a random MAC
->> address thereby avoiding the possible duplicate address situation for
->> IPv6. In the STP use case for these interfaces we'd just require
->> userspace to unset the root block. I'd consider the STP use case the
->> most odd of all. The caveat to this approach is 3.8 would be needed
->> (or its the root block patches cherry picked) for base kernels older
->> than 3.8.
->>
->> Stephen?
->>
->>   Luis
->
-> Don't add IFF_ flags that adds yet another API hook into bridge.
+On Wed, 2014-02-19 at 18:17 +0100, Andreas Petlund wrote:
+> I=E2=80=99ve applied and tested the patch on VMs with both 32 bit and=
+ 64 bit kernel.
+>=20
+> Acked-by: Andreas Petlund <apetlund@simula.no>
+> Tested-by: Andreas Petlund <apetlund@simula.no>
 
-The goal was not to add a userspace API, but rather consider a driver
-initialization preference.
+Sure the patch applies, but what experimental results did you get ?
 
-> Please only use the netlink/sysfs flags fields that already exist
-> for new features.
+My concern is that TCP_SKB_CB(skb)->when doesn't account for sojourn
+time in host queues (qdisc and device).=20
 
-Sure, but what if we know a driver in most cases wants the root block
-and we'd want to make it the default, thereby only requiring userspace
-for toggling it off.
+Note : Missing documentation for this new sysctl.
 
-  Luis
+This patch certainly cannot be applied as is.
+
+Thanks !
