@@ -1,40 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] be2net: Bugfix for packet drop with kernel param
- swiotlb=force
-Date: Wed, 19 Feb 2014 16:44:16 -0500 (EST)
-Message-ID: <20140219.164416.129376508868063340.davem@davemloft.net>
-References: <OF433C3BAF.359D84C5-ON48257C84.002D80B1-48257C84.002E4C8C@zte.com.cn>
+Subject: Re: [PATCH net] qeth: postpone freeing of qdio memory
+Date: Wed, 19 Feb 2014 16:47:39 -0500 (EST)
+Message-ID: <20140219.164739.1860650180590714358.davem@davemloft.net>
+References: <20140219091451.GA17591@tuxmaker.boeblingen.de.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sathya.perla@emulex.com,
-	subbu.seetharaman@emulex.com, ajit.khaparde@emulex.com,
-	wang.liang82@zte.com.cn, cai.qu@zte.com.cn, li.fengmao@zte.com.cn,
-	long.chun@zte.com.cn
-To: jiang.biao2@zte.com.cn
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: blaschka@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47069 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47105 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753703AbaBSVoS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 16:44:18 -0500
-In-Reply-To: <OF433C3BAF.359D84C5-ON48257C84.002D80B1-48257C84.002E4C8C@zte.com.cn>
+	with ESMTP id S1751956AbaBSVrl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 16:47:41 -0500
+In-Reply-To: <20140219091451.GA17591@tuxmaker.boeblingen.de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: jiang.biao2@zte.com.cn
-Date: Wed, 19 Feb 2014 16:25:40 +0800
+From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
+Date: Wed, 19 Feb 2014 10:14:51 +0100
 
-> +        dma_unmap_page(&adapter->pdev->dev,
-> +               dma_unmap_addr(rx_page_info, bus),
-> +               rx_frag_size, DMA_FROM_DEVICE);
+> @@ -4919,6 +4919,7 @@ retry:
+>  	if (rc)
+>  		goto retriable;
+>  	rc = qeth_qdio_clear_card(card, card->info.type != QETH_CARD_TYPE_IQD);
+> +	qdio_free(CARD_DDEV(card));
+>  retriable:
+>  	if (rc == -ERESTARTSYS) {
+>  		QETH_DBF_TEXT(SETUP, 2, "break1");
 
-This is not indented properly.
-
-Arguments on the second and subsequent lines of a function call must
-start exactly at the first column after the openning parenthesis of the
-function call on the first line.
-
-You must use the appropriate number of TAB and SPACE characters
-necessary to do so.
-
-If you are indenting only using TAB characters, you are doing it wrong.
+You do not want to do the qdio_free() if the qeth_qdio_clear_card() returns
+an error value that causes a retry, and yes that can indeed happen.  The halt
+paths return things like -ETIME etc.
