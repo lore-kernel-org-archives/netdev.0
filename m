@@ -1,80 +1,57 @@
-From: poma <pomidorabelisima-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: WARNING: CPU: 0 PID: 0 at net/sched/sch_generic.c:264
-	dev_watchdog+0x276/0x280()
-Date: Wed, 19 Feb 2014 05:37:53 +0100
-Message-ID: <53043521.4060206@gmail.com>
-References: <530332B7.10909@gmail.com>
+From: Don Fry <pcnet32@frontier.com>
+Subject: Re: [PATCH net-next 1/2] pcnet32: fix reallocation error
+Date: Tue, 18 Feb 2014 20:58:55 -0800
+Message-ID: <1392785935.2570.16.camel@Linux>
+References: <1392699466.4020.27.camel@Linux>
+	 <201402182129.BDD57369.FVOQHFOFtJSLOM@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Mailing-List fedora-kernel <kernel-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>,
-	Josh Boyer <jwboyer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Linux Kernel list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	"Justin M. Forbes" <jforbes-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
-	Intel Corporation <linux.nics-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>
-In-Reply-To: <530332B7.10909-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://admin.fedoraproject.org/mailman/options/kernel>,
-	<mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.fedoraproject.org/pipermail/kernel/>
-List-Post: <mailto:kernel-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>
-List-Help: <mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=help>
-List-Subscribe: <https://admin.fedoraproject.org/mailman/listinfo/kernel>,
-	<mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=subscribe>
-Sender: kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org
-Errors-To: kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from filter04.roch.ny.frontiernet.net ([66.133.183.234]:36014 "EHLO
+	filter04.roch.ny.frontiernet.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750838AbaBSE7C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 23:59:02 -0500
+In-Reply-To: <201402182129.BDD57369.FVOQHFOFtJSLOM@I-love.SAKURA.ne.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMTguMDIuMjAxNCAxMToxNSwgcG9tYSB3cm90ZToKPiAKPiBBaG95IQo+IAo+IERlYnVnZ2lu
-ZyBTMyBha2Egc3VzcGVuZCBwcm9kdWNlcyAnV0FSTklOR1MnOgo+IAo+IFN0ZXBzIHRvIFJlcHJv
-ZHVjZToKPiAjIGVjaG8gY29yZSA+IC9zeXMvcG93ZXIvcG1fdGVzdAo+ICMgY2F0IC9zeXMvcG93
-ZXIvcG1fdGVzdAo+IG5vbmUgW2NvcmVdIHByb2Nlc3NvcnMgcGxhdGZvcm0gZGV2aWNlcyBmcmVl
-emVyCj4gIyBlY2hvIG1lbSA+IC9zeXMvcG93ZXIvc3RhdGUKPiBSZXN1bHRzOgo+IC0gZG1lc2ct
-My4xNC4wLTAucmMzLmdpdDAuMS5mYzIxLng4Nl82NCtkZWJ1Zy1wbV90ZXN0LWNvcmUuZGlmZgo+
-ICAgaHR0cHM6Ly9idWd6aWxsYS5yZWRoYXQuY29tL2F0dGFjaG1lbnQuY2dpP2lkPTg2NDQzNgo+
-IAo+IFN0ZXBzIHRvIFJlcHJvZHVjZToKPiAjIGVjaG8gcHJvY2Vzc29ycyA+IC9zeXMvcG93ZXIv
-cG1fdGVzdAo+ICMgY2F0IC9zeXMvcG93ZXIvcG1fdGVzdAo+IG5vbmUgY29yZSBbcHJvY2Vzc29y
-c10gcGxhdGZvcm0gZGV2aWNlcyBmcmVlemVyCj4gIyBlY2hvIG1lbSA+IC9zeXMvcG93ZXIvc3Rh
-dGUKPiBSZXN1bHRzOgo+IC0gZG1lc2ctMy4xNC4wLTAucmMzLmdpdDAuMS5mYzIxLng4Nl82NCtk
-ZWJ1Zy1wbV90ZXN0LXByb2Nlc3NvcnMuZGlmZgo+ICAgaHR0cHM6Ly9idWd6aWxsYS5yZWRoYXQu
-Y29tL2F0dGFjaG1lbnQuY2dpP2lkPTg2NDQzOAo+IAo+IFN0ZXBzIHRvIFJlcHJvZHVjZToKPiAj
-IGVjaG8gcGxhdGZvcm0gPiAvc3lzL3Bvd2VyL3BtX3Rlc3QKPiAjIGNhdCAvc3lzL3Bvd2VyL3Bt
-X3Rlc3QKPiBub25lIGNvcmUgcHJvY2Vzc29ycyBbcGxhdGZvcm1dIGRldmljZXMgZnJlZXplcgo+
-ICMgZWNobyBtZW0gPiAvc3lzL3Bvd2VyL3N0YXRlCj4gUmVzdWx0czoKPiAtIGRtZXNnLTMuMTQu
-MC0wLnJjMy5naXQwLjEuZmMyMS54ODZfNjQrZGVidWctcG1fdGVzdC1wbGF0Zm9ybS5kaWZmCj4g
-ICBodHRwczovL2J1Z3ppbGxhLnJlZGhhdC5jb20vYXR0YWNobWVudC5jZ2k/aWQ9ODY0NDM5Cj4g
-Cj4gUkhCWiAxMDEwNzY0Ogo+ICJbYWJydF0gTkVUREVWIFdBVENIRE9HOiBlbTEgKGUxMDAwZSk6
-IHRyYW5zbWl0IHF1ZXVlIDAgdGltZWQgb3V0Igo+IGh0dHBzOi8vYnVnemlsbGEucmVkaGF0LmNv
-bS9zaG93X2J1Zy5jZ2k/aWQ9MTAxMDc2NAo+IAo+IFRlc3RlZCB3aXRoIFJhd2hpZGUgJ2tlcm5l
-bC1kZWJ1Zy0zLjE0LjAtMC5yYzMuZ2l0MC4xLmZjMjEueDg2XzY0Jwo+IGh0dHA6Ly9rb2ppLmZl
-ZG9yYXByb2plY3Qub3JnL2tvamkvYnVpbGRpbmZvP2J1aWxkSUQ9NDk4NzExCgpBIGNvbXBhcmlz
-b24gb2YgJ1JlYWxUZWsgUlRMLTgxNjkgR0UnICYgJ1N5c0tvbm5lY3QgR0UnCgpEZWJ1Z2dpbmcg
-UzMgLSBjb3JlOgojIGVjaG8gY29yZSA+IC9zeXMvcG93ZXIvcG1fdGVzdAojIGVjaG8gbWVtID4g
-L3N5cy9wb3dlci9zdGF0ZQogIFJUTDgxNjk6Ci0gZG1lc2ctMy4xNC4wLTAucmMzLmdpdDIuMS5m
-YzIxLng4Nl82NC1yODE2OS1wbV90ZXN0LWNvcmUuZGlmZgogIGh0dHBzOi8vYnVnemlsbGEucmVk
-aGF0LmNvbS9hdHRhY2htZW50LmNnaT9pZD04NjQ5NTkKICBTS0dFOgotIGRtZXNnLTMuMTQuMC0w
-LnJjMy5naXQyLjEuZmMyMS54ODZfNjQtc2tnZS1wbV90ZXN0LWNvcmUuZGlmZgogIGh0dHBzOi8v
-YnVnemlsbGEucmVkaGF0LmNvbS9hdHRhY2htZW50LmNnaT9pZD04NjQ5NjAKCkRlYnVnZ2luZyBT
-MyAtIHByb2Nlc3NvcnM6CiMgZWNobyBwcm9jZXNzb3JzID4gL3N5cy9wb3dlci9wbV90ZXN0CiMg
-ZWNobyBtZW0gPiAvc3lzL3Bvd2VyL3N0YXRlCiAgUlRMODE2OToKLSBkbWVzZy0zLjE0LjAtMC5y
-YzMuZ2l0Mi4xLmZjMjEueDg2XzY0LXI4MTY5LXBtX3Rlc3QtcHJvY2Vzc29ycy5kaWZmCiAgaHR0
-cHM6Ly9idWd6aWxsYS5yZWRoYXQuY29tL2F0dGFjaG1lbnQuY2dpP2lkPTg2NDk2MQogIFNLR0U6
-Ci0gZG1lc2ctMy4xNC4wLTAucmMzLmdpdDIuMS5mYzIxLng4Nl82NC1za2dlLXBtX3Rlc3QtcHJv
-Y2Vzc29ycy5kaWZmCiAgaHR0cHM6Ly9idWd6aWxsYS5yZWRoYXQuY29tL2F0dGFjaG1lbnQuY2dp
-P2lkPTg2NDk2MgoKRGVidWdnaW5nIFMzIC0gcGxhdGZvcm06CiMgZWNobyBwbGF0Zm9ybSA+IC9z
-eXMvcG93ZXIvcG1fdGVzdAojIGVjaG8gbWVtID4gL3N5cy9wb3dlci9zdGF0ZQogIFJUTDgxNjk6
-Ci0gZG1lc2ctMy4xNC4wLTAucmMzLmdpdDIuMS5mYzIxLng4Nl82NC1yODE2OS1wbV90ZXN0LXBs
-YXRmb3JtLmRpZmYKICBodHRwczovL2J1Z3ppbGxhLnJlZGhhdC5jb20vYXR0YWNobWVudC5jZ2k/
-aWQ9ODY0OTYzCiAgU0tHRToKLSBkbWVzZy0zLjE0LjAtMC5yYzMuZ2l0Mi4xLmZjMjEueDg2XzY0
-LXNrZ2UtcG1fdGVzdC1wbGF0Zm9ybS5kaWZmCiAgaHR0cHM6Ly9idWd6aWxsYS5yZWRoYXQuY29t
-L2F0dGFjaG1lbnQuY2dpP2lkPTg2NDk2NAoKUkhCWgpodHRwczovL2J1Z3ppbGxhLnJlZGhhdC5j
-b20vc2hvd19idWcuY2dpP2lkPTEwMTA3NjQKClRlc3RlZCB3aXRoIFJhd2hpZGUgJyBrZXJuZWwt
-My4xNC4wLTAucmMzLmdpdDIuMS5mYzIxLng4Nl82NCcKaHR0cDovL2tvamkuZmVkb3JhcHJvamVj
-dC5vcmcva29qaS9idWlsZGluZm8/YnVpbGRJRD00OTkwNjEKCgpwb21hCgpfX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwprZXJuZWwgbWFpbGluZyBsaXN0Cmtl
-cm5lbEBsaXN0cy5mZWRvcmFwcm9qZWN0Lm9yZwpodHRwczovL2FkbWluLmZlZG9yYXByb2plY3Qu
-b3JnL21haWxtYW4vbGlzdGluZm8va2VybmVs
+-----Original Message-----
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [PATCH net-next 1/2] pcnet32: fix reallocation error
+Date: Tue, 18 Feb 2014 21:29:00 +0900
+
+>Don Fry wrote:
+>> pcnet32_realloc_rx_ring() only worked on the first log2 number of
+>> entries in the receive ring instead of the all the entries.
+>> Replaced "1 << size" with more descriptive variable.
+>
+>>  	/* first copy the current receive buffers */
+>> -	overlap = min(size, lp->rx_ring_size);
+>> +	overlap = min(entries, lp->rx_ring_size);
+>
+>>  	/* now allocate any new buffers needed */
+>> -	for (; new < size; new++) {
+>> +	for (; new < entries; new++) {
+>>
+>Until this fix, lp->rx_skbuff[size...(1<<size)-1] were not allocated by
+>netdev_alloc_skb() and lp->rx_ring_dma_addr[size...(1<<size)-1] were not mapped
+>by pci_map_single(), right?
+>
+>Since lp->rx_ring_size was set to (1<<size), wasn't there possibility that
+>something bad happens by accessing lp->rx_skbuff[] and lp->rx_ring_dma_addr[]
+>up to (1<<size)-1 ? (In other words, don't we want to backport this fix?)
+>
+
+I looked into this when testing.  If the device is operational
+(netif_running) when the ring is resized, it will do pcnet32_restart and
+make sure all rx buffers are full.  If the device is not operational it
+will leave the ring partially full until it is opened and then the ring
+is filled via pcnet32_init_ring().  Another thing that could happen
+while it is down is that a selftest is done (offline) which also calls
+pcnet32_restart and makes sure the ring is full.  I could not find a
+case that would cause a problem.  No-one has reported this in the last 8
+years so it does not look like backporting this fix is needed, in my
+opinion.
