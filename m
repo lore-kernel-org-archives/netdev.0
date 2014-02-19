@@ -1,103 +1,56 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [RFC v2 2/4] net: enables interface option to skip IP
-Date: Wed, 19 Feb 2014 19:13:08 +0000
-Message-ID: <53050244.1020106@citrix.com>
-References: <1392433180-16052-1-git-send-email-mcgrof@do-not-panic.com> <1392433180-16052-3-git-send-email-mcgrof@do-not-panic.com> <1392668638.21106.5.camel@dcbw.local> <CAB=NE6XGBp1RwO63W0ac6tTr9JcRM9TB9sap4pa+8PMWwjxu6g@mail.gmail.com> <1392828325.21976.6.camel@dcbw.local> <CAB=NE6VpUqwNNY4pgbS6du2VsZ6dH0TzQYXmiw6GGN-EiOsV6g@mail.gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH -next] net: tcp: add mib counters to track zero window
+ transitions
+Date: Wed, 19 Feb 2014 20:18:31 +0100
+Message-ID: <20140219191831.GA7119@breakpoint.cc>
+References: <1392674268-26005-1-git-send-email-fw@strlen.de>
+ <20140219.131708.562226572566677127.davem@davemloft.net>
+ <1392835787.18849.11.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140219185949.GA1179@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	<xen-devel@lists.xenproject.org>, <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	Dan Williams <dcbw@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAB=NE6VpUqwNNY4pgbS6du2VsZ6dH0TzQYXmiw6GGN-EiOsV6g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:33552 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754724AbaBSTSf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 14:18:35 -0500
+Content-Disposition: inline
+In-Reply-To: <20140219185949.GA1179@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 19/02/14 17:20, Luis R. Rodriguez wrote:
-> On Wed, Feb 19, 2014 at 8:45 AM, Dan Williams <dcbw@redhat.com> wrote:
->> On Tue, 2014-02-18 at 13:19 -0800, Luis R. Rodriguez wrote:
->>> On Mon, Feb 17, 2014 at 12:23 PM, Dan Williams <dcbw@redhat.com> wrote:
->>>> On Fri, 2014-02-14 at 18:59 -0800, Luis R. Rodriguez wrote:
->>>>> From: "Luis R. Rodriguez" <mcgrof@suse.com>
->>>>>
->>>>> Some interfaces do not need to have any IPv4 or IPv6
->>>>> addresses, so enable an option to specify this. One
->>>>> example where this is observed are virtualization
->>>>> backend interfaces which just use the net_device
->>>>> constructs to help with their respective frontends.
->>>>>
->>>>> This should optimize boot time and complexity on
->>>>> virtualization environments for each backend interface
->>>>> while also avoiding triggering SLAAC and DAD, which is
->>>>> simply pointless for these type of interfaces.
->>>>
->>>> Would it not be better/cleaner to use disable_ipv6 and then add a
->>>> disable_ipv4 sysctl, then use those with that interface?
->>>
->>> Sure, but note that the both disable_ipv6 and accept_dada sysctl
->>> parameters are global. ipv4 and ipv6 interfaces are created upon
->>> NETDEVICE_REGISTER, which will get triggered when a driver calls
->>> register_netdev(). The goal of this patch was to enable an early
->>> optimization for drivers that have no need ever for ipv4 or ipv6
->>> interfaces.
->>
->> Each interface gets override sysctls too though, eg:
->>
->> /proc/sys/net/ipv6/conf/enp0s25/disable_ipv6
->
-> I hadn't seen those, thanks!
->
->> which is the one I meant; you're obviously right that the global ones
->> aren't what you want here.  But the specific ones should be suitable?
->
-> Under the approach Stephen mentioned by first ensuring the interface
-> is down yes. There's one use case I can consider to still want the
-> patch though, more on that below.
->
->> If you set that on a per-interface basis, then you'll get EPERM or
->> something whenever you try to add IPv6 addresses or do IPv6 routing.
->
-> Neat, thanks.
->
->>> Zoltan has noted though some use cases of IPv4 or IPv6 addresses on
->>> backends though, as such this is no longer applicable as a
->>> requirement. The ipv4 sysctl however still seems like a reasonable
->>> approach to enable optimizations of the network in topologies where
->>> its known we won't need them but -- we'd need to consider a much more
->>> granular solution, not just global as it is now for disable_ipv6, and
->>> we'd also have to figure out a clean way to do this to not incur the
->>> cost of early address interface addition upon register_netdev().
->>>
->>> Given that we have a use case for ipv4 and ipv6 addresses on
->>> xen-netback we no longer have an immediate use case for such early
->>> optimization primitives though, so I'll drop this.
->>>
->>>> The IFF_SKIP_IP seems to duplicate at least part of what disable_ipv6 is
->>>> already doing.
->>>
->>> disable_ipv6 is global, the goal was to make this granular and skip
->>> the cost upon early boot, but its been clarified we don't need this.
->>
->> Like Stephen says, you need to make sure you set them before IFF_UP, but
->> beyond that, wouldn't the interface-specific sysctls work?
->
-> Yeah that'll do it, unless there is a measurable run time benefit cost
-> to never even add these in the first place. Consider a host with tons
-> of guests, not sure how many is 'a lot' these days. One would have to
-> measure the cost of reducing the amount of time it takes to boot these
-> up. As discussed in the other threads though there *is* some use cases
-> of assigning IPv4 or IPv6 addresses to the backend interfaces though:
-> routing them (although its unclear to me if iptables can be used
-> instead, Zoltan?).
+Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+> On Wed, Feb 19, 2014 at 10:49:47AM -0800, Eric Dumazet wrote:
+> > On Wed, 2014-02-19 at 13:17 -0500, David Miller wrote:
+> > > From: Florian Westphal <fw@strlen.de>
+> > > Date: Mon, 17 Feb 2014 22:57:48 +0100
+> > > 
+> > > > Three counters are added:
+> > > > - one to track when we went from non-zero to zero window
+> > > > - one to track the reverse
+> > > > - one counter incremented when we want to announce zero window.
+> > > > 
+> > > > The latter is added because it can show cases where we want to close the
+> > > > window but can't because we would shrink window.
+> > > > 
+> > > > Suggested-by: Eric Dumazet <edumazet@google.com>
+> > > > Signed-off-by: Florian Westphal <fw@strlen.de>
+> > > > ---
+> > > >  Eric, is this what you had in mind?
+> > > > 
+> > > >  I re-ran my 'slow-sender-with-reader-that-does-not-drain-socket'
+> > > >  scenario and, as expected, only TCPWANTZEROWINDOW increases.
+> > > 
+> > > Eric, ping?
+> > 
+> > Thanks, I missed this patch. Let me think about it, thanks !
+> 
+> We need NET_INC_STATS instead of NET_INC_STATS_BH, no?
 
-Not with OVS, it steals the packet before netfilter hooks.
+sure, I can send v2 but I'll wait for (n)ack from Eric first
+before considering it.
 
-Zoli
+tcp_transmit_skb (caller of tcp_select_window) also uses _BH
+which is why it ended up in tcp_select_window.
