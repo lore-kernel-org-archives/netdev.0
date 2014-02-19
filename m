@@ -1,66 +1,79 @@
-From: "=?ISO-8859-1?B?WGlhbnBlbmcgWmhhbw==?=" <673321875@qq.com>
-Subject: Re: Fw:[Bug 70471] xfrm policy node will double unlink.
-Date: Wed, 19 Feb 2014 10:07:14 +0800
-Message-ID: <tencent_4CE06FA903D8DCB54F951A30@qq.com>
-References: <tencent_0D7FA5355C7998793C100B23@qq.com>
-	<20140218083737.GB32371@secunet.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next] bonding: Fix RTNL: assertion failed at net/core/rtnetlink.c
+ for 802.3ad mode
+Date: Wed, 19 Feb 2014 10:13:22 +0800
+Message-ID: <53041342.90508@huawei.com>
+References: <53034312.1060203@huawei.com> <20140218.173812.1179657046277970562.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="ISO-8859-1"
-Content-Transfer-Encoding: base64
-Cc: "=?ISO-8859-1?B?bmV0ZGV2?=" <netdev@vger.kernel.org>,
-	"=?ISO-8859-1?B?YWxhbg==?=" <alan@lxorguk.ukuu.org.uk>
-To: "=?ISO-8859-1?B?U3RlZmZlbiBLbGFzc2VydA==?="
-	<steffen.klassert@secunet.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <fubar@us.ibm.com>, <andy@greyhouse.net>, <vfalico@redhat.com>,
+	<cwang@twopensource.com>, <thomas@glanzmann.de>,
+	<jiri@resnulli.us>, <edumazet@google.com>,
+	<sfeldma@cumulusnetworks.com>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from SMTPBG7.QQ.COM ([183.60.61.200]:43224 "HELO smtpbg7.qq.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752059AbaBSCNG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Feb 2014 21:13:06 -0500
-In-Reply-To: <20140218083737.GB32371@secunet.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:16813 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751698AbaBSCOG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Feb 2014 21:14:06 -0500
+In-Reply-To: <20140218.173812.1179657046277970562.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgU3RlZmZlbiwKCiAgICAgIFRoaXMgcHJvYmxlbSBpcyBoYXBwZW5lZCB3aGVuIHJ1bm5p
-bmcgc3RyZXNzIHRlc3Q7IFZlcnkgbGl0dGxlIGNoYW5jZSBjYW4gZ2V0IHRoaXMgY2FzZS4K
-CiAgICAgIEFzIHlvdSBzYXksIGFkZCBhIGxvbmcgdGltZSBzbGVlcCBpbiBmdW5jdGlvbiB4
-ZnJtX3BvbGljeV9ieXNlbF9jdHggYmV0d2VlbiBfX3hmcm1fcG9saWN5X3VubGluayBhbmQg
-Cnhmcm1fcG9saWN5X2tpbGwsIHdpbGwgcmVwcm9kdWNlIHRoaXMgaXNzdWUgbWFudWFsbHku
-IAoKICAgICAgQWJvdXQgbXkgcGF0Y2gsIEkgYW0gbm90IHN1cmUgaXQgaXMgT0ssIGJlY2F1
-c2UgYWZ0ZXIgaXQgcGF0Y2hlZCwgdGhlIGlzc3VlIGhhZCByZXByb2R1Y2VkIG9uY2UsIGJ1
-dCBhZnRlciBzb21lIGRheXMgdGVzdCByZWNlbnRseSwgaGF2ZSBub3QgcmVwcm9kdWNlZCBh
-Z2Fpbi4gCgogICAgICBCdXQgSSBjYW4gbWFrZSBzdXJlIHdoZW4gX194ZnJtX3BvbGljeV91
-bmxpbmsgZmluZCB0aGUgbm9kZSBoYWQgYmVlbiByZW1vdmVkLCByZXR1cm4gTlVMTCBpbnN0
-ZWFkIG9mIGRlbGV0ZSBhZ2FpbiB3aWxsIGZpeCB0aGlzIHByb2JsZW0uCgogICAgICBXaGF0
-J3MgeW91ciBzdWdnZXN0aW9ucz8KCi0tLS0tLS0tLS0tLS0tLS0tLQpCZXN0IFJlZ2FyZHMK
-WGlhbnBlbmcKCi0tLS0tLS0tLS0tLS0tLS0tLSBPcmlnaW5hbCAtLS0tLS0tLS0tLS0tLS0t
-LS0KRnJvbTogICJTdGVmZmVuIEtsYXNzZXJ0Ijs8c3RlZmZlbi5rbGFzc2VydEBzZWN1bmV0
-LmNvbT47CkRhdGU6ICBUdWUsIEZlYiAxOCwgMjAxNCAwNDozNyBQTQpUbzogICJYaWFucGVu
-ZyBaaGFvIjw2NzMzMjE4NzVAcXEuY29tPjsgCkNjOiAgIm5ldGRldiI8bmV0ZGV2QHZnZXIu
-a2VybmVsLm9yZz47ICJhbGFuIjxhbGFuQGx4b3JndWsudWt1dS5vcmcudWs+OyAKU3ViamVj
-dDogIFJlOiBGdzpbQnVnIDcwNDcxXSB4ZnJtIHBvbGljeSBub2RlIHdpbGwgZG91YmxlIHVu
-bGluay4KCgoKT24gVHVlLCBGZWIgMTgsIDIwMTQgYXQgMTA6NTU6NTdBTSArMDgwMCwgWGlh
-bnBlbmcgWmhhbyB3cm90ZToKPiBIaSBHcm91cCwKPiAgICAgIEkgZm91bmQgYSBwcm9ibGVt
-IGFib3V0IHhmcm0gcG9saWN5Lgo+IAo+ICAgICAgSW4gY29ybmVyIGNhc2UsIHhmcm0gcG9s
-aWN5IG5vZGUgd2lsbCBiZSBkb3VibGUgdW5saW5rZWQgZnJvbSB0aGUgbGlzdC4KPiAKPiAg
-ICAgVGhlIHNjZW5hcmlvIGxpa2UgdGhpczoKPiAgICAgSW4gdGhyZWFkIGNvbnRleHQsIEFm
-dGVyIHJlbW92ZWQgdGhlIG5vZGUgZnJvbSBsaXN0LCBiZWZvcmUgcmVtb3ZlIHRoZSB4ZnJt
-IHBvbGljeSBleHBpcmUgdGltZXIuIEF0IHRoaXMgcG9pbnQsIGEgdGltZXIgaW50ZXJydXB0
-IGNvbWUsIGFuZCBjYWxsIHRoZSBydW5fdGltZXJfc29mdGlycSB0byBleGVjdXRlIHRoZSB4
-ZnJtX3BvbGljeV90aW1lciB0byByZW1vdmUgdGhlIGV4cGlyZWQgcG9saWN5IG5vZGU7IGJl
-Y2F1c2UgdGhpcyBwb2xpY3kgbm9kZSBoYWQgYWxyZWFkeSByZW1vdmVkIGZyb20gbGlzdC4g
-dGhpcyByZW1vdmUgd2lsbCBjYXVzZSB0aGUgbm9kZSBkb3VibGUgdW5saW5rZWQuCgpHb29k
-IGNhdGNoIQoKSSB3b25kZXIgd2h5IEkndmUgbmV2ZXIgc2VlbiB0aGlzLiBEbyB5b3UgaGF2
-ZSBhIHJlcHJvZHVjZXIgZm9yIHRoaXMgYnVnPwoKTG9va3MgbGlrZSBpdCBpcyBzdWZmaWNp
-ZW50IHRvIHJlaW5pdGlhbGl6ZSB0aGUgYnlkc3QgaGxpc3QgaW4KX194ZnJtX3BvbGljeV91
-bmxpbmsoKS4gVGhlbiBobGlzdF91bmhhc2hlZCgpIHdpbGwgbm90aWNlIHRoYXQKdGhpcyBw
-b2xpY3kgaXMgbm90IGxpbmtlZC4KCkRvZXMgdGhlIHBhdGNoIGJlbG93IGhlbHA/CgoKZGlm
-ZiAtLWdpdCBhL25ldC94ZnJtL3hmcm1fcG9saWN5LmMgYi9uZXQveGZybS94ZnJtX3BvbGlj
-eS5jCmluZGV4IDEyMTM5OWQuLjIyNWY0MzkgMTAwNjQ0Ci0tLSBhL25ldC94ZnJtL3hmcm1f
-cG9saWN5LmMKKysrIGIvbmV0L3hmcm0veGZybV9wb2xpY3kuYwpAQCAtMTE1Niw3ICsxMTU2
-LDcgQEAgc3RhdGljIHN0cnVjdCB4ZnJtX3BvbGljeSAqX194ZnJtX3BvbGljeV91bmxpbmso
-c3RydWN0IHhmcm1fcG9saWN5ICpwb2wsCiAJaWYgKGhsaXN0X3VuaGFzaGVkKCZwb2wtPmJ5
-ZHN0KSkKIAkJcmV0dXJuIE5VTEw7CiAKLQlobGlzdF9kZWwoJnBvbC0+Ynlkc3QpOworCWhs
-aXN0X2RlbF9pbml0KCZwb2wtPmJ5ZHN0KTsKIAlobGlzdF9kZWwoJnBvbC0+YnlpZHgpOwog
-CWxpc3RfZGVsKCZwb2wtPndhbGsuYWxsKTsKIAluZXQtPnhmcm0ucG9saWN5X2NvdW50W2Rp
-cl0tLTsKLg==
+On 2014/2/19 6:38, David Miller wrote:
+> From: Ding Tianhong <dingtianhong@huawei.com>
+> Date: Tue, 18 Feb 2014 19:25:06 +0800
+> 
+>> The problem was introduced by the commit 1d3ee88ae0d
+>> (bonding: add netlink attributes to slave link dev).
+>> The bond_set_active_slave() and bond_set_backup_slave()
+>> will use rtmsg_ifinfo to send slave's states, so these
+>> two functions should be called in RTNL.
+>>
+>> In 802.3ad mode, acquiring RTNL for the __enable_port and
+>> __disable_port cases is difficult, as those calls generally
+>> already hold the state machine lock, and cannot unconditionally
+>> call rtnl_lock because either they already hold RTNL (for calls
+>> via bond_3ad_unbind_slave) or due to the potential for deadlock
+>> with bond_3ad_adapter_speed_changed, bond_3ad_adapter_duplex_changed,
+>> bond_3ad_link_change, or bond_3ad_update_lacp_rate.  All four of
+>> those are called with RTNL held, and acquire the state machine lock
+>> second.  The calling contexts for __enable_port and __disable_port
+>> already hold the state machine lock, and may or may not need RTNL.
+>>
+>> According to the Jay's opinion, I don't think it is a problem that
+>> the slave don't send notify message synchronously when the status
+>> changed, normally the state machine is running every 100 ms, send
+>> the notify message at the end of the state machine if the slave's
+>> state changed should be better.
+>>
+>> I fix the problem through these steps:
+>>
+>> 1). add a new function bond_set_slave_state() which could change
+>>     the slave's state and call rtmsg_ifinfo() according to the input
+>>     parameters called notify.
+>>
+>> 2). Add a new slave parameter which called should_notify, if the slave's state
+>>     changed and don't notify yet, the parameter will be set to 1, and then if
+>>     the slave's state changed again, the param will be set to 0, it indicate that
+>>     the slave's state has been restored, no need to notify any one.
+>>
+>> 3). the __enable_port and __disable_port should not call rtmsg_ifinfo
+>>     in the state machine lock, any change in the state of slave could
+>>     set a flag in the slave, it will indicated that an rtmsg_ifinfo
+>>     should be called at the end of the state machine.
+>>
+>> Cc: Jay Vosburgh <fubar@us.ibm.com>
+>> Cc: Veaceslav Falico <vfalico@redhat.com>
+>> Cc: Andy Gospodarek <andy@greyhouse.net>
+>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> 
+> This seems more appropriately targetted at 'net' since it's a real
+> bug fix, do you agree?
+> 
+> .
+> 
+Agree.
+
+Ding
