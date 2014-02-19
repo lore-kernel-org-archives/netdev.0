@@ -1,7 +1,7 @@
 From: Daeseok Youn <daeseok.youn@gmail.com>
-Subject: [PATCH] atm: nicstar: use NULL instead of 0 for pointer
-Date: Wed, 19 Feb 2014 14:12:46 +0900
-Message-ID: <1738246.bUPoQjSxLC@daeseok-laptop.cloud.net>
+Subject: [PATCH] atm: solos-pci: make solos_bh() as static
+Date: Wed, 19 Feb 2014 14:13:54 +0900
+Message-ID: <1547067.MtNWZjBp8J@daeseok-laptop.cloud.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
@@ -12,60 +12,33 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->From c320d2ea1ed51c88255c33a50c74fa3598ab7be6 Mon Sep 17 00:00:00 2001
+>From 6297aabeff748777b520cc0ee835af0a3ddc79e2 Mon Sep 17 00:00:00 2001
 From: Daeseok Youn <daeseok.youn@gmail.com>
-Date: Wed, 19 Feb 2014 10:10:11 +0900
-Subject: [PATCH] atm: nicstar: use NULL instead of 0 for pointer
+Date: Wed, 19 Feb 2014 10:49:12 +0900
+Subject: [PATCH] atm: solos-pci: make solos_bh() as static
 
 sparse says:
 
-drivers/atm/nicstar.c:642:27: warning:
- Using plain integer as NULL pointer
-drivers/atm/nicstar.c:644:27:
- warning: Using plain integer as NULL pointer
-drivers/atm/nicstar.c:982:51:
- warning: Using plain integer as NULL pointer
-drivers/atm/nicstar.c:996:51:
- warning: Using plain integer as NULL pointer
+drivers/atm/solos-pci.c:763:6: warning:
+ symbol 'solos_bh' was not declared. Should it be static?
 
 Signed-off-by: Daeseok Youn <daeseok.youn@gmail.com>
 ---
- drivers/atm/nicstar.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/atm/solos-pci.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
-index 9587e95..13ed54c 100644
---- a/drivers/atm/nicstar.c
-+++ b/drivers/atm/nicstar.c
-@@ -639,9 +639,9 @@ static int ns_init_card(int i, struct pci_dev *pcidev)
- 	card->hbnr.init = NUM_HB;
- 	card->hbnr.max = MAX_HB;
+diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
+index e3fb496..943cf0d 100644
+--- a/drivers/atm/solos-pci.c
++++ b/drivers/atm/solos-pci.c
+@@ -760,7 +760,7 @@ static irqreturn_t solos_irq(int irq, void *dev_id)
+ 	return IRQ_RETVAL(handled);
+ }
  
--	card->sm_handle = 0x00000000;
-+	card->sm_handle = NULL;
- 	card->sm_addr = 0x00000000;
--	card->lg_handle = 0x00000000;
-+	card->lg_handle = NULL;
- 	card->lg_addr = 0x00000000;
- 
- 	card->efbie = 1;	/* To prevent push_rxbufs from enabling the interrupt */
-@@ -979,7 +979,7 @@ static void push_rxbufs(ns_dev * card, struct sk_buff *skb)
- 				addr2 = card->sm_addr;
- 				handle2 = card->sm_handle;
- 				card->sm_addr = 0x00000000;
--				card->sm_handle = 0x00000000;
-+				card->sm_handle = NULL;
- 			} else {	/* (!sm_addr) */
- 
- 				card->sm_addr = addr1;
-@@ -993,7 +993,7 @@ static void push_rxbufs(ns_dev * card, struct sk_buff *skb)
- 				addr2 = card->lg_addr;
- 				handle2 = card->lg_handle;
- 				card->lg_addr = 0x00000000;
--				card->lg_handle = 0x00000000;
-+				card->lg_handle = NULL;
- 			} else {	/* (!lg_addr) */
- 
- 				card->lg_addr = addr1;
+-void solos_bh(unsigned long card_arg)
++static void solos_bh(unsigned long card_arg)
+ {
+ 	struct solos_card *card = (void *)card_arg;
+ 	uint32_t card_flags;
 -- 
 1.7.9.5
