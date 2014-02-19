@@ -1,360 +1,281 @@
 From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH net-next 1/5] gianfar: Implement MAC reset and reconfig procedure
-Date: Wed, 19 Feb 2014 15:22:14 +0200
-Message-ID: <1392816138-31645-2-git-send-email-claudiu.manoil@freescale.com>
+Subject: [PATCH net-next 5/5] gianfar: Fix Tx int miss, dont write IC on-the-fly
+Date: Wed, 19 Feb 2014 15:22:18 +0200
+Message-ID: <1392816138-31645-6-git-send-email-claudiu.manoil@freescale.com>
 References: <1392816138-31645-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: "David S. Miller" <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe006.messaging.microsoft.com ([216.32.180.16]:46418
-	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753483AbaBSNWx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 08:22:53 -0500
+Received: from am1ehsobe002.messaging.microsoft.com ([213.199.154.205]:22080
+	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753731AbaBSNW7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 08:22:59 -0500
 In-Reply-To: <1392816138-31645-1-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The main MAC config registers like: RCTRL/TCTRL, MRBLR,
-MAXFRM, RXIC/TXIC, most fields of MACCFG1/2, should not
-be changed on-the-fly, but at least after stopping the
-DMA and disabling the Rx/Tx blocks and, for increased
-reliability, after a MAC soft reset.
+Programming the interrupt coalescing (IC) registers while
+the controller/DMA is on may incur the loss of one Tx
+confirmation interrupt, under certain conditions.  This is
+a subtle hw race because it does not occur during a burst
+of Tx packets.  It has been observed on p2020 devices that,
+if just one packet is being xmit'ed, the Tx confirmation
+doesn't trigger and BQL evetually blocks the Tx queues,
+followed by Tx timeout and an un-responsive device.
+This issue was not apparent prior to introducing BQL
+support, as a late Tx confirmation was not an issue back then
+and the next burst of Tx frames would have triggered the
+Tx confirmation/ Tx ring cleanup anyway.
 
-Impelement a complete MAC soft reset and reconfig procedure
-following the latest HW advisories - gfar_mac_reset() - to
-replace gfar_mac_init() and (the confusing) init_registers()
-functions.
-
-Factor out separate config functions for RCTRL and TCTRL,
-insure programming order of the relevant config regs after
-MAC soft reset.
-
-Split gfar_hw_init() into gfar_mac_reset() and the remaining
-global regs that don't need to be reconfigured after MAC soft
-reset (FIFOCFG, ATTRELI, HW counters a.s.o).
-
-As gfar_hw_init() now makes all the register writes @probe()
-time, based on all the device flags and config options, it
-must be moved further down, just before register_netdev(),
-as the last config step when the config values are comitted
-to HW.  Also, move netif_carrier_off() after register_netdev(),
-because it has no effect if called before.
+Bottom line, the hw specifications state that the IC registers
+should not be programmed while the Rx/Tx blocks (the DMA) are
+enabled. Further more, these registers are currently re-written
+with the same values on the processing path, over and over again.
+To fix this, rewriting the IC registers has been removed from
+the processing path (napi poll).  A complete MAC reset procedure
+has been implemented for the ethtool -c option instead, to
+reliably update these registers while the controller is stopped.
 
 Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
 ---
- drivers/net/ethernet/freescale/gianfar.c | 172 ++++++++++++++++---------------
- 1 file changed, 90 insertions(+), 82 deletions(-)
+ drivers/net/ethernet/freescale/gianfar.c         | 99 ++++++++++--------------
+ drivers/net/ethernet/freescale/gianfar_ethtool.c | 66 +++++++++-------
+ 2 files changed, 77 insertions(+), 88 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index a2977a8..446e9c9 100644
+index 4eac25f..c5b9320 100644
 --- a/drivers/net/ethernet/freescale/gianfar.c
 +++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -121,7 +121,6 @@ static irqreturn_t gfar_error(int irq, void *dev_id);
- static irqreturn_t gfar_transmit(int irq, void *dev_id);
- static irqreturn_t gfar_interrupt(int irq, void *dev_id);
- static void adjust_link(struct net_device *dev);
--static void init_registers(struct net_device *dev);
- static int init_phy(struct net_device *dev);
- static int gfar_probe(struct platform_device *ofdev);
- static int gfar_remove(struct platform_device *ofdev);
-@@ -330,18 +329,10 @@ static void gfar_init_tx_rx_base(struct gfar_private *priv)
- 	}
+@@ -412,6 +412,47 @@ static void gfar_mac_tx_config(struct gfar_private *priv)
+ 	gfar_write(&regs->tctrl, tctrl);
  }
  
--static void gfar_init_mac(struct net_device *ndev)
-+static void gfar_mac_rx_config(struct gfar_private *priv)
- {
--	struct gfar_private *priv = netdev_priv(ndev);
- 	struct gfar __iomem *regs = priv->gfargrp[0].regs;
- 	u32 rctrl = 0;
--	u32 tctrl = 0;
--
--	/* write the tx/rx base registers */
--	gfar_init_tx_rx_base(priv);
--
--	/* Configure the coalescing support */
--	gfar_configure_coalescing_all(priv);
- 
- 	/* set this when rx hw offload (TOE) functions are being used */
- 	priv->uses_rxfcb = 0;
-@@ -353,18 +344,16 @@ static void gfar_init_mac(struct net_device *ndev)
- 	}
- 
- 	/* Restore PROMISC mode */
--	if (ndev->flags & IFF_PROMISC)
-+	if (priv->ndev->flags & IFF_PROMISC)
- 		rctrl |= RCTRL_PROM;
- 
--	if (ndev->features & NETIF_F_RXCSUM) {
-+	if (priv->ndev->features & NETIF_F_RXCSUM) {
- 		rctrl |= RCTRL_CHECKSUMMING;
- 		priv->uses_rxfcb = 1;
- 	}
- 
- 	if (priv->extended_hash) {
- 		rctrl |= RCTRL_EXTHASH;
--
--		gfar_clear_exact_match(ndev);
- 		rctrl |= RCTRL_EMEN;
- 	}
- 
-@@ -379,15 +368,21 @@ static void gfar_init_mac(struct net_device *ndev)
- 		priv->uses_rxfcb = 1;
- 	}
- 
--	if (ndev->features & NETIF_F_HW_VLAN_CTAG_RX) {
-+	if (priv->ndev->features & NETIF_F_HW_VLAN_CTAG_RX) {
- 		rctrl |= RCTRL_VLEX | RCTRL_PRSDEP_INIT;
- 		priv->uses_rxfcb = 1;
- 	}
- 
- 	/* Init rctrl based on our settings */
- 	gfar_write(&regs->rctrl, rctrl);
-+}
- 
--	if (ndev->features & NETIF_F_IP_CSUM)
-+static void gfar_mac_tx_config(struct gfar_private *priv)
++static void gfar_configure_coalescing(struct gfar_private *priv,
++			       unsigned long tx_mask, unsigned long rx_mask)
 +{
 +	struct gfar __iomem *regs = priv->gfargrp[0].regs;
-+	u32 tctrl = 0;
++	u32 __iomem *baddr;
 +
-+	if (priv->ndev->features & NETIF_F_IP_CSUM)
- 		tctrl |= TCTRL_INIT_CSUM;
- 
- 	if (priv->prio_sched_en)
-@@ -1016,28 +1011,94 @@ static void gfar_detect_errata(struct gfar_private *priv)
- 			 priv->errata);
- }
- 
--static void gfar_hw_init(struct gfar_private *priv)
-+static void gfar_mac_reset(struct gfar_private *priv)
- {
- 	struct gfar __iomem *regs = priv->gfargrp[0].regs;
--	u32 tempval, attrs;
-+	u32 tempval;
- 
- 	/* Reset MAC layer */
- 	gfar_write(&regs->maccfg1, MACCFG1_SOFT_RESET);
- 
- 	/* We need to delay at least 3 TX clocks */
--	udelay(2);
-+	udelay(3);
- 
- 	/* the soft reset bit is not self-resetting, so we need to
- 	 * clear it before resuming normal operation
- 	 */
- 	gfar_write(&regs->maccfg1, 0);
- 
-+	udelay(3);
++	if (priv->mode == MQ_MG_MODE) {
++		int i = 0;
 +
-+	/* Initialize the max receive buffer length */
-+	gfar_write(&regs->mrblr, priv->rx_buffer_size);
++		baddr = &regs->txic0;
++		for_each_set_bit(i, &tx_mask, priv->num_tx_queues) {
++			gfar_write(baddr + i, 0);
++			if (likely(priv->tx_queue[i]->txcoalescing))
++				gfar_write(baddr + i, priv->tx_queue[i]->txic);
++		}
 +
-+	/* Initialize the Minimum Frame Length Register */
-+	gfar_write(&regs->minflr, MINFLR_INIT_SETTINGS);
++		baddr = &regs->rxic0;
++		for_each_set_bit(i, &rx_mask, priv->num_rx_queues) {
++			gfar_write(baddr + i, 0);
++			if (likely(priv->rx_queue[i]->rxcoalescing))
++				gfar_write(baddr + i, priv->rx_queue[i]->rxic);
++		}
++	} else {
++		/* Backward compatible case -- even if we enable
++		 * multiple queues, there's only single reg to program
++		 */
++		gfar_write(&regs->txic, 0);
++		if (likely(priv->tx_queue[0]->txcoalescing))
++			gfar_write(&regs->txic, priv->tx_queue[0]->txic);
 +
- 	/* Initialize MACCFG2. */
- 	tempval = MACCFG2_INIT_SETTINGS;
- 	if (gfar_has_errata(priv, GFAR_ERRATA_74))
- 		tempval |= MACCFG2_HUGEFRAME | MACCFG2_LENGTHCHECK;
- 	gfar_write(&regs->maccfg2, tempval);
- 
-+	/* Clear mac addr hash registers */
-+	gfar_write(&regs->igaddr0, 0);
-+	gfar_write(&regs->igaddr1, 0);
-+	gfar_write(&regs->igaddr2, 0);
-+	gfar_write(&regs->igaddr3, 0);
-+	gfar_write(&regs->igaddr4, 0);
-+	gfar_write(&regs->igaddr5, 0);
-+	gfar_write(&regs->igaddr6, 0);
-+	gfar_write(&regs->igaddr7, 0);
-+
-+	gfar_write(&regs->gaddr0, 0);
-+	gfar_write(&regs->gaddr1, 0);
-+	gfar_write(&regs->gaddr2, 0);
-+	gfar_write(&regs->gaddr3, 0);
-+	gfar_write(&regs->gaddr4, 0);
-+	gfar_write(&regs->gaddr5, 0);
-+	gfar_write(&regs->gaddr6, 0);
-+	gfar_write(&regs->gaddr7, 0);
-+
-+	if (priv->extended_hash)
-+		gfar_clear_exact_match(priv->ndev);
-+
-+	gfar_mac_rx_config(priv);
-+
-+	gfar_mac_tx_config(priv);
-+
-+	gfar_set_mac_address(priv->ndev);
-+
-+	gfar_set_multi(priv->ndev);
-+
-+	/* clear ievent and imask before configuring coalescing */
-+	gfar_ints_disable(priv);
-+
-+	/* Configure the coalescing support */
-+	gfar_configure_coalescing_all(priv);
-+}
-+
-+static void gfar_hw_init(struct gfar_private *priv)
-+{
-+	struct gfar __iomem *regs = priv->gfargrp[0].regs;
-+	u32 attrs;
-+
-+	/* Stop the DMA engine now, in case it was running before
-+	 * (The firmware could have used it, and left it running).
-+	 */
-+	gfar_halt(priv);
-+
-+	gfar_mac_reset(priv);
-+
-+	/* Zero out the rmon mib registers if it has them */
-+	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_RMON) {
-+		memset_io(&(regs->rmon), 0, sizeof(struct rmon_mib));
-+
-+		/* Mask off the CAM interrupts */
-+		gfar_write(&regs->rmon.cam1, 0xffffffff);
-+		gfar_write(&regs->rmon.cam2, 0xffffffff);
++		gfar_write(&regs->rxic, 0);
++		if (unlikely(priv->rx_queue[0]->rxcoalescing))
++			gfar_write(&regs->rxic, priv->rx_queue[0]->rxic);
 +	}
++}
 +
- 	/* Initialize ECNTRL */
- 	gfar_write(&regs->ecntrl, ECNTRL_INIT_SETTINGS);
- 
-@@ -1137,13 +1198,6 @@ static int gfar_probe(struct platform_device *ofdev)
- 
- 	gfar_detect_errata(priv);
- 
--	/* Stop the DMA engine now, in case it was running before
--	 * (The firmware could have used it, and left it running).
--	 */
--	gfar_halt(priv);
--
--	gfar_hw_init(priv);
--
- 	/* Set the dev->base_addr to the gfar reg region */
- 	dev->base_addr = (unsigned long) priv->gfargrp[0].regs;
- 
-@@ -1209,8 +1263,7 @@ static int gfar_probe(struct platform_device *ofdev)
- 	if (priv->num_tx_queues == 1)
- 		priv->prio_sched_en = 1;
- 
--	/* Carrier starts down, phylib will bring it up */
--	netif_carrier_off(dev);
-+	gfar_hw_init(priv);
- 
- 	err = register_netdev(dev);
- 
-@@ -1219,6 +1272,9 @@ static int gfar_probe(struct platform_device *ofdev)
- 		goto register_fail;
- 	}
- 
-+	/* Carrier starts down, phylib will bring it up */
-+	netif_carrier_off(dev);
++void gfar_configure_coalescing_all(struct gfar_private *priv)
++{
++	gfar_configure_coalescing(priv, 0xFF, 0xFF);
++}
 +
- 	device_init_wakeup(&dev->dev,
- 			   priv->device_flags &
- 			   FSL_GIANFAR_DEV_HAS_MAGIC_PACKET);
-@@ -1401,9 +1457,10 @@ static int gfar_restore(struct device *dev)
- 		return -ENOMEM;
- 	}
- 
--	init_registers(ndev);
--	gfar_set_mac_address(ndev);
--	gfar_init_mac(ndev);
-+	gfar_mac_reset(priv);
-+
-+	gfar_init_tx_rx_base(priv);
-+
- 	gfar_start(priv);
- 
- 	priv->oldlink = 0;
-@@ -1562,48 +1619,6 @@ static void gfar_configure_serdes(struct net_device *dev)
- 		  BMCR_SPEED1000);
+ static struct net_device_stats *gfar_get_stats(struct net_device *dev)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
+@@ -1837,47 +1878,6 @@ void gfar_start(struct gfar_private *priv)
+ 	priv->ndev->trans_start = jiffies; /* prevent tx timeout */
  }
  
--static void init_registers(struct net_device *dev)
+-static void gfar_configure_coalescing(struct gfar_private *priv,
+-			       unsigned long tx_mask, unsigned long rx_mask)
 -{
--	struct gfar_private *priv = netdev_priv(dev);
 -	struct gfar __iomem *regs = priv->gfargrp[0].regs;
+-	u32 __iomem *baddr;
 -
--	gfar_ints_disable(priv);
+-	if (priv->mode == MQ_MG_MODE) {
+-		int i = 0;
 -
--	/* Init hash registers to zero */
--	gfar_write(&regs->igaddr0, 0);
--	gfar_write(&regs->igaddr1, 0);
--	gfar_write(&regs->igaddr2, 0);
--	gfar_write(&regs->igaddr3, 0);
--	gfar_write(&regs->igaddr4, 0);
--	gfar_write(&regs->igaddr5, 0);
--	gfar_write(&regs->igaddr6, 0);
--	gfar_write(&regs->igaddr7, 0);
+-		baddr = &regs->txic0;
+-		for_each_set_bit(i, &tx_mask, priv->num_tx_queues) {
+-			gfar_write(baddr + i, 0);
+-			if (likely(priv->tx_queue[i]->txcoalescing))
+-				gfar_write(baddr + i, priv->tx_queue[i]->txic);
+-		}
 -
--	gfar_write(&regs->gaddr0, 0);
--	gfar_write(&regs->gaddr1, 0);
--	gfar_write(&regs->gaddr2, 0);
--	gfar_write(&regs->gaddr3, 0);
--	gfar_write(&regs->gaddr4, 0);
--	gfar_write(&regs->gaddr5, 0);
--	gfar_write(&regs->gaddr6, 0);
--	gfar_write(&regs->gaddr7, 0);
+-		baddr = &regs->rxic0;
+-		for_each_set_bit(i, &rx_mask, priv->num_rx_queues) {
+-			gfar_write(baddr + i, 0);
+-			if (likely(priv->rx_queue[i]->rxcoalescing))
+-				gfar_write(baddr + i, priv->rx_queue[i]->rxic);
+-		}
+-	} else {
+-		/* Backward compatible case -- even if we enable
+-		 * multiple queues, there's only single reg to program
+-		 */
+-		gfar_write(&regs->txic, 0);
+-		if (likely(priv->tx_queue[0]->txcoalescing))
+-			gfar_write(&regs->txic, priv->tx_queue[0]->txic);
 -
--	/* Zero out the rmon mib registers if it has them */
--	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_RMON) {
--		memset_io(&(regs->rmon), 0, sizeof (struct rmon_mib));
--
--		/* Mask off the CAM interrupts */
--		gfar_write(&regs->rmon.cam1, 0xffffffff);
--		gfar_write(&regs->rmon.cam2, 0xffffffff);
+-		gfar_write(&regs->rxic, 0);
+-		if (unlikely(priv->rx_queue[0]->rxcoalescing))
+-			gfar_write(&regs->rxic, priv->rx_queue[0]->rxic);
 -	}
--
--	/* Initialize the max receive buffer length */
--	gfar_write(&regs->mrblr, priv->rx_buffer_size);
--
--	/* Initialize the Minimum Frame Length Register */
--	gfar_write(&regs->minflr, MINFLR_INIT_SETTINGS);
 -}
 -
- static int __gfar_is_rx_idle(struct gfar_private *priv)
+-void gfar_configure_coalescing_all(struct gfar_private *priv)
+-{
+-	gfar_configure_coalescing(priv, 0xFF, 0xFF);
+-}
+-
+ static void free_grp_irqs(struct gfar_priv_grp *grp)
  {
- 	u32 res;
-@@ -1939,13 +1954,13 @@ int startup_gfar(struct net_device *ndev)
- 	struct gfar_private *priv = netdev_priv(ndev);
- 	int err, i, j;
+ 	free_irq(gfar_irq(grp, TX)->irq, grp);
+@@ -2812,17 +2812,6 @@ static int gfar_poll_sq(struct napi_struct *napi, int budget)
+ 		gfar_write(&regs->rstat, gfargrp->rstat);
  
--	gfar_ints_disable(priv);
-+	gfar_mac_reset(priv);
+ 		gfar_write(&regs->imask, IMASK_DEFAULT);
+-
+-		/* If we are coalescing interrupts, update the timer
+-		 * Otherwise, clear it
+-		 */
+-		gfar_write(&regs->txic, 0);
+-		if (likely(tx_queue->txcoalescing))
+-			gfar_write(&regs->txic, tx_queue->txic);
+-
+-		gfar_write(&regs->rxic, 0);
+-		if (unlikely(rx_queue->rxcoalescing))
+-			gfar_write(&regs->rxic, rx_queue->rxic);
+ 	}
  
- 	err = gfar_alloc_skb_resources(ndev);
- 	if (err)
- 		return err;
+ 	return work_done;
+@@ -2892,12 +2881,6 @@ static int gfar_poll(struct napi_struct *napi, int budget)
+ 		gfar_write(&regs->rstat, gfargrp->rstat);
  
--	gfar_init_mac(ndev);
-+	gfar_init_tx_rx_base(priv);
+ 		gfar_write(&regs->imask, IMASK_DEFAULT);
+-
+-		/* If we are coalescing interrupts, update the timer
+-		 * Otherwise, clear it
+-		 */
+-		gfar_configure_coalescing(priv, gfargrp->rx_bit_map,
+-					  gfargrp->tx_bit_map);
+ 	}
  
- 	for (i = 0; i < priv->num_grps; i++) {
- 		err = register_grp_irqs(&priv->gfargrp[i]);
-@@ -1961,8 +1976,6 @@ int startup_gfar(struct net_device *ndev)
+ 	return work_done;
+diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+index b711236..94d7d20 100644
+--- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
++++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+@@ -360,25 +360,11 @@ static int gfar_scoalesce(struct net_device *dev,
+ 			  struct ethtool_coalesce *cvals)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
+-	int i = 0;
++	int i, err = 0;
  
- 	phy_start(priv->phydev);
+ 	if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_COALESCE))
+ 		return -EOPNOTSUPP;
+ 
+-	/* Set up rx coalescing */
+-	/* As of now, we will enable/disable coalescing for all
+-	 * queues together in case of eTSEC2, this will be modified
+-	 * along with the ethtool interface
+-	 */
+-	if ((cvals->rx_coalesce_usecs == 0) ||
+-	    (cvals->rx_max_coalesced_frames == 0)) {
+-		for (i = 0; i < priv->num_rx_queues; i++)
+-			priv->rx_queue[i]->rxcoalescing = 0;
+-	} else {
+-		for (i = 0; i < priv->num_rx_queues; i++)
+-			priv->rx_queue[i]->rxcoalescing = 1;
+-	}
+-
+ 	if (NULL == priv->phydev)
+ 		return -ENODEV;
+ 
+@@ -395,6 +381,32 @@ static int gfar_scoalesce(struct net_device *dev,
+ 		return -EINVAL;
+ 	}
+ 
++	/* Check the bounds of the values */
++	if (cvals->tx_coalesce_usecs > GFAR_MAX_COAL_USECS) {
++		netdev_info(dev, "Coalescing is limited to %d microseconds\n",
++			    GFAR_MAX_COAL_USECS);
++		return -EINVAL;
++	}
++
++	if (cvals->tx_max_coalesced_frames > GFAR_MAX_COAL_FRAMES) {
++		netdev_info(dev, "Coalescing is limited to %d frames\n",
++			    GFAR_MAX_COAL_FRAMES);
++		return -EINVAL;
++	}
++
++	while (test_and_set_bit_lock(GFAR_RESETTING, &priv->state))
++		cpu_relax();
++
++	/* Set up rx coalescing */
++	if ((cvals->rx_coalesce_usecs == 0) ||
++	    (cvals->rx_max_coalesced_frames == 0)) {
++		for (i = 0; i < priv->num_rx_queues; i++)
++			priv->rx_queue[i]->rxcoalescing = 0;
++	} else {
++		for (i = 0; i < priv->num_rx_queues; i++)
++			priv->rx_queue[i]->rxcoalescing = 1;
++	}
++
+ 	for (i = 0; i < priv->num_rx_queues; i++) {
+ 		priv->rx_queue[i]->rxic = mk_ic_value(
+ 			cvals->rx_max_coalesced_frames,
+@@ -411,28 +423,22 @@ static int gfar_scoalesce(struct net_device *dev,
+ 			priv->tx_queue[i]->txcoalescing = 1;
+ 	}
+ 
+-	/* Check the bounds of the values */
+-	if (cvals->tx_coalesce_usecs > GFAR_MAX_COAL_USECS) {
+-		netdev_info(dev, "Coalescing is limited to %d microseconds\n",
+-			    GFAR_MAX_COAL_USECS);
+-		return -EINVAL;
+-	}
+-
+-	if (cvals->tx_max_coalesced_frames > GFAR_MAX_COAL_FRAMES) {
+-		netdev_info(dev, "Coalescing is limited to %d frames\n",
+-			    GFAR_MAX_COAL_FRAMES);
+-		return -EINVAL;
+-	}
+-
+ 	for (i = 0; i < priv->num_tx_queues; i++) {
+ 		priv->tx_queue[i]->txic = mk_ic_value(
+ 			cvals->tx_max_coalesced_frames,
+ 			gfar_usecs2ticks(priv, cvals->tx_coalesce_usecs));
+ 	}
  
 -	gfar_configure_coalescing_all(priv);
--
- 	return 0;
++	if (dev->flags & IFF_UP) {
++		stop_gfar(dev);
++		err = startup_gfar(dev);
++	} else {
++		gfar_mac_reset(priv);
++	}
  
- irq_fail:
-@@ -1980,11 +1993,6 @@ static int gfar_enet_open(struct net_device *dev)
+-	return 0;
++	clear_bit_unlock(GFAR_RESETTING, &priv->state);
++
++	return err;
+ }
  
- 	enable_napi(priv);
- 
--	/* Initialize a bunch of registers */
--	init_registers(dev);
--
--	gfar_set_mac_address(dev);
--
- 	err = init_phy(dev);
- 
- 	if (err) {
+ /* Fills in rvals with the current ring parameters.  Currently,
 -- 
 1.7.11.7
