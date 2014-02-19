@@ -1,53 +1,38 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net-next v5 2/9] xen-netback: Change TX path
- from grant copy to mapping
-Date: Wed, 19 Feb 2014 12:27:58 +0000
-Message-ID: <5304A34E.1090503@citrix.com>
-References: <1390253069-25507-1-git-send-email-zoltan.kiss@citrix.com>		<1390253069-25507-3-git-send-email-zoltan.kiss@citrix.com>	 <1392745235.23084.60.camel@kazak.uk.xensource.com>	 <5303AA97.3010202@citrix.com> <1392803670.23084.100.camel@kazak.uk.xensource.com>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [PATCH net-next 12/14] r8152: replace netif_rxwithnetif_receive_skb
+Date: Wed, 19 Feb 2014 20:45:41 +0800
+Message-ID: <45593A6C899E4D8E9C76A16474CA1D90@realtek.com.tw>
+References: <1392731351-25502-1-git-send-email-hayeswang@realtek.com> <1392731351-25502-13-git-send-email-hayeswang@realtek.com> <20140218232850.GB13394@electric-eye.fr.zoreil.com> <79F93FE4FECD48E7B7B6C6EE93151CB6@realtek.com.tw> <20140219074633.GA26271@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <jonathan.davies@citrix.com>,
-	<wei.liu2@citrix.com>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Cc: <netdev@vger.kernel.org>, <nic_swsd@realtek.com>,
+	<linux-kernel@vger.kernel.org>, <linux-usb@vger.kernel.org>
+To: 'Francois Romieu' <romieu@fr.zoreil.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1392803670.23084.100.camel@kazak.uk.xensource.com>
+In-Reply-To: <20140219074633.GA26271@electric-eye.fr.zoreil.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 19/02/14 09:54, Ian Campbell wrote:
-> On Tue, 2014-02-18 at 18:46 +0000, David Vrabel wrote:
->> On 18/02/14 17:40, Ian Campbell wrote:
->>> On Mon, 2014-01-20 at 21:24 +0000, Zoltan Kiss wrote:
->>>>
->>>> @@ -344,8 +346,26 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
->>>>  	vif->pending_prod = MAX_PENDING_REQS;
->>>>  	for (i = 0; i < MAX_PENDING_REQS; i++)
->>>>  		vif->pending_ring[i] = i;
->>>> -	for (i = 0; i < MAX_PENDING_REQS; i++)
->>>> -		vif->mmap_pages[i] = NULL;
->>>> +	spin_lock_init(&vif->dealloc_lock);
->>>> +	spin_lock_init(&vif->response_lock);
->>>> +	/* If ballooning is disabled, this will consume real memory, so you
->>>> +	 * better enable it.
->>>
->>> Almost no one who would be affected by this is going to read this
->>> comment. And it doesn't just require enabling ballooning, but actually
->>> booting with some maxmem "slack" to leave space.
->>>
->>> Classic-xen kernels used to add 8M of slop to the physical address space
->>> to leave a suitable pool for exactly this sort of thing. I never liked
->>> that but perhaps it should be reconsidered (or at least raised as a
->>> possibility with the core-Xen Linux guys).
->>
->> I plan to fix the balloon memory hotplug stuff to do the right thing
+ Francois Romieu [mailto:romieu@fr.zoreil.com] 
+> Sent: Wednesday, February 19, 2014 3:47 PM
+> To: hayeswang
+> Cc: netdev@vger.kernel.org; nic_swsd@realtek.com; 
+> linux-kernel@vger.kernel.org; linux-usb@vger.kernel.org
+> Subject: Re: [PATCH net-next 12/14] r8152: replace 
+> netif_rxwithnetif_receive_skb
 > 
-> Which is for alloc_xenballoon_pages to hotplug a new empty region,
-> rather than inflating the balloon if it doesn't have enough pages to
-> satisfy the allocation?
+[...]
+> The change in rx_bottom is fine. My point is about read_bulk_callback.
+> 
+> rx_bottom races with read_bulk_callback. rx_bottom is issued in
+> tasklet (softirq) context. read_bulk_callback is issued in irq
+> context, with irq disabled. read_bulk_callback does not need to
+> disable irq itself and could go with spin_lock in place of
+> spin_lock_irqsave (rx_bottom can't, of course).
 
-Yes.
-
-David
+I think I misunderstand your meaning.
+I would modify them. Thanks.
+ 
+Best Regards,
+Hayes
