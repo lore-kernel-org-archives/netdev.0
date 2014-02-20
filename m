@@ -1,68 +1,70 @@
-From: Fugang Duan <B38611@freescale.com>
-Subject: [PATCH] net: fec: fix potential issue to avoid fec interrupt lost and crc error
-Date: Thu, 20 Feb 2014 18:14:39 +0800
-Message-ID: <1392891279-11194-1-git-send-email-B38611@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <b20596@freescale.com>, <davem@davemloft.net>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH net] bonding: fix bond_arp_rcv() race of curr_active_slave
+Date: Thu, 20 Feb 2014 12:07:57 +0100
+Message-ID: <1392894477-5477-1-git-send-email-vfalico@redhat.com>
+Cc: dingtianhong@huawei.com, Veaceslav Falico <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:11704 "EHLO
-	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752395AbaBTK6G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Feb 2014 05:58:06 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:44663 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751766AbaBTLMO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Feb 2014 06:12:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current flow: Set TX BD ready, and then set "INT" and "PINS" bit to
-enable tx interrupt generation and crc checksum.
+bond->curr_active_slave can be changed between its deferences, even to
+NULL, and thus we might panic.
 
-There has potential issue like as:
-CPU			fec uDMA
-Set tx ready bit
-			uDMA start the BD transmission
-Set "INT" bit
-Set "PINS" bit
-...
+We're always holding the rcu (rx_handler->bond_handle_frame()->bond_arp_rcv())
+so fix this by rcu_dereferencing() it and using the saved.
 
-Above situation cause fec tx interrupt lost and fec MAC don't do
-CRC checksum. The patch fix the potential issue.
-
-Signed-off-by: Fugang Duan <B38611@freescale.com>
+Reported-by: Ding Tianhong <dingtianhong@huawei.com>
+Fixes: aeea64a ("bonding: don't trust arp requests unless active slave really works")
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c |   13 +++++++------
- 1 files changed, 7 insertions(+), 6 deletions(-)
+ drivers/net/bonding/bond_main.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 45b8b22..739608b 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -390,12 +390,6 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 			netdev_err(ndev, "Tx DMA memory map failed\n");
- 		return NETDEV_TX_OK;
- 	}
--	/* Send it on its way.  Tell FEC it's ready, interrupt when done,
--	 * it's the last BD of the frame, and to put the CRC on the end.
--	 */
--	status |= (BD_ENET_TX_READY | BD_ENET_TX_INTR
--			| BD_ENET_TX_LAST | BD_ENET_TX_TC);
--	bdp->cbd_sc = status;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 71edf03..bd70bbc 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2254,6 +2254,7 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
+ 		 struct slave *slave)
+ {
+ 	struct arphdr *arp = (struct arphdr *)skb->data;
++	struct slave *curr_active_slave;
+ 	unsigned char *arp_ptr;
+ 	__be32 sip, tip;
+ 	int alen, is_arp = skb->protocol == __cpu_to_be16(ETH_P_ARP);
+@@ -2299,6 +2300,8 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
+ 		 bond->params.arp_validate, slave_do_arp_validate(bond, slave),
+ 		 &sip, &tip);
  
- 	if (fep->bufdesc_ex) {
- 
-@@ -417,6 +411,13 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 		}
- 	}
- 
-+	/* Send it on its way.  Tell FEC it's ready, interrupt when done,
-+	 * it's the last BD of the frame, and to put the CRC on the end.
-+	 */
-+	status |= (BD_ENET_TX_READY | BD_ENET_TX_INTR
-+			| BD_ENET_TX_LAST | BD_ENET_TX_TC);
-+	bdp->cbd_sc = status;
++	curr_active_slave = rcu_dereference(bond->curr_active_slave);
 +
- 	bdp_pre = fec_enet_get_prevdesc(bdp, fep);
- 	if ((id_entry->driver_data & FEC_QUIRK_ERR006358) &&
- 	    !(bdp_pre->cbd_sc & BD_ENET_TX_READY)) {
+ 	/*
+ 	 * Backup slaves won't see the ARP reply, but do come through
+ 	 * here for each ARP probe (so we swap the sip/tip to validate
+@@ -2312,11 +2315,12 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
+ 	 * is done to avoid endless looping when we can't reach the
+ 	 * arp_ip_target and fool ourselves with our own arp requests.
+ 	 */
++
+ 	if (bond_is_active_slave(slave))
+ 		bond_validate_arp(bond, slave, sip, tip);
+-	else if (bond->curr_active_slave &&
+-		 time_after(slave_last_rx(bond, bond->curr_active_slave),
+-			    bond->curr_active_slave->last_link_up))
++	else if (curr_active_slave &&
++		 time_after(slave_last_rx(bond, curr_active_slave),
++			    curr_active_slave->last_link_up))
+ 		bond_validate_arp(bond, slave, tip, sip);
+ 
+ out_unlock:
 -- 
-1.7.2.rc3
+1.8.4
