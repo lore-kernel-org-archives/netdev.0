@@ -1,88 +1,30 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] net: sctp: Potentially-Failed state should not be reached
- from unconfirmed state
-Date: Thu, 20 Feb 2014 12:58:43 -0500
-Message-ID: <53064253.7060309@gmail.com>
-References: <5305FF60.80404@nsn.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: Getting a NIC's MTU size
+Date: Thu, 20 Feb 2014 17:30:23 +0000
+Message-ID: <16869.1392917423@warthog.procyon.org.uk>
+References: <20140217.002153.1121569813590047048.davem@davemloft.net> <26474.1392388608@warthog.procyon.org.uk> <26769.1392390042@warthog.procyon.org.uk> <27696.1392392957@warthog.procyon.org.uk>
+Cc: dhowells@redhat.com, hannes@stressinduktion.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f182.google.com ([209.85.216.182]:65464 "EHLO
-	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752424AbaBTR6q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Feb 2014 12:58:46 -0500
-In-Reply-To: <5305FF60.80404@nsn.com>
+Received: from mx1.redhat.com ([209.132.183.28]:54185 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753634AbaBTSHe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Feb 2014 13:07:34 -0500
+In-Reply-To: <20140217.002153.1121569813590047048.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/20/2014 08:13 AM, Matija Glavinic Pecotic wrote:
-> In current implementation it is possible to reach PF state from unconfirmed.
-> We can interpret sctp-failover-02 in a way that PF state is meant to be reached
-> only from active state, in the end, this is when entering PF state makes sense.
-> Here are few quotes from sctp-failover-02, but regardless of these, same
-> understanding can be reached from whole section 5:
-> 
-> Section 5.1, quickfailover guide:
->     "The PF state is an intermediate state between Active and Failed states."
-> 
->     "Each time the T3-rtx timer expires on an active or idle
->     destination, the error counter of that destination address will 
->     be incremented.  When the value in the error counter exceeds
->     PFMR, the endpoint should mark the destination transport address as PF."
-> 
-> There are several concrete reasons for such interpretation. For start, rfc4960
-> does not take into concern quickfailover algorithm. Therefore, quickfailover
-> must comply to 4960. Point where this compliance can be argued is following
-> behavior:
-> When PF is entered, association overall error counter is incremented for each
-> missed HB. This is contradictory to rfc4960, as address, while in unconfirmed
-> state, is subjected to probing, and while it is probed, it should not increment
-> association overall error counter. This has as a consequence that we might end
-> up in situation in which we drop association due path failure on unconfirmed
-> address, in case we have wrong configuration in a way:
-> Association.Max.Retrans == Path.Max.Retrans.
-> 
-> Another reason is that entering PF from unconfirmed will cause a loss of address
-> confirmed event when address is once (if) confirmed. This is fine from failover
-> guide point of view, but it is not consistent with behavior preceding failover
-> implementation and recommendation from 4960:
-> 
-> 5.4.  Path Verification
->    Whenever a path is confirmed, an indication MAY be given to the upper
->    layer.
-> 
-> Signed-off-by: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
+David Miller <davem@davemloft.net> wrote:
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
-
-Thanks
--vlad
-
+> > One further question: If I want to get the MTU size of the NIC through
+> > which packets will go to get to a particular peer, can I do:
 > 
-> --- net-next.orig/net/sctp/sm_sideeffect.c
-> +++ net-next/net/sctp/sm_sideeffect.c
-> @@ -495,11 +495,12 @@ static void sctp_do_8_2_transport_strike
->  	}
->  
->  	/* If the transport error count is greater than the pf_retrans
-> -	 * threshold, and less than pathmaxrtx, then mark this transport
-> -	 * as Partially Failed, ee SCTP Quick Failover Draft, secon 5.1,
-> -	 * point 1
-> +	 * threshold, and less than pathmaxrtx, and if the current state
-> +	 * is not SCTP_UNCONFIRMED, then mark this transport as Partially
-> +	 * Failed, see SCTP Quick Failover Draft, section 5.1
->  	 */
->  	if ((transport->state != SCTP_PF) &&
-> +	   (transport->state != SCTP_UNCONFIRMED) &&
->  	   (asoc->pf_retrans < transport->pathmaxrxt) &&
->  	   (transport->error_count > asoc->pf_retrans)) {
->  
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> As has been suggested or at least hinted to by others, you have to use
+> the route dst's device pointer.
+
+So I gather.  My query was intended to be about the safety of accessing the
+dst->dev pointer.  Can I just dereference it?  Or do I need to take a lock or
+use RCU?
+
+David
