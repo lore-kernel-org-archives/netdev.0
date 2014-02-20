@@ -1,55 +1,44 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: linux 3.13: problems with isatap tunnel device and UFO
-Date: Thu, 20 Feb 2014 03:54:43 +0100
-Message-ID: <20140220025443.GH1179@order.stressinduktion.org>
-References: <1682505.dP4nT04FC9@h2o.as.studentenwerk.mhn.de> <1581659.JtJ1UQaXJr@h2o.as.studentenwerk.mhn.de> <20140211024403.GE11150@order.stressinduktion.org> <5911515.kv7YDRiZP1@h2o.as.studentenwerk.mhn.de> <20140217160916.GE22833@order.stressinduktion.org> <20140220024418.GG1179@order.stressinduktion.org>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH net 0/2] tipc: clean up components initialization code
+Date: Thu, 20 Feb 2014 11:32:48 +0800
+Message-ID: <1392867171-31020-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: Wolfgang Walter <linux@stwm.de>, netdev@vger.kernel.org,
-	xiyou.wangcong@gmail.com, eric.dumazet@gmail.com
+Content-Type: text/plain
+Cc: <jon.maloy@ericsson.com>, <Paul.Gortmaker@windriver.com>,
+	<erik.hugne@ericsson.com>, <netdev@vger.kernel.org>,
+	<tipc-discussion@lists.sourceforge.net>, <wangweidong1@huawei.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:39809 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752571AbaBTCyo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 21:54:44 -0500
-Content-Disposition: inline
-In-Reply-To: <20140220024418.GG1179@order.stressinduktion.org>
+Received: from mail.windriver.com ([147.11.1.11]:35917 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752547AbaBTDdL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 22:33:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 20, 2014 at 03:44:18AM +0100, Hannes Frederic Sowa wrote:
-> On Mon, Feb 17, 2014 at 05:09:16PM +0100, Hannes Frederic Sowa wrote:
-> > [+Cc Cong Wang]
-> > 
-> > Hi Cong!
-> > 
-> > In commit d949d826c09fb ("ipv6: Add generic UDP Tunnel segmentation") you
-> > patched ip6_offload.c:
-> > 
-> > @@ -126,7 +128,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
-> >                 ipv6h = ipv6_hdr(skb);
-> >                 ipv6h->payload_len = htons(skb->len - skb->mac_len -
-> >                                            sizeof(*ipv6h));
-> > -               if (proto == IPPROTO_UDP) {
-> > +               if (!tunnel && proto == IPPROTO_UDP) {
-> >                         unfrag_ip6hlen = ip6_find_1stfragopt(skb, &prevhdr);
-> >                         fptr = (struct frag_hdr *)(skb_network_header(skb) +
-> >                                 unfrag_ip6hlen);
-> > 
-> > 
-> > I wonder about the !tunnel exception. This now seems to be a problem in sit
-> > ufo output path, where we don't update fragmentation offsets any more thus
-> > generating invalid frames.
-> > 
-> > I am not too firm with segmentation in case of tunnels but don't we need to
-> > always update the fragmentation offset no matter what, if upper gso callback
-> > produced more segments?
-> 
-> Not perfect nor clean (well, I don't know).
-> 
-> The idea is to have the segmentation at the first guessed tunnel
-> header cut. I don't know how to deal with stacked tunnels yet, I guess
-> we need to have a bit more state in the skb. Just to maybe keep the discussion
-> going...
+In this series, we will fix a regression issue involved by commit
+6e967adf7(tipc: relocate common functions from media to bearer)
+But before the issue is fixed, we firstly adjust the process of
+components initialization so as to remove all enabled flags from
+necessary tipc components. Otherwise, without the change, we also
+have to add an extra enabled flag into bearer layer indicating
+whether bearer setup is finshed or not.
 
-In-tunnel IPv6 fragmentation ids don't seem to be random at all... :/
+Ying Xue (2):
+  tipc: remove all enabled flags from all tipc components
+  tipc: make bearer set up in module insertion stage
+
+ net/tipc/bearer.c     |    7 +++-
+ net/tipc/config.c     |    2 +-
+ net/tipc/core.c       |  109 ++++++++++++++++++++++++++-----------------------
+ net/tipc/core.h       |    1 -
+ net/tipc/name_table.c |    3 --
+ net/tipc/netlink.c    |    8 ----
+ net/tipc/ref.c        |    3 --
+ net/tipc/server.c     |    5 ---
+ net/tipc/server.h     |    2 -
+ net/tipc/socket.c     |    8 ----
+ 10 files changed, 66 insertions(+), 82 deletions(-)
+
+-- 
+1.7.9.5
