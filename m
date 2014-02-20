@@ -1,34 +1,88 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH ethtool] ethtool: Report Backplane as supported port
-Date: Thu, 20 Feb 2014 18:48:56 +0100
-Message-ID: <1392918536-20444-1-git-send-email-ivecera@redhat.com>
-Cc: bhutchings@solarflare.com, agospoda@redhat.com
-To: netdev@vger.kernel.org
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH] net: sctp: Potentially-Failed state should not be reached
+ from unconfirmed state
+Date: Thu, 20 Feb 2014 12:58:43 -0500
+Message-ID: <53064253.7060309@gmail.com>
+References: <5305FF60.80404@nsn.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62725 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753098AbaBTRtB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Feb 2014 12:49:01 -0500
+Received: from mail-qc0-f182.google.com ([209.85.216.182]:65464 "EHLO
+	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752424AbaBTR6q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Feb 2014 12:58:46 -0500
+In-Reply-To: <5305FF60.80404@nsn.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
----
- ethtool.c | 2 ++
- 1 file changed, 2 insertions(+)
+On 02/20/2014 08:13 AM, Matija Glavinic Pecotic wrote:
+> In current implementation it is possible to reach PF state from unconfirmed.
+> We can interpret sctp-failover-02 in a way that PF state is meant to be reached
+> only from active state, in the end, this is when entering PF state makes sense.
+> Here are few quotes from sctp-failover-02, but regardless of these, same
+> understanding can be reached from whole section 5:
+> 
+> Section 5.1, quickfailover guide:
+>     "The PF state is an intermediate state between Active and Failed states."
+> 
+>     "Each time the T3-rtx timer expires on an active or idle
+>     destination, the error counter of that destination address will 
+>     be incremented.  When the value in the error counter exceeds
+>     PFMR, the endpoint should mark the destination transport address as PF."
+> 
+> There are several concrete reasons for such interpretation. For start, rfc4960
+> does not take into concern quickfailover algorithm. Therefore, quickfailover
+> must comply to 4960. Point where this compliance can be argued is following
+> behavior:
+> When PF is entered, association overall error counter is incremented for each
+> missed HB. This is contradictory to rfc4960, as address, while in unconfirmed
+> state, is subjected to probing, and while it is probed, it should not increment
+> association overall error counter. This has as a consequence that we might end
+> up in situation in which we drop association due path failure on unconfirmed
+> address, in case we have wrong configuration in a way:
+> Association.Max.Retrans == Path.Max.Retrans.
+> 
+> Another reason is that entering PF from unconfirmed will cause a loss of address
+> confirmed event when address is once (if) confirmed. This is fine from failover
+> guide point of view, but it is not consistent with behavior preceding failover
+> implementation and recommendation from 4960:
+> 
+> 5.4.  Path Verification
+>    Whenever a path is confirmed, an indication MAY be given to the upper
+>    layer.
+> 
+> Signed-off-by: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
 
-diff --git a/ethtool.c b/ethtool.c
-index 315d00f..acb4397 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -496,6 +496,8 @@ static void dump_supported(struct ethtool_cmd *ep)
- 		fprintf(stdout, "MII ");
- 	if (mask & SUPPORTED_FIBRE)
- 		fprintf(stdout, "FIBRE ");
-+	if (mask & SUPPORTED_Backplane)
-+		fprintf(stdout, "Backplane ");
- 	fprintf(stdout, "]\n");
- 
- 	dump_link_caps("Supported", "Supports", mask, 0);
--- 
-1.8.3.2
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+
+Thanks
+-vlad
+
+> 
+> --- net-next.orig/net/sctp/sm_sideeffect.c
+> +++ net-next/net/sctp/sm_sideeffect.c
+> @@ -495,11 +495,12 @@ static void sctp_do_8_2_transport_strike
+>  	}
+>  
+>  	/* If the transport error count is greater than the pf_retrans
+> -	 * threshold, and less than pathmaxrtx, then mark this transport
+> -	 * as Partially Failed, ee SCTP Quick Failover Draft, secon 5.1,
+> -	 * point 1
+> +	 * threshold, and less than pathmaxrtx, and if the current state
+> +	 * is not SCTP_UNCONFIRMED, then mark this transport as Partially
+> +	 * Failed, see SCTP Quick Failover Draft, section 5.1
+>  	 */
+>  	if ((transport->state != SCTP_PF) &&
+> +	   (transport->state != SCTP_UNCONFIRMED) &&
+>  	   (asoc->pf_retrans < transport->pathmaxrxt) &&
+>  	   (transport->error_count > asoc->pf_retrans)) {
+>  
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
