@@ -1,52 +1,90 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [RFC v2 2/4] net: enables interface option to skip IP
-Date: Wed, 19 Feb 2014 19:02:18 -0600
-Message-ID: <1392858138.22693.21.camel@dcbw.local>
-References: <1392433180-16052-1-git-send-email-mcgrof@do-not-panic.com>
-	 <1392433180-16052-3-git-send-email-mcgrof@do-not-panic.com>
-	 <1392668638.21106.5.camel@dcbw.local>
-	 <CAB=NE6XGBp1RwO63W0ac6tTr9JcRM9TB9sap4pa+8PMWwjxu6g@mail.gmail.com>
-	 <1392828325.21976.6.camel@dcbw.local>
-	 <CAB=NE6VpUqwNNY4pgbS6du2VsZ6dH0TzQYXmiw6GGN-EiOsV6g@mail.gmail.com>
-	 <1392857777.22693.14.camel@dcbw.local>
-	 <20140220005833.GF1179@order.stressinduktion.org>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH net] veth: Fix vlan_features so as to be able to use
+ stacked vlan interfaces
+Date: Wed, 19 Feb 2014 22:02:11 -0300
+Message-ID: <20140220010211.GA21931@localhost.localdomain>
+References: <1392726009-8083-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+ <20140219041357.GB2491@localhost.localdomain>
+ <53043F7E.804@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	xen-devel@lists.xenproject.org, kvm@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140220005833.GF1179@order.stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:14916 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752101AbaBTBCR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Feb 2014 20:02:17 -0500
+Content-Disposition: inline
+In-Reply-To: <53043F7E.804@lab.ntt.co.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-02-20 at 01:58 +0100, Hannes Frederic Sowa wrote:
-> On Wed, Feb 19, 2014 at 06:56:17PM -0600, Dan Williams wrote:
-> > Note that there isn't yet a disable_ipv4 knob though, I was
-> > perhaps-too-subtly trying to get you to send a patch for it, since I can
-> > use it too :)
+On Wed, Feb 19, 2014 at 02:22:06PM +0900, Toshiaki Makita wrote:
+> (2014/02/19 13:13), Flavio Leitner wrote:
+> > On Tue, Feb 18, 2014 at 09:20:08PM +0900, Toshiaki Makita wrote:
+> >> Even if we create a stacked vlan interface such as veth0.10.20, it sends
+> >> single tagged frames (tagged with only vid 10).
+> >> Because vlan_features of a veth interface has the
+> >> NETIF_F_HW_VLAN_[CTAG/STAG]_TX bits, veth0.10 also has that feature, so
+> >> dev_hard_start_xmit(veth0.10) doesn't call __vlan_put_tag() and
+> >> vlan_dev_hard_start_xmit(veth0.10) overwrites vlan_tci.
+> >> This prevents us from using a combination of 802.1ad and 802.1Q
+> >> in containers, etc.
+> >>
+> >> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> >> ---
+> >>  drivers/net/veth.c | 3 ++-
+> >>  1 file changed, 2 insertions(+), 1 deletion(-)
+> >>
+> >> diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+> >> index 2ec2041..5b37437 100644
+> >> --- a/drivers/net/veth.c
+> >> +++ b/drivers/net/veth.c
+> >> @@ -285,7 +285,8 @@ static void veth_setup(struct net_device *dev)
+> >>  	dev->ethtool_ops = &veth_ethtool_ops;
+> >>  	dev->features |= NETIF_F_LLTX;
+> >>  	dev->features |= VETH_FEATURES;
+> >> -	dev->vlan_features = dev->features;
+> >> +	dev->vlan_features = dev->features &
+> >> +			     ~(NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_STAG_TX);
+> >>  	dev->destructor = veth_dev_free;
+> >>  
+> >>  	dev->hw_features = VETH_FEATURES;
+> >> -- 
+> >> 1.8.1.2
+> >>
+> > 
+> > Why that isn't a problem with another software device?
+> > Although this patch might fix the issue, it seems to me that
+> > the middle devices shouldn't use the same feature flags.
+> > I mean, vlan.20 should add the header, then vlan.10 should
+> > offload the tag to veth.  Otherwise, for any vlan on top of
+> > veth there will be an unneeded memmove().
 > 
-> Do you plan to implement
-> <http://datatracker.ietf.org/doc/draft-ietf-sunset4-noipv4/>?
+> In this case with this patch, vlan_dev_hard_start_xmit(veth0.10.20) set
+> vlan_tci, dev_hard_start_xmit(veth0.10) put it into skb->data, and
+> vlan_dev_hard_start_xmit(veth0.10) set vlan_tci again.
+> dev_hard_start_xmit(veth0) doesn't put it into skb->data because veth0
+> has NETIF_F_HW_VLAN_*TAG_TX feature.
 > 
-> ;)
+> Similarly, in not stacked vlan case, for example if veth0.10 has no vlan
+> intarface on it, vlan_dev_hard_start_xmit(veth0.10) set vlan_tci and
+> dev_hard_start_xmit(veth0) doesn't put it into skb->data.
+> There will be no unnecessary memmove().
+> 
+> Although I haven't looked over all, other drivers don't seem to have
+> NETIF_F_HW_VLAN_*TAG_TX in vlan_features (at least, bridge, vxlan,
+> e1000e, and bnx2x don't).
+> 
+> Thanks,
+> Toshiaki Makita
+> 
 
-Well, not specifically, but with NetworkManager we do have a "disable
-IPv4" method for IPv4, which now just doesn't do any kind of IPv4, but
-obviously doesn't disable IPv4 entirely because that's not possible.  I
-was only thinking that it would be nice to actually guarantee that IPv4
-was disabled, just like disable_ipv6 does.
+Alright, the code looks good and I didn't notice anything
+different on my testing env.
 
-But we could certainly implement that draft if a patch shows up or if it
-bubbled up the priority stack :)
+Acked-by: Flavio Leitner <fbl@redhat.com>
 
-Dan
+Thanks!
+fbl
