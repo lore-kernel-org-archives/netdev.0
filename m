@@ -1,73 +1,62 @@
-From: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
-Subject: [PATCH] net: sctp: Potentially-Failed state should not be reached
- from unconfirmed state
-Date: Thu, 20 Feb 2014 14:13:04 +0100
-Message-ID: <5305FF60.80404@nsn.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [Xen-devel] [RFC v2 1/4] bridge: enable interfaces to opt out
+ from becoming the root bridge
+Date: Thu, 20 Feb 2014 13:19:01 +0000
+Message-ID: <530600C5.3070107@citrix.com>
+References: <1392433180-16052-1-git-send-email-mcgrof@do-not-panic.com> <1392433180-16052-2-git-send-email-mcgrof@do-not-panic.com> <20140216105754.63738163@nehalam.linuxnetplumber.net> <CAB=NE6WwbOXNLO_Mn42i7y62pEsmDOWd35B621eiJk4iaE3Hfg@mail.gmail.com> <1392803559.23084.99.camel@kazak.uk.xensource.com> <5304C13F.3030802@citrix.com> <CAB=NE6X6Vuo3iib0W-c5cxv0QBpnZtCC0sFyuULugQoEZAbRtg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
+Cc: Ian Campbell <Ian.Campbell@citrix.com>, <kvm@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	<bridge@lists.linux-foundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	<xen-devel@lists.xenproject.org>
+To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from demumfd002.nsn-inter.net ([93.183.12.31]:12394 "EHLO
-	demumfd002.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753876AbaBTNOG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Feb 2014 08:14:06 -0500
+Received: from smtp.citrix.com ([66.165.176.89]:10042 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753787AbaBTNT0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Feb 2014 08:19:26 -0500
+In-Reply-To: <CAB=NE6X6Vuo3iib0W-c5cxv0QBpnZtCC0sFyuULugQoEZAbRtg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In current implementation it is possible to reach PF state from unconfirmed.
-We can interpret sctp-failover-02 in a way that PF state is meant to be reached
-only from active state, in the end, this is when entering PF state makes sense.
-Here are few quotes from sctp-failover-02, but regardless of these, same
-understanding can be reached from whole section 5:
+On 19/02/14 17:02, Luis R. Rodriguez wrote:
+> On Wed, Feb 19, 2014 at 6:35 AM, Zoltan Kiss <zoltan.kiss@citrix.com> wrote:
+>> On 19/02/14 09:52, Ian Campbell wrote:
+>>> Can't we arrange things in the Xen hotplug scripts such that if the
+>>> root_block stuff isn't available/doesn't work we fallback to the
+>>> existing fe:ff:ff:ff:ff usage?
+>>>
+>>> That would avoid concerns about forward/backwards compat I think. It
+>>> wouldn't solve the issue you are targeting on old systems, but it also
+>>> doesn't regress them any further.
+>>
+>> I agree, I think this problem could be better handled from userspace: if it
+>> can set root_block then change the default MAC to a random one, if it can't,
+>> then stay with the default one. Or if someone doesn't care about STP but DAD
+>> is still important, userspace can have a force_random_mac option somewhere
+>> to change to a random MAC regardless of root_block presence.
+>
+> Folks, what if I repurpose my patch to use the IFF_BRIDGE_NON_ROOT (or
+> relabel to IFF_ROOT_BLOCK_DEF) flag for a default driver preference
+> upon initialization so that root block will be used once the device
+> gets added to a bridge. The purpose would be to avoid drivers from
+> using the high MAC address hack, streamline to use a random MAC
+> address thereby avoiding the possible duplicate address situation for
+> IPv6. In the STP use case for these interfaces we'd just require
+> userspace to unset the root block. I'd consider the STP use case the
+> most odd of all. The caveat to this approach is 3.8 would be needed
+> (or its the root block patches cherry picked) for base kernels older
+> than 3.8.
 
-Section 5.1, quickfailover guide:
-    "The PF state is an intermediate state between Active and Failed states."
+How about this: netback sets the root_block flag and a random MAC by 
+default. So the default behaviour won't change, DAD will be happy, and 
+userspace don't have to do anything unless it's using netback for STP 
+root bridge (I don't think there are too many toolstacks doing that), in 
+which case it has to remove the root_block flag instead of setting a 
+random MAC.
 
-    "Each time the T3-rtx timer expires on an active or idle
-    destination, the error counter of that destination address will 
-    be incremented.  When the value in the error counter exceeds
-    PFMR, the endpoint should mark the destination transport address as PF."
-
-There are several concrete reasons for such interpretation. For start, rfc4960
-does not take into concern quickfailover algorithm. Therefore, quickfailover
-must comply to 4960. Point where this compliance can be argued is following
-behavior:
-When PF is entered, association overall error counter is incremented for each
-missed HB. This is contradictory to rfc4960, as address, while in unconfirmed
-state, is subjected to probing, and while it is probed, it should not increment
-association overall error counter. This has as a consequence that we might end
-up in situation in which we drop association due path failure on unconfirmed
-address, in case we have wrong configuration in a way:
-Association.Max.Retrans == Path.Max.Retrans.
-
-Another reason is that entering PF from unconfirmed will cause a loss of address
-confirmed event when address is once (if) confirmed. This is fine from failover
-guide point of view, but it is not consistent with behavior preceding failover
-implementation and recommendation from 4960:
-
-5.4.  Path Verification
-   Whenever a path is confirmed, an indication MAY be given to the upper
-   layer.
-
-Signed-off-by: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
-
---- net-next.orig/net/sctp/sm_sideeffect.c
-+++ net-next/net/sctp/sm_sideeffect.c
-@@ -495,11 +495,12 @@ static void sctp_do_8_2_transport_strike
- 	}
- 
- 	/* If the transport error count is greater than the pf_retrans
--	 * threshold, and less than pathmaxrtx, then mark this transport
--	 * as Partially Failed, ee SCTP Quick Failover Draft, secon 5.1,
--	 * point 1
-+	 * threshold, and less than pathmaxrtx, and if the current state
-+	 * is not SCTP_UNCONFIRMED, then mark this transport as Partially
-+	 * Failed, see SCTP Quick Failover Draft, section 5.1
- 	 */
- 	if ((transport->state != SCTP_PF) &&
-+	   (transport->state != SCTP_UNCONFIRMED) &&
- 	   (asoc->pf_retrans < transport->pathmaxrxt) &&
- 	   (transport->error_count > asoc->pf_retrans)) {
- 
+Zoli
