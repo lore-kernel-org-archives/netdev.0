@@ -1,35 +1,37 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: Re: [PATCH net-next 1/8] cxgb4: Add support to recognize 40G links
-Date: Thu, 20 Feb 2014 10:07:21 -0800
-Message-ID: <53064459.3030106@chelsio.com>
-References: <1392726375-32001-1-git-send-email-hariprasad@chelsio.com> <1392726375-32001-2-git-send-email-hariprasad@chelsio.com> <53051E48.9050901@opengridcomputing.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Getting a NIC's MTU size
+Date: Thu, 20 Feb 2014 13:45:04 -0500 (EST)
+Message-ID: <20140220.134504.889753387361360927.davem@davemloft.net>
+References: <26769.1392390042@warthog.procyon.org.uk>
+	<27696.1392392957@warthog.procyon.org.uk>
+	<16869.1392917423@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, dm@chelsio.com,
-	nirranjan@chelsio.com, kumaras@chelsio.com, santosh@chelsio.com
-To: Steve Wise <swise@opengridcomputing.com>,
-	Hariprasad Shenai <hariprasad@chelsio.com>
+Cc: hannes@stressinduktion.org, netdev@vger.kernel.org
+To: dhowells@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:36071
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754520AbaBTSoY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Feb 2014 13:44:24 -0500
-In-Reply-To: <53051E48.9050901@opengridcomputing.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58072 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754244AbaBTSpG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Feb 2014 13:45:06 -0500
+In-Reply-To: <16869.1392917423@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: David Howells <dhowells@redhat.com>
+Date: Thu, 20 Feb 2014 17:30:23 +0000
 
-On 02/19/14 13:12, Steve Wise wrote:
->
-> You probably should add SPEED_40000 to include/uapi/linux/ethtool.h as 
-> part of this series.
+> David Miller <davem@davemloft.net> wrote:
+> 
+>> > One further question: If I want to get the MTU size of the NIC through
+>> > which packets will go to get to a particular peer, can I do:
+>> 
+>> As has been suggested or at least hinted to by others, you have to use
+>> the route dst's device pointer.
+> 
+> So I gather.  My query was intended to be about the safety of accessing the
+> dst->dev pointer.  Can I just dereference it?  Or do I need to take a lock or
+> use RCU?
 
-   I'm ~pretty sure~ that the "word on the street" was that the 
-community wanted to get away from the SPEED_XXX symbols since they 
-simply represented the values XXX.  Thus they didn't offer any real 
-symbolic isolation from weird constants, etc.  I believe that the old 
-SPEED_XXX values were left in place in order to avoid making tons of 
-changes everywhere ...
-
-Casey
+If the dst is valid and you have a reference to it, dst->dev is good.
