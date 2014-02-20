@@ -1,29 +1,139 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/14 v2] 05/14 respun.
-Date: Thu, 20 Feb 2014 01:23:11 -0500 (EST)
-Message-ID: <20140220.012311.322764964474625190.davem@davemloft.net>
-References: <1392868178-7011-1-git-send-email-aaron.f.brown@intel.com>
+Subject: Re: linux-next: Tree for Feb 19 (netdev)
+Date: Thu, 20 Feb 2014 02:13:20 -0500 (EST)
+Message-ID: <20140220.021320.1623323851847472760.davem@davemloft.net>
+References: <20140219164733.781c782bc5ad4f5eaf25a636@canb.auug.org.au>
+	<5304C8D9.5000906@infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: aaron.f.brown@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50976 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750998AbaBTGXQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Feb 2014 01:23:16 -0500
-In-Reply-To: <1392868178-7011-1-git-send-email-aaron.f.brown@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: rdunlap@infradead.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5304C8D9.5000906@infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Aaron Brown <aaron.f.brown@intel.com>
-Date: Wed, 19 Feb 2014 19:49:37 -0800
+From: Randy Dunlap <rdunlap@infradead.org>
+Date: Wed, 19 Feb 2014 07:08:09 -0800
 
-> Patch 05/14 of the series was updated to address concerns from Joe Perches.
-> The rest of the series remains the same.
+> on i386:
+> 
+> net/built-in.o:(.rodata+0x1707c): undefined reference to `ip_tunnel_get_stats64'
+> 
+> Full randconfig file is attached.
 
-When you update any part of a series, you must repost the entire
-series.
+Thanks for the report Randy, this should do it:
 
-Thank you.
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index 6d430ff..7b19528 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -119,52 +119,6 @@ static struct rtable *tunnel_rtable_get(struct ip_tunnel *t, u32 cookie)
+ 	return (struct rtable *)dst;
+ }
+ 
+-/* Often modified stats are per cpu, other are shared (netdev->stats) */
+-struct rtnl_link_stats64 *ip_tunnel_get_stats64(struct net_device *dev,
+-						struct rtnl_link_stats64 *tot)
+-{
+-	int i;
+-
+-	for_each_possible_cpu(i) {
+-		const struct pcpu_sw_netstats *tstats =
+-						   per_cpu_ptr(dev->tstats, i);
+-		u64 rx_packets, rx_bytes, tx_packets, tx_bytes;
+-		unsigned int start;
+-
+-		do {
+-			start = u64_stats_fetch_begin_bh(&tstats->syncp);
+-			rx_packets = tstats->rx_packets;
+-			tx_packets = tstats->tx_packets;
+-			rx_bytes = tstats->rx_bytes;
+-			tx_bytes = tstats->tx_bytes;
+-		} while (u64_stats_fetch_retry_bh(&tstats->syncp, start));
+-
+-		tot->rx_packets += rx_packets;
+-		tot->tx_packets += tx_packets;
+-		tot->rx_bytes   += rx_bytes;
+-		tot->tx_bytes   += tx_bytes;
+-	}
+-
+-	tot->multicast = dev->stats.multicast;
+-
+-	tot->rx_crc_errors = dev->stats.rx_crc_errors;
+-	tot->rx_fifo_errors = dev->stats.rx_fifo_errors;
+-	tot->rx_length_errors = dev->stats.rx_length_errors;
+-	tot->rx_frame_errors = dev->stats.rx_frame_errors;
+-	tot->rx_errors = dev->stats.rx_errors;
+-
+-	tot->tx_fifo_errors = dev->stats.tx_fifo_errors;
+-	tot->tx_carrier_errors = dev->stats.tx_carrier_errors;
+-	tot->tx_dropped = dev->stats.tx_dropped;
+-	tot->tx_aborted_errors = dev->stats.tx_aborted_errors;
+-	tot->tx_errors = dev->stats.tx_errors;
+-
+-	tot->collisions  = dev->stats.collisions;
+-
+-	return tot;
+-}
+-EXPORT_SYMBOL_GPL(ip_tunnel_get_stats64);
+-
+ static bool ip_tunnel_key_match(const struct ip_tunnel_parm *p,
+ 				__be16 flags, __be32 key)
+ {
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index 6156f4e..8d69626 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -148,3 +148,49 @@ error:
+ 	return ERR_PTR(err);
+ }
+ EXPORT_SYMBOL_GPL(iptunnel_handle_offloads);
++
++/* Often modified stats are per cpu, other are shared (netdev->stats) */
++struct rtnl_link_stats64 *ip_tunnel_get_stats64(struct net_device *dev,
++						struct rtnl_link_stats64 *tot)
++{
++	int i;
++
++	for_each_possible_cpu(i) {
++		const struct pcpu_sw_netstats *tstats =
++						   per_cpu_ptr(dev->tstats, i);
++		u64 rx_packets, rx_bytes, tx_packets, tx_bytes;
++		unsigned int start;
++
++		do {
++			start = u64_stats_fetch_begin_bh(&tstats->syncp);
++			rx_packets = tstats->rx_packets;
++			tx_packets = tstats->tx_packets;
++			rx_bytes = tstats->rx_bytes;
++			tx_bytes = tstats->tx_bytes;
++		} while (u64_stats_fetch_retry_bh(&tstats->syncp, start));
++
++		tot->rx_packets += rx_packets;
++		tot->tx_packets += tx_packets;
++		tot->rx_bytes   += rx_bytes;
++		tot->tx_bytes   += tx_bytes;
++	}
++
++	tot->multicast = dev->stats.multicast;
++
++	tot->rx_crc_errors = dev->stats.rx_crc_errors;
++	tot->rx_fifo_errors = dev->stats.rx_fifo_errors;
++	tot->rx_length_errors = dev->stats.rx_length_errors;
++	tot->rx_frame_errors = dev->stats.rx_frame_errors;
++	tot->rx_errors = dev->stats.rx_errors;
++
++	tot->tx_fifo_errors = dev->stats.tx_fifo_errors;
++	tot->tx_carrier_errors = dev->stats.tx_carrier_errors;
++	tot->tx_dropped = dev->stats.tx_dropped;
++	tot->tx_aborted_errors = dev->stats.tx_aborted_errors;
++	tot->tx_errors = dev->stats.tx_errors;
++
++	tot->collisions  = dev->stats.collisions;
++
++	return tot;
++}
++EXPORT_SYMBOL_GPL(ip_tunnel_get_stats64);
