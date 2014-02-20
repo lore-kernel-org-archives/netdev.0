@@ -1,56 +1,74 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: net/mlx4: Mellanox driver update 01-01-2014
-Date: Thu, 20 Feb 2014 22:15:47 +0200
-Message-ID: <20140220201320.GA24686@mtl-eit-vdi-22.mtl.labs.mlnx>
-References: <1392814684-2129-1-git-send-email-amirv@mellanox.com>
- <20140219.165049.1684072721398326970.davem@davemloft.net>
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: Re: [Xen-devel] [RFC v2 1/4] bridge: enable interfaces to
+ opt out from becoming the root bridge
+Date: Thu, 20 Feb 2014 12:24:06 -0800
+Message-ID: <CAB=NE6WnMFkH7JPNt+ROiWEvhvZ03vdGr21STf75DV9fRaK=PA@mail.gmail.com>
+References: <1392433180-16052-1-git-send-email-mcgrof@do-not-panic.com>
+	<1392433180-16052-2-git-send-email-mcgrof@do-not-panic.com>
+	<20140216105754.63738163@nehalam.linuxnetplumber.net>
+	<CAB=NE6WwbOXNLO_Mn42i7y62pEsmDOWd35B621eiJk4iaE3Hfg@mail.gmail.com>
+	<1392803559.23084.99.camel@kazak.uk.xensource.com>
+	<5304C13F.3030802@citrix.com>
+	<CAB=NE6X6Vuo3iib0W-c5cxv0QBpnZtCC0sFyuULugQoEZAbRtg@mail.gmail.com>
+	<20140219090855.610c0e04@nehalam.linuxnetplumber.net>
+	<CAB=NE6UAqoiFAJdckE1d7cgMZnU6_=8X+N=tSc6qH2bgH08M7Q@mail.gmail.com>
+	<20140220091958.62a8b444@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, yevgenyp@mellanox.com,
-	ogerlitz@mellanox.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f181.google.com ([74.125.82.181]:40318 "EHLO
-	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754654AbaBTUPw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Feb 2014 15:15:52 -0500
-Received: by mail-we0-f181.google.com with SMTP id w61so1844919wes.40
-        for <netdev@vger.kernel.org>; Thu, 20 Feb 2014 12:15:51 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20140219.165049.1684072721398326970.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Ian Campbell <Ian.Campbell@citrix.com>, kvm@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	bridge@lists.linux-foundation.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>, xen-devel@lists.xenproject.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140220091958.62a8b444@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 19/02/14 16:50 -0500, David Miller wrote:
-> From: Amir Vadai <amirv@mellanox.com>
-> Date: Wed, 19 Feb 2014 14:58:01 +0200
-> 
-> > V0 of this patch was sent before previous net-next got closed, and
-> > now we would like to resume it.
-> > 
-> > Yuval has reworked the affinity hint patch, according to Ben's comments. The
-> > patch was actually rewritten.
-> > After a discussion with Yuval Mintz, use of netif_get_num_default_rss_queues()
-> > is not reverted, but done in the right place. Instead of limiting the number of
-> > IRQ's for the driver it will limit the number of queues in RSS.
-> > 
-> > Patchset was applied and tested against commit: cb6e926 "ipv6:fix checkpatch
-> > errors with assignment in if condition"
-> 
-> Influencing IRQs to be allocated on the same NUMA code as the one where
-> the card resides doesn't sound like an mlx4 specific desire to me.
-> 
-> Other devices, both networking and non-networking, probably might like
-> that as well.
-> 
-> Therefore doing this by hand in a specific driver doesn't seem
-> appropriate at all.
+On Thu, Feb 20, 2014 at 9:19 AM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> On Wed, 19 Feb 2014 09:59:33 -0800 "Luis R. Rodriguez" <mcgrof@do-not-panic.com> wrote:
+>> On Wed, Feb 19, 2014 at 9:08 AM, Stephen Hemminger <stephen@networkplumber.org> wrote:
+>> >
+>> > Please only use the netlink/sysfs flags fields that already exist
+>> > for new features.
+>>
+>> Sure, but what if we know a driver in most cases wants the root block
+>> and we'd want to make it the default, thereby only requiring userspace
+>> for toggling it off.
+>
+> Something in userspace has to put the device into the bridge.
+> Fix the port setup in that tool via the netlink or sysfs flags in
+> the bridge. It should not have to be handled in the bridge looking
+> at magic flags in the device.
 
-I agree. Will try to find a way to make it generic and resubmit this
-patch.
-Please continue with the review of the other patches by Ido, that will
-fix the way netif_get_num_default_rss_queues() is used in Mellanox
-driver.
+Agreed that's the best strategy and I'll work on sending patches to
+brctl to enable the root_block preference. This approach however also
+requires a userspace upgrade. I'm trying to see if we can get an
+old-nasty-cryptic-hack practice removed from the kernel and we'd try
+to prevent future drivers from using it -- without requiring userspace
+upgrade. In this case the bad practice is to using a high static MAC
+address for mimicking a root block default preference. In order to
+remove that *without* requiring a userspace upgrade the dev->priv_flag
+approach is the only thing I can think of. If this would go in we'd
+replace the high static MAC address with a random MAC address to
+prevent IPv6 SLAAC / DAD conflicts. I'd document this flag and
+indicate with preference for userspace to be the one tuning these
+knobs.
 
-Thanks,
-Amir
+Without this we'd have to keep the high static MAC address on upstream
+drivers and let userspace do the random'ization if it confirms the
+userspace knob to turn the root block flag is available. Is the
+priv_flag approach worth the compromise to remove the root block hack
+practice?
+
+  Luis
