@@ -1,71 +1,42 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net] net: sctp: fix multihoming retransmission path
- selection to rfc4960
-Date: Thu, 20 Feb 2014 13:25:31 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6C7694@AcuExch.aculab.com>
-References: <1392897186-26841-1-git-send-email-dborkman@redhat.com>
- <063D6719AE5E284EB5DD2968C1650D6D0F6C762B@AcuExch.aculab.com>
- <5305F993.4060603@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-	Gui Jianfeng <guijianfeng@cn.fujitsu.com>
-To: 'Daniel Borkmann' <dborkman@redhat.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH ipsec-next] pfkey: fix SADB_X_EXT_FILTER length check
+Date: Thu, 20 Feb 2014 14:52:41 +0100
+Message-ID: <1392904361-11127-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <20140220100735.GA25752@elgon.mountain>
+Cc: netdev@vger.kernel.org, dan.carpenter@oracle.com,
+	kbuild-all@01.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:47315 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753218AbaBTN0P convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Feb 2014 08:26:15 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 09559-05 for <netdev@vger.kernel.org>;
- Thu, 20 Feb 2014 13:26:11 +0000 (GMT)
-In-Reply-To: <5305F993.4060603@redhat.com>
-Content-Language: en-US
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:39769 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754333AbaBTNxG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Feb 2014 08:53:06 -0500
+In-Reply-To: <20140220100735.GA25752@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann
-> On 02/20/2014 01:25 PM, David Laight wrote:
-> > I was wondering whether it is valid (or even reasonable) to send
-> > the retransmit down multiple paths?  Particularly if they are
-> > not known to be working.
-> 
-> As far as I can see, the RFC says that we should pick one, and
-> not broadcast through all paths, besides HB should monitor these
-> anyway.
-> 
-> Future work, however, could select a retransmission path "more
-> intelligent" based on further transport path properties, but
-> that is certainly not net material, plus it seems we would need
-> additional state logic indicating that a path has been used before
-> to not exclude other less optimal transports on successive
-> retransmits.
+This patch fixes commit d3623099d350 ("ipsec: add support of limited SA dump").
 
-Yes, anything like that probably requires a few steps (and testing)
-before being finally implemented.
+sadb_ext_min_len array should be updated with the new type (SADB_X_EXT_FILTER).
 
-I always like to have a list of 'future work' (mostly in my head).
-Sometimes you suddenly think of a cheap way of doing something,
-and you also don't want to move in the wrong direction.
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ net/key/af_key.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-> > Or maybe resend heartbeats in a desperate attempt to find a working
-> > path?
-> 
-> Yes, that is done through HBs, see 1.5.7 of RFC4960.
-
-I've managed so far without having to read the SCTP RFCs :-)
-But I've implemented enough comms protocols over the years to
-know most of the pitfalls.
-
-> > Do you guys know which kernel version(s) have that patch?
-> 
-> git describe 4141ddc02a92
-> v2.6.26-rc4-210-g4141ddc
-
-Thanks.
-
-	David
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index f0879c19f452..a50d979b5926 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -365,6 +365,7 @@ static const u8 sadb_ext_min_len[] = {
+ 	[SADB_X_EXT_NAT_T_OA]		= (u8) sizeof(struct sadb_address),
+ 	[SADB_X_EXT_SEC_CTX]		= (u8) sizeof(struct sadb_x_sec_ctx),
+ 	[SADB_X_EXT_KMADDRESS]		= (u8) sizeof(struct sadb_x_kmaddress),
++	[SADB_X_EXT_FILTER]		= (u8) sizeof(struct sadb_x_filter),
+ };
+ 
+ /* Verify sadb_address_{len,prefixlen} against sa_family.  */
+-- 
+1.8.5.4
