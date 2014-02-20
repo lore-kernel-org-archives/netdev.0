@@ -1,90 +1,67 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [PATCH net] veth: Fix vlan_features so as to be able to use
- stacked vlan interfaces
-Date: Wed, 19 Feb 2014 22:02:11 -0300
-Message-ID: <20140220010211.GA21931@localhost.localdomain>
-References: <1392726009-8083-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
- <20140219041357.GB2491@localhost.localdomain>
- <53043F7E.804@lab.ntt.co.jp>
+From: "=?ISO-8859-1?B?WGlhbnBlbmcgWmhhbw==?=" <673321875@qq.com>
+Subject: Re: Fw:[Bug 70471] xfrm policy node will double unlink.
+Date: Thu, 20 Feb 2014 10:01:19 +0800
+Message-ID: <tencent_0260B87B11A1005909F5BB41@qq.com>
+References: <tencent_0D7FA5355C7998793C100B23@qq.com>
+ <20140218083737.GB32371@secunet.com>
+ <tencent_4CE06FA903D8DCB54F951A30@qq.com>
+	<20140219114326.GE32371@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Content-Type: text/plain;
+	charset="ISO-8859-1"
+Content-Transfer-Encoding: base64
+Cc: "=?ISO-8859-1?B?bmV0ZGV2?=" <netdev@vger.kernel.org>,
+	"=?ISO-8859-1?B?YWxhbg==?=" <alan@lxorguk.ukuu.org.uk>
+To: "=?ISO-8859-1?B?U3RlZmZlbiBLbGFzc2VydA==?="
+	<steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14916 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752101AbaBTBCR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Feb 2014 20:02:17 -0500
-Content-Disposition: inline
-In-Reply-To: <53043F7E.804@lab.ntt.co.jp>
+Received: from smtpbg303.qq.com ([184.105.206.26]:48734 "HELO smtpbg303.qq.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751752AbaBTCCF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Feb 2014 21:02:05 -0500
+In-Reply-To: <20140219114326.GE32371@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 19, 2014 at 02:22:06PM +0900, Toshiaki Makita wrote:
-> (2014/02/19 13:13), Flavio Leitner wrote:
-> > On Tue, Feb 18, 2014 at 09:20:08PM +0900, Toshiaki Makita wrote:
-> >> Even if we create a stacked vlan interface such as veth0.10.20, it sends
-> >> single tagged frames (tagged with only vid 10).
-> >> Because vlan_features of a veth interface has the
-> >> NETIF_F_HW_VLAN_[CTAG/STAG]_TX bits, veth0.10 also has that feature, so
-> >> dev_hard_start_xmit(veth0.10) doesn't call __vlan_put_tag() and
-> >> vlan_dev_hard_start_xmit(veth0.10) overwrites vlan_tci.
-> >> This prevents us from using a combination of 802.1ad and 802.1Q
-> >> in containers, etc.
-> >>
-> >> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> >> ---
-> >>  drivers/net/veth.c | 3 ++-
-> >>  1 file changed, 2 insertions(+), 1 deletion(-)
-> >>
-> >> diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-> >> index 2ec2041..5b37437 100644
-> >> --- a/drivers/net/veth.c
-> >> +++ b/drivers/net/veth.c
-> >> @@ -285,7 +285,8 @@ static void veth_setup(struct net_device *dev)
-> >>  	dev->ethtool_ops = &veth_ethtool_ops;
-> >>  	dev->features |= NETIF_F_LLTX;
-> >>  	dev->features |= VETH_FEATURES;
-> >> -	dev->vlan_features = dev->features;
-> >> +	dev->vlan_features = dev->features &
-> >> +			     ~(NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_STAG_TX);
-> >>  	dev->destructor = veth_dev_free;
-> >>  
-> >>  	dev->hw_features = VETH_FEATURES;
-> >> -- 
-> >> 1.8.1.2
-> >>
-> > 
-> > Why that isn't a problem with another software device?
-> > Although this patch might fix the issue, it seems to me that
-> > the middle devices shouldn't use the same feature flags.
-> > I mean, vlan.20 should add the header, then vlan.10 should
-> > offload the tag to veth.  Otherwise, for any vlan on top of
-> > veth there will be an unneeded memmove().
-> 
-> In this case with this patch, vlan_dev_hard_start_xmit(veth0.10.20) set
-> vlan_tci, dev_hard_start_xmit(veth0.10) put it into skb->data, and
-> vlan_dev_hard_start_xmit(veth0.10) set vlan_tci again.
-> dev_hard_start_xmit(veth0) doesn't put it into skb->data because veth0
-> has NETIF_F_HW_VLAN_*TAG_TX feature.
-> 
-> Similarly, in not stacked vlan case, for example if veth0.10 has no vlan
-> intarface on it, vlan_dev_hard_start_xmit(veth0.10) set vlan_tci and
-> dev_hard_start_xmit(veth0) doesn't put it into skb->data.
-> There will be no unnecessary memmove().
-> 
-> Although I haven't looked over all, other drivers don't seem to have
-> NETIF_F_HW_VLAN_*TAG_TX in vlan_features (at least, bridge, vxlan,
-> e1000e, and bnx2x don't).
-> 
-> Thanks,
-> Toshiaki Makita
-> 
-
-Alright, the code looks good and I didn't notice anything
-different on my testing env.
-
-Acked-by: Flavio Leitner <fbl@redhat.com>
-
-Thanks!
-fbl
+U29ycnksIEkgbWlzdW5kZXJzdG9vZCB5b3VyIG1lYW5zIGluIGxhc3QgbWFpbC4KICAgIEkg
+Z2V0IHlvdXIgcGF0Y2ggbm93LiBMYXRlciBJIHdpbGwgdXNlIHlvdXIgcGF0Y2guIAoKICAg
+IE5vdywgSSBhbSB1c2luZyBteSBwYXRjaCBkb2luZyB0aGUgdGVzdCwgbXkgcGF0Y2ggaXMg
+bGlrZSB0aGlzOyB0aWxsIG5vdywgZXZlcnl0aGluZyBpcyBPSy4gSSB0aGluayBteSBwYXRj
+aCBhbG1vc3Qgc2FtZSB3aXRoIHlvdXIgcGF0Y2guCgpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9s
+aW51eC9saXN0LmggYi9pbmNsdWRlL2xpbnV4L2xpc3QuaAppbmRleCBjYzZkMmFhLi4zYThi
+OTVhIDEwMDY0NAotLS0gYS9pbmNsdWRlL2xpbnV4L2xpc3QuaAorKysgYi9pbmNsdWRlL2xp
+bnV4L2xpc3QuaApAQCAtNTc4LDYgKzU3OCwxMSBAQCBzdGF0aWMgaW5saW5lIGludCBobGlz
+dF91bmhhc2hlZChjb25zdCBzdHJ1Y3QgaGxpc3Rfbm9kZSAqaCkKIAlyZXR1cm4gIWgtPnBw
+cmV2OwogfQogCitzdGF0aWMgaW5saW5lIGludCBobGlzdF9yZW1vdmVkKGNvbnN0IHN0cnVj
+dCBobGlzdF9ub2RlICpoKQoreworCXJldHVybiAoaC0+cHByZXYgPT0gTElTVF9QT0lTT04y
+ICYmIGgtPm5leHQgPT0gTElTVF9QT0lTT04xKTsKK30KKwogc3RhdGljIGlubGluZSBpbnQg
+aGxpc3RfZW1wdHkoY29uc3Qgc3RydWN0IGhsaXN0X2hlYWQgKmgpCiB7CiAJcmV0dXJuICFo
+LT5maXJzdDsKZGlmZiAtLWdpdCBhL25ldC94ZnJtL3hmcm1fcG9saWN5LmMgYi9uZXQveGZy
+bS94ZnJtX3BvbGljeS5jCmluZGV4IDQxZWFiYzQuLjAwNWJlNDcgMTAwNjQ0Ci0tLSBhL25l
+dC94ZnJtL3hmcm1fcG9saWN5LmMKKysrIGIvbmV0L3hmcm0veGZybV9wb2xpY3kuYwpAQCAt
+MTA3Myw3ICsxMDczLDcgQEAgc3RhdGljIHN0cnVjdCB4ZnJtX3BvbGljeSAqX194ZnJtX3Bv
+bGljeV91bmxpbmsoc3RydWN0IHhmcm1fcG9saWN5ICpwb2wsCiB7CiAJc3RydWN0IG5ldCAq
+bmV0ID0geHBfbmV0KHBvbCk7CiAKLQlpZiAoaGxpc3RfdW5oYXNoZWQoJnBvbC0+Ynlkc3Qp
+KQorCWlmIChobGlzdF91bmhhc2hlZCgmcG9sLT5ieWRzdCkgfHwgaGxpc3RfcmVtb3ZlZCgm
+cG9sLT5ieWRzdCkpCiAJCXJldHVybiBOVUxMOwogCiAJaGxpc3RfZGVsKCZwb2wtPmJ5ZHN0
+KTsKCgogCgoKCgotLS0tLS0tLS0tLS0tLS0tLS0gT3JpZ2luYWwgLS0tLS0tLS0tLS0tLS0t
+LS0tCkZyb206ICAiU3RlZmZlbiBLbGFzc2VydCI7PHN0ZWZmZW4ua2xhc3NlcnRAc2VjdW5l
+dC5jb20+OwpEYXRlOiAgV2VkLCBGZWIgMTksIDIwMTQgMDc6NDMgUE0KVG86ICAiWGlhbnBl
+bmcgWmhhbyI8NjczMzIxODc1QHFxLmNvbT47IApDYzogICJuZXRkZXYiPG5ldGRldkB2Z2Vy
+Lmtlcm5lbC5vcmc+OyAiYWxhbiI8YWxhbkBseG9yZ3VrLnVrdXUub3JnLnVrPjsgClN1Ympl
+Y3Q6ICBSZTogRnc6W0J1ZyA3MDQ3MV0geGZybSBwb2xpY3kgbm9kZSB3aWxsIGRvdWJsZSB1
+bmxpbmsuCgoKCk9uIFdlZCwgRmViIDE5LCAyMDE0IGF0IDEwOjA3OjE0QU0gKzA4MDAsIFhp
+YW5wZW5nIFpoYW8gd3JvdGU6Cj4gSGkgU3RlZmZlbiwKPiAKPiAgICAgICBUaGlzIHByb2Js
+ZW0gaXMgaGFwcGVuZWQgd2hlbiBydW5uaW5nIHN0cmVzcyB0ZXN0OyBWZXJ5IGxpdHRsZSBj
+aGFuY2UgY2FuIGdldCB0aGlzIGNhc2UuCj4gCj4gICAgICAgQXMgeW91IHNheSwgYWRkIGEg
+bG9uZyB0aW1lIHNsZWVwIGluIGZ1bmN0aW9uIHhmcm1fcG9saWN5X2J5c2VsX2N0eCBiZXR3
+ZWVuIF9feGZybV9wb2xpY3lfdW5saW5rIGFuZCAKPiB4ZnJtX3BvbGljeV9raWxsLCB3aWxs
+IHJlcHJvZHVjZSB0aGlzIGlzc3VlIG1hbnVhbGx5LiAKPiAKPiAgICAgICBBYm91dCBteSBw
+YXRjaCwgSSBhbSBub3Qgc3VyZSBpdCBpcyBPSywgYmVjYXVzZSBhZnRlciBpdCBwYXRjaGVk
+LCB0aGUgaXNzdWUgaGFkIHJlcHJvZHVjZWQgb25jZSwgYnV0IGFmdGVyIHNvbWUgZGF5cyB0
+ZXN0IHJlY2VudGx5LCBoYXZlIG5vdCByZXByb2R1Y2VkIGFnYWluLiAKPiAKPiAgICAgICBC
+dXQgSSBjYW4gbWFrZSBzdXJlIHdoZW4gX194ZnJtX3BvbGljeV91bmxpbmsgZmluZCB0aGUg
+bm9kZSBoYWQgYmVlbiByZW1vdmVkLCByZXR1cm4gTlVMTCBpbnN0ZWFkIG9mIGRlbGV0ZSBh
+Z2FpbiB3aWxsIGZpeCB0aGlzIHByb2JsZW0uCj4gCj4gICAgICAgV2hhdCdzIHlvdXIgc3Vn
+Z2VzdGlvbnM/Cj4gCgpQbGVhc2UgdGVzdCB0aGUgcGF0Y2ggSSd2ZSBzZW50IHdpdGggdGhl
+IGxhc3QgbWFpbC4KVGhhbmtzIQou
