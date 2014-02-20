@@ -1,48 +1,45 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: Re: [RFC v2 2/4] net: enables interface option to skip IP
-Date: Thu, 20 Feb 2014 12:39:29 -0800
-Message-ID: <CAB=NE6VswYVF1BOM+vwEh3MaX7sh0gvLqz0U0JoEFDS-EzO9Pg@mail.gmail.com>
-References: <1392433180-16052-1-git-send-email-mcgrof@do-not-panic.com>
- <1392433180-16052-3-git-send-email-mcgrof@do-not-panic.com>
- <1392668638.21106.5.camel@dcbw.local> <CAB=NE6XGBp1RwO63W0ac6tTr9JcRM9TB9sap4pa+8PMWwjxu6g@mail.gmail.com>
- <1392828325.21976.6.camel@dcbw.local> <CAB=NE6VpUqwNNY4pgbS6du2VsZ6dH0TzQYXmiw6GGN-EiOsV6g@mail.gmail.com>
- <53050244.1020106@citrix.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [net-next 2/3] net: bcmgenet: fix warning on ndo_select_queue
+Date: Thu, 20 Feb 2014 12:53:50 -0800
+Message-ID: <1392929631-7685-3-git-send-email-f.fainelli@gmail.com>
+References: <1392929631-7685-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dan Williams <dcbw@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	xen-devel@lists.xenproject.org, kvm@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53050244.1020106@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, Florian Fainelli <f.fainelli@gmail.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:12461 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751616AbaBTUyU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Feb 2014 15:54:20 -0500
+In-Reply-To: <1392929631-7685-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 19, 2014 at 11:13 AM, Zoltan Kiss <zoltan.kiss@citrix.com> wrote:
-> On 19/02/14 17:20, Luis R. Rodriguez wrote:
->>>> On 19/02/14 17:20, Luis R. Rodriguez also wrote:
->>>> Zoltan has noted though some use cases of IPv4 or IPv6 addresses on
->>>> backends though <...>
->>
->> As discussed in the other threads though there *is* some use cases
->> of assigning IPv4 or IPv6 addresses to the backend interfaces though:
->> routing them (although its unclear to me if iptables can be used
->> instead, Zoltan?).
->
-> Not with OVS, it steals the packet before netfilter hooks.
+Commit 99932d4 ("netdevice: add queue selection fallback handler for
+ndo_select_queue") added a new argument to the ndo_select_queue callback,
+but the BCMGENET driver was not updated accordingly and hence would
+trigger a warning.
 
-Got it, thanks! Can't the route be added using a front-end IP address
-instead on the host though ? I just tried that on a Xen system and it
-seems to work. Perhaps I'm not understand the exact topology on the
-routing case. So in my case I have the backend without any IPv4 or
-IPv6 interfaces, the guest has IPv4, IPv6 addresses and even a TUN for
-VPN and I can create routes on the host to the front end by not using
-the backend device name but instead using the front-end target IP.
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-  Luis
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 8af5f07..7c023af 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -2276,7 +2276,8 @@ static int bcmgenet_set_mac_addr(struct net_device *dev, void *p)
+ }
+ 
+ static u16 bcmgenet_select_queue(struct net_device *dev,
+-		struct sk_buff *skb, void *accel_priv)
++		struct sk_buff *skb, void *accel_priv,
++		select_queue_fallback_t fallback)
+ {
+ 	return netif_is_multiqueue(dev) ? skb->queue_mapping : 0;
+ }
+-- 
+1.8.3.2
