@@ -1,414 +1,151 @@
-From: raffaello@erg.abdn.ac.uk
-Subject: [PATCH 1/1] TCP NewCWV for Linux
-Date: Thu, 20 Feb 2014 19:28:56 -0000
-Message-ID: <bbf79368e5d6514fbe6704a77b473407.squirrel@blake.erg.abdn.ac.uk>
-Reply-To: raffaello@erg.abdn.ac.uk
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net] net: sctp: fix multihoming retransmission path selection
+ to rfc4960
+Date: Thu, 20 Feb 2014 20:31:37 +0100
+Message-ID: <53065819.6050603@redhat.com>
+References: <1392897186-26841-1-git-send-email-dborkman@redhat.com> <530656E7.7010404@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: ziaul.hossain@abdn.ac.uk, gorry@erg.abdn.ac.uk
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org,
+	Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spey.erg.abdn.ac.uk ([139.133.204.173]:40468 "EHLO
-	spey.erg.abdn.ac.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753098AbaBTUB4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Feb 2014 15:01:56 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:10118 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752445AbaBTUGv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Feb 2014 15:06:51 -0500
+In-Reply-To: <530656E7.7010404@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 02/20/2014 08:26 PM, Vlad Yasevich wrote:
+> On 02/20/2014 06:53 AM, Daniel Borkmann wrote:
+>> Problem statement: 1) both paths (primary path1 and alternate
+>> path2) are up after the association has been established i.e.,
+>> HB packets are normally exchanged, 2) path2 gets inactive after
+>> path_max_retrans * max_rto timed out (i.e. path2 is down completely),
+>> 3) now, if a transmission times out on the only surviving/active
+>> path1 (any ~1sec network service impact could cause this like
+>> a channel bonding failover), then the retransmitted packets are
+>> sent over the inactive path2; this happens with partial failover
+>> and without it.
+>
+> Interesting.  The problem above is actually triggered by
+> sctp_retransmit().  When the T3-timeout occurs, we have
+> active_patch == retrans_path, and even though the timeout
+> occurred on the initial transmission of data, not a retransmit,
+> we end up updating retransmit path.
+>
+> It might be worth adding adding this as a condition.  See below.
+>
+>> Besides not being optimal in the above scenario, a small failure
+>> or timeout in the only existing path has the potential to cause
+>> long delays in the retransmission (depending on RTO_MAX) until
+>> the still active path is reselected.
+>>
+>> RFC4960, section 6.4. "Multi-Homed SCTP Endpoints" states under
+>> 6.4.1. "Failover from an Inactive Destination Address" the
+>> following:
+>>
+>>    Some of the transport addresses of a multi-homed SCTP endpoint
+>>    may become inactive due to either the occurrence of certain
+>>    error conditions (see Section 8.2) or adjustments from the
+>>    SCTP user.
+>>
+>>    When there is outbound data to send and the primary path
+>>    becomes inactive (e.g., due to failures), or where the SCTP
+>>    user explicitly requests to send data to an inactive
+>>    destination transport address, before reporting an error to
+>>    its ULP, the SCTP endpoint should try to send the data to an
+>>    alternate *active* destination transport address if one exists.
+>>
+>>    When retransmitting data that timed out, if the endpoint is
+>>    multihomed, it should consider each source-destination address
+>>    pair in its retransmission selection policy. When retransmitting
+>>    timed-out data, the endpoint should attempt to pick the most
+>>    divergent source-destination pair from the original
+>>    source-destination pair to which the packet was transmitted.
+>>
+>>    Note: Rules for picking the most divergent source-destination
+>>    pair are an implementation decision and are not specified
+>>    within this document.
+>>
+>> So, we should first reconsider to take the current active
+>> retransmission transport if we cannot find an alternative
+>> active one, as otherwise, by sending a user message to an
+>> inactive destination transport address while excluding an
+>> active destination transport address, we would not comply
+>> to RFC4960. If all of that fails, we can still round robin
+>> through unkown, partial failover, and inactive ones in the
+>> hope to find something still suitable/useful.
+>>
+>> Commit 4141ddc02a92 ("sctp: retran_path update bug fix") broke
+>> that behaviour by selecting the next non-active transport when
+>> no other active transport was found besides the current assoc's
+>> peer.retran_path. Before commit 4141ddc02a92, we would have
+>> traversed through the list until we reach our peer.retran_path
+>> again, and in case that is still in state SCTP_ACTIVE, we would
+>> take it and return. Only if that is not the case either, we
+>> take the next inactive transport. Besides all that, another
+>> issue is that transports in state SCTP_UNKNOWN could be preferred
+>> over transports in state SCTP_ACTIVE in case a SCTP_ACTIVE
+>> transport appears after SCTP_UNKNOWN in the transport list
+>> yielding a "weaker" transport state to be used in retransmission.
+>>
+>> This patch mostly reverts 4141ddc02a92, but also rewrites
+>> this function to introduce more clarity and strictness into
+>> the code. A strict priority of transport states is enforced
+>> in this patch, hence selection is active > unkown > partial
+>> failover > inactive.
+>>
+>> Fixes: 4141ddc02a92 ("sctp: retran_path update bug fix")
+>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>> Cc: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+...
+>> -		t = list_entry(pos, struct sctp_transport, transports);
+>> +	/* We're done as we only have the one and only path. */
+>> +	if (asoc->peer.transport_count == 1)
+>> +		return;
+>>
+>
+> I think we should to do one more short circuit here:
+>
+>          /* If active_path and retrans_path are the same and active,
+>           * then this is the only active path.  Use it.
+>           */
+>          if (asoc->peer.active_path == asoc->peer.retrans_path &&
+>              asoc->peer.active_path->state == SCTP_ACTIVE)
+>                  return;
 
-This is a patch for newcwv a TCP sender-side modification,
-currently a work item at TCPM (TCP Maintenance and Minor extensions)
-at the IETF:
+Ok, will add and resubmit, thanks Vlad.
 
-http://tools.ietf.org/search/draft-ietf-tcpm-newcwv-05
+>> -		/* We have exhausted the list, but didn't find any
+>> -		 * other active transports.  If so, use the next
+>> -		 * transport.
+>> -		 */
+>> -		if (t == asoc->peer.retran_path) {
+>> -			t = next;
+>> +	/* Iterate from retran_path's successor back to retran_path. */
+>> +	for (trans = list_next_entry(trans, transports); 1;
+>> +	     trans = list_next_entry(trans, transports)) {
+>> +		/* Manually skip the head element. */
+>> +		if (&trans->transports == &asoc->peer.transport_addr_list)
+>> +			continue;
+>
+> Alternative way would be:
+>      head = &asoc->peer.transport_addr_list;
+>      list_for_each_enty_from(trans, head, transport) {
+>          ... do the work...
+>
+>          /* Manually skip head element if it's next */
+>          if (list_next_entry(trans, transports) == head)
+>              trans = list_first_entry(head);
+>      }
+>
+> It's up to you if you like this better or not.
 
-newcwv aims to supersede CWV (RFC2861) to provide better
-congestion control for rate-limited applications that use TCP.
+I tested already the current version, so I'll go for that. ;)
 
-We implemented it as a module that uses tcp_congestion_ops.
-The main changes are in "cong_avoid" before Reno cwnd control
-and at the start and end of Fast Retransmit:
-
-1) Before Reno algorithm we estimate at each ACK our pipeACK
-(update_pipeack) and decide to increase or not cwnd based on pipeack.
-
-2) At the start of FR we reset cwnd based on pipeACK, while
-at the end we further reduce pipeACK by the number of retransmissions.
-
-I posted it here for you consideration to be included in net-next.
-
----
- net/ipv4/Kconfig      |   17 +++
- net/ipv4/Makefile     |    1 +
- net/ipv4/tcp_newcwv.c |  317
-+++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 335 insertions(+)
- create mode 100644 net/ipv4/tcp_newcwv.c
-
-diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index 05c57f0..72294d8 100644
---- a/net/ipv4/Kconfig
-+++ b/net/ipv4/Kconfig
-@@ -556,6 +556,23 @@ config TCP_CONG_ILLINOIS
- 	For further details see:
- 	  http://www.ews.uiuc.edu/~shaoliu/tcpillinois/index.html
-
-+config TCP_CONG_NEWCWV
-+	tristate "TCP New-CWV"
-+	default n
-+	---help---
-+	TCP new-CWV is a send-side modification of TCP to improve
-+	congestion control for rate-limited applications. new-CWV allows
-+	faster restarts after long idle periods and better congestion control
-+	during periods the cwnd cannot be fully utilised.
-+
-+	If you select this congestion control method, it is recommended
-+	to disable tcp_slow_start_after_idle:
-+
-+	echo "0" > /proc/sys/net/ipv4/tcp_slow_start_after_idle
-+
-+	For further details see:
-+	  http://tools.ietf.org/html/draft-ietf-tcpm-newcwv-05
-+
- choice
- 	prompt "Default TCP congestion control"
- 	default DEFAULT_CUBIC
-diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
-index f8c49ce..9424160 100644
---- a/net/ipv4/Makefile
-+++ b/net/ipv4/Makefile
-@@ -51,6 +51,7 @@ obj-$(CONFIG_TCP_CONG_SCALABLE) += tcp_scalable.o
- obj-$(CONFIG_TCP_CONG_LP) += tcp_lp.o
- obj-$(CONFIG_TCP_CONG_YEAH) += tcp_yeah.o
- obj-$(CONFIG_TCP_CONG_ILLINOIS) += tcp_illinois.o
-+obj-$(CONFIG_TCP_CONG_NEWCWV) += tcp_newcwv.o
- obj-$(CONFIG_MEMCG_KMEM) += tcp_memcontrol.o
- obj-$(CONFIG_NETLABEL) += cipso_ipv4.o
-
-diff --git a/net/ipv4/tcp_newcwv.c b/net/ipv4/tcp_newcwv.c
-new file mode 100644
-index 0000000..6f669e4
---- /dev/null
-+++ b/net/ipv4/tcp_newcwv.c
-@@ -0,0 +1,317 @@
-+/*
-+ * New-CWV implementation for Linux: draft-ietf-tcpm-newcwv-05.txt
-+ */
-+
-+#include <linux/module.h>
-+#include <net/tcp.h>
-+
-+#define UNDEF_PIPEACK 	                -1
-+#define PIPEACK_INIT  			TCP_INFINITE_SSTHRESH
-+#define TCP_RESTART_WINDOW		1
-+#define FIVEMINS  			(HZ*300)
-+#define NO_OF_BINS                      4
-+#define IS_VALID                        0x0002
-+#define IS_RECOVERY                     0x0001
-+#define nextbin(x)  (((x)+1) & 0x03)
-+#define prevbin(x)  (((x)-1) & 0x03)
-+
-+/* contains newcwv state variables */
-+struct newcwv {
-+	int psample[NO_OF_BINS];	/* pipeACK samples circular buffer */
-+	u32 time_stamp[NO_OF_BINS];	/* pipeACK sample timestamps */
-+	int pipeack;		/* pipeACK value after filtering */
-+	u8 rsvd;
-+	u8 head;		/* index for psample array */
-+	u16 flags;
-+	u32 prior_in_flight;	/* Packets in flight for cwnd reduction */
-+	u32 prior_retrans;	/* Retransmission before going into FR */
-+	u32 prev_snd_una;	/* snd_una when last record kept */
-+	u32 prev_snd_nxt;	/* snd_una when last record kept */
-+	u32 cwnd_valid_ts;	/* last time cwnd was found 'validated' */
-+	u32 psp;		/* pipeACK Sampling Period */
-+};
-+
-+/* helper function for division */
-+static u32 divide_or_zero(u32 dividend, u32 divisor)
-+{
-+	if (divisor == 0)
-+		return 0;
-+	else
-+		return (u32) (dividend / divisor);
-+}
-+
-+/* adds an element to the circular buffer for maximum filter */
-+static void add_element(struct newcwv *nc, int val)
-+{
-+	nc->head = nextbin(nc->head);
-+	nc->psample[nc->head] = val;
-+	nc->time_stamp[nc->head] = tcp_time_stamp;
-+}
-+
-+/* This fuction removes all the expired elements from the circular buffer
-+ * and returns the maximum from the remaining elements
-+ */
-+static int remove_expired_element(struct newcwv *nc)
-+{
-+	int k = nc->head;
-+	int tmp = nc->psample[nc->head];
-+
-+	while (nc->psample[k] != UNDEF_PIPEACK) {
-+		/* remove expired */
-+		if (nc->time_stamp[k] < tcp_time_stamp - nc->psp) {
-+			nc->psample[k] = UNDEF_PIPEACK;
-+			return tmp;
-+		}
-+
-+		/* search the maximum */
-+		if (nc->psample[k] > tmp)
-+			tmp = nc->psample[k];
-+
-+		k = prevbin(k);
-+		if (k == nc->head)
-+			return tmp;
-+	}
-+
-+	return tmp;
-+}
-+
-+/* is TCP in the validated phase? */
-+static inline bool tcp_is_in_vp(struct tcp_sock *tp, int pa)
-+{
-+	if (pa == UNDEF_PIPEACK)
-+		return true;
-+	else
-+		return ((pa << 1) >= (tp->snd_cwnd * tp->mss_cache));
-+}
-+
-+/* reduces the cwnd after 5mins of non-validated phase */
-+static void datalim_closedown(struct sock *sk)
-+{
-+	struct newcwv *nc = inet_csk_ca(sk);
-+	struct tcp_sock *tp = tcp_sk(sk);
-+	u32 nc_ts;
-+
-+	nc_ts = nc->cwnd_valid_ts;
-+	while ((tcp_time_stamp - nc_ts) > FIVEMINS) {
-+		nc_ts += FIVEMINS;
-+		nc->cwnd_valid_ts = nc_ts;
-+		tp->snd_ssthresh =
-+		    max((3 * tp->snd_cwnd) >> 2, tp->snd_ssthresh);
-+		tp->snd_cwnd =
-+		    max_t(u32, tp->snd_cwnd >> 1, TCP_INIT_CWND);
-+	}
-+}
-+
-+
-+/* updates pipeack when an ACK is received */
-+static void update_pipeack(struct sock *sk)
-+{
-+	struct newcwv *nc = inet_csk_ca(sk);
-+	struct tcp_sock *tp = tcp_sk(sk);
-+	int tmp_pipeack;
-+
-+	nc->psp = max(3 * (tp->srtt >> 3), (u32) HZ);
-+
-+	if (tp->snd_una >= nc->prev_snd_nxt) {
-+
-+		/* now get a new pipeack sample */
-+		tmp_pipeack = tp->snd_una - nc->prev_snd_una;
-+		nc->prev_snd_una = tp->snd_una;
-+		nc->prev_snd_nxt = tp->snd_nxt;
-+
-+		/* create a new element at the end of current pmp */
-+		if (tcp_time_stamp > nc->time_stamp[nc->head] + (nc->psp >> 2))
-+			add_element(nc, tmp_pipeack);
-+		else if (tmp_pipeack > nc->psample[nc->head])
-+			nc->psample[nc->head] = tmp_pipeack;
-+	}
-+
-+	nc->pipeack = remove_expired_element(nc);
-+
-+	/* check if cwnd is validated */
-+	if (tcp_is_in_vp(tp, nc->pipeack)) {
-+		nc->flags |= IS_VALID;
-+		nc->cwnd_valid_ts = tcp_time_stamp;
-+	} else {
-+		nc->flags &= ~IS_VALID;
-+		datalim_closedown(sk);
-+	}
-+}
-+
-+/* initialises newcwv variables */
-+static void tcp_newcwv_init(struct sock *sk)
-+{
-+	struct newcwv *nc = inet_csk_ca(sk);
-+	struct tcp_sock *tp = tcp_sk(sk);
-+
-+	nc->prev_snd_una = tp->snd_una;
-+	nc->prev_snd_nxt = tp->snd_nxt;
-+
-+	nc->cwnd_valid_ts = tcp_time_stamp;
-+	nc->flags = IS_VALID;
-+
-+	nc->psp = max(3 * (tp->srtt >> 3), (u32) HZ);
-+
-+	nc->head = 0;
-+	nc->psample[0] = UNDEF_PIPEACK;
-+	nc->pipeack = UNDEF_PIPEACK;
-+}
-+
-+
-+/* cong_avoid action: non dubious ACK received */
-+static void tcp_newcwv_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
-+{
-+	struct newcwv *nc = inet_csk_ca(sk);
-+	struct tcp_sock *tp = tcp_sk(sk);
-+
-+	nc->prior_in_flight = in_flight;
-+	nc->prior_retrans = tp->total_retrans;
-+
-+	update_pipeack(sk);
-+
-+	/* Check if cwnd is validated */
-+	if (!(nc->flags & IS_VALID) && !tcp_is_cwnd_limited(sk, in_flight))
-+		return;
-+
-+	/* The following is the Reno behaviour */
-+
-+	/* In "safe" area, increase. */
-+	if (tp->snd_cwnd <= tp->snd_ssthresh)
-+		tcp_slow_start(tp);
-+
-+	/* In dangerous area, increase slowly. */
-+	else
-+		tcp_cong_avoid_ai(tp, tp->snd_cwnd);
-+
-+}
-+
-+/* newcwv actions in fast recovery */
-+static void tcp_newcwv_enter_recovery(struct sock *sk)
-+{
-+	struct newcwv *nc = inet_csk_ca(sk);
-+	struct tcp_sock *tp = tcp_sk(sk);
-+	u32 pipeack;
-+
-+	nc->flags |= IS_RECOVERY;
-+
-+	pipeack = (nc->pipeack == UNDEF_PIPEACK) ? 0 : (u32)
-+	    nc->pipeack;
-+	pipeack = divide_or_zero(pipeack, (u32) tp->mss_cache);
-+	tp->snd_cwnd = max(pipeack, nc->prior_in_flight) >> 1;
-+
-+	/* make sure the min. value for cwnd is 1 */
-+	tp->snd_cwnd = (tp->snd_cwnd < 1) ? 1 : tp->snd_cwnd;
-+
-+}
-+
-+/* newcwv actions at the end of recovery */
-+static void tcp_newcwv_end_recovery(struct sock *sk)
-+{
-+	struct newcwv *nc = inet_csk_ca(sk);
-+	struct tcp_sock *tp = tcp_sk(sk);
-+	u32 retrans, pipeack;
-+
-+	pipeack = (nc->pipeack == UNDEF_PIPEACK) ? 0 : (u32)
-+	    nc->pipeack;
-+
-+	pipeack = divide_or_zero(pipeack, (u32) tp->mss_cache);
-+	retrans = tp->total_retrans - nc->prior_retrans;
-+	tp->snd_cwnd = (max(pipeack, nc->prior_in_flight) - retrans) >> 1;
-+	if (tp->snd_cwnd < TCP_RESTART_WINDOW)
-+		tp->snd_cwnd = TCP_RESTART_WINDOW;
-+
-+	tp->snd_ssthresh = tp->snd_cwnd;
-+	nc->flags &= ~IS_RECOVERY;
-+
-+	/* restart cwv machine */
-+	tcp_newcwv_init(sk);
-+
-+}
-+
-+/* newcwv actions corresponding to event */
-+static void tcp_newcwv_event(struct sock *sk, enum tcp_ca_event event)
-+{
-+	struct newcwv *nc = inet_csk_ca(sk);
-+	const struct inet_connection_sock *icsk = inet_csk(sk);
-+
-+	switch (event) {
-+	case CA_EVENT_TX_START:
-+		datalim_closedown(sk);
-+		break;
-+
-+	case CA_EVENT_COMPLETE_CWR:
-+		if (!(nc->flags & IS_VALID))
-+			tcp_newcwv_end_recovery(sk);
-+		break;
-+
-+	case CA_EVENT_LOSS:
-+		tcp_newcwv_init(sk);
-+		break;
-+
-+	case CA_EVENT_SLOW_ACK:
-+
-+		switch (icsk->icsk_ca_state) {
-+		case TCP_CA_Recovery:
-+			if (!nc->flags)
-+				tcp_newcwv_enter_recovery(sk);
-+			break;
-+
-+		case TCP_CA_Open:
-+		case TCP_CA_Disorder:
-+		default:
-+			break;
-+		}
-+		break;
-+
-+	case CA_EVENT_CWND_RESTART:
-+	case CA_EVENT_FAST_ACK:
-+	default:
-+		break;
-+	}
-+
-+}
-+
-+/* Slow start threshold resetting after loss */
-+u32 tcp_newcwv_ssthresh(struct sock *sk)
-+{
-+	const struct tcp_sock *tp = tcp_sk(sk);
-+
-+	/* This is tcp_packets_in_flight */
-+	u32 prior_in_flight =
-+	    tp->packets_out - tp->sacked_out - tp->lost_out + tp->retrans_out;
-+
-+	return max(prior_in_flight >> 1U, 2U);
-+}
-+
-+struct tcp_congestion_ops tcp_newcwv = {
-+	.flags = TCP_CONG_NON_RESTRICTED,
-+	.name = "newcwv",
-+	.init = tcp_newcwv_init,
-+	.owner = THIS_MODULE,
-+	.ssthresh = tcp_newcwv_ssthresh,
-+	.cong_avoid = tcp_newcwv_cong_avoid,
-+	.cwnd_event = tcp_newcwv_event,
-+	.min_cwnd = tcp_reno_min_cwnd,
-+};
-+
-+/* newcwv registered as congestion control in Linux */
-+static int __init tcp_newcwv_register(void)
-+{
-+	BUILD_BUG_ON(sizeof(struct newcwv) > ICSK_CA_PRIV_SIZE);
-+	tcp_register_congestion_control(&tcp_newcwv);
-+
-+	return 0;
-+}
-+
-+/* unregister when module is disabled */
-+static void __exit tcp_newcwv_unregister(void)
-+{
-+	tcp_unregister_congestion_control(&tcp_newcwv);
-+}
-+
-+module_init(tcp_newcwv_register);
-+module_exit(tcp_newcwv_unregister);
-+
-+MODULE_AUTHOR("Ziaul Hossain, Raffaello Secchi");
-+MODULE_LICENSE("GPL");
-+MODULE_DESCRIPTION("NewCwv Reno variant");
--- 
-1.7.9.5
+Thanks for your feedback Vlad!
