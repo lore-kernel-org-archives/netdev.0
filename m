@@ -1,67 +1,110 @@
-From: "=?ISO-8859-1?B?WGlhbnBlbmcgWmhhbw==?=" <673321875@qq.com>
-Subject: Re: Fw:[Bug 70471] xfrm policy node will double unlink.
-Date: Thu, 20 Feb 2014 10:01:19 +0800
-Message-ID: <tencent_0260B87B11A1005909F5BB41@qq.com>
-References: <tencent_0D7FA5355C7998793C100B23@qq.com>
- <20140218083737.GB32371@secunet.com>
- <tencent_4CE06FA903D8DCB54F951A30@qq.com>
-	<20140219114326.GE32371@secunet.com>
+From: jiang.biao2@zte.com.cn
+Subject: [PATCH] be2net: Bugfix for packet drop with kernel param swiotlb=force
+Date: Thu, 20 Feb 2014 09:56:23 +0800
+Message-ID: <OF1C38716E.D9F528E0-ON48257C85.000A026B-48257C85.000AA8C9@zte.com.cn>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="ISO-8859-1"
-Content-Transfer-Encoding: base64
-Cc: "=?ISO-8859-1?B?bmV0ZGV2?=" <netdev@vger.kernel.org>,
-	"=?ISO-8859-1?B?YWxhbg==?=" <alan@lxorguk.ukuu.org.uk>
-To: "=?ISO-8859-1?B?U3RlZmZlbiBLbGFzc2VydA==?="
-	<steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
+	ajit.khaparde@emulex.com, wang.liang82@zte.com.cn,
+	cai.qu@zte.com.cn, li.fengmao@zte.com.cn, long.chun@zte.com.cn,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg303.qq.com ([184.105.206.26]:48734 "HELO smtpbg303.qq.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751752AbaBTCCF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Feb 2014 21:02:05 -0500
-In-Reply-To: <20140219114326.GE32371@secunet.com>
+Received: from mx7.zte.com.cn ([202.103.147.169]:46880 "EHLO zte.com.cn"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751998AbaBTCND (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Feb 2014 21:13:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-U29ycnksIEkgbWlzdW5kZXJzdG9vZCB5b3VyIG1lYW5zIGluIGxhc3QgbWFpbC4KICAgIEkg
-Z2V0IHlvdXIgcGF0Y2ggbm93LiBMYXRlciBJIHdpbGwgdXNlIHlvdXIgcGF0Y2guIAoKICAg
-IE5vdywgSSBhbSB1c2luZyBteSBwYXRjaCBkb2luZyB0aGUgdGVzdCwgbXkgcGF0Y2ggaXMg
-bGlrZSB0aGlzOyB0aWxsIG5vdywgZXZlcnl0aGluZyBpcyBPSy4gSSB0aGluayBteSBwYXRj
-aCBhbG1vc3Qgc2FtZSB3aXRoIHlvdXIgcGF0Y2guCgpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9s
-aW51eC9saXN0LmggYi9pbmNsdWRlL2xpbnV4L2xpc3QuaAppbmRleCBjYzZkMmFhLi4zYThi
-OTVhIDEwMDY0NAotLS0gYS9pbmNsdWRlL2xpbnV4L2xpc3QuaAorKysgYi9pbmNsdWRlL2xp
-bnV4L2xpc3QuaApAQCAtNTc4LDYgKzU3OCwxMSBAQCBzdGF0aWMgaW5saW5lIGludCBobGlz
-dF91bmhhc2hlZChjb25zdCBzdHJ1Y3QgaGxpc3Rfbm9kZSAqaCkKIAlyZXR1cm4gIWgtPnBw
-cmV2OwogfQogCitzdGF0aWMgaW5saW5lIGludCBobGlzdF9yZW1vdmVkKGNvbnN0IHN0cnVj
-dCBobGlzdF9ub2RlICpoKQoreworCXJldHVybiAoaC0+cHByZXYgPT0gTElTVF9QT0lTT04y
-ICYmIGgtPm5leHQgPT0gTElTVF9QT0lTT04xKTsKK30KKwogc3RhdGljIGlubGluZSBpbnQg
-aGxpc3RfZW1wdHkoY29uc3Qgc3RydWN0IGhsaXN0X2hlYWQgKmgpCiB7CiAJcmV0dXJuICFo
-LT5maXJzdDsKZGlmZiAtLWdpdCBhL25ldC94ZnJtL3hmcm1fcG9saWN5LmMgYi9uZXQveGZy
-bS94ZnJtX3BvbGljeS5jCmluZGV4IDQxZWFiYzQuLjAwNWJlNDcgMTAwNjQ0Ci0tLSBhL25l
-dC94ZnJtL3hmcm1fcG9saWN5LmMKKysrIGIvbmV0L3hmcm0veGZybV9wb2xpY3kuYwpAQCAt
-MTA3Myw3ICsxMDczLDcgQEAgc3RhdGljIHN0cnVjdCB4ZnJtX3BvbGljeSAqX194ZnJtX3Bv
-bGljeV91bmxpbmsoc3RydWN0IHhmcm1fcG9saWN5ICpwb2wsCiB7CiAJc3RydWN0IG5ldCAq
-bmV0ID0geHBfbmV0KHBvbCk7CiAKLQlpZiAoaGxpc3RfdW5oYXNoZWQoJnBvbC0+Ynlkc3Qp
-KQorCWlmIChobGlzdF91bmhhc2hlZCgmcG9sLT5ieWRzdCkgfHwgaGxpc3RfcmVtb3ZlZCgm
-cG9sLT5ieWRzdCkpCiAJCXJldHVybiBOVUxMOwogCiAJaGxpc3RfZGVsKCZwb2wtPmJ5ZHN0
-KTsKCgogCgoKCgotLS0tLS0tLS0tLS0tLS0tLS0gT3JpZ2luYWwgLS0tLS0tLS0tLS0tLS0t
-LS0tCkZyb206ICAiU3RlZmZlbiBLbGFzc2VydCI7PHN0ZWZmZW4ua2xhc3NlcnRAc2VjdW5l
-dC5jb20+OwpEYXRlOiAgV2VkLCBGZWIgMTksIDIwMTQgMDc6NDMgUE0KVG86ICAiWGlhbnBl
-bmcgWmhhbyI8NjczMzIxODc1QHFxLmNvbT47IApDYzogICJuZXRkZXYiPG5ldGRldkB2Z2Vy
-Lmtlcm5lbC5vcmc+OyAiYWxhbiI8YWxhbkBseG9yZ3VrLnVrdXUub3JnLnVrPjsgClN1Ympl
-Y3Q6ICBSZTogRnc6W0J1ZyA3MDQ3MV0geGZybSBwb2xpY3kgbm9kZSB3aWxsIGRvdWJsZSB1
-bmxpbmsuCgoKCk9uIFdlZCwgRmViIDE5LCAyMDE0IGF0IDEwOjA3OjE0QU0gKzA4MDAsIFhp
-YW5wZW5nIFpoYW8gd3JvdGU6Cj4gSGkgU3RlZmZlbiwKPiAKPiAgICAgICBUaGlzIHByb2Js
-ZW0gaXMgaGFwcGVuZWQgd2hlbiBydW5uaW5nIHN0cmVzcyB0ZXN0OyBWZXJ5IGxpdHRsZSBj
-aGFuY2UgY2FuIGdldCB0aGlzIGNhc2UuCj4gCj4gICAgICAgQXMgeW91IHNheSwgYWRkIGEg
-bG9uZyB0aW1lIHNsZWVwIGluIGZ1bmN0aW9uIHhmcm1fcG9saWN5X2J5c2VsX2N0eCBiZXR3
-ZWVuIF9feGZybV9wb2xpY3lfdW5saW5rIGFuZCAKPiB4ZnJtX3BvbGljeV9raWxsLCB3aWxs
-IHJlcHJvZHVjZSB0aGlzIGlzc3VlIG1hbnVhbGx5LiAKPiAKPiAgICAgICBBYm91dCBteSBw
-YXRjaCwgSSBhbSBub3Qgc3VyZSBpdCBpcyBPSywgYmVjYXVzZSBhZnRlciBpdCBwYXRjaGVk
-LCB0aGUgaXNzdWUgaGFkIHJlcHJvZHVjZWQgb25jZSwgYnV0IGFmdGVyIHNvbWUgZGF5cyB0
-ZXN0IHJlY2VudGx5LCBoYXZlIG5vdCByZXByb2R1Y2VkIGFnYWluLiAKPiAKPiAgICAgICBC
-dXQgSSBjYW4gbWFrZSBzdXJlIHdoZW4gX194ZnJtX3BvbGljeV91bmxpbmsgZmluZCB0aGUg
-bm9kZSBoYWQgYmVlbiByZW1vdmVkLCByZXR1cm4gTlVMTCBpbnN0ZWFkIG9mIGRlbGV0ZSBh
-Z2FpbiB3aWxsIGZpeCB0aGlzIHByb2JsZW0uCj4gCj4gICAgICAgV2hhdCdzIHlvdXIgc3Vn
-Z2VzdGlvbnM/Cj4gCgpQbGVhc2UgdGVzdCB0aGUgcGF0Y2ggSSd2ZSBzZW50IHdpdGggdGhl
-IGxhc3QgbWFpbC4KVGhhbmtzIQou
+
+From: Li Fengmao <li.fengmao@zte.com.cn>
+
+There will be packet drop with kernel param "swiotlb = force" on
+Emulex 10Gb NIC using be2net driver. The problem is caused by
+receiving skb without calling pci_unmap_page() in get_rx_page_info().
+rx_page_info->last_page_user is initialized to false in
+be_post_rx_frags() when current frag are mapped in the first half of
+the same page with another frag. But in that case with
+"swiotlb = force" param, data can not be copied into the page of
+rx_page_info without calling pci_unmap_page, so the data frag mapped
+in the first half of the page will be dropped.
+
+It can be solved by creating only a mapping relation between frag
+and page, and deleting rx_page_info->last_page_user to ensure
+calling pci_unmap_page when handling each receiving frag.
+
+Steps to reproduce the bug:
+1. Prepare a Emulex Corporation OneConnect 10Gb NIC.
+2. Add the kernel param like "swiotlb = force" in /boot/grub/grub.conf .
+3. Reboot the system. (e.g exec reboot command)
+4. Activate the interface. (e.g ifconfig eth0 192.168.1.2 up)
+5. There will be packet drop when ping 192.168.1.2 from another host.
+
+Signed-off-by: Li Fengmao <li.fengmao@zte.com.cn>
+Signed-off-by: Long Chun <long.chun@zte.com.cn>
+Reviewed-by: Wang Liang <wang.liang82@zte.com.cn>
+Reviewed-by: Cai Qu <cai.qu@zte.com.cn>
+Reviewed-by: Jiang Biao <jiang.biao2@zte.com.cn>
+
+--- old/drivers/net/ethernet/emulex/benet/be_main.c	2014-02-20 08:49:49.322503588 +0800
++++ new/drivers/net/ethernet/emulex/benet/be_main.c	2014-02-20 08:56:38.796503104 +0800
+@@ -1018,12 +1018,9 @@ get_rx_page_info(struct be_adapter *adap
+ 	rx_page_info = &rxo->page_info_tbl[frag_idx];
+ 	BUG_ON(!rx_page_info->page);
+
+-	if (rx_page_info->last_page_user) {
+-		dma_unmap_page(&adapter->pdev->dev,
+-		               dma_unmap_addr(rx_page_info, bus),
+-		               adapter->big_page_size, DMA_FROM_DEVICE);
+-		rx_page_info->last_page_user = false;
+-	}
++	dma_unmap_page(&adapter->pdev->dev,
++	               dma_unmap_addr(rx_page_info, bus),
++	               rx_frag_size, DMA_FROM_DEVICE);
+
+ 	atomic_dec(&rxq->used);
+ 	return rx_page_info;
+@@ -1344,20 +1341,15 @@ static void be_post_rx_frags(struct be_r
+
+ 	page_info = &rxo->page_info_tbl[rxq->head];
+ 	for (posted = 0; posted < MAX_RX_POST && !page_info->page; posted++) {
+-		if (!pagep) {
+-			pagep = be_alloc_pages(adapter->big_page_size, gfp);
+-			if (unlikely(!pagep)) {
+-				rx_stats(rxo)->rx_post_fail++;
+-				break;
+-			}
+-			page_dmaaddr = dma_map_page(&adapter->pdev->dev, pagep,
+-			                            0, adapter->big_page_size,
+-			                            DMA_FROM_DEVICE);
+-			page_info->page_offset = 0;
+-		} else {
+-			get_page(pagep);
+-			page_info->page_offset = page_offset + rx_frag_size;
++		pagep = be_alloc_pages(rx_frag_size, gfp);
++		if (unlikely(!pagep)) {
++			rx_stats(rxo)->rx_post_fail++;
++			break;
+ 		}
++		page_dmaaddr = dma_map_page(&adapter->pdev->dev, pagep,
++		                            0, rx_frag_size,
++		                            DMA_FROM_DEVICE);
++		page_info->page_offset = 0;
+ 		page_offset = page_info->page_offset;
+ 		page_info->page = pagep;
+ 		dma_unmap_addr_set(page_info, bus, page_dmaaddr);
+@@ -1367,12 +1359,7 @@ static void be_post_rx_frags(struct be_r
+ 		rxd->fragpa_lo = cpu_to_le32(frag_dmaaddr & 0xFFFFFFFF);
+ 		rxd->fragpa_hi = cpu_to_le32(upper_32_bits(frag_dmaaddr));
+
+-		/* Any space left in the current big page for another frag? */
+-		if ((page_offset + rx_frag_size + rx_frag_size) >
+-					adapter->big_page_size) {
+-			pagep = NULL;
+-			page_info->last_page_user = true;
+-		}
++		pagep = NULL;
+
+ 		prev_page_info = page_info;
+ 		queue_head_inc(rxq);
