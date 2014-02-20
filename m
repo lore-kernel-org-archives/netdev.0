@@ -1,7 +1,8 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net 0/2] tipc: clean up components initialization code
-Date: Thu, 20 Feb 2014 11:32:48 +0800
-Message-ID: <1392867171-31020-1-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net 1/2] tipc: remove all enabled flags from all tipc components
+Date: Thu, 20 Feb 2014 11:32:49 +0800
+Message-ID: <1392867171-31020-2-git-send-email-ying.xue@windriver.com>
+References: <1392867171-31020-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <jon.maloy@ericsson.com>, <Paul.Gortmaker@windriver.com>,
@@ -9,36 +10,261 @@ Cc: <jon.maloy@ericsson.com>, <Paul.Gortmaker@windriver.com>,
 	<tipc-discussion@lists.sourceforge.net>, <wangweidong1@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:35917 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752547AbaBTDdL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 22:33:11 -0500
+Received: from mail1.windriver.com ([147.11.146.13]:52591 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752942AbaBTDdQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Feb 2014 22:33:16 -0500
+In-Reply-To: <1392867171-31020-1-git-send-email-ying.xue@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In this series, we will fix a regression issue involved by commit
-6e967adf7(tipc: relocate common functions from media to bearer)
-But before the issue is fixed, we firstly adjust the process of
-components initialization so as to remove all enabled flags from
-necessary tipc components. Otherwise, without the change, we also
-have to add an extra enabled flag into bearer layer indicating
-whether bearer setup is finshed or not.
+When tipc module is inserted, many tipc components are initialized
+one by one. During the initialization period, if one of them is
+failed, tipc_core_stop() will be called to stop all components
+whatever corresponding components are created or not. To avoid to
+release uncreated ones, relevant components have to add necessary
+enabled flags indicating whether they are created or not.
 
-Ying Xue (2):
-  tipc: remove all enabled flags from all tipc components
-  tipc: make bearer set up in module insertion stage
+But in the initialization stage, if one component is unsuccessfully
+created, we will just destroy successfully created components before
+the failed component instead of all components. All enabled flags
+defined in components, in turn, become redundant. Additionally it's
+also unnecessary to identify whether table.types is NULL in
+tipc_nametbl_stop() because name stable has been definitely created
+successfully when tipc_nametbl_stop() is called.
 
- net/tipc/bearer.c     |    7 +++-
- net/tipc/config.c     |    2 +-
- net/tipc/core.c       |  109 ++++++++++++++++++++++++++-----------------------
- net/tipc/core.h       |    1 -
- net/tipc/name_table.c |    3 --
- net/tipc/netlink.c    |    8 ----
- net/tipc/ref.c        |    3 --
- net/tipc/server.c     |    5 ---
- net/tipc/server.h     |    2 -
- net/tipc/socket.c     |    8 ----
- 10 files changed, 66 insertions(+), 82 deletions(-)
+Cc: Jon Maloy <jon.maloy@ericsson.com>
+Cc: Erik Hugne <erik.hugne@ericsson.com>
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Reviewed-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
+ net/tipc/core.c       |   71 ++++++++++++++++++++++++++++++++++---------------
+ net/tipc/name_table.c |    3 ---
+ net/tipc/netlink.c    |    8 ------
+ net/tipc/ref.c        |    3 ---
+ net/tipc/server.c     |    5 ----
+ net/tipc/server.h     |    2 --
+ net/tipc/socket.c     |    8 ------
+ 7 files changed, 50 insertions(+), 50 deletions(-)
 
+diff --git a/net/tipc/core.c b/net/tipc/core.c
+index f9e88d8..cfd9cc1 100644
+--- a/net/tipc/core.c
++++ b/net/tipc/core.c
+@@ -122,30 +122,59 @@ static void tipc_core_stop(void)
+  */
+ static int tipc_core_start(void)
+ {
+-	int res;
++	int err;
+ 
+ 	get_random_bytes(&tipc_random, sizeof(tipc_random));
+ 
+-	res = tipc_handler_start();
+-	if (!res)
+-		res = tipc_ref_table_init(tipc_max_ports, tipc_random);
+-	if (!res)
+-		res = tipc_nametbl_init();
+-	if (!res)
+-		res = tipc_netlink_start();
+-	if (!res)
+-		res = tipc_socket_init();
+-	if (!res)
+-		res = tipc_register_sysctl();
+-	if (!res)
+-		res = tipc_subscr_start();
+-	if (!res)
+-		res = tipc_cfg_init();
+-	if (res) {
+-		tipc_handler_stop();
+-		tipc_core_stop();
+-	}
+-	return res;
++	err = tipc_handler_start();
++	if (err)
++		goto out_handler;
++
++	err = tipc_ref_table_init(tipc_max_ports, tipc_random);
++	if (err)
++		goto out_reftbl;
++
++	err = tipc_nametbl_init();
++	if (err)
++		goto out_nametbl;
++
++	err = tipc_netlink_start();
++	if (err)
++		goto out_netlink;
++
++	err = tipc_socket_init();
++	if (err)
++		goto out_socket;
++
++	err = tipc_register_sysctl();
++	if (err)
++		goto out_sysctl;
++
++	err = tipc_subscr_start();
++	if (err)
++		goto out_subscr;
++
++	err = tipc_cfg_init();
++	if (err)
++		goto out_cfg;
++
++	return 0;
++out_cfg:
++	tipc_subscr_stop();
++out_subscr:
++	tipc_unregister_sysctl();
++out_sysctl:
++	tipc_socket_stop();
++out_socket:
++	tipc_netlink_stop();
++out_netlink:
++	tipc_nametbl_stop();
++out_nametbl:
++	tipc_ref_table_stop();
++out_reftbl:
++	tipc_handler_stop();
++out_handler:
++	return err;
+ }
+ 
+ static int __init tipc_init(void)
+diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
+index 92a1533..48302be 100644
+--- a/net/tipc/name_table.c
++++ b/net/tipc/name_table.c
+@@ -945,9 +945,6 @@ void tipc_nametbl_stop(void)
+ {
+ 	u32 i;
+ 
+-	if (!table.types)
+-		return;
+-
+ 	/* Verify name table is empty, then release it */
+ 	write_lock_bh(&tipc_nametbl_lock);
+ 	for (i = 0; i < TIPC_NAMETBL_SIZE; i++) {
+diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
+index 9f72a63..3aaf73d 100644
+--- a/net/tipc/netlink.c
++++ b/net/tipc/netlink.c
+@@ -83,8 +83,6 @@ static struct genl_ops tipc_genl_ops[] = {
+ 	},
+ };
+ 
+-static int tipc_genl_family_registered;
+-
+ int tipc_netlink_start(void)
+ {
+ 	int res;
+@@ -94,16 +92,10 @@ int tipc_netlink_start(void)
+ 		pr_err("Failed to register netlink interface\n");
+ 		return res;
+ 	}
+-
+-	tipc_genl_family_registered = 1;
+ 	return 0;
+ }
+ 
+ void tipc_netlink_stop(void)
+ {
+-	if (!tipc_genl_family_registered)
+-		return;
+-
+ 	genl_unregister_family(&tipc_genl_family);
+-	tipc_genl_family_registered = 0;
+ }
+diff --git a/net/tipc/ref.c b/net/tipc/ref.c
+index 2a2a938..de3d593 100644
+--- a/net/tipc/ref.c
++++ b/net/tipc/ref.c
+@@ -126,9 +126,6 @@ int tipc_ref_table_init(u32 requested_size, u32 start)
+  */
+ void tipc_ref_table_stop(void)
+ {
+-	if (!tipc_ref_table.entries)
+-		return;
+-
+ 	vfree(tipc_ref_table.entries);
+ 	tipc_ref_table.entries = NULL;
+ }
+diff --git a/net/tipc/server.c b/net/tipc/server.c
+index b635ca3..3739797 100644
+--- a/net/tipc/server.c
++++ b/net/tipc/server.c
+@@ -573,7 +573,6 @@ int tipc_server_start(struct tipc_server *s)
+ 		kmem_cache_destroy(s->rcvbuf_cache);
+ 		return ret;
+ 	}
+-	s->enabled = 1;
+ 	return ret;
+ }
+ 
+@@ -583,10 +582,6 @@ void tipc_server_stop(struct tipc_server *s)
+ 	int total = 0;
+ 	int id;
+ 
+-	if (!s->enabled)
+-		return;
+-
+-	s->enabled = 0;
+ 	spin_lock_bh(&s->idr_lock);
+ 	for (id = 0; total < s->idr_in_use; id++) {
+ 		con = idr_find(&s->conn_idr, id);
+diff --git a/net/tipc/server.h b/net/tipc/server.h
+index 98b23f2..be817b0 100644
+--- a/net/tipc/server.h
++++ b/net/tipc/server.h
+@@ -56,7 +56,6 @@
+  * @name: server name
+  * @imp: message importance
+  * @type: socket type
+- * @enabled: identify whether server is launched or not
+  */
+ struct tipc_server {
+ 	struct idr conn_idr;
+@@ -74,7 +73,6 @@ struct tipc_server {
+ 	const char name[TIPC_SERVER_NAME_LEN];
+ 	int imp;
+ 	int type;
+-	int enabled;
+ };
+ 
+ int tipc_conn_sendmsg(struct tipc_server *s, int conid,
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index aab4948..a4cf274 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -70,8 +70,6 @@ static const struct proto_ops msg_ops;
+ static struct proto tipc_proto;
+ static struct proto tipc_proto_kern;
+ 
+-static int sockets_enabled;
+-
+ /*
+  * Revised TIPC socket locking policy:
+  *
+@@ -2027,8 +2025,6 @@ int tipc_socket_init(void)
+ 		proto_unregister(&tipc_proto);
+ 		goto out;
+ 	}
+-
+-	sockets_enabled = 1;
+  out:
+ 	return res;
+ }
+@@ -2038,10 +2034,6 @@ int tipc_socket_init(void)
+  */
+ void tipc_socket_stop(void)
+ {
+-	if (!sockets_enabled)
+-		return;
+-
+-	sockets_enabled = 0;
+ 	sock_unregister(tipc_family_ops.family);
+ 	proto_unregister(&tipc_proto);
+ }
 -- 
 1.7.9.5
