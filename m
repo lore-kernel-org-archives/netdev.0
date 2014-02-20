@@ -1,40 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tun: remove bogus hardware vlan acceleration flags
- from vlan_features
-Date: Thu, 20 Feb 2014 02:16:49 -0500 (EST)
-Message-ID: <20140220.021649.1758178843439700559.davem@davemloft.net>
-References: <1392726009-8083-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	<1392726009-8083-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: [PATCH RFC net-next 0/6] 6lowpan: reimplementation of
+ fragmentation handling
+Date: Thu, 20 Feb 2014 09:46:43 +0100
+Message-ID: <20140220084642.GA29611@omega>
+References: <1392539668-2349-1-git-send-email-alex.aring@gmail.com>
+ <20140218195824.GA935@omega>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fernando@oss.ntt.co.jp, maxk@qti.qualcomm.com,
-	netdev@vger.kernel.org
-To: makita.toshiaki@lab.ntt.co.jp
+Content-Type: text/plain; charset=utf-8
+Cc: dbaryshkov@gmail.com, alex.bluesman.smirnov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	martin.townsend@xsilon.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51243 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751060AbaBTHQu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Feb 2014 02:16:50 -0500
-In-Reply-To: <1392726009-8083-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Received: from mail-ea0-f180.google.com ([209.85.215.180]:62082 "EHLO
+	mail-ea0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752689AbaBTIqt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Feb 2014 03:46:49 -0500
+Received: by mail-ea0-f180.google.com with SMTP id o10so748753eaj.39
+        for <netdev@vger.kernel.org>; Thu, 20 Feb 2014 00:46:48 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20140218195824.GA935@omega>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Date: Tue, 18 Feb 2014 21:20:09 +0900
+Dear David Miller,
 
-> From: Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>
-> 
-> Even though only the outer vlan tag can be HW accelerated in the transmission
-> path, in the TUN/TAP driver vlan_features mirrors hw_features, which happens
-> to have the NETIF_F_HW_VLAN_?TAG_TX flags set. Because of this, during packet
-> tranmisssion through a stacked vlan device dev_hard_start_xmit, (incorrectly)
-> assuming that the vlan device supports hardware vlan acceleration, does not
-> add the vlan header to the skb payload and the inner vlan tags are lost
-> (vlan_tci contains the outer vlan tag when userspace reads the packet from
-> the tap device).
-> 
-> Signed-off-by: Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>
-> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+looks this patch stack okay for you?
 
-Applied and queued up for -stable.
+I don't want to be annoying, I worked a long time on these series and I would
+be happy if these patches will apply into mainline. Then I can take the
+next TODO on my long "6lowpan/ieee802154" list.
+
+- Alex
