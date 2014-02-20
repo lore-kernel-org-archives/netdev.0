@@ -1,43 +1,46 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [net-next 3/3] net: bcmgenet: remove commented code in bcmgenet_xmit()
-Date: Thu, 20 Feb 2014 12:53:51 -0800
-Message-ID: <1392929631-7685-4-git-send-email-f.fainelli@gmail.com>
-References: <1392929631-7685-1-git-send-email-f.fainelli@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] TCP NewCWV for Linux
+Date: Thu, 20 Feb 2014 16:10:15 -0500 (EST)
+Message-ID: <20140220.161015.892943239767681091.davem@davemloft.net>
+References: <bbf79368e5d6514fbe6704a77b473407.squirrel@blake.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, Florian Fainelli <f.fainelli@gmail.com>
-To: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ziaul.hossain@abdn.ac.uk,
+	gorry@erg.abdn.ac.uk
+To: raffaello@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:12461 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751759AbaBTUyU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Feb 2014 15:54:20 -0500
-In-Reply-To: <1392929631-7685-1-git-send-email-f.fainelli@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60135 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751798AbaBTVKT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Feb 2014 16:10:19 -0500
+In-Reply-To: <bbf79368e5d6514fbe6704a77b473407.squirrel@blake.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This code is commented since it is unused, left-over from the very first
-time this driver was merged.
+From: raffaello@erg.abdn.ac.uk
+Date: Thu, 20 Feb 2014 19:28:56 -0000
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 4 ----
- 1 file changed, 4 deletions(-)
+> This is a patch for newcwv a TCP sender-side modification,
+> currently a work item at TCPM (TCP Maintenance and Minor extensions)
+> at the IETF:
+> 
+> http://tools.ietf.org/search/draft-ietf-tcpm-newcwv-05
+> 
+> newcwv aims to supersede CWV (RFC2861) to provide better
+> congestion control for rate-limited applications that use TCP.
+> 
+> We implemented it as a module that uses tcp_congestion_ops.
+> The main changes are in "cong_avoid" before Reno cwnd control
+> and at the start and end of Fast Retransmit:
+> 
+> 1) Before Reno algorithm we estimate at each ACK our pipeACK
+> (update_pipeack) and decide to increase or not cwnd based on pipeack.
+> 
+> 2) At the start of FR we reset cwnd based on pipeACK, while
+> at the end we further reduce pipeACK by the number of retransmissions.
+> 
+> I posted it here for you consideration to be included in net-next.
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 7c023af..67c9c44 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -1145,10 +1145,6 @@ static netdev_tx_t bcmgenet_xmit(struct sk_buff *skb, struct net_device *dev)
- 		goto out;
- 	}
- 
--	/* reclaim xmited skb every 8 packets. */
--	/*if (ring->free_bds < ring->size - 8)*/
--		/*__bcmgenet_tx_reclaim(dev, ring);*/
--
- 	/* set the SKB transmit checksum */
- 	if (priv->desc_64b_en) {
- 		ret = bcmgenet_put_tx_csum(dev, skb);
--- 
-1.8.3.2
+You need to provide a proper signoff, please see
+linux/Documentation/SubmittingPatches
