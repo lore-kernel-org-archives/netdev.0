@@ -1,92 +1,65 @@
-From: "Frank.Li@freescale.com" <Frank.Li@freescale.com>
-Subject: RE: [PATCH] net: fec: fix potential issue to avoid fec interrupt
- lost and crc error
-Date: Thu, 20 Feb 2014 14:12:08 +0000
-Message-ID: <6ee3541ba7d14a57aea08d503bb7a61d@BLUPR03MB486.namprd03.prod.outlook.com>
-References: <1392891279-11194-1-git-send-email-B38611@freescale.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [Xen-devel] [RFC v2 1/4] bridge: enable interfaces to opt out
+ from becoming the root bridge
+Date: Thu, 20 Feb 2014 14:47:07 +0000
+Message-ID: <5306156B.4070105@citrix.com>
+References: <1392433180-16052-1-git-send-email-mcgrof@do-not-panic.com> <1392433180-16052-2-git-send-email-mcgrof@do-not-panic.com> <53024C58.4010900@citrix.com> <CAB=NE6XYjOd2vRpQCZOG-S5ZW4xjam+FOPAYzribNQpb50Q5pg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1blp0189.outbound.protection.outlook.com ([207.46.163.189]:25335
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754470AbaBTO14 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Feb 2014 09:27:56 -0500
-In-Reply-To: <1392891279-11194-1-git-send-email-B38611@freescale.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	<kvm@vger.kernel.org>, <bridge@lists.linux-foundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	<xen-devel@lists.xenproject.org>
+To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAB=NE6XYjOd2vRpQCZOG-S5ZW4xjam+FOPAYzribNQpb50Q5pg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 19/02/14 16:45, Luis R. Rodriguez wrote:
+> On Mon, Feb 17, 2014 at 9:52 AM, Zoltan Kiss <zoltan.kiss@citrix.com> wrote:
+>> On 15/02/14 02:59, Luis R. Rodriguez wrote:
+>>>
+>>> From: "Luis R. Rodriguez" <mcgrof@suse.com>
+>>>
+>>> It doesn't make sense for some interfaces to become a root bridge
+>>> at any point in time. One example is virtual backend interfaces
+>>> which rely on other entities on the bridge for actual physical
+>>> connectivity. They only provide virtual access.
+>>
+>> It is possible that a guest bridge together to VIF, either from the same
+>> Dom0 bridge or from different ones. In that case using STP on VIFs sound
+>> sensible to me.
+>
+> You seem to describe a case whereby it can make sense for xen-netback
+> interfaces to end up becoming the root port of a bridge. Can you
+> elaborate a little more on that as it was unclear the use case.
+Well, I might be wrong on that, but the scenario I was thinking: a guest 
+(let's say domain 1) can have multiple interfaces on different Dom0 (or 
+driver domain) bridges, let's say vif1.0 is plugged into xenbr0 and 
+vif1.1 is in xenbr1. If the guest wants to make a bridge of this two, 
+then using STP makes sense. I wanted to bring up CloudStack's virtual 
+router as an example, but then I realized it's probably doesn't do such 
+thing. However I don't think we should hardcode that a netback interface 
+can't be RP ever.
 
+>
+> Additionally if such cases exist then under the current upstream
+> implementation one would simply need to change the MAC address in
+> order to enable a vif to become the root port.  Stephen noted there is
+> a way to avoid nominating an interface for a root port through the
+> root block flag. We should use that instead of the MAC address hacks.
+> Let's keep in mind that part of the motivation for this series is to
+> avoid a duplicate IPv6 address left in place by use cases whereby the
+> MAC address of the backend vif was left static. The use case your are
+> explaining likely describes the more prevalent use case where address
+> conflicts can occur, perhaps when administrators for got to change the
+> backend MAC address. If we embrace a random MAC address we'd avoid
+> that issue, and but we'd need to update userspace to use the root
+> block on topologies where desired.
+If I understand you correctly, this is the same I suggested in my 
+another email sent 1.5 hour ago.
 
-> -----Original Message-----
-> From: Fugang Duan [mailto:B38611@freescale.com]
-> Sent: Thursday, February 20, 2014 4:15 AM
-> To: Li Frank-B20596; davem@davemloft.net
-> Cc: netdev@vger.kernel.org
-> Subject: [PATCH] net: fec: fix potential issue to avoid fec interrupt lost
-> and crc error
-> 
-> The current flow: Set TX BD ready, and then set "INT" and "PINS" bit to
-> enable tx interrupt generation and crc checksum.
-> 
-> There has potential issue like as:
-> CPU			fec uDMA
-> Set tx ready bit
-> 			uDMA start the BD transmission
-> Set "INT" bit
-> Set "PINS" bit
-> ...
-> 
-> Above situation cause fec tx interrupt lost and fec MAC don't do CRC checksum.
-> The patch fix the potential issue.
-> 
-> Signed-off-by: Fugang Duan <B38611@freescale.com>
-
-Acked-by: Frank Li <Frank.li@freescale.com>
-
-> ---
->  drivers/net/ethernet/freescale/fec_main.c |   13 +++++++------
->  1 files changed, 7 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c
-> b/drivers/net/ethernet/freescale/fec_main.c
-> index 45b8b22..739608b 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -390,12 +390,6 @@ fec_enet_start_xmit(struct sk_buff *skb, struct
-> net_device *ndev)
->  			netdev_err(ndev, "Tx DMA memory map failed\n");
->  		return NETDEV_TX_OK;
->  	}
-> -	/* Send it on its way.  Tell FEC it's ready, interrupt when done,
-> -	 * it's the last BD of the frame, and to put the CRC on the end.
-> -	 */
-> -	status |= (BD_ENET_TX_READY | BD_ENET_TX_INTR
-> -			| BD_ENET_TX_LAST | BD_ENET_TX_TC);
-> -	bdp->cbd_sc = status;
-> 
->  	if (fep->bufdesc_ex) {
-> 
-> @@ -417,6 +411,13 @@ fec_enet_start_xmit(struct sk_buff *skb, struct
-> net_device *ndev)
->  		}
->  	}
-> 
-> +	/* Send it on its way.  Tell FEC it's ready, interrupt when done,
-> +	 * it's the last BD of the frame, and to put the CRC on the end.
-> +	 */
-> +	status |= (BD_ENET_TX_READY | BD_ENET_TX_INTR
-> +			| BD_ENET_TX_LAST | BD_ENET_TX_TC);
-> +	bdp->cbd_sc = status;
-> +
->  	bdp_pre = fec_enet_get_prevdesc(bdp, fep);
->  	if ((id_entry->driver_data & FEC_QUIRK_ERR006358) &&
->  	    !(bdp_pre->cbd_sc & BD_ENET_TX_READY)) {
-> --
-> 1.7.2.rc3
-> 
+Zoli
