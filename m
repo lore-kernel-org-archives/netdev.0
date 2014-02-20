@@ -1,65 +1,54 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [Xen-devel] [RFC v2 1/4] bridge: enable interfaces to opt out
- from becoming the root bridge
-Date: Thu, 20 Feb 2014 14:47:07 +0000
-Message-ID: <5306156B.4070105@citrix.com>
-References: <1392433180-16052-1-git-send-email-mcgrof@do-not-panic.com> <1392433180-16052-2-git-send-email-mcgrof@do-not-panic.com> <53024C58.4010900@citrix.com> <CAB=NE6XYjOd2vRpQCZOG-S5ZW4xjam+FOPAYzribNQpb50Q5pg@mail.gmail.com>
+From: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Subject: RE: [net-next 05/14 v2] i40evf: fix up strings in init task
+Date: Thu, 20 Feb 2014 16:20:32 +0000
+Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D6551AB30@FMSMSX113.amr.corp.intel.com>
+References: <1392868178-7011-1-git-send-email-aaron.f.brown@intel.com>
+	 <1392868178-7011-2-git-send-email-aaron.f.brown@intel.com>
+	 <1392869350.24844.22.camel@joe-AO722> <1392871887.2629.10.camel@localhost>
+	 <1392872294.24844.25.camel@joe-AO722> <1392873372.2629.13.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	<kvm@vger.kernel.org>, <bridge@lists.linux-foundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	<xen-devel@lists.xenproject.org>
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAB=NE6XYjOd2vRpQCZOG-S5ZW4xjam+FOPAYzribNQpb50Q5pg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: "Brown, Aaron F" <aaron.f.brown@intel.com>,
+	Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:48469 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755284AbaBTQVA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Feb 2014 11:21:00 -0500
+In-Reply-To: <1392873372.2629.13.camel@localhost>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 19/02/14 16:45, Luis R. Rodriguez wrote:
-> On Mon, Feb 17, 2014 at 9:52 AM, Zoltan Kiss <zoltan.kiss@citrix.com> wrote:
->> On 15/02/14 02:59, Luis R. Rodriguez wrote:
->>>
->>> From: "Luis R. Rodriguez" <mcgrof@suse.com>
->>>
->>> It doesn't make sense for some interfaces to become a root bridge
->>> at any point in time. One example is virtual backend interfaces
->>> which rely on other entities on the bridge for actual physical
->>> connectivity. They only provide virtual access.
->>
->> It is possible that a guest bridge together to VIF, either from the same
->> Dom0 bridge or from different ones. In that case using STP on VIFs sound
->> sensible to me.
->
-> You seem to describe a case whereby it can make sense for xen-netback
-> interfaces to end up becoming the root port of a bridge. Can you
-> elaborate a little more on that as it was unclear the use case.
-Well, I might be wrong on that, but the scenario I was thinking: a guest 
-(let's say domain 1) can have multiple interfaces on different Dom0 (or 
-driver domain) bridges, let's say vif1.0 is plugged into xenbr0 and 
-vif1.1 is in xenbr1. If the guest wants to make a bridge of this two, 
-then using STP makes sense. I wanted to bring up CloudStack's virtual 
-router as an example, but then I realized it's probably doesn't do such 
-thing. However I don't think we should hardcode that a netback interface 
-can't be RP ever.
-
->
-> Additionally if such cases exist then under the current upstream
-> implementation one would simply need to change the MAC address in
-> order to enable a vif to become the root port.  Stephen noted there is
-> a way to avoid nominating an interface for a root port through the
-> root block flag. We should use that instead of the MAC address hacks.
-> Let's keep in mind that part of the motivation for this series is to
-> avoid a duplicate IPv6 address left in place by use cases whereby the
-> MAC address of the backend vif was left static. The use case your are
-> explaining likely describes the more prevalent use case where address
-> conflicts can occur, perhaps when administrators for got to change the
-> backend MAC address. If we embrace a random MAC address we'd avoid
-> that issue, and but we'd need to update userspace to use the root
-> block on topologies where desired.
-If I understand you correctly, this is the same I suggested in my 
-another email sent 1.5 hour ago.
-
-Zoli
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQnJvd24sIEFhcm9uIEYN
+Cj4gU2VudDogV2VkbmVzZGF5LCBGZWJydWFyeSAxOSwgMjAxNCA5OjE2IFBNDQo+IFRvOiBKb2Ug
+UGVyY2hlcw0KPiBDYzogZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgV2lsbGlhbXMsIE1pdGNoIEE7IG5l
+dGRldkB2Z2VyLmtlcm5lbC5vcmc7DQo+IGdvc3BvQHJlZGhhdC5jb207IHNhc3NtYW5uQHJlZGhh
+dC5jb207IEJyYW5kZWJ1cmcsIEplc3NlDQo+IFN1YmplY3Q6IFJlOiBbbmV0LW5leHQgMDUvMTQg
+djJdIGk0MGV2ZjogZml4IHVwIHN0cmluZ3MgaW4gaW5pdCB0YXNrDQo+IA0KPiBPbiBXZWQsIDIw
+MTQtMDItMTkgYXQgMjA6NTggLTA4MDAsIEpvZSBQZXJjaGVzIHdyb3RlOg0KPiA+IE9uIFdlZCwg
+MjAxNC0wMi0xOSBhdCAyMDo1MSAtMDgwMCwgQWFyb24gQnJvd24gd3JvdGU6DQo+ID4gPiBPbiBX
+ZWQsIDIwMTQtMDItMTkgYXQgMjA6MDkgLTA4MDAsIEpvZSBQZXJjaGVzIHdyb3RlOg0KPiA+ID4g
+PiBPbiBXZWQsIDIwMTQtMDItMTkgYXQgMTk6NDkgLTA4MDAsIEFhcm9uIEJyb3duIHdyb3RlOg0K
+PiA+ID4gPiA+IE1ha2Ugc3VyZSBlcnJvcnMgYXJlIHJlcG9ydGVkIGF0IHRoZSBjb3JyZWN0IGxv
+ZyBsZXZlbCwgcXVpdA0KPiBwcmludGluZw0KPiA+ID4gPiA+IHRoZSBmdW5jdGlvbiBuYW1lIGV2
+ZXJ5IHRpbWUsIGFuZCBtYWtlIHRoZSBtZXNzYWdlcyBtb3JlIGNvbnNpc3RlbnQNCj4gaW4NCj4g
+PiA+ID4gPiBmb3JtYXQuDQo+ID4gPiA+IFtdDQo+ID4gPiA+ID4gZGlmZiAtLWdpdCBhL2RyaXZl
+cnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGV2Zi9pNDBldmZfbWFpbi5jDQo+IGIvZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvaW50ZWwvaTQwZXZmL2k0MGV2Zl9tYWluLmMNCj4gPiBbXQ0KPiA+ID4gPiAr
+CQlkZXZfaW5mbygmcGRldi0+ZGV2LCAiSW52YWxpZCBNQUMgYWRkcmVzcyAlcE1BQywgdXNpbmcN
+Cj4gcmFuZG9tXG4iLA0KPiA+ID4gPiA+ICsJCQkgYWRhcHRlci0+aHcubWFjLmFkZHIpOw0KPiA+
+ID4gPiBUaGUgIkFDIiBhZnRlciAlcE0gaXMgc3VwZXJmbHVvdXMuDQo+ID4gPiBUaGFua3MgSm9l
+LCBndWVzcyBJJ2xsIGJlIG1ha2luZyBhbm90aGVyIHNwaW4uLi4NCj4gPg0KPiA+IE9yIHNlbmQg
+YW5vdGhlciBwYXRjaCBhZnRlciB0aGlzIG9uZSBiZWNhdXNlIHRoZXJlDQo+ID4gYXJlIDIgJXBN
+QUMgdXNlcyBpbiBpNDBldmZfbWFpbi5jDQo+IA0KPiBUaGF0IHdvcmtzLiAgSSdsbCBidWcgTWl0
+Y2ggdG8gbG9vayBmb3IgdGhlbSB3aGVuIGhlIGRvZXMgYSBodW50IGZvciBvdGhlcg0KPiBPT00g
+bWVzc2FnZXMgdGhhdCBoZSBzYWlkIGhlJ2QgZG8gYW5kIHNlbmQgdGhlbSB1cCBsYXRlci4gIFNv
+IEkgZ3Vlc3MgdGhpcw0KPiBwYXRjaCBjYW4gc3RhbmQgZm9yIG5vdy4NCj4gDQoNCkFkZGVkIGl0
+IHRvIG15IHRvLWRvIGxpc3QuIFRoYW5rcyBhZ2FpbiwgSm9lLg0KDQotTWl0Y2gNCg0K
