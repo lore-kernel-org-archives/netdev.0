@@ -1,118 +1,54 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net-next] xfrm: Correctly parse netlink msg from 32bits
- ip command on 64bits host
-Date: Thu, 20 Feb 2014 10:59:34 +0100
-Message-ID: <20140220095934.GF32371@secunet.com>
-References: <1392801176-2656-1-git-send-email-fan.du@windriver.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net-next v5 1/9] xen-netback: Introduce TX grant map
+ definitions
+Date: Thu, 20 Feb 2014 10:13:11 +0000
+Message-ID: <20140220101311.GA24574@zion.uk.xensource.com>
+References: <1390253069-25507-1-git-send-email-zoltan.kiss@citrix.com>
+ <1390253069-25507-2-git-send-email-zoltan.kiss@citrix.com>
+ <1392743214.23084.38.camel@kazak.uk.xensource.com>
+ <5303C44D.4070500@citrix.com>
+ <1392804319.23084.109.camel@kazak.uk.xensource.com>
+ <53050BF5.1060009@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Fan Du <fan.du@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:55448 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751891AbaBTJ7h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Feb 2014 04:59:37 -0500
+Cc: Ian Campbell <Ian.Campbell@citrix.com>, <wei.liu2@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1392801176-2656-1-git-send-email-fan.du@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <53050BF5.1060009@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 19, 2014 at 05:12:56PM +0800, Fan Du wrote:
->  
-> +#ifdef CONFIG_COMPAT
-> +
-> +struct compat_xfrm_userpolicy_info {
-> +	struct xfrm_selector		sel;
-> +	struct xfrm_lifetime_cfg	lft;
-> +	struct xfrm_lifetime_cur	curlft;
-> +	__u32				priority;
-> +	__u32				index;
-> +	__u8				dir;
-> +	__u8				action;
-> +#define XFRM_POLICY_ALLOW	0
-> +#define XFRM_POLICY_BLOCK	1
-> +	__u8				flags;
-> +#define XFRM_POLICY_LOCALOK	1	/* Allow user to override global policy */
-> +	/* Automatically expand selector to include matching ICMP payloads. */
-> +#define XFRM_POLICY_ICMP	2
-> +	__u8				share;
-> +} __attribute__((packed));
-> +
-> +struct compat_xfrm_usersa_info {
-> +	struct xfrm_selector		sel;
-> +	struct xfrm_id			id;
-> +	xfrm_address_t			saddr;
-> +	struct xfrm_lifetime_cfg	lft;
-> +	struct xfrm_lifetime_cur	curlft;
-> +	struct xfrm_stats		stats;
-> +	__u32				seq;
-> +	__u32				reqid;
-> +	__u16				family;
-> +	__u8				mode;		/* XFRM_MODE_xxx */
-> +	__u8				replay_window;
-> +	__u8				flags;
-> +#define XFRM_STATE_NOECN	1
-> +#define XFRM_STATE_DECAP_DSCP	2
-> +#define XFRM_STATE_NOPMTUDISC	4
-> +#define XFRM_STATE_WILDRECV	8
-> +#define XFRM_STATE_ICMP		16
-> +#define XFRM_STATE_AF_UNSPEC	32
-> +#define XFRM_STATE_ALIGN4	64
-> +#define XFRM_STATE_ESN		128
-> +} __attribute__((packed));
-> +
+On Wed, Feb 19, 2014 at 07:54:29PM +0000, Zoltan Kiss wrote:
+> On 19/02/14 10:05, Ian Campbell wrote:
+> >On Tue, 2014-02-18 at 20:36 +0000, Zoltan Kiss wrote:
+> >>On 18/02/14 17:06, Ian Campbell wrote:
+> >>>On Mon, 2014-01-20 at 21:24 +0000, Zoltan Kiss wrote:
+> >>>>This patch contains the new definitions necessary for grant mapping.
+> >>>
+> >>>Is this just adding a bunch of (currently) unused functions? That's a
+> >>>slightly odd way to structure a series. They don't seem to be "generic
+> >>>helpers" or anything so it would be more normal to introduce these as
+> >>>they get used -- it's a bit hard to review them out of context.
+> >>I've created two patches because they are quite huge even now,
+> >>separately. Together they would be a ~500 line change. That was the best
+> >>I could figure out keeping in mind that bisect should work. But as I
+> >>wrote in the first email, I welcome other suggestions. If you and Wei
+> >>prefer this two patch in one big one, I merge them in the next version.
+> >
+> >I suppose it is hard to split a change like this up in a sensible way,
+> >but it is rather hard to review something which is split in two parts
+> >sensibly.
+> >
+> >If the combined patch too large to fit on the lists?
+> Well, it's ca. 30 kb, ~500 lines changed. I guess it's possible.
+> It's up to you and Wei, if you would like them to be merged, I can
+> do that.
+> 
 
-You define two structures that you actually don't use,
-all you do is checking their size.
+As I said before, my bottom line is "don't break bisection". Do whatever
+you want to. :-)
 
-The only reason why this works is because these two
-structures differ only on some padding bytes at the
-end. If we want to support 32 bit ipsec tools on
-64 bit kernels, we need a complete compat layer
-for all the userspace exported structures.
-
-A lot of userspace exported structures differ not only
-on some padding bytes at the end.
-
-For example the layout of xfrm_userspi_info:
-
-on 32 bit:
-
-struct xfrm_userspi_info {
-        struct xfrm_usersa_info    info;                 /*     0   220 */
-
-        /* XXX last struct has 3 bytes of padding */
-
-        /* --- cacheline 3 boundary (192 bytes) was 28 bytes ago --- */
-        __u32                      min;                  /*   220     4 */
-        __u32                      max;                  /*   224     4 */
-
-        /* size: 228, cachelines: 4, members: 3 */
-        /* paddings: 1, sum paddings: 3 */
-        /* last cacheline: 36 bytes */
-};
-
-on 64 bit:
-
-struct xfrm_userspi_info {
-        struct xfrm_usersa_info    info;                 /*     0   224 */
-
-        /* XXX last struct has 7 bytes of padding */
-
-        /* --- cacheline 3 boundary (192 bytes) was 32 bytes ago --- */
-        __u32                      min;                  /*   224     4 */
-        __u32                      max;                  /*   228     4 */
-
-        /* size: 232, cachelines: 4, members: 3 */
-        /* paddings: 1, sum paddings: 7 */
-        /* last cacheline: 40 bytes */
-};
-
-
-So the 'min' field has an offest of 220 bytes on 32 bit and an offset
-of 224 bytes on 64 bit. We would need a compatability layer like we
-have it for system calls to map this correct.
-
-For now I think we should just refuse to do anything if someone tries
-to configure ipsec with 32 bit tools on a 64 bit machine.
+Wei.
