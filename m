@@ -1,56 +1,65 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: Re: [Xen-devel] [RFC v2 1/4] bridge: enable interfaces to
- opt out from becoming the root bridge
-Date: Fri, 21 Feb 2014 08:01:13 -0800
-Message-ID: <CAB=NE6XR+FW2X2_nr2JAxgQD+zpm8=Xq7Y4fTf740rLhGCOzEw@mail.gmail.com>
-References: <1392433180-16052-1-git-send-email-mcgrof@do-not-panic.com>
-	<1392433180-16052-2-git-send-email-mcgrof@do-not-panic.com>
-	<20140216105754.63738163@nehalam.linuxnetplumber.net>
-	<CAB=NE6WwbOXNLO_Mn42i7y62pEsmDOWd35B621eiJk4iaE3Hfg@mail.gmail.com>
-	<1392803559.23084.99.camel@kazak.uk.xensource.com>
-	<5304C13F.3030802@citrix.com>
-	<CAB=NE6X6Vuo3iib0W-c5cxv0QBpnZtCC0sFyuULugQoEZAbRtg@mail.gmail.com>
-	<20140219090855.610c0e04@nehalam.linuxnetplumber.net>
-	<CAB=NE6UAqoiFAJdckE1d7cgMZnU6_=8X+N=tSc6qH2bgH08M7Q@mail.gmail.com>
-	<20140220091958.62a8b444@nehalam.linuxnetplumber.net>
-	<CAB=NE6WnMFkH7JPNt+ROiWEvhvZ03vdGr21STf75DV9fRaK=PA@mail.gmail.com>
-	<53074E6B.6030006@citrix.com>
+From: <cristian.bercaru@freescale.com>
+Subject: [PATCH] net: phy: unmask link partner capabilities
+Date: Fri, 21 Feb 2014 18:18:16 +0200
+Message-ID: <1392999496-29753-1-git-send-email-cristian.bercaru@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ian Campbell <Ian.Campbell@citrix.com>, kvm@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	bridge@lists.linux-foundation.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	xen-devel@lists.xenproject.org
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <53074E6B.6030006@citrix.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Cristian Bercaru <cristian.bercaru@freescale.com>,
+	<madalin.bucur@freescale.com>, <shaohui.xie@freescale.com>,
+	<shruti@freescale.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tx2ehsobe003.messaging.microsoft.com ([65.55.88.13]:55148 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754432AbaBUQSi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 11:18:38 -0500
+Received: from mail111-tx2 (localhost [127.0.0.1])	by
+ mail111-tx2-R.bigfish.com (Postfix) with ESMTP id D5951420395	for
+ <netdev@vger.kernel.org>; Fri, 21 Feb 2014 16:18:37 +0000 (UTC)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 21, 2014 at 5:02 AM, Zoltan Kiss <zoltan.kiss@citrix.com> wrote:
->> Agreed that's the best strategy and I'll work on sending patches to
->> brctl to enable the root_block preference. This approach however also
->
-> I don't think brctl should deal with any Xen specific stuff. I assume there
-> is a misunderstanding in this thread: when I (and possibly other Xen folks)
-> talk about "userspace" or "toolstack" here, I mean Xen specific tools which
-> use e.g. brctl to set up bridges. Not brctl itself.
+From: Cristian Bercaru <cristian.bercaru@freescale.com>
 
-I did mean brctl, but as I looked at the code it doesn't used
-rtnl_open() and not sure if Stephen would want that. Additionally even
-if it did handle root_block the other issue with this strategy is that
-as you noted upon initialization the bridge, without a static MAC
-address, could end up setting the backend as the root port, until you
-let userspace turn the root_block knob.
+Masking the link partner's capabilities with local capabilities can be
+misleading in autonegotiation scenarios such as PAUSE frame
+autonegotiation.
+Therefore, this patch unmasks the link partner's capabilities.
 
-  Luis
+Signed-off-by: Cristian Bercaru <cristian.bercaru@freescale.com>
+---
+ drivers/net/phy/phy_device.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index a70b604..e57825e6 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -967,8 +967,6 @@ int genphy_read_status(struct phy_device *phydev)
+ 		if (adv < 0)
+ 			return adv;
+ 
+-		lpa &= adv;
+-
+ 		phydev->speed = SPEED_10;
+ 		phydev->duplex = DUPLEX_HALF;
+ 		phydev->pause = 0;
+@@ -979,13 +977,13 @@ int genphy_read_status(struct phy_device *phydev)
+ 
+ 			if (lpagb & LPA_1000FULL)
+ 				phydev->duplex = DUPLEX_FULL;
+-		} else if (lpa & (LPA_100FULL | LPA_100HALF)) {
++		} else if (lpa & adv & (LPA_100FULL | LPA_100HALF)) {
+ 			phydev->speed = SPEED_100;
+ 
+-			if (lpa & LPA_100FULL)
++			if (lpa & adv & LPA_100FULL)
+ 				phydev->duplex = DUPLEX_FULL;
+ 		} else
+-			if (lpa & LPA_10FULL)
++			if (lpa & adv & LPA_10FULL)
+ 				phydev->duplex = DUPLEX_FULL;
+ 
+ 		if (phydev->duplex == DUPLEX_FULL) {
+-- 
+1.7.11.7
