@@ -1,56 +1,50 @@
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net-next 4/7] qlcnic: Allow vlan0 traffic
-Date: Fri, 21 Feb 2014 13:20:13 -0500
-Message-ID: <1393006816-20294-5-git-send-email-shahed.shaikh@qlogic.com>
+Subject: [PATCH net-next 7/7] Update MAINTAINERS for qlcnic driver
+Date: Fri, 21 Feb 2014 13:20:16 -0500
+Message-ID: <1393006816-20294-8-git-send-email-shahed.shaikh@qlogic.com>
 References: <1393006816-20294-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>
+	Shahed Shaikh <shahed.shaikh@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:27937 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:61851 "EHLO
 	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751508AbaBUSzs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 13:55:48 -0500
+	by vger.kernel.org with ESMTP id S1755781AbaBUSzx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 13:55:53 -0500
 In-Reply-To: <1393006816-20294-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-o Adapter allows vlan0 traffic in case of SR-IOV after setting
-  QLC_SRIOV_ALLOW_VLAN0 bit even though we do not add vlan0 filters.
+Keep myself as only maintainer for qlcnic driver and update
+group email alias to Dept-HSGLinuxNICDev@qlogic.com
 
-Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ MAINTAINERS | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-index 09acf15..a28460c 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-@@ -17,6 +17,7 @@
- #define QLC_MAC_STAR_DEL	7
- #define QLC_VF_FLOOD_BIT	BIT_16
- #define QLC_FLOOD_MODE		0x5
-+#define QLC_SRIOV_ALLOW_VLAN0	BIT_19
+diff --git a/MAINTAINERS b/MAINTAINERS
+index db8bb0d..c970557 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -7037,13 +7037,8 @@ F:	Documentation/networking/LICENSE.qla3xxx
+ F:	drivers/net/ethernet/qlogic/qla3xxx.*
  
- static int qlcnic_sriov_pf_get_vport_handle(struct qlcnic_adapter *, u8);
- 
-@@ -337,8 +338,11 @@ static int qlcnic_sriov_pf_cfg_vlan_filtering(struct qlcnic_adapter *adapter,
- 		return err;
- 
- 	cmd.req.arg[1] = 0x4;
--	if (enable)
-+	if (enable) {
- 		cmd.req.arg[1] |= BIT_16;
-+		if (qlcnic_84xx_check(adapter))
-+			cmd.req.arg[1] |= QLC_SRIOV_ALLOW_VLAN0;
-+	}
- 
- 	err = qlcnic_issue_cmd(adapter, &cmd);
- 	if (err)
+ QLOGIC QLCNIC (1/10)Gb ETHERNET DRIVER
+-M:	Himanshu Madhani <himanshu.madhani@qlogic.com>
+-M:	Rajesh Borundia <rajesh.borundia@qlogic.com>
+ M:	Shahed Shaikh <shahed.shaikh@qlogic.com>
+-M:	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+-M:	Sony Chacko <sony.chacko@qlogic.com>
+-M:	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+-M:	linux-driver@qlogic.com
++M:	Dept-HSGLinuxNICDev@qlogic.com
+ L:	netdev@vger.kernel.org
+ S:	Supported
+ F:	drivers/net/ethernet/qlogic/qlcnic/
 -- 
 1.8.1.4
