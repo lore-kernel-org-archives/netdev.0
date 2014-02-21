@@ -1,50 +1,68 @@
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net 7/7] Update MAINTAINERS for qlcnic driver
-Date: Fri, 21 Feb 2014 08:19:55 -0500
-Message-ID: <1392988795-19380-8-git-send-email-shahed.shaikh@qlogic.com>
+Subject: [PATCH net 5/7] qlcnic: Enhance semaphore lock access failure error message
+Date: Fri, 21 Feb 2014 08:19:53 -0500
+Message-ID: <1392988795-19380-6-git-send-email-shahed.shaikh@qlogic.com>
 References: <1392988795-19380-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>
+	Harish Patil <harish.patil@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:5155 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:39827 "EHLO
 	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933091AbaBUNzr (ORCPT
+	by vger.kernel.org with ESMTP id S933011AbaBUNzr (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 08:55:47 -0500
 In-Reply-To: <1392988795-19380-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+From: Harish Patil <harish.patil@qlogic.com>
 
-Keep myself as only maintainer for qlcnic driver and update
-group email alias to Dept-HSGLinuxNICDev@qlogic.com
-
-Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Signed-off-by: Harish Patil <harish.patil@qlogic.com>
 ---
- MAINTAINERS | 7 +------
- 1 file changed, 1 insertion(+), 6 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c | 22 +++++++++++++++-------
+ 1 file changed, 15 insertions(+), 7 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index db8bb0d..c970557 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -7037,13 +7037,8 @@ F:	Documentation/networking/LICENSE.qla3xxx
- F:	drivers/net/ethernet/qlogic/qla3xxx.*
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
+index 03d18a0..9f3adf4 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
+@@ -317,9 +317,7 @@ static void qlcnic_write_window_reg(u32 addr, void __iomem *bar0, u32 data)
+ int
+ qlcnic_pcie_sem_lock(struct qlcnic_adapter *adapter, int sem, u32 id_reg)
+ {
+-	int timeout = 0;
+-	int err = 0;
+-	u32 done = 0;
++	int timeout = 0, err = 0, done = 0;
  
- QLOGIC QLCNIC (1/10)Gb ETHERNET DRIVER
--M:	Himanshu Madhani <himanshu.madhani@qlogic.com>
--M:	Rajesh Borundia <rajesh.borundia@qlogic.com>
- M:	Shahed Shaikh <shahed.shaikh@qlogic.com>
--M:	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
--M:	Sony Chacko <sony.chacko@qlogic.com>
--M:	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
--M:	linux-driver@qlogic.com
-+M:	Dept-HSGLinuxNICDev@qlogic.com
- L:	netdev@vger.kernel.org
- S:	Supported
- F:	drivers/net/ethernet/qlogic/qlcnic/
+ 	while (!done) {
+ 		done = QLCRD32(adapter, QLCNIC_PCIE_REG(PCIE_SEM_LOCK(sem)),
+@@ -327,10 +325,20 @@ qlcnic_pcie_sem_lock(struct qlcnic_adapter *adapter, int sem, u32 id_reg)
+ 		if (done == 1)
+ 			break;
+ 		if (++timeout >= QLCNIC_PCIE_SEM_TIMEOUT) {
+-			dev_err(&adapter->pdev->dev,
+-				"Failed to acquire sem=%d lock; holdby=%d\n",
+-				sem,
+-				id_reg ? QLCRD32(adapter, id_reg, &err) : -1);
++			if (id_reg) {
++				done = QLCRD32(adapter, id_reg, &err);
++				if (done != -1)
++					dev_err(&adapter->pdev->dev,
++						"Failed to acquire sem=%d lock held by=%d\n",
++						sem, done);
++				else
++					dev_err(&adapter->pdev->dev,
++						"Failed to acquire sem=%d lock",
++						sem);
++			} else {
++				dev_err(&adapter->pdev->dev,
++					"Failed to acquire sem=%d lock", sem);
++			}
+ 			return -EIO;
+ 		}
+ 		msleep(1);
 -- 
 1.8.1.4
