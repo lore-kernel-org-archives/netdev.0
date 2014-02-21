@@ -1,43 +1,50 @@
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net 3/7] qlcnic: Enhance driver message in failed state.
-Date: Fri, 21 Feb 2014 08:19:51 -0500
-Message-ID: <1392988795-19380-4-git-send-email-shahed.shaikh@qlogic.com>
+Subject: [PATCH net 7/7] Update MAINTAINERS for qlcnic driver
+Date: Fri, 21 Feb 2014 08:19:55 -0500
+Message-ID: <1392988795-19380-8-git-send-email-shahed.shaikh@qlogic.com>
 References: <1392988795-19380-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+	Shahed Shaikh <shahed.shaikh@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:63025 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:5155 "EHLO
 	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933435AbaBUNzm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 08:55:42 -0500
+	by vger.kernel.org with ESMTP id S933091AbaBUNzr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 08:55:47 -0500
 In-Reply-To: <1392988795-19380-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Keep myself as only maintainer for qlcnic driver and update
+group email alias to Dept-HSGLinuxNICDev@qlogic.com
+
+Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ MAINTAINERS | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 964ba45..a335472 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -2450,8 +2450,8 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		if (err) {
- 			switch (err) {
- 			case -ENOTRECOVERABLE:
--				dev_err(&pdev->dev, "Adapter initialization failed due to a faulty hardware. Please reboot\n");
--				dev_err(&pdev->dev, "If reboot doesn't help, please replace the adapter with new one and return the faulty adapter for repair\n");
-+				dev_err(&pdev->dev, "Adapter initialization failed due to a faulty hardware\n");
-+				dev_err(&pdev->dev, "Please replace the adapter with new one and return the faulty adapter for repair\n");
- 				goto err_out_free_hw;
- 			case -ENOMEM:
- 				dev_err(&pdev->dev, "Adapter initialization failed. Please reboot\n");
+diff --git a/MAINTAINERS b/MAINTAINERS
+index db8bb0d..c970557 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -7037,13 +7037,8 @@ F:	Documentation/networking/LICENSE.qla3xxx
+ F:	drivers/net/ethernet/qlogic/qla3xxx.*
+ 
+ QLOGIC QLCNIC (1/10)Gb ETHERNET DRIVER
+-M:	Himanshu Madhani <himanshu.madhani@qlogic.com>
+-M:	Rajesh Borundia <rajesh.borundia@qlogic.com>
+ M:	Shahed Shaikh <shahed.shaikh@qlogic.com>
+-M:	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+-M:	Sony Chacko <sony.chacko@qlogic.com>
+-M:	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+-M:	linux-driver@qlogic.com
++M:	Dept-HSGLinuxNICDev@qlogic.com
+ L:	netdev@vger.kernel.org
+ S:	Supported
+ F:	drivers/net/ethernet/qlogic/qlcnic/
 -- 
 1.8.1.4
