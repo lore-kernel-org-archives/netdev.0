@@ -1,47 +1,70 @@
-From: Heikki Krogerus <heikki.krogerus@linux.intel.com>
-Subject: Re: [PATCH 1/4] net: rfkill: gpio: remove unused and obsolete
- platform parameters
-Date: Fri, 21 Feb 2014 16:23:49 +0200
-Message-ID: <20140221142349.GB10489@xps8300>
-References: <1392900697-27577-1-git-send-email-heikki.krogerus@linux.intel.com>
- <1392900697-27577-2-git-send-email-heikki.krogerus@linux.intel.com>
- <1723302.jKkc8NDNRI@fb07-iapwap2>
+From: Tobias Waldekranz <tobias@waldekranz.com>
+Subject: Re: Deliver skbs to intermediate interfaces, when using cascaded
+ rx-handlers
+Date: Fri, 21 Feb 2014 15:31:14 +0100
+Message-ID: <20140221143114.GC25406@gmail.com>
+References: <20140221100158.GA19594@gmail.com>
+ <20140221102626.GC2870@minipsycho.orion>
+ <20140221111257.GA25406@gmail.com>
+ <20140221113753.GD2870@minipsycho.orion>
+ <20140221120244.GB25406@gmail.com>
+ <20140221130553.GE2870@minipsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Chen-Yu Tsai <wens@csie.org>,
-	Rhyland Klein <rklein@nvidia.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Marc Dietrich <marvin24@gmx.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f49.google.com ([209.85.215.49]:61583 "EHLO
+	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754858AbaBUObj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 09:31:39 -0500
+Received: by mail-la0-f49.google.com with SMTP id y1so2337285lam.8
+        for <netdev@vger.kernel.org>; Fri, 21 Feb 2014 06:31:38 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1723302.jKkc8NDNRI@fb07-iapwap2>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20140221130553.GE2870@minipsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-On Fri, Feb 21, 2014 at 02:55:14PM +0100, Marc Dietrich wrote:
-> Am Donnerstag, 20. Februar 2014, 14:51:34 schrieb Heikki Krogerus:
-> > After upgrading to descriptor based gpios, the gpio numbers
-> > are not used anymore. The power_clk_name and the platform
-> > specific setup and close hooks are not used by anybody, and
-> > we should not encourage use of such things, so removing them.
+On Fri, Feb 21, 2014 at 02:05:53PM +0100, Jiri Pirko wrote:
+> Fri, Feb 21, 2014 at 01:02:44PM CET, tobias@waldekranz.com wrote:
+> >On Fri, Feb 21, 2014 at 12:37:53PM +0100, Jiri Pirko wrote:
+> >> Fri, Feb 21, 2014 at 12:12:57PM CET, tobias@waldekranz.com wrote:
+> >> >> What "switch driver" are you reffering to?
+> >> >> 
+> >> >
+> >> >The driver that is in charge of multiplexing packets from the switch
+> >> >chip out to the port interfaces. It registers an rx-handler on eth0
+> >> >and forwards packets to port[1-4] by reading a custom tag (similar to
+> >> >802.1Q) inserted by the switch.
+> >> 
+> >> Allright, but what's the name? I would like to find it and see the code.
+> >
+> >There's not really a name :), but I have made the source available on github:
+> >
+> >https://github.com/wkz/switchcore
 > 
-> arch/arm/mach-tegra/board-paz00.c is still using platform data. Is there some 
-> prerequisite patch I'm missing (3.14-rc3) or how can this file be converted? 
-> We are waiting for DT support to arrive so we can finally remove this file.
+> Are you aware of existing DSA infrastructure?
+> 
 
-True! It still set's the shutdown_gpio and reset_gpio members. I think
-I'll leave the header untouched and just clean net/rfkill/rfkill-gpio.c
-in this patch. We can remove the whole header after you guys have moved
-to DT.
+Yes I am, we have our reasons for using our own driver. Most of it
+having to do with dynamic configuration, multiple hardware channel
+support and a variety of exotic hardware setups.
 
-I'll prepare v2 next week.
+Do you have any input on the original question?
 
-Thanks!
+> >
+> >The relevant parts for this discussion should be in sc_main.c.
+> >
+> >> 
+> >> >
+> >> >-- 
+> >> >Thanks
+> >> > - wkz
+> >
+> >-- 
+> >Thanks
+> > - wkz
 
 -- 
-heikki
+Thanks
+ - wkz
