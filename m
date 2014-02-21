@@ -1,7 +1,7 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next v2 12/14] i40e: tighten up ring enable/disable flow
-Date: Thu, 20 Feb 2014 19:29:16 -0800
-Message-ID: <1392953358-23908-13-git-send-email-aaron.f.brown@intel.com>
+Subject: [net-next v2 09/14] i40evf: update version and copyright date
+Date: Thu, 20 Feb 2014 19:29:13 -0800
+Message-ID: <1392953358-23908-10-git-send-email-aaron.f.brown@intel.com>
 References: <1392953358-23908-1-git-send-email-aaron.f.brown@intel.com>
 Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -9,9 +9,9 @@ Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	Aaron Brown <aaron.f.brown@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:36823 "EHLO mga02.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:4400 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752931AbaBUDcR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752737AbaBUDcR (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 20 Feb 2014 22:32:17 -0500
 In-Reply-To: <1392953358-23908-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,86 +19,34 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Mitch Williams <mitch.a.williams@intel.com>
 
-Change the do/while to a for loop, so we don't hit the delay each
-time, even when the register is ready for action.
-Don't bother to set or clear the QENA_STAT bit as it is
-read-only.
+A bunch of changes merit a new version number, and since these were
+made in the new year, update the copyright date.
 
-Change-ID: Ie464718804dd79f6d726f291caa9b0c872b49978
+Change-ID: Ic3f282bf0c20679b9fb06860211afa7c78055bc2
 Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 32 ++++++++++++++---------------
- 1 file changed, 15 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 3116861..5259a60 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -3108,13 +3108,13 @@ static int i40e_vsi_control_tx(struct i40e_vsi *vsi, bool enable)
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index d05d5c1..c4185f0 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -31,10 +31,10 @@ char i40evf_driver_name[] = "i40evf";
+ static const char i40evf_driver_string[] =
+ 	"Intel(R) XL710 X710 Virtual Function Network Driver";
  
- 	pf_q = vsi->base_queue;
- 	for (i = 0; i < vsi->num_queue_pairs; i++, pf_q++) {
--		j = 1000;
--		do {
--			usleep_range(1000, 2000);
-+		for (j = 0; j < 50; j++) {
- 			tx_reg = rd32(hw, I40E_QTX_ENA(pf_q));
--		} while (j-- && ((tx_reg >> I40E_QTX_ENA_QENA_REQ_SHIFT)
--			       ^ (tx_reg >> I40E_QTX_ENA_QENA_STAT_SHIFT)) & 1);
--
-+			if (((tx_reg >> I40E_QTX_ENA_QENA_REQ_SHIFT) & 1) ==
-+			    ((tx_reg >> I40E_QTX_ENA_QENA_STAT_SHIFT) & 1))
-+				break;
-+			usleep_range(1000, 2000);
-+		}
- 		/* Skip if the queue is already in the requested state */
- 		if (enable && (tx_reg & I40E_QTX_ENA_QENA_STAT_MASK))
- 			continue;
-@@ -3124,8 +3124,7 @@ static int i40e_vsi_control_tx(struct i40e_vsi *vsi, bool enable)
- 		/* turn on/off the queue */
- 		if (enable) {
- 			wr32(hw, I40E_QTX_HEAD(pf_q), 0);
--			tx_reg |= I40E_QTX_ENA_QENA_REQ_MASK |
--				  I40E_QTX_ENA_QENA_STAT_MASK;
-+			tx_reg |= I40E_QTX_ENA_QENA_REQ_MASK;
- 		} else {
- 			tx_reg &= ~I40E_QTX_ENA_QENA_REQ_MASK;
- 		}
-@@ -3172,12 +3171,13 @@ static int i40e_vsi_control_rx(struct i40e_vsi *vsi, bool enable)
+-#define DRV_VERSION "0.9.11"
++#define DRV_VERSION "0.9.12"
+ const char i40evf_driver_version[] = DRV_VERSION;
+ static const char i40evf_copyright[] =
+-	"Copyright (c) 2013 Intel Corporation.";
++	"Copyright (c) 2013 - 2014 Intel Corporation.";
  
- 	pf_q = vsi->base_queue;
- 	for (i = 0; i < vsi->num_queue_pairs; i++, pf_q++) {
--		j = 1000;
--		do {
--			usleep_range(1000, 2000);
-+		for (j = 0; j < 50; j++) {
- 			rx_reg = rd32(hw, I40E_QRX_ENA(pf_q));
--		} while (j-- && ((rx_reg >> I40E_QRX_ENA_QENA_REQ_SHIFT)
--			       ^ (rx_reg >> I40E_QRX_ENA_QENA_STAT_SHIFT)) & 1);
-+			if (((rx_reg >> I40E_QRX_ENA_QENA_REQ_SHIFT) & 1) ==
-+			    ((rx_reg >> I40E_QRX_ENA_QENA_STAT_SHIFT) & 1))
-+				break;
-+			usleep_range(1000, 2000);
-+		}
- 
- 		if (enable) {
- 			/* is STAT set ? */
-@@ -3191,11 +3191,9 @@ static int i40e_vsi_control_rx(struct i40e_vsi *vsi, bool enable)
- 
- 		/* turn on/off the queue */
- 		if (enable)
--			rx_reg |= I40E_QRX_ENA_QENA_REQ_MASK |
--				  I40E_QRX_ENA_QENA_STAT_MASK;
-+			rx_reg |= I40E_QRX_ENA_QENA_REQ_MASK;
- 		else
--			rx_reg &= ~(I40E_QRX_ENA_QENA_REQ_MASK |
--				  I40E_QRX_ENA_QENA_STAT_MASK);
-+			rx_reg &= ~I40E_QRX_ENA_QENA_REQ_MASK;
- 		wr32(hw, I40E_QRX_ENA(pf_q), rx_reg);
- 
- 		/* wait for the change to finish */
+ /* i40evf_pci_tbl - PCI Device ID Table
+  *
 -- 
 1.8.5.GIT
