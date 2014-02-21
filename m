@@ -1,66 +1,60 @@
-From: Sathya Perla <Sathya.Perla@Emulex.Com>
-Subject: RE: RE: [PATCH] be2net: Bugfix for packet drop with kernel param
- swiotlb=force
-Date: Fri, 21 Feb 2014 07:15:47 +0000
-Message-ID: <07309948-80e6-4274-80a2-053f0ba65643@CMEXHTCAS1.ad.emulex.com>
-References: <e57b63ae-b1a8-47f3-8f2b-71cb6d8ab4fc@CMEXHTCAS1.ad.emulex.com>
- <OF23C58A81.24C211B9-ON48257C86.0025CED7-48257C86.0026D02E@zte.com.cn>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: Fw:[Bug 70471] xfrm policy node will double unlink.
+Date: Fri, 21 Feb 2014 08:35:30 +0100
+Message-ID: <20140221073530.GH32371@secunet.com>
+References: <tencent_0D7FA5355C7998793C100B23@qq.com>
+ <20140218083737.GB32371@secunet.com>
+ <tencent_4CE06FA903D8DCB54F951A30@qq.com>
+ <20140219114326.GE32371@secunet.com>
+ <tencent_0260B87B11A1005909F5BB41@qq.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
-Content-Transfer-Encoding: 8BIT
-Cc: Subramanian Seetharaman <subbu.seetharaman@emulex.com>,
-	Ajit Khaparde <Ajit.Khaparde@Emulex.Com>,
-	"wang.liang82@zte.com.cn" <wang.liang82@zte.com.cn>,
-	"cai.qu@zte.com.cn" <cai.qu@zte.com.cn>,
-	"li.fengmao@zte.com.cn" <li.fengmao@zte.com.cn>,
-	"long.chun@zte.com.cn" <long.chun@zte.com.cn>,
-	David Miller <davem@davemloft.net>
-To: "jiang.biao2@zte.com.cn" <jiang.biao2@zte.com.cn>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: netdev <netdev@vger.kernel.org>, alan <alan@lxorguk.ukuu.org.uk>
+To: Xianpeng Zhao <673321875@qq.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:47654 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751204AbaBUHPx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 02:15:53 -0500
-In-Reply-To: <OF23C58A81.24C211B9-ON48257C86.0025CED7-48257C86.0026D02E@zte.com.cn>
-Content-Language: en-US
+Received: from a.mx.secunet.com ([195.81.216.161]:42018 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750884AbaBUHfe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Feb 2014 02:35:34 -0500
+Content-Disposition: inline
+In-Reply-To: <tencent_0260B87B11A1005909F5BB41@qq.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: jiang.biao2@zte.com.cn [mailto:jiang.biao2@zte.com.cn]
+On Thu, Feb 20, 2014 at 10:01:19AM +0800, Xianpeng Zhao wrote:
+> Sorry, I misunderstood your means in last mail.
+>     I get your patch now. Later I will use your patch. 
 > 
-> > >
-> > > From: Li Fengmao <li.fengmao@zte.com.cn>
-> > >
-> > > There will be packet drop with kernel param "swiotlb = force" on
-> > > Emulex 10Gb NIC using be2net driver. The problem is caused by
-> > > receiving skb without calling pci_unmap_page() in get_rx_page_info().
-> > > rx_page_info->last_page_user is initialized to false in
-> > > be_post_rx_frags() when current frag are mapped in the first half of
-> > > the same page with another frag. But in that case with
-> > > "swiotlb = force" param, data can not be copied into the page of
-> > > rx_page_info without calling pci_unmap_page, so the data frag mapped
-> > > in the first half of the page will be dropped.
-> > >
-> > > It can be solved by creating only a mapping relation between frag
-> > > and page, and deleting rx_page_info->last_page_user to ensure
-> > > calling pci_unmap_page when handling each receiving frag.
-> >
-> > This patch uses an entire page for each RX frag (whose default size is 2048).
-> > Consequently, on platforms like ppc64 where the default PAGE_SIZE is 64K,
-> > memory usage becomes very inefficient.
-> >
-> > Instead, I've tried a partial-page mapping scheme. This retains the
-> > page sharing logic, but un-maps each frag separately so that
-> > the data is copied from the bounce buffers.
-> >
-> > Pls see if this works for you;  thanks.
-> >
-> Our patch indeed has some problem because use an entire page by alloc_pages，
-> maybe kmalloc should be appropriate.
-> Your modification works for us, it should be a right patch for the bug.
 
-Thanks for verifying. I'll re-post my patch with a proper sign-off.
+The patch below is what I plan to commit to the ipsec tree,
+please test it. Thanks!
 
--Sathya
+Subject: [PATCH] xfrm: Fix unlink race when policies are deleted.
+
+When a policy is unlinked from the lists in thread context,
+the xfrm timer can fire before we can mark this policy as dead.
+So reinitialize the bydst hlist, then hlist_unhashed() will
+notice that this policy is not linked and will avoid a
+doulble unlink of that policy.
+
+Reported-by: Xianpeng Zhao <673321875@qq.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/xfrm/xfrm_policy.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 4b98b25..1d5c7bf 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1158,7 +1158,7 @@ static struct xfrm_policy *__xfrm_policy_unlink(struct xfrm_policy *pol,
+ 	if (hlist_unhashed(&pol->bydst))
+ 		return NULL;
+ 
+-	hlist_del(&pol->bydst);
++	hlist_del_init(&pol->bydst);
+ 	hlist_del(&pol->byidx);
+ 	list_del(&pol->walk.all);
+ 	net->xfrm.policy_count[dir]--;
+-- 
+1.7.9.5
