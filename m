@@ -1,51 +1,64 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH 1/1] rtlwifi: Convert drivers to use new API for
- ieee80211_is_robust_mgmt_frame()
-Date: Fri, 21 Feb 2014 15:38:50 +0100
-Message-ID: <1392993530.4346.49.camel@jlt4.sipsolutions.net>
-References: <1392993211-3848-1-git-send-email-Larry.Finger@lwfinger.net>
-	 (sfid-20140221_153342_109062_89D3C0C6)
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: Re: [PATCH] MAINTAINERS: add entry for the PHY library
+Date: Fri, 21 Feb 2014 14:41:21 +0000
+Message-ID: <53076591.4040006@codethink.co.uk>
+References: <1392745669-26645-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1392993211-3848-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> (sfid-20140221_153342_109062_89D3C0C6)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Grant Likely <grant.likely@linaro.org>,
+	Shaohui Xie <shaohui.xie@freescale.com>,
+	Andy Fleming <afleming@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:34288 "EHLO
+	ducie-dc1.codethink.co.uk" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754396AbaBUOlY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 09:41:24 -0500
+In-Reply-To: <1392745669-26645-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-02-21 at 08:33 -0600, Larry Finger wrote:
-> Drivers rtl8188ee, rtl8192ce, rtl8192se, and rtl8723ae all use this routine.
-> In addition, all callers of ieee80211_is_robust_mgmt_frame() have access to the
-> skb. Thus, it is trivial to use the new API rather than the underscored old version.
+On 18/02/14 17:47, Florian Fainelli wrote:
+> The PHY library has been subject to some changes, new drivers and DT
+> interactions over the past few months. Add myself as a maintainer for
+> the core PHY library parts and drivers. Make sure the PHY library entry
+> also covers the Device Tree files which have a close interaction with
+> the MDIO bus, PHY connection and Ethernet PHY mode parsing.
+>
+> CC: Grant Likely <grant.likely@linaro.org>
+> CC: Shaohui Xie <shaohui.xie@freescale.com>
+> CC: Andy Fleming <afleming@gmail.com>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>   MAINTAINERS | 11 +++++++++++
+>   1 file changed, 11 insertions(+)
+>
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index 5a7b3ec..2bfdb79 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -3330,6 +3330,17 @@ S:	Maintained
+>   F:	include/linux/netfilter_bridge/
+>   F:	net/bridge/
+>
+> +ETHERNET PHY LIBRARY
+> +M:	Florian Fainelli <f.fainelli@gmail.com>
+> +L:	netdev@vger.kernel.org
+> +S:	Maintained
+> +F:	include/linux/phy.h
+> +F:	include/linux/phy_fixed.h
+> +F:	drivers/net/phy/
+> +F:	Documentation/networking/phy.txt
+> +F:	drivers/of/of_mdio.c
+> +F:	drivers/of/of_net.c
 
-Unfortunately, I'm pretty sure this is incorrect. I looked at this code
-before, and take for example:
+Did you miss out:
+  Documentation/devicetree/bindings/net/phy.txt
 
-> +++ b/drivers/net/wireless/rtlwifi/rtl8723ae/trx.c
-> @@ -334,8 +334,8 @@ bool rtl8723ae_rx_query_desc(struct ieee80211_hw *hw,
->  			/* during testing, hdr could be NULL here */
->  			return false;
->  		}
-> -		if ((_ieee80211_is_robust_mgmt_frame(hdr)) &&
-> -			(ieee80211_has_protected(hdr->frame_control)))
-> +		if ((ieee80211_is_robust_mgmt_frame(skb)) &&
-> +		    (ieee80211_has_protected(hdr->frame_control)))
 
-Here, hdr is set like this:
 
-                hdr = (struct ieee80211_hdr *)(skb->data +
-                       status->rx_drvinfo_size + status->rx_bufshift);  
-
-so the skb clearly contains something else before the hdr, and the
-conversion is probably not right because it assumes hdr == skb->data,
-where here it isn't that but instead (skb->data + something).
-
-johannes
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Ben Dooks				http://www.codethink.co.uk/
+Senior Engineer				Codethink - Providing Genius
