@@ -1,67 +1,256 @@
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net 0/7] qlcnic: Re-factoring and enhancements
-Date: Fri, 21 Feb 2014 08:19:48 -0500
-Message-ID: <1392988795-19380-1-git-send-email-shahed.shaikh@qlogic.com>
+Subject: [PATCH net 2/7] qlcnic: Updates to QLogic application/driver interface for virtual NIC configuration
+Date: Fri, 21 Feb 2014 08:19:50 -0500
+Message-ID: <1392988795-19380-3-git-send-email-shahed.shaikh@qlogic.com>
+References: <1392988795-19380-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:53986 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932239AbaBUNzQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 08:55:16 -0500
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:3539 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933091AbaBUNzb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 08:55:31 -0500
+In-Reply-To: <1392988795-19380-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 
-Hi David,
+Qlogic application interface in the driver which has larger than 8 vNIC
+configuration support has been updated to handle the following cases:
 
-This patch series includes following changes -
-* Re-factored firmware minidump template header handling
-* Support to make 8 vNIC mode application to work with 16 vNIC mode
-* Enhance error message logging when adapter is in failed state and
-  when adapter lock access fails.
-* Allow vlan0 traffic
-* update MAINTAINERS
+o Only 8 or lower total vNICs were enabled within the vNIC 0-7 range
+o vNICs were enabled in the vNIC 0-15 range such that enabled vNICs were
+  not contiguous and only 8 or lower number of total VNICs were enabled
+o Disconnect in the vNIC mapping between application and driver when the
+  enabled VNICs were dis contiguous
 
-Please apply this series to net-next.
+Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c | 102 ++++++++--------------
+ 1 file changed, 37 insertions(+), 65 deletions(-)
 
-Thanks,
-Shahed
-
-Harish Patil (1):
-  qlcnic: Enhance semaphore lock access failure error message
-
-Jitendra Kalsaria (1):
-  qlcnic: Updates to QLogic application/driver interface for virtual NIC
-    configuration
-
-Rajesh Borundia (1):
-  qlcnic: Allow vlan0 traffic
-
-Shahed Shaikh (3):
-  qlcnic: Re-factor firmware minidump template header handling
-  qlcnic: Update version to 5.3.56
-  Update MAINTAINERS for qlcnic driver
-
-Sucheta Chakraborty (1):
-  qlcnic: Enhance driver message in failed state.
-
- MAINTAINERS                                        |   7 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |  77 ++++++-
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   7 +-
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |   8 +
- .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |  17 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c     |  22 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h     |   8 +
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |  11 +-
- .../net/ethernet/qlogic/qlcnic/qlcnic_minidump.c   | 233 ++++++++++++++++-----
- .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |   6 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c  | 102 ++++-----
- 11 files changed, 349 insertions(+), 149 deletions(-)
-
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+index 3d64113..448d156 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+@@ -350,33 +350,15 @@ static ssize_t qlcnic_sysfs_write_mem(struct file *filp, struct kobject *kobj,
+ 	return size;
+ }
+ 
+-static u32 qlcnic_get_pci_func_count(struct qlcnic_adapter *adapter)
+-{
+-	struct qlcnic_hardware_context *ahw = adapter->ahw;
+-	u32 count = 0;
+-
+-	if (!(adapter->flags & QLCNIC_ESWITCH_ENABLED))
+-		return ahw->total_nic_func;
+-
+-	if (ahw->total_pci_func <= QLC_DEFAULT_VNIC_COUNT)
+-		count = QLC_DEFAULT_VNIC_COUNT;
+-	else
+-		count = ahw->max_vnic_func;
+-
+-	return count;
+-}
+-
+ int qlcnic_is_valid_nic_func(struct qlcnic_adapter *adapter, u8 pci_func)
+ {
+-	u32 pci_func_count = qlcnic_get_pci_func_count(adapter);
+ 	int i;
+ 
+-	for (i = 0; i < pci_func_count; i++) {
++	for (i = 0; i < adapter->ahw->max_vnic_func; i++) {
+ 		if (adapter->npars[i].pci_func == pci_func)
+ 			return i;
+ 	}
+-
+-	return -1;
++	return -EINVAL;
+ }
+ 
+ static int validate_pm_config(struct qlcnic_adapter *adapter,
+@@ -464,23 +446,21 @@ static ssize_t qlcnic_sysfs_read_pm_config(struct file *filp,
+ {
+ 	struct device *dev = container_of(kobj, struct device, kobj);
+ 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
+-	u32 pci_func_count = qlcnic_get_pci_func_count(adapter);
+ 	struct qlcnic_pm_func_cfg *pm_cfg;
+-	int i, pm_cfg_size;
+ 	u8 pci_func;
++	u32 count;
++	int i;
+ 
+-	pm_cfg_size = pci_func_count * sizeof(*pm_cfg);
+-	if (size != pm_cfg_size)
+-		return QL_STATUS_INVALID_PARAM;
+-
+-	memset(buf, 0, pm_cfg_size);
++	memset(buf, 0, size);
+ 	pm_cfg = (struct qlcnic_pm_func_cfg *)buf;
+-
+-	for (i = 0; i < pci_func_count; i++) {
++	count = size / sizeof(struct qlcnic_pm_func_cfg);
++	for (i = 0; i < adapter->ahw->total_nic_func; i++) {
+ 		pci_func = adapter->npars[i].pci_func;
+-		if (!adapter->npars[i].active)
++		if (pci_func >= count) {
++			dev_dbg(dev, "%s: Total nic functions[%d], App sent function count[%d]\n",
++				__func__, adapter->ahw->total_nic_func, count);
+ 			continue;
+-
++		}
+ 		if (!adapter->npars[i].eswitch_status)
+ 			continue;
+ 
+@@ -494,7 +474,6 @@ static ssize_t qlcnic_sysfs_read_pm_config(struct file *filp,
+ static int validate_esw_config(struct qlcnic_adapter *adapter,
+ 			       struct qlcnic_esw_func_cfg *esw_cfg, int count)
+ {
+-	u32 pci_func_count = qlcnic_get_pci_func_count(adapter);
+ 	struct qlcnic_hardware_context *ahw = adapter->ahw;
+ 	int i, ret;
+ 	u32 op_mode;
+@@ -507,7 +486,7 @@ static int validate_esw_config(struct qlcnic_adapter *adapter,
+ 
+ 	for (i = 0; i < count; i++) {
+ 		pci_func = esw_cfg[i].pci_func;
+-		if (pci_func >= pci_func_count)
++		if (pci_func >= ahw->max_vnic_func)
+ 			return QL_STATUS_INVALID_PARAM;
+ 
+ 		if (adapter->ahw->op_mode == QLCNIC_MGMT_FUNC)
+@@ -642,23 +621,21 @@ static ssize_t qlcnic_sysfs_read_esw_config(struct file *file,
+ {
+ 	struct device *dev = container_of(kobj, struct device, kobj);
+ 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
+-	u32 pci_func_count = qlcnic_get_pci_func_count(adapter);
+ 	struct qlcnic_esw_func_cfg *esw_cfg;
+-	size_t esw_cfg_size;
+-	u8 i, pci_func;
+-
+-	esw_cfg_size = pci_func_count * sizeof(*esw_cfg);
+-	if (size != esw_cfg_size)
+-		return QL_STATUS_INVALID_PARAM;
++	u8 pci_func;
++	u32 count;
++	int i;
+ 
+-	memset(buf, 0, esw_cfg_size);
++	memset(buf, 0, size);
+ 	esw_cfg = (struct qlcnic_esw_func_cfg *)buf;
+-
+-	for (i = 0; i < pci_func_count; i++) {
++	count = size / sizeof(struct qlcnic_esw_func_cfg);
++	for (i = 0; i < adapter->ahw->total_nic_func; i++) {
+ 		pci_func = adapter->npars[i].pci_func;
+-		if (!adapter->npars[i].active)
++		if (pci_func >= count) {
++			dev_dbg(dev, "%s: Total nic functions[%d], App sent function count[%d]\n",
++				__func__, adapter->ahw->total_nic_func, count);
+ 			continue;
+-
++		}
+ 		if (!adapter->npars[i].eswitch_status)
+ 			continue;
+ 
+@@ -741,23 +718,24 @@ static ssize_t qlcnic_sysfs_read_npar_config(struct file *file,
+ {
+ 	struct device *dev = container_of(kobj, struct device, kobj);
+ 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
+-	u32 pci_func_count = qlcnic_get_pci_func_count(adapter);
+ 	struct qlcnic_npar_func_cfg *np_cfg;
+ 	struct qlcnic_info nic_info;
+-	size_t np_cfg_size;
+ 	int i, ret;
+-
+-	np_cfg_size = pci_func_count * sizeof(*np_cfg);
+-	if (size != np_cfg_size)
+-		return QL_STATUS_INVALID_PARAM;
++	u32 count;
+ 
+ 	memset(&nic_info, 0, sizeof(struct qlcnic_info));
+-	memset(buf, 0, np_cfg_size);
++	memset(buf, 0, size);
+ 	np_cfg = (struct qlcnic_npar_func_cfg *)buf;
+ 
+-	for (i = 0; i < pci_func_count; i++) {
++	count = size / sizeof(struct qlcnic_npar_func_cfg);
++	for (i = 0; i < adapter->ahw->total_nic_func; i++) {
+ 		if (qlcnic_is_valid_nic_func(adapter, i) < 0)
+ 			continue;
++		if (adapter->npars[i].pci_func >= count) {
++			dev_dbg(dev, "%s: Total nic functions[%d], App sent function count[%d]\n",
++				__func__, adapter->ahw->total_nic_func, count);
++			continue;
++		}
+ 		ret = qlcnic_get_nic_info(adapter, &nic_info, i);
+ 		if (ret)
+ 			return ret;
+@@ -783,7 +761,6 @@ static ssize_t qlcnic_sysfs_get_port_stats(struct file *file,
+ {
+ 	struct device *dev = container_of(kobj, struct device, kobj);
+ 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
+-	u32 pci_func_count = qlcnic_get_pci_func_count(adapter);
+ 	struct qlcnic_esw_statistics port_stats;
+ 	int ret;
+ 
+@@ -793,7 +770,7 @@ static ssize_t qlcnic_sysfs_get_port_stats(struct file *file,
+ 	if (size != sizeof(struct qlcnic_esw_statistics))
+ 		return QL_STATUS_INVALID_PARAM;
+ 
+-	if (offset >= pci_func_count)
++	if (offset >= adapter->ahw->max_vnic_func)
+ 		return QL_STATUS_INVALID_PARAM;
+ 
+ 	memset(&port_stats, 0, size);
+@@ -884,13 +861,12 @@ static ssize_t qlcnic_sysfs_clear_port_stats(struct file *file,
+ 
+ 	struct device *dev = container_of(kobj, struct device, kobj);
+ 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
+-	u32 pci_func_count = qlcnic_get_pci_func_count(adapter);
+ 	int ret;
+ 
+ 	if (qlcnic_83xx_check(adapter))
+ 		return QLC_STATUS_UNSUPPORTED_CMD;
+ 
+-	if (offset >= pci_func_count)
++	if (offset >= adapter->ahw->max_vnic_func)
+ 		return QL_STATUS_INVALID_PARAM;
+ 
+ 	ret = qlcnic_clear_esw_stats(adapter, QLCNIC_STATS_PORT, offset,
+@@ -914,17 +890,12 @@ static ssize_t qlcnic_sysfs_read_pci_config(struct file *file,
+ {
+ 	struct device *dev = container_of(kobj, struct device, kobj);
+ 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
+-	u32 pci_func_count = qlcnic_get_pci_func_count(adapter);
+ 	struct qlcnic_pci_func_cfg *pci_cfg;
+ 	struct qlcnic_pci_info *pci_info;
+-	size_t pci_cfg_sz;
+ 	int i, ret;
++	u32 count;
+ 
+-	pci_cfg_sz = pci_func_count * sizeof(*pci_cfg);
+-	if (size != pci_cfg_sz)
+-		return QL_STATUS_INVALID_PARAM;
+-
+-	pci_info = kcalloc(pci_func_count, sizeof(*pci_info), GFP_KERNEL);
++	pci_info = kcalloc(size, sizeof(*pci_info), GFP_KERNEL);
+ 	if (!pci_info)
+ 		return -ENOMEM;
+ 
+@@ -935,7 +906,8 @@ static ssize_t qlcnic_sysfs_read_pci_config(struct file *file,
+ 	}
+ 
+ 	pci_cfg = (struct qlcnic_pci_func_cfg *)buf;
+-	for (i = 0; i < pci_func_count; i++) {
++	count = size / sizeof(struct qlcnic_pci_func_cfg);
++	for (i = 0; i < count; i++) {
+ 		pci_cfg[i].pci_func = pci_info[i].id;
+ 		pci_cfg[i].func_type = pci_info[i].type;
+ 		pci_cfg[i].func_state = 0;
 -- 
 1.8.1.4
