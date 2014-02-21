@@ -1,60 +1,73 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: Fw:[Bug 70471] xfrm policy node will double unlink.
-Date: Fri, 21 Feb 2014 08:35:30 +0100
-Message-ID: <20140221073530.GH32371@secunet.com>
-References: <tencent_0D7FA5355C7998793C100B23@qq.com>
- <20140218083737.GB32371@secunet.com>
- <tencent_4CE06FA903D8DCB54F951A30@qq.com>
- <20140219114326.GE32371@secunet.com>
- <tencent_0260B87B11A1005909F5BB41@qq.com>
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: Re: [PATCH 00/10] pull request net: batman-adv 2014-02-17
+Date: Fri, 21 Feb 2014 08:47:20 +0100
+Message-ID: <53070488.2020303@meshcoding.com>
+References: <1392670129-2498-1-git-send-email-antonio@meshcoding.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: netdev <netdev@vger.kernel.org>, alan <alan@lxorguk.ukuu.org.uk>
-To: Xianpeng Zhao <673321875@qq.com>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="88EFkjNOc8xD17cIUKaKs5CNvemkcHIVd"
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:42018 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750884AbaBUHfe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Feb 2014 02:35:34 -0500
-Content-Disposition: inline
-In-Reply-To: <tencent_0260B87B11A1005909F5BB41@qq.com>
+Received: from s3.neomailbox.net ([178.209.62.157]:22104 "EHLO
+	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752283AbaBUHs4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 02:48:56 -0500
+In-Reply-To: <1392670129-2498-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 20, 2014 at 10:01:19AM +0800, Xianpeng Zhao wrote:
-> Sorry, I misunderstood your means in last mail.
->     I get your patch now. Later I will use your patch. 
-> 
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--88EFkjNOc8xD17cIUKaKs5CNvemkcHIVd
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-The patch below is what I plan to commit to the ipsec tree,
-please test it. Thanks!
+On 17/02/14 21:48, Antonio Quartulli wrote:
+> Hello David,
+>=20
+> here you have a pull request intended for net/linux-3.14 and linux-3.13=
+ (please
+> take care of queuing these patches for merging in the latter).
+>=20
 
-Subject: [PATCH] xfrm: Fix unlink race when policies are deleted.
+David,
 
-When a policy is unlinked from the lists in thread context,
-the xfrm timer can fire before we can mark this policy as dead.
-So reinitialize the bydst hlist, then hlist_unhashed() will
-notice that this policy is not linked and will avoid a
-doulble unlink of that policy.
+as I asked above, do you think it would be possible to queue this
+patchset for inclusion in 3.13.x ?
 
-Reported-by: Xianpeng Zhao <673321875@qq.com>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/xfrm/xfrm_policy.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+If you think the patchset is too big, we can safely _exclude_ patches 4,
+5, 6 and 9 from sending to stable since they are fixing "potential" error=
+s.
 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 4b98b25..1d5c7bf 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1158,7 +1158,7 @@ static struct xfrm_policy *__xfrm_policy_unlink(struct xfrm_policy *pol,
- 	if (hlist_unhashed(&pol->bydst))
- 		return NULL;
- 
--	hlist_del(&pol->bydst);
-+	hlist_del_init(&pol->bydst);
- 	hlist_del(&pol->byidx);
- 	list_del(&pol->walk.all);
- 	net->xfrm.policy_count[dir]--;
--- 
-1.7.9.5
+
+Thanks a lot!
+
+--=20
+Antonio Quartulli
+
+
+--88EFkjNOc8xD17cIUKaKs5CNvemkcHIVd
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJTBwSNAAoJEEKTMo6mOh1VrmUQAJwsCiT95GCGdxQg6hyLW8K8
+SwYK2VM+qPiqu4/X0Ra//t+xBgh6PV2QgStiDxYjHlNmu0AKkfIXzgy2Pa9wA7jG
+cUOlk5QcI8X2Ui8yw83gvQ92XRk1eevd91Sj/1/JScLj1VJ0HgjvzqDV5Deo6nfP
+cQ7Ftp9xaW+/4NAJ64PFRLQf9zs3nzo8ABFA6LkACnXt9wg9Kqv65anDTfKRFNfF
+MYXVj3NMPPeZiqBFJ2ik4miL4p4LzN/Z9bZZ/pwqls/eiU8mcUINMKNWyLIeFRqh
+Jdm6MxXWiSgEo58PUa+E+wAE6wLtAuDDII+4arankjO66nK+q2lylap4S65zZH7c
+HRRMLltDr4G8nRXYuOcoWCjBiqcsWJX6L9GjOGAwo14KeqIpTAmqiiOtZtKHZp4n
+j5cvUFqgpLp/jVxWFsvJ4/zt2kHA5+zyahY+Rkq6AIHXot7Z5QyQB594AzFeclY5
+meJYF37ITy3PLYiVUiE8KToiJ7KKk305b99J1kVR6ontakoHftWowhMeDTonZc71
+so9CvP3KMk+7Mrq7b15ZdCHtHLEedtE5neLhp8d5CdfccDNYqhomb7eG4N6UWCng
+Q74tIMSjFv2+PZgsGIIOMK/atP//vdMjK4VN/DI4bDL99N9ogWfxPrJXKwOWjoeJ
+oo0otaJYmw3dYYwfRZ6U
+=qyo4
+-----END PGP SIGNATURE-----
+
+--88EFkjNOc8xD17cIUKaKs5CNvemkcHIVd--
