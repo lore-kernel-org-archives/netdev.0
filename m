@@ -1,78 +1,235 @@
-From: Soren Brinkmann <soren.brinkmann@xilinx.com>
-Subject: [PATCH RFC 2/2] net: macb: DMA-unmap full rx-buffer
-Date: Fri, 21 Feb 2014 11:30:25 -0800
-Message-ID: <1393011025-18537-3-git-send-email-soren.brinkmann@xilinx.com>
-References: <1393011025-18537-1-git-send-email-soren.brinkmann@xilinx.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Vinod Koul <vinod.koul@intel.com>,
-	Dan Williams <dan.j.williams@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Michal Simek <michal.simek@xilinx.com>,
-	Soren Brinkmann <soren.brinkmann@xilinx.com>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1393011025-18537-1-git-send-email-soren.brinkmann@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH stable 3.13.y 3/3] net: ip, ipv6: handle gso skbs in forwarding path
+Date: Fri, 21 Feb 2014 20:46:40 +0100
+Message-ID: <1393012000-918-4-git-send-email-fw@strlen.de>
+References: <1393012000-918-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:42636 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752466AbaBUTlF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 14:41:05 -0500
+In-Reply-To: <1393012000-918-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When allocating RX buffers a fixed size is used, while freeing is based
-on actually received bytes, resulting in the following kernel warning
-when CONFIG_DMA_API_DEBUG is enabled:
- WARNING: CPU: 0 PID: 0 at lib/dma-debug.c:1051 check_unmap+0x258/0x894()
- macb e000b000.ethernet: DMA-API: device driver frees DMA memory with different size [device address=0x000000002d170040] [map size=1536 bytes] [unmap size=60 bytes]
- Modules linked in:
- CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.14.0-rc3-xilinx-00220-g49f84081ce4f #65
- [<c001516c>] (unwind_backtrace) from [<c0011df8>] (show_stack+0x10/0x14)
- [<c0011df8>] (show_stack) from [<c03c775c>] (dump_stack+0x7c/0xc8)
- [<c03c775c>] (dump_stack) from [<c00245cc>] (warn_slowpath_common+0x60/0x84)
- [<c00245cc>] (warn_slowpath_common) from [<c0024670>] (warn_slowpath_fmt+0x2c/0x3c)
- [<c0024670>] (warn_slowpath_fmt) from [<c0227d44>] (check_unmap+0x258/0x894)
- [<c0227d44>] (check_unmap) from [<c0228588>] (debug_dma_unmap_page+0x64/0x70)
- [<c0228588>] (debug_dma_unmap_page) from [<c02ab78c>] (gem_rx+0x118/0x170)
- [<c02ab78c>] (gem_rx) from [<c02ac4d4>] (macb_poll+0x24/0x94)
- [<c02ac4d4>] (macb_poll) from [<c031222c>] (net_rx_action+0x6c/0x188)
- [<c031222c>] (net_rx_action) from [<c0028a28>] (__do_softirq+0x108/0x280)
- [<c0028a28>] (__do_softirq) from [<c0028e8c>] (irq_exit+0x84/0xf8)
- [<c0028e8c>] (irq_exit) from [<c000f360>] (handle_IRQ+0x68/0x8c)
- [<c000f360>] (handle_IRQ) from [<c0008528>] (gic_handle_irq+0x3c/0x60)
- [<c0008528>] (gic_handle_irq) from [<c0012904>] (__irq_svc+0x44/0x78)
- Exception stack(0xc056df20 to 0xc056df68)
- df20: 00000001 c0577430 00000000 c0577430 04ce8e0d 00000002 edfce238 00000000
- df40: 04e20f78 00000002 c05981f4 00000000 00000008 c056df68 c0064008 c02d7658
- df60: 20000013 ffffffff
- [<c0012904>] (__irq_svc) from [<c02d7658>] (cpuidle_enter_state+0x54/0xf8)
- [<c02d7658>] (cpuidle_enter_state) from [<c02d77dc>] (cpuidle_idle_call+0xe0/0x138)
- [<c02d77dc>] (cpuidle_idle_call) from [<c000f660>] (arch_cpu_idle+0x8/0x3c)
- [<c000f660>] (arch_cpu_idle) from [<c006bec4>] (cpu_startup_entry+0xbc/0x124)
- [<c006bec4>] (cpu_startup_entry) from [<c053daec>] (start_kernel+0x350/0x3b0)
- ---[ end trace d5fdc38641bd3a11 ]---
- Mapped at:
-  [<c0227184>] debug_dma_map_page+0x48/0x11c
-  [<c02ab32c>] gem_rx_refill+0x154/0x1f8
-  [<c02ac7b4>] macb_open+0x270/0x3e0
-  [<c03152e0>] __dev_open+0x7c/0xfc
-  [<c031554c>] __dev_change_flags+0x8c/0x140
+commit fe6cc55f3a9a053482a76f5a6b2257cee51b4663 upstream.
 
-Fixing this by passing the same size which is passed during mapping the
-memory to the unmap function as well.
+Marcelo Ricardo Leitner reported problems when the forwarding link path
+has a lower mtu than the incoming one if the inbound interface supports GRO.
 
-Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
+Given:
+Host <mtu1500> R1 <mtu1200> R2
+
+Host sends tcp stream which is routed via R1 and R2.  R1 performs GRO.
+
+In this case, the kernel will fail to send ICMP fragmentation needed
+messages (or pkt too big for ipv6), as GSO packets currently bypass dstmtu
+checks in forward path. Instead, Linux tries to send out packets exceeding
+the mtu.
+
+When locking route MTU on Host (i.e., no ipv4 DF bit set), R1 does
+not fragment the packets when forwarding, and again tries to send out
+packets exceeding R1-R2 link mtu.
+
+This alters the forwarding dstmtu checks to take the individual gso
+segment lengths into account.
+
+For ipv6, we send out pkt too big error for gso if the individual
+segments are too big.
+
+For ipv4, we either send icmp fragmentation needed, or, if the DF bit
+is not set, perform software segmentation and let the output path
+create fragments when the packet is leaving the machine.
+It is not 100% correct as the error message will contain the headers of
+the GRO skb instead of the original/segmented one, but it seems to
+work fine in my (limited) tests.
+
+Eric Dumazet suggested to simply shrink mss via ->gso_size to avoid
+sofware segmentation.
+
+However it turns out that skb_segment() assumes skb nr_frags is related
+to mss size so we would BUG there.  I don't want to mess with it considering
+Herbert and Eric disagree on what the correct behavior should be.
+
+Hannes Frederic Sowa notes that when we would shrink gso_size
+skb_segment would then also need to deal with the case where
+SKB_MAX_FRAGS would be exceeded.
+
+This uses sofware segmentation in the forward path when we hit ipv4
+non-DF packets and the outgoing link mtu is too small.  Its not perfect,
+but given the lack of bug reports wrt. GRO fwd being broken this is a
+rare case anyway.  Also its not like this could not be improved later
+once the dust settles.
+
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+Reported-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/ethernet/cadence/macb.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/linux/skbuff.h | 17 ++++++++++++
+ net/ipv4/ip_forward.c  | 71 ++++++++++++++++++++++++++++++++++++++++++++++++--
+ net/ipv6/ip6_output.c  | 17 ++++++++++--
+ 3 files changed, 101 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 64eeab6f9971..f325bc5c779f 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -730,7 +730,7 @@ static int gem_rx(struct macb *bp, int budget)
- 		skb_put(skb, len);
- 		addr = MACB_BF(RX_WADDR, MACB_BFEXT(RX_WADDR, addr));
- 		dma_unmap_single(&bp->pdev->dev, addr,
--				 len, DMA_FROM_DEVICE);
-+				 bp->rx_buffer_size, DMA_FROM_DEVICE);
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 3d76066..37cb679 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2811,5 +2811,22 @@ static inline bool skb_head_is_locked(const struct sk_buff *skb)
+ {
+ 	return !skb->head_frag || skb_cloned(skb);
+ }
++
++/**
++ * skb_gso_network_seglen - Return length of individual segments of a gso packet
++ *
++ * @skb: GSO skb
++ *
++ * skb_gso_network_seglen is used to determine the real size of the
++ * individual segments, including Layer3 (IP, IPv6) and L4 headers (TCP/UDP).
++ *
++ * The MAC/L2 header is not accounted for.
++ */
++static inline unsigned int skb_gso_network_seglen(const struct sk_buff *skb)
++{
++	unsigned int hdr_len = skb_transport_header(skb) -
++			       skb_network_header(skb);
++	return hdr_len + skb_gso_transport_seglen(skb);
++}
+ #endif	/* __KERNEL__ */
+ #endif	/* _LINUX_SKBUFF_H */
+diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
+index 694de3b..98d7e53 100644
+--- a/net/ipv4/ip_forward.c
++++ b/net/ipv4/ip_forward.c
+@@ -39,6 +39,71 @@
+ #include <net/route.h>
+ #include <net/xfrm.h>
  
- 		skb->protocol = eth_type_trans(skb, bp->dev);
- 		skb_checksum_none_assert(skb);
++static bool ip_may_fragment(const struct sk_buff *skb)
++{
++	return unlikely((ip_hdr(skb)->frag_off & htons(IP_DF)) == 0) ||
++	       !skb->local_df;
++}
++
++static bool ip_exceeds_mtu(const struct sk_buff *skb, unsigned int mtu)
++{
++	if (skb->len <= mtu || skb->local_df)
++		return false;
++
++	if (skb_is_gso(skb) && skb_gso_network_seglen(skb) <= mtu)
++		return false;
++
++	return true;
++}
++
++static bool ip_gso_exceeds_dst_mtu(const struct sk_buff *skb)
++{
++	unsigned int mtu;
++
++	if (skb->local_df || !skb_is_gso(skb))
++		return false;
++
++	mtu = dst_mtu(skb_dst(skb));
++
++	/* if seglen > mtu, do software segmentation for IP fragmentation on
++	 * output.  DF bit cannot be set since ip_forward would have sent
++	 * icmp error.
++	 */
++	return skb_gso_network_seglen(skb) > mtu;
++}
++
++/* called if GSO skb needs to be fragmented on forward */
++static int ip_forward_finish_gso(struct sk_buff *skb)
++{
++	struct dst_entry *dst = skb_dst(skb);
++	netdev_features_t features;
++	struct sk_buff *segs;
++	int ret = 0;
++
++	features = netif_skb_dev_features(skb, dst->dev);
++	segs = skb_gso_segment(skb, features & ~NETIF_F_GSO_MASK);
++	if (IS_ERR(segs)) {
++		kfree_skb(skb);
++		return -ENOMEM;
++	}
++
++	consume_skb(skb);
++
++	do {
++		struct sk_buff *nskb = segs->next;
++		int err;
++
++		segs->next = NULL;
++		err = dst_output(segs);
++
++		if (err && ret == 0)
++			ret = err;
++		segs = nskb;
++	} while (segs);
++
++	return ret;
++}
++
+ static int ip_forward_finish(struct sk_buff *skb)
+ {
+ 	struct ip_options *opt	= &(IPCB(skb)->opt);
+@@ -49,6 +114,9 @@ static int ip_forward_finish(struct sk_buff *skb)
+ 	if (unlikely(opt->optlen))
+ 		ip_forward_options(skb);
+ 
++	if (ip_gso_exceeds_dst_mtu(skb))
++		return ip_forward_finish_gso(skb);
++
+ 	return dst_output(skb);
+ }
+ 
+@@ -88,8 +156,7 @@ int ip_forward(struct sk_buff *skb)
+ 	if (opt->is_strictroute && rt->rt_uses_gateway)
+ 		goto sr_failed;
+ 
+-	if (unlikely(skb->len > dst_mtu(&rt->dst) && !skb_is_gso(skb) &&
+-		     (ip_hdr(skb)->frag_off & htons(IP_DF))) && !skb->local_df) {
++	if (!ip_may_fragment(skb) && ip_exceeds_mtu(skb, dst_mtu(&rt->dst))) {
+ 		IP_INC_STATS(dev_net(rt->dst.dev), IPSTATS_MIB_FRAGFAILS);
+ 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
+ 			  htonl(dst_mtu(&rt->dst)));
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index e6f9319..2e5667d 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -321,6 +321,20 @@ static inline int ip6_forward_finish(struct sk_buff *skb)
+ 	return dst_output(skb);
+ }
+ 
++static bool ip6_pkt_too_big(const struct sk_buff *skb, unsigned int mtu)
++{
++	if (skb->len <= mtu || skb->local_df)
++		return false;
++
++	if (IP6CB(skb)->frag_max_size && IP6CB(skb)->frag_max_size > mtu)
++		return true;
++
++	if (skb_is_gso(skb) && skb_gso_network_seglen(skb) <= mtu)
++		return false;
++
++	return true;
++}
++
+ int ip6_forward(struct sk_buff *skb)
+ {
+ 	struct dst_entry *dst = skb_dst(skb);
+@@ -443,8 +457,7 @@ int ip6_forward(struct sk_buff *skb)
+ 	if (mtu < IPV6_MIN_MTU)
+ 		mtu = IPV6_MIN_MTU;
+ 
+-	if ((!skb->local_df && skb->len > mtu && !skb_is_gso(skb)) ||
+-	    (IP6CB(skb)->frag_max_size && IP6CB(skb)->frag_max_size > mtu)) {
++	if (ip6_pkt_too_big(skb, mtu)) {
+ 		/* Again, force OUTPUT device used as source address */
+ 		skb->dev = dst->dev;
+ 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
 -- 
-1.9.0.1.g4196000
+1.8.5.3
