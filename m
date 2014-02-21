@@ -1,22 +1,20 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the wireless
- tree
-Date: Fri, 21 Feb 2014 13:34:41 +1100
-Message-ID: <20140221133441.77e6ef11dfad31bb90a12d8a@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Fri, 21 Feb 2014 13:49:33 +1100
+Message-ID: <20140221134933.ccf25d5023ecb3c48ee3cf7d@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: multipart/signed; protocol="application/pgp-signature";
  micalg="PGP-SHA256";
- boundary="Signature=_Fri__21_Feb_2014_13_34_41_+1100_L=If3W7cc/kR2ml3"
+ boundary="Signature=_Fri__21_Feb_2014_13_49_33_+1100_f.MgZ7l9YvWUHzj3"
 Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Amitkumar Karwar <akarwar@marvell.com>,
-	Aaron Durbin <adurbin@chromium.org>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	WANG Cong <xiyou.wangcong@gmail.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Fri__21_Feb_2014_13_34_41_+1100_L=If3W7cc/kR2ml3
+--Signature=_Fri__21_Feb_2014_13_49_33_+1100_f.MgZ7l9YvWUHzj3
 Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
@@ -24,59 +22,79 @@ Content-Transfer-Encoding: quoted-printable
 Hi all,
 
 Today's linux-next merge of the net-next tree got a conflict in
-drivers/net/wireless/mwifiex/pcie.c between commit bb8e6a1ee881
-("mwifiex: add NULL check for PCIe Rx skb") from the  tree and commit
-dbccc92b5d54 ("mwifiex: balance dma map/unmap sizes") from the net-next
-tree.
+net/ipv6/sit.c between commit cf71d2bc0b8a ("sit: fix panic with route
+cache in ip tunnels") from the  tree and commit 1c213bd24ad0 ("net:
+introduce netdev_alloc_pcpu_stats() for drivers") from the net-next tree.
 
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
+I fixed it up (I think ... see below) and can carry the fix as necessary
+(no action is required).
 
 --=20
 Cheers,
 Stephen Rothwell                    sfr@canb.auug.org.au
 
-diff --cc drivers/net/wireless/mwifiex/pcie.c
-index 7fe7b53fb17a,d11d4acf0890..000000000000
---- a/drivers/net/wireless/mwifiex/pcie.c
-+++ b/drivers/net/wireless/mwifiex/pcie.c
-@@@ -1211,15 -1217,7 +1217,13 @@@ static int mwifiex_pcie_process_recv_da
-  		rd_index =3D card->rxbd_rdptr & reg->rx_mask;
-  		skb_data =3D card->rx_buf_list[rd_index];
+diff --cc net/ipv6/sit.c
+index b4d74c86586c,958027be0e94..000000000000
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@@ -1376,18 -1368,6 +1375,12 @@@ static int ipip6_tunnel_init(struct net
+  	if (!dev->tstats)
+  		return -ENOMEM;
  =20
- +		/* If skb allocation was failed earlier for Rx packet,
- +		 * rx_buf_list[rd_index] would have been left with a NULL.
- +		 */
- +		if (!skb_data)
- +			return -ENOMEM;
+- 	for_each_possible_cpu(i) {
+- 		struct pcpu_sw_netstats *ipip6_tunnel_stats;
+- 		ipip6_tunnel_stats =3D per_cpu_ptr(dev->tstats, i);
+- 		u64_stats_init(&ipip6_tunnel_stats->syncp);
+- 	}
+-=20
+ +	tunnel->dst_cache =3D alloc_percpu(struct ip_tunnel_dst);
+ +	if (!tunnel->dst_cache) {
+ +		free_percpu(dev->tstats);
+ +		return -ENOMEM;
+ +	}
  +
-- 		MWIFIEX_SKB_PACB(skb_data, &buf_pa);
-- 		pci_unmap_single(card->dev, buf_pa, MWIFIEX_RX_DATA_BUF_SIZE,
-- 				 PCI_DMA_FROMDEVICE);
-+ 		mwifiex_unmap_pci_memory(adapter, skb_data, PCI_DMA_FROMDEVICE);
-  		card->rx_buf_list[rd_index] =3D NULL;
+  	return 0;
+  }
  =20
-  		/* Get data length from interface header -
+@@@ -1412,18 -1391,6 +1404,12 @@@ static int __net_init ipip6_fb_tunnel_i
+  	if (!dev->tstats)
+  		return -ENOMEM;
+ =20
+- 	for_each_possible_cpu(i) {
+- 		struct pcpu_sw_netstats *ipip6_fb_stats;
+- 		ipip6_fb_stats =3D per_cpu_ptr(dev->tstats, i);
+- 		u64_stats_init(&ipip6_fb_stats->syncp);
+- 	}
+-=20
+ +	tunnel->dst_cache =3D alloc_percpu(struct ip_tunnel_dst);
+ +	if (!tunnel->dst_cache) {
+ +		free_percpu(dev->tstats);
+ +		return -ENOMEM;
+ +	}
+ +
+  	dev_hold(dev);
+  	rcu_assign_pointer(sitn->tunnels_wc[0], tunnel);
+  	return 0;
 
---Signature=_Fri__21_Feb_2014_13_34_41_+1100_L=If3W7cc/kR2ml3
+--Signature=_Fri__21_Feb_2014_13_49_33_+1100_f.MgZ7l9YvWUHzj3
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2.0.22 (GNU/Linux)
 
-iQIcBAEBCAAGBQJTBrtFAAoJEMDTa8Ir7ZwVJ7QP/RVnuT9xAxC1BjeHRcl4rWRz
-jo1+3HxM093AyfZDinbll7CaWejVU4zz9OvMMAoN3vK/BIzDfERTMh27TDMbWoUm
-XlxbsgLO7ZU9x9btdELjrkzh7fpvtQ7cufpXOB2yEpVAOI/fxPN5QChKBFMBo3cv
-3Qz6GBnCwOXWJAEzepDDFiOcyHmTUSKNwMbuqBRiOV/OmD0cs8rrJqCYvC5AKHN8
-s7KidZEUEavT2ZwBsyzvN4t3u9oEykaXcrqV5WajSGkT1Rc66LWDkeURCyOnCKjB
-Zr6gvEB+3xe4e5JZJQBSZxIPaKwX/BJGs0fWyrN311zh9vRgvAoBxnSk30XwyChj
-yffttfLvkBbchcXMx4SOJJl35GuNObJ+ZMEqS7oZ19pIwUhnCzlmg5EdfRVSB5Te
-xxTZvmmn6Ph5sFbbwkkX0X5TitO54hDvgX2jow1y7/St3geNeQt6CpfTNMLikIOi
-QR8e4Ip9pzEhfh6X1lua0V8L0SMQahbUlLg/KED+EQyEQRJNL/bQNTvsNzVZYw/E
-9xggp9uDw6feLrEvjyUME7RBJfUL+bXY1TStzclyVl1UiX+pYQi1L2qlGnlnFqKA
-8UBC9bj+T//JRHGD9WE7FkeMLg5PMp94sEbjtXIvG4M2FixFmWZrzYNvdeTvvcu8
-QX4eh38PZNDrn+zh9HeK
-=3Dxu
+iQIbBAEBCAAGBQJTBr7BAAoJEMDTa8Ir7ZwVSmMP+NsNzBm9WT/xBA+QYW1hOMIk
+FZC4p0vxTu2IE9yFuRkEW+6E3mE08j2uRhI4uQn3vKXaguEGh6o/qJNXi0PL9NxU
+RbxufCZTbolKvSLNdYrzSRHbaCrWL8YbXAhmuYoXgClm5IxC2MuIScyitDoZGlNs
+DJr4Q3foSRQOTH8j3ScgSA+YKe4U7KIdFTdraWjYu36Mzcv7/1t2jrvzn+l/I+/w
+1gzVpL8MYwX7J3NabqDqtM6FZfLbO/ZGQ2bhNADMUZcW2OskIeMU2sfOXwPNapnW
+MqrzzWD8FdvPN47atMzz/VzqJsf432WtT5vSg1NHue7lmwYF13J396XILIrE1aox
+cCOGMzgjz1qczWSOLMO/0bGvuUQAxGPFRdNWb5XRIvePQw+CUlLAHYdcVW2T6wsG
+26kvCrE3gsrWGtUB1bFNd3L3hjmXdJR7LQC3+vcJcfrYvKP2M11Z+fLpQzFjUOzG
+B+OYw5VbpF0/2OpzVoV8uSBJA/lxRvlAIvsmnyHGKPF7010NX2PiW9nSZNGhKI3S
+/Cp2hUAvAyIDcDM4QfN54neGEvDxHc0A1fhRrO95qjcga53zQAvST5WY93FuWycF
+J3rGrVXtEBOJ0RMW0BSN6m0sPnDOHRX2/dmvTqqjBy3Q29BnduirIzz513gbNp1Q
+MLvUCsthQsbXhpDem08=
+=LCl/
 -----END PGP SIGNATURE-----
 
---Signature=_Fri__21_Feb_2014_13_34_41_+1100_L=If3W7cc/kR2ml3--
+--Signature=_Fri__21_Feb_2014_13_49_33_+1100_f.MgZ7l9YvWUHzj3--
