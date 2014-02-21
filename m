@@ -1,47 +1,67 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net] neigh: fix setting of default gc_* values
-Date: Fri, 21 Feb 2014 14:52:57 +0100
-Message-ID: <1392990777-9446-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, gaofeng@cn.fujitsu.com,
-	hannes@stressinduktion.org, joe@perches.com, vfalico@redhat.com,
-	ffusco@redhat.com
-To: netdev@vger.kernel.org
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: [PATCH net 0/7] qlcnic: Re-factoring and enhancements
+Date: Fri, 21 Feb 2014 08:19:48 -0500
+Message-ID: <1392988795-19380-1-git-send-email-shahed.shaikh@qlogic.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f48.google.com ([74.125.83.48]:48325 "EHLO
-	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755996AbaBUNxD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 08:53:03 -0500
-Received: by mail-ee0-f48.google.com with SMTP id t10so1631193eei.7
-        for <netdev@vger.kernel.org>; Fri, 21 Feb 2014 05:53:01 -0800 (PST)
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:53986 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932239AbaBUNzQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 08:55:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes bug introduced by:
-commit 1d4c8c29841b9991cdf3c7cc4ba7f96a94f104ca
-"neigh: restore old behaviour of default parms values"
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-The thing is that in neigh_sysctl_register, extra1 and extra2 which were
-previously set for NEIGH_VAR_GC_* are overwritten. That leads to
-nonsense int limits for gc_* variables. So fix this by not touching
-extra* fields for gc_* variables.
+Hi David,
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- net/core/neighbour.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+This patch series includes following changes -
+* Re-factored firmware minidump template header handling
+* Support to make 8 vNIC mode application to work with 16 vNIC mode
+* Enhance error message logging when adapter is in failed state and
+  when adapter lock access fails.
+* Allow vlan0 traffic
+* update MAINTAINERS
 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index b9e9e0d..e1aa0f3 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -3046,7 +3046,7 @@ int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
- 	if (!t)
- 		goto err;
- 
--	for (i = 0; i < ARRAY_SIZE(t->neigh_vars); i++) {
-+	for (i = 0; i < NEIGH_VAR_GC_INTERVAL; i++) {
- 		t->neigh_vars[i].data += (long) p;
- 		t->neigh_vars[i].extra1 = dev;
- 		t->neigh_vars[i].extra2 = p;
+Please apply this series to net-next.
+
+Thanks,
+Shahed
+
+Harish Patil (1):
+  qlcnic: Enhance semaphore lock access failure error message
+
+Jitendra Kalsaria (1):
+  qlcnic: Updates to QLogic application/driver interface for virtual NIC
+    configuration
+
+Rajesh Borundia (1):
+  qlcnic: Allow vlan0 traffic
+
+Shahed Shaikh (3):
+  qlcnic: Re-factor firmware minidump template header handling
+  qlcnic: Update version to 5.3.56
+  Update MAINTAINERS for qlcnic driver
+
+Sucheta Chakraborty (1):
+  qlcnic: Enhance driver message in failed state.
+
+ MAINTAINERS                                        |   7 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |  77 ++++++-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   7 +-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |   8 +
+ .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |  17 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c     |  22 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h     |   8 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |  11 +-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_minidump.c   | 233 ++++++++++++++++-----
+ .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |   6 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c  | 102 ++++-----
+ 11 files changed, 349 insertions(+), 149 deletions(-)
+
 -- 
-1.8.5.3
+1.8.1.4
