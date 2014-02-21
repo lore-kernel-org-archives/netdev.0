@@ -1,31 +1,29 @@
 From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: Re: [PATCH V4 net-next 1/5] xen-netback: Factor
- queue-specific data into queue struct.
-Date: Fri, 21 Feb 2014 12:08:24 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD02552E8@AMSPEX01CL01.citrite.net>
+Subject: RE: [PATCH V4 net-next 2/5] xen-netback: Add support for multiple
+ queues
+Date: Fri, 21 Feb 2014 12:13:21 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD0255316@AMSPEX01CL01.citrite.net>
 References: <1392659880-2538-1-git-send-email-andrew.bennieston@citrix.com>
-	<1392659880-2538-2-git-send-email-andrew.bennieston@citrix.com>
+ <1392659880-2538-3-git-send-email-andrew.bennieston@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Bennieston <andrew.bennieston@citrix.com>,
+Content-Transfer-Encoding: 8BIT
+Cc: Ian Campbell <Ian.Campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>, Ian Campbell <Ian.Campbell@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
+	David Vrabel <david.vrabel@citrix.com>,
+	Andrew Bennieston <andrew.bennieston@citrix.com>
 To: Andrew Bennieston <andrew.bennieston@citrix.com>,
 	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1392659880-2538-2-git-send-email-andrew.bennieston@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.ctxuk.citrix.com ([185.25.65.24]:36483 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754055AbaBUMO0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 07:14:26 -0500
+In-Reply-To: <1392659880-2538-3-git-send-email-andrew.bennieston@citrix.com>
 Content-Language: en-US
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 > -----Original Message-----
 > From: Andrew J. Bennieston [mailto:andrew.bennieston@citrix.com]
@@ -33,143 +31,246 @@ List-Id: netdev.vger.kernel.org
 > To: xen-devel@lists.xenproject.org
 > Cc: Ian Campbell; Wei Liu; Paul Durrant; netdev@vger.kernel.org; David
 > Vrabel; Andrew Bennieston
-> Subject: [PATCH V4 net-next 1/5] xen-netback: Factor queue-specific data
-> into queue struct.
+> Subject: [PATCH V4 net-next 2/5] xen-netback: Add support for multiple
+> queues
 > 
 > From: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
 > 
-> In preparation for multi-queue support in xen-netback, move the
-> queue-specific data from struct xenvif into struct xenvif_queue, and
-> update the rest of the code to use this.
+> Builds on the refactoring of the previous patch to implement multiple
+> queues between xen-netfront and xen-netback.
 > 
-> Also adds loops over queues where appropriate, even though only one is
-> configured at this point, and uses alloc_netdev_mq() and the
-> corresponding multi-queue netif wake/start/stop functions in preparation
-> for multiple active queues.
+> Writes the maximum supported number of queues into XenStore, and reads
+> the values written by the frontend to determine how many queues to use.
 > 
-> Finally, implements a trivial queue selection function suitable for
-> ndo_select_queue, which simply returns 0 for a single queue and uses
-> skb_get_hash() to compute the queue index otherwise.
+> Ring references and event channels are read from XenStore on a per-queue
+> basis and rings are connected accordingly.
 > 
 > Signed-off-by: Andrew J. Bennieston <andrew.bennieston@citrix.com>
 > ---
->  drivers/net/xen-netback/common.h    |   81 ++++--
->  drivers/net/xen-netback/interface.c |  314 ++++++++++++++-------
->  drivers/net/xen-netback/netback.c   |  528 ++++++++++++++++++------------
-> -----
->  drivers/net/xen-netback/xenbus.c    |   87 ++++--
->  4 files changed, 593 insertions(+), 417 deletions(-)
+>  drivers/net/xen-netback/common.h    |    2 +
+>  drivers/net/xen-netback/interface.c |    7 +++-
+>  drivers/net/xen-netback/netback.c   |    8 ++++
+>  drivers/net/xen-netback/xenbus.c    |   76
+> ++++++++++++++++++++++++++++++-----
+>  4 files changed, 82 insertions(+), 11 deletions(-)
 > 
 > diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-
 > netback/common.h
-> index ae413a2..2550867 100644
+> index 2550867..8180929 100644
 > --- a/drivers/net/xen-netback/common.h
 > +++ b/drivers/net/xen-netback/common.h
-> @@ -108,17 +108,36 @@ struct xenvif_rx_meta {
->   */
->  #define MAX_GRANT_COPY_OPS (MAX_SKB_FRAGS *
-> XEN_NETIF_RX_RING_SIZE)
+> @@ -261,4 +261,6 @@ void xenvif_carrier_on(struct xenvif *vif);
 > 
-> -struct xenvif {
-> -	/* Unique identifier for this interface. */
-> -	domid_t          domid;
-> -	unsigned int     handle;
-> +/* Queue name is interface name with "-qNNN" appended */
-> +#define QUEUE_NAME_SIZE (IFNAMSIZ + 6)
+>  extern bool separate_tx_rx_irq;
+> 
+> +extern unsigned int xenvif_max_queues;
 > +
-
-'-qNNN' is only 5 chars. Are you accounting for a NUL terminator too?
-
-> +/* IRQ name is queue name with "-tx" or "-rx" appended */
-> +#define IRQ_NAME_SIZE (QUEUE_NAME_SIZE + 4)
-> +
-
-If yes, then you appear to have doubly accounted for it here.
-
-> +struct xenvif;
-> +
-> +struct xenvif_stats {
-> +	/* Stats fields to be updated per-queue.
-> +	 * A subset of struct net_device_stats that contains only the
-> +	 * fields that are updated in netback.c for each queue.
+>  #endif /* __XEN_NETBACK__COMMON_H__ */
+> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-
+> netback/interface.c
+> index daf93f6..bc7a82d 100644
+> --- a/drivers/net/xen-netback/interface.c
+> +++ b/drivers/net/xen-netback/interface.c
+> @@ -373,7 +373,12 @@ struct xenvif *xenvif_alloc(struct device *parent,
+> domid_t domid,
+>  	char name[IFNAMSIZ] = {};
+> 
+>  	snprintf(name, IFNAMSIZ - 1, "vif%u.%u", domid, handle);
+> -	dev = alloc_netdev_mq(sizeof(struct xenvif), name, ether_setup, 1);
+> +	/* Allocate a netdev with the max. supported number of queues.
+> +	 * When the guest selects the desired number, it will be updated
+> +	 * via netif_set_real_num_tx_queues().
 > +	 */
-> +	unsigned int rx_bytes;
-> +	unsigned int rx_packets;
-> +	unsigned int tx_bytes;
-> +	unsigned int tx_packets;
-> +};
+> +	dev = alloc_netdev_mq(sizeof(struct xenvif), name, ether_setup,
+> +			      xenvif_max_queues);
+>  	if (dev == NULL) {
+>  		pr_warn("Could not allocate netdev for %s\n", name);
+>  		return ERR_PTR(-ENOMEM);
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-
+> netback/netback.c
+> index 46b2f5b..64d66a1 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -54,6 +54,11 @@
+>  bool separate_tx_rx_irq = 1;
+>  module_param(separate_tx_rx_irq, bool, 0644);
+> 
+> +unsigned int xenvif_max_queues;
+> +module_param(xenvif_max_queues, uint, 0644);
+> +MODULE_PARM_DESC(xenvif_max_queues,
+> +		"Maximum number of queues per virtual interface");
 > +
-> +struct xenvif_queue { /* Per-queue data for xenvif */
-> +	unsigned int id; /* Queue ID, 0-based */
-> +	char name[QUEUE_NAME_SIZE]; /* DEVNAME-qN */
-> +	struct xenvif *vif; /* Parent VIF */
+>  /*
+>   * This is the maximum slots a skb can have. If a guest sends a skb
+>   * which exceeds this limit it is considered malicious.
+> @@ -1585,6 +1590,9 @@ static int __init netback_init(void)
+>  	if (!xen_domain())
+>  		return -ENODEV;
 > 
->  	/* Use NAPI for guest TX */
->  	struct napi_struct napi;
->  	/* When feature-split-event-channels = 0, tx_irq = rx_irq. */
->  	unsigned int tx_irq;
->  	/* Only used when feature-split-event-channels = 1 */
-> -	char tx_irq_name[IFNAMSIZ+4]; /* DEVNAME-tx */
-> +	char tx_irq_name[IRQ_NAME_SIZE]; /* DEVNAME-qN-tx */
->  	struct xen_netif_tx_back_ring tx;
->  	struct sk_buff_head tx_queue;
->  	struct page *mmap_pages[MAX_PENDING_REQS];
-> @@ -140,19 +159,34 @@ struct xenvif {
->  	/* When feature-split-event-channels = 0, tx_irq = rx_irq. */
->  	unsigned int rx_irq;
->  	/* Only used when feature-split-event-channels = 1 */
-> -	char rx_irq_name[IFNAMSIZ+4]; /* DEVNAME-rx */
-> +	char rx_irq_name[IRQ_NAME_SIZE]; /* DEVNAME-qN-rx */
->  	struct xen_netif_rx_back_ring rx;
->  	struct sk_buff_head rx_queue;
->  	RING_IDX rx_last_skb_slots;
-> 
-> -	/* This array is allocated seperately as it is large */
-> -	struct gnttab_copy *grant_copy_op;
-> +	struct gnttab_copy grant_copy_op[MAX_GRANT_COPY_OPS];
-> 
->  	/* We create one meta structure per ring request we consume, so
->  	 * the maximum number is the same as the ring size.
->  	 */
->  	struct xenvif_rx_meta meta[XEN_NETIF_RX_RING_SIZE];
-> 
-> +	/* Transmit shaping: allow 'credit_bytes' every 'credit_usec'. */
-> +	unsigned long   credit_bytes;
-> +	unsigned long   credit_usec;
-> +	unsigned long   remaining_credit;
-> +	struct timer_list credit_timeout;
-> +	u64 credit_window_start;
+> +	/* Allow as many queues as there are CPUs, by default */
+> +	xenvif_max_queues = num_online_cpus();
 > +
-> +	/* Statistics */
-> +	struct xenvif_stats stats;
-> +};
+>  	if (fatal_skb_slots < XEN_NETBK_LEGACY_SLOTS_MAX) {
+>  		pr_info("fatal_skb_slots too small (%d), bump it to
+> XEN_NETBK_LEGACY_SLOTS_MAX (%d)\n",
+>  			fatal_skb_slots, XEN_NETBK_LEGACY_SLOTS_MAX);
+> diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-
+> netback/xenbus.c
+> index f23ea0a..d11f51e 100644
+> --- a/drivers/net/xen-netback/xenbus.c
+> +++ b/drivers/net/xen-netback/xenbus.c
+> @@ -20,6 +20,7 @@
+> 
+>  #include "common.h"
+>  #include <linux/vmalloc.h>
+> +#include <linux/rtnetlink.h>
+> 
+>  struct backend_info {
+>  	struct xenbus_device *dev;
+> @@ -159,6 +160,12 @@ static int netback_probe(struct xenbus_device *dev,
+>  	if (err)
+>  		pr_debug("Error writing feature-split-event-channels\n");
+> 
+> +	/* Multi-queue support: This is an optional feature. */
+> +	err = xenbus_printf(XBT_NIL, dev->nodename,
+> +			"multi-queue-max-queues", "%u",
+> xenvif_max_queues);
+> +	if (err)
+> +		pr_debug("Error writing multi-queue-max-queues\n");
 > +
-> +struct xenvif {
-> +	/* Unique identifier for this interface. */
-> +	domid_t          domid;
-> +	unsigned int     handle;
+>  	err = xenbus_switch_state(dev, XenbusStateInitWait);
+>  	if (err)
+>  		goto fail;
+> @@ -490,6 +497,23 @@ static void connect(struct backend_info *be)
+>  	unsigned long credit_bytes, credit_usec;
+>  	unsigned int queue_index;
+>  	struct xenvif_queue *queue;
+> +	unsigned int requested_num_queues;
 > +
->  	u8               fe_dev_addr[6];
+> +	/* Check whether the frontend requested multiple queues
+> +	 * and read the number requested.
+> +	 */
+> +	err = xenbus_scanf(XBT_NIL, dev->otherend,
+> +			"multi-queue-num-queues",
+> +			"%u", &requested_num_queues);
+> +	if (err < 0) {
+> +		requested_num_queues = 1; /* Fall back to single queue */
+> +	} else if (requested_num_queues > xenvif_max_queues) {
+> +		/* buggy or malicious guest */
+> +		xenbus_dev_fatal(dev, err,
+> +			"guest requested %u queues, exceeding the
+> maximum of %u.",
+> +			requested_num_queues, xenvif_max_queues);
+> +		return;
+> +	}
 > 
->  	/* Frontend feature information. */
-> @@ -166,15 +200,12 @@ struct xenvif {
->  	/* Internal feature information. */
->  	u8 can_queue:1;	    /* can queue packets for receiver? */
+>  	err = xen_net_read_mac(dev, be->vif->fe_dev_addr);
+>  	if (err) {
+> @@ -500,9 +524,13 @@ static void connect(struct backend_info *be)
+>  	xen_net_read_rate(dev, &credit_bytes, &credit_usec);
+>  	read_xenbus_vif_flags(be);
 > 
-> -	/* Transmit shaping: allow 'credit_bytes' every 'credit_usec'. */
-> -	unsigned long   credit_bytes;
-> -	unsigned long   credit_usec;
-> -	unsigned long   remaining_credit;
-> -	struct timer_list credit_timeout;
-> -	u64 credit_window_start;
-> +	/* Queues */
-> +	unsigned int num_queues;
-> +	struct xenvif_queue *queues;
+> -	be->vif->num_queues = 1;
+> +	/* Use the number of queues requested by the frontend */
+> +	be->vif->num_queues = requested_num_queues;
+>  	be->vif->queues = vzalloc(be->vif->num_queues *
+>  			sizeof(struct xenvif_queue));
+> +	rtnl_lock();
+> +	netif_set_real_num_tx_queues(be->vif->dev, be->vif-
+> >num_queues);
+> +	rtnl_unlock();
 > 
->  	/* Statistics */
-> -	unsigned long rx_gso_checksum_fixup;
-> +	atomic_t rx_gso_checksum_fixup;
+>  	for (queue_index = 0; queue_index < be->vif->num_queues;
+> ++queue_index) {
+>  		queue = &be->vif->queues[queue_index];
+> @@ -547,29 +575,52 @@ static int connect_rings(struct backend_info *be,
+> struct xenvif_queue *queue)
+>  	unsigned long tx_ring_ref, rx_ring_ref;
+>  	unsigned int tx_evtchn, rx_evtchn;
+>  	int err;
+> +	char *xspath = NULL;
 
-Any reason why this is not in xenvif_stats? If  it were there then it would not need to be atomic.
+I don't think you need the NULL init here. xspath is set in both branches of the if statement below. 
 
   Paul
+
+> +	size_t xspathsize;
+> +	const size_t xenstore_path_ext_size = 11; /* sufficient for "/queue-
+> NNN" */
+> +
+> +	/* If the frontend requested 1 queue, or we have fallen back
+> +	 * to single queue due to lack of frontend support for multi-
+> +	 * queue, expect the remaining XenStore keys in the toplevel
+> +	 * directory. Otherwise, expect them in a subdirectory called
+> +	 * queue-N.
+> +	 */
+> +	if (queue->vif->num_queues == 1) {
+> +		xspath = (char *)dev->otherend;
+> +	} else {
+> +		xspathsize = strlen(dev->otherend) +
+> xenstore_path_ext_size;
+> +		xspath = kzalloc(xspathsize, GFP_KERNEL);
+> +		if (!xspath) {
+> +			xenbus_dev_fatal(dev, -ENOMEM,
+> +					"reading ring references");
+> +			return -ENOMEM;
+> +		}
+> +		snprintf(xspath, xspathsize, "%s/queue-%u", dev-
+> >otherend,
+> +				 queue->id);
+> +	}
+> 
+> -	err = xenbus_gather(XBT_NIL, dev->otherend,
+> +	err = xenbus_gather(XBT_NIL, xspath,
+>  			    "tx-ring-ref", "%lu", &tx_ring_ref,
+>  			    "rx-ring-ref", "%lu", &rx_ring_ref, NULL);
+>  	if (err) {
+>  		xenbus_dev_fatal(dev, err,
+>  				 "reading %s/ring-ref",
+> -				 dev->otherend);
+> -		return err;
+> +				 xspath);
+> +		goto err;
+>  	}
+> 
+>  	/* Try split event channels first, then single event channel. */
+> -	err = xenbus_gather(XBT_NIL, dev->otherend,
+> +	err = xenbus_gather(XBT_NIL, xspath,
+>  			    "event-channel-tx", "%u", &tx_evtchn,
+>  			    "event-channel-rx", "%u", &rx_evtchn, NULL);
+>  	if (err < 0) {
+> -		err = xenbus_scanf(XBT_NIL, dev->otherend,
+> +		err = xenbus_scanf(XBT_NIL, xspath,
+>  				   "event-channel", "%u", &tx_evtchn);
+>  		if (err < 0) {
+>  			xenbus_dev_fatal(dev, err,
+>  					 "reading %s/event-channel(-tx/rx)",
+> -					 dev->otherend);
+> -			return err;
+> +					 xspath);
+> +			goto err;
+>  		}
+>  		rx_evtchn = tx_evtchn;
+>  	}
+> @@ -582,10 +633,15 @@ static int connect_rings(struct backend_info *be,
+> struct xenvif_queue *queue)
+>  				 "mapping shared-frames %lu/%lu port tx %u
+> rx %u",
+>  				 tx_ring_ref, rx_ring_ref,
+>  				 tx_evtchn, rx_evtchn);
+> -		return err;
+> +		goto err;
+>  	}
+> 
+> -	return 0;
+> +	err = 0;
+> +err: /* Regular return falls through with err == 0 */
+> +	if (xspath != dev->otherend)
+> +		kfree(xspath);
+> +
+> +	return err;
+>  }
+> 
+>  static int read_xenbus_vif_flags(struct backend_info *be)
+> --
+> 1.7.10.4
