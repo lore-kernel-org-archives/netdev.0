@@ -1,68 +1,51 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net 5/5] qlcnic: reset firmware API lock during driver
- load
-Date: Fri, 21 Feb 2014 18:36:29 +0400
-Message-ID: <5307646D.4050801@cogentembedded.com>
-References: <1392963788-18341-1-git-send-email-shahed.shaikh@qlogic.com> <1392963788-18341-6-git-send-email-shahed.shaikh@qlogic.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH 1/1] rtlwifi: Convert drivers to use new API for
+ ieee80211_is_robust_mgmt_frame()
+Date: Fri, 21 Feb 2014 15:38:50 +0100
+Message-ID: <1392993530.4346.49.camel@jlt4.sipsolutions.net>
+References: <1392993211-3848-1-git-send-email-Larry.Finger@lwfinger.net>
+	 (sfid-20140221_153342_109062_89D3C0C6)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept-HSGLinuxNICDev@qlogic.com,
-	Sony Chacko <sony.chacko@qlogic.com>
-To: Shahed Shaikh <shahed.shaikh@qlogic.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f51.google.com ([209.85.215.51]:34183 "EHLO
-	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754342AbaBUOg0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 09:36:26 -0500
-Received: by mail-la0-f51.google.com with SMTP id c6so2391435lan.10
-        for <netdev@vger.kernel.org>; Fri, 21 Feb 2014 06:36:25 -0800 (PST)
-In-Reply-To: <1392963788-18341-6-git-send-email-shahed.shaikh@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1392993211-3848-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> (sfid-20140221_153342_109062_89D3C0C6)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Fri, 2014-02-21 at 08:33 -0600, Larry Finger wrote:
+> Drivers rtl8188ee, rtl8192ce, rtl8192se, and rtl8723ae all use this routine.
+> In addition, all callers of ieee80211_is_robust_mgmt_frame() have access to the
+> skb. Thus, it is trivial to use the new API rather than the underscored old version.
 
-On 21-02-2014 10:23, Shahed Shaikh wrote:
+Unfortunately, I'm pretty sure this is incorrect. I looked at this code
+before, and take for example:
 
-> From: Sony Chacko <sony.chacko@qlogic.com>
+> +++ b/drivers/net/wireless/rtlwifi/rtl8723ae/trx.c
+> @@ -334,8 +334,8 @@ bool rtl8723ae_rx_query_desc(struct ieee80211_hw *hw,
+>  			/* during testing, hdr could be NULL here */
+>  			return false;
+>  		}
+> -		if ((_ieee80211_is_robust_mgmt_frame(hdr)) &&
+> -			(ieee80211_has_protected(hdr->frame_control)))
+> +		if ((ieee80211_is_robust_mgmt_frame(skb)) &&
+> +		    (ieee80211_has_protected(hdr->frame_control)))
 
-> Firmware is not resetting API lock at initialization,
-> reset the lock at driver load time.
+Here, hdr is set like this:
 
-> Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
-> ---
->   drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c | 13 +++++++++++++
->   1 file changed, 13 insertions(+)
+                hdr = (struct ieee80211_hdr *)(skb->data +
+                       status->rx_drvinfo_size + status->rx_bufshift);  
 
-> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> index 1222865..61f8893 100644
-> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> @@ -2305,6 +2305,18 @@ void qlcnic_set_drv_version(struct qlcnic_adapter *adapter)
->   		qlcnic_fw_cmd_set_drv_version(adapter, fw_cmd);
->   }
->
-> +static void qlcnic_reset_api_lock(struct qlcnic_adapter *adapter)
-> +{
-> +	/* Check lock availability*/
-> +	if (qlcnic_api_lock(adapter)) {
-> +		/* Lock not available, force release the lock */
-> +		qlcnic_api_unlock(adapter);
-> +	} else {
-> +		/* Lock available, release it before proceeding */
-> +		qlcnic_api_unlock(adapter);
-> +	}
+so the skb clearly contains something else before the hdr, and the
+conversion is probably not right because it assumes hdr == skb->data,
+where here it isn't that but instead (skb->data + something).
 
-    Isn't it simpler to just do:
+johannes
 
-	qlcnic_api_lock(adapter);
-	qlcnic_api_unlock(adapter);
-
-> +}
-> +
->   static int
->   qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
->   {
-
-WBR, Sergei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
