@@ -1,54 +1,57 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [net-next 3/3] ixgbe: Check config reads for removal
-Date: Fri, 21 Feb 2014 04:11:28 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B73159251@ORSMSX101.amr.corp.intel.com>
-References: <1392871521-7731-1-git-send-email-aaron.f.brown@intel.com>
-	<1392871521-7731-4-git-send-email-aaron.f.brown@intel.com>
- <20140220.133221.371192280746136183.davem@davemloft.net>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net V2] virtio-net: alloc big buffers also when guest can
+	receive UFO
+Date: Fri, 21 Feb 2014 13:08:04 +0800
+Message-ID: <1392959284-11399-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Rustad, Mark D" <mark.d.rustad@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:42028 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752737AbaBUELa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Feb 2014 23:11:30 -0500
-In-Reply-To: <20140220.133221.371192280746136183.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Sridhar Samudrala <sri@us.ibm.com>
+To: rusty@rustcorp.com.au, mst@redhat.com, virtio-dev@lists.oasis-open.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Thursday, February 20, 2014 10:32 AM
-> To: Brown, Aaron F
-> Cc: Rustad, Mark D; netdev@vger.kernel.org; gospo@redhat.com;
-> sassmann@redhat.com
-> Subject: Re: [net-next 3/3] ixgbe: Check config reads for removal
-> 
-> From: Aaron Brown <aaron.f.brown@intel.com>
-> Date: Wed, 19 Feb 2014 20:45:21 -0800
-> 
-> > -	if (!(IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_GIO))
-> > +	if (!(IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_GIO) ||
-> > +		ixgbe_removed(hw->hw_addr))
-> >  		goto out;
-> 
-> This is not indented correctly, the second line of the if() statement
-> should start at the first column after the openning parenthesis of the
-> top-level if() statement.
+We should alloc big buffers also when guest can receive UFO
+pakcets to let the big packets be fit into guest rx buffer.
 
-Thanks Dave,
+Fixes 5c5167515d80f78f6bb538492c423adcae31ad65
+(virtio-net: Allow UFO feature to be set and advertised.)
 
-Turns out we noticed another minor issue in this as well, but significant enough to warrant running it through test again, so I'll resubmit the series again once it gets through the process.
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Cc: Sridhar Samudrala <sri@us.ibm.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+Changes from V1:
+- tweak the commit log
+---
+ drivers/net/virtio_net.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-> 
-> > +	if (*value == IXGBE_FAILED_READ_CFG_WORD &&
-> > +	    ixgbe_check_cfg_remove(&adapter->hw, parent_dev))
-> > +		return -1;
-> 
-> Just as you correctly did here.
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index d75f8ed..5632a99 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1711,7 +1711,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	/* If we can receive ANY GSO packets, we must allocate large ones. */
+ 	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO4) ||
+ 	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO6) ||
+-	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_ECN))
++	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_ECN) ||
++	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_UFO))
+ 		vi->big_packets = true;
+ 
+ 	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
+-- 
+1.8.3.2
