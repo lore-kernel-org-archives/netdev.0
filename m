@@ -1,76 +1,31 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: Deliver skbs to intermediate interfaces, when using cascaded
- rx-handlers
-Date: Fri, 21 Feb 2014 14:10:35 -0300
-Message-ID: <20140221171034.GA2488@localhost.localdomain>
-References: <20140221100158.GA19594@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] ethtool: Remove inactive code snippet in
+ ethtool_set_rxfh_indir
+Date: Fri, 21 Feb 2014 12:14:36 -0500 (EST)
+Message-ID: <20140221.121436.508104819618605416.davem@davemloft.net>
+References: <d966666f-7494-449a-a48f-728f77614738@CMEXHTCAS2.ad.emulex.com>
+	<20140219.164243.2046477353509124098.davem@davemloft.net>
+	<BF3270C86E8B1349A26C34E4EC1C44CB2C87E699@CMEXMB1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Tobias Waldekranz <tobias@waldekranz.com>
+To: VenkatKumar.Duvvuru@Emulex.Com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22294 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755212AbaBURKk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Feb 2014 12:10:40 -0500
-Content-Disposition: inline
-In-Reply-To: <20140221100158.GA19594@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41617 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755655AbaBUROk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 12:14:40 -0500
+In-Reply-To: <BF3270C86E8B1349A26C34E4EC1C44CB2C87E699@CMEXMB1.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 21, 2014 at 11:01:58AM +0100, Tobias Waldekranz wrote:
-> I have a system with the following configuration:
-> 
->    * eth0 is a regular Ethernet MAC, connected to a hardware switch.
->    * port[1-4] are the in-kernel representation of the switch.
->    * team0 is a regular team-interface which bonds port1 and port2.
-> 
->       +-------+
->       | team0 |
->       +---+---+
->           |
->      +----+----+
->      |         |
->  +---+---+ +---+---+ +-------+ +-------+
->  | port1 | | port2 | | port3 | | port4 | 
->  +---+---+ +---+---+ +---+---+ +---+---+
->      |         |         |         |
->      +---------+----+----+---------+
->                     |
->                 +---+---+
->                 | eth0  |
->                 +-------+
-> 
-> Both the switch and the team driver attaches rx-handlers to their
-> lower layers. The problem is that team expects LACP frames that
-> are intercepted by team0, to also be delivered to the port interface
-> by __netif_receive_skb_core (in the final iteration of the registered
-> protocols). However in this case, when two rx-handlers are cascaded,
-> the skb will be delivered to eth0, since that is the original device
-> (orig_dev).
+From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
+Date: Fri, 21 Feb 2014 10:28:24 +0000
 
-Indeed. It is not possible to update orig_dev, so it is stuck
-on eth0 regardless of all the stacked interfaces.
+> There is no option for --set-rxfh-indir to reset the indirection table.
 
-> There are a few ways this can be solved as far as i can see:
-> 
->    1. Introduce a new rx-handler return code that specifies that
->    skb->dev has been altered, like RX_HANDLER_ANOTHER, and that we
->    also want to change orig_dev to this new device.
+But this can be easily added to ethtool.
 
-But then you need to know which rx-handler will run next, because
-the orig_dev might still be implicit wanted.
- 
->    2. Change the switch driver to return RX_HANDLER_CONSUMED and then
->    queue the skb all over again, though I am afraid that this will eat
->    some cycles.
-
-Before queue again, you need to update skb->dev, right? This seems
-similar to (1).
-
->    3. Keep track of all traversed interfaces and change the final
->    protocol iteration to deliver the skb to all intermediate devices.
-
-That's what I thought too.
-
-fbl
+My point is that the intention is _clearly_ there to provide this
+facility.
