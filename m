@@ -1,256 +1,121 @@
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net 2/7] qlcnic: Updates to QLogic application/driver interface for virtual NIC configuration
-Date: Fri, 21 Feb 2014 08:19:50 -0500
-Message-ID: <1392988795-19380-3-git-send-email-shahed.shaikh@qlogic.com>
-References: <1392988795-19380-1-git-send-email-shahed.shaikh@qlogic.com>
+From: Marc Dietrich <marvin24@gmx.de>
+Subject: Re: [PATCH 1/4] net: rfkill: gpio: remove unused and obsolete platform parameters
+Date: Fri, 21 Feb 2014 14:55:14 +0100
+Message-ID: <1723302.jKkc8NDNRI@fb07-iapwap2>
+References: <1392900697-27577-1-git-send-email-heikki.krogerus@linux.intel.com> <1392900697-27577-2-git-send-email-heikki.krogerus@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:3539 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933091AbaBUNzb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 08:55:31 -0500
-In-Reply-To: <1392988795-19380-1-git-send-email-shahed.shaikh@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7Bit
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Chen-Yu Tsai <wens@csie.org>,
+	Rhyland Klein <rklein@nvidia.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1392900697-27577-2-git-send-email-heikki.krogerus@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Hi Heikki,
 
-Qlogic application interface in the driver which has larger than 8 vNIC
-configuration support has been updated to handle the following cases:
+Am Donnerstag, 20. Februar 2014, 14:51:34 schrieb Heikki Krogerus:
+> After upgrading to descriptor based gpios, the gpio numbers
+> are not used anymore. The power_clk_name and the platform
+> specific setup and close hooks are not used by anybody, and
+> we should not encourage use of such things, so removing them.
 
-o Only 8 or lower total vNICs were enabled within the vNIC 0-7 range
-o vNICs were enabled in the vNIC 0-15 range such that enabled vNICs were
-  not contiguous and only 8 or lower number of total VNICs were enabled
-o Disconnect in the vNIC mapping between application and driver when the
-  enabled VNICs were dis contiguous
+arch/arm/mach-tegra/board-paz00.c is still using platform data. Is there some 
+prerequisite patch I'm missing (3.14-rc3) or how can this file be converted? 
+We are waiting for DT support to arrive so we can finally remove this file.
 
-Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c | 102 ++++++++--------------
- 1 file changed, 37 insertions(+), 65 deletions(-)
+Marc
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-index 3d64113..448d156 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-@@ -350,33 +350,15 @@ static ssize_t qlcnic_sysfs_write_mem(struct file *filp, struct kobject *kobj,
- 	return size;
- }
- 
--static u32 qlcnic_get_pci_func_count(struct qlcnic_adapter *adapter)
--{
--	struct qlcnic_hardware_context *ahw = adapter->ahw;
--	u32 count = 0;
--
--	if (!(adapter->flags & QLCNIC_ESWITCH_ENABLED))
--		return ahw->total_nic_func;
--
--	if (ahw->total_pci_func <= QLC_DEFAULT_VNIC_COUNT)
--		count = QLC_DEFAULT_VNIC_COUNT;
--	else
--		count = ahw->max_vnic_func;
--
--	return count;
--}
--
- int qlcnic_is_valid_nic_func(struct qlcnic_adapter *adapter, u8 pci_func)
- {
--	u32 pci_func_count = qlcnic_get_pci_func_count(adapter);
- 	int i;
- 
--	for (i = 0; i < pci_func_count; i++) {
-+	for (i = 0; i < adapter->ahw->max_vnic_func; i++) {
- 		if (adapter->npars[i].pci_func == pci_func)
- 			return i;
- 	}
--
--	return -1;
-+	return -EINVAL;
- }
- 
- static int validate_pm_config(struct qlcnic_adapter *adapter,
-@@ -464,23 +446,21 @@ static ssize_t qlcnic_sysfs_read_pm_config(struct file *filp,
- {
- 	struct device *dev = container_of(kobj, struct device, kobj);
- 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
--	u32 pci_func_count = qlcnic_get_pci_func_count(adapter);
- 	struct qlcnic_pm_func_cfg *pm_cfg;
--	int i, pm_cfg_size;
- 	u8 pci_func;
-+	u32 count;
-+	int i;
- 
--	pm_cfg_size = pci_func_count * sizeof(*pm_cfg);
--	if (size != pm_cfg_size)
--		return QL_STATUS_INVALID_PARAM;
--
--	memset(buf, 0, pm_cfg_size);
-+	memset(buf, 0, size);
- 	pm_cfg = (struct qlcnic_pm_func_cfg *)buf;
--
--	for (i = 0; i < pci_func_count; i++) {
-+	count = size / sizeof(struct qlcnic_pm_func_cfg);
-+	for (i = 0; i < adapter->ahw->total_nic_func; i++) {
- 		pci_func = adapter->npars[i].pci_func;
--		if (!adapter->npars[i].active)
-+		if (pci_func >= count) {
-+			dev_dbg(dev, "%s: Total nic functions[%d], App sent function count[%d]\n",
-+				__func__, adapter->ahw->total_nic_func, count);
- 			continue;
--
-+		}
- 		if (!adapter->npars[i].eswitch_status)
- 			continue;
- 
-@@ -494,7 +474,6 @@ static ssize_t qlcnic_sysfs_read_pm_config(struct file *filp,
- static int validate_esw_config(struct qlcnic_adapter *adapter,
- 			       struct qlcnic_esw_func_cfg *esw_cfg, int count)
- {
--	u32 pci_func_count = qlcnic_get_pci_func_count(adapter);
- 	struct qlcnic_hardware_context *ahw = adapter->ahw;
- 	int i, ret;
- 	u32 op_mode;
-@@ -507,7 +486,7 @@ static int validate_esw_config(struct qlcnic_adapter *adapter,
- 
- 	for (i = 0; i < count; i++) {
- 		pci_func = esw_cfg[i].pci_func;
--		if (pci_func >= pci_func_count)
-+		if (pci_func >= ahw->max_vnic_func)
- 			return QL_STATUS_INVALID_PARAM;
- 
- 		if (adapter->ahw->op_mode == QLCNIC_MGMT_FUNC)
-@@ -642,23 +621,21 @@ static ssize_t qlcnic_sysfs_read_esw_config(struct file *file,
- {
- 	struct device *dev = container_of(kobj, struct device, kobj);
- 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
--	u32 pci_func_count = qlcnic_get_pci_func_count(adapter);
- 	struct qlcnic_esw_func_cfg *esw_cfg;
--	size_t esw_cfg_size;
--	u8 i, pci_func;
--
--	esw_cfg_size = pci_func_count * sizeof(*esw_cfg);
--	if (size != esw_cfg_size)
--		return QL_STATUS_INVALID_PARAM;
-+	u8 pci_func;
-+	u32 count;
-+	int i;
- 
--	memset(buf, 0, esw_cfg_size);
-+	memset(buf, 0, size);
- 	esw_cfg = (struct qlcnic_esw_func_cfg *)buf;
--
--	for (i = 0; i < pci_func_count; i++) {
-+	count = size / sizeof(struct qlcnic_esw_func_cfg);
-+	for (i = 0; i < adapter->ahw->total_nic_func; i++) {
- 		pci_func = adapter->npars[i].pci_func;
--		if (!adapter->npars[i].active)
-+		if (pci_func >= count) {
-+			dev_dbg(dev, "%s: Total nic functions[%d], App sent function count[%d]\n",
-+				__func__, adapter->ahw->total_nic_func, count);
- 			continue;
--
-+		}
- 		if (!adapter->npars[i].eswitch_status)
- 			continue;
- 
-@@ -741,23 +718,24 @@ static ssize_t qlcnic_sysfs_read_npar_config(struct file *file,
- {
- 	struct device *dev = container_of(kobj, struct device, kobj);
- 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
--	u32 pci_func_count = qlcnic_get_pci_func_count(adapter);
- 	struct qlcnic_npar_func_cfg *np_cfg;
- 	struct qlcnic_info nic_info;
--	size_t np_cfg_size;
- 	int i, ret;
--
--	np_cfg_size = pci_func_count * sizeof(*np_cfg);
--	if (size != np_cfg_size)
--		return QL_STATUS_INVALID_PARAM;
-+	u32 count;
- 
- 	memset(&nic_info, 0, sizeof(struct qlcnic_info));
--	memset(buf, 0, np_cfg_size);
-+	memset(buf, 0, size);
- 	np_cfg = (struct qlcnic_npar_func_cfg *)buf;
- 
--	for (i = 0; i < pci_func_count; i++) {
-+	count = size / sizeof(struct qlcnic_npar_func_cfg);
-+	for (i = 0; i < adapter->ahw->total_nic_func; i++) {
- 		if (qlcnic_is_valid_nic_func(adapter, i) < 0)
- 			continue;
-+		if (adapter->npars[i].pci_func >= count) {
-+			dev_dbg(dev, "%s: Total nic functions[%d], App sent function count[%d]\n",
-+				__func__, adapter->ahw->total_nic_func, count);
-+			continue;
-+		}
- 		ret = qlcnic_get_nic_info(adapter, &nic_info, i);
- 		if (ret)
- 			return ret;
-@@ -783,7 +761,6 @@ static ssize_t qlcnic_sysfs_get_port_stats(struct file *file,
- {
- 	struct device *dev = container_of(kobj, struct device, kobj);
- 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
--	u32 pci_func_count = qlcnic_get_pci_func_count(adapter);
- 	struct qlcnic_esw_statistics port_stats;
- 	int ret;
- 
-@@ -793,7 +770,7 @@ static ssize_t qlcnic_sysfs_get_port_stats(struct file *file,
- 	if (size != sizeof(struct qlcnic_esw_statistics))
- 		return QL_STATUS_INVALID_PARAM;
- 
--	if (offset >= pci_func_count)
-+	if (offset >= adapter->ahw->max_vnic_func)
- 		return QL_STATUS_INVALID_PARAM;
- 
- 	memset(&port_stats, 0, size);
-@@ -884,13 +861,12 @@ static ssize_t qlcnic_sysfs_clear_port_stats(struct file *file,
- 
- 	struct device *dev = container_of(kobj, struct device, kobj);
- 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
--	u32 pci_func_count = qlcnic_get_pci_func_count(adapter);
- 	int ret;
- 
- 	if (qlcnic_83xx_check(adapter))
- 		return QLC_STATUS_UNSUPPORTED_CMD;
- 
--	if (offset >= pci_func_count)
-+	if (offset >= adapter->ahw->max_vnic_func)
- 		return QL_STATUS_INVALID_PARAM;
- 
- 	ret = qlcnic_clear_esw_stats(adapter, QLCNIC_STATS_PORT, offset,
-@@ -914,17 +890,12 @@ static ssize_t qlcnic_sysfs_read_pci_config(struct file *file,
- {
- 	struct device *dev = container_of(kobj, struct device, kobj);
- 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
--	u32 pci_func_count = qlcnic_get_pci_func_count(adapter);
- 	struct qlcnic_pci_func_cfg *pci_cfg;
- 	struct qlcnic_pci_info *pci_info;
--	size_t pci_cfg_sz;
- 	int i, ret;
-+	u32 count;
- 
--	pci_cfg_sz = pci_func_count * sizeof(*pci_cfg);
--	if (size != pci_cfg_sz)
--		return QL_STATUS_INVALID_PARAM;
--
--	pci_info = kcalloc(pci_func_count, sizeof(*pci_info), GFP_KERNEL);
-+	pci_info = kcalloc(size, sizeof(*pci_info), GFP_KERNEL);
- 	if (!pci_info)
- 		return -ENOMEM;
- 
-@@ -935,7 +906,8 @@ static ssize_t qlcnic_sysfs_read_pci_config(struct file *file,
- 	}
- 
- 	pci_cfg = (struct qlcnic_pci_func_cfg *)buf;
--	for (i = 0; i < pci_func_count; i++) {
-+	count = size / sizeof(struct qlcnic_pci_func_cfg);
-+	for (i = 0; i < count; i++) {
- 		pci_cfg[i].pci_func = pci_info[i].id;
- 		pci_cfg[i].func_type = pci_info[i].type;
- 		pci_cfg[i].func_state = 0;
--- 
-1.8.1.4
+> 
+> Signed-off-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+> ---
+>  include/linux/rfkill-gpio.h | 10 ----------
+>  net/rfkill/rfkill-gpio.c    | 15 +--------------
+>  2 files changed, 1 insertion(+), 24 deletions(-)
+> 
+> diff --git a/include/linux/rfkill-gpio.h b/include/linux/rfkill-gpio.h
+> index 4d09f6e..20bcb55 100644
+> --- a/include/linux/rfkill-gpio.h
+> +++ b/include/linux/rfkill-gpio.h
+> @@ -27,21 +27,11 @@
+>   * struct rfkill_gpio_platform_data - platform data for rfkill gpio device.
+> * for unused gpio's, the expected value is -1.
+>   * @name:		name for the gpio rf kill instance
+> - * @reset_gpio:		GPIO which is used for reseting rfkill switch
+> - * @shutdown_gpio:	GPIO which is used for shutdown of rfkill switch
+> - * @power_clk_name:	[optional] name of clk to turn off while blocked
+> - * @gpio_runtime_close:	clean up platform specific gpio configuration
+> - * @gpio_runtime_setup:	set up platform specific gpio configuration
+>   */
+> 
+>  struct rfkill_gpio_platform_data {
+>  	char			*name;
+> -	int			reset_gpio;
+> -	int			shutdown_gpio;
+> -	const char		*power_clk_name;
+>  	enum rfkill_type	type;
+> -	void	(*gpio_runtime_close)(struct platform_device *);
+> -	int	(*gpio_runtime_setup)(struct platform_device *);
+>  };
+> 
+>  #endif /* __RFKILL_GPIO_H */
+> diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
+> index bd2a5b9..0adda44 100644
+> --- a/net/rfkill/rfkill-gpio.c
+> +++ b/net/rfkill/rfkill-gpio.c
+> @@ -87,7 +87,6 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
+> {
+>  	struct rfkill_gpio_platform_data *pdata = pdev->dev.platform_data;
+>  	struct rfkill_gpio_data *rfkill;
+> -	const char *clk_name = NULL;
+>  	struct gpio_desc *gpio;
+>  	int ret;
+>  	int len;
+> @@ -101,7 +100,6 @@ static int rfkill_gpio_probe(struct platform_device
+> *pdev) if (ret)
+>  			return ret;
+>  	} else if (pdata) {
+> -		clk_name = pdata->power_clk_name;
+>  		rfkill->name = pdata->name;
+>  		rfkill->type = pdata->type;
+>  	} else {
+> @@ -120,7 +118,7 @@ static int rfkill_gpio_probe(struct platform_device
+> *pdev) snprintf(rfkill->reset_name, len + 6 , "%s_reset", rfkill->name);
+> snprintf(rfkill->shutdown_name, len + 9, "%s_shutdown", rfkill->name);
+> 
+> -	rfkill->clk = devm_clk_get(&pdev->dev, clk_name);
+> +	rfkill->clk = devm_clk_get(&pdev->dev, NULL);
+> 
+>  	gpio = devm_gpiod_get_index(&pdev->dev, rfkill->reset_name, 0);
+>  	if (!IS_ERR(gpio)) {
+> @@ -146,14 +144,6 @@ static int rfkill_gpio_probe(struct platform_device
+> *pdev) return -EINVAL;
+>  	}
+> 
+> -	if (pdata && pdata->gpio_runtime_setup) {
+> -		ret = pdata->gpio_runtime_setup(pdev);
+> -		if (ret) {
+> -			dev_err(&pdev->dev, "can't set up gpio\n");
+> -			return ret;
+> -		}
+> -	}
+> -
+>  	rfkill->rfkill_dev = rfkill_alloc(rfkill->name, &pdev->dev,
+>  					  rfkill->type, &rfkill_gpio_ops,
+>  					  rfkill);
+> @@ -174,10 +164,7 @@ static int rfkill_gpio_probe(struct platform_device
+> *pdev) static int rfkill_gpio_remove(struct platform_device *pdev)
+>  {
+>  	struct rfkill_gpio_data *rfkill = platform_get_drvdata(pdev);
+> -	struct rfkill_gpio_platform_data *pdata = pdev->dev.platform_data;
+> 
+> -	if (pdata && pdata->gpio_runtime_close)
+> -		pdata->gpio_runtime_close(pdev);
+>  	rfkill_unregister(rfkill->rfkill_dev);
+>  	rfkill_destroy(rfkill->rfkill_dev);
