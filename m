@@ -1,43 +1,43 @@
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net 6/7] qlcnic: Update version to 5.3.56
-Date: Fri, 21 Feb 2014 08:19:54 -0500
-Message-ID: <1392988795-19380-7-git-send-email-shahed.shaikh@qlogic.com>
+Subject: [PATCH net 3/7] qlcnic: Enhance driver message in failed state.
+Date: Fri, 21 Feb 2014 08:19:51 -0500
+Message-ID: <1392988795-19380-4-git-send-email-shahed.shaikh@qlogic.com>
 References: <1392988795-19380-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>
+	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:2958 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:63025 "EHLO
 	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932222AbaBUNzq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 08:55:46 -0500
+	by vger.kernel.org with ESMTP id S933435AbaBUNzm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 08:55:42 -0500
 In-Reply-To: <1392988795-19380-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 
-Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h | 4 ++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 6ad1bce..df9daa3 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -38,8 +38,8 @@
- 
- #define _QLCNIC_LINUX_MAJOR 5
- #define _QLCNIC_LINUX_MINOR 3
--#define _QLCNIC_LINUX_SUBVERSION 55
--#define QLCNIC_LINUX_VERSIONID  "5.3.55"
-+#define _QLCNIC_LINUX_SUBVERSION 56
-+#define QLCNIC_LINUX_VERSIONID  "5.3.56"
- #define QLCNIC_DRV_IDC_VER  0x01
- #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
- 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 964ba45..a335472 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -2450,8 +2450,8 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		if (err) {
+ 			switch (err) {
+ 			case -ENOTRECOVERABLE:
+-				dev_err(&pdev->dev, "Adapter initialization failed due to a faulty hardware. Please reboot\n");
+-				dev_err(&pdev->dev, "If reboot doesn't help, please replace the adapter with new one and return the faulty adapter for repair\n");
++				dev_err(&pdev->dev, "Adapter initialization failed due to a faulty hardware\n");
++				dev_err(&pdev->dev, "Please replace the adapter with new one and return the faulty adapter for repair\n");
+ 				goto err_out_free_hw;
+ 			case -ENOMEM:
+ 				dev_err(&pdev->dev, "Adapter initialization failed. Please reboot\n");
 -- 
 1.8.1.4
