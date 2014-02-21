@@ -1,56 +1,32 @@
-From: Bing Zhao <bzhao@marvell.com>
-Subject: [PATCH 3.14] mwifiex: rename usb driver name registerring to usb core
-Date: Fri, 21 Feb 2014 12:23:00 -0800
-Message-ID: <1393014180-16982-1-git-send-email-bzhao@marvell.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Yogesh Ashok Powar <yogeshp@marvell.com>,
-	Nishant Sarmukadam <nishants@marvell.com>,
-	Frank Huang <frankh@marvell.com>, Bing Zhao <bzhao@marvell.com>
-To: Fengguang Wu <fengguang.wu@intel.com>,
-	<linux-wireless@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mathias Krause <minipli@googlemail.com>
+Subject: [PATCH net-next 0/3] pktgen: small cleanups
+Date: Fri, 21 Feb 2014 21:38:33 +0100
+Message-ID: <1393015116-7488-1-git-send-email-minipli@googlemail.com>
+Cc: netdev@vger.kernel.org, Mathias Krause <minipli@googlemail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f51.google.com ([209.85.214.51]:39783 "EHLO
+	mail-bk0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752456AbaBUUit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 15:38:49 -0500
+Received: by mail-bk0-f51.google.com with SMTP id w10so1229214bkz.10
+        for <netdev@vger.kernel.org>; Fri, 21 Feb 2014 12:38:48 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Both libertas USB driver and mwifiex_usb driver are registerring
-with name 'usb8xxx'. The following conflict happens while trying
-to load both drivers.
+This series is just a set of small cleanups of pktgen code and
+documentation.
 
-[6.211307] Error: Driver 'usb8xxx' is already registered...
-[6.217261] mwifiex_usb: Driver register failed!
+Please apply!
 
-Fix it by renaming mwifiex_usb driver's name.
+Mathias Krause (3):
+  pktgen: fix out-of-bounds access in pgctrl_write()
+  pktgen: simplify error handling in pgctrl_write()
+  pktgen: document all supported flags
 
-Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-Signed-off-by: Bing Zhao <bzhao@marvell.com>
----
- drivers/net/wireless/mwifiex/usb.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ Documentation/networking/pktgen.txt |   24 +++++++++++++++++++-----
+ net/core/pktgen.c                   |   32 +++++++++++++++++---------------
+ 2 files changed, 36 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/wireless/mwifiex/usb.c b/drivers/net/wireless/mwifiex/usb.c
-index e8ebbd4..cb6b70a 100644
---- a/drivers/net/wireless/mwifiex/usb.c
-+++ b/drivers/net/wireless/mwifiex/usb.c
-@@ -22,8 +22,6 @@
- 
- #define USB_VERSION	"1.0"
- 
--static const char usbdriver_name[] = "usb8xxx";
--
- static struct mwifiex_if_ops usb_ops;
- static struct semaphore add_remove_card_sem;
- static struct usb_card_rec *usb_card;
-@@ -567,7 +565,7 @@ static void mwifiex_usb_disconnect(struct usb_interface *intf)
- }
- 
- static struct usb_driver mwifiex_usb_driver = {
--	.name = usbdriver_name,
-+	.name = "mwifiex_usb",
- 	.probe = mwifiex_usb_probe,
- 	.disconnect = mwifiex_usb_disconnect,
- 	.id_table = mwifiex_usb_table,
 -- 
-1.8.2.3
+1.7.10.4
