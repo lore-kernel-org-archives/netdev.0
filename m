@@ -1,31 +1,58 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH ipsec-next] pfkey: fix SADB_X_EXT_FILTER length check
-Date: Fri, 21 Feb 2014 07:51:39 +0100
-Message-ID: <20140221065139.GG32371@secunet.com>
-References: <20140220100735.GA25752@elgon.mountain>
- <1392904361-11127-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: [PATCH net 0/5] qlcnic: Bug fixes
+Date: Fri, 21 Feb 2014 01:23:03 -0500
+Message-ID: <1392963788-18341-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <herbert@gondor.apana.org.au>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, <dan.carpenter@oracle.com>,
-	<kbuild-all@01.org>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:41440 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750852AbaBUGvp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Feb 2014 01:51:45 -0500
-Content-Disposition: inline
-In-Reply-To: <1392904361-11127-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:56502 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750874AbaBUG63 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 01:58:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 20, 2014 at 02:52:41PM +0100, Nicolas Dichtel wrote:
-> This patch fixes commit d3623099d350 ("ipsec: add support of limited SA dump").
-> 
-> sadb_ext_min_len array should be updated with the new type (SADB_X_EXT_FILTER).
-> 
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-Thanks for the quick fix, applied to ipsec-next.
+Hi David,
+
+This patch series includes following bug fixes,
+
+* Fix for return value handling of function qlcnic_enable_msi_legacy().
+* Fix for the usage of module paramters for interrupt mode.
+  Driver should use flags while checking for driver's interrupt mode instead of
+  module parameters.
+* Revert commit 1414abea04 (qlcnic: Restrict VF from configuring any VLAN mode),
+  inorder to save some multicast filters.
+* Fix a bug where driver was not re-setting sds ring count to 1 when
+  it falls back from MSI-x mode to legacy interrupt mode.
+* Reset API lock in adapter when adapter does not reset it at initialization
+
+Please apply to net.
+
+Thanks,
+Shahed
+
+Rajesh Borundia (1):
+  qlcnic: Fix number of rings when we fall back from msix to legacy.
+
+Shahed Shaikh (2):
+  qlcnic: Fix function return error check
+  qlcnic: Fix usage of use_msi and use_msi_x module parameters
+
+Sony Chacko (1):
+  qlcnic: reset firmware API lock during driver load
+
+Sucheta Chakraborty (1):
+  qlcnic: Allow any VLAN to be configured from VF.
+
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c  |  1 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c     | 18 ++++++++++++++++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c |  9 ---------
+ 3 files changed, 17 insertions(+), 11 deletions(-)
+
+-- 
+1.8.1.4
