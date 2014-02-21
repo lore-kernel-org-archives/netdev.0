@@ -1,57 +1,72 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: Deliver skbs to intermediate interfaces, when using cascaded
- rx-handlers
-Date: Fri, 21 Feb 2014 14:05:53 +0100
-Message-ID: <20140221130553.GE2870@minipsycho.orion>
-References: <20140221100158.GA19594@gmail.com>
- <20140221102626.GC2870@minipsycho.orion>
- <20140221111257.GA25406@gmail.com>
- <20140221113753.GD2870@minipsycho.orion>
- <20140221120244.GB25406@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] net: tcp: RTO restart
+Date: Fri, 21 Feb 2014 05:14:26 -0800
+Message-ID: <1392988466.2316.11.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140218181205.GA7780@kau.se>
+	 <50334B08-CD60-4C4C-9556-ACC758F75D7E@simula.no>
+	 <1392832907.18849.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1250EA19-2144-4AC2-A802-5B1989F74B80@kau.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Tobias Waldekranz <tobias@waldekranz.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andreas Petlund <apetlund@simula.no>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Anna =?ISO-8859-1?Q?Brunstr=F6m?= <anna.brunstrom@kau.se>,
+	Michael Welzl <michawe@ifi.uio.no>,
+	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+To: Per Hurtig <per.hurtig@kau.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f44.google.com ([74.125.83.44]:54315 "EHLO
-	mail-ee0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932568AbaBUNF5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 08:05:57 -0500
-Received: by mail-ee0-f44.google.com with SMTP id c13so1587940eek.31
-        for <netdev@vger.kernel.org>; Fri, 21 Feb 2014 05:05:56 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20140221120244.GB25406@gmail.com>
+Received: from mail-pb0-f45.google.com ([209.85.160.45]:56315 "EHLO
+	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932925AbaBUNO2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 08:14:28 -0500
+Received: by mail-pb0-f45.google.com with SMTP id un15so3416981pbc.4
+        for <netdev@vger.kernel.org>; Fri, 21 Feb 2014 05:14:28 -0800 (PST)
+In-Reply-To: <1250EA19-2144-4AC2-A802-5B1989F74B80@kau.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Feb 21, 2014 at 01:02:44PM CET, tobias@waldekranz.com wrote:
->On Fri, Feb 21, 2014 at 12:37:53PM +0100, Jiri Pirko wrote:
->> Fri, Feb 21, 2014 at 12:12:57PM CET, tobias@waldekranz.com wrote:
->> >> What "switch driver" are you reffering to?
->> >> 
->> >
->> >The driver that is in charge of multiplexing packets from the switch
->> >chip out to the port interfaces. It registers an rx-handler on eth0
->> >and forwards packets to port[1-4] by reading a custom tag (similar to
->> >802.1Q) inserted by the switch.
->> 
->> Allright, but what's the name? I would like to find it and see the code.
->
->There's not really a name :), but I have made the source available on github:
->
->https://github.com/wkz/switchcore
+On Fri, 2014-02-21 at 11:49 +0100, Per Hurtig wrote:
+> On 19 Feb 2014, at 19:01, Eric Dumazet <eric.dumazet@gmail.com> wrote=
+:
+>=20
+> > On Wed, 2014-02-19 at 18:17 +0100, Andreas Petlund wrote:
+> >> I=E2=80=99ve applied and tested the patch on VMs with both 32 bit =
+and 64 bit kernel.
+> >>=20
+> >> Acked-by: Andreas Petlund <apetlund@simula.no>
+> >> Tested-by: Andreas Petlund <apetlund@simula.no>
+> >=20
+> > Sure the patch applies, but what experimental results did you get ?
+> >=20
+> > My concern is that TCP_SKB_CB(skb)->when doesn't account for sojour=
+n
+> > time in host queues (qdisc and device).=20
+> >=20
+>=20
+> Correct me if I=E2=80=99m wrong, but I was under the impression that =
+the sojourn was
+> accounted for in the RTT calculations, and therefore rather inappropr=
+iate to
+> be accounted for again? If this assumption is wrong, how would you pr=
+opose that
+> we account for the sojourn time?
 
-Are you aware of existing DSA infrastructure?
+This is a generic problem.=20
 
->
->The relevant parts for this discussion should be in sc_main.c.
->
->> 
->> >
->> >-- 
->> >Thanks
->> > - wkz
->
->-- 
->Thanks
-> - wkz
+Thats why I added LINUX_MIB_TCPSPURIOUS_RTX_HOSTQUEUES snmp counter,
+so that we can experiment with the idea of not firing RTO while origina=
+l
+packet is still in the host qdisc.
+
+       struct sk_buff *skb =3D tcp_write_queue_head(sk);
+       const u32 rto_time_stamp =3D TCP_SKB_CB(skb)->when;
+       s32 delta =3D (s32)(tcp_time_stamp - rto_time_stamp);
+
+       if (delta > 0)
+            rto -=3D delta;
+
+Can trivially gives rto < 0, resulting in a timer of 120 seconds
+(TCP_RTO_MAX)
