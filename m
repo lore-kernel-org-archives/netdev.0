@@ -1,51 +1,71 @@
-From: Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>
-Subject: Re: [PATCH 2/4] net: rfkill: gpio: remove gpio names
-Date: Thu, 20 Feb 2014 22:35:21 -0700
-Message-ID: <5306E599.7020605@wwwdotorg.org>
-References: <1392900697-27577-1-git-send-email-heikki.krogerus@linux.intel.com> <1392900697-27577-3-git-send-email-heikki.krogerus@linux.intel.com> <53062F97.3050407@wwwdotorg.org> <CAGb2v66-tDZhrm9dnXe+PdQTaLZbw20sw3uYzLor2eXpVWmPMA@mail.gmail.com>
+From: Kumar Sanghvi <kumaras@chelsio.com>
+Subject: Re: [PATCH net-next 1/8] cxgb4: Add support to recognize 40G links
+Date: Fri, 21 Feb 2014 10:37:42 +0600
+Message-ID: <20140221043741.GI30109@kumar-pc.asicdesigners.com>
+References: <1392726375-32001-1-git-send-email-hariprasad@chelsio.com>
+ <1392726375-32001-2-git-send-email-hariprasad@chelsio.com>
+ <53051E48.9050901@opengridcomputing.com>
+ <53064459.3030106@chelsio.com>
+ <CAGVrzcbb-7sQqHyf8SS8-mUyD+LM==Z6r3Zy1rFQ72WHFveMcQ@mail.gmail.com>
+ <5306548A.2090406@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Rhyland Klein <rklein-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAGb2v66-tDZhrm9dnXe+PdQTaLZbw20sw3uYzLor2eXpVWmPMA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: Hariprasad Shenai <hariprasad@chelsio.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, <dm@chelsio.com>,
+	<nirranjan@chelsio.com>, <santosh@chelsio.com>
+To: Casey Leedom <leedom@chelsio.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Steve Wise <swise@opengridcomputing.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:30425 "EHLO
+	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752603AbaBUFg0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 00:36:26 -0500
+Content-Disposition: inline
+In-Reply-To: <5306548A.2090406@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/20/2014 06:55 PM, Chen-Yu Tsai wrote:
-> Hi,
+On Thursday, February 02/20/14, 2014 at 11:16:26 -0800, Casey Leedom wrote:
 > 
-> On Fri, Feb 21, 2014 at 12:38 AM, Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org> wrote:
->> On 02/20/2014 05:51 AM, Heikki Krogerus wrote:
->>> There is no use for them in this driver. This will fix a
->>> static checker warning..
->>
->> Didn't you remove the use:
->>
->> -       gpio = devm_gpiod_get_index(&pdev->dev, rfkill->reset_name, 0);
->> +       gpio = devm_gpiod_get_index(&pdev->dev, NULL, 0);
->>
->> doesn't that parameter get put into the sysfs GPIO debug file, so people
->> can see which GPIOs are used for what?
+> On 02/20/14 11:00, Florian Fainelli wrote:
+> >2014-02-20 10:07 GMT-08:00 Casey Leedom <leedom@chelsio.com>:
+> >>On 02/19/14 13:12, Steve Wise wrote:
+> >>>
+> >>>You probably should add SPEED_40000 to include/uapi/linux/ethtool.h as
+> >>>part of this series.
+> >>
+> >>   I'm ~pretty sure~ that the "word on the street" was that the community
+> >>wanted to get away from the SPEED_XXX symbols since they simply represented
+> >>the values XXX.  Thus they didn't offer any real symbolic isolation from
+> >>weird constants, etc.  I believe that the old SPEED_XXX values were left in
+> >>place in order to avoid making tons of changes everywhere ...
+> >Not quite sure where and when you heard that, it seems a little
+> >disturbing to add a comment in this patch saying "this I how I should
+> >fix things" and not do them, especially when this is a one-liner.
+> >Having a well defined constant is easier to grep than having the
+> >open-coded 40000 constant which will lead to false positives
+> >throughout the tree.
 > 
-> That's correct. However using con_id to pass this results in different
-> behavior across DT and ACPI. A better way is to export the labeling
-> function so consumers can set meaningful labels themselves.
+>   Like I said, it was a vague memory at best from over a year ago. I
+> seem to remember someone on our team trying to push SPEED_40000 into
+> the kernel and getting rebuffed.  Perhaps I didn't have enough
+> coffee that day.
+> 
+>   In any case, I personally like the idea of SPEED_40000 for exactly
+> the reason you offer: I can search for it meaningfully.  So If my
+> vague memory is wrong, yeay!
 
-But this code is the consumer of those GPIOs. IF the parameter to
-devm_gpiod_get_index() isn't intended to be used, why does it exist?
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+BTW, I just now found below thread and discussion related to SPEED_40000
+http://www.spinics.net/lists/netdev/msg201449.html
+
+
+> 
+> Casey
+> 
+> >--
+> >Florian
+> 
+> 
