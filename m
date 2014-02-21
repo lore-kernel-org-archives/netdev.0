@@ -1,67 +1,43 @@
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net-next 0/7] qlcnic: Re-factoring and enhancements
-Date: Fri, 21 Feb 2014 13:20:09 -0500
-Message-ID: <1393006816-20294-1-git-send-email-shahed.shaikh@qlogic.com>
+Subject: [PATCH net-next 3/7] qlcnic: Enhance driver message in failed state.
+Date: Fri, 21 Feb 2014 13:20:12 -0500
+Message-ID: <1393006816-20294-4-git-send-email-shahed.shaikh@qlogic.com>
+References: <1393006816-20294-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>
+	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:4333 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753057AbaBUSzj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 13:55:39 -0500
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:58643 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755269AbaBUSzq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 13:55:46 -0500
+In-Reply-To: <1393006816-20294-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 
-Hi David,
+Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-This patch series includes following changes -
-* Re-factored firmware minidump template header handling
-* Support to make 8 vNIC mode application to work with 16 vNIC mode
-* Enhance error message logging when adapter is in failed state and
-  when adapter lock access fails.
-* Allow vlan0 traffic
-* update MAINTAINERS
-
-Please apply this series to net-next.
-
-Thanks,
-Shahed
-
-Harish Patil (1):
-  qlcnic: Enhance semaphore lock access failure error message
-
-Jitendra Kalsaria (1):
-  qlcnic: Updates to QLogic application/driver interface for virtual NIC
-    configuration
-
-Rajesh Borundia (1):
-  qlcnic: Allow vlan0 traffic
-
-Shahed Shaikh (3):
-  qlcnic: Re-factor firmware minidump template header handling
-  qlcnic: Update version to 5.3.56
-  Update MAINTAINERS for qlcnic driver
-
-Sucheta Chakraborty (1):
-  qlcnic: Enhance driver message in failed state.
-
- MAINTAINERS                                        |   7 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |  77 ++++++-
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   7 +-
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |   8 +
- .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |  17 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c     |  22 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h     |   8 +
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |  11 +-
- .../net/ethernet/qlogic/qlcnic/qlcnic_minidump.c   | 233 ++++++++++++++++-----
- .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |   6 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c  | 102 ++++-----
- 11 files changed, 349 insertions(+), 149 deletions(-)
-
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 964ba45..a335472 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -2450,8 +2450,8 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		if (err) {
+ 			switch (err) {
+ 			case -ENOTRECOVERABLE:
+-				dev_err(&pdev->dev, "Adapter initialization failed due to a faulty hardware. Please reboot\n");
+-				dev_err(&pdev->dev, "If reboot doesn't help, please replace the adapter with new one and return the faulty adapter for repair\n");
++				dev_err(&pdev->dev, "Adapter initialization failed due to a faulty hardware\n");
++				dev_err(&pdev->dev, "Please replace the adapter with new one and return the faulty adapter for repair\n");
+ 				goto err_out_free_hw;
+ 			case -ENOMEM:
+ 				dev_err(&pdev->dev, "Adapter initialization failed. Please reboot\n");
 -- 
 1.8.1.4
