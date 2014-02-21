@@ -1,59 +1,85 @@
-From: Sony Chacko <sony.chacko@qlogic.com>
-Subject: RE: [PATCH net 5/5] qlcnic: reset firmware API lock during driver
- load
-Date: Fri, 21 Feb 2014 19:20:05 +0000
-Message-ID: <0EA5B226BC5C7B45A71BF612AA8A019E89AE2589@AVMB1.qlogic.org>
-References: <1392963788-18341-1-git-send-email-shahed.shaikh@qlogic.com>
- <1392963788-18341-6-git-send-email-shahed.shaikh@qlogic.com>
- <5307646D.4050801@cogentembedded.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: phy: unmask link partner capabilities
+Date: Fri, 21 Feb 2014 11:24:41 -0800
+Message-ID: <CAGVrzcbn104O=4NfjE=WM-z51S0iYijeqw+FBbaBdNGvGV=Tiw@mail.gmail.com>
+References: <1392999496-29753-1-git-send-email-cristian.bercaru@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset=UTF-8
 Cc: netdev <netdev@vger.kernel.org>,
-	Dept-HSG Linux NIC Dev <Dept-HSGLinuxNICDev@qlogic.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	David Miller <davem@davemloft.net>
+	Madalin-Cristian Bucur <madalin.bucur@freescale.com>,
+	Shaohui Xie <shaohui.xie@freescale.com>, shruti@freescale.com
+To: cristian.bercaru@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:60122 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750894AbaBUTUJ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Feb 2014 14:20:09 -0500
-In-Reply-To: <5307646D.4050801@cogentembedded.com>
-Content-Language: en-US
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:51899 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751030AbaBUTZW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 14:25:22 -0500
+Received: by mail-pd0-f173.google.com with SMTP id r10so1174041pdi.4
+        for <netdev@vger.kernel.org>; Fri, 21 Feb 2014 11:25:21 -0800 (PST)
+In-Reply-To: <1392999496-29753-1-git-send-email-cristian.bercaru@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Sergei Shtylyov [mailto:sergei.shtylyov@cogentembedded.com]
-> Sent: Friday, February 21, 2014 6:36 AM
-> To: Shahed Shaikh; David Miller
-> Cc: netdev; Dept-HSG Linux NIC Dev; Sony Chacko
-> Subject: Re: [PATCH net 5/5] qlcnic: reset firmware API lock during driver load
-> 
-> > From: Sony Chacko <sony.chacko@qlogic.com>
-> 
-> > Firmware is not resetting API lock at initialization, reset the lock
-> > at driver load time.
-> 
-> > Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
-> > ---
-> > +static void qlcnic_reset_api_lock(struct qlcnic_adapter *adapter) {
-> > +	/* Check lock availability*/
-> > +	if (qlcnic_api_lock(adapter)) {
-> > +		/* Lock not available, force release the lock */
-> > +		qlcnic_api_unlock(adapter);
-> > +	} else {
-> > +		/* Lock available, release it before proceeding */
-> > +		qlcnic_api_unlock(adapter);
-> > +	}
-> 
->     Isn't it simpler to just do:
-> 
-> 	qlcnic_api_lock(adapter);
-> 	qlcnic_api_unlock(adapter);
-> WBR, Sergei
+Hi,
 
-Thanks, I will rework this patch.
---Sony
+2014-02-21 8:18 GMT-08:00  <cristian.bercaru@freescale.com>:
+> From: Cristian Bercaru <cristian.bercaru@freescale.com>
+>
+> Masking the link partner's capabilities with local capabilities can be
+> misleading in autonegotiation scenarios such as PAUSE frame
+> autonegotiation.
+> Therefore, this patch unmasks the link partner's capabilities.
+
+You have only covered the lpa register here, is lpagb also affected?
+It might make sense to cache (lpa & adv) in an intermediate variable
+to help clarifiying the checks.
+
+>
+> Signed-off-by: Cristian Bercaru <cristian.bercaru@freescale.com>
+> ---
+>  drivers/net/phy/phy_device.c | 8 +++-----
+>  1 file changed, 3 insertions(+), 5 deletions(-)
+>
+> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+> index a70b604..e57825e6 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -967,8 +967,6 @@ int genphy_read_status(struct phy_device *phydev)
+>                 if (adv < 0)
+>                         return adv;
+>
+> -               lpa &= adv;
+> -
+>                 phydev->speed = SPEED_10;
+>                 phydev->duplex = DUPLEX_HALF;
+>                 phydev->pause = 0;
+> @@ -979,13 +977,13 @@ int genphy_read_status(struct phy_device *phydev)
+>
+>                         if (lpagb & LPA_1000FULL)
+>                                 phydev->duplex = DUPLEX_FULL;
+> -               } else if (lpa & (LPA_100FULL | LPA_100HALF)) {
+> +               } else if (lpa & adv & (LPA_100FULL | LPA_100HALF)) {
+>                         phydev->speed = SPEED_100;
+>
+> -                       if (lpa & LPA_100FULL)
+> +                       if (lpa & adv & LPA_100FULL)
+>                                 phydev->duplex = DUPLEX_FULL;
+>                 } else
+> -                       if (lpa & LPA_10FULL)
+> +                       if (lpa & adv & LPA_10FULL)
+>                                 phydev->duplex = DUPLEX_FULL;
+>
+>                 if (phydev->duplex == DUPLEX_FULL) {
+> --
+> 1.7.11.7
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+-- 
+Florian
