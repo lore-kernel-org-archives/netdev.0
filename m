@@ -1,107 +1,47 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V2 1/2] net/mlx4: Set number of RX rings in a utility function
-Date: Fri, 21 Feb 2014 12:39:17 +0200
-Message-ID: <1392979158-18093-2-git-send-email-amirv@mellanox.com>
-References: <1392979158-18093-1-git-send-email-amirv@mellanox.com>
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
-	Ido Shamay <idos@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: Re: [PATCH ethtool] ethtool: Report Backplane as supported port
+Date: Fri, 21 Feb 2014 11:40:03 +0100
+Message-ID: <53072D03.1030308@redhat.com>
+References: <1392918536-20444-1-git-send-email-ivecera@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: bwh@kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:58105 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752313AbaBUKjd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Feb 2014 05:39:33 -0500
-In-Reply-To: <1392979158-18093-1-git-send-email-amirv@mellanox.com>
+Received: from mx1.redhat.com ([209.132.183.28]:17342 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754813AbaBUKkM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Feb 2014 05:40:12 -0500
+In-Reply-To: <1392918536-20444-1-git-send-email-ivecera@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Shamay <idos@mellanox.com>
+Hi Dave & Ben,
+I see the patch is in 'not applicable' state in patchwork. The patch is 
+for ethtool userspace. I though the netdev mailing list is also for 
+ethtool userspace or did I used bad subject prefix?
 
-mlx4_en_add() is too long.
-Moving set number of RX rings to a utiltity function to improve
-readability and modulization of the code.
+Thanks,
+Ivan
 
-Signed-off-by: Ido Shamay <idos@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_main.c | 15 ++-------------
- drivers/net/ethernet/mellanox/mlx4/en_rx.c   | 22 ++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |  2 +-
- 3 files changed, 25 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_main.c b/drivers/net/ethernet/mellanox/mlx4/en_main.c
-index d357bf5..fa2f6e7 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_main.c
-@@ -274,19 +274,8 @@ static void *mlx4_en_add(struct mlx4_dev *dev)
- 	if (mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_TS)
- 		mlx4_en_init_timestamp(mdev);
- 
--	mlx4_foreach_port(i, dev, MLX4_PORT_TYPE_ETH) {
--		if (!dev->caps.comp_pool) {
--			mdev->profile.prof[i].rx_ring_num =
--				rounddown_pow_of_two(max_t(int, MIN_RX_RINGS,
--							   min_t(int,
--								 dev->caps.num_comp_vectors,
--								 DEF_RX_RINGS)));
--		} else {
--			mdev->profile.prof[i].rx_ring_num = rounddown_pow_of_two(
--				min_t(int, dev->caps.comp_pool/
--				      dev->caps.num_ports - 1 , MAX_MSIX_P_PORT - 1));
--		}
--	}
-+	/* Set default number of RX rings*/
-+	mlx4_en_set_num_rx_rings(mdev);
- 
- 	/* Create our own workqueue for reset/multicast tasks
- 	 * Note: we cannot use the shared workqueue because of deadlocks caused
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index b0eba6d..61e44ae 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -318,6 +318,28 @@ static void mlx4_en_free_rx_buf(struct mlx4_en_priv *priv,
- 	}
- }
- 
-+void mlx4_en_set_num_rx_rings(struct mlx4_en_dev *mdev)
-+{
-+	int i;
-+	int num_of_eqs;
-+	struct mlx4_dev *dev = mdev->dev;
-+
-+	mlx4_foreach_port(i, dev, MLX4_PORT_TYPE_ETH) {
-+		if (!dev->caps.comp_pool)
-+			num_of_eqs = max_t(int, MIN_RX_RINGS,
-+					   min_t(int,
-+						 dev->caps.num_comp_vectors,
-+						 DEF_RX_RINGS));
-+		else
-+			num_of_eqs = min_t(int, MAX_MSIX_P_PORT,
-+					   dev->caps.comp_pool/
-+					   dev->caps.num_ports) - 1;
-+
-+		mdev->profile.prof[i].rx_ring_num =
-+			rounddown_pow_of_two(num_of_eqs);
-+	}
-+}
-+
- int mlx4_en_create_rx_ring(struct mlx4_en_priv *priv,
- 			   struct mlx4_en_rx_ring **pring,
- 			   u32 size, u16 stride, int node)
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 101d636..f97a0d3 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -738,7 +738,7 @@ int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
- 			     int cq, int user_prio);
- void mlx4_en_deactivate_tx_ring(struct mlx4_en_priv *priv,
- 				struct mlx4_en_tx_ring *ring);
--
-+void mlx4_en_set_num_rx_rings(struct mlx4_en_dev *mdev);
- int mlx4_en_create_rx_ring(struct mlx4_en_priv *priv,
- 			   struct mlx4_en_rx_ring **pring,
- 			   u32 size, u16 stride, int node);
--- 
-1.8.3.4
+On 02/20/2014 06:48 PM, Ivan Vecera wrote:
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+> ---
+>   ethtool.c | 2 ++
+>   1 file changed, 2 insertions(+)
+>
+> diff --git a/ethtool.c b/ethtool.c
+> index 315d00f..acb4397 100644
+> --- a/ethtool.c
+> +++ b/ethtool.c
+> @@ -496,6 +496,8 @@ static void dump_supported(struct ethtool_cmd *ep)
+>   		fprintf(stdout, "MII ");
+>   	if (mask & SUPPORTED_FIBRE)
+>   		fprintf(stdout, "FIBRE ");
+> +	if (mask & SUPPORTED_Backplane)
+> +		fprintf(stdout, "Backplane ");
+>   	fprintf(stdout, "]\n");
+>
+>   	dump_link_caps("Supported", "Supports", mask, 0);
+>
