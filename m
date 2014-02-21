@@ -1,102 +1,162 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: linux 3.13: problems with isatap tunnel device and UFO
-Date: Thu, 20 Feb 2014 16:43:41 -0800
-Message-ID: <CAM_iQpW0ai2NMyVV1FGpDn5qKDUxYoqsXZ-GutfccQp92SyKwQ@mail.gmail.com>
-References: <1682505.dP4nT04FC9@h2o.as.studentenwerk.mhn.de>
-	<1581659.JtJ1UQaXJr@h2o.as.studentenwerk.mhn.de>
-	<20140211024403.GE11150@order.stressinduktion.org>
-	<5911515.kv7YDRiZP1@h2o.as.studentenwerk.mhn.de>
-	<20140217160916.GE22833@order.stressinduktion.org>
-	<20140220024418.GG1179@order.stressinduktion.org>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next v5 1/9] xen-netback: Introduce TX grant map definitions
+Date: Fri, 21 Feb 2014 01:19:15 +0000
+Message-ID: <5306A993.5010504@citrix.com>
+References: <1390253069-25507-1-git-send-email-zoltan.kiss@citrix.com>			 <1390253069-25507-2-git-send-email-zoltan.kiss@citrix.com>		 <1392743214.23084.38.camel@kazak.uk.xensource.com>		 <5303C44D.4070500@citrix.com>	 <1392804319.23084.109.camel@kazak.uk.xensource.com>	 <53050BF5.1060009@citrix.com> <1392888808.22494.21.camel@kazak.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=089e0116059cd9c9e204f2dfe940
-To: Wolfgang Walter <linux@stwm.de>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f42.google.com ([209.85.219.42]:57909 "EHLO
-	mail-oa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755393AbaBUAnm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Feb 2014 19:43:42 -0500
-Received: by mail-oa0-f42.google.com with SMTP id j17so956745oag.29
-        for <netdev@vger.kernel.org>; Thu, 20 Feb 2014 16:43:41 -0800 (PST)
-In-Reply-To: <20140220024418.GG1179@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<jonathan.davies@citrix.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1392888808.22494.21.camel@kazak.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---089e0116059cd9c9e204f2dfe940
-Content-Type: text/plain; charset=UTF-8
-
-On Wed, Feb 19, 2014 at 6:44 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> On Mon, Feb 17, 2014 at 05:09:16PM +0100, Hannes Frederic Sowa wrote:
->> [+Cc Cong Wang]
->>
->> Hi Cong!
->>
->> In commit d949d826c09fb ("ipv6: Add generic UDP Tunnel segmentation") you
->> patched ip6_offload.c:
->>
->> @@ -126,7 +128,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
->>                 ipv6h = ipv6_hdr(skb);
->>                 ipv6h->payload_len = htons(skb->len - skb->mac_len -
->>                                            sizeof(*ipv6h));
->> -               if (proto == IPPROTO_UDP) {
->> +               if (!tunnel && proto == IPPROTO_UDP) {
->>                         unfrag_ip6hlen = ip6_find_1stfragopt(skb, &prevhdr);
->>                         fptr = (struct frag_hdr *)(skb_network_header(skb) +
->>                                 unfrag_ip6hlen);
->>
->>
->> I wonder about the !tunnel exception. This now seems to be a problem in sit
->> ufo output path, where we don't update fragmentation offsets any more thus
->> generating invalid frames.
->>
->> I am not too firm with segmentation in case of tunnels but don't we need to
->> always update the fragmentation offset no matter what, if upper gso callback
->> produced more segments?
+On 20/02/14 09:33, Ian Campbell wrote:
+> On Wed, 2014-02-19 at 19:54 +0000, Zoltan Kiss wrote:
+>> On 19/02/14 10:05, Ian Campbell wrote:
+>>> On Tue, 2014-02-18 at 20:36 +0000, Zoltan Kiss wrote:
+>>>> On 18/02/14 17:06, Ian Campbell wrote:
+>>>>> On Mon, 2014-01-20 at 21:24 +0000, Zoltan Kiss wrote:
+>>>>>> This patch contains the new definitions necessary for grant mapping.
+>>>>> Is this just adding a bunch of (currently) unused functions? That's a
+>>>>> slightly odd way to structure a series. They don't seem to be "generic
+>>>>> helpers" or anything so it would be more normal to introduce these as
+>>>>> they get used -- it's a bit hard to review them out of context.
+>>>> I've created two patches because they are quite huge even now,
+>>>> separately. Together they would be a ~500 line change. That was the best
+>>>> I could figure out keeping in mind that bisect should work. But as I
+>>>> wrote in the first email, I welcome other suggestions. If you and Wei
+>>>> prefer this two patch in one big one, I merge them in the next version.
+>>> I suppose it is hard to split a change like this up in a sensible way,
+>>> but it is rather hard to review something which is split in two parts
+>>> sensibly.
+>>>
+>>> If the combined patch too large to fit on the lists?
+>> Well, it's ca. 30 kb, ~500 lines changed. I guess it's possible. It's up
+>> to you and Wei, if you would like them to be merged, I can do that.
+> 30kb doesn't sound too bad to me.
 >
-> Not perfect nor clean (well, I don't know).
+> Patches #1 and #2 are, respectively:
 >
-> The idea is to have the segmentation at the first guessed tunnel
-> header cut. I don't know how to deal with stacked tunnels yet, I guess
-> we need to have a bit more state in the skb. Just to maybe keep the discussion
-> going...
+>   drivers/net/xen-netback/common.h    |   30 ++++++-
+>   drivers/net/xen-netback/interface.c |    1 +
+>   drivers/net/xen-netback/netback.c   |  161 +++++++++++++++++++++++++++++++++++
+>   3 files changed, 191 insertions(+), 1 deletion(-)
+>
+>   drivers/net/xen-netback/interface.c |   63 ++++++++-
+>   drivers/net/xen-netback/netback.c   |  254 ++++++++++++++---------------------
+>   2 files changed, 160 insertions(+), 157 deletions(-)
+>
+> I don't think combining those would be terrible, although I'm willing to
+> be proven wrong ;-)
+Ok, if noone comes up with any better argument before I send in the next 
+version, I'll merge the 2 patches.
+>
+>>>>>> +		vif->dealloc_prod++;
+>>>>> What happens if the dealloc ring becomes full, will this wrap and cause
+>>>>> havoc?
+>>>> Nope, if the dealloc ring is full, the value of the last increment won't
+>>>> be used to index the dealloc ring again until some space made available.
+>>> I don't follow -- what makes this the case?
+>> The dealloc ring has the same size as the pending ring, and you can only
+>> add slots to it which are already on the pending ring (the pending_idx
+>> comes from ubuf->desc), as you are essentially free up slots here on the
+>> pending ring.
+>> So if the dealloc ring becomes full, vif->dealloc_prod -
+>> vif->dealloc_cons will be 256, which would be bad. But the while loop
+>> should exit here, as we shouldn't have any more pending slots. And if we
+>> dealloc and create free pending slots in dealloc_action, dealloc_cons
+>> will also advance.
+> OK, so this is limited by the size of the pending array, makes sense,
+> assuming that array is itself correctly guarded...
+Well, that pending ring works the same as before, the only difference 
+that now the slots are released from dealloc thread as well, not just 
+from from NAPI instance. That's why we need response_lock. I'll make a 
+comment on that.
+>>>>>> +		}
+>>>>>> +
+>>>>>> +	} while (dp != vif->dealloc_prod);
+>>>>>> +
+>>>>>> +	vif->dealloc_cons = dc;
+>>>>> No barrier here?
+>>>> dealloc_cons only used in the dealloc_thread. dealloc_prod is used by
+>>>> the callback and the thread as well, that's why we need mb() in
+>>>> previous. Btw. this function comes from classic's net_tx_action_dealloc
+>>> Is this code close enough to that code architecturally that you can
+>>> infer correctness due to that though?
+>> Nope, I've just mentioned it because knowing that old code can help to
+>> understand this new, as their logic is very similar some places, like here.
+>>
+>>> So long as you have considered the barrier semantics in the context of
+>>> the current code and you think it is correct to not have one here then
+>>> I'm ok. But if you have just assumed it is OK because some older code
+>>> didn't have it then I'll have to ask you to consider it again...
+>> Nope, as I mentioned above, dealloc_cons only accessed in that funcion,
+>> from the same thread. Dealloc_prod is written in the callback and read
+>> out here, that's why we need the barrier there.
+> OK.
+>
+> Although this may no longer be true if you added some BUG_ONs as
+> discussed above?
+Yep, that BUG_ON might see a smaller value of dealloc_cons, but that 
+should be OK. We will release those slots after grant unmapping, they 
+shouldn't be filled up again until then.
+>
+>>>>>> +				netdev_err(vif->dev,
+>>>>>> +					   " host_addr: %llx handle: %x status: %d\n",
+>>>>>> +					   gop[i].host_addr,
+>>>>>> +					   gop[i].handle,
+>>>>>> +					   gop[i].status);
+>>>>>> +			}
+>>>>>> +			BUG();
+>>>>>> +		}
+>>>>>> +	}
+>>>>>> +
+>>>>>> +	for (i = 0; i < gop - vif->tx_unmap_ops; ++i)
+>>>>>> +		xenvif_idx_release(vif, pending_idx_release[i],
+>>>>>> +				   XEN_NETIF_RSP_OKAY);
+>>>>>> +}
+>>>>>> +
+>>>>>> +
+>>>>>>     /* Called after netfront has transmitted */
+>>>>>>     int xenvif_tx_action(struct xenvif *vif, int budget)
+>>>>>>     {
+>>>>>> @@ -1678,6 +1793,25 @@ static void xenvif_idx_release(struct xenvif *vif, u16 pending_idx,
+>>>>>>     	vif->mmap_pages[pending_idx] = NULL;
+>>>>>>     }
+>>>>>>
+>>>>>> +void xenvif_idx_unmap(struct xenvif *vif, u16 pending_idx)
+>>>>> This is a single shot version of the batched xenvif_tx_dealloc_action
+>>>>> version? Why not just enqueue the idx to be unmapped later?
+>>>> This is called only from the NAPI instance. Using the dealloc ring
+>>>> require synchronization with the callback which can increase lock
+>>>> contention. On the other hand, if the guest sends small packets
+>>>> (<PAGE_SIZE), the TLB flushing can cause performance penalty.
+>>> Right. When/How often is this called from the NAPI instance?
+>> When grant mapping error detected in xenvif_tx_check_gop, and if a
+>> packet smaller than PKT_PROT_LEN is sent. The latter would be removed if
+>> we will grant copy such packets entirely.
+>>
+>>> Is the locking contention from this case so severe that it out weighs
+>>> the benefits of batching the unmaps? That would surprise me. After all
+>>> the locking contention is there for the zerocopy_callback case too
+>>>
+>>>>    The above
+>>>> mentioned upcoming patch which gntcopy the header can prevent that
+>>> So this is only called when doing the pull-up to the linear area?
+>> Yes, as mentioned above.
+> I'm not sure why you don't just enqueue the dealloc with the other
+> normal ones though.
+Well, I started off from this approach, as it maintains similarity with 
+the grant copy ways of doing this. Historically we release the slots in 
+xenvif_tx_check_gop straight away if there is a mapping error in any of 
+them. I don't know if the guest expects that slots for the same packet 
+comes back at the same time. Then I just reused the same function for 
+<PKT_PROT_LEN packets instead of writing an another one. That will go 
+away soon anyway.
 
-Does the following patch help?
-
---089e0116059cd9c9e204f2dfe940
-Content-Type: text/plain; charset=US-ASCII; name="tmp.diff"
-Content-Disposition: attachment; filename="tmp.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_hrwqjiy50
-
-ZGlmZiAtLWdpdCBhL25ldC9pcHY2L2lwNl9vZmZsb2FkLmMgYi9uZXQvaXB2Ni9pcDZfb2ZmbG9h
-ZC5jCmluZGV4IDFlODY4M2IuLjUxNmI4ODkgMTAwNjQ0Ci0tLSBhL25ldC9pcHY2L2lwNl9vZmZs
-b2FkLmMKKysrIGIvbmV0L2lwdjYvaXA2X29mZmxvYWQuYwpAQCAtODksNyArODksNyBAQCBzdGF0
-aWMgc3RydWN0IHNrX2J1ZmYgKmlwdjZfZ3NvX3NlZ21lbnQoc3RydWN0IHNrX2J1ZmYgKnNrYiwK
-IAl1bnNpZ25lZCBpbnQgdW5mcmFnX2lwNmhsZW47CiAJdTggKnByZXZoZHI7CiAJaW50IG9mZnNl
-dCA9IDA7Ci0JYm9vbCB0dW5uZWw7CisJYm9vbCB1ZHBmcmFnLCBlbmNhcDsKIAlpbnQgbmhvZmY7
-CiAKIAlpZiAodW5saWtlbHkoc2tiX3NoaW5mbyhza2IpLT5nc29fdHlwZSAmCkBAIC0xMTAsOCAr
-MTEwLDggQEAgc3RhdGljIHN0cnVjdCBza19idWZmICppcHY2X2dzb19zZWdtZW50KHN0cnVjdCBz
-a19idWZmICpza2IsCiAJaWYgKHVubGlrZWx5KCFwc2tiX21heV9wdWxsKHNrYiwgc2l6ZW9mKCpp
-cHY2aCkpKSkKIAkJZ290byBvdXQ7CiAKLQl0dW5uZWwgPSBTS0JfR1NPX0NCKHNrYiktPmVuY2Fw
-X2xldmVsID4gMDsKLQlpZiAodHVubmVsKQorCWVuY2FwID0gU0tCX0dTT19DQihza2IpLT5lbmNh
-cF9sZXZlbCA+IDA7CisJaWYgKGVuY2FwKQogCQlmZWF0dXJlcyA9IHNrYi0+ZGV2LT5od19lbmNf
-ZmVhdHVyZXMgJiBuZXRpZl9za2JfZmVhdHVyZXMoc2tiKTsKIAlTS0JfR1NPX0NCKHNrYiktPmVu
-Y2FwX2xldmVsICs9IHNpemVvZigqaXB2NmgpOwogCkBAIC0xMzAsMTYgKzEzMCwxNyBAQCBzdGF0
-aWMgc3RydWN0IHNrX2J1ZmYgKmlwdjZfZ3NvX3NlZ21lbnQoc3RydWN0IHNrX2J1ZmYgKnNrYiwK
-IAlpZiAoSVNfRVJSKHNlZ3MpKQogCQlnb3RvIG91dDsKIAorCXVkcGZyYWcgPSAhIXNrYi0+ZW5j
-YXBzdWxhdGlvbiAmJiBwcm90byA9PSBJUFBST1RPX1VEUDsKIAlmb3IgKHNrYiA9IHNlZ3M7IHNr
-Yjsgc2tiID0gc2tiLT5uZXh0KSB7CiAJCWlwdjZoID0gKHN0cnVjdCBpcHY2aGRyICopKHNrYl9t
-YWNfaGVhZGVyKHNrYikgKyBuaG9mZik7CiAJCWlwdjZoLT5wYXlsb2FkX2xlbiA9IGh0b25zKHNr
-Yi0+bGVuIC0gbmhvZmYgLSBzaXplb2YoKmlwdjZoKSk7Ci0JCWlmICh0dW5uZWwpIHsKKwkJaWYg
-KGVuY2FwKSB7CiAJCQlza2JfcmVzZXRfaW5uZXJfaGVhZGVycyhza2IpOwogCQkJc2tiLT5lbmNh
-cHN1bGF0aW9uID0gMTsKIAkJfQogCQlza2ItPm5ldHdvcmtfaGVhZGVyID0gKHU4ICopaXB2Nmgg
-LSBza2ItPmhlYWQ7CiAKLQkJaWYgKCF0dW5uZWwgJiYgcHJvdG8gPT0gSVBQUk9UT19VRFApIHsK
-KwkJaWYgKHVkcGZyYWcpIHsKIAkJCXVuZnJhZ19pcDZobGVuID0gaXA2X2ZpbmRfMXN0ZnJhZ29w
-dChza2IsICZwcmV2aGRyKTsKIAkJCWZwdHIgPSAoc3RydWN0IGZyYWdfaGRyICopKCh1OCAqKWlw
-djZoICsgdW5mcmFnX2lwNmhsZW4pOwogCQkJZnB0ci0+ZnJhZ19vZmYgPSBodG9ucyhvZmZzZXQp
-Owo=
---089e0116059cd9c9e204f2dfe940--
+Zoli
