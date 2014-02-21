@@ -1,40 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2 00/14] Intel Wired LAN Driver Updates
-Date: Fri, 21 Feb 2014 12:39:47 -0500 (EST)
-Message-ID: <20140221.123947.1401040415929829018.davem@davemloft.net>
-References: <1392953358-23908-1-git-send-email-aaron.f.brown@intel.com>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: Re: [PATCH net-next 1/8] cxgb4: Add support to recognize 40G links
+Date: Fri, 21 Feb 2014 10:49:41 -0800
+Message-ID: <53079FC5.20405@chelsio.com>
+References: <1392726375-32001-1-git-send-email-hariprasad@chelsio.com> <1392726375-32001-2-git-send-email-hariprasad@chelsio.com> <53051E48.9050901@opengridcomputing.com> <53064459.3030106@chelsio.com> <CAGVrzcbb-7sQqHyf8SS8-mUyD+LM==Z6r3Zy1rFQ72WHFveMcQ@mail.gmail.com> <5306548A.2090406@chelsio.com> <20140221043741.GI30109@kumar-pc.asicdesigners.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: aaron.f.brown@intel.com
+Cc: Hariprasad Shenai <hariprasad@chelsio.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, dm@chelsio.com,
+	nirranjan@chelsio.com, santosh@chelsio.com
+To: Kumar Sanghvi <kumaras@chelsio.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Steve Wise <swise@opengridcomputing.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41889 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933162AbaBURjt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 12:39:49 -0500
-In-Reply-To: <1392953358-23908-1-git-send-email-aaron.f.brown@intel.com>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:38298
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752704AbaBUSts (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 13:49:48 -0500
+In-Reply-To: <20140221043741.GI30109@kumar-pc.asicdesigners.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Aaron Brown <aaron.f.brown@intel.com>
-Date: Thu, 20 Feb 2014 19:29:04 -0800
+   Ah, thanks Kumar.  So I wasn't ~completely~ off my rocker remembering 
+that.
 
-> This series contains updates to i40e and (mostly to) i40evf.
-> 
-> Mitch provides most the work for this series.  For the vf driver he
-> requests a reset on a tx hang, removes vlan filtes on close since we
-> already remove the MAC filters, fixes some crashes, gets rid of PCI DAC
-> as it does not mean much on virtualized PCIe parts, skips assigning the
-> device name that just gets renamed anyway, stores the descriptor ring
-> size in a manner that allows the use of common tx and rx code with the
-> PF driver and makes a handful of cosmetic fixes.  For i40e he removes
-> a delay left over from debugging and changes a do/while loop to a for
-> loop to avoid hitting another delay each time.
-> 
-> Catherine fixes inconsistent MSI and MSI-X messages and bumps the
-> driver version.
-> 
-> v2: Removed unnecessary periods and redundant OOM message.
+   So it sounds like Ben and David are (or at least, were) in the 
+anti-SPEED_40000 and Florian may be in the "pro" camp ...
 
-Series applied, thanks Aaron.
+Casey
+
+On 02/20/14 20:37, Kumar Sanghvi wrote:
+> On Thursday, February 02/20/14, 2014 at 11:16:26 -0800, Casey Leedom wrote:
+>> On 02/20/14 11:00, Florian Fainelli wrote:
+>>> 2014-02-20 10:07 GMT-08:00 Casey Leedom <leedom@chelsio.com>:
+>>>> On 02/19/14 13:12, Steve Wise wrote:
+>>>>> You probably should add SPEED_40000 to include/uapi/linux/ethtool.h as
+>>>>> part of this series.
+>>>>    I'm ~pretty sure~ that the "word on the street" was that the community
+>>>> wanted to get away from the SPEED_XXX symbols since they simply represented
+>>>> the values XXX.  Thus they didn't offer any real symbolic isolation from
+>>>> weird constants, etc.  I believe that the old SPEED_XXX values were left in
+>>>> place in order to avoid making tons of changes everywhere ...
+>>> Not quite sure where and when you heard that, it seems a little
+>>> disturbing to add a comment in this patch saying "this I how I should
+>>> fix things" and not do them, especially when this is a one-liner.
+>>> Having a well defined constant is easier to grep than having the
+>>> open-coded 40000 constant which will lead to false positives
+>>> throughout the tree.
+>>    Like I said, it was a vague memory at best from over a year ago. I
+>> seem to remember someone on our team trying to push SPEED_40000 into
+>> the kernel and getting rebuffed.  Perhaps I didn't have enough
+>> coffee that day.
+>>
+>>    In any case, I personally like the idea of SPEED_40000 for exactly
+>> the reason you offer: I can search for it meaningfully.  So If my
+>> vague memory is wrong, yeay!
+>
+> BTW, I just now found below thread and discussion related to SPEED_40000
+> http://www.spinics.net/lists/netdev/msg201449.html
+>
+>
+>> Casey
+>>
+>>> --
+>>> Florian
+>>
