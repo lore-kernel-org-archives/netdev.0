@@ -1,81 +1,40 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: Deliver skbs to intermediate interfaces, when using cascaded
- rx-handlers
-Date: Fri, 21 Feb 2014 11:26:26 +0100
-Message-ID: <20140221102626.GC2870@minipsycho.orion>
-References: <20140221100158.GA19594@gmail.com>
+From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
+Subject: RE: [PATCH v2 net-next] ethtool: Remove inactive code snippet in
+ ethtool_set_rxfh_indir
+Date: Fri, 21 Feb 2014 10:28:24 +0000
+Message-ID: <BF3270C86E8B1349A26C34E4EC1C44CB2C87E699@CMEXMB1.ad.emulex.com>
+References: <d966666f-7494-449a-a48f-728f77614738@CMEXHTCAS2.ad.emulex.com>
+ <20140219.164243.2046477353509124098.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Tobias Waldekranz <tobias@waldekranz.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f52.google.com ([74.125.83.52]:39708 "EHLO
-	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754411AbaBUK03 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 05:26:29 -0500
-Received: by mail-ee0-f52.google.com with SMTP id c41so633377eek.39
-        for <netdev@vger.kernel.org>; Fri, 21 Feb 2014 02:26:28 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20140221100158.GA19594@gmail.com>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:17592 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750884AbaBUK20 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 05:28:26 -0500
+In-Reply-To: <20140219.164243.2046477353509124098.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Feb 21, 2014 at 11:01:58AM CET, tobias@waldekranz.com wrote:
->I have a system with the following configuration:
->
->   * eth0 is a regular Ethernet MAC, connected to a hardware switch.
->   * port[1-4] are the in-kernel representation of the switch.
->   * team0 is a regular team-interface which bonds port1 and port2.
->
->      +-------+
->      | team0 |
->      +---+---+
->          |
->     +----+----+
->     |         |
-> +---+---+ +---+---+ +-------+ +-------+
-> | port1 | | port2 | | port3 | | port4 | 
-> +---+---+ +---+---+ +---+---+ +---+---+
->     |         |         |         |
->     +---------+----+----+---------+
->                    |
->                +---+---+
->                | eth0  |
->                +-------+
->
->Both the switch and the team driver attaches rx-handlers to their
->lower layers. The problem is that team expects LACP frames that
->are intercepted by team0, to also be delivered to the port interface
->by __netif_receive_skb_core (in the final iteration of the registered
->protocols). However in this case, when two rx-handlers are cascaded,
->the skb will be delivered to eth0, since that is the original device
->(orig_dev).
->
->There are a few ways this can be solved as far as i can see:
->
->   1. Introduce a new rx-handler return code that specifies that
->   skb->dev has been altered, like RX_HANDLER_ANOTHER, and that we
->   also want to change orig_dev to this new device.
->
->   2. Change the switch driver to return RX_HANDLER_CONSUMED and then
->   queue the skb all over again, though I am afraid that this will eat
->   some cycles.
+> From: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
+> Date: Wed, 19 Feb 2014 13:20:25 +0530
+> 
+> > ethtool_rxfh_indir_default is invoked inside ethtool_set_rxfh_indir
+> > when user_size is zero. However user_size can only be zero when
+> > dev_size is zero in which case ethtool_get_rxfh_indir itself would
+> > return EOPNOTSUPP error. "user_size = 0" can never happen unless
+> > userspace ethtool sends user_size as zero beforing invoking the ioctl
+> > for ETHTOOL_SRSSH, in which case we should return -EINVAL.
+> >
+> > v2: Modified commit message.
+> >
+> > Signed-off-by: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
+> 
+> It looks like the author of this code intended user_size == 0 as a way to reset
+> the indirection table to the default, did this ever work?
 
-What "switch driver" are you reffering to?
-
-
-
->
->   3. Keep track of all traversed interfaces and change the final
->   protocol iteration to deliver the skb to all intermediate devices.
->
->What would be your suggestion?
->
->-- 
->Thanks
-> - wkz
->
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+There is no option for --set-rxfh-indir to reset the indirection table. So ethtool cannot know that it has to fill user_size = 0 to reset the indirection table to default.
