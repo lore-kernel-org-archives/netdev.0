@@ -1,61 +1,56 @@
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net 3/5] qlcnic: Allow any VLAN to be configured from VF.
-Date: Fri, 21 Feb 2014 01:23:06 -0500
-Message-ID: <1392963788-18341-4-git-send-email-shahed.shaikh@qlogic.com>
+Subject: [PATCH net 4/5] qlcnic: Fix number of rings when we fall back from msix to legacy.
+Date: Fri, 21 Feb 2014 01:23:07 -0500
+Message-ID: <1392963788-18341-5-git-send-email-shahed.shaikh@qlogic.com>
 References: <1392963788-18341-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+	Rajesh Borundia <rajesh.borundia@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:23442 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750884AbaBUG6j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 01:58:39 -0500
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:55889 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750884AbaBUG6l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 01:58:41 -0500
 In-Reply-To: <1392963788-18341-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
 
-o This patch reverts commit 1414abea048e0835c43600d62808ed8163897227
-  (qlcnic: Restrict VF from configuring any VLAN mode.)
-  This will allow same multicast address to be used with any VLAN
-  instead of programming seperate (MAC, VLAN) tuples in adapter.
-  This will help save some multicast filters.
+o Driver was not re-setting sds ring count to 1 after failing
+   to allocate msi-x interrupts.
 
-Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c | 9 ---------
- 1 file changed, 9 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c | 1 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c    | 1 +
+ 2 files changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-index 09acf15..e5277a6 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-@@ -13,8 +13,6 @@
- #define QLC_VF_MIN_TX_RATE	100
- #define QLC_VF_MAX_TX_RATE	9999
- #define QLC_MAC_OPCODE_MASK	0x7
--#define QLC_MAC_STAR_ADD	6
--#define QLC_MAC_STAR_DEL	7
- #define QLC_VF_FLOOD_BIT	BIT_16
- #define QLC_FLOOD_MODE		0x5
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+index 4146664..27c4f13 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+@@ -340,6 +340,7 @@ int qlcnic_83xx_setup_intr(struct qlcnic_adapter *adapter)
+ 			if (qlcnic_sriov_vf_check(adapter))
+ 				return -EINVAL;
+ 			num_msix = 1;
++			adapter->drv_sds_rings = QLCNIC_SINGLE_RING;
+ 			adapter->drv_tx_rings = QLCNIC_SINGLE_RING;
+ 		}
+ 	}
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index e10fc8e..1222865 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -816,6 +816,7 @@ static int qlcnic_82xx_setup_intr(struct qlcnic_adapter *adapter)
  
-@@ -1206,13 +1204,6 @@ static int qlcnic_sriov_validate_cfg_macvlan(struct qlcnic_adapter *adapter,
- 	struct qlcnic_vport *vp = vf->vp;
- 	u8 op, new_op;
+ 		if (!(adapter->flags & QLCNIC_MSIX_ENABLED)) {
+ 			qlcnic_disable_multi_tx(adapter);
++			adapter->drv_sds_rings = QLCNIC_SINGLE_RING;
  
--	if (((cmd->req.arg[1] & QLC_MAC_OPCODE_MASK) == QLC_MAC_STAR_ADD) ||
--	    ((cmd->req.arg[1] & QLC_MAC_OPCODE_MASK) == QLC_MAC_STAR_DEL)) {
--		netdev_err(adapter->netdev, "MAC + any VLAN filter not allowed from VF %d\n",
--			   vf->pci_func);
--		return -EINVAL;
--	}
--
- 	if (!(cmd->req.arg[1] & BIT_8))
- 		return -EINVAL;
- 
+ 			err = qlcnic_enable_msi_legacy(adapter);
+ 			if (err)
 -- 
 1.8.1.4
