@@ -1,86 +1,123 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH stable 3.10.y 1/3] net: add and use skb_gso_transport_seglen()
-Date: Sat, 22 Feb 2014 10:30:17 +0100
-Message-ID: <1393061419-4892-2-git-send-email-fw@strlen.de>
+Subject: [PATCH stable 3.10.y 2/3] net: core: introduce netif_skb_dev_features
+Date: Sat, 22 Feb 2014 10:30:18 +0100
+Message-ID: <1393061419-4892-3-git-send-email-fw@strlen.de>
 References: <1393061419-4892-1-git-send-email-fw@strlen.de>
 Cc: Florian Westphal <fw@strlen.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:44030 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:44033 "EHLO
 	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751132AbaBVJeX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Feb 2014 04:34:23 -0500
+	by vger.kernel.org with ESMTP id S1752322AbaBVJe3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Feb 2014 04:34:29 -0500
 In-Reply-To: <1393061419-4892-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit de960aa9ab4decc3304959f69533eef64d05d8e8 upstream.
+commit d206940319c41df4299db75ed56142177bb2e5f6 upstream.
 
-[ no skb_gso_seglen helper in 3.10, leave tbf alone ]
-
-This moves part of Eric Dumazets skb_gso_seglen helper from tbf sched to
-skbuff core so it may be reused by upcoming ip forwarding path patch.
+Will be used by upcoming ipv4 forward path change that needs to
+determine feature mask using skb->dst->dev instead of skb->dev.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
-Acked-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/linux/skbuff.h |  2 ++
- net/core/skbuff.c      | 25 +++++++++++++++++++++++++
- 2 files changed, 27 insertions(+)
+ include/linux/netdevice.h |  7 ++++++-
+ net/core/dev.c            | 27 ++++++++++++++++-----------
+ 2 files changed, 22 insertions(+), 12 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index ded45ec..a49e581 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2488,6 +2488,8 @@ extern int	       skb_shift(struct sk_buff *tgt, struct sk_buff *skb,
- extern struct sk_buff *skb_segment(struct sk_buff *skb,
- 				   netdev_features_t features);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index abf7756..4d2e041 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2761,7 +2761,12 @@ void netdev_change_features(struct net_device *dev);
+ void netif_stacked_transfer_operstate(const struct net_device *rootdev,
+ 					struct net_device *dev);
  
-+unsigned int skb_gso_transport_seglen(const struct sk_buff *skb);
-+
- static inline void *skb_header_pointer(const struct sk_buff *skb, int offset,
- 				       int len, void *buffer)
- {
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 20ee14d..79143b7 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -47,6 +47,8 @@
- #include <linux/in.h>
- #include <linux/inet.h>
- #include <linux/slab.h>
-+#include <linux/tcp.h>
-+#include <linux/udp.h>
- #include <linux/netdevice.h>
- #ifdef CONFIG_NET_CLS_ACT
- #include <net/pkt_sched.h>
-@@ -3471,3 +3473,26 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
- 	return true;
- }
- EXPORT_SYMBOL(skb_try_coalesce);
-+
-+/**
-+ * skb_gso_transport_seglen - Return length of individual segments of a gso packet
-+ *
-+ * @skb: GSO skb
-+ *
-+ * skb_gso_transport_seglen is used to determine the real size of the
-+ * individual segments, including Layer4 headers (TCP/UDP).
-+ *
-+ * The MAC/L2 or network (IP, IPv6) headers are not accounted for.
-+ */
-+unsigned int skb_gso_transport_seglen(const struct sk_buff *skb)
+-netdev_features_t netif_skb_features(struct sk_buff *skb);
++netdev_features_t netif_skb_dev_features(struct sk_buff *skb,
++					 const struct net_device *dev);
++static inline netdev_features_t netif_skb_features(struct sk_buff *skb)
 +{
-+	const struct skb_shared_info *shinfo = skb_shinfo(skb);
-+	unsigned int hdr_len;
-+
-+	if (likely(shinfo->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6)))
-+		hdr_len = tcp_hdrlen(skb);
-+	else
-+		hdr_len = sizeof(struct udphdr);
-+	return hdr_len + shinfo->gso_size;
++	return netif_skb_dev_features(skb, skb->dev);
 +}
-+EXPORT_SYMBOL_GPL(skb_gso_transport_seglen);
+ 
+ static inline bool net_gso_ok(netdev_features_t features, int gso_type)
+ {
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 1283c84..a0e55ff 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2374,7 +2374,7 @@ EXPORT_SYMBOL(netdev_rx_csum_fault);
+  * 2. No high memory really exists on this machine.
+  */
+ 
+-static int illegal_highdma(struct net_device *dev, struct sk_buff *skb)
++static int illegal_highdma(const struct net_device *dev, struct sk_buff *skb)
+ {
+ #ifdef CONFIG_HIGHMEM
+ 	int i;
+@@ -2454,46 +2454,51 @@ static int dev_gso_segment(struct sk_buff *skb, netdev_features_t features)
+ }
+ 
+ static netdev_features_t harmonize_features(struct sk_buff *skb,
+-	__be16 protocol, netdev_features_t features)
++					    __be16 protocol,
++					    const struct net_device *dev,
++					    netdev_features_t features)
+ {
+ 	if (skb->ip_summed != CHECKSUM_NONE &&
+ 	    !can_checksum_protocol(features, protocol)) {
+ 		features &= ~NETIF_F_ALL_CSUM;
+-	} else if (illegal_highdma(skb->dev, skb)) {
++	} else if (illegal_highdma(dev, skb)) {
+ 		features &= ~NETIF_F_SG;
+ 	}
+ 
+ 	return features;
+ }
+ 
+-netdev_features_t netif_skb_features(struct sk_buff *skb)
++netdev_features_t netif_skb_dev_features(struct sk_buff *skb,
++					 const struct net_device *dev)
+ {
+ 	__be16 protocol = skb->protocol;
+-	netdev_features_t features = skb->dev->features;
++	netdev_features_t features = dev->features;
+ 
+-	if (skb_shinfo(skb)->gso_segs > skb->dev->gso_max_segs)
++	if (skb_shinfo(skb)->gso_segs > dev->gso_max_segs)
+ 		features &= ~NETIF_F_GSO_MASK;
+ 
+ 	if (protocol == htons(ETH_P_8021Q) || protocol == htons(ETH_P_8021AD)) {
+ 		struct vlan_ethhdr *veh = (struct vlan_ethhdr *)skb->data;
+ 		protocol = veh->h_vlan_encapsulated_proto;
+ 	} else if (!vlan_tx_tag_present(skb)) {
+-		return harmonize_features(skb, protocol, features);
++		return harmonize_features(skb, protocol, dev, features);
+ 	}
+ 
+-	features &= (skb->dev->vlan_features | NETIF_F_HW_VLAN_CTAG_TX |
++	features &= (dev->vlan_features | NETIF_F_HW_VLAN_CTAG_TX |
+ 					       NETIF_F_HW_VLAN_STAG_TX);
+ 
+ 	if (protocol != htons(ETH_P_8021Q) && protocol != htons(ETH_P_8021AD)) {
+-		return harmonize_features(skb, protocol, features);
++		return harmonize_features(skb, protocol, dev, features);
+ 	} else {
+ 		features &= NETIF_F_SG | NETIF_F_HIGHDMA | NETIF_F_FRAGLIST |
+ 				NETIF_F_GEN_CSUM | NETIF_F_HW_VLAN_CTAG_TX |
+ 				NETIF_F_HW_VLAN_STAG_TX;
+-		return harmonize_features(skb, protocol, features);
++		return harmonize_features(skb, protocol, dev, features);
+ 	}
++
++	return harmonize_features(skb, protocol, dev, features);
+ }
+-EXPORT_SYMBOL(netif_skb_features);
++EXPORT_SYMBOL(netif_skb_dev_features);
+ 
+ /*
+  * Returns true if either:
 -- 
 1.8.1.5
