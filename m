@@ -1,96 +1,90 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net-next V1 0/3] net/mlx4: Mellanox driver update
- 01-01-2014
-Date: Sat, 22 Feb 2014 01:33:18 +0000
-Message-ID: <1393032798.15717.85.camel@deadeye.wl.decadent.org.uk>
-References: <1392814684-2129-1-git-send-email-amirv@mellanox.com>
-	 <20140219.165049.1684072721398326970.davem@davemloft.net>
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: Re: [Xen-devel] [RFC v2 1/4] bridge: enable interfaces to
+ opt out from becoming the root bridge
+Date: Fri, 21 Feb 2014 17:38:48 -0800
+Message-ID: <CAB=NE6XtiAG0Q_kEUcomwSss2ftXeiL7Y80MLB55rEtEMGnadg@mail.gmail.com>
+References: <1392433180-16052-1-git-send-email-mcgrof@do-not-panic.com>
+	<1392433180-16052-2-git-send-email-mcgrof@do-not-panic.com>
+	<20140216105754.63738163@nehalam.linuxnetplumber.net>
+	<CAB=NE6WwbOXNLO_Mn42i7y62pEsmDOWd35B621eiJk4iaE3Hfg@mail.gmail.com>
+	<1392803559.23084.99.camel@kazak.uk.xensource.com>
+	<5304C13F.3030802@citrix.com>
+	<CAB=NE6X6Vuo3iib0W-c5cxv0QBpnZtCC0sFyuULugQoEZAbRtg@mail.gmail.com>
+	<20140219090855.610c0e04@nehalam.linuxnetplumber.net>
+	<CAB=NE6UAqoiFAJdckE1d7cgMZnU6_=8X+N=tSc6qH2bgH08M7Q@mail.gmail.com>
+	<20140220091958.62a8b444@nehalam.linuxnetplumber.net>
+	<CAB=NE6WnMFkH7JPNt+ROiWEvhvZ03vdGr21STf75DV9fRaK=PA@mail.gmail.com>
+	<53074E6B.6030006@citrix.com>
+	<CAB=NE6XR+FW2X2_nr2JAxgQD+zpm8=Xq7Y4fTf740rLhGCOzEw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-GYAMBsBE+1QKON8plDU2"
-Cc: amirv@mellanox.com, netdev@vger.kernel.org, yevgenyp@mellanox.com,
-	ogerlitz@mellanox.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:55567 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753541AbaBVBd1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 20:33:27 -0500
-In-Reply-To: <20140219.165049.1684072721398326970.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Ian Campbell <Ian.Campbell@citrix.com>, kvm@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Luis R. Rodriguez" <mcgrof@suse.com>, bridge@lists.linux-foundation.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	xen-devel@lists.xenproject.org
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <CAB=NE6XR+FW2X2_nr2JAxgQD+zpm8=Xq7Y4fTf740rLhGCOzEw@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, Feb 21, 2014 at 8:01 AM, Luis R. Rodriguez
+<mcgrof@do-not-panic.com> wrote:
+> On Fri, Feb 21, 2014 at 5:02 AM, Zoltan Kiss <zoltan.kiss@citrix.com> wrote:
+>>> Agreed that's the best strategy and I'll work on sending patches to
+>>> brctl to enable the root_block preference. This approach however also
+>>
+>> I don't think brctl should deal with any Xen specific stuff. I assume there
+>> is a misunderstanding in this thread: when I (and possibly other Xen folks)
+>> talk about "userspace" or "toolstack" here, I mean Xen specific tools which
+>> use e.g. brctl to set up bridges. Not brctl itself.
+>
+> I did mean brctl, but as I looked at the code it doesn't used
+> rtnl_open() and not sure if Stephen would want that.
 
---=-GYAMBsBE+1QKON8plDU2
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Actually that'd be the incorrect tool to extend, iproute2 would be the
+new way with:
 
-On Wed, 2014-02-19 at 16:50 -0500, David Miller wrote:
-> From: Amir Vadai <amirv@mellanox.com>
-> Date: Wed, 19 Feb 2014 14:58:01 +0200
->=20
-> > V0 of this patch was sent before previous net-next got closed, and
-> > now we would like to resume it.
-> >=20
-> > Yuval has reworked the affinity hint patch, according to Ben's comments=
-. The
-> > patch was actually rewritten.
-> > After a discussion with Yuval Mintz, use of netif_get_num_default_rss_q=
-ueues()
-> > is not reverted, but done in the right place. Instead of limiting the n=
-umber of
-> > IRQ's for the driver it will limit the number of queues in RSS.
-> >=20
-> > Patchset was applied and tested against commit: cb6e926 "ipv6:fix check=
-patch
-> > errors with assignment in if condition"
->=20
-> Influencing IRQs to be allocated on the same NUMA code as the one where
-> the card resides doesn't sound like an mlx4 specific desire to me.
->=20
-> Other devices, both networking and non-networking, probably might like
-> that as well.
->=20
-> Therefore doing this by hand in a specific driver doesn't seem
-> appropriate at all.
+ip link add dev xenbr0 type bridge
+ip link set dev eth0 master xenbr0
+ip link set dev vif1.0 master xenbr0 <root_block>
 
-Handling network traffic only on the local node can be really good on
-recent Intel processors, where DMA writes will usually go into cache on
-the local node.  But on other architectures, AMD processors, older Intel
-processors... I don't think there's such a big difference.  Also, where
-the system and device implement PCIe Transaction Processing Hints, DMA
-writes to cache should work on all nodes (following interrupt
-affinity)... in theory.
+where root_block would be the new desired argument. This would use the
+rtnetlink RTM_SETLINK + IFLA_MASTER, which will in turn kick off the
+bridge ndo_add_slave(). Still though it seems this requires the eth0
+device to actually exist and as such from what I can tell we can't set
+the root_block preference until *after* the addition onto the bridge,
+which should mean the bridge could still take the vif1.0 MAC address
+momentarily. This is of course only an issue if the link was up during
+the additions. This makes me think perhaps nothing is needed then and
+scripts could just use the:
 
-So this sort of policy not only shouldn't be implemented in specific
-drivers, but also ought to be configurable.
+bridge link set dev vif1.0 root_block on
 
-Ben.
+I also just noticed that if an entry that was the bridge root port got
+a root_block toggle we don't kick off the newly blocked port, I just
+verified this. Note that removing the interface from the bridge does
+however reset the bridge with a proper new root port:
 
---=20
-Ben Hutchings
-I haven't lost my mind; it's backed up on tape somewhere.
+ip link set dev vif1.0 nomaster
 
---=-GYAMBsBE+1QKON8plDU2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+For old userspace with brctl and no iproute2 we're shit out of luck,
+this means we can't use root block (xen-netblock was added on
+v2.6.39).
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+Stephen all this can we add the priv_flags flag to help out as
+proposed, but I'd make it just toggle the new root_block flag, that'd
+enable drivers to use this from initialization. Let me know if you
+have other suggestions or things I may have missed.
 
-iQIVAwUAUwf+Xue/yOyVhhEJAQpCiBAAltr6mVrnmLoGiSAehiQP32oUOuGI04SQ
-6t3V9yIxZgipJLmhZzwE0mdEFEMhh9GJVArkiB/KD9mvOOjgCxfOO1nQVV5d3ya2
-4rdXqhzYklyGu1td+sWJte3FqiIEURqrzvypPbrX3j2W5Ujm7b9aalTa/dJJDd2k
-4o+nI3mlrGuOXfNnsrtRAdyE162OHa/MEmA9xcVbu10marSLi0ZrUGRa/Sj/WGh6
-pBNd3A9BrnSpmlf1lK2TxJ8x1pSZ+ilTs4P4a2CJLMo05Y6Wk9DvIJfptX+hU/bK
-efLPHfEZCsvOV2HxWoU6/0Q4e8OV09wpHmggXoFdlB3XK4qmfKKDnt8SZjKcexnS
-pr2IpVoINuU8iVAyhPRfG+6edEnYxLfEZvDsBY2ZHGCotLNApPDQikeQdnYG3g2G
-rRvHQn0SHwnmSCSxLuPdvXm9qoTGkChIYWNeFzM3pssMcOZOlT0U77BQ841oPqL1
-ihne/x3Jh3nTgoHplgEykpl30kTAmUUg5epYAEDLbMEFOnPSV+zJ9NrrGILdk6ay
-hddtlMrbdua3eArJAKsHRm1NfTeuca5ZhKHJPhsLdeqfucFlWBtGno27jl1Iwtrc
-cL6j96pbmQgcGZPVC4snQ+vKAVQ1yDdQprlVbSnyQN88uBDo0Au7AuocgTRvt7Vf
-h2+UlDwe+fs=
-=+vSL
------END PGP SIGNATURE-----
-
---=-GYAMBsBE+1QKON8plDU2--
+  Luis
