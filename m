@@ -1,37 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] tipc: clean up components initialization code
-Date: Sat, 22 Feb 2014 00:01:46 -0500 (EST)
-Message-ID: <20140222.000146.781587367958127381.davem@davemloft.net>
-References: <1392867171-31020-1-git-send-email-ying.xue@windriver.com>
+Subject: Re: [PATCH] net-tcp: fastopen: fix high order allocations
+Date: Sat, 22 Feb 2014 00:06:26 -0500 (EST)
+Message-ID: <20140222.000626.364636476966900818.davem@davemloft.net>
+References: <1392919758.2316.7.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, Paul.Gortmaker@windriver.com,
-	erik.hugne@ericsson.com, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net, wangweidong1@huawei.com
-To: ying.xue@windriver.com
+Cc: netdev@vger.kernel.org, ycheng@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46215 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46223 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750716AbaBVFBp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Feb 2014 00:01:45 -0500
-In-Reply-To: <1392867171-31020-1-git-send-email-ying.xue@windriver.com>
+	with ESMTP id S1751484AbaBVFGW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Feb 2014 00:06:22 -0500
+In-Reply-To: <1392919758.2316.7.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ying Xue <ying.xue@windriver.com>
-Date: Thu, 20 Feb 2014 11:32:48 +0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 20 Feb 2014 10:09:18 -0800
 
-> In this series, we will fix a regression issue involved by commit
-> 6e967adf7(tipc: relocate common functions from media to bearer)
-> But before the issue is fixed, we firstly adjust the process of
-> components initialization so as to remove all enabled flags from
-> necessary tipc components. Otherwise, without the change, we also
-> have to add an extra enabled flag into bearer layer indicating
-> whether bearer setup is finshed or not.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Ying Xue (2):
->   tipc: remove all enabled flags from all tipc components
->   tipc: make bearer set up in module insertion stage
+> This patch fixes two bugs in fastopen :
+> 
+> 1) The tcp_sendmsg(...,  @size) argument was ignored.
+> 
+>    Code was relying on user not fooling the kernel with iovec mismatches
+> 
+> 2) When MTU is about 64KB, tcp_send_syn_data() attempts order-5
+> allocations, which are likely to fail when memory gets fragmented.
+> 
+> Fixes: 783237e8daf13 ("net-tcp: Fast Open client - sending SYN-data")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Series applied, thanks.
+Applied and queued up for -stable, thanks Eric.
