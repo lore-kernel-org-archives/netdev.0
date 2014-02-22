@@ -1,92 +1,41 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: probe netlink app in NUD_PROBE
-Date: Sat, 22 Feb 2014 10:44:19 +0200
-Message-ID: <20140222104419.6b4daa44@vostro>
+From: lucien <lucien.xin@gmail.com>
+Subject: [PATCH net-next] ip_tunnel:multicast process cause panic due to skb->_skb_refdst
+ NULL pointer
+Date: Sat, 22 Feb 2014 16:43:26 +0800
+Message-ID: <5308632E.10101@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f43.google.com ([209.85.215.43]:52720 "EHLO
-	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750784AbaBVInc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Feb 2014 03:43:32 -0500
-Received: by mail-la0-f43.google.com with SMTP id pv20so3270456lab.2
-        for <netdev@vger.kernel.org>; Sat, 22 Feb 2014 00:43:30 -0800 (PST)
-Received: from vostro ([83.145.235.194])
-        by mx.google.com with ESMTPSA id jt7sm5758221lbc.15.2014.02.22.00.43.30
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Sat, 22 Feb 2014 00:43:30 -0800 (PST)
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:56876 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751009AbaBVInv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Feb 2014 03:43:51 -0500
+Received: by mail-pa0-f48.google.com with SMTP id kx10so4460861pab.7
+        for <netdev@vger.kernel.org>; Sat, 22 Feb 2014 00:43:51 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When a stale or delayed neigh entry is being re-validated the entry
-goes to NUD_PROBE state. At the moment only unicast probes are sent.
-This is basically because neigh_max_probes() limits the probe amount so.
+when ip_tunnel process multicast packets, it may check if the packet is
+looped back packet though 'rt_is_output_route(skb_rtable(skb))' in
+ip_tunnel_rcv(), but before that , skb->_skb_refdst has been dropped in
+iptunnel_pull_header(), so which leads to a panic.
 
-Now, opennhrp intentionally configures UCAST_PROBES and MCAST_PROBES to
-zero and APP_PROBES to something meaningful. The idea is that opennhrp
-replaces arp completely with NHRP implemented in userland.
+fix the bug: https://bugzilla.kernel.org/show_bug.cgi?id=70681
 
-Due to this it seems there is a very small time window, when the
-NUD_PROBE times out and the neighbour entry gets invalidated, and
-packets get lost.
-
-To remedy this, I would like to have these NUD_PROBE validations sent
-via netlink too.
-
-First choice is to change to just use both unicast and application
-probes:
-
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index b9e9e0d..36d3f8c 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -836,10 +836,10 @@ out:
- static __inline__ int neigh_max_probes(struct neighbour *n)
- {
- 	struct neigh_parms *p = n->parms;
--	return (n->nud_state & NUD_PROBE) ?
--		NEIGH_VAR(p, UCAST_PROBES) :
--		NEIGH_VAR(p, UCAST_PROBES) + NEIGH_VAR(p, APP_PROBES) +
--		NEIGH_VAR(p, MCAST_PROBES);
-+	int max_probes = NEIGH_VAR(p, UCAST_PROBES) + NEIGH_VAR(p, APP_PROBES);
-+	if (!(n->nud_state & NUD_PROBE))
-+		max_probes += NEIGH_VAR(p, MCAST_PROBES);
-+	return max_probes;
- }
- 
- static void neigh_invalidate(struct neighbour *neigh)
-
-On default configuration there is no behaviour change, as APP_PROBES
-defaults zero. I'm not sure if other ARPD programs than opennhrp are
-currently commonly used.
-
-If that feels risky, alternative would be:
-
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index b9e9e0d..8bb320b 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -836,9 +836,11 @@ out:
- static __inline__ int neigh_max_probes(struct neighbour *n)
- {
- 	struct neigh_parms *p = n->parms;
--	return (n->nud_state & NUD_PROBE) ?
--		NEIGH_VAR(p, UCAST_PROBES) :
--		NEIGH_VAR(p, UCAST_PROBES) + NEIGH_VAR(p, APP_PROBES) +
-+
-+	if (n->nud_state & NUD_PROBE)
-+		return NEIGH_VAR(p, UCAST_PROBES) ? : NEIGH_VAR(p, APP_PROBES);
-+
-+	return NEIGH_VAR(p, UCAST_PROBES) + NEIGH_VAR(p, APP_PROBES) + 
- 		NEIGH_VAR(p, MCAST_PROBES);
- }
- 
-In which the netlink would be used only if unicast probes are turned
-off.
-
-Any preference which to send formatted formally?
-
-- Timo
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index 6156f4e..88b08aa 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -108,7 +108,6 @@ int iptunnel_pull_header(struct sk_buff *skb, int 
+hdr_len, __be16 inner_proto)
+         nf_reset(skb);
+         secpath_reset(skb);
+         skb_clear_hash_if_not_l4(skb);
+-       skb_dst_drop(skb);
+         skb->vlan_tci = 0;
+         skb_set_queue_mapping(skb, 0);
+         skb->pkt_type = PACKET_HOST;
