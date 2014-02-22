@@ -1,27 +1,31 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net-next 01/35] bnx2: Use pci_enable_msix_range()
+Subject: Re: [PATCH net-next 28/35] qlcnic: Use pci_enable_msix_range()
  instead of pci_enable_msix()
-Date: Sat, 22 Feb 2014 00:34:34 +0000
-Message-ID: <1393029274.15717.68.camel@deadeye.wl.decadent.org.uk>
+Date: Sat, 22 Feb 2014 00:44:30 +0000
+Message-ID: <1393029870.15717.71.camel@deadeye.wl.decadent.org.uk>
 References: <cover.1392717502.git.agordeev@redhat.com>
-	 <c8d230441b63d4c30818a55b0e6ca0f376572b87.1392717502.git.agordeev@redhat.com>
+	 <cb8eb41f672c62d1149c375bdaf97ca3328703f9.1392717503.git.agordeev@redhat.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-ouW7V1uOL9k6SuEjyz9D"
-Cc: linux-kernel@vger.kernel.org, Michael Chan <mchan@broadcom.com>,
-	netdev@vger.kernel.org, linux-pci@vger.kernel.org
+	protocol="application/pgp-signature"; boundary="=-rPFm1fJUwh5zE557wHjZ"
+Cc: linux-kernel@vger.kernel.org,
+	Himanshu Madhani <himanshu.madhani@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>,
+	linux-driver@qlogic.com, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org
 To: Alexander Gordeev <agordeev@redhat.com>
 Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <c8d230441b63d4c30818a55b0e6ca0f376572b87.1392717502.git.agordeev@redhat.com>
+In-Reply-To: <cb8eb41f672c62d1149c375bdaf97ca3328703f9.1392717503.git.agordeev@redhat.com>
 Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-ouW7V1uOL9k6SuEjyz9D
+--=-rPFm1fJUwh5zE557wHjZ
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Tue, 2014-02-18 at 11:07 +0100, Alexander Gordeev wrote:
+On Tue, 2014-02-18 at 11:11 +0100, Alexander Gordeev wrote:
 > As result of deprecation of MSI-X/MSI enablement functions
 > pci_enable_msix() and pci_enable_msi_block() all drivers
 > using these two interfaces need to be updated to use the
@@ -29,76 +33,73 @@ On Tue, 2014-02-18 at 11:07 +0100, Alexander Gordeev wrote:
 > interfaces.
 >=20
 > Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
-> Cc: Michael Chan <mchan@broadcom.com>
+> Cc: Himanshu Madhani <himanshu.madhani@qlogic.com>
+> Cc: Rajesh Borundia <rajesh.borundia@qlogic.com>
+> Cc: Shahed Shaikh <shahed.shaikh@qlogic.com>
+> Cc: linux-driver@qlogic.com
 > Cc: netdev@vger.kernel.org
 > Cc: linux-pci@vger.kernel.org
 > ---
->  drivers/net/ethernet/broadcom/bnx2.c |   15 ++++-----------
->  1 files changed, 4 insertions(+), 11 deletions(-)
+>  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    8 ++++++--
+>  1 files changed, 6 insertions(+), 2 deletions(-)
 >=20
-> diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/=
-broadcom/bnx2.c
-> index cda25ac..ca6b362 100644
-> --- a/drivers/net/ethernet/broadcom/bnx2.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2.c
-> @@ -6206,7 +6206,7 @@ bnx2_free_irq(struct bnx2 *bp)
->  static void
->  bnx2_enable_msix(struct bnx2 *bp, int msix_vecs)
->  {
-> -	int i, total_vecs, rc;
-> +	int i, total_vecs;
->  	struct msix_entry msix_ent[BNX2_MAX_MSIX_VEC];
->  	struct net_device *dev =3D bp->dev;
->  	const int len =3D sizeof(bp->irq_tbl[0].name);
-> @@ -6229,16 +6229,9 @@ bnx2_enable_msix(struct bnx2 *bp, int msix_vecs)
->  #ifdef BCM_CNIC
->  	total_vecs++;
->  #endif
-> -	rc =3D -ENOSPC;
-> -	while (total_vecs >=3D BNX2_MIN_MSIX_VEC) {
-> -		rc =3D pci_enable_msix(bp->pdev, msix_ent, total_vecs);
-> -		if (rc <=3D 0)
-> -			break;
-> -		if (rc > 0)
-> -			total_vecs =3D rc;
-> -	}
-> -
-> -	if (rc !=3D 0)
-> +	total_vecs =3D pci_enable_msix_range(bp->pdev, msix_ent,
-> +					   BNX2_MIN_MSIX_VEC, total_vecs);
-> +	if (total_vecs < 0)
->  		return;
+> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/n=
+et/ethernet/qlogic/qlcnic/qlcnic_main.c
+> index 0c077cf..e07fd94 100644
+> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> @@ -701,13 +701,17 @@ enable_msix:
+>  		for (vector =3D 0; vector < num_msix; vector++)
+>  			adapter->msix_entries[vector].entry =3D vector;
+> =20
+> -		err =3D pci_enable_msix(pdev, adapter->msix_entries, num_msix);
+> -		if (err =3D=3D 0) {
+> +		err =3D pci_enable_msix_range(pdev,
+> +					    adapter->msix_entries, 1, num_msix);
+> +
+> +		if (err =3D=3D num_msix) {
+>  			adapter->flags |=3D QLCNIC_MSIX_ENABLED;
+>  			adapter->ahw->num_msix =3D num_msix;
+>  			dev_info(&pdev->dev, "using msi-x interrupts\n");
+>  			return 0;
+>  		} else if (err > 0) {
+> +			pci_disable_msix(pdev);
+> +
+>  			dev_info(&pdev->dev,
+>  				 "Unable to allocate %d MSI-X vectors, Available vectors %d\n",
+>  				 num_msix, err);
 
-This would be better without the assignment to total_vecs.
+Well this log message is nonsense - we have no idea how many vectors are
+available any more.
+
+You should remove this and the retry loop that is no longer needed.
 
 Ben.
-
->  	msix_vecs =3D total_vecs;
 
 --=20
 Ben Hutchings
 I haven't lost my mind; it's backed up on tape somewhere.
 
---=-ouW7V1uOL9k6SuEjyz9D
+--=-rPFm1fJUwh5zE557wHjZ
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIVAwUAUwfwmue/yOyVhhEJAQocdw//X1LEsjyKsKVrebL4qRJxlDZEnMC6nqY7
-otPZnC0/s/PAXP+K8KuOUjMvH8sV+WvS71QsaFymcyd+QIoZicqUSvUwNVOfiXhd
-M2gKchsi76AvFXh+yfCK5X8S45Nm6m3SsZcfxWvXtORZ6F7NmZtrk22Uo0paNDvI
-8TdTaE2MrXavx8ckTVp22OYhZiutocEu793Gpz3xtdvtP0+p7Dg+n9CcmqZlxcbf
-rVOTDgca8n8YGAH/nd82kdGqydmdLq2vW6LJ3CkzNvq5bCLjvoKsoAaynCpB1i+P
-JTSIKSR1kp/lotBRxYQiluv1PCGGK2HTpS7qG2sVL+ouiork7wILJaGioAlkv24k
-QC/P4+oVHqH75rY4lSfRDgPEAr7UL4NIKY1LNszhmEbgXJEg/NDbs3RK1VO9/Qrr
-ZS8dAywEH7mV/0zMwexZVIIpTrvpPLfCFGEMJ+KsvVw9Yu8i3SsE15nhv/9RLCFr
-7NPk34uJvCfSJFX9rSjMKWdRxeFaLkbF+IBYnplZ263mj/xKWCKfNakBz3Im3NU2
-cCeEXItzcHeh2164m+TSLO3APIkQlZ/M/m5BQMyT1SIP4H/4dsfyMmUPQWv9XTBw
-Wm/KTqA9wzrWjmDKyVjPRdvQdsaQ2QQGBr26eg9On8hZLjxz51nIZgkDBP9fv+bc
-+ZMqKJNjFAs=
-=fo/3
+iQIVAwUAUwfy7ue/yOyVhhEJAQrPWw/+JBTwM+nrdybdFxO50G34coeMeo8TMDU7
++sKBPYnpuRPKZ5Krs1FgZgRUv2W7yee/WNn5LfMD0VfXdda6kOxOCLLUbLS8q6dB
+x1r70zGvmY6oiEpHJH5vZxLdlSpS/n7V/aN3kuFcOAsDftlAVdr4iO4/mnENvKwg
+AFW8BcyLQ5r6mxnzNNf7FHcLT1ceZPUTfKEy0Yoc6NfoofTEkvx45kDERFdhd1RB
+VfiUmLEq61Q6PVbgFbFaZwBFh8rRN50UXUJONmsyaZI7REv0evgpVHZe5SdE4S9c
+Lr1q6oY7PZ7KCZHyI59HC8BgrzhSx9Br3lPLpeX0762fCqBrhfK7vboZhF0aHvwG
+dFiPAaqp9MzVHCKt4EHXtUSAQzECXt8xI8NcsstzLn6fML74aRYsPiCWsY5bbQeN
+l2JtITKSYAqDHvMMzSxRG4P9ThEhO/dzlvDoV+4F6UFBf3L4An81l3EsNWsCUXhm
+OdSnbY6xVYCul9k3gDcb6A8j7rOIxpjnzeDcZonFsu6cJuDkXri7zLQnUD/7xZb4
+RpAQk1MbtGHER1akP5xh1BcFMdrFmmE2MV5qiiRbqiFAxiyb3dLKNwh/LKIUCwA6
+wcrklIqGnMsbt2jOtBBd8nx3/9ssrCzGhcXUfH4fH+kh4ViH/5oD5JCAzGWURVb6
+j/ZR0euJLa4=
+=P3P1
 -----END PGP SIGNATURE-----
 
---=-ouW7V1uOL9k6SuEjyz9D--
+--=-rPFm1fJUwh5zE557wHjZ--
