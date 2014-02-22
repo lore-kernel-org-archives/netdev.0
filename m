@@ -1,60 +1,37 @@
-From: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>
-Subject: Re: [PATCH] af_packet: Add PACKET_FANOUT_QM documentation
-Date: Sat, 22 Feb 2014 10:44:40 +0100
-Message-ID: <53087188.9080408@gmail.com>
-References: <1390911375-5784-1-git-send-email-nhorman@tuxdriver.com>
+From: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
+Subject: [PATCH v2 ethtool 0/2] patchset - Support for configurable RSS hash key
+Date: Sat, 22 Feb 2014 17:11:44 +0530
+Message-ID: <c981c143-744f-48e6-a8e6-f1658487df9f@CMEXHTCAS1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: mtk.manpages@gmail.com, andi@firstfloor.org, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>, linux-man@vger.kernel.org
+Content-Type: text/plain
+Cc: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f44.google.com ([209.85.214.44]:39924 "EHLO
-	mail-bk0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750960AbaBVLES (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Feb 2014 06:04:18 -0500
-In-Reply-To: <1390911375-5784-1-git-send-email-nhorman@tuxdriver.com>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:21253 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750749AbaBVLlk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Feb 2014 06:41:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/28/2014 01:16 PM, Neil Horman wrote:
-> Recently added a new fanout mode of operation to packet sockets.  Document it
-> here
+NIC drivers that support RSS use either a hard-coded value or a random value for the RSS hash key. Irrespective of the type of the key used, the user would want to change the hash key if he/she is not satisfied with the effectiveness of the default hash-key in spreading the incoming flows evenly across the RSS queues.
 
-Thanks, Neil. Applied.
+This patch set adds support for configuring the RSS hash-key via the ethtool interface using .X/-x option.
 
-This new mode is ne win 3.14, right?
+The patch set consists of user space ethtool patches. Kernel changes are submitted as a separate patch set.
 
-Cheers,
-
-Michael
-
-
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> CC: mtk.manpages@gmail.com
-> CC: andi@firstfloor.org
-> CC: netdev@vger.kernel.org
-> ---
->  man7/packet.7 | 2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff --git a/man7/packet.7 b/man7/packet.7
-> index 93f91e9..6e145dc 100644
-> --- a/man7/packet.7
-> +++ b/man7/packet.7
-> @@ -296,6 +296,8 @@ processes all data on a single socket, moves to the next when one
->  becomes backlogged.
->  .BR PACKET_FANOUT_RND
->  selects the socket using a pseudo-random number generator.
-> +.BR PACKET_FANOUT_QM
-> +selects the socket using the recorded queue_mapping of the received skb.
->  
->  Fanout modes can take additional options.
->  IP fragmentation causes packets from the same flow to have different
-> 
+v2 changes:
+1. Integrated hash-key configuration with indirection table configuration and renamed do_grxfhindir to do_grxfh, do_srxfhindir to do_srxfh.
+2. Renamed ethtool_rxfh_indir structure to ethtool_rxfh. This new structure will accommodate for both Rx flow hash indirection table and key.
+3. Hash key is made variable length.
+4. Changes will enable user to set indirection table alone, hash key alone and both as well.
 
 
--- 
-Michael Kerrisk
-Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-Linux/UNIX System Programming Training: http://man7.org/training/
+Venkat Duvvuru (2):
+  ethtool: Support for configurable RSS hash key
+  ethtool: Support for configurable RSS hash key
+
+ ethtool-copy.h |   42 ++++++----
+ ethtool.8.in   |   18 +++--
+ ethtool.c      |  253 ++++++++++++++++++++++++++++++++++++++++++++------------
+ 3 files changed, 237 insertions(+), 76 deletions(-)
