@@ -1,57 +1,95 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next 3/6] 6lowpan: move
-	6lowpan.c to 6lowpan_rtnl.c
-Date: Sat, 22 Feb 2014 15:25:31 +0100
-Message-ID: <20140222142530.GA2430@omega>
-References: <1392995711-19563-1-git-send-email-alex.aring@gmail.com>
-	<1392995711-19563-4-git-send-email-alex.aring@gmail.com>
-	<1393076452.15717.98.camel@deadeye.wl.decadent.org.uk>
-	<20140222140344.GA1032@omega>
-	<1393078035.15717.103.camel@deadeye.wl.decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1393078035.15717.103.camel-nDn/Rdv9kqW9Jme8/bJn5UCKIB8iOfG2tUK59QYPAWc@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: [PATCH net-next v3 0/6] 6lowpan: reimplementation of fragmentation handling
+Date: Sat, 22 Feb 2014 16:02:34 +0100
+Message-ID: <1393081360-11968-1-git-send-email-alex.aring@gmail.com>
+Cc: dbaryshkov@gmail.com, davem@davemloft.net,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	martin.townsend@xsilon.com, Alexander Aring <alex.aring@gmail.com>
+To: alex.bluesman.smirnov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f44.google.com ([74.125.83.44]:57770 "EHLO
+	mail-ee0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751142AbaBVPDc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Feb 2014 10:03:32 -0500
+Received: by mail-ee0-f44.google.com with SMTP id c13so2177601eek.17
+        for <netdev@vger.kernel.org>; Sat, 22 Feb 2014 07:03:31 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 22, 2014 at 02:07:15PM +0000, Ben Hutchings wrote:
-> On Sat, 2014-02-22 at 15:03 +0100, Alexander Aring wrote:
-> > Hi Ben,
-> > 
-> > thanks for your reply.
-> > 
-> > On Sat, Feb 22, 2014 at 01:40:52PM +0000, Ben Hutchings wrote:
-> > > On Fri, 2014-02-21 at 16:15 +0100, Alexander Aring wrote:
-> > > > We have a 6lowpan.c file and 6lowpan.ko file. To avoid confusing we
-> > > > should move 6lowpan.c to 6lowpan.ko. Then we can support multiple source
-> > > 
-> > > You put the wrong filename here ^
-> > > 
-> > mhh, I meant here:
-> [...]
-> 
-> I know what you mean, but the second '6lowpan.ko' in the description
-> should surely be '6lowpan_rtnl.c' like in the subject.
-> 
-oh yes. Thanks. :-)
+Hi,
 
-- Alex
+this patch series reimplementation the fragmentation handling of 6lowpan
+accroding to rfc4944 [1].
 
-------------------------------------------------------------------------------
-Managing the Performance of Cloud-Based Applications
-Take advantage of what the Cloud has to offer - Avoid Common Pitfalls.
-Read the Whitepaper.
-http://pubads.g.doubleclick.net/gampad/clk?id=121054471&iu=/4140/ostg.clktrk
+The first big note is, that the current fragmentation behaviour isn't rfc
+complaint. The main issue is a wrong datagram_size value which needs to be:
+datagram_size = ipv6_payload + ipv6 header + (maybe compressed transport header,
+                currently only udp is supported)
+
+but the current datagram_size value is calculated as:
+datagram_size = ipv6_payload
+
+Fragmentation work in a linux<->linux communication only.
+
+
+Why reimplementation?
+
+I reimplemted the reassembly side only. The current behaviour is to allocate a
+skb with the reassembled size and hold all fragments in a list, protected by a
+spinlock. After we received all fragments (detected by the sum of all fragments,
+it begins to place all fragments into the allocated skb).
+
+This reassembly implementation has some race condition. Additional I make it more
+rfc complaint. The current implementation match on the tag value inside the frag
+header only, but rfc4944 says we need to match on dst addr(mac), src addr(mac),
+tag value, datagram_size value. [2]
+
+The new reassembly handling use the inet_frag api (I mean the callback interface
+of ipv6 and ipv4 reassembly). I looked into ipv6 and wanted to see how ipv6 is
+dealing with reassembly, so I based my code on this implementation.
+
+
+
+On the sending side to generate the fragments I improved the current code to use
+the nearest 8 divided payload. (We can do that, because the mac layer has a
+dynamic size, so it depends on mac_header how big we can do the payload).
+
+Of course I fix also the reassembly/sending side to be rfc complaint now.
+
+Regards
+Alexander Aring
+
+[1] http://tools.ietf.org/html/rfc4944
+[2] http://tools.ietf.org/html/rfc4944#section-5.3
+
+changes since v2:
+ - rework checkpatch code style issue patch.
+   Merge two pr_debugs into one pr_debug.
+
+changes since v3:
+ - rename 6lowpan.ko to 6lowpan_rtnl.c in commit msg of patch 3/6.
+
+Alexander Aring (6):
+  6lowpan: add frag information struct
+  6lowpan: fix fragmentation on sending side
+  6lowpan: move 6lowpan.c to 6lowpan_rtnl.c
+  6lowpan: fix some checkpatch issues
+  net: ns: add ieee802154_6lowpan namespace
+  6lowpan: handling 6lowpan fragmentation via inet_frag api
+
+ include/net/ieee802154_netdev.h              |   7 +
+ include/net/net_namespace.h                  |   4 +
+ include/net/netns/ieee802154_6lowpan.h       |  22 ++
+ net/ieee802154/6lowpan.h                     | 112 ++++++
+ net/ieee802154/{6lowpan.c => 6lowpan_rtnl.c} | 327 +++++-----------
+ net/ieee802154/Makefile                      |   1 +
+ net/ieee802154/reassembly.c                  | 565 +++++++++++++++++++++++++++
+ net/ieee802154/reassembly.h                  |  66 ++++
+ 8 files changed, 869 insertions(+), 235 deletions(-)
+ create mode 100644 include/net/netns/ieee802154_6lowpan.h
+ rename net/ieee802154/{6lowpan.c => 6lowpan_rtnl.c} (70%)
+ create mode 100644 net/ieee802154/reassembly.c
+ create mode 100644 net/ieee802154/reassembly.h
+
+-- 
+1.9.0
