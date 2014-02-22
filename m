@@ -1,62 +1,262 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: Does CHECKSUM_COMPLETE work at all?
-Date: Sat, 22 Feb 2014 09:32:03 -0800
-Message-ID: <CA+mtBx8xGmZvZU+P4Uy6q3TxWdOgK3-ke9Ccfx3=xRS2-ygSQA@mail.gmail.com>
-References: <CA+mtBx8safaPpcntjqT+eUQBDEOxJBoVf-a9djX_qgYsSdACeA@mail.gmail.com>
-	<CBA48B605613B640864883107238931C0F9077@nice.asicdesigners.com>
-	<CA+mtBx97w02+6iVcDxsGh4-TzsnZcjRv0+jyD=qGrCPfcWNDqg@mail.gmail.com>
-	<53089B34.5060504@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dimitrios Michailidis <dm@chelsio.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Daniel Borkmann <dborkman@redhat.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] tools: bpf_dbg: various misc code cleanups
+Date: Sat, 22 Feb 2014 18:37:53 +0100
+Message-ID: <1393090673-14669-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f171.google.com ([209.85.223.171]:62858 "EHLO
-	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751868AbaBVRcF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Feb 2014 12:32:05 -0500
-Received: by mail-ie0-f171.google.com with SMTP id to1so2284396ieb.30
-        for <netdev@vger.kernel.org>; Sat, 22 Feb 2014 09:32:04 -0800 (PST)
-In-Reply-To: <53089B34.5060504@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:12011 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750883AbaBVRh4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 Feb 2014 12:37:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 22, 2014 at 4:42 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> On 02/22/2014 04:08 AM, Tom Herbert wrote:
-> ...
->
->> Well..., I started trying to fix the UDP encapsulation code which we
->> agreed was broken for checksums. This also entails fixing the new UDP
->> GRO code to deal with checksums correctly when going through protocol
->> layers. But, just looking at CHECKSUM_COMPLETE it seems like it's
->> fundamentally broken even without encapsulation. Between GRO and HW
->> checksums, it seems like we have a pretty big mess! :-)
->
->
-> Seems so, e.g. d97c00a32198 ("vxlan: fix receive checksum handling")
-> had similar issues in that regard; maybe because there seems to be
-> different consensus among drivers on setting CHECKSUM_COMPLETE?
+Lets clean up bpf_dbg a bit and improve its code slightly
+in various areas: i) Get rid of some macros as there's no
+good reason for keeping them, ii) remove one unused variable
+and reduce scope of various variables found by cppcheck,
+iii) Close non-default file descriptors when exiting the shell.
 
-There shouldn't be, the requirements are pretty clear in the
-description of CHECKSUM_COMPLETE. However, the meaning of
-CHECKSUM_UNNECESSARY is ambiguous. Checksum offload for simple TCP or
-UDP packets is fairly straightforward, but as devices support other
-protocols and combinations of encapsulations correctness becomes
-suspect. The problem is that the host can't verify
-CHECKSUM_UNNECESSARY, so if it's not right or there is not agreement
-between host and device as to which checksums are covered, then
-packets can received with bad checksums. This will be really hard to
-debug! As the comments about CHECKSUM_UNNECESSARY say "It is a bad
-option" :-)
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ tools/net/bpf_dbg.c | 119 ++++++++++++++++++++++++----------------------------
+ 1 file changed, 55 insertions(+), 64 deletions(-)
 
-I think the fix for CHECKSUM_COMPLETE is to hold the start and length
-of the data pertaining skb->csum. This way we only need to pull the
-checksum when actually verifying it (don't want to pull it at every
-header pull). This also relaxes the requirement that the device
-provides the checksum for the whole packet, it could instead provide
-partial coverage (there's really no need to have Ethernet header
-checksummed for instance). No where in the stack should we be changing
-CHECKSUM_COMPLETE to CHECKSUM_UNNECESSARY (that is a demotion), also
-we should never be folding pseudo header checksum into skb->csum.
+diff --git a/tools/net/bpf_dbg.c b/tools/net/bpf_dbg.c
+index 65dc757..bb31813 100644
+--- a/tools/net/bpf_dbg.c
++++ b/tools/net/bpf_dbg.c
+@@ -87,9 +87,6 @@
+ 	__attribute__ ((format (printf, (pos_fmtstr), (pos_fmtargs))))
+ #endif
+ 
+-#define CMD(_name, _func) { .name = _name, .func = _func, }
+-#define OP(_op, _name)      [_op] = _name
+-
+ enum {
+ 	CMD_OK,
+ 	CMD_ERR,
+@@ -145,32 +142,32 @@ static size_t pcap_map_size = 0;
+ static char *pcap_ptr_va_start, *pcap_ptr_va_curr;
+ 
+ static const char * const op_table[] = {
+-	OP(BPF_ST, "st"),
+-	OP(BPF_STX, "stx"),
+-	OP(BPF_LD_B, "ldb"),
+-	OP(BPF_LD_H, "ldh"),
+-	OP(BPF_LD_W, "ld"),
+-	OP(BPF_LDX, "ldx"),
+-	OP(BPF_LDX_B, "ldxb"),
+-	OP(BPF_JMP_JA, "ja"),
+-	OP(BPF_JMP_JEQ, "jeq"),
+-	OP(BPF_JMP_JGT, "jgt"),
+-	OP(BPF_JMP_JGE, "jge"),
+-	OP(BPF_JMP_JSET, "jset"),
+-	OP(BPF_ALU_ADD, "add"),
+-	OP(BPF_ALU_SUB, "sub"),
+-	OP(BPF_ALU_MUL, "mul"),
+-	OP(BPF_ALU_DIV, "div"),
+-	OP(BPF_ALU_MOD, "mod"),
+-	OP(BPF_ALU_NEG, "neg"),
+-	OP(BPF_ALU_AND, "and"),
+-	OP(BPF_ALU_OR, "or"),
+-	OP(BPF_ALU_XOR, "xor"),
+-	OP(BPF_ALU_LSH, "lsh"),
+-	OP(BPF_ALU_RSH, "rsh"),
+-	OP(BPF_MISC_TAX, "tax"),
+-	OP(BPF_MISC_TXA, "txa"),
+-	OP(BPF_RET, "ret"),
++	[BPF_ST]	= "st",
++	[BPF_STX]	= "stx",
++	[BPF_LD_B]	= "ldb",
++	[BPF_LD_H]	= "ldh",
++	[BPF_LD_W]	= "ld",
++	[BPF_LDX]	= "ldx",
++	[BPF_LDX_B]	= "ldxb",
++	[BPF_JMP_JA]	= "ja",
++	[BPF_JMP_JEQ]	= "jeq",
++	[BPF_JMP_JGT]	= "jgt",
++	[BPF_JMP_JGE]	= "jge",
++	[BPF_JMP_JSET]	= "jset",
++	[BPF_ALU_ADD]	= "add",
++	[BPF_ALU_SUB]	= "sub",
++	[BPF_ALU_MUL]	= "mul",
++	[BPF_ALU_DIV]	= "div",
++	[BPF_ALU_MOD]	= "mod",
++	[BPF_ALU_NEG]	= "neg",
++	[BPF_ALU_AND]	= "and",
++	[BPF_ALU_OR]	= "or",
++	[BPF_ALU_XOR]	= "xor",
++	[BPF_ALU_LSH]	= "lsh",
++	[BPF_ALU_RSH]	= "rsh",
++	[BPF_MISC_TAX]	= "tax",
++	[BPF_MISC_TXA]	= "txa",
++	[BPF_RET]	= "ret",
+ };
+ 
+ static __check_format_printf(1, 2) int rl_printf(const char *fmt, ...)
+@@ -1127,7 +1124,6 @@ static int cmd_step(char *num)
+ static int cmd_select(char *num)
+ {
+ 	unsigned int which, i;
+-	struct pcap_pkthdr *hdr;
+ 	bool have_next = true;
+ 
+ 	if (!pcap_loaded() || strlen(num) == 0)
+@@ -1144,7 +1140,7 @@ static int cmd_select(char *num)
+ 
+ 	for (i = 0; i < which && (have_next = pcap_next_pkt()); i++)
+ 		/* noop */;
+-	if (!have_next || (hdr = pcap_curr_pkt()) == NULL) {
++	if (!have_next || pcap_curr_pkt() == NULL) {
+ 		rl_printf("no packet #%u available!\n", which);
+ 		pcap_reset_pkt();
+ 		return CMD_ERR;
+@@ -1177,9 +1173,8 @@ static int cmd_breakpoint(char *subcmd)
+ static int cmd_run(char *num)
+ {
+ 	static uint32_t pass = 0, fail = 0;
+-	struct pcap_pkthdr *hdr;
+ 	bool has_limit = true;
+-	int ret, pkts = 0, i = 0;
++	int pkts = 0, i = 0;
+ 
+ 	if (!bpf_prog_loaded() || !pcap_loaded())
+ 		return CMD_ERR;
+@@ -1189,10 +1184,10 @@ static int cmd_run(char *num)
+ 		has_limit = false;
+ 
+ 	do {
+-		hdr = pcap_curr_pkt();
+-		ret = bpf_run_all(bpf_image, bpf_prog_len,
+-				  (uint8_t *) hdr + sizeof(*hdr),
+-				  hdr->caplen, hdr->len);
++		struct pcap_pkthdr *hdr = pcap_curr_pkt();
++		int ret = bpf_run_all(bpf_image, bpf_prog_len,
++				      (uint8_t *) hdr + sizeof(*hdr),
++				      hdr->caplen, hdr->len);
+ 		if (ret > 0)
+ 			pass++;
+ 		else if (ret == 0)
+@@ -1245,14 +1240,14 @@ static int cmd_quit(char *dontcare)
+ }
+ 
+ static const struct shell_cmd cmds[] = {
+-	CMD("load",		cmd_load),
+-	CMD("select",		cmd_select),
+-	CMD("step",		cmd_step),
+-	CMD("run",		cmd_run),
+-	CMD("breakpoint",	cmd_breakpoint),
+-	CMD("disassemble",	cmd_disassemble),
+-	CMD("dump",		cmd_dump),
+-	CMD("quit",		cmd_quit),
++	{ .name = "load", .func = cmd_load },
++	{ .name = "select", .func = cmd_select },
++	{ .name = "step", .func = cmd_step },
++	{ .name = "run", .func = cmd_run },
++	{ .name = "breakpoint", .func = cmd_breakpoint },
++	{ .name = "disassemble", .func = cmd_disassemble },
++	{ .name = "dump", .func = cmd_dump },
++	{ .name = "quit", .func = cmd_quit },
+ };
+ 
+ static int execf(char *arg)
+@@ -1280,7 +1275,6 @@ out:
+ static char *shell_comp_gen(const char *buf, int state)
+ {
+ 	static int list_index, len;
+-	const char *name;
+ 
+ 	if (!state) {
+ 		list_index = 0;
+@@ -1288,9 +1282,9 @@ static char *shell_comp_gen(const char *buf, int state)
+ 	}
+ 
+ 	for (; list_index < array_size(cmds); ) {
+-		name = cmds[list_index].name;
+-		list_index++;
++		const char *name = cmds[list_index].name;
+ 
++		list_index++;
+ 		if (strncmp(name, buf, len) == 0)
+ 			return strdup(name);
+ 	}
+@@ -1322,16 +1316,9 @@ static void init_shell(FILE *fin, FILE *fout)
+ {
+ 	char file[128];
+ 
+-	memset(file, 0, sizeof(file));
+-	snprintf(file, sizeof(file) - 1,
+-		 "%s/.bpf_dbg_history", getenv("HOME"));
+-
++	snprintf(file, sizeof(file), "%s/.bpf_dbg_history", getenv("HOME"));
+ 	read_history(file);
+ 
+-	memset(file, 0, sizeof(file));
+-	snprintf(file, sizeof(file) - 1,
+-		 "%s/.bpf_dbg_init", getenv("HOME"));
+-
+ 	rl_instream = fin;
+ 	rl_outstream = fout;
+ 
+@@ -1348,37 +1335,41 @@ static void init_shell(FILE *fin, FILE *fout)
+ 	rl_bind_key_in_map('\t', rl_complete, emacs_meta_keymap);
+ 	rl_bind_key_in_map('\033', rl_complete, emacs_meta_keymap);
+ 
++	snprintf(file, sizeof(file), "%s/.bpf_dbg_init", getenv("HOME"));
+ 	rl_read_init_file(file);
++
+ 	rl_prep_terminal(0);
+ 	rl_set_signals();
+ 
+ 	signal(SIGINT, intr_shell);
+ }
+ 
+-static void exit_shell(void)
++static void exit_shell(FILE *fin, FILE *fout)
+ {
+ 	char file[128];
+ 
+-	memset(file, 0, sizeof(file));
+-	snprintf(file, sizeof(file) - 1,
+-		 "%s/.bpf_dbg_history", getenv("HOME"));
+-
++	snprintf(file, sizeof(file), "%s/.bpf_dbg_history", getenv("HOME"));
+ 	write_history(file);
++
+ 	clear_history();
+ 	rl_deprep_terminal();
+ 
+ 	try_close_pcap();
++
++	if (fin != stdin)
++		fclose(fin);
++	if (fout != stdout)
++		fclose(fout);
+ }
+ 
+ static int run_shell_loop(FILE *fin, FILE *fout)
+ {
+ 	char *buf;
+-	int ret;
+ 
+ 	init_shell(fin, fout);
+ 
+ 	while ((buf = readline("> ")) != NULL) {
+-		ret = execf(buf);
++		int ret = execf(buf);
+ 		if (ret == CMD_EX)
+ 			break;
+ 		if (ret == CMD_OK && strlen(buf) > 0)
+@@ -1387,7 +1378,7 @@ static int run_shell_loop(FILE *fin, FILE *fout)
+ 		free(buf);
+ 	}
+ 
+-	exit_shell();
++	exit_shell(fin, fout);
+ 	return 0;
+ }
+ 
+-- 
+1.7.11.7
