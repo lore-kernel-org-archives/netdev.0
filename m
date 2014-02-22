@@ -1,262 +1,163 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] tools: bpf_dbg: various misc code cleanups
-Date: Sat, 22 Feb 2014 18:37:53 +0100
-Message-ID: <1393090673-14669-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: phy: vitesse: advertise PAUSE frame capabilities on Vitesse PHY drivers
+Date: Sat, 22 Feb 2014 10:08:44 -0800
+Message-ID: <5168669.8QxsYLHynZ@lenovo>
+References: <1392999584-29836-1-git-send-email-cristian.bercaru@freescale.com> <1393076336.15717.97.camel@deadeye.wl.decadent.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: cristian.bercaru@freescale.com, netdev@vger.kernel.org,
+	madalin.bucur@freescale.com, shaohui.xie@freescale.com,
+	shruti@freescale.com
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12011 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750883AbaBVRh4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Feb 2014 12:37:56 -0500
+Received: from mail-ob0-f179.google.com ([209.85.214.179]:62130 "EHLO
+	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752959AbaBVSIy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Feb 2014 13:08:54 -0500
+Received: by mail-ob0-f179.google.com with SMTP id wn1so472852obc.24
+        for <netdev@vger.kernel.org>; Sat, 22 Feb 2014 10:08:53 -0800 (PST)
+In-Reply-To: <1393076336.15717.97.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lets clean up bpf_dbg a bit and improve its code slightly
-in various areas: i) Get rid of some macros as there's no
-good reason for keeping them, ii) remove one unused variable
-and reduce scope of various variables found by cppcheck,
-iii) Close non-default file descriptors when exiting the shell.
+Le samedi 22 f=E9vrier 2014, 13:38:56 Ben Hutchings a =E9crit :
+> On Fri, 2014-02-21 at 18:19 +0200, cristian.bercaru@freescale.com wro=
+te:
+> > From: Cristian Bercaru <cristian.bercaru@freescale.com>
+> >=20
+> > Enable the advertisment of symmetric and asymmetric PAUSE frame
+> > capabilities on all Vitesse PHY drivers.
+>=20
+> I don't think this makes sense.  So far as I know, pause frame suppor=
+t
+> depends only on the MAC, not the PHY.
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- tools/net/bpf_dbg.c | 119 ++++++++++++++++++++++++----------------------------
- 1 file changed, 55 insertions(+), 64 deletions(-)
+Agreed.
 
-diff --git a/tools/net/bpf_dbg.c b/tools/net/bpf_dbg.c
-index 65dc757..bb31813 100644
---- a/tools/net/bpf_dbg.c
-+++ b/tools/net/bpf_dbg.c
-@@ -87,9 +87,6 @@
- 	__attribute__ ((format (printf, (pos_fmtstr), (pos_fmtargs))))
- #endif
- 
--#define CMD(_name, _func) { .name = _name, .func = _func, }
--#define OP(_op, _name)      [_op] = _name
--
- enum {
- 	CMD_OK,
- 	CMD_ERR,
-@@ -145,32 +142,32 @@ static size_t pcap_map_size = 0;
- static char *pcap_ptr_va_start, *pcap_ptr_va_curr;
- 
- static const char * const op_table[] = {
--	OP(BPF_ST, "st"),
--	OP(BPF_STX, "stx"),
--	OP(BPF_LD_B, "ldb"),
--	OP(BPF_LD_H, "ldh"),
--	OP(BPF_LD_W, "ld"),
--	OP(BPF_LDX, "ldx"),
--	OP(BPF_LDX_B, "ldxb"),
--	OP(BPF_JMP_JA, "ja"),
--	OP(BPF_JMP_JEQ, "jeq"),
--	OP(BPF_JMP_JGT, "jgt"),
--	OP(BPF_JMP_JGE, "jge"),
--	OP(BPF_JMP_JSET, "jset"),
--	OP(BPF_ALU_ADD, "add"),
--	OP(BPF_ALU_SUB, "sub"),
--	OP(BPF_ALU_MUL, "mul"),
--	OP(BPF_ALU_DIV, "div"),
--	OP(BPF_ALU_MOD, "mod"),
--	OP(BPF_ALU_NEG, "neg"),
--	OP(BPF_ALU_AND, "and"),
--	OP(BPF_ALU_OR, "or"),
--	OP(BPF_ALU_XOR, "xor"),
--	OP(BPF_ALU_LSH, "lsh"),
--	OP(BPF_ALU_RSH, "rsh"),
--	OP(BPF_MISC_TAX, "tax"),
--	OP(BPF_MISC_TXA, "txa"),
--	OP(BPF_RET, "ret"),
-+	[BPF_ST]	= "st",
-+	[BPF_STX]	= "stx",
-+	[BPF_LD_B]	= "ldb",
-+	[BPF_LD_H]	= "ldh",
-+	[BPF_LD_W]	= "ld",
-+	[BPF_LDX]	= "ldx",
-+	[BPF_LDX_B]	= "ldxb",
-+	[BPF_JMP_JA]	= "ja",
-+	[BPF_JMP_JEQ]	= "jeq",
-+	[BPF_JMP_JGT]	= "jgt",
-+	[BPF_JMP_JGE]	= "jge",
-+	[BPF_JMP_JSET]	= "jset",
-+	[BPF_ALU_ADD]	= "add",
-+	[BPF_ALU_SUB]	= "sub",
-+	[BPF_ALU_MUL]	= "mul",
-+	[BPF_ALU_DIV]	= "div",
-+	[BPF_ALU_MOD]	= "mod",
-+	[BPF_ALU_NEG]	= "neg",
-+	[BPF_ALU_AND]	= "and",
-+	[BPF_ALU_OR]	= "or",
-+	[BPF_ALU_XOR]	= "xor",
-+	[BPF_ALU_LSH]	= "lsh",
-+	[BPF_ALU_RSH]	= "rsh",
-+	[BPF_MISC_TAX]	= "tax",
-+	[BPF_MISC_TXA]	= "txa",
-+	[BPF_RET]	= "ret",
- };
- 
- static __check_format_printf(1, 2) int rl_printf(const char *fmt, ...)
-@@ -1127,7 +1124,6 @@ static int cmd_step(char *num)
- static int cmd_select(char *num)
- {
- 	unsigned int which, i;
--	struct pcap_pkthdr *hdr;
- 	bool have_next = true;
- 
- 	if (!pcap_loaded() || strlen(num) == 0)
-@@ -1144,7 +1140,7 @@ static int cmd_select(char *num)
- 
- 	for (i = 0; i < which && (have_next = pcap_next_pkt()); i++)
- 		/* noop */;
--	if (!have_next || (hdr = pcap_curr_pkt()) == NULL) {
-+	if (!have_next || pcap_curr_pkt() == NULL) {
- 		rl_printf("no packet #%u available!\n", which);
- 		pcap_reset_pkt();
- 		return CMD_ERR;
-@@ -1177,9 +1173,8 @@ static int cmd_breakpoint(char *subcmd)
- static int cmd_run(char *num)
- {
- 	static uint32_t pass = 0, fail = 0;
--	struct pcap_pkthdr *hdr;
- 	bool has_limit = true;
--	int ret, pkts = 0, i = 0;
-+	int pkts = 0, i = 0;
- 
- 	if (!bpf_prog_loaded() || !pcap_loaded())
- 		return CMD_ERR;
-@@ -1189,10 +1184,10 @@ static int cmd_run(char *num)
- 		has_limit = false;
- 
- 	do {
--		hdr = pcap_curr_pkt();
--		ret = bpf_run_all(bpf_image, bpf_prog_len,
--				  (uint8_t *) hdr + sizeof(*hdr),
--				  hdr->caplen, hdr->len);
-+		struct pcap_pkthdr *hdr = pcap_curr_pkt();
-+		int ret = bpf_run_all(bpf_image, bpf_prog_len,
-+				      (uint8_t *) hdr + sizeof(*hdr),
-+				      hdr->caplen, hdr->len);
- 		if (ret > 0)
- 			pass++;
- 		else if (ret == 0)
-@@ -1245,14 +1240,14 @@ static int cmd_quit(char *dontcare)
- }
- 
- static const struct shell_cmd cmds[] = {
--	CMD("load",		cmd_load),
--	CMD("select",		cmd_select),
--	CMD("step",		cmd_step),
--	CMD("run",		cmd_run),
--	CMD("breakpoint",	cmd_breakpoint),
--	CMD("disassemble",	cmd_disassemble),
--	CMD("dump",		cmd_dump),
--	CMD("quit",		cmd_quit),
-+	{ .name = "load", .func = cmd_load },
-+	{ .name = "select", .func = cmd_select },
-+	{ .name = "step", .func = cmd_step },
-+	{ .name = "run", .func = cmd_run },
-+	{ .name = "breakpoint", .func = cmd_breakpoint },
-+	{ .name = "disassemble", .func = cmd_disassemble },
-+	{ .name = "dump", .func = cmd_dump },
-+	{ .name = "quit", .func = cmd_quit },
- };
- 
- static int execf(char *arg)
-@@ -1280,7 +1275,6 @@ out:
- static char *shell_comp_gen(const char *buf, int state)
- {
- 	static int list_index, len;
--	const char *name;
- 
- 	if (!state) {
- 		list_index = 0;
-@@ -1288,9 +1282,9 @@ static char *shell_comp_gen(const char *buf, int state)
- 	}
- 
- 	for (; list_index < array_size(cmds); ) {
--		name = cmds[list_index].name;
--		list_index++;
-+		const char *name = cmds[list_index].name;
- 
-+		list_index++;
- 		if (strncmp(name, buf, len) == 0)
- 			return strdup(name);
- 	}
-@@ -1322,16 +1316,9 @@ static void init_shell(FILE *fin, FILE *fout)
- {
- 	char file[128];
- 
--	memset(file, 0, sizeof(file));
--	snprintf(file, sizeof(file) - 1,
--		 "%s/.bpf_dbg_history", getenv("HOME"));
--
-+	snprintf(file, sizeof(file), "%s/.bpf_dbg_history", getenv("HOME"));
- 	read_history(file);
- 
--	memset(file, 0, sizeof(file));
--	snprintf(file, sizeof(file) - 1,
--		 "%s/.bpf_dbg_init", getenv("HOME"));
--
- 	rl_instream = fin;
- 	rl_outstream = fout;
- 
-@@ -1348,37 +1335,41 @@ static void init_shell(FILE *fin, FILE *fout)
- 	rl_bind_key_in_map('\t', rl_complete, emacs_meta_keymap);
- 	rl_bind_key_in_map('\033', rl_complete, emacs_meta_keymap);
- 
-+	snprintf(file, sizeof(file), "%s/.bpf_dbg_init", getenv("HOME"));
- 	rl_read_init_file(file);
-+
- 	rl_prep_terminal(0);
- 	rl_set_signals();
- 
- 	signal(SIGINT, intr_shell);
- }
- 
--static void exit_shell(void)
-+static void exit_shell(FILE *fin, FILE *fout)
- {
- 	char file[128];
- 
--	memset(file, 0, sizeof(file));
--	snprintf(file, sizeof(file) - 1,
--		 "%s/.bpf_dbg_history", getenv("HOME"));
--
-+	snprintf(file, sizeof(file), "%s/.bpf_dbg_history", getenv("HOME"));
- 	write_history(file);
-+
- 	clear_history();
- 	rl_deprep_terminal();
- 
- 	try_close_pcap();
-+
-+	if (fin != stdin)
-+		fclose(fin);
-+	if (fout != stdout)
-+		fclose(fout);
- }
- 
- static int run_shell_loop(FILE *fin, FILE *fout)
- {
- 	char *buf;
--	int ret;
- 
- 	init_shell(fin, fout);
- 
- 	while ((buf = readline("> ")) != NULL) {
--		ret = execf(buf);
-+		int ret = execf(buf);
- 		if (ret == CMD_EX)
- 			break;
- 		if (ret == CMD_OK && strlen(buf) > 0)
-@@ -1387,7 +1378,7 @@ static int run_shell_loop(FILE *fin, FILE *fout)
- 		free(buf);
- 	}
- 
--	exit_shell();
-+	exit_shell(fin, fout);
- 	return 0;
- }
- 
--- 
-1.7.11.7
+>=20
+> I realise there are already other PHY drivers setting these flags, bu=
+t
+> why should they be added to every PHY driver individually when any
+> autonegotiating PHY can advertise pause capability?
+
+It looks like this might be abusing a PHY driver features to ensure tha=
+t the=20
+initial value fed to phydev->supported will make us advertise the pause=
+=20
+capabilities. This should be set by the Ethernet MAC driver prior to=20
+phy_start(), not by the PHY driver.
+
+>=20
+> Ben.
+>=20
+> > Signed-off-by: Cristian Bercaru <cristian.bercaru@freescale.com>
+> > ---
+> >=20
+> >  drivers/net/phy/vitesse.c | 21 ++++++++++++++-------
+> >  1 file changed, 14 insertions(+), 7 deletions(-)
+> >=20
+> > diff --git a/drivers/net/phy/vitesse.c b/drivers/net/phy/vitesse.c
+> > index 14372c6..3124b31 100644
+> > --- a/drivers/net/phy/vitesse.c
+> > +++ b/drivers/net/phy/vitesse.c
+> > @@ -227,7 +227,8 @@ static struct phy_driver vsc82xx_driver[] =3D {
+> >=20
+> >  	.phy_id         =3D PHY_ID_VSC8234,
+> >  	.name           =3D "Vitesse VSC8234",
+> >  	.phy_id_mask    =3D 0x000ffff0,
+> >=20
+> > -	.features       =3D PHY_GBIT_FEATURES,
+> > +	.features       =3D PHY_GBIT_FEATURES |
+> > +			SUPPORTED_Pause | SUPPORTED_Asym_Pause,
+> >=20
+> >  	.flags          =3D PHY_HAS_INTERRUPT,
+> >  	.config_init    =3D &vsc824x_config_init,
+> >  	.config_aneg    =3D &vsc82x4_config_aneg,
+> >=20
+> > @@ -239,7 +240,8 @@ static struct phy_driver vsc82xx_driver[] =3D {
+> >=20
+> >  	.phy_id		=3D PHY_ID_VSC8244,
+> >  	.name		=3D "Vitesse VSC8244",
+> >  	.phy_id_mask	=3D 0x000fffc0,
+> >=20
+> > -	.features	=3D PHY_GBIT_FEATURES,
+> > +	.features       =3D PHY_GBIT_FEATURES |
+> > +			SUPPORTED_Pause | SUPPORTED_Asym_Pause,
+> >=20
+> >  	.flags		=3D PHY_HAS_INTERRUPT,
+> >  	.config_init	=3D &vsc824x_config_init,
+> >  	.config_aneg	=3D &vsc82x4_config_aneg,
+> >=20
+> > @@ -251,7 +253,8 @@ static struct phy_driver vsc82xx_driver[] =3D {
+> >=20
+> >  	.phy_id		=3D PHY_ID_VSC8514,
+> >  	.name		=3D "Vitesse VSC8514",
+> >  	.phy_id_mask	=3D 0x000ffff0,
+> >=20
+> > -	.features	=3D PHY_GBIT_FEATURES,
+> > +	.features       =3D PHY_GBIT_FEATURES |
+> > +			SUPPORTED_Pause | SUPPORTED_Asym_Pause,
+> >=20
+> >  	.flags		=3D PHY_HAS_INTERRUPT,
+> >  	.config_init	=3D &vsc824x_config_init,
+> >  	.config_aneg	=3D &vsc82x4_config_aneg,
+> >=20
+> > @@ -263,7 +266,8 @@ static struct phy_driver vsc82xx_driver[] =3D {
+> >=20
+> >  	.phy_id         =3D PHY_ID_VSC8574,
+> >  	.name           =3D "Vitesse VSC8574",
+> >  	.phy_id_mask    =3D 0x000ffff0,
+> >=20
+> > -	.features       =3D PHY_GBIT_FEATURES,
+> > +	.features       =3D PHY_GBIT_FEATURES |
+> > +			SUPPORTED_Pause | SUPPORTED_Asym_Pause,
+> >=20
+> >  	.flags          =3D PHY_HAS_INTERRUPT,
+> >  	.config_init    =3D &vsc824x_config_init,
+> >  	.config_aneg    =3D &vsc82x4_config_aneg,
+> >=20
+> > @@ -275,7 +279,8 @@ static struct phy_driver vsc82xx_driver[] =3D {
+> >=20
+> >  	.phy_id         =3D PHY_ID_VSC8662,
+> >  	.name           =3D "Vitesse VSC8662",
+> >  	.phy_id_mask    =3D 0x000ffff0,
+> >=20
+> > -	.features       =3D PHY_GBIT_FEATURES,
+> > +	.features       =3D PHY_GBIT_FEATURES |
+> > +			SUPPORTED_Pause | SUPPORTED_Asym_Pause,
+> >=20
+> >  	.flags          =3D PHY_HAS_INTERRUPT,
+> >  	.config_init    =3D &vsc824x_config_init,
+> >  	.config_aneg    =3D &vsc82x4_config_aneg,
+> >=20
+> > @@ -288,7 +293,8 @@ static struct phy_driver vsc82xx_driver[] =3D {
+> >=20
+> >  	.phy_id		=3D PHY_ID_VSC8221,
+> >  	.phy_id_mask	=3D 0x000ffff0,
+> >  	.name		=3D "Vitesse VSC8221",
+> >=20
+> > -	.features	=3D PHY_GBIT_FEATURES,
+> > +	.features       =3D PHY_GBIT_FEATURES |
+> > +			SUPPORTED_Pause | SUPPORTED_Asym_Pause,
+> >=20
+> >  	.flags		=3D PHY_HAS_INTERRUPT,
+> >  	.config_init	=3D &vsc8221_config_init,
+> >  	.config_aneg	=3D &genphy_config_aneg,
+> >=20
+> > @@ -301,7 +307,8 @@ static struct phy_driver vsc82xx_driver[] =3D {
+> >=20
+> >  	.phy_id		=3D PHY_ID_VSC8211,
+> >  	.phy_id_mask	=3D 0x000ffff0,
+> >  	.name		=3D "Vitesse VSC8211",
+> >=20
+> > -	.features	=3D PHY_GBIT_FEATURES,
+> > +	.features       =3D PHY_GBIT_FEATURES |
+> > +			SUPPORTED_Pause | SUPPORTED_Asym_Pause,
+> >=20
+> >  	.flags		=3D PHY_HAS_INTERRUPT,
+> >  	.config_init	=3D &vsc8221_config_init,
+> >  	.config_aneg	=3D &genphy_config_aneg,
+
+--=20
+=46lorian
