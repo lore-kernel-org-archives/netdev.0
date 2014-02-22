@@ -1,76 +1,82 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next] ath9k: Use static const
-Date: Fri, 21 Feb 2014 14:46:43 -0800
-Message-ID: <1393022803.2594.27.camel@joe-AO722>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH net-next 2/5] gianfar: Fix on-the-fly vlan and mtu
+ updates
+Date: Sat, 22 Feb 2014 00:32:28 +0000
+Message-ID: <1393029148.15717.66.camel@deadeye.wl.decadent.org.uk>
+References: <1392816138-31645-1-git-send-email-claudiu.manoil@freescale.com>
+	 <1392816138-31645-3-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-3Cs4/Rqaod2QdcHQiSk8"
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Claudiu Manoil <claudiu.manoil@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:55435 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752896AbaBVAcr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 19:32:47 -0500
+In-Reply-To: <1392816138-31645-3-git-send-email-claudiu.manoil@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Trivially reduces text size too.
 
-$ size drivers/net/wireless/ath/ath9k/debug.o*
-   text	   data	    bss	    dec	    hex	filename
-  34436	   2528	   5128	  42092	   a46c	drivers/net/wireless/ath/ath9k/debug.o.new
-  34464	   2528	   5128	  42120	   a488	drivers/net/wireless/ath/ath9k/debug.o.old
+--=-3Cs4/Rqaod2QdcHQiSk8
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/wireless/ath/ath9k/debug.c | 20 ++++++++++++--------
- 1 file changed, 12 insertions(+), 8 deletions(-)
+On Wed, 2014-02-19 at 15:22 +0200, Claudiu Manoil wrote:
+[...]
+> --- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
+> +++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+> @@ -582,18 +582,18 @@ int gfar_set_features(struct net_device *dev, netde=
+v_features_t features)
+>  	netdev_features_t changed =3D dev->features ^ features;
+>  	int err =3D 0;
+> =20
+> -	if (changed & (NETIF_F_HW_VLAN_CTAG_TX|NETIF_F_HW_VLAN_CTAG_RX))
+> -		gfar_vlan_mode(dev, features);
+> +	if (changed & (NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX))
+> +		goto reset;
+> =20
+>  	if (!(changed & NETIF_F_RXCSUM))
+>  		return 0;
+> =20
+> +reset:
+[...]
 
-diff --git a/drivers/net/wireless/ath/ath9k/debug.c b/drivers/net/wireless/ath/ath9k/debug.c
-index ab7264c..9131175 100644
---- a/drivers/net/wireless/ath/ath9k/debug.c
-+++ b/drivers/net/wireless/ath/ath9k/debug.c
-@@ -135,7 +135,8 @@ static ssize_t read_file_ani(struct file *file, char __user *user_buf,
- 	struct ath_softc *sc = file->private_data;
- 	struct ath_common *common = ath9k_hw_common(sc->sc_ah);
- 	struct ath_hw *ah = sc->sc_ah;
--	unsigned int len = 0, size = 1024;
-+	unsigned int len = 0;
-+	const unsigned int size = 1024;
- 	ssize_t retval = 0;
- 	char *buf;
- 
-@@ -307,13 +308,13 @@ static ssize_t read_file_antenna_diversity(struct file *file,
- 	struct ath_antenna_stats *as_main = &sc->debug.stats.ant_stats[ANT_MAIN];
- 	struct ath_antenna_stats *as_alt = &sc->debug.stats.ant_stats[ANT_ALT];
- 	struct ath_hw_antcomb_conf div_ant_conf;
--	unsigned int len = 0, size = 1024;
-+	unsigned int len = 0;
-+	const unsigned int size = 1024;
- 	ssize_t retval = 0;
- 	char *buf;
--	char *lna_conf_str[4] = {"LNA1_MINUS_LNA2",
--				 "LNA2",
--				 "LNA1",
--				 "LNA1_PLUS_LNA2"};
-+	static const char *lna_conf_str[4] = {
-+		"LNA1_MINUS_LNA2", "LNA2", "LNA1", "LNA1_PLUS_LNA2"
-+	};
- 
- 	buf = kzalloc(size, GFP_KERNEL);
- 	if (buf == NULL)
-@@ -716,10 +717,13 @@ static ssize_t read_file_queues(struct file *file, char __user *user_buf,
- 	struct ath_softc *sc = file->private_data;
- 	struct ath_txq *txq;
- 	char *buf;
--	unsigned int len = 0, size = 1024;
-+	unsigned int len = 0;
-+	const unsigned int size = 1024;
- 	ssize_t retval = 0;
- 	int i;
--	char *qname[4] = {"VO", "VI", "BE", "BK"};
-+	static const char *qname[4] = {
-+		"VO", "VI", "BE", "BK"
-+	};
- 
- 	buf = kzalloc(size, GFP_KERNEL);
- 	if (buf == NULL)
+This is a really weird way of saying:
+
+	if (!(changed &=20
+	      (NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX | NETIF_F_RXCSUM)=
+))
+		return 0;
+
+Ben.
+
+--=20
+Ben Hutchings
+I haven't lost my mind; it's backed up on tape somewhere.
+
+--=-3Cs4/Rqaod2QdcHQiSk8
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAUwfwHOe/yOyVhhEJAQqL8A//dVbQHTKuNPJBPHtMZb1FFUOi0yix7gT8
+5rFyILtpwfHCVLgr+lm3K2XNkjpIqhryJQgNbIxDuGXyaAgFWquHQERFR+qxwli2
+6dV3PsMi0J1FyQXSsLufH5zpchne7XTsU9I6oJwkYLRTX6Zb0qLTMJedA/CrbgT2
+ciXf3yLZ46U9adpIdgcKS0OT9+5IUw+yobnqzmK6vk0/EusRaLYAx9P7DrSZe+ty
+JEDDh7IfzyfwpI+R4M9yOlMh9Zkrh/ZGGJqb8rdINw59FFvLjXgG60rL/yzCkEjZ
+M9EaCtPFART6P4iLbLcCfRpzDWHggYIU7YwT6mvqxKvkk6IrTSe2CpUoOALcgdkx
++0RbwBg4Ecbyx5btMlkv5hFzI8ovEgKwkyPMtC9JGayjv2UDFO8DT2ytpH30NV3j
+XILygW/jmM3NJnCID5EZSYgHzNX1XXyA5CtnRWyaO5KZolZgVqpbJtsQMH9AKj4g
+XlEmf5jyoG0hRQqXVeS173pIQ4LO7pIjsJBwK7haI+uUKAaSECbQnr7qZLZpaCsq
+7jP0SiFr8w1Fs8LhslgJ3w0Apa5m5suGMlbDzchNDuZcDHazl4NpmdKnAw4Kdu7+
+V02dT2rWL0xeZbkFRmHxyMqzjup33v+HQtvtEhOwRCukEmAc/2frcGqK5jmAjQ3n
+sXBdnIeeCi0=
+=e/HV
+-----END PGP SIGNATURE-----
+
+--=-3Cs4/Rqaod2QdcHQiSk8--
