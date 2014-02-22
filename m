@@ -1,53 +1,93 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: Does CHECKSUM_COMPLETE work at all?
-Date: Fri, 21 Feb 2014 19:08:53 -0800
-Message-ID: <CA+mtBx97w02+6iVcDxsGh4-TzsnZcjRv0+jyD=qGrCPfcWNDqg@mail.gmail.com>
-References: <CA+mtBx8safaPpcntjqT+eUQBDEOxJBoVf-a9djX_qgYsSdACeA@mail.gmail.com>
-	<CBA48B605613B640864883107238931C0F9077@nice.asicdesigners.com>
+From: Grant Grundler <grantgrundler@gmail.com>
+Subject: Re: [PATCH 1/4] Ethernet drivers in 3.14-rc3 kernel: fix 3 buffer
+ overflows triggered by hardware devices
+Date: Fri, 21 Feb 2014 19:12:08 -0800
+Message-ID: <CAP6odji314zs8cOmYdvYgFcoJy5ggqPXfNJMrDH8R1m6a3Y_cA@mail.gmail.com>
+References: <CAKPWWNHiA3D1e4hL-eCMjU6sAEjHainRTs01rzGQYi1GVObSkA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Dimitrios Michailidis <dm@chelsio.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>
+To: Alon Nafta <alon@privatecore.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:38389 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752324AbaBVDIy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 22:08:54 -0500
-Received: by mail-ig0-f177.google.com with SMTP id h3so965740igd.4
-        for <netdev@vger.kernel.org>; Fri, 21 Feb 2014 19:08:54 -0800 (PST)
-In-Reply-To: <CBA48B605613B640864883107238931C0F9077@nice.asicdesigners.com>
+Received: from mail-oa0-f53.google.com ([209.85.219.53]:49720 "EHLO
+	mail-oa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753129AbaBVDMI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Feb 2014 22:12:08 -0500
+Received: by mail-oa0-f53.google.com with SMTP id m1so5178189oag.26
+        for <netdev@vger.kernel.org>; Fri, 21 Feb 2014 19:12:08 -0800 (PST)
+In-Reply-To: <CAKPWWNHiA3D1e4hL-eCMjU6sAEjHainRTs01rzGQYi1GVObSkA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 21, 2014 at 6:36 PM, Dimitrios Michailidis <dm@chelsio.com> wrote:
-> Tom Herbert wrote:
->> If a driver sets CHECKSUM_COMPLETE in a packet, I don't see anywhere
->> in either the Ethernet rcv path or ip_rcv where the skb->csum is being
->> pulled (no *pull_rcsum calls). I believe CHECKSUM_COMPLETE means the
->> checksum is over the whole packet (L2, L3, and L4), so it looks like
->> TCP would never see a usable value.
->>
->> Is this interpretation correct? There's only a handful of drivers
->> providing CHECKSUM_COMPLETE can anyone who has access verify this?
+On Fri, Feb 21, 2014 at 4:02 PM, Alon Nafta <alon@privatecore.com> wrote:
+> From: Alon Nafta <alon@privatecore.com>
 >
-> AFAIK CHECKSUM_COMPLETE means the checksum is calculated over the L4 part of the frame but doesn't include the pseudoheader. It is completed by adding the pseudoheader.  I use it this way and it works.
+> Linux Kernel contains multiple overflow conditions that are triggered as
+> hardware-supplied inputs are not properly validated when parsing Ethernet
+> packets. This may allow a local attacker to cause an overflow, resulting in
+> a denial of service or potentially allowing the execution of arbitrary code.
 >
->From skbuff.h:
+> The programmatic error resides in the use of an integer type to describe
+> packet length, without proper validation for negative values. In all three
+> (3) bugs this patch fixes, a value of 0x30000 for the hardware signal, named
+> status, will result in the value of 0xffffffff for pkt_len, and an
+> allocation of a socket buffer with size of 0x1. This result in an overflow
+> when data is copied into that buffer.
+>
+> Signed-off-by: Alon Nafta <alon@privatecore.com>
 
-"The device supplied checksum of the _whole_packet as seen by
-netif_rx() and fills out in skb->csum. Meaning, the hardware doesn't
-need to parse L3/L4 headers to implement this."
+LGTM.  Thanks! :)
 
-> By any chance are you asking this in the context of tunneling and how to get both the inner and outer checksums from the value the HW calculates?
->
-Well..., I started trying to fix the UDP encapsulation code which we
-agreed was broken for checksums. This also entails fixing the new UDP
-GRO code to deal with checksums correctly when going through protocol
-layers. But, just looking at CHECKSUM_COMPLETE it seems like it's
-fundamentally broken even without encapsulation. Between GRO and HW
-checksums, it seems like we have a pretty big mess! :-)
+Reviewed-by: Grant Grundler <grundler@parisc-linux.org>
 
->>
->> Thanks,
->> Tom
+> ---
+> diff -uprN -X linux-3.14-rc3/Documentation/dontdiff
+> linux-3.14-rc3-orig/drivers/net/ethernet/dec/tulip/de4x5.c
+> linux-3.14-rc3/drivers/net/ethernet/dec/tulip/de4x5.c
+> --- linux-3.14-rc3-orig/drivers/net/ethernet/dec/tulip/de4x5.c 2014-02-20
+> 17:59:14.704084300 -0800
+> +++ linux-3.14-rc3/drivers/net/ethernet/dec/tulip/de4x5.c 2014-02-20
+> 18:23:08.987749400 -0800
+> @@ -1635,8 +1635,8 @@ de4x5_rx(struct net_device *dev)
+>   if (status & RD_OF)           lp->pktStats.rx_overflow++;
+>       } else {                          /* A valid frame received */
+>   struct sk_buff *skb;
+> - short pkt_len = (short)(le32_to_cpu(lp->rx_ring[entry].status)
+> -                             >> 16) - 4;
+> + short pkt_len = (short)((le32_to_cpu(lp->rx_ring[entry].status)
+> +                             >> 16) - 4) & 0x7fff;
 >
+>   if ((skb = de4x5_alloc_rx_buff(dev, entry, pkt_len)) == NULL) {
+>       printk("%s: Insufficient memory; nuking packet.\n",
+> diff -uprN -X linux-3.14-rc3/Documentation/dontdiff
+> linux-3.14-rc3-orig/drivers/net/ethernet/dec/tulip/winbond-840.c
+> linux-3.14-rc3/drivers/net/ethernet/dec/tulip/winbond-840.c
+> --- linux-3.14-rc3-orig/drivers/net/ethernet/dec/tulip/winbond-840.c
+> 2014-02-20 17:59:14.757666100 -0800
+> +++ linux-3.14-rc3/drivers/net/ethernet/dec/tulip/winbond-840.c 2014-02-20
+> 18:22:19.419612200 -0800
+> @@ -1218,7 +1218,7 @@ static int netdev_rx(struct net_device *
+>   } else {
+>   struct sk_buff *skb;
+>   /* Omit the four octet CRC from the length. */
+> - int pkt_len = ((status >> 16) & 0x7ff) - 4;
+> + int pkt_len = ((status >> 16) - 4) & 0x7ff;
+>
+>  #ifndef final_version
+>   if (debug > 4)
+> diff -uprN -X linux-3.14-rc3/Documentation/dontdiff
+> linux-3.14-rc3-orig/drivers/net/ethernet/smsc/epic100.c
+> linux-3.14-rc3/drivers/net/ethernet/smsc/epic100.c
+> --- linux-3.14-rc3-orig/drivers/net/ethernet/smsc/epic100.c 2014-02-20
+> 17:59:17.844045500 -0800
+> +++ linux-3.14-rc3/drivers/net/ethernet/smsc/epic100.c 2014-02-20
+> 18:21:13.196237400 -0800
+> @@ -1172,7 +1172,7 @@ static int epic_rx(struct net_device *de
+>   } else {
+>   /* Malloc up new buffer, compatible with net-2e. */
+>   /* Omit the four octet CRC from the length. */
+> - short pkt_len = (status >> 16) - 4;
+> + short pkt_len = ((status >> 16) - 4) & 0x7fff;
+>   struct sk_buff *skb;
+>
+>   if (pkt_len > PKT_BUF_SZ - 4) {
