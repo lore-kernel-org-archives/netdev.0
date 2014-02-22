@@ -1,87 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] tcp: reduce the bloat caused by tcp_is_cwnd_limited()
-Date: Sat, 22 Feb 2014 13:52:39 -0800
-Message-ID: <1393105959.2316.30.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Marc Dietrich <marvin24@gmx.de>
+Subject: Re: [PATCH 1/4] net: rfkill: gpio: remove unused and obsoleteplatform parameters
+Date: Sat, 22 Feb 2014 23:32:04 +0100
+Message-ID: <2556368.zbgmUK7WzX@ax5200p>
+References: <1392900697-27577-1-git-send-email-heikki.krogerus@linux.intel.com> <1723302.jKkc8NDNRI@fb07-iapwap2> <20140221142349.GB10489@xps8300>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Van Jacobson <vanj@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:60724 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751399AbaBVVwm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Feb 2014 16:52:42 -0500
-Received: by mail-pd0-f180.google.com with SMTP id x10so4690387pdj.25
-        for <netdev@vger.kernel.org>; Sat, 22 Feb 2014 13:52:41 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Chen-Yu Tsai <wens@csie.org>,
+	Rhyland Klein <rklein@nvidia.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140221142349.GB10489@xps8300>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Friday 21 February 2014 16:23:49 Heikki Krogerus wrote:
+> Hi,
+> 
+> On Fri, Feb 21, 2014 at 02:55:14PM +0100, Marc Dietrich wrote:
+> > Am Donnerstag, 20. Februar 2014, 14:51:34 schrieb Heikki Krogerus:
+> > > After upgrading to descriptor based gpios, the gpio numbers
+> > > are not used anymore. The power_clk_name and the platform
+> > > specific setup and close hooks are not used by anybody, and
+> > > we should not encourage use of such things, so removing them.
+> > 
+> > arch/arm/mach-tegra/board-paz00.c is still using platform data. Is there
+> > some prerequisite patch I'm missing (3.14-rc3) or how can this file be
+> > converted? We are waiting for DT support to arrive so we can finally
+> > remove this file.
+> True! It still set's the shutdown_gpio and reset_gpio members. I think
+> I'll leave the header untouched and just clean net/rfkill/rfkill-gpio.c
+> in this patch. We can remove the whole header after you guys have moved
+> to DT.
 
-tcp_is_cwnd_limited() allows GSO/TSO enabled flows to increase
-their cwnd to allow a full size (64KB) TSO packet to be sent.
+Why? Just update the board file to remove those entries. I just checked that 
+it's working fine without. So if you don't mind, add a patch to remove the 
+entries as the first patch in your series.
 
-Non GSO flows only allow an extra room of 3 MSS.
+Thanks
 
-For most flows with a BDP below 10 MSS, this results in a bloat
-of cwnd reaching 90, and an inflate of RTT.
-
-Thanks to TSO auto sizing, we can restrict the bloat to the number
-of MSS contained in a TSO packet (tp->xmit_size_goal_segs), to keep
-original intent without performance impact.
-
-Because we keep cwnd small, it helps to keep TSO packet size to their
-optimal value.
-
-Example for a 10Mbit flow, with low TCP Small queue limits (no more than
-2 skb in qdisc/device tx ring)
-
-Before patch :
-
-lpk51:~# ./ss -i dst lpk52:44862 | grep cwnd
-	 cubic wscale:6,6 rto:215 rtt:15.875/2.5 mss:1448 cwnd:96 ssthresh:96
-send 70.1Mbps unacked:14 rcv_space:29200
-
-After patch :
-
-lpk51:~# ./ss -i dst lpk52:52916 | grep cwnd
-	 cubic wscale:6,6 rto:206 rtt:5.206/0.036 mss:1448 cwnd:15 ssthresh:14
-send 33.4Mbps unacked:4 rcv_space:29200
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
-Cc: Nandita Dukkipati <nanditad@google.com>
-Cc: Van Jacobson <vanj@google.com> 
----
- net/ipv4/tcp_cong.c |    6 +-----
- 1 file changed, 1 insertion(+), 5 deletions(-)
-
-diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-index ad37bf18ae4b..d74ebfb64e2b 100644
---- a/net/ipv4/tcp_cong.c
-+++ b/net/ipv4/tcp_cong.c
-@@ -277,7 +277,6 @@ int tcp_set_congestion_control(struct sock *sk, const char *name)
- }
- 
- /* RFC2861 Check whether we are limited by application or congestion window
-- * This is the inverse of cwnd check in tcp_tso_should_defer
-  */
- bool tcp_is_cwnd_limited(const struct sock *sk, u32 in_flight)
- {
-@@ -288,10 +287,7 @@ bool tcp_is_cwnd_limited(const struct sock *sk, u32 in_flight)
- 		return true;
- 
- 	left = tp->snd_cwnd - in_flight;
--	if (sk_can_gso(sk) &&
--	    left * sysctl_tcp_tso_win_divisor < tp->snd_cwnd &&
--	    left * tp->mss_cache < sk->sk_gso_max_size &&
--	    left < sk->sk_gso_max_segs)
-+	if (sk_can_gso(sk) && left < tp->xmit_size_goal_segs)
- 		return true;
- 	return left <= tcp_max_tso_deferred_mss(tp);
- }
+Marc
