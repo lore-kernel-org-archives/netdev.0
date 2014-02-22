@@ -1,37 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net-tcp: fastopen: fix high order allocations
-Date: Sat, 22 Feb 2014 00:06:26 -0500 (EST)
-Message-ID: <20140222.000626.364636476966900818.davem@davemloft.net>
-References: <1392919758.2316.7.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [patch net] neigh: fix setting of default gc_* values
+Date: Sat, 22 Feb 2014 00:09:08 -0500 (EST)
+Message-ID: <20140222.000908.1152977118961189337.davem@davemloft.net>
+References: <1392990777-9446-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ycheng@google.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, gaofeng@cn.fujitsu.com,
+	hannes@stressinduktion.org, joe@perches.com, vfalico@redhat.com,
+	ffusco@redhat.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46223 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46247 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751484AbaBVFGW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Feb 2014 00:06:22 -0500
-In-Reply-To: <1392919758.2316.7.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1751248AbaBVFJF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Feb 2014 00:09:05 -0500
+In-Reply-To: <1392990777-9446-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 20 Feb 2014 10:09:18 -0800
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Fri, 21 Feb 2014 14:52:57 +0100
 
-> From: Eric Dumazet <edumazet@google.com>
+> This patch fixes bug introduced by:
+> commit 1d4c8c29841b9991cdf3c7cc4ba7f96a94f104ca
+> "neigh: restore old behaviour of default parms values"
 > 
-> This patch fixes two bugs in fastopen :
+> The thing is that in neigh_sysctl_register, extra1 and extra2 which were
+> previously set for NEIGH_VAR_GC_* are overwritten. That leads to
+> nonsense int limits for gc_* variables. So fix this by not touching
+> extra* fields for gc_* variables.
 > 
-> 1) The tcp_sendmsg(...,  @size) argument was ignored.
-> 
->    Code was relying on user not fooling the kernel with iovec mismatches
-> 
-> 2) When MTU is about 64KB, tcp_send_syn_data() attempts order-5
-> allocations, which are likely to fail when memory gets fragmented.
-> 
-> Fixes: 783237e8daf13 ("net-tcp: Fast Open client - sending SYN-data")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-Applied and queued up for -stable, thanks Eric.
+Good catch, applied and queued up for -stable.
+
+Thanks!
