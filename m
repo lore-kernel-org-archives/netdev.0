@@ -1,117 +1,123 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH stable 3.12.y 2/3] net: core: introduce netif_skb_dev_features
-Date: Sat, 22 Feb 2014 10:28:30 +0100
-Message-ID: <1393061311-4723-2-git-send-email-fw@strlen.de>
-References: <1393061311-4723-1-git-send-email-fw@strlen.de>
+Subject: [PATCH stable 3.12.y 1/3] net: add and use skb_gso_transport_seglen()
+Date: Sat, 22 Feb 2014 10:28:29 +0100
+Message-ID: <1393061311-4723-1-git-send-email-fw@strlen.de>
 Cc: Florian Westphal <fw@strlen.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:44015 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:44014 "EHLO
 	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751513AbaBVJcZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Feb 2014 04:32:25 -0500
-In-Reply-To: <1393061311-4723-1-git-send-email-fw@strlen.de>
+	by vger.kernel.org with ESMTP id S1751163AbaBVJcY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Feb 2014 04:32:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit d206940319c41df4299db75ed56142177bb2e5f6 upstream.
+commit de960aa9ab4decc3304959f69533eef64d05d8e8 upstream.
 
-Will be used by upcoming ipv4 forward path change that needs to
-determine feature mask using skb->dst->dev instead of skb->dev.
+This moves part of Eric Dumazets skb_gso_seglen helper from tbf sched to
+skbuff core so it may be reused by upcoming ip forwarding path patch.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
+Acked-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/linux/netdevice.h |  7 ++++++-
- net/core/dev.c            | 22 ++++++++++++----------
- 2 files changed, 18 insertions(+), 11 deletions(-)
+ include/linux/skbuff.h |  2 ++
+ net/core/skbuff.c      | 25 +++++++++++++++++++++++++
+ net/sched/sch_tbf.c    | 13 +++----------
+ 3 files changed, 30 insertions(+), 10 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 21eae43..9f2a0cb 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2917,7 +2917,12 @@ void netdev_change_features(struct net_device *dev);
- void netif_stacked_transfer_operstate(const struct net_device *rootdev,
- 					struct net_device *dev);
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index efa1649..2bbc892 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2393,6 +2393,8 @@ extern void	       skb_scrub_packet(struct sk_buff *skb, bool xnet);
+ extern struct sk_buff *skb_segment(struct sk_buff *skb,
+ 				   netdev_features_t features);
  
--netdev_features_t netif_skb_features(struct sk_buff *skb);
-+netdev_features_t netif_skb_dev_features(struct sk_buff *skb,
-+					 const struct net_device *dev);
-+static inline netdev_features_t netif_skb_features(struct sk_buff *skb)
++unsigned int skb_gso_transport_seglen(const struct sk_buff *skb);
++
+ static inline void *skb_header_pointer(const struct sk_buff *skb, int offset,
+ 				       int len, void *buffer)
+ {
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 2c7baa8..21571dc 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -47,6 +47,8 @@
+ #include <linux/in.h>
+ #include <linux/inet.h>
+ #include <linux/slab.h>
++#include <linux/tcp.h>
++#include <linux/udp.h>
+ #include <linux/netdevice.h>
+ #ifdef CONFIG_NET_CLS_ACT
+ #include <net/pkt_sched.h>
+@@ -3519,3 +3521,26 @@ void skb_scrub_packet(struct sk_buff *skb, bool xnet)
+ 	nf_reset_trace(skb);
+ }
+ EXPORT_SYMBOL_GPL(skb_scrub_packet);
++
++/**
++ * skb_gso_transport_seglen - Return length of individual segments of a gso packet
++ *
++ * @skb: GSO skb
++ *
++ * skb_gso_transport_seglen is used to determine the real size of the
++ * individual segments, including Layer4 headers (TCP/UDP).
++ *
++ * The MAC/L2 or network (IP, IPv6) headers are not accounted for.
++ */
++unsigned int skb_gso_transport_seglen(const struct sk_buff *skb)
 +{
-+	return netif_skb_dev_features(skb, skb->dev);
++	const struct skb_shared_info *shinfo = skb_shinfo(skb);
++	unsigned int hdr_len;
++
++	if (likely(shinfo->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6)))
++		hdr_len = tcp_hdrlen(skb);
++	else
++		hdr_len = sizeof(struct udphdr);
++	return hdr_len + shinfo->gso_size;
 +}
++EXPORT_SYMBOL_GPL(skb_gso_transport_seglen);
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index 6ddda28..fecd35a 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -21,7 +21,6 @@
+ #include <net/netlink.h>
+ #include <net/sch_generic.h>
+ #include <net/pkt_sched.h>
+-#include <net/tcp.h>
  
- static inline bool net_gso_ok(netdev_features_t features, int gso_type)
- {
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 3d13874..b327975 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2398,7 +2398,7 @@ EXPORT_SYMBOL(netdev_rx_csum_fault);
-  * 2. No high memory really exists on this machine.
+ 
+ /*	Simple Token Bucket Filter.
+@@ -122,16 +121,10 @@ struct tbf_sched_data {
+  * Return length of individual segments of a gso packet,
+  * including all headers (MAC, IP, TCP/UDP)
   */
- 
--static int illegal_highdma(struct net_device *dev, struct sk_buff *skb)
-+static int illegal_highdma(const struct net_device *dev, struct sk_buff *skb)
+-static unsigned int skb_gso_seglen(const struct sk_buff *skb)
++static unsigned int skb_gso_mac_seglen(const struct sk_buff *skb)
  {
- #ifdef CONFIG_HIGHMEM
- 	int i;
-@@ -2478,34 +2478,36 @@ static int dev_gso_segment(struct sk_buff *skb, netdev_features_t features)
+ 	unsigned int hdr_len = skb_transport_header(skb) - skb_mac_header(skb);
+-	const struct skb_shared_info *shinfo = skb_shinfo(skb);
+-
+-	if (likely(shinfo->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6)))
+-		hdr_len += tcp_hdrlen(skb);
+-	else
+-		hdr_len += sizeof(struct udphdr);
+-	return hdr_len + shinfo->gso_size;
++	return hdr_len + skb_gso_transport_seglen(skb);
  }
  
- static netdev_features_t harmonize_features(struct sk_buff *skb,
--	netdev_features_t features)
-+					    const struct net_device *dev,
-+					    netdev_features_t features)
- {
- 	if (skb->ip_summed != CHECKSUM_NONE &&
- 	    !can_checksum_protocol(features, skb_network_protocol(skb))) {
- 		features &= ~NETIF_F_ALL_CSUM;
--	} else if (illegal_highdma(skb->dev, skb)) {
-+	} else if (illegal_highdma(dev, skb)) {
- 		features &= ~NETIF_F_SG;
+ /* GSO packet is too big, segment it so that tbf can transmit
+@@ -176,7 +169,7 @@ static int tbf_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	int ret;
+ 
+ 	if (qdisc_pkt_len(skb) > q->max_size) {
+-		if (skb_is_gso(skb) && skb_gso_seglen(skb) <= q->max_size)
++		if (skb_is_gso(skb) && skb_gso_mac_seglen(skb) <= q->max_size)
+ 			return tbf_segment(skb, sch);
+ 		return qdisc_reshape_fail(skb, sch);
  	}
- 
- 	return features;
- }
- 
--netdev_features_t netif_skb_features(struct sk_buff *skb)
-+netdev_features_t netif_skb_dev_features(struct sk_buff *skb,
-+					 const struct net_device *dev)
- {
- 	__be16 protocol = skb->protocol;
--	netdev_features_t features = skb->dev->features;
-+	netdev_features_t features = dev->features;
- 
--	if (skb_shinfo(skb)->gso_segs > skb->dev->gso_max_segs)
-+	if (skb_shinfo(skb)->gso_segs > dev->gso_max_segs)
- 		features &= ~NETIF_F_GSO_MASK;
- 
- 	if (protocol == htons(ETH_P_8021Q) || protocol == htons(ETH_P_8021AD)) {
- 		struct vlan_ethhdr *veh = (struct vlan_ethhdr *)skb->data;
- 		protocol = veh->h_vlan_encapsulated_proto;
- 	} else if (!vlan_tx_tag_present(skb)) {
--		return harmonize_features(skb, features);
-+		return harmonize_features(skb, dev, features);
- 	}
- 
--	features &= (skb->dev->vlan_features | NETIF_F_HW_VLAN_CTAG_TX |
-+	features &= (dev->vlan_features | NETIF_F_HW_VLAN_CTAG_TX |
- 					       NETIF_F_HW_VLAN_STAG_TX);
- 
- 	if (protocol == htons(ETH_P_8021Q) || protocol == htons(ETH_P_8021AD))
-@@ -2513,9 +2515,9 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
- 				NETIF_F_GEN_CSUM | NETIF_F_HW_VLAN_CTAG_TX |
- 				NETIF_F_HW_VLAN_STAG_TX;
- 
--	return harmonize_features(skb, features);
-+	return harmonize_features(skb, dev, features);
- }
--EXPORT_SYMBOL(netif_skb_features);
-+EXPORT_SYMBOL(netif_skb_dev_features);
- 
- /*
-  * Returns true if either:
 -- 
 1.8.1.5
