@@ -1,861 +1,1120 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 04/16 V2] rtlwifi: Prepare existing drivers for new driver
-Date: Sat, 22 Feb 2014 11:17:00 -0600
-Message-ID: <1393089433-28270-5-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 09/16 V2] rtlwifi: rtl8723be: Add files for new driver - part 2
+Date: Sat, 22 Feb 2014 11:17:05 -0600
+Message-ID: <1393089433-28270-10-git-send-email-Larry.Finger@lwfinger.net>
 References: <1393089433-28270-1-git-send-email-Larry.Finger@lwfinger.net>
 Cc: linux-wireless@vger.kernel.org,
 	Larry Finger <Larry.Finger@lwfinger.net>,
 	netdev@vger.kernel.org
 To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f179.google.com ([209.85.214.179]:39472 "EHLO
-	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751911AbaBVRRZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Feb 2014 12:17:25 -0500
+Received: from mail-ob0-f180.google.com ([209.85.214.180]:45905 "EHLO
+	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752045AbaBVRRa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Feb 2014 12:17:30 -0500
 In-Reply-To: <1393089433-28270-1-git-send-email-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A driver for the RTL8723BE will soon be added. This patch adds the
-necessary parts to the common headers, and modifies the existing
-drivers for those changes.
-
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/net/wireless/rtlwifi/core.c          |  12 +-
- drivers/net/wireless/rtlwifi/pci.c           |   2 +-
- drivers/net/wireless/rtlwifi/pci.h           |   4 +
- drivers/net/wireless/rtlwifi/rtl8188ee/dm.c  |   6 +-
- drivers/net/wireless/rtlwifi/rtl8188ee/hw.c  |  18 +-
- drivers/net/wireless/rtlwifi/rtl8188ee/phy.c |   2 +-
- drivers/net/wireless/rtlwifi/rtl8192ce/hw.c  |  12 +-
- drivers/net/wireless/rtlwifi/rtl8192cu/hw.c  |  12 +-
- drivers/net/wireless/rtlwifi/rtl8192de/hw.c  |   2 +-
- drivers/net/wireless/rtlwifi/rtl8192se/hw.c  |   2 +-
- drivers/net/wireless/rtlwifi/rtl8723ae/hw.c  |  28 +--
- drivers/net/wireless/rtlwifi/rtl8723ae/trx.h |   6 -
- drivers/net/wireless/rtlwifi/usb.c           |   2 +-
- drivers/net/wireless/rtlwifi/wifi.h          | 250 +++++++++++++++++----------
- 14 files changed, 215 insertions(+), 143 deletions(-)
+ drivers/net/wireless/rtlwifi/rtl8723be/fw.c  | 628 +++++++++++++++++++++++++++
+ drivers/net/wireless/rtlwifi/rtl8723be/fw.h  | 248 +++++++++++
+ drivers/net/wireless/rtlwifi/rtl8723be/led.c | 153 +++++++
+ drivers/net/wireless/rtlwifi/rtl8723be/led.h |  35 ++
+ 4 files changed, 1064 insertions(+)
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/fw.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/fw.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/led.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/led.h
 
-diff --git a/drivers/net/wireless/rtlwifi/core.c b/drivers/net/wireless/rtlwifi/core.c
-index 2d337a0..ce28ce0 100644
---- a/drivers/net/wireless/rtlwifi/core.c
-+++ b/drivers/net/wireless/rtlwifi/core.c
-@@ -738,6 +738,11 @@ static void rtl_op_bss_info_changed(struct ieee80211_hw *hw,
- 				rtlpriv->cfg->ops->linked_set_reg(hw);
- 			rcu_read_lock();
- 			sta = ieee80211_find_sta(vif, (u8 *)bss_conf->bssid);
-+			if (!sta) {
-+				pr_err("ieee80211_find_sta returned NULL\n");
-+				rcu_read_unlock();
-+				goto out;
+diff --git a/drivers/net/wireless/rtlwifi/rtl8723be/fw.c b/drivers/net/wireless/rtlwifi/rtl8723be/fw.c
+new file mode 100644
+index 0000000..0f3522d
+--- /dev/null
++++ b/drivers/net/wireless/rtlwifi/rtl8723be/fw.c
+@@ -0,0 +1,628 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2009-2014  Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * The full GNU General Public License is included in this distribution in the
++ * file called LICENSE.
++ *
++ * Contact Information:
++ * wlanfae <wlanfae@realtek.com>
++ * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
++ * Hsinchu 300, Taiwan.
++ *
++ * Larry Finger <Larry.Finger@lwfinger.net>
++ *
++ *****************************************************************************/
++
++#include "../wifi.h"
++#include "../pci.h"
++#include "../base.h"
++#include "reg.h"
++#include "def.h"
++#include "fw.h"
++#include "../rtl8723com/fw_common.h"
++
++static bool _rtl8723be_check_fw_read_last_h2c(struct ieee80211_hw *hw,
++					      u8 boxnum)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	u8 val_hmetfr;
++	bool result = false;
++
++	val_hmetfr = rtl_read_byte(rtlpriv, REG_HMETFR);
++	if (((val_hmetfr >> boxnum) & BIT(0)) == 0)
++		result = true;
++	return result;
++}
++
++static void _rtl8723be_fill_h2c_command(struct ieee80211_hw *hw, u8 element_id,
++					u32 cmd_len, u8 *p_cmdbuffer)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_hal *rtlhal = rtl_hal(rtl_priv(hw));
++	u8 boxnum;
++	u16 box_reg = 0, box_extreg = 0;
++	u8 u1b_tmp;
++	bool isfw_read = false;
++	u8 buf_index = 0;
++	bool bwrite_sucess = false;
++	u8 wait_h2c_limit = 100;
++	u8 wait_writeh2c_limit = 100;
++	u8 boxcontent[4], boxextcontent[4];
++	u32 h2c_waitcounter = 0;
++	unsigned long flag;
++	u8 idx;
++
++	RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD, "come in\n");
++
++	while (true) {
++		spin_lock_irqsave(&rtlpriv->locks.h2c_lock, flag);
++		if (rtlhal->h2c_setinprogress) {
++			RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD,
++				 "H2C set in progress! Wait to set.."
++				 "element_id(%d).\n", element_id);
++
++			while (rtlhal->h2c_setinprogress) {
++				spin_unlock_irqrestore(&rtlpriv->locks.h2c_lock,
++						       flag);
++				h2c_waitcounter++;
++				RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD,
++					 "Wait 100 us (%d times)...\n",
++					 h2c_waitcounter);
++				udelay(100);
++
++				if (h2c_waitcounter > 1000)
++					return;
++				spin_lock_irqsave(&rtlpriv->locks.h2c_lock,
++						  flag);
 +			}
- 
- 			if (vif->type == NL80211_IFTYPE_STATION && sta)
- 				rtlpriv->cfg->ops->update_rate_tbl(hw, sta, 0);
-@@ -892,7 +897,7 @@ static void rtl_op_bss_info_changed(struct ieee80211_hw *hw,
- 
- 			mac->basic_rates = basic_rates;
- 			rtlpriv->cfg->ops->set_hw_reg(hw, HW_VAR_BASIC_RATE,
--					(u8 *) (&basic_rates));
-+					(u8 *)(&basic_rates));
- 		}
- 		rcu_read_unlock();
- 	}
-@@ -906,6 +911,11 @@ static void rtl_op_bss_info_changed(struct ieee80211_hw *hw,
- 		if (bss_conf->assoc) {
- 			if (ppsc->fwctrl_lps) {
- 				u8 mstatus = RT_MEDIA_CONNECT;
-+				u8 keep_alive = 10;
-+				rtlpriv->cfg->ops->set_hw_reg(hw,
-+						 HW_VAR_KEEP_ALIVE,
-+						 (u8 *)(&keep_alive));
++			spin_unlock_irqrestore(&rtlpriv->locks.h2c_lock, flag);
++		} else {
++			rtlhal->h2c_setinprogress = true;
++			spin_unlock_irqrestore(&rtlpriv->locks.h2c_lock, flag);
++			break;
++		}
++	}
++	while (!bwrite_sucess) {
++		wait_writeh2c_limit--;
++		if (wait_writeh2c_limit == 0) {
++			RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++				 "Write H2C fail because no trigger "
++				 "for FW INT!\n");
++			break;
++		}
++		boxnum = rtlhal->last_hmeboxnum;
++		switch (boxnum) {
++		case 0:
++			box_reg = REG_HMEBOX_0;
++			box_extreg = REG_HMEBOX_EXT_0;
++			break;
++		case 1:
++			box_reg = REG_HMEBOX_1;
++			box_extreg = REG_HMEBOX_EXT_1;
++			break;
++		case 2:
++			box_reg = REG_HMEBOX_2;
++			box_extreg = REG_HMEBOX_EXT_2;
++			break;
++		case 3:
++			box_reg = REG_HMEBOX_3;
++			box_extreg = REG_HMEBOX_EXT_3;
++			break;
++		default:
++			RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++				 "switch case not processed\n");
++			break;
++		}
++		isfw_read = _rtl8723be_check_fw_read_last_h2c(hw, boxnum);
++		while (!isfw_read) {
++			wait_h2c_limit--;
++			if (wait_h2c_limit == 0) {
++				RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD,
++					 "Wating too long for FW read "
++					 "clear HMEBox(%d)!\n", boxnum);
++				break;
++			}
++			udelay(10);
 +
- 				rtlpriv->cfg->ops->set_hw_reg(hw,
- 						      HW_VAR_H2C_FW_JOINBSSRPT,
- 						      &mstatus);
-diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
-index d7aa165..2577268 100644
---- a/drivers/net/wireless/rtlwifi/pci.c
-+++ b/drivers/net/wireless/rtlwifi/pci.c
-@@ -1066,7 +1066,7 @@ static void _rtl_pci_init_struct(struct ieee80211_hw *hw,
- 	mac->current_ampdu_factor = 3;
- 
- 	/*QOS*/
--	rtlpci->acm_method = eAcmWay2_SW;
-+	rtlpci->acm_method = EACMWAY2_SW;
- 
- 	/*task */
- 	tasklet_init(&rtlpriv->works.irq_tasklet,
-diff --git a/drivers/net/wireless/rtlwifi/pci.h b/drivers/net/wireless/rtlwifi/pci.h
-index d3262ec..2a33335 100644
---- a/drivers/net/wireless/rtlwifi/pci.h
-+++ b/drivers/net/wireless/rtlwifi/pci.h
-@@ -199,6 +199,10 @@ struct rtl_pci {
- 
- 	u16 shortretry_limit;
- 	u16 longretry_limit;
++			isfw_read = _rtl8723be_check_fw_read_last_h2c(hw,
++								boxnum);
++			u1b_tmp = rtl_read_byte(rtlpriv, 0x130);
++			RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD,
++				 "Wating for FW read clear HMEBox(%d)!!! 0x130 = %2x\n",
++				 boxnum, u1b_tmp);
++		}
++		if (!isfw_read) {
++			RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD,
++				 "Write H2C register BOX[%d] fail!!!!! "
++				 "Fw do not read.\n", boxnum);
++			break;
++		}
++		memset(boxcontent, 0, sizeof(boxcontent));
++		memset(boxextcontent, 0, sizeof(boxextcontent));
++		boxcontent[0] = element_id;
++		RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD,
++			 "Write element_id box_reg(%4x) = %2x\n",
++			 box_reg, element_id);
 +
-+	/* MSI support */
-+	bool msi_support;
-+	bool using_msi;
- };
- 
- struct mp_adapter {
-diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/dm.c b/drivers/net/wireless/rtlwifi/rtl8188ee/dm.c
-index a6184b6..97bc9aa 100644
---- a/drivers/net/wireless/rtlwifi/rtl8188ee/dm.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8188ee/dm.c
-@@ -235,7 +235,7 @@ void rtl88e_dm_txpower_track_adjust(struct ieee80211_hw *hw,
- 	u8 pwr_val = 0;
- 	u8 cck_base = rtldm->swing_idx_cck_base;
- 	u8 cck_val = rtldm->swing_idx_cck;
--	u8 ofdm_base = rtldm->swing_idx_ofdm_base;
-+	u8 ofdm_base = rtldm->swing_idx_ofdm_base[0];
- 	u8 ofdm_val = rtlpriv->dm.swing_idx_ofdm[RF90_PATH_A];
- 
- 	if (type == 0) {
-@@ -726,7 +726,7 @@ static void rtl88e_dm_pwdb_monitor(struct ieee80211_hw *hw)
- 	static u64 last_rx;
- 	long tmp_entry_max_pwdb = 0, tmp_entry_min_pwdb = 0xff;
- 
--	if (rtlhal->oem_id == RT_CID_819x_HP) {
-+	if (rtlhal->oem_id == RT_CID_819X_HP) {
- 		u64 cur_txok_cnt = 0;
- 		u64 cur_rxok_cnt = 0;
- 		cur_txok_cnt = rtlpriv->stats.txbytesunicast - last_txok;
-@@ -912,7 +912,7 @@ static void rtl88e_dm_txpower_tracking_callback_thermalmeter(struct ieee80211_hw
- 	for (i = 0; i < OFDM_TABLE_LENGTH; i++) {
- 		if (ele_d == (ofdmswing_table[i] & MASKOFDM_D)) {
- 			ofdm_old[0] = (u8) i;
--			rtldm->swing_idx_ofdm_base = (u8)i;
-+			rtldm->swing_idx_ofdm_base[0] = (u8)i;
- 			RT_TRACE(rtlpriv, COMP_POWER_TRACKING, DBG_LOUD,
- 				 "Initial pathA ele_d reg0x%x = 0x%lx, ofdm_index = 0x%x\n",
- 				 ROFDM0_XATXIQIMBAL,
-diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/hw.c b/drivers/net/wireless/rtlwifi/rtl8188ee/hw.c
-index e06971b..c2b427ff 100644
---- a/drivers/net/wireless/rtlwifi/rtl8188ee/hw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8188ee/hw.c
-@@ -509,7 +509,7 @@ void rtl88ee_set_hw_reg(struct ieee80211_hw *hw, u8 variable, u8 *val)
- 		u8 e_aci = *((u8 *)val);
- 		rtl88e_dm_init_edca_turbo(hw);
- 
--		if (rtlpci->acm_method != eAcmWay2_SW)
-+		if (rtlpci->acm_method != EACMWAY2_SW)
- 			rtlpriv->cfg->ops->set_hw_reg(hw, HW_VAR_ACM_CTRL,
- 						      (u8 *)(&e_aci));
- 		break; }
-@@ -1097,7 +1097,7 @@ int rtl88ee_hw_init(struct ieee80211_hw *hw)
- 	if (ppsc->rfpwr_state == ERFON) {
- 		if ((rtlefuse->antenna_div_type == CGCS_RX_HW_ANTDIV) ||
- 		    ((rtlefuse->antenna_div_type == CG_TRX_HW_ANTDIV) &&
--		    (rtlhal->oem_id == RT_CID_819x_HP))) {
-+		    (rtlhal->oem_id == RT_CID_819X_HP))) {
- 			rtl88e_phy_set_rfpath_switch(hw, true);
- 			rtlpriv->dm.fat_table.rx_idle_ant = MAIN_ANT;
- 		} else {
-@@ -1872,15 +1872,15 @@ static void _rtl88ee_read_adapter_info(struct ieee80211_hw *hw)
- 		case EEPROM_CID_DEFAULT:
- 			if (rtlefuse->eeprom_did == 0x8179) {
- 				if (rtlefuse->eeprom_svid == 0x1025) {
--					rtlhal->oem_id = RT_CID_819x_Acer;
-+					rtlhal->oem_id = RT_CID_819X_ACER;
- 				} else if ((rtlefuse->eeprom_svid == 0x10EC &&
- 					    rtlefuse->eeprom_smid == 0x0179) ||
- 					    (rtlefuse->eeprom_svid == 0x17AA &&
- 					    rtlefuse->eeprom_smid == 0x0179)) {
--					rtlhal->oem_id = RT_CID_819x_Lenovo;
-+					rtlhal->oem_id = RT_CID_819X_LENOVO;
- 				} else if (rtlefuse->eeprom_svid == 0x103c &&
- 					 rtlefuse->eeprom_smid == 0x197d) {
--					rtlhal->oem_id = RT_CID_819x_HP;
-+					rtlhal->oem_id = RT_CID_819X_HP;
- 				} else {
- 					rtlhal->oem_id = RT_CID_DEFAULT;
- 				}
-@@ -1892,7 +1892,7 @@ static void _rtl88ee_read_adapter_info(struct ieee80211_hw *hw)
- 			rtlhal->oem_id = RT_CID_TOSHIBA;
- 			break;
- 		case EEPROM_CID_QMI:
--			rtlhal->oem_id = RT_CID_819x_QMI;
-+			rtlhal->oem_id = RT_CID_819X_QMI;
- 			break;
- 		case EEPROM_CID_WHQL:
- 		default:
-@@ -1911,14 +1911,14 @@ static void _rtl88ee_hal_customized_behavior(struct ieee80211_hw *hw)
- 	pcipriv->ledctl.led_opendrain = true;
- 
- 	switch (rtlhal->oem_id) {
--	case RT_CID_819x_HP:
-+	case RT_CID_819X_HP:
- 		pcipriv->ledctl.led_opendrain = true;
- 		break;
--	case RT_CID_819x_Lenovo:
-+	case RT_CID_819X_LENOVO:
- 	case RT_CID_DEFAULT:
- 	case RT_CID_TOSHIBA:
- 	case RT_CID_CCX:
--	case RT_CID_819x_Acer:
-+	case RT_CID_819X_ACER:
- 	case RT_CID_WHQL:
- 	default:
- 		break;
-diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/phy.c b/drivers/net/wireless/rtlwifi/rtl8188ee/phy.c
-index d67f9c7..54d4ec2 100644
---- a/drivers/net/wireless/rtlwifi/rtl8188ee/phy.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8188ee/phy.c
-@@ -1002,7 +1002,7 @@ bool rtl88e_phy_config_rf_with_headerfile(struct ieee80211_hw *hw,
- 			}
- 		}
- 
--		if (rtlhal->oem_id == RT_CID_819x_HP)
-+		if (rtlhal->oem_id == RT_CID_819X_HP)
- 			rtl88_config_s(hw, 0x52, 0x7E4BD);
- 
- 		break;
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c b/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
-index 2eb0b38..9598b2d 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
-@@ -319,7 +319,7 @@ void rtl92ce_set_hw_reg(struct ieee80211_hw *hw, u8 variable, u8 *val)
- 			u8 e_aci = *(val);
- 			rtl92c_dm_init_edca_turbo(hw);
- 
--			if (rtlpci->acm_method != eAcmWay2_SW)
-+			if (rtlpci->acm_method != EACMWAY2_SW)
- 				rtlpriv->cfg->ops->set_hw_reg(hw,
- 							      HW_VAR_ACM_CTRL,
- 							      (&e_aci));
-@@ -1734,7 +1734,7 @@ static void _rtl92ce_read_adapter_info(struct ieee80211_hw *hw)
- 			if (rtlefuse->eeprom_did == 0x8176) {
- 				if ((rtlefuse->eeprom_svid == 0x103C &&
- 				     rtlefuse->eeprom_smid == 0x1629))
--					rtlhal->oem_id = RT_CID_819x_HP;
-+					rtlhal->oem_id = RT_CID_819X_HP;
- 				else
- 					rtlhal->oem_id = RT_CID_DEFAULT;
- 			} else {
-@@ -1745,7 +1745,7 @@ static void _rtl92ce_read_adapter_info(struct ieee80211_hw *hw)
- 			rtlhal->oem_id = RT_CID_TOSHIBA;
- 			break;
- 		case EEPROM_CID_QMI:
--			rtlhal->oem_id = RT_CID_819x_QMI;
-+			rtlhal->oem_id = RT_CID_819X_QMI;
- 			break;
- 		case EEPROM_CID_WHQL:
- 		default:
-@@ -1764,14 +1764,14 @@ static void _rtl92ce_hal_customized_behavior(struct ieee80211_hw *hw)
- 	struct rtl_hal *rtlhal = rtl_hal(rtl_priv(hw));
- 
- 	switch (rtlhal->oem_id) {
--	case RT_CID_819x_HP:
-+	case RT_CID_819X_HP:
- 		pcipriv->ledctl.led_opendrain = true;
- 		break;
--	case RT_CID_819x_Lenovo:
-+	case RT_CID_819X_LENOVO:
- 	case RT_CID_DEFAULT:
- 	case RT_CID_TOSHIBA:
- 	case RT_CID_CCX:
--	case RT_CID_819x_Acer:
-+	case RT_CID_819X_ACER:
- 	case RT_CID_WHQL:
- 	default:
- 		break;
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/hw.c b/drivers/net/wireless/rtlwifi/rtl8192cu/hw.c
-index 468bf73..551a868 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192cu/hw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192cu/hw.c
-@@ -394,7 +394,7 @@ static void _rtl92cu_read_adapter_info(struct ieee80211_hw *hw)
- 			if (rtlefuse->eeprom_did == 0x8176) {
- 				if ((rtlefuse->eeprom_svid == 0x103C &&
- 				     rtlefuse->eeprom_smid == 0x1629))
--					rtlhal->oem_id = RT_CID_819x_HP;
-+					rtlhal->oem_id = RT_CID_819X_HP;
- 				else
- 					rtlhal->oem_id = RT_CID_DEFAULT;
- 			} else {
-@@ -405,7 +405,7 @@ static void _rtl92cu_read_adapter_info(struct ieee80211_hw *hw)
- 			rtlhal->oem_id = RT_CID_TOSHIBA;
- 			break;
- 		case EEPROM_CID_QMI:
--			rtlhal->oem_id = RT_CID_819x_QMI;
-+			rtlhal->oem_id = RT_CID_819X_QMI;
- 			break;
- 		case EEPROM_CID_WHQL:
- 		default:
-@@ -423,14 +423,14 @@ static void _rtl92cu_hal_customized_behavior(struct ieee80211_hw *hw)
- 	struct rtl_hal *rtlhal = rtl_hal(rtl_priv(hw));
- 
- 	switch (rtlhal->oem_id) {
--	case RT_CID_819x_HP:
-+	case RT_CID_819X_HP:
- 		usb_priv->ledctl.led_opendrain = true;
- 		break;
--	case RT_CID_819x_Lenovo:
-+	case RT_CID_819X_LENOVO:
- 	case RT_CID_DEFAULT:
- 	case RT_CID_TOSHIBA:
- 	case RT_CID_CCX:
--	case RT_CID_819x_Acer:
-+	case RT_CID_819X_ACER:
- 	case RT_CID_WHQL:
- 	default:
- 		break;
-@@ -1795,7 +1795,7 @@ void rtl92cu_set_hw_reg(struct ieee80211_hw *hw, u8 variable, u8 *val)
- 					  e_aci);
- 				break;
- 			}
--			if (rtlusb->acm_method != eAcmWay2_SW)
-+			if (rtlusb->acm_method != EACMWAY2_SW)
- 				rtlpriv->cfg->ops->set_hw_reg(hw,
- 					 HW_VAR_ACM_CTRL, &e_aci);
- 			break;
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192de/hw.c b/drivers/net/wireless/rtlwifi/rtl8192de/hw.c
-index c4a7db9..f332d62 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192de/hw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192de/hw.c
-@@ -318,7 +318,7 @@ void rtl92de_set_hw_reg(struct ieee80211_hw *hw, u8 variable, u8 *val)
- 	case HW_VAR_AC_PARAM: {
- 		u8 e_aci = *val;
- 		rtl92d_dm_init_edca_turbo(hw);
--		if (rtlpci->acm_method != eAcmWay2_SW)
-+		if (rtlpci->acm_method != EACMWAY2_SW)
- 			rtlpriv->cfg->ops->set_hw_reg(hw, HW_VAR_ACM_CTRL,
- 						      &e_aci);
- 		break;
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192se/hw.c b/drivers/net/wireless/rtlwifi/rtl8192se/hw.c
-index 4f46178..ae8b037 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192se/hw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192se/hw.c
-@@ -251,7 +251,7 @@ void rtl92se_set_hw_reg(struct ieee80211_hw *hw, u8 variable, u8 *val)
- 			u8 e_aci = *val;
- 			rtl92s_dm_init_edca_turbo(hw);
- 
--			if (rtlpci->acm_method != eAcmWay2_SW)
-+			if (rtlpci->acm_method != EACMWAY2_SW)
- 				rtlpriv->cfg->ops->set_hw_reg(hw,
- 						 HW_VAR_ACM_CTRL,
- 						 &e_aci);
-diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/hw.c b/drivers/net/wireless/rtlwifi/rtl8723ae/hw.c
-index c333dfd..ad06017 100644
---- a/drivers/net/wireless/rtlwifi/rtl8723ae/hw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8723ae/hw.c
-@@ -306,7 +306,7 @@ void rtl8723ae_set_hw_reg(struct ieee80211_hw *hw, u8 variable, u8 *val)
- 		u8 e_aci = *((u8 *) val);
- 		rtl8723ae_dm_init_edca_turbo(hw);
- 
--		if (rtlpci->acm_method != eAcmWay2_SW)
-+		if (rtlpci->acm_method != EACMWAY2_SW)
- 			rtlpriv->cfg->ops->set_hw_reg(hw,
- 						      HW_VAR_ACM_CTRL,
- 						      (u8 *) (&e_aci));
-@@ -1655,7 +1655,7 @@ static void _rtl8723ae_read_adapter_info(struct ieee80211_hw *hw,
- 				    CHK_SVID_SMID(0x10EC, 0x9185))
- 					rtlhal->oem_id = RT_CID_TOSHIBA;
- 				else if (rtlefuse->eeprom_svid == 0x1025)
--					rtlhal->oem_id = RT_CID_819x_Acer;
-+					rtlhal->oem_id = RT_CID_819X_ACER;
- 				else if (CHK_SVID_SMID(0x10EC, 0x6191) ||
- 					 CHK_SVID_SMID(0x10EC, 0x6192) ||
- 					 CHK_SVID_SMID(0x10EC, 0x6193) ||
-@@ -1665,7 +1665,7 @@ static void _rtl8723ae_read_adapter_info(struct ieee80211_hw *hw,
- 					 CHK_SVID_SMID(0x10EC, 0x8191) ||
- 					 CHK_SVID_SMID(0x10EC, 0x8192) ||
- 					 CHK_SVID_SMID(0x10EC, 0x8193))
--					rtlhal->oem_id = RT_CID_819x_SAMSUNG;
-+					rtlhal->oem_id = RT_CID_819X_SAMSUNG;
- 				else if (CHK_SVID_SMID(0x10EC, 0x8195) ||
- 					 CHK_SVID_SMID(0x10EC, 0x9195) ||
- 					 CHK_SVID_SMID(0x10EC, 0x7194) ||
-@@ -1673,24 +1673,24 @@ static void _rtl8723ae_read_adapter_info(struct ieee80211_hw *hw,
- 					 CHK_SVID_SMID(0x10EC, 0x8201) ||
- 					 CHK_SVID_SMID(0x10EC, 0x8202) ||
- 					 CHK_SVID_SMID(0x10EC, 0x9200))
--					rtlhal->oem_id = RT_CID_819x_Lenovo;
-+					rtlhal->oem_id = RT_CID_819X_LENOVO;
- 				else if (CHK_SVID_SMID(0x10EC, 0x8197) ||
- 					 CHK_SVID_SMID(0x10EC, 0x9196))
--					rtlhal->oem_id = RT_CID_819x_CLEVO;
-+					rtlhal->oem_id = RT_CID_819X_CLEVO;
- 				else if (CHK_SVID_SMID(0x1028, 0x8194) ||
- 					 CHK_SVID_SMID(0x1028, 0x8198) ||
- 					 CHK_SVID_SMID(0x1028, 0x9197) ||
- 					 CHK_SVID_SMID(0x1028, 0x9198))
--					rtlhal->oem_id = RT_CID_819x_DELL;
-+					rtlhal->oem_id = RT_CID_819X_DELL;
- 				else if (CHK_SVID_SMID(0x103C, 0x1629))
--					rtlhal->oem_id = RT_CID_819x_HP;
-+					rtlhal->oem_id = RT_CID_819X_HP;
- 				else if (CHK_SVID_SMID(0x1A32, 0x2315))
--					rtlhal->oem_id = RT_CID_819x_QMI;
-+					rtlhal->oem_id = RT_CID_819X_QMI;
- 				else if (CHK_SVID_SMID(0x10EC, 0x8203))
--					rtlhal->oem_id = RT_CID_819x_PRONETS;
-+					rtlhal->oem_id = RT_CID_819X_PRONETS;
- 				else if (CHK_SVID_SMID(0x1043, 0x84B5))
- 					rtlhal->oem_id =
--						 RT_CID_819x_Edimax_ASUS;
-+						 RT_CID_819X_EDIMAX_ASUS;
- 				else
- 					rtlhal->oem_id = RT_CID_DEFAULT;
- 			} else if (rtlefuse->eeprom_did == 0x8178) {
-@@ -1712,12 +1712,12 @@ static void _rtl8723ae_read_adapter_info(struct ieee80211_hw *hw,
- 				    CHK_SVID_SMID(0x10EC, 0x9185))
- 					rtlhal->oem_id = RT_CID_TOSHIBA;
- 				else if (rtlefuse->eeprom_svid == 0x1025)
--					rtlhal->oem_id = RT_CID_819x_Acer;
-+					rtlhal->oem_id = RT_CID_819X_ACER;
- 				else if (CHK_SVID_SMID(0x10EC, 0x8186))
--					rtlhal->oem_id = RT_CID_819x_PRONETS;
-+					rtlhal->oem_id = RT_CID_819X_PRONETS;
- 				else if (CHK_SVID_SMID(0x1043, 0x8486))
- 					rtlhal->oem_id =
--						     RT_CID_819x_Edimax_ASUS;
-+						     RT_CID_819X_EDIMAX_ASUS;
- 				else
- 					rtlhal->oem_id = RT_CID_DEFAULT;
- 			} else {
-@@ -1731,7 +1731,7 @@ static void _rtl8723ae_read_adapter_info(struct ieee80211_hw *hw,
- 			rtlhal->oem_id = RT_CID_CCX;
- 			break;
- 		case EEPROM_CID_QMI:
--			rtlhal->oem_id = RT_CID_819x_QMI;
-+			rtlhal->oem_id = RT_CID_819X_QMI;
- 			break;
- 		case EEPROM_CID_WHQL:
- 				break;
-diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/trx.h b/drivers/net/wireless/rtlwifi/rtl8723ae/trx.h
-index ad05b54..c75bfe8 100644
---- a/drivers/net/wireless/rtlwifi/rtl8723ae/trx.h
-+++ b/drivers/net/wireless/rtlwifi/rtl8723ae/trx.h
-@@ -521,12 +521,6 @@ do {							\
- 		memset(__pdesc, 0, _size);		\
- } while (0)
- 
--#define RTL8723E_RX_HAL_IS_CCK_RATE(rxmcs)		\
--	((rxmcs) == DESC92_RATE1M ||			\
--	 (rxmcs) == DESC92_RATE2M ||			\
--	 (rxmcs) == DESC92_RATE5_5M ||			\
--	 (rxmcs) == DESC92_RATE11M)
--
- struct rx_fwinfo_8723e {
- 	u8 gain_trsw[4];
- 	u8 pwdb_all;
-diff --git a/drivers/net/wireless/rtlwifi/usb.c b/drivers/net/wireless/rtlwifi/usb.c
-index 4933f02..4e2a726 100644
---- a/drivers/net/wireless/rtlwifi/usb.c
-+++ b/drivers/net/wireless/rtlwifi/usb.c
-@@ -410,7 +410,7 @@ static void rtl_usb_init_sw(struct ieee80211_hw *hw)
- 	mac->current_ampdu_factor = 3;
- 
- 	/* QOS */
--	rtlusb->acm_method = eAcmWay2_SW;
-+	rtlusb->acm_method = EACMWAY2_SW;
- 
- 	/* IRQ */
- 	/* HIMR - turn all on */
-diff --git a/drivers/net/wireless/rtlwifi/wifi.h b/drivers/net/wireless/rtlwifi/wifi.h
-index de91c82..3f52bf8 100644
---- a/drivers/net/wireless/rtlwifi/wifi.h
-+++ b/drivers/net/wireless/rtlwifi/wifi.h
-@@ -109,6 +109,19 @@
- #define	MAX_CHNL_GROUP_24G		6
- #define	MAX_CHNL_GROUP_5G		14
- 
-+#define TX_PWR_BY_RATE_NUM_BAND		2
-+#define TX_PWR_BY_RATE_NUM_RF		4
-+#define TX_PWR_BY_RATE_NUM_SECTION	12
-+#define MAX_BASE_NUM_IN_PHY_REG_PG_24G  6
-+#define MAX_BASE_NUM_IN_PHY_REG_PG_5G	5
++		switch (cmd_len) {
++		case 1:
++		case 2:
++		case 3:
++			/*boxcontent[0] &= ~(BIT(7));*/
++			memcpy((u8 *)(boxcontent) + 1,
++			       p_cmdbuffer + buf_index, cmd_len);
 +
-+enum rf_tx_num {
-+	RF_1TX = 0,
-+	RF_2TX,
-+	RF_MAX_TX_NUM,
-+	RF_TX_NUM_NONIMPLEMENT,
++			for (idx = 0; idx < 4; idx++) {
++				rtl_write_byte(rtlpriv, box_reg + idx,
++					       boxcontent[idx]);
++			}
++			break;
++		case 4:
++		case 5:
++		case 6:
++		case 7:
++			/*boxcontent[0] |= (BIT(7));*/
++			memcpy((u8 *)(boxextcontent),
++			       p_cmdbuffer + buf_index+3, cmd_len-3);
++			memcpy((u8 *)(boxcontent) + 1,
++			       p_cmdbuffer + buf_index, 3);
++
++			for (idx = 0; idx < 4; idx++) {
++				rtl_write_byte(rtlpriv, box_extreg + idx,
++					       boxextcontent[idx]);
++			}
++			for (idx = 0; idx < 4; idx++) {
++				rtl_write_byte(rtlpriv, box_reg + idx,
++					       boxcontent[idx]);
++			}
++			break;
++		default:
++			RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++				 "switch case not process\n");
++			break;
++		}
++		bwrite_sucess = true;
++
++		rtlhal->last_hmeboxnum = boxnum + 1;
++		if (rtlhal->last_hmeboxnum == 4)
++			rtlhal->last_hmeboxnum = 0;
++
++		RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD,
++			 "pHalData->last_hmeboxnum  = %d\n",
++			 rtlhal->last_hmeboxnum);
++	}
++	if (!rtlpriv) {
++		pr_err("rtlpriv bad\n");
++		return;
++	}
++	if (!rtlhal) {
++		pr_err("rtlhal bad\n");
++		return;
++	}
++	spin_lock_irqsave(&rtlpriv->locks.h2c_lock, flag);
++	rtlhal->h2c_setinprogress = false;
++	spin_unlock_irqrestore(&rtlpriv->locks.h2c_lock, flag);
++
++	RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD, "go out\n");
++}
++
++void rtl8723be_fill_h2c_cmd(struct ieee80211_hw *hw, u8 element_id,
++			    u32 cmd_len, u8 *p_cmdbuffer)
++{
++	struct rtl_hal *rtlhal = rtl_hal(rtl_priv(hw));
++	u32 tmp_cmdbuf[2];
++
++	if (!rtlhal->fw_ready) {
++		RT_ASSERT(false,
++			  "return H2C cmd because of Fw download fail!!!\n");
++		return;
++	}
++	memset(tmp_cmdbuf, 0, 8);
++	memcpy(tmp_cmdbuf, p_cmdbuffer, cmd_len);
++	_rtl8723be_fill_h2c_command(hw, element_id, cmd_len,
++				    (u8 *)&tmp_cmdbuf);
++	return;
++}
++
++void rtl8723be_set_fw_pwrmode_cmd(struct ieee80211_hw *hw, u8 mode)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	u8 u1_h2c_set_pwrmode[H2C_8723BE_PWEMODE_LENGTH] = { 0 };
++	struct rtl_ps_ctl *ppsc = rtl_psc(rtl_priv(hw));
++	u8 rlbm, power_state = 0;
++	RT_TRACE(rtlpriv, COMP_POWER, DBG_LOUD, "FW LPS mode = %d\n", mode);
++
++	SET_H2CCMD_PWRMODE_PARM_MODE(u1_h2c_set_pwrmode, ((mode) ? 1 : 0));
++	rlbm = 0;/*YJ, temp, 120316. FW now not support RLBM = 2.*/
++	SET_H2CCMD_PWRMODE_PARM_RLBM(u1_h2c_set_pwrmode, rlbm);
++	SET_H2CCMD_PWRMODE_PARM_SMART_PS(u1_h2c_set_pwrmode,
++					 (rtlpriv->mac80211.p2p) ?
++					 ppsc->smart_ps : 1);
++	SET_H2CCMD_PWRMODE_PARM_AWAKE_INTERVAL(u1_h2c_set_pwrmode,
++					       ppsc->reg_max_lps_awakeintvl);
++	SET_H2CCMD_PWRMODE_PARM_ALL_QUEUE_UAPSD(u1_h2c_set_pwrmode, 0);
++	if (mode == FW_PS_ACTIVE_MODE)
++		power_state |= FW_PWR_STATE_ACTIVE;
++	else
++		power_state |= FW_PWR_STATE_RF_OFF;
++	SET_H2CCMD_PWRMODE_PARM_PWR_STATE(u1_h2c_set_pwrmode, power_state);
++
++	RT_PRINT_DATA(rtlpriv, COMP_CMD, DBG_DMESG,
++		      "rtl92c_set_fw_pwrmode(): u1_h2c_set_pwrmode\n",
++		      u1_h2c_set_pwrmode, H2C_8723BE_PWEMODE_LENGTH);
++	rtl8723be_fill_h2c_cmd(hw, H2C_8723BE_SETPWRMODE,
++			       H2C_8723BE_PWEMODE_LENGTH,
++			       u1_h2c_set_pwrmode);
++}
++
++static bool _rtl8723be_cmd_send_packet(struct ieee80211_hw *hw,
++				       struct sk_buff *skb)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
++	struct rtl8192_tx_ring *ring;
++	struct rtl_tx_desc *pdesc;
++	struct sk_buff *pskb = NULL;
++	u8 own;
++	unsigned long flags;
++
++	ring = &rtlpci->tx_ring[BEACON_QUEUE];
++
++	pskb = __skb_dequeue(&ring->queue);
++	if (pskb)
++		kfree_skb(pskb);
++
++	spin_lock_irqsave(&rtlpriv->locks.irq_th_lock, flags);
++
++	pdesc = &ring->desc[0];
++	own = (u8) rtlpriv->cfg->ops->get_desc((u8 *)pdesc, true, HW_DESC_OWN);
++
++	rtlpriv->cfg->ops->fill_tx_cmddesc(hw, (u8 *)pdesc, 1, 1, skb);
++
++	__skb_queue_tail(&ring->queue, skb);
++
++	spin_unlock_irqrestore(&rtlpriv->locks.irq_th_lock, flags);
++
++	rtlpriv->cfg->ops->tx_polling(hw, BEACON_QUEUE);
++
++	return true;
++}
++#define BEACON_PG		0 /* ->1 */
++#define PSPOLL_PG		2
++#define NULL_PG			3
++#define PROBERSP_PG		4 /* ->5 */
++
++#define TOTAL_RESERVED_PKT_LEN	768
++
++static u8 reserved_page_packet[TOTAL_RESERVED_PKT_LEN] = {
++	/* page 0 beacon */
++	0x80, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF,
++	0xFF, 0xFF, 0x00, 0xE0, 0x4C, 0x02, 0xB1, 0x78,
++	0xEC, 0x1A, 0x59, 0x0B, 0xAD, 0xD4, 0x20, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x64, 0x00, 0x10, 0x04, 0x00, 0x05, 0x54, 0x65,
++	0x73, 0x74, 0x32, 0x01, 0x08, 0x82, 0x84, 0x0B,
++	0x16, 0x24, 0x30, 0x48, 0x6C, 0x03, 0x01, 0x06,
++	0x06, 0x02, 0x00, 0x00, 0x2A, 0x01, 0x02, 0x32,
++	0x04, 0x0C, 0x12, 0x18, 0x60, 0x2D, 0x1A, 0x6C,
++	0x09, 0x03, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x3D, 0x00, 0xDD, 0x07, 0x00, 0xE0, 0x4C,
++	0x02, 0x02, 0x00, 0x00, 0xDD, 0x18, 0x00, 0x50,
++	0xF2, 0x01, 0x01, 0x00, 0x00, 0x50, 0xF2, 0x04,
++	0x01, 0x00, 0x00, 0x50, 0xF2, 0x04, 0x01, 0x00,
++
++	/* page 1 beacon */
++	0x00, 0x50, 0xF2, 0x02, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x10, 0x00, 0x28, 0x8C, 0x00, 0x12, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x81, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++
++	/* page 2  ps-poll */
++	0xA4, 0x10, 0x01, 0xC0, 0xEC, 0x1A, 0x59, 0x0B,
++	0xAD, 0xD4, 0x00, 0xE0, 0x4C, 0x02, 0xB1, 0x78,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x18, 0x00, 0x28, 0x8C, 0x00, 0x12, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++
++	/* page 3  null */
++	0x48, 0x01, 0x00, 0x00, 0xEC, 0x1A, 0x59, 0x0B,
++	0xAD, 0xD4, 0x00, 0xE0, 0x4C, 0x02, 0xB1, 0x78,
++	0xEC, 0x1A, 0x59, 0x0B, 0xAD, 0xD4, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x72, 0x00, 0x28, 0x8C, 0x00, 0x12, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++
++	/* page 4  probe_resp */
++	0x50, 0x00, 0x00, 0x00, 0x00, 0x40, 0x10, 0x10,
++	0x00, 0x03, 0x00, 0xE0, 0x4C, 0x76, 0x00, 0x42,
++	0x00, 0x40, 0x10, 0x10, 0x00, 0x03, 0x00, 0x00,
++	0x9E, 0x46, 0x15, 0x32, 0x27, 0xF2, 0x2D, 0x00,
++	0x64, 0x00, 0x00, 0x04, 0x00, 0x0C, 0x6C, 0x69,
++	0x6E, 0x6B, 0x73, 0x79, 0x73, 0x5F, 0x77, 0x6C,
++	0x61, 0x6E, 0x01, 0x04, 0x82, 0x84, 0x8B, 0x96,
++	0x03, 0x01, 0x01, 0x06, 0x02, 0x00, 0x00, 0x2A,
++	0x01, 0x00, 0x32, 0x08, 0x24, 0x30, 0x48, 0x6C,
++	0x0C, 0x12, 0x18, 0x60, 0x2D, 0x1A, 0x6C, 0x18,
++	0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x3D, 0x00, 0xDD, 0x06, 0x00, 0xE0, 0x4C, 0x02,
++	0x01, 0x70, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++
++	/* page 5  probe_resp */
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 +};
 +
- struct txpower_info_2g {
- 	u8 index_cck_base[MAX_RF_PATH][MAX_CHNL_GROUP_24G];
- 	u8 index_bw40_base[MAX_RF_PATH][MAX_CHNL_GROUP_24G];
-@@ -129,6 +142,15 @@ struct txpower_info_5g {
- 	u8 bw40_diff[MAX_RF_PATH][MAX_TX_COUNT];
- };
- 
-+enum rate_section {
-+	CCK = 0,
-+	OFDM,
-+	HT_MCS0_MCS7,
-+	HT_MCS8_MCS15,
-+	VHT_1SSMCS0_1SSMCS9,
-+	VHT_2SSMCS0_2SSMCS9,
-+};
++void rtl8723be_set_fw_rsvdpagepkt(struct ieee80211_hw *hw,
++				  bool dl_finished)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_mac *mac = rtl_mac(rtl_priv(hw));
++	struct sk_buff *skb = NULL;
 +
- enum intf_type {
- 	INTF_PCI = 0,
- 	INTF_USB = 1,
-@@ -200,6 +222,12 @@ enum hardware_type {
- 	 _pdesc->rxmcs == DESC92_RATE5_5M ||		\
- 	 _pdesc->rxmcs == DESC92_RATE11M)
- 
-+#define RTL8723E_RX_HAL_IS_CCK_RATE(rxmcs)		\
-+	((rxmcs) == DESC92_RATE1M ||			\
-+	 (rxmcs) == DESC92_RATE2M ||			\
-+	 (rxmcs) == DESC92_RATE5_5M ||			\
-+	 (rxmcs) == DESC92_RATE11M)
++	u32 totalpacketlen;
++	bool rtstatus;
++	u8 u1rsvdpageloc[5] = { 0 };
++	bool dlok = false;
 +
- enum scan_operation_backup_opt {
- 	SCAN_OPT_BACKUP = 0,
- 	SCAN_OPT_RESTORE,
-@@ -335,6 +363,7 @@ enum hw_variables {
- 
- 	HAL_DEF_WOWLAN,
- 	HW_VAR_MRC,
-+	HW_VAR_KEEP_ALIVE,
- 
- 	HW_VAR_MGT_FILTER,
- 	HW_VAR_CTRL_FILTER,
-@@ -353,34 +382,34 @@ enum rt_oem_id {
- 	RT_CID_8187_HW_LED = 3,
- 	RT_CID_8187_NETGEAR = 4,
- 	RT_CID_WHQL = 5,
--	RT_CID_819x_CAMEO = 6,
--	RT_CID_819x_RUNTOP = 7,
--	RT_CID_819x_Senao = 8,
-+	RT_CID_819X_CAMEO = 6,
-+	RT_CID_819X_RUNTOP = 7,
-+	RT_CID_819X_SENAO = 8,
- 	RT_CID_TOSHIBA = 9,
--	RT_CID_819x_Netcore = 10,
--	RT_CID_Nettronix = 11,
-+	RT_CID_819X_NETCORE = 10,
-+	RT_CID_NETTRONIX = 11,
- 	RT_CID_DLINK = 12,
- 	RT_CID_PRONET = 13,
- 	RT_CID_COREGA = 14,
--	RT_CID_819x_ALPHA = 15,
--	RT_CID_819x_Sitecom = 16,
-+	RT_CID_819X_ALPHA = 15,
-+	RT_CID_819X_SITECOM = 16,
- 	RT_CID_CCX = 17,
--	RT_CID_819x_Lenovo = 18,
--	RT_CID_819x_QMI = 19,
--	RT_CID_819x_Edimax_Belkin = 20,
--	RT_CID_819x_Sercomm_Belkin = 21,
--	RT_CID_819x_CAMEO1 = 22,
--	RT_CID_819x_MSI = 23,
--	RT_CID_819x_Acer = 24,
--	RT_CID_819x_HP = 27,
--	RT_CID_819x_CLEVO = 28,
--	RT_CID_819x_Arcadyan_Belkin = 29,
--	RT_CID_819x_SAMSUNG = 30,
--	RT_CID_819x_WNC_COREGA = 31,
--	RT_CID_819x_Foxcoon = 32,
--	RT_CID_819x_DELL = 33,
--	RT_CID_819x_PRONETS = 34,
--	RT_CID_819x_Edimax_ASUS = 35,
-+	RT_CID_819X_LENOVO = 18,
-+	RT_CID_819X_QMI = 19,
-+	RT_CID_819X_EDIMAX_BELKIN = 20,
-+	RT_CID_819X_SERCOMM_BELKIN = 21,
-+	RT_CID_819X_CAMEO1 = 22,
-+	RT_CID_819X_MSI = 23,
-+	RT_CID_819X_ACER = 24,
-+	RT_CID_819X_HP = 27,
-+	RT_CID_819X_CLEVO = 28,
-+	RT_CID_819X_ARCADYAN_BELKIN = 29,
-+	RT_CID_819X_SAMSUNG = 30,
-+	RT_CID_819X_WNC_COREGA = 31,
-+	RT_CID_819X_FOXCOON = 32,
-+	RT_CID_819X_DELL = 33,
-+	RT_CID_819X_PRONETS = 34,
-+	RT_CID_819X_EDIMAX_ASUS = 35,
- 	RT_CID_NETGEAR = 36,
- 	RT_CID_PLANEX = 37,
- 	RT_CID_CC_C = 38,
-@@ -613,7 +642,7 @@ enum rtl_led_pin {
- enum acm_method {
- 	eAcmWay0_SwAndHw = 0,
- 	eAcmWay1_HW = 1,
--	eAcmWay2_SW = 2,
-+	EACMWAY2_SW = 2,
- };
- 
- enum macphy_mode {
-@@ -822,9 +851,9 @@ struct rate_adaptive {
- 	u32 high_rssi_thresh_for_ra;
- 	u32 high2low_rssi_thresh_for_ra;
- 	u8 low2high_rssi_thresh_for_ra40m;
--	u32 low_rssi_thresh_for_ra40M;
-+	u32 low_rssi_thresh_for_ra40m;
- 	u8 low2high_rssi_thresh_for_ra20m;
--	u32 low_rssi_thresh_for_ra20M;
-+	u32 low_rssi_thresh_for_ra20m;
- 	u32 upper_rssi_threshold_ratr;
- 	u32 middleupper_rssi_threshold_ratr;
- 	u32 middle_rssi_threshold_ratr;
-@@ -991,6 +1020,13 @@ struct rtl_phy {
- 	u8 cck_high_power;
- 	/* MAX_PG_GROUP groups of pwr diff by rates */
- 	u32 mcs_offset[MAX_PG_GROUP][16];
-+	u32 tx_power_by_rate_offset[TX_PWR_BY_RATE_NUM_BAND]
-+				   [TX_PWR_BY_RATE_NUM_RF]
-+				   [TX_PWR_BY_RATE_NUM_RF]
-+				   [TX_PWR_BY_RATE_NUM_SECTION];
-+	u8 txpwr_by_rate_base_24g[TX_PWR_BY_RATE_NUM_RF]
-+				 [TX_PWR_BY_RATE_NUM_RF]
-+				 [MAX_BASE_NUM_IN_PHY_REG_PG_24G];
- 	u8 default_initialgain[4];
- 
- 	/* the current Tx power level */
-@@ -1218,6 +1254,7 @@ struct rtl_hal {
- 	bool being_init_adapter;
- 	bool bbrf_ready;
- 	bool mac_func_enable;
-+	bool pre_edcca_enable;
- 	struct bt_coexist_8723 hal_coex_8723;
- 
- 	enum intf_type interface;
-@@ -1326,6 +1363,16 @@ struct fast_ant_training {
- 	bool	becomelinked;
- };
- 
-+struct dm_phy_dbg_info {
-+	char rx_snrdb[4];
-+	u64 num_qry_phy_status;
-+	u64 num_qry_phy_status_cck;
-+	u64 num_qry_phy_status_ofdm;
-+	u16 num_qry_beacon_pkt;
-+	u16 num_non_be_pkt;
-+	s32 rx_evm[4];
-+};
++	u8 *beacon;
++	u8 *p_pspoll;
++	u8 *nullfunc;
++	u8 *p_probersp;
++	/*---------------------------------------------------------
++	 *			(1) beacon
++	 *---------------------------------------------------------
++	 */
++	beacon = &reserved_page_packet[BEACON_PG * 128];
++	SET_80211_HDR_ADDRESS2(beacon, mac->mac_addr);
++	SET_80211_HDR_ADDRESS3(beacon, mac->bssid);
 +
- struct rtl_dm {
- 	/*PHY status for Dynamic Management */
- 	long entry_min_undec_sm_pwdb;
-@@ -1367,14 +1414,28 @@ struct rtl_dm {
- 	bool disable_tx_int;
- 	char ofdm_index[2];
- 	char cck_index;
--	char delta_power_index;
--	char delta_power_index_last;
--	char power_index_offset;
-+	char delta_power_index[MAX_RF_PATH];
-+	char delta_power_index_last[MAX_RF_PATH];
-+	char power_index_offset[MAX_RF_PATH];
++	/*-------------------------------------------------------
++	 *			(2) ps-poll
++	 *-------------------------------------------------------
++	 */
++	p_pspoll = &reserved_page_packet[PSPOLL_PG * 128];
++	SET_80211_PS_POLL_AID(p_pspoll, (mac->assoc_id | 0xc000));
++	SET_80211_PS_POLL_BSSID(p_pspoll, mac->bssid);
++	SET_80211_PS_POLL_TA(p_pspoll, mac->mac_addr);
 +
-+	bool one_entry_only;
-+	struct dm_phy_dbg_info dbginfo;
++	SET_H2CCMD_RSVDPAGE_LOC_PSPOLL(u1rsvdpageloc, PSPOLL_PG);
 +
-+	/* Dynamic ATC switch */
-+	bool atc_status;
-+	bool large_cfo_hit;
-+	bool is_freeze;
-+	int cfo_tail[2];
-+	int cfo_ave_pre;
-+	int crystal_cap;
-+	u8 cfo_threshold;
-+	u32 packet_count;
-+	u32 packet_count_pre;
- 
- 	/*88e tx power tracking*/
- 	u8	swing_idx_ofdm[2];
- 	u8	swing_idx_ofdm_cur;
--	u8	swing_idx_ofdm_base;
-+	u8	swing_idx_ofdm_base[MAX_RF_PATH];
- 	bool	swing_flag_ofdm;
- 	u8	swing_idx_cck;
- 	u8	swing_idx_cck_cur;
-@@ -1427,12 +1488,14 @@ struct rtl_efuse {
- 	u8 eeprom_tssi_5g[3][2]; /* for 5GL/5GM/5GH band. */
- 	u8 eeprom_pwrlimit_ht20[CHANNEL_GROUP_MAX];
- 	u8 eeprom_pwrlimit_ht40[CHANNEL_GROUP_MAX];
--	u8 eeprom_chnlarea_txpwr_cck[2][CHANNEL_GROUP_MAX_2G];
--	u8 eeprom_chnlarea_txpwr_ht40_1s[2][CHANNEL_GROUP_MAX];
--	u8 eprom_chnl_txpwr_ht40_2sdf[2][CHANNEL_GROUP_MAX];
-+	u8 eeprom_chnlarea_txpwr_cck[MAX_RF_PATH][CHANNEL_GROUP_MAX_2G];
-+	u8 eeprom_chnlarea_txpwr_ht40_1s[MAX_RF_PATH][CHANNEL_GROUP_MAX];
-+	u8 eprom_chnl_txpwr_ht40_2sdf[MAX_RF_PATH][CHANNEL_GROUP_MAX];
- 	u8 txpwrlevel_cck[2][CHANNEL_MAX_NUMBER_2G];
--	u8 txpwrlevel_ht40_1s[2][CHANNEL_MAX_NUMBER];	/*For HT 40MHZ pwr */
--	u8 txpwrlevel_ht40_2s[2][CHANNEL_MAX_NUMBER];	/*For HT 40MHZ pwr */
-+	/* For HT 40MHZ pwr */
-+	u8 txpwrlevel_ht40_1s[MAX_RF_PATH][CHANNEL_MAX_NUMBER];
-+	u8 txpwrlevel_ht40_2s[MAX_RF_PATH][CHANNEL_MAX_NUMBER];
-+	u8 txpwr_ht40diff[MAX_RF_PATH][MAX_TX_COUNT];/*BW40_24G_Diff*/
- 
- 	u8 internal_pa_5g[2];	/* pathA / pathB */
- 	u8 eeprom_c9;
-@@ -1705,6 +1768,8 @@ struct rtl_hal_ops {
- 			     enum led_ctl_mode ledaction);
- 	void (*set_desc) (u8 *pdesc, bool istx, u8 desc_name, u8 *val);
- 	u32 (*get_desc) (u8 *pdesc, bool istx, u8 desc_name);
-+	bool (*is_tx_desc_closed) (struct ieee80211_hw *hw,
-+				   u8 hw_queue, u16 index);
- 	void (*tx_polling) (struct ieee80211_hw *hw, u8 hw_queue);
- 	void (*enable_hw_sec) (struct ieee80211_hw *hw);
- 	void (*set_key) (struct ieee80211_hw *hw, u32 key_index,
-@@ -1743,6 +1808,7 @@ struct rtl_hal_ops {
- 	void (*bt_coex_off_before_lps) (struct ieee80211_hw *hw);
- 	void (*fill_h2c_cmd) (struct ieee80211_hw *hw, u8 element_id,
- 			      u32 cmd_len, u8 *p_cmdbuffer);
-+	bool (*get_btc_status) (void);
- };
- 
- struct rtl_intf_ops {
-@@ -1920,6 +1986,7 @@ struct ps_t {
- 	u8 cur_ccasate;
- 	u8 pre_rfstate;
- 	u8 cur_rfstate;
-+	u8 initialize;
- 	long rssi_val_min;
- };
- 
-@@ -1977,6 +2044,7 @@ struct dig_t {
- 	char backoffval_range_min;
- 	u8 dig_min_0;
- 	u8 dig_min_1;
-+	u8 bt30_cur_igi;
- 	bool media_connect_0;
- 	bool media_connect_1;
- 
-@@ -1997,9 +2065,61 @@ struct rtl_btc_info {
- 	u8 ant_num;
- };
- 
--struct rtl_bt_coexist {
-+struct bt_coexist_info {
- 	struct rtl_btc_ops *btc_ops;
- 	struct rtl_btc_info btc_info;
-+	/* EEPROM BT info. */
-+	u8 eeprom_bt_coexist;
-+	u8 eeprom_bt_type;
-+	u8 eeprom_bt_ant_num;
-+	u8 eeprom_bt_ant_isol;
-+	u8 eeprom_bt_radio_shared;
++	/*--------------------------------------------------------
++	 *			(3) null data
++	 *--------------------------------------------------------
++	 */
++	nullfunc = &reserved_page_packet[NULL_PG * 128];
++	SET_80211_HDR_ADDRESS1(nullfunc, mac->bssid);
++	SET_80211_HDR_ADDRESS2(nullfunc, mac->mac_addr);
++	SET_80211_HDR_ADDRESS3(nullfunc, mac->bssid);
 +
-+	u8 bt_coexistence;
-+	u8 bt_ant_num;
-+	u8 bt_coexist_type;
-+	u8 bt_state;
-+	u8 bt_cur_state;	/* 0:on, 1:off */
-+	u8 bt_ant_isolation;	/* 0:good, 1:bad */
-+	u8 bt_pape_ctrl;	/* 0:SW, 1:SW/HW dynamic */
-+	u8 bt_service;
-+	u8 bt_radio_shared_type;
-+	u8 bt_rfreg_origin_1e;
-+	u8 bt_rfreg_origin_1f;
-+	u8 bt_rssi_state;
-+	u32 ratio_tx;
-+	u32 ratio_pri;
-+	u32 bt_edca_ul;
-+	u32 bt_edca_dl;
++	SET_H2CCMD_RSVDPAGE_LOC_NULL_DATA(u1rsvdpageloc, NULL_PG);
 +
-+	bool init_set;
-+	bool bt_busy_traffic;
-+	bool bt_traffic_mode_set;
-+	bool bt_non_traffic_mode_set;
++	/*---------------------------------------------------------
++	 *			(4) probe response
++	 *---------------------------------------------------------
++	 */
++	p_probersp = &reserved_page_packet[PROBERSP_PG * 128];
++	SET_80211_HDR_ADDRESS1(p_probersp, mac->bssid);
++	SET_80211_HDR_ADDRESS2(p_probersp, mac->mac_addr);
++	SET_80211_HDR_ADDRESS3(p_probersp, mac->bssid);
 +
-+	bool fw_coexist_all_off;
-+	bool sw_coexist_all_off;
-+	bool hw_coexist_all_off;
-+	u32 cstate;
-+	u32 previous_state;
-+	u32 cstate_h;
-+	u32 previous_state_h;
++	SET_H2CCMD_RSVDPAGE_LOC_PROBE_RSP(u1rsvdpageloc, PROBERSP_PG);
 +
-+	u8 bt_pre_rssi_state;
-+	u8 bt_pre_rssi_state1;
++	totalpacketlen = TOTAL_RESERVED_PKT_LEN;
 +
-+	u8 reg_bt_iso;
-+	u8 reg_bt_sco;
-+	bool balance_on;
-+	u8 bt_active_zero_cnt;
-+	bool cur_bt_disabled;
-+	bool pre_bt_disabled;
++	RT_PRINT_DATA(rtlpriv, COMP_CMD, DBG_LOUD,
++		      "rtl8723be_set_fw_rsvdpagepkt(): "
++		      "HW_VAR_SET_TX_CMD: ALL\n",
++		      &reserved_page_packet[0], totalpacketlen);
++	RT_PRINT_DATA(rtlpriv, COMP_CMD, DBG_DMESG,
++		      "rtl8723be_set_fw_rsvdpagepkt(): "
++		      "HW_VAR_SET_TX_CMD: ALL\n", u1rsvdpageloc, 3);
 +
-+	u8 bt_profile_case;
-+	u8 bt_profile_action;
-+	bool bt_busy;
-+	bool hold_for_bt_operation;
-+	u8 lps_counter;
- };
- 
- struct rtl_btc_ops {
-@@ -2098,7 +2218,7 @@ struct rtl_priv {
- 	struct proxim proximity;
- 
- 	/*for bt coexist use*/
--	struct rtl_bt_coexist btcoexist;
-+	struct bt_coexist_info btcoexist;
- 
- 	/* separate 92ee from other ICs,
- 	 * 92ee use new trx flow.
-@@ -2164,62 +2284,6 @@ enum bt_radio_shared {
- 	BT_RADIO_INDIVIDUAL = 1,
- };
- 
--struct bt_coexist_info {
--
--	/* EEPROM BT info. */
--	u8 eeprom_bt_coexist;
--	u8 eeprom_bt_type;
--	u8 eeprom_bt_ant_num;
--	u8 eeprom_bt_ant_isol;
--	u8 eeprom_bt_radio_shared;
--
--	u8 bt_coexistence;
--	u8 bt_ant_num;
--	u8 bt_coexist_type;
--	u8 bt_state;
--	u8 bt_cur_state;	/* 0:on, 1:off */
--	u8 bt_ant_isolation;	/* 0:good, 1:bad */
--	u8 bt_pape_ctrl;	/* 0:SW, 1:SW/HW dynamic */
--	u8 bt_service;
--	u8 bt_radio_shared_type;
--	u8 bt_rfreg_origin_1e;
--	u8 bt_rfreg_origin_1f;
--	u8 bt_rssi_state;
--	u32 ratio_tx;
--	u32 ratio_pri;
--	u32 bt_edca_ul;
--	u32 bt_edca_dl;
--
--	bool init_set;
--	bool bt_busy_traffic;
--	bool bt_traffic_mode_set;
--	bool bt_non_traffic_mode_set;
--
--	bool fw_coexist_all_off;
--	bool sw_coexist_all_off;
--	bool hw_coexist_all_off;
--	u32 cstate;
--	u32 previous_state;
--	u32 cstate_h;
--	u32 previous_state_h;
--
--	u8 bt_pre_rssi_state;
--	u8 bt_pre_rssi_state1;
--
--	u8 reg_bt_iso;
--	u8 reg_bt_sco;
--	bool balance_on;
--	u8 bt_active_zero_cnt;
--	bool cur_bt_disabled;
--	bool pre_bt_disabled;
--
--	u8 bt_profile_case;
--	u8 bt_profile_action;
--	bool bt_busy;
--	bool hold_for_bt_operation;
--	u8 lps_counter;
--};
--
- 
- /****************************************
- 	mem access macro define start
++
++	skb = dev_alloc_skb(totalpacketlen);
++	memcpy((u8 *)skb_put(skb, totalpacketlen),
++	       &reserved_page_packet, totalpacketlen);
++
++	rtstatus = _rtl8723be_cmd_send_packet(hw, skb);
++
++	if (rtstatus)
++		dlok = true;
++
++	if (dlok) {
++		RT_TRACE(rtlpriv, COMP_POWER, DBG_LOUD,
++			 "Set RSVD page location to Fw.\n");
++		RT_PRINT_DATA(rtlpriv, COMP_CMD, DBG_DMESG, "H2C_RSVDPAGE:\n",
++			      u1rsvdpageloc, 3);
++		rtl8723be_fill_h2c_cmd(hw, H2C_8723BE_RSVDPAGE,
++				       sizeof(u1rsvdpageloc), u1rsvdpageloc);
++	} else {
++		RT_TRACE(rtlpriv, COMP_ERR, DBG_WARNING,
++			 "Set RSVD page location to Fw FAIL!!!!!!.\n");
++	}
++}
++
++/*Should check FW support p2p or not.*/
++static void rtl8723be_set_p2p_ctw_period_cmd(struct ieee80211_hw *hw,
++					     u8 ctwindow)
++{
++	u8 u1_ctwindow_period[1] = {ctwindow};
++
++	rtl8723be_fill_h2c_cmd(hw, H2C_8723BE_P2P_PS_CTW_CMD, 1,
++			       u1_ctwindow_period);
++}
++
++void rtl8723be_set_p2p_ps_offload_cmd(struct ieee80211_hw *hw,
++				      u8 p2p_ps_state)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_ps_ctl *rtlps = rtl_psc(rtl_priv(hw));
++	struct rtl_hal *rtlhal = rtl_hal(rtl_priv(hw));
++	struct rtl_p2p_ps_info *p2pinfo = &(rtlps->p2p_ps_info);
++	struct p2p_ps_offload_t *p2p_ps_offload = &rtlhal->p2p_ps_offload;
++	u8 i;
++	u16 ctwindow;
++	u32 start_time, tsf_low;
++
++	switch (p2p_ps_state) {
++	case P2P_PS_DISABLE:
++		RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD, "P2P_PS_DISABLE\n");
++		memset(p2p_ps_offload, 0, sizeof(struct p2p_ps_offload_t));
++		break;
++	case P2P_PS_ENABLE:
++		RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD, "P2P_PS_ENABLE\n");
++		/* update CTWindow value. */
++		if (p2pinfo->ctwindow > 0) {
++			p2p_ps_offload->ctwindow_en = 1;
++			ctwindow = p2pinfo->ctwindow;
++			rtl8723be_set_p2p_ctw_period_cmd(hw, ctwindow);
++		}
++		/* hw only support 2 set of NoA */
++		for (i = 0; i < p2pinfo->noa_num; i++) {
++			/* To control the register setting
++			 * for which NOA
++			 */
++			rtl_write_byte(rtlpriv, 0x5cf, (i << 4));
++			if (i == 0)
++				p2p_ps_offload->noa0_en = 1;
++			else
++				p2p_ps_offload->noa1_en = 1;
++
++			/* config P2P NoA Descriptor Register */
++			rtl_write_dword(rtlpriv, 0x5E0,
++					p2pinfo->noa_duration[i]);
++			rtl_write_dword(rtlpriv, 0x5E4,
++					p2pinfo->noa_interval[i]);
++
++			/*Get Current TSF value */
++			tsf_low = rtl_read_dword(rtlpriv, REG_TSFTR);
++
++			start_time = p2pinfo->noa_start_time[i];
++			if (p2pinfo->noa_count_type[i] != 1) {
++				while (start_time <= (tsf_low + (50 * 1024))) {
++					start_time += p2pinfo->noa_interval[i];
++					if (p2pinfo->noa_count_type[i] != 255)
++						p2pinfo->noa_count_type[i]--;
++				}
++			}
++			rtl_write_dword(rtlpriv, 0x5E8, start_time);
++			rtl_write_dword(rtlpriv, 0x5EC,
++					p2pinfo->noa_count_type[i]);
++		}
++		if ((p2pinfo->opp_ps == 1) ||
++		    (p2pinfo->noa_num > 0)) {
++			/* rst p2p circuit */
++			rtl_write_byte(rtlpriv, REG_DUAL_TSF_RST, BIT(4));
++
++			p2p_ps_offload->offload_en = 1;
++
++			if (P2P_ROLE_GO == rtlpriv->mac80211.p2p) {
++				p2p_ps_offload->role = 1;
++				p2p_ps_offload->allstasleep = 0;
++			} else {
++				p2p_ps_offload->role = 0;
++			}
++			p2p_ps_offload->discovery = 0;
++		}
++		break;
++	case P2P_PS_SCAN:
++		RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD, "P2P_PS_SCAN\n");
++		p2p_ps_offload->discovery = 1;
++		break;
++	case P2P_PS_SCAN_DONE:
++		RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD, "P2P_PS_SCAN_DONE\n");
++		p2p_ps_offload->discovery = 0;
++		p2pinfo->p2p_ps_state = P2P_PS_ENABLE;
++		break;
++	default:
++		break;
++	}
++	rtl8723be_fill_h2c_cmd(hw, H2C_8723BE_P2P_PS_OFFLOAD, 1,
++			       (u8 *)p2p_ps_offload);
++}
++
++void rtl8723be_set_fw_joinbss_report_cmd(struct ieee80211_hw *hw, u8 mstatus)
++{
++	u8 u1_joinbssrpt_parm[1] = { 0 };
++
++	SET_H2CCMD_JOINBSSRPT_PARM_OPMODE(u1_joinbssrpt_parm, mstatus);
++
++	rtl8723be_fill_h2c_cmd(hw, H2C_8723BE_JOINBSSRPT, 1,
++			       u1_joinbssrpt_parm);
++}
++
++void rtl8723be_set_fw_ap_off_load_cmd(struct ieee80211_hw *hw,
++				      u8 ap_offload_enable)
++{
++	struct rtl_mac *mac = rtl_mac(rtl_priv(hw));
++	u8 u1_apoffload_parm[H2C_8723BE_AP_OFFLOAD_LENGTH] = { 0 };
++
++	SET_H2CCMD_AP_OFFLOAD_ON(u1_apoffload_parm, ap_offload_enable);
++	SET_H2CCMD_AP_OFFLOAD_HIDDEN(u1_apoffload_parm, mac->hiddenssid);
++	SET_H2CCMD_AP_OFFLOAD_DENYANY(u1_apoffload_parm, 0);
++
++	rtl8723be_fill_h2c_cmd(hw, H2C_8723BE_AP_OFFLOAD,
++			       H2C_8723BE_AP_OFFLOAD_LENGTH, u1_apoffload_parm);
++}
+diff --git a/drivers/net/wireless/rtlwifi/rtl8723be/fw.h b/drivers/net/wireless/rtlwifi/rtl8723be/fw.h
+new file mode 100644
+index 0000000..31eec28
+--- /dev/null
++++ b/drivers/net/wireless/rtlwifi/rtl8723be/fw.h
+@@ -0,0 +1,248 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2009-2014  Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * The full GNU General Public License is included in this distribution in the
++ * file called LICENSE.
++ *
++ * Contact Information:
++ * wlanfae <wlanfae@realtek.com>
++ * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
++ * Hsinchu 300, Taiwan.
++ * Larry Finger <Larry.Finger@lwfinger.net>
++ *
++ *****************************************************************************/
++
++#ifndef __RTL8723BE__FW__H__
++#define __RTL8723BE__FW__H__
++
++#define FW_8192C_SIZE				0x8000
++#define FW_8192C_START_ADDRESS			0x1000
++#define FW_8192C_END_ADDRESS			0x5FFF
++#define FW_8192C_PAGE_SIZE			4096
++#define FW_8192C_POLLING_DELAY			5
++#define FW_8192C_POLLING_TIMEOUT_COUNT		6000
++
++#define IS_FW_HEADER_EXIST(_pfwhdr)	\
++	((_pfwhdr->signature&0xFFF0) == 0x5300)
++#define USE_OLD_WOWLAN_DEBUG_FW			0
++
++#define H2C_8723BE_RSVDPAGE_LOC_LEN		5
++#define H2C_8723BE_PWEMODE_LENGTH		5
++#define H2C_8723BE_JOINBSSRPT_LENGTH		1
++#define H2C_8723BE_AP_OFFLOAD_LENGTH		3
++#define H2C_8723BE_WOWLAN_LENGTH		3
++#define H2C_8723BE_KEEP_ALIVE_CTRL_LENGTH	3
++#if (USE_OLD_WOWLAN_DEBUG_FW == 0)
++#define H2C_8723BE_REMOTE_WAKE_CTRL_LEN		1
++#else
++#define H2C_8723BE_REMOTE_WAKE_CTRL_LEN		3
++#endif
++#define H2C_8723BE_AOAC_GLOBAL_INFO_LEN		2
++#define H2C_8723BE_AOAC_RSVDPAGE_LOC_LEN	7
++
++
++/* Fw PS state for RPWM.
++*BIT[2:0] = HW state
++*BIT[3] = Protocol PS state, 1: register active state , 0: register sleep state
++*BIT[4] = sub-state
++*/
++#define	FW_PS_GO_ON		BIT(0)
++#define	FW_PS_TX_NULL		BIT(1)
++#define	FW_PS_RF_ON		BIT(2)
++#define	FW_PS_REGISTER_ACTIVE	BIT(3)
++
++#define	FW_PS_DPS		BIT(0)
++#define	FW_PS_LCLK		(FW_PS_DPS)
++#define	FW_PS_RF_OFF		BIT(1)
++#define	FW_PS_ALL_ON		BIT(2)
++#define	FW_PS_ST_ACTIVE	BIT(3)
++#define	FW_PS_ISR_ENABLE	BIT(4)
++#define	FW_PS_IMR_ENABLE	BIT(5)
++
++
++#define	FW_PS_ACK		BIT(6)
++#define	FW_PS_TOGGLE		BIT(7)
++
++ /* 88E RPWM value*/
++ /* BIT[0] = 1: 32k, 0: 40M*/
++#define	FW_PS_CLOCK_OFF		BIT(0)		/* 32k*/
++#define	FW_PS_CLOCK_ON		0		/*40M*/
++
++#define	FW_PS_STATE_MASK	(0x0F)
++#define	FW_PS_STATE_HW_MASK	(0x07)
++/*ISR_ENABLE, IMR_ENABLE, and PS mode should be inherited.*/
++#define	FW_PS_STATE_INT_MASK	(0x3F)
++
++#define	FW_PS_STATE(x)	(FW_PS_STATE_MASK & (x))
++#define	FW_PS_STATE_HW(x)	(FW_PS_STATE_HW_MASK & (x))
++#define	FW_PS_STATE_INT(x)	(FW_PS_STATE_INT_MASK & (x))
++#define	FW_PS_ISR_VAL(x)	((x) & 0x70)
++#define	FW_PS_IMR_MASK(x)	((x) & 0xDF)
++#define	FW_PS_KEEP_IMR(x)	((x) & 0x20)
++
++
++#define	FW_PS_STATE_S0		(FW_PS_DPS)
++#define	FW_PS_STATE_S1		(FW_PS_LCLK)
++#define	FW_PS_STATE_S2		(FW_PS_RF_OFF)
++#define	FW_PS_STATE_S3		(FW_PS_ALL_ON)
++#define	FW_PS_STATE_S4		((FW_PS_ST_ACTIVE) | (FW_PS_ALL_ON))
++
++/* ((FW_PS_RF_ON) | (FW_PS_REGISTER_ACTIVE))*/
++#define	FW_PS_STATE_ALL_ON_88E	(FW_PS_CLOCK_ON)
++/* (FW_PS_RF_ON)*/
++#define	FW_PS_STATE_RF_ON_88E	(FW_PS_CLOCK_ON)
++/* 0x0*/
++#define	FW_PS_STATE_RF_OFF_88E	(FW_PS_CLOCK_ON)
++/* (FW_PS_STATE_RF_OFF)*/
++#define	FW_PS_STATE_RF_OFF_LOW_PWR_88E	(FW_PS_CLOCK_OFF)
++
++#define	FW_PS_STATE_ALL_ON_92C	(FW_PS_STATE_S4)
++#define	FW_PS_STATE_RF_ON_92C		(FW_PS_STATE_S3)
++#define	FW_PS_STATE_RF_OFF_92C	(FW_PS_STATE_S2)
++#define	FW_PS_STATE_RF_OFF_LOW_PWR_92C	(FW_PS_STATE_S1)
++
++
++/* For 88E H2C PwrMode Cmd ID 5.*/
++#define	FW_PWR_STATE_ACTIVE	((FW_PS_RF_ON) | (FW_PS_REGISTER_ACTIVE))
++#define	FW_PWR_STATE_RF_OFF	0
++
++#define	FW_PS_IS_ACK(x)	((x) & FW_PS_ACK)
++#define	FW_PS_IS_CLK_ON(x)	((x) & (FW_PS_RF_OFF | FW_PS_ALL_ON))
++#define	FW_PS_IS_RF_ON(x)	((x) & (FW_PS_ALL_ON))
++#define	FW_PS_IS_ACTIVE(x)	((x) & (FW_PS_ST_ACTIVE))
++#define	FW_PS_IS_CPWM_INT(x)	((x) & 0x40)
++
++#define	FW_CLR_PS_STATE(x)	((x) = ((x) & (0xF0)))
++
++#define	IS_IN_LOW_POWER_STATE_88E(fwpsstate)		\
++			(FW_PS_STATE(fwpsstate) == FW_PS_CLOCK_OFF)
++
++#define	FW_PWR_STATE_ACTIVE	((FW_PS_RF_ON) | (FW_PS_REGISTER_ACTIVE))
++#define	FW_PWR_STATE_RF_OFF	0
++
++#define pagenum_128(_len)	(u32)(((_len)>>7) + ((_len)&0x7F ? 1 : 0))
++
++#define SET_88E_H2CCMD_WOWLAN_FUNC_ENABLE(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 0, 1, __val)
++#define SET_88E_H2CCMD_WOWLAN_PATTERN_MATCH_ENABLE(__ph2ccmd, __val)	\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 1, 1, __val)
++#define SET_88E_H2CCMD_WOWLAN_MAGIC_PKT_ENABLE(__ph2ccmd, __val)	\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 2, 1, __val)
++#define SET_88E_H2CCMD_WOWLAN_UNICAST_PKT_ENABLE(__ph2ccmd, __val)	\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 3, 1, __val)
++#define SET_88E_H2CCMD_WOWLAN_ALL_PKT_DROP(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 4, 1, __val)
++#define SET_88E_H2CCMD_WOWLAN_GPIO_ACTIVE(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 5, 1, __val)
++#define SET_88E_H2CCMD_WOWLAN_REKEY_WAKE_UP(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 6, 1, __val)
++#define SET_88E_H2CCMD_WOWLAN_DISCONNECT_WAKE_UP(__ph2ccmd, __val)	\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 7, 1, __val)
++#define SET_88E_H2CCMD_WOWLAN_GPIONUM(__ph2ccmd, __val)			\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+1, 0, 8, __val)
++#define SET_88E_H2CCMD_WOWLAN_GPIO_DURATION(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+2, 0, 8, __val)
++
++
++#define SET_H2CCMD_PWRMODE_PARM_MODE(__ph2ccmd, __val)			\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 0, 8, __val)
++#define SET_H2CCMD_PWRMODE_PARM_RLBM(__ph2ccmd, __val)			\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+1, 0, 4, __val)
++#define SET_H2CCMD_PWRMODE_PARM_SMART_PS(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+1, 4, 4, __val)
++#define SET_H2CCMD_PWRMODE_PARM_AWAKE_INTERVAL(__ph2ccmd, __val)	\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+2, 0, 8, __val)
++#define SET_H2CCMD_PWRMODE_PARM_ALL_QUEUE_UAPSD(__ph2ccmd, __val)	\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+3, 0, 8, __val)
++#define SET_H2CCMD_PWRMODE_PARM_PWR_STATE(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+4, 0, 8, __val)
++#define GET_88E_H2CCMD_PWRMODE_PARM_MODE(__ph2ccmd)			\
++	LE_BITS_TO_1BYTE(__ph2ccmd, 0, 8)
++
++#define SET_H2CCMD_JOINBSSRPT_PARM_OPMODE(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 0, 8, __val)
++#define SET_H2CCMD_RSVDPAGE_LOC_PROBE_RSP(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 0, 8, __val)
++#define SET_H2CCMD_RSVDPAGE_LOC_PSPOLL(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+1, 0, 8, __val)
++#define SET_H2CCMD_RSVDPAGE_LOC_NULL_DATA(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+2, 0, 8, __val)
++
++/* AP_OFFLOAD */
++#define SET_H2CCMD_AP_OFFLOAD_ON(__ph2ccmd, __val)			\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 0, 8, __val)
++#define SET_H2CCMD_AP_OFFLOAD_HIDDEN(__ph2ccmd, __val)			\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+1, 0, 8, __val)
++#define SET_H2CCMD_AP_OFFLOAD_DENYANY(__ph2ccmd, __val)			\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+2, 0, 8, __val)
++#define SET_H2CCMD_AP_OFFLOAD_WAKEUP_EVT_RPT(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+3, 0, 8, __val)
++
++/* Keep Alive Control*/
++#define SET_88E_H2CCMD_KEEP_ALIVE_ENABLE(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 0, 1, __val)
++#define SET_88E_H2CCMD_KEEP_ALIVE_ACCPEPT_USER_DEFINED(__ph2ccmd, __val)\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 1, 1, __val)
++#define SET_88E_H2CCMD_KEEP_ALIVE_PERIOD(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+1, 0, 8, __val)
++
++/*REMOTE_WAKE_CTRL */
++#define SET_88E_H2CCMD_REMOTE_WAKE_CTRL_EN(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 0, 1, __val)
++#if (USE_OLD_WOWLAN_DEBUG_FW == 0)
++#define SET_88E_H2CCMD_REMOTE_WAKE_CTRL_ARP_OFFLOAD_EN(__ph2ccmd, __val)\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 1, 1, __val)
++#define SET_88E_H2CCMD_REMOTE_WAKE_CTRL_NDP_OFFLOAD_EN(__ph2ccmd, __val)\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 2, 1, __val)
++#define SET_88E_H2CCMD_REMOTE_WAKE_CTRL_GTK_OFFLOAD_EN(__ph2ccmd, __val)\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 3, 1, __val)
++#else
++#define SET_88E_H2CCMD_REMOTE_WAKE_CTRL_PAIRWISE_ENC_ALG(__ph2ccmd, __val)\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+1, 0, 8, __val)
++#define SET_88E_H2CCMD_REMOTE_WAKE_CTRL_GROUP_ENC_ALG(__ph2ccmd, __val)	\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+2, 0, 8, __val)
++#endif
++
++/* GTK_OFFLOAD */
++#define SET_88E_H2CCMD_AOAC_GLOBAL_INFO_PAIRWISE_ENC_ALG(__ph2ccmd, __val)\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 0, 8, __val)
++#define SET_88E_H2CCMD_AOAC_GLOBAL_INFO_GROUP_ENC_ALG(__ph2ccmd, __val)	\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+1, 0, 8, __val)
++
++/* AOAC_RSVDPAGE_LOC */
++#define SET_88E_H2CCMD_AOAC_RSVDPAGE_LOC_REM_WAKE_CTRL_INFO(__ph2ccmd, __val)\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd), 0, 8, __val)
++#define SET_88E_H2CCMD_AOAC_RSVDPAGE_LOC_ARP_RSP(__ph2ccmd, __val)	\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+1, 0, 8, __val)
++#define SET_88E_H2CCMD_AOAC_RSVDPAGE_LOC_NEIGHBOR_ADV(__ph2ccmd, __val)	\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+2, 0, 8, __val)
++#define SET_88E_H2CCMD_AOAC_RSVDPAGE_LOC_GTK_RSP(__ph2ccmd, __val)	\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+3, 0, 8, __val)
++#define SET_88E_H2CCMD_AOAC_RSVDPAGE_LOC_GTK_INFO(__ph2ccmd, __val)	\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+4, 0, 8, __val)
++
++void rtl8723be_set_fw_pwrmode_cmd(struct ieee80211_hw *hw, u8 mode);
++void rtl8723be_set_fw_ap_off_load_cmd(struct ieee80211_hw *hw,
++				      u8 ap_offload_enable);
++void rtl8723be_fill_h2c_cmd(struct ieee80211_hw *hw, u8 element_id,
++			    u32 cmd_len, u8 *p_cmdbuffer);
++void rtl8723be_firmware_selfreset(struct ieee80211_hw *hw);
++void rtl8723be_set_fw_rsvdpagepkt(struct ieee80211_hw *hw,
++				  bool dl_finished);
++void rtl8723be_set_fw_joinbss_report_cmd(struct ieee80211_hw *hw, u8 mstatus);
++int rtl8723be_download_fw(struct ieee80211_hw *hw,
++			  bool buse_wake_on_wlan_fw);
++void rtl8723be_set_p2p_ps_offload_cmd(struct ieee80211_hw *hw,
++				      u8 p2p_ps_state);
++
++#endif
+diff --git a/drivers/net/wireless/rtlwifi/rtl8723be/led.c b/drivers/net/wireless/rtlwifi/rtl8723be/led.c
+new file mode 100644
+index 0000000..cb931a3
+--- /dev/null
++++ b/drivers/net/wireless/rtlwifi/rtl8723be/led.c
+@@ -0,0 +1,153 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2009-2014  Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * The full GNU General Public License is included in this distribution in the
++ * file called LICENSE.
++ *
++ * Contact Information:
++ * wlanfae <wlanfae@realtek.com>
++ * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
++ * Hsinchu 300, Taiwan.
++ *
++ * Larry Finger <Larry.Finger@lwfinger.net>
++ *
++ *****************************************************************************/
++
++#include "../wifi.h"
++#include "../pci.h"
++#include "reg.h"
++#include "led.h"
++
++static void _rtl8723be_init_led(struct ieee80211_hw *hw,  struct rtl_led *pled,
++				enum rtl_led_pin ledpin)
++{
++	pled->hw = hw;
++	pled->ledpin = ledpin;
++	pled->ledon = false;
++}
++
++void rtl8723be_sw_led_on(struct ieee80211_hw *hw, struct rtl_led *pled)
++{
++	u8 ledcfg;
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++
++	RT_TRACE(rtlpriv, COMP_LED, DBG_LOUD,
++		 "LedAddr:%X ledpin =%d\n", REG_LEDCFG2, pled->ledpin);
++
++	switch (pled->ledpin) {
++	case LED_PIN_GPIO0:
++		break;
++	case LED_PIN_LED0:
++		ledcfg = rtl_read_byte(rtlpriv, REG_LEDCFG2);
++		ledcfg &= ~BIT(6);
++		rtl_write_byte(rtlpriv, REG_LEDCFG2, (ledcfg & 0xf0) | BIT(5));
++		break;
++	case LED_PIN_LED1:
++		ledcfg = rtl_read_byte(rtlpriv, REG_LEDCFG1);
++		rtl_write_byte(rtlpriv, REG_LEDCFG1, ledcfg & 0x10);
++		break;
++	default:
++		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++			 "switch case not process\n");
++		break;
++	}
++	pled->ledon = true;
++}
++
++void rtl8723be_sw_led_off(struct ieee80211_hw *hw, struct rtl_led *pled)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_pci_priv *pcipriv = rtl_pcipriv(hw);
++	u8 ledcfg;
++
++	RT_TRACE(rtlpriv, COMP_LED, DBG_LOUD,
++		 "LedAddr:%X ledpin =%d\n", REG_LEDCFG2, pled->ledpin);
++
++	ledcfg = rtl_read_byte(rtlpriv, REG_LEDCFG2);
++
++	switch (pled->ledpin) {
++	case LED_PIN_GPIO0:
++		break;
++	case LED_PIN_LED0:
++		ledcfg &= 0xf0;
++		if (pcipriv->ledctl.led_opendrain) {
++			ledcfg &= 0x90; /* Set to software control. */
++			rtl_write_byte(rtlpriv, REG_LEDCFG2, (ledcfg|BIT(3)));
++			ledcfg = rtl_read_byte(rtlpriv, REG_MAC_PINMUX_CFG);
++			ledcfg &= 0xFE;
++			rtl_write_byte(rtlpriv, REG_MAC_PINMUX_CFG, ledcfg);
++		} else {
++			ledcfg &= ~BIT(6);
++			rtl_write_byte(rtlpriv, REG_LEDCFG2,
++				       (ledcfg | BIT(3) | BIT(5)));
++		}
++		break;
++	case LED_PIN_LED1:
++		ledcfg = rtl_read_byte(rtlpriv, REG_LEDCFG1);
++		ledcfg &= 0x10; /* Set to software control. */
++		rtl_write_byte(rtlpriv, REG_LEDCFG1, ledcfg|BIT(3));
++
++		break;
++	default:
++		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++			 "switch case not processed\n");
++		break;
++	}
++	pled->ledon = false;
++}
++
++void rtl8723be_init_sw_leds(struct ieee80211_hw *hw)
++{
++	struct rtl_pci_priv *pcipriv = rtl_pcipriv(hw);
++	_rtl8723be_init_led(hw, &(pcipriv->ledctl.sw_led0), LED_PIN_LED0);
++	_rtl8723be_init_led(hw, &(pcipriv->ledctl.sw_led1), LED_PIN_LED1);
++}
++
++static void _rtl8723be_sw_led_control(struct ieee80211_hw *hw,
++				      enum led_ctl_mode ledaction)
++{
++	struct rtl_pci_priv *pcipriv = rtl_pcipriv(hw);
++	struct rtl_led *pled0 = &(pcipriv->ledctl.sw_led0);
++	switch (ledaction) {
++	case LED_CTL_POWER_ON:
++	case LED_CTL_LINK:
++	case LED_CTL_NO_LINK:
++		rtl8723be_sw_led_on(hw, pled0);
++		break;
++	case LED_CTL_POWER_OFF:
++		rtl8723be_sw_led_off(hw, pled0);
++		break;
++	default:
++		break;
++	}
++}
++
++void rtl8723be_led_control(struct ieee80211_hw *hw,
++			   enum led_ctl_mode ledaction)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_ps_ctl *ppsc = rtl_psc(rtl_priv(hw));
++
++	if ((ppsc->rfoff_reason > RF_CHANGE_BY_PS) &&
++	    (ledaction == LED_CTL_TX ||
++	     ledaction == LED_CTL_RX ||
++	     ledaction == LED_CTL_SITE_SURVEY ||
++	     ledaction == LED_CTL_LINK ||
++	     ledaction == LED_CTL_NO_LINK ||
++	     ledaction == LED_CTL_START_TO_LINK ||
++	     ledaction == LED_CTL_POWER_ON)) {
++		return;
++	}
++	RT_TRACE(rtlpriv, COMP_LED, DBG_LOUD, "ledaction %d,\n", ledaction);
++	_rtl8723be_sw_led_control(hw, ledaction);
++}
+diff --git a/drivers/net/wireless/rtlwifi/rtl8723be/led.h b/drivers/net/wireless/rtlwifi/rtl8723be/led.h
+new file mode 100644
+index 0000000..c57de37
+--- /dev/null
++++ b/drivers/net/wireless/rtlwifi/rtl8723be/led.h
+@@ -0,0 +1,35 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2009-2014  Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * The full GNU General Public License is included in this distribution in the
++ * file called LICENSE.
++ *
++ * Contact Information:
++ * wlanfae <wlanfae@realtek.com>
++ * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
++ * Hsinchu 300, Taiwan.
++ *
++ * Larry Finger <Larry.Finger@lwfinger.net>
++ *
++ *****************************************************************************/
++
++#ifndef __RTL8723BE_LED_H__
++#define __RTL8723BE_LED_H__
++
++void rtl8723be_init_sw_leds(struct ieee80211_hw *hw);
++void rtl8723be_sw_led_on(struct ieee80211_hw *hw, struct rtl_led *pled);
++void rtl8723be_sw_led_off(struct ieee80211_hw *hw, struct rtl_led *pled);
++void rtl8723be_led_control(struct ieee80211_hw *hw,
++			   enum led_ctl_mode ledaction);
++
++#endif
 -- 
 1.8.4.5
