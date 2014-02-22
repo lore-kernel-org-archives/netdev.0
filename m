@@ -1,33 +1,69 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: Does CHECKSUM_COMPLETE work at all?
-Date: Sat, 22 Feb 2014 13:42:28 +0100
-Message-ID: <53089B34.5060504@redhat.com>
-References: <CA+mtBx8safaPpcntjqT+eUQBDEOxJBoVf-a9djX_qgYsSdACeA@mail.gmail.com> <CBA48B605613B640864883107238931C0F9077@nice.asicdesigners.com> <CA+mtBx97w02+6iVcDxsGh4-TzsnZcjRv0+jyD=qGrCPfcWNDqg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Dimitrios Michailidis <dm@chelsio.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Tom Herbert <therbert@google.com>
+Subject: [PATCH net-next] loopback: sctp: add NETIF_F_SCTP_CSUM to device features
+Date: Sat, 22 Feb 2014 14:01:53 +0100
+Message-ID: <1393074113-9922-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33668 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:19786 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751211AbaBVMmh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Feb 2014 07:42:37 -0500
-In-Reply-To: <CA+mtBx97w02+6iVcDxsGh4-TzsnZcjRv0+jyD=qGrCPfcWNDqg@mail.gmail.com>
+	id S1751173AbaBVNB4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 Feb 2014 08:01:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/22/2014 04:08 AM, Tom Herbert wrote:
-...
-> Well..., I started trying to fix the UDP encapsulation code which we
-> agreed was broken for checksums. This also entails fixing the new UDP
-> GRO code to deal with checksums correctly when going through protocol
-> layers. But, just looking at CHECKSUM_COMPLETE it seems like it's
-> fundamentally broken even without encapsulation. Between GRO and HW
-> checksums, it seems like we have a pretty big mess! :-)
+Drivers are allowed to set NETIF_F_SCTP_CSUM if they have
+hardware crc32c checksumming support for the SCTP protocol.
+Currently, NETIF_F_SCTP_CSUM flag is available in igb,
+ixgbe, i40e/i40evf drivers and for vlan devices.
 
-Seems so, e.g. d97c00a32198 ("vxlan: fix receive checksum handling")
-had similar issues in that regard; maybe because there seems to be
-different consensus among drivers on setting CHECKSUM_COMPLETE?
+If we don't have NETIF_F_SCTP_CSUM then crc32c is done
+through CPU instructions, invoked from crypto layer, or
+if not available as slow-path fallback in software.
+
+Currently, loopback device propagates checksum offloading
+feature flags in dev->features, but is missing SCTP checksum
+offloading. Therefore, account for NETIF_F_SCTP_CSUM as
+well.
+
+Before patch:
+
+./netperf_sctp -H 192.168.0.100 -t SCTP_STREAM_MANY
+SCTP 1-TO-MANY STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.0.100 () port 0 AF_INET
+Recv   Send    Send
+Socket Socket  Message  Elapsed
+Size   Size    Size     Time     Throughput
+bytes  bytes   bytes    secs.    10^6bits/sec
+
+4194304 4194304   4096    10.00    4683.50
+
+After patch:
+
+./netperf_sctp -H 192.168.0.100 -t SCTP_STREAM_MANY
+SCTP 1-TO-MANY STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.0.100 () port 0 AF_INET
+Recv   Send    Send
+Socket Socket  Message  Elapsed
+Size   Size    Size     Time     Throughput
+bytes  bytes   bytes    secs.    10^6bits/sec
+
+4194304 4194304   4096    10.00    15348.26
+
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ drivers/net/loopback.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index 771c9bf..282effe 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -176,6 +176,7 @@ static void loopback_setup(struct net_device *dev)
+ 		| NETIF_F_UFO
+ 		| NETIF_F_HW_CSUM
+ 		| NETIF_F_RXCSUM
++		| NETIF_F_SCTP_CSUM
+ 		| NETIF_F_HIGHDMA
+ 		| NETIF_F_LLTX
+ 		| NETIF_F_NETNS_LOCAL
+-- 
+1.7.11.7
