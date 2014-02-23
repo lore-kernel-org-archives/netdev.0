@@ -1,67 +1,50 @@
-From: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [PATCH] af_packet: Add PACKET_FANOUT_QM documentation
-Date: Sun, 23 Feb 2014 17:23:21 -0500
-Message-ID: <20140223222321.GA14507@neilslaptop.think-freely.org>
-References: <1390911375-5784-1-git-send-email-nhorman@tuxdriver.com>
- <53087188.9080408@gmail.com>
+From: Justin van Wijngaarden <justinvanwijngaarden@gmail.com>
+Subject: kernel driver "drivers/net/ethernet/realtek/r8169.c" msleep question
+Date: Sun, 23 Feb 2014 23:38:40 +0100
+Message-ID: <20140223223840.GA29808@snape.qqa.nl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com
+To: nic_swsd@realtek.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f179.google.com ([209.85.215.179]:63572 "EHLO
+	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751995AbaBWW7n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Feb 2014 17:59:43 -0500
+Received: by mail-ea0-f179.google.com with SMTP id q10so2746006ead.10
+        for <netdev@vger.kernel.org>; Sun, 23 Feb 2014 14:59:42 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <53087188.9080408-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 22, 2014 at 10:44:40AM +0100, Michael Kerrisk (man-pages) wrote:
-> On 01/28/2014 01:16 PM, Neil Horman wrote:
-> > Recently added a new fanout mode of operation to packet sockets.  Document it
-> > here
-> 
-> Thanks, Neil. Applied.
-> 
-> This new mode is ne win 3.14, right?
-> 
-IIRC, yes, thats correct.
-Neil
+Hello,
 
-> Cheers,
-> 
-> Michael
-> 
-> 
-> > Signed-off-by: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> > CC: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-> > CC: andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org
-> > CC: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> > ---
-> >  man7/packet.7 | 2 ++
-> >  1 file changed, 2 insertions(+)
-> > 
-> > diff --git a/man7/packet.7 b/man7/packet.7
-> > index 93f91e9..6e145dc 100644
-> > --- a/man7/packet.7
-> > +++ b/man7/packet.7
-> > @@ -296,6 +296,8 @@ processes all data on a single socket, moves to the next when one
-> >  becomes backlogged.
-> >  .BR PACKET_FANOUT_RND
-> >  selects the socket using a pseudo-random number generator.
-> > +.BR PACKET_FANOUT_QM
-> > +selects the socket using the recorded queue_mapping of the received skb.
-> >  
-> >  Fanout modes can take additional options.
-> >  IP fragmentation causes packets from the same flow to have different
-> > 
-> 
-> 
-> -- 
-> Michael Kerrisk
-> Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-> Linux/UNIX System Programming Training: http://man7.org/training/
-> 
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I am in the progress of doing some checkpatch.pl clean-ups and took the above
+driver to work on.
+
+On line 6926 there is an msleep(1) statement.
+
+According to the linux documentation @ Documentation/timers/timers-howto.txt
+the msleep is not functioning as it should.
+
+see output from that documentation below.
+
+// quote
+Why not msleep for (1ms - 20ms)?
+	Explained originally here:
+	http://lkml.org/lkml/2007/8/3/250
+	msleep(1~20) may not do what the caller intends, and
+	will often sleep longer (~20 ms actual sleep for any
+	value given in the 1~20ms range).  In many cases this
+	is not the desired behavior.
+// end quote
+
+If you like I can take a re-write to usleep (1ms) or perhaps a 10/20 msleep.
+I tested it both with my own hardware which works fine on both cases, but
+ofcourse I don't have the hardware to test it for all use-cases.
+
+Any preference?
+
+Regards,
+
+Justin van Wijngaarden
