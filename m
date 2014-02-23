@@ -1,96 +1,135 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH RFC 1/2] net: macb: Check DMA mappings for error
-Date: Sun, 23 Feb 2014 00:13:13 +0000
-Message-ID: <1393114393.6823.25.camel@deadeye.wl.decadent.org.uk>
-References: <1393011025-18537-1-git-send-email-soren.brinkmann@xilinx.com>
-	 <1393011025-18537-2-git-send-email-soren.brinkmann@xilinx.com>
+Subject: Re: [PATCH v2 net-next 1/2] ethtool - Support for configurable RSS
+ hash key
+Date: Sun, 23 Feb 2014 00:51:33 +0000
+Message-ID: <1393116693.6823.31.camel@deadeye.wl.decadent.org.uk>
+References: <1393069918-11539-1-git-send-email-VenkatKumar.Duvvuru@Emulex.com>
+	 <ecb603ac-aefa-4288-9f90-c335b2faa6aa@CMEXHTCAS1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-owIvHiavApekxpCxz3hC"
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Vinod Koul <vinod.koul@intel.com>,
-	Dan Williams <dan.j.williams@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Michal Simek <michal.simek@xilinx.com>
-To: Soren Brinkmann <soren.brinkmann@xilinx.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1393011025-18537-2-git-send-email-soren.brinkmann@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	protocol="application/pgp-signature"; boundary="=-7JCn1D3/xMzvSQe4QlCl"
+Cc: netdev@vger.kernel.org
+To: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:58495 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751982AbaBWAvl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Feb 2014 19:51:41 -0500
+In-Reply-To: <ecb603ac-aefa-4288-9f90-c335b2faa6aa@CMEXHTCAS1.ad.emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---=-owIvHiavApekxpCxz3hC
+--=-7JCn1D3/xMzvSQe4QlCl
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Fri, 2014-02-21 at 11:30 -0800, Soren Brinkmann wrote:
+On Sat, 2014-02-22 at 17:21 +0530, Venkat Duvvuru wrote:
 [...]
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -632,11 +632,16 @@ static void gem_rx_refill(struct macb *bp)
->  					   "Unable to allocate sk_buff\n");
->  				break;
->  			}
-> -			bp->rx_skbuff[entry] =3D skb;
+> --- a/include/uapi/linux/ethtool.h
+> +++ b/include/uapi/linux/ethtool.h
+> @@ -828,22 +828,30 @@ struct ethtool_rxnfc {
 > =20
->  			/* now fill corresponding descriptor entry */
->  			paddr =3D dma_map_single(&bp->pdev->dev, skb->data,
->  					       bp->rx_buffer_size, DMA_FROM_DEVICE);
-> +			if (dma_mapping_error(&bp->pdev->dev, paddr)) {
-> +				dev_kfree_skb(skb);
-> +				break;
-> +			}
-> +
-> +			bp->rx_skbuff[entry] =3D skb;
+>=20
+>  /**
+> - * struct ethtool_rxfh_indir - command to get or set RX flow hash indire=
+ction
+> - * @cmd: Specific command number - %ETHTOOL_GRXFHINDIR or %ETHTOOL_SRXFH=
+INDIR
+> - * @size: On entry, the array size of the user buffer, which may be zero=
+.
+> - *	On return from %ETHTOOL_GRXFHINDIR, the array size of the hardware
+> - *	indirection table.
+> - * @ring_index: RX ring/queue index for each hash value
+> + * struct ethtool_rxfh - command to get or set RX flow hash indirection =
+or/and
+> + * hash key.
+> + * @cmd: Specific command number - %ETHTOOL_GRSSH or %ETHTOOL_SRSSH
+> + * @indir_size: On entry, the array size of the user buffer, which may b=
+e zero.
+> + *		On return from %ETHTOOL_GRSSH, the array size of the hardware
+> + *		indirection table.
+> + * @key_size:	On entry, the array size of the user buffer in bytes,
+> + *		which may be zero.
+> + *		On return from %ETHTOOL_GRSSH, the size of the RSS hash key.
+> + * @rsvd:	Reserved for future extensions.
+> + * @rss_config: RX ring/queue index for each hash value or/and hash key
+> + *		respectively.
+>   *
+> - * For %ETHTOOL_GRXFHINDIR, a @size of zero means that only the size
+> - * should be returned.  For %ETHTOOL_SRXFHINDIR, a @size of zero means
+> - * the table should be reset to default values.  This last feature
+> + * For %ETHTOOL_GRSSH, a @indir_size and key_size of zero means that onl=
+y the
+> + * size should be returned.  For %ETHTOOL_SRSSH, a @indir_size of zero m=
+eans
+> + * the indir table should be reset to default values.  This last feature
+>   * is not supported by the original implementations.
+>   */
+> -struct ethtool_rxfh_indir {
+> -	__u32	cmd;
+> -	__u32	size;
+> -	__u32	ring_index[0];
+> +struct ethtool_rxfh {
+> +	__u32   cmd;
+> +	__u32   indir_size;
+> +	__u32   key_size;
+> +	__u32	rsvd[3];
+> +	__u32   rss_config[0];
+>  };
+>
+>  /**
+> @@ -1102,8 +1110,8 @@ enum ethtool_sfeatures_retval_bits {
+>  #define ETHTOOL_SRXNTUPLE	0x00000035 /* Add an n-tuple filter to device =
+*/
+>  #define ETHTOOL_GRXNTUPLE	0x00000036 /* deprecated */
+>  #define ETHTOOL_GSSET_INFO	0x00000037 /* Get string set info */
+> -#define ETHTOOL_GRXFHINDIR	0x00000038 /* Get RX flow hash indir'n table =
+*/
+> -#define ETHTOOL_SRXFHINDIR	0x00000039 /* Set RX flow hash indir'n table =
+*/
+> +#define ETHTOOL_GRSSH		0x00000038 /* Get RX flow hash indir'n table */
+> +#define ETHTOOL_SRSSH		0x00000039 /* Set RX flow hash indir'n table */
+> =20
+>  #define ETHTOOL_GFEATURES	0x0000003a /* Get device offload settings */
+>  #define ETHTOOL_SFEATURES	0x0000003b /* Change device offload settings *=
+/
+[...]
 
-This bit looks good.
+You can't just redefine commands like this.  Think what will happen if
+someone uses an old version of ethtool with a new kernel.
 
->  			if (entry =3D=3D RX_RING_SIZE - 1)
->  				paddr |=3D MACB_BIT(RX_WRAP);
-> @@ -1040,6 +1045,10 @@ static int macb_start_xmit(struct sk_buff *skb, st=
-ruct net_device *dev)
->  	netdev_vdbg(bp->dev, "Allocated ring entry %u\n", entry);
->  	mapping =3D dma_map_single(&bp->pdev->dev, skb->data,
->  				 len, DMA_TO_DEVICE);
-> +	if (dma_mapping_error(&bp->pdev->dev, mapping)) {
-> +		dev_kfree_skb(skb);
-
-You need to unlock bp->lock before returning.  Also, I think this should
-be kfree_skb(), as that can be observed through dropwatch whereas
-dev_kfree_skb() is completely silent.
+You have to keep supporting the old ethtool command numbers and
+structure.  And you have to make the ethtool core keep working with all
+the other drivers that don't support setting the key yet (or update them
+so they do).
 
 Ben.
-
-> +		return NETDEV_TX_OK;
-> +	}
-> =20
->  	tx_skb =3D &bp->tx_skb[entry];
->  	tx_skb->skb =3D skb;
 
 --=20
 Ben Hutchings
 All the simple programs have been written, and all the good names taken.
 
---=-owIvHiavApekxpCxz3hC
+--=-7JCn1D3/xMzvSQe4QlCl
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIVAwUAUwk9Gee/yOyVhhEJAQr+kBAAwnAsudRcIW7gfaz1uzH0TzvzLlP2s2Y/
-PrTAybrE5Rk1pOaHknjH2SOUEh8sBY5RZ8D8MUjqn/l9RYpKPd0ebbziXTSzQzyP
-QAzrh8OtsSkm12O1ZUmN03lrtWqVG5rvJiISWqwCUGb7fb0eBDy+a6TPsurD3wVh
-KGj2f5hNt4v3zf0Wow6yKYnTUFeayr85/dIl47wlSbf8wSRRMbmHFJi5vtICPZW+
-1J3J4IjdkbjvInwVf3fmCI5i054Mdb1vMxrPP4MNW0mAqPwu0gd1V9QH1RnvYmCY
-l6KPkDb4JnAMiK1OAFSIFJ6zD7FAfVmE1P843yfpH0mJPPgtMt702PreLmfmreUF
-b32JE6ZwfrGg1nUgdm76nQ89vwoSdU7xsw5g36cVel7ALndIbQsvBR/zEVPjy4B4
-qeRBIu+ilBAkZGT69nG7thgC+KFUEDwZ+83A+nwx2f+7zXu2AEibpH6iIH/gTUMG
-Rq4AU9hDFMzVR9gwmbuMOzLMhcDsA/ZPn6SeY1XSsxIk96/Y84qCOmLhM+XI50Mm
-jqXn5GFM3CZ7RuKXknSxBK0xgcTrwa8AiPNnuwAbHn6xMFubFA4jLeGk1Tf5Sr69
-Bx3UVPjpi9/MlYEWMkXkREl/NOWpK4exse1R0eRV6HC2kDLrTrE3l9KF1KqYw0ja
-jsX59nIzXKQ=
-=Tezt
+iQIVAwUAUwlGFee/yOyVhhEJAQoEEg/7BwldRkLc9pzbjbexfp+oQOWCSKJSnaVA
+uCpNHUbB5nJpKzlDeD7ju9015ZnZa2d3Nwnq6Xc0IF8MYEQYPhfM/WKtoLwWhZU4
+7I4zou7tl71UuCIBYd5kOvxqqs7tWwDhTf5l3mVfiGLnO3SLjA/v/eS+kcEgwfcp
+wSi0kuKyQGqRFAYSPELDoGXnmKybHZJGCoV3RbBT7tGkd+ZgcPHFqbaMLy8xgZY7
+LcXLR8klQ1ArvgPk0BXYzYFaQOgTlenEwb2SGr+WlJ6d30DbJrTseG9Hm3OFxSm9
+avBQV9bs2U1VW6nCz29KyQgTAKlcAPrsX9QXSJpo2vwSagAvp6HTgsn/gMO+2tXj
+kwRazrWTO9qH3wSONZrDC5blCftsxI2doJ6nQzgQ0+eFLE0MFd/EiHDtGyFMWW8s
+aDJ+tXddka8U9opYMB/ayLEjFHz9A9qC3lQrBmGiOO4YvB6m4OP/GVNizh+gEPBb
+yH3027imLr29ra3K3XzSdxfazUzpCXfXEkv7m8cFvgmJ9h7cBodjn9ex0Kg7wHse
+xH2uRjXlHXxs+kqIVjS6Djh2lPZqltE9K8Asc727zfsaR712bnSYFgXvrh5NYpK2
+0fwVnbccAEQ8mohcDITkK8KpsLG2aZooEGk3ZdancE0nfmrHfYn7t6/0iMuUe718
+hI0hFTqpmyo=
+=18G1
 -----END PGP SIGNATURE-----
 
---=-owIvHiavApekxpCxz3hC--
+--=-7JCn1D3/xMzvSQe4QlCl--
