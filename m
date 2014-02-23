@@ -1,108 +1,85 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: Re: [sctp] ef2820a735: -50% netperf Throughput_Mbps
-Date: Sun, 23 Feb 2014 09:37:39 +0800
-Message-ID: <20140223013739.GA13631@localhost>
-References: <20140219132034.GC8704@localhost>
- <5304E49A.3000801@nsn.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH] tcp: reduce the bloat caused by tcp_is_cwnd_limited()
+Date: Sat, 22 Feb 2014 22:40:45 -0500
+Message-ID: <CADVnQykpLKz2HJ168YNGXQDzcfHc4j-Tx04SArLQ24+n7_js3A@mail.gmail.com>
+References: <1393105959.2316.30.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
-To: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5304E49A.3000801@nsn.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Nandita Dukkipati <nanditad@google.com>,
+	Van Jacobson <vanj@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f52.google.com ([74.125.83.52]:64871 "EHLO
+	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752089AbaBWDkq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Feb 2014 22:40:46 -0500
+Received: by mail-ee0-f52.google.com with SMTP id c41so1498069eek.25
+        for <netdev@vger.kernel.org>; Sat, 22 Feb 2014 19:40:45 -0800 (PST)
+In-Reply-To: <1393105959.2316.30.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Matija,
+On Sat, Feb 22, 2014 at 4:52 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+...
+> diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+> index ad37bf18ae4b..d74ebfb64e2b 100644
+> --- a/net/ipv4/tcp_cong.c
+> +++ b/net/ipv4/tcp_cong.c
+> @@ -277,7 +277,6 @@ int tcp_set_congestion_control(struct sock *sk, const char *name)
+>  }
+>
+>  /* RFC2861 Check whether we are limited by application or congestion window
+> - * This is the inverse of cwnd check in tcp_tso_should_defer
+>   */
+>  bool tcp_is_cwnd_limited(const struct sock *sk, u32 in_flight)
+>  {
+> @@ -288,10 +287,7 @@ bool tcp_is_cwnd_limited(const struct sock *sk, u32 in_flight)
+>                 return true;
+>
+>         left = tp->snd_cwnd - in_flight;
+> -       if (sk_can_gso(sk) &&
+> -           left * sysctl_tcp_tso_win_divisor < tp->snd_cwnd &&
+> -           left * tp->mss_cache < sk->sk_gso_max_size &&
+> -           left < sk->sk_gso_max_segs)
+> +       if (sk_can_gso(sk) && left < tp->xmit_size_goal_segs)
+>                 return true;
+>         return left <= tcp_max_tso_deferred_mss(tp);
+>  }
 
-On Wed, Feb 19, 2014 at 06:06:34PM +0100, Matija Glavinic Pecotic wrote:
-> Hello Fengguang,
-> 
-> On 02/19/2014 02:20 PM, ext Fengguang Wu wrote:
-> > Hi Matija,
-> > 
-> > We noticed the below changes on commit ef2820a735f74ea60335f8ba3801b844f0cb184d
-> > (" net: sctp: Fix a_rwnd/rwnd management to reflect real state of the receiver's buffer")
-> > in netperf SCTP_STREAM tests:
-> 
-> thanks for the info. Though, I've ran netperf in my environment, with and without patch, and I havent observed any difference.
-> 
-> Could you please give me information on your environment, how do you invoke netperf, and other details you think I might be interested in to observe problem by myself
+Nice catch!
 
-I see the same regression on both T410 and NHM EX server. On each test
-machine, I'm running (2*nr_logical_cpu) the below command in parallel:
+AFAICT we should keep the expression in there pertaining to
+sysctl_tcp_tso_win_divisor. AFAICT tcp_is_cwnd_limited() is supposed
+to be saying, "are we cwnd limited? that is, is the available cwnd we
+have left at zero, or so small that it is probably only non-zero
+because tcp_tso_should_defer() is trying to accumulate permission to
+send a bigger TSO skb?"
 
-        netperf -t SCTP_STREAM -c -C -l 120
+To implement this, it seems we need to keep the code that checks for
+possible deferral from both the sysctl_tcp_tso_win_divisor code path
+and the tcp_max_tso_deferred_mss() code paths.
 
-Thanks,
-Fengguang
+So, to me, the comment "This is the inverse of cwnd check in
+tcp_tso_should_defer" is still relevant (though not very clear).
 
-> Thanks!
-> 
-> > cd0f0b95fd2cd2b  ef2820a735f74ea60335f8ba3  
-> > ---------------  -------------------------  
-> >          8 ~ 0%     -50.0%          4 ~ 0%  TOTAL netperf.Throughput_Mbps
-> >      54287 ~44%    +338.1%     237842 ~48%  TOTAL cpuidle.C1E-NHM.time
-> >   12008353 ~12%     -56.0%    5281848 ~ 0%  TOTAL proc-vmstat.pgalloc_normal
-> >     114861 ~ 0%     -50.3%      57085 ~ 3%  TOTAL softirqs.NET_RX
-> >   12964639 ~11%     -55.1%    5818663 ~ 0%  TOTAL proc-vmstat.pgfree
-> >     866489 ~ 0%     -43.3%     491417 ~ 0%  TOTAL proc-vmstat.pgalloc_dma32
-> >     119373 ~17%     -39.1%      72661 ~ 1%  TOTAL softirqs.SCHED
-> >       1985 ~13%     -24.3%       1502 ~19%  TOTAL slabinfo.kmalloc-128.active_objs
-> >       2139 ~20%     -28.4%       1532 ~ 4%  TOTAL proc-vmstat.nr_alloc_batch
-> >     124360 ~33%     -31.0%      85748 ~ 2%  TOTAL softirqs.RCU
-> >       1977 ~ 9%     -18.5%       1610 ~ 9%  TOTAL slabinfo.UDP.active_objs
-> >       1977 ~ 9%     -18.5%       1610 ~ 9%  TOTAL slabinfo.UDP.num_objs
-> >       2066 ~ 6%     -12.9%       1800 ~ 7%  TOTAL slabinfo.kmalloc-128.num_objs
-> >       1738 ~10%     -18.4%       1418 ~ 9%  TOTAL slabinfo.UDPv6.active_objs
-> >       1738 ~10%     -18.4%       1418 ~ 9%  TOTAL slabinfo.UDPv6.num_objs
-> >        923 ~10%     -17.7%        760 ~ 8%  TOTAL slabinfo.TCPv6.active_objs
-> >        923 ~10%     -17.7%        760 ~ 8%  TOTAL slabinfo.TCPv6.num_objs
-> >        989 ~ 9%     -17.1%        820 ~ 7%  TOTAL slabinfo.TCP.active_objs
-> >        989 ~ 9%     -17.1%        820 ~ 7%  TOTAL slabinfo.TCP.num_objs
-> >     398761 ~44%     -32.6%     268792 ~ 3%  TOTAL numa-vmstat.node2.numa_hit
-> >     389672 ~49%     -32.9%     261443 ~ 3%  TOTAL numa-vmstat.node0.numa_hit
-> >        447 ~ 1%     -13.8%        385 ~ 0%  TOTAL vmstat.system.cs
-> > 
-> > Note: the "~ XX%" numbers are stddev percent.
-> > 
-> >                               netperf.Throughput_Mbps
-> > 
-> >      4 *+-*--*--*--*-*--*--*--*--*--*--*--*-*--*--*--*--*--*--*--*-*--*--*--*
-> >        |                                                                    |
-> >        |                                                                    |
-> >    3.5 ++                                                                   |
-> >        |                                                                    |
-> >        |                                                                    |
-> >        |                                                                    |
-> >      3 ++                                                                   |
-> >        |                                                                    |
-> >        |                                                                    |
-> >    2.5 ++                                                                   |
-> >        |                                                                    |
-> >        |                                                                    |
-> >        |                                                                    |
-> >      2 O+-O--O--O--O-O--O--O--O--O--O--O--O-O--O--O--O--O--O--O-------------+
-> > 
-> > 
-> >                                  vmstat.system.cs
-> > 
-> >    460 ++------------------------*--*----------------*----------------------+
-> >        |       .*..    .*..     :    +              +              *..     .*
-> >    450 ++    *.     .*.    *..  :     +    .*..*.. +    *..*..*.. +     .*. |
-> >    440 *+   :      *           :       *..*       *              *    *.    |
-> >        |:   :                 *                                             |
-> >    430 ++: :                                                                |
-> >    420 ++: :                                                                |
-> >        |  *                                                                 |
-> >    410 ++                                                                   |
-> >    400 ++                                                                   |
-> >        |                                                                    |
-> >    390 ++            O        O             O     O        O                |
-> >    380 O+ O  O  O       O  O     O  O  O  O    O     O  O     O             |
-> >        |           O                                                        |
-> >    370 ++-------------------------------------------------------------------+
-> > 
+So AFAICT we want the patch to be something like:
+
+--- a/net/ipv4/tcp_cong.c
++++ b/net/ipv4/tcp_cong.c
+@@ -290,8 +290,7 @@ bool tcp_is_cwnd_limited(const struct sock *sk,
+u32 in_flight)
+        left = tp->snd_cwnd - in_flight;
+        if (sk_can_gso(sk) &&
+            left * sysctl_tcp_tso_win_divisor < tp->snd_cwnd &&
+-           left * tp->mss_cache < sk->sk_gso_max_size &&
+-           left < sk->sk_gso_max_segs)
++           left < sk->xmit_size_goal_segs)
+                return true;
+        return left <= tcp_max_tso_deferred_mss(tp);
+ }
+
+neal
