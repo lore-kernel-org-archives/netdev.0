@@ -1,104 +1,87 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 2/2] bridge: netfilter: Use ether_addr_copy
-Date: Sun, 23 Feb 2014 00:05:26 -0800
-Message-ID: <8ffb523682d29d344873ad09b9c27faddcb90b5f.1393142669.git.joe@perches.com>
-References: <06d3e7e463c2bbfa8b5264e67daace1181ada090.1393142669.git.joe@perches.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Bart De Schuymer <bart.de.schuymer@pandora.be>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <06d3e7e463c2bbfa8b5264e67daace1181ada090.1393142669.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: net/mlx4: Mellanox driver update 01-01-2014
+Date: Sun, 23 Feb 2014 11:01:44 +0200
+Message-ID: <20140223090142.GA24010@mtl-eit-vdi-22.mtl.labs.mlnx>
+References: <1392814684-2129-1-git-send-email-amirv@mellanox.com>
+ <20140219.165049.1684072721398326970.davem@davemloft.net>
+ <1393032798.15717.85.camel@deadeye.wl.decadent.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	yevgenyp@mellanox.com, ogerlitz@mellanox.com, yuvala@mellanox.com
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:54352 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750716AbaBWJBs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Feb 2014 04:01:48 -0500
+Received: by mail-wi0-f180.google.com with SMTP id hm4so2078184wib.7
+        for <netdev@vger.kernel.org>; Sun, 23 Feb 2014 01:01:47 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1393032798.15717.85.camel@deadeye.wl.decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Convert the uses of memcpy to ether_addr_copy because
-for some architectures it is smaller and faster.
+On 22/02/14 01:33 +0000, Ben Hutchings wrote:
+> On Wed, 2014-02-19 at 16:50 -0500, David Miller wrote:
+> > From: Amir Vadai <amirv@mellanox.com>
+> > Date: Wed, 19 Feb 2014 14:58:01 +0200
+> > 
+> > > V0 of this patch was sent before previous net-next got closed, and
+> > > now we would like to resume it.
+> > > 
+> > > Yuval has reworked the affinity hint patch, according to Ben's comments. The
+> > > patch was actually rewritten.
+> > > After a discussion with Yuval Mintz, use of netif_get_num_default_rss_queues()
+> > > is not reverted, but done in the right place. Instead of limiting the number of
+> > > IRQ's for the driver it will limit the number of queues in RSS.
+> > > 
+> > > Patchset was applied and tested against commit: cb6e926 "ipv6:fix checkpatch
+> > > errors with assignment in if condition"
+> > 
+> > Influencing IRQs to be allocated on the same NUMA code as the one where
+> > the card resides doesn't sound like an mlx4 specific desire to me.
+> > 
+> > Other devices, both networking and non-networking, probably might like
+> > that as well.
+> > 
+> > Therefore doing this by hand in a specific driver doesn't seem
+> > appropriate at all.
+> 
+> Handling network traffic only on the local node can be really good on
+> recent Intel processors, where DMA writes will usually go into cache on
+> the local node.  But on other architectures, AMD processors, older Intel
+> processors... I don't think there's such a big difference.  Also, where
+> the system and device implement PCIe Transaction Processing Hints, DMA
+> writes to cache should work on all nodes (following interrupt
+> affinity)... in theory.
+> 
+> So this sort of policy not only shouldn't be implemented in specific
+> drivers, but also ought to be configurable.
+> 
+> Ben.
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- net/bridge/br_netfilter.c           | 2 +-
- net/bridge/netfilter/ebt_among.c    | 2 +-
- net/bridge/netfilter/ebt_dnat.c     | 2 +-
- net/bridge/netfilter/ebt_redirect.c | 6 +++---
- net/bridge/netfilter/ebt_snat.c     | 2 +-
- 5 files changed, 7 insertions(+), 7 deletions(-)
+Hi,
 
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index b008c59..df0f114 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -506,7 +506,7 @@ bridged_dnat:
- 					       1);
- 				return 0;
- 			}
--			memcpy(eth_hdr(skb)->h_dest, dev->dev_addr, ETH_ALEN);
-+			ether_addr_copy(eth_hdr(skb)->h_dest, dev->dev_addr);
- 			skb->pkt_type = PACKET_HOST;
- 		}
- 	} else {
-diff --git a/net/bridge/netfilter/ebt_among.c b/net/bridge/netfilter/ebt_among.c
-index 3fb3c84..9024283 100644
---- a/net/bridge/netfilter/ebt_among.c
-+++ b/net/bridge/netfilter/ebt_among.c
-@@ -28,7 +28,7 @@ static bool ebt_mac_wormhash_contains(const struct ebt_mac_wormhash *wh,
- 	uint32_t cmp[2] = { 0, 0 };
- 	int key = ((const unsigned char *)mac)[5];
- 
--	memcpy(((char *) cmp) + 2, mac, ETH_ALEN);
-+	ether_addr_copy(((char *) cmp) + 2, mac);
- 	start = wh->table[key];
- 	limit = wh->table[key + 1];
- 	if (ip) {
-diff --git a/net/bridge/netfilter/ebt_dnat.c b/net/bridge/netfilter/ebt_dnat.c
-index c59f7bf..4e0b0c3 100644
---- a/net/bridge/netfilter/ebt_dnat.c
-+++ b/net/bridge/netfilter/ebt_dnat.c
-@@ -22,7 +22,7 @@ ebt_dnat_tg(struct sk_buff *skb, const struct xt_action_param *par)
- 	if (!skb_make_writable(skb, 0))
- 		return EBT_DROP;
- 
--	memcpy(eth_hdr(skb)->h_dest, info->mac, ETH_ALEN);
-+	ether_addr_copy(eth_hdr(skb)->h_dest, info->mac);
- 	return info->target;
- }
- 
-diff --git a/net/bridge/netfilter/ebt_redirect.c b/net/bridge/netfilter/ebt_redirect.c
-index 46624bb..20396499 100644
---- a/net/bridge/netfilter/ebt_redirect.c
-+++ b/net/bridge/netfilter/ebt_redirect.c
-@@ -25,10 +25,10 @@ ebt_redirect_tg(struct sk_buff *skb, const struct xt_action_param *par)
- 
- 	if (par->hooknum != NF_BR_BROUTING)
- 		/* rcu_read_lock()ed by nf_hook_slow */
--		memcpy(eth_hdr(skb)->h_dest,
--		       br_port_get_rcu(par->in)->br->dev->dev_addr, ETH_ALEN);
-+		ether_addr_copy(eth_hdr(skb)->h_dest,
-+				br_port_get_rcu(par->in)->br->dev->dev_addr);
- 	else
--		memcpy(eth_hdr(skb)->h_dest, par->in->dev_addr, ETH_ALEN);
-+		ether_addr_copy(eth_hdr(skb)->h_dest, par->in->dev_addr);
- 	skb->pkt_type = PACKET_HOST;
- 	return info->target;
- }
-diff --git a/net/bridge/netfilter/ebt_snat.c b/net/bridge/netfilter/ebt_snat.c
-index 0f6b118..e56ccd0 100644
---- a/net/bridge/netfilter/ebt_snat.c
-+++ b/net/bridge/netfilter/ebt_snat.c
-@@ -24,7 +24,7 @@ ebt_snat_tg(struct sk_buff *skb, const struct xt_action_param *par)
- 	if (!skb_make_writable(skb, 0))
- 		return EBT_DROP;
- 
--	memcpy(eth_hdr(skb)->h_source, info->mac, ETH_ALEN);
-+	ether_addr_copy(eth_hdr(skb)->h_source, info->mac);
- 	if (!(info->target & NAT_ARP_BIT) &&
- 	    eth_hdr(skb)->h_proto == htons(ETH_P_ARP)) {
- 		const struct arphdr *ap;
--- 
-1.8.1.2.459.gbcd45b4.dirty
+The idea here is to prefer a local node than a remote one - and not to
+*always* use local nodes - kind of best effort approach.
+The patch is relevant when number of rings is smaller (or bigger) than
+number of CPU's - in this case the idea is to try to put the majority
+of rx queues on the local node, and not to spread it evenly on the
+numa nodes.
+So, for Intel architecture you will get better performance in average,
+and on other architectures, things will stay the same.
+
+Therefore, I don't think it is needed to have a tunable for that.
+
+If a user wants to use a more aggressive mode: to handle all incoming
+traffic only by local nodes, he'll be able to do it by changing number
+of rx channels to number of local cores - so we actually have the
+tunable you had in mind.
+
+Amir
+
+> 
+> -- 
+> Ben Hutchings
+> I haven't lost my mind; it's backed up on tape somewhere.
