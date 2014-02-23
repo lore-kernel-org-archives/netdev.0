@@ -1,135 +1,108 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH v2 net-next 1/2] ethtool - Support for configurable RSS
- hash key
-Date: Sun, 23 Feb 2014 00:51:33 +0000
-Message-ID: <1393116693.6823.31.camel@deadeye.wl.decadent.org.uk>
-References: <1393069918-11539-1-git-send-email-VenkatKumar.Duvvuru@Emulex.com>
-	 <ecb603ac-aefa-4288-9f90-c335b2faa6aa@CMEXHTCAS1.ad.emulex.com>
+From: Fengguang Wu <fengguang.wu@intel.com>
+Subject: Re: [sctp] ef2820a735: -50% netperf Throughput_Mbps
+Date: Sun, 23 Feb 2014 09:37:39 +0800
+Message-ID: <20140223013739.GA13631@localhost>
+References: <20140219132034.GC8704@localhost>
+ <5304E49A.3000801@nsn.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-7JCn1D3/xMzvSQe4QlCl"
-Cc: netdev@vger.kernel.org
-To: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:58495 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751982AbaBWAvl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Feb 2014 19:51:41 -0500
-In-Reply-To: <ecb603ac-aefa-4288-9f90-c335b2faa6aa@CMEXHTCAS1.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
+To: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5304E49A.3000801@nsn.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi Matija,
 
---=-7JCn1D3/xMzvSQe4QlCl
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+On Wed, Feb 19, 2014 at 06:06:34PM +0100, Matija Glavinic Pecotic wrote:
+> Hello Fengguang,
+> 
+> On 02/19/2014 02:20 PM, ext Fengguang Wu wrote:
+> > Hi Matija,
+> > 
+> > We noticed the below changes on commit ef2820a735f74ea60335f8ba3801b844f0cb184d
+> > (" net: sctp: Fix a_rwnd/rwnd management to reflect real state of the receiver's buffer")
+> > in netperf SCTP_STREAM tests:
+> 
+> thanks for the info. Though, I've ran netperf in my environment, with and without patch, and I havent observed any difference.
+> 
+> Could you please give me information on your environment, how do you invoke netperf, and other details you think I might be interested in to observe problem by myself
 
-On Sat, 2014-02-22 at 17:21 +0530, Venkat Duvvuru wrote:
-[...]
-> --- a/include/uapi/linux/ethtool.h
-> +++ b/include/uapi/linux/ethtool.h
-> @@ -828,22 +828,30 @@ struct ethtool_rxnfc {
-> =20
->=20
->  /**
-> - * struct ethtool_rxfh_indir - command to get or set RX flow hash indire=
-ction
-> - * @cmd: Specific command number - %ETHTOOL_GRXFHINDIR or %ETHTOOL_SRXFH=
-INDIR
-> - * @size: On entry, the array size of the user buffer, which may be zero=
-.
-> - *	On return from %ETHTOOL_GRXFHINDIR, the array size of the hardware
-> - *	indirection table.
-> - * @ring_index: RX ring/queue index for each hash value
-> + * struct ethtool_rxfh - command to get or set RX flow hash indirection =
-or/and
-> + * hash key.
-> + * @cmd: Specific command number - %ETHTOOL_GRSSH or %ETHTOOL_SRSSH
-> + * @indir_size: On entry, the array size of the user buffer, which may b=
-e zero.
-> + *		On return from %ETHTOOL_GRSSH, the array size of the hardware
-> + *		indirection table.
-> + * @key_size:	On entry, the array size of the user buffer in bytes,
-> + *		which may be zero.
-> + *		On return from %ETHTOOL_GRSSH, the size of the RSS hash key.
-> + * @rsvd:	Reserved for future extensions.
-> + * @rss_config: RX ring/queue index for each hash value or/and hash key
-> + *		respectively.
->   *
-> - * For %ETHTOOL_GRXFHINDIR, a @size of zero means that only the size
-> - * should be returned.  For %ETHTOOL_SRXFHINDIR, a @size of zero means
-> - * the table should be reset to default values.  This last feature
-> + * For %ETHTOOL_GRSSH, a @indir_size and key_size of zero means that onl=
-y the
-> + * size should be returned.  For %ETHTOOL_SRSSH, a @indir_size of zero m=
-eans
-> + * the indir table should be reset to default values.  This last feature
->   * is not supported by the original implementations.
->   */
-> -struct ethtool_rxfh_indir {
-> -	__u32	cmd;
-> -	__u32	size;
-> -	__u32	ring_index[0];
-> +struct ethtool_rxfh {
-> +	__u32   cmd;
-> +	__u32   indir_size;
-> +	__u32   key_size;
-> +	__u32	rsvd[3];
-> +	__u32   rss_config[0];
->  };
->
->  /**
-> @@ -1102,8 +1110,8 @@ enum ethtool_sfeatures_retval_bits {
->  #define ETHTOOL_SRXNTUPLE	0x00000035 /* Add an n-tuple filter to device =
-*/
->  #define ETHTOOL_GRXNTUPLE	0x00000036 /* deprecated */
->  #define ETHTOOL_GSSET_INFO	0x00000037 /* Get string set info */
-> -#define ETHTOOL_GRXFHINDIR	0x00000038 /* Get RX flow hash indir'n table =
-*/
-> -#define ETHTOOL_SRXFHINDIR	0x00000039 /* Set RX flow hash indir'n table =
-*/
-> +#define ETHTOOL_GRSSH		0x00000038 /* Get RX flow hash indir'n table */
-> +#define ETHTOOL_SRSSH		0x00000039 /* Set RX flow hash indir'n table */
-> =20
->  #define ETHTOOL_GFEATURES	0x0000003a /* Get device offload settings */
->  #define ETHTOOL_SFEATURES	0x0000003b /* Change device offload settings *=
-/
-[...]
+I see the same regression on both T410 and NHM EX server. On each test
+machine, I'm running (2*nr_logical_cpu) the below command in parallel:
 
-You can't just redefine commands like this.  Think what will happen if
-someone uses an old version of ethtool with a new kernel.
+        netperf -t SCTP_STREAM -c -C -l 120
 
-You have to keep supporting the old ethtool command numbers and
-structure.  And you have to make the ethtool core keep working with all
-the other drivers that don't support setting the key yet (or update them
-so they do).
+Thanks,
+Fengguang
 
-Ben.
-
---=20
-Ben Hutchings
-All the simple programs have been written, and all the good names taken.
-
---=-7JCn1D3/xMzvSQe4QlCl
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAUwlGFee/yOyVhhEJAQoEEg/7BwldRkLc9pzbjbexfp+oQOWCSKJSnaVA
-uCpNHUbB5nJpKzlDeD7ju9015ZnZa2d3Nwnq6Xc0IF8MYEQYPhfM/WKtoLwWhZU4
-7I4zou7tl71UuCIBYd5kOvxqqs7tWwDhTf5l3mVfiGLnO3SLjA/v/eS+kcEgwfcp
-wSi0kuKyQGqRFAYSPELDoGXnmKybHZJGCoV3RbBT7tGkd+ZgcPHFqbaMLy8xgZY7
-LcXLR8klQ1ArvgPk0BXYzYFaQOgTlenEwb2SGr+WlJ6d30DbJrTseG9Hm3OFxSm9
-avBQV9bs2U1VW6nCz29KyQgTAKlcAPrsX9QXSJpo2vwSagAvp6HTgsn/gMO+2tXj
-kwRazrWTO9qH3wSONZrDC5blCftsxI2doJ6nQzgQ0+eFLE0MFd/EiHDtGyFMWW8s
-aDJ+tXddka8U9opYMB/ayLEjFHz9A9qC3lQrBmGiOO4YvB6m4OP/GVNizh+gEPBb
-yH3027imLr29ra3K3XzSdxfazUzpCXfXEkv7m8cFvgmJ9h7cBodjn9ex0Kg7wHse
-xH2uRjXlHXxs+kqIVjS6Djh2lPZqltE9K8Asc727zfsaR712bnSYFgXvrh5NYpK2
-0fwVnbccAEQ8mohcDITkK8KpsLG2aZooEGk3ZdancE0nfmrHfYn7t6/0iMuUe718
-hI0hFTqpmyo=
-=18G1
------END PGP SIGNATURE-----
-
---=-7JCn1D3/xMzvSQe4QlCl--
+> Thanks!
+> 
+> > cd0f0b95fd2cd2b  ef2820a735f74ea60335f8ba3  
+> > ---------------  -------------------------  
+> >          8 ~ 0%     -50.0%          4 ~ 0%  TOTAL netperf.Throughput_Mbps
+> >      54287 ~44%    +338.1%     237842 ~48%  TOTAL cpuidle.C1E-NHM.time
+> >   12008353 ~12%     -56.0%    5281848 ~ 0%  TOTAL proc-vmstat.pgalloc_normal
+> >     114861 ~ 0%     -50.3%      57085 ~ 3%  TOTAL softirqs.NET_RX
+> >   12964639 ~11%     -55.1%    5818663 ~ 0%  TOTAL proc-vmstat.pgfree
+> >     866489 ~ 0%     -43.3%     491417 ~ 0%  TOTAL proc-vmstat.pgalloc_dma32
+> >     119373 ~17%     -39.1%      72661 ~ 1%  TOTAL softirqs.SCHED
+> >       1985 ~13%     -24.3%       1502 ~19%  TOTAL slabinfo.kmalloc-128.active_objs
+> >       2139 ~20%     -28.4%       1532 ~ 4%  TOTAL proc-vmstat.nr_alloc_batch
+> >     124360 ~33%     -31.0%      85748 ~ 2%  TOTAL softirqs.RCU
+> >       1977 ~ 9%     -18.5%       1610 ~ 9%  TOTAL slabinfo.UDP.active_objs
+> >       1977 ~ 9%     -18.5%       1610 ~ 9%  TOTAL slabinfo.UDP.num_objs
+> >       2066 ~ 6%     -12.9%       1800 ~ 7%  TOTAL slabinfo.kmalloc-128.num_objs
+> >       1738 ~10%     -18.4%       1418 ~ 9%  TOTAL slabinfo.UDPv6.active_objs
+> >       1738 ~10%     -18.4%       1418 ~ 9%  TOTAL slabinfo.UDPv6.num_objs
+> >        923 ~10%     -17.7%        760 ~ 8%  TOTAL slabinfo.TCPv6.active_objs
+> >        923 ~10%     -17.7%        760 ~ 8%  TOTAL slabinfo.TCPv6.num_objs
+> >        989 ~ 9%     -17.1%        820 ~ 7%  TOTAL slabinfo.TCP.active_objs
+> >        989 ~ 9%     -17.1%        820 ~ 7%  TOTAL slabinfo.TCP.num_objs
+> >     398761 ~44%     -32.6%     268792 ~ 3%  TOTAL numa-vmstat.node2.numa_hit
+> >     389672 ~49%     -32.9%     261443 ~ 3%  TOTAL numa-vmstat.node0.numa_hit
+> >        447 ~ 1%     -13.8%        385 ~ 0%  TOTAL vmstat.system.cs
+> > 
+> > Note: the "~ XX%" numbers are stddev percent.
+> > 
+> >                               netperf.Throughput_Mbps
+> > 
+> >      4 *+-*--*--*--*-*--*--*--*--*--*--*--*-*--*--*--*--*--*--*--*-*--*--*--*
+> >        |                                                                    |
+> >        |                                                                    |
+> >    3.5 ++                                                                   |
+> >        |                                                                    |
+> >        |                                                                    |
+> >        |                                                                    |
+> >      3 ++                                                                   |
+> >        |                                                                    |
+> >        |                                                                    |
+> >    2.5 ++                                                                   |
+> >        |                                                                    |
+> >        |                                                                    |
+> >        |                                                                    |
+> >      2 O+-O--O--O--O-O--O--O--O--O--O--O--O-O--O--O--O--O--O--O-------------+
+> > 
+> > 
+> >                                  vmstat.system.cs
+> > 
+> >    460 ++------------------------*--*----------------*----------------------+
+> >        |       .*..    .*..     :    +              +              *..     .*
+> >    450 ++    *.     .*.    *..  :     +    .*..*.. +    *..*..*.. +     .*. |
+> >    440 *+   :      *           :       *..*       *              *    *.    |
+> >        |:   :                 *                                             |
+> >    430 ++: :                                                                |
+> >    420 ++: :                                                                |
+> >        |  *                                                                 |
+> >    410 ++                                                                   |
+> >    400 ++                                                                   |
+> >        |                                                                    |
+> >    390 ++            O        O             O     O        O                |
+> >    380 O+ O  O  O       O  O     O  O  O  O    O     O  O     O             |
+> >        |           O                                                        |
+> >    370 ++-------------------------------------------------------------------+
+> > 
