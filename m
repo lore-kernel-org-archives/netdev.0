@@ -1,40 +1,66 @@
-From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] af_packet: Add PACKET_FANOUT_QM documentation
-Date: Sun, 23 Feb 2014 08:27:55 +0100
-Message-ID: <5309A2FB.30505@gmail.com>
-References: <1390911375-5784-1-git-send-email-nhorman@tuxdriver.com> <53087188.9080408@gmail.com> <5308998F.50907@redhat.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net-next] tcp: switch rtt estimations to usec
+ resolution
+Date: Sun, 23 Feb 2014 09:36:30 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1402230908210.1460@ja.home.ssi.bg>
+References: <1393137487.2316.48.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5308998F.50907-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Larry Brakmo <brakmo@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:48979 "EHLO ja.home.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750946AbaBWHgy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Feb 2014 02:36:54 -0500
+In-Reply-To: <1393137487.2316.48.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/22/2014 01:35 PM, Daniel Borkmann wrote:
-> On 02/22/2014 10:44 AM, Michael Kerrisk (man-pages) wrote:
->> On 01/28/2014 01:16 PM, Neil Horman wrote:
->>> Recently added a new fanout mode of operation to packet sockets.  Document it
->>> here
->>
->> Thanks, Neil. Applied.
->>
->> This new mode is ne win 3.14, right?
+
+	Hello,
+
+On Sat, 22 Feb 2014, Eric Dumazet wrote:
+
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Yes.
+> Upcoming congestion controls for TCP require usec resolution for RTT
+> estimations. Millisecond resolution is simply not enough these days.
 
-Thanks, Daniel.
+...
 
+> --- a/net/ipv4/tcp_metrics.c
+> +++ b/net/ipv4/tcp_metrics.c
 
--- 
-Michael Kerrisk
-Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-Linux/UNIX System Programming Training: http://man7.org/training/
+...
+
+> @@ -408,10 +395,10 @@ void tcp_update_metrics(struct sock *sk)
+>  	 */
+>  	if (!tcp_metric_locked(tm, TCP_METRIC_RTT)) {
+>  		if (m <= 0)
+> -			rtt = tp->srtt;
+> +			rtt = tp->srtt_us;
+>  		else
+>  			rtt -= (m >> 3);
+> -		tcp_metric_set_msecs(tm, TCP_METRIC_RTT, rtt);
+> +		tcp_metric_set(tm, TCP_METRIC_RTT, rtt);
+
+	What is the way to handle this change of
+resolution in TCP_METRICS_ATTR_VALS? The ip tool has
+code in ip/tcp_metrics.c process_msg() that needs to
+know what we get, ms or us. Do we need to add some
+new attribute as flag or version? Or we need to increase
+TCP_METRICS_GENL_VERSION in kernel and to check it in
+process_msg ?
+
+> -		tcp_metric_set_msecs(tm, TCP_METRIC_RTTVAR, var);
+> +		tcp_metric_set(tm, TCP_METRIC_RTTVAR, var);
+
+Regards
+
 --
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Julian Anastasov <ja@ssi.bg>
