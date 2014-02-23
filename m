@@ -1,55 +1,70 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: net/mlx4: Mellanox driver update 01-01-2014
-Date: Sun, 23 Feb 2014 19:25:04 +0200
-Message-ID: <20140223172502.GA27075@mtl-eit-vdi-22.mtl.labs.mlnx>
-References: <1392814684-2129-1-git-send-email-amirv@mellanox.com>
- <20140219.165049.1684072721398326970.davem@davemloft.net>
- <1393032798.15717.85.camel@deadeye.wl.decadent.org.uk>
- <20140223090142.GA24010@mtl-eit-vdi-22.mtl.labs.mlnx>
- <1393175180.6823.56.camel@deadeye.wl.decadent.org.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: switch rtt estimations to usec resolution
+Date: Sun, 23 Feb 2014 09:55:22 -0800
+Message-ID: <1393178122.2316.50.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1393137487.2316.48.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <alpine.LFD.2.11.1402230908210.1460@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	yevgenyp@mellanox.com, ogerlitz@mellanox.com, yuvala@mellanox.com
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Larry Brakmo <brakmo@google.com>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f48.google.com ([74.125.82.48]:34662 "EHLO
-	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751260AbaBWRZI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Feb 2014 12:25:08 -0500
-Received: by mail-wg0-f48.google.com with SMTP id a1so3898782wgh.3
-        for <netdev@vger.kernel.org>; Sun, 23 Feb 2014 09:25:06 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1393175180.6823.56.camel@deadeye.wl.decadent.org.uk>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:52162 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751132AbaBWRzZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Feb 2014 12:55:25 -0500
+Received: by mail-pa0-f48.google.com with SMTP id kx10so5554700pab.35
+        for <netdev@vger.kernel.org>; Sun, 23 Feb 2014 09:55:24 -0800 (PST)
+In-Reply-To: <alpine.LFD.2.11.1402230908210.1460@ja.home.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 23/02/14 17:06 +0000, Ben Hutchings wrote:
-> On Sun, 2014-02-23 at 11:01 +0200, Amir Vadai wrote:
-> > On 22/02/14 01:33 +0000, Ben Hutchings wrote:
-[...]
+On Sun, 2014-02-23 at 09:36 +0200, Julian Anastasov wrote:
+> 	Hello,
 > 
-> Right, that does sound pretty good as a default.  And I accept that it
-> would be reasonable to implement that initially without a tunable beyond
-> total number of IRQs.
+> On Sat, 22 Feb 2014, Eric Dumazet wrote:
 > 
-> I would like to have a central mechanism for this that would allow the
-> administrator to set a policy of spreading IRQs across all threads,
-> cores, packages, local cores, etc.  (The out-of-tree version of sfc has
-> such options.)  If you add the mechanism and default that you've
-> proposed, then someone (maybe me) can get round to the configurable
-> policy later.
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > Upcoming congestion controls for TCP require usec resolution for RTT
+> > estimations. Millisecond resolution is simply not enough these days.
 > 
-> Ben.
+> ...
 > 
+> > --- a/net/ipv4/tcp_metrics.c
+> > +++ b/net/ipv4/tcp_metrics.c
+> 
+> ...
+> 
+> > @@ -408,10 +395,10 @@ void tcp_update_metrics(struct sock *sk)
+> >  	 */
+> >  	if (!tcp_metric_locked(tm, TCP_METRIC_RTT)) {
+> >  		if (m <= 0)
+> > -			rtt = tp->srtt;
+> > +			rtt = tp->srtt_us;
+> >  		else
+> >  			rtt -= (m >> 3);
+> > -		tcp_metric_set_msecs(tm, TCP_METRIC_RTT, rtt);
+> > +		tcp_metric_set(tm, TCP_METRIC_RTT, rtt);
+> 
+> 	What is the way to handle this change of
+> resolution in TCP_METRICS_ATTR_VALS? The ip tool has
+> code in ip/tcp_metrics.c process_msg() that needs to
+> know what we get, ms or us. Do we need to add some
+> new attribute as flag or version? Or we need to increase
+> TCP_METRICS_GENL_VERSION in kernel and to check it in
+> process_msg ?
 
-What I'm preparing now is just a very simple helper function that
-gets the local numa node and queue number as its inputs, and returns
-the recommended cpumask.
-A driver that would like to use it, will set using it the
-affinity_hint.
+crap... This should have been usec units as we did for tcp_info years
+ago.
 
-This function does seem to be a convenient place for setting different
-policies.
+Solution is to add TCP_METRIC_RTT_US and TCP_METRIC_RTTVAR_US attributes
 
-Amir.
+I'll send a v2
+
+Thanks !
