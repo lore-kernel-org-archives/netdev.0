@@ -1,66 +1,44 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net-next] tcp: switch rtt estimations to usec
- resolution
-Date: Sun, 23 Feb 2014 09:36:30 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1402230908210.1460@ja.home.ssi.bg>
-References: <1393137487.2316.48.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] socket: Add SO_RXQ_OVFL documentation
+Date: Sun, 23 Feb 2014 08:51:37 +0100
+Message-ID: <CAKgNAkjes8xEBkT6BoGtb_F8tg4UTS=_KNKoGYbZh2X=aXr9Jw@mail.gmail.com>
+References: <1390911877-5984-1-git-send-email-nhorman@tuxdriver.com>
+ <53086F88.5040209@gmail.com> <20140222162253.GJ22728@two.firstfloor.org>
+Reply-To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Larry Brakmo <brakmo@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:48979 "EHLO ja.home.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750946AbaBWHgy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Feb 2014 02:36:54 -0500
-In-Reply-To: <1393137487.2316.48.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-man <linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140222162253.GJ22728-1g7Xle2YJi4/4alezvVtWx2eb7JE58TQ@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Sat, Feb 22, 2014 at 5:22 PM, Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org> wrote:
+>> >  to bind to this port for any local address.
+>> >  Argument is an integer boolean flag.
+>> >  .TP
+>> > +.B SO_RXQ_OVFL
+>> > +Indicates that an unsigned 32 bit value ancilliary msg (cmsg) should be attached
+>> > +to recieved skbs indicating the number of packets dropped by the socket between
+>
+> Typo s/ie/ei/
 
-	Hello,
+Hi Andi.
 
-On Sat, 22 Feb 2014, Eric Dumazet wrote:
+Thanks -- I should have said that I (already) spotted and fixed that.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Upcoming congestion controls for TCP require usec resolution for RTT
-> estimations. Millisecond resolution is simply not enough these days.
+Cheers,
 
-...
+Michael
 
-> --- a/net/ipv4/tcp_metrics.c
-> +++ b/net/ipv4/tcp_metrics.c
-
-...
-
-> @@ -408,10 +395,10 @@ void tcp_update_metrics(struct sock *sk)
->  	 */
->  	if (!tcp_metric_locked(tm, TCP_METRIC_RTT)) {
->  		if (m <= 0)
-> -			rtt = tp->srtt;
-> +			rtt = tp->srtt_us;
->  		else
->  			rtt -= (m >> 3);
-> -		tcp_metric_set_msecs(tm, TCP_METRIC_RTT, rtt);
-> +		tcp_metric_set(tm, TCP_METRIC_RTT, rtt);
-
-	What is the way to handle this change of
-resolution in TCP_METRICS_ATTR_VALS? The ip tool has
-code in ip/tcp_metrics.c process_msg() that needs to
-know what we get, ms or us. Do we need to add some
-new attribute as flag or version? Or we need to increase
-TCP_METRICS_GENL_VERSION in kernel and to check it in
-process_msg ?
-
-> -		tcp_metric_set_msecs(tm, TCP_METRIC_RTTVAR, var);
-> +		tcp_metric_set(tm, TCP_METRIC_RTTVAR, var);
-
-Regards
-
+-- 
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Linux/UNIX System Programming Training: http://man7.org/training/
 --
-Julian Anastasov <ja@ssi.bg>
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
