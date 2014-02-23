@@ -1,52 +1,81 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH v2] tcp: reduce the bloat caused by tcp_is_cwnd_limited()
-Date: Sun, 23 Feb 2014 10:16:29 -0500
-Message-ID: <CADVnQyk_t+5fh1Mt-CGQ-NkDoCrv_Pkh7KYqivXDy1x3Kz18dA@mail.gmail.com>
-References: <1393105959.2316.30.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1393136757.2316.39.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: [PATCH] net: phy: add suspend_halted module param
+Date: Sun, 23 Feb 2014 17:58:39 +0100
+Message-ID: <1393174719-20806-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Van Jacobson <vanj@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f42.google.com ([74.125.83.42]:54159 "EHLO
-	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751132AbaBWPQc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Feb 2014 10:16:32 -0500
-Received: by mail-ee0-f42.google.com with SMTP id e53so1034053eek.15
-        for <netdev@vger.kernel.org>; Sun, 23 Feb 2014 07:16:30 -0800 (PST)
-In-Reply-To: <1393136757.2316.39.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>, Florian Fainelli <f.fainelli@gmail.com>,
+ netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ David Miller <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Feb 23, 2014 at 1:25 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-...
-> v2: addressed Neal point about keeping first condition.
->
->  net/ipv4/tcp_cong.c |    3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
->
-> diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-> index ad37bf18ae4b..2388275adb9b 100644
-> --- a/net/ipv4/tcp_cong.c
-> +++ b/net/ipv4/tcp_cong.c
-> @@ -290,8 +290,7 @@ bool tcp_is_cwnd_limited(const struct sock *sk, u32 in_flight)
->         left = tp->snd_cwnd - in_flight;
->         if (sk_can_gso(sk) &&
->             left * sysctl_tcp_tso_win_divisor < tp->snd_cwnd &&
-> -           left * tp->mss_cache < sk->sk_gso_max_size &&
-> -           left < sk->sk_gso_max_segs)
-> +           left < tp->xmit_size_goal_segs)
->                 return true;
->         return left <= tcp_max_tso_deferred_mss(tp);
->  }
+commit 1211ce53077164e0d34641d0ca5fb4d4a7574498
+  ("net: phy: resume/suspend PHYs on attach/detach")
+introduced a feature to suspend PHYs when entering halted state.
 
-Looks great to me. Thanks!
+Unfortunately, not all bootloaders properly power-up PHYs on reset
+and fail to access ethernet because the PHY is still powered down.
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+Therefore, we add a boolean module parameter suspend_halted with
+default value of true. Disabling that parameter prevents PHYs from
+being suspended when entering halted state.
 
-neal
+Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Reported-by: Andrew Lunn <andrew@lunn.ch>
+---
+Andrew, can you please re-test if disabling the feature does work on
+your board? I tried a bunch of mine, but none failed to power-up the
+PHY in u-boot.
+
+Cc: David Miller <davem@davemloft.net>
+Cc: Florian Fainelli <f.fainelli@gmail.com>
+Cc: Andrew Lunn <andrew@lunn.ch>
+Cc: netdev@vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: linux-kernel@vger.kernel.org
+---
+ drivers/net/phy/phy_device.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 4b03e63639b7..671eea0eb5db 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -40,6 +40,10 @@ MODULE_DESCRIPTION("PHY library");
+ MODULE_AUTHOR("Andy Fleming");
+ MODULE_LICENSE("GPL");
+ 
++static bool suspend_halted = true;
++module_param(suspend_halted, bool, 0644);
++MODULE_PARM_DESC(suspend_halted, "Suspend PHYs when entering halted state.");
++
+ void phy_device_free(struct phy_device *phydev)
+ {
+ 	put_device(&phydev->dev);
+@@ -685,6 +689,12 @@ int phy_suspend(struct phy_device *phydev)
+ 	struct phy_driver *phydrv = to_phy_driver(phydev->dev.driver);
+ 	struct ethtool_wolinfo wol;
+ 
++	/* Some bootloaders do not power-up PHYs properly after reset,
++	 * allow to disable the suspend halted PHYs feature.
++	 */
++	if (!suspend_halted)
++		return -ENOSYS;
++
+ 	/* If the device has WOL enabled, we cannot suspend the PHY */
+ 	wol.cmd = ETHTOOL_GWOL;
+ 	phy_ethtool_get_wol(phydev, &wol);
+-- 
+1.8.5.3
