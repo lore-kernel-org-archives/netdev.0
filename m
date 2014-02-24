@@ -1,71 +1,61 @@
 From: Somnath Kotur <somnath.kotur@emulex.com>
-Subject: [PATCH net 3/5] be2net: Fix skb double free in be_xmit_wrokarounds() failure path
-Date: Mon, 24 Feb 2014 12:20:40 +0530
-Message-ID: <7103daf2-5faa-4d2e-8e12-40cf7b4b574f@CMEXHTCAS1.ad.emulex.com>
+Subject: [PATCH net 2/5] be2net: clear promiscuous bits in adapter->flags while disabling promiscuous mode
+Date: Mon, 24 Feb 2014 12:20:27 +0530
+Message-ID: <12524c44-4309-43ca-a84c-5accf381f130@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <davem@davemloft.net>,
-	Vasundhara Volam <vasundhara.volam@emulex.com>,
-	Sathya Perla <sathya.perla@emulex.com>,
-	Somnath Kotur <somnath.kotur@emulex.com>
+Cc: <davem@davemloft.net>, Somnath kotur <somnath.kotur@emulex.com>,
+	Kalesh AP <kalesh.purayil@emulex.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:57245 "EHLO
 	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751483AbaBXGw3 (ORCPT
+	with ESMTP id S1750899AbaBXGw3 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 01:52:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vasundhara Volam <vasundhara.volam@emulex.com>
+From: Somnath kotur <somnath.kotur@emulex.com>
 
-skb_padto(), skb_share_check() and __vlan_put_tag() routines free
-skb when they return an error. This patch fixes be_xmit_workarounds()
-to not free skb again in such cases.
+We should clear promiscuous bits in adapter->flags while disabling promiscuous
+mode. Else we will not put interface back into VLAN promisc mode if the vlans
+already added exceeds the maximum limit.
 
-Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
 Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_main.c |   12 +++++++++---
+ 1 files changed, 9 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 9e6d678..a9da6f9 100644
+index 45662af..9e6d678 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -927,7 +927,7 @@ static struct sk_buff *be_xmit_workarounds(struct be_adapter *adapter,
- 	 */
- 	if (unlikely(!BEx_chip(adapter) && skb->len <= 32)) {
- 		if (skb_padto(skb, 36))
--			goto tx_drop;
-+			goto err;
- 		skb->len = 36;
- 	}
- 
-@@ -959,7 +959,7 @@ static struct sk_buff *be_xmit_workarounds(struct be_adapter *adapter,
- 	    vlan_tx_tag_present(skb)) {
- 		skb = be_insert_vlan_in_pkt(adapter, skb, skip_hw_vlan);
- 		if (unlikely(!skb))
--			goto tx_drop;
-+			goto err;
- 	}
- 
- 	/* HW may lockup when VLAN HW tagging is requested on
-@@ -981,12 +981,13 @@ static struct sk_buff *be_xmit_workarounds(struct be_adapter *adapter,
- 	    be_vlan_tag_tx_chk(adapter, skb)) {
- 		skb = be_insert_vlan_in_pkt(adapter, skb, skip_hw_vlan);
- 		if (unlikely(!skb))
--			goto tx_drop;
-+			goto err;
- 	}
- 
- 	return skb;
- tx_drop:
- 	dev_kfree_skb_any(skb);
-+err:
- 	return NULL;
+@@ -1157,6 +1157,14 @@ ret:
+ 	return status;
  }
  
++static void be_clear_promisc(struct be_adapter *adapter)
++{
++	adapter->promiscuous = false;
++	adapter->flags &= ~BE_FLAGS_VLAN_PROMISC;
++
++	be_cmd_rx_filter(adapter, IFF_PROMISC, OFF);
++}
++
+ static void be_set_rx_mode(struct net_device *netdev)
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+@@ -1170,9 +1178,7 @@ static void be_set_rx_mode(struct net_device *netdev)
+ 
+ 	/* BE was previously in promiscuous mode; disable it */
+ 	if (adapter->promiscuous) {
+-		adapter->promiscuous = false;
+-		be_cmd_rx_filter(adapter, IFF_PROMISC, OFF);
+-
++		be_clear_promisc(adapter);
+ 		if (adapter->vlans_added)
+ 			be_vid_config(adapter);
+ 	}
 -- 
 1.5.6.1
