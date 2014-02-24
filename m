@@ -1,53 +1,69 @@
-From: Zoltan Kiss <zoltan.kiss@schaman.hu>
-Subject: Re: [PATCH net-next v5 4/9] xen-netback: Change RX path for mapped
- SKB fragments
-Date: Mon, 24 Feb 2014 13:49:57 +0000
-Message-ID: <530B4E05.4020900@schaman.hu>
-References: <1390253069-25507-1-git-send-email-zoltan.kiss@citrix.com>	 <1390253069-25507-5-git-send-email-zoltan.kiss@citrix.com> <1392745532.23084.65.camel@kazak.uk.xensource.com> <53093051.9040907@citrix.com>
+From: Qin Chuanyu <qinchuanyu@huawei.com>
+Subject: Re: [PATCH] bridge: orphan frags on local receive
+Date: Mon, 24 Feb 2014 21:52:11 +0800
+Message-ID: <530B4E8B.5050007@huawei.com>
+References: <530B4534.3000106@huawei.com> <20140224132926.GF8981@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: wei.liu2@citrix.com, xen-devel@lists.xenproject.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jonathan.davies@citrix.com
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53093051.9040907@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <davem@davemloft.net>, KVM list <kvm@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:22295 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752560AbaBXNw3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 08:52:29 -0500
+In-Reply-To: <20140224132926.GF8981@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 22/02/14 23:18, Zoltan Kiss wrote:
-> On 18/02/14 17:45, Ian Campbell wrote:
->> On Mon, 2014-01-20 at 21:24 +0000, Zoltan Kiss wrote:
+On 2014/2/24 21:29, Michael S. Tsirkin wrote:
+> On Mon, Feb 24, 2014 at 09:12:20PM +0800, Qin Chuanyu wrote:
+>> with vhost tx zero_copy, guest nic might get hang when host reserving
+>> skb in socket queue delivered by guest, the case has been solved in
+>> tun, it also been needed by bridge. This could easily happened when a
+>> LAST_ACK state tcp occuring between guest and host.
 >>
->> Re the Subject: change how? Perhaps "handle foreign mapped pages on the
->> guest RX path" would be clearer.
-> Ok, I'll do that.
+>> Signed-off-by: Chuanyu Qin <qinchuanyu@huawei.com>
 >
+> Do you actually observe guest hang?
+>
+yes, guest nic could not xmit any more until the skb holded by host has
+been freed, the mainly reason is that though virtio-net could use vring
+desc out of order, but ubufs is been used by vhost in order. so only
+one skb could cause guest nic hang.
+> I would expect orphan frags in
+> __netif_receive_skb_core to be enough.
+>
+yes, it would be better. I would deliver another patch soon.
+>
+>> ---
+>>   net/bridge/br_input.c |    3 +++
+>>   1 files changed, 3 insertions(+), 0 deletions(-)
 >>
->>> RX path need to know if the SKB fragments are stored on pages from 
->>> another
->>> domain.
->> Does this not need to be done either before the mapping change or at the
->> same time? -- otherwise you have a window of a couple of commits where
->> things are broken, breaking bisectability.
-> I can move this to the beginning, to keep bisectability. I've put it 
-> here originally because none of these makes sense without the previous 
-> patches.
-Well, I gave it a close look: to move this to the beginning as a 
-separate patch I would need to put move a lot of definitions from the 
-first patch to here (ubuf_to_vif helper, xenvif_zerocopy_callback etc.). 
-That would be the best from bisect point of view, but from patch review 
-point of view even worse than now. So the only option I see is to merge 
-this with the first 2 patches, so it will be even bigger. And based on 
-that principle, patch #6 and #8 should be merged there as well, as they 
-solve corner cases introduced by the grant mapping.
-I don't know how much the bisecting requirements are written in stone. 
-At this moment, all the separate patches compile, but after #2 there are 
-new problems solved in #4, #6 and #8. If someone bisect in the middle of 
-this range and run into these problems, they could quite easily figure 
-out what went wrong looking at the adjacent patches. So I would 
-recommend to keep this current order.
-What's your opinion?
-
-Zoli
+>> diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+>> index 28d5446..744e27a 100644
+>> --- a/net/bridge/br_input.c
+>> +++ b/net/bridge/br_input.c
+>> @@ -117,6 +117,8 @@ int br_handle_frame_finish(struct sk_buff *skb)
+>>   		br->dev->stats.multicast++;
+>>   	} else if ((dst = __br_fdb_get(br, dest, vid)) &&
+>>   			dst->is_local) {
+>> +		if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
+>> +			goto drop;
+>>   		skb2 = skb;
+>>   		/* Do not forward the packet since it's local. */
+>>   		skb = NULL;
+>> @@ -136,6 +138,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
+>>   out:
+>>   	return 0;
+>>   drop:
+>> +	skb_tx_error(skb);
+>>   	kfree_skb(skb);
+>>   	goto out;
+>>   }
+>> --
+>> 1.7.3.1.msysgit.0
+>
+>
