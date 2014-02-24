@@ -1,56 +1,61 @@
-From: Qin Chuanyu <qinchuanyu@huawei.com>
-Subject: [PATCH] openvswitch: orphan frags on local receive
-Date: Mon, 24 Feb 2014 21:15:12 +0800
-Message-ID: <530B45E0.20009@huawei.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] bridge: orphan frags on local receive
+Date: Mon, 24 Feb 2014 15:29:26 +0200
+Message-ID: <20140224132926.GF8981@redhat.com>
+References: <530B4534.3000106@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: KVM list <kvm@vger.kernel.org>, <netdev@vger.kernel.org>
-To: <davem@davemloft.net>, "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, KVM list <kvm@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Qin Chuanyu <qinchuanyu@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:64866 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752652AbaBXNYJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Feb 2014 08:24:09 -0500
+Content-Disposition: inline
+In-Reply-To: <530B4534.3000106@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-with vhost tx zero_copy, guest nic might get hang when host reserving
-skb in socket queue delivered by guest, the case has been solved in
-tun, it also been needed by openvswitch. This could easily happened
-when a LAST_ACK state tcp occuring between guest and host.
+On Mon, Feb 24, 2014 at 09:12:20PM +0800, Qin Chuanyu wrote:
+> with vhost tx zero_copy, guest nic might get hang when host reserving
+> skb in socket queue delivered by guest, the case has been solved in
+> tun, it also been needed by bridge. This could easily happened when a
+> LAST_ACK state tcp occuring between guest and host.
+> 
+> Signed-off-by: Chuanyu Qin <qinchuanyu@huawei.com>
 
-Signed-off-by: Chuanyu Qin <qinchuanyu@huawei.com>
----
-  net/openvswitch/vport-internal_dev.c |    3 +++
-  net/openvswitch/vport.c              |    1 +
-  2 files changed, 4 insertions(+), 0 deletions(-)
+Do you actually observe guest hang?
 
-diff --git a/net/openvswitch/vport-internal_dev.c 
-b/net/openvswitch/vport-internal_dev.c
-index 729c687..adb25e2 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -212,6 +212,9 @@ static int internal_dev_recv(struct vport *vport, 
-struct sk_buff *skb)
-  	struct net_device *netdev = netdev_vport_priv(vport)->dev;
-  	int len;
+I would expect orphan frags in
+__netif_receive_skb_core to be enough.
 
-+	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
-+		return -NET_RX_DROP;
-+
-  	len = skb->len;
 
-  	skb_dst_drop(skb);
-diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-index 208dd9a..04172d6 100644
---- a/net/openvswitch/vport.c
-+++ b/net/openvswitch/vport.c
-@@ -383,6 +383,7 @@ int ovs_vport_send(struct vport *vport, struct 
-sk_buff *skb)
-  		u64_stats_update_end(&stats->syncp);
-  	} else if (sent < 0) {
-  		ovs_vport_record_error(vport, VPORT_E_TX_ERROR);
-+		skb_tx_error(skb);
-  		kfree_skb(skb);
-  	} else
-  		ovs_vport_record_error(vport, VPORT_E_TX_DROPPED);
--- 
-1.7.3.1.msysgit.0
-
+> ---
+>  net/bridge/br_input.c |    3 +++
+>  1 files changed, 3 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+> index 28d5446..744e27a 100644
+> --- a/net/bridge/br_input.c
+> +++ b/net/bridge/br_input.c
+> @@ -117,6 +117,8 @@ int br_handle_frame_finish(struct sk_buff *skb)
+>  		br->dev->stats.multicast++;
+>  	} else if ((dst = __br_fdb_get(br, dest, vid)) &&
+>  			dst->is_local) {
+> +		if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
+> +			goto drop;
+>  		skb2 = skb;
+>  		/* Do not forward the packet since it's local. */
+>  		skb = NULL;
+> @@ -136,6 +138,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
+>  out:
+>  	return 0;
+>  drop:
+> +	skb_tx_error(skb);
+>  	kfree_skb(skb);
+>  	goto out;
+>  }
+> -- 
+> 1.7.3.1.msysgit.0
