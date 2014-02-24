@@ -1,75 +1,90 @@
-From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [net-next v3 3/3] cfg80211: add MPLS and 802.21 classification
-Date: Mon, 24 Feb 2014 13:28:40 +0100
-Message-ID: <1393244920-15903-4-git-send-email-sw@simonwunderlich.de>
+From: Simon Wunderlich <sw@simonwunderlich.de>
+Subject: [net-next v3 2/3] UAPI: add MPLS label stack definition
+Date: Mon, 24 Feb 2014 13:28:39 +0100
+Message-ID: <1393244920-15903-3-git-send-email-sw@simonwunderlich.de>
 References: <1393244920-15903-1-git-send-email-sw@simonwunderlich.de>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	mathias.kretschmer-8LS2qeF34IpklNlQbfROjRvVK+yQ3ZXh@public.gmane.org,
-	Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1393244920-15903-1-git-send-email-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
+	mathias.kretschmer@fokus.fraunhofer.de,
+	Simon Wunderlich <sw@simonwunderlich.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from packetmixer.de ([79.140.42.25]:41613 "EHLO
+	mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752317AbaBXM2s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 07:28:48 -0500
+In-Reply-To: <1393244920-15903-1-git-send-email-sw@simonwunderlich.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-MPLS labels may contain traffic control information, which should be
-evaluated and used by the wireless subsystem if present.
+Labels for the Multiprotocol Label Switching are defined in RFC 3032
+which was superseded by RFC 5462. Add the definition to UAPI and a stub
+header for include/linux.
 
-Also check for IEEE 802.21 which is always network control traffic.
-
-Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Signed-off-by: Mathias Kretschmer <mathias.kretschmer-8LS2qeF34IpklNlQbfROjRvVK+yQ3ZXh@public.gmane.org>
+Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
+Signed-off-by: Mathias Kretschmer <mathias.kretschmer@fokus.fraunhofer.de>
 ---
-Changes to second version:
-
- * rely on skb->protocol instead of checking ethertype
-
 Changes to first version:
 
- * include linux/mpls.h, not the UAPI one
- * change __constant_htons to htons
+ * add stub mpls header in include/linux/mpls.h for users inside the
+   kernel
 ---
- net/wireless/util.c |   16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
+ include/linux/mpls.h      |    6 ++++++
+ include/uapi/linux/mpls.h |   34 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 40 insertions(+)
+ create mode 100644 include/linux/mpls.h
+ create mode 100644 include/uapi/linux/mpls.h
 
-diff --git a/net/wireless/util.c b/net/wireless/util.c
-index d39c371..6799d5a 100644
---- a/net/wireless/util.c
-+++ b/net/wireless/util.c
-@@ -11,6 +11,7 @@
- #include <net/ip.h>
- #include <net/dsfield.h>
- #include <linux/if_vlan.h>
-+#include <linux/mpls.h>
- #include "core.h"
- #include "rdev-ops.h"
- 
-@@ -717,6 +718,21 @@ unsigned int cfg80211_classify8021d(struct sk_buff *skb,
- 	case htons(ETH_P_IPV6):
- 		dscp = ipv6_get_dsfield(ipv6_hdr(skb)) & 0xfc;
- 		break;
-+	case htons(ETH_P_MPLS_UC):
-+	case htons(ETH_P_MPLS_MC): {
-+		struct mpls_label_stack mpls_tmp, *mpls;
+diff --git a/include/linux/mpls.h b/include/linux/mpls.h
+new file mode 100644
+index 0000000..9999145
+--- /dev/null
++++ b/include/linux/mpls.h
+@@ -0,0 +1,6 @@
++#ifndef _LINUX_MPLS_H
++#define _LINUX_MPLS_H
 +
-+		mpls = skb_header_pointer(skb, sizeof(struct ethhdr),
-+					  sizeof(*mpls), &mpls_tmp);
-+		if (!mpls)
-+			return 0;
++#include <uapi/linux/mpls.h>
 +
-+		return (ntohl(mpls->entry) & MPLS_LS_TC_MASK)
-+			>> MPLS_LS_TC_SHIFT;
-+		}
-+	case htons(ETH_P_80221):
-+		/* 802.21 is always network control traffic */
-+		return 7;
- 	default:
- 		return 0;
- 	}
++#endif  /* _LINUX_MPLS_H */
+diff --git a/include/uapi/linux/mpls.h b/include/uapi/linux/mpls.h
+new file mode 100644
+index 0000000..15c8260
+--- /dev/null
++++ b/include/uapi/linux/mpls.h
+@@ -0,0 +1,34 @@
++#ifndef _UAPI_MPLS_H
++#define _UAPI_MPLS_H
++
++#include <linux/types.h>
++#include <asm/byteorder.h>
++
++/* Reference: RFC 5462, RFC 3032
++ *
++ *  0                   1                   2                   3
++ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |                Label                  | TC  |S|       TTL     |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ *
++ *	Label:  Label Value, 20 bits
++ *	TC:     Traffic Class field, 3 bits
++ *	S:      Bottom of Stack, 1 bit
++ *	TTL:    Time to Live, 8 bits
++ */
++
++struct mpls_label_stack {
++	__be32 entry;
++};
++
++#define MPLS_LS_LABEL_MASK      0xFFFFF000
++#define MPLS_LS_LABEL_SHIFT     12
++#define MPLS_LS_TC_MASK         0x00000E00
++#define MPLS_LS_TC_SHIFT        9
++#define MPLS_LS_S_MASK          0x00000100
++#define MPLS_LS_S_SHIFT         8
++#define MPLS_LS_TTL_MASK        0x000000FF
++#define MPLS_LS_TTL_SHIFT       0
++
++#endif /* _UAPI_MPLS_H */
 -- 
 1.7.10.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
