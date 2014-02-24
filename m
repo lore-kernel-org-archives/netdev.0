@@ -1,115 +1,55 @@
-From: Prarit Bhargava <prarit@redhat.com>
-Subject: Re: [PATCH 1/2] ixgbe,
-	make interrupt allocations NUMA aware
-Date: Mon, 24 Feb 2014 14:39:58 -0500
-Message-ID: <530BA00E.4070802@redhat.com>
-References: <1393267913-28212-1-git-send-email-prarit@redhat.com>
-	<1393267913-28212-2-git-send-email-prarit@redhat.com>
-	<530B9CE8.2070800@intel.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: phy: add suspend_halted module param
+Date: Mon, 24 Feb 2014 20:39:39 +0100
+Message-ID: <20140224193939.GD29288@lunn.ch>
+References: <1393174719-20806-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <20140224191554.GC29288@lunn.ch>
+ <CAGVrzcaOSMQWJ69KHJ7TH0_BN9D-O4uoL=fLWDoE=xFdV4RJ4w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: nhorman@redhat.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	agospoda@redhat.com, John Ronciak <john.ronciak@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <530B9CE8.2070800@intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAGVrzcaOSMQWJ69KHJ7TH0_BN9D-O4uoL=fLWDoE=xFdV4RJ4w@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On 02/24/2014 02:26 PM, Alexander Duyck wrote:
-> On 02/24/2014 10:51 AM, Prarit Bhargava wrote:
->> The ixgbe driver creates one queue/cpu on the system in order to spread
->> work out on all cpus rather than restricting work to a single cpu.  This
->> model, while efficient, does not take into account the NUMA configuration
->> of the system.
->>
->> This patch introduces ixgbe_num_cpus() which returns
->> the number of online cpus if the adapter's PCI device has no NUMA
->> restrictions, and the number of cpus in the node if the PCI device is
->> allocated to a specific node.
->>
->> Signed-off-by: Prarit Bhargava <prarit@redhat.com>
->> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
->> Cc: Bruce Allan <bruce.w.allan@intel.com>
->> Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
->> Cc: Don Skidmore <donald.c.skidmore@intel.com>
->> Cc: Greg Rose <gregory.v.rose@intel.com>
->> Cc: Alex Duyck <alexander.h.duyck@intel.com>
->> Cc: John Ronciak <john.ronciak@intel.com>
->> Cc: Mitch Williams <mitch.a.williams@intel.com>
->> Cc: "David S. Miller" <davem@davemloft.net>
->> Cc: nhorman@redhat.com
->> Cc: agospoda@redhat.com
->> Cc: e1000-devel@lists.sourceforge.net
->> ---
->>  drivers/net/ethernet/intel/ixgbe/ixgbe.h       |    2 ++
->>  drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c   |   28 +++++++++++++++++++++---
->>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |    6 ++---
->>  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |    5 +++--
->>  4 files changed, 33 insertions(+), 8 deletions(-)
->>
+On Mon, Feb 24, 2014 at 11:37:15AM -0800, Florian Fainelli wrote:
+> 2014-02-24 11:15 GMT-08:00 Andrew Lunn <andrew@lunn.ch>:
+> > On Sun, Feb 23, 2014 at 05:58:39PM +0100, Sebastian Hesselbarth wrote:
+> >> commit 1211ce53077164e0d34641d0ca5fb4d4a7574498
+> >>   ("net: phy: resume/suspend PHYs on attach/detach")
+> >> introduced a feature to suspend PHYs when entering halted state.
+> >>
+> >> Unfortunately, not all bootloaders properly power-up PHYs on reset
+> >> and fail to access ethernet because the PHY is still powered down.
+> >>
+> >> Therefore, we add a boolean module parameter suspend_halted with
+> >> default value of true. Disabling that parameter prevents PHYs from
+> >> being suspended when entering halted state.
+> >
+> > Hi Sebastian
+> >
+> > Am i doing something silly here?
 > 
-> [...]
-> 
->> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> index 18076c4..b68a6e9 100644
->> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> @@ -4953,13 +4953,13 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
->>  	hw->subsystem_device_id = pdev->subsystem_device;
->>  
->>  	/* Set common capability flags and settings */
->> -	rss = min_t(int, IXGBE_MAX_RSS_INDICES, num_online_cpus());
->> +	rss = min_t(int, IXGBE_MAX_RSS_INDICES, ixgbe_num_cpus(adapter));
->>  	adapter->ring_feature[RING_F_RSS].limit = rss;
->>  	adapter->flags2 |= IXGBE_FLAG2_RSC_CAPABLE;
->>  	adapter->flags2 |= IXGBE_FLAG2_RSC_ENABLED;
->>  	adapter->max_q_vectors = MAX_Q_VECTORS_82599;
->>  	adapter->atr_sample_rate = 20;
->> -	fdir = min_t(int, IXGBE_MAX_FDIR_INDICES, num_online_cpus());
->> +	fdir = min_t(int, IXGBE_MAX_FDIR_INDICES, ixgbe_num_cpus(adapter));
->>  	adapter->ring_feature[RING_F_FDIR].limit = fdir;
->>  	adapter->fdir_pballoc = IXGBE_FDIR_PBALLOC_64K;
->>  #ifdef CONFIG_IXGBE_DCA
-> 
-> This is the one bit I object to in this patch.  The flow director queue
-> count should be equal to the number of online CPUs, or at least as close
-> to it as the hardware can get.  Otherwise ATR is completely useless.
+> Could the PHY be already suspended during your initial boot?
 
-I'm reading up on ATR now and I see your point completely.  I will remove this
-chunk in V2.  OOC, however, what about my concern with ATR & the location of the
-PCI device (on a different root bridge)?  Isn't that a concern with ATR or am I
-missing something with the overall scheme of ATR?
+No. I tftpboot.
 
-P.
+> If that
+> is the case, the first time we all phy_suspend() the flag is true, we
+> suspend it, and we never wake it again despite changing
+> suspend_halted. Does it work better if you specify this module
+> parameter on the initial kernel boot command-line?
 
-> 
-> Thanks,
-> 
-> Alex
+I tried that as well, after i emailed. Makes no difference, no working
+Ethernet.
 
-------------------------------------------------------------------------------
-Flow-based real-time traffic analytics software. Cisco certified tool.
-Monitor traffic, SLAs, QoS, Medianet, WAAS etc. with NetFlow Analyzer
-Customize your own dashboards, set traffic alerts and generate reports.
-Network behavioral analysis & security monitoring. All-in-one tool.
-http://pubads.g.doubleclick.net/gampad/clk?id=126839071&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+	Andrew
