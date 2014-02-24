@@ -1,61 +1,51 @@
 From: Somnath Kotur <somnath.kotur@emulex.com>
-Subject: [PATCH net 2/5] be2net: clear promiscuous bits in adapter->flags while disabling promiscuous mode
-Date: Mon, 24 Feb 2014 12:20:27 +0530
-Message-ID: <12524c44-4309-43ca-a84c-5accf381f130@CMEXHTCAS2.ad.emulex.com>
+Subject: [PATCH net 4/5] be2net: wait longer to reap TX compls in be_close()
+Date: Mon, 24 Feb 2014 12:20:52 +0530
+Message-ID: <57bc5399-f8f6-4c65-8cae-131c83d548ad@CMEXHTCAS1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <davem@davemloft.net>, Somnath kotur <somnath.kotur@emulex.com>,
-	Kalesh AP <kalesh.purayil@emulex.com>
+Cc: <davem@davemloft.net>,
+	Vasundhara Volam <vasundhara.volam@emulex.com>,
+	Sathya Perla <sathya.perla@emulex.com>,
+	Somnath Kotur <somnath.kotur@emulex.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:57245 "EHLO
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:57247 "EHLO
 	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750899AbaBXGw3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 01:52:29 -0500
+	with ESMTP id S1751836AbaBXGwf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 01:52:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Somnath kotur <somnath.kotur@emulex.com>
+From: Vasundhara Volam <vasundhara.volam@emulex.com>
 
-We should clear promiscuous bits in adapter->flags while disabling promiscuous
-mode. Else we will not put interface back into VLAN promisc mode if the vlans
-already added exceeds the maximum limit.
+be_close() currently waits for a max of 200ms to receive all pending
+TX compls. This timeout value was roughly calcuated based on 10G
+transmission speeds and the TX queue depth. This timeout may not be
+enough when the link is operating at lower speeds or in
+multi-channel/SR-IOV configs with TX-rate limiting setting.
+Increase the timeout to 2000ms and also bail-out if there is
+a HW-error.
 
-Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
+Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c |   12 +++++++++---
- 1 files changed, 9 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 45662af..9e6d678 100644
+index a9da6f9..f6a4481 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1157,6 +1157,14 @@ ret:
- 	return status;
- }
+@@ -1985,7 +1985,7 @@ static void be_tx_compl_clean(struct be_adapter *adapter)
+ 				pending_txqs--;
+ 		}
  
-+static void be_clear_promisc(struct be_adapter *adapter)
-+{
-+	adapter->promiscuous = false;
-+	adapter->flags &= ~BE_FLAGS_VLAN_PROMISC;
-+
-+	be_cmd_rx_filter(adapter, IFF_PROMISC, OFF);
-+}
-+
- static void be_set_rx_mode(struct net_device *netdev)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
-@@ -1170,9 +1178,7 @@ static void be_set_rx_mode(struct net_device *netdev)
+-		if (pending_txqs == 0 || ++timeo > 200)
++		if (pending_txqs == 0 || ++timeo > 2000 || be_hw_error(adapter))
+ 			break;
  
- 	/* BE was previously in promiscuous mode; disable it */
- 	if (adapter->promiscuous) {
--		adapter->promiscuous = false;
--		be_cmd_rx_filter(adapter, IFF_PROMISC, OFF);
--
-+		be_clear_promisc(adapter);
- 		if (adapter->vlans_added)
- 			be_vid_config(adapter);
- 	}
+ 		mdelay(1);
 -- 
 1.5.6.1
