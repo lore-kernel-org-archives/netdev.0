@@ -1,97 +1,71 @@
-From: Prarit Bhargava <prarit@redhat.com>
-Subject: Re: [PATCH 0/2] ixgbe, fix numa issues
-Date: Mon, 24 Feb 2014 14:34:33 -0500
-Message-ID: <530B9EC9.4080007@redhat.com>
-References: <1393267913-28212-1-git-send-email-prarit@redhat.com> <530B9C3E.1000308@intel.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: phy: add suspend_halted module param
+Date: Mon, 24 Feb 2014 11:37:15 -0800
+Message-ID: <CAGVrzcaOSMQWJ69KHJ7TH0_BN9D-O4uoL=fLWDoE=xFdV4RJ4w@mail.gmail.com>
+References: <1393174719-20806-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <20140224191554.GC29288@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	"David S. Miller" <davem@davemloft.net>, nhorman@redhat.com,
-	agospoda@redhat.com, e1000-devel@lists.sourceforge.net
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7731 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752539AbaBXTeq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Feb 2014 14:34:46 -0500
-In-Reply-To: <530B9C3E.1000308@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140224191554.GC29288@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-
-On 02/24/2014 02:23 PM, Alexander Duyck wrote:
-> On 02/24/2014 10:51 AM, Prarit Bhargava wrote:
->> The ixgbe driver makes some assumptions about the layout of cpus in the
->> system which are not always correct given a particular system layout.  The
->> ixgbe driver allocates one MSI/cpu for queue usage but the code does not take
->> into account that devices are located on NUMA nodes and that the cpus in a node
->> are not contiguous.
+2014-02-24 11:15 GMT-08:00 Andrew Lunn <andrew@lunn.ch>:
+> On Sun, Feb 23, 2014 at 05:58:39PM +0100, Sebastian Hesselbarth wrote:
+>> commit 1211ce53077164e0d34641d0ca5fb4d4a7574498
+>>   ("net: phy: resume/suspend PHYs on attach/detach")
+>> introduced a feature to suspend PHYs when entering halted state.
 >>
->> These issues were found while doing cpu hotplug testing, however, both of these
->> issues can lead to obvious system performance issues as they defeat the
->> purpose of having one MSI processing a queue per cpu.
+>> Unfortunately, not all bootloaders properly power-up PHYs on reset
+>> and fail to access ethernet because the PHY is still powered down.
 >>
->> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
->> Cc: Bruce Allan <bruce.w.allan@intel.com>
->> Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
->> Cc: Don Skidmore <donald.c.skidmore@intel.com>
->> Cc: Greg Rose <gregory.v.rose@intel.com>
->> Cc: Alex Duyck <alexander.h.duyck@intel.com>
->> Cc: John Ronciak <john.ronciak@intel.com>
->> Cc: Mitch Williams <mitch.a.williams@intel.com>
->> Cc: "David S. Miller" <davem@davemloft.net>
->> Cc: nhorman@redhat.com
->> Cc: agospoda@redhat.com
->> Cc: e1000-devel@lists.sourceforge.net
->>
->> Prarit Bhargava (2):
->>   ixgbe, make interrupt allocations NUMA aware
->>   ixgbe, don't assume mapping of numa node cpus
->>
->>  drivers/net/ethernet/intel/ixgbe/ixgbe.h       |    2 ++
->>  drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c   |   44 ++++++++++++++++++------
->>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |    6 ++--
->>  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |    5 +--
->>  4 files changed, 42 insertions(+), 15 deletions(-)
->>
-> 
-> This is a step in the right direction but totally defeats the purpose of
-> ATR.  With this change we might as well defeature ATR all together since
+>> Therefore, we add a boolean module parameter suspend_halted with
+>> default value of true. Disabling that parameter prevents PHYs from
+>> being suspended when entering halted state.
+>
+> Hi Sebastian
+>
+> Am i doing something silly here?
 
-ATR?  First hit on google is Americans for Tax Reform ;)
+Could the PHY be already suspended during your initial boot? If that
+is the case, the first time we all phy_suspend() the flag is true, we
+suspend it, and we never wake it again despite changing
+suspend_halted. Does it work better if you specify this module
+parameter on the initial kernel boot command-line?
 
-> things are now back to RSS w/ NUMA specific allocations which is what we
-> had a couple of years ago.  The code as it is written now would be a
-> better for for igb which doesn't have ATR than ixgbe.
+>
+> root@qnap:/sys/module/libphy/parameters# cat suspend_halted
+> Y
+> root@qnap:/sys/module/libphy/parameters# echo N > suspend_halted
+> root@qnap:/sys/module/libphy/parameters# cat suspend_halted
+> N
+> root@qnap:/sys/module/libphy/parameters# reboot
+> ...
+> ...
+>
+> Net:   egiga0 [PRIME]
+> Hit any key to stop autoboot:  0
+> Send Cmd : 0x68 to UART1
+> egiga0 no link
+> Using egiga0 device
+> TFTP from server 10.0.0.1; our IP address is 10.0.0.2
+> Filename 'uImage-qnap'.
+> Load address: 0x800000
+> Loading: T T
+>
+> Does not seem to work.
+>
+>      Andrew
 
-The big(ger) problem here is that the ixgbe (and other drivers IIUC) do not do a
-good job of handling MSIs, making sure they are launched on the right cpus, and
-cleaning up during cpu hotplug operations.  This code looks like it needs a bit
-of work so your advice is appreciated.
 
-> 
-> ATR is supposed to map 1:1 queues to CPUs.  The problem is RSS is also a
-> factor and not especially smart or NUMA aware.  The ideal solution would
-> be to allocate the first N CPUs, where N is the number in the local node
-> for ATR/RSS.  
 
-Okay ... I'll look into that.
-
-Then map all other queues as ATR with a 1:1 mapping to CPUs.
-> 
-
-Hmmm ... but what if off-node CPUs cannot reach the device?  Part of the puzzle
-here is that ACPI may be not only telling us that the device is on a specific
-node, but that the device is physically separated on a root bus.
-
-P.
+-- 
+Florian
