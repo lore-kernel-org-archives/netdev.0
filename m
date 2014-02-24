@@ -1,43 +1,43 @@
-From: Mike Pecovnik <mike.pecovnik@gmail.com>
-Subject: [PATCH net] net: Fix permission check in netlink_connect()
-Date: Mon, 24 Feb 2014 21:11:16 +0100
-Message-ID: <1393272676-3188-1-git-send-email-mike.pecovnik@gmail.com>
-Cc: Mike Pecovnik <mike.pecovnik@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f194.google.com ([209.85.215.194]:58726 "EHLO
-	mail-ea0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751480AbaBXUO0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 15:14:26 -0500
-Received: by mail-ea0-f194.google.com with SMTP id o10so1929928eaj.9
-        for <netdev@vger.kernel.org>; Mon, 24 Feb 2014 12:14:25 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: Re: [RFC v2 2/4] net: enables interface option to skip IP
+Date: Mon, 24 Feb 2014 12:33:35 -0800
+Message-ID: <CAB=NE6Uf63XAAi_Sy5iSy2sjfNdWd9QsPECMBVBrUX9z4_L5-g@mail.gmail.com>
+References: <1392433180-16052-1-git-send-email-mcgrof@do-not-panic.com>
+ <1392433180-16052-3-git-send-email-mcgrof@do-not-panic.com>
+ <1392668638.21106.5.camel@dcbw.local> <CAB=NE6XGBp1RwO63W0ac6tTr9JcRM9TB9sap4pa+8PMWwjxu6g@mail.gmail.com>
+ <1392828325.21976.6.camel@dcbw.local> <CAB=NE6VpUqwNNY4pgbS6du2VsZ6dH0TzQYXmiw6GGN-EiOsV6g@mail.gmail.com>
+ <1392857777.22693.14.camel@dcbw.local> <CAB=NE6Xvqcdje5OSxjzTRa3wv-vZHr+MJHY86ZCfFXU2Lpzi8Q@mail.gmail.com>
+ <1393266120.8041.19.camel@dcbw.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	xen-devel@lists.xenproject.org, kvm@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Dan Williams <dcbw@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1393266120.8041.19.camel@dcbw.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-netlink_sendmsg() was changed to prevent non-root processes from sending
-messages with dst_pid != 0.
-netlink_connect() however still only checks if nladdr->nl_groups is set.
-This patch modifies netlink_connect() to check for the same condition.
+On Mon, Feb 24, 2014 at 10:22 AM, Dan Williams <dcbw@redhat.com> wrote:
+> My use-case would simply be to have an analogue for the disable_ipv6
+> case.  In the future I expect more people will want to disable IPv4 as
+> they move to IPv6.  If you don't have something like disable_ipv4, then
+> there's no way to ensure that some random program or something doesn't
+> set up IPv4 stuff that you don't want.
+>
+> Same thing for IPv6; some people really don't want IPv6 enabled on an
+> interface no matter what; they don't want an IPv6LL address assigned,
+> they don't want kernel SLAAC, they want to ensure that *nothing*
+> IPv6-related gets done for that interface.  The same can be true for
+> IPv4, but we don't have a way of doing that right now.
 
-Signed-off-by: Mike Pecovnik <mike.pecovnik@gmail.com>
----
- net/netlink/af_netlink.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+I'll add this to my queue.
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index fdf5135..04748ab6 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1489,8 +1489,8 @@ static int netlink_connect(struct socket *sock, struct sockaddr *addr,
- 	if (addr->sa_family != AF_NETLINK)
- 		return -EINVAL;
- 
--	/* Only superuser is allowed to send multicasts */
--	if (nladdr->nl_groups && !netlink_capable(sock, NL_CFG_F_NONROOT_SEND))
-+	if ((nladdr->nl_groups || nladdr->nl_pid) &&
-+	    !netlink_capable(sock, NL_CFG_F_NONROOT_SEND))
- 		return -EPERM;
- 
- 	if (!nlk->portid)
--- 
-1.8.3.2
+  Luis
