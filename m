@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 03/13] {IPv4,xfrm} Add ESN support for AH ingress part
-Date: Mon, 24 Feb 2014 10:59:51 +0100
-Message-ID: <1393236001-2445-4-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 13/13] xfrm: Cleanup error handling of xfrm_state_clone
+Date: Mon, 24 Feb 2014 11:00:01 +0100
+Message-ID: <1393236001-2445-14-git-send-email-steffen.klassert@secunet.com>
 References: <1393236001-2445-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,86 +10,84 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	<netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:39090 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:39140 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751787AbaBXKAK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Feb 2014 05:00:10 -0500
+	id S1752181AbaBXKAS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Feb 2014 05:00:18 -0500
 In-Reply-To: <1393236001-2445-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fan Du <fan.du@windriver.com>
+The error pointer passed to xfrm_state_clone() is unchecked,
+so remove it and indicate an error by returning a null pointer.
 
-This patch add esn support for AH input stage by attaching upper 32bits
-sequence number right after packet payload as specified by RFC 4302.
-
-Then the ICV value will guard upper 32bits sequence number as well when
-packet getting in.
-
-Signed-off-by: Fan Du <fan.du@windriver.com>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/ipv4/ah4.c |   27 ++++++++++++++++++++++-----
- 1 file changed, 22 insertions(+), 5 deletions(-)
+ net/xfrm/xfrm_state.c |   16 +++++-----------
+ 1 file changed, 5 insertions(+), 11 deletions(-)
 
-diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
-index c6accac..54b965d 100644
---- a/net/ipv4/ah4.c
-+++ b/net/ipv4/ah4.c
-@@ -309,6 +309,10 @@ static int ah_input(struct xfrm_state *x, struct sk_buff *skb)
- 	struct ip_auth_hdr *ah;
- 	struct ah_data *ahp;
- 	int err = -ENOMEM;
-+	int seqhi_len = 0;
-+	__be32 *seqhi;
-+	int sglists = 0;
-+	struct scatterlist *seqhisg;
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index a750901..5339c26 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -1148,10 +1148,9 @@ out:
+ EXPORT_SYMBOL(xfrm_state_add);
  
- 	if (!pskb_may_pull(skb, sizeof(*ah)))
+ #ifdef CONFIG_XFRM_MIGRATE
+-static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig, int *errp)
++static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig)
+ {
+ 	struct net *net = xs_net(orig);
+-	int err = -ENOMEM;
+ 	struct xfrm_state *x = xfrm_state_alloc(net);
+ 	if (!x)
  		goto out;
-@@ -349,14 +353,22 @@ static int ah_input(struct xfrm_state *x, struct sk_buff *skb)
- 	iph = ip_hdr(skb);
- 	ihl = ip_hdrlen(skb);
+@@ -1200,15 +1199,13 @@ static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig, int *errp)
+ 	}
  
--	work_iph = ah_alloc_tmp(ahash, nfrags, ihl + ahp->icv_trunc_len);
-+	if (x->props.flags & XFRM_STATE_ESN) {
-+		sglists = 1;
-+		seqhi_len = sizeof(*seqhi);
-+	}
-+
-+	work_iph = ah_alloc_tmp(ahash, nfrags + sglists, ihl +
-+				ahp->icv_trunc_len + seqhi_len);
- 	if (!work_iph)
- 		goto out;
+ 	if (orig->replay_esn) {
+-		err = xfrm_replay_clone(x, orig);
+-		if (err)
++		if (xfrm_replay_clone(x, orig))
+ 			goto error;
+ 	}
  
--	auth_data = ah_tmp_auth(work_iph, ihl);
-+	seqhi = (__be32 *)((char *)work_iph + ihl);
-+	auth_data = ah_tmp_auth(seqhi, seqhi_len);
- 	icv = ah_tmp_icv(ahash, auth_data, ahp->icv_trunc_len);
- 	req = ah_tmp_req(ahash, icv);
- 	sg = ah_req_sg(ahash, req);
-+	seqhisg = sg + nfrags;
+ 	memcpy(&x->mark, &orig->mark, sizeof(x->mark));
  
- 	memcpy(work_iph, iph, ihl);
- 	memcpy(auth_data, ah->auth_data, ahp->icv_trunc_len);
-@@ -375,10 +387,15 @@ static int ah_input(struct xfrm_state *x, struct sk_buff *skb)
+-	err = xfrm_init_state(x);
+-	if (err)
++	if (xfrm_init_state(x) < 0)
+ 		goto error;
  
- 	skb_push(skb, ihl);
+ 	x->props.flags = orig->props.flags;
+@@ -1223,8 +1220,6 @@ static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig, int *errp)
+  error:
+ 	xfrm_state_put(x);
+ out:
+-	if (errp)
+-		*errp = err;
+ 	return NULL;
+ }
  
--	sg_init_table(sg, nfrags);
--	skb_to_sgvec(skb, sg, 0, skb->len);
-+	sg_init_table(sg, nfrags + sglists);
-+	skb_to_sgvec_nomark(skb, sg, 0, skb->len);
+@@ -1276,9 +1271,8 @@ struct xfrm_state *xfrm_state_migrate(struct xfrm_state *x,
+ 				      struct xfrm_migrate *m)
+ {
+ 	struct xfrm_state *xc;
+-	int err;
  
--	ahash_request_set_crypt(req, sg, icv, skb->len);
-+	if (x->props.flags & XFRM_STATE_ESN) {
-+		/* Attach seqhi sg right after packet payload */
-+		*seqhi = XFRM_SKB_CB(skb)->seq.input.hi;
-+		sg_set_buf(seqhisg, seqhi, seqhi_len);
-+	}
-+	ahash_request_set_crypt(req, sg, icv, skb->len + seqhi_len);
- 	ahash_request_set_callback(req, 0, ah_input_done, skb);
+-	xc = xfrm_state_clone(x, &err);
++	xc = xfrm_state_clone(x);
+ 	if (!xc)
+ 		return NULL;
  
- 	AH_SKB_CB(skb)->tmp = work_iph;
+@@ -1291,7 +1285,7 @@ struct xfrm_state *xfrm_state_migrate(struct xfrm_state *x,
+ 		   state is to be updated as it is a part of triplet */
+ 		xfrm_state_insert(xc);
+ 	} else {
+-		if ((err = xfrm_state_add(xc)) < 0)
++		if (xfrm_state_add(xc) < 0)
+ 			goto error;
+ 	}
+ 
 -- 
 1.7.9.5
