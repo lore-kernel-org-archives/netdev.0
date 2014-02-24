@@ -1,53 +1,65 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH net-next v5 2/9] xen-netback: Change TX path from grant
- copy to mapping
-Date: Mon, 24 Feb 2014 16:56:05 +0000
-Message-ID: <530B79A5.7010600@citrix.com>
-References: <1390253069-25507-1-git-send-email-zoltan.kiss@citrix.com>	 <1390253069-25507-3-git-send-email-zoltan.kiss@citrix.com> <1392745235.23084.60.camel@kazak.uk.xensource.com> <530925D5.4010800@schaman.hu>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2] net: bcmgenet: Use devm_ioremap_resource()
+Date: Mon, 24 Feb 2014 09:29:06 -0800
+Message-ID: <CAGVrzcZDCJq5vWurOyN-2um9LZp5Hg8UA_XFisqHMh5PjGxDkg@mail.gmail.com>
+References: <1393213644-11081-1-git-send-email-festevam@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<jonathan.davies@citrix.com>
-To: Zoltan Kiss <zoltan.kiss@schaman.hu>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <530925D5.4010800@schaman.hu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: Fabio Estevam <festevam@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:36724 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752559AbaBXR3q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 12:29:46 -0500
+Received: by mail-pd0-f180.google.com with SMTP id y10so942841pdj.39
+        for <netdev@vger.kernel.org>; Mon, 24 Feb 2014 09:29:46 -0800 (PST)
+In-Reply-To: <1393213644-11081-1-git-send-email-festevam@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 22/02/14 22:33, Zoltan Kiss wrote:
-> On 18/02/14 17:40, Ian Campbell wrote:
->> +     */
->>> +    skb->pfmemalloc    = false;
->>>   }
->>>
->>>   static int xenvif_get_extras(struct xenvif *vif,
->>> @@ -1372,7 +1341,7 @@ static bool tx_credit_exceeded(struct xenvif 
->>> *vif, unsigned size)
->>
->>> @@ -1581,7 +1535,11 @@ static int xenvif_tx_submit(struct xenvif *vif)
->>>           else if (txp->flags & XEN_NETTXF_data_validated)
->>>               skb->ip_summed = CHECKSUM_UNNECESSARY;
->>>
->>> -        xenvif_fill_frags(vif, skb);
->>> +        xenvif_fill_frags(vif,
->>> +                  skb,
->>> +                  skb_shinfo(skb)->destructor_arg ?
->>> +                  pending_idx :
->>> +                  INVALID_PENDING_IDX
->>
->> Couldn't xenvif_fill_frags calculate the 3rd argument itself given that
->> it has skb in hand.
-> We still have to pass pending_idx, as it is no longer in skb->data. I 
-> have plans (I've already prototyped it, actually) to move that 
-> pending_idx from skb->data to skb->cb, if that happens, this won't be 
-> necessary.
-> On the other hand, it makes more sense just to just pass pending_idx, 
-> and in fill_frags we can decide based on destructor_arg whether do we 
-> need it or not.
-Actually, I've just moved the skb->cb patch to the beginning of this 
-series, so we can completely omit that new parameter from fill_frags.
+2014-02-23 19:47 GMT-08:00 Fabio Estevam <festevam@gmail.com>:
+> From: Fabio Estevam <fabio.estevam@freescale.com>
+>
+> According to Documentation/driver-model/devres.txt, devm_request_and_ioremap()
+> is deprecated, so use devm_ioremap_resource() instead.
 
-Zoli
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+
+>
+> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+> ---
+> Changes since v1:
+> - Fix subject
+>
+>  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 7 +++----
+>  1 file changed, 3 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> index 0ebc297..844e081 100644
+> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> @@ -2481,10 +2481,9 @@ static int bcmgenet_probe(struct platform_device *pdev)
+>         }
+>
+>         r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+> -       priv->base = devm_request_and_ioremap(&pdev->dev, r);
+> -       if (!priv->base) {
+> -               dev_err(&pdev->dev, "can't ioremap\n");
+> -               err = -EINVAL;
+> +       priv->base = devm_ioremap_resource(&pdev->dev, r);
+> +       if (IS_ERR(priv->base)) {
+> +               err = PTR_ERR(priv->base);
+>                 goto err;
+>         }
+>
+> --
+> 1.8.1.2
+>
+
+
+
+-- 
+Florian
