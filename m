@@ -1,50 +1,76 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH net-next v2 0/5] gianfar: Device reset and reconfig fixes
-Date: Mon, 24 Feb 2014 12:13:41 +0200
-Message-ID: <1393236826-13059-1-git-send-email-claudiu.manoil@freescale.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next] loopback: sctp: add NETIF_F_SCTP_CSUM to
+ device features
+Date: Mon, 24 Feb 2014 10:17:58 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6C96DE@AcuExch.aculab.com>
+References: <1393074113-9922-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <ben@decadent.org.uk>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
+To: 'Daniel Borkmann' <dborkman@redhat.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:49359 "EHLO
-	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752054AbaBXKOq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 05:14:46 -0500
+Received: from mx0.aculab.com ([213.249.233.131]:55151 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752583AbaBXKS4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 05:18:56 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 08949-04 for <netdev@vger.kernel.org>;
+ Mon, 24 Feb 2014 10:18:54 +0000 (GMT)
+In-Reply-To: <1393074113-9922-1-git-send-email-dborkman@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These patches end up fixing some notable device reset & reconfig
-related problems.  One issue is on-the-fly (Rx/Tx on) programming
-of interrupt coalescing (IC) registers on the processing path,
-against HW recommendation.  This is an old issue that became visible
-after BQL introduction, as under certain conditions (low traffic)
-one TX interrupt gets lost and BQL fires Tx timeout as a result.
-Another notable issue is a race on the Tx path (xmit, clean_tx)
-during device reset (i.e. during Tx timeout watchdog firing)
-that leads to NULL access.
-Fixing the problematic on-thy-fly register writes (i.e. the IC regs)
-required the implementation of a MAC soft reset procedure.
-The race leading to NULL access was addressed by fixing the
-stop_gfar()/startup_gfar() pair (disable/enable napi a.s.o.)
-and adding the device state DOWN to sync with the TX path.
+From: Daniel Borkmann
+> Drivers are allowed to set NETIF_F_SCTP_CSUM if they have
+> hardware crc32c checksumming support for the SCTP protocol.
+> Currently, NETIF_F_SCTP_CSUM flag is available in igb,
+> ixgbe, i40e/i40evf drivers and for vlan devices.
+> 
+> If we don't have NETIF_F_SCTP_CSUM then crc32c is done
+> through CPU instructions, invoked from crypto layer, or
+> if not available as slow-path fallback in software.
+> 
+> Currently, loopback device propagates checksum offloading
+> feature flags in dev->features, but is missing SCTP checksum
+> offloading. Therefore, account for NETIF_F_SCTP_CSUM as
+> well.
+> 
+> Before patch:
+> 
+> ./netperf_sctp -H 192.168.0.100 -t SCTP_STREAM_MANY
+> SCTP 1-TO-MANY STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.0.100 () port 0 AF_INET
+> Recv   Send    Send
+> Socket Socket  Message  Elapsed
+> Size   Size    Size     Time     Throughput
+> bytes  bytes   bytes    secs.    10^6bits/sec
+> 
+> 4194304 4194304   4096    10.00    4683.50
+> 
+> After patch:
+...
+> 4194304 4194304   4096    10.00    15348.26
 
-Thanks.
---
-v2: Refactored if() clauses from gfar_set_features(), PATCH 2.
+That seems a much larger increase than you'd expect from removing
+a software CRC of the data chunks.
+Are you sure that some other difference in the data flows wasn't
+also triggered.
 
-Claudiu Manoil (5):
-  gianfar: Implement MAC reset and reconfig procedure
-  gianfar: Fix on-the-fly vlan and mtu updates
-  gianfar: Don't free/request irqs on device reset
-  gianfar: Fix device reset races (oops) for Tx
-  gianfar: Fix Tx int miss, dont write IC on-the-fly
+I'm also not sure that 4096 is a representative message size for SCTP.
+I'm not sure what else it is used for, but SCTP is used to carry various
+SS7 protocols and interfaces over IP (SIGTRAN: eg M3UA). For SS7 the maximum
+message size is around 270 bytes, and the average size nearer 100.
 
- drivers/net/ethernet/freescale/gianfar.c         | 599 ++++++++++-------------
- drivers/net/ethernet/freescale/gianfar.h         |  18 +-
- drivers/net/ethernet/freescale/gianfar_ethtool.c | 105 ++--
- 3 files changed, 324 insertions(+), 398 deletions(-)
+It is also difficult to model, but the typical traffic for SS7 is neither
+bulk data, nor command-response. Rather it is single packets (maybe received
+from one of many 64k links) that need transmitting within a reasonable time
+interval, a delay of 1-2ms might be acceptable.
+This basically means that Nagle has to be disabled (because you never want
+the 'timeout waiting for an ack') and almost every data chunk ends up in
+its own (short) ethernet frame.
 
--- 
-1.7.11.7
+	David
