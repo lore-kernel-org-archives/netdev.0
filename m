@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 13/13] xfrm: Cleanup error handling of xfrm_state_clone
-Date: Mon, 24 Feb 2014 11:00:01 +0100
-Message-ID: <1393236001-2445-14-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 04/13] {IPv6,xfrm} Add ESN support for AH egress part
+Date: Mon, 24 Feb 2014 10:59:52 +0100
+Message-ID: <1393236001-2445-5-git-send-email-steffen.klassert@secunet.com>
 References: <1393236001-2445-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,84 +10,86 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	<netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:39140 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:39137 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752181AbaBXKAS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Feb 2014 05:00:18 -0500
+	id S1751787AbaBXKAT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Feb 2014 05:00:19 -0500
 In-Reply-To: <1393236001-2445-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The error pointer passed to xfrm_state_clone() is unchecked,
-so remove it and indicate an error by returning a null pointer.
+From: Fan Du <fan.du@windriver.com>
 
+This patch add esn support for AH output stage by attaching upper 32bits
+sequence number right after packet payload as specified by RFC 4302.
+
+Then the ICV value will guard upper 32bits sequence number as well when
+packet going out.
+
+Signed-off-by: Fan Du <fan.du@windriver.com>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/xfrm/xfrm_state.c |   16 +++++-----------
- 1 file changed, 5 insertions(+), 11 deletions(-)
+ net/ipv6/ah6.c |   26 +++++++++++++++++++++-----
+ 1 file changed, 21 insertions(+), 5 deletions(-)
 
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index a750901..5339c26 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -1148,10 +1148,9 @@ out:
- EXPORT_SYMBOL(xfrm_state_add);
+diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+index 81e496a..8929812 100644
+--- a/net/ipv6/ah6.c
++++ b/net/ipv6/ah6.c
+@@ -346,6 +346,10 @@ static int ah6_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	struct ip_auth_hdr *ah;
+ 	struct ah_data *ahp;
+ 	struct tmp_ext *iph_ext;
++	int seqhi_len = 0;
++	__be32 *seqhi;
++	int sglists = 0;
++	struct scatterlist *seqhisg;
  
- #ifdef CONFIG_XFRM_MIGRATE
--static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig, int *errp)
-+static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig)
- {
- 	struct net *net = xs_net(orig);
--	int err = -ENOMEM;
- 	struct xfrm_state *x = xfrm_state_alloc(net);
- 	if (!x)
+ 	ahp = x->data;
+ 	ahash = ahp->ahash;
+@@ -359,15 +363,22 @@ static int ah6_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	if (extlen)
+ 		extlen += sizeof(*iph_ext);
+ 
++	if (x->props.flags & XFRM_STATE_ESN) {
++		sglists = 1;
++		seqhi_len = sizeof(*seqhi);
++	}
+ 	err = -ENOMEM;
+-	iph_base = ah_alloc_tmp(ahash, nfrags, IPV6HDR_BASELEN + extlen);
++	iph_base = ah_alloc_tmp(ahash, nfrags + sglists, IPV6HDR_BASELEN +
++				extlen + seqhi_len);
+ 	if (!iph_base)
  		goto out;
-@@ -1200,15 +1199,13 @@ static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig, int *errp)
- 	}
  
- 	if (orig->replay_esn) {
--		err = xfrm_replay_clone(x, orig);
--		if (err)
-+		if (xfrm_replay_clone(x, orig))
- 			goto error;
- 	}
+ 	iph_ext = ah_tmp_ext(iph_base);
+-	icv = ah_tmp_icv(ahash, iph_ext, extlen);
++	seqhi = (__be32 *)((char *)iph_ext + extlen);
++	icv = ah_tmp_icv(ahash, seqhi, seqhi_len);
+ 	req = ah_tmp_req(ahash, icv);
+ 	sg = ah_req_sg(ahash, req);
++	seqhisg = sg + nfrags;
  
- 	memcpy(&x->mark, &orig->mark, sizeof(x->mark));
+ 	ah = ip_auth_hdr(skb);
+ 	memset(ah->auth_data, 0, ahp->icv_trunc_len);
+@@ -411,10 +422,15 @@ static int ah6_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	ah->spi = x->id.spi;
+ 	ah->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.low);
  
--	err = xfrm_init_state(x);
--	if (err)
-+	if (xfrm_init_state(x) < 0)
- 		goto error;
+-	sg_init_table(sg, nfrags);
+-	skb_to_sgvec(skb, sg, 0, skb->len);
++	sg_init_table(sg, nfrags + sglists);
++	skb_to_sgvec_nomark(skb, sg, 0, skb->len);
  
- 	x->props.flags = orig->props.flags;
-@@ -1223,8 +1220,6 @@ static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig, int *errp)
-  error:
- 	xfrm_state_put(x);
- out:
--	if (errp)
--		*errp = err;
- 	return NULL;
- }
+-	ahash_request_set_crypt(req, sg, icv, skb->len);
++	if (x->props.flags & XFRM_STATE_ESN) {
++		/* Attach seqhi sg right after packet payload */
++		*seqhi = htonl(XFRM_SKB_CB(skb)->seq.output.hi);
++		sg_set_buf(seqhisg, seqhi, seqhi_len);
++	}
++	ahash_request_set_crypt(req, sg, icv, skb->len + seqhi_len);
+ 	ahash_request_set_callback(req, 0, ah6_output_done, skb);
  
-@@ -1276,9 +1271,8 @@ struct xfrm_state *xfrm_state_migrate(struct xfrm_state *x,
- 				      struct xfrm_migrate *m)
- {
- 	struct xfrm_state *xc;
--	int err;
- 
--	xc = xfrm_state_clone(x, &err);
-+	xc = xfrm_state_clone(x);
- 	if (!xc)
- 		return NULL;
- 
-@@ -1291,7 +1285,7 @@ struct xfrm_state *xfrm_state_migrate(struct xfrm_state *x,
- 		   state is to be updated as it is a part of triplet */
- 		xfrm_state_insert(xc);
- 	} else {
--		if ((err = xfrm_state_add(xc)) < 0)
-+		if (xfrm_state_add(xc) < 0)
- 			goto error;
- 	}
- 
+ 	AH_SKB_CB(skb)->tmp = iph_base;
 -- 
 1.7.9.5
