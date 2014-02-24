@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 11/13] xfrm: Remove caching of xfrm_policy_sk_bundles
-Date: Mon, 24 Feb 2014 10:59:59 +0100
-Message-ID: <1393236001-2445-12-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 05/13] {IPv6,xfrm} Add ESN support for AH ingress part
+Date: Mon, 24 Feb 2014 10:59:53 +0100
+Message-ID: <1393236001-2445-6-git-send-email-steffen.klassert@secunet.com>
 References: <1393236001-2445-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,107 +10,88 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	<netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:39119 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:39103 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751915AbaBXKAO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Feb 2014 05:00:14 -0500
+	id S1751915AbaBXKAM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Feb 2014 05:00:12 -0500
 In-Reply-To: <1393236001-2445-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We currently cache socket policy bundles at xfrm_policy_sk_bundles.
-These cached bundles are never used. Instead we create and cache
-a new one whenever xfrm_lookup() is called on a socket policy.
+From: Fan Du <fan.du@windriver.com>
 
-Most protocols cache the used routes to the socket, so let's
-remove the unused caching of socket policy bundles in xfrm.
+This patch add esn support for AH input stage by attaching upper 32bits
+sequence number right after packet payload as specified by RFC 4302.
 
+Then the ICV value will guard upper 32bits sequence number as well when
+packet going in.
+
+Signed-off-by: Fan Du <fan.du@windriver.com>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/net/netns/xfrm.h |    1 -
- net/xfrm/xfrm_policy.c   |   28 ----------------------------
- 2 files changed, 29 deletions(-)
+ net/ipv6/ah6.c |   30 ++++++++++++++++++++++++------
+ 1 file changed, 24 insertions(+), 6 deletions(-)
 
-diff --git a/include/net/netns/xfrm.h b/include/net/netns/xfrm.h
-index 52d0086..51f0dce 100644
---- a/include/net/netns/xfrm.h
-+++ b/include/net/netns/xfrm.h
-@@ -59,7 +59,6 @@ struct netns_xfrm {
- 	struct dst_ops		xfrm6_dst_ops;
- #endif
- 	spinlock_t xfrm_state_lock;
--	spinlock_t xfrm_policy_sk_bundle_lock;
- 	rwlock_t xfrm_policy_lock;
- 	struct mutex xfrm_cfg_mutex;
+diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+index 8929812..6c5f094 100644
+--- a/net/ipv6/ah6.c
++++ b/net/ipv6/ah6.c
+@@ -530,6 +530,10 @@ static int ah6_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	int nexthdr;
+ 	int nfrags;
+ 	int err = -ENOMEM;
++	int seqhi_len = 0;
++	__be32 *seqhi;
++	int sglists = 0;
++	struct scatterlist *seqhisg;
  
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 2232c6f..bb3669d 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -39,8 +39,6 @@
- #define XFRM_QUEUE_TMO_MAX ((unsigned)(60*HZ))
- #define XFRM_MAX_QUEUE_LEN	100
+ 	if (!pskb_may_pull(skb, sizeof(struct ip_auth_hdr)))
+ 		goto out;
+@@ -566,14 +570,22 @@ static int ah6_input(struct xfrm_state *x, struct sk_buff *skb)
  
--static struct dst_entry *xfrm_policy_sk_bundles;
--
- static DEFINE_SPINLOCK(xfrm_policy_afinfo_lock);
- static struct xfrm_policy_afinfo __rcu *xfrm_policy_afinfo[NPROTO]
- 						__read_mostly;
-@@ -2109,13 +2107,6 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
- 				goto no_transform;
- 			}
+ 	skb_push(skb, hdr_len);
  
--			dst_hold(&xdst->u.dst);
--
--			spin_lock_bh(&net->xfrm.xfrm_policy_sk_bundle_lock);
--			xdst->u.dst.next = xfrm_policy_sk_bundles;
--			xfrm_policy_sk_bundles = &xdst->u.dst;
--			spin_unlock_bh(&net->xfrm.xfrm_policy_sk_bundle_lock);
--
- 			route = xdst->route;
- 		}
- 	}
-@@ -2549,33 +2540,15 @@ static struct dst_entry *xfrm_negative_advice(struct dst_entry *dst)
- 	return dst;
- }
+-	work_iph = ah_alloc_tmp(ahash, nfrags, hdr_len + ahp->icv_trunc_len);
++	if (x->props.flags & XFRM_STATE_ESN) {
++		sglists = 1;
++		seqhi_len = sizeof(*seqhi);
++	}
++
++	work_iph = ah_alloc_tmp(ahash, nfrags + sglists, hdr_len +
++				ahp->icv_trunc_len + seqhi_len);
+ 	if (!work_iph)
+ 		goto out;
  
--static void __xfrm_garbage_collect(struct net *net)
--{
--	struct dst_entry *head, *next;
--
--	spin_lock_bh(&net->xfrm.xfrm_policy_sk_bundle_lock);
--	head = xfrm_policy_sk_bundles;
--	xfrm_policy_sk_bundles = NULL;
--	spin_unlock_bh(&net->xfrm.xfrm_policy_sk_bundle_lock);
--
--	while (head) {
--		next = head->next;
--		dst_free(head);
--		head = next;
--	}
--}
--
- void xfrm_garbage_collect(struct net *net)
- {
- 	flow_cache_flush(net);
--	__xfrm_garbage_collect(net);
- }
- EXPORT_SYMBOL(xfrm_garbage_collect);
+-	auth_data = ah_tmp_auth(work_iph, hdr_len);
+-	icv = ah_tmp_icv(ahash, auth_data, ahp->icv_trunc_len);
++	auth_data = ah_tmp_auth((u8 *)work_iph, hdr_len);
++	seqhi = (__be32 *)(auth_data + ahp->icv_trunc_len);
++	icv = ah_tmp_icv(ahash, seqhi, seqhi_len);
+ 	req = ah_tmp_req(ahash, icv);
+ 	sg = ah_req_sg(ahash, req);
++	seqhisg = sg + nfrags;
  
- static void xfrm_garbage_collect_deferred(struct net *net)
- {
- 	flow_cache_flush_deferred(net);
--	__xfrm_garbage_collect(net);
- }
+ 	memcpy(work_iph, ip6h, hdr_len);
+ 	memcpy(auth_data, ah->auth_data, ahp->icv_trunc_len);
+@@ -588,10 +600,16 @@ static int ah6_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	ip6h->flow_lbl[2] = 0;
+ 	ip6h->hop_limit   = 0;
  
- static void xfrm_init_pmtu(struct dst_entry *dst)
-@@ -2944,7 +2917,6 @@ static int __net_init xfrm_net_init(struct net *net)
- 	/* Initialize the per-net locks here */
- 	spin_lock_init(&net->xfrm.xfrm_state_lock);
- 	rwlock_init(&net->xfrm.xfrm_policy_lock);
--	spin_lock_init(&net->xfrm.xfrm_policy_sk_bundle_lock);
- 	mutex_init(&net->xfrm.xfrm_cfg_mutex);
+-	sg_init_table(sg, nfrags);
+-	skb_to_sgvec(skb, sg, 0, skb->len);
++	sg_init_table(sg, nfrags + sglists);
++	skb_to_sgvec_nomark(skb, sg, 0, skb->len);
++
++	if (x->props.flags & XFRM_STATE_ESN) {
++		/* Attach seqhi sg right after packet payload */
++		*seqhi = XFRM_SKB_CB(skb)->seq.input.hi;
++		sg_set_buf(seqhisg, seqhi, seqhi_len);
++	}
  
- 	flow_cache_init(net);
+-	ahash_request_set_crypt(req, sg, icv, skb->len);
++	ahash_request_set_crypt(req, sg, icv, skb->len + seqhi_len);
+ 	ahash_request_set_callback(req, 0, ah6_input_done, skb);
+ 
+ 	AH_SKB_CB(skb)->tmp = work_iph;
 -- 
 1.7.9.5
