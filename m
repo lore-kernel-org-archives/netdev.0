@@ -1,115 +1,71 @@
 From: Somnath Kotur <somnath.kotur@emulex.com>
-Subject: [PATCH net 1/5] be2net: Fix to reset transparent vlan tagging
-Date: Mon, 24 Feb 2014 12:19:45 +0530
-Message-ID: <55a3e6c7-ffd9-4610-b94f-dbfcf552b4c5@CMEXHTCAS1.ad.emulex.com>
+Subject: [PATCH net 3/5] be2net: Fix skb double free in be_xmit_wrokarounds() failure path
+Date: Mon, 24 Feb 2014 12:20:40 +0530
+Message-ID: <7103daf2-5faa-4d2e-8e12-40cf7b4b574f@CMEXHTCAS1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <davem@davemloft.net>, Somnath Kotur <somnath.kotur@emulex.com>,
-	Kalesh AP <kalesh.purayil@emulex.com>
+Cc: <davem@davemloft.net>,
+	Vasundhara Volam <vasundhara.volam@emulex.com>,
+	Sathya Perla <sathya.perla@emulex.com>,
+	Somnath Kotur <somnath.kotur@emulex.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:8484 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751202AbaBXGvn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 01:51:43 -0500
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:57245 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751483AbaBXGw3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 01:52:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For disabling transparent tagging issue SET_HSW_CONFIG with pvid_valid=1
-and pvid=0xFFF and not with the default pvid as this case would fail in Lancer.
-Hence removing the get_hsw_config call from be_vf_setup() as it's
-only use of getting default pvid is no longer needed.
+From: Vasundhara Volam <vasundhara.volam@emulex.com>
 
-Also do proper housekeeping only if the FW command succeeds.
+skb_padto(), skb_share_check() and __vlan_put_tag() routines free
+skb when they return an error. This patch fixes be_xmit_workarounds()
+to not free skb again in such cases.
 
-Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
+Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h      |    4 ++-
- drivers/net/ethernet/emulex/benet/be_main.c |   28 ++++++++------------------
- 2 files changed, 12 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_main.c |    7 ++++---
+ 1 files changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 8d09615..5b371a2 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -350,11 +350,13 @@ struct be_drv_stats {
- 	u32 roce_drops_crc;
- };
- 
-+/* A vlan-id of 0xFFF must be used to clear transparent vlan-tagging */
-+#define BE_RESET_VLAN_TAG_ID	0xFFF
-+
- struct be_vf_cfg {
- 	unsigned char mac_addr[ETH_ALEN];
- 	int if_handle;
- 	int pmac_id;
--	u16 def_vid;
- 	u16 vlan_tag;
- 	u32 tx_rate;
- };
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 04ac9c6..45662af 100644
+index 9e6d678..a9da6f9 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1287,24 +1287,20 @@ static int be_set_vf_vlan(struct net_device *netdev,
- 
- 	if (vlan || qos) {
- 		vlan |= qos << VLAN_PRIO_SHIFT;
--		if (vf_cfg->vlan_tag != vlan) {
--			/* If this is new value, program it. Else skip. */
--			vf_cfg->vlan_tag = vlan;
-+		if (vf_cfg->vlan_tag != vlan)
- 			status = be_cmd_set_hsw_config(adapter, vlan, vf + 1,
- 						       vf_cfg->if_handle, 0);
--		}
- 	} else {
- 		/* Reset Transparent Vlan Tagging. */
--		vf_cfg->vlan_tag = 0;
--		vlan = vf_cfg->def_vid;
--		status = be_cmd_set_hsw_config(adapter, vlan, vf + 1,
--					       vf_cfg->if_handle, 0);
-+		status = be_cmd_set_hsw_config(adapter, BE_RESET_VLAN_TAG_ID,
-+					       vf + 1, vf_cfg->if_handle, 0);
+@@ -927,7 +927,7 @@ static struct sk_buff *be_xmit_workarounds(struct be_adapter *adapter,
+ 	 */
+ 	if (unlikely(!BEx_chip(adapter) && skb->len <= 32)) {
+ 		if (skb_padto(skb, 36))
+-			goto tx_drop;
++			goto err;
+ 		skb->len = 36;
  	}
  
--
--	if (status)
-+	if (!status)
-+		vf_cfg->vlan_tag = vlan;
-+	else
- 		dev_info(&adapter->pdev->dev,
--				"VLAN %d config on VF %d failed\n", vlan, vf);
-+			 "VLAN %d config on VF %d failed\n", vlan, vf);
- 	return status;
+@@ -959,7 +959,7 @@ static struct sk_buff *be_xmit_workarounds(struct be_adapter *adapter,
+ 	    vlan_tx_tag_present(skb)) {
+ 		skb = be_insert_vlan_in_pkt(adapter, skb, skip_hw_vlan);
+ 		if (unlikely(!skb))
+-			goto tx_drop;
++			goto err;
+ 	}
+ 
+ 	/* HW may lockup when VLAN HW tagging is requested on
+@@ -981,12 +981,13 @@ static struct sk_buff *be_xmit_workarounds(struct be_adapter *adapter,
+ 	    be_vlan_tag_tx_chk(adapter, skb)) {
+ 		skb = be_insert_vlan_in_pkt(adapter, skb, skip_hw_vlan);
+ 		if (unlikely(!skb))
+-			goto tx_drop;
++			goto err;
+ 	}
+ 
+ 	return skb;
+ tx_drop:
+ 	dev_kfree_skb_any(skb);
++err:
+ 	return NULL;
  }
  
-@@ -3013,11 +3009,11 @@ static int be_vf_setup_init(struct be_adapter *adapter)
- 
- static int be_vf_setup(struct be_adapter *adapter)
- {
-+	struct device *dev = &adapter->pdev->dev;
- 	struct be_vf_cfg *vf_cfg;
--	u16 def_vlan, lnk_speed;
- 	int status, old_vfs, vf;
--	struct device *dev = &adapter->pdev->dev;
- 	u32 privileges;
-+	u16 lnk_speed;
- 
- 	old_vfs = pci_num_vf(adapter->pdev);
- 	if (old_vfs) {
-@@ -3084,12 +3080,6 @@ static int be_vf_setup(struct be_adapter *adapter)
- 		if (!status)
- 			vf_cfg->tx_rate = lnk_speed;
- 
--		status = be_cmd_get_hsw_config(adapter, &def_vlan,
--					       vf + 1, vf_cfg->if_handle, NULL);
--		if (status)
--			goto err;
--		vf_cfg->def_vid = def_vlan;
--
- 		if (!old_vfs)
- 			be_cmd_enable_vf(adapter, vf + 1);
- 	}
 -- 
 1.5.6.1
