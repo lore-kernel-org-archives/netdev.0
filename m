@@ -1,45 +1,47 @@
-From: Tobias Waldekranz <tobias@waldekranz.com>
-Subject: Re: Deliver skbs to intermediate interfaces, when using cascaded
- rx-handlers
-Date: Mon, 24 Feb 2014 08:28:29 +0100
-Message-ID: <20140224072829.GB20295@gmail.com>
-References: <20140221130553.GE2870@minipsycho.orion>
- <20140221143114.GC25406@gmail.com>
- <20140221144827.GG2870@minipsycho.orion>
- <20140221.122359.1820499999845408491.davem@davemloft.net>
+From: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Subject: Re: [PATCH 1/4] net: rfkill: gpio: remove unused and
+ obsoleteplatform parameters
+Date: Mon, 24 Feb 2014 10:38:20 +0200
+Message-ID: <20140224083820.GA15512@xps8300>
+References: <1392900697-27577-1-git-send-email-heikki.krogerus@linux.intel.com>
+ <1723302.jKkc8NDNRI@fb07-iapwap2>
+ <20140221142349.GB10489@xps8300>
+ <2556368.zbgmUK7WzX@ax5200p>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jiri@resnulli.us, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f47.google.com ([209.85.215.47]:63633 "EHLO
-	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752039AbaBXH2z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 02:28:55 -0500
-Received: by mail-la0-f47.google.com with SMTP id y1so757395lam.6
-        for <netdev@vger.kernel.org>; Sun, 23 Feb 2014 23:28:53 -0800 (PST)
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Chen-Yu Tsai <wens@csie.org>,
+	Rhyland Klein <rklein@nvidia.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Marc Dietrich <marvin24@gmx.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20140221.122359.1820499999845408491.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <2556368.zbgmUK7WzX@ax5200p>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 21, 2014 at 12:23:59PM -0500, David Miller wrote:
-> From: Jiri Pirko <jiri@resnulli.us>
-> Date: Fri, 21 Feb 2014 15:48:27 +0100
+On Sat, Feb 22, 2014 at 11:32:04PM +0100, Marc Dietrich wrote:
+> On Friday 21 February 2014 16:23:49 Heikki Krogerus wrote:
+> > On Fri, Feb 21, 2014 at 02:55:14PM +0100, Marc Dietrich wrote:
+> > > arch/arm/mach-tegra/board-paz00.c is still using platform data. Is there
+> > > some prerequisite patch I'm missing (3.14-rc3) or how can this file be
+> > > converted? We are waiting for DT support to arrive so we can finally
+> > > remove this file.
+> > True! It still set's the shutdown_gpio and reset_gpio members. I think
+> > I'll leave the header untouched and just clean net/rfkill/rfkill-gpio.c
+> > in this patch. We can remove the whole header after you guys have moved
+> > to DT.
 > 
-> > Would not it be better to make DSA better in order to achieve your goal?
-> 
-> +1
+> Why? Just update the board file to remove those entries. I just checked that 
+> it's working fine without. So if you don't mind, add a patch to remove the 
+> entries as the first patch in your series.
 
-Ok, message received. I will try to merge the changes back into the
-mainline DSA infrastructure. I honestly didn't think it would be of
-much interest to anyone.
+I was hoping I wouldn't have to touch arch/arm/mach-tegra/board-paz00.c
+any more. But OK, I'll add a patch and remove the entries.
 
-The original question is really separate from that though. In this
-case it is a DSA driver at the bottom, but the question applies to any
-case where there are multiple rx-handlers in a cascade
-configuration. Wouldn't you agree?
+Thanks,
 
 -- 
-Thanks
- - wkz
+heikki
