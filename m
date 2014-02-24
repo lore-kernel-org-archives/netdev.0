@@ -1,52 +1,44 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] loopback: sctp: add NETIF_F_SCTP_CSUM to
- device features
-Date: Mon, 24 Feb 2014 14:28:48 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6C9A92@AcuExch.aculab.com>
-References: <1393074113-9922-1-git-send-email-dborkman@redhat.com>
- <063D6719AE5E284EB5DD2968C1650D6D0F6C96DE@AcuExch.aculab.com>
- <530B1F93.4010308@redhat.com>
- <063D6719AE5E284EB5DD2968C1650D6D0F6C9802@AcuExch.aculab.com>
- <530B34D3.2050307@redhat.com>
- <063D6719AE5E284EB5DD2968C1650D6D0F6C99F9@AcuExch.aculab.com>
- <530B51CA.3090606@redhat.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: [PATCH net v2 1/4] qlcnic: Fix function return error check
+Date: Mon, 24 Feb 2014 08:54:46 -0500
+Message-ID: <1393250089-31104-2-git-send-email-shahed.shaikh@qlogic.com>
+References: <1393250089-31104-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
-To: 'Daniel Borkmann' <dborkman@redhat.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:59656 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752484AbaBXO3p convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 09:29:45 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 12416-04 for <netdev@vger.kernel.org>;
- Mon, 24 Feb 2014 14:29:41 +0000 (GMT)
-In-Reply-To: <530B51CA.3090606@redhat.com>
-Content-Language: en-US
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:27699 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752516AbaBXOaR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 09:30:17 -0500
+In-Reply-To: <1393250089-31104-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann 
-> > Maybe the _le has something to do with it.
-> > Could it be bit-reversing the crc and data bytes all the time?
-> > The packet will (one would hope) want the crc in the same bit-order
-> > as the data, so no bit reversal is needed - just the correct logic
-> > and lookup table.
-> 
-> Although it's a bit off-topic for this patch, but I'll have a look
-> into __crc32c_le(); maybe something is just wrong with that code.
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-Yes it generates a nice dependency chain of:
-	xor	table_b(,%reg,4),%eax
-using 8 tables (256*4 bytes each).
+Driver was treating -ve return value as success in case of
+qlcnic_enable_msi_legacy() failure
 
-I bet that with a little bit of pipelining a simple byte by byte
-loop should manage 1 byte every two clocks (ie 1 memory cycle per
-clock).
+Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-	David
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index ba78c74..149c4b6 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -818,7 +818,7 @@ static int qlcnic_82xx_setup_intr(struct qlcnic_adapter *adapter)
+ 			qlcnic_disable_multi_tx(adapter);
+ 
+ 			err = qlcnic_enable_msi_legacy(adapter);
+-			if (!err)
++			if (err)
+ 				return err;
+ 		}
+ 	}
+-- 
+1.8.1.4
