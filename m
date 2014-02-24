@@ -1,72 +1,56 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next v3 3/3] cfg80211: add MPLS and 802.21 classification
-Date: Mon, 24 Feb 2014 22:57:24 +0300
-Message-ID: <530BA424.8070007@cogentembedded.com>
-References: <1393244920-15903-1-git-send-email-sw@simonwunderlich.de> <1393244920-15903-4-git-send-email-sw@simonwunderlich.de>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: phy: add suspend_halted module param
+Date: Mon, 24 Feb 2014 20:15:54 +0100
+Message-ID: <20140224191554.GC29288@lunn.ch>
+References: <1393174719-20806-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
-	mathias.kretschmer@fokus.fraunhofer.de
-To: Simon Wunderlich <sw@simonwunderlich.de>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:50890 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752184AbaBXS52 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 13:57:28 -0500
-Received: by mail-la0-f46.google.com with SMTP id hr17so399560lab.19
-        for <netdev@vger.kernel.org>; Mon, 24 Feb 2014 10:57:27 -0800 (PST)
-In-Reply-To: <1393244920-15903-4-git-send-email-sw@simonwunderlich.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1393174719-20806-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Sun, Feb 23, 2014 at 05:58:39PM +0100, Sebastian Hesselbarth wrote:
+> commit 1211ce53077164e0d34641d0ca5fb4d4a7574498
+>   ("net: phy: resume/suspend PHYs on attach/detach")
+> introduced a feature to suspend PHYs when entering halted state.
+> 
+> Unfortunately, not all bootloaders properly power-up PHYs on reset
+> and fail to access ethernet because the PHY is still powered down.
+> 
+> Therefore, we add a boolean module parameter suspend_halted with
+> default value of true. Disabling that parameter prevents PHYs from
+> being suspended when entering halted state.
 
-On 02/24/2014 03:28 PM, Simon Wunderlich wrote:
+Hi Sebastian
 
-> MPLS labels may contain traffic control information, which should be
-> evaluated and used by the wireless subsystem if present.
+Am i doing something silly here?
 
-> Also check for IEEE 802.21 which is always network control traffic.
+root@qnap:/sys/module/libphy/parameters# cat suspend_halted 
+Y
+root@qnap:/sys/module/libphy/parameters# echo N > suspend_halted 
+root@qnap:/sys/module/libphy/parameters# cat suspend_halted 
+N
+root@qnap:/sys/module/libphy/parameters# reboot
+...
+...
 
-> Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
-> Signed-off-by: Mathias Kretschmer <mathias.kretschmer@fokus.fraunhofer.de>
-> ---
-> Changes to second version:
+Net:   egiga0 [PRIME]
+Hit any key to stop autoboot:  0 
+Send Cmd : 0x68 to UART1
+egiga0 no link
+Using egiga0 device
+TFTP from server 10.0.0.1; our IP address is 10.0.0.2
+Filename 'uImage-qnap'.
+Load address: 0x800000
+Loading: T T 
 
->   * rely on skb->protocol instead of checking ethertype
+Does not seem to work.
 
-> Changes to first version:
->
->   * include linux/mpls.h, not the UAPI one
->   * change __constant_htons to htons
-> ---
->   net/wireless/util.c |   16 ++++++++++++++++
->   1 file changed, 16 insertions(+)
-
-> diff --git a/net/wireless/util.c b/net/wireless/util.c
-> index d39c371..6799d5a 100644
-> --- a/net/wireless/util.c
-> +++ b/net/wireless/util.c
-[...]
-> @@ -717,6 +718,21 @@ unsigned int cfg80211_classify8021d(struct sk_buff *skb,
->   	case htons(ETH_P_IPV6):
->   		dscp = ipv6_get_dsfield(ipv6_hdr(skb)) & 0xfc;
->   		break;
-> +	case htons(ETH_P_MPLS_UC):
-> +	case htons(ETH_P_MPLS_MC): {
-> +		struct mpls_label_stack mpls_tmp, *mpls;
-> +
-> +		mpls = skb_header_pointer(skb, sizeof(struct ethhdr),
-> +					  sizeof(*mpls), &mpls_tmp);
-> +		if (!mpls)
-> +			return 0;
-> +
-> +		return (ntohl(mpls->entry) & MPLS_LS_TC_MASK)
-> +			>> MPLS_LS_TC_SHIFT;
-> +		}
-
-    Brace is over-indented here, it can't be at the same level as the 
-statements it embraces.
-
-WBR, Sergei
+     Andrew
