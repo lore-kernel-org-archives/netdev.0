@@ -1,45 +1,73 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH net-next v5 0/9] xen-netback: TX grant mapping with SKBTX_DEV_ZEROCOPY
- instead of copy
-Date: Mon, 24 Feb 2014 15:31:17 +0000
-Message-ID: <530B65C5.4040201@citrix.com>
-References: <1390253069-25507-1-git-send-email-zoltan.kiss@citrix.com> <1392803434.23084.97.camel@kazak.uk.xensource.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] bridge: orphan frags on local receive
+Date: Mon, 24 Feb 2014 17:49:21 +0200
+Message-ID: <20140224154921.GH8981@redhat.com>
+References: <530B4534.3000106@huawei.com>
+ <20140224132926.GF8981@redhat.com>
+ <530B4E8B.5050007@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<jonathan.davies@citrix.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1392803434.23084.97.camel@kazak.uk.xensource.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, KVM list <kvm@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Qin Chuanyu <qinchuanyu@huawei.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <530B4E8B.5050007@huawei.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 19/02/14 09:50, Ian Campbell wrote:
-> On Mon, 2014-01-20 at 21:24 +0000, Zoltan Kiss wrote:
->> A long known problem of the upstream netback implementation that on the TX
->> path (from guest to Dom0) it copies the whole packet from guest memory into
->> Dom0. That simply became a bottleneck with 10Gb NICs, and generally it's a
->> huge perfomance penalty. The classic kernel version of netback used grant
->> mapping, and to get notified when the page can be unmapped, it used page
->> destructors. Unfortunately that destructor is not an upstreamable solution.
->> Ian Campbell's skb fragment destructor patch series [1] tried to solve this
->> problem, however it seems to be very invasive on the network stack's code,
->> and therefore haven't progressed very well.
->> This patch series use SKBTX_DEV_ZEROCOPY flags to tell the stack it needs to
->> know when the skb is freed up. That is the way KVM solved the same problem,
->> and based on my initial tests it can do the same for us. Avoiding the extra
->> copy boosted up TX throughput from 6.8 Gbps to 7.9 (I used a slower
->> Interlagos box, both Dom0 and guest on upstream kernel, on the same NUMA node,
->> running iperf 2.0.5, and the remote end was a bare metal box on the same 10Gb
->> switch)
->> Based on my investigations the packet get only copied if it is delivered to
->> Dom0 stack,
-> This is not quite complete/accurate since you previously told me that it
-> is copied in the NAT/routed rather than bridged network topologies.
->
-> Please can you cover that aspect here too.
-Ok.
+On Mon, Feb 24, 2014 at 09:52:11PM +0800, Qin Chuanyu wrote:
+> On 2014/2/24 21:29, Michael S. Tsirkin wrote:
+> >On Mon, Feb 24, 2014 at 09:12:20PM +0800, Qin Chuanyu wrote:
+> >>with vhost tx zero_copy, guest nic might get hang when host reserving
+> >>skb in socket queue delivered by guest, the case has been solved in
+> >>tun, it also been needed by bridge. This could easily happened when a
+> >>LAST_ACK state tcp occuring between guest and host.
+> >>
+> >>Signed-off-by: Chuanyu Qin <qinchuanyu@huawei.com>
+> >
+> >Do you actually observe guest hang?
+> >
+> yes, guest nic could not xmit any more until the skb holded by host has
+> been freed, the mainly reason is that though virtio-net could use vring
+> desc out of order, but ubufs is been used by vhost in order. so only
+> one skb could cause guest nic hang.
+> >I would expect orphan frags in
+> >__netif_receive_skb_core to be enough.
+> >
+> yes, it would be better. I would deliver another patch soon.
 
-Zoli
+well __netif_receive_skb_core already calls orphan frags already.
+What's left to do?
+
+> >
+> >>---
+> >>  net/bridge/br_input.c |    3 +++
+> >>  1 files changed, 3 insertions(+), 0 deletions(-)
+> >>
+> >>diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+> >>index 28d5446..744e27a 100644
+> >>--- a/net/bridge/br_input.c
+> >>+++ b/net/bridge/br_input.c
+> >>@@ -117,6 +117,8 @@ int br_handle_frame_finish(struct sk_buff *skb)
+> >>  		br->dev->stats.multicast++;
+> >>  	} else if ((dst = __br_fdb_get(br, dest, vid)) &&
+> >>  			dst->is_local) {
+> >>+		if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
+> >>+			goto drop;
+> >>  		skb2 = skb;
+> >>  		/* Do not forward the packet since it's local. */
+> >>  		skb = NULL;
+> >>@@ -136,6 +138,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
+> >>  out:
+> >>  	return 0;
+> >>  drop:
+> >>+	skb_tx_error(skb);
+> >>  	kfree_skb(skb);
+> >>  	goto out;
+> >>  }
+> >>--
+> >>1.7.3.1.msysgit.0
+> >
+> >
+> 
