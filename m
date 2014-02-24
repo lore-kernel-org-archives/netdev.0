@@ -1,17 +1,17 @@
 From: Fabio Estevam <festevam@gmail.com>
-Subject: [PATCH] netdeprecated: Use devm_ioremap_resource()
-Date: Mon, 24 Feb 2014 00:45:41 -0300
-Message-ID: <1393213541-11033-1-git-send-email-festevam@gmail.com>
+Subject: [PATCH v2] net: bcmgenet: Use devm_ioremap_resource()
+Date: Mon, 24 Feb 2014 00:47:24 -0300
+Message-ID: <1393213644-11081-1-git-send-email-festevam@gmail.com>
 Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
 	Fabio Estevam <fabio.estevam@freescale.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f177.google.com ([209.85.160.177]:48615 "EHLO
-	mail-yk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752380AbaBXDpw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Feb 2014 22:45:52 -0500
-Received: by mail-yk0-f177.google.com with SMTP id q200so13046424ykb.8
-        for <netdev@vger.kernel.org>; Sun, 23 Feb 2014 19:45:51 -0800 (PST)
+Received: from mail-yh0-f51.google.com ([209.85.213.51]:34332 "EHLO
+	mail-yh0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751825AbaBXDrd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Feb 2014 22:47:33 -0500
+Received: by mail-yh0-f51.google.com with SMTP id t59so4641812yho.24
+        for <netdev@vger.kernel.org>; Sun, 23 Feb 2014 19:47:33 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -22,6 +22,9 @@ is deprecated, so use devm_ioremap_resource() instead.
 
 Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
 ---
+Changes since v1:
+- Fix subject
+
  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 7 +++----
  1 file changed, 3 insertions(+), 4 deletions(-)
 
