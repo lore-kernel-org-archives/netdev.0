@@ -1,30 +1,47 @@
-From: Yung Kyu Kim <cmarmol@mingob.gob.gt>
-Subject: I have a project for you!
-Date: Mon, 24 Feb 2014 05:53:56 -0600 (CST)
-Message-ID: <2083633111.1287469.1393242836709.JavaMail.root@mingob.gob.gt>
-Reply-To: Yung Kyu Kim <2095494028@qq.com>
+From: Qin Chuanyu <qinchuanyu@huawei.com>
+Subject: [PATCH] bridge: orphan frags on local receive
+Date: Mon, 24 Feb 2014 21:12:20 +0800
+Message-ID: <530B4534.3000106@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [181.114.21.12] ([181.114.21.12]:52233 "EHLO mta.mingob.gob.gt"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751568AbaBXMpW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Feb 2014 07:45:22 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: KVM list <kvm@vger.kernel.org>, <netdev@vger.kernel.org>
+To: <davem@davemloft.net>, "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+with vhost tx zero_copy, guest nic might get hang when host reserving
+skb in socket queue delivered by guest, the case has been solved in
+tun, it also been needed by bridge. This could easily happened when a
+LAST_ACK state tcp occuring between guest and host.
 
-Hey,
+Signed-off-by: Chuanyu Qin <qinchuanyu@huawei.com>
+---
+  net/bridge/br_input.c |    3 +++
+  1 files changed, 3 insertions(+), 0 deletions(-)
 
-The Project is about the exportation of 100,000 barrels of Light Crude
-Oil daily out from Iraq to Turkey through my client's company in Iraq at the rate of $92.00 a barrel. This amount to $9,200,000 daily.
-I as for your support as a foreigner to handle this business project with my
-client and you are not expected to invest in Iraq
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index 28d5446..744e27a 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -117,6 +117,8 @@ int br_handle_frame_finish(struct sk_buff *skb)
+  		br->dev->stats.multicast++;
+  	} else if ((dst = __br_fdb_get(br, dest, vid)) &&
+  			dst->is_local) {
++		if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
++			goto drop;
+  		skb2 = skb;
+  		/* Do not forward the packet since it's local. */
+  		skb = NULL;
+@@ -136,6 +138,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
+  out:
+  	return 0;
+  drop:
++	skb_tx_error(skb);
+  	kfree_skb(skb);
+  	goto out;
+  }
+-- 
+1.7.3.1.msysgit.0
 
-If yes, let me know and we will discuss this project proper.
-
-yung kyu kim
-
-CONTACT MY PRIVATE EMAIL: 2758652960@qq.com
