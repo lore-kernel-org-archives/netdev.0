@@ -1,90 +1,38 @@
-From: Simon Wunderlich <sw@simonwunderlich.de>
-Subject: [net-next v3 2/3] UAPI: add MPLS label stack definition
-Date: Mon, 24 Feb 2014 13:28:39 +0100
-Message-ID: <1393244920-15903-3-git-send-email-sw@simonwunderlich.de>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [net-next v3 3/3] cfg80211: add MPLS and 802.21 classification
+Date: Mon, 24 Feb 2014 13:33:48 +0100
+Message-ID: <1393245228.4190.14.camel@jlt4.sipsolutions.net>
 References: <1393244920-15903-1-git-send-email-sw@simonwunderlich.de>
-Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
-	mathias.kretschmer@fokus.fraunhofer.de,
-	Simon Wunderlich <sw@simonwunderlich.de>
-To: netdev@vger.kernel.org
+	 <1393244920-15903-4-git-send-email-sw@simonwunderlich.de>
+	 (sfid-20140224_132903_316161_47795452)
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-wireless@vger.kernel.org,
+	mathias.kretschmer@fokus.fraunhofer.de
+To: Simon Wunderlich <sw@simonwunderlich.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from packetmixer.de ([79.140.42.25]:41613 "EHLO
-	mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752317AbaBXM2s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 07:28:48 -0500
-In-Reply-To: <1393244920-15903-1-git-send-email-sw@simonwunderlich.de>
+Received: from s3.sipsolutions.net ([144.76.43.152]:49626 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751787AbaBXMdy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 07:33:54 -0500
+In-Reply-To: <1393244920-15903-4-git-send-email-sw@simonwunderlich.de> (sfid-20140224_132903_316161_47795452)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Labels for the Multiprotocol Label Switching are defined in RFC 3032
-which was superseded by RFC 5462. Add the definition to UAPI and a stub
-header for include/linux.
+On Mon, 2014-02-24 at 13:28 +0100, Simon Wunderlich wrote:
+> MPLS labels may contain traffic control information, which should be
+> evaluated and used by the wireless subsystem if present.
+> 
+> Also check for IEEE 802.21 which is always network control traffic.
 
-Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
-Signed-off-by: Mathias Kretschmer <mathias.kretschmer@fokus.fraunhofer.de>
----
-Changes to first version:
+Fine with me. I guess this should go through net-next due to the
+dependencies on patches 1 and 2.
 
- * add stub mpls header in include/linux/mpls.h for users inside the
-   kernel
----
- include/linux/mpls.h      |    6 ++++++
- include/uapi/linux/mpls.h |   34 ++++++++++++++++++++++++++++++++++
- 2 files changed, 40 insertions(+)
- create mode 100644 include/linux/mpls.h
- create mode 100644 include/uapi/linux/mpls.h
+> Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
+> Signed-off-by: Mathias Kretschmer <mathias.kretschmer@fokus.fraunhofer.de>
 
-diff --git a/include/linux/mpls.h b/include/linux/mpls.h
-new file mode 100644
-index 0000000..9999145
---- /dev/null
-+++ b/include/linux/mpls.h
-@@ -0,0 +1,6 @@
-+#ifndef _LINUX_MPLS_H
-+#define _LINUX_MPLS_H
-+
-+#include <uapi/linux/mpls.h>
-+
-+#endif  /* _LINUX_MPLS_H */
-diff --git a/include/uapi/linux/mpls.h b/include/uapi/linux/mpls.h
-new file mode 100644
-index 0000000..15c8260
---- /dev/null
-+++ b/include/uapi/linux/mpls.h
-@@ -0,0 +1,34 @@
-+#ifndef _UAPI_MPLS_H
-+#define _UAPI_MPLS_H
-+
-+#include <linux/types.h>
-+#include <asm/byteorder.h>
-+
-+/* Reference: RFC 5462, RFC 3032
-+ *
-+ *  0                   1                   2                   3
-+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ * |                Label                  | TC  |S|       TTL     |
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ *
-+ *	Label:  Label Value, 20 bits
-+ *	TC:     Traffic Class field, 3 bits
-+ *	S:      Bottom of Stack, 1 bit
-+ *	TTL:    Time to Live, 8 bits
-+ */
-+
-+struct mpls_label_stack {
-+	__be32 entry;
-+};
-+
-+#define MPLS_LS_LABEL_MASK      0xFFFFF000
-+#define MPLS_LS_LABEL_SHIFT     12
-+#define MPLS_LS_TC_MASK         0x00000E00
-+#define MPLS_LS_TC_SHIFT        9
-+#define MPLS_LS_S_MASK          0x00000100
-+#define MPLS_LS_S_SHIFT         8
-+#define MPLS_LS_TTL_MASK        0x000000FF
-+#define MPLS_LS_TTL_SHIFT       0
-+
-+#endif /* _UAPI_MPLS_H */
--- 
-1.7.10.4
+Acked-by: Johannes Berg <johannes@sipsolutions.net>
+
+johannes
