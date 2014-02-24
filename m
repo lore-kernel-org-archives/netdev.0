@@ -1,92 +1,55 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: phy: add suspend_halted module param
-Date: Mon, 24 Feb 2014 10:20:10 -0800
-Message-ID: <CAGVrzcadYTYQEvPxqdMf2f741y5sAgnOYm3EC=f7SOkr8SK2WQ@mail.gmail.com>
-References: <1393174719-20806-1-git-send-email-sebastian.hesselbarth@gmail.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [RFC v2 2/4] net: enables interface option to skip IP
+Date: Mon, 24 Feb 2014 12:22:00 -0600
+Message-ID: <1393266120.8041.19.camel@dcbw.local>
+References: <1392433180-16052-1-git-send-email-mcgrof@do-not-panic.com>
+	 <1392433180-16052-3-git-send-email-mcgrof@do-not-panic.com>
+	 <1392668638.21106.5.camel@dcbw.local>
+	 <CAB=NE6XGBp1RwO63W0ac6tTr9JcRM9TB9sap4pa+8PMWwjxu6g@mail.gmail.com>
+	 <1392828325.21976.6.camel@dcbw.local>
+	 <CAB=NE6VpUqwNNY4pgbS6du2VsZ6dH0TzQYXmiw6GGN-EiOsV6g@mail.gmail.com>
+	 <1392857777.22693.14.camel@dcbw.local>
+	 <CAB=NE6Xvqcdje5OSxjzTRa3wv-vZHr+MJHY86ZCfFXU2Lpzi8Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, Andrew Lunn <andrew@lunn.ch>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	xen-devel@lists.xenproject.org, kvm@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1393174719-20806-1-git-send-email-sebastian.hesselbarth@gmail.com>
+In-Reply-To: <CAB=NE6Xvqcdje5OSxjzTRa3wv-vZHr+MJHY86ZCfFXU2Lpzi8Q@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Sebastian,
+On Thu, 2014-02-20 at 12:31 -0800, Luis R. Rodriguez wrote:
+> On Wed, Feb 19, 2014 at 4:56 PM, Dan Williams <dcbw@redhat.com> wrote:
+> > Note that there isn't yet a disable_ipv4 knob though, I was
+> > perhaps-too-subtly trying to get you to send a patch for it, since I can
+> > use it too :)
+> 
+> Sure, can you describe a little better the use case, as I could use
+> that for the commit log. My only current use case was the xen-netback
+> case but Zoltan has noted a few cases where an IPv4 or IPv6 address
+> *could* be used on the backend interfaces (which I'll still poke as
+> its unclear to me why they have 'em).
 
-2014-02-23 8:58 GMT-08:00 Sebastian Hesselbarth
-<sebastian.hesselbarth@gmail.com>:
-> commit 1211ce53077164e0d34641d0ca5fb4d4a7574498
->   ("net: phy: resume/suspend PHYs on attach/detach")
-> introduced a feature to suspend PHYs when entering halted state.
->
-> Unfortunately, not all bootloaders properly power-up PHYs on reset
-> and fail to access ethernet because the PHY is still powered down.
->
-> Therefore, we add a boolean module parameter suspend_halted with
-> default value of true. Disabling that parameter prevents PHYs from
-> being suspended when entering halted state.
->
-> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-> Reported-by: Andrew Lunn <andrew@lunn.ch>
-> ---
-> Andrew, can you please re-test if disabling the feature does work on
-> your board? I tried a bunch of mine, but none failed to power-up the
-> PHY in u-boot.
+My use-case would simply be to have an analogue for the disable_ipv6
+case.  In the future I expect more people will want to disable IPv4 as
+they move to IPv6.  If you don't have something like disable_ipv4, then
+there's no way to ensure that some random program or something doesn't
+set up IPv4 stuff that you don't want.
 
-Would be good to get Andrew's testing on this just to make sure it
-solves his problem. Otherwise:
+Same thing for IPv6; some people really don't want IPv6 enabled on an
+interface no matter what; they don't want an IPv6LL address assigned,
+they don't want kernel SLAAC, they want to ensure that *nothing*
+IPv6-related gets done for that interface.  The same can be true for
+IPv4, but we don't have a way of doing that right now.
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
-
->
-> Cc: David Miller <davem@davemloft.net>
-> Cc: Florian Fainelli <f.fainelli@gmail.com>
-> Cc: Andrew Lunn <andrew@lunn.ch>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-arm-kernel@lists.infradead.org
-> Cc: linux-kernel@vger.kernel.org
-> ---
->  drivers/net/phy/phy_device.c | 10 ++++++++++
->  1 file changed, 10 insertions(+)
->
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index 4b03e63639b7..671eea0eb5db 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -40,6 +40,10 @@ MODULE_DESCRIPTION("PHY library");
->  MODULE_AUTHOR("Andy Fleming");
->  MODULE_LICENSE("GPL");
->
-> +static bool suspend_halted = true;
-> +module_param(suspend_halted, bool, 0644);
-> +MODULE_PARM_DESC(suspend_halted, "Suspend PHYs when entering halted state.");
-> +
->  void phy_device_free(struct phy_device *phydev)
->  {
->         put_device(&phydev->dev);
-> @@ -685,6 +689,12 @@ int phy_suspend(struct phy_device *phydev)
->         struct phy_driver *phydrv = to_phy_driver(phydev->dev.driver);
->         struct ethtool_wolinfo wol;
->
-> +       /* Some bootloaders do not power-up PHYs properly after reset,
-> +        * allow to disable the suspend halted PHYs feature.
-> +        */
-> +       if (!suspend_halted)
-> +               return -ENOSYS;
-> +
->         /* If the device has WOL enabled, we cannot suspend the PHY */
->         wol.cmd = ETHTOOL_GWOL;
->         phy_ethtool_get_wol(phydev, &wol);
-> --
-> 1.8.5.3
->
-
-
-
--- 
-Florian
+Dan
