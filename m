@@ -1,63 +1,49 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net 4/5] be2net: wait longer to reap TX compls in
- be_close()
-Date: Mon, 24 Feb 2014 11:30:21 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6C98FD@AcuExch.aculab.com>
-References: <57bc5399-f8f6-4c65-8cae-131c83d548ad@CMEXHTCAS1.ad.emulex.com>
- <063D6719AE5E284EB5DD2968C1650D6D0F6C9608@AcuExch.aculab.com>
- <d3bd3dc1-8e29-4388-bbd3-e4af196d592b@CMEXHTCAS2.ad.emulex.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next] loopback: sctp: add NETIF_F_SCTP_CSUM to device
+ features
+Date: Mon, 24 Feb 2014 13:02:27 +0100
+Message-ID: <530B34D3.2050307@redhat.com>
+References: <1393074113-9922-1-git-send-email-dborkman@redhat.com> <063D6719AE5E284EB5DD2968C1650D6D0F6C96DE@AcuExch.aculab.com> <530B1F93.4010308@redhat.com> <063D6719AE5E284EB5DD2968C1650D6D0F6C9802@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	Vasundhara Volam <Vasundhara.Volam@Emulex.Com>
-To: 'Sathya Perla' <Sathya.Perla@Emulex.Com>,
-	Somnath Kotur <Somnath.Kotur@Emulex.Com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:56437 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752140AbaBXLbT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 06:31:19 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 24354-07 for <netdev@vger.kernel.org>;
- Mon, 24 Feb 2014 11:31:17 +0000 (GMT)
-In-Reply-To: <d3bd3dc1-8e29-4388-bbd3-e4af196d592b@CMEXHTCAS2.ad.emulex.com>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:50551 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751722AbaBXMCh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Feb 2014 07:02:37 -0500
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6C9802@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Sathya Perla 
-> > From: David Laight [mailto:David.Laight@ACULAB.COM]
-> >
-> > From: Of Somnath Kotur
-> > > be_close() currently waits for a max of 200ms to receive all pending
-> > > TX compls. This timeout value was roughly calcuated based on 10G
-> > > transmission speeds and the TX queue depth. This timeout may not be
-> > > enough when the link is operating at lower speeds or in
-> > > multi-channel/SR-IOV configs with TX-rate limiting setting.
-> > > Increase the timeout to 2000ms and also bail-out if there is
-> > > a HW-error.
-> >
-> > What about monitoring whether transmits are actually completing,
-> > and giving up if none are completed within a suitable time period?
-> >
-> 
-> David, the code already does that. All the queues are checked for
-> any new TX compls each 1ms in the be_close()->be_tx_compl_clean()
-> path. This patch is not changing that logic.
+On 02/24/2014 11:42 AM, David Laight wrote:
+...
+> I'm sure it shouldn't be that expensive, you are implying that it spent
+> about 70% of the time doing crc32.
 
-Yes, but it might be better to modify the logic rather than just
-increase the timeout.
+In this scenario, the following perf log I get that shows where cycles
+are being spent on my machine:
 
-The code is waiting for any pending transmits to complete.
-The purpose of the timeout is to give up if the transmits aren't going
-to complete.
-So instead of assuming that a specific interval is long enough, abort
-if no transmits completed in (say) a 10ms period.
-Move the sleep() to the top of the loop and abort if nothing is found
-on any queue.
-Oh and move the zeroing of cmpl and num_wrbs to a sensible place.
+  65.95%       netperf  [kernel.kallsyms]  [k] __crc32c_le
+   3.79%       netperf  [kernel.kallsyms]  [k] memcpy
+   2.38%       netperf  [kernel.kallsyms]  [k] copy_user_enhanced_fast_string
+   0.62%       netperf  [sctp]             [k] sctp_datamsg_from_user
+   0.62%       netperf  [sctp]             [k] sctp_sendmsg
+   0.55%       netperf  [kernel.kallsyms]  [k] __slab_free
+   0.52%       netperf  [sctp]             [k] sctp_outq_flush
+   0.50%       netperf  [kernel.kallsyms]  [k] kfree
+   0.49%       netperf  [kernel.kallsyms]  [k] cmpxchg_double_slab.isra.52
+   0.48%       netperf  [kernel.kallsyms]  [k] kmem_cache_alloc
+   0.43%       netperf  [kernel.kallsyms]  [k] __slab_alloc
+   0.42%       netperf  [kernel.kallsyms]  [k] __copy_skb_header
+   0.41%       netperf  [kernel.kallsyms]  [k] __alloc_skb
 
-	David
+> The loop should be dominated by the per-byte lookup in a 256 word table.
+> With 4k data the table will soon be in the data cache.
+> Unless it is (stupidly) generating the table on each call, or trying
+> to use a crc32 instruction, faulting, and emulating it, I wouldn't
+> really have expected more than a few % improvement.
