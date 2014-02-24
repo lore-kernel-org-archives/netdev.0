@@ -1,133 +1,41 @@
-From: Mathias Kretschmer <mathias.kretschmer@fokus.fraunhofer.de>
-Subject: Re: TX_RING and VLAN : (packet size is too long 1518 > 1514)
-Date: Mon, 24 Feb 2014 10:03:05 +0100
-Message-ID: <530B0AC9.9080003@fokus.fraunhofer.de>
-References: <5309D59A.1020304@fokus.fraunhofer.de> <5309FE75.8030802@redhat.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net 4/5] be2net: wait longer to reap TX compls in
+ be_close()
+Date: Mon, 24 Feb 2014 09:31:15 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6C9608@AcuExch.aculab.com>
+References: <57bc5399-f8f6-4c65-8cae-131c83d548ad@CMEXHTCAS1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <jbrouer@redhat.com>, <netdev@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	Vasundhara Volam <vasundhara.volam@emulex.com>,
+	Sathya Perla <sathya.perla@emulex.com>
+To: 'Somnath Kotur' <somnath.kotur@emulex.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx-relay04-dus.antispameurope.com ([94.100.134.204]:55953 "EHLO
-	mx-relay04-dus.antispameurope.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751603AbaBXJDX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 04:03:23 -0500
-In-Reply-To: <5309FE75.8030802@redhat.com>
+Received: from mx0.aculab.com ([213.249.233.131]:54042 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751622AbaBXJcN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 04:32:13 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 27518-03 for <netdev@vger.kernel.org>;
+ Mon, 24 Feb 2014 09:32:11 +0000 (GMT)
+In-Reply-To: <57bc5399-f8f6-4c65-8cae-131c83d548ad@CMEXHTCAS1.ad.emulex.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Daniel,
+From: Of Somnath Kotur
+> be_close() currently waits for a max of 200ms to receive all pending
+> TX compls. This timeout value was roughly calcuated based on 10G
+> transmission speeds and the TX queue depth. This timeout may not be
+> enough when the link is operating at lower speeds or in
+> multi-channel/SR-IOV configs with TX-rate limiting setting.
+> Increase the timeout to 2000ms and also bail-out if there is
+> a HW-error.
 
-I've manually merged your patch into 3.10.32 since this is what I'm usi=
-ng right now.
+What about monitoring whether transmits are actually completing,
+and giving up if none are completed within a suitable time period?
 
-Yes, it works here. We can now send full-sized VLAN-tagged frames via T=
-X_RING.
-
-Another question in this context:
-
-Is there a convention regarding sbk->protocol for VLAN-tagged frames ? =
-Should it be=20
-8021Q (VLAN) or should it indicate the 'inner' protocol (i.e IPV4) ?
-
-Depending on the use case, I can find pros and cons for either one.
-
-Cheers,
-
-Mathias
-
-
-
-'On 02/23/2014 02:58 PM, Daniel Borkmann wrote:
-> On 02/23/2014 12:03 PM, Mathias Kretschmer wrote:
->> Hi Daniel, all
->>
->> we're running into the above error when sending full-sized VLAN-tagg=
-ed frames via
->> TX_RING (Kernel 3.10.31, but same code seems to be present in 3.14).
->>
->> For the regular send() calls, there seems to be code in place to han=
-dle
->> VLAN-tagged frames, but in tpacket_fill_skb() there is no such check=
-=2E
->>
->> I came up with fix for this, but can only verify this tomorrow.
->> If it works, I'd send you a patch, but someone with more insights in=
-to the
->> networking code should probably fix this properly ;-)
->
-> Looks like the logic was added only to packet_snd() path when there w=
-as no TX_RING
-> implementation available yet.
->
-> Does that patch work for you?
->
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index 48a6a93..9deb991 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -2257,8 +2257,7 @@ static int tpacket_snd(struct packet_sock *po, =
-struct msghdr
-> *msg)
->       if (unlikely(!(dev->flags & IFF_UP)))
->           goto out_put;
->
-> -    reserve =3D dev->hard_header_len;
-> -
-> +    reserve =3D dev->hard_header_len + VLAN_HLEN;
->       size_max =3D po->tx_ring.frame_size
->           - (po->tp_hdrlen - sizeof(struct sockaddr_ll));
->
-> @@ -2285,8 +2284,7 @@ static int tpacket_snd(struct packet_sock *po, =
-struct msghdr
-> *msg)
->               goto out_status;
->
->           tp_len =3D tpacket_fill_skb(po, skb, ph, dev, size_max, pro=
-to,
-> -                addr, hlen);
-> -
-> +                      addr, hlen);
->           if (unlikely(tp_len < 0)) {
->               if (po->tp_loss) {
->                   __packet_set_status(po, ph,
-> @@ -2300,6 +2298,21 @@ static int tpacket_snd(struct packet_sock *po,=
- struct msghdr
-> *msg)
->                   goto out_status;
->               }
->           }
-> +        if (tp_len > (dev->mtu + dev->hard_header_len)) {
-> +            struct ethhdr *ehdr;
-> +            /* Earlier code assumed this would be a VLAN pkt,
-> +             * double-check this now that we have the actual
-> +             * packet in hand.
-> +             */
-> +
-> +            skb_reset_mac_header(skb);
-> +            ehdr =3D eth_hdr(skb);
-> +            if (ehdr->h_proto !=3D htons(ETH_P_8021Q)) {
-> +                status =3D TP_STATUS_WRONG_FORMAT;
-> +                err =3D -EMSGSIZE;
-> +                goto out_status;
-> +            }
-> +        }
->
->           packet_pick_tx_queue(dev, skb);
->
-
-
---=20
-Dr. Mathias Kretschmer, Head of Competence Center
-=46raunhofer FOKUS Network Research
-A Schloss Birlinghoven, 53754 Sankt Augustin, Germany
-T +49-2241-14-3466, F +49-2241-14-1050
-E mathias.kretschmer@fokus.fraunhofer.de
-W http://www.fokus.fraunhofer.de/en/net
-
----> Visit us @ =84The Rural Broadband Day 2014=94, Feb 13th, Fraunhofe=
-r FOKUS, Berlin
----> Visit us @ =93Cebit 2014=94, March 10th =96 14th, Trade Fair, Hann=
-over
+	David
