@@ -1,27 +1,61 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: TX_RING and VLAN : (packet size is too long 1518 > 1514)
-Date: Mon, 24 Feb 2014 23:33:36 +0100
-Message-ID: <530BC8C0.6040004@redhat.com>
-References: <5309D59A.1020304@fokus.fraunhofer.de> <5309FE75.8030802@redhat.com> <530B0AC9.9080003@fokus.fraunhofer.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jbrouer@redhat.com, netdev@vger.kernel.org
-To: Mathias Kretschmer <mathias.kretschmer@fokus.fraunhofer.de>
+From: Jon Mason <jdmason@kudzu.us>
+Subject: [RFC 1/3] ksz884x: Use pci_set_power_state() for setting PM states
+Date: Mon, 24 Feb 2014 15:34:03 -0700
+Message-ID: <1393281245-3951-1-git-send-email-jdmason@kudzu.us>
+Cc: Tristram Ha <Tristram.Ha@micrel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28917 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752302AbaBXWdn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Feb 2014 17:33:43 -0500
-In-Reply-To: <530B0AC9.9080003@fokus.fraunhofer.de>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:37386 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752563AbaBXWeS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 17:34:18 -0500
+Received: by mail-pa0-f44.google.com with SMTP id kq14so7176243pab.3
+        for <netdev@vger.kernel.org>; Mon, 24 Feb 2014 14:34:18 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/24/2014 10:03 AM, Mathias Kretschmer wrote:
-...
-> I've manually merged your patch into 3.10.32 since this is what I'm using right now.
->
-> Yes, it works here. We can now send full-sized VLAN-tagged frames via TX_RING.
+Use the existing infrastructure of pci_set_power_state() instead of
+setting the relevant bits via PCI config read/write in the driver.
+Also, use pci_pme_active() to set the PCI_PM_CTRL_PME_ENABLE bit in PCI
+PM control register.  pci_set_power_state() and pci_pme_active() perform
+the same operations as the driver did before, so there should be no
+functional change.  That being said, this has not been tested.
 
-Ok, thanks, I will submit it some time this week, after some more
-testing from my side as well.
+Signed-off-by: Jon Mason <jdmason@kudzu.us>
+Cc: Tristram Ha <Tristram.Ha@micrel.com>
+---
+ drivers/net/ethernet/micrel/ksz884x.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
+index ce84dc2..d658231 100644
+--- a/drivers/net/ethernet/micrel/ksz884x.c
++++ b/drivers/net/ethernet/micrel/ksz884x.c
+@@ -3524,17 +3524,17 @@ static void hw_cfg_wol_pme(struct ksz_hw *hw, int set)
+ {
+ 	struct dev_info *hw_priv = container_of(hw, struct dev_info, hw);
+ 	struct pci_dev *pdev = hw_priv->pdev;
+-	u16 data;
+ 
+ 	if (!pdev->pm_cap)
+ 		return;
+-	pci_read_config_word(pdev, pdev->pm_cap + PCI_PM_CTRL, &data);
+-	data &= ~PCI_PM_CTRL_STATE_MASK;
+-	if (set)
+-		data |= PCI_PM_CTRL_PME_ENABLE | PCI_D3hot;
+-	else
+-		data &= ~PCI_PM_CTRL_PME_ENABLE;
+-	pci_write_config_word(pdev, pdev->pm_cap + PCI_PM_CTRL, data);
++
++	if (set) {
++		pci_pme_active(pdev, true);
++		pci_set_power_state(pdev, PCI_D3hot);
++	} else {
++		pci_pme_active(pdev, false);
++		pci_set_power_state(pdev, PCI_D0);
++	}
+ }
+ 
+ /**
+-- 
+1.8.3.2
