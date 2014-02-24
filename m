@@ -1,155 +1,42 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH] netfilter: xt_repldata.h should be at a reasonable path
-Date: Mon, 24 Feb 2014 13:01:11 +0800
-Message-ID: <1393218071-9674-1-git-send-email-lucien.xin@gmail.com>
-Cc: Xin Long <lucien.xin@gmail.com>
-To: network dev <netdev@vger.kernel.org>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: RTL8153 fails to get link after applying c7de7dec2 to 3.8 kernel
+Date: Mon, 24 Feb 2014 14:00:48 +0800
+Message-ID: <D7709D6F234143CDB4D0B6B27C53D3F4@realtek.com.tw>
+References: <CANEJEGtzUF+rdSqgTHL0BmsDbCeoWki=aAWZwSx-dZ24jQ=nVg@mail.gmail.com><B88F103D217C4AF0B5D7AD58214655C6@realtek.com.tw><CANEJEGtvY1v0AC7j+uo7-ZzN9YMOaE9JOtismt0ESxpVWkvHyQ@mail.gmail.com><6929A44AB95D46C6B919DDD537CDD37B@realtek.com.tw><CANEJEGtj5b6z3L1AeiqTPgVs0qCe=pv=cyRHYi04_yNXpPMOCA@mail.gmail.com><FD21003FF7E540DCA7F8F39A2BC046B4@realtek.com.tw><CANEJEGtGSHAACM=Bk0BAHrM=-1q4pHoboO5FYN7YM4wquMMmXA@mail.gmail.com><65183A93811745C58958ECBAD0B8E00F@realtek.com.tw><CANEJEGtGbVajk+GOSkRk1QXDkOOPCM8vO8VA8Zc=TEOfZDjwNQ@mail.gmail.com><CANEJEGsMafeZQDfnmdgmf2VN0CKrTkjVHwKTX9JHTDUUqwx0Mg@mail.gmail.com><FB59F84B1E5E42AA98F0906286C444DF@realtek.com.tw> <CANEJEGvMPMT3OroMGLJaR65uEz0+JVYkd5rxcPMMGT_wzvds+w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: 'Inki Yoo' <inky.yoo@samsung.com>,
+	'netdev' <netdev@vger.kernel.org>
+To: 'Grant Grundler' <grundler@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:47396 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750720AbaBXFBZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 00:01:25 -0500
-Received: by mail-pb0-f44.google.com with SMTP id rq2so6018004pbb.17
-        for <netdev@vger.kernel.org>; Sun, 23 Feb 2014 21:01:25 -0800 (PST)
+Received: from rtits2.realtek.com ([60.250.210.242]:39325 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750757AbaBXGA5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 01:00:57 -0500
+In-Reply-To: <CANEJEGvMPMT3OroMGLJaR65uEz0+JVYkd5rxcPMMGT_wzvds+w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now the file xt_repldata.h is in path net/netfilter, but in
-net/ipv6(ipv4)/netfilter, several files include it, which leads that separately
-building the ipv6(ipv4) module needs the net/netfilter source code. perhaps
-'include /net/netfilter' is a good location for it.
+Grant Grundler [mailto:grundler@google.com] 
+> Sent: Friday, February 21, 2014 1:21 AM
+> To: hayeswang
+> Cc: Inki Yoo; netdev
+> Subject: Re: RTL8153 fails to get link after applying 
+> c7de7dec2 to 3.8 kernel
+[...]
+> I can't apply c7de7dec2 as-is to ChromeOS with the current behaviors.
+> 
+> How would you like to see this fixed?
+> Have the r815x driver flip the device to "Vendor Mode" and not claim
+> it so r8152 driver can?
+> Or you have any idea why ECM mode doesn't work with c7de7dec2 patch?
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- include/net/netfilter/xt_repldata.h | 35 +++++++++++++++++++++++++++++++++++
- net/ipv4/netfilter/arp_tables.c     |  2 +-
- net/ipv4/netfilter/ip_tables.c      |  2 +-
- net/ipv6/netfilter/ip6_tables.c     |  2 +-
- net/netfilter/xt_repldata.h         | 35 -----------------------------------
- 5 files changed, 38 insertions(+), 38 deletions(-)
- create mode 100644 include/net/netfilter/xt_repldata.h
- delete mode 100644 net/netfilter/xt_repldata.h
-
-diff --git a/include/net/netfilter/xt_repldata.h b/include/net/netfilter/xt_repldata.h
-new file mode 100644
-index 0000000..6efe4e5
---- /dev/null
-+++ b/include/net/netfilter/xt_repldata.h
-@@ -0,0 +1,35 @@
-+/*
-+ * Today's hack: quantum tunneling in structs
-+ *
-+ * 'entries' and 'term' are never anywhere referenced by word in code. In fact,
-+ * they serve as the hanging-off data accessed through repl.data[].
-+ */
-+
-+#define xt_alloc_initial_table(type, typ2) ({ \
-+	unsigned int hook_mask = info->valid_hooks; \
-+	unsigned int nhooks = hweight32(hook_mask); \
-+	unsigned int bytes = 0, hooknum = 0, i = 0; \
-+	struct { \
-+		struct type##_replace repl; \
-+		struct type##_standard entries[nhooks]; \
-+		struct type##_error term; \
-+	} *tbl = kzalloc(sizeof(*tbl), GFP_KERNEL); \
-+	if (tbl == NULL) \
-+		return NULL; \
-+	strncpy(tbl->repl.name, info->name, sizeof(tbl->repl.name)); \
-+	tbl->term = (struct type##_error)typ2##_ERROR_INIT;  \
-+	tbl->repl.valid_hooks = hook_mask; \
-+	tbl->repl.num_entries = nhooks + 1; \
-+	tbl->repl.size = nhooks * sizeof(struct type##_standard) + \
-+	                 sizeof(struct type##_error); \
-+	for (; hook_mask != 0; hook_mask >>= 1, ++hooknum) { \
-+		if (!(hook_mask & 1)) \
-+			continue; \
-+		tbl->repl.hook_entry[hooknum] = bytes; \
-+		tbl->repl.underflow[hooknum]  = bytes; \
-+		tbl->entries[i++] = (struct type##_standard) \
-+			typ2##_STANDARD_INIT(NF_ACCEPT); \
-+		bytes += sizeof(struct type##_standard); \
-+	} \
-+	tbl; \
-+})
-diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index 59da7cd..7269607 100644
---- a/net/ipv4/netfilter/arp_tables.c
-+++ b/net/ipv4/netfilter/arp_tables.c
-@@ -28,7 +28,7 @@
+The reason is that your dangle has the settings of the
+customization for some purposes. And it limites the dangle
+could use the vendor mode only. My dangle with the official
+settings works fine, so I consider that this is not a bug.
+Instead, I consider it it the limitation of the hardware.
  
- #include <linux/netfilter/x_tables.h>
- #include <linux/netfilter_arp/arp_tables.h>
--#include "../../netfilter/xt_repldata.h"
-+#include <net/netfilter/xt_repldata.h>
- 
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("David S. Miller <davem@redhat.com>");
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index 718dfbd..cb85f74 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -29,7 +29,7 @@
- #include <linux/netfilter/x_tables.h>
- #include <linux/netfilter_ipv4/ip_tables.h>
- #include <net/netfilter/nf_log.h>
--#include "../../netfilter/xt_repldata.h"
-+#include <net/netfilter/xt_repldata.h>
- 
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Netfilter Core Team <coreteam@netfilter.org>");
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index 710238f..b11abad 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -30,7 +30,7 @@
- #include <linux/netfilter_ipv6/ip6_tables.h>
- #include <linux/netfilter/x_tables.h>
- #include <net/netfilter/nf_log.h>
--#include "../../netfilter/xt_repldata.h"
-+#include <net/netfilter/xt_repldata.h>
- 
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Netfilter Core Team <coreteam@netfilter.org>");
-diff --git a/net/netfilter/xt_repldata.h b/net/netfilter/xt_repldata.h
-deleted file mode 100644
-index 6efe4e5..0000000
---- a/net/netfilter/xt_repldata.h
-+++ /dev/null
-@@ -1,35 +0,0 @@
--/*
-- * Today's hack: quantum tunneling in structs
-- *
-- * 'entries' and 'term' are never anywhere referenced by word in code. In fact,
-- * they serve as the hanging-off data accessed through repl.data[].
-- */
--
--#define xt_alloc_initial_table(type, typ2) ({ \
--	unsigned int hook_mask = info->valid_hooks; \
--	unsigned int nhooks = hweight32(hook_mask); \
--	unsigned int bytes = 0, hooknum = 0, i = 0; \
--	struct { \
--		struct type##_replace repl; \
--		struct type##_standard entries[nhooks]; \
--		struct type##_error term; \
--	} *tbl = kzalloc(sizeof(*tbl), GFP_KERNEL); \
--	if (tbl == NULL) \
--		return NULL; \
--	strncpy(tbl->repl.name, info->name, sizeof(tbl->repl.name)); \
--	tbl->term = (struct type##_error)typ2##_ERROR_INIT;  \
--	tbl->repl.valid_hooks = hook_mask; \
--	tbl->repl.num_entries = nhooks + 1; \
--	tbl->repl.size = nhooks * sizeof(struct type##_standard) + \
--	                 sizeof(struct type##_error); \
--	for (; hook_mask != 0; hook_mask >>= 1, ++hooknum) { \
--		if (!(hook_mask & 1)) \
--			continue; \
--		tbl->repl.hook_entry[hooknum] = bytes; \
--		tbl->repl.underflow[hooknum]  = bytes; \
--		tbl->entries[i++] = (struct type##_standard) \
--			typ2##_STANDARD_INIT(NF_ACCEPT); \
--		bytes += sizeof(struct type##_standard); \
--	} \
--	tbl; \
--})
--- 
-1.8.3.1
+Best Regards,
+Hayes
