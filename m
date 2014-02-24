@@ -1,34 +1,44 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: kernel driver "drivers/net/ethernet/realtek/r8169.c" msleep
- question
-Date: Mon, 24 Feb 2014 00:55:53 +0100
-Message-ID: <20140223235553.GA8780@electric-eye.fr.zoreil.com>
-References: <20140223223840.GA29808@snape.qqa.nl>
+From: Alistair Popple <alistair-Y4h6yKqj69EXC2x5gXVKYQ@public.gmane.org>
+Subject: Re: [PATCH 2/7] IBM Akebono: Add support for a new PHY interface to the IBM emac driver
+Date: Mon, 24 Feb 2014 13:09:19 +1100
+Message-ID: <7545458.ltLKFumBkZ@mexican>
+References: <1392964293-13687-1-git-send-email-alistair@popple.id.au> <1392964293-13687-3-git-send-email-alistair@popple.id.au> <20140221111823.GA8783@e106331-lin.cambridge.arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nic_swsd@realtek.com, netdev@vger.kernel.org
-To: Justin van Wijngaarden <justinvanwijngaarden@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:46699 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750838AbaBWX4E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Feb 2014 18:56:04 -0500
-Content-Disposition: inline
-In-Reply-To: <20140223223840.GA29808@snape.qqa.nl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140221111823.GA8783-NuALmloUBlrZROr8t4l/smS4ubULX0JqMm0uRHvK7Nw@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Justin van Wijngaarden <justinvanwijngaarden@gmail.com> :
+On Fri, 21 Feb 2014 11:18:23 Mark Rutland wrote:
+> On Fri, Feb 21, 2014 at 06:31:28AM +0000, Alistair Popple wrote:
+
 [...]
-> If you like I can take a re-write to usleep (1ms) or perhaps a 10/20 msleep.
-> I tested it both with my own hardware which works fine on both cases, but
-> ofcourse I don't have the hardware to test it for all use-cases.
+
 > 
-> Any preference?
+> > +       /* Check for RGMII flags */
+> > +       if (of_get_property(ofdev->dev.of_node, "has-mdio", NULL))
+> > +               dev->flags |= EMAC_RGMII_FLAG_HAS_MDIO;
+> 
+> You can use of_property_read_bool here.
 
-There is no much gain here.
+Thanks. I will update it.
 
-I respectfully suggest to focus on real bugs.
+Regards,
 
--- 
-Ueimor
+Alistair
+
+> 
+> Cheers,
+> Mark.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
