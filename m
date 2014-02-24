@@ -1,9 +1,7 @@
 From: Prarit Bhargava <prarit@redhat.com>
-Subject: [PATCH 2/2] ixgbe,
-	don't assume mapping of numa node cpus
-Date: Mon, 24 Feb 2014 13:51:53 -0500
-Message-ID: <1393267913-28212-3-git-send-email-prarit@redhat.com>
-References: <1393267913-28212-1-git-send-email-prarit@redhat.com>
+Subject: [PATCH 0/2] ixgbe, fix numa issues
+Date: Mon, 24 Feb 2014 13:51:51 -0500
+Message-ID: <1393267913-28212-1-git-send-email-prarit@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -14,7 +12,6 @@ Cc: Prarit Bhargava <prarit@redhat.com>, nhorman@redhat.com,
 	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1393267913-28212-1-git-send-email-prarit@redhat.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -25,13 +22,16 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The ixgbe driver assumes that the cpus on a node are mapped 1:1 with the
-indexes into arrays.  This is not the case as nodes can contain, for
-example, cpus 0-7, 33-40.
+The ixgbe driver makes some assumptions about the layout of cpus in the
+system which are not always correct given a particular system layout.  The
+ixgbe driver allocates one MSI/cpu for queue usage but the code does not take
+into account that devices are located on NUMA nodes and that the cpus in a node
+are not contiguous.
 
-This patch fixes this problem.
+These issues were found while doing cpu hotplug testing, however, both of these
+issues can lead to obvious system performance issues as they defeat the
+purpose of having one MSI processing a queue per cpu.
 
-Signed-off-by: Prarit Bhargava <prarit@redhat.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>
@@ -45,54 +45,17 @@ Cc: "David S. Miller" <davem@davemloft.net>
 Cc: nhorman@redhat.com
 Cc: agospoda@redhat.com
 Cc: e1000-devel@lists.sourceforge.net
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c |   16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-index 3668288..8b3992e 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-@@ -794,11 +794,15 @@ static int ixgbe_alloc_q_vector(struct ixgbe_adapter *adapter,
- {
- 	struct ixgbe_q_vector *q_vector;
- 	struct ixgbe_ring *ring;
--	int node = NUMA_NO_NODE;
--	int cpu = -1;
-+	int node = adapter->pdev->dev.numa_node;
-+	int cpu, set_affinity = 0;
- 	int ring_count, size;
- 	u8 tcs = netdev_get_num_tc(adapter->netdev);
- 
-+	if (node == NUMA_NO_NODE)
-+		cpu = -1;
-+	else
-+		cpu = cpumask_next(v_idx - 1, cpumask_of_node(node));
- 	ring_count = txr_count + rxr_count;
- 	size = sizeof(struct ixgbe_q_vector) +
- 	       (sizeof(struct ixgbe_ring) * ring_count);
-@@ -807,10 +811,8 @@ static int ixgbe_alloc_q_vector(struct ixgbe_adapter *adapter,
- 	if ((tcs <= 1) && !(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)) {
- 		u16 rss_i = adapter->ring_feature[RING_F_RSS].indices;
- 		if (rss_i > 1 && adapter->atr_sample_rate) {
--			if (cpu_online(v_idx)) {
--				cpu = v_idx;
--				node = cpu_to_node(cpu);
--			}
-+			if (likely(cpu_online(cpu)))
-+				set_affinity = 1;
- 		}
- 	}
- 
-@@ -822,7 +824,7 @@ static int ixgbe_alloc_q_vector(struct ixgbe_adapter *adapter,
- 		return -ENOMEM;
- 
- 	/* setup affinity mask and node */
--	if (cpu != -1)
-+	if (set_affinity)
- 		cpumask_set_cpu(cpu, &q_vector->affinity_mask);
- 	q_vector->numa_node = node;
- 
+Prarit Bhargava (2):
+  ixgbe, make interrupt allocations NUMA aware
+  ixgbe, don't assume mapping of numa node cpus
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h       |    2 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c   |   44 ++++++++++++++++++------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |    6 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |    5 +--
+ 4 files changed, 42 insertions(+), 15 deletions(-)
+
 -- 
 1.7.9.3
 
