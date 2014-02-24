@@ -1,51 +1,115 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net] sfc: check for NULL efx->ptp_data in efx_ptp_event
-Date: Mon, 24 Feb 2014 19:39:57 +0000
-Message-ID: <530BA00D.8000109@solarflare.com>
+From: Prarit Bhargava <prarit@redhat.com>
+Subject: Re: [PATCH 1/2] ixgbe,
+	make interrupt allocations NUMA aware
+Date: Mon, 24 Feb 2014 14:39:58 -0500
+Message-ID: <530BA00E.4070802@redhat.com>
+References: <1393267913-28212-1-git-send-email-prarit@redhat.com>
+	<1393267913-28212-2-git-send-email-prarit@redhat.com>
+	<530B9CE8.2070800@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Shradha Shah <sshah@solarflare.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:16421 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752850AbaBXTkA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 14:40:00 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nhorman@redhat.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	agospoda@redhat.com, John Ronciak <john.ronciak@intel.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <530B9CE8.2070800@intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-If we receive a PTP event from the NIC when we haven't set up PTP state
-in the driver, we attempt to read through a NULL pointer efx->ptp_data,
-triggering a panic.
 
-Signed-off-by: Edward Cree <ecree@solarflare.com>
----
-While this shouldn't happen with existing released firmware, future
-sfn7322f firmware is planned to enable PPS irrespective of whether
-timestamping (and thus PTP) is enabled.  We are considering workarounds,
-but this defensive patch seemed like a good idea anyway in case the
-firmware gets in a muddle.
-Also, in principle this shouldn't happen on 3.14+ kernels as the driver
-should always set up PTP state at probe time (though there might still
-be a race against the firmware sending its first PPS), however 3.12 and
-3.13 both supported EF10 but not PTP-on-EF10 and thus they never set up
-the PTP state; hence this fix should also be backported to those series.
 
---- linux-3.13/drivers/net/ethernet/sfc/ptp.c.orig	2014-01-20
-02:40:07.000000000 +0000
-+++ linux-3.13/drivers/net/ethernet/sfc/ptp.c	2014-02-24
-17:46:31.753497000 +0000
-@@ -1360,6 +1360,13 @@ void efx_ptp_event(struct efx_nic *efx,
- 	struct efx_ptp_data *ptp = efx->ptp_data;
- 	int code = EFX_QWORD_FIELD(*ev, MCDI_EVENT_CODE);
+On 02/24/2014 02:26 PM, Alexander Duyck wrote:
+> On 02/24/2014 10:51 AM, Prarit Bhargava wrote:
+>> The ixgbe driver creates one queue/cpu on the system in order to spread
+>> work out on all cpus rather than restricting work to a single cpu.  This
+>> model, while efficient, does not take into account the NUMA configuration
+>> of the system.
+>>
+>> This patch introduces ixgbe_num_cpus() which returns
+>> the number of online cpus if the adapter's PCI device has no NUMA
+>> restrictions, and the number of cpus in the node if the PCI device is
+>> allocated to a specific node.
+>>
+>> Signed-off-by: Prarit Bhargava <prarit@redhat.com>
+>> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>> Cc: Bruce Allan <bruce.w.allan@intel.com>
+>> Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
+>> Cc: Don Skidmore <donald.c.skidmore@intel.com>
+>> Cc: Greg Rose <gregory.v.rose@intel.com>
+>> Cc: Alex Duyck <alexander.h.duyck@intel.com>
+>> Cc: John Ronciak <john.ronciak@intel.com>
+>> Cc: Mitch Williams <mitch.a.williams@intel.com>
+>> Cc: "David S. Miller" <davem@davemloft.net>
+>> Cc: nhorman@redhat.com
+>> Cc: agospoda@redhat.com
+>> Cc: e1000-devel@lists.sourceforge.net
+>> ---
+>>  drivers/net/ethernet/intel/ixgbe/ixgbe.h       |    2 ++
+>>  drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c   |   28 +++++++++++++++++++++---
+>>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |    6 ++---
+>>  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |    5 +++--
+>>  4 files changed, 33 insertions(+), 8 deletions(-)
+>>
+> 
+> [...]
+> 
+>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> index 18076c4..b68a6e9 100644
+>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> @@ -4953,13 +4953,13 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
+>>  	hw->subsystem_device_id = pdev->subsystem_device;
+>>  
+>>  	/* Set common capability flags and settings */
+>> -	rss = min_t(int, IXGBE_MAX_RSS_INDICES, num_online_cpus());
+>> +	rss = min_t(int, IXGBE_MAX_RSS_INDICES, ixgbe_num_cpus(adapter));
+>>  	adapter->ring_feature[RING_F_RSS].limit = rss;
+>>  	adapter->flags2 |= IXGBE_FLAG2_RSC_CAPABLE;
+>>  	adapter->flags2 |= IXGBE_FLAG2_RSC_ENABLED;
+>>  	adapter->max_q_vectors = MAX_Q_VECTORS_82599;
+>>  	adapter->atr_sample_rate = 20;
+>> -	fdir = min_t(int, IXGBE_MAX_FDIR_INDICES, num_online_cpus());
+>> +	fdir = min_t(int, IXGBE_MAX_FDIR_INDICES, ixgbe_num_cpus(adapter));
+>>  	adapter->ring_feature[RING_F_FDIR].limit = fdir;
+>>  	adapter->fdir_pballoc = IXGBE_FDIR_PBALLOC_64K;
+>>  #ifdef CONFIG_IXGBE_DCA
+> 
+> This is the one bit I object to in this patch.  The flow director queue
+> count should be equal to the number of online CPUs, or at least as close
+> to it as the hardware can get.  Otherwise ATR is completely useless.
 
-+	if (!ptp) {
-+		if (net_ratelimit())
-+			netif_warn(efx, drv, efx->net_dev,
-+				   "Received PTP event but PTP not set up\n");
-+		return;
-+	}
-+
- 	if (!ptp->enabled)
- 		return;
+I'm reading up on ATR now and I see your point completely.  I will remove this
+chunk in V2.  OOC, however, what about my concern with ATR & the location of the
+PCI device (on a different root bridge)?  Isn't that a concern with ATR or am I
+missing something with the overall scheme of ATR?
+
+P.
+
+> 
+> Thanks,
+> 
+> Alex
+
+------------------------------------------------------------------------------
+Flow-based real-time traffic analytics software. Cisco certified tool.
+Monitor traffic, SLAs, QoS, Medianet, WAAS etc. with NetFlow Analyzer
+Customize your own dashboards, set traffic alerts and generate reports.
+Network behavioral analysis & security monitoring. All-in-one tool.
+http://pubads.g.doubleclick.net/gampad/clk?id=126839071&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
