@@ -1,46 +1,47 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH net V2] virtio-net: alloc big buffers also when guest can
-	receive UFO
-Date: Mon, 24 Feb 2014 12:00:51 +1030
-Message-ID: <87vbw570vo.fsf@rustcorp.com.au>
-References: <1392959284-11399-1-git-send-email-jasowang@redhat.com>
-	<20140221145550.GA4408@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: virtio-dev@lists.oasis-open.org, Sridhar Samudrala <sri@us.ibm.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>, Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140221145550.GA4408@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Fabio Estevam <festevam@gmail.com>
+Subject: [PATCH] netdeprecated: Use devm_ioremap_resource()
+Date: Mon, 24 Feb 2014 00:45:41 -0300
+Message-ID: <1393213541-11033-1-git-send-email-festevam@gmail.com>
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f177.google.com ([209.85.160.177]:48615 "EHLO
+	mail-yk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752380AbaBXDpw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Feb 2014 22:45:52 -0500
+Received: by mail-yk0-f177.google.com with SMTP id q200so13046424ykb.8
+        for <netdev@vger.kernel.org>; Sun, 23 Feb 2014 19:45:51 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Michael S. Tsirkin" <mst@redhat.com> writes:
-> On Fri, Feb 21, 2014 at 01:08:04PM +0800, Jason Wang wrote:
->> We should alloc big buffers also when guest can receive UFO
->> pakcets to let the big packets be fit into guest rx buffer.
->
-> s/pakcets/packets/
->
-> s/be fit/fit/
->
-> otherwise:
->
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+From: Fabio Estevam <fabio.estevam@freescale.com>
 
-Indeed.
+According to Documentation/driver-model/devres.txt, devm_request_and_ioremap()
+is deprecated, so use devm_ioremap_resource() instead.
 
-Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-Thanks,
-Rusty.
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 0ebc297..844e081 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -2481,10 +2481,9 @@ static int bcmgenet_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+-	priv->base = devm_request_and_ioremap(&pdev->dev, r);
+-	if (!priv->base) {
+-		dev_err(&pdev->dev, "can't ioremap\n");
+-		err = -EINVAL;
++	priv->base = devm_ioremap_resource(&pdev->dev, r);
++	if (IS_ERR(priv->base)) {
++		err = PTR_ERR(priv->base);
+ 		goto err;
+ 	}
+ 
+-- 
+1.8.1.2
