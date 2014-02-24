@@ -1,45 +1,82 @@
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net v2 2/4] qlcnic: Fix usage of use_msi and use_msi_x module parameters
-Date: Mon, 24 Feb 2014 08:54:47 -0500
-Message-ID: <1393250089-31104-3-git-send-email-shahed.shaikh@qlogic.com>
-References: <1393250089-31104-1-git-send-email-shahed.shaikh@qlogic.com>
+From: Qin Chuanyu <qinchuanyu@huawei.com>
+Subject: Re: [PATCH] bridge: orphan frags on local receive
+Date: Mon, 24 Feb 2014 22:31:17 +0800
+Message-ID: <530B57B5.8010708@huawei.com>
+References: <530B4534.3000106@huawei.com> <20140224132926.GF8981@redhat.com> <530B4E8B.5050007@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, KVM list <kvm@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:31305 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752484AbaBXOaT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 09:30:19 -0500
-In-Reply-To: <1393250089-31104-1-git-send-email-shahed.shaikh@qlogic.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:60631 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752163AbaBXObj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 09:31:39 -0500
+In-Reply-To: <530B4E8B.5050007@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-
-Once interrupts are enabled, instead of using module parameters,
-use flags (QLCNIC_MSI_ENABLED and QLCNIC_MSIX_ENABLED) set by driver
-to check interrupt mode.
-
-Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 149c4b6..e10fc8e 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -3863,7 +3863,7 @@ int qlcnic_validate_rings(struct qlcnic_adapter *adapter, __u32 ring_cnt,
- 		strcpy(buf, "Tx");
- 	}
- 
--	if (!qlcnic_use_msi_x && !qlcnic_use_msi) {
-+	if (!QLCNIC_IS_MSI_FAMILY(adapter)) {
- 		netdev_err(netdev, "No RSS/TSS support in INT-x mode\n");
- 		return -EINVAL;
- 	}
--- 
-1.8.1.4
+On 2014/2/24 21:52, Qin Chuanyu wrote:
+> On 2014/2/24 21:29, Michael S. Tsirkin wrote:
+>> On Mon, Feb 24, 2014 at 09:12:20PM +0800, Qin Chuanyu wrote:
+>>> with vhost tx zero_copy, guest nic might get hang when host reserving
+>>> skb in socket queue delivered by guest, the case has been solved in
+>>> tun, it also been needed by bridge. This could easily happened when a
+>>> LAST_ACK state tcp occuring between guest and host.
+>>>
+>>> Signed-off-by: Chuanyu Qin <qinchuanyu@huawei.com>
+>>
+>> Do you actually observe guest hang?
+>>
+> yes, guest nic could not xmit any more until the skb holded by host has
+> been freed, the mainly reason is that though virtio-net could use vring
+> desc out of order, but ubufs is been used by vhost in order. so only
+> one skb could cause guest nic hang.
+>> I would expect orphan frags in
+>> __netif_receive_skb_core to be enough.
+>>
+> yes, it would be better. I would deliver another patch soon.
+>>
+After thinking for a while, I think that orphan frags could only been
+involved in virtual nic receive path, because after
+__netif_receive_skb_core, skb would been transmitted by physic nic, in
+this way orphan frags is unnecessary.
+>>> ---
+>>>   net/bridge/br_input.c |    3 +++
+>>>   1 files changed, 3 insertions(+), 0 deletions(-)
+>>>
+>>> diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+>>> index 28d5446..744e27a 100644
+>>> --- a/net/bridge/br_input.c
+>>> +++ b/net/bridge/br_input.c
+>>> @@ -117,6 +117,8 @@ int br_handle_frame_finish(struct sk_buff *skb)
+>>>           br->dev->stats.multicast++;
+>>>       } else if ((dst = __br_fdb_get(br, dest, vid)) &&
+>>>               dst->is_local) {
+>>> +        if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
+>>> +            goto drop;
+>>>           skb2 = skb;
+>>>           /* Do not forward the packet since it's local. */
+>>>           skb = NULL;
+>>> @@ -136,6 +138,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
+>>>   out:
+>>>       return 0;
+>>>   drop:
+>>> +    skb_tx_error(skb);
+>>>       kfree_skb(skb);
+>>>       goto out;
+>>>   }
+>>> --
+>>> 1.7.3.1.msysgit.0
+>>
+>>
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe kvm" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
