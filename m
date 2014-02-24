@@ -1,41 +1,93 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net 4/5] be2net: wait longer to reap TX compls in
- be_close()
-Date: Mon, 24 Feb 2014 09:31:15 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6C9608@AcuExch.aculab.com>
-References: <57bc5399-f8f6-4c65-8cae-131c83d548ad@CMEXHTCAS1.ad.emulex.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH 02/13] {IPv4,xfrm} Add ESN support for AH egress part
+Date: Mon, 24 Feb 2014 10:59:50 +0100
+Message-ID: <1393236001-2445-3-git-send-email-steffen.klassert@secunet.com>
+References: <1393236001-2445-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	Vasundhara Volam <vasundhara.volam@emulex.com>,
-	Sathya Perla <sathya.perla@emulex.com>
-To: 'Somnath Kotur' <somnath.kotur@emulex.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:54042 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751622AbaBXJcN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 04:32:13 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 27518-03 for <netdev@vger.kernel.org>;
- Mon, 24 Feb 2014 09:32:11 +0000 (GMT)
-In-Reply-To: <57bc5399-f8f6-4c65-8cae-131c83d548ad@CMEXHTCAS1.ad.emulex.com>
-Content-Language: en-US
+Received: from a.mx.secunet.com ([195.81.216.161]:39081 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751685AbaBXKAJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Feb 2014 05:00:09 -0500
+In-Reply-To: <1393236001-2445-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Of Somnath Kotur
-> be_close() currently waits for a max of 200ms to receive all pending
-> TX compls. This timeout value was roughly calcuated based on 10G
-> transmission speeds and the TX queue depth. This timeout may not be
-> enough when the link is operating at lower speeds or in
-> multi-channel/SR-IOV configs with TX-rate limiting setting.
-> Increase the timeout to 2000ms and also bail-out if there is
-> a HW-error.
+From: Fan Du <fan.du@windriver.com>
 
-What about monitoring whether transmits are actually completing,
-and giving up if none are completed within a suitable time period?
+This patch add esn support for AH output stage by attaching upper 32bits
+sequence number right after packet payload as specified by RFC 4302.
 
-	David
+Then the ICV value will guard upper 32bits sequence number as well when
+packet going out.
+
+Signed-off-by: Fan Du <fan.du@windriver.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/ipv4/ah4.c |   26 ++++++++++++++++++++------
+ 1 file changed, 20 insertions(+), 6 deletions(-)
+
+diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
+index 7179026..c6accac 100644
+--- a/net/ipv4/ah4.c
++++ b/net/ipv4/ah4.c
+@@ -155,6 +155,10 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	struct iphdr *iph, *top_iph;
+ 	struct ip_auth_hdr *ah;
+ 	struct ah_data *ahp;
++	int seqhi_len = 0;
++	__be32 *seqhi;
++	int sglists = 0;
++	struct scatterlist *seqhisg;
+ 
+ 	ahp = x->data;
+ 	ahash = ahp->ahash;
+@@ -167,14 +171,19 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	ah = ip_auth_hdr(skb);
+ 	ihl = ip_hdrlen(skb);
+ 
++	if (x->props.flags & XFRM_STATE_ESN) {
++		sglists = 1;
++		seqhi_len = sizeof(*seqhi);
++	}
+ 	err = -ENOMEM;
+-	iph = ah_alloc_tmp(ahash, nfrags, ihl);
++	iph = ah_alloc_tmp(ahash, nfrags + sglists, ihl + seqhi_len);
+ 	if (!iph)
+ 		goto out;
+-
+-	icv = ah_tmp_icv(ahash, iph, ihl);
++	seqhi = (__be32 *)((char *)iph + ihl);
++	icv = ah_tmp_icv(ahash, seqhi, seqhi_len);
+ 	req = ah_tmp_req(ahash, icv);
+ 	sg = ah_req_sg(ahash, req);
++	seqhisg = sg + nfrags;
+ 
+ 	memset(ah->auth_data, 0, ahp->icv_trunc_len);
+ 
+@@ -210,10 +219,15 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	ah->spi = x->id.spi;
+ 	ah->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.low);
+ 
+-	sg_init_table(sg, nfrags);
+-	skb_to_sgvec(skb, sg, 0, skb->len);
++	sg_init_table(sg, nfrags + sglists);
++	skb_to_sgvec_nomark(skb, sg, 0, skb->len);
+ 
+-	ahash_request_set_crypt(req, sg, icv, skb->len);
++	if (x->props.flags & XFRM_STATE_ESN) {
++		/* Attach seqhi sg right after packet payload */
++		*seqhi = htonl(XFRM_SKB_CB(skb)->seq.output.hi);
++		sg_set_buf(seqhisg, seqhi, seqhi_len);
++	}
++	ahash_request_set_crypt(req, sg, icv, skb->len + seqhi_len);
+ 	ahash_request_set_callback(req, 0, ah_output_done, skb);
+ 
+ 	AH_SKB_CB(skb)->tmp = iph;
+-- 
+1.7.9.5
