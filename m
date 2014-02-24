@@ -1,34 +1,30 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next] loopback: sctp: add NETIF_F_SCTP_CSUM to device
- features
-Date: Mon, 24 Feb 2014 14:36:03 +0100
-Message-ID: <530B4AC3.2040903@redhat.com>
-References: <1393074113-9922-1-git-send-email-dborkman@redhat.com> <063D6719AE5E284EB5DD2968C1650D6D0F6C96DE@AcuExch.aculab.com> <530B1F93.4010308@redhat.com> <063D6719AE5E284EB5DD2968C1650D6D0F6C9802@AcuExch.aculab.com> <530B34D3.2050307@redhat.com> <063D6719AE5E284EB5DD2968C1650D6D0F6C99F9@AcuExch.aculab.com>
+From: Yung Kyu Kim <cmarmol@mingob.gob.gt>
+Subject: I have a project for you!
+Date: Mon, 24 Feb 2014 05:34:57 -0600 (CST)
+Message-ID: <1344324707.1281995.1393241697800.JavaMail.root@mingob.gob.gt>
+Reply-To: Yung Kyu Kim <2095494028@qq.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47823 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752301AbaBXNgL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Feb 2014 08:36:11 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6C99F9@AcuExch.aculab.com>
+Received: from [181.114.21.12] ([181.114.21.12]:43926 "EHLO mta.mingob.gob.gt"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752399AbaBXNo2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Feb 2014 08:44:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/24/2014 02:24 PM, David Laight wrote:
-...
-> Which architecture and which version of crc32_le() does your kernel use?
 
-It's using slice-by-8 algorithm, and my machine is [only]
-a core i7 (x86_64). Apparently, it is not using the crypto
-version that is accelerated.
+Hey,
 
-> (I'd guess there are several lurking).
-> Whichever function you are using wants killing.
->
-> 	David
+The Project is about the exportation of 100,000 barrels of Light Crude
+Oil daily out from Iraq to Turkey through my client's company in Iraq at the rate of $92.00 a barrel. This amount to $9,200,000 daily.
+I as for your support as a foreigner to handle this business project with my
+client and you are not expected to invest in Iraq
+
+If yes, let me know and we will discuss this project proper.
+
+yung kyu kim
+
+CONTACT MY PRIVATE EMAIL: 2758652960@qq.com
