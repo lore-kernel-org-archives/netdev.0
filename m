@@ -1,7 +1,7 @@
 From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH net-next v2 4/5] gianfar: Fix device reset races (oops) for Tx
-Date: Mon, 24 Feb 2014 12:13:45 +0200
-Message-ID: <1393236826-13059-5-git-send-email-claudiu.manoil@freescale.com>
+Subject: [PATCH net-next v2 5/5] gianfar: Fix Tx int miss, dont write IC on-the-fly
+Date: Mon, 24 Feb 2014 12:13:46 +0200
+Message-ID: <1393236826-13059-6-git-send-email-claudiu.manoil@freescale.com>
 References: <1393236826-13059-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,494 +9,274 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Ben Hutchings <ben@decadent.org.uk>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from am1ehsobe004.messaging.microsoft.com ([213.199.154.207]:34327
+Received: from am1ehsobe001.messaging.microsoft.com ([213.199.154.204]:48806
 	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752433AbaBXKOv (ORCPT
+	by vger.kernel.org with ESMTP id S1752837AbaBXKOv (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 05:14:51 -0500
 In-Reply-To: <1393236826-13059-1-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The device reset procedure, stop_gfar()/startup_gfar(), has
-concurrency issues.
-"Kernel access of bad area" oopses show up during Tx timeout
-device reset or other reset cases (like changing MTU) that
-happen while the interface still has traffic. The oopses
-happen in start_xmit and clean_tx_ring when accessing tx_queue->
-tx_skbuff which is NULL. The race comes from de-allocating the
-tx_skbuff while transmission and napi processing are still
-active. Though the Tx queues get temoprarily stopped when Tx
-timeout occurs, they get re-enabled as a result of Tx congestion
-handling inside the napi context (see clean_tx_ring()). Not
-disabling the napi during reset is also a bug, because
-clean_tx_ring() will try to access tx_skbuff while it is being
-de-alloc'ed and re-alloc'ed.
+Programming the interrupt coalescing (IC) registers while
+the controller/DMA is on may incur the loss of one Tx
+confirmation interrupt, under certain conditions.  This is
+a subtle hw race because it does not occur during a burst
+of Tx packets.  It has been observed on p2020 devices that,
+if just one packet is being xmit'ed, the Tx confirmation
+doesn't trigger and BQL evetually blocks the Tx queues,
+followed by Tx timeout and an un-responsive device.
+This issue was not apparent prior to introducing BQL
+support, as a late Tx confirmation was not an issue back then
+and the next burst of Tx frames would have triggered the
+Tx confirmation/ Tx ring cleanup anyway.
 
-To fix this, stop_gfar() needs to disable napi processing
-after stopping the Tx queues. However, in order to prevent
-clean_tx_ring() to re-enable the Tx queue before the napi
-gets disabled, the device state DOWN has been introduced.
-It prevents the Tx congestion management from re-enabling the
-de-congested Tx queue while the device is brought down.
-An additional locking state, RESETTING, has been introduced
-to prevent simultaneous resets or to prevent configuring the
-device while it is resetting.
-The bogus 'rxlock's (for each Rx queue) have been removed since
-their purpose is not justified, as they don't prevent nor are
-suited to prevent device reset/reconfig races (such as this one).
+Bottom line, the hw specifications state that the IC registers
+should not be programmed while the Rx/Tx blocks (the DMA) are
+enabled. Further more, these registers are currently re-written
+with the same values on the processing path, over and over again.
+To fix this, rewriting the IC registers has been removed from
+the processing path (napi poll).  A complete MAC reset procedure
+has been implemented for the ethtool -c option instead, to
+reliably update these registers while the controller is stopped.
 
 Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
 ---
- drivers/net/ethernet/freescale/gianfar.c         | 116 ++++++++++-------------
- drivers/net/ethernet/freescale/gianfar.h         |  16 ++--
- drivers/net/ethernet/freescale/gianfar_ethtool.c |  28 ++++--
- 3 files changed, 76 insertions(+), 84 deletions(-)
+ drivers/net/ethernet/freescale/gianfar.c         | 99 ++++++++++--------------
+ drivers/net/ethernet/freescale/gianfar_ethtool.c | 66 +++++++++-------
+ 2 files changed, 77 insertions(+), 88 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 6c054b5..4eac25f 100644
+index 4eac25f..c5b9320 100644
 --- a/drivers/net/ethernet/freescale/gianfar.c
 +++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -480,14 +480,6 @@ static void gfar_ints_enable(struct gfar_private *priv)
- 	}
+@@ -412,6 +412,47 @@ static void gfar_mac_tx_config(struct gfar_private *priv)
+ 	gfar_write(&regs->tctrl, tctrl);
  }
  
--void lock_rx_qs(struct gfar_private *priv)
--{
--	int i;
--
--	for (i = 0; i < priv->num_rx_queues; i++)
--		spin_lock(&priv->rx_queue[i]->rxlock);
--}
--
- void lock_tx_qs(struct gfar_private *priv)
- {
- 	int i;
-@@ -496,14 +488,6 @@ void lock_tx_qs(struct gfar_private *priv)
- 		spin_lock(&priv->tx_queue[i]->txlock);
- }
- 
--void unlock_rx_qs(struct gfar_private *priv)
--{
--	int i;
--
--	for (i = 0; i < priv->num_rx_queues; i++)
--		spin_unlock(&priv->rx_queue[i]->rxlock);
--}
--
- void unlock_tx_qs(struct gfar_private *priv)
- {
- 	int i;
-@@ -543,7 +527,6 @@ static int gfar_alloc_rx_queues(struct gfar_private *priv)
- 		priv->rx_queue[i]->rx_skbuff = NULL;
- 		priv->rx_queue[i]->qindex = i;
- 		priv->rx_queue[i]->dev = priv->ndev;
--		spin_lock_init(&(priv->rx_queue[i]->rxlock));
- 	}
- 	return 0;
- }
-@@ -857,18 +840,16 @@ static int gfar_hwtstamp_set(struct net_device *netdev, struct ifreq *ifr)
- 	switch (config.rx_filter) {
- 	case HWTSTAMP_FILTER_NONE:
- 		if (priv->hwts_rx_en) {
--			stop_gfar(netdev);
- 			priv->hwts_rx_en = 0;
--			startup_gfar(netdev);
-+			reset_gfar(netdev);
- 		}
- 		break;
- 	default:
- 		if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_TIMER))
- 			return -ERANGE;
- 		if (!priv->hwts_rx_en) {
--			stop_gfar(netdev);
- 			priv->hwts_rx_en = 1;
--			startup_gfar(netdev);
-+			reset_gfar(netdev);
- 		}
- 		config.rx_filter = HWTSTAMP_FILTER_ALL;
- 		break;
-@@ -1027,7 +1008,7 @@ static void gfar_detect_errata(struct gfar_private *priv)
- 			 priv->errata);
- }
- 
--static void gfar_mac_reset(struct gfar_private *priv)
-+void gfar_mac_reset(struct gfar_private *priv)
- {
- 	struct gfar __iomem *regs = priv->gfargrp[0].regs;
- 	u32 tempval;
-@@ -1290,6 +1271,8 @@ static int gfar_probe(struct platform_device *ofdev)
- 	if (priv->num_tx_queues == 1)
- 		priv->prio_sched_en = 1;
- 
-+	set_bit(GFAR_DOWN, &priv->state);
-+
- 	gfar_hw_init(priv);
- 
- 	err = register_netdev(dev);
-@@ -1389,7 +1372,6 @@ static int gfar_suspend(struct device *dev)
- 
- 		local_irq_save(flags);
- 		lock_tx_qs(priv);
--		lock_rx_qs(priv);
- 
- 		gfar_halt_nodisable(priv);
- 
-@@ -1403,7 +1385,6 @@ static int gfar_suspend(struct device *dev)
- 
- 		gfar_write(&regs->maccfg1, tempval);
- 
--		unlock_rx_qs(priv);
- 		unlock_tx_qs(priv);
- 		local_irq_restore(flags);
- 
-@@ -1449,7 +1430,6 @@ static int gfar_resume(struct device *dev)
- 	 */
- 	local_irq_save(flags);
- 	lock_tx_qs(priv);
--	lock_rx_qs(priv);
- 
- 	tempval = gfar_read(&regs->maccfg2);
- 	tempval &= ~MACCFG2_MPEN;
-@@ -1457,7 +1437,6 @@ static int gfar_resume(struct device *dev)
- 
- 	gfar_start(priv);
- 
--	unlock_rx_qs(priv);
- 	unlock_tx_qs(priv);
- 	local_irq_restore(flags);
- 
-@@ -1718,21 +1697,19 @@ void gfar_halt(struct gfar_private *priv)
- void stop_gfar(struct net_device *dev)
- {
- 	struct gfar_private *priv = netdev_priv(dev);
--	unsigned long flags;
- 
--	phy_stop(priv->phydev);
-+	netif_tx_stop_all_queues(dev);
- 
-+	smp_mb__before_clear_bit();
-+	set_bit(GFAR_DOWN, &priv->state);
-+	smp_mb__after_clear_bit();
- 
--	/* Lock it down */
--	local_irq_save(flags);
--	lock_tx_qs(priv);
--	lock_rx_qs(priv);
-+	disable_napi(priv);
- 
-+	/* disable ints and gracefully shut down Rx/Tx DMA */
- 	gfar_halt(priv);
- 
--	unlock_rx_qs(priv);
--	unlock_tx_qs(priv);
--	local_irq_restore(flags);
-+	phy_stop(priv->phydev);
- 
- 	free_skb_resources(priv);
- }
-@@ -2009,11 +1986,19 @@ int startup_gfar(struct net_device *ndev)
- 
- 	gfar_init_tx_rx_base(priv);
- 
--	/* Start the controller */
-+	smp_mb__before_clear_bit();
-+	clear_bit(GFAR_DOWN, &priv->state);
-+	smp_mb__after_clear_bit();
-+
-+	/* Start Rx/Tx DMA and enable the interrupts */
- 	gfar_start(priv);
- 
- 	phy_start(priv->phydev);
- 
-+	enable_napi(priv);
-+
-+	netif_tx_wake_all_queues(ndev);
-+
- 	return 0;
- }
- 
-@@ -2025,26 +2010,17 @@ static int gfar_enet_open(struct net_device *dev)
- 	struct gfar_private *priv = netdev_priv(dev);
- 	int err;
- 
--	enable_napi(priv);
--
- 	err = init_phy(dev);
--
--	if (err) {
--		disable_napi(priv);
-+	if (err)
- 		return err;
--	}
- 
- 	err = gfar_request_irq(priv);
- 	if (err)
- 		return err;
- 
- 	err = startup_gfar(dev);
--	if (err) {
--		disable_napi(priv);
-+	if (err)
- 		return err;
--	}
--
--	netif_tx_start_all_queues(dev);
- 
- 	device_set_wakeup_enable(&dev->dev, priv->wol_en);
- 
-@@ -2369,8 +2345,6 @@ static int gfar_close(struct net_device *dev)
- {
- 	struct gfar_private *priv = netdev_priv(dev);
- 
--	disable_napi(priv);
--
- 	cancel_work_sync(&priv->reset_task);
- 	stop_gfar(dev);
- 
-@@ -2378,8 +2352,6 @@ static int gfar_close(struct net_device *dev)
- 	phy_disconnect(priv->phydev);
- 	priv->phydev = NULL;
- 
--	netif_tx_stop_all_queues(dev);
--
- 	gfar_free_irq(priv);
- 
- 	return 0;
-@@ -2403,6 +2375,9 @@ static int gfar_change_mtu(struct net_device *dev, int new_mtu)
- 		return -EINVAL;
- 	}
- 
-+	while (test_and_set_bit_lock(GFAR_RESETTING, &priv->state))
-+		cpu_relax();
-+
- 	if (dev->flags & IFF_UP)
- 		stop_gfar(dev);
- 
-@@ -2411,9 +2386,24 @@ static int gfar_change_mtu(struct net_device *dev, int new_mtu)
- 	if (dev->flags & IFF_UP)
- 		startup_gfar(dev);
- 
-+	clear_bit_unlock(GFAR_RESETTING, &priv->state);
-+
- 	return 0;
- }
- 
-+void reset_gfar(struct net_device *ndev)
++static void gfar_configure_coalescing(struct gfar_private *priv,
++			       unsigned long tx_mask, unsigned long rx_mask)
 +{
-+	struct gfar_private *priv = netdev_priv(ndev);
++	struct gfar __iomem *regs = priv->gfargrp[0].regs;
++	u32 __iomem *baddr;
 +
-+	while (test_and_set_bit_lock(GFAR_RESETTING, &priv->state))
-+		cpu_relax();
++	if (priv->mode == MQ_MG_MODE) {
++		int i = 0;
 +
-+	stop_gfar(ndev);
-+	startup_gfar(ndev);
++		baddr = &regs->txic0;
++		for_each_set_bit(i, &tx_mask, priv->num_tx_queues) {
++			gfar_write(baddr + i, 0);
++			if (likely(priv->tx_queue[i]->txcoalescing))
++				gfar_write(baddr + i, priv->tx_queue[i]->txic);
++		}
 +
-+	clear_bit_unlock(GFAR_RESETTING, &priv->state);
++		baddr = &regs->rxic0;
++		for_each_set_bit(i, &rx_mask, priv->num_rx_queues) {
++			gfar_write(baddr + i, 0);
++			if (likely(priv->rx_queue[i]->rxcoalescing))
++				gfar_write(baddr + i, priv->rx_queue[i]->rxic);
++		}
++	} else {
++		/* Backward compatible case -- even if we enable
++		 * multiple queues, there's only single reg to program
++		 */
++		gfar_write(&regs->txic, 0);
++		if (likely(priv->tx_queue[0]->txcoalescing))
++			gfar_write(&regs->txic, priv->tx_queue[0]->txic);
++
++		gfar_write(&regs->rxic, 0);
++		if (unlikely(priv->rx_queue[0]->rxcoalescing))
++			gfar_write(&regs->rxic, priv->rx_queue[0]->rxic);
++	}
 +}
 +
- /* gfar_reset_task gets scheduled when a packet has not been
-  * transmitted after a set amount of time.
-  * For now, assume that clearing out all the structures, and
-@@ -2423,16 +2413,7 @@ static void gfar_reset_task(struct work_struct *work)
- {
- 	struct gfar_private *priv = container_of(work, struct gfar_private,
- 						 reset_task);
--	struct net_device *dev = priv->ndev;
--
--	if (dev->flags & IFF_UP) {
--		netif_tx_stop_all_queues(dev);
--		stop_gfar(dev);
--		startup_gfar(dev);
--		netif_tx_start_all_queues(dev);
--	}
--
--	netif_tx_schedule_all(dev);
-+	reset_gfar(priv->ndev);
- }
- 
- static void gfar_timeout(struct net_device *dev)
-@@ -2545,8 +2526,10 @@ static void gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
- 	}
- 
- 	/* If we freed a buffer, we can restart transmission, if necessary */
--	if (netif_tx_queue_stopped(txq) && tx_queue->num_txbdfree)
--		netif_wake_subqueue(dev, tqi);
-+	if (tx_queue->num_txbdfree &&
-+	    netif_tx_queue_stopped(txq) &&
-+	    !(test_bit(GFAR_DOWN, &priv->state)))
-+		netif_wake_subqueue(priv->ndev, tqi);
- 
- 	/* Update dirty indicators */
- 	tx_queue->skb_dirtytx = skb_dirtytx;
-@@ -3023,12 +3006,11 @@ static void adjust_link(struct net_device *dev)
++void gfar_configure_coalescing_all(struct gfar_private *priv)
++{
++	gfar_configure_coalescing(priv, 0xFF, 0xFF);
++}
++
+ static struct net_device_stats *gfar_get_stats(struct net_device *dev)
  {
  	struct gfar_private *priv = netdev_priv(dev);
- 	struct gfar __iomem *regs = priv->gfargrp[0].regs;
--	unsigned long flags;
- 	struct phy_device *phydev = priv->phydev;
- 	int new_state = 0;
- 
--	local_irq_save(flags);
--	lock_tx_qs(priv);
-+	if (test_bit(GFAR_RESETTING, &priv->state))
-+		return;
- 
- 	if (phydev->link) {
- 		u32 tempval1 = gfar_read(&regs->maccfg1);
-@@ -3100,8 +3082,6 @@ static void adjust_link(struct net_device *dev)
- 
- 	if (new_state && netif_msg_link(priv))
- 		phy_print_status(phydev);
--	unlock_tx_qs(priv);
--	local_irq_restore(flags);
+@@ -1837,47 +1878,6 @@ void gfar_start(struct gfar_private *priv)
+ 	priv->ndev->trans_start = jiffies; /* prevent tx timeout */
  }
  
- /* Update the hash table based on the current list of multicast
-diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
-index 9db9556..1e16216 100644
---- a/drivers/net/ethernet/freescale/gianfar.h
-+++ b/drivers/net/ethernet/freescale/gianfar.h
-@@ -965,7 +965,6 @@ struct rx_q_stats {
+-static void gfar_configure_coalescing(struct gfar_private *priv,
+-			       unsigned long tx_mask, unsigned long rx_mask)
+-{
+-	struct gfar __iomem *regs = priv->gfargrp[0].regs;
+-	u32 __iomem *baddr;
+-
+-	if (priv->mode == MQ_MG_MODE) {
+-		int i = 0;
+-
+-		baddr = &regs->txic0;
+-		for_each_set_bit(i, &tx_mask, priv->num_tx_queues) {
+-			gfar_write(baddr + i, 0);
+-			if (likely(priv->tx_queue[i]->txcoalescing))
+-				gfar_write(baddr + i, priv->tx_queue[i]->txic);
+-		}
+-
+-		baddr = &regs->rxic0;
+-		for_each_set_bit(i, &rx_mask, priv->num_rx_queues) {
+-			gfar_write(baddr + i, 0);
+-			if (likely(priv->rx_queue[i]->rxcoalescing))
+-				gfar_write(baddr + i, priv->rx_queue[i]->rxic);
+-		}
+-	} else {
+-		/* Backward compatible case -- even if we enable
+-		 * multiple queues, there's only single reg to program
+-		 */
+-		gfar_write(&regs->txic, 0);
+-		if (likely(priv->tx_queue[0]->txcoalescing))
+-			gfar_write(&regs->txic, priv->tx_queue[0]->txic);
+-
+-		gfar_write(&regs->rxic, 0);
+-		if (unlikely(priv->rx_queue[0]->rxcoalescing))
+-			gfar_write(&regs->rxic, priv->rx_queue[0]->rxic);
+-	}
+-}
+-
+-void gfar_configure_coalescing_all(struct gfar_private *priv)
+-{
+-	gfar_configure_coalescing(priv, 0xFF, 0xFF);
+-}
+-
+ static void free_grp_irqs(struct gfar_priv_grp *grp)
+ {
+ 	free_irq(gfar_irq(grp, TX)->irq, grp);
+@@ -2812,17 +2812,6 @@ static int gfar_poll_sq(struct napi_struct *napi, int budget)
+ 		gfar_write(&regs->rstat, gfargrp->rstat);
  
- /**
-  *	struct gfar_priv_rx_q - per rx queue structure
-- *	@rxlock: per queue rx spin lock
-  *	@rx_skbuff: skb pointers
-  *	@skb_currx: currently use skb pointer
-  *	@rx_bd_base: First rx buffer descriptor
-@@ -978,8 +977,7 @@ struct rx_q_stats {
-  */
- 
- struct gfar_priv_rx_q {
--	spinlock_t rxlock __attribute__ ((aligned (SMP_CACHE_BYTES)));
--	struct	sk_buff ** rx_skbuff;
-+	struct	sk_buff **rx_skbuff __aligned(SMP_CACHE_BYTES);
- 	dma_addr_t rx_bd_dma_base;
- 	struct	rxbd8 *rx_bd_base;
- 	struct	rxbd8 *cur_rx;
-@@ -1040,6 +1038,11 @@ enum gfar_errata {
- 	GFAR_ERRATA_12		= 0x08, /* a.k.a errata eTSEC49 */
- };
- 
-+enum gfar_dev_state {
-+	GFAR_DOWN = 1,
-+	GFAR_RESETTING
-+};
-+
- /* Struct stolen almost completely (and shamelessly) from the FCC enet source
-  * (Ok, that's not so true anymore, but there is a family resemblance)
-  * The GFAR buffer descriptors track the ring buffers.  The rx_bd_base
-@@ -1068,6 +1071,7 @@ struct gfar_private {
- 	struct gfar_priv_rx_q *rx_queue[MAX_RX_QS];
- 	struct gfar_priv_grp gfargrp[MAXGROUPS];
- 
-+	unsigned long state;
- 	u32 device_flags;
- 
- 	unsigned int mode;
-@@ -1198,13 +1202,11 @@ static inline void gfar_write_isrg(struct gfar_private *priv)
+ 		gfar_write(&regs->imask, IMASK_DEFAULT);
+-
+-		/* If we are coalescing interrupts, update the timer
+-		 * Otherwise, clear it
+-		 */
+-		gfar_write(&regs->txic, 0);
+-		if (likely(tx_queue->txcoalescing))
+-			gfar_write(&regs->txic, tx_queue->txic);
+-
+-		gfar_write(&regs->rxic, 0);
+-		if (unlikely(rx_queue->rxcoalescing))
+-			gfar_write(&regs->rxic, rx_queue->rxic);
  	}
- }
  
--void lock_rx_qs(struct gfar_private *priv);
--void lock_tx_qs(struct gfar_private *priv);
--void unlock_rx_qs(struct gfar_private *priv);
--void unlock_tx_qs(struct gfar_private *priv);
- irqreturn_t gfar_receive(int irq, void *dev_id);
- int startup_gfar(struct net_device *dev);
- void stop_gfar(struct net_device *dev);
-+void reset_gfar(struct net_device *dev);
-+void gfar_mac_reset(struct gfar_private *priv);
- void gfar_halt(struct gfar_private *priv);
- void gfar_start(struct gfar_private *priv);
- void gfar_phy_test(struct mii_bus *bus, struct phy_device *phydev, int enable,
+ 	return work_done;
+@@ -2892,12 +2881,6 @@ static int gfar_poll(struct napi_struct *napi, int budget)
+ 		gfar_write(&regs->rstat, gfargrp->rstat);
+ 
+ 		gfar_write(&regs->imask, IMASK_DEFAULT);
+-
+-		/* If we are coalescing interrupts, update the timer
+-		 * Otherwise, clear it
+-		 */
+-		gfar_configure_coalescing(priv, gfargrp->rx_bit_map,
+-					  gfargrp->tx_bit_map);
+ 	}
+ 
+ 	return work_done;
 diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-index dd7ccec..45219d4 100644
+index 45219d4..891dbee 100644
 --- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
 +++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-@@ -487,6 +487,9 @@ static int gfar_sringparam(struct net_device *dev,
+@@ -360,25 +360,11 @@ static int gfar_scoalesce(struct net_device *dev,
+ 			  struct ethtool_coalesce *cvals)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
+-	int i = 0;
++	int i, err = 0;
+ 
+ 	if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_COALESCE))
+ 		return -EOPNOTSUPP;
+ 
+-	/* Set up rx coalescing */
+-	/* As of now, we will enable/disable coalescing for all
+-	 * queues together in case of eTSEC2, this will be modified
+-	 * along with the ethtool interface
+-	 */
+-	if ((cvals->rx_coalesce_usecs == 0) ||
+-	    (cvals->rx_max_coalesced_frames == 0)) {
+-		for (i = 0; i < priv->num_rx_queues; i++)
+-			priv->rx_queue[i]->rxcoalescing = 0;
+-	} else {
+-		for (i = 0; i < priv->num_rx_queues; i++)
+-			priv->rx_queue[i]->rxcoalescing = 1;
+-	}
+-
+ 	if (NULL == priv->phydev)
+ 		return -ENODEV;
+ 
+@@ -395,6 +381,32 @@ static int gfar_scoalesce(struct net_device *dev,
  		return -EINVAL;
  	}
  
++	/* Check the bounds of the values */
++	if (cvals->tx_coalesce_usecs > GFAR_MAX_COAL_USECS) {
++		netdev_info(dev, "Coalescing is limited to %d microseconds\n",
++			    GFAR_MAX_COAL_USECS);
++		return -EINVAL;
++	}
++
++	if (cvals->tx_max_coalesced_frames > GFAR_MAX_COAL_FRAMES) {
++		netdev_info(dev, "Coalescing is limited to %d frames\n",
++			    GFAR_MAX_COAL_FRAMES);
++		return -EINVAL;
++	}
++
 +	while (test_and_set_bit_lock(GFAR_RESETTING, &priv->state))
 +		cpu_relax();
 +
- 	if (dev->flags & IFF_UP)
- 		stop_gfar(dev);
++	/* Set up rx coalescing */
++	if ((cvals->rx_coalesce_usecs == 0) ||
++	    (cvals->rx_max_coalesced_frames == 0)) {
++		for (i = 0; i < priv->num_rx_queues; i++)
++			priv->rx_queue[i]->rxcoalescing = 0;
++	} else {
++		for (i = 0; i < priv->num_rx_queues; i++)
++			priv->rx_queue[i]->rxcoalescing = 1;
++	}
++
+ 	for (i = 0; i < priv->num_rx_queues; i++) {
+ 		priv->rx_queue[i]->rxic = mk_ic_value(
+ 			cvals->rx_max_coalesced_frames,
+@@ -411,28 +423,22 @@ static int gfar_scoalesce(struct net_device *dev,
+ 			priv->tx_queue[i]->txcoalescing = 1;
+ 	}
  
-@@ -498,10 +501,11 @@ static int gfar_sringparam(struct net_device *dev,
- 		priv->tx_queue[i]->tx_ring_size = rvals->tx_pending;
- 
- 	/* Rebuild the rings with the new size */
--	if (dev->flags & IFF_UP) {
-+	if (dev->flags & IFF_UP)
- 		err = startup_gfar(dev);
--		netif_tx_wake_all_queues(dev);
+-	/* Check the bounds of the values */
+-	if (cvals->tx_coalesce_usecs > GFAR_MAX_COAL_USECS) {
+-		netdev_info(dev, "Coalescing is limited to %d microseconds\n",
+-			    GFAR_MAX_COAL_USECS);
+-		return -EINVAL;
 -	}
-+
-+	clear_bit_unlock(GFAR_RESETTING, &priv->state);
-+
- 	return err;
- }
+-
+-	if (cvals->tx_max_coalesced_frames > GFAR_MAX_COAL_FRAMES) {
+-		netdev_info(dev, "Coalescing is limited to %d frames\n",
+-			    GFAR_MAX_COAL_FRAMES);
+-		return -EINVAL;
+-	}
+-
+ 	for (i = 0; i < priv->num_tx_queues; i++) {
+ 		priv->tx_queue[i]->txic = mk_ic_value(
+ 			cvals->tx_max_coalesced_frames,
+ 			gfar_usecs2ticks(priv, cvals->tx_coalesce_usecs));
+ 	}
  
-@@ -580,20 +584,28 @@ static int gfar_spauseparam(struct net_device *dev,
- int gfar_set_features(struct net_device *dev, netdev_features_t features)
- {
- 	netdev_features_t changed = dev->features ^ features;
-+	struct gfar_private *priv = netdev_priv(dev);
- 	int err = 0;
- 
- 	if (!(changed & (NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX |
- 			 NETIF_F_RXCSUM)))
- 		return 0;
- 
-+	while (test_and_set_bit_lock(GFAR_RESETTING, &priv->state))
-+		cpu_relax();
-+
- 	dev->features = features;
- 
- 	if (dev->flags & IFF_UP) {
- 		/* Now we take down the rings to rebuild them */
- 		stop_gfar(dev);
- 		err = startup_gfar(dev);
--		netif_tx_wake_all_queues(dev);
+-	gfar_configure_coalescing_all(priv);
++	if (dev->flags & IFF_UP) {
++		stop_gfar(dev);
++		err = startup_gfar(dev);
 +	} else {
 +		gfar_mac_reset(priv);
- 	}
-+
++	}
+ 
+-	return 0;
 +	clear_bit_unlock(GFAR_RESETTING, &priv->state);
 +
- 	return err;
++	return err;
  }
  
-@@ -1559,9 +1571,6 @@ static int gfar_write_filer_table(struct gfar_private *priv,
- 	if (tab->index > MAX_FILER_IDX - 1)
- 		return -EBUSY;
- 
--	/* Avoid inconsistent filer table to be processed */
--	lock_rx_qs(priv);
--
- 	/* Fill regular entries */
- 	for (; i < MAX_FILER_IDX - 1 && (tab->fe[i].ctrl | tab->fe[i].ctrl);
- 	     i++)
-@@ -1574,8 +1583,6 @@ static int gfar_write_filer_table(struct gfar_private *priv,
- 	 */
- 	gfar_write_filer(priv, i, 0x20, 0x0);
- 
--	unlock_rx_qs(priv);
--
- 	return 0;
- }
- 
-@@ -1780,6 +1787,9 @@ static int gfar_set_nfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
- 	struct gfar_private *priv = netdev_priv(dev);
- 	int ret = 0;
- 
-+	if (test_bit(GFAR_RESETTING, &priv->state))
-+		return -EBUSY;
-+
- 	mutex_lock(&priv->rx_queue_access);
- 
- 	switch (cmd->cmd) {
+ /* Fills in rvals with the current ring parameters.  Currently,
 -- 
 1.7.11.7
