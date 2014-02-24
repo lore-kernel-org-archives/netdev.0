@@ -1,66 +1,47 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH net-next v5 4/9] xen-netback: Change RX path for mapped
- SKB fragments
-Date: Mon, 24 Feb 2014 15:08:31 +0000
-Message-ID: <530B606F.2070902@citrix.com>
-References: <1390253069-25507-1-git-send-email-zoltan.kiss@citrix.com>	 <1390253069-25507-5-git-send-email-zoltan.kiss@citrix.com> <1392745532.23084.65.camel@kazak.uk.xensource.com> <53093051.9040907@citrix.com> <530B4E05.4020900@schaman.hu>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH] net: stmmac: Check return value of alloc_dma_desc_resources()
+Date: Mon, 24 Feb 2014 16:22:08 +0100
+Message-ID: <530B63A0.902@st.com>
+References: <1393070943-3466-1-git-send-email-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<jonathan.davies@citrix.com>
-To: Zoltan Kiss <zoltan.kiss@schaman.hu>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <530B4E05.4020900@schaman.hu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: Tobias Klauser <tklauser@distanz.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:56264 "EHLO
+	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752421AbaBXPW1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 10:22:27 -0500
+In-Reply-To: <1393070943-3466-1-git-send-email-tklauser@distanz.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 24/02/14 13:49, Zoltan Kiss wrote:
-> On 22/02/14 23:18, Zoltan Kiss wrote:
->> On 18/02/14 17:45, Ian Campbell wrote:
->>> On Mon, 2014-01-20 at 21:24 +0000, Zoltan Kiss wrote:
->>>
->>> Re the Subject: change how? Perhaps "handle foreign mapped pages on the
->>> guest RX path" would be clearer.
->> Ok, I'll do that.
->>
->>>
->>>> RX path need to know if the SKB fragments are stored on pages from 
->>>> another
->>>> domain.
->>> Does this not need to be done either before the mapping change or at 
->>> the
->>> same time? -- otherwise you have a window of a couple of commits where
->>> things are broken, breaking bisectability.
->> I can move this to the beginning, to keep bisectability. I've put it 
->> here originally because none of these makes sense without the 
->> previous patches.
-> Well, I gave it a close look: to move this to the beginning as a 
-> separate patch I would need to put move a lot of definitions from the 
-> first patch to here (ubuf_to_vif helper, xenvif_zerocopy_callback 
-> etc.). That would be the best from bisect point of view, but from 
-> patch review point of view even worse than now. So the only option I 
-> see is to merge this with the first 2 patches, so it will be even bigger. 
-Actually I was stupid, we can move this patch earlier and introduce 
-stubs for those 2 functions. But for the another two patches (#6 and #8) 
-it's still true that we can't move them before, only merge them into the 
-main, as they heavily rely on the main patch. #6 is necessary for 
-Windows frontends, as they are keen to send too many slots. #8 is quite 
-a rare case, happens only if a guest wedge or malicious, and sits on the 
-packet.
-So my question is still up: do you prefer perfect bisectability or more 
-segmented patches which are not that pain to review?
-
-> And based on that principle, patch #6 and #8 should be merged there as 
-> well, as they solve corner cases introduced by the grant mapping.
-> I don't know how much the bisecting requirements are written in stone. 
-> At this moment, all the separate patches compile, but after #2 there 
-> are new problems solved in #4, #6 and #8. If someone bisect in the 
-> middle of this range and run into these problems, they could quite 
-> easily figure out what went wrong looking at the adjacent patches. So 
-> I would recommend to keep this current order.
-> What's your opinion?
+On 2/22/2014 1:09 PM, Tobias Klauser wrote:
+> alloc_dma_desc_resources() returns an error value and the next line
+> actually checks for it, so assign the return value properly.
 >
-> Zoli
+> Found by the coverity scanner.
+>
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+
+Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+
+> ---
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index a2e7d2c..078ad0e 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -1705,7 +1705,7 @@ static int stmmac_open(struct net_device *dev)
+>   	priv->dma_rx_size = STMMAC_ALIGN(dma_rxsize);
+>   	priv->dma_buf_sz = STMMAC_ALIGN(buf_sz);
+>
+> -	alloc_dma_desc_resources(priv);
+> +	ret = alloc_dma_desc_resources(priv);
+>   	if (ret < 0) {
+>   		pr_err("%s: DMA descriptors allocation failed\n", __func__);
+>   		goto dma_desc_error;
+>
