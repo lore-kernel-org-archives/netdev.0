@@ -1,46 +1,75 @@
-From: Simon Wunderlich <sw@simonwunderlich.de>
-Subject: [net-next v3 0/3] 802.21 and MPLS headers and classification
-Date: Mon, 24 Feb 2014 13:28:37 +0100
-Message-ID: <1393244920-15903-1-git-send-email-sw@simonwunderlich.de>
-Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
-	mathias.kretschmer@fokus.fraunhofer.de,
-	Simon Wunderlich <sw@simonwunderlich.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from packetmixer.de ([79.140.42.25]:41607 "EHLO
-	mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752126AbaBXM2r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 07:28:47 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Subject: [net-next v3 3/3] cfg80211: add MPLS and 802.21 classification
+Date: Mon, 24 Feb 2014 13:28:40 +0100
+Message-ID: <1393244920-15903-4-git-send-email-sw@simonwunderlich.de>
+References: <1393244920-15903-1-git-send-email-sw@simonwunderlich.de>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	mathias.kretschmer-8LS2qeF34IpklNlQbfROjRvVK+yQ3ZXh@public.gmane.org,
+	Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1393244920-15903-1-git-send-email-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+MPLS labels may contain traffic control information, which should be
+evaluated and used by the wireless subsystem if present.
 
-this series contains a header file proposal for MPLS labels. These
-labels do not seem to be properly defined in the kernel so far. We are
-developing a wired/wireless 802.21/MPLS switch and need to check the
-MPLS labels to use the traffic control info for transmissions over
-802.11 networks.
+Also check for IEEE 802.21 which is always network control traffic.
 
-The first patches are resent without changes. The third patch was
-changed to use skb->protocol instead of checking the ethernet type to
-determine if MPLS was used, as suggested by David Miller.
+Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Signed-off-by: Mathias Kretschmer <mathias.kretschmer-8LS2qeF34IpklNlQbfROjRvVK+yQ3ZXh@public.gmane.org>
+---
+Changes to second version:
 
-Thanks,
-     Simon
+ * rely on skb->protocol instead of checking ethertype
 
-Simon Wunderlich (3):
-  if_ether.h: add IEEE 802.21 Ethertype
-  UAPI: add MPLS label stack definition
-  cfg80211: add MPLS and 802.21 classification
+Changes to first version:
 
- include/linux/mpls.h          |    6 ++++++
- include/uapi/linux/if_ether.h |    1 +
- include/uapi/linux/mpls.h     |   34 ++++++++++++++++++++++++++++++++++
- net/wireless/util.c           |   16 ++++++++++++++++
- 4 files changed, 57 insertions(+)
- create mode 100644 include/linux/mpls.h
- create mode 100644 include/uapi/linux/mpls.h
+ * include linux/mpls.h, not the UAPI one
+ * change __constant_htons to htons
+---
+ net/wireless/util.c |   16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
+diff --git a/net/wireless/util.c b/net/wireless/util.c
+index d39c371..6799d5a 100644
+--- a/net/wireless/util.c
++++ b/net/wireless/util.c
+@@ -11,6 +11,7 @@
+ #include <net/ip.h>
+ #include <net/dsfield.h>
+ #include <linux/if_vlan.h>
++#include <linux/mpls.h>
+ #include "core.h"
+ #include "rdev-ops.h"
+ 
+@@ -717,6 +718,21 @@ unsigned int cfg80211_classify8021d(struct sk_buff *skb,
+ 	case htons(ETH_P_IPV6):
+ 		dscp = ipv6_get_dsfield(ipv6_hdr(skb)) & 0xfc;
+ 		break;
++	case htons(ETH_P_MPLS_UC):
++	case htons(ETH_P_MPLS_MC): {
++		struct mpls_label_stack mpls_tmp, *mpls;
++
++		mpls = skb_header_pointer(skb, sizeof(struct ethhdr),
++					  sizeof(*mpls), &mpls_tmp);
++		if (!mpls)
++			return 0;
++
++		return (ntohl(mpls->entry) & MPLS_LS_TC_MASK)
++			>> MPLS_LS_TC_SHIFT;
++		}
++	case htons(ETH_P_80221):
++		/* 802.21 is always network control traffic */
++		return 7;
+ 	default:
+ 		return 0;
+ 	}
 -- 
 1.7.10.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
