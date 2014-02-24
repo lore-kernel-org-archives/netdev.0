@@ -1,46 +1,84 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] staging: r8188eu: Add new device ID
-Date: Mon, 24 Feb 2014 12:12:28 -0600
-Message-ID: <1393265548-12995-1-git-send-email-Larry.Finger@lwfinger.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net 5/5] be2net: isolate TX workarounds not applicable
+ to Skyhawk-R
+Date: Mon, 24 Feb 2014 22:15:46 +0300
+Message-ID: <530B9A62.9050405@cogentembedded.com>
+References: <ad20d448-e798-4898-9823-898de98d54a2@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- Manu Gupta <manugupt1@gmail.com>, Larry Finger <Larry.Finger@lwfinger.net>
-To: gregkh@linuxfoundation.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net,
+	Vasundhara Volam <vasundhara.volam@emulex.com>,
+	Sathya Perla <sathya.perla@emulex.com>
+To: Somnath Kotur <somnath.kotur@emulex.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f53.google.com ([209.85.215.53]:62943 "EHLO
+	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753140AbaBXSPu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 13:15:50 -0500
+Received: by mail-la0-f53.google.com with SMTP id e16so6279325lan.12
+        for <netdev@vger.kernel.org>; Mon, 24 Feb 2014 10:15:48 -0800 (PST)
+In-Reply-To: <ad20d448-e798-4898-9823-898de98d54a2@CMEXHTCAS2.ad.emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Manu Gupta <manugupt1@gmail.com>
+Hello.
 
-The D-Link DWA-123 REV D1 with USB ID 2001:3310 uses this driver.
+On 02/24/2014 09:51 AM, Somnath Kotur wrote:
 
-Signed-off-by: Manu Gupta <manugupt1@gmail.com>
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
----
- drivers/staging/rtl8188eu/os_dep/usb_intf.c | 1 +
- 1 file changed, 1 insertion(+)
+> From: Vasundhara Volam <vasundhara.volam@emulex.com>
 
-diff --git a/drivers/staging/rtl8188eu/os_dep/usb_intf.c b/drivers/staging/rtl8188eu/os_dep/usb_intf.c
-index eba5370..4b8210f 100644
---- a/drivers/staging/rtl8188eu/os_dep/usb_intf.c
-+++ b/drivers/staging/rtl8188eu/os_dep/usb_intf.c
-@@ -56,6 +56,7 @@ static struct usb_device_id rtw_usb_id_tbl[] = {
- 	/****** 8188EUS ********/
- 	{USB_DEVICE(0x8179, 0x07B8)}, /* Abocom - Abocom */
- 	{USB_DEVICE(0x2001, 0x330F)}, /* DLink DWA-125 REV D1 */
-+	{USB_DEVICE(0x2001, 0x3310)}, /* Dlink DWA-123 REV D1 */
- 	{}	/* Terminating entry */
- };
- 
--- 
-1.8.4.5
+> Some of TX workarounds in be_xmit_workarounds() routine
+> are not applicable (and result in HW errors) to Skyhawk-R chip.
+> Isolate BE3-R/Lancer specific workarounds to a separate routine.
+>
+> Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
+> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+> Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
+> ---
+>   drivers/net/ethernet/emulex/benet/be_main.c |   42 ++++++++++++++++++--------
+>   1 files changed, 29 insertions(+), 13 deletions(-)
+
+> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+> index f6a4481..6cf6e2a 100644
+> --- a/drivers/net/ethernet/emulex/benet/be_main.c
+> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
+[...]
+> @@ -991,6 +981,32 @@ err:
+>   	return NULL;
+>   }
+>
+> +static struct sk_buff *be_xmit_workarounds(struct be_adapter *adapter,
+> +					   struct sk_buff *skb,
+> +					   bool *skip_hw_vlan)
+> +{
+> +	/* Lancer, SH-R ASICs have a bug wherein Packets that are 32 bytes or
+> +	 * less may cause a transmit stall on that port. So the work-around is
+> +	 * to pad short packets (<= 32 bytes) to a 36-byte length.
+> +	 */
+> +	if (unlikely(!BEx_chip(adapter) && skb->len <= 32)) {
+> +		if (skb_padto(skb, 36))
+> +			goto err;
+
+    Why not just return NULL?
+
+> +		skb->len = 36;
+> +	}
+> +
+> +	if (BEx_chip(adapter) || lancer_chip(adapter)) {
+> +		skb = be_lancer_xmit_workarounds(adapter, skb, skip_hw_vlan);
+> +		if (!skb)
+> +			goto err;
+
+    Likewise...
+
+> +	}
+> +
+> +	return skb;
+> +
+> +err:
+> +	return NULL;
+> +}
+> +
+
+WBR, Sergei
