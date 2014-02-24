@@ -1,7 +1,7 @@
 From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH net-next v2 2/5] gianfar: Fix on-the-fly vlan and mtu updates
-Date: Mon, 24 Feb 2014 12:13:43 +0200
-Message-ID: <1393236826-13059-3-git-send-email-claudiu.manoil@freescale.com>
+Subject: [PATCH net-next v2 1/5] gianfar: Implement MAC reset and reconfig procedure
+Date: Mon, 24 Feb 2014 12:13:42 +0200
+Message-ID: <1393236826-13059-2-git-send-email-claudiu.manoil@freescale.com>
 References: <1393236826-13059-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,332 +9,353 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Ben Hutchings <ben@decadent.org.uk>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe004.messaging.microsoft.com ([216.32.181.184]:31104
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752451AbaBXKOt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 05:14:49 -0500
+Received: from co9ehsobe004.messaging.microsoft.com ([207.46.163.27]:59842
+	"EHLO co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751836AbaBXKOn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 05:14:43 -0500
 In-Reply-To: <1393236826-13059-1-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The RCTRL and TCTRL registers should not be changed
-on-the-fly, while the controller is running, otherwise
-unexpected behaviour occurs.  But that's exactly what
-gfar_vlan_mode() does, updating the VLAN acceleration
-bits inside RCTRL/TCTRL.  The attempt to lock these
-operations doesn't help, but only adds to the confusion.
-There's also a dependency for Rx FCB insertion (activating
-/de-activating the TOE offload block on Rx) which might
-change the required rx buffer size.  This makes matters
-worse as gfar_vlan_mode() ends up calling gfar_change_mtu(),
-though the MTU size remains the same.  Note that there are
-other situations that may affect the required rx buffer size,
-like changing RXCSUM or rx hw timestamping, but errorneously
-the rx buffer size is not recomputed/ updated in the process.
+The main MAC config registers like: RCTRL/TCTRL, MRBLR,
+MAXFRM, RXIC/TXIC, most fields of MACCFG1/2, should not
+be changed on-the-fly, but at least after stopping the
+DMA and disabling the Rx/Tx blocks and, for increased
+reliability, after a MAC soft reset.
 
-To fix this, do the vlan updates properly inside the MAC
-reset and reconfiguration procedure, which takes care of
-the rx buffer size dependecy and the rx TOE block (PRSDEP)
-activation/deactivation as well (in the correct order).
-As a consequence, MTU/ rx buff size updates are done now
-by the same MAC reset and reconfig procedure, so that out
-of context updates to MAXFRM, MRBLR, and MACCFG inside
-change_mtu() are no longer needed.  The rx buffer size
-dependecy to Rx FCB is now handled for the other cases too
-(RXCSUM and rx hw timestamping).
+Impelement a complete MAC soft reset and reconfig procedure
+following the latest HW advisories - gfar_mac_reset() - to
+replace gfar_mac_init() and (the confusing) init_registers()
+functions.
+
+Factor out separate config functions for RCTRL and TCTRL,
+insure programming order of the relevant config regs after
+MAC soft reset.
+
+Split gfar_hw_init() into gfar_mac_reset() and the remaining
+global regs that don't need to be reconfigured after MAC soft
+reset (FIFOCFG, ATTRELI, HW counters a.s.o).
+
+As gfar_hw_init() now makes all the register writes @probe()
+time, based on all the device flags and config options, it
+must be moved further down, just before register_netdev(),
+as the last config step when the config values are comitted
+to HW.  Also, move netif_carrier_off() after register_netdev(),
+because it has no effect if called before.
 
 Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
 ---
-v2: Refactored if() clauses in gfar_set_features(), as per
-    review findings (Ben).
-
- drivers/net/ethernet/freescale/gianfar.c         | 165 +++++++----------------
- drivers/net/ethernet/freescale/gianfar.h         |   2 -
- drivers/net/ethernet/freescale/gianfar_ethtool.c |  11 +-
- 3 files changed, 51 insertions(+), 127 deletions(-)
+ drivers/net/ethernet/freescale/gianfar.c | 172 ++++++++++++++++---------------
+ 1 file changed, 90 insertions(+), 82 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 446e9c9..728078f 100644
+index a2977a8..446e9c9 100644
 --- a/drivers/net/ethernet/freescale/gianfar.c
 +++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -329,14 +329,35 @@ static void gfar_init_tx_rx_base(struct gfar_private *priv)
+@@ -121,7 +121,6 @@ static irqreturn_t gfar_error(int irq, void *dev_id);
+ static irqreturn_t gfar_transmit(int irq, void *dev_id);
+ static irqreturn_t gfar_interrupt(int irq, void *dev_id);
+ static void adjust_link(struct net_device *dev);
+-static void init_registers(struct net_device *dev);
+ static int init_phy(struct net_device *dev);
+ static int gfar_probe(struct platform_device *ofdev);
+ static int gfar_remove(struct platform_device *ofdev);
+@@ -330,18 +329,10 @@ static void gfar_init_tx_rx_base(struct gfar_private *priv)
  	}
  }
  
--static void gfar_mac_rx_config(struct gfar_private *priv)
-+static void gfar_rx_buff_size_config(struct gfar_private *priv)
+-static void gfar_init_mac(struct net_device *ndev)
++static void gfar_mac_rx_config(struct gfar_private *priv)
  {
--	struct gfar __iomem *regs = priv->gfargrp[0].regs;
--	u32 rctrl = 0;
-+	int frame_size = priv->ndev->mtu + ETH_HLEN;
+-	struct gfar_private *priv = netdev_priv(ndev);
+ 	struct gfar __iomem *regs = priv->gfargrp[0].regs;
+ 	u32 rctrl = 0;
+-	u32 tctrl = 0;
+-
+-	/* write the tx/rx base registers */
+-	gfar_init_tx_rx_base(priv);
+-
+-	/* Configure the coalescing support */
+-	gfar_configure_coalescing_all(priv);
  
  	/* set this when rx hw offload (TOE) functions are being used */
  	priv->uses_rxfcb = 0;
- 
-+	if (priv->ndev->features & (NETIF_F_RXCSUM | NETIF_F_HW_VLAN_CTAG_RX))
-+		priv->uses_rxfcb = 1;
-+
-+	if (priv->hwts_rx_en)
-+		priv->uses_rxfcb = 1;
-+
-+	if (priv->uses_rxfcb)
-+		frame_size += GMAC_FCB_LEN;
-+
-+	frame_size += priv->padding;
-+
-+	frame_size = (frame_size & ~(INCREMENTAL_BUFFER_SIZE - 1)) +
-+		     INCREMENTAL_BUFFER_SIZE;
-+
-+	priv->rx_buffer_size = frame_size;
-+}
-+
-+static void gfar_mac_rx_config(struct gfar_private *priv)
-+{
-+	struct gfar __iomem *regs = priv->gfargrp[0].regs;
-+	u32 rctrl = 0;
-+
- 	if (priv->rx_filer_enable) {
- 		rctrl |= RCTRL_FILREN;
- 		/* Program the RIR0 reg with the required distribution */
-@@ -347,15 +368,11 @@ static void gfar_mac_rx_config(struct gfar_private *priv)
- 	if (priv->ndev->flags & IFF_PROMISC)
- 		rctrl |= RCTRL_PROM;
- 
--	if (priv->ndev->features & NETIF_F_RXCSUM) {
-+	if (priv->ndev->features & NETIF_F_RXCSUM)
- 		rctrl |= RCTRL_CHECKSUMMING;
--		priv->uses_rxfcb = 1;
--	}
- 
--	if (priv->extended_hash) {
--		rctrl |= RCTRL_EXTHASH;
--		rctrl |= RCTRL_EMEN;
--	}
-+	if (priv->extended_hash)
-+		rctrl |= RCTRL_EXTHASH | RCTRL_EMEN;
- 
- 	if (priv->padding) {
- 		rctrl &= ~RCTRL_PAL_MASK;
-@@ -363,15 +380,11 @@ static void gfar_mac_rx_config(struct gfar_private *priv)
+@@ -353,18 +344,16 @@ static void gfar_init_mac(struct net_device *ndev)
  	}
  
- 	/* Enable HW time stamping if requested from user space */
--	if (priv->hwts_rx_en) {
-+	if (priv->hwts_rx_en)
- 		rctrl |= RCTRL_PRSDEP_INIT | RCTRL_TS_ENABLE;
--		priv->uses_rxfcb = 1;
--	}
+ 	/* Restore PROMISC mode */
+-	if (ndev->flags & IFF_PROMISC)
++	if (priv->ndev->flags & IFF_PROMISC)
+ 		rctrl |= RCTRL_PROM;
  
--	if (priv->ndev->features & NETIF_F_HW_VLAN_CTAG_RX) {
-+	if (priv->ndev->features & NETIF_F_HW_VLAN_CTAG_RX)
+-	if (ndev->features & NETIF_F_RXCSUM) {
++	if (priv->ndev->features & NETIF_F_RXCSUM) {
+ 		rctrl |= RCTRL_CHECKSUMMING;
+ 		priv->uses_rxfcb = 1;
+ 	}
+ 
+ 	if (priv->extended_hash) {
+ 		rctrl |= RCTRL_EXTHASH;
+-
+-		gfar_clear_exact_match(ndev);
+ 		rctrl |= RCTRL_EMEN;
+ 	}
+ 
+@@ -379,15 +368,21 @@ static void gfar_init_mac(struct net_device *ndev)
+ 		priv->uses_rxfcb = 1;
+ 	}
+ 
+-	if (ndev->features & NETIF_F_HW_VLAN_CTAG_RX) {
++	if (priv->ndev->features & NETIF_F_HW_VLAN_CTAG_RX) {
  		rctrl |= RCTRL_VLEX | RCTRL_PRSDEP_INIT;
--		priv->uses_rxfcb = 1;
--	}
+ 		priv->uses_rxfcb = 1;
+ 	}
  
  	/* Init rctrl based on our settings */
  	gfar_write(&regs->rctrl, rctrl);
-@@ -393,6 +406,9 @@ static void gfar_mac_tx_config(struct gfar_private *priv)
- 		gfar_write(&regs->tr47wt, DEFAULT_WRRS_WEIGHT);
- 	}
++}
  
-+	if (priv->ndev->features & NETIF_F_HW_VLAN_CTAG_TX)
-+		tctrl |= TCTRL_VLINS;
+-	if (ndev->features & NETIF_F_IP_CSUM)
++static void gfar_mac_tx_config(struct gfar_private *priv)
++{
++	struct gfar __iomem *regs = priv->gfargrp[0].regs;
++	u32 tctrl = 0;
 +
- 	gfar_write(&regs->tctrl, tctrl);
++	if (priv->ndev->features & NETIF_F_IP_CSUM)
+ 		tctrl |= TCTRL_INIT_CSUM;
+ 
+ 	if (priv->prio_sched_en)
+@@ -1016,28 +1011,94 @@ static void gfar_detect_errata(struct gfar_private *priv)
+ 			 priv->errata);
  }
  
-@@ -1029,7 +1045,11 @@ static void gfar_mac_reset(struct gfar_private *priv)
+-static void gfar_hw_init(struct gfar_private *priv)
++static void gfar_mac_reset(struct gfar_private *priv)
+ {
+ 	struct gfar __iomem *regs = priv->gfargrp[0].regs;
+-	u32 tempval, attrs;
++	u32 tempval;
  
- 	udelay(3);
+ 	/* Reset MAC layer */
+ 	gfar_write(&regs->maccfg1, MACCFG1_SOFT_RESET);
  
--	/* Initialize the max receive buffer length */
-+	/* Compute rx_buff_size based on config flags */
-+	gfar_rx_buff_size_config(priv);
+ 	/* We need to delay at least 3 TX clocks */
+-	udelay(2);
++	udelay(3);
+ 
+ 	/* the soft reset bit is not self-resetting, so we need to
+ 	 * clear it before resuming normal operation
+ 	 */
+ 	gfar_write(&regs->maccfg1, 0);
+ 
++	udelay(3);
 +
-+	/* Initialize the max receive frame/buffer lengths */
-+	gfar_write(&regs->maxfrm, priv->rx_buffer_size);
- 	gfar_write(&regs->mrblr, priv->rx_buffer_size);
- 
- 	/* Initialize the Minimum Frame Length Register */
-@@ -1037,8 +1057,15 @@ static void gfar_mac_reset(struct gfar_private *priv)
- 
++	/* Initialize the max receive buffer length */
++	gfar_write(&regs->mrblr, priv->rx_buffer_size);
++
++	/* Initialize the Minimum Frame Length Register */
++	gfar_write(&regs->minflr, MINFLR_INIT_SETTINGS);
++
  	/* Initialize MACCFG2. */
  	tempval = MACCFG2_INIT_SETTINGS;
--	if (gfar_has_errata(priv, GFAR_ERRATA_74))
-+
-+	/* If the mtu is larger than the max size for standard
-+	 * ethernet frames (ie, a jumbo frame), then set maccfg2
-+	 * to allow huge frames, and to check the length
-+	 */
-+	if (priv->rx_buffer_size > DEFAULT_RX_BUFFER_SIZE ||
-+	    gfar_has_errata(priv, GFAR_ERRATA_74))
+ 	if (gfar_has_errata(priv, GFAR_ERRATA_74))
  		tempval |= MACCFG2_HUGEFRAME | MACCFG2_LENGTHCHECK;
-+
  	gfar_write(&regs->maccfg2, tempval);
  
- 	/* Clear mac addr hash registers */
-@@ -2353,77 +2380,9 @@ static int gfar_set_mac_address(struct net_device *dev)
- 	return 0;
++	/* Clear mac addr hash registers */
++	gfar_write(&regs->igaddr0, 0);
++	gfar_write(&regs->igaddr1, 0);
++	gfar_write(&regs->igaddr2, 0);
++	gfar_write(&regs->igaddr3, 0);
++	gfar_write(&regs->igaddr4, 0);
++	gfar_write(&regs->igaddr5, 0);
++	gfar_write(&regs->igaddr6, 0);
++	gfar_write(&regs->igaddr7, 0);
++
++	gfar_write(&regs->gaddr0, 0);
++	gfar_write(&regs->gaddr1, 0);
++	gfar_write(&regs->gaddr2, 0);
++	gfar_write(&regs->gaddr3, 0);
++	gfar_write(&regs->gaddr4, 0);
++	gfar_write(&regs->gaddr5, 0);
++	gfar_write(&regs->gaddr6, 0);
++	gfar_write(&regs->gaddr7, 0);
++
++	if (priv->extended_hash)
++		gfar_clear_exact_match(priv->ndev);
++
++	gfar_mac_rx_config(priv);
++
++	gfar_mac_tx_config(priv);
++
++	gfar_set_mac_address(priv->ndev);
++
++	gfar_set_multi(priv->ndev);
++
++	/* clear ievent and imask before configuring coalescing */
++	gfar_ints_disable(priv);
++
++	/* Configure the coalescing support */
++	gfar_configure_coalescing_all(priv);
++}
++
++static void gfar_hw_init(struct gfar_private *priv)
++{
++	struct gfar __iomem *regs = priv->gfargrp[0].regs;
++	u32 attrs;
++
++	/* Stop the DMA engine now, in case it was running before
++	 * (The firmware could have used it, and left it running).
++	 */
++	gfar_halt(priv);
++
++	gfar_mac_reset(priv);
++
++	/* Zero out the rmon mib registers if it has them */
++	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_RMON) {
++		memset_io(&(regs->rmon), 0, sizeof(struct rmon_mib));
++
++		/* Mask off the CAM interrupts */
++		gfar_write(&regs->rmon.cam1, 0xffffffff);
++		gfar_write(&regs->rmon.cam2, 0xffffffff);
++	}
++
+ 	/* Initialize ECNTRL */
+ 	gfar_write(&regs->ecntrl, ECNTRL_INIT_SETTINGS);
+ 
+@@ -1137,13 +1198,6 @@ static int gfar_probe(struct platform_device *ofdev)
+ 
+ 	gfar_detect_errata(priv);
+ 
+-	/* Stop the DMA engine now, in case it was running before
+-	 * (The firmware could have used it, and left it running).
+-	 */
+-	gfar_halt(priv);
+-
+-	gfar_hw_init(priv);
+-
+ 	/* Set the dev->base_addr to the gfar reg region */
+ 	dev->base_addr = (unsigned long) priv->gfargrp[0].regs;
+ 
+@@ -1209,8 +1263,7 @@ static int gfar_probe(struct platform_device *ofdev)
+ 	if (priv->num_tx_queues == 1)
+ 		priv->prio_sched_en = 1;
+ 
+-	/* Carrier starts down, phylib will bring it up */
+-	netif_carrier_off(dev);
++	gfar_hw_init(priv);
+ 
+ 	err = register_netdev(dev);
+ 
+@@ -1219,6 +1272,9 @@ static int gfar_probe(struct platform_device *ofdev)
+ 		goto register_fail;
+ 	}
+ 
++	/* Carrier starts down, phylib will bring it up */
++	netif_carrier_off(dev);
++
+ 	device_init_wakeup(&dev->dev,
+ 			   priv->device_flags &
+ 			   FSL_GIANFAR_DEV_HAS_MAGIC_PACKET);
+@@ -1401,9 +1457,10 @@ static int gfar_restore(struct device *dev)
+ 		return -ENOMEM;
+ 	}
+ 
+-	init_registers(ndev);
+-	gfar_set_mac_address(ndev);
+-	gfar_init_mac(ndev);
++	gfar_mac_reset(priv);
++
++	gfar_init_tx_rx_base(priv);
++
+ 	gfar_start(priv);
+ 
+ 	priv->oldlink = 0;
+@@ -1562,48 +1619,6 @@ static void gfar_configure_serdes(struct net_device *dev)
+ 		  BMCR_SPEED1000);
  }
  
--/* Check if rx parser should be activated */
--void gfar_check_rx_parser_mode(struct gfar_private *priv)
--{
--	struct gfar __iomem *regs;
--	u32 tempval;
--
--	regs = priv->gfargrp[0].regs;
--
--	tempval = gfar_read(&regs->rctrl);
--	/* If parse is no longer required, then disable parser */
--	if (tempval & RCTRL_REQ_PARSER) {
--		tempval |= RCTRL_PRSDEP_INIT;
--		priv->uses_rxfcb = 1;
--	} else {
--		tempval &= ~RCTRL_PRSDEP_INIT;
--		priv->uses_rxfcb = 0;
--	}
--	gfar_write(&regs->rctrl, tempval);
--}
--
--/* Enables and disables VLAN insertion/extraction */
--void gfar_vlan_mode(struct net_device *dev, netdev_features_t features)
+-static void init_registers(struct net_device *dev)
 -{
 -	struct gfar_private *priv = netdev_priv(dev);
--	struct gfar __iomem *regs = NULL;
--	unsigned long flags;
--	u32 tempval;
+-	struct gfar __iomem *regs = priv->gfargrp[0].regs;
 -
--	regs = priv->gfargrp[0].regs;
--	local_irq_save(flags);
--	lock_rx_qs(priv);
+-	gfar_ints_disable(priv);
 -
--	if (features & NETIF_F_HW_VLAN_CTAG_TX) {
--		/* Enable VLAN tag insertion */
--		tempval = gfar_read(&regs->tctrl);
--		tempval |= TCTRL_VLINS;
--		gfar_write(&regs->tctrl, tempval);
--	} else {
--		/* Disable VLAN tag insertion */
--		tempval = gfar_read(&regs->tctrl);
--		tempval &= ~TCTRL_VLINS;
--		gfar_write(&regs->tctrl, tempval);
+-	/* Init hash registers to zero */
+-	gfar_write(&regs->igaddr0, 0);
+-	gfar_write(&regs->igaddr1, 0);
+-	gfar_write(&regs->igaddr2, 0);
+-	gfar_write(&regs->igaddr3, 0);
+-	gfar_write(&regs->igaddr4, 0);
+-	gfar_write(&regs->igaddr5, 0);
+-	gfar_write(&regs->igaddr6, 0);
+-	gfar_write(&regs->igaddr7, 0);
+-
+-	gfar_write(&regs->gaddr0, 0);
+-	gfar_write(&regs->gaddr1, 0);
+-	gfar_write(&regs->gaddr2, 0);
+-	gfar_write(&regs->gaddr3, 0);
+-	gfar_write(&regs->gaddr4, 0);
+-	gfar_write(&regs->gaddr5, 0);
+-	gfar_write(&regs->gaddr6, 0);
+-	gfar_write(&regs->gaddr7, 0);
+-
+-	/* Zero out the rmon mib registers if it has them */
+-	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_RMON) {
+-		memset_io(&(regs->rmon), 0, sizeof (struct rmon_mib));
+-
+-		/* Mask off the CAM interrupts */
+-		gfar_write(&regs->rmon.cam1, 0xffffffff);
+-		gfar_write(&regs->rmon.cam2, 0xffffffff);
 -	}
 -
--	if (features & NETIF_F_HW_VLAN_CTAG_RX) {
--		/* Enable VLAN tag extraction */
--		tempval = gfar_read(&regs->rctrl);
--		tempval |= (RCTRL_VLEX | RCTRL_PRSDEP_INIT);
--		gfar_write(&regs->rctrl, tempval);
--		priv->uses_rxfcb = 1;
--	} else {
--		/* Disable VLAN tag extraction */
--		tempval = gfar_read(&regs->rctrl);
--		tempval &= ~RCTRL_VLEX;
--		gfar_write(&regs->rctrl, tempval);
+-	/* Initialize the max receive buffer length */
+-	gfar_write(&regs->mrblr, priv->rx_buffer_size);
 -
--		gfar_check_rx_parser_mode(priv);
--	}
--
--	gfar_change_mtu(dev, dev->mtu);
--
--	unlock_rx_qs(priv);
--	local_irq_restore(flags);
+-	/* Initialize the Minimum Frame Length Register */
+-	gfar_write(&regs->minflr, MINFLR_INIT_SETTINGS);
 -}
 -
- static int gfar_change_mtu(struct net_device *dev, int new_mtu)
+ static int __gfar_is_rx_idle(struct gfar_private *priv)
  {
--	int tempsize, tempval;
- 	struct gfar_private *priv = netdev_priv(dev);
--	struct gfar __iomem *regs = priv->gfargrp[0].regs;
--	int oldsize = priv->rx_buffer_size;
- 	int frame_size = new_mtu + ETH_HLEN;
+ 	u32 res;
+@@ -1939,13 +1954,13 @@ int startup_gfar(struct net_device *ndev)
+ 	struct gfar_private *priv = netdev_priv(ndev);
+ 	int err, i, j;
  
- 	if ((frame_size < 64) || (frame_size > JUMBO_FRAME_SIZE)) {
-@@ -2431,42 +2390,12 @@ static int gfar_change_mtu(struct net_device *dev, int new_mtu)
- 		return -EINVAL;
- 	}
+-	gfar_ints_disable(priv);
++	gfar_mac_reset(priv);
  
--	if (priv->uses_rxfcb)
--		frame_size += GMAC_FCB_LEN;
--
--	frame_size += priv->padding;
--
--	tempsize = (frame_size & ~(INCREMENTAL_BUFFER_SIZE - 1)) +
--		   INCREMENTAL_BUFFER_SIZE;
--
--	/* Only stop and start the controller if it isn't already
--	 * stopped, and we changed something
--	 */
--	if ((oldsize != tempsize) && (dev->flags & IFF_UP))
-+	if (dev->flags & IFF_UP)
- 		stop_gfar(dev);
+ 	err = gfar_alloc_skb_resources(ndev);
+ 	if (err)
+ 		return err;
  
--	priv->rx_buffer_size = tempsize;
--
- 	dev->mtu = new_mtu;
+-	gfar_init_mac(ndev);
++	gfar_init_tx_rx_base(priv);
  
--	gfar_write(&regs->mrblr, priv->rx_buffer_size);
--	gfar_write(&regs->maxfrm, priv->rx_buffer_size);
--
--	/* If the mtu is larger than the max size for standard
--	 * ethernet frames (ie, a jumbo frame), then set maccfg2
--	 * to allow huge frames, and to check the length
--	 */
--	tempval = gfar_read(&regs->maccfg2);
--
--	if (priv->rx_buffer_size > DEFAULT_RX_BUFFER_SIZE ||
--	    gfar_has_errata(priv, GFAR_ERRATA_74))
--		tempval |= (MACCFG2_HUGEFRAME | MACCFG2_LENGTHCHECK);
--	else
--		tempval &= ~(MACCFG2_HUGEFRAME | MACCFG2_LENGTHCHECK);
--
--	gfar_write(&regs->maccfg2, tempval);
--
--	if ((oldsize != tempsize) && (dev->flags & IFF_UP))
-+	if (dev->flags & IFF_UP)
- 		startup_gfar(dev);
+ 	for (i = 0; i < priv->num_grps; i++) {
+ 		err = register_grp_irqs(&priv->gfargrp[i]);
+@@ -1961,8 +1976,6 @@ int startup_gfar(struct net_device *ndev)
  
+ 	phy_start(priv->phydev);
+ 
+-	gfar_configure_coalescing_all(priv);
+-
  	return 0;
-diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
-index 2a59398..9db9556 100644
---- a/drivers/net/ethernet/freescale/gianfar.h
-+++ b/drivers/net/ethernet/freescale/gianfar.h
-@@ -1211,8 +1211,6 @@ void gfar_phy_test(struct mii_bus *bus, struct phy_device *phydev, int enable,
- 		   u32 regnum, u32 read);
- void gfar_configure_coalescing_all(struct gfar_private *priv);
- int gfar_set_features(struct net_device *dev, netdev_features_t features);
--void gfar_check_rx_parser_mode(struct gfar_private *priv);
--void gfar_vlan_mode(struct net_device *dev, netdev_features_t features);
  
- extern const struct ethtool_ops gfar_ethtool_ops;
+ irq_fail:
+@@ -1980,11 +1993,6 @@ static int gfar_enet_open(struct net_device *dev)
  
-diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-index 19557ec..dd7ccec 100644
---- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
-+++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-@@ -582,18 +582,15 @@ int gfar_set_features(struct net_device *dev, netdev_features_t features)
- 	netdev_features_t changed = dev->features ^ features;
- 	int err = 0;
+ 	enable_napi(priv);
  
--	if (changed & (NETIF_F_HW_VLAN_CTAG_TX|NETIF_F_HW_VLAN_CTAG_RX))
--		gfar_vlan_mode(dev, features);
+-	/* Initialize a bunch of registers */
+-	init_registers(dev);
 -
--	if (!(changed & NETIF_F_RXCSUM))
-+	if (!(changed & (NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX |
-+			 NETIF_F_RXCSUM)))
- 		return 0;
+-	gfar_set_mac_address(dev);
+-
+ 	err = init_phy(dev);
  
-+	dev->features = features;
-+
- 	if (dev->flags & IFF_UP) {
- 		/* Now we take down the rings to rebuild them */
- 		stop_gfar(dev);
--
--		dev->features = features;
--
- 		err = startup_gfar(dev);
- 		netif_tx_wake_all_queues(dev);
- 	}
+ 	if (err) {
 -- 
 1.7.11.7
