@@ -1,94 +1,59 @@
-From: <cristian.bercaru@freescale.com>
-Subject: [PATCH v2] phy: unmask link partner capabilities
-Date: Mon, 24 Feb 2014 17:52:58 +0200
-Message-ID: <1393257178-25052-1-git-send-email-cristian.bercaru@freescale.com>
+From: Grant Grundler <grundler@google.com>
+Subject: Re: RTL8153 fails to get link after applying c7de7dec2 to 3.8 kernel
+Date: Mon, 24 Feb 2014 08:17:40 -0800
+Message-ID: <CANEJEGuCWZSBNppE+W2_UW8mDZYQCBpsJTjfwuizjPMpY+wZzw@mail.gmail.com>
+References: <CANEJEGtzUF+rdSqgTHL0BmsDbCeoWki=aAWZwSx-dZ24jQ=nVg@mail.gmail.com>
+	<B88F103D217C4AF0B5D7AD58214655C6@realtek.com.tw>
+	<CANEJEGtvY1v0AC7j+uo7-ZzN9YMOaE9JOtismt0ESxpVWkvHyQ@mail.gmail.com>
+	<6929A44AB95D46C6B919DDD537CDD37B@realtek.com.tw>
+	<CANEJEGtj5b6z3L1AeiqTPgVs0qCe=pv=cyRHYi04_yNXpPMOCA@mail.gmail.com>
+	<FD21003FF7E540DCA7F8F39A2BC046B4@realtek.com.tw>
+	<CANEJEGtGSHAACM=Bk0BAHrM=-1q4pHoboO5FYN7YM4wquMMmXA@mail.gmail.com>
+	<65183A93811745C58958ECBAD0B8E00F@realtek.com.tw>
+	<CANEJEGtGbVajk+GOSkRk1QXDkOOPCM8vO8VA8Zc=TEOfZDjwNQ@mail.gmail.com>
+	<CANEJEGsMafeZQDfnmdgmf2VN0CKrTkjVHwKTX9JHTDUUqwx0Mg@mail.gmail.com>
+	<FB59F84B1E5E42AA98F0906286C444DF@realtek.com.tw>
+	<CANEJEGvMPMT3OroMGLJaR65uEz0+JVYkd5rxcPMMGT_wzvds+w@mail.gmail.com>
+	<D7709D6F234143CDB4D0B6B27C53D3F4@realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Cristian Bercaru <cristian.bercaru@freescale.com>,
-	<madalin.bucur@freescale.com>, <shaohui.xie@freescale.com>,
-	<shruti@freescale.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Inki Yoo <inky.yoo@samsung.com>, netdev <netdev@vger.kernel.org>
+To: hayeswang <hayeswang@realtek.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from co9ehsobe002.messaging.microsoft.com ([207.46.163.25]:57311
-	"EHLO co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752181AbaBXPxK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 10:53:10 -0500
-Received: from mail55-co9 (localhost [127.0.0.1])	by mail55-co9-R.bigfish.com
- (Postfix) with ESMTP id D3B82240350	for <netdev@vger.kernel.org>; Mon, 24 Feb
- 2014 15:53:09 +0000 (UTC)
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:39499 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752313AbaBXQRl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 11:17:41 -0500
+Received: by mail-oa0-f46.google.com with SMTP id l6so630272oag.19
+        for <netdev@vger.kernel.org>; Mon, 24 Feb 2014 08:17:40 -0800 (PST)
+In-Reply-To: <D7709D6F234143CDB4D0B6B27C53D3F4@realtek.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cristian Bercaru <cristian.bercaru@freescale.com>
+Hi Hayes,
 
-Masking the link partner's capabilities with local capabilities can be
-misleading in autonegotiation scenarios such as PAUSE frame
-autonegotiation.
-This patch calculates the join between the local capabilities and the
-link parner capabilities, when it calculates the speed and duplex
-settings, but does not mask any of the link partner capabilities
-when it calculates PAUSE frame settings.
+On Sun, Feb 23, 2014 at 10:00 PM, hayeswang <hayeswang@realtek.com> wrote:
+...
+>> Or you have any idea why ECM mode doesn't work with c7de7dec2 patch?
+>
+> The reason is that your dangle has the settings of the
+> customization for some purposes. And it limites the dangle
+> could use the vendor mode only.
 
-Signed-off-by: Cristian Bercaru <cristian.bercaru@freescale.com>
----
-v2 caches (lpa & adv) and (lpa & adv << 2) in intermediate variables.
+Does Realtek have a publicly available tool that I can use to set all
+customization back to "official" values?
 
- drivers/net/phy/phy_device.c | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+> My dangle with the official settings works fine, so I consider that this
+> is not a bug. Instead, I consider it it the limitation of the hardware.
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index a70b604..4b021a3 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -933,6 +933,8 @@ int genphy_read_status(struct phy_device *phydev)
- 	int err;
- 	int lpa;
- 	int lpagb = 0;
-+	int common_adv;
-+	int common_adv_gb;
- 
- 	/* Update the link, but return if there was an error */
- 	err = genphy_update_link(phydev);
-@@ -954,7 +956,7 @@ int genphy_read_status(struct phy_device *phydev)
- 
- 			phydev->lp_advertising =
- 				mii_stat1000_to_ethtool_lpa_t(lpagb);
--			lpagb &= adv << 2;
-+			common_adv_gb = lpagb & adv << 2;
- 		}
- 
- 		lpa = phy_read(phydev, MII_LPA);
-@@ -967,25 +969,25 @@ int genphy_read_status(struct phy_device *phydev)
- 		if (adv < 0)
- 			return adv;
- 
--		lpa &= adv;
-+		common_adv = lpa & adv;
- 
- 		phydev->speed = SPEED_10;
- 		phydev->duplex = DUPLEX_HALF;
- 		phydev->pause = 0;
- 		phydev->asym_pause = 0;
- 
--		if (lpagb & (LPA_1000FULL | LPA_1000HALF)) {
-+		if (common_adv_gb & (LPA_1000FULL | LPA_1000HALF)) {
- 			phydev->speed = SPEED_1000;
- 
--			if (lpagb & LPA_1000FULL)
-+			if (common_adv_gb & LPA_1000FULL)
- 				phydev->duplex = DUPLEX_FULL;
--		} else if (lpa & (LPA_100FULL | LPA_100HALF)) {
-+		} else if (common_adv & (LPA_100FULL | LPA_100HALF)) {
- 			phydev->speed = SPEED_100;
- 
--			if (lpa & LPA_100FULL)
-+			if (common_adv & LPA_100FULL)
- 				phydev->duplex = DUPLEX_FULL;
- 		} else
--			if (lpa & LPA_10FULL)
-+			if (common_adv & LPA_10FULL)
- 				phydev->duplex = DUPLEX_FULL;
- 
- 		if (phydev->duplex == DUPLEX_FULL) {
--- 
-1.7.11.7
+Sorry, I disagree. Where "customization" is available, I expect the
+device driver to know/understand those values OR set them to some
+state the driver knows how to deal with. This is a limitation of the
+driver, not the HW.
+
+
+
+>
+> Best Regards,
+> Hayes
+>
