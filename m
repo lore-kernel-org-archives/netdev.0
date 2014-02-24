@@ -1,40 +1,43 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Subject: [PATCH] net/cxgb4: use remove handler as shutdown handler
-Date: Mon, 24 Feb 2014 17:04:52 -0300
-Message-ID: <1393272292-11268-1-git-send-email-cascardo@linux.vnet.ibm.com>
-Cc: dm@chelsio.com, davem@davemloft.net, linux-kernel@vger.kernel.org,
-	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+From: Mike Pecovnik <mike.pecovnik@gmail.com>
+Subject: [PATCH net] net: Fix permission check in netlink_connect()
+Date: Mon, 24 Feb 2014 21:11:16 +0100
+Message-ID: <1393272676-3188-1-git-send-email-mike.pecovnik@gmail.com>
+Cc: Mike Pecovnik <mike.pecovnik@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f194.google.com ([209.85.215.194]:58726 "EHLO
+	mail-ea0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751480AbaBXUO0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 15:14:26 -0500
+Received: by mail-ea0-f194.google.com with SMTP id o10so1929928eaj.9
+        for <netdev@vger.kernel.org>; Mon, 24 Feb 2014 12:14:25 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Without a shutdown handler, T4 cards behave very badly after a kexec.
-Some firmware calls return errors indicating allocation failures, for
-example. This is probably because thouse resources were not released by
-a BYE message to the firmware, for example.
+netlink_sendmsg() was changed to prevent non-root processes from sending
+messages with dst_pid != 0.
+netlink_connect() however still only checks if nladdr->nl_groups is set.
+This patch modifies netlink_connect() to check for the same condition.
 
-Using the remove handler guarantees we will use a well tested path.
-
-With this patch I applied, I managed to use kexec multiple times and
-probe and iSCSI login worked every time.
-
-Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Signed-off-by: Mike Pecovnik <mike.pecovnik@gmail.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ net/netlink/af_netlink.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 43ab35f..34e2488 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -6179,6 +6179,7 @@ static struct pci_driver cxgb4_driver = {
- 	.id_table = cxgb4_pci_tbl,
- 	.probe    = init_one,
- 	.remove   = remove_one,
-+	.shutdown = remove_one,
- 	.err_handler = &cxgb4_eeh,
- };
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index fdf5135..04748ab6 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1489,8 +1489,8 @@ static int netlink_connect(struct socket *sock, struct sockaddr *addr,
+ 	if (addr->sa_family != AF_NETLINK)
+ 		return -EINVAL;
  
+-	/* Only superuser is allowed to send multicasts */
+-	if (nladdr->nl_groups && !netlink_capable(sock, NL_CFG_F_NONROOT_SEND))
++	if ((nladdr->nl_groups || nladdr->nl_pid) &&
++	    !netlink_capable(sock, NL_CFG_F_NONROOT_SEND))
+ 		return -EPERM;
+ 
+ 	if (!nlk->portid)
 -- 
-1.7.1
+1.8.3.2
