@@ -1,320 +1,301 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [RFC][PATCH] audit: Simplify by assuming the callers socket buffer is large enough
-Date: Fri, 28 Feb 2014 20:50:19 -0800
-Message-ID: <87mwhaplo4.fsf_-_@xmission.com>
-References: <8738j3vzry.fsf@xmission.com>
-	<20140301011142.GK16640@madcap2.tricolour.ca>
-	<87fvn2r0yb.fsf@xmission.com> <874n3ir0uw.fsf_-_@xmission.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Eric Paris <eparis@redhat.com>, linux-audit@redhat.com,
-	linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	<netdev@vger.kernel.org>
-To: Richard Guy Briggs <rgb@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:58228 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752005AbaCAEu3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 23:50:29 -0500
-In-Reply-To: <874n3ir0uw.fsf_-_@xmission.com> (Eric W. Biederman's message of
-	"Fri, 28 Feb 2014 20:36:55 -0800")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Silvan Jegen <s.jegen@gmail.com>
+Subject: [PATCH] net: Replace min macro with min_t
+Date: Tue, 25 Feb 2014 18:12:52 +0100
+Message-ID: <5311aad4.c3030e0a.5aa7.ffffe9da@mx.google.com>
+Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Stefano Brivio <stefano.brivio@polimi.it>,
+	linux-wireless@vger.kernel.org, b43-dev@lists.infradead.org,
+	netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Solomon Peachy <pizza@shaftnet.org>,
+	Ivo van Doorn <IvDoorn@gmail.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Instead of an explicit cast, use the min_t macro.
 
-Modify audit_send_reply to directly use a non-blocking send and
-to return an error on failure (if anyone cares).
-
-Modify audit_list_rules_send to use audit_send_reply and give up
-if we can not send a packet.
-
-Merge audit_list_rules into iaudit_list_rules_send as the code
-is now sufficiently simple to not justify to callers.
-
-Kill audit_send_list, audit_send_reply_thread because using
-a separate thread for replies is not needed when sending
-packets syncrhonously.
-
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Silvan Jegen <s.jegen@gmail.com>
 ---
+ drivers/net/wireless/b43/main.c           | 2 +-
+ drivers/net/wireless/b43/sysfs.c          | 2 +-
+ drivers/net/wireless/b43/xmit.c           | 2 +-
+ drivers/net/wireless/b43legacy/main.c     | 4 ++--
+ drivers/net/wireless/b43legacy/sysfs.c    | 2 +-
+ drivers/net/wireless/b43legacy/xmit.c     | 2 +-
+ drivers/net/wireless/cw1200/fwio.c        | 4 ++--
+ drivers/net/wireless/ipw2x00/ipw2100.c    | 2 +-
+ drivers/net/wireless/ipw2x00/ipw2200.c    | 2 +-
+ drivers/net/wireless/libertas/if_sdio.c   | 4 ++--
+ drivers/net/wireless/mwifiex/debugfs.c    | 4 ++--
+ drivers/net/wireless/p54/p54usb.c         | 2 +-
+ drivers/net/wireless/prism54/isl_ioctl.c  | 2 +-
+ drivers/net/wireless/rt2x00/rt2x00debug.c | 2 +-
+ drivers/net/wireless/ti/wlcore/main.c     | 2 +-
+ drivers/net/wireless/ti/wlcore/spi.c      | 4 ++--
+ drivers/net/wireless/ti/wlcore/sysfs.c    | 2 +-
+ 17 files changed, 22 insertions(+), 22 deletions(-)
 
-I haven't properly tested and made certain this doesn't break userspace,
-but this is much simpler than what audit is currently doing.
-
-I really don't understand why we are using kernel threads to allow us to
-exceed the receiving sockets configured buffer limits.  That just seems
-insane.  If that is really what we want we should be able to force
-the receiving buffer limits up in audit_send_reply.
-
- include/linux/audit.h |    2 +-
- kernel/audit.c        |   75 ++++++++-----------------------------------------
- kernel/audit.h        |   14 ++-------
- kernel/auditfilter.c  |   64 ++++++++++--------------------------------
- 4 files changed, 31 insertions(+), 124 deletions(-)
-
-diff --git a/include/linux/audit.h b/include/linux/audit.h
-index ec1464df4c60..cd2f5112822a 100644
---- a/include/linux/audit.h
-+++ b/include/linux/audit.h
-@@ -464,7 +464,7 @@ extern int audit_filter_user(int type);
- extern int audit_filter_type(int type);
- extern int audit_rule_change(int type, __u32 portid, int seq,
- 				void *data, size_t datasz);
--extern int audit_list_rules_send(struct sk_buff *request_skb, int seq);
-+extern void audit_list_rules_send(struct sk_buff *request_skb, int seq);
+diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
+index c75237e..69fc3d6 100644
+--- a/drivers/net/wireless/b43/main.c
++++ b/drivers/net/wireless/b43/main.c
+@@ -1549,7 +1549,7 @@ static void b43_write_beacon_template(struct b43_wldev *dev,
+ 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(dev->wl->current_beacon);
  
- extern u32 audit_enabled;
- #else /* CONFIG_AUDIT */
-diff --git a/kernel/audit.c b/kernel/audit.c
-index 32086bff5564..201808fc86aa 100644
---- a/kernel/audit.c
-+++ b/kernel/audit.c
-@@ -180,12 +180,6 @@ struct audit_buffer {
- 	gfp_t		     gfp_mask;
- };
+ 	bcn = (const struct ieee80211_mgmt *)(dev->wl->current_beacon->data);
+-	len = min((size_t) dev->wl->current_beacon->len,
++	len = min_t(size_t, dev->wl->current_beacon->len,
+ 		  0x200 - sizeof(struct b43_plcp_hdr6));
+ 	rate = ieee80211_get_tx_rate(dev->wl->hw, info)->hw_value;
  
--struct audit_reply {
--	__u32 portid;
--	struct net *net;	
--	struct sk_buff *skb;
--};
--
- static void audit_set_portid(struct audit_buffer *ab, __u32 portid)
- {
- 	if (ab) {
-@@ -496,26 +490,6 @@ static int kauditd_thread(void *dummy)
- 	return 0;
- }
+diff --git a/drivers/net/wireless/b43/sysfs.c b/drivers/net/wireless/b43/sysfs.c
+index 8e8431d..3190493 100644
+--- a/drivers/net/wireless/b43/sysfs.c
++++ b/drivers/net/wireless/b43/sysfs.c
+@@ -40,7 +40,7 @@ static int get_integer(const char *buf, size_t count)
  
--int audit_send_list(void *_dest)
--{
--	struct audit_netlink_list *dest = _dest;
--	struct sk_buff *skb;
--	struct net *net = dest->net;
--	struct audit_net *aunet = net_generic(net, audit_net_id);
--
--	/* wait for parent to finish and send an ACK */
--	mutex_lock(&audit_cmd_mutex);
--	mutex_unlock(&audit_cmd_mutex);
--
--	while ((skb = __skb_dequeue(&dest->q)) != NULL)
--		netlink_unicast(aunet->nlsk, skb, dest->portid, 0);
--
--	put_net(net);
--	kfree(dest);
--
--	return 0;
--}
--
- struct sk_buff *audit_make_reply(__u32 portid, int seq, int type, int done,
- 				 int multi, const void *payload, int size)
- {
-@@ -541,25 +515,9 @@ out_kfree_skb:
- 	return NULL;
- }
- 
--static int audit_send_reply_thread(void *arg)
--{
--	struct audit_reply *reply = (struct audit_reply *)arg;
--	struct net *net = reply->net;
--	struct audit_net *aunet = net_generic(net, audit_net_id);
--
--	mutex_lock(&audit_cmd_mutex);
--	mutex_unlock(&audit_cmd_mutex);
--
--	/* Ignore failure. It'll only happen if the sender goes away,
--	   because our timeout is set to infinite. */
--	netlink_unicast(aunet->nlsk , reply->skb, reply->portid, 0);
--	put_net(net);
--	kfree(reply);
--	return 0;
--}
- /**
-  * audit_send_reply - send an audit reply message via netlink
-- * @portid: netlink port to which to send reply
-+ * @request_skb: The request skb (used to calculate where to reply)
-  * @seq: sequence number
-  * @type: audit message type
-  * @done: done (last) flag
-@@ -570,33 +528,24 @@ static int audit_send_reply_thread(void *arg)
-  * Allocates an skb, builds the netlink message, and sends it to the port id.
-  * No failure notifications.
-  */
--static void audit_send_reply(struct sk_buff *request_skb, int seq, int type, int done,
--			     int multi, const void *payload, int size)
-+int audit_send_reply(struct sk_buff *request_skb, int seq, int type, int done,
-+		     int multi, const void *payload, int size)
- {
- 	u32 portid = NETLINK_CB(request_skb).portid;
- 	struct net *net = sock_net(NETLINK_CB(request_skb).sk);
-+	struct audit_net *aunet = net_generic(net, audit_net_id);
- 	struct sk_buff *skb;
--	struct task_struct *tsk;
--	struct audit_reply *reply = kmalloc(sizeof(struct audit_reply),
--					    GFP_KERNEL);
--
--	if (!reply)
--		return;
- 
- 	skb = audit_make_reply(portid, seq, type, done, multi, payload, size);
- 	if (!skb)
--		goto out;
--
--	reply->net = get_net(net);
--	reply->portid = portid;
--	reply->skb = skb;
-+		return -ENOMEM;
- 
--	tsk = kthread_run(audit_send_reply_thread, reply, "audit_send_reply");
--	if (!IS_ERR(tsk))
--		return;
--	kfree_skb(skb);
--out:
--	kfree(reply);
-+	/*
-+	 * audit_send_reply runs in the context of the requesting process
-+	 * which means that a blocking send can deadlock.  Peform a
-+	 * non-blocking send, and in general ignore errors.
-+	 */
-+	return netlink_unicast(aunet->nlsk, skb, portid, 1);
- }
- 
- /*
-@@ -907,7 +856,7 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 					   seq, data, nlmsg_len(nlh));
- 		break;
- 	case AUDIT_LIST_RULES:
--		err = audit_list_rules_send(skb, seq);
-+		audit_list_rules_send(skb, seq);
- 		break;
- 	case AUDIT_TRIM:
- 		audit_trim_trees();
-diff --git a/kernel/audit.h b/kernel/audit.h
-index 8df132214606..c7a594890950 100644
---- a/kernel/audit.h
-+++ b/kernel/audit.h
-@@ -240,18 +240,10 @@ extern int audit_uid_comparator(kuid_t left, u32 op, kuid_t right);
- extern int audit_gid_comparator(kgid_t left, u32 op, kgid_t right);
- extern int parent_len(const char *path);
- extern int audit_compare_dname_path(const char *dname, const char *path, int plen);
--extern struct sk_buff *audit_make_reply(__u32 portid, int seq, int type,
--					int done, int multi,
--					const void *payload, int size);
--extern void		    audit_panic(const char *message);
--
--struct audit_netlink_list {
--	__u32 portid;
--	struct net *net;
--	struct sk_buff_head q;
--};
-+extern int audit_send_reply(struct sk_buff *request_skb, int seq, int type,
-+			    int done, int multi, const void *payload, int size);
- 
--int audit_send_list(void *);
-+extern void		    audit_panic(const char *message);
- 
- struct audit_net {
- 	struct sock *nlsk;
-diff --git a/kernel/auditfilter.c b/kernel/auditfilter.c
-index e8d1c7c515d7..5cd05b1f3ec3 100644
---- a/kernel/auditfilter.c
-+++ b/kernel/auditfilter.c
-@@ -973,33 +973,39 @@ out:
- 	return ret;
- }
- 
--/* List rules using struct audit_rule_data. */
--static void audit_list_rules(__u32 portid, int seq, struct sk_buff_head *q)
-+/**
-+ * audit_list_rules_send - list the audit rules using struct audit_rule_data.
-+ * @request_skb: The requesting skb (used to calculate where to reply)
-+ * @seq: netlink audit message sequence (serial) number
-+ */
-+void audit_list_rules_send(struct sk_buff *request_skb, int seq)
- {
--	struct sk_buff *skb;
- 	struct audit_krule *r;
- 	int i;
- 
-+	mutex_lock(&audit_filter_mutex);
- 	/* This is a blocking read, so use audit_filter_mutex instead of rcu
- 	 * iterator to sync with list writers. */
- 	for (i=0; i<AUDIT_NR_FILTERS; i++) {
- 		list_for_each_entry(r, &audit_rules_list[i], list) {
- 			struct audit_rule_data *data;
-+			int err;
- 
- 			data = audit_krule_to_data(r);
- 			if (unlikely(!data))
- 				break;
--			skb = audit_make_reply(portid, seq, AUDIT_LIST_RULES,
-+			err = audit_send_reply(request_skb, seq, AUDIT_LIST_RULES,
- 					       0, 1, data,
- 					       sizeof(*data) + data->buflen);
--			if (skb)
--				skb_queue_tail(q, skb);
- 			kfree(data);
-+			if (err < 0)
-+				goto done;
+ 	if (count == 0)
+ 		goto out;
+-	count = min(count, (size_t) 10);
++	count = min_t(size_t, count, 10);
+ 	memcpy(tmp, buf, count);
+ 	ret = simple_strtol(tmp, NULL, 10);
+       out:
+diff --git a/drivers/net/wireless/b43/xmit.c b/drivers/net/wireless/b43/xmit.c
+index 50e5ddb..bd8e456 100644
+--- a/drivers/net/wireless/b43/xmit.c
++++ b/drivers/net/wireless/b43/xmit.c
+@@ -337,7 +337,7 @@ int b43_generate_txhdr(struct b43_wldev *dev,
+ 			/* iv16 */
+ 			memcpy(txhdr->iv + 10, ((u8 *) wlhdr) + wlhdr_len, 3);
+ 		} else {
+-			iv_len = min((size_t) info->control.hw_key->iv_len,
++			iv_len = min_t(size_t, info->control.hw_key->iv_len,
+ 				     ARRAY_SIZE(txhdr->iv));
+ 			memcpy(txhdr->iv, ((u8 *) wlhdr) + wlhdr_len, iv_len);
  		}
- 	}
--	skb = audit_make_reply(portid, seq, AUDIT_LIST_RULES, 1, 1, NULL, 0);
--	if (skb)
--		skb_queue_tail(q, skb);
-+	audit_send_reply(request_skb, seq, AUDIT_LIST_RULES, 1, 1, NULL, 0);
-+done:
-+	mutex_unlock(&audit_filter_mutex);
-+	return;
- }
+diff --git a/drivers/net/wireless/b43legacy/main.c b/drivers/net/wireless/b43legacy/main.c
+index 349c776..1aec214 100644
+--- a/drivers/net/wireless/b43legacy/main.c
++++ b/drivers/net/wireless/b43legacy/main.c
+@@ -978,7 +978,7 @@ static void b43legacy_write_beacon_template(struct b43legacy_wldev *dev,
+ 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(dev->wl->current_beacon);
  
- /* Log rule additions and removals */
-@@ -1065,46 +1071,6 @@ int audit_rule_change(int type, __u32 portid, int seq, void *data,
- 	return err;
- }
+ 	bcn = (const struct ieee80211_mgmt *)(dev->wl->current_beacon->data);
+-	len = min((size_t)dev->wl->current_beacon->len,
++	len = min_t(size_t, dev->wl->current_beacon->len,
+ 		  0x200 - sizeof(struct b43legacy_plcp_hdr6));
+ 	rate = ieee80211_get_tx_rate(dev->wl->hw, info)->hw_value;
  
--/**
-- * audit_list_rules_send - list the audit rules
-- * @portid: target portid for netlink audit messages
-- * @seq: netlink audit message sequence (serial) number
-- */
--int audit_list_rules_send(struct sk_buff *request_skb, int seq)
--{
--	u32 portid = NETLINK_CB(request_skb).portid;
--	struct net *net = sock_net(NETLINK_CB(request_skb).sk);
--	struct task_struct *tsk;
--	struct audit_netlink_list *dest;
--	int err = 0;
--
--	/* We can't just spew out the rules here because we might fill
--	 * the available socket buffer space and deadlock waiting for
--	 * auditctl to read from it... which isn't ever going to
--	 * happen if we're actually running in the context of auditctl
--	 * trying to _send_ the stuff */
--
--	dest = kmalloc(sizeof(struct audit_netlink_list), GFP_KERNEL);
--	if (!dest)
--		return -ENOMEM;
--	dest->net = get_net(net);
--	dest->portid = portid;
--	skb_queue_head_init(&dest->q);
--
--	mutex_lock(&audit_filter_mutex);
--	audit_list_rules(portid, seq, &dest->q);
--	mutex_unlock(&audit_filter_mutex);
--
--	tsk = kthread_run(audit_send_list, dest, "audit_send_list");
--	if (IS_ERR(tsk)) {
--		skb_queue_purge(&dest->q);
--		kfree(dest);
--		err = PTR_ERR(tsk);
--	}
--
--	return err;
--}
--
- int audit_comparator(u32 left, u32 op, u32 right)
+@@ -1155,7 +1155,7 @@ static void b43legacy_write_probe_resp_template(struct b43legacy_wldev *dev,
+ 	b43legacy_write_probe_resp_plcp(dev, 0x350, size,
+ 					&b43legacy_b_ratetable[3]);
+ 
+-	size = min((size_t)size,
++	size = min_t(size_t, size,
+ 		   0x200 - sizeof(struct b43legacy_plcp_hdr6));
+ 	b43legacy_write_template_common(dev, probe_resp_data,
+ 					size, ram_offset,
+diff --git a/drivers/net/wireless/b43legacy/sysfs.c b/drivers/net/wireless/b43legacy/sysfs.c
+index 57f8b08..2a1da15 100644
+--- a/drivers/net/wireless/b43legacy/sysfs.c
++++ b/drivers/net/wireless/b43legacy/sysfs.c
+@@ -42,7 +42,7 @@ static int get_integer(const char *buf, size_t count)
+ 
+ 	if (count == 0)
+ 		goto out;
+-	count = min(count, (size_t)10);
++	count = min_t(size_t, count, 10);
+ 	memcpy(tmp, buf, count);
+ 	ret = simple_strtol(tmp, NULL, 10);
+ out:
+diff --git a/drivers/net/wireless/b43legacy/xmit.c b/drivers/net/wireless/b43legacy/xmit.c
+index 86588c9..34bf3f0 100644
+--- a/drivers/net/wireless/b43legacy/xmit.c
++++ b/drivers/net/wireless/b43legacy/xmit.c
+@@ -254,7 +254,7 @@ static int generate_txhdr_fw3(struct b43legacy_wldev *dev,
+ 				   B43legacy_TX4_MAC_KEYALG_SHIFT) &
+ 				   B43legacy_TX4_MAC_KEYALG;
+ 			wlhdr_len = ieee80211_hdrlen(wlhdr->frame_control);
+-			iv_len = min((size_t)info->control.hw_key->iv_len,
++			iv_len = min_t(size_t, info->control.hw_key->iv_len,
+ 				     ARRAY_SIZE(txhdr->iv));
+ 			memcpy(txhdr->iv, ((u8 *)wlhdr) + wlhdr_len, iv_len);
+ 		} else {
+diff --git a/drivers/net/wireless/cw1200/fwio.c b/drivers/net/wireless/cw1200/fwio.c
+index 5a9ffd3..e23d67e 100644
+--- a/drivers/net/wireless/cw1200/fwio.c
++++ b/drivers/net/wireless/cw1200/fwio.c
+@@ -202,8 +202,8 @@ static int cw1200_load_firmware_cw1200(struct cw1200_common *priv)
+ 		}
+ 
+ 		/* calculate the block size */
+-		tx_size = block_size = min((size_t)(firmware->size - put),
+-			(size_t)DOWNLOAD_BLOCK_SIZE);
++		tx_size = block_size = min_t(size_t, firmware->size - put,
++					DOWNLOAD_BLOCK_SIZE);
+ 
+ 		memcpy(buf, &firmware->data[put], block_size);
+ 		if (block_size < DOWNLOAD_BLOCK_SIZE) {
+diff --git a/drivers/net/wireless/ipw2x00/ipw2100.c b/drivers/net/wireless/ipw2x00/ipw2100.c
+index 3aba492..dfc6dfc 100644
+--- a/drivers/net/wireless/ipw2x00/ipw2100.c
++++ b/drivers/net/wireless/ipw2x00/ipw2100.c
+@@ -7065,7 +7065,7 @@ static int ipw2100_wx_set_nick(struct net_device *dev,
+ 	if (wrqu->data.length > IW_ESSID_MAX_SIZE)
+ 		return -E2BIG;
+ 
+-	wrqu->data.length = min((size_t) wrqu->data.length, sizeof(priv->nick));
++	wrqu->data.length = min_t(size_t, wrqu->data.length, sizeof(priv->nick));
+ 	memset(priv->nick, 0, sizeof(priv->nick));
+ 	memcpy(priv->nick, extra, wrqu->data.length);
+ 
+diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
+index 1393260..c5aa404 100644
+--- a/drivers/net/wireless/ipw2x00/ipw2200.c
++++ b/drivers/net/wireless/ipw2x00/ipw2200.c
+@@ -9169,7 +9169,7 @@ static int ipw_wx_set_nick(struct net_device *dev,
+ 	if (wrqu->data.length > IW_ESSID_MAX_SIZE)
+ 		return -E2BIG;
+ 	mutex_lock(&priv->mutex);
+-	wrqu->data.length = min((size_t) wrqu->data.length, sizeof(priv->nick));
++	wrqu->data.length = min_t(size_t, wrqu->data.length, sizeof(priv->nick));
+ 	memset(priv->nick, 0, sizeof(priv->nick));
+ 	memcpy(priv->nick, extra, wrqu->data.length);
+ 	IPW_DEBUG_TRACE("<<\n");
+diff --git a/drivers/net/wireless/libertas/if_sdio.c b/drivers/net/wireless/libertas/if_sdio.c
+index 58c6ee5d..33ceda2 100644
+--- a/drivers/net/wireless/libertas/if_sdio.c
++++ b/drivers/net/wireless/libertas/if_sdio.c
+@@ -498,7 +498,7 @@ static int if_sdio_prog_helper(struct if_sdio_card *card,
+ 		 */
+ 		mdelay(2);
+ 
+-		chunk_size = min(size, (size_t)60);
++		chunk_size = min_t(size_t, size, 60);
+ 
+ 		*((__le32*)chunk_buffer) = cpu_to_le32(chunk_size);
+ 		memcpy(chunk_buffer + 4, firmware, chunk_size);
+@@ -639,7 +639,7 @@ static int if_sdio_prog_real(struct if_sdio_card *card,
+ 			req_size = size;
+ 
+ 		while (req_size) {
+-			chunk_size = min(req_size, (size_t)512);
++			chunk_size = min_t(size_t, req_size, 512);
+ 
+ 			memcpy(chunk_buffer, firmware, chunk_size);
+ /*
+diff --git a/drivers/net/wireless/mwifiex/debugfs.c b/drivers/net/wireless/mwifiex/debugfs.c
+index a5f9875..e1e18bb 100644
+--- a/drivers/net/wireless/mwifiex/debugfs.c
++++ b/drivers/net/wireless/mwifiex/debugfs.c
+@@ -493,7 +493,7 @@ mwifiex_regrdwr_write(struct file *file,
  {
- 	switch (op) {
+ 	unsigned long addr = get_zeroed_page(GFP_KERNEL);
+ 	char *buf = (char *) addr;
+-	size_t buf_size = min(count, (size_t) (PAGE_SIZE - 1));
++	size_t buf_size = min_t(size_t, count, PAGE_SIZE - 1);
+ 	int ret;
+ 	u32 reg_type = 0, reg_offset = 0, reg_value = UINT_MAX;
+ 
+@@ -594,7 +594,7 @@ mwifiex_rdeeprom_write(struct file *file,
+ {
+ 	unsigned long addr = get_zeroed_page(GFP_KERNEL);
+ 	char *buf = (char *) addr;
+-	size_t buf_size = min(count, (size_t) (PAGE_SIZE - 1));
++	size_t buf_size = min_t(size_t, count, PAGE_SIZE - 1);
+ 	int ret = 0;
+ 	int offset = -1, bytes = -1;
+ 
+diff --git a/drivers/net/wireless/p54/p54usb.c b/drivers/net/wireless/p54/p54usb.c
+index 6e635cf..b7ab3df 100644
+--- a/drivers/net/wireless/p54/p54usb.c
++++ b/drivers/net/wireless/p54/p54usb.c
+@@ -513,7 +513,7 @@ static int p54u_upload_firmware_3887(struct ieee80211_hw *dev)
+ 	if (!buf)
+ 		return -ENOMEM;
+ 
+-	left = block_size = min((size_t)P54U_FW_BLOCK, priv->fw->size);
++	left = block_size = min_t(size_t, P54U_FW_BLOCK, priv->fw->size);
+ 	strcpy(buf, p54u_firmware_upload_3887);
+ 	left -= strlen(p54u_firmware_upload_3887);
+ 	tmp += strlen(p54u_firmware_upload_3887);
+diff --git a/drivers/net/wireless/prism54/isl_ioctl.c b/drivers/net/wireless/prism54/isl_ioctl.c
+index 78fa64d..ecbb054 100644
+--- a/drivers/net/wireless/prism54/isl_ioctl.c
++++ b/drivers/net/wireless/prism54/isl_ioctl.c
+@@ -644,7 +644,7 @@ prism54_translate_bss(struct net_device *ndev, struct iw_request_info *info,
+ 	wpa_ie_len = prism54_wpa_bss_ie_get(priv, bss->address, wpa_ie);
+ 	if (wpa_ie_len > 0) {
+ 		iwe.cmd = IWEVGENIE;
+-		iwe.u.data.length = min(wpa_ie_len, (size_t)MAX_WPA_IE_LEN);
++		iwe.u.data.length = min_t(size_t, wpa_ie_len, MAX_WPA_IE_LEN);
+ 		current_ev = iwe_stream_add_point(info, current_ev, end_buf,
+ 						  &iwe, wpa_ie);
+ 	}
+diff --git a/drivers/net/wireless/rt2x00/rt2x00debug.c b/drivers/net/wireless/rt2x00/rt2x00debug.c
+index 2e3d164..90fdb02 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00debug.c
++++ b/drivers/net/wireless/rt2x00/rt2x00debug.c
+@@ -286,7 +286,7 @@ static ssize_t rt2x00debug_read_queue_dump(struct file *file,
+ 	if (retval)
+ 		return retval;
+ 
+-	status = min((size_t)skb->len, length);
++	status = min_t(size_t, skb->len, length);
+ 	if (copy_to_user(buf, skb->data, status)) {
+ 		status = -EFAULT;
+ 		goto exit;
+diff --git a/drivers/net/wireless/ti/wlcore/main.c b/drivers/net/wireless/ti/wlcore/main.c
+index b46b311..4f01834 100644
+--- a/drivers/net/wireless/ti/wlcore/main.c
++++ b/drivers/net/wireless/ti/wlcore/main.c
+@@ -803,7 +803,7 @@ size_t wl12xx_copy_fwlog(struct wl1271 *wl, u8 *memblock, size_t maxlen)
+ 	size_t len;
+ 
+ 	/* Make sure we have enough room */
+-	len = min(maxlen, (size_t)(PAGE_SIZE - wl->fwlog_size));
++	len = min_t(size_t, maxlen, PAGE_SIZE - wl->fwlog_size);
+ 
+ 	/* Fill the FW log file, consumed by the sysfs fwlog entry */
+ 	memcpy(wl->fwlog + wl->fwlog_size, memblock, len);
+diff --git a/drivers/net/wireless/ti/wlcore/spi.c b/drivers/net/wireless/ti/wlcore/spi.c
+index b2c018d..dbe826d 100644
+--- a/drivers/net/wireless/ti/wlcore/spi.c
++++ b/drivers/net/wireless/ti/wlcore/spi.c
+@@ -211,7 +211,7 @@ static int __must_check wl12xx_spi_raw_read(struct device *child, int addr,
+ 	u32 chunk_len;
+ 
+ 	while (len > 0) {
+-		chunk_len = min((size_t)WSPI_MAX_CHUNK_SIZE, len);
++		chunk_len = min_t(size_t, WSPI_MAX_CHUNK_SIZE, len);
+ 
+ 		cmd = &wl->buffer_cmd;
+ 		busy_buf = wl->buffer_busyword;
+@@ -285,7 +285,7 @@ static int __must_check wl12xx_spi_raw_write(struct device *child, int addr,
+ 	cmd = &commands[0];
+ 	i = 0;
+ 	while (len > 0) {
+-		chunk_len = min((size_t)WSPI_MAX_CHUNK_SIZE, len);
++		chunk_len = min_t(size_t, WSPI_MAX_CHUNK_SIZE, len);
+ 
+ 		*cmd = 0;
+ 		*cmd |= WSPI_CMD_WRITE;
+diff --git a/drivers/net/wireless/ti/wlcore/sysfs.c b/drivers/net/wireless/ti/wlcore/sysfs.c
+index 8e58349..24dd288 100644
+--- a/drivers/net/wireless/ti/wlcore/sysfs.c
++++ b/drivers/net/wireless/ti/wlcore/sysfs.c
+@@ -152,7 +152,7 @@ static ssize_t wl1271_sysfs_read_fwlog(struct file *filp, struct kobject *kobj,
+ 	}
+ 
+ 	/* Seeking is not supported - old logs are not kept. Disregard pos. */
+-	len = min(count, (size_t)wl->fwlog_size);
++	len = min_t(size_t, count, wl->fwlog_size);
+ 	wl->fwlog_size -= len;
+ 	memcpy(buffer, wl->fwlog, len);
+ 
 -- 
-1.7.5.4
+1.9.0
+
