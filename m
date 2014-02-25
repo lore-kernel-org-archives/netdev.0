@@ -1,30 +1,39 @@
-From: Yung kyu kim <tecnologia@corrientes.gov.ar>
-Subject: Foreign stake holder needed
-Date: Tue, 25 Feb 2014 16:21:00 -0300 (ART)
-Message-ID: <824752658.116538.1393356060621.JavaMail.zimbra@corrientes.gov.ar>
-Reply-To: Yung kyu kim <2095494028@qq.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] ipv6: log src and dst along with "udp checksum
+ is 0"
+Date: Tue, 25 Feb 2014 11:44:38 -0800
+Message-ID: <1393357478.8716.35.camel@joe-AO722>
+References: <1393356845-15287-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.corrientes.gov.ar ([190.7.61.120]:43336 "EHLO
-	corrientes.gov.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752522AbaBYToZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 14:44:25 -0500
+Received: from smtprelay0210.hostedemail.com ([216.40.44.210]:48283 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752522AbaBYTol (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 14:44:41 -0500
+In-Reply-To: <1393356845-15287-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Tue, 2014-02-25 at 20:34 +0100, Bj=F8rn Mork wrote:
+> These info messages are rather pointless without any means to identif=
+y
+> the source of the bogus packets.  Logging the src and dst addresses
+> may help a bit.
+[]
+> diff --git a/net/ipv6/ip6_checksum.c b/net/ipv6/ip6_checksum.c
+[]
+> @@ -79,7 +79,8 @@ int udp6_csum_init(struct sk_buff *skb, struct udph=
+dr *uh, int proto)
+>  		/* RFC 2460 section 8.1 says that we SHOULD log
+>  		   this error. Well, it is reasonable.
+>  		 */
+> -		LIMIT_NETDEBUG(KERN_INFO "IPv6: udp checksum is 0\n");
+> +		LIMIT_NETDEBUG(KERN_INFO "IPv6: udp checksum is 0 [%pI6c > %pI6c]\=
+n",
+> +			       &ipv6_hdr(skb)->saddr, &ipv6_hdr(skb)->daddr);
 
-The Project is about the exportation of 100,000 barrels of Light Crude
-Oil daily out from Iraq to Turkey through my client's company in Iraq
-at the rate of $92.00 a barrel. This amount to $9,200,000 daily. I ask
-for your support as a foreigner to handle this business project with my
-client and you are not expected to invest in Iraq
-
-If yes, let me know and we will discuss this project proper.
-
-yung kim.
-
-CONTACT MY PRIVATE EMAIL:yung.kim@qq.com
+Might be useful to mirror the ipv4 form and add port #'s too.
