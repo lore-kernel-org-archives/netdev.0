@@ -1,60 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v6 net-next 2/2] tcp: switch rtt estimations to usec
- resolution
-Date: Tue, 25 Feb 2014 10:17:07 -0800
-Message-ID: <1393352227.2316.144.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1393137487.2316.48.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.LFD.2.11.1402230908210.1460@ja.home.ssi.bg>
-	 <1393178122.2316.50.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1393181458.2316.56.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1393216927.2316.62.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1393266251.2316.68.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.LFD.2.11.1402242240290.1941@ja.home.ssi.bg>
-	 <1393280025.2316.76.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.LFD.2.11.1402250056250.1941@ja.home.ssi.bg>
-	 <1393284682.2316.83.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140224155130.4c286cca@samsung-9>
-	 <1393290667.2316.96.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1393292339.2316.98.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1393309341.2316.120.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CADVnQymGQ6V_28MTu02Yo7XjQz5OvmkbW3ozUvovhoz8g0rp=w@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ipv6: reuse ip6_frag_id from ip6_ufo_append_data
+Date: Tue, 25 Feb 2014 14:09:11 -0500 (EST)
+Message-ID: <20140225.140911.2000856357656473477.davem@davemloft.net>
+References: <20140221015535.GB28822@order.stressinduktion.org>
+	<20140222.002855.2055879239461145413.davem@davemloft.net>
+	<20140222055231.GA6598@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	David Miller <davem@davemloft.net>,
-	Yuchung Cheng <ycheng@google.com>,
-	netdev <netdev@vger.kernel.org>, Larry Brakmo <brakmo@google.com>
-To: Neal Cardwell <ncardwell@google.com>
+Cc: netdev@vger.kernel.org
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:41400 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753526AbaBYSRJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 13:17:09 -0500
-Received: by mail-pa0-f47.google.com with SMTP id kp14so8431874pab.34
-        for <netdev@vger.kernel.org>; Tue, 25 Feb 2014 10:17:08 -0800 (PST)
-In-Reply-To: <CADVnQymGQ6V_28MTu02Yo7XjQz5OvmkbW3ozUvovhoz8g0rp=w@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57125 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752844AbaBYTJQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 14:09:16 -0500
+In-Reply-To: <20140222055231.GA6598@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-02-25 at 12:46 -0500, Neal Cardwell wrote:
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Sat, 22 Feb 2014 06:52:31 +0100
 
-> >
-> > -                       ca_ops->pkts_acked(sk, pkts_acked, rtt_us);
-> > -               }
-> > -       } else if (skb && rtt_update && sack_rtt >= 0 &&
-> > -                  sack_rtt > (s32)(now - TCP_SKB_CB(skb)->when)) {
-> > +       } else if (skb && rtt_update && sack_rtt_us >= 0 &&
-> > +                  sack_rtt_us > skb_mstamp_us_delta(&now, &skb->skb_mstamp)) {
+> Hi David!
 > 
-> This gets rid of the (s32) cast for the result of the time
-> subtraction. Is that safe?
+> On Sat, Feb 22, 2014 at 12:28:55AM -0500, David Miller wrote:
+>> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>> Date: Fri, 21 Feb 2014 02:55:35 +0100
+>> 
+>> > Currently we generate a new fragmentation id on UFO segmentation. It
+>> > is pretty hairy to identify the correct net namespace and dst there.
+>> > Especially tunnels use IFF_XMIT_DST_RELEASE and thus have no skb_dst
+>> > available at all.
+>> > 
+>> > This causes unreliable or very predictable ipv6 fragmentation id
+>> > generation while segmentation.
+>> > 
+>> > Luckily we already have pregenerated the ip6_frag_id in
+>> > ip6_ufo_append_data and can use it here.
+>> > 
+>> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>> 
+>> Applied, thanks Hannes.
+> 
+> Could you also get this at least into 3.13, as sit tunnels enable gso
+> by default there?
 
-
-I think it is safe, because we made sure (sack_rtt_us >= 0) is true.
-
-If skb_mstamp_us_delta() is returning a number bigger than 0x7fffffff
-(2147 seconds), I think its better to make the compare to fail.
-
-Thanks !
+Queueud up for -stable, thanks Hannes.
