@@ -1,91 +1,133 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [net-next v2 1/3] net: bcmgenet: drop checks on priv->phydev
-Date: Mon, 24 Feb 2014 16:56:11 -0800
-Message-ID: <1393289773-9473-2-git-send-email-f.fainelli@gmail.com>
-References: <1393289773-9473-1-git-send-email-f.fainelli@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net 1/2] ipv4: allow IP_PMTUDISC_INTERFACE generate fragments if packet size is larger than interface mtu
+Date: Tue, 25 Feb 2014 01:58:14 +0100
+Message-ID: <20140225005814.GA12189@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, Florian Fainelli <f.fainelli@gmail.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: fweimer@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:57811 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752476AbaBYA4Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 19:56:24 -0500
-In-Reply-To: <1393289773-9473-1-git-send-email-f.fainelli@gmail.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:50465 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752000AbaBYA6P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 19:58:15 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Drop all the checks on priv->phydev since we will refuse probing the
-driver if we cannot attach to a PHY device. Drop all checks on
-priv->phydev. This also fixes some smatch issues reported by Dan
-Carpenter.
+Relax IP_PMTUDISC_INTERFACE socket option to allow generation of
+fragmented IP packets if the packet size is greater than the interface
+MTU.
 
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+I introduced this socket option in commit 482fc6094afad5 ("ipv4: introduce
+new IP_MTU_DISCOVER mode IP_PMTUDISC_INTERFACE") to prevent DNS servers
+from ever generating fragments. While preparing patches for DNS software,
+I encoutered the problem that it is very problematic to track the reported
+MTU size from the socket error queue in case a EMSGSIZE error is reported
+on the socket, because the internal architecture of DNS software does
+not easily allow so (or doesn't easily allow to regenerate the DNS answer
+packet with truncation bit set).
+
+That said, I propose to slightly relax the semantics behind
+IP_PMTUDISC_INTERFACE to allow fragments being generated only if the
+packet size exceeds the interface mtu. As such, this option could be
+used as a drop-in replacement for IP_PMTUDISC_DONT, which is currently
+in use by most DNS software.  This would help to get this option in
+use much sooner. DNS software already allows setting an upper bound
+on the outgoing maximum UDP packet size. With this patch and an faulty
+maximum UDP packet size configuration, which exceeds the minimum mtu of
+the system, it is now possible to generate fragments. Admins must take
+care of this.
+
+The main benefit of this option, ignoring path MTU information on the
+socket, is still preserved.
+
+Fixes: 482fc6094afad5 ("ipv4: introduce new IP_MTU_DISCOVER mode IP_PMTUDISC_INTERFACE")
+Cc: Florian Weimer <fweimer@redhat.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
-Changes in v2:
-- addressed Sergei's comment re-align phy_mac_interrupt and drop
-  useless parenthesis
+I hope changing this socket option slightly to be more permissive while
+already being in a released kernel is acceptable.
 
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 17 ++++++-----------
- 1 file changed, 6 insertions(+), 11 deletions(-)
+I hope this patch could also be enqueued for stable 3.13 kernels. If
+that happens, I could finally push out the changes for DNS software to
+use this new mode, which would be much more easier than with the old
+semantics (which is nearly impossible to get into all DNS software in
+the next time).
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 192069d..5856457 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -732,8 +732,7 @@ static void bcmgenet_power_down(struct bcmgenet_priv *priv,
- 
- 	switch (mode) {
- 	case GENET_POWER_CABLE_SENSE:
--		if (priv->phydev)
--			phy_detach(priv->phydev);
-+		phy_detach(priv->phydev);
- 		break;
- 
- 	case GENET_POWER_PASSIVE:
-@@ -1811,9 +1810,8 @@ static void bcmgenet_irq_task(struct work_struct *work)
- 	/* Link UP/DOWN event */
- 	if ((priv->hw_params->flags & GENET_HAS_MDIO_INTR) &&
- 		(priv->irq0_stat & (UMAC_IRQ_LINK_UP|UMAC_IRQ_LINK_DOWN))) {
--		if (priv->phydev)
--			phy_mac_interrupt(priv->phydev,
--				(priv->irq0_stat & UMAC_IRQ_LINK_UP));
-+		phy_mac_interrupt(priv->phydev,
-+			priv->irq0_stat & UMAC_IRQ_LINK_UP);
- 		priv->irq0_stat &= ~(UMAC_IRQ_LINK_UP|UMAC_IRQ_LINK_DOWN);
- 	}
+The IPv6 option was first introduced in 3.14 so the IPv6 patch is only
+applicable for net.
+
+I am aware that the original inclusion of the IP_PMTUDISC_INTERFACE
+mode wasn't received that well, but I hope to have users for this socket
+option very soon (e.g. unbound).
+
+Thanks a lot!
+
+ include/net/ip.h     |  8 ++++++++
+ net/ipv4/ip_output.c | 16 +++++++---------
+ 2 files changed, 15 insertions(+), 9 deletions(-)
+
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 23be0fd..8080e4c 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -274,6 +274,14 @@ static inline bool ip_sk_use_pmtu(const struct sock *sk)
+ 	return inet_sk(sk)->pmtudisc < IP_PMTUDISC_PROBE;
  }
-@@ -1931,8 +1929,7 @@ static int bcmgenet_wol_resume(struct bcmgenet_priv *priv)
- 	if (ret)
- 		return ret;
  
--	if (priv->phydev)
--		phy_init_hw(priv->phydev);
-+	phy_init_hw(priv->phydev);
- 	/* Speed settings must be restored */
- 	bcmgenet_mii_config(priv->dev);
++static inline bool ip_sk_allow_local_frag(const struct sock *sk)
++{
++	struct inet_sock *inet = inet_sk(sk);
++
++	return inet->pmtudisc != IP_PMTUDISC_DO &&
++	       inet->pmtudisc != IP_PMTUDISC_PROBE;
++}
++
+ static inline unsigned int ip_dst_mtu_maybe_forward(const struct dst_entry *dst,
+ 						    bool forwarding)
+ {
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 73c6b63..c5887be 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -822,8 +822,7 @@ static int __ip_append_data(struct sock *sk,
  
-@@ -2058,8 +2055,7 @@ static int bcmgenet_open(struct net_device *dev)
+ 	fragheaderlen = sizeof(struct iphdr) + (opt ? opt->optlen : 0);
+ 	maxfraglen = ((mtu - fragheaderlen) & ~7) + fragheaderlen;
+-	maxnonfragsize = (inet->pmtudisc >= IP_PMTUDISC_DO) ?
+-			 mtu : 0xFFFF;
++	maxnonfragsize = ip_sk_allow_local_frag(sk) ? 0xFFFF : mtu;
  
- 	netif_tx_start_all_queues(dev);
+ 	if (cork->length + length > maxnonfragsize - fragheaderlen) {
+ 		ip_local_error(sk, EMSGSIZE, fl4->daddr, inet->inet_dport,
+@@ -1146,8 +1145,7 @@ ssize_t	ip_append_page(struct sock *sk, struct flowi4 *fl4, struct page *page,
  
--	if (priv->phydev)
--		phy_start(priv->phydev);
-+	phy_start(priv->phydev);
+ 	fragheaderlen = sizeof(struct iphdr) + (opt ? opt->optlen : 0);
+ 	maxfraglen = ((mtu - fragheaderlen) & ~7) + fragheaderlen;
+-	maxnonfragsize = (inet->pmtudisc >= IP_PMTUDISC_DO) ?
+-			 mtu : 0xFFFF;
++	maxnonfragsize = ip_sk_allow_local_frag(sk) ? 0xFFFF : mtu;
  
- 	return 0;
+ 	if (cork->length + size > maxnonfragsize - fragheaderlen) {
+ 		ip_local_error(sk, EMSGSIZE, fl4->daddr, inet->inet_dport,
+@@ -1304,12 +1302,12 @@ struct sk_buff *__ip_make_skb(struct sock *sk,
+ 		tmp_skb->sk = NULL;
+ 	}
  
-@@ -2134,8 +2130,7 @@ static int bcmgenet_close(struct net_device *dev)
+-	/* Unless user demanded real pmtu discovery (IP_PMTUDISC_DO), we allow
+-	 * to fragment the frame generated here. No matter, what transforms
+-	 * how transforms change size of the packet, it will come out.
++	/* Unless user demanded real pmtu discovery (IP_PMTUDISC_DO,
++	 * IP_PMTUDISC_PROBE), we allow to fragment the frame
++	 * generated here. No matter, what transforms how transforms
++	 * change size of the packet, it will come out.
+ 	 */
+-	if (inet->pmtudisc < IP_PMTUDISC_DO)
+-		skb->local_df = 1;
++	skb->local_df = ip_sk_allow_local_frag(sk);
  
- 	netif_dbg(priv, ifdown, dev, "bcmgenet_close\n");
- 
--	if (priv->phydev)
--		phy_stop(priv->phydev);
-+	phy_stop(priv->phydev);
- 
- 	/* Disable MAC receive */
- 	reg = bcmgenet_umac_readl(priv, UMAC_CMD);
+ 	/* DF bit is set when we want to see DF on outgoing frames.
+ 	 * If local_df is set too, we still allow to fragment this frame
 -- 
-1.8.3.2
+1.8.5.3
