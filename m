@@ -1,47 +1,49 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: kdoc struct net_device flags and priv_flags
-Date: Tue, 25 Feb 2014 14:39:28 -0800
-Message-ID: <CAGVrzcaaViC10TvnSVBJsKRF3pSOvbP7Z+Kh4Qcu0RS_RY5GBA@mail.gmail.com>
-References: <1393287245-4549-1-git-send-email-mcgrof@do-not-panic.com>
- <1393294265.6823.154.camel@deadeye.wl.decadent.org.uk> <20140224.235343.1936318499491821387.davem@davemloft.net>
- <2446186.I4KkJ8Hjdb@lenovo> <CAB=NE6WAmHqAYsh6rwyHdvZy3J6ck-uD_Kavk3qqy02vML359g@mail.gmail.com>
+From: Jiri Kosina <jkosina@suse.cz>
+Subject: Re: [PATCH] mlx4: Use GFP_NOFS calls during the ipoib TX path when
+ creating the QP
+Date: Tue, 25 Feb 2014 23:40:35 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1402252338480.5180@pobox.suse.cz>
+References: <alpine.LNX.2.00.1402211450410.1192@pobox.suse.cz> <CAJZOPZK4Ah+nKPWnX3=yM43jbf586GYJ+fh0-OL4bOnqKK8v8A@mail.gmail.com> <alpine.LNX.2.00.1402252307130.5180@pobox.suse.cz> <CAJZOPZJpRYKw7Dskr21QP_d6c7ySS+mi-g_19pNJYm0Gq=ZY+g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Ben Hutchings <ben@decadent.org.uk>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Roland Dreier <roland@kernel.org>, Amir Vadai <amirv@mellanox.com>,
+	Eli Cohen <eli@dev.mellanox.co.il>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Mel Gorman <mgorman@suse.de>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:34788 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753183AbaBYWkJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 17:40:09 -0500
-In-Reply-To: <CAB=NE6WAmHqAYsh6rwyHdvZy3J6ck-uD_Kavk3qqy02vML359g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Or Gerlitz <or.gerlitz@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAJZOPZJpRYKw7Dskr21QP_d6c7ySS+mi-g_19pNJYm0Gq=ZY+g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2014-02-25 14:19 GMT-08:00 Luis R. Rodriguez <mcgrof@do-not-panic.com>:
-> On Mon, Feb 24, 2014 at 9:37 PM, Florian Fainelli <f.fainelli@gmail.c=
-om> wrote:
->> Le lundi 24 f=C3=A9vrier 2014, 23:53:43 David Miller a =C3=A9crit :
->>> They are visible to userspace via sysfs.
->>
->> In /sys/class/net/*/flags, although we are lacking quite a lot of do=
-cumentation
->> for the exported attributes there.
->
-> I only see dev->flags there, I don't see any toggle capability for
-> priv_flags. Let me know if you find anywhere that userspace lets a
-> user toggle private flags, I just don't see it.
+On Wed, 26 Feb 2014, Or Gerlitz wrote:
 
-You are right, those are dev->flags, not priv_flags, sorry about that.
+> >> And what happens if you use IPoIB datagram mode, is/why the patch is
+> >> needed there?
+> 
+> > I admittedly am no infiniband expert, but my understanding is that in
+> > principle Connected/Datagram mode is about MTU and checksum offloading,
+> 
+> yes, the differences between the mode relate to these aspects, however
 
->
-> I'll extend the documentation for a v2 with the sysfs attribute stuff=
-=2E
+Thanks for confirming.
 
-Thanks!
---=20
-=46lorian
+> > but the TX path is the same. Please correct me if I am wrong.
+> 
+> no, note that your patch only touched drivers/infiniband/ulp/ipoib/ipoib_cm.c
+> which is basically compiled out if you set CONFIG_INFINIBAND_IPOIB_CM,
+> so surely the TX path for the datagram vs. connected modes are
+> different.
+
+Yes, but for datagram mode, the tx_ring is allocated in a completely 
+different way (not from kworker), so this might be a non-issue, right? I 
+will have to look into it more deeply to be really sure; if you can 
+provide your insight, that'd be helpful.
+
+-- 
+Jiri Kosina
+SUSE Labs
