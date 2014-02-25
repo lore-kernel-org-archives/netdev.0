@@ -1,100 +1,91 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH v2 -next] net: tcp: add mib counters to track zero window transitions
-Date: Tue, 25 Feb 2014 14:34:32 +0100
-Message-ID: <1393335272-12914-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:54787 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752352AbaBYNid (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 08:38:33 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH] net: kdoc struct net_device flags and priv_flags
+Date: Tue, 25 Feb 2014 13:47:09 +0000
+Message-ID: <1393336029.6823.161.camel@deadeye.wl.decadent.org.uk>
+References: <1393287245-4549-1-git-send-email-mcgrof@do-not-panic.com>
+	 <1393294265.6823.154.camel@deadeye.wl.decadent.org.uk>
+	 <20140224.235343.1936318499491821387.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-mLEQHP6TvKQaei6xdEBA"
+Cc: mcgrof@do-not-panic.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mcgrof@suse.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140224.235343.1936318499491821387.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Three counters are added:
-- one to track when we went from non-zero to zero window
-- one to track the reverse
-- one counter incremented when we want to announce zero window,
-  but can't because we would shrink current window.
 
-Suggested-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
-Changes in v2:
- - use NET_INC_STATS, not _BH; can be called from both bh and process context (pointed out by Hannes)
- - rename LINUX_MIB_TCPWANTZEROWINDOW to LINUX_MIB_TCPWANTZEROWINDOWADV for consistency
+--=-mLEQHP6TvKQaei6xdEBA
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
- include/uapi/linux/snmp.h |  3 +++
- net/ipv4/proc.c           |  3 +++
- net/ipv4/tcp_output.c     | 12 +++++++++++-
- 3 files changed, 17 insertions(+), 1 deletion(-)
+On Mon, 2014-02-24 at 23:53 -0500, David Miller wrote:
+> From: Ben Hutchings <ben@decadent.org.uk>
+> Date: Tue, 25 Feb 2014 02:11:05 +0000
+>=20
+> > On Mon, 2014-02-24 at 16:14 -0800, Luis R. Rodriguez wrote:
+> >> From: "Luis R. Rodriguez" <mcgrof@suse.com>
+> >>=20
+> >> ---
+> >>  include/uapi/linux/if.h | 201 +++++++++++++++++++++++++++++++++++----=
+---------
+> >>  1 file changed, 149 insertions(+), 52 deletions(-)
+> >>=20
+> >> diff --git a/include/uapi/linux/if.h b/include/uapi/linux/if.h
+> >> index d758163..1555623 100644
+> >> --- a/include/uapi/linux/if.h
+> >> +++ b/include/uapi/linux/if.h
+> > [...]
+> >> +/**
+> >> + * enum net_device_priv_flags - &struct net_device priv_flags
+> >> + *
+> >> + * These are the &struct net_device, they are only set internally
+> >> + * by drivers and used in the kernel but are invisible to userspace.
+> > [...]
+> >=20
+> > Indeed, I wonder why they are in the UAPI header.  As userland doesn't
+> > have a legitimate use for them, maybe you could move them back to
+> > include/linux/if.h instead of bothering with adding macros?
+>=20
+> They are visible to userspace via sysfs.
 
-diff --git a/include/uapi/linux/snmp.h b/include/uapi/linux/snmp.h
-index bbaba22..8d64a7e 100644
---- a/include/uapi/linux/snmp.h
-+++ b/include/uapi/linux/snmp.h
-@@ -259,6 +259,9 @@ enum
- 	LINUX_MIB_TCPSPURIOUS_RTX_HOSTQUEUES, /* TCPSpuriousRtxHostQueues */
- 	LINUX_MIB_BUSYPOLLRXPACKETS,		/* BusyPollRxPackets */
- 	LINUX_MIB_TCPAUTOCORKING,		/* TCPAutoCorking */
-+	LINUX_MIB_TCPFROMZEROWINDOWADV,		/* TCPFromZeroWindowAdv */
-+	LINUX_MIB_TCPTOZEROWINDOWADV,		/* TCPToZeroWindowAdv */
-+	LINUX_MIB_TCPWANTZEROWINDOWADV,		/* TCPWantZeroWindowAdv */
- 	__LINUX_MIB_MAX
- };
- 
-diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
-index a6c8a80..99d2e9b 100644
---- a/net/ipv4/proc.c
-+++ b/net/ipv4/proc.c
-@@ -280,6 +280,9 @@ static const struct snmp_mib snmp4_net_list[] = {
- 	SNMP_MIB_ITEM("TCPSpuriousRtxHostQueues", LINUX_MIB_TCPSPURIOUS_RTX_HOSTQUEUES),
- 	SNMP_MIB_ITEM("BusyPollRxPackets", LINUX_MIB_BUSYPOLLRXPACKETS),
- 	SNMP_MIB_ITEM("TCPAutoCorking", LINUX_MIB_TCPAUTOCORKING),
-+	SNMP_MIB_ITEM("TCPFromZeroWindowAdv", LINUX_MIB_TCPFROMZEROWINDOWADV),
-+	SNMP_MIB_ITEM("TCPToZeroWindowAdv", LINUX_MIB_TCPTOZEROWINDOWADV),
-+	SNMP_MIB_ITEM("TCPWantZeroWindowAdv", LINUX_MIB_TCPWANTZEROWINDOWADV),
- 	SNMP_MIB_SENTINEL
- };
- 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 21e8a9f..c5eadec 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -269,6 +269,7 @@ EXPORT_SYMBOL(tcp_select_initial_window);
- static u16 tcp_select_window(struct sock *sk)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
-+	u32 old_win = tp->rcv_wnd;
- 	u32 cur_win = tcp_receive_window(tp);
- 	u32 new_win = __tcp_select_window(sk);
- 
-@@ -281,6 +282,9 @@ static u16 tcp_select_window(struct sock *sk)
- 		 *
- 		 * Relax Will Robinson.
- 		 */
-+		if (new_win == 0)
-+			NET_INC_STATS(sock_net(sk),
-+				      LINUX_MIB_TCPWANTZEROWINDOWADV);
- 		new_win = ALIGN(cur_win, 1 << tp->rx_opt.rcv_wscale);
- 	}
- 	tp->rcv_wnd = new_win;
-@@ -298,8 +302,14 @@ static u16 tcp_select_window(struct sock *sk)
- 	new_win >>= tp->rx_opt.rcv_wscale;
- 
- 	/* If we advertise zero window, disable fast path. */
--	if (new_win == 0)
-+	if (new_win == 0) {
- 		tp->pred_flags = 0;
-+		if (old_win)
-+			NET_INC_STATS(sock_net(sk),
-+				      LINUX_MIB_TCPTOZEROWINDOWADV);
-+	} else if (old_win == 0) {
-+		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPFROMZEROWINDOWADV);
-+	}
- 
- 	return new_win;
- }
--- 
-1.8.1.5
+Really, I don't see them.  Also they were renumbered a while ago (commit
+080e4130b1fb) so they're not a stable interface.
+
+> My memory may be bad, but I believe this has been brought up before.
+
+I expect it has, yes.
+
+Ben.
+
+--=20
+Ben Hutchings
+Everything should be made as simple as possible, but not simpler.
+                                                           - Albert Einstei=
+n
+
+--=-mLEQHP6TvKQaei6xdEBA
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAUwye3ee/yOyVhhEJAQpj0A/8D1LdK6llFmBzGyGaG4siywnsglrmGB3B
+XdIiiSgdtL+WLSc+apwpZYByacDEx/FrPByIXftHKGYq7otiZKQyNezOfDDRhxeA
+L5FYIGBjeZaIqdxMPXRZ7pQi93apR/qVeLql5dq+b+Nxl5WSn2szm49LMjajAyb3
+A/YGKnsvKxlYA7MJxCAS0m0I6fM1j5GkUPtWZ6j0YrA5np7+1dxpUnGcnz1Pv3gp
+K1hacyA1fGkFi04rSbhsgt9em/vtjR67CZi3P2KW9zTDgfoNLtXn1B4ltxXjfbj3
+cLnw0GwIPhPmwITnduhr8H3coyulM2/QyBLWX84dmjkWFSksLTgGVw67/zDgXKOe
+vVzgoVVMaSV4EwQsqGQ5+KMQZ++tAnzfRXpH7+lARSPcp1IkVpcTxrGN8Jgx2XG8
+cVV6Vhhkf1D17e7M2jtAoNhVOwYEXmtZPz2amO1O82Sqtd7s56tzkX2A0mtJh2fo
+vi4dML5SvEqZfa/tV9dBsTvXGLQkiWWGG1zoGPaWgaPkSgzL2eoLBjlZI/lT1prt
+AcHxlrdqjYQAGarO7RqfIr30dtTioLNS1VjApHv5Ek9DB6TOXm/cTDKMrJiFo899
+LM+XtOWeUCWOUxcCp1v9gQajqfjPyABIPdAaqsEzA0A1OWyNvMVHX0jNmq2dZGmA
++DB2+20Urfo=
+=0kK7
+-----END PGP SIGNATURE-----
+
+--=-mLEQHP6TvKQaei6xdEBA--
