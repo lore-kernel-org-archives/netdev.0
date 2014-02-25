@@ -1,165 +1,69 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net] vhost: net: switch to use data copy if pending DMAs
-	exceed the limit
-Date: Tue, 25 Feb 2014 15:57:38 +0200
-Message-ID: <20140225135738.GA15274@redhat.com>
-References: <1393311238-7750-1-git-send-email-jasowang@redhat.com>
+From: Sathya Perla <Sathya.Perla@Emulex.Com>
+Subject: RE: [PATCH] be2net: Bugfix for packet drop with kernel param
+ swiotlb=force
+Date: Tue, 25 Feb 2014 14:06:03 +0000
+Message-ID: <8ecfc5a6-7cb7-46ff-847e-4b081522eb9b@CMEXHTCAS1.ad.emulex.com>
+References: <OF1C38716E.D9F528E0-ON48257C85.000A026B-48257C85.000AA8C9@zte.com.cn>
+	 <e57b63ae-b1a8-47f3-8f2b-71cb6d8ab4fc@CMEXHTCAS1.ad.emulex.com>
+ <1393033796.15717.90.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: virtio-dev@lists.oasis-open.org, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Qin Chuanyu <qinchuanyu@huawei.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1393311238-7750-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "jiang.biao2@zte.com.cn" <jiang.biao2@zte.com.cn>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Subramanian Seetharaman <subbu.seetharaman@emulex.com>,
+	Ajit Khaparde <Ajit.Khaparde@Emulex.Com>,
+	"wang.liang82@zte.com.cn" <wang.liang82@zte.com.cn>,
+	"cai.qu@zte.com.cn" <cai.qu@zte.com.cn>,
+	"li.fengmao@zte.com.cn" <li.fengmao@zte.com.cn>,
+	"long.chun@zte.com.cn" <long.chun@zte.com.cn>,
+	David Miller <davem@davemloft.net>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:24345 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753092AbaBYOGH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 09:06:07 -0500
+In-Reply-To: <1393033796.15717.90.camel@deadeye.wl.decadent.org.uk>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 25, 2014 at 02:53:58PM +0800, Jason Wang wrote:
-> We used to stop the handling of tx when the number of pending DMAs
-> exceeds VHOST_MAX_PEND. This is used to reduce the memory occupation
-> of both host and guest. But it was too aggressive in some cases, since
-> any delay or blocking of a single packet may delay or block the guest
-> transmission. Consider the following setup:
-> 
->     +-----+        +-----+
->     | VM1 |        | VM2 |
->     +--+--+        +--+--+
->        |              |
->     +--+--+        +--+--+
->     | tap0|        | tap1|
->     +--+--+        +--+--+
->        |              |
->     pfifo_fast   htb(10Mbit/s)
->        |              |
->     +--+--------------+---+
->     |     bridge          |
->     +--+------------------+
->        |
->     pfifo_fast
->        |
->     +-----+
->     | eth0|(100Mbit/s)
->     +-----+
-> 
-> - start two VMs and connect them to a bridge
-> - add an physical card (100Mbit/s) to that bridge
-> - setup htb on tap1 and limit its throughput to 10Mbit/s
-> - run two netperfs in the same time, one is from VM1 to VM2. Another is
->   from VM1 to an external host through eth0.
-> - result shows that not only the VM1 to VM2 traffic were throttled but
->   also the VM1 to external host through eth0 is also throttled somehow.
-> 
-> This is because the delay added by htb may lead the delay the finish
-> of DMAs and cause the pending DMAs for tap0 exceeds the limit
-> (VHOST_MAX_PEND). In this case vhost stop handling tx request until
-> htb send some packets. The problem here is all of the packets
-> transmission were blocked even if it does not go to VM2.
-> 
-> We can solve this issue by relaxing it a little bit: switching to use
-> data copy instead of stopping tx when the number of pending DMAs
-> exceed the VHOST_MAX_PEND. This is safe because:
-> 
-> - The number of pending DMAs were still limited by VHOST_MAX_PEND
-> - The out of order completion during mode switch can make sure that
->   most of the tx buffers were freed in time in guest.
-> 
-> So even if about 50% packets were delayed in zero-copy case, vhost
-> could continue to do the transmission through data copy in this case.
-> 
-> Test result:
-> 
-> Before this patch:
-> VM1 to VM2 throughput is 9.3Mbit/s
-> VM1 to External throughput is 40Mbit/s
-> 
-> After this patch:
-> VM1 to VM2 throughput is 9.3Mbit/s
-> Vm1 to External throughput is 93Mbit/s
-
-Would like to see CPU utilization #s as well.
-
-> Simple performance test on 40gbe shows no obvious changes in
-> throughput after this patch.
-> 
-> The patch only solve this issue when unlimited sndbuf. We still need a
-> solution for limited sndbuf.
-> 
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Cc: Qin Chuanyu <qinchuanyu@huawei.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-
-I think this needs some thought.
-
-In particular I think this works because VHOST_MAX_PEND
-is much smaller than the ring size.
-Shouldn't max_pend then be tied to the ring size if it's small?
-
-Another question is about stopping vhost:
-ATM it's waiting for skbs to complete.
-Should we maybe hunt down skbs queued and destroy them
-instead?
-I think this happens when a device is removed.
-
-Thoughts?
-
-> ---
->  drivers/vhost/net.c | 17 +++++++----------
->  1 file changed, 7 insertions(+), 10 deletions(-)
-> 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index a0fa5de..3e96e47 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -345,7 +345,7 @@ static void handle_tx(struct vhost_net *net)
->  		.msg_flags = MSG_DONTWAIT,
->  	};
->  	size_t len, total_len = 0;
-> -	int err;
-> +	int err, num_pends;
->  	size_t hdr_size;
->  	struct socket *sock;
->  	struct vhost_net_ubuf_ref *uninitialized_var(ubufs);
-> @@ -366,13 +366,6 @@ static void handle_tx(struct vhost_net *net)
->  		if (zcopy)
->  			vhost_zerocopy_signal_used(net, vq);
->  
-> -		/* If more outstanding DMAs, queue the work.
-> -		 * Handle upend_idx wrap around
-> -		 */
-> -		if (unlikely((nvq->upend_idx + vq->num - VHOST_MAX_PEND)
-> -			      % UIO_MAXIOV == nvq->done_idx))
-> -			break;
-> -
->  		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
->  					 ARRAY_SIZE(vq->iov),
->  					 &out, &in,
-> @@ -405,9 +398,13 @@ static void handle_tx(struct vhost_net *net)
->  			break;
->  		}
->  
-> +		num_pends = likely(nvq->upend_idx >= nvq->done_idx) ?
-> +			    (nvq->upend_idx - nvq->done_idx) :
-> +			    (nvq->upend_idx + UIO_MAXIOV -
-> +			     nvq->done_idx);
-> +
->  		zcopy_used = zcopy && len >= VHOST_GOODCOPY_LEN
-> -				   && (nvq->upend_idx + 1) % UIO_MAXIOV !=
-> -				      nvq->done_idx
-> +				   && num_pends <= VHOST_MAX_PEND
->  				   && vhost_net_tx_select_zcopy(net);
->  
->  		/* use msg_control to pass vhost zerocopy ubuf info to skb */
-> -- 
-> 1.8.3.2
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
+dG86YmVuQGRlY2FkZW50Lm9yZy51a10NCj4gDQo+IE9uIFRodSwgMjAxNC0wMi0yMCBhdCAwOToz
+OSArMDAwMCwgU2F0aHlhIFBlcmxhIHdyb3RlOg0KPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdl
+LS0tLS0NCj4gPiA+IEZyb206IGppYW5nLmJpYW8yQHp0ZS5jb20uY24gW21haWx0bzpqaWFuZy5i
+aWFvMkB6dGUuY29tLmNuXQ0KPiA+ID4NCj4gPiA+DQo+ID4gPiBGcm9tOiBMaSBGZW5nbWFvIDxs
+aS5mZW5nbWFvQHp0ZS5jb20uY24+DQo+ID4gPg0KPiA+ID4gVGhlcmUgd2lsbCBiZSBwYWNrZXQg
+ZHJvcCB3aXRoIGtlcm5lbCBwYXJhbSAic3dpb3RsYiA9IGZvcmNlIiBvbg0KPiA+ID4gRW11bGV4
+IDEwR2IgTklDIHVzaW5nIGJlMm5ldCBkcml2ZXIuIFRoZSBwcm9ibGVtIGlzIGNhdXNlZCBieQ0K
+PiA+ID4gcmVjZWl2aW5nIHNrYiB3aXRob3V0IGNhbGxpbmcgcGNpX3VubWFwX3BhZ2UoKSBpbiBn
+ZXRfcnhfcGFnZV9pbmZvKCkuDQo+ID4gPiByeF9wYWdlX2luZm8tPmxhc3RfcGFnZV91c2VyIGlz
+IGluaXRpYWxpemVkIHRvIGZhbHNlIGluDQo+ID4gPiBiZV9wb3N0X3J4X2ZyYWdzKCkgd2hlbiBj
+dXJyZW50IGZyYWcgYXJlIG1hcHBlZCBpbiB0aGUgZmlyc3QgaGFsZiBvZg0KPiA+ID4gdGhlIHNh
+bWUgcGFnZSB3aXRoIGFub3RoZXIgZnJhZy4gQnV0IGluIHRoYXQgY2FzZSB3aXRoDQo+ID4gPiAi
+c3dpb3RsYiA9IGZvcmNlIiBwYXJhbSwgZGF0YSBjYW4gbm90IGJlIGNvcGllZCBpbnRvIHRoZSBw
+YWdlIG9mDQo+ID4gPiByeF9wYWdlX2luZm8gd2l0aG91dCBjYWxsaW5nIHBjaV91bm1hcF9wYWdl
+LCBzbyB0aGUgZGF0YSBmcmFnIG1hcHBlZA0KPiA+ID4gaW4gdGhlIGZpcnN0IGhhbGYgb2YgdGhl
+IHBhZ2Ugd2lsbCBiZSBkcm9wcGVkLg0KPiA+ID4NCj4gPiA+IEl0IGNhbiBiZSBzb2x2ZWQgYnkg
+Y3JlYXRpbmcgb25seSBhIG1hcHBpbmcgcmVsYXRpb24gYmV0d2VlbiBmcmFnDQo+ID4gPiBhbmQg
+cGFnZSwgYW5kIGRlbGV0aW5nIHJ4X3BhZ2VfaW5mby0+bGFzdF9wYWdlX3VzZXIgdG8gZW5zdXJl
+DQo+ID4gPiBjYWxsaW5nIHBjaV91bm1hcF9wYWdlIHdoZW4gaGFuZGxpbmcgZWFjaCByZWNlaXZp
+bmcgZnJhZy4NCj4gPg0KPiA+IFRoaXMgcGF0Y2ggdXNlcyBhbiBlbnRpcmUgcGFnZSBmb3IgZWFj
+aCBSWCBmcmFnICh3aG9zZSBkZWZhdWx0IHNpemUgaXMgMjA0OCkuDQo+ID4gQ29uc2VxdWVudGx5
+LCBvbiBwbGF0Zm9ybXMgbGlrZSBwcGM2NCB3aGVyZSB0aGUgZGVmYXVsdCBQQUdFX1NJWkUgaXMg
+NjRLLA0KPiA+IG1lbW9yeSB1c2FnZSBiZWNvbWVzIHZlcnkgaW5lZmZpY2llbnQuDQo+ID4NCj4g
+PiBJbnN0ZWFkLCBJJ3ZlIHRyaWVkIGEgcGFydGlhbC1wYWdlIG1hcHBpbmcgc2NoZW1lLiBUaGlz
+IHJldGFpbnMgdGhlDQo+ID4gcGFnZSBzaGFyaW5nIGxvZ2ljLCBidXQgdW4tbWFwcyBlYWNoIGZy
+YWcgc2VwYXJhdGVseSBzbyB0aGF0DQo+ID4gdGhlIGRhdGEgaXMgY29waWVkIGZyb20gdGhlIGJv
+dW5jZSBidWZmZXJzLg0KPiBbLi4uXQ0KPiANCj4gWW91IGRvbid0IG5lZWQgdG8gbWFwL3VubWFw
+IGVhY2ggZnJhZ21lbnQgc2VwYXJhdGVseTsgeW91IGNhbiBzeW5jIGENCj4gc3ViLXBhZ2UgcmFu
+Z2Ugd2l0aCBkbWFfc3luY19zaW5nbGVfZm9yX2NwdSgpLg0KPiANCg0KQmVuLCBhZnRlciBzeW5j
+aW5nIGVhY2ggZnJhZyB3aXRoIGEgZG1hX3N5bmNfc2luZ2xlX2Zvcl9jcHUoKSBjYWxsLA0Kd291
+bGQgSSBzdGlsbCBuZWVkIHRvIGRtYV91bm1hcF9wYWdlKCkgYWZ0ZXIgRE1BIGlzIGRvbmUgb24g
+YWxsIHRoZSBmcmFncw0Kb2YgdGhlIHBhZ2U/IEkgdGhvdWdodCBJIG5lZWRlZCB0by4NCg0KSSdt
+IGNvbmZ1c2VkIHRvIHNlZSB0aGF0IHN3aW90bGJfYm91bmNlKCkgKHRoYXQgY29waWVzIGRhdGEg
+ZnJvbSB0aGUgYm91bmNlIGJ1ZmZlcnMpDQppcyBjYWxsZWQgZnJvbSBib3RoIHN3aW90bGJfc3lu
+Y19zaW5nbGVfZm9yX2NwdSgpIGFuZCBzd2lvdGxiX3VubWFwX3BhZ2UoKS4NCkkgb2Zjb3Vyc2Ug
+ZG9uJ3Qgd2FudCB0aGUgZGF0YSB0byBiZSBjb3BpZWQgZnJvbSB0aGUgYm91bmNlIGJ1ZmZlcnMg
+dHdpY2UhDQoNCnRoYW5rcywNCi1TYXRoeWENCg==
