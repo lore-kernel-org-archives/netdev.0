@@ -1,7 +1,7 @@
 From: Heikki Krogerus <heikki.krogerus@linux.intel.com>
-Subject: [PATCHv2 4/5] net: rfkill: gpio: add ACPI ID for GPS module on Lenove Miix2
-Date: Tue, 25 Feb 2014 14:22:29 +0200
-Message-ID: <1393330950-7283-5-git-send-email-heikki.krogerus@linux.intel.com>
+Subject: [PATCHv2 5/5] net: rfkill: gpio: add ACPI IDs for a Broadcom bluetooth chip
+Date: Tue, 25 Feb 2014 14:22:30 +0200
+Message-ID: <1393330950-7283-6-git-send-email-heikki.krogerus@linux.intel.com>
 References: <1393330950-7283-1-git-send-email-heikki.krogerus@linux.intel.com>
 Cc: Chen-Yu Tsai <wens@csie.org>, Rhyland Klein <rklein@nvidia.com>,
 	Marc Dietrich <marvin24@gmx.de>,
@@ -19,24 +19,35 @@ In-Reply-To: <1393330950-7283-1-git-send-email-heikki.krogerus@linux.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Lenovo Miix 2 8", BCM4752 is renamed LNV4752.
+This adds ACPI IDs for Broadcom bluetooth chip BCM43241 used
+on various Baytrail based boards such as Lenovo Miix 2 and
+Asus Transformer Book T100TA.
 
 Signed-off-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
 ---
- net/rfkill/rfkill-gpio.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/rfkill/rfkill-gpio.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
 diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
-index ad5e354..ec38884 100644
+index ec38884..c4d7c6b 100644
 --- a/net/rfkill/rfkill-gpio.c
 +++ b/net/rfkill/rfkill-gpio.c
-@@ -158,6 +158,7 @@ static int rfkill_gpio_remove(struct platform_device *pdev)
+@@ -156,11 +156,16 @@ static int rfkill_gpio_remove(struct platform_device *pdev)
+ 	return 0;
+ }
  
++#ifdef CONFIG_ACPI
  static const struct acpi_device_id rfkill_acpi_match[] = {
++	{ "BCM2E1A", RFKILL_TYPE_BLUETOOTH },
++	{ "BCM2E39", RFKILL_TYPE_BLUETOOTH },
++	{ "BCM2E3D", RFKILL_TYPE_BLUETOOTH },
  	{ "BCM4752", RFKILL_TYPE_GPS },
-+	{ "LNV4752", RFKILL_TYPE_GPS },
+ 	{ "LNV4752", RFKILL_TYPE_GPS },
  	{ },
  };
++#endif
  
+ static struct platform_driver rfkill_gpio_driver = {
+ 	.probe = rfkill_gpio_probe,
 -- 
 1.9.0.rc3
