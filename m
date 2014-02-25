@@ -1,31 +1,46 @@
-From: Igor Vasilkov <igorv.sh@gmail.com>
-Subject: Wireless Multicast Forwarding with OpenWRT
-Date: Tue, 25 Feb 2014 18:19:44 +0400
-Message-ID: <CAMERYnsFK2aswqa7tjt6B7r67fFp69CkU-gVX8aZfRkweKD5Gw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev <netdev@vger.kernel.org>
+From: Michal Schmidt <mschmidt@redhat.com>
+Subject: [PATCH net-next 1/3] bnx2x: clamp num_queues to prevent passing a negative value
+Date: Tue, 25 Feb 2014 16:04:24 +0100
+Message-ID: <1393340666-3539-2-git-send-email-mschmidt@redhat.com>
+References: <1393340666-3539-1-git-send-email-mschmidt@redhat.com>
+Cc: netdev@vger.kernel.org, ariele@broadcom.com, dmitry@broadcom.com,
+	yuvalmin@broadcom.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f177.google.com ([209.85.214.177]:35476 "EHLO
-	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753642AbaBYOUF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 09:20:05 -0500
-Received: by mail-ob0-f177.google.com with SMTP id wp18so8686800obc.36
-        for <netdev@vger.kernel.org>; Tue, 25 Feb 2014 06:20:04 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:12951 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752072AbaBYPEd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Feb 2014 10:04:33 -0500
+In-Reply-To: <1393340666-3539-1-git-send-email-mschmidt@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We need to connect an STB device over wi-fi to the router. STB uses
-multicast only. Using udpxy is not possible. Original firmware
-forwards multicast over wi-fi using mac changing technique. I.e.
-router changes destination mac address from multicast to unicast mac
-address of multicast group subscriber. On Asus routers this feature is
-called "Wireless Multicast Forwarding (WMF)". On Mikrotik it's called
-"Multicast-helper". So, the question is: How I can  implement this on
-TP-link wr741nd with =D0=9EpenWrt? It works in original firmware. How i=
-s it
-implemented? Is it a feature of wi-fi chip driver or kernel patch or
-patch of igmpproxy or something else?
+Use the clamp() macro to make the calculation of the number of queues
+slightly easier to understand. It also avoids a crash when someone
+accidentally passes a negative value in num_queues= module parameter.
 
-igorv.sh@gmail.com
+Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 5ee13af..64c17b6 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -61,10 +61,9 @@ static void bnx2x_add_all_napi(struct bnx2x *bp)
+ 
+ static int bnx2x_calc_num_queues(struct bnx2x *bp)
+ {
+-	return  bnx2x_num_queues ?
+-		 min_t(int, bnx2x_num_queues, BNX2X_MAX_QUEUES(bp)) :
+-		 min_t(int, netif_get_num_default_rss_queues(),
+-		       BNX2X_MAX_QUEUES(bp));
++	int nq = bnx2x_num_queues ? : netif_get_num_default_rss_queues();
++	nq = clamp(nq, 1, BNX2X_MAX_QUEUES(bp));
++	return nq;
+ }
+ 
+ /**
+-- 
+1.8.5.3
