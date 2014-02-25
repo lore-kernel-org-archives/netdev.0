@@ -1,46 +1,42 @@
 From: Michal Schmidt <mschmidt@redhat.com>
-Subject: [PATCH net-next 1/3] bnx2x: clamp num_queues to prevent passing a negative value
-Date: Tue, 25 Feb 2014 16:04:24 +0100
-Message-ID: <1393340666-3539-2-git-send-email-mschmidt@redhat.com>
-References: <1393340666-3539-1-git-send-email-mschmidt@redhat.com>
+Subject: [PATCH net-next 0/3] bnx2x: minimize RAM usage in kdump
+Date: Tue, 25 Feb 2014 16:04:23 +0100
+Message-ID: <1393340666-3539-1-git-send-email-mschmidt@redhat.com>
 Cc: netdev@vger.kernel.org, ariele@broadcom.com, dmitry@broadcom.com,
 	yuvalmin@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12951 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:9044 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752072AbaBYPEd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Feb 2014 10:04:33 -0500
-In-Reply-To: <1393340666-3539-1-git-send-email-mschmidt@redhat.com>
+	id S1752072AbaBYPEc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Feb 2014 10:04:32 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the clamp() macro to make the calculation of the number of queues
-slightly easier to understand. It also avoids a crash when someone
-accidentally passes a negative value in num_queues= module parameter.
+kdump kernels usually have only a small amount of memory reserved.
+bnx2x can be memory-hungry. Let's minimize its memory usage when
+running in kdump.
 
-Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+I detect kdump by looking at the "reset_devices" flag. A couple of
+storage drivers (cciss, hpsa) use it for the same purpose. I am not sure
+this is the best way to solve the problem, but it works.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 5ee13af..64c17b6 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -61,10 +61,9 @@ static void bnx2x_add_all_napi(struct bnx2x *bp)
- 
- static int bnx2x_calc_num_queues(struct bnx2x *bp)
- {
--	return  bnx2x_num_queues ?
--		 min_t(int, bnx2x_num_queues, BNX2X_MAX_QUEUES(bp)) :
--		 min_t(int, netif_get_num_default_rss_queues(),
--		       BNX2X_MAX_QUEUES(bp));
-+	int nq = bnx2x_num_queues ? : netif_get_num_default_rss_queues();
-+	nq = clamp(nq, 1, BNX2X_MAX_QUEUES(bp));
-+	return nq;
- }
- 
- /**
+Should it be made more generic by, say, looking at the total amount
+of lowmem instead? Not using TPA by default when lowmem is small and/or
+defaulting to fewer queues would help 32bit systems where a driver for
+a multi-function multi-queue NIC can consume a significant amount
+of available memory. Or do we want no such heuristics?
+
+Is this something to consider doing for other network drivers too?
+
+Michal Schmidt (3):
+  bnx2x: clamp num_queues to prevent passing a negative value
+  bnx2x: save RAM in kdump kernel by using a single queue
+  bnx2x: save RAM in kdump kernel by disabling TPA
+
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  | 12 ++++++++----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |  2 ++
+ 2 files changed, 10 insertions(+), 4 deletions(-)
+
 -- 
 1.8.5.3
