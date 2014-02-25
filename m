@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cgxb4: Stop using ethtool SPEED_* constants
-Date: Mon, 24 Feb 2014 19:04:35 -0500 (EST)
-Message-ID: <20140224.190435.1574600104753243481.davem@davemloft.net>
-References: <1393113804.6823.21.camel@deadeye.wl.decadent.org.uk>
+Subject: Re: [RFC v2 2/4] net: enables interface option to skip IP
+Date: Mon, 24 Feb 2014 19:12:38 -0500 (EST)
+Message-ID: <20140224.191238.921310808350170272.davem@davemloft.net>
+References: <1393266120.8041.19.camel@dcbw.local>
+	<20140224.180426.411052665068255886.davem@davemloft.net>
+	<1393286520.6823.123.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dm@chelsio.com, kumaras@chelsio.com, netdev@vger.kernel.org
+Cc: dcbw@redhat.com, mcgrof@do-not-panic.com, zoltan.kiss@citrix.com,
+	netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net
 To: ben@decadent.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48508 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752639AbaBYAEh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 19:04:37 -0500
-In-Reply-To: <1393113804.6823.21.camel@deadeye.wl.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1393286520.6823.123.camel@deadeye.wl.decadent.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Ben Hutchings <ben@decadent.org.uk>
-Date: Sun, 23 Feb 2014 00:03:24 +0000
+Date: Tue, 25 Feb 2014 00:02:00 +0000
 
-> ethtool speed values are just numbers of megabits and there is no need
-> to add SPEED_40000.  To be consistent, use integer constants directly
-> for all speeds.
-> 
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+> You can run an internal network, or access network, as v6-only with
+> NAT64 and DNS64 at the border.  I believe some mobile networks are doing
+> this; it was also done on the main FOSDEM wireless network this year.
 
-Applied, thanks Ben.
+This seems to be bloating up the networking headers of the internal
+network, for what purpose?
+
+For mobile that's doubly inadvisable.
