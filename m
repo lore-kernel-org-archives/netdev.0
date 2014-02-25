@@ -1,43 +1,30 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH] mlx4: Use GFP_NOFS calls during the ipoib TX path when
- creating the QP
-Date: Tue, 25 Feb 2014 23:52:45 +0200
-Message-ID: <CAJZOPZKYA8Pz1x1cKn46A7+EO+th4DETvmYiX_HR7aYbsfxRRw@mail.gmail.com>
-References: <alpine.LNX.2.00.1402211450410.1192@pobox.suse.cz>
-	<CAJZOPZK4Ah+nKPWnX3=yM43jbf586GYJ+fh0-OL4bOnqKK8v8A@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH stable 3.10.y 0/3] gso/gro forwarding changeset
+Date: Tue, 25 Feb 2014 16:59:45 -0500 (EST)
+Message-ID: <20140225.165945.1272928606573948770.davem@davemloft.net>
+References: <1393061419-4892-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Roland Dreier <roland@kernel.org>, Amir Vadai <amirv@mellanox.com>,
-	Eli Cohen <eli@dev.mellanox.co.il>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Mel Gorman <mgorman@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Jiri Kosina <jkosina@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAJZOPZK4Ah+nKPWnX3=yM43jbf586GYJ+fh0-OL4bOnqKK8v8A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58117 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750941AbaBYV7r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 16:59:47 -0500
+In-Reply-To: <1393061419-4892-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 21, 2014 at 11:53 PM, Jiri Kosina <jkosina@suse.cz> wrote:
->>
->> This was originally a patch from Matthew Finlay <matt@mellanox.com> that
->> addressed a problem whereby NFS writes would enter uninterruptible sleep
->> forever.  The issue happened when using NFS over IPoIB. This is not a
->> recommended configuration as RDMA is preferred but it is still a valid
->> configuration and is important to have in situations where the NFS server
->> does not support RDMA. The problem encountered was described as follows:
->> .
+From: Florian Westphal <fw@strlen.de>
+Date: Sat, 22 Feb 2014 10:30:16 +0100
 
+> 3.10 does not aggregate ~DF packets via GRO.  However, as
+> Marcelo Leitner pointed out to me we can still encounter GSO packets in
+> fwd path in virtual environments where we receive GSO packet eg. via virtio.
+> 
+> Let me know if there are problems.
 
-
-And what happens if you use IPoIB datagram mode, is/why the patch is
-needed there?
-
-
-Also the patch uses a new QP creatiob flag IB_QP_CREATE_USE_GFP_NOFS
-but it doesn't
-touch include/rdma/ib_verbs.h nor I see this flag defined anywhere on
-the patch, does it compile? how?
+All of your backports queued up and submitted to -stable, thanks for doing
+this work!
