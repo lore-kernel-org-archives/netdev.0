@@ -1,91 +1,165 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] net: kdoc struct net_device flags and priv_flags
-Date: Tue, 25 Feb 2014 13:47:09 +0000
-Message-ID: <1393336029.6823.161.camel@deadeye.wl.decadent.org.uk>
-References: <1393287245-4549-1-git-send-email-mcgrof@do-not-panic.com>
-	 <1393294265.6823.154.camel@deadeye.wl.decadent.org.uk>
-	 <20140224.235343.1936318499491821387.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net] vhost: net: switch to use data copy if pending DMAs
+	exceed the limit
+Date: Tue, 25 Feb 2014 15:57:38 +0200
+Message-ID: <20140225135738.GA15274@redhat.com>
+References: <1393311238-7750-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-mLEQHP6TvKQaei6xdEBA"
-Cc: mcgrof@do-not-panic.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mcgrof@suse.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140224.235343.1936318499491821387.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: virtio-dev@lists.oasis-open.org, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Qin Chuanyu <qinchuanyu@huawei.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1393311238-7750-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Feb 25, 2014 at 02:53:58PM +0800, Jason Wang wrote:
+> We used to stop the handling of tx when the number of pending DMAs
+> exceeds VHOST_MAX_PEND. This is used to reduce the memory occupation
+> of both host and guest. But it was too aggressive in some cases, since
+> any delay or blocking of a single packet may delay or block the guest
+> transmission. Consider the following setup:
+> 
+>     +-----+        +-----+
+>     | VM1 |        | VM2 |
+>     +--+--+        +--+--+
+>        |              |
+>     +--+--+        +--+--+
+>     | tap0|        | tap1|
+>     +--+--+        +--+--+
+>        |              |
+>     pfifo_fast   htb(10Mbit/s)
+>        |              |
+>     +--+--------------+---+
+>     |     bridge          |
+>     +--+------------------+
+>        |
+>     pfifo_fast
+>        |
+>     +-----+
+>     | eth0|(100Mbit/s)
+>     +-----+
+> 
+> - start two VMs and connect them to a bridge
+> - add an physical card (100Mbit/s) to that bridge
+> - setup htb on tap1 and limit its throughput to 10Mbit/s
+> - run two netperfs in the same time, one is from VM1 to VM2. Another is
+>   from VM1 to an external host through eth0.
+> - result shows that not only the VM1 to VM2 traffic were throttled but
+>   also the VM1 to external host through eth0 is also throttled somehow.
+> 
+> This is because the delay added by htb may lead the delay the finish
+> of DMAs and cause the pending DMAs for tap0 exceeds the limit
+> (VHOST_MAX_PEND). In this case vhost stop handling tx request until
+> htb send some packets. The problem here is all of the packets
+> transmission were blocked even if it does not go to VM2.
+> 
+> We can solve this issue by relaxing it a little bit: switching to use
+> data copy instead of stopping tx when the number of pending DMAs
+> exceed the VHOST_MAX_PEND. This is safe because:
+> 
+> - The number of pending DMAs were still limited by VHOST_MAX_PEND
+> - The out of order completion during mode switch can make sure that
+>   most of the tx buffers were freed in time in guest.
+> 
+> So even if about 50% packets were delayed in zero-copy case, vhost
+> could continue to do the transmission through data copy in this case.
+> 
+> Test result:
+> 
+> Before this patch:
+> VM1 to VM2 throughput is 9.3Mbit/s
+> VM1 to External throughput is 40Mbit/s
+> 
+> After this patch:
+> VM1 to VM2 throughput is 9.3Mbit/s
+> Vm1 to External throughput is 93Mbit/s
 
---=-mLEQHP6TvKQaei6xdEBA
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Would like to see CPU utilization #s as well.
 
-On Mon, 2014-02-24 at 23:53 -0500, David Miller wrote:
-> From: Ben Hutchings <ben@decadent.org.uk>
-> Date: Tue, 25 Feb 2014 02:11:05 +0000
->=20
-> > On Mon, 2014-02-24 at 16:14 -0800, Luis R. Rodriguez wrote:
-> >> From: "Luis R. Rodriguez" <mcgrof@suse.com>
-> >>=20
-> >> ---
-> >>  include/uapi/linux/if.h | 201 +++++++++++++++++++++++++++++++++++----=
----------
-> >>  1 file changed, 149 insertions(+), 52 deletions(-)
-> >>=20
-> >> diff --git a/include/uapi/linux/if.h b/include/uapi/linux/if.h
-> >> index d758163..1555623 100644
-> >> --- a/include/uapi/linux/if.h
-> >> +++ b/include/uapi/linux/if.h
-> > [...]
-> >> +/**
-> >> + * enum net_device_priv_flags - &struct net_device priv_flags
-> >> + *
-> >> + * These are the &struct net_device, they are only set internally
-> >> + * by drivers and used in the kernel but are invisible to userspace.
-> > [...]
-> >=20
-> > Indeed, I wonder why they are in the UAPI header.  As userland doesn't
-> > have a legitimate use for them, maybe you could move them back to
-> > include/linux/if.h instead of bothering with adding macros?
->=20
-> They are visible to userspace via sysfs.
+> Simple performance test on 40gbe shows no obvious changes in
+> throughput after this patch.
+> 
+> The patch only solve this issue when unlimited sndbuf. We still need a
+> solution for limited sndbuf.
+> 
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Cc: Qin Chuanyu <qinchuanyu@huawei.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Really, I don't see them.  Also they were renumbered a while ago (commit
-080e4130b1fb) so they're not a stable interface.
+I think this needs some thought.
 
-> My memory may be bad, but I believe this has been brought up before.
+In particular I think this works because VHOST_MAX_PEND
+is much smaller than the ring size.
+Shouldn't max_pend then be tied to the ring size if it's small?
 
-I expect it has, yes.
+Another question is about stopping vhost:
+ATM it's waiting for skbs to complete.
+Should we maybe hunt down skbs queued and destroy them
+instead?
+I think this happens when a device is removed.
 
-Ben.
+Thoughts?
 
---=20
-Ben Hutchings
-Everything should be made as simple as possible, but not simpler.
-                                                           - Albert Einstei=
-n
-
---=-mLEQHP6TvKQaei6xdEBA
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAUwye3ee/yOyVhhEJAQpj0A/8D1LdK6llFmBzGyGaG4siywnsglrmGB3B
-XdIiiSgdtL+WLSc+apwpZYByacDEx/FrPByIXftHKGYq7otiZKQyNezOfDDRhxeA
-L5FYIGBjeZaIqdxMPXRZ7pQi93apR/qVeLql5dq+b+Nxl5WSn2szm49LMjajAyb3
-A/YGKnsvKxlYA7MJxCAS0m0I6fM1j5GkUPtWZ6j0YrA5np7+1dxpUnGcnz1Pv3gp
-K1hacyA1fGkFi04rSbhsgt9em/vtjR67CZi3P2KW9zTDgfoNLtXn1B4ltxXjfbj3
-cLnw0GwIPhPmwITnduhr8H3coyulM2/QyBLWX84dmjkWFSksLTgGVw67/zDgXKOe
-vVzgoVVMaSV4EwQsqGQ5+KMQZ++tAnzfRXpH7+lARSPcp1IkVpcTxrGN8Jgx2XG8
-cVV6Vhhkf1D17e7M2jtAoNhVOwYEXmtZPz2amO1O82Sqtd7s56tzkX2A0mtJh2fo
-vi4dML5SvEqZfa/tV9dBsTvXGLQkiWWGG1zoGPaWgaPkSgzL2eoLBjlZI/lT1prt
-AcHxlrdqjYQAGarO7RqfIr30dtTioLNS1VjApHv5Ek9DB6TOXm/cTDKMrJiFo899
-LM+XtOWeUCWOUxcCp1v9gQajqfjPyABIPdAaqsEzA0A1OWyNvMVHX0jNmq2dZGmA
-+DB2+20Urfo=
-=0kK7
------END PGP SIGNATURE-----
-
---=-mLEQHP6TvKQaei6xdEBA--
+> ---
+>  drivers/vhost/net.c | 17 +++++++----------
+>  1 file changed, 7 insertions(+), 10 deletions(-)
+> 
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index a0fa5de..3e96e47 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -345,7 +345,7 @@ static void handle_tx(struct vhost_net *net)
+>  		.msg_flags = MSG_DONTWAIT,
+>  	};
+>  	size_t len, total_len = 0;
+> -	int err;
+> +	int err, num_pends;
+>  	size_t hdr_size;
+>  	struct socket *sock;
+>  	struct vhost_net_ubuf_ref *uninitialized_var(ubufs);
+> @@ -366,13 +366,6 @@ static void handle_tx(struct vhost_net *net)
+>  		if (zcopy)
+>  			vhost_zerocopy_signal_used(net, vq);
+>  
+> -		/* If more outstanding DMAs, queue the work.
+> -		 * Handle upend_idx wrap around
+> -		 */
+> -		if (unlikely((nvq->upend_idx + vq->num - VHOST_MAX_PEND)
+> -			      % UIO_MAXIOV == nvq->done_idx))
+> -			break;
+> -
+>  		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
+>  					 ARRAY_SIZE(vq->iov),
+>  					 &out, &in,
+> @@ -405,9 +398,13 @@ static void handle_tx(struct vhost_net *net)
+>  			break;
+>  		}
+>  
+> +		num_pends = likely(nvq->upend_idx >= nvq->done_idx) ?
+> +			    (nvq->upend_idx - nvq->done_idx) :
+> +			    (nvq->upend_idx + UIO_MAXIOV -
+> +			     nvq->done_idx);
+> +
+>  		zcopy_used = zcopy && len >= VHOST_GOODCOPY_LEN
+> -				   && (nvq->upend_idx + 1) % UIO_MAXIOV !=
+> -				      nvq->done_idx
+> +				   && num_pends <= VHOST_MAX_PEND
+>  				   && vhost_net_tx_select_zcopy(net);
+>  
+>  		/* use msg_control to pass vhost zerocopy ubuf info to skb */
+> -- 
+> 1.8.3.2
