@@ -1,69 +1,31 @@
-From: Sathya Perla <Sathya.Perla@Emulex.Com>
-Subject: RE: [PATCH] be2net: Bugfix for packet drop with kernel param
- swiotlb=force
-Date: Tue, 25 Feb 2014 14:06:03 +0000
-Message-ID: <8ecfc5a6-7cb7-46ff-847e-4b081522eb9b@CMEXHTCAS1.ad.emulex.com>
-References: <OF1C38716E.D9F528E0-ON48257C85.000A026B-48257C85.000AA8C9@zte.com.cn>
-	 <e57b63ae-b1a8-47f3-8f2b-71cb6d8ab4fc@CMEXHTCAS1.ad.emulex.com>
- <1393033796.15717.90.camel@deadeye.wl.decadent.org.uk>
+From: Igor Vasilkov <igorv.sh@gmail.com>
+Subject: Wireless Multicast Forwarding with OpenWRT
+Date: Tue, 25 Feb 2014 18:19:44 +0400
+Message-ID: <CAMERYnsFK2aswqa7tjt6B7r67fFp69CkU-gVX8aZfRkweKD5Gw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "jiang.biao2@zte.com.cn" <jiang.biao2@zte.com.cn>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Subramanian Seetharaman <subbu.seetharaman@emulex.com>,
-	Ajit Khaparde <Ajit.Khaparde@Emulex.Com>,
-	"wang.liang82@zte.com.cn" <wang.liang82@zte.com.cn>,
-	"cai.qu@zte.com.cn" <cai.qu@zte.com.cn>,
-	"li.fengmao@zte.com.cn" <li.fengmao@zte.com.cn>,
-	"long.chun@zte.com.cn" <long.chun@zte.com.cn>,
-	David Miller <davem@davemloft.net>
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:24345 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753092AbaBYOGH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 09:06:07 -0500
-In-Reply-To: <1393033796.15717.90.camel@deadeye.wl.decadent.org.uk>
-Content-Language: en-US
+Received: from mail-ob0-f177.google.com ([209.85.214.177]:35476 "EHLO
+	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753642AbaBYOUF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 09:20:05 -0500
+Received: by mail-ob0-f177.google.com with SMTP id wp18so8686800obc.36
+        for <netdev@vger.kernel.org>; Tue, 25 Feb 2014 06:20:04 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
-dG86YmVuQGRlY2FkZW50Lm9yZy51a10NCj4gDQo+IE9uIFRodSwgMjAxNC0wMi0yMCBhdCAwOToz
-OSArMDAwMCwgU2F0aHlhIFBlcmxhIHdyb3RlOg0KPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdl
-LS0tLS0NCj4gPiA+IEZyb206IGppYW5nLmJpYW8yQHp0ZS5jb20uY24gW21haWx0bzpqaWFuZy5i
-aWFvMkB6dGUuY29tLmNuXQ0KPiA+ID4NCj4gPiA+DQo+ID4gPiBGcm9tOiBMaSBGZW5nbWFvIDxs
-aS5mZW5nbWFvQHp0ZS5jb20uY24+DQo+ID4gPg0KPiA+ID4gVGhlcmUgd2lsbCBiZSBwYWNrZXQg
-ZHJvcCB3aXRoIGtlcm5lbCBwYXJhbSAic3dpb3RsYiA9IGZvcmNlIiBvbg0KPiA+ID4gRW11bGV4
-IDEwR2IgTklDIHVzaW5nIGJlMm5ldCBkcml2ZXIuIFRoZSBwcm9ibGVtIGlzIGNhdXNlZCBieQ0K
-PiA+ID4gcmVjZWl2aW5nIHNrYiB3aXRob3V0IGNhbGxpbmcgcGNpX3VubWFwX3BhZ2UoKSBpbiBn
-ZXRfcnhfcGFnZV9pbmZvKCkuDQo+ID4gPiByeF9wYWdlX2luZm8tPmxhc3RfcGFnZV91c2VyIGlz
-IGluaXRpYWxpemVkIHRvIGZhbHNlIGluDQo+ID4gPiBiZV9wb3N0X3J4X2ZyYWdzKCkgd2hlbiBj
-dXJyZW50IGZyYWcgYXJlIG1hcHBlZCBpbiB0aGUgZmlyc3QgaGFsZiBvZg0KPiA+ID4gdGhlIHNh
-bWUgcGFnZSB3aXRoIGFub3RoZXIgZnJhZy4gQnV0IGluIHRoYXQgY2FzZSB3aXRoDQo+ID4gPiAi
-c3dpb3RsYiA9IGZvcmNlIiBwYXJhbSwgZGF0YSBjYW4gbm90IGJlIGNvcGllZCBpbnRvIHRoZSBw
-YWdlIG9mDQo+ID4gPiByeF9wYWdlX2luZm8gd2l0aG91dCBjYWxsaW5nIHBjaV91bm1hcF9wYWdl
-LCBzbyB0aGUgZGF0YSBmcmFnIG1hcHBlZA0KPiA+ID4gaW4gdGhlIGZpcnN0IGhhbGYgb2YgdGhl
-IHBhZ2Ugd2lsbCBiZSBkcm9wcGVkLg0KPiA+ID4NCj4gPiA+IEl0IGNhbiBiZSBzb2x2ZWQgYnkg
-Y3JlYXRpbmcgb25seSBhIG1hcHBpbmcgcmVsYXRpb24gYmV0d2VlbiBmcmFnDQo+ID4gPiBhbmQg
-cGFnZSwgYW5kIGRlbGV0aW5nIHJ4X3BhZ2VfaW5mby0+bGFzdF9wYWdlX3VzZXIgdG8gZW5zdXJl
-DQo+ID4gPiBjYWxsaW5nIHBjaV91bm1hcF9wYWdlIHdoZW4gaGFuZGxpbmcgZWFjaCByZWNlaXZp
-bmcgZnJhZy4NCj4gPg0KPiA+IFRoaXMgcGF0Y2ggdXNlcyBhbiBlbnRpcmUgcGFnZSBmb3IgZWFj
-aCBSWCBmcmFnICh3aG9zZSBkZWZhdWx0IHNpemUgaXMgMjA0OCkuDQo+ID4gQ29uc2VxdWVudGx5
-LCBvbiBwbGF0Zm9ybXMgbGlrZSBwcGM2NCB3aGVyZSB0aGUgZGVmYXVsdCBQQUdFX1NJWkUgaXMg
-NjRLLA0KPiA+IG1lbW9yeSB1c2FnZSBiZWNvbWVzIHZlcnkgaW5lZmZpY2llbnQuDQo+ID4NCj4g
-PiBJbnN0ZWFkLCBJJ3ZlIHRyaWVkIGEgcGFydGlhbC1wYWdlIG1hcHBpbmcgc2NoZW1lLiBUaGlz
-IHJldGFpbnMgdGhlDQo+ID4gcGFnZSBzaGFyaW5nIGxvZ2ljLCBidXQgdW4tbWFwcyBlYWNoIGZy
-YWcgc2VwYXJhdGVseSBzbyB0aGF0DQo+ID4gdGhlIGRhdGEgaXMgY29waWVkIGZyb20gdGhlIGJv
-dW5jZSBidWZmZXJzLg0KPiBbLi4uXQ0KPiANCj4gWW91IGRvbid0IG5lZWQgdG8gbWFwL3VubWFw
-IGVhY2ggZnJhZ21lbnQgc2VwYXJhdGVseTsgeW91IGNhbiBzeW5jIGENCj4gc3ViLXBhZ2UgcmFu
-Z2Ugd2l0aCBkbWFfc3luY19zaW5nbGVfZm9yX2NwdSgpLg0KPiANCg0KQmVuLCBhZnRlciBzeW5j
-aW5nIGVhY2ggZnJhZyB3aXRoIGEgZG1hX3N5bmNfc2luZ2xlX2Zvcl9jcHUoKSBjYWxsLA0Kd291
-bGQgSSBzdGlsbCBuZWVkIHRvIGRtYV91bm1hcF9wYWdlKCkgYWZ0ZXIgRE1BIGlzIGRvbmUgb24g
-YWxsIHRoZSBmcmFncw0Kb2YgdGhlIHBhZ2U/IEkgdGhvdWdodCBJIG5lZWRlZCB0by4NCg0KSSdt
-IGNvbmZ1c2VkIHRvIHNlZSB0aGF0IHN3aW90bGJfYm91bmNlKCkgKHRoYXQgY29waWVzIGRhdGEg
-ZnJvbSB0aGUgYm91bmNlIGJ1ZmZlcnMpDQppcyBjYWxsZWQgZnJvbSBib3RoIHN3aW90bGJfc3lu
-Y19zaW5nbGVfZm9yX2NwdSgpIGFuZCBzd2lvdGxiX3VubWFwX3BhZ2UoKS4NCkkgb2Zjb3Vyc2Ug
-ZG9uJ3Qgd2FudCB0aGUgZGF0YSB0byBiZSBjb3BpZWQgZnJvbSB0aGUgYm91bmNlIGJ1ZmZlcnMg
-dHdpY2UhDQoNCnRoYW5rcywNCi1TYXRoeWENCg==
+We need to connect an STB device over wi-fi to the router. STB uses
+multicast only. Using udpxy is not possible. Original firmware
+forwards multicast over wi-fi using mac changing technique. I.e.
+router changes destination mac address from multicast to unicast mac
+address of multicast group subscriber. On Asus routers this feature is
+called "Wireless Multicast Forwarding (WMF)". On Mikrotik it's called
+"Multicast-helper". So, the question is: How I can  implement this on
+TP-link wr741nd with =D0=9EpenWrt? It works in original firmware. How i=
+s it
+implemented? Is it a feature of wi-fi chip driver or kernel patch or
+patch of igmpproxy or something else?
+
+igorv.sh@gmail.com
