@@ -1,30 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: Fix permission check in netlink_connect()
-Date: Tue, 25 Feb 2014 18:36:00 -0500 (EST)
-Message-ID: <20140225.183600.689378417138341310.davem@davemloft.net>
-References: <1393272676-3188-1-git-send-email-mike.pecovnik@gmail.com>
+Subject: Re: [PATCH v3] phy: unmask link partner capabilities
+Date: Tue, 25 Feb 2014 18:39:49 -0500 (EST)
+Message-ID: <20140225.183949.1934571310087232103.davem@davemloft.net>
+References: <1393316568-24891-1-git-send-email-cristian.bercaru@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mike.pecovnik@gmail.com
+Cc: netdev@vger.kernel.org, madalin.bucur@freescale.com,
+	shaohui.xie@freescale.com, shruti@freescale.com
+To: cristian.bercaru@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58569 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58591 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752826AbaBYXgC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 18:36:02 -0500
-In-Reply-To: <1393272676-3188-1-git-send-email-mike.pecovnik@gmail.com>
+	with ESMTP id S1752847AbaBYXjv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 18:39:51 -0500
+In-Reply-To: <1393316568-24891-1-git-send-email-cristian.bercaru@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mike Pecovnik <mike.pecovnik@gmail.com>
-Date: Mon, 24 Feb 2014 21:11:16 +0100
+From: <cristian.bercaru@freescale.com>
+Date: Tue, 25 Feb 2014 10:22:48 +0200
 
-> netlink_sendmsg() was changed to prevent non-root processes from sending
-> messages with dst_pid != 0.
-> netlink_connect() however still only checks if nladdr->nl_groups is set.
-> This patch modifies netlink_connect() to check for the same condition.
+> From: Cristian Bercaru <cristian.bercaru@freescale.com>
 > 
-> Signed-off-by: Mike Pecovnik <mike.pecovnik@gmail.com>
+> Masking the link partner's capabilities with local capabilities can be
+> misleading in autonegotiation scenarios such as PAUSE frame
+> autonegotiation.
+> This patch calculates the join between the local capabilities and the
+> link parner capabilities, when it determines the speed and duplex
+> settings, but does not mask any of the link partner capabilities when
+> it calculates PAUSE frame settings.
+> 
+> Signed-off-by: Cristian Bercaru <cristian.bercaru@freescale.com>
 
 Applied, thank you.
