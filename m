@@ -1,30 +1,52 @@
-From: Yung kyu kim <tecnologia@corrientes.gov.ar>
-Subject: I have a project for you!
-Date: Tue, 25 Feb 2014 15:17:02 -0300 (ART)
-Message-ID: <2093164028.71718.1393352222992.JavaMail.zimbra@corrientes.gov.ar>
-Reply-To: Yung kyu kim <2095494028@qq.com>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH v2 net-next] ipv6: log src and dst along with "udp checksum is 0"
+Date: Tue, 25 Feb 2014 21:11:02 +0100
+Message-ID: <1393359062-16844-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
+	Joe Perches <joe@perches.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.corrientes.gov.ar ([190.7.61.120]:47561 "EHLO
-	corrientes.gov.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752653AbaBYUK2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 15:10:28 -0500
+Received: from canardo.mork.no ([148.122.252.1]:44086 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752534AbaBYULT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Feb 2014 15:11:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+These info messages are rather pointless without any means to identify
+the source of the bogus packets.  Logging the src and dst addresses and
+ports may help a bit.
 
-Hey,
+Cc: Joe Perches <joe@perches.com>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+---
+v2: log port numbers too.  Suggested by Joe Perches
 
-The Project is about the exportation of 100,000 barrels of Light Crude
-Oil daily out from Iraq to Turkey through my client's company in Iraq at the rate of $92.00 a barrel. This amount to $9,200,000 daily.
-I as for your support as a foreigner to handle this business project with my
-client and you are not expected to invest in Iraq
+build tested only
 
-If yes, let me know and we will discuss this project proper.
 
-yung kyu kim
+ net/ipv6/ip6_checksum.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-CONTACT MY PRIVATE EMAIL: 2758652960@qq.com
+diff --git a/net/ipv6/ip6_checksum.c b/net/ipv6/ip6_checksum.c
+index 72d198b8e4d2..ee7a97f510cb 100644
+--- a/net/ipv6/ip6_checksum.c
++++ b/net/ipv6/ip6_checksum.c
+@@ -79,7 +79,9 @@ int udp6_csum_init(struct sk_buff *skb, struct udphdr=
+ *uh, int proto)
+ 		/* RFC 2460 section 8.1 says that we SHOULD log
+ 		   this error. Well, it is reasonable.
+ 		 */
+-		LIMIT_NETDEBUG(KERN_INFO "IPv6: udp checksum is 0\n");
++		LIMIT_NETDEBUG(KERN_INFO "IPv6: udp checksum is 0 for [%pI6c]:%u->[%=
+pI6c]:%u\n",
++			       &ipv6_hdr(skb)->saddr, ntohs(uh->source),
++			       &ipv6_hdr(skb)->daddr, ntohs(uh->dest));
+ 		return 1;
+ 	}
+ 	if (skb->ip_summed =3D=3D CHECKSUM_COMPLETE &&
+--=20
+1.9.0
