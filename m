@@ -1,7 +1,7 @@
 From: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: [PATCHv2 1/5] ARM: tegra: remove obsolete gpio entries
-Date: Tue, 25 Feb 2014 14:22:26 +0200
-Message-ID: <1393330950-7283-2-git-send-email-heikki.krogerus@linux.intel.com>
+Subject: [PATCHv2 3/5] net: rfkill: gpio: remove gpio names
+Date: Tue, 25 Feb 2014 14:22:28 +0200
+Message-ID: <1393330950-7283-4-git-send-email-heikki.krogerus@linux.intel.com>
 References: <1393330950-7283-1-git-send-email-heikki.krogerus@linux.intel.com>
 Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, Rhyland Klein <rklein-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
 	Marc Dietrich <marvin24-Mmb7MZpHnFY@public.gmane.org>,
@@ -19,28 +19,74 @@ In-Reply-To: <1393330950-7283-1-git-send-email-heikki.krogerus-VuQAYsv1563Yd54FQ
 Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-After moving to description based gpio interface in
-rfkill-gpio, the gpio numbers are not used any more.
+There is no use for them in this driver. This will fix a
+static checker warning..
 
+net/rfkill/rfkill-gpio.c:144 rfkill_gpio_probe()
+	warn: variable dereferenced before check 'rfkill->name'
+
+This will also make sure that when DT support is added,
+"gpios" property can be used as no con_id labels are
+provided.
+
+Reported-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
 ---
- arch/arm/mach-tegra/board-paz00.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ net/rfkill/rfkill-gpio.c | 19 ++-----------------
+ 1 file changed, 2 insertions(+), 17 deletions(-)
 
-diff --git a/arch/arm/mach-tegra/board-paz00.c b/arch/arm/mach-tegra/board-paz00.c
-index e4dec9f..9c6029b 100644
---- a/arch/arm/mach-tegra/board-paz00.c
-+++ b/arch/arm/mach-tegra/board-paz00.c
-@@ -23,9 +23,7 @@
- #include "board.h"
+diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
+index 0adda44..ad5e354 100644
+--- a/net/rfkill/rfkill-gpio.c
++++ b/net/rfkill/rfkill-gpio.c
+@@ -36,8 +36,6 @@ struct rfkill_gpio_data {
+ 	struct gpio_desc	*shutdown_gpio;
  
- static struct rfkill_gpio_platform_data wifi_rfkill_platform_data = {
--	.name		= "wifi_rfkill",
--	.reset_gpio	= 25, /* PD1 */
--	.shutdown_gpio	= 85, /* PK5 */
-+	.name	= "wifi_rfkill",
- 	.type	= RFKILL_TYPE_WLAN,
- };
+ 	struct rfkill		*rfkill_dev;
+-	char			*reset_name;
+-	char			*shutdown_name;
+ 	struct clk		*clk;
  
+ 	bool			clk_enabled;
+@@ -89,7 +87,6 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
+ 	struct rfkill_gpio_data *rfkill;
+ 	struct gpio_desc *gpio;
+ 	int ret;
+-	int len;
+ 
+ 	rfkill = devm_kzalloc(&pdev->dev, sizeof(*rfkill), GFP_KERNEL);
+ 	if (!rfkill)
+@@ -106,21 +103,9 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
+ 		return -ENODEV;
+ 	}
+ 
+-	len = strlen(rfkill->name);
+-	rfkill->reset_name = devm_kzalloc(&pdev->dev, len + 7, GFP_KERNEL);
+-	if (!rfkill->reset_name)
+-		return -ENOMEM;
+-
+-	rfkill->shutdown_name = devm_kzalloc(&pdev->dev, len + 10, GFP_KERNEL);
+-	if (!rfkill->shutdown_name)
+-		return -ENOMEM;
+-
+-	snprintf(rfkill->reset_name, len + 6 , "%s_reset", rfkill->name);
+-	snprintf(rfkill->shutdown_name, len + 9, "%s_shutdown", rfkill->name);
+-
+ 	rfkill->clk = devm_clk_get(&pdev->dev, NULL);
+ 
+-	gpio = devm_gpiod_get_index(&pdev->dev, rfkill->reset_name, 0);
++	gpio = devm_gpiod_get_index(&pdev->dev, NULL, 0);
+ 	if (!IS_ERR(gpio)) {
+ 		ret = gpiod_direction_output(gpio, 0);
+ 		if (ret)
+@@ -128,7 +113,7 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
+ 		rfkill->reset_gpio = gpio;
+ 	}
+ 
+-	gpio = devm_gpiod_get_index(&pdev->dev, rfkill->shutdown_name, 1);
++	gpio = devm_gpiod_get_index(&pdev->dev, NULL, 1);
+ 	if (!IS_ERR(gpio)) {
+ 		ret = gpiod_direction_output(gpio, 0);
+ 		if (ret)
 -- 
 1.9.0.rc3
