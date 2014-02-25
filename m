@@ -1,58 +1,47 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next v2 1/3] net: bcmgenet: drop checks on priv->phydev
-Date: Tue, 25 Feb 2014 20:09:56 +0400
-Message-ID: <530CC054.9020809@cogentembedded.com>
-References: <1393289773-9473-1-git-send-email-f.fainelli@gmail.com> <1393289773-9473-2-git-send-email-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next 0/3] net, net/mlx4: Add sysfs file for port number
+Date: Tue, 25 Feb 2014 18:17:49 +0200
+Message-ID: <1393345072-31584-1-git-send-email-amirv@mellanox.com>
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
+	Jordan_Hargrave@Dell.com, Narendra_K@Dell.com
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:58678 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753122AbaBYQKC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 11:10:02 -0500
-Received: by mail-lb0-f174.google.com with SMTP id l4so3432761lbv.19
-        for <netdev@vger.kernel.org>; Tue, 25 Feb 2014 08:10:01 -0800 (PST)
-In-Reply-To: <1393289773-9473-2-git-send-email-f.fainelli@gmail.com>
+Received: from mailp.voltaire.com ([193.47.165.129]:45662 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752619AbaBYQSn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Feb 2014 11:18:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hi,
 
-On 25-02-2014 4:56, Florian Fainelli wrote:
+Modern distro's are using biosdevname to rename interface to a name based on
+slot/port number.
+biosdevname can't get the port number of devices that have multiple ports that
+share the same PCI function.
+This patch adds a sysfs file under: /sys/devices/.../net/<interface>/dev_port,
+that contains the port number (0 based) - to be used by biosdevname.
+Also, dev_id was wrongly used in mlx4_en driver - added a patch that fix it.
 
-> Drop all the checks on priv->phydev since we will refuse probing the
-> driver if we cannot attach to a PHY device. Drop all checks on
-> priv->phydev. This also fixes some smatch issues reported by Dan
-> Carpenter.
+This patch was tested and applied over commit 51adfcc "net: bcmgenet: remove
+unused bh_lock member"
 
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
-> Changes in v2:
-> - addressed Sergei's comment re-align phy_mac_interrupt and drop
->    useless parenthesis
+Amir
 
->   drivers/net/ethernet/broadcom/genet/bcmgenet.c | 17 ++++++-----------
->   1 file changed, 6 insertions(+), 11 deletions(-)
+CC: Jordan_Hargrave@Dell.com 
+CC: Narendra_K@Dell.com
 
-> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> index 192069d..5856457 100644
-> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-[...]
-> @@ -1811,9 +1810,8 @@ static void bcmgenet_irq_task(struct work_struct *work)
->   	/* Link UP/DOWN event */
->   	if ((priv->hw_params->flags & GENET_HAS_MDIO_INTR) &&
->   		(priv->irq0_stat & (UMAC_IRQ_LINK_UP|UMAC_IRQ_LINK_DOWN))) {
-> -		if (priv->phydev)
-> -			phy_mac_interrupt(priv->phydev,
-> -				(priv->irq0_stat & UMAC_IRQ_LINK_UP));
-> +		phy_mac_interrupt(priv->phydev,
-> +			priv->irq0_stat & UMAC_IRQ_LINK_UP);
+Amir Vadai (3):
+  net: Add sysfs file for port number
+  net/mlx4_en: Expose port number through sysfs
+  net/mlx4_en: Fix bad use of dev_id
 
-    I still don't see this line aligned as needed, to start under 'priv->phydev'.
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 2 +-
+ include/linux/netdevice.h                      | 4 ++++
+ net/core/net-sysfs.c                           | 2 ++
+ 3 files changed, 7 insertions(+), 1 deletion(-)
 
-WBR, Sergei
+-- 
+1.8.3.4
