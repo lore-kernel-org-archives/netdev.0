@@ -1,78 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: probe netlink app in NUD_PROBE
-Date: Tue, 25 Feb 2014 18:18:44 -0500 (EST)
-Message-ID: <20140225.181844.1715731388552960836.davem@davemloft.net>
-References: <20140222104419.6b4daa44@vostro>
+Subject: Re: [PATCH net v3] ipv4: ipv6: better estimate tunnel header cut
+ for correct ufo handling
+Date: Tue, 25 Feb 2014 18:27:46 -0500 (EST)
+Message-ID: <20140225.182746.1170300275583266483.davem@davemloft.net>
+References: <20140223210509.GC6598@order.stressinduktion.org>
+	<20140223212427.GD6598@order.stressinduktion.org>
+	<20140223234805.GE6598@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: timo.teras@iki.fi
+Cc: xiyou.wangcong@gmail.com, linux@stwm.de, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com, therbert@google.com
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58505 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58534 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750849AbaBYXSs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 18:18:48 -0500
-In-Reply-To: <20140222104419.6b4daa44@vostro>
+	with ESMTP id S1750941AbaBYX1t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 18:27:49 -0500
+In-Reply-To: <20140223234805.GE6598@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Timo Teras <timo.teras@iki.fi>
-Date: Sat, 22 Feb 2014 10:44:19 +0200
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Mon, 24 Feb 2014 00:48:05 +0100
 
-> When a stale or delayed neigh entry is being re-validated the entry
-> goes to NUD_PROBE state. At the moment only unicast probes are sent.
-> This is basically because neigh_max_probes() limits the probe amount so.
+> Currently the UFO fragmentation process does not correctly handle inner
+> UDP frames.
+ ...
+> In this case fragmentation id is incremented and offset is not updated.
 > 
-> Now, opennhrp intentionally configures UCAST_PROBES and MCAST_PROBES to
-> zero and APP_PROBES to something meaningful. The idea is that opennhrp
-> replaces arp completely with NHRP implemented in userland.
+> First, I aligned inet_gso_segment and ipv6_gso_segment:
+> * align naming of flags
+> * ipv6_gso_segment: setting skb->encapsulation is unnecessary, as we
+>   always ensure that the state of this flag is left untouched when
+>   returning from upper gso segmenation function
+> * ipv6_gso_segment: move skb_reset_inner_headers below updating the
+>   fragmentation header data, we don't care for updating fragmentation
+>   header data
+> * remove currently unneeded comment indicating skb->encapsulation might
+>   get changed by upper gso_segment callback (gre and udp-tunnel reset
+>   encapsulation after segmentation on each fragment)
 > 
-> Due to this it seems there is a very small time window, when the
-> NUD_PROBE times out and the neighbour entry gets invalidated, and
-> packets get lost.
+> If we encounter an IPIP or SIT gso skb we now check for the protocol ==
+> IPPROTO_UDP and that we at least have already traversed another ip(6)
+> protocol header.
 > 
-> To remedy this, I would like to have these NUD_PROBE validations sent
-> via netlink too.
+> The reason why we have to special case GSO_IPIP and GSO_SIT is that
+> we reset skb->encapsulation to 0 while skb_mac_gso_segment the inner
+> protocol of GSO_UDP_TUNNEL or GSO_GRE packets.
 > 
-> First choice is to change to just use both unicast and application
-> probes:
+> Reported-by: Wolfgang Walter <linux@stwm.de>
+> Cc: Cong Wang <xiyou.wangcong@gmail.com>
+> Cc: Tom Herbert <therbert@google.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-So basically, the generic and protocol-specific neighbour code work
-together to implement a cascading priority based probing scheme using
-a per-neigh counter and three limits.
-
-It seems that neigh->probes is zero when we enter the probing state.
-
-On each solicit we increment neigh->probes.
-
-Then we have this very funny logic in the protocol specific
-implementations of solicit:
-
-	probes = atomic_read(&neigh->probes);
-
-	probes -= UCAST_PROBES;
-	if (probes < 0) {
-		send unicast probe;
-	} else {
-		probes -= APP_PROBES;
-		if (probes < 0) {
-			trigger application based probe via netlink
-		} else {
-			send multicast probe;
-		}
-	}
-
-As an example, for ipv4 arp, UCAST_PROBES defaults to 3 and APP_PROBES
-defaults (as you say) to zero.
-
-If neigh_max_probes() evaluates to UCAST_PROBES, we'll do 3 unicast
-probes then fail the neigh, for example.
-
-I took a look at iproute2's arpd, and I suggest you take a gander
-over there as well.
-
-If given the '-a N' option it will set app_probes to N and send it's
-own ARP requests out in certain situations.
-
-It might depend upon the current behavior of neigh_max_probes().
+Applied, thanks Hannes.
