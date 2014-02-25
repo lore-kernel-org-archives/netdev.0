@@ -1,75 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH v6 net-next 1/2] net: add skb_mstamp infrastructure
-Date: Tue, 25 Feb 2014 04:21:17 -0800
-Message-ID: <1393330877.2316.131.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1393137487.2316.48.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.LFD.2.11.1402230908210.1460@ja.home.ssi.bg>
-	 <1393178122.2316.50.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1393181458.2316.56.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1393216927.2316.62.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1393266251.2316.68.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.LFD.2.11.1402242240290.1941@ja.home.ssi.bg>
-	 <1393280025.2316.76.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.LFD.2.11.1402250056250.1941@ja.home.ssi.bg>
-	 <1393284682.2316.83.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140224155130.4c286cca@samsung-9>
-	 <1393290667.2316.96.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1393292339.2316.98.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1393309324.2316.119.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D0F6CA6D1@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	David Miller <davem@davemloft.net>,
-	Yuchung Cheng <ycheng@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Larry Brakmo <brakmo@google.com>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:52781 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751848AbaBYMVT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 07:21:19 -0500
-Received: by mail-pd0-f180.google.com with SMTP id y10so2071467pdj.25
-        for <netdev@vger.kernel.org>; Tue, 25 Feb 2014 04:21:19 -0800 (PST)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6CA6D1@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: [PATCHv2 0/5] net: rfkill: gpio: cleanup and a few new acpi ids
+Date: Tue, 25 Feb 2014 14:22:25 +0200
+Message-ID: <1393330950-7283-1-git-send-email-heikki.krogerus@linux.intel.com>
+Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, Rhyland Klein <rklein-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
+	Marc Dietrich <marvin24-Mmb7MZpHnFY@public.gmane.org>,
+	Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>,
+	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-02-25 at 09:51 +0000, David Laight wrote:
+Changes since v1:
+- Removed the gpio entries from arch/arm/mach-tegra/board-paz00.c
 
-> 
-> Do you need the union here?
-> If you don't attempt to convert the value to a u64 then code
-> is less likely to process it incorrectly.
-> 
+Hi,
 
-Check the second patch, it uses :
+I was waiting for the DT support from Chen-Yu before sending these,
+but decided it makes no difference when I send them. I'm dropping the
+con ID in the second patch because Dan noticed the warning, but of
+course it will mean the "gpios" property can be used with DT.
 
-	first_ackt.v64 = 0;
-...
-	last_ackt = skb->skb_mstamp;
-	if (!first_ackt.v64)
-		first_ackt = last_ackt;
-
-...
-
-	skb_mstamp_get(&now);
-	if (first_ackt.v64) {
-        	seq_rtt_us = skb_mstamp_us_delta(&now, &first_ackt);
-        	ca_seq_rtt_us = skb_mstamp_us_delta(&now, &last_ackt);
-	}
+The two last patches just add ACPI IDs for some new Baytrail based
+boards.
 
 
-Without the union, it would be more expensive on 64bit arches,
-or relying on the compiler to be smart enough.
+Heikki Krogerus (5):
+  ARM: tegra: remove obsolete gpio entries
+  net: rfkill: gpio: remove unused and obsolete platform parameters
+  net: rfkill: gpio: remove gpio names
+  net: rfkill: gpio: add ACPI ID for GPS module on Lenove Miix2
+  net: rfkill: gpio: add ACPI IDs for a Broadcom bluetooth chip
 
-> Most modern ABI pass/return short structures in registers,
-> so the actual code should be similar if you return the struct
-> by value.
+ arch/arm/mach-tegra/board-paz00.c |  4 +---
+ include/linux/rfkill-gpio.h       | 10 ----------
+ net/rfkill/rfkill-gpio.c          | 40 +++++++++------------------------------
+ 3 files changed, 10 insertions(+), 44 deletions(-)
 
-I am well aware of this, but this is a matter of taste, and I prefer
-this more traditional way.
+-- 
+1.9.0.rc3
