@@ -1,78 +1,80 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [RFC v2 2/4] net: enables interface option to skip IP
-Date: Tue, 25 Feb 2014 02:01:59 +0000
-Message-ID: <1393293719.6823.148.camel@deadeye.wl.decadent.org.uk>
-References: <1393266120.8041.19.camel@dcbw.local>
-	 <20140224.180426.411052665068255886.davem@davemloft.net>
-	 <1393286520.6823.123.camel@deadeye.wl.decadent.org.uk>
-	 <20140224.191238.921310808350170272.davem@davemloft.net>
+From: Qin Chuanyu <qinchuanyu@huawei.com>
+Subject: Re: [PATCH] bridge: orphan frags on local receive
+Date: Tue, 25 Feb 2014 10:02:53 +0800
+Message-ID: <530BF9CD.3080802@huawei.com>
+References: <530B4534.3000106@huawei.com> <20140224132926.GF8981@redhat.com> <530B4E8B.5050007@huawei.com> <20140224154921.GH8981@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-YYrQ2oDAg0I7CCTJmDT8"
-Cc: dcbw@redhat.com, mcgrof@do-not-panic.com, zoltan.kiss@citrix.com,
-	netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140224.191238.921310808350170272.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, KVM list <kvm@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:62294 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752495AbaBYCDQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 21:03:16 -0500
+In-Reply-To: <20140224154921.GH8981@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
---=-YYrQ2oDAg0I7CCTJmDT8
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Mon, 2014-02-24 at 19:12 -0500, David Miller wrote:
-> From: Ben Hutchings <ben@decadent.org.uk>
-> Date: Tue, 25 Feb 2014 00:02:00 +0000
->=20
-> > You can run an internal network, or access network, as v6-only with
-> > NAT64 and DNS64 at the border.  I believe some mobile networks are doin=
-g
-> > this; it was also done on the main FOSDEM wireless network this year.
->=20
-> This seems to be bloating up the networking headers of the internal
-> network, for what purpose?
->=20
-> For mobile that's doubly inadvisable.
-
-I don't know what the reasoning is for the mobile network operators.
-They're forced to do NAT for v4 somewhere, and maybe v6-only makes the
-access network easier to manage.
-
-I doubt the extra header length hurts that much on a 3G or 4G network.
-
-Ben.
-
---=20
-Ben Hutchings
-Everything should be made as simple as possible, but not simpler.
-                                                           - Albert Einstei=
-n
-
---=-YYrQ2oDAg0I7CCTJmDT8
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAUwv5l+e/yOyVhhEJAQpXUA/9HUG2G2LIDPmo09FoOGCUKQ3ak6vf9ZgB
-WCkn4sqbfANNxloU8AZT/rnWzcaU5GwlTm4b3XCEmiU9pDCOfZDDa81a2j20MnqI
-MHY61c19Vg7SIeQ46TbVGlUOvn13XkHeqYulQIfgW6EvUnVugVog1/MHdagsTpjM
-wJSHN1y8NegK07aO9KkEMM16APT6nE1bZ8tVTB5iwaX3b23ZBY/Z5P7Zk70gcbLt
-4VoaNmzv76O5SQJ82KQjbpuI+ZNYYXstG6ZIfRUEcFbBEZc0+6LQoEkEK9LOJcSk
-4khGycBNemZlQleyhs35WdYde9ZCHkOhHOBzYmmBiuVdy8wwm+rYSEr0RNpBnMji
-6cltOYeIX0pXC0FVf7ooeQLrZhYhEmo2AM0qCOqsOt6waTQ54zBmb/PNK2aJUKhJ
-Gvkb/5aNQrAiOV5XWkrzT+jXRAVd8JYHQYE/nSBHwtdk+mdukXLdlBz4FaB8o5I/
-peG/3Xvo+J74WEHLOGJhvKRgS6N6WZ7rurLUX4O4EiSZD90HoSdQBp7yhaasjfEw
-65x2pf+ZM99XwS+41dVj9TCc14KjRdbt13FeJaSbz2GD+WpcOIRRdR2/0LL7/Swl
-lYpVB21XTFhrERBL9qRt1X43sHnqCHgDL1+UfJLmCZ9JXHaQ1vqdkTv9BTTgkeee
-zdXHXl0KAsg=
-=rbWU
------END PGP SIGNATURE-----
-
---=-YYrQ2oDAg0I7CCTJmDT8--
+On 2014/2/24 23:49, Michael S. Tsirkin wrote:
+> On Mon, Feb 24, 2014 at 09:52:11PM +0800, Qin Chuanyu wrote:
+>> On 2014/2/24 21:29, Michael S. Tsirkin wrote:
+>>> On Mon, Feb 24, 2014 at 09:12:20PM +0800, Qin Chuanyu wrote:
+>>>> with vhost tx zero_copy, guest nic might get hang when host reserving
+>>>> skb in socket queue delivered by guest, the case has been solved in
+>>>> tun, it also been needed by bridge. This could easily happened when a
+>>>> LAST_ACK state tcp occuring between guest and host.
+>>>>
+>>>> Signed-off-by: Chuanyu Qin <qinchuanyu@huawei.com>
+>>>
+>>> Do you actually observe guest hang?
+>>>
+>> yes, guest nic could not xmit any more until the skb holded by host has
+>> been freed, the mainly reason is that though virtio-net could use vring
+>> desc out of order, but ubufs is been used by vhost in order. so only
+>> one skb could cause guest nic hang.
+>>> I would expect orphan frags in
+>>> __netif_receive_skb_core to be enough.
+>>>
+>> yes, it would be better. I would deliver another patch soon.
+>
+> well __netif_receive_skb_core already calls orphan frags already.
+> What's left to do?
+>
+None :) , I will use with this change.
+>>>
+>>>> ---
+>>>>   net/bridge/br_input.c |    3 +++
+>>>>   1 files changed, 3 insertions(+), 0 deletions(-)
+>>>>
+>>>> diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+>>>> index 28d5446..744e27a 100644
+>>>> --- a/net/bridge/br_input.c
+>>>> +++ b/net/bridge/br_input.c
+>>>> @@ -117,6 +117,8 @@ int br_handle_frame_finish(struct sk_buff *skb)
+>>>>   		br->dev->stats.multicast++;
+>>>>   	} else if ((dst = __br_fdb_get(br, dest, vid)) &&
+>>>>   			dst->is_local) {
+>>>> +		if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
+>>>> +			goto drop;
+>>>>   		skb2 = skb;
+>>>>   		/* Do not forward the packet since it's local. */
+>>>>   		skb = NULL;
+>>>> @@ -136,6 +138,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
+>>>>   out:
+>>>>   	return 0;
+>>>>   drop:
+>>>> +	skb_tx_error(skb);
+>>>>   	kfree_skb(skb);
+>>>>   	goto out;
+>>>>   }
+>>>> --
+>>>> 1.7.3.1.msysgit.0
+>>>
+>>>
+>>
+>
+> .
+>
