@@ -1,8 +1,8 @@
 From: Stephen Warren <swarren@wwwdotorg.org>
-Subject: Re: [PATCHv2 1/5] ARM: tegra: remove obsolete gpio entries
-Date: Tue, 25 Feb 2014 16:00:23 -0700
-Message-ID: <530D2087.1020407@wwwdotorg.org>
-References: <1393330950-7283-1-git-send-email-heikki.krogerus@linux.intel.com> <1393330950-7283-2-git-send-email-heikki.krogerus@linux.intel.com>
+Subject: Re: [PATCHv2 3/5] net: rfkill: gpio: remove gpio names
+Date: Tue, 25 Feb 2014 16:04:46 -0700
+Message-ID: <530D218E.9010007@wwwdotorg.org>
+References: <1393330950-7283-1-git-send-email-heikki.krogerus@linux.intel.com> <1393330950-7283-4-git-send-email-heikki.krogerus@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -17,23 +17,34 @@ Cc: Chen-Yu Tsai <wens@csie.org>, Rhyland Klein <rklein@nvidia.com>,
 To: Heikki Krogerus <heikki.krogerus@linux.intel.com>,
 	Johannes Berg <johannes@sipsolutions.net>,
 	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from avon.wwwdotorg.org ([70.85.31.133]:53984 "EHLO
-	avon.wwwdotorg.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752072AbaBYXA2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 18:00:28 -0500
-In-Reply-To: <1393330950-7283-2-git-send-email-heikki.krogerus@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1393330950-7283-4-git-send-email-heikki.krogerus@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 On 02/25/2014 05:22 AM, Heikki Krogerus wrote:
-> After moving to description based gpio interface in
-> rfkill-gpio, the gpio numbers are not used any more.
+> There is no use for them in this driver. This will fix a
+> static checker warning..
+> 
+> net/rfkill/rfkill-gpio.c:144 rfkill_gpio_probe()
+> 	warn: variable dereferenced before check 'rfkill->name'
+> 
+> This will also make sure that when DT support is added,
+> "gpios" property can be used as no con_id labels are
+> provided.
 
-Acked-by: Stephen Warren <swarren@nvidia.com>
+> diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
 
-This shouldn't cause any conflicts since I really don't anticipate
-changing board-paz00.c in this kernel cycle other than this patch.
+> -	gpio = devm_gpiod_get_index(&pdev->dev, rfkill->reset_name, 0);
+> +	gpio = devm_gpiod_get_index(&pdev->dev, NULL, 0);
 
-If you want though, I can prepare a branch and signed tag in the Tegra
-tree, containing this patch, and you can merge it. I'm fine either way.
+I think the correct fix here is to look up the GPIO by name rather than
+by index, but simply hard-code the name rather than generating it with
+sprintf(). Index lookups are hard to expand compatibly, but named-based
+lookups scale much better.
+
+In other words, I rather specifically disagree with using a plain
+"gpios" property in any future DT binding, but would strongly prefer
+e.g. reset-gpios/shutdown-gpios or gpios/gpio-names.
+
+Still, I guess I don't object too much.
