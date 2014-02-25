@@ -1,45 +1,43 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: bcmgenet's custom ->ndo_select_queue()
-Date: Mon, 24 Feb 2014 16:37:08 -0800
-Message-ID: <CAGVrzcbuCpBLYDA7dW1hegBvcr8-KVtnvPj+otEzkOrAu6ccXw@mail.gmail.com>
-References: <20140224.193229.2076944569180242866.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/5] gianfar: Device reset and reconfig
+ fixes
+Date: Mon, 24 Feb 2014 19:39:12 -0500 (EST)
+Message-ID: <20140224.193912.2219449920663424370.davem@davemloft.net>
+References: <1393236826-13059-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ben@decadent.org.uk
+To: claudiu.manoil@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:60213 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752569AbaBYAht (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 19:37:49 -0500
-Received: by mail-pd0-f171.google.com with SMTP id r10so1492121pdi.30
-        for <netdev@vger.kernel.org>; Mon, 24 Feb 2014 16:37:48 -0800 (PST)
-In-Reply-To: <20140224.193229.2076944569180242866.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48755 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751539AbaBYAjO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 19:39:14 -0500
+In-Reply-To: <1393236826-13059-1-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-02-24 16:32 GMT-08:00 David Miller <davem@davemloft.net>:
->
-> While fixing a build warning:
->
-> drivers/net/ethernet/broadcom/genet/bcmgenet.c:2293:2: warning: initialization from incompatible pointer type [enabled by default]
->
-> I see that bcmgenet's implementation is:
->
->         return netif_is_multiqueue(dev) ? skb->queue_mapping : 0;
->
-> That makes no sense at all.
->
-> You should only define an overriding function here if you want to do
-> something uniqueue, and not use the default.
->
-> If you don't assign the queue mapping, it's not even going to be
-> set when your select_queue method is called.  In _FACT_ that's the
-> reason it is called, to get the queue mapping set.
->
-> I'm just deleting this completely, I hope you don't mind.
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Date: Mon, 24 Feb 2014 12:13:41 +0200
 
-Not at all, this was in the downstream driver but it definitively
-looks suspicious. Thanks!
--- 
-Florian
+> These patches end up fixing some notable device reset & reconfig
+> related problems.  One issue is on-the-fly (Rx/Tx on) programming
+> of interrupt coalescing (IC) registers on the processing path,
+> against HW recommendation.  This is an old issue that became visible
+> after BQL introduction, as under certain conditions (low traffic)
+> one TX interrupt gets lost and BQL fires Tx timeout as a result.
+> Another notable issue is a race on the Tx path (xmit, clean_tx)
+> during device reset (i.e. during Tx timeout watchdog firing)
+> that leads to NULL access.
+> Fixing the problematic on-thy-fly register writes (i.e. the IC regs)
+> required the implementation of a MAC soft reset procedure.
+> The race leading to NULL access was addressed by fixing the
+> stop_gfar()/startup_gfar() pair (disable/enable napi a.s.o.)
+> and adding the device state DOWN to sync with the TX path.
+> 
+> Thanks.
+> --
+> v2: Refactored if() clauses from gfar_set_features(), PATCH 2.
+
+Series applied, thanks Claudiu.
