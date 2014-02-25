@@ -1,49 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: reuse ip6_frag_id from ip6_ufo_append_data
-Date: Tue, 25 Feb 2014 14:09:11 -0500 (EST)
-Message-ID: <20140225.140911.2000856357656473477.davem@davemloft.net>
-References: <20140221015535.GB28822@order.stressinduktion.org>
-	<20140222.002855.2055879239461145413.davem@davemloft.net>
-	<20140222055231.GA6598@order.stressinduktion.org>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH v6 net-next 2/2] tcp: switch rtt estimations to usec resolution
+Date: Tue, 25 Feb 2014 14:13:24 -0500
+Message-ID: <CADVnQymdZyE-Mb4F6QnTcJhHp4R9=GnYK9cTTpohQMFC=aK-Vw@mail.gmail.com>
+References: <1393137487.2316.48.camel@edumazet-glaptop2.roam.corp.google.com>
+	<alpine.LFD.2.11.1402230908210.1460@ja.home.ssi.bg>
+	<1393178122.2316.50.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1393181458.2316.56.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1393216927.2316.62.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1393266251.2316.68.camel@edumazet-glaptop2.roam.corp.google.com>
+	<alpine.LFD.2.11.1402242240290.1941@ja.home.ssi.bg>
+	<1393280025.2316.76.camel@edumazet-glaptop2.roam.corp.google.com>
+	<alpine.LFD.2.11.1402250056250.1941@ja.home.ssi.bg>
+	<1393284682.2316.83.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140224155130.4c286cca@samsung-9>
+	<1393290667.2316.96.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1393292339.2316.98.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1393309341.2316.120.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hannes@stressinduktion.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	David Miller <davem@davemloft.net>,
+	Yuchung Cheng <ycheng@google.com>,
+	netdev <netdev@vger.kernel.org>, Larry Brakmo <brakmo@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57125 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752844AbaBYTJQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 14:09:16 -0500
-In-Reply-To: <20140222055231.GA6598@order.stressinduktion.org>
+Received: from mail-ea0-f182.google.com ([209.85.215.182]:47322 "EHLO
+	mail-ea0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752966AbaBYTNZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 14:13:25 -0500
+Received: by mail-ea0-f182.google.com with SMTP id r15so334688ead.27
+        for <netdev@vger.kernel.org>; Tue, 25 Feb 2014 11:13:24 -0800 (PST)
+In-Reply-To: <1393309341.2316.120.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Sat, 22 Feb 2014 06:52:31 +0100
+On Tue, Feb 25, 2014 at 1:22 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> Upcoming congestion controls for TCP require usec resolution for RTT
+> estimations. Millisecond resolution is simply not enough these days.
+>
+> FQ/pacing in DC environments also require this change for finer control
+> and removal of bimodal behavior due to the current hack in
+> tcp_update_pacing_rate() for 'small rtt'
+>
+...
+> ---
+> v6: Do not use ktime_get() but skb_mstamp, as Stephen Hemminger pointed
+>     out some platforms have slow ktime_get()
+>
+...
+>  17 files changed, 174 insertions(+), 169 deletions(-)
 
-> Hi David!
-> 
-> On Sat, Feb 22, 2014 at 12:28:55AM -0500, David Miller wrote:
->> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
->> Date: Fri, 21 Feb 2014 02:55:35 +0100
->> 
->> > Currently we generate a new fragmentation id on UFO segmentation. It
->> > is pretty hairy to identify the correct net namespace and dst there.
->> > Especially tunnels use IFF_XMIT_DST_RELEASE and thus have no skb_dst
->> > available at all.
->> > 
->> > This causes unreliable or very predictable ipv6 fragmentation id
->> > generation while segmentation.
->> > 
->> > Luckily we already have pregenerated the ip6_frag_id in
->> > ip6_ufo_append_data and can use it here.
->> > 
->> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
->> 
->> Applied, thanks Hannes.
-> 
-> Could you also get this at least into 3.13, as sit tunnels enable gso
-> by default there?
+> I think it is safe, because we made sure (sack_rtt_us >= 0) is true.
 
-Queueud up for -stable, thanks Hannes.
+Sounds good. Thanks, Eric!
+
+Acked-by: Neal Cardwell <ncardwell@google.com>
+
+neal
