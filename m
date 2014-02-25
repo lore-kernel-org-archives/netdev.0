@@ -1,66 +1,89 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: Re: [PATCH 0/2] ixgbe, fix numa issues
-Date: Tue, 25 Feb 2014 10:21:34 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6CA75F@AcuExch.aculab.com>
-References: <1393267913-28212-1-git-send-email-prarit@redhat.com>
-	<530B9C3E.1000308@intel.com> <530B9EC9.4080007@redhat.com>
-	<530BA40E.3060008@intel.com> <530BEC90.2010705@redhat.com>
+From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Subject: [PATCH (net.git) 1/6] stmmac: disable at run-time the EEE if not supported
+Date: Tue, 25 Feb 2014 10:58:24 +0100
+Message-ID: <1393322309-10390-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "nhorman@redhat.com" <nhorman@redhat.com>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"agospoda@redhat.com" <agospoda@redhat.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: 'Prarit Bhargava' <prarit@redhat.com>, Alexander Duyck
-	<alexander.h.duyck@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <530BEC90.2010705@redhat.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:52602 "EHLO
+	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752914AbaBYK3P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 05:29:15 -0500
+Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 614AE1C4
+	for <netdev@vger.kernel.org>; Tue, 25 Feb 2014 09:59:51 +0000 (GMT)
+Received: from Webmail-eu.st.com (Safex1hubcas22.st.com [10.75.90.92])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id CF2B4B530
+	for <netdev@vger.kernel.org>; Tue, 25 Feb 2014 09:59:50 +0000 (GMT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Prarit Bhargava
-...
-> What has caused that check to be necessary is that the ixgbe driver is now
-> allocating so many interrupts that on large systems which full sockets are taken
-> in and out of service, it is possible that there are not enough empty vectors
-> for all the irqs on a down'd cpu.  IMO what the ixgbe driver is effectively
-> doing is starving the system of resources.  If I rmmod the ixgbe driver (and
-> free it's irqs of course) I have no problem in taking all cpus except 1 out of
-> service.
+This patch is to disable the EEE (so HW and timers)
+for example when the phy communicates that the EEE
+can be supported anymore.
 
-If I read that correctly it looks as though ixgbe should be allocating
-a number of interrupts on each cpu - for the interrupts it wants to take
-on that cpu.
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   24 ++++++++++++++++----
+ 1 files changed, 19 insertions(+), 5 deletions(-)
 
-Then taking the cpu out of service would 'just' require that the interrupts
-that are tied to that cpu be removed first?
-
-	David
-
-
-
-
-------------------------------------------------------------------------------
-Flow-based real-time traffic analytics software. Cisco certified tool.
-Monitor traffic, SLAs, QoS, Medianet, WAAS etc. with NetFlow Analyzer
-Customize your own dashboards, set traffic alerts and generate reports.
-Network behavioral analysis & security monitoring. All-in-one tool.
-http://pubads.g.doubleclick.net/gampad/clk?id=126839071&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 078ad0e..dc89dc3 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -286,10 +286,25 @@ bool stmmac_eee_init(struct stmmac_priv *priv)
+ 
+ 	/* MAC core supports the EEE feature. */
+ 	if (priv->dma_cap.eee) {
++		int tx_lpi_timer = priv->tx_lpi_timer;
++
+ 		/* Check if the PHY supports EEE */
+-		if (phy_init_eee(priv->phydev, 1))
++		if (phy_init_eee(priv->phydev, 1)) {
++			/* To manage at run-time if the EEE cannot be supported
++			 * anymore (for example because the lp caps have been
++			 * changed).
++			 * In that case the driver disable own timers.
++			 */
++			if (priv->eee_active) {
++				pr_debug("stmmac: disable EEE\n");
++				del_timer_sync(&priv->eee_ctrl_timer);
++				priv->hw->mac->set_eee_timer(priv->ioaddr, 0,
++							     tx_lpi_timer);
++			}
++			priv->eee_active = 0;
+ 			goto out;
+-
++		}
++		/* Activate the EEE and start timers */
+ 		if (!priv->eee_active) {
+ 			priv->eee_active = 1;
+ 			init_timer(&priv->eee_ctrl_timer);
+@@ -300,13 +315,13 @@ bool stmmac_eee_init(struct stmmac_priv *priv)
+ 
+ 			priv->hw->mac->set_eee_timer(priv->ioaddr,
+ 						     STMMAC_DEFAULT_LIT_LS,
+-						     priv->tx_lpi_timer);
++						     tx_lpi_timer);
+ 		} else
+ 			/* Set HW EEE according to the speed */
+ 			priv->hw->mac->set_eee_pls(priv->ioaddr,
+ 						   priv->phydev->link);
+ 
+-		pr_info("stmmac: Energy-Efficient Ethernet initialized\n");
++		pr_debug("stmmac: Energy-Efficient Ethernet initialized\n");
+ 
+ 		ret = true;
+ 	}
+@@ -2204,7 +2219,6 @@ static int stmmac_poll(struct napi_struct *napi, int budget)
+ static void stmmac_tx_timeout(struct net_device *dev)
+ {
+ 	struct stmmac_priv *priv = netdev_priv(dev);
+-
+ 	/* Clear Tx resources and restart transmitting again */
+ 	stmmac_tx_err(priv);
+ }
+-- 
+1.7.4.4
