@@ -1,38 +1,37 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/1] ipv6: ipv6_find_hdr restore prev functionality
-Date: Tue, 25 Feb 2014 20:33:12 +0400
-Message-ID: <530CC5C8.7030907@cogentembedded.com>
-References: <1393325651-11236-1-git-send-email-hans@schillstrom.com>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCHv2 4/5] net: rfkill: gpio: add ACPI ID for GPS module on
+ Lenove Miix2
+Date: Tue, 25 Feb 2014 20:40:54 +0400
+Message-ID: <530CC796.1010800@cogentembedded.com>
+References: <1393330950-7283-1-git-send-email-heikki.krogerus@linux.intel.com> <1393330950-7283-5-git-send-email-heikki.krogerus@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Hans Schillstrom <hans@schillstrom.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, ja@ssi.bg, aatteka@nicira.com,
-	kaber@trash.net, ard@telegraafnet.nl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f182.google.com ([209.85.217.182]:63334 "EHLO
-	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753241AbaBYQdR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 11:33:17 -0500
-Received: by mail-lb0-f182.google.com with SMTP id n15so1190166lbi.27
-        for <netdev@vger.kernel.org>; Tue, 25 Feb 2014 08:33:16 -0800 (PST)
-In-Reply-To: <1393325651-11236-1-git-send-email-hans@schillstrom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, Rhyland Klein <rklein-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
+	Marc Dietrich <marvin24-Mmb7MZpHnFY@public.gmane.org>,
+	Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>,
+	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1393330950-7283-5-git-send-email-heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 Hello.
 
-On 25-02-2014 14:54, Hans Schillstrom wrote:
+On 25-02-2014 16:22, Heikki Krogerus wrote:
 
-> The commit 9195bb8e381d81d5a315f911904cdf0cfcc919b8
+> On Lenovo Miix 2 8", BCM4752 is renamed LNV4752.
 
-    Please also specify that commit's summary line in parens.
+    You have typoed in the subject, s/Lenove/Lenovo/.
 
-> broke ipv6_find_hdr() for ipvs and possible also nft_exthdr_eval()
-> This patch simple exit if specified header is found.
-
-    s/exit/exits/.
-
-> Signed-off-by: Hans Schillstrom <hans@schillstrom.com>
+> Signed-off-by: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
 
 WBR, Sergei
