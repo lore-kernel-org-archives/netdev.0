@@ -1,94 +1,54 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: Re: [PATCH 2/4] net: rfkill: gpio: remove gpio names
-Date: Tue, 25 Feb 2014 10:13:35 +0100
-Message-ID: <CACRpkdZBvKU31EDX=6=wVLXaQDAqD6VHtaE_mGnFLr1UYQAH9g@mail.gmail.com>
-References: <1392900697-27577-1-git-send-email-heikki.krogerus@linux.intel.com>
-	<1392900697-27577-3-git-send-email-heikki.krogerus@linux.intel.com>
-	<53062F97.3050407@wwwdotorg.org>
-	<CAGb2v66-tDZhrm9dnXe+PdQTaLZbw20sw3uYzLor2eXpVWmPMA@mail.gmail.com>
-	<5306E599.7020605@wwwdotorg.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v6 net-next 1/2] net: add skb_mstamp infrastructure
+Date: Tue, 25 Feb 2014 09:51:45 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6CA6D1@AcuExch.aculab.com>
+References: <1393137487.2316.48.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <alpine.LFD.2.11.1402230908210.1460@ja.home.ssi.bg>
+	 <1393178122.2316.50.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1393181458.2316.56.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1393216927.2316.62.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1393266251.2316.68.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <alpine.LFD.2.11.1402242240290.1941@ja.home.ssi.bg>
+	 <1393280025.2316.76.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <alpine.LFD.2.11.1402250056250.1941@ja.home.ssi.bg>
+	 <1393284682.2316.83.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140224155130.4c286cca@samsung-9>
+	 <1393290667.2316.96.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1393292339.2316.98.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1393309324.2316.119.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Chen-Yu Tsai <wens@csie.org>,
-	Heikki Krogerus <heikki.krogerus@linux.intel.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Rhyland Klein <rklein@nvidia.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Julian Anastasov <ja@ssi.bg>, David Miller <davem@davemloft.net>,
+	"Yuchung Cheng" <ycheng@google.com>,
 	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Mark Gross <mark.gross@intel.com>
-To: Stephen Warren <swarren@wwwdotorg.org>,
-	Alexandre Courbot <gnurou@gmail.com>,
-	Grant Likely <grant.likely@linaro.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+	Neal Cardwell <ncardwell@google.com>,
+	Larry Brakmo <brakmo@google.com>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f177.google.com ([209.85.214.177]:54396 "EHLO
-	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752192AbaBYJNg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 04:13:36 -0500
-Received: by mail-ob0-f177.google.com with SMTP id wp18so8361550obc.22
-        for <netdev@vger.kernel.org>; Tue, 25 Feb 2014 01:13:35 -0800 (PST)
-In-Reply-To: <5306E599.7020605@wwwdotorg.org>
+Received: from mx0.aculab.com ([213.249.233.131]:47036 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752586AbaBYJwr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Feb 2014 04:52:47 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 12101-06 for <netdev@vger.kernel.org>;
+ Tue, 25 Feb 2014 09:52:42 +0000 (GMT)
+In-Reply-To: <1393309324.2316.119.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 21, 2014 at 6:35 AM, Stephen Warren <swarren@wwwdotorg.org> wrote:
-> On 02/20/2014 06:55 PM, Chen-Yu Tsai wrote:
-
->> That's correct. However using con_id to pass this results in different
->> behavior across DT and ACPI. A better way is to export the labeling
->> function so consumers can set meaningful labels themselves.
->
-> But this code is the consumer of those GPIOs. IF the parameter to
-> devm_gpiod_get_index() isn't intended to be used, why does it exist?
-
-Kerneldoc says:
-
-/**
- * gpiod_get_index - obtain a GPIO from a multi-index GPIO function
- * @dev:        GPIO consumer, can be NULL for system-global GPIOs
- * @con_id:     function within the GPIO consumer
- * @idx:        index of the GPIO to obtain in the consumer
- *
-
-Basically it is just exposing the fact that of_find_gpio() and
-acpi_find_gpio() both take a con_id as argument.
-
-If we drill into this, we find that it is used to conjure the
-arbitrary string before the gpios in the DT case, like:
-
-foo-gpios = <...>;
-
-As in tegra30-beaver.dts...
-
-    sdhci@78000000 {
-            status = "okay";
-            cd-gpios = <&gpio TEGRA_GPIO(I, 5) GPIO_ACTIVE_LOW>;
-            wp-gpios = <&gpio TEGRA_GPIO(T, 3) GPIO_ACTIVE_HIGH>;
-            power-gpios = <&gpio TEGRA_GPIO(D, 7) GPIO_ACTIVE_HIGH>;
-            bus-width = <4>;
-    };
-
-Instead of passing the GPIOs as index 0,1,2 they are named
-and I do admit this has a nice "things are under control" aspect
-to it.
-
-In the ACPI case the con_id is not used for anything.
-
-So it is basically there to satisfy the habit in some device
-tree bindings to name gpio arrays instead of just passing gpios = <...>;
-(The latter should be encouraged going forward.)
-
-As DT is ABI we need to keep this forever, and driver may need to
-look for foo-gpios=<> and gpios=<> alike for backward compatibility
-if we'd change it, sweet isn't it? :-)
-
-I don't quite like this, as it is adding stupid nonsens arguments for
-ACPI GPIO producers (which only take an index AFAICT), but it is a
-first sacrifice on the altar of trying to mask the differences between DT
-and ACPI probe paths about which I have mixed feelings.
-
-Yours,
-LInus Walleij
+RnJvbTogRXJpYyBEdW1hemV0DQo+IGt0aW1lX2dldCgpIGlzIHRvbyBleHBlbnNpdmUgb24gc29t
+ZSBjYXNlcywgYW5kIHdlJ2QgbGlrZSB0byBnZXQNCj4gdXNlYyByZXNvbHV0aW9uIHRpbWVzdGFt
+cHMgaW4gVENQIHN0YWNrLg0KPiANCj4gVGhpcyBwYXRjaCBhZGRzIGEgbGlnaHQgd2VpZ2h0IGZh
+Y2lsaXR5IHVzaW5nIGEgY29tYmluYXRpb24gb2YNCj4gbG9jYWxfY2xvY2soKSBhbmQgamlmZmll
+cyBzYW1wbGVzLg0KLi4uDQo+ICtzdHJ1Y3Qgc2tiX21zdGFtcCB7DQo+ICsJdW5pb24gew0KPiAr
+CQl1NjQJCXY2NDsNCj4gKwkJc3RydWN0IHsNCj4gKwkJCXUzMglzdGFtcF91czsNCj4gKwkJCXUz
+MglzdGFtcF9qaWZmaWVzOw0KPiArCQl9Ow0KPiArCX07DQo+ICt9Ow0KDQpEbyB5b3UgbmVlZCB0
+aGUgdW5pb24gaGVyZT8NCklmIHlvdSBkb24ndCBhdHRlbXB0IHRvIGNvbnZlcnQgdGhlIHZhbHVl
+IHRvIGEgdTY0IHRoZW4gY29kZQ0KaXMgbGVzcyBsaWtlbHkgdG8gcHJvY2VzcyBpdCBpbmNvcnJl
+Y3RseS4NCg0KTW9zdCBtb2Rlcm4gQUJJIHBhc3MvcmV0dXJuIHNob3J0IHN0cnVjdHVyZXMgaW4g
+cmVnaXN0ZXJzLA0Kc28gdGhlIGFjdHVhbCBjb2RlIHNob3VsZCBiZSBzaW1pbGFyIGlmIHlvdSBy
+ZXR1cm4gdGhlIHN0cnVjdA0KYnkgdmFsdWUuDQoNCglEYXZpZA0KDQo=
