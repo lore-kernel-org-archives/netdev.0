@@ -1,27 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/10] pull request net: batman-adv 2014-02-17
-Date: Tue, 25 Feb 2014 15:36:36 -0500 (EST)
-Message-ID: <20140225.153636.1524628965489360987.davem@davemloft.net>
-References: <1392670129-2498-1-git-send-email-antonio@meshcoding.com>
-	<53070488.2020303@meshcoding.com>
+Subject: Re: [PATCH] net: use __GFP_NORETRY for high order allocations
+Date: Tue, 25 Feb 2014 15:50:27 -0500 (EST)
+Message-ID: <20140225.155027.608005295265342140.davem@davemloft.net>
+References: <1391712162.10160.8.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140206.222932.292588043950970246.davem@davemloft.net>
+	<87y51me9lr.fsf@xmission.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: antonio@meshcoding.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57679 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752635AbaBYUgk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 15:36:40 -0500
-In-Reply-To: <53070488.2020303@meshcoding.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	rientjes@google.com, linux-kernel@vger.kernel.org
+To: ebiederm@xmission.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87y51me9lr.fsf@xmission.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Antonio Quartulli <antonio@meshcoding.com>
-Date: Fri, 21 Feb 2014 08:47:20 +0100
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Fri, 07 Feb 2014 16:22:56 -0800
 
-> as I asked above, do you think it would be possible to queue this
-> patchset for inclusion in 3.13.x ?
+> David Miller <davem@davemloft.net> writes:
+> 
+>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>> Date: Thu, 06 Feb 2014 10:42:42 -0800
+>>
+>>> From: Eric Dumazet <edumazet@google.com>
+>>> 
+>>> sock_alloc_send_pskb() & sk_page_frag_refill()
+>>> have a loop trying high order allocations to prepare
+>>> skb with low number of fragments as this increases performance.
+>>> 
+>>> Problem is that under memory pressure/fragmentation, this can
+>>> trigger OOM while the intent was only to try the high order
+>>> allocations, then fallback to order-0 allocations.
+>>> 
+>>> We had various reports from unexpected regressions.
+>>> 
+>>> According to David, setting __GFP_NORETRY should be fine,
+>>> as the asynchronous compaction is still enabled, and this
+>>> will prevent OOM from kicking as in :
+>>  ...
+>>> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>>> Acked-by: David Rientjes <rientjes@google.com>
+>>
+>> Applied, do we want this for -stable?
+> 
+> The first hunk goes back to 3.12 and the second hunk goes back to 3.8.
+> 
+> I think so.    The change is safe and this class of problem can cause an
+> external attack to trigger an OOM on your box, by controlling the packet
+> flow.
 
-Done.
+Great, I'm working integrating this into my -stable queue right now.
