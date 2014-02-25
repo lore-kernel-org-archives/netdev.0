@@ -1,7 +1,7 @@
 From: Heikki Krogerus <heikki.krogerus@linux.intel.com>
-Subject: [PATCHv2 5/5] net: rfkill: gpio: add ACPI IDs for a Broadcom bluetooth chip
-Date: Tue, 25 Feb 2014 14:22:30 +0200
-Message-ID: <1393330950-7283-6-git-send-email-heikki.krogerus@linux.intel.com>
+Subject: [PATCHv2 2/5] net: rfkill: gpio: remove unused and obsolete platform parameters
+Date: Tue, 25 Feb 2014 14:22:27 +0200
+Message-ID: <1393330950-7283-3-git-send-email-heikki.krogerus@linux.intel.com>
 References: <1393330950-7283-1-git-send-email-heikki.krogerus@linux.intel.com>
 Cc: Chen-Yu Tsai <wens@csie.org>, Rhyland Klein <rklein@nvidia.com>,
 	Marc Dietrich <marvin24@gmx.de>,
@@ -19,35 +19,97 @@ In-Reply-To: <1393330950-7283-1-git-send-email-heikki.krogerus@linux.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This adds ACPI IDs for Broadcom bluetooth chip BCM43241 used
-on various Baytrail based boards such as Lenovo Miix 2 and
-Asus Transformer Book T100TA.
+After upgrading to descriptor based gpios, the gpio numbers
+are not used anymore. The power_clk_name and the platform
+specific setup and close hooks are not used by anybody, and
+we should not encourage use of such things, so removing them.
 
 Signed-off-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
 ---
- net/rfkill/rfkill-gpio.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ include/linux/rfkill-gpio.h | 10 ----------
+ net/rfkill/rfkill-gpio.c    | 15 +--------------
+ 2 files changed, 1 insertion(+), 24 deletions(-)
 
+diff --git a/include/linux/rfkill-gpio.h b/include/linux/rfkill-gpio.h
+index 4d09f6e..20bcb55 100644
+--- a/include/linux/rfkill-gpio.h
++++ b/include/linux/rfkill-gpio.h
+@@ -27,21 +27,11 @@
+  * struct rfkill_gpio_platform_data - platform data for rfkill gpio device.
+  * for unused gpio's, the expected value is -1.
+  * @name:		name for the gpio rf kill instance
+- * @reset_gpio:		GPIO which is used for reseting rfkill switch
+- * @shutdown_gpio:	GPIO which is used for shutdown of rfkill switch
+- * @power_clk_name:	[optional] name of clk to turn off while blocked
+- * @gpio_runtime_close:	clean up platform specific gpio configuration
+- * @gpio_runtime_setup:	set up platform specific gpio configuration
+  */
+ 
+ struct rfkill_gpio_platform_data {
+ 	char			*name;
+-	int			reset_gpio;
+-	int			shutdown_gpio;
+-	const char		*power_clk_name;
+ 	enum rfkill_type	type;
+-	void	(*gpio_runtime_close)(struct platform_device *);
+-	int	(*gpio_runtime_setup)(struct platform_device *);
+ };
+ 
+ #endif /* __RFKILL_GPIO_H */
 diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
-index ec38884..c4d7c6b 100644
+index bd2a5b9..0adda44 100644
 --- a/net/rfkill/rfkill-gpio.c
 +++ b/net/rfkill/rfkill-gpio.c
-@@ -156,11 +156,16 @@ static int rfkill_gpio_remove(struct platform_device *pdev)
- 	return 0;
- }
+@@ -87,7 +87,6 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
+ {
+ 	struct rfkill_gpio_platform_data *pdata = pdev->dev.platform_data;
+ 	struct rfkill_gpio_data *rfkill;
+-	const char *clk_name = NULL;
+ 	struct gpio_desc *gpio;
+ 	int ret;
+ 	int len;
+@@ -101,7 +100,6 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
+ 		if (ret)
+ 			return ret;
+ 	} else if (pdata) {
+-		clk_name = pdata->power_clk_name;
+ 		rfkill->name = pdata->name;
+ 		rfkill->type = pdata->type;
+ 	} else {
+@@ -120,7 +118,7 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
+ 	snprintf(rfkill->reset_name, len + 6 , "%s_reset", rfkill->name);
+ 	snprintf(rfkill->shutdown_name, len + 9, "%s_shutdown", rfkill->name);
  
-+#ifdef CONFIG_ACPI
- static const struct acpi_device_id rfkill_acpi_match[] = {
-+	{ "BCM2E1A", RFKILL_TYPE_BLUETOOTH },
-+	{ "BCM2E39", RFKILL_TYPE_BLUETOOTH },
-+	{ "BCM2E3D", RFKILL_TYPE_BLUETOOTH },
- 	{ "BCM4752", RFKILL_TYPE_GPS },
- 	{ "LNV4752", RFKILL_TYPE_GPS },
- 	{ },
- };
-+#endif
+-	rfkill->clk = devm_clk_get(&pdev->dev, clk_name);
++	rfkill->clk = devm_clk_get(&pdev->dev, NULL);
  
- static struct platform_driver rfkill_gpio_driver = {
- 	.probe = rfkill_gpio_probe,
+ 	gpio = devm_gpiod_get_index(&pdev->dev, rfkill->reset_name, 0);
+ 	if (!IS_ERR(gpio)) {
+@@ -146,14 +144,6 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
+ 		return -EINVAL;
+ 	}
+ 
+-	if (pdata && pdata->gpio_runtime_setup) {
+-		ret = pdata->gpio_runtime_setup(pdev);
+-		if (ret) {
+-			dev_err(&pdev->dev, "can't set up gpio\n");
+-			return ret;
+-		}
+-	}
+-
+ 	rfkill->rfkill_dev = rfkill_alloc(rfkill->name, &pdev->dev,
+ 					  rfkill->type, &rfkill_gpio_ops,
+ 					  rfkill);
+@@ -174,10 +164,7 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
+ static int rfkill_gpio_remove(struct platform_device *pdev)
+ {
+ 	struct rfkill_gpio_data *rfkill = platform_get_drvdata(pdev);
+-	struct rfkill_gpio_platform_data *pdata = pdev->dev.platform_data;
+ 
+-	if (pdata && pdata->gpio_runtime_close)
+-		pdata->gpio_runtime_close(pdev);
+ 	rfkill_unregister(rfkill->rfkill_dev);
+ 	rfkill_destroy(rfkill->rfkill_dev);
+ 
 -- 
 1.9.0.rc3
