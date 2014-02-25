@@ -1,79 +1,46 @@
-From: Prarit Bhargava <prarit@redhat.com>
-Subject: Re: [PATCH 0/2] ixgbe, fix numa issues
-Date: Tue, 25 Feb 2014 06:00:46 -0500
-Message-ID: <530C77DE.8050409@redhat.com>
-References: <1393267913-28212-1-git-send-email-prarit@redhat.com>
-	<530B9C3E.1000308@intel.com> <530B9EC9.4080007@redhat.com>
-	<530BA40E.3060008@intel.com> <530BEC90.2010705@redhat.com>
-	<063D6719AE5E284EB5DD2968C1650D6D0F6CA75F@AcuExch.aculab.com>
+From: Neil Jerram <Neil.Jerram@metaswitch.com>
+Subject: [PATCH net-next] net: order MPLS ethertypes numerically
+Date: Tue, 25 Feb 2014 11:17:25 +0000
+Message-ID: <1393327045-7170-1-git-send-email-Neil.Jerram@metaswitch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "nhorman@redhat.com" <nhorman@redhat.com>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"agospoda@redhat.com" <agospoda@redhat.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6CA75F@AcuExch.aculab.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <horms@verge.net.au>,
+	Neil Jerram <Neil.Jerram@metaswitch.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from enficsets1.metaswitch.com ([192.91.191.38]:20377 "EHLO
+	ENFICSETS1.metaswitch.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750849AbaBYLTC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 06:19:02 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+All ethertypes other than ETH_P_MPLS_UC, ETH_P_MPLS_MC and
+ETH_P_ATMMPOA were already ordered numerically.  This commit moves
+those three ETH_P_... values into correct numerical order too.
 
+Signed-off-by: Neil Jerram <Neil.Jerram@metaswitch.com>
+---
+ include/uapi/linux/if_ether.h |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-On 02/25/2014 05:21 AM, David Laight wrote:
-> From: Prarit Bhargava
-> ...
->> What has caused that check to be necessary is that the ixgbe driver is now
->> allocating so many interrupts that on large systems which full sockets are taken
->> in and out of service, it is possible that there are not enough empty vectors
->> for all the irqs on a down'd cpu.  IMO what the ixgbe driver is effectively
->> doing is starving the system of resources.  If I rmmod the ixgbe driver (and
->> free it's irqs of course) I have no problem in taking all cpus except 1 out of
->> service.
-> 
-> If I read that correctly it looks as though ixgbe should be allocating
-> a number of interrupts on each cpu - for the interrupts it wants to take
-> on that cpu.
-
-Yes, the code currently does it.
-
-> 
-> Then taking the cpu out of service would 'just' require that the interrupts
-> that are tied to that cpu be removed first?
-
-Yes, that would happen with a cpu notifier (I've already written a simple dummy
-one that just printk's when called).  I started to implement a single queue
-teardown but hit some of these enumeration issues.  I'd like to fix these first
-and then get to the teardown.
-
-P.
-
-> 
-> 	David
-> 
-> 
-> 
-
-------------------------------------------------------------------------------
-Flow-based real-time traffic analytics software. Cisco certified tool.
-Monitor traffic, SLAs, QoS, Medianet, WAAS etc. with NetFlow Analyzer
-Customize your own dashboards, set traffic alerts and generate reports.
-Network behavioral analysis & security monitoring. All-in-one tool.
-http://pubads.g.doubleclick.net/gampad/clk?id=126839071&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+diff --git a/include/uapi/linux/if_ether.h b/include/uapi/linux/if_ether.h
+index 2ce0f6a..ba8b15f 100644
+--- a/include/uapi/linux/if_ether.h
++++ b/include/uapi/linux/if_ether.h
+@@ -68,11 +68,11 @@
+ #define ETH_P_SLOW	0x8809		/* Slow Protocol. See 802.3ad 43B */
+ #define ETH_P_WCCP	0x883E		/* Web-cache coordination protocol
+ 					 * defined in draft-wilson-wrec-wccp-v2-00.txt */
+-#define ETH_P_PPP_DISC	0x8863		/* PPPoE discovery messages     */
+-#define ETH_P_PPP_SES	0x8864		/* PPPoE session messages	*/
+ #define ETH_P_MPLS_UC	0x8847		/* MPLS Unicast traffic		*/
+ #define ETH_P_MPLS_MC	0x8848		/* MPLS Multicast traffic	*/
+ #define ETH_P_ATMMPOA	0x884c		/* MultiProtocol Over ATM	*/
++#define ETH_P_PPP_DISC	0x8863		/* PPPoE discovery messages     */
++#define ETH_P_PPP_SES	0x8864		/* PPPoE session messages	*/
+ #define ETH_P_LINK_CTL	0x886c		/* HPNA, wlan link local tunnel */
+ #define ETH_P_ATMFATE	0x8884		/* Frame-based ATM Transport
+ 					 * over Ethernet
+-- 
+1.7.10.4
