@@ -1,57 +1,52 @@
-From: Marc Dietrich <marvin24@gmx.de>
-Subject: Re: [PATCHv2 1/5] ARM: tegra: remove obsolete gpio entries
-Date: Tue, 25 Feb 2014 14:06:45 +0100
-Message-ID: <5570705.i8uRb6OetD@fb07-iapwap2>
-References: <1393330950-7283-1-git-send-email-heikki.krogerus@linux.intel.com> <1393330950-7283-2-git-send-email-heikki.krogerus@linux.intel.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: [PATCH net v2] sfc: check for NULL efx->ptp_data in efx_ptp_event
+Date: Tue, 25 Feb 2014 13:17:59 +0000
+Message-ID: <alpine.LFD.2.03.1402251306530.16190@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7Bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Chen-Yu Tsai <wens@csie.org>,
-	Rhyland Klein <rklein@nvidia.com>,
-	Stephen Warren <swarren@wwwdotorg.org>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Alexandre Courbot <gnurou@gmail.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-tegra@vger.kernel.org
-To: Heikki Krogerus <heikki.krogerus@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1393330950-7283-2-git-send-email-heikki.krogerus@linux.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Shradha Shah <sshah@solarflare.com>,
+	Ben Hutchings <ben@decadent.org.uk>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:34016 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752227AbaBYNSI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 08:18:08 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Heikki,
+If we receive a PTP event from the NIC when we haven't set up PTP state
+in the driver, we attempt to read through a NULL pointer efx->ptp_data,
+triggering a panic.
 
-Am Dienstag, 25. Februar 2014, 14:22:26 schrieb Heikki Krogerus:
-> After moving to description based gpio interface in
-> rfkill-gpio, the gpio numbers are not used any more.
-> 
-> Signed-off-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Signed-off-by: Edward Cree <ecree@solarflare.com>
+---
+v2: resent using alpine, because Thunderbird mangled v1
 
-Reviewed-by: Marc Dietrich <marvin24@gmx.de>
+While this shouldn't happen with existing released firmware, future
+sfn7322f firmware is planned to enable PPS irrespective of whether
+timestamping (and thus PTP) is enabled.  We are considering workarounds,
+but this defensive patch seemed like a good idea anyway in case the
+firmware gets in a muddle.
+Also, in principle this shouldn't happen on 3.14+ kernels as the driver
+should always set up PTP state at probe time (though there might still
+be a race against the firmware sending its first PPS), however 3.12 and
+3.13 both supported EF10 but not PTP-on-EF10 and thus they never set up
+the PTP state; hence this fix should also be backported to those series.
 
-Thanks for taking care!
-
-Marc
-
-> ---
->  arch/arm/mach-tegra/board-paz00.c | 4 +---
->  1 file changed, 1 insertion(+), 3 deletions(-)
-> 
-> diff --git a/arch/arm/mach-tegra/board-paz00.c
-> b/arch/arm/mach-tegra/board-paz00.c index e4dec9f..9c6029b 100644
-> --- a/arch/arm/mach-tegra/board-paz00.c
-> +++ b/arch/arm/mach-tegra/board-paz00.c
-> @@ -23,9 +23,7 @@
->  #include "board.h"
-> 
->  static struct rfkill_gpio_platform_data wifi_rfkill_platform_data = {
-> -	.name		= "wifi_rfkill",
-> -	.reset_gpio	= 25, /* PD1 */
-> -	.shutdown_gpio	= 85, /* PK5 */
-> +	.name	= "wifi_rfkill",
->  	.type	= RFKILL_TYPE_WLAN,
->  };
+--- linux-3.13/drivers/net/ethernet/sfc/ptp.c.orig	2014-01-20 02:40:07.000000000 +0000
++++ linux-3.13/drivers/net/ethernet/sfc/ptp.c	2014-02-24 17:46:31.753497000 +0000
+@@ -1360,6 +1360,13 @@ void efx_ptp_event(struct efx_nic *efx,
+ 	struct efx_ptp_data *ptp = efx->ptp_data;
+ 	int code = EFX_QWORD_FIELD(*ev, MCDI_EVENT_CODE);
+ 
++	if (!ptp) {
++		if (net_ratelimit())
++			netif_warn(efx, drv, efx->net_dev,
++				   "Received PTP event but PTP not set up\n");
++		return;
++	}
++
+ 	if (!ptp->enabled)
+ 		return;
+ 
