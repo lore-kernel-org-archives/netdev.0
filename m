@@ -1,46 +1,35 @@
-From: Neil Jerram <Neil.Jerram@metaswitch.com>
-Subject: [PATCH net-next] net: order MPLS ethertypes numerically
-Date: Tue, 25 Feb 2014 11:17:25 +0000
-Message-ID: <1393327045-7170-1-git-send-email-Neil.Jerram@metaswitch.com>
+From: Yuval Mintz <yuvalmin@broadcom.com>
+Subject: RE: [RFC 3/3] bnx2x: Use pci_set_power_state() for setting PM states
+Date: Tue, 25 Feb 2014 11:21:13 +0000
+Message-ID: <979A8436335E3744ADCD3A9F2A2B68A52AF6EE08@SJEXCHMB10.corp.ad.broadcom.com>
+References: <1393281245-3951-1-git-send-email-jdmason@kudzu.us>
+ <1393281245-3951-3-git-send-email-jdmason@kudzu.us>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <horms@verge.net.au>,
-	Neil Jerram <Neil.Jerram@metaswitch.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Ariel Elior <ariele@broadcom.com>
+To: Jon Mason <jdmason@kudzu.us>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from enficsets1.metaswitch.com ([192.91.191.38]:20377 "EHLO
-	ENFICSETS1.metaswitch.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750849AbaBYLTC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 06:19:02 -0500
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:60062 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751134AbaBYLVP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 06:21:15 -0500
+In-Reply-To: <1393281245-3951-3-git-send-email-jdmason@kudzu.us>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All ethertypes other than ETH_P_MPLS_UC, ETH_P_MPLS_MC and
-ETH_P_ATMMPOA were already ordered numerically.  This commit moves
-those three ETH_P_... values into correct numerical order too.
+> Use the existing infrastructure of pci_set_power_state() instead of
+> setting the relevant bits via PCI config read/write in the driver.
+> Also, use the d3_delay field to specify how long to msleep after putting
+> the device in the appropriate power management state.  Finally, use
+> pci_pme_active() to set the PCI_PM_CTRL_PME_ENABLE bit in PCI PM control
+> register.  pci_set_power_state() and pci_pme_active() perform the same
+> operations as the driver did before, so there should be no functional
+> change.  That being said, this has not been tested.
+> 
+> Signed-off-by: Jon Mason <jdmason@kudzu.us>
+> Cc: Ariel Elior <ariele@broadcom.com>
 
-Signed-off-by: Neil Jerram <Neil.Jerram@metaswitch.com>
----
- include/uapi/linux/if_ether.h |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/include/uapi/linux/if_ether.h b/include/uapi/linux/if_ether.h
-index 2ce0f6a..ba8b15f 100644
---- a/include/uapi/linux/if_ether.h
-+++ b/include/uapi/linux/if_ether.h
-@@ -68,11 +68,11 @@
- #define ETH_P_SLOW	0x8809		/* Slow Protocol. See 802.3ad 43B */
- #define ETH_P_WCCP	0x883E		/* Web-cache coordination protocol
- 					 * defined in draft-wilson-wrec-wccp-v2-00.txt */
--#define ETH_P_PPP_DISC	0x8863		/* PPPoE discovery messages     */
--#define ETH_P_PPP_SES	0x8864		/* PPPoE session messages	*/
- #define ETH_P_MPLS_UC	0x8847		/* MPLS Unicast traffic		*/
- #define ETH_P_MPLS_MC	0x8848		/* MPLS Multicast traffic	*/
- #define ETH_P_ATMMPOA	0x884c		/* MultiProtocol Over ATM	*/
-+#define ETH_P_PPP_DISC	0x8863		/* PPPoE discovery messages     */
-+#define ETH_P_PPP_SES	0x8864		/* PPPoE session messages	*/
- #define ETH_P_LINK_CTL	0x886c		/* HPNA, wlan link local tunnel */
- #define ETH_P_ATMFATE	0x8884		/* Frame-based ATM Transport
- 					 * over Ethernet
--- 
-1.7.10.4
+Acked-by: Yuval Mintz <yuvalmin@broadcom.com>
