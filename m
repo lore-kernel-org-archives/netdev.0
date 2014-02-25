@@ -1,49 +1,44 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC v2 2/4] net: enables interface option to skip IP
-Date: Tue, 25 Feb 2014 03:23:10 +0100
-Message-ID: <20140225022310.GH6598@order.stressinduktion.org>
-References: <1393266120.8041.19.camel@dcbw.local> <20140224.180426.411052665068255886.davem@davemloft.net> <1393286520.6823.123.camel@deadeye.wl.decadent.org.uk> <20140224.191238.921310808350170272.davem@davemloft.net> <1393293719.6823.148.camel@deadeye.wl.decadent.org.uk>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: [PATCH net-next v2 2/6] 6lowpan: fix fragmentation on sending
+ side
+Date: Tue, 25 Feb 2014 03:38:34 +0100
+Message-ID: <20140225023833.GA18062@omega>
+References: <1393009142-1694-3-git-send-email-alex.aring@gmail.com>
+ <20140224.185213.1069306984692624378.davem@davemloft.net>
+ <20140225012155.GA16712@omega>
+ <20140224.203138.676703794377468037.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>, dcbw@redhat.com,
-	mcgrof@do-not-panic.com, zoltan.kiss@citrix.com,
-	netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	martin.townsend@xsilon.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f43.google.com ([74.125.83.43]:64766 "EHLO
+	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750899AbaBYCil (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Feb 2014 21:38:41 -0500
+Received: by mail-ee0-f43.google.com with SMTP id e51so3446198eek.2
+        for <netdev@vger.kernel.org>; Mon, 24 Feb 2014 18:38:40 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1393293719.6823.148.camel@deadeye.wl.decadent.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20140224.203138.676703794377468037.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 25, 2014 at 02:01:59AM +0000, Ben Hutchings wrote:
-> On Mon, 2014-02-24 at 19:12 -0500, David Miller wrote:
-> > From: Ben Hutchings <ben@decadent.org.uk>
-> > Date: Tue, 25 Feb 2014 00:02:00 +0000
-> > 
-> > > You can run an internal network, or access network, as v6-only with
-> > > NAT64 and DNS64 at the border.  I believe some mobile networks are doing
-> > > this; it was also done on the main FOSDEM wireless network this year.
-> > 
-> > This seems to be bloating up the networking headers of the internal
-> > network, for what purpose?
-> > 
-> > For mobile that's doubly inadvisable.
+On Mon, Feb 24, 2014 at 08:31:38PM -0500, David Miller wrote:
+> From: Alexander Aring <alex.aring@gmail.com>
+> Date: Tue, 25 Feb 2014 02:21:57 +0100
 > 
-> I don't know what the reasoning is for the mobile network operators.
-> They're forced to do NAT for v4 somewhere, and maybe v6-only makes the
-> access network easier to manage.
+> > In this case I can be sure we talking with ARPHRD_IEEE802154 devices only.
+> 
+> This doesn't mean anything.
+> 
+> The qdisc layer can be involved no matter what.  Once you call
+> dev_queue_xmit(), all bets are off wrt. the SKB control block.
+> It is not your's to use past that point.
+> 
+Okay, thanks. Then I know some other issues we have right now. I will
+put it on my todo list and will make a other non cb solution for this
+part.
 
-Yes, it seems the way to go:
-<http://www.dslreports.com/shownews/TMobile-Goes-IPv6-Only-on-Android-44-Devices-126506>
-
-I can't comment on the 464xlat that much because I haven't looked at an
-implementation yet, but it can very well be the case it still needs IPv4
-on the outgoing interface, I don't know (from the spec pov it doesn't
-look like that).
-
-Greetings,
-
-  Hannes
+- Alex
