@@ -1,36 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] phy: unmask link partner capabilities
-Date: Tue, 25 Feb 2014 18:39:49 -0500 (EST)
-Message-ID: <20140225.183949.1934571310087232103.davem@davemloft.net>
-References: <1393316568-24891-1-git-send-email-cristian.bercaru@freescale.com>
+From: OXFAM FOUNDATION <ribamar.ccjs@ufcg.edu.br>
+Subject: Donation
+Date: Tue, 25 Feb 2014 20:41:58 -0300 (BRT)
+Message-ID: <890934124.54830.1393371718027.JavaMail.root@ufcg.edu.br>
+Reply-To: "oxfam-ukraine@ukr.net" <oxfam-ukraine@ukr.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, madalin.bucur@freescale.com,
-	shaohui.xie@freescale.com, shruti@freescale.com
-To: cristian.bercaru@freescale.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58591 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752847AbaBYXjv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 18:39:51 -0500
-In-Reply-To: <1393316568-24891-1-git-send-email-cristian.bercaru@freescale.com>
+Received: from mta1.ufcg.edu.br ([150.165.111.244]:52372 "EHLO
+	mta1.ufcg.edu.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752732AbaBYXsU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 18:48:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <cristian.bercaru@freescale.com>
-Date: Tue, 25 Feb 2014 10:22:48 +0200
+Dear Beneficiary,
 
-> From: Cristian Bercaru <cristian.bercaru@freescale.com>
-> 
-> Masking the link partner's capabilities with local capabilities can be
-> misleading in autonegotiation scenarios such as PAUSE frame
-> autonegotiation.
-> This patch calculates the join between the local capabilities and the
-> link parner capabilities, when it determines the speed and duplex
-> settings, but does not mask any of the link partner capabilities when
-> it calculates PAUSE frame settings.
-> 
-> Signed-off-by: Cristian Bercaru <cristian.bercaru@freescale.com>
+You have been selected and entitled to the sum of One Million,Five Hund=
+red And Fifty Five Thousand Euros [=E2=82=AC1,555,000.00] as charity do=
+nation/aid from the Oxfam Ukraine International Donation Programme. You=
+ are strongly advised to contact Mrs Larissa Prodan with your qualifica=
+tion number for further directives at E-mail: oxfam-ukraine@ukr.net
+Your qualification number is [OXG/101/221/UKR]
 
-Applied, thank you.
+Signed:
+     Sir. Pablo Markiv
+     Programme Manager.
