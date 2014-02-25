@@ -1,84 +1,64 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: ixgbe, don't assume mapping of numa node cpus
-Date: Tue, 25 Feb 2014 19:27:29 +0200
-Message-ID: <20140225172726.GA31074@mtl-eit-vdi-22.mtl.labs.mlnx>
-References: <1393267913-28212-1-git-send-email-prarit@redhat.com>
- <1393267913-28212-3-git-send-email-prarit@redhat.com>
+From: Stephen Warren <swarren@wwwdotorg.org>
+Subject: Re: [PATCH 2/4] net: rfkill: gpio: remove gpio names
+Date: Tue, 25 Feb 2014 10:35:22 -0700
+Message-ID: <530CD45A.8050803@wwwdotorg.org>
+References: <1392900697-27577-1-git-send-email-heikki.krogerus@linux.intel.com>	<1392900697-27577-3-git-send-email-heikki.krogerus@linux.intel.com>	<53062F97.3050407@wwwdotorg.org>	<CAGb2v66-tDZhrm9dnXe+PdQTaLZbw20sw3uYzLor2eXpVWmPMA@mail.gmail.com>	<5306E599.7020605@wwwdotorg.org> <CACRpkdZBvKU31EDX=6=wVLXaQDAqD6VHtaE_mGnFLr1UYQAH9g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	"David S. Miller" <davem@davemloft.net>, nhorman@redhat.com,
-	agospoda@redhat.com, e1000-devel@lists.sourceforge.net,
-	idos@mellanox.com, Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: Prarit Bhargava <prarit@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:42301 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753042AbaBYR1e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 12:27:34 -0500
-Received: by mail-wi0-f182.google.com with SMTP id f8so1061390wiw.15
-        for <netdev@vger.kernel.org>; Tue, 25 Feb 2014 09:27:33 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1393267913-28212-3-git-send-email-prarit@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Chen-Yu Tsai <wens@csie.org>,
+	Heikki Krogerus <heikki.krogerus@linux.intel.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Rhyland Klein <rklein@nvidia.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Mark Gross <mark.gross@intel.com>
+To: Linus Walleij <linus.walleij@linaro.org>,
+	Alexandre Courbot <gnurou@gmail.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACRpkdZBvKU31EDX=6=wVLXaQDAqD6VHtaE_mGnFLr1UYQAH9g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 24/02/14 13:51 -0500, Prarit Bhargava wrote:
-> The ixgbe driver assumes that the cpus on a node are mapped 1:1 with the
-> indexes into arrays.  This is not the case as nodes can contain, for
-> example, cpus 0-7, 33-40.
+On 02/25/2014 02:13 AM, Linus Walleij wrote:
+> On Fri, Feb 21, 2014 at 6:35 AM, Stephen Warren <swarren@wwwdotorg.org> wrote:
+>> On 02/20/2014 06:55 PM, Chen-Yu Tsai wrote:
 > 
-> This patch fixes this problem.
+>>> That's correct. However using con_id to pass this results in different
+>>> behavior across DT and ACPI. A better way is to export the labeling
+>>> function so consumers can set meaningful labels themselves.
+...
+> As in tegra30-beaver.dts...
 > 
-> Signed-off-by: Prarit Bhargava <prarit@redhat.com>
-> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Cc: Bruce Allan <bruce.w.allan@intel.com>
-> Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> Cc: Don Skidmore <donald.c.skidmore@intel.com>
-> Cc: Greg Rose <gregory.v.rose@intel.com>
-> Cc: Alex Duyck <alexander.h.duyck@intel.com>
-> Cc: John Ronciak <john.ronciak@intel.com>
-> Cc: Mitch Williams <mitch.a.williams@intel.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: nhorman@redhat.com
-> Cc: agospoda@redhat.com
-> Cc: e1000-devel@lists.sourceforge.net
-> ---
+>     sdhci@78000000 {
+>             status = "okay";
+>             cd-gpios = <&gpio TEGRA_GPIO(I, 5) GPIO_ACTIVE_LOW>;
+>             wp-gpios = <&gpio TEGRA_GPIO(T, 3) GPIO_ACTIVE_HIGH>;
+>             power-gpios = <&gpio TEGRA_GPIO(D, 7) GPIO_ACTIVE_HIGH>;
+>             bus-width = <4>;
+>     };
+> 
+> Instead of passing the GPIOs as index 0,1,2 they are named
+> and I do admit this has a nice "things are under control" aspect
+> to it.
+> 
+> In the ACPI case the con_id is not used for anything.
+> 
+> So it is basically there to satisfy the habit in some device
+> tree bindings to name gpio arrays instead of just passing gpios = <...>;
+> (The latter should be encouraged going forward.)
 
-Hi,
+Do you really want to switch from named GPIO lookups to index-based GPIO
+lookups? Index-based lookups make it much harder to extend the DT
+binding in a backwards-compatible fashion, especially in the face of
+optional GPIOs (of which all of CD, WP, power are).
 
-I'm just about to send tomorrow a patch to add an helper function to
-get affinity_hint suggestion by numa_node and ring index.
-If you'd like you will be able to use it too here.
-
-We're still doing internal review on it before sending to the mailing
-list, but this will be the declaration of the function:
-/*
- * netif_set_rx_queue_affinity_hint - set affinity hint of rx queue
- * @rxq: index of rx queue
- * @numa_node: prefered numa_node
- * @affinity_mask: the relevant cpu bit is set according to the policy
- *
- * This function sets the affinity_mask according to a numa aware policy.
- * affinity_mask coulbe used as an affinity hint for the IRQ related of this
- * rx queue.
- * The policy is to spread rx queues across cores - local cores first.
- *
- * Returns 0 on success, or a negative error code.
- */
-int netif_set_rx_queue_affinity_hint(int rxq, int numa_node,
-                                     cpumask_var_t affinity_mask);
-
-
-
-Amir
+If we switch to a single gpios property, I'd assert we should still do
+named-based lookups using a parallel gpio-names property, just like most
+(all?) other resource types now support. If we do that, we'll still need
+the name parameter.
