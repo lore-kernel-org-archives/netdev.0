@@ -1,62 +1,42 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH v6 net-next 2/2] tcp: switch rtt estimations to usec resolution
-Date: Tue, 25 Feb 2014 14:13:24 -0500
-Message-ID: <CADVnQymdZyE-Mb4F6QnTcJhHp4R9=GnYK9cTTpohQMFC=aK-Vw@mail.gmail.com>
-References: <1393137487.2316.48.camel@edumazet-glaptop2.roam.corp.google.com>
-	<alpine.LFD.2.11.1402230908210.1460@ja.home.ssi.bg>
-	<1393178122.2316.50.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1393181458.2316.56.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1393216927.2316.62.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1393266251.2316.68.camel@edumazet-glaptop2.roam.corp.google.com>
-	<alpine.LFD.2.11.1402242240290.1941@ja.home.ssi.bg>
-	<1393280025.2316.76.camel@edumazet-glaptop2.roam.corp.google.com>
-	<alpine.LFD.2.11.1402250056250.1941@ja.home.ssi.bg>
-	<1393284682.2316.83.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140224155130.4c286cca@samsung-9>
-	<1393290667.2316.96.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1393292339.2316.98.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1393309341.2316.120.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH net-next] xfrm: Correctly parse netlink msg from 32bits
+ ip command on 64bits host
+Date: Tue, 25 Feb 2014 20:16:02 +0100
+Message-ID: <20140225191602.GD9965@breakpoint.cc>
+References: <1392801176-2656-1-git-send-email-fan.du@windriver.com>
+ <20140220095934.GF32371@secunet.com>
+ <530C3B07.3090406@windriver.com>
+ <1393348547.14067.18.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	David Miller <davem@davemloft.net>,
-	Yuchung Cheng <ycheng@google.com>,
-	netdev <netdev@vger.kernel.org>, Larry Brakmo <brakmo@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Fan Du <fan.du@windriver.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f182.google.com ([209.85.215.182]:47322 "EHLO
-	mail-ea0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752966AbaBYTNZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 14:13:25 -0500
-Received: by mail-ea0-f182.google.com with SMTP id r15so334688ead.27
-        for <netdev@vger.kernel.org>; Tue, 25 Feb 2014 11:13:24 -0800 (PST)
-In-Reply-To: <1393309341.2316.120.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:56170 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752039AbaBYTQP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 14:16:15 -0500
+Content-Disposition: inline
+In-Reply-To: <1393348547.14067.18.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 25, 2014 at 1:22 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> Upcoming congestion controls for TCP require usec resolution for RTT
-> estimations. Millisecond resolution is simply not enough these days.
->
-> FQ/pacing in DC environments also require this change for finer control
-> and removal of bimodal behavior due to the current hack in
-> tcp_update_pacing_rate() for 'small rtt'
->
-...
-> ---
-> v6: Do not use ktime_get() but skb_mstamp, as Stephen Hemminger pointed
->     out some platforms have slow ktime_get()
->
-...
->  17 files changed, 174 insertions(+), 169 deletions(-)
+Ben Hutchings <ben@decadent.org.uk> wrote:
+> > On 2014=E5=B9=B402=E6=9C=8820=E6=97=A5 17:59, Steffen Klassert wrot=
+e:
+> > > For now I think we should just refuse to do anything if someone t=
+ries
+> > > to configure ipsec with 32 bit tools on a 64 bit machine.
+> >=20
+> > I'm fine with your point, and it would be a good choice to inform u=
+ser about
+> > this behavior other than just creating non-working SA and SP for us=
+er.
 
-> I think it is safe, because we made sure (sack_rtt_us >= 0) is true.
+It might be better to try to revive
+http://thread.gmane.org/gmane.linux.network/157118/focus=3D157122
 
-Sounds good. Thanks, Eric!
-
-Acked-by: Neal Cardwell <ncardwell@google.com>
-
-neal
+which adds full compat support.
