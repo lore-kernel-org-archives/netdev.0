@@ -1,39 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 0/4] qlcnic: Bug fixes
-Date: Tue, 25 Feb 2014 18:33:45 -0500 (EST)
-Message-ID: <20140225.183345.572824679862939338.davem@davemloft.net>
-References: <1393250089-31104-1-git-send-email-shahed.shaikh@qlogic.com>
+Subject: Re: [PATCH] net/cxgb4: use remove handler as shutdown handler
+Date: Tue, 25 Feb 2014 18:35:53 -0500 (EST)
+Message-ID: <20140225.183553.280525429605913122.davem@davemloft.net>
+References: <1393272292-11268-1-git-send-email-cascardo@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept-HSGLinuxNICDev@qlogic.com
-To: shahed.shaikh@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58554 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751344AbaBYXdr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 18:33:47 -0500
-In-Reply-To: <1393250089-31104-1-git-send-email-shahed.shaikh@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, dm@chelsio.com,
+	linux-kernel@vger.kernel.org
+To: cascardo@linux.vnet.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1393272292-11268-1-git-send-email-cascardo@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Date: Mon, 24 Feb 2014 08:54:45 -0500
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Date: Mon, 24 Feb 2014 17:04:52 -0300
 
-> This patch series includes following bug fixes,
+> Without a shutdown handler, T4 cards behave very badly after a kexec.
+> Some firmware calls return errors indicating allocation failures, for
+> example. This is probably because thouse resources were not released by
+> a BYE message to the firmware, for example.
 > 
-> * Fix for return value handling of function qlcnic_enable_msi_legacy().
-> * Fix for the usage of module parameters for interrupt mode.
->   Driver should use flags while checking for driver's interrupt mode instead of
->   module parameters.
-> * Revert commit 1414abea04 (qlcnic: Restrict VF from configuring any VLAN mode),
->   in order to save some multicast filters.
-> * Fix a bug where driver was not re-setting sds ring count to 1 when
->   it falls back from MSI-x mode to legacy interrupt mode.
+> Using the remove handler guarantees we will use a well tested path.
 > 
-> Please apply to net.
+> With this patch I applied, I managed to use kexec multiple times and
+> probe and iSCSI login worked every time.
 > 
-> Change in v2 -
-> Dropped patch "qlcnic: reset firmware API lock during driver load" for further rework.
+> Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
 
-Series applied, thanks Shahed.
+Applied.
