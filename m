@@ -1,100 +1,88 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] be2net: Bugfix for packet drop with kernel param
- swiotlb=force
-Date: Tue, 25 Feb 2014 16:58:09 +0000
-Message-ID: <1393347489.14067.5.camel@deadeye.wl.decadent.org.uk>
-References: <OF1C38716E.D9F528E0-ON48257C85.000A026B-48257C85.000AA8C9@zte.com.cn>
-	 <e57b63ae-b1a8-47f3-8f2b-71cb6d8ab4fc@CMEXHTCAS1.ad.emulex.com>
-	 <1393033796.15717.90.camel@deadeye.wl.decadent.org.uk>
-	 <8ecfc5a6-7cb7-46ff-847e-4b081522eb9b@CMEXHTCAS1.ad.emulex.com>
+Subject: Re: [PATCH net-next] xfrm: Correctly parse netlink msg from 32bits
+ ip command on 64bits host
+Date: Tue, 25 Feb 2014 17:15:47 +0000
+Message-ID: <1393348547.14067.18.camel@deadeye.wl.decadent.org.uk>
+References: <1392801176-2656-1-git-send-email-fan.du@windriver.com>
+	 <20140220095934.GF32371@secunet.com> <530C3B07.3090406@windriver.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-ciqIBi8W2mlLjgUc/mYc"
-Cc: "jiang.biao2@zte.com.cn" <jiang.biao2@zte.com.cn>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Subramanian Seetharaman <subbu.seetharaman@emulex.com>,
-	Ajit Khaparde <Ajit.Khaparde@Emulex.Com>,
-	"wang.liang82@zte.com.cn" <wang.liang82@zte.com.cn>,
-	"cai.qu@zte.com.cn" <cai.qu@zte.com.cn>,
-	"li.fengmao@zte.com.cn" <li.fengmao@zte.com.cn>,
-	"long.chun@zte.com.cn" <long.chun@zte.com.cn>,
-	David Miller <davem@davemloft.net>
-To: Sathya Perla <Sathya.Perla@Emulex.Com>
+	protocol="application/pgp-signature"; boundary="=-Zc6df1+AZTk6v9oV+lkL"
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:38777 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:38834 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753052AbaBYQ6Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 11:58:25 -0500
-In-Reply-To: <8ecfc5a6-7cb7-46ff-847e-4b081522eb9b@CMEXHTCAS1.ad.emulex.com>
+	by vger.kernel.org with ESMTP id S1753296AbaBYRQB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 12:16:01 -0500
+In-Reply-To: <530C3B07.3090406@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-ciqIBi8W2mlLjgUc/mYc
+--=-Zc6df1+AZTk6v9oV+lkL
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Tue, 2014-02-25 at 14:06 +0000, Sathya Perla wrote:
-> > -----Original Message-----
-> > From: Ben Hutchings [mailto:ben@decadent.org.uk]
-> >=20
-> > On Thu, 2014-02-20 at 09:39 +0000, Sathya Perla wrote:
-> > > > -----Original Message-----
-> > > > From: jiang.biao2@zte.com.cn [mailto:jiang.biao2@zte.com.cn]
-> > > >
-> > > >
-> > > > From: Li Fengmao <li.fengmao@zte.com.cn>
-> > > >
-> > > > There will be packet drop with kernel param "swiotlb =3D force" on
-> > > > Emulex 10Gb NIC using be2net driver. The problem is caused by
-> > > > receiving skb without calling pci_unmap_page() in get_rx_page_info(=
-).
-> > > > rx_page_info->last_page_user is initialized to false in
-> > > > be_post_rx_frags() when current frag are mapped in the first half o=
-f
-> > > > the same page with another frag. But in that case with
-> > > > "swiotlb =3D force" param, data can not be copied into the page of
-> > > > rx_page_info without calling pci_unmap_page, so the data frag mappe=
-d
-> > > > in the first half of the page will be dropped.
-> > > >
-> > > > It can be solved by creating only a mapping relation between frag
-> > > > and page, and deleting rx_page_info->last_page_user to ensure
-> > > > calling pci_unmap_page when handling each receiving frag.
-> > >
-> > > This patch uses an entire page for each RX frag (whose default size i=
-s 2048).
-> > > Consequently, on platforms like ppc64 where the default PAGE_SIZE is =
-64K,
-> > > memory usage becomes very inefficient.
-> > >
-> > > Instead, I've tried a partial-page mapping scheme. This retains the
-> > > page sharing logic, but un-maps each frag separately so that
-> > > the data is copied from the bounce buffers.
-> > [...]
-> >=20
-> > You don't need to map/unmap each fragment separately; you can sync a
-> > sub-page range with dma_sync_single_for_cpu().
-> >=20
+On Tue, 2014-02-25 at 14:41 +0800, Fan Du wrote:
 >=20
-> Ben, after syncing each frag with a dma_sync_single_for_cpu() call,
-> would I still need to dma_unmap_page() after DMA is done on all the frags
-> of the page? I thought I needed to.
+> On 2014=E5=B9=B402=E6=9C=8820=E6=97=A5 17:59, Steffen Klassert wrote:
+> > For now I think we should just refuse to do anything if someone tries
+> > to configure ipsec with 32 bit tools on a 64 bit machine.
+>=20
+> I'm fine with your point, and it would be a good choice to inform user ab=
+out
+> this behavior other than just creating non-working SA and SP for user.
+>=20
+>=20
+>  From 873812ec0fe8738f476de58a217e58ec47665180 Mon Sep 17 00:00:00 2001
+> From: Fan Du <fan.du@windriver.com>
+> Date: Tue, 25 Feb 2014 14:34:41 +0800
+> Subject: [PATCH net-next] xfrm: Do not parse 32bits compiled xfrm netlink=
+ msg on
+>   64bits host
+>=20
+> structure like xfrm_usersa_info or xfrm_userpolicy_info has different siz=
+eof
+> when compiled as 32bits and 64bits due to not appending pack attribute in
+> their definition. This will result in broken SA and SP information when u=
+ser
+> trying to configure them through netlink interface.
+>=20
+> Before forging a compatibility layer like we have it for system calls to =
+map
+> this correct. Inform user land about this situation instead of keeping si=
+lent,
+> then the upper test scripts could behave accordingly.
+>=20
+> Signed-off-by: Fan Du <fan.du@windriver.com>
+> ---
+>   net/xfrm/xfrm_user.c |    4 ++++
+>   1 file changed, 4 insertions(+)
+>=20
+> diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+> index 1ae3ec7..0249712 100644
+> --- a/net/xfrm/xfrm_user.c
+> +++ b/net/xfrm/xfrm_user.c
+> @@ -2347,6 +2347,10 @@ static int xfrm_user_rcv_msg(struct sk_buff *skb, =
+struct nlmsghdr *nlh)
+>   	const struct xfrm_link *link;
+>   	int type, err;
+>=20
+> +#ifdef CONFIG_COMPAT
+> +	if (is_compat_task())
+> +		return -EPERM;
 
-Yes.
-
-> I'm confused to see that swiotlb_bounce() (that copies data from the boun=
-ce buffers)
-> is called from both swiotlb_sync_single_for_cpu() and swiotlb_unmap_page(=
-).
-> I ofcourse don't want the data to be copied from the bounce buffers twice=
-!
-
-Right, unmap includes a sync so you should:
-- for the last frag per page, dma_unmap_page() only
-- for every other frag, dma_sync_single_for_cpu() only
+I think this needs a log message, as it is not at all obvious that EPERM
+means you ran a binary from the 'wrong' architecture.
 
 Ben.
+
+> +#endif
+>   	type =3D nlh->nlmsg_type;
+>   	if (type > XFRM_MSG_MAX)
+>   		return -EINVAL;
 
 --=20
 Ben Hutchings
@@ -102,26 +90,26 @@ Everything should be made as simple as possible, but not simpler.
                                                            - Albert Einstei=
 n
 
---=-ciqIBi8W2mlLjgUc/mYc
+--=-Zc6df1+AZTk6v9oV+lkL
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIVAwUAUwzLoee/yOyVhhEJAQqrrhAAutldMliz+iCMjx72KPIDoemd9faBCwfS
-mg8HEQ2jEp/vjNFQQYzZSQCi4cWRcnUx71JJ7sG3dv3cCNuAiSKUiU7VgNktPvNK
-5PajVyB48VpBYo40dh0TDJIw/gy0yvUKHgHSJ9RfJZo7AyoTTje2+u9nMLzPXJRB
-AjDb3fudFkcqqZ3kkvydJsGuX+VZXKAySXOyqDiQqLg4Lh255Pxlb+lM7VPvVql8
-dZDFcZEj06ym715tpyBV21WGxxvNhWT//8TN/jH5BY1mYu2nu/mDP1hiGS87Af+S
-YFzTHd+L0zpjgmmGgSz34eDCD77S6+ZzsRyqAHBc/k1AS1tHButYGUCKHHEBuNWC
-Grz0TbXuFzIDetvSUDtouf9pduCWnG0puWLhlPKYCaEJyk79vXJF2hXYLup/aXKh
-KJnOQawFqIr+7SfRWGoxJj31lvCX1RLiAV5uQVI05OQdekiY50zf4iGwVuWIWC93
-S8tZam7IIzvItIekS1pYFa7Jjau+BUMQN5SlPcYusd+bCWCUVsA1PjrCnr5k61p5
-3kOd4uiFDHFKGLyLEz6U8nRirzMsHo1KIWt5i+NgGABU2oNUrsp8R8ZSzKT33TgK
-GtrzgWQMy0EjEeIEBaCvVDzArWfJOZyycDwqJ7jx3ToXNqkbhRoWxfycXm4R8kh5
-v1f65DmXP6M=
-=Q7y4
+iQIVAwUAUwzPw+e/yOyVhhEJAQrX8Q//XzqUgVohd4Avqz/0W6bwUtc/UoDCkzxV
+OZc/eZ4l/v/vt++wh7m16tAahA34QyyaHGjVFslG4DyCr0SdgBNw7SVWDdvpY3Ee
+pjcF/B+5irlb3g32zeA/qfpHwdxl1wbIQFTt+vbOuWFI2zTZloqcNS6PuLStJuoo
+90xktjDGQ1QfXb2ZaSkxK6lZhoIC4YhEGBosplQz17CSYubUykjeRCeK1Wngpt0F
+wuHXYDiS+2NMuMudC8jC/4W+mBDUoVxp5bKIgY+iXiM+F0JRLnvec/w6aOqUiqKq
+iz2JfF03bd8W4zQJ2HBBz4DXhFraAg7byK9TYCWkBAi2dv8xC3g0b6Fjf8CNSf+D
+yBMbV5woyIaC28xsv8N8qdtpDFRO6aYhBFRoK3MARoPY7muZG1pa6GWcmAS/pMCB
+cdAMWsHxd/lfx80GleZ/NuoBbCetrnqz6C0Xu6VHwe5UIxEVWT6fjDod+ryxCsaU
+8V0E7zAaWYqj5eQOi3mMR1yi9qtYy8Jm8dyhOc8/x51cNYB00sCHsvrkOLvEnFDZ
+GTc6pIcrUOMgfQbVaHjU5VfZ+voxi+dvTNZqSW4sMxKfK509dT5PXoqcC6avzeHi
+9rZYAKqtHbNoQj9rybq414IyPsE9ffJ7PAn2doU+Wsl+MFVF7xuTg/29x8lsOmSO
+0OKOIWMdbX4=
+=k7vu
 -----END PGP SIGNATURE-----
 
---=-ciqIBi8W2mlLjgUc/mYc--
+--=-Zc6df1+AZTk6v9oV+lkL--
