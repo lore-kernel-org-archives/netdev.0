@@ -1,94 +1,49 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] net: kdoc struct net_device flags and priv_flags
-Date: Tue, 25 Feb 2014 02:11:05 +0000
-Message-ID: <1393294265.6823.154.camel@deadeye.wl.decadent.org.uk>
-References: <1393287245-4549-1-git-send-email-mcgrof@do-not-panic.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC v2 2/4] net: enables interface option to skip IP
+Date: Tue, 25 Feb 2014 03:23:10 +0100
+Message-ID: <20140225022310.GH6598@order.stressinduktion.org>
+References: <1393266120.8041.19.camel@dcbw.local> <20140224.180426.411052665068255886.davem@davemloft.net> <1393286520.6823.123.camel@deadeye.wl.decadent.org.uk> <20140224.191238.921310808350170272.davem@davemloft.net> <1393293719.6823.148.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-KIdEAk1LqGPJ6HCaYEf8"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Luis R. Rodriguez" <mcgrof@suse.com>
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>, dcbw@redhat.com,
+	mcgrof@do-not-panic.com, zoltan.kiss@citrix.com,
+	netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1393287245-4549-1-git-send-email-mcgrof@do-not-panic.com>
+Content-Disposition: inline
+In-Reply-To: <1393293719.6823.148.camel@deadeye.wl.decadent.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Feb 25, 2014 at 02:01:59AM +0000, Ben Hutchings wrote:
+> On Mon, 2014-02-24 at 19:12 -0500, David Miller wrote:
+> > From: Ben Hutchings <ben@decadent.org.uk>
+> > Date: Tue, 25 Feb 2014 00:02:00 +0000
+> > 
+> > > You can run an internal network, or access network, as v6-only with
+> > > NAT64 and DNS64 at the border.  I believe some mobile networks are doing
+> > > this; it was also done on the main FOSDEM wireless network this year.
+> > 
+> > This seems to be bloating up the networking headers of the internal
+> > network, for what purpose?
+> > 
+> > For mobile that's doubly inadvisable.
+> 
+> I don't know what the reasoning is for the mobile network operators.
+> They're forced to do NAT for v4 somewhere, and maybe v6-only makes the
+> access network easier to manage.
 
---=-KIdEAk1LqGPJ6HCaYEf8
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Yes, it seems the way to go:
+<http://www.dslreports.com/shownews/TMobile-Goes-IPv6-Only-on-Android-44-Devices-126506>
 
-On Mon, 2014-02-24 at 16:14 -0800, Luis R. Rodriguez wrote:
-> From: "Luis R. Rodriguez" <mcgrof@suse.com>
->=20
-> We have documentation for these flags but they're scattered
-> all over the place. #defines don't allow documentation to be
-> written easily so to help to start bringing some documentation
-> together use the enums kdoc practice but keep the defines to
-> allow userspace to be able to #ifdef them.
->=20
-> I've verified the same values are assigned before and after
-> with a simple userspace test program [0] and checksumming the
-> output.
->=20
-> [0] http://drvbp1.linux-foundation.org/~mcgrof/kdoc/netdev_flags/
->=20
-> mcgrof@gnat ~/tmp $ ./check-flags | sha1sum
-> 0ec5b6b1840aa3bb9ce464e61c564820871c92c3  -
->=20
-> Cc: netdev@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
-> ---
->  include/uapi/linux/if.h | 201 +++++++++++++++++++++++++++++++++++-------=
-------
->  1 file changed, 149 insertions(+), 52 deletions(-)
->=20
-> diff --git a/include/uapi/linux/if.h b/include/uapi/linux/if.h
-> index d758163..1555623 100644
-> --- a/include/uapi/linux/if.h
-> +++ b/include/uapi/linux/if.h
-[...]
-> +/**
-> + * enum net_device_priv_flags - &struct net_device priv_flags
-> + *
-> + * These are the &struct net_device, they are only set internally
-> + * by drivers and used in the kernel but are invisible to userspace.
-[...]
+I can't comment on the 464xlat that much because I haven't looked at an
+implementation yet, but it can very well be the case it still needs IPv4
+on the outgoing interface, I don't know (from the spec pov it doesn't
+look like that).
 
-Indeed, I wonder why they are in the UAPI header.  As userland doesn't
-have a legitimate use for them, maybe you could move them back to
-include/linux/if.h instead of bothering with adding macros?
+Greetings,
 
-Ben.
-
---=20
-Ben Hutchings
-Everything should be made as simple as possible, but not simpler.
-                                                           - Albert Einstei=
-n
-
---=-KIdEAk1LqGPJ6HCaYEf8
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAUwv7uee/yOyVhhEJAQqL4RAAjeZK8JAnM7+VxCuNBx28qaIlEFSLHJ6e
-sZUVJ7Zvh2mL1WRQwmWLyKN4nlp5keD/R02daDxAH1qVVtccE+b2wRusR6Q5RtlH
-t72VKkrgrcx63PXdmOMcNvjxHV1s87HKiTgRE8O4C5sLPlAeyzuDw2OHJeUsAK7b
-q0CixfZBa7QqJxqCfrdhkH9Hj+ymlaNqhs/n+C8Kvj/RIuzZp5pvZqgNOJKuWjA+
-osq9K/nhfRLzCadPXgMnxvadPVfOpShDAD34q8UOMWKCUo8Zys6Xn0uJ/Y8V2xgC
-7p5TKfx0mUm38YPH0mOmeXq6+h19itOBGbXr74ynHs7bjyjywvPiaURfU1bXrV/q
-wXGo1jprvsby4gbY3Q5hp7dkwzZLwuQkpLaADa02jVD6aR04i0jmpxOU54N23Pk0
-mNuHhreIqyV+6+rqfwuEH8U6aR29iKWDxDdiC9V4rqInh++qmHIiMBwlnwGTLTqC
-ntr1Op77itDcixY0KPWGcPzd6ZzVlCFZOEG4vOOYLXEtRJzQbcdkLoWCdy7zvmBd
-PZuMFwanPKpglfTZTh6iO49SRO7Fy9v+dBaOThRTg2EJx9nAeA1X9pLJEStU4Y9d
-yWZ63AepZLcjDeQWKymf3Ltq7HYyGNO6E89dWP2oE1bSEHZz3FW2qnDNy6wRxJNO
-WEkGg0dUsJQ=
-=P2zm
------END PGP SIGNATURE-----
-
---=-KIdEAk1LqGPJ6HCaYEf8--
+  Hannes
