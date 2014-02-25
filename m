@@ -1,51 +1,48 @@
-From: Neil Jerram <Neil.Jerram@metaswitch.com>
-Subject: RE: [net-next v3 2/3] UAPI: add MPLS label stack definition
-Date: Tue, 25 Feb 2014 09:53:40 +0000
-Message-ID: <F6885DC5CBE92C4BB4D654841E63A30FD7DD5F03@ENFIRHMBX1.datcon.co.uk>
-References: <1393244920-15903-1-git-send-email-sw@simonwunderlich.de>
- <1393244920-15903-3-git-send-email-sw@simonwunderlich.de>
+From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Subject: [PATCH (net.git) 3/6] stmmac: dwmac-sti: fix broken STiD127 compatibility
+Date: Tue, 25 Feb 2014 10:58:26 +0100
+Message-ID: <1393322309-10390-3-git-send-email-peppe.cavallaro@st.com>
+References: <1393322309-10390-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: 'Simon Wunderlich' <sw@simonwunderlich.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Srinivas Kandagatla <srinivas.kandagatla@st.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from enfirhets1.metaswitch.com ([192.91.191.166]:21559 "EHLO
-	ENFIRHETS1.metaswitch.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750768AbaBYJ7G convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 04:59:06 -0500
-In-Reply-To: <1393244920-15903-3-git-send-email-sw@simonwunderlich.de>
-Content-Language: en-US
+Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:37850 "EHLO
+	eu1sys200aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751066AbaBYJ75 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 04:59:57 -0500
+Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 55BF61C7
+	for <netdev@vger.kernel.org>; Tue, 25 Feb 2014 09:59:53 +0000 (GMT)
+Received: from Webmail-eu.st.com (Safex1hubcas22.st.com [10.75.90.92])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 96880B540
+	for <netdev@vger.kernel.org>; Tue, 25 Feb 2014 09:59:53 +0000 (GMT)
+In-Reply-To: <1393322309-10390-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Subject: [net-next v3 2/3] UAPI: add MPLS label stack definition
-[...]
-> +/* Reference: RFC 5462, RFC 3032
-> + *
-> + *  0                   1                   2                   3
-> + *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-> + * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> + * |                Label                  | TC  |S|       TTL     |
-> + * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> + *
-> + *	Label:  Label Value, 20 bits
-> + *	TC:     Traffic Class field, 3 bits
-> + *	S:      Bottom of Stack, 1 bit
-> + *	TTL:    Time to Live, 8 bits
-> + */
-> +
-> +struct mpls_label_stack {
-> +	__be32 entry;
-> +};
+This is to fix the compatibility to the STiD127 SoC.
 
-The "label stack" name isn't quite right as this struct describes just one entry in an MPLS label stack.  Perhaps one of the following instead?
-- mpls_label
-- mpls_label_entry
-- mpls_label_stack_entry
-- mpls_lse.
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Cc: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+---
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-I suppose mpls_label_stack_entry is the most pedantically correct (and is what RFC 3032 says); but for conciseness and general readability I favour mpls_label.
-
-Regards,
-      Neil
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index c61bc72b..8fb32a8 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -36,7 +36,7 @@ static const struct of_device_id stmmac_dt_ids[] = {
+ #ifdef CONFIG_DWMAC_STI
+ 	{ .compatible = "st,stih415-dwmac", .data = &sti_gmac_data},
+ 	{ .compatible = "st,stih416-dwmac", .data = &sti_gmac_data},
+-	{ .compatible = "st,stih127-dwmac", .data = &sti_gmac_data},
++	{ .compatible = "st,stid127-dwmac", .data = &sti_gmac_data},
+ #endif
+ 	/* SoC specific glue layers should come before generic bindings */
+ 	{ .compatible = "st,spear600-gmac"},
+-- 
+1.7.4.4
