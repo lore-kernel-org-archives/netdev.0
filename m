@@ -1,40 +1,52 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 3/3] net/mlx4_en: Fix bad use of dev_id
-Date: Tue, 25 Feb 2014 18:17:52 +0200
-Message-ID: <1393345072-31584-4-git-send-email-amirv@mellanox.com>
-References: <1393345072-31584-1-git-send-email-amirv@mellanox.com>
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH (net.git) 1/6] stmmac: disable at run-time the EEE if
+ not supported
+Date: Tue, 25 Feb 2014 20:29:24 +0400
+Message-ID: <530CC4E4.40301@cogentembedded.com>
+References: <1393322309-10390-1-git-send-email-peppe.cavallaro@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:43252 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752954AbaBYQSr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Feb 2014 11:18:47 -0500
-In-Reply-To: <1393345072-31584-1-git-send-email-amirv@mellanox.com>
+Received: from mail-la0-f45.google.com ([209.85.215.45]:35469 "EHLO
+	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753058AbaBYQ3a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 11:29:30 -0500
+Received: by mail-la0-f45.google.com with SMTP id hr17so1446250lab.32
+        for <netdev@vger.kernel.org>; Tue, 25 Feb 2014 08:29:29 -0800 (PST)
+In-Reply-To: <1393322309-10390-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dev_id should be set for multiple netdev's sharing the same MAC, which
-is not the case here.
+Hello.
 
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 1 -
- 1 file changed, 1 deletion(-)
+On 25-02-2014 13:58, Giuseppe Cavallaro wrote:
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index caa488a..2c0823b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -2341,7 +2341,6 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 	netif_set_real_num_rx_queues(dev, prof->rx_ring_num);
- 
- 	SET_NETDEV_DEV(dev, &mdev->dev->pdev->dev);
--	dev->dev_id =  port - 1;
- 	dev->dev_port = port - 1;
- 
- 	/*
--- 
-1.8.3.4
+> This patch is to disable the EEE (so HW and timers)
+> for example when the phy communicates that the EEE
+> can be supported anymore.
+
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> ---
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   24 ++++++++++++++++----
+>   1 files changed, 19 insertions(+), 5 deletions(-)
+
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index 078ad0e..dc89dc3 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+[...]
+> @@ -2204,7 +2219,6 @@ static int stmmac_poll(struct napi_struct *napi, int budget)
+>   static void stmmac_tx_timeout(struct net_device *dev)
+>   {
+>   	struct stmmac_priv *priv = netdev_priv(dev);
+> -
+
+    Why? Empty line is needed here, after declaration.
+
+>   	/* Clear Tx resources and restart transmitting again */
+>   	stmmac_tx_err(priv);
+>   }
+
+WBR, Sergei
