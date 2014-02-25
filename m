@@ -1,41 +1,36 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH] mlx4: Use GFP_NOFS calls during the ipoib TX path when
- creating the QP
-Date: Wed, 26 Feb 2014 00:20:04 +0200
-Message-ID: <CAJZOPZJpRYKw7Dskr21QP_d6c7ySS+mi-g_19pNJYm0Gq=ZY+g@mail.gmail.com>
-References: <alpine.LNX.2.00.1402211450410.1192@pobox.suse.cz>
-	<CAJZOPZK4Ah+nKPWnX3=yM43jbf586GYJ+fh0-OL4bOnqKK8v8A@mail.gmail.com>
-	<alpine.LNX.2.00.1402252307130.5180@pobox.suse.cz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2 1/2] bonding: Fix RTNL: assertion failed at
+ net/core/rtnetlink.c for 802.3ad mode
+Date: Tue, 25 Feb 2014 17:32:44 -0500 (EST)
+Message-ID: <20140225.173244.1761467022630063500.davem@davemloft.net>
+References: <1392800711-19264-1-git-send-email-dingtianhong@huawei.com>
+	<1392800711-19264-2-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Roland Dreier <roland@kernel.org>, Amir Vadai <amirv@mellanox.com>,
-	Eli Cohen <eli@dev.mellanox.co.il>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Mel Gorman <mgorman@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Jiri Kosina <jkosina@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1402252307130.5180@pobox.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: fubar@us.ibm.com, vfalico@redhat.com, andy@greyhouse.net,
+	cwang@twopensource.com, jiri@resnulli.us, thomas@glanzmann.de,
+	eric.dumazet@gmail.com, sfeldma@cumulusnetworks.com,
+	netdev@vger.kernel.org
+To: dingtianhong@huawei.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58270 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751352AbaBYWcr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 17:32:47 -0500
+In-Reply-To: <1392800711-19264-2-git-send-email-dingtianhong@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 26, 2014 at 12:11 AM, Jiri Kosina <jkosina@suse.cz> wrote:
-> On Tue, 25 Feb 2014, Or Gerlitz wrote:
+From: Ding Tianhong <dingtianhong@huawei.com>
+Date: Wed, 19 Feb 2014 17:05:10 +0800
 
->> And what happens if you use IPoIB datagram mode, is/why the patch is
->> needed there?
+> @@ -2062,6 +2062,7 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
+>  	struct list_head *iter;
+>  	struct slave *slave;
+>  	struct port *port;
+> +	int slave_should_notify = 0;
 
-> I admittedly am no infiniband expert, but my understanding is that in
-> principle Connected/Datagram mode is about MTU and checksum offloading,
+Please use bool, true/false, for slave_should_notify.
 
-yes, the differences between the mode relate to these aspects, however
-
-> but the TX path is the same. Please correct me if I am wrong.
-
-no, note that your patch only touched drivers/infiniband/ulp/ipoib/ipoib_cm.c
-which is basically compiled out if you set CONFIG_INFINIBAND_IPOIB_CM,
-so surely the TX path for the datagram vs. connected modes are
-different.
+Thanks.
