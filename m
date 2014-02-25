@@ -1,52 +1,27 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH v2 net-next] ipv6: log src and dst along with "udp checksum is 0"
-Date: Tue, 25 Feb 2014 21:11:02 +0100
-Message-ID: <1393359062-16844-1-git-send-email-bjorn@mork.no>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/10] pull request net: batman-adv 2014-02-17
+Date: Tue, 25 Feb 2014 15:36:36 -0500 (EST)
+Message-ID: <20140225.153636.1524628965489360987.davem@davemloft.net>
+References: <1392670129-2498-1-git-send-email-antonio@meshcoding.com>
+	<53070488.2020303@meshcoding.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
-	Joe Perches <joe@perches.com>
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: antonio@meshcoding.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:44086 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752534AbaBYULT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Feb 2014 15:11:19 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:57679 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752635AbaBYUgk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 15:36:40 -0500
+In-Reply-To: <53070488.2020303@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These info messages are rather pointless without any means to identify
-the source of the bogus packets.  Logging the src and dst addresses and
-ports may help a bit.
+From: Antonio Quartulli <antonio@meshcoding.com>
+Date: Fri, 21 Feb 2014 08:47:20 +0100
 
-Cc: Joe Perches <joe@perches.com>
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
----
-v2: log port numbers too.  Suggested by Joe Perches
+> as I asked above, do you think it would be possible to queue this
+> patchset for inclusion in 3.13.x ?
 
-build tested only
-
-
- net/ipv6/ip6_checksum.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv6/ip6_checksum.c b/net/ipv6/ip6_checksum.c
-index 72d198b8e4d2..ee7a97f510cb 100644
---- a/net/ipv6/ip6_checksum.c
-+++ b/net/ipv6/ip6_checksum.c
-@@ -79,7 +79,9 @@ int udp6_csum_init(struct sk_buff *skb, struct udphdr=
- *uh, int proto)
- 		/* RFC 2460 section 8.1 says that we SHOULD log
- 		   this error. Well, it is reasonable.
- 		 */
--		LIMIT_NETDEBUG(KERN_INFO "IPv6: udp checksum is 0\n");
-+		LIMIT_NETDEBUG(KERN_INFO "IPv6: udp checksum is 0 for [%pI6c]:%u->[%=
-pI6c]:%u\n",
-+			       &ipv6_hdr(skb)->saddr, ntohs(uh->source),
-+			       &ipv6_hdr(skb)->daddr, ntohs(uh->dest));
- 		return 1;
- 	}
- 	if (skb->ip_summed =3D=3D CHECKSUM_COMPLETE &&
---=20
-1.9.0
+Done.
