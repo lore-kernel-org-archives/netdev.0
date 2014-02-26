@@ -1,74 +1,52 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next v4 2/8] 6lowpan: add uncompress header size
- function
-Date: Wed, 26 Feb 2014 10:24:45 -0800
-Message-ID: <1393439085.407.31.camel@joe-AO722>
-References: <1393430712-11298-1-git-send-email-alex.aring@gmail.com>
-	 <1393430712-11298-3-git-send-email-alex.aring@gmail.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D0F6CBBCA@AcuExch.aculab.com>
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: Re: [PATCH] sh_net: runtime pm wrap mdio read and write
+Date: Wed, 26 Feb 2014 18:25:01 +0000
+Message-ID: <530E317D.3070807@codethink.co.uk>
+References: <1393433319-22685-1-git-send-email-ben.dooks@codethink.co.uk> <530E3EBC.5060408@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: 'Alexander Aring' <alex.aring@gmail.com>,
-	"alex.bluesman.smirnov@gmail.com" <alex.bluesman.smirnov@gmail.com>,
-	"dbaryshkov@gmail.com" <dbaryshkov@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-zigbee-devel@lists.sourceforge.net"
-	<linux-zigbee-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"martin.townsend@xsilon.com" <martin.townsend@xsilon.com>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0025.hostedemail.com ([216.40.44.25]:38874 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750813AbaBZSYs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 13:24:48 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6CBBCA@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	nobuhiro.iwamatsu.yj@renesas.com, magnus.damn@opensource.se,
+	horms@verge.net.au
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <530E3EBC.5060408@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-02-26 at 16:10 +0000, David Laight wrote:
-> From: Alexander Aring
-[]
-> > diff --git a/net/ieee802154/6lowpan.h b/net/ieee802154/6lowpan.h
-[]
-> > +static inline u8 lowpan_addr_mode_size(const u8 addr_mode)
-> > +{
-> > +	switch (addr_mode) {
-> > +	case LOWPAN_IPHC_ADDR_00:
-> > +		return 16;
-> > +	case LOWPAN_IPHC_ADDR_01:
-> > +		return 8;
-> > +	case LOWPAN_IPHC_ADDR_02:
-> > +		return 2;
-> > +	default:
-> > +		return 0;
-> > +	}
-> > +}
-> 
-> The compiler will generate much better code if you index an array instead
-> of using a switch statement.
+On 26/02/14 19:21, Sergei Shtylyov wrote:
+> On 02/26/2014 07:48 PM, Ben Dooks wrote:
+>
+>> On the R8A7790, if the device has been suspended by pm_runtime
+>> and the MII code tries to access the bus then there is a possiblity
+>
+>     s/possiblity/possibility/.
 
-Are you sure of that?
+ta, will fix.
 
-Perhaps the compiler would inline the assignment
-anyway if addr_mode is __builtin_constant_p
+>> that it will fail to read any data from the MII bus.
+>
+>> Change the MDIO read and write calls to be wrappered by calls to
+>
+>     s/wrappered/wrapped/.
 
-gcc 4.8 here does the same thing with:
+ta.
 
-static inline unsigned char f1(unsigned char a)
-{
-	switch (a) {
-	case 0: return 16;
-	case 1: return 8;
-	case 2: return 2;
-	default: return 0;
-	}
-}
 
-static inline unsigned char f2(unsigned char a)
-{
-	static const unsigned char rtns[] = { 16, 8, 2, 0 };
+>> pm_runtime_{get,put}_sync so that the device will be enabled during
+>> these calls. It is put here to avoid having to enable and disable
+>> the clock for every bit that is sent by the MII bit-banging code.
+>
+>> This has been exposed by the change to using OF and a fix to enable
+>> the pm_runtime clock management which seems to have been broken for
+>> some time for the device-tree booted Renesas kernels.
+>
+>     What fix to enable run-time PM are you talking about?
 
-	return rtns[a & 3];
-}
+building drivers/sh/pm_runtime.c for the multiplatform case.
+
+
+-- 
+Ben Dooks				http://www.codethink.co.uk/
+Senior Engineer				Codethink - Providing Genius
