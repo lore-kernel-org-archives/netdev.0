@@ -1,57 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6 net-next 1/2] net: add skb_mstamp infrastructure
-Date: Wed, 26 Feb 2014 15:02:46 -0500 (EST)
-Message-ID: <20140226.150246.2032724506200600118.davem@davemloft.net>
-References: <1393290667.2316.96.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1393292339.2316.98.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1393309324.2316.119.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net-next] net: order MPLS ethertypes numerically
+Date: Wed, 26 Feb 2014 15:14:59 -0500 (EST)
+Message-ID: <20140226.151459.1472275444458394950.davem@davemloft.net>
+References: <1393327045-7170-1-git-send-email-Neil.Jerram@metaswitch.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, ja@ssi.bg, ycheng@google.com,
-	netdev@vger.kernel.org, ncardwell@google.com, brakmo@google.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, horms@verge.net.au
+To: Neil.Jerram@metaswitch.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40518 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40599 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750765AbaBZUCt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 15:02:49 -0500
-In-Reply-To: <1393309324.2316.119.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1751333AbaBZUPD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 15:15:03 -0500
+In-Reply-To: <1393327045-7170-1-git-send-email-Neil.Jerram@metaswitch.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 24 Feb 2014 22:22:04 -0800
+From: Neil Jerram <Neil.Jerram@metaswitch.com>
+Date: Tue, 25 Feb 2014 11:17:25 +0000
 
-> Instead of :
+> All ethertypes other than ETH_P_MPLS_UC, ETH_P_MPLS_MC and
+> ETH_P_ATMMPOA were already ordered numerically.  This commit moves
+> those three ETH_P_... values into correct numerical order too.
 > 
-> 	u64 t0, t1;
-> 
-> 	t0 = ktime_get();
-> 	// stuff
-> 	t1 = ktime_get();
-> 	delta_us = ktime_us_delta(t1, t0);
-> 
-> use :
-> 	struct skb_mstamp t0, t1;
-> 
-> 	skb_mstamp_get(&t0);
-> 	// stuff
-> 	skb_mstamp_get(&t1);
-> 	delta_us = skb_mstamp_us_delta(&t1, &t0);
- ...
-> +/**
-> + * skb_mstamp_delta - compute the difference in usec between two skb_mstamp
-> + * @t1: pointer to oldest sample
-> + * @t0: pointer to newest sample
-> + */
-> +static inline u32 skb_mstamp_us_delta(const struct skb_mstamp *t1,
-> +				      const struct skb_mstamp *t0)
+> Signed-off-by: Neil Jerram <Neil.Jerram@metaswitch.com>
 
-Maybe your definition of "newest" is different from mine, to me it
-means most recently sampled.  And if so, your t1 and t0 descriptions
-seem reversed.
-
-Please fix this and resubmit with Neal's ACK etc.
-
-Thanks!
+Applied, thanks.
