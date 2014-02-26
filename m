@@ -1,79 +1,111 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 30/31] iw_cxgb4: Max fastreg depth depends on DSGL support.
-Date: Wed, 26 Feb 2014 20:37:09 +0530
-Message-ID: <1393427230-14532-31-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 29/31] iw_cxgb4: minor fixes/cleanup.
+Date: Wed, 26 Feb 2014 20:37:08 +0530
+Message-ID: <1393427230-14532-30-git-send-email-hariprasad@chelsio.com>
 References: <1393427230-14532-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com, kumaras@chelsio.com,
 	dm@chelsio.com, swise@opengridcomputing.com, leedom@chelsio.com,
 	santosh@chelsio.com, hariprasad@chelsio.com, nirranjan@chelsio.com
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:11761 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:7945 "EHLO
 	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753339AbaBZPKF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 10:10:05 -0500
+	by vger.kernel.org with ESMTP id S1753323AbaBZPKE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 10:10:04 -0500
 In-Reply-To: <1393427230-14532-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Steve Wise <swise@opengridcomputing.com>
 
-The max depth of a fastreg mr depends on  whether the device supports DSGL or not.  So
-compute it dynamically based on the device support and the module use_dsgl option.
+Added some missing debug stats.
+
+Use uninitialized_var().
+
+Rate limit warning printks.
+
+Initialize reserved fields in a FW work request.
 
 Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
- drivers/infiniband/hw/cxgb4/provider.c |    2 +-
- drivers/infiniband/hw/cxgb4/qp.c       |    3 ++-
- drivers/infiniband/hw/cxgb4/t4.h       |    9 ++++++++-
- 3 files changed, 11 insertions(+), 3 deletions(-)
+ drivers/infiniband/hw/cxgb4/cq.c       |    2 +-
+ drivers/infiniband/hw/cxgb4/mem.c      |    6 +++++-
+ drivers/infiniband/hw/cxgb4/qp.c       |    2 ++
+ drivers/infiniband/hw/cxgb4/resource.c |   10 +++++++---
+ 4 files changed, 15 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb4/provider.c b/drivers/infiniband/hw/cxgb4/provider.c
-index d1565a4..9e1a409 100644
---- a/drivers/infiniband/hw/cxgb4/provider.c
-+++ b/drivers/infiniband/hw/cxgb4/provider.c
-@@ -327,7 +327,7 @@ static int c4iw_query_device(struct ib_device *ibdev,
- 	props->max_mr = c4iw_num_stags(&dev->rdev);
- 	props->max_pd = T4_MAX_NUM_PD;
- 	props->local_ca_ack_delay = 0;
--	props->max_fast_reg_page_list_len = T4_MAX_FR_DEPTH;
-+	props->max_fast_reg_page_list_len = t4_max_fr_depth(use_dsgl);
+diff --git a/drivers/infiniband/hw/cxgb4/cq.c b/drivers/infiniband/hw/cxgb4/cq.c
+index 351c8e0..6cbe4c5 100644
+--- a/drivers/infiniband/hw/cxgb4/cq.c
++++ b/drivers/infiniband/hw/cxgb4/cq.c
+@@ -676,7 +676,7 @@ skip_cqe:
+ static int c4iw_poll_cq_one(struct c4iw_cq *chp, struct ib_wc *wc)
+ {
+ 	struct c4iw_qp *qhp = NULL;
+-	struct t4_cqe cqe = {0, 0}, *rd_cqe;
++	struct t4_cqe uninitialized_var(cqe), *rd_cqe;
+ 	struct t4_wq *wq;
+ 	u32 credit = 0;
+ 	u8 cqe_flushed;
+diff --git a/drivers/infiniband/hw/cxgb4/mem.c b/drivers/infiniband/hw/cxgb4/mem.c
+index cdaf257..ecdee18 100644
+--- a/drivers/infiniband/hw/cxgb4/mem.c
++++ b/drivers/infiniband/hw/cxgb4/mem.c
+@@ -259,8 +259,12 @@ static int write_tpt_entry(struct c4iw_rdev *rdev, u32 reset_tpt_entry,
  
- 	return 0;
- }
+ 	if ((!reset_tpt_entry) && (*stag == T4_STAG_UNSET)) {
+ 		stag_idx = c4iw_get_resource(&rdev->resource.tpt_table);
+-		if (!stag_idx)
++		if (!stag_idx) {
++			mutex_lock(&rdev->stats.lock);
++			rdev->stats.stag.fail++;
++			mutex_unlock(&rdev->stats.lock);
+ 			return -ENOMEM;
++		}
+ 		mutex_lock(&rdev->stats.lock);
+ 		rdev->stats.stag.cur += 32;
+ 		if (rdev->stats.stag.cur > rdev->stats.stag.max)
 diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
-index 30fcf84..12b4bb4 100644
+index 274f59a..30fcf84 100644
 --- a/drivers/infiniband/hw/cxgb4/qp.c
 +++ b/drivers/infiniband/hw/cxgb4/qp.c
-@@ -560,7 +560,8 @@ static int build_fastreg(struct t4_sq *sq, union t4_wr *wqe,
- 	int pbllen = roundup(wr->wr.fast_reg.page_list_len * sizeof(u64), 32);
- 	int rem;
- 
--	if (wr->wr.fast_reg.page_list_len > T4_MAX_FR_DEPTH)
-+	if (wr->wr.fast_reg.page_list_len >
-+	    t4_max_fr_depth(use_dsgl))
+@@ -428,6 +428,8 @@ static int build_rdma_send(struct t4_sq *sq, union t4_wr *wqe,
+ 	default:
  		return -EINVAL;
+ 	}
++	wqe->send.r3 = 0;
++	wqe->send.r4 = 0;
  
- 	wqe->fr.qpbinde_to_dcacpu = 0;
-diff --git a/drivers/infiniband/hw/cxgb4/t4.h b/drivers/infiniband/hw/cxgb4/t4.h
-index ace3154..1543d6b 100644
---- a/drivers/infiniband/hw/cxgb4/t4.h
-+++ b/drivers/infiniband/hw/cxgb4/t4.h
-@@ -84,7 +84,14 @@ struct t4_status_page {
- 			sizeof(struct fw_ri_isgl)) / sizeof(struct fw_ri_sge))
- #define T4_MAX_FR_IMMD ((T4_SQ_NUM_BYTES - sizeof(struct fw_ri_fr_nsmr_wr) - \
- 			sizeof(struct fw_ri_immd)) & ~31UL)
--#define T4_MAX_FR_DEPTH (1024 / sizeof(u64))
-+#define T4_MAX_FR_IMMD_DEPTH (T4_MAX_FR_IMMD / sizeof(u64))
-+#define T4_MAX_FR_DSGL 1024
-+#define T4_MAX_FR_DSGL_DEPTH (T4_MAX_FR_DSGL / sizeof(u64))
-+
-+static inline int t4_max_fr_depth(int use_dsgl)
-+{
-+	return use_dsgl ? T4_MAX_FR_DSGL_DEPTH : T4_MAX_FR_IMMD_DEPTH;
-+}
- 
- #define T4_RQ_NUM_SLOTS 2
- #define T4_RQ_NUM_BYTES (T4_EQ_ENTRY_SIZE * T4_RQ_NUM_SLOTS)
+ 	plen = 0;
+ 	if (wr->num_sge) {
+diff --git a/drivers/infiniband/hw/cxgb4/resource.c b/drivers/infiniband/hw/cxgb4/resource.c
+index cdef4d7..69e57d0 100644
+--- a/drivers/infiniband/hw/cxgb4/resource.c
++++ b/drivers/infiniband/hw/cxgb4/resource.c
+@@ -179,8 +179,12 @@ u32 c4iw_get_qpid(struct c4iw_rdev *rdev, struct c4iw_dev_ucontext *uctx)
+ 		kfree(entry);
+ 	} else {
+ 		qid = c4iw_get_resource(&rdev->resource.qid_table);
+-		if (!qid)
++		if (!qid) {
++			mutex_lock(&rdev->stats.lock);
++			rdev->stats.qid.fail++;
++			mutex_unlock(&rdev->stats.lock);
+ 			goto out;
++		}
+ 		mutex_lock(&rdev->stats.lock);
+ 		rdev->stats.qid.cur += rdev->qpmask + 1;
+ 		mutex_unlock(&rdev->stats.lock);
+@@ -322,8 +326,8 @@ u32 c4iw_rqtpool_alloc(struct c4iw_rdev *rdev, int size)
+ 	unsigned long addr = gen_pool_alloc(rdev->rqt_pool, size << 6);
+ 	PDBG("%s addr 0x%x size %d\n", __func__, (u32)addr, size << 6);
+ 	if (!addr)
+-		printk_ratelimited(KERN_WARNING MOD "%s: Out of RQT memory\n",
+-		       pci_name(rdev->lldi.pdev));
++		pr_warn_ratelimited(KERN_WARNING MOD "%s: Out of RQT memory\n",
++				    pci_name(rdev->lldi.pdev));
+ 	mutex_lock(&rdev->stats.lock);
+ 	if (addr) {
+ 		rdev->stats.rqt.cur += roundup(size << 6, 1 << MIN_RQT_SHIFT);
 -- 
 1.7.1
