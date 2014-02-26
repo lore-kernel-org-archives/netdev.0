@@ -1,7 +1,7 @@
 From: "SWITZERLAND SCHOLARSHIP" <geneve.universite@laposte.net>
 Subject: Offre de Bourse Suisse
-Date: Wed, 26 Feb 2014 18:49:57 +0100 (CET)
-Message-ID: <4d7ce8614ed368baf4d7206af672bfa0.squirrel@webmail.register.it>
+Date: Wed, 26 Feb 2014 18:49:49 +0100 (CET)
+Message-ID: <6aeb5cf34ee69dd078e33fdd27265a73.squirrel@webmail.register.it>
 Reply-To: cfbelavis_suisse@hotmail.fr
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
@@ -9,10 +9,10 @@ Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: recipient list not shown:;
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hostingsmtp03.register.it ([81.88.50.244]:31500 "EHLO
+Received: from hostingsmtp12.register.it ([81.88.50.239]:28678 "EHLO
 	hostingsmtp.register.it" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751401AbaBZR7S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 12:59:18 -0500
+	with ESMTP id S1752417AbaBZR7j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 12:59:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
