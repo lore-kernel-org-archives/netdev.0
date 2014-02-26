@@ -1,172 +1,98 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 02/31] cxgb4: Add code to dump SGE registers when hitting idma hangs
-Date: Wed, 26 Feb 2014 20:36:41 +0530
-Message-ID: <1393427230-14532-3-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 05/31] cxgb4: use spinlock_irqsave/spinlock_irqrestore for db lock.
+Date: Wed, 26 Feb 2014 20:36:44 +0530
+Message-ID: <1393427230-14532-6-git-send-email-hariprasad@chelsio.com>
 References: <1393427230-14532-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com, kumaras@chelsio.com,
 	dm@chelsio.com, swise@opengridcomputing.com, leedom@chelsio.com,
 	santosh@chelsio.com, hariprasad@chelsio.com, nirranjan@chelsio.com
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:4892 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:25142 "EHLO
 	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751497AbaBZPI1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 10:08:27 -0500
+	by vger.kernel.org with ESMTP id S1751497AbaBZPIg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 10:08:36 -0500
 In-Reply-To: <1393427230-14532-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Kumar Sanghvi <kumaras@chelsio.com>
 
-Based on original work by Casey Leedom <leedom@chelsio.com>
+Currently ring_tx_db() can deadlock if a db_full interrupt fires and is
+run on the same while ring_tx_db() has the db lock held.  It needs to
+disable interrupts since it serializes with an interrupt handler.
+
+Based on original work by Steve Wise <swise@opengridcomputing.com>
 
 Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h   |    1 +
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c   |  106 ++++++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h |    3 +
- 3 files changed, 110 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   11 +++++++----
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        |    5 +++--
+ 2 files changed, 10 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 944f2cb..509c976 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -1032,4 +1032,5 @@ void t4_db_dropped(struct adapter *adapter);
- int t4_mem_win_read_len(struct adapter *adap, u32 addr, __be32 *data, int len);
- int t4_fwaddrspace_write(struct adapter *adap, unsigned int mbox,
- 			 u32 addr, u32 val);
-+void t4_sge_decode_idma_state(struct adapter *adapter, int state);
- #endif /* __CXGB4_H__ */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 7ae756d..f50637a 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -2597,6 +2597,112 @@ int t4_mdio_wr(struct adapter *adap, unsigned int mbox, unsigned int phy_addr,
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 4660f55..61825f5 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -3585,9 +3585,11 @@ static void disable_txq_db(struct sge_txq *q)
+ 
+ static void enable_txq_db(struct sge_txq *q)
+ {
+-	spin_lock_irq(&q->db_lock);
++	unsigned long flags;
++
++	spin_lock_irqsave(&q->db_lock, flags);
+ 	q->db_disabled = 0;
+-	spin_unlock_irq(&q->db_lock);
++	spin_unlock_irqrestore(&q->db_lock, flags);
+ }
+ 
+ static void disable_dbs(struct adapter *adap)
+@@ -3617,9 +3619,10 @@ static void enable_dbs(struct adapter *adap)
+ static void sync_txq_pidx(struct adapter *adap, struct sge_txq *q)
+ {
+ 	u16 hw_pidx, hw_cidx;
++	unsigned long flags;
+ 	int ret;
+ 
+-	spin_lock_bh(&q->db_lock);
++	spin_lock_irqsave(&q->db_lock, flags);
+ 	ret = read_eq_indices(adap, (u16)q->cntxt_id, &hw_pidx, &hw_cidx);
+ 	if (ret)
+ 		goto out;
+@@ -3636,7 +3639,7 @@ static void sync_txq_pidx(struct adapter *adap, struct sge_txq *q)
+ 	}
+ out:
+ 	q->db_disabled = 0;
+-	spin_unlock_bh(&q->db_lock);
++	spin_unlock_irqrestore(&q->db_lock, flags);
+ 	if (ret)
+ 		CH_WARN(adap, "DB drop recovery failed.\n");
+ }
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index e0376cd..392baee 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -860,9 +860,10 @@ static void cxgb_pio_copy(u64 __iomem *dst, u64 *src)
+ static inline void ring_tx_db(struct adapter *adap, struct sge_txq *q, int n)
+ {
+ 	unsigned int *wr, index;
++	unsigned long flags;
+ 
+ 	wmb();            /* write descriptors before telling HW */
+-	spin_lock(&q->db_lock);
++	spin_lock_irqsave(&q->db_lock, flags);
+ 	if (!q->db_disabled) {
+ 		if (is_t4(adap->params.chip)) {
+ 			t4_write_reg(adap, MYPF_REG(SGE_PF_KDOORBELL),
+@@ -880,7 +881,7 @@ static inline void ring_tx_db(struct adapter *adap, struct sge_txq *q, int n)
+ 		}
+ 	}
+ 	q->db_pidx = q->pidx;
+-	spin_unlock(&q->db_lock);
++	spin_unlock_irqrestore(&q->db_lock, flags);
  }
  
  /**
-+ *	t4_sge_decode_idma_state - decode the idma state
-+ *	@adap: the adapter
-+ *	@state: the state idma is stuck in
-+ */
-+void t4_sge_decode_idma_state(struct adapter *adapter, int state)
-+{
-+	static const char * const t4_decode[] = {
-+		"IDMA_IDLE",
-+		"IDMA_PUSH_MORE_CPL_FIFO",
-+		"IDMA_PUSH_CPL_MSG_HEADER_TO_FIFO",
-+		"Not used",
-+		"IDMA_PHYSADDR_SEND_PCIEHDR",
-+		"IDMA_PHYSADDR_SEND_PAYLOAD_FIRST",
-+		"IDMA_PHYSADDR_SEND_PAYLOAD",
-+		"IDMA_SEND_FIFO_TO_IMSG",
-+		"IDMA_FL_REQ_DATA_FL_PREP",
-+		"IDMA_FL_REQ_DATA_FL",
-+		"IDMA_FL_DROP",
-+		"IDMA_FL_H_REQ_HEADER_FL",
-+		"IDMA_FL_H_SEND_PCIEHDR",
-+		"IDMA_FL_H_PUSH_CPL_FIFO",
-+		"IDMA_FL_H_SEND_CPL",
-+		"IDMA_FL_H_SEND_IP_HDR_FIRST",
-+		"IDMA_FL_H_SEND_IP_HDR",
-+		"IDMA_FL_H_REQ_NEXT_HEADER_FL",
-+		"IDMA_FL_H_SEND_NEXT_PCIEHDR",
-+		"IDMA_FL_H_SEND_IP_HDR_PADDING",
-+		"IDMA_FL_D_SEND_PCIEHDR",
-+		"IDMA_FL_D_SEND_CPL_AND_IP_HDR",
-+		"IDMA_FL_D_REQ_NEXT_DATA_FL",
-+		"IDMA_FL_SEND_PCIEHDR",
-+		"IDMA_FL_PUSH_CPL_FIFO",
-+		"IDMA_FL_SEND_CPL",
-+		"IDMA_FL_SEND_PAYLOAD_FIRST",
-+		"IDMA_FL_SEND_PAYLOAD",
-+		"IDMA_FL_REQ_NEXT_DATA_FL",
-+		"IDMA_FL_SEND_NEXT_PCIEHDR",
-+		"IDMA_FL_SEND_PADDING",
-+		"IDMA_FL_SEND_COMPLETION_TO_IMSG",
-+		"IDMA_FL_SEND_FIFO_TO_IMSG",
-+		"IDMA_FL_REQ_DATAFL_DONE",
-+		"IDMA_FL_REQ_HEADERFL_DONE",
-+	};
-+	static const char * const t5_decode[] = {
-+		"IDMA_IDLE",
-+		"IDMA_ALMOST_IDLE",
-+		"IDMA_PUSH_MORE_CPL_FIFO",
-+		"IDMA_PUSH_CPL_MSG_HEADER_TO_FIFO",
-+		"IDMA_SGEFLRFLUSH_SEND_PCIEHDR",
-+		"IDMA_PHYSADDR_SEND_PCIEHDR",
-+		"IDMA_PHYSADDR_SEND_PAYLOAD_FIRST",
-+		"IDMA_PHYSADDR_SEND_PAYLOAD",
-+		"IDMA_SEND_FIFO_TO_IMSG",
-+		"IDMA_FL_REQ_DATA_FL",
-+		"IDMA_FL_DROP",
-+		"IDMA_FL_DROP_SEND_INC",
-+		"IDMA_FL_H_REQ_HEADER_FL",
-+		"IDMA_FL_H_SEND_PCIEHDR",
-+		"IDMA_FL_H_PUSH_CPL_FIFO",
-+		"IDMA_FL_H_SEND_CPL",
-+		"IDMA_FL_H_SEND_IP_HDR_FIRST",
-+		"IDMA_FL_H_SEND_IP_HDR",
-+		"IDMA_FL_H_REQ_NEXT_HEADER_FL",
-+		"IDMA_FL_H_SEND_NEXT_PCIEHDR",
-+		"IDMA_FL_H_SEND_IP_HDR_PADDING",
-+		"IDMA_FL_D_SEND_PCIEHDR",
-+		"IDMA_FL_D_SEND_CPL_AND_IP_HDR",
-+		"IDMA_FL_D_REQ_NEXT_DATA_FL",
-+		"IDMA_FL_SEND_PCIEHDR",
-+		"IDMA_FL_PUSH_CPL_FIFO",
-+		"IDMA_FL_SEND_CPL",
-+		"IDMA_FL_SEND_PAYLOAD_FIRST",
-+		"IDMA_FL_SEND_PAYLOAD",
-+		"IDMA_FL_REQ_NEXT_DATA_FL",
-+		"IDMA_FL_SEND_NEXT_PCIEHDR",
-+		"IDMA_FL_SEND_PADDING",
-+		"IDMA_FL_SEND_COMPLETION_TO_IMSG",
-+	};
-+	static const u32 sge_regs[] = {
-+		SGE_DEBUG_DATA_LOW_INDEX_2,
-+		SGE_DEBUG_DATA_LOW_INDEX_3,
-+		SGE_DEBUG_DATA_HIGH_INDEX_10,
-+	};
-+	const char **sge_idma_decode;
-+	int sge_idma_decode_nstates;
-+	int i;
-+
-+	if (is_t4(adapter->params.chip)) {
-+		sge_idma_decode = (const char **)t4_decode;
-+		sge_idma_decode_nstates = ARRAY_SIZE(t4_decode);
-+	} else {
-+		sge_idma_decode = (const char **)t5_decode;
-+		sge_idma_decode_nstates = ARRAY_SIZE(t5_decode);
-+	}
-+
-+	if (state < sge_idma_decode_nstates)
-+		CH_WARN(adapter, "idma state %s\n", sge_idma_decode[state]);
-+	else
-+		CH_WARN(adapter, "idma state %d unknown\n", state);
-+
-+	for (i = 0; i < ARRAY_SIZE(sge_regs); i++)
-+		CH_WARN(adapter, "SGE register %#x value %#x\n",
-+			sge_regs[i], t4_read_reg(adapter, sge_regs[i]));
-+}
-+
-+/**
-  *      t4_fw_hello - establish communication with FW
-  *      @adap: the adapter
-  *      @mbox: mailbox to use for the FW command
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index 4082522..33cf9ef 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -278,6 +278,9 @@
- #define SGE_DEBUG_INDEX 0x10cc
- #define SGE_DEBUG_DATA_HIGH 0x10d0
- #define SGE_DEBUG_DATA_LOW 0x10d4
-+#define SGE_DEBUG_DATA_LOW_INDEX_2	0x12c8
-+#define SGE_DEBUG_DATA_LOW_INDEX_3	0x12cc
-+#define SGE_DEBUG_DATA_HIGH_INDEX_10	0x12a8
- #define SGE_INGRESS_QUEUES_PER_PAGE_PF 0x10f4
- 
- #define S_HP_INT_THRESH    28
 -- 
 1.7.1
