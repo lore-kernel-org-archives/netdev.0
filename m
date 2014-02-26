@@ -1,38 +1,97 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: shutdown()'s 'how' parameter doesn't seem to be used correctly
-Date: Wed, 26 Feb 2014 08:39:23 -0800
-Message-ID: <1393432763.2316.149.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D0F6CB847@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:45903 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751971AbaBZQjZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 11:39:25 -0500
-Received: by mail-pd0-f169.google.com with SMTP id fp1so100260pdb.28
-        for <netdev@vger.kernel.org>; Wed, 26 Feb 2014 08:39:24 -0800 (PST)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6CB847@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: [PATCH] sh_net: runtime pm wrap mdio read and write
+Date: Wed, 26 Feb 2014 16:48:39 +0000
+Message-ID: <1393433319-22685-1-git-send-email-ben.dooks@codethink.co.uk>
+Cc: linux-sh@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
+	nobuhiro.iwamatsu.yj@renesas.com, magnus.damn@opensource.se,
+	horms@verge.net.au, Ben Dooks <ben.dooks@codethink.co.uk>
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-02-26 at 15:18 +0000, David Laight wrote:
-> AFAICT userspace calls shutdown(sock, how) with 'how' set to one of SHUT_RD (0),
-> SHUT_WR (1) or SHUT_RDWR(2).
-> 
-> The kernel code typically wants the bitmask of RCV_SHUTDOWN (1) | SEND_SHUTDOWN (2).
-> If you look at the af_unix.c unix_shutdown() there is a comment where it
-> add's one in order to do the conversion.
-> 
-> But I can't find the conversion before tcp_shutdown() or sctp_shutdown()
-> checks for 'how & SEND_SHUTDOWN'.
-> Which implies that shutdown(sock, SHUT_WR) doesn't work.
-> 
-> What have I missed?
-> Should I be passing 2 or 3 to a direct call to sock->ops->shutdown()?
-> (We currently pass 2 - which does outward disconnect anyway).
+On the R8A7790, if the device has been suspended by pm_runtime
+and the MII code tries to access the bus then there is a possiblity
+that it will fail to read any data from the MII bus.
 
-Take a look at inet_shutdown()
+Change the MDIO read and write calls to be wrappered by calls to
+pm_runtime_{get,put}_sync so that the device will be enabled during
+these calls. It is put here to avoid having to enable and disable
+the clock for every bit that is sent by the MII bit-banging code.
+
+This has been exposed by the change to using OF and a fix to enable
+the pm_runtime clock management which seems to have been broken for
+some time for the device-tree booted Renesas kernels.
+
+Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
+---
+ drivers/net/ethernet/renesas/sh_eth.c | 39 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 39 insertions(+)
+
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index b92034c..8d1b84e 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -983,6 +983,8 @@ static unsigned long sh_eth_get_edtrr_trns(struct sh_eth_private *mdp)
+ 
+ struct bb_info {
+ 	void (*set_gate)(void *addr);
++        int (*mdio_read)(struct mii_bus *bus, int phy_id, int regnum);
++        int (*mdio_write)(struct mii_bus *bus, int phy_id, int regnum, u16 val);
+ 	struct mdiobb_ctrl ctrl;
+ 	void *addr;
+ 	u32 mmd_msk;/* MMD */
+@@ -1071,6 +1073,38 @@ static struct mdiobb_ops bb_ops = {
+ 	.get_mdio_data = sh_get_mdio,
+ };
+ 
++/* Wrapper to ensure bitbang ops have device runtime-pm enabled */
++
++static inline struct bb_info *mii_to_bitbang(struct mii_bus *bus)
++{
++	struct mdiobb_ctrl *ctrl = bus->priv;
++	return container_of(ctrl, struct bb_info, ctrl);
++}
++
++static int sh_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
++{
++	struct bb_info *bitbang = mii_to_bitbang(bus);
++	int ret;
++
++	pm_runtime_get_sync(bus->dev.parent->parent);
++	ret = bitbang->mdio_read(bus, phy_id, regnum);
++	pm_runtime_put_sync(bus->dev.parent->parent);
++
++	return ret;
++}
++
++static int sh_mdio_write(struct mii_bus *bus, int phy_id, int regnum, u16 val)
++{
++	struct bb_info *bitbang = mii_to_bitbang(bus);
++	int ret;
++
++	pm_runtime_get_sync(bus->dev.parent->parent);
++	ret = bitbang->mdio_write(bus, phy_id, regnum, val);
++	pm_runtime_put_sync(bus->dev.parent->parent);
++
++	return ret;
++}
++
+ /* free skb and descriptor buffer */
+ static void sh_eth_ring_free(struct net_device *ndev)
+ {
+@@ -2639,6 +2673,11 @@ static int sh_mdio_init(struct net_device *ndev, int id,
+ 		goto out;
+ 	}
+ 
++	bitbang->mdio_read = mdp->mii_bus->read;
++	bitbang->mdio_write = mdp->mii_bus->write;
++	mdp->mii_bus->read = sh_mdio_read;
++	mdp->mii_bus->write = sh_mdio_write;
++
+ 	/* Hook up MII support for ethtool */
+ 	mdp->mii_bus->name = "sh_mii";
+ 	mdp->mii_bus->parent = &ndev->dev;
+-- 
+1.8.5.3
+
