@@ -1,8 +1,8 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: [PATCH 7/7] bridge: Support promisc management when
  all ports are non-flooding
-Date: Wed, 26 Feb 2014 17:57:00 +0200
-Message-ID: <20140226155700.GH15330@redhat.com>
+Date: Wed, 26 Feb 2014 18:01:34 +0200
+Message-ID: <20140226160134.GJ15330@redhat.com>
 References: <1393427905-6811-1-git-send-email-vyasevic@redhat.com>
 	<1393427905-6811-8-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
@@ -32,16 +32,6 @@ On Wed, Feb 26, 2014 at 10:18:25AM -0500, Vlad Yasevich wrote:
 > same set of addresses.
 > 
 > Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-
-Here the logic is different be we could sync them,
-just make this a per-port flag and
-scan all ports instead of relying on flood_port.
-This will be slower in the single flooding port
-case but worst case remains the same since
-this patch scans all ports.
-
-What do you think?
-
 > ---
 >  include/linux/netdevice.h |  3 +++
 >  net/bridge/br_fdb.c       | 22 +++++++++++++++++-----
@@ -212,3 +202,7 @@ What do you think?
 >   * between source and destionation of they synch. If you ever need to
 > -- 
 > 1.8.5.3
+
+
+Same comment about core changes here
+Pls CC more people so this gets proper review.
