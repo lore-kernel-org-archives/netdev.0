@@ -1,54 +1,52 @@
-From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-Subject: Re: [PATCH net] sch_tbf: Fix potential memory leak in tbf_change().
-Date: Thu, 27 Feb 2014 07:43:04 +0900
-Message-ID: <20140227074304.38df5ee3530155052b825b88@gmail.com>
-References: <20140226214342.585acf597a84276fc152fc7e@gmail.com>
-	<1393428584.2316.148.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] ixgbevf: fix skb->pkt_type checks
+Date: Wed, 26 Feb 2014 14:44:00 -0800
+Message-ID: <1393454640-19651-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	yangyingliang@huawei.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain
+Cc: <e1000-devel@lists.sourceforge.net>, <aaron.f.brown@intel.com>,
+	<alexander.h.duyck@intel.com>, <jesse.brandeburg@intel.com>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:59463 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750891AbaBZWnH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 17:43:07 -0500
-Received: by mail-pd0-f172.google.com with SMTP id p10so1553714pdj.31
-        for <netdev@vger.kernel.org>; Wed, 26 Feb 2014 14:43:07 -0800 (PST)
-In-Reply-To: <1393428584.2316.148.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:25973 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751140AbaBZWoH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 17:44:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 26 Feb 2014 07:29:44 -0800
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+skb->pkt_type is not a bitmask, but contains only value at a time from
+the range defined in include/uapi/linux/if_packet.h.
 
-> On Wed, 2014-02-26 at 21:43 +0900, Hiroaki SHIMODA wrote:
-> > The allocated child qdisc is not freed in error conditions.
-> > Defer the allocation after user configuration turns out to be
-> > valid and acceptable.
-> > 
-> > Fixes: cc106e4 ("net: sched: tbf: fix the calculation of max_size")
-> 
-> Please prefer/use 12 digits : cc106e441a63b
-> 
-> You can put in your .git/config file :
-> 
-> [core]
-> 	...
-> 	abbrev = 12
-> 	...
+Checking it like if it was a bitmask of values would also cause
+PACKET_OTHERHOST, PACKET_LOOPBACK and PACKET_FASTROUTE to be matched by this
+check since their lower 2 bits are also set, although that does not fix a real
+bug due to how the checks are used, it is still potentially confusing.
 
-Thank you for your kind suggestion.
-I will use 12 digits next time.
+This bogus check was introduced in commit 815cccbf ("ixgbe: add setlink,
+getlink support to ixgbe and ixgbevf").
 
-> > Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-> > Cc: Yang Yingliang <yangyingliang@huawei.com>
-> > ---
-> 
-> Acked-by: Eric Dumazet <edumazet@google.com>
-> 
-> Thanks
-> 
-> 
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index a6af7b7..c6be010 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -516,8 +516,9 @@ static int ixgbevf_clean_rx_irq(struct ixgbevf_q_vector *q_vector,
+ 		/* Workaround hardware that can't do proper VEPA multicast
+ 		 * source pruning.
+ 		 */
+-		if ((skb->pkt_type & (PACKET_BROADCAST | PACKET_MULTICAST)) &&
+-		    ether_addr_equal(rx_ring->netdev->dev_addr,
++		if ((skb->pkt_type == PACKET_BROADCAST ||
++		    skb->pkt_type == PACKET_MULTICAST) &&
++		    ether_addr_equal(adapter->netdev->dev_addr,
+ 				     eth_hdr(skb)->h_source)) {
+ 			dev_kfree_skb_irq(skb);
+ 			goto next_desc;
+-- 
+1.8.3.2
