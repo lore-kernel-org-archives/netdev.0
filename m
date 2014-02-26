@@ -1,116 +1,47 @@
-From: Appana Durga Kedareswara Rao <appana.durga.rao-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Subject: RE: [PATCH v4] can: xilinx CAN controller support.
-Date: Wed, 26 Feb 2014 14:46:43 +0000
-Message-ID: <678ca296-8687-4e7c-9014-ae69d886a068@CO9EHSMHS014.ehs.local>
-References: <74d607e9-ac9c-4a9b-ac49-e84ae49d20c2@TX2EHSMHS031.ehs.local>
- <530D0A9C.5090402@pengutronix.de>
- <cd00fb2d-c8a7-423d-8aa0-2b413e9ac101@CO9EHSMHS017.ehs.local>
- <530DEA7C.6010609@pengutronix.de>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH 1/1] net: tcp: RTO restart
+Date: Wed, 26 Feb 2014 09:57:39 -0500
+Message-ID: <CADVnQyn4Zszpc2eTg0BkJZY0+Y-LBcPHTPTjVS2o8_zZTX31jg@mail.gmail.com>
+References: <20140218181205.GA7780@kau.se>
+	<CAK6E8=ekVXA9JrajwmJk88bUKcJSi=T5+SFXs0VoG5iQkWBcRw@mail.gmail.com>
+	<20140219105041.GA9981@kau.se>
+	<CAK6E8=cQVr_J6YQGT6z0H3R41tBCpD=1BToqYxzYis4wKxqhew@mail.gmail.com>
+	<C8E05F6E-62B4-4B5A-8DE1-3F166F2705CA@kau.se>
+	<CAK6E8=e9LiA32SZ0_jD7woGeJYxzixsw3hQxjZvgyoqpoJSeyg@mail.gmail.com>
+	<CAK6E8=c0JVRjUHRuLBrH0nfbKcK818C0h2tkBeWydP67-osumQ@mail.gmail.com>
+	<D6FBF93A-8057-497F-A39E-DF6211999DC1@kau.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	"wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-	Michal Simek <michals-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	"grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org" <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	"robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <530DEA7C.6010609-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Content-Language: en-US
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Yuchung Cheng <ycheng@google.com>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	=?UTF-8?Q?Anna_Brunstr=C3=B6m?= <anna.brunstrom@kau.se>,
+	Andreas Petlund <apetlund@simula.no>,
+	Michael Welzl <michawe@ifi.uio.no>,
+	=?UTF-8?Q?Ilpo_J=C3=A4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Nandita Dukkipati <nanditad@google.com>
+To: Per Hurtig <per.hurtig@kau.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f50.google.com ([74.125.83.50]:52585 "EHLO
+	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751125AbaBZPEr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 10:04:47 -0500
+Received: by mail-ee0-f50.google.com with SMTP id t10so600716eei.37
+        for <netdev@vger.kernel.org>; Wed, 26 Feb 2014 07:04:46 -0800 (PST)
+In-Reply-To: <D6FBF93A-8057-497F-A39E-DF6211999DC1@kau.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgTWFyYywNCg0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IE1hcmMg
-S2xlaW5lLUJ1ZGRlIFttYWlsdG86bWtsQHBlbmd1dHJvbml4LmRlXQ0KPiBTZW50OiBXZWRuZXNk
-YXksIEZlYnJ1YXJ5IDI2LCAyMDE0IDY6NTIgUE0NCj4gVG86IEFwcGFuYSBEdXJnYSBLZWRhcmVz
-d2FyYSBSYW87IHdnQGdyYW5kZWdnZXIuY29tOyBNaWNoYWwgU2ltZWs7DQo+IGdyYW50Lmxpa2Vs
-eUBsaW5hcm8ub3JnOyByb2JoK2R0QGtlcm5lbC5vcmc7IGxpbnV4LWNhbkB2Z2VyLmtlcm5lbC5v
-cmcNCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LWFybS1rZXJuZWxAbGlzdHMu
-aW5mcmFkZWFkLm9yZzsgbGludXgtDQo+IGtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IGRldmljZXRy
-ZWVAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggdjRdIGNhbjogeGlsaW54
-IENBTiBjb250cm9sbGVyIHN1cHBvcnQuDQo+DQo+IE9uIDAyLzI2LzIwMTQgMDI6MDcgUE0sIEFw
-cGFuYSBEdXJnYSBLZWRhcmVzd2FyYSBSYW8gd3JvdGU6DQo+ID4+IFRoaXMgbG9vcCBsb29rcyBi
-cm9rZW4uIENhbiB5b3UgZXhwbGFpbiBob3cgaXQgd29ya3MuDQo+ID4+DQo+ID4+IFdoYXQgaXQg
-c2hvdWQgZG8gaXM6DQo+ID4+IFdlIGhhdmUgcHV0IChwcml2LT50eF9oZWFkIC0gcHJpdi0+dHhf
-dGFpbCkgQ0FOIGZyYW1lcyBpbnRvIHRoZSBGSUZPLg0KPiA+PiBUaGlzIG1lYW5zIGF0IG1heGlt
-dW0gdGhlcmUgY291bGQgYmUgdGhpcyBhbW91bnQgb2YgQ0FOIGZyYW1lcyB3aGljaA0KPiA+PiBo
-YXZlIGJlZW4gc3VjY2Vzc2Z1bGx5IHRyYW5zbWl0dGVkLiBGb3IgZXZlcnkgY3ljbGUgaW4gdGhp
-cyB3aGlsZQ0KPiA+PiBsb29wIHlvdQ0KPiA+PiBzaG91bGQ6DQo+ID4+IGEpIGNoZWNrIGlmIGEg
-Q0FOIGZyYW1lIGhhcyBzdWNjZXNzZnVsbHkgYmVlbiB0cmFuc21pdHRlZA0KPiA+PiAgICAoYXMg
-dGhpcyBDQU4gY29yZSB1c2VzIGEgRklGTyBpdCBzaG91bGQgYmUgIm9sZGVzdCIpDQo+ID4+ICAg
-IEEgcmVhZF9yZWcoKSBvZiBzb21lIGtpbmQgaXMgbWlzc2luZyBpbiB5b3VyIGxvb3AuDQo+ID4+
-IGIpIGlmIG5lZWRlZCwgcmVtb3ZlIHRoaXMgZXZlbnQgZnJvbSB0aGUgRklGTyBvcg0KPiA+PiAg
-ICBtYXJrIHRoZSBpbnRlcnJ1cHQgYXMgZG9uZS4gV2hhdGV2ZXIgeW91IGhhcmR3YXJlIG5lZWRz
-Lg0KPiA+PiBjKSB1cGRhdGUgeW91ciBzdGF0aXN0aWNzDQo+ID4+IGQpIFVzZSBjYW5fZ2V0X2Vj
-aG9fc2tiIHRvIHB1c2ggdGhpcyBmcmFtZSBpbnRvIHRoZSBuZXR3b3JraW5nIHN0YWNrDQo+ID4+
-IGUpIEFzIGEgQ0FOIGZyYW1lIGhhcyBiZWVuIHRyYW5zbWl0dGVkIHN1Y2Nlc3NmdWxseSwgd2Fr
-ZSB0aGUgdHhfcXVldWUuDQo+ID4+DQo+ID4+PiArICAgd2hpbGUgKHByaXYtPnR4X2hlYWQgLSBw
-cml2LT50eF90YWlsID4gMCkgew0KPiA+Pj4gKyAgICAgICAgICAgaWYgKGlzciAmIFhDQU5fSVhS
-X1RYRkxMX01BU0spIHsNCj4gPj4+ICsgICAgICAgICAgICAgICAgICAgcHJpdi0+d3JpdGVfcmVn
-KHByaXYsIFhDQU5fSUNSX09GRlNFVCwNCj4gPj4+ICsgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgIFhDQU5fSVhSX1RYRkxMX01BU0spOw0KPiA+Pj4gKyAgICAgICAgICAgICAgICAg
-ICBuZXRpZl9zdG9wX3F1ZXVlKG5kZXYpOw0KPiA+Pg0KPiA+PiBXaHkgZG8geW91IHN0b3AgdGhl
-IHF1ZXVlIGhlcmU/IEEgQ0FOIGZyYW1lIGhhcyBzdWNjZXNzZnVsbHkgYmVlbg0KPiA+PiB0cmFu
-c21pdHRlZCwgdGhlcmUgc2hvdWxkIGJlIHJvb20gaW4gdGhlIEZJRk8uDQo+ID4+DQo+ID4+PiAr
-ICAgICAgICAgICAgICAgICAgIGJyZWFrOw0KPiA+Pj4gKyAgICAgICAgICAgfQ0KPiA+Pj4gKyAg
-ICAgICAgICAgY2FuX2dldF9lY2hvX3NrYihuZGV2LCBwcml2LT50eF90YWlsICUNCj4gPj4+ICsg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHByaXYtPnhjYW5fZWNob19za2JfbWF4
-X3R4KTsNCj4gPj4+ICsgICAgICAgICAgIHByaXYtPnR4X3RhaWwrKzsNCj4gPj4+ICsgICB9DQo+
-ID4+PiArDQo+ID4NCj4gPiBUaGUgYmVsb3cgYXJlIHRoZSBiaXQgZmllbGRzIGF2YWlsYWJsZSBm
-b3IgdGhlIFRyYW5zbWl0IEZJRk8uDQo+ID4gMSkgSW4gdGhlIElTUihpbnRlcnJ1cHQgc3RhdHVz
-IHJlZ2lzdGVyKSAgVHggT2sgaW50ZXJydXB0IGFuZCBUeCBmaWZvIGZ1bGwNCj4gaW50ZXJydXB0
-Lg0KPiA+IDIpIGluIHRoZSBTUihTdGF0dXMgUmVnaXN0ZXIpIFR4IGZpZm8gZnVsbCBjb25kaXRp
-b24uDQo+ID4NCj4gPg0KPiA+IEkgYW0gbW9kaWZ5aW5nIHRoZSBlbnRpcmUgdHggaW50ZXJydXB0
-IGxvZ2ljIHRvIGxpa2UgYmVsb3cuDQo+ID4NCj4gPiBzdGF0aWMgdm9pZCB4Y2FuX3R4X2ludGVy
-cnVwdChzdHJ1Y3QgbmV0X2RldmljZSAqbmRldiwgdTMyIGlzcikgew0KPiA+ICAgICAgICAgc3Ry
-dWN0IHhjYW5fcHJpdiAqcHJpdiA9IG5ldGRldl9wcml2KG5kZXYpOw0KPiA+ICAgICAgICAgc3Ry
-dWN0IG5ldF9kZXZpY2Vfc3RhdHMgKnN0YXRzID0gJm5kZXYtPnN0YXRzOw0KPiA+DQo+ID4gICAg
-ICAgICAgICAgd2hpbGUgKHByaXYtPnR4X2hlYWQgLSBwcml2LT50eF90YWlsID4gMCkgew0KPiA+
-ICAgICAgICAgICAgICAgICBpZiAoaXNyICYgWENBTl9JWFJfVFhGTExfTUFTSykgew0KPiA+ICAg
-ICAgICAgICAgICAgICAgICAgICAgIHByaXYtPndyaXRlX3JlZyhwcml2LCBYQ0FOX0lDUl9PRkZT
-RVQsDQo+ID4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFhDQU5fSVhS
-X1RYRkxMX01BU0spOw0KPiA+ICAgICAgICAgICAgICAgICAgICAgICAgICAgYnJlYWs7DQo+ID4g
-ICAgICAgICAgICAgICAgIH0NCj4gPiAgICAgICAgICAgICAgICAgY2FuX2dldF9lY2hvX3NrYihu
-ZGV2LCBwcml2LT50eF90YWlsICUNCj4gPiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgcHJpdi0+eGNhbl9lY2hvX3NrYl9tYXhfdHgpOw0KPiA+ICAgICAgICAgICAgICAg
-ICBwcml2LT50eF90YWlsKys7DQo+ID4gICAgICAgICAgc3RhdHMtPnR4X3BhY2tldHMrKzsNCj4g
-PiAgICAgICAgIG5ldGlmX3dha2VfcXVldWUobmRldik7DQo+ID4gICAgICAgICAgICAgICBjYW5f
-bGVkX2V2ZW50KG5kZXYsIENBTl9MRURfRVZFTlRfVFgpOw0KPiA+DQo+ID4gICAgICAgICB9DQo+
-DQo+IFlvdSBqdXN0IG5lZWQgdG8gd2FrZSB0aGUgcXVldWUgb25jZS4NCg0KT2sNCj4NCj4gPiB9
-DQo+ID4NCj4gPg0KPiA+IEFyZSB5b3UgT2sgd2l0aCB0aGUgYWJvdmUgbG9naWM/DQo+DQo+IE5v
-LCBob3cgY2FuIHlvdSB0ZWxsIGhvdyBtYW55IGZyYW1lcyBoYXZlIGJlZW4gdHJhbnNtaXR0ZWQ/
-DQoNClRoZXJlIGlzIG5vIHJlZ2lzdGVyIHRvIHJlYWQgaG93IG1hbnkgY2FuIGZyYW1lcyBhcmUg
-dHJhbnNtaXR0ZWQuDQpUaGUgb25seSB3YXkgdG8ga25vdyBJcyBieSByZWFkaW5nIHRoaXMgcGFy
-YW1ldGVyIChzdGF0cy0+dHhfcGFja2V0cysrOykgdGhyb3VnaCBpcCBjb21tYW5kDQppcCAtZCAt
-cyBsaW5rIHNob3cgY2FuDQpPciB1c2luZyBpZmNvbmZpZyBjb21tYW5kLg0KDQpBdCB0aGUgaC93
-IGxldmVsIGl0IGNhbiB0cmFuc21pdCBNYXggdXB0byA2NCBwYWNrZXRzIChNYXggZmlmbyBkZXB0
-aCkNCldlIG5lZWQgdG8gbW9uaXRvciB0aGUgVHggZmlmbyBmdWxsIGJpdCBpbiB0aGUgSVNSKElu
-dGVycnVwdCBTdGF0dXMgUmVnaXN0ZXIpICBvciBUeCBmaWZvIGZ1bGwgYml0IGluIHRoZSBTUihT
-dGF0dXMgUmVnaXN0ZXIpIGFuZCBpZiBpdCBpcyBmdWxsIHdlIG5lZWQgdG8gc3RvcCB0aGUgcXVl
-dWUgdGhhdCBpcw0KSSBhbSBkb2luZyBpbiB0aGUgX3htaXQgYnkgcmVhZGluZyB0aGUgc3RhdHVz
-IHJlZ2lzdGVyIGJlZm9yZSBwcm9jZWVkaW5nIHRoZSAgIHBhY2tldCB0cmFuc21pc3Npb24uDQoN
-ClJlZ2FyZHMsDQpLZWRhci4NCg0KDQo+DQo+IE1hcmMNCj4NCj4gLS0NCj4gUGVuZ3V0cm9uaXgg
-ZS5LLiAgICAgICAgICAgICAgICAgIHwgTWFyYyBLbGVpbmUtQnVkZGUgICAgICAgICAgIHwNCj4g
-SW5kdXN0cmlhbCBMaW51eCBTb2x1dGlvbnMgICAgICAgIHwgUGhvbmU6ICs0OS0yMzEtMjgyNi05
-MjQgICAgIHwNCj4gVmVydHJldHVuZyBXZXN0L0RvcnRtdW5kICAgICAgICAgIHwgRmF4OiAgICs0
-OS01MTIxLTIwNjkxNy01NTU1IHwNCj4gQW10c2dlcmljaHQgSGlsZGVzaGVpbSwgSFJBIDI2ODYg
-IHwgaHR0cDovL3d3dy5wZW5ndXRyb25peC5kZSAgIHwNCg0KDQoNClRoaXMgZW1haWwgYW5kIGFu
-eSBhdHRhY2htZW50cyBhcmUgaW50ZW5kZWQgZm9yIHRoZSBzb2xlIHVzZSBvZiB0aGUgbmFtZWQg
-cmVjaXBpZW50KHMpIGFuZCBjb250YWluKHMpIGNvbmZpZGVudGlhbCBpbmZvcm1hdGlvbiB0aGF0
-IG1heSBiZSBwcm9wcmlldGFyeSwgcHJpdmlsZWdlZCBvciBjb3B5cmlnaHRlZCB1bmRlciBhcHBs
-aWNhYmxlIGxhdy4gSWYgeW91IGFyZSBub3QgdGhlIGludGVuZGVkIHJlY2lwaWVudCwgZG8gbm90
-IHJlYWQsIGNvcHksIG9yIGZvcndhcmQgdGhpcyBlbWFpbCBtZXNzYWdlIG9yIGFueSBhdHRhY2ht
-ZW50cy4gRGVsZXRlIHRoaXMgZW1haWwgbWVzc2FnZSBhbmQgYW55IGF0dGFjaG1lbnRzIGltbWVk
-aWF0ZWx5Lg0KDQoKCg==
+On Wed, Feb 26, 2014 at 4:50 AM, Per Hurtig <per.hurtig@kau.se> wrote:
+> Also, as your setup includes TLP we only have the RTO restart over TLP gain to start
+> with.
 
+My gut says the next thing to try is applying the "RTO restart" idea
+to the scheduling of the TLP probe (scheduling the TLP probe for
+write_queue_head_skb->when + tlp_timeout). Doing an RTO earlier can be
+a very bad thing, due to reseting the cwnd to 1. But doing a TLP
+earlier does not have much downside, and could have significant
+latency savings (though maybe Nandita already tried this at some
+point)...
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+neal
