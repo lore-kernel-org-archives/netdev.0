@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] AX88179_178A: Add VID:DID for Lenovo OneLinkDock
- Gigabit LAN
-Date: Wed, 26 Feb 2014 15:48:01 -0500 (EST)
-Message-ID: <20140226.154801.1466276966991949680.davem@davemloft.net>
-References: <1393404871-2248-1-git-send-email-freddy@asix.com.tw>
-	<87zjle6pif.fsf@nemi.mork.no>
+Subject: Re: [PATCH] MAINTAINERS: Intel nic drivers
+Date: Wed, 26 Feb 2014 15:50:24 -0500 (EST)
+Message-ID: <20140226.155024.719059614598164102.davem@davemloft.net>
+References: <1393364153.8716.63.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: freddy@asix.com.tw, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
-To: bjorn@mork.no
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: joe@perches.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87zjle6pif.fsf@nemi.mork.no>
+In-Reply-To: <1393364153.8716.63.camel@joe-AO722>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Wed, 26 Feb 2014 13:13:12 +0100
+From: Joe Perches <joe@perches.com>
+Date: Tue, 25 Feb 2014 13:35:53 -0800
 
-> freddy@asix.com.tw writes:
->=20
->> From: Freddy Xin <freddy@asix.com.tw>
->>
->> Add VID:DID for Lenovo OneLinkDock Gigabit LAN
->=20
-> This is the same patch Keith Packard sent, but with a slighly differe=
-nt
-> description.  I take that as another proof that we should not attempt=
- to
-> describe devices in these drivers.  Describe the driver instead.
+> Add a new F: line for the intel subdirectories.
+> 
+> This allows get_maintainers to avoid using git log
+> and cc'ing people that have submitted clean-up style
+> patches for all first level directories under
+> drivers/net/ethernet/intel/
+> 
+> This does not make e100.c maintained.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Are you saying that this patch needs to be implemented differently?
+Applied, thanks Joe.
