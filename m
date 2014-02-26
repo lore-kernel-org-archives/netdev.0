@@ -1,54 +1,57 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: phy: add suspend_halted module param
-Date: Wed, 26 Feb 2014 11:35:09 -0800
-Message-ID: <CAGVrzcb5k1JUPo0kvMdPJLCkWHb9qfHfDif08ud5ydKiKBwdHQ@mail.gmail.com>
-References: <1393174719-20806-1-git-send-email-sebastian.hesselbarth@gmail.com>
- <20140224191554.GC29288@lunn.ch> <530D1B7C.2090506@gmail.com>
- <20140226182117.GB14907@lunn.ch> <CAGVrzcYUfq84ryVET9qNJvyFCnhFdU4c0fOHbNN4eE8_w6qsAQ@mail.gmail.com>
- <20140226191009.GC14907@lunn.ch>
+From: Nandita Dukkipati <nanditad@google.com>
+Subject: Re: [PATCH 1/1] net: tcp: RTO restart
+Date: Wed, 26 Feb 2014 11:52:49 -0800
+Message-ID: <CAB_+Fg6aJ66zp0VUK4r+AxV2icskww+rHsvv05Ug=6tU=Zbyhg@mail.gmail.com>
+References: <20140218181205.GA7780@kau.se>
+	<CAK6E8=ekVXA9JrajwmJk88bUKcJSi=T5+SFXs0VoG5iQkWBcRw@mail.gmail.com>
+	<20140219105041.GA9981@kau.se>
+	<CAK6E8=cQVr_J6YQGT6z0H3R41tBCpD=1BToqYxzYis4wKxqhew@mail.gmail.com>
+	<C8E05F6E-62B4-4B5A-8DE1-3F166F2705CA@kau.se>
+	<CAK6E8=e9LiA32SZ0_jD7woGeJYxzixsw3hQxjZvgyoqpoJSeyg@mail.gmail.com>
+	<CAK6E8=c0JVRjUHRuLBrH0nfbKcK818C0h2tkBeWydP67-osumQ@mail.gmail.com>
+	<D6FBF93A-8057-497F-A39E-DF6211999DC1@kau.se>
+	<CADVnQyn4Zszpc2eTg0BkJZY0+Y-LBcPHTPTjVS2o8_zZTX31jg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+Cc: Per Hurtig <per.hurtig@kau.se>, Yuchung Cheng <ycheng@google.com>,
+	netdev <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140226191009.GC14907@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Eric Dumazet <edumazet@google.com>,
+	=?UTF-8?Q?Anna_Brunstr=C3=B6m?= <anna.brunstrom@kau.se>,
+	Andreas Petlund <apetlund@simula.no>,
+	Michael Welzl <michawe@ifi.uio.no>,
+	=?UTF-8?Q?Ilpo_J=C3=A4rvinen?= <ilpo.jarvinen@helsinki.fi>
+To: Neal Cardwell <ncardwell@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f50.google.com ([209.85.219.50]:37016 "EHLO
+	mail-oa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753736AbaBZTwt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 14:52:49 -0500
+Received: by mail-oa0-f50.google.com with SMTP id i11so1390651oag.23
+        for <netdev@vger.kernel.org>; Wed, 26 Feb 2014 11:52:49 -0800 (PST)
+In-Reply-To: <CADVnQyn4Zszpc2eTg0BkJZY0+Y-LBcPHTPTjVS2o8_zZTX31jg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2014-02-26 11:10 GMT-08:00 Andrew Lunn <andrew@lunn.ch>:
->> > As to the comment from davem about not using a kernel parameter. How
->> > about turning it all around. Put a boolean parameter into DT PHY node
->> > to indicate when it is safe to power down an idle phy?
->>
->> Ah ah, nice try, but I do not think this belongs in DT, this is purely
->> a software issue here, powering up/down the PHY itself works as
->> expected.
->>
->> How about we have this knob a sysfs parameter? This should be easy
->> enough to tweak at runtime and debug in case thing go wrong.
+On Wed, Feb 26, 2014 at 6:57 AM, Neal Cardwell <ncardwell@google.com> wrote:
+> On Wed, Feb 26, 2014 at 4:50 AM, Per Hurtig <per.hurtig@kau.se> wrote:
+>> Also, as your setup includes TLP we only have the RTO restart over TLP gain to start
+>> with.
 >
-> With a kernel parameter i can place it into the bootargs of the chosen
-> node in DT. Solves the problem for everybody with a QNAP box. Same
-> goes for topkick and any other board which has a broken u-boot. A
-> sysfs parameter needs setting from user space, so it is not something
-> we can solve within the kernel.
+> My gut says the next thing to try is applying the "RTO restart" idea
+> to the scheduling of the TLP probe (scheduling the TLP probe for
+> write_queue_head_skb->when + tlp_timeout). Doing an RTO earlier can be
+> a very bad thing, due to reseting the cwnd to 1. But doing a TLP
+> earlier does not have much downside, and could have significant
+> latency savings (though maybe Nandita already tried this at some
+> point)...
 
-David objected to a module parameter, a kernel parameter is not too
-different right?
++1 for applying RTO restart idea to scheduling a TLP. The thinking
+with TLP at that time, was to send a probe approximately 1.5RTT after
+the last "event" (which could be the transmit of a data packet or
+receipt of an ACK). I did not try scheduling at
+write_queue_head_skb->when + tlp_timeout, but I think it's worth an
+experiment (may increase spurious TLPs by some amount which may be
+OK).
 
-The only case we need to handle is when the interface is brought down,
-suspend_halted=true will also power down the PHY, you reboot into
-u-boot, and you attempt a network boot right after that, in that case
-the PHY interface is still powered down and this does not work.
-
-That could be worked around by putting the interface up again before
-you reboot into u-boot right, that specific logic being gated by
-reading the board model. Agreed, you need to duplicate that workaround
-in all affected user-space....
--- 
-Florian
+Nandita
