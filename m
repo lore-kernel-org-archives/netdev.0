@@ -1,53 +1,106 @@
-From: "SWITZERLAND SCHOLARSHIP" <geneve.universite@laposte.net>
-Subject: Offre de Bourse Suisse
-Date: Wed, 26 Feb 2014 18:49:49 +0100 (CET)
-Message-ID: <6aeb5cf34ee69dd078e33fdd27265a73.squirrel@webmail.register.it>
-Reply-To: cfbelavis_suisse@hotmail.fr
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: Deliver skbs to intermediate interfaces, when using cascaded
+ rx-handlers
+Date: Wed, 26 Feb 2014 15:18:57 -0300
+Message-ID: <20140226181857.GA7943@t520>
+References: <20140221100158.GA19594@gmail.com>
+ <20140221171034.GA2488@localhost.localdomain>
+ <20140224072223.GA20295@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: recipient list not shown:;
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Tobias Waldekranz <tobias@waldekranz.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hostingsmtp12.register.it ([81.88.50.239]:28678 "EHLO
-	hostingsmtp.register.it" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752417AbaBZR7j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 12:59:39 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:17644 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750813AbaBZSTA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Feb 2014 13:19:00 -0500
+Content-Disposition: inline
+In-Reply-To: <20140224072223.GA20295@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Feb 24, 2014 at 08:22:23AM +0100, Tobias Waldekranz wrote:
+> On Fri, Feb 21, 2014 at 02:10:35PM -0300, Flavio Leitner wrote:
+> > On Fri, Feb 21, 2014 at 11:01:58AM +0100, Tobias Waldekranz wrote:
+> > > I have a system with the following configuration:
+> > > 
+> > >    * eth0 is a regular Ethernet MAC, connected to a hardware switch.
+> > >    * port[1-4] are the in-kernel representation of the switch.
+> > >    * team0 is a regular team-interface which bonds port1 and port2.
+> > > 
+> > >       +-------+
+> > >       | team0 |
+> > >       +---+---+
+> > >           |
+> > >      +----+----+
+> > >      |         |
+> > >  +---+---+ +---+---+ +-------+ +-------+
+> > >  | port1 | | port2 | | port3 | | port4 | 
+> > >  +---+---+ +---+---+ +---+---+ +---+---+
+> > >      |         |         |         |
+> > >      +---------+----+----+---------+
+> > >                     |
+> > >                 +---+---+
+> > >                 | eth0  |
+> > >                 +-------+
+> > > 
+> > > Both the switch and the team driver attaches rx-handlers to their
+> > > lower layers. The problem is that team expects LACP frames that
+> > > are intercepted by team0, to also be delivered to the port interface
+> > > by __netif_receive_skb_core (in the final iteration of the registered
+> > > protocols). However in this case, when two rx-handlers are cascaded,
+> > > the skb will be delivered to eth0, since that is the original device
+> > > (orig_dev).
+> > 
+> > Indeed. It is not possible to update orig_dev, so it is stuck
+> > on eth0 regardless of all the stacked interfaces.
+> > 
+> > > There are a few ways this can be solved as far as i can see:
+> > > 
+> > >    1. Introduce a new rx-handler return code that specifies that
+> > >    skb->dev has been altered, like RX_HANDLER_ANOTHER, and that we
+> > >    also want to change orig_dev to this new device.
+> > 
+> > But then you need to know which rx-handler will run next, because
+> > the orig_dev might still be implicit wanted.
+> 
+> The next rx-handler is resolved by looking at skb->dev->rx_handler, so
+> that shouldn't be a problem. Or am I missing something?
+
+Yes, but all rx_handlers assume that orig_dev is intact and will be
+delivered at the end. That will change with this solution and I don't
+know if it can break any rx-handler.
 
 
+> > >    2. Change the switch driver to return RX_HANDLER_CONSUMED and then
+> > >    queue the skb all over again, though I am afraid that this will eat
+> > >    some cycles.
+> > 
+> > Before queue again, you need to update skb->dev, right? This seems
+> > similar to (1).
+> 
+> Exactly. It is very similar. The difference is that I would have to
+> call netif_rx and go through a lot of code again, instead of taking
+> the fast path via the another_round-loop in __netif_receive_skb_core.
 
-PAR L'INTERM=C9DIAIRE DE LA COMMISSION F=C9D=C9RALE DES BOURSES =C9TRAN=
-G=C8RES
-(CFBE-SUISSE), LE SECR=C9TARIAT D'=C9TAT A L'=C9TUDE ET A LA RECHERCHE =
-DE LA
-CONF=C9D=C9RATION LANCE UN APPEL A LA CANDIDATURE POUR 600 BOURSES D'=C9=
-TUDES
-SUISSE AU TITRE DE L'ANN=C9E ACAD=C9MIQUE 2014-2015. CES BOURSES SONT
-DESTIN=C9ES AUX RESSORTISSANTS DES PAYS DE LA CAT=C9GORIE A (PAYS
-INDUSTRIALISES EUROP=C9ENS, ET EXTRA-EUROP=C9ENS) ET CEUX DES PAYS DE L=
-A
-CAT=C9GORIE B ( PAYS EN DU  D=C9VELOPPEMENT, DU TIERS MONDE ET EXTRA
--EUROP=C9ENS). ELLES DOIVENT LEUR PERMETTRE DE  POURSUIVRE LEURS =C9TUD=
-ES, DE
-PARFAIRE LEURS CONNAISSANCES POUR LES TRAVAUX DE RECHERCHES DANS LES
-DOMAINES AUXQUELS LES UNIVERSIT=C9S LONDRES ACCORDENT UNE ATTENTION
-PARTICULI=C8RE.
+Right.
 
-- AVOIR AU MAXIMUM 16 ANS a 55 ANS ;
-- COMPRENDRE ET PARLER CORRECTEMENT L'UNE DES LANGUES D'ENSEIGNEMENT EN
-SUISSE (FRAN=C7AIS, ESPAGNOL, ALLEMAND, ANGLAIS, ITALIE) ;
-- AVOIR UN DIPL=D4ME =C9QUIVALENT AU BREVET D' =C9TUDE DE PREMIER CYCLE
-D'ENSEIGNEMENT, AU BACCALAUR=C9AT OU AU BREVET D'APTITUDE PROFESSIONNEL=
-LE
+> > >    3. Keep track of all traversed interfaces and change the final
+> > >    protocol iteration to deliver the skb to all intermediate devices.
+> > 
+> > That's what I thought too.
+> 
+> Ok, so if I provide such a patch, you think it would have a good
+> chance of getting accepted?
 
-LES CANDIDATS RETENUS RECEVRONT UNE ATTESTATION DU SECR=C9TARIAT D=C9TA=
-T A
-L=C9TUDE ET A LA RECHERCHE POUR NOTIFICATION DE LA BOURSE. LES
-CANDIDATS D=C9SIREUX DE PARTICIPER AUX BOURSES D=C9TUDES 2014 - 2015
-DOIVENT RETIRER LEUR FORMULAIRE A REMPLIR AUPR=C8S DE LA CFBEL: A LEUR
-ADRESSE =C9MAIL: direction.boursesuisse@laposte.net
+Well, the final word comes from David and certainly you will need
+to justify why fixing DSA isn't enough.
 
-LA DATE LIMITE DE D=C9P=D4T DES DOSSIERS EST D'UNE SEMAINE.
+> What are the performance implications of deliver_skb-ing the packet to
+> each intermediate layer? Considering that most of those packets will
+> probably not be of interest to anyone.
+
+Good question.
+
+fbl
