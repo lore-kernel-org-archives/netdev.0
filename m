@@ -1,98 +1,173 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 05/31] cxgb4: use spinlock_irqsave/spinlock_irqrestore for db lock.
-Date: Wed, 26 Feb 2014 20:36:44 +0530
-Message-ID: <1393427230-14532-6-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 03/31] cxgb4: Rectify emitting messages about SGE Ingress DMA channels being potentially stuck
+Date: Wed, 26 Feb 2014 20:36:42 +0530
+Message-ID: <1393427230-14532-4-git-send-email-hariprasad@chelsio.com>
 References: <1393427230-14532-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com, kumaras@chelsio.com,
 	dm@chelsio.com, swise@opengridcomputing.com, leedom@chelsio.com,
 	santosh@chelsio.com, hariprasad@chelsio.com, nirranjan@chelsio.com
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:25142 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:21772 "EHLO
 	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751497AbaBZPIg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 10:08:36 -0500
+	by vger.kernel.org with ESMTP id S1753173AbaBZPIY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 10:08:24 -0500
 In-Reply-To: <1393427230-14532-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Kumar Sanghvi <kumaras@chelsio.com>
 
-Currently ring_tx_db() can deadlock if a db_full interrupt fires and is
-run on the same while ring_tx_db() has the db lock held.  It needs to
-disable interrupts since it serializes with an interrupt handler.
-
-Based on original work by Steve Wise <swise@opengridcomputing.com>
+Based on original work by Casey Leedom <leedom@chelsio.com>
 
 Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   11 +++++++----
- drivers/net/ethernet/chelsio/cxgb4/sge.c        |    5 +++--
- 2 files changed, 10 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h |    9 ++-
+ drivers/net/ethernet/chelsio/cxgb4/sge.c   |   91 ++++++++++++++++++++++------
+ 2 files changed, 80 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 4660f55..61825f5 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -3585,9 +3585,11 @@ static void disable_txq_db(struct sge_txq *q)
- 
- static void enable_txq_db(struct sge_txq *q)
- {
--	spin_lock_irq(&q->db_lock);
-+	unsigned long flags;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index 509c976..50abe1d 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -556,8 +556,13 @@ struct sge {
+ 	u32 pktshift;               /* padding between CPL & packet data */
+ 	u32 fl_align;               /* response queue message alignment */
+ 	u32 fl_starve_thres;        /* Free List starvation threshold */
+-	unsigned int starve_thres;
+-	u8 idma_state[2];
 +
-+	spin_lock_irqsave(&q->db_lock, flags);
- 	q->db_disabled = 0;
--	spin_unlock_irq(&q->db_lock);
-+	spin_unlock_irqrestore(&q->db_lock, flags);
- }
- 
- static void disable_dbs(struct adapter *adap)
-@@ -3617,9 +3619,10 @@ static void enable_dbs(struct adapter *adap)
- static void sync_txq_pidx(struct adapter *adap, struct sge_txq *q)
- {
- 	u16 hw_pidx, hw_cidx;
-+	unsigned long flags;
- 	int ret;
- 
--	spin_lock_bh(&q->db_lock);
-+	spin_lock_irqsave(&q->db_lock, flags);
- 	ret = read_eq_indices(adap, (u16)q->cntxt_id, &hw_pidx, &hw_cidx);
- 	if (ret)
- 		goto out;
-@@ -3636,7 +3639,7 @@ static void sync_txq_pidx(struct adapter *adap, struct sge_txq *q)
- 	}
- out:
- 	q->db_disabled = 0;
--	spin_unlock_bh(&q->db_lock);
-+	spin_unlock_irqrestore(&q->db_lock, flags);
- 	if (ret)
- 		CH_WARN(adap, "DB drop recovery failed.\n");
- }
++	/* State variables for detecting an SGE Ingress DMA hang */
++	unsigned int idma_1s_thresh;/* SGE same State Counter 1s threshold */
++	unsigned int idma_stalled[2];/* SGE synthesized stalled timers in HZ */
++	unsigned int idma_state[2]; /* SGE IDMA Hang detect state */
++	unsigned int idma_qid[2];   /* SGE IDMA Hung Ingress Queue ID */
++
+ 	unsigned int egr_start;
+ 	unsigned int ingr_start;
+ 	void *egr_map[MAX_EGRQ];    /* qid->queue egress queue map */
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index e0376cd..392baee 100644
+index 3a2ecd8..809ab60 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -860,9 +860,10 @@ static void cxgb_pio_copy(u64 __iomem *dst, u64 *src)
- static inline void ring_tx_db(struct adapter *adap, struct sge_txq *q, int n)
+@@ -93,6 +93,16 @@
+  */
+ #define TX_QCHECK_PERIOD (HZ / 2)
+ 
++/* SGE Hung Ingress DMA Threshold Warning time (in Hz) and Warning Repeat Rate
++ * (in RX_QCHECK_PERIOD multiples).  If we find one of the SGE Ingress DMA
++ * State Machines in the same state for this amount of time (in HZ) then we'll
++ * issue a warning about a potential hang.  We'll repeat the warning as the
++ * SGE Ingress DMA Channel appears to be hung every N RX_QCHECK_PERIODs till
++ * the situation clears.  If the situation clears, we'll note that as well.
++ */
++#define SGE_IDMA_WARN_THRESH (1 * HZ)
++#define SGE_IDMA_WARN_REPEAT (20 * RX_QCHECK_PERIOD)
++
+ /*
+  * Max number of Tx descriptors to be reclaimed by the Tx timer.
+  */
+@@ -2008,7 +2018,7 @@ irq_handler_t t4_intr_handler(struct adapter *adap)
+ static void sge_rx_timer_cb(unsigned long data)
  {
- 	unsigned int *wr, index;
-+	unsigned long flags;
+ 	unsigned long m;
+-	unsigned int i, cnt[2];
++	unsigned int i, idma_same_state_cnt[2];
+ 	struct adapter *adap = (struct adapter *)data;
+ 	struct sge *s = &adap->sge;
  
- 	wmb();            /* write descriptors before telling HW */
--	spin_lock(&q->db_lock);
-+	spin_lock_irqsave(&q->db_lock, flags);
- 	if (!q->db_disabled) {
- 		if (is_t4(adap->params.chip)) {
- 			t4_write_reg(adap, MYPF_REG(SGE_PF_KDOORBELL),
-@@ -880,7 +881,7 @@ static inline void ring_tx_db(struct adapter *adap, struct sge_txq *q, int n)
+@@ -2031,21 +2041,65 @@ static void sge_rx_timer_cb(unsigned long data)
  		}
- 	}
- 	q->db_pidx = q->pidx;
--	spin_unlock(&q->db_lock);
-+	spin_unlock_irqrestore(&q->db_lock, flags);
- }
  
- /**
+ 	t4_write_reg(adap, SGE_DEBUG_INDEX, 13);
+-	cnt[0] = t4_read_reg(adap, SGE_DEBUG_DATA_HIGH);
+-	cnt[1] = t4_read_reg(adap, SGE_DEBUG_DATA_LOW);
+-
+-	for (i = 0; i < 2; i++)
+-		if (cnt[i] >= s->starve_thres) {
+-			if (s->idma_state[i] || cnt[i] == 0xffffffff)
+-				continue;
+-			s->idma_state[i] = 1;
+-			t4_write_reg(adap, SGE_DEBUG_INDEX, 11);
+-			m = t4_read_reg(adap, SGE_DEBUG_DATA_LOW) >> (i * 16);
+-			dev_warn(adap->pdev_dev,
+-				 "SGE idma%u starvation detected for "
+-				 "queue %lu\n", i, m & 0xffff);
+-		} else if (s->idma_state[i])
+-			s->idma_state[i] = 0;
++	idma_same_state_cnt[0] = t4_read_reg(adap, SGE_DEBUG_DATA_HIGH);
++	idma_same_state_cnt[1] = t4_read_reg(adap, SGE_DEBUG_DATA_LOW);
++
++	for (i = 0; i < 2; i++) {
++		u32 debug0, debug11;
++
++		/* If the Ingress DMA Same State Counter ("timer") is less
++		 * than 1s, then we can reset our synthesized Stall Timer and
++		 * continue.  If we have previously emitted warnings about a
++		 * potential stalled Ingress Queue, issue a note indicating
++		 * that the Ingress Queue has resumed forward progress.
++		 */
++		if (idma_same_state_cnt[i] < s->idma_1s_thresh) {
++			if (s->idma_stalled[i] >= SGE_IDMA_WARN_THRESH)
++				CH_WARN(adap, "SGE idma%d, queue%u,resumed after %d sec",
++					i, s->idma_qid[i],
++					s->idma_stalled[i]/HZ);
++			s->idma_stalled[i] = 0;
++			continue;
++		}
++
++		/* Synthesize an SGE Ingress DMA Same State Timer in the Hz
++		 * domain.  The first time we get here it'll be because we
++		 * passed the 1s Threshold; each additional time it'll be
++		 * because the RX Timer Callback is being fired on its regular
++		 * schedule.
++		 *
++		 * If the stall is below our Potential Hung Ingress Queue
++		 * Warning Threshold, continue.
++		 */
++		if (s->idma_stalled[i] == 0)
++			s->idma_stalled[i] = HZ;
++		else
++			s->idma_stalled[i] += RX_QCHECK_PERIOD;
++
++		if (s->idma_stalled[i] < SGE_IDMA_WARN_THRESH)
++			continue;
++
++		/* We'll issue a warning every SGE_IDMA_WARN_REPEAT Hz */
++		if (((s->idma_stalled[i] - HZ) % SGE_IDMA_WARN_REPEAT) != 0)
++			continue;
++
++		/* Read and save the SGE IDMA State and Queue ID information.
++		 * We do this every time in case it changes across time ...
++		 */
++		t4_write_reg(adap, SGE_DEBUG_INDEX, 0);
++		debug0 = t4_read_reg(adap, SGE_DEBUG_DATA_LOW);
++		s->idma_state[i] = (debug0 >> (i * 9)) & 0x3f;
++
++		t4_write_reg(adap, SGE_DEBUG_INDEX, 11);
++		debug11 = t4_read_reg(adap, SGE_DEBUG_DATA_LOW);
++		s->idma_qid[i] = (debug11 >> (i * 16)) & 0xffff;
++
++		CH_WARN(adap, "SGE idma%u, queue%u, maybe stuck state%u %dsecs"
++			" (debug0=%#x, debug11=%#x)\n",
++			i, s->idma_qid[i], s->idma_state[i],
++			s->idma_stalled[i]/HZ, debug0, debug11);
++		t4_sge_decode_idma_state(adap, s->idma_state[i]);
++	}
+ 
+ 	mod_timer(&s->rx_timer, jiffies + RX_QCHECK_PERIOD);
+ }
+@@ -2756,8 +2810,9 @@ int t4_sge_init(struct adapter *adap)
+ 
+ 	setup_timer(&s->rx_timer, sge_rx_timer_cb, (unsigned long)adap);
+ 	setup_timer(&s->tx_timer, sge_tx_timer_cb, (unsigned long)adap);
+-	s->starve_thres = core_ticks_per_usec(adap) * 1000000;  /* 1 s */
+-	s->idma_state[0] = s->idma_state[1] = 0;
++	s->idma_1s_thresh = core_ticks_per_usec(adap) * 1000000;  /* 1 s */
++	s->idma_stalled[0] = 0;
++	s->idma_stalled[1] = 0;
+ 	spin_lock_init(&s->intrq_lock);
+ 
+ 	return 0;
 -- 
 1.7.1
