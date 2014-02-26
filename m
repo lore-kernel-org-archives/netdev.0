@@ -1,60 +1,45 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH 3/7] bridge: Add addresses from static fdbs to
- bridge address list
-Date: Wed, 26 Feb 2014 12:35:08 -0500
-Message-ID: <530E25CC.6010705@redhat.com>
-References: <1393427905-6811-1-git-send-email-vyasevic@redhat.com>	<1393427905-6811-4-git-send-email-vyasevic@redhat.com>
-	<20140226085707.55bdab94@nehalam.linuxnetplumber.net>
-Reply-To: vyasevic@redhat.com
+From: Jens Axboe <axboe@kernel.dk>
+Subject: Re: [PATCH 00/16] sleep_on removal, second try
+Date: Wed, 26 Feb 2014 09:36:40 -0800
+Message-ID: <20140226173640.GA11990@kernel.dk>
+References: <1393412516-3762435-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	jhs@mojatatu.com, john.r.fastabend@intel.com, shemminger@vyatta.com
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140226085707.55bdab94@nehalam.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Ingo Molnar <mingo@kernel.org>,
+	"James E.J. Bottomley" <JBottomley@parallels.com>,
+	Karsten Keil <isdn@linux-pingi.de>,
+	Mauro Carvalho Chehab <m.chehab@samsung.com>,
+	Michael Schmitz <schmitz@biophys.uni-duesseldorf.de>,
+	Peter Zijlstra <peterz@infradead.org>,
+	linux-atm-general@lists.sourceforge.net,
+	linux-media@vger.kernel.org, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1393412516-3762435-1-git-send-email-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/26/2014 11:57 AM, Stephen Hemminger wrote:
-> On Wed, 26 Feb 2014 10:18:21 -0500
-> Vlad Yasevich <vyasevic@redhat.com> wrote:
+On Wed, Feb 26 2014, Arnd Bergmann wrote:
+> It's been a while since the first submission of these patches,
+> but a lot of them have made it into linux-next already, so here
+> is the stuff that is not merged yet, hopefully addressing all
+> the comments.
 > 
->> When a static fdb entry is created, add the mac address to the bridge
->> address list.  This list is used to program the proper port's
->> address list.
->>
->> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> Geert and Michael: the I was expecting the ataflop and atari_scsi
+> patches to be merged already, based on earlier discussion.
+> Can you apply them to the linux-m68k tree, or do you prefer
+> them to go through the scsi and block maintainers?
 > 
-> I don't like this level of bookkeeping it starts to mix
-> layers between the bridge network interface as entity for talking to the
-> local host, and forwarding table entries.
+> Jens: I did not get any comments for the DAC960 and swim3 patches,
+> I assume they are good to go in. Please merge.
 
-Actually this is one of the reasons this isn't done through the
-br->dev->uc.  Forwarding table entries are still per-port.
+Picked up 1, 3, 4 of the patches. Thanks Arnd.
 
-> 
-> Many times static entries are used as alternative to flooding in
-> environments which don't trust STP.
-
-Ok, and how would this be problematic?  If one wants to turn off
-promisc in this environment, then receive filters needs to be properly
-programmed.
-
-> 
-> Plus, it looks like another major source of bugs.
-> 
-
-Any new code is a potential source of issues.  Are you saying
-No to any new code in bridge?
-
--vlad
+-- 
+Jens Axboe
