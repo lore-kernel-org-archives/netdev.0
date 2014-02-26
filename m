@@ -1,45 +1,86 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: RTL8153 fails to get link after applying c7de7dec2 to 3.8 kernel
-Date: Wed, 26 Feb 2014 18:13:00 +0800
-Message-ID: <6055EBDEF51C4CDDBE25766ED5CACA67@realtek.com.tw>
-References: <CANEJEGtzUF+rdSqgTHL0BmsDbCeoWki=aAWZwSx-dZ24jQ=nVg@mail.gmail.com><B88F103D217C4AF0B5D7AD58214655C6@realtek.com.tw><CANEJEGtvY1v0AC7j+uo7-ZzN9YMOaE9JOtismt0ESxpVWkvHyQ@mail.gmail.com><6929A44AB95D46C6B919DDD537CDD37B@realtek.com.tw><CANEJEGtj5b6z3L1AeiqTPgVs0qCe=pv=cyRHYi04_yNXpPMOCA@mail.gmail.com><FD21003FF7E540DCA7F8F39A2BC046B4@realtek.com.tw><CANEJEGtGSHAACM=Bk0BAHrM=-1q4pHoboO5FYN7YM4wquMMmXA@mail.gmail.com><65183A93811745C58958ECBAD0B8E00F@realtek.com.tw><CANEJEGtGbVajk+GOSkRk1QXDkOOPCM8vO8VA8Zc=TEOfZDjwNQ@mail.gmail.com><CANEJEGsMafeZQDfnmdgmf2VN0CKrTkjVHwKTX9JHTDUUqwx0Mg@mail.gmail.com><FB59F84B1E5E42AA98F0906286C444DF@realtek.com.tw><CANEJEGvMPMT3OroMGLJaR65uEz0+JVYkd5rxcPMMGT_wzvds+w@mail.gmail.com><D7709D6F234143CDB4D0B6B27C53D3F4@realtek.com.tw> <CANEJEGuCWZSBNpp
- E+W2_UW8mDZYQCBpsJTjfwuizjPMpY+wZzw@mail.gmail.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH] vhost: poll vhost_net only when tx notification is enabled
+Date: Wed, 26 Feb 2014 18:16:15 +0800
+Message-ID: <530DBEEF.4040900@huawei.com>
+References: <530DB1C9.2060106@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: 'Inki Yoo' <inky.yoo@samsung.com>,
-	'netdev' <netdev@vger.kernel.org>
-To: 'Grant Grundler' <grundler@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:52577 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750748AbaBZKNI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 05:13:08 -0500
-In-Reply-To: <CANEJEGuCWZSBNppE+W2_UW8mDZYQCBpsJTjfwuizjPMpY+wZzw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <zhangjie14@huawei.com>
+To: Qin Chuanyu <qinchuanyu@huawei.com>, <davem@davemloft.net>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Jason Wang <jasowang@redhat.com>, <netdev@vger.kernel.org>,
+	KVM list <kvm@vger.kernel.org>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <530DB1C9.2060106@huawei.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Grant Grundler [mailto:grundler@google.com] 
-> Sent: Tuesday, February 25, 2014 12:18 AM
-> To: hayeswang
-> Cc: Inki Yoo; netdev
-> Subject: Re: RTL8153 fails to get link after applying 
-> c7de7dec2 to 3.8 kernel
-[...]
-> Does Realtek have a publicly available tool that I can use to set all
-> customization back to "official" values?
+On 2014/2/26 17:20, Qin Chuanyu wrote:
+> guest kick host base on avail_ring flags value and get perfermance
+> improved, vhost_zerocopy_callback could do the same thing. As
+> virtqueue_enable_cb need one more check after modifying the value of
+> avail_ring flags, vhost also need do the same thing after
+> vhost_enable_notify.
+> 
+> test result list as below:
+> guest and host: suse11sp3, netperf, intel CPU 2.4GHz
+> +------+----------+--------+----------+--------+--------+---------+
+> |      |             old              |            new            |
+> +------+----------+--------+----------+--------+--------+---------+
+> | UDP  |  Gbit/s  |  PPS   |CPU idle% | Gbit/s |   PPS  |CPU idle%|
+> | 256  | 0.74805  | 321309 |  87.16   | 0.77933| 334743 |  90.71  |
+> | 512  |   1.42   | 328475 |  87.03   |  1.44  | 333550 |  90.43  |
+> | 1024 |   2.79   | 334426 |  89.09   |  2.81  | 336986 |  89.55  |
+> | 1460 |   3.71   | 316215 |  87.53   |  4.02  | 342325 |  89.58  |
+> +------+----------+--------+----------+--------+--------+---------+
+> 
+> Signed-off-by: Chuanyu Qin <qinchuanyu@huawei.com>
+> ---
+>  drivers/vhost/net.c |   13 ++++++++++++-
+>  1 files changed, 12 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index a0fa5de..a90f51b 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -315,6 +315,10 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
+>          VHOST_DMA_DONE_LEN : VHOST_DMA_FAILED_LEN;
+>      cnt = vhost_net_ubuf_put(ubufs);
+> 
+> +    /* make sure len has been updated because handle_tx would use it
+> +     * and used_flags should also been checked.
+> +     */
+> +    smp_mb();
+>      /*
+>       * Trigger polling thread if guest stopped submitting new buffers:
+>       * in this case, the refcount after decrement will eventually reach 1.
+> @@ -322,7 +326,8 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
+>       * (the value 16 here is more or less arbitrary, it's tuned to trigger
+>       * less than 10% of times).
+>       */
+> -    if (cnt <= 1 || !(cnt % 16))
+> +    if ((!(vq->used_flags & VRING_USED_F_NO_NOTIFY))
+> +            && (cnt <= 1 || !(cnt % 16)))
+>          vhost_poll_queue(&vq->poll);
+> 
+>      rcu_read_unlock_bh();
+> @@ -386,6 +391,12 @@ static void handle_tx(struct vhost_net *net)
+>                  vhost_disable_notify(&net->dev, vq);
+>                  continue;
+>              }
+> +            /* there might skb been freed between last
+Not aligned here.
 
-Please contact with the person who give you the dangle.
-You should need the another one.
+-Ding
 
-[...]
-> Sorry, I disagree. Where "customization" is available, I expect the
-> device driver to know/understand those values OR set them to some
-> state the driver knows how to deal with. This is a limitation of the
-> driver, not the HW.
+> +            * vhost_zerocopy_signal_used and vhost_enable_notify,
+> +            * so one more check is needed.
+> +            */
+> +            if (zcopy)
+> +                vhost_zerocopy_signal_used(net, vq);
+>              break;
+>          }
+>          if (in) {
 
-You couldn't fix it in ECM mode.
-The only way is to switch the config to the vendor mode.
- 
-Best Regards,
-Hayes
+
