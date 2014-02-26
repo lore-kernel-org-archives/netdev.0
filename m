@@ -1,39 +1,44 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: [PATCH 01/14] brcmfmac: add delay before unregistering the network
- device
-Date: Wed, 26 Feb 2014 12:34:09 +0100
-Message-ID: <530DD131.50205@broadcom.com>
-References: <1393356639-19169-1-git-send-email-arend@broadcom.com>				 <1393356639-19169-2-git-send-email-arend@broadcom.com>				 (sfid-20140225_203048_842452_A39499B6) <1393358376.4170.22.camel@jlt4.sipsolutions.net>			 <530DAECD.8010405@broadcom.com>		 <1393406278.4133.4.camel@jlt4.sipsolutions.net>		 <530DB3BA.20106@broadcom.com>	 <1393407473.4133.5.camel@jlt4.sipsolutions.net>	 <530DC56E.9040202@broadcom.com> <1393413044.4133.6.camel@jlt4.sipsolutions.net>
+From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+Subject: Re: [PATCH net-next] ieee802154: fix new function declaration
+Date: Wed, 26 Feb 2014 12:43:50 +0100
+Message-ID: <20140226124350.0c858ece@zoidberg>
+References: <1393393109-11079-1-git-send-email-sakiwit@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Jean Sacren <sakiwit@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:61351 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751202AbaBZLeO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 06:34:14 -0500
-In-Reply-To: <1393413044.4133.6.camel@jlt4.sipsolutions.net>
+Received: from mailgw1.uni-kl.de ([131.246.120.220]:45256 "EHLO
+	mailgw1.uni-kl.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751287AbaBZLoG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 06:44:06 -0500
+Received: from itwm2.itwm.fhg.de (itwm2.itwm.fhg.de [131.246.191.3])
+	by mailgw1.uni-kl.de (8.14.3/8.14.3/Debian-9.4) with ESMTP id s1QBi41x032183
+	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 26 Feb 2014 12:44:04 +0100
+In-Reply-To: <1393393109-11079-1-git-send-email-sakiwit@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/26/2014 12:10 PM, Johannes Berg wrote:
-> On Wed, 2014-02-26 at 11:43 +0100, Arend van Spriel wrote:
-> 
->> Actually, this was not the reason for the doing the msleep(). The
->> problem was that wpa_supplicant received RTM_DELLINK, before getting the
->> NL08211_DISCONNECT. This resulted in RTM_DELLINK, immediately followed
->> by RTM_ADDLINK, followed by NL80211_DISCONNECT.
-> 
-> I'm not sure this isn't still possible? I don't know when DELLINK is
-> sent.
+On Tue, 25 Feb 2014 22:38:29 -0700
+Jean Sacren <sakiwit@gmail.com> wrote:
 
-Given the behaviour I would say before the netdev notifier, which may be
-considered wrong. It depends whether the notifier was intended for the
-kind of thing that cfg80211 is doing, ie. send a netlink event to
-user-space?
+> The commit 8fad346f366a7 ("eee802154: add basic support for RF212 to
+> at86rf230 driver") introduced the new function is_rf212() with some
+> minor issues in declaration:
+> 
+> 1) Fix the function type by changing it to bool as the function
+>    definition returns a boolean value. Additionally both callers of
+>    is_rf212() are expected to return a boolean value.
+> 
+> 2) Fix the function specifier by deleting the inline keyword as the
+>    compiler takes care of that.
+> 
+> Signed-off-by: Jean Sacren <sakiwit@gmail.com>
+> Cc: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
 
-Gr. AvS
++1. My original intent was to have is_rf212 as a predicate like that,
+but I slipped.
