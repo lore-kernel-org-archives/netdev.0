@@ -1,39 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 -next] net: tcp: add mib counters to track zero
- window transitions
-Date: Tue, 25 Feb 2014 21:07:22 -0800
-Message-ID: <1393391242.2316.145.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1393335272-12914-1-git-send-email-fw@strlen.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
+From: Jean Sacren <sakiwit@gmail.com>
+Subject: [PATCH net-next] ieee802154: fix new function declaration
+Date: Tue, 25 Feb 2014 22:38:29 -0700
+Message-ID: <1393393109-11079-1-git-send-email-sakiwit@gmail.com>
+Cc: linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:38912 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751274AbaBZFHZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 00:07:25 -0500
-Received: by mail-pa0-f42.google.com with SMTP id kl14so465404pab.1
-        for <netdev@vger.kernel.org>; Tue, 25 Feb 2014 21:07:24 -0800 (PST)
-In-Reply-To: <1393335272-12914-1-git-send-email-fw@strlen.de>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:36077 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751157AbaBZFlz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 00:41:55 -0500
+Received: by mail-pb0-f44.google.com with SMTP id rp16so495049pbb.31
+        for <netdev@vger.kernel.org>; Tue, 25 Feb 2014 21:41:55 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-02-25 at 14:34 +0100, Florian Westphal wrote:
-> Three counters are added:
-> - one to track when we went from non-zero to zero window
-> - one to track the reverse
-> - one counter incremented when we want to announce zero window,
->   but can't because we would shrink current window.
-> 
-> Suggested-by: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> ---
-> Changes in v2:
->  - use NET_INC_STATS, not _BH; can be called from both bh and process context (pointed out by Hannes)
->  - rename LINUX_MIB_TCPWANTZEROWINDOW to LINUX_MIB_TCPWANTZEROWINDOWADV for consistency
+The commit 8fad346f366a7 ("eee802154: add basic support for RF212 to
+at86rf230 driver") introduced the new function is_rf212() with some
+minor issues in declaration:
 
-Thanks Florian
+1) Fix the function type by changing it to bool as the function
+   definition returns a boolean value. Additionally both callers of
+   is_rf212() are expected to return a boolean value.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+2) Fix the function specifier by deleting the inline keyword as the
+   compiler takes care of that.
+
+Signed-off-by: Jean Sacren <sakiwit@gmail.com>
+Cc: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+---
+ drivers/net/ieee802154/at86rf230.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
+index 34bf011584fb..dd9ef5e1c730 100644
+--- a/drivers/net/ieee802154/at86rf230.c
++++ b/drivers/net/ieee802154/at86rf230.c
+@@ -57,7 +57,7 @@ struct at86rf230_local {
+ 	int rssi_base_val;
+ };
+ 
+-static inline int is_rf212(struct at86rf230_local *local)
++static bool is_rf212(struct at86rf230_local *local)
+ {
+ 	return local->part == 7;
+ }
