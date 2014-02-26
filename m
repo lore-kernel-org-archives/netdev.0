@@ -1,144 +1,51 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] phy: micrel: add of configuration for LED mode
-Date: Wed, 26 Feb 2014 14:20:43 -0800
-Message-ID: <CAGVrzcbUShzdYgEgHJiG8gL11+1DANiJpAk3PL5=jKASqXAyGg@mail.gmail.com>
-References: <1393415280-10227-1-git-send-email-ben.dooks@codethink.co.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] bonding: fix a div error caused by the slave
+ release path
+Date: Wed, 26 Feb 2014 17:23:44 -0500 (EST)
+Message-ID: <20140226.172344.2063576636598224310.davem@davemloft.net>
+References: <1393420830-20932-1-git-send-email-nikolay@redhat.com>
+	<20140226132854.GA24011@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-kernel <linux-kernel@lists.codethink.co.uk>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Ben Dooks <ben.dooks@codethink.co.uk>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nikolay@redhat.com, netdev@vger.kernel.org, andy@greyhouse.net,
+	fubar@us.ibm.com
+To: vfalico@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:42696 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751368AbaBZWVY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 17:21:24 -0500
-In-Reply-To: <1393415280-10227-1-git-send-email-ben.dooks@codethink.co.uk>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41509 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751325AbaBZWXq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 17:23:46 -0500
+In-Reply-To: <20140226132854.GA24011@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Veaceslav Falico <vfalico@redhat.com>
+Date: Wed, 26 Feb 2014 14:28:54 +0100
 
-2014-02-26 3:48 GMT-08:00 Ben Dooks <ben.dooks@codethink.co.uk>:
+> On Wed, Feb 26, 2014 at 02:20:30PM +0100, Nikolay Aleksandrov wrote:
+>>There's a bug in the slave release function which leads the transmit
+>>functions which use the bond->slave_cnt to a div by 0 because we might
+>>just have released our last slave and made slave_cnt == 0 but at the
+>>same
+>>time we may have a transmitter after the check for an empty list which
+>>will
+>>fetch it and use it in the slave id calculation.
+>>Fix it by moving the slave_cnt after synchronize_rcu so if this was
+>>our
+>>last slave any new transmitters will see an empty slave list which is
+>>checked after rcu lock but before calling the mode transmit functions
+>>which rely on bond->slave_cnt.
+>>
+>>Fixes: 278b208375 ("bonding: initial RCU conversion")
+>>
+>>CC: Veaceslav Falico <vfalico@redhat.com>
+>>CC: Andy Gospodarek <andy@greyhouse.net>
+>>CC: Jay Vosburgh <fubar@us.ibm.com>
+>>CC: David S. Miller <davem@davemloft.net>
+>>
+>>Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+> 
+> Acked-by: Veaceslav Falico <vfalico@redhat.com>
 
-[snip]
-
-> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-> index 5a8993b..0c9e434 100644
-> --- a/drivers/net/phy/micrel.c
-> +++ b/drivers/net/phy/micrel.c
-> @@ -148,15 +148,52 @@ static int ks8737_config_intr(struct phy_device *phydev)
->         return rc < 0 ? rc : 0;
->  }
->
-> +static int kszphy_setup_led(struct phy_device *phydev,
-> +                           unsigned int reg, unsigned int shift)
-> +{
-> +
-> +       struct device *dev = &phydev->dev;
-> +       struct device_node *of_node = dev->of_node;
-> +       int rc, temp;
-> +       u32 val;
-> +
-> +       if (!of_node && dev->parent->of_node)
-> +               of_node = dev->parent->of_node;
-> +
-> +       if (of_property_read_u32(of_node, "micrel,led-mode", &val))
-> +               return 0;
-
-This breaks non-OF configuration because of_read_property_read_u32()
-will return -ENOSYS, so you skip the LED register configuration
-entirely, is that intended?
-
-> +
-> +       temp = phy_read(phydev, reg);
-> +       if (temp < 0)
-> +               return temp;
-> +
-> +       temp &= 3 << shift;
-
-The compiler cannot verify that we are not overflowing, you might want
-to make sure that shift <= 14 (just in case)
-
-> +       temp |= val << shift;
-> +       rc = phy_write(phydev, reg, temp);
-> +
-> +       return rc < 0 ? rc : 0;
-
-You could have;
-
-             return phy_write(phydev, reg, temp);
-
-> +}
-> +
->  static int kszphy_config_init(struct phy_device *phydev)
->  {
->         return 0;
->  }
->
-> +static int kszphy_config_init_led8041(struct phy_device *phydev)
-> +{
-> +       /* single led control, register 0x1e bits 15..14 */
-> +       return kszphy_setup_led(phydev, 0x1e, 14);
-> +}
-> +
->  static int ksz8021_config_init(struct phy_device *phydev)
->  {
-> -       int rc;
->         const u16 val = KSZPHY_OMSO_B_CAST_OFF | KSZPHY_OMSO_RMII_OVERRIDE;
-> +       int rc;
-> +
-> +       rc = kszphy_setup_led(phydev, 0x1f, 4);
-> +       if (rc)
-> +               dev_err(&phydev->dev, "failed to set led mode\n");
-> +
->         phy_write(phydev, MII_KSZPHY_OMSO, val);
->         rc = ksz_config_flags(phydev);
->         return rc < 0 ? rc : 0;
-> @@ -166,6 +203,10 @@ static int ks8051_config_init(struct phy_device *phydev)
->  {
->         int rc;
->
-> +       rc = kszphy_setup_led(phydev, 0x1f, 4);
-> +       if (rc)
-> +               dev_err(&phydev->dev, "failed to set led mode\n");
-> +
->         rc = ksz_config_flags(phydev);
->         return rc < 0 ? rc : 0;
->  }
-> @@ -327,7 +368,7 @@ static struct phy_driver ksphy_driver[] = {
->         .features       = (PHY_BASIC_FEATURES | SUPPORTED_Pause
->                                 | SUPPORTED_Asym_Pause),
->         .flags          = PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-> -       .config_init    = kszphy_config_init,
-> +       .config_init    = kszphy_config_init_led8041,
->         .config_aneg    = genphy_config_aneg,
->         .read_status    = genphy_read_status,
->         .ack_interrupt  = kszphy_ack_interrupt,
-> @@ -342,7 +383,7 @@ static struct phy_driver ksphy_driver[] = {
->         .features       = PHY_BASIC_FEATURES |
->                           SUPPORTED_Pause | SUPPORTED_Asym_Pause,
->         .flags          = PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-> -       .config_init    = kszphy_config_init,
-> +       .config_init    = kszphy_config_init_led8041,
->         .config_aneg    = genphy_config_aneg,
->         .read_status    = genphy_read_status,
->         .ack_interrupt  = kszphy_ack_interrupt,
-> @@ -371,7 +412,7 @@ static struct phy_driver ksphy_driver[] = {
->         .phy_id_mask    = 0x00ffffff,
->         .features       = (PHY_BASIC_FEATURES | SUPPORTED_Pause),
->         .flags          = PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-> -       .config_init    = kszphy_config_init,
-> +       .config_init    = kszphy_config_init_led8041,
->         .config_aneg    = genphy_config_aneg,
->         .read_status    = genphy_read_status,
->         .ack_interrupt  = kszphy_ack_interrupt,
-> --
-> 1.8.5.3
->
-
-
-
--- 
-Florian
+Applied, thanks.
