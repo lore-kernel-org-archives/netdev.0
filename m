@@ -1,174 +1,53 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH 4/7] bridge: Automatically manage port
-	promiscuous mode.
-Date: Wed, 26 Feb 2014 11:02:17 -0500
-Message-ID: <530E1009.60605@redhat.com>
-References: <1393427905-6811-1-git-send-email-vyasevic@redhat.com>
-	<1393427905-6811-5-git-send-email-vyasevic@redhat.com>
-	<20140226155111.GE15330@redhat.com>
-Reply-To: vyasevic@redhat.com
+From: "SWITZERLAND SCHOLARSHIP" <geneve.universite@laposte.net>
+Subject: Offre de Bourse Suisse
+Date: Wed, 26 Feb 2014 18:49:57 +0100 (CET)
+Message-ID: <4d7ce8614ed368baf4d7206af672bfa0.squirrel@webmail.register.it>
+Reply-To: cfbelavis_suisse@hotmail.fr
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org, shemminger@vyatta.com,
-	bridge@lists.linux-foundation.org, jhs@mojatatu.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140226155111.GE15330@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
-
-On 02/26/2014 10:51 AM, Michael S. Tsirkin wrote:
-> On Wed, Feb 26, 2014 at 10:18:22AM -0500, Vlad Yasevich wrote:
->> When there is only 1 flooding port, this port is programmed
->> with all the address
-> 
-> all the addresses?
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: recipient list not shown:;
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hostingsmtp03.register.it ([81.88.50.244]:31500 "EHLO
+	hostingsmtp.register.it" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751401AbaBZR7S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 12:59:18 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-All statically configured ones plus locals.
-Locals are needed preserve the bridge behavior of
-being able to receive packets addresses to any of the
-ports mac addresses on any interface.
-This actually cuts the usability of this feature
-in about half. :(
 
-> 
->> the bridge accumulated.  This allows
->> us to place this port into non-promiscuous mode.
->> At other times, all ports are set as promiscuous.  To help
->> track whether the bridge set the mode or not, a new
->> flag is introduced.
->>
->> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->> ---
->>  net/bridge/br_if.c      | 48 ++++++++++++++++++++++++++++++++++++++++++++++--
->>  net/bridge/br_private.h |  1 +
->>  2 files changed, 47 insertions(+), 2 deletions(-)
->>
->> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
->> index e782c2e..51df642 100644
->> --- a/net/bridge/br_if.c
->> +++ b/net/bridge/br_if.c
->> @@ -136,7 +136,7 @@ static void del_nbp(struct net_bridge_port *p)
->>  
->>  	sysfs_remove_link(br->ifobj, p->dev->name);
->>  
->> -	dev_set_promiscuity(dev, -1);
->> +	dev_set_allmulti(dev, -1);
->>  
->>  	spin_lock_bh(&br->lock);
->>  	br_stp_disable_port(p);
->> @@ -359,7 +359,7 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
->>  
->>  	call_netdevice_notifiers(NETDEV_JOIN, dev);
->>  
->> -	err = dev_set_promiscuity(dev, 1);
->> +	err = dev_set_allmulti(dev, 1);
->>  	if (err)
->>  		goto put_back;
->>  
->> @@ -465,6 +465,48 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
->>  	return 0;
->>  }
->>  
->> +static int br_port_set_promisc(struct net_bridge_port *p)
->> +{
->> +	int err = 0;
->> +
->> +	if (p->flags & BR_PROMISC)
->> +		return err;
->> +
->> +	err = dev_set_promiscuity(p->dev, 1);
->> +	if (err)
->> +		return err;
->> +
->> +	p->flags |= BR_PROMISC;
->> +	return err;
->> +}
->> +
-> 
-> you take pains to return an error code here,
-> only to ignore it in the caller?
 
-You are right.  This can be turned to void.
+PAR L'INTERM=C9DIAIRE DE LA COMMISSION F=C9D=C9RALE DES BOURSES =C9TRAN=
+G=C8RES
+(CFBE-SUISSE), LE SECR=C9TARIAT D'=C9TAT A L'=C9TUDE ET A LA RECHERCHE =
+DE LA
+CONF=C9D=C9RATION LANCE UN APPEL A LA CANDIDATURE POUR 600 BOURSES D'=C9=
+TUDES
+SUISSE AU TITRE DE L'ANN=C9E ACAD=C9MIQUE 2014-2015. CES BOURSES SONT
+DESTIN=C9ES AUX RESSORTISSANTS DES PAYS DE LA CAT=C9GORIE A (PAYS
+INDUSTRIALISES EUROP=C9ENS, ET EXTRA-EUROP=C9ENS) ET CEUX DES PAYS DE L=
+A
+CAT=C9GORIE B ( PAYS EN DU  D=C9VELOPPEMENT, DU TIERS MONDE ET EXTRA
+-EUROP=C9ENS). ELLES DOIVENT LEUR PERMETTRE DE  POURSUIVRE LEURS =C9TUD=
+ES, DE
+PARFAIRE LEURS CONNAISSANCES POUR LES TRAVAUX DE RECHERCHES DANS LES
+DOMAINES AUXQUELS LES UNIVERSIT=C9S LONDRES ACCORDENT UNE ATTENTION
+PARTICULI=C8RE.
 
-> 
->> +static void br_port_clear_promisc(struct net_bridge_port *p)
->> +{
->> +	if (!(p->flags & BR_PROMISC))
->> +		return;
->> +
->> +	dev_set_promiscuity(p->dev, -1);
->> +	p->flags &= ~BR_PROMISC;
->> +}
->> +
->> +/* When a port is added or removed or when the flooding status of
->> + * the port changes, this function is called to automatically mange
->> + * promiscuity setting of all the bridge ports.  We are always called
->> + * under RTNL so can skip using rcu primitives.
->> + */
->> +static void br_manage_promisc(struct net_bridge *br)
->> +{
->> +	struct net_bridge_port *p;
->> +
->> +	list_for_each_entry(p, &br->port_list, list) {
->> +		if (!br_port_exists(p->dev) ||
->> +		    (br->n_flood_ports == 1 && br->c_flood_port == p))
->> +			br_port_clear_promisc(p);
->> +		else
->> +			br_port_set_promisc(p);
->> +	}
->> +}
->> +
->>  static void br_add_flood_port(struct net_bridge_port *p, struct net_bridge *br)
->>  {
->>  	/* Increment the number of  flooding ports, and if we
->> @@ -475,6 +517,7 @@ static void br_add_flood_port(struct net_bridge_port *p, struct net_bridge *br)
->>  		br->c_flood_port = p;
->>  
->>  	br_fdb_addrs_sync(br);
->> +	br_manage_promisc(br);
->>  }
->>  
->>  static void br_del_flood_port(struct net_bridge_port *p, struct net_bridge *br)
->> @@ -502,6 +545,7 @@ static void br_del_flood_port(struct net_bridge_port *p, struct net_bridge *br)
->>  			}
->>  		}
->>  	}
->> +	br_manage_promisc(br);
->>  }
->>  
->>  void br_port_flags_change(struct net_bridge_port *p, unsigned long mask)
->> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
->> index 40a6927..6670cb3 100644
->> --- a/net/bridge/br_private.h
->> +++ b/net/bridge/br_private.h
->> @@ -174,6 +174,7 @@ struct net_bridge_port
->>  #define BR_ADMIN_COST		0x00000010
->>  #define BR_LEARNING		0x00000020
->>  #define BR_FLOOD		0x00000040
->> +#define BR_PROMISC		0x00000080
->>
-> 
-> Considering you then have a separate logic in 7/7
-> will this be cleaner as a per-port flag?
+- AVOIR AU MAXIMUM 16 ANS a 55 ANS ;
+- COMPRENDRE ET PARLER CORRECTEMENT L'UNE DES LANGUES D'ENSEIGNEMENT EN
+SUISSE (FRAN=C7AIS, ESPAGNOL, ALLEMAND, ANGLAIS, ITALIE) ;
+- AVOIR UN DIPL=D4ME =C9QUIVALENT AU BREVET D' =C9TUDE DE PREMIER CYCLE
+D'ENSEIGNEMENT, AU BACCALAUR=C9AT OU AU BREVET D'APTITUDE PROFESSIONNEL=
+LE
 
-It is a per-port flag here.  I can change it to
-BR_PORT_PROMISC to make it clearer.
+LES CANDIDATS RETENUS RECEVRONT UNE ATTESTATION DU SECR=C9TARIAT D=C9TA=
+T A
+L=C9TUDE ET A LA RECHERCHE POUR NOTIFICATION DE LA BOURSE. LES
+CANDIDATS D=C9SIREUX DE PARTICIPER AUX BOURSES D=C9TUDES 2014 - 2015
+DOIVENT RETIRER LEUR FORMULAIRE A REMPLIR AUPR=C8S DE LA CFBEL: A LEUR
+ADRESSE =C9MAIL: direction.boursesuisse@laposte.net
 
--vlad
-
->   
->>  #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
->>  	struct bridge_mcast_query	ip4_query;
->> -- 
->> 1.8.5.3
+LA DATE LIMITE DE D=C9P=D4T DES DOSSIERS EST D'UNE SEMAINE.
