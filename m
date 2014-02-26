@@ -1,34 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sch_tbf: Fix potential memory leak in tbf_change().
-Date: Wed, 26 Feb 2014 17:32:39 -0500 (EST)
-Message-ID: <20140226.173239.307943125715907259.davem@davemloft.net>
-References: <20140226214342.585acf597a84276fc152fc7e@gmail.com>
-	<1393428584.2316.148.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/1] AX88179_178A: Add VID:DID for Lenovo OneLinkDock
+ Gigabit LAN
+Date: Wed, 26 Feb 2014 14:37:31 -0800
+Message-ID: <1393454251.24588.15.camel@joe-AO722>
+References: <87zjle6pif.fsf@nemi.mork.no>
+	 <20140226.154801.1466276966991949680.davem@davemloft.net>
+	 <87lhwx7f19.fsf@nemi.mork.no>
+	 <20140226.161659.2024676575146527914.davem@davemloft.net>
+	 <87fvn57dn1.fsf@nemi.mork.no> <86mwhd7bt1.fsf@hiro.keithp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shimoda.hiroaki@gmail.com, netdev@vger.kernel.org,
-	yangyingliang@huawei.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41566 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751159AbaBZWcl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 17:32:41 -0500
-In-Reply-To: <1393428584.2316.148.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
+	David Miller <davem@davemloft.net>, freddy@asix.com.tw,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Keith Packard <keithp@keithp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <86mwhd7bt1.fsf@hiro.keithp.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 26 Feb 2014 07:29:44 -0800
+On Wed, 2014-02-26 at 14:23 -0800, Keith Packard wrote:
+> Bj=F8rn Mork <bjorn@mork.no> writes:
+>=20
+> > No, you didn't.  And when I went looking at it now, I see why: It w=
+as
+> > posted to linux-usb and linux-kernel but not to netdev:
+> > http://www.kernelhub.org/?msg=3D420289&p=3D2
+>=20
+> I looked in MAINTAINERS and found linux-usb as a suitable address for
+> drivers/net/usb/. I'm sorry I didn't think to look for drivers/net/ a=
+s
+> well.
 
-> On Wed, 2014-02-26 at 21:43 +0900, Hiroaki SHIMODA wrote:
->> The allocated child qdisc is not freed in error conditions.
->> Defer the allocation after user configuration turns out to be
->> valid and acceptable.
->> 
->> Fixes: cc106e4 ("net: sched: tbf: fix the calculation of max_size")
-> 
-> Please prefer/use 12 digits : cc106e441a63b
+Hi Keith.
 
-Applied with SHA1 adjustment, thanks.
+You could use scripts/get_maintainer.pl next time.
+
+$ ./scripts/get_maintainer.pl -f drivers/net/usb/ax88179_178a.c
+"David S. Miller" <davem@davemloft.net> (commit_signer:13/13=3D100%)
+=46reddy Xin <freddy@asix.com.tw> (commit_signer:4/13=3D31%,authored:4/=
+13=3D31%,added_lines:1473/1504=3D98%,removed_lines:9/43=3D21%)
+Eric Dumazet <edumazet@google.com> (commit_signer:3/13=3D23%,authored:2=
+/13=3D15%,removed_lines:22/43=3D51%)
+Ming Lei <ming.lei@canonical.com> (commit_signer:3/13=3D23%,authored:3/=
+13=3D23%,removed_lines:8/43=3D19%)
+David Chang <dchang@suse.com> (commit_signer:2/13=3D15%,authored:2/13=3D=
+15%)
+Emil Goode <emilgoode@gmail.com> (authored:1/13=3D8%)
+linux-usb@vger.kernel.org (open list:USB NETWORKING DR...)
+netdev@vger.kernel.org (open list:NETWORKING DRIVERS)
+linux-kernel@vger.kernel.org (open list)
+
+
+Maybe there should be a MAINTAINERS entry added too?
