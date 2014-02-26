@@ -1,44 +1,151 @@
-From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
-Subject: Re: [PATCH net-next] ieee802154: fix new function declaration
-Date: Wed, 26 Feb 2014 12:43:50 +0100
-Message-ID: <20140226124350.0c858ece@zoidberg>
-References: <1393393109-11079-1-git-send-email-sakiwit@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Jean Sacren <sakiwit@gmail.com>
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: [PATCH] phy: micrel: add of configuration for LED mode
+Date: Wed, 26 Feb 2014 11:48:00 +0000
+Message-ID: <1393415280-10227-1-git-send-email-ben.dooks@codethink.co.uk>
+Cc: f.fainelli@gmail.com, Ben Dooks <ben.dooks@codethink.co.uk>
+To: linux-kernel@lists.codethink.co.uk, devicetree@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw1.uni-kl.de ([131.246.120.220]:45256 "EHLO
-	mailgw1.uni-kl.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751287AbaBZLoG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 06:44:06 -0500
-Received: from itwm2.itwm.fhg.de (itwm2.itwm.fhg.de [131.246.191.3])
-	by mailgw1.uni-kl.de (8.14.3/8.14.3/Debian-9.4) with ESMTP id s1QBi41x032183
-	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 26 Feb 2014 12:44:04 +0100
-In-Reply-To: <1393393109-11079-1-git-send-email-sakiwit@gmail.com>
+Received: from 82-68-191-81.dsl.posilan.com ([82.68.191.81]:35174 "EHLO
+	rainbowdash.ducie.codethink.co.uk" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750918AbaBZLsG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 06:48:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 25 Feb 2014 22:38:29 -0700
-Jean Sacren <sakiwit@gmail.com> wrote:
+Add support for the led-mode property for the following PHYs
+which have a single LED mode configuration value.
 
-> The commit 8fad346f366a7 ("eee802154: add basic support for RF212 to
-> at86rf230 driver") introduced the new function is_rf212() with some
-> minor issues in declaration:
-> 
-> 1) Fix the function type by changing it to bool as the function
->    definition returns a boolean value. Additionally both callers of
->    is_rf212() are expected to return a boolean value.
-> 
-> 2) Fix the function specifier by deleting the inline keyword as the
->    compiler takes care of that.
-> 
-> Signed-off-by: Jean Sacren <sakiwit@gmail.com>
-> Cc: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+KSZ8001 and KSZ8041 which both use register 0x1e bits 15,14 and
+KSZ8021, KSZ8031 and KSZ8051 which use register 0x1f bits 5,4
+to control the LED configuration.
 
-+1. My original intent was to have is_rf212 as a predicate like that,
-but I slipped.
+Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
+---
+ Documentation/devicetree/bindings/net/micrel.txt | 18 +++++++++
+ drivers/net/phy/micrel.c                         | 49 ++++++++++++++++++++++--
+ 2 files changed, 63 insertions(+), 4 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/micrel.txt
+
+diff --git a/Documentation/devicetree/bindings/net/micrel.txt b/Documentation/devicetree/bindings/net/micrel.txt
+new file mode 100644
+index 0000000..98a3e61
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/micrel.txt
+@@ -0,0 +1,18 @@
++Micrel PHY properties.
++
++These properties cover the base properties Micrel PHYs.
++
++Optional properties:
++
++ - micrel,led-mode : LED mode value to set for PHYs with configurable LEDs.
++
++              Configure the LED mode with single value. The list of PHYs and
++	      the bits that are currently supported:
++
++	      KSZ8001: register 0x1e, bits 15..14
++	      KSZ8041: register 0x1e, bits 15..14
++	      KSZ8021: register 0x1f, bits 5..4
++	      KSZ8031: register 0x1f, bits 5..4
++	      KSZ8051: register 0x1f, bits 5..4
++
++              See the respective PHY datasheet for the mode values.
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 5a8993b..0c9e434 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -148,15 +148,52 @@ static int ks8737_config_intr(struct phy_device *phydev)
+ 	return rc < 0 ? rc : 0;
+ }
+ 
++static int kszphy_setup_led(struct phy_device *phydev,
++			    unsigned int reg, unsigned int shift)
++{
++
++	struct device *dev = &phydev->dev;
++	struct device_node *of_node = dev->of_node;
++	int rc, temp;
++	u32 val;
++
++	if (!of_node && dev->parent->of_node)
++		of_node = dev->parent->of_node;
++
++	if (of_property_read_u32(of_node, "micrel,led-mode", &val))
++		return 0;
++
++	temp = phy_read(phydev, reg);
++	if (temp < 0)
++		return temp;
++
++	temp &= 3 << shift;
++	temp |= val << shift;
++	rc = phy_write(phydev, reg, temp);
++
++	return rc < 0 ? rc : 0;
++}
++
+ static int kszphy_config_init(struct phy_device *phydev)
+ {
+ 	return 0;
+ }
+ 
++static int kszphy_config_init_led8041(struct phy_device *phydev)
++{
++	/* single led control, register 0x1e bits 15..14 */
++	return kszphy_setup_led(phydev, 0x1e, 14);
++}
++
+ static int ksz8021_config_init(struct phy_device *phydev)
+ {
+-	int rc;
+ 	const u16 val = KSZPHY_OMSO_B_CAST_OFF | KSZPHY_OMSO_RMII_OVERRIDE;
++	int rc;
++
++	rc = kszphy_setup_led(phydev, 0x1f, 4);
++	if (rc)
++		dev_err(&phydev->dev, "failed to set led mode\n");
++
+ 	phy_write(phydev, MII_KSZPHY_OMSO, val);
+ 	rc = ksz_config_flags(phydev);
+ 	return rc < 0 ? rc : 0;
+@@ -166,6 +203,10 @@ static int ks8051_config_init(struct phy_device *phydev)
+ {
+ 	int rc;
+ 
++	rc = kszphy_setup_led(phydev, 0x1f, 4);
++	if (rc)
++		dev_err(&phydev->dev, "failed to set led mode\n");
++
+ 	rc = ksz_config_flags(phydev);
+ 	return rc < 0 ? rc : 0;
+ }
+@@ -327,7 +368,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause
+ 				| SUPPORTED_Asym_Pause),
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+-	.config_init	= kszphy_config_init,
++	.config_init	= kszphy_config_init_led8041,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+ 	.ack_interrupt	= kszphy_ack_interrupt,
+@@ -342,7 +383,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.features	= PHY_BASIC_FEATURES |
+ 			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+-	.config_init	= kszphy_config_init,
++	.config_init	= kszphy_config_init_led8041,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+ 	.ack_interrupt	= kszphy_ack_interrupt,
+@@ -371,7 +412,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.phy_id_mask	= 0x00ffffff,
+ 	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause),
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+-	.config_init	= kszphy_config_init,
++	.config_init	= kszphy_config_init_led8041,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+ 	.ack_interrupt	= kszphy_ack_interrupt,
+-- 
+1.8.5.3
