@@ -1,167 +1,57 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH 6/7] bridge: Manage promisc mode when vlans are
- configured on top of a bridge
-Date: Wed, 26 Feb 2014 11:05:40 -0500
-Message-ID: <530E10D4.4030706@redhat.com>
-References: <1393427905-6811-1-git-send-email-vyasevic@redhat.com>
-	<1393427905-6811-7-git-send-email-vyasevic@redhat.com>
-	<20140226160046.GI15330@redhat.com>
-Reply-To: vyasevic@redhat.com
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next v4 2/8] 6lowpan: add uncompress header size
+ function
+Date: Wed, 26 Feb 2014 17:05:41 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6CBE9F@AcuExch.aculab.com>
+References: <1393430712-11298-1-git-send-email-alex.aring@gmail.com>
+ <1393430712-11298-3-git-send-email-alex.aring@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6D0F6CBBCA@AcuExch.aculab.com>
+ <20140226162008.GA11499@omega>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org, shemminger@vyatta.com,
-	bridge@lists.linux-foundation.org, jhs@mojatatu.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140226160046.GI15330@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "alex.bluesman.smirnov@gmail.com" <alex.bluesman.smirnov@gmail.com>,
+	"dbaryshkov@gmail.com" <dbaryshkov@gmail.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linux-zigbee-devel@lists.sourceforge.net"
+	<linux-zigbee-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"martin.townsend@xsilon.com" <martin.townsend@xsilon.com>
+To: 'Alexander Aring' <alex.aring@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:49204 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752671AbaBZRGr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Feb 2014 12:06:47 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 15962-06 for <netdev@vger.kernel.org>;
+ Wed, 26 Feb 2014 17:06:44 +0000 (GMT)
+In-Reply-To: <20140226162008.GA11499@omega>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/26/2014 11:00 AM, Michael S. Tsirkin wrote:
-> On Wed, Feb 26, 2014 at 10:18:24AM -0500, Vlad Yasevich wrote:
->> If the user configures vlan interfaces on top of the bridge and the bridge
->> doesn't have vlan filtering enabled, we have to place all the ports in
->> promsic mode so that we can correctly receive tagged frames.
->> When vlan filtering is enabled, the vlan configuration will be provided
->> via filtering interface.
->> When the vlan filtering is toggled, we also have mange promiscuity.
-> 
-> have to manage?
-> 
->>
->> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-> 
-> 
-> I wonder if it matters that we scan all ports
-> on vlan add/del now.
-> 
-> If yes, we could optimize some cases by using
-> a counter of promisc ports.
-
-Or a bridge flag.  I'll see if can add that to save
-repeated list walks without doing any useful work.
-
-Thanks
--vlad
-
-> 
-> 
->> ---
->>  net/bridge/br_device.c  | 14 ++++++++++++++
->>  net/bridge/br_if.c      | 17 +++++++++++++----
->>  net/bridge/br_private.h |  9 +++++++++
->>  net/bridge/br_vlan.c    |  1 +
->>  4 files changed, 37 insertions(+), 4 deletions(-)
->>
->> diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
->> index 0af9d6c..967abb3 100644
->> --- a/net/bridge/br_device.c
->> +++ b/net/bridge/br_device.c
->> @@ -297,6 +297,18 @@ void br_netpoll_disable(struct net_bridge_port *p)
->>  
->>  #endif
->>  
->> +static int br_dev_rx_add_vid(struct net_device *br_dev, __be16 proto, u16 vid)
->> +{
->> +	br_manage_promisc(netdev_priv(br_dev));
->> +	return 0;
->> +}
->> +
->> +static int br_dev_rx_kill_vid(struct net_device *br_dev, __be16 proto, u16 vid)
->> +{
->> +	br_manage_promisc(netdev_priv(br_dev));
->> +	return 0;
->> +}
->> +
->>  static int br_add_slave(struct net_device *dev, struct net_device *slave_dev)
->>  
->>  {
->> @@ -328,6 +340,8 @@ static const struct net_device_ops br_netdev_ops = {
->>  	.ndo_change_rx_flags	 = br_dev_change_rx_flags,
->>  	.ndo_change_mtu		 = br_change_mtu,
->>  	.ndo_do_ioctl		 = br_dev_ioctl,
->> +	.ndo_vlan_rx_add_vid	 = br_dev_rx_add_vid,
->> +	.ndo_vlan_rx_kill_vid	 = br_dev_rx_kill_vid,
->>  #ifdef CONFIG_NET_POLL_CONTROLLER
->>  	.ndo_netpoll_setup	 = br_netpoll_setup,
->>  	.ndo_netpoll_cleanup	 = br_netpoll_cleanup,
->> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
->> index 7e92bd0..55e4e28 100644
->> --- a/net/bridge/br_if.c
->> +++ b/net/bridge/br_if.c
->> @@ -497,12 +497,21 @@ static void br_port_clear_promisc(struct net_bridge_port *p)
->>  void br_manage_promisc(struct net_bridge *br)
->>  {
->>  	struct net_bridge_port *p;
->> +	int set_all = false;
->> +
->> +	if (br->dev->flags & IFF_PROMISC)
->> +		set_all = true;
->> +
->> +	/* If vlan filtering is disabled and there are any VLANs
->> +	 * configured on top of the bridge, set promisc on all
->> +	 * ports.
->> +	 */
->> +	if (!br_vlan_enabled(br) && vlan_uses_dev(br->dev))
->> +		set_all = true;
->>  
->>  	list_for_each_entry(p, &br->port_list, list) {
->> -		if (br->dev->flags & IFF_PROMISC) {
->> -			/* PROMISC flag has been turned on for the bridge
->> -			 * itself.  Turn on promisc on all ports.
->> -			 */
->> +		if (set_all) {
->> +			/* Set all the ports to promisc mode.  */
->>  			br_port_set_promisc(p);
->>  
->>  		} else {
->> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
->> index 4042f86..87dcc09 100644
->> --- a/net/bridge/br_private.h
->> +++ b/net/bridge/br_private.h
->> @@ -641,6 +641,10 @@ static inline u16 br_get_pvid(const struct net_port_vlans *v)
->>  	return v->pvid ?: VLAN_N_VID;
->>  }
->>  
->> +static inline int br_vlan_enabled(struct net_bridge *br)
->> +{
->> +	return br->vlan_enabled;
->> +}
->>  #else
->>  static inline bool br_allowed_ingress(struct net_bridge *br,
->>  				      struct net_port_vlans *v,
->> @@ -721,6 +725,11 @@ static inline u16 br_get_pvid(const struct net_port_vlans *v)
->>  {
->>  	return VLAN_N_VID;	/* Returns invalid vid */
->>  }
->> +
->> +static inline int br_vlan_enabled(struct net_bridge *br);
->> +{
->> +	return 0;
->> +}
->>  #endif
->>  
->>  /* br_netfilter.c */
->> diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
->> index 8249ca7..eddc2f6 100644
->> --- a/net/bridge/br_vlan.c
->> +++ b/net/bridge/br_vlan.c
->> @@ -321,6 +321,7 @@ int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val)
->>  		goto unlock;
->>  
->>  	br->vlan_enabled = val;
->> +	br_manage_promisc(br);
->>  
->>  unlock:
->>  	rtnl_unlock();
->> -- 
->> 1.8.5.3
+RnJvbTogQWxleGFuZGVyIEFyaW5nIA0KPiBPbiBXZWQsIEZlYiAyNiwgMjAxNCBhdCAwNDoxMDow
+NVBNICswMDAwLCBEYXZpZCBMYWlnaHQgd3JvdGU6DQo+ID4gRnJvbTogQWxleGFuZGVyIEFyaW5n
+DQouLi4NCj4gPiA+ICtzdGF0aWMgaW5saW5lIHU4IGxvd3Bhbl9hZGRyX21vZGVfc2l6ZShjb25z
+dCB1OCBhZGRyX21vZGUpDQo+ID4gPiArew0KPiA+ID4gKwlzd2l0Y2ggKGFkZHJfbW9kZSkgew0K
+PiA+ID4gKwljYXNlIExPV1BBTl9JUEhDX0FERFJfMDA6DQo+ID4gPiArCQlyZXR1cm4gMTY7DQo+
+ID4gPiArCWNhc2UgTE9XUEFOX0lQSENfQUREUl8wMToNCj4gPiA+ICsJCXJldHVybiA4Ow0KPiA+
+ID4gKwljYXNlIExPV1BBTl9JUEhDX0FERFJfMDI6DQo+ID4gPiArCQlyZXR1cm4gMjsNCj4gPiA+
+ICsJZGVmYXVsdDoNCj4gPiA+ICsJCXJldHVybiAwOw0KPiA+ID4gKwl9DQo+ID4gPiArfQ0KPiA+
+DQo+ID4gVGhlIGNvbXBpbGVyIHdpbGwgZ2VuZXJhdGUgbXVjaCBiZXR0ZXIgY29kZSBpZiB5b3Ug
+aW5kZXggYW4gYXJyYXkgaW5zdGVhZA0KPiA+IG9mIHVzaW5nIGEgc3dpdGNoIHN0YXRlbWVudC4N
+Cj4gPg0KPiA+DQo+IA0KPiBZb3UgbWVhbiBzb21ldGhpbmcgbGlrZToNCj4gDQo+IHN0YXRpYyBp
+bmxpbmUgdTggbG93cGFuX2FkZHJfbW9kZV9zaXplKGNvbnN0IHU4IGFkZHJfbW9kZSkNCj4gew0K
+PiAgICAgICAgIGNvbnN0IHU4IHJlc1tdID0geyAxNiwgOCwgMiwgMCB9Ow0KPiAgICAgICAgIHJl
+dHVybiByZXNbYWRkcl9tb2RlXTsNCj4gfQ0KPiANCj4gb3Igc2hvdWxkIEkgZHJvcCB0aGUgYXJy
+YXkgZnJvbSB0aGUgc3RhY2sgYW5kIGRlY2xhcmUgaXQgc3RhdGljPw0KDQpZb3UgZGVmaW5pdGVs
+eSB3YW50IHRoZSBhcnJheSB0byBiZSBzdGF0aWMgKGFzIHdlbGwgYXMgY29uc3QpLg0KWW91IGNv
+dWxkIGFsc28gdXNlIG5hbWVkIGluaXRpYWxpc2Vycy4NCklmIEkndmUgZ290IHRoZSBzeW50YXgg
+cmlnaHQgdGhhdCB3b3VsZCBiZToNCg0KCQlzdGF0aWMgY29uc3QgdTggc2l6ZXNbXSA9IHsNCgkJ
+CVtMT1dQQU5fSVBIQ19BRERSXzAwXSA9IDE2LA0KCQkJW0xPV1BBTl9JUEhDX0FERFJfMDFdID0g
+OCwNCgkJCVtMT1dQQU5fSVBIQ19BRERSXzAyXSA9IDIsDQoJCX07DQoJCXJldHVybiBzaXplc1th
+ZGRyX21vZGVdOw0KDQpXaGV0aGVyIHlvdSBuZWVkIGEgYm91bmQgY2hlY2sgKG9yIHRoZSA0dGgg
+YXJyYXkgaW5kZXgpIGRlcGVuZHMgb24gd2hlcmUNCnRoZSBpbnB1dCB2YWx1ZSBjb21lcyBmcm9t
+Lg0KDQoJRGF2aWQNCg0K
