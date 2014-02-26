@@ -1,49 +1,58 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Support for ECDH P-192 and P-256
-Date: Thu, 27 Feb 2014 06:03:33 +0800
-Message-ID: <20140226220333.GA28414@gondor.apana.org.au>
-References: <88CA6BC5-E6E7-43C3-8A2A-829D27E76CE8@holtmann.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v7 net-next 1/2] net: add skb_mstamp infrastructure
+Date: Wed, 26 Feb 2014 17:04:25 -0500 (EST)
+Message-ID: <20140226.170425.1796947766908119120.davem@davemloft.net>
+References: <1393292339.2316.98.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1393309324.2316.119.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1393452131.26794.7.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Marcel Holtmann <marcel@holtmann.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ja@ssi.bg, ycheng@google.com, netdev@vger.kernel.org,
+	ncardwell@google.com, brakmo@google.com, stephen@networkplumber.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:40379 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751215AbaBZWDp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 17:03:45 -0500
-Content-Disposition: inline
-In-Reply-To: <88CA6BC5-E6E7-43C3-8A2A-829D27E76CE8@holtmann.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41416 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754293AbaBZWE2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 17:04:28 -0500
+In-Reply-To: <1393452131.26794.7.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Marcel Holtmann <marcel@holtmann.org> wrote:
-> Hello,
-> 
-> we are looking at adding support for Bluetooth Secure Connections to the Security Manager of the Bluetooth subsystem. For that we would need support for ECDH P-256 and eventually also P-192.
-> 
-> Right now we are bit lost on how this could be achieved best. I saw that the symmetric_keys feature has support for public_keys, but as far as I can tell that requires that userspace loads the public keys into the kernel and the private keys stay in userspace.
-> 
-> What we need is to generate private/public key pairs using elliptic curve with P-192 and P-256. We only need the private/public key pair for the Bluetooth pairing. After successful pairing, we derive link keys or long term keys and we can throw the private/public key pair away. Any further authentication between Bluetooth devices is done via their link keys or long term keys.
-> 
-> Has anybody looked into extending the kernel crypto framework to support ECDH P-192 and P-256. If nobody has, what are the best starting points to do so.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 26 Feb 2014 14:02:11 -0800
 
-Normally key exchange is conducted in user-space because it isn't
-performance-critical so as not to bloat the kernel.  For example,
-only the data-path of IPsec is implemented in the kernel, while
-the key exchange protocol IKE Is done in user-space.  That's why
-there is no current support for key exchange-related algorithms
-in the kernel crypto API.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> ktime_get() is too expensive on some cases, and we'd like to get
+> usec resolution timestamps in TCP stack.
+> 
+> This patch adds a light weight facility using a combination of
+> local_clock() and jiffies samples.
+> 
+> Instead of :
+> 
+>         u64 t0, t1;
+> 
+>         t0 = ktime_get();
+>         // stuff
+>         t1 = ktime_get();
+>         delta_us = ktime_us_delta(t1, t0);
+> 
+> use :
+>         struct skb_mstamp t0, t1;
+> 
+>         skb_mstamp_get(&t0);
+>         // stuff
+>         skb_mstamp_get(&t1);
+>         delta_us = skb_mstamp_us_delta(&t1, &t0);
+> 
+> Note : local_clock() might have a (bounded) drift between cpus.
+> 
+> Do not use this infra in place of ktime_get() without understanding the
+> issues.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-If there is agreement that Bluetooth's key exchange must be done
-in the kernel, then we certainly start adding these algorithms.
-
-I haven't been following this but is there a consensus from the
-networking folks regarding Bluetooth's key exchange code?
-
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Applied.
