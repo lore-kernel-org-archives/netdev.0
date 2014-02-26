@@ -1,97 +1,43 @@
-From: Ben Dooks <ben.dooks@codethink.co.uk>
-Subject: [PATCH] sh_net: runtime pm wrap mdio read and write
-Date: Wed, 26 Feb 2014 16:48:39 +0000
-Message-ID: <1393433319-22685-1-git-send-email-ben.dooks@codethink.co.uk>
-Cc: linux-sh@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
-	nobuhiro.iwamatsu.yj@renesas.com, magnus.damn@opensource.se,
-	horms@verge.net.au, Ben Dooks <ben.dooks@codethink.co.uk>
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 3/7] bridge: Add addresses from static fdbs to
+ bridge address list
+Date: Wed, 26 Feb 2014 08:57:07 -0800
+Message-ID: <20140226085707.55bdab94@nehalam.linuxnetplumber.net>
+References: <1393427905-6811-1-git-send-email-vyasevic@redhat.com>
+	<1393427905-6811-4-git-send-email-vyasevic@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: mst@redhat.com, netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	jhs@mojatatu.com, john.r.fastabend@intel.com, shemminger@vyatta.com
+To: Vlad Yasevich <vyasevic@redhat.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1393427905-6811-4-git-send-email-vyasevic@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On the R8A7790, if the device has been suspended by pm_runtime
-and the MII code tries to access the bus then there is a possiblity
-that it will fail to read any data from the MII bus.
+On Wed, 26 Feb 2014 10:18:21 -0500
+Vlad Yasevich <vyasevic@redhat.com> wrote:
 
-Change the MDIO read and write calls to be wrappered by calls to
-pm_runtime_{get,put}_sync so that the device will be enabled during
-these calls. It is put here to avoid having to enable and disable
-the clock for every bit that is sent by the MII bit-banging code.
+> When a static fdb entry is created, add the mac address to the bridge
+> address list.  This list is used to program the proper port's
+> address list.
+> 
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 
-This has been exposed by the change to using OF and a fix to enable
-the pm_runtime clock management which seems to have been broken for
-some time for the device-tree booted Renesas kernels.
+I don't like this level of bookkeeping it starts to mix
+layers between the bridge network interface as entity for talking to the
+local host, and forwarding table entries.
 
-Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
----
- drivers/net/ethernet/renesas/sh_eth.c | 39 +++++++++++++++++++++++++++++++++++
- 1 file changed, 39 insertions(+)
+Many times static entries are used as alternative to flooding in
+environments which don't trust STP.
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index b92034c..8d1b84e 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -983,6 +983,8 @@ static unsigned long sh_eth_get_edtrr_trns(struct sh_eth_private *mdp)
- 
- struct bb_info {
- 	void (*set_gate)(void *addr);
-+        int (*mdio_read)(struct mii_bus *bus, int phy_id, int regnum);
-+        int (*mdio_write)(struct mii_bus *bus, int phy_id, int regnum, u16 val);
- 	struct mdiobb_ctrl ctrl;
- 	void *addr;
- 	u32 mmd_msk;/* MMD */
-@@ -1071,6 +1073,38 @@ static struct mdiobb_ops bb_ops = {
- 	.get_mdio_data = sh_get_mdio,
- };
- 
-+/* Wrapper to ensure bitbang ops have device runtime-pm enabled */
-+
-+static inline struct bb_info *mii_to_bitbang(struct mii_bus *bus)
-+{
-+	struct mdiobb_ctrl *ctrl = bus->priv;
-+	return container_of(ctrl, struct bb_info, ctrl);
-+}
-+
-+static int sh_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
-+{
-+	struct bb_info *bitbang = mii_to_bitbang(bus);
-+	int ret;
-+
-+	pm_runtime_get_sync(bus->dev.parent->parent);
-+	ret = bitbang->mdio_read(bus, phy_id, regnum);
-+	pm_runtime_put_sync(bus->dev.parent->parent);
-+
-+	return ret;
-+}
-+
-+static int sh_mdio_write(struct mii_bus *bus, int phy_id, int regnum, u16 val)
-+{
-+	struct bb_info *bitbang = mii_to_bitbang(bus);
-+	int ret;
-+
-+	pm_runtime_get_sync(bus->dev.parent->parent);
-+	ret = bitbang->mdio_write(bus, phy_id, regnum, val);
-+	pm_runtime_put_sync(bus->dev.parent->parent);
-+
-+	return ret;
-+}
-+
- /* free skb and descriptor buffer */
- static void sh_eth_ring_free(struct net_device *ndev)
- {
-@@ -2639,6 +2673,11 @@ static int sh_mdio_init(struct net_device *ndev, int id,
- 		goto out;
- 	}
- 
-+	bitbang->mdio_read = mdp->mii_bus->read;
-+	bitbang->mdio_write = mdp->mii_bus->write;
-+	mdp->mii_bus->read = sh_mdio_read;
-+	mdp->mii_bus->write = sh_mdio_write;
-+
- 	/* Hook up MII support for ethtool */
- 	mdp->mii_bus->name = "sh_mii";
- 	mdp->mii_bus->parent = &ndev->dev;
--- 
-1.8.5.3
-
+Plus, it looks like another major source of bugs.
