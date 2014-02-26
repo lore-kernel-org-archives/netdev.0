@@ -1,38 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: RTL8153 fails to get link after applying c7de7dec2 to 3.8
- kernel
-Date: Wed, 26 Feb 2014 13:58:50 -0500 (EST)
-Message-ID: <20140226.135850.1623740440287707032.davem@davemloft.net>
-References: <6055EBDEF51C4CDDBE25766ED5CACA67@realtek.com.tw>
-	<20140226.115831.255949929805078536.davem@davemloft.net>
-	<CANEJEGtJfUsond3kowuQ24JbLdE71CGEtX4BgMDKyG2AFuiniw@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next v4 6/8] 6lowpan: fix some
+	checkpatch issues
+Date: Wed, 26 Feb 2014 13:59:35 -0500 (EST)
+Message-ID: <20140226.135935.818983415159760824.davem@davemloft.net>
+References: <1393430712-11298-1-git-send-email-alex.aring@gmail.com>
+	<1393430712-11298-7-git-send-email-alex.aring@gmail.com>
+	<1393435496.407.24.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: hayeswang@realtek.com, inky.yoo@samsung.com, netdev@vger.kernel.org
-To: grundler@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40118 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751066AbaBZS6w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 13:58:52 -0500
-In-Reply-To: <CANEJEGtJfUsond3kowuQ24JbLdE71CGEtX4BgMDKyG2AFuiniw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1393435496.407.24.camel@joe-AO722>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Grant Grundler <grundler@google.com>
-Date: Wed, 26 Feb 2014 09:19:29 -0800
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Date: Wed, 26 Feb 2014 09:24:56 -0800
 
-> On Wed, Feb 26, 2014 at 8:58 AM, David Miller <davem@davemloft.net> wrote:
->> It is mysterious to me when a driver author behaves in such a way that
->> they seem to want their driver to work on fewer instances of their
->> hardware rather than support more of them.
+> On Wed, 2014-02-26 at 17:05 +0100, Alexander Aring wrote:
+>> Detected with:
+>> 
+>> ./scripts/checkpatch.pl --strict -f net/ieee802154/6lowpan_rtnl.c
 > 
-> Well, we don't know the whole story. Samsung asked for a different USB
-> Vendor/Device ID and it's possible a few other things got change along
-> the way.
+> Hello Alexander.
 > 
-> If this HW/FW was clearly production and I had a patch that made it
-> work, then we'd be in the situation you are describing.
+> Can I suggest to you (and to David) that the
+> multiline comment style:
+> 
+> /*
+>  * comment
+>  */
+> 
+> is fine and doesn't need correcting here at the
+> initial bits of a file before any actual code has
+> been written?
+> 
+> Assuming David agrees, I'll see about updating
+> checkpatch to avoid this warning at the beginning
+> of files.
 
-Ok, fair enough.
+I'm largely ambivalent but prefer avoiding that wasted "/*" line.
+
+------------------------------------------------------------------------------
+Flow-based real-time traffic analytics software. Cisco certified tool.
+Monitor traffic, SLAs, QoS, Medianet, WAAS etc. with NetFlow Analyzer
+Customize your own dashboards, set traffic alerts and generate reports.
+Network behavioral analysis & security monitoring. All-in-one tool.
+http://pubads.g.doubleclick.net/gampad/clk?id=126839071&iu=/4140/ostg.clktrk
