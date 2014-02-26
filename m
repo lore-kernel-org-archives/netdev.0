@@ -1,39 +1,65 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next v4 2/8] 6lowpan: add uncompress header size
- function
-Date: Wed, 26 Feb 2014 10:35:52 -0800
-Message-ID: <1393439752.407.33.camel@joe-AO722>
-References: <1393430712-11298-1-git-send-email-alex.aring@gmail.com>
-	 <1393430712-11298-3-git-send-email-alex.aring@gmail.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D0F6CBBCA@AcuExch.aculab.com>
-	 <1393439085.407.31.camel@joe-AO722> <20140226183209.GA31268@omega>
+From: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>
+Subject: Re: [PATCH RFC 1/2] net: macb: Check DMA mappings for error
+Date: Wed, 26 Feb 2014 10:36:42 -0800
+Message-ID: <bcd23902-b961-4c12-b577-29dec9b1d6d1@TX2EHSMHS010.ehs.local>
+References: <1393011025-18537-1-git-send-email-soren.brinkmann@xilinx.com>
+ <1393011025-18537-2-git-send-email-soren.brinkmann@xilinx.com>
+ <1393114393.6823.25.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	"alex.bluesman.smirnov@gmail.com" <alex.bluesman.smirnov@gmail.com>,
-	"dbaryshkov@gmail.com" <dbaryshkov@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-zigbee-devel@lists.sourceforge.net"
-	<linux-zigbee-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"martin.townsend@xsilon.com" <martin.townsend@xsilon.com>
-To: Alexander Aring <alex.aring@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0090.hostedemail.com ([216.40.44.90]:40021 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752089AbaBZSf4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 13:35:56 -0500
-In-Reply-To: <20140226183209.GA31268@omega>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, Vinod Koul <vinod.koul@intel.com>,
+	Dan Williams <dan.j.williams@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Michal Simek <michal.simek@xilinx.com>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1393114393.6823.25.camel@deadeye.wl.decadent.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-02-26 at 19:32 +0100, Alexander Aring wrote:
-> On Wed, Feb 26, 2014 at 10:24:45AM -0800, Joe Perches wrote:
-[]
-> > Perhaps the compiler would inline the assignment
-> > anyway if addr_mode is __builtin_constant_p
-[]
-> I am not sure what I should do now, change or not change? :-)
+On Sun, 2014-02-23 at 12:13AM +0000, Ben Hutchings wrote:
+> On Fri, 2014-02-21 at 11:30 -0800, Soren Brinkmann wrote:
+> [...]
+> > --- a/drivers/net/ethernet/cadence/macb.c
+> > +++ b/drivers/net/ethernet/cadence/macb.c
+> > @@ -632,11 +632,16 @@ static void gem_rx_refill(struct macb *bp)
+> >  					   "Unable to allocate sk_buff\n");
+> >  				break;
+> >  			}
+> > -			bp->rx_skbuff[entry] =3D skb;
+> > =20
+> >  			/* now fill corresponding descriptor entry */
+> >  			paddr =3D dma_map_single(&bp->pdev->dev, skb->data,
+> >  					       bp->rx_buffer_size, DMA_FROM_DEVICE);
+> > +			if (dma_mapping_error(&bp->pdev->dev, paddr)) {
+> > +				dev_kfree_skb(skb);
+> > +				break;
+> > +			}
+> > +
+> > +			bp->rx_skbuff[entry] =3D skb;
+>=20
+> This bit looks good.
+>=20
+> >  			if (entry =3D=3D RX_RING_SIZE - 1)
+> >  				paddr |=3D MACB_BIT(RX_WRAP);
+> > @@ -1040,6 +1045,10 @@ static int macb_start_xmit(struct sk_buff *s=
+kb, struct net_device *dev)
+> >  	netdev_vdbg(bp->dev, "Allocated ring entry %u\n", entry);
+> >  	mapping =3D dma_map_single(&bp->pdev->dev, skb->data,
+> >  				 len, DMA_TO_DEVICE);
+> > +	if (dma_mapping_error(&bp->pdev->dev, mapping)) {
+> > +		dev_kfree_skb(skb);
+>=20
+> You need to unlock bp->lock before returning.  Also, I think this sho=
+uld
+> be kfree_skb(), as that can be observed through dropwatch whereas
+> dev_kfree_skb() is completely silent.
 
-Whatever you choose will be fine with me.
+I interpret Ben's comments as: This series is not utterly wrong and
+wanted. I'll send a v2 with the changes Ben suggested.
+Thanks for reviewing.
+
+	S=C3=B6ren
