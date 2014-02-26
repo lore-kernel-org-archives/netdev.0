@@ -1,18 +1,20 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 2/7] bridge: Keep track of ports capable of
-	flooding.
-Date: Wed, 26 Feb 2014 17:41:22 +0200
-Message-ID: <20140226154122.GC15330@redhat.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH 1/7] bridge: Turn flag change macro into a
+	function.
+Date: Wed, 26 Feb 2014 10:36:45 -0500
+Message-ID: <530E0A0D.30802@redhat.com>
 References: <1393427905-6811-1-git-send-email-vyasevic@redhat.com>
-	<1393427905-6811-3-git-send-email-vyasevic@redhat.com>
+	<1393427905-6811-2-git-send-email-vyasevic@redhat.com>
+	<20140226152926.GB15330@redhat.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org, shemminger@vyatta.com,
 	bridge@lists.linux-foundation.org, jhs@mojatatu.com
-To: Vlad Yasevich <vyasevic@redhat.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1393427905-6811-3-git-send-email-vyasevic@redhat.com>
+In-Reply-To: <20140226152926.GB15330@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
 	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
@@ -24,191 +26,80 @@ Sender: bridge-bounces@lists.linux-foundation.org
 Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 26, 2014 at 10:18:20AM -0500, Vlad Yasevich wrote:
-> Keep track of bridge ports that have unicast flooding turned on.
-> This will later be used by the algorithm to automatically manage
-> address programming and promisc mode.
+On 02/26/2014 10:29 AM, Michael S. Tsirkin wrote:
+> On Wed, Feb 26, 2014 at 10:18:19AM -0500, Vlad Yasevich wrote:
+>> Turn the flag change macro into a function to allow
+>> easier updates and to reduce space.
+>>
+>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+>> ---
+>>  net/bridge/br_sysfs_if.c | 29 +++++++++++++++++++----------
+>>  1 file changed, 19 insertions(+), 10 deletions(-)
+>>
+>> diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
+>> index dd595bd..7f66aa4 100644
+>> --- a/net/bridge/br_sysfs_if.c
+>> +++ b/net/bridge/br_sysfs_if.c
+>> @@ -25,6 +25,8 @@ struct brport_attribute {
+>>  	ssize_t (*show)(struct net_bridge_port *, char *);
+>>  	int (*store)(struct net_bridge_port *, unsigned long);
+>>  };
+>> +static int store_flag(struct net_bridge_port *p, unsigned long v,
+>> +		     unsigned long mask);
+>>  
+>>  #define BRPORT_ATTR(_name, _mode, _show, _store)		\
+>>  const struct brport_attribute brport_attr_##_name = { 	        \
 > 
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-> ---
->  net/bridge/br_if.c       | 60 ++++++++++++++++++++++++++++++++++++++++++++++--
->  net/bridge/br_netlink.c  |  3 +++
->  net/bridge/br_private.h  |  4 ++++
->  net/bridge/br_sysfs_if.c |  6 ++++-
->  4 files changed, 70 insertions(+), 3 deletions(-)
+> nitpicking:
+> Do we have to have forward declarations like this?
+> They make it harder to find where the code is.
 > 
-> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-> index 54d207d..f072b34 100644
-> --- a/net/bridge/br_if.c
-> +++ b/net/bridge/br_if.c
-> @@ -27,6 +27,9 @@
->  
->  #include "br_private.h"
->  
-> +static void br_add_flood_port(struct net_bridge_port *p, struct net_bridge *br);
-> +static void br_del_flood_port(struct net_bridge_port *p, struct net_bridge *br);
-> +
+> Also, pls add an empty line between struct and function.
 
-same nitpick about forward declarations of static
-functions.
-maybe they are ok for bridge, but that's my $.02
+Forward declaration not needed.  Will remove.
 
+Thanks
+-vlad
 
->  /*
->   * Determine initial path cost based on speed.
->   * using recommendations from 802.1d standard
-> @@ -141,11 +144,14 @@ static void del_nbp(struct net_bridge_port *p)
->  
->  	br_ifinfo_notify(RTM_DELLINK, p);
->  
-> +	list_del_rcu(&p->list);
-> +
-> +	if (p->flags & BR_FLOOD)
-> +		br_del_flood_port(p, br);
-> +
->  	nbp_vlan_flush(p);
->  	br_fdb_delete_by_port(br, p, 1);
->  
-> -	list_del_rcu(&p->list);
-> -
->  	dev->priv_flags &= ~IFF_BRIDGE_PORT;
->  
->  	netdev_rx_handler_unregister(dev);
-
-ok so it doesn't matter in which order we do
-list_del_rcu and nbp_vlan_flush then?
-
-> @@ -383,6 +389,9 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
->  	dev_disable_lro(dev);
->  
->  	list_add_rcu(&p->list, &br->port_list);
-> +
-> +	if (p->flags & BR_FLOOD)
-> +		br_add_flood_port(p, br);
->  
->  	netdev_update_features(br->dev);
->  
-> @@ -455,3 +464,50 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
->  
->  	return 0;
->  }
-> +
-> +static void br_add_flood_port(struct net_bridge_port *p, struct net_bridge *br)
-> +{
-> +	/* Increment the number of  flooding ports, and if we
-> +	 * only have 1 flooding port cache if for future use.
-> +	 */
-> +	br->n_flood_ports++;
-> +	if (br->n_flood_ports == 1)
-> +		br->c_flood_port = p;
-> +}
-> +
-> +static void br_del_flood_port(struct net_bridge_port *p, struct net_bridge *br)
-> +{
-> +	struct net_bridge_port *port;
-> +
-> +	/* Decrement the  number of flood port.
-> +	 * If we are deleting the current flood port, clear
-> +	 * the cached port.  If we are down to 1 flood port,
-> +	 * set it if it is not set.
-> +	 */
-> +	br->n_flood_ports--;
-> +	if (p == br->c_flood_port)
-> +		br->c_flood_port = NULL;
-> +
-> +	if (br->n_flood_ports == 1) {
-> +		list_for_each_entry(port, &p->br->port_list, list) {
-> +			if (port->flags & BR_FLOOD) {
-> +				br->c_flood_port = port;
-> +				break;
-> +			}
-> +		}
-> +	}
-> +}
-> +
-> +void br_port_flags_change(struct net_bridge_port *p, unsigned long mask)
-> +{
-> +	struct net_bridge *br = p->br;
-> +
-> +	/* We are only interested FLOOD flag */
-> +	if (!(mask & BR_FLOOD))
-> +		return;
-> +
-> +	if (p->flags & BR_FLOOD)
-> +		br_add_flood_port(p, br);
-> +	else
-> +		br_del_flood_port(p, br);
-> +}
-> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-> index e74b6d53..01382b9 100644
-> --- a/net/bridge/br_netlink.c
-> +++ b/net/bridge/br_netlink.c
-> @@ -328,6 +328,7 @@ static void br_set_port_flag(struct net_bridge_port *p, struct nlattr *tb[],
->  static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
->  {
->  	int err;
-> +	unsigned long old_flags = p->flags;
->  
->  	br_set_port_flag(p, tb, IFLA_BRPORT_MODE, BR_HAIRPIN_MODE);
->  	br_set_port_flag(p, tb, IFLA_BRPORT_GUARD, BR_BPDU_GUARD);
-> @@ -353,6 +354,8 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
->  		if (err)
->  			return err;
->  	}
-> +
-> +	br_port_flags_change(p, old_flags ^ p->flags);
->  	return 0;
->  }
->  
-> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-> index 3ba11bc..26a3987 100644
-> --- a/net/bridge/br_private.h
-> +++ b/net/bridge/br_private.h
-> @@ -290,6 +290,8 @@ struct net_bridge
->  	struct timer_list		topology_change_timer;
->  	struct timer_list		gc_timer;
->  	struct kobject			*ifobj;
-> +	struct net_bridge_port		*c_flood_port;
-> +	u32				n_flood_ports;
-
-any hints on locking for these fields?
-are these all under rtnl?
-
->  #ifdef CONFIG_BRIDGE_VLAN_FILTERING
->  	u8				vlan_enabled;
->  	struct net_port_vlans __rcu	*vlan_info;
-> @@ -415,6 +417,8 @@ int br_del_if(struct net_bridge *br, struct net_device *dev);
->  int br_min_mtu(const struct net_bridge *br);
->  netdev_features_t br_features_recompute(struct net_bridge *br,
->  					netdev_features_t features);
-> +void br_port_flags_change(struct net_bridge_port *port,
-> +			  unsigned long mask);
->  
->  /* br_input.c */
->  int br_handle_frame_finish(struct sk_buff *skb);
-> diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
-> index 7f66aa4..9ff6691 100644
-> --- a/net/bridge/br_sysfs_if.c
-> +++ b/net/bridge/br_sysfs_if.c
-> @@ -51,7 +51,10 @@ static BRPORT_ATTR(_name, S_IRUGO | S_IWUSR,			\
->  static int store_flag(struct net_bridge_port *p, unsigned long v,
->  		     unsigned long mask)
->  {
-> -	unsigned long flags = p->flags;
-> +	unsigned long flags;
-> +	unsigned long old_flags;
-> +
-> +	old_flags = flags = p->flags;
->  
->  	if (v)
->  		flags |= mask;
-> @@ -60,6 +63,7 @@ static int store_flag(struct net_bridge_port *p, unsigned long v,
->  
->  	if (flags != p->flags) {
->  		p->flags = flags;
-> +		br_port_flags_change(p, old_flags ^ flags);
->  		br_ifinfo_notify(RTM_NEWLINK, p);
->  	}
->  	return 0;
-> -- 
-> 1.8.5.3
+> 
+> 
+>> @@ -41,20 +43,27 @@ static ssize_t show_##_name(struct net_bridge_port *p, char *buf) \
+>>  }								\
+>>  static int store_##_name(struct net_bridge_port *p, unsigned long v) \
+>>  {								\
+>> -	unsigned long flags = p->flags;				\
+>> -	if (v)							\
+>> -		flags |= _mask;					\
+>> -	else							\
+>> -		flags &= ~_mask;				\
+>> -	if (flags != p->flags) {				\
+>> -		p->flags = flags;				\
+>> -		br_ifinfo_notify(RTM_NEWLINK, p);		\
+>> -	}							\
+>> -	return 0;						\
+>> +	return store_flag(p, v, _mask);				\
+>>  }								\
+>>  static BRPORT_ATTR(_name, S_IRUGO | S_IWUSR,			\
+>>  		   show_##_name, store_##_name)
+>>  
+>> +static int store_flag(struct net_bridge_port *p, unsigned long v,
+>> +		     unsigned long mask)
+>> +{
+>> +	unsigned long flags = p->flags;
+>> +
+>> +	if (v)
+>> +		flags |= mask;
+>> +	else
+>> +		flags &= ~mask;
+>> +
+>> +	if (flags != p->flags) {
+>> +		p->flags = flags;
+>> +		br_ifinfo_notify(RTM_NEWLINK, p);
+>> +	}
+>> +	return 0;
+>> +}
+>>  
+>>  static ssize_t show_path_cost(struct net_bridge_port *p, char *buf)
+>>  {
+>> -- 
+>> 1.8.5.3
