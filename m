@@ -1,41 +1,48 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next 10/31] cxgb4/iw_cxgb4: Doorbell Drop Avoidance
- Bug Fixes.
-Date: Wed, 26 Feb 2014 18:12:16 -0500 (EST)
-Message-ID: <20140226.181216.1563503549713890339.davem@davemloft.net>
-References: <1393427230-14532-1-git-send-email-hariprasad@chelsio.com>
-	<1393427230-14532-11-git-send-email-hariprasad@chelsio.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Fw: [Bug 71191] New: WARNING: CPU: 0 PID: 0 at
+ net/sched/sch_generic.c:264 dev_watchdog+0x266/0x270()
+Date: Thu, 27 Feb 2014 00:37:00 +0100
+Message-ID: <20140226233700.GA3452@electric-eye.fr.zoreil.com>
+References: <20140226130223.49af845b@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1393427230-14532-11-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:58018 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751621AbaBZXhE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 18:37:04 -0500
+Content-Disposition: inline
+In-Reply-To: <20140226130223.49af845b@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Date: Wed, 26 Feb 2014 20:36:49 +0530
+Stephen Hemminger <stephen@networkplumber.org> :
+[...]
+> [ 3909.248340] Hardware name: Gigabyte Technology Co., Ltd. Z87M-D3H/Z87M-D3H,
+> BIOS F9 01/20/2014
 
-> -static int allow_db_fc_on_t5;
-> -module_param(allow_db_fc_on_t5, int, 0644);
-> -MODULE_PARM_DESC(allow_db_fc_on_t5,
-> -		 "Allow DB Flow Control on T5 (default = 0)");
-> -
-> -static int allow_db_coalescing_on_t5;
-> -module_param(allow_db_coalescing_on_t5, int, 0644);
-> -MODULE_PARM_DESC(allow_db_coalescing_on_t5,
-> -		 "Allow DB Coalescing on T5 (default = 0)");
+https://bugzilla.kernel.org/buglist.cgi?quicksearch=Z87M
 
-Module parameters are a user facing interface.
+Scary.
 
-You cannot just delete, or change the semantics of, the ones you feel
-like doing so to.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> [ 3909.248358]  [<ffffffff815a4a96>] dev_watchdog+0x266/0x270
+[...]
+> [ 3909.248403]  [<ffffffff81d2271e>] x86_64_start_kernel+0x13e/0x14d
+> [ 3909.248404] ---[ end trace ec86fade884a2d17 ]---
+> [ 3909.322070] r8169 0000:02:00.0 p4p1: rtl_txcfg_empty_cond == 0 (loop: 666,
+> delay: 100).
+> [ 3909.324191] r8169 0000:02:00.0 p4p1: link up
+> [ 3963.292670] r8169 0000:02:00.0 p4p1: rtl_txcfg_empty_cond == 0 (loop: 666,
+> delay: 100).
+> [ 3963.294785] r8169 0000:02:00.0 p4p1: link up
+> [ 3986.303736] r8169 0000:02:00.0 p4p1: link down
+> [ 4017.856241] r8169 0000:02:00.0 p4p1: link up
+
+I'll take a look.
+
+Thanks.
+
+-- 
+Ueimor
