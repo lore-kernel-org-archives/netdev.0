@@ -1,187 +1,64 @@
-From: Qin Chuanyu <qinchuanyu@huawei.com>
-Subject: Re: [PATCH net] vhost: net: switch to use data copy if pending DMAs
- exceed the limit
-Date: Wed, 26 Feb 2014 14:32:49 +0800
-Message-ID: <530D8A91.6080206@huawei.com>
-References: <1393311238-7750-1-git-send-email-jasowang@redhat.com> <20140225135738.GA15274@redhat.com> <530D814E.2080708@redhat.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH (net.git) 1/6] stmmac: disable at run-time the EEE if
+ not supported
+Date: Wed, 26 Feb 2014 07:39:30 +0100
+Message-ID: <530D8C22.2020703@st.com>
+References: <1393322309-10390-1-git-send-email-peppe.cavallaro@st.com> <530CC4E4.40301@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<virtualization@lists.linux-foundation.org>,
-	<virtio-dev@lists.oasis-open.org>, <kvm@vger.kernel.org>
-To: Jason Wang <jasowang@redhat.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <530D814E.2080708@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	<netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:52094 "EHLO
+	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750717AbaBZGje (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 01:39:34 -0500
+In-Reply-To: <530CC4E4.40301@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2014/2/26 13:53, Jason Wang wrote:
-> On 02/25/2014 09:57 PM, Michael S. Tsirkin wrote:
->> On Tue, Feb 25, 2014 at 02:53:58PM +0800, Jason Wang wrote:
->>> We used to stop the handling of tx when the number of pending DMAs
->>> exceeds VHOST_MAX_PEND. This is used to reduce the memory occupation
->>> of both host and guest. But it was too aggressive in some cases, since
->>> any delay or blocking of a single packet may delay or block the guest
->>> transmission. Consider the following setup:
->>>
->>>      +-----+        +-----+
->>>      | VM1 |        | VM2 |
->>>      +--+--+        +--+--+
->>>         |              |
->>>      +--+--+        +--+--+
->>>      | tap0|        | tap1|
->>>      +--+--+        +--+--+
->>>         |              |
->>>      pfifo_fast   htb(10Mbit/s)
->>>         |              |
->>>      +--+--------------+---+
->>>      |     bridge          |
->>>      +--+------------------+
->>>         |
->>>      pfifo_fast
->>>         |
->>>      +-----+
->>>      | eth0|(100Mbit/s)
->>>      +-----+
->>>
->>> - start two VMs and connect them to a bridge
->>> - add an physical card (100Mbit/s) to that bridge
->>> - setup htb on tap1 and limit its throughput to 10Mbit/s
->>> - run two netperfs in the same time, one is from VM1 to VM2. Another is
->>>    from VM1 to an external host through eth0.
->>> - result shows that not only the VM1 to VM2 traffic were throttled but
->>>    also the VM1 to external host through eth0 is also throttled somehow.
->>>
->>> This is because the delay added by htb may lead the delay the finish
->>> of DMAs and cause the pending DMAs for tap0 exceeds the limit
->>> (VHOST_MAX_PEND). In this case vhost stop handling tx request until
->>> htb send some packets. The problem here is all of the packets
->>> transmission were blocked even if it does not go to VM2.
->>>
->>> We can solve this issue by relaxing it a little bit: switching to use
->>> data copy instead of stopping tx when the number of pending DMAs
->>> exceed the VHOST_MAX_PEND. This is safe because:
->>>
->>> - The number of pending DMAs were still limited by VHOST_MAX_PEND
->>> - The out of order completion during mode switch can make sure that
->>>    most of the tx buffers were freed in time in guest.
->>>
->>> So even if about 50% packets were delayed in zero-copy case, vhost
->>> could continue to do the transmission through data copy in this case.
->>>
->>> Test result:
->>>
->>> Before this patch:
->>> VM1 to VM2 throughput is 9.3Mbit/s
->>> VM1 to External throughput is 40Mbit/s
->>>
->>> After this patch:
->>> VM1 to VM2 throughput is 9.3Mbit/s
->>> Vm1 to External throughput is 93Mbit/s
->> Would like to see CPU utilization #s as well.
->>
+On 2/25/2014 5:29 PM, Sergei Shtylyov wrote:
+> Hello.
 >
-> Will measure this.
->>> Simple performance test on 40gbe shows no obvious changes in
->>> throughput after this patch.
->>>
->>> The patch only solve this issue when unlimited sndbuf. We still need a
->>> solution for limited sndbuf.
->>>
->>> Cc: Michael S. Tsirkin<mst@redhat.com>
->>> Cc: Qin Chuanyu<qinchuanyu@huawei.com>
->>> Signed-off-by: Jason Wang<jasowang@redhat.com>
->> I think this needs some thought.
->>
->> In particular I think this works because VHOST_MAX_PEND
->> is much smaller than the ring size.
->> Shouldn't max_pend then be tied to the ring size if it's small?
->>
+> On 25-02-2014 13:58, Giuseppe Cavallaro wrote:
 >
-> Yes it should. I just reuse the VHOST_MAX_PEND since it was there for a
-> long time.
->> Another question is about stopping vhost:
->> ATM it's waiting for skbs to complete.
->> Should we maybe hunt down skbs queued and destroy them
->> instead?
->> I think this happens when a device is removed.
->>
->> Thoughts?
->>
+>> This patch is to disable the EEE (so HW and timers)
+>> for example when the phy communicates that the EEE
+>> can be supported anymore.
 >
-> Agree, vhost net removal should not be blocked by a skb. But since the
-> skbs could be queued may places, just destroy them may need extra locks.
+>> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+>> ---
+>>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   24
+>> ++++++++++++++++----
+>>   1 files changed, 19 insertions(+), 5 deletions(-)
 >
-> Haven't thought this deeply, but another possible sloution is to rcuify
-> destructor_arg and assign it to NULL during vhost_net removing.
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> index 078ad0e..dc89dc3 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> [...]
+>> @@ -2204,7 +2219,6 @@ static int stmmac_poll(struct napi_struct *napi,
+>> int budget)
+>>   static void stmmac_tx_timeout(struct net_device *dev)
+>>   {
+>>       struct stmmac_priv *priv = netdev_priv(dev);
+>> -
+>
+>     Why? Empty line is needed here, after declaration.
 
-Xen treat it by a timer, for those skbs which has been delivered for a
-while, netback would exchange page of zero_copy's skb with dom0's page.
+yes out-of-scope in this patch. I'll fix it and resend all
 
-but there is still a race between host's another process handle the skb
-and netback exchange its page. (This problem has been proved by testing)
+BR
+Peppe
 
-and Xen hasn't solved this problem yet, because if anyone want to solve
-this problem completely, a page lock is necessary, but it would be
-complex and expensive.
-
-rcuify destructor arg and assign it to NULL couldn't solve the problem
-of page release that has been reserved by host's another process.
-
-The key problem is how to release the memory of zero_copy's skb while
-been reserved.
->>> ---
->>>   drivers/vhost/net.c | 17 +++++++----------
->>>   1 file changed, 7 insertions(+), 10 deletions(-)
->>>
->>> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
->>> index a0fa5de..3e96e47 100644
->>> --- a/drivers/vhost/net.c
->>> +++ b/drivers/vhost/net.c
->>> @@ -345,7 +345,7 @@ static void handle_tx(struct vhost_net *net)
->>>           .msg_flags = MSG_DONTWAIT,
->>>       };
->>>       size_t len, total_len = 0;
->>> -    int err;
->>> +    int err, num_pends;
->>>       size_t hdr_size;
->>>       struct socket *sock;
->>>       struct vhost_net_ubuf_ref *uninitialized_var(ubufs);
->>> @@ -366,13 +366,6 @@ static void handle_tx(struct vhost_net *net)
->>>           if (zcopy)
->>>               vhost_zerocopy_signal_used(net, vq);
->>>
->>> -        /* If more outstanding DMAs, queue the work.
->>> -         * Handle upend_idx wrap around
->>> -         */
->>> -        if (unlikely((nvq->upend_idx + vq->num - VHOST_MAX_PEND)
->>> -                  % UIO_MAXIOV == nvq->done_idx))
->>> -            break;
->>> -
->>>           head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
->>>                        ARRAY_SIZE(vq->iov),
->>>                       &out,&in,
->>> @@ -405,9 +398,13 @@ static void handle_tx(struct vhost_net *net)
->>>               break;
->>>           }
->>>
->>> +        num_pends = likely(nvq->upend_idx>= nvq->done_idx) ?
->>> +                (nvq->upend_idx - nvq->done_idx) :
->>> +                (nvq->upend_idx + UIO_MAXIOV -
->>> +                 nvq->done_idx);
->>> +
->>>           zcopy_used = zcopy&&  len>= VHOST_GOODCOPY_LEN
->>> -                &&  (nvq->upend_idx + 1) % UIO_MAXIOV !=
->>> -                      nvq->done_idx
->>> +                &&  num_pends<= VHOST_MAX_PEND
->>>                   &&  vhost_net_tx_select_zcopy(net);
->>>
->>>           /* use msg_control to pass vhost zerocopy ubuf info to skb */
->>> --
->>> 1.8.3.2
+>
+>>       /* Clear Tx resources and restart transmitting again */
+>>       stmmac_tx_err(priv);
+>>   }
+>
+> WBR, Sergei
 >
 >
-> .
 >
