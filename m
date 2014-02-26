@@ -1,40 +1,63 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: [PATCH] bonding: disallow enslaving a bond to itself
-Date: Wed, 26 Feb 2014 18:20:13 +0100
-Message-ID: <20140226172013.GA18145@midget.suse.cz>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH net-next v4 6/8] 6lowpan: fix some
+	checkpatch issues
+Date: Wed, 26 Feb 2014 09:24:56 -0800
+Message-ID: <1393435496.407.24.camel@joe-AO722>
+References: <1393430712-11298-1-git-send-email-alex.aring@gmail.com>
+	<1393430712-11298-7-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:48752 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751131AbaBZRUR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Feb 2014 12:20:17 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1393430712-11298-7-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Enslaving a bond to itself leads to an endless loop and hangs the kernel.
+On Wed, 2014-02-26 at 17:05 +0100, Alexander Aring wrote:
+> Detected with:
+> 
+> ./scripts/checkpatch.pl --strict -f net/ieee802154/6lowpan_rtnl.c
 
-Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+Hello Alexander.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 1c6104d..8f028ac 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1193,6 +1193,11 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 		return -EBUSY;
- 	}
- 
-+	if (bond_dev == slave_dev) {
-+		pr_err("%s: cannot enslave bond to itself.\n", bond_dev->name);
-+		return -EPERM;
-+	}
-+
- 	/* vlan challenged mutual exclusion */
- 	/* no need to lock since we're protected by rtnl_lock */
- 	if (slave_dev->features & NETIF_F_VLAN_CHALLENGED) {
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+Can I suggest to you (and to David) that the
+multiline comment style:
+
+/*
+ * comment
+ */
+
+is fine and doesn't need correcting here at the
+initial bits of a file before any actual code has
+been written?
+
+Assuming David agrees, I'll see about updating
+checkpatch to avoid this warning at the beginning
+of files.
+
+> diff --git a/net/ieee802154/6lowpan_rtnl.c b/net/ieee802154/6lowpan_rtnl.c
+[]
+> @@ -1,10 +1,8 @@
+> -/*
+> - * Copyright 2011, Siemens AG
+> +/* Copyright 2011, Siemens AG
+>   * written by Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>   */
+
+
+
+------------------------------------------------------------------------------
+Flow-based real-time traffic analytics software. Cisco certified tool.
+Monitor traffic, SLAs, QoS, Medianet, WAAS etc. with NetFlow Analyzer
+Customize your own dashboards, set traffic alerts and generate reports.
+Network behavioral analysis & security monitoring. All-in-one tool.
+http://pubads.g.doubleclick.net/gampad/clk?id=126839071&iu=/4140/ostg.clktrk
