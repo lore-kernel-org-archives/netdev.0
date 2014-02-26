@@ -1,64 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] bnx2x: minimize RAM usage in kdump
-Date: Wed, 26 Feb 2014 15:28:30 -0500 (EST)
-Message-ID: <20140226.152830.1284847901644373834.davem@davemloft.net>
-References: <1393340666-3539-1-git-send-email-mschmidt@redhat.com>
-	<6AE768456CEC4B4A9B2248CB6B87EB3E1C01B891@SJEXCHMB05.corp.ad.broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v6 net-next 1/2] net: add skb_mstamp infrastructure
+Date: Wed, 26 Feb 2014 12:29:22 -0800
+Message-ID: <1393446562.26794.0.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1393290667.2316.96.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1393292339.2316.98.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1393309324.2316.119.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140226.150246.2032724506200600118.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: mschmidt@redhat.com, netdev@vger.kernel.org, dmitry@broadcom.com,
-	yuvalmin@broadcom.com
-To: ariele@broadcom.com
+Cc: stephen@networkplumber.org, ja@ssi.bg, ycheng@google.com,
+	netdev@vger.kernel.org, ncardwell@google.com, brakmo@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40673 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750765AbaBZU2c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 15:28:32 -0500
-In-Reply-To: <6AE768456CEC4B4A9B2248CB6B87EB3E1C01B891@SJEXCHMB05.corp.ad.broadcom.com>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:49082 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753788AbaBZU3Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 15:29:24 -0500
+Received: by mail-pd0-f176.google.com with SMTP id r10so1422659pdi.35
+        for <netdev@vger.kernel.org>; Wed, 26 Feb 2014 12:29:23 -0800 (PST)
+In-Reply-To: <20140226.150246.2032724506200600118.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ariel Elior <ariele@broadcom.com>
-Date: Tue, 25 Feb 2014 16:41:07 +0000
+On Wed, 2014-02-26 at 15:02 -0500, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
 
->> -----Original Message-----
->> From: Michal Schmidt [mailto:mschmidt@redhat.com]
->> Sent: Tuesday, February 25, 2014 5:04 PM
->> To: davem@davemloft.net
->> Cc: netdev@vger.kernel.org; Ariel Elior; Dmitry Kravkov; Yuval Mintz
->> Subject: [PATCH net-next 0/3] bnx2x: minimize RAM usage in kdump
->> 
->> kdump kernels usually have only a small amount of memory reserved.
->> bnx2x can be memory-hungry. Let's minimize its memory usage when
->> running in kdump.
->> 
->> I detect kdump by looking at the "reset_devices" flag. A couple of
->> storage drivers (cciss, hpsa) use it for the same purpose. I am not sure
->> this is the best way to solve the problem, but it works.
->> 
->> Should it be made more generic by, say, looking at the total amount
->> of lowmem instead? Not using TPA by default when lowmem is small and/or
->> defaulting to fewer queues would help 32bit systems where a driver for
->> a multi-function multi-queue NIC can consume a significant amount
->> of available memory. Or do we want no such heuristics?
->> 
->> Is this something to consider doing for other network drivers too?
->> 
->> Michal Schmidt (3):
->>   bnx2x: clamp num_queues to prevent passing a negative value
->>   bnx2x: save RAM in kdump kernel by using a single queue
->>   bnx2x: save RAM in kdump kernel by disabling TPA
->> 
->>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  | 12 ++++++++----
->>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |  2 ++
->>  2 files changed, 10 insertions(+), 4 deletions(-)
->> 
->> --
->> 1.8.5.3
+> > + * skb_mstamp_delta - compute the difference in usec between two skb_mstamp
+> > + * @t1: pointer to oldest sample
+> > + * @t0: pointer to newest sample
+> > + */
+> > +static inline u32 skb_mstamp_us_delta(const struct skb_mstamp *t1,
+> > +				      const struct skb_mstamp *t0)
 > 
-> This series looks good, in the sense that it modifies the driver in a correct way to achieve the intended result (less memory on kdump).
-> The basic question of testing lowmem vs. reset_devices or perhaps some other parameter still needs to be answered though.
-> Acked-by: Ariel Elior <ariele@broadcom.com>
+> Maybe your definition of "newest" is different from mine, to me it
+> means most recently sampled.  And if so, your t1 and t0 descriptions
+> seem reversed.
+> 
+> Please fix this and resubmit with Neal's ACK etc.
 
-Series applied, thanks.
+Humpf, right you are, I'll send a v6, thanks !
