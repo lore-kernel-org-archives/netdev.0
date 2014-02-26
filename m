@@ -1,78 +1,79 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] net: stmicro: stmac: do not grab a mutex in irq off section
-Date: Wed, 26 Feb 2014 11:00:59 +0100
-Message-ID: <530DBB5B.2030405@st.com>
-References: <1392744843-6324-1-git-send-email-bigeasy@linutronix.de> <20140219.152328.351287968861448469.davem@redhat.com>
+Subject: Re: [PATCHv3 1/2] net: stmmac: Add SOCFPGA glue driver
+Date: Wed, 26 Feb 2014 10:44:33 +0100
+Message-ID: <530DB781.9050901@st.com>
+References: <1392061697-20193-1-git-send-email-dinguyen@altera.com> <20140212.193539.38124529344029793.davem@davemloft.net> <52FC4B0A.4010406@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@redhat.com>, <bigeasy@linutronix.de>
+Cc: <netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
+	<robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
+	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
+	<vbridgers2013@gmail.com>
+To: Dinh Nguyen <dinh.linux@gmail.com>,
+	David Miller <davem@davemloft.net>, <dinguyen@altera.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:57193 "EHLO
-	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750799AbaBZKBQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 05:01:16 -0500
-In-Reply-To: <20140219.152328.351287968861448469.davem@redhat.com>
+Received: from eu1sys200aog125.obsmtp.com ([207.126.144.159]:33287 "EHLO
+	eu1sys200aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751448AbaBZKGI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 05:06:08 -0500
+In-Reply-To: <52FC4B0A.4010406@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/19/2014 9:23 PM, David Miller wrote:
-> From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-> Date: Tue, 18 Feb 2014 18:34:03 +0100
+On 2/13/2014 5:33 AM, Dinh Nguyen wrote:
 >
-
-Re: [PATCH] net: stmicro: stmac: do not grab a mutex in irq off section
-                          ^^^^^^^ stmmac
-
->> I captured this:
+> On 2/12/14 6:35 PM, David Miller wrote:
+>> From: <dinguyen@altera.com>
+>> Date: Mon, 10 Feb 2014 13:48:16 -0600
 >>
->> |libphy: stmmac-0:04 - Link is Up - 1000/Full
->> |BUG: sleeping function called from invalid context at kernel/mutex.c:616
->> |in_atomic(): 1, irqs_disabled(): 128, pid: 31, name: kworker/1:1
->> |CPU: 1 PID: 31 Comm: kworker/1:1 Not tainted 3.12.0-00324-g28301d2-dirty #5
->> |[<8042f8e8>] (mutex_lock_nested+0x28/0x3cc) from [<802a226c>] (mdiobus_read+0x38/0x64)
->> |[<802a226c>] (mdiobus_read+0x38/0x64) from [<802a1968>] (genphy_update_link+0x18/0x50)
->> |[<802a1968>] (genphy_update_link+0x18/0x50) from [<802a19ac>] (genphy_read_status+0xc/0x180)
->> |[<802a19ac>] (genphy_read_status+0xc/0x180) from [<8029fb0c>] (phy_init_eee+0x4c/0x2ac)
->> |[<8029fb0c>] (phy_init_eee+0x4c/0x2ac) from [<802a7550>] (stmmac_eee_init+0x40/0x104)
->> |[<802a7550>] (stmmac_eee_init+0x40/0x104) from [<802a8678>] (stmmac_adjust_link+0x118/0x228)
->> |[<802a8678>] (stmmac_adjust_link+0x118/0x228) from [<802a0af4>] (phy_state_machine+0x23c/0x39c)
->> |[<802a0af4>] (phy_state_machine+0x23c/0x39c) from [<800371b8>] (process_one_work+0x1a4/0x44c)
->> |[<800371b8>] (process_one_work+0x1a4/0x44c) from [<80037884>] (worker_thread+0x138/0x390)
->> |[<80037884>] (worker_thread+0x138/0x390) from [<8003e850>] (kthread+0xb4/0xb8)
->> |[<8003e850>] (kthread+0xb4/0xb8) from [<8000e5a8>] (ret_from_fork+0x14/0x2c)
->> |stmmac: Energy-Efficient Ethernet initialized
+>>> From: Dinh Nguyen <dinguyen@altera.com>
+>>>
+>>> Like the STi series SOCs, Altera's SOCFPGA also needs a glue layer on top of the
+>>> Synopsys gmac IP.
+>>>
+>>> This patch adds the platform driver for the glue layer which configures the IP
+>>> before the generic STMMAC driver takes over.
+>>>
+>>> Signed-off-by: Dinh Nguyen <dinguyen@altera.com>
+>>> Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+>>> Cc: Rob Herring <robh+dt@kernel.org>
+>>> Cc: Pawel Moll <pawel.moll@arm.com>
+>>> Cc: Mark Rutland <mark.rutland@arm.com>
+>>> Cc: Ian Campbell <ijc+devicetree@hellion.org.uk>
+>>> Cc: Kumar Gala <galak@codeaurora.org>
+>>> Cc: Vince Bridgers <vbridgers2013@gmail.com>
+>>> ---
+>>> v3: Remove stray empty line at end of dwmac-socfpga.c.
+>>> v2: Use the dwmac-sti as an example for a glue layer and split patch up
+>>> to have dts as a separate patch. Also cc dts maintainers since there is
+>>> a new binding.
+>> The second patch for the DTS update doesn't apply cleanly at all to
+>> mainline.
+> Yes, I'm planning to take the DTS bindings patch through arm-soc/next-dt
+> tree, so that is where patch 2 is based on.
 >>
->> stmmac_eee_init() is called in other places without this lock.
->> phy_print_status() is just a printk() and the if condition is not
->> protected by the lock so I moved the unlock part just before that.
->>
->> Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
->
-> It does look like a problem though, two concurrent calls into
-> stmmac_eee_init would be really bad.  Two threads could see
-> eee enabled being false at the same time, and both try to
-> initialize the eee state.
->
-> stmmac_hw_setup()'s invocation is fine because we doing something like
-> bringing the device up or bringing it back after resume, and thus are
-> synchonized by the RTNL semaphore.
->
-> Actually, the same "mutex in irq off section" problem exists in that
-> code path, because stmmac_resume() invokes stmmac_hw_setup() with
-> the priv->lock held.
->
-> This is a much deeper problem then what your patch is tackling, and
-> thus a lot more thought about how to fix this is needed.
+>> Why don't you push both of these patches through whatever tree that
+>> file is maintained under.  You can add my ack:
+> I'm not sure if Peppe has a tree, but it should go into his tree
+> if there is one. If not, can you apply patch 1 to your tree?
 
-David, I will take care about this problem and provide a patch
-in case of I realize the problem. I need to review the stmmac_hw_setup
-function and suspend/resume and I will follow your advice.
+Hello
 
+I have not own tree but I am using net.git and net-next to do my patches
+and experiments.
+
+I ask you to keep these patches aligned to net-next.
+
+Also I ask you to review the glue-layer that is not in-line with what
+have been currently added for dwmac-sti and dwmac-sunxi.c.
+
+BR
 Peppe
 
->
-> I'm not applying this, sorry.
->
+
+>>
+>> Acked-by: David S. Miller <davem@davemloft.net>
+> Thanks,
+> Dinh
 >
