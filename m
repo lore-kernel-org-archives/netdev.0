@@ -1,31 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] MAINTAINERS: Intel nic drivers
-Date: Wed, 26 Feb 2014 15:50:24 -0500 (EST)
-Message-ID: <20140226.155024.719059614598164102.davem@davemloft.net>
-References: <1393364153.8716.63.camel@joe-AO722>
+Subject: Re: [net-next 6/6] doc: update SubmittingPatches about the Fixed
+ tag
+Date: Wed, 26 Feb 2014 15:54:20 -0500 (EST)
+Message-ID: <20140226.155420.1946480320179853521.davem@davemloft.net>
+References: <1393379938-1415-1-git-send-email-aaron.f.brown@intel.com>
+	<1393379938-1415-7-git-send-email-aaron.f.brown@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1393364153.8716.63.camel@joe-AO722>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jacob.e.keller@intel.com, netdev@vger.kernel.org, gospo@redhat.com,
+	sassmann@redhat.com
+To: aaron.f.brown@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40895 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751463AbaBZUyW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 15:54:22 -0500
+In-Reply-To: <1393379938-1415-7-git-send-email-aaron.f.brown@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 25 Feb 2014 13:35:53 -0800
+From: Aaron Brown <aaron.f.brown@intel.com>
+Date: Tue, 25 Feb 2014 17:58:58 -0800
 
-> Add a new F: line for the intel subdirectories.
+> From: Jacob Keller <jacob.e.keller@intel.com>
 > 
-> This allows get_maintainers to avoid using git log
-> and cc'ing people that have submitted clean-up style
-> patches for all first level directories under
-> drivers/net/ethernet/intel/
+> This patch updates the SubmittingPatches process to include howto about
+> the new 'Fixed' tag to be used when a patch fixes an issue in a previous
+> commit (found by git-bisect for example).
 > 
-> This does not make e100.c maintained.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+> Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
 
-Applied, thanks Joe.
+It is not appropriate to submit this via the networking tree, you should
+submit this via LKML instead.
+
+I'm going to apply this series minus this patch, thanks.
