@@ -1,58 +1,25 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next v4 6/8] 6lowpan: fix some
-	checkpatch issues
-Date: Wed, 26 Feb 2014 13:59:35 -0500 (EST)
-Message-ID: <20140226.135935.818983415159760824.davem@davemloft.net>
-References: <1393430712-11298-1-git-send-email-alex.aring@gmail.com>
-	<1393430712-11298-7-git-send-email-alex.aring@gmail.com>
-	<1393435496.407.24.camel@joe-AO722>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT PULL] AF_RXRPC fixes and development
+Date: Wed, 26 Feb 2014 14:00:53 -0500 (EST)
+Message-ID: <20140226.140053.115418122553568429.davem@davemloft.net>
+References: <12143.1393436505@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1393435496.407.24.camel@joe-AO722>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+	tim@electronghost.co.uk, linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <12143.1393436505@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Date: Wed, 26 Feb 2014 09:24:56 -0800
+From: David Howells <dhowells@redhat.com>
+Date: Wed, 26 Feb 2014 17:41:45 +0000
 
-> On Wed, 2014-02-26 at 17:05 +0100, Alexander Aring wrote:
->> Detected with:
->> 
->> ./scripts/checkpatch.pl --strict -f net/ieee802154/6lowpan_rtnl.c
-> 
-> Hello Alexander.
-> 
-> Can I suggest to you (and to David) that the
-> multiline comment style:
-> 
-> /*
->  * comment
->  */
-> 
-> is fine and doesn't need correcting here at the
-> initial bits of a file before any actual code has
-> been written?
-> 
-> Assuming David agrees, I'll see about updating
-> checkpatch to avoid this warning at the beginning
-> of files.
+> Here are some AF_RXRPC fixes (to tag rxrpc-20140226):
 
-I'm largely ambivalent but prefer avoiding that wasted "/*" line.
+You really need to post the patch series along with the pull
+request so that netdev can review your changes.
 
-------------------------------------------------------------------------------
-Flow-based real-time traffic analytics software. Cisco certified tool.
-Monitor traffic, SLAs, QoS, Medianet, WAAS etc. with NetFlow Analyzer
-Customize your own dashboards, set traffic alerts and generate reports.
-Network behavioral analysis & security monitoring. All-in-one tool.
-http://pubads.g.doubleclick.net/gampad/clk?id=126839071&iu=/4140/ostg.clktrk
+Thank you.
