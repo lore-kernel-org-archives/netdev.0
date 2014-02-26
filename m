@@ -1,113 +1,39 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] vhost: poll vhost_net only when tx notification is
- enabled
-Date: Wed, 26 Feb 2014 13:16:45 +0200
-Message-ID: <20140226111645.GC5236@redhat.com>
-References: <530DB1C9.2060106@huawei.com>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [PATCH 01/14] brcmfmac: add delay before unregistering the network
+ device
+Date: Wed, 26 Feb 2014 12:34:09 +0100
+Message-ID: <530DD131.50205@broadcom.com>
+References: <1393356639-19169-1-git-send-email-arend@broadcom.com>				 <1393356639-19169-2-git-send-email-arend@broadcom.com>				 (sfid-20140225_203048_842452_A39499B6) <1393358376.4170.22.camel@jlt4.sipsolutions.net>			 <530DAECD.8010405@broadcom.com>		 <1393406278.4133.4.camel@jlt4.sipsolutions.net>		 <530DB3BA.20106@broadcom.com>	 <1393407473.4133.5.camel@jlt4.sipsolutions.net>	 <530DC56E.9040202@broadcom.com> <1393413044.4133.6.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, Jason Wang <jasowang@redhat.com>,
-	netdev@vger.kernel.org, KVM list <kvm@vger.kernel.org>,
-	zhangjie14@huawei.com
-To: Qin Chuanyu <qinchuanyu@huawei.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52844 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751311AbaBZLLn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Feb 2014 06:11:43 -0500
-Content-Disposition: inline
-In-Reply-To: <530DB1C9.2060106@huawei.com>
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:61351 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751202AbaBZLeO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 06:34:14 -0500
+In-Reply-To: <1393413044.4133.6.camel@jlt4.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please see MAINTAINERS and copy all relevant lists.
-
-On Wed, Feb 26, 2014 at 05:20:09PM +0800, Qin Chuanyu wrote:
-> guest kick host base on avail_ring flags value and get perfermance
-
-typo
-
-> improved, vhost_zerocopy_callback could do the same thing. As
-> virtqueue_enable_cb need one more check after modifying the value of
-> avail_ring flags, vhost also need do the same thing after
-> vhost_enable_notify.
+On 02/26/2014 12:10 PM, Johannes Berg wrote:
+> On Wed, 2014-02-26 at 11:43 +0100, Arend van Spriel wrote:
 > 
-> test result list as below:
-> guest and host: suse11sp3, netperf, intel CPU 2.4GHz
-> +------+----------+--------+----------+--------+--------+---------+
-> |      |             old              |            new            |
-> +------+----------+--------+----------+--------+--------+---------+
-> | UDP  |  Gbit/s  |  PPS   |CPU idle% | Gbit/s |   PPS  |CPU idle%|
-> | 256  | 0.74805  | 321309 |  87.16   | 0.77933| 334743 |  90.71  |
-> | 512  |   1.42   | 328475 |  87.03   |  1.44  | 333550 |  90.43  |
-> | 1024 |   2.79   | 334426 |  89.09   |  2.81  | 336986 |  89.55  |
-> | 1460 |   3.71   | 316215 |  87.53   |  4.02  | 342325 |  89.58  |
-> +------+----------+--------+----------+--------+--------+---------+
+>> Actually, this was not the reason for the doing the msleep(). The
+>> problem was that wpa_supplicant received RTM_DELLINK, before getting the
+>> NL08211_DISCONNECT. This resulted in RTM_DELLINK, immediately followed
+>> by RTM_ADDLINK, followed by NL80211_DISCONNECT.
 > 
-> Signed-off-by: Chuanyu Qin <qinchuanyu@huawei.com>
+> I'm not sure this isn't still possible? I don't know when DELLINK is
+> sent.
 
-It's an interesting optimization, thanks!
-However, it looks like this might delay
-updating used ring indefinitely if we are
-unlucky. Some guests (e.g. windows)
-tend to crash if this happens.
+Given the behaviour I would say before the netdev notifier, which may be
+considered wrong. It depends whether the notifier was intended for the
+kind of thing that cfg80211 is doing, ie. send a netlink event to
+user-space?
 
-Maybe use a new flag for this?
-
-It also looks like there are potential race conditions below.
-
-> ---
->  drivers/vhost/net.c |   13 ++++++++++++-
->  1 files changed, 12 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index a0fa5de..a90f51b 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -315,6 +315,10 @@ static void vhost_zerocopy_callback(struct
-> ubuf_info *ubuf, bool success)
->  		VHOST_DMA_DONE_LEN : VHOST_DMA_FAILED_LEN;
->  	cnt = vhost_net_ubuf_put(ubufs);
-> 
-> +	/* make sure len has been updated because handle_tx would use it
-> +	 * and used_flags should also been checked.
-> +	 */
-> +	smp_mb();
->  	/*
->  	 * Trigger polling thread if guest stopped submitting new buffers:
->  	 * in this case, the refcount after decrement will eventually reach 1.
-
-this barrier is very suspect.
-
-> @@ -322,7 +326,8 @@ static void vhost_zerocopy_callback(struct
-> ubuf_info *ubuf, bool success)
->  	 * (the value 16 here is more or less arbitrary, it's tuned to trigger
->  	 * less than 10% of times).
->  	 */
-> -	if (cnt <= 1 || !(cnt % 16))
-> +	if ((!(vq->used_flags & VRING_USED_F_NO_NOTIFY))
-> +			&& (cnt <= 1 || !(cnt % 16)))
->  		vhost_poll_queue(&vq->poll);
-> 
->  	rcu_read_unlock_bh();
-
-looks like a potential race to me
-
-> @@ -386,6 +391,12 @@ static void handle_tx(struct vhost_net *net)
->  				vhost_disable_notify(&net->dev, vq);
->  				continue;
->  			}
-> +			/* there might skb been freed between last
-> +			* vhost_zerocopy_signal_used and vhost_enable_notify,
-> +			* so one more check is needed.
-> +			*/
-> +			if (zcopy)
-> +				vhost_zerocopy_signal_used(net, vq);
-
-
->  			break;
->  		}
->  		if (in) {
-> -- 
-> 1.7.3.1.msysgit.0
-> 
+Gr. AvS
