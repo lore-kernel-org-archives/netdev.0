@@ -1,56 +1,44 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 08/31] iw_cxgb4: release neigh entry in error paths.
-Date: Wed, 26 Feb 2014 20:36:47 +0530
-Message-ID: <1393427230-14532-9-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 07/31] iw_cxgb4: Allow loopback connections.
+Date: Wed, 26 Feb 2014 20:36:46 +0530
+Message-ID: <1393427230-14532-8-git-send-email-hariprasad@chelsio.com>
 References: <1393427230-14532-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com, kumaras@chelsio.com,
 	dm@chelsio.com, swise@opengridcomputing.com, leedom@chelsio.com,
 	santosh@chelsio.com, hariprasad@chelsio.com, nirranjan@chelsio.com
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:10714 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:17659 "EHLO
 	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751497AbaBZPIn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 10:08:43 -0500
+	by vger.kernel.org with ESMTP id S1751497AbaBZPIk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 10:08:40 -0500
 In-Reply-To: <1393427230-14532-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Steve Wise <swise@opengridcomputing.com>
 
-Always release the neigh entry in rx_pkt().
-
-Based on original work by Santosh Rastapur <santosh@chelsio.com>.
+find_route() must treat loopback as a valid
+egress interface.
 
 Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
- drivers/infiniband/hw/cxgb4/cm.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+ drivers/infiniband/hw/cxgb4/cm.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index 360807e..74a2250 100644
+index d286bde..360807e 100644
 --- a/drivers/infiniband/hw/cxgb4/cm.c
 +++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -3350,10 +3350,9 @@ static int rx_pkt(struct c4iw_dev *dev, struct sk_buff *skb)
- 	if (!e) {
- 		pr_err("%s - failed to allocate l2t entry!\n",
- 		       __func__);
--		goto free_dst;
-+		goto free_neigh;
+@@ -400,7 +400,8 @@ static struct dst_entry *find_route(struct c4iw_dev *dev, __be32 local_ip,
+ 	n = dst_neigh_lookup(&rt->dst, &peer_ip);
+ 	if (!n)
+ 		return NULL;
+-	if (!our_interface(dev, n->dev)) {
++	if (!our_interface(dev, n->dev) &&
++	    !(n->dev->flags & IFF_LOOPBACK)) {
+ 		dst_release(&rt->dst);
+ 		return NULL;
  	}
- 
--	neigh_release(neigh);
- 	step = dev->rdev.lldi.nrxq / dev->rdev.lldi.nchan;
- 	rss_qid = dev->rdev.lldi.rxq_ids[pi->port_id * step];
- 	window = (__force u16) htons((__force u16)tcph->window);
-@@ -3373,6 +3372,8 @@ static int rx_pkt(struct c4iw_dev *dev, struct sk_buff *skb)
- 			      tcph->source, ntohl(tcph->seq), filter, window,
- 			      rss_qid, pi->port_id);
- 	cxgb4_l2t_release(e);
-+free_neigh:
-+	neigh_release(neigh);
- free_dst:
- 	dst_release(dst);
- reject:
 -- 
 1.7.1
