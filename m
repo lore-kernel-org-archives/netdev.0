@@ -1,99 +1,174 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [GIT PULL] AF_RXRPC fixes and development
-Date: Wed, 26 Feb 2014 17:41:45 +0000
-Message-ID: <12143.1393436505@warthog.procyon.org.uk>
-Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
-	Tim Smith <tim@electronghost.co.uk>,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH 4/7] bridge: Automatically manage port
+	promiscuous mode.
+Date: Wed, 26 Feb 2014 11:02:17 -0500
+Message-ID: <530E1009.60605@redhat.com>
+References: <1393427905-6811-1-git-send-email-vyasevic@redhat.com>
+	<1393427905-6811-5-git-send-email-vyasevic@redhat.com>
+	<20140226155111.GE15330@redhat.com>
+Reply-To: vyasevic@redhat.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org, shemminger@vyatta.com,
+	bridge@lists.linux-foundation.org, jhs@mojatatu.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140226155111.GE15330@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
+On 02/26/2014 10:51 AM, Michael S. Tsirkin wrote:
+> On Wed, Feb 26, 2014 at 10:18:22AM -0500, Vlad Yasevich wrote:
+>> When there is only 1 flooding port, this port is programmed
+>> with all the address
+> 
+> all the addresses?
 
-Here are some AF_RXRPC fixes (to tag rxrpc-20140226):
 
- (1) Fix to remove incorrect checksum calculation made during recvmsg().  It's
-     unnecessary to try to do this there since we check the checksum before
-     reading the RxRPC header from the packet.
+All statically configured ones plus locals.
+Locals are needed preserve the bridge behavior of
+being able to receive packets addresses to any of the
+ports mac addresses on any interface.
+This actually cuts the usability of this feature
+in about half. :(
 
- (2) Fix to prevent the sending of an ABORT packet in response to another
-     ABORT packet and inducing a storm.
+> 
+>> the bridge accumulated.  This allows
+>> us to place this port into non-promiscuous mode.
+>> At other times, all ports are set as promiscuous.  To help
+>> track whether the bridge set the mode or not, a new
+>> flag is introduced.
+>>
+>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+>> ---
+>>  net/bridge/br_if.c      | 48 ++++++++++++++++++++++++++++++++++++++++++++++--
+>>  net/bridge/br_private.h |  1 +
+>>  2 files changed, 47 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+>> index e782c2e..51df642 100644
+>> --- a/net/bridge/br_if.c
+>> +++ b/net/bridge/br_if.c
+>> @@ -136,7 +136,7 @@ static void del_nbp(struct net_bridge_port *p)
+>>  
+>>  	sysfs_remove_link(br->ifobj, p->dev->name);
+>>  
+>> -	dev_set_promiscuity(dev, -1);
+>> +	dev_set_allmulti(dev, -1);
+>>  
+>>  	spin_lock_bh(&br->lock);
+>>  	br_stp_disable_port(p);
+>> @@ -359,7 +359,7 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+>>  
+>>  	call_netdevice_notifiers(NETDEV_JOIN, dev);
+>>  
+>> -	err = dev_set_promiscuity(dev, 1);
+>> +	err = dev_set_allmulti(dev, 1);
+>>  	if (err)
+>>  		goto put_back;
+>>  
+>> @@ -465,6 +465,48 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
+>>  	return 0;
+>>  }
+>>  
+>> +static int br_port_set_promisc(struct net_bridge_port *p)
+>> +{
+>> +	int err = 0;
+>> +
+>> +	if (p->flags & BR_PROMISC)
+>> +		return err;
+>> +
+>> +	err = dev_set_promiscuity(p->dev, 1);
+>> +	if (err)
+>> +		return err;
+>> +
+>> +	p->flags |= BR_PROMISC;
+>> +	return err;
+>> +}
+>> +
+> 
+> you take pains to return an error code here,
+> only to ignore it in the caller?
 
- (3) Fix UDP MTU calculation from parsing ICMP_FRAG_NEEDED packets where we
-     don't handle the ICMP packet not specifying an MTU size.
+You are right.  This can be turned to void.
 
-And development patches (to tag rxrpc-devel-20140226):
+> 
+>> +static void br_port_clear_promisc(struct net_bridge_port *p)
+>> +{
+>> +	if (!(p->flags & BR_PROMISC))
+>> +		return;
+>> +
+>> +	dev_set_promiscuity(p->dev, -1);
+>> +	p->flags &= ~BR_PROMISC;
+>> +}
+>> +
+>> +/* When a port is added or removed or when the flooding status of
+>> + * the port changes, this function is called to automatically mange
+>> + * promiscuity setting of all the bridge ports.  We are always called
+>> + * under RTNL so can skip using rcu primitives.
+>> + */
+>> +static void br_manage_promisc(struct net_bridge *br)
+>> +{
+>> +	struct net_bridge_port *p;
+>> +
+>> +	list_for_each_entry(p, &br->port_list, list) {
+>> +		if (!br_port_exists(p->dev) ||
+>> +		    (br->n_flood_ports == 1 && br->c_flood_port == p))
+>> +			br_port_clear_promisc(p);
+>> +		else
+>> +			br_port_set_promisc(p);
+>> +	}
+>> +}
+>> +
+>>  static void br_add_flood_port(struct net_bridge_port *p, struct net_bridge *br)
+>>  {
+>>  	/* Increment the number of  flooding ports, and if we
+>> @@ -475,6 +517,7 @@ static void br_add_flood_port(struct net_bridge_port *p, struct net_bridge *br)
+>>  		br->c_flood_port = p;
+>>  
+>>  	br_fdb_addrs_sync(br);
+>> +	br_manage_promisc(br);
+>>  }
+>>  
+>>  static void br_del_flood_port(struct net_bridge_port *p, struct net_bridge *br)
+>> @@ -502,6 +545,7 @@ static void br_del_flood_port(struct net_bridge_port *p, struct net_bridge *br)
+>>  			}
+>>  		}
+>>  	}
+>> +	br_manage_promisc(br);
+>>  }
+>>  
+>>  void br_port_flags_change(struct net_bridge_port *p, unsigned long mask)
+>> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+>> index 40a6927..6670cb3 100644
+>> --- a/net/bridge/br_private.h
+>> +++ b/net/bridge/br_private.h
+>> @@ -174,6 +174,7 @@ struct net_bridge_port
+>>  #define BR_ADMIN_COST		0x00000010
+>>  #define BR_LEARNING		0x00000020
+>>  #define BR_FLOOD		0x00000040
+>> +#define BR_PROMISC		0x00000080
+>>
+> 
+> Considering you then have a separate logic in 7/7
+> will this be cleaner as a per-port flag?
 
- (4) Add sysctls for configuring RxRPC parameters, specifically various delays
-     pertaining to ACK generation, the time before we resend a packet for
-     which we don't receive an ACK, the maximum time a call is permitted to
-     live and the amount of time transport, connection and dead call
-     information is cached.
+It is a per-port flag here.  I can change it to
+BR_PORT_PROMISC to make it clearer.
 
- (5) Improve ACK packet production by adjusting the handling of ACK_REQUESTED
-     packets, ignoring the MORE_PACKETS flag, delaying the production of
-     otherwise immediate ACK_IDLE packets and delaying all ACK_IDLE production
-     (barring the call termination) to half a second.
+-vlad
 
- (6) Add more sysctl parameters to expose the Rx window size, the maximum
-     packet size that we're willing to receive and the number of jumbo rxrpc
-     packets we're willing to handle in a single UDP packet.
-
- (7) Request ACKs on alternate DATA packets so that the other side doesn't
-     wait till we fill up the Tx window.
-
- (8) Use a RCU hash table to look up the rxrpc_call for an incoming packet
-     rather than stepping through a hierarchy involving several spinlocks.
-
-Would you rather these were separate pull requests?
-
-David
----
-The following changes since commit 38dbfb59d1175ef458d006556061adeaa8751b72:
-
-  Linus 3.14-rc1 (2014-02-02 16:42:13 -0800)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git tags/rxrpc-devel-20140226
-
-for you to fetch changes up to 224c577c412f620a600c15c86afe82157161d7e7:
-
-  af_rxrpc: Keep rxrpc_call pointers in a hashtable (2014-02-26 17:25:07 +0000)
-
-----------------------------------------------------------------
-(from the branch description for rxrpc local branch)
-
-RxRPC development
-RxRPC development
-
-----------------------------------------------------------------
-David Howells (5):
-      af_rxrpc: Fix UDP MTU calculation from ICMP_FRAG_NEEDED
-      af_rxrpc: Add sysctls for configuring RxRPC parameters
-      af_rxrpc: Improve ACK production
-      af_rxrpc: Expose more RxRPC parameters via sysctls
-      af_rxrpc: Request an ACK for every alternate DATA packet
-
-Tim Smith (3):
-      af_rxrpc: Remove incorrect checksum calculation from rxrpc_recvmsg()
-      af_rxrpc: Prevent RxRPC peers from ABORT-storming one another
-      af_rxrpc: Keep rxrpc_call pointers in a hashtable
-
- Documentation/networking/rxrpc.txt |  81 +++++++++++++++
- net/rxrpc/Makefile                 |   5 +-
- net/rxrpc/af_rxrpc.c               |   9 ++
- net/rxrpc/ar-ack.c                 |  61 +++++++++--
- net/rxrpc/ar-call.c                | 202 +++++++++++++++++++++++++++++++++++--
- net/rxrpc/ar-connection.c          |  10 +-
- net/rxrpc/ar-error.c               |   1 +
- net/rxrpc/ar-input.c               | 190 +++++++++++++++-------------------
- net/rxrpc/ar-internal.h            |  40 +++++++-
- net/rxrpc/ar-output.c              |  15 ++-
- net/rxrpc/ar-recvmsg.c             |  25 +----
- net/rxrpc/ar-skbuff.c              |   7 +-
- net/rxrpc/ar-transport.c           |  10 +-
- net/rxrpc/sysctl.c                 | 146 +++++++++++++++++++++++++++
- 14 files changed, 636 insertions(+), 166 deletions(-)
- create mode 100644 net/rxrpc/sysctl.c
+>   
+>>  #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
+>>  	struct bridge_mcast_query	ip4_query;
+>> -- 
+>> 1.8.5.3
