@@ -1,111 +1,43 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 29/31] iw_cxgb4: minor fixes/cleanup.
-Date: Wed, 26 Feb 2014 20:37:08 +0530
-Message-ID: <1393427230-14532-30-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 14/31] iw_cxgb4: default peer2peer mode to 1.
+Date: Wed, 26 Feb 2014 20:36:53 +0530
+Message-ID: <1393427230-14532-15-git-send-email-hariprasad@chelsio.com>
 References: <1393427230-14532-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com, kumaras@chelsio.com,
 	dm@chelsio.com, swise@opengridcomputing.com, leedom@chelsio.com,
 	santosh@chelsio.com, hariprasad@chelsio.com, nirranjan@chelsio.com
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:7945 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:2698 "EHLO
 	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753323AbaBZPKE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 10:10:04 -0500
+	by vger.kernel.org with ESMTP id S1751497AbaBZPJJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 10:09:09 -0500
 In-Reply-To: <1393427230-14532-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Steve Wise <swise@opengridcomputing.com>
 
-Added some missing debug stats.
-
-Use uninitialized_var().
-
-Rate limit warning printks.
-
-Initialize reserved fields in a FW work request.
-
 Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
- drivers/infiniband/hw/cxgb4/cq.c       |    2 +-
- drivers/infiniband/hw/cxgb4/mem.c      |    6 +++++-
- drivers/infiniband/hw/cxgb4/qp.c       |    2 ++
- drivers/infiniband/hw/cxgb4/resource.c |   10 +++++++---
- 4 files changed, 15 insertions(+), 5 deletions(-)
+ drivers/infiniband/hw/cxgb4/cm.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb4/cq.c b/drivers/infiniband/hw/cxgb4/cq.c
-index 351c8e0..6cbe4c5 100644
---- a/drivers/infiniband/hw/cxgb4/cq.c
-+++ b/drivers/infiniband/hw/cxgb4/cq.c
-@@ -676,7 +676,7 @@ skip_cqe:
- static int c4iw_poll_cq_one(struct c4iw_cq *chp, struct ib_wc *wc)
- {
- 	struct c4iw_qp *qhp = NULL;
--	struct t4_cqe cqe = {0, 0}, *rd_cqe;
-+	struct t4_cqe uninitialized_var(cqe), *rd_cqe;
- 	struct t4_wq *wq;
- 	u32 credit = 0;
- 	u8 cqe_flushed;
-diff --git a/drivers/infiniband/hw/cxgb4/mem.c b/drivers/infiniband/hw/cxgb4/mem.c
-index cdaf257..ecdee18 100644
---- a/drivers/infiniband/hw/cxgb4/mem.c
-+++ b/drivers/infiniband/hw/cxgb4/mem.c
-@@ -259,8 +259,12 @@ static int write_tpt_entry(struct c4iw_rdev *rdev, u32 reset_tpt_entry,
+diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
+index 9387f74..d21ac15 100644
+--- a/drivers/infiniband/hw/cxgb4/cm.c
++++ b/drivers/infiniband/hw/cxgb4/cm.c
+@@ -98,9 +98,9 @@ int c4iw_debug;
+ module_param(c4iw_debug, int, 0644);
+ MODULE_PARM_DESC(c4iw_debug, "Enable debug logging (default=0)");
  
- 	if ((!reset_tpt_entry) && (*stag == T4_STAG_UNSET)) {
- 		stag_idx = c4iw_get_resource(&rdev->resource.tpt_table);
--		if (!stag_idx)
-+		if (!stag_idx) {
-+			mutex_lock(&rdev->stats.lock);
-+			rdev->stats.stag.fail++;
-+			mutex_unlock(&rdev->stats.lock);
- 			return -ENOMEM;
-+		}
- 		mutex_lock(&rdev->stats.lock);
- 		rdev->stats.stag.cur += 32;
- 		if (rdev->stats.stag.cur > rdev->stats.stag.max)
-diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
-index 274f59a..30fcf84 100644
---- a/drivers/infiniband/hw/cxgb4/qp.c
-+++ b/drivers/infiniband/hw/cxgb4/qp.c
-@@ -428,6 +428,8 @@ static int build_rdma_send(struct t4_sq *sq, union t4_wr *wqe,
- 	default:
- 		return -EINVAL;
- 	}
-+	wqe->send.r3 = 0;
-+	wqe->send.r4 = 0;
+-static int peer2peer;
++static int peer2peer = 1;
+ module_param(peer2peer, int, 0644);
+-MODULE_PARM_DESC(peer2peer, "Support peer2peer ULPs (default=0)");
++MODULE_PARM_DESC(peer2peer, "Support peer2peer ULPs (default=1)");
  
- 	plen = 0;
- 	if (wr->num_sge) {
-diff --git a/drivers/infiniband/hw/cxgb4/resource.c b/drivers/infiniband/hw/cxgb4/resource.c
-index cdef4d7..69e57d0 100644
---- a/drivers/infiniband/hw/cxgb4/resource.c
-+++ b/drivers/infiniband/hw/cxgb4/resource.c
-@@ -179,8 +179,12 @@ u32 c4iw_get_qpid(struct c4iw_rdev *rdev, struct c4iw_dev_ucontext *uctx)
- 		kfree(entry);
- 	} else {
- 		qid = c4iw_get_resource(&rdev->resource.qid_table);
--		if (!qid)
-+		if (!qid) {
-+			mutex_lock(&rdev->stats.lock);
-+			rdev->stats.qid.fail++;
-+			mutex_unlock(&rdev->stats.lock);
- 			goto out;
-+		}
- 		mutex_lock(&rdev->stats.lock);
- 		rdev->stats.qid.cur += rdev->qpmask + 1;
- 		mutex_unlock(&rdev->stats.lock);
-@@ -322,8 +326,8 @@ u32 c4iw_rqtpool_alloc(struct c4iw_rdev *rdev, int size)
- 	unsigned long addr = gen_pool_alloc(rdev->rqt_pool, size << 6);
- 	PDBG("%s addr 0x%x size %d\n", __func__, (u32)addr, size << 6);
- 	if (!addr)
--		printk_ratelimited(KERN_WARNING MOD "%s: Out of RQT memory\n",
--		       pci_name(rdev->lldi.pdev));
-+		pr_warn_ratelimited(KERN_WARNING MOD "%s: Out of RQT memory\n",
-+				    pci_name(rdev->lldi.pdev));
- 	mutex_lock(&rdev->stats.lock);
- 	if (addr) {
- 		rdev->stats.rqt.cur += roundup(size << 6, 1 << MIN_RQT_SHIFT);
+ static int p2p_type = FW_RI_INIT_P2PTYPE_READ_REQ;
+ module_param(p2p_type, int, 0644);
 -- 
 1.7.1
