@@ -1,127 +1,78 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v4] can: xilinx CAN controller support.
-Date: Wed, 26 Feb 2014 14:22:04 +0100
-Message-ID: <530DEA7C.6010609@pengutronix.de>
-References: <74d607e9-ac9c-4a9b-ac49-e84ae49d20c2@TX2EHSMHS031.ehs.local> <530D0A9C.5090402@pengutronix.de> <cd00fb2d-c8a7-423d-8aa0-2b413e9ac101@CO9EHSMHS017.ehs.local>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net] bonding: fix a div error caused by the slave release
+ path
+Date: Wed, 26 Feb 2014 14:28:54 +0100
+Message-ID: <20140226132854.GA24011@redhat.com>
+References: <1393420830-20932-1-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="WLaE7bP6u1l5645uGMVJRtbhg45ixMqLi"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>,
-	"wg@grandegger.com" <wg@grandegger.com>,
-	Michal Simek <michals@xilinx.com>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <cd00fb2d-c8a7-423d-8aa0-2b413e9ac101@CO9EHSMHS017.ehs.local>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:14757 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751850AbaBZN3E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Feb 2014 08:29:04 -0500
+Content-Disposition: inline
+In-Reply-To: <1393420830-20932-1-git-send-email-nikolay@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---WLaE7bP6u1l5645uGMVJRtbhg45ixMqLi
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+On Wed, Feb 26, 2014 at 02:20:30PM +0100, Nikolay Aleksandrov wrote:
+>There's a bug in the slave release function which leads the transmit
+>functions which use the bond->slave_cnt to a div by 0 because we might
+>just have released our last slave and made slave_cnt == 0 but at the same
+>time we may have a transmitter after the check for an empty list which will
+>fetch it and use it in the slave id calculation.
+>Fix it by moving the slave_cnt after synchronize_rcu so if this was our
+>last slave any new transmitters will see an empty slave list which is
+>checked after rcu lock but before calling the mode transmit functions
+>which rely on bond->slave_cnt.
+>
+>Fixes: 278b208375 ("bonding: initial RCU conversion")
+>
+>CC: Veaceslav Falico <vfalico@redhat.com>
+>CC: Andy Gospodarek <andy@greyhouse.net>
+>CC: Jay Vosburgh <fubar@us.ibm.com>
+>CC: David S. Miller <davem@davemloft.net>
+>
+>Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 
-On 02/26/2014 02:07 PM, Appana Durga Kedareswara Rao wrote:
->> This loop looks broken. Can you explain how it works.
->>
->> What it shoud do is:
->> We have put (priv->tx_head - priv->tx_tail) CAN frames into the FIFO.
->> This means at maximum there could be this amount of CAN frames which
->> have been successfully transmitted. For every cycle in this while loop=
- you
->> should:
->> a) check if a CAN frame has successfully been transmitted
->>    (as this CAN core uses a FIFO it should be "oldest")
->>    A read_reg() of some kind is missing in your loop.
->> b) if needed, remove this event from the FIFO or
->>    mark the interrupt as done. Whatever you hardware needs.
->> c) update your statistics
->> d) Use can_get_echo_skb to push this frame into the networking stack
->> e) As a CAN frame has been transmitted successfully, wake the tx_queue=
-=2E
->>
->>> +   while (priv->tx_head - priv->tx_tail > 0) {
->>> +           if (isr & XCAN_IXR_TXFLL_MASK) {
->>> +                   priv->write_reg(priv, XCAN_ICR_OFFSET,
->>> +                                   XCAN_IXR_TXFLL_MASK);
->>> +                   netif_stop_queue(ndev);
->>
->> Why do you stop the queue here? A CAN frame has successfully been
->> transmitted, there should be room in the FIFO.
->>
->>> +                   break;
->>> +           }
->>> +           can_get_echo_skb(ndev, priv->tx_tail %
->>> +                                   priv->xcan_echo_skb_max_tx);
->>> +           priv->tx_tail++;
->>> +   }
->>> +
->=20
-> The below are the bit fields available for the Transmit FIFO.
-> 1) In the ISR(interrupt status register)  Tx Ok interrupt and Tx fifo f=
-ull interrupt.
-> 2) in the SR(Status Register) Tx fifo full condition.
->=20
->=20
-> I am modifying the entire tx interrupt logic to like below.
->=20
-> static void xcan_tx_interrupt(struct net_device *ndev, u32 isr)
-> {
->         struct xcan_priv *priv =3D netdev_priv(ndev);
->         struct net_device_stats *stats =3D &ndev->stats;
->=20
->             while (priv->tx_head - priv->tx_tail > 0) {
->                 if (isr & XCAN_IXR_TXFLL_MASK) {
->                         priv->write_reg(priv, XCAN_ICR_OFFSET,
->                                         XCAN_IXR_TXFLL_MASK);
->                           break;
->                 }
->                 can_get_echo_skb(ndev, priv->tx_tail %
->                                         priv->xcan_echo_skb_max_tx);
->                 priv->tx_tail++;
->          stats->tx_packets++;
->         netif_wake_queue(ndev);
->               can_led_event(ndev, CAN_LED_EVENT_TX);
->=20
->         }
+Acked-by: Veaceslav Falico <vfalico@redhat.com>
 
-You just need to wake the queue once.
+On a side note - slave_cnt is used only for roundrobin/xor slave
+identification. It *might* be a good idea to remove it completely, though I
+can't figure out a way how to remove it without some overhead in fast
+path...
 
-> }
->=20
->=20
-> Are you Ok with the above logic?
-
-No, how can you tell how many frames have been transmitted?
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---WLaE7bP6u1l5645uGMVJRtbhg45ixMqLi
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlMN6nwACgkQjTAFq1RaXHPQGQCffOrc4qe/mhVZnM1NvNN3XTMq
-JfAAn3poCqSBHxbeZtkG8DiW4dHP6rDk
-=fs9R
------END PGP SIGNATURE-----
-
---WLaE7bP6u1l5645uGMVJRtbhg45ixMqLi--
+>---
+> drivers/net/bonding/bond_main.c | 4 +---
+> 1 file changed, 1 insertion(+), 3 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index 1c6104d..5a66094 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -1654,9 +1654,6 @@ static int __bond_release_one(struct net_device *bond_dev,
+> 		return -EINVAL;
+> 	}
+>
+>-	/* release the slave from its bond */
+>-	bond->slave_cnt--;
+>-
+> 	bond_sysfs_slave_del(slave);
+>
+> 	bond_upper_dev_unlink(bond_dev, slave_dev);
+>@@ -1738,6 +1735,7 @@ static int __bond_release_one(struct net_device *bond_dev,
+>
+> 	unblock_netpoll_tx();
+> 	synchronize_rcu();
+>+	bond->slave_cnt--;
+>
+> 	if (!bond_has_slaves(bond)) {
+> 		call_netdevice_notifiers(NETDEV_CHANGEADDR, bond->dev);
+>-- 
+>1.8.4.2
+>
