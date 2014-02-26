@@ -1,57 +1,69 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next v4 2/8] 6lowpan: add uncompress header size
- function
-Date: Wed, 26 Feb 2014 17:05:41 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6CBE9F@AcuExch.aculab.com>
-References: <1393430712-11298-1-git-send-email-alex.aring@gmail.com>
- <1393430712-11298-3-git-send-email-alex.aring@gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6D0F6CBBCA@AcuExch.aculab.com>
- <20140226162008.GA11499@omega>
+From: Grant Grundler <grundler@google.com>
+Subject: Re: RTL8153 fails to get link after applying c7de7dec2 to 3.8 kernel
+Date: Wed, 26 Feb 2014 09:09:27 -0800
+Message-ID: <CANEJEGuuJ=Jt2gAY_LCURk4hg1XvPL_Er0G0mTHSY-YVt0On4g@mail.gmail.com>
+References: <CANEJEGtzUF+rdSqgTHL0BmsDbCeoWki=aAWZwSx-dZ24jQ=nVg@mail.gmail.com>
+	<B88F103D217C4AF0B5D7AD58214655C6@realtek.com.tw>
+	<CANEJEGtvY1v0AC7j+uo7-ZzN9YMOaE9JOtismt0ESxpVWkvHyQ@mail.gmail.com>
+	<6929A44AB95D46C6B919DDD537CDD37B@realtek.com.tw>
+	<CANEJEGtj5b6z3L1AeiqTPgVs0qCe=pv=cyRHYi04_yNXpPMOCA@mail.gmail.com>
+	<FD21003FF7E540DCA7F8F39A2BC046B4@realtek.com.tw>
+	<CANEJEGtGSHAACM=Bk0BAHrM=-1q4pHoboO5FYN7YM4wquMMmXA@mail.gmail.com>
+	<65183A93811745C58958ECBAD0B8E00F@realtek.com.tw>
+	<CANEJEGtGbVajk+GOSkRk1QXDkOOPCM8vO8VA8Zc=TEOfZDjwNQ@mail.gmail.com>
+	<CANEJEGsMafeZQDfnmdgmf2VN0CKrTkjVHwKTX9JHTDUUqwx0Mg@mail.gmail.com>
+	<FB59F84B1E5E42AA98F0906286C444DF@realtek.com.tw>
+	<CANEJEGvMPMT3OroMGLJaR65uEz0+JVYkd5rxcPMMGT_wzvds+w@mail.gmail.com>
+	<D7709D6F234143CDB4D0B6B27C53D3F4@realtek.com.tw>
+	<CANEJEGuCWZSBNppE+W2_UW8mDZYQCBpsJTjfwuizjPMpY+wZzw@mail.gmail.com>
+	<6055EBDEF51C4CDDBE25766ED5CACA67@realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "alex.bluesman.smirnov@gmail.com" <alex.bluesman.smirnov@gmail.com>,
-	"dbaryshkov@gmail.com" <dbaryshkov@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-zigbee-devel@lists.sourceforge.net"
-	<linux-zigbee-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"martin.townsend@xsilon.com" <martin.townsend@xsilon.com>
-To: 'Alexander Aring' <alex.aring@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Inki Yoo <inky.yoo@samsung.com>, netdev <netdev@vger.kernel.org>
+To: hayeswang <hayeswang@realtek.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:49204 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752671AbaBZRGr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Feb 2014 12:06:47 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 15962-06 for <netdev@vger.kernel.org>;
- Wed, 26 Feb 2014 17:06:44 +0000 (GMT)
-In-Reply-To: <20140226162008.GA11499@omega>
-Content-Language: en-US
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:50756 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752692AbaBZRJ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 12:09:28 -0500
+Received: by mail-ob0-f172.google.com with SMTP id wm4so1074007obc.31
+        for <netdev@vger.kernel.org>; Wed, 26 Feb 2014 09:09:27 -0800 (PST)
+In-Reply-To: <6055EBDEF51C4CDDBE25766ED5CACA67@realtek.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQWxleGFuZGVyIEFyaW5nIA0KPiBPbiBXZWQsIEZlYiAyNiwgMjAxNCBhdCAwNDoxMDow
-NVBNICswMDAwLCBEYXZpZCBMYWlnaHQgd3JvdGU6DQo+ID4gRnJvbTogQWxleGFuZGVyIEFyaW5n
-DQouLi4NCj4gPiA+ICtzdGF0aWMgaW5saW5lIHU4IGxvd3Bhbl9hZGRyX21vZGVfc2l6ZShjb25z
-dCB1OCBhZGRyX21vZGUpDQo+ID4gPiArew0KPiA+ID4gKwlzd2l0Y2ggKGFkZHJfbW9kZSkgew0K
-PiA+ID4gKwljYXNlIExPV1BBTl9JUEhDX0FERFJfMDA6DQo+ID4gPiArCQlyZXR1cm4gMTY7DQo+
-ID4gPiArCWNhc2UgTE9XUEFOX0lQSENfQUREUl8wMToNCj4gPiA+ICsJCXJldHVybiA4Ow0KPiA+
-ID4gKwljYXNlIExPV1BBTl9JUEhDX0FERFJfMDI6DQo+ID4gPiArCQlyZXR1cm4gMjsNCj4gPiA+
-ICsJZGVmYXVsdDoNCj4gPiA+ICsJCXJldHVybiAwOw0KPiA+ID4gKwl9DQo+ID4gPiArfQ0KPiA+
-DQo+ID4gVGhlIGNvbXBpbGVyIHdpbGwgZ2VuZXJhdGUgbXVjaCBiZXR0ZXIgY29kZSBpZiB5b3Ug
-aW5kZXggYW4gYXJyYXkgaW5zdGVhZA0KPiA+IG9mIHVzaW5nIGEgc3dpdGNoIHN0YXRlbWVudC4N
-Cj4gPg0KPiA+DQo+IA0KPiBZb3UgbWVhbiBzb21ldGhpbmcgbGlrZToNCj4gDQo+IHN0YXRpYyBp
-bmxpbmUgdTggbG93cGFuX2FkZHJfbW9kZV9zaXplKGNvbnN0IHU4IGFkZHJfbW9kZSkNCj4gew0K
-PiAgICAgICAgIGNvbnN0IHU4IHJlc1tdID0geyAxNiwgOCwgMiwgMCB9Ow0KPiAgICAgICAgIHJl
-dHVybiByZXNbYWRkcl9tb2RlXTsNCj4gfQ0KPiANCj4gb3Igc2hvdWxkIEkgZHJvcCB0aGUgYXJy
-YXkgZnJvbSB0aGUgc3RhY2sgYW5kIGRlY2xhcmUgaXQgc3RhdGljPw0KDQpZb3UgZGVmaW5pdGVs
-eSB3YW50IHRoZSBhcnJheSB0byBiZSBzdGF0aWMgKGFzIHdlbGwgYXMgY29uc3QpLg0KWW91IGNv
-dWxkIGFsc28gdXNlIG5hbWVkIGluaXRpYWxpc2Vycy4NCklmIEkndmUgZ290IHRoZSBzeW50YXgg
-cmlnaHQgdGhhdCB3b3VsZCBiZToNCg0KCQlzdGF0aWMgY29uc3QgdTggc2l6ZXNbXSA9IHsNCgkJ
-CVtMT1dQQU5fSVBIQ19BRERSXzAwXSA9IDE2LA0KCQkJW0xPV1BBTl9JUEhDX0FERFJfMDFdID0g
-OCwNCgkJCVtMT1dQQU5fSVBIQ19BRERSXzAyXSA9IDIsDQoJCX07DQoJCXJldHVybiBzaXplc1th
-ZGRyX21vZGVdOw0KDQpXaGV0aGVyIHlvdSBuZWVkIGEgYm91bmQgY2hlY2sgKG9yIHRoZSA0dGgg
-YXJyYXkgaW5kZXgpIGRlcGVuZHMgb24gd2hlcmUNCnRoZSBpbnB1dCB2YWx1ZSBjb21lcyBmcm9t
-Lg0KDQoJRGF2aWQNCg0K
+On Wed, Feb 26, 2014 at 2:13 AM, hayeswang <hayeswang@realtek.com> wrote:
+> Grant Grundler [mailto:grundler@google.com]
+>> Sent: Tuesday, February 25, 2014 12:18 AM
+>> To: hayeswang
+>> Cc: Inki Yoo; netdev
+>> Subject: Re: RTL8153 fails to get link after applying
+>> c7de7dec2 to 3.8 kernel
+> [...]
+>> Does Realtek have a publicly available tool that I can use to set all
+>> customization back to "official" values?
+>
+> Please contact with the person who give you the dangle.
+> You should need the another one.
+
+I'm having that conversation now since I don't know what firmware this
+device has or how to update it.
+
+> [...]
+>> Sorry, I disagree. Where "customization" is available, I expect the
+>> device driver to know/understand those values OR set them to some
+>> state the driver knows how to deal with. This is a limitation of the
+>> driver, not the HW.
+>
+> You couldn't fix it in ECM mode.
+> The only way is to switch the config to the vendor mode.
+
+Hrm. Or replace the firmware on the device?
+
+cheers,
+grant
+
+>
+> Best Regards,
+> Hayes
+>
