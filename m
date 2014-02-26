@@ -1,74 +1,67 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: [PATCH net-next v4 7/8] net: ns: add ieee802154_6lowpan namespace
-Date: Wed, 26 Feb 2014 17:05:11 +0100
-Message-ID: <1393430712-11298-8-git-send-email-alex.aring@gmail.com>
+From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next v4 1/8] 6lowpan: add frag
+	information struct
+Date: Wed, 26 Feb 2014 17:05:05 +0100
+Message-ID: <1393430712-11298-2-git-send-email-alex.aring@gmail.com>
 References: <1393430712-11298-1-git-send-email-alex.aring@gmail.com>
-Cc: dbaryshkov@gmail.com, davem@davemloft.net,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	martin.townsend@xsilon.com, Alexander Aring <alex.aring@gmail.com>
-To: alex.bluesman.smirnov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f47.google.com ([74.125.83.47]:32832 "EHLO
-	mail-ee0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752408AbaBZQFj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 11:05:39 -0500
-Received: by mail-ee0-f47.google.com with SMTP id e49so660689eek.34
-        for <netdev@vger.kernel.org>; Wed, 26 Feb 2014 08:05:37 -0800 (PST)
-In-Reply-To: <1393430712-11298-1-git-send-email-alex.aring@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1393430712-11298-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds necessary ieee802154 6lowpan namespace to provide the
-inet_frag information. This is a initial support for handling 6lowpan
-fragmentation with the inet_frag api.
+This patch adds a 6lowpan fragmentation struct into cb of skb which
+is necessary to hold fragmentation information.
 
-Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- include/net/net_namespace.h            |  4 ++++
- include/net/netns/ieee802154_6lowpan.h | 13 +++++++++++++
- 2 files changed, 17 insertions(+)
- create mode 100644 include/net/netns/ieee802154_6lowpan.h
+ include/net/ieee802154_netdev.h | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index 991dcd9..79387f7 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -15,6 +15,7 @@
- #include <net/netns/packet.h>
- #include <net/netns/ipv4.h>
- #include <net/netns/ipv6.h>
-+#include <net/netns/ieee802154_6lowpan.h>
- #include <net/netns/sctp.h>
- #include <net/netns/dccp.h>
- #include <net/netns/netfilter.h>
-@@ -90,6 +91,9 @@ struct net {
- #if IS_ENABLED(CONFIG_IPV6)
- 	struct netns_ipv6	ipv6;
- #endif
-+#if IS_ENABLED(CONFIG_IEEE802154_6LOWPAN)
-+	struct netns_ieee802154_lowpan	ieee802154_lowpan;
-+#endif
- #if defined(CONFIG_IP_SCTP) || defined(CONFIG_IP_SCTP_MODULE)
- 	struct netns_sctp	sctp;
- #endif
-diff --git a/include/net/netns/ieee802154_6lowpan.h b/include/net/netns/ieee802154_6lowpan.h
-new file mode 100644
-index 0000000..88110b7
---- /dev/null
-+++ b/include/net/netns/ieee802154_6lowpan.h
-@@ -0,0 +1,13 @@
-+/*
-+ * ieee802154 6lowpan in net namespaces
-+ */
-+
-+#include <net/inet_frag.h>
-+
-+#ifndef __NETNS_IEEE802154_6LOWPAN_H__
-+#define __NETNS_IEEE802154_6LOWPAN_H__
-+
-+struct netns_ieee802154_lowpan {
+diff --git a/include/net/ieee802154_netdev.h b/include/net/ieee802154_netdev.h
+index 8196d5d..97b2e34 100644
+--- a/include/net/ieee802154_netdev.h
++++ b/include/net/ieee802154_netdev.h
+@@ -29,6 +29,12 @@
+ 
+ #include <net/af_ieee802154.h>
+ 
++struct ieee802154_frag_info {
++	__be16 d_tag;
++	u16 d_size;
++	u8 d_offset;
 +};
 +
-+#endif
+ /*
+  * A control block of skb passed between the ARPHRD_IEEE802154 device
+  * and other stack parts.
+@@ -39,6 +45,7 @@ struct ieee802154_mac_cb {
+ 	struct ieee802154_addr da;
+ 	u8 flags;
+ 	u8 seq;
++	struct ieee802154_frag_info frag_info;
+ };
+ 
+ static inline struct ieee802154_mac_cb *mac_cb(struct sk_buff *skb)
 -- 
 1.9.0
+
+
+------------------------------------------------------------------------------
+Flow-based real-time traffic analytics software. Cisco certified tool.
+Monitor traffic, SLAs, QoS, Medianet, WAAS etc. with NetFlow Analyzer
+Customize your own dashboards, set traffic alerts and generate reports.
+Network behavioral analysis & security monitoring. All-in-one tool.
+http://pubads.g.doubleclick.net/gampad/clk?id=126839071&iu=/4140/ostg.clktrk
