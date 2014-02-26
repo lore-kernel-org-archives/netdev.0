@@ -1,47 +1,87 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH 1/1] net: tcp: RTO restart
-Date: Wed, 26 Feb 2014 09:57:39 -0500
-Message-ID: <CADVnQyn4Zszpc2eTg0BkJZY0+Y-LBcPHTPTjVS2o8_zZTX31jg@mail.gmail.com>
-References: <20140218181205.GA7780@kau.se>
-	<CAK6E8=ekVXA9JrajwmJk88bUKcJSi=T5+SFXs0VoG5iQkWBcRw@mail.gmail.com>
-	<20140219105041.GA9981@kau.se>
-	<CAK6E8=cQVr_J6YQGT6z0H3R41tBCpD=1BToqYxzYis4wKxqhew@mail.gmail.com>
-	<C8E05F6E-62B4-4B5A-8DE1-3F166F2705CA@kau.se>
-	<CAK6E8=e9LiA32SZ0_jD7woGeJYxzixsw3hQxjZvgyoqpoJSeyg@mail.gmail.com>
-	<CAK6E8=c0JVRjUHRuLBrH0nfbKcK818C0h2tkBeWydP67-osumQ@mail.gmail.com>
-	<D6FBF93A-8057-497F-A39E-DF6211999DC1@kau.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Yuchung Cheng <ycheng@google.com>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	=?UTF-8?Q?Anna_Brunstr=C3=B6m?= <anna.brunstrom@kau.se>,
-	Andreas Petlund <apetlund@simula.no>,
-	Michael Welzl <michawe@ifi.uio.no>,
-	=?UTF-8?Q?Ilpo_J=C3=A4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Nandita Dukkipati <nanditad@google.com>
-To: Per Hurtig <per.hurtig@kau.se>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next 00/31] Misc. fixes for cxgb4 and iw_cxgb4
+Date: Wed, 26 Feb 2014 20:36:39 +0530
+Message-ID: <1393427230-14532-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, roland@purestorage.com, kumaras@chelsio.com,
+	dm@chelsio.com, swise@opengridcomputing.com, leedom@chelsio.com,
+	santosh@chelsio.com, hariprasad@chelsio.com, nirranjan@chelsio.com
+To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f50.google.com ([74.125.83.50]:52585 "EHLO
-	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751125AbaBZPEr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 10:04:47 -0500
-Received: by mail-ee0-f50.google.com with SMTP id t10so600716eei.37
-        for <netdev@vger.kernel.org>; Wed, 26 Feb 2014 07:04:46 -0800 (PST)
-In-Reply-To: <D6FBF93A-8057-497F-A39E-DF6211999DC1@kau.se>
+Received: from stargate.chelsio.com ([67.207.112.58]:30818 "EHLO
+	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751497AbaBZPIP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 10:08:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 26, 2014 at 4:50 AM, Per Hurtig <per.hurtig@kau.se> wrote:
-> Also, as your setup includes TLP we only have the RTO restart over TLP gain to start
-> with.
+Hi All,
 
-My gut says the next thing to try is applying the "RTO restart" idea
-to the scheduling of the TLP probe (scheduling the TLP probe for
-write_queue_head_skb->when + tlp_timeout). Doing an RTO earlier can be
-a very bad thing, due to reseting the cwnd to 1. But doing a TLP
-earlier does not have much downside, and could have significant
-latency savings (though maybe Nandita already tried this at some
-point)...
+This patch series provides miscelleneous fixes for Chelsio T4/T5 adapters
+related to cxgb4 related to sge and mtu. And includes DB Drop avoidance
+and other misc. fixes on iw-cxgb4.
 
-neal
+The patches series is created against David Miller's 'net-next' tree.
+And includes patches on cxgb4 and iw_cxgb4 driver.
+
+We would like to request this patch series to get merged via David Miller's
+'net-next' tree.
+
+We have included all the maintainers of respective drivers. Kindly review the
+change and let us know in case of any review comments.
+
+Thanks
+
+Kumar Sanghvi (6):
+  cxgb4: Fix some small bugs in t4_sge_init_soft() when our Page Size
+    is 64KB
+  cxgb4: Add code to dump SGE registers when hitting idma hangs
+  cxgb4: Rectify emitting messages about SGE Ingress DMA channels being
+    potentially stuck
+  cxgb4: Updates for T5 SGE's Egress Congestion Threshold
+  cxgb4: use spinlock_irqsave/spinlock_irqrestore for db lock.
+  Revert "cxgb4: Don't assume LSO only uses SGL path in t4_eth_xmit()"
+
+Steve Wise (25):
+  iw_cxgb4: cap CQ size at T4_MAX_IQ_SIZE.
+  iw_cxgb4: Allow loopback connections.
+  iw_cxgb4: release neigh entry in error paths.
+  iw_cxgb4: Treat CPL_ERR_KEEPALV_NEG_ADVICE as negative advice.
+  cxgb4/iw_cxgb4: Doorbell Drop Avoidance Bug Fixes.
+  iw_cxgb4: use the BAR2/WC path for kernel QPs and T5 devices.
+  iw_cxgb4: Fix incorrect BUG_ON conditions.
+  iw_cxgb4: Mind the sq_sig_all/sq_sig_type QP attributes.
+  iw_cxgb4: default peer2peer mode to 1.
+  iw_cxgb4: save the correct map length for fast_reg_page_lists.
+  iw_cxgb4: don't leak skb in c4iw_uld_rx_handler().
+  iw_cxgb4: fix possible memory leak in RX_PKT processing.
+  iw_cxgb4: ignore read reponse type 1 CQEs.
+  iw_cxgb4: connect_request_upcall fixes.
+  iw_cxgb4: adjust tcp snd/rcv window based on link speed.
+  iw_cxgb4: update snd_seq when sending MPA messages.
+  iw_cxgb4: lock around accept/reject downcalls.
+  iw_cxgb4: drop RX_DATA packets if the endpoint is gone.
+  iw_cxgb4: rx_data() needs to hold the ep mutex.
+  iw_cxgb4: endpoint timeout fixes.
+  iw_cxgb4: rmb() after reading valid gen bit.
+  iw_cxgb4: wc_wmb() needed after DB writes.
+  iw_cxgb4: SQ flush fix.
+  iw_cxgb4: minor fixes/cleanup.
+  iw_cxgb4: Max fastreg depth depends on DSGL support.
+
+ drivers/infiniband/hw/cxgb4/cm.c                |  270 ++++++++++++++++-------
+ drivers/infiniband/hw/cxgb4/cq.c                |   50 +++--
+ drivers/infiniband/hw/cxgb4/device.c            |  237 +++++++++++++-------
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h          |   17 +-
+ drivers/infiniband/hw/cxgb4/mem.c               |   18 ++-
+ drivers/infiniband/hw/cxgb4/provider.c          |   46 ++++-
+ drivers/infiniband/hw/cxgb4/qp.c                |  216 +++++++++---------
+ drivers/infiniband/hw/cxgb4/resource.c          |   10 +-
+ drivers/infiniband/hw/cxgb4/t4.h                |   78 ++++++-
+ drivers/infiniband/hw/cxgb4/user.h              |    5 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   11 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   84 ++++---
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        |  161 +++++++++-----
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |  106 +++++++++
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |    2 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |    9 +
+ 16 files changed, 924 insertions(+), 396 deletions(-)
