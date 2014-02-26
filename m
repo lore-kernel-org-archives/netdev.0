@@ -1,35 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] ipv6: log src and dst along with "udp
- checksum is 0"
-Date: Wed, 26 Feb 2014 15:47:12 -0500 (EST)
-Message-ID: <20140226.154712.105201437529775778.davem@davemloft.net>
-References: <1393359062-16844-1-git-send-email-bjorn@mork.no>
+Subject: Re: [PATCH net-next] ieee802154: fix new function declaration
+Date: Wed, 26 Feb 2014 15:47:27 -0500 (EST)
+Message-ID: <20140226.154727.892996164971237713.davem@davemloft.net>
+References: <1393393109-11079-1-git-send-email-sakiwit@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, joe@perches.com
-To: bjorn@mork.no
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	phoebe.buckheister@itwm.fraunhofer.de
+To: sakiwit@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40834 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40841 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751046AbaBZUrO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 15:47:14 -0500
-In-Reply-To: <1393359062-16844-1-git-send-email-bjorn@mork.no>
+	with ESMTP id S1753580AbaBZUr3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 15:47:29 -0500
+In-Reply-To: <1393393109-11079-1-git-send-email-sakiwit@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Tue, 25 Feb 2014 21:11:02 +0100
+From: Jean Sacren <sakiwit@gmail.com>
+Date: Tue, 25 Feb 2014 22:38:29 -0700
 
-> These info messages are rather pointless without any means to identif=
-y
-> the source of the bogus packets.  Logging the src and dst addresses a=
-nd
-> ports may help a bit.
->=20
-> Cc: Joe Perches <joe@perches.com>
-> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
-> ---
-> v2: log port numbers too.  Suggested by Joe Perches
+> The commit 8fad346f366a7 ("eee802154: add basic support for RF212 to
+> at86rf230 driver") introduced the new function is_rf212() with some
+> minor issues in declaration:
+> 
+> 1) Fix the function type by changing it to bool as the function
+>    definition returns a boolean value. Additionally both callers of
+>    is_rf212() are expected to return a boolean value.
+> 
+> 2) Fix the function specifier by deleting the inline keyword as the
+>    compiler takes care of that.
+> 
+> Signed-off-by: Jean Sacren <sakiwit@gmail.com>
 
-Applied.
+Applied, thanks.
