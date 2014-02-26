@@ -1,29 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: order MPLS ethertypes numerically
-Date: Wed, 26 Feb 2014 15:14:59 -0500 (EST)
-Message-ID: <20140226.151459.1472275444458394950.davem@davemloft.net>
-References: <1393327045-7170-1-git-send-email-Neil.Jerram@metaswitch.com>
+Subject: Re: [PATCH] net: tcp: use NET_INC_STATS()
+Date: Wed, 26 Feb 2014 15:20:08 -0500 (EST)
+Message-ID: <20140226.152008.1482124169770558659.davem@davemloft.net>
+References: <20140219193038.GC1179@order.stressinduktion.org>
+	<1392839209.18849.20.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1393331463.2316.139.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, horms@verge.net.au
-To: Neil.Jerram@metaswitch.com
+Cc: hannes@stressinduktion.org, fw@strlen.de, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40599 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40621 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751333AbaBZUPD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 15:15:03 -0500
-In-Reply-To: <1393327045-7170-1-git-send-email-Neil.Jerram@metaswitch.com>
+	with ESMTP id S1750813AbaBZUUL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 15:20:11 -0500
+In-Reply-To: <1393331463.2316.139.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Jerram <Neil.Jerram@metaswitch.com>
-Date: Tue, 25 Feb 2014 11:17:25 +0000
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 25 Feb 2014 04:31:03 -0800
 
-> All ethertypes other than ETH_P_MPLS_UC, ETH_P_MPLS_MC and
-> ETH_P_ATMMPOA were already ordered numerically.  This commit moves
-> those three ETH_P_... values into correct numerical order too.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Neil Jerram <Neil.Jerram@metaswitch.com>
+> While LINUX_MIB_TCPSPURIOUS_RTX_HOSTQUEUES can only be incremented
+> in tcp_transmit_skb() from softirq (incoming message or timer
+> activation), it is better to use NET_INC_STATS() instead of
+> NET_INC_STATS_BH() as tcp_transmit_skb() can be called from process
+> context.
+> 
+> This will avoid copy/paste confusion when/if we want to add
+> other SNMP counters in tcp_transmit_skb()
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied, thanks.
+Applied, thanks Eric.
