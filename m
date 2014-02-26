@@ -1,59 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4 2/8] 6lowpan: add uncompress header size
- function
-Date: Wed, 26 Feb 2014 13:56:26 -0500 (EST)
-Message-ID: <20140226.135626.324803150478038779.davem@davemloft.net>
-References: <1393430712-11298-1-git-send-email-alex.aring@gmail.com>
-	<1393430712-11298-3-git-send-email-alex.aring@gmail.com>
-	<063D6719AE5E284EB5DD2968C1650D6D0F6CBBCA@AcuExch.aculab.com>
+Subject: Re: RTL8153 fails to get link after applying c7de7dec2 to 3.8
+ kernel
+Date: Wed, 26 Feb 2014 13:58:50 -0500 (EST)
+Message-ID: <20140226.135850.1623740440287707032.davem@davemloft.net>
+References: <6055EBDEF51C4CDDBE25766ED5CACA67@realtek.com.tw>
+	<20140226.115831.255949929805078536.davem@davemloft.net>
+	<CANEJEGtJfUsond3kowuQ24JbLdE71CGEtX4BgMDKyG2AFuiniw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alex.aring@gmail.com, alex.bluesman.smirnov@gmail.com,
-	dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, martin.townsend@xsilon.com
-To: David.Laight@ACULAB.COM
+Cc: hayeswang@realtek.com, inky.yoo@samsung.com, netdev@vger.kernel.org
+To: grundler@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40087 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40118 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752720AbaBZS43 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 13:56:29 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6CBBCA@AcuExch.aculab.com>
+	with ESMTP id S1751066AbaBZS6w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 13:58:52 -0500
+In-Reply-To: <CANEJEGtJfUsond3kowuQ24JbLdE71CGEtX4BgMDKyG2AFuiniw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Laight <David.Laight@ACULAB.COM>
-Date: Wed, 26 Feb 2014 16:10:05 +0000
+From: Grant Grundler <grundler@google.com>
+Date: Wed, 26 Feb 2014 09:19:29 -0800
 
-> From: Alexander Aring
->> Signed-off-by: Alexander Aring <alex.aring@gmail.com>
->> ---
->>  net/ieee802154/6lowpan.h | 116 +++++++++++++++++++++++++++++++++++++++++++++++
->>  1 file changed, 116 insertions(+)
->> 
->> diff --git a/net/ieee802154/6lowpan.h b/net/ieee802154/6lowpan.h
->> index 2b835db..b6ae0bc 100644
->> --- a/net/ieee802154/6lowpan.h
->> +++ b/net/ieee802154/6lowpan.h
->> @@ -306,6 +306,122 @@ static inline void lowpan_push_hc_data(u8 **hc_ptr, const void *data,
->>  	*hc_ptr += len;
->>  }
->> 
->> +static inline u8 lowpan_addr_mode_size(const u8 addr_mode)
->> +{
->> +	switch (addr_mode) {
->> +	case LOWPAN_IPHC_ADDR_00:
->> +		return 16;
->> +	case LOWPAN_IPHC_ADDR_01:
->> +		return 8;
->> +	case LOWPAN_IPHC_ADDR_02:
->> +		return 2;
->> +	default:
->> +		return 0;
->> +	}
->> +}
+> On Wed, Feb 26, 2014 at 8:58 AM, David Miller <davem@davemloft.net> wrote:
+>> It is mysterious to me when a driver author behaves in such a way that
+>> they seem to want their driver to work on fewer instances of their
+>> hardware rather than support more of them.
 > 
-> The compiler will generate much better code if you index an array instead
-> of using a switch statement.
+> Well, we don't know the whole story. Samsung asked for a different USB
+> Vendor/Device ID and it's possible a few other things got change along
+> the way.
+> 
+> If this HW/FW was clearly production and I had a patch that made it
+> work, then we'd be in the situation you are describing.
 
-And please mark the array const :-)
+Ok, fair enough.
