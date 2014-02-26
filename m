@@ -1,87 +1,58 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 00/31] Misc. fixes for cxgb4 and iw_cxgb4
-Date: Wed, 26 Feb 2014 20:36:39 +0530
-Message-ID: <1393427230-14532-1-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 01/31] cxgb4: Fix some small bugs in t4_sge_init_soft() when our Page Size is 64KB
+Date: Wed, 26 Feb 2014 20:36:40 +0530
+Message-ID: <1393427230-14532-2-git-send-email-hariprasad@chelsio.com>
+References: <1393427230-14532-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com, kumaras@chelsio.com,
 	dm@chelsio.com, swise@opengridcomputing.com, leedom@chelsio.com,
 	santosh@chelsio.com, hariprasad@chelsio.com, nirranjan@chelsio.com
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:30818 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:22210 "EHLO
 	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751497AbaBZPIP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 10:08:15 -0500
+	by vger.kernel.org with ESMTP id S1751687AbaBZPIR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 10:08:17 -0500
+In-Reply-To: <1393427230-14532-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+From: Kumar Sanghvi <kumaras@chelsio.com>
 
-This patch series provides miscelleneous fixes for Chelsio T4/T5 adapters
-related to cxgb4 related to sge and mtu. And includes DB Drop avoidance
-and other misc. fixes on iw-cxgb4.
+We'd come in with SGE_FL_BUFFER_SIZE[0] and [1] both equal to 64KB and the
+extant logic would flag that as an error.
 
-The patches series is created against David Miller's 'net-next' tree.
-And includes patches on cxgb4 and iw_cxgb4 driver.
+Based on original work by Casey Leedom <leedom@chelsio.com>
 
-We would like to request this patch series to get merged via David Miller's
-'net-next' tree.
+Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/sge.c |   12 ++++++++++--
+ 1 files changed, 10 insertions(+), 2 deletions(-)
 
-We have included all the maintainers of respective drivers. Kindly review the
-change and let us know in case of any review comments.
-
-Thanks
-
-Kumar Sanghvi (6):
-  cxgb4: Fix some small bugs in t4_sge_init_soft() when our Page Size
-    is 64KB
-  cxgb4: Add code to dump SGE registers when hitting idma hangs
-  cxgb4: Rectify emitting messages about SGE Ingress DMA channels being
-    potentially stuck
-  cxgb4: Updates for T5 SGE's Egress Congestion Threshold
-  cxgb4: use spinlock_irqsave/spinlock_irqrestore for db lock.
-  Revert "cxgb4: Don't assume LSO only uses SGL path in t4_eth_xmit()"
-
-Steve Wise (25):
-  iw_cxgb4: cap CQ size at T4_MAX_IQ_SIZE.
-  iw_cxgb4: Allow loopback connections.
-  iw_cxgb4: release neigh entry in error paths.
-  iw_cxgb4: Treat CPL_ERR_KEEPALV_NEG_ADVICE as negative advice.
-  cxgb4/iw_cxgb4: Doorbell Drop Avoidance Bug Fixes.
-  iw_cxgb4: use the BAR2/WC path for kernel QPs and T5 devices.
-  iw_cxgb4: Fix incorrect BUG_ON conditions.
-  iw_cxgb4: Mind the sq_sig_all/sq_sig_type QP attributes.
-  iw_cxgb4: default peer2peer mode to 1.
-  iw_cxgb4: save the correct map length for fast_reg_page_lists.
-  iw_cxgb4: don't leak skb in c4iw_uld_rx_handler().
-  iw_cxgb4: fix possible memory leak in RX_PKT processing.
-  iw_cxgb4: ignore read reponse type 1 CQEs.
-  iw_cxgb4: connect_request_upcall fixes.
-  iw_cxgb4: adjust tcp snd/rcv window based on link speed.
-  iw_cxgb4: update snd_seq when sending MPA messages.
-  iw_cxgb4: lock around accept/reject downcalls.
-  iw_cxgb4: drop RX_DATA packets if the endpoint is gone.
-  iw_cxgb4: rx_data() needs to hold the ep mutex.
-  iw_cxgb4: endpoint timeout fixes.
-  iw_cxgb4: rmb() after reading valid gen bit.
-  iw_cxgb4: wc_wmb() needed after DB writes.
-  iw_cxgb4: SQ flush fix.
-  iw_cxgb4: minor fixes/cleanup.
-  iw_cxgb4: Max fastreg depth depends on DSGL support.
-
- drivers/infiniband/hw/cxgb4/cm.c                |  270 ++++++++++++++++-------
- drivers/infiniband/hw/cxgb4/cq.c                |   50 +++--
- drivers/infiniband/hw/cxgb4/device.c            |  237 +++++++++++++-------
- drivers/infiniband/hw/cxgb4/iw_cxgb4.h          |   17 +-
- drivers/infiniband/hw/cxgb4/mem.c               |   18 ++-
- drivers/infiniband/hw/cxgb4/provider.c          |   46 ++++-
- drivers/infiniband/hw/cxgb4/qp.c                |  216 +++++++++---------
- drivers/infiniband/hw/cxgb4/resource.c          |   10 +-
- drivers/infiniband/hw/cxgb4/t4.h                |   78 ++++++-
- drivers/infiniband/hw/cxgb4/user.h              |    5 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   11 +-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   84 ++++---
- drivers/net/ethernet/chelsio/cxgb4/sge.c        |  161 +++++++++-----
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |  106 +++++++++
- drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |    2 +
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |    9 +
- 16 files changed, 924 insertions(+), 396 deletions(-)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index af76b25..3a2ecd8 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -2596,11 +2596,19 @@ static int t4_sge_init_soft(struct adapter *adap)
+ 	fl_small_mtu = READ_FL_BUF(RX_SMALL_MTU_BUF);
+ 	fl_large_mtu = READ_FL_BUF(RX_LARGE_MTU_BUF);
+ 
++	/* We only bother using the Large Page logic if the Large Page Buffer
++	 * is larger than our Page Size Buffer.
++	 */
++	if (fl_large_pg <= fl_small_pg)
++		fl_large_pg = 0;
++
+ 	#undef READ_FL_BUF
+ 
++	/* The Page Size Buffer must be exactly equal to our Page Size and the
++	 * Large Page Size Buffer should be 0 (per above) or a power of 2.
++	 */
+ 	if (fl_small_pg != PAGE_SIZE ||
+-	    (fl_large_pg != 0 && (fl_large_pg < fl_small_pg ||
+-				  (fl_large_pg & (fl_large_pg-1)) != 0))) {
++	    (fl_large_pg & (fl_large_pg-1)) != 0) {
+ 		dev_err(adap->pdev_dev, "bad SGE FL page buffer sizes [%d, %d]\n",
+ 			fl_small_pg, fl_large_pg);
+ 		return -EINVAL;
+-- 
+1.7.1
