@@ -1,52 +1,167 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: RTL8153 fails to get link after applying c7de7dec2 to 3.8
- kernel
-Date: Wed, 26 Feb 2014 11:58:31 -0500 (EST)
-Message-ID: <20140226.115831.255949929805078536.davem@davemloft.net>
-References: <D7709D6F234143CDB4D0B6B27C53D3F4@realtek.com.tw>
-	<CANEJEGuCWZSBNppE+W2_UW8mDZYQCBpsJTjfwuizjPMpY+wZzw@mail.gmail.com>
-	<6055EBDEF51C4CDDBE25766ED5CACA67@realtek.com.tw>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH 6/7] bridge: Manage promisc mode when vlans are
+ configured on top of a bridge
+Date: Wed, 26 Feb 2014 11:05:40 -0500
+Message-ID: <530E10D4.4030706@redhat.com>
+References: <1393427905-6811-1-git-send-email-vyasevic@redhat.com>
+	<1393427905-6811-7-git-send-email-vyasevic@redhat.com>
+	<20140226160046.GI15330@redhat.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: grundler@google.com, inky.yoo@samsung.com, netdev@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39019 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751740AbaBZQ6f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 11:58:35 -0500
-In-Reply-To: <6055EBDEF51C4CDDBE25766ED5CACA67@realtek.com.tw>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org, shemminger@vyatta.com,
+	bridge@lists.linux-foundation.org, jhs@mojatatu.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140226160046.GI15330@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: hayeswang <hayeswang@realtek.com>
-Date: Wed, 26 Feb 2014 18:13:00 +0800
-
-> Grant Grundler [mailto:grundler@google.com] 
->> Sent: Tuesday, February 25, 2014 12:18 AM
->> To: hayeswang
->> Cc: Inki Yoo; netdev
->> Subject: Re: RTL8153 fails to get link after applying 
->> c7de7dec2 to 3.8 kernel
-> [...]
->> Does Realtek have a publicly available tool that I can use to set all
->> customization back to "official" values?
+On 02/26/2014 11:00 AM, Michael S. Tsirkin wrote:
+> On Wed, Feb 26, 2014 at 10:18:24AM -0500, Vlad Yasevich wrote:
+>> If the user configures vlan interfaces on top of the bridge and the bridge
+>> doesn't have vlan filtering enabled, we have to place all the ports in
+>> promsic mode so that we can correctly receive tagged frames.
+>> When vlan filtering is enabled, the vlan configuration will be provided
+>> via filtering interface.
+>> When the vlan filtering is toggled, we also have mange promiscuity.
 > 
-> Please contact with the person who give you the dangle.
-> You should need the another one.
+> have to manage?
+> 
+>>
+>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> 
+> 
+> I wonder if it matters that we scan all ports
+> on vlan add/del now.
+> 
+> If yes, we could optimize some cases by using
+> a counter of promisc ports.
 
-This is not an appropriate response.
+Or a bridge flag.  I'll see if can add that to save
+repeated list walks without doing any useful work.
 
-Your company made a chip, and people are going to repackage it and
-reuse it in their own implementations.
+Thanks
+-vlad
 
-Sometimes they will set jumpers incorrectly, add bugs to the firmware,
-and make other mistakes.
-
-When you are made explicitly awre of such situations, your driver
-should absolutely strive to handle that, rather than refuse to.
-
-It is mysterious to me when a driver author behaves in such a way that
-they seem to want their driver to work on fewer instances of their
-hardware rather than support more of them.
+> 
+> 
+>> ---
+>>  net/bridge/br_device.c  | 14 ++++++++++++++
+>>  net/bridge/br_if.c      | 17 +++++++++++++----
+>>  net/bridge/br_private.h |  9 +++++++++
+>>  net/bridge/br_vlan.c    |  1 +
+>>  4 files changed, 37 insertions(+), 4 deletions(-)
+>>
+>> diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+>> index 0af9d6c..967abb3 100644
+>> --- a/net/bridge/br_device.c
+>> +++ b/net/bridge/br_device.c
+>> @@ -297,6 +297,18 @@ void br_netpoll_disable(struct net_bridge_port *p)
+>>  
+>>  #endif
+>>  
+>> +static int br_dev_rx_add_vid(struct net_device *br_dev, __be16 proto, u16 vid)
+>> +{
+>> +	br_manage_promisc(netdev_priv(br_dev));
+>> +	return 0;
+>> +}
+>> +
+>> +static int br_dev_rx_kill_vid(struct net_device *br_dev, __be16 proto, u16 vid)
+>> +{
+>> +	br_manage_promisc(netdev_priv(br_dev));
+>> +	return 0;
+>> +}
+>> +
+>>  static int br_add_slave(struct net_device *dev, struct net_device *slave_dev)
+>>  
+>>  {
+>> @@ -328,6 +340,8 @@ static const struct net_device_ops br_netdev_ops = {
+>>  	.ndo_change_rx_flags	 = br_dev_change_rx_flags,
+>>  	.ndo_change_mtu		 = br_change_mtu,
+>>  	.ndo_do_ioctl		 = br_dev_ioctl,
+>> +	.ndo_vlan_rx_add_vid	 = br_dev_rx_add_vid,
+>> +	.ndo_vlan_rx_kill_vid	 = br_dev_rx_kill_vid,
+>>  #ifdef CONFIG_NET_POLL_CONTROLLER
+>>  	.ndo_netpoll_setup	 = br_netpoll_setup,
+>>  	.ndo_netpoll_cleanup	 = br_netpoll_cleanup,
+>> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+>> index 7e92bd0..55e4e28 100644
+>> --- a/net/bridge/br_if.c
+>> +++ b/net/bridge/br_if.c
+>> @@ -497,12 +497,21 @@ static void br_port_clear_promisc(struct net_bridge_port *p)
+>>  void br_manage_promisc(struct net_bridge *br)
+>>  {
+>>  	struct net_bridge_port *p;
+>> +	int set_all = false;
+>> +
+>> +	if (br->dev->flags & IFF_PROMISC)
+>> +		set_all = true;
+>> +
+>> +	/* If vlan filtering is disabled and there are any VLANs
+>> +	 * configured on top of the bridge, set promisc on all
+>> +	 * ports.
+>> +	 */
+>> +	if (!br_vlan_enabled(br) && vlan_uses_dev(br->dev))
+>> +		set_all = true;
+>>  
+>>  	list_for_each_entry(p, &br->port_list, list) {
+>> -		if (br->dev->flags & IFF_PROMISC) {
+>> -			/* PROMISC flag has been turned on for the bridge
+>> -			 * itself.  Turn on promisc on all ports.
+>> -			 */
+>> +		if (set_all) {
+>> +			/* Set all the ports to promisc mode.  */
+>>  			br_port_set_promisc(p);
+>>  
+>>  		} else {
+>> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+>> index 4042f86..87dcc09 100644
+>> --- a/net/bridge/br_private.h
+>> +++ b/net/bridge/br_private.h
+>> @@ -641,6 +641,10 @@ static inline u16 br_get_pvid(const struct net_port_vlans *v)
+>>  	return v->pvid ?: VLAN_N_VID;
+>>  }
+>>  
+>> +static inline int br_vlan_enabled(struct net_bridge *br)
+>> +{
+>> +	return br->vlan_enabled;
+>> +}
+>>  #else
+>>  static inline bool br_allowed_ingress(struct net_bridge *br,
+>>  				      struct net_port_vlans *v,
+>> @@ -721,6 +725,11 @@ static inline u16 br_get_pvid(const struct net_port_vlans *v)
+>>  {
+>>  	return VLAN_N_VID;	/* Returns invalid vid */
+>>  }
+>> +
+>> +static inline int br_vlan_enabled(struct net_bridge *br);
+>> +{
+>> +	return 0;
+>> +}
+>>  #endif
+>>  
+>>  /* br_netfilter.c */
+>> diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+>> index 8249ca7..eddc2f6 100644
+>> --- a/net/bridge/br_vlan.c
+>> +++ b/net/bridge/br_vlan.c
+>> @@ -321,6 +321,7 @@ int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val)
+>>  		goto unlock;
+>>  
+>>  	br->vlan_enabled = val;
+>> +	br_manage_promisc(br);
+>>  
+>>  unlock:
+>>  	rtnl_unlock();
+>> -- 
+>> 1.8.5.3
