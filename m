@@ -1,51 +1,84 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 12/31] iw_cxgb4: Fix incorrect BUG_ON conditions.
-Date: Wed, 26 Feb 2014 20:36:51 +0530
-Message-ID: <1393427230-14532-13-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 04/31] cxgb4: Updates for T5 SGE's Egress Congestion Threshold
+Date: Wed, 26 Feb 2014 20:36:43 +0530
+Message-ID: <1393427230-14532-5-git-send-email-hariprasad@chelsio.com>
 References: <1393427230-14532-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com, kumaras@chelsio.com,
 	dm@chelsio.com, swise@opengridcomputing.com, leedom@chelsio.com,
 	santosh@chelsio.com, hariprasad@chelsio.com, nirranjan@chelsio.com
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:8181 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:15496 "EHLO
 	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751995AbaBZPI7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 10:08:59 -0500
+	by vger.kernel.org with ESMTP id S1751687AbaBZPI1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 10:08:27 -0500
 In-Reply-To: <1393427230-14532-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Wise <swise@opengridcomputing.com>
+From: Kumar Sanghvi <kumaras@chelsio.com>
 
-Based on original work from Jay Hernandez <jay@chelsio.com>
+Based on original work by Casey Leedom <leedom@chelsio.com>
 
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
 ---
- drivers/infiniband/hw/cxgb4/cq.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/sge.c     |   18 +++++++++++++-----
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h |    6 ++++++
+ 2 files changed, 19 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb4/cq.c b/drivers/infiniband/hw/cxgb4/cq.c
-index c0673ac..59f7601 100644
---- a/drivers/infiniband/hw/cxgb4/cq.c
-+++ b/drivers/infiniband/hw/cxgb4/cq.c
-@@ -603,7 +603,7 @@ proc_cqe:
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index 809ab60..e0376cd 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -2777,8 +2777,8 @@ static int t4_sge_init_hard(struct adapter *adap)
+ int t4_sge_init(struct adapter *adap)
+ {
+ 	struct sge *s = &adap->sge;
+-	u32 sge_control;
+-	int ret;
++	u32 sge_control, sge_conm_ctrl;
++	int ret, egress_threshold;
+ 
+ 	/*
+ 	 * Ingress Padding Boundary and Egress Status Page Size are set up by
+@@ -2803,10 +2803,18 @@ int t4_sge_init(struct adapter *adap)
+ 	 * SGE's Egress Congestion Threshold.  If it isn't, then we can get
+ 	 * stuck waiting for new packets while the SGE is waiting for us to
+ 	 * give it more Free List entries.  (Note that the SGE's Egress
+-	 * Congestion Threshold is in units of 2 Free List pointers.)
++	 * Congestion Threshold is in units of 2 Free List pointers.) For T4,
++	 * there was only a single field to control this.  For T5 there's the
++	 * original field which now only applies to Unpacked Mode Free List
++	 * buffers and a new field which only applies to Packed Mode Free List
++	 * buffers.
  	 */
- 	if (SQ_TYPE(hw_cqe)) {
- 		int idx = CQE_WRID_SQ_IDX(hw_cqe);
--		BUG_ON(idx > wq->sq.size);
-+		BUG_ON(idx >= wq->sq.size);
+-	s->fl_starve_thres
+-		= EGRTHRESHOLD_GET(t4_read_reg(adap, SGE_CONM_CTRL))*2 + 1;
++	sge_conm_ctrl = t4_read_reg(adap, SGE_CONM_CTRL);
++	if (is_t4(adap->params.chip))
++		egress_threshold = EGRTHRESHOLD_GET(sge_conm_ctrl);
++	else
++		egress_threshold = EGRTHRESHOLDPACKING_GET(sge_conm_ctrl);
++	s->fl_starve_thres = 2*egress_threshold + 1;
  
- 		/*
- 		* Account for any unsignaled completions completed by
-@@ -617,7 +617,7 @@ proc_cqe:
- 			wq->sq.in_use -= wq->sq.size + idx - wq->sq.cidx;
- 		else
- 			wq->sq.in_use -= idx - wq->sq.cidx;
--		BUG_ON(wq->sq.in_use < 0 && wq->sq.in_use < wq->sq.size);
-+		BUG_ON(wq->sq.in_use <= 0 && wq->sq.in_use >= wq->sq.size);
+ 	setup_timer(&s->rx_timer, sge_rx_timer_cb, (unsigned long)adap);
+ 	setup_timer(&s->tx_timer, sge_tx_timer_cb, (unsigned long)adap);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+index 33cf9ef..225ad8a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+@@ -230,6 +230,12 @@
+ #define  EGRTHRESHOLD(x)     ((x) << EGRTHRESHOLDshift)
+ #define  EGRTHRESHOLD_GET(x) (((x) & EGRTHRESHOLD_MASK) >> EGRTHRESHOLDshift)
  
- 		wq->sq.cidx = (uint16_t)idx;
- 		PDBG("%s completing sq idx %u\n", __func__, wq->sq.cidx);
++#define EGRTHRESHOLDPACKING_MASK	0x3fU
++#define EGRTHRESHOLDPACKING_SHIFT	14
++#define EGRTHRESHOLDPACKING(x)		((x) << EGRTHRESHOLDPACKING_SHIFT)
++#define EGRTHRESHOLDPACKING_GET(x)	(((x) >> EGRTHRESHOLDPACKING_SHIFT) & \
++					  EGRTHRESHOLDPACKING_MASK)
++
+ #define SGE_DBFIFO_STATUS 0x10a4
+ #define  HP_INT_THRESH_SHIFT 28
+ #define  HP_INT_THRESH_MASK  0xfU
 -- 
 1.7.1
