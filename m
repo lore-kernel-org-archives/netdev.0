@@ -1,62 +1,67 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] ipv6: reuse ip6_frag_id from ip6_ufo_append_data
-Date: Wed, 26 Feb 2014 14:42:45 +0100
-Message-ID: <20140226134245.GC24855@order.stressinduktion.org>
-References: <20140221015535.GB28822@order.stressinduktion.org> <20140222.002855.2055879239461145413.davem@davemloft.net> <20140222055231.GA6598@order.stressinduktion.org> <20140225.140911.2000856357656473477.davem@davemloft.net>
+Subject: Re: [PATCH net v3] ipv4: ipv6: better estimate tunnel header cut for correct ufo handling
+Date: Wed, 26 Feb 2014 14:47:35 +0100
+Message-ID: <20140226134735.GD24855@order.stressinduktion.org>
+References: <20140223210509.GC6598@order.stressinduktion.org> <20140223212427.GD6598@order.stressinduktion.org> <20140223234805.GE6598@order.stressinduktion.org> <20140225.182746.1170300275583266483.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
+Cc: xiyou.wangcong@gmail.com, linux@stwm.de, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com, therbert@google.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:54075 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:54097 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751072AbaBZNmq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 08:42:46 -0500
+	with ESMTP id S1752144AbaBZNrh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 08:47:37 -0500
 Content-Disposition: inline
-In-Reply-To: <20140225.140911.2000856357656473477.davem@davemloft.net>
+In-Reply-To: <20140225.182746.1170300275583266483.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 25, 2014 at 02:09:11PM -0500, David Miller wrote:
+On Tue, Feb 25, 2014 at 06:27:46PM -0500, David Miller wrote:
 > From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Sat, 22 Feb 2014 06:52:31 +0100
+> Date: Mon, 24 Feb 2014 00:48:05 +0100
 > 
-> > Hi David!
+> > Currently the UFO fragmentation process does not correctly handle inner
+> > UDP frames.
+>  ...
+> > In this case fragmentation id is incremented and offset is not updated.
 > > 
-> > On Sat, Feb 22, 2014 at 12:28:55AM -0500, David Miller wrote:
-> >> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> >> Date: Fri, 21 Feb 2014 02:55:35 +0100
-> >> 
-> >> > Currently we generate a new fragmentation id on UFO segmentation. It
-> >> > is pretty hairy to identify the correct net namespace and dst there.
-> >> > Especially tunnels use IFF_XMIT_DST_RELEASE and thus have no skb_dst
-> >> > available at all.
-> >> > 
-> >> > This causes unreliable or very predictable ipv6 fragmentation id
-> >> > generation while segmentation.
-> >> > 
-> >> > Luckily we already have pregenerated the ip6_frag_id in
-> >> > ip6_ufo_append_data and can use it here.
-> >> > 
-> >> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> >> 
-> >> Applied, thanks Hannes.
+> > First, I aligned inet_gso_segment and ipv6_gso_segment:
+> > * align naming of flags
+> > * ipv6_gso_segment: setting skb->encapsulation is unnecessary, as we
+> >   always ensure that the state of this flag is left untouched when
+> >   returning from upper gso segmenation function
+> > * ipv6_gso_segment: move skb_reset_inner_headers below updating the
+> >   fragmentation header data, we don't care for updating fragmentation
+> >   header data
+> > * remove currently unneeded comment indicating skb->encapsulation might
+> >   get changed by upper gso_segment callback (gre and udp-tunnel reset
+> >   encapsulation after segmentation on each fragment)
 > > 
-> > Could you also get this at least into 3.13, as sit tunnels enable gso
-> > by default there?
+> > If we encounter an IPIP or SIT gso skb we now check for the protocol ==
+> > IPPROTO_UDP and that we at least have already traversed another ip(6)
+> > protocol header.
+> > 
+> > The reason why we have to special case GSO_IPIP and GSO_SIT is that
+> > we reset skb->encapsulation to 0 while skb_mac_gso_segment the inner
+> > protocol of GSO_UDP_TUNNEL or GSO_GRE packets.
+> > 
+> > Reported-by: Wolfgang Walter <linux@stwm.de>
+> > Cc: Cong Wang <xiyou.wangcong@gmail.com>
+> > Cc: Tom Herbert <therbert@google.com>
+> > Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 > 
-> Queueud up for -stable, thanks Hannes.
+> Applied, thanks Hannes.
 
-Just FYI:
+This bug is present and was reported on v3.13 kernels, so I also would propose
+this for v3.13. I hoped it would be clear from the thread, but should have
+stated this more clearly.
 
-While doing some more code review on this part (and in the history), it
-seemes we can actually call ipv6_select_ident with ipv4 dsts from time
-to time thus using just the random memory available there to generate an
-ipv6 address. So this fix is appropriate for all kernels from v2.6.32 on.
-
-We can now remove DST_NOPEER in net-next which was just introduced
-because of a bug in this logic and simplify ipv6_select_ident in net-next
-(patches coming after net merge to net-next).
+It really is only appropriate there as this problem was introduced with
+61c1db7fae21ed ("ipv6: sit: add GSO/TSO support") and cb32f511a70be8
+("ipip: add GSO/TSO support"), both introduced in v3.13.
 
 Thanks,
 
