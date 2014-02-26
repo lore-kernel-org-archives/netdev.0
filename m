@@ -1,75 +1,84 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] sh_net: runtime pm wrap mdio read and write
-Date: Wed, 26 Feb 2014 22:21:32 +0300
-Message-ID: <530E3EBC.5060408@cogentembedded.com>
-References: <1393433319-22685-1-git-send-email-ben.dooks@codethink.co.uk>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: phy: add suspend_halted module param
+Date: Wed, 26 Feb 2014 19:21:17 +0100
+Message-ID: <20140226182117.GB14907@lunn.ch>
+References: <1393174719-20806-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <20140224191554.GC29288@lunn.ch>
+ <530D1B7C.2090506@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-sh@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
-	magnus.damn@opensource.se, horms@verge.net.au
-To: Ben Dooks <ben.dooks@codethink.co.uk>, netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1393433319-22685-1-git-send-email-ben.dooks@codethink.co.uk>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <530D1B7C.2090506@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/26/2014 07:48 PM, Ben Dooks wrote:
+On Tue, Feb 25, 2014 at 11:38:52PM +0100, Sebastian Hesselbarth wrote:
+> On 02/24/2014 08:15 PM, Andrew Lunn wrote:
+> >On Sun, Feb 23, 2014 at 05:58:39PM +0100, Sebastian Hesselbarth wrote:
+> >>commit 1211ce53077164e0d34641d0ca5fb4d4a7574498
+> >>   ("net: phy: resume/suspend PHYs on attach/detach")
+> >>introduced a feature to suspend PHYs when entering halted state.
+> >>
+> >>Unfortunately, not all bootloaders properly power-up PHYs on reset
+> >>and fail to access ethernet because the PHY is still powered down.
+> >>
+> >>Therefore, we add a boolean module parameter suspend_halted with
+> >>default value of true. Disabling that parameter prevents PHYs from
+> >>being suspended when entering halted state.
+> >
+> >Am i doing something silly here?
+> >
+> >root@qnap:/sys/module/libphy/parameters# cat suspend_halted
+> >Y
+> >root@qnap:/sys/module/libphy/parameters# echo N > suspend_halted
+> >root@qnap:/sys/module/libphy/parameters# cat suspend_halted
+> >N
+> >root@qnap:/sys/module/libphy/parameters# reboot
+> 
+> Just to be sure, can you ifconfig up the interface before reboot?
+> The PHY could already be powered-down, if the interface is down.
+> 
+> >...
+> >...
+> >
+> >Net:   egiga0 [PRIME]
+> >Hit any key to stop autoboot:  0
+> >Send Cmd : 0x68 to UART1
+> >egiga0 no link
+> >Using egiga0 device
+> >TFTP from server 10.0.0.1; our IP address is 10.0.0.2
+> >Filename 'uImage-qnap'.
+> >Load address: 0x800000
+> >Loading: T T
+> >
+> >Does not seem to work.
+> 
+> I tested the patch on Topkick (w/ 88E1318S, 0x0141 0x0e90) which
+> bootloader is also affected.
+> 
+> Both, libphy.suspend_halted=0 as kernel boot parameter and sysfs
+> procedure above successfully prevent the PHY from being powered
+> down. After reboot, u-boot tftpboot works as expected.
 
-> On the R8A7790, if the device has been suspended by pm_runtime
-> and the MII code tries to access the bus then there is a possiblity
+Hi Sebastian
 
-    s/possiblity/possibility/.
+I tested again, and it seems like i made an error. This patch does
+actually fix the problem.
 
-> that it will fail to read any data from the MII bus.
+The u-boot on this device is somewhat broken, when it comes to
+networking and tftpboot. It seems like if the auto negotiation is not
+complete before the TFTP starts, it never works. There are no
+retransmits of the RRQ message. If i ^C it and start again, it does
+work.
 
-> Change the MDIO read and write calls to be wrappered by calls to
+As to the comment from davem about not using a kernel parameter. How
+about turning it all around. Put a boolean parameter into DT PHY node
+to indicate when it is safe to power down an idle phy?
 
-    s/wrappered/wrapped/.
-
-> pm_runtime_{get,put}_sync so that the device will be enabled during
-> these calls. It is put here to avoid having to enable and disable
-> the clock for every bit that is sent by the MII bit-banging code.
-
-> This has been exposed by the change to using OF and a fix to enable
-> the pm_runtime clock management which seems to have been broken for
-> some time for the device-tree booted Renesas kernels.
-
-    What fix to enable run-time PM are you talking about?
-
-> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
-> ---
->   drivers/net/ethernet/renesas/sh_eth.c | 39 +++++++++++++++++++++++++++++++++++
->   1 file changed, 39 insertions(+)
-
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> index b92034c..8d1b84e 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -983,6 +983,8 @@ static unsigned long sh_eth_get_edtrr_trns(struct sh_eth_private *mdp)
->
->   struct bb_info {
->   	void (*set_gate)(void *addr);
-> +        int (*mdio_read)(struct mii_bus *bus, int phy_id, int regnum);
-> +        int (*mdio_write)(struct mii_bus *bus, int phy_id, int regnum, u16 val);
-
-    Please indent with tabs.
-
-> @@ -1071,6 +1073,38 @@ static struct mdiobb_ops bb_ops = {
->   	.get_mdio_data = sh_get_mdio,
->   };
->
-> +/* Wrapper to ensure bitbang ops have device runtime-pm enabled */
-> +
-> +static inline struct bb_info *mii_to_bitbang(struct mii_bus *bus)
-> +{
-> +	struct mdiobb_ctrl *ctrl = bus->priv;
-
-    Empty line between declaration and the other code needed.
-
-> +	return container_of(ctrl, struct bb_info, ctrl);
-> +}
-[...]
-
-WBR, Sergei
-
+   Andrew
