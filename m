@@ -1,79 +1,45 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCHv3 1/2] net: stmmac: Add SOCFPGA glue driver
-Date: Wed, 26 Feb 2014 10:44:33 +0100
-Message-ID: <530DB781.9050901@st.com>
-References: <1392061697-20193-1-git-send-email-dinguyen@altera.com> <20140212.193539.38124529344029793.davem@davemloft.net> <52FC4B0A.4010406@gmail.com>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: RTL8153 fails to get link after applying c7de7dec2 to 3.8 kernel
+Date: Wed, 26 Feb 2014 18:13:00 +0800
+Message-ID: <6055EBDEF51C4CDDBE25766ED5CACA67@realtek.com.tw>
+References: <CANEJEGtzUF+rdSqgTHL0BmsDbCeoWki=aAWZwSx-dZ24jQ=nVg@mail.gmail.com><B88F103D217C4AF0B5D7AD58214655C6@realtek.com.tw><CANEJEGtvY1v0AC7j+uo7-ZzN9YMOaE9JOtismt0ESxpVWkvHyQ@mail.gmail.com><6929A44AB95D46C6B919DDD537CDD37B@realtek.com.tw><CANEJEGtj5b6z3L1AeiqTPgVs0qCe=pv=cyRHYi04_yNXpPMOCA@mail.gmail.com><FD21003FF7E540DCA7F8F39A2BC046B4@realtek.com.tw><CANEJEGtGSHAACM=Bk0BAHrM=-1q4pHoboO5FYN7YM4wquMMmXA@mail.gmail.com><65183A93811745C58958ECBAD0B8E00F@realtek.com.tw><CANEJEGtGbVajk+GOSkRk1QXDkOOPCM8vO8VA8Zc=TEOfZDjwNQ@mail.gmail.com><CANEJEGsMafeZQDfnmdgmf2VN0CKrTkjVHwKTX9JHTDUUqwx0Mg@mail.gmail.com><FB59F84B1E5E42AA98F0906286C444DF@realtek.com.tw><CANEJEGvMPMT3OroMGLJaR65uEz0+JVYkd5rxcPMMGT_wzvds+w@mail.gmail.com><D7709D6F234143CDB4D0B6B27C53D3F4@realtek.com.tw> <CANEJEGuCWZSBNpp
+ E+W2_UW8mDZYQCBpsJTjfwuizjPMpY+wZzw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
-	<robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
-	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
-	<vbridgers2013@gmail.com>
-To: Dinh Nguyen <dinh.linux@gmail.com>,
-	David Miller <davem@davemloft.net>, <dinguyen@altera.com>
+Cc: 'Inki Yoo' <inky.yoo@samsung.com>,
+	'netdev' <netdev@vger.kernel.org>
+To: 'Grant Grundler' <grundler@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog125.obsmtp.com ([207.126.144.159]:33287 "EHLO
-	eu1sys200aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751448AbaBZKGI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 05:06:08 -0500
-In-Reply-To: <52FC4B0A.4010406@gmail.com>
+Received: from rtits2.realtek.com ([60.250.210.242]:52577 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750748AbaBZKNI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 05:13:08 -0500
+In-Reply-To: <CANEJEGuCWZSBNppE+W2_UW8mDZYQCBpsJTjfwuizjPMpY+wZzw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/13/2014 5:33 AM, Dinh Nguyen wrote:
->
-> On 2/12/14 6:35 PM, David Miller wrote:
->> From: <dinguyen@altera.com>
->> Date: Mon, 10 Feb 2014 13:48:16 -0600
->>
->>> From: Dinh Nguyen <dinguyen@altera.com>
->>>
->>> Like the STi series SOCs, Altera's SOCFPGA also needs a glue layer on top of the
->>> Synopsys gmac IP.
->>>
->>> This patch adds the platform driver for the glue layer which configures the IP
->>> before the generic STMMAC driver takes over.
->>>
->>> Signed-off-by: Dinh Nguyen <dinguyen@altera.com>
->>> Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
->>> Cc: Rob Herring <robh+dt@kernel.org>
->>> Cc: Pawel Moll <pawel.moll@arm.com>
->>> Cc: Mark Rutland <mark.rutland@arm.com>
->>> Cc: Ian Campbell <ijc+devicetree@hellion.org.uk>
->>> Cc: Kumar Gala <galak@codeaurora.org>
->>> Cc: Vince Bridgers <vbridgers2013@gmail.com>
->>> ---
->>> v3: Remove stray empty line at end of dwmac-socfpga.c.
->>> v2: Use the dwmac-sti as an example for a glue layer and split patch up
->>> to have dts as a separate patch. Also cc dts maintainers since there is
->>> a new binding.
->> The second patch for the DTS update doesn't apply cleanly at all to
->> mainline.
-> Yes, I'm planning to take the DTS bindings patch through arm-soc/next-dt
-> tree, so that is where patch 2 is based on.
->>
->> Why don't you push both of these patches through whatever tree that
->> file is maintained under.  You can add my ack:
-> I'm not sure if Peppe has a tree, but it should go into his tree
-> if there is one. If not, can you apply patch 1 to your tree?
+Grant Grundler [mailto:grundler@google.com] 
+> Sent: Tuesday, February 25, 2014 12:18 AM
+> To: hayeswang
+> Cc: Inki Yoo; netdev
+> Subject: Re: RTL8153 fails to get link after applying 
+> c7de7dec2 to 3.8 kernel
+[...]
+> Does Realtek have a publicly available tool that I can use to set all
+> customization back to "official" values?
 
-Hello
+Please contact with the person who give you the dangle.
+You should need the another one.
 
-I have not own tree but I am using net.git and net-next to do my patches
-and experiments.
+[...]
+> Sorry, I disagree. Where "customization" is available, I expect the
+> device driver to know/understand those values OR set them to some
+> state the driver knows how to deal with. This is a limitation of the
+> driver, not the HW.
 
-I ask you to keep these patches aligned to net-next.
-
-Also I ask you to review the glue-layer that is not in-line with what
-have been currently added for dwmac-sti and dwmac-sunxi.c.
-
-BR
-Peppe
-
-
->>
->> Acked-by: David S. Miller <davem@davemloft.net>
-> Thanks,
-> Dinh
->
+You couldn't fix it in ECM mode.
+The only way is to switch the config to the vendor mode.
+ 
+Best Regards,
+Hayes
