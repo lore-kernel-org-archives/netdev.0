@@ -1,37 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] net, net/mlx4: Add sysfs file for port
- number
-Date: Wed, 26 Feb 2014 15:41:24 -0500 (EST)
-Message-ID: <20140226.154124.587895988315994922.davem@davemloft.net>
-References: <1393345072-31584-1-git-send-email-amirv@mellanox.com>
+Subject: Re: [PATCH net-next v2] unix: add read side socket memory
+ accounting for dgram sockets
+Date: Wed, 26 Feb 2014 15:42:32 -0500 (EST)
+Message-ID: <20140226.154232.1642777813885536970.davem@davemloft.net>
+References: <20140219200811.GE1179@order.stressinduktion.org>
+	<20140226.145559.1040609936875578841.davem@davemloft.net>
+	<20140226202154.GA9626@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ogerlitz@mellanox.com, yevgenyp@mellanox.com,
-	netdev@vger.kernel.org, Jordan_Hargrave@Dell.com,
-	Narendra_K@Dell.com
-To: amirv@mellanox.com
+Cc: netdev@vger.kernel.org, yannick@koehler.name,
+	eric.dumazet@gmail.com, xiyou.wangcong@gmail.com, dan@mindstab.net
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40795 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40807 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750814AbaBZUl1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 15:41:27 -0500
-In-Reply-To: <1393345072-31584-1-git-send-email-amirv@mellanox.com>
+	with ESMTP id S1751159AbaBZUme (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 15:42:34 -0500
+In-Reply-To: <20140226202154.GA9626@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Vadai <amirv@mellanox.com>
-Date: Tue, 25 Feb 2014 18:17:49 +0200
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Wed, 26 Feb 2014 21:21:54 +0100
 
-> Modern distro's are using biosdevname to rename interface to a name based on
-> slot/port number.
-> biosdevname can't get the port number of devices that have multiple ports that
-> share the same PCI function.
-> This patch adds a sysfs file under: /sys/devices/.../net/<interface>/dev_port,
-> that contains the port number (0 based) - to be used by biosdevname.
-> Also, dev_id was wrongly used in mlx4_en driver - added a patch that fix it.
+> On Wed, Feb 26, 2014 at 02:55:59PM -0500, David Miller wrote:
+>> I think you can safely put the 'other' sock pointer into the control
+>> block.  Because when we disassociate from a peer any pending packets
+>> in flight to him will be consumed/dropped, so there can't be any
+>> lingering references, right?
 > 
-> This patch was tested and applied over commit 51adfcc "net: bcmgenet: remove
-> unused bh_lock member"
+> I am afraid lingering socket references will happen if the sockets are
+> used in unconnected mode.
 
-Series applied, thanks.
+Sigh...
+
+Ok, let's wait for your hackbench results and work from there.
