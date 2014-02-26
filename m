@@ -1,40 +1,52 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 4/7] bridge: Automatically manage port
-	promiscuous mode.
-Date: Wed, 26 Feb 2014 08:58:26 -0800
-Message-ID: <20140226085826.6d9567df@nehalam.linuxnetplumber.net>
-References: <1393427905-6811-1-git-send-email-vyasevic@redhat.com>
-	<1393427905-6811-5-git-send-email-vyasevic@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: RTL8153 fails to get link after applying c7de7dec2 to 3.8
+ kernel
+Date: Wed, 26 Feb 2014 11:58:31 -0500 (EST)
+Message-ID: <20140226.115831.255949929805078536.davem@davemloft.net>
+References: <D7709D6F234143CDB4D0B6B27C53D3F4@realtek.com.tw>
+	<CANEJEGuCWZSBNppE+W2_UW8mDZYQCBpsJTjfwuizjPMpY+wZzw@mail.gmail.com>
+	<6055EBDEF51C4CDDBE25766ED5CACA67@realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	jhs@mojatatu.com, john.r.fastabend@intel.com, shemminger@vyatta.com
-To: Vlad Yasevich <vyasevic@redhat.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1393427905-6811-5-git-send-email-vyasevic@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: grundler@google.com, inky.yoo@samsung.com, netdev@vger.kernel.org
+To: hayeswang@realtek.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39019 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751740AbaBZQ6f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 11:58:35 -0500
+In-Reply-To: <6055EBDEF51C4CDDBE25766ED5CACA67@realtek.com.tw>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 26 Feb 2014 10:18:22 -0500
-Vlad Yasevich <vyasevic@redhat.com> wrote:
+From: hayeswang <hayeswang@realtek.com>
+Date: Wed, 26 Feb 2014 18:13:00 +0800
 
-> When there is only 1 flooding port, this port is programmed
-> with all the address the bridge accumulated.  This allows
-> us to place this port into non-promiscuous mode.
-> At other times, all ports are set as promiscuous.  To help
-> track whether the bridge set the mode or not, a new
-> flag is introduced.
+> Grant Grundler [mailto:grundler@google.com] 
+>> Sent: Tuesday, February 25, 2014 12:18 AM
+>> To: hayeswang
+>> Cc: Inki Yoo; netdev
+>> Subject: Re: RTL8153 fails to get link after applying 
+>> c7de7dec2 to 3.8 kernel
+> [...]
+>> Does Realtek have a publicly available tool that I can use to set all
+>> customization back to "official" values?
 > 
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> Please contact with the person who give you the dangle.
+> You should need the another one.
 
-This mixes the definition of outbound (flooding) and inbound (promiscuous).
-Not sure if this is safe in all cases.
+This is not an appropriate response.
+
+Your company made a chip, and people are going to repackage it and
+reuse it in their own implementations.
+
+Sometimes they will set jumpers incorrectly, add bugs to the firmware,
+and make other mistakes.
+
+When you are made explicitly awre of such situations, your driver
+should absolutely strive to handle that, rather than refuse to.
+
+It is mysterious to me when a driver author behaves in such a way that
+they seem to want their driver to work on fewer instances of their
+hardware rather than support more of them.
