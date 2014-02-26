@@ -1,22 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/3] yet another new mtu discovery mode
-Date: Tue, 25 Feb 2014 23:17:26 -0500 (EST)
-Message-ID: <20140225.231726.55561485611314172.davem@davemloft.net>
-References: <1393374043-796-1-git-send-email-hannes@stressinduktion.org>
+From: Sathya Perla <Sathya.Perla@Emulex.Com>
+Subject: RE: [PATCH] be2net: Bugfix for packet drop with kernel param
+ swiotlb=force
+Date: Wed, 26 Feb 2014 04:54:16 +0000
+Message-ID: <ae566d8f-6535-4c6c-9c4e-463617b92a65@CMEXHTCAS2.ad.emulex.com>
+References: <OF1C38716E.D9F528E0-ON48257C85.000A026B-48257C85.000AA8C9@zte.com.cn>
+	 <e57b63ae-b1a8-47f3-8f2b-71cb6d8ab4fc@CMEXHTCAS1.ad.emulex.com>
+	 <1393033796.15717.90.camel@deadeye.wl.decadent.org.uk>
+	 <8ecfc5a6-7cb7-46ff-847e-4b081522eb9b@CMEXHTCAS1.ad.emulex.com>
+ <1393347489.14067.5.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hannes@stressinduktion.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "jiang.biao2@zte.com.cn" <jiang.biao2@zte.com.cn>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Subramanian Seetharaman <subbu.seetharaman@emulex.com>,
+	Ajit Khaparde <Ajit.Khaparde@Emulex.Com>,
+	"wang.liang82@zte.com.cn" <wang.liang82@zte.com.cn>,
+	"cai.qu@zte.com.cn" <cai.qu@zte.com.cn>,
+	"li.fengmao@zte.com.cn" <li.fengmao@zte.com.cn>,
+	"long.chun@zte.com.cn" <long.chun@zte.com.cn>,
+	David Miller <davem@davemloft.net>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59813 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751075AbaBZER2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 23:17:28 -0500
-In-Reply-To: <1393374043-796-1-git-send-email-hannes@stressinduktion.org>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:42576 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750933AbaBZEyV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Feb 2014 23:54:21 -0500
+In-Reply-To: <1393347489.14067.5.camel@deadeye.wl.decadent.org.uk>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-This is a new feature and therefore definitely not appropriate for
-'net', it's 'net-next' material only.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
+dG86YmVuQGRlY2FkZW50Lm9yZy51a10NCj4gDQouLi4NCj4gPiA+ID4gPg0KPiA+ID4gPiA+IEZy
+b206IExpIEZlbmdtYW8gPGxpLmZlbmdtYW9AenRlLmNvbS5jbj4NCj4gPiA+ID4gPg0KPiA+ID4g
+PiA+IFRoZXJlIHdpbGwgYmUgcGFja2V0IGRyb3Agd2l0aCBrZXJuZWwgcGFyYW0gInN3aW90bGIg
+PSBmb3JjZSIgb24NCj4gPiA+ID4gPiBFbXVsZXggMTBHYiBOSUMgdXNpbmcgYmUybmV0IGRyaXZl
+ci4gVGhlIHByb2JsZW0gaXMgY2F1c2VkIGJ5DQo+ID4gPiA+ID4gcmVjZWl2aW5nIHNrYiB3aXRo
+b3V0IGNhbGxpbmcgcGNpX3VubWFwX3BhZ2UoKSBpbiBnZXRfcnhfcGFnZV9pbmZvKCkuDQo+ID4g
+PiA+ID4gcnhfcGFnZV9pbmZvLT5sYXN0X3BhZ2VfdXNlciBpcyBpbml0aWFsaXplZCB0byBmYWxz
+ZSBpbg0KPiA+ID4gPiA+IGJlX3Bvc3RfcnhfZnJhZ3MoKSB3aGVuIGN1cnJlbnQgZnJhZyBhcmUg
+bWFwcGVkIGluIHRoZSBmaXJzdCBoYWxmIG9mDQo+ID4gPiA+ID4gdGhlIHNhbWUgcGFnZSB3aXRo
+IGFub3RoZXIgZnJhZy4gQnV0IGluIHRoYXQgY2FzZSB3aXRoDQo+ID4gPiA+ID4gInN3aW90bGIg
+PSBmb3JjZSIgcGFyYW0sIGRhdGEgY2FuIG5vdCBiZSBjb3BpZWQgaW50byB0aGUgcGFnZSBvZg0K
+PiA+ID4gPiA+IHJ4X3BhZ2VfaW5mbyB3aXRob3V0IGNhbGxpbmcgcGNpX3VubWFwX3BhZ2UsIHNv
+IHRoZSBkYXRhIGZyYWcgbWFwcGVkDQo+ID4gPiA+ID4gaW4gdGhlIGZpcnN0IGhhbGYgb2YgdGhl
+IHBhZ2Ugd2lsbCBiZSBkcm9wcGVkLg0KPiA+ID4gPiA+DQo+ID4gPiA+ID4gSXQgY2FuIGJlIHNv
+bHZlZCBieSBjcmVhdGluZyBvbmx5IGEgbWFwcGluZyByZWxhdGlvbiBiZXR3ZWVuIGZyYWcNCj4g
+PiA+ID4gPiBhbmQgcGFnZSwgYW5kIGRlbGV0aW5nIHJ4X3BhZ2VfaW5mby0+bGFzdF9wYWdlX3Vz
+ZXIgdG8gZW5zdXJlDQo+ID4gPiA+ID4gY2FsbGluZyBwY2lfdW5tYXBfcGFnZSB3aGVuIGhhbmRs
+aW5nIGVhY2ggcmVjZWl2aW5nIGZyYWcuDQo+ID4gPiA+DQo+ID4gPiA+IFRoaXMgcGF0Y2ggdXNl
+cyBhbiBlbnRpcmUgcGFnZSBmb3IgZWFjaCBSWCBmcmFnICh3aG9zZSBkZWZhdWx0IHNpemUgaXMg
+MjA0OCkuDQo+ID4gPiA+IENvbnNlcXVlbnRseSwgb24gcGxhdGZvcm1zIGxpa2UgcHBjNjQgd2hl
+cmUgdGhlIGRlZmF1bHQgUEFHRV9TSVpFIGlzIDY0SywNCj4gPiA+ID4gbWVtb3J5IHVzYWdlIGJl
+Y29tZXMgdmVyeSBpbmVmZmljaWVudC4NCj4gPiA+ID4NCj4gPiA+ID4gSW5zdGVhZCwgSSd2ZSB0
+cmllZCBhIHBhcnRpYWwtcGFnZSBtYXBwaW5nIHNjaGVtZS4gVGhpcyByZXRhaW5zIHRoZQ0KPiA+
+ID4gPiBwYWdlIHNoYXJpbmcgbG9naWMsIGJ1dCB1bi1tYXBzIGVhY2ggZnJhZyBzZXBhcmF0ZWx5
+IHNvIHRoYXQNCj4gPiA+ID4gdGhlIGRhdGEgaXMgY29waWVkIGZyb20gdGhlIGJvdW5jZSBidWZm
+ZXJzLg0KPiA+ID4gWy4uLl0NCj4gPiA+DQo+ID4gPiBZb3UgZG9uJ3QgbmVlZCB0byBtYXAvdW5t
+YXAgZWFjaCBmcmFnbWVudCBzZXBhcmF0ZWx5OyB5b3UgY2FuIHN5bmMgYQ0KPiA+ID4gc3ViLXBh
+Z2UgcmFuZ2Ugd2l0aCBkbWFfc3luY19zaW5nbGVfZm9yX2NwdSgpLg0KPiA+ID4NCj4gPg0KPiA+
+IEJlbiwgYWZ0ZXIgc3luY2luZyBlYWNoIGZyYWcgd2l0aCBhIGRtYV9zeW5jX3NpbmdsZV9mb3Jf
+Y3B1KCkgY2FsbCwNCj4gPiB3b3VsZCBJIHN0aWxsIG5lZWQgdG8gZG1hX3VubWFwX3BhZ2UoKSBh
+ZnRlciBETUEgaXMgZG9uZSBvbiBhbGwgdGhlIGZyYWdzDQo+ID4gb2YgdGhlIHBhZ2U/IEkgdGhv
+dWdodCBJIG5lZWRlZCB0by4NCj4gDQo+IFllcy4NCj4gDQo+ID4gSSdtIGNvbmZ1c2VkIHRvIHNl
+ZSB0aGF0IHN3aW90bGJfYm91bmNlKCkgKHRoYXQgY29waWVzIGRhdGEgZnJvbSB0aGUgYm91bmNl
+IGJ1ZmZlcnMpDQo+ID4gaXMgY2FsbGVkIGZyb20gYm90aCBzd2lvdGxiX3N5bmNfc2luZ2xlX2Zv
+cl9jcHUoKSBhbmQgc3dpb3RsYl91bm1hcF9wYWdlKCkuDQo+ID4gSSBvZmNvdXJzZSBkb24ndCB3
+YW50IHRoZSBkYXRhIHRvIGJlIGNvcGllZCBmcm9tIHRoZSBib3VuY2UgYnVmZmVycyB0d2ljZSEN
+Cj4gDQo+IFJpZ2h0LCB1bm1hcCBpbmNsdWRlcyBhIHN5bmMgc28geW91IHNob3VsZDoNCj4gLSBm
+b3IgdGhlIGxhc3QgZnJhZyBwZXIgcGFnZSwgZG1hX3VubWFwX3BhZ2UoKSBvbmx5DQo+IC0gZm9y
+IGV2ZXJ5IG90aGVyIGZyYWcsIGRtYV9zeW5jX3NpbmdsZV9mb3JfY3B1KCkgb25seQ0KDQpCZW4s
+IHRoZSBkbWFfdW5tYXBfcGFnZSgpIHJlcXVpcmVzIHVzIHRvIHBhc3MgdGhlIHNhbWUgZG1hX2Fk
+ZHIgYW5kIHNpemUgcmV0dXJuZWQgYnkNCihhbmQgcGFzc2VkIHRvKSB0aGUgZG1hX21hcF9wYWdl
+KCkgY2FsbC4NClNvLCBmb3IgdGhlIGxhc3QgZnJhZywgd2hlbiBJIGNhbGwgZG1hX21hcF9wYWdl
+KCkgd2l0aCB0aGUgcGFnZV9hZGRyIChhbmQgbm90IHRoZSBmcmFnX2FkZHIpIGFuZCB0aGUNCnBh
+Z2Ugc2l6ZSwgd29uJ3QgaXQgdHJ5IHRvIGNvcHkgdGhlIGRhdGEgYmVsb25naW5nIHRvIGFsbCB0
+aGUgcHJldmlvdXMgZnJhZ3Mgb2YgcGFnZSBhZ2Fpbj8hIQ0KDQogdGhhbmtzLA0KLVNhdGh5YQ0K
