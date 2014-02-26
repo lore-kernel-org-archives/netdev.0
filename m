@@ -1,208 +1,111 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 7/7] bridge: Support promisc management when
- all ports are non-flooding
-Date: Wed, 26 Feb 2014 18:01:34 +0200
-Message-ID: <20140226160134.GJ15330@redhat.com>
-References: <1393427905-6811-1-git-send-email-vyasevic@redhat.com>
-	<1393427905-6811-8-git-send-email-vyasevic@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org, shemminger@vyatta.com,
-	bridge@lists.linux-foundation.org, jhs@mojatatu.com
-To: Vlad Yasevich <vyasevic@redhat.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1393427905-6811-8-git-send-email-vyasevic@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: [PATCH net-next v4 0/8] 6lowpan: reimplementation of fragmentation handling
+Date: Wed, 26 Feb 2014 17:05:04 +0100
+Message-ID: <1393430712-11298-1-git-send-email-alex.aring@gmail.com>
+Cc: dbaryshkov@gmail.com, davem@davemloft.net,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	martin.townsend@xsilon.com, Alexander Aring <alex.aring@gmail.com>
+To: alex.bluesman.smirnov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f41.google.com ([74.125.83.41]:44682 "EHLO
+	mail-ee0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751301AbaBZQFb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 11:05:31 -0500
+Received: by mail-ee0-f41.google.com with SMTP id b15so662434eek.14
+        for <netdev@vger.kernel.org>; Wed, 26 Feb 2014 08:05:29 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 26, 2014 at 10:18:25AM -0500, Vlad Yasevich wrote:
-> Configuration where all ports are set to non-flooding is a slight
-> special case.  In this config, the user would have to manage all fdbs
-> for all ports.  In this special case, since we'll know all addresses,
-> we can turn off promisc on all ports and program all ports with the
-> same set of addresses.
-> 
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-> ---
->  include/linux/netdevice.h |  3 +++
->  net/bridge/br_fdb.c       | 22 +++++++++++++++++-----
->  net/bridge/br_if.c        | 40 ++++++++++++++++++++++++++++++++++------
->  net/bridge/br_private.h   |  2 +-
->  net/core/dev_addr_lists.c |  7 ++++---
->  5 files changed, 59 insertions(+), 15 deletions(-)
-> 
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index e29cce1..79e97ee 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -2889,6 +2889,9 @@ int __hw_addr_del(struct netdev_hw_addr_list *list,
->  		  unsigned char addr_type);
->  int __hw_addr_sync(struct netdev_hw_addr_list *to_list,
->  		   struct netdev_hw_addr_list *from_list, int addr_len);
-> +int __hw_addr_sync_multiple(struct netdev_hw_addr_list *to_list,
-> +			    struct netdev_hw_addr_list *from_list,
-> +			    int addr_len);
->  void __hw_addr_unsync(struct netdev_hw_addr_list *to_list,
->  		      struct netdev_hw_addr_list *from_list, int addr_len);
->  void __hw_addr_init(struct netdev_hw_addr_list *list);
-> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-> index ef95e81..26ea4fe 100644
-> --- a/net/bridge/br_fdb.c
-> +++ b/net/bridge/br_fdb.c
-> @@ -911,19 +911,31 @@ void br_fdb_addrs_sync(struct net_bridge *br)
->  	if (br->n_flood_ports == 1) {
->  		p = br->c_flood_port;
->  		netif_addr_lock(p->dev);
-> -		err = __hw_addr_sync(&p->dev->uc, &br->conf_addrs,
-> -				     p->dev->addr_len);
-> +		err = __hw_addr_sync_multiple(&p->dev->uc, &br->conf_addrs,
-> +					      p->dev->addr_len);
->  		if (!err)
->  			__dev_set_rx_mode(p->dev);
->  		netif_addr_unlock(p->dev);
-> +	} else if (br->n_flood_ports == 0) {
-> +		list_for_each_entry(p, &br->port_list, list) {
-> +			/* skip over ports being deleted. */
-> +			if (!br_port_exists(p->dev))
-> +				continue;
->  
-> +			netif_addr_lock_nested(p->dev);
-> +			err = __hw_addr_sync_multiple(&p->dev->uc,
-> +						      &br->conf_addrs,
-> +						      p->dev->addr_len);
-> +			if (!err)
-> +				__dev_set_rx_mode(p->dev);
-> +			netif_addr_unlock(p->dev);
-> +		}
->  	}
-> +
->  }
->  
-> -void br_fdb_addrs_unsync(struct net_bridge *br)
-> +void br_fdb_addrs_unsync(struct net_bridge *br, struct net_bridge_port *p)
->  {
-> -	struct net_bridge_port *p = br->c_flood_port;
-> -
->  	if (!p)
->  		return;
->  
-> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-> index 55e4e28..4ba62ef 100644
-> --- a/net/bridge/br_if.c
-> +++ b/net/bridge/br_if.c
-> @@ -148,6 +148,8 @@ static void del_nbp(struct net_bridge_port *p)
->  
->  	if (p->flags & BR_FLOOD)
->  		br_del_flood_port(p, br);
-> +	else
-> +		br_fdb_addrs_unsync(br, p);
->  
->  	nbp_vlan_flush(p);
->  	br_fdb_delete_by_port(br, p, 1);
-> @@ -530,8 +532,26 @@ static void br_add_flood_port(struct net_bridge_port *p, struct net_bridge *br)
->  	 * only have 1 flooding port cache if for future use.
->  	 */
->  	br->n_flood_ports++;
-> -	if (br->n_flood_ports == 1)
-> +	if (br->n_flood_ports == 1) {
-> +		struct net_bridge_port *port;
-> +
-> +		/* We are transitioning from 0 flood ports to 1.  Remove
-> +		 * the addresses from all the non-flood ports and turn on
-> +		 * promisc on those ports.
-> +		 */
-> +		list_for_each_entry(port, &br->port_list, list) {
-> +			/* skip the current port we are changing */
-> +			if (port == p)
-> +				continue;
-> +
-> +			if (!(port->flags & BR_FLOOD)) {
-> +				br_port_set_promisc(port);
-> +				br_fdb_addrs_unsync(br, port);
-> +			}
-> +		}
-> +
->  		br->c_flood_port = p;
-> +	}
->  
->  	br_fdb_addrs_sync(br);
->  	br_manage_promisc(br);
-> @@ -547,12 +567,20 @@ static void br_del_flood_port(struct net_bridge_port *p, struct net_bridge *br)
->  	 * set it if it is not set.
->  	 */
->  	br->n_flood_ports--;
-> -	if (p == br->c_flood_port) {
-> -		br_fdb_addrs_unsync(br);
-> -		br->c_flood_port = NULL;
-> -	}
-> +	if (br->n_flood_ports == 0) {
-> +		/* We just dropped to 0 flood ports.  If we
-> +		 * are deleting this port, unsync addresses
-> +		 * from it.
-> +		 */
-> +		if (!br_port_exists(p->dev))
-> +			br_fdb_addrs_unsync(br, p);
->  
-> -	if (br->n_flood_ports == 1) {
-> +		br->c_flood_port = NULL;
-> +		br_fdb_addrs_sync(br);
-> +	} else if (br->n_flood_ports == 1) {
-> +		/* We just dropped to 1 flood port. Find this one flood
-> +		 * port and sync to it.
-> +		 */
->  		list_for_each_entry(port, &p->br->port_list, list) {
->  			if (br_port_exists(port->dev) &&
->  			    (port->flags & BR_FLOOD)) {
-> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-> index 87dcc09..13840de 100644
-> --- a/net/bridge/br_private.h
-> +++ b/net/bridge/br_private.h
-> @@ -400,7 +400,7 @@ int br_fdb_add(struct ndmsg *nlh, struct nlattr *tb[], struct net_device *dev,
->  int br_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
->  		struct net_device *dev, int idx);
->  void br_fdb_addrs_sync(struct net_bridge *br);
-> -void br_fdb_addrs_unsync(struct net_bridge *br);
-> +void br_fdb_addrs_unsync(struct net_bridge *br, struct net_bridge_port *p);
->  
->  /* br_forward.c */
->  void br_deliver(const struct net_bridge_port *to, struct sk_buff *skb);
-> diff --git a/net/core/dev_addr_lists.c b/net/core/dev_addr_lists.c
-> index 3de44a3..24da78f 100644
-> --- a/net/core/dev_addr_lists.c
-> +++ b/net/core/dev_addr_lists.c
-> @@ -171,9 +171,9 @@ static void __hw_addr_unsync_one(struct netdev_hw_addr_list *to_list,
->  	__hw_addr_del_entry(from_list, ha, false, false);
->  }
->  
-> -static int __hw_addr_sync_multiple(struct netdev_hw_addr_list *to_list,
-> -				   struct netdev_hw_addr_list *from_list,
-> -				   int addr_len)
-> +int __hw_addr_sync_multiple(struct netdev_hw_addr_list *to_list,
-> +			    struct netdev_hw_addr_list *from_list,
-> +			    int addr_len)
->  {
->  	int err = 0;
->  	struct netdev_hw_addr *ha, *tmp;
-> @@ -189,6 +189,7 @@ static int __hw_addr_sync_multiple(struct netdev_hw_addr_list *to_list,
->  	}
->  	return err;
->  }
-> +EXPORT_SYMBOL(__hw_addr_sync_multiple);
->  
->  /* This function only works where there is a strict 1-1 relationship
->   * between source and destionation of they synch. If you ever need to
-> -- 
-> 1.8.5.3
+Hi,
+
+this patch series reimplementation the fragmentation handling of 6lowpan
+accroding to rfc4944 [1].
+
+The first big note is, that the current fragmentation behaviour isn't rfc
+complaint. The main issue is a wrong datagram_size value which needs to be:
+datagram_size = ipv6_payload + ipv6 header + (maybe compressed transport header,
+                currently only udp is supported)
+
+but the current datagram_size value is calculated as:
+datagram_size = ipv6_payload
+
+Fragmentation work in a linux<->linux communication only.
 
 
-Same comment about core changes here
-Pls CC more people so this gets proper review.
+Why reimplementation?
+
+I reimplemted the reassembly side only. The current behaviour is to allocate a
+skb with the reassembled size and hold all fragments in a list, protected by a
+spinlock. After we received all fragments (detected by the sum of all fragments,
+it begins to place all fragments into the allocated skb).
+
+This reassembly implementation has some race condition. Additional I make it more
+rfc complaint. The current implementation match on the tag value inside the frag
+header only, but rfc4944 says we need to match on dst addr(mac), src addr(mac),
+tag value, datagram_size value. [2]
+
+The new reassembly handling use the inet_frag api (I mean the callback interface
+of ipv6 and ipv4 reassembly). I looked into ipv6 and wanted to see how ipv6 is
+dealing with reassembly, so I based my code on this implementation.
+
+
+
+On the sending side to generate the fragments I improved the current code to use
+the nearest 8 divided payload. (We can do that, because the mac layer has a
+dynamic size, so it depends on mac_header how big we can do the payload).
+
+Of course I fix also the reassembly/sending side to be rfc complaint now.
+
+Regards
+Alexander Aring
+
+[1] http://tools.ietf.org/html/rfc4944
+[2] http://tools.ietf.org/html/rfc4944#section-5.3
+
+changes since v2:
+ - rework checkpatch code style issue patch.
+   Merge two pr_debugs into one pr_debug.
+
+changes since v3:
+ - rename 6lowpan.ko to 6lowpan_rtnl.c in commit msg of patch 5/8.
+
+changes since v4:
+ - Add a new patch 2/8 to introduce lowpan_uncompress_size function. Also
+   improving this function a little bit.
+ - Add a new patch 4/8 to change tag value to __be16.
+ - use skb_header_reset function on FRAG1 only, which should have the
+   lowpan header. See lowpan_get_frag_info function. (slightly improving
+   of fragmentation header parsing).
+ - changes types of variables to u16 in lowpan_skb_fragmentation.
+ - use lowpan_uncompress_size instead of storing necessary information
+   in skb control block, this can be destroyed after dev_queue_xmit call.
+   Thanks David for this hint.
+ - remove Tested-by: Martin Townsend <martin.townsend@xsilon.com>, because
+   too many funcionality change.
+
+Alexander Aring (8):
+  6lowpan: add frag information struct
+  6lowpan: add uncompress header size function
+  6lowpan: fix fragmentation on sending side
+  6lowpan: change tag type to __be16
+  6lowpan: move 6lowpan.c to 6lowpan_rtnl.c
+  6lowpan: fix some checkpatch issues
+  net: ns: add ieee802154_6lowpan namespace
+  6lowpan: handling 6lowpan fragmentation via inet_frag api
+
+ include/net/ieee802154_netdev.h              |   7 +
+ include/net/net_namespace.h                  |   4 +
+ include/net/netns/ieee802154_6lowpan.h       |  22 ++
+ net/ieee802154/6lowpan.h                     | 116 ++++++
+ net/ieee802154/{6lowpan.c => 6lowpan_rtnl.c} | 323 +++++----------
+ net/ieee802154/Makefile                      |   1 +
+ net/ieee802154/reassembly.c                  | 565 +++++++++++++++++++++++++++
+ net/ieee802154/reassembly.h                  |  66 ++++
+ 8 files changed, 868 insertions(+), 236 deletions(-)
+ create mode 100644 include/net/netns/ieee802154_6lowpan.h
+ rename net/ieee802154/{6lowpan.c => 6lowpan_rtnl.c} (70%)
+ create mode 100644 net/ieee802154/reassembly.c
+ create mode 100644 net/ieee802154/reassembly.h
+
+-- 
+1.9.0
