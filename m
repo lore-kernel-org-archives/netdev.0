@@ -1,106 +1,75 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: Deliver skbs to intermediate interfaces, when using cascaded
- rx-handlers
-Date: Wed, 26 Feb 2014 15:18:57 -0300
-Message-ID: <20140226181857.GA7943@t520>
-References: <20140221100158.GA19594@gmail.com>
- <20140221171034.GA2488@localhost.localdomain>
- <20140224072223.GA20295@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] sh_net: runtime pm wrap mdio read and write
+Date: Wed, 26 Feb 2014 22:21:32 +0300
+Message-ID: <530E3EBC.5060408@cogentembedded.com>
+References: <1393433319-22685-1-git-send-email-ben.dooks@codethink.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Tobias Waldekranz <tobias@waldekranz.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:17644 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750813AbaBZSTA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Feb 2014 13:19:00 -0500
-Content-Disposition: inline
-In-Reply-To: <20140224072223.GA20295@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-sh@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
+	magnus.damn@opensource.se, horms@verge.net.au
+To: Ben Dooks <ben.dooks@codethink.co.uk>, netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1393433319-22685-1-git-send-email-ben.dooks@codethink.co.uk>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 24, 2014 at 08:22:23AM +0100, Tobias Waldekranz wrote:
-> On Fri, Feb 21, 2014 at 02:10:35PM -0300, Flavio Leitner wrote:
-> > On Fri, Feb 21, 2014 at 11:01:58AM +0100, Tobias Waldekranz wrote:
-> > > I have a system with the following configuration:
-> > > 
-> > >    * eth0 is a regular Ethernet MAC, connected to a hardware switch.
-> > >    * port[1-4] are the in-kernel representation of the switch.
-> > >    * team0 is a regular team-interface which bonds port1 and port2.
-> > > 
-> > >       +-------+
-> > >       | team0 |
-> > >       +---+---+
-> > >           |
-> > >      +----+----+
-> > >      |         |
-> > >  +---+---+ +---+---+ +-------+ +-------+
-> > >  | port1 | | port2 | | port3 | | port4 | 
-> > >  +---+---+ +---+---+ +---+---+ +---+---+
-> > >      |         |         |         |
-> > >      +---------+----+----+---------+
-> > >                     |
-> > >                 +---+---+
-> > >                 | eth0  |
-> > >                 +-------+
-> > > 
-> > > Both the switch and the team driver attaches rx-handlers to their
-> > > lower layers. The problem is that team expects LACP frames that
-> > > are intercepted by team0, to also be delivered to the port interface
-> > > by __netif_receive_skb_core (in the final iteration of the registered
-> > > protocols). However in this case, when two rx-handlers are cascaded,
-> > > the skb will be delivered to eth0, since that is the original device
-> > > (orig_dev).
-> > 
-> > Indeed. It is not possible to update orig_dev, so it is stuck
-> > on eth0 regardless of all the stacked interfaces.
-> > 
-> > > There are a few ways this can be solved as far as i can see:
-> > > 
-> > >    1. Introduce a new rx-handler return code that specifies that
-> > >    skb->dev has been altered, like RX_HANDLER_ANOTHER, and that we
-> > >    also want to change orig_dev to this new device.
-> > 
-> > But then you need to know which rx-handler will run next, because
-> > the orig_dev might still be implicit wanted.
-> 
-> The next rx-handler is resolved by looking at skb->dev->rx_handler, so
-> that shouldn't be a problem. Or am I missing something?
+On 02/26/2014 07:48 PM, Ben Dooks wrote:
 
-Yes, but all rx_handlers assume that orig_dev is intact and will be
-delivered at the end. That will change with this solution and I don't
-know if it can break any rx-handler.
+> On the R8A7790, if the device has been suspended by pm_runtime
+> and the MII code tries to access the bus then there is a possiblity
 
+    s/possiblity/possibility/.
 
-> > >    2. Change the switch driver to return RX_HANDLER_CONSUMED and then
-> > >    queue the skb all over again, though I am afraid that this will eat
-> > >    some cycles.
-> > 
-> > Before queue again, you need to update skb->dev, right? This seems
-> > similar to (1).
-> 
-> Exactly. It is very similar. The difference is that I would have to
-> call netif_rx and go through a lot of code again, instead of taking
-> the fast path via the another_round-loop in __netif_receive_skb_core.
+> that it will fail to read any data from the MII bus.
 
-Right.
+> Change the MDIO read and write calls to be wrappered by calls to
 
-> > >    3. Keep track of all traversed interfaces and change the final
-> > >    protocol iteration to deliver the skb to all intermediate devices.
-> > 
-> > That's what I thought too.
-> 
-> Ok, so if I provide such a patch, you think it would have a good
-> chance of getting accepted?
+    s/wrappered/wrapped/.
 
-Well, the final word comes from David and certainly you will need
-to justify why fixing DSA isn't enough.
+> pm_runtime_{get,put}_sync so that the device will be enabled during
+> these calls. It is put here to avoid having to enable and disable
+> the clock for every bit that is sent by the MII bit-banging code.
 
-> What are the performance implications of deliver_skb-ing the packet to
-> each intermediate layer? Considering that most of those packets will
-> probably not be of interest to anyone.
+> This has been exposed by the change to using OF and a fix to enable
+> the pm_runtime clock management which seems to have been broken for
+> some time for the device-tree booted Renesas kernels.
 
-Good question.
+    What fix to enable run-time PM are you talking about?
 
-fbl
+> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
+> ---
+>   drivers/net/ethernet/renesas/sh_eth.c | 39 +++++++++++++++++++++++++++++++++++
+>   1 file changed, 39 insertions(+)
+
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+> index b92034c..8d1b84e 100644
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -983,6 +983,8 @@ static unsigned long sh_eth_get_edtrr_trns(struct sh_eth_private *mdp)
+>
+>   struct bb_info {
+>   	void (*set_gate)(void *addr);
+> +        int (*mdio_read)(struct mii_bus *bus, int phy_id, int regnum);
+> +        int (*mdio_write)(struct mii_bus *bus, int phy_id, int regnum, u16 val);
+
+    Please indent with tabs.
+
+> @@ -1071,6 +1073,38 @@ static struct mdiobb_ops bb_ops = {
+>   	.get_mdio_data = sh_get_mdio,
+>   };
+>
+> +/* Wrapper to ensure bitbang ops have device runtime-pm enabled */
+> +
+> +static inline struct bb_info *mii_to_bitbang(struct mii_bus *bus)
+> +{
+> +	struct mdiobb_ctrl *ctrl = bus->priv;
+
+    Empty line between declaration and the other code needed.
+
+> +	return container_of(ctrl, struct bb_info, ctrl);
+> +}
+[...]
+
+WBR, Sergei
+
