@@ -1,84 +1,59 @@
-From: Ben Dooks <ben.dooks@codethink.co.uk>
-Subject: Re: [PATCH] phy: micrel: add of configuration for LED mode
-Date: Thu, 27 Feb 2014 10:22:22 +0000
-Message-ID: <530F11DE.2000309@codethink.co.uk>
-References: <1393415280-10227-1-git-send-email-ben.dooks@codethink.co.uk> <CAGVrzcbUShzdYgEgHJiG8gL11+1DANiJpAk3PL5=jKASqXAyGg@mail.gmail.com>
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: [PATCH 1/2] net: w5300: Use devm_ioremap_resource()
+Date: Thu, 27 Feb 2014 19:30:04 +0900
+Message-ID: <000001cf33a6$e0a57040$a1f050c0$%han@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel <linux-kernel@lists.codethink.co.uk>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>,
+	'Mike Sinkovsky' <msink@permonline.ru>
+To: 'David Miller' <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:52504 "EHLO
-	ducie-dc1.codethink.co.uk" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751026AbaB0KW0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 05:22:26 -0500
-In-Reply-To: <CAGVrzcbUShzdYgEgHJiG8gL11+1DANiJpAk3PL5=jKASqXAyGg@mail.gmail.com>
+Received: from mailout4.samsung.com ([203.254.224.34]:36759 "EHLO
+	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750814AbaB0KaI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 05:30:08 -0500
+Received: from epcpsbgr3.samsung.com
+ (u143.gpu120.samsung.co.kr [203.254.230.143])
+ by mailout4.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0N1N006S5H66QN60@mailout4.samsung.com> for
+ netdev@vger.kernel.org; Thu, 27 Feb 2014 19:30:06 +0900 (KST)
+Content-language: ko
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26/02/14 22:20, Florian Fainelli wrote:
-> Hi,
->
-> 2014-02-26 3:48 GMT-08:00 Ben Dooks <ben.dooks@codethink.co.uk>:
->
-> [snip]
->
->> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
->> index 5a8993b..0c9e434 100644
->> --- a/drivers/net/phy/micrel.c
->> +++ b/drivers/net/phy/micrel.c
->> @@ -148,15 +148,52 @@ static int ks8737_config_intr(struct phy_device *phydev)
->>          return rc < 0 ? rc : 0;
->>   }
->>
->> +static int kszphy_setup_led(struct phy_device *phydev,
->> +                           unsigned int reg, unsigned int shift)
->> +{
->> +
->> +       struct device *dev = &phydev->dev;
->> +       struct device_node *of_node = dev->of_node;
->> +       int rc, temp;
->> +       u32 val;
->> +
->> +       if (!of_node && dev->parent->of_node)
->> +               of_node = dev->parent->of_node;
->> +
->> +       if (of_property_read_u32(of_node, "micrel,led-mode", &val))
->> +               return 0;
->
-> This breaks non-OF configuration because of_read_property_read_u32()
-> will return -ENOSYS, so you skip the LED register configuration
-> entirely, is that intended?
+Use devm_ioremap_resource() in order to make the code simpler,
+and remove redundant return value check of platform_get_resource()
+because the value is checked by devm_ioremap_resource().
 
-Yes, it is only here for OF case. I should however check if
-of_node is available for the !OF case.
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+---
+ drivers/net/ethernet/wiznet/w5300.c |   11 ++++-------
+ 1 file changed, 4 insertions(+), 7 deletions(-)
 
->> +
->> +       temp = phy_read(phydev, reg);
->> +       if (temp < 0)
->> +               return temp;
->> +
->> +       temp &= 3 << shift;
->
-> The compiler cannot verify that we are not overflowing, you might want
-> to make sure that shift <= 14 (just in case)
-
-Ok, should I add a WARN_ON(shift > 14) ?
-
->> +       temp |= val << shift;
->> +       rc = phy_write(phydev, reg, temp);
->> +
->> +       return rc < 0 ? rc : 0;
->
-> You could have;
->
->               return phy_write(phydev, reg, temp);
-
-Thanks, will change to doing that.
-
+diff --git a/drivers/net/ethernet/wiznet/w5300.c b/drivers/net/ethernet/wiznet/w5300.c
+index 71c27b3..1c3a5a5 100644
+--- a/drivers/net/ethernet/wiznet/w5300.c
++++ b/drivers/net/ethernet/wiznet/w5300.c
+@@ -558,14 +558,11 @@ static int w5300_hw_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+-	if (!mem)
+-		return -ENXIO;
++	priv->base = devm_ioremap_resource(&pdev->dev, mem);
++	if (IS_ERR(priv->base))
++		return PTR_ERR(priv->base);
++
+ 	mem_size = resource_size(mem);
+-	if (!devm_request_mem_region(&pdev->dev, mem->start, mem_size, name))
+-		return -EBUSY;
+-	priv->base = devm_ioremap(&pdev->dev, mem->start, mem_size);
+-	if (!priv->base)
+-		return -EBUSY;
+ 
+ 	spin_lock_init(&priv->reg_lock);
+ 	priv->indirect = mem_size < W5300_BUS_DIRECT_SIZE;
 -- 
-Ben Dooks				http://www.codethink.co.uk/
-Senior Engineer				Codethink - Providing Genius
+1.7.10.4
