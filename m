@@ -1,18 +1,20 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH RFC 0/7] Non-promisc bidge ports support
-Date: Wed, 26 Feb 2014 22:37:55 -0500
-Message-ID: <530EB313.7090400@redhat.com>
+Subject: Re: [PATCH 7/7] bridge: Support promisc management when
+ all ports are non-flooding
+Date: Wed, 26 Feb 2014 22:46:20 -0500
+Message-ID: <530EB50C.6050404@redhat.com>
 References: <1393427905-6811-1-git-send-email-vyasevic@redhat.com>
-	<530E7FE1.5060705@mojatatu.com>
+	<1393427905-6811-8-git-send-email-vyasevic@redhat.com>
+	<20140226155700.GH15330@redhat.com>
 Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, shemminger@vyatta.com,
-	bridge@lists.linux-foundation.org, mst@redhat.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org, shemminger@vyatta.com,
+	bridge@lists.linux-foundation.org, jhs@mojatatu.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <530E7FE1.5060705@mojatatu.com>
+In-Reply-To: <20140226155700.GH15330@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
 	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
@@ -24,45 +26,200 @@ Sender: bridge-bounces@lists.linux-foundation.org
 Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 02/26/2014 06:59 PM, Jamal Hadi Salim wrote:
-> On 02/26/14 10:18, Vlad Yasevich wrote:
->> This patch series is a complete re-design and re-implementation of
->> prior attempts to support non-promiscuous bridge ports.
+On 02/26/2014 10:57 AM, Michael S. Tsirkin wrote:
+> On Wed, Feb 26, 2014 at 10:18:25AM -0500, Vlad Yasevich wrote:
+>> Configuration where all ports are set to non-flooding is a slight
+>> special case.  In this config, the user would have to manage all fdbs
+>> for all ports.  In this special case, since we'll know all addresses,
+>> we can turn off promisc on all ports and program all ports with the
+>> same set of addresses.
 >>
->> The basic design is as follows.  The bridge keeps track of
->> all the ports that flood packets to unknown destinations.  If
->> the flooding is disabled on the port, to get traffic to flow
->> through, user/management would need to add an fdb describing
->> such traffic.  When such fdb is added, we save the address
->> to bridge private hardware address list.
+>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 > 
-> Entering the addresses in the uc list on other bridgeports seems
-> reasonable for the scenario described.
-> But would it _also_ need to be added to the fdb of the bridge?
-> i.e how does the bridge (if the packet was to be handed to it)
-> know where to forward?
+> Here the logic is different be we could sync them,
+> just make this a per-port flag and
+> scan all ports instead of relying on flood_port.
+> This will be slower in the single flooding port
+> case but worst case remains the same since
+> this patch scans all ports.
+> 
+> What do you think?
 
-The fdb described here is actually added to the bridge.  In the case
-when we are turning promiscuous mode off on a port, we program the
-address from the fdb down to the port uc list as well.  This allows
-the bridge to continue receiving traffic destined for this address even
-though the port is not in promiscuous mode.
+I had it this way before and didn't really like it.  The transitions
+between the two configs needs to be detected and appropriate
+actions taken.  So it'll still be special coded.
 
-> BTW: on the comment that flooding off implies learning off: I would like
-> to be able to turn off flooding on a specific bridge port but
-> still want to learn from it. I dont think those two are mutually
-> exclusive.
-
-No they are not, but it does lead to some very interesting traffic
-hang-ups that I've experienced first hand.  Everything works great
-in the beginning.  However, if you go idle for a long enough period
-that the fdb times out, re-establishing the connection take a rather
-long time due to unicast ARPs being dropped by the bridge.  You end
-up waiting until arp fails and switches to broadcast to restore the
-connection.  So, this mode isn't really recommended.  Nothing currently
-forbids it however.
+I'll see what I can do to simplify this.
 
 -vlad
-> 
-> cheers,
-> jamal
+
+>> ---
+>>  include/linux/netdevice.h |  3 +++
+>>  net/bridge/br_fdb.c       | 22 +++++++++++++++++-----
+>>  net/bridge/br_if.c        | 40 ++++++++++++++++++++++++++++++++++------
+>>  net/bridge/br_private.h   |  2 +-
+>>  net/core/dev_addr_lists.c |  7 ++++---
+>>  5 files changed, 59 insertions(+), 15 deletions(-)
+>>
+>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>> index e29cce1..79e97ee 100644
+>> --- a/include/linux/netdevice.h
+>> +++ b/include/linux/netdevice.h
+>> @@ -2889,6 +2889,9 @@ int __hw_addr_del(struct netdev_hw_addr_list *list,
+>>  		  unsigned char addr_type);
+>>  int __hw_addr_sync(struct netdev_hw_addr_list *to_list,
+>>  		   struct netdev_hw_addr_list *from_list, int addr_len);
+>> +int __hw_addr_sync_multiple(struct netdev_hw_addr_list *to_list,
+>> +			    struct netdev_hw_addr_list *from_list,
+>> +			    int addr_len);
+>>  void __hw_addr_unsync(struct netdev_hw_addr_list *to_list,
+>>  		      struct netdev_hw_addr_list *from_list, int addr_len);
+>>  void __hw_addr_init(struct netdev_hw_addr_list *list);
+>> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+>> index ef95e81..26ea4fe 100644
+>> --- a/net/bridge/br_fdb.c
+>> +++ b/net/bridge/br_fdb.c
+>> @@ -911,19 +911,31 @@ void br_fdb_addrs_sync(struct net_bridge *br)
+>>  	if (br->n_flood_ports == 1) {
+>>  		p = br->c_flood_port;
+>>  		netif_addr_lock(p->dev);
+>> -		err = __hw_addr_sync(&p->dev->uc, &br->conf_addrs,
+>> -				     p->dev->addr_len);
+>> +		err = __hw_addr_sync_multiple(&p->dev->uc, &br->conf_addrs,
+>> +					      p->dev->addr_len);
+>>  		if (!err)
+>>  			__dev_set_rx_mode(p->dev);
+>>  		netif_addr_unlock(p->dev);
+>> +	} else if (br->n_flood_ports == 0) {
+>> +		list_for_each_entry(p, &br->port_list, list) {
+>> +			/* skip over ports being deleted. */
+>> +			if (!br_port_exists(p->dev))
+>> +				continue;
+>>  
+>> +			netif_addr_lock_nested(p->dev);
+>> +			err = __hw_addr_sync_multiple(&p->dev->uc,
+>> +						      &br->conf_addrs,
+>> +						      p->dev->addr_len);
+>> +			if (!err)
+>> +				__dev_set_rx_mode(p->dev);
+>> +			netif_addr_unlock(p->dev);
+>> +		}
+>>  	}
+>> +
+>>  }
+>>  
+>> -void br_fdb_addrs_unsync(struct net_bridge *br)
+>> +void br_fdb_addrs_unsync(struct net_bridge *br, struct net_bridge_port *p)
+>>  {
+>> -	struct net_bridge_port *p = br->c_flood_port;
+>> -
+>>  	if (!p)
+>>  		return;
+>>  
+>> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+>> index 55e4e28..4ba62ef 100644
+>> --- a/net/bridge/br_if.c
+>> +++ b/net/bridge/br_if.c
+>> @@ -148,6 +148,8 @@ static void del_nbp(struct net_bridge_port *p)
+>>  
+>>  	if (p->flags & BR_FLOOD)
+>>  		br_del_flood_port(p, br);
+>> +	else
+>> +		br_fdb_addrs_unsync(br, p);
+>>  
+>>  	nbp_vlan_flush(p);
+>>  	br_fdb_delete_by_port(br, p, 1);
+>> @@ -530,8 +532,26 @@ static void br_add_flood_port(struct net_bridge_port *p, struct net_bridge *br)
+>>  	 * only have 1 flooding port cache if for future use.
+>>  	 */
+>>  	br->n_flood_ports++;
+>> -	if (br->n_flood_ports == 1)
+>> +	if (br->n_flood_ports == 1) {
+>> +		struct net_bridge_port *port;
+>> +
+>> +		/* We are transitioning from 0 flood ports to 1.  Remove
+>> +		 * the addresses from all the non-flood ports and turn on
+>> +		 * promisc on those ports.
+>> +		 */
+>> +		list_for_each_entry(port, &br->port_list, list) {
+>> +			/* skip the current port we are changing */
+>> +			if (port == p)
+>> +				continue;
+>> +
+>> +			if (!(port->flags & BR_FLOOD)) {
+>> +				br_port_set_promisc(port);
+>> +				br_fdb_addrs_unsync(br, port);
+>> +			}
+>> +		}
+>> +
+>>  		br->c_flood_port = p;
+>> +	}
+>>  
+>>  	br_fdb_addrs_sync(br);
+>>  	br_manage_promisc(br);
+>> @@ -547,12 +567,20 @@ static void br_del_flood_port(struct net_bridge_port *p, struct net_bridge *br)
+>>  	 * set it if it is not set.
+>>  	 */
+>>  	br->n_flood_ports--;
+>> -	if (p == br->c_flood_port) {
+>> -		br_fdb_addrs_unsync(br);
+>> -		br->c_flood_port = NULL;
+>> -	}
+>> +	if (br->n_flood_ports == 0) {
+>> +		/* We just dropped to 0 flood ports.  If we
+>> +		 * are deleting this port, unsync addresses
+>> +		 * from it.
+>> +		 */
+>> +		if (!br_port_exists(p->dev))
+>> +			br_fdb_addrs_unsync(br, p);
+>>  
+>> -	if (br->n_flood_ports == 1) {
+>> +		br->c_flood_port = NULL;
+>> +		br_fdb_addrs_sync(br);
+>> +	} else if (br->n_flood_ports == 1) {
+>> +		/* We just dropped to 1 flood port. Find this one flood
+>> +		 * port and sync to it.
+>> +		 */
+>>  		list_for_each_entry(port, &p->br->port_list, list) {
+>>  			if (br_port_exists(port->dev) &&
+>>  			    (port->flags & BR_FLOOD)) {
+>> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+>> index 87dcc09..13840de 100644
+>> --- a/net/bridge/br_private.h
+>> +++ b/net/bridge/br_private.h
+>> @@ -400,7 +400,7 @@ int br_fdb_add(struct ndmsg *nlh, struct nlattr *tb[], struct net_device *dev,
+>>  int br_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
+>>  		struct net_device *dev, int idx);
+>>  void br_fdb_addrs_sync(struct net_bridge *br);
+>> -void br_fdb_addrs_unsync(struct net_bridge *br);
+>> +void br_fdb_addrs_unsync(struct net_bridge *br, struct net_bridge_port *p);
+>>  
+>>  /* br_forward.c */
+>>  void br_deliver(const struct net_bridge_port *to, struct sk_buff *skb);
+>> diff --git a/net/core/dev_addr_lists.c b/net/core/dev_addr_lists.c
+>> index 3de44a3..24da78f 100644
+>> --- a/net/core/dev_addr_lists.c
+>> +++ b/net/core/dev_addr_lists.c
+>> @@ -171,9 +171,9 @@ static void __hw_addr_unsync_one(struct netdev_hw_addr_list *to_list,
+>>  	__hw_addr_del_entry(from_list, ha, false, false);
+>>  }
+>>  
+>> -static int __hw_addr_sync_multiple(struct netdev_hw_addr_list *to_list,
+>> -				   struct netdev_hw_addr_list *from_list,
+>> -				   int addr_len)
+>> +int __hw_addr_sync_multiple(struct netdev_hw_addr_list *to_list,
+>> +			    struct netdev_hw_addr_list *from_list,
+>> +			    int addr_len)
+>>  {
+>>  	int err = 0;
+>>  	struct netdev_hw_addr *ha, *tmp;
+>> @@ -189,6 +189,7 @@ static int __hw_addr_sync_multiple(struct netdev_hw_addr_list *to_list,
+>>  	}
+>>  	return err;
+>>  }
+>> +EXPORT_SYMBOL(__hw_addr_sync_multiple);
+>>  
+>>  /* This function only works where there is a strict 1-1 relationship
+>>   * between source and destionation of they synch. If you ever need to
+>> -- 
+>> 1.8.5.3
