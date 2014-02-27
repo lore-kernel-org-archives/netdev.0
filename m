@@ -1,60 +1,55 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH v3] atm: nicstar: remove interruptible_sleep_on_timeout
-Date: Thu, 27 Feb 2014 19:51:54 +0100
-Message-ID: <201402271951.54970.arnd@arndb.de>
-References: <1393412516-3762435-1-git-send-email-arnd@arndb.de> <1393412516-3762435-11-git-send-email-arnd@arndb.de> <20140226.110603.1107468127601575254.davem@davemloft.net>
+From: bert hubert <bert.hubert@netherlabs.nl>
+Subject: IPv6 routing table max_size badly dimensioned compared to IPv4
+Date: Thu, 27 Feb 2014 20:24:03 +0100
+Message-ID: <20140227192403.GA13472@xs.powerdns.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140226.110603.1107468127601575254.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xs.powerdns.com ([82.94.213.34]:52369 "EHLO xs.powerdns.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750765AbaB0Ta0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Feb 2014 14:30:26 -0500
+Received: from ahu by xs.powerdns.com with local (Exim 4.71)
+	(envelope-from <ahu@xs.powerdns.com>)
+	id 1WJ6Yt-00044X-GX
+	for netdev@vger.kernel.org; Thu, 27 Feb 2014 20:24:03 +0100
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We are trying to finally kill off interruptible_sleep_on_timeout.
-the two uses in the nicstar driver can be trivially replaced
-with wait_event_interruptible_lock_irq_timeout, which prevents the
-wake-up race and is able to check the buffer state with scq->lock
-held.
+Hi everybody,
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Acked-by: Chas Williams <chas@cmf.nrl.navy.mil>
----
-diff --git a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
-index 9587e95..8cce153 100644
---- a/drivers/atm/nicstar.c
-+++ b/drivers/atm/nicstar.c
-@@ -1739,10 +1739,10 @@ static int push_scqe(ns_dev * card, vc_map * vc, scq_info * scq, ns_scqe * tbd,
- 		}
- 
- 		scq->full = 1;
--		spin_unlock_irqrestore(&scq->lock, flags);
--		interruptible_sleep_on_timeout(&scq->scqfull_waitq,
--					       SCQFULL_TIMEOUT);
--		spin_lock_irqsave(&scq->lock, flags);
-+		wait_event_interruptible_lock_irq_timeout(scq->scqfull_waitq,
-+							  scq->tail != scq->next,
-+							  scq->lock,
-+							  SCQFULL_TIMEOUT);
- 
- 		if (scq->full) {
- 			spin_unlock_irqrestore(&scq->lock, flags);
-@@ -1789,10 +1789,10 @@ static int push_scqe(ns_dev * card, vc_map * vc, scq_info * scq, ns_scqe * tbd,
- 			scq->full = 1;
- 			if (has_run++)
- 				break;
--			spin_unlock_irqrestore(&scq->lock, flags);
--			interruptible_sleep_on_timeout(&scq->scqfull_waitq,
--						       SCQFULL_TIMEOUT);
--			spin_lock_irqsave(&scq->lock, flags);
-+			wait_event_interruptible_lock_irq_timeout(scq->scqfull_waitq,
-+								  scq->tail != scq->next,
-+								  scq->lock,
-+								  SCQFULL_TIMEOUT);
- 		}
- 
- 		if (!scq->full) {
+Today, a PowerDNS (open source dns, www.powerdns.com) deployment ran into
+trouble with large amounts of IPv6 users.  It appears a large telco 'flicked
+the switch'.  We had around 8000 DNS queries/s over IPv6, and everything
+slowed to a crawl.  100% CPU utilization, most of it in the kernel. The same
+amount of queries over IPv4 causes no problems.
+
+Note, this system is not functioning as a router or anything. It is just
+serving IPv6 DNS to a reasonable number of clients.
+
+Thanks to diligent debugging and rapid help from friends over at SUSE, who
+suggested setting net.ipv6.route.max_size to a higher than default value,
+all problems were quickly resolved (thanks!).
+
+>From a quick reading of ip6_dst_gc, it is obvious that exceeding the
+max_size of the IPv6 routing table quickly becomes painful, causing non-stop
+gc scans.
+
+net.ipv6.route.max_size defaults to 4096. The equivalent setting for IPv4
+defaults to 'millions' or is even dynamically sizing in modern kernels.
+
+Now I know distributions can set this sysctl at will, but it appears that
+many of them don't. It does appear odd that we still assume at a kernel
+level that IPv6 is 'rare', a thousand times more rare than IPv4.
+
+If people think this is a good idea, I could try to lift some of the other
+'autosizing' code out there to get the IPv6 max_size limit raised on
+non-contrained hardware. 
+
+Please let me know!
+
+-- 
+PowerDNS Website: http://www.powerdns.com/
+Contact us by phone on +31-15-7850372
