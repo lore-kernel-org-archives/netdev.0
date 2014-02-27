@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 11/12] vti4: Check the tunnel endpoints of the xfrm state and the vti interface
-Date: Thu, 27 Feb 2014 09:00:39 +0100
-Message-ID: <1393488040-22005-12-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 08/12] xfrm4: Remove xfrm_tunnel_notifier
+Date: Thu, 27 Feb 2014 09:00:36 +0100
+Message-ID: <1393488040-22005-9-git-send-email-steffen.klassert@secunet.com>
 References: <1393488040-22005-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,77 +10,130 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	<netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:59053 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:59044 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751399AbaB0IBD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Feb 2014 03:01:03 -0500
+	id S1751309AbaB0IBB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Feb 2014 03:01:01 -0500
 In-Reply-To: <1393488040-22005-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The tunnel endpoints of the xfrm_state we got from the xfrm_lookup
-must match the tunnel endpoints of the vti interface. This patch
-ensures this matching.
+This was used from vti and is replaced by the IPsec protocol
+multiplexer hooks. It is now unused, so remove it.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/ipv4/ip_vti.c |   29 ++++++++++++++++++++++++-----
- 1 file changed, 24 insertions(+), 5 deletions(-)
+ include/net/xfrm.h           |    2 --
+ net/ipv4/xfrm4_mode_tunnel.c |   68 ------------------------------------------
+ 2 files changed, 70 deletions(-)
 
-diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index 9369b7c..9471893 100644
---- a/net/ipv4/ip_vti.c
-+++ b/net/ipv4/ip_vti.c
-@@ -123,10 +123,32 @@ static int vti_rcv_cb(struct sk_buff *skb, int err)
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 3311259..8b92528 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1531,8 +1531,6 @@ int xfrm4_protocol_deregister(struct xfrm4_protocol *handler, unsigned char prot
+ int xfrm4_tunnel_register(struct xfrm_tunnel *handler, unsigned short family);
+ int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler, unsigned short family);
+ void xfrm4_local_error(struct sk_buff *skb, u32 mtu);
+-int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel_notifier *handler);
+-int xfrm4_mode_tunnel_input_deregister(struct xfrm_tunnel_notifier *handler);
+ int xfrm6_mode_tunnel_input_register(struct xfrm_tunnel_notifier *handler);
+ int xfrm6_mode_tunnel_input_deregister(struct xfrm_tunnel_notifier *handler);
+ int xfrm6_extract_header(struct sk_buff *skb);
+diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
+index 31b1815..05f2b48 100644
+--- a/net/ipv4/xfrm4_mode_tunnel.c
++++ b/net/ipv4/xfrm4_mode_tunnel.c
+@@ -15,65 +15,6 @@
+ #include <net/ip.h>
+ #include <net/xfrm.h>
+ 
+-/* Informational hook. The decap is still done here. */
+-static struct xfrm_tunnel_notifier __rcu *rcv_notify_handlers __read_mostly;
+-static DEFINE_MUTEX(xfrm4_mode_tunnel_input_mutex);
+-
+-int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel_notifier *handler)
+-{
+-	struct xfrm_tunnel_notifier __rcu **pprev;
+-	struct xfrm_tunnel_notifier *t;
+-	int ret = -EEXIST;
+-	int priority = handler->priority;
+-
+-	mutex_lock(&xfrm4_mode_tunnel_input_mutex);
+-
+-	for (pprev = &rcv_notify_handlers;
+-	     (t = rcu_dereference_protected(*pprev,
+-	     lockdep_is_held(&xfrm4_mode_tunnel_input_mutex))) != NULL;
+-	     pprev = &t->next) {
+-		if (t->priority > priority)
+-			break;
+-		if (t->priority == priority)
+-			goto err;
+-
+-	}
+-
+-	handler->next = *pprev;
+-	rcu_assign_pointer(*pprev, handler);
+-
+-	ret = 0;
+-
+-err:
+-	mutex_unlock(&xfrm4_mode_tunnel_input_mutex);
+-	return ret;
+-}
+-EXPORT_SYMBOL_GPL(xfrm4_mode_tunnel_input_register);
+-
+-int xfrm4_mode_tunnel_input_deregister(struct xfrm_tunnel_notifier *handler)
+-{
+-	struct xfrm_tunnel_notifier __rcu **pprev;
+-	struct xfrm_tunnel_notifier *t;
+-	int ret = -ENOENT;
+-
+-	mutex_lock(&xfrm4_mode_tunnel_input_mutex);
+-	for (pprev = &rcv_notify_handlers;
+-	     (t = rcu_dereference_protected(*pprev,
+-	     lockdep_is_held(&xfrm4_mode_tunnel_input_mutex))) != NULL;
+-	     pprev = &t->next) {
+-		if (t == handler) {
+-			*pprev = handler->next;
+-			ret = 0;
+-			break;
+-		}
+-	}
+-	mutex_unlock(&xfrm4_mode_tunnel_input_mutex);
+-	synchronize_net();
+-
+-	return ret;
+-}
+-EXPORT_SYMBOL_GPL(xfrm4_mode_tunnel_input_deregister);
+-
+ static inline void ipip_ecn_decapsulate(struct sk_buff *skb)
+ {
+ 	struct iphdr *inner_iph = ipip_hdr(skb);
+@@ -127,14 +68,8 @@ static int xfrm4_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
  	return 0;
  }
  
-+static bool vti_state_check(const struct xfrm_state *x, __be32 dst, __be32 src)
-+{
-+	xfrm_address_t *daddr = (xfrm_address_t *)&dst;
-+	xfrm_address_t *saddr = (xfrm_address_t *)&src;
-+
-+	/* if there is no transform then this tunnel is not functional.
-+	 * Or if the xfrm is not mode tunnel.
-+	 */
-+	if (!x || x->props.mode != XFRM_MODE_TUNNEL ||
-+	    x->props.family != AF_INET)
-+		return false;
-+
-+	if (!dst)
-+		return xfrm_addr_equal(saddr, &x->props.saddr, AF_INET);
-+
-+	if (!xfrm_state_addr_check(x, daddr, saddr, AF_INET))
-+		return false;
-+
-+	return true;
-+}
-+
- static netdev_tx_t vti_xmit(struct sk_buff *skb, struct net_device *dev,
- 			    struct flowi *fl)
+-#define for_each_input_rcu(head, handler)	\
+-	for (handler = rcu_dereference(head);	\
+-	     handler != NULL;			\
+-	     handler = rcu_dereference(handler->next))
+-
+ static int xfrm4_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
  {
- 	struct ip_tunnel *tunnel = netdev_priv(dev);
-+	struct ip_tunnel_parm *parms = &tunnel->parms;
- 	struct dst_entry *dst = skb_dst(skb);
- 	struct net_device *tdev;	/* Device to other host */
- 	int err;
-@@ -143,15 +165,12 @@ static netdev_tx_t vti_xmit(struct sk_buff *skb, struct net_device *dev,
- 		goto tx_error_icmp;
- 	}
+-	struct xfrm_tunnel_notifier *handler;
+ 	int err = -EINVAL;
  
--	/* if there is no transform then this tunnel is not functional.
--	 * Or if the xfrm is not mode tunnel.
--	 */
--	if (!dst->xfrm ||
--	    dst->xfrm->props.mode != XFRM_MODE_TUNNEL) {
-+	if (!vti_state_check(dst->xfrm, parms->iph.daddr, parms->iph.saddr)) {
- 		dev->stats.tx_carrier_errors++;
- 		dst_release(dst);
- 		goto tx_error_icmp;
- 	}
-+
- 	tdev = dst->dev;
+ 	if (XFRM_MODE_SKB_CB(skb)->protocol != IPPROTO_IPIP)
+@@ -143,9 +78,6 @@ static int xfrm4_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
+ 		goto out;
  
- 	if (tdev == dev) {
+-	for_each_input_rcu(rcv_notify_handlers, handler)
+-		handler->handler(skb);
+-
+ 	err = skb_unclone(skb, GFP_ATOMIC);
+ 	if (err)
+ 		goto out;
 -- 
 1.7.9.5
