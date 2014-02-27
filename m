@@ -1,76 +1,73 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: How to best consolidate list of skbs (msdu) for receive?
-Date: Thu, 27 Feb 2014 14:38:09 -0800
-Message-ID: <530FBE51.8040905@candelatech.com>
-References: <530F85AE.8060002@candelatech.com>   <CAGVrzcajmuGQRi84WqWrxyUK2+xG1+b7EMTwRk4WpsDnp0B7qQ@mail.gmail.com>  <1393536113.26794.41.camel@edumazet-glaptop2.roam.corp.google.com>  <530FB348.2070701@candelatech.com> <1393540305.26794.47.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Subject: Re: [PATCH net-next] ixgbevf: fix skb->pkt_type checks
+Date: Thu, 27 Feb 2014 22:39:05 +0000
+Message-ID: <F6FB0E698C9B3143BDF729DF2228664685D6D5BF@ORSMSX110.amr.corp.intel.com>
+References: <1393454640-19651-1-git-send-email-f.fainelli@gmail.com>
+	<20140227.160741.1837528571194344504.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:49719 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751232AbaB0WiQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 17:38:16 -0500
-In-Reply-To: <1393540305.26794.47.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Brandeburg,
+	Jesse" <jesse.brandeburg@intel.com>
+To: David Miller <davem@redhat.com>, "f.fainelli@gmail.com"
+	<f.fainelli@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20140227.160741.1837528571194344504.davem@redhat.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On 02/27/2014 02:31 PM, Eric Dumazet wrote:
-> On Thu, 2014-02-27 at 13:51 -0800, Ben Greear wrote:
+> -----Original Message-----
+> From: David Miller [mailto:davem@redhat.com]
+> Sent: Thursday, February 27, 2014 1:08 PM
+> To: f.fainelli@gmail.com
+> Cc: e1000-devel@lists.sourceforge.net; netdev@vger.kernel.org;
+> Brandeburg, Jesse
+> Subject: Re: [E1000-devel] [PATCH net-next] ixgbevf: fix skb->pkt_type
+> checks
 > 
->> That said, the code below appears to work, even if it is
->> not as efficient as it might be?
->>
->> 			if (msdu_chaining) {
->> 				struct sk_buff *next = msdu_head->next;
->> 				struct sk_buff *to_free = next;
->> 				int space;
->> 				static int do_once = 1;
->> 				msdu_head->next = NULL;
->>
->> 				if (unlikely(do_once)) {
->> 					ath10k_warn("htt rx msdu_chaining detected %d\n",
->> 						    msdu_chaining);
->> 					do_once = 0;
->> 				}
->>
->> 				while (next) {
->> 					space = next->len - skb_tailroom(msdu_head);
->>
->> 					if ((space > 0) &&
->> 					    (pskb_expand_head(msdu_head, 0, space, GFP_ATOMIC) < 0)) {
->> 						/* TODO:  bump some rx-oom error stat */
->> 						goto outside_continue;
->> 					}
->> 					skb_copy_from_linear_data(next, skb_put(msdu_head, next->len),
->> 								  next->len);
->> 					next = next->next;
->> 				}
+> From: Florian Fainelli <f.fainelli@gmail.com>
+> Date: Wed, 26 Feb 2014 14:44:00 -0800
 > 
-> Yep, this is very inefficient , you might copy data very often in
-> pskb_expand_head(), then in skb_copy_from_linear_data()
-
-Based on the code above, do you think skb_try_coalesce() is
-the best option for this logic?
-
-> Also, if total length is big, you end up doing high order allocations,
-> since you generate a linear skb. This might fail under memory pressure.
+> > skb->pkt_type is not a bitmask, but contains only value at a time from
+> > the range defined in include/uapi/linux/if_packet.h.
+> >
+> > Checking it like if it was a bitmask of values would also cause
+> > PACKET_OTHERHOST, PACKET_LOOPBACK and PACKET_FASTROUTE to be
+> matched
+> > by this check since their lower 2 bits are also set, although that
+> > does not fix a real bug due to how the checks are used, it is still potentially
+> confusing.
+> >
+> > This bogus check was introduced in commit 815cccbf ("ixgbe: add
+> > setlink, getlink support to ixgbe and ixgbevf").
+> >
+> > Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 > 
-> What is the maximal skb->len of resulting skb ?
+> Intel folks, I assume you will pick this up?
+> 
 
-According to the page below, msdu are limited to 7935 total.  In my testing, I have seen a maximum
-of 2 chained skbs (3 total).  I do not know the average total combined skb size...but since it
-has upper bound of 8k, perhaps that doesn't matter so much?
+This patch looks like it fixes an obvious bug on our part.  I'm sure Aaron will get to it soon.
 
-http://ergodicthoughts.blogspot.com/2012/02/difference-between-mpdu-msdu-ampdu-and.html
+Thanks Florin for pointing this out,
+-Don Skidmore <donald.c.skidmore@intel.com>
 
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+------------------------------------------------------------------------------
+Flow-based real-time traffic analytics software. Cisco certified tool.
+Monitor traffic, SLAs, QoS, Medianet, WAAS etc. with NetFlow Analyzer
+Customize your own dashboards, set traffic alerts and generate reports.
+Network behavioral analysis & security monitoring. All-in-one tool.
+http://pubads.g.doubleclick.net/gampad/clk?id=126839071&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
