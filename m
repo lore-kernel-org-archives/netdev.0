@@ -1,62 +1,140 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v7 net-next 2/2] tcp: switch rtt estimations to usec
- resolution
-Date: Wed, 26 Feb 2014 18:25:46 -0800
-Message-ID: <1393467946.26794.15.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1393137487.2316.48.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.LFD.2.11.1402230908210.1460@ja.home.ssi.bg>
-	 <1393178122.2316.50.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1393181458.2316.56.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1393216927.2316.62.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1393266251.2316.68.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.LFD.2.11.1402242240290.1941@ja.home.ssi.bg>
-	 <1393280025.2316.76.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.LFD.2.11.1402250056250.1941@ja.home.ssi.bg>
-	 <1393284682.2316.83.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140224155130.4c286cca@samsung-9>
-	 <1393290667.2316.96.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1393292339.2316.98.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1393309341.2316.120.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1393452168.26794.8.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140226170908.5f028c88@nehalam.linuxnetplumber.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Julian Anastasov <ja@ssi.bg>,
-	Yuchung Cheng <ycheng@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Larry Brakmo <brakmo@google.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:44807 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753288AbaB0CZs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 21:25:48 -0500
-Received: by mail-pb0-f42.google.com with SMTP id rr13so1845689pbb.15
-        for <netdev@vger.kernel.org>; Wed, 26 Feb 2014 18:25:47 -0800 (PST)
-In-Reply-To: <20140226170908.5f028c88@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH v3 net-next 0/1] bpf32->bpf64 mapper and bpf64 interpreter
+Date: Wed, 26 Feb 2014 18:38:51 -0800
+Message-ID: <1393468732-3919-1-git-send-email-ast@plumgrid.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	Tom Zanussi <tom.zanussi@linux.intel.com>,
+	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Pekka Enberg <penberg@iki.fi>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-02-26 at 17:09 -0800, Stephen Hemminger wrote:
+Hi All,
 
-> 
-> Since srtt is scaled by 8 and is 32 bits, This does reduce the maximum
-> possible RTT to 8 minutes or so. Which is fine, just wanted it to be
-> noted.
+V1 patches:
+http://thread.gmane.org/gmane.linux.kernel/1605783
+V2 patches:
+http://thread.gmane.org/gmane.linux.kernel/1642325
 
-Note that I plan to remove the scaling by 8.
+V3 summary:
+- as suggested by Daniel added on the fly converter from
+  old BPF (aka BPF32) into extended BPF (aka BPF64)
+- as suggested by Peter Anvin added 32-bit subregisters
+  they don't add much to interpreter speed, but simplify bpf32->bpf64 mapping
+- added sysctl net.core.bpf64_enable flag
+  if enabled, old BPF filters will be converted to BPF64
+  and will be used by tcpdump/cls/xtables.
+  safety of the filters is verified by old BPF sk_chk_filter()
+  BPF64's bpf_check() is dropped from this patch to simplify review
 
-We also are experimenting alternatives to srtt.
+Addition of 32-bit subregs require some work on BPF64 x86_64 JIT, so
+it's not included in this patch set. LLVM BPF64 backend also needs to be
+taught to take advantage of 32-bit subregs.
 
-Van Jacobson admits he was on drugs at the time he did it ;)
+Initially BPF64 instruction set was designed for max performance after JIT,
+Now it was tweaked for good interpreter speeds as well.
+Eventually BPF64 can completely replace existing BPF on all architectures.
 
-Idea would be to keep latest 3 (or 5) rtt samples, and either
-get the maximum value for RTO, or the mininum values for pacing
-or congestion modules. This would filter delay acks in the right way.
+Two key reasons why BPF64 interpreter is noticeably faster
+than existing BPF32 interpreter:
 
-I'd like to instrument hystart, it seems we can do a bit better than
-current situation, before the new stuff.
+1.fall-through jumps
+  In BPF32 jump instructions are forced to go either 'true' or 'false'
+  branch which causes branch-miss penalty.
+  BPF64 jump instructions have one branch and fall-through, which fit
+  CPU branch predictor logic better.
+  'perf stat' shows drastic difference for branch-misses.
 
-Thanks !
+2.jump-threaded implementation of interpreter vs switch statement
+  Instead of single tablejump at the top of 'switch' statement, GCC will
+  generate multiple tablejump instructions, which helps CPU branch predictor
+
+Performance of two BPF filters generated by libpcap was measured
+on x86_64, i386 and arm32.
+
+fprog #1 is taken from Documentation/networking/filter.txt:
+tcpdump -i eth0 port 22 -dd
+
+fprog #2 is taken from 'man tcpdump':
+tcpdump -i eth0 'tcp port 22 and (((ip[2:2] - ((ip[0]&0xf)<<2)) - 
+   ((tcp[12]&0xf0)>>2)) != 0)' -dd
+
+Other libpcap programs have similar performance differences.
+
+Raw performance data from BPF micro-benchmark:
+SK_RUN_FILTER on same SKB (cache-hit) or 10k SKBs (cache-miss)
+time in nsec per call, smaller is better
+--x86_64--
+        fprog #1  fprog #1   fprog #2  fprog #2
+        cache-hit cache-miss cache-hit cache-miss
+BPF32      90        98       207       220
+BPF64      28        85       60        108
+BPF32_JIT  12        33       17         44
+BPF64_JIT  TBD
+
+--i386--
+        fprog #1  fprog #1   fprog #2  fprog #2
+        cache-hit cache-miss cache-hit cache-miss
+BPF32     107        136      227       252
+BPF64      40        119       69       172
+
+--arm32--
+        fprog #1  fprog #1   fprog #2  fprog #2
+        cache-hit cache-miss cache-hit cache-miss
+BPF32     202        300      475       540
+BPF64     139        270      296       470
+BPF32_JIT  26        182       37       202
+BPF64_JIT TBD
+
+on Intel cpus BPF64 interpreter is significantly faster than
+old BPF interpreter. Existing BPF32_JIT is obviously even faster.
+BPF64_JIT has similar performance.
+
+Tested with Daniel's 'trinify BPF fuzzer'
+
+TODO:
+- bpf32->bpf64 converter doesn't recognize seccomp and negative
+  offsets yet, fix that
+
+- add 32-bit subregs to BPF64 x86_64 JIT and LLVM backend
+
+- add bpf64 verifier, so that tcpdump/cls/xt and others can
+  insert both bpf32 and bpf64 programs through the same interface
+
+- add bpf tables, complete 'dropmonitor' and get back to
+  systemtap-like probes with bpf64
+
+Please review.
+Thanks!
+
+Alexei Starovoitov (1):
+  bpf32->bpf64 mapper and bpf64 interpreter
+
+ include/linux/filter.h      |    9 +-
+ include/linux/netdevice.h   |    1 +
+ include/uapi/linux/filter.h |   37 ++-
+ net/core/Makefile           |    2 +-
+ net/core/bpf_run.c          |  766 +++++++++++++++++++++++++++++++++++++++++++
+ net/core/filter.c           |  114 ++++++-
+ net/core/sysctl_net_core.c  |    7 +
+ 7 files changed, 913 insertions(+), 23 deletions(-)
+ create mode 100644 net/core/bpf_run.c
+
+-- 
+1.7.9.5
