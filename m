@@ -1,76 +1,62 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH] net-gre-gro: Fix a bug that breaks the forwarding path
-Date: Fri, 28 Feb 2014 00:25:46 +0200
-Message-ID: <CAJZOPZKy7w-q5+pp=FgCs8LdQL6e16zAiJr89VMkh+h7obAArg@mail.gmail.com>
-References: <1393536377-32243-1-git-send-email-hkchu@google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: How to best consolidate list of skbs (msdu) for receive?
+Date: Thu, 27 Feb 2014 14:31:45 -0800
+Message-ID: <1393540305.26794.47.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <530F85AE.8060002@candelatech.com>
+	  <CAGVrzcajmuGQRi84WqWrxyUK2+xG1+b7EMTwRk4WpsDnp0B7qQ@mail.gmail.com>
+	 <1393536113.26794.41.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <530FB348.2070701@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <edumazet@google.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "H.K. Jerry Chu" <hkchu@google.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:45847 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751047AbaB0WZq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 17:25:46 -0500
-Received: by mail-pa0-f54.google.com with SMTP id fa1so3130024pad.27
-        for <netdev@vger.kernel.org>; Thu, 27 Feb 2014 14:25:46 -0800 (PST)
-In-Reply-To: <1393536377-32243-1-git-send-email-hkchu@google.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:44669 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750999AbaB0Wbr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 17:31:47 -0500
+In-Reply-To: <530FB348.2070701@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 27, 2014 at 11:26 PM, H.K. Jerry Chu <hkchu@google.com> wrote:
-> From: Jerry Chu <hkchu@google.com>
->
-> I stumbled across a bug that was introduced by my own GRE-GRO
-> patch (bf5a755f5e9186406bbf50f4087100af5bd68e40
-> net-gre-gro: Add GRE support to the GRO stack) submitted a while
-> back that breaks the forwarding path because various GSO related
-> fields were not set. This will cause on the egress path either
-> the GSO code to fail, or a GRE-TSO capable (NETIF_F_GSO_GRE)
-> NICs to choke. The following fix has been tested for both cases.
->
-> Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
-> ---
->  net/core/dev.c           | 2 ++
->  net/ipv4/af_inet.c       | 3 +++
->  net/ipv4/gre_offload.c   | 3 +++
->  net/ipv4/tcp_offload.c   | 2 +-
->  net/ipv6/tcpv6_offload.c | 2 +-
->  5 files changed, 10 insertions(+), 2 deletions(-)
->
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index b1b0c8d..75517d8 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -4045,6 +4045,8 @@ static void napi_reuse_skb(struct napi_struct *napi, struct sk_buff *skb)
->         skb->vlan_tci = 0;
->         skb->dev = napi->dev;
->         skb->skb_iif = 0;
-> +       skb->encapsulation = 0;
-> +       skb_shinfo(skb)->gso_type = 0;
->
->         napi->skb = skb;
->  }
-> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> index ecd2c3f..68229ca 100644
-> --- a/net/ipv4/af_inet.c
-> +++ b/net/ipv4/af_inet.c
-> @@ -1431,6 +1431,9 @@ static int inet_gro_complete(struct sk_buff *skb, int nhoff)
->         int proto = iph->protocol;
->         int err = -ENOSYS;
->
-> +       if (skb->encapsulation)
-> +               skb_set_inner_network_header(skb, nhoff);
-> +
+On Thu, 2014-02-27 at 13:51 -0800, Ben Greear wrote:
 
-Note that packets (e.g those who are UDP encapsulated) will pass here
-twice, once for the external IP header and once for the internal, so
-if the driver marks the encapsulation sign the inner header setting
-will happen twice, is that what we want?
+> That said, the code below appears to work, even if it is
+> not as efficient as it might be?
+> 
+> 			if (msdu_chaining) {
+> 				struct sk_buff *next = msdu_head->next;
+> 				struct sk_buff *to_free = next;
+> 				int space;
+> 				static int do_once = 1;
+> 				msdu_head->next = NULL;
+> 
+> 				if (unlikely(do_once)) {
+> 					ath10k_warn("htt rx msdu_chaining detected %d\n",
+> 						    msdu_chaining);
+> 					do_once = 0;
+> 				}
+> 
+> 				while (next) {
+> 					space = next->len - skb_tailroom(msdu_head);
+> 
+> 					if ((space > 0) &&
+> 					    (pskb_expand_head(msdu_head, 0, space, GFP_ATOMIC) < 0)) {
+> 						/* TODO:  bump some rx-oom error stat */
+> 						goto outside_continue;
+> 					}
+> 					skb_copy_from_linear_data(next, skb_put(msdu_head, next->len),
+> 								  next->len);
+> 					next = next->next;
+> 				}
 
+Yep, this is very inefficient , you might copy data very often in
+pskb_expand_head(), then in skb_copy_from_linear_data()
 
->         csum_replace2(&iph->check, iph->tot_len, newlen);
->         iph->tot_len = newlen;
+Also, if total length is big, you end up doing high order allocations,
+since you generate a linear skb. This might fail under memory pressure.
+
+What is the maximal skb->len of resulting skb ?
