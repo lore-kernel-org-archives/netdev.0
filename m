@@ -1,50 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: w5300: Use devm_ioremap_resource()
-Date: Thu, 27 Feb 2014 17:06:41 -0500 (EST)
-Message-ID: <20140227.170641.962779709265574310.davem@davemloft.net>
-References: <000001cf33a6$e0a57040$a1f050c0$%han@samsung.com>
+From: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] openvswitch: Disable bottom half when
+ grabbing stats lock in userspace context
+Date: Thu, 27 Feb 2014 22:10:37 +0000
+Message-ID: <530FB7DD.6000500@citrix.com>
+References: <1393538677-21268-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, msink@permonline.ru
-To: jg1.han@samsung.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49804 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751710AbaB0WGn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 17:06:43 -0500
-In-Reply-To: <000001cf33a6$e0a57040$a1f050c0$%han@samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1393538677-21268-1-git-send-email-zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Jingoo Han <jg1.han@samsung.com>
-Date: Thu, 27 Feb 2014 19:30:04 +0900
+On 27/02/14 22:04, Zoltan Kiss wrote:
+> The megaflow feature introduced per-CPU stats, and the new code did some
+> refactoring as well [1]. However the new functions doesn't disable bottom halves
+> when locking the stat, and as they can be called from userspace context, they
+> can be interrupted by netif_receive_skb.
 
-> Use devm_ioremap_resource() in order to make the code simpler,
-> and remove redundant return value check of platform_get_resource()
-> because the value is checked by devm_ioremap_resource().
-> 
-> Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+Just forget about this, I'll send in soon the version with *_bh locks.
 
-I think the code with the NULL check removed is harder for semantic
-checkers to figure out, because of what will look like a blind
-dereference via resource_size(mem).
-
-Unless all semantic checkers are going to learn the complete semantics
-of devm_ioremap_resource(), in particular that it will signal an error
-on a NULL second argument, and then the semantic checker will see
-the complete control flow in the call site, I think we should keep
-the NULL check.
-
-Maybe recode this as:
-
-	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!mem)
-		return -ENXIO;
-	mem_size = resource_size(mem);
-
-	priv->base = devm_ioremap_resource(&pdev->dev, mem);
-	if (IS_ERR(priv->base))
-		return PTR_ERR(priv->base);
-
-Same goes for your other patch.
+Zoli
