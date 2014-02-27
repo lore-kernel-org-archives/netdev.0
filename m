@@ -1,57 +1,45 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 0/9] net/mlx4: Mellanox driver update 27-02-2014
-Date: Thu, 27 Feb 2014 14:26:57 +0200
-Message-ID: <1393504026-13384-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 6/9] net/mlx4_en: Fix selftest failing on non 10G link speed
+Date: Thu, 27 Feb 2014 14:27:03 +0200
+Message-ID: <1393504026-13384-7-git-send-email-amirv@mellanox.com>
+References: <1393504026-13384-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:38492 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:38514 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751595AbaB0M1T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Feb 2014 07:27:19 -0500
+	id S1752217AbaB0M1W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Feb 2014 07:27:22 -0500
+In-Reply-To: <1393504026-13384-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Connect-X devices selftest speed test shouldn't fail on 1G and 40G link
+speeds.
 
-This patchset contains some fixes for small trivial bugs, and
-compilation/syntactic parsers warnings
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_selftest.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-Patchset was applied and tested over commit f7b1260 "rtnl: make ifla_policy
-static"
-
-Thanks,
-Amir
-
-Amir Vadai (3):
-  net/mlx4_en: Fix UP limit in ieee_ets->prio_tc
-  net/mlx4_en: Fix selftest failing on non 10G link speed
-  net/mlx4_en: Use union for BlueFlame WQE
-
-Eugenia Emantayev (4):
-  net/mlx4_en: Verify mlx4_en module parameters
-  net/mlx4_en: Pad ethernet packets smaller than 17 bytes
-  net/mlx4_en: Move queue stopped/waked counters to be per ring
-  net/mlx4: Replace mlx4_en_mac_to_u64() with mlx4_mac_to_u64()
-
-Eyal Perry (2):
-  net/mlx4_core: Fix sparse warning
-  net/mlx4_en: Change Connect-X description in kconfig
-
- drivers/net/ethernet/mellanox/mlx4/Kconfig       |  2 +-
- drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c   |  2 +-
- drivers/net/ethernet/mellanox/mlx4/en_main.c     | 30 ++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c   | 32 ++++++-------------
- drivers/net/ethernet/mellanox/mlx4/en_port.c     |  6 ++++
- drivers/net/ethernet/mellanox/mlx4/en_selftest.c |  6 ++--
- drivers/net/ethernet/mellanox/mlx4/en_tx.c       | 39 +++++++++++-------------
- drivers/net/ethernet/mellanox/mlx4/fw.c          |  3 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h     | 12 +++++++-
- include/linux/mlx4/driver.h                      | 15 +++++++++
- include/linux/mlx4/qp.h                          | 11 +++++--
- 11 files changed, 106 insertions(+), 52 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_selftest.c b/drivers/net/ethernet/mellanox/mlx4/en_selftest.c
+index c11d063..03e5f6a 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_selftest.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_selftest.c
+@@ -129,8 +129,10 @@ static int mlx4_en_test_speed(struct mlx4_en_priv *priv)
+ 	if (mlx4_en_QUERY_PORT(priv->mdev, priv->port))
+ 		return -ENOMEM;
+ 
+-	/* The device currently only supports 10G speed */
+-	if (priv->port_state.link_speed != SPEED_10000)
++	/* The device supports 1G, 10G and 40G speeds */
++	if (priv->port_state.link_speed != 1000 &&
++	    priv->port_state.link_speed != 10000 &&
++	    priv->port_state.link_speed != 40000)
+ 		return priv->port_state.link_speed;
+ 	return 0;
+ }
 -- 
 1.8.3.4
