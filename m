@@ -1,77 +1,154 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net-next v5 4/9] xen-netback: Change RX path for mapped
- SKB fragments
-Date: Thu, 27 Feb 2014 12:43:27 +0000
-Message-ID: <20140227124327.GD16241@zion.uk.xensource.com>
-References: <1390253069-25507-1-git-send-email-zoltan.kiss@citrix.com>
- <1390253069-25507-5-git-send-email-zoltan.kiss@citrix.com>
- <1392745532.23084.65.camel@kazak.uk.xensource.com>
- <53093051.9040907@citrix.com>
- <530B4E05.4020900@schaman.hu>
- <530B606F.2070902@citrix.com>
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: Re: [RESEND] [PATCH v4] sh_eth: update OF PHY registeration
+Date: Thu, 27 Feb 2014 12:46:07 +0000
+Message-ID: <530F338F.7060604@codethink.co.uk>
+References: <1393439008-26698-1-git-send-email-ben.dooks@codethink.co.uk> <530E44BA.8090209@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Zoltan Kiss <zoltan.kiss@schaman.hu>,
-	Ian Campbell <Ian.Campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <530B606F.2070902@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	nobuhiro.iwamatsu.yj@renesas.com, magnus.damn@opensource.se,
+	horms@verge.net.au
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <530E44BA.8090209@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 24, 2014 at 03:08:31PM +0000, Zoltan Kiss wrote:
-> On 24/02/14 13:49, Zoltan Kiss wrote:
-> >On 22/02/14 23:18, Zoltan Kiss wrote:
-> >>On 18/02/14 17:45, Ian Campbell wrote:
-> >>>On Mon, 2014-01-20 at 21:24 +0000, Zoltan Kiss wrote:
-> >>>
-> >>>Re the Subject: change how? Perhaps "handle foreign mapped pages on the
-> >>>guest RX path" would be clearer.
-> >>Ok, I'll do that.
-> >>
-> >>>
-> >>>>RX path need to know if the SKB fragments are stored on
-> >>>>pages from another
-> >>>>domain.
-> >>>Does this not need to be done either before the mapping change
-> >>>or at the
-> >>>same time? -- otherwise you have a window of a couple of commits where
-> >>>things are broken, breaking bisectability.
-> >>I can move this to the beginning, to keep bisectability. I've
-> >>put it here originally because none of these makes sense without
-> >>the previous patches.
-> >Well, I gave it a close look: to move this to the beginning as a
-> >separate patch I would need to put move a lot of definitions from
-> >the first patch to here (ubuf_to_vif helper,
-> >xenvif_zerocopy_callback etc.). That would be the best from bisect
-> >point of view, but from patch review point of view even worse than
-> >now. So the only option I see is to merge this with the first 2
-> >patches, so it will be even bigger.
-> Actually I was stupid, we can move this patch earlier and introduce
-> stubs for those 2 functions. But for the another two patches (#6 and
-> #8) it's still true that we can't move them before, only merge them
-> into the main, as they heavily rely on the main patch. #6 is
-> necessary for Windows frontends, as they are keen to send too many
-> slots. #8 is quite a rare case, happens only if a guest wedge or
-> malicious, and sits on the packet.
-> So my question is still up: do you prefer perfect bisectability or
-> more segmented patches which are not that pain to review?
-> 
+On 26/02/14 19:47, Sergei Shtylyov wrote:
+> On 02/26/2014 09:23 PM, Ben Dooks wrote:
+>
+>> If the sh_eth device is registered using OF, then the driver
+>> should call of_mdiobus_register() to register any PHYs connected
+>> to the system and of_phy_connect() to connect it.
+>
+>     s/it/to PHY/?
 
-What's the diff stat if you merge those patches?
 
-> >And based on that principle, patch #6 and #8 should be merged
-> >there as well, as they solve corner cases introduced by the grant
-> >mapping.
-> >I don't know how much the bisecting requirements are written in
-> >stone. At this moment, all the separate patches compile, but after
-> >#2 there are new problems solved in #4, #6 and #8. If someone
-> >bisect in the middle of this range and run into these problems,
-> >they could quite easily figure out what went wrong looking at the
-> >adjacent patches. So I would recommend to keep this current order.
-> >What's your opinion?
-> >
-> >Zoli
+Ok, will change.
+
+>> This ensures that any PHYs registered in the device tree are
+>> appropriately connected to the parent devices nodes so that
+>> the PHY drivers can access their OF properties.
+>
+>> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
+>
+> [...]
+>
+>> diff --git a/drivers/net/ethernet/renesas/sh_eth.c
+>> b/drivers/net/ethernet/renesas/sh_eth.c
+>> index a18cbe1..e597698 100644
+>> --- a/drivers/net/ethernet/renesas/sh_eth.c
+>> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> [...]
+>> @@ -1761,20 +1762,36 @@ static void sh_eth_adjust_link(struct
+>> net_device *ndev)
+>>   /* PHY init function */
+>>   static int sh_eth_phy_init(struct net_device *ndev)
+>>   {
+>> +    struct device_node *np = ndev->dev.parent->of_node;
+>>       struct sh_eth_private *mdp = netdev_priv(ndev);
+>> -    char phy_id[MII_BUS_ID_SIZE + 3];
+>>       struct phy_device *phydev = NULL;
+>>
+>> -    snprintf(phy_id, sizeof(phy_id), PHY_ID_FMT,
+>> -         mdp->mii_bus->id, mdp->phy_id);
+>> -
+>>       mdp->link = 0;
+>>       mdp->speed = 0;
+>>       mdp->duplex = -1;
+>>
+>>       /* Try connect to PHY */
+>> -    phydev = phy_connect(ndev, phy_id, sh_eth_adjust_link,
+>> -                 mdp->phy_interface);
+>> +    if (np) {
+>> +        struct device_node *pn;
+>> +
+>> +        pn = of_parse_phandle(np, "phy-handle", 0);
+>> +        phydev = of_phy_connect(ndev, pn,
+>> +                    sh_eth_adjust_link, 0,
+>
+>     Hm, that 0 corresponds to 'flags' parameter which is not used. I
+> wonder if that was intentional...
+
+This can be left to a separate patch to fix.
+
+>
+>> +                    mdp->phy_interface);
+>> +
+>> +        if (!phydev)
+>> +            phydev = ERR_PTR(-ENOENT);
+>> +    } else {
+>> +        char phy_id[MII_BUS_ID_SIZE + 3];
+>> +
+>> +        snprintf(phy_id, sizeof(phy_id), PHY_ID_FMT,
+>> +             mdp->mii_bus->id, mdp->phy_id);
+>> +
+>> +        /* Try connect to PHY */
+>
+>     Now this comment is kinda duplicate... :-)
+
+Bah, got rid of it.
+
+>> +        phydev = phy_connect(ndev, phy_id, sh_eth_adjust_link,
+>> +                     mdp->phy_interface);
+>> +    }
+>> +
+>>       if (IS_ERR(phydev)) {
+>>           dev_err(&ndev->dev, "phy_connect failed\n");
+>
+>     I have asked to adjust the message a bit as we now have 2 alternate
+> calls that can fail...
+
+ok, changed to "failed to connect phy"
+
+>
+>>           return PTR_ERR(phydev);
+>> @@ -2638,15 +2655,23 @@ static int sh_mdio_init(struct net_device
+>> *ndev, int id,
+>>           goto out_free_bus;
+>>       }
+>>
+>> -    for (i = 0; i < PHY_MAX_ADDR; i++)
+>> -        mdp->mii_bus->irq[i] = PHY_POLL;
+>> -    if (pd->phy_irq > 0)
+>> -        mdp->mii_bus->irq[pd->phy] = pd->phy_irq;
+>> +    if (ndev->dev.parent->of_node) {
+>> +        ret = of_mdiobus_register(mdp->mii_bus,
+>> +                      ndev->dev.parent->of_node);
+>> +    } else {
+>> +        for (i = 0; i < PHY_MAX_ADDR; i++)
+>> +            mdp->mii_bus->irq[i] = PHY_POLL;
+>> +        if (pd->phy_irq > 0)
+>> +            mdp->mii_bus->irq[pd->phy] = pd->phy_irq;
+>>
+>> -    /* register mdio bus */
+>> -    ret = mdiobus_register(mdp->mii_bus);
+>> -    if (ret)
+>> +        /* register mdio bus */
+>> +        ret = mdiobus_register(mdp->mii_bus);
+>> +    }
+>
+>     That looks much better, thanks.
+>
+>> +
+>
+>     Although I'd have avoided the empty line...
+>
+>> +    if (ret) {
+>> +        dev_err(&ndev->dev, "failed to register mdio\n");
+>
+>     That function generally avoids error messages, no? Although all
+> errors are -ENOMEM type and that's supposed to cause kernel to loudly
+> curse anyway... Well, let it be if you want.
+
+mdiobus_register() or of_mdiobus_register() could return any error,
+but i've moved the error print to the caller as this is useful to
+know.
+
+Thanks for the reviews, hopefully the next round will work.
+
+
+-- 
+Ben Dooks				http://www.codethink.co.uk/
+Senior Engineer				Codethink - Providing Genius
