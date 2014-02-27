@@ -1,38 +1,37 @@
-From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: Re: [PATCH net-next] ixgbevf: fix skb->pkt_type checks
-Date: Thu, 27 Feb 2014 14:58:46 -0800
-Message-ID: <1393541926.1931.4.camel@localhost>
-References: <1393454640-19651-1-git-send-email-f.fainelli@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: How to best consolidate list of skbs (msdu) for receive?
+Date: Thu, 27 Feb 2014 15:03:15 -0800
+Message-ID: <1393542195.26794.50.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <530F85AE.8060002@candelatech.com>
+	   <CAGVrzcajmuGQRi84WqWrxyUK2+xG1+b7EMTwRk4WpsDnp0B7qQ@mail.gmail.com>
+	  <1393536113.26794.41.camel@edumazet-glaptop2.roam.corp.google.com>
+	  <530FB348.2070701@candelatech.com>
+	 <1393540305.26794.47.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <530FBE51.8040905@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	alexander.h.duyck@intel.com, jesse.brandeburg@intel.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:47155 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751150AbaB0W6s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Feb 2014 17:58:48 -0500
-In-Reply-To: <1393454640-19651-1-git-send-email-f.fainelli@gmail.com>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:38851 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751213AbaB0XDW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 18:03:22 -0500
+In-Reply-To: <530FBE51.8040905@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-02-26 at 14:44 -0800, Florian Fainelli wrote:
-> skb->pkt_type is not a bitmask, but contains only value at a time from
-> the range defined in include/uapi/linux/if_packet.h.
-> 
-> Checking it like if it was a bitmask of values would also cause
-> PACKET_OTHERHOST, PACKET_LOOPBACK and PACKET_FASTROUTE to be matched by this
-> check since their lower 2 bits are also set, although that does not fix a real
-> bug due to how the checks are used, it is still potentially confusing.
-> 
-> This bogus check was introduced in commit 815cccbf ("ixgbe: add setlink,
-> getlink support to ixgbe and ixgbevf").
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
->  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 5 +++--
->  1 file changed, 3 insertions(+), 2 deletions(-)
+On Thu, 2014-02-27 at 14:38 -0800, Ben Greear wrote:
 
-Thanks Florian, I have added this to our internal queue.
+> Based on the code above, do you think skb_try_coalesce() is
+> the best option for this logic?
+
+Yep, if you do not know how are built the skb in the chain, I would say
+using skb_try_coalesce() seems the proper way.
+
+We use it for example in tcp input path.
+
+Take also a look at tipc_link_recv_fragment()
