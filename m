@@ -1,56 +1,174 @@
-From: David Herrmann <dh.herrmann@gmail.com>
-Subject: Re: [PATCH 2/4] mac80211: set NET_NAME_USER for user-space created ifs
-Date: Thu, 27 Feb 2014 18:14:40 +0100
-Message-ID: <CANq1E4TBeNbovfpVF1ByxostkNczdcK5R3c0jQ=qKp6V299kCg@mail.gmail.com>
-References: <1393512434-1325-1-git-send-email-dh.herrmann@gmail.com>
-	<1393512434-1325-3-git-send-email-dh.herrmann@gmail.com>
-	<1393512787.4648.1.camel@jlt4.sipsolutions.net>
-	<CANq1E4RNbtbdVhC2PgyZMGN_duScbmCOGeMxAYiKLL-8H=EWSA@mail.gmail.com>
-	<1393517912.4648.5.camel@jlt4.sipsolutions.net>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH 0/5] netfilter: conntrack: optimization, remove
+ central spinlock
+Date: Thu, 27 Feb 2014 18:15:22 +0100
+Message-ID: <20140227181522.09549165@redhat.com>
+References: <20140227163950.24668.55934.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Kay Sievers <kay.sievers@vrfy.org>,
-	Tom Gundersen <teg@jklm.no>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1393517912.4648.5.camel@jlt4.sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42747 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752387AbaB0RPa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Feb 2014 12:15:30 -0500
+In-Reply-To: <20140227163950.24668.55934.stgit@dragon>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi
 
-On Thu, Feb 27, 2014 at 5:18 PM, Johannes Berg
-<johannes@sipsolutions.net> wrote:
-> On Thu, 2014-02-27 at 15:56 +0100, David Herrmann wrote:
->
->> >> +++ b/net/mac80211/iface.c
->> >> @@ -1620,6 +1620,7 @@ int ieee80211_if_add(struct ieee80211_local *local, const char *name,
->> >>                                       + IEEE80211_ENCRYPT_HEADROOM;
->> >>               ndev->needed_tailroom = IEEE80211_ENCRYPT_TAILROOM;
->> >>
->> >> +             ndev->name_assign_type = NET_NAME_USER;
->> >
->> > this is wrong because we call this in main.c with a "wlan%d" argument
->> > for the name, which gets expanded.
->>
->> Whoops, yeah, same issue as with ath6kl where I fixed it with a
->> separate "name_assign_type" argument. I will do the same here for v2.
->
-> I'm not sure that helps - the user could potentially pass "foobar%d" as
-> the interface name and get a number assigned by the kernel. In that case
-> you probably *don't* want to set it to "name assigned by user"?
->
-> Maybe this whole thing can just be handled in __dev_alloc_name() since
-> no kernel user should pass just a string without "%d" in it.
+Hi Pablo,
 
-Nope, I still want to set NET_NAME_USER in that case. It's not about
-the %d suffix, it's about who chooses the suffix. If wpas decides to
-use p2p-wlanX-%d, this is fine, as it's a virtual device where stable
-IDs are not required at all.
+This should obviously have been for nf-next, and I also forgot to cc
+netfilter-devel@vger.kernel.org ... do you want me to repost?
 
-Thanks
-David
+--Jesper
+
+
+On Thu, 27 Feb 2014 17:41:10 +0100 Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+
+> This patchset change the conntrack locking and provides a huge
+> performance improvements.
+> 
+> This patchset is based upon Eric Dumazet's proposed patch:
+>   http://thread.gmane.org/gmane.linux.network/268758/focus=47306
+> I have in agreement with Eric Dumazet, taken over this patch (and
+> turned it into a entire patchset).
+> 
+> Primary focus is to remove the central spinlock nf_conntrack_lock.
+> This requires several steps to be acheived.
+> 
+> Patch01: Trivial cleanups
+> 
+> Patch02: Moves the "special" dying/unconfirmed/template lists to use a
+>  per cpu spinlock.
+> 
+> Patch03: Is preparing for patch04, as it address a race
+>  condition. Doing this a seperate patch for reviewers sake.
+> 
+> Patch04: Seperates expect locking from nf_conntrack_lock. The expect
+>  list is small (default max 256), this it just get a single lock.
+> 
+> Patch05: Finally can remove nf_conntrack_lock, and instead uses an
+>  array of hashed spinlocks to protect insertions/deletions of
+>  conntracks into the hash table.  While still allowing dynamic
+>  resizing of the hash table.
+> 
+> 
+> Testing
+> -------
+> For expectations I've mostly tested the FTP nf_conntrack_ftp
+> helper module, by commands:
+> 
+>  for x in `seq 1 300`; do \
+>    echo $x; \
+>    echo -e "USER anonymous\nPASS nothing\nPASV" | nc 192.168.42.129 21; \
+>  done
+> 
+>  wget ftp://192.168.42.129/pub/delete.me.4k -O /dev/null
+> 
+> For overload/DoS testing, I've primarily done, SYN-flood attack testing.
+> Results on a 24-core E5-2695v2(ES) with 10Gbit/s ixgbe (with tool trafgen)
+> 
+>  Base kernel : New   810.405 conntrack/sec
+>  Fixed kernel: New 2.233.876 conntrack/sec
+> 
+> Notice other floods attack (SYN+ACK or ACK) can easily be deflected using:
+>  # iptables -A INPUT -m state --state INVALID -j DROP
+>  # sysctl -w net/netfilter/nf_conntrack_tcp_loose=0
+> 
+> E.g. this machine can reflect 6.481.463 "invalid" conntrack/sec (from
+> an ACK-flood).
+> 
+> Perf data:
+> ----------
+> The nf_conntrack_lock is suffers from huge contention on current
+> generation servers (8 or more core/threads).  Data from under
+> SYN-flooding (without a listen socket)
+> 
+> Perf locking congestion is very "visible" on a base kernel:
+> 
+>     -  72.56%  ksoftirqd/6  [kernel.kallsyms]    [k] _raw_spin_lock_bh
+>        - _raw_spin_lock_bh
+>           + 25.33% init_conntrack
+>           + 24.86% nf_ct_delete_from_lists
+>           + 24.62% __nf_conntrack_confirm
+>           + 24.38% destroy_conntrack
+>           + 0.70% tcp_packet
+>     +   2.21%  ksoftirqd/6  [kernel.kallsyms]    [k] fib_table_lookup
+>     +   1.15%  ksoftirqd/6  [kernel.kallsyms]    [k] __slab_free
+>     +   0.77%  ksoftirqd/6  [kernel.kallsyms]    [k] inet_getpeer
+>     +   0.70%  ksoftirqd/6  [nf_conntrack]       [k] nf_ct_delete
+>     +   0.55%  ksoftirqd/6  [ip_tables]          [k] ipt_do_table
+> 
+> Perf after the patchset (SYN-flood attack):
+> 
+> +   9.62%  ksoftirqd/6  [kernel.kallsyms]    [k] fib_table_lookup
+> +   3.78%  ksoftirqd/6  [kernel.kallsyms]    [k] __slab_free
+> +   2.71%  ksoftirqd/6  [kernel.kallsyms]    [k] inet_getpeer
+> +   2.55%  ksoftirqd/6  [kernel.kallsyms]    [k] check_leaf
+> +   2.38%  ksoftirqd/6  [ip_tables]          [k] ipt_do_table
+> +   2.06%  ksoftirqd/6  [kernel.kallsyms]    [k] __slab_alloc
+> +   1.94%  ksoftirqd/6  [nf_conntrack]       [k] __nf_conntrack_alloc
+> -   1.94%  ksoftirqd/6  [kernel.kallsyms]    [k] _raw_spin_lock
+>    - _raw_spin_lock
+>       + 90.32% nf_conntrack_double_lock
+>       + 3.61% get_partial_node
+>       + 1.81% nf_ct_delete_from_lists
+>       + 1.68% __nf_conntrack_confirm
+>       + 1.03% sch_direct_xmit
+>       + 0.52% scheduler_tick
+> +   1.86%  ksoftirqd/6  [kernel.kallsyms]    [k] nf_iterate
+> +   1.80%  ksoftirqd/6  [nf_conntrack]       [k] init_conntrack
+> +   1.77%  ksoftirqd/6  [kernel.kallsyms]    [k] __neigh_event_send
+> -   1.70%  ksoftirqd/6  [kernel.kallsyms]    [k] _raw_spin_lock_bh
+>    - _raw_spin_lock_bh
+>       + 32.55% nf_ct_del_from_dying_or_unconfirmed_list
+>       + 25.33% init_conntrack
+>       + 19.88% tcp_packet
+>       + 17.97% nf_ct_delete_from_lists
+>       + 1.62% nf_conntrack_in
+>       + 1.33% ixgbe_poll
+>       + 0.74% destroy_conntrack
+> +   1.64%  ksoftirqd/6  [nf_conntrack]       [k] hash_conntrack_raw
+> +   1.58%  ksoftirqd/6  [kernel.kallsyms]    [k] __netif_receive_skb_core
+> +   1.51%  ksoftirqd/6  [nf_conntrack]       [k] __nf_conntrack_find_get
+> +   1.48%  ksoftirqd/6  [kernel.kallsyms]    [k] __cmpxchg_double_slab
+> +   1.46%  ksoftirqd/6  [nf_conntrack]       [k] nf_conntrack_in
+> +   1.45%  ksoftirqd/6  [kernel.kallsyms]    [k] __local_bh_enable_ip
+> 
+> 
+> ---
+> 
+> Jesper Dangaard Brouer (5):
+>       netfilter: conntrack: remove central spinlock nf_conntrack_lock
+>       netfilter: conntrack: seperate expect locking from nf_conntrack_lock
+>       netfilter: avoid race with exp->master ct
+>       netfilter: conntrack: spinlock per cpu to protect special lists.
+>       netfilter: trivial code cleanup and doc changes
+> 
+> 
+>  include/net/netfilter/nf_conntrack.h      |   11 +
+>  include/net/netfilter/nf_conntrack_core.h |    9 +
+>  include/net/netns/conntrack.h             |   13 +
+>  net/netfilter/nf_conntrack_core.c         |  427 ++++++++++++++++++++---------
+>  net/netfilter/nf_conntrack_expect.c       |   36 ++
+>  net/netfilter/nf_conntrack_h323_main.c    |    4 
+>  net/netfilter/nf_conntrack_helper.c       |   37 ++-
+>  net/netfilter/nf_conntrack_netlink.c      |  128 +++++----
+>  net/netfilter/nf_conntrack_sip.c          |    8 -
+>  9 files changed, 456 insertions(+), 217 deletions(-)
+> 
+
+
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
