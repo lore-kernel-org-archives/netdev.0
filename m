@@ -1,43 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net/mlx4_en: Pad ethernet packets smaller than 17 bytes
-Date: Thu, 27 Feb 2014 06:44:15 -0800
-Message-ID: <1393512255.26794.20.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1393504026-13384-1-git-send-email-amirv@mellanox.com>
-	 <1393504026-13384-4-git-send-email-amirv@mellanox.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D0F6CCB7E@AcuExch.aculab.com>
-	 <20140227140203.GA13112@mtl-eit-vdi-22.mtl.labs.mlnx>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>
-To: Amir Vadai <amirv@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:42822 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752963AbaB0OoS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 09:44:18 -0500
-Received: by mail-pb0-f44.google.com with SMTP id rp16so2594754pbb.31
-        for <netdev@vger.kernel.org>; Thu, 27 Feb 2014 06:44:17 -0800 (PST)
-In-Reply-To: <20140227140203.GA13112@mtl-eit-vdi-22.mtl.labs.mlnx>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Herrmann <dh.herrmann@gmail.com>
+Subject: [PATCH 0/4] Provide netdev naming-policy via sysfs
+Date: Thu, 27 Feb 2014 15:47:10 +0100
+Message-ID: <1393512434-1325-1-git-send-email-dh.herrmann@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Kay Sievers <kay.sievers@vrfy.org>,
+	Tom Gundersen <teg@jklm.no>,
+	Johannes berg <johannes@sipsolutions.net>,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	David Herrmann <dh.herrmann@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-02-27 at 16:02 +0200, Amir Vadai wrote:
->  
-> Yes, skb will not be classified as inline-able if nr_frags != 1.
-> See is_inline()
+Hi
 
-How often this inline stuff ever happens ?
+This series implements a new sysfs attribute for netdevs called
+"name_assign_type". It provides an integer that describes where an interface
+name comes from. See Patch #1 for a description of this attribute. It is
+modelled after the existing "addr_assign_type" attribute.
 
-It looks like the length of the frame needs to be shorter than 44 bytes,
-right ?
+The main use-case is to allow udev to skip applying reliable ifnames to virtual
+devices. For instance, if wifi-P2P devices are created, wpas already provides a
+suitable naming-policy and udev shouldn't touch these devices. Same is true for
+other virtual devices.
+The idea is that if a device-name was provided by user-space, we should always
+prefer fixing this naming-policy instead of making udev rename the device. For
+kernel provided names that's hardly possible, though. Providing the
+naming-policy source via sysfs is thus a simple way to see whether renames are
+needed.
 
-Minimal length for TCP is 54 bytes.
+Additionally, this field allows to detect whether a netdev has been manually
+renamed, which is quite useful for debugging and during crash-recovery.
 
-I wonder why you tried to inline stuff that is probably never
-seen in real workload.
+Thanks
+David
+
+David Herrmann (4):
+  net: add name_assign_type netdev attribute
+  mac80211: set NET_NAME_USER for user-space created ifs
+  ath6kl: set NET_NAME_USER for P2P ifs
+  brcmfmac: set NET_NAME_USER for P2P ifs
+
+ drivers/net/wireless/ath/ath6kl/cfg80211.c    | 5 ++++-
+ drivers/net/wireless/ath/ath6kl/cfg80211.h    | 1 +
+ drivers/net/wireless/ath/ath6kl/core.c        | 4 ++--
+ drivers/net/wireless/brcm80211/brcmfmac/p2p.c | 1 +
+ include/linux/netdevice.h                     | 6 ++++++
+ net/core/dev.c                                | 7 +++++++
+ net/core/net-sysfs.c                          | 2 ++
+ net/core/rtnetlink.c                          | 2 ++
+ net/mac80211/iface.c                          | 1 +
+ 9 files changed, 26 insertions(+), 3 deletions(-)
+
+-- 
+1.9.0
