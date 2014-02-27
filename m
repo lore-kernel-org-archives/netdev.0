@@ -1,151 +1,67 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: [PATCH net-next v5 2/8] 6lowpan: add uncompress header size function
-Date: Thu, 27 Feb 2014 09:06:16 +0100
-Message-ID: <1393488382-1250-3-git-send-email-alex.aring@gmail.com>
+From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next v5 1/8] 6lowpan: add frag
+	information struct
+Date: Thu, 27 Feb 2014 09:06:15 +0100
+Message-ID: <1393488382-1250-2-git-send-email-alex.aring@gmail.com>
 References: <1393488382-1250-1-git-send-email-alex.aring@gmail.com>
-Cc: dbaryshkov@gmail.com, davem@davemloft.net,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	martin.townsend@xsilon.com, Alexander Aring <alex.aring@gmail.com>
-To: alex.bluesman.smirnov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f48.google.com ([74.125.83.48]:63780 "EHLO
-	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750742AbaB0IGo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 03:06:44 -0500
-Received: by mail-ee0-f48.google.com with SMTP id e51so76602eek.35
-        for <netdev@vger.kernel.org>; Thu, 27 Feb 2014 00:06:43 -0800 (PST)
-In-Reply-To: <1393488382-1250-1-git-send-email-alex.aring@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1393488382-1250-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+This patch adds a 6lowpan fragmentation struct into cb of skb which
+is necessary to hold fragmentation information.
+
+Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- net/ieee802154/6lowpan.h | 113 +++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 113 insertions(+)
+ include/net/ieee802154_netdev.h | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-diff --git a/net/ieee802154/6lowpan.h b/net/ieee802154/6lowpan.h
-index 2b835db..0dccf62 100644
---- a/net/ieee802154/6lowpan.h
-+++ b/net/ieee802154/6lowpan.h
-@@ -306,6 +306,119 @@ static inline void lowpan_push_hc_data(u8 **hc_ptr, const void *data,
- 	*hc_ptr += len;
- }
+diff --git a/include/net/ieee802154_netdev.h b/include/net/ieee802154_netdev.h
+index 8196d5d..97b2e34 100644
+--- a/include/net/ieee802154_netdev.h
++++ b/include/net/ieee802154_netdev.h
+@@ -29,6 +29,12 @@
  
-+static inline u8 lowpan_addr_mode_size(const u8 addr_mode)
-+{
-+	static const u8 addr_sizes[] = {
-+		[LOWPAN_IPHC_ADDR_00] = 16,
-+		[LOWPAN_IPHC_ADDR_01] = 8,
-+		[LOWPAN_IPHC_ADDR_02] = 2,
-+		[LOWPAN_IPHC_ADDR_03] = 0,
-+	};
-+	return addr_sizes[addr_mode];
-+}
-+
-+static inline u8 lowpan_next_hdr_size(const u8 h_enc, u16 *uncomp_header)
-+{
-+	u8 ret = 1;
-+
-+	if ((h_enc & LOWPAN_NHC_UDP_MASK) == LOWPAN_NHC_UDP_ID) {
-+		*uncomp_header += sizeof(struct udphdr);
-+
-+		switch (h_enc & LOWPAN_NHC_UDP_CS_P_11) {
-+		case LOWPAN_NHC_UDP_CS_P_00:
-+			ret += 4;
-+			break;
-+		case LOWPAN_NHC_UDP_CS_P_01:
-+		case LOWPAN_NHC_UDP_CS_P_10:
-+			ret += 3;
-+			break;
-+		case LOWPAN_NHC_UDP_CS_P_11:
-+			ret++;
-+			break;
-+		default:
-+			break;
-+		}
-+
-+		if (!(h_enc & LOWPAN_NHC_UDP_CS_C))
-+			ret += 2;
-+	}
-+
-+	return ret;
-+}
-+
-+/**
-+ *	lowpan_uncompress_size - returns skb->len size with uncompressed header
-+ *	@skb: sk_buff with 6lowpan header inside
-+ *	@datagram_offset: optional to get the datagram_offset value
-+ *
-+ *	Returns the skb->len with uncompressed header
-+ */
-+static inline u16
-+lowpan_uncompress_size(const struct sk_buff *skb, u16 *dgram_offset)
-+{
-+	u16 ret = 2, uncomp_header = sizeof(struct ipv6hdr);
-+	u8 iphc0, iphc1, h_enc;
-+
-+	iphc0 = skb_network_header(skb)[0];
-+	iphc1 = skb_network_header(skb)[1];
-+
-+	switch ((iphc0 & LOWPAN_IPHC_TF) >> 3) {
-+	case 0:
-+		ret += 4;
-+		break;
-+	case 1:
-+		ret += 3;
-+		break;
-+	case 2:
-+		ret++;
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	if (!(iphc0 & LOWPAN_IPHC_NH_C))
-+		ret++;
-+
-+	if (!(iphc0 & 0x03))
-+		ret++;
-+
-+	ret += lowpan_addr_mode_size((iphc1 & LOWPAN_IPHC_SAM) >>
-+				     LOWPAN_IPHC_SAM_BIT);
-+
-+	if (iphc1 & LOWPAN_IPHC_M) {
-+		switch ((iphc1 & LOWPAN_IPHC_DAM_11) >>
-+			LOWPAN_IPHC_DAM_BIT) {
-+		case LOWPAN_IPHC_DAM_00:
-+			ret += 16;
-+			break;
-+		case LOWPAN_IPHC_DAM_01:
-+			ret += 6;
-+			break;
-+		case LOWPAN_IPHC_DAM_10:
-+			ret += 4;
-+			break;
-+		case LOWPAN_IPHC_DAM_11:
-+			ret++;
-+			break;
-+		default:
-+			break;
-+		}
-+	} else {
-+		ret += lowpan_addr_mode_size((iphc1 & LOWPAN_IPHC_DAM_11) >>
-+					     LOWPAN_IPHC_DAM_BIT);
-+	}
-+
-+	if (iphc0 & LOWPAN_IPHC_NH_C) {
-+		h_enc = skb_network_header(skb)[ret];
-+		ret += lowpan_next_hdr_size(h_enc, &uncomp_header);
-+	}
-+
-+	if (dgram_offset)
-+		*dgram_offset = uncomp_header;
-+
-+	return skb->len + uncomp_header - ret;
-+}
-+
- typedef int (*skb_delivery_cb)(struct sk_buff *skb, struct net_device *dev);
+ #include <net/af_ieee802154.h>
  
- int lowpan_process_data(struct sk_buff *skb, struct net_device *dev,
++struct ieee802154_frag_info {
++	__be16 d_tag;
++	u16 d_size;
++	u8 d_offset;
++};
++
+ /*
+  * A control block of skb passed between the ARPHRD_IEEE802154 device
+  * and other stack parts.
+@@ -39,6 +45,7 @@ struct ieee802154_mac_cb {
+ 	struct ieee802154_addr da;
+ 	u8 flags;
+ 	u8 seq;
++	struct ieee802154_frag_info frag_info;
+ };
+ 
+ static inline struct ieee802154_mac_cb *mac_cb(struct sk_buff *skb)
 -- 
 1.9.0
+
+
+------------------------------------------------------------------------------
+Flow-based real-time traffic analytics software. Cisco certified tool.
+Monitor traffic, SLAs, QoS, Medianet, WAAS etc. with NetFlow Analyzer
+Customize your own dashboards, set traffic alerts and generate reports.
+Network behavioral analysis & security monitoring. All-in-one tool.
+http://pubads.g.doubleclick.net/gampad/clk?id=126839071&iu=/4140/ostg.clktrk
