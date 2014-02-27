@@ -1,55 +1,46 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH (net.git) 2/4] stmmac: fix and better tune the default
- buffer sizes
-Date: Thu, 27 Feb 2014 10:51:22 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6CC945@AcuExch.aculab.com>
-References: <1393497340-8013-1-git-send-email-peppe.cavallaro@st.com>
- <1393497340-8013-3-git-send-email-peppe.cavallaro@st.com>
+From: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: Re: [PATCHv2 4/5] net: rfkill: gpio: add ACPI ID for GPS module on
+ Lenove Miix2
+Date: Thu, 27 Feb 2014 12:55:20 +0200
+Message-ID: <20140227105520.GB17298@xps8300>
+References: <1393330950-7283-1-git-send-email-heikki.krogerus@linux.intel.com>
+ <1393330950-7283-5-git-send-email-heikki.krogerus@linux.intel.com>
+ <530CC796.1010800@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: 'Giuseppe Cavallaro' <peppe.cavallaro@st.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:33932 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750993AbaB0Kwa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 05:52:30 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 05025-01 for <netdev@vger.kernel.org>;
- Thu, 27 Feb 2014 10:52:29 +0000 (GMT)
-In-Reply-To: <1393497340-8013-3-git-send-email-peppe.cavallaro@st.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
+	Rhyland Klein <rklein-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
+	Marc Dietrich <marvin24-Mmb7MZpHnFY@public.gmane.org>,
+	Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>,
+	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <530CC796.1010800-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Giuseppe Cavallaro
-> This patch is to fix and tune the default buffer sizes.
-> It reduces the default bufsize used by the driver from
-> 2048 to 1518 (taking into account the extra 4 bytes in case of VLAN).
-...
-> -#define DMA_BUFFER_SIZE	BUF_SIZE_4KiB
-> -static int buf_sz = DMA_BUFFER_SIZE;
+On Tue, Feb 25, 2014 at 08:40:54PM +0400, Sergei Shtylyov wrote:
+> On 25-02-2014 16:22, Heikki Krogerus wrote:
+> 
+> >On Lenovo Miix 2 8", BCM4752 is renamed LNV4752.
+> 
+>    You have typoed in the subject, s/Lenove/Lenovo/.
 
-Does this means that the old default was 4k, not the 2k in the
-patch description.
+True. I'll send a fixed version.
 
-> +#ifdef STMMAC_VLAN_TAG_USED
-> +#define	DEFAULT_BUFSIZE	(VLAN_ETH_FRAME_LEN + ETH_FCS_LEN)
-> +#else
-> +#define	DEFAULT_BUFSIZE	(ETH_FRAME_LEN + ETH_FCS_LEN)
-> +#endif
-...
-> +	if (unlikely((buf_sz < DEFAULT_BUFSIZE) || (buf_sz > BUF_SIZE_16KiB)))
-> +		buf_sz = DEFAULT_BUFSIZE;
+Thanks,
 
-It doesn't seem right to me for the minimum buffer size to
-depend on a compile-time option for VLAN.
-
-Also (provided the hardware supports it) the rx buffers (are these
-the ones being sized?) need to be aligned on a 4n+2 boundary in
-order to avoid a realignment copy later on.
-So I'm not sure that some of these sizes are right and/or optimal.
-
-	David
+-- 
+heikki
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
