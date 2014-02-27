@@ -1,65 +1,50 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH 00/16] sleep_on removal, second try
-Date: Thu, 27 Feb 2014 12:55:13 +0100
-Message-ID: <CAMuHMdWvgO=RBp0ctofFqWWyX2V933_RsRLsh83MDdcXnw_1Zg@mail.gmail.com>
-References: <1393412516-3762435-1-git-send-email-arnd@arndb.de>
-	<2e8474df8cbb7cc583fe1c4e01649835@biophys.uni-duesseldorf.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Arnd Bergmann <arnd@arndb.de>, scsi <linux-scsi@vger.kernel.org>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	linux-atm-general@lists.sourceforge.net,
-	Andrew Morton <akpm@osdl.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jens Axboe <axboe@kernel.dk>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"James E.J. Bottomley" <JBottomley@parallels.com>,
-	Mauro Carvalho Chehab <m.chehab@samsung.com>,
-	Linux Media Mailing List <linux-media@vger.kernel.org>
-To: Michael Schmitz <schmitz@biophys.uni-duesseldorf.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2e8474df8cbb7cc583fe1c4e01649835@biophys.uni-duesseldorf.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hans Schillstrom <hans@schillstrom.com>
+Subject: [PATCH net] ipv6: ipv6_find_hdr restore prev functionality
+Date: Thu, 27 Feb 2014 12:57:58 +0100
+Message-ID: <1393502278-32297-1-git-send-email-hans@schillstrom.com>
+Cc: Hans Schillstrom <hans@schillstrom.com>
+To: netdev@vger.kernel.org, davem@davemloft.net, ja@ssi.bg,
+	aatteka@nicira.com, kaber@trash.net, ard@telegraafnet.nl,
+	lvs-devel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-gw11.han.skanova.net ([81.236.55.20]:33725 "EHLO
+	smtp-gw11.han.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751978AbaB0L6P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 06:58:15 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Michael, Arnd,
+The commit 9195bb8e381d81d5a315f911904cdf0cfcc919b8 ("ipv6: improve 
+ipv6_find_hdr() to skip empty routing headers") broke ipv6_find_hdr().
 
-On Thu, Feb 27, 2014 at 7:37 AM, Michael Schmitz
-<schmitz@biophys.uni-duesseldorf.de> wrote:
->> It's been a while since the first submission of these patches,
->> but a lot of them have made it into linux-next already, so here
->> is the stuff that is not merged yet, hopefully addressing all
->> the comments.
->>
->> Geert and Michael: the I was expecting the ataflop and atari_scsi
->> patches to be merged already, based on earlier discussion.
->> Can you apply them to the linux-m68k tree, or do you prefer
->> them to go through the scsi and block maintainers?
->
-> Not sure what we decided to do - I'd prefer to double-check the latest ones
-> first, but I'd be OK with these to go via m68k.
->
-> Maybe Geert waits for acks from linux-scsi and linux-block? (The rest of my
-> patches to Atari SCSI still awaits comment there.)
+When a target is specified like IPPROTO_ICMPV6 ipv6_find_hdr()
+returns -ENOENT when it's found, not the header as expected.
 
-I was waiting for a final confirmation. I was under the impression some rework
-was needed, and seeing Michael's NAK confirms that.
+A part of IPVS is broken and possible also nft_exthdr_eval().
+When target is -1 which it is most cases, it works.
 
-I'd be glad to take them through the m68k tree (for 3.15), once they have
-received testing and Michael's ACK. Or the block resp. SCSI maintainers can
-take them if they prefer, which apparently already happened for 01/16.
+This patch exits the do while loop if the specific header is found
+so the nexthdr could be returned as expected.
 
-Gr{oetje,eeting}s,
+Reported-by: Art -kwaak- van Breemen <ard@telegraafnet.nl>
+Signed-off-by: Hans Schillstrom <hans@schillstrom.com>
+CC:Ansis Atteka <aatteka@nicira.com>
+---
+ net/ipv6/exthdrs_core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+diff --git a/net/ipv6/exthdrs_core.c b/net/ipv6/exthdrs_core.c
+index 140748d..8af3eb5 100644
+--- a/net/ipv6/exthdrs_core.c
++++ b/net/ipv6/exthdrs_core.c
+@@ -212,7 +212,7 @@ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
+ 		found = (nexthdr == target);
+ 
+ 		if ((!ipv6_ext_hdr(nexthdr)) || nexthdr == NEXTHDR_NONE) {
+-			if (target < 0)
++			if (target < 0 || found)
+ 				break;
+ 			return -ENOENT;
+ 		}
+-- 
+1.7.11.7
