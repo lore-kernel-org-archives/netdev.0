@@ -1,63 +1,62 @@
-From: Dave Jones <davej@redhat.com>
-Subject: kmalloc with locks held in xfrm.
-Date: Thu, 27 Feb 2014 10:19:54 -0500
-Message-ID: <20140227151954.GA30946@redhat.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: net/mlx4_en: Pad ethernet packets smaller than 17 bytes
+Date: Thu, 27 Feb 2014 17:46:37 +0200
+Message-ID: <20140227154635.GA24226@mtl-eit-vdi-22.mtl.labs.mlnx>
+References: <1393504026-13384-1-git-send-email-amirv@mellanox.com>
+ <1393504026-13384-4-git-send-email-amirv@mellanox.com>
+ <063D6719AE5E284EB5DD2968C1650D6D0F6CCB7E@AcuExch.aculab.com>
+ <20140227140203.GA13112@mtl-eit-vdi-22.mtl.labs.mlnx>
+ <1393512255.26794.20.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2291 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752641AbaB0PjX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Feb 2014 10:39:23 -0500
-Received: from int-mx10.intmail.prod.int.phx2.redhat.com (int-mx10.intmail.prod.int.phx2.redhat.com [10.5.11.23])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s1RFdMBL025363
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 27 Feb 2014 10:39:22 -0500
-Received: from gelk.kernelslacker.org (ovpn-113-186.phx2.redhat.com [10.3.113.186])
-	by int-mx10.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id s1RFJtiX001919
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 27 Feb 2014 10:20:01 -0500
-Received: from gelk.kernelslacker.org (localhost [127.0.0.1])
-	by gelk.kernelslacker.org (8.14.8/8.14.7) with ESMTP id s1RFJtb2031109
-	for <netdev@vger.kernel.org>; Thu, 27 Feb 2014 10:19:55 -0500
-Received: (from davej@localhost)
-	by gelk.kernelslacker.org (8.14.8/8.14.8/Submit) id s1RFJsiw031108
-	for netdev@vger.kernel.org; Thu, 27 Feb 2014 10:19:54 -0500
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:58443 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752044AbaB0Pqm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 10:46:42 -0500
+Received: by mail-wi0-f172.google.com with SMTP id r20so844882wiv.17
+        for <netdev@vger.kernel.org>; Thu, 27 Feb 2014 07:46:41 -0800 (PST)
 Content-Disposition: inline
+In-Reply-To: <1393512255.26794.20.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hit this trace this morning on rc4.
+On 27/02/14 06:44 -0800, Eric Dumazet wrote:
+> On Thu, 2014-02-27 at 16:02 +0200, Amir Vadai wrote:
+> >  
+> > Yes, skb will not be classified as inline-able if nr_frags != 1.
+> > See is_inline()
 
-	Dave
+Maybe I wasn't accurate enough. inline-able skb must have:
+1. skb->len < inline_thold 
+2. nr_frags <= 1
 
-BUG: sleeping function called from invalid context at mm/slub.c:965
-in_atomic(): 0, irqs_disabled(): 0, pid: 28692, name: trinity-main
-2 locks held by trinity-main/28692:
- #0:  (sk_lock-AF_INET){......}, at: [<ffffffff83660cd3>] do_ip_setsockopt.isra.12+0x63/0xe10
- #1:  (rcu_read_lock){......}, at: [<ffffffff836bf138>] xfrm_user_policy+0xa8/0x1c0
-CPU: 0 PID: 28692 Comm: trinity-main Not tainted 3.14.0-rc4+ #125 
- ffffffff83a428e7 00000000707766bf ffff88008c749c50 ffffffff8372e248
- ffff8800075c45c0 ffff88008c749c80 ffffffff8309c525 00000000000000d0
- 00000000000000d0 0000000000000008 ffff880244c04240 ffff88008c749cd8
-Call Trace:
- [<ffffffff8372e248>] dump_stack+0x4e/0x7a
- [<ffffffff8309c525>] __might_sleep+0x125/0x180
- [<ffffffff831acd6a>] __kmalloc+0x7a/0x2a0
- [<ffffffffc05978d8>] ? pfkey_compile_policy+0x1a8/0x270 [af_key]
- [<ffffffffc05978d8>] pfkey_compile_policy+0x1a8/0x270 [af_key]
- [<ffffffff836bf1b7>] xfrm_user_policy+0x127/0x1c0
- [<ffffffff836bf138>] ? xfrm_user_policy+0xa8/0x1c0
- [<ffffffff83071907>] ? __local_bh_enable_ip+0x67/0xe0
- [<ffffffff8366173e>] do_ip_setsockopt.isra.12+0xace/0xe10
- [<ffffffff831c1e7c>] ? get_empty_filp+0x5c/0x240
- [<ffffffff830bcab5>] ? cpuacct_account_field+0x5/0xc0
- [<ffffffff8310ff8e>] ? __acct_update_integrals+0x8e/0x120
- [<ffffffff830a388d>] ? get_parent_ip+0xd/0x50
- [<ffffffff8373d42b>] ? preempt_count_sub+0x6b/0xf0
- [<ffffffff83661ab0>] ip_setsockopt+0x30/0xa0
- [<ffffffff836872eb>] udp_setsockopt+0x1b/0x40
- [<ffffffff83600dc4>] sock_common_setsockopt+0x14/0x20
- [<ffffffff835ffa30>] SyS_setsockopt+0x80/0xf0
- [<ffffffff83741e6a>] tracesys+0xd4/0xd9
+Default value for inline_thold is 104 and it is a module parameter
+that can be changed.
+
+> 
+> How often this inline stuff ever happens ?
+> 
+> It looks like the length of the frame needs to be shorter than 44 bytes,
+> right ?
+It should be shorter than 104 - inline_thold default (and max) value is 104.
+I don't understand why you say 44.
+
+> 
+> Minimal length for TCP is 54 bytes.
+> 
+> I wonder why you tried to inline stuff that is probably never
+> seen in real workload.
+> 
+
+If you mean why did I try to send packets shorter than 17 using inline
+- the answer is that it is easy to do it, so why not to?
+
+Amir
