@@ -1,59 +1,50 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 3/9] net/mlx4_en: Pad ethernet packets smaller than 17 bytes
-Date: Thu, 27 Feb 2014 14:27:00 +0200
-Message-ID: <1393504026-13384-4-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 7/9] net/mlx4_core: Fix sparse warning
+Date: Thu, 27 Feb 2014 14:27:04 +0200
+Message-ID: <1393504026-13384-8-git-send-email-amirv@mellanox.com>
 References: <1393504026-13384-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
+	Eyal Perry <eyalpe@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:53561 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:53559 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750904AbaB0M1T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751775AbaB0M1T (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 27 Feb 2014 07:27:19 -0500
 In-Reply-To: <1393504026-13384-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eugenia Emantayev <eugenia@mellanox.com>
+From: Eyal Perry <eyalpe@mellanox.com>
 
-Hardware can't accept packets smaller than 17 bytes. Therefore need to pad with
-zeros.
+This patch force conversion to u32 to fix the following sparse warning:
+drivers/net/ethernet/mellanox/mlx4/fw.c:1822:53: warning: restricted __be32
+degrades to integer
 
+Casting to u32 is safe here, because token will be returned as is
+from the hardware without any modification.
 
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
+Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_tx.c | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx4/fw.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 8dc7637..268cc4a 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -585,12 +585,19 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc, struct sk_buff *sk
- 	int spc = MLX4_INLINE_ALIGN - CTRL_SIZE - sizeof *inl;
- 
- 	if (skb->len <= spc) {
--		inl->byte_count = cpu_to_be32(1 << 31 | skb->len);
-+		inl->byte_count = cpu_to_be32(1 << 31 |
-+					      max_t(typeof(skb->len),
-+						    skb->len,
-+						    MIN_PKT_LEN));
- 		skb_copy_from_linear_data(skb, inl + 1, skb_headlen(skb));
- 		if (skb_shinfo(skb)->nr_frags)
- 			memcpy(((void *)(inl + 1)) + skb_headlen(skb), fragptr,
- 			       skb_frag_size(&skb_shinfo(skb)->frags[0]));
- 
-+		if (skb->len < MIN_PKT_LEN)
-+			memset(((void *)(inl + 1)) + skb->len, 0,
-+			       MIN_PKT_LEN - skb->len);
-+
- 	} else {
- 		inl->byte_count = cpu_to_be32(1 << 31 | spc);
- 		if (skb_headlen(skb) <= spc) {
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index 91b69ff..9cdf452 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -1890,7 +1890,8 @@ void mlx4_opreq_action(struct work_struct *work)
+ 			err = EINVAL;
+ 			break;
+ 		}
+-		err = mlx4_cmd(dev, 0, ((u32) err | cpu_to_be32(token) << 16),
++		err = mlx4_cmd(dev, 0, ((u32) err |
++					(__force u32)cpu_to_be32(token) << 16),
+ 			       1, MLX4_CMD_GET_OP_REQ, MLX4_CMD_TIME_CLASS_A,
+ 			       MLX4_CMD_NATIVE);
+ 		if (err) {
 -- 
 1.8.3.4
