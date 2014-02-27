@@ -1,123 +1,28 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [nf-next PATCH 3/5] netfilter: avoid race with exp->master ct
-Date: Thu, 27 Feb 2014 22:34:52 +0100
-Message-ID: <20140227213452.GE9965@breakpoint.cc>
-References: <20140227182220.25907.12758.stgit@dragon>
- <20140227182340.25907.6773.stgit@dragon>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] neigh: directly goto out after setting
+ nud_state to NUD_FAILED
+Date: Thu, 27 Feb 2014 16:41:01 -0500 (EST)
+Message-ID: <20140227.164101.979079138694412921.davem@davemloft.net>
+References: <530EFF47.6090001@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Florian Westphal <fw@strlen.de>,
-	Patrick McHardy <kaber@trash.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: duanj.fnst@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:40728 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753294AbaB0VfA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 16:35:00 -0500
-Content-Disposition: inline
-In-Reply-To: <20140227182340.25907.6773.stgit@dragon>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49689 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751579AbaB0VlH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 16:41:07 -0500
+In-Reply-To: <530EFF47.6090001@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jesper Dangaard Brouer <brouer@redhat.com> wrote:
-> Preparation for disconnecting the nf_conntrack_lock from the
-> expectations code.  Once the nf_conntrack_lock is lifted, a race
-> condition is exposed.
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Date: Thu, 27 Feb 2014 17:03:03 +0800
+
+> Because those following if conditions will not be matched.
 > 
-> The expectations master conntrack exp->master, can race with
-> delete operations, as the refcnt increment happens too late in
-> init_conntrack().  Race is against other CPUs invoking
-> ->destroy() (destroy_conntrack()), or nf_ct_delete() (via timeout
-> or early_drop()).
-> 
-> Avoid this race in nf_ct_find_expectation() by using atomic_inc_not_zero(),
-> and checking if nf_ct_is_dying() (path via nf_ct_delete()).
-> 
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> ---
-> 
->  net/netfilter/nf_conntrack_core.c   |    2 +-
->  net/netfilter/nf_conntrack_expect.c |   16 +++++++++++++++-
->  2 files changed, 16 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-> index ac85fd1..a822720 100644
-> --- a/net/netfilter/nf_conntrack_core.c
-> +++ b/net/netfilter/nf_conntrack_core.c
-> @@ -898,6 +898,7 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
->  			 ct, exp);
->  		/* Welcome, Mr. Bond.  We've been expecting you... */
->  		__set_bit(IPS_EXPECTED_BIT, &ct->status);
-> +		/* exp->master safe, refcnt bumped in nf_ct_find_expectation */
->  		ct->master = exp->master;
->  		if (exp->helper) {
->  			help = nf_ct_helper_ext_add(ct, exp->helper,
-> @@ -912,7 +913,6 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
->  #ifdef CONFIG_NF_CONNTRACK_SECMARK
->  		ct->secmark = exp->master->secmark;
->  #endif
-> -		nf_conntrack_get(&ct->master->ct_general);
->  		NF_CT_STAT_INC(net, expect_new);
->  	} else {
->  		__nf_ct_try_assign_helper(ct, tmpl, GFP_ATOMIC);
-> diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
-> index 4fd1ca9..2c4ffdb 100644
-> --- a/net/netfilter/nf_conntrack_expect.c
-> +++ b/net/netfilter/nf_conntrack_expect.c
-> @@ -147,13 +147,27 @@ nf_ct_find_expectation(struct net *net, u16 zone,
->  	if (!exp)
->  		return NULL;
->  
-> +	/* Avoid race with other CPUs, that for exp->master ct, is
-> +	 * about to invoke ->destroy(), or nf_ct_delete() via timeout
-> +	 * or early_drop().
-> +	 *
-> +	 * The atomic_inc_not_zero() check tells:  If that fails, we
-> +	 * know that the ct is being destroyed.  If it succeeds, we
-> +	 * can be sure the ct cannot disappear underneath.
-> +	 */
-> +	if (unlikely(nf_ct_is_dying(exp->master) ||
-> +		     !atomic_inc_not_zero(&exp->master->ct_general.use)))
-> +		return NULL;
-> +
->  	/* If master is not in hash table yet (ie. packet hasn't left
->  	   this machine yet), how can other end know about expected?
->  	   Hence these are not the droids you are looking for (if
->  	   master ct never got confirmed, we'd hold a reference to it
->  	   and weird things would happen to future packets). */
-> -	if (!nf_ct_is_confirmed(exp->master))
-> +	if (!nf_ct_is_confirmed(exp->master)) {
-> +		atomic_dec(&exp->master->ct_general.use);
->  		return NULL;
-> +	}
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 
-Not sure if this is safe.
-
-What about:
-CPU0: atomic_inc_not_zero()
-CPU1: calls nf_conntrack_put()
-CPU0: atomic_dec() -> zero refcnt without invocation of ->destroy
-
-[ Cannot happen now because of nf_conntrack_lock ]
-
-I'd suggest to test nf_ct_is_confirmed() first, it avoids the need to
-undo the atomic_inc_not_zero.
-
-You also need to deal with the "timer-deletion-fails" a bit later in the same
-function:
-
-        if (exp->flags & NF_CT_EXPECT_PERMANENT) {
-                atomic_inc(&exp->use);
-                return exp;
-        } else if (del_timer(&exp->timeout)) {
-                nf_ct_unlink_expect(exp);
-                return exp;
-        }
-	// Problem: exp->master ref was bumped
-	nf_ct_put(exp->master); // missing
-        return NULL;
+Applied, thank you.
