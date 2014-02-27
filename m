@@ -1,71 +1,53 @@
-From: Mark Rutland <mark.rutland@arm.com>
-Subject: Re: [PATCH] phy: micrel: add of configuration for LED mode
-Date: Thu, 27 Feb 2014 09:15:06 +0000
-Message-ID: <20140227091505.GA6945@e106331-lin.cambridge.arm.com>
-References: <1393415280-10227-1-git-send-email-ben.dooks@codethink.co.uk>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: [PATCH] neigh: recompute reachabletime before returning from neigh_periodic_work()
+Date: Thu, 27 Feb 2014 17:14:41 +0800
+Message-ID: <530F0201.2040303@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "linux-kernel@lists.codethink.co.uk"
-	<linux-kernel@lists.codethink.co.uk>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>
-To: Ben Dooks <ben.dooks@codethink.co.uk>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cam-admin0.cambridge.arm.com ([217.140.96.50]:48307 "EHLO
-	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752109AbaB0JPK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 04:15:10 -0500
-Content-Disposition: inline
-In-Reply-To: <1393415280-10227-1-git-send-email-ben.dooks@codethink.co.uk>
+Received: from cn.fujitsu.com ([222.73.24.84]:49457 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751624AbaB0JPx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Feb 2014 04:15:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 26, 2014 at 11:48:00AM +0000, Ben Dooks wrote:
-> Add support for the led-mode property for the following PHYs
-> which have a single LED mode configuration value.
-> 
-> KSZ8001 and KSZ8041 which both use register 0x1e bits 15,14 and
-> KSZ8021, KSZ8031 and KSZ8051 which use register 0x1f bits 5,4
-> to control the LED configuration.
-> 
-> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
-> ---
->  Documentation/devicetree/bindings/net/micrel.txt | 18 +++++++++
->  drivers/net/phy/micrel.c                         | 49 ++++++++++++++++++++++--
->  2 files changed, 63 insertions(+), 4 deletions(-)
->  create mode 100644 Documentation/devicetree/bindings/net/micrel.txt
-> 
-> diff --git a/Documentation/devicetree/bindings/net/micrel.txt b/Documentation/devicetree/bindings/net/micrel.txt
-> new file mode 100644
-> index 0000000..98a3e61
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/micrel.txt
-> @@ -0,0 +1,18 @@
-> +Micrel PHY properties.
-> +
-> +These properties cover the base properties Micrel PHYs.
-> +
-> +Optional properties:
-> +
-> + - micrel,led-mode : LED mode value to set for PHYs with configurable LEDs.
-> +
-> +              Configure the LED mode with single value. The list of PHYs and
-> +	      the bits that are currently supported:
-> +
-> +	      KSZ8001: register 0x1e, bits 15..14
-> +	      KSZ8041: register 0x1e, bits 15..14
-> +	      KSZ8021: register 0x1f, bits 5..4
-> +	      KSZ8031: register 0x1f, bits 5..4
-> +	      KSZ8051: register 0x1f, bits 5..4
-> +
-> +              See the respective PHY datasheet for the mode values.
 
-What do these mean, roughly,, and why can the kernel not decide how to
-cnofigure these?
+If the neigh table's entries is less than gc_thresh1, the function
+will return directly, and the reachabletime will not be recompute,
+so the reachabletime can be guessed.
 
-In general we prefer to not place raw register values in the DT, and I'd
-like to know why we'd have to here.
+Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+---
+ net/core/neighbour.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Cheers,
-Mark.
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 026bfd1..7c62a34 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -766,9 +766,6 @@ static void neigh_periodic_work(struct work_struct *work)
+ 	nht = rcu_dereference_protected(tbl->nht,
+ 					lockdep_is_held(&tbl->lock));
+ 
+-	if (atomic_read(&tbl->entries) < tbl->gc_thresh1)
+-		goto out;
+-
+ 	/*
+ 	 *	periodically recompute ReachableTime from random function
+ 	 */
+@@ -781,6 +778,9 @@ static void neigh_periodic_work(struct work_struct *work)
+ 				neigh_rand_reach_time(NEIGH_VAR(p, BASE_REACHABLE_TIME));
+ 	}
+ 
++	if (atomic_read(&tbl->entries) < tbl->gc_thresh1)
++		goto out;
++
+ 	for (i = 0 ; i < (1 << nht->hash_shift); i++) {
+ 		np = &nht->hash_buckets[i];
+ 
+-- 
+1.8.3.1
