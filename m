@@ -1,31 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] atm: nicstar: remove interruptible_sleep_on_timeout
-Date: Thu, 27 Feb 2014 15:23:08 -0500 (EST)
-Message-ID: <20140227.152308.974173030016192682.davem@davemloft.net>
-References: <1393412516-3762435-11-git-send-email-arnd@arndb.de>
-	<20140226.110603.1107468127601575254.davem@davemloft.net>
-	<201402271951.54970.arnd@arndb.de>
+Subject: Re: net/mlx4_en: Pad ethernet packets smaller than 17 bytes
+Date: Thu, 27 Feb 2014 15:36:01 -0500 (EST)
+Message-ID: <20140227.153601.1100017228027738567.davem@davemloft.net>
+References: <20140227140203.GA13112@mtl-eit-vdi-22.mtl.labs.mlnx>
+	<1393512255.26794.20.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140227154635.GA24226@mtl-eit-vdi-22.mtl.labs.mlnx>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201402271951.54970.arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, David.Laight@ACULAB.COM,
+	netdev@vger.kernel.org, yevgenyp@mellanox.com,
+	ogerlitz@mellanox.com, eugenia@mellanox.com
+To: amirv@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49249 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751067AbaB0UgE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 15:36:04 -0500
+In-Reply-To: <20140227154635.GA24226@mtl-eit-vdi-22.mtl.labs.mlnx>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Thu, 27 Feb 2014 19:51:54 +0100
+From: Amir Vadai <amirv@mellanox.com>
+Date: Thu, 27 Feb 2014 17:46:37 +0200
 
-> We are trying to finally kill off interruptible_sleep_on_timeout.
-> the two uses in the nicstar driver can be trivially replaced
-> with wait_event_interruptible_lock_irq_timeout, which prevents the
-> wake-up race and is able to check the buffer state with scq->lock
-> held.
+> On 27/02/14 06:44 -0800, Eric Dumazet wrote:
+>> On Thu, 2014-02-27 at 16:02 +0200, Amir Vadai wrote:
+>> >  
+>> > Yes, skb will not be classified as inline-able if nr_frags != 1.
+>> > See is_inline()
 > 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Acked-by: Chas Williams <chas@cmf.nrl.navy.mil>
+> Maybe I wasn't accurate enough. inline-able skb must have:
+> 1. skb->len < inline_thold 
+> 2. nr_frags <= 1
+> 
+> Default value for inline_thold is 104 and it is a module parameter
+> that can be changed.
 
-Applied, thanks.
+BTW, the canonical way to deal with minimum length requirements is to
+use skb_padto().
