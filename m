@@ -1,81 +1,61 @@
-From: Ben Dooks <ben.dooks@codethink.co.uk>
-Subject: Re: [PATCH] phy: micrel: add of configuration for LED mode
-Date: Thu, 27 Feb 2014 10:30:51 +0000
-Message-ID: <530F13DB.90009@codethink.co.uk>
-References: <1393415280-10227-1-git-send-email-ben.dooks@codethink.co.uk> <20140227091505.GA6945@e106331-lin.cambridge.arm.com>
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: [PATCH 2/2] net: w5100: Use devm_ioremap_resource()
+Date: Thu, 27 Feb 2014 19:30:59 +0900
+Message-ID: <000201cf33a7$015de740$0419b5c0$%han@samsung.com>
+References: <000001cf33a6$e0a57040$a1f050c0$%han@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@lists.codethink.co.uk"
-	<linux-kernel@lists.codethink.co.uk>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>
-To: Mark Rutland <mark.rutland@arm.com>
+Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>,
+	'Mike Sinkovsky' <msink@permonline.ru>
+To: 'David Miller' <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:52794 "EHLO
-	ducie-dc1.codethink.co.uk" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751858AbaB0Kay (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 05:30:54 -0500
-In-Reply-To: <20140227091505.GA6945@e106331-lin.cambridge.arm.com>
+Received: from mailout3.samsung.com ([203.254.224.33]:41298 "EHLO
+	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751192AbaB0KbA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 05:31:00 -0500
+Received: from epcpsbgr5.samsung.com
+ (u145.gpu120.samsung.co.kr [203.254.230.145])
+ by mailout3.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0N1N007VUH7N8SD0@mailout3.samsung.com> for
+ netdev@vger.kernel.org; Thu, 27 Feb 2014 19:30:59 +0900 (KST)
+In-reply-to: <000001cf33a6$e0a57040$a1f050c0$%han@samsung.com>
+Content-language: ko
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 27/02/14 09:15, Mark Rutland wrote:
-> On Wed, Feb 26, 2014 at 11:48:00AM +0000, Ben Dooks wrote:
->> Add support for the led-mode property for the following PHYs
->> which have a single LED mode configuration value.
->>
->> KSZ8001 and KSZ8041 which both use register 0x1e bits 15,14 and
->> KSZ8021, KSZ8031 and KSZ8051 which use register 0x1f bits 5,4
->> to control the LED configuration.
->>
->> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
->> ---
->>   Documentation/devicetree/bindings/net/micrel.txt | 18 +++++++++
->>   drivers/net/phy/micrel.c                         | 49 ++++++++++++++++++++++--
->>   2 files changed, 63 insertions(+), 4 deletions(-)
->>   create mode 100644 Documentation/devicetree/bindings/net/micrel.txt
->>
->> diff --git a/Documentation/devicetree/bindings/net/micrel.txt b/Documentation/devicetree/bindings/net/micrel.txt
->> new file mode 100644
->> index 0000000..98a3e61
->> --- /dev/null
->> +++ b/Documentation/devicetree/bindings/net/micrel.txt
->> @@ -0,0 +1,18 @@
->> +Micrel PHY properties.
->> +
->> +These properties cover the base properties Micrel PHYs.
->> +
->> +Optional properties:
->> +
->> + - micrel,led-mode : LED mode value to set for PHYs with configurable LEDs.
->> +
->> +              Configure the LED mode with single value. The list of PHYs and
->> +	      the bits that are currently supported:
->> +
->> +	      KSZ8001: register 0x1e, bits 15..14
->> +	      KSZ8041: register 0x1e, bits 15..14
->> +	      KSZ8021: register 0x1f, bits 5..4
->> +	      KSZ8031: register 0x1f, bits 5..4
->> +	      KSZ8051: register 0x1f, bits 5..4
->> +
->> +              See the respective PHY datasheet for the mode values.
->
-> What do these mean, roughly,, and why can the kernel not decide how to
-> cnofigure these?
+Use devm_ioremap_resource() in order to make the code simpler,
+and remove redundant return value check of platform_get_resource()
+because the value is checked by devm_ioremap_resource().
 
-Board specific, in the case of the Lager one of the LEDs is connected
-to the ethernet mac block to indicate link, however the default mode
-is not for just "Link" so we have to change it.
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+---
+ drivers/net/ethernet/wiznet/w5100.c |   11 ++++-------
+ 1 file changed, 4 insertions(+), 7 deletions(-)
 
-> In general we prefer to not place raw register values in the DT, and I'd
-> like to know why we'd have to here.
-
-I could copy out stuff from the data-sheet, but I was trying to avoid a
-copy and paste job.
-
-
+diff --git a/drivers/net/ethernet/wiznet/w5100.c b/drivers/net/ethernet/wiznet/w5100.c
+index 0df36c6..ffbd02c 100644
+--- a/drivers/net/ethernet/wiznet/w5100.c
++++ b/drivers/net/ethernet/wiznet/w5100.c
+@@ -638,14 +638,11 @@ static int w5100_hw_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+-	if (!mem)
+-		return -ENXIO;
++	priv->base = devm_ioremap_resource(&pdev->dev, mem);
++	if (IS_ERR(priv->base))
++		return PTR_ERR(priv->base);
++
+ 	mem_size = resource_size(mem);
+-	if (!devm_request_mem_region(&pdev->dev, mem->start, mem_size, name))
+-		return -EBUSY;
+-	priv->base = devm_ioremap(&pdev->dev, mem->start, mem_size);
+-	if (!priv->base)
+-		return -EBUSY;
+ 
+ 	spin_lock_init(&priv->reg_lock);
+ 	priv->indirect = mem_size < W5100_BUS_DIRECT_SIZE;
 -- 
-Ben Dooks				http://www.codethink.co.uk/
-Senior Engineer				Codethink - Providing Genius
+1.7.10.4
