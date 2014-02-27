@@ -1,48 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bna: don't disable VLAN tag stripping in promisc
- mode
-Date: Thu, 27 Feb 2014 17:24:03 -0500 (EST)
-Message-ID: <20140227.172403.1870812305847598692.davem@davemloft.net>
-References: <1393525042-7791-1-git-send-email-ivecera@redhat.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH] net-gre-gro: Fix a bug that breaks the forwarding path
+Date: Fri, 28 Feb 2014 00:25:46 +0200
+Message-ID: <CAJZOPZKy7w-q5+pp=FgCs8LdQL6e16zAiJr89VMkh+h7obAArg@mail.gmail.com>
+References: <1393536377-32243-1-git-send-email-hkchu@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rmody@brocade.com
-To: ivecera@redhat.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <edumazet@google.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "H.K. Jerry Chu" <hkchu@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49907 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750942AbaB0WYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 17:24:05 -0500
-In-Reply-To: <1393525042-7791-1-git-send-email-ivecera@redhat.com>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:45847 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751047AbaB0WZq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 17:25:46 -0500
+Received: by mail-pa0-f54.google.com with SMTP id fa1so3130024pad.27
+        for <netdev@vger.kernel.org>; Thu, 27 Feb 2014 14:25:46 -0800 (PST)
+In-Reply-To: <1393536377-32243-1-git-send-email-hkchu@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ivan Vecera <ivecera@redhat.com>
-Date: Thu, 27 Feb 2014 19:17:22 +0100
+On Thu, Feb 27, 2014 at 11:26 PM, H.K. Jerry Chu <hkchu@google.com> wrote:
+> From: Jerry Chu <hkchu@google.com>
+>
+> I stumbled across a bug that was introduced by my own GRE-GRO
+> patch (bf5a755f5e9186406bbf50f4087100af5bd68e40
+> net-gre-gro: Add GRE support to the GRO stack) submitted a while
+> back that breaks the forwarding path because various GSO related
+> fields were not set. This will cause on the egress path either
+> the GSO code to fail, or a GRE-TSO capable (NETIF_F_GSO_GRE)
+> NICs to choke. The following fix has been tested for both cases.
+>
+> Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
+> ---
+>  net/core/dev.c           | 2 ++
+>  net/ipv4/af_inet.c       | 3 +++
+>  net/ipv4/gre_offload.c   | 3 +++
+>  net/ipv4/tcp_offload.c   | 2 +-
+>  net/ipv6/tcpv6_offload.c | 2 +-
+>  5 files changed, 10 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index b1b0c8d..75517d8 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -4045,6 +4045,8 @@ static void napi_reuse_skb(struct napi_struct *napi, struct sk_buff *skb)
+>         skb->vlan_tci = 0;
+>         skb->dev = napi->dev;
+>         skb->skb_iif = 0;
+> +       skb->encapsulation = 0;
+> +       skb_shinfo(skb)->gso_type = 0;
+>
+>         napi->skb = skb;
+>  }
+> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+> index ecd2c3f..68229ca 100644
+> --- a/net/ipv4/af_inet.c
+> +++ b/net/ipv4/af_inet.c
+> @@ -1431,6 +1431,9 @@ static int inet_gro_complete(struct sk_buff *skb, int nhoff)
+>         int proto = iph->protocol;
+>         int err = -ENOSYS;
+>
+> +       if (skb->encapsulation)
+> +               skb_set_inner_network_header(skb, nhoff);
+> +
 
-> The recent commit "fe1624c bna: RX Filter Enhancements" disables
-> VLAN tag stripping if the NIC is in promiscuous mode. Received VLAN tagged
-> packets are recognized by the driver via BNA_CQ_EF_VLAN flag and for such
-> packets the driver calls __vlan_hwaccel_put_tag(). The problem is the HW
-> marks the tagged packets with this flags also when the stripping is
-> disabled and thus __vlan_hwaccel_put_tag() should not be called for them.
-> 
-> A solution can be to call __vlan_hwaccel_put_tag() only when stripping is
-> enabled or to leave VLAN stripping engine enabled. The 2nd restores the
-> previous behavior and is IMHO better.
-> 
-> Cc: Rasesh Mody <rmody@brocade.com>
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+Note that packets (e.g those who are UDP encapsulated) will pass here
+twice, once for the external IP header and once for the internal, so
+if the driver marks the encapsulation sign the inner header setting
+will happen twice, is that what we want?
 
-At best, this is an incomplete change, because if we fix it like this
-then the stripping enable/disable functions are completely unused and
-therefore should be removed from the driver.
 
-But I really thing that checking if stripping is enabled at the
-__vlan_hwaccel_put_tag() call site is the best solution.
-
-You just need to check rxf->vlan_strip_status in addition to the
-descriptor flag.
-
-Please implement it this way, thanks.
+>         csum_replace2(&iph->check, iph->tot_len, newlen);
+>         iph->tot_len = newlen;
