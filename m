@@ -1,55 +1,103 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net/mlx4_en: Pad ethernet packets smaller than 17 bytes
-Date: Thu, 27 Feb 2014 16:58:01 -0500 (EST)
-Message-ID: <20140227.165801.2026085171656485226.davem@davemloft.net>
-References: <20140227154635.GA24226@mtl-eit-vdi-22.mtl.labs.mlnx>
-	<20140227.153601.1100017228027738567.davem@davemloft.net>
-	<20140227214752.GA2678@mtl-eit-vdi-22.mtl.labs.mlnx>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, David.Laight@ACULAB.COM,
-	netdev@vger.kernel.org, yevgenyp@mellanox.com,
-	ogerlitz@mellanox.com, eugenia@mellanox.com
-To: amirv@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49744 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751072AbaB0V6E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 16:58:04 -0500
-In-Reply-To: <20140227214752.GA2678@mtl-eit-vdi-22.mtl.labs.mlnx>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Soren Brinkmann <soren.brinkmann@xilinx.com>
+Subject: [PATCH v2 1/2] net: macb: Check DMA mappings for error
+Date: Thu, 27 Feb 2014 13:58:04 -0800
+Message-ID: <1393538285-28297-1-git-send-email-soren.brinkmann@xilinx.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Vinod Koul <vinod.koul@intel.com>,
+	Dan Williams <dan.j.williams@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Michal Simek <michal.simek@xilinx.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Soren Brinkmann <soren.brinkmann@xilinx.com>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Amir Vadai <amirv@mellanox.com>
-Date: Thu, 27 Feb 2014 23:47:54 +0200
+With CONFIG_DMA_API_DEBUG enabled the following warning is printed:
+ WARNING: CPU: 0 PID: 619 at lib/dma-debug.c:1101 check_unmap+0x758/0x894()
+ macb e000b000.ethernet: DMA-API: device driver failed to check map error[device address=0x000000002d171c02] [size=322 bytes] [mapped as single]
+ Modules linked in:
+ CPU: 0 PID: 619 Comm: udhcpc Not tainted 3.14.0-rc3-xilinx-00219-gd158fc7f36a2 #63
+ [<c001516c>] (unwind_backtrace) from [<c0011df8>] (show_stack+0x10/0x14)
+ [<c0011df8>] (show_stack) from [<c03c7714>] (dump_stack+0x7c/0xc8)
+ [<c03c7714>] (dump_stack) from [<c00245cc>] (warn_slowpath_common+0x60/0x84)
+ [<c00245cc>] (warn_slowpath_common) from [<c0024670>] (warn_slowpath_fmt+0x2c/0x3c)
+ [<c0024670>] (warn_slowpath_fmt) from [<c0228244>] (check_unmap+0x758/0x894)
+ [<c0228244>] (check_unmap) from [<c0228588>] (debug_dma_unmap_page+0x64/0x70)
+ [<c0228588>] (debug_dma_unmap_page) from [<c02aba64>] (macb_interrupt+0x1f8/0x2dc)
+ [<c02aba64>] (macb_interrupt) from [<c006c6e4>] (handle_irq_event_percpu+0x2c/0x178)
+ [<c006c6e4>] (handle_irq_event_percpu) from [<c006c86c>] (handle_irq_event+0x3c/0x5c)
+ [<c006c86c>] (handle_irq_event) from [<c006f548>] (handle_fasteoi_irq+0xb8/0x100)
+ [<c006f548>] (handle_fasteoi_irq) from [<c006c148>] (generic_handle_irq+0x20/0x30)
+ [<c006c148>] (generic_handle_irq) from [<c000f35c>] (handle_IRQ+0x64/0x8c)
+ [<c000f35c>] (handle_IRQ) from [<c0008528>] (gic_handle_irq+0x3c/0x60)
+ [<c0008528>] (gic_handle_irq) from [<c0012904>] (__irq_svc+0x44/0x78)
+ Exception stack(0xed197f60 to 0xed197fa8)
+ 7f60: 00000134 60000013 bd94362e bd94362e be96b37c 00000014 fffffd72 00000122
+ 7f80: c000ebe4 ed196000 00000000 00000011 c032c0d8 ed197fa8 c0064008 c000ea20
+ 7fa0: 60000013 ffffffff
+ [<c0012904>] (__irq_svc) from [<c000ea20>] (ret_fast_syscall+0x0/0x48)
+ ---[ end trace 478f921d0d542d1e ]---
+ Mapped at:
+  [<c0227184>] debug_dma_map_page+0x48/0x11c
+  [<c02aaca0>] macb_start_xmit+0x184/0x2a8
+  [<c03143c0>] dev_hard_start_xmit+0x334/0x470
+  [<c032c09c>] sch_direct_xmit+0x78/0x2f8
+  [<c0314814>] __dev_queue_xmit+0x318/0x708
 
-> On 27/02/14 15:36 -0500, David Miller wrote:
->> From: Amir Vadai <amirv@mellanox.com>
->> Date: Thu, 27 Feb 2014 17:46:37 +0200
->> 
->> > On 27/02/14 06:44 -0800, Eric Dumazet wrote:
->> >> On Thu, 2014-02-27 at 16:02 +0200, Amir Vadai wrote:
->> >> >  
->> >> > Yes, skb will not be classified as inline-able if nr_frags != 1.
->> >> > See is_inline()
->> > 
->> > Maybe I wasn't accurate enough. inline-able skb must have:
->> > 1. skb->len < inline_thold 
->> > 2. nr_frags <= 1
->> > 
->> > Default value for inline_thold is 104 and it is a module parameter
->> > that can be changed.
->> 
->> BTW, the canonical way to deal with minimum length requirements is to
->> use skb_padto().
-> 
-> I think that in this case it will be a bit of an overshoot. It
-> will add many unnecessary operations because it need to make sure that
-> there is enough space in the skb linear buffer for the padding. And in
-> my case the restriction is on the hardware buffer, so IMHO there is no
-> need to manipulate the skb.
+due to missing checks of the dma mapping. Add the appropriate checks to fix
+this.
 
-If you're copying the packet into a bounce buffer, yes.  But skb_padto()
-is the thing to use if you're DMA'ing directly out of the SKB's buffer
-memory.
+Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
+---
+v2:
+ - unlock spinlock when mapping error is detected in start_xmit()
+ - use kfree_skb() instead of dev_kfree_skb in start_xmit()
+---
+ drivers/net/ethernet/cadence/macb.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 3190d38e16fb..a9c2ccfc1740 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -632,11 +632,16 @@ static void gem_rx_refill(struct macb *bp)
+ 					   "Unable to allocate sk_buff\n");
+ 				break;
+ 			}
+-			bp->rx_skbuff[entry] = skb;
+ 
+ 			/* now fill corresponding descriptor entry */
+ 			paddr = dma_map_single(&bp->pdev->dev, skb->data,
+ 					       bp->rx_buffer_size, DMA_FROM_DEVICE);
++			if (dma_mapping_error(&bp->pdev->dev, paddr)) {
++				dev_kfree_skb(skb);
++				break;
++			}
++
++			bp->rx_skbuff[entry] = skb;
+ 
+ 			if (entry == RX_RING_SIZE - 1)
+ 				paddr |= MACB_BIT(RX_WRAP);
+@@ -1040,6 +1045,10 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	netdev_vdbg(bp->dev, "Allocated ring entry %u\n", entry);
+ 	mapping = dma_map_single(&bp->pdev->dev, skb->data,
+ 				 len, DMA_TO_DEVICE);
++	if (dma_mapping_error(&bp->pdev->dev, mapping)) {
++		kfree_skb(skb);
++		goto unlock;
++	}
+ 
+ 	tx_skb = &bp->tx_skb[entry];
+ 	tx_skb->skb = skb;
+@@ -1066,6 +1075,7 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (CIRC_SPACE(bp->tx_head, bp->tx_tail, TX_RING_SIZE) < 1)
+ 		netif_stop_queue(dev);
+ 
++unlock:
+ 	spin_unlock_irqrestore(&bp->lock, flags);
+ 
+ 	return NETDEV_TX_OK;
+-- 
+1.9.0.1.g4196000
