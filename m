@@ -1,36 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] consolidate duplicate code is
- skb_checksum_setup() helpers
-Date: Thu, 27 Feb 2014 18:18:42 -0500 (EST)
-Message-ID: <20140227.181842.277867476845635582.davem@davemloft.net>
-References: <9AAE0902D5BC7E449B7C8E4E778ABCD025D4FD@AMSPEX01CL01.citrite.net>
-	<530F3B8F020000780011FD33@nat28.tlf.novell.com>
-	<9AAE0902D5BC7E449B7C8E4E778ABCD025D6D2@AMSPEX01CL01.citrite.net>
+Subject: Re: [PATCH] neigh: recompute reachabletime before returning from
+ neigh_periodic_work()
+Date: Thu, 27 Feb 2014 18:22:29 -0500 (EST)
+Message-ID: <20140227.182229.1062454622900632661.davem@davemloft.net>
+References: <530F0201.2040303@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: JBeulich@suse.com, edumazet@google.com, netdev@vger.kernel.org
-To: Paul.Durrant@citrix.com
+Cc: netdev@vger.kernel.org
+To: duanj.fnst@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50206 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50220 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751671AbaB0XTa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 18:19:30 -0500
-In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD025D6D2@AMSPEX01CL01.citrite.net>
+	with ESMTP id S1752520AbaB0XWb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 18:22:31 -0500
+In-Reply-To: <530F0201.2040303@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Date: Thu, 27 Feb 2014 12:39:01 +0000
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Date: Thu, 27 Feb 2014 17:14:41 +0800
 
-> I don't know off the top of my head - I'd have to go look. My hunch
-> is that TCP options are essentially independent of IP
-> version. Anyway, the header is limited to 60 bytes max due to the 4
-> bit width of the header length field so you may as well just use
-> that.
+> If the neigh table's entries is less than gc_thresh1, the function
+> will return directly, and the reachabletime will not be recompute,
+> so the reachabletime can be guessed.
+> 
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 
-Regardless, the MAX_IP_HDR_LEN macro that was being used in these
-routines makes the intent clear, that the TCP options need to be
-encompassed.
+It looks like this bug was unintentionally introduced by:
 
-And this new consolidated code does not do that.
+commit 2724680bceee94eac391552863771af105a7355c
+Author: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date:   Tue Jan 22 05:20:05 2013 +0000
+
+    neigh: Keep neighbour cache entries if number of them is small enough.
+
+Applied and queued up for -stable, thanks!
