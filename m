@@ -1,63 +1,34 @@
-From: Yuval Mintz <yuvalmin@broadcom.com>
-Subject: [PATCH net] bnx2x: Add missing bit in default Tx switching
-Date: Thu, 27 Feb 2014 15:42:26 +0200
-Message-ID: <1393508546-8489-1-git-send-email-yuvalmin@broadcom.com>
+From: "V. Lavrov" <lve@guap.ru>
+Subject: [RFC] LXC and network namespace issue
+Date: Thu, 27 Feb 2014 17:21:22 +0400
+Message-ID: <530F3BD2.9090204@guap.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Yuval Mintz <yuvalmin@broadcom.com>,
-	Ariel Elior <ariele@broadcom.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=KOI8-R; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:34589 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752586AbaB0Nma (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 08:42:30 -0500
+Received: from mail.guap.ru ([91.151.188.3]:31314 "EHLO mx1.guap.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750813AbaB0Nxq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Feb 2014 08:53:46 -0500
+Received: from [10.0.0.64] ([10.0.0.64])
+	(user=lve mech=CRAM-MD5 bits=0)
+	by mail.guap.ru (8.14.7/8.14.4) with ESMTP id s1RDLMlV016678
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES128-SHA bits=128 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 27 Feb 2014 17:21:22 +0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit c14db2025 "bnx2x: Correct default Tx switching behaviour" supposedly
-changed the default Tx switching behaviour, but was missing the fastpath change
-required for FW to pass packets from PFs to VFs.
+The problem with stoping/restarting the container.
 
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
----
-Hi Dave,
+Upon completion of the container, the parent process received signal SIGCHLD and exit code (by waitpid()).
 
-Please consider applying this to `net'.
+During the 10-25ms after the completion of the container, we can not create vlan-interface (for restart).
+The system returns an error codeEEXIST.
 
-Thanks,
-Yuval
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
+Another problem with the network interface type "phys".
+Before running the container we save ifindex network physical interface (by if_nametoindex()).
+We need to restore the name of network interface have the type phys (by saved ifindex) upon completion of the container,
+  but the system returns an error ENODEV. 10-25 ms later the action is completed successfully!
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 9d7419e..9e97eeb 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -3875,7 +3875,9 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 						     xmit_type);
- 		}
- 
--		/* Add the macs to the parsing BD this is a vf */
-+		/* Add the macs to the parsing BD if this is a vf or if
-+		 * Tx Switching is enabled.
-+		 */
- 		if (IS_VF(bp)) {
- 			/* override GRE parameters in BD */
- 			bnx2x_set_fw_mac_addr(&pbd_e2->data.mac_addr.src_hi,
-@@ -3887,6 +3889,11 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 					      &pbd_e2->data.mac_addr.dst_mid,
- 					      &pbd_e2->data.mac_addr.dst_lo,
- 					      eth->h_dest);
-+		} else if (bp->flags & TX_SWITCHING) {
-+			bnx2x_set_fw_mac_addr(&pbd_e2->data.mac_addr.dst_hi,
-+					      &pbd_e2->data.mac_addr.dst_mid,
-+					      &pbd_e2->data.mac_addr.dst_lo,
-+					      eth->h_dest);
- 		}
- 
- 		SET_FLAG(pbd_e2_parsing_data,
--- 
-1.8.1.227.g44fe835
+Is there a way to wait for the release of all resources (from userspace)?
