@@ -1,46 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: addrconf: silence sparse endianness
- warnings
-Date: Thu, 27 Feb 2014 17:13:39 -0500 (EST)
-Message-ID: <20140227.171339.1719967390757385601.davem@davemloft.net>
-References: <1393507229-14871-1-git-send-email-bjorn@mork.no>
+Subject: Re: [PATCH net] bnx2x: Add missing bit in default Tx switching
+Date: Thu, 27 Feb 2014 17:16:49 -0500 (EST)
+Message-ID: <20140227.171649.1693930241530644358.davem@davemloft.net>
+References: <1393508546-8489-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: bjorn@mork.no
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ariele@broadcom.com
+To: yuvalmin@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49847 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49866 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750999AbaB0WNm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 17:13:42 -0500
-In-Reply-To: <1393507229-14871-1-git-send-email-bjorn@mork.no>
+	with ESMTP id S1751047AbaB0WQv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 17:16:51 -0500
+In-Reply-To: <1393508546-8489-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Thu, 27 Feb 2014 14:20:29 +0100
+From: Yuval Mintz <yuvalmin@broadcom.com>
+Date: Thu, 27 Feb 2014 15:42:26 +0200
 
-> Avoid the following sparse __CHECK_ENDIAN__ warnings:
->=20
->  include/net/addrconf.h:318:25: warning: restricted __be64 degrades t=
-o integer
->  include/net/addrconf.h:318:70: warning: restricted __be64 degrades t=
-o integer
->  include/net/addrconf.h:330:25: warning: restricted __be64 degrades t=
-o integer
->  include/net/addrconf.h:330:70: warning: restricted __be64 degrades t=
-o integer
->  include/net/addrconf.h:347:25: warning: restricted __be64 degrades t=
-o integer
->  include/net/addrconf.h:348:26: warning: restricted __be64 degrades t=
-o integer
->  include/net/addrconf.h:349:18: warning: restricted __be64 degrades t=
-o integer
->=20
-> The warnings are false but they make it harder to spot real
-> bugs.
->=20
-> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
+> Commit c14db2025 "bnx2x: Correct default Tx switching behaviour" supposedly
+> changed the default Tx switching behaviour, but was missing the fastpath change
+> required for FW to pass packets from PFs to VFs.
+> 
+> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+> Signed-off-by: Ariel Elior <ariele@broadcom.com>
 
 Applied, thank you.
