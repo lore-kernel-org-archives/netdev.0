@@ -1,65 +1,68 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v7 net-next 2/2] tcp: switch rtt estimations to usec
- resolution
-Date: Thu, 27 Feb 2014 09:57:30 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6CC846@AcuExch.aculab.com>
-References: <1393137487.2316.48.camel@edumazet-glaptop2.roam.corp.google.com>
- <alpine.LFD.2.11.1402230908210.1460@ja.home.ssi.bg>
- <1393178122.2316.50.camel@edumazet-glaptop2.roam.corp.google.com>
- <1393181458.2316.56.camel@edumazet-glaptop2.roam.corp.google.com>
- <1393216927.2316.62.camel@edumazet-glaptop2.roam.corp.google.com>
- <1393266251.2316.68.camel@edumazet-glaptop2.roam.corp.google.com>
- <alpine.LFD.2.11.1402242240290.1941@ja.home.ssi.bg>
- <1393280025.2316.76.camel@edumazet-glaptop2.roam.corp.google.com>
- <alpine.LFD.2.11.1402250056250.1941@ja.home.ssi.bg>
- <1393284682.2316.83.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140224155130.4c286cca@samsung-9>
- <1393290667.2316.96.camel@edumazet-glaptop2.roam.corp.google.com>
- <1393292339.2316.98.camel@edumazet-glaptop2.roam.corp.google.com>
- <1393309341.2316.120.camel@edumazet-glaptop2.roam.corp.google.com>
- <1393452168.26794.8.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140226170908.5f028c88@nehalam.linuxnetplumber.net>
- <530E9315.5080606@hp.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH] mlx4: Use GFP_NOFS calls during the ipoib TX path when
+ creating the QP
+Date: Thu, 27 Feb 2014 11:58:39 +0200
+Message-ID: <530F0C4F.9030200@mellanox.com>
+References: <CAJZOPZKLcFC5Wqv7VS7AyovaeHw3PYSWEz9t9sZ4AMhG+dS1+A@mail.gmail.com> <alpine.LNX.2.00.1402271042240.21399@pobox.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>, Julian Anastasov <ja@ssi.bg>,
-	"Yuchung Cheng" <ycheng@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Larry Brakmo <brakmo@google.com>
-To: 'Rick Jones' <rick.jones2@hp.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:60825 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751633AbaB0J6i convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 04:58:38 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 21497-08 for <netdev@vger.kernel.org>;
- Thu, 27 Feb 2014 09:58:37 +0000 (GMT)
-In-Reply-To: <530E9315.5080606@hp.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Roland Dreier <roland@kernel.org>, Amir Vadai <amirv@mellanox.com>,
+	Eli Cohen <eli@dev.mellanox.co.il>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Mel Gorman <mgorman@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Jiri Kosina <jkosina@suse.cz>, Or Gerlitz <or.gerlitz@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1402271042240.21399@pobox.suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Rick Jones
-> On 02/26/2014 05:09 PM, Stephen Hemminger wrote:
-> > Since srtt is scaled by 8 and is 32 bits, This does reduce the maximum
-> > possible RTT to 8 minutes or so. Which is fine, just wanted it to be
-> > noted.
-> 
-> I have encountered some situations recently, admittedly very
-> pathological, where the RTT through a VPN connection was measured in
-> minutes.  I don't think it got as high as 8 minutes, but it did get as
-> high as three or so.  Also mentioned only for the record.
+On 27/02/2014 11:48, Jiri Kosina wrote:
+> On Wed, 26 Feb 2014, Or Gerlitz wrote:
+>
+>>> But let's make sure that we don't diverge from the original problem too
+>>> much. Simple fact is that the deadlock is there when using connected mode,
+>>> and there is nothing preventing users from using it this way, therefore I
+>>> believe it should be fixed one way or another.
+>> the patch is titled with "mlx4:" -- do you expect the problem to come
+>> into play only when ipoib connected mode runs over the mlx4 driver?
+>> what's about mlx5 or other upstream IB drivers?
+> Honestly, I have no idea. I am pretty sure that Mellanox folks have much
+> better understanding of the mlx* driver internals than I do. I tried to
+> figure out where mlx5 is standing in this respect, but I don't even see
+> where ipoib_cm_tx->tx_ring is being allocated there.
 
-RFC 1149 anyone :-)
+ipoib is coded over the verbs API (include/rdma/ib_verbs.h)  --- so 
+tracking the path from ipoib through the verbs api into mlx4 should be 
+similar exercise as doing so for mlx5, but let's 1st treat the higher 
+level elements involved with this patch.
 
-I've also seen 20 minute ping responses (a long time ago).
-Mind you that was a pathologically broken test senario and all sorts
-of things conspired to delay the traffic.
+Can you shed some light why the problem happens only for NFS, and not 
+for example with other IP/TCP storage protocols?
 
-	David
+For example, do you expect it to happen with iSCSI/TCP too? the Linux 
+iSCSI initiator 1st open a TCP socket from user space to the target, 
+next they do login exchange over this socket and later provide the 
+socket to the kernel iscsi code to use as the back-end of  a SCSI block 
+device registered with the SCSI midlayer
+
+
+>
+>> I'll be looking on the details of the problem/solution,
+> Awesome, thanks a lot, that's highly appreciated.
+>
+>> Do we have a way to tell a net-device instance they should do their
+>> memory allocations in a NOFS manner? if not, shouldn't we come up with
+>> more general injection method?
+> I don't think we have, and it indeed should be rather easy to add. The
+> more challenging part of the problem is where (and based on which data)
+> the flag would actually be set up on the netdevice so that it's not
+> horrible layering violation.
+>
+
+I assume that in the same manner netdevices advertize features to the 
+networking core, the core can provide them
+operating directives after they register themselves.
