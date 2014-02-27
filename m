@@ -1,43 +1,48 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: [PATCH 3/4] ath6kl: set NET_NAME_USER for P2P ifs
-Date: Thu, 27 Feb 2014 18:13:29 +0200
-Message-ID: <87txbkedp2.fsf@kamboji.qca.qualcomm.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 2/4] mac80211: set NET_NAME_USER for user-space created
+ ifs
+Date: Thu, 27 Feb 2014 17:18:32 +0100
+Message-ID: <1393517912.4648.5.camel@jlt4.sipsolutions.net>
 References: <1393512434-1325-1-git-send-email-dh.herrmann@gmail.com>
-	<1393512434-1325-4-git-send-email-dh.herrmann@gmail.com>
-	<87bnxsfuee.fsf@kamboji.qca.qualcomm.com>
+	 <1393512434-1325-3-git-send-email-dh.herrmann@gmail.com>
+	 <1393512787.4648.1.camel@jlt4.sipsolutions.net>
+	 <CANq1E4RNbtbdVhC2PgyZMGN_duScbmCOGeMxAYiKLL-8H=EWSA@mail.gmail.com>
+	 (sfid-20140227_155615_730008_8D7E77AA)
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
 	Kay Sievers <kay.sievers@vrfy.org>,
 	Tom Gundersen <teg@jklm.no>,
-	Johannes berg <johannes@sipsolutions.net>,
-	<linux-kernel@vger.kernel.org>, <linux-wireless@vger.kernel.org>
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>
 To: David Herrmann <dh.herrmann@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87bnxsfuee.fsf@kamboji.qca.qualcomm.com> (Kalle Valo's message
-	of "Thu, 27 Feb 2014 17:27:21 +0200")
+In-Reply-To: <CANq1E4RNbtbdVhC2PgyZMGN_duScbmCOGeMxAYiKLL-8H=EWSA@mail.gmail.com> (sfid-20140227_155615_730008_8D7E77AA)
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kalle Valo <kvalo@qca.qualcomm.com> writes:
+On Thu, 2014-02-27 at 15:56 +0100, David Herrmann wrote:
 
-> David Herrmann <dh.herrmann@gmail.com> writes:
->
->> P2P netdevs and other devices that are created via nl80211 from user-space
->> have a name provided by user-space. Therefore, set NET_NAME_USER so this
->> is correctly shown in sysfs.
->>
->> Cc: Kalle Valo <kvalo@qca.qualcomm.com>
->> Signed-off-by: David Herrmann <dh.herrmann@gmail.com>
->
-> Looks good to me.
->
-> Acked-by: Kalle Valo <kvalo@qca.qualcomm.com>
->
-> Can I take this to my ath.git tree?
+> >> +++ b/net/mac80211/iface.c
+> >> @@ -1620,6 +1620,7 @@ int ieee80211_if_add(struct ieee80211_local *local, const char *name,
+> >>                                       + IEEE80211_ENCRYPT_HEADROOM;
+> >>               ndev->needed_tailroom = IEEE80211_ENCRYPT_TAILROOM;
+> >>
+> >> +             ndev->name_assign_type = NET_NAME_USER;
+> >
+> > this is wrong because we call this in main.c with a "wlan%d" argument
+> > for the name, which gets expanded.
+> 
+> Whoops, yeah, same issue as with ath6kl where I fixed it with a
+> separate "name_assign_type" argument. I will do the same here for v2.
 
-Nevermind, I saw the first patch now. Just CCing random patches like
-this is confusing for the recipients, better to CC the full patchset.
+I'm not sure that helps - the user could potentially pass "foobar%d" as
+the interface name and get a number assigned by the kernel. In that case
+you probably *don't* want to set it to "name assigned by user"?
 
--- 
-Kalle Valo
+Maybe this whole thing can just be handled in __dev_alloc_name() since
+no kernel user should pass just a string without "%d" in it.
+
+johannes
