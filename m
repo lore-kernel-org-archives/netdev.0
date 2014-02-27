@@ -1,88 +1,77 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net-next] consolidate duplicate code is
- skb_checksum_setup() helpers
-Date: Thu, 27 Feb 2014 12:39:01 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD025D6D2@AMSPEX01CL01.citrite.net>
-References: <530F0DBC020000780011FC30@nat28.tlf.novell.com>
- <9AAE0902D5BC7E449B7C8E4E778ABCD025D340@AMSPEX01CL01.citrite.net>
- <530F3468020000780011FCFB@nat28.tlf.novell.com>
- <9AAE0902D5BC7E449B7C8E4E778ABCD025D4FD@AMSPEX01CL01.citrite.net>
- <530F3B8F020000780011FD33@nat28.tlf.novell.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net-next v5 4/9] xen-netback: Change RX path for mapped
+ SKB fragments
+Date: Thu, 27 Feb 2014 12:43:27 +0000
+Message-ID: <20140227124327.GD16241@zion.uk.xensource.com>
+References: <1390253069-25507-1-git-send-email-zoltan.kiss@citrix.com>
+ <1390253069-25507-5-git-send-email-zoltan.kiss@citrix.com>
+ <1392745532.23084.65.camel@kazak.uk.xensource.com>
+ <53093051.9040907@citrix.com>
+ <530B4E05.4020900@schaman.hu>
+ <530B606F.2070902@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jan Beulich <JBeulich@suse.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([185.25.65.24]:13309 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750742AbaB0MjE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 07:39:04 -0500
-In-Reply-To: <530F3B8F020000780011FD33@nat28.tlf.novell.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Zoltan Kiss <zoltan.kiss@schaman.hu>,
+	Ian Campbell <Ian.Campbell@citrix.com>, <wei.liu2@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <530B606F.2070902@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Jan Beulich [mailto:JBeulich@suse.com]
-> Sent: 27 February 2014 12:20
-> To: Paul Durrant
-> Cc: davem@davemloft.net; Eric Dumazet; netdev@vger.kernel.org
-> Subject: RE: [PATCH net-next] consolidate duplicate code is
-> skb_checksum_setup() helpers
+On Mon, Feb 24, 2014 at 03:08:31PM +0000, Zoltan Kiss wrote:
+> On 24/02/14 13:49, Zoltan Kiss wrote:
+> >On 22/02/14 23:18, Zoltan Kiss wrote:
+> >>On 18/02/14 17:45, Ian Campbell wrote:
+> >>>On Mon, 2014-01-20 at 21:24 +0000, Zoltan Kiss wrote:
+> >>>
+> >>>Re the Subject: change how? Perhaps "handle foreign mapped pages on the
+> >>>guest RX path" would be clearer.
+> >>Ok, I'll do that.
+> >>
+> >>>
+> >>>>RX path need to know if the SKB fragments are stored on
+> >>>>pages from another
+> >>>>domain.
+> >>>Does this not need to be done either before the mapping change
+> >>>or at the
+> >>>same time? -- otherwise you have a window of a couple of commits where
+> >>>things are broken, breaking bisectability.
+> >>I can move this to the beginning, to keep bisectability. I've
+> >>put it here originally because none of these makes sense without
+> >>the previous patches.
+> >Well, I gave it a close look: to move this to the beginning as a
+> >separate patch I would need to put move a lot of definitions from
+> >the first patch to here (ubuf_to_vif helper,
+> >xenvif_zerocopy_callback etc.). That would be the best from bisect
+> >point of view, but from patch review point of view even worse than
+> >now. So the only option I see is to merge this with the first 2
+> >patches, so it will be even bigger.
+> Actually I was stupid, we can move this patch earlier and introduce
+> stubs for those 2 functions. But for the another two patches (#6 and
+> #8) it's still true that we can't move them before, only merge them
+> into the main, as they heavily rely on the main patch. #6 is
+> necessary for Windows frontends, as they are keen to send too many
+> slots. #8 is quite a rare case, happens only if a guest wedge or
+> malicious, and sits on the packet.
+> So my question is still up: do you prefer perfect bisectability or
+> more segmented patches which are not that pain to review?
 > 
-> >>> On 27.02.14 at 13:00, Paul Durrant <Paul.Durrant@citrix.com> wrote:
-> >>  -----Original Message-----
-> >> From: Jan Beulich [mailto:JBeulich@suse.com]
-> >> Sent: 27 February 2014 11:50
-> >> To: Paul Durrant
-> >> Cc: davem@davemloft.net; Eric Dumazet; netdev@vger.kernel.org
-> >> Subject: RE: [PATCH net-next] consolidate duplicate code is
-> >> skb_checksum_setup() helpers
-> >>
-> >> >>> On 27.02.14 at 11:57, Paul Durrant <Paul.Durrant@citrix.com> wrote:
-> >> >>  -----Original Message-----
-> >> >> From: Jan Beulich [mailto:JBeulich@suse.com]
-> >> >> Sent: 27 February 2014 09:05
-> >> >> To: netdev@vger.kernel.org
-> >> >> Cc: Paul Durrant; davem@davemloft.net; Eric Dumazet
-> >> >> Subject: [PATCH net-next] consolidate duplicate code is
-> >> >> skb_checksum_setup() helpers
-> >> >>
-> >> >> Realizing that the skb_maybe_pull_tail() calls in the IP-protocol
-> >> >> specific portions of both helpers are terminal ones (i.e. no further
-> >> >> pulls are expected), their maximum size to be pulled can be made
-> match
-> >> >> their minimal size needed, thus making the code identical and hence
-> >> >> possible to be moved into another helper.
-> >> >
-> >> > There is a difference in the case of an IPv4 TCP packet with options.
-> With
-> >> > your patch it will only get pulled up as far as the base header so there
-> may
-> >> > need to be another pull for options parsing.
-> >>
-> >> Don't the options start right after the IP header, before the TCP
-> >> or UDP one? In which case the pull covers them.
-> >>
+
+What's the diff stat if you merge those patches?
+
+> >And based on that principle, patch #6 and #8 should be merged
+> >there as well, as they solve corner cases introduced by the grant
+> >mapping.
+> >I don't know how much the bisecting requirements are written in
+> >stone. At this moment, all the separate patches compile, but after
+> >#2 there are new problems solved in #4, #6 and #8. If someone
+> >bisect in the middle of this range and run into these problems,
+> >they could quite easily figure out what went wrong looking at the
+> >adjacent patches. So I would recommend to keep this current order.
+> >What's your opinion?
 > >
-> > *IP* options do, TCP options are immediately after the TCP header (hence
-> the
-> > TCP header length field). UDP doesn't have options.
-> 
-> Oh, right, of course. But then again - is the maximum length of
-> TCP options different between v4 and v6? If not, that limit
-> should be used here rather than the more generic (and version
-> dependent) IP limit.
-
-I don't know off the top of my head - I'd have to go look. My hunch is that TCP options are essentially independent of IP version. Anyway, the header is limited to 60 bytes max due to the 4 bit width of the header length field so you may as well just use that.
-
-> 
-> And iiuc the UDP case could remain as is.
-> 
-
-Yep.
-
-  Paul
+> >Zoli
