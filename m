@@ -1,49 +1,49 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH ethtool] ethtool: Report Backplane as supported port
-Date: Thu, 27 Feb 2014 22:55:58 +0000
-Message-ID: <1393541758.14067.75.camel@deadeye.wl.decadent.org.uk>
-References: <1392918536-20444-1-git-send-email-ivecera@redhat.com>
+Subject: Re: [PATCH 2/2] ethtool: allow for a smaller build
+Date: Thu, 27 Feb 2014 22:56:34 +0000
+Message-ID: <1393541794.14067.76.camel@deadeye.wl.decadent.org.uk>
+References: <1393464911-21593-1-git-send-email-f.fainelli@gmail.com>
+	 <1393464911-21593-3-git-send-email-f.fainelli@gmail.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D0F6CC891@AcuExch.aculab.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Nlh0J+zTWwC3sBbdX8m4"
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com,
-	agospoda@redhat.com
-To: Ivan Vecera <ivecera@redhat.com>
+	protocol="application/pgp-signature"; boundary="=-vhoNGo9URbUTz8sqE92w"
+Cc: 'Florian Fainelli' <f.fainelli@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:46668 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:46674 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751384AbaB0W4D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 17:56:03 -0500
-In-Reply-To: <1392918536-20444-1-git-send-email-ivecera@redhat.com>
+	by vger.kernel.org with ESMTP id S1751155AbaB0W4j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 17:56:39 -0500
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6CC891@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-Nlh0J+zTWwC3sBbdX8m4
+--=-vhoNGo9URbUTz8sqE92w
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Thu, 2014-02-20 at 18:48 +0100, Ivan Vecera wrote:
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
-> ---
->  ethtool.c | 2 ++
->  1 file changed, 2 insertions(+)
+On Thu, 2014-02-27 at 10:05 +0000, David Laight wrote:
+> From: Florian Fainelli
+> > Introduce a new configure script option: --enable-small which will
+> > disable building the driver specific register dump objects, the savings
+> > are:
+> ...
+> > +if !SMALL
+> > +ethtool_SOURCES +=3D \
+> >  		  amd8111e.c de2104x.c e100.c e1000.c et131x.c igb.c	\
+> >  		  fec_8xx.c ibm_emac.c ixgb.c ixgbe.c natsemi.c	\
+> >  		  pcnet32.c realtek.c tg3.c marvell.c vioc.c	\
+> >  		  smsc911x.c at76c50x-usb.c sfc.c stmmac.c	\
+> > -		  rxclass.c sfpid.c sfpdiag.c ixgbevf.c
+> > +		  sfpid.c sfpdiag.c ixgbevf.c
+> > +endif
 >=20
-> diff --git a/ethtool.c b/ethtool.c
-> index 315d00f..acb4397 100644
-> --- a/ethtool.c
-> +++ b/ethtool.c
-> @@ -496,6 +496,8 @@ static void dump_supported(struct ethtool_cmd *ep)
->  		fprintf(stdout, "MII ");
->  	if (mask & SUPPORTED_FIBRE)
->  		fprintf(stdout, "FIBRE ");
-> +	if (mask & SUPPORTED_Backplane)
-> +		fprintf(stdout, "Backplane ");
->  	fprintf(stdout, "]\n");
-> =20
->  	dump_link_caps("Supported", "Supports", mask, 0);
+> What about allowing a subset of the register dumps be enabled?
 
-Applied, thanks.
+I'm not interested in this.
 
 Ben.
 
@@ -52,26 +52,26 @@ Ben Hutchings
 It is easier to change the specification to fit the program than vice versa=
 .
 
---=-Nlh0J+zTWwC3sBbdX8m4
+--=-vhoNGo9URbUTz8sqE92w
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIVAwUAUw/Cfue/yOyVhhEJAQoblQ//QSgLnntoZP3FK6372VcYdqmwF/0QVmPA
-KfRnd0sUlgL3qb+CZgfy5YMRW4G7XIN1KWfkIcEExHIvNEH1mLr8uNyoHRTFXPPX
-OZ2KQsr/scaL9Uh2BrGgRc9As5bZLW+PmmqrlK0lJPmR8xLYN/vs1Qf9ZDPitLP1
-or6NGfSAxFWL5N1GMW9QfwXA5XABUIXddL+Iu9NCz+o1ae3vOC6No2hYPx1a5kbs
-hNDC3UixKeEfogONaLbxgUHk9DTwT3gWF1xbg2gJ2GdXJOGECnDD0NcmsWwSxjGf
-nhlzuoSK8UIw7iq92Ymsv1Es1qvCnIdDj2awflJteW1tBrQw1wWo69nKkoRWBJ2I
-MmtAZo036684M2T4utxkNb3bfOApAMPnqFvVGOHvoBw2oO+Bi3JvfnpCTuHcRQYr
-FvvObAtCYkskHO0Qxxo2VMUwl1lrtUUcedbI9JBELEbh0sDpVqPp5wJyfZZCq40B
-CZpQHiIw+fY+UD9NzCyJxvmXh6+xvBYTETkyP0wB2MCMZfO3KS8OnJBI7cZ0ynX3
-x+/2n3mDlwR8+psn37Qoyj/h8en26pj8/o9A3C4xD540t6TQumMrnQiLyzIiDM96
-fqfDY+1CZbh5F2PZx0lSy74Xwh0zHNlmy33V936R4L5FNjDCkqmQ0KJGu08e5fxX
-McL0lC9tevI=
-=F7Ka
+iQIVAwUAUw/Coue/yOyVhhEJAQprgQ//cJsw3T7t+6/l1VlgHKp+d/NHCl22Aj5J
+ckh9rRaWoBJYUOMBNg80N83e88w5nG6IxC5jTQvtm4WS+2ib9lvXXeMS3Nc4kAlV
+LqDPGUaP1ToA3HF8hyQwKPW4Gsc65Re6/hYVSH8L/wq5q++RBF0MMjLOG+lAKqmW
+XCML62wrWDQ+vk1ngISls82dPX5HO+bhFyJybFzLLqGifEgAiwAwGENWbI8ocyTF
+vdOCjpniqVv6uArqBQ2vkCBo4LTGAEgivNPxbiYipYtIFjrAK8cumJfu1i+q6Ju/
+YP5xJ+mlukZIFC8zCJScZHWbRbUb/65k4klEsZis7DXJWtAPb4fMxJMpt+liqmJ7
+esQZG5oSbMKXxh5FM1G17Mfp6wtQcrLDZ+nbl+MXbWW83xhX0AhQyO8SIVsJDECp
+ApFTKnstieQ2TrdkLVz/1B0W/Ha3l3mKhiTEFGBQ12pnErczMsXD8krvbNpowfiL
+EXAoRB2PHIVwDs8r2sRz9lBIV8UaMF2XYTARh8WlU6ombPvAbZjUCsbuA8H3Ils1
+0XCjJ22QQLJMKmyNzT9o6VMb3FDO8kODcLTHsk0L8ZHW2UH1V/XD3c3XLih0MIeH
+5kvh4fVlrKAt2YkIASvg23pp352gAB/dXnwNRyZGobfG4wWvyeiCC8jhWyNQtYBY
+MrN0AbwISH0=
+=tuF2
 -----END PGP SIGNATURE-----
 
---=-Nlh0J+zTWwC3sBbdX8m4--
+--=-vhoNGo9URbUTz8sqE92w--
