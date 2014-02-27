@@ -1,57 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Packet drops observed @ LINUX_MIB_TCPBACKLOGDROP
-Date: Thu, 27 Feb 2014 12:49:58 -0800
-Message-ID: <1393534198.26794.35.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAJzFV35=wUOA+pQCkAwV2+oF79VAmbsRY08gZUiFz-Vtw-898w@mail.gmail.com>
-	 <1393523649.26794.22.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAJzFV35yDOpCx=yPrrN3o4QLFdJLq9E2Jo+v2HsyyVP1q30aUg@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: IPv6 routing table max_size badly dimensioned compared to IPv4
+Date: Thu, 27 Feb 2014 21:50:10 +0100
+Message-ID: <20140227205010.GB27495@order.stressinduktion.org>
+References: <20140227192403.GA13472@xs.powerdns.com> <1393531144.26794.24.camel@edumazet-glaptop2.roam.corp.google.com> <20140227200814.GA27495@order.stressinduktion.org> <1393532583.26794.26.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, harout@hedeshian.net
-To: Sharat Masetty <sharat04@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: bert hubert <bert.hubert@netherlabs.nl>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f182.google.com ([209.85.223.182]:57864 "EHLO
-	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750904AbaB0UuA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 15:50:00 -0500
-Received: by mail-ie0-f182.google.com with SMTP id tp5so2589044ieb.41
-        for <netdev@vger.kernel.org>; Thu, 27 Feb 2014 12:50:00 -0800 (PST)
-In-Reply-To: <CAJzFV35yDOpCx=yPrrN3o4QLFdJLq9E2Jo+v2HsyyVP1q30aUg@mail.gmail.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:57909 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751660AbaB0UuM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 15:50:12 -0500
+Content-Disposition: inline
+In-Reply-To: <1393532583.26794.26.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-02-27 at 13:40 -0700, Sharat Masetty wrote:
-> Hi Eric,
+On Thu, Feb 27, 2014 at 12:23:03PM -0800, Eric Dumazet wrote:
+> > > What kernel version do you use ?
+> > > 
+> > > I thought this was already solved.
+> > > 
+> > > Commit 957c665f37007de93ccbe45902a23143724170d0 is in linux 3.0
+> > > ("ipv6: Don't put artificial limit on routing table size.")
+> > 
+> > The problem with DNS is that just for the DNS/UDP ping-pong we clone a
+> > rt6_info and reinsert it back into the fib.
+> > 
+> > DST_NOCOUNT logic only ensures we can still insert new routes from user space
+> > while the maximum number of routes is reached in the routing table. In case
+> > the ipv6 fib is under heavy load it does not help with performance.
+> > 
+> > We might think about raising this limit a bit. Number of IPv6 routing entries
+> > in global routing table already passed 4096. Maybe some heuristic which scales
+> > this value according to available memory?
 > 
-> We are using kernel version 3.10.0 and network driver is our own
-> driver designed to work on hsic-usb interconnect. One thing is for
-> sure is that we do not pre allocate lots buffers to hold incoming
-> traffic, we only allocate buffers of required size when there is data
-> to read off the bus.
 > 
-> I was under the impression that this backlog queue is charged against
-> the socket buffer space(sndbuf and rcvbuf), so I am trying to
-> understand in more detail how the driver implementation can be linked
-> to this drops in the backlog queue.
+> Well, if we attach one dst per packet, it seems we already have a limit
+> of number of packets on the host (qdisc limits + packets on TX ring
+> buffers)
 > 
-> Can you explain to me the significance of this backlog queue? mainly
-> from the perspective of the userspace application(in this case iperf)
-> socket API calls and the kernel/network stack enqueuing packets up the
-> stack..
+> So DST_NOCOUNT should be used in this case. I thought David patch
+> was already doing this.
 
+We store those routes back into the routing table, so we must have a way to
+count them and trigger gc at some point.
 
-backlog queue is used to hold packets when softirq handler found
-the socket being used by a process (user application doing a sendmsg()
-system call for example). Since a softirq cannot sleep, it has to queue
-the packet into 'backlog' so that the process can process it as soon as
-it is going to exit TCP stack.
+Greetings,
 
-We have to put a limit on the backlog, otherwise a DOS attack would fill
-the queue and the host would crash, because all memory would be
-consumed.
-
-We start dropping packet if length of backlog exceeds
- ( sk->sk_rcvbuf + sk->sk_sndbuf ) socket limit, since linux-3.5
-
-So maybe you set too small limits ?
+  Hannes
