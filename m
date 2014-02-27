@@ -1,83 +1,84 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: net/mlx4_en: Pad ethernet packets smaller than 17 bytes
-Date: Thu, 27 Feb 2014 16:02:05 +0200
-Message-ID: <20140227140203.GA13112@mtl-eit-vdi-22.mtl.labs.mlnx>
-References: <1393504026-13384-1-git-send-email-amirv@mellanox.com>
- <1393504026-13384-4-git-send-email-amirv@mellanox.com>
- <063D6719AE5E284EB5DD2968C1650D6D0F6CCB7E@AcuExch.aculab.com>
+From: Stefan Wahren <stefan.wahren@i2se.com>
+Subject: net/fec on i.MX28: promiscuous mode lost after reconnecting network
+ cable
+Date: Thu, 27 Feb 2014 14:58:28 +0100
+Message-ID: <530F4484.4060802@i2se.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Fabio Estevam <fabio.estevam@freescale.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:63682 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750765AbaB0OCJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 09:02:09 -0500
-Received: by mail-wi0-f178.google.com with SMTP id cc10so3517770wib.5
-        for <netdev@vger.kernel.org>; Thu, 27 Feb 2014 06:02:08 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6CCB7E@AcuExch.aculab.com>
+Received: from moutng.kundenserver.de ([212.227.17.24]:62913 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751301AbaB0ODg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 09:03:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 27/02/14 13:08 +0000, David Laight wrote:
-> From: Amir Vadai
-> > Hardware can't accept packets smaller than 17 bytes. Therefore need to pad with
-> > zeros.
-> 
-> Can they actually happen?
-> A 16 byte packet would only have 2 bytes following the ethertype/length.
-> The shortest LLC packets have 3 bytes.
-Raw sockets might send such packets and it will put the HW into
-unstable state.
+Hello,
 
-> It may well be safe to discard them.
-Yep - that another option.
+i'm using a i.MX28 custom board (I2SE Duckbill) with 2 different 
+Ethernet interfaces. Both interfaces should be used as bridge using 
+bridge utils. One Ethernet interface is the buildin fec and the other is 
+connect by spi. The board runs under Linux mainline 3.10. But the 
+following problem still occurs on 3.14-rc4.
 
-> 
-> ...
-> > 
-> > diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> > index 8dc7637..268cc4a 100644
-> > --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> > +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> > @@ -585,12 +585,19 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc, struct sk_buff *sk
-> >  	int spc = MLX4_INLINE_ALIGN - CTRL_SIZE - sizeof *inl;
-> > 
-> >  	if (skb->len <= spc) {
-> > -		inl->byte_count = cpu_to_be32(1 << 31 | skb->len);
-> > +		inl->byte_count = cpu_to_be32(1 << 31 |
-> > +					      max_t(typeof(skb->len),
-> > +						    skb->len,
-> > +						    MIN_PKT_LEN));
-> >  		skb_copy_from_linear_data(skb, inl + 1, skb_headlen(skb));
-> >  		if (skb_shinfo(skb)->nr_frags)
-> >  			memcpy(((void *)(inl + 1)) + skb_headlen(skb), fragptr,
-> >  			       skb_frag_size(&skb_shinfo(skb)->frags[0]));
-> 
-> Is there guaranteed to be only 1 fragment here?
-> 
-Yes, skb will not be classified as inline-able if nr_frags != 1.
-See is_inline()
+Here is the problem, if i disconnect and reconnect the Ethernet cable on 
+the buildin fec (eth0), the bridge says the port comes up, but it 
+doesn't work. After that any traffic to the fec is okay (unicast), but 
+traffic "through" the bridge is lost (multicast). But i expect no 
+traffic is lost, after reconnect the network cable.
 
-> > +		if (skb->len < MIN_PKT_LEN)
-> > +			memset(((void *)(inl + 1)) + skb->len, 0,
-> > +			       MIN_PKT_LEN - skb->len);
-> > +
-> 
-> In any case you don't want 2 checks for skb->len < MIN_PKT_LEN,
-> so reassign to inl->byte_count here.
-> An unlikely() probably wouldn't go amiss either.
-Right - will fix it for V1
+If i reset the board without disconnecting the cables, the traffic 
+"through" the bridge works. If i force the promiscuous mode on the fec 
+(eth0) after the reconnect, the bridge works too:
 
-> 
-> 	David
-> 
+ifconfig eth0 promisc
 
-Thanks,
-Amir
+After that, i made some research and probably found the cause of the 
+problem. In the case that the bridge works (link state connected since 
+reboot) the register HW_ENET_MAC_RCR of the i.MX28 returns 0x45EE011C 
+(PROM=1, promiscuous mode on). Then I disconnect the ethernet cable and 
+reconnect it. After that the register returns 0x45EE0114 (PROM=0, 
+promiscuous mode off) and the bridge doesn't work.
+
+Based on this information, i created a patch against Linux 3.10. I'm not 
+sure it's a good solution but it works. After a fec reset all register 
+values of HW_ENET_MAC_RCR must be restored, but fec_restart do not 
+handle them at all. So set_multicast_list is called after fec_restart to 
+restore the promiscuous mode.
+
+diff --git a/drivers/net/ethernet/freescale/fec_main.c 
+b/drivers/net/ethernet/freescale/fec_main.c
+index d48099f..cb6b66e 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1063,6 +1063,8 @@ static void fec_get_mac(struct net_device *ndev)
+
+  /* 
+------------------------------------------------------------------------- */
+
++static void set_multicast_list(struct net_device *ndev);
++
+  /*
+   * Phy section
+   */
+@@ -1093,8 +1095,10 @@ static void fec_enet_adjust_link(struct 
+net_device *ndev)
+          }
+
+          /* if any of the above changed restart the FEC */
+-        if (status_change)
++        if (status_change) {
+              fec_restart(ndev, phy_dev->duplex);
++            set_multicast_list(ndev);
++        }
+      } else {
+          if (fep->link) {
+              fec_stop(ndev);
+
+Is this solution correct?
+
+Best regards
+Stefan Wahren
