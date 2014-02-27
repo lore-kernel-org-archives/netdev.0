@@ -1,41 +1,38 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH net-next 0/1] net: Add doc on how SKBs work
-Date: Thu, 27 Feb 2014 16:06:05 -0500 (EST)
-Message-ID: <20140227.160605.1514355233421544.davem@redhat.com>
-References: <1393416659-10868-1-git-send-email-Neil.Jerram@metaswitch.com>
+Subject: Re: [PATCH net-next] ixgbevf: fix skb->pkt_type checks
+Date: Thu, 27 Feb 2014 16:07:41 -0500 (EST)
+Message-ID: <20140227.160741.1837528571194344504.davem@redhat.com>
+References: <1393454640-19651-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Neil.Jerram@metaswitch.com
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	aaron.f.brown@intel.com, alexander.h.duyck@intel.com,
+	jesse.brandeburg@intel.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2630 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:11234 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751410AbaB0VGR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Feb 2014 16:06:17 -0500
-In-Reply-To: <1393416659-10868-1-git-send-email-Neil.Jerram@metaswitch.com>
+	id S1751651AbaB0VID (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Feb 2014 16:08:03 -0500
+In-Reply-To: <1393454640-19651-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Jerram <Neil.Jerram@metaswitch.com>
-Date: Wed, 26 Feb 2014 12:10:58 +0000
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Wed, 26 Feb 2014 14:44:00 -0800
 
-> I'm ramping up on Linux networking and found the material at
-> http://vger.kernel.org/~davem/skb_data.html very useful.  Therefore
-> here is a patch to copy that into a Documentation/networking file in
-> the Linux tree.
+> skb->pkt_type is not a bitmask, but contains only value at a time from
+> the range defined in include/uapi/linux/if_packet.h.
 > 
-> Is this kind of thing welcome?  If it is, I'm aware that:
+> Checking it like if it was a bitmask of values would also cause
+> PACKET_OTHERHOST, PACKET_LOOPBACK and PACKET_FASTROUTE to be matched by this
+> check since their lower 2 bits are also set, although that does not fix a real
+> bug due to how the checks are used, it is still potentially confusing.
 > 
-> - some of the details are out of date
+> This bogus check was introduced in commit 815cccbf ("ixgbe: add setlink,
+> getlink support to ixgbe and ixgbevf").
 > 
-> - more material would be useful on other pointers into the data area,
->   such as the MAC and network headers
-> 
-> and would propose to work on addressing those in subsequent changes.
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Putting knowingly inaccurate documentation into the tree can be worse
-than no documentation at all.   I wrote that nearly 10 years ago.
-
-I'll try to go through it and bring it up to date.  But no promises on
-a time frame in which I'll be able to do that.
+Intel folks, I assume you will pick this up?
