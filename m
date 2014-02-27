@@ -1,71 +1,66 @@
-From: Tom Gundersen <teg@jklm.no>
-Subject: Re: [PATCH 0/4] Provide netdev naming-policy via sysfs
-Date: Thu, 27 Feb 2014 16:47:51 +0100
-Message-ID: <CAG-2HqWahCVvDLPwoMo7O4kam+W0o7BQGm4cRBvc9=X_p0fF7Q@mail.gmail.com>
-References: <1393512434-1325-1-git-send-email-dh.herrmann@gmail.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next v5 4/9] xen-netback: Change RX path for mapped
+ SKB fragments
+Date: Thu, 27 Feb 2014 15:49:47 +0000
+Message-ID: <530F5E9B.5020404@citrix.com>
+References: <1390253069-25507-1-git-send-email-zoltan.kiss@citrix.com> <1390253069-25507-5-git-send-email-zoltan.kiss@citrix.com> <1392745532.23084.65.camel@kazak.uk.xensource.com> <53093051.9040907@citrix.com> <530B4E05.4020900@schaman.hu> <530B606F.2070902@citrix.com> <20140227124327.GD16241@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Kay Sievers <kay.sievers@vrfy.org>,
-	Johannes berg <johannes@sipsolutions.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>
-To: David Herrmann <dh.herrmann@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f44.google.com ([74.125.83.44]:33763 "EHLO
-	mail-ee0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751613AbaB0PsN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 10:48:13 -0500
-Received: by mail-ee0-f44.google.com with SMTP id d49so1541790eek.3
-        for <netdev@vger.kernel.org>; Thu, 27 Feb 2014 07:48:12 -0800 (PST)
-In-Reply-To: <1393512434-1325-1-git-send-email-dh.herrmann@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ian Campbell <Ian.Campbell@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140227124327.GD16241@zion.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 27, 2014 at 3:47 PM, David Herrmann <dh.herrmann@gmail.com> wrote:
-> This series implements a new sysfs attribute for netdevs called
-> "name_assign_type". It provides an integer that describes where an interface
-> name comes from. See Patch #1 for a description of this attribute. It is
-> modelled after the existing "addr_assign_type" attribute.
+On 27/02/14 12:43, Wei Liu wrote:
+> On Mon, Feb 24, 2014 at 03:08:31PM +0000, Zoltan Kiss wrote:
+>> On 24/02/14 13:49, Zoltan Kiss wrote:
+>>> On 22/02/14 23:18, Zoltan Kiss wrote:
+>>>> On 18/02/14 17:45, Ian Campbell wrote:
+>>>>> On Mon, 2014-01-20 at 21:24 +0000, Zoltan Kiss wrote:
+>>>>>
+>>>>> Re the Subject: change how? Perhaps "handle foreign mapped pages on the
+>>>>> guest RX path" would be clearer.
+>>>> Ok, I'll do that.
+>>>>
+>>>>>
+>>>>>> RX path need to know if the SKB fragments are stored on
+>>>>>> pages from another
+>>>>>> domain.
+>>>>> Does this not need to be done either before the mapping change
+>>>>> or at the
+>>>>> same time? -- otherwise you have a window of a couple of commits where
+>>>>> things are broken, breaking bisectability.
+>>>> I can move this to the beginning, to keep bisectability. I've
+>>>> put it here originally because none of these makes sense without
+>>>> the previous patches.
+>>> Well, I gave it a close look: to move this to the beginning as a
+>>> separate patch I would need to put move a lot of definitions from
+>>> the first patch to here (ubuf_to_vif helper,
+>>> xenvif_zerocopy_callback etc.). That would be the best from bisect
+>>> point of view, but from patch review point of view even worse than
+>>> now. So the only option I see is to merge this with the first 2
+>>> patches, so it will be even bigger.
+>> Actually I was stupid, we can move this patch earlier and introduce
+>> stubs for those 2 functions. But for the another two patches (#6 and
+>> #8) it's still true that we can't move them before, only merge them
+>> into the main, as they heavily rely on the main patch. #6 is
+>> necessary for Windows frontends, as they are keen to send too many
+>> slots. #8 is quite a rare case, happens only if a guest wedge or
+>> malicious, and sits on the packet.
+>> So my question is still up: do you prefer perfect bisectability or
+>> more segmented patches which are not that pain to review?
+>>
 >
-> The main use-case is to allow udev to skip applying reliable ifnames to virtual
-> devices. For instance, if wifi-P2P devices are created, wpas already provides a
-> suitable naming-policy and udev shouldn't touch these devices. Same is true for
-> other virtual devices.
-> The idea is that if a device-name was provided by user-space, we should always
-> prefer fixing this naming-policy instead of making udev rename the device. For
-> kernel provided names that's hardly possible, though. Providing the
-> naming-policy source via sysfs is thus a simple way to see whether renames are
-> needed.
+> What's the diff stat if you merge those patches?
 >
-> Additionally, this field allows to detect whether a netdev has been manually
-> renamed, which is quite useful for debugging and during crash-recovery.
 
-Moreover, it would be useful for udev to reliably know if some other
-userspace process already renamed a device, so we know not to touch
-it. This can easily happen for instance if some renaming happens in
-the initrd or from script called from udev rules.
-
-Acked-by: Tom Gundersen <teg@jklm.no>
-
-> David Herrmann (4):
->   net: add name_assign_type netdev attribute
->   mac80211: set NET_NAME_USER for user-space created ifs
->   ath6kl: set NET_NAME_USER for P2P ifs
->   brcmfmac: set NET_NAME_USER for P2P ifs
->
->  drivers/net/wireless/ath/ath6kl/cfg80211.c    | 5 ++++-
->  drivers/net/wireless/ath/ath6kl/cfg80211.h    | 1 +
->  drivers/net/wireless/ath/ath6kl/core.c        | 4 ++--
->  drivers/net/wireless/brcm80211/brcmfmac/p2p.c | 1 +
->  include/linux/netdevice.h                     | 6 ++++++
->  net/core/dev.c                                | 7 +++++++
->  net/core/net-sysfs.c                          | 2 ++
->  net/core/rtnetlink.c                          | 2 ++
->  net/mac80211/iface.c                          | 1 +
->  9 files changed, 26 insertions(+), 3 deletions(-)
->
-> --
-> 1.9.0
->
+  drivers/net/xen-netback/common.h    |   33 ++-
+  drivers/net/xen-netback/interface.c |   67 +++++-
+  drivers/net/xen-netback/netback.c   |  424 
+++++++++++++++++++++++-------------
+  3 files changed, 362 insertions(+), 162 deletions(-)
