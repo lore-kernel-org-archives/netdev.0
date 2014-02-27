@@ -1,45 +1,44 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH (net.git) 5/6] stmmac: remove useless check in the stmmac_tx_clean
-Date: Thu, 27 Feb 2014 10:59:01 +0100
-Message-ID: <530F0C65.4080905@st.com>
-References: <1393401667-6452-1-git-send-email-peppe.cavallaro@st.com>	<1393401667-6452-6-git-send-email-peppe.cavallaro@st.com> <20140226.161422.431061479377150157.davem@davemloft.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 2/2] ethtool: allow for a smaller build
+Date: Thu, 27 Feb 2014 10:05:20 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6CC891@AcuExch.aculab.com>
+References: <1393464911-21593-1-git-send-email-f.fainelli@gmail.com>
+ <1393464911-21593-3-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Florian Fainelli' <f.fainelli@gmail.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:46458 "EHLO
-	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751058AbaB0J7I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 04:59:08 -0500
-In-Reply-To: <20140226.161422.431061479377150157.davem@davemloft.net>
+Received: from mx0.aculab.com ([213.249.233.131]:32848 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750781AbaB0KG1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 05:06:27 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 24934-03 for <netdev@vger.kernel.org>;
+ Thu, 27 Feb 2014 10:06:26 +0000 (GMT)
+In-Reply-To: <1393464911-21593-3-git-send-email-f.fainelli@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/26/2014 10:14 PM, David Miller wrote:
-> From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> Date: Wed, 26 Feb 2014 09:01:06 +0100
->
->> There is an useless if condition that this patch is removing
->> when the driver cleans the tx resources.
->>
->> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
->
-> It is not useless, the first check is optimistic and lock free.
->
-> You must retest the condition under the lock in order to avoid
-> spurious wakeups.
->
-> Such a spurious wakeup could overlap another asynchronous context
-> filling the TX queue and sleeping it, resulting in corruption.
->
-> Furthermore, that cleanup patch in this series is absolutely not
-> appropriate for 'net' which is for real bug fixes only.  Specifically
-> I'm talking about patch #4.
->
->
+From: Florian Fainelli
+> Introduce a new configure script option: --enable-small which will
+> disable building the driver specific register dump objects, the savings
+> are:
+...
+> +if !SMALL
+> +ethtool_SOURCES += \
+>  		  amd8111e.c de2104x.c e100.c e1000.c et131x.c igb.c	\
+>  		  fec_8xx.c ibm_emac.c ixgb.c ixgbe.c natsemi.c	\
+>  		  pcnet32.c realtek.c tg3.c marvell.c vioc.c	\
+>  		  smsc911x.c at76c50x-usb.c sfc.c stmmac.c	\
+> -		  rxclass.c sfpid.c sfpdiag.c ixgbevf.c
+> +		  sfpid.c sfpdiag.c ixgbevf.c
+> +endif
 
-Ok  I will send the patches w/o the #4. Thx for your advice
+What about allowing a subset of the register dumps be enabled?
 
-peppe
+	David
