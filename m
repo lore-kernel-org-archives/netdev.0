@@ -1,71 +1,75 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Packet drops observed @ LINUX_MIB_TCPBACKLOGDROP
-Date: Thu, 27 Feb 2014 08:42:16 -0800
-Message-ID: <530F6AE8.1030307@hp.com>
-References: <CAJzFV35=wUOA+pQCkAwV2+oF79VAmbsRY08gZUiFz-Vtw-898w@mail.gmail.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: mlx4_core: DMA-API: device driver tries to sync DMA memory it
+ has not allocated
+Date: Thu, 27 Feb 2014 19:01:09 +0200
+Message-ID: <20140227170107.GB24226@mtl-eit-vdi-22.mtl.labs.mlnx>
+References: <20131210144416.31b7002c@thinkpad>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Sharat Masetty <sharat04@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3426.houston.hp.com ([15.201.208.54]:58899 "EHLO
-	g4t3426.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753413AbaB0QmR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 11:42:17 -0500
-In-Reply-To: <CAJzFV35=wUOA+pQCkAwV2+oF79VAmbsRY08gZUiFz-Vtw-898w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Gerald Schaefer <gerald.schaefer@de.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131210144416.31b7002c@thinkpad>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/26/2014 06:00 PM, Sharat Masetty wrote:
+On 10/12/13 14:44 +0100, Gerald Schaefer wrote:
 > Hi,
->
-> We are trying to achieve category 4 data rates on an ARM device.
+> 
+> During network stress test with CONFIG_DMA_API_DEBUG=y we get the following
+> message on the server side:
+> 
+> [57523.955982] mlx4_core 0000:00:00.0: DMA-API: device driver tries to sync DMA memory it has not allocated [device address=0x0000000143d2c202] [size=1526 bytes]
+> [57523.956018] ------------[ cut here ]------------
+> [57523.956021] WARNING: at /home/dailybuild/builder/packages/BUILD/linux-3.12.3-20131209/lib/dma-debug.c:986
+> [57523.956022] Modules linked in: mlx4_en dm_multipath scsi_dh mlx4_core eadm_sch dm_mod lcs autofs4
+> [57523.956034] CPU: 3 PID: 20 Comm: ksoftirqd/3 Not tainted 3.12.3-65.x.20131209-s390xdefault #1
+> [57523.956037] task: 000000026f47cb60 ti: 000000026f484000 task.ti: 000000026f484000
+> [57523.956044] Krnl PSW : 0404e00180000000 00000000004a0422 (check_sync+0xf2/0x52c)
+> [57523.956047]            R:0 T:1 IO:0 EX:0 Key:0 M:1 W:0 P:0 AS:3 CC:2 PM:0 EA:3
+> [57523.956047] Krnl GPRS: 0000000000000111 000000008b767e9c 0000000000000092 0000000000000000
+> [57523.956051]            00000000004a041e 0000000000000000 00000000000005f6 0000000143d2c202
+> [57523.956053]            000000026f487a98 0000000000000001 0000000000a71144 000000026f10dd60
+> [57523.956055]            0000000000000000 000000000075bb18 00000000004a041e 000000026f487980
+> [57523.956064] Krnl Code: 00000000004a0412: c020002143d7        larl    %r2,8c8bc0
+> [57523.956064]            00000000004a0418: c0e50012717a        brasl   %r14,6ee70c
+> [57523.956064]           #00000000004a041e: a7f40001            brc     15,4a0420
+> [57523.956064]           >00000000004a0422: e330a0000012        lt      %r3,0(%r10)
+> [57523.956064]            00000000004a0428: a7740201            brc     7,4a082a
+> [57523.956064]            00000000004a042c: a7f401f3            brc     15,4a0812
+> [57523.956064]            00000000004a0430: d5078030c030        clc     48(8,%r8),48(%r12)
+> [57523.956064]            00000000004a0436: a7c40070            brc     12,4a0516
+> [57523.956081] Call Trace:
+> [57523.956084] ([<00000000004a041e>] check_sync+0xee/0x52c)
+> [57523.956087]  [<00000000004a0a26>] debug_dma_sync_single_for_cpu+0x66/0x74
+> [57523.956094]  [<000003ff801fcae0>] mlx4_en_complete_rx_desc+0x15c/0x240 [mlx4_en]
+> [57523.956098]  [<000003ff801fe1fa>] mlx4_en_process_rx_cq+0x56a/0xb58 [mlx4_en]
+> [57523.956101]  [<000003ff801fe8ea>] mlx4_en_poll_rx_cq+0x92/0xf8 [mlx4_en]
+> [57523.956105]  [<00000000005d558c>] net_rx_action+0xa0/0x2f0
+> [57523.956109]  [<000000000013cd10>] __do_softirq+0x1e8/0x480
+> [57523.956111]  [<000000000013cfe4>] run_ksoftirqd+0x3c/0x80
+> [57523.956114]  [<000000000016f496>] smpboot_thread_fn+0x2c6/0x2e8
+> [57523.956118]  [<0000000000163834>] kthread+0xd0/0xe4
+> [57523.956123]  [<00000000006ff19e>] kernel_thread_starter+0x6/0xc
+> [57523.956125]  [<00000000006ff198>] kernel_thread_starter+0x0/0xc
+> [57523.956127] 1 lock held by ksoftirqd/3/20:
+> [57523.956129]  #0:  (&(&dma_entry_hash[i].lock)->rlock){-.-...}, at: [<000000000049f1d6>] get_hash_bucket+0x4a/0x64
+> [57523.956135] Last Breaking-Event-Address:
+> [57523.956137]  [<00000000004a041e>] check_sync+0xee/0x52c
+> [57523.956139] ---[ end trace ec82af84e1d16c5f ]---
+> 
+> --
 
-Please forgive my ignorance, but what are "category 4 data rates?"
+Hi Gerald,
 
-> We see that with an incoming TCP stream(IP packets coming in and
-> acks going out) lots of packets are getting dropped when the backlog
-> queue is full. This is impacting overall data TCP throughput. I am
-> trying to understand the full context of why this queue is getting
-> full so often.
->
-> From my brief look at the code, it looks to me like the user space
-> process is slow and busy in pulling the data from the socket buffer,
-> therefore the TCP stack is using this backlog queue in the mean time.
-> This queue is also charged against the main socket buffer allocation.
->
-> Can you please explain this backlog queue, and possibly confirm if my
-> understanding this  matter is accurate?
-> Also can you suggest any ideas on how to mitigate these drops?
+It seems that I missed this mail.
 
-Well, there is always the question of why the user process is slow 
-pulling the data out of the socket.  If it is unable to handle this 
-"category 4 data rate" on a sustained basis, then something has got to 
-give.  If it is only *sometimes* unable to keep-up but otherwise is able 
-to go as fast and faster (to be able to clear-out a backlog) then you 
-could consider tweaking the size of the queue.  But it would be better 
-still to find the cause of the occasional slowness and address it.
+I didn't see this warning in our lab in x86 platform.
+Is it reproduced easily on PPC?
+Any hints how to reproduce it in our lab?
 
-If you run something which does no processing on the data (eg netperf) 
-are you able to achieve the data rates you seek?  At what level of CPU 
-utilization?  From a system you know can generate the desired data rate, 
-something like:
+Do you have a 'good' version that didn't have the warning?
 
-netperf -H <yourARMsystem> -t TCP_STREAM -C  -- -m <what your 
-application sends each time>
-
-If the ARM system is multi-core, I might go with
-
-netperf -H <yourARMsystem> -t TCP_STREAM -C  -- -m <sendsize> -o 
-throughput,remote_cpu_util,remote_cpu_peak_util,remote_cpu_peak_id,remote_sd
-
-so netperf will tell you the ID and utilization of the most utilized CPU 
-on the receiver in addition to the overall CPU utilization.
-
-There might be other netperf options to use depending on just what the 
-sender is doing - to know which would require knowing more about this 
-stream of traffic.
-
-happy benchmarking,
-
-rick jones
+Thanks,
+Amir
