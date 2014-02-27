@@ -1,45 +1,72 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 6/9] net/mlx4_en: Fix selftest failing on non 10G link speed
-Date: Thu, 27 Feb 2014 14:27:03 +0200
-Message-ID: <1393504026-13384-7-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 8/9] net/mlx4_en: Use union for BlueFlame WQE
+Date: Thu, 27 Feb 2014 14:27:05 +0200
+Message-ID: <1393504026-13384-9-git-send-email-amirv@mellanox.com>
 References: <1393504026-13384-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>
+	Amir Vadai <amirv@mellanox.com>,
+	Dan Carpenter <dan.carpenter@oracle.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:38514 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:38527 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752217AbaB0M1W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Feb 2014 07:27:22 -0500
+	id S1752639AbaB0M1Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Feb 2014 07:27:25 -0500
 In-Reply-To: <1393504026-13384-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Connect-X devices selftest speed test shouldn't fail on 1G and 40G link
-speeds.
+When BlueFlame is turned on, control segment of the TX WQE is changed,
+and the second line of it is used for QPN.
+Changed code to use a union in the mlx4_wqe_ctrl_seg instead of casting.
+This makes the code clearer and solves the static checker warning:
 
+drivers/net/ethernet/mellanox/mlx4/en_tx.c:839 mlx4_en_xmit()
+	warn: potential memory corrupting cast 4 vs 2 bytes
+
+CC: Dan Carpenter <dan.carpenter@oracle.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_selftest.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c |  3 ++-
+ include/linux/mlx4/qp.h                    | 11 ++++++++---
+ 2 files changed, 10 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_selftest.c b/drivers/net/ethernet/mellanox/mlx4/en_selftest.c
-index c11d063..03e5f6a 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_selftest.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_selftest.c
-@@ -129,8 +129,10 @@ static int mlx4_en_test_speed(struct mlx4_en_priv *priv)
- 	if (mlx4_en_QUERY_PORT(priv->mdev, priv->port))
- 		return -ENOMEM;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 9730373..fda88a8 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -877,7 +877,8 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	skb_tx_timestamp(skb);
  
--	/* The device currently only supports 10G speed */
--	if (priv->port_state.link_speed != SPEED_10000)
-+	/* The device supports 1G, 10G and 40G speeds */
-+	if (priv->port_state.link_speed != 1000 &&
-+	    priv->port_state.link_speed != 10000 &&
-+	    priv->port_state.link_speed != 40000)
- 		return priv->port_state.link_speed;
- 	return 0;
- }
+ 	if (ring->bf_enabled && desc_size <= MAX_BF && !bounce && !vlan_tx_tag_present(skb)) {
+-		*(__be32 *) (&tx_desc->ctrl.vlan_tag) |= cpu_to_be32(ring->doorbell_qpn);
++		tx_desc->ctrl.bf_qpn |= cpu_to_be32(ring->doorbell_qpn);
++
+ 		op_own |= htonl((bf_index & 0xffff) << 8);
+ 		/* Ensure new descirptor hits memory
+ 		* before setting ownership of this descriptor to HW */
+diff --git a/include/linux/mlx4/qp.h b/include/linux/mlx4/qp.h
+index 59f8ba8..b66e761 100644
+--- a/include/linux/mlx4/qp.h
++++ b/include/linux/mlx4/qp.h
+@@ -270,9 +270,14 @@ enum {
+ 
+ struct mlx4_wqe_ctrl_seg {
+ 	__be32			owner_opcode;
+-	__be16			vlan_tag;
+-	u8			ins_vlan;
+-	u8			fence_size;
++	union {
++		struct {
++			__be16			vlan_tag;
++			u8			ins_vlan;
++			u8			fence_size;
++		};
++		__be32			bf_qpn;
++	};
+ 	/*
+ 	 * High 24 bits are SRC remote buffer; low 8 bits are flags:
+ 	 * [7]   SO (strong ordering)
 -- 
 1.8.3.4
