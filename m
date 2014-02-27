@@ -1,46 +1,35 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH] bonding: disallow enslaving a bond to itself
-Date: Thu, 27 Feb 2014 09:30:56 +0800
-Message-ID: <530E9550.6030906@huawei.com>
-References: <20140226172013.GA18145@midget.suse.cz>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH 0/2] ethtool: enable a smaller build
+Date: Wed, 26 Feb 2014 17:35:09 -0800
+Message-ID: <1393464911-21593-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Jiri Bohac <jbohac@suse.cz>, Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Florian Fainelli <f.fainelli@gmail.com>
+To: <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:39962 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752555AbaB0BbI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 20:31:08 -0500
-In-Reply-To: <20140226172013.GA18145@midget.suse.cz>
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:63695 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753531AbaB0BfT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 20:35:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/2/27 1:20, Jiri Bohac wrote:
-> Enslaving a bond to itself leads to an endless loop and hangs the kernel.
-> 
+Hi Ben,
 
-Yes, I met the same problem.
+This patchset fixes a missing entry in .gitignore and adds a new
+option to the configure script to produced a smaller ethtool executable
+(saves about 65% of its size) by disabling register and EEPROM dumps
+pretty printing.
 
-Tested-by: Ding Tianhong <dingtianhong@huawei.com>
+Florian Fainelli (2):
+  gitignore: ignore test-driver
+  ethtool: allow for a smaller build
 
-> Signed-off-by: Jiri Bohac <jbohac@suse.cz>
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 1c6104d..8f028ac 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -1193,6 +1193,11 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
->  		return -EBUSY;
->  	}
->  
-> +	if (bond_dev == slave_dev) {
-> +		pr_err("%s: cannot enslave bond to itself.\n", bond_dev->name);
-> +		return -EPERM;
-> +	}
-> +
->  	/* vlan challenged mutual exclusion */
->  	/* no need to lock since we're protected by rtnl_lock */
->  	if (slave_dev->features & NETIF_F_VLAN_CHALLENGED) {
-> 
+ .gitignore   | 1 +
+ Makefile.am  | 6 +++++-
+ configure.ac | 8 ++++++++
+ ethtool.c    | 8 ++++++--
+ 4 files changed, 20 insertions(+), 3 deletions(-)
+
+-- 
+1.8.3.2
