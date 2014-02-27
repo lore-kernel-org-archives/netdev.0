@@ -1,59 +1,57 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 5/5] xfrm: Fix unlink race when policies are deleted.
-Date: Thu, 27 Feb 2014 15:01:20 +0800
-Message-ID: <20140227070120.GA31520@gondor.apana.org.au>
-References: <1393481799-20492-1-git-send-email-steffen.klassert@secunet.com>
- <1393481799-20492-6-git-send-email-steffen.klassert@secunet.com>
- <20140227062712.GA31082@gondor.apana.org.au>
- <20140227063015.GA31204@gondor.apana.org.au>
- <20140227065353.GM32371@secunet.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH RFC 0/7] Non-promisc bidge ports support
+Date: Thu, 27 Feb 2014 09:20:06 +0200
+Message-ID: <20140227072006.GD16484@redhat.com>
+References: <1393427905-6811-1-git-send-email-vyasevic@redhat.com>
+ <530E7FE1.5060705@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, shemminger@vyatta.com,
+	john.r.fastabend@intel.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:40514 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750745AbaB0HB0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 02:01:26 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:30385 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750724AbaB0HOq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Feb 2014 02:14:46 -0500
 Content-Disposition: inline
-In-Reply-To: <20140227065353.GM32371@secunet.com>
+In-Reply-To: <530E7FE1.5060705@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 27, 2014 at 07:53:53AM +0100, Steffen Klassert wrote:
-> On Thu, Feb 27, 2014 at 02:30:15PM +0800, Herbert Xu wrote:
-> > On Thu, Feb 27, 2014 at 02:27:12PM +0800, Herbert Xu wrote:
-> > > On Thu, Feb 27, 2014 at 07:16:39AM +0100, Steffen Klassert wrote:
-> > > > When a policy is unlinked from the lists in thread context,
-> > > > the xfrm timer can fire before we can mark this policy as dead.
-> > > > So reinitialize the bydst hlist, then hlist_unhashed() will
-> > > > notice that this policy is not linked and will avoid a
-> > > > doulble unlink of that policy.
-> > > > 
-> > > > Reported-by: Xianpeng Zhao <673321875@qq.com>
-> > > > Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> > > 
-> > > If this race condition is real then I don't see how this fix
-> > > can be correct since there aren't any barriers between the check
-> > > and the unlink.
-> > 
-> > Looking at the code it seems that we've already taken the policy
-> > lock so how can this race occur?
+On Wed, Feb 26, 2014 at 06:59:29PM -0500, Jamal Hadi Salim wrote:
+> On 02/26/14 10:18, Vlad Yasevich wrote:
+> >This patch series is a complete re-design and re-implementation of
+> >prior attempts to support non-promiscuous bridge ports.
+> >
+> >The basic design is as follows.  The bridge keeps track of
+> >all the ports that flood packets to unknown destinations.  If
+> >the flooding is disabled on the port, to get traffic to flow
+> >through, user/management would need to add an fdb describing
+> >such traffic.  When such fdb is added, we save the address
+> >to bridge private hardware address list.
 > 
-> We take the policy lock in xfrm_policy_delete() before we
-> unlink the policy. But we release it before we mark the
-> policy as dead with xfrm_policy_kill(). If the timer fires
-> in the meantime it can be unlinked from the timer first
-> and then again from xfrm_policy_delete().
+> Entering the addresses in the uc list on other bridgeports seems
+> reasonable for the scenario described.
+> But would it _also_ need to be added to the fdb of the bridge?
+> i.e how does the bridge (if the packet was to be handed to it)
+> know where to forward?
+> BTW: on the comment that flooding off implies learning off: I would like
+> to be able to turn off flooding on a specific bridge port but
+> still want to learn from it. I dont think those two are mutually
+> exclusive.
 > 
-> This issue was originally reported here:
-> https://bugzilla.kernel.org/show_bug.cgi?id=70471
+> cheers,
+> jamal
 
-Right, I see what you mean.
+I agree.
 
-Thanks for the explanation!
+It seems a reasonable tradeoff to limit any specific
+optimization to !flood && !learn if this simplifies the
+implementation significantly and if everything works
+as it did before even with learning on.
+
+
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+MST
