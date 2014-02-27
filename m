@@ -1,8 +1,7 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [nf-next PATCH 2/5] netfilter: conntrack: spinlock per cpu to protect
-	special lists.
-Date: Thu, 27 Feb 2014 19:23:35 +0100
-Message-ID: <20140227182334.25907.22915.stgit@dragon>
+Subject: [nf-next PATCH 3/5] netfilter: avoid race with exp->master ct
+Date: Thu, 27 Feb 2014 19:23:40 +0100
+Message-ID: <20140227182340.25907.6773.stgit@dragon>
 References: <20140227182220.25907.12758.stgit@dragon>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,475 +13,86 @@ Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
 To: netfilter-devel@vger.kernel.org,
 	Eric Dumazet <eric.dumazet@gmail.com>,
 	Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52642 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753656AbaB0SXs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Feb 2014 13:23:48 -0500
 In-Reply-To: <20140227182220.25907.12758.stgit@dragon>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-One spinlock per cpu to protect dying/unconfirmed/template special lists.
-(These lists are now per cpu, a bit like the untracked ct)
-Add a @cpu field to nf_conn, to make sure we hold the appropriate
-spinlock at removal time.
+Preparation for disconnecting the nf_conntrack_lock from the
+expectations code.  Once the nf_conntrack_lock is lifted, a race
+condition is exposed.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+The expectations master conntrack exp->master, can race with
+delete operations, as the refcnt increment happens too late in
+init_conntrack().  Race is against other CPUs invoking
+->destroy() (destroy_conntrack()), or nf_ct_delete() (via timeout
+or early_drop()).
+
+Avoid this race in nf_ct_find_expectation() by using atomic_inc_not_zero(),
+and checking if nf_ct_is_dying() (path via nf_ct_delete()).
+
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
 
- include/net/netfilter/nf_conntrack.h |    3 -
- include/net/netns/conntrack.h        |   11 ++-
- net/netfilter/nf_conntrack_core.c    |  139 +++++++++++++++++++++++++---------
- net/netfilter/nf_conntrack_helper.c  |   11 ++-
- net/netfilter/nf_conntrack_netlink.c |   81 +++++++++++---------
- 5 files changed, 166 insertions(+), 79 deletions(-)
+ net/netfilter/nf_conntrack_core.c   |    2 +-
+ net/netfilter/nf_conntrack_expect.c |   16 +++++++++++++++-
+ 2 files changed, 16 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-index e10d1fa..37252f7 100644
---- a/include/net/netfilter/nf_conntrack.h
-+++ b/include/net/netfilter/nf_conntrack.h
-@@ -82,7 +82,8 @@ struct nf_conn {
- 	 */
- 	struct nf_conntrack ct_general;
- 
--	spinlock_t lock;
-+	spinlock_t	lock;
-+	u16		cpu;
- 
- 	/* XXX should I move this to the tail ? - Y.K */
- 	/* These are my tuples; original and reply */
-diff --git a/include/net/netns/conntrack.h b/include/net/netns/conntrack.h
-index fbcc7fa..c6a8994 100644
---- a/include/net/netns/conntrack.h
-+++ b/include/net/netns/conntrack.h
-@@ -62,6 +62,13 @@ struct nf_ip_net {
- #endif
- };
- 
-+struct ct_pcpu {
-+	spinlock_t		lock;
-+	struct hlist_nulls_head unconfirmed;
-+	struct hlist_nulls_head dying;
-+	struct hlist_nulls_head tmpl;
-+};
-+
- struct netns_ct {
- 	atomic_t		count;
- 	unsigned int		expect_count;
-@@ -86,9 +93,7 @@ struct netns_ct {
- 	struct kmem_cache	*nf_conntrack_cachep;
- 	struct hlist_nulls_head	*hash;
- 	struct hlist_head	*expect_hash;
--	struct hlist_nulls_head	unconfirmed;
--	struct hlist_nulls_head	dying;
--	struct hlist_nulls_head tmpl;
-+	struct ct_pcpu __percpu *pcpu_lists;
- 	struct ip_conntrack_stat __percpu *stat;
- 	struct nf_ct_event_notifier __rcu *nf_conntrack_event_cb;
- 	struct nf_exp_event_notifier __rcu *nf_expect_event_cb;
 diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 965693e..ac85fd1 100644
+index ac85fd1..a822720 100644
 --- a/net/netfilter/nf_conntrack_core.c
 +++ b/net/netfilter/nf_conntrack_core.c
-@@ -192,6 +192,47 @@ clean_from_lists(struct nf_conn *ct)
- 	nf_ct_remove_expectations(ct);
- }
+@@ -898,6 +898,7 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
+ 			 ct, exp);
+ 		/* Welcome, Mr. Bond.  We've been expecting you... */
+ 		__set_bit(IPS_EXPECTED_BIT, &ct->status);
++		/* exp->master safe, refcnt bumped in nf_ct_find_expectation */
+ 		ct->master = exp->master;
+ 		if (exp->helper) {
+ 			help = nf_ct_helper_ext_add(ct, exp->helper,
+@@ -912,7 +913,6 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
+ #ifdef CONFIG_NF_CONNTRACK_SECMARK
+ 		ct->secmark = exp->master->secmark;
+ #endif
+-		nf_conntrack_get(&ct->master->ct_general);
+ 		NF_CT_STAT_INC(net, expect_new);
+ 	} else {
+ 		__nf_ct_try_assign_helper(ct, tmpl, GFP_ATOMIC);
+diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
+index 4fd1ca9..2c4ffdb 100644
+--- a/net/netfilter/nf_conntrack_expect.c
++++ b/net/netfilter/nf_conntrack_expect.c
+@@ -147,13 +147,27 @@ nf_ct_find_expectation(struct net *net, u16 zone,
+ 	if (!exp)
+ 		return NULL;
  
-+static void nf_ct_add_to_dying_list(struct nf_conn *ct)
-+{
-+	struct ct_pcpu *pcpu;
++	/* Avoid race with other CPUs, that for exp->master ct, is
++	 * about to invoke ->destroy(), or nf_ct_delete() via timeout
++	 * or early_drop().
++	 *
++	 * The atomic_inc_not_zero() check tells:  If that fails, we
++	 * know that the ct is being destroyed.  If it succeeds, we
++	 * can be sure the ct cannot disappear underneath.
++	 */
++	if (unlikely(nf_ct_is_dying(exp->master) ||
++		     !atomic_inc_not_zero(&exp->master->ct_general.use)))
++		return NULL;
 +
-+	/* add this conntrack to the (per cpu) dying list */
-+	ct->cpu = raw_smp_processor_id();
-+	pcpu = per_cpu_ptr(nf_ct_net(ct)->ct.pcpu_lists, ct->cpu);
-+
-+	spin_lock_bh(&pcpu->lock);
-+	hlist_nulls_add_head(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode,
-+			     &pcpu->dying);
-+	spin_unlock_bh(&pcpu->lock);
-+}
-+
-+static void nf_ct_add_to_unconfirmed_list(struct nf_conn *ct)
-+{
-+	struct ct_pcpu *pcpu;
-+
-+	/* add this conntrack to the (per cpu) unconfirmed list */
-+	ct->cpu = raw_smp_processor_id();
-+	pcpu = per_cpu_ptr(nf_ct_net(ct)->ct.pcpu_lists, ct->cpu);
-+
-+	spin_lock_bh(&pcpu->lock);
-+	hlist_nulls_add_head(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode,
-+			     &pcpu->unconfirmed);
-+	spin_unlock_bh(&pcpu->lock);
-+}
-+
-+static void nf_ct_del_from_dying_or_unconfirmed_list(struct nf_conn *ct)
-+{
-+	struct ct_pcpu *pcpu;
-+
-+	/* We overload first tuple to link into unconfirmed or dying list.*/
-+	pcpu = per_cpu_ptr(nf_ct_net(ct)->ct.pcpu_lists, ct->cpu);
-+
-+	spin_lock_bh(&pcpu->lock);
-+	BUG_ON(hlist_nulls_unhashed(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode));
-+	hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
-+	spin_unlock_bh(&pcpu->lock);
-+}
-+
- static void
- destroy_conntrack(struct nf_conntrack *nfct)
- {
-@@ -220,9 +261,7 @@ destroy_conntrack(struct nf_conntrack *nfct)
- 	 * too. */
- 	nf_ct_remove_expectations(ct);
- 
--	/* We overload first tuple to link into unconfirmed or dying list.*/
--	BUG_ON(hlist_nulls_unhashed(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode));
--	hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
-+	nf_ct_del_from_dying_or_unconfirmed_list(ct);
- 
- 	NF_CT_STAT_INC(net, delete);
- 	spin_unlock_bh(&nf_conntrack_lock);
-@@ -244,9 +283,7 @@ static void nf_ct_delete_from_lists(struct nf_conn *ct)
- 	 * Otherwise we can get spurious warnings. */
- 	NF_CT_STAT_INC(net, delete_list);
- 	clean_from_lists(ct);
--	/* add this conntrack to the dying list */
--	hlist_nulls_add_head(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode,
--			     &net->ct.dying);
-+	nf_ct_add_to_dying_list(ct);
- 	spin_unlock_bh(&nf_conntrack_lock);
- }
- 
-@@ -467,15 +504,21 @@ EXPORT_SYMBOL_GPL(nf_conntrack_hash_check_insert);
- /* deletion from this larval template list happens via nf_ct_put() */
- void nf_conntrack_tmpl_insert(struct net *net, struct nf_conn *tmpl)
- {
-+	struct ct_pcpu *pcpu;
-+
- 	__set_bit(IPS_TEMPLATE_BIT, &tmpl->status);
- 	__set_bit(IPS_CONFIRMED_BIT, &tmpl->status);
- 	nf_conntrack_get(&tmpl->ct_general);
- 
--	spin_lock_bh(&nf_conntrack_lock);
-+	/* add this conntrack to the (per cpu) tmpl list */
-+	tmpl->cpu = raw_smp_processor_id();
-+	pcpu = per_cpu_ptr(nf_ct_net(tmpl)->ct.pcpu_lists, tmpl->cpu);
-+
-+	spin_lock_bh(&pcpu->lock);
- 	/* Overload tuple linked list to put us in template list. */
- 	hlist_nulls_add_head_rcu(&tmpl->tuplehash[IP_CT_DIR_ORIGINAL].hnnode,
--				 &net->ct.tmpl);
--	spin_unlock_bh(&nf_conntrack_lock);
-+				 &pcpu->tmpl);
-+	spin_unlock_bh(&pcpu->lock);
- }
- EXPORT_SYMBOL_GPL(nf_conntrack_tmpl_insert);
- 
-@@ -546,8 +589,7 @@ __nf_conntrack_confirm(struct sk_buff *skb)
- 		    zone == nf_ct_zone(nf_ct_tuplehash_to_ctrack(h)))
- 			goto out;
- 
--	/* Remove from unconfirmed list */
--	hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
-+	nf_ct_del_from_dying_or_unconfirmed_list(ct);
- 
- 	/* Timer relative to confirmation time, not original
- 	   setting time, otherwise we'd get timer wrap in
-@@ -880,12 +922,11 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
- 	/* Now it is inserted into the unconfirmed list, bump refcount */
- 	nf_conntrack_get(&ct->ct_general);
- 
--	/* Overload tuple linked list to put us in unconfirmed list. */
--	hlist_nulls_add_head_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode,
--		       &net->ct.unconfirmed);
--
- 	spin_unlock_bh(&nf_conntrack_lock);
- 
-+	nf_ct_add_to_unconfirmed_list(ct);
-+
-+
- 	if (exp) {
- 		if (exp->expectfn)
- 			exp->expectfn(ct, exp);
-@@ -1254,6 +1295,7 @@ get_next_corpse(struct net *net, int (*iter)(struct nf_conn *i, void *data),
- 	struct nf_conntrack_tuple_hash *h;
- 	struct nf_conn *ct;
- 	struct hlist_nulls_node *n;
-+	int cpu;
- 
- 	spin_lock_bh(&nf_conntrack_lock);
- 	for (; *bucket < net->ct.htable_size; (*bucket)++) {
-@@ -1265,12 +1307,19 @@ get_next_corpse(struct net *net, int (*iter)(struct nf_conn *i, void *data),
- 				goto found;
- 		}
- 	}
--	hlist_nulls_for_each_entry(h, n, &net->ct.unconfirmed, hnnode) {
--		ct = nf_ct_tuplehash_to_ctrack(h);
--		if (iter(ct, data))
--			set_bit(IPS_DYING_BIT, &ct->status);
--	}
- 	spin_unlock_bh(&nf_conntrack_lock);
-+
-+	for_each_possible_cpu(cpu) {
-+		struct ct_pcpu *pcpu = per_cpu_ptr(net->ct.pcpu_lists, cpu);
-+
-+		spin_lock_bh(&pcpu->lock);
-+		hlist_nulls_for_each_entry(h, n, &pcpu->unconfirmed, hnnode) {
-+			ct = nf_ct_tuplehash_to_ctrack(h);
-+			if (iter(ct, data))
-+				set_bit(IPS_DYING_BIT, &ct->status);
-+		}
-+		spin_unlock_bh(&pcpu->lock);
+ 	/* If master is not in hash table yet (ie. packet hasn't left
+ 	   this machine yet), how can other end know about expected?
+ 	   Hence these are not the droids you are looking for (if
+ 	   master ct never got confirmed, we'd hold a reference to it
+ 	   and weird things would happen to future packets). */
+-	if (!nf_ct_is_confirmed(exp->master))
++	if (!nf_ct_is_confirmed(exp->master)) {
++		atomic_dec(&exp->master->ct_general.use);
+ 		return NULL;
 +	}
- 	return NULL;
- found:
- 	atomic_inc(&ct->ct_general.use);
-@@ -1323,14 +1372,19 @@ static void nf_ct_release_dying_list(struct net *net)
- 	struct nf_conntrack_tuple_hash *h;
- 	struct nf_conn *ct;
- 	struct hlist_nulls_node *n;
-+	int cpu;
  
--	spin_lock_bh(&nf_conntrack_lock);
--	hlist_nulls_for_each_entry(h, n, &net->ct.dying, hnnode) {
--		ct = nf_ct_tuplehash_to_ctrack(h);
--		/* never fails to remove them, no listeners at this point */
--		nf_ct_kill(ct);
-+	for_each_possible_cpu(cpu) {
-+		struct ct_pcpu *pcpu = per_cpu_ptr(net->ct.pcpu_lists, cpu);
-+
-+		spin_lock_bh(&pcpu->lock);
-+		hlist_nulls_for_each_entry(h, n, &pcpu->dying, hnnode) {
-+			ct = nf_ct_tuplehash_to_ctrack(h);
-+			/* never fails to remove them, no listeners at this point */
-+			nf_ct_kill(ct);
-+		}
-+		spin_unlock_bh(&pcpu->lock);
- 	}
--	spin_unlock_bh(&nf_conntrack_lock);
- }
- 
- static int untrack_refs(void)
-@@ -1417,6 +1471,7 @@ i_see_dead_people:
- 		kmem_cache_destroy(net->ct.nf_conntrack_cachep);
- 		kfree(net->ct.slabname);
- 		free_percpu(net->ct.stat);
-+		free_percpu(net->ct.pcpu_lists);
- 	}
- }
- 
-@@ -1629,37 +1684,43 @@ void nf_conntrack_init_end(void)
- 
- int nf_conntrack_init_net(struct net *net)
- {
--	int ret;
-+	int ret = -ENOMEM;
-+	int cpu;
- 
- 	atomic_set(&net->ct.count, 0);
--	INIT_HLIST_NULLS_HEAD(&net->ct.unconfirmed, UNCONFIRMED_NULLS_VAL);
--	INIT_HLIST_NULLS_HEAD(&net->ct.dying, DYING_NULLS_VAL);
--	INIT_HLIST_NULLS_HEAD(&net->ct.tmpl, TEMPLATE_NULLS_VAL);
--	net->ct.stat = alloc_percpu(struct ip_conntrack_stat);
--	if (!net->ct.stat) {
--		ret = -ENOMEM;
-+
-+	net->ct.pcpu_lists = alloc_percpu(struct ct_pcpu);
-+	if (!net->ct.pcpu_lists)
- 		goto err_stat;
-+
-+	for_each_possible_cpu(cpu) {
-+		struct ct_pcpu *pcpu = per_cpu_ptr(net->ct.pcpu_lists, cpu);
-+
-+		spin_lock_init(&pcpu->lock);
-+		INIT_HLIST_NULLS_HEAD(&pcpu->unconfirmed, UNCONFIRMED_NULLS_VAL);
-+		INIT_HLIST_NULLS_HEAD(&pcpu->dying, DYING_NULLS_VAL);
-+		INIT_HLIST_NULLS_HEAD(&pcpu->tmpl, TEMPLATE_NULLS_VAL);
- 	}
- 
-+	net->ct.stat = alloc_percpu(struct ip_conntrack_stat);
-+	if (!net->ct.stat)
-+		goto err_pcpu_lists;
-+
- 	net->ct.slabname = kasprintf(GFP_KERNEL, "nf_conntrack_%p", net);
--	if (!net->ct.slabname) {
--		ret = -ENOMEM;
-+	if (!net->ct.slabname)
- 		goto err_slabname;
--	}
- 
- 	net->ct.nf_conntrack_cachep = kmem_cache_create(net->ct.slabname,
- 							sizeof(struct nf_conn), 0,
- 							SLAB_DESTROY_BY_RCU, NULL);
- 	if (!net->ct.nf_conntrack_cachep) {
- 		printk(KERN_ERR "Unable to create nf_conn slab cache\n");
--		ret = -ENOMEM;
- 		goto err_cache;
- 	}
- 
- 	net->ct.htable_size = nf_conntrack_htable_size;
- 	net->ct.hash = nf_ct_alloc_hashtable(&net->ct.htable_size, 1);
- 	if (!net->ct.hash) {
--		ret = -ENOMEM;
- 		printk(KERN_ERR "Unable to create nf_conntrack_hash\n");
- 		goto err_hash;
- 	}
-@@ -1701,6 +1762,8 @@ err_cache:
- 	kfree(net->ct.slabname);
- err_slabname:
- 	free_percpu(net->ct.stat);
-+err_pcpu_lists:
-+	free_percpu(net->ct.pcpu_lists);
- err_stat:
- 	return ret;
- }
-diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
-index 974a2a4..27d9302 100644
---- a/net/netfilter/nf_conntrack_helper.c
-+++ b/net/netfilter/nf_conntrack_helper.c
-@@ -396,6 +396,7 @@ static void __nf_conntrack_helper_unregister(struct nf_conntrack_helper *me,
- 	const struct hlist_node *next;
- 	const struct hlist_nulls_node *nn;
- 	unsigned int i;
-+	int cpu;
- 
- 	/* Get rid of expectations */
- 	for (i = 0; i < nf_ct_expect_hsize; i++) {
-@@ -414,8 +415,14 @@ static void __nf_conntrack_helper_unregister(struct nf_conntrack_helper *me,
- 	}
- 
- 	/* Get rid of expecteds, set helpers to NULL. */
--	hlist_nulls_for_each_entry(h, nn, &net->ct.unconfirmed, hnnode)
--		unhelp(h, me);
-+	for_each_possible_cpu(cpu) {
-+		struct ct_pcpu *pcpu = per_cpu_ptr(net->ct.pcpu_lists, cpu);
-+
-+		spin_lock_bh(&pcpu->lock);
-+		hlist_nulls_for_each_entry(h, nn, &pcpu->unconfirmed, hnnode)
-+			unhelp(h, me);
-+		spin_unlock_bh(&pcpu->lock);
-+	}
- 	for (i = 0; i < net->ct.htable_size; i++) {
- 		hlist_nulls_for_each_entry(h, nn, &net->ct.hash[i], hnnode)
- 			unhelp(h, me);
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index bb322d0..ee0a49a 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -1138,50 +1138,65 @@ static int ctnetlink_done_list(struct netlink_callback *cb)
- }
- 
- static int
--ctnetlink_dump_list(struct sk_buff *skb, struct netlink_callback *cb,
--		    struct hlist_nulls_head *list)
-+ctnetlink_dump_list(struct sk_buff *skb, struct netlink_callback *cb, bool dying)
- {
--	struct nf_conn *ct, *last;
-+	struct nf_conn *ct, *last = NULL;
- 	struct nf_conntrack_tuple_hash *h;
- 	struct hlist_nulls_node *n;
- 	struct nfgenmsg *nfmsg = nlmsg_data(cb->nlh);
- 	u_int8_t l3proto = nfmsg->nfgen_family;
- 	int res;
-+	int cpu;
-+	struct hlist_nulls_head *list;
-+	struct net *net = sock_net(skb->sk);
- 
- 	if (cb->args[2])
- 		return 0;
- 
--	spin_lock_bh(&nf_conntrack_lock);
--	last = (struct nf_conn *)cb->args[1];
--restart:
--	hlist_nulls_for_each_entry(h, n, list, hnnode) {
--		ct = nf_ct_tuplehash_to_ctrack(h);
--		if (l3proto && nf_ct_l3num(ct) != l3proto)
-+	if (cb->args[0] == nr_cpu_ids)
-+		return 0;
-+
-+	for (cpu = cb->args[0]; cpu < nr_cpu_ids; cpu++) {
-+		struct ct_pcpu *pcpu;
-+
-+		if (!cpu_possible(cpu))
- 			continue;
--		if (cb->args[1]) {
--			if (ct != last)
-+
-+		pcpu = per_cpu_ptr(net->ct.pcpu_lists, cpu);
-+		spin_lock_bh(&pcpu->lock);
-+		last = (struct nf_conn *)cb->args[1];
-+		list = dying ? &pcpu->dying : &pcpu->unconfirmed;
-+restart:
-+		hlist_nulls_for_each_entry(h, n, list, hnnode) {
-+			ct = nf_ct_tuplehash_to_ctrack(h);
-+			if (l3proto && nf_ct_l3num(ct) != l3proto)
- 				continue;
--			cb->args[1] = 0;
--		}
--		rcu_read_lock();
--		res = ctnetlink_fill_info(skb, NETLINK_CB(cb->skb).portid,
--					  cb->nlh->nlmsg_seq,
--					  NFNL_MSG_TYPE(cb->nlh->nlmsg_type),
--					  ct);
--		rcu_read_unlock();
--		if (res < 0) {
--			nf_conntrack_get(&ct->ct_general);
--			cb->args[1] = (unsigned long)ct;
--			goto out;
-+			if (cb->args[1]) {
-+				if (ct != last)
-+					continue;
-+				cb->args[1] = 0;
-+			}
-+			rcu_read_lock();
-+			res = ctnetlink_fill_info(skb, NETLINK_CB(cb->skb).portid,
-+						  cb->nlh->nlmsg_seq,
-+						  NFNL_MSG_TYPE(cb->nlh->nlmsg_type),
-+						  ct);
-+			rcu_read_unlock();
-+			if (res < 0) {
-+				nf_conntrack_get(&ct->ct_general);
-+				cb->args[1] = (unsigned long)ct;
-+				spin_unlock_bh(&pcpu->lock);
-+				goto out;
-+			}
- 		}
-+		if (cb->args[1]) {
-+			cb->args[1] = 0;
-+			goto restart;
-+		} else
-+			cb->args[2] = 1;
-+		spin_unlock_bh(&pcpu->lock);
- 	}
--	if (cb->args[1]) {
--		cb->args[1] = 0;
--		goto restart;
--	} else
--		cb->args[2] = 1;
- out:
--	spin_unlock_bh(&nf_conntrack_lock);
- 	if (last)
- 		nf_ct_put(last);
- 
-@@ -1191,9 +1206,7 @@ out:
- static int
- ctnetlink_dump_dying(struct sk_buff *skb, struct netlink_callback *cb)
- {
--	struct net *net = sock_net(skb->sk);
--
--	return ctnetlink_dump_list(skb, cb, &net->ct.dying);
-+	return ctnetlink_dump_list(skb, cb, true);
- }
- 
- static int
-@@ -1215,9 +1228,7 @@ ctnetlink_get_ct_dying(struct sock *ctnl, struct sk_buff *skb,
- static int
- ctnetlink_dump_unconfirmed(struct sk_buff *skb, struct netlink_callback *cb)
- {
--	struct net *net = sock_net(skb->sk);
--
--	return ctnetlink_dump_list(skb, cb, &net->ct.unconfirmed);
-+	return ctnetlink_dump_list(skb, cb, false);
- }
- 
- static int
-
+ 	if (exp->flags & NF_CT_EXPECT_PERMANENT) {
+ 		atomic_inc(&exp->use);
