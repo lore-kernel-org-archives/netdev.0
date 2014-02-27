@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 04/12] ipcomp4: Use the IPsec protocol multiplexer API
-Date: Thu, 27 Feb 2014 09:00:32 +0100
-Message-ID: <1393488040-22005-5-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 07/12] vti: Update the ipv4 side to use it's own receive hook.
+Date: Thu, 27 Feb 2014 09:00:35 +0100
+Message-ID: <1393488040-22005-8-git-send-email-steffen.klassert@secunet.com>
 References: <1393488040-22005-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,109 +10,397 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	<netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:59017 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:59031 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751263AbaB0IAz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Feb 2014 03:00:55 -0500
+	id S1751326AbaB0IA6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Feb 2014 03:00:58 -0500
 In-Reply-To: <1393488040-22005-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Switch ipcomp4 to use the new IPsec protocol multiplexer.
+With this patch, vti uses the IPsec protocol multiplexer to
+register it's own receive side hooks for ESP, AH and IPCOMP.
+
+Vti now does the following on receive side:
+
+1. Do an input policy check for the IPsec packet we received.
+   This is required because this packet could be already
+   prosecces by IPsec, so an inbuond policy check is needed.
+
+2. Mark the packet with the i_key. The policy and the state
+   must match this key now. Policy and state belong to the outer
+   namespace and policy enforcement is done at the further layers.
+
+3. Call the generic xfrm layer to do decryption and decapsulation.
+
+4. Wait for a callback from the xfrm layer to properly clean the
+   skb to not leak informations on namespace and to update the
+   device statistics.
+
+On transmit side:
+
+1. Mark the packet with the o_key. The policy and the state
+   must match this key now.
+
+2. Do a xfrm_lookup on the original packet with the mark applied.
+
+3. Check if we got an IPsec route.
+
+4. Clean the skb to not leak informations on namespace
+   transitions.
+
+5. Attach the dst_enty we got from the xfrm_lookup to the skb.
+
+6. Call dst_output to do the IPsec processing.
+
+7. Do the device statistics.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/ipv4/ipcomp.c |   26 +++++++++++++++++---------
- 1 file changed, 17 insertions(+), 9 deletions(-)
+ net/ipv4/ip_vti.c |  234 ++++++++++++++++++++++++++++++++++++++++++-----------
+ 1 file changed, 187 insertions(+), 47 deletions(-)
 
-diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
-index 826be4c..c0855d5 100644
---- a/net/ipv4/ipcomp.c
-+++ b/net/ipv4/ipcomp.c
-@@ -23,7 +23,7 @@
- #include <net/protocol.h>
- #include <net/sock.h>
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index 48eafae..b23f9e6 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -49,8 +49,8 @@ static struct rtnl_link_ops vti_link_ops __read_mostly;
+ static int vti_net_id __read_mostly;
+ static int vti_tunnel_init(struct net_device *dev);
  
--static void ipcomp4_err(struct sk_buff *skb, u32 info)
-+static int ipcomp4_err(struct sk_buff *skb, u32 info)
+-/* We dont digest the packet therefore let the packet pass */
+-static int vti_rcv(struct sk_buff *skb)
++static int vti_input(struct sk_buff *skb, int nexthdr, __be32 spi,
++		     int encap_type)
  {
- 	struct net *net = dev_net(skb->dev);
- 	__be32 spi;
-@@ -34,24 +34,26 @@ static void ipcomp4_err(struct sk_buff *skb, u32 info)
- 	switch (icmp_hdr(skb)->type) {
- 	case ICMP_DEST_UNREACH:
- 		if (icmp_hdr(skb)->code != ICMP_FRAG_NEEDED)
--			return;
-+			return 0;
- 	case ICMP_REDIRECT:
- 		break;
- 	default:
--		return;
-+		return 0;
- 	}
- 
- 	spi = htonl(ntohs(ipch->cpi));
- 	x = xfrm_state_lookup(net, skb->mark, (const xfrm_address_t *)&iph->daddr,
- 			      spi, IPPROTO_COMP, AF_INET);
- 	if (!x)
--		return;
-+		return 0;
- 
- 	if (icmp_hdr(skb)->type == ICMP_DEST_UNREACH)
- 		ipv4_update_pmtu(skb, net, info, 0, 0, IPPROTO_COMP, 0);
- 	else
- 		ipv4_redirect(skb, net, 0, 0, IPPROTO_COMP, 0);
- 	xfrm_state_put(x);
+ 	struct ip_tunnel *tunnel;
+ 	const struct iphdr *iph = ip_hdr(skb);
+@@ -60,66 +60,98 @@ static int vti_rcv(struct sk_buff *skb)
+ 	tunnel = ip_tunnel_lookup(itn, skb->dev->ifindex, TUNNEL_NO_KEY,
+ 				  iph->saddr, iph->daddr, 0);
+ 	if (tunnel != NULL) {
+-		struct pcpu_sw_netstats *tstats;
+-		u32 oldmark = skb->mark;
+-		int ret;
+-
+-
+-		/* temporarily mark the skb with the tunnel o_key, to
+-		 * only match policies with this mark.
+-		 */
+-		skb->mark = be32_to_cpu(tunnel->parms.o_key);
+-		ret = xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb);
+-		skb->mark = oldmark;
+-		if (!ret)
+-			return -1;
+-
+-		tstats = this_cpu_ptr(tunnel->dev->tstats);
+-		u64_stats_update_begin(&tstats->syncp);
+-		tstats->rx_packets++;
+-		tstats->rx_bytes += skb->len;
+-		u64_stats_update_end(&tstats->syncp);
+-
+-		secpath_reset(skb);
+-		skb->dev = tunnel->dev;
++		if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb))
++			goto drop;
 +
-+	return 0;
- }
- 
- /* We always hold one tunnel user reference to indicate a tunnel */
-@@ -147,6 +149,11 @@ out:
- 	return err;
- }
- 
-+static int ipcomp4_rcv_cb(struct sk_buff *skb, int err)
-+{
++		XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4 = tunnel;
++		skb->mark = be32_to_cpu(tunnel->parms.i_key);
++
++		return xfrm_input(skb, nexthdr, spi, encap_type);
++	}
++
++	return -EINVAL;
++drop:
++	kfree_skb(skb);
 +	return 0;
 +}
 +
- static const struct xfrm_type ipcomp_type = {
- 	.description	= "IPCOMP4",
- 	.owner		= THIS_MODULE,
-@@ -157,11 +164,12 @@ static const struct xfrm_type ipcomp_type = {
- 	.output		= ipcomp_output
- };
- 
--static const struct net_protocol ipcomp4_protocol = {
-+static struct xfrm4_protocol ipcomp4_protocol = {
- 	.handler	=	xfrm4_rcv,
-+	.input_handler	=	xfrm_input,
-+	.cb_handler	=	ipcomp4_rcv_cb,
- 	.err_handler	=	ipcomp4_err,
--	.no_policy	=	1,
--	.netns_ok	=	1,
-+	.priority	=	0,
- };
- 
- static int __init ipcomp4_init(void)
-@@ -170,7 +178,7 @@ static int __init ipcomp4_init(void)
- 		pr_info("%s: can't add xfrm type\n", __func__);
- 		return -EAGAIN;
++static int vti_rcv(struct sk_buff *skb)
++{
++	XFRM_SPI_SKB_CB(skb)->family = AF_INET;
++	XFRM_SPI_SKB_CB(skb)->daddroff = offsetof(struct iphdr, daddr);
++
++	return vti_input(skb, ip_hdr(skb)->protocol, 0, 0);
++}
++
++static int vti_rcv_cb(struct sk_buff *skb, int err)
++{
++	unsigned short family;
++	struct net_device *dev;
++	struct pcpu_sw_netstats *tstats;
++	struct xfrm_state *x;
++	struct ip_tunnel *tunnel = XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4;
++
++	if (!tunnel)
+ 		return 1;
++
++	dev = tunnel->dev;
++
++	if (err) {
++		dev->stats.rx_errors++;
++		dev->stats.rx_dropped++;
++
++		return 0;
  	}
--	if (inet_add_protocol(&ipcomp4_protocol, IPPROTO_COMP) < 0) {
-+	if (xfrm4_protocol_register(&ipcomp4_protocol, IPPROTO_COMP) < 0) {
- 		pr_info("%s: can't add protocol\n", __func__);
- 		xfrm_unregister_type(&ipcomp_type, AF_INET);
- 		return -EAGAIN;
-@@ -180,7 +188,7 @@ static int __init ipcomp4_init(void)
  
- static void __exit ipcomp4_fini(void)
+-	return -1;
++	x = xfrm_input_state(skb);
++	family = x->inner_mode->afinfo->family;
++
++	if (!xfrm_policy_check(NULL, XFRM_POLICY_IN, skb, family))
++		return -EPERM;
++
++	skb_scrub_packet(skb, !net_eq(tunnel->net, dev_net(skb->dev)));
++	skb->dev = dev;
++
++	tstats = this_cpu_ptr(dev->tstats);
++
++	u64_stats_update_begin(&tstats->syncp);
++	tstats->rx_packets++;
++	tstats->rx_bytes += skb->len;
++	u64_stats_update_end(&tstats->syncp);
++
++	return 0;
+ }
+ 
+ /* This function assumes it is being called from dev_queue_xmit()
+  * and that skb is filled properly by that function.
+  */
+-
+ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
  {
--	if (inet_del_protocol(&ipcomp4_protocol, IPPROTO_COMP) < 0)
-+	if (xfrm4_protocol_deregister(&ipcomp4_protocol, IPPROTO_COMP) < 0)
- 		pr_info("%s: can't remove protocol\n", __func__);
- 	if (xfrm_unregister_type(&ipcomp_type, AF_INET) < 0)
- 		pr_info("%s: can't remove xfrm type\n", __func__);
+ 	struct ip_tunnel *tunnel = netdev_priv(dev);
+-	struct iphdr  *tiph = &tunnel->parms.iph;
+-	u8     tos;
+ 	struct rtable *rt;		/* Route to the other host */
+ 	struct net_device *tdev;	/* Device to other host */
+-	struct iphdr  *old_iph = ip_hdr(skb);
+-	__be32 dst = tiph->daddr;
+-	struct flowi4 fl4;
++	struct flowi fl;
+ 	int err;
+ 
+ 	if (skb->protocol != htons(ETH_P_IP))
+ 		goto tx_error;
+ 
+-	tos = old_iph->tos;
++	memset(&fl, 0, sizeof(fl));
++	skb->mark = be32_to_cpu(tunnel->parms.o_key);
++	xfrm_decode_session(skb, &fl, AF_INET);
++
++	if (!skb_dst(skb)) {
++		dev->stats.tx_carrier_errors++;
++		goto tx_error_icmp;
++	}
+ 
+-	memset(&fl4, 0, sizeof(fl4));
+-	flowi4_init_output(&fl4, tunnel->parms.link,
+-			   be32_to_cpu(tunnel->parms.o_key), RT_TOS(tos),
+-			   RT_SCOPE_UNIVERSE,
+-			   IPPROTO_IPIP, 0,
+-			   dst, tiph->saddr, 0, 0);
+-	rt = ip_route_output_key(dev_net(dev), &fl4);
++	dst_hold(skb_dst(skb));
++	rt = (struct rtable *)xfrm_lookup(tunnel->net, skb_dst(skb), &fl, NULL, 0);
+ 	if (IS_ERR(rt)) {
+ 		dev->stats.tx_carrier_errors++;
+ 		goto tx_error_icmp;
+ 	}
++
+ 	/* if there is no transform then this tunnel is not functional.
+ 	 * Or if the xfrm is not mode tunnel.
+ 	 */
+@@ -147,9 +179,8 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	}
+ 
+ 	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
+-	skb_dst_drop(skb);
++	skb_scrub_packet(skb, !net_eq(tunnel->net, dev_net(dev)));
+ 	skb_dst_set(skb, &rt->dst);
+-	nf_reset(skb);
+ 	skb->dev = skb_dst(skb)->dev;
+ 
+ 	err = dst_output(skb);
+@@ -166,6 +197,65 @@ tx_error:
+ 	return NETDEV_TX_OK;
+ }
+ 
++static int vti4_err(struct sk_buff *skb, u32 info)
++{
++	__be32 spi;
++	struct xfrm_state *x;
++	struct ip_tunnel *tunnel;
++	struct ip_esp_hdr *esph;
++	struct ip_auth_hdr *ah ;
++	struct ip_comp_hdr *ipch;
++	struct net *net = dev_net(skb->dev);
++	const struct iphdr *iph = (const struct iphdr *)skb->data;
++	int protocol = iph->protocol;
++	struct ip_tunnel_net *itn = net_generic(net, vti_net_id);
++
++	tunnel = ip_tunnel_lookup(itn, skb->dev->ifindex, TUNNEL_NO_KEY,
++				  iph->daddr, iph->saddr, 0);
++	if (!tunnel)
++		return -1;
++
++	switch (protocol) {
++	case IPPROTO_ESP:
++		esph = (struct ip_esp_hdr *)(skb->data+(iph->ihl<<2));
++		spi = esph->spi;
++		break;
++	case IPPROTO_AH:
++		ah = (struct ip_auth_hdr *)(skb->data+(iph->ihl<<2));
++		spi = ah->spi;
++		break;
++	case IPPROTO_COMP:
++		ipch = (struct ip_comp_hdr *)(skb->data+(iph->ihl<<2));
++		spi = htonl(ntohs(ipch->cpi));
++		break;
++	default:
++		return 0;
++	}
++
++	switch (icmp_hdr(skb)->type) {
++	case ICMP_DEST_UNREACH:
++		if (icmp_hdr(skb)->code != ICMP_FRAG_NEEDED)
++			return 0;
++	case ICMP_REDIRECT:
++		break;
++	default:
++		return 0;
++	}
++
++	x = xfrm_state_lookup(net, skb->mark, (const xfrm_address_t *)&iph->daddr,
++			      spi, protocol, AF_INET);
++	if (!x)
++		return 0;
++
++	if (icmp_hdr(skb)->type == ICMP_DEST_UNREACH)
++		ipv4_update_pmtu(skb, net, info, 0, 0, protocol, 0);
++	else
++		ipv4_redirect(skb, net, 0, 0, protocol, 0);
++	xfrm_state_put(x);
++
++	return 0;
++}
++
+ static int
+ vti_tunnel_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ {
+@@ -181,12 +271,13 @@ vti_tunnel_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 			return -EINVAL;
+ 	}
+ 
++	p.i_flags |= VTI_ISVTI;
+ 	err = ip_tunnel_ioctl(dev, &p, cmd);
+ 	if (err)
+ 		return err;
+ 
+ 	if (cmd != SIOCDELTUNNEL) {
+-		p.i_flags |= GRE_KEY | VTI_ISVTI;
++		p.i_flags |= GRE_KEY;
+ 		p.o_flags |= GRE_KEY;
+ 	}
+ 
+@@ -241,9 +332,28 @@ static void __net_init vti_fb_tunnel_init(struct net_device *dev)
+ 	iph->ihl		= 5;
+ }
+ 
+-static struct xfrm_tunnel_notifier vti_handler __read_mostly = {
++static struct xfrm4_protocol vti_esp4_protocol __read_mostly = {
+ 	.handler	=	vti_rcv,
+-	.priority	=	1,
++	.input_handler	=	vti_input,
++	.cb_handler	=	vti_rcv_cb,
++	.err_handler	=	vti4_err,
++	.priority	=	100,
++};
++
++static struct xfrm4_protocol vti_ah4_protocol __read_mostly = {
++	.handler	=	vti_rcv,
++	.input_handler	=	vti_input,
++	.cb_handler	=	vti_rcv_cb,
++	.err_handler	=	vti4_err,
++	.priority	=	100,
++};
++
++static struct xfrm4_protocol vti_ipcomp4_protocol __read_mostly = {
++	.handler	=	vti_rcv,
++	.input_handler	=	vti_input,
++	.cb_handler	=	vti_rcv_cb,
++	.err_handler	=	vti4_err,
++	.priority	=	100,
+ };
+ 
+ static int __net_init vti_init_net(struct net *net)
+@@ -287,6 +397,8 @@ static void vti_netlink_parms(struct nlattr *data[],
+ 	if (!data)
+ 		return;
+ 
++	parms->i_flags = VTI_ISVTI;
++
+ 	if (data[IFLA_VTI_LINK])
+ 		parms->link = nla_get_u32(data[IFLA_VTI_LINK]);
+ 
+@@ -382,10 +494,31 @@ static int __init vti_init(void)
+ 	err = register_pernet_device(&vti_net_ops);
+ 	if (err < 0)
+ 		return err;
+-	err = xfrm4_mode_tunnel_input_register(&vti_handler);
++	err = xfrm4_protocol_register(&vti_esp4_protocol, IPPROTO_ESP);
++	if (err < 0) {
++		unregister_pernet_device(&vti_net_ops);
++		pr_info("vti init: can't register tunnel\n");
++
++		return err;
++	}
++
++	err = xfrm4_protocol_register(&vti_ah4_protocol, IPPROTO_AH);
++	if (err < 0) {
++		xfrm4_protocol_deregister(&vti_esp4_protocol, IPPROTO_ESP);
++		unregister_pernet_device(&vti_net_ops);
++		pr_info("vti init: can't register tunnel\n");
++
++		return err;
++	}
++
++	err = xfrm4_protocol_register(&vti_ipcomp4_protocol, IPPROTO_COMP);
+ 	if (err < 0) {
++		xfrm4_protocol_deregister(&vti_ah4_protocol, IPPROTO_AH);
++		xfrm4_protocol_deregister(&vti_esp4_protocol, IPPROTO_ESP);
+ 		unregister_pernet_device(&vti_net_ops);
+ 		pr_info("vti init: can't register tunnel\n");
++
++		return err;
+ 	}
+ 
+ 	err = rtnl_link_register(&vti_link_ops);
+@@ -395,7 +528,9 @@ static int __init vti_init(void)
+ 	return err;
+ 
+ rtnl_link_failed:
+-	xfrm4_mode_tunnel_input_deregister(&vti_handler);
++	xfrm4_protocol_deregister(&vti_ipcomp4_protocol, IPPROTO_COMP);
++	xfrm4_protocol_deregister(&vti_ah4_protocol, IPPROTO_AH);
++	xfrm4_protocol_deregister(&vti_esp4_protocol, IPPROTO_ESP);
+ 	unregister_pernet_device(&vti_net_ops);
+ 	return err;
+ }
+@@ -403,8 +538,13 @@ rtnl_link_failed:
+ static void __exit vti_fini(void)
+ {
+ 	rtnl_link_unregister(&vti_link_ops);
+-	if (xfrm4_mode_tunnel_input_deregister(&vti_handler))
++	if (xfrm4_protocol_deregister(&vti_ipcomp4_protocol, IPPROTO_COMP))
++		pr_info("vti close: can't deregister tunnel\n");
++	if (xfrm4_protocol_deregister(&vti_ah4_protocol, IPPROTO_AH))
+ 		pr_info("vti close: can't deregister tunnel\n");
++	if (xfrm4_protocol_deregister(&vti_esp4_protocol, IPPROTO_ESP))
++		pr_info("vti close: can't deregister tunnel\n");
++
+ 
+ 	unregister_pernet_device(&vti_net_ops);
+ }
 -- 
 1.7.9.5
