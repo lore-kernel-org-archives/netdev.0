@@ -1,497 +1,101 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 4/5] netfilter: conntrack: seperate expect locking
-	from nf_conntrack_lock
-Date: Thu, 27 Feb 2014 17:41:30 +0100
-Message-ID: <20140227164130.24668.51924.stgit@dragon>
-References: <20140227163950.24668.55934.stgit@dragon>
+From: Stephen Warren <swarren@wwwdotorg.org>
+Subject: Re: [PATCH 2/4] net: rfkill: gpio: remove gpio names
+Date: Thu, 27 Feb 2014 10:47:58 -0700
+Message-ID: <530F7A4E.700@wwwdotorg.org>
+References: <1392900697-27577-1-git-send-email-heikki.krogerus@linux.intel.com>	<1392900697-27577-3-git-send-email-heikki.krogerus@linux.intel.com>	<53062F97.3050407@wwwdotorg.org>	<CAGb2v66-tDZhrm9dnXe+PdQTaLZbw20sw3uYzLor2eXpVWmPMA@mail.gmail.com>	<5306E599.7020605@wwwdotorg.org> <CACRpkdZBvKU31EDX=6=wVLXaQDAqD6VHtaE_mGnFLr1UYQAH9g@mail.gmail.com> <BD75D217E5BAC84080F8EFB2582976378B327178@ORSMSX109.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+Cc: Chen-Yu Tsai <wens@csie.org>,
+	Heikki Krogerus <heikki.krogerus@linux.intel.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
 	"David S. Miller" <davem@davemloft.net>,
-	Florian Westphal <fw@strlen.de>
-To: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51574 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751898AbaB0Rkm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Feb 2014 12:40:42 -0500
-In-Reply-To: <20140227163950.24668.55934.stgit@dragon>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Rhyland Klein <rklein@nvidia.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Arnd Bergmann <arnd@arndb.de>,
+	"Westerberg, Mika" <mika.westerberg@intel.com>,
+	"mgross@linux.intel.com" <mgross@linux.intel.com>
+To: "Gross, Mark" <mark.gross@intel.com>,
+	Linus Walleij <linus.walleij@linaro.org>,
+	Alexandre Courbot <gnurou@gmail.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BD75D217E5BAC84080F8EFB2582976378B327178@ORSMSX109.amr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Netfilter expectations are protected with the same lock as conntrack
-entries (nf_conntrack_lock).  This patch split out expectations locking
-to use it's own lock (nf_conntrack_expect_lock).
+On 02/27/2014 10:38 AM, Gross, Mark wrote:
+> Please know that no one should not consider me an authority on ACPI at this time.  But, I have some comments / context / thoughts below.
+> 
+> Also I apologize in advance for any email formatting issues caused by replying to this via my work exchange account / outlook client.  Folks can use mgross@linux.intel.com to avoid outlook-isms from me in the future.
+> 
+>> -----Original Message-----
+>> From: Linus Walleij [mailto:linus.walleij@linaro.org]
+>> Sent: Tuesday, February 25, 2014 1:14 AM
+>> To: Stephen Warren; Alexandre Courbot; Grant Likely;
+>> devicetree@vger.kernel.org
+>> Cc: Chen-Yu Tsai; Heikki Krogerus; Johannes Berg; David S. Miller; Rhyland
+>> Klein; linux-wireless; netdev; linux-kernel; Arnd Bergmann; Gross, Mark
+>> Subject: Re: [PATCH 2/4] net: rfkill: gpio: remove gpio names
+>>
+>> On Fri, Feb 21, 2014 at 6:35 AM, Stephen Warren
+>> <swarren@wwwdotorg.org> wrote:
+>>> On 02/20/2014 06:55 PM, Chen-Yu Tsai wrote:
+>>
+>>>> That's correct. However using con_id to pass this results in
+>>>> different behavior across DT and ACPI. A better way is to export the
+>>>> labeling function so consumers can set meaningful labels themselves.
+>>>
+>>> But this code is the consumer of those GPIOs. IF the parameter to
+>>> devm_gpiod_get_index() isn't intended to be used, why does it exist?
+>>
+>> Kerneldoc says:
+>>
+>> /**
+>>  * gpiod_get_index - obtain a GPIO from a multi-index GPIO function
+>>  * @dev:        GPIO consumer, can be NULL for system-global GPIOs
+>>  * @con_id:     function within the GPIO consumer
+>>  * @idx:        index of the GPIO to obtain in the consumer
+>>  *
+>>
+>> Basically it is just exposing the fact that of_find_gpio() and
+>> acpi_find_gpio() both take a con_id as argument.
+>>
+>> If we drill into this, we find that it is used to conjure the arbitrary string
+>> before the gpios in the DT case, like:
+>>
+>> foo-gpios = <...>;
+>>
+>> As in tegra30-beaver.dts...
+>>
+>>     sdhci@78000000 {
+>>             status = "okay";
+>>             cd-gpios = <&gpio TEGRA_GPIO(I, 5) GPIO_ACTIVE_LOW>;
+>>             wp-gpios = <&gpio TEGRA_GPIO(T, 3) GPIO_ACTIVE_HIGH>;
+>>             power-gpios = <&gpio TEGRA_GPIO(D, 7) GPIO_ACTIVE_HIGH>;
+>>             bus-width = <4>;
+>>     };
+>>
+>> Instead of passing the GPIOs as index 0,1,2 they are named and I do admit
+>> this has a nice "things are under control" aspect to it.
+>
+> [Gross, Mark] FWIW I don't think this is as "under control" as you do.  Those
+> names in the above sdhci example are derived from a specific SDHCI
+tegra spec
+> sheet or schematic.  Those names likely come from the data sheet for
+> the controller.
 
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
----
+The names of the properties are fixed and defined by the DT binding for
+the Tegra SDHCI controller, or even the core SDHCI bindings. Hence, they
+will be the same in every DT file that uses that Tegra SDHCI compatible
+value (the compatible property isn't show above, because the above
+fragment is a board.dts file, and the compatible value gets inherited
+from the soc.dtsi file). There won't be any variation at all,
+irrespective of what signal names exist in a particular board schematic.
 
- include/net/netfilter/nf_conntrack_core.h |    2 +
- net/netfilter/nf_conntrack_core.c         |   61 ++++++++++++++++-------------
- net/netfilter/nf_conntrack_expect.c       |   20 +++++-----
- net/netfilter/nf_conntrack_h323_main.c    |    4 +-
- net/netfilter/nf_conntrack_helper.c       |   14 ++++---
- net/netfilter/nf_conntrack_netlink.c      |   32 ++++++++-------
- net/netfilter/nf_conntrack_sip.c          |    8 ++--
- 7 files changed, 76 insertions(+), 65 deletions(-)
-
-diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
-index 15308b8..d12a631 100644
---- a/include/net/netfilter/nf_conntrack_core.h
-+++ b/include/net/netfilter/nf_conntrack_core.h
-@@ -79,4 +79,6 @@ print_tuple(struct seq_file *s, const struct nf_conntrack_tuple *tuple,
- 
- extern spinlock_t nf_conntrack_lock ;
- 
-+extern spinlock_t nf_conntrack_expect_lock;
-+
- #endif /* _NF_CONNTRACK_CORE_H */
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index a822720..6ed5dec 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -63,6 +63,9 @@ EXPORT_SYMBOL_GPL(nfnetlink_parse_nat_setup_hook);
- DEFINE_SPINLOCK(nf_conntrack_lock);
- EXPORT_SYMBOL_GPL(nf_conntrack_lock);
- 
-+__cacheline_aligned_in_smp DEFINE_SPINLOCK(nf_conntrack_expect_lock);
-+EXPORT_SYMBOL_GPL(nf_conntrack_expect_lock);
-+
- unsigned int nf_conntrack_htable_size __read_mostly;
- EXPORT_SYMBOL_GPL(nf_conntrack_htable_size);
- 
-@@ -244,9 +247,6 @@ destroy_conntrack(struct nf_conntrack *nfct)
- 	NF_CT_ASSERT(atomic_read(&nfct->use) == 0);
- 	NF_CT_ASSERT(!timer_pending(&ct->timeout));
- 
--	/* To make sure we don't get any weird locking issues here:
--	 * destroy_conntrack() MUST NOT be called with a write lock
--	 * to nf_conntrack_lock!!! -HW */
- 	rcu_read_lock();
- 	l4proto = __nf_ct_l4proto_find(nf_ct_l3num(ct), nf_ct_protonum(ct));
- 	if (l4proto && l4proto->destroy)
-@@ -254,17 +254,18 @@ destroy_conntrack(struct nf_conntrack *nfct)
- 
- 	rcu_read_unlock();
- 
--	spin_lock_bh(&nf_conntrack_lock);
-+	local_bh_disable();
- 	/* Expectations will have been removed in clean_from_lists,
- 	 * except TFTP can create an expectation on the first packet,
- 	 * before connection is in the list, so we need to clean here,
--	 * too. */
-+	 * too.
-+	 */
- 	nf_ct_remove_expectations(ct);
- 
- 	nf_ct_del_from_dying_or_unconfirmed_list(ct);
- 
- 	NF_CT_STAT_INC(net, delete);
--	spin_unlock_bh(&nf_conntrack_lock);
-+	local_bh_enable();
- 
- 	if (ct->master)
- 		nf_ct_put(ct->master);
-@@ -847,7 +848,7 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
- 	struct nf_conn_help *help;
- 	struct nf_conntrack_tuple repl_tuple;
- 	struct nf_conntrack_ecache *ecache;
--	struct nf_conntrack_expect *exp;
-+	struct nf_conntrack_expect *exp = NULL;
- 	u16 zone = tmpl ? nf_ct_zone(tmpl) : NF_CT_DEFAULT_ZONE;
- 	struct nf_conn_timeout *timeout_ext;
- 	unsigned int *timeouts;
-@@ -891,30 +892,35 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
- 				 ecache ? ecache->expmask : 0,
- 			     GFP_ATOMIC);
- 
--	spin_lock_bh(&nf_conntrack_lock);
--	exp = nf_ct_find_expectation(net, zone, tuple);
--	if (exp) {
--		pr_debug("conntrack: expectation arrives ct=%p exp=%p\n",
--			 ct, exp);
--		/* Welcome, Mr. Bond.  We've been expecting you... */
--		__set_bit(IPS_EXPECTED_BIT, &ct->status);
--		/* exp->master safe, refcnt bumped in nf_ct_find_expectation */
--		ct->master = exp->master;
--		if (exp->helper) {
--			help = nf_ct_helper_ext_add(ct, exp->helper,
--						    GFP_ATOMIC);
--			if (help)
--				rcu_assign_pointer(help->helper, exp->helper);
--		}
-+	local_bh_disable();
-+	if (net->ct.expect_count) {
-+		spin_lock(&nf_conntrack_expect_lock);
-+		exp = nf_ct_find_expectation(net, zone, tuple);
-+		if (exp) {
-+			pr_debug("conntrack: expectation arrives ct=%p exp=%p\n",
-+				 ct, exp);
-+			/* Welcome, Mr. Bond.  We've been expecting you... */
-+			__set_bit(IPS_EXPECTED_BIT, &ct->status);
-+			/* exp->master safe, refcnt bumped in nf_ct_find_expectation */
-+			ct->master = exp->master;
-+			if (exp->helper) {
-+				help = nf_ct_helper_ext_add(ct, exp->helper,
-+							    GFP_ATOMIC);
-+				if (help)
-+					rcu_assign_pointer(help->helper, exp->helper);
-+			}
- 
- #ifdef CONFIG_NF_CONNTRACK_MARK
--		ct->mark = exp->master->mark;
-+			ct->mark = exp->master->mark;
- #endif
- #ifdef CONFIG_NF_CONNTRACK_SECMARK
--		ct->secmark = exp->master->secmark;
-+			ct->secmark = exp->master->secmark;
- #endif
--		NF_CT_STAT_INC(net, expect_new);
--	} else {
-+			NF_CT_STAT_INC(net, expect_new);
-+		}
-+		spin_unlock(&nf_conntrack_expect_lock);
-+	}
-+	if (!exp) {
- 		__nf_ct_try_assign_helper(ct, tmpl, GFP_ATOMIC);
- 		NF_CT_STAT_INC(net, new);
- 	}
-@@ -922,11 +928,10 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
- 	/* Now it is inserted into the unconfirmed list, bump refcount */
- 	nf_conntrack_get(&ct->ct_general);
- 
--	spin_unlock_bh(&nf_conntrack_lock);
-+	local_bh_enable();
- 
- 	nf_ct_add_to_unconfirmed_list(ct);
- 
--
- 	if (exp) {
- 		if (exp->expectfn)
- 			exp->expectfn(ct, exp);
-diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
-index 2c4ffdb..f50e4c8 100644
---- a/net/netfilter/nf_conntrack_expect.c
-+++ b/net/netfilter/nf_conntrack_expect.c
-@@ -66,9 +66,9 @@ static void nf_ct_expectation_timed_out(unsigned long ul_expect)
- {
- 	struct nf_conntrack_expect *exp = (void *)ul_expect;
- 
--	spin_lock_bh(&nf_conntrack_lock);
-+	spin_lock_bh(&nf_conntrack_expect_lock);
- 	nf_ct_unlink_expect(exp);
--	spin_unlock_bh(&nf_conntrack_lock);
-+	spin_unlock_bh(&nf_conntrack_expect_lock);
- 	nf_ct_expect_put(exp);
- }
- 
-@@ -191,12 +191,14 @@ void nf_ct_remove_expectations(struct nf_conn *ct)
- 	if (!help)
- 		return;
- 
-+	spin_lock_bh(&nf_conntrack_expect_lock);
- 	hlist_for_each_entry_safe(exp, next, &help->expectations, lnode) {
- 		if (del_timer(&exp->timeout)) {
- 			nf_ct_unlink_expect(exp);
- 			nf_ct_expect_put(exp);
- 		}
- 	}
-+	spin_unlock_bh(&nf_conntrack_expect_lock);
- }
- EXPORT_SYMBOL_GPL(nf_ct_remove_expectations);
- 
-@@ -231,12 +233,12 @@ static inline int expect_matches(const struct nf_conntrack_expect *a,
- /* Generally a bad idea to call this: could have matched already. */
- void nf_ct_unexpect_related(struct nf_conntrack_expect *exp)
- {
--	spin_lock_bh(&nf_conntrack_lock);
-+	spin_lock_bh(&nf_conntrack_expect_lock);
- 	if (del_timer(&exp->timeout)) {
- 		nf_ct_unlink_expect(exp);
- 		nf_ct_expect_put(exp);
- 	}
--	spin_unlock_bh(&nf_conntrack_lock);
-+	spin_unlock_bh(&nf_conntrack_expect_lock);
- }
- EXPORT_SYMBOL_GPL(nf_ct_unexpect_related);
- 
-@@ -349,7 +351,7 @@ static int nf_ct_expect_insert(struct nf_conntrack_expect *exp)
- 	setup_timer(&exp->timeout, nf_ct_expectation_timed_out,
- 		    (unsigned long)exp);
- 	helper = rcu_dereference_protected(master_help->helper,
--					   lockdep_is_held(&nf_conntrack_lock));
-+					   lockdep_is_held(&nf_conntrack_expect_lock));
- 	if (helper) {
- 		exp->timeout.expires = jiffies +
- 			helper->expect_policy[exp->class].timeout * HZ;
-@@ -409,7 +411,7 @@ static inline int __nf_ct_expect_check(struct nf_conntrack_expect *expect)
- 	}
- 	/* Will be over limit? */
- 	helper = rcu_dereference_protected(master_help->helper,
--					   lockdep_is_held(&nf_conntrack_lock));
-+					   lockdep_is_held(&nf_conntrack_expect_lock));
- 	if (helper) {
- 		p = &helper->expect_policy[expect->class];
- 		if (p->max_expected &&
-@@ -436,7 +438,7 @@ int nf_ct_expect_related_report(struct nf_conntrack_expect *expect,
- {
- 	int ret;
- 
--	spin_lock_bh(&nf_conntrack_lock);
-+	spin_lock_bh(&nf_conntrack_expect_lock);
- 	ret = __nf_ct_expect_check(expect);
- 	if (ret <= 0)
- 		goto out;
-@@ -444,11 +446,11 @@ int nf_ct_expect_related_report(struct nf_conntrack_expect *expect,
- 	ret = nf_ct_expect_insert(expect);
- 	if (ret < 0)
- 		goto out;
--	spin_unlock_bh(&nf_conntrack_lock);
-+	spin_unlock_bh(&nf_conntrack_expect_lock);
- 	nf_ct_expect_event_report(IPEXP_NEW, expect, portid, report);
- 	return ret;
- out:
--	spin_unlock_bh(&nf_conntrack_lock);
-+	spin_unlock_bh(&nf_conntrack_expect_lock);
- 	return ret;
- }
- EXPORT_SYMBOL_GPL(nf_ct_expect_related_report);
-diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
-index 70866d1..3a3a60b 100644
---- a/net/netfilter/nf_conntrack_h323_main.c
-+++ b/net/netfilter/nf_conntrack_h323_main.c
-@@ -1476,7 +1476,7 @@ static int process_rcf(struct sk_buff *skb, struct nf_conn *ct,
- 		nf_ct_refresh(ct, skb, info->timeout * HZ);
- 
- 		/* Set expect timeout */
--		spin_lock_bh(&nf_conntrack_lock);
-+		spin_lock_bh(&nf_conntrack_expect_lock);
- 		exp = find_expect(ct, &ct->tuplehash[dir].tuple.dst.u3,
- 				  info->sig_port[!dir]);
- 		if (exp) {
-@@ -1486,7 +1486,7 @@ static int process_rcf(struct sk_buff *skb, struct nf_conn *ct,
- 			nf_ct_dump_tuple(&exp->tuple);
- 			set_expect_timeout(exp, info->timeout);
- 		}
--		spin_unlock_bh(&nf_conntrack_lock);
-+		spin_unlock_bh(&nf_conntrack_expect_lock);
- 	}
- 
- 	return 0;
-diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
-index 27d9302..608f449 100644
---- a/net/netfilter/nf_conntrack_helper.c
-+++ b/net/netfilter/nf_conntrack_helper.c
-@@ -258,7 +258,7 @@ static inline int unhelp(struct nf_conntrack_tuple_hash *i,
- 
- 	if (help && rcu_dereference_protected(
- 			help->helper,
--			lockdep_is_held(&nf_conntrack_lock)
-+			lockdep_is_held(&nf_conntrack_expect_lock)
- 			) == me) {
- 		nf_conntrack_event(IPCT_HELPER, ct);
- 		RCU_INIT_POINTER(help->helper, NULL);
-@@ -284,17 +284,17 @@ static LIST_HEAD(nf_ct_helper_expectfn_list);
- 
- void nf_ct_helper_expectfn_register(struct nf_ct_helper_expectfn *n)
- {
--	spin_lock_bh(&nf_conntrack_lock);
-+	spin_lock_bh(&nf_conntrack_expect_lock);
- 	list_add_rcu(&n->head, &nf_ct_helper_expectfn_list);
--	spin_unlock_bh(&nf_conntrack_lock);
-+	spin_unlock_bh(&nf_conntrack_expect_lock);
- }
- EXPORT_SYMBOL_GPL(nf_ct_helper_expectfn_register);
- 
- void nf_ct_helper_expectfn_unregister(struct nf_ct_helper_expectfn *n)
- {
--	spin_lock_bh(&nf_conntrack_lock);
-+	spin_lock_bh(&nf_conntrack_expect_lock);
- 	list_del_rcu(&n->head);
--	spin_unlock_bh(&nf_conntrack_lock);
-+	spin_unlock_bh(&nf_conntrack_expect_lock);
- }
- EXPORT_SYMBOL_GPL(nf_ct_helper_expectfn_unregister);
- 
-@@ -399,13 +399,14 @@ static void __nf_conntrack_helper_unregister(struct nf_conntrack_helper *me,
- 	int cpu;
- 
- 	/* Get rid of expectations */
-+	spin_lock_bh(&nf_conntrack_expect_lock);
- 	for (i = 0; i < nf_ct_expect_hsize; i++) {
- 		hlist_for_each_entry_safe(exp, next,
- 					  &net->ct.expect_hash[i], hnode) {
- 			struct nf_conn_help *help = nfct_help(exp->master);
- 			if ((rcu_dereference_protected(
- 					help->helper,
--					lockdep_is_held(&nf_conntrack_lock)
-+					lockdep_is_held(&nf_conntrack_expect_lock)
- 					) == me || exp->helper == me) &&
- 			    del_timer(&exp->timeout)) {
- 				nf_ct_unlink_expect(exp);
-@@ -413,6 +414,7 @@ static void __nf_conntrack_helper_unregister(struct nf_conntrack_helper *me,
- 			}
- 		}
- 	}
-+	spin_unlock_bh(&nf_conntrack_expect_lock);
- 
- 	/* Get rid of expecteds, set helpers to NULL. */
- 	for_each_possible_cpu(cpu) {
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index ee0a49a..7a9b936 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -1377,14 +1377,14 @@ ctnetlink_change_helper(struct nf_conn *ct, const struct nlattr * const cda[])
- 					    nf_ct_protonum(ct));
- 	if (helper == NULL) {
- #ifdef CONFIG_MODULES
--		spin_unlock_bh(&nf_conntrack_lock);
-+		spin_unlock_bh(&nf_conntrack_expect_lock);
- 
- 		if (request_module("nfct-helper-%s", helpname) < 0) {
--			spin_lock_bh(&nf_conntrack_lock);
-+			spin_lock_bh(&nf_conntrack_expect_lock);
- 			return -EOPNOTSUPP;
- 		}
- 
--		spin_lock_bh(&nf_conntrack_lock);
-+		spin_lock_bh(&nf_conntrack_expect_lock);
- 		helper = __nf_conntrack_helper_find(helpname, nf_ct_l3num(ct),
- 						    nf_ct_protonum(ct));
- 		if (helper)
-@@ -1822,9 +1822,9 @@ ctnetlink_new_conntrack(struct sock *ctnl, struct sk_buff *skb,
- 	err = -EEXIST;
- 	ct = nf_ct_tuplehash_to_ctrack(h);
- 	if (!(nlh->nlmsg_flags & NLM_F_EXCL)) {
--		spin_lock_bh(&nf_conntrack_lock);
-+		spin_lock_bh(&nf_conntrack_expect_lock);
- 		err = ctnetlink_change_conntrack(ct, cda);
--		spin_unlock_bh(&nf_conntrack_lock);
-+		spin_unlock_bh(&nf_conntrack_expect_lock);
- 		if (err == 0) {
- 			nf_conntrack_eventmask_report((1 << IPCT_REPLY) |
- 						      (1 << IPCT_ASSURED) |
-@@ -2153,9 +2153,9 @@ ctnetlink_nfqueue_parse(const struct nlattr *attr, struct nf_conn *ct)
- 	if (ret < 0)
- 		return ret;
- 
--	spin_lock_bh(&nf_conntrack_lock);
-+	spin_lock_bh(&nf_conntrack_expect_lock);
- 	ret = ctnetlink_nfqueue_parse_ct((const struct nlattr **)cda, ct);
--	spin_unlock_bh(&nf_conntrack_lock);
-+	spin_unlock_bh(&nf_conntrack_expect_lock);
- 
- 	return ret;
- }
-@@ -2710,13 +2710,13 @@ ctnetlink_del_expect(struct sock *ctnl, struct sk_buff *skb,
- 		}
- 
- 		/* after list removal, usage count == 1 */
--		spin_lock_bh(&nf_conntrack_lock);
-+		spin_lock_bh(&nf_conntrack_expect_lock);
- 		if (del_timer(&exp->timeout)) {
- 			nf_ct_unlink_expect_report(exp, NETLINK_CB(skb).portid,
- 						   nlmsg_report(nlh));
- 			nf_ct_expect_put(exp);
- 		}
--		spin_unlock_bh(&nf_conntrack_lock);
-+		spin_unlock_bh(&nf_conntrack_expect_lock);
- 		/* have to put what we 'get' above.
- 		 * after this line usage count == 0 */
- 		nf_ct_expect_put(exp);
-@@ -2725,7 +2725,7 @@ ctnetlink_del_expect(struct sock *ctnl, struct sk_buff *skb,
- 		struct nf_conn_help *m_help;
- 
- 		/* delete all expectations for this helper */
--		spin_lock_bh(&nf_conntrack_lock);
-+		spin_lock_bh(&nf_conntrack_expect_lock);
- 		for (i = 0; i < nf_ct_expect_hsize; i++) {
- 			hlist_for_each_entry_safe(exp, next,
- 						  &net->ct.expect_hash[i],
-@@ -2740,10 +2740,10 @@ ctnetlink_del_expect(struct sock *ctnl, struct sk_buff *skb,
- 				}
- 			}
- 		}
--		spin_unlock_bh(&nf_conntrack_lock);
-+		spin_unlock_bh(&nf_conntrack_expect_lock);
- 	} else {
- 		/* This basically means we have to flush everything*/
--		spin_lock_bh(&nf_conntrack_lock);
-+		spin_lock_bh(&nf_conntrack_expect_lock);
- 		for (i = 0; i < nf_ct_expect_hsize; i++) {
- 			hlist_for_each_entry_safe(exp, next,
- 						  &net->ct.expect_hash[i],
-@@ -2756,7 +2756,7 @@ ctnetlink_del_expect(struct sock *ctnl, struct sk_buff *skb,
- 				}
- 			}
- 		}
--		spin_unlock_bh(&nf_conntrack_lock);
-+		spin_unlock_bh(&nf_conntrack_expect_lock);
- 	}
- 
- 	return 0;
-@@ -2982,11 +2982,11 @@ ctnetlink_new_expect(struct sock *ctnl, struct sk_buff *skb,
- 	if (err < 0)
- 		return err;
- 
--	spin_lock_bh(&nf_conntrack_lock);
-+	spin_lock_bh(&nf_conntrack_expect_lock);
- 	exp = __nf_ct_expect_find(net, zone, &tuple);
- 
- 	if (!exp) {
--		spin_unlock_bh(&nf_conntrack_lock);
-+		spin_unlock_bh(&nf_conntrack_expect_lock);
- 		err = -ENOENT;
- 		if (nlh->nlmsg_flags & NLM_F_CREATE) {
- 			err = ctnetlink_create_expect(net, zone, cda,
-@@ -3000,7 +3000,7 @@ ctnetlink_new_expect(struct sock *ctnl, struct sk_buff *skb,
- 	err = -EEXIST;
- 	if (!(nlh->nlmsg_flags & NLM_F_EXCL))
- 		err = ctnetlink_change_expect(exp, cda);
--	spin_unlock_bh(&nf_conntrack_lock);
-+	spin_unlock_bh(&nf_conntrack_expect_lock);
- 
- 	return err;
- }
-diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
-index 466410e..4c3ba1c 100644
---- a/net/netfilter/nf_conntrack_sip.c
-+++ b/net/netfilter/nf_conntrack_sip.c
-@@ -800,7 +800,7 @@ static int refresh_signalling_expectation(struct nf_conn *ct,
- 	struct hlist_node *next;
- 	int found = 0;
- 
--	spin_lock_bh(&nf_conntrack_lock);
-+	spin_lock_bh(&nf_conntrack_expect_lock);
- 	hlist_for_each_entry_safe(exp, next, &help->expectations, lnode) {
- 		if (exp->class != SIP_EXPECT_SIGNALLING ||
- 		    !nf_inet_addr_cmp(&exp->tuple.dst.u3, addr) ||
-@@ -815,7 +815,7 @@ static int refresh_signalling_expectation(struct nf_conn *ct,
- 		found = 1;
- 		break;
- 	}
--	spin_unlock_bh(&nf_conntrack_lock);
-+	spin_unlock_bh(&nf_conntrack_expect_lock);
- 	return found;
- }
- 
-@@ -825,7 +825,7 @@ static void flush_expectations(struct nf_conn *ct, bool media)
- 	struct nf_conntrack_expect *exp;
- 	struct hlist_node *next;
- 
--	spin_lock_bh(&nf_conntrack_lock);
-+	spin_lock_bh(&nf_conntrack_expect_lock);
- 	hlist_for_each_entry_safe(exp, next, &help->expectations, lnode) {
- 		if ((exp->class != SIP_EXPECT_SIGNALLING) ^ media)
- 			continue;
-@@ -836,7 +836,7 @@ static void flush_expectations(struct nf_conn *ct, bool media)
- 		if (!media)
- 			break;
- 	}
--	spin_unlock_bh(&nf_conntrack_lock);
-+	spin_unlock_bh(&nf_conntrack_expect_lock);
- }
- 
- static int set_expected_rtp_rtcp(struct sk_buff *skb, unsigned int protoff,
+If there were ever an (upstream?) ACPI "binding"(?) for the Tegra SDHCI
+controller, I would hope it would use the exact same names for the GPIO
+signals.
