@@ -1,108 +1,71 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH 3/7] bridge: Add addresses from static fdbs to
- bridge address list
-Date: Thu, 27 Feb 2014 08:08:05 -0500
-Message-ID: <530F38B5.5090803@redhat.com>
-References: <1393427905-6811-1-git-send-email-vyasevic@redhat.com>
-	<1393427905-6811-4-git-send-email-vyasevic@redhat.com>
-	<20140226085707.55bdab94@nehalam.linuxnetplumber.net>
-	<530E25CC.6010705@redhat.com> <20140227075336.GF16484@redhat.com>
-Reply-To: vyasevic@redhat.com
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 3/9] net/mlx4_en: Pad ethernet packets smaller
+ than 17 bytes
+Date: Thu, 27 Feb 2014 13:08:58 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6CCB7E@AcuExch.aculab.com>
+References: <1393504026-13384-1-git-send-email-amirv@mellanox.com>
+ <1393504026-13384-4-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, jhs@mojatatu.com,
-	Stephen Hemminger <stephen@networkplumber.org>, shemminger@vyatta.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140227075336.GF16484@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	"Eugenia Emantayev" <eugenia@mellanox.com>
+To: 'Amir Vadai' <amirv@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:36380 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750742AbaB0NKG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 08:10:06 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 10254-06 for <netdev@vger.kernel.org>;
+ Thu, 27 Feb 2014 13:10:02 +0000 (GMT)
+In-Reply-To: <1393504026-13384-4-git-send-email-amirv@mellanox.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/27/2014 02:53 AM, Michael S. Tsirkin wrote:
-> On Wed, Feb 26, 2014 at 12:35:08PM -0500, Vlad Yasevich wrote:
->> On 02/26/2014 11:57 AM, Stephen Hemminger wrote:
->>> On Wed, 26 Feb 2014 10:18:21 -0500
->>> Vlad Yasevich <vyasevic@redhat.com> wrote:
->>>
->>>> When a static fdb entry is created, add the mac address to the bridge
->>>> address list.  This list is used to program the proper port's
->>>> address list.
->>>>
->>>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->>>
->>> I don't like this level of bookkeeping it starts to mix
->>> layers between the bridge network interface as entity for talking to the
->>> local host, and forwarding table entries.
->>
->> Actually this is one of the reasons this isn't done through the
->> br->dev->uc.  Forwarding table entries are still per-port.
->>
->>>
->>> Many times static entries are used as alternative to flooding in
->>> environments which don't trust STP.
->>
->> Ok, and how would this be problematic?  If one wants to turn off
->> promisc in this environment, then receive filters needs to be properly
->> programmed.
->>
->>>
->>> Plus, it looks like another major source of bugs.
->>>
->>
->> Any new code is a potential source of issues.  Are you saying
->> No to any new code in bridge?
->>
->> -vlad
+From: Amir Vadai
+> Hardware can't accept packets smaller than 17 bytes. Therefore need to pad with
+> zeros.
+
+Can they actually happen?
+A 16 byte packet would only have 2 bytes following the ethertype/length.
+The shortest LLC packets have 3 bytes.
+It may well be safe to discard them.
+
+...
 > 
-> I'm guessing Stephen merely worries about
-> multiple data structures that need to stay in
-> sync, and asks that you revisit
-> using private hw address list in the bridge.
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> index 8dc7637..268cc4a 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> @@ -585,12 +585,19 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc, struct sk_buff *sk
+>  	int spc = MLX4_INLINE_ALIGN - CTRL_SIZE - sizeof *inl;
 > 
-> What's the issue with walking fdb exactly?
-> You say
->  1)  I tried using the fdb table itself as main repository, but
->       this caused difficulties in synchronizing this table with
->       the interface filters later on.
-> 
-> I'm guessing you refer to writing addresses out to ports
-> directly when walking the hash being impossible
-> since this datastructure uses rcu and spinlocks?
-> Fair enough but the entries you care about
-> seem to only be modified under RTNL so just
-> copy them out to a temporary list.
-> This might be less efficient, but will be simpler I think.
-> 
+>  	if (skb->len <= spc) {
+> -		inl->byte_count = cpu_to_be32(1 << 31 | skb->len);
+> +		inl->byte_count = cpu_to_be32(1 << 31 |
+> +					      max_t(typeof(skb->len),
+> +						    skb->len,
+> +						    MIN_PKT_LEN));
+>  		skb_copy_from_linear_data(skb, inl + 1, skb_headlen(skb));
+>  		if (skb_shinfo(skb)->nr_frags)
+>  			memcpy(((void *)(inl + 1)) + skb_headlen(skb), fragptr,
+>  			       skb_frag_size(&skb_shinfo(skb)->frags[0]));
 
-There are 2 ways to populate the the ports uc list.
-  1) We can use dev_uc_add() directly.  The issue here is
-     how to know if a given entry has been written to port.
-     I've played with this is and we end completely replicating
-     the netdev_hw_addr functionality in fdb to support the Patch7
-     (0 flooding ports).
-  2) We can use dev_uc_sync() which is what this series does.
-     This api needs to keep track of sync counts so that things get
-     properly deleted.  For that a temporary list will not work
-     since you'd be re-creating it every time.
+Is there guaranteed to be only 1 fragment here?
 
-Now, I think I've come up with a way to remove the private address list
-and use bridge->dev->uc, but that requires that we implement fdb-based
-filtering for local addresses.
+> +		if (skb->len < MIN_PKT_LEN)
+> +			memset(((void *)(inl + 1)) + skb->len, 0,
+> +			       MIN_PKT_LEN - skb->len);
+> +
 
-The idea is to implement learning on the bridge device xmit path.  This
-will support things like vlans on top of the bridge that change their
-mac, or even stack bridge configs that exist in the wild.
-My guess, however, is that Stephen would have an even bigger issue with
-this. ;)
+In any case you don't want 2 checks for skb->len < MIN_PKT_LEN,
+so reassign to inl->byte_count here.
+An unlikely() probably wouldn't go amiss either.
 
--vlad
+	David
