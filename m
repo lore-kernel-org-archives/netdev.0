@@ -1,47 +1,95 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH RFC 0/7] Non-promisc bidge ports support
-Date: Wed, 26 Feb 2014 18:59:29 -0500
-Message-ID: <530E7FE1.5060705@mojatatu.com>
-References: <1393427905-6811-1-git-send-email-vyasevic@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v7 net-next 2/2] tcp: switch rtt estimations to usec
+ resolution
+Date: Wed, 26 Feb 2014 17:09:08 -0800
+Message-ID: <20140226170908.5f028c88@nehalam.linuxnetplumber.net>
+References: <1393137487.2316.48.camel@edumazet-glaptop2.roam.corp.google.com>
+	<alpine.LFD.2.11.1402230908210.1460@ja.home.ssi.bg>
+	<1393178122.2316.50.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1393181458.2316.56.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1393216927.2316.62.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1393266251.2316.68.camel@edumazet-glaptop2.roam.corp.google.com>
+	<alpine.LFD.2.11.1402242240290.1941@ja.home.ssi.bg>
+	<1393280025.2316.76.camel@edumazet-glaptop2.roam.corp.google.com>
+	<alpine.LFD.2.11.1402250056250.1941@ja.home.ssi.bg>
+	<1393284682.2316.83.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140224155130.4c286cca@samsung-9>
+	<1393290667.2316.96.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1393292339.2316.98.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1393309341.2316.120.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1393452168.26794.8.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, shemminger@vyatta.com,
-	bridge@lists.linux-foundation.org, mst@redhat.com
-To: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1393427905-6811-1-git-send-email-vyasevic@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, Julian Anastasov <ja@ssi.bg>,
+	Yuchung Cheng <ycheng@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Larry Brakmo <brakmo@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:47701 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751929AbaB0BJM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Feb 2014 20:09:12 -0500
+Received: by mail-pb0-f44.google.com with SMTP id rp16so1785476pbb.3
+        for <netdev@vger.kernel.org>; Wed, 26 Feb 2014 17:09:11 -0800 (PST)
+In-Reply-To: <1393452168.26794.8.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/26/14 10:18, Vlad Yasevich wrote:
-> This patch series is a complete re-design and re-implementation of
-> prior attempts to support non-promiscuous bridge ports.
->
-> The basic design is as follows.  The bridge keeps track of
-> all the ports that flood packets to unknown destinations.  If
-> the flooding is disabled on the port, to get traffic to flow
-> through, user/management would need to add an fdb describing
-> such traffic.  When such fdb is added, we save the address
-> to bridge private hardware address list.
+On Wed, 26 Feb 2014 14:02:48 -0800
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Entering the addresses in the uc list on other bridgeports seems
-reasonable for the scenario described.
-But would it _also_ need to be added to the fdb of the bridge?
-i.e how does the bridge (if the packet was to be handed to it)
-know where to forward?
-BTW: on the comment that flooding off implies learning off: I would like
-to be able to turn off flooding on a specific bridge port but
-still want to learn from it. I dont think those two are mutually
-exclusive.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Upcoming congestion controls for TCP require usec resolution for RTT
+> estimations. Millisecond resolution is simply not enough these days.
+> 
+> FQ/pacing in DC environments also require this change for finer control
+> and removal of bimodal behavior due to the current hack in
+> tcp_update_pacing_rate() for 'small rtt'
+> 
+> TCP_CONG_RTT_STAMP is no longer needed.
+> 
+> As Julian Anastasov pointed out, we need to keep user compatibility :
+> tcp_metrics used to export RTT and RTTVAR in msec resolution,
+> so we added RTT_US and RTTVAR_US. An iproute2 patch is needed
+> to use the new attributes if provided by the kernel.
+> 
+> In this example ss command displays a srtt of 32 usecs (10Gbit link)
+> 
+> lpk51:~# ./ss -i dst lpk52
+> Netid  State      Recv-Q Send-Q   Local Address:Port       Peer
+> Address:Port   
+> tcp    ESTAB      0      1         10.246.11.51:42959
+> 10.246.11.52:64614   
+>          cubic wscale:6,6 rto:201 rtt:0.032/0.001 ato:40 mss:1448
+> cwnd:10 send
+> 3620.0Mbps pacing_rate 7240.0Mbps unacked:1 rcv_rtt:993 rcv_space:29559
+>  
+> Updated iproute2 ip command displays :
+> 
+> lpk51:~# ./ip tcp_metrics | grep 10.246.11.52
+> 10.246.11.52 age 561.914sec cwnd 10 rtt 274us rttvar 213us source
+> 10.246.11.51
+> 
+> Old binary displays :
+> 
+> lpk51:~# ip tcp_metrics | grep 10.246.11.52
+> 10.246.11.52 age 561.914sec cwnd 10 rtt 250us rttvar 125us source
+> 10.246.11.51
+> 
+> With help from Julian Anastasov, Stephen Hemminger and Yuchung Cheng
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Acked-by: Neal Cardwell <ncardwell@google.com>
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Cc: Larry Brakmo <brakmo@google.com>
+> Cc: Julian Anastasov <ja@ssi.bg>
+> ---
 
-cheers,
-jamal
+Since srtt is scaled by 8 and is 32 bits, This does reduce the maximum
+possible RTT to 8 minutes or so. Which is fine, just wanted it to be
+noted.
