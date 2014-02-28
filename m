@@ -1,67 +1,119 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net RESEND] vlan: don't allow to add VLAN on VLAN device
-Date: Fri, 28 Feb 2014 14:34:16 +0800
-Message-ID: <53102DE8.9090707@huawei.com>
-References: <530FF7BF.4030706@huawei.com> <53100677.2060705@intel.com> <53101E1A.6020707@huawei.com> <CAGVrzcb_eD18-XGC34fZaQFbH3f5-NZk+6N5YbjYMSxCCSZX2w@mail.gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: Possible fix
+Date: Fri, 28 Feb 2014 08:23:33 +0100
+Message-ID: <20140228072333.GP32371@secunet.com>
+References: <20140227151954.GA30946@redhat.com>
+ <1393517857-11842-1-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	Patrick McHardy <kaber@trash.net>,
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, Dave Jones <davej@redhat.com>,
+	Fan Du <fan.du@windriver.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGVrzcb_eD18-XGC34fZaQFbH3f5-NZk+6N5YbjYMSxCCSZX2w@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+	Paul Moore <paul@paul-moore.com>,
+	<linux-security-module@vger.kernel.org>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1393517857-11842-1-git-send-email-nikolay@redhat.com>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2014/2/28 13:41, Florian Fainelli wrote:
-> 2014-02-27 21:26 GMT-08:00 Ding Tianhong <dingtianhong@huawei.com>:
->> On 2014/2/28 11:45, John Fastabend wrote:
->>> On 2/27/2014 6:43 PM, Ding Tianhong wrote:
->>>> I run these steps:
->>>>
->>>> modprobe 8021q
->>>> vconfig add eth2 20
->>>> vconfig add eth2.20 20
->>>> ifconfig eth2 xx.xx.xx.xx
->>>>
->>>> then the Call Trace happened:
->>>>
->>>
->>> [...]
->>>
->>>> ========================================================================
->>>>
->>>> The reason is that if add vlan on vlan dev, the vlan dev will create vlan_info,
->>>> then the notification will let the real dev to run dev_set_rx_mode() and hold
->>>> netif_addr_lock, and then the real dev will call ndo_set_rx_mode(), if the real
->>>> dev is vlan dev, the ndo_set_rx_mode() will hold netif_addr_lock again, so deadlock
->>>> happened.
->>>>
->>>> Don't allow to add vlan on vlan dev to fix this problem.
->>>>
->>>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->>>> ---
->>>
->>> I'm not sure we can just disable stacked vlans. There might be something
->>> using them today and they have worked in the past. Lets try to find a
->>> better fix.
->>>
->>> .John
->>
->> Yes, maybe I miss something, can you gave me a scene that the use of eth2.20.30?
->> the device is created from vlan device eth2.20, than I will find a better way to fix it.
-> 
-> Is not QinQ (802.1ad) such as case [1]?
-> 
-> [1]: http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=8ad227ff89a7e6f05d07cd0acfd95ed3a24450ca
-> --
-> Florian
-> 
-> 
-Yep, thanks a lot.
+Ccing some security/selinux people.
 
-Ding
+On Thu, Feb 27, 2014 at 05:17:37PM +0100, Nikolay Aleksandrov wrote:
+> Hi,
+> I'm not familiar with the code but happened to see the bug, could you
+> try the following patch, I believe it should fix the issue.
+> 
+> Thanks,
+>  Nik
+> 
+> [PATCH net] net: af_key: fix sleeping under rcu
+> 
+> There's a kmalloc with GFP_KERNEL in a helper
+> (pfkey_sadb2xfrm_user_sec_ctx) used in pfkey_compile_policy which is
+> called under rcu_read_lock. Adjust pfkey_sadb2xfrm_user_sec_ctx to have
+> a gfp argument and adjust the users.
+> 
+
+Looking at the git history, it seems that this bug is about nine
+years old. I guess noone is actually using this.
+
+Also, we care for the security context only if we add a socket
+policy via the pfkey key manager. The security context is not
+handled if we do that with the netlink key manager
+(compare pfkey_compile_policy() and xfrm_compile_policy()).
+
+> CC: Dave Jones <davej@redhat.com>
+> CC: Steffen Klassert <steffen.klassert@secunet.com>
+> CC: Fan Du <fan.du@windriver.com>
+> CC: David S. Miller <davem@davemloft.net>
+> 
+> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+> ---
+> I'm not familiar with this code, but just happen to see the bug. I believe
+> this patch should take care of it.
+> I've left the already very long lines.
+> 
+>  net/key/af_key.c | 13 +++++++------
+>  1 file changed, 7 insertions(+), 6 deletions(-)
+> 
+> diff --git a/net/key/af_key.c b/net/key/af_key.c
+> index 1a04c1329362..1526023f99ed 100644
+> --- a/net/key/af_key.c
+> +++ b/net/key/af_key.c
+> @@ -433,12 +433,13 @@ static inline int verify_sec_ctx_len(const void *p)
+>  	return 0;
+>  }
+>  
+> -static inline struct xfrm_user_sec_ctx *pfkey_sadb2xfrm_user_sec_ctx(const struct sadb_x_sec_ctx *sec_ctx)
+> +static inline struct xfrm_user_sec_ctx *pfkey_sadb2xfrm_user_sec_ctx(const struct sadb_x_sec_ctx *sec_ctx,
+> +								     gfp_t gfp)
+>  {
+>  	struct xfrm_user_sec_ctx *uctx = NULL;
+>  	int ctx_size = sec_ctx->sadb_x_ctx_len;
+>  
+> -	uctx = kmalloc((sizeof(*uctx)+ctx_size), GFP_KERNEL);
+> +	uctx = kmalloc((sizeof(*uctx)+ctx_size), gfp);
+>  
+>  	if (!uctx)
+>  		return NULL;
+> @@ -1124,7 +1125,7 @@ static struct xfrm_state * pfkey_msg2xfrm_state(struct net *net,
+>  
+>  	sec_ctx = ext_hdrs[SADB_X_EXT_SEC_CTX - 1];
+>  	if (sec_ctx != NULL) {
+> -		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
+> +		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_KERNEL);
+>  
+>  		if (!uctx)
+>  			goto out;
+> @@ -2231,7 +2232,7 @@ static int pfkey_spdadd(struct sock *sk, struct sk_buff *skb, const struct sadb_
+>  
+>  	sec_ctx = ext_hdrs[SADB_X_EXT_SEC_CTX - 1];
+>  	if (sec_ctx != NULL) {
+> -		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
+> +		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_KERNEL);
+>  
+>  		if (!uctx) {
+>  			err = -ENOBUFS;
+> @@ -2335,7 +2336,7 @@ static int pfkey_spddelete(struct sock *sk, struct sk_buff *skb, const struct sa
+>  
+>  	sec_ctx = ext_hdrs[SADB_X_EXT_SEC_CTX - 1];
+>  	if (sec_ctx != NULL) {
+> -		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
+> +		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_KERNEL);
+>  
+>  		if (!uctx)
+>  			return -ENOMEM;
+> @@ -3239,7 +3240,7 @@ static struct xfrm_policy *pfkey_compile_policy(struct sock *sk, int opt,
+>  		}
+>  		if ((*dir = verify_sec_ctx_len(p)))
+>  			goto out;
+> -		uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
+> +		uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_ATOMIC);
+>  		*dir = security_xfrm_policy_alloc(&xp->security, uctx);
+
+This would fix the allocation done in pfkey_sadb2xfrm_user_sec_ctx().
+But security_xfrm_policy_alloc() might call selinux_xfrm_alloc_user()
+which does a GFP_KERNEL allocation too. So I guess we also need to fix
+selinux.
