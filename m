@@ -1,142 +1,102 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [nf-next PATCH 3/5] netfilter: avoid race with exp->master ct
-Date: Fri, 28 Feb 2014 12:30:37 +0100
-Message-ID: <20140228123037.568fdcd9@redhat.com>
-References: <20140227182220.25907.12758.stgit@dragon>
- <20140227182340.25907.6773.stgit@dragon>
- <20140227213452.GE9965@breakpoint.cc>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v5] can: add Renesas R-Car CAN driver
+Date: Fri, 28 Feb 2014 12:37:25 +0100
+Message-ID: <531074F5.8090702@pengutronix.de>
+References: <201312270037.15822.sergei.shtylyov@cogentembedded.com> <52DCE9E4.7010209@pengutronix.de> <52E3148E.2010608@cogentembedded.com> <52FCB6C5.6020001@pengutronix.de> <53069445.80408@cogentembedded.com> <5310521E.6000708@pengutronix.de> <53107007.7050802@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54558 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751896AbaB1Lch (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Feb 2014 06:32:37 -0500
-In-Reply-To: <20140227213452.GE9965@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="DWVLCl8JPmFMBfSgmKlT2pquGIiGEOGPJ"
+Cc: linux-sh@vger.kernel.org, vksavl@gmail.com
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org, wg@grandegger.com,
+	linux-can@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <53107007.7050802@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 27 Feb 2014 22:34:52 +0100
-Florian Westphal <fw@strlen.de> wrote:
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--DWVLCl8JPmFMBfSgmKlT2pquGIiGEOGPJ
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-> Jesper Dangaard Brouer <brouer@redhat.com> wrote:
-> > Preparation for disconnecting the nf_conntrack_lock from the
-> > expectations code.  Once the nf_conntrack_lock is lifted, a race
-> > condition is exposed.
-> > 
-> > The expectations master conntrack exp->master, can race with
-> > delete operations, as the refcnt increment happens too late in
-> > init_conntrack().  Race is against other CPUs invoking
-> > ->destroy() (destroy_conntrack()), or nf_ct_delete() (via timeout
-> > or early_drop()).
-> > 
-> > Avoid this race in nf_ct_find_expectation() by using atomic_inc_not_zero(),
-> > and checking if nf_ct_is_dying() (path via nf_ct_delete()).
-> > 
-> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> > Signed-off-by: Florian Westphal <fw@strlen.de>
-> > ---
-> > 
-> >  net/netfilter/nf_conntrack_core.c   |    2 +-
-> >  net/netfilter/nf_conntrack_expect.c |   16 +++++++++++++++-
-> >  2 files changed, 16 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-> > index ac85fd1..a822720 100644
-> > --- a/net/netfilter/nf_conntrack_core.c
-> > +++ b/net/netfilter/nf_conntrack_core.c
-> > @@ -898,6 +898,7 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
-> >  			 ct, exp);
-> >  		/* Welcome, Mr. Bond.  We've been expecting you... */
-> >  		__set_bit(IPS_EXPECTED_BIT, &ct->status);
-> > +		/* exp->master safe, refcnt bumped in nf_ct_find_expectation */
-> >  		ct->master = exp->master;
-> >  		if (exp->helper) {
-> >  			help = nf_ct_helper_ext_add(ct, exp->helper,
-> > @@ -912,7 +913,6 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
-> >  #ifdef CONFIG_NF_CONNTRACK_SECMARK
-> >  		ct->secmark = exp->master->secmark;
-> >  #endif
-> > -		nf_conntrack_get(&ct->master->ct_general);
-> >  		NF_CT_STAT_INC(net, expect_new);
-> >  	} else {
-> >  		__nf_ct_try_assign_helper(ct, tmpl, GFP_ATOMIC);
-> > diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
-> > index 4fd1ca9..2c4ffdb 100644
-> > --- a/net/netfilter/nf_conntrack_expect.c
-> > +++ b/net/netfilter/nf_conntrack_expect.c
-> > @@ -147,13 +147,27 @@ nf_ct_find_expectation(struct net *net, u16 zone,
-> >  	if (!exp)
-> >  		return NULL;
-> >  
-> > +	/* Avoid race with other CPUs, that for exp->master ct, is
-> > +	 * about to invoke ->destroy(), or nf_ct_delete() via timeout
-> > +	 * or early_drop().
-> > +	 *
-> > +	 * The atomic_inc_not_zero() check tells:  If that fails, we
-> > +	 * know that the ct is being destroyed.  If it succeeds, we
-> > +	 * can be sure the ct cannot disappear underneath.
-> > +	 */
-> > +	if (unlikely(nf_ct_is_dying(exp->master) ||
-> > +		     !atomic_inc_not_zero(&exp->master->ct_general.use)))
-> > +		return NULL;
-> > +
-> >  	/* If master is not in hash table yet (ie. packet hasn't left
-> >  	   this machine yet), how can other end know about expected?
-> >  	   Hence these are not the droids you are looking for (if
-> >  	   master ct never got confirmed, we'd hold a reference to it
-> >  	   and weird things would happen to future packets). */
-> > -	if (!nf_ct_is_confirmed(exp->master))
-> > +	if (!nf_ct_is_confirmed(exp->master)) {
-> > +		atomic_dec(&exp->master->ct_general.use);
-> >  		return NULL;
-> > +	}
-> 
-> Not sure if this is safe.
-> 
-> What about:
-> CPU0: atomic_inc_not_zero()
-> CPU1: calls nf_conntrack_put()
-> CPU0: atomic_dec() -> zero refcnt without invocation of ->destroy
+On 02/28/2014 12:16 PM, Sergei Shtylyov wrote:
+> Hello.
+>=20
+> On 28-02-2014 13:08, Marc Kleine-Budde wrote:
+>=20
+>>>>> 1. According to documentation BCR is the 24-bit register.
+>>>>> Actually we can consider some 32-bit register that combines BCR and=
 
-Okay, so, you are saying CPU0 should use nf_ct_put() or nf_conntrack_put().
+>>>>> CLKR but according to documentation there are two separate register=
+s.
+>>>>> 2. BCR has 8- ,16-, and 32-bit access (according to documentation).=
 
-> [ Cannot happen now because of nf_conntrack_lock ]
-> 
-> I'd suggest to test nf_ct_is_confirmed() first, it avoids the need to
-> undo the atomic_inc_not_zero.
+>>>>> 3. This is the algorithm that the documentation suggests.
+>>>>> 4. We had a driver version with byte access but 32-bit access seems=
 
-Okay, guess that should be okay.
+>>>>> shorter.
+>=20
+>>>> Please use a normal read-modify-write 32 bit access.
+>=20
+>>>     IMO, reading 32-bits is futile, as we're going to completely
+>>> overwrite those 24 bits that constitute BCR. So I kept the 8-bit CLKR=
 
-> You also need to deal with the "timer-deletion-fails" a bit later in the same
-> function:
-> 
->         if (exp->flags & NF_CT_EXPECT_PERMANENT) {
->                 atomic_inc(&exp->use);
->                 return exp;
->         } else if (del_timer(&exp->timeout)) {
->                 nf_ct_unlink_expect(exp);
->                 return exp;
->         }
-> 	// Problem: exp->master ref was bumped
-> 	nf_ct_put(exp->master); // missing
->         return NULL;
+>>> read but removed the CLKR write in the end. I've also added a comment=
 
-True, and yes, use of use nf_ct_put() or nf_conntrack_put() would be
-necessary here instead of manual refcnt dec.
+>>> clarifying why CLKR is positioned in the LSBs of 32-bit word (while i=
+t's
+>>> address would assume MSBs).
+>>> The host bus is big-endian but byte-swaps at least 16- and 32-bit
+>>> accesses, so that read[wl]()/write[wl]() work. 8-bit accesses are not=
 
-Thanks for your review, I will fix it up...
+>>> byte swapped, despite what the figure in the manual shows.
+>=20
+>> A 32 bit read/modify/write is a standard operation, nothing special, n=
+o
+>> need to worry about byte swapping or anything like this.
+>=20
+>    Oh, really? 8-)
+>    Don't you know that read[bwlq]() assume little-endian memory layout
+> and to read from big-endian 32-bit register one normally needs readl_be=
+()?
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+I assume you are on little endian ARM only (for now).
+
+If you use a standard 32 bit read, then modify the correct bits in that
+32 bit word and write it back, with the corresponding 32 bit write
+everything should be fine. For this usecase you just have yo figure out
+which 24 of the 32 bit are the one you have to change and which are the
+8 that must not be modified.
+
+Looking at the register layout:
+
+> +	u8 bcr[3];	/* Bit Configuration Register */
+> +	u8 clkr;	/* Clock Select Register */
+
+I think clkr would be the lowest 8 bit and bcr[] are the upper 24.
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--DWVLCl8JPmFMBfSgmKlT2pquGIiGEOGPJ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlMQdPUACgkQjTAFq1RaXHP/BQCgmOR7elbQHACc/W2R3G/N88ql
+lUAAnjyFiUHE3qFtAvyN7TQ1FEYakCyz
+=CkbC
+-----END PGP SIGNATURE-----
+
+--DWVLCl8JPmFMBfSgmKlT2pquGIiGEOGPJ--
