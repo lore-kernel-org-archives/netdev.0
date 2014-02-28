@@ -1,60 +1,54 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net RESEND] vlan: don't allow to add VLAN on VLAN device
-Date: Thu, 27 Feb 2014 21:41:33 -0800
-Message-ID: <CAGVrzcb_eD18-XGC34fZaQFbH3f5-NZk+6N5YbjYMSxCCSZX2w@mail.gmail.com>
-References: <530FF7BF.4030706@huawei.com> <53100677.2060705@intel.com> <53101E1A.6020707@huawei.com>
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: [PATCH V2 1/2] net: w5300: Use devm_ioremap_resource()
+Date: Fri, 28 Feb 2014 14:47:47 +0900
+Message-ID: <001501cf3448$9bc4f660$d34ee320$%han@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53101E1A.6020707@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>,
+	'Mike Sinkovsky' <msink@permonline.ru>
+To: 'David Miller' <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout1.samsung.com ([203.254.224.24]:24596 "EHLO
+	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750719AbaB1Fru (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 00:47:50 -0500
+Received: from epcpsbgr4.samsung.com
+ (u144.gpu120.samsung.co.kr [203.254.230.144])
+ by mailout1.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0N1O0091ZYRNGQ80@mailout1.samsung.com> for
+ netdev@vger.kernel.org; Fri, 28 Feb 2014 14:47:47 +0900 (KST)
+Content-language: ko
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2014-02-27 21:26 GMT-08:00 Ding Tianhong <dingtianhong@huawei.com>:
-> On 2014/2/28 11:45, John Fastabend wrote:
->> On 2/27/2014 6:43 PM, Ding Tianhong wrote:
->>> I run these steps:
->>>
->>> modprobe 8021q
->>> vconfig add eth2 20
->>> vconfig add eth2.20 20
->>> ifconfig eth2 xx.xx.xx.xx
->>>
->>> then the Call Trace happened:
->>>
->>
->> [...]
->>
->>> ========================================================================
->>>
->>> The reason is that if add vlan on vlan dev, the vlan dev will create vlan_info,
->>> then the notification will let the real dev to run dev_set_rx_mode() and hold
->>> netif_addr_lock, and then the real dev will call ndo_set_rx_mode(), if the real
->>> dev is vlan dev, the ndo_set_rx_mode() will hold netif_addr_lock again, so deadlock
->>> happened.
->>>
->>> Don't allow to add vlan on vlan dev to fix this problem.
->>>
->>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->>> ---
->>
->> I'm not sure we can just disable stacked vlans. There might be something
->> using them today and they have worked in the past. Lets try to find a
->> better fix.
->>
->> .John
->
-> Yes, maybe I miss something, can you gave me a scene that the use of eth2.20.30?
-> the device is created from vlan device eth2.20, than I will find a better way to fix it.
+Use devm_ioremap_resource() in order to make the code simpler.
 
-Is not QinQ (802.1ad) such as case [1]?
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+---
+ drivers/net/ethernet/wiznet/w5300.c |    9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-[1]: http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=8ad227ff89a7e6f05d07cd0acfd95ed3a24450ca
---
-Florian
+diff --git a/drivers/net/ethernet/wiznet/w5300.c b/drivers/net/ethernet/wiznet/w5300.c
+index 71c27b3..1f33c4c 100644
+--- a/drivers/net/ethernet/wiznet/w5300.c
++++ b/drivers/net/ethernet/wiznet/w5300.c
+@@ -561,11 +561,10 @@ static int w5300_hw_probe(struct platform_device *pdev)
+ 	if (!mem)
+ 		return -ENXIO;
+ 	mem_size = resource_size(mem);
+-	if (!devm_request_mem_region(&pdev->dev, mem->start, mem_size, name))
+-		return -EBUSY;
+-	priv->base = devm_ioremap(&pdev->dev, mem->start, mem_size);
+-	if (!priv->base)
+-		return -EBUSY;
++
++	priv->base = devm_ioremap_resource(&pdev->dev, mem);
++	if (IS_ERR(priv->base))
++		return PTR_ERR(priv->base);
+ 
+ 	spin_lock_init(&priv->reg_lock);
+ 	priv->indirect = mem_size < W5300_BUS_DIRECT_SIZE;
+-- 
+1.7.10.4
