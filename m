@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC 11/12] vti6: Check the tunnel endpoints of the xfrm state and the vti interface
-Date: Fri, 28 Feb 2014 11:31:21 +0100
-Message-ID: <1393583483-12480-12-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH RFC 10/12] vti6: Support inter address family tunneling.
+Date: Fri, 28 Feb 2014 11:31:20 +0100
+Message-ID: <1393583483-12480-11-git-send-email-steffen.klassert@secunet.com>
 References: <1393583483-12480-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,65 +9,123 @@ Cc: Steffen Klassert <steffen.klassert@secunet.com>,
 	Christophe Gouault <christophe.gouault@6wind.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:49016 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:49025 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751625AbaB1Kbn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Feb 2014 05:31:43 -0500
+	id S1751140AbaB1Kbo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Feb 2014 05:31:44 -0500
 In-Reply-To: <1393583483-12480-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The tunnel endpoints of the xfrm_state we got from the xfrm_lookup
-must match the tunnel endpoints of the vti interface. This patch
-ensures this matching.
+With this patch we can tunnel ipv4 traffic via a vti6
+interface. A vti6 interface can now have an ipv4 address
+and ipv4 traffic can be routed via a vti6 interface.
+The resulting traffic is xfrm transformed and tunneled
+through ipv6 if matching IPsec policies and states are
+present.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/ipv6/ip6_vti.c |   25 ++++++++++++++++++++++++-
- 1 file changed, 24 insertions(+), 1 deletion(-)
+ net/ipv6/ip6_vti.c |   48 +++++++++++++++++++++++++++++++++---------------
+ 1 file changed, 33 insertions(+), 15 deletions(-)
 
 diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-index 6193e44..ee4c477 100644
+index 6b919bc..6193e44 100644
 --- a/net/ipv6/ip6_vti.c
 +++ b/net/ipv6/ip6_vti.c
-@@ -377,6 +377,29 @@ vti6_addr_conflict(const struct ip6_tnl *t, const struct ipv6hdr *hdr)
- 	return ipv6_addr_equal(&t->parms.raddr, &hdr->saddr);
- }
- 
-+static bool vti6_state_check(const struct xfrm_state *x,
-+			     const struct in6_addr *dst,
-+			     const struct in6_addr *src)
-+{
-+	xfrm_address_t *daddr = (xfrm_address_t *)dst;
-+	xfrm_address_t *saddr = (xfrm_address_t *)src;
-+
-+	/* if there is no transform then this tunnel is not functional.
-+	 * Or if the xfrm is not mode tunnel.
-+	 */
-+	if (!x || x->props.mode != XFRM_MODE_TUNNEL ||
-+	    x->props.family != AF_INET6)
-+		return false;
-+
-+	if (ipv6_addr_any(dst))
-+		return xfrm_addr_equal(saddr, &x->props.saddr, AF_INET6);
-+
-+	if (!xfrm_state_addr_check(x, daddr, saddr, AF_INET6))
-+		return false;
-+
-+	return true;
-+}
-+
- /**
+@@ -381,30 +381,22 @@ vti6_addr_conflict(const struct ip6_tnl *t, const struct ipv6hdr *hdr)
   * vti6_xmit - send a packet
   *   @skb: the outgoing socket buffer
-@@ -403,7 +426,7 @@ vti6_xmit(struct sk_buff *skb, struct net_device *dev, struct flowi *fl)
+  *   @dev: the outgoing tunnel device
++ *   @fl: the flow informations for the xfrm_lookup
+  **/
+-static int vti6_xmit(struct sk_buff *skb, struct net_device *dev)
++static int
++vti6_xmit(struct sk_buff *skb, struct net_device *dev, struct flowi *fl)
+ {
+ 	struct ip6_tnl *t = netdev_priv(dev);
+ 	struct net_device_stats *stats = &t->dev->stats;
+ 	struct dst_entry *dst = skb_dst(skb);
+-	struct flowi fl;
+-	struct ipv6hdr *ipv6h = ipv6_hdr(skb);
+ 	struct net_device *tdev;
+ 	int err = -1;
+ 
+-	if ((t->parms.proto != IPPROTO_IPV6 && t->parms.proto != 0) ||
+-	    !ip6_tnl_xmit_ctl(t) || vti6_addr_conflict(t, ipv6h))
+-		return err;
+-
+-	memset(&fl, 0, sizeof(fl));
+-	skb->mark = be32_to_cpu(t->parms.o_key);
+-	xfrm_decode_session(skb, &fl, AF_INET6);
+-
+ 	if (!dst)
  		goto tx_err_link_failure;
+ 
+ 	dst_hold(dst);
+-	dst = xfrm_lookup(t->net, dst, &fl, NULL, 0);
++	dst = xfrm_lookup(t->net, dst, fl, NULL, 0);
+ 	if (IS_ERR(dst)) {
+ 		err = PTR_ERR(dst);
+ 		dst = NULL;
+@@ -423,12 +415,21 @@ static int vti6_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		goto tx_err_dst_release;
  	}
  
--	if (!dst->xfrm || dst->xfrm->props.mode != XFRM_MODE_TUNNEL)
-+	if (!vti6_state_check(dst->xfrm, &t->parms.raddr, &t->parms.laddr))
- 		goto tx_err_link_failure;
+-	memset(IP6CB(skb), 0, sizeof(*IP6CB(skb)));
+ 	skb_scrub_packet(skb, !net_eq(t->net, dev_net(dev)));
+ 	skb_dst_set(skb, dst);
+ 	skb->dev = skb_dst(skb)->dev;
  
- 	tdev = dst->dev;
+-	ip6tunnel_xmit(skb, dev);
++	err = dst_output(skb);
++	if (net_xmit_eval(err) == 0) {
++		struct pcpu_sw_netstats *tstats = this_cpu_ptr(dev->tstats);
++		u64_stats_update_begin(&tstats->syncp);
++		tstats->tx_bytes += skb->len;
++		tstats->tx_packets++;
++		u64_stats_update_end(&tstats->syncp);
++	} else {
++		stats->tx_errors++;
++		stats->tx_aborted_errors++;
++	}
+ 
+ 	return 0;
+ tx_err_link_failure:
+@@ -444,16 +445,33 @@ vti6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct ip6_tnl *t = netdev_priv(dev);
+ 	struct net_device_stats *stats = &t->dev->stats;
++	struct ipv6hdr *ipv6h;
++	struct flowi fl;
+ 	int ret;
+ 
++	memset(&fl, 0, sizeof(fl));
++	skb->mark = be32_to_cpu(t->parms.o_key);
++
+ 	switch (skb->protocol) {
+ 	case htons(ETH_P_IPV6):
+-		ret = vti6_xmit(skb, dev);
++		ipv6h = ipv6_hdr(skb);
++
++		if ((t->parms.proto != IPPROTO_IPV6 && t->parms.proto != 0) ||
++		    !ip6_tnl_xmit_ctl(t) || vti6_addr_conflict(t, ipv6h))
++			goto tx_err;
++
++		xfrm_decode_session(skb, &fl, AF_INET6);
++		memset(IP6CB(skb), 0, sizeof(*IP6CB(skb)));
++		break;
++	case htons(ETH_P_IP):
++		xfrm_decode_session(skb, &fl, AF_INET);
++		memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
+ 		break;
+ 	default:
+ 		goto tx_err;
+ 	}
+ 
++	ret = vti6_xmit(skb, dev, &fl);
+ 	if (ret < 0)
+ 		goto tx_err;
+ 
 -- 
 1.7.9.5
