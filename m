@@ -1,157 +1,97 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH net v3] bna: fix vlan tag stripping and implement its toggling
-Date: Fri, 28 Feb 2014 14:14:03 +0100
-Message-ID: <1393593243-10334-1-git-send-email-ivecera@redhat.com>
-Cc: davem@davemloft.net, rmody@brocade.com, jiri@resnulli.us,
-	fw@strlen.de
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29501 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751581AbaB1NOM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Feb 2014 08:14:12 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v4] can: xilinx CAN controller support.
+Date: Fri, 28 Feb 2014 14:15:27 +0100
+Message-ID: <53108BEF.1020308@pengutronix.de>
+References: <74d607e9-ac9c-4a9b-ac49-e84ae49d20c2@TX2EHSMHS031.ehs.local> <530D0A9C.5090402@pengutronix.de> <cd00fb2d-c8a7-423d-8aa0-2b413e9ac101@CO9EHSMHS017.ehs.local> <530DEA7C.6010609@pengutronix.de> <678ca296-8687-4e7c-9014-ae69d886a068@CO9EHSMHS014.ehs.local> <530E0B92.5010903@pengutronix.de> <2e3bfd38-37d5-4102-af79-821196c6c732@CH1EHSMHS006.ehs.local> <53104995.4010305@pengutronix.de> <48409965-e214-43b7-8b6a-08bf075707e1@CO9EHSMHS001.ehs.local> <53108798.7090902@pengutronix.de> <4902b8d8-139a-4fd0-9e6e-a30ce7e6683b@CH1EHSMHS019.ehs.local>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="BqccfKe4b5F00xdVAJSqp3LTVQq5PE8IE"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>,
+	"wg@grandegger.com" <wg@grandegger.com>,
+	Michal Simek <michals@xilinx.com>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4902b8d8-139a-4fd0-9e6e-a30ce7e6683b@CH1EHSMHS019.ehs.local>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The recent commit "fe1624c bna: RX Filter Enhancements" disables
-VLAN tag stripping if the NIC is in promiscuous mode. This causes
-__vlan_hwaccel_put_tag() is called when the stripping is disabled.
-Because of this VLAN over bna does not work and causes BUGs in conjunction
-with openvswitch like this:
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--BqccfKe4b5F00xdVAJSqp3LTVQq5PE8IE
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
----
-[18370.665074] kernel BUG at include/linux/skbuff.h:1497!
-...
-[18370.876769] Call Trace:
-[18370.879455]  <IRQ>
-[18370.881569]  [<ffffffffa063a3c6>] internal_dev_recv+0xb6/0x130 [openvswitch]
-[18370.889552]  [<ffffffffa06398ed>] ovs_vport_send+0x1d/0x80 [openvswitch]
-[18370.896922]  [<ffffffffa063016a>] do_output+0x2a/0x50 [openvswitch]
-[18370.903814]  [<ffffffffa06304cd>] do_execute_actions+0x19d/0xb20 [openvswitch]
-[18370.911757]  [<ffffffffa0630e7b>] ovs_execute_actions+0x2b/0x30 [openvswitch]
-[18370.919602]  [<ffffffffa0633722>] ovs_dp_process_received_packet+0x92/0x120 [openvswitch]
-[18370.928597]  [<ffffffff8109be83>] ? find_busiest_group+0x103/0x880
-[18370.935396]  [<ffffffffa063982a>] ovs_vport_receive+0x2a/0x30 [openvswitch]
-[18370.943053]  [<ffffffffa063a6b1>] netdev_frame_hook+0xc1/0x120 [openvswitch]
-[18370.950802]  [<ffffffff814b27c2>] __netif_receive_skb_core+0x262/0x840
-[18370.957982]  [<ffffffff81019a00>] ? flush_ptrace_hw_breakpoint+0x10/0x40
-[18370.965349]  [<ffffffff814b2db8>] __netif_receive_skb+0x18/0x60
-[18370.971855]  [<ffffffff814b2e33>] netif_receive_skb+0x33/0xb0
-[18370.978172]  [<ffffffff814b3736>] napi_gro_frags+0x116/0x170
-[18370.984407]  [<ffffffffa0c7aaa4>] bnad_napi_poll_rx+0x3f4/0x8f0 [bna]
-[18370.991488]  [<ffffffff814b31ba>] net_rx_action+0x15a/0x250
-...
----
+On 02/28/2014 02:07 PM, Appana Durga Kedareswara Rao wrote:
+>>>> What happens if the interrupt handler is delayed? For example in a R=
+T
+>>>> enabled system the interrupt handler runs as a thread. There might b=
+e
+>>>> other threads with higher priority. The hardware will probably send
+>>>> all CAN frames in the FIFO, so you want to reduce the overhead and
+>>>> loop in the tx complete handler.
+>>>>
+>>> Yes I agree with your comment.
+>>> It will be good to have a loop in the Tx interrupt handler I am
+>>> modifying the Tx interrupt handler like below.
+>>>
+>>> static void xcan_tx_interrupt(struct net_device *ndev, u32 isr) {
+>>>         struct xcan_priv *priv =3D netdev_priv(ndev);
+>>>         struct net_device_stats *stats =3D &ndev->stats;
+>>>
+>>>         while (priv->tx_head - priv->tx_tail > 0) {
+>>>                 if (!(isr & XCAN_IXR_TXOK_MASK)) {
+>>>                         break;
+>>>                 }
+>>>                 can_get_echo_skb(ndev, priv->tx_tail %
+>>>                                         priv->xcan_echo_skb_max_tx);
+>>>                 priv->tx_tail++;
+>>>                 stats->tx_packets++;
+>>>                 can_led_event(ndev, CAN_LED_EVENT_TX);
 
-The following patch makes the following changes so the driver:
-1. Implements .ndo_set_features so an user can toggle VLAN tag stripping
-   on/off
-2. Does not disable VLAN tag stripping in promiscuous mode so the driver
-   respect user's choice
-3. Calls __vlan_hwaccel_put_tag() only when the stripping is enabled
+Probably first clear the interrupt, because you've just handled it, then
+check if it's still present. The question is, do you have to clear the
+IRQ for each transmitted frame, or does one clean of the interrupt clear
+the bit for more then one transmitted frame?
 
-v2:
-- make bnad_set_features static (thanks Florian Westphal)
-- enable/disable VLAN stripping during open WRT hw_features
+>>>                 isr =3D priv->read_reg(priv, XCAN_ISR_OFFSET);
+>             --> clear Tx OK interrupt.
 
-v3:
-- enable/disable VLAN stripping during open WRT features and not hw_features
+>=20
+>>>         }
+>>>         netif_wake_queue(ndev);
+>>> }
+>>>
+>>> Are you Ok with this?
 
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
----
- drivers/net/ethernet/brocade/bna/bnad.c | 40 ++++++++++++++++++++++++---------
- 1 file changed, 30 insertions(+), 10 deletions(-)
+Were getting there :)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index cf64f3d..4ad1187 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -707,7 +707,8 @@ bnad_cq_process(struct bnad *bnad, struct bna_ccb *ccb, int budget)
- 		else
- 			skb_checksum_none_assert(skb);
- 
--		if (flags & BNA_CQ_EF_VLAN)
-+		if ((flags & BNA_CQ_EF_VLAN) &&
-+		    (bnad->netdev->features & NETIF_F_HW_VLAN_CTAG_RX))
- 			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), ntohs(cmpl->vlan_tag));
- 
- 		if (BNAD_RXBUF_IS_SK_BUFF(unmap_q->type))
-@@ -2094,7 +2095,9 @@ bnad_init_rx_config(struct bnad *bnad, struct bna_rx_config *rx_config)
- 		rx_config->q1_buf_size = BFI_SMALL_RXBUF_SIZE;
- 	}
- 
--	rx_config->vlan_strip_status = BNA_STATUS_T_ENABLED;
-+	rx_config->vlan_strip_status =
-+		(bnad->netdev->features & NETIF_F_HW_VLAN_CTAG_RX) ?
-+		BNA_STATUS_T_ENABLED : BNA_STATUS_T_DISABLED;
- }
- 
- static void
-@@ -3245,11 +3248,6 @@ bnad_set_rx_mode(struct net_device *netdev)
- 			BNA_RXMODE_ALLMULTI;
- 	bna_rx_mode_set(bnad->rx_info[0].rx, new_mode, mode_mask, NULL);
- 
--	if (bnad->cfg_flags & BNAD_CF_PROMISC)
--		bna_rx_vlan_strip_disable(bnad->rx_info[0].rx);
--	else
--		bna_rx_vlan_strip_enable(bnad->rx_info[0].rx);
--
- 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
- }
- 
-@@ -3374,6 +3372,27 @@ bnad_vlan_rx_kill_vid(struct net_device *netdev, __be16 proto, u16 vid)
- 	return 0;
- }
- 
-+static int bnad_set_features(struct net_device *dev, netdev_features_t features)
-+{
-+	struct bnad *bnad = netdev_priv(dev);
-+	netdev_features_t changed = features ^ dev->features;
-+
-+	if ((changed & NETIF_F_HW_VLAN_CTAG_RX) && netif_running(dev)) {
-+		unsigned long flags;
-+
-+		spin_lock_irqsave(&bnad->bna_lock, flags);
-+
-+		if (features & NETIF_F_HW_VLAN_CTAG_RX)
-+			bna_rx_vlan_strip_enable(bnad->rx_info[0].rx);
-+		else
-+			bna_rx_vlan_strip_disable(bnad->rx_info[0].rx);
-+
-+		spin_unlock_irqrestore(&bnad->bna_lock, flags);
-+	}
-+
-+	return 0;
-+}
-+
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void
- bnad_netpoll(struct net_device *netdev)
-@@ -3421,6 +3440,7 @@ static const struct net_device_ops bnad_netdev_ops = {
- 	.ndo_change_mtu		= bnad_change_mtu,
- 	.ndo_vlan_rx_add_vid    = bnad_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid   = bnad_vlan_rx_kill_vid,
-+	.ndo_set_features	= bnad_set_features,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller    = bnad_netpoll
- #endif
-@@ -3433,14 +3453,14 @@ bnad_netdev_init(struct bnad *bnad, bool using_dac)
- 
- 	netdev->hw_features = NETIF_F_SG | NETIF_F_RXCSUM |
- 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
--		NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_HW_VLAN_CTAG_TX;
-+		NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_HW_VLAN_CTAG_TX |
-+		NETIF_F_HW_VLAN_CTAG_RX;
- 
- 	netdev->vlan_features = NETIF_F_SG | NETIF_F_HIGHDMA |
- 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
- 		NETIF_F_TSO | NETIF_F_TSO6;
- 
--	netdev->features |= netdev->hw_features |
--		NETIF_F_HW_VLAN_CTAG_RX | NETIF_F_HW_VLAN_CTAG_FILTER;
-+	netdev->features |= netdev->hw_features | NETIF_F_HW_VLAN_CTAG_FILTER;
- 
- 	if (using_dac)
- 		netdev->features |= NETIF_F_HIGHDMA;
--- 
-1.8.3.2
+Marc
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--BqccfKe4b5F00xdVAJSqp3LTVQq5PE8IE
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlMQi+8ACgkQjTAFq1RaXHPqFwCgidLsjs4bf60MlQaZsLvSmgvE
+hugAn1Et9bzUjDb07qlE8dv+dsDEfaV7
+=OMGk
+-----END PGP SIGNATURE-----
+
+--BqccfKe4b5F00xdVAJSqp3LTVQq5PE8IE--
