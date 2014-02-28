@@ -1,55 +1,50 @@
-From: "Andrey Mazo" <mazo@telum.ru>
-Subject: Re: [PATCH 0/4] bridge-utils: build system fixes and cleanups
-Date: Fri, 28 Feb 2014 22:46:47 +0400
-Message-ID: <op.xbz839r7vp3tvr@hippo.telum.ru>
-References: <1393239406-8504-1-git-send-email-mazo@telum.ru>
- <20140228101720.7a826230@nehalam.linuxnetplumber.net>
+From: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH] openvswitch: Orphan frags before sending to
+	userspace via Netlink to avoid guest stall
+Date: Fri, 28 Feb 2014 19:16:56 +0000
+Message-ID: <1393615016-9187-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed; delsp=yes
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Stephen Hemminger" <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.telum.ru ([62.141.76.179]:53920 "EHLO mail.telum.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751665AbaB1Sp2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Feb 2014 13:45:28 -0500
-In-Reply-To: <20140228101720.7a826230@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+ <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Fri, 28 Feb 2014 22:17:20 +0400, Stephen Hemminger <stephen@networkplumber.org> wrote:
+The kernel datapath now switched to zerocopy Netlink messages, but that also
+means that the pages on frags array are sent straight to userspace. If those
+pages came outside the kernel, we have to swap them out with local copies.
 
-> On Mon, 24 Feb 2014 14:56:42 +0400
-> Andrey Mazo <mazo@telum.ru> wrote:
->
->> This short patch series implements several enhancements to the bridge-utils
->> build system.
->> The first two patches had already been sent to the bridge list [1,2]
->> but unfortunately got no response.
->> I've recently sent the whole patch series to the bridge list [3]
->> but forgot to CC netdev list.
->> I appologize if you receive multiple copies of this series.
->>
->> [1] http://lists.linuxfoundation.org/pipermail/bridge/2013-August/008535.html
->> [2] http://lists.linuxfoundation.org/pipermail/bridge/2013-August/008536.html
->> [3] http://lists.linuxfoundation.org/pipermail/bridge/2014-February/008711.html
->>
->> Andrey Mazo (4):
->>   bridge-utils: Abort compilation on error in any subdirectory
->>   bridge-utils: Removed unused variable in doc/Makefile.in
->>   bridge-utils: AC_OUTPUT should be used without arguments
->>   bridge-utils: Pretty print configure help
->>
->>  Makefile.in     |  4 ++--
->>  configure.ac    | 12 ++++++++----
->>  doc/Makefile.in |  2 --
->>  3 files changed, 10 insertions(+), 8 deletions(-)
->>
->
-> Looks good, accepted.
+Signed-off-by: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+---
+ net/openvswitch/datapath.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
 
-Thank you very much!
-
--- 
-Andrey Mazo.
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 36f8872..ffb563c 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -464,6 +464,12 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
+ 	}
+ 	nla->nla_len = nla_attr_size(skb->len);
+ 
++	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC))) {
++		err = -ENOMEM;
++		skb_tx_error(skb);
++		goto out;
++	}
++
+ 	skb_zerocopy(user_skb, skb, skb->len, hlen);
+ 
+ 	/* Pad OVS_PACKET_ATTR_PACKET if linear copy was performed */
