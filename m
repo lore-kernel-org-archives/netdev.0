@@ -1,61 +1,47 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next 1/2] vlan: don't allow vlan device to move between
- network namespaces
-Date: Fri, 28 Feb 2014 16:52:29 +0800
-Message-ID: <53104E4D.8060706@huawei.com>
-References: <1393573839-32316-1-git-send-email-dingtianhong@huawei.com> <1393573839-32316-2-git-send-email-dingtianhong@huawei.com> <531044E1.6070005@lab.ntt.co.jp>
+From: Huang Shijie <b32955@freescale.com>
+Subject: Re: change kmalloc into vmalloc for large memory allocations
+Date: Fri, 28 Feb 2014 16:54:34 +0800
+Message-ID: <53104ECA.4010702@freescale.com>
+References: <35FD53F367049845BC99AC72306C23D102844605F38C@CNBJMBX05.corpusers.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <joe@perches.com>, <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>, <kaber@trash.net>,
-	<julia.lawall@lip6.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:34193 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750701AbaB1Ix0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 03:53:26 -0500
-In-Reply-To: <531044E1.6070005@lab.ntt.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: "'alsa-devel@alsa-project.org'" <alsa-devel@alsa-project.org>,
+ "'broonie@opensource.wolfsonmicro.com'"
+ <broonie@opensource.wolfsonmicro.com>, "'tiwai@suse.de'" <tiwai@suse.de>,
+ "'fweisbec@gmail.com'" <fweisbec@gmail.com>,
+ "'perex@perex.cz'" <perex@perex.cz>,
+ "'dmitry.torokhov@gmail.com'" <dmitry.torokhov@gmail.com>,
+ "'mingo@redhat.com'" <mingo@redhat.com>,
+ "'linux-input@vger.kernel.org'" <linux-input@vger.kernel.org>,
+ "'rydberg@euromail.se'" <rydberg@euromail.se>, "'lrg@ti.com'" <lrg@ti.com>,
+ "'pablo@netfilter.org'" <pablo@netfilter.org>,
+ "'coreteam@netfilter.org'" <coreteam@netfilter.org>,
+ "'linux-arm-msm@vger.kernel.org'" <linux-arm-msm@vger.kernel.org>,
+ "'rostedt@goodmis.org'" <rostedt@goodmis.org>,
+ "'netfilter@vger.kernel.org'" <netfilter@vger.kernel.org>,
+ "'linux-arm-kernel@lists.infradead.org'"
+ <linux-arm-kernel@lists.infradead.org>,
+ "'gregkh@linuxfoundation.org
+To: "Wang, Yalin" <Yalin.Wang@sonymobile.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <35FD53F367049845BC99AC72306C23D102844605F38C@CNBJMBX05.corpusers.net>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/2/28 16:12, Toshiaki Makita wrote:
-> (2014/02/28 16:50), Ding Tianhong wrote:
->> Now the vlan device could move to another network namespace, but
->> the read dev is sill in the old network namespace, it is unsafe
->> and the vlan device could not work well, so don't allow to do it.
-> 
-> Why is this a problem?
-> This looks like a useful feature to me.
-> 
-> Thanks,
-> Toshiaki Makita
-> 
-I think the vlan dev is a virtual device, if it does not with real dev together,
-I am not sure whether it is correct. Maybe I miss something, pls remind me.
-
-Thanks
-Ding
-
->>
->> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->> ---
->>  net/8021q/vlan_dev.c | 3 +++
->>  1 file changed, 3 insertions(+)
->>
->> diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
->> index 566adbf..76d8fab 100644
->> --- a/net/8021q/vlan_dev.c
->> +++ b/net/8021q/vlan_dev.c
->> @@ -791,5 +791,8 @@ void vlan_setup(struct net_device *dev)
->>  	dev->destructor		= free_netdev;
->>  	dev->ethtool_ops	= &vlan_ethtool_ops;
->>  
->> +	/* don't allow vlan device to move between network namespaces */
->> +	dev->features		|= NETIF_F_NETNS_LOCAL;
->> +
->>  	memset(dev->broadcast, 0, ETH_ALEN);
->>  }
->>
-> 
-> 
+5LqOIDIwMTTlubQwMuaciDI45pelIDE2OjE1LCBXYW5nLCBZYWxpbiDlhpnpgZM6Cj4gY291bGQg
+dGhpcyBtb2R1bGUgY2hhbmdlIHRoZSBtZW1vcnkgYWxsb2NhdGlvbiBpbnRvIHZtYWxsb2MgPwp0
+aGUgYnVmZmVyIGFsbG9jYXRlZCBieSB2bWFsbG9jIGNhbiBub3QgYmUgdXNlZCBmb3IgdGhlIERN
+QS4KCkkgdGhpbmsgdGhhdCdzIHdoeSBkcml2ZXJzIHVzZSB0aGUga21hbGxvYy4KCnRoYW5rcwpI
+dWFuZyBTaGlqaWUKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fXwpsaW51eC1hcm0ta2VybmVsIG1haWxpbmcgbGlzdApsaW51eC1hcm0ta2VybmVsQGxpc3Rz
+LmluZnJhZGVhZC5vcmcKaHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvbWFpbG1hbi9saXN0aW5m
+by9saW51eC1hcm0ta2VybmVsCg==
