@@ -1,50 +1,104 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v5] can: add Renesas R-Car CAN driver
-Date: Fri, 28 Feb 2014 15:16:23 +0400
-Message-ID: <53107007.7050802@cogentembedded.com>
-References: <201312270037.15822.sergei.shtylyov@cogentembedded.com> <52DCE9E4.7010209@pengutronix.de> <52E3148E.2010608@cogentembedded.com> <52FCB6C5.6020001@pengutronix.de> <53069445.80408@cogentembedded.com> <5310521E.6000708@pengutronix.de>
+From: "Kretschmer, Mathias" <mathias.kretschmer@fokus.fraunhofer.de>
+Subject: RE: [PATCH net-next] packet: allow to transmit +4 byte in TX_RING
+ slot for VLAN case
+Date: Fri, 28 Feb 2014 11:26:47 +0000
+Message-ID: <D53252F45158EF44B1DF124FDC9AF2A35AECCF51@FEYNMAN.fokus.fraunhofer.de>
+References: <1393550526-25390-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-sh@vger.kernel.org, vksavl@gmail.com
-To: Marc Kleine-Budde <mkl@pengutronix.de>, netdev@vger.kernel.org,
-	wg@grandegger.com, linux-can@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <5310521E.6000708@pengutronix.de>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ben Greear <greearb@candelatech.com>, Phil Sutter <phil@nwl.cc>
+To: Daniel Borkmann <dborkman@redhat.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx-relay08-dus.antispameurope.com ([94.100.134.208]:52056 "EHLO
+	mx-relay08-dus.antispameurope.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751021AbaB1L1B convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Feb 2014 06:27:01 -0500
+In-Reply-To: <1393550526-25390-1-git-send-email-dborkman@redhat.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Tested-by: Mathias Kretschmer <mathias.kretschmer@fokus.fraunhofer.de>
 
-On 28-02-2014 13:08, Marc Kleine-Budde wrote:
-
->>>> 1. According to documentation BCR is the 24-bit register.
->>>> Actually we can consider some 32-bit register that combines BCR and
->>>> CLKR but according to documentation there are two separate registers.
->>>> 2. BCR has 8- ,16-, and 32-bit access (according to documentation).
->>>> 3. This is the algorithm that the documentation suggests.
->>>> 4. We had a driver version with byte access but 32-bit access seems
->>>> shorter.
-
->>> Please use a normal read-modify-write 32 bit access.
-
->>     IMO, reading 32-bits is futile, as we're going to completely
->> overwrite those 24 bits that constitute BCR. So I kept the 8-bit CLKR
->> read but removed the CLKR write in the end. I've also added a comment
->> clarifying why CLKR is positioned in the LSBs of 32-bit word (while it's
->> address would assume MSBs).
->> The host bus is big-endian but byte-swaps at least 16- and 32-bit
->> accesses, so that read[wl]()/write[wl]() work. 8-bit accesses are not
->> byte swapped, despite what the figure in the manual shows.
-
-> A 32 bit read/modify/write is a standard operation, nothing special, no
-> need to worry about byte swapping or anything like this.
-
-    Oh, really? 8-)
-    Don't you know that read[bwlq]() assume little-endian memory layout and to 
-read from big-endian 32-bit register one normally needs readl_be()?
-
-> Marc
-
-WBR, Sergei
-
+> -----Original Message-----
+> From: Daniel Borkmann [mailto:dborkman@redhat.com]
+> Sent: Friday, February 28, 2014 02:22
+> To: davem@davemloft.net
+> Cc: netdev@vger.kernel.org; Kretschmer, Mathias; Ben Greear; Phil Sutter
+> Subject: [PATCH net-next] packet: allow to transmit +4 byte in TX_RING slot
+> for VLAN case
+> 
+> Commit 57f89bfa2140 ("network: Allow af_packet to transmit +4 bytes for
+> VLAN packets.") added the possibility for non-mmaped frames to send extra
+> 4 byte for VLAN header so the MTU increases from 1500 to
+> 1504 byte, for example.
+> 
+> Commit cbd89acb9eb2 ("af_packet: fix for sending VLAN frames via
+> packet_mmap") attempted to fix that for the mmap part but was reverted as
+> it caused regressions while using eth_type_trans() on output path.
+> 
+> Lets just act analogous to 57f89bfa2140 and add a similar logic to TX_RING.
+> We presume size_max as overcharged with +4 bytes and later on after skb
+> has been built by tpacket_fill_skb() check for ETH_P_8021Q header on
+> packets larger than normal MTU. Can be easily reproduced with a slightly
+> modified trafgen in mmap(2) mode, test cases:
+> 
+>  { fill(0xff, 12) const16(0x8100) fill(0xff, <1504|1505>) }  { fill(0xff, 12)
+> const16(0x0806) fill(0xff, <1500|1501>) }
+> 
+> Note that we need to do the test right after tpacket_fill_skb() as sockets can
+> have PACKET_LOSS set where we would not fail but instead just continue to
+> traverse the ring.
+> 
+> Reported-by: Mathias Kretschmer
+> <mathias.kretschmer@fokus.fraunhofer.de>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Ben Greear <greearb@candelatech.com>
+> Cc: Phil Sutter <phil@nwl.cc>
+> ---
+>  net/packet/af_packet.c | 16 +++++++++++++---
+>  1 file changed, 13 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c index
+> 48a6a93..2923044 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -2257,8 +2257,7 @@ static int tpacket_snd(struct packet_sock *po,
+> struct msghdr *msg)
+>  	if (unlikely(!(dev->flags & IFF_UP)))
+>  		goto out_put;
+> 
+> -	reserve = dev->hard_header_len;
+> -
+> +	reserve = dev->hard_header_len + VLAN_HLEN;
+>  	size_max = po->tx_ring.frame_size
+>  		- (po->tp_hdrlen - sizeof(struct sockaddr_ll));
+> 
+> @@ -2285,8 +2284,19 @@ static int tpacket_snd(struct packet_sock *po,
+> struct msghdr *msg)
+>  			goto out_status;
+> 
+>  		tp_len = tpacket_fill_skb(po, skb, ph, dev, size_max, proto,
+> -				addr, hlen);
+> +					  addr, hlen);
+> +		if (tp_len > dev->mtu + dev->hard_header_len) {
+> +			struct ethhdr *ehdr;
+> +			/* Earlier code assumed this would be a VLAN pkt,
+> +			 * double-check this now that we have the actual
+> +			 * packet in hand.
+> +			 */
+> 
+> +			skb_reset_mac_header(skb);
+> +			ehdr = eth_hdr(skb);
+> +			if (ehdr->h_proto != htons(ETH_P_8021Q))
+> +				tp_len = -EMSGSIZE;
+> +		}
+>  		if (unlikely(tp_len < 0)) {
+>  			if (po->tp_loss) {
+>  				__packet_set_status(po, ph,
+> --
+> 1.7.11.7
