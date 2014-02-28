@@ -1,34 +1,49 @@
-From: "Itsuki Kaito" <itski@post.com>
-Subject: Business Proposal From Tokyo
-Date: Fri, 28 Feb 2014 02:35:31 -0000
-Message-ID: <bbdc72f165218614e780ddc6b0c6bdb8.squirrel@50.7.178.130>
-Reply-To: itsuki.osamukaito@japanimail.com
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH net RESEND] vlan: don't allow to add VLAN on VLAN device
+Date: Thu, 27 Feb 2014 19:45:59 -0800
+Message-ID: <53100677.2060705@intel.com>
+References: <530FF7BF.4030706@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: info@itsuki.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 131.178.7.50.nl-cdn.moecojp.com ([50.7.178.131]:57437 "EHLO
-	coreserver.moecojp.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751370AbaB1Dbb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Feb 2014 22:31:31 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <530FF7BF.4030706@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 2/27/2014 6:43 PM, Ding Tianhong wrote:
+> I run these steps:
+>
+> modprobe 8021q
+> vconfig add eth2 20
+> vconfig add eth2.20 20
+> ifconfig eth2 xx.xx.xx.xx
+>
+> then the Call Trace happened:
+>
 
+[...]
 
+> ========================================================================
+>
+> The reason is that if add vlan on vlan dev, the vlan dev will create vlan_info,
+> then the notification will let the real dev to run dev_set_rx_mode() and hold
+> netif_addr_lock, and then the real dev will call ndo_set_rx_mode(), if the real
+> dev is vlan dev, the ndo_set_rx_mode() will hold netif_addr_lock again, so deadlock
+> happened.
+>
+> Don't allow to add vlan on vlan dev to fix this problem.
+>
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> ---
 
-February 28, 2014
+I'm not sure we can just disable stacked vlans. There might be something
+using them today and they have worked in the past. Lets try to find a
+better fix.
 
-Konnichiwa ! Happy New Year 2014 to you ! It is with respect to directly
-write this proposal letter to you, informing you of a potential business
-proposal project that can be established from your country with your help,
-which will mutually be profitable to us having no risk involved.
-
-If you are agreeable to this business proposal, please indicate your
-interest by giving me a direct response email. Feel free to contact me via
-electronic mail or telephone for further discussion. I look forward to
-hearing from you positively on this proposal.
-
-Domo arigato !
-Suki
+.John
