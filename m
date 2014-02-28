@@ -1,119 +1,116 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: Possible fix
-Date: Fri, 28 Feb 2014 08:23:33 +0100
-Message-ID: <20140228072333.GP32371@secunet.com>
-References: <20140227151954.GA30946@redhat.com>
- <1393517857-11842-1-git-send-email-nikolay@redhat.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH] vhost: poll vhost_net only when tx notification is enabled
+Date: Fri, 28 Feb 2014 15:49:22 +0800
+Message-ID: <53103F82.7000904@redhat.com>
+References: <530DB1C9.2060106@huawei.com> <20140226111645.GC5236@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, Dave Jones <davej@redhat.com>,
-	Fan Du <fan.du@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Paul Moore <paul@paul-moore.com>,
-	<linux-security-module@vger.kernel.org>
-To: Nikolay Aleksandrov <nikolay@redhat.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1393517857-11842-1-git-send-email-nikolay@redhat.com>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	KVM list <kvm@vger.kernel.org>, zhangjie14@huawei.com
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+	Qin Chuanyu <qinchuanyu@huawei.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20140226111645.GC5236@redhat.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ccing some security/selinux people.
+On 02/26/2014 07:16 PM, Michael S. Tsirkin wrote:
+> Please see MAINTAINERS and copy all relevant lists.
+>
+> On Wed, Feb 26, 2014 at 05:20:09PM +0800, Qin Chuanyu wrote:
+>> guest kick host base on avail_ring flags value and get perfermance
+> typo
+>
+>> improved, vhost_zerocopy_callback could do the same thing. As
+>> virtqueue_enable_cb need one more check after modifying the value of
+>> avail_ring flags, vhost also need do the same thing after
+>> vhost_enable_notify.
+>>
+>> test result list as below:
+>> guest and host: suse11sp3, netperf, intel CPU 2.4GHz
+>> +------+----------+--------+----------+--------+--------+---------+
+>> |      |             old              |            new            |
+>> +------+----------+--------+----------+--------+--------+---------+
+>> | UDP  |  Gbit/s  |  PPS   |CPU idle% | Gbit/s |   PPS  |CPU idle%|
+>> | 256  | 0.74805  | 321309 |  87.16   | 0.77933| 334743 |  90.71  |
+>> | 512  |   1.42   | 328475 |  87.03   |  1.44  | 333550 |  90.43  |
+>> | 1024 |   2.79   | 334426 |  89.09   |  2.81  | 336986 |  89.55  |
+>> | 1460 |   3.71   | 316215 |  87.53   |  4.02  | 342325 |  89.58  |
+>> +------+----------+--------+----------+--------+--------+---------+
+>>
+>> Signed-off-by: Chuanyu Qin <qinchuanyu@huawei.com>
+> It's an interesting optimization, thanks!
+> However, it looks like this might delay
+> updating used ring indefinitely if we are
+> unlucky. Some guests (e.g. windows)
+> tend to crash if this happens.
 
-On Thu, Feb 27, 2014 at 05:17:37PM +0100, Nikolay Aleksandrov wrote:
-> Hi,
-> I'm not familiar with the code but happened to see the bug, could you
-> try the following patch, I believe it should fix the issue.
-> 
-> Thanks,
->  Nik
-> 
-> [PATCH net] net: af_key: fix sleeping under rcu
-> 
-> There's a kmalloc with GFP_KERNEL in a helper
-> (pfkey_sadb2xfrm_user_sec_ctx) used in pfkey_compile_policy which is
-> called under rcu_read_lock. Adjust pfkey_sadb2xfrm_user_sec_ctx to have
-> a gfp argument and adjust the users.
-> 
+Looks like it does not change this.
 
-Looking at the git history, it seems that this bug is about nine
-years old. I guess noone is actually using this.
+When tx notification is disabled, it means handle_tx() is running which
+will update the used ring before each tx descriptor fetching. And the
+patch does used updating after each time when tx notification is enabled.
+>
+> Maybe use a new flag for this?
+>
+> It also looks like there are potential race conditions below.
+>
+>> ---
+>>  drivers/vhost/net.c |   13 ++++++++++++-
+>>  1 files changed, 12 insertions(+), 1 deletions(-)
+>>
+>> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+>> index a0fa5de..a90f51b 100644
+>> --- a/drivers/vhost/net.c
+>> +++ b/drivers/vhost/net.c
+>> @@ -315,6 +315,10 @@ static void vhost_zerocopy_callback(struct
+>> ubuf_info *ubuf, bool success)
+>>  		VHOST_DMA_DONE_LEN : VHOST_DMA_FAILED_LEN;
+>>  	cnt = vhost_net_ubuf_put(ubufs);
+>>
+>> +	/* make sure len has been updated because handle_tx would use it
+>> +	 * and used_flags should also been checked.
+>> +	 */
+>> +	smp_mb();
+>>  	/*
+>>  	 * Trigger polling thread if guest stopped submitting new buffers:
+>>  	 * in this case, the refcount after decrement will eventually reach 1.
+> this barrier is very suspect.
+>
+>> @@ -322,7 +326,8 @@ static void vhost_zerocopy_callback(struct
+>> ubuf_info *ubuf, bool success)
+>>  	 * (the value 16 here is more or less arbitrary, it's tuned to trigger
+>>  	 * less than 10% of times).
+>>  	 */
+>> -	if (cnt <= 1 || !(cnt % 16))
+>> +	if ((!(vq->used_flags & VRING_USED_F_NO_NOTIFY))
+>> +			&& (cnt <= 1 || !(cnt % 16)))
+>>  		vhost_poll_queue(&vq->poll);
+>>
+>>  	rcu_read_unlock_bh();
+> looks like a potential race to me
 
-Also, we care for the security context only if we add a socket
-policy via the pfkey key manager. The security context is not
-handled if we do that with the netlink key manager
-(compare pfkey_compile_policy() and xfrm_compile_policy()).
+Could you please explain the race a little bit more?
+>> @@ -386,6 +391,12 @@ static void handle_tx(struct vhost_net *net)
+>>  				vhost_disable_notify(&net->dev, vq);
+>>  				continue;
+>>  			}
+>> +			/* there might skb been freed between last
+>> +			* vhost_zerocopy_signal_used and vhost_enable_notify,
+>> +			* so one more check is needed.
+>> +			*/
+>> +			if (zcopy)
+>> +				vhost_zerocopy_signal_used(net, vq);
+>
+>>  			break;
+>>  		}
+>>  		if (in) {
+>> -- 
+>> 1.7.3.1.msysgit.0
+>>
+> --
+> To unsubscribe from this list: send the line "unsubscribe kvm" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-> CC: Dave Jones <davej@redhat.com>
-> CC: Steffen Klassert <steffen.klassert@secunet.com>
-> CC: Fan Du <fan.du@windriver.com>
-> CC: David S. Miller <davem@davemloft.net>
-> 
-> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
-> ---
-> I'm not familiar with this code, but just happen to see the bug. I believe
-> this patch should take care of it.
-> I've left the already very long lines.
-> 
->  net/key/af_key.c | 13 +++++++------
->  1 file changed, 7 insertions(+), 6 deletions(-)
-> 
-> diff --git a/net/key/af_key.c b/net/key/af_key.c
-> index 1a04c1329362..1526023f99ed 100644
-> --- a/net/key/af_key.c
-> +++ b/net/key/af_key.c
-> @@ -433,12 +433,13 @@ static inline int verify_sec_ctx_len(const void *p)
->  	return 0;
->  }
->  
-> -static inline struct xfrm_user_sec_ctx *pfkey_sadb2xfrm_user_sec_ctx(const struct sadb_x_sec_ctx *sec_ctx)
-> +static inline struct xfrm_user_sec_ctx *pfkey_sadb2xfrm_user_sec_ctx(const struct sadb_x_sec_ctx *sec_ctx,
-> +								     gfp_t gfp)
->  {
->  	struct xfrm_user_sec_ctx *uctx = NULL;
->  	int ctx_size = sec_ctx->sadb_x_ctx_len;
->  
-> -	uctx = kmalloc((sizeof(*uctx)+ctx_size), GFP_KERNEL);
-> +	uctx = kmalloc((sizeof(*uctx)+ctx_size), gfp);
->  
->  	if (!uctx)
->  		return NULL;
-> @@ -1124,7 +1125,7 @@ static struct xfrm_state * pfkey_msg2xfrm_state(struct net *net,
->  
->  	sec_ctx = ext_hdrs[SADB_X_EXT_SEC_CTX - 1];
->  	if (sec_ctx != NULL) {
-> -		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
-> +		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_KERNEL);
->  
->  		if (!uctx)
->  			goto out;
-> @@ -2231,7 +2232,7 @@ static int pfkey_spdadd(struct sock *sk, struct sk_buff *skb, const struct sadb_
->  
->  	sec_ctx = ext_hdrs[SADB_X_EXT_SEC_CTX - 1];
->  	if (sec_ctx != NULL) {
-> -		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
-> +		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_KERNEL);
->  
->  		if (!uctx) {
->  			err = -ENOBUFS;
-> @@ -2335,7 +2336,7 @@ static int pfkey_spddelete(struct sock *sk, struct sk_buff *skb, const struct sa
->  
->  	sec_ctx = ext_hdrs[SADB_X_EXT_SEC_CTX - 1];
->  	if (sec_ctx != NULL) {
-> -		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
-> +		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_KERNEL);
->  
->  		if (!uctx)
->  			return -ENOMEM;
-> @@ -3239,7 +3240,7 @@ static struct xfrm_policy *pfkey_compile_policy(struct sock *sk, int opt,
->  		}
->  		if ((*dir = verify_sec_ctx_len(p)))
->  			goto out;
-> -		uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
-> +		uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_ATOMIC);
->  		*dir = security_xfrm_policy_alloc(&xp->security, uctx);
-
-This would fix the allocation done in pfkey_sadb2xfrm_user_sec_ctx().
-But security_xfrm_policy_alloc() might call selinux_xfrm_alloc_user()
-which does a GFP_KERNEL allocation too. So I guess we also need to fix
-selinux.
