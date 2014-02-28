@@ -1,7 +1,7 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 3/6] ixgbe: fix bit toggled for 82599 reset fix.
-Date: Thu, 27 Feb 2014 20:32:42 -0800
-Message-ID: <1393561965-3688-4-git-send-email-aaron.f.brown@intel.com>
+Subject: [net-next 1/6] ixgbe: fix to use correct timeout interval for memory read completion
+Date: Thu, 27 Feb 2014 20:32:40 -0800
+Message-ID: <1393561965-3688-2-git-send-email-aaron.f.brown@intel.com>
 References: <1393561965-3688-1-git-send-email-aaron.f.brown@intel.com>
 Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -10,7 +10,7 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:53821 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751164AbaB1EgK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1750999AbaB1EgK (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 27 Feb 2014 23:36:10 -0500
 In-Reply-To: <1393561965-3688-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,29 +18,122 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Don Skidmore <donald.c.skidmore@intel.com>
 
-The current code doesn't toggle the correct bit to reset the data pipeline
-on Restart_AN assertion.  This patch corrects that.
+Currently we were just always polling for a hard coded 80 ms and not
+respecting the system-wide timeout interval.  Since up until now all
+devices have been tested with this 80ms value we continue to use this
+value as a hard minimum.
 
 Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 54 ++++++++++++++++++++++++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   | 13 +++++-
+ 2 files changed, 64 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index 1c31d2d..e919c28 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -2395,7 +2395,8 @@ static s32 ixgbe_reset_pipeline_82599(struct ixgbe_hw *hw)
- 	autoc_reg |= IXGBE_AUTOC_AN_RESTART;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index b5c434b..2e84ee8 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -2437,6 +2437,55 @@ out:
+ }
  
- 	/* Write AUTOC register with toggled LMS[2] bit and Restart_AN */
--	IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc_reg ^ IXGBE_AUTOC_LMS_1G_AN);
-+	IXGBE_WRITE_REG(hw, IXGBE_AUTOC,
-+			autoc_reg ^ (0x4 << IXGBE_AUTOC_LMS_SHIFT));
+ /**
++ * ixgbe_pcie_timeout_poll - Return number of times to poll for completion
++ * @hw: pointer to hardware structure
++ *
++ * System-wide timeout range is encoded in PCIe Device Control2 register.
++ *
++ *  Add 10% to specified maximum and return the number of times to poll for
++ *  completion timeout, in units of 100 microsec.  Never return less than
++ *  800 = 80 millisec.
++ **/
++static u32 ixgbe_pcie_timeout_poll(struct ixgbe_hw *hw)
++{
++	struct ixgbe_adapter *adapter = hw->back;
++	s16 devctl2;
++	u32 pollcnt;
++
++	pci_read_config_word(adapter->pdev, IXGBE_PCI_DEVICE_CONTROL2,
++			     &devctl2);
++	devctl2 &= IXGBE_PCIDEVCTRL2_TIMEO_MASK;
++
++	switch (devctl2) {
++	case IXGBE_PCIDEVCTRL2_65_130ms:
++		 pollcnt = 1300;         /* 130 millisec */
++		break;
++	case IXGBE_PCIDEVCTRL2_260_520ms:
++		pollcnt = 5200;         /* 520 millisec */
++		break;
++	case IXGBE_PCIDEVCTRL2_1_2s:
++		pollcnt = 20000;        /* 2 sec */
++		break;
++	case IXGBE_PCIDEVCTRL2_4_8s:
++		pollcnt = 80000;        /* 8 sec */
++		break;
++	case IXGBE_PCIDEVCTRL2_17_34s:
++		pollcnt = 34000;        /* 34 sec */
++		break;
++	case IXGBE_PCIDEVCTRL2_50_100us:        /* 100 microsecs */
++	case IXGBE_PCIDEVCTRL2_1_2ms:           /* 2 millisecs */
++	case IXGBE_PCIDEVCTRL2_16_32ms:         /* 32 millisec */
++	case IXGBE_PCIDEVCTRL2_16_32ms_def:     /* 32 millisec default */
++	default:
++		pollcnt = 800;          /* 80 millisec minimum */
++		break;
++	}
++
++	/* add 10% to spec maximum */
++	return (pollcnt * 11) / 10;
++}
++
++/**
+  *  ixgbe_disable_pcie_master - Disable PCI-express master access
+  *  @hw: pointer to hardware structure
+  *
+@@ -2449,7 +2498,7 @@ static s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw)
+ {
+ 	struct ixgbe_adapter *adapter = hw->back;
+ 	s32 status = 0;
+-	u32 i;
++	u32 i, poll;
+ 	u16 value;
  
- 	/* Wait for AN to leave state 0 */
- 	for (i = 0; i < 10; i++) {
+ 	/* Always set this bit to ensure any future transactions are blocked */
+@@ -2481,7 +2530,8 @@ static s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw)
+ 	 * Before proceeding, make sure that the PCIe block does not have
+ 	 * transactions pending.
+ 	 */
+-	for (i = 0; i < IXGBE_PCI_MASTER_DISABLE_TIMEOUT; i++) {
++	poll = ixgbe_pcie_timeout_poll(hw);
++	for (i = 0; i < poll; i++) {
+ 		udelay(100);
+ 		pci_read_config_word(adapter->pdev, IXGBE_PCI_DEVICE_STATUS,
+ 							 &value);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 9283cff..245819d 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -1854,8 +1854,19 @@ enum {
+ #define IXGBE_PCI_HEADER_TYPE_MULTIFUNC 0x80
+ #define IXGBE_PCI_DEVICE_CONTROL2_16ms  0x0005
+ 
++#define IXGBE_PCIDEVCTRL2_TIMEO_MASK	0xf
++#define IXGBE_PCIDEVCTRL2_16_32ms_def	0x0
++#define IXGBE_PCIDEVCTRL2_50_100us	0x1
++#define IXGBE_PCIDEVCTRL2_1_2ms		0x2
++#define IXGBE_PCIDEVCTRL2_16_32ms	0x5
++#define IXGBE_PCIDEVCTRL2_65_130ms	0x6
++#define IXGBE_PCIDEVCTRL2_260_520ms	0x9
++#define IXGBE_PCIDEVCTRL2_1_2s		0xa
++#define IXGBE_PCIDEVCTRL2_4_8s		0xd
++#define IXGBE_PCIDEVCTRL2_17_34s	0xe
++
+ /* Number of 100 microseconds we wait for PCI Express master disable */
+-#define IXGBE_PCI_MASTER_DISABLE_TIMEOUT 800
++#define IXGBE_PCI_MASTER_DISABLE_TIMEOUT	800
+ 
+ /* RAH */
+ #define IXGBE_RAH_VIND_MASK     0x003C0000
 -- 
 1.8.5.GIT
