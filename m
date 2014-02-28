@@ -1,19 +1,63 @@
-From: Juanita Brunelle <jbrunelle@rcc.mass.edu>
-Subject: (unknown)
-Date: Fri, 28 Feb 2014 11:55:47 +0000
-Message-ID: <3E1499EA5C26004C97F821B3C86613173F0115B3__49060.0708908916$1393588913$gmane$org@RCC-EX-MB1.rcc.mass.edu>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v5] can: add Renesas R-Car CAN driver
+Date: Fri, 28 Feb 2014 12:02:52 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6CDC10@AcuExch.aculab.com>
+References: <201312270037.15822.sergei.shtylyov@cogentembedded.com>
+	<52DCE9E4.7010209@pengutronix.de>	<52E3148E.2010608@cogentembedded.com>
+	<52FCB6C5.6020001@pengutronix.de>	<53069445.80408@cogentembedded.com>
+	<5310521E.6000708@pengutronix.de>	<53107007.7050802@cogentembedded.com>
+	<531074F5.8090702@pengutronix.de>
+ <CAMuHMdUuaX0pGmdOuJ9CJwj-ZTYo4PqTtZmYHh8swamQ754s2A@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6D0F6CDBD9@AcuExch.aculab.com>
+ <5310781F.1000005@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod6ob105.obsmtp.com ([64.18.1.188]:59362 "EHLO
-	exprod6ob105.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751296AbaB1MBR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 07:01:17 -0500
-Subject: 
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"wg@grandegger.com" <wg@grandegger.com>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>,
+	Pavel Kiryukhin <vksavl@gmail.com>
+To: 'Marc Kleine-Budde' <mkl@pengutronix.de>,
+	'Geert Uytterhoeven' <geert@linux-m68k.org>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <5310781F.1000005@pengutronix.de>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Please is your email active? Please Revert back to us with your full informations for claim of 3,000,000.00. Regards, Mrs. Juanita Brunelle. Reply to : msellenmore8@rogers.com<mailto:msellenmore8@rogers.com>
+RnJvbTogTWFyYyBLbGVpbmUtQnVkZGUNCj4gT24gMDIvMjgvMjAxNCAxMjo0NyBQTSwgRGF2aWQg
+TGFpZ2h0IHdyb3RlOg0KPiA+IEZyb206IEdlZXJ0IFV5dHRlcmhvZXZlbg0KPiA+PiBPbiBGcmks
+IEZlYiAyOCwgMjAxNCBhdCAxMjozNyBQTSwgTWFyYyBLbGVpbmUtQnVkZGUgPG1rbEBwZW5ndXRy
+b25peC5kZT4gd3JvdGU6DQo+ID4+Pj4+IEEgMzIgYml0IHJlYWQvbW9kaWZ5L3dyaXRlIGlzIGEg
+c3RhbmRhcmQgb3BlcmF0aW9uLCBub3RoaW5nIHNwZWNpYWwsIG5vDQo+ID4+Pj4+IG5lZWQgdG8g
+d29ycnkgYWJvdXQgYnl0ZSBzd2FwcGluZyBvciBhbnl0aGluZyBsaWtlIHRoaXMuDQo+ID4+Pj4N
+Cj4gPj4+PiAgICBPaCwgcmVhbGx5PyA4LSkNCj4gPj4+PiAgICBEb24ndCB5b3Uga25vdyB0aGF0
+IHJlYWRbYndscV0oKSBhc3N1bWUgbGl0dGxlLWVuZGlhbiBtZW1vcnkgbGF5b3V0DQo+ID4+Pj4g
+YW5kIHRvIHJlYWQgZnJvbSBiaWctZW5kaWFuIDMyLWJpdCByZWdpc3RlciBvbmUgbm9ybWFsbHkg
+bmVlZHMgcmVhZGxfYmUoKT8NCj4gPj4+DQo+ID4+PiBJIGFzc3VtZSB5b3UgYXJlIG9uIGxpdHRs
+ZSBlbmRpYW4gQVJNIG9ubHkgKGZvciBub3cpLg0KPiA+Pj4NCj4gPj4+IElmIHlvdSB1c2UgYSBz
+dGFuZGFyZCAzMiBiaXQgcmVhZCwgdGhlbiBtb2RpZnkgdGhlIGNvcnJlY3QgYml0cyBpbiB0aGF0
+DQo+ID4+PiAzMiBiaXQgd29yZCBhbmQgd3JpdGUgaXQgYmFjaywgd2l0aCB0aGUgY29ycmVzcG9u
+ZGluZyAzMiBiaXQgd3JpdGUNCj4gPj4+IGV2ZXJ5dGhpbmcgc2hvdWxkIGJlIGZpbmUuIEZvciB0
+aGlzIHVzZWNhc2UgeW91IGp1c3QgaGF2ZSB5byBmaWd1cmUgb3V0DQo+ID4+PiB3aGljaCAyNCBv
+ZiB0aGUgMzIgYml0IGFyZSB0aGUgb25lIHlvdSBoYXZlIHRvIGNoYW5nZSBhbmQgd2hpY2ggYXJl
+IHRoZQ0KPiA+Pj4gOCB0aGF0IG11c3Qgbm90IGJlIG1vZGlmaWVkLg0KPiA+Pj4NCj4gPj4+IExv
+b2tpbmcgYXQgdGhlIHJlZ2lzdGVyIGxheW91dDoNCj4gPj4+DQo+ID4+Pj4gKyAgICAgdTggYmNy
+WzNdOyAgICAgIC8qIEJpdCBDb25maWd1cmF0aW9uIFJlZ2lzdGVyICovDQo+ID4+Pj4gKyAgICAg
+dTggY2xrcjsgICAgICAgIC8qIENsb2NrIFNlbGVjdCBSZWdpc3RlciAqLw0KPiA+Pj4NCj4gPj4+
+IEkgdGhpbmsgY2xrciB3b3VsZCBiZSB0aGUgbG93ZXN0IDggYml0IGFuZCBiY3JbXSBhcmUgdGhl
+IHVwcGVyIDI0Lg0KPiA+Pg0KPiA+PiBUaGF0IHdvdWxkIGJlIHRoZSBvdXRjb21lIG9uIGJpZyBl
+bmRpYW4gOy0pDQo+ID4NCj4gPiBMb29rcyB0byBtZSBhcyB0aG91Z2ggaXQgc2hvdWxkIGJlIGRl
+ZmluZWQgYXMgYSAzMmJpdCBmaWVsZCBhbmQgdGhlbg0KPiA+IHRoZSBhcHByb3ByaWF0ZSBiaXQg
+ZGVmaW5pdGlvbnMgYW5kIG1hc2tzIGFwcGxpZWQuDQo+IA0KPiBBY2ssIDMyYml0IHllcywgYnV0
+IG5vIGZpZWxkIChhcyBpbiBodHRwOi8vZW4ud2lraXBlZGlhLm9yZy93aWtpL0JpdF9maWVsZCku
+DQoNClllcywgSSBtZWFudCAnZmllbGQnIGFzIGluICdzdHJ1Y3R1cmUgbWVtYmVyJywgbm90IGJp
+dC1maWVsZC4NCkkgbGVhcm50IGEgbG9uZyB0aW1lIGFnbyB0aGF0IGJpdC1maWVsZHMgYXJlIHJh
+cmVseSwgaWYgZXZlciwgdGhlIGNvbnN0cnVjdA0KeW91IGFyZSBsb29raW5nIGZvci4NCjEpIEEg
+cGFja2VkIGxvb2t1cCB0YWJsZSB3aGVyZSB0aGUgY29kZSBmb3Igb25lIGFjY2VzcyB3YXMgbGFy
+Z2VyIHRoYW4gdGhlIHRhYmxlLg0KMikgZm9vLT50d29fYml0X2ZpZWxkID0gMzsgY29tcGlsZWQg
+aW50byBjb2RlIHRoYXQgZmlyc3QgemVyb2VkIHRoZSB0d28gYml0cw0KICAgKGNhdXNlZCBhbiBJ
+U1IgdG8gY29ycnVwdCBhIGxpbmtlZCBsaXN0KS4NCk5ldmVyIG1pbmQgdGhlIGlzc3VlcyBhYm91
+dCB0aGUgYWN0dWFsIG9yZGVyIG9mIHRoZSBiaXRzLg0KDQoJRGF2aWQNCg0K
