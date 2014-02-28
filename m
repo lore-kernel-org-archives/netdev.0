@@ -1,49 +1,50 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next] bonding: send arp requests even if there's no
- route to them
-Date: Fri, 28 Feb 2014 03:12:51 -0800
-Message-ID: <1393585971.10280.5.camel@joe-AO722>
-References: <1393585076-22786-1-git-send-email-vfalico@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v5] can: add Renesas R-Car CAN driver
+Date: Fri, 28 Feb 2014 15:16:23 +0400
+Message-ID: <53107007.7050802@cogentembedded.com>
+References: <201312270037.15822.sergei.shtylyov@cogentembedded.com> <52DCE9E4.7010209@pengutronix.de> <52E3148E.2010608@cogentembedded.com> <52FCB6C5.6020001@pengutronix.de> <53069445.80408@cogentembedded.com> <5310521E.6000708@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	=?ISO-8859-1?Q?Fran=E7ois?= CACHEREUL <f.cachereul@alphalink.fr>,
-	Zhenjie Chen <zhchen@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Veaceslav Falico <vfalico@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0098.hostedemail.com ([216.40.44.98]:38141 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751971AbaB1LMz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 06:12:55 -0500
-In-Reply-To: <1393585076-22786-1-git-send-email-vfalico@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-sh@vger.kernel.org, vksavl@gmail.com
+To: Marc Kleine-Budde <mkl@pengutronix.de>, netdev@vger.kernel.org,
+	wg@grandegger.com, linux-can@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <5310521E.6000708@pengutronix.de>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-02-28 at 11:57 +0100, Veaceslav Falico wrote:
-> Currently we're only sending arp requests if we have a route to the target
-> (and, thus, can find out the source ip address).
-> 
-> There are some use cases, however, where we don't want/need to set an ip
-> address (or set up a specific route) for bonding to use arp monitoring *for
-> traffic generation*. We can easily send arp probes (arp requests with src
-> ip == 0) to generate arp broadcast responses from the target ip and use
-> them for determining if the target is up.
-> 
-> This, obviously, won't work with arp validation - because we don't have the
-> ip address set and, thus, will filter out the responses. So in that case -
-> print a warning.
-[]
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-[]
-> @@ -2155,8 +2155,13 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
-[]
-> +			if (bond->params.arp_validate)
-> +				pr_warn("%s: no route to arp_ip_target %pI4 and arp_validate is set\n",
-> +					bond->dev->name, &targets[i]);
+Hello.
 
-Maybe
+On 28-02-2014 13:08, Marc Kleine-Budde wrote:
 
-			if (bond->params.arp_validate && net_ratelimit())
+>>>> 1. According to documentation BCR is the 24-bit register.
+>>>> Actually we can consider some 32-bit register that combines BCR and
+>>>> CLKR but according to documentation there are two separate registers.
+>>>> 2. BCR has 8- ,16-, and 32-bit access (according to documentation).
+>>>> 3. This is the algorithm that the documentation suggests.
+>>>> 4. We had a driver version with byte access but 32-bit access seems
+>>>> shorter.
+
+>>> Please use a normal read-modify-write 32 bit access.
+
+>>     IMO, reading 32-bits is futile, as we're going to completely
+>> overwrite those 24 bits that constitute BCR. So I kept the 8-bit CLKR
+>> read but removed the CLKR write in the end. I've also added a comment
+>> clarifying why CLKR is positioned in the LSBs of 32-bit word (while it's
+>> address would assume MSBs).
+>> The host bus is big-endian but byte-swaps at least 16- and 32-bit
+>> accesses, so that read[wl]()/write[wl]() work. 8-bit accesses are not
+>> byte swapped, despite what the figure in the manual shows.
+
+> A 32 bit read/modify/write is a standard operation, nothing special, no
+> need to worry about byte swapping or anything like this.
+
+    Oh, really? 8-)
+    Don't you know that read[bwlq]() assume little-endian memory layout and to 
+read from big-endian 32-bit register one normally needs readl_be()?
+
+> Marc
+
+WBR, Sergei
+
