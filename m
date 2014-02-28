@@ -1,139 +1,71 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next v2 4/4] ixgbe: implement SIOCGHWTSTAMP ioctl
-Date: Fri, 28 Feb 2014 15:48:58 -0800
-Message-ID: <1393631338-18847-5-git-send-email-aaron.f.brown@intel.com>
+Subject: [net-next v2 1/4] ixgbe: Restore hw_addr in LER recovery paths
+Date: Fri, 28 Feb 2014 15:48:55 -0800
+Message-ID: <1393631338-18847-2-git-send-email-aaron.f.brown@intel.com>
 References: <1393631338-18847-1-git-send-email-aaron.f.brown@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Aaron Brown <aaron.f.brown@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:11497 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752167AbaB1Xw1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Feb 2014 18:52:27 -0500
+	id S1751911AbaB1Xw0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Feb 2014 18:52:26 -0500
 In-Reply-To: <1393631338-18847-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Mark Rustad <mark.d.rustad@intel.com>
 
-This patch adds support for the new SIOCGHWTSTAMP ioctl, which enables a
-process to determine the current timestamp configuration. In order to
-implement this, store a copy of the timestamp configuration. In
-addition, we can remove the 'int cmd' parameter as the new set_ts_config
-function doesn't use it. I also fixed a typo in the function
-description.
+The hw_addr needs to be restored in the pcie recovery path or
+else the device will be perpetually removed. Also restore the
+value in the resume path.
 
--v2
-* Only save the settings after validating them
-
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |  5 +++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  4 +++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c  | 23 ++++++++++++++++++-----
- 3 files changed, 24 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index cca13a5..4371ef0 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -765,6 +765,7 @@ struct ixgbe_adapter {
- 	struct ptp_clock_info ptp_caps;
- 	struct work_struct ptp_tx_work;
- 	struct sk_buff *ptp_tx_skb;
-+	struct hwtstamp_config tstamp_config;
- 	unsigned long ptp_tx_start;
- 	unsigned long last_overflow_check;
- 	unsigned long last_rx_ptp_check;
-@@ -957,8 +958,8 @@ static inline void ixgbe_ptp_rx_hwtstamp(struct ixgbe_ring *rx_ring,
- 	rx_ring->last_rx_timestamp = jiffies;
- }
- 
--int ixgbe_ptp_hwtstamp_ioctl(struct ixgbe_adapter *adapter, struct ifreq *ifr,
--			     int cmd);
-+int ixgbe_ptp_set_ts_config(struct ixgbe_adapter *adapter, struct ifreq *ifr);
-+int ixgbe_ptp_get_ts_config(struct ixgbe_adapter *adapter, struct ifreq *ifr);
- void ixgbe_ptp_start_cyclecounter(struct ixgbe_adapter *adapter);
- void ixgbe_ptp_reset(struct ixgbe_adapter *adapter);
- void ixgbe_ptp_check_pps_event(struct ixgbe_adapter *adapter, u32 eicr);
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 7280743..10b35d8 100644
+index a345cc7..3d576b2 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7197,7 +7197,9 @@ static int ixgbe_ioctl(struct net_device *netdev, struct ifreq *req, int cmd)
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
  
- 	switch (cmd) {
- 	case SIOCSHWTSTAMP:
--		return ixgbe_ptp_hwtstamp_ioctl(adapter, req, cmd);
-+		return ixgbe_ptp_set_ts_config(adapter, req);
-+	case SIOCGHWTSTAMP:
-+		return ixgbe_ptp_get_ts_config(adapter, req);
- 	default:
- 		return mdio_mii_ioctl(&adapter->hw.phy.mdio, if_mii(req), cmd);
- 	}
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-index 9e54fcc..9ef730f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-@@ -576,14 +576,21 @@ void __ixgbe_ptp_rx_hwtstamp(struct ixgbe_q_vector *q_vector,
- 	shhwtstamps->hwtstamp = ns_to_ktime(ns);
- }
+   Intel 10 Gigabit PCI Express Linux driver
+-  Copyright(c) 1999 - 2013 Intel Corporation.
++  Copyright(c) 1999 - 2014 Intel Corporation.
  
-+int ixgbe_ptp_get_ts_config(struct ixgbe_adapter *adapter, struct ifreq *ifr)
-+{
-+	struct hwtstamp_config *config = &adapter->tstamp_config;
-+
-+	return copy_to_user(ifr->ifr_data, config,
-+			    sizeof(*config)) ? -EFAULT : 0;
-+}
-+
- /**
-- * ixgbe_ptp_hwtstamp_ioctl - control hardware time stamping
-+ * ixgbe_ptp_set_ts_config - control hardware time stamping
-  * @adapter: pointer to adapter struct
-  * @ifreq: ioctl data
-- * @cmd: particular ioctl requested
-  *
-  * Outgoing time stamping can be enabled and disabled. Play nice and
-- * disable it when requested, although it shouldn't case any overhead
-+ * disable it when requested, although it shouldn't cause any overhead
-  * when no packet needs it. At most one packet in the queue may be
-  * marked for time stamping, otherwise it would be impossible to tell
-  * for sure to which packet the hardware time stamp belongs.
-@@ -599,8 +606,7 @@ void __ixgbe_ptp_rx_hwtstamp(struct ixgbe_q_vector *q_vector,
-  * Event mode. This more accurately tells the user what the hardware is going
-  * to do anyways.
-  */
--int ixgbe_ptp_hwtstamp_ioctl(struct ixgbe_adapter *adapter,
--			     struct ifreq *ifr, int cmd)
-+int ixgbe_ptp_set_ts_config(struct ixgbe_adapter *adapter, struct ifreq *ifr)
- {
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	struct hwtstamp_config config;
-@@ -702,6 +708,10 @@ int ixgbe_ptp_hwtstamp_ioctl(struct ixgbe_adapter *adapter,
- 	regval = IXGBE_READ_REG(hw, IXGBE_TXSTMPH);
- 	regval = IXGBE_READ_REG(hw, IXGBE_RXSTMPH);
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+@@ -67,7 +67,7 @@ static char ixgbe_default_device_descr[] =
+ #define DRV_VERSION "3.19.1-k"
+ const char ixgbe_driver_version[] = DRV_VERSION;
+ static const char ixgbe_copyright[] =
+-				"Copyright (c) 1999-2013 Intel Corporation.";
++				"Copyright (c) 1999-2014 Intel Corporation.";
  
-+	/* save these settings for future reference */
-+	memcpy(&adapter->tstamp_config, &config,
-+	       sizeof(adapter->tstamp_config));
-+
- 	return copy_to_user(ifr->ifr_data, &config, sizeof(config)) ?
- 		-EFAULT : 0;
- }
-@@ -809,6 +819,9 @@ void ixgbe_ptp_reset(struct ixgbe_adapter *adapter)
- 	IXGBE_WRITE_REG(hw, IXGBE_SYSTIMH, 0x00000000);
- 	IXGBE_WRITE_FLUSH(hw);
+ static const struct ixgbe_info *ixgbe_info_tbl[] = {
+ 	[board_82598] = &ixgbe_82598_info,
+@@ -5508,6 +5508,7 @@ static int ixgbe_resume(struct pci_dev *pdev)
+ 	struct net_device *netdev = adapter->netdev;
+ 	u32 err;
  
-+	/* Reset the saved tstamp_config */
-+	memset(&adapter->tstamp_config, 0, sizeof(adapter->tstamp_config));
-+
- 	ixgbe_ptp_start_cyclecounter(adapter);
- 
- 	spin_lock_irqsave(&adapter->tmreg_lock, flags);
++	adapter->hw.hw_addr = adapter->io_addr;
+ 	pci_set_power_state(pdev, PCI_D0);
+ 	pci_restore_state(pdev);
+ 	/*
+@@ -8453,6 +8454,7 @@ static pci_ers_result_t ixgbe_io_slot_reset(struct pci_dev *pdev)
+ 		e_err(probe, "Cannot re-enable PCI device after reset.\n");
+ 		result = PCI_ERS_RESULT_DISCONNECT;
+ 	} else {
++		adapter->hw.hw_addr = adapter->io_addr;
+ 		pci_set_master(pdev);
+ 		pci_restore_state(pdev);
+ 		pci_save_state(pdev);
 -- 
 1.8.5.GIT
