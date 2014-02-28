@@ -1,8 +1,8 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v6 2/8] 6lowpan: add
-	uncompress header size function
-Date: Fri, 28 Feb 2014 07:32:44 +0100
-Message-ID: <1393569170-25722-3-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH net-next v6 3/8] 6lowpan: fix
+	fragmentation on sending side
+Date: Fri, 28 Feb 2014 07:32:45 +0100
+Message-ID: <1393569170-25722-4-git-send-email-alex.aring@gmail.com>
 References: <1393569170-25722-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,139 +22,104 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch add a lookup function for uncompressed 6LoWPAN header
-size. This is needed to estimate the real size after uncompress the
-6LoWPAN header.
+This patch fix the fragmentation on sending side according to rfc4944.
+
+Also add improvement to use the full payload of a PDU which calculate
+the nearest divided to 8 payload length for the fragmentation datagram
+size attribute.
+
+The main issue is that the datagram size of fragmentation header use the
+ipv6 payload length, but rfc4944 says it's the ipv6 payload length inclusive
+network header size (and transport header size if compressed).
 
 Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- net/ieee802154/6lowpan.h | 113 +++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 113 insertions(+)
+ net/ieee802154/6lowpan.c | 37 +++++++++++++++++++++++++++----------
+ 1 file changed, 27 insertions(+), 10 deletions(-)
 
-diff --git a/net/ieee802154/6lowpan.h b/net/ieee802154/6lowpan.h
-index 2b835db..0dccf62 100644
---- a/net/ieee802154/6lowpan.h
-+++ b/net/ieee802154/6lowpan.h
-@@ -306,6 +306,119 @@ static inline void lowpan_push_hc_data(u8 **hc_ptr, const void *data,
- 	*hc_ptr += len;
- }
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index 8edfea5..872c8f9 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -422,44 +422,60 @@ lowpan_fragment_xmit(struct sk_buff *skb, u8 *head,
+ static int
+ lowpan_skb_fragmentation(struct sk_buff *skb, struct net_device *dev)
+ {
+-	int  err, header_length, payload_length, tag, offset = 0;
++	int err;
++	u16 dgram_offset, dgram_size, payload_length, header_length,
++	    lowpan_size, frag_plen, offset, tag;
+ 	u8 head[5];
  
-+static inline u8 lowpan_addr_mode_size(const u8 addr_mode)
-+{
-+	static const u8 addr_sizes[] = {
-+		[LOWPAN_IPHC_ADDR_00] = 16,
-+		[LOWPAN_IPHC_ADDR_01] = 8,
-+		[LOWPAN_IPHC_ADDR_02] = 2,
-+		[LOWPAN_IPHC_ADDR_03] = 0,
-+	};
-+	return addr_sizes[addr_mode];
-+}
-+
-+static inline u8 lowpan_next_hdr_size(const u8 h_enc, u16 *uncomp_header)
-+{
-+	u8 ret = 1;
-+
-+	if ((h_enc & LOWPAN_NHC_UDP_MASK) == LOWPAN_NHC_UDP_ID) {
-+		*uncomp_header += sizeof(struct udphdr);
-+
-+		switch (h_enc & LOWPAN_NHC_UDP_CS_P_11) {
-+		case LOWPAN_NHC_UDP_CS_P_00:
-+			ret += 4;
-+			break;
-+		case LOWPAN_NHC_UDP_CS_P_01:
-+		case LOWPAN_NHC_UDP_CS_P_10:
-+			ret += 3;
-+			break;
-+		case LOWPAN_NHC_UDP_CS_P_11:
-+			ret++;
-+			break;
-+		default:
-+			break;
-+		}
-+
-+		if (!(h_enc & LOWPAN_NHC_UDP_CS_C))
-+			ret += 2;
-+	}
-+
-+	return ret;
-+}
-+
-+/**
-+ *	lowpan_uncompress_size - returns skb->len size with uncompressed header
-+ *	@skb: sk_buff with 6lowpan header inside
-+ *	@datagram_offset: optional to get the datagram_offset value
-+ *
-+ *	Returns the skb->len with uncompressed header
-+ */
-+static inline u16
-+lowpan_uncompress_size(const struct sk_buff *skb, u16 *dgram_offset)
-+{
-+	u16 ret = 2, uncomp_header = sizeof(struct ipv6hdr);
-+	u8 iphc0, iphc1, h_enc;
-+
-+	iphc0 = skb_network_header(skb)[0];
-+	iphc1 = skb_network_header(skb)[1];
-+
-+	switch ((iphc0 & LOWPAN_IPHC_TF) >> 3) {
-+	case 0:
-+		ret += 4;
-+		break;
-+	case 1:
-+		ret += 3;
-+		break;
-+	case 2:
-+		ret++;
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	if (!(iphc0 & LOWPAN_IPHC_NH_C))
-+		ret++;
-+
-+	if (!(iphc0 & 0x03))
-+		ret++;
-+
-+	ret += lowpan_addr_mode_size((iphc1 & LOWPAN_IPHC_SAM) >>
-+				     LOWPAN_IPHC_SAM_BIT);
-+
-+	if (iphc1 & LOWPAN_IPHC_M) {
-+		switch ((iphc1 & LOWPAN_IPHC_DAM_11) >>
-+			LOWPAN_IPHC_DAM_BIT) {
-+		case LOWPAN_IPHC_DAM_00:
-+			ret += 16;
-+			break;
-+		case LOWPAN_IPHC_DAM_01:
-+			ret += 6;
-+			break;
-+		case LOWPAN_IPHC_DAM_10:
-+			ret += 4;
-+			break;
-+		case LOWPAN_IPHC_DAM_11:
-+			ret++;
-+			break;
-+		default:
-+			break;
-+		}
-+	} else {
-+		ret += lowpan_addr_mode_size((iphc1 & LOWPAN_IPHC_DAM_11) >>
-+					     LOWPAN_IPHC_DAM_BIT);
-+	}
-+
-+	if (iphc0 & LOWPAN_IPHC_NH_C) {
-+		h_enc = skb_network_header(skb)[ret];
-+		ret += lowpan_next_hdr_size(h_enc, &uncomp_header);
-+	}
-+
-+	if (dgram_offset)
-+		*dgram_offset = uncomp_header;
-+
-+	return skb->len + uncomp_header - ret;
-+}
-+
- typedef int (*skb_delivery_cb)(struct sk_buff *skb, struct net_device *dev);
+ 	header_length = skb->mac_len;
+ 	payload_length = skb->len - header_length;
+ 	tag = lowpan_dev_info(dev)->fragment_tag++;
++	lowpan_size = skb_network_header_len(skb);
++	dgram_size = lowpan_uncompress_size(skb, &dgram_offset) -
++		     header_length;
  
- int lowpan_process_data(struct sk_buff *skb, struct net_device *dev,
+ 	/* first fragment header */
+-	head[0] = LOWPAN_DISPATCH_FRAG1 | ((payload_length >> 8) & 0x7);
+-	head[1] = payload_length & 0xff;
++	head[0] = LOWPAN_DISPATCH_FRAG1 | ((dgram_size >> 8) & 0x7);
++	head[1] = dgram_size & 0xff;
+ 	head[2] = tag >> 8;
+ 	head[3] = tag & 0xff;
+ 
+-	err = lowpan_fragment_xmit(skb, head, header_length, LOWPAN_FRAG_SIZE,
+-				   0, LOWPAN_DISPATCH_FRAG1);
++	/* calc the nearest payload length(divided to 8) for first fragment
++	 * which fits into a IEEE802154_MTU
++	 */
++	frag_plen = round_down(IEEE802154_MTU - header_length -
++			       LOWPAN_FRAG1_HEAD_SIZE - lowpan_size -
++			       IEEE802154_MFR_SIZE, 8);
+ 
++	err = lowpan_fragment_xmit(skb, head, header_length,
++				   frag_plen + lowpan_size, 0,
++				   LOWPAN_DISPATCH_FRAG1);
+ 	if (err) {
+ 		pr_debug("%s unable to send FRAG1 packet (tag: %d)",
+ 			 __func__, tag);
+ 		goto exit;
+ 	}
+ 
+-	offset = LOWPAN_FRAG_SIZE;
++	offset = lowpan_size + frag_plen;
++	dgram_offset += frag_plen;
+ 
+ 	/* next fragment header */
+ 	head[0] &= ~LOWPAN_DISPATCH_FRAG1;
+ 	head[0] |= LOWPAN_DISPATCH_FRAGN;
+ 
++	frag_plen = round_down(IEEE802154_MTU - header_length -
++			       LOWPAN_FRAGN_HEAD_SIZE - IEEE802154_MFR_SIZE, 8);
++
+ 	while (payload_length - offset > 0) {
+-		int len = LOWPAN_FRAG_SIZE;
++		int len = frag_plen;
+ 
+-		head[4] = offset / 8;
++		head[4] = dgram_offset >> 3;
+ 
+ 		if (payload_length - offset < len)
+ 			len = payload_length - offset;
+ 
+-		err = lowpan_fragment_xmit(skb, head, header_length,
+-					   len, offset, LOWPAN_DISPATCH_FRAGN);
++		err = lowpan_fragment_xmit(skb, head, header_length, len,
++					   offset, LOWPAN_DISPATCH_FRAGN);
+ 		if (err) {
+ 			pr_debug("%s unable to send a subsequent FRAGN packet "
+ 				 "(tag: %d, offset: %d", __func__, tag, offset);
+@@ -467,6 +483,7 @@ lowpan_skb_fragmentation(struct sk_buff *skb, struct net_device *dev)
+ 		}
+ 
+ 		offset += len;
++		dgram_offset += len;
+ 	}
+ 
+ exit:
 -- 
 1.9.0
 
