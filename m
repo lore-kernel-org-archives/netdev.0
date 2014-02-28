@@ -1,49 +1,46 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH net RESEND] vlan: don't allow to add VLAN on VLAN device
-Date: Thu, 27 Feb 2014 19:45:59 -0800
-Message-ID: <53100677.2060705@intel.com>
-References: <530FF7BF.4030706@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <530FF7BF.4030706@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Aaron Brown <aaron.f.brown@intel.com>
+Subject: [net-next 3/6] ixgbe: fix bit toggled for 82599 reset fix.
+Date: Thu, 27 Feb 2014 20:32:42 -0800
+Message-ID: <1393561965-3688-4-git-send-email-aaron.f.brown@intel.com>
+References: <1393561965-3688-1-git-send-email-aaron.f.brown@intel.com>
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Aaron Brown <aaron.f.brown@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:53821 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751164AbaB1EgK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Feb 2014 23:36:10 -0500
+In-Reply-To: <1393561965-3688-1-git-send-email-aaron.f.brown@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2/27/2014 6:43 PM, Ding Tianhong wrote:
-> I run these steps:
->
-> modprobe 8021q
-> vconfig add eth2 20
-> vconfig add eth2.20 20
-> ifconfig eth2 xx.xx.xx.xx
->
-> then the Call Trace happened:
->
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-[...]
+The current code doesn't toggle the correct bit to reset the data pipeline
+on Restart_AN assertion.  This patch corrects that.
 
-> ========================================================================
->
-> The reason is that if add vlan on vlan dev, the vlan dev will create vlan_info,
-> then the notification will let the real dev to run dev_set_rx_mode() and hold
-> netif_addr_lock, and then the real dev will call ndo_set_rx_mode(), if the real
-> dev is vlan dev, the ndo_set_rx_mode() will hold netif_addr_lock again, so deadlock
-> happened.
->
-> Don't allow to add vlan on vlan dev to fix this problem.
->
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> ---
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-I'm not sure we can just disable stacked vlans. There might be something
-using them today and they have worked in the past. Lets try to find a
-better fix.
-
-.John
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+index 1c31d2d..e919c28 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+@@ -2395,7 +2395,8 @@ static s32 ixgbe_reset_pipeline_82599(struct ixgbe_hw *hw)
+ 	autoc_reg |= IXGBE_AUTOC_AN_RESTART;
+ 
+ 	/* Write AUTOC register with toggled LMS[2] bit and Restart_AN */
+-	IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc_reg ^ IXGBE_AUTOC_LMS_1G_AN);
++	IXGBE_WRITE_REG(hw, IXGBE_AUTOC,
++			autoc_reg ^ (0x4 << IXGBE_AUTOC_LMS_SHIFT));
+ 
+ 	/* Wait for AN to leave state 0 */
+ 	for (i = 0; i < 10; i++) {
+-- 
+1.8.5.GIT
