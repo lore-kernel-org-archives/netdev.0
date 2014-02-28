@@ -1,84 +1,45 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [nf-next PATCH V2 4/5] netfilter: conntrack: seperate expect
- locking from nf_conntrack_lock
-Date: Fri, 28 Feb 2014 16:08:52 +0100
-Message-ID: <20140228150852.GG9965@breakpoint.cc>
-References: <20140228121529.20347.38300.stgit@dragon>
- <20140228121731.20347.20481.stgit@dragon>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH V5 net-next 3/5] xen-netfront: Factor queue-specific data
+ into queue struct.
+Date: Fri, 28 Feb 2014 15:09:54 +0000
+Message-ID: <20140228150954.GM16241@zion.uk.xensource.com>
+References: <1393252387-17496-1-git-send-email-andrew.bennieston@citrix.com>
+ <1393252387-17496-4-git-send-email-andrew.bennieston@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Florian Westphal <fw@strlen.de>,
-	Patrick McHardy <kaber@trash.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <xen-devel@lists.xenproject.org>, <ian.campbell@citrix.com>,
+	<wei.liu2@citrix.com>, <paul.durrant@citrix.com>,
+	<netdev@vger.kernel.org>
+To: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:43968 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752639AbaB1PI6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 10:08:58 -0500
+Received: from smtp02.citrix.com ([66.165.176.63]:27500 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752891AbaB1PJ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 10:09:56 -0500
 Content-Disposition: inline
-In-Reply-To: <20140228121731.20347.20481.stgit@dragon>
+In-Reply-To: <1393252387-17496-4-git-send-email-andrew.bennieston@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jesper Dangaard Brouer <brouer@redhat.com> wrote:
-> Netfilter expectations are protected with the same lock as conntrack
-> entries (nf_conntrack_lock).  This patch split out expectations locking
-> to use it's own lock (nf_conntrack_expect_lock).
-> --- a/net/netfilter/nf_conntrack_helper.c
-> +++ b/net/netfilter/nf_conntrack_helper.c
-> @@ -258,7 +258,7 @@ static inline int unhelp(struct nf_conntrack_tuple_hash *i,
->  
->  	if (help && rcu_dereference_protected(
->  			help->helper,
-> -			lockdep_is_held(&nf_conntrack_lock)
-> +			lockdep_is_held(&nf_conntrack_expect_lock)
->  			) == me) {
->  		nf_conntrack_event(IPCT_HELPER, ct);
->  		RCU_INIT_POINTER(help->helper, NULL);
+On Mon, Feb 24, 2014 at 02:33:05PM +0000, Andrew J. Bennieston wrote:
+> From: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
+> 
+> In preparation for multi-queue support in xen-netfront, move the
+> queue-specific data from struct netfront_info to struct netfront_queue,
+> and update the rest of the code to use this.
+> 
+> Also adds loops over queues where appropriate, even though only one is
+> configured at this point, and uses alloc_etherdev_mq() and the
+> corresponding multi-queue netif wake/start/stop functions in preparation
+> for multiple active queues.
+> 
+> Finally, implements a trivial queue selection function suitable for
+> ndo_select_queue, which simply returns 0, selecting the first (and
+> only) queue.
+> 
+> Signed-off-by: Andrew J. Bennieston <andrew.bennieston@citrix.com>
 
-Not sure if the lockdep_is_held is correct.
+Did you forget to add in David's "Reviewed-by"? Is there any significant
+change compared to the last submission?
 
-> @@ -399,13 +399,14 @@ static void __nf_conntrack_helper_unregister(struct nf_conntrack_helper *me,
->  	int cpu;
->  
->  	/* Get rid of expectations */
-> +	spin_lock_bh(&nf_conntrack_expect_lock);
->  	for (i = 0; i < nf_ct_expect_hsize; i++) {
->  		hlist_for_each_entry_safe(exp, next,
->  					  &net->ct.expect_hash[i], hnode) {
->  			struct nf_conn_help *help = nfct_help(exp->master);
->  			if ((rcu_dereference_protected(
->  					help->helper,
-> -					lockdep_is_held(&nf_conntrack_lock)
-> +					lockdep_is_held(&nf_conntrack_expect_lock)
->  					) == me || exp->helper == me) &&
->  			    del_timer(&exp->timeout)) {
->  				nf_ct_unlink_expect(exp);
-> @@ -413,6 +414,7 @@ static void __nf_conntrack_helper_unregister(struct nf_conntrack_helper *me,
->  			}
->  		}
->  	}
-> +	spin_unlock_bh(&nf_conntrack_expect_lock);
-
-expect_lock is released here but
-
->  	/* Get rid of expecteds, set helpers to NULL. */
->  	for_each_possible_cpu(cpu) {
-
-will invoke unhelp()
-
-AFAIU unhelp() is safe in all cases even without
-nf_conntrack_expect_lock being held:
-
-* in first loop we hold nf_conntrack_expect_lock
-* in 2nd loop we are holding the list lock, i.e.
-  if the ct is in the list it cannot disappear underneath
-* in last loop you'll hold the hashed lock for the particular hash
-  list, so can't go away either.
-
-So I think the lockdep annotation in uhelp is incorrect and not the
-patch itself.
+Wei.
