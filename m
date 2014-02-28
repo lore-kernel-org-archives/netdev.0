@@ -1,47 +1,58 @@
-From: Huang Shijie <b32955@freescale.com>
-Subject: Re: change kmalloc into vmalloc for large memory allocations
-Date: Fri, 28 Feb 2014 16:54:34 +0800
-Message-ID: <53104ECA.4010702@freescale.com>
-References: <35FD53F367049845BC99AC72306C23D102844605F38C@CNBJMBX05.corpusers.net>
+From: Karsten Keil <kkeil@linux-pingi.de>
+Subject: Re: [PATCH 00/16] sleep_on removal, second try
+Date: Fri, 28 Feb 2014 09:53:37 +0100
+Message-ID: <53104E91.6070109@linux-pingi.de>
+References: <1393412516-3762435-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: "'alsa-devel@alsa-project.org'" <alsa-devel@alsa-project.org>,
- "'broonie@opensource.wolfsonmicro.com'"
- <broonie@opensource.wolfsonmicro.com>, "'tiwai@suse.de'" <tiwai@suse.de>,
- "'fweisbec@gmail.com'" <fweisbec@gmail.com>,
- "'perex@perex.cz'" <perex@perex.cz>,
- "'dmitry.torokhov@gmail.com'" <dmitry.torokhov@gmail.com>,
- "'mingo@redhat.com'" <mingo@redhat.com>,
- "'linux-input@vger.kernel.org'" <linux-input@vger.kernel.org>,
- "'rydberg@euromail.se'" <rydberg@euromail.se>, "'lrg@ti.com'" <lrg@ti.com>,
- "'pablo@netfilter.org'" <pablo@netfilter.org>,
- "'coreteam@netfilter.org'" <coreteam@netfilter.org>,
- "'linux-arm-msm@vger.kernel.org'" <linux-arm-msm@vger.kernel.org>,
- "'rostedt@goodmis.org'" <rostedt@goodmis.org>,
- "'netfilter@vger.kernel.org'" <netfilter@vger.kernel.org>,
- "'linux-arm-kernel@lists.infradead.org'"
- <linux-arm-kernel@lists.infradead.org>,
- "'gregkh@linuxfoundation.org
-To: "Wang, Yalin" <Yalin.Wang@sonymobile.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <35FD53F367049845BC99AC72306C23D102844605F38C@CNBJMBX05.corpusers.net>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Ingo Molnar <mingo@kernel.org>,
+	"James E.J. Bottomley" <JBottomley@parallels.com>,
+	Jens Axboe <axboe@kernel.dk>,
+	Karsten Keil <isdn@linux-pingi.de>,
+	Mauro Carvalho Chehab <m.chehab@samsung.com>,
+	Michael Schmitz <schmitz@biophys.uni-duesseldorf.de>,
+	Peter Zijlstra <peterz@infradead.org>,
+	linux-atm-general@lists.sourceforge.net,
+	linux-media@vger.kernel.org, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1393412516-3762435-1-git-send-email-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-5LqOIDIwMTTlubQwMuaciDI45pelIDE2OjE1LCBXYW5nLCBZYWxpbiDlhpnpgZM6Cj4gY291bGQg
-dGhpcyBtb2R1bGUgY2hhbmdlIHRoZSBtZW1vcnkgYWxsb2NhdGlvbiBpbnRvIHZtYWxsb2MgPwp0
-aGUgYnVmZmVyIGFsbG9jYXRlZCBieSB2bWFsbG9jIGNhbiBub3QgYmUgdXNlZCBmb3IgdGhlIERN
-QS4KCkkgdGhpbmsgdGhhdCdzIHdoeSBkcml2ZXJzIHVzZSB0aGUga21hbGxvYy4KCnRoYW5rcwpI
-dWFuZyBTaGlqaWUKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fXwpsaW51eC1hcm0ta2VybmVsIG1haWxpbmcgbGlzdApsaW51eC1hcm0ta2VybmVsQGxpc3Rz
-LmluZnJhZGVhZC5vcmcKaHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvbWFpbG1hbi9saXN0aW5m
-by9saW51eC1hcm0ta2VybmVsCg==
+Am 26.02.2014 12:01, schrieb Arnd Bergmann:
+> It's been a while since the first submission of these patches,
+> but a lot of them have made it into linux-next already, so here
+> is the stuff that is not merged yet, hopefully addressing all
+> the comments.
+> 
+> Geert and Michael: the I was expecting the ataflop and atari_scsi
+> patches to be merged already, based on earlier discussion.
+> Can you apply them to the linux-m68k tree, or do you prefer
+> them to go through the scsi and block maintainers?
+> 
+> Jens: I did not get any comments for the DAC960 and swim3 patches,
+> I assume they are good to go in. Please merge.
+> 
+> Hans and Mauro: As I commented on the old thread, I thought the
+> four media patches were on their way. I have addressed the one
+> comment that I missed earlier now, and used Hans' version for
+> the two patches he changed. Please merge or let me know the status
+> if you have already put them in some tree, but not yet into linux-next
+> 
+> Greg or Andrew: The parport subsystem is orphaned unfortunately,
+> can one of you pick up that patch?
+> 
+> Davem: The two ATM patches got acks, but I did not hear back from
+> Karsten regarding the ISDN patches. Can you pick up all six, or
+> should we wait for comments about the ISDN patches?
+>
+
+
+Ack on the ISDN stuff (12,13,14,15)
