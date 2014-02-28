@@ -1,74 +1,78 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net v3] bna: fix vlan tag stripping and implement its
- toggling
-Date: Fri, 28 Feb 2014 14:37:08 +0100
-Message-ID: <20140228133708.GD2823@minipsycho.orion>
-References: <1393593243-10334-1-git-send-email-ivecera@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] tcp: switch rtt estimations to usec
+ resolution
+Date: Fri, 28 Feb 2014 05:51:12 -0800
+Message-ID: <1393595472.26794.59.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1393137487.2316.48.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <alpine.LFD.2.11.1402230908210.1460@ja.home.ssi.bg>
+	 <1393178122.2316.50.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1393181458.2316.56.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <87fvn3dd9i.fsf@tassilo.jf.intel.com>
+	 <1393568072.26794.53.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140228133127.GT22728@two.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, rmody@brocade.com,
-	fw@strlen.de
-To: Ivan Vecera <ivecera@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Julian Anastasov <ja@ssi.bg>, David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Larry Brakmo <brakmo@google.com>
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f41.google.com ([74.125.83.41]:58666 "EHLO
-	mail-ee0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751851AbaB1NhQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 08:37:16 -0500
-Received: by mail-ee0-f41.google.com with SMTP id b15so2267726eek.14
-        for <netdev@vger.kernel.org>; Fri, 28 Feb 2014 05:37:14 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1393593243-10334-1-git-send-email-ivecera@redhat.com>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:42314 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752513AbaB1NvQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 08:51:16 -0500
+Received: by mail-pd0-f182.google.com with SMTP id g10so765328pdj.27
+        for <netdev@vger.kernel.org>; Fri, 28 Feb 2014 05:51:15 -0800 (PST)
+In-Reply-To: <20140228133127.GT22728@two.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Feb 28, 2014 at 02:14:03PM CET, ivecera@redhat.com wrote:
->The recent commit "fe1624c bna: RX Filter Enhancements" disables
->VLAN tag stripping if the NIC is in promiscuous mode. This causes
->__vlan_hwaccel_put_tag() is called when the stripping is disabled.
->Because of this VLAN over bna does not work and causes BUGs in conjunction
->with openvswitch like this:
->
->---
->[18370.665074] kernel BUG at include/linux/skbuff.h:1497!
->...
->[18370.876769] Call Trace:
->[18370.879455]  <IRQ>
->[18370.881569]  [<ffffffffa063a3c6>] internal_dev_recv+0xb6/0x130 [openvswitch]
->[18370.889552]  [<ffffffffa06398ed>] ovs_vport_send+0x1d/0x80 [openvswitch]
->[18370.896922]  [<ffffffffa063016a>] do_output+0x2a/0x50 [openvswitch]
->[18370.903814]  [<ffffffffa06304cd>] do_execute_actions+0x19d/0xb20 [openvswitch]
->[18370.911757]  [<ffffffffa0630e7b>] ovs_execute_actions+0x2b/0x30 [openvswitch]
->[18370.919602]  [<ffffffffa0633722>] ovs_dp_process_received_packet+0x92/0x120 [openvswitch]
->[18370.928597]  [<ffffffff8109be83>] ? find_busiest_group+0x103/0x880
->[18370.935396]  [<ffffffffa063982a>] ovs_vport_receive+0x2a/0x30 [openvswitch]
->[18370.943053]  [<ffffffffa063a6b1>] netdev_frame_hook+0xc1/0x120 [openvswitch]
->[18370.950802]  [<ffffffff814b27c2>] __netif_receive_skb_core+0x262/0x840
->[18370.957982]  [<ffffffff81019a00>] ? flush_ptrace_hw_breakpoint+0x10/0x40
->[18370.965349]  [<ffffffff814b2db8>] __netif_receive_skb+0x18/0x60
->[18370.971855]  [<ffffffff814b2e33>] netif_receive_skb+0x33/0xb0
->[18370.978172]  [<ffffffff814b3736>] napi_gro_frags+0x116/0x170
->[18370.984407]  [<ffffffffa0c7aaa4>] bnad_napi_poll_rx+0x3f4/0x8f0 [bna]
->[18370.991488]  [<ffffffff814b31ba>] net_rx_action+0x15a/0x250
->...
->---
->
->The following patch makes the following changes so the driver:
->1. Implements .ndo_set_features so an user can toggle VLAN tag stripping
->   on/off
->2. Does not disable VLAN tag stripping in promiscuous mode so the driver
->   respect user's choice
->3. Calls __vlan_hwaccel_put_tag() only when the stripping is enabled
->
->v2:
->- make bnad_set_features static (thanks Florian Westphal)
->- enable/disable VLAN stripping during open WRT hw_features
->
->v3:
->- enable/disable VLAN stripping during open WRT features and not hw_features
->
->Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+On Fri, 2014-02-28 at 14:31 +0100, Andi Kleen wrote:
+> > Right, so I cooked this instead :
+> > 
+> > http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=363ec392352e55c61ce2799c3f15f89f9429bba7
+> > 
+> > Is this OK or do you see a problem with this ?
+> 
+> It seems mostly ok. I assume the compiler optimizes the constant do_div to a
+> multiplication?
+> 
 
+Yep, its a reciprocal.
 
-Looks ok to me now.
+> I'm not sure it's better than ktime() if it works. So it may be still
+> better to have some global flag that says "ktime is slow" and
+> qualify it on that.  But that would need changing the timer
+> subsystem.
 
-Reviewed-by: Jiri Pirko <jiri@resnulli.us>
+It seems to use ktime_get() on x86 if tsc runs at constant rate.
+
+There is already a static key switch.
+
+int sched_clock_stable(void)
+{
+	return static_key_false(&__sched_clock_stable);
+}
+
+...
+	if (sched_clock_stable())
+		return sched_clock();
+
+And set_sched_clock_stable() is called from early_init_intel()
+
+        /*
+         * c->x86_power is 8000_0007 edx. Bit 8 is TSC runs at constant rate
+         * with P/T states and does not stop in deep C-states.
+         *
+         * It is also reliable across cores and sockets. (but not across
+         * cabinets - we turn it off in that case explicitly.)
+         */
+        if (c->x86_power & (1 << 8)) {
+                set_cpu_cap(c, X86_FEATURE_CONSTANT_TSC);
+                set_cpu_cap(c, X86_FEATURE_NONSTOP_TSC);
+                if (!check_tsc_unstable())
+                        set_sched_clock_stable();
+        }
