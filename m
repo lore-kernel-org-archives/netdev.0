@@ -1,138 +1,68 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH net] bna: fix vlan tag stripping and implement its toggling
-Date: Fri, 28 Feb 2014 10:11:14 +0100
-Message-ID: <1393578674-12658-1-git-send-email-ivecera@redhat.com>
-Cc: davem@davemloft.net, rmody@brocade.com, jiri@resnulli.us
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50617 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750907AbaB1JLW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Feb 2014 04:11:22 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Wang, Yalin" <Yalin.Wang@sonymobile.com>
+Subject: Re: change kmalloc into vmalloc for large memory
+	allocations
+Date: Fri, 28 Feb 2014 17:20:08 +0800
+Message-ID: <35FD53F367049845BC99AC72306C23D102844605F38D@CNBJMBX05.corpusers.net>
+References: <35FD53F367049845BC99AC72306C23D102844605F38C@CNBJMBX05.corpusers.net>
+ <53104ECA.4010702@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "'alsa-devel@alsa-project.org'" <alsa-devel@alsa-project.org>,
+ "'broonie@opensource.wolfsonmicro.com'"
+ <broonie@opensource.wolfsonmicro.com>, "'tiwai@suse.de'" <tiwai@suse.de>,
+ "'fweisbec@gmail.com'" <fweisbec@gmail.com>,
+ "'dmitry.torokhov@gmail.com'" <dmitry.torokhov@gmail.com>,
+ "'mingo@redhat.com'" <mingo@redhat.com>,
+ "'linux-input@vger.kernel.org'" <linux-input@vger.kernel.org>,
+ "'rydberg@euromail.se'" <rydberg@euromail.se>, "'lrg@ti.com'" <lrg@ti.com>,
+ "'pablo@netfilter.org'" <pablo@netfilter.org>,
+ "'coreteam@netfilter.org'" <coreteam@netfilter.org>,
+ "'linux-arm-msm@vger.kernel.org'" <linux-arm-msm@vger.kernel.org>,
+ "'rostedt@goodmis.org'" <rostedt@goodmis.org>,
+ "'netfilter@vger.kernel.org'" <netfilter@vger.kernel.org>,
+ "'linux-arm-kernel@lists.infradead.org'"
+ <linux-arm-kernel@lists.infradead.org>,
+ "'gregkh@linuxfoundation.org'" <gregkh@linuxfoundation.org>,
+ "'li
+To: 'Huang Shijie' <b32955@freescale.com>
+Return-path: <alsa-devel-bounces@alsa-project.org>
+In-Reply-To: <53104ECA.4010702@freescale.com>
+Content-Language: en-US
+List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
+List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
+List-Post: <mailto:alsa-devel@alsa-project.org>
+List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
+List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
+Errors-To: alsa-devel-bounces@alsa-project.org
+Sender: alsa-devel-bounces@alsa-project.org
+List-Id: netdev.vger.kernel.org
 
-The recent commit "fe1624c bna: RX Filter Enhancements" disables
-VLAN tag stripping if the NIC is in promiscuous mode. This causes
-__vlan_hwaccel_put_tag() is called when the stripping is disabled.
-Because of this VLAN over bna does not work and causes BUGs in conjunction
-with openvswitch like this:
-
-=====
-[18370.665074] kernel BUG at include/linux/skbuff.h:1497!
-...
-[18370.876769] Call Trace:
-[18370.879455]  <IRQ>
-[18370.881569]  [<ffffffffa063a3c6>] internal_dev_recv+0xb6/0x130 [openvswitch]
-[18370.889552]  [<ffffffffa06398ed>] ovs_vport_send+0x1d/0x80 [openvswitch]
-[18370.896922]  [<ffffffffa063016a>] do_output+0x2a/0x50 [openvswitch]
-[18370.903814]  [<ffffffffa06304cd>] do_execute_actions+0x19d/0xb20 [openvswitch]
-[18370.911757]  [<ffffffffa0630e7b>] ovs_execute_actions+0x2b/0x30 [openvswitch]
-[18370.919602]  [<ffffffffa0633722>] ovs_dp_process_received_packet+0x92/0x120 [openvswitch]
-[18370.928597]  [<ffffffff8109be83>] ? find_busiest_group+0x103/0x880
-[18370.935396]  [<ffffffffa063982a>] ovs_vport_receive+0x2a/0x30 [openvswitch]
-[18370.943053]  [<ffffffffa063a6b1>] netdev_frame_hook+0xc1/0x120 [openvswitch]
-[18370.950802]  [<ffffffff814b27c2>] __netif_receive_skb_core+0x262/0x840
-[18370.957982]  [<ffffffff81019a00>] ? flush_ptrace_hw_breakpoint+0x10/0x40
-[18370.965349]  [<ffffffff814b2db8>] __netif_receive_skb+0x18/0x60
-[18370.971855]  [<ffffffff814b2e33>] netif_receive_skb+0x33/0xb0
-[18370.978172]  [<ffffffff814b3736>] napi_gro_frags+0x116/0x170
-[18370.984407]  [<ffffffffa0c7aaa4>] bnad_napi_poll_rx+0x3f4/0x8f0 [bna]
-[18370.991488]  [<ffffffff814b31ba>] net_rx_action+0x15a/0x250
-...
-===
-
-The following patch makes the following changes so the driver:
-1. Implements .ndo_set_features so an user can toggle VLAN tag stripping
-   on/off
-2. Does not disable VLAN tag stripping in promiscuous mode so the driver
-   respect user's choice
-3. Calls __vlan_hwaccel_put_tag() only when the stripping is enabled
-
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
----
- drivers/net/ethernet/brocade/bna/bnad.c | 36 ++++++++++++++++++++++++---------
- 1 file changed, 27 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index cf64f3d..bc09056 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -707,7 +707,8 @@ bnad_cq_process(struct bnad *bnad, struct bna_ccb *ccb, int budget)
- 		else
- 			skb_checksum_none_assert(skb);
- 
--		if (flags & BNA_CQ_EF_VLAN)
-+		if ((flags & BNA_CQ_EF_VLAN) &&
-+		    (bnad->netdev->features & NETIF_F_HW_VLAN_CTAG_RX))
- 			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), ntohs(cmpl->vlan_tag));
- 
- 		if (BNAD_RXBUF_IS_SK_BUFF(unmap_q->type))
-@@ -3245,11 +3246,6 @@ bnad_set_rx_mode(struct net_device *netdev)
- 			BNA_RXMODE_ALLMULTI;
- 	bna_rx_mode_set(bnad->rx_info[0].rx, new_mode, mode_mask, NULL);
- 
--	if (bnad->cfg_flags & BNAD_CF_PROMISC)
--		bna_rx_vlan_strip_disable(bnad->rx_info[0].rx);
--	else
--		bna_rx_vlan_strip_enable(bnad->rx_info[0].rx);
--
- 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
- }
- 
-@@ -3374,6 +3370,27 @@ bnad_vlan_rx_kill_vid(struct net_device *netdev, __be16 proto, u16 vid)
- 	return 0;
- }
- 
-+int bnad_set_features(struct net_device *dev, netdev_features_t features)
-+{
-+	struct bnad *bnad = netdev_priv(dev);
-+	netdev_features_t changed = features ^ dev->features;
-+
-+	if ((changed & NETIF_F_HW_VLAN_CTAG_RX) && netif_running(dev)) {
-+		unsigned long flags;
-+
-+		spin_lock_irqsave(&bnad->bna_lock, flags);
-+
-+		if (features & NETIF_F_HW_VLAN_CTAG_RX)
-+			bna_rx_vlan_strip_enable(bnad->rx_info[0].rx);
-+		else
-+			bna_rx_vlan_strip_disable(bnad->rx_info[0].rx);
-+
-+		spin_unlock_irqrestore(&bnad->bna_lock, flags);
-+	}
-+
-+	return 0;
-+}
-+
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void
- bnad_netpoll(struct net_device *netdev)
-@@ -3421,6 +3438,7 @@ static const struct net_device_ops bnad_netdev_ops = {
- 	.ndo_change_mtu		= bnad_change_mtu,
- 	.ndo_vlan_rx_add_vid    = bnad_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid   = bnad_vlan_rx_kill_vid,
-+	.ndo_set_features	= bnad_set_features,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller    = bnad_netpoll
- #endif
-@@ -3433,14 +3451,14 @@ bnad_netdev_init(struct bnad *bnad, bool using_dac)
- 
- 	netdev->hw_features = NETIF_F_SG | NETIF_F_RXCSUM |
- 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
--		NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_HW_VLAN_CTAG_TX;
-+		NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_HW_VLAN_CTAG_TX |
-+		NETIF_F_HW_VLAN_CTAG_RX;
- 
- 	netdev->vlan_features = NETIF_F_SG | NETIF_F_HIGHDMA |
- 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
- 		NETIF_F_TSO | NETIF_F_TSO6;
- 
--	netdev->features |= netdev->hw_features |
--		NETIF_F_HW_VLAN_CTAG_RX | NETIF_F_HW_VLAN_CTAG_FILTER;
-+	netdev->features |= netdev->hw_features | NETIF_F_HW_VLAN_CTAG_FILTER;
- 
- 	if (using_dac)
- 		netdev->features |= NETIF_F_HIGHDMA;
--- 
-1.8.3.2
+SGkgIA0KDQoNClllYWgsICANCkRtYSBidWZmZXIgbXVzdCBiZSBhbGxvY2F0ZWQgYnkga21hbGxv
+YywNCg0KQnV0IHRoZSBtb2R1bGVzIEkgbGlzdCBzaG91bGQgY2FuIGFsbCBiZSBjaGFuZ2VkIHRv
+IHVzZQ0Kdm1hbGxvYywgYmVjYXVzZSB0aGUgYnVmZmVyIGlzIG9ubHkgdXNlZCBieSBzb2Z0d2Fy
+ZSwNCk5vdCBieSBhbnkgaGFyZHdhcmUgLg0KDQoNClRoYW5rcw0KDQotLS0tLU9yaWdpbmFsIE1l
+c3NhZ2UtLS0tLQ0KRnJvbTogSHVhbmcgU2hpamllIFttYWlsdG86YjMyOTU1QGZyZWVzY2FsZS5j
+b21dIA0KU2VudDogRnJpZGF5LCBGZWJydWFyeSAyOCwgMjAxNCA0OjU1IFBNDQpUbzogV2FuZywg
+WWFsaW4NCkNjOiAnbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZyc7ICdsaW51eC1hcm0tbXNt
+QHZnZXIua2VybmVsLm9yZyc7ICdsaW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmcn
+OyAnbGludXgtaW5wdXRAdmdlci5rZXJuZWwub3JnJzsgJ2JhbGJpQHRpLmNvbSc7ICdncmVna2hA
+bGludXhmb3VuZGF0aW9uLm9yZyc7ICdscmdAdGkuY29tJzsgJ2Jyb29uaWVAb3BlbnNvdXJjZS53
+b2xmc29ubWljcm8uY29tJzsgJ3BlcmV4QHBlcmV4LmN6JzsgJ3Rpd2FpQHN1c2UuZGUnOyAncGFi
+bG9AbmV0ZmlsdGVyLm9yZyc7ICdrYWJlckB0cmFzaC5uZXQnOyAnZGF2ZW1AZGF2ZW1sb2Z0Lm5l
+dCc7ICdyb3N0ZWR0QGdvb2RtaXMub3JnJzsgJ2Z3ZWlzYmVjQGdtYWlsLmNvbSc7ICdtaW5nb0By
+ZWRoYXQuY29tJzsgJ2RtaXRyeS50b3Jva2hvdkBnbWFpbC5jb20nOyAncnlkYmVyZ0BldXJvbWFp
+bC5zZSc7ICdsaW51eC11c2JAdmdlci5rZXJuZWwub3JnJzsgJ2Fsc2EtZGV2ZWxAYWxzYS1wcm9q
+ZWN0Lm9yZyc7ICduZXRmaWx0ZXItZGV2ZWxAdmdlci5rZXJuZWwub3JnJzsgJ25ldGZpbHRlckB2
+Z2VyLmtlcm5lbC5vcmcnOyAnY29yZXRlYW1AbmV0ZmlsdGVyLm9yZyc7ICduZXRkZXZAdmdlci5r
+ZXJuZWwub3JnJw0KU3ViamVjdDogUmU6IGNoYW5nZSBrbWFsbG9jIGludG8gdm1hbGxvYyBmb3Ig
+bGFyZ2UgbWVtb3J5IGFsbG9jYXRpb25zDQoNCuS6jiAyMDE05bm0MDLmnIgyOOaXpSAxNjoxNSwg
+V2FuZywgWWFsaW4g5YaZ6YGTOg0KPiBjb3VsZCB0aGlzIG1vZHVsZSBjaGFuZ2UgdGhlIG1lbW9y
+eSBhbGxvY2F0aW9uIGludG8gdm1hbGxvYyA/DQp0aGUgYnVmZmVyIGFsbG9jYXRlZCBieSB2bWFs
+bG9jIGNhbiBub3QgYmUgdXNlZCBmb3IgdGhlIERNQS4NCg0KSSB0aGluayB0aGF0J3Mgd2h5IGRy
+aXZlcnMgdXNlIHRoZSBrbWFsbG9jLg0KDQp0aGFua3MNCkh1YW5nIFNoaWppZQ0KDQpfX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpBbHNhLWRldmVsIG1haWxp
+bmcgbGlzdApBbHNhLWRldmVsQGFsc2EtcHJvamVjdC5vcmcKaHR0cDovL21haWxtYW4uYWxzYS1w
+cm9qZWN0Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Fsc2EtZGV2ZWwK
