@@ -1,134 +1,212 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: Possible fix
-Date: Fri, 28 Feb 2014 11:10:07 +0100
-Message-ID: <5310607F.7030401@redhat.com>
-References: <20140227151954.GA30946@redhat.com> <1393517857-11842-1-git-send-email-nikolay@redhat.com> <20140228072333.GP32371@secunet.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH RFC 01/12] xfrm: Introduce xfrm_input_afinfo to access the the callbacks properly
+Date: Fri, 28 Feb 2014 11:31:11 +0100
+Message-ID: <1393583483-12480-2-git-send-email-steffen.klassert@secunet.com>
+References: <1393583483-12480-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dave Jones <davej@redhat.com>,
-	Fan Du <fan.du@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Paul Moore <paul@paul-moore.com>,
-	linux-security-module@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20140228072333.GP32371@secunet.com>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	Christophe Gouault <christophe.gouault@6wind.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:48988 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751140AbaB1Kbi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Feb 2014 05:31:38 -0500
+In-Reply-To: <1393583483-12480-1-git-send-email-steffen.klassert@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/28/2014 08:23 AM, Steffen Klassert wrote:
-> Ccing some security/selinux people.
-> 
-> On Thu, Feb 27, 2014 at 05:17:37PM +0100, Nikolay Aleksandrov wrote:
->> Hi,
->> I'm not familiar with the code but happened to see the bug, could you
->> try the following patch, I believe it should fix the issue.
->>
->> Thanks,
->>  Nik
->>
->> [PATCH net] net: af_key: fix sleeping under rcu
->>
->> There's a kmalloc with GFP_KERNEL in a helper
->> (pfkey_sadb2xfrm_user_sec_ctx) used in pfkey_compile_policy which is
->> called under rcu_read_lock. Adjust pfkey_sadb2xfrm_user_sec_ctx to have
->> a gfp argument and adjust the users.
->>
-> 
-> Looking at the git history, it seems that this bug is about nine
-> years old. I guess noone is actually using this.
-> 
-> Also, we care for the security context only if we add a socket
-> policy via the pfkey key manager. The security context is not
-> handled if we do that with the netlink key manager
-> (compare pfkey_compile_policy() and xfrm_compile_policy()).
-> 
->> CC: Dave Jones <davej@redhat.com>
->> CC: Steffen Klassert <steffen.klassert@secunet.com>
->> CC: Fan Du <fan.du@windriver.com>
->> CC: David S. Miller <davem@davemloft.net>
->>
->> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
->> ---
->> I'm not familiar with this code, but just happen to see the bug. I believe
->> this patch should take care of it.
->> I've left the already very long lines.
->>
->>  net/key/af_key.c | 13 +++++++------
->>  1 file changed, 7 insertions(+), 6 deletions(-)
->>
->> diff --git a/net/key/af_key.c b/net/key/af_key.c
->> index 1a04c1329362..1526023f99ed 100644
->> --- a/net/key/af_key.c
->> +++ b/net/key/af_key.c
->> @@ -433,12 +433,13 @@ static inline int verify_sec_ctx_len(const void *p)
->>  	return 0;
->>  }
->>  
->> -static inline struct xfrm_user_sec_ctx *pfkey_sadb2xfrm_user_sec_ctx(const struct sadb_x_sec_ctx *sec_ctx)
->> +static inline struct xfrm_user_sec_ctx *pfkey_sadb2xfrm_user_sec_ctx(const struct sadb_x_sec_ctx *sec_ctx,
->> +								     gfp_t gfp)
->>  {
->>  	struct xfrm_user_sec_ctx *uctx = NULL;
->>  	int ctx_size = sec_ctx->sadb_x_ctx_len;
->>  
->> -	uctx = kmalloc((sizeof(*uctx)+ctx_size), GFP_KERNEL);
->> +	uctx = kmalloc((sizeof(*uctx)+ctx_size), gfp);
->>  
->>  	if (!uctx)
->>  		return NULL;
->> @@ -1124,7 +1125,7 @@ static struct xfrm_state * pfkey_msg2xfrm_state(struct net *net,
->>  
->>  	sec_ctx = ext_hdrs[SADB_X_EXT_SEC_CTX - 1];
->>  	if (sec_ctx != NULL) {
->> -		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
->> +		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_KERNEL);
->>  
->>  		if (!uctx)
->>  			goto out;
->> @@ -2231,7 +2232,7 @@ static int pfkey_spdadd(struct sock *sk, struct sk_buff *skb, const struct sadb_
->>  
->>  	sec_ctx = ext_hdrs[SADB_X_EXT_SEC_CTX - 1];
->>  	if (sec_ctx != NULL) {
->> -		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
->> +		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_KERNEL);
->>  
->>  		if (!uctx) {
->>  			err = -ENOBUFS;
->> @@ -2335,7 +2336,7 @@ static int pfkey_spddelete(struct sock *sk, struct sk_buff *skb, const struct sa
->>  
->>  	sec_ctx = ext_hdrs[SADB_X_EXT_SEC_CTX - 1];
->>  	if (sec_ctx != NULL) {
->> -		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
->> +		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_KERNEL);
->>  
->>  		if (!uctx)
->>  			return -ENOMEM;
->> @@ -3239,7 +3240,7 @@ static struct xfrm_policy *pfkey_compile_policy(struct sock *sk, int opt,
->>  		}
->>  		if ((*dir = verify_sec_ctx_len(p)))
->>  			goto out;
->> -		uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
->> +		uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_ATOMIC);
->>  		*dir = security_xfrm_policy_alloc(&xp->security, uctx);
-> 
-> This would fix the allocation done in pfkey_sadb2xfrm_user_sec_ctx().
-> But security_xfrm_policy_alloc() might call selinux_xfrm_alloc_user()
-> which does a GFP_KERNEL allocation too. So I guess we also need to fix
-> selinux.
-> 
-Right, I just saw that but fixing it at first glance doesn't seem so
-trivial as we can't pass another argument from compile_policy without
-changing xfrm_policy_alloc_security's prototype in struct
-security_operations which AFAICT is doable with some adjustments, but not
-sure if it's the right thing to do. Changing GFP_KERNEL to GFP_ATOMIC in
-selinux_xfrm_alloc_user is also a possibility, but there're a many places
-which use that and can sleep.
-I would extend this patch, but currently don't have the time to search for
-a nice solution. I can look more into it next week, or if you'd like to
-take care of it, I wouldn't mind :-)
+IPv6 can be build as a module, so we need mechanism to access
+the address family dependent callback functions properly.
+Therefore we introduce xfrm_input_afinfo, similar to that
+what we have for the address family dependent part of
+policies and states.
 
-Cheers,
- Nik
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ include/net/xfrm.h        |   23 +++++++--------
+ net/ipv4/xfrm4_policy.c   |    1 +
+ net/ipv4/xfrm4_protocol.c |   13 ++++++++-
+ net/xfrm/xfrm_input.c     |   71 +++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 95 insertions(+), 13 deletions(-)
 
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 8b92528..4cdc9fa 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -349,6 +349,16 @@ int xfrm_state_unregister_afinfo(struct xfrm_state_afinfo *afinfo);
+ struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned int family);
+ void xfrm_state_put_afinfo(struct xfrm_state_afinfo *afinfo);
+ 
++struct xfrm_input_afinfo {
++	unsigned int		family;
++	struct module		*owner;
++	int			(*callback)(struct sk_buff *skb, u8 protocol,
++					    int err);
++};
++
++int xfrm_input_register_afinfo(struct xfrm_input_afinfo *afinfo);
++int xfrm_input_unregister_afinfo(struct xfrm_input_afinfo *afinfo);
++
+ void xfrm_state_delete_tunnel(struct xfrm_state *x);
+ 
+ struct xfrm_type {
+@@ -1392,6 +1402,7 @@ void xfrm4_init(void);
+ int xfrm_state_init(struct net *net);
+ void xfrm_state_fini(struct net *net);
+ void xfrm4_state_init(void);
++void xfrm4_protocol_init(void);
+ #ifdef CONFIG_XFRM
+ int xfrm6_init(void);
+ void xfrm6_fini(void);
+@@ -1773,18 +1784,6 @@ static inline int xfrm_mark_put(struct sk_buff *skb, const struct xfrm_mark *m)
+ 	return ret;
+ }
+ 
+-static inline int xfrm_rcv_cb(struct sk_buff *skb, unsigned int family,
+-			      u8 protocol, int err)
+-{
+-	switch(family) {
+-#ifdef CONFIG_INET
+-	case AF_INET:
+-		return xfrm4_rcv_cb(skb, protocol, err);
+-#endif
+-	}
+-	return 0;
+-}
+-
+ static inline int xfrm_tunnel_check(struct sk_buff *skb, struct xfrm_state *x,
+ 				    unsigned int family)
+ {
+diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+index e1a6393..6156f68 100644
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -325,6 +325,7 @@ void __init xfrm4_init(void)
+ 
+ 	xfrm4_state_init();
+ 	xfrm4_policy_init();
++	xfrm4_protocol_init();
+ #ifdef CONFIG_SYSCTL
+ 	register_pernet_subsys(&xfrm4_net_ops);
+ #endif
+diff --git a/net/ipv4/xfrm4_protocol.c b/net/ipv4/xfrm4_protocol.c
+index cdc09ef..7f7b243 100644
+--- a/net/ipv4/xfrm4_protocol.c
++++ b/net/ipv4/xfrm4_protocol.c
+@@ -179,6 +179,12 @@ static const struct net_protocol ipcomp4_protocol = {
+ 	.netns_ok	=	1,
+ };
+ 
++static struct xfrm_input_afinfo xfrm4_input_afinfo = {
++	.family		=	AF_INET,
++	.owner		=	THIS_MODULE,
++	.callback	=	xfrm4_rcv_cb,
++};
++
+ static inline const struct net_protocol *netproto(unsigned char protocol)
+ {
+ 	switch (protocol) {
+@@ -199,7 +205,6 @@ int xfrm4_protocol_register(struct xfrm4_protocol *handler,
+ 	struct xfrm4_protocol __rcu **pprev;
+ 	struct xfrm4_protocol *t;
+ 	bool add_netproto = false;
+-
+ 	int ret = -EEXIST;
+ 	int priority = handler->priority;
+ 
+@@ -273,3 +278,9 @@ int xfrm4_protocol_deregister(struct xfrm4_protocol *handler,
+ 	return ret;
+ }
+ EXPORT_SYMBOL(xfrm4_protocol_deregister);
++
++void __init xfrm4_protocol_init(void)
++{
++	xfrm_input_register_afinfo(&xfrm4_input_afinfo);
++}
++EXPORT_SYMBOL(xfrm4_protocol_init);
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index 4218164..8b4fb75 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -16,6 +16,77 @@
+ 
+ static struct kmem_cache *secpath_cachep __read_mostly;
+ 
++static DEFINE_SPINLOCK(xfrm_input_afinfo_lock);
++static struct xfrm_input_afinfo __rcu *xfrm_input_afinfo[NPROTO];
++
++int xfrm_input_register_afinfo(struct xfrm_input_afinfo *afinfo)
++{
++	int err = 0;
++	if (unlikely(afinfo == NULL))
++		return -EINVAL;
++	if (unlikely(afinfo->family >= NPROTO))
++		return -EAFNOSUPPORT;
++	spin_lock_bh(&xfrm_input_afinfo_lock);
++	if (unlikely(xfrm_input_afinfo[afinfo->family] != NULL))
++		err = -ENOBUFS;
++	else
++		rcu_assign_pointer(xfrm_input_afinfo[afinfo->family], afinfo);
++	spin_unlock_bh(&xfrm_input_afinfo_lock);
++	return err;
++}
++EXPORT_SYMBOL(xfrm_input_register_afinfo);
++
++int xfrm_input_unregister_afinfo(struct xfrm_input_afinfo *afinfo)
++{
++	int err = 0;
++	if (unlikely(afinfo == NULL))
++		return -EINVAL;
++	if (unlikely(afinfo->family >= NPROTO))
++		return -EAFNOSUPPORT;
++	spin_lock_bh(&xfrm_input_afinfo_lock);
++	if (likely(xfrm_input_afinfo[afinfo->family] != NULL)) {
++		if (unlikely(xfrm_input_afinfo[afinfo->family] != afinfo))
++			err = -EINVAL;
++		else
++			RCU_INIT_POINTER(xfrm_input_afinfo[afinfo->family], NULL);
++	}
++	spin_unlock_bh(&xfrm_input_afinfo_lock);
++	synchronize_rcu();
++	return err;
++}
++EXPORT_SYMBOL(xfrm_input_unregister_afinfo);
++
++static struct xfrm_input_afinfo *xfrm_input_get_afinfo(unsigned int family)
++{
++	struct xfrm_input_afinfo *afinfo;
++	if (unlikely(family >= NPROTO))
++		return NULL;
++	rcu_read_lock();
++	afinfo = rcu_dereference(xfrm_input_afinfo[family]);
++	if (unlikely(!afinfo))
++		rcu_read_unlock();
++	return afinfo;
++}
++
++static void xfrm_input_put_afinfo(struct xfrm_input_afinfo *afinfo)
++{
++	rcu_read_unlock();
++}
++
++static int xfrm_rcv_cb(struct sk_buff *skb, unsigned int family, u8 protocol,
++		       int err)
++{
++	int ret;
++	struct xfrm_input_afinfo *afinfo = xfrm_input_get_afinfo(family);
++	if (!afinfo)
++		return -EAFNOSUPPORT;
++
++	ret = afinfo->callback(skb, protocol, err);
++	xfrm_input_put_afinfo(afinfo);
++
++	return ret;
++}
++
+ void __secpath_destroy(struct sec_path *sp)
+ {
+ 	int i;
+-- 
+1.7.9.5
