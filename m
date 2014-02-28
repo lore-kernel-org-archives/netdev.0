@@ -1,336 +1,335 @@
 From: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
-Subject: [PATCH v3 net-next 2/2] be2net: Support for configurable RSS hash key
-Date: Fri, 28 Feb 2014 17:35:41 +0530
-Message-ID: <517e6992-7a8a-43a1-9cb1-7ecc7dac4db1@CMEXHTCAS2.ad.emulex.com>
+Subject: [PATCH v3 net-next 1/2] ethtool: Support for configurable RSS hash key
+Date: Fri, 28 Feb 2014 17:35:40 +0530
+Message-ID: <0e1d7b54-dcbd-446d-b1c9-644086da138f@CMEXHTCAS2.ad.emulex.com>
 References: <1393589141-10597-1-git-send-email-VenkatKumar.Duvvuru@Emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:52247 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751301AbaB1MFo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 07:05:44 -0500
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:51587 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751640AbaB1MFj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 07:05:39 -0500
 In-Reply-To: <1393589141-10597-1-git-send-email-VenkatKumar.Duvvuru@Emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This be2net patch implements the get/set_rxfh() ethtool hooks.
-RSS_CONFIG device command is invoked to set the hashkey.
-It also uses an initial random value for RSS hash key instead of a hard-coded
-value as hard-coded values for a hash-key are usually considered a security risk.
+This ethtool patch primarily copies the ioctl command data structures
+from/to the User space and invokes the driver hook.
 ---
- drivers/net/ethernet/emulex/benet/be.h         |   12 +++-
- drivers/net/ethernet/emulex/benet/be_cmds.c    |    7 +-
- drivers/net/ethernet/emulex/benet/be_cmds.h    |    2 +-
- drivers/net/ethernet/emulex/benet/be_ethtool.c |  103 +++++++++++++++++++++---
- drivers/net/ethernet/emulex/benet/be_main.c    |   31 +++++---
- 5 files changed, 124 insertions(+), 31 deletions(-)
+ include/linux/ethtool.h      |   13 +++
+ include/uapi/linux/ethtool.h |   30 +++++++
+ net/core/ethtool.c           |  195 ++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 238 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index a150401..2b25074 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -120,6 +120,9 @@ static inline char *nic_name(struct pci_dev *pdev)
- #define MAX_VFS			30 /* Max VFs supported by BE3 FW */
- #define FW_VER_LEN		32
- 
-+#define	RSS_INDIR_TABLE_LEN	128
-+#define RSS_HASH_KEY_LEN	40
-+
- struct be_dma_mem {
- 	void *va;
- 	dma_addr_t dma;
-@@ -402,6 +405,13 @@ struct be_resources {
- 	u32 if_cap_flags;
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 0a114d0..f7f5576 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -154,13 +154,23 @@ static inline u32 ethtool_rxfh_indir_default(u32 index, u32 n_rx_rings)
+  * @reset: Reset (part of) the device, as specified by a bitmask of
+  *	flags from &enum ethtool_reset_flags.  Returns a negative
+  *	error code or zero.
++ * @get_rxfh_key_size: Get the size of the RX flow hash key.
++ *	Returns zero if not supported for this specific device.
+  * @get_rxfh_indir_size: Get the size of the RX flow hash indirection table.
+  *	Returns zero if not supported for this specific device.
+  * @get_rxfh_indir: Get the contents of the RX flow hash indirection table.
+  *	Will not be called if @get_rxfh_indir_size returns zero.
++ * @get_rxfh: Get the contents of the RX flow hash indirection table and hash
++ *	key.
++ *	Will not be called if @get_rxfh_indir_size and @get_rxfh_key_size
++ *	returns zero.
+  *	Returns a negative error code or zero.
+  * @set_rxfh_indir: Set the contents of the RX flow hash indirection table.
+  *	Will not be called if @get_rxfh_indir_size returns zero.
++ * @set_rxfh: Set the contents of the RX flow hash indirection table and
++ *	hash key.
++ *	Will not be called if @get_rxfh_indir_size and @get_rxfh_key_size
++ *	returns zero.
+  *	Returns a negative error code or zero.
+  * @get_channels: Get number of channels.
+  * @set_channels: Set number of channels.  Returns a negative error code or
+@@ -232,7 +242,10 @@ struct ethtool_ops {
+ 	int	(*set_rxnfc)(struct net_device *, struct ethtool_rxnfc *);
+ 	int	(*flash_device)(struct net_device *, struct ethtool_flash *);
+ 	int	(*reset)(struct net_device *, u32 *);
++	u32	(*get_rxfh_key_size)(struct net_device *);
+ 	u32	(*get_rxfh_indir_size)(struct net_device *);
++	int	(*get_rxfh)(struct net_device *, struct ethtool_rxfh *);
++	int	(*set_rxfh)(struct net_device *, struct ethtool_rxfh *);
+ 	int	(*get_rxfh_indir)(struct net_device *, u32 *);
+ 	int	(*set_rxfh_indir)(struct net_device *, const u32 *);
+ 	void	(*get_channels)(struct net_device *, struct ethtool_channels *);
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index fd161e9..675d2fe 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -847,6 +847,33 @@ struct ethtool_rxfh_indir {
  };
  
-+struct rss_info {
-+	u64 rss_flags;
-+	u8 rsstable[RSS_INDIR_TABLE_LEN];
-+	u8 rss_queue[RSS_INDIR_TABLE_LEN];
-+	u8 rss_hkey[RSS_HASH_KEY_LEN];
+ /**
++ * struct ethtool_rxfh - command to get or set RX flow hash indirection or/and
++ * hash key.
++ * @cmd: Specific command number - %ETHTOOL_GRSSH or %ETHTOOL_SRSSH
++ * @indir_size: On entry, the array size of the user buffer, which may be zero.
++ *		On return from %ETHTOOL_GRSSH, the array size of the hardware
++ *		indirection table.
++ * @key_size:	On entry, the array size of the user buffer in bytes,
++ *		which may be zero.
++ *		On return from %ETHTOOL_GRSSH, the size of the RSS hash key.
++ * @rsvd:	Reserved for future extensions.
++ * @rss_config: RX ring/queue index for each hash value or/and hash key
++ *		respectively.
++ *
++ * For %ETHTOOL_GRSSH, a @indir_size and key_size of zero means that only the
++ * size should be returned.  For %ETHTOOL_SRSSH, a @indir_size of zero means
++ * the indir table should be reset to default values.  This last feature
++ * is not supported by the original implementations.
++ */
++struct ethtool_rxfh {
++	__u32   cmd;
++	__u32   indir_size;
++	__u32   key_size;
++	__u32	rsvd[3];
++	__u32   rss_config[0];
 +};
 +
- struct be_adapter {
- 	struct pci_dev *pdev;
- 	struct net_device *netdev;
-@@ -499,7 +509,7 @@ struct be_adapter {
- 	u32 msg_enable;
- 	int be_get_temp_freq;
- 	u8 pf_number;
--	u64 rss_flags;
-+	struct rss_info rss_info;
- };
++/**
+  * struct ethtool_rx_ntuple_flow_spec - specification for RX flow filter
+  * @flow_type: Type of match to perform, e.g. %TCP_V4_FLOW
+  * @h_u: Flow field values to match (dependent on @flow_type)
+@@ -1118,6 +1145,9 @@ enum ethtool_sfeatures_retval_bits {
+ #define ETHTOOL_GEEE		0x00000044 /* Get EEE settings */
+ #define ETHTOOL_SEEE		0x00000045 /* Set EEE settings */
  
- #define be_physfn(adapter)		(!adapter->virtfn)
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 72bde5d..9edc5f7 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -2013,13 +2013,10 @@ int be_cmd_reset_function(struct be_adapter *adapter)
++#define ETHTOOL_GRSSH		0x00000046 /* Get RX flow hash configuration */
++#define ETHTOOL_SRSSH		0x00000047 /* Set RX flow hash configuration */
++
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+ #define SPARC_ETH_SSET		ETHTOOL_SSET
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 30071de..06d3213 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -667,6 +667,194 @@ out:
+ 	return ret;
  }
  
- int be_cmd_rss_config(struct be_adapter *adapter, u8 *rsstable,
--			u32 rss_hash_opts, u16 table_size)
-+			u32 rss_hash_opts, u16 table_size, u8 *rss_hkey)
- {
- 	struct be_mcc_wrb *wrb;
- 	struct be_cmd_req_rss_config *req;
--	u32 myhash[10] = {0x15d43fa5, 0x2534685a, 0x5f87693a, 0x5668494e,
--			0x33cf6a53, 0x383334c6, 0x76ac4257, 0x59b242b2,
--			0x3ea83c02, 0x4a110304};
- 	int status;
- 
- 	if (!(be_if_cap_flags(adapter) & BE_IF_FLAGS_RSS))
-@@ -2042,7 +2039,7 @@ int be_cmd_rss_config(struct be_adapter *adapter, u8 *rsstable,
- 		req->hdr.version = 1;
- 
- 	memcpy(req->cpu_table, rsstable, table_size);
--	memcpy(req->hash, myhash, sizeof(myhash));
-+	memcpy(req->hash, rss_hkey, RSS_HASH_KEY_LEN);
- 	be_dws_cpu_to_le(req->hash, sizeof(req->hash));
- 
- 	status = be_mbox_notify_wait(adapter);
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index d0ab980..c5a195c 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -2032,7 +2032,7 @@ int be_cmd_query_fw_cfg(struct be_adapter *adapter, u32 *port_num,
- 			u32 *function_mode, u32 *function_caps, u16 *asic_rev);
- int be_cmd_reset_function(struct be_adapter *adapter);
- int be_cmd_rss_config(struct be_adapter *adapter, u8 *rsstable,
--		      u32 rss_hash_opts, u16 table_size);
-+		      u32 rss_hash_opts, u16 table_size, u8 *rss_hkey);
- int be_process_mcc(struct be_adapter *adapter);
- int be_cmd_set_beacon_state(struct be_adapter *adapter, u8 port_num, u8 beacon,
- 			    u8 status, u8 state);
-diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-index cf09d8f..9c11688 100644
---- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
-+++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-@@ -931,27 +931,27 @@ static u64 be_get_rss_hash_opts(struct be_adapter *adapter, u64 flow_type)
- 
- 	switch (flow_type) {
- 	case TCP_V4_FLOW:
--		if (adapter->rss_flags & RSS_ENABLE_IPV4)
-+		if (adapter->rss_info.rss_flags & RSS_ENABLE_IPV4)
- 			data |= RXH_IP_DST | RXH_IP_SRC;
--		if (adapter->rss_flags & RSS_ENABLE_TCP_IPV4)
-+		if (adapter->rss_info.rss_flags & RSS_ENABLE_TCP_IPV4)
- 			data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
- 		break;
- 	case UDP_V4_FLOW:
--		if (adapter->rss_flags & RSS_ENABLE_IPV4)
-+		if (adapter->rss_info.rss_flags & RSS_ENABLE_IPV4)
- 			data |= RXH_IP_DST | RXH_IP_SRC;
--		if (adapter->rss_flags & RSS_ENABLE_UDP_IPV4)
-+		if (adapter->rss_info.rss_flags & RSS_ENABLE_UDP_IPV4)
- 			data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
- 		break;
- 	case TCP_V6_FLOW:
--		if (adapter->rss_flags & RSS_ENABLE_IPV6)
-+		if (adapter->rss_info.rss_flags & RSS_ENABLE_IPV6)
- 			data |= RXH_IP_DST | RXH_IP_SRC;
--		if (adapter->rss_flags & RSS_ENABLE_TCP_IPV6)
-+		if (adapter->rss_info.rss_flags & RSS_ENABLE_TCP_IPV6)
- 			data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
- 		break;
- 	case UDP_V6_FLOW:
--		if (adapter->rss_flags & RSS_ENABLE_IPV6)
-+		if (adapter->rss_info.rss_flags & RSS_ENABLE_IPV6)
- 			data |= RXH_IP_DST | RXH_IP_SRC;
--		if (adapter->rss_flags & RSS_ENABLE_UDP_IPV6)
-+		if (adapter->rss_info.rss_flags & RSS_ENABLE_UDP_IPV6)
- 			data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
- 		break;
- 	}
-@@ -990,7 +990,7 @@ static int be_set_rss_hash_opts(struct be_adapter *adapter,
- 	struct be_rx_obj *rxo;
- 	int status = 0, i, j;
- 	u8 rsstable[128];
--	u32 rss_flags = adapter->rss_flags;
-+	u32 rss_flags = adapter->rss_info.rss_flags;
- 
- 	if (cmd->data != L3_RSS_FLAGS &&
- 	    cmd->data != (L3_RSS_FLAGS | L4_RSS_FLAGS))
-@@ -1037,7 +1037,7 @@ static int be_set_rss_hash_opts(struct be_adapter *adapter,
- 		return -EINVAL;
- 	}
- 
--	if (rss_flags == adapter->rss_flags)
-+	if (rss_flags == adapter->rss_info.rss_flags)
- 		return status;
- 
- 	if (be_multi_rxq(adapter)) {
-@@ -1049,9 +1049,11 @@ static int be_set_rss_hash_opts(struct be_adapter *adapter,
- 			}
- 		}
- 	}
--	status = be_cmd_rss_config(adapter, rsstable, rss_flags, 128);
-+
-+	status = be_cmd_rss_config(adapter, adapter->rss_info.rsstable,
-+				   rss_flags, 128, adapter->rss_info.rss_hkey);
- 	if (!status)
--		adapter->rss_flags = rss_flags;
-+		adapter->rss_info.rss_flags = rss_flags;
- 
- 	return status;
- }
-@@ -1101,6 +1103,79 @@ static int be_set_channels(struct net_device  *netdev,
- 	return be_update_queues(adapter);
- }
- 
-+static u32 be_get_rxfh_indir_size(struct net_device *netdev)
++static noinline_for_stack int ethtool_get_rxfh(struct net_device *dev,
++					       void __user *useraddr)
 +{
-+	return RSS_INDIR_TABLE_LEN;
-+}
++	int ret;
++	struct ethtool_rxfh *rss_info;
++	const struct ethtool_ops *ops = dev->ethtool_ops;
++	u32 user_indir_size = 0, user_key_size = 0;
++	u32 dev_indir_size = 0, dev_key_size = 0;
++	u32 total_size;
++	u32 indir_offset, indir_bytes;
++	u32 key_offset;
 +
-+static u32 be_get_rxfh_key_size(struct net_device *netdev)
-+{
-+	return RSS_HASH_KEY_LEN;
-+}
++	if (!(dev->ethtool_ops->get_rxfh_indir_size ||
++	      dev->ethtool_ops->get_rxfh_key_size ||
++	      dev->ethtool_ops->get_rxfh))
++		return -EOPNOTSUPP;
 +
-+static int be_get_rxfh(struct net_device *netdev,
-+		       struct ethtool_rxfh *cmd)
-+{
-+	struct be_adapter *adapter = netdev_priv(netdev);
-+	u32 key_offset = 0;
-+	int i;
-+	struct rss_info *rss = &adapter->rss_info;
++	if (ops->get_rxfh_indir_size)
++		dev_indir_size = ops->get_rxfh_indir_size(dev);
 +
-+	if (cmd->indir_size) {
-+		for (i = 0; i < RSS_INDIR_TABLE_LEN; i++)
-+			cmd->rss_config[i] = rss->rss_queue[i];
++	if (dev_indir_size) {
++		indir_offset = offsetof(struct ethtool_rxfh, indir_size);
 +
-+		key_offset = cmd->indir_size * sizeof(cmd->rss_config[0]);
++		if (copy_from_user(&user_indir_size,
++				   useraddr + indir_offset,
++				   sizeof(user_indir_size)))
++			return -EFAULT;
++
++		if (copy_to_user(useraddr + indir_offset,
++				 &dev_indir_size, sizeof(dev_indir_size)))
++			return -EFAULT;
 +	}
 +
-+	if (cmd->key_size)
-+		memcpy(((char *)cmd->rss_config) + key_offset,
-+		       rss->rss_hkey,
-+		       cmd->key_size);
++	if (ops->get_rxfh_key_size)
++		dev_key_size = ops->get_rxfh_key_size(dev);
 +
-+	return 0;
++	if ((dev_key_size + dev_indir_size) == 0)
++		return -EOPNOTSUPP;
++
++	if (dev_key_size) {
++		key_offset = offsetof(struct ethtool_rxfh, key_size);
++
++		if (copy_from_user(&user_key_size,
++				   useraddr + key_offset,
++				   sizeof(user_key_size)))
++			return -EFAULT;
++
++		if (copy_to_user(useraddr + key_offset,
++				 &dev_key_size, sizeof(dev_key_size)))
++			return -EFAULT;
++	}
++
++	/* If the user buffer size is 0, this is just a query for the
++	 * device table size and key size.  Otherwise, if the User size is
++	 * not equal to device table size or key size it's an error.
++	 */
++	if (!user_indir_size && !user_key_size)
++		return 0;
++
++	if ((user_indir_size && (user_indir_size != dev_indir_size)) ||
++	    (user_key_size && (user_key_size != dev_key_size)))
++		return -EINVAL;
++
++	indir_bytes = user_indir_size * sizeof(rss_info->rss_config[0]);
++	total_size = indir_bytes + user_key_size;
++	rss_info = kzalloc(total_size, GFP_USER);
++	if (!rss_info)
++		return -ENOMEM;
++
++	rss_info->indir_size = user_indir_size;
++	rss_info->key_size = user_key_size;
++	ret = dev->ethtool_ops->get_rxfh(dev, rss_info);
++	if (!ret) {
++		if (copy_to_user(useraddr +
++				 offsetof(struct ethtool_rxfh, rss_config[0]),
++				 rss_info->rss_config, total_size))
++			ret = -EFAULT;
++	}
++
++	kfree(rss_info);
++
++	return ret;
 +}
 +
-+static int be_set_rxfh(struct net_device *netdev,
-+		       struct ethtool_rxfh *cmd)
++static noinline_for_stack int ethtool_set_rxfh(struct net_device *dev,
++					       void __user *useraddr)
 +{
-+	int rc = 0, key_offset = 0, i, j;
-+	char *hkey = NULL;
-+	struct be_adapter *adapter = netdev_priv(netdev);
-+	u8 rsstable[RSS_INDIR_TABLE_LEN];
++	int ret;
++	const struct ethtool_ops *ops = dev->ethtool_ops;
++	struct ethtool_rxnfc rx_rings;
++	struct ethtool_rxfh *rss_info;
++	u32 user_indir_size = 0, dev_indir_size = 0, i;
++	u32 user_key_size = 0, dev_key_size = 0;
++	u32 *indir, indir_bytes = 0;
++	u32 indir_offset, key_offset;
++	u32 rss_cfg_offset = offsetof(struct ethtool_rxfh, rss_config[0]);
 +
-+	if (cmd->indir_size) {
-+		struct be_rx_obj *rxo;
-+		for (i = 0; i < RSS_INDIR_TABLE_LEN; i++) {
-+			j = cmd->rss_config[i];
-+			rxo = &adapter->rx_obj[j];
-+			rsstable[i] = rxo->rss_id;
-+			adapter->rss_info.rss_queue[i] = j;
++	if (!(ops->get_rxfh_indir_size || ops->set_rxfh ||
++	      ops->get_rxnfc || ops->get_rxfh_key_size))
++		return -EOPNOTSUPP;
++
++	if (ops->get_rxfh_indir_size)
++		dev_indir_size = ops->get_rxfh_indir_size(dev);
++
++	if (dev_indir_size) {
++		indir_offset = offsetof(struct ethtool_rxfh, indir_size);
++		if (copy_from_user(&user_indir_size,
++				   useraddr + indir_offset,
++				   sizeof(user_indir_size)))
++			return -EFAULT;
++	}
++
++	if (ops->get_rxfh_key_size)
++		dev_key_size = dev->ethtool_ops->get_rxfh_key_size(dev);
++
++	if ((dev_key_size + dev_indir_size) == 0)
++		return -EOPNOTSUPP;
++
++	if (dev_key_size) {
++		key_offset = offsetof(struct ethtool_rxfh, key_size);
++		if (copy_from_user(&user_key_size,
++				   useraddr + key_offset,
++				   sizeof(user_key_size)))
++			return -EFAULT;
++	}
++
++	if (!user_indir_size && !user_key_size)
++		return -EINVAL;
++
++	if ((user_indir_size && ((user_indir_size != 0xDEADBEEF) &&
++				 user_indir_size != dev_indir_size)) ||
++	    (user_key_size && (user_key_size != dev_key_size)))
++		return -EINVAL;
++
++	if (user_indir_size && user_indir_size != 0xDEADBEEF)
++		indir_bytes = user_indir_size * sizeof(rss_info->rss_config[0]);
++
++	rss_info = kzalloc(indir_bytes + user_key_size, GFP_USER);
++	if (!rss_info)
++		return -ENOMEM;
++
++	rx_rings.cmd = ETHTOOL_GRXRINGS;
++	ret = ops->get_rxnfc(dev, &rx_rings, NULL);
++	if (ret)
++		goto out;
++
++	rss_info->indir_size = user_indir_size;
++	rss_info->key_size = user_key_size;
++
++	indir = rss_info->rss_config;
++	if (user_indir_size && user_indir_size != 0xDEADBEEF) {
++		if (copy_from_user(indir,
++				   useraddr + rss_cfg_offset,
++				   user_indir_size * sizeof(indir[0]))) {
++			ret = -EFAULT;
++			goto out;
 +		}
-+		key_offset = RSS_INDIR_TABLE_LEN * sizeof(cmd->rss_config[0]);
++
++		/* Validate ring indices */
++		for (i = 0; i < user_indir_size; i++) {
++			if (indir[i] >= rx_rings.data) {
++				ret = -EINVAL;
++				goto out;
++			}
++		}
++	} else if (user_indir_size == 0) {
++		for (i = 0; i < dev_indir_size; i++)
++			indir[i] = ethtool_rxfh_indir_default(i, rx_rings.data);
 +	} else {
-+		memcpy(rsstable, adapter->rss_info.rsstable,
-+		       RSS_INDIR_TABLE_LEN);
++		rss_info->indir_size = 0;
 +	}
 +
-+	if (cmd->key_size)
-+		hkey = (char *)cmd->rss_config + key_offset;
-+	else
-+		hkey =  adapter->rss_info.rss_hkey;
-+
-+	rc = be_cmd_rss_config(adapter, rsstable,
-+			adapter->rss_info.rss_flags,
-+			RSS_INDIR_TABLE_LEN, hkey);
-+	if (rc) {
-+		adapter->rss_info.rss_flags = RSS_ENABLE_NONE;
-+		return -EIO;
++	if (user_key_size) {
++		if (copy_from_user(((char *)rss_info->rss_config) + indir_bytes,
++				   useraddr + rss_cfg_offset + indir_bytes,
++				   user_key_size)) {
++			ret = -EFAULT;
++			goto out;
++		}
 +	}
-+	memcpy(adapter->rss_info.rss_hkey, hkey, RSS_HASH_KEY_LEN);
-+	memcpy(adapter->rss_info.rsstable, rsstable,
-+	       RSS_INDIR_TABLE_LEN);
-+	return 0;
++
++	ret = ops->set_rxfh(dev, rss_info);
++
++out:
++	kfree(rss_info);
++	return ret;
 +}
 +
- const struct ethtool_ops be_ethtool_ops = {
- 	.get_settings = be_get_settings,
- 	.get_drvinfo = be_get_drvinfo,
-@@ -1127,6 +1202,10 @@ const struct ethtool_ops be_ethtool_ops = {
- 	.self_test = be_self_test,
- 	.get_rxnfc = be_get_rxnfc,
- 	.set_rxnfc = be_set_rxnfc,
-+	.get_rxfh_indir_size = be_get_rxfh_indir_size,
-+	.get_rxfh_key_size = be_get_rxfh_key_size,
-+	.get_rxfh = be_get_rxfh,
-+	.set_rxfh = be_set_rxfh,
- 	.get_channels = be_get_channels,
- 	.set_channels = be_set_channels
- };
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 4f87f5c..c17a524 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2694,7 +2694,8 @@ static int be_rx_qs_create(struct be_adapter *adapter)
+ static int ethtool_get_regs(struct net_device *dev, char __user *useraddr)
  {
- 	struct be_rx_obj *rxo;
- 	int rc, i, j;
--	u8 rsstable[128];
-+	u8 rss_hkey[RSS_HASH_KEY_LEN];
-+	struct rss_info *rss = &adapter->rss_info;
- 
- 	for_all_rx_queues(adapter, rxo, i) {
- 		rc = be_queue_alloc(adapter, &rxo->q, RX_Q_LEN,
-@@ -2719,31 +2720,37 @@ static int be_rx_qs_create(struct be_adapter *adapter)
- 	}
- 
- 	if (be_multi_rxq(adapter)) {
--		for (j = 0; j < 128; j += adapter->num_rx_qs - 1) {
-+		for (j = 0; j < RSS_INDIR_TABLE_LEN;
-+			j += adapter->num_rx_qs - 1) {
- 			for_all_rss_queues(adapter, rxo, i) {
--				if ((j + i) >= 128)
-+				if ((j + i) >= RSS_INDIR_TABLE_LEN)
- 					break;
--				rsstable[j + i] = rxo->rss_id;
-+				rss->rsstable[j + i] = rxo->rss_id;
-+				rss->rss_queue[j + i] = i;
- 			}
- 		}
--		adapter->rss_flags = RSS_ENABLE_TCP_IPV4 | RSS_ENABLE_IPV4 |
--					RSS_ENABLE_TCP_IPV6 | RSS_ENABLE_IPV6;
-+		rss->rss_flags = RSS_ENABLE_TCP_IPV4 | RSS_ENABLE_IPV4 |
-+			RSS_ENABLE_TCP_IPV6 | RSS_ENABLE_IPV6;
- 
- 		if (!BEx_chip(adapter))
--			adapter->rss_flags |= RSS_ENABLE_UDP_IPV4 |
--						RSS_ENABLE_UDP_IPV6;
-+			rss->rss_flags |= RSS_ENABLE_UDP_IPV4 |
-+				RSS_ENABLE_UDP_IPV6;
- 	} else {
- 		/* Disable RSS, if only default RX Q is created */
--		adapter->rss_flags = RSS_ENABLE_NONE;
-+		rss->rss_flags = RSS_ENABLE_NONE;
- 	}
- 
--	rc = be_cmd_rss_config(adapter, rsstable, adapter->rss_flags,
--			       128);
-+	get_random_bytes(rss_hkey, RSS_HASH_KEY_LEN);
-+	rc = be_cmd_rss_config(adapter, rss->rsstable,
-+			       rss->rss_flags,
-+			       128, rss_hkey);
- 	if (rc) {
--		adapter->rss_flags = RSS_ENABLE_NONE;
-+		rss->rss_flags = RSS_ENABLE_NONE;
- 		return rc;
- 	}
- 
-+	memcpy(rss->rss_hkey, rss_hkey, RSS_HASH_KEY_LEN);
-+
- 	/* First time posting */
- 	for_all_rx_queues(adapter, rxo, i)
- 		be_post_rx_frags(rxo, GFP_KERNEL);
+ 	struct ethtool_regs regs;
+@@ -1490,6 +1678,7 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_GRXCLSRULE:
+ 	case ETHTOOL_GRXCLSRLALL:
+ 	case ETHTOOL_GRXFHINDIR:
++	case ETHTOOL_GRSSH:
+ 	case ETHTOOL_GFEATURES:
+ 	case ETHTOOL_GCHANNELS:
+ 	case ETHTOOL_GET_TS_INFO:
+@@ -1627,6 +1816,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_SRXFHINDIR:
+ 		rc = ethtool_set_rxfh_indir(dev, useraddr);
+ 		break;
++	case ETHTOOL_GRSSH:
++		rc = ethtool_get_rxfh(dev, useraddr);
++		break;
++	case ETHTOOL_SRSSH:
++		rc = ethtool_set_rxfh(dev, useraddr);
++		break;
+ 	case ETHTOOL_GFEATURES:
+ 		rc = ethtool_get_features(dev, useraddr);
+ 		break;
 -- 
 1.7.1
