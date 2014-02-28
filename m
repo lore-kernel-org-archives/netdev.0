@@ -1,58 +1,73 @@
-From: Karsten Keil <kkeil@linux-pingi.de>
-Subject: Re: [PATCH 00/16] sleep_on removal, second try
-Date: Fri, 28 Feb 2014 09:53:37 +0100
-Message-ID: <53104E91.6070109@linux-pingi.de>
-References: <1393412516-3762435-1-git-send-email-arnd@arndb.de>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v5] can: add Renesas R-Car CAN driver
+Date: Fri, 28 Feb 2014 10:08:46 +0100
+Message-ID: <5310521E.6000708@pengutronix.de>
+References: <201312270037.15822.sergei.shtylyov@cogentembedded.com> <52DCE9E4.7010209@pengutronix.de> <52E3148E.2010608@cogentembedded.com> <52FCB6C5.6020001@pengutronix.de> <53069445.80408@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Ingo Molnar <mingo@kernel.org>,
-	"James E.J. Bottomley" <JBottomley@parallels.com>,
-	Jens Axboe <axboe@kernel.dk>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	Mauro Carvalho Chehab <m.chehab@samsung.com>,
-	Michael Schmitz <schmitz@biophys.uni-duesseldorf.de>,
-	Peter Zijlstra <peterz@infradead.org>,
-	linux-atm-general@lists.sourceforge.net,
-	linux-media@vger.kernel.org, linux-scsi@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1393412516-3762435-1-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="vdwRBM0BKrMlqF48DM2shFAeuhRovLXH7"
+Cc: linux-sh@vger.kernel.org, vksavl@gmail.com
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org, wg@grandegger.com,
+	linux-can@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <53069445.80408@cogentembedded.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am 26.02.2014 12:01, schrieb Arnd Bergmann:
-> It's been a while since the first submission of these patches,
-> but a lot of them have made it into linux-next already, so here
-> is the stuff that is not merged yet, hopefully addressing all
-> the comments.
-> 
-> Geert and Michael: the I was expecting the ataflop and atari_scsi
-> patches to be merged already, based on earlier discussion.
-> Can you apply them to the linux-m68k tree, or do you prefer
-> them to go through the scsi and block maintainers?
-> 
-> Jens: I did not get any comments for the DAC960 and swim3 patches,
-> I assume they are good to go in. Please merge.
-> 
-> Hans and Mauro: As I commented on the old thread, I thought the
-> four media patches were on their way. I have addressed the one
-> comment that I missed earlier now, and used Hans' version for
-> the two patches he changed. Please merge or let me know the status
-> if you have already put them in some tree, but not yet into linux-next
-> 
-> Greg or Andrew: The parport subsystem is orphaned unfortunately,
-> can one of you pick up that patch?
-> 
-> Davem: The two ATM patches got acks, but I did not hear back from
-> Karsten regarding the ISDN patches. Can you pick up all six, or
-> should we wait for comments about the ISDN patches?
->
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--vdwRBM0BKrMlqF48DM2shFAeuhRovLXH7
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+On 02/21/2014 12:48 AM, Sergei Shtylyov wrote:
+
+>>> 1. According to documentation BCR is the 24-bit register.
+>>> Actually we can consider some 32-bit register that combines BCR and
+>>> CLKR but according to documentation there are two separate registers.=
+
+>>> 2. BCR has 8- ,16-, and 32-bit access (according to documentation).
+>>> 3. This is the algorithm that the documentation suggests.
+>>> 4. We had a driver version with byte access but 32-bit access seems
+>>> shorter.
+>=20
+>> Please use a normal read-modify-write 32 bit access.
+>=20
+>    IMO, reading 32-bits is futile, as we're going to completely
+> overwrite those 24 bits that constitute BCR. So I kept the 8-bit CLKR
+> read but removed the CLKR write in the end. I've also added a comment
+> clarifying why CLKR is positioned in the LSBs of 32-bit word (while it'=
+s
+> address would assume MSBs).
+> The host bus is big-endian but byte-swaps at least 16- and 32-bit
+> accesses, so that read[wl]()/write[wl]() work. 8-bit accesses are not
+> byte swapped, despite what the figure in the manual shows.
+
+A 32 bit read/modify/write is a standard operation, nothing special, no
+need to worry about byte swapping or anything like this.
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
-Ack on the ISDN stuff (12,13,14,15)
+--vdwRBM0BKrMlqF48DM2shFAeuhRovLXH7
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlMQUh4ACgkQjTAFq1RaXHOL/gCfVB0CQCS8bxPFZ+p3BfueID+p
+upcAnjsmpW/BuEcxMuH7RdSP2dHoZAO9
+=1Abm
+-----END PGP SIGNATURE-----
+
+--vdwRBM0BKrMlqF48DM2shFAeuhRovLXH7--
