@@ -1,7 +1,7 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V1 5/9] net/mlx4: Replace mlx4_en_mac_to_u64() with mlx4_mac_to_u64()
-Date: Fri, 28 Feb 2014 08:00:05 +0200
-Message-ID: <1393567209-16358-6-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V1 2/9] net/mlx4_en: Verify mlx4_en module parameters
+Date: Fri, 28 Feb 2014 08:00:02 +0200
+Message-ID: <1393567209-16358-3-git-send-email-amirv@mellanox.com>
 References: <1393567209-16358-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
@@ -9,176 +9,181 @@ Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Eugenia Emantayev <eugenia@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:49351 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:43018 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751399AbaB1GA2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Feb 2014 01:00:28 -0500
+	id S1750740AbaB1GA0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Feb 2014 01:00:26 -0500
 In-Reply-To: <1393567209-16358-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eugenia Emantayev <eugenia@mellanox.com>
 
-Currently, the EN driver uses a private static function
-mlx4_en_mac_to_u64(). Move it to a common include file (driver.h)
-for mlx4_en and mlx4_ib for further use.
+Verify mlx4_en module parameters.
+In case they are out of range - reset to default values.
 
 
 Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 32 ++++++++------------------
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |  1 -
- include/linux/mlx4/driver.h                    | 15 ++++++++++++
- 3 files changed, 25 insertions(+), 23 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_main.c | 30 ++++++++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c   | 21 +++++--------------
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |  9 +++++++++
+ 3 files changed, 44 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 2c0823b..3db5946 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -603,7 +603,7 @@ static int mlx4_en_get_qp(struct mlx4_en_priv *priv)
- 	int err = 0;
- 	u64 reg_id;
- 	int *qpn = &priv->base_qpn;
--	u64 mac = mlx4_en_mac_to_u64(priv->dev->dev_addr);
-+	u64 mac = mlx4_mac_to_u64(priv->dev->dev_addr);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_main.c b/drivers/net/ethernet/mellanox/mlx4/en_main.c
+index fa2f6e7..3454437 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_main.c
+@@ -72,6 +72,12 @@ MLX4_EN_PARM_INT(pfctx, 0, "Priority based Flow Control policy on TX[7:0]."
+ MLX4_EN_PARM_INT(pfcrx, 0, "Priority based Flow Control policy on RX[7:0]."
+ 			   " Per priority bit mask");
  
- 	en_dbg(DRV, priv, "Registering MAC: %pM for adding\n",
- 	       priv->dev->dev_addr);
-@@ -672,7 +672,7 @@ static void mlx4_en_put_qp(struct mlx4_en_priv *priv)
- 	u64 mac;
- 
- 	if (dev->caps.steering_mode == MLX4_STEERING_MODE_A0) {
--		mac = mlx4_en_mac_to_u64(priv->dev->dev_addr);
-+		mac = mlx4_mac_to_u64(priv->dev->dev_addr);
- 		en_dbg(DRV, priv, "Registering MAC: %pM for deleting\n",
- 		       priv->dev->dev_addr);
- 		mlx4_unregister_mac(dev, priv->port, mac);
-@@ -685,7 +685,7 @@ static void mlx4_en_put_qp(struct mlx4_en_priv *priv)
- 		for (i = 0; i < MLX4_EN_MAC_HASH_SIZE; ++i) {
- 			bucket = &priv->mac_hash[i];
- 			hlist_for_each_entry_safe(entry, tmp, bucket, hlist) {
--				mac = mlx4_en_mac_to_u64(entry->mac);
-+				mac = mlx4_mac_to_u64(entry->mac);
- 				en_dbg(DRV, priv, "Registering MAC: %pM for deleting\n",
- 				       entry->mac);
- 				mlx4_en_uc_steer_release(priv, entry->mac,
-@@ -715,14 +715,14 @@ static int mlx4_en_replace_mac(struct mlx4_en_priv *priv, int qpn,
- 	struct mlx4_en_dev *mdev = priv->mdev;
- 	struct mlx4_dev *dev = mdev->dev;
- 	int err = 0;
--	u64 new_mac_u64 = mlx4_en_mac_to_u64(new_mac);
-+	u64 new_mac_u64 = mlx4_mac_to_u64(new_mac);
- 
- 	if (dev->caps.steering_mode != MLX4_STEERING_MODE_A0) {
- 		struct hlist_head *bucket;
- 		unsigned int mac_hash;
- 		struct mlx4_mac_entry *entry;
- 		struct hlist_node *tmp;
--		u64 prev_mac_u64 = mlx4_en_mac_to_u64(prev_mac);
-+		u64 prev_mac_u64 = mlx4_mac_to_u64(prev_mac);
- 
- 		bucket = &priv->mac_hash[prev_mac[MLX4_EN_MAC_HASH_IDX]];
- 		hlist_for_each_entry_safe(entry, tmp, bucket, hlist) {
-@@ -751,18 +751,6 @@ static int mlx4_en_replace_mac(struct mlx4_en_priv *priv, int qpn,
- 	return __mlx4_replace_mac(dev, priv->port, qpn, new_mac_u64);
- }
- 
--u64 mlx4_en_mac_to_u64(u8 *addr)
--{
--	u64 mac = 0;
--	int i;
--
--	for (i = 0; i < ETH_ALEN; i++) {
--		mac <<= 8;
--		mac |= addr[i];
--	}
--	return mac;
--}
--
- static int mlx4_en_do_set_mac(struct mlx4_en_priv *priv)
- {
- 	int err = 0;
-@@ -1081,7 +1069,7 @@ static void mlx4_en_do_multicast(struct mlx4_en_priv *priv,
- 		mlx4_en_cache_mclist(dev);
- 		netif_addr_unlock_bh(dev);
- 		list_for_each_entry(mclist, &priv->mc_list, list) {
--			mcast_addr = mlx4_en_mac_to_u64(mclist->addr);
-+			mcast_addr = mlx4_mac_to_u64(mclist->addr);
- 			mlx4_SET_MCAST_FLTR(mdev->dev, priv->port,
- 					    mcast_addr, 0, MLX4_MCAST_CONFIG);
- 		}
-@@ -1173,7 +1161,7 @@ static void mlx4_en_do_uc_filter(struct mlx4_en_priv *priv,
- 				found = true;
- 
- 			if (!found) {
--				mac = mlx4_en_mac_to_u64(entry->mac);
-+				mac = mlx4_mac_to_u64(entry->mac);
- 				mlx4_en_uc_steer_release(priv, entry->mac,
- 							 priv->base_qpn,
- 							 entry->reg_id);
-@@ -1216,7 +1204,7 @@ static void mlx4_en_do_uc_filter(struct mlx4_en_priv *priv,
- 				priv->flags |= MLX4_EN_FLAG_FORCE_PROMISC;
- 				break;
- 			}
--			mac = mlx4_en_mac_to_u64(ha->addr);
-+			mac = mlx4_mac_to_u64(ha->addr);
- 			memcpy(entry->mac, ha->addr, ETH_ALEN);
- 			err = mlx4_register_mac(mdev->dev, priv->port, mac);
- 			if (err < 0) {
-@@ -2206,7 +2194,7 @@ static int mlx4_en_set_vf_mac(struct net_device *dev, int queue, u8 *mac)
- {
- 	struct mlx4_en_priv *en_priv = netdev_priv(dev);
- 	struct mlx4_en_dev *mdev = en_priv->mdev;
--	u64 mac_u64 = mlx4_en_mac_to_u64(mac);
-+	u64 mac_u64 = mlx4_mac_to_u64(mac);
- 
- 	if (!is_valid_ether_addr(mac))
- 		return -EINVAL;
-@@ -2407,7 +2395,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 		if (mlx4_is_slave(priv->mdev->dev)) {
- 			eth_hw_addr_random(dev);
- 			en_warn(priv, "Assigned random MAC address %pM\n", dev->dev_addr);
--			mac_u64 = mlx4_en_mac_to_u64(dev->dev_addr);
-+			mac_u64 = mlx4_mac_to_u64(dev->dev_addr);
- 			mdev->dev->caps.def_mac[priv->port] = mac_u64;
- 		} else {
- 			en_err(priv, "Port: %d, invalid mac burned: %pM, quiting\n",
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index c59011d..4ff7da8 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -797,7 +797,6 @@ void mlx4_en_cleanup_filters(struct mlx4_en_priv *priv);
- 
- #define MLX4_EN_NUM_SELF_TEST	5
- void mlx4_en_ex_selftest(struct net_device *dev, u32 *flags, u64 *buf);
--u64 mlx4_en_mac_to_u64(u8 *addr);
- void mlx4_en_ptp_overflow_check(struct mlx4_en_dev *mdev);
- 
- /*
-diff --git a/include/linux/mlx4/driver.h b/include/linux/mlx4/driver.h
-index c257e1b..c68b9e4 100644
---- a/include/linux/mlx4/driver.h
-+++ b/include/linux/mlx4/driver.h
-@@ -64,4 +64,19 @@ void mlx4_unregister_interface(struct mlx4_interface *intf);
- 
- void *mlx4_get_protocol_dev(struct mlx4_dev *dev, enum mlx4_protocol proto, int port);
- 
-+#ifndef ETH_ALEN
-+#define ETH_ALEN       6
-+#endif
-+static inline u64 mlx4_mac_to_u64(u8 *addr)
-+{
-+	u64 mac = 0;
-+	int i;
++MLX4_EN_PARM_INT(inline_thold, MAX_INLINE,
++		 "Threshold for using inline data (range: 17-104, default: 104)");
 +
-+	for (i = 0; i < ETH_ALEN; i++) {
-+		mac <<= 8;
-+		mac |= addr[i];
++#define MAX_PFC_TX     0xff
++#define MAX_PFC_RX     0xff
++
+ int en_print(const char *level, const struct mlx4_en_priv *priv,
+ 	     const char *format, ...)
+ {
+@@ -140,6 +146,7 @@ static int mlx4_en_get_profile(struct mlx4_en_dev *mdev)
+ 		params->prof[i].tx_ring_num = params->num_tx_rings_p_up *
+ 			MLX4_EN_NUM_UP;
+ 		params->prof[i].rss_rings = 0;
++		params->prof[i].inline_thold = inline_thold;
+ 	}
+ 
+ 	return 0;
+@@ -325,8 +332,31 @@ static struct mlx4_interface mlx4_en_interface = {
+ 	.protocol	= MLX4_PROT_ETH,
+ };
+ 
++void mlx4_en_verify_params(void)
++{
++	if (pfctx > MAX_PFC_TX) {
++		pr_warn("mlx4_en: WARNING: illegal module parameter pfctx 0x%x - should be in range 0-0x%x, will be changed to default (0)\n",
++			pfctx, MAX_PFC_TX);
++		pfctx = 0;
 +	}
-+	return mac;
++
++	if (pfcrx > MAX_PFC_RX) {
++		pr_warn("mlx4_en: WARNING: illegal module parameter pfcrx 0x%x - should be in range 0-0x%x, will be changed to default (0)\n",
++			pfcrx, MAX_PFC_RX);
++		pfcrx = 0;
++	}
++
++	if (inline_thold < MIN_PKT_LEN || inline_thold > MAX_INLINE) {
++		pr_warn("mlx4_en: WARNING: illegal module parameter inline_thold %d - should be in range %d-%d, will be changed to default (%d)\n",
++			inline_thold, MIN_PKT_LEN, MAX_INLINE, MAX_INLINE);
++		inline_thold = MAX_INLINE;
++	}
 +}
 +
- #endif /* MLX4_DRIVER_H */
+ static int __init mlx4_en_init(void)
+ {
++	mlx4_en_verify_params();
++
+ 	return mlx4_register_interface(&mlx4_en_interface);
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 1345703..8dc7637 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -44,16 +44,6 @@
+ 
+ #include "mlx4_en.h"
+ 
+-enum {
+-	MAX_INLINE = 104, /* 128 - 16 - 4 - 4 */
+-	MAX_BF = 256,
+-};
+-
+-static int inline_thold __read_mostly = MAX_INLINE;
+-
+-module_param_named(inline_thold, inline_thold, int, 0444);
+-MODULE_PARM_DESC(inline_thold, "threshold for using inline data");
+-
+ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
+ 			   struct mlx4_en_tx_ring **pring, int qpn, u32 size,
+ 			   u16 stride, int node, int queue_index)
+@@ -75,8 +65,7 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
+ 	ring->size = size;
+ 	ring->size_mask = size - 1;
+ 	ring->stride = stride;
+-
+-	inline_thold = min(inline_thold, MAX_INLINE);
++	ring->inline_thold = priv->prof->inline_thold;
+ 
+ 	tmp = size * sizeof(struct mlx4_en_tx_info);
+ 	ring->tx_info = vmalloc_node(tmp, node);
+@@ -520,7 +509,7 @@ static struct mlx4_en_tx_desc *mlx4_en_bounce_to_desc(struct mlx4_en_priv *priv,
+ 	return ring->buf + index * TXBB_SIZE;
+ }
+ 
+-static int is_inline(struct sk_buff *skb, void **pfrag)
++static int is_inline(int inline_thold, struct sk_buff *skb, void **pfrag)
+ {
+ 	void *ptr;
+ 
+@@ -580,7 +569,7 @@ static int get_real_size(struct sk_buff *skb, struct net_device *dev,
+ 		}
+ 	} else {
+ 		*lso_header_size = 0;
+-		if (!is_inline(skb, NULL))
++		if (!is_inline(priv->prof->inline_thold, skb, NULL))
+ 			real_size = CTRL_SIZE + (skb_shinfo(skb)->nr_frags + 1) * DS_SIZE;
+ 		else
+ 			real_size = inline_size(skb);
+@@ -747,11 +736,11 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	tx_info->data_offset = (void *)data - (void *)tx_desc;
+ 
+ 	tx_info->linear = (lso_header_size < skb_headlen(skb) &&
+-			   !is_inline(skb, NULL)) ? 1 : 0;
++			   !is_inline(ring->inline_thold, skb, NULL)) ? 1 : 0;
+ 
+ 	data += skb_shinfo(skb)->nr_frags + tx_info->linear - 1;
+ 
+-	if (is_inline(skb, &fragptr)) {
++	if (is_inline(ring->inline_thold, skb, &fragptr)) {
+ 		tx_info->inl = 1;
+ 	} else {
+ 		/* Map fragments */
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 3c25c7b..2610cc5 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -187,6 +187,13 @@ enum {
+ #define GET_AVG_PERF_COUNTER(cnt)	(0)
+ #endif /* MLX4_EN_PERF_STAT */
+ 
++/* Constants for TX flow */
++enum {
++	MAX_INLINE = 104, /* 128 - 16 - 4 - 4 */
++	MAX_BF = 256,
++	MIN_PKT_LEN = 17,
++};
++
+ /*
+  * Configurables
+  */
+@@ -271,6 +278,7 @@ struct mlx4_en_tx_ring {
+ 	bool bf_enabled;
+ 	struct netdev_queue *tx_queue;
+ 	int hwtstamp_tx_type;
++	int inline_thold;
+ };
+ 
+ struct mlx4_en_rx_desc {
+@@ -346,6 +354,7 @@ struct mlx4_en_port_profile {
+ 	u8 tx_pause;
+ 	u8 tx_ppp;
+ 	int rss_rings;
++	int inline_thold;
+ };
+ 
+ struct mlx4_en_profile {
 -- 
 1.8.3.4
