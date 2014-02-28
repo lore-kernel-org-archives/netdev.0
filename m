@@ -1,183 +1,188 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH 6/7] bridge: Manage promisc mode when vlans are
- configured on top of a bridge
-Date: Fri, 28 Feb 2014 14:34:54 -0500
-Message-ID: <5310E4DE.1080003@redhat.com>
-References: <1393427905-6811-1-git-send-email-vyasevic@redhat.com>
-	<1393427905-6811-7-git-send-email-vyasevic@redhat.com>
-	<530F2A4C.6020303@lab.ntt.co.jp> <530F3AD4.6080704@redhat.com>
-Reply-To: vyasevic@redhat.com
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH 00/16 V2] Add new driver for RTL8723BE
+Date: Fri, 28 Feb 2014 14:32:42 -0500
+Message-ID: <20140228193241.GJ30876@tuxdriver.com>
+References: <1393089433-28270-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, shemminger@vyatta.com,
-	bridge@lists.linux-foundation.org, jhs@mojatatu.com, mst@redhat.com
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>, netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <530F3AD4.6080704@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:33549 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752040AbaB1TpR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 14:45:17 -0500
+Content-Disposition: inline
+In-Reply-To: <1393089433-28270-1-git-send-email-Larry.Finger@lwfinger.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/27/2014 08:17 AM, Vlad Yasevich wrote:
-> On 02/27/2014 07:06 AM, Toshiaki Makita wrote:
->> (2014/02/27 0:18), Vlad Yasevich wrote:
->>> If the user configures vlan interfaces on top of the bridge and the bridge
->>> doesn't have vlan filtering enabled, we have to place all the ports in
->>> promsic mode so that we can correctly receive tagged frames.
->>> When vlan filtering is enabled, the vlan configuration will be provided
->>> via filtering interface.
->>> When the vlan filtering is toggled, we also have mange promiscuity.
->>
->> If we disable vlan_filtering and no vlan interface is configured on the
->> bridge, we cannot forward any tagged traffic?
+With these patches applied, I get this build failure:
+
+  LD      drivers/net/wireless/rtlwifi/rtl8723com/built-in.o
+  LD      drivers/net/wireless/rtlwifi/built-in.o
+drivers/net/wireless/rtlwifi/rtl8723be/built-in.o: In function `rtl_hal_pwrseqcmdparsing':
+(.text+0x100a9): multiple definition of `rtl_hal_pwrseqcmdparsing'
+drivers/net/wireless/rtlwifi/rtl8723ae/built-in.o:(.text+0x159ad): first defined here
+drivers/net/wireless/rtlwifi/rtl8723be/built-in.o: In function `rtl92c_phy_ap_calibrate':
+(.text+0xfa0b): multiple definition of `rtl92c_phy_ap_calibrate'
+drivers/net/wireless/rtlwifi/rtl8192c/built-in.o:(.text+0x62df): first defined here
+make[2]: *** [drivers/net/wireless/rtlwifi/built-in.o] Error 1
+make[1]: *** [drivers/net/wireless/rtlwifi] Error 2
+make: *** [drivers/net/wireless/] Error 2
+
+On Sat, Feb 22, 2014 at 11:16:56AM -0600, Larry Finger wrote:
+> This set of patches modifies rtlwifi to incorporate a new driver for
+> the RTL8723BE wireless device. New variables are needed in the common
+> structs, and some routines that are common to rtl8723ae and rtl8723be
+> are moved into a common mini driver.
 > 
-> We can't receive tagged traffic, so we turn promisc on.
+> This driver is intended for the -next stream for 3.15.
 > 
->> If we want to forward frames from one port to another port (not from/to
->> bridge device), we have to add vlan interface or set promisc mode, right?
->>
+> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> ---
+> V2 - Apparently, my repo had some bit rot as the V1 set would not apply
+>      to a freshly pulled repo. That is fixed, and the code modified for
+>      the new API for ieee80211_is_robust_mgmt_frame().
 > 
-> Hm..  Good point.  This isn't enough to address the scenario that Patch7
-> tries to solve.  I'll need to think about that.  This is partially why
-> I split functionality in Patch7 out.  It made things more difficult.
+> Larry Finger (16):
+>   rtlwifi: btcoexist: Add headers for new mini driver
+>   rtlwifi: btcoexist: Add source for new mini driver - part 1
+>   rtlwifi: btcoexist: Add source for new mini driver - part 2
+>   rtlwifi: Prepare existing drivers for new driver
+>   rtlwifi: rtl8723ae: rtl8723-common: Create new driver for common code
+>   rtlwifi: rtl8723ae: rtl8723-common: Copy common firmware code
+>   rtlwifi: rtl8723ae: rtl8723-common: Copy common dynamic power
+>     management code
+>   rtlwifi: rtl8723be: Add files for new driver - part 1
+>   rtlwifi: rtl8723be: Add files for new driver - part 2
+>   rtlwifi: rtl8723be: Add files for new driver - part 3
+>   rtlwifi: rtl8723be: Add files for new driver - part 4
+>   rtlwifi: rtl8723be: Add files for new driver - part 5
+>   rtlwifi: rtl8723be: Add files for new driver - part 6
+>   rtlwifi: rtl8723be: Add files for new driver - part 7
+>   rtlwifi: rtl8723be: Add files for new driver - part 8
+>   rtlwifi: rtl8723be: Turn on building of new driver
+> 
+>  drivers/net/wireless/rtlwifi/Kconfig               |   27 +-
+>  drivers/net/wireless/rtlwifi/Makefile              |    3 +
+>  drivers/net/wireless/rtlwifi/btcoexist/Makefile    |    7 +
+>  .../net/wireless/rtlwifi/btcoexist/halbt_precomp.h |   87 +
+>  .../wireless/rtlwifi/btcoexist/halbtc8723b2ant.c   | 3698 ++++++++++++++++++++
+>  .../wireless/rtlwifi/btcoexist/halbtc8723b2ant.h   |  173 +
+>  .../net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c  | 1011 ++++++
+>  .../net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h  |  559 +++
+>  drivers/net/wireless/rtlwifi/btcoexist/rtl_btc.c   |  218 ++
+>  drivers/net/wireless/rtlwifi/btcoexist/rtl_btc.h   |   52 +
+>  drivers/net/wireless/rtlwifi/core.c                |   12 +-
+>  drivers/net/wireless/rtlwifi/pci.c                 |    2 +-
+>  drivers/net/wireless/rtlwifi/pci.h                 |    4 +
+>  drivers/net/wireless/rtlwifi/rtl8188ee/dm.c        |    6 +-
+>  drivers/net/wireless/rtlwifi/rtl8188ee/hw.c        |   18 +-
+>  drivers/net/wireless/rtlwifi/rtl8188ee/phy.c       |    2 +-
+>  drivers/net/wireless/rtlwifi/rtl8188ee/trx.c       |    2 +-
+>  drivers/net/wireless/rtlwifi/rtl8192ce/hw.c        |   12 +-
+>  drivers/net/wireless/rtlwifi/rtl8192ce/trx.c       |    2 +-
+>  drivers/net/wireless/rtlwifi/rtl8192cu/hw.c        |   12 +-
+>  drivers/net/wireless/rtlwifi/rtl8192de/hw.c        |    2 +-
+>  drivers/net/wireless/rtlwifi/rtl8192se/hw.c        |    2 +-
+>  drivers/net/wireless/rtlwifi/rtl8192se/trx.c       |    2 +-
+>  drivers/net/wireless/rtlwifi/rtl8723ae/def.h       |    5 -
+>  drivers/net/wireless/rtlwifi/rtl8723ae/dm.c        |   42 +-
+>  drivers/net/wireless/rtlwifi/rtl8723ae/dm.h        |    1 -
+>  drivers/net/wireless/rtlwifi/rtl8723ae/fw.c        |  260 +-
+>  drivers/net/wireless/rtlwifi/rtl8723ae/fw.h        |   18 +-
+>  .../wireless/rtlwifi/rtl8723ae/hal_bt_coexist.c    |    2 +
+>  drivers/net/wireless/rtlwifi/rtl8723ae/hal_btc.c   |    8 +-
+>  drivers/net/wireless/rtlwifi/rtl8723ae/hw.c        |   36 +-
+>  drivers/net/wireless/rtlwifi/rtl8723ae/phy.c       |  482 +--
+>  drivers/net/wireless/rtlwifi/rtl8723ae/phy.h       |   21 -
+>  drivers/net/wireless/rtlwifi/rtl8723ae/sw.c        |   13 +-
+>  drivers/net/wireless/rtlwifi/rtl8723ae/trx.c       |    4 +-
+>  drivers/net/wireless/rtlwifi/rtl8723ae/trx.h       |    6 -
+>  drivers/net/wireless/rtlwifi/rtl8723be/Makefile    |   20 +
+>  drivers/net/wireless/rtlwifi/rtl8723be/def.h       |  248 ++
+>  drivers/net/wireless/rtlwifi/rtl8723be/dm.c        | 1325 +++++++
+>  drivers/net/wireless/rtlwifi/rtl8723be/dm.h        |  310 ++
+>  drivers/net/wireless/rtlwifi/rtl8723be/fw.c        |  628 ++++
+>  drivers/net/wireless/rtlwifi/rtl8723be/fw.h        |  248 ++
+>  drivers/net/wireless/rtlwifi/rtl8723be/hw.c        | 2529 +++++++++++++
+>  drivers/net/wireless/rtlwifi/rtl8723be/hw.h        |   64 +
+>  drivers/net/wireless/rtlwifi/rtl8723be/led.c       |  153 +
+>  drivers/net/wireless/rtlwifi/rtl8723be/led.h       |   35 +
+>  drivers/net/wireless/rtlwifi/rtl8723be/phy.c       | 2175 ++++++++++++
+>  drivers/net/wireless/rtlwifi/rtl8723be/phy.h       |  217 ++
+>  drivers/net/wireless/rtlwifi/rtl8723be/pwrseq.c    |  106 +
+>  drivers/net/wireless/rtlwifi/rtl8723be/pwrseq.h    |  305 ++
+>  drivers/net/wireless/rtlwifi/rtl8723be/pwrseqcmd.c |  140 +
+>  drivers/net/wireless/rtlwifi/rtl8723be/pwrseqcmd.h |   95 +
+>  drivers/net/wireless/rtlwifi/rtl8723be/reg.h       | 2293 ++++++++++++
+>  drivers/net/wireless/rtlwifi/rtl8723be/rf.c        |  504 +++
+>  drivers/net/wireless/rtlwifi/rtl8723be/rf.h        |   43 +
+>  drivers/net/wireless/rtlwifi/rtl8723be/sw.c        |  385 ++
+>  drivers/net/wireless/rtlwifi/rtl8723be/sw.h        |   35 +
+>  drivers/net/wireless/rtlwifi/rtl8723be/table.c     |  572 +++
+>  drivers/net/wireless/rtlwifi/rtl8723be/table.h     |   43 +
+>  drivers/net/wireless/rtlwifi/rtl8723be/trx.c       |  959 +++++
+>  drivers/net/wireless/rtlwifi/rtl8723be/trx.h       |  616 ++++
+>  drivers/net/wireless/rtlwifi/rtl8723com/Makefile   |    9 +
+>  .../net/wireless/rtlwifi/rtl8723com/dm_common.c    |   65 +
+>  .../net/wireless/rtlwifi/rtl8723com/dm_common.h    |   33 +
+>  .../net/wireless/rtlwifi/rtl8723com/fw_common.c    |  329 ++
+>  .../net/wireless/rtlwifi/rtl8723com/fw_common.h    |  126 +
+>  drivers/net/wireless/rtlwifi/rtl8723com/main.c     |   33 +
+>  .../net/wireless/rtlwifi/rtl8723com/phy_common.c   |  434 +++
+>  .../net/wireless/rtlwifi/rtl8723com/phy_common.h   |   89 +
+>  drivers/net/wireless/rtlwifi/usb.c                 |    2 +-
+>  drivers/net/wireless/rtlwifi/wifi.h                |  309 +-
+>  71 files changed, 21378 insertions(+), 910 deletions(-)
+>  create mode 100644 drivers/net/wireless/rtlwifi/btcoexist/Makefile
+>  create mode 100644 drivers/net/wireless/rtlwifi/btcoexist/halbt_precomp.h
+>  create mode 100644 drivers/net/wireless/rtlwifi/btcoexist/halbtc8723b2ant.c
+>  create mode 100644 drivers/net/wireless/rtlwifi/btcoexist/halbtc8723b2ant.h
+>  create mode 100644 drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c
+>  create mode 100644 drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h
+>  create mode 100644 drivers/net/wireless/rtlwifi/btcoexist/rtl_btc.c
+>  create mode 100644 drivers/net/wireless/rtlwifi/btcoexist/rtl_btc.h
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/Makefile
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/def.h
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/dm.c
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/dm.h
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/fw.c
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/fw.h
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/hw.c
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/hw.h
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/led.c
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/led.h
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/phy.c
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/phy.h
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/pwrseq.c
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/pwrseq.h
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/pwrseqcmd.c
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/pwrseqcmd.h
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/reg.h
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/rf.c
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/rf.h
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/sw.c
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/sw.h
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/table.c
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/table.h
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/trx.c
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723be/trx.h
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723com/Makefile
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723com/dm_common.c
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723com/dm_common.h
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723com/fw_common.c
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723com/fw_common.h
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723com/main.c
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723com/phy_common.c
+>  create mode 100644 drivers/net/wireless/rtlwifi/rtl8723com/phy_common.h
+> 
+> -- 
+> 1.8.4.5
+> 
 > 
 
-I now understood what you were referring to above a bit better.
-This patch solves just part of the problem.  The other part is what
-happens when someone behind the bridge is using vlan tagging without
-the bridge being aware of it and expects the bridge to forward such traffic.
-So, if we ever want to disable promiscuous mode on the bridge ports, we
-either need to depend on lan filtering being configured in the bridge
-or have the ability to disable vlan filtering in the driver.
-
-Neither is really a good thing.  I'll need to think about this.
-
--vlad
-
-> -vlad
-> 
->> Sorry if I misunderstood it. I'm not sure..
->>
->> Thanks,
->> Toshiaki Makita
->>
->>>
->>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->>> ---
->>>  net/bridge/br_device.c  | 14 ++++++++++++++
->>>  net/bridge/br_if.c      | 17 +++++++++++++----
->>>  net/bridge/br_private.h |  9 +++++++++
->>>  net/bridge/br_vlan.c    |  1 +
->>>  4 files changed, 37 insertions(+), 4 deletions(-)
->>>
->>> diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
->>> index 0af9d6c..967abb3 100644
->>> --- a/net/bridge/br_device.c
->>> +++ b/net/bridge/br_device.c
->>> @@ -297,6 +297,18 @@ void br_netpoll_disable(struct net_bridge_port *p)
->>>  
->>>  #endif
->>>  
->>> +static int br_dev_rx_add_vid(struct net_device *br_dev, __be16 proto, u16 vid)
->>> +{
->>> +	br_manage_promisc(netdev_priv(br_dev));
->>> +	return 0;
->>> +}
->>> +
->>> +static int br_dev_rx_kill_vid(struct net_device *br_dev, __be16 proto, u16 vid)
->>> +{
->>> +	br_manage_promisc(netdev_priv(br_dev));
->>> +	return 0;
->>> +}
->>> +
->>>  static int br_add_slave(struct net_device *dev, struct net_device *slave_dev)
->>>  
->>>  {
->>> @@ -328,6 +340,8 @@ static const struct net_device_ops br_netdev_ops = {
->>>  	.ndo_change_rx_flags	 = br_dev_change_rx_flags,
->>>  	.ndo_change_mtu		 = br_change_mtu,
->>>  	.ndo_do_ioctl		 = br_dev_ioctl,
->>> +	.ndo_vlan_rx_add_vid	 = br_dev_rx_add_vid,
->>> +	.ndo_vlan_rx_kill_vid	 = br_dev_rx_kill_vid,
->>>  #ifdef CONFIG_NET_POLL_CONTROLLER
->>>  	.ndo_netpoll_setup	 = br_netpoll_setup,
->>>  	.ndo_netpoll_cleanup	 = br_netpoll_cleanup,
->>> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
->>> index 7e92bd0..55e4e28 100644
->>> --- a/net/bridge/br_if.c
->>> +++ b/net/bridge/br_if.c
->>> @@ -497,12 +497,21 @@ static void br_port_clear_promisc(struct net_bridge_port *p)
->>>  void br_manage_promisc(struct net_bridge *br)
->>>  {
->>>  	struct net_bridge_port *p;
->>> +	int set_all = false;
->>> +
->>> +	if (br->dev->flags & IFF_PROMISC)
->>> +		set_all = true;
->>> +
->>> +	/* If vlan filtering is disabled and there are any VLANs
->>> +	 * configured on top of the bridge, set promisc on all
->>> +	 * ports.
->>> +	 */
->>> +	if (!br_vlan_enabled(br) && vlan_uses_dev(br->dev))
->>> +		set_all = true;
->>>  
->>>  	list_for_each_entry(p, &br->port_list, list) {
->>> -		if (br->dev->flags & IFF_PROMISC) {
->>> -			/* PROMISC flag has been turned on for the bridge
->>> -			 * itself.  Turn on promisc on all ports.
->>> -			 */
->>> +		if (set_all) {
->>> +			/* Set all the ports to promisc mode.  */
->>>  			br_port_set_promisc(p);
->>>  
->>>  		} else {
->>> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
->>> index 4042f86..87dcc09 100644
->>> --- a/net/bridge/br_private.h
->>> +++ b/net/bridge/br_private.h
->>> @@ -641,6 +641,10 @@ static inline u16 br_get_pvid(const struct net_port_vlans *v)
->>>  	return v->pvid ?: VLAN_N_VID;
->>>  }
->>>  
->>> +static inline int br_vlan_enabled(struct net_bridge *br)
->>> +{
->>> +	return br->vlan_enabled;
->>> +}
->>>  #else
->>>  static inline bool br_allowed_ingress(struct net_bridge *br,
->>>  				      struct net_port_vlans *v,
->>> @@ -721,6 +725,11 @@ static inline u16 br_get_pvid(const struct net_port_vlans *v)
->>>  {
->>>  	return VLAN_N_VID;	/* Returns invalid vid */
->>>  }
->>> +
->>> +static inline int br_vlan_enabled(struct net_bridge *br);
->>> +{
->>> +	return 0;
->>> +}
->>>  #endif
->>>  
->>>  /* br_netfilter.c */
->>> diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
->>> index 8249ca7..eddc2f6 100644
->>> --- a/net/bridge/br_vlan.c
->>> +++ b/net/bridge/br_vlan.c
->>> @@ -321,6 +321,7 @@ int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val)
->>>  		goto unlock;
->>>  
->>>  	br->vlan_enabled = val;
->>> +	br_manage_promisc(br);
->>>  
->>>  unlock:
->>>  	rtnl_unlock();
->>>
-> 
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
