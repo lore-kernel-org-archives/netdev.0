@@ -1,61 +1,52 @@
-From: Michael Chan <mchan@broadcom.com>
-Subject: [PATCH net] tg3: Don't check undefined error bits in RXBD
-Date: Fri, 28 Feb 2014 15:05:10 -0800
-Message-ID: <1393628710-5476-1-git-send-email-mchan@broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] packet: allow to transmit +4 byte in TX_RING
+ slot for VLAN case
+Date: Fri, 28 Feb 2014 16:52:34 -0500 (EST)
+Message-ID: <20140228.165234.200477519056803957.davem@davemloft.net>
+References: <1393550526-25390-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mathias.kretschmer@fokus.fraunhofer.de,
+	greearb@candelatech.com, phil@nwl.cc
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:10699 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751711AbaB1Vqe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 16:46:34 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:58663 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752412AbaB1Vwj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 16:52:39 -0500
+In-Reply-To: <1393550526-25390-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Redefine the RXD_ERR_MASK to include only relevant error bits. This fixes
-a customer reported issue of randomly dropping packets on the 5719.
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Fri, 28 Feb 2014 02:22:06 +0100
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
+> Commit 57f89bfa2140 ("network: Allow af_packet to transmit +4 bytes
+> for VLAN packets.") added the possibility for non-mmaped frames to
+> send extra 4 byte for VLAN header so the MTU increases from 1500 to
+> 1504 byte, for example.
+> 
+> Commit cbd89acb9eb2 ("af_packet: fix for sending VLAN frames via
+> packet_mmap") attempted to fix that for the mmap part but was
+> reverted as it caused regressions while using eth_type_trans()
+> on output path.
+> 
+> Lets just act analogous to 57f89bfa2140 and add a similar logic
+> to TX_RING. We presume size_max as overcharged with +4 bytes and
+> later on after skb has been built by tpacket_fill_skb() check
+> for ETH_P_8021Q header on packets larger than normal MTU. Can
+> be easily reproduced with a slightly modified trafgen in mmap(2)
+> mode, test cases:
+> 
+>  { fill(0xff, 12) const16(0x8100) fill(0xff, <1504|1505>) }
+>  { fill(0xff, 12) const16(0x0806) fill(0xff, <1500|1501>) }
+> 
+> Note that we need to do the test right after tpacket_fill_skb()
+> as sockets can have PACKET_LOSS set where we would not fail but
+> instead just continue to traverse the ring.
+> 
+> Reported-by: Mathias Kretschmer <mathias.kretschmer@fokus.fraunhofer.de>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-Please consider adding this to -stable.
-
- drivers/net/ethernet/broadcom/tg3.c |    3 +--
- drivers/net/ethernet/broadcom/tg3.h |    6 +++++-
- 2 files changed, 6 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 3167ed6..3b6d0ba 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -6843,8 +6843,7 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
- 
- 		work_mask |= opaque_key;
- 
--		if ((desc->err_vlan & RXD_ERR_MASK) != 0 &&
--		    (desc->err_vlan != RXD_ERR_ODD_NIBBLE_RCVD_MII)) {
-+		if (desc->err_vlan & RXD_ERR_MASK) {
- 		drop_it:
- 			tg3_recycle_rx(tnapi, tpr, opaque_key,
- 				       desc_idx, *post_ptr);
-diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
-index ef47238..04321e5 100644
---- a/drivers/net/ethernet/broadcom/tg3.h
-+++ b/drivers/net/ethernet/broadcom/tg3.h
-@@ -2608,7 +2608,11 @@ struct tg3_rx_buffer_desc {
- #define RXD_ERR_TOO_SMALL		0x00400000
- #define RXD_ERR_NO_RESOURCES		0x00800000
- #define RXD_ERR_HUGE_FRAME		0x01000000
--#define RXD_ERR_MASK			0xffff0000
-+
-+#define RXD_ERR_MASK	(RXD_ERR_BAD_CRC | RXD_ERR_COLLISION |		\
-+			 RXD_ERR_LINK_LOST | RXD_ERR_PHY_DECODE |	\
-+			 RXD_ERR_MAC_ABRT | RXD_ERR_TOO_SMALL |		\
-+			 RXD_ERR_NO_RESOURCES | RXD_ERR_HUGE_FRAME)
- 
- 	u32				reserved;
- 	u32				opaque;
--- 
-1.7.1
+Looks good, applied, thanks Daniel.
