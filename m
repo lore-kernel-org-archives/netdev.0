@@ -1,136 +1,183 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: ovs inconsistent lock state
-Date: Fri, 28 Feb 2014 19:21:35 +0000
-Message-ID: <5310E1BF.5060803@citrix.com>
-References: <20140213171307.GC2829@minipsycho.orion>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH 6/7] bridge: Manage promisc mode when vlans are
+ configured on top of a bridge
+Date: Fri, 28 Feb 2014 14:34:54 -0500
+Message-ID: <5310E4DE.1080003@redhat.com>
+References: <1393427905-6811-1-git-send-email-vyasevic@redhat.com>
+	<1393427905-6811-7-git-send-email-vyasevic@redhat.com>
+	<530F2A4C.6020303@lab.ntt.co.jp> <530F3AD4.6080704@redhat.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: <jesse@nicira.com>, <dev@openvswitch.org>
-To: Jiri Pirko <jiri@resnulli.us>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:56758 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751556AbaB1TVi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 14:21:38 -0500
-In-Reply-To: <20140213171307.GC2829@minipsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: john.r.fastabend@intel.com, shemminger@vyatta.com,
+	bridge@lists.linux-foundation.org, jhs@mojatatu.com, mst@redhat.com
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>, netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <530F3AD4.6080704@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-I also had problems with these locks on current net-next, I believe the 
-issue is that "datapath: Fix deadlock during stats update." is not 
-merged from official OVS repo to kernel.
+On 02/27/2014 08:17 AM, Vlad Yasevich wrote:
+> On 02/27/2014 07:06 AM, Toshiaki Makita wrote:
+>> (2014/02/27 0:18), Vlad Yasevich wrote:
+>>> If the user configures vlan interfaces on top of the bridge and the bridge
+>>> doesn't have vlan filtering enabled, we have to place all the ports in
+>>> promsic mode so that we can correctly receive tagged frames.
+>>> When vlan filtering is enabled, the vlan configuration will be provided
+>>> via filtering interface.
+>>> When the vlan filtering is toggled, we also have mange promiscuity.
+>>
+>> If we disable vlan_filtering and no vlan interface is configured on the
+>> bridge, we cannot forward any tagged traffic?
+> 
+> We can't receive tagged traffic, so we turn promisc on.
+> 
+>> If we want to forward frames from one port to another port (not from/to
+>> bridge device), we have to add vlan interface or set promisc mode, right?
+>>
+> 
+> Hm..  Good point.  This isn't enough to address the scenario that Patch7
+> tries to solve.  I'll need to think about that.  This is partially why
+> I split functionality in Patch7 out.  It made things more difficult.
+> 
 
-Zoli
+I now understood what you were referring to above a bit better.
+This patch solves just part of the problem.  The other part is what
+happens when someone behind the bridge is using vlan tagging without
+the bridge being aware of it and expects the bridge to forward such traffic.
+So, if we ever want to disable promiscuous mode on the bridge ports, we
+either need to depend on lan filtering being configured in the bridge
+or have the ability to disable vlan filtering in the driver.
 
-On 13/02/14 17:13, Jiri Pirko wrote:
-> Hi.
->
-> On current net-next I'm getting following message once I add a dp:
->
-> [ 3014.523665] =================================
-> [ 3014.524118] [ INFO: inconsistent lock state ]
-> [ 3014.524118] 3.14.0-rc2+ #1 Not tainted
-> [ 3014.524118] ---------------------------------
-> [ 3014.524118] inconsistent {SOFTIRQ-ON-W} -> {IN-SOFTIRQ-W} usage.
-> [ 3014.524118] swapper/1/0 [HC0[0]:SC1[5]:HE1:SE0] takes:
-> [ 3014.524118]  (&(&flow->stats.stat->lock)->rlock){+.?...}, at: [<ffffffffa021b6ef>] ovs_flow_stats_update+0x4f/0xd0 [openvswitch]
-> [ 3014.524118] {SOFTIRQ-ON-W} state was registered at:
-> [ 3014.524118]   [<ffffffff810d6843>] __lock_acquire+0x5a3/0x1c30
-> [ 3014.524118]   [<ffffffff810d7f80>] lock_acquire+0xb0/0x150
-> [ 3014.524118]   [<ffffffff81705c99>] _raw_spin_lock+0x39/0x50
-> [ 3014.524118]   [<ffffffffa021b8d3>] ovs_flow_stats_get+0x163/0x1b0 [openvswitch]
-> [ 3014.524118]   [<ffffffffa0218ce5>] ovs_flow_cmd_fill_info+0x165/0x2b0 [openvswitch]
-> [ 3014.524118]   [<ffffffffa021904c>] ovs_flow_cmd_build_info.constprop.27+0x6c/0xa0 [openvswitch]
-> [ 3014.524118]   [<ffffffffa0219519>] ovs_flow_cmd_new_or_set+0x499/0x4f0 [openvswitch]
-> [ 3014.524118]   [<ffffffff8161bf09>] genl_family_rcv_msg+0x199/0x390
-> [ 3014.524118]   [<ffffffff8161c18e>] genl_rcv_msg+0x8e/0xd0
-> [ 3014.524118]   [<ffffffff8161a189>] netlink_rcv_skb+0xa9/0xc0
-> [ 3014.524118]   [<ffffffff8161a6a8>] genl_rcv+0x28/0x40
-> [ 3014.524118]   [<ffffffff816197d0>] netlink_unicast+0xf0/0x1b0
-> [ 3014.524118]   [<ffffffff81619b8f>] netlink_sendmsg+0x2ff/0x740
-> [ 3014.524118]   [<ffffffff815ce86b>] sock_sendmsg+0x8b/0xc0
-> [ 3014.524118]   [<ffffffff815cf369>] ___sys_sendmsg+0x389/0x3a0
-> [ 3014.524118]   [<ffffffff815cfa62>] __sys_sendmsg+0x42/0x80
-> [ 3014.524118]   [<ffffffff815cfab2>] SyS_sendmsg+0x12/0x20
-> [ 3014.524118]   [<ffffffff8170f829>] system_call_fastpath+0x16/0x1b
-> [ 3014.524118] irq event stamp: 6163288
-> [ 3014.524118] hardirqs last  enabled at (6163288): [<ffffffff8169f8a0>] ip6_finish_output2+0x380/0x670
-> [ 3014.524118] hardirqs last disabled at (6163287): [<ffffffff8169f85b>] ip6_finish_output2+0x33b/0x670
-> [ 3014.524118] softirqs last  enabled at (6163266): [<ffffffff810888a2>] _local_bh_enable+0x22/0x50
-> [ 3014.524118] softirqs last disabled at (6163267): [<ffffffff81089f15>] irq_exit+0xc5/0xd0
-> [ 3014.524118]
-> other info that might help us debug this:
-> [ 3014.524118]  Possible unsafe locking scenario:
->
-> [ 3014.524118]        CPU0
-> [ 3014.524118]        ----
-> [ 3014.524118]   lock(&(&flow->stats.stat->lock)->rlock);
-> [ 3014.524118]   <Interrupt>
-> [ 3014.524118]     lock(&(&flow->stats.stat->lock)->rlock);
-> [ 3014.524118]
->   *** DEADLOCK ***
->
-> [ 3014.524118] 5 locks held by swapper/1/0:
-> [ 3014.524118]  #0:  (((&idev->mc_ifc_timer))){+.-...}, at: [<ffffffff81090095>] call_timer_fn+0x5/0x180
-> [ 3014.524118]  #1:  (rcu_read_lock){.+.+..}, at: [<ffffffff816c5755>] mld_sendpack+0x5/0x330
-> [ 3014.524118]  #2:  (rcu_read_lock_bh){.+....}, at: [<ffffffff8169f579>] ip6_finish_output2+0x59/0x670
-> [ 3014.524118]  #3:  (rcu_read_lock_bh){.+....}, at: [<ffffffff815eb585>] __dev_queue_xmit+0x5/0x6a0
-> [ 3014.524118]  #4:  (rcu_read_lock){.+.+..}, at: [<ffffffffa0221995>] internal_dev_xmit+0x5/0x90 [openvswitch]
-> [ 3014.524118]
-> stack backtrace:
-> [ 3014.524118] CPU: 1 PID: 0 Comm: swapper/1 Not tainted 3.14.0-rc2+ #1
-> [ 3014.524118] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-> [ 3014.524118]  ffffffff82338940 ffff8800bb2838f0 ffffffff816fd1ac ffff8800b6b33570
-> [ 3014.524118]  ffff8800bb283940 ffffffff816f9144 0000000000000005 ffff880000000001
-> [ 3014.524118]  ffff880000000000 0000000000000006 ffff8800b6b33570 ffffffff810d4380
-> [ 3014.524118] Call Trace:
-> [ 3014.524118]  <IRQ>  [<ffffffff816fd1ac>] dump_stack+0x4d/0x66
-> [ 3014.524118]  [<ffffffff816f9144>] print_usage_bug+0x1f3/0x204
-> [ 3014.524118]  [<ffffffff810d4380>] ? check_usage_backwards+0x130/0x130
-> [ 3014.524118]  [<ffffffff810d4da0>] mark_lock+0x270/0x300
-> [ 3014.524118]  [<ffffffff810d6718>] __lock_acquire+0x478/0x1c30
-> [ 3014.524118]  [<ffffffff810d4ede>] ? mark_held_locks+0xae/0x130
-> [ 3014.524118]  [<ffffffffa0220047>] ? find_bucket.isra.1+0x67/0x70 [openvswitch]
-> [ 3014.524118]  [<ffffffffa0220228>] ? masked_flow_lookup+0x78/0x140 [openvswitch]
-> [ 3014.524118]  [<ffffffff810d669a>] ? __lock_acquire+0x3fa/0x1c30
-> [ 3014.524118]  [<ffffffff810d7f80>] lock_acquire+0xb0/0x150
-> [ 3014.524118]  [<ffffffffa021b6ef>] ? ovs_flow_stats_update+0x4f/0xd0 [openvswitch]
-> [ 3014.524118]  [<ffffffff81705c99>] _raw_spin_lock+0x39/0x50
-> [ 3014.524118]  [<ffffffffa021b6ef>] ? ovs_flow_stats_update+0x4f/0xd0 [openvswitch]
-> [ 3014.524118]  [<ffffffffa021b6ef>] ovs_flow_stats_update+0x4f/0xd0 [openvswitch]
-> [ 3014.524118]  [<ffffffffa021ac75>] ovs_dp_process_received_packet+0x75/0x100 [openvswitch]
-> [ 3014.524118]  [<ffffffffa02213ea>] ovs_vport_receive+0x2a/0x30 [openvswitch]
-> [ 3014.524118]  [<ffffffffa02219e6>] internal_dev_xmit+0x56/0x90 [openvswitch]
-> [ 3014.524118]  [<ffffffffa0221995>] ? internal_dev_xmit+0x5/0x90 [openvswitch]
-> [ 3014.524118]  [<ffffffff815eb276>] dev_hard_start_xmit+0x316/0x620
-> [ 3014.524118]  [<ffffffff815eb8ff>] __dev_queue_xmit+0x37f/0x6a0
-> [ 3014.524118]  [<ffffffff815eb585>] ? __dev_queue_xmit+0x5/0x6a0
-> [ 3014.524118]  [<ffffffff8169f8a0>] ? ip6_finish_output2+0x380/0x670
-> [ 3014.524118]  [<ffffffff815ebc30>] dev_queue_xmit+0x10/0x20
-> [ 3014.524118]  [<ffffffff8169f900>] ip6_finish_output2+0x3e0/0x670
-> [ 3014.524118]  [<ffffffff816a31aa>] ? ip6_finish_output+0x9a/0x200
-> [ 3014.524118]  [<ffffffff816a31aa>] ip6_finish_output+0x9a/0x200
-> [ 3014.524118]  [<ffffffff816a335f>] ip6_output+0x4f/0x1d0
-> [ 3014.524118]  [<ffffffff816c58e6>] mld_sendpack+0x196/0x330
-> [ 3014.524118]  [<ffffffff816c5755>] ? mld_sendpack+0x5/0x330
-> [ 3014.524118]  [<ffffffff816c63cd>] mld_ifc_timer_expire+0x19d/0x2d0
-> [ 3014.524118]  [<ffffffff816c6230>] ? mld_dad_timer_expire+0x70/0x70
-> [ 3014.524118]  [<ffffffff8109010a>] call_timer_fn+0x7a/0x180
-> [ 3014.524118]  [<ffffffff81090095>] ? call_timer_fn+0x5/0x180
-> [ 3014.524118]  [<ffffffff816c6230>] ? mld_dad_timer_expire+0x70/0x70
-> [ 3014.524118]  [<ffffffff8109054c>] run_timer_softirq+0x20c/0x2c0
-> [ 3014.524118]  [<ffffffff810899fd>] __do_softirq+0x12d/0x310
-> [ 3014.524118]  [<ffffffff81089f15>] irq_exit+0xc5/0xd0
-> [ 3014.524118]  [<ffffffff81711b75>] smp_apic_timer_interrupt+0x45/0x60
-> [ 3014.524118]  [<ffffffff817104b2>] apic_timer_interrupt+0x72/0x80
-> [ 3014.524118]  <EOI>  [<ffffffff81052486>] ? native_safe_halt+0x6/0x10
-> [ 3014.524118]  [<ffffffff8101ec04>] default_idle+0x24/0xe0
-> [ 3014.524118]  [<ffffffff8101f54e>] arch_cpu_idle+0x2e/0x40
-> [ 3014.524118]  [<ffffffff810e96ae>] cpu_startup_entry+0x9e/0x280
-> [ 3014.524118]  [<ffffffff81044929>] start_secondary+0x1d9/0x280
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Neither is really a good thing.  I'll need to think about this.
+
+-vlad
+
+> -vlad
+> 
+>> Sorry if I misunderstood it. I'm not sure..
+>>
+>> Thanks,
+>> Toshiaki Makita
+>>
+>>>
+>>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+>>> ---
+>>>  net/bridge/br_device.c  | 14 ++++++++++++++
+>>>  net/bridge/br_if.c      | 17 +++++++++++++----
+>>>  net/bridge/br_private.h |  9 +++++++++
+>>>  net/bridge/br_vlan.c    |  1 +
+>>>  4 files changed, 37 insertions(+), 4 deletions(-)
+>>>
+>>> diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+>>> index 0af9d6c..967abb3 100644
+>>> --- a/net/bridge/br_device.c
+>>> +++ b/net/bridge/br_device.c
+>>> @@ -297,6 +297,18 @@ void br_netpoll_disable(struct net_bridge_port *p)
+>>>  
+>>>  #endif
+>>>  
+>>> +static int br_dev_rx_add_vid(struct net_device *br_dev, __be16 proto, u16 vid)
+>>> +{
+>>> +	br_manage_promisc(netdev_priv(br_dev));
+>>> +	return 0;
+>>> +}
+>>> +
+>>> +static int br_dev_rx_kill_vid(struct net_device *br_dev, __be16 proto, u16 vid)
+>>> +{
+>>> +	br_manage_promisc(netdev_priv(br_dev));
+>>> +	return 0;
+>>> +}
+>>> +
+>>>  static int br_add_slave(struct net_device *dev, struct net_device *slave_dev)
+>>>  
+>>>  {
+>>> @@ -328,6 +340,8 @@ static const struct net_device_ops br_netdev_ops = {
+>>>  	.ndo_change_rx_flags	 = br_dev_change_rx_flags,
+>>>  	.ndo_change_mtu		 = br_change_mtu,
+>>>  	.ndo_do_ioctl		 = br_dev_ioctl,
+>>> +	.ndo_vlan_rx_add_vid	 = br_dev_rx_add_vid,
+>>> +	.ndo_vlan_rx_kill_vid	 = br_dev_rx_kill_vid,
+>>>  #ifdef CONFIG_NET_POLL_CONTROLLER
+>>>  	.ndo_netpoll_setup	 = br_netpoll_setup,
+>>>  	.ndo_netpoll_cleanup	 = br_netpoll_cleanup,
+>>> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+>>> index 7e92bd0..55e4e28 100644
+>>> --- a/net/bridge/br_if.c
+>>> +++ b/net/bridge/br_if.c
+>>> @@ -497,12 +497,21 @@ static void br_port_clear_promisc(struct net_bridge_port *p)
+>>>  void br_manage_promisc(struct net_bridge *br)
+>>>  {
+>>>  	struct net_bridge_port *p;
+>>> +	int set_all = false;
+>>> +
+>>> +	if (br->dev->flags & IFF_PROMISC)
+>>> +		set_all = true;
+>>> +
+>>> +	/* If vlan filtering is disabled and there are any VLANs
+>>> +	 * configured on top of the bridge, set promisc on all
+>>> +	 * ports.
+>>> +	 */
+>>> +	if (!br_vlan_enabled(br) && vlan_uses_dev(br->dev))
+>>> +		set_all = true;
+>>>  
+>>>  	list_for_each_entry(p, &br->port_list, list) {
+>>> -		if (br->dev->flags & IFF_PROMISC) {
+>>> -			/* PROMISC flag has been turned on for the bridge
+>>> -			 * itself.  Turn on promisc on all ports.
+>>> -			 */
+>>> +		if (set_all) {
+>>> +			/* Set all the ports to promisc mode.  */
+>>>  			br_port_set_promisc(p);
+>>>  
+>>>  		} else {
+>>> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+>>> index 4042f86..87dcc09 100644
+>>> --- a/net/bridge/br_private.h
+>>> +++ b/net/bridge/br_private.h
+>>> @@ -641,6 +641,10 @@ static inline u16 br_get_pvid(const struct net_port_vlans *v)
+>>>  	return v->pvid ?: VLAN_N_VID;
+>>>  }
+>>>  
+>>> +static inline int br_vlan_enabled(struct net_bridge *br)
+>>> +{
+>>> +	return br->vlan_enabled;
+>>> +}
+>>>  #else
+>>>  static inline bool br_allowed_ingress(struct net_bridge *br,
+>>>  				      struct net_port_vlans *v,
+>>> @@ -721,6 +725,11 @@ static inline u16 br_get_pvid(const struct net_port_vlans *v)
+>>>  {
+>>>  	return VLAN_N_VID;	/* Returns invalid vid */
+>>>  }
+>>> +
+>>> +static inline int br_vlan_enabled(struct net_bridge *br);
+>>> +{
+>>> +	return 0;
+>>> +}
+>>>  #endif
+>>>  
+>>>  /* br_netfilter.c */
+>>> diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+>>> index 8249ca7..eddc2f6 100644
+>>> --- a/net/bridge/br_vlan.c
+>>> +++ b/net/bridge/br_vlan.c
+>>> @@ -321,6 +321,7 @@ int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val)
+>>>  		goto unlock;
+>>>  
+>>>  	br->vlan_enabled = val;
+>>> +	br_manage_promisc(br);
+>>>  
+>>>  unlock:
+>>>  	rtnl_unlock();
+>>>
+> 
