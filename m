@@ -1,415 +1,157 @@
-From: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
-Subject: [PATCH v3 ethtool 2/2] ethtool: Support for configurable RSS hash key
-Date: Fri, 28 Feb 2014 17:40:44 +0530
-Message-ID: <225849a1-2d8c-484c-ad07-c83ebc76fcbd@CMEXHTCAS1.ad.emulex.com>
-References: <1393589444-10721-1-git-send-email-VenkatKumar.Duvvuru@Emulex.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [nf-next PATCH V2 0/5] netfilter: conntrack: optimization,
+	remove central spinlock
+Date: Fri, 28 Feb 2014 13:16:15 +0100
+Message-ID: <20140228121529.20347.38300.stgit@dragon>
+References: <20140227182220.25907.12758.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Westphal <fw@strlen.de>,
+	"Patrick McHardy" <kaber@trash.net>
+To: netfilter-devel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:52304 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751447AbaB1MKq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 07:10:46 -0500
-In-Reply-To: <1393589444-10721-1-git-send-email-VenkatKumar.Duvvuru@Emulex.com>
+Received: from mx1.redhat.com ([209.132.183.28]:61829 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751309AbaB1MQR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Feb 2014 07:16:17 -0500
+In-Reply-To: <20140227182220.25907.12758.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This ethtool patch will primarily implement the parser for the options provided
-by the user for set and get rxfh before invoking the ioctl.
-This patch also has Ethtool man page changes which describes the Usage of
-set and get rxfh options.
----
- ethtool.8.in |   18 +++--
- ethtool.c    |  253 ++++++++++++++++++++++++++++++++++++++++++++++------------
- 2 files changed, 212 insertions(+), 59 deletions(-)
+This patchset change the conntrack locking and provides a huge
+performance improvements.
 
-diff --git a/ethtool.8.in b/ethtool.8.in
-index bb394cc..df5a6ce 100644
---- a/ethtool.8.in
-+++ b/ethtool.8.in
-@@ -286,11 +286,12 @@ ethtool \- query or control network driver and hardware settings
- .B ethtool \-T|\-\-show\-time\-stamping
- .I devname
- .HP
--.B ethtool \-x|\-\-show\-rxfh\-indir
-+.B ethtool \-x|\-\-show\-rxfh\-indir|\-\-show\-rxfh
- .I devname
- .HP
--.B ethtool \-X|\-\-set\-rxfh\-indir
-+.B ethtool \-X|\-\-set\-rxfh\-indir|\-\-rxfh
- .I devname
-+.RB [ hkey \ \*(MA:\...]
- .RB [\  equal
- .IR N \ |
- .BI weight\  W0
-@@ -784,11 +785,16 @@ Sets the dump flag for the device.
- Show the device's time stamping capabilities and associated PTP
- hardware clock.
- .TP
--.B \-x \-\-show\-rxfh\-indir
--Retrieves the receive flow hash indirection table.
-+.B \-x \-\-show\-rxfh\-indir \-\-show\-rxfh
-+Retrieves the receive flow hash indirection table and/or RSS hash key.
- .TP
--.B \-X \-\-set\-rxfh\-indir
--Configures the receive flow hash indirection table.
-+.B \-X \-\-set\-rxfh\-indir \-\-rxfh
-+Configures the receive flow hash indirection table and/or RSS hash key.
-+.TP
-+.BI hkey
-+Sets rss hash key of the specified network device. RSS hash key should be of device supported length.
-+Hash key format must be in xx:yy:zz:aa:bb:cc format meaning both the nibbles of a byte should be mentioned
-+even if a nibble is zero.
- .TP
- .BI equal\  N
- Sets the receive flow hash indirection table to spread flows evenly
-diff --git a/ethtool.c b/ethtool.c
-index acb4397..0791451 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -874,6 +874,73 @@ static char *unparse_rxfhashopts(u64 opts)
- 	return buf;
- }
- 
-+static int convert_string_to_hashkey(char *rss_hkey, u32 key_size,
-+				     const char *rss_hkey_string)
-+{
-+	int i = 0;
-+	int hex_byte;
-+
-+	do {
-+		if (i > (key_size - 1)) {
-+			fprintf(stderr,
-+				"Invalid key: Device supports %d bytes key\n",
-+				key_size);
-+			goto err;
-+		}
-+
-+		if (!(isxdigit(*rss_hkey_string) &&
-+		      isxdigit(*(rss_hkey_string + 1)))) {
-+			fprintf(stderr, "Invalid RSS Hash Key Format\n");
-+			goto err;
-+		}
-+
-+		sscanf(rss_hkey_string, "%2x", &hex_byte);
-+		rss_hkey[i++] = hex_byte;
-+		rss_hkey_string += 2;
-+
-+		if (*rss_hkey_string == ':') {
-+			rss_hkey_string++;
-+		} else if (*rss_hkey_string != '\0') {
-+			fprintf(stderr, "Invalid RSS Hash Key Format\n");
-+			goto err;
-+		}
-+
-+	} while (*rss_hkey_string);
-+
-+	if (i != key_size) {
-+		fprintf(stderr, "Invalid key: Device supports %d bytes key\n",
-+			key_size);
-+		goto err;
-+	}
-+
-+	return 0;
-+err:
-+	exit_bad_args();
-+}
-+
-+static int parse_hkey(char **rss_hkey, u32 key_size,
-+		      const char *rss_hkey_string)
-+{
-+	if (!key_size) {
-+		fprintf(stderr,
-+			"Cannot set RX flow hash configuration:\n"
-+			" Hash key setting not supported\n");
-+		exit(1);
-+	}
-+
-+	*rss_hkey = malloc(key_size);
-+	if (!(*rss_hkey))
-+		return -ENOMEM;
-+
-+	if (convert_string_to_hashkey(*rss_hkey, key_size,
-+				      rss_hkey_string) < 0) {
-+		free(*rss_hkey);
-+		*rss_hkey = NULL;
-+		return -EINVAL;
-+	}
-+	return 0;
-+}
-+
- static const struct {
- 	const char *name;
- 	int (*func)(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
-@@ -3035,13 +3102,14 @@ static int do_grxclass(struct cmd_context *ctx)
- 	return err ? 1 : 0;
- }
- 
--static int do_grxfhindir(struct cmd_context *ctx)
-+static int do_grxfh(struct cmd_context *ctx)
- {
- 	struct ethtool_rxnfc ring_count;
--	struct ethtool_rxfh_indir indir_head;
--	struct ethtool_rxfh_indir *indir;
--	u32 i;
-+	struct ethtool_rxfh rss_head;
-+	struct ethtool_rxfh *rss;
-+	u32 i, indir_bytes;
- 	int err;
-+	char *hkey;
- 
- 	ring_count.cmd = ETHTOOL_GRXRINGS;
- 	err = send_ioctl(ctx, &ring_count);
-@@ -3050,77 +3118,146 @@ static int do_grxfhindir(struct cmd_context *ctx)
- 		return 102;
- 	}
- 
--	indir_head.cmd = ETHTOOL_GRXFHINDIR;
--	indir_head.size = 0;
--	err = send_ioctl(ctx, &indir_head);
--	if (err < 0) {
--		perror("Cannot get RX flow hash indirection table size");
-+	rss_head.cmd = ETHTOOL_GRSSH;
-+	rss_head.indir_size = 0;
-+	rss_head.key_size = 0;
-+	err = send_ioctl(ctx, &rss_head);
-+	if ((err < 0) || (!rss_head.indir_size && !rss_head.key_size)) {
-+		perror("Cannot get RX flow hash indirection and key size");
- 		return 103;
- 	}
- 
--	indir = malloc(sizeof(*indir) +
--		       indir_head.size * sizeof(*indir->ring_index));
--	indir->cmd = ETHTOOL_GRXFHINDIR;
--	indir->size = indir_head.size;
--	err = send_ioctl(ctx, indir);
-+	rss = malloc(sizeof(*rss) +
-+		     rss_head.indir_size * sizeof(rss_head.rss_config[0]) +
-+		     rss_head.key_size);
-+	rss->cmd = ETHTOOL_GRSSH;
-+	rss->indir_size = rss_head.indir_size;
-+	rss->key_size = rss_head.key_size;
-+	err = send_ioctl(ctx, rss);
- 	if (err < 0) {
--		perror("Cannot get RX flow hash indirection table");
-+		perror("Cannot get RX flow hash configuration");
- 		return 103;
- 	}
- 
- 	printf("RX flow hash indirection table for %s with %llu RX ring(s):\n",
- 	       ctx->devname, ring_count.data);
--	for (i = 0; i < indir->size; i++) {
-+	if (!rss->indir_size)
-+		printf("*** Operation Not Supported ***\n");
-+
-+	for (i = 0; i < rss->indir_size; i++) {
- 		if (i % 8 == 0)
- 			printf("%5u: ", i);
--		printf(" %5u", indir->ring_index[i]);
-+		printf(" %5u", rss->rss_config[i]);
- 		if (i % 8 == 7)
- 			fputc('\n', stdout);
- 	}
-+
-+	indir_bytes = rss->indir_size * sizeof(rss->rss_config[0]);
-+	hkey = ((char *)rss->rss_config + indir_bytes);
-+
-+	printf("RSS hash key:\n");
-+	if (!rss->key_size)
-+		printf("*** Operation Not Supported ***\n");
-+
-+	for (i = 0; i < rss->key_size; i++) {
-+		if (i == (rss->key_size - 1))
-+			printf("%02x\n", (u8) hkey[i]);
-+		else
-+			printf("%02x:", (u8) hkey[i]);
-+	}
- 	return 0;
- }
- 
--static int do_srxfhindir(struct cmd_context *ctx)
-+
-+
-+
-+static int do_srxfh(struct cmd_context *ctx)
- {
-+	struct ethtool_rxfh rss_head;
-+	struct ethtool_rxfh *rss;
-+	struct ethtool_rxnfc ring_count;
- 	int rxfhindir_equal = 0;
- 	char **rxfhindir_weight = NULL;
--	struct ethtool_rxfh_indir indir_head;
--	struct ethtool_rxfh_indir *indir;
--	u32 i;
-+	char *rss_hkey = NULL;
- 	int err;
-+	u32 i, arg_num = 0, indir_bytes = 0;
-+	u32 entry_size = sizeof(rss_head.rss_config[0]);
-+	u8 parse_indir = 1;
- 
- 	if (ctx->argc < 2)
- 		exit_bad_args();
--	if (!strcmp(ctx->argp[0], "equal")) {
--		if (ctx->argc != 2)
--			exit_bad_args();
--		rxfhindir_equal = get_int_range(ctx->argp[1], 0, 1, INT_MAX);
--	} else if (!strcmp(ctx->argp[0], "weight")) {
--		rxfhindir_weight = ctx->argp + 1;
--	} else {
--		exit_bad_args();
-+
-+	ring_count.cmd = ETHTOOL_GRXRINGS;
-+	err = send_ioctl(ctx, &ring_count);
-+	if (err < 0) {
-+		perror("Cannot get RX ring count");
-+		return 102;
- 	}
- 
--	indir_head.cmd = ETHTOOL_GRXFHINDIR;
--	indir_head.size = 0;
--	err = send_ioctl(ctx, &indir_head);
-+	rss_head.cmd = ETHTOOL_GRSSH;
-+	rss_head.indir_size = 0;
-+	rss_head.key_size = 0;
-+	err = send_ioctl(ctx, &rss_head);
- 	if (err < 0) {
--		perror("Cannot get RX flow hash indirection table size");
--		return 104;
-+		perror("Cannot get RX flow hash indirection and key size");
-+		return 103;
- 	}
- 
--	indir = malloc(sizeof(*indir) +
--		       indir_head.size * sizeof(*indir->ring_index));
--	indir->cmd = ETHTOOL_SRXFHINDIR;
--	indir->size = indir_head.size;
-+	if (!strcmp(ctx->argp[0], "hkey")) {
-+		err = parse_hkey(&rss_hkey, rss_head.key_size,
-+				 ctx->argp[1]);
-+		if (err < 0)
-+			return err;
-+
-+		arg_num = 2;
-+		if (!ctx->argp[arg_num])
-+			parse_indir = 0;
-+	}
- 
-+	if (parse_indir) {
-+		if (!strcmp(ctx->argp[arg_num], "equal"))
-+			rxfhindir_equal = get_int_range(ctx->argp[arg_num + 1],
-+							0, 1, INT_MAX);
-+		else if (!strcmp(ctx->argp[arg_num], "weight"))
-+			rxfhindir_weight = ctx->argp + arg_num + 1;
-+		else
-+			exit_bad_args();
-+
-+		indir_bytes = rss_head.indir_size * entry_size;
-+	}
-+
-+	rss = malloc(sizeof(*rss) + indir_bytes + rss_head.key_size);
-+	rss->cmd = ETHTOOL_SRSSH;
-+	rss->indir_size = rss_head.indir_size;
-+	rss->key_size = rss_head.key_size;
-+
-+	/*
-+	 * indir_size = 0 ==> reset indir to default
-+	 * indir_size = 0xDEADBEEF ==> ignore indir
-+	 */
- 	if (rxfhindir_equal) {
--		for (i = 0; i < indir->size; i++)
--			indir->ring_index[i] = i % rxfhindir_equal;
--	} else {
-+		for (i = 0; i < rss->indir_size; i++)
-+			rss->rss_config[i] = i % rxfhindir_equal;
-+		arg_num += 2;
-+		if (ctx->argp[arg_num] &&
-+		    !strcmp(ctx->argp[arg_num], "hkey")) {
-+			err = parse_hkey(&rss_hkey, rss_head.key_size,
-+					 ctx->argp[arg_num + 1]);
-+			if (err < 0)
-+				return err;
-+		}
-+	} else if (rxfhindir_weight) {
- 		u32 j, weight, sum = 0, partial = 0;
- 
- 		for (j = 0; rxfhindir_weight[j]; j++) {
-+			if (!strcmp(rxfhindir_weight[j], "hkey")) {
-+				err = parse_hkey(&rss_hkey,
-+						 rss_head.key_size,
-+						 rxfhindir_weight[++j]);
-+				if (err < 0)
-+					return err;
-+				break;
-+			}
- 			weight = get_u32(rxfhindir_weight[j], 0);
- 			sum += weight;
- 		}
-@@ -3131,7 +3268,7 @@ static int do_srxfhindir(struct cmd_context *ctx)
- 			exit(1);
- 		}
- 
--		if (sum > indir->size) {
-+		if (sum > rss->indir_size) {
- 			fprintf(stderr,
- 				"Total weight exceeds the size of the "
- 				"indirection table\n");
-@@ -3139,22 +3276,31 @@ static int do_srxfhindir(struct cmd_context *ctx)
- 		}
- 
- 		j = -1;
--		for (i = 0; i < indir->size; i++) {
--			while (i >= indir->size * partial / sum) {
-+		for (i = 0; i < rss->indir_size; i++) {
-+			while (i >= rss->indir_size * partial / sum) {
- 				j += 1;
- 				weight = get_u32(rxfhindir_weight[j], 0);
- 				partial += weight;
- 			}
--			indir->ring_index[i] = j;
-+			rss->rss_config[i] = j;
- 		}
-+	} else {
-+		rss->indir_size = 0xDEADBEEF;
- 	}
- 
--	err = send_ioctl(ctx, indir);
-+	if (rss_hkey) {
-+		memcpy((char *)rss->rss_config + indir_bytes,
-+		       rss_hkey, rss->key_size);
-+		free(rss_hkey);
-+	} else {
-+		rss->key_size = 0;
-+	}
-+
-+	err = send_ioctl(ctx, rss);
- 	if (err < 0) {
--		perror("Cannot set RX flow hash indirection table");
-+		perror("Cannot set RX flow hash configuration");
- 		return 105;
- 	}
--
- 	return 0;
- }
- 
-@@ -3833,11 +3979,12 @@ static const struct option {
- 	  "		delete %d\n" },
- 	{ "-T|--show-time-stamping", 1, do_tsinfo,
- 	  "Show time stamping capabilities" },
--	{ "-x|--show-rxfh-indir", 1, do_grxfhindir,
--	  "Show Rx flow hash indirection" },
--	{ "-X|--set-rxfh-indir", 1, do_srxfhindir,
--	  "Set Rx flow hash indirection",
--	  "		equal N | weight W0 W1 ...\n" },
-+	{ "-x|--show-rxfh-indir|--show-rxfh", 1, do_grxfh,
-+	  "Show Rx flow hash indirection and/or hashkey" },
-+	{ "-X|--set-rxfh-indir|--rxfh", 1, do_srxfh,
-+	  "Set Rx flow hash indirection and/or hashkey",
-+	  "		equal N | weight W0 W1 ...\n"
-+	  "		[ hkey %x:%x:%x:%x:%x:.... ]\n" },
- 	{ "-f|--flash", 1, do_flash,
- 	  "Flash firmware image from the specified file to a region on the device",
- 	  "               FILENAME [ REGION-NUMBER-TO-FLASH ]\n" },
+This patchset is based upon Eric Dumazet's proposed patch:
+  http://thread.gmane.org/gmane.linux.network/268758/focus=47306
+I have in agreement with Eric Dumazet, taken over this patch (and
+turned it into a entire patchset).
+
+Primary focus is to remove the central spinlock nf_conntrack_lock.
+This requires several steps to be acheived.
+
+Patch01: Trivial cleanups
+
+Patch02: Moves the "special" dying/unconfirmed/template lists to use a
+ per cpu spinlock.
+
+Patch03: Is preparing for patch04, as it address a race
+ condition. Doing this a seperate patch for reviewers sake.
+
+Patch04: Seperates expect locking from nf_conntrack_lock. The expect
+ list is small (default max 256), this it just get a single lock.
+
+Patch05: Finally can remove nf_conntrack_lock, and instead uses an
+ array of hashed spinlocks to protect insertions/deletions of
+ conntracks into the hash table.  While still allowing dynamic
+ resizing of the hash table.
+
+
+Testing
+-------
+For expectations I've mostly tested the FTP nf_conntrack_ftp
+helper module, by commands:
+
+ for x in `seq 1 300`; do \
+   echo $x; \
+   echo -e "USER anonymous\nPASS nothing\nPASV" | nc 192.168.42.129 21; \
+ done
+
+ wget ftp://192.168.42.129/pub/delete.me.4k -O /dev/null
+
+For overload/DoS testing, I've primarily done, SYN-flood attack testing.
+Results on a 24-core E5-2695v2(ES) with 10Gbit/s ixgbe (with tool trafgen)
+
+ Base kernel : New   810.405 conntrack/sec
+ Fixed kernel: New 2.233.876 conntrack/sec
+
+Notice other floods attack (SYN+ACK or ACK) can easily be deflected using:
+ # iptables -A INPUT -m state --state INVALID -j DROP
+ # sysctl -w net/netfilter/nf_conntrack_tcp_loose=0
+
+E.g. this machine can reflect 6.481.463 "invalid" conntrack/sec (from
+an ACK-flood).
+
+Perf data:
+----------
+The nf_conntrack_lock is suffers from huge contention on current
+generation servers (8 or more core/threads).  Data from under
+SYN-flooding (without a listen socket)
+
+Perf locking congestion is very "visible" on a base kernel:
+
+  -  72.56%  ksoftirqd/6  [kernel.kallsyms]    [k] _raw_spin_lock_bh
+     - _raw_spin_lock_bh
+        + 25.33% init_conntrack
+        + 24.86% nf_ct_delete_from_lists
+        + 24.62% __nf_conntrack_confirm
+        + 24.38% destroy_conntrack
+        + 0.70% tcp_packet
+  +   2.21%  ksoftirqd/6  [kernel.kallsyms]    [k] fib_table_lookup
+  +   1.15%  ksoftirqd/6  [kernel.kallsyms]    [k] __slab_free
+  +   0.77%  ksoftirqd/6  [kernel.kallsyms]    [k] inet_getpeer
+  +   0.70%  ksoftirqd/6  [nf_conntrack]       [k] nf_ct_delete
+  +   0.55%  ksoftirqd/6  [ip_tables]          [k] ipt_do_table
+
+Perf after the patchset (SYN-flood attack):
+
+ +   9.62%  ksoftirqd/6  [kernel.kallsyms]    [k] fib_table_lookup
+ +   3.78%  ksoftirqd/6  [kernel.kallsyms]    [k] __slab_free
+ +   2.71%  ksoftirqd/6  [kernel.kallsyms]    [k] inet_getpeer
+ +   2.55%  ksoftirqd/6  [kernel.kallsyms]    [k] check_leaf
+ +   2.38%  ksoftirqd/6  [ip_tables]          [k] ipt_do_table
+ +   2.06%  ksoftirqd/6  [kernel.kallsyms]    [k] __slab_alloc
+ +   1.94%  ksoftirqd/6  [nf_conntrack]       [k] __nf_conntrack_alloc
+ -   1.94%  ksoftirqd/6  [kernel.kallsyms]    [k] _raw_spin_lock
+   - _raw_spin_lock
+      + 90.32% nf_conntrack_double_lock
+      + 3.61% get_partial_node
+      + 1.81% nf_ct_delete_from_lists
+      + 1.68% __nf_conntrack_confirm
+      + 1.03% sch_direct_xmit
+      + 0.52% scheduler_tick
+ +   1.86%  ksoftirqd/6  [kernel.kallsyms]    [k] nf_iterate
+ +   1.80%  ksoftirqd/6  [nf_conntrack]       [k] init_conntrack
+ +   1.77%  ksoftirqd/6  [kernel.kallsyms]    [k] __neigh_event_send
+ -   1.70%  ksoftirqd/6  [kernel.kallsyms]    [k] _raw_spin_lock_bh
+   - _raw_spin_lock_bh
+      + 32.55% nf_ct_del_from_dying_or_unconfirmed_list
+      + 25.33% init_conntrack
+      + 19.88% tcp_packet
+      + 17.97% nf_ct_delete_from_lists
+      + 1.62% nf_conntrack_in
+      + 1.33% ixgbe_poll
+      + 0.74% destroy_conntrack
+ +   1.64%  ksoftirqd/6  [nf_conntrack]       [k] hash_conntrack_raw
+ +   1.58%  ksoftirqd/6  [kernel.kallsyms]    [k] __netif_receive_skb_core
+ +   1.51%  ksoftirqd/6  [nf_conntrack]       [k] __nf_conntrack_find_get
+ +   1.48%  ksoftirqd/6  [kernel.kallsyms]    [k] __cmpxchg_double_slab
+ +   1.46%  ksoftirqd/6  [nf_conntrack]       [k] nf_conntrack_in
+ +   1.45%  ksoftirqd/6  [kernel.kallsyms]    [k] __local_bh_enable_ip
+
+---
+
+Jesper Dangaard Brouer (5):
+      netfilter: conntrack: remove central spinlock nf_conntrack_lock
+      netfilter: conntrack: seperate expect locking from nf_conntrack_lock
+      netfilter: avoid race with exp->master ct
+      netfilter: conntrack: spinlock per cpu to protect special lists.
+      netfilter: trivial code cleanup and doc changes
+
+
+ include/net/netfilter/nf_conntrack.h      |   11 +
+ include/net/netfilter/nf_conntrack_core.h |    9 +
+ include/net/netns/conntrack.h             |   13 +
+ net/netfilter/nf_conntrack_core.c         |  432 ++++++++++++++++++++---------
+ net/netfilter/nf_conntrack_expect.c       |   34 ++
+ net/netfilter/nf_conntrack_h323_main.c    |    4 
+ net/netfilter/nf_conntrack_helper.c       |   37 ++
+ net/netfilter/nf_conntrack_netlink.c      |  128 +++++----
+ net/netfilter/nf_conntrack_sip.c          |    8 -
+ 9 files changed, 459 insertions(+), 217 deletions(-)
+
 -- 
-1.7.1
