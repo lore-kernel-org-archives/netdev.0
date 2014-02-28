@@ -1,189 +1,72 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V1 2/9] net/mlx4_en: Verify mlx4_en module parameters
-Date: Fri, 28 Feb 2014 08:00:02 +0200
-Message-ID: <1393567209-16358-3-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V1 8/9] net/mlx4_en: Use union for BlueFlame WQE
+Date: Fri, 28 Feb 2014 08:00:08 +0200
+Message-ID: <1393567209-16358-9-git-send-email-amirv@mellanox.com>
 References: <1393567209-16358-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>
+	Dan Carpenter <dan.carpenter@oracle.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:43018 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:43020 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750740AbaB1GA0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751100AbaB1GA0 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 28 Feb 2014 01:00:26 -0500
 In-Reply-To: <1393567209-16358-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eugenia Emantayev <eugenia@mellanox.com>
+When BlueFlame is turned on, control segment of the TX WQE is changed,
+and the second line of it is used for QPN.
+Changed code to use a union in the mlx4_wqe_ctrl_seg instead of casting.
+This makes the code clearer and solves the static checker warning:
 
-Verify mlx4_en module parameters.
-In case they are out of range - reset to default values.
+drivers/net/ethernet/mellanox/mlx4/en_tx.c:839 mlx4_en_xmit()
+	warn: potential memory corrupting cast 4 vs 2 bytes
 
-
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
+CC: Dan Carpenter <dan.carpenter@oracle.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_main.c | 30 ++++++++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/en_tx.c   | 21 +++++--------------
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |  9 +++++++++
- 3 files changed, 44 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c |  3 ++-
+ include/linux/mlx4/qp.h                    | 11 ++++++++---
+ 2 files changed, 10 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_main.c b/drivers/net/ethernet/mellanox/mlx4/en_main.c
-index fa2f6e7..3454437 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_main.c
-@@ -72,6 +72,12 @@ MLX4_EN_PARM_INT(pfctx, 0, "Priority based Flow Control policy on TX[7:0]."
- MLX4_EN_PARM_INT(pfcrx, 0, "Priority based Flow Control policy on RX[7:0]."
- 			   " Per priority bit mask");
- 
-+MLX4_EN_PARM_INT(inline_thold, MAX_INLINE,
-+		 "Threshold for using inline data (range: 17-104, default: 104)");
-+
-+#define MAX_PFC_TX     0xff
-+#define MAX_PFC_RX     0xff
-+
- int en_print(const char *level, const struct mlx4_en_priv *priv,
- 	     const char *format, ...)
- {
-@@ -140,6 +146,7 @@ static int mlx4_en_get_profile(struct mlx4_en_dev *mdev)
- 		params->prof[i].tx_ring_num = params->num_tx_rings_p_up *
- 			MLX4_EN_NUM_UP;
- 		params->prof[i].rss_rings = 0;
-+		params->prof[i].inline_thold = inline_thold;
- 	}
- 
- 	return 0;
-@@ -325,8 +332,31 @@ static struct mlx4_interface mlx4_en_interface = {
- 	.protocol	= MLX4_PROT_ETH,
- };
- 
-+void mlx4_en_verify_params(void)
-+{
-+	if (pfctx > MAX_PFC_TX) {
-+		pr_warn("mlx4_en: WARNING: illegal module parameter pfctx 0x%x - should be in range 0-0x%x, will be changed to default (0)\n",
-+			pfctx, MAX_PFC_TX);
-+		pfctx = 0;
-+	}
-+
-+	if (pfcrx > MAX_PFC_RX) {
-+		pr_warn("mlx4_en: WARNING: illegal module parameter pfcrx 0x%x - should be in range 0-0x%x, will be changed to default (0)\n",
-+			pfcrx, MAX_PFC_RX);
-+		pfcrx = 0;
-+	}
-+
-+	if (inline_thold < MIN_PKT_LEN || inline_thold > MAX_INLINE) {
-+		pr_warn("mlx4_en: WARNING: illegal module parameter inline_thold %d - should be in range %d-%d, will be changed to default (%d)\n",
-+			inline_thold, MIN_PKT_LEN, MAX_INLINE, MAX_INLINE);
-+		inline_thold = MAX_INLINE;
-+	}
-+}
-+
- static int __init mlx4_en_init(void)
- {
-+	mlx4_en_verify_params();
-+
- 	return mlx4_register_interface(&mlx4_en_interface);
- }
- 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 1345703..8dc7637 100644
+index 56e8fbc..69c2fce 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -44,16 +44,6 @@
+@@ -876,7 +876,8 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	skb_tx_timestamp(skb);
  
- #include "mlx4_en.h"
- 
--enum {
--	MAX_INLINE = 104, /* 128 - 16 - 4 - 4 */
--	MAX_BF = 256,
--};
--
--static int inline_thold __read_mostly = MAX_INLINE;
--
--module_param_named(inline_thold, inline_thold, int, 0444);
--MODULE_PARM_DESC(inline_thold, "threshold for using inline data");
--
- int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
- 			   struct mlx4_en_tx_ring **pring, int qpn, u32 size,
- 			   u16 stride, int node, int queue_index)
-@@ -75,8 +65,7 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
- 	ring->size = size;
- 	ring->size_mask = size - 1;
- 	ring->stride = stride;
--
--	inline_thold = min(inline_thold, MAX_INLINE);
-+	ring->inline_thold = priv->prof->inline_thold;
- 
- 	tmp = size * sizeof(struct mlx4_en_tx_info);
- 	ring->tx_info = vmalloc_node(tmp, node);
-@@ -520,7 +509,7 @@ static struct mlx4_en_tx_desc *mlx4_en_bounce_to_desc(struct mlx4_en_priv *priv,
- 	return ring->buf + index * TXBB_SIZE;
- }
- 
--static int is_inline(struct sk_buff *skb, void **pfrag)
-+static int is_inline(int inline_thold, struct sk_buff *skb, void **pfrag)
- {
- 	void *ptr;
- 
-@@ -580,7 +569,7 @@ static int get_real_size(struct sk_buff *skb, struct net_device *dev,
- 		}
- 	} else {
- 		*lso_header_size = 0;
--		if (!is_inline(skb, NULL))
-+		if (!is_inline(priv->prof->inline_thold, skb, NULL))
- 			real_size = CTRL_SIZE + (skb_shinfo(skb)->nr_frags + 1) * DS_SIZE;
- 		else
- 			real_size = inline_size(skb);
-@@ -747,11 +736,11 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 	tx_info->data_offset = (void *)data - (void *)tx_desc;
- 
- 	tx_info->linear = (lso_header_size < skb_headlen(skb) &&
--			   !is_inline(skb, NULL)) ? 1 : 0;
-+			   !is_inline(ring->inline_thold, skb, NULL)) ? 1 : 0;
- 
- 	data += skb_shinfo(skb)->nr_frags + tx_info->linear - 1;
- 
--	if (is_inline(skb, &fragptr)) {
-+	if (is_inline(ring->inline_thold, skb, &fragptr)) {
- 		tx_info->inl = 1;
- 	} else {
- 		/* Map fragments */
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 3c25c7b..2610cc5 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -187,6 +187,13 @@ enum {
- #define GET_AVG_PERF_COUNTER(cnt)	(0)
- #endif /* MLX4_EN_PERF_STAT */
- 
-+/* Constants for TX flow */
-+enum {
-+	MAX_INLINE = 104, /* 128 - 16 - 4 - 4 */
-+	MAX_BF = 256,
-+	MIN_PKT_LEN = 17,
-+};
+ 	if (ring->bf_enabled && desc_size <= MAX_BF && !bounce && !vlan_tx_tag_present(skb)) {
+-		*(__be32 *) (&tx_desc->ctrl.vlan_tag) |= cpu_to_be32(ring->doorbell_qpn);
++		tx_desc->ctrl.bf_qpn |= cpu_to_be32(ring->doorbell_qpn);
 +
- /*
-  * Configurables
-  */
-@@ -271,6 +278,7 @@ struct mlx4_en_tx_ring {
- 	bool bf_enabled;
- 	struct netdev_queue *tx_queue;
- 	int hwtstamp_tx_type;
-+	int inline_thold;
- };
+ 		op_own |= htonl((bf_index & 0xffff) << 8);
+ 		/* Ensure new descirptor hits memory
+ 		* before setting ownership of this descriptor to HW */
+diff --git a/include/linux/mlx4/qp.h b/include/linux/mlx4/qp.h
+index 59f8ba8..b66e761 100644
+--- a/include/linux/mlx4/qp.h
++++ b/include/linux/mlx4/qp.h
+@@ -270,9 +270,14 @@ enum {
  
- struct mlx4_en_rx_desc {
-@@ -346,6 +354,7 @@ struct mlx4_en_port_profile {
- 	u8 tx_pause;
- 	u8 tx_ppp;
- 	int rss_rings;
-+	int inline_thold;
- };
- 
- struct mlx4_en_profile {
+ struct mlx4_wqe_ctrl_seg {
+ 	__be32			owner_opcode;
+-	__be16			vlan_tag;
+-	u8			ins_vlan;
+-	u8			fence_size;
++	union {
++		struct {
++			__be16			vlan_tag;
++			u8			ins_vlan;
++			u8			fence_size;
++		};
++		__be32			bf_qpn;
++	};
+ 	/*
+ 	 * High 24 bits are SRC remote buffer; low 8 bits are flags:
+ 	 * [7]   SO (strong ordering)
 -- 
 1.8.3.4
