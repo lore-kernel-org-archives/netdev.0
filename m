@@ -1,14 +1,14 @@
 From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [iproute2] iplink_bond_slave: show mii_status only once
-Date: Fri, 28 Feb 2014 14:57:17 +0100 (CET)
-Message-ID: <20140228135717.59AECE66B4@unicorn.suse.cz>
+Subject: [PATCH iproute2] iplink_bond_slave: show mii_status only once
+Date: Fri, 28 Feb 2014 14:58:15 +0100 (CET)
+Message-ID: <20140228135815.2C101E66B4@unicorn.suse.cz>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:60435 "EHLO mx2.suse.de"
+Received: from cantor2.suse.de ([195.135.220.15]:60455 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751712AbaB1N5S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Feb 2014 08:57:18 -0500
+	id S1751897AbaB1N6Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Feb 2014 08:58:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
