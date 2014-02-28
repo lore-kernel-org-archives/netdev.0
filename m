@@ -1,256 +1,139 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next v2 3/4] ixgbe: Check config reads for removal
-Date: Fri, 28 Feb 2014 15:48:57 -0800
-Message-ID: <1393631338-18847-4-git-send-email-aaron.f.brown@intel.com>
+Subject: [net-next v2 4/4] ixgbe: implement SIOCGHWTSTAMP ioctl
+Date: Fri, 28 Feb 2014 15:48:58 -0800
+Message-ID: <1393631338-18847-5-git-send-email-aaron.f.brown@intel.com>
 References: <1393631338-18847-1-git-send-email-aaron.f.brown@intel.com>
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Aaron Brown <aaron.f.brown@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:10885 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:11497 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751787AbaB1Xw1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752167AbaB1Xw1 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 28 Feb 2014 18:52:27 -0500
 In-Reply-To: <1393631338-18847-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Configuration space reads should also be checked for removal. So
-add some checks related to config space accesses.
+This patch adds support for the new SIOCGHWTSTAMP ioctl, which enables a
+process to determine the current timestamp configuration. In order to
+implement this, store a copy of the timestamp configuration. In
+addition, we can remove the 'int cmd' parameter as the new set_ts_config
+function doesn't use it. I also fixed a typo in the function
+description.
 
-v2: 
-* Fixed indent
+-v2
+* Only save the settings after validating them
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  | 10 +++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 16 ++++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |  6 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   | 58 +++++++++++++++++++++++--
- 4 files changed, 75 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h      |  5 +++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  4 +++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c  | 23 ++++++++++++++++++-----
+ 3 files changed, 24 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-index 10e563c..15506f0 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index cca13a5..4371ef0 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -765,6 +765,7 @@ struct ixgbe_adapter {
+ 	struct ptp_clock_info ptp_caps;
+ 	struct work_struct ptp_tx_work;
+ 	struct sk_buff *ptp_tx_skb;
++	struct hwtstamp_config tstamp_config;
+ 	unsigned long ptp_tx_start;
+ 	unsigned long last_overflow_check;
+ 	unsigned long last_rx_ptp_check;
+@@ -957,8 +958,8 @@ static inline void ixgbe_ptp_rx_hwtstamp(struct ixgbe_ring *rx_ring,
+ 	rx_ring->last_rx_timestamp = jiffies;
+ }
  
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2013 Intel Corporation.
-+  Copyright(c) 1999 - 2014 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -61,6 +61,9 @@ static void ixgbe_set_pcie_completion_timeout(struct ixgbe_hw *hw)
- 	u32 gcr = IXGBE_READ_REG(hw, IXGBE_GCR);
- 	u16 pcie_devctl2;
- 
-+	if (ixgbe_removed(hw->hw_addr))
-+		return;
-+
- 	/* only take action if timeout value is defaulted to 0 */
- 	if (gcr & IXGBE_GCR_CMPL_TMOUT_MASK)
- 		goto out;
-@@ -79,8 +82,9 @@ static void ixgbe_set_pcie_completion_timeout(struct ixgbe_hw *hw)
- 	 * directly in order to set the completion timeout value for
- 	 * 16ms to 55ms
- 	 */
--	pci_read_config_word(adapter->pdev,
--	                     IXGBE_PCI_DEVICE_CONTROL2, &pcie_devctl2);
-+	pcie_devctl2 = ixgbe_read_pci_cfg_word(hw, IXGBE_PCI_DEVICE_CONTROL2);
-+	if (ixgbe_removed(hw->hw_addr))
-+		return;
- 	pcie_devctl2 |= IXGBE_PCI_DEVICE_CONTROL2_16ms;
- 	pci_write_config_word(adapter->pdev,
- 	                      IXGBE_PCI_DEVICE_CONTROL2, pcie_devctl2);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index 263143f..4456c23 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2013 Intel Corporation.
-+  Copyright(c) 1999 - 2014 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -2487,7 +2487,6 @@ static u32 ixgbe_pcie_timeout_poll(struct ixgbe_hw *hw)
-  **/
- static s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw)
- {
--	struct ixgbe_adapter *adapter = hw->back;
- 	s32 status = 0;
- 	u32 i, poll;
- 	u16 value;
-@@ -2496,7 +2495,8 @@ static s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw)
- 	IXGBE_WRITE_REG(hw, IXGBE_CTRL, IXGBE_CTRL_GIO_DIS);
- 
- 	/* Exit if master requests are blocked */
--	if (!(IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_GIO))
-+	if (!(IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_GIO) ||
-+	    ixgbe_removed(hw->hw_addr))
- 		goto out;
- 
- 	/* Poll for master request bit to clear */
-@@ -2524,8 +2524,9 @@ static s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw)
- 	poll = ixgbe_pcie_timeout_poll(hw);
- 	for (i = 0; i < poll; i++) {
- 		udelay(100);
--		pci_read_config_word(adapter->pdev, IXGBE_PCI_DEVICE_STATUS,
--							 &value);
-+		value = ixgbe_read_pci_cfg_word(hw, IXGBE_PCI_DEVICE_STATUS);
-+		if (ixgbe_removed(hw->hw_addr))
-+			goto out;
- 		if (!(value & IXGBE_PCI_DEVICE_STATUS_TRANSACTION_PENDING))
- 			goto out;
- 	}
-@@ -2867,7 +2868,6 @@ san_mac_addr_clr:
-  **/
- u16 ixgbe_get_pcie_msix_count_generic(struct ixgbe_hw *hw)
- {
--	struct ixgbe_adapter *adapter = hw->back;
- 	u16 msix_count = 1;
- 	u16 max_msix_count;
- 	u16 pcie_offset;
-@@ -2886,7 +2886,9 @@ u16 ixgbe_get_pcie_msix_count_generic(struct ixgbe_hw *hw)
- 		return msix_count;
- 	}
- 
--	pci_read_config_word(adapter->pdev, pcie_offset, &msix_count);
-+	msix_count = ixgbe_read_pci_cfg_word(hw, pcie_offset);
-+	if (ixgbe_removed(hw->hw_addr))
-+		msix_count = 0;
- 	msix_count &= IXGBE_PCIE_MSIX_TBL_SZ_MASK;
- 
- 	/* MSI-X count is zero-based in HW */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-index a042db2..ef0fd4c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2013 Intel Corporation.
-+  Copyright(c) 1999 - 2014 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -128,6 +128,10 @@ s32 ixgbe_get_thermal_sensor_data_generic(struct ixgbe_hw *hw);
- s32 ixgbe_init_thermal_sensor_thresh_generic(struct ixgbe_hw *hw);
- 
- #define IXGBE_FAILED_READ_REG 0xffffffffU
-+#define IXGBE_FAILED_READ_CFG_DWORD 0xffffffffU
-+#define IXGBE_FAILED_READ_CFG_WORD 0xffffU
-+
-+u16 ixgbe_read_pci_cfg_word(struct ixgbe_hw *hw, u32 reg);
- 
- static inline bool ixgbe_removed(void __iomem *addr)
- {
+-int ixgbe_ptp_hwtstamp_ioctl(struct ixgbe_adapter *adapter, struct ifreq *ifr,
+-			     int cmd);
++int ixgbe_ptp_set_ts_config(struct ixgbe_adapter *adapter, struct ifreq *ifr);
++int ixgbe_ptp_get_ts_config(struct ixgbe_adapter *adapter, struct ifreq *ifr);
+ void ixgbe_ptp_start_cyclecounter(struct ixgbe_adapter *adapter);
+ void ixgbe_ptp_reset(struct ixgbe_adapter *adapter);
+ void ixgbe_ptp_check_pps_event(struct ixgbe_adapter *adapter, u32 eicr);
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 3d576b2..7280743 100644
+index 7280743..10b35d8 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -151,6 +151,8 @@ MODULE_DESCRIPTION("Intel(R) 10 Gigabit PCI Express Network Driver");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(DRV_VERSION);
+@@ -7197,7 +7197,9 @@ static int ixgbe_ioctl(struct net_device *netdev, struct ifreq *req, int cmd)
  
-+static bool ixgbe_check_cfg_remove(struct ixgbe_hw *hw, struct pci_dev *pdev);
-+
- static int ixgbe_read_pci_cfg_word_parent(struct ixgbe_adapter *adapter,
- 					  u32 reg, u16 *value)
- {
-@@ -169,6 +171,9 @@ static int ixgbe_read_pci_cfg_word_parent(struct ixgbe_adapter *adapter,
- 		return -1;
- 
- 	pcie_capability_read_word(parent_dev, reg, value);
-+	if (*value == IXGBE_FAILED_READ_CFG_WORD &&
-+	    ixgbe_check_cfg_remove(&adapter->hw, parent_dev))
-+		return -1;
- 	return 0;
+ 	switch (cmd) {
+ 	case SIOCSHWTSTAMP:
+-		return ixgbe_ptp_hwtstamp_ioctl(adapter, req, cmd);
++		return ixgbe_ptp_set_ts_config(adapter, req);
++	case SIOCGHWTSTAMP:
++		return ixgbe_ptp_get_ts_config(adapter, req);
+ 	default:
+ 		return mdio_mii_ioctl(&adapter->hw.phy.mdio, if_mii(req), cmd);
+ 	}
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
+index 9e54fcc..9ef730f 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
+@@ -576,14 +576,21 @@ void __ixgbe_ptp_rx_hwtstamp(struct ixgbe_q_vector *q_vector,
+ 	shhwtstamps->hwtstamp = ns_to_ktime(ns);
  }
  
-@@ -313,6 +318,48 @@ void ixgbe_check_remove(struct ixgbe_hw *hw, u32 reg)
- 		ixgbe_remove_adapter(hw);
- }
- 
-+static bool ixgbe_check_cfg_remove(struct ixgbe_hw *hw, struct pci_dev *pdev)
++int ixgbe_ptp_get_ts_config(struct ixgbe_adapter *adapter, struct ifreq *ifr)
 +{
-+	u16 value;
++	struct hwtstamp_config *config = &adapter->tstamp_config;
 +
-+	pci_read_config_word(pdev, PCI_VENDOR_ID, &value);
-+	if (value == IXGBE_FAILED_READ_CFG_WORD) {
-+		ixgbe_remove_adapter(hw);
-+		return true;
-+	}
-+	return false;
++	return copy_to_user(ifr->ifr_data, config,
++			    sizeof(*config)) ? -EFAULT : 0;
 +}
 +
-+u16 ixgbe_read_pci_cfg_word(struct ixgbe_hw *hw, u32 reg)
-+{
-+	struct ixgbe_adapter *adapter = hw->back;
-+	u16 value;
-+
-+	if (ixgbe_removed(hw->hw_addr))
-+		return IXGBE_FAILED_READ_CFG_WORD;
-+	pci_read_config_word(adapter->pdev, reg, &value);
-+	if (value == IXGBE_FAILED_READ_CFG_WORD &&
-+	    ixgbe_check_cfg_remove(hw, adapter->pdev))
-+		return IXGBE_FAILED_READ_CFG_WORD;
-+	return value;
-+}
-+
-+#ifdef CONFIG_PCI_IOV
-+static u32 ixgbe_read_pci_cfg_dword(struct ixgbe_hw *hw, u32 reg)
-+{
-+	struct ixgbe_adapter *adapter = hw->back;
-+	u32 value;
-+
-+	if (ixgbe_removed(hw->hw_addr))
-+		return IXGBE_FAILED_READ_CFG_DWORD;
-+	pci_read_config_dword(adapter->pdev, reg, &value);
-+	if (value == IXGBE_FAILED_READ_CFG_DWORD &&
-+	    ixgbe_check_cfg_remove(hw, adapter->pdev))
-+		return IXGBE_FAILED_READ_CFG_DWORD;
-+	return value;
-+}
-+#endif /* CONFIG_PCI_IOV */
-+
- static void ixgbe_service_event_complete(struct ixgbe_adapter *adapter)
+ /**
+- * ixgbe_ptp_hwtstamp_ioctl - control hardware time stamping
++ * ixgbe_ptp_set_ts_config - control hardware time stamping
+  * @adapter: pointer to adapter struct
+  * @ifreq: ioctl data
+- * @cmd: particular ioctl requested
+  *
+  * Outgoing time stamping can be enabled and disabled. Play nice and
+- * disable it when requested, although it shouldn't case any overhead
++ * disable it when requested, although it shouldn't cause any overhead
+  * when no packet needs it. At most one packet in the queue may be
+  * marked for time stamping, otherwise it would be impossible to tell
+  * for sure to which packet the hardware time stamp belongs.
+@@ -599,8 +606,7 @@ void __ixgbe_ptp_rx_hwtstamp(struct ixgbe_q_vector *q_vector,
+  * Event mode. This more accurately tells the user what the hardware is going
+  * to do anyways.
+  */
+-int ixgbe_ptp_hwtstamp_ioctl(struct ixgbe_adapter *adapter,
+-			     struct ifreq *ifr, int cmd)
++int ixgbe_ptp_set_ts_config(struct ixgbe_adapter *adapter, struct ifreq *ifr)
  {
- 	BUG_ON(!test_bit(__IXGBE_SERVICE_SCHED, &adapter->state));
-@@ -8339,6 +8386,7 @@ static pci_ers_result_t ixgbe_io_error_detected(struct pci_dev *pdev,
- 	struct net_device *netdev = adapter->netdev;
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	struct hwtstamp_config config;
+@@ -702,6 +708,10 @@ int ixgbe_ptp_hwtstamp_ioctl(struct ixgbe_adapter *adapter,
+ 	regval = IXGBE_READ_REG(hw, IXGBE_TXSTMPH);
+ 	regval = IXGBE_READ_REG(hw, IXGBE_RXSTMPH);
  
- #ifdef CONFIG_PCI_IOV
-+	struct ixgbe_hw *hw = &adapter->hw;
- 	struct pci_dev *bdev, *vfdev;
- 	u32 dw0, dw1, dw2, dw3;
- 	int vf, pos;
-@@ -8359,10 +8407,12 @@ static pci_ers_result_t ixgbe_io_error_detected(struct pci_dev *pdev,
- 	if (!pos)
- 		goto skip_bad_vf_detection;
++	/* save these settings for future reference */
++	memcpy(&adapter->tstamp_config, &config,
++	       sizeof(adapter->tstamp_config));
++
+ 	return copy_to_user(ifr->ifr_data, &config, sizeof(config)) ?
+ 		-EFAULT : 0;
+ }
+@@ -809,6 +819,9 @@ void ixgbe_ptp_reset(struct ixgbe_adapter *adapter)
+ 	IXGBE_WRITE_REG(hw, IXGBE_SYSTIMH, 0x00000000);
+ 	IXGBE_WRITE_FLUSH(hw);
  
--	pci_read_config_dword(bdev, pos + PCI_ERR_HEADER_LOG, &dw0);
--	pci_read_config_dword(bdev, pos + PCI_ERR_HEADER_LOG + 4, &dw1);
--	pci_read_config_dword(bdev, pos + PCI_ERR_HEADER_LOG + 8, &dw2);
--	pci_read_config_dword(bdev, pos + PCI_ERR_HEADER_LOG + 12, &dw3);
-+	dw0 = ixgbe_read_pci_cfg_dword(hw, pos + PCI_ERR_HEADER_LOG);
-+	dw1 = ixgbe_read_pci_cfg_dword(hw, pos + PCI_ERR_HEADER_LOG + 4);
-+	dw2 = ixgbe_read_pci_cfg_dword(hw, pos + PCI_ERR_HEADER_LOG + 8);
-+	dw3 = ixgbe_read_pci_cfg_dword(hw, pos + PCI_ERR_HEADER_LOG + 12);
-+	if (ixgbe_removed(hw->hw_addr))
-+		goto skip_bad_vf_detection;
++	/* Reset the saved tstamp_config */
++	memset(&adapter->tstamp_config, 0, sizeof(adapter->tstamp_config));
++
+ 	ixgbe_ptp_start_cyclecounter(adapter);
  
- 	req_id = dw1 >> 16;
- 	/* On the 82599 if bit 7 of the requestor ID is set then it's a VF */
+ 	spin_lock_irqsave(&adapter->tmreg_lock, flags);
 -- 
 1.8.5.GIT
