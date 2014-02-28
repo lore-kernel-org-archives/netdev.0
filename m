@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC 10/12] vti6: Support inter address family tunneling.
-Date: Fri, 28 Feb 2014 11:31:20 +0100
-Message-ID: <1393583483-12480-11-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH RFC 09/12] xfrm6: Remove xfrm_tunnel_notifier
+Date: Fri, 28 Feb 2014 11:31:19 +0100
+Message-ID: <1393583483-12480-10-git-send-email-steffen.klassert@secunet.com>
 References: <1393583483-12480-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,123 +9,136 @@ Cc: Steffen Klassert <steffen.klassert@secunet.com>,
 	Christophe Gouault <christophe.gouault@6wind.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:49025 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:49027 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751140AbaB1Kbo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Feb 2014 05:31:44 -0500
+	id S1751660AbaB1Kbq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Feb 2014 05:31:46 -0500
 In-Reply-To: <1393583483-12480-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With this patch we can tunnel ipv4 traffic via a vti6
-interface. A vti6 interface can now have an ipv4 address
-and ipv4 traffic can be routed via a vti6 interface.
-The resulting traffic is xfrm transformed and tunneled
-through ipv6 if matching IPsec policies and states are
-present.
+This was used from vti and is replaced by the IPsec protocol
+multiplexer hooks. It is now unused, so remove it.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/ipv6/ip6_vti.c |   48 +++++++++++++++++++++++++++++++++---------------
- 1 file changed, 33 insertions(+), 15 deletions(-)
+ include/net/xfrm.h           |    8 ------
+ net/ipv6/xfrm6_mode_tunnel.c |   63 ------------------------------------------
+ 2 files changed, 71 deletions(-)
 
-diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-index 6b919bc..6193e44 100644
---- a/net/ipv6/ip6_vti.c
-+++ b/net/ipv6/ip6_vti.c
-@@ -381,30 +381,22 @@ vti6_addr_conflict(const struct ip6_tnl *t, const struct ipv6hdr *hdr)
-  * vti6_xmit - send a packet
-  *   @skb: the outgoing socket buffer
-  *   @dev: the outgoing tunnel device
-+ *   @fl: the flow informations for the xfrm_lookup
-  **/
--static int vti6_xmit(struct sk_buff *skb, struct net_device *dev)
-+static int
-+vti6_xmit(struct sk_buff *skb, struct net_device *dev, struct flowi *fl)
- {
- 	struct ip6_tnl *t = netdev_priv(dev);
- 	struct net_device_stats *stats = &t->dev->stats;
- 	struct dst_entry *dst = skb_dst(skb);
--	struct flowi fl;
--	struct ipv6hdr *ipv6h = ipv6_hdr(skb);
- 	struct net_device *tdev;
- 	int err = -1;
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 60df20a..cb795f1 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1393,12 +1393,6 @@ struct xfrm_tunnel {
+ 	int priority;
+ };
  
--	if ((t->parms.proto != IPPROTO_IPV6 && t->parms.proto != 0) ||
--	    !ip6_tnl_xmit_ctl(t) || vti6_addr_conflict(t, ipv6h))
--		return err;
+-struct xfrm_tunnel_notifier {
+-	int (*handler)(struct sk_buff *skb);
+-	struct xfrm_tunnel_notifier __rcu *next;
+-	int priority;
+-};
 -
--	memset(&fl, 0, sizeof(fl));
--	skb->mark = be32_to_cpu(t->parms.o_key);
--	xfrm_decode_session(skb, &fl, AF_INET6);
+ struct xfrm6_tunnel {
+ 	int (*handler)(struct sk_buff *skb);
+ 	int (*err_handler)(struct sk_buff *skb, struct inet6_skb_parm *opt,
+@@ -1554,8 +1548,6 @@ int xfrm4_protocol_deregister(struct xfrm4_protocol *handler, unsigned char prot
+ int xfrm4_tunnel_register(struct xfrm_tunnel *handler, unsigned short family);
+ int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler, unsigned short family);
+ void xfrm4_local_error(struct sk_buff *skb, u32 mtu);
+-int xfrm6_mode_tunnel_input_register(struct xfrm_tunnel_notifier *handler);
+-int xfrm6_mode_tunnel_input_deregister(struct xfrm_tunnel_notifier *handler);
+ int xfrm6_extract_header(struct sk_buff *skb);
+ int xfrm6_extract_input(struct xfrm_state *x, struct sk_buff *skb);
+ int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi);
+diff --git a/net/ipv6/xfrm6_mode_tunnel.c b/net/ipv6/xfrm6_mode_tunnel.c
+index cb04f7a..901ef6f 100644
+--- a/net/ipv6/xfrm6_mode_tunnel.c
++++ b/net/ipv6/xfrm6_mode_tunnel.c
+@@ -18,65 +18,6 @@
+ #include <net/ipv6.h>
+ #include <net/xfrm.h>
+ 
+-/* Informational hook. The decap is still done here. */
+-static struct xfrm_tunnel_notifier __rcu *rcv_notify_handlers __read_mostly;
+-static DEFINE_MUTEX(xfrm6_mode_tunnel_input_mutex);
 -
- 	if (!dst)
- 		goto tx_err_link_failure;
- 
- 	dst_hold(dst);
--	dst = xfrm_lookup(t->net, dst, &fl, NULL, 0);
-+	dst = xfrm_lookup(t->net, dst, fl, NULL, 0);
- 	if (IS_ERR(dst)) {
- 		err = PTR_ERR(dst);
- 		dst = NULL;
-@@ -423,12 +415,21 @@ static int vti6_xmit(struct sk_buff *skb, struct net_device *dev)
- 		goto tx_err_dst_release;
- 	}
- 
--	memset(IP6CB(skb), 0, sizeof(*IP6CB(skb)));
- 	skb_scrub_packet(skb, !net_eq(t->net, dev_net(dev)));
- 	skb_dst_set(skb, dst);
- 	skb->dev = skb_dst(skb)->dev;
- 
--	ip6tunnel_xmit(skb, dev);
-+	err = dst_output(skb);
-+	if (net_xmit_eval(err) == 0) {
-+		struct pcpu_sw_netstats *tstats = this_cpu_ptr(dev->tstats);
-+		u64_stats_update_begin(&tstats->syncp);
-+		tstats->tx_bytes += skb->len;
-+		tstats->tx_packets++;
-+		u64_stats_update_end(&tstats->syncp);
-+	} else {
-+		stats->tx_errors++;
-+		stats->tx_aborted_errors++;
-+	}
- 
- 	return 0;
- tx_err_link_failure:
-@@ -444,16 +445,33 @@ vti6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+-int xfrm6_mode_tunnel_input_register(struct xfrm_tunnel_notifier *handler)
+-{
+-	struct xfrm_tunnel_notifier __rcu **pprev;
+-	struct xfrm_tunnel_notifier *t;
+-	int ret = -EEXIST;
+-	int priority = handler->priority;
+-
+-	mutex_lock(&xfrm6_mode_tunnel_input_mutex);
+-
+-	for (pprev = &rcv_notify_handlers;
+-	     (t = rcu_dereference_protected(*pprev,
+-	     lockdep_is_held(&xfrm6_mode_tunnel_input_mutex))) != NULL;
+-	     pprev = &t->next) {
+-		if (t->priority > priority)
+-			break;
+-		if (t->priority == priority)
+-			goto err;
+-
+-	}
+-
+-	handler->next = *pprev;
+-	rcu_assign_pointer(*pprev, handler);
+-
+-	ret = 0;
+-
+-err:
+-	mutex_unlock(&xfrm6_mode_tunnel_input_mutex);
+-	return ret;
+-}
+-EXPORT_SYMBOL_GPL(xfrm6_mode_tunnel_input_register);
+-
+-int xfrm6_mode_tunnel_input_deregister(struct xfrm_tunnel_notifier *handler)
+-{
+-	struct xfrm_tunnel_notifier __rcu **pprev;
+-	struct xfrm_tunnel_notifier *t;
+-	int ret = -ENOENT;
+-
+-	mutex_lock(&xfrm6_mode_tunnel_input_mutex);
+-	for (pprev = &rcv_notify_handlers;
+-	     (t = rcu_dereference_protected(*pprev,
+-	     lockdep_is_held(&xfrm6_mode_tunnel_input_mutex))) != NULL;
+-	     pprev = &t->next) {
+-		if (t == handler) {
+-			*pprev = handler->next;
+-			ret = 0;
+-			break;
+-		}
+-	}
+-	mutex_unlock(&xfrm6_mode_tunnel_input_mutex);
+-	synchronize_net();
+-
+-	return ret;
+-}
+-EXPORT_SYMBOL_GPL(xfrm6_mode_tunnel_input_deregister);
+-
+ static inline void ipip6_ecn_decapsulate(struct sk_buff *skb)
  {
- 	struct ip6_tnl *t = netdev_priv(dev);
- 	struct net_device_stats *stats = &t->dev->stats;
-+	struct ipv6hdr *ipv6h;
-+	struct flowi fl;
- 	int ret;
+ 	const struct ipv6hdr *outer_iph = ipv6_hdr(skb);
+@@ -130,7 +71,6 @@ static int xfrm6_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
  
-+	memset(&fl, 0, sizeof(fl));
-+	skb->mark = be32_to_cpu(t->parms.o_key);
-+
- 	switch (skb->protocol) {
- 	case htons(ETH_P_IPV6):
--		ret = vti6_xmit(skb, dev);
-+		ipv6h = ipv6_hdr(skb);
-+
-+		if ((t->parms.proto != IPPROTO_IPV6 && t->parms.proto != 0) ||
-+		    !ip6_tnl_xmit_ctl(t) || vti6_addr_conflict(t, ipv6h))
-+			goto tx_err;
-+
-+		xfrm_decode_session(skb, &fl, AF_INET6);
-+		memset(IP6CB(skb), 0, sizeof(*IP6CB(skb)));
-+		break;
-+	case htons(ETH_P_IP):
-+		xfrm_decode_session(skb, &fl, AF_INET);
-+		memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
- 		break;
- 	default:
- 		goto tx_err;
- 	}
+ static int xfrm6_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
+ {
+-	struct xfrm_tunnel_notifier *handler;
+ 	int err = -EINVAL;
  
-+	ret = vti6_xmit(skb, dev, &fl);
- 	if (ret < 0)
- 		goto tx_err;
+ 	if (XFRM_MODE_SKB_CB(skb)->protocol != IPPROTO_IPV6)
+@@ -138,9 +78,6 @@ static int xfrm6_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
+ 		goto out;
  
+-	for_each_input_rcu(rcv_notify_handlers, handler)
+-		handler->handler(skb);
+-
+ 	err = skb_unclone(skb, GFP_ATOMIC);
+ 	if (err)
+ 		goto out;
 -- 
 1.7.9.5
