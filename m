@@ -1,87 +1,63 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH V5 net-next 4/5] xen-netfront: Add support for multiple
- queues
-Date: Fri, 28 Feb 2014 16:13:29 +0000
-Message-ID: <20140228161329.GQ16241@zion.uk.xensource.com>
-References: <1393252387-17496-1-git-send-email-andrew.bennieston@citrix.com>
- <1393252387-17496-5-git-send-email-andrew.bennieston@citrix.com>
- <20140228152250.GP16241@zion.uk.xensource.com>
- <5310B390.1060604@citrix.com>
+From: "'gregkh@linuxfoundation.org'" <gregkh@linuxfoundation.org>
+Subject: Re: change kmalloc into vmalloc for large memory
+	allocations
+Date: Fri, 28 Feb 2014 08:33:04 -0800
+Message-ID: <20140228163304.GA15614@kroah.com>
+References: <35FD53F367049845BC99AC72306C23D102844605F38C@CNBJMBX05.corpusers.net>
+ <53104ECA.4010702@freescale.com>
+ <35FD53F367049845BC99AC72306C23D102844605F38D@CNBJMBX05.corpusers.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<ian.campbell@citrix.com>, <paul.durrant@citrix.com>,
-	<netdev@vger.kernel.org>
-To: Andrew Bennieston <andrew.bennieston@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:30971 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752155AbaB1QNb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Feb 2014 11:13:31 -0500
+Content-Transfer-Encoding: 7bit
+Cc: "'alsa-devel@alsa-project.org'" <alsa-devel@alsa-project.org>,
+ "'broonie@opensource.wolfsonmicro.com'"
+ <broonie@opensource.wolfsonmicro.com>, "'tiwai@suse.de'" <tiwai@suse.de>,
+ "'fweisbec@gmail.com'" <fweisbec@gmail.com>,
+ "'mingo@redhat.com'" <mingo@redhat.com>,
+ "'linux-input@vger.kernel.org'" <linux-input@vger.kernel.org>,
+ "'rydberg@euromail.se'" <rydberg@euromail.se>, "'lrg@ti.com'" <lrg@ti.com>,
+ "'pablo@netfilter.org'" <pablo@netfilter.org>,
+ "'coreteam@netfilter.org'" <coreteam@netfilter.org>,
+ "'linux-arm-msm@vger.kernel.org'" <linux-arm-msm@vger.kernel.org>,
+ "'rostedt@goodmis.org'" <rostedt@goodmis.org>,
+ "'netfilter@vger.kernel.org'" <netfilter@vger.kernel.org>,
+ "'linux-arm-kernel@lists.infradead.org'"
+ <linux-arm-kernel@lists.infradead.org>,
+ "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
+ "'dmitry.torokhov@gmail.com'" <dmitry.torokhov@gmail.com>,
+ "'linux-kern
+To: "Wang, Yalin" <Yalin.Wang@sonymobile.com>
+Return-path: <alsa-devel-bounces@alsa-project.org>
 Content-Disposition: inline
-In-Reply-To: <5310B390.1060604@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <35FD53F367049845BC99AC72306C23D102844605F38D@CNBJMBX05.corpusers.net>
+List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
+List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
+List-Post: <mailto:alsa-devel@alsa-project.org>
+List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
+List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
+Errors-To: alsa-devel-bounces@alsa-project.org
+Sender: alsa-devel-bounces@alsa-project.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 28, 2014 at 04:04:32PM +0000, Andrew Bennieston wrote:
-> On 28/02/14 15:22, Wei Liu wrote:
-> >On Mon, Feb 24, 2014 at 02:33:06PM +0000, Andrew J. Bennieston wrote:
-> >>From: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
-> >>
-> >>Build on the refactoring of the previous patch to implement multiple
-> >>queues between xen-netfront and xen-netback.
-> >>
-> >>Check XenStore for multi-queue support, and set up the rings and event
-> >>channels accordingly.
-> >>
-> >>Write ring references and event channels to XenStore in a queue
-> >>hierarchy if appropriate, or flat when using only one queue.
-> >>
-> >>Update the xennet_select_queue() function to choose the queue on which
-> >>to transmit a packet based on the skb hash result.
-> >>
-> >>Signed-off-by: Andrew J. Bennieston <andrew.bennieston@citrix.com>
-> >>---
-> >>  drivers/net/xen-netfront.c |  178 ++++++++++++++++++++++++++++++++++----------
-> >>  1 file changed, 140 insertions(+), 38 deletions(-)
-> >>
-> >>diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> >>index 4f5a431..470d6ed 100644
-> >>--- a/drivers/net/xen-netfront.c
-> >>+++ b/drivers/net/xen-netfront.c
-> >>@@ -57,6 +57,12 @@
-> >>  #include <xen/interface/memory.h>
-> >>  #include <xen/interface/grant_table.h>
-> >>
-> >>+/* Module parameters */
-> >>+unsigned int xennet_max_queues;
-> >>+module_param(xennet_max_queues, uint, 0644);
-> >>+MODULE_PARM_DESC(xennet_max_queues,
-> >>+		"Maximum number of queues per virtual interface");
-> >>+
-> >
-> >Maybe I'm nit-picking here. But I think exposing xennet_max_queues as
-> >sysfs knob in frontend v.s. xenvif_max_queues in backend doesn't look
-> >very good to me -- userspace tools would need to query different knobs
-> >in frontend and backend. I think it makes sense to use a unified name in
-> >both frontend and backend.
-> >
-> >You can either use xenvif_max_queues as backend does or even just
-> >max_queues for both frontend and backend.
-> They already have to look in a different place, /sys/module/xen_netback
-> vs /sys/module/xen_netfront, so having a different param. name as well
-> isn't really a problem...
+On Fri, Feb 28, 2014 at 05:20:08PM +0800, Wang, Yalin wrote:
+> Hi  
 > 
-
-Cool. I think both frontend and backend use max_queues will be
-sufficient and more concise, since the path in sysfs is quite
-straightforward. Take netback as example, the existing parameter don't
-have xenvif_ prefix.
-
-Wei.
-
-> -Andrew
 > 
-> >
-> >Wei.
-> >
+> Yeah,  
+> Dma buffer must be allocated by kmalloc,
+> 
+> But the modules I list should can all be changed to use
+> vmalloc, because the buffer is only used by software,
+> Not by any hardware .
+
+Are you sure about that?  The USB gadget driver needs DMA memory from
+what I can tell, have you tried your change out on a system that does
+not allow the USB controller to access non-DMA memory?
+
+And I agree with Steve, just fix the individual drivers, don't do a
+"hidden" change of where the memory is allocated from, that's not a good
+idea and will cause problems later.
+
+greg k-h
