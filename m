@@ -1,116 +1,27 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH] vhost: poll vhost_net only when tx notification is enabled
-Date: Fri, 28 Feb 2014 15:49:22 +0800
-Message-ID: <53103F82.7000904@redhat.com>
-References: <530DB1C9.2060106@huawei.com> <20140226111645.GC5236@redhat.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next 0/2] vlan: fix ns issue and slight optimization
+Date: Fri, 28 Feb 2014 15:50:37 +0800
+Message-ID: <1393573839-32316-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	KVM list <kvm@vger.kernel.org>, zhangjie14@huawei.com
-To: "Michael S. Tsirkin" <mst@redhat.com>,
-	Qin Chuanyu <qinchuanyu@huawei.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20140226111645.GC5236@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <joe@perches.com>, <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <kaber@trash.net>, <julia.lawall@lip6.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:57093 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750873AbaB1HvI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 02:51:08 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/26/2014 07:16 PM, Michael S. Tsirkin wrote:
-> Please see MAINTAINERS and copy all relevant lists.
->
-> On Wed, Feb 26, 2014 at 05:20:09PM +0800, Qin Chuanyu wrote:
->> guest kick host base on avail_ring flags value and get perfermance
-> typo
->
->> improved, vhost_zerocopy_callback could do the same thing. As
->> virtqueue_enable_cb need one more check after modifying the value of
->> avail_ring flags, vhost also need do the same thing after
->> vhost_enable_notify.
->>
->> test result list as below:
->> guest and host: suse11sp3, netperf, intel CPU 2.4GHz
->> +------+----------+--------+----------+--------+--------+---------+
->> |      |             old              |            new            |
->> +------+----------+--------+----------+--------+--------+---------+
->> | UDP  |  Gbit/s  |  PPS   |CPU idle% | Gbit/s |   PPS  |CPU idle%|
->> | 256  | 0.74805  | 321309 |  87.16   | 0.77933| 334743 |  90.71  |
->> | 512  |   1.42   | 328475 |  87.03   |  1.44  | 333550 |  90.43  |
->> | 1024 |   2.79   | 334426 |  89.09   |  2.81  | 336986 |  89.55  |
->> | 1460 |   3.71   | 316215 |  87.53   |  4.02  | 342325 |  89.58  |
->> +------+----------+--------+----------+--------+--------+---------+
->>
->> Signed-off-by: Chuanyu Qin <qinchuanyu@huawei.com>
-> It's an interesting optimization, thanks!
-> However, it looks like this might delay
-> updating used ring indefinitely if we are
-> unlucky. Some guests (e.g. windows)
-> tend to crash if this happens.
+Ding Tianhong (2):
+  vlan: don't allow vlan device to move between network namespaces
+  vlan: use ether_addr_equal_64bits to instead of ether_addr_equal
 
-Looks like it does not change this.
+ net/8021q/vlan.c      | 10 +++++-----
+ net/8021q/vlan_core.c |  2 +-
+ net/8021q/vlan_dev.c  | 13 ++++++++-----
+ 3 files changed, 14 insertions(+), 11 deletions(-)
 
-When tx notification is disabled, it means handle_tx() is running which
-will update the used ring before each tx descriptor fetching. And the
-patch does used updating after each time when tx notification is enabled.
->
-> Maybe use a new flag for this?
->
-> It also looks like there are potential race conditions below.
->
->> ---
->>  drivers/vhost/net.c |   13 ++++++++++++-
->>  1 files changed, 12 insertions(+), 1 deletions(-)
->>
->> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
->> index a0fa5de..a90f51b 100644
->> --- a/drivers/vhost/net.c
->> +++ b/drivers/vhost/net.c
->> @@ -315,6 +315,10 @@ static void vhost_zerocopy_callback(struct
->> ubuf_info *ubuf, bool success)
->>  		VHOST_DMA_DONE_LEN : VHOST_DMA_FAILED_LEN;
->>  	cnt = vhost_net_ubuf_put(ubufs);
->>
->> +	/* make sure len has been updated because handle_tx would use it
->> +	 * and used_flags should also been checked.
->> +	 */
->> +	smp_mb();
->>  	/*
->>  	 * Trigger polling thread if guest stopped submitting new buffers:
->>  	 * in this case, the refcount after decrement will eventually reach 1.
-> this barrier is very suspect.
->
->> @@ -322,7 +326,8 @@ static void vhost_zerocopy_callback(struct
->> ubuf_info *ubuf, bool success)
->>  	 * (the value 16 here is more or less arbitrary, it's tuned to trigger
->>  	 * less than 10% of times).
->>  	 */
->> -	if (cnt <= 1 || !(cnt % 16))
->> +	if ((!(vq->used_flags & VRING_USED_F_NO_NOTIFY))
->> +			&& (cnt <= 1 || !(cnt % 16)))
->>  		vhost_poll_queue(&vq->poll);
->>
->>  	rcu_read_unlock_bh();
-> looks like a potential race to me
-
-Could you please explain the race a little bit more?
->> @@ -386,6 +391,12 @@ static void handle_tx(struct vhost_net *net)
->>  				vhost_disable_notify(&net->dev, vq);
->>  				continue;
->>  			}
->> +			/* there might skb been freed between last
->> +			* vhost_zerocopy_signal_used and vhost_enable_notify,
->> +			* so one more check is needed.
->> +			*/
->> +			if (zcopy)
->> +				vhost_zerocopy_signal_used(net, vq);
->
->>  			break;
->>  		}
->>  		if (in) {
->> -- 
->> 1.7.3.1.msysgit.0
->>
-> --
-> To unsubscribe from this list: send the line "unsubscribe kvm" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+-- 
+1.8.0
