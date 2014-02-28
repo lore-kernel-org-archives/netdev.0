@@ -1,41 +1,75 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next v2 0/4]
-Date: Fri, 28 Feb 2014 15:48:54 -0800
-Message-ID: <1393631338-18847-1-git-send-email-aaron.f.brown@intel.com>
-Cc: Aaron Brown <aaron.f.brown@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next v2 2/4] ixgbe: Fix up some ethtool results when adapter is removed
+Date: Fri, 28 Feb 2014 15:48:56 -0800
+Message-ID: <1393631338-18847-3-git-send-email-aaron.f.brown@intel.com>
+References: <1393631338-18847-1-git-send-email-aaron.f.brown@intel.com>
+Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Aaron Brown <aaron.f.brown@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:11497 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751723AbaB1XwZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Feb 2014 18:52:25 -0500
+	id S1751723AbaB1Xw0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Feb 2014 18:52:26 -0500
+In-Reply-To: <1393631338-18847-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mark updates ixgbe for LER / adapter removal.  He restores the HW
-address in the recovery path so the device is not perpetually removed,
-fixes up some removed state ethtool results and adds checks related to
-config space access.
+From: Mark Rustad <mark.d.rustad@intel.com>
 
-Jacob adds support for the new SIOCGHWTSTAMP ioctl.
+Some ethtool tests returned apparently good results when the
+adapter was in a removed state. Fix that by checking for removal.
+This also fixes two paths that could return uninitialized memory
+in data[4].
 
-Mark Rustad (3):
-  ixgbe: Restore hw_addr in LER recovery paths
-  ixgbe: Fix up some ethtool results when adapter is removed
-  ixgbe: Check config reads for removal
+Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-Jacob Keller (1):
-  ixgbe: implement SIOCGHWTSTAMP ioctl
-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |  5 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c   | 10 ++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  | 16 +++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h  |  6 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  9 +++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 68 +++++++++++++++++++++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c     | 23 ++++++--
- 7 files changed, 111 insertions(+), 26 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index 0433070..f2d35c0 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+ 
+   Intel 10 Gigabit PCI Express Linux driver
+-  Copyright(c) 1999 - 2013 Intel Corporation.
++  Copyright(c) 1999 - 2014 Intel Corporation.
+ 
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+@@ -1247,6 +1247,11 @@ static int ixgbe_link_test(struct ixgbe_adapter *adapter, u64 *data)
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	bool link_up;
+ 	u32 link_speed = 0;
++
++	if (ixgbe_removed(hw->hw_addr)) {
++		*data = 1;
++		return 1;
++	}
+ 	*data = 0;
+ 
+ 	hw->mac.ops.check_link(hw, &link_speed, &link_up, true);
+@@ -1969,6 +1974,7 @@ static void ixgbe_diag_test(struct net_device *netdev,
+ 		data[1] = 1;
+ 		data[2] = 1;
+ 		data[3] = 1;
++		data[4] = 1;
+ 		eth_test->flags |= ETH_TEST_FL_FAILED;
+ 		return;
+ 	}
+@@ -1988,6 +1994,7 @@ static void ixgbe_diag_test(struct net_device *netdev,
+ 					data[1] = 1;
+ 					data[2] = 1;
+ 					data[3] = 1;
++					data[4] = 1;
+ 					eth_test->flags |= ETH_TEST_FL_FAILED;
+ 					clear_bit(__IXGBE_TESTING,
+ 						  &adapter->state);
 -- 
 1.8.5.GIT
