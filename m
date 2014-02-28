@@ -1,38 +1,49 @@
-From: bert hubert <bert.hubert@netherlabs.nl>
-Subject: Re: IPv6 routing table max_size badly dimensioned compared to IPv4
-Date: Fri, 28 Feb 2014 12:07:35 +0100
-Message-ID: <20140228110735.GA13494@xs.powerdns.com>
-References: <1393532583.26794.26.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140227205010.GB27495@order.stressinduktion.org>
- <1393534920.26794.40.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140227.174755.801004637112620140.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] bonding: send arp requests even if there's no
+ route to them
+Date: Fri, 28 Feb 2014 03:12:51 -0800
+Message-ID: <1393585971.10280.5.camel@joe-AO722>
+References: <1393585076-22786-1-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, hannes@stressinduktion.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	=?ISO-8859-1?Q?Fran=E7ois?= CACHEREUL <f.cachereul@alphalink.fr>,
+	Zhenjie Chen <zhchen@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xs.powerdns.com ([82.94.213.34]:58612 "EHLO xs.powerdns.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751021AbaB1LHk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Feb 2014 06:07:40 -0500
-Content-Disposition: inline
-In-Reply-To: <20140227.174755.801004637112620140.davem@davemloft.net>
+Received: from smtprelay0098.hostedemail.com ([216.40.44.98]:38141 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751971AbaB1LMz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 06:12:55 -0500
+In-Reply-To: <1393585076-22786-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 27, 2014 at 05:47:55PM -0500, David Miller wrote:
-> > If we need to perform 10000 inserts per second, and gc timeout is 60
-> > seconds, tree contains 600.000 entries, gc takes forever...
+On Fri, 2014-02-28 at 11:57 +0100, Veaceslav Falico wrote:
+> Currently we're only sending arp requests if we have a route to the target
+> (and, thus, can find out the source ip address).
 > 
-> The only long term solution is to align ipv6 to be more like ipv4.
+> There are some use cases, however, where we don't want/need to set an ip
+> address (or set up a specific route) for bonding to use arp monitoring *for
+> traffic generation*. We can easily send arp probes (arp requests with src
+> ip == 0) to generate arp broadcast responses from the target ip and use
+> them for determining if the target is up.
+> 
+> This, obviously, won't work with arp validation - because we don't have the
+> ip address set and, thus, will filter out the responses. So in that case -
+> print a warning.
+[]
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+[]
+> @@ -2155,8 +2155,13 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
+[]
+> +			if (bond->params.arp_validate)
+> +				pr_warn("%s: no route to arp_ip_target %pI4 and arp_validate is set\n",
+> +					bond->dev->name, &targets[i]);
 
-Yes please. There appears to be a lingering assumption IPv6 is small scale.
+Maybe
 
-T-Mobile USA is now providing IPv6 only service via DNA64/NAT64, creating
-(dozens of) millions of IPv6 only clients. (More on this 'hack' on
-http://blog.powerdns.com/2013/05/17/ripe-66-powerdns-and-dns64nat64/ )
-
-So aligning IPv6 scalability with IPv4 scalability would be grand, thanks!
-
-	Bert
+			if (bond->params.arp_validate && net_ratelimit())
