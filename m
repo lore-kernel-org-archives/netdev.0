@@ -1,60 +1,75 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH v5] can: add Renesas R-Car CAN driver
-Date: Fri, 28 Feb 2014 12:41:37 +0100
-Message-ID: <CAMuHMdUuaX0pGmdOuJ9CJwj-ZTYo4PqTtZmYHh8swamQ754s2A@mail.gmail.com>
-References: <201312270037.15822.sergei.shtylyov@cogentembedded.com>
-	<52DCE9E4.7010209@pengutronix.de>
-	<52E3148E.2010608@cogentembedded.com>
-	<52FCB6C5.6020001@pengutronix.de>
-	<53069445.80408@cogentembedded.com>
-	<5310521E.6000708@pengutronix.de>
-	<53107007.7050802@cogentembedded.com>
-	<531074F5.8090702@pengutronix.de>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH v2 net-next] bonding: send arp requests even if there's no route to them
+Date: Fri, 28 Feb 2014 12:39:19 +0100
+Message-ID: <1393587559-26437-1-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	wg@grandegger.com, linux-can@vger.kernel.org,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	Pavel Kiryukhin <vksavl@gmail.com>
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <531074F5.8090702@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	=?UTF-8?q?Fran=C3=A7ois=20CACHEREUL?= <f.cachereul@alphalink.fr>,
+	Zhenjie Chen <zhchen@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:24288 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751570AbaB1Lnm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Feb 2014 06:43:42 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 28, 2014 at 12:37 PM, Marc Kleine-Budde <mkl@pengutronix.de> wrote:
->>> A 32 bit read/modify/write is a standard operation, nothing special, no
->>> need to worry about byte swapping or anything like this.
->>
->>    Oh, really? 8-)
->>    Don't you know that read[bwlq]() assume little-endian memory layout
->> and to read from big-endian 32-bit register one normally needs readl_be()?
->
-> I assume you are on little endian ARM only (for now).
->
-> If you use a standard 32 bit read, then modify the correct bits in that
-> 32 bit word and write it back, with the corresponding 32 bit write
-> everything should be fine. For this usecase you just have yo figure out
-> which 24 of the 32 bit are the one you have to change and which are the
-> 8 that must not be modified.
->
-> Looking at the register layout:
->
->> +     u8 bcr[3];      /* Bit Configuration Register */
->> +     u8 clkr;        /* Clock Select Register */
->
-> I think clkr would be the lowest 8 bit and bcr[] are the upper 24.
+Currently we're only sending arp requests if we have a route to the tar=
+get
+(and, thus, can find out the source ip address).
 
-That would be the outcome on big endian ;-)
+There are some use cases, however, where we don't want/need to set an i=
+p
+address (or set up a specific route) for bonding to use arp monitoring =
+*for
+traffic generation*. We can easily send arp probes (arp requests with s=
+rc
+ip =3D=3D 0) to generate arp broadcast responses from the target ip and=
+ use
+them for determining if the target is up.
 
-Gr{oetje,eeting}s,
+This, obviously, won't work with arp validation - because we don't have=
+ the
+ip address set and, thus, will filter out the responses. So in that cas=
+e -
+print a warning.
 
-                        Geert
+CC: Fran=C3=A7ois CACHEREUL <f.cachereul@alphalink.fr>
+CC: Zhenjie Chen <zhchen@redhat.com>
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+---
+ drivers/net/bonding/bond_main.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
+_main.c
+index 12948b3..12861e3 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2155,8 +2155,13 @@ static void bond_arp_send_all(struct bonding *bo=
+nd, struct slave *slave)
+ 		rt =3D ip_route_output(dev_net(bond->dev), targets[i], 0,
+ 				     RTO_ONLINK, 0);
+ 		if (IS_ERR(rt)) {
+-			pr_debug("%s: no route to arp_ip_target %pI4\n",
+-				 bond->dev->name, &targets[i]);
++			/* there's no route to target - try to send arp
++			 * probe to generate any traffic (arp_validate=3D0)
++			 */
++			if (bond->params.arp_validate && net_ratelimit())
++				pr_warn("%s: no route to arp_ip_target %pI4 and arp_validate is se=
+t\n",
++					bond->dev->name, &targets[i]);
++			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i], 0, 0);
+ 			continue;
+ 		}
+=20
+--=20
+1.8.4
