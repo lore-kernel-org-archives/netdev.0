@@ -1,8 +1,8 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v6 6/8] 6lowpan: fix some
-	checkpatch issues
-Date: Fri, 28 Feb 2014 07:32:48 +0100
-Message-ID: <1393569170-25722-7-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH net-next v6 2/8] 6lowpan: add
+	uncompress header size function
+Date: Fri, 28 Feb 2014 07:32:44 +0100
+Message-ID: <1393569170-25722-3-git-send-email-alex.aring@gmail.com>
 References: <1393569170-25722-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,98 +22,139 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Detected with:
-
-./scripts/checkpatch.pl --strict -f net/ieee802154/6lowpan_rtnl.c
+This patch add a lookup function for uncompressed 6LoWPAN header
+size. This is needed to estimate the real size after uncompress the
+6LoWPAN header.
 
 Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- net/ieee802154/6lowpan_rtnl.c | 27 +++++++++------------------
- 1 file changed, 9 insertions(+), 18 deletions(-)
+ net/ieee802154/6lowpan.h | 113 +++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 113 insertions(+)
 
-diff --git a/net/ieee802154/6lowpan_rtnl.c b/net/ieee802154/6lowpan_rtnl.c
-index 6b7d17f..f9c9548 100644
---- a/net/ieee802154/6lowpan_rtnl.c
-+++ b/net/ieee802154/6lowpan_rtnl.c
-@@ -1,10 +1,8 @@
--/*
-- * Copyright 2011, Siemens AG
-+/* Copyright 2011, Siemens AG
-  * written by Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-  */
+diff --git a/net/ieee802154/6lowpan.h b/net/ieee802154/6lowpan.h
+index 2b835db..0dccf62 100644
+--- a/net/ieee802154/6lowpan.h
++++ b/net/ieee802154/6lowpan.h
+@@ -306,6 +306,119 @@ static inline void lowpan_push_hc_data(u8 **hc_ptr, const void *data,
+ 	*hc_ptr += len;
+ }
  
--/*
-- * Based on patches from Jon Smirl <jonsmirl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-+/* Based on patches from Jon Smirl <jonsmirl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-  * Copyright (c) 2011 Jon Smirl <jonsmirl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-  *
-  * This program is free software; you can redistribute it and/or modify
-@@ -15,10 +13,6 @@
-  * but WITHOUT ANY WARRANTY; without even the implied warranty of
-  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  * GNU General Public License for more details.
-- *
-- * You should have received a copy of the GNU General Public License along
-- * with this program; if not, write to the Free Software Foundation, Inc.,
-- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-  */
++static inline u8 lowpan_addr_mode_size(const u8 addr_mode)
++{
++	static const u8 addr_sizes[] = {
++		[LOWPAN_IPHC_ADDR_00] = 16,
++		[LOWPAN_IPHC_ADDR_01] = 8,
++		[LOWPAN_IPHC_ADDR_02] = 2,
++		[LOWPAN_IPHC_ADDR_03] = 0,
++	};
++	return addr_sizes[addr_mode];
++}
++
++static inline u8 lowpan_next_hdr_size(const u8 h_enc, u16 *uncomp_header)
++{
++	u8 ret = 1;
++
++	if ((h_enc & LOWPAN_NHC_UDP_MASK) == LOWPAN_NHC_UDP_ID) {
++		*uncomp_header += sizeof(struct udphdr);
++
++		switch (h_enc & LOWPAN_NHC_UDP_CS_P_11) {
++		case LOWPAN_NHC_UDP_CS_P_00:
++			ret += 4;
++			break;
++		case LOWPAN_NHC_UDP_CS_P_01:
++		case LOWPAN_NHC_UDP_CS_P_10:
++			ret += 3;
++			break;
++		case LOWPAN_NHC_UDP_CS_P_11:
++			ret++;
++			break;
++		default:
++			break;
++		}
++
++		if (!(h_enc & LOWPAN_NHC_UDP_CS_C))
++			ret += 2;
++	}
++
++	return ret;
++}
++
++/**
++ *	lowpan_uncompress_size - returns skb->len size with uncompressed header
++ *	@skb: sk_buff with 6lowpan header inside
++ *	@datagram_offset: optional to get the datagram_offset value
++ *
++ *	Returns the skb->len with uncompressed header
++ */
++static inline u16
++lowpan_uncompress_size(const struct sk_buff *skb, u16 *dgram_offset)
++{
++	u16 ret = 2, uncomp_header = sizeof(struct ipv6hdr);
++	u8 iphc0, iphc1, h_enc;
++
++	iphc0 = skb_network_header(skb)[0];
++	iphc1 = skb_network_header(skb)[1];
++
++	switch ((iphc0 & LOWPAN_IPHC_TF) >> 3) {
++	case 0:
++		ret += 4;
++		break;
++	case 1:
++		ret += 3;
++		break;
++	case 2:
++		ret++;
++		break;
++	default:
++		break;
++	}
++
++	if (!(iphc0 & LOWPAN_IPHC_NH_C))
++		ret++;
++
++	if (!(iphc0 & 0x03))
++		ret++;
++
++	ret += lowpan_addr_mode_size((iphc1 & LOWPAN_IPHC_SAM) >>
++				     LOWPAN_IPHC_SAM_BIT);
++
++	if (iphc1 & LOWPAN_IPHC_M) {
++		switch ((iphc1 & LOWPAN_IPHC_DAM_11) >>
++			LOWPAN_IPHC_DAM_BIT) {
++		case LOWPAN_IPHC_DAM_00:
++			ret += 16;
++			break;
++		case LOWPAN_IPHC_DAM_01:
++			ret += 6;
++			break;
++		case LOWPAN_IPHC_DAM_10:
++			ret += 4;
++			break;
++		case LOWPAN_IPHC_DAM_11:
++			ret++;
++			break;
++		default:
++			break;
++		}
++	} else {
++		ret += lowpan_addr_mode_size((iphc1 & LOWPAN_IPHC_DAM_11) >>
++					     LOWPAN_IPHC_DAM_BIT);
++	}
++
++	if (iphc0 & LOWPAN_IPHC_NH_C) {
++		h_enc = skb_network_header(skb)[ret];
++		ret += lowpan_next_hdr_size(h_enc, &uncomp_header);
++	}
++
++	if (dgram_offset)
++		*dgram_offset = uncomp_header;
++
++	return skb->len + uncomp_header - ret;
++}
++
+ typedef int (*skb_delivery_cb)(struct sk_buff *skb, struct net_device *dev);
  
- /* Jon's code is based on 6lowpan implementation for Contiki which is:
-@@ -124,13 +118,11 @@ static int lowpan_header_create(struct sk_buff *skb,
- 
- 	lowpan_header_compress(skb, dev, type, daddr, saddr, len);
- 
--	/*
--	 * NOTE1: I'm still unsure about the fact that compression and WPAN
-+	/* NOTE1: I'm still unsure about the fact that compression and WPAN
- 	 * header are created here and not later in the xmit. So wait for
- 	 * an opinion of net maintainers.
- 	 */
--	/*
--	 * NOTE2: to be absolutely correct, we must derive PANid information
-+	/* NOTE2: to be absolutely correct, we must derive PANid information
- 	 * from MAC subif of the 'dev' and 'real_dev' network devices, but
- 	 * this isn't implemented in mainline yet, so currently we assign 0xff
- 	 */
-@@ -145,8 +137,7 @@ static int lowpan_header_create(struct sk_buff *skb,
- 	/* intra-PAN communications */
- 	da.pan_id = ieee802154_mlme_ops(dev)->get_pan_id(dev);
- 
--	/*
--	 * if the destination address is the broadcast address, use the
-+	/* if the destination address is the broadcast address, use the
- 	 * corresponding short address
- 	 */
- 	if (lowpan_is_addr_broadcast(daddr)) {
-@@ -386,7 +377,7 @@ static int lowpan_set_address(struct net_device *dev, void *p)
- 
- static int
- lowpan_fragment_xmit(struct sk_buff *skb, u8 *head,
--			int mlen, int plen, int offset, int type)
-+		     int mlen, int plen, int offset, int type)
- {
- 	struct sk_buff *frag;
- 	int hlen;
-@@ -478,8 +469,8 @@ lowpan_skb_fragmentation(struct sk_buff *skb, struct net_device *dev)
- 		err = lowpan_fragment_xmit(skb, head, header_length, len,
- 					   offset, LOWPAN_DISPATCH_FRAGN);
- 		if (err) {
--			pr_debug("%s unable to send a subsequent FRAGN packet "
--				 "(tag: %d, offset: %d", __func__, tag, offset);
-+			pr_debug("%s unable to send a FRAGN packet. (tag: %d, offset: %d)\n",
-+				 __func__, tag, offset);
- 			goto exit;
- 		}
- 
-@@ -686,7 +677,7 @@ static int lowpan_newlink(struct net *src_net, struct net_device *dev,
- 	lowpan_dev_info(dev)->fragment_tag = 0;
- 	mutex_init(&lowpan_dev_info(dev)->dev_list_mtx);
- 
--	entry = kzalloc(sizeof(struct lowpan_dev_record), GFP_KERNEL);
-+	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
- 	if (!entry) {
- 		dev_put(real_dev);
- 		lowpan_dev_info(dev)->real_dev = NULL;
+ int lowpan_process_data(struct sk_buff *skb, struct net_device *dev,
 -- 
 1.9.0
 
