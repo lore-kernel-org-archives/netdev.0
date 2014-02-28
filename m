@@ -1,56 +1,154 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH V2 2/2] net: w5100: Use devm_ioremap_resource()
-Date: Fri, 28 Feb 2014 14:48:16 +0900
-Message-ID: <001601cf3448$ad6b8c30$0842a490$%han@samsung.com>
-References: <001501cf3448$9bc4f660$d34ee320$%han@samsung.com>
+From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
+Subject: RE: [PATCH v4] can: xilinx CAN controller support.
+Date: Fri, 28 Feb 2014 05:50:13 +0000
+Message-ID: <2e3bfd38-37d5-4102-af79-821196c6c732@CH1EHSMHS006.ehs.local>
+References: <74d607e9-ac9c-4a9b-ac49-e84ae49d20c2@TX2EHSMHS031.ehs.local>
+ <530D0A9C.5090402@pengutronix.de>
+ <cd00fb2d-c8a7-423d-8aa0-2b413e9ac101@CO9EHSMHS017.ehs.local>
+ <530DEA7C.6010609@pengutronix.de>
+ <678ca296-8687-4e7c-9014-ae69d886a068@CO9EHSMHS014.ehs.local>
+ <530E0B92.5010903@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 'Mike Sinkovsky' <msink@permonline.ru>,
-	'Jingoo Han' <jg1.han@samsung.com>
-To: 'David Miller' <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.samsung.com ([203.254.224.24]:24706 "EHLO
-	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750719AbaB1FsU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 00:48:20 -0500
-Received: from epcpsbgr2.samsung.com
- (u142.gpu120.samsung.co.kr [203.254.230.142])
- by mailout1.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0N1O00CA3YSJJ830@mailout1.samsung.com> for
- netdev@vger.kernel.org; Fri, 28 Feb 2014 14:48:19 +0900 (KST)
-In-reply-to: <001501cf3448$9bc4f660$d34ee320$%han@samsung.com>
-Content-language: ko
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Marc Kleine-Budde <mkl@pengutronix.de>,
+	"wg@grandegger.com" <wg@grandegger.com>,
+	Michal Simek <michals@xilinx.com>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <530E0B92.5010903@pengutronix.de>
+Content-Language: en-US
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Use devm_ioremap_resource() in order to make the code simpler.
+SGkgTWFyYywNCg0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IE1hcmMg
+S2xlaW5lLUJ1ZGRlIFttYWlsdG86bWtsQHBlbmd1dHJvbml4LmRlXQ0KPiBTZW50OiBXZWRuZXNk
+YXksIEZlYnJ1YXJ5IDI2LCAyMDE0IDk6MTMgUE0NCj4gVG86IEFwcGFuYSBEdXJnYSBLZWRhcmVz
+d2FyYSBSYW87IHdnQGdyYW5kZWdnZXIuY29tOyBNaWNoYWwgU2ltZWs7DQo+IGdyYW50Lmxpa2Vs
+eUBsaW5hcm8ub3JnOyByb2JoK2R0QGtlcm5lbC5vcmc7IGxpbnV4LWNhbkB2Z2VyLmtlcm5lbC5v
+cmcNCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LWFybS1rZXJuZWxAbGlzdHMu
+aW5mcmFkZWFkLm9yZzsgbGludXgtDQo+IGtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IGRldmljZXRy
+ZWVAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggdjRdIGNhbjogeGlsaW54
+IENBTiBjb250cm9sbGVyIHN1cHBvcnQuDQo+DQo+IE9uIDAyLzI2LzIwMTQgMDM6NDYgUE0sIEFw
+cGFuYSBEdXJnYSBLZWRhcmVzd2FyYSBSYW8gd3JvdGU6DQo+ID4gSGkgTWFyYywNCj4gPg0KPiA+
+DQo+ID4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4+IEZyb206IE1hcmMgS2xlaW5l
+LUJ1ZGRlIFttYWlsdG86bWtsQHBlbmd1dHJvbml4LmRlXQ0KPiA+PiBTZW50OiBXZWRuZXNkYXks
+IEZlYnJ1YXJ5IDI2LCAyMDE0IDY6NTIgUE0NCj4gPj4gVG86IEFwcGFuYSBEdXJnYSBLZWRhcmVz
+d2FyYSBSYW87IHdnQGdyYW5kZWdnZXIuY29tOyBNaWNoYWwgU2ltZWs7DQo+ID4+IGdyYW50Lmxp
+a2VseUBsaW5hcm8ub3JnOyByb2JoK2R0QGtlcm5lbC5vcmc7DQo+ID4+IGxpbnV4LWNhbkB2Z2Vy
+Lmtlcm5lbC5vcmcNCj4gPj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LWFybS1r
+ZXJuZWxAbGlzdHMuaW5mcmFkZWFkLm9yZzsNCj4gPj4gbGludXgtIGtlcm5lbEB2Z2VyLmtlcm5l
+bC5vcmc7IGRldmljZXRyZWVAdmdlci5rZXJuZWwub3JnDQo+ID4+IFN1YmplY3Q6IFJlOiBbUEFU
+Q0ggdjRdIGNhbjogeGlsaW54IENBTiBjb250cm9sbGVyIHN1cHBvcnQuDQo+ID4+DQo+ID4+IE9u
+IDAyLzI2LzIwMTQgMDI6MDcgUE0sIEFwcGFuYSBEdXJnYSBLZWRhcmVzd2FyYSBSYW8gd3JvdGU6
+DQo+ID4+Pj4gVGhpcyBsb29wIGxvb2tzIGJyb2tlbi4gQ2FuIHlvdSBleHBsYWluIGhvdyBpdCB3
+b3Jrcy4NCj4gPj4+Pg0KPiA+Pj4+IFdoYXQgaXQgc2hvdWQgZG8gaXM6DQo+ID4+Pj4gV2UgaGF2
+ZSBwdXQgKHByaXYtPnR4X2hlYWQgLSBwcml2LT50eF90YWlsKSBDQU4gZnJhbWVzIGludG8gdGhl
+IEZJRk8uDQo+ID4+Pj4gVGhpcyBtZWFucyBhdCBtYXhpbXVtIHRoZXJlIGNvdWxkIGJlIHRoaXMg
+YW1vdW50IG9mIENBTiBmcmFtZXMNCj4gPj4+PiB3aGljaCBoYXZlIGJlZW4gc3VjY2Vzc2Z1bGx5
+IHRyYW5zbWl0dGVkLiBGb3IgZXZlcnkgY3ljbGUgaW4gdGhpcw0KPiA+Pj4+IHdoaWxlIGxvb3Ag
+eW91DQo+ID4+Pj4gc2hvdWxkOg0KPiA+Pj4+IGEpIGNoZWNrIGlmIGEgQ0FOIGZyYW1lIGhhcyBz
+dWNjZXNzZnVsbHkgYmVlbiB0cmFuc21pdHRlZA0KPiA+Pj4+ICAgIChhcyB0aGlzIENBTiBjb3Jl
+IHVzZXMgYSBGSUZPIGl0IHNob3VsZCBiZSAib2xkZXN0IikNCj4gPj4+PiAgICBBIHJlYWRfcmVn
+KCkgb2Ygc29tZSBraW5kIGlzIG1pc3NpbmcgaW4geW91ciBsb29wLg0KPiA+Pj4+IGIpIGlmIG5l
+ZWRlZCwgcmVtb3ZlIHRoaXMgZXZlbnQgZnJvbSB0aGUgRklGTyBvcg0KPiA+Pj4+ICAgIG1hcmsg
+dGhlIGludGVycnVwdCBhcyBkb25lLiBXaGF0ZXZlciB5b3UgaGFyZHdhcmUgbmVlZHMuDQo+ID4+
+Pj4gYykgdXBkYXRlIHlvdXIgc3RhdGlzdGljcw0KPiA+Pj4+IGQpIFVzZSBjYW5fZ2V0X2VjaG9f
+c2tiIHRvIHB1c2ggdGhpcyBmcmFtZSBpbnRvIHRoZSBuZXR3b3JraW5nDQo+ID4+Pj4gc3RhY2sN
+Cj4gPj4+PiBlKSBBcyBhIENBTiBmcmFtZSBoYXMgYmVlbiB0cmFuc21pdHRlZCBzdWNjZXNzZnVs
+bHksIHdha2UgdGhlDQo+IHR4X3F1ZXVlLg0KPiA+Pj4+DQo+ID4+Pj4+ICsgICB3aGlsZSAocHJp
+di0+dHhfaGVhZCAtIHByaXYtPnR4X3RhaWwgPiAwKSB7DQo+ID4+Pj4+ICsgICAgICAgICAgIGlm
+IChpc3IgJiBYQ0FOX0lYUl9UWEZMTF9NQVNLKSB7DQo+ID4+Pj4+ICsgICAgICAgICAgICAgICAg
+ICAgcHJpdi0+d3JpdGVfcmVnKHByaXYsIFhDQU5fSUNSX09GRlNFVCwNCj4gPj4+Pj4gKyAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgWENBTl9JWFJfVFhGTExfTUFTSyk7DQo+ID4+
+Pj4+ICsgICAgICAgICAgICAgICAgICAgbmV0aWZfc3RvcF9xdWV1ZShuZGV2KTsNCj4gPj4+Pg0K
+PiA+Pj4+IFdoeSBkbyB5b3Ugc3RvcCB0aGUgcXVldWUgaGVyZT8gQSBDQU4gZnJhbWUgaGFzIHN1
+Y2Nlc3NmdWxseSBiZWVuDQo+ID4+Pj4gdHJhbnNtaXR0ZWQsIHRoZXJlIHNob3VsZCBiZSByb29t
+IGluIHRoZSBGSUZPLg0KPiA+Pj4+DQo+ID4+Pj4+ICsgICAgICAgICAgICAgICAgICAgYnJlYWs7
+DQo+ID4+Pj4+ICsgICAgICAgICAgIH0NCj4gPj4+Pj4gKyAgICAgICAgICAgY2FuX2dldF9lY2hv
+X3NrYihuZGV2LCBwcml2LT50eF90YWlsICUNCj4gPj4+Pj4gKyAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgcHJpdi0+eGNhbl9lY2hvX3NrYl9tYXhfdHgpOw0KPiA+Pj4+PiArICAg
+ICAgICAgICBwcml2LT50eF90YWlsKys7DQo+ID4+Pj4+ICsgICB9DQo+ID4+Pj4+ICsNCj4gPj4+
+DQo+ID4+PiBUaGUgYmVsb3cgYXJlIHRoZSBiaXQgZmllbGRzIGF2YWlsYWJsZSBmb3IgdGhlIFRy
+YW5zbWl0IEZJRk8uDQo+ID4+PiAxKSBJbiB0aGUgSVNSKGludGVycnVwdCBzdGF0dXMgcmVnaXN0
+ZXIpICBUeCBPayBpbnRlcnJ1cHQgYW5kIFR4DQo+ID4+PiBmaWZvIGZ1bGwNCj4gPj4gaW50ZXJy
+dXB0Lg0KPiA+Pj4gMikgaW4gdGhlIFNSKFN0YXR1cyBSZWdpc3RlcikgVHggZmlmbyBmdWxsIGNv
+bmRpdGlvbi4NCj4gPj4+DQo+ID4+Pg0KPiA+Pj4gSSBhbSBtb2RpZnlpbmcgdGhlIGVudGlyZSB0
+eCBpbnRlcnJ1cHQgbG9naWMgdG8gbGlrZSBiZWxvdy4NCj4gPj4+DQo+ID4+PiBzdGF0aWMgdm9p
+ZCB4Y2FuX3R4X2ludGVycnVwdChzdHJ1Y3QgbmV0X2RldmljZSAqbmRldiwgdTMyIGlzcikgew0K
+PiA+Pj4gICAgICAgICBzdHJ1Y3QgeGNhbl9wcml2ICpwcml2ID0gbmV0ZGV2X3ByaXYobmRldik7
+DQo+ID4+PiAgICAgICAgIHN0cnVjdCBuZXRfZGV2aWNlX3N0YXRzICpzdGF0cyA9ICZuZGV2LT5z
+dGF0czsNCj4gPj4+DQo+ID4+PiAgICAgICAgICAgICB3aGlsZSAocHJpdi0+dHhfaGVhZCAtIHBy
+aXYtPnR4X3RhaWwgPiAwKSB7DQo+ID4+PiAgICAgICAgICAgICAgICAgaWYgKGlzciAmIFhDQU5f
+SVhSX1RYRkxMX01BU0spIHsNCj4gPj4+ICAgICAgICAgICAgICAgICAgICAgICAgIHByaXYtPndy
+aXRlX3JlZyhwcml2LCBYQ0FOX0lDUl9PRkZTRVQsDQo+ID4+PiAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgWENBTl9JWFJfVFhGTExfTUFTSyk7DQo+ID4+PiAgICAgICAg
+ICAgICAgICAgICAgICAgICAgIGJyZWFrOw0KPiA+Pj4gICAgICAgICAgICAgICAgIH0NCj4gPj4+
+ICAgICAgICAgICAgICAgICBjYW5fZ2V0X2VjaG9fc2tiKG5kZXYsIHByaXYtPnR4X3RhaWwgJQ0K
+PiA+Pj4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHByaXYtPnhjYW5f
+ZWNob19za2JfbWF4X3R4KTsNCj4gPj4+ICAgICAgICAgICAgICAgICBwcml2LT50eF90YWlsKys7
+DQo+ID4+PiAgICAgICAgICBzdGF0cy0+dHhfcGFja2V0cysrOw0KPiA+Pj4gICAgICAgICBuZXRp
+Zl93YWtlX3F1ZXVlKG5kZXYpOw0KPiA+Pj4gICAgICAgICAgICAgICBjYW5fbGVkX2V2ZW50KG5k
+ZXYsIENBTl9MRURfRVZFTlRfVFgpOw0KPiA+Pj4NCj4gPj4+ICAgICAgICAgfQ0KPiA+Pg0KPiA+
+PiBZb3UganVzdCBuZWVkIHRvIHdha2UgdGhlIHF1ZXVlIG9uY2UuDQo+ID4NCj4gPiBPaw0KPiA+
+Pg0KPiA+Pj4gfQ0KPiA+Pj4NCj4gPj4+DQo+ID4+PiBBcmUgeW91IE9rIHdpdGggdGhlIGFib3Zl
+IGxvZ2ljPw0KPiA+Pg0KPiA+PiBObywgaG93IGNhbiB5b3UgdGVsbCBob3cgbWFueSBmcmFtZXMg
+aGF2ZSBiZWVuIHRyYW5zbWl0dGVkPw0KPiA+DQo+ID4gVGhlcmUgaXMgbm8gcmVnaXN0ZXIgdG8g
+cmVhZCBob3cgbWFueSBjYW4gZnJhbWVzIGFyZSB0cmFuc21pdHRlZC4NCj4gPiBUaGUgb25seSB3
+YXkgdG8ga25vdyBJcyBieSByZWFkaW5nIHRoaXMgcGFyYW1ldGVyDQo+ID4gKHN0YXRzLT50eF9w
+YWNrZXRzKys7KSB0aHJvdWdoIGlwIGNvbW1hbmQNCj4NCj4gc3RhdHMtPnR4X3BhY2tldHMgaXMg
+Y2FsY3VsYXRlZCBpbiB0aGUgYWJvdmUgbG9vcCBhbmQgdGhlIGxvb3AgaXMNCj4gYnJva2VuLiBM
+ZXQgbWUgaWxsdXN0cmF0ZSB0aGUgcHJvYmxlbToNCj4NCj4gLSB4bWl0IGlzIGNhbGxlZCAxMCB0
+aW1lcyBpbiBhIHJvdw0KPiAtIHRoaXMgbWVhbnMgeW91IGhhdmUgMTAgQ0FOIGZyYW1lcyBpbiB0
+aGUgVFggRklGTw0KPiAtIGEgc2luZ2xlIENBTiBmcmFtZSBnZXRzIHRyYW5zbWl0dGVkDQo+IC0g
+eW91IGdldCBhbiBpbnRlcnJ1cHQNCj4gLSB5b3UgZW50ZXIgdGhlIGFib3ZlIHJvdXRpbmUgYW5k
+IGxvb3AgMTAgdGltZXMgYW5kIGVjaG8gdGhlIENBTiBmcmFtZQ0KPiAgIGJhY2sgaW50byB0aGUg
+c3RhY2sNCj4NCj4gTm93IGV2ZXJ5IGFwcGxpY2F0aW9uIHNlZXMgMTAgdHJhbnNtaXR0ZWQgcGFj
+a2FnZXMsIGJ1dCB0aGVyZSBpcyBvbmx5IG9uZQ0KPiB0cmFuc21pdHRlZC4gRXZlcnkgdGltZSB5
+b3UgbG9vcCB5b3UgaGF2ZSB0byBjaGVjayBpZiB0aGUgQ0FOIGZyYW1lIGhhcw0KPiBhbHJlYWR5
+IGJlZW4gdHJhbnNtaXR0ZWQgb3Igbm90LiBJcyB0aGF0IHBvc3NpYmxlIHdpdGggdGhlIGhhcmR3
+YXJlPw0KDQogICAgICAgIFRoZSBvbmx5IHdheSB0byBrbm93IHdoZXRoZXIgdGhlIFRYIHBhY2tl
+dCBpcyB0cmFuc21pdHRlZCBzdWNjZXNzZnVsbHkgb3Igbm90IGlzIGJ5IHVzaW5nIHRoZSBUeCBP
+ayBpbnRlcnJ1cHQgZnJvbSB0aGUgSVNSLg0KVGhpcyBpbnRlcnJ1cHQgd2lsbCBjb21lIGZvciBl
+dmVyeSBUeCBQYWNrZXQuDQpTbyBJIGFtIHRoaW5raW5nIG9mIHRoZXJlIGlzIG5vIGxvb3AgcmVx
+dWlyZWQgaW4gdGhlIFRYIGludGVycnVwdCByb3V0aW5lLiBBcyBpdCBpcyBjYWxsZWQgZm9yIGVh
+Y2ggYW5kIGV2ZXJ5IHBhY2tldC4NCg0Kc3RhdGljIHZvaWQgeGNhbl90eF9pbnRlcnJ1cHQoc3Ry
+dWN0IG5ldF9kZXZpY2UgKm5kZXYsIHUzMiBpc3IpDQp7DQogICAgICAgIHN0cnVjdCB4Y2FuX3By
+aXYgKnByaXYgPSBuZXRkZXZfcHJpdihuZGV2KTsNCiAgICAgICAgc3RydWN0IG5ldF9kZXZpY2Vf
+c3RhdHMgKnN0YXRzID0gJm5kZXYtPnN0YXRzOw0KDQoNCiAgICAgICAgY2FuX2dldF9lY2hvX3Nr
+YihuZGV2LCBwcml2LT50eF90YWlsICUNCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+cHJpdi0+eGNhbl9lY2hvX3NrYl9tYXhfdHgpOw0KICAgICAgICBwcml2LT50eF90YWlsKys7DQog
+ICAgICAgIHN0YXRzLT50eF9wYWNrZXRzKys7DQogICAgICAgIGNhbl9sZWRfZXZlbnQobmRldiwg
+Q0FOX0xFRF9FVkVOVF9UWCk7DQogICAgICAgIG5ldGlmX3dha2VfcXVldWUobmRldik7DQp9DQoN
+CklmIHlvdSB3YW50IG1lIHRvIHB1dCBzb21lIGxvY2tzIGZvciB0aGlzIFdpbGwgcHV0IHNvbWUg
+c3Bpbl9sb2NrcyBpbiB0aGUgX3htaXQgYW5kIGluIHRoZSB0eCBpbnRlcnJ1cHQgcm91dGluZSAo
+Zm9yIHRoZSB0eF9oZWFkIGFuZCB0eF90YWlsKS4NCg0KDQpSZWdhcmRzLA0KS2VkYXIuDQoNCj4N
+Cj4gPiBpcCAtZCAtcyBsaW5rIHNob3cgY2FuDQo+ID4gT3IgdXNpbmcgaWZjb25maWcgY29tbWFu
+ZC4NCj4gPg0KPiA+IEF0IHRoZSBoL3cgbGV2ZWwgaXQgY2FuIHRyYW5zbWl0IE1heCB1cHRvIDY0
+IHBhY2tldHMgKE1heCBmaWZvIGRlcHRoKQ0KPiA+IFdlIG5lZWQgdG8gbW9uaXRvciB0aGUgVHgg
+ZmlmbyBmdWxsIGJpdCBpbiB0aGUgSVNSKEludGVycnVwdCBTdGF0dXMgUmVnaXN0ZXIpDQo+IG9y
+IFR4IGZpZm8gZnVsbCBiaXQgaW4gdGhlIFNSKFN0YXR1cyBSZWdpc3RlcikgYW5kIGlmIGl0IGlz
+IGZ1bGwgd2UgbmVlZCB0byBzdG9wDQo+IHRoZSBxdWV1ZSB0aGF0IGlzDQo+ID4gSSBhbSBkb2lu
+ZyBpbiB0aGUgX3htaXQgYnkgcmVhZGluZyB0aGUgc3RhdHVzIHJlZ2lzdGVyIGJlZm9yZSBwcm9j
+ZWVkaW5nDQo+IHRoZSAgIHBhY2tldCB0cmFuc21pc3Npb24uDQo+DQo+IE1hcmMNCj4NCj4gLS0N
+Cj4gUGVuZ3V0cm9uaXggZS5LLiAgICAgICAgICAgICAgICAgIHwgTWFyYyBLbGVpbmUtQnVkZGUg
+ICAgICAgICAgIHwNCj4gSW5kdXN0cmlhbCBMaW51eCBTb2x1dGlvbnMgICAgICAgIHwgUGhvbmU6
+ICs0OS0yMzEtMjgyNi05MjQgICAgIHwNCj4gVmVydHJldHVuZyBXZXN0L0RvcnRtdW5kICAgICAg
+ICAgIHwgRmF4OiAgICs0OS01MTIxLTIwNjkxNy01NTU1IHwNCj4gQW10c2dlcmljaHQgSGlsZGVz
+aGVpbSwgSFJBIDI2ODYgIHwgaHR0cDovL3d3dy5wZW5ndXRyb25peC5kZSAgIHwNCg0KDQoNClRo
+aXMgZW1haWwgYW5kIGFueSBhdHRhY2htZW50cyBhcmUgaW50ZW5kZWQgZm9yIHRoZSBzb2xlIHVz
+ZSBvZiB0aGUgbmFtZWQgcmVjaXBpZW50KHMpIGFuZCBjb250YWluKHMpIGNvbmZpZGVudGlhbCBp
+bmZvcm1hdGlvbiB0aGF0IG1heSBiZSBwcm9wcmlldGFyeSwgcHJpdmlsZWdlZCBvciBjb3B5cmln
+aHRlZCB1bmRlciBhcHBsaWNhYmxlIGxhdy4gSWYgeW91IGFyZSBub3QgdGhlIGludGVuZGVkIHJl
+Y2lwaWVudCwgZG8gbm90IHJlYWQsIGNvcHksIG9yIGZvcndhcmQgdGhpcyBlbWFpbCBtZXNzYWdl
+IG9yIGFueSBhdHRhY2htZW50cy4gRGVsZXRlIHRoaXMgZW1haWwgbWVzc2FnZSBhbmQgYW55IGF0
+dGFjaG1lbnRzIGltbWVkaWF0ZWx5Lg0KDQoKCg==
 
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
----
- drivers/net/ethernet/wiznet/w5100.c |    9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/wiznet/w5100.c b/drivers/net/ethernet/wiznet/w5100.c
-index 0df36c6..104d46f 100644
---- a/drivers/net/ethernet/wiznet/w5100.c
-+++ b/drivers/net/ethernet/wiznet/w5100.c
-@@ -641,11 +641,10 @@ static int w5100_hw_probe(struct platform_device *pdev)
- 	if (!mem)
- 		return -ENXIO;
- 	mem_size = resource_size(mem);
--	if (!devm_request_mem_region(&pdev->dev, mem->start, mem_size, name))
--		return -EBUSY;
--	priv->base = devm_ioremap(&pdev->dev, mem->start, mem_size);
--	if (!priv->base)
--		return -EBUSY;
-+
-+	priv->base = devm_ioremap_resource(&pdev->dev, mem);
-+	if (IS_ERR(priv->base))
-+		return PTR_ERR(priv->base);
- 
- 	spin_lock_init(&priv->reg_lock);
- 	priv->indirect = mem_size < W5100_BUS_DIRECT_SIZE;
--- 
-1.7.10.4
