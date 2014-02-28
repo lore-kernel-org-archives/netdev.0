@@ -1,37 +1,62 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] hsr: off by one sanity check in hsr_register_frame_in()
-Date: Sat, 1 Mar 2014 02:18:57 +0300
-Message-ID: <20140228231857.GD22115@elgon.mountain>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: Re: [PATCH net-next] ixgbevf: fix skb->pkt_type checks
+Date: Fri, 28 Feb 2014 23:26:15 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B73162EDE@ORSMSX101.amr.corp.intel.com>
+References: <1393454640-19651-1-git-send-email-f.fainelli@gmail.com>
+ <1393541926.1931.4.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Arvid Brodin <arvid.brodin@alten.se>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: "f.fainelli@gmail.com" <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:23459 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752005AbaB1XTJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 18:19:09 -0500
-Content-Disposition: inline
+Received: from mga02.intel.com ([134.134.136.20]:24240 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751787AbaB1X0Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Feb 2014 18:26:16 -0500
+In-Reply-To: <1393541926.1931.4.camel@localhost>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a sanity check and we never pass invalid values so this patch
-doesn't change anything.  However the node->time_in[] array has
-HSR_MAX_SLAVE (2) elements and not HSR_MAX_DEV (3).
-
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-diff --git a/net/hsr/hsr_framereg.c b/net/hsr/hsr_framereg.c
-index 3d0100f0bae3..83e58449366a 100644
---- a/net/hsr/hsr_framereg.c
-+++ b/net/hsr/hsr_framereg.c
-@@ -297,7 +297,7 @@ static bool seq_nr_after(u16 a, u16 b)
- 
- void hsr_register_frame_in(struct node_entry *node, enum hsr_dev_idx dev_idx)
- {
--	if ((dev_idx < 0) || (dev_idx >= HSR_MAX_DEV)) {
-+	if ((dev_idx < 0) || (dev_idx >= HSR_MAX_SLAVE)) {
- 		WARN_ONCE(1, "%s: Invalid dev_idx (%d)\n", __func__, dev_idx);
- 		return;
- 	}
+T24gVGh1LCAyMDE0LTAyLTI3IGF0IDE0OjU4IC0wODAwLCBBYXJvbiBCcm93biB3cm90ZToKPiBP
+biBXZWQsIDIwMTQtMDItMjYgYXQgMTQ6NDQgLTA4MDAsIEZsb3JpYW4gRmFpbmVsbGkgd3JvdGU6
+Cj4gPiBza2ItPnBrdF90eXBlIGlzIG5vdCBhIGJpdG1hc2ssIGJ1dCBjb250YWlucyBvbmx5IHZh
+bHVlIGF0IGEgdGltZSBmcm9tCj4gPiB0aGUgcmFuZ2UgZGVmaW5lZCBpbiBpbmNsdWRlL3VhcGkv
+bGludXgvaWZfcGFja2V0LmguCj4gPiAKPiA+IENoZWNraW5nIGl0IGxpa2UgaWYgaXQgd2FzIGEg
+Yml0bWFzayBvZiB2YWx1ZXMgd291bGQgYWxzbyBjYXVzZQo+ID4gUEFDS0VUX09USEVSSE9TVCwg
+UEFDS0VUX0xPT1BCQUNLIGFuZCBQQUNLRVRfRkFTVFJPVVRFIHRvIGJlIG1hdGNoZWQgYnkgdGhp
+cwo+ID4gY2hlY2sgc2luY2UgdGhlaXIgbG93ZXIgMiBiaXRzIGFyZSBhbHNvIHNldCwgYWx0aG91
+Z2ggdGhhdCBkb2VzIG5vdCBmaXggYSByZWFsCj4gPiBidWcgZHVlIHRvIGhvdyB0aGUgY2hlY2tz
+IGFyZSB1c2VkLCBpdCBpcyBzdGlsbCBwb3RlbnRpYWxseSBjb25mdXNpbmcuCj4gPiAKPiA+IFRo
+aXMgYm9ndXMgY2hlY2sgd2FzIGludHJvZHVjZWQgaW4gY29tbWl0IDgxNWNjY2JmICgiaXhnYmU6
+IGFkZCBzZXRsaW5rLAo+ID4gZ2V0bGluayBzdXBwb3J0IHRvIGl4Z2JlIGFuZCBpeGdiZXZmIiku
+Cj4gPiAKPiA+IFNpZ25lZC1vZmYtYnk6IEZsb3JpYW4gRmFpbmVsbGkgPGYuZmFpbmVsbGlAZ21h
+aWwuY29tPgo+ID4gLS0tCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmV2Zi9p
+eGdiZXZmX21haW4uYyB8IDUgKysrLS0KPiA+ICAxIGZpbGUgY2hhbmdlZCwgMyBpbnNlcnRpb25z
+KCspLCAyIGRlbGV0aW9ucygtKQo+IAo+IFRoYW5rcyBGbG9yaWFuLCBJIGhhdmUgYWRkZWQgdGhp
+cyB0byBvdXIgaW50ZXJuYWwgcXVldWUuCgpVbmZvcnR1bmF0ZWx5IHRoaXMgaW50cm9kdWNlcyBh
+IGNvbXBpbGUgZXJyb3I6Ci0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0KL3Vzci9zcmMva2J1aWxkX25ldC1uZXh0X2NvbW11bml0eS9hcmNoL3g4Ni9NYWtlZmls
+ZToxMzM6IENPTkZJR19YODZfWDMyCmVuYWJsZWQgYnV0IG5vIGJpbnV0aWxzIHN1cHBvcnQKZHJp
+dmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmV2Zi9peGdiZXZmX21haW4uYzogSW4gZnVuY3Rp
+b24K4oCYaXhnYmV2Zl9jbGVhbl9yeF9pcnHigJk6CmRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
+L2l4Z2JldmYvaXhnYmV2Zl9tYWluLmM6NTIxOiBlcnJvcjog4oCYYWRhcHRlcuKAmQp1bmRlY2xh
+cmVkIChmaXJzdCB1c2UgaW4gdGhpcyBmdW5jdGlvbikKZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50
+ZWwvaXhnYmV2Zi9peGdiZXZmX21haW4uYzo1MjE6IGVycm9yOiAoRWFjaAp1bmRlY2xhcmVkIGlk
+ZW50aWZpZXIgaXMgcmVwb3J0ZWQgb25seSBvbmNlCmRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
+L2l4Z2JldmYvaXhnYmV2Zl9tYWluLmM6NTIxOiBlcnJvcjogZm9yIGVhY2gKZnVuY3Rpb24gaXQg
+YXBwZWFycyBpbi4pCm1ha2VbNV06ICoqKiBbZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhn
+YmV2Zi9peGdiZXZmX21haW4ub10gRXJyb3IgMQptYWtlWzVdOiAqKiogV2FpdGluZyBmb3IgdW5m
+aW5pc2hlZCBqb2JzLi4uLgptYWtlWzRdOiAqKiogW2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
+L2l4Z2JldmZdIEVycm9yIDIKbWFrZVszXTogKioqIFtkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRl
+bF0gRXJyb3IgMgptYWtlWzNdOiAqKiogV2FpdGluZyBmb3IgdW5maW5pc2hlZCBqb2JzLi4uLgpt
+YWtlWzJdOiAqKiogW2RyaXZlcnMvbmV0L2V0aGVybmV0XSBFcnJvciAyCm1ha2VbMV06ICoqKiBb
+ZHJpdmVycy9uZXRdIEVycm9yIDIKbWFrZTogKioqIFtkcml2ZXJzXSBFcnJvciAyCn4gICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgIAotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tCkFyZSB3aWxsaW5nIHRvIGZpeCB1cCBhIHYyPwoKVGhhbmtzLApBYXJv
+bgo=
