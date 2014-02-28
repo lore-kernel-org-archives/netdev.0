@@ -1,50 +1,91 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v5] can: add Renesas R-Car CAN driver
-Date: Fri, 28 Feb 2014 11:47:27 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6CDBD9@AcuExch.aculab.com>
-References: <201312270037.15822.sergei.shtylyov@cogentembedded.com>
-	<52DCE9E4.7010209@pengutronix.de>	<52E3148E.2010608@cogentembedded.com>
-	<52FCB6C5.6020001@pengutronix.de>	<53069445.80408@cogentembedded.com>
-	<5310521E.6000708@pengutronix.de>	<53107007.7050802@cogentembedded.com>
-	<531074F5.8090702@pengutronix.de>
- <CAMuHMdUuaX0pGmdOuJ9CJwj-ZTYo4PqTtZmYHh8swamQ754s2A@mail.gmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v5] can: add Renesas R-Car CAN driver
+Date: Fri, 28 Feb 2014 12:49:00 +0100
+Message-ID: <531077AC.7050804@pengutronix.de>
+References: <201312270037.15822.sergei.shtylyov@cogentembedded.com>	<52DCE9E4.7010209@pengutronix.de>	<52E3148E.2010608@cogentembedded.com>	<52FCB6C5.6020001@pengutronix.de>	<53069445.80408@cogentembedded.com>	<5310521E.6000708@pengutronix.de>	<53107007.7050802@cogentembedded.com>	<531074F5.8090702@pengutronix.de> <CAMuHMdUuaX0pGmdOuJ9CJwj-ZTYo4PqTtZmYHh8swamQ754s2A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="JhuOLQkWXfUjKKfjINw2kbhWkVb68r90b"
 Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"wg@grandegger.com" <wg@grandegger.com>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	wg@grandegger.com, linux-can@vger.kernel.org,
 	Linux-sh list <linux-sh@vger.kernel.org>,
 	Pavel Kiryukhin <vksavl@gmail.com>
-To: 'Geert Uytterhoeven' <geert@linux-m68k.org>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:57130 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751083AbaB1LtI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 06:49:08 -0500
 In-Reply-To: <CAMuHMdUuaX0pGmdOuJ9CJwj-ZTYo4PqTtZmYHh8swamQ754s2A@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogR2VlcnQgVXl0dGVyaG9ldmVuDQo+IE9uIEZyaSwgRmViIDI4LCAyMDE0IGF0IDEyOjM3
-IFBNLCBNYXJjIEtsZWluZS1CdWRkZSA8bWtsQHBlbmd1dHJvbml4LmRlPiB3cm90ZToNCj4gPj4+
-IEEgMzIgYml0IHJlYWQvbW9kaWZ5L3dyaXRlIGlzIGEgc3RhbmRhcmQgb3BlcmF0aW9uLCBub3Ro
-aW5nIHNwZWNpYWwsIG5vDQo+ID4+PiBuZWVkIHRvIHdvcnJ5IGFib3V0IGJ5dGUgc3dhcHBpbmcg
-b3IgYW55dGhpbmcgbGlrZSB0aGlzLg0KPiA+Pg0KPiA+PiAgICBPaCwgcmVhbGx5PyA4LSkNCj4g
-Pj4gICAgRG9uJ3QgeW91IGtub3cgdGhhdCByZWFkW2J3bHFdKCkgYXNzdW1lIGxpdHRsZS1lbmRp
-YW4gbWVtb3J5IGxheW91dA0KPiA+PiBhbmQgdG8gcmVhZCBmcm9tIGJpZy1lbmRpYW4gMzItYml0
-IHJlZ2lzdGVyIG9uZSBub3JtYWxseSBuZWVkcyByZWFkbF9iZSgpPw0KPiA+DQo+ID4gSSBhc3N1
-bWUgeW91IGFyZSBvbiBsaXR0bGUgZW5kaWFuIEFSTSBvbmx5IChmb3Igbm93KS4NCj4gPg0KPiA+
-IElmIHlvdSB1c2UgYSBzdGFuZGFyZCAzMiBiaXQgcmVhZCwgdGhlbiBtb2RpZnkgdGhlIGNvcnJl
-Y3QgYml0cyBpbiB0aGF0DQo+ID4gMzIgYml0IHdvcmQgYW5kIHdyaXRlIGl0IGJhY2ssIHdpdGgg
-dGhlIGNvcnJlc3BvbmRpbmcgMzIgYml0IHdyaXRlDQo+ID4gZXZlcnl0aGluZyBzaG91bGQgYmUg
-ZmluZS4gRm9yIHRoaXMgdXNlY2FzZSB5b3UganVzdCBoYXZlIHlvIGZpZ3VyZSBvdXQNCj4gPiB3
-aGljaCAyNCBvZiB0aGUgMzIgYml0IGFyZSB0aGUgb25lIHlvdSBoYXZlIHRvIGNoYW5nZSBhbmQg
-d2hpY2ggYXJlIHRoZQ0KPiA+IDggdGhhdCBtdXN0IG5vdCBiZSBtb2RpZmllZC4NCj4gPg0KPiA+
-IExvb2tpbmcgYXQgdGhlIHJlZ2lzdGVyIGxheW91dDoNCj4gPg0KPiA+PiArICAgICB1OCBiY3Jb
-M107ICAgICAgLyogQml0IENvbmZpZ3VyYXRpb24gUmVnaXN0ZXIgKi8NCj4gPj4gKyAgICAgdTgg
-Y2xrcjsgICAgICAgIC8qIENsb2NrIFNlbGVjdCBSZWdpc3RlciAqLw0KPiA+DQo+ID4gSSB0aGlu
-ayBjbGtyIHdvdWxkIGJlIHRoZSBsb3dlc3QgOCBiaXQgYW5kIGJjcltdIGFyZSB0aGUgdXBwZXIg
-MjQuDQo+IA0KPiBUaGF0IHdvdWxkIGJlIHRoZSBvdXRjb21lIG9uIGJpZyBlbmRpYW4gOy0pDQoN
-Ckxvb2tzIHRvIG1lIGFzIHRob3VnaCBpdCBzaG91bGQgYmUgZGVmaW5lZCBhcyBhIDMyYml0IGZp
-ZWxkIGFuZCB0aGVuDQp0aGUgYXBwcm9wcmlhdGUgYml0IGRlZmluaXRpb25zIGFuZCBtYXNrcyBh
-cHBsaWVkLg0KDQoJRGF2aWQNCg0K
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--JhuOLQkWXfUjKKfjINw2kbhWkVb68r90b
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+On 02/28/2014 12:41 PM, Geert Uytterhoeven wrote:
+> On Fri, Feb 28, 2014 at 12:37 PM, Marc Kleine-Budde <mkl@pengutronix.de=
+> wrote:
+>>>> A 32 bit read/modify/write is a standard operation, nothing special,=
+ no
+>>>> need to worry about byte swapping or anything like this.
+>>>
+>>>    Oh, really? 8-)
+>>>    Don't you know that read[bwlq]() assume little-endian memory layou=
+t
+>>> and to read from big-endian 32-bit register one normally needs readl_=
+be()?
+>>
+>> I assume you are on little endian ARM only (for now).
+>>
+>> If you use a standard 32 bit read, then modify the correct bits in tha=
+t
+>> 32 bit word and write it back, with the corresponding 32 bit write
+>> everything should be fine. For this usecase you just have yo figure ou=
+t
+>> which 24 of the 32 bit are the one you have to change and which are th=
+e
+>> 8 that must not be modified.
+>>
+>> Looking at the register layout:
+>>
+>>> +     u8 bcr[3];      /* Bit Configuration Register */
+>>> +     u8 clkr;        /* Clock Select Register */
+>>
+>> I think clkr would be the lowest 8 bit and bcr[] are the upper 24.
+>=20
+> That would be the outcome on big endian ;-)
+
+Doh! Yes, correct.
+The point is, just read/modify the correct bits/write, should just work.
+The driver has to be tested on BE ARM anyways, as this isn't the only 32
+bit reg.
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--JhuOLQkWXfUjKKfjINw2kbhWkVb68r90b
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlMQd6wACgkQjTAFq1RaXHM5UgCgidq97zpV8nrbhY5TWtEjibHl
+YukAn3MvFxAxODeMHSbRYjq3KVtqO+v5
+=uvQe
+-----END PGP SIGNATURE-----
+
+--JhuOLQkWXfUjKKfjINw2kbhWkVb68r90b--
