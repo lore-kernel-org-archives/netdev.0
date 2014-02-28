@@ -1,48 +1,45 @@
-From: Andrew Bennieston <andrew.bennieston@citrix.com>
-Subject: Re: [PATCH V5 net-next 3/5] xen-netfront: Factor queue-specific data
- into queue struct.
-Date: Fri, 28 Feb 2014 15:13:06 +0000
-Message-ID: <5310A782.5050705@citrix.com>
-References: <1393252387-17496-1-git-send-email-andrew.bennieston@citrix.com> <1393252387-17496-4-git-send-email-andrew.bennieston@citrix.com> <20140228150954.GM16241@zion.uk.xensource.com>
+From: "Harout Hedeshian" <harouth@codeaurora.org>
+Subject: TCP: Support configurable delayed-ack parameters
+Date: Fri, 28 Feb 2014 08:14:22 -0700
+Message-ID: <00e801cf3497$c37255f0$4a5701d0$@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <xen-devel@lists.xenproject.org>, <ian.campbell@citrix.com>,
-	<paul.durrant@citrix.com>, <netdev@vger.kernel.org>
-To: Wei Liu <wei.liu2@citrix.com>
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:26738 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751910AbaB1PNH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 10:13:07 -0500
-In-Reply-To: <20140228150954.GM16241@zion.uk.xensource.com>
+Received: from smtp.codeaurora.org ([198.145.11.231]:60604 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751677AbaB1POY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 10:14:24 -0500
+Content-Language: en-us
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 28/02/14 15:09, Wei Liu wrote:
-> On Mon, Feb 24, 2014 at 02:33:05PM +0000, Andrew J. Bennieston wrote:
->> From: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
->>
->> In preparation for multi-queue support in xen-netfront, move the
->> queue-specific data from struct netfront_info to struct netfront_queue,
->> and update the rest of the code to use this.
->>
->> Also adds loops over queues where appropriate, even though only one is
->> configured at this point, and uses alloc_etherdev_mq() and the
->> corresponding multi-queue netif wake/start/stop functions in preparation
->> for multiple active queues.
->>
->> Finally, implements a trivial queue selection function suitable for
->> ndo_select_queue, which simply returns 0, selecting the first (and
->> only) queue.
->>
->> Signed-off-by: Andrew J. Bennieston <andrew.bennieston@citrix.com>
->
-> Did you forget to add in David's "Reviewed-by"? Is there any significant
-> change compared to the last submission?
->
-> Wei.
->
-No significant change. I just forgot.
+Hello David,
 
-Andrew
+I found a thread from June 2012 (subject matches this email) discussing the
+addition of parameters to manually tune the delayed TCP ACK parameters, and
+add new TCP socket options for application specific tuning. The patch in
+question would multiply the receive mss by some constant exposed in /proc.
+We have experimented with a similar approach and found significant
+improvements in performance when asymmetric links are utilized; specifically
+where the hardware is limited in egress packets/sec (but not raw bandwidth).
+As an example, in one test we saw a 100% improvement when doing rcv_mss*4.
+
+You had responded to the original patch by stating that you are
+fundamentally opposed to the feature. I'm trying to understand specifically
+what your objections are. Checking tcp_measure_rcv_mss() current
+implementation(as of 3.10),  I do not see any way for rcv_mss to grow beyond
+the largest received skb length. 
+
+Thanks,
+Harout
+
+--
+Harout Hedeshian
+
+Employee of Qualcomm Innovation Center, Inc.
+Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, hosted by
+The Linux Foundation
