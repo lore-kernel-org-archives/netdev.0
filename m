@@ -1,8 +1,8 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v6 5/8] 6lowpan: move
-	6lowpan.c to 6lowpan_rtnl.c
-Date: Fri, 28 Feb 2014 07:32:47 +0100
-Message-ID: <1393569170-25722-6-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH net-next v6 7/8] net: ns: add
+	ieee802154_6lowpan namespace
+Date: Fri, 28 Feb 2014 07:32:49 +0100
+Message-ID: <1393569170-25722-8-git-send-email-alex.aring@gmail.com>
 References: <1393569170-25722-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,32 +22,58 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-We have a 6lowpan.c file and 6lowpan.ko file. To avoid confusing we
-should move 6lowpan.c to 6lowpan_rtnl.c. Then we can support multiple
-source files for 6lowpan module.
+This patch adds necessary ieee802154 6lowpan namespace to provide the
+inet_frag information. This is a initial support for handling 6lowpan
+fragmentation with the inet_frag api.
 
 Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- net/ieee802154/{6lowpan.c => 6lowpan_rtnl.c} | 0
- net/ieee802154/Makefile                      | 1 +
- 2 files changed, 1 insertion(+)
- rename net/ieee802154/{6lowpan.c => 6lowpan_rtnl.c} (100%)
+ include/net/net_namespace.h            |  4 ++++
+ include/net/netns/ieee802154_6lowpan.h | 13 +++++++++++++
+ 2 files changed, 17 insertions(+)
+ create mode 100644 include/net/netns/ieee802154_6lowpan.h
 
-diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan_rtnl.c
-similarity index 100%
-rename from net/ieee802154/6lowpan.c
-rename to net/ieee802154/6lowpan_rtnl.c
-diff --git a/net/ieee802154/Makefile b/net/ieee802154/Makefile
-index e8f0588..3d08adf 100644
---- a/net/ieee802154/Makefile
-+++ b/net/ieee802154/Makefile
-@@ -2,5 +2,6 @@ obj-$(CONFIG_IEEE802154) += ieee802154.o af_802154.o
- obj-$(CONFIG_IEEE802154_6LOWPAN) += 6lowpan.o
- obj-$(CONFIG_6LOWPAN_IPHC) += 6lowpan_iphc.o
- 
-+6lowpan-y := 6lowpan_rtnl.o
- ieee802154-y := netlink.o nl-mac.o nl-phy.o nl_policy.o wpan-class.o
- af_802154-y := af_ieee802154.o raw.o dgram.o
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 991dcd9..79387f7 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -15,6 +15,7 @@
+ #include <net/netns/packet.h>
+ #include <net/netns/ipv4.h>
+ #include <net/netns/ipv6.h>
++#include <net/netns/ieee802154_6lowpan.h>
+ #include <net/netns/sctp.h>
+ #include <net/netns/dccp.h>
+ #include <net/netns/netfilter.h>
+@@ -90,6 +91,9 @@ struct net {
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	struct netns_ipv6	ipv6;
+ #endif
++#if IS_ENABLED(CONFIG_IEEE802154_6LOWPAN)
++	struct netns_ieee802154_lowpan	ieee802154_lowpan;
++#endif
+ #if defined(CONFIG_IP_SCTP) || defined(CONFIG_IP_SCTP_MODULE)
+ 	struct netns_sctp	sctp;
+ #endif
+diff --git a/include/net/netns/ieee802154_6lowpan.h b/include/net/netns/ieee802154_6lowpan.h
+new file mode 100644
+index 0000000..88110b7
+--- /dev/null
++++ b/include/net/netns/ieee802154_6lowpan.h
+@@ -0,0 +1,13 @@
++/*
++ * ieee802154 6lowpan in net namespaces
++ */
++
++#include <net/inet_frag.h>
++
++#ifndef __NETNS_IEEE802154_6LOWPAN_H__
++#define __NETNS_IEEE802154_6LOWPAN_H__
++
++struct netns_ieee802154_lowpan {
++};
++
++#endif
 -- 
 1.9.0
 
