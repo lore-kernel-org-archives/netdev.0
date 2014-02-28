@@ -1,32 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/6] Intel Wired LAN Driver Updates
-Date: Fri, 28 Feb 2014 00:41:40 -0500 (EST)
-Message-ID: <20140228.004140.241152706134105419.davem@davemloft.net>
-References: <1393561965-3688-1-git-send-email-aaron.f.brown@intel.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net RESEND] vlan: don't allow to add VLAN on VLAN device
+Date: Thu, 27 Feb 2014 21:41:33 -0800
+Message-ID: <CAGVrzcb_eD18-XGC34fZaQFbH3f5-NZk+6N5YbjYMSxCCSZX2w@mail.gmail.com>
+References: <530FF7BF.4030706@huawei.com> <53100677.2060705@intel.com> <53101E1A.6020707@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: aaron.f.brown@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51635 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750719AbaB1Flo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 00:41:44 -0500
-In-Reply-To: <1393561965-3688-1-git-send-email-aaron.f.brown@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <53101E1A.6020707@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Aaron Brown <aaron.f.brown@intel.com>
-Date: Thu, 27 Feb 2014 20:32:39 -0800
+2014-02-27 21:26 GMT-08:00 Ding Tianhong <dingtianhong@huawei.com>:
+> On 2014/2/28 11:45, John Fastabend wrote:
+>> On 2/27/2014 6:43 PM, Ding Tianhong wrote:
+>>> I run these steps:
+>>>
+>>> modprobe 8021q
+>>> vconfig add eth2 20
+>>> vconfig add eth2.20 20
+>>> ifconfig eth2 xx.xx.xx.xx
+>>>
+>>> then the Call Trace happened:
+>>>
+>>
+>> [...]
+>>
+>>> ========================================================================
+>>>
+>>> The reason is that if add vlan on vlan dev, the vlan dev will create vlan_info,
+>>> then the notification will let the real dev to run dev_set_rx_mode() and hold
+>>> netif_addr_lock, and then the real dev will call ndo_set_rx_mode(), if the real
+>>> dev is vlan dev, the ndo_set_rx_mode() will hold netif_addr_lock again, so deadlock
+>>> happened.
+>>>
+>>> Don't allow to add vlan on vlan dev to fix this problem.
+>>>
+>>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>>> ---
+>>
+>> I'm not sure we can just disable stacked vlans. There might be something
+>> using them today and they have worked in the past. Lets try to find a
+>> better fix.
+>>
+>> .John
+>
+> Yes, maybe I miss something, can you gave me a scene that the use of eth2.20.30?
+> the device is created from vlan device eth2.20, than I will find a better way to fix it.
 
-> This series contains updates to ixgbe and ixgbevf.
-> 
-> Don provides an update to change a hard coded timeout interval to
-> a system-wide timeout one, collects AUTOC register functions into
-> one place and fixes some firmware bit handling.
-> 
-> Emil resolves a tx handling error introduced in a recent commit and
-> adds check for CHECKSUM_PARTIAL to avoid an skb_is_gso check
+Is not QinQ (802.1ad) such as case [1]?
 
-Looks good, series applied, thanks Aaron.
+[1]: http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=8ad227ff89a7e6f05d07cd0acfd95ed3a24450ca
+--
+Florian
