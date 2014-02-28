@@ -1,393 +1,157 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC 02/12] xfrm6: Add IPsec protocol multiplexer
-Date: Fri, 28 Feb 2014 11:31:12 +0100
-Message-ID: <1393583483-12480-3-git-send-email-steffen.klassert@secunet.com>
-References: <1393583483-12480-1-git-send-email-steffen.klassert@secunet.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [nf-next PATCH 0/5] (repost) netfilter: conntrack:
+ optimization, remove central spinlock
+Date: Fri, 28 Feb 2014 10:47:38 +0100
+Message-ID: <20140228104738.6707b8f1@redhat.com>
+References: <20140227182220.25907.12758.stgit@dragon>
+ <20140227.183415.788592676169519032.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	Christophe Gouault <christophe.gouault@6wind.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:49010 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751570AbaB1Kbm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Feb 2014 05:31:42 -0500
-In-Reply-To: <1393583483-12480-1-git-send-email-steffen.klassert@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, eric.dumazet@gmail.com,
+	pablo@netfilter.org, netdev@vger.kernel.org, fw@strlen.de,
+	kaber@trash.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20140227.183415.788592676169519032.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds an IPsec protocol multiplexer for ipv6. With
-this it is possible to add alternative protocol handlers, as
-needed for IPsec virtual tunnel interfaces.
+On Thu, 27 Feb 2014 18:34:15 -0500 (EST)
+David Miller <davem@davemloft.net> wrote:
 
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- include/net/xfrm.h        |   15 +++
- net/ipv6/Makefile         |    2 +-
- net/ipv6/xfrm6_policy.c   |    7 ++
- net/ipv6/xfrm6_protocol.c |  270 +++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 293 insertions(+), 1 deletion(-)
- create mode 100644 net/ipv6/xfrm6_protocol.c
+> From: Jesper Dangaard Brouer <brouer@redhat.com>
+> Date: Thu, 27 Feb 2014 19:23:24 +0100
+> 
+> > (Repost to netfilter-devel list)
+> > 
+> > This patchset change the conntrack locking and provides a huge
+> > performance improvements.
+> > 
+> > This patchset is based upon Eric Dumazet's proposed patch:
+> >   http://thread.gmane.org/gmane.linux.network/268758/focus=47306
+> > I have in agreement with Eric Dumazet, taken over this patch (and
+> > turned it into a entire patchset).
+> > 
+> > Primary focus is to remove the central spinlock nf_conntrack_lock.
+> > This requires several steps to be acheived.
+> 
+> I only worry about the raw_smp_processor_id()'s.
+> 
+> If preemption will be disabled in these contexts, then it's safe and
+> we can just use plain smp_processor_id().
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 4cdc9fa..60df20a 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1374,6 +1374,16 @@ struct xfrm4_protocol {
- 	int priority;
- };
- 
-+struct xfrm6_protocol {
-+	int (*handler)(struct sk_buff *skb);
-+	int (*cb_handler)(struct sk_buff *skb, int err);
-+	int (*err_handler)(struct sk_buff *skb, struct inet6_skb_parm *opt,
-+			   u8 type, u8 code, int offset, __be32 info);
-+
-+	struct xfrm6_protocol __rcu *next;
-+	int priority;
-+};
-+
- /* XFRM tunnel handlers.  */
- struct xfrm_tunnel {
- 	int (*handler)(struct sk_buff *skb);
-@@ -1408,6 +1418,8 @@ int xfrm6_init(void);
- void xfrm6_fini(void);
- int xfrm6_state_init(void);
- void xfrm6_state_fini(void);
-+int xfrm6_protocol_init(void);
-+void xfrm6_protocol_fini(void);
- #else
- static inline int xfrm6_init(void)
- {
-@@ -1552,6 +1564,9 @@ int xfrm6_rcv(struct sk_buff *skb);
- int xfrm6_input_addr(struct sk_buff *skb, xfrm_address_t *daddr,
- 		     xfrm_address_t *saddr, u8 proto);
- void xfrm6_local_error(struct sk_buff *skb, u32 mtu);
-+int xfrm6_rcv_cb(struct sk_buff *skb, u8 protocol, int err);
-+int xfrm6_protocol_register(struct xfrm6_protocol *handler, unsigned char protocol);
-+int xfrm6_protocol_deregister(struct xfrm6_protocol *handler, unsigned char protocol);
- int xfrm6_tunnel_register(struct xfrm6_tunnel *handler, unsigned short family);
- int xfrm6_tunnel_deregister(struct xfrm6_tunnel *handler, unsigned short family);
- __be32 xfrm6_tunnel_alloc_spi(struct net *net, xfrm_address_t *saddr);
-diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
-index 17bb830..2fe6836 100644
---- a/net/ipv6/Makefile
-+++ b/net/ipv6/Makefile
-@@ -16,7 +16,7 @@ ipv6-$(CONFIG_SYSCTL) = sysctl_net_ipv6.o
- ipv6-$(CONFIG_IPV6_MROUTE) += ip6mr.o
- 
- ipv6-$(CONFIG_XFRM) += xfrm6_policy.o xfrm6_state.o xfrm6_input.o \
--	xfrm6_output.o
-+	xfrm6_output.o xfrm6_protocol.o
- ipv6-$(CONFIG_NETFILTER) += netfilter.o
- ipv6-$(CONFIG_IPV6_MULTIPLE_TABLES) += fib6_rules.o
- ipv6-$(CONFIG_PROC_FS) += proc.o
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index 5f8e128..2a0bbda 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -389,11 +389,17 @@ int __init xfrm6_init(void)
- 	if (ret)
- 		goto out_policy;
- 
-+	ret = xfrm6_protocol_init();
-+	if (ret)
-+		goto out_state;
-+
- #ifdef CONFIG_SYSCTL
- 	register_pernet_subsys(&xfrm6_net_ops);
- #endif
- out:
- 	return ret;
-+out_state:
-+	xfrm6_state_fini();
- out_policy:
- 	xfrm6_policy_fini();
- 	goto out;
-@@ -404,6 +410,7 @@ void xfrm6_fini(void)
- #ifdef CONFIG_SYSCTL
- 	unregister_pernet_subsys(&xfrm6_net_ops);
- #endif
-+	xfrm6_protocol_fini();
- 	xfrm6_policy_fini();
- 	xfrm6_state_fini();
- 	dst_entries_destroy(&xfrm6_dst_ops);
-diff --git a/net/ipv6/xfrm6_protocol.c b/net/ipv6/xfrm6_protocol.c
-new file mode 100644
-index 0000000..fd0ebf0
---- /dev/null
-+++ b/net/ipv6/xfrm6_protocol.c
-@@ -0,0 +1,270 @@
-+/* xfrm6_protocol.c - Generic xfrm protocol multiplexer for ipv6.
-+ *
-+ * Copyright (C) 2013 secunet Security Networks AG
-+ *
-+ * Author:
-+ * Steffen Klassert <steffen.klassert@secunet.com>
-+ *
-+ * Based on:
-+ * net/ipv4/xfrm4_protocol.c
-+ *
-+ *	This program is free software; you can redistribute it and/or
-+ *	modify it under the terms of the GNU General Public License
-+ *	as published by the Free Software Foundation; either version
-+ *	2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/init.h>
-+#include <linux/mutex.h>
-+#include <linux/skbuff.h>
-+#include <linux/icmpv6.h>
-+#include <net/ipv6.h>
-+#include <net/protocol.h>
-+#include <net/xfrm.h>
-+
-+static struct xfrm6_protocol __rcu *esp6_handlers __read_mostly;
-+static struct xfrm6_protocol __rcu *ah6_handlers __read_mostly;
-+static struct xfrm6_protocol __rcu *ipcomp6_handlers __read_mostly;
-+static DEFINE_MUTEX(xfrm6_protocol_mutex);
-+
-+static inline struct xfrm6_protocol __rcu **proto_handlers(u8 protocol)
-+{
-+	switch (protocol) {
-+	case IPPROTO_ESP:
-+		return &esp6_handlers;
-+	case IPPROTO_AH:
-+		return &ah6_handlers;
-+	case IPPROTO_COMP:
-+		return &ipcomp6_handlers;
-+	}
-+
-+	return NULL;
-+}
-+
-+#define for_each_protocol_rcu(head, handler)		\
-+	for (handler = rcu_dereference(head);		\
-+	     handler != NULL;				\
-+	     handler = rcu_dereference(handler->next))	\
-+
-+int xfrm6_rcv_cb(struct sk_buff *skb, u8 protocol, int err)
-+{
-+	int ret;
-+	struct xfrm6_protocol *handler;
-+
-+	for_each_protocol_rcu(*proto_handlers(protocol), handler)
-+		if ((ret = handler->cb_handler(skb, err)) <= 0)
-+			return ret;
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(xfrm6_rcv_cb);
-+
-+static int xfrm6_esp_rcv(struct sk_buff *skb)
-+{
-+	int ret;
-+	struct xfrm6_protocol *handler;
-+
-+	XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6 = NULL;
-+
-+	for_each_protocol_rcu(esp6_handlers, handler)
-+		if ((ret = handler->handler(skb)) != -EINVAL)
-+			return ret;
-+
-+	icmpv6_send(skb, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH, 0);
-+
-+	kfree_skb(skb);
-+	return 0;
-+}
-+
-+static void xfrm6_esp_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
-+			  u8 type, u8 code, int offset, __be32 info)
-+{
-+	struct xfrm6_protocol *handler;
-+
-+	for_each_protocol_rcu(esp6_handlers, handler)
-+		if (!handler->err_handler(skb, opt, type, code, offset, info))
-+			break;
-+}
-+
-+static int xfrm6_ah_rcv(struct sk_buff *skb)
-+{
-+	int ret;
-+	struct xfrm6_protocol *handler;
-+
-+	XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6 = NULL;
-+
-+	for_each_protocol_rcu(ah6_handlers, handler)
-+		if ((ret = handler->handler(skb)) != -EINVAL)
-+			return ret;
-+
-+	icmpv6_send(skb, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH, 0);
-+
-+	kfree_skb(skb);
-+	return 0;
-+}
-+
-+static void xfrm6_ah_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
-+			 u8 type, u8 code, int offset, __be32 info)
-+{
-+	struct xfrm6_protocol *handler;
-+
-+	for_each_protocol_rcu(ah6_handlers, handler)
-+		if (!handler->err_handler(skb ,opt, type, code, offset, info))
-+			break;
-+}
-+
-+static int xfrm6_ipcomp_rcv(struct sk_buff *skb)
-+{
-+	int ret;
-+	struct xfrm6_protocol *handler;
-+
-+	XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6 = NULL;
-+
-+	for_each_protocol_rcu(ipcomp6_handlers, handler)
-+		if ((ret = handler->handler(skb)) != -EINVAL)
-+			return ret;
-+
-+	icmpv6_send(skb, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH, 0);
-+
-+	kfree_skb(skb);
-+	return 0;
-+}
-+
-+static void xfrm6_ipcomp_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
-+			     u8 type, u8 code, int offset, __be32 info)
-+{
-+	struct xfrm6_protocol *handler;
-+
-+	for_each_protocol_rcu(ipcomp6_handlers, handler)
-+		if (!handler->err_handler(skb ,opt, type, code, offset, info))
-+			break;
-+}
-+
-+static const struct inet6_protocol esp6_protocol = {
-+	.handler	=	xfrm6_esp_rcv,
-+	.err_handler	=	xfrm6_esp_err,
-+	.flags		=	INET6_PROTO_NOPOLICY,
-+};
-+
-+static const struct inet6_protocol ah6_protocol = {
-+	.handler	=	xfrm6_ah_rcv,
-+	.err_handler	=	xfrm6_ah_err,
-+	.flags		=	INET6_PROTO_NOPOLICY,
-+};
-+
-+static const struct inet6_protocol ipcomp6_protocol = {
-+	.handler	=	xfrm6_ipcomp_rcv,
-+	.err_handler	=	xfrm6_ipcomp_err,
-+	.flags		=	INET6_PROTO_NOPOLICY,
-+};
-+
-+static struct xfrm_input_afinfo xfrm6_input_afinfo = {
-+	.family		=	AF_INET6,
-+	.owner		=	THIS_MODULE,
-+	.callback	=	xfrm6_rcv_cb,
-+};
-+
-+static inline const struct inet6_protocol *netproto(unsigned char protocol)
-+{
-+	switch (protocol) {
-+	case IPPROTO_ESP:
-+		return &esp6_protocol;
-+	case IPPROTO_AH:
-+		return &ah6_protocol;
-+	case IPPROTO_COMP:
-+		return &ipcomp6_protocol;
-+	}
-+
-+	return NULL;
-+}
-+
-+int xfrm6_protocol_register(struct xfrm6_protocol *handler,
-+			    unsigned char protocol)
-+{
-+	struct xfrm6_protocol __rcu **pprev;
-+	struct xfrm6_protocol *t;
-+	bool add_netproto = false;
-+
-+	int ret = -EEXIST;
-+	int priority = handler->priority;
-+
-+	mutex_lock(&xfrm6_protocol_mutex);
-+
-+	if (!rcu_dereference_protected(*proto_handlers(protocol),
-+				       lockdep_is_held(&xfrm6_protocol_mutex)))
-+		add_netproto = true;
-+
-+	for (pprev = proto_handlers(protocol);
-+	     (t = rcu_dereference_protected(*pprev,
-+			lockdep_is_held(&xfrm6_protocol_mutex))) != NULL;
-+	     pprev = &t->next) {
-+		if (t->priority < priority)
-+			break;
-+		if (t->priority == priority)
-+			goto err;
-+	}
-+
-+	handler->next = *pprev;
-+	rcu_assign_pointer(*pprev, handler);
-+
-+	ret = 0;
-+
-+err:
-+	mutex_unlock(&xfrm6_protocol_mutex);
-+
-+	if (add_netproto) {
-+		if (inet6_add_protocol(netproto(protocol), protocol)) {
-+			pr_err("%s: can't add protocol\n", __func__);
-+			ret = -EAGAIN;
-+		}
-+	}
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL(xfrm6_protocol_register);
-+
-+int xfrm6_protocol_deregister(struct xfrm6_protocol *handler,
-+			      unsigned char protocol)
-+{
-+	struct xfrm6_protocol __rcu **pprev;
-+	struct xfrm6_protocol *t;
-+	int ret = -ENOENT;
-+
-+	mutex_lock(&xfrm6_protocol_mutex);
-+
-+	for (pprev = proto_handlers(protocol);
-+	     (t = rcu_dereference_protected(*pprev,
-+			lockdep_is_held(&xfrm6_protocol_mutex))) != NULL;
-+	     pprev = &t->next) {
-+		if (t == handler) {
-+			*pprev = handler->next;
-+			ret = 0;
-+			break;
-+		}
-+	}
-+
-+	if (!rcu_dereference_protected(*proto_handlers(protocol),
-+				       lockdep_is_held(&xfrm6_protocol_mutex))) {
-+		if (inet6_del_protocol(netproto(protocol), protocol) < 0) {
-+			pr_err("%s: can't remove protocol\n", __func__);
-+			ret = -EAGAIN;
-+		}
-+	}
-+
-+	mutex_unlock(&xfrm6_protocol_mutex);
-+
-+	synchronize_net();
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL(xfrm6_protocol_deregister);
-+
-+int __init xfrm6_protocol_init(void)
-+{
-+	return xfrm_input_register_afinfo(&xfrm6_input_afinfo);
-+}
-+
-+void xfrm6_protocol_fini(void)
-+{
-+	xfrm_input_unregister_afinfo(&xfrm6_input_afinfo);
-+}
+Most of the contexts are safe, one were not by mistake, and one is not.
+I've corrected the code (patch diff below) and tested with lockdep etc.
+
+> If preemption is not necessarily disabled in these spots, the use
+> is not correct.  We'll need to use get_cpu/put_cpu sequences, or
+> (considering what these patches are doing) something like:
+> 
+> 	struct ct_pcpu *pcpu;
+> 
+> 	/* add this conntrack to the (per cpu) unconfirmed list */
+> 	local_bh_disable();
+> 	ct->cpu = smp_processor_id();
+> 	pcpu = per_cpu_ptr(nf_ct_net(ct)->ct.pcpu_lists, ct->cpu);
+> 
+> 	spin_lock(&pcpu->lock);
+> 	hlist_nulls_add_head(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode,
+> 			     &pcpu->unconfirmed);
+> 	spin_unlock_bh(&pcpu->lock);
+
 -- 
-1.7.9.5
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index ac85fd1..289b279 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -192,34 +192,37 @@ clean_from_lists(struct nf_conn *ct)
+ 	nf_ct_remove_expectations(ct);
+ }
+ 
++/* must be called with local_bh_disable */
+ static void nf_ct_add_to_dying_list(struct nf_conn *ct)
+ {
+ 	struct ct_pcpu *pcpu;
+ 
+ 	/* add this conntrack to the (per cpu) dying list */
+-	ct->cpu = raw_smp_processor_id();
++	ct->cpu = smp_processor_id();
+ 	pcpu = per_cpu_ptr(nf_ct_net(ct)->ct.pcpu_lists, ct->cpu);
+ 
+-	spin_lock_bh(&pcpu->lock);
++	spin_lock(&pcpu->lock);
+ 	hlist_nulls_add_head(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode,
+ 			     &pcpu->dying);
+-	spin_unlock_bh(&pcpu->lock);
++	spin_unlock(&pcpu->lock);
+ }
+ 
++/* must be called with local_bh_disable */
+ static void nf_ct_add_to_unconfirmed_list(struct nf_conn *ct)
+ {
+ 	struct ct_pcpu *pcpu;
+ 
+ 	/* add this conntrack to the (per cpu) unconfirmed list */
+-	ct->cpu = raw_smp_processor_id();
++	ct->cpu = smp_processor_id();
+ 	pcpu = per_cpu_ptr(nf_ct_net(ct)->ct.pcpu_lists, ct->cpu);
+ 
+-	spin_lock_bh(&pcpu->lock);
++	spin_lock(&pcpu->lock);
+ 	hlist_nulls_add_head(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode,
+ 			     &pcpu->unconfirmed);
+-	spin_unlock_bh(&pcpu->lock);
++	spin_unlock(&pcpu->lock);
+ }
+ 
++/* must be called with local_bh_disable */
+ static void nf_ct_del_from_dying_or_unconfirmed_list(struct nf_conn *ct)
+ {
+ 	struct ct_pcpu *pcpu;
+@@ -227,10 +230,10 @@ static void nf_ct_del_from_dying_or_unconfirmed_list(struct nf_conn *ct)
+ 	/* We overload first tuple to link into unconfirmed or dying list.*/
+ 	pcpu = per_cpu_ptr(nf_ct_net(ct)->ct.pcpu_lists, ct->cpu);
+ 
+-	spin_lock_bh(&pcpu->lock);
++	spin_lock(&pcpu->lock);
+ 	BUG_ON(hlist_nulls_unhashed(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode));
+ 	hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
+-	spin_unlock_bh(&pcpu->lock);
++	spin_unlock(&pcpu->lock);
+ }
+ 
+ static void
+@@ -511,10 +514,11 @@ void nf_conntrack_tmpl_insert(struct net *net, struct nf_conn *tmpl)
+ 	nf_conntrack_get(&tmpl->ct_general);
+ 
+ 	/* add this conntrack to the (per cpu) tmpl list */
+-	tmpl->cpu = raw_smp_processor_id();
++	local_bh_disable();
++	tmpl->cpu = smp_processor_id();
+ 	pcpu = per_cpu_ptr(nf_ct_net(tmpl)->ct.pcpu_lists, tmpl->cpu);
+ 
+-	spin_lock_bh(&pcpu->lock);
++	spin_lock(&pcpu->lock);
+ 	/* Overload tuple linked list to put us in template list. */
+ 	hlist_nulls_add_head_rcu(&tmpl->tuplehash[IP_CT_DIR_ORIGINAL].hnnode,
+ 				 &pcpu->tmpl);
+@@ -921,11 +925,9 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
+ 
+ 	/* Now it is inserted into the unconfirmed list, bump refcount */
+ 	nf_conntrack_get(&ct->ct_general);
+-
+-	spin_unlock_bh(&nf_conntrack_lock);
+-
+ 	nf_ct_add_to_unconfirmed_list(ct);
+ 
++	spin_unlock_bh(&nf_conntrack_lock);
+ 
+ 	if (exp) {
+ 		if (exp->expectfn)
