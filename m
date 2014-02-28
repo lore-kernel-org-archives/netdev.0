@@ -1,40 +1,73 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v5] can: add Renesas R-Car CAN driver
-Date: Fri, 28 Feb 2014 12:17:16 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6CDC95@AcuExch.aculab.com>
-References: <201312270037.15822.sergei.shtylyov@cogentembedded.com>
-	<52DCE9E4.7010209@pengutronix.de>	<52E3148E.2010608@cogentembedded.com>
-	<52FCB6C5.6020001@pengutronix.de>	<53069445.80408@cogentembedded.com>
-	<5310521E.6000708@pengutronix.de>	<53107007.7050802@cogentembedded.com>
-	<531074F5.8090702@pengutronix.de>
- <CAMuHMdUuaX0pGmdOuJ9CJwj-ZTYo4PqTtZmYHh8swamQ754s2A@mail.gmail.com>
- <531077AC.7050804@pengutronix.de> <53107B7B.8040800@cogentembedded.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [ebtables PATCH (resent)] arptables: long option "--set-counters"
+ were missing
+Date: Fri, 28 Feb 2014 13:32:27 +0100
+Message-ID: <20140228123113.2220.55978.stgit@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"wg@grandegger.com" <wg@grandegger.com>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	Pavel Kiryukhin <vksavl@gmail.com>
-To: 'Sergei Shtylyov' <sergei.shtylyov@cogentembedded.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <53107B7B.8040800@cogentembedded.com>
-Content-Language: en-US
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Bart De Schuymer <bdschuym@pandora.be>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:7156 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751066AbaB1Mcc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Feb 2014 07:32:32 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogU2VyZ2VpIFNodHlseW92DQo+ICAgICBUaGlzIGlzIG5vdCBhIDMyLWJpdCByZWdpc3Rl
-ciBidXQgMjQtIGFuZCA4LWJpdCBvbmUuIEknbSBhZnJhaWQgd2Ugd29uJ3QNCj4gYmUgYWJsZSB0
-byB0ZXN0IG9uIEJFIHNvb24gYXMgdGhlIG1hY2hpbmUgd2UncmUgZGVidWdnaW5nIG9uIGlzIExF
-IG9ubHkuDQo+IEFueXdheSwgZm9yIHRoZSBiaWctZW5kaWFuIGNvbmZpZ3VyZWQgU3VwZXJoeXdh
-eSBidXMgdGhlIGJpZy1lbmRpYW4gSFBCIGJ1cw0KPiB0aGUgQ0FOIGNvbnRyb2xsZXIgcmVzaWRl
-cyBvbiBzaG91bGRuJ3Qgc3dhcCBieXRlcy4NCg0KRXhjZXB0IHRoYXQgeW91IGFyZW4ndCBnb2lu
-ZyB0byBnZXQgYW55IGNwdSBJIGtub3cgYWJvdXQgdG8gZG8gYSBidXMNCmFjY2VzcyB3aXRoIG9u
-bHkgdGhyZWUgb2YgdGhlIGZvdXIgYnl0ZSBlbmFibGVzIGFzc2VydGVkIChleGNlcHQgYXMgcGFy
-dA0Kb2YgYSBtaXNhbGlnbmVkIDMyIGJpdCB0cmFuc2ZlcikuDQoNClNvIHlvdSBlaXRoZXIgaGF2
-ZSBmb3VyIDgtYml0IHJlZ2lzdGVycywgb3Igb25lIDMyLWJpdCBvbmUuDQoNCkknZCBzdWdnZXN0
-IGtlZXBpbmcgYm90aCBwYXJ0cyBpbiB0aGUgZHJpdmVyIGRhdGEgYXJlYSBhbmQgb3JpbmcNCnRo
-ZW0gdG9nZXRoZXIgYmVmb3JlIHdyaXRpbmcgdG8gdGhlIGRldmljZS4NCg0KCURhdmlkDQoNCg==
+The long option "--set-counters" where missing in option parsing.
+And the corresponding short option "-c" were not mentioned in
+the help usage text.
+
+Also update the arptables man page with a description
+of the parameter.
+
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+---
+Resending patch... didn't get any response from Bart De Schuymer last time...
+
+ userspace/arptables/arptables.8 |    8 ++++++++
+ userspace/arptables/arptables.c |    3 ++-
+ 2 files changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/userspace/arptables/arptables.8 b/userspace/arptables/arptables.8
+index 0b6b62e..78b2c60 100644
+--- a/userspace/arptables/arptables.8
++++ b/userspace/arptables/arptables.8
+@@ -215,6 +215,14 @@ The target of the rule. This is one of the following values:
+ a target extension (see
+ .BR "TARGET EXTENSIONS" ")"
+ or a user-defined chain name.
++.TP
++.BI "-c, --set-counters " "PKTS BYTES"
++This enables the administrator to initialize the packet and byte
++counters of a rule (during
++.B INSERT,
++.B APPEND,
++.B REPLACE
++operations).
+ 
+ .SS RULE-SPECIFICATIONS
+ The following command line arguments make up a rule specification (as used 
+diff --git a/userspace/arptables/arptables.c b/userspace/arptables/arptables.c
+index 4da6fea..3fb8ed5 100644
+--- a/userspace/arptables/arptables.c
++++ b/userspace/arptables/arptables.c
+@@ -152,6 +152,7 @@ static struct option original_opts[] = {
+ 	{ "help", 2, 0, 'h' },
+ 	{ "line-numbers", 0, 0, '0' },
+ 	{ "modprobe", 1, 0, 'M' },
++	{ "set-counters", 1, 0, 'c' },
+ 	{ 0 }
+ };
+ 
+@@ -529,7 +530,7 @@ exit_printhelp(void)
+ "  --line-numbers		print line numbers when listing\n"
+ "  --exact	-x		expand numbers (display exact values)\n"
+ "  --modprobe=<command>		try to insert modules using this command\n"
+-"  --set-counters PKTS BYTES	set the counter during insert/append\n"
++"  --set-counters -c PKTS BYTES	set the counter during insert/append\n"
+ "[!] --version	-V		print package version.\n");
+ 	printf(" opcode strings: \n");
+         for (i = 0; i < NUMOPCODES; i++)
