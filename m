@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC 07/12] vti6: Remove caching of flow informations.
-Date: Fri, 28 Feb 2014 11:31:17 +0100
-Message-ID: <1393583483-12480-8-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH RFC 05/12] ipcomp6: Use the IPsec protocol multiplexer API
+Date: Fri, 28 Feb 2014 11:31:15 +0100
+Message-ID: <1393583483-12480-6-git-send-email-steffen.klassert@secunet.com>
 References: <1393583483-12480-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,77 +9,102 @@ Cc: Steffen Klassert <steffen.klassert@secunet.com>,
 	Christophe Gouault <christophe.gouault@6wind.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:49019 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:49027 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751660AbaB1Kbn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Feb 2014 05:31:43 -0500
+	id S1751808AbaB1Kbp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Feb 2014 05:31:45 -0500
 In-Reply-To: <1393583483-12480-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Unlike ip6_tunnel, vti6 does not use the the tunnel
-endpoint addresses to do route and xfrm lookups.
-So no need to cache the flow informations. It also
-does not make sense to calculate the mtu based on
-such flow informations, so remove this too.
+Switch ipcomp6 to use the new IPsec protocol multiplexer.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/ipv6/ip6_vti.c |   31 -------------------------------
- 1 file changed, 31 deletions(-)
+ net/ipv6/ipcomp6.c |   22 +++++++++++++++-------
+ 1 file changed, 15 insertions(+), 7 deletions(-)
 
-diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-index 3f337c7..596327d 100644
---- a/net/ipv6/ip6_vti.c
-+++ b/net/ipv6/ip6_vti.c
-@@ -443,19 +443,10 @@ static void vti6_link_config(struct ip6_tnl *t)
- 	struct dst_entry *dst;
- 	struct net_device *dev = t->dev;
- 	struct __ip6_tnl_parm *p = &t->parms;
--	struct flowi6 *fl6 = &t->fl.u.ip6;
+diff --git a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
+index da9becb..d1c793c 100644
+--- a/net/ipv6/ipcomp6.c
++++ b/net/ipv6/ipcomp6.c
+@@ -53,7 +53,7 @@
+ #include <linux/icmpv6.h>
+ #include <linux/mutex.h>
  
- 	memcpy(dev->dev_addr, &p->laddr, sizeof(struct in6_addr));
- 	memcpy(dev->broadcast, &p->raddr, sizeof(struct in6_addr));
+-static void ipcomp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
++static int ipcomp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 				u8 type, u8 code, int offset, __be32 info)
+ {
+ 	struct net *net = dev_net(skb->dev);
+@@ -65,19 +65,21 @@ static void ipcomp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
  
--	/* Set up flowi template */
--	fl6->saddr = p->laddr;
--	fl6->daddr = p->raddr;
--	fl6->flowi6_oif = p->link;
--	fl6->flowi6_mark = be32_to_cpu(p->i_key);
--	fl6->flowi6_proto = p->proto;
--	fl6->flowlabel = 0;
--
- 	p->flags &= ~(IP6_TNL_F_CAP_XMIT | IP6_TNL_F_CAP_RCV |
- 		      IP6_TNL_F_CAP_PER_PACKET);
- 	p->flags |= ip6_tnl_get_cap(t, &p->laddr, &p->raddr);
-@@ -466,28 +457,6 @@ static void vti6_link_config(struct ip6_tnl *t)
- 		dev->flags &= ~IFF_POINTOPOINT;
+ 	if (type != ICMPV6_PKT_TOOBIG &&
+ 	    type != NDISC_REDIRECT)
+-		return;
++		return 0;
  
- 	dev->iflink = p->link;
--
--	if (p->flags & IP6_TNL_F_CAP_XMIT) {
--
--		dst = ip6_route_output(dev_net(dev), NULL, fl6);
--		if (dst->error)
--			return;
--
--		dst = xfrm_lookup(dev_net(dev), dst, flowi6_to_flowi(fl6),
--				  NULL, 0);
--		if (IS_ERR(dst))
--			return;
--
--		if (dst->dev) {
--			dev->hard_header_len = dst->dev->hard_header_len;
--
--			dev->mtu = dst_mtu(dst);
--
--			if (dev->mtu < IPV6_MIN_MTU)
--				dev->mtu = IPV6_MIN_MTU;
--		}
--		dst_release(dst);
--	}
+ 	spi = htonl(ntohs(ipcomph->cpi));
+ 	x = xfrm_state_lookup(net, skb->mark, (const xfrm_address_t *)&iph->daddr,
+ 			      spi, IPPROTO_COMP, AF_INET6);
+ 	if (!x)
+-		return;
++		return 0;
+ 
+ 	if (type == NDISC_REDIRECT)
+ 		ip6_redirect(skb, net, skb->dev->ifindex, 0);
+ 	else
+ 		ip6_update_pmtu(skb, net, info, 0, 0);
+ 	xfrm_state_put(x);
++
++	return 0;
  }
  
- /**
+ static struct xfrm_state *ipcomp6_tunnel_create(struct xfrm_state *x)
+@@ -174,6 +176,11 @@ out:
+ 	return err;
+ }
+ 
++static int ipcomp6_rcv_cb(struct sk_buff *skb, int err)
++{
++	return 0;
++}
++
+ static const struct xfrm_type ipcomp6_type =
+ {
+ 	.description	= "IPCOMP6",
+@@ -186,11 +193,12 @@ static const struct xfrm_type ipcomp6_type =
+ 	.hdr_offset	= xfrm6_find_1stfragopt,
+ };
+ 
+-static const struct inet6_protocol ipcomp6_protocol =
++static struct xfrm6_protocol ipcomp6_protocol =
+ {
+ 	.handler	= xfrm6_rcv,
++	.cb_handler	= ipcomp6_rcv_cb,
+ 	.err_handler	= ipcomp6_err,
+-	.flags		= INET6_PROTO_NOPOLICY,
++	.priority	= 0,
+ };
+ 
+ static int __init ipcomp6_init(void)
+@@ -199,7 +207,7 @@ static int __init ipcomp6_init(void)
+ 		pr_info("%s: can't add xfrm type\n", __func__);
+ 		return -EAGAIN;
+ 	}
+-	if (inet6_add_protocol(&ipcomp6_protocol, IPPROTO_COMP) < 0) {
++	if (xfrm6_protocol_register(&ipcomp6_protocol, IPPROTO_COMP) < 0) {
+ 		pr_info("%s: can't add protocol\n", __func__);
+ 		xfrm_unregister_type(&ipcomp6_type, AF_INET6);
+ 		return -EAGAIN;
+@@ -209,7 +217,7 @@ static int __init ipcomp6_init(void)
+ 
+ static void __exit ipcomp6_fini(void)
+ {
+-	if (inet6_del_protocol(&ipcomp6_protocol, IPPROTO_COMP) < 0)
++	if (xfrm6_protocol_deregister(&ipcomp6_protocol, IPPROTO_COMP) < 0)
+ 		pr_info("%s: can't remove protocol\n", __func__);
+ 	if (xfrm_unregister_type(&ipcomp6_type, AF_INET6) < 0)
+ 		pr_info("%s: can't remove xfrm type\n", __func__);
 -- 
 1.7.9.5
