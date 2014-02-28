@@ -1,154 +1,134 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH net v2] bna: fix vlan tag stripping and implement its toggling
-Date: Fri, 28 Feb 2014 11:00:30 +0100
-Message-ID: <1393581630-5433-1-git-send-email-ivecera@redhat.com>
-Cc: davem@davemloft.net, rmody@brocade.com, jiri@resnulli.us,
-	fw@strlen.de
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:15135 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751018AbaB1KGw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Feb 2014 05:06:52 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: Possible fix
+Date: Fri, 28 Feb 2014 11:10:07 +0100
+Message-ID: <5310607F.7030401@redhat.com>
+References: <20140227151954.GA30946@redhat.com> <1393517857-11842-1-git-send-email-nikolay@redhat.com> <20140228072333.GP32371@secunet.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Dave Jones <davej@redhat.com>,
+	Fan Du <fan.du@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Paul Moore <paul@paul-moore.com>,
+	linux-security-module@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20140228072333.GP32371@secunet.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The recent commit "fe1624c bna: RX Filter Enhancements" disables
-VLAN tag stripping if the NIC is in promiscuous mode. This causes
-__vlan_hwaccel_put_tag() is called when the stripping is disabled.
-Because of this VLAN over bna does not work and causes BUGs in conjunction
-with openvswitch like this:
+On 02/28/2014 08:23 AM, Steffen Klassert wrote:
+> Ccing some security/selinux people.
+> 
+> On Thu, Feb 27, 2014 at 05:17:37PM +0100, Nikolay Aleksandrov wrote:
+>> Hi,
+>> I'm not familiar with the code but happened to see the bug, could you
+>> try the following patch, I believe it should fix the issue.
+>>
+>> Thanks,
+>>  Nik
+>>
+>> [PATCH net] net: af_key: fix sleeping under rcu
+>>
+>> There's a kmalloc with GFP_KERNEL in a helper
+>> (pfkey_sadb2xfrm_user_sec_ctx) used in pfkey_compile_policy which is
+>> called under rcu_read_lock. Adjust pfkey_sadb2xfrm_user_sec_ctx to have
+>> a gfp argument and adjust the users.
+>>
+> 
+> Looking at the git history, it seems that this bug is about nine
+> years old. I guess noone is actually using this.
+> 
+> Also, we care for the security context only if we add a socket
+> policy via the pfkey key manager. The security context is not
+> handled if we do that with the netlink key manager
+> (compare pfkey_compile_policy() and xfrm_compile_policy()).
+> 
+>> CC: Dave Jones <davej@redhat.com>
+>> CC: Steffen Klassert <steffen.klassert@secunet.com>
+>> CC: Fan Du <fan.du@windriver.com>
+>> CC: David S. Miller <davem@davemloft.net>
+>>
+>> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+>> ---
+>> I'm not familiar with this code, but just happen to see the bug. I believe
+>> this patch should take care of it.
+>> I've left the already very long lines.
+>>
+>>  net/key/af_key.c | 13 +++++++------
+>>  1 file changed, 7 insertions(+), 6 deletions(-)
+>>
+>> diff --git a/net/key/af_key.c b/net/key/af_key.c
+>> index 1a04c1329362..1526023f99ed 100644
+>> --- a/net/key/af_key.c
+>> +++ b/net/key/af_key.c
+>> @@ -433,12 +433,13 @@ static inline int verify_sec_ctx_len(const void *p)
+>>  	return 0;
+>>  }
+>>  
+>> -static inline struct xfrm_user_sec_ctx *pfkey_sadb2xfrm_user_sec_ctx(const struct sadb_x_sec_ctx *sec_ctx)
+>> +static inline struct xfrm_user_sec_ctx *pfkey_sadb2xfrm_user_sec_ctx(const struct sadb_x_sec_ctx *sec_ctx,
+>> +								     gfp_t gfp)
+>>  {
+>>  	struct xfrm_user_sec_ctx *uctx = NULL;
+>>  	int ctx_size = sec_ctx->sadb_x_ctx_len;
+>>  
+>> -	uctx = kmalloc((sizeof(*uctx)+ctx_size), GFP_KERNEL);
+>> +	uctx = kmalloc((sizeof(*uctx)+ctx_size), gfp);
+>>  
+>>  	if (!uctx)
+>>  		return NULL;
+>> @@ -1124,7 +1125,7 @@ static struct xfrm_state * pfkey_msg2xfrm_state(struct net *net,
+>>  
+>>  	sec_ctx = ext_hdrs[SADB_X_EXT_SEC_CTX - 1];
+>>  	if (sec_ctx != NULL) {
+>> -		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
+>> +		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_KERNEL);
+>>  
+>>  		if (!uctx)
+>>  			goto out;
+>> @@ -2231,7 +2232,7 @@ static int pfkey_spdadd(struct sock *sk, struct sk_buff *skb, const struct sadb_
+>>  
+>>  	sec_ctx = ext_hdrs[SADB_X_EXT_SEC_CTX - 1];
+>>  	if (sec_ctx != NULL) {
+>> -		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
+>> +		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_KERNEL);
+>>  
+>>  		if (!uctx) {
+>>  			err = -ENOBUFS;
+>> @@ -2335,7 +2336,7 @@ static int pfkey_spddelete(struct sock *sk, struct sk_buff *skb, const struct sa
+>>  
+>>  	sec_ctx = ext_hdrs[SADB_X_EXT_SEC_CTX - 1];
+>>  	if (sec_ctx != NULL) {
+>> -		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
+>> +		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_KERNEL);
+>>  
+>>  		if (!uctx)
+>>  			return -ENOMEM;
+>> @@ -3239,7 +3240,7 @@ static struct xfrm_policy *pfkey_compile_policy(struct sock *sk, int opt,
+>>  		}
+>>  		if ((*dir = verify_sec_ctx_len(p)))
+>>  			goto out;
+>> -		uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
+>> +		uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_ATOMIC);
+>>  		*dir = security_xfrm_policy_alloc(&xp->security, uctx);
+> 
+> This would fix the allocation done in pfkey_sadb2xfrm_user_sec_ctx().
+> But security_xfrm_policy_alloc() might call selinux_xfrm_alloc_user()
+> which does a GFP_KERNEL allocation too. So I guess we also need to fix
+> selinux.
+> 
+Right, I just saw that but fixing it at first glance doesn't seem so
+trivial as we can't pass another argument from compile_policy without
+changing xfrm_policy_alloc_security's prototype in struct
+security_operations which AFAICT is doable with some adjustments, but not
+sure if it's the right thing to do. Changing GFP_KERNEL to GFP_ATOMIC in
+selinux_xfrm_alloc_user is also a possibility, but there're a many places
+which use that and can sleep.
+I would extend this patch, but currently don't have the time to search for
+a nice solution. I can look more into it next week, or if you'd like to
+take care of it, I wouldn't mind :-)
 
----
-[18370.665074] kernel BUG at include/linux/skbuff.h:1497!
-...
-[18370.876769] Call Trace:
-[18370.879455]  <IRQ>
-[18370.881569]  [<ffffffffa063a3c6>] internal_dev_recv+0xb6/0x130 [openvswitch]
-[18370.889552]  [<ffffffffa06398ed>] ovs_vport_send+0x1d/0x80 [openvswitch]
-[18370.896922]  [<ffffffffa063016a>] do_output+0x2a/0x50 [openvswitch]
-[18370.903814]  [<ffffffffa06304cd>] do_execute_actions+0x19d/0xb20 [openvswitch]
-[18370.911757]  [<ffffffffa0630e7b>] ovs_execute_actions+0x2b/0x30 [openvswitch]
-[18370.919602]  [<ffffffffa0633722>] ovs_dp_process_received_packet+0x92/0x120 [openvswitch]
-[18370.928597]  [<ffffffff8109be83>] ? find_busiest_group+0x103/0x880
-[18370.935396]  [<ffffffffa063982a>] ovs_vport_receive+0x2a/0x30 [openvswitch]
-[18370.943053]  [<ffffffffa063a6b1>] netdev_frame_hook+0xc1/0x120 [openvswitch]
-[18370.950802]  [<ffffffff814b27c2>] __netif_receive_skb_core+0x262/0x840
-[18370.957982]  [<ffffffff81019a00>] ? flush_ptrace_hw_breakpoint+0x10/0x40
-[18370.965349]  [<ffffffff814b2db8>] __netif_receive_skb+0x18/0x60
-[18370.971855]  [<ffffffff814b2e33>] netif_receive_skb+0x33/0xb0
-[18370.978172]  [<ffffffff814b3736>] napi_gro_frags+0x116/0x170
-[18370.984407]  [<ffffffffa0c7aaa4>] bnad_napi_poll_rx+0x3f4/0x8f0 [bna]
-[18370.991488]  [<ffffffff814b31ba>] net_rx_action+0x15a/0x250
-...
----
+Cheers,
+ Nik
 
-The following patch makes the following changes so the driver:
-1. Implements .ndo_set_features so an user can toggle VLAN tag stripping
-   on/off
-2. Does not disable VLAN tag stripping in promiscuous mode so the driver
-   respect user's choice
-3. Calls __vlan_hwaccel_put_tag() only when the stripping is enabled
-
-v2:
-- make bnad_set_features static (thanks Florian Westphal)
-- enable/disable VLAN stripping during open WRT hw_features
-
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
----
- drivers/net/ethernet/brocade/bna/bnad.c | 40 ++++++++++++++++++++++++---------
- 1 file changed, 30 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index cf64f3d..b0b2fa1 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -707,7 +707,8 @@ bnad_cq_process(struct bnad *bnad, struct bna_ccb *ccb, int budget)
- 		else
- 			skb_checksum_none_assert(skb);
- 
--		if (flags & BNA_CQ_EF_VLAN)
-+		if ((flags & BNA_CQ_EF_VLAN) &&
-+		    (bnad->netdev->features & NETIF_F_HW_VLAN_CTAG_RX))
- 			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), ntohs(cmpl->vlan_tag));
- 
- 		if (BNAD_RXBUF_IS_SK_BUFF(unmap_q->type))
-@@ -2094,7 +2095,9 @@ bnad_init_rx_config(struct bnad *bnad, struct bna_rx_config *rx_config)
- 		rx_config->q1_buf_size = BFI_SMALL_RXBUF_SIZE;
- 	}
- 
--	rx_config->vlan_strip_status = BNA_STATUS_T_ENABLED;
-+	rx_config->vlan_strip_status =
-+		(bnad->netdev->hw_features & NETIF_F_HW_VLAN_CTAG_RX) ?
-+		BNA_STATUS_T_ENABLED : BNA_STATUS_T_DISABLED;
- }
- 
- static void
-@@ -3245,11 +3248,6 @@ bnad_set_rx_mode(struct net_device *netdev)
- 			BNA_RXMODE_ALLMULTI;
- 	bna_rx_mode_set(bnad->rx_info[0].rx, new_mode, mode_mask, NULL);
- 
--	if (bnad->cfg_flags & BNAD_CF_PROMISC)
--		bna_rx_vlan_strip_disable(bnad->rx_info[0].rx);
--	else
--		bna_rx_vlan_strip_enable(bnad->rx_info[0].rx);
--
- 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
- }
- 
-@@ -3374,6 +3372,27 @@ bnad_vlan_rx_kill_vid(struct net_device *netdev, __be16 proto, u16 vid)
- 	return 0;
- }
- 
-+static int bnad_set_features(struct net_device *dev, netdev_features_t features)
-+{
-+	struct bnad *bnad = netdev_priv(dev);
-+	netdev_features_t changed = features ^ dev->features;
-+
-+	if ((changed & NETIF_F_HW_VLAN_CTAG_RX) && netif_running(dev)) {
-+		unsigned long flags;
-+
-+		spin_lock_irqsave(&bnad->bna_lock, flags);
-+
-+		if (features & NETIF_F_HW_VLAN_CTAG_RX)
-+			bna_rx_vlan_strip_enable(bnad->rx_info[0].rx);
-+		else
-+			bna_rx_vlan_strip_disable(bnad->rx_info[0].rx);
-+
-+		spin_unlock_irqrestore(&bnad->bna_lock, flags);
-+	}
-+
-+	return 0;
-+}
-+
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void
- bnad_netpoll(struct net_device *netdev)
-@@ -3421,6 +3440,7 @@ static const struct net_device_ops bnad_netdev_ops = {
- 	.ndo_change_mtu		= bnad_change_mtu,
- 	.ndo_vlan_rx_add_vid    = bnad_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid   = bnad_vlan_rx_kill_vid,
-+	.ndo_set_features	= bnad_set_features,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller    = bnad_netpoll
- #endif
-@@ -3433,14 +3453,14 @@ bnad_netdev_init(struct bnad *bnad, bool using_dac)
- 
- 	netdev->hw_features = NETIF_F_SG | NETIF_F_RXCSUM |
- 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
--		NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_HW_VLAN_CTAG_TX;
-+		NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_HW_VLAN_CTAG_TX |
-+		NETIF_F_HW_VLAN_CTAG_RX;
- 
- 	netdev->vlan_features = NETIF_F_SG | NETIF_F_HIGHDMA |
- 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
- 		NETIF_F_TSO | NETIF_F_TSO6;
- 
--	netdev->features |= netdev->hw_features |
--		NETIF_F_HW_VLAN_CTAG_RX | NETIF_F_HW_VLAN_CTAG_FILTER;
-+	netdev->features |= netdev->hw_features | NETIF_F_HW_VLAN_CTAG_FILTER;
- 
- 	if (using_dac)
- 		netdev->features |= NETIF_F_HIGHDMA;
--- 
-1.8.3.2
