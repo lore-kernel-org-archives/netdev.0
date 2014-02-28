@@ -1,223 +1,49 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 4/6] ixgbe: Add check for FW veto bit
-Date: Thu, 27 Feb 2014 20:32:43 -0800
-Message-ID: <1393561965-3688-5-git-send-email-aaron.f.brown@intel.com>
+Subject: [net-next 6/6] ixgbevf: add check for CHECKSUM_PARTIAL when doing TSO
+Date: Thu, 27 Feb 2014 20:32:45 -0800
+Message-ID: <1393561965-3688-7-git-send-email-aaron.f.brown@intel.com>
 References: <1393561965-3688-1-git-send-email-aaron.f.brown@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
 	Aaron Brown <aaron.f.brown@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:46050 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:13228 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751247AbaB1EgL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1750907AbaB1EgL (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 27 Feb 2014 23:36:11 -0500
 In-Reply-To: <1393561965-3688-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-The driver will now honor the MNG FW veto bit in blocking link resets.
-This patch will affect x520 and x540 systems.
+This patch adds check for CHECKSUM_PARTIAL to avoid the skb_is_gso check
+in ixgbevf_tso(). It should reduce overhead for workloads that are not using
+TSO or checksum offloads. It is the same as in ixgbe.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 15 ++++++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c   | 44 +++++++++++++++++++++++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h   |  3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  |  5 ++-
- 4 files changed, 63 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index e919c28..b96cefd 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 79023ba..57e0cd8 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -2777,6 +2777,9 @@ static int ixgbevf_tso(struct ixgbevf_ring *tx_ring,
+ 	u32 vlan_macip_lens, type_tucmd;
+ 	u32 mss_l4len_idx, l4len;
  
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2013 Intel Corporation.
-+  Copyright(c) 1999 - 2014 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -233,6 +233,10 @@ static s32 prot_autoc_write_82599(struct ixgbe_hw *hw, u32 autoc, bool locked)
- {
- 	s32 ret_val = 0;
- 
-+	/* Blocked by MNG FW so bail */
-+	if (ixgbe_check_reset_blocked(hw))
-+		goto out;
++	if (skb->ip_summed != CHECKSUM_PARTIAL)
++		return 0;
 +
- 	/* We only need to get the lock if:
- 	 *  - We didn't do it already (in the read part of a read-modify-write)
- 	 *  - LESM is enabled.
-@@ -247,6 +251,7 @@ static s32 prot_autoc_write_82599(struct ixgbe_hw *hw, u32 autoc, bool locked)
- 	IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc);
- 	ret_val = ixgbe_reset_pipeline_82599(hw);
+ 	if (!skb_is_gso(skb))
+ 		return 0;
  
-+out:
- 	/* Free the SW/FW semaphore as we either grabbed it here or
- 	 * already had it when this function was called.
- 	 */
-@@ -591,6 +596,10 @@ static void ixgbe_disable_tx_laser_multispeed_fiber(struct ixgbe_hw *hw)
- {
- 	u32 esdp_reg = IXGBE_READ_REG(hw, IXGBE_ESDP);
- 
-+	/* Blocked by MNG FW so bail */
-+	if (ixgbe_check_reset_blocked(hw))
-+		return;
-+
- 	/* Disable tx laser; allow 100us to go dark per spec */
- 	esdp_reg |= IXGBE_ESDP_SDP3;
- 	IXGBE_WRITE_REG(hw, IXGBE_ESDP, esdp_reg);
-@@ -631,6 +640,10 @@ static void ixgbe_enable_tx_laser_multispeed_fiber(struct ixgbe_hw *hw)
-  **/
- static void ixgbe_flap_tx_laser_multispeed_fiber(struct ixgbe_hw *hw)
- {
-+	/* Blocked by MNG FW so bail */
-+	if (ixgbe_check_reset_blocked(hw))
-+		return;
-+
- 	if (hw->mac.autotry_restart) {
- 		ixgbe_disable_tx_laser_multispeed_fiber(hw);
- 		ixgbe_enable_tx_laser_multispeed_fiber(hw);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-index 132557c..d2caae4 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2013 Intel Corporation.
-+  Copyright(c) 1999 - 2014 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -98,6 +98,32 @@ s32 ixgbe_identify_phy_generic(struct ixgbe_hw *hw)
- }
- 
- /**
-+ * ixgbe_check_reset_blocked - check status of MNG FW veto bit
-+ * @hw: pointer to the hardware structure
-+ *
-+ * This function checks the MMNGC.MNG_VETO bit to see if there are
-+ * any constraints on link from manageability.  For MAC's that don't
-+ * have this bit just return false since the link can not be blocked
-+ * via this method.
-+ **/
-+s32 ixgbe_check_reset_blocked(struct ixgbe_hw *hw)
-+{
-+	u32 mmngc;
-+
-+	/* If we don't have this bit, it can't be blocking */
-+	if (hw->mac.type == ixgbe_mac_82598EB)
-+		return false;
-+
-+	mmngc = IXGBE_READ_REG(hw, IXGBE_MMNGC);
-+	if (mmngc & IXGBE_MMNGC_MNG_VETO) {
-+		hw_dbg(hw, "MNG_VETO bit detected.\n");
-+		return true;
-+	}
-+
-+	return false;
-+}
-+
-+/**
-  *  ixgbe_get_phy_id - Get the phy type
-  *  @hw: pointer to hardware structure
-  *
-@@ -172,6 +198,10 @@ s32 ixgbe_reset_phy_generic(struct ixgbe_hw *hw)
- 	    (IXGBE_ERR_OVERTEMP == hw->phy.ops.check_overtemp(hw)))
- 		goto out;
- 
-+	/* Blocked by MNG FW so bail */
-+	if (ixgbe_check_reset_blocked(hw))
-+		goto out;
-+
- 	/*
- 	 * Perform soft PHY reset to the PHY_XS.
- 	 * This will cause a soft reset to the PHY
-@@ -476,6 +506,10 @@ s32 ixgbe_setup_phy_link_generic(struct ixgbe_hw *hw)
- 				      autoneg_reg);
- 	}
- 
-+	/* Blocked by MNG FW so don't reset PHY */
-+	if (ixgbe_check_reset_blocked(hw))
-+		return status;
-+
- 	/* Restart PHY autonegotiation and wait for completion */
- 	hw->phy.ops.read_reg(hw, MDIO_CTRL1,
- 			     MDIO_MMD_AN, &autoneg_reg);
-@@ -682,6 +716,10 @@ s32 ixgbe_setup_phy_link_tnx(struct ixgbe_hw *hw)
- 				      autoneg_reg);
- 	}
- 
-+	/* Blocked by MNG FW so don't reset PHY */
-+	if (ixgbe_check_reset_blocked(hw))
-+		return status;
-+
- 	/* Restart PHY autonegotiation and wait for completion */
- 	hw->phy.ops.read_reg(hw, MDIO_CTRL1,
- 			     MDIO_MMD_AN, &autoneg_reg);
-@@ -759,6 +797,10 @@ s32 ixgbe_reset_phy_nl(struct ixgbe_hw *hw)
- 	s32 ret_val = 0;
- 	u32 i;
- 
-+	/* Blocked by MNG FW so bail */
-+	if (ixgbe_check_reset_blocked(hw))
-+		goto out;
-+
- 	hw->phy.ops.read_reg(hw, MDIO_CTRL1, MDIO_MMD_PHYXS, &phy_data);
- 
- 	/* reset the PHY and poll for completion */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-index fffcbdd..b4d4323 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2013 Intel Corporation.
-+  Copyright(c) 1999 - 2014 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -131,6 +131,7 @@ s32 ixgbe_setup_phy_link_speed_generic(struct ixgbe_hw *hw,
- s32 ixgbe_get_copper_link_capabilities_generic(struct ixgbe_hw *hw,
-                                                ixgbe_link_speed *speed,
-                                                bool *autoneg);
-+s32 ixgbe_check_reset_blocked(struct ixgbe_hw *hw);
- 
- /* PHY specific */
- s32 ixgbe_check_phy_link_tnx(struct ixgbe_hw *hw,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 692341f..c10382e 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2013 Intel Corporation.
-+  Copyright(c) 1999 - 2014 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -1610,6 +1610,9 @@ enum {
- #define IXGBE_MACC_FS        0x00040000
- #define IXGBE_MAC_RX2TX_LPBK 0x00000002
- 
-+/* Veto Bit definiton */
-+#define IXGBE_MMNGC_MNG_VETO  0x00000001
-+
- /* LINKS Bit Masks */
- #define IXGBE_LINKS_KX_AN_COMP  0x80000000
- #define IXGBE_LINKS_UP          0x40000000
 -- 
 1.8.5.GIT
