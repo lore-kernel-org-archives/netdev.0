@@ -1,48 +1,113 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH v2 net-next] tcp: switch rtt estimations to usec
- resolution
-Date: Fri, 28 Feb 2014 14:31:27 +0100
-Message-ID: <20140228133127.GT22728@two.firstfloor.org>
-References: <1393137487.2316.48.camel@edumazet-glaptop2.roam.corp.google.com>
- <alpine.LFD.2.11.1402230908210.1460@ja.home.ssi.bg>
- <1393178122.2316.50.camel@edumazet-glaptop2.roam.corp.google.com>
- <1393181458.2316.56.camel@edumazet-glaptop2.roam.corp.google.com>
- <87fvn3dd9i.fsf@tassilo.jf.intel.com>
- <1393568072.26794.53.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v4] can: xilinx CAN controller support.
+Date: Fri, 28 Feb 2014 14:32:22 +0100
+Message-ID: <53108FE6.80405@pengutronix.de>
+References: <74d607e9-ac9c-4a9b-ac49-e84ae49d20c2@TX2EHSMHS031.ehs.local> <530D0A9C.5090402@pengutronix.de> <cd00fb2d-c8a7-423d-8aa0-2b413e9ac101@CO9EHSMHS017.ehs.local> <530DEA7C.6010609@pengutronix.de> <678ca296-8687-4e7c-9014-ae69d886a068@CO9EHSMHS014.ehs.local> <530E0B92.5010903@pengutronix.de> <2e3bfd38-37d5-4102-af79-821196c6c732@CH1EHSMHS006.ehs.local> <53104995.4010305@pengutronix.de> <48409965-e214-43b7-8b6a-08bf075707e1@CO9EHSMHS001.ehs.local> <53108798.7090902@pengutronix.de> <4902b8d8-139a-4fd0-9e6e-a30ce7e6683b@CH1EHSMHS019.ehs.local> <53108BEF.1020308@pengutronix.de> <f7b303dd-bf23-40f2-bbd4-4594cba8f345@CO9EHSMHS026.ehs.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, Julian Anastasov <ja@ssi.bg>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Larry Brakmo <brakmo@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([193.170.194.197]:35123 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751915AbaB1Nb3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Feb 2014 08:31:29 -0500
-Content-Disposition: inline
-In-Reply-To: <1393568072.26794.53.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="4NUNi4ni8N9ONkSMXCLaVe3RLkGKiOkhm"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>,
+	"wg@grandegger.com" <wg@grandegger.com>,
+	Michal Simek <michals@xilinx.com>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <f7b303dd-bf23-40f2-bbd4-4594cba8f345@CO9EHSMHS026.ehs.local>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Right, so I cooked this instead :
-> 
-> http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=363ec392352e55c61ce2799c3f15f89f9429bba7
-> 
-> Is this OK or do you see a problem with this ?
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--4NUNi4ni8N9ONkSMXCLaVe3RLkGKiOkhm
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-It seems mostly ok. I assume the compiler optimizes the constant do_div to a
-multiplication?
+On 02/28/2014 02:27 PM, Appana Durga Kedareswara Rao wrote:
 
-I'm not sure it's better than ktime() if it works. So it may be still
-better to have some global flag that says "ktime is slow" and
-qualify it on that.  But that would need changing the timer
-subsystem.
+>> -----Original Message-----
+>> From: Marc Kleine-Budde [mailto:mkl@pengutronix.de]
+>> Sent: Friday, February 28, 2014 6:45 PM
+>> To: Appana Durga Kedareswara Rao; wg@grandegger.com; Michal Simek;
+>> grant.likely@linaro.org; robh+dt@kernel.org; linux-can@vger.kernel.org=
 
--Andi
+>> Cc: netdev@vger.kernel.org; linux-arm-kernel@lists.infradead.org; linu=
+x-
+>> kernel@vger.kernel.org; devicetree@vger.kernel.org
+>> Subject: Re: [PATCH v4] can: xilinx CAN controller support.
+>>
+>> On 02/28/2014 02:07 PM, Appana Durga Kedareswara Rao wrote:
+>>>>>> What happens if the interrupt handler is delayed? For example in a=
 
--- 
-ak@linux.intel.com -- Speaking for myself only.
+>>>>>> RT enabled system the interrupt handler runs as a thread. There
+>>>>>> might be other threads with higher priority. The hardware will
+>>>>>> probably send all CAN frames in the FIFO, so you want to reduce th=
+e
+>>>>>> overhead and loop in the tx complete handler.
+>>>>>>
+>>>>> Yes I agree with your comment.
+>>>>> It will be good to have a loop in the Tx interrupt handler I am
+>>>>> modifying the Tx interrupt handler like below.
+>>>>>
+>>>>> static void xcan_tx_interrupt(struct net_device *ndev, u32 isr) {
+>>>>>         struct xcan_priv *priv =3D netdev_priv(ndev);
+>>>>>         struct net_device_stats *stats =3D &ndev->stats;
+>>>>>
+>>>>>         while (priv->tx_head - priv->tx_tail > 0) {
+>>>>>                 if (!(isr & XCAN_IXR_TXOK_MASK)) {
+>>>>>                         break;
+>>>>>                 }
+>>>>>                 can_get_echo_skb(ndev, priv->tx_tail %
+>>>>>                                         priv->xcan_echo_skb_max_tx)=
+;
+>>>>>                 priv->tx_tail++;
+>>>>>                 stats->tx_packets++;
+>>>>>                 can_led_event(ndev, CAN_LED_EVENT_TX);
+>>
+>> Probably first clear the interrupt, because you've just handled it, th=
+en check
+>> if it's still present. The question is, do you have to clear the IRQ f=
+or each
+>> transmitted frame, or does one clean of the interrupt clear the bit fo=
+r more
+>> then one transmitted frame?
+>>
+>=20
+> We already were clearing it in the interrupt routine
+> (xcan_interrupt). That's why clearing it at the end of the loop. We
+> have to clear the IRQ (TXOK) for each transmitted frame.
+
+Please move the clear into the loop. Then it's all in one place. Good
+that you have to clear the bit for each transmitted frame. I think,
+we're almost done :) When I'm okay with the driver, let Wolfgang have a
+look at the error handling.
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--4NUNi4ni8N9ONkSMXCLaVe3RLkGKiOkhm
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlMQj+YACgkQjTAFq1RaXHPxEQCdFOpBeFoC9vm/5oStNOK/07cd
+I+MAnjpuCqb7t0byrHGqEwjPN3VVV3GU
+=UJdI
+-----END PGP SIGNATURE-----
+
+--4NUNi4ni8N9ONkSMXCLaVe3RLkGKiOkhm--
