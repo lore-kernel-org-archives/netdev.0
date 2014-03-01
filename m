@@ -1,55 +1,71 @@
-From: Tom Gundersen <teg@jklm.no>
-Subject: Re: [PATCH 0/4] Provide netdev naming-policy via sysfs
-Date: Sat, 1 Mar 2014 15:19:03 +0100
-Message-ID: <CAG-2HqVQRTdA5NvjirR35qLbAkDUB1dN6oAvU2CLs4dnFS42Nw@mail.gmail.com>
-References: <1393512434-1325-1-git-send-email-dh.herrmann@gmail.com> <CAG-2HqWahCVvDLPwoMo7O4kam+W0o7BQGm4cRBvc9=X_p0fF7Q@mail.gmail.com>
+From: Toshiaki Makita <toshiaki.makita1@gmail.com>
+Subject: Re: [PATCH 6/7] bridge: Manage promisc mode when vlans are
+ configured on top of a bridge
+Date: Sat, 01 Mar 2014 23:57:25 +0900
+Message-ID: <1393685845.1753.10.camel@localhost.localdomain>
+References: <1393427905-6811-1-git-send-email-vyasevic@redhat.com>
+	 <1393427905-6811-7-git-send-email-vyasevic@redhat.com>
+	 <530F2A4C.6020303@lab.ntt.co.jp> <530F3AD4.6080704@redhat.com>
+	 <5310E4DE.1080003@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Kay Sievers <kay.sievers@vrfy.org>,
-	Johannes berg <johannes@sipsolutions.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>
-To: David Herrmann <dh.herrmann@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAG-2HqWahCVvDLPwoMo7O4kam+W0o7BQGm4cRBvc9=X_p0fF7Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	shemminger@vyatta.com, mst@redhat.com, jhs@mojatatu.com,
+	john.r.fastabend@intel.com
+To: vyasevic@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:36334 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752993AbaCAO5c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Mar 2014 09:57:32 -0500
+Received: by mail-pb0-f54.google.com with SMTP id ma3so1855455pbc.13
+        for <netdev@vger.kernel.org>; Sat, 01 Mar 2014 06:57:32 -0800 (PST)
+In-Reply-To: <5310E4DE.1080003@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 27, 2014 at 4:47 PM, Tom Gundersen <teg@jklm.no> wrote:
-> On Thu, Feb 27, 2014 at 3:47 PM, David Herrmann <dh.herrmann@gmail.com> wrote:
->> This series implements a new sysfs attribute for netdevs called
->> "name_assign_type". It provides an integer that describes where an interface
->> name comes from. See Patch #1 for a description of this attribute. It is
->> modelled after the existing "addr_assign_type" attribute.
->>
->> The main use-case is to allow udev to skip applying reliable ifnames to virtual
->> devices. For instance, if wifi-P2P devices are created, wpas already provides a
->> suitable naming-policy and udev shouldn't touch these devices. Same is true for
->> other virtual devices.
->> The idea is that if a device-name was provided by user-space, we should always
->> prefer fixing this naming-policy instead of making udev rename the device. For
->> kernel provided names that's hardly possible, though. Providing the
->> naming-policy source via sysfs is thus a simple way to see whether renames are
->> needed.
->>
->> Additionally, this field allows to detect whether a netdev has been manually
->> renamed, which is quite useful for debugging and during crash-recovery.
->
-> Moreover, it would be useful for udev to reliably know if some other
-> userspace process already renamed a device, so we know not to touch
-> it. This can easily happen for instance if some renaming happens in
-> the initrd or from script called from udev rules.
+On Fri, 2014-02-28 at 14:34 -0500, Vlad Yasevich wrote:
+> On 02/27/2014 08:17 AM, Vlad Yasevich wrote:
+> > On 02/27/2014 07:06 AM, Toshiaki Makita wrote:
+> >> (2014/02/27 0:18), Vlad Yasevich wrote:
+> >>> If the user configures vlan interfaces on top of the bridge and the bridge
+> >>> doesn't have vlan filtering enabled, we have to place all the ports in
+> >>> promsic mode so that we can correctly receive tagged frames.
+> >>> When vlan filtering is enabled, the vlan configuration will be provided
+> >>> via filtering interface.
+> >>> When the vlan filtering is toggled, we also have mange promiscuity.
+> >>
+> >> If we disable vlan_filtering and no vlan interface is configured on the
+> >> bridge, we cannot forward any tagged traffic?
+> > 
+> > We can't receive tagged traffic, so we turn promisc on.
+> > 
+> >> If we want to forward frames from one port to another port (not from/to
+> >> bridge device), we have to add vlan interface or set promisc mode, right?
+> >>
+> > 
+> > Hm..  Good point.  This isn't enough to address the scenario that Patch7
+> > tries to solve.  I'll need to think about that.  This is partially why
+> > I split functionality in Patch7 out.  It made things more difficult.
+> > 
+> 
+> I now understood what you were referring to above a bit better.
+> This patch solves just part of the problem.  The other part is what
+> happens when someone behind the bridge is using vlan tagging without
+> the bridge being aware of it and expects the bridge to forward such traffic.
+> So, if we ever want to disable promiscuous mode on the bridge ports, we
+> either need to depend on lan filtering being configured in the bridge
+> or have the ability to disable vlan filtering in the driver.
+> 
+> Neither is really a good thing.  I'll need to think about this.
 
-Incidentally, just after writing this email I ran into precisely this
-problem due to buggy udev rules in a third-party package. The result
-was that the upstream NIC naming rules were unable to detect that a
-given NIC had already been renamed and ended up renaming them a second
-time (hence wrecking havoc).
+Yes, that is what I was worried about.
+As a bridge has no way to know which vid will be used in incoming
+frame's vlan tag, we maybe have to call vlan_vid_add() for all vids when
+we disable promiscuous on a port?  If we had an API to simply disable
+vlan filtering of a NIC, it could be better...
 
-The problem was easy enough to fix, but with these patches we would be
-able to avoid the issue altogether, so I'm looking forward to fixing
-up udev to using this interface.
-
-> Acked-by: Tom Gundersen <teg@jklm.no>
+Thanks,
+Toshiaki Makita
