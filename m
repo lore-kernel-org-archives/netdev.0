@@ -1,39 +1,72 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: Re: [PATCH net-next v2] ixgbevf: fix skb->pkt_type checks
-Date: Sat, 1 Mar 2014 00:12:05 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B73162FE8@ORSMSX101.amr.corp.intel.com>
-References: <1393631209-5991-1-git-send-email-f.fainelli@gmail.com>
+From: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>
+Subject: Re: [PATCH v2 1/2] net: macb: Check DMA mappings for error
+Date: Fri, 28 Feb 2014 16:24:20 -0800
+Message-ID: <fd021c95-4388-4945-a0b6-fe6acf0c8be6@CH1EHSMHS014.ehs.local>
+References: <1393538285-28297-1-git-send-email-soren.brinkmann@xilinx.com>
+ <1393545459.14067.79.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: "f.fainelli@gmail.com" <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:30863 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751787AbaCAAMH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Feb 2014 19:12:07 -0500
-In-Reply-To: <1393631209-5991-1-git-send-email-f.fainelli@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, Vinod Koul <vinod.koul@intel.com>,
+	Dan Williams <dan.j.williams@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Michal Simek <michal.simek@xilinx.com>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1393545459.14067.79.camel@deadeye.wl.decadent.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gRnJpLCAyMDE0LTAyLTI4IGF0IDE1OjQ2IC0wODAwLCBGbG9yaWFuIEZhaW5lbGxpIHdyb3Rl
-Ogo+IHNrYi0+cGt0X3R5cGUgaXMgbm90IGEgYml0bWFzaywgYnV0IGNvbnRhaW5zIG9ubHkgdmFs
-dWUgYXQgYSB0aW1lIGZyb20KPiB0aGUgcmFuZ2UgZGVmaW5lZCBpbiBpbmNsdWRlL3VhcGkvbGlu
-dXgvaWZfcGFja2V0LmguCj4gCj4gQ2hlY2tpbmcgaXQgbGlrZSBpZiBpdCB3YXMgYSBiaXRtYXNr
-IG9mIHZhbHVlcyB3b3VsZCBhbHNvIGNhdXNlCj4gUEFDS0VUX09USEVSSE9TVCwgUEFDS0VUX0xP
-T1BCQUNLIGFuZCBQQUNLRVRfRkFTVFJPVVRFIHRvIGJlIG1hdGNoZWQgYnkKPiB0aGlzIGNoZWNr
-IHNpbmNlIHRoZWlyIGxvd2VyIDIgYml0cyBhcmUgYWxzbyBzZXQsIGFsdGhvdWdoIHRoYXQgZG9l
-cyBub3QKPiBmaXggYSByZWFsIGJ1ZywgaXQgaXMgc3RpbGwgcG90ZW50aWFsbHkgY29uZnVzaW5n
-Lgo+IAo+IFRoaXMgYm9ndXMgY2hlY2sgd2FzIGludHJvZHVjZWQgaW4gY29tbWl0IDgxNWNjY2Jm
-ICgiaXhnYmU6IGFkZCBzZXRsaW5rLAo+IGdldGxpbmsgc3VwcG9ydCB0byBpeGdiZSBhbmQgaXhn
-YmV2ZiIpLgo+IAo+IFNpZ25lZC1vZmYtYnk6IEZsb3JpYW4gRmFpbmVsbGkgPGYuZmFpbmVsbGlA
-Z21haWwuY29tPgo+IC0tLQo+IENoYW5nZXMgaW4gdjI6Cj4gLSBwcm9wZXJseSByZXNvbHZlIHRo
-ZSByZWJhc2UsIGZpeGVzIHRoZSBidWlsZCBmYWlsdXJlIGluIHYxCgpUaGFua3MgRmxvcmlhbiwg
-SSBoYXZlIHB1bGxlZCB0aGlzIG9uZSBpbnRvIG91ciBpbnRlcm5hbCBxdWV1ZSAoYW5kIHllcwpp
-dCBjb21waWxlcyBmaW5lLikK
+Hi Ben,
+
+On Thu, 2014-02-27 at 11:57PM +0000, Ben Hutchings wrote:
+> On Thu, 2014-02-27 at 13:58 -0800, Soren Brinkmann wrote:
+> [...]
+> > diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethe=
+rnet/cadence/macb.c
+> > index 3190d38e16fb..a9c2ccfc1740 100644
+> > --- a/drivers/net/ethernet/cadence/macb.c
+> > +++ b/drivers/net/ethernet/cadence/macb.c
+> > @@ -632,11 +632,16 @@ static void gem_rx_refill(struct macb *bp)
+> >  					   "Unable to allocate sk_buff\n");
+> >  				break;
+> >  			}
+> > -			bp->rx_skbuff[entry] =3D skb;
+> > =20
+> >  			/* now fill corresponding descriptor entry */
+> >  			paddr =3D dma_map_single(&bp->pdev->dev, skb->data,
+> >  					       bp->rx_buffer_size, DMA_FROM_DEVICE);
+> > +			if (dma_mapping_error(&bp->pdev->dev, paddr)) {
+> > +				dev_kfree_skb(skb);
+> > +				break;
+> > +			}
+> > +
+> > +			bp->rx_skbuff[entry] =3D skb;
+> > =20
+> >  			if (entry =3D=3D RX_RING_SIZE - 1)
+> >  				paddr |=3D MACB_BIT(RX_WRAP);
+> > @@ -1040,6 +1045,10 @@ static int macb_start_xmit(struct sk_buff *s=
+kb, struct net_device *dev)
+>=20
+> A bit more context:
+>=20
+> 	entry =3D macb_tx_ring_wrap(bp->tx_head);
+> 	bp->tx_head++;
+>=20
+> >  	netdev_vdbg(bp->dev, "Allocated ring entry %u\n", entry);
+> >  	mapping =3D dma_map_single(&bp->pdev->dev, skb->data,
+> >  				 len, DMA_TO_DEVICE);
+> > +	if (dma_mapping_error(&bp->pdev->dev, mapping)) {
+> > +		kfree_skb(skb);
+> > +		goto unlock;
+> > +	}
+>=20
+> You need to move the bp->tx_head increment below this error check.
+> Sorry I didn't spot this the first time.
+
+No problem. I'll wait till next week with a re-spin, in case somebody
+else has comments.
+
+	S=C3=B6ren
