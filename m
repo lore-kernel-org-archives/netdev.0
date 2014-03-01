@@ -1,301 +1,53 @@
-From: Silvan Jegen <s.jegen@gmail.com>
-Subject: [PATCH] net: Replace min macro with min_t
-Date: Tue, 25 Feb 2014 18:12:52 +0100
-Message-ID: <5311aad4.c3030e0a.5aa7.ffffe9da@mx.google.com>
-Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Stefano Brivio <stefano.brivio@polimi.it>,
-	linux-wireless@vger.kernel.org, b43-dev@lists.infradead.org,
-	netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Solomon Peachy <pizza@shaftnet.org>,
-	Ivo van Doorn <IvDoorn@gmail.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Sender: kernel-janitors-owner@vger.kernel.org
+From: Christian Borntraeger <borntraeger@de.ibm.com>
+Subject: Re: macvtap performance regression (bisected) between 3.13 and 3.14-rc1
+Date: Sat, 01 Mar 2014 12:15:14 +0100
+Message-ID: <5311C142.6040509@de.ibm.com>
+References: <530FA586.3010400@de.ibm.com> <53110A62.7070109@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jason Wang <jasowang@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	KVM list <kvm@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: vyasevic@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <53110A62.7070109@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Instead of an explicit cast, use the min_t macro.
+On 28/02/14 23:14, Vlad Yasevich wrote:
+> On 02/27/2014 03:52 PM, Christian Borntraeger wrote:
+>> Vlad,
+>>
+>> commit 6acf54f1cf0a6747bac9fea26f34cfc5a9029523
+>>     macvtap: Add support of packet capture on macvtap device.
+>>
+>> causes a performance regression for iperf traffic between two KVM guests
+>> on my s390 system. Both guests are connected via two macvtaps on the same OSA
+>> network card.
+>> Before that patch I get ~20 Gbit/sec between two guests, afterwards I get
+>> ~4Gbit/sec
+>>
+>> Latency seems to be unchanges (uperf 1byte ping pong).
+>>
+>> According to ifconfig in the guest, I have ~ 1500 bytes per packet with this
+>> patch and ~  40000 bytes without. So for some reason this patch causes the
+>> network stack to do segmentation. (the guest kernel stays the same, only host 
+>> kernel is changed).
+>>
+>> Any ideas?
+> 
+> I am looking.  It shouldn't cause addition segmentations and when I ran
+> netperf on the code I didn't see any difference in the throughput.
 
-Signed-off-by: Silvan Jegen <s.jegen@gmail.com>
----
- drivers/net/wireless/b43/main.c           | 2 +-
- drivers/net/wireless/b43/sysfs.c          | 2 +-
- drivers/net/wireless/b43/xmit.c           | 2 +-
- drivers/net/wireless/b43legacy/main.c     | 4 ++--
- drivers/net/wireless/b43legacy/sysfs.c    | 2 +-
- drivers/net/wireless/b43legacy/xmit.c     | 2 +-
- drivers/net/wireless/cw1200/fwio.c        | 4 ++--
- drivers/net/wireless/ipw2x00/ipw2100.c    | 2 +-
- drivers/net/wireless/ipw2x00/ipw2200.c    | 2 +-
- drivers/net/wireless/libertas/if_sdio.c   | 4 ++--
- drivers/net/wireless/mwifiex/debugfs.c    | 4 ++--
- drivers/net/wireless/p54/p54usb.c         | 2 +-
- drivers/net/wireless/prism54/isl_ioctl.c  | 2 +-
- drivers/net/wireless/rt2x00/rt2x00debug.c | 2 +-
- drivers/net/wireless/ti/wlcore/main.c     | 2 +-
- drivers/net/wireless/ti/wlcore/spi.c      | 4 ++--
- drivers/net/wireless/ti/wlcore/sysfs.c    | 2 +-
- 17 files changed, 22 insertions(+), 22 deletions(-)
+Dont know if the different bytes/packets ratio is really the reason or
+just a side effect. As a hint: the underlying network device does not support
+segmentation, but this should not matter for traffic between to guests.
 
-diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
-index c75237e..69fc3d6 100644
---- a/drivers/net/wireless/b43/main.c
-+++ b/drivers/net/wireless/b43/main.c
-@@ -1549,7 +1549,7 @@ static void b43_write_beacon_template(struct b43_wldev *dev,
- 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(dev->wl->current_beacon);
- 
- 	bcn = (const struct ieee80211_mgmt *)(dev->wl->current_beacon->data);
--	len = min((size_t) dev->wl->current_beacon->len,
-+	len = min_t(size_t, dev->wl->current_beacon->len,
- 		  0x200 - sizeof(struct b43_plcp_hdr6));
- 	rate = ieee80211_get_tx_rate(dev->wl->hw, info)->hw_value;
- 
-diff --git a/drivers/net/wireless/b43/sysfs.c b/drivers/net/wireless/b43/sysfs.c
-index 8e8431d..3190493 100644
---- a/drivers/net/wireless/b43/sysfs.c
-+++ b/drivers/net/wireless/b43/sysfs.c
-@@ -40,7 +40,7 @@ static int get_integer(const char *buf, size_t count)
- 
- 	if (count == 0)
- 		goto out;
--	count = min(count, (size_t) 10);
-+	count = min_t(size_t, count, 10);
- 	memcpy(tmp, buf, count);
- 	ret = simple_strtol(tmp, NULL, 10);
-       out:
-diff --git a/drivers/net/wireless/b43/xmit.c b/drivers/net/wireless/b43/xmit.c
-index 50e5ddb..bd8e456 100644
---- a/drivers/net/wireless/b43/xmit.c
-+++ b/drivers/net/wireless/b43/xmit.c
-@@ -337,7 +337,7 @@ int b43_generate_txhdr(struct b43_wldev *dev,
- 			/* iv16 */
- 			memcpy(txhdr->iv + 10, ((u8 *) wlhdr) + wlhdr_len, 3);
- 		} else {
--			iv_len = min((size_t) info->control.hw_key->iv_len,
-+			iv_len = min_t(size_t, info->control.hw_key->iv_len,
- 				     ARRAY_SIZE(txhdr->iv));
- 			memcpy(txhdr->iv, ((u8 *) wlhdr) + wlhdr_len, iv_len);
- 		}
-diff --git a/drivers/net/wireless/b43legacy/main.c b/drivers/net/wireless/b43legacy/main.c
-index 349c776..1aec214 100644
---- a/drivers/net/wireless/b43legacy/main.c
-+++ b/drivers/net/wireless/b43legacy/main.c
-@@ -978,7 +978,7 @@ static void b43legacy_write_beacon_template(struct b43legacy_wldev *dev,
- 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(dev->wl->current_beacon);
- 
- 	bcn = (const struct ieee80211_mgmt *)(dev->wl->current_beacon->data);
--	len = min((size_t)dev->wl->current_beacon->len,
-+	len = min_t(size_t, dev->wl->current_beacon->len,
- 		  0x200 - sizeof(struct b43legacy_plcp_hdr6));
- 	rate = ieee80211_get_tx_rate(dev->wl->hw, info)->hw_value;
- 
-@@ -1155,7 +1155,7 @@ static void b43legacy_write_probe_resp_template(struct b43legacy_wldev *dev,
- 	b43legacy_write_probe_resp_plcp(dev, 0x350, size,
- 					&b43legacy_b_ratetable[3]);
- 
--	size = min((size_t)size,
-+	size = min_t(size_t, size,
- 		   0x200 - sizeof(struct b43legacy_plcp_hdr6));
- 	b43legacy_write_template_common(dev, probe_resp_data,
- 					size, ram_offset,
-diff --git a/drivers/net/wireless/b43legacy/sysfs.c b/drivers/net/wireless/b43legacy/sysfs.c
-index 57f8b08..2a1da15 100644
---- a/drivers/net/wireless/b43legacy/sysfs.c
-+++ b/drivers/net/wireless/b43legacy/sysfs.c
-@@ -42,7 +42,7 @@ static int get_integer(const char *buf, size_t count)
- 
- 	if (count == 0)
- 		goto out;
--	count = min(count, (size_t)10);
-+	count = min_t(size_t, count, 10);
- 	memcpy(tmp, buf, count);
- 	ret = simple_strtol(tmp, NULL, 10);
- out:
-diff --git a/drivers/net/wireless/b43legacy/xmit.c b/drivers/net/wireless/b43legacy/xmit.c
-index 86588c9..34bf3f0 100644
---- a/drivers/net/wireless/b43legacy/xmit.c
-+++ b/drivers/net/wireless/b43legacy/xmit.c
-@@ -254,7 +254,7 @@ static int generate_txhdr_fw3(struct b43legacy_wldev *dev,
- 				   B43legacy_TX4_MAC_KEYALG_SHIFT) &
- 				   B43legacy_TX4_MAC_KEYALG;
- 			wlhdr_len = ieee80211_hdrlen(wlhdr->frame_control);
--			iv_len = min((size_t)info->control.hw_key->iv_len,
-+			iv_len = min_t(size_t, info->control.hw_key->iv_len,
- 				     ARRAY_SIZE(txhdr->iv));
- 			memcpy(txhdr->iv, ((u8 *)wlhdr) + wlhdr_len, iv_len);
- 		} else {
-diff --git a/drivers/net/wireless/cw1200/fwio.c b/drivers/net/wireless/cw1200/fwio.c
-index 5a9ffd3..e23d67e 100644
---- a/drivers/net/wireless/cw1200/fwio.c
-+++ b/drivers/net/wireless/cw1200/fwio.c
-@@ -202,8 +202,8 @@ static int cw1200_load_firmware_cw1200(struct cw1200_common *priv)
- 		}
- 
- 		/* calculate the block size */
--		tx_size = block_size = min((size_t)(firmware->size - put),
--			(size_t)DOWNLOAD_BLOCK_SIZE);
-+		tx_size = block_size = min_t(size_t, firmware->size - put,
-+					DOWNLOAD_BLOCK_SIZE);
- 
- 		memcpy(buf, &firmware->data[put], block_size);
- 		if (block_size < DOWNLOAD_BLOCK_SIZE) {
-diff --git a/drivers/net/wireless/ipw2x00/ipw2100.c b/drivers/net/wireless/ipw2x00/ipw2100.c
-index 3aba492..dfc6dfc 100644
---- a/drivers/net/wireless/ipw2x00/ipw2100.c
-+++ b/drivers/net/wireless/ipw2x00/ipw2100.c
-@@ -7065,7 +7065,7 @@ static int ipw2100_wx_set_nick(struct net_device *dev,
- 	if (wrqu->data.length > IW_ESSID_MAX_SIZE)
- 		return -E2BIG;
- 
--	wrqu->data.length = min((size_t) wrqu->data.length, sizeof(priv->nick));
-+	wrqu->data.length = min_t(size_t, wrqu->data.length, sizeof(priv->nick));
- 	memset(priv->nick, 0, sizeof(priv->nick));
- 	memcpy(priv->nick, extra, wrqu->data.length);
- 
-diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
-index 1393260..c5aa404 100644
---- a/drivers/net/wireless/ipw2x00/ipw2200.c
-+++ b/drivers/net/wireless/ipw2x00/ipw2200.c
-@@ -9169,7 +9169,7 @@ static int ipw_wx_set_nick(struct net_device *dev,
- 	if (wrqu->data.length > IW_ESSID_MAX_SIZE)
- 		return -E2BIG;
- 	mutex_lock(&priv->mutex);
--	wrqu->data.length = min((size_t) wrqu->data.length, sizeof(priv->nick));
-+	wrqu->data.length = min_t(size_t, wrqu->data.length, sizeof(priv->nick));
- 	memset(priv->nick, 0, sizeof(priv->nick));
- 	memcpy(priv->nick, extra, wrqu->data.length);
- 	IPW_DEBUG_TRACE("<<\n");
-diff --git a/drivers/net/wireless/libertas/if_sdio.c b/drivers/net/wireless/libertas/if_sdio.c
-index 58c6ee5d..33ceda2 100644
---- a/drivers/net/wireless/libertas/if_sdio.c
-+++ b/drivers/net/wireless/libertas/if_sdio.c
-@@ -498,7 +498,7 @@ static int if_sdio_prog_helper(struct if_sdio_card *card,
- 		 */
- 		mdelay(2);
- 
--		chunk_size = min(size, (size_t)60);
-+		chunk_size = min_t(size_t, size, 60);
- 
- 		*((__le32*)chunk_buffer) = cpu_to_le32(chunk_size);
- 		memcpy(chunk_buffer + 4, firmware, chunk_size);
-@@ -639,7 +639,7 @@ static int if_sdio_prog_real(struct if_sdio_card *card,
- 			req_size = size;
- 
- 		while (req_size) {
--			chunk_size = min(req_size, (size_t)512);
-+			chunk_size = min_t(size_t, req_size, 512);
- 
- 			memcpy(chunk_buffer, firmware, chunk_size);
- /*
-diff --git a/drivers/net/wireless/mwifiex/debugfs.c b/drivers/net/wireless/mwifiex/debugfs.c
-index a5f9875..e1e18bb 100644
---- a/drivers/net/wireless/mwifiex/debugfs.c
-+++ b/drivers/net/wireless/mwifiex/debugfs.c
-@@ -493,7 +493,7 @@ mwifiex_regrdwr_write(struct file *file,
- {
- 	unsigned long addr = get_zeroed_page(GFP_KERNEL);
- 	char *buf = (char *) addr;
--	size_t buf_size = min(count, (size_t) (PAGE_SIZE - 1));
-+	size_t buf_size = min_t(size_t, count, PAGE_SIZE - 1);
- 	int ret;
- 	u32 reg_type = 0, reg_offset = 0, reg_value = UINT_MAX;
- 
-@@ -594,7 +594,7 @@ mwifiex_rdeeprom_write(struct file *file,
- {
- 	unsigned long addr = get_zeroed_page(GFP_KERNEL);
- 	char *buf = (char *) addr;
--	size_t buf_size = min(count, (size_t) (PAGE_SIZE - 1));
-+	size_t buf_size = min_t(size_t, count, PAGE_SIZE - 1);
- 	int ret = 0;
- 	int offset = -1, bytes = -1;
- 
-diff --git a/drivers/net/wireless/p54/p54usb.c b/drivers/net/wireless/p54/p54usb.c
-index 6e635cf..b7ab3df 100644
---- a/drivers/net/wireless/p54/p54usb.c
-+++ b/drivers/net/wireless/p54/p54usb.c
-@@ -513,7 +513,7 @@ static int p54u_upload_firmware_3887(struct ieee80211_hw *dev)
- 	if (!buf)
- 		return -ENOMEM;
- 
--	left = block_size = min((size_t)P54U_FW_BLOCK, priv->fw->size);
-+	left = block_size = min_t(size_t, P54U_FW_BLOCK, priv->fw->size);
- 	strcpy(buf, p54u_firmware_upload_3887);
- 	left -= strlen(p54u_firmware_upload_3887);
- 	tmp += strlen(p54u_firmware_upload_3887);
-diff --git a/drivers/net/wireless/prism54/isl_ioctl.c b/drivers/net/wireless/prism54/isl_ioctl.c
-index 78fa64d..ecbb054 100644
---- a/drivers/net/wireless/prism54/isl_ioctl.c
-+++ b/drivers/net/wireless/prism54/isl_ioctl.c
-@@ -644,7 +644,7 @@ prism54_translate_bss(struct net_device *ndev, struct iw_request_info *info,
- 	wpa_ie_len = prism54_wpa_bss_ie_get(priv, bss->address, wpa_ie);
- 	if (wpa_ie_len > 0) {
- 		iwe.cmd = IWEVGENIE;
--		iwe.u.data.length = min(wpa_ie_len, (size_t)MAX_WPA_IE_LEN);
-+		iwe.u.data.length = min_t(size_t, wpa_ie_len, MAX_WPA_IE_LEN);
- 		current_ev = iwe_stream_add_point(info, current_ev, end_buf,
- 						  &iwe, wpa_ie);
- 	}
-diff --git a/drivers/net/wireless/rt2x00/rt2x00debug.c b/drivers/net/wireless/rt2x00/rt2x00debug.c
-index 2e3d164..90fdb02 100644
---- a/drivers/net/wireless/rt2x00/rt2x00debug.c
-+++ b/drivers/net/wireless/rt2x00/rt2x00debug.c
-@@ -286,7 +286,7 @@ static ssize_t rt2x00debug_read_queue_dump(struct file *file,
- 	if (retval)
- 		return retval;
- 
--	status = min((size_t)skb->len, length);
-+	status = min_t(size_t, skb->len, length);
- 	if (copy_to_user(buf, skb->data, status)) {
- 		status = -EFAULT;
- 		goto exit;
-diff --git a/drivers/net/wireless/ti/wlcore/main.c b/drivers/net/wireless/ti/wlcore/main.c
-index b46b311..4f01834 100644
---- a/drivers/net/wireless/ti/wlcore/main.c
-+++ b/drivers/net/wireless/ti/wlcore/main.c
-@@ -803,7 +803,7 @@ size_t wl12xx_copy_fwlog(struct wl1271 *wl, u8 *memblock, size_t maxlen)
- 	size_t len;
- 
- 	/* Make sure we have enough room */
--	len = min(maxlen, (size_t)(PAGE_SIZE - wl->fwlog_size));
-+	len = min_t(size_t, maxlen, PAGE_SIZE - wl->fwlog_size);
- 
- 	/* Fill the FW log file, consumed by the sysfs fwlog entry */
- 	memcpy(wl->fwlog + wl->fwlog_size, memblock, len);
-diff --git a/drivers/net/wireless/ti/wlcore/spi.c b/drivers/net/wireless/ti/wlcore/spi.c
-index b2c018d..dbe826d 100644
---- a/drivers/net/wireless/ti/wlcore/spi.c
-+++ b/drivers/net/wireless/ti/wlcore/spi.c
-@@ -211,7 +211,7 @@ static int __must_check wl12xx_spi_raw_read(struct device *child, int addr,
- 	u32 chunk_len;
- 
- 	while (len > 0) {
--		chunk_len = min((size_t)WSPI_MAX_CHUNK_SIZE, len);
-+		chunk_len = min_t(size_t, WSPI_MAX_CHUNK_SIZE, len);
- 
- 		cmd = &wl->buffer_cmd;
- 		busy_buf = wl->buffer_busyword;
-@@ -285,7 +285,7 @@ static int __must_check wl12xx_spi_raw_write(struct device *child, int addr,
- 	cmd = &commands[0];
- 	i = 0;
- 	while (len > 0) {
--		chunk_len = min((size_t)WSPI_MAX_CHUNK_SIZE, len);
-+		chunk_len = min_t(size_t, WSPI_MAX_CHUNK_SIZE, len);
- 
- 		*cmd = 0;
- 		*cmd |= WSPI_CMD_WRITE;
-diff --git a/drivers/net/wireless/ti/wlcore/sysfs.c b/drivers/net/wireless/ti/wlcore/sysfs.c
-index 8e58349..24dd288 100644
---- a/drivers/net/wireless/ti/wlcore/sysfs.c
-+++ b/drivers/net/wireless/ti/wlcore/sysfs.c
-@@ -152,7 +152,7 @@ static ssize_t wl1271_sysfs_read_fwlog(struct file *filp, struct kobject *kobj,
- 	}
- 
- 	/* Seeking is not supported - old logs are not kept. Disregard pos. */
--	len = min(count, (size_t)wl->fwlog_size);
-+	len = min_t(size_t, count, wl->fwlog_size);
- 	wl->fwlog_size -= len;
- 	memcpy(buffer, wl->fwlog, len);
- 
--- 
-1.9.0
+Maybe you remember, we had a similar situation with commit 3e4f8b787370978733ca6cae452720a4f0c296b8
+(macvtap: Perform GSO on forwarding path), the setup is basically the same.
 
+
+Christian
