@@ -1,65 +1,100 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V2 0/9] net/mlx4: Mellanox driver update 27-02-2014
-Date: Sun,  2 Mar 2014 10:24:56 +0200
-Message-ID: <1393748705-1685-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V2 4/9] net/mlx4_en: Move queue stopped/waked counters to be per ring
+Date: Sun,  2 Mar 2014 10:25:00 +0200
+Message-ID: <1393748705-1685-5-git-send-email-amirv@mellanox.com>
+References: <1393748705-1685-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:52983 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:52985 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751661AbaCBIZa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751663AbaCBIZa (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 2 Mar 2014 03:25:30 -0500
+In-Reply-To: <1393748705-1685-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Eugenia Emantayev <eugenia@mellanox.com>
 
-This patchset contains some fixes for small trivial bugs, and
-compilation/syntactic parsers warnings
+Give accurate counters and avoids cache misses when several rings
+update the counters of stop/wake queue.
 
-Patchset was applied and tested over commit 750f679 "Merge branch '6lowpan'"
 
-Changes from V1:
--patch 5/9:  Replace mlx4_en_mac_to_u64() with mlx4_mac_to_u64()
-  - Remove unnecessary define of ETH_ALEN
+Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_port.c | 6 ++++++
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c   | 6 +++---
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h | 2 ++
+ 3 files changed, 11 insertions(+), 3 deletions(-)
 
-Changes from V0:
--patch 3/9:  net/mlx4_en: Pad ethernet packets smaller than 17 bytes
-  - Make condition more efficient
-  - Didn't use canonical function to pad buffer since using bounce buffer
-
-Thanks,
-Amir
-
-Amir Vadai (3):
-  net/mlx4_en: Fix UP limit in ieee_ets->prio_tc
-  net/mlx4_en: Fix selftest failing on non 10G link speed
-  net/mlx4_en: Use union for BlueFlame WQE
-
-Eugenia Emantayev (4):
-  net/mlx4_en: Verify mlx4_en module parameters
-  net/mlx4_en: Pad ethernet packets smaller than 17 bytes
-  net/mlx4_en: Move queue stopped/waked counters to be per ring
-  net/mlx4: Replace mlx4_en_mac_to_u64() with mlx4_mac_to_u64()
-
-Eyal Perry (2):
-  net/mlx4_core: Fix sparse warning
-  net/mlx4_en: Change Connect-X description in kconfig
-
- drivers/net/ethernet/mellanox/mlx4/Kconfig       |  2 +-
- drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c   |  2 +-
- drivers/net/ethernet/mellanox/mlx4/en_main.c     | 30 +++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c   | 32 +++++++-------------
- drivers/net/ethernet/mellanox/mlx4/en_port.c     |  6 ++++
- drivers/net/ethernet/mellanox/mlx4/en_selftest.c |  6 ++--
- drivers/net/ethernet/mellanox/mlx4/en_tx.c       | 38 +++++++++++-------------
- drivers/net/ethernet/mellanox/mlx4/fw.c          |  3 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h     | 12 +++++++-
- include/linux/mlx4/driver.h                      | 12 ++++++++
- include/linux/mlx4/qp.h                          | 11 +++++--
- 11 files changed, 102 insertions(+), 52 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_port.c b/drivers/net/ethernet/mellanox/mlx4/en_port.c
+index dae1a1f..c2cfb05 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_port.c
+@@ -148,10 +148,16 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
+ 	stats->tx_packets = 0;
+ 	stats->tx_bytes = 0;
+ 	priv->port_stats.tx_chksum_offload = 0;
++	priv->port_stats.queue_stopped = 0;
++	priv->port_stats.wake_queue = 0;
++
+ 	for (i = 0; i < priv->tx_ring_num; i++) {
+ 		stats->tx_packets += priv->tx_ring[i]->packets;
+ 		stats->tx_bytes += priv->tx_ring[i]->bytes;
+ 		priv->port_stats.tx_chksum_offload += priv->tx_ring[i]->tx_csum;
++		priv->port_stats.queue_stopped +=
++			priv->tx_ring[i]->queue_stopped;
++		priv->port_stats.wake_queue += priv->tx_ring[i]->wake_queue;
+ 	}
+ 
+ 	stats->rx_errors = be64_to_cpu(mlx4_en_stats->PCS) +
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 781ebca..56e8fbc 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -445,7 +445,7 @@ static int mlx4_en_process_tx_cq(struct net_device *dev,
+ 	 */
+ 	if (netif_tx_queue_stopped(ring->tx_queue) && txbbs_skipped > 0) {
+ 		netif_tx_wake_queue(ring->tx_queue);
+-		priv->port_stats.wake_queue++;
++		ring->wake_queue++;
+ 	}
+ 	return done;
+ }
+@@ -691,7 +691,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		     ring->size - HEADROOM - MAX_DESC_TXBBS)) {
+ 		/* every full Tx ring stops queue */
+ 		netif_tx_stop_queue(ring->tx_queue);
+-		priv->port_stats.queue_stopped++;
++		ring->queue_stopped++;
+ 
+ 		/* If queue was emptied after the if, and before the
+ 		 * stop_queue - need to wake the queue, or else it will remain
+@@ -704,7 +704,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		if (unlikely(((int)(ring->prod - ring->cons)) <=
+ 			     ring->size - HEADROOM - MAX_DESC_TXBBS)) {
+ 			netif_tx_wake_queue(ring->tx_queue);
+-			priv->port_stats.wake_queue++;
++			ring->wake_queue++;
+ 		} else {
+ 			return NETDEV_TX_BUSY;
+ 		}
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 2610cc5..c59011d 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -274,6 +274,8 @@ struct mlx4_en_tx_ring {
+ 	unsigned long bytes;
+ 	unsigned long packets;
+ 	unsigned long tx_csum;
++	unsigned long queue_stopped;
++	unsigned long wake_queue;
+ 	struct mlx4_bf bf;
+ 	bool bf_enabled;
+ 	struct netdev_queue *tx_queue;
 -- 
 1.8.3.4
