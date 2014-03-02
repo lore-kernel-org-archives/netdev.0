@@ -1,63 +1,60 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 1/2] b44: add calls to phy_{start,stop}
-Date: Sun, 02 Mar 2014 10:53:10 -0800
-Message-ID: <6403851.S1rVbK2KGG@lenovo>
-References: <1393777774-7400-1-git-send-email-hauke@hauke-m.de>
+Subject: Re: [PATCH 2/2] b44: always set duplex mode why phy changes
+Date: Sun, 02 Mar 2014 10:53:23 -0800
+Message-ID: <3128426.BNOxRVW2LW@lenovo>
+References: <1393777774-7400-1-git-send-email-hauke@hauke-m.de> <1393777774-7400-2-git-send-email-hauke@hauke-m.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: davem@davemloft.net, zambrano@broadcom.com, netdev@vger.kernel.org
 To: Hauke Mehrtens <hauke@hauke-m.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f179.google.com ([209.85.214.179]:37574 "EHLO
-	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750878AbaCBSxN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2014 13:53:13 -0500
-Received: by mail-ob0-f179.google.com with SMTP id va2so1229349obc.10
-        for <netdev@vger.kernel.org>; Sun, 02 Mar 2014 10:53:13 -0800 (PST)
-In-Reply-To: <1393777774-7400-1-git-send-email-hauke@hauke-m.de>
+Received: from mail-oa0-f49.google.com ([209.85.219.49]:34350 "EHLO
+	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751623AbaCBSx0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2014 13:53:26 -0500
+Received: by mail-oa0-f49.google.com with SMTP id g12so4050288oah.36
+        for <netdev@vger.kernel.org>; Sun, 02 Mar 2014 10:53:26 -0800 (PST)
+In-Reply-To: <1393777774-7400-2-git-send-email-hauke@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 2 mars 2014, 17:29:33 Hauke Mehrtens a =E9crit :
-> When support for external phys was added to b44, the calls to start a=
-nd
-> stop the phy were missing in the mac driver. This adds the calls to
-> phy_start() and phy_stop().
+Le dimanche 2 mars 2014, 17:29:34 Hauke Mehrtens a =E9crit :
+> Without this patch b44_check_phy() was called when the phy called the
+> adjust callback. This method only change the mac duplex mode when the
+> carrier was off. When the phy changed the duplex mode after the carri=
+er
+> was on the mac was not changed. This happened when an external phy wa=
+s
+> used.
 >=20
 > Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
 
 Acked-by: Florian Fainelli <f.fainelli@gmail.com>
 
 > ---
->  drivers/net/ethernet/broadcom/b44.c |    7 +++++++
->  1 file changed, 7 insertions(+)
+>  drivers/net/ethernet/broadcom/b44.c |    7 ++++++-
+>  1 file changed, 6 insertions(+), 1 deletion(-)
 >=20
 > diff --git a/drivers/net/ethernet/broadcom/b44.c
-> b/drivers/net/ethernet/broadcom/b44.c index 1f7b5aa..e8046e1 100644
+> b/drivers/net/ethernet/broadcom/b44.c index e8046e1..8a7bf7d 100644
 > --- a/drivers/net/ethernet/broadcom/b44.c
 > +++ b/drivers/net/ethernet/broadcom/b44.c
-> @@ -1484,6 +1484,10 @@ static int b44_open(struct net_device *dev)
->  	add_timer(&bp->timer);
+> @@ -2229,7 +2229,12 @@ static void b44_adjust_link(struct net_device =
+*dev)
+>  	}
 >=20
->  	b44_enable_ints(bp);
-> +
-> +	if (bp->flags & B44_FLAG_EXTERNAL_PHY)
-> +		phy_start(bp->phydev);
-> +
->  	netif_start_queue(dev);
->  out:
->  	return err;
-> @@ -1646,6 +1650,9 @@ static int b44_close(struct net_device *dev)
->=20
->  	netif_stop_queue(dev);
->=20
-> +	if (bp->flags & B44_FLAG_EXTERNAL_PHY)
-> +		phy_stop(bp->phydev);
-> +
->  	napi_disable(&bp->napi);
->=20
->  	del_timer_sync(&bp->timer);
+>  	if (status_changed) {
+> -		b44_check_phy(bp);
+> +		u32 val =3D br32(bp, B44_TX_CTRL);
+> +		if (bp->flags & B44_FLAG_FULL_DUPLEX)
+> +			val |=3D TX_CTRL_DUPLEX;
+> +		else
+> +			val &=3D ~TX_CTRL_DUPLEX;
+> +		bw32(bp, B44_TX_CTRL, val);
+>  		phy_print_status(phydev);
+>  	}
+>  }
 
 --=20
 =46lorian
