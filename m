@@ -1,52 +1,46 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V2 3/9] net/mlx4_en: Pad ethernet packets smaller than 17 bytes
-Date: Sun,  2 Mar 2014 10:24:59 +0200
-Message-ID: <1393748705-1685-4-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V2 9/9] net/mlx4_en: Change Connect-X description in kconfig
+Date: Sun,  2 Mar 2014 10:25:05 +0200
+Message-ID: <1393748705-1685-10-git-send-email-amirv@mellanox.com>
 References: <1393748705-1685-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
+	Eyal Perry <eyalpe@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:34533 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:34557 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751624AbaCBIZ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Mar 2014 03:25:29 -0500
+	id S1751685AbaCBIZd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Mar 2014 03:25:33 -0500
 In-Reply-To: <1393748705-1685-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eugenia Emantayev <eugenia@mellanox.com>
+From: Eyal Perry <eyalpe@mellanox.com>
 
-Hardware can't accept packets smaller than 17 bytes. Therefore need to
-pad with zeros.
+The mlx4_en driver support also 1Gbit and 40Gbit Ethernet devices,
+changed the driver description in the menuconfig to reflect that.
 
 
+Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_tx.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx4/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 8dc7637..781ebca 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -585,7 +585,13 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc, struct sk_buff *sk
- 	int spc = MLX4_INLINE_ALIGN - CTRL_SIZE - sizeof *inl;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/Kconfig b/drivers/net/ethernet/mellanox/mlx4/Kconfig
+index 563495d..1a6e188 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/Kconfig
++++ b/drivers/net/ethernet/mellanox/mlx4/Kconfig
+@@ -3,7 +3,7 @@
+ #
  
- 	if (skb->len <= spc) {
--		inl->byte_count = cpu_to_be32(1 << 31 | skb->len);
-+		if (likely(skb->len >= MIN_PKT_LEN)) {
-+			inl->byte_count = cpu_to_be32(1 << 31 | skb->len);
-+		} else {
-+			inl->byte_count = cpu_to_be32(1 << 31 | MIN_PKT_LEN);
-+			memset(((void *)(inl + 1)) + skb->len, 0,
-+			       MIN_PKT_LEN - skb->len);
-+		}
- 		skb_copy_from_linear_data(skb, inl + 1, skb_headlen(skb));
- 		if (skb_shinfo(skb)->nr_frags)
- 			memcpy(((void *)(inl + 1)) + skb_headlen(skb), fragptr,
+ config MLX4_EN
+-	tristate "Mellanox Technologies 10Gbit Ethernet support"
++	tristate "Mellanox Technologies 1/10/40Gbit Ethernet support"
+ 	depends on PCI
+ 	select MLX4_CORE
+ 	select PTP_1588_CLOCK
 -- 
 1.8.3.4
