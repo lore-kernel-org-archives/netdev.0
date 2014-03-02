@@ -1,81 +1,55 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: macvtap performance regression (bisected) between 3.13 and 3.14-rc1
-Date: Sat, 01 Mar 2014 20:21:50 -0500
-Message-ID: <531287AE.5080606@gmail.com>
-References: <530FA586.3010400@de.ibm.com> <53110A62.7070109@redhat.com> <5311C142.6040509@de.ibm.com> <53123495.7030902@gmail.com>
+From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next 1/3] 6lowpan: fix type of
+	datagram size parameter
+Date: Sun,  2 Mar 2014 08:09:33 +0100
+Message-ID: <1393744175-23739-2-git-send-email-alex.aring@gmail.com>
+References: <1393744175-23739-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jason Wang <jasowang@redhat.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	KVM list <kvm@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Christian Borntraeger <borntraeger@de.ibm.com>, vyasevic@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53123495.7030902@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1393744175-23739-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 03/01/2014 02:27 PM, Vlad Yasevich wrote:
-> On 03/01/2014 06:15 AM, Christian Borntraeger wrote:
->> On 28/02/14 23:14, Vlad Yasevich wrote:
->>> On 02/27/2014 03:52 PM, Christian Borntraeger wrote:
->>>> Vlad,
->>>>
->>>> commit 6acf54f1cf0a6747bac9fea26f34cfc5a9029523
->>>>     macvtap: Add support of packet capture on macvtap device.
->>>>
->>>> causes a performance regression for iperf traffic between two KVM guests
->>>> on my s390 system. Both guests are connected via two macvtaps on the same OSA
->>>> network card.
->>>> Before that patch I get ~20 Gbit/sec between two guests, afterwards I get
->>>> ~4Gbit/sec
->>>>
->>>> Latency seems to be unchanges (uperf 1byte ping pong).
->>>>
->>>> According to ifconfig in the guest, I have ~ 1500 bytes per packet with this
->>>> patch and ~  40000 bytes without. So for some reason this patch causes the
->>>> network stack to do segmentation. (the guest kernel stays the same, only host 
->>>> kernel is changed).
->>>>
->>>> Any ideas?
->>>
->>> I am looking.  It shouldn't cause addition segmentations and when I ran
->>> netperf on the code I didn't see any difference in the throughput.
->>
->> Dont know if the different bytes/packets ratio is really the reason or
->> just a side effect. As a hint: the underlying network device does not support
->> segmentation, but this should not matter for traffic between to guests.
-> 
-> Could you post 'ethtool -k' output for both lower-level device and the
-> macvtap device?
-> 
-> Thanks
-> -vlad
-> 
+Datagram size value is u16 because we convert it to host byte order
+and we need to read it. Only the tag value belongs to __be16 type.
 
-Ok.  I think I see what's happening.  Since you turn off offloads on
-lower device, that's propagated to macvlan device.  As a result, when
-when we call dev_queue_xmit on the vlan->dev, we end up segmenting since
-lower level says it does support segmentation.
+Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ net/ieee802154/reassembly.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-One way to fix this is to never disable offloads on macvlan.  macvlan
-will always try to use __dev_queue_xmit() with it's lower device, so any
-segmentation can happen there.
+diff --git a/net/ieee802154/reassembly.c b/net/ieee802154/reassembly.c
+index eb5995e..4511fc2 100644
+--- a/net/ieee802154/reassembly.c
++++ b/net/ieee802154/reassembly.c
+@@ -35,7 +35,7 @@ static struct inet_frags lowpan_frags;
+ static int lowpan_frag_reasm(struct lowpan_frag_queue *fq,
+ 			     struct sk_buff *prev, struct net_device *dev);
+ 
+-static unsigned int lowpan_hash_frag(__be16 tag, __be16 d_size,
++static unsigned int lowpan_hash_frag(__be16 tag, u16 d_size,
+ 				     const struct ieee802154_addr *saddr,
+ 				     const struct ieee802154_addr *daddr)
+ {
+-- 
+1.9.0
 
--vlad
 
->>
->> Maybe you remember, we had a similar situation with commit 3e4f8b787370978733ca6cae452720a4f0c296b8
->> (macvtap: Perform GSO on forwarding path), the setup is basically the same.
->>
->>
->> Christian
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
-> 
+------------------------------------------------------------------------------
+Flow-based real-time traffic analytics software. Cisco certified tool.
+Monitor traffic, SLAs, QoS, Medianet, WAAS etc. with NetFlow Analyzer
+Customize your own dashboards, set traffic alerts and generate reports.
+Network behavioral analysis & security monitoring. All-in-one tool.
+http://pubads.g.doubleclick.net/gampad/clk?id=126839071&iu=/4140/ostg.clktrk
