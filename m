@@ -1,62 +1,81 @@
-From: Jean Sacren <sakiwit@gmail.com>
-Subject: [PATCH net-next] ieee802154: fix at86rf212_set_txpower() exit path
-Date: Sat,  1 Mar 2014 15:54:36 -0700
-Message-ID: <1393714476-21515-1-git-send-email-sakiwit@gmail.com>
-Cc: linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
-To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f53.google.com ([209.85.160.53]:47851 "EHLO
-	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753296AbaCAW56 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Mar 2014 17:57:58 -0500
-Received: by mail-pb0-f53.google.com with SMTP id rp16so2244197pbb.26
-        for <netdev@vger.kernel.org>; Sat, 01 Mar 2014 14:57:57 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: macvtap performance regression (bisected) between 3.13 and 3.14-rc1
+Date: Sat, 01 Mar 2014 20:21:50 -0500
+Message-ID: <531287AE.5080606@gmail.com>
+References: <530FA586.3010400@de.ibm.com> <53110A62.7070109@redhat.com> <5311C142.6040509@de.ibm.com> <53123495.7030902@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jason Wang <jasowang@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	KVM list <kvm@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Christian Borntraeger <borntraeger@de.ibm.com>, vyasevic@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <53123495.7030902@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The commit 9b2777d6089bc ("ieee802154: add TX power control to
-wpan_phy") introduced the new function at86rf212_set_txpower() with
-the questionable check of the return of __at86rf230_write() in the
-exit path:
+On 03/01/2014 02:27 PM, Vlad Yasevich wrote:
+> On 03/01/2014 06:15 AM, Christian Borntraeger wrote:
+>> On 28/02/14 23:14, Vlad Yasevich wrote:
+>>> On 02/27/2014 03:52 PM, Christian Borntraeger wrote:
+>>>> Vlad,
+>>>>
+>>>> commit 6acf54f1cf0a6747bac9fea26f34cfc5a9029523
+>>>>     macvtap: Add support of packet capture on macvtap device.
+>>>>
+>>>> causes a performance regression for iperf traffic between two KVM guests
+>>>> on my s390 system. Both guests are connected via two macvtaps on the same OSA
+>>>> network card.
+>>>> Before that patch I get ~20 Gbit/sec between two guests, afterwards I get
+>>>> ~4Gbit/sec
+>>>>
+>>>> Latency seems to be unchanges (uperf 1byte ping pong).
+>>>>
+>>>> According to ifconfig in the guest, I have ~ 1500 bytes per packet with this
+>>>> patch and ~  40000 bytes without. So for some reason this patch causes the
+>>>> network stack to do segmentation. (the guest kernel stays the same, only host 
+>>>> kernel is changed).
+>>>>
+>>>> Any ideas?
+>>>
+>>> I am looking.  It shouldn't cause addition segmentations and when I ran
+>>> netperf on the code I didn't see any difference in the throughput.
+>>
+>> Dont know if the different bytes/packets ratio is really the reason or
+>> just a side effect. As a hint: the underlying network device does not support
+>> segmentation, but this should not matter for traffic between to guests.
+> 
+> Could you post 'ethtool -k' output for both lower-level device and the
+> macvtap device?
+> 
+> Thanks
+> -vlad
+> 
 
-1) Both at86rf212_set_txpower() and __at86rf230_write() have the
-   same return type.
+Ok.  I think I see what's happening.  Since you turn off offloads on
+lower device, that's propagated to macvlan device.  As a result, when
+when we call dev_queue_xmit on the vlan->dev, we end up segmenting since
+lower level says it does support segmentation.
 
-2) Whatever __at86rf230_write() returns becomes the return value of
-   at86rf212_set_txpower().
+One way to fix this is to never disable offloads on macvlan.  macvlan
+will always try to use __dev_queue_xmit() with it's lower device, so any
+segmentation can happen there.
 
-Thus, fix the exit path by getting rid of that check entirely.
+-vlad
 
-Signed-off-by: Jean Sacren <sakiwit@gmail.com>
-Cc: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
----
- drivers/net/ieee802154/at86rf230.c | 7 +------
- 1 file changed, 1 insertion(+), 6 deletions(-)
-
-diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index dd9ef5e1c730..03e24c560b2e 100644
---- a/drivers/net/ieee802154/at86rf230.c
-+++ b/drivers/net/ieee802154/at86rf230.c
-@@ -786,7 +786,6 @@ static int
- at86rf212_set_txpower(struct ieee802154_dev *dev, int db)
- {
- 	struct at86rf230_local *lp = dev->priv;
--	int rc;
- 
- 	/* typical maximum output is 5dBm with RG_PHY_TX_PWR 0x60, lower five
- 	 * bits decrease power in 1dB steps. 0x60 represents extra PA gain of
-@@ -799,11 +798,7 @@ at86rf212_set_txpower(struct ieee802154_dev *dev, int db)
- 
- 	db = -(db - 5);
- 
--	rc = __at86rf230_write(lp, RG_PHY_TX_PWR, 0x60 | db);
--	if (rc)
--		return rc;
--
--	return 0;
-+	return __at86rf230_write(lp, RG_PHY_TX_PWR, 0x60 | db);
- }
- 
- static int
+>>
+>> Maybe you remember, we had a similar situation with commit 3e4f8b787370978733ca6cae452720a4f0c296b8
+>> (macvtap: Perform GSO on forwarding path), the setup is basically the same.
+>>
+>>
+>> Christian
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
+> 
