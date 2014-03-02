@@ -1,60 +1,51 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 2/2] b44: always set duplex mode why phy changes
-Date: Sun, 02 Mar 2014 10:53:23 -0800
-Message-ID: <3128426.BNOxRVW2LW@lenovo>
-References: <1393777774-7400-1-git-send-email-hauke@hauke-m.de> <1393777774-7400-2-git-send-email-hauke@hauke-m.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] bonding: send arp requests even if there's
+ no route to them
+Date: Sun, 02 Mar 2014 14:54:36 -0500 (EST)
+Message-ID: <20140302.145436.917231372562996113.davem@davemloft.net>
+References: <1393587559-26437-1-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, zambrano@broadcom.com, netdev@vger.kernel.org
-To: Hauke Mehrtens <hauke@hauke-m.de>
+Cc: netdev@vger.kernel.org, f.cachereul@alphalink.fr,
+	zhchen@redhat.com, fubar@us.ibm.com, andy@greyhouse.net
+To: vfalico@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f49.google.com ([209.85.219.49]:34350 "EHLO
-	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751623AbaCBSx0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2014 13:53:26 -0500
-Received: by mail-oa0-f49.google.com with SMTP id g12so4050288oah.36
-        for <netdev@vger.kernel.org>; Sun, 02 Mar 2014 10:53:26 -0800 (PST)
-In-Reply-To: <1393777774-7400-2-git-send-email-hauke@hauke-m.de>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45615 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751862AbaCBTyh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2014 14:54:37 -0500
+In-Reply-To: <1393587559-26437-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 2 mars 2014, 17:29:34 Hauke Mehrtens a =E9crit :
-> Without this patch b44_check_phy() was called when the phy called the
-> adjust callback. This method only change the mac duplex mode when the
-> carrier was off. When the phy changed the duplex mode after the carri=
-er
-> was on the mac was not changed. This happened when an external phy wa=
-s
-> used.
->=20
-> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+=46rom: Veaceslav Falico <vfalico@redhat.com>
+Date: Fri, 28 Feb 2014 12:39:19 +0100
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
-
-> ---
->  drivers/net/ethernet/broadcom/b44.c |    7 ++++++-
->  1 file changed, 6 insertions(+), 1 deletion(-)
+> Currently we're only sending arp requests if we have a route to the t=
+arget
+> (and, thus, can find out the source ip address).
 >=20
-> diff --git a/drivers/net/ethernet/broadcom/b44.c
-> b/drivers/net/ethernet/broadcom/b44.c index e8046e1..8a7bf7d 100644
-> --- a/drivers/net/ethernet/broadcom/b44.c
-> +++ b/drivers/net/ethernet/broadcom/b44.c
-> @@ -2229,7 +2229,12 @@ static void b44_adjust_link(struct net_device =
-*dev)
->  	}
+> There are some use cases, however, where we don't want/need to set an=
+ ip
+> address (or set up a specific route) for bonding to use arp monitorin=
+g *for
+> traffic generation*. We can easily send arp probes (arp requests with=
+ src
+> ip =3D=3D 0) to generate arp broadcast responses from the target ip a=
+nd use
+> them for determining if the target is up.
 >=20
->  	if (status_changed) {
-> -		b44_check_phy(bp);
-> +		u32 val =3D br32(bp, B44_TX_CTRL);
-> +		if (bp->flags & B44_FLAG_FULL_DUPLEX)
-> +			val |=3D TX_CTRL_DUPLEX;
-> +		else
-> +			val &=3D ~TX_CTRL_DUPLEX;
-> +		bw32(bp, B44_TX_CTRL, val);
->  		phy_print_status(phydev);
->  	}
->  }
+> This, obviously, won't work with arp validation - because we don't ha=
+ve the
+> ip address set and, thus, will filter out the responses. So in that c=
+ase -
+> print a warning.
+>=20
+> CC: Fran=E7ois CACHEREUL <f.cachereul@alphalink.fr>
+> CC: Zhenjie Chen <zhchen@redhat.com>
+> CC: Jay Vosburgh <fubar@us.ibm.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 
---=20
-=46lorian
+Applied, thank you.
