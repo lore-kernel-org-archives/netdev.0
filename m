@@ -1,153 +1,155 @@
 From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH RFC 1/3] dts: Add bindings for the Altera Triple Speed Ethernet Driver
-Date: Sun,  2 Mar 2014 14:42:00 -0600
-Message-ID: <1393792922-2381-2-git-send-email-vbridgers2013@gmail.com>
+Subject: [PATCH RFC 2/3] Documentation: networking: Add Altera Triple Speed Ethernet (TSE) Documentation
+Date: Sun,  2 Mar 2014 14:42:01 -0600
+Message-ID: <1393792922-2381-3-git-send-email-vbridgers2013@gmail.com>
 References: <1393792922-2381-1-git-send-email-vbridgers2013@gmail.com>
 Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
 	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
 	rob@landley.net, vbridgers2013@gmail.com
 To: devicetree@vger.kernel.org, netdev@vger.kernel.org,
 	linux-doc@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f54.google.com ([209.85.219.54]:48098 "EHLO
-	mail-oa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752952AbaCBUq4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2014 15:46:56 -0500
+Return-path: <linux-doc-owner@vger.kernel.org>
 In-Reply-To: <1393792922-2381-1-git-send-email-vbridgers2013@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds a bindings description for the Altera Triple Speed Ethernet
-(TSE) driver. The bindings support the legacy SGDMA soft IP as well as the
-preferred MSGDMA soft IP. The TSE can be configured and synthesized in soft
-logic using Altera's Quartus toolchain. Please consult the bindings document
-for supported options.
+This patch adds user documentation text file for the Altera Triple Speed
+Ethernet (TSE) soft IP synthesizable using the Altera Quartus toolchain.
+Support for legacy SGDMA and the preferred MSGDMA soft DMA engines is
+described, driver options, and an overview of driver initialization and
+operations.
 
 Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
 ---
- .../devicetree/bindings/net/altera_tse.txt         |  114 ++++++++++++++++++++
- 1 file changed, 114 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/altera_tse.txt
+ Documentation/networking/altera_tse.txt |  119 +++++++++++++++++++++++++++++++
+ 1 file changed, 119 insertions(+)
+ create mode 100644 Documentation/networking/altera_tse.txt
 
-diff --git a/Documentation/devicetree/bindings/net/altera_tse.txt b/Documentation/devicetree/bindings/net/altera_tse.txt
+diff --git a/Documentation/networking/altera_tse.txt b/Documentation/networking/altera_tse.txt
 new file mode 100644
-index 0000000..b53d972
+index 0000000..654f915
 --- /dev/null
-+++ b/Documentation/devicetree/bindings/net/altera_tse.txt
-@@ -0,0 +1,114 @@
-+* Altera Triple-Speed Ethernet MAC driver (TSE)
++++ b/Documentation/networking/altera_tse.txt
+@@ -0,0 +1,119 @@
++       Altera Triple-Speed Ethernet MAC driver
 +
-+Required properties:
-+- compatible: Should be "altr,tse-1.0" for legacy SGDMA based TSE, and should
-+		be "altr,tse-msgdma-1.0" for the preferred MSGDMA based TSE.
-+		Compatiblilty string matches are case insenstive; so legacy
-+		device trees using ALTR will be supported.
-+- reg: Address and length of the register set for the device. It contains
-+  the information of registers in the same order as described by reg-names
-+- reg-names: Should contain the reg names
-+  "control_port": MAC configuration space region
-+  "tx_csr":       xDMA Tx dispatcher control and status space region
-+  "tx_desc":      MSGDMA Tx dispatcher descriptor space region
-+  "rx_csr" :      xDMA Rx dispatcher control and status space region
-+  "rx_desc":      MSGDMA Rx dispatcher descriptor space region
-+  "rx_resp":      MSGDMA Rx dispatcher response space region
-+  "s1":		  SGDMA descriptor memory
-+- interrupts: Should contain the TSE interrupts
-+- interrupt-names: Should contain the interrupt names
-+  "rx_irq":       xDMA Rx dispatcher interrupt
-+  "tx_irq":       xDMA Tx dispatcher interrupt
-+- altr,rx-fifo-depth: MAC receive FIFO buffer depth (in 32-bit words)
-+- altr,tx-fifo-depth: MAC transmit FIFO buffer depth (in 32-bit words)
-+- phy-mode: String, operation mode of the PHY interface.  Supported values are:
-+		"mii", "gmii", "rgmii-id", "rgmii", "sgmii"
-+- phy-handle: A phandle pointing to device tree node with
-+		device_type = "ethernet-phy".  Using a phandle allows
-+		support for both phys connected to TSE's local mdio or
-+		some other phy.
-+- altr,phy-addr: PHY address to use with a phy connected to TSE's local mdio.
-+		One should have either a phy-handle property or altr,phy-addr
-+		when using a phy with the TSE.
++Copyright (C) 2008-2014 Altera Corporation
 +
-+-mdio device tree subnode: When the TSE has a phy connected to its local
-+		mdio, there must be device tree subnode with the following
-+		required properties:
++This is the driver for the Altera Triple-Speed Ethernet (TSE) controllers
++using the SGDMA and MSGDMA components. The driver uses the platform bus to
++obtain component resources. The designs used to test this driver was built for
++a Cyclone(R) V SOC FPGA board, a Cyclone(R) V FPGA board, and tested with ARM
++and NIOS processor hosts seperately. The anticipated use cases are simple
++communications between an embedded system and an external peer for status and
++simple configuration of the embedded system.
 +
-+	- compatible: Must be "altr,tse-mdio".
-+	- #address-cells: Must be <1>.
-+	- #size-cells: Must be <0>.
++For more information visit www.altera.com and www.rocketboards.org. Support
++forums for the driver may be found on www.rocketboards.org, and a design used
++to test this driver may be found there as well. Support is also available from
++the maintainer of this driver, found at
++http://www.kernel.org/doc/linux/MAINTAINERS.
 +
-+	For each phy on the mdio bus, there must be a node with the following
-+	fields:
++The Triple-Speed Ethernet, SGDMA, and MSGDMA components are all soft IP
++components that can be assembled and built into an FPGA using the Altera
++Quartus toolchain. Quartus 13.1 and 14.0 were used to build the design that
++this driver was tested against.
 +
-+	- reg: phy id used to communicate to phy.
-+	- device_type: Must be "ethernet-phy".
++The driver probe function examines the device tree and determines if the
++Triple-Speed Ethernet instance is using an SGDMA or MSGDMA component. The
++probe function then installs the appropriate set of DMA routines to
++initialize, setup transmits, receives, and interrupt handling primitives for
++the respective configurations.
 +
-+Optional properties:
-+- local-mac-address: 6 bytes, ethernet mac address to use
++The SGDMA component is to be deprecated in the near future (over the next 1-2
++years as of this writing in early 2014) in favor of the MSGDMA component.
++SGDMA support is included for existing designs and reference in case a
++developer wishes to support their own soft DMA logic and driver support. Any
++new designs should not use the SGDMA.
 +
-+Example:
++The SGDMA supports only a single transmit or receive operation at a time, and
++therefore will not perform as well compared to the MSGDMA soft IP. Please
++visit www.altera.com for known, documented SGDMA errata.
 +
-+	tse_sub_0_eth_tse_0: ethernet@0x100000000 {
-+		compatible = "altr,tse-msgdma-1.0";
-+		reg = < 0x00000001 0x00000000 0x00000400
-+			0x00000001 0x00000460 0x00000020
-+			0x00000001 0x00000480 0x00000020
-+			0x00000001 0x000004A0 0x00000008
-+			0x00000001 0x00000400 0x00000020
-+			0x00000001 0x00000420 0x00000020 >;
-+		reg-names = "control_port", "rx_csr", "rx_desc", "rx_resp", "tx_csr", "tx_desc";
-+		interrupt-parent = < &hps_0_arm_gic_0 >;
-+		interrupts = < 0 41 4 0 40 4 >;
-+		interrupt-names = "rx_irq", "tx_irq";
-+		altr,rx-fifo-depth = < 2048 >;
-+		altr,tx-fifo-depth = < 2048 >;
-+		address-bits = < 48 >;
-+		max-frame-size = < 1500 >;
-+		local-mac-address = [ 00 00 00 00 00 00 ];
-+		phy-mode = "gmii";
-+		altr,enable-sup-addr = < 0 >;
-+		altr,enable-hash = < 1 >;
-+		phy-handle = < &phy0 >;
-+		mdio@0 {
-+			compatible = "altr,tse-mdio";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			phy0: ethernet-phy@0 {
-+				reg = <0x0>;
-+				device_type = "ethernet-phy";
-+			};
++Scatter-gather DMA is not supported by the SGDMA or MSGDMA at this time.
++Scatter-gather DMA will be added to a future maintenance update to this
++driver.
 +
-+			phy1: ethernet-phy@1 {
-+				reg = <0x1>;
-+				device_type = "ethernet-phy";
-+			};
++Jumbo frames are not supported at this time.
 +
-+		};
-+	};
++The driver limits PHY operations to 10/100Mbps, and has not yet been fully
++tested for 1Gbps. This support will be added in a future maintenance update.
 +
-+	tse_sub_1_eth_tse_0: ethernet@0x100001000 {
-+		compatible = "altr,tse-msgdma-1.0";
-+		reg = < 0x00000001 0x00001000 0x00000400
-+			0x00000001 0x00001460 0x00000020
-+			0x00000001 0x00001480 0x00000020
-+			0x00000001 0x000014A0 0x00000008
-+			0x00000001 0x00001400 0x00000020
-+			0x00000001 0x00001420 0x00000020 >;
-+		reg-names = "control_port", "rx_csr", "rx_desc", "rx_resp", "tx_csr", "tx_desc";
-+		interrupt-parent = < &hps_0_arm_gic_0 >;
-+		interrupts = < 0 43 4 0 42 4 >;
-+		interrupt-names = "rx_irq", "tx_irq";
-+		altr,rx-fifo-depth = < 2048 >;
-+		altr,tx-fifo-depth = < 2048 >;
-+		address-bits = < 48 >;
-+		max-frame-size = < 1500 >;
-+		local-mac-address = [ 00 00 00 00 00 00 ];
-+		phy-mode = "gmii";
-+		altr,phy-addr = < 1 >;
-+		altr,enable-sup-addr = < 0 >;
-+		altr,enable-hash = < 1 >;
-+		phy-handle = < &phy1 >;
-+	};
++1) Kernel Configuration
++The kernel configuration option is ALTERA_TSE:
++ Device Drivers ---> Network device support ---> Ethernet driver support --->
++ Altera Triple-Speed Ethernet MAC support (ALTERA_TSE)
 +
++2) Driver parameters list:
++	debug: message level (0: no output, 16: all);
++	dma_rx_num: Number of descriptors in the RX list (default is 64);
++	dma_tx_num: Number of descriptors in the TX list (default is 64).
++
++3) Command line options
++Driver parameters can be also passed in command line by using:
++	altera_tse=dma_rx_num:128,dma_tx_num:512
++
++4) Driver information and notes
++
++4.1) Transmit process
++When the driver's transmit routine is called by the kernel, it sets up a
++transmit descriptor by calling the underlying DMA transmit routine (SGDMA or
++MSGDMA), and initites a transmit operation. Once the transmit is complete, an
++interrupt is driven by the transmit DMA logic. The driver handles the transmit
++completion in the context of the interrupt handling chain by recycling
++resource required to send and track the requested transmit operation.
++
++4.2) Receive process
++The driver will post receive buffers to the receive DMA logic during driver
++intialization. Receive buffers may or may not be queued depending upon the
++underlying DMA logic (MSGDMA is able queue receive buffers, SGDMA is not able
++to queue receive buffers to the SGDMA receive logic). When a packet is
++received, the DMA logic generates an interrupt. The driver handles a receive
++interrupt by obtaining the DMA receive logic status, reaping receive
++completions until no more receive completions are available.
++
++4.3) Interrupt Mitigation
++The driver is able to mitigate the number of its DMA interrupts
++using NAPI for receive operations. Interrupt mitigation is not yet supported
++for transmit operations, but will be added in a future maintenance release.
++
++4.4) Ethtool support
++Ethtool is supported. Driver statistics and internal errors can be taken using:
++ethtool -S ethX command. It is possible to dump registers etc.
++
++4.5) PHY Support
++The driver is compatible with PAL to work with PHY and GPHY devices.
++
++4.7) List of source files:
++ o Kconfig
++ o Makefile
++ o altera_tse.c: main network device driver
++ o altera_tse_ethtool.c: ethtool support
++ o altera_tse.h: private driver structure and common definitions
++ o altera_msgdma.h: MSGDMA implementation function definitions
++ o altera_sgdma.h: SGDMA implementation function definitions
++ o altera_msgdma.c: MSGDMA implementation
++ o altera_sgdma.c: SGDMA implementation
++ o altera_sgdmahw.h: SGDMA register and descriptor definitions
++ o altera_msgdmahw.h: MSGDMA register and descriptor definitions
++ o altera_utils.c: Driver utility functions
++ o altera_utils.h: Driver utility function definitions
++
++5) Debug Information
++
++The driver exports many information i.e. internal statistics,
++debug information, MAC and DMA registers etc.
++
++A user may use the ethtool support to get statistics:
++e.g. using: ethtool -S ethX (that shows the statistics counters)
++or sees the MAC registers: e.g. using: ethtool -d ethX
++
++The developer can also use the "debug" module parameter to get
++further debug information.
 -- 
 1.7.9.5
+
