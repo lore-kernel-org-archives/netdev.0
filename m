@@ -1,90 +1,153 @@
 From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH RFC 0/3] Altera Triple Speed Ethernet (TSE) Driver RFC
-Date: Sun,  2 Mar 2014 14:41:59 -0600
-Message-ID: <1393792922-2381-1-git-send-email-vbridgers2013@gmail.com>
+Subject: [PATCH RFC 1/3] dts: Add bindings for the Altera Triple Speed Ethernet Driver
+Date: Sun,  2 Mar 2014 14:42:00 -0600
+Message-ID: <1393792922-2381-2-git-send-email-vbridgers2013@gmail.com>
+References: <1393792922-2381-1-git-send-email-vbridgers2013@gmail.com>
 Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
 	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
 	rob@landley.net, vbridgers2013@gmail.com
 To: devicetree@vger.kernel.org, netdev@vger.kernel.org,
 	linux-doc@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f53.google.com ([209.85.219.53]:43310 "EHLO
-	mail-oa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751976AbaCBUqz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2014 15:46:55 -0500
+Received: from mail-oa0-f54.google.com ([209.85.219.54]:48098 "EHLO
+	mail-oa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752952AbaCBUq4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2014 15:46:56 -0500
+In-Reply-To: <1393792922-2381-1-git-send-email-vbridgers2013@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm submitting this patch set for comments as a first step towards upstreaming 
-a driver for the Altera Triple Speed Ethernet (TSE) controller. 
+This patch adds a bindings description for the Altera Triple Speed Ethernet
+(TSE) driver. The bindings support the legacy SGDMA soft IP as well as the
+preferred MSGDMA soft IP. The TSE can be configured and synthesized in soft
+logic using Altera's Quartus toolchain. Please consult the bindings document
+for supported options.
 
-The Altera TSE is a 10/100/1000 Mbps Ethernet soft IP component that can be 
-configured and synthesize using Quartus, and programmed into Altera FPGAs. 
-Two types of soft DMA IP components are supported by this driver - the Altera
-SGDMA and the MSGDMA. The MSGDMA DMA component is preferred over the SGDMA,
-since the SGDMA will be deprecated in favor of the MSGDMA. Software supporting
-both is provided for customers still using the SGDMA and to demonstrate how
-multiple types of DMA engines may be supported by the TSE driver in the event
-customers wish to develop their own custom soft DMA engine for particular
-applications. 
-
-The design has been tested on Altera's Cyclone 4, 5, and Cyclone 5 SOC
-development kits using an ARM A9 processor and an Altera NIOS2 processor.
-Differences in CPU/DMA coherency management and address alignment are
-addressed by proper use of driver APIs and semantics.
-
-Patch 1/3 is for the device bindings used by the TSE driver, patch 2/3 is for
-the driver documentation, and patch 3/3 is the driver code submission.  
-
-I welcome comments on how best to achieve these objectives, and how best to
-work with the community to upstream support for the Altera Triple Speed
-Ethernet controller.  
-
-Thank you in advance for constructive comments,
-
-Best regards, 
-
-Vince
-
-Vince Bridgers (3):
-  dts: Add bindings for the Altera Triple Speed Ethernet Driver
-  Documentation: networking: Add Altera Triple Speed Ethernet (TSE)
-    Documentation
-  Altera TSE: Add Altera Triple Speed Ethernet (TSE) Driver
-
- .../devicetree/bindings/net/altera_tse.txt         |  114 ++
- Documentation/networking/altera_tse.txt            |  119 ++
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/altera/Kconfig                |    8 +
- drivers/net/ethernet/altera/Makefile               |    7 +
- drivers/net/ethernet/altera/altera_msgdma.c        |  205 +++
- drivers/net/ethernet/altera/altera_msgdma.h        |   35 +
- drivers/net/ethernet/altera/altera_msgdmahw.h      |  168 +++
- drivers/net/ethernet/altera/altera_sgdma.c         |  558 +++++++
- drivers/net/ethernet/altera/altera_sgdma.h         |   36 +
- drivers/net/ethernet/altera/altera_sgdmahw.h       |  125 ++
- drivers/net/ethernet/altera/altera_tse.c           | 1578 ++++++++++++++++++++
- drivers/net/ethernet/altera/altera_tse.h           |  477 ++++++
- drivers/net/ethernet/altera/altera_tse_ethtool.c   |  226 +++
- drivers/net/ethernet/altera/altera_utils.c         |   46 +
- drivers/net/ethernet/altera/altera_utils.h         |   28 +
- 17 files changed, 3732 insertions(+)
+Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
+---
+ .../devicetree/bindings/net/altera_tse.txt         |  114 ++++++++++++++++++++
+ 1 file changed, 114 insertions(+)
  create mode 100644 Documentation/devicetree/bindings/net/altera_tse.txt
- create mode 100644 Documentation/networking/altera_tse.txt
- create mode 100644 drivers/net/ethernet/altera/Kconfig
- create mode 100644 drivers/net/ethernet/altera/Makefile
- create mode 100644 drivers/net/ethernet/altera/altera_msgdma.c
- create mode 100644 drivers/net/ethernet/altera/altera_msgdma.h
- create mode 100644 drivers/net/ethernet/altera/altera_msgdmahw.h
- create mode 100644 drivers/net/ethernet/altera/altera_sgdma.c
- create mode 100644 drivers/net/ethernet/altera/altera_sgdma.h
- create mode 100644 drivers/net/ethernet/altera/altera_sgdmahw.h
- create mode 100644 drivers/net/ethernet/altera/altera_tse.c
- create mode 100644 drivers/net/ethernet/altera/altera_tse.h
- create mode 100644 drivers/net/ethernet/altera/altera_tse_ethtool.c
- create mode 100644 drivers/net/ethernet/altera/altera_utils.c
- create mode 100644 drivers/net/ethernet/altera/altera_utils.h
 
+diff --git a/Documentation/devicetree/bindings/net/altera_tse.txt b/Documentation/devicetree/bindings/net/altera_tse.txt
+new file mode 100644
+index 0000000..b53d972
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/altera_tse.txt
+@@ -0,0 +1,114 @@
++* Altera Triple-Speed Ethernet MAC driver (TSE)
++
++Required properties:
++- compatible: Should be "altr,tse-1.0" for legacy SGDMA based TSE, and should
++		be "altr,tse-msgdma-1.0" for the preferred MSGDMA based TSE.
++		Compatiblilty string matches are case insenstive; so legacy
++		device trees using ALTR will be supported.
++- reg: Address and length of the register set for the device. It contains
++  the information of registers in the same order as described by reg-names
++- reg-names: Should contain the reg names
++  "control_port": MAC configuration space region
++  "tx_csr":       xDMA Tx dispatcher control and status space region
++  "tx_desc":      MSGDMA Tx dispatcher descriptor space region
++  "rx_csr" :      xDMA Rx dispatcher control and status space region
++  "rx_desc":      MSGDMA Rx dispatcher descriptor space region
++  "rx_resp":      MSGDMA Rx dispatcher response space region
++  "s1":		  SGDMA descriptor memory
++- interrupts: Should contain the TSE interrupts
++- interrupt-names: Should contain the interrupt names
++  "rx_irq":       xDMA Rx dispatcher interrupt
++  "tx_irq":       xDMA Tx dispatcher interrupt
++- altr,rx-fifo-depth: MAC receive FIFO buffer depth (in 32-bit words)
++- altr,tx-fifo-depth: MAC transmit FIFO buffer depth (in 32-bit words)
++- phy-mode: String, operation mode of the PHY interface.  Supported values are:
++		"mii", "gmii", "rgmii-id", "rgmii", "sgmii"
++- phy-handle: A phandle pointing to device tree node with
++		device_type = "ethernet-phy".  Using a phandle allows
++		support for both phys connected to TSE's local mdio or
++		some other phy.
++- altr,phy-addr: PHY address to use with a phy connected to TSE's local mdio.
++		One should have either a phy-handle property or altr,phy-addr
++		when using a phy with the TSE.
++
++-mdio device tree subnode: When the TSE has a phy connected to its local
++		mdio, there must be device tree subnode with the following
++		required properties:
++
++	- compatible: Must be "altr,tse-mdio".
++	- #address-cells: Must be <1>.
++	- #size-cells: Must be <0>.
++
++	For each phy on the mdio bus, there must be a node with the following
++	fields:
++
++	- reg: phy id used to communicate to phy.
++	- device_type: Must be "ethernet-phy".
++
++Optional properties:
++- local-mac-address: 6 bytes, ethernet mac address to use
++
++Example:
++
++	tse_sub_0_eth_tse_0: ethernet@0x100000000 {
++		compatible = "altr,tse-msgdma-1.0";
++		reg = < 0x00000001 0x00000000 0x00000400
++			0x00000001 0x00000460 0x00000020
++			0x00000001 0x00000480 0x00000020
++			0x00000001 0x000004A0 0x00000008
++			0x00000001 0x00000400 0x00000020
++			0x00000001 0x00000420 0x00000020 >;
++		reg-names = "control_port", "rx_csr", "rx_desc", "rx_resp", "tx_csr", "tx_desc";
++		interrupt-parent = < &hps_0_arm_gic_0 >;
++		interrupts = < 0 41 4 0 40 4 >;
++		interrupt-names = "rx_irq", "tx_irq";
++		altr,rx-fifo-depth = < 2048 >;
++		altr,tx-fifo-depth = < 2048 >;
++		address-bits = < 48 >;
++		max-frame-size = < 1500 >;
++		local-mac-address = [ 00 00 00 00 00 00 ];
++		phy-mode = "gmii";
++		altr,enable-sup-addr = < 0 >;
++		altr,enable-hash = < 1 >;
++		phy-handle = < &phy0 >;
++		mdio@0 {
++			compatible = "altr,tse-mdio";
++			#address-cells = <1>;
++			#size-cells = <0>;
++			phy0: ethernet-phy@0 {
++				reg = <0x0>;
++				device_type = "ethernet-phy";
++			};
++
++			phy1: ethernet-phy@1 {
++				reg = <0x1>;
++				device_type = "ethernet-phy";
++			};
++
++		};
++	};
++
++	tse_sub_1_eth_tse_0: ethernet@0x100001000 {
++		compatible = "altr,tse-msgdma-1.0";
++		reg = < 0x00000001 0x00001000 0x00000400
++			0x00000001 0x00001460 0x00000020
++			0x00000001 0x00001480 0x00000020
++			0x00000001 0x000014A0 0x00000008
++			0x00000001 0x00001400 0x00000020
++			0x00000001 0x00001420 0x00000020 >;
++		reg-names = "control_port", "rx_csr", "rx_desc", "rx_resp", "tx_csr", "tx_desc";
++		interrupt-parent = < &hps_0_arm_gic_0 >;
++		interrupts = < 0 43 4 0 42 4 >;
++		interrupt-names = "rx_irq", "tx_irq";
++		altr,rx-fifo-depth = < 2048 >;
++		altr,tx-fifo-depth = < 2048 >;
++		address-bits = < 48 >;
++		max-frame-size = < 1500 >;
++		local-mac-address = [ 00 00 00 00 00 00 ];
++		phy-mode = "gmii";
++		altr,phy-addr = < 1 >;
++		altr,enable-sup-addr = < 0 >;
++		altr,enable-hash = < 1 >;
++		phy-handle = < &phy1 >;
++	};
++
 -- 
 1.7.9.5
