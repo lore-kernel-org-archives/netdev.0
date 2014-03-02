@@ -1,115 +1,114 @@
-From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-Subject: [PATCH net-next] sch_tbf: Remove holes in struct tbf_sched_data.
-Date: Sun, 2 Mar 2014 17:30:26 +0900
-Message-ID: <20140302173026.ad5cd8c8447ddf8806b03651@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next 1/2] net: Utility function to get affinity_hint by policy
+Date: Sun,  2 Mar 2014 15:52:09 +0200
+Message-ID: <1393768330-13334-2-git-send-email-amirv@mellanox.com>
+References: <1393768330-13334-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>, prarit@redhat.com,
+	Amir Vadai <amirv@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:57060 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751446AbaCBIa3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2014 03:30:29 -0500
-Received: by mail-pd0-f175.google.com with SMTP id x10so2485052pdj.6
-        for <netdev@vger.kernel.org>; Sun, 02 Mar 2014 00:30:28 -0800 (PST)
+Received: from mailp.voltaire.com ([193.47.165.129]:47375 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752043AbaCBNwY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Mar 2014 08:52:24 -0500
+In-Reply-To: <1393768330-13334-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On x86_64 we have 3 holes in struct tbf_sched_data.
+This function sets the affinity_mask according to a numa aware policy.
+affinity_mask could be used as an affinity hint for the IRQ related to
+this rx queue.
+Current policy is to spread rx queues accross cores - local cores first.
+It could be extended in the future.
 
-The member peak_present can be replaced with peak.rate_bytes_ps,
-because peak.rate_bytes_ps is set only when peak is specified in
-tbf_change(). tbf_peak_present() is introduced to test
-peak.rate_bytes_ps.
-
-The member max_size is moved to fill 32bit hole.
-
-Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+CC: Prarit Bhargava <prarit@redhat.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- net/sched/sch_tbf.c | 23 ++++++++++++-----------
- 1 file changed, 12 insertions(+), 11 deletions(-)
+ include/linux/netdevice.h |  3 +++
+ net/core/dev.c            | 56 +++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 59 insertions(+)
 
-diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-index 1cb413fead89..0893161b0262 100644
---- a/net/sched/sch_tbf.c
-+++ b/net/sched/sch_tbf.c
-@@ -101,12 +101,11 @@
- struct tbf_sched_data {
- /* Parameters */
- 	u32		limit;		/* Maximal length of backlog: bytes */
-+	u32		max_size;
- 	s64		buffer;		/* Token bucket depth/rate: MUST BE >= MTU/B */
- 	s64		mtu;
--	u32		max_size;
- 	struct psched_ratecfg rate;
- 	struct psched_ratecfg peak;
--	bool peak_present;
- 
- /* Variables */
- 	s64	tokens;			/* Current number of B tokens */
-@@ -222,6 +221,11 @@ static unsigned int tbf_drop(struct Qdisc *sch)
- 	return len;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 1a86948..db4fd12 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2526,6 +2526,9 @@ static inline int netif_set_real_num_rx_queues(struct net_device *dev,
  }
+ #endif
  
-+static bool tbf_peak_present(const struct tbf_sched_data *q)
-+{
-+	return q->peak.rate_bytes_ps;
-+}
++int netif_set_rx_queue_affinity_hint(int rxq, int numa_node,
++				     cpumask_var_t affinity_mask);
 +
- static struct sk_buff *tbf_dequeue(struct Qdisc *sch)
+ static inline int netif_copy_real_num_queues(struct net_device *to_dev,
+ 					     const struct net_device *from_dev)
  {
- 	struct tbf_sched_data *q = qdisc_priv(sch);
-@@ -238,7 +242,7 @@ static struct sk_buff *tbf_dequeue(struct Qdisc *sch)
- 		now = ktime_to_ns(ktime_get());
- 		toks = min_t(s64, now - q->t_c, q->buffer);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index b1b0c8d..7bbdbd4 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2116,6 +2116,62 @@ int netif_set_real_num_rx_queues(struct net_device *dev, unsigned int rxq)
+ EXPORT_SYMBOL(netif_set_real_num_rx_queues);
+ #endif
  
--		if (q->peak_present) {
-+		if (tbf_peak_present(q)) {
- 			ptoks = toks + q->ptokens;
- 			if (ptoks > q->mtu)
- 				ptoks = q->mtu;
-@@ -378,6 +382,8 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
- 		} else {
- 			max_size = min_t(u64, max_size, psched_ns_t2l(&peak, mtu));
- 		}
-+	} else {
-+		memset(&peak, 0, sizeof(peak));
- 	}
- 
- 	if (max_size < psched_mtu(qdisc_dev(sch)))
-@@ -410,12 +416,7 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
- 	q->ptokens = q->mtu;
- 
- 	memcpy(&q->rate, &rate, sizeof(struct psched_ratecfg));
--	if (qopt->peakrate.rate) {
--		memcpy(&q->peak, &peak, sizeof(struct psched_ratecfg));
--		q->peak_present = true;
--	} else {
--		q->peak_present = false;
--	}
-+	memcpy(&q->peak, &peak, sizeof(struct psched_ratecfg));
- 
- 	sch_tree_unlock(sch);
- 	err = 0;
-@@ -458,7 +459,7 @@ static int tbf_dump(struct Qdisc *sch, struct sk_buff *skb)
- 
- 	opt.limit = q->limit;
- 	psched_ratecfg_getrate(&opt.rate, &q->rate);
--	if (q->peak_present)
-+	if (tbf_peak_present(q))
- 		psched_ratecfg_getrate(&opt.peakrate, &q->peak);
- 	else
- 		memset(&opt.peakrate, 0, sizeof(opt.peakrate));
-@@ -469,7 +470,7 @@ static int tbf_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	if (q->rate.rate_bytes_ps >= (1ULL << 32) &&
- 	    nla_put_u64(skb, TCA_TBF_RATE64, q->rate.rate_bytes_ps))
- 		goto nla_put_failure;
--	if (q->peak_present &&
-+	if (tbf_peak_present(q) &&
- 	    q->peak.rate_bytes_ps >= (1ULL << 32) &&
- 	    nla_put_u64(skb, TCA_TBF_PRATE64, q->peak.rate_bytes_ps))
- 		goto nla_put_failure;
++/*
++ * netif_set_rx_queue_affinity_hint - set affinity hint of rx queue
++ * @rxq: index of rx queue
++ * @numa_node: prefered numa_node
++ * @affinity_mask: the relevant cpu bit is set according to the policy
++ *
++ * This function sets the affinity_mask according to a numa aware policy.
++ * affinity_mask coulbe used as an affinity hint for the IRQ related to this
++ * rx queue.
++ * The policy is to spread rx queues accross cores - local cores first.
++ *
++ * Returns 0 on success, or a negative error code.
++ */
++int netif_set_rx_queue_affinity_hint(int rxq, int numa_node,
++				     cpumask_var_t affinity_mask)
++{
++	const struct cpumask *p_numa_cores_mask;
++	cpumask_var_t non_numa_cores_mask = NULL;
++	int affinity_cpu;
++	int ret = 0;
++
++	rxq = rxq % num_online_cpus();
++
++	p_numa_cores_mask = cpumask_of_node(numa_node);
++	if (!p_numa_cores_mask)
++		p_numa_cores_mask = cpu_online_mask;
++
++	for_each_cpu(affinity_cpu, p_numa_cores_mask) {
++		if (--rxq < 0)
++			goto out;
++	}
++
++	if (!zalloc_cpumask_var(&non_numa_cores_mask, GFP_KERNEL)) {
++		ret = -ENOMEM;
++		goto err;
++	}
++
++	cpumask_xor(non_numa_cores_mask, cpu_online_mask, p_numa_cores_mask);
++
++	for_each_cpu(affinity_cpu, non_numa_cores_mask) {
++		if (--rxq < 0)
++			goto out;
++	}
++
++	goto err;
++
++out:
++	cpumask_set_cpu(affinity_cpu, affinity_mask);
++
++err:
++	free_cpumask_var(non_numa_cores_mask);
++
++	return ret;
++}
++EXPORT_SYMBOL(netif_set_rx_queue_affinity_hint);
++
+ /**
+  * netif_get_num_default_rss_queues - default number of RSS queues
+  *
 -- 
-1.8.3.2
+1.8.3.4
