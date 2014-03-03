@@ -1,47 +1,67 @@
-From: "Alex Lyakas" <alex@zadarastorage.com>
-Subject: bond failover doesn't happen when active slave link is up, but there is no connectivity
-Date: Mon, 3 Mar 2014 18:49:04 +0200
-Message-ID: <62EB227014B44F00A9ACC9C781887FC8@alyakaslap>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: ax88179_178a problems on AMD platform with ASMedia xhci controller
+Date: Mon, 3 Mar 2014 17:08:05 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6CF469@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed;
-	charset="iso-8859-1";
-	reply-type=original
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	USB list <linux-usb@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f170.google.com ([74.125.82.170]:37935 "EHLO
-	mail-we0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753581AbaCCQtI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 11:49:08 -0500
-Received: by mail-we0-f170.google.com with SMTP id w61so3542014wes.15
-        for <netdev@vger.kernel.org>; Mon, 03 Mar 2014 08:49:07 -0800 (PST)
-Received: from alyakaslap ([212.143.144.103])
-        by mx.google.com with ESMTPSA id z1sm38040965wjq.19.2014.03.03.08.49.05
-        for <netdev@vger.kernel.org>
-        (version=TLSv1 cipher=ECDHE-RSA-AES128-SHA bits=128/128);
-        Mon, 03 Mar 2014 08:49:06 -0800 (PST)
+Received: from mx0.aculab.com ([213.249.233.131]:40598 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752636AbaCCRI3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 12:08:29 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 04633-03 for <netdev@vger.kernel.org>;
+ Mon,  3 Mar 2014 17:08:25 +0000 (GMT)
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Greetings all,
-We are using bonding interfaces in active-backup (1) mode, with 
-"fail_over_mac" set to "active" (1), with miimon=100 and two slaves. The 
-slaves are "either regular" network interfaces, or vlan interfaces created 
-with "vconfig" over "regular" interfaces. One of the slaves is defined as 
-primary. The purpose of this config is to ensure failover in case one of the 
-interfaces dies. This config usually works as expected.
+I've just installed the latest 3.14.0-rc5 kernel on an AMD box that
+has the ASMedia 1042 xhci controller and an ASX ax88179 USB3 Ge card.
 
-One scenario that doesn't work for us, is when link status of the active 
-slave is up, but all the packets sent to it are dropped, e.g., because of
-incorrect switch configuration. In that case bond failover doesn't happen. 
-Can this scenario be addressed with bonding?
+This is still working as badly as it did last time I tried it.
+(When I added a lot of diagnostics to try to find out what was wrong.)
 
-Thanks,
-Alex.
+When I ran 'ifconfig eth1 192.168.x.x' the kernel message buffer
+is spammed with messages from the generic ethernet code reporting:
+    "kevent 4 may have been missed".
+This is because ax88179_status(...) contains:
+	if (netif_carrier_ok() != link) {
+		usbnet_link_change(...);
+		...
+but the corresponding netif_carrier_on() doesn't happen until
+much later (possibly for the same reason that transmits are delayed).
+I think the hardware reports its status every 128ms.
 
-I found a discussion, which looks relevant, labeled "How to check an 
-inactive slave in a bond?" in 
-http://www.spinics.net/lists/lartc/msg21434.html". But this discussion 
-considers the inactive slave, while in my case, I would like to better 
-handle problems with the active slave.
+If I ping the interface (from the only other system on that ethernet
+network), the ping times vary, but are typically larger than 20ms and
+anything upto 200ms (some outward ones are faster).
+I did add some diagnostics a while ago (rc2 ish) and thought the delays
+were in the transmit path.
+
+dmesg also gets spammed with "ERROR Transfer event TRB DMA ptr not part of
+current TD". I don't remember looking at why (for this case).
+
+I've just looked t the ping timings closely. The elapsed times (ms) are:
+7, 30, 53, 76, 99, 122, 18, 41, 64, 87, 110, 5, 28 ...
+So each response is about 22ms later than the previous on - until the delay
+would exceed 128ms, when 128ms is removed.
+So something is only looking at something every 128ms.
+
+This might be related to the status indications every 128ms, but I
+thought I'd determined that the delay was between the tx setup and
+end of tx interrupt.
+
+I don't have a USB3 monitor, and the USB2 one I have has an unusable
+graphical interface.
+
+In any case this all makes this combination completely unusable.
+
+I was planning on doing some tests for link TRBs - but it doesn't
+work well enough to even attempt those.
+
+	David
