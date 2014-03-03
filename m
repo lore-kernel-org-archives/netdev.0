@@ -1,28 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can 2014-03-03
-Date: Mon, 03 Mar 2014 16:05:36 -0500 (EST)
-Message-ID: <20140303.160536.1096367885545296290.davem@davemloft.net>
-References: <1393854875-8171-1-git-send-email-mkl@pengutronix.de>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [net-next PATCH] iproute2: add man page for mqprio
+Date: Mon, 3 Mar 2014 16:07:13 -0500
+Message-ID: <20140303210713.GA15271@hmsreliant.think-freely.org>
+References: <20140303173818.21044.37528.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1393854875-8171-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: stephen@networkplumber.org, or.gerlitz@gmail.com,
+	netdev@vger.kernel.org, Neerav.Parikh@intel.com
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:60074 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753010AbaCCVHY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 16:07:24 -0500
+Content-Disposition: inline
+In-Reply-To: <20140303173818.21044.37528.stgit@nitbit.x32>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Mon,  3 Mar 2014 14:54:27 +0100
-
-> this is a pull request of 8 patches. Oliver Hartkopp contributes a patch which
-> removes the CAN FD compatibility for CAN 2.0 sockets, as it turns out that this
-> compatibility has some conceptual cornercases. The remaining 7 patches are by
-> me, they address a problem in the flexcan driver. When shutting down the
-> interface ("ifconfig can0 down") under heavy network load the whole system will
-> hang. This series reworks the actual sequence in close() and the transition
-> from and to the low power modes of the CAN controller.
-
-Pulled, thanks a lot Marc.
+On Mon, Mar 03, 2014 at 09:38:20AM -0800, John Fastabend wrote:
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+>  man/man8/Makefile    |    2 -
+>  man/man8/tc-mqprio.8 |  112 ++++++++++++++++++++++++++++++++++++++++++++++++++
+>  man/man8/tc.8        |    1 
+>  3 files changed, 114 insertions(+), 1 deletion(-)
+>  create mode 100644 man/man8/tc-mqprio.8
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
