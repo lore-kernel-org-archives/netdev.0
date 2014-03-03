@@ -1,89 +1,72 @@
-From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@web.de>
-Subject: Re: bridge is not forwaring ICMP6 neighbor solicitation to
-	KVM guest
-Date: Tue, 4 Mar 2014 00:03:23 +0100
-Message-ID: <20140303230323.GX5090@Linus-Debian>
-References: <1566805413.12693479.1393872931017.JavaMail.zimbra@redhat.com>
-	<2107636851.12713862.1393876035292.JavaMail.zimbra@redhat.com>
-	<20140303212759.GW5090@Linus-Debian> <5314F6D8.2050701@gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v3 net-next 1/1] bpf32->bpf64 mapper and bpf64 interpreter
+Date: Mon, 3 Mar 2014 15:04:28 -0800
+Message-ID: <CAMEtUuxNTB3SKbTeF_JJBMUeWnzfzPphL_cwLXTyxwasEkFe6A@mail.gmail.com>
+References: <1393468732-3919-1-git-send-email-ast@plumgrid.com>
+	<1393468732-3919-2-git-send-email-ast@plumgrid.com>
+	<531084E0.5080601@redhat.com>
+	<CAMEtUuw9aQaBQR-CQq8hdk+8WFqadG0u1fz3pDTsedhXSkQzTg@mail.gmail.com>
+	<53112A08.5080309@redhat.com>
+	<20140303100501.GB1108@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="zHDeOHGDnzKksZSU"
-Cc: netdev@vger.kernel.org, Florian Westphal <fwestpha@redhat.com>,
-	bridge@lists.linux-foundation.org, Jan Stancek <jstancek@redhat.com>
-To: Vlad Yasevich <vyasevich@gmail.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <5314F6D8.2050701@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	Tom Zanussi <tom.zanussi@linux.intel.com>,
+	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Pekka Enberg <penberg@iki.fi>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Jesse Gross <jesse@nicira.com>
+To: Hagen Paul Pfeifer <hagen@jauu.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140303100501.GB1108@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Mar 3, 2014 at 2:05 AM, Hagen Paul Pfeifer <hagen@jauu.net> wrote:
+> * Daniel Borkmann | 2014-03-01 01:30:00 [+0100]:
+>
+>>>>as in 'struct bpf_insn' the immediate value is 32 bit, so for 64 bit
+>>>>comparisons, you'd still need to load to immediate values, right?
+>>>
+>>>there is no insn that use 64-bit immediate, since 64-bit immediates
+>>>are extremely rare. grep x86-64 asm code for movabsq will return very few.
+>>>llvm or gcc can easily construct any constant by combination of mov,
+>>>shifts and ors.
+>>>bpf64 comparisons are all 64-bit right now. So far I didn't see a need to do
+>>>32-bit comparison, since old bpf is all unsigned, mapping 32->64 of
+>>>Jxx is painless.
+>>
+>>Hm, fair enough, I was just thinking for comparisons of IPv6 addresses
+>>when we do socket filtering. On the other hand, old and new insns are
+>>both 64 bit wide and can be used though the same api then.
+>
+> What about the long term idea to support JITed nftables? A 128 bit immediate
+> is required - maybe the biggest requirement for nftable support.
 
---zHDeOHGDnzKksZSU
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I'm still planning to bring benefits of ebpf-JIT to nft.
+There are different ways to approach it. I'm not ready to debate
+details, since I
+don't have a working code for nft+bpf yet and code speaks better than words.
+But I'm confident that ebpf instruction set will not need 128-bit extensions.
+If something unforeseen is needed, we can always add it.
 
-On Mon, Mar 03, 2014 at 04:40:40PM -0500, Vlad Yasevich wrote:
-> I did notice a minor issue in the bridge code.  The following
-> code:
->        /* Prevent flooding this packet if there is no listener present */
->         if (!ipv6_addr_is_ll_all_nodes(&ip6h->daddr))
->                 BR_INPUT_SKB_CB(skb)->mrouters_only =3D 1;
->=20
->         if (ip6h->nexthdr !=3D IPPROTO_HOPOPTS ||
->             ip6h->payload_len =3D=3D 0)
->                 return 0;
->=20
-> will mark most multicast traffic is mrouters_only.  The two
-> statement should be probably be reversed.  However, that's shouldn't
-> cause the reported problem.
+Right now I'm testing ebpf+seccomp.
+As a micro benchmark I took a test from libseccomp and added dummy
+syscall loop. There is a nice speedup. will post a patch soon.
 
-Reversing the order of these two if-clauses would reintroduce the issue
-this commit tried to address, I think:
-"bridge: prevent flooding IPv6 packets that do not have a listener"
-
-Besides, I don't quite see what minor issue you are refering to,
-would you mind being a little more verbose?
-
-Cheers, Linus
-
-PS: mrouters_only has a kind of confusing naming... for
-MLD/IGMP packets it means sending to multicast routers only, there
-the name fits. But for non-MLD/IGMP packets it means something
-else since "bridge: Only flood unregistered groups to routers"
-(and I went along with it with "bridge: prevent flooding IPv6 packets
-that do not have a listener"), there it means dropping the skb if
-there is no router or matching listener.
-
---zHDeOHGDnzKksZSU
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJTFQo5AAoJELxyPiAAt6UvOCwP/07aEV79emg+L87Gs2TbajYM
-kAl9/sysLIfH7hIujdKSbHJTirVEs8l9AysWDCaHl7tDBnQVRnNAhRV3ejDG4kK3
-taccDj/66AtJAOl8VEoa6f1OZU2b78YiRPZKeHOaxjkZ/3+jU3UpWL7qqV84Vg4U
-2UOc7Xsbc+8+GG8NqKK/5oPnC7WG7U6QlSpxJlcmz681wZ6iDfLDR4Ep1WOi0rpJ
-ffgolcFxlANVLOijMR2p3kdmRyup/xBzrdy0G2gFOCwtxW2vV0OXjajK/uPPHv2+
-5JtKtS1VlPrKDJ5rIz+BRECMymKS7BtwCDqR+3nfz1/zK/w+GFeMkQuSMQ+oj+Xm
-SSbWI7H+wbVQRxGKs6nkpU3QjI4iuZGRYOJ7yYCuBcSdL1/ScVkr2DIYgIIxV35W
-upRhenIVZ4H8JELRWbyVeLwcaY5JJrflIAMpCzJJpcGKG9ojknkyP4uX24Sy8T3R
-7thPcPqJKy0OheEcbvKQQq1vSKxjlNNRbgYMKF91NxzUqeHLQUhnvW9a89Brdnid
-5aYbzNSTB4IGASsNCpq1WwoO7QZKi0SgC4BB4pF3UKEzwywD+IwQ+n2Domhz14Su
-7e8BUhqlPVMxo1N6aw2yL/O5lTcQ4b4vB7zvO5l4/Rj3KYpBHrJwFFObNifjTC/P
-XHRijXCy/CjRScukeTWT
-=Ot+D
------END PGP SIGNATURE-----
-
---zHDeOHGDnzKksZSU--
+Thanks
+Alexei
