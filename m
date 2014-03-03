@@ -1,91 +1,80 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: [RFC v3 5/6] xen-netback: use a random MAC address and force bridge root block
-Date: Mon,  3 Mar 2014 14:47:04 -0800
-Message-ID: <1393886825-24323-6-git-send-email-mcgrof@do-not-panic.com>
-References: <1393886825-24323-1-git-send-email-mcgrof@do-not-panic.com>
-Cc: linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	xen-devel@lists.xenproject.org, mcgrof@suse.com,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	bridge@lists.linux-foundation.org
-To: netdev@vger.kernel.org
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1393886825-24323-1-git-send-email-mcgrof@do-not-panic.com>
-Sender: kvm-owner@vger.kernel.org
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net-next] hyperv: Move state setting for link query
+Date: Mon,  3 Mar 2014 15:54:35 -0800
+Message-ID: <1393890875-1420-1-git-send-email-haiyangz@microsoft.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
+ linux-kernel@vger.kernel.org, haiyangz@microsoft.com
+To: davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-From: "Luis R. Rodriguez" <mcgrof@suse.com>
+It moves the state setting for query into rndis_filter_receive_response().
+All callbacks including query-complete and status-callback are synchronized
+by channel->inbound_lock. This prevents pentential race between them.
 
-The purpose of using a static MAC address of FE:FF:FF:FF:FF:FF
-was to prevent our backend interfaces from being used by the
-bridge and nominating our interface as a root port on the bridge.
-This was possible given that the bridge code will use the lowest MAC
-address for a port once a new interface gets added to the bridge.
-
-Sticking to a static MAC address is undesirable for a few reasons:
-
-  a) using a static MAC address by default on all interfaces can
-     lead to possible conflicts with IPv6 SLAAC and DAD
-
-  b) The bridge code has a generic bridge port 'root block' feature
-     to allow interfaces to opt out from root bridge port nominations.
-     We want to help stop spreading the use of a high MAC address
-     as a hack to do root port block, and instead get folks to
-     use the proper APIs for this.
-
-This modifies xen-netback to use a random MAC address with the xen OUI
-prefix and enables the bridge root block feature since initialization.
-Although toggling the root block feature requires the iproute2 bridge
-tool [0] or sysfs [1] xen-netback users would only need to toggle this
-off in the case that the net_device is required to be a candidate for
-root port nomination on the bridge. This is an acceptable compromise
-in order to avoid the possible conflicts with IPv6 SLAAC and DAD.
-
-[0] bridge link set dev vif2.0 root_block off
-[1] echo 1 > /sys/devices/vif-2-0/net/vif2.0/brport/root_block
-
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: bridge@lists.linux-foundation.org
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Cc: xen-devel@lists.xenproject.org
-Cc: kvm@vger.kernel.org
-Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
 ---
- drivers/net/xen-netback/interface.c | 14 +++++---------
- 1 file changed, 5 insertions(+), 9 deletions(-)
+ drivers/net/hyperv/rndis_filter.c |   21 ++++++++++++++++++++-
+ 1 files changed, 20 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 7669d49..79d71ec 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -42,6 +42,8 @@
- #define XENVIF_QUEUE_LENGTH 32
- #define XENVIF_NAPI_WEIGHT  64
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index f0cc8ef..6a9f602 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -240,6 +240,22 @@ static int rndis_filter_send_request(struct rndis_device *dev,
+ 	return ret;
+ }
  
-+static const u8 xen_oui[3] = { 0x00, 0x16, 0x3e };
++static void rndis_set_link_state(struct rndis_device *rdev,
++				 struct rndis_request *request)
++{
++	u32 link_status;
++	struct rndis_query_complete *query_complete;
 +
- int xenvif_schedulable(struct xenvif *vif)
++	query_complete = &request->response_msg.msg.query_complete;
++
++	if (query_complete->status == RNDIS_STATUS_SUCCESS &&
++	    query_complete->info_buflen == sizeof(u32)) {
++		memcpy(&link_status, (void *)((unsigned long)query_complete +
++		       query_complete->info_buf_offset), sizeof(u32));
++		rdev->link_state = link_status != 0;
++	}
++}
++
+ static void rndis_filter_receive_response(struct rndis_device *dev,
+ 				       struct rndis_message *resp)
  {
- 	return netif_running(vif->dev) && netif_carrier_ok(vif->dev);
-@@ -346,15 +348,9 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
- 	for (i = 0; i < MAX_PENDING_REQS; i++)
- 		vif->mmap_pages[i] = NULL;
+@@ -269,6 +285,10 @@ static void rndis_filter_receive_response(struct rndis_device *dev,
+ 		    sizeof(struct rndis_message) + RNDIS_EXT_LEN) {
+ 			memcpy(&request->response_msg, resp,
+ 			       resp->msg_len);
++			if (request->request_msg.ndis_msg_type ==
++			    RNDIS_MSG_QUERY && request->request_msg.msg.
++			    query_req.oid == RNDIS_OID_GEN_MEDIA_CONNECT_STATUS)
++				rndis_set_link_state(dev, request);
+ 		} else {
+ 			netdev_err(ndev,
+ 				"rndis response buffer overflow "
+@@ -617,7 +637,6 @@ static int rndis_filter_query_device_link_status(struct rndis_device *dev)
+ 	ret = rndis_filter_query_device(dev,
+ 				      RNDIS_OID_GEN_MEDIA_CONNECT_STATUS,
+ 				      &link_status, &size);
+-	dev->link_state = (link_status != 0) ? true : false;
  
--	/*
--	 * Initialise a dummy MAC address. We choose the numerically
--	 * largest non-broadcast address to prevent the address getting
--	 * stolen by an Ethernet bridge for STP purposes.
--	 * (FE:FF:FF:FF:FF:FF)
--	 */
--	memset(dev->dev_addr, 0xFF, ETH_ALEN);
--	dev->dev_addr[0] &= ~0x01;
--
-+	eth_hw_addr_random(dev);
-+	memcpy(dev->dev_addr, xen_oui, 3);
-+	dev->priv_flags |= IFF_BRIDGE_ROOT_BLOCK;
- 	netif_napi_add(dev, &vif->napi, xenvif_poll, XENVIF_NAPI_WEIGHT);
- 
- 	netif_carrier_off(dev);
+ 	return ret;
+ }
 -- 
-1.9.0
-
+1.7.4.1
