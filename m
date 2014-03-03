@@ -1,353 +1,152 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: pull request: wireless 2014-03-03
-Date: Mon, 3 Mar 2014 14:44:32 -0500
-Message-ID: <20140303194432.GD26300@tuxdriver.com>
+From: Jan Stancek <jstancek@redhat.com>
+Subject: bridge is not forwaring ICMP6 neighbor solicitation to KVM guest
+Date: Mon, 3 Mar 2014 14:47:15 -0500 (EST)
+Message-ID: <2107636851.12713862.1393876035292.JavaMail.zimbra@redhat.com>
+References: <1566805413.12693479.1393872931017.JavaMail.zimbra@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="r5Pyd7+fXNt84Ff3"
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: linus.luessing@web.de, netdev@vger.kernel.org,
+	Florian Westphal <fwestpha@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:59047 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754239AbaCCTpQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 14:45:16 -0500
-Content-Disposition: inline
+Received: from mx3-phx2.redhat.com ([209.132.183.24]:45057 "EHLO
+	mx3-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754040AbaCCTrQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 14:47:16 -0500
+In-Reply-To: <1566805413.12693479.1393872931017.JavaMail.zimbra@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
---r5Pyd7+fXNt84Ff3
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I have a host A running 3.14.0-rc5 with one KVM guest, where network
+is set up to use bridge:
+# brctl show
+bridge name     bridge id               STP enabled     interfaces
+br1             8000.0023aeed1a00       no              eno1
+                                                        vnet0
+virbr0          8000.000000000000       yes
 
-Dave,
+I'm seeing an issue where bridge (sometimes) stops forwarding ICMP6
+neighbor solicitation packets to KVM guest and as result KVM guest does=
+n't
+respond with neighbor advertisement.
 
-Please pull this batch of fixes intended for the 3.14 stream...
+I was trying to narrow down conditions when this happens and eventually
+came to following packet sent by other host B on same network:
 
-For the mac80211 bits, Johannes says:
+Ethernet II, Src: Hewlett-_47:93:1c (00:21:5a:47:93:1c), Dst: IPv6mcast=
+_00:00:00:01 (33:33:00:00:00:01)
+    Destination: IPv6mcast_00:00:00:01 (33:33:00:00:00:01)
+        Address: IPv6mcast_00:00:00:01 (33:33:00:00:00:01)
+        .... ..1. .... .... .... .... =3D LG bit: Locally administered =
+address (this is NOT the factory default)
+        .... ...1 .... .... .... .... =3D IG bit: Group address (multic=
+ast/broadcast)
+    Source: Hewlett-_47:93:1c (00:21:5a:47:93:1c)
+        Address: Hewlett-_47:93:1c (00:21:5a:47:93:1c)
+        .... ..0. .... .... .... .... =3D LG bit: Globally unique addre=
+ss (factory default)
+        .... ...0 .... .... .... .... =3D IG bit: Individual address (u=
+nicast)
+    Type: IPv6 (0x86dd)
+Internet Protocol Version 6, Src: 100:0:600:0:78fb:100:: (100:0:600:0:7=
+8fb:100::), Dst: ff02::1 (ff02::1)
+    0110 .... =3D Version: 6
+        [0110 .... =3D This field makes the filter "ip.version =3D=3D 6=
+" possible: 6]
+    .... 0000 0000 .... .... .... .... .... =3D Traffic class: 0x000000=
+00
+        .... 0000 00.. .... .... .... .... .... =3D Differentiated Serv=
+ices Field: Default (0x00000000)
+        .... .... ..0. .... .... .... .... .... =3D ECN-Capable Transpo=
+rt (ECT): Not set
+        .... .... ...0 .... .... .... .... .... =3D ECN-CE: Not set
+    .... .... .... 0000 0000 0000 0000 0000 =3D Flowlabel: 0x00000000
+    Payload length: 32
+    Next header: IPv6 hop-by-hop option (0)
+    Hop limit: 1
+    Source: 100:0:600:0:78fb:100:: (100:0:600:0:78fb:100::)
+    Destination: ff02::1 (ff02::1)
+    Hop-by-Hop Option
+        Next header: ICMPv6 (58)
+        Length: 0 (8 bytes)
+        IPv6 Option (Router Alert)
+            Type: Router Alert (5)
+            Length: 2
+            Router Alert: MLD (0)
+        IPv6 Option (Pad1)
+            Type: Pad1 (0)
+            Pad1
+        IPv6 Option (Pad1)
+            Type: Pad1 (0)
+            Pad1
+Internet Control Message Protocol v6
+    Type: Multicast Listener Query (130)
+    Code: 0
+    Checksum: 0xf9c5 [correct]
+    Maximum Response Delay [ms]: 1000
+    Reserved: 0000
+    Multicast Address: :: (::)
 
-"This time I have a fix to get out of an 'infinite error state' in case
-regulatory domain updates failed and two fixes for VHT associations: one
-to not disconnect immediately when the AP uses more bandwidth than the
-new regdomain would allow after a change due to association country
-information getting used, and one for an issue in the code where
-mac80211 doesn't correctly ignore a reserved field and then uses an HT
-instead of VHT association."
+The reason I think this packet is related is because when I send same e=
+xact
+packet I'm often hitting same issue - bridge stops forwarding ICMP6 nei=
+gh.
+solicitation packets to KVM guest.
 
-For the iwlwifi bits, Emmanuel says:
+My current way to reproduce this is:
+0. host B IP / MAC is: 2620:52:0:1040:221:5aff:fe47:931c / 00:21:5a:47:=
+93:1c
+   guest IP / MAC is: 2620:52:0:1040:5056:ff:fe00:29 / 52:56:00:00:00:2=
+9
+1. host B is sending neigh solicit packets every 5 seconds with KVM gue=
+st IP
+   using ns6 from ipv6toolkit: http://www.si6networks.com/tools/ipv6too=
+lkit/
+   with parameters:
+   --src-address=3D2620:52:0:1040:221:5aff:fe47:931c --dst-address=3Dff=
+02::1:ff00:0029
+   -t 2620:52:0:1040:5056:ff:fe00:29 --link-src-address=3D00:21:5a:47:9=
+3:1c
+   --source-lla-opt=3D00:21:5a:47:93:1c --link-dst-address=3D33:33:ff:0=
+0:00:29
+   tcpdump running on guest can see both solicit and advertisement pack=
+ets
+2. wait ~5 minutes
+3. host B sends Multicast Listener Query packet described above
+4. tcpdump running on guest is no longer seeing any neigh solicit packe=
+ts
 
-"Johannes fixes a long standing bug in the AMPDU status reporting.
-Max fixes the listen time which was way too long and causes trouble
-to several APs."
+I also found out that issue goes away if I do any of following:
+1. disable CONFIG_BRIDGE_IGMP_SNOOPING=3Dy
+2. echo 0 > /sys/devices/virtual/net/br1/bridge/multicast_snooping
+3. make following change:
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index ef66365..8ccc0bf 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1562,8 +1562,8 @@ static int br_multicast_ipv6_rcv(struct net_bridg=
+e *br,
+                return 0;
 
-Along with those, Bing Zhao marks the mwifiex_usb driver as _not_
-supporting USB autosuspend after a number of problems with that have
-been reported.
+        /* Prevent flooding this packet if there is no listener present=
+ */
+-       if (!ipv6_addr_is_ll_all_nodes(&ip6h->daddr))
+-               BR_INPUT_SKB_CB(skb)->mrouters_only =3D 1;
++/*     if (!ipv6_addr_is_ll_all_nodes(&ip6h->daddr))
++               BR_INPUT_SKB_CB(skb)->mrouters_only =3D 1;*/
 
-Please let me know if there are problems!
+        if (ip6h->nexthdr !=3D IPPROTO_HOPOPTS ||
+            ip6h->payload_len =3D=3D 0)
 
-Thanks,
+Change above makes me suspect following patch:
+  commit 3c3769e63301fd92fcaf51870c371583dd0282ce
+  Author: Linus L=C3=83=C2=BCssing <linus.luessing@web.de>
+  Date:   Wed Sep 4 02:13:39 2013 +0200
+    bridge: apply multicast snooping to IPv6 link-local, too
 
-John
+Please let me know if I can assist in any way to help resolve this.
 
----
-
-The following changes since commit 635d61a3735e05c8da72740006670f819e5b6a5f:
-
-  USB AX88179/178A: Support D-Link DUB-1312 (2014-03-02 20:29:30 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git for-d=
-avem
-
-for you to fetch changes up to 0c6a4812a0e1879daa6c8ac88e566dbb85e1ea70:
-
-  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/li=
-nville/wireless into for-davem (2014-03-03 14:34:45 -0500)
-
-----------------------------------------------------------------
-
-Bing Zhao (1):
-      mwifiex: do not advertise usb autosuspend support
-
-Janusz Dziedzic (1):
-      cfg80211: regulatory: reset regdomain in case of error
-
-Johannes Berg (3):
-      mac80211: don't validate unchanged AP bandwidth while tracking
-      iwlwifi: fix TX status for aggregated packets
-      mac80211: fix association to 20/40 MHz VHT networks
-
-John W. Linville (3):
-      Merge branch 'master' of git://git.kernel.org/.../iwlwifi/iwlwifi-fix=
-es
-      Merge branch 'for-john' of git://git.kernel.org/.../jberg/mac80211
-      Merge branch 'master' of git://git.kernel.org/.../linville/wireless i=
-nto for-davem
-
-Max Stepanov (1):
-      iwlwifi: mvm: change of listen interval from 70 to 10
-
- drivers/net/wireless/iwlwifi/dvm/tx.c  | 14 +++++++++-----
- drivers/net/wireless/iwlwifi/mvm/mvm.h |  2 +-
- drivers/net/wireless/iwlwifi/mvm/tx.c  | 18 +++++++++---------
- drivers/net/wireless/mwifiex/usb.c     |  8 --------
- net/mac80211/mlme.c                    | 23 +++++++++++++++++++++++
- net/wireless/reg.c                     | 10 +++++++++-
- 6 files changed, 51 insertions(+), 24 deletions(-)
-
-diff --git a/drivers/net/wireless/iwlwifi/dvm/tx.c b/drivers/net/wireless/i=
-wlwifi/dvm/tx.c
-index a6839dfcb82d..398dd096674c 100644
---- a/drivers/net/wireless/iwlwifi/dvm/tx.c
-+++ b/drivers/net/wireless/iwlwifi/dvm/tx.c
-@@ -1291,8 +1291,6 @@ int iwlagn_rx_reply_compressed_ba(struct iwl_priv *pr=
-iv,
- 	struct iwl_compressed_ba_resp *ba_resp =3D (void *)pkt->data;
- 	struct iwl_ht_agg *agg;
- 	struct sk_buff_head reclaimed_skbs;
--	struct ieee80211_tx_info *info;
--	struct ieee80211_hdr *hdr;
- 	struct sk_buff *skb;
- 	int sta_id;
- 	int tid;
-@@ -1379,22 +1377,28 @@ int iwlagn_rx_reply_compressed_ba(struct iwl_priv *=
-priv,
- 	freed =3D 0;
-=20
- 	skb_queue_walk(&reclaimed_skbs, skb) {
--		hdr =3D (struct ieee80211_hdr *)skb->data;
-+		struct ieee80211_hdr *hdr =3D (void *)skb->data;
-+		struct ieee80211_tx_info *info =3D IEEE80211_SKB_CB(skb);
-=20
- 		if (ieee80211_is_data_qos(hdr->frame_control))
- 			freed++;
- 		else
- 			WARN_ON_ONCE(1);
-=20
--		info =3D IEEE80211_SKB_CB(skb);
- 		iwl_trans_free_tx_cmd(priv->trans, info->driver_data[1]);
-=20
-+		memset(&info->status, 0, sizeof(info->status));
-+		/* Packet was transmitted successfully, failures come as single
-+		 * frames because before failing a frame the firmware transmits
-+		 * it without aggregation at least once.
-+		 */
-+		info->flags |=3D IEEE80211_TX_STAT_ACK;
-+
- 		if (freed =3D=3D 1) {
- 			/* this is the first skb we deliver in this batch */
- 			/* put the rate scaling data there */
- 			info =3D IEEE80211_SKB_CB(skb);
- 			memset(&info->status, 0, sizeof(info->status));
--			info->flags |=3D IEEE80211_TX_STAT_ACK;
- 			info->flags |=3D IEEE80211_TX_STAT_AMPDU;
- 			info->status.ampdu_ack_len =3D ba_resp->txed_2_done;
- 			info->status.ampdu_len =3D ba_resp->txed;
-diff --git a/drivers/net/wireless/iwlwifi/mvm/mvm.h b/drivers/net/wireless/=
-iwlwifi/mvm/mvm.h
-index e4ead86f06d6..2b0ba1fc3c82 100644
---- a/drivers/net/wireless/iwlwifi/mvm/mvm.h
-+++ b/drivers/net/wireless/iwlwifi/mvm/mvm.h
-@@ -152,7 +152,7 @@ enum iwl_power_scheme {
- 	IWL_POWER_SCHEME_LP
- };
-=20
--#define IWL_CONN_MAX_LISTEN_INTERVAL	70
-+#define IWL_CONN_MAX_LISTEN_INTERVAL	10
- #define IWL_UAPSD_AC_INFO		(IEEE80211_WMM_IE_STA_QOSINFO_AC_VO |\
- 					 IEEE80211_WMM_IE_STA_QOSINFO_AC_VI |\
- 					 IEEE80211_WMM_IE_STA_QOSINFO_AC_BK |\
-diff --git a/drivers/net/wireless/iwlwifi/mvm/tx.c b/drivers/net/wireless/i=
-wlwifi/mvm/tx.c
-index 4df12fa9d336..76ee486039d7 100644
---- a/drivers/net/wireless/iwlwifi/mvm/tx.c
-+++ b/drivers/net/wireless/iwlwifi/mvm/tx.c
-@@ -822,16 +822,12 @@ int iwl_mvm_rx_ba_notif(struct iwl_mvm *mvm, struct i=
-wl_rx_cmd_buffer *rxb,
- 	struct iwl_mvm_ba_notif *ba_notif =3D (void *)pkt->data;
- 	struct sk_buff_head reclaimed_skbs;
- 	struct iwl_mvm_tid_data *tid_data;
--	struct ieee80211_tx_info *info;
- 	struct ieee80211_sta *sta;
- 	struct iwl_mvm_sta *mvmsta;
--	struct ieee80211_hdr *hdr;
- 	struct sk_buff *skb;
- 	int sta_id, tid, freed;
--
- 	/* "flow" corresponds to Tx queue */
- 	u16 scd_flow =3D le16_to_cpu(ba_notif->scd_flow);
--
- 	/* "ssn" is start of block-ack Tx window, corresponds to index
- 	 * (in Tx queue's circular buffer) of first TFD/frame in window */
- 	u16 ba_resp_scd_ssn =3D le16_to_cpu(ba_notif->scd_ssn);
-@@ -888,22 +884,26 @@ int iwl_mvm_rx_ba_notif(struct iwl_mvm *mvm, struct i=
-wl_rx_cmd_buffer *rxb,
- 	freed =3D 0;
-=20
- 	skb_queue_walk(&reclaimed_skbs, skb) {
--		hdr =3D (struct ieee80211_hdr *)skb->data;
-+		struct ieee80211_hdr *hdr =3D (void *)skb->data;
-+		struct ieee80211_tx_info *info =3D IEEE80211_SKB_CB(skb);
-=20
- 		if (ieee80211_is_data_qos(hdr->frame_control))
- 			freed++;
- 		else
- 			WARN_ON_ONCE(1);
-=20
--		info =3D IEEE80211_SKB_CB(skb);
- 		iwl_trans_free_tx_cmd(mvm->trans, info->driver_data[1]);
-=20
-+		memset(&info->status, 0, sizeof(info->status));
-+		/* Packet was transmitted successfully, failures come as single
-+		 * frames because before failing a frame the firmware transmits
-+		 * it without aggregation at least once.
-+		 */
-+		info->flags |=3D IEEE80211_TX_STAT_ACK;
-+
- 		if (freed =3D=3D 1) {
- 			/* this is the first skb we deliver in this batch */
- 			/* put the rate scaling data there */
--			info =3D IEEE80211_SKB_CB(skb);
--			memset(&info->status, 0, sizeof(info->status));
--			info->flags |=3D IEEE80211_TX_STAT_ACK;
- 			info->flags |=3D IEEE80211_TX_STAT_AMPDU;
- 			info->status.ampdu_ack_len =3D ba_notif->txed_2_done;
- 			info->status.ampdu_len =3D ba_notif->txed;
-diff --git a/drivers/net/wireless/mwifiex/usb.c b/drivers/net/wireless/mwif=
-iex/usb.c
-index cb6b70a1b34d..208748804a55 100644
---- a/drivers/net/wireless/mwifiex/usb.c
-+++ b/drivers/net/wireless/mwifiex/usb.c
-@@ -525,13 +525,6 @@ static int mwifiex_usb_resume(struct usb_interface *in=
-tf)
- 						   MWIFIEX_BSS_ROLE_ANY),
- 				  MWIFIEX_ASYNC_CMD);
-=20
--#ifdef CONFIG_PM
--	/* Resume handler may be called due to remote wakeup,
--	 * force to exit suspend anyway
--	 */
--	usb_disable_autosuspend(card->udev);
--#endif /* CONFIG_PM */
--
- 	return 0;
- }
-=20
-@@ -571,7 +564,6 @@ static struct usb_driver mwifiex_usb_driver =3D {
- 	.id_table =3D mwifiex_usb_table,
- 	.suspend =3D mwifiex_usb_suspend,
- 	.resume =3D mwifiex_usb_resume,
--	.supports_autosuspend =3D 1,
- };
-=20
- static int mwifiex_usb_tx_init(struct mwifiex_adapter *adapter)
-diff --git a/net/mac80211/mlme.c b/net/mac80211/mlme.c
-index 57d5482b10fa..245dce969b31 100644
---- a/net/mac80211/mlme.c
-+++ b/net/mac80211/mlme.c
-@@ -222,6 +222,7 @@ ieee80211_determine_chantype(struct ieee80211_sub_if_da=
-ta *sdata,
- 	switch (vht_oper->chan_width) {
- 	case IEEE80211_VHT_CHANWIDTH_USE_HT:
- 		vht_chandef.width =3D chandef->width;
-+		vht_chandef.center_freq1 =3D chandef->center_freq1;
- 		break;
- 	case IEEE80211_VHT_CHANWIDTH_80MHZ:
- 		vht_chandef.width =3D NL80211_CHAN_WIDTH_80;
-@@ -271,6 +272,28 @@ ieee80211_determine_chantype(struct ieee80211_sub_if_d=
-ata *sdata,
- 	ret =3D 0;
-=20
- out:
-+	/*
-+	 * When tracking the current AP, don't do any further checks if the
-+	 * new chandef is identical to the one we're currently using for the
-+	 * connection. This keeps us from playing ping-pong with regulatory,
-+	 * without it the following can happen (for example):
-+	 *  - connect to an AP with 80 MHz, world regdom allows 80 MHz
-+	 *  - AP advertises regdom US
-+	 *  - CRDA loads regdom US with 80 MHz prohibited (old database)
-+	 *  - the code below detects an unsupported channel, downgrades, and
-+	 *    we disconnect from the AP in the caller
-+	 *  - disconnect causes CRDA to reload world regdomain and the game
-+	 *    starts anew.
-+	 * (see https://bugzilla.kernel.org/show_bug.cgi?id=3D70881)
-+	 *
-+	 * It seems possible that there are still scenarios with CSA or real
-+	 * bandwidth changes where a this could happen, but those cases are
-+	 * less common and wouldn't completely prevent using the AP.
-+	 */
-+	if (tracking &&
-+	    cfg80211_chandef_identical(chandef, &sdata->vif.bss_conf.chandef))
-+		return ret;
-+
- 	/* don't print the message below for VHT mismatch if VHT is disabled */
- 	if (ret & IEEE80211_STA_DISABLE_VHT)
- 		vht_chandef =3D *chandef;
-diff --git a/net/wireless/reg.c b/net/wireless/reg.c
-index 4c50c21d6f52..f0541370e68e 100644
---- a/net/wireless/reg.c
-+++ b/net/wireless/reg.c
-@@ -2373,6 +2373,7 @@ static int reg_set_rd_country_ie(const struct ieee802=
-11_regdomain *rd,
- int set_regdom(const struct ieee80211_regdomain *rd)
- {
- 	struct regulatory_request *lr;
-+	bool user_reset =3D false;
- 	int r;
-=20
- 	if (!reg_is_valid_request(rd->alpha2)) {
-@@ -2389,6 +2390,7 @@ int set_regdom(const struct ieee80211_regdomain *rd)
- 		break;
- 	case NL80211_REGDOM_SET_BY_USER:
- 		r =3D reg_set_rd_user(rd, lr);
-+		user_reset =3D true;
- 		break;
- 	case NL80211_REGDOM_SET_BY_DRIVER:
- 		r =3D reg_set_rd_driver(rd, lr);
-@@ -2402,8 +2404,14 @@ int set_regdom(const struct ieee80211_regdomain *rd)
- 	}
-=20
- 	if (r) {
--		if (r =3D=3D -EALREADY)
-+		switch (r) {
-+		case -EALREADY:
- 			reg_set_request_processed();
-+			break;
-+		default:
-+			/* Back to world regulatory in case of errors */
-+			restore_regulatory_settings(user_reset);
-+		}
-=20
- 		kfree(rd);
- 		return r;
---=20
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
-
---r5Pyd7+fXNt84Ff3
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJTFNugAAoJEJctW/TcYTgGBL4P/jmP/zpuuLLpQElKLDe+coxY
-LNHEh7I98r2z5geRrvHHFbBzAvuRdUdEHqeln8exw3Sn6hqKjqsNyk/xTRQmrGua
-Hdvz+2/HZewCylBfbpILDzg/B1+oXS2WejxnXF0+U5AiJJbcIt0WVJeAAETm0yEe
-v6X66X8YvrziCop46m/XLMbnV/VTGUjzRpKCh7XSJfR6levfq2EuoC4e2DXV2r/r
-zAq5fE0nK8fbcoet3ir/kpCecZeIRlez4k21N5jaAdLSqy8p+hVDoCEX5ze++tHX
-G/HA5nvaviUofg2RHUWmSwk7Hd7n4/beQsJqZgvyrweWqKuLfcuDNXfbqvkd1qqM
-tzTqOdK/o3vOAvyDAIL14F/ita1F1T/8P540vFhoxU/Kla9gvdrO35eyHUQy5w0W
-KsHuZH8i2W7zg3TuRRBdYDhZcsQNyS/EhzJlqF81rSbvcHYTJ8Mcy8nQ6EP+ZeH0
-gd0h339h7fFbmg4Gx2OMZQrRU34+scLURq0ljpzRN36VHrF2IWczltjJvCGN/gl9
-2j9lYFpU4m+yAif7wwG2S5UTSh4ukSXNy7OFicb1lCiMBaL+bHUPoTzSDEMo+3Qg
-0F7FyUKdp+vaJeCICMa6Cz0E6mEEpExU8EhkUFaRA+9WfKMwIwlCLrHerj6rdd0E
-h209SV+t/J/jm0JfQOFt
-=KHan
------END PGP SIGNATURE-----
-
---r5Pyd7+fXNt84Ff3--
+Regards,
+Jan
