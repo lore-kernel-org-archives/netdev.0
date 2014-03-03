@@ -1,30 +1,38 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [net-next PATCH] iproute2: add man page for mqprio
-Date: Mon, 3 Mar 2014 16:07:13 -0500
-Message-ID: <20140303210713.GA15271@hmsreliant.think-freely.org>
-References: <20140303173818.21044.37528.stgit@nitbit.x32>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next v2 0/4]
+Date: Mon, 3 Mar 2014 13:15:40 -0800
+Message-ID: <CAL3LdT4MgN1EQWwmuB7EyP4jLvFuf6sEDgF47hhjU7b=dx0wyA@mail.gmail.com>
+References: <1393631338-18847-1-git-send-email-aaron.f.brown@intel.com>
+	<20140302.191906.37467334104875774.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stephen@networkplumber.org, or.gerlitz@gmail.com,
-	netdev@vger.kernel.org, Neerav.Parikh@intel.com
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Aaron Brown <aaron.f.brown@intel.com>,
+	netdev <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>, sassmann@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:60074 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753010AbaCCVHY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 16:07:24 -0500
-Content-Disposition: inline
-In-Reply-To: <20140303173818.21044.37528.stgit@nitbit.x32>
+Received: from mail-ob0-f176.google.com ([209.85.214.176]:44094 "EHLO
+	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754255AbaCCVPk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 16:15:40 -0500
+Received: by mail-ob0-f176.google.com with SMTP id wp18so5667371obc.7
+        for <netdev@vger.kernel.org>; Mon, 03 Mar 2014 13:15:40 -0800 (PST)
+In-Reply-To: <20140302.191906.37467334104875774.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 03, 2014 at 09:38:20AM -0800, John Fastabend wrote:
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
->  man/man8/Makefile    |    2 -
->  man/man8/tc-mqprio.8 |  112 ++++++++++++++++++++++++++++++++++++++++++++++++++
->  man/man8/tc.8        |    1 
->  3 files changed, 114 insertions(+), 1 deletion(-)
->  create mode 100644 man/man8/tc-mqprio.8
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+On Sun, Mar 2, 2014 at 4:19 PM, David Miller <davem@davemloft.net> wrote:
+> From: Aaron Brown <aaron.f.brown@intel.com>
+> Date: Fri, 28 Feb 2014 15:48:54 -0800
+>
+>> Mark updates ixgbe for LER / adapter removal.  He restores the HW
+>> address in the recovery path so the device is not perpetually removed,
+>> fixes up some removed state ethtool results and adds checks related to
+>> config space access.
+>>
+>> Jacob adds support for the new SIOCGHWTSTAMP ioctl.
+>
+> [ Note, empty subject ]
+
+Don't worry, Aaron will get 40 lashings for the empty subject. :-)
+By the way, I am back from sabbatical now.
