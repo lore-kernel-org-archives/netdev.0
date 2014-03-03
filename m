@@ -1,32 +1,35 @@
-From: zbr@ioremap.net
-Subject: Re: [PATCH] connector: remove duplicated code in cn_call_callback()
-Date: Tue, 04 Mar 2014 00:42:40 +0400
-Message-ID: <181701393879360@web25g.yandex.ru>
-References: <1393704056-13943-1-git-send-email-khoroshilov@ispras.ru> <20140303.153945.218115412923126825.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] sch_tbf: Remove holes in struct
+ tbf_sched_data.
+Date: Mon, 03 Mar 2014 15:44:08 -0500 (EST)
+Message-ID: <20140303.154408.69108434699163216.davem@davemloft.net>
+References: <20140302173026.ad5cd8c8447ddf8806b03651@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	"khoroshilov@ispras.ru" <khoroshilov@ispras.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140303.153945.218115412923126825.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: shimoda.hiroaki@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54909 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753241AbaCCUoJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 15:44:09 -0500
+In-Reply-To: <20140302173026.ad5cd8c8447ddf8806b03651@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi everyone
+From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+Date: Sun, 2 Mar 2014 17:30:26 +0900
 
-04.03.2014, 00:39, "David Miller" <davem@davemloft.net>:
-> From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-> Date: Sun, =9A2 Mar 2014 00:00:56 +0400
->
->> =9AThere were a couple of patches fixing the same bug that
->> =9Aresults in duplicated err =3D 0; assignment.
->> =9AThe patch removes one of them.
->>
->> =9ASigned-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
->
-> Applied to net-next, thank you.
+> On x86_64 we have 3 holes in struct tbf_sched_data.
+> 
+> The member peak_present can be replaced with peak.rate_bytes_ps,
+> because peak.rate_bytes_ps is set only when peak is specified in
+> tbf_change(). tbf_peak_present() is introduced to test
+> peak.rate_bytes_ps.
+> 
+> The member max_size is moved to fill 32bit hole.
+> 
+> Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
 
-Thank you
+This looks fine, applied, thanks.
