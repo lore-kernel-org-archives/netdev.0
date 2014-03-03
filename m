@@ -1,57 +1,71 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH v2 net] macvlan: Add support for 'always_on' offload features
-Date: Mon, 03 Mar 2014 15:49:40 -0800
-Message-ID: <53151514.4080906@candelatech.com>
-References: <1393878833-17667-1-git-send-email-vyasevic@redhat.com>
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: Re: [RFC v3 4/6] bridge: enable root block during device
+	registration
+Date: Mon, 3 Mar 2014 15:58:50 -0800
+Message-ID: <CAB=NE6VpjebGrqFe7Q4L-uM0rrKitY3fB2kq5qGko+C1Fivm0w@mail.gmail.com>
+References: <1393886825-24323-1-git-send-email-mcgrof@do-not-panic.com>
+	<1393886825-24323-5-git-send-email-mcgrof@do-not-panic.com>
+	<20140303154330.238a20bc@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>,
-	Christian Borntraeger <borntraeger@de.ibm.com>,
-	Jason Wang <jasowang@redhat.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Vlad Yasevich <vyasevic@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:53342 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755182AbaCCXtx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 18:49:53 -0500
-In-Reply-To: <1393878833-17667-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	bridge@lists.linux-foundation.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	kvm@vger.kernel.org, xen-devel@lists.xenproject.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140303154330.238a20bc@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 03/03/2014 12:33 PM, Vlad Yasevich wrote:
-> Macvlan currently inherits all of its features from the lower
-> device.  When lower device disables offload support, this causes
-> macvlan to disable offload support as well.  This causes
-> performance regression when using macvlan/macvtap in bridge
-> mode.
-> 
-> It can be easily demonstrated by creating 2 namespaces using
-> macvlan in bridge mode and running netperf between them:
-> 
-> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.0.0.1 () port 0 AF_INET
-> Recv   Send    Send
-> Socket Socket  Message  Elapsed
-> Size   Size    Size     Time     Throughput
-> bytes  bytes   bytes    secs.    10^6bits/sec
-> 
->  87380  16384  16384    20.00    1204.61
-> 
-> To restore the performance, we add software offload features
-> to the list of "always_on" features for macvlan.  This way
-> when a namespace or a guest using macvtap initially sends a
-> packet, this packet will not be segmented at macvlan level.
-> It will only be segmented when macvlan sends the packet
-> to the lower device.
+On Mon, Mar 3, 2014 at 3:43 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> Doing this in priv flags bloats what is a limited resource (# of bits).
 
-If users specifically disable the offload features on the macvlan using ethtool,
-will they be turned off?  If not, then I think that logic should
-be kept somehow?
+Agreed. I tried to avoid it but saw no other option for addressing
+this during initialization properly without requirng a userspace
+upgrade.
 
-Thanks,
-Ben
+> Plus there are issues (what if this is changed after adding to bridge)?
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Its only considered when the net_device gets added to the bridge. If
+you add it and then toggle root_block off that will be respected. If
+you remove the net_device from the bridge and then add it back on the
+priv flag will be respected but if desirable we could toggle it off if
+userspace was used to disable root_block once on.
+
+> Maybe better to enhance existing netlink infrastructure to allow passing
+> flags on adding port to bridge.
+
+Agreed, I looked into this and the limitation of using the existing
+slave add request is that ndo_add_slave() only passes the net_device,
+we'd have to either extend that (with collateral study on other slaves
+as noted on my cover letter) or we'd have to make this a UAPI netlink
+feature for the net_device. Some old userspace  may not use netlink
+too, and they may be stuck with brctl, I tried to create a compromise
+only to not affect old userspace if that kernel gets upgraded.
+
+> Also, unless device is up, nothing will happen right away when added to bridge.
+
+I get different results, the bridge immediately does compute whether
+or not to nominate a device for the bridge interface and root port.
+The commands provided as an example on 3/6 can be used to replicate
+this.
+
+> Root port status can be changed since device is disabled.
+
+Agreed however the reason for the flag is to address removing high MAC
+address hack-preference set on drivers that were merged prior to the
+root_block feature. Without a proper way to address this upon
+initialization we're stuck with requiring userspace upgrade if these
+driver's hack is removed.
+
+  Luis
