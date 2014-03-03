@@ -1,62 +1,129 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCHv2 net-next 29/31] iw_cxgb4: minor fixes/cleanup.
-Date: Mon, 03 Mar 2014 21:55:13 +0300
-Message-ID: <5314D011.7090104@cogentembedded.com>
-References: <1393828875-13452-1-git-send-email-hariprasad@chelsio.com> <1393828875-13452-30-git-send-email-hariprasad@chelsio.com>
+From: Gerald Schaefer <gerald.schaefer@de.ibm.com>
+Subject: Re: mlx4_core: DMA-API: device driver tries to sync DMA memory it
+ has not allocated
+Date: Mon, 3 Mar 2014 18:58:32 +0100
+Message-ID: <20140303185832.67862975@thinkpad>
+References: <20131210144416.31b7002c@thinkpad>
+	<20140227170107.GB24226@mtl-eit-vdi-22.mtl.labs.mlnx>
+	<20140228222457.3db91448@vbox-ubuntu>
+	<20140302084046.GD809@mtl-eit-vdi-22.mtl.labs.mlnx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, roland@purestorage.com, kumaras@chelsio.com,
-	dm@chelsio.com, swise@opengridcomputing.com, leedom@chelsio.com,
-	santosh@chelsio.com, nirranjan@chelsio.com
-To: Hariprasad Shenai <hariprasad@chelsio.com>, netdev@vger.kernel.org,
-	linux-rdma@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f43.google.com ([209.85.215.43]:47199 "EHLO
-	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751494AbaCCRzR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 12:55:17 -0500
-Received: by mail-la0-f43.google.com with SMTP id e16so4716255lan.30
-        for <netdev@vger.kernel.org>; Mon, 03 Mar 2014 09:55:15 -0800 (PST)
-In-Reply-To: <1393828875-13452-30-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Eyal Perry <eyalpe@mellanox.com>
+To: Amir Vadai <amirv@mellanox.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140302084046.GD809@mtl-eit-vdi-22.mtl.labs.mlnx>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Sun, 2 Mar 2014 10:40:47 +0200
+Amir Vadai <amirv@mellanox.com> wrote:
 
-On 03/03/2014 09:41 AM, Hariprasad Shenai wrote:
+> On 28/02/14 22:24 +0100, Gerald Schaefer wrote:
+> > On Thu, 27 Feb 2014 19:01:09 +0200
+> > Amir Vadai <amirv@mellanox.com> wrote:
+> > 
+> > > On 10/12/13 14:44 +0100, Gerald Schaefer wrote:
+> > > > Hi,
+> > > > 
+> > > > During network stress test with CONFIG_DMA_API_DEBUG=y we get the following
+> > > > message on the server side:
+> > > > 
+> > > > [57523.955982] mlx4_core 0000:00:00.0: DMA-API: device driver tries to sync DMA memory it has not allocated [device address=0x0000000143d2c202] [size=1526 bytes]
+> > > > [57523.956018] ------------[ cut here ]------------
+> > > > [57523.956021] WARNING: at /home/dailybuild/builder/packages/BUILD/linux-3.12.3-20131209/lib/dma-debug.c:986
+> > > > [57523.956022] Modules linked in: mlx4_en dm_multipath scsi_dh mlx4_core eadm_sch dm_mod lcs autofs4
+> > > > [57523.956034] CPU: 3 PID: 20 Comm: ksoftirqd/3 Not tainted 3.12.3-65.x.20131209-s390xdefault #1
+> > > > [57523.956037] task: 000000026f47cb60 ti: 000000026f484000 task.ti: 000000026f484000
+> > > > [57523.956044] Krnl PSW : 0404e00180000000 00000000004a0422 (check_sync+0xf2/0x52c)
+> > > > [57523.956047]            R:0 T:1 IO:0 EX:0 Key:0 M:1 W:0 P:0 AS:3 CC:2 PM:0 EA:3
+> > > > [57523.956047] Krnl GPRS: 0000000000000111 000000008b767e9c 0000000000000092 0000000000000000
+> > > > [57523.956051]            00000000004a041e 0000000000000000 00000000000005f6 0000000143d2c202
+> > > > [57523.956053]            000000026f487a98 0000000000000001 0000000000a71144 000000026f10dd60
+> > > > [57523.956055]            0000000000000000 000000000075bb18 00000000004a041e 000000026f487980
+> > > > [57523.956064] Krnl Code: 00000000004a0412: c020002143d7        larl    %r2,8c8bc0
+> > > > [57523.956064]            00000000004a0418: c0e50012717a        brasl   %r14,6ee70c
+> > > > [57523.956064]           #00000000004a041e: a7f40001            brc     15,4a0420
+> > > > [57523.956064]           >00000000004a0422: e330a0000012        lt      %r3,0(%r10)
+> > > > [57523.956064]            00000000004a0428: a7740201            brc     7,4a082a
+> > > > [57523.956064]            00000000004a042c: a7f401f3            brc     15,4a0812
+> > > > [57523.956064]            00000000004a0430: d5078030c030        clc     48(8,%r8),48(%r12)
+> > > > [57523.956064]            00000000004a0436: a7c40070            brc     12,4a0516
+> > > > [57523.956081] Call Trace:
+> > > > [57523.956084] ([<00000000004a041e>] check_sync+0xee/0x52c)
+> > > > [57523.956087]  [<00000000004a0a26>] debug_dma_sync_single_for_cpu+0x66/0x74
+> > > > [57523.956094]  [<000003ff801fcae0>] mlx4_en_complete_rx_desc+0x15c/0x240 [mlx4_en]
+> > > > [57523.956098]  [<000003ff801fe1fa>] mlx4_en_process_rx_cq+0x56a/0xb58 [mlx4_en]
+> > > > [57523.956101]  [<000003ff801fe8ea>] mlx4_en_poll_rx_cq+0x92/0xf8 [mlx4_en]
+> > > > [57523.956105]  [<00000000005d558c>] net_rx_action+0xa0/0x2f0
+> > > > [57523.956109]  [<000000000013cd10>] __do_softirq+0x1e8/0x480
+> > > > [57523.956111]  [<000000000013cfe4>] run_ksoftirqd+0x3c/0x80
+> > > > [57523.956114]  [<000000000016f496>] smpboot_thread_fn+0x2c6/0x2e8
+> > > > [57523.956118]  [<0000000000163834>] kthread+0xd0/0xe4
+> > > > [57523.956123]  [<00000000006ff19e>] kernel_thread_starter+0x6/0xc
+> > > > [57523.956125]  [<00000000006ff198>] kernel_thread_starter+0x0/0xc
+> > > > [57523.956127] 1 lock held by ksoftirqd/3/20:
+> > > > [57523.956129]  #0:  (&(&dma_entry_hash[i].lock)->rlock){-.-...}, at: [<000000000049f1d6>] get_hash_bucket+0x4a/0x64
+> > > > [57523.956135] Last Breaking-Event-Address:
+> > > > [57523.956137]  [<00000000004a041e>] check_sync+0xee/0x52c
+> > > > [57523.956139] ---[ end trace ec82af84e1d16c5f ]---
+> > > > 
+> > > > --
+> > > 
+> > > Hi Gerald,
+> > > 
+> > > It seems that I missed this mail.
+> > > 
+> > > I didn't see this warning in our lab in x86 platform.
+> > > Is it reproduced easily on PPC?
+> > > Any hints how to reproduce it in our lab?
+> > 
+> > Hi Amir,
+> > 
+> > I could narrow it down to a uperf testrun with the following profile
+> > and CONFIG_DMA_API_DEBUG=y (it usually takes multiple runs to show):
+> > 
+> > <profile name="test250">
+> >   <group nthreads="250">
+> >     <transaction iterations="1">
+> >       <flowop type="accept" options="remotehost=10.100.1.36 protocol=tcp"/>
+> >     </transaction>
+> >     <transaction duration="300">
+> >       <flowop type="write" options="size=1"/>
+> >       <flowop type="read" options="size=1"/>
+> >     </transaction>
+> >     <transaction iterations="1">
+> >       <flowop type="disconnect" />
+> >     </transaction>
+> >   </group>
+> > </profile>
+> > 
+> > > 
+> > > Do you have a 'good' version that didn't have the warning?
+> > 
+> > No, it showed on 3.12 and 3.13, before that we had other warnings but
+> > not this one as far as I remember.
 
-> From: Steve Wise <swise@opengridcomputing.com>
+I checked again with 3.10 and 3.11, and couldn't reproduce the warning
+there. However, there is another warning on those kernel versions:
 
-> Added some missing debug stats.
+mlx4_core 0000:00:00.0: DMA-API: device driver failed to check map error[device address=0x00000001046af186] [size=258 bytes] [mapped as single]
 
-> Use uninitialized_var().
+That one was fixed with commit 237a3a3b "net/mlx4_en: Fix handling of dma_map failure".
+When I apply commit 237a3a3b on top of 3.11, I can also reproduce the
+new "sync DMA" warning there.
 
-> Rate limit warning printks.
+So, either the new "sync DMA" warning was introduced with commit 237a3a3b,
+or it was just occluded by the previous "map error" warning.
 
-    Wasn't it already rate-limited?
-
-> Initialize reserved fields in a FW work request.
-
-    I don't think it's a great idea to mix several fixes and worse, cleanups 
-in the same patch.
-
-> Signed-off-by: Steve Wise <swise@opengridcomputing.com>
-[...]
-
-> diff --git a/drivers/infiniband/hw/cxgb4/resource.c b/drivers/infiniband/hw/cxgb4/resource.c
-> index cdef4d7..69e57d0 100644
-> --- a/drivers/infiniband/hw/cxgb4/resource.c
-> +++ b/drivers/infiniband/hw/cxgb4/resource.c
-[...]
-> @@ -322,8 +326,8 @@ u32 c4iw_rqtpool_alloc(struct c4iw_rdev *rdev, int size)
->   	unsigned long addr = gen_pool_alloc(rdev->rqt_pool, size << 6);
->   	PDBG("%s addr 0x%x size %d\n", __func__, (u32)addr, size << 6);
->   	if (!addr)
-> -		printk_ratelimited(KERN_WARNING MOD "%s: Out of RQT memory\n",
-> -		       pci_name(rdev->lldi.pdev));
-> +		pr_warn_ratelimited(KERN_WARNING MOD "%s: Out of RQT memory\n",
-
-    You forgot to remove KERN_WARNING.
-
-WBR, Sergei
+> > 
+> > Thanks,
+> > Gerald
+> > 
+> 
+> Ok, We're preparing a setup to reproduce the issue.
+> 
+> Amir
+> 
