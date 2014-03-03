@@ -1,95 +1,46 @@
 From: Simon Wunderlich <sw@simonwunderlich.de>
-Subject: [net-next v4 2/3] UAPI: add MPLS label stack definition
-Date: Mon,  3 Mar 2014 17:23:11 +0100
-Message-ID: <1393863792-18172-3-git-send-email-sw@simonwunderlich.de>
-References: <1393863792-18172-1-git-send-email-sw@simonwunderlich.de>
+Subject: [net-next v4 0/3] 802.21 and MPLS headers and classification
+Date: Mon,  3 Mar 2014 17:23:09 +0100
+Message-ID: <1393863792-18172-1-git-send-email-sw@simonwunderlich.de>
 Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
 	mathias.kretschmer@fokus.fraunhofer.de,
 	Simon Wunderlich <sw@simonwunderlich.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from packetmixer.de ([79.140.42.25]:55038 "EHLO
+Received: from packetmixer.de ([79.140.42.25]:55032 "EHLO
 	mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754598AbaCCQXR (ORCPT
+	with ESMTP id S1753888AbaCCQXR (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 11:23:17 -0500
-In-Reply-To: <1393863792-18172-1-git-send-email-sw@simonwunderlich.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Labels for the Multiprotocol Label Switching are defined in RFC 3032
-which was superseded by RFC 5462. Add the definition to UAPI and a stub
-header for include/linux.
+this series contains a header file proposal for MPLS labels. These
+labels do not seem to be properly defined in the kernel so far. We are
+developing a wired/wireless 802.21/MPLS switch and need to check the
+MPLS labels to use the traffic control info for transmissions over
+802.11 networks.
 
-Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
-Signed-off-by: Mathias Kretschmer <mathias.kretschmer@fokus.fraunhofer.de>
----
 Changes to third version:
 
- * rename mpls_label_stack to mpls_label, as it describes just one of
-   possibly multiple label stack entries (see RFC 3032).
+ * rename mpls_label_stack to mpls_label (thanks Neil)
+ * fix over-indendented closing brac (thanks Sergei)
+ * add Johannes' Ack
 
-Changes to first version:
+Thanks,
+     Simon
 
- * add stub mpls header in include/linux/mpls.h for users inside the
-   kernel
----
- include/linux/mpls.h      |    6 ++++++
- include/uapi/linux/mpls.h |   34 ++++++++++++++++++++++++++++++++++
- 2 files changed, 40 insertions(+)
+Simon Wunderlich (3):
+  if_ether.h: add IEEE 802.21 Ethertype
+  UAPI: add MPLS label stack definition
+  cfg80211: add MPLS and 802.21 classification
+
+ include/linux/mpls.h          |    6 ++++++
+ include/uapi/linux/if_ether.h |    1 +
+ include/uapi/linux/mpls.h     |   34 ++++++++++++++++++++++++++++++++++
+ net/wireless/util.c           |   16 ++++++++++++++++
+ 4 files changed, 57 insertions(+)
  create mode 100644 include/linux/mpls.h
  create mode 100644 include/uapi/linux/mpls.h
 
-diff --git a/include/linux/mpls.h b/include/linux/mpls.h
-new file mode 100644
-index 0000000..9999145
---- /dev/null
-+++ b/include/linux/mpls.h
-@@ -0,0 +1,6 @@
-+#ifndef _LINUX_MPLS_H
-+#define _LINUX_MPLS_H
-+
-+#include <uapi/linux/mpls.h>
-+
-+#endif  /* _LINUX_MPLS_H */
-diff --git a/include/uapi/linux/mpls.h b/include/uapi/linux/mpls.h
-new file mode 100644
-index 0000000..bc9abfe
---- /dev/null
-+++ b/include/uapi/linux/mpls.h
-@@ -0,0 +1,34 @@
-+#ifndef _UAPI_MPLS_H
-+#define _UAPI_MPLS_H
-+
-+#include <linux/types.h>
-+#include <asm/byteorder.h>
-+
-+/* Reference: RFC 5462, RFC 3032
-+ *
-+ *  0                   1                   2                   3
-+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ * |                Label                  | TC  |S|       TTL     |
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ *
-+ *	Label:  Label Value, 20 bits
-+ *	TC:     Traffic Class field, 3 bits
-+ *	S:      Bottom of Stack, 1 bit
-+ *	TTL:    Time to Live, 8 bits
-+ */
-+
-+struct mpls_label {
-+	__be32 entry;
-+};
-+
-+#define MPLS_LS_LABEL_MASK      0xFFFFF000
-+#define MPLS_LS_LABEL_SHIFT     12
-+#define MPLS_LS_TC_MASK         0x00000E00
-+#define MPLS_LS_TC_SHIFT        9
-+#define MPLS_LS_S_MASK          0x00000100
-+#define MPLS_LS_S_SHIFT         8
-+#define MPLS_LS_TTL_MASK        0x000000FF
-+#define MPLS_LS_TTL_SHIFT       0
-+
-+#endif /* _UAPI_MPLS_H */
 -- 
 1.7.10.4
