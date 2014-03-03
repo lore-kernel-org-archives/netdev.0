@@ -1,139 +1,55 @@
-From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCHv2 net-next 22/31] iw_cxgb4: lock around accept/reject downcalls.
-Date: Mon,  3 Mar 2014 12:11:06 +0530
-Message-ID: <1393828875-13452-23-git-send-email-hariprasad@chelsio.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCHv2 net-next 21/31] iw_cxgb4: update snd_seq when sending MPA messages.
+Date: Mon,  3 Mar 2014 12:11:05 +0530
+Message-ID: <1393828875-13452-22-git-send-email-hariprasad@chelsio.com>
 References: <1393828875-13452-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1393828875-13452-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, roland@purestorage.com, kumaras@chelsio.com,
+	dm@chelsio.com, swise@opengridcomputing.com, leedom@chelsio.com,
+	santosh@chelsio.com, hariprasad@chelsio.com, nirranjan@chelsio.com
+To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:6462 "EHLO
+	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753866AbaCCGnt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 01:43:49 -0500
+In-Reply-To: <1393828875-13452-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+From: Steve Wise <swise@opengridcomputing.com>
 
-There is a race between ULP threads doing an accept/reject, and the
-ingress processing thread handling close/abort for the same connection.
-The accept/reject path needs to hold the lock to serialize these paths.
-
-Signed-off-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
- drivers/infiniband/hw/cxgb4/cm.c |   31 +++++++++++++++++++++----------
- 1 files changed, 21 insertions(+), 10 deletions(-)
+ drivers/infiniband/hw/cxgb4/cm.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index 11c99a6..cbeaa58 100644
+index 81fbc6e..11c99a6 100644
 --- a/drivers/infiniband/hw/cxgb4/cm.c
 +++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -775,7 +775,7 @@ static void send_mpa_req(struct c4iw_ep *ep, struct sk_buff *skb,
- 	ep->mpa_skb = skb;
- 	c4iw_l2t_send(&ep->com.dev->rdev, skb, ep->l2t);
+@@ -777,6 +777,7 @@ static void send_mpa_req(struct c4iw_ep *ep, struct sk_buff *skb,
  	start_ep_timer(ep);
--	state_set(&ep->com, MPA_REQ_SENT);
-+	__state_set(&ep->com, MPA_REQ_SENT);
+ 	state_set(&ep->com, MPA_REQ_SENT);
  	ep->mpa_attr.initiator = 1;
- 	ep->snd_seq += mpalen;
++	ep->snd_seq += mpalen;
  	return;
-@@ -941,7 +941,7 @@ static int send_mpa_reply(struct c4iw_ep *ep, const void *pdata, u8 plen)
- 	skb_get(skb);
+ }
+ 
+@@ -856,6 +857,7 @@ static int send_mpa_reject(struct c4iw_ep *ep, const void *pdata, u8 plen)
  	t4_set_arp_err_handler(skb, NULL, arp_failure_discard);
+ 	BUG_ON(ep->mpa_skb);
  	ep->mpa_skb = skb;
--	state_set(&ep->com, MPA_REP_SENT);
-+	__state_set(&ep->com, MPA_REP_SENT);
- 	ep->snd_seq += mpalen;
++	ep->snd_seq += mpalen;
  	return c4iw_l2t_send(&ep->com.dev->rdev, skb, ep->l2t);
  }
-@@ -959,6 +959,7 @@ static int act_establish(struct c4iw_dev *dev, struct sk_buff *skb)
- 	PDBG("%s ep %p tid %u snd_isn %u rcv_isn %u\n", __func__, ep, tid,
- 	     be32_to_cpu(req->snd_isn), be32_to_cpu(req->rcv_isn));
  
-+	mutex_lock(&ep->com.mutex);
- 	dst_confirm(ep->dst);
- 
- 	/* setup the hwtid for this connection */
-@@ -982,7 +983,7 @@ static int act_establish(struct c4iw_dev *dev, struct sk_buff *skb)
- 		send_mpa_req(ep, skb, 1);
- 	else
- 		send_mpa_req(ep, skb, mpa_rev);
--
-+	mutex_unlock(&ep->com.mutex);
- 	return 0;
+@@ -940,6 +942,7 @@ static int send_mpa_reply(struct c4iw_ep *ep, const void *pdata, u8 plen)
+ 	t4_set_arp_err_handler(skb, NULL, arp_failure_discard);
+ 	ep->mpa_skb = skb;
+ 	state_set(&ep->com, MPA_REP_SENT);
++	ep->snd_seq += mpalen;
+ 	return c4iw_l2t_send(&ep->com.dev->rdev, skb, ep->l2t);
  }
  
-@@ -2567,22 +2568,28 @@ static int fw4_ack(struct c4iw_dev *dev, struct sk_buff *skb)
- 
- int c4iw_reject_cr(struct iw_cm_id *cm_id, const void *pdata, u8 pdata_len)
- {
--	int err;
-+	int err = 0;
-+	int disconnect = 0;
- 	struct c4iw_ep *ep = to_ep(cm_id);
- 	PDBG("%s ep %p tid %u\n", __func__, ep, ep->hwtid);
- 
--	if (state_read(&ep->com) == DEAD) {
-+
-+	mutex_lock(&ep->com.mutex);
-+	if (ep->com.state == DEAD) {
- 		c4iw_put_ep(&ep->com);
- 		return -ECONNRESET;
- 	}
- 	set_bit(ULP_REJECT, &ep->com.history);
--	BUG_ON(state_read(&ep->com) != MPA_REQ_RCVD);
-+	BUG_ON(ep->com.state != MPA_REQ_RCVD);
- 	if (mpa_rev == 0)
- 		abort_connection(ep, NULL, GFP_KERNEL);
- 	else {
- 		err = send_mpa_reject(ep, pdata, pdata_len);
--		err = c4iw_ep_disconnect(ep, 0, GFP_KERNEL);
-+		disconnect = 1;
- 	}
-+	mutex_unlock(&ep->com.mutex);
-+	if (disconnect)
-+		err = c4iw_ep_disconnect(ep, 0, GFP_KERNEL);
- 	c4iw_put_ep(&ep->com);
- 	return 0;
- }
-@@ -2597,12 +2604,14 @@ int c4iw_accept_cr(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 	struct c4iw_qp *qp = get_qhp(h, conn_param->qpn);
- 
- 	PDBG("%s ep %p tid %u\n", __func__, ep, ep->hwtid);
--	if (state_read(&ep->com) == DEAD) {
-+
-+	mutex_lock(&ep->com.mutex);
-+	if (ep->com.state == DEAD) {
- 		err = -ECONNRESET;
- 		goto err;
- 	}
- 
--	BUG_ON(state_read(&ep->com) != MPA_REQ_RCVD);
-+	BUG_ON(ep->com.state != MPA_REQ_RCVD);
- 	BUG_ON(!qp);
- 
- 	set_bit(ULP_ACCEPT, &ep->com.history);
-@@ -2671,14 +2680,16 @@ int c4iw_accept_cr(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 	if (err)
- 		goto err1;
- 
--	state_set(&ep->com, FPDU_MODE);
-+	__state_set(&ep->com, FPDU_MODE);
- 	established_upcall(ep);
-+	mutex_unlock(&ep->com.mutex);
- 	c4iw_put_ep(&ep->com);
- 	return 0;
- err1:
- 	ep->com.cm_id = NULL;
- 	cm_id->rem_ref(cm_id);
- err:
-+	mutex_unlock(&ep->com.mutex);
- 	c4iw_put_ep(&ep->com);
- 	return err;
- }
 -- 
 1.7.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
