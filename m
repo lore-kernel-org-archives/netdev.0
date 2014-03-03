@@ -1,95 +1,84 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH net] macvlan: Add support for 'always_on' offload features
-Date: Mon,  3 Mar 2014 14:34:12 -0500
-Message-ID: <1393875252-17154-1-git-send-email-vyasevic@redhat.com>
-Cc: Vlad Yasevich <vyasevic@redhat.com>,
-	Florian Westphal <fw@strlen.de>,
-	Christian Borntraeger <borntraeger@de.ibm.com>,
+Subject: Re: macvtap performance regression (bisected) between 3.13 and 3.14-rc1
+Date: Mon, 03 Mar 2014 14:36:18 -0500
+Message-ID: <5314D9B2.6050006@redhat.com>
+References: <530FA586.3010400@de.ibm.com> <53110A62.7070109@redhat.com> <5311C142.6040509@de.ibm.com> <53123495.7030902@gmail.com> <531287AE.5080606@gmail.com> <531447B2.7040008@de.ibm.com>
+Reply-To: vyasevic@redhat.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
 	Jason Wang <jasowang@redhat.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:31496 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753717AbaCCTfY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Mar 2014 14:35:24 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	KVM list <kvm@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Christian Borntraeger <borntraeger@de.ibm.com>,
+	Vlad Yasevich <vyasevich@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <531447B2.7040008@de.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Macvlan currently inherits all of its features from the lower
-device.  When lower device disables offload support, this causes
-macvlan to disable offload support as well.  This causes
-performance regression when using macvlan/macvtap in bridge
-mode.
+On 03/03/2014 04:13 AM, Christian Borntraeger wrote:
+> On 02/03/14 02:21, Vlad Yasevich wrote:
+>> On 03/01/2014 02:27 PM, Vlad Yasevich wrote:
+>>> On 03/01/2014 06:15 AM, Christian Borntraeger wrote:
+>>>> On 28/02/14 23:14, Vlad Yasevich wrote:
+>>>>> On 02/27/2014 03:52 PM, Christian Borntraeger wrote:
+>>>>>> Vlad,
+>>>>>>
+>>>>>> commit 6acf54f1cf0a6747bac9fea26f34cfc5a9029523
+>>>>>>     macvtap: Add support of packet capture on macvtap device.
+>>>>>>
+>>>>>> causes a performance regression for iperf traffic between two KVM guests
+>>>>>> on my s390 system. Both guests are connected via two macvtaps on the same OSA
+>>>>>> network card.
+>>>>>> Before that patch I get ~20 Gbit/sec between two guests, afterwards I get
+>>>>>> ~4Gbit/sec
+>>>>>>
+>>>>>> Latency seems to be unchanges (uperf 1byte ping pong).
+>>>>>>
+>>>>>> According to ifconfig in the guest, I have ~ 1500 bytes per packet with this
+>>>>>> patch and ~  40000 bytes without. So for some reason this patch causes the
+>>>>>> network stack to do segmentation. (the guest kernel stays the same, only host 
+>>>>>> kernel is changed).
+>>>>>>
+>>>>>> Any ideas?
+>>>>>
+>>>>> I am looking.  It shouldn't cause addition segmentations and when I ran
+>>>>> netperf on the code I didn't see any difference in the throughput.
+>>>>
+>>>> Dont know if the different bytes/packets ratio is really the reason or
+>>>> just a side effect. As a hint: the underlying network device does not support
+>>>> segmentation, but this should not matter for traffic between to guests.
+>>>
+>>> Could you post 'ethtool -k' output for both lower-level device and the
+>>> macvtap device?
+>>>
+>>> Thanks
+>>> -vlad
+>>>
+>>
+>> Ok.  I think I see what's happening.  Since you turn off offloads on
+>> lower device, that's propagated to macvlan device.  As a result, when
+>> when we call dev_queue_xmit on the vlan->dev, we end up segmenting since
+>> lower level says it does support segmentation.
+>>
+>> One way to fix this is to never disable offloads on macvlan.  macvlan
+>> will always try to use __dev_queue_xmit() with it's lower device, so any
+>> segmentation can happen there.
+> 
+> If you have anything that I should test, let me know.
 
-It can be easily demonstrated by creating 2 namespaces using
-macvlan in bridge mode and running netperf between them:
+Hi Christian
 
-MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.0.0.1 () port 0 AF_INET
-Recv   Send    Send
-Socket Socket  Message  Elapsed
-Size   Size    Size     Time     Throughput
-bytes  bytes   bytes    secs.    10^6bits/sec
+Just sent out a patch to fix this.  I tried it with namespaces and
+kvm guests and it seems to restore performance for me.
 
- 87380  16384  16384    20.00    1204.61
+Please give it a try.
 
-To restore the performance, we add software offload features
-to the list of "always_on" features for macvlan.  This way
-when a namespace or a guest using macvtap initially sends a
-packet, this packet will not be segmented at macvlan level.
-It will only be segmented when macvlan sends the packet
-to the lower device.
-
-MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.0.0.1 () port 0 AF_INET
-Recv   Send    Send
-Socket Socket  Message  Elapsed
-Size   Size    Size     Time     Throughput
-bytes  bytes   bytes    secs.    10^6bits/sec
-
- 87380  16384  16384    20.00    5507.35
-
-Fixes: 6acf54f1cf0a6747bac9fea26f34cfc5a9029523 (macvtap: Add support of packet capture on macvtap device.)
-Fixes: 797f87f83b60685ff8a13fa0572d2f10393c50d3 (macvlan: fix netdev feature propagation from lower device)
-CC: Florian Westphal <fw@strlen.de>
-CC: Christian Borntraeger <borntraeger@de.ibm.com>
-CC: Jason Wang <jasowang@redhat.com>
-CC: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- drivers/net/macvlan.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index a5d2189..2625d2a 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -506,6 +506,9 @@ static int macvlan_change_mtu(struct net_device *dev, int new_mtu)
- static struct lock_class_key macvlan_netdev_xmit_lock_key;
- static struct lock_class_key macvlan_netdev_addr_lock_key;
- 
-+#define ALWAYS_ON_FEATURS \
-+	(NETIF_F_SG | NETIF_F_GEN_CSUM | NETIF_F_GSO_SOFTWARE | NETIF_F_LLTX)
-+
- #define MACVLAN_FEATURES \
- 	(NETIF_F_SG | NETIF_F_ALL_CSUM | NETIF_F_HIGHDMA | NETIF_F_FRAGLIST | \
- 	 NETIF_F_GSO | NETIF_F_TSO | NETIF_F_UFO | NETIF_F_GSO_ROBUST | \
-@@ -539,7 +542,7 @@ static int macvlan_init(struct net_device *dev)
- 	dev->state		= (dev->state & ~MACVLAN_STATE_MASK) |
- 				  (lowerdev->state & MACVLAN_STATE_MASK);
- 	dev->features 		= lowerdev->features & MACVLAN_FEATURES;
--	dev->features		|= NETIF_F_LLTX;
-+	dev->features		|= ALWAYS_ON_FEATURES;
- 	dev->gso_max_size	= lowerdev->gso_max_size;
- 	dev->iflink		= lowerdev->ifindex;
- 	dev->hard_header_len	= lowerdev->hard_header_len;
-@@ -699,7 +702,7 @@ static netdev_features_t macvlan_fix_features(struct net_device *dev,
- 	features = netdev_increment_features(vlan->lowerdev->features,
- 					     features,
- 					     mask);
--	features |= NETIF_F_LLTX;
-+	features |= ALWAYS_ON_FEATURES;
- 
- 	return features;
- }
--- 
-1.8.5.3
+Thanks
+-vlad
+> 
+> Christian
+> 
