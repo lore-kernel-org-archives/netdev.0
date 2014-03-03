@@ -1,129 +1,158 @@
-From: Gerald Schaefer <gerald.schaefer@de.ibm.com>
-Subject: Re: mlx4_core: DMA-API: device driver tries to sync DMA memory it
- has not allocated
-Date: Mon, 3 Mar 2014 18:58:32 +0100
-Message-ID: <20140303185832.67862975@thinkpad>
-References: <20131210144416.31b7002c@thinkpad>
-	<20140227170107.GB24226@mtl-eit-vdi-22.mtl.labs.mlnx>
-	<20140228222457.3db91448@vbox-ubuntu>
-	<20140302084046.GD809@mtl-eit-vdi-22.mtl.labs.mlnx>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net] net: sctp: fix sctp_sf_do_5_1D_ce to verify if we/peer
+ is AUTH capable
+Date: Mon, 03 Mar 2014 13:07:53 -0500
+Message-ID: <5314C4F9.6090806@gmail.com>
+References: <1393863784-28860-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Eyal Perry <eyalpe@mellanox.com>
-To: Amir Vadai <amirv@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140302084046.GD809@mtl-eit-vdi-22.mtl.labs.mlnx>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Vlad Yasevich <yasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f45.google.com ([209.85.216.45]:33710 "EHLO
+	mail-qa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751681AbaCCSH5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 13:07:57 -0500
+In-Reply-To: <1393863784-28860-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2 Mar 2014 10:40:47 +0200
-Amir Vadai <amirv@mellanox.com> wrote:
-
-> On 28/02/14 22:24 +0100, Gerald Schaefer wrote:
-> > On Thu, 27 Feb 2014 19:01:09 +0200
-> > Amir Vadai <amirv@mellanox.com> wrote:
-> > 
-> > > On 10/12/13 14:44 +0100, Gerald Schaefer wrote:
-> > > > Hi,
-> > > > 
-> > > > During network stress test with CONFIG_DMA_API_DEBUG=y we get the following
-> > > > message on the server side:
-> > > > 
-> > > > [57523.955982] mlx4_core 0000:00:00.0: DMA-API: device driver tries to sync DMA memory it has not allocated [device address=0x0000000143d2c202] [size=1526 bytes]
-> > > > [57523.956018] ------------[ cut here ]------------
-> > > > [57523.956021] WARNING: at /home/dailybuild/builder/packages/BUILD/linux-3.12.3-20131209/lib/dma-debug.c:986
-> > > > [57523.956022] Modules linked in: mlx4_en dm_multipath scsi_dh mlx4_core eadm_sch dm_mod lcs autofs4
-> > > > [57523.956034] CPU: 3 PID: 20 Comm: ksoftirqd/3 Not tainted 3.12.3-65.x.20131209-s390xdefault #1
-> > > > [57523.956037] task: 000000026f47cb60 ti: 000000026f484000 task.ti: 000000026f484000
-> > > > [57523.956044] Krnl PSW : 0404e00180000000 00000000004a0422 (check_sync+0xf2/0x52c)
-> > > > [57523.956047]            R:0 T:1 IO:0 EX:0 Key:0 M:1 W:0 P:0 AS:3 CC:2 PM:0 EA:3
-> > > > [57523.956047] Krnl GPRS: 0000000000000111 000000008b767e9c 0000000000000092 0000000000000000
-> > > > [57523.956051]            00000000004a041e 0000000000000000 00000000000005f6 0000000143d2c202
-> > > > [57523.956053]            000000026f487a98 0000000000000001 0000000000a71144 000000026f10dd60
-> > > > [57523.956055]            0000000000000000 000000000075bb18 00000000004a041e 000000026f487980
-> > > > [57523.956064] Krnl Code: 00000000004a0412: c020002143d7        larl    %r2,8c8bc0
-> > > > [57523.956064]            00000000004a0418: c0e50012717a        brasl   %r14,6ee70c
-> > > > [57523.956064]           #00000000004a041e: a7f40001            brc     15,4a0420
-> > > > [57523.956064]           >00000000004a0422: e330a0000012        lt      %r3,0(%r10)
-> > > > [57523.956064]            00000000004a0428: a7740201            brc     7,4a082a
-> > > > [57523.956064]            00000000004a042c: a7f401f3            brc     15,4a0812
-> > > > [57523.956064]            00000000004a0430: d5078030c030        clc     48(8,%r8),48(%r12)
-> > > > [57523.956064]            00000000004a0436: a7c40070            brc     12,4a0516
-> > > > [57523.956081] Call Trace:
-> > > > [57523.956084] ([<00000000004a041e>] check_sync+0xee/0x52c)
-> > > > [57523.956087]  [<00000000004a0a26>] debug_dma_sync_single_for_cpu+0x66/0x74
-> > > > [57523.956094]  [<000003ff801fcae0>] mlx4_en_complete_rx_desc+0x15c/0x240 [mlx4_en]
-> > > > [57523.956098]  [<000003ff801fe1fa>] mlx4_en_process_rx_cq+0x56a/0xb58 [mlx4_en]
-> > > > [57523.956101]  [<000003ff801fe8ea>] mlx4_en_poll_rx_cq+0x92/0xf8 [mlx4_en]
-> > > > [57523.956105]  [<00000000005d558c>] net_rx_action+0xa0/0x2f0
-> > > > [57523.956109]  [<000000000013cd10>] __do_softirq+0x1e8/0x480
-> > > > [57523.956111]  [<000000000013cfe4>] run_ksoftirqd+0x3c/0x80
-> > > > [57523.956114]  [<000000000016f496>] smpboot_thread_fn+0x2c6/0x2e8
-> > > > [57523.956118]  [<0000000000163834>] kthread+0xd0/0xe4
-> > > > [57523.956123]  [<00000000006ff19e>] kernel_thread_starter+0x6/0xc
-> > > > [57523.956125]  [<00000000006ff198>] kernel_thread_starter+0x0/0xc
-> > > > [57523.956127] 1 lock held by ksoftirqd/3/20:
-> > > > [57523.956129]  #0:  (&(&dma_entry_hash[i].lock)->rlock){-.-...}, at: [<000000000049f1d6>] get_hash_bucket+0x4a/0x64
-> > > > [57523.956135] Last Breaking-Event-Address:
-> > > > [57523.956137]  [<00000000004a041e>] check_sync+0xee/0x52c
-> > > > [57523.956139] ---[ end trace ec82af84e1d16c5f ]---
-> > > > 
-> > > > --
-> > > 
-> > > Hi Gerald,
-> > > 
-> > > It seems that I missed this mail.
-> > > 
-> > > I didn't see this warning in our lab in x86 platform.
-> > > Is it reproduced easily on PPC?
-> > > Any hints how to reproduce it in our lab?
-> > 
-> > Hi Amir,
-> > 
-> > I could narrow it down to a uperf testrun with the following profile
-> > and CONFIG_DMA_API_DEBUG=y (it usually takes multiple runs to show):
-> > 
-> > <profile name="test250">
-> >   <group nthreads="250">
-> >     <transaction iterations="1">
-> >       <flowop type="accept" options="remotehost=10.100.1.36 protocol=tcp"/>
-> >     </transaction>
-> >     <transaction duration="300">
-> >       <flowop type="write" options="size=1"/>
-> >       <flowop type="read" options="size=1"/>
-> >     </transaction>
-> >     <transaction iterations="1">
-> >       <flowop type="disconnect" />
-> >     </transaction>
-> >   </group>
-> > </profile>
-> > 
-> > > 
-> > > Do you have a 'good' version that didn't have the warning?
-> > 
-> > No, it showed on 3.12 and 3.13, before that we had other warnings but
-> > not this one as far as I remember.
-
-I checked again with 3.10 and 3.11, and couldn't reproduce the warning
-there. However, there is another warning on those kernel versions:
-
-mlx4_core 0000:00:00.0: DMA-API: device driver failed to check map error[device address=0x00000001046af186] [size=258 bytes] [mapped as single]
-
-That one was fixed with commit 237a3a3b "net/mlx4_en: Fix handling of dma_map failure".
-When I apply commit 237a3a3b on top of 3.11, I can also reproduce the
-new "sync DMA" warning there.
-
-So, either the new "sync DMA" warning was introduced with commit 237a3a3b,
-or it was just occluded by the previous "map error" warning.
-
-> > 
-> > Thanks,
-> > Gerald
-> > 
+On 03/03/2014 11:23 AM, Daniel Borkmann wrote:
+> RFC4895 introduced AUTH chunks for SCTP; during the SCTP
+> handshake RANDOM; CHUNKS; HMAC-ALGO are negotiated (CHUNKS
+> being optional though):
 > 
-> Ok, We're preparing a setup to reproduce the issue.
+>   ---------- INIT[RANDOM; CHUNKS; HMAC-ALGO] ---------->
+>   <------- INIT-ACK[RANDOM; CHUNKS; HMAC-ALGO] ---------
+>   -------------------- COOKIE-ECHO -------------------->
+>   <-------------------- COOKIE-ACK ---------------------
 > 
-> Amir
+> A special case is when an endpoint requires COOKIE-ECHO
+> chunks to be authenticated:
+> 
+>   ---------- INIT[RANDOM; CHUNKS; HMAC-ALGO] ---------->
+>   <------- INIT-ACK[RANDOM; CHUNKS; HMAC-ALGO] ---------
+>   ------------------ AUTH; COOKIE-ECHO ---------------->
+>   <-------------------- COOKIE-ACK ---------------------
+> 
+> RFC4895, section 6.3. Receiving Authenticated Chunks says:
+> 
+>   The receiver MUST use the HMAC algorithm indicated in
+>   the HMAC Identifier field. If this algorithm was not
+>   specified by the receiver in the HMAC-ALGO parameter in
+>   the INIT or INIT-ACK chunk during association setup, the
+>   AUTH chunk and all the chunks after it MUST be discarded
+>   and an ERROR chunk SHOULD be sent with the error cause
+>   defined in Section 4.1. [...] If no endpoint pair shared
+>   key has been configured for that Shared Key Identifier,
+>   all authenticated chunks MUST be silently discarded. [...]
+> 
+>   When an endpoint requires COOKIE-ECHO chunks to be
+>   authenticated, some special procedures have to be followed
+>   because the reception of a COOKIE-ECHO chunk might result
+>   in the creation of an SCTP association. If a packet arrives
+>   containing an AUTH chunk as a first chunk, a COOKIE-ECHO
+>   chunk as the second chunk, and possibly more chunks after
+>   them, and the receiver does not have an STCB for that
+>   packet, then authentication is based on the contents of
+>   the COOKIE-ECHO chunk. In this situation, the receiver MUST
+>   authenticate the chunks in the packet by using the RANDOM
+>   parameters, CHUNKS parameters and HMAC_ALGO parameters
+>   obtained from the COOKIE-ECHO chunk, and possibly a local
+>   shared secret as inputs to the authentication procedure
+>   specified in Section 6.3. If authentication fails, then
+>   the packet is discarded. If the authentication is successful,
+>   the COOKIE-ECHO and all the chunks after the COOKIE-ECHO
+>   MUST be processed. If the receiver has an STCB, it MUST
+>   process the AUTH chunk as described above using the STCB
+>   from the existing association to authenticate the
+>   COOKIE-ECHO chunk and all the chunks after it. [...]
+> 
+> Commit bbd0d59809f9 introduced the possibility to receive
+> and verification of AUTH chunk, including the edge case for
+> authenticated COOKIE-ECHO. On reception of COOKIE-ECHO,
+> the function sctp_sf_do_5_1D_ce() handles processing,
+> unpacks and creates a new association if it passed sanity
+> checks and also tests for authentication chunks being
+> present. After a new association has been processed, it
+> invokes sctp_process_init() on the new association and
+> walks through the parameter list it received from the INIT
+> chunk. It checks SCTP_PARAM_RANDOM, SCTP_PARAM_HMAC_ALGO
+> and SCTP_PARAM_CHUNKS, and copies them into asoc->peer
+> meta data (peer_random, peer_hmacs, peer_chunks) in case
+> sysctl -w net.sctp.auth_enable=1 is set. If in INIT's
+> SCTP_PARAM_SUPPORTED_EXT parameter SCTP_CID_AUTH is set,
+> peer_random != NULL and peer_hmacs != NULL the peer is to be
+> assumed asoc->peer.auth_capable=1, in any other case
+> asoc->peer.auth_capable=0.
+> 
+> Now, if in sctp_sf_do_5_1D_ce() chunk->auth_chunk is
+> available, we set up a fake auth chunk and pass that on to
+> sctp_sf_authenticate(), which at latest in
+> sctp_auth_calculate_hmac() reliably dereferences a NULL pointer
+> at position 0..0008 when setting up the crypto key in
+> crypto_hash_setkey() by using asoc->asoc_shared_key that is
+> NULL as condition key_id == asoc->active_key_id is true if
+> the AUTH chunk was injected correctly from remote. This
+> happens no matter what net.sctp.auth_enable sysctl says.
+> 
+> The fix is to check for net->sctp.auth_enable and for
+> asoc->peer.auth_capable before doing any operations like
+> sctp_sf_authenticate() as no key is activated in
+> sctp_auth_asoc_init_active_key() for each case.
+> 
+> Now as RFC4895 section 6.3 states that if the used HMAC-ALGO
+> passed from the INIT chunk was not used in the AUTH chunk, we
+> SHOULD send an error; however in this case it would be better
+> to just silently discard such a maliciously prepared handshake
+> as we didn't even receive a parameter at all. Also, as our
+> endpoint has no shared key configured, section 6.3 says that
+> MUST silently discard, which we are doing from now onwards.
+> 
+> Before calling sctp_sf_pdiscard(), we need not only to free
+> the association, but also the chunk->auth_chunk skb, as
+> commit bbd0d59809f9 created a skb clone in that case.
+> 
+> I have tested this locally by using netfilter's nfqueue and
+> re-injecting packets into the local stack after maliciously
+> modifying the INIT chunk (removing RANDOM; HMAC-ALGO param)
+> and the SCTP packet containing the COOKIE_ECHO (injecting
+> AUTH chunk before COOKIE_ECHO). Fixed with this patch applied.
+> 
+> Fixes: bbd0d59809f9 ("[SCTP]: Implement the receive and verification of AUTH chunk")
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Vlad Yasevich <yasevich@gmail.com>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+
+-vlad
+
+> ---
+>  Also needs to go to -stable.
+> 
+>  net/sctp/sm_statefuns.c | 7 +++++++
+>  1 file changed, 7 insertions(+)
+> 
+> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+> index 591b44d..ae65b6b 100644
+> --- a/net/sctp/sm_statefuns.c
+> +++ b/net/sctp/sm_statefuns.c
+> @@ -758,6 +758,13 @@ sctp_disposition_t sctp_sf_do_5_1D_ce(struct net *net,
+>  		struct sctp_chunk auth;
+>  		sctp_ierror_t ret;
+>  
+> +		/* Make sure that we and the peer are AUTH capable */
+> +		if (!net->sctp.auth_enable || !new_asoc->peer.auth_capable) {
+> +			kfree_skb(chunk->auth_chunk);
+> +			sctp_association_free(new_asoc);
+> +			return sctp_sf_pdiscard(net, ep, asoc, type, arg, commands);
+> +		}
+> +
+>  		/* set-up our fake chunk so that we can process it */
+>  		auth.skb = chunk->auth_chunk;
+>  		auth.asoc = chunk->asoc;
 > 
