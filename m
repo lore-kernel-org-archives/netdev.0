@@ -1,70 +1,87 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next] vlan: use ether_addr_equal_64bits to instead
- of ether_addr_equal
-Date: Mon, 3 Mar 2014 10:49:36 +0800
-Message-ID: <5313EDC0.6020701@huawei.com>
-References: <5313D77F.3090508@huawei.com> <1393811384.13719.47.camel@joe-AO722>
+From: "Wang, Yalin" <Yalin.Wang@sonymobile.com>
+Subject: RE: change kmalloc into vmalloc for large memory allocations
+Date: Mon, 3 Mar 2014 10:51:23 +0800
+Message-ID: <35FD53F367049845BC99AC72306C23D102844605F38F@CNBJMBX05.corpusers.net>
+References: <35FD53F367049845BC99AC72306C23D102844605F38C@CNBJMBX05.corpusers.net>
+ <53104ECA.4010702@freescale.com>
+ <35FD53F367049845BC99AC72306C23D102844605F38D@CNBJMBX05.corpusers.net>
+ <20140228163304.GA15614@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="iso-2022-jp"
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Julia Lawall <julia.lawall@lip6.fr>,
-	Netdev <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:37059 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751759AbaCCCuA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2014 21:50:00 -0500
-In-Reply-To: <1393811384.13719.47.camel@joe-AO722>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "'alsa-devel@alsa-project.org'" <alsa-devel@alsa-project.org>,
+ "'broonie@opensource.wolfsonmicro.com'"
+ <broonie@opensource.wolfsonmicro.com>, "'tiwai@suse.de'" <tiwai@suse.de>,
+ "'fweisbec@gmail.com'" <fweisbec@gmail.com>,
+ "'perex@perex.cz'" <perex@perex.cz>, "'mingo@redhat.com'" <mingo@redhat.com>,
+ "'linux-input@vger.kernel.org'" <linux-input@vger.kernel.org>,
+ "'rydberg@euromail.se'" <rydberg@euromail.se>, "'lrg@ti.com'" <lrg@ti.com>,
+ "'pablo@netfilter.org'" <pablo@netfilter.org>,
+ "'coreteam@netfilter.org'" <coreteam@netfilter.org>,
+ "'linux-arm-msm@vger.kernel.org'" <linux-arm-msm@vger.kernel.org>,
+ "'rostedt@goodmis.org'" <rostedt@goodmis.org>,
+ "'netfilter@vger.kernel.org'" <netfilter@vger.kernel.org>,
+ "'linux-arm-kernel@lists.infradead.org'"
+ <linux-arm-kernel@lists.infradead.org>,
+ "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
+ "'dmitry.torokhov@gmail.com'" <dmit
+To: "'gregkh@linuxfoundation.org'" <gregkh@linuxfoundation.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20140228163304.GA15614@kroah.com>
+Content-Language: en-US
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/3/3 9:49, Joe Perches wrote:
-> On Mon, 2014-03-03 at 09:14 +0800, Ding Tianhong wrote:
->> Ether_addr_equal_64bits is more efficient than ether_addr_equal, and
->> can be used when each argument is an array within a structure that
->> contains at least two bytes of data beyond the array, so it is safe
->> to use it for vlan.
-> []
->> diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-> []
->> @@ -26,7 +26,7 @@ bool vlan_do_receive(struct sk_buff **skbp)
->>  		/* Our lower layer thinks this is not local, let's make sure.
->>  		 * This allows the VLAN to have a different MAC than the
->>  		 * underlying device, and still route correctly. */
->> -		if (ether_addr_equal(eth_hdr(skb)->h_dest, vlan_dev->dev_addr))
->> +		if (ether_addr_equal_64bits(eth_hdr(skb)->h_dest, vlan_dev->dev_addr))
->>  			skb->pkt_type = PACKET_HOST;
->>  	}
-> 
-> Hi again Ding
-> 
-> If you do have performance numbers:
-> 
-> The lines above this ether_addr_equal_64 are:
-> 
-> 	if (skb->pkt_type == PACKET_OTHERHOST) {
-> 		/* Our lower layer thinks this is not local, let's make sure.
-> 		 * This allows the VLAN to have a different MAC than the
-> 		 * underlying device, and still route correctly. */
-> 		if (ether_addr_equal(eth_hdr(skb)->h_dest, vlan_dev->dev_addr))
-> 			skb->pkt_type = PACKET_HOST;
-> 	}
-> 
-> Maybe it'd be faster overall to add an unlikely
-> to the == test
-> 
-> 	if (unlikely(skb->pkt_type == PACKET_OTHERHOST)) {
-> 
-> 
-> 
+Hi  greg,
 
-Sorry, I can't understand it clearly, do you mean that if the skb deliver to the vlan dev,
-it is impossible that the pkt_type is PACKET_OTHERHOST at most time?
+I am sorry,
+I make a mistake ,
+You are right ,
+https://git.kernel.org/cgit/linux/kernel/git/will/linux.git/tree/drivers/usb/gadget/f_mass_storage.c?h=master#n2724
 
-Regards
-Ding
+this one should not changed to use vmalloc,
+the buffer will be used by DMA，
 
+others should be safe to change:
+
+https://git.kernel.org/cgit/linux/kernel/git/will/linux.git/tree/sound/soc/soc-core.c?h=master#n3772
+
+https://git.kernel.org/cgit/linux/kernel/git/will/linux.git/tree/net/netfilter/nf_conntrack_ftp.c?h=master#n603
+https://git.kernel.org/cgit/linux/kernel/git/will/linux.git/tree/net/netfilter/nf_conntrack_h323_main.c?h=master#n1849
+https://git.kernel.org/cgit/linux/kernel/git/will/linux.git/tree/net/netfilter/nf_conntrack_irc.c?h=master#n247
+https://git.kernel.org/cgit/linux/kernel/git/will/linux.git/tree/net/netfilter/nf_conntrack_sane.c?h=master#n195
+
+https://git.kernel.org/cgit/linux/kernel/git/will/linux.git/tree/drivers/input/evdev.c?h=master#n403
+
+
+Thanks 
+-----Original Message-----
+From: 'gregkh@linuxfoundation.org' [mailto:gregkh@linuxfoundation.org] 
+Sent: Saturday, March 01, 2014 12:33 AM
+To: Wang, Yalin
+Cc: 'Huang Shijie'; 'linux-kernel@vger.kernel.org'; 'linux-arm-msm@vger.kernel.org'; 'linux-arm-kernel@lists.infradead.org'; 'linux-input@vger.kernel.org'; 'balbi@ti.com'; 'lrg@ti.com'; 'broonie@opensource.wolfsonmicro.com'; 'perex@perex.cz'; 'tiwai@suse.de'; 'pablo@netfilter.org'; 'kaber@trash.net'; 'davem@davemloft.net'; 'rostedt@goodmis.org'; 'fweisbec@gmail.com'; 'mingo@redhat.com'; 'dmitry.torokhov@gmail.com'; 'rydberg@euromail.se'; 'linux-usb@vger.kernel.org'; 'alsa-devel@alsa-project.org'; 'netfilter-devel@vger.kernel.org'; 'netfilter@vger.kernel.org'; 'coreteam@netfilter.org'; 'netdev@vger.kernel.org'
+Subject: Re: change kmalloc into vmalloc for large memory allocations
+
+On Fri, Feb 28, 2014 at 05:20:08PM +0800, Wang, Yalin wrote:
+> Hi
 > 
+> 
+> Yeah,
+> Dma buffer must be allocated by kmalloc,
+> 
+> But the modules I list should can all be changed to use vmalloc, 
+> because the buffer is only used by software, Not by any hardware .
+
+Are you sure about that?  The USB gadget driver needs DMA memory from what I can tell, have you tried your change out on a system that does not allow the USB controller to access non-DMA memory?
+
+And I agree with Steve, just fix the individual drivers, don't do a "hidden" change of where the memory is allocated from, that's not a good idea and will cause problems later.
+
+greg k-h
