@@ -1,92 +1,171 @@
 From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCHv2 net-next 00/31] Misc. fixes for cxgb4 and iw_cxgb4
-Date: Mon,  3 Mar 2014 12:10:44 +0530
-Message-ID: <1393828875-13452-1-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCHv2 net-next 02/31] cxgb4: Add code to dump SGE registers when hitting idma hangs
+Date: Mon,  3 Mar 2014 12:10:46 +0530
+Message-ID: <1393828875-13452-3-git-send-email-hariprasad@chelsio.com>
+References: <1393828875-13452-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
 	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
 	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
 To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1393828875-13452-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi All,
+From: Kumar Sanghvi <kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 
-This patch series provides miscelleneous fixes for Chelsio T4/T5 adapters
-related to cxgb4 related to sge and mtu. And includes DB Drop avoidance
-and other misc. fixes on iw-cxgb4.
+Based on original work by Casey Leedom <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 
-The patches series is created against David Miller's 'net-next' tree.
-And includes patches on cxgb4 and iw_cxgb4 driver.
+Signed-off-by: Kumar Sanghvi <kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h   |    1 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c   |  106 ++++++++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h |    3 +
+ 3 files changed, 110 insertions(+), 0 deletions(-)
 
-We would like to request this patch series to get merged via David Miller's
-'net-next' tree.
-
-We have included all the maintainers of respective drivers. Kindly review the
-change and let us know in case of any review comments.
-
-Thanks
-
-V2:
-   Dont drop existing module parameters. 
-   (cxgb4/iw_cxgb4: Doorbell Drop Avoidance Bug Fixes.)
-
-Hariprasad Shenai (1):
-  Revert "cxgb4: Don't assume LSO only uses SGL path in t4_eth_xmit()"
-
-Kumar Sanghvi (5):
-  cxgb4: Fix some small bugs in t4_sge_init_soft() when our Page Size
-    is 64KB
-  cxgb4: Add code to dump SGE registers when hitting idma hangs
-  cxgb4: Rectify emitting messages about SGE Ingress DMA channels being
-    potentially stuck
-  cxgb4: Updates for T5 SGE's Egress Congestion Threshold
-  cxgb4: use spinlock_irqsave/spinlock_irqrestore for db lock.
-
-Steve Wise (25):
-  iw_cxgb4: cap CQ size at T4_MAX_IQ_SIZE.
-  iw_cxgb4: Allow loopback connections.
-  iw_cxgb4: release neigh entry in error paths.
-  iw_cxgb4: Treat CPL_ERR_KEEPALV_NEG_ADVICE as negative advice.
-  cxgb4/iw_cxgb4: Doorbell Drop Avoidance Bug Fixes.
-  iw_cxgb4: use the BAR2/WC path for kernel QPs and T5 devices.
-  iw_cxgb4: Fix incorrect BUG_ON conditions.
-  iw_cxgb4: Mind the sq_sig_all/sq_sig_type QP attributes.
-  iw_cxgb4: default peer2peer mode to 1.
-  iw_cxgb4: save the correct map length for fast_reg_page_lists.
-  iw_cxgb4: don't leak skb in c4iw_uld_rx_handler().
-  iw_cxgb4: fix possible memory leak in RX_PKT processing.
-  iw_cxgb4: ignore read reponse type 1 CQEs.
-  iw_cxgb4: connect_request_upcall fixes.
-  iw_cxgb4: adjust tcp snd/rcv window based on link speed.
-  iw_cxgb4: update snd_seq when sending MPA messages.
-  iw_cxgb4: lock around accept/reject downcalls.
-  iw_cxgb4: drop RX_DATA packets if the endpoint is gone.
-  iw_cxgb4: rx_data() needs to hold the ep mutex.
-  iw_cxgb4: endpoint timeout fixes.
-  iw_cxgb4: rmb() after reading valid gen bit.
-  iw_cxgb4: wc_wmb() needed after DB writes.
-  iw_cxgb4: SQ flush fix.
-  iw_cxgb4: minor fixes/cleanup.
-  iw_cxgb4: Max fastreg depth depends on DSGL support.
-
- drivers/infiniband/hw/cxgb4/cm.c                |  270 ++++++++++++++++-------
- drivers/infiniband/hw/cxgb4/cq.c                |   50 +++--
- drivers/infiniband/hw/cxgb4/device.c            |  229 +++++++++++++-------
- drivers/infiniband/hw/cxgb4/iw_cxgb4.h          |   17 +-
- drivers/infiniband/hw/cxgb4/mem.c               |   18 ++-
- drivers/infiniband/hw/cxgb4/provider.c          |   46 ++++-
- drivers/infiniband/hw/cxgb4/qp.c                |  204 +++++++++--------
- drivers/infiniband/hw/cxgb4/resource.c          |   10 +-
- drivers/infiniband/hw/cxgb4/t4.h                |   78 ++++++-
- drivers/infiniband/hw/cxgb4/user.h              |    5 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   11 +-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   84 ++++---
- drivers/net/ethernet/chelsio/cxgb4/sge.c        |  161 +++++++++-----
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |  106 +++++++++
- drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |    2 +
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |    9 +
- 16 files changed, 925 insertions(+), 375 deletions(-)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index 944f2cb..509c976 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -1032,4 +1032,5 @@ void t4_db_dropped(struct adapter *adapter);
+ int t4_mem_win_read_len(struct adapter *adap, u32 addr, __be32 *data, int len);
+ int t4_fwaddrspace_write(struct adapter *adap, unsigned int mbox,
+ 			 u32 addr, u32 val);
++void t4_sge_decode_idma_state(struct adapter *adapter, int state);
+ #endif /* __CXGB4_H__ */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index d3c2a51..fb2fe65 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -2597,6 +2597,112 @@ int t4_mdio_wr(struct adapter *adap, unsigned int mbox, unsigned int phy_addr,
+ }
+ 
+ /**
++ *	t4_sge_decode_idma_state - decode the idma state
++ *	@adap: the adapter
++ *	@state: the state idma is stuck in
++ */
++void t4_sge_decode_idma_state(struct adapter *adapter, int state)
++{
++	static const char * const t4_decode[] = {
++		"IDMA_IDLE",
++		"IDMA_PUSH_MORE_CPL_FIFO",
++		"IDMA_PUSH_CPL_MSG_HEADER_TO_FIFO",
++		"Not used",
++		"IDMA_PHYSADDR_SEND_PCIEHDR",
++		"IDMA_PHYSADDR_SEND_PAYLOAD_FIRST",
++		"IDMA_PHYSADDR_SEND_PAYLOAD",
++		"IDMA_SEND_FIFO_TO_IMSG",
++		"IDMA_FL_REQ_DATA_FL_PREP",
++		"IDMA_FL_REQ_DATA_FL",
++		"IDMA_FL_DROP",
++		"IDMA_FL_H_REQ_HEADER_FL",
++		"IDMA_FL_H_SEND_PCIEHDR",
++		"IDMA_FL_H_PUSH_CPL_FIFO",
++		"IDMA_FL_H_SEND_CPL",
++		"IDMA_FL_H_SEND_IP_HDR_FIRST",
++		"IDMA_FL_H_SEND_IP_HDR",
++		"IDMA_FL_H_REQ_NEXT_HEADER_FL",
++		"IDMA_FL_H_SEND_NEXT_PCIEHDR",
++		"IDMA_FL_H_SEND_IP_HDR_PADDING",
++		"IDMA_FL_D_SEND_PCIEHDR",
++		"IDMA_FL_D_SEND_CPL_AND_IP_HDR",
++		"IDMA_FL_D_REQ_NEXT_DATA_FL",
++		"IDMA_FL_SEND_PCIEHDR",
++		"IDMA_FL_PUSH_CPL_FIFO",
++		"IDMA_FL_SEND_CPL",
++		"IDMA_FL_SEND_PAYLOAD_FIRST",
++		"IDMA_FL_SEND_PAYLOAD",
++		"IDMA_FL_REQ_NEXT_DATA_FL",
++		"IDMA_FL_SEND_NEXT_PCIEHDR",
++		"IDMA_FL_SEND_PADDING",
++		"IDMA_FL_SEND_COMPLETION_TO_IMSG",
++		"IDMA_FL_SEND_FIFO_TO_IMSG",
++		"IDMA_FL_REQ_DATAFL_DONE",
++		"IDMA_FL_REQ_HEADERFL_DONE",
++	};
++	static const char * const t5_decode[] = {
++		"IDMA_IDLE",
++		"IDMA_ALMOST_IDLE",
++		"IDMA_PUSH_MORE_CPL_FIFO",
++		"IDMA_PUSH_CPL_MSG_HEADER_TO_FIFO",
++		"IDMA_SGEFLRFLUSH_SEND_PCIEHDR",
++		"IDMA_PHYSADDR_SEND_PCIEHDR",
++		"IDMA_PHYSADDR_SEND_PAYLOAD_FIRST",
++		"IDMA_PHYSADDR_SEND_PAYLOAD",
++		"IDMA_SEND_FIFO_TO_IMSG",
++		"IDMA_FL_REQ_DATA_FL",
++		"IDMA_FL_DROP",
++		"IDMA_FL_DROP_SEND_INC",
++		"IDMA_FL_H_REQ_HEADER_FL",
++		"IDMA_FL_H_SEND_PCIEHDR",
++		"IDMA_FL_H_PUSH_CPL_FIFO",
++		"IDMA_FL_H_SEND_CPL",
++		"IDMA_FL_H_SEND_IP_HDR_FIRST",
++		"IDMA_FL_H_SEND_IP_HDR",
++		"IDMA_FL_H_REQ_NEXT_HEADER_FL",
++		"IDMA_FL_H_SEND_NEXT_PCIEHDR",
++		"IDMA_FL_H_SEND_IP_HDR_PADDING",
++		"IDMA_FL_D_SEND_PCIEHDR",
++		"IDMA_FL_D_SEND_CPL_AND_IP_HDR",
++		"IDMA_FL_D_REQ_NEXT_DATA_FL",
++		"IDMA_FL_SEND_PCIEHDR",
++		"IDMA_FL_PUSH_CPL_FIFO",
++		"IDMA_FL_SEND_CPL",
++		"IDMA_FL_SEND_PAYLOAD_FIRST",
++		"IDMA_FL_SEND_PAYLOAD",
++		"IDMA_FL_REQ_NEXT_DATA_FL",
++		"IDMA_FL_SEND_NEXT_PCIEHDR",
++		"IDMA_FL_SEND_PADDING",
++		"IDMA_FL_SEND_COMPLETION_TO_IMSG",
++	};
++	static const u32 sge_regs[] = {
++		SGE_DEBUG_DATA_LOW_INDEX_2,
++		SGE_DEBUG_DATA_LOW_INDEX_3,
++		SGE_DEBUG_DATA_HIGH_INDEX_10,
++	};
++	const char **sge_idma_decode;
++	int sge_idma_decode_nstates;
++	int i;
++
++	if (is_t4(adapter->params.chip)) {
++		sge_idma_decode = (const char **)t4_decode;
++		sge_idma_decode_nstates = ARRAY_SIZE(t4_decode);
++	} else {
++		sge_idma_decode = (const char **)t5_decode;
++		sge_idma_decode_nstates = ARRAY_SIZE(t5_decode);
++	}
++
++	if (state < sge_idma_decode_nstates)
++		CH_WARN(adapter, "idma state %s\n", sge_idma_decode[state]);
++	else
++		CH_WARN(adapter, "idma state %d unknown\n", state);
++
++	for (i = 0; i < ARRAY_SIZE(sge_regs); i++)
++		CH_WARN(adapter, "SGE register %#x value %#x\n",
++			sge_regs[i], t4_read_reg(adapter, sge_regs[i]));
++}
++
++/**
+  *      t4_fw_hello - establish communication with FW
+  *      @adap: the adapter
+  *      @mbox: mailbox to use for the FW command
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+index 4082522..33cf9ef 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+@@ -278,6 +278,9 @@
+ #define SGE_DEBUG_INDEX 0x10cc
+ #define SGE_DEBUG_DATA_HIGH 0x10d0
+ #define SGE_DEBUG_DATA_LOW 0x10d4
++#define SGE_DEBUG_DATA_LOW_INDEX_2	0x12c8
++#define SGE_DEBUG_DATA_LOW_INDEX_3	0x12cc
++#define SGE_DEBUG_DATA_HIGH_INDEX_10	0x12a8
+ #define SGE_INGRESS_QUEUES_PER_PAGE_PF 0x10f4
+ 
+ #define S_HP_INT_THRESH    28
+-- 
+1.7.1
 
 --
 To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
