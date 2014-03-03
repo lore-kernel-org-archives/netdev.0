@@ -1,61 +1,39 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can 2014-03-03
-Date: Mon,  3 Mar 2014 14:54:27 +0100
-Message-ID: <1393854875-8171-1-git-send-email-mkl@pengutronix.de>
-Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: netdev@vger.kernel.org
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: [PATCH net-next 0/4] ieee802154: clean up header handling
+Date: Mon, 3 Mar 2014 14:59:48 +0100
+Message-ID: <20140303135946.GA24286@omega>
+References: <1393851547-27876-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net,
+	davem@davemloft.net
+To: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:43407 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753881AbaCCNyp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 08:54:45 -0500
+Received: from mail-ea0-f180.google.com ([209.85.215.180]:39746 "EHLO
+	mail-ea0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754008AbaCCN76 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 08:59:58 -0500
+Received: by mail-ea0-f180.google.com with SMTP id m10so4493727eaj.39
+        for <netdev@vger.kernel.org>; Mon, 03 Mar 2014 05:59:57 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1393851547-27876-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+Hi Phoebe,
 
-this is a pull request of 8 patches. Oliver Hartkopp contributes a patch which
-removes the CAN FD compatibility for CAN 2.0 sockets, as it turns out that this
-compatibility has some conceptual cornercases. The remaining 7 patches are by
-me, they address a problem in the flexcan driver. When shutting down the
-interface ("ifconfig can0 down") under heavy network load the whole system will
-hang. This series reworks the actual sequence in close() and the transition
-from and to the low power modes of the CAN controller.
+On Mon, Mar 03, 2014 at 01:59:03PM +0100, Phoebe Buckheister wrote:
+> This series of patches cleans up handling of 802.15.4 headers in ieee802154 and
+> mac802154. Particularly, it introduces new functions to read and modify headers
+> and removes the address fields in the skb cb block in favour of these
+> functions. This set also fixes a bug that caused parts of an 802.15.4 header to
+> be delivered to dgram sockets in userspace due to misparsed headers, and moves
+> mac frame sequence number generation from upper layers into the netdev that
+> actually handles them.
+> 
+besides the checkpatch issues, you can add a:
+Tested-by: Alexander Aring <alex.aring@gmail.com>
 
-regards,
-Marc
----
+on the whole serie.
 
-The following changes since commit 635d61a3735e05c8da72740006670f819e5b6a5f:
-
-  USB AX88179/178A: Support D-Link DUB-1312 (2014-03-02 20:29:30 -0500)
-
-are available in the git repository at:
-
-  git://gitorious.org/linux-can/linux-can.git tags/linux-can-fixes-for-3.14-20140303
-
-for you to fetch changes up to 821047c4055cca833c4674f172a9d73003563eb6:
-
-  can: remove CAN FD compatibility for CAN 2.0 sockets (2014-03-03 14:29:52 +0100)
-
-----------------------------------------------------------------
-linux-can-fixes-for-3.14-20140303
-
-----------------------------------------------------------------
-Marc Kleine-Budde (7):
-      can: flexcan: fix shutdown: first disable chip, then all interrupts
-      can: flexcan: flexcan_open(): fix error path if flexcan_chip_start() fails
-      can: flexcan: fix transition from and to low power mode in chip_{en,dis}able
-      can: flexcan: factor out transceiver {en,dis}able into seperate functions
-      can: flexcan: fix transition from and to freeze mode in chip_{,un}freeze
-      can: flexcan: flexcan_remove(): add missing netif_napi_del()
-      can: flexcan: factor out soft reset into seperate funtion
-
-Oliver Hartkopp (1):
-      can: remove CAN FD compatibility for CAN 2.0 sockets
-
- Documentation/networking/can.txt |   6 --
- drivers/net/can/flexcan.c        | 172 +++++++++++++++++++++++++++++----------
- net/can/raw.c                    |  26 ++----
- 3 files changed, 136 insertions(+), 68 deletions(-)
+- Alex
