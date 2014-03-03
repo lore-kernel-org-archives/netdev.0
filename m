@@ -1,32 +1,29 @@
-From: Bart De Schuymer <bdschuym@pandora.be>
-Subject: Re: [ebtables PATCH (resent)] arptables: long option "--set-counters"
- were missing
-Date: Sun, 02 Mar 2014 22:16:37 +0100
-Message-ID: <53139FB5.9030004@pandora.be>
-References: <20140228123113.2220.55978.stgit@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] b44: add calls to phy_{start,stop}
+Date: Sun, 02 Mar 2014 19:05:55 -0500 (EST)
+Message-ID: <20140302.190555.1021550952987592721.davem@davemloft.net>
+References: <1393777774-7400-1-git-send-email-hauke@hauke-m.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: zambrano@broadcom.com, netdev@vger.kernel.org
+To: hauke@hauke-m.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from baptiste.telenet-ops.be ([195.130.132.51]:33147 "EHLO
-	baptiste.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751906AbaCBVQk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2014 16:16:40 -0500
-In-Reply-To: <20140228123113.2220.55978.stgit@localhost>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46546 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753783AbaCCAF5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2014 19:05:57 -0500
+In-Reply-To: <1393777774-7400-1-git-send-email-hauke@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jesper Dangaard Brouer schreef op 28/02/2014 13:32:
-> The long option "--set-counters" where missing in option parsing.
-> And the corresponding short option "-c" were not mentioned in
-> the help usage text.
->
-> Also update the arptables man page with a description
-> of the parameter.
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Date: Sun,  2 Mar 2014 17:29:33 +0100
+
+> When support for external phys was added to b44, the calls to start and
+> stop the phy were missing in the mac driver. This adds the calls to
+> phy_start() and phy_stop().
+> 
+> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
 
 Applied.
-
-Thanks,
-Bart
