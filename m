@@ -1,99 +1,27 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH v2] net: fix for a race condition in the inet frag code
-Date: Mon,  3 Mar 2014 23:19:18 +0100
-Message-ID: <1393885158-4116-1-git-send-email-nikolay@redhat.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH v2] net: fix for a race condition in the inet frag code
+Date: Mon, 3 Mar 2014 23:21:18 +0100
+Message-ID: <20140303222118.GJ9965@breakpoint.cc>
 References: <1393855520-18334-1-git-send-email-nikolay@redhat.com>
-Cc: Nikolay Aleksandrov <nikolay@redhat.com>,
-	Florian Westphal <fw@strlen.de>,
+ <1393885158-4116-1-git-send-email-nikolay@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>,
 	Jesper Dangaard Brouer <brouer@redhat.com>,
 	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54245 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753996AbaCCWTb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Mar 2014 17:19:31 -0500
-In-Reply-To: <1393855520-18334-1-git-send-email-nikolay@redhat.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:53501 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755001AbaCCWVU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 17:21:20 -0500
+Content-Disposition: inline
+In-Reply-To: <1393885158-4116-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I stumbled upon this very serious bug while hunting for another one,
-it's a very subtle race condition between inet_frag_evictor,
-inet_frag_intern and the IPv4/6 frag_queue and expire functions (basically
-the users of inet_frag_kill/inet_frag_put).
-What happens is that after a fragment has been added to the hash chain but
-before it's been added to the lru_list (inet_frag_lru_add) in
-inet_frag_intern, may get deleted (either by an expired timer if the system
-load is high or the timer sufficiently low, or by the fraq_queue function
-for different reasons) before it's added to the lru_list, then after it
-gets added it's a matter of time for the evictor to get to a piece of
-memory which has been freed leading to a number of different bugs depending
-on what's left there. I've been able to trigger this on both IPv4 and IPv6
-(which is normal as the frag code is the same), but it's been much more
-difficult to trigger on IPv4 due to the protocol differences about how
-fragments are treated. The setup I used to reproduce this is:
-2 machines with 4 x 10G bonded in a RR bond, so the same flow can be
-seen on multiple cards at the same time. Then I used multiple instances
-of ping/ping6 to generate fragmented packets and flood the machines with
-them while running other processes to load the attacked machine.
-*It is very important to have the _same flow_ coming in on multiple CPUs
-concurrently. Usually the attacked machine would die in less than 30
-minutes, if configured properly to have many evictor calls and timeouts
-it could happen in 10 minutes or so.
-An important point to make is that any caller (frag_queue or timer) of
-inet_frag_kill will remove both the timer refcount and the
-original/guarding refcount thus removing everything that's keeping the
-frag from being freed at the next inet_frag_put.
-All of this could happen before the frag was ever added to the LRU list,
-then it gets added and the evictor uses a freed fragment.
-An example for IPv6 would be if a fragment is being added and is at the
-stage of being inserted in the hash after the hash lock is released, but
-before inet_frag_lru_add executes (or is able to obtain the lru lock)
-another overlapping fragment for the same flow arrives at a different
-CPU which finds it in the hash, but since it's overlapping it drops it
-invoking inet_frag_kill and thus removing all guarding refcounts, and
-afterwards freeing it by invoking inet_frag_put which removes the last
-refcount added previously by inet_frag_find, then inet_frag_lru_add gets
-executed by inet_frag_intern and we have a freed fragment in the lru_list.
+Nikolay Aleksandrov <nikolay@redhat.com> wrote:
+> v2: Add more information on the flow leading to the race and an example.
+> I hope this is better :-)
 
-The fix is simple, just move the lru_add under the hash chain locked
-region so when a removing function is called it'll have to wait for the
-fragment to be added to the lru_list, and then it'll remove it (it works
-because the hash chain removal is done before the lru_list one and
-there's no window between the two list adds when the frag can get
-dropped). With this fix applied I couldn't kill the same machine in 24
-hours with the same setup.
-
-Fixes: 3ef0eb0db4bf ("net: frag, move LRU list maintenance outside of
-rwlock")
-
-CC: Florian Westphal <fw@strlen.de>
-CC: Jesper Dangaard Brouer <brouer@redhat.com>
-CC: David S. Miller <davem@davemloft.net>
-
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
----
-v2: Add more information on the flow leading to the race and an example.
-I hope this is better :-)
-
- net/ipv4/inet_fragment.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index bb075fc9a14f..322dcebfc588 100644
---- a/net/ipv4/inet_fragment.c
-+++ b/net/ipv4/inet_fragment.c
-@@ -278,9 +278,10 @@ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
- 
- 	atomic_inc(&qp->refcnt);
- 	hlist_add_head(&qp->list, &hb->chain);
-+	inet_frag_lru_add(nf, qp);
- 	spin_unlock(&hb->chain_lock);
- 	read_unlock(&f->lock);
--	inet_frag_lru_add(nf, qp);
-+
- 	return qp;
- }
- 
--- 
-1.8.4.2
+It is, thanks Nik!
