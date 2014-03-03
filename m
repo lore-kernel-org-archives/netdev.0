@@ -1,70 +1,57 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH iproute2 -next 3/3] ipxfrm: allow to setup filter when dumping SA
-Date: Mon,  3 Mar 2014 15:36:07 +0100
-Message-ID: <1393857367-15016-3-git-send-email-nicolas.dichtel@6wind.com>
-References: <1393857367-15016-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: shemminger@vyatta.com
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH] net: fix for a race condition in the inet frag code
+Date: Mon, 3 Mar 2014 15:40:26 +0100
+Message-ID: <20140303144026.GH9965@breakpoint.cc>
+References: <1393855520-18334-1-git-send-email-nikolay@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Jesper Dangaard Brouer <brouer@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:55423 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753982AbaCCOgT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 09:36:19 -0500
-In-Reply-To: <1393857367-15016-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:51402 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754711AbaCCOk3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 09:40:29 -0500
+Content-Disposition: inline
+In-Reply-To: <1393855520-18334-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's now possible to filter SA directly into the kernel by specifying
-XFRMA_PROTO and/or XFRMA_FILTER.
+Nikolay Aleksandrov <nikolay@redhat.com> wrote:
+> I stumbled upon this very serious bug while hunting for another one,
+> it's a very subtle race condition between inet_frag_evictor,
+> inet_frag_intern and the IPv4/6 frag_queue and expire functions (basically
+> the users of inet_frag_kill/inet_frag_put).
+> What happens is that after a fragment has been added to the hash chain but
+> before it's been added to the lru_list (inet_frag_lru_add), it may get
+> deleted (either by an expired timer if the system load is high or the
+> timer sufficiently low, or by the fraq_queue function for different
+> reasons) before it's added to the lru_list
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
+Sorry.  Not following here, see below.
 
-Note that this patch is intended to work with net-next.
+> diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+> index bb075fc9a14f..322dcebfc588 100644
+> --- a/net/ipv4/inet_fragment.c
+> +++ b/net/ipv4/inet_fragment.c
+> @@ -278,9 +278,10 @@ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
+>  
+>  	atomic_inc(&qp->refcnt);
+>  	hlist_add_head(&qp->list, &hb->chain);
+> +	inet_frag_lru_add(nf, qp);
+>  	spin_unlock(&hb->chain_lock);
+>  	read_unlock(&f->lock);
 
- ip/xfrm_state.c | 30 +++++++++++++++++++++++++++++-
- 1 file changed, 29 insertions(+), 1 deletion(-)
+If I understand correctly your're saying that qp can be free'd on
+another/cpu timer right after dropping the locks.  But how is it
+possible?
 
-diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
-index 140a4503b799..61f6d930b2d2 100644
---- a/ip/xfrm_state.c
-+++ b/ip/xfrm_state.c
-@@ -1136,7 +1136,35 @@ static int xfrm_state_list_or_deleteall(int argc, char **argv, int deleteall)
- 		}
- 
- 	} else {
--		if (rtnl_wilddump_request(&rth, preferred_family, XFRM_MSG_GETSA) < 0) {
-+		struct xfrm_filter safilter;
-+		struct {
-+			struct nlmsghdr n;
-+			char buf[NLMSG_BUF_SIZE];
-+		} req;
-+
-+		memset(&safilter, 0, sizeof(safilter));
-+		safilter.family = filter.xsinfo.family;
-+		memcpy(&safilter.saddr, &filter.xsinfo.saddr,
-+		       sizeof(xfrm_address_t));
-+		safilter.splen = filter.id_src_mask;
-+		memcpy(&safilter.daddr, &filter.xsinfo.id.daddr,
-+		       sizeof(xfrm_address_t));
-+		safilter.dplen = filter.id_dst_mask;
-+
-+		memset(&req, 0, sizeof(req));
-+		req.n.nlmsg_len = NLMSG_HDRLEN;
-+		req.n.nlmsg_flags = NLM_F_DUMP | NLM_F_REQUEST;
-+		req.n.nlmsg_type = XFRM_MSG_GETSA;
-+		req.n.nlmsg_pid = 0;
-+		req.n.nlmsg_seq = rth.dump = ++rth.seq;
-+
-+		if (filter.xsinfo.id.proto)
-+			addattr8(&req.n, sizeof(req), XFRMA_PROTO,
-+				 filter.xsinfo.id.proto);
-+		addattr_l(&req.n, sizeof(req), XFRMA_FILTER, &safilter,
-+			  sizeof(safilter));
-+
-+		if (rtnl_send(&rth, (void *)&req, req.n.nlmsg_len) < 0) {
- 			perror("Cannot send dump request");
- 			exit(1);
- 		}
--- 
-1.8.5.4
+->refcnt is bumped above when arming the timer (before dropping chain
+lock), so even if the frag_expire timer fires instantly it should not
+free qp.
+
+What am I missing?
+
+Thanks,
+Florian
