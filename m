@@ -1,135 +1,111 @@
-From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCHv2 net-next 28/31] iw_cxgb4: SQ flush fix.
-Date: Mon,  3 Mar 2014 12:11:12 +0530
-Message-ID: <1393828875-13452-29-git-send-email-hariprasad@chelsio.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCHv2 net-next 29/31] iw_cxgb4: minor fixes/cleanup.
+Date: Mon,  3 Mar 2014 12:11:13 +0530
+Message-ID: <1393828875-13452-30-git-send-email-hariprasad@chelsio.com>
 References: <1393828875-13452-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1393828875-13452-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, roland@purestorage.com, kumaras@chelsio.com,
+	dm@chelsio.com, swise@opengridcomputing.com, leedom@chelsio.com,
+	santosh@chelsio.com, hariprasad@chelsio.com, nirranjan@chelsio.com
+To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:31353 "EHLO
+	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753900AbaCCGoV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 01:44:21 -0500
+In-Reply-To: <1393828875-13452-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+From: Steve Wise <swise@opengridcomputing.com>
 
-There is a race when moving a QP from RTS->CLOSING where a SQ work
-request could be posted after the FW receives the RDMA_RI/FINI WR.
-The SQ work request will never get processed, and should be completed
-with FLUSHED status.  Function c4iw_flush_sq(), however was dropping
-the oldest SQ work request when in CLOSING or IDLE states, instead of
-completing the pending work request. If that oldest pending work request
-was actually complete and has a CQE in the CQ, then when that CQE is
-proceessed in poll_cq, we'll BUG_ON() due to the inconsistent SQ/CQ state.
+Added some missing debug stats.
 
-This is a very small timing hole and has only been hit once so far.
+Use uninitialized_var().
 
-The fix is two-fold:
+Rate limit warning printks.
 
-1) c4iw_flush_sq() MUST always flush all non-completed WRs with FLUSHED
-status regardless of the QP state.
+Initialize reserved fields in a FW work request.
 
-2) In c4iw_modify_rc_qp(), always set the "in error" bit on the queue
-before moving the state out of RTS.  This ensures that the state
-transition will not happen while another thread is in post_rc_send(),
-because set_state() and post_rc_send() both aquire the qp spinlock.
-Also, once we transition the state out of RTS, subsequent calls to
-post_rc_send() will fail because the "in error" bit is set.  I don't
-think this fully closes the race where the FW can get a FINI followed a
-SQ work request being posted (because they are posted to differente EQs),
-but the #1 fix will handle the issue by flushing the SQ work request.
-
-Signed-off-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
- drivers/infiniband/hw/cxgb4/cq.c |   22 ++++++++--------------
- drivers/infiniband/hw/cxgb4/qp.c |    6 +++---
- 2 files changed, 11 insertions(+), 17 deletions(-)
+ drivers/infiniband/hw/cxgb4/cq.c       |    2 +-
+ drivers/infiniband/hw/cxgb4/mem.c      |    6 +++++-
+ drivers/infiniband/hw/cxgb4/qp.c       |    2 ++
+ drivers/infiniband/hw/cxgb4/resource.c |   10 +++++++---
+ 4 files changed, 15 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/infiniband/hw/cxgb4/cq.c b/drivers/infiniband/hw/cxgb4/cq.c
-index e310762..351c8e0 100644
+index 351c8e0..6cbe4c5 100644
 --- a/drivers/infiniband/hw/cxgb4/cq.c
 +++ b/drivers/infiniband/hw/cxgb4/cq.c
-@@ -235,27 +235,21 @@ int c4iw_flush_sq(struct c4iw_qp *qhp)
- 	struct t4_cq *cq = &chp->cq;
- 	int idx;
- 	struct t4_swsqe *swsqe;
--	int error = (qhp->attr.state != C4IW_QP_STATE_CLOSING &&
--			qhp->attr.state != C4IW_QP_STATE_IDLE);
+@@ -676,7 +676,7 @@ skip_cqe:
+ static int c4iw_poll_cq_one(struct c4iw_cq *chp, struct ib_wc *wc)
+ {
+ 	struct c4iw_qp *qhp = NULL;
+-	struct t4_cqe cqe = {0, 0}, *rd_cqe;
++	struct t4_cqe uninitialized_var(cqe), *rd_cqe;
+ 	struct t4_wq *wq;
+ 	u32 credit = 0;
+ 	u8 cqe_flushed;
+diff --git a/drivers/infiniband/hw/cxgb4/mem.c b/drivers/infiniband/hw/cxgb4/mem.c
+index cdaf257..ecdee18 100644
+--- a/drivers/infiniband/hw/cxgb4/mem.c
++++ b/drivers/infiniband/hw/cxgb4/mem.c
+@@ -259,8 +259,12 @@ static int write_tpt_entry(struct c4iw_rdev *rdev, u32 reset_tpt_entry,
  
- 	if (wq->sq.flush_cidx == -1)
- 		wq->sq.flush_cidx = wq->sq.cidx;
- 	idx = wq->sq.flush_cidx;
- 	BUG_ON(idx >= wq->sq.size);
- 	while (idx != wq->sq.pidx) {
--		if (error) {
--			swsqe = &wq->sq.sw_sq[idx];
--			BUG_ON(swsqe->flushed);
--			swsqe->flushed = 1;
--			insert_sq_cqe(wq, cq, swsqe);
--			if (wq->sq.oldest_read == swsqe) {
--				BUG_ON(swsqe->opcode != FW_RI_READ_REQ);
--				advance_oldest_read(wq);
--			}
--			flushed++;
--		} else {
--			t4_sq_consume(wq);
-+		swsqe = &wq->sq.sw_sq[idx];
-+		BUG_ON(swsqe->flushed);
-+		swsqe->flushed = 1;
-+		insert_sq_cqe(wq, cq, swsqe);
-+		if (wq->sq.oldest_read == swsqe) {
-+			BUG_ON(swsqe->opcode != FW_RI_READ_REQ);
-+			advance_oldest_read(wq);
- 		}
-+		flushed++;
- 		if (++idx == wq->sq.size)
- 			idx = 0;
- 	}
+ 	if ((!reset_tpt_entry) && (*stag == T4_STAG_UNSET)) {
+ 		stag_idx = c4iw_get_resource(&rdev->resource.tpt_table);
+-		if (!stag_idx)
++		if (!stag_idx) {
++			mutex_lock(&rdev->stats.lock);
++			rdev->stats.stag.fail++;
++			mutex_unlock(&rdev->stats.lock);
+ 			return -ENOMEM;
++		}
+ 		mutex_lock(&rdev->stats.lock);
+ 		rdev->stats.stag.cur += 32;
+ 		if (rdev->stats.stag.cur > rdev->stats.stag.max)
 diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
-index 3f2065c..34a0bd2 100644
+index 34a0bd2..ca2f753 100644
 --- a/drivers/infiniband/hw/cxgb4/qp.c
 +++ b/drivers/infiniband/hw/cxgb4/qp.c
-@@ -1371,6 +1371,7 @@ int c4iw_modify_qp(struct c4iw_dev *rhp, struct c4iw_qp *qhp,
- 		switch (attrs->next_state) {
- 		case C4IW_QP_STATE_CLOSING:
- 			BUG_ON(atomic_read(&qhp->ep->com.kref.refcount) < 2);
-+			t4_set_wq_in_error(&qhp->wq);
- 			set_state(qhp, C4IW_QP_STATE_CLOSING);
- 			ep = qhp->ep;
- 			if (!internal) {
-@@ -1378,16 +1379,15 @@ int c4iw_modify_qp(struct c4iw_dev *rhp, struct c4iw_qp *qhp,
- 				disconnect = 1;
- 				c4iw_get_ep(&qhp->ep->com);
- 			}
--			t4_set_wq_in_error(&qhp->wq);
- 			ret = rdma_fini(rhp, qhp, ep);
- 			if (ret)
- 				goto err;
- 			break;
- 		case C4IW_QP_STATE_TERMINATE:
-+			t4_set_wq_in_error(&qhp->wq);
- 			set_state(qhp, C4IW_QP_STATE_TERMINATE);
- 			qhp->attr.layer_etype = attrs->layer_etype;
- 			qhp->attr.ecode = attrs->ecode;
--			t4_set_wq_in_error(&qhp->wq);
- 			ep = qhp->ep;
- 			disconnect = 1;
- 			if (!internal)
-@@ -1400,8 +1400,8 @@ int c4iw_modify_qp(struct c4iw_dev *rhp, struct c4iw_qp *qhp,
- 			c4iw_get_ep(&qhp->ep->com);
- 			break;
- 		case C4IW_QP_STATE_ERROR:
--			set_state(qhp, C4IW_QP_STATE_ERROR);
- 			t4_set_wq_in_error(&qhp->wq);
-+			set_state(qhp, C4IW_QP_STATE_ERROR);
- 			if (!internal) {
- 				abort = 1;
- 				disconnect = 1;
+@@ -440,6 +440,8 @@ static int build_rdma_send(struct t4_sq *sq, union t4_wr *wqe,
+ 	default:
+ 		return -EINVAL;
+ 	}
++	wqe->send.r3 = 0;
++	wqe->send.r4 = 0;
+ 
+ 	plen = 0;
+ 	if (wr->num_sge) {
+diff --git a/drivers/infiniband/hw/cxgb4/resource.c b/drivers/infiniband/hw/cxgb4/resource.c
+index cdef4d7..69e57d0 100644
+--- a/drivers/infiniband/hw/cxgb4/resource.c
++++ b/drivers/infiniband/hw/cxgb4/resource.c
+@@ -179,8 +179,12 @@ u32 c4iw_get_qpid(struct c4iw_rdev *rdev, struct c4iw_dev_ucontext *uctx)
+ 		kfree(entry);
+ 	} else {
+ 		qid = c4iw_get_resource(&rdev->resource.qid_table);
+-		if (!qid)
++		if (!qid) {
++			mutex_lock(&rdev->stats.lock);
++			rdev->stats.qid.fail++;
++			mutex_unlock(&rdev->stats.lock);
+ 			goto out;
++		}
+ 		mutex_lock(&rdev->stats.lock);
+ 		rdev->stats.qid.cur += rdev->qpmask + 1;
+ 		mutex_unlock(&rdev->stats.lock);
+@@ -322,8 +326,8 @@ u32 c4iw_rqtpool_alloc(struct c4iw_rdev *rdev, int size)
+ 	unsigned long addr = gen_pool_alloc(rdev->rqt_pool, size << 6);
+ 	PDBG("%s addr 0x%x size %d\n", __func__, (u32)addr, size << 6);
+ 	if (!addr)
+-		printk_ratelimited(KERN_WARNING MOD "%s: Out of RQT memory\n",
+-		       pci_name(rdev->lldi.pdev));
++		pr_warn_ratelimited(KERN_WARNING MOD "%s: Out of RQT memory\n",
++				    pci_name(rdev->lldi.pdev));
+ 	mutex_lock(&rdev->stats.lock);
+ 	if (addr) {
+ 		rdev->stats.rqt.cur += roundup(size << 6, 1 << MIN_RQT_SHIFT);
 -- 
 1.7.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
