@@ -1,98 +1,94 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next] vlan: use ether_addr_equal_64bits to instead
- of ether_addr_equal
-Date: Mon, 3 Mar 2014 14:05:15 +0800
-Message-ID: <53141B9B.40404@huawei.com>
-References: <5313D77F.3090508@huawei.com>	 <1393811384.13719.47.camel@joe-AO722> <5313EDC0.6020701@huawei.com> <1393821407.13719.65.camel@joe-AO722>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Julia Lawall <julia.lawall@lip6.fr>,
-	Netdev <netdev@vger.kernel.org>, Jiri Pirko <jpirko@redhat.com>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:63778 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751031AbaCCGG4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 01:06:56 -0500
-In-Reply-To: <1393821407.13719.65.camel@joe-AO722>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCHv2 net-next 00/31] Misc. fixes for cxgb4 and iw_cxgb4
+Date: Mon,  3 Mar 2014 12:10:44 +0530
+Message-ID: <1393828875-13452-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/3/3 12:36, Joe Perches wrote:
-> (adding Jiri Pirko to cc's)
-> 
-> On Mon, 2014-03-03 at 10:49 +0800, Ding Tianhong wrote:
->> On 2014/3/3 9:49, Joe Perches wrote:
->>> On Mon, 2014-03-03 at 09:14 +0800, Ding Tianhong wrote:
->>>> Ether_addr_equal_64bits is more efficient than ether_addr_equal, and
->>>> can be used when each argument is an array within a structure that
->>>> contains at least two bytes of data beyond the array, so it is safe
->>>> to use it for vlan.
->>> []
->>>> diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
->>> []
->>>> @@ -26,7 +26,7 @@ bool vlan_do_receive(struct sk_buff **skbp)
->>>>  		/* Our lower layer thinks this is not local, let's make sure.
->>>>  		 * This allows the VLAN to have a different MAC than the
->>>>  		 * underlying device, and still route correctly. */
->>>> -		if (ether_addr_equal(eth_hdr(skb)->h_dest, vlan_dev->dev_addr))
->>>> +		if (ether_addr_equal_64bits(eth_hdr(skb)->h_dest, vlan_dev->dev_addr))
->>>>  			skb->pkt_type = PACKET_HOST;
->>>>  	}
->>>
->>> Hi again Ding
->>>
->>> If you do have performance numbers:
->>>
->>> The lines above this ether_addr_equal_64 are:
->>>
->>> 	if (skb->pkt_type == PACKET_OTHERHOST) {
->>> 		/* Our lower layer thinks this is not local, let's make sure.
->>> 		 * This allows the VLAN to have a different MAC than the
->>> 		 * underlying device, and still route correctly. */
->>> 		if (ether_addr_equal(eth_hdr(skb)->h_dest, vlan_dev->dev_addr))
->>> 			skb->pkt_type = PACKET_HOST;
->>> 	}
->>>
->>> Maybe it'd be faster overall to add an unlikely
->>> to the == test
->>>
->>> 	if (unlikely(skb->pkt_type == PACKET_OTHERHOST)) {
->>
->> Sorry, I can't understand it clearly, do you mean that if the skb deliver to the vlan dev,
->> it is impossible that the pkt_type is PACKET_OTHERHOST at most time?
-> 
-> No, just that it's maybe better to add an unlikely
-> to the test.
-> 
-> Jiri Pirko's commit 0b5c9db1b modified the code
-> from a switch/case to a specific test.
-> 
-> I don't know how likely it is in normal uses for
-> a packet to be delivered as PACKET_OTHERHOST.
-> 
-> I just hoped that if you in fact had performance
-> numbers for your suggested ether_addr_equal_64bits
-> test, you might be able to run those same tests
-> with if (unlikely(skb->pkt_type == PACKET_OTHERHOST))
-> and see if that was better or worse for performance.
-> 
-> cheers, Joe
-> 
+Hi All,
 
-OK, I got it and I will review the commit 0b5c9db1b, try to
-see the performance.
+This patch series provides miscelleneous fixes for Chelsio T4/T5 adapters
+related to cxgb4 related to sge and mtu. And includes DB Drop avoidance
+and other misc. fixes on iw-cxgb4.
 
-Regards
-Ding
+The patches series is created against David Miller's 'net-next' tree.
+And includes patches on cxgb4 and iw_cxgb4 driver.
 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+We would like to request this patch series to get merged via David Miller's
+'net-next' tree.
+
+We have included all the maintainers of respective drivers. Kindly review the
+change and let us know in case of any review comments.
+
+Thanks
+
+V2:
+   Dont drop existing module parameters. 
+   (cxgb4/iw_cxgb4: Doorbell Drop Avoidance Bug Fixes.)
+
+Hariprasad Shenai (1):
+  Revert "cxgb4: Don't assume LSO only uses SGL path in t4_eth_xmit()"
+
+Kumar Sanghvi (5):
+  cxgb4: Fix some small bugs in t4_sge_init_soft() when our Page Size
+    is 64KB
+  cxgb4: Add code to dump SGE registers when hitting idma hangs
+  cxgb4: Rectify emitting messages about SGE Ingress DMA channels being
+    potentially stuck
+  cxgb4: Updates for T5 SGE's Egress Congestion Threshold
+  cxgb4: use spinlock_irqsave/spinlock_irqrestore for db lock.
+
+Steve Wise (25):
+  iw_cxgb4: cap CQ size at T4_MAX_IQ_SIZE.
+  iw_cxgb4: Allow loopback connections.
+  iw_cxgb4: release neigh entry in error paths.
+  iw_cxgb4: Treat CPL_ERR_KEEPALV_NEG_ADVICE as negative advice.
+  cxgb4/iw_cxgb4: Doorbell Drop Avoidance Bug Fixes.
+  iw_cxgb4: use the BAR2/WC path for kernel QPs and T5 devices.
+  iw_cxgb4: Fix incorrect BUG_ON conditions.
+  iw_cxgb4: Mind the sq_sig_all/sq_sig_type QP attributes.
+  iw_cxgb4: default peer2peer mode to 1.
+  iw_cxgb4: save the correct map length for fast_reg_page_lists.
+  iw_cxgb4: don't leak skb in c4iw_uld_rx_handler().
+  iw_cxgb4: fix possible memory leak in RX_PKT processing.
+  iw_cxgb4: ignore read reponse type 1 CQEs.
+  iw_cxgb4: connect_request_upcall fixes.
+  iw_cxgb4: adjust tcp snd/rcv window based on link speed.
+  iw_cxgb4: update snd_seq when sending MPA messages.
+  iw_cxgb4: lock around accept/reject downcalls.
+  iw_cxgb4: drop RX_DATA packets if the endpoint is gone.
+  iw_cxgb4: rx_data() needs to hold the ep mutex.
+  iw_cxgb4: endpoint timeout fixes.
+  iw_cxgb4: rmb() after reading valid gen bit.
+  iw_cxgb4: wc_wmb() needed after DB writes.
+  iw_cxgb4: SQ flush fix.
+  iw_cxgb4: minor fixes/cleanup.
+  iw_cxgb4: Max fastreg depth depends on DSGL support.
+
+ drivers/infiniband/hw/cxgb4/cm.c                |  270 ++++++++++++++++-------
+ drivers/infiniband/hw/cxgb4/cq.c                |   50 +++--
+ drivers/infiniband/hw/cxgb4/device.c            |  229 +++++++++++++-------
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h          |   17 +-
+ drivers/infiniband/hw/cxgb4/mem.c               |   18 ++-
+ drivers/infiniband/hw/cxgb4/provider.c          |   46 ++++-
+ drivers/infiniband/hw/cxgb4/qp.c                |  204 +++++++++--------
+ drivers/infiniband/hw/cxgb4/resource.c          |   10 +-
+ drivers/infiniband/hw/cxgb4/t4.h                |   78 ++++++-
+ drivers/infiniband/hw/cxgb4/user.h              |    5 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   11 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   84 ++++---
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        |  161 +++++++++-----
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |  106 +++++++++
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |    2 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |    9 +
+ 16 files changed, 925 insertions(+), 375 deletions(-)
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
