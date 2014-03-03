@@ -1,77 +1,162 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 4/8] can: flexcan: factor out transceiver {en,dis}able into seperate functions
-Date: Mon,  3 Mar 2014 14:54:31 +0100
-Message-ID: <1393854875-8171-5-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 3/8] can: flexcan: fix transition from and to low power mode in chip_{en,dis}able
+Date: Mon,  3 Mar 2014 14:54:30 +0100
+Message-ID: <1393854875-8171-4-git-send-email-mkl@pengutronix.de>
 References: <1393854875-8171-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
 	kernel@pengutronix.de, Marc Kleine-Budde <mkl@pengutronix.de>,
 	linux-stable <stable@vger.kernel.org>
 To: netdev@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
 In-Reply-To: <1393854875-8171-1-git-send-email-mkl@pengutronix.de>
-Sender: stable-owner@vger.kernel.org
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch moves the transceiver enable and disable into seperate functions,
-where the NULL pointer check is hidden.
+In flexcan_chip_enable() and flexcan_chip_disable() fixed delays are used.
+Experiments have shown that the transition from and to low power mode may take
+several microseconds.
+
+This patch adds a while loop which polls the Low Power Mode ACK bit (LPM_ACK)
+that indicates a successfull mode change. If the function runs into a timeout a
+error value is returned.
 
 Cc: linux-stable <stable@vger.kernel.org>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/flexcan.c | 27 ++++++++++++++++++++-------
- 1 file changed, 20 insertions(+), 7 deletions(-)
+ drivers/net/can/flexcan.c | 50 +++++++++++++++++++++++++++++++++++------------
+ 1 file changed, 38 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
-index 5af60ab..6b0fecd 100644
+index 30af702..5af60ab 100644
 --- a/drivers/net/can/flexcan.c
 +++ b/drivers/net/can/flexcan.c
-@@ -264,6 +264,22 @@ static inline void flexcan_write(u32 val, void __iomem *addr)
+@@ -144,6 +144,8 @@
+ 
+ #define FLEXCAN_MB_CODE_MASK		(0xf0ffffff)
+ 
++#define FLEXCAN_TIMEOUT_US             (50)
++
+ /*
+  * FLEXCAN hardware feature flags
+  *
+@@ -269,26 +271,42 @@ static inline int flexcan_has_and_handle_berr(const struct flexcan_priv *priv,
+ 		(reg_esr & FLEXCAN_ESR_ERR_BUS);
  }
- #endif
  
-+static inline int flexcan_transceiver_enable(const struct flexcan_priv *priv)
-+{
-+	if (!priv->reg_xceiver)
-+		return 0;
-+
-+	return regulator_enable(priv->reg_xceiver);
-+}
-+
-+static inline int flexcan_transceiver_disable(const struct flexcan_priv *priv)
-+{
-+	if (!priv->reg_xceiver)
-+		return 0;
-+
-+	return regulator_disable(priv->reg_xceiver);
-+}
-+
- static inline int flexcan_has_and_handle_berr(const struct flexcan_priv *priv,
- 					      u32 reg_esr)
+-static inline void flexcan_chip_enable(struct flexcan_priv *priv)
++static int flexcan_chip_enable(struct flexcan_priv *priv)
  {
-@@ -808,11 +824,9 @@ static int flexcan_chip_start(struct net_device *dev)
- 	if (priv->devtype_data->features & FLEXCAN_HAS_V10_FEATURES)
- 		flexcan_write(0x0, &regs->rxfgmask);
+ 	struct flexcan_regs __iomem *regs = priv->base;
++	unsigned int timeout = FLEXCAN_TIMEOUT_US / 10;
+ 	u32 reg;
  
--	if (priv->reg_xceiver)	{
--		err = regulator_enable(priv->reg_xceiver);
--		if (err)
--			goto out;
--	}
-+	err = flexcan_transceiver_enable(priv);
+ 	reg = flexcan_read(&regs->mcr);
+ 	reg &= ~FLEXCAN_MCR_MDIS;
+ 	flexcan_write(reg, &regs->mcr);
+ 
+-	udelay(10);
++	while (timeout-- && (flexcan_read(&regs->mcr) & FLEXCAN_MCR_LPM_ACK))
++		usleep_range(10, 20);
++
++	if (flexcan_read(&regs->mcr) & FLEXCAN_MCR_LPM_ACK)
++		return -ETIMEDOUT;
++
++	return 0;
+ }
+ 
+-static inline void flexcan_chip_disable(struct flexcan_priv *priv)
++static int flexcan_chip_disable(struct flexcan_priv *priv)
+ {
+ 	struct flexcan_regs __iomem *regs = priv->base;
++	unsigned int timeout = FLEXCAN_TIMEOUT_US / 10;
+ 	u32 reg;
+ 
+ 	reg = flexcan_read(&regs->mcr);
+ 	reg |= FLEXCAN_MCR_MDIS;
+ 	flexcan_write(reg, &regs->mcr);
++
++	while (timeout-- && !(flexcan_read(&regs->mcr) & FLEXCAN_MCR_LPM_ACK))
++		usleep_range(10, 20);
++
++	if (!(flexcan_read(&regs->mcr) & FLEXCAN_MCR_LPM_ACK))
++		return -ETIMEDOUT;
++
++	return 0;
+ }
+ 
+ static int flexcan_get_berr_counter(const struct net_device *dev,
+@@ -709,7 +727,9 @@ static int flexcan_chip_start(struct net_device *dev)
+ 	u32 reg_mcr, reg_ctrl;
+ 
+ 	/* enable module */
+-	flexcan_chip_enable(priv);
++	err = flexcan_chip_enable(priv);
 +	if (err)
-+		goto out;
++		return err;
  
- 	/* synchronize with the can bus */
- 	reg_mcr = flexcan_read(&regs->mcr);
-@@ -857,8 +871,7 @@ static void flexcan_chip_stop(struct net_device *dev)
- 	flexcan_write(priv->reg_ctrl_default & ~FLEXCAN_CTRL_ERR_ALL,
- 		      &regs->ctrl);
+ 	/* soft reset */
+ 	flexcan_write(FLEXCAN_MCR_SOFTRST, &regs->mcr);
+@@ -949,12 +969,16 @@ static int register_flexcandev(struct net_device *dev)
+ 		goto out_disable_ipg;
  
--	if (priv->reg_xceiver)
--		regulator_disable(priv->reg_xceiver);
-+	flexcan_transceiver_disable(priv);
- 	priv->can.state = CAN_STATE_STOPPED;
+ 	/* select "bus clock", chip must be disabled */
+-	flexcan_chip_disable(priv);
++	err = flexcan_chip_disable(priv);
++	if (err)
++		goto out_disable_per;
+ 	reg = flexcan_read(&regs->ctrl);
+ 	reg |= FLEXCAN_CTRL_CLK_SRC;
+ 	flexcan_write(reg, &regs->ctrl);
  
- 	return;
+-	flexcan_chip_enable(priv);
++	err = flexcan_chip_enable(priv);
++	if (err)
++		goto out_chip_disable;
+ 
+ 	/* set freeze, halt and activate FIFO, restrict register access */
+ 	reg = flexcan_read(&regs->mcr);
+@@ -971,14 +995,15 @@ static int register_flexcandev(struct net_device *dev)
+ 	if (!(reg & FLEXCAN_MCR_FEN)) {
+ 		netdev_err(dev, "Could not enable RX FIFO, unsupported core\n");
+ 		err = -ENODEV;
+-		goto out_disable_per;
++		goto out_chip_disable;
+ 	}
+ 
+ 	err = register_candev(dev);
+ 
+- out_disable_per:
+ 	/* disable core and turn off clocks */
++ out_chip_disable:
+ 	flexcan_chip_disable(priv);
++ out_disable_per:
+ 	clk_disable_unprepare(priv->clk_per);
+  out_disable_ipg:
+ 	clk_disable_unprepare(priv->clk_ipg);
+@@ -1121,8 +1146,11 @@ static int flexcan_suspend(struct device *device)
+ {
+ 	struct net_device *dev = dev_get_drvdata(device);
+ 	struct flexcan_priv *priv = netdev_priv(dev);
++	int err;
+ 
+-	flexcan_chip_disable(priv);
++	err = flexcan_chip_disable(priv);
++	if (err)
++		return err;
+ 
+ 	if (netif_running(dev)) {
+ 		netif_stop_queue(dev);
+@@ -1143,9 +1171,7 @@ static int flexcan_resume(struct device *device)
+ 		netif_device_attach(dev);
+ 		netif_start_queue(dev);
+ 	}
+-	flexcan_chip_enable(priv);
+-
+-	return 0;
++	return flexcan_chip_enable(priv);
+ }
+ #endif /* CONFIG_PM_SLEEP */
+ 
 -- 
 1.9.0
+
