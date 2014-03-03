@@ -1,46 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] tcp: snmp stats for Fast Open, SYN rtx,
- and data pkts
-Date: Mon, 03 Mar 2014 15:58:24 -0500 (EST)
-Message-ID: <20140303.155824.2235118519552620477.davem@davemloft.net>
-References: <1393878696-28137-1-git-send-email-ycheng@google.com>
+Subject: Re: [nf-next PATCH V3 0/5] netfilter: conntrack: optimization,
+ remove central spinlock
+Date: Mon, 03 Mar 2014 16:00:46 -0500 (EST)
+Message-ID: <20140303.160046.1024219314107578405.davem@davemloft.net>
+References: <20140303134319.2615.9293.stgit@dragon>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, nanditad@google.com,
-	brakmo@google.com
-To: ycheng@google.com
+Cc: netfilter-devel@vger.kernel.org, eric.dumazet@gmail.com,
+	pablo@netfilter.org, netdev@vger.kernel.org, fw@strlen.de,
+	kaber@trash.net
+To: brouer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55054 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55074 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753241AbaCCU60 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 15:58:26 -0500
-In-Reply-To: <1393878696-28137-1-git-send-email-ycheng@google.com>
+	with ESMTP id S1752636AbaCCVAt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 16:00:49 -0500
+In-Reply-To: <20140303134319.2615.9293.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Mon,  3 Mar 2014 12:31:36 -0800
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Date: Mon, 03 Mar 2014 14:44:16 +0100
 
-> Add the following snmp stats:
+> This patchset change the conntrack locking and provides a huge
+> performance improvements.
 > 
-> TCPFastOpenActiveFail: Fast Open attempts (SYN/data) failed beacuse
-> the remote does not accept it or the attempts timed out.
+> This patchset is based upon Eric Dumazet's proposed patch:
+>   http://thread.gmane.org/gmane.linux.network/268758/focus=47306
+> I have in agreement with Eric Dumazet, taken over this patch (and
+> turned it into a entire patchset).
 > 
-> TCPSynRetrans: number of SYN and SYN/ACK retransmits to break down
-> retransmissions into SYN, fast-retransmits, timeout retransmits, etc.
-> 
-> TCPOrigDataSent: number of outgoing packets with original data (excluding
-> retransmission but including data-in-SYN). This counter is different from
-> TcpOutSegs because TcpOutSegs also tracks pure ACKs. TCPOrigDataSent is
-> more useful to track the TCP retransmission rate.
-> 
-> Change TCPFastOpenActive to track only successful Fast Opens to be symmetric to
-> TCPFastOpenPassive.
-> 
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Nandita Dukkipati <nanditad@google.com>
-> Signed-off-by: Lawrence Brakmo <brakmo@google.com>
+> Primary focus is to remove the central spinlock nf_conntrack_lock.
+> This requires several steps to be acheived.
+ ...
 
-Applied, thank you.
+For series:
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
