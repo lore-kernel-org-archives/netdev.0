@@ -1,94 +1,57 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC v3 4/6] bridge: enable root block during device
- registration
-Date: Mon, 3 Mar 2014 15:43:30 -0800
-Message-ID: <20140303154330.238a20bc@nehalam.linuxnetplumber.net>
-References: <1393886825-24323-1-git-send-email-mcgrof@do-not-panic.com>
-	<1393886825-24323-5-git-send-email-mcgrof@do-not-panic.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH v2 net] macvlan: Add support for 'always_on' offload features
+Date: Mon, 03 Mar 2014 15:49:40 -0800
+Message-ID: <53151514.4080906@candelatech.com>
+References: <1393878833-17667-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, mcgrof@suse.com,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	xen-devel@lists.xenproject.org
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1393886825-24323-5-git-send-email-mcgrof@do-not-panic.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>,
+	Christian Borntraeger <borntraeger@de.ibm.com>,
+	Jason Wang <jasowang@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Vlad Yasevich <vyasevic@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:53342 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755182AbaCCXtx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 18:49:53 -0500
+In-Reply-To: <1393878833-17667-1-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon,  3 Mar 2014 14:47:03 -0800
-"Luis R. Rodriguez" <mcgrof@do-not-panic.com> wrote:
+On 03/03/2014 12:33 PM, Vlad Yasevich wrote:
+> Macvlan currently inherits all of its features from the lower
+> device.  When lower device disables offload support, this causes
+> macvlan to disable offload support as well.  This causes
+> performance regression when using macvlan/macvtap in bridge
+> mode.
+> 
+> It can be easily demonstrated by creating 2 namespaces using
+> macvlan in bridge mode and running netperf between them:
+> 
+> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.0.0.1 () port 0 AF_INET
+> Recv   Send    Send
+> Socket Socket  Message  Elapsed
+> Size   Size    Size     Time     Throughput
+> bytes  bytes   bytes    secs.    10^6bits/sec
+> 
+>  87380  16384  16384    20.00    1204.61
+> 
+> To restore the performance, we add software offload features
+> to the list of "always_on" features for macvlan.  This way
+> when a namespace or a guest using macvtap initially sends a
+> packet, this packet will not be segmented at macvlan level.
+> It will only be segmented when macvlan sends the packet
+> to the lower device.
 
-> From: "Luis R. Rodriguez" <mcgrof@suse.com>
-> 
-> root block support was added via 1007dd1a on v3.8 but toggling
-> this flag is only allowed after a device has been registered and
-> added to a bridge as its a bridge *port* primitive, not a *net_device*
-> feature. There are work arounds possible to account for the lack
-> of netlink tools to toggle root_block, such as using the root_block
-> syfs attribute [0] or using udev / the driver to set the MAC address
-> to something high such as FE:FF:FF:FF:FF:FF, but neither of these
-> ensure root block is respected _from_the_start_ through device
-> initialization.
-> 
-> In order to support the root_block feature from the start since device
-> initialization and in order to avoid having to require userspace
-> work arounds to existing deployments this exposes a private
-> net_device flag which enables drivers that know they want to
-> start with the root_block feature enabled form the start. The
-> only caveat with this is topologies that require STP or non-root
-> will either have to use sysfs [0] or netlink tools like the
-> iproute2 bridge util to toggle the flag off after initialization.
-> This is an accepted compromise.
-> 
-> This flag is required given that ndo_add_slave() currently does not
-> allow specifying any other parameters other than the net_device. We
-> could extend this but in order to do that properly we'd need to
-> evaluate all other types of master device implementations.
-> 
-> [0] echo 1 > /sys/devices/vif-2-0/net/vif2.0/brport/root_block
-> 
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> Cc: bridge@lists.linux-foundation.org
-> Cc: netdev@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Cc: xen-devel@lists.xenproject.org
-> Cc: kvm@vger.kernel.org
-> Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
-> ---
->  include/linux/netdevice.h | 7 +++++++
->  net/bridge/br_if.c        | 2 ++
->  2 files changed, 9 insertions(+)
-> 
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 1a86948..b17643a 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -1181,6 +1181,11 @@ struct net_device_ops {
->   * @IFF_LIVE_ADDR_CHANGE: device supports hardware address
->   *	change when it's running
->   * @IFF_MACVLAN: Macvlan device
-> + * @IFF_BRIDGE_ROOT_BLOCK: don't consider this net_device for root port
-> + *	when this interface is added to a bridge. This makes use of the
-> + *	root_block mechanism but since its a bridge port primitive this
-> + *	flag can be used to instantiate the preference to have root block
-> + *	enabled from the start since initialization.
->   */
+If users specifically disable the offload features on the macvlan using ethtool,
+will they be turned off?  If not, then I think that logic should
+be kept somehow?
 
-Doing this in priv flags bloats what is a limited resource (# of bits).
-Plus there are issues (what if this is changed after adding to bridge)?
+Thanks,
+Ben
 
-Maybe better to enhance existing netlink infrastructure to allow passing
-flags on adding port to bridge.
-
-Also, unless device is up, nothing will happen right away when added to bridge.
-Root port status can be changed since device is disabled.
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
