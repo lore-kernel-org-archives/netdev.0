@@ -1,30 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] USB AX88179/178A: Support D-Link DUB-1312
-Date: Sun, 02 Mar 2014 20:30:01 -0500 (EST)
-Message-ID: <20140302.203001.1906754140360173908.davem@davemloft.net>
-References: <1393609846-9986-1-git-send-email-gerry@tigron.be>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] vlan: use ether_addr_equal_64bits to instead
+ of ether_addr_equal
+Date: Sun, 02 Mar 2014 17:37:42 -0800
+Message-ID: <1393810662.13719.43.camel@joe-AO722>
+References: <5313D77F.3090508@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: freddy@asix.com.tw, edumazet@google.com, ming.lei@canonical.com,
-	dchang@suse.com, emilgoode@gmail.com, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: gerry@tigron.be
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Julia Lawall <julia.lawall@lip6.fr>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46904 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750963AbaCCBaE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2014 20:30:04 -0500
-In-Reply-To: <1393609846-9986-1-git-send-email-gerry@tigron.be>
+Received: from smtprelay0068.hostedemail.com ([216.40.44.68]:57066 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751759AbaCCBhp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2014 20:37:45 -0500
+In-Reply-To: <5313D77F.3090508@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerry Demaret <gerry@tigron.be>
-Date: Fri, 28 Feb 2014 18:50:46 +0100
+On Mon, 2014-03-03 at 09:14 +0800, Ding Tianhong wrote:
+> Ether_addr_equal_64bits is more efficient than ether_addr_equal, and
+> can be used when each argument is an array within a structure that
+> contains at least two bytes of data beyond the array, so it is safe
+> to use it for vlan.
 
-> Add the USB device ID for the D-Link DUB-1312 USB 3.0 to Gigabit Ethernet
-> Adapter to the AX88179/178A driver.
-> 
-> Signed-off-by: Gerry Demaret <gerry@tigron.be>
+It's true that ether_addr_equal_64bits is faster for
+64 bit architectures.  It's 1 64 bit compare and 1 
+48 bit mask instead of a 32 bit and a 16 bit compare.
 
-Applied, thank you.
+I think unless the code is _extremely_ performance or
+fast-path sensitive, ether_addr_equal should be used.
+
+I believe the vlan_do_receive use qualifies.
+
+Are any of the others on the fast path?
+
+Do you have any performance numbers?
