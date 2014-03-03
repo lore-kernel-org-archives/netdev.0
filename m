@@ -1,83 +1,53 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCHv2 net-next 09/31] iw_cxgb4: Treat CPL_ERR_KEEPALV_NEG_ADVICE
- as negative advice.
-Date: Mon, 03 Mar 2014 21:44:24 +0300
-Message-ID: <5314CD88.5060701@cogentembedded.com>
-References: <1393828875-13452-1-git-send-email-hariprasad@chelsio.com> <1393828875-13452-10-git-send-email-hariprasad@chelsio.com>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCHv2 net-next 16/31] iw_cxgb4: don't leak skb in c4iw_uld_rx_handler().
+Date: Mon, 03 Mar 2014 21:46:39 +0300
+Message-ID: <5314CE0F.7050002@cogentembedded.com>
+References: <1393828875-13452-1-git-send-email-hariprasad@chelsio.com> <1393828875-13452-17-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, roland@purestorage.com, kumaras@chelsio.com,
-	dm@chelsio.com, swise@opengridcomputing.com, leedom@chelsio.com,
-	santosh@chelsio.com, nirranjan@chelsio.com
-To: Hariprasad Shenai <hariprasad@chelsio.com>, netdev@vger.kernel.org,
-	linux-rdma@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:47952 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753603AbaCCRo2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 12:44:28 -0500
-Received: by mail-la0-f42.google.com with SMTP id ec20so4867577lab.15
-        for <netdev@vger.kernel.org>; Mon, 03 Mar 2014 09:44:26 -0800 (PST)
-In-Reply-To: <1393828875-13452-10-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1393828875-13452-17-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 Hello.
 
-On 03/03/2014 09:40 AM, Hariprasad Shenai wrote:
+On 03/03/2014 09:41 AM, Hariprasad Shenai wrote:
 
-> From: Steve Wise <swise@opengridcomputing.com>
+> From: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
 
-> Based on original work by Anand Priyadarshee <anandp@chelsio.com>.
-
-> Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+> Signed-off-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
 > ---
->   drivers/infiniband/hw/cxgb4/cm.c            |   25 +++++++++++++------------
->   drivers/net/ethernet/chelsio/cxgb4/t4_msg.h |    1 +
->   2 files changed, 14 insertions(+), 12 deletions(-)
+>   drivers/infiniband/hw/cxgb4/device.c |    4 +++-
+>   1 files changed, 3 insertions(+), 1 deletions(-)
 
-> diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-> index 74a2250..9387f74 100644
-> --- a/drivers/infiniband/hw/cxgb4/cm.c
-> +++ b/drivers/infiniband/hw/cxgb4/cm.c
-> @@ -1648,6 +1648,16 @@ static inline int act_open_has_tid(int status)
->   	       status != CPL_ERR_ARP_MISS;
->   }
->
-> +/*
-> + * Returns whether a CPL status conveys negative advice.
+> diff --git a/drivers/infiniband/hw/cxgb4/device.c b/drivers/infiniband/hw/cxgb4/device.c
+> index 9542ccc..f73fea4 100644
+> --- a/drivers/infiniband/hw/cxgb4/device.c
+> +++ b/drivers/infiniband/hw/cxgb4/device.c
+> @@ -936,9 +936,11 @@ static int c4iw_uld_rx_handler(void *handle, const __be64 *rsp,
+>   	opcode = *(u8 *)rsp;
+>   	if (c4iw_handlers[opcode])
+>   		c4iw_handlers[opcode](dev, skb);
+> -	else
+> +	else {
+>   		pr_info("%s no handler opcode 0x%x...\n", __func__,
+>   		       opcode);
+> +		kfree_skb(skb);
+> +	}
 
-    Could fix the comment style to comply with the networking coding standards 
-while at it.
-
-> + */
-> +static int is_neg_adv(unsigned int status)
-> +{
-> +	return status == CPL_ERR_RTX_NEG_ADVICE ||
-> +	       status == CPL_ERR_PERSIST_NEG_ADVICE ||
-> +	       status == CPL_ERR_KEEPALV_NEG_ADVICE;
-> +}
-> +
->   #define ACT_OPEN_RETRY_COUNT 2
->
->   static int import_ep(struct c4iw_ep *ep, int iptype, __u8 *peer_ip,
-[...]
-> @@ -2266,15 +2276,6 @@ static int peer_close(struct c4iw_dev *dev, struct sk_buff *skb)
->   	return 0;
->   }
->
-> -/*
-> - * Returns whether an ABORT_REQ_RSS message is a negative advice.
-> - */
-> -static int is_neg_adv_abort(unsigned int status)
-> -{
-> -	return status == CPL_ERR_RTX_NEG_ADVICE ||
-> -	       status == CPL_ERR_PERSIST_NEG_ADVICE;
-> -}
-> -
->   static int peer_abort(struct c4iw_dev *dev, struct sk_buff *skb)
->   {
->   	struct cpl_abort_req_rss *req = cplhdr(skb);
+    Should have {} in both arms of the *if* statement now. See 
+Documentation/CodingStyle.
 
 WBR, Sergei
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
