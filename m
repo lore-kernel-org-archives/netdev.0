@@ -1,61 +1,77 @@
-From: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-Subject: [PATCH net-next v2 0/4] ieee802154: clean up
-	header handling
-Date: Mon,  3 Mar 2014 16:30:02 +0100
-Message-ID: <1393860606-30803-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH] net: fix for a race condition in the inet frag code
+Date: Mon, 3 Mar 2014 16:31:33 +0100
+Message-ID: <20140303163133.25b24121@redhat.com>
+References: <1393855520-18334-1-git-send-email-nikolay@redhat.com>
+	<20140303144026.GH9965@breakpoint.cc>
+	<53149694.6070603@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, brouer@redhat.com
+To: Nikolay Aleksandrov <nikolay@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:38868 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754099AbaCCPbl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Mar 2014 10:31:41 -0500
+In-Reply-To: <53149694.6070603@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This series of patches cleans up handling of 802.15.4 headers in ieee802154 and
-mac802154. Particularly, it introduces new functions to read and modify headers
-and removes the address fields in the skb cb block in favour of these
-functions. This set also fixes a bug that caused parts of an 802.15.4 header to
-be delivered to dgram sockets in userspace due to misparsed headers, and moves
-mac frame sequence number generation from upper layers into the netdev that
-actually handles them.
+On Mon, 03 Mar 2014 15:49:56 +0100
+Nikolay Aleksandrov <nikolay@redhat.com> wrote:
 
---
+> On 03/03/2014 03:40 PM, Florian Westphal wrote:
+> > Nikolay Aleksandrov <nikolay@redhat.com> wrote:
+> >> I stumbled upon this very serious bug while hunting for another one,
+> >> it's a very subtle race condition between inet_frag_evictor,
+> >> inet_frag_intern and the IPv4/6 frag_queue and expire functions (basically
+> >> the users of inet_frag_kill/inet_frag_put).
+> >> What happens is that after a fragment has been added to the hash chain but
+> >> before it's been added to the lru_list (inet_frag_lru_add), it may get
+> >> deleted (either by an expired timer if the system load is high or the
+> >> timer sufficiently low, or by the fraq_queue function for different
+> >> reasons) before it's added to the lru_list
+> > 
+> > Sorry.  Not following here, see below.
+> > 
+> >> diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+> >> index bb075fc9a14f..322dcebfc588 100644
+> >> --- a/net/ipv4/inet_fragment.c
+> >> +++ b/net/ipv4/inet_fragment.c
+> >> @@ -278,9 +278,10 @@ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
+> >>  
+> >>  	atomic_inc(&qp->refcnt);
+> >>  	hlist_add_head(&qp->list, &hb->chain);
+> >> +	inet_frag_lru_add(nf, qp);
+> >>  	spin_unlock(&hb->chain_lock);
+> >>  	read_unlock(&f->lock);
+> > 
+> > If I understand correctly your're saying that qp can be free'd on
+> > another/cpu timer right after dropping the locks.  But how is it
+> > possible?
+> > 
+> > ->refcnt is bumped above when arming the timer (before dropping chain
+> > lock), so even if the frag_expire timer fires instantly it should not
+> > free qp.
+> > 
+> > What am I missing?
+> > 
+> > Thanks,
+> > Florian
+> > 
+> An important point is that inet_frag_kill removes both the timer's refcnt and
+> has an unconditional atomic_dec to remove the original/guarding refcnt, so it
+> basically removes everything that's in the way.
+ 
+It sound like we might have a refcnt problem...
+Do we need an extra refcnt for maintaining elements the LRU list?
 
-Changes since v1:
- * Tested-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
- * trivial checkpatch issues. The "/*\n" in a copyright header was kept for
-   consistency, some macro definition lines over 80 characters for readability
-
-
-Phoebe Buckheister (4):
-      ieee802154: add generic header handling routines
-      mac802154: use new header ops in wpan devices
-      ieee802154: remove addresses from mac_cb
-      ieee802154: remove seq member of mac_cb
-
- include/net/ieee802154.h        |   15 ++
- include/net/ieee802154_netdev.h |   52 +++++-
- include/net/mac802154.h         |    1 +
- net/ieee802154/6lowpan_rtnl.c   |   13 +-
- net/ieee802154/Makefile         |    3 +-
- net/ieee802154/dgram.c          |    6 +-
- net/ieee802154/header_ops.c     |  327 +++++++++++++++++++++++++++++++++++++
- net/ieee802154/reassembly.c     |    5 +-
- net/mac802154/wpan.c            |  343 +++++++++++----------------------------
- 9 files changed, 494 insertions(+), 271 deletions(-)
-
-
-------------------------------------------------------------------------------
-Subversion Kills Productivity. Get off Subversion & Make the Move to Perforce.
-With Perforce, you get hassle-free workflows. Merge that actually works. 
-Faster operations. Version large binaries.  Built-in WAN optimization and the
-freedom to use Git, Perforce or both. Make the move to Perforce.
-http://pubads.g.doubleclick.net/gampad/clk?id=122218951&iu=/4140/ostg.clktrk
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
