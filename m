@@ -1,39 +1,87 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [Linux-zigbee-devel] [PATCH 4/4] ieee802154: remove seq member
- of mac_cb
-Date: Mon, 3 Mar 2014 16:40:16 +0100
-Message-ID: <20140303154015.GA2003@x61s.Speedport_W_921V_1_24_000>
-References: <1393851547-27876-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
- <1393851547-27876-5-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
- <20140303140601.GB24286@omega>
- <20140303151219.42ed91f4@zoidberg>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-zigbee-devel@lists.sourceforge.net
-To: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+Subject: [PATCH net-next v2 4/4] ieee802154: remove seq member of mac_cb
+Date: Mon,  3 Mar 2014 16:30:06 +0100
+Message-ID: <1393860606-30803-5-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+References: <1393860606-30803-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Cc: linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net,
+	Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f54.google.com ([74.125.83.54]:51776 "EHLO
-	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754032AbaCCP2L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 10:28:11 -0500
-Received: by mail-ee0-f54.google.com with SMTP id d49so850053eek.27
-        for <netdev@vger.kernel.org>; Mon, 03 Mar 2014 07:28:10 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20140303151219.42ed91f4@zoidberg>
+Received: from mailgw1.uni-kl.de ([131.246.120.220]:33062 "EHLO
+	mailgw1.uni-kl.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754415AbaCCPaX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 10:30:23 -0500
+Received: from itwm2.itwm.fhg.de (itwm2.itwm.fhg.de [131.246.191.3])
+	by mailgw1.uni-kl.de (8.14.3/8.14.3/Debian-9.4) with ESMTP id s23FUKGH009643
+	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 3 Mar 2014 16:30:21 +0100
+In-Reply-To: <1393860606-30803-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 03, 2014 at 03:12:19PM +0100, Phoebe Buckheister wrote:
-> > On a fragmented packet 6lowpan calls dev_hard_header once, then many
-> > times lowpan_fragment_xmit, depending on the number of fragments which
-> > is needed.
-> 
-> To me, the obvious answer would be "just don't do that". Each fragment
-> is a distinct packet, so it should not reuse a header that was created
-> for another packet in the first place.
-> 
-mhh, then the best solution would be to drop the copy of the mac header
-and generate it there.
+The seq member is only used to initialize the sequence number field of
+the 802.15.4 header. This field has relevance only for low-level
+functionality like frame acknowledgement and is of no importance to
+upper layers. Upper layers should not be allowed to set this field at
+all.
 
-- Alex
+Signed-off-by: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+Tested-by: Alexander Aring <alex.aring@gmail.com>
+---
+ include/net/ieee802154_netdev.h |    1 -
+ net/ieee802154/6lowpan_rtnl.c   |    1 -
+ net/ieee802154/dgram.c          |    1 -
+ net/mac802154/wpan.c            |    2 +-
+ 4 files changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/include/net/ieee802154_netdev.h b/include/net/ieee802154_netdev.h
+index bc14665..503cb9f 100644
+--- a/include/net/ieee802154_netdev.h
++++ b/include/net/ieee802154_netdev.h
+@@ -85,7 +85,6 @@ struct ieee802154_frag_info {
+ struct ieee802154_mac_cb {
+ 	u8 lqi;
+ 	u8 flags;
+-	u8 seq;
+ 	struct ieee802154_frag_info frag_info;
+ };
+ 
+diff --git a/net/ieee802154/6lowpan_rtnl.c b/net/ieee802154/6lowpan_rtnl.c
+index b413e4e..7ebc300 100644
+--- a/net/ieee802154/6lowpan_rtnl.c
++++ b/net/ieee802154/6lowpan_rtnl.c
+@@ -117,7 +117,6 @@ static int lowpan_header_create(struct sk_buff *skb,
+ 	 * this isn't implemented in mainline yet, so currently we assign 0xff
+ 	 */
+ 	mac_cb(skb)->flags = IEEE802154_FC_TYPE_DATA;
+-	mac_cb(skb)->seq = ieee802154_mlme_ops(dev)->get_dsn(dev);
+ 
+ 	/* prepare wpan address data */
+ 	sa.addr_type = IEEE802154_ADDR_LONG;
+diff --git a/net/ieee802154/dgram.c b/net/ieee802154/dgram.c
+index 5fcb817..6480510 100644
+--- a/net/ieee802154/dgram.c
++++ b/net/ieee802154/dgram.c
+@@ -253,7 +253,6 @@ static int dgram_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 	if (ro->want_ack)
+ 		mac_cb(skb)->flags |= MAC_CB_FLAG_ACKREQ;
+ 
+-	mac_cb(skb)->seq = ieee802154_mlme_ops(dev)->get_dsn(dev);
+ 	err = dev_hard_header(skb, dev, ETH_P_IEEE802154, &ro->dst_addr,
+ 			ro->bound ? &ro->src_addr : NULL, size);
+ 	if (err < 0)
+diff --git a/net/mac802154/wpan.c b/net/mac802154/wpan.c
+index 9077c6f..5845503 100644
+--- a/net/mac802154/wpan.c
++++ b/net/mac802154/wpan.c
+@@ -111,7 +111,7 @@ static int mac802154_header_create(struct sk_buff *skb,
+ 		return -EINVAL;
+ 
+ 	hdr.fc = mac_cb_type(skb);
+-	hdr.seq = mac_cb(skb)->seq;
++	hdr.seq = ieee802154_mlme_ops(dev)->get_dsn(dev);
+ 	if (mac_cb_is_ackreq(skb))
+ 		hdr.fc |= IEEE802154_FC_ACK_REQ;
+ 	if (mac_cb_is_secen(skb))
+-- 
+1.7.9.5
