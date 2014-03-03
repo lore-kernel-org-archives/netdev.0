@@ -1,8 +1,8 @@
 From: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-Subject: [PATCH net-next v2 1/4] ieee802154: add
-	generic header handling routines
-Date: Mon,  3 Mar 2014 16:30:03 +0100
-Message-ID: <1393860606-30803-2-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Subject: [PATCH net-next v2 2/4] mac802154: use new
+	header ops in wpan devices
+Date: Mon,  3 Mar 2014 16:30:04 +0100
+Message-ID: <1393860606-30803-3-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 References: <1393860606-30803-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,470 +21,441 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add a generic set of 802.15.4 header operations on sk_buffs: push header
-onto skb, pull header from skb, and peek address fields from the mac_hdr
-part of an skb.
-
-These routines support the full 802.15.4 header as described in the
-standard, including the security header. They are useful for everything
-that must create, modify or read 802.15.4 headers, which of course
-includes the wpan rx/tx path, but also 6lowpan. In the future,
-link-layer security will also require means to modify packet headers.
+Replace the old header creation/parsing with the new header operations.
+This reduces code duplication that existed between
+mac802154_parse_frame_start and mac802154_header_parse. This also fixes
+a bug that caused 802.15.4 frames with link layer security enabled to be
+misparsed, leading to parts of the header being passed to upper layers
+as data.
 
 Signed-off-by: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
 Tested-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- include/net/ieee802154.h        |   15 ++
- include/net/ieee802154_netdev.h |   43 +++++
- include/net/mac802154.h         |    1 +
- net/ieee802154/Makefile         |    3 +-
- net/ieee802154/header_ops.c     |  327 +++++++++++++++++++++++++++++++++++++++
- 5 files changed, 388 insertions(+), 1 deletion(-)
- create mode 100644 net/ieee802154/header_ops.c
+ include/net/ieee802154_netdev.h |    6 -
+ net/mac802154/wpan.c            |  318 ++++++++++-----------------------------
+ 2 files changed, 80 insertions(+), 244 deletions(-)
 
-diff --git a/include/net/ieee802154.h b/include/net/ieee802154.h
-index ee59f8b..b968a19 100644
---- a/include/net/ieee802154.h
-+++ b/include/net/ieee802154.h
-@@ -52,12 +52,27 @@
- #define IEEE802154_FC_DAMODE_SHIFT	10
- #define IEEE802154_FC_DAMODE_MASK	(3 << IEEE802154_FC_DAMODE_SHIFT)
- 
-+#define IEEE802154_FC_VERSION_SHIFT	12
-+#define IEEE802154_FC_VERSION_MASK	(3 << IEEE802154_FC_VERSION_SHIFT)
-+#define IEEE802154_FC_VERSION(x)	((x & IEEE802154_FC_VERSION_MASK) >> IEEE802154_FC_VERSION_SHIFT)
-+
- #define IEEE802154_FC_SAMODE(x)		\
- 	(((x) & IEEE802154_FC_SAMODE_MASK) >> IEEE802154_FC_SAMODE_SHIFT)
- 
- #define IEEE802154_FC_DAMODE(x)		\
- 	(((x) & IEEE802154_FC_DAMODE_MASK) >> IEEE802154_FC_DAMODE_SHIFT)
- 
-+#define IEEE802154_SCF_SECLEVEL_MASK		7
-+#define IEEE802154_SCF_SECLEVEL(x)		(x & IEEE802154_SCF_SECLEVEL_MASK)
-+#define IEEE802154_SCF_KEY_ID_MODE_SHIFT	3
-+#define IEEE802154_SCF_KEY_ID_MODE_MASK		(3 << IEEE802154_SCF_KEY_ID_MODE_SHIFT)
-+#define IEEE802154_SCF_KEY_ID_MODE(x)		\
-+	((x & IEEE802154_SCF_KEY_ID_MODE_MASK) >> IEEE802154_SCF_KEY_ID_MODE_SHIFT)
-+
-+#define IEEE802154_SCF_KEY_IMPLICIT		0
-+#define IEEE802154_SCF_KEY_INDEX		1
-+#define IEEE802154_SCF_KEY_SHORT_INDEX		2
-+#define IEEE802154_SCF_KEY_HW_INDEX		3
- 
- /* MAC footer size */
- #define IEEE802154_MFR_SIZE	2 /* 2 octets */
 diff --git a/include/net/ieee802154_netdev.h b/include/net/ieee802154_netdev.h
-index 97b2e34..d0bbc0f 100644
+index d0bbc0f..18d2ff2 100644
 --- a/include/net/ieee802154_netdev.h
 +++ b/include/net/ieee802154_netdev.h
-@@ -28,6 +28,49 @@
- #define IEEE802154_NETDEVICE_H
+@@ -100,7 +100,6 @@ static inline struct ieee802154_mac_cb *mac_cb(struct sk_buff *skb)
  
- #include <net/af_ieee802154.h>
-+#include <linux/netdevice.h>
-+#include <linux/skbuff.h>
-+
-+struct ieee802154_sechdr {
-+	u8 sc;
-+	u32 frame_ctr;
-+	union {
-+		struct {
-+			u16 pan_id;
-+			u16 short_addr;
-+		} pan;
-+		u8 hw[IEEE802154_ADDR_LEN];
-+	} key_source;
-+	u8 key_id;
-+};
-+
-+struct ieee802154_hdr {
-+	u16 fc;
-+	u8 seq;
-+	struct ieee802154_addr source;
-+	struct ieee802154_addr dest;
-+	struct ieee802154_sechdr sec;
-+};
-+
-+/* pushes hdr onto the skb. fields of hdr->fc that can be calculated from
-+ * the contents of hdr will be, and the actual value of those bits in
-+* hdr->fc will be ignored. this includes the INTRA_PAN bit and the frame
-+ * version, if SECEN is set.
-+ */
-+int ieee802154_hdr_push(struct sk_buff *skb, const struct ieee802154_hdr *hdr);
-+
-+/* pulls the entire 802.15.4 header off of the skb, including the security
-+ * header, and performs pan id decompression
-+ */
-+int ieee802154_hdr_pull(struct sk_buff *skb, struct ieee802154_hdr *hdr);
-+
-+/* parses the address fields in a given skb and stores them into hdr,
-+ * performing pan id decompression and length checks to be suitable for use in
-+ * header_ops.parse
-+ */
-+int ieee802154_hdr_peek_addrs(const struct sk_buff *skb,
-+			      struct ieee802154_hdr *hdr);
-+
+ #define MAC_CB_FLAG_ACKREQ		(1 << 3)
+ #define MAC_CB_FLAG_SECEN		(1 << 4)
+-#define MAC_CB_FLAG_INTRAPAN		(1 << 5)
  
- struct ieee802154_frag_info {
- 	__be16 d_tag;
-diff --git a/include/net/mac802154.h b/include/net/mac802154.h
-index 8ca3d04..ceee5ea 100644
---- a/include/net/mac802154.h
-+++ b/include/net/mac802154.h
-@@ -20,6 +20,7 @@
- #define NET_MAC802154_H
+ static inline int mac_cb_is_ackreq(struct sk_buff *skb)
+ {
+@@ -112,11 +111,6 @@ static inline int mac_cb_is_secen(struct sk_buff *skb)
+ 	return mac_cb(skb)->flags & MAC_CB_FLAG_SECEN;
+ }
  
- #include <net/af_ieee802154.h>
-+#include <linux/skbuff.h>
+-static inline int mac_cb_is_intrapan(struct sk_buff *skb)
+-{
+-	return mac_cb(skb)->flags & MAC_CB_FLAG_INTRAPAN;
+-}
+-
+ static inline int mac_cb_type(struct sk_buff *skb)
+ {
+ 	return mac_cb(skb)->flags & MAC_CB_FLAG_TYPEMASK;
+diff --git a/net/mac802154/wpan.c b/net/mac802154/wpan.c
+index 372d8a2..ffadb2c 100644
+--- a/net/mac802154/wpan.c
++++ b/net/mac802154/wpan.c
+@@ -35,35 +35,6 @@
  
- /* General MAC frame format:
-  *  2 bytes: Frame Control
-diff --git a/net/ieee802154/Makefile b/net/ieee802154/Makefile
-index b113fc4..5db61ba 100644
---- a/net/ieee802154/Makefile
-+++ b/net/ieee802154/Makefile
-@@ -3,5 +3,6 @@ obj-$(CONFIG_IEEE802154_6LOWPAN) += 6lowpan.o
- obj-$(CONFIG_6LOWPAN_IPHC) += 6lowpan_iphc.o
+ #include "mac802154.h"
  
- 6lowpan-y := 6lowpan_rtnl.o reassembly.o
--ieee802154-y := netlink.o nl-mac.o nl-phy.o nl_policy.o wpan-class.o
-+ieee802154-y := netlink.o nl-mac.o nl-phy.o nl_policy.o wpan-class.o \
-+                header_ops.o
- af_802154-y := af_ieee802154.o raw.o dgram.o
-diff --git a/net/ieee802154/header_ops.c b/net/ieee802154/header_ops.c
-new file mode 100644
-index 0000000..214a661
---- /dev/null
-+++ b/net/ieee802154/header_ops.c
-@@ -0,0 +1,327 @@
-+/*
-+ * Copyright (C) 2014 Fraunhofer ITWM
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * Written by:
-+ * Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-+ */
-+
-+#include <net/mac802154.h>
-+#include <net/ieee802154.h>
-+#include <net/ieee802154_netdev.h>
-+
-+static void ieee802154_haddr_copy_swap(u8 *dest, const u8 *src)
-+{
-+	int i;
-+	for (i = 0; i < IEEE802154_ADDR_LEN; i++)
-+		dest[IEEE802154_ADDR_LEN - i - 1] = src[i];
-+}
-+
-+static int
-+ieee802154_hdr_push_addr(u8 *buf, const struct ieee802154_addr *addr,
-+			 bool omit_pan)
-+{
-+	int pos = 0;
-+
-+	if (addr->addr_type == IEEE802154_ADDR_NONE)
-+		return 0;
-+
-+	if (!omit_pan) {
-+		buf[pos++] = addr->pan_id & 0xFF;
-+		buf[pos++] = addr->pan_id >> 8;
-+	}
-+
-+	switch (addr->addr_type) {
-+	case IEEE802154_ADDR_SHORT:
-+		buf[pos++] = addr->short_addr & 0xFF;
-+		buf[pos++] = addr->short_addr >> 8;
-+		break;
-+
-+	case IEEE802154_ADDR_LONG:
-+		ieee802154_haddr_copy_swap(buf + pos, addr->hwaddr);
-+		pos += IEEE802154_ADDR_LEN;
-+		break;
-+
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	return pos;
-+}
-+
-+static int
-+ieee802154_hdr_push_sechdr(u8 *buf, const struct ieee802154_sechdr *hdr)
-+{
-+	int pos = 0;
-+
-+	buf[pos++] = hdr->sc;
-+	buf[pos++] = (hdr->frame_ctr >>  0) & 0xFF;
-+	buf[pos++] = (hdr->frame_ctr >>  8) & 0xFF;
-+	buf[pos++] = (hdr->frame_ctr >> 16) & 0xFF;
-+	buf[pos++] = (hdr->frame_ctr >> 24) & 0xFF;
-+
-+	switch (IEEE802154_SCF_KEY_ID_MODE(hdr->sc)) {
-+	case IEEE802154_SCF_KEY_IMPLICIT:
-+		return pos;
-+
-+	case IEEE802154_SCF_KEY_INDEX:
-+		break;
-+
-+	case IEEE802154_SCF_KEY_SHORT_INDEX:
-+		buf[pos++] = hdr->key_source.pan.short_addr & 0xFF;
-+		buf[pos++] = hdr->key_source.pan.short_addr >> 8;
-+		buf[pos++] = hdr->key_source.pan.pan_id & 0xFF;
-+		buf[pos++] = hdr->key_source.pan.pan_id >> 8;
-+		break;
-+
-+	case IEEE802154_SCF_KEY_HW_INDEX:
-+		ieee802154_haddr_copy_swap(buf + pos, hdr->key_source.hw);
-+		pos += IEEE802154_ADDR_LEN;
-+		break;
-+	}
-+
-+	buf[pos++] = hdr->key_id;
-+
-+	return pos;
-+}
-+
-+int
-+ieee802154_hdr_push(struct sk_buff *skb, const struct ieee802154_hdr *hdr)
-+{
-+	u8 buf[MAC802154_FRAME_HARD_HEADER_LEN];
-+	int pos = 2;
-+	u16 fc = hdr->fc;
-+	int rc;
-+
-+	buf[pos++] = hdr->seq;
-+
-+	fc &= ~IEEE802154_FC_DAMODE_MASK;
-+	fc |= (hdr->dest.addr_type << IEEE802154_FC_DAMODE_SHIFT)
-+		& IEEE802154_FC_DAMODE_MASK;
-+
-+	rc = ieee802154_hdr_push_addr(buf + pos, &hdr->dest, false);
-+	if (rc < 0)
-+		return -EINVAL;
-+	pos += rc;
-+
-+	fc &= ~IEEE802154_FC_SAMODE_MASK | ~IEEE802154_FC_INTRA_PAN;
-+	fc |= (hdr->source.addr_type << IEEE802154_FC_SAMODE_SHIFT)
-+		& IEEE802154_FC_SAMODE_MASK;
-+
-+	if (hdr->source.pan_id == hdr->dest.pan_id &&
-+	    hdr->dest.addr_type != IEEE802154_ADDR_NONE)
-+		fc |= IEEE802154_FC_INTRA_PAN;
-+
-+	rc = ieee802154_hdr_push_addr(buf + pos, &hdr->source,
-+				      fc & IEEE802154_FC_INTRA_PAN);
-+	if (rc < 0)
-+		return -EINVAL;
-+	pos += rc;
-+
-+	if (fc & IEEE802154_FC_SECEN) {
-+		fc &= ~IEEE802154_FC_VERSION_MASK;
-+		fc |= (1 << IEEE802154_FC_VERSION_SHIFT)
-+			& IEEE802154_FC_VERSION_MASK;
-+
-+		rc = ieee802154_hdr_push_sechdr(buf + pos, &hdr->sec);
-+		if (rc < 0)
-+			return -EINVAL;
-+
-+		pos += rc;
-+	}
-+
-+	buf[0] = fc & 0xFF;
-+	buf[1] = fc >> 8;
-+
-+	memcpy(skb_push(skb, pos), buf, pos);
-+
-+	return pos;
-+}
-+EXPORT_SYMBOL_GPL(ieee802154_hdr_push);
-+
-+static u16 ieee802154_hdr_get_u16(const u8 *buf)
-+{
-+	return buf[0] | (buf[1] << 8);
-+}
-+
-+static u32 ieee802154_hdr_get_u32(const u8 *buf)
-+{
-+	return buf[0] | (buf[1] << 8) | (buf[2] << 16) | (buf[3] << 24);
-+}
-+
-+static int
-+ieee802154_hdr_get_addr(const u8 *buf, int mode, bool omit_pan,
-+			struct ieee802154_addr *addr)
-+{
-+	int pos = 0;
-+
-+	addr->addr_type = mode;
-+
-+	if (mode == IEEE802154_ADDR_NONE)
-+		return 0;
-+
-+	if (!omit_pan) {
-+		addr->pan_id = ieee802154_hdr_get_u16(buf + pos);
-+		pos += 2;
-+	}
-+
-+	if (mode == IEEE802154_ADDR_SHORT) {
-+		addr->short_addr = ieee802154_hdr_get_u16(buf + pos);
-+		return pos + 2;
+-static inline int mac802154_fetch_skb_u8(struct sk_buff *skb, u8 *val)
+-{
+-	if (unlikely(!pskb_may_pull(skb, 1)))
+-		return -EINVAL;
+-
+-	*val = skb->data[0];
+-	skb_pull(skb, 1);
+-
+-	return 0;
+-}
+-
+-static inline int mac802154_fetch_skb_u16(struct sk_buff *skb, u16 *val)
+-{
+-	if (unlikely(!pskb_may_pull(skb, 2)))
+-		return -EINVAL;
+-
+-	*val = skb->data[0] | (skb->data[1] << 8);
+-	skb_pull(skb, 2);
+-
+-	return 0;
+-}
+-
+-static inline void mac802154_haddr_copy_swap(u8 *dest, const u8 *src)
+-{
+-	int i;
+-	for (i = 0; i < IEEE802154_ADDR_LEN; i++)
+-		dest[IEEE802154_ADDR_LEN - i - 1] = src[i];
+-}
+-
+ static int
+ mac802154_wpan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ {
+@@ -128,25 +99,23 @@ static int mac802154_wpan_mac_addr(struct net_device *dev, void *p)
+ static int mac802154_header_create(struct sk_buff *skb,
+ 				   struct net_device *dev,
+ 				   unsigned short type,
+-				   const void *_daddr,
+-				   const void *_saddr,
++				   const void *daddr,
++				   const void *saddr,
+ 				   unsigned len)
+ {
+-	const struct ieee802154_addr *saddr = _saddr;
+-	const struct ieee802154_addr *daddr = _daddr;
+-	struct ieee802154_addr dev_addr;
+ 	struct mac802154_sub_if_data *priv = netdev_priv(dev);
+-	int pos = 2;
+-	u8 head[MAC802154_FRAME_HARD_HEADER_LEN];
+-	u16 fc;
++	struct ieee802154_hdr hdr;
++	int hlen;
+ 
+ 	if (!daddr)
+ 		return -EINVAL;
+ 
+-	head[pos++] = mac_cb(skb)->seq; /* DSN/BSN */
+-	fc = mac_cb_type(skb);
++	hdr.fc = mac_cb_type(skb);
++	hdr.seq = mac_cb(skb)->seq;
+ 	if (mac_cb_is_ackreq(skb))
+-		fc |= IEEE802154_FC_ACK_REQ;
++		hdr.fc |= IEEE802154_FC_ACK_REQ;
++	if (mac_cb_is_secen(skb))
++		hdr.fc |= IEEE802154_FC_SECEN;
+ 
+ 	if (!saddr) {
+ 		spin_lock_bh(&priv->mib_lock);
+@@ -154,161 +123,46 @@ static int mac802154_header_create(struct sk_buff *skb,
+ 		if (priv->short_addr == IEEE802154_ADDR_BROADCAST ||
+ 		    priv->short_addr == IEEE802154_ADDR_UNDEF ||
+ 		    priv->pan_id == IEEE802154_PANID_BROADCAST) {
+-			dev_addr.addr_type = IEEE802154_ADDR_LONG;
+-			memcpy(dev_addr.hwaddr, dev->dev_addr,
++			hdr.source.addr_type = IEEE802154_ADDR_LONG;
++			memcpy(hdr.source.hwaddr, dev->dev_addr,
+ 			       IEEE802154_ADDR_LEN);
+ 		} else {
+-			dev_addr.addr_type = IEEE802154_ADDR_SHORT;
+-			dev_addr.short_addr = priv->short_addr;
++			hdr.source.addr_type = IEEE802154_ADDR_SHORT;
++			hdr.source.short_addr = priv->short_addr;
+ 		}
+ 
+-		dev_addr.pan_id = priv->pan_id;
+-		saddr = &dev_addr;
++		hdr.source.pan_id = priv->pan_id;
+ 
+ 		spin_unlock_bh(&priv->mib_lock);
 +	} else {
-+		ieee802154_haddr_copy_swap(addr->hwaddr, buf + pos);
-+		return pos + IEEE802154_ADDR_LEN;
++		hdr.source = *(const struct ieee802154_addr *) saddr;
+ 	}
+ 
+-	if (daddr->addr_type != IEEE802154_ADDR_NONE) {
+-		fc |= (daddr->addr_type << IEEE802154_FC_DAMODE_SHIFT);
+-
+-		head[pos++] = daddr->pan_id & 0xff;
+-		head[pos++] = daddr->pan_id >> 8;
+-
+-		if (daddr->addr_type == IEEE802154_ADDR_SHORT) {
+-			head[pos++] = daddr->short_addr & 0xff;
+-			head[pos++] = daddr->short_addr >> 8;
+-		} else {
+-			mac802154_haddr_copy_swap(head + pos, daddr->hwaddr);
+-			pos += IEEE802154_ADDR_LEN;
+-		}
+-	}
+-
+-	if (saddr->addr_type != IEEE802154_ADDR_NONE) {
+-		fc |= (saddr->addr_type << IEEE802154_FC_SAMODE_SHIFT);
+-
+-		if ((saddr->pan_id == daddr->pan_id) &&
+-		    (saddr->pan_id != IEEE802154_PANID_BROADCAST)) {
+-			/* PANID compression/intra PAN */
+-			fc |= IEEE802154_FC_INTRA_PAN;
+-		} else {
+-			head[pos++] = saddr->pan_id & 0xff;
+-			head[pos++] = saddr->pan_id >> 8;
+-		}
++	hdr.dest = *(const struct ieee802154_addr *) daddr;
+ 
+-		if (saddr->addr_type == IEEE802154_ADDR_SHORT) {
+-			head[pos++] = saddr->short_addr & 0xff;
+-			head[pos++] = saddr->short_addr >> 8;
+-		} else {
+-			mac802154_haddr_copy_swap(head + pos, saddr->hwaddr);
+-			pos += IEEE802154_ADDR_LEN;
+-		}
+-	}
+-
+-	head[0] = fc;
+-	head[1] = fc >> 8;
++	hlen = ieee802154_hdr_push(skb, &hdr);
++	if (hlen < 0)
++		return -EINVAL;
+ 
+-	memcpy(skb_push(skb, pos), head, pos);
+ 	skb_reset_mac_header(skb);
+-	skb->mac_len = pos;
++	skb->mac_len = hlen;
+ 
+-	return pos;
++	return hlen;
+ }
+ 
+ static int
+ mac802154_header_parse(const struct sk_buff *skb, unsigned char *haddr)
+ {
+-	const u8 *hdr = skb_mac_header(skb);
+-	const u8 *tail = skb_tail_pointer(skb);
++	struct ieee802154_hdr hdr;
+ 	struct ieee802154_addr *addr = (struct ieee802154_addr *)haddr;
+-	u16 fc;
+-	int da_type;
+-
+-	if (hdr + 3 > tail)
+-		goto malformed;
+-
+-	fc = hdr[0] | (hdr[1] << 8);
+-
+-	hdr += 3;
+-
+-	da_type = IEEE802154_FC_DAMODE(fc);
+-	addr->addr_type = IEEE802154_FC_SAMODE(fc);
+-
+-	switch (da_type) {
+-	case IEEE802154_ADDR_NONE:
+-		if (fc & IEEE802154_FC_INTRA_PAN)
+-			goto malformed;
+-		break;
+-	case IEEE802154_ADDR_LONG:
+-		if (fc & IEEE802154_FC_INTRA_PAN) {
+-			if (hdr + 2 > tail)
+-				goto malformed;
+-			addr->pan_id = hdr[0] | (hdr[1] << 8);
+-			hdr += 2;
+-		}
+-
+-		if (hdr + IEEE802154_ADDR_LEN > tail)
+-			goto malformed;
+-
+-		hdr += IEEE802154_ADDR_LEN;
+-		break;
+-	case IEEE802154_ADDR_SHORT:
+-		if (fc & IEEE802154_FC_INTRA_PAN) {
+-			if (hdr + 2 > tail)
+-				goto malformed;
+-			addr->pan_id = hdr[0] | (hdr[1] << 8);
+-			hdr += 2;
+-		}
+-
+-		if (hdr + 2 > tail)
+-			goto malformed;
+-
+-		hdr += 2;
+-		break;
+-	default:
+-		goto malformed;
+-
+-	}
+-
+-	switch (addr->addr_type) {
+-	case IEEE802154_ADDR_NONE:
+-		break;
+-	case IEEE802154_ADDR_LONG:
+-		if (!(fc & IEEE802154_FC_INTRA_PAN)) {
+-			if (hdr + 2 > tail)
+-				goto malformed;
+-			addr->pan_id = hdr[0] | (hdr[1] << 8);
+-			hdr += 2;
+-		}
+-
+-		if (hdr + IEEE802154_ADDR_LEN > tail)
+-			goto malformed;
+-
+-		mac802154_haddr_copy_swap(addr->hwaddr, hdr);
+-		hdr += IEEE802154_ADDR_LEN;
+-		break;
+-	case IEEE802154_ADDR_SHORT:
+-		if (!(fc & IEEE802154_FC_INTRA_PAN)) {
+-			if (hdr + 2 > tail)
+-				goto malformed;
+-			addr->pan_id = hdr[0] | (hdr[1] << 8);
+-			hdr += 2;
+-		}
+ 
+-		if (hdr + 2 > tail)
+-			goto malformed;
+-
+-		addr->short_addr = hdr[0] | (hdr[1] << 8);
+-		hdr += 2;
+-		break;
+-	default:
+-		goto malformed;
++	if (ieee802154_hdr_peek_addrs(skb, &hdr) < 0) {
++		pr_debug("malformed packet\n");
++		return 0;
+ 	}
+ 
+-	return sizeof(struct ieee802154_addr);
+-
+-malformed:
+-	pr_debug("malformed packet\n");
+-	return 0;
++	*addr = hdr.source;
++	return sizeof(*addr);
+ }
+ 
+ static netdev_tx_t
+@@ -451,88 +305,76 @@ mac802154_subif_frame(struct mac802154_sub_if_data *sdata, struct sk_buff *skb)
+ 	}
+ }
+ 
+-static int mac802154_parse_frame_start(struct sk_buff *skb)
++static void mac802154_print_addr(const char *name,
++				 const struct ieee802154_addr *addr)
+ {
+-	u8 *head = skb->data;
+-	u16 fc;
+-
+-	if (mac802154_fetch_skb_u16(skb, &fc) ||
+-	    mac802154_fetch_skb_u8(skb, &(mac_cb(skb)->seq)))
+-		goto err;
+-
+-	pr_debug("fc: %04x dsn: %02x\n", fc, head[2]);
+-
+-	mac_cb(skb)->flags = IEEE802154_FC_TYPE(fc);
+-	mac_cb(skb)->sa.addr_type = IEEE802154_FC_SAMODE(fc);
+-	mac_cb(skb)->da.addr_type = IEEE802154_FC_DAMODE(fc);
+-
+-	if (fc & IEEE802154_FC_INTRA_PAN)
+-		mac_cb(skb)->flags |= MAC_CB_FLAG_INTRAPAN;
+-
+-	if (mac_cb(skb)->da.addr_type != IEEE802154_ADDR_NONE) {
+-		if (mac802154_fetch_skb_u16(skb, &(mac_cb(skb)->da.pan_id)))
+-			goto err;
+-
+-		/* source PAN id compression */
+-		if (mac_cb_is_intrapan(skb))
+-			mac_cb(skb)->sa.pan_id = mac_cb(skb)->da.pan_id;
+-
+-		pr_debug("dest PAN addr: %04x\n", mac_cb(skb)->da.pan_id);
++	if (addr->addr_type == IEEE802154_ADDR_NONE)
++		pr_debug("%s not present\n", name);
++
++	pr_debug("%s PAN ID: %04x\n", name, addr->pan_id);
++	if (addr->addr_type == IEEE802154_ADDR_SHORT) {
++		pr_debug("%s is short: %04x\n", name, addr->short_addr);
++	} else {
++		pr_debug("%s is hardware: %02x %02x %02x %02x %02x %02x %02x %02x\n",
++			 name, addr->hwaddr[0], addr->hwaddr[1],
++			 addr->hwaddr[2], addr->hwaddr[3], addr->hwaddr[4],
++			 addr->hwaddr[5], addr->hwaddr[6], addr->hwaddr[7]);
 +	}
 +}
-+
-+static int ieee802154_hdr_addr_len(int mode, bool omit_pan)
+ 
+-		if (mac_cb(skb)->da.addr_type == IEEE802154_ADDR_SHORT) {
+-			u16 *da = &(mac_cb(skb)->da.short_addr);
++static int mac802154_parse_frame_start(struct sk_buff *skb)
 +{
-+	int pan_len = omit_pan ? 0 : 2;
-+
-+	switch (mode) {
-+	case IEEE802154_ADDR_NONE: return 0;
-+	case IEEE802154_ADDR_SHORT: return 2 + pan_len;
-+	case IEEE802154_ADDR_LONG: return IEEE802154_ADDR_LEN + pan_len;
-+	default: return -EINVAL;
-+	}
-+}
-+
-+static int
-+ieee802154_hdr_get_sechdr(const u8 *buf, struct ieee802154_sechdr *hdr)
-+{
-+	int pos = 0;
-+	u32 short_index;
-+
-+	hdr->sc = buf[pos++];
-+	hdr->frame_ctr = ieee802154_hdr_get_u32(buf + pos);
-+	pos += 4;
-+
-+	switch (IEEE802154_SCF_KEY_ID_MODE(hdr->sc)) {
-+	case IEEE802154_SCF_KEY_IMPLICIT:
-+		return pos;
-+
-+	case IEEE802154_SCF_KEY_INDEX:
-+		break;
-+
-+	case IEEE802154_SCF_KEY_SHORT_INDEX:
-+		short_index = ieee802154_hdr_get_u32(buf + pos);
-+		pos += 4;
-+		hdr->key_source.pan.pan_id = short_index >> 16;
-+		hdr->key_source.pan.short_addr = short_index & 0xFFFF;
-+		break;
-+
-+	case IEEE802154_SCF_KEY_HW_INDEX:
-+		ieee802154_haddr_copy_swap(hdr->key_source.hw,
-+					   buf + pos);
-+		pos += IEEE802154_ADDR_LEN;
-+		break;
-+	}
-+
-+	hdr->key_id = buf[pos++];
-+
-+	return pos;
-+}
-+
-+static int ieee802154_hdr_sechdr_len(u8 sc)
-+{
-+	switch (IEEE802154_SCF_KEY_ID_MODE(sc)) {
-+	case IEEE802154_SCF_KEY_IMPLICIT: return 5;
-+	case IEEE802154_SCF_KEY_INDEX: return 6;
-+	case IEEE802154_SCF_KEY_SHORT_INDEX: return 10;
-+	case IEEE802154_SCF_KEY_HW_INDEX: return 14;
-+	default: return -EINVAL;
-+	}
-+}
-+
-+static int ieee802154_hdr_minlen(u16 fc)
-+{
-+	int dlen, slen;
-+
-+	dlen = ieee802154_hdr_addr_len(IEEE802154_FC_DAMODE(fc), false);
-+	slen = ieee802154_hdr_addr_len(IEEE802154_FC_SAMODE(fc),
-+				       fc & IEEE802154_FC_INTRA_PAN);
-+
-+	if (slen < 0 || dlen < 0)
++	struct ieee802154_hdr hdr;
++	int hlen;
+ 
+-			if (mac802154_fetch_skb_u16(skb, da))
+-				goto err;
++	hlen = ieee802154_hdr_pull(skb, hdr);
++	if (hlen < 0)
 +		return -EINVAL;
-+
-+	return 3 + dlen + slen + (fc & IEEE802154_FC_SECEN ? 1 : 0);
-+}
-+
-+static int
-+ieee802154_hdr_get_addrs(const u8 *buf, struct ieee802154_hdr *hdr)
-+{
-+	int pos = 0;
-+
-+	pos += ieee802154_hdr_get_addr(buf + pos,
-+				       IEEE802154_FC_DAMODE(hdr->fc),
-+				       false, &hdr->dest);
-+	pos += ieee802154_hdr_get_addr(buf + pos,
-+				       IEEE802154_FC_SAMODE(hdr->fc),
-+				       hdr->fc & IEEE802154_FC_INTRA_PAN,
-+				       &hdr->source);
-+
-+	if (hdr->fc && IEEE802154_FC_INTRA_PAN)
-+		hdr->source.pan_id = hdr->dest.pan_id;
-+
-+	return pos;
-+}
-+
-+int
-+ieee802154_hdr_pull(struct sk_buff *skb, struct ieee802154_hdr *hdr)
-+{
-+	int pos = 3, rc;
-+
-+	if (!pskb_may_pull(skb, 3))
-+		return -EINVAL;
-+
-+	hdr->fc = ieee802154_hdr_get_u16(skb->data);
-+	hdr->seq = skb->data[2];
-+
-+	rc = ieee802154_hdr_minlen(hdr->fc);
-+	if (rc < 0 || !pskb_may_pull(skb, rc))
-+		return -EINVAL;
-+
-+	pos += ieee802154_hdr_get_addrs(skb->data + pos, hdr);
-+
-+	if (hdr->fc & IEEE802154_FC_SECEN) {
-+		int want = pos + ieee802154_hdr_sechdr_len(hdr->sec.sc);
-+
-+		if (!pskb_may_pull(skb, want))
-+			return -EINVAL;
-+
-+		pos += ieee802154_hdr_get_sechdr(skb->data + pos, &hdr->sec);
-+	}
-+
-+	skb_pull(skb, pos);
-+	return pos;
-+}
-+EXPORT_SYMBOL_GPL(ieee802154_hdr_pull);
-+
-+int
-+ieee802154_hdr_peek_addrs(const struct sk_buff *skb, struct ieee802154_hdr *hdr)
-+{
-+	const u8 *buf = skb_mac_header(skb);
-+	int pos = 3, rc;
-+
-+	if (buf + 3 > skb->tail)
-+		return -EINVAL;
-+
-+	hdr->fc = ieee802154_hdr_get_u16(buf);
-+	hdr->seq = buf[2];
-+
-+	rc = ieee802154_hdr_minlen(hdr->fc);
-+	if (rc < 0 || buf + rc > skb->tail)
-+		return -EINVAL;
-+
-+	pos += ieee802154_hdr_get_addrs(buf + pos, hdr);
-+	return pos;
-+}
-+EXPORT_SYMBOL_GPL(ieee802154_hdr_peek_addrs);
+ 
+-			pr_debug("destination address is short: %04x\n",
+-				 mac_cb(skb)->da.short_addr);
+-		} else {
+-			if (!pskb_may_pull(skb, IEEE802154_ADDR_LEN))
+-				goto err;
++	skb->mac_len = hlen;
+ 
+-			mac802154_haddr_copy_swap(mac_cb(skb)->da.hwaddr,
+-						  skb->data);
+-			skb_pull(skb, IEEE802154_ADDR_LEN);
++	pr_debug("fc: %04x dsn: %02x\n", hdr->fc, hdr->seq);
+ 
+-			pr_debug("destination address is hardware\n");
+-		}
+-	}
++	mac_cb(skb)->flags = IEEE802154_FC_TYPE(hdr.fc);
++	mac_cb(skb)->sa = hdr.source;
++	mac_cb(skb)->da = hdr.dest;
+ 
+-	if (mac_cb(skb)->sa.addr_type != IEEE802154_ADDR_NONE) {
+-		/* non PAN-compression, fetch source address id */
+-		if (!(mac_cb_is_intrapan(skb))) {
+-			u16 *sa_pan = &(mac_cb(skb)->sa.pan_id);
++	if (hdr.fc & IEEE802154_FC_SECEN)
++		mac_cb(skb)->flags |= MAC_CB_FLAG_SECEN;
+ 
+-			if (mac802154_fetch_skb_u16(skb, sa_pan))
+-				goto err;
+-		}
++	mac802154_print_addr("destination", &hdr.dest);
++	mac802154_print_addr("source", &hdr.source);
+ 
+-		pr_debug("source PAN addr: %04x\n", mac_cb(skb)->da.pan_id);
++	if (hdr.fc & IEEE802154_FC_SECEN) {
++		const u8 *key;
+ 
+-		if (mac_cb(skb)->sa.addr_type == IEEE802154_ADDR_SHORT) {
+-			u16 *sa = &(mac_cb(skb)->sa.short_addr);
++		pr_debug("sc %02x\n", hdr.sec.sc);
+ 
+-			if (mac802154_fetch_skb_u16(skb, sa))
+-				goto err;
++		switch (IEEE802154_SCF_KEY_ID_MODE(hdr.sec.sc)) {
++		case IEEE802154_SCF_KEY_IMPLICIT:
++			pr_debug("implicit key\n");
++			break;
+ 
+-			pr_debug("source address is short: %04x\n",
+-				 mac_cb(skb)->sa.short_addr);
+-		} else {
+-			if (!pskb_may_pull(skb, IEEE802154_ADDR_LEN))
+-				goto err;
++		case IEEE802154_SCF_KEY_INDEX:
++			break;
+ 
+-			mac802154_haddr_copy_swap(mac_cb(skb)->sa.hwaddr,
+-						  skb->data);
+-			skb_pull(skb, IEEE802154_ADDR_LEN);
++		case IEEE802154_SCF_KEY_SHORT_INDEX:
++			pr_debug("key %04x:%04x %02x\n",
++				 hdr.sec.key_source.pan.pan_id,
++				 hdr.sec.key_source.pan.short_addr,
++				 hdr.sec.key_id);
++			break;
+ 
+-			pr_debug("source address is hardware\n");
++		case IEEE802154_SCF_KEY_HW_INDEX:
++			key = hdr.sec.key_source.hw;
++			pr_debug("key source %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x %02x\n",
++				 key[0], key[1], key[2], key[3], key[4],
++				 key[5], key[6], key[7], hdr.sec.key_id);
++			break;
+ 		}
+ 	}
+ 
+ 	return 0;
+-err:
+-	return -EINVAL;
+ }
+ 
+ void mac802154_wpans_rx(struct mac802154_priv *priv, struct sk_buff *skb)
 -- 
 1.7.9.5
 
