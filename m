@@ -1,80 +1,89 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net-next] hyperv: Move state setting for link query
-Date: Mon,  3 Mar 2014 15:54:35 -0800
-Message-ID: <1393890875-1420-1-git-send-email-haiyangz@microsoft.com>
+From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@web.de>
+Subject: Re: bridge is not forwaring ICMP6 neighbor solicitation to
+	KVM guest
+Date: Tue, 4 Mar 2014 00:03:23 +0100
+Message-ID: <20140303230323.GX5090@Linus-Debian>
+References: <1566805413.12693479.1393872931017.JavaMail.zimbra@redhat.com>
+	<2107636851.12713862.1393876035292.JavaMail.zimbra@redhat.com>
+	<20140303212759.GW5090@Linus-Debian> <5314F6D8.2050701@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
- linux-kernel@vger.kernel.org, haiyangz@microsoft.com
-To: davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="zHDeOHGDnzKksZSU"
+Cc: netdev@vger.kernel.org, Florian Westphal <fwestpha@redhat.com>,
+	bridge@lists.linux-foundation.org, Jan Stancek <jstancek@redhat.com>
+To: Vlad Yasevich <vyasevich@gmail.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <5314F6D8.2050701@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-It moves the state setting for query into rndis_filter_receive_response().
-All callbacks including query-complete and status-callback are synchronized
-by channel->inbound_lock. This prevents pentential race between them.
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
----
- drivers/net/hyperv/rndis_filter.c |   21 ++++++++++++++++++++-
- 1 files changed, 20 insertions(+), 1 deletions(-)
+--zHDeOHGDnzKksZSU
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index f0cc8ef..6a9f602 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -240,6 +240,22 @@ static int rndis_filter_send_request(struct rndis_device *dev,
- 	return ret;
- }
- 
-+static void rndis_set_link_state(struct rndis_device *rdev,
-+				 struct rndis_request *request)
-+{
-+	u32 link_status;
-+	struct rndis_query_complete *query_complete;
-+
-+	query_complete = &request->response_msg.msg.query_complete;
-+
-+	if (query_complete->status == RNDIS_STATUS_SUCCESS &&
-+	    query_complete->info_buflen == sizeof(u32)) {
-+		memcpy(&link_status, (void *)((unsigned long)query_complete +
-+		       query_complete->info_buf_offset), sizeof(u32));
-+		rdev->link_state = link_status != 0;
-+	}
-+}
-+
- static void rndis_filter_receive_response(struct rndis_device *dev,
- 				       struct rndis_message *resp)
- {
-@@ -269,6 +285,10 @@ static void rndis_filter_receive_response(struct rndis_device *dev,
- 		    sizeof(struct rndis_message) + RNDIS_EXT_LEN) {
- 			memcpy(&request->response_msg, resp,
- 			       resp->msg_len);
-+			if (request->request_msg.ndis_msg_type ==
-+			    RNDIS_MSG_QUERY && request->request_msg.msg.
-+			    query_req.oid == RNDIS_OID_GEN_MEDIA_CONNECT_STATUS)
-+				rndis_set_link_state(dev, request);
- 		} else {
- 			netdev_err(ndev,
- 				"rndis response buffer overflow "
-@@ -617,7 +637,6 @@ static int rndis_filter_query_device_link_status(struct rndis_device *dev)
- 	ret = rndis_filter_query_device(dev,
- 				      RNDIS_OID_GEN_MEDIA_CONNECT_STATUS,
- 				      &link_status, &size);
--	dev->link_state = (link_status != 0) ? true : false;
- 
- 	return ret;
- }
--- 
-1.7.4.1
+On Mon, Mar 03, 2014 at 04:40:40PM -0500, Vlad Yasevich wrote:
+> I did notice a minor issue in the bridge code.  The following
+> code:
+>        /* Prevent flooding this packet if there is no listener present */
+>         if (!ipv6_addr_is_ll_all_nodes(&ip6h->daddr))
+>                 BR_INPUT_SKB_CB(skb)->mrouters_only =3D 1;
+>=20
+>         if (ip6h->nexthdr !=3D IPPROTO_HOPOPTS ||
+>             ip6h->payload_len =3D=3D 0)
+>                 return 0;
+>=20
+> will mark most multicast traffic is mrouters_only.  The two
+> statement should be probably be reversed.  However, that's shouldn't
+> cause the reported problem.
+
+Reversing the order of these two if-clauses would reintroduce the issue
+this commit tried to address, I think:
+"bridge: prevent flooding IPv6 packets that do not have a listener"
+
+Besides, I don't quite see what minor issue you are refering to,
+would you mind being a little more verbose?
+
+Cheers, Linus
+
+PS: mrouters_only has a kind of confusing naming... for
+MLD/IGMP packets it means sending to multicast routers only, there
+the name fits. But for non-MLD/IGMP packets it means something
+else since "bridge: Only flood unregistered groups to routers"
+(and I went along with it with "bridge: prevent flooding IPv6 packets
+that do not have a listener"), there it means dropping the skb if
+there is no router or matching listener.
+
+--zHDeOHGDnzKksZSU
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJTFQo5AAoJELxyPiAAt6UvOCwP/07aEV79emg+L87Gs2TbajYM
+kAl9/sysLIfH7hIujdKSbHJTirVEs8l9AysWDCaHl7tDBnQVRnNAhRV3ejDG4kK3
+taccDj/66AtJAOl8VEoa6f1OZU2b78YiRPZKeHOaxjkZ/3+jU3UpWL7qqV84Vg4U
+2UOc7Xsbc+8+GG8NqKK/5oPnC7WG7U6QlSpxJlcmz681wZ6iDfLDR4Ep1WOi0rpJ
+ffgolcFxlANVLOijMR2p3kdmRyup/xBzrdy0G2gFOCwtxW2vV0OXjajK/uPPHv2+
+5JtKtS1VlPrKDJ5rIz+BRECMymKS7BtwCDqR+3nfz1/zK/w+GFeMkQuSMQ+oj+Xm
+SSbWI7H+wbVQRxGKs6nkpU3QjI4iuZGRYOJ7yYCuBcSdL1/ScVkr2DIYgIIxV35W
+upRhenIVZ4H8JELRWbyVeLwcaY5JJrflIAMpCzJJpcGKG9ojknkyP4uX24Sy8T3R
+7thPcPqJKy0OheEcbvKQQq1vSKxjlNNRbgYMKF91NxzUqeHLQUhnvW9a89Brdnid
+5aYbzNSTB4IGASsNCpq1WwoO7QZKi0SgC4BB4pF3UKEzwywD+IwQ+n2Domhz14Su
+7e8BUhqlPVMxo1N6aw2yL/O5lTcQ4b4vB7zvO5l4/Rj3KYpBHrJwFFObNifjTC/P
+XHRijXCy/CjRScukeTWT
+=Ot+D
+-----END PGP SIGNATURE-----
+
+--zHDeOHGDnzKksZSU--
