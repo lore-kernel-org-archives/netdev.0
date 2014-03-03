@@ -1,40 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [nf-next PATCH V3 0/5] netfilter: conntrack: optimization,
- remove central spinlock
-Date: Mon, 03 Mar 2014 16:00:46 -0500 (EST)
-Message-ID: <20140303.160046.1024219314107578405.davem@davemloft.net>
-References: <20140303134319.2615.9293.stgit@dragon>
+Subject: Re: pull-request: can 2014-03-03
+Date: Mon, 03 Mar 2014 16:05:36 -0500 (EST)
+Message-ID: <20140303.160536.1096367885545296290.davem@davemloft.net>
+References: <1393854875-8171-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, eric.dumazet@gmail.com,
-	pablo@netfilter.org, netdev@vger.kernel.org, fw@strlen.de,
-	kaber@trash.net
-To: brouer@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55074 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752636AbaCCVAt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 16:00:49 -0500
-In-Reply-To: <20140303134319.2615.9293.stgit@dragon>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1393854875-8171-1-git-send-email-mkl@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Mon, 03 Mar 2014 14:44:16 +0100
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Mon,  3 Mar 2014 14:54:27 +0100
 
-> This patchset change the conntrack locking and provides a huge
-> performance improvements.
-> 
-> This patchset is based upon Eric Dumazet's proposed patch:
->   http://thread.gmane.org/gmane.linux.network/268758/focus=47306
-> I have in agreement with Eric Dumazet, taken over this patch (and
-> turned it into a entire patchset).
-> 
-> Primary focus is to remove the central spinlock nf_conntrack_lock.
-> This requires several steps to be acheived.
- ...
+> this is a pull request of 8 patches. Oliver Hartkopp contributes a patch which
+> removes the CAN FD compatibility for CAN 2.0 sockets, as it turns out that this
+> compatibility has some conceptual cornercases. The remaining 7 patches are by
+> me, they address a problem in the flexcan driver. When shutting down the
+> interface ("ifconfig can0 down") under heavy network load the whole system will
+> hang. This series reworks the actual sequence in close() and the transition
+> from and to the low power modes of the CAN controller.
 
-For series:
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Pulled, thanks a lot Marc.
