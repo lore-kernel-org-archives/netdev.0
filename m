@@ -1,48 +1,55 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [Linux-zigbee-devel] [PATCH 4/4] ieee802154: remove seq member
- of mac_cb
-Date: Mon, 3 Mar 2014 15:10:27 +0100
-Message-ID: <20140303141026.GA22241@omega>
-References: <1393851547-27876-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
- <1393851547-27876-5-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
- <20140303140601.GB24286@omega>
+From: "'gregkh@linuxfoundation.org'" <gregkh@linuxfoundation.org>
+Subject: Re: change kmalloc into vmalloc for large memory allocations
+Date: Mon, 3 Mar 2014 06:10:44 -0800
+Message-ID: <20140303141044.GA9139@kroah.com>
+References: <35FD53F367049845BC99AC72306C23D102844605F38C@CNBJMBX05.corpusers.net>
+ <53104ECA.4010702@freescale.com>
+ <35FD53F367049845BC99AC72306C23D102844605F38D@CNBJMBX05.corpusers.net>
+ <20140228163304.GA15614@kroah.com>
+ <35FD53F367049845BC99AC72306C23D102844605F38F@CNBJMBX05.corpusers.net>
+ <20140303030821.GA16732@kroah.com>
+ <35FD53F367049845BC99AC72306C23D102844605F390@CNBJMBX05.corpusers.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-zigbee-devel@lists.sourceforge.net
-To: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f171.google.com ([209.85.215.171]:41458 "EHLO
-	mail-ea0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753975AbaCCOKe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 09:10:34 -0500
-Received: by mail-ea0-f171.google.com with SMTP id n15so3010498ead.16
-        for <netdev@vger.kernel.org>; Mon, 03 Mar 2014 06:10:33 -0800 (PST)
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "'alsa-devel@alsa-project.org'" <alsa-devel@alsa-project.org>,
+ "'broonie@opensource.wolfsonmicro.com'"
+ <broonie@opensource.wolfsonmicro.com>, "'tiwai@suse.de'" <tiwai@suse.de>,
+ "'fweisbec@gmail.com'" <fweisbec@gmail.com>,
+ 'Will Deacon' <will.deacon@arm.com>, "'perex@perex.cz'" <perex@perex.cz>,
+ "'mingo@redhat.com'" <mingo@redhat.com>,
+ "'linux-input@vger.kernel.org'" <linux-input@vger.kernel.org>,
+ "'rydberg@euromail.se'" <rydberg@euromail.se>, "'lrg@ti.com'" <lrg@ti.com>,
+ "'pablo@netfilter.org'" <pablo@netfilter.org>,
+ "'rusty@rustcorp.com.au'" <rusty@rustcorp.com.au>,
+ "'coreteam@netfilter.org'" <coreteam@netfilter.org>,
+ "'linux-arm-msm@vger.kernel.org'" <linux-arm-msm@vger.kernel.org>,
+ "'mschmidt@redhat.com'" <mschmidt@redhat.com>,
+ "'rostedt@goodmis.org'" <rostedt@goodmis.org>,
+ "'netfilter@vger.kernel.org'" <netfilter@vger.kernel.org>,
+ "'linux-arm-kernel@lists.infradead
+To: "Wang, Yalin" <Yalin.Wang@sonymobile.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <20140303140601.GB24286@omega>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <35FD53F367049845BC99AC72306C23D102844605F390@CNBJMBX05.corpusers.net>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 03, 2014 at 03:06:01PM +0100, Alexander Aring wrote:
-> Hi,
-> 
-> This patch is fine. Increment and set of DSN value should be done by
-> mac802154 layer.
-> 
-> But there is also a known issue with increment of DSN value while
-> 6lowpan fragmentation.
-> 
-> On a fragmented packet 6lowpan calls dev_hard_header once, then many
-> times lowpan_fragment_xmit, depending on the number of fragments which
-> is needed.
-> 
-> Each call of lowpan_fragment_xmit will have the same DSN value. Maybe we
-> should put the increment of DSN in "mac802154/tx.c" before calling xmit
-> callback from driver (Just an idea). What do you think about that?
-> 
 
-Or maybe we can move the dev_hard_header call in lowpan_fragment_xmit
-and lowpan_xmit if this is possible. But then we doesn't know the mac
-header length in lowpan_skb_fragmentation. Strange...
+On Mon, Mar 03, 2014 at 04:00:59PM +0800, Wang, Yalin wrote:
+> Hi  greg,
 
-- Alex
+Please read Documentation/SubmittingPatches for how to properly submit
+kernel patches in a form that they could be accepted.
+
+thanks,
+
+greg k-h
