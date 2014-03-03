@@ -1,167 +1,135 @@
-From: "Wang, Yalin" <Yalin.Wang@sonymobile.com>
-Subject: RE: change kmalloc into vmalloc for large memory allocations
-Date: Mon, 3 Mar 2014 16:00:59 +0800
-Message-ID: <35FD53F367049845BC99AC72306C23D102844605F390@CNBJMBX05.corpusers.net>
-References: <35FD53F367049845BC99AC72306C23D102844605F38C@CNBJMBX05.corpusers.net>
- <53104ECA.4010702@freescale.com>
- <35FD53F367049845BC99AC72306C23D102844605F38D@CNBJMBX05.corpusers.net>
- <20140228163304.GA15614@kroah.com>
- <35FD53F367049845BC99AC72306C23D102844605F38F@CNBJMBX05.corpusers.net>
- <20140303030821.GA16732@kroah.com>
+From: Govindarajulu Varadarajan <gvaradar@cisco.com>
+Subject: Re: [PATCH net-next V1 1/2] net: Utility function to get affinity_hint
+ by policy
+Date: Mon, 3 Mar 2014 14:14:46 +0530 (IST)
+Message-ID: <alpine.LNX.2.03.1403031409040.18716@cisco.com>
+References: <1393769771-16196-1-git-send-email-amirv@mellanox.com> <1393769771-16196-2-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "'alsa-devel@alsa-project.org'" <alsa-devel@alsa-project.org>,
- "'broonie@opensource.wolfsonmicro.com'"
- <broonie@opensource.wolfsonmicro.com>, "'tiwai@suse.de'" <tiwai@suse.de>,
- "'fweisbec@gmail.com'" <fweisbec@gmail.com>,
- 'Will Deacon' <will.deacon@arm.com>, "'perex@perex.cz'" <perex@perex.cz>,
- "'mingo@redhat.com'" <mingo@redhat.com>,
- "'linux-input@vger.kernel.org'" <linux-input@vger.kernel.org>,
- "'rydberg@euromail.se'" <rydberg@euromail.se>, "'lrg@ti.com'" <lrg@ti.com>,
- "'pablo@netfilter.org'" <pablo@netfilter.org>,
- "'rusty@rustcorp.com.au'" <rusty@rustcorp.com.au>,
- "'coreteam@netfilter.org'" <coreteam@netfilter.org>,
- "'linux-arm-msm@vger.kernel.org'" <linux-arm-msm@vger.kernel.org>,
- "'mschmidt@redhat.com'" <mschmidt@redhat.com>,
- "'rostedt@goodmis.org'" <rostedt@goodmis.org>,
- "'netfilter@vger.kernel.org'" <netfilter@vger.kernel.org>,
- "'linux-arm-kernel@lists.infradead
-To: "'gregkh@linuxfoundation.org'" <gregkh@linuxfoundation.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20140303030821.GA16732@kroah.com>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>, prarit@redhat.com
+To: Amir Vadai <amirv@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bgl-iport-1.cisco.com ([72.163.197.25]:1531 "EHLO
+	bgl-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753693AbaCCIn0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 03:43:26 -0500
+In-Reply-To: <1393769771-16196-2-git-send-email-amirv@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgIGdyZWcsDQoNCkZvciANCmh0dHBzOi8vZ2l0Lmtlcm5lbC5vcmcvY2dpdC9saW51eC9rZXJu
-ZWwvZ2l0L3dpbGwvbGludXguZ2l0L3RyZWUvZHJpdmVycy9pbnB1dC9ldmRldi5jP2g9bWFzdGVy
-I240MDMNCg0KdGhlcmUgaGF2ZSBiZWVuIGEgcGF0Y2ggZm9yIGttYWxsb2MgZmFpbGVkICwNCg0K
-Zm9yIA0KaHR0cHM6Ly9naXQua2VybmVsLm9yZy9jZ2l0L2xpbnV4L2tlcm5lbC9naXQvd2lsbC9s
-aW51eC5naXQvdHJlZS9zb3VuZC9zb2Mvc29jLWNvcmUuYz9oPW1hc3RlciNuMzc3Mg0KDQpJIGhh
-dmUgbm90IGNoYW5nZSBpdCAsIG5lZWQgc29tZSBtb3JlIGNvZGUgdG8gY2hhbmdlIGluIGRldm1f
-a3phbGxvYyAuLg0KDQpJIG1ha2UgYSBwYXRjaCBmb3IgbmV0ZmlsdGVyIHBhcnQgOg0KDQpodHRw
-czovL2dpdC5rZXJuZWwub3JnL2NnaXQvbGludXgva2VybmVsL2dpdC93aWxsL2xpbnV4LmdpdC90
-cmVlL25ldC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNrX2Z0cC5jP2g9bWFzdGVyI242MDMNCmh0dHBz
-Oi8vZ2l0Lmtlcm5lbC5vcmcvY2dpdC9saW51eC9rZXJuZWwvZ2l0L3dpbGwvbGludXguZ2l0L3Ry
-ZWUvbmV0L25ldGZpbHRlci9uZl9jb25udHJhY2tfaDMyM19tYWluLmM/aD1tYXN0ZXIjbjE4NDkN
-Cmh0dHBzOi8vZ2l0Lmtlcm5lbC5vcmcvY2dpdC9saW51eC9rZXJuZWwvZ2l0L3dpbGwvbGludXgu
-Z2l0L3RyZWUvbmV0L25ldGZpbHRlci9uZl9jb25udHJhY2tfaXJjLmM/aD1tYXN0ZXIjbjI0Nw0K
-aHR0cHM6Ly9naXQua2VybmVsLm9yZy9jZ2l0L2xpbnV4L2tlcm5lbC9naXQvd2lsbC9saW51eC5n
-aXQvdHJlZS9uZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19zYW5lLmM/aD1tYXN0ZXIjbjE5NQ0K
-DQpzZWVtcyB3b3JrIHdlbGwgLA0KdGhlc2UgbW9kdWxlIHdpbGwgYWxsb2NhdGUgNjRLQiBsYXJn
-ZSBtZW1vcnksDQppcyBpdCBwb3NzaWJsZSB0byBiZSBtZXJnZWQgPw0KDQpUaGFua3MgDQoNCi0t
-ID44IC0tDQpkaWZmIC0tZ2l0IGEvbmV0L25ldGZpbHRlci9uZl9jb25udHJhY2tfZnRwLmMgYi9u
-ZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19mdHAuYw0KaW5kZXggYjhhMDkyNC4uMGU5MmIwZCAx
-MDA2NDQNCi0tLSBhL25ldC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNrX2Z0cC5jDQorKysgYi9uZXQv
-bmV0ZmlsdGVyL25mX2Nvbm50cmFja19mdHAuYw0KQEAgLTE0LDcgKzE0LDcgQEANCiAjaW5jbHVk
-ZSA8bGludXgvbW9kdWxlcGFyYW0uaD4NCiAjaW5jbHVkZSA8bGludXgvbmV0ZmlsdGVyLmg+DQog
-I2luY2x1ZGUgPGxpbnV4L2lwLmg+DQotI2luY2x1ZGUgPGxpbnV4L3NsYWIuaD4NCisjaW5jbHVk
-ZSA8bGludXgvdm1hbGxvYy5oPg0KICNpbmNsdWRlIDxsaW51eC9pcHY2Lmg+DQogI2luY2x1ZGUg
-PGxpbnV4L2N0eXBlLmg+DQogI2luY2x1ZGUgPGxpbnV4L2luZXQuaD4NCkBAIC01OTMsMTQgKzU5
-MywxNCBAQCBzdGF0aWMgdm9pZCBuZl9jb25udHJhY2tfZnRwX2Zpbmkodm9pZCkNCiAJCX0NCiAJ
-fQ0KIA0KLQlrZnJlZShmdHBfYnVmZmVyKTsNCisJdmZyZWUoZnRwX2J1ZmZlcik7DQogfQ0KIA0K
-IHN0YXRpYyBpbnQgX19pbml0IG5mX2Nvbm50cmFja19mdHBfaW5pdCh2b2lkKQ0KIHsNCiAJaW50
-IGksIGogPSAtMSwgcmV0ID0gMDsNCiANCi0JZnRwX2J1ZmZlciA9IGttYWxsb2MoNjU1MzYsIEdG
-UF9LRVJORUwpOw0KKwlmdHBfYnVmZmVyID0gdm1hbGxvYyg2NTUzNiwgR0ZQX0tFUk5FTCk7DQog
-CWlmICghZnRwX2J1ZmZlcikNCiAJCXJldHVybiAtRU5PTUVNOw0KIA0KZGlmZiAtLWdpdCBhL25l
-dC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNrX2gzMjNfbWFpbi5jIGIvbmV0L25ldGZpbHRlci9uZl9j
-b25udHJhY2tfaDMyM19tYWluLmMNCmluZGV4IDcwODY2ZDEuLjQ5YWUwOTIgMTAwNjQ0DQotLS0g
-YS9uZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19oMzIzX21haW4uYw0KKysrIGIvbmV0L25ldGZp
-bHRlci9uZl9jb25udHJhY2tfaDMyM19tYWluLmMNCkBAIC0xOCw3ICsxOCw3IEBADQogI2luY2x1
-ZGUgPGxpbnV4L2luZXQuaD4NCiAjaW5jbHVkZSA8bGludXgvaW4uaD4NCiAjaW5jbHVkZSA8bGlu
-dXgvaXAuaD4NCi0jaW5jbHVkZSA8bGludXgvc2xhYi5oPg0KKyNpbmNsdWRlIDxsaW51eC92bWFs
-bG9jLmg+DQogI2luY2x1ZGUgPGxpbnV4L3VkcC5oPg0KICNpbmNsdWRlIDxsaW51eC90Y3AuaD4N
-CiAjaW5jbHVkZSA8bGludXgvc2tidWZmLmg+DQpAQCAtMTgzNyw3ICsxODM3LDcgQEAgc3RhdGlj
-IHZvaWQgX19leGl0IG5mX2Nvbm50cmFja19oMzIzX2Zpbmkodm9pZCkNCiAJbmZfY29ubnRyYWNr
-X2hlbHBlcl91bnJlZ2lzdGVyKCZuZl9jb25udHJhY2tfaGVscGVyX3E5MzFbMV0pOw0KIAluZl9j
-b25udHJhY2tfaGVscGVyX3VucmVnaXN0ZXIoJm5mX2Nvbm50cmFja19oZWxwZXJfcTkzMVswXSk7
-DQogCW5mX2Nvbm50cmFja19oZWxwZXJfdW5yZWdpc3RlcigmbmZfY29ubnRyYWNrX2hlbHBlcl9o
-MjQ1KTsNCi0Ja2ZyZWUoaDMyM19idWZmZXIpOw0KKwl2ZnJlZShoMzIzX2J1ZmZlcik7DQogCXBy
-X2RlYnVnKCJuZl9jdF9oMzIzOiBmaW5pXG4iKTsNCiB9DQogDQpAQCAtMTg0Niw3ICsxODQ2LDcg
-QEAgc3RhdGljIGludCBfX2luaXQgbmZfY29ubnRyYWNrX2gzMjNfaW5pdCh2b2lkKQ0KIHsNCiAJ
-aW50IHJldDsNCiANCi0JaDMyM19idWZmZXIgPSBrbWFsbG9jKDY1NTM2LCBHRlBfS0VSTkVMKTsN
-CisJaDMyM19idWZmZXIgPSB2bWFsbG9jKDY1NTM2LCBHRlBfS0VSTkVMKTsNCiAJaWYgKCFoMzIz
-X2J1ZmZlcikNCiAJCXJldHVybiAtRU5PTUVNOw0KIAlyZXQgPSBuZl9jb25udHJhY2tfaGVscGVy
-X3JlZ2lzdGVyKCZuZl9jb25udHJhY2tfaGVscGVyX2gyNDUpOw0KQEAgLTE4NzYsNyArMTg3Niw3
-IEBAIGVycjM6DQogZXJyMjoNCiAJbmZfY29ubnRyYWNrX2hlbHBlcl91bnJlZ2lzdGVyKCZuZl9j
-b25udHJhY2tfaGVscGVyX2gyNDUpOw0KIGVycjE6DQotCWtmcmVlKGgzMjNfYnVmZmVyKTsNCisJ
-dmZyZWUoaDMyM19idWZmZXIpOw0KIAlyZXR1cm4gcmV0Ow0KIH0NCiANCmRpZmYgLS1naXQgYS9u
-ZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19pcmMuYyBiL25ldC9uZXRmaWx0ZXIvbmZfY29ubnRy
-YWNrX2lyYy5jDQppbmRleCAwZmQyOTc2Li5iNTdkZjEwIDEwMDY0NA0KLS0tIGEvbmV0L25ldGZp
-bHRlci9uZl9jb25udHJhY2tfaXJjLmMNCisrKyBiL25ldC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNr
-X2lyYy5jDQpAQCAtMTYsNyArMTYsNyBAQA0KICNpbmNsdWRlIDxsaW51eC9pcC5oPg0KICNpbmNs
-dWRlIDxsaW51eC90Y3AuaD4NCiAjaW5jbHVkZSA8bGludXgvbmV0ZmlsdGVyLmg+DQotI2luY2x1
-ZGUgPGxpbnV4L3NsYWIuaD4NCisjaW5jbHVkZSA8bGludXgvdm1hbGxvYy5oPg0KIA0KICNpbmNs
-dWRlIDxuZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFjay5oPg0KICNpbmNsdWRlIDxuZXQvbmV0Zmls
-dGVyL25mX2Nvbm50cmFja19leHBlY3QuaD4NCkBAIC0yNDQsNyArMjQ0LDcgQEAgc3RhdGljIGlu
-dCBfX2luaXQgbmZfY29ubnRyYWNrX2lyY19pbml0KHZvaWQpDQogCWlyY19leHBfcG9saWN5Lm1h
-eF9leHBlY3RlZCA9IG1heF9kY2NfY2hhbm5lbHM7DQogCWlyY19leHBfcG9saWN5LnRpbWVvdXQg
-PSBkY2NfdGltZW91dDsNCiANCi0JaXJjX2J1ZmZlciA9IGttYWxsb2MoNjU1MzYsIEdGUF9LRVJO
-RUwpOw0KKwlpcmNfYnVmZmVyID0gdm1hbGxvYyg2NTUzNik7DQogCWlmICghaXJjX2J1ZmZlcikN
-CiAJCXJldHVybiAtRU5PTUVNOw0KIA0KQEAgLTI4NSw3ICsyODUsNyBAQCBzdGF0aWMgdm9pZCBu
-Zl9jb25udHJhY2tfaXJjX2Zpbmkodm9pZCkNCiANCiAJZm9yIChpID0gMDsgaSA8IHBvcnRzX2M7
-IGkrKykNCiAJCW5mX2Nvbm50cmFja19oZWxwZXJfdW5yZWdpc3RlcigmaXJjW2ldKTsNCi0Ja2Zy
-ZWUoaXJjX2J1ZmZlcik7DQorCXZmcmVlKGlyY19idWZmZXIpOw0KIH0NCiANCiBtb2R1bGVfaW5p
-dChuZl9jb25udHJhY2tfaXJjX2luaXQpOw0KZGlmZiAtLWdpdCBhL25ldC9uZXRmaWx0ZXIvbmZf
-Y29ubnRyYWNrX3NhbmUuYyBiL25ldC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNrX3NhbmUuYw0KaW5k
-ZXggNGEyMTM0Zi4uYTRjOGJmMyAxMDA2NDQNCi0tLSBhL25ldC9uZXRmaWx0ZXIvbmZfY29ubnRy
-YWNrX3NhbmUuYw0KKysrIGIvbmV0L25ldGZpbHRlci9uZl9jb25udHJhY2tfc2FuZS5jDQpAQCAt
-MjAsNyArMjAsNyBAQA0KICNpbmNsdWRlIDxsaW51eC9tb2R1bGUuaD4NCiAjaW5jbHVkZSA8bGlu
-dXgvbW9kdWxlcGFyYW0uaD4NCiAjaW5jbHVkZSA8bGludXgvbmV0ZmlsdGVyLmg+DQotI2luY2x1
-ZGUgPGxpbnV4L3NsYWIuaD4NCisjaW5jbHVkZSA8bGludXgvdm1hbGxvYy5oPg0KICNpbmNsdWRl
-IDxsaW51eC9pbi5oPg0KICNpbmNsdWRlIDxsaW51eC90Y3AuaD4NCiAjaW5jbHVkZSA8bmV0L25l
-dGZpbHRlci9uZl9jb25udHJhY2suaD4NCkBAIC0xODUsMTQgKzE4NSwxNCBAQCBzdGF0aWMgdm9p
-ZCBuZl9jb25udHJhY2tfc2FuZV9maW5pKHZvaWQpDQogCQl9DQogCX0NCiANCi0Ja2ZyZWUoc2Fu
-ZV9idWZmZXIpOw0KKwl2ZnJlZShzYW5lX2J1ZmZlcik7DQogfQ0KIA0KIHN0YXRpYyBpbnQgX19p
-bml0IG5mX2Nvbm50cmFja19zYW5lX2luaXQodm9pZCkNCiB7DQogCWludCBpLCBqID0gLTEsIHJl
-dCA9IDA7DQogDQotCXNhbmVfYnVmZmVyID0ga21hbGxvYyg2NTUzNiwgR0ZQX0tFUk5FTCk7DQor
-CXNhbmVfYnVmZmVyID0gdm1hbGxvYyg2NTUzNik7DQogCWlmICghc2FuZV9idWZmZXIpDQogCQly
-ZXR1cm4gLUVOT01FTTsNCg0KDQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiAn
-Z3JlZ2toQGxpbnV4Zm91bmRhdGlvbi5vcmcnIFttYWlsdG86Z3JlZ2toQGxpbnV4Zm91bmRhdGlv
-bi5vcmddIA0KU2VudDogTW9uZGF5LCBNYXJjaCAwMywgMjAxNCAxMTowOCBBTQ0KVG86IFdhbmcs
-IFlhbGluDQpDYzogJ0h1YW5nIFNoaWppZSc7ICdsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3Jn
-JzsgJ2xpbnV4LWFybS1tc21Admdlci5rZXJuZWwub3JnJzsgJ2xpbnV4LWFybS1rZXJuZWxAbGlz
-dHMuaW5mcmFkZWFkLm9yZyc7ICdsaW51eC1pbnB1dEB2Z2VyLmtlcm5lbC5vcmcnOyAnYmFsYmlA
-dGkuY29tJzsgJ2xyZ0B0aS5jb20nOyAnYnJvb25pZUBvcGVuc291cmNlLndvbGZzb25taWNyby5j
-b20nOyAncGVyZXhAcGVyZXguY3onOyAndGl3YWlAc3VzZS5kZSc7ICdwYWJsb0BuZXRmaWx0ZXIu
-b3JnJzsgJ2thYmVyQHRyYXNoLm5ldCc7ICdkYXZlbUBkYXZlbWxvZnQubmV0JzsgJ3Jvc3RlZHRA
-Z29vZG1pcy5vcmcnOyAnZndlaXNiZWNAZ21haWwuY29tJzsgJ21pbmdvQHJlZGhhdC5jb20nOyAn
-ZG1pdHJ5LnRvcm9raG92QGdtYWlsLmNvbSc7ICdyeWRiZXJnQGV1cm9tYWlsLnNlJzsgJ2xpbnV4
-LXVzYkB2Z2VyLmtlcm5lbC5vcmcnOyAnYWxzYS1kZXZlbEBhbHNhLXByb2plY3Qub3JnJzsgJ25l
-dGZpbHRlci1kZXZlbEB2Z2VyLmtlcm5lbC5vcmcnOyAnbmV0ZmlsdGVyQHZnZXIua2VybmVsLm9y
-Zyc7ICdjb3JldGVhbUBuZXRmaWx0ZXIub3JnJzsgJ25ldGRldkB2Z2VyLmtlcm5lbC5vcmcnDQpT
-dWJqZWN0OiBSZTogY2hhbmdlIGttYWxsb2MgaW50byB2bWFsbG9jIGZvciBsYXJnZSBtZW1vcnkg
-YWxsb2NhdGlvbnMNCg0KT24gTW9uLCBNYXIgMDMsIDIwMTQgYXQgMTA6NTE6MjNBTSArMDgwMCwg
-V2FuZywgWWFsaW4gd3JvdGU6DQo+IEhpICBncmVnLA0KPiANCj4gSSBhbSBzb3JyeSwNCj4gSSBt
-YWtlIGEgbWlzdGFrZSAsDQo+IFlvdSBhcmUgcmlnaHQgLA0KPiBodHRwczovL2dpdC5rZXJuZWwu
-b3JnL2NnaXQvbGludXgva2VybmVsL2dpdC93aWxsL2xpbnV4LmdpdC90cmVlL2RyaXZlDQo+IHJz
-L3VzYi9nYWRnZXQvZl9tYXNzX3N0b3JhZ2UuYz9oPW1hc3RlciNuMjcyNA0KPiANCj4gdGhpcyBv
-bmUgc2hvdWxkIG5vdCBjaGFuZ2VkIHRvIHVzZSB2bWFsbG9jLCB0aGUgYnVmZmVyIHdpbGwgYmUg
-dXNlZCBieSANCj4gRE1B77yMDQoNCldoaWNoIGlzIHdoeSBhIHdyYXBwZXIgZnVuY3Rpb24gd2ls
-bCBuZXZlciB3b3JrLg0KDQo+IG90aGVycyBzaG91bGQgYmUgc2FmZSB0byBjaGFuZ2U6DQo+IA0K
-PiBodHRwczovL2dpdC5rZXJuZWwub3JnL2NnaXQvbGludXgva2VybmVsL2dpdC93aWxsL2xpbnV4
-LmdpdC90cmVlL3NvdW5kDQo+IC9zb2Mvc29jLWNvcmUuYz9oPW1hc3RlciNuMzc3Mg0KPiANCj4g
-aHR0cHM6Ly9naXQua2VybmVsLm9yZy9jZ2l0L2xpbnV4L2tlcm5lbC9naXQvd2lsbC9saW51eC5n
-aXQvdHJlZS9uZXQvbg0KPiBldGZpbHRlci9uZl9jb25udHJhY2tfZnRwLmM/aD1tYXN0ZXIjbjYw
-Mw0KPiBodHRwczovL2dpdC5rZXJuZWwub3JnL2NnaXQvbGludXgva2VybmVsL2dpdC93aWxsL2xp
-bnV4LmdpdC90cmVlL25ldC9uDQo+IGV0ZmlsdGVyL25mX2Nvbm50cmFja19oMzIzX21haW4uYz9o
-PW1hc3RlciNuMTg0OQ0KPiBodHRwczovL2dpdC5rZXJuZWwub3JnL2NnaXQvbGludXgva2VybmVs
-L2dpdC93aWxsL2xpbnV4LmdpdC90cmVlL25ldC9uDQo+IGV0ZmlsdGVyL25mX2Nvbm50cmFja19p
-cmMuYz9oPW1hc3RlciNuMjQ3DQo+IGh0dHBzOi8vZ2l0Lmtlcm5lbC5vcmcvY2dpdC9saW51eC9r
-ZXJuZWwvZ2l0L3dpbGwvbGludXguZ2l0L3RyZWUvbmV0L24NCj4gZXRmaWx0ZXIvbmZfY29ubnRy
-YWNrX3NhbmUuYz9oPW1hc3RlciNuMTk1DQo+IA0KPiBodHRwczovL2dpdC5rZXJuZWwub3JnL2Nn
-aXQvbGludXgva2VybmVsL2dpdC93aWxsL2xpbnV4LmdpdC90cmVlL2RyaXZlDQo+IHJzL2lucHV0
-L2V2ZGV2LmM/aD1tYXN0ZXIjbjQwMw0KDQpUaGVuIHNlbmQgaW5kaXZpZHVhbCBwYXRjaGVzIGZv
-ciB0aGVzZSBhbmQgc2VlIHdoYXQgaGFwcGVucy4NCg0KZ3JlZyBrLWgNCl9fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmxpbnV4LWFybS1rZXJuZWwgbWFpbGlu
-ZyBsaXN0CmxpbnV4LWFybS1rZXJuZWxAbGlzdHMuaW5mcmFkZWFkLm9yZwpodHRwOi8vbGlzdHMu
-aW5mcmFkZWFkLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2xpbnV4LWFybS1rZXJuZWwK
+
+
+On Sun, 2 Mar 2014, Amir Vadai wrote:
+
+> This function sets the affinity_mask according to a numa aware policy.
+> affinity_mask could be used as an affinity hint for the IRQ related to
+> this rx queue.
+> Current policy is to spread rx queues accross cores - local cores first.
+> It could be extended in the future.
+>
+> CC: Prarit Bhargava <prarit@redhat.com>
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+> ---
+> include/linux/netdevice.h |  3 +++
+> net/core/dev.c            | 55 +++++++++++++++++++++++++++++++++++++++++++++++
+> 2 files changed, 58 insertions(+)
+>
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 1a86948..db4fd12 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -2526,6 +2526,9 @@ static inline int netif_set_real_num_rx_queues(struct net_device *dev,
+> }
+> #endif
+>
+> +int netif_set_rx_queue_affinity_hint(int rxq, int numa_node,
+> +				     cpumask_var_t affinity_mask);
+> +
+> static inline int netif_copy_real_num_queues(struct net_device *to_dev,
+> 					     const struct net_device *from_dev)
+> {
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index b1b0c8d..a454d15 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2116,6 +2116,61 @@ int netif_set_real_num_rx_queues(struct net_device *dev, unsigned int rxq)
+> EXPORT_SYMBOL(netif_set_real_num_rx_queues);
+> #endif
+>
+> +/* netif_set_rx_queue_affinity_hint - set affinity hint of rx queue
+> + * @rxq: index of rx queue
+> + * @numa_node: prefered numa_node
+> + * @affinity_mask: the relevant cpu bit is set according to the policy
+> + *
+> + * This function sets the affinity_mask according to a numa aware policy.
+> + * affinity_mask coulbe used as an affinity hint for the IRQ related to this
+> + * rx queue.
+> + * The policy is to spread rx queues accross cores - local cores first.
+> + *
+> + * Returns 0 on success, or a negative error code.
+> + */
+> +int netif_set_rx_queue_affinity_hint(int rxq, int numa_node,
+> +				     cpumask_var_t affinity_mask)
+> +{
+> +	const struct cpumask *p_numa_cores_mask;
+> +	cpumask_var_t non_numa_cores_mask = NULL;
+> +	int affinity_cpu;
+> +	int ret = 0;
+> +
+> +	rxq = rxq % num_online_cpus();
+> +
+> +	p_numa_cores_mask = cpumask_of_node(numa_node);
+> +	if (!p_numa_cores_mask)
+> +		p_numa_cores_mask = cpu_online_mask;
+> +
+> +	for_each_cpu(affinity_cpu, p_numa_cores_mask) {
+> +		if (--rxq < 0)
+> +			goto out;
+> +	}
+> +
+> +	if (!zalloc_cpumask_var(&non_numa_cores_mask, GFP_KERNEL)) {
+> +		ret = -ENOMEM;
+> +		goto err;
+> +	}
+> +
+> +	cpumask_xor(non_numa_cores_mask, cpu_online_mask, p_numa_cores_mask);
+> +
+> +	for_each_cpu(affinity_cpu, non_numa_cores_mask) {
+> +		if (--rxq < 0)
+> +			goto out;
+> +	}
+> +
+> +	goto err;
+
+Hi Amir
+
+Here ret should have a non-zero value right? Since we failed to find an
+affinity hint.
+
+thanks
+govind
+
+> +
+> +out:
+> +	cpumask_set_cpu(affinity_cpu, affinity_mask);
+> +
+> +err:
+> +	free_cpumask_var(non_numa_cores_mask);
+> +
+> +	return ret;
+> +}
+> +EXPORT_SYMBOL(netif_set_rx_queue_affinity_hint);
+> +
+> /**
+>  * netif_get_num_default_rss_queues - default number of RSS queues
+>  *
+> -- 
+> 1.8.3.4
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
