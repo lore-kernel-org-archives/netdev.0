@@ -1,41 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ieee802154: fix at86rf212_set_txpower() exit
- path
-Date: Mon, 03 Mar 2014 15:40:48 -0500 (EST)
-Message-ID: <20140303.154048.1230180202774511095.davem@davemloft.net>
-References: <1393714476-21515-1-git-send-email-sakiwit@gmail.com>
+From: zbr@ioremap.net
+Subject: Re: [PATCH] connector: remove duplicated code in cn_call_callback()
+Date: Tue, 04 Mar 2014 00:42:40 +0400
+Message-ID: <181701393879360@web25g.yandex.ru>
+References: <1393704056-13943-1-git-send-email-khoroshilov@ispras.ru> <20140303.153945.218115412923126825.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	phoebe.buckheister@itwm.fraunhofer.de
-To: sakiwit@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54882 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753590AbaCCUku (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 15:40:50 -0500
-In-Reply-To: <1393714476-21515-1-git-send-email-sakiwit@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=koi8-r
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	"khoroshilov@ispras.ru" <khoroshilov@ispras.ru>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140303.153945.218115412923126825.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jean Sacren <sakiwit@gmail.com>
-Date: Sat,  1 Mar 2014 15:54:36 -0700
+Hi everyone
 
-> The commit 9b2777d6089bc ("ieee802154: add TX power control to
-> wpan_phy") introduced the new function at86rf212_set_txpower() with
-> the questionable check of the return of __at86rf230_write() in the
-> exit path:
-> 
-> 1) Both at86rf212_set_txpower() and __at86rf230_write() have the
->    same return type.
-> 
-> 2) Whatever __at86rf230_write() returns becomes the return value of
->    at86rf212_set_txpower().
-> 
-> Thus, fix the exit path by getting rid of that check entirely.
-> 
-> Signed-off-by: Jean Sacren <sakiwit@gmail.com>
+04.03.2014, 00:39, "David Miller" <davem@davemloft.net>:
+> From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+> Date: Sun, =9A2 Mar 2014 00:00:56 +0400
+>
+>> =9AThere were a couple of patches fixing the same bug that
+>> =9Aresults in duplicated err =3D 0; assignment.
+>> =9AThe patch removes one of them.
+>>
+>> =9ASigned-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+>
+> Applied to net-next, thank you.
 
-Applied, thank you.
+Thank you
