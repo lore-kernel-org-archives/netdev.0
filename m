@@ -1,152 +1,120 @@
-From: Jan Stancek <jstancek@redhat.com>
-Subject: bridge is not forwaring ICMP6 neighbor solicitation to KVM guest
-Date: Mon, 3 Mar 2014 14:47:15 -0500 (EST)
-Message-ID: <2107636851.12713862.1393876035292.JavaMail.zimbra@redhat.com>
-References: <1566805413.12693479.1393872931017.JavaMail.zimbra@redhat.com>
+From: Christian Borntraeger <borntraeger@de.ibm.com>
+Subject: Re: [PATCH net] macvlan: Add support for 'always_on' offload features
+Date: Mon, 03 Mar 2014 21:10:24 +0100
+Message-ID: <5314E1B0.3030408@de.ibm.com>
+References: <1393875252-17154-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: linus.luessing@web.de, netdev@vger.kernel.org,
-	Florian Westphal <fwestpha@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Florian Westphal <fw@strlen.de>, Jason Wang <jasowang@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3-phx2.redhat.com ([209.132.183.24]:45057 "EHLO
-	mx3-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754040AbaCCTrQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 14:47:16 -0500
-In-Reply-To: <1566805413.12693479.1393872931017.JavaMail.zimbra@redhat.com>
+Received: from e06smtp16.uk.ibm.com ([195.75.94.112]:38095 "EHLO
+	e06smtp16.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754255AbaCCUKa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 15:10:30 -0500
+Received: from /spool/local
+	by e06smtp16.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <borntraeger@de.ibm.com>;
+	Mon, 3 Mar 2014 20:10:28 -0000
+Received: from b06cxnps3074.portsmouth.uk.ibm.com (d06relay09.portsmouth.uk.ibm.com [9.149.109.194])
+	by d06dlp02.portsmouth.uk.ibm.com (Postfix) with ESMTP id 93B352190046
+	for <netdev@vger.kernel.org>; Mon,  3 Mar 2014 20:10:22 +0000 (GMT)
+Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
+	by b06cxnps3074.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s23KAEL165077318
+	for <netdev@vger.kernel.org>; Mon, 3 Mar 2014 20:10:14 GMT
+Received: from d06av03.portsmouth.uk.ibm.com (localhost [127.0.0.1])
+	by d06av03.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s23KAPZa021497
+	for <netdev@vger.kernel.org>; Mon, 3 Mar 2014 13:10:25 -0700
+In-Reply-To: <1393875252-17154-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 03/03/14 20:34, Vlad Yasevich wrote:
+> Macvlan currently inherits all of its features from the lower
+> device.  When lower device disables offload support, this causes
+> macvlan to disable offload support as well.  This causes
+> performance regression when using macvlan/macvtap in bridge
+> mode.
+> 
+> It can be easily demonstrated by creating 2 namespaces using
+> macvlan in bridge mode and running netperf between them:
+> 
+> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.0.0.1 () port 0 AF_INET
+> Recv   Send    Send
+> Socket Socket  Message  Elapsed
+> Size   Size    Size     Time     Throughput
+> bytes  bytes   bytes    secs.    10^6bits/sec
+> 
+>  87380  16384  16384    20.00    1204.61
+> 
+> To restore the performance, we add software offload features
+> to the list of "always_on" features for macvlan.  This way
+> when a namespace or a guest using macvtap initially sends a
+> packet, this packet will not be segmented at macvlan level.
+> It will only be segmented when macvlan sends the packet
+> to the lower device.
+> 
+> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.0.0.1 () port 0 AF_INET
+> Recv   Send    Send
+> Socket Socket  Message  Elapsed
+> Size   Size    Size     Time     Throughput
+> bytes  bytes   bytes    secs.    10^6bits/sec
+> 
+>  87380  16384  16384    20.00    5507.35
+> 
+> Fixes: 6acf54f1cf0a6747bac9fea26f34cfc5a9029523 (macvtap: Add support of packet capture on macvtap device.)
+> Fixes: 797f87f83b60685ff8a13fa0572d2f10393c50d3 (macvlan: fix netdev feature propagation from lower device)
+> CC: Florian Westphal <fw@strlen.de>
+> CC: Christian Borntraeger <borntraeger@de.ibm.com>
+> CC: Jason Wang <jasowang@redhat.com>
+> CC: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> ---
+>  drivers/net/macvlan.c | 7 +++++--
+>  1 file changed, 5 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+> index a5d2189..2625d2a 100644
+> --- a/drivers/net/macvlan.c
+> +++ b/drivers/net/macvlan.c
+> @@ -506,6 +506,9 @@ static int macvlan_change_mtu(struct net_device *dev, int new_mtu)
+>  static struct lock_class_key macvlan_netdev_xmit_lock_key;
+>  static struct lock_class_key macvlan_netdev_addr_lock_key;
+> 
+> +#define ALWAYS_ON_FEATURS \
+             there is a  ^^ typo.
 
-I have a host A running 3.14.0-rc5 with one KVM guest, where network
-is set up to use bridge:
-# brctl show
-bridge name     bridge id               STP enabled     interfaces
-br1             8000.0023aeed1a00       no              eno1
-                                                        vnet0
-virbr0          8000.000000000000       yes
+I fixed up the patch and the performance seems back to normal
 
-I'm seeing an issue where bridge (sometimes) stops forwarding ICMP6
-neighbor solicitation packets to KVM guest and as result KVM guest does=
-n't
-respond with neighbor advertisement.
+Thanks
 
-I was trying to narrow down conditions when this happens and eventually
-came to following packet sent by other host B on same network:
+Tested-by: Christian Borntraeger <borntraeger@de.ibm.com>
 
-Ethernet II, Src: Hewlett-_47:93:1c (00:21:5a:47:93:1c), Dst: IPv6mcast=
-_00:00:00:01 (33:33:00:00:00:01)
-    Destination: IPv6mcast_00:00:00:01 (33:33:00:00:00:01)
-        Address: IPv6mcast_00:00:00:01 (33:33:00:00:00:01)
-        .... ..1. .... .... .... .... =3D LG bit: Locally administered =
-address (this is NOT the factory default)
-        .... ...1 .... .... .... .... =3D IG bit: Group address (multic=
-ast/broadcast)
-    Source: Hewlett-_47:93:1c (00:21:5a:47:93:1c)
-        Address: Hewlett-_47:93:1c (00:21:5a:47:93:1c)
-        .... ..0. .... .... .... .... =3D LG bit: Globally unique addre=
-ss (factory default)
-        .... ...0 .... .... .... .... =3D IG bit: Individual address (u=
-nicast)
-    Type: IPv6 (0x86dd)
-Internet Protocol Version 6, Src: 100:0:600:0:78fb:100:: (100:0:600:0:7=
-8fb:100::), Dst: ff02::1 (ff02::1)
-    0110 .... =3D Version: 6
-        [0110 .... =3D This field makes the filter "ip.version =3D=3D 6=
-" possible: 6]
-    .... 0000 0000 .... .... .... .... .... =3D Traffic class: 0x000000=
-00
-        .... 0000 00.. .... .... .... .... .... =3D Differentiated Serv=
-ices Field: Default (0x00000000)
-        .... .... ..0. .... .... .... .... .... =3D ECN-Capable Transpo=
-rt (ECT): Not set
-        .... .... ...0 .... .... .... .... .... =3D ECN-CE: Not set
-    .... .... .... 0000 0000 0000 0000 0000 =3D Flowlabel: 0x00000000
-    Payload length: 32
-    Next header: IPv6 hop-by-hop option (0)
-    Hop limit: 1
-    Source: 100:0:600:0:78fb:100:: (100:0:600:0:78fb:100::)
-    Destination: ff02::1 (ff02::1)
-    Hop-by-Hop Option
-        Next header: ICMPv6 (58)
-        Length: 0 (8 bytes)
-        IPv6 Option (Router Alert)
-            Type: Router Alert (5)
-            Length: 2
-            Router Alert: MLD (0)
-        IPv6 Option (Pad1)
-            Type: Pad1 (0)
-            Pad1
-        IPv6 Option (Pad1)
-            Type: Pad1 (0)
-            Pad1
-Internet Control Message Protocol v6
-    Type: Multicast Listener Query (130)
-    Code: 0
-    Checksum: 0xf9c5 [correct]
-    Maximum Response Delay [ms]: 1000
-    Reserved: 0000
-    Multicast Address: :: (::)
 
-The reason I think this packet is related is because when I send same e=
-xact
-packet I'm often hitting same issue - bridge stops forwarding ICMP6 nei=
-gh.
-solicitation packets to KVM guest.
 
-My current way to reproduce this is:
-0. host B IP / MAC is: 2620:52:0:1040:221:5aff:fe47:931c / 00:21:5a:47:=
-93:1c
-   guest IP / MAC is: 2620:52:0:1040:5056:ff:fe00:29 / 52:56:00:00:00:2=
-9
-1. host B is sending neigh solicit packets every 5 seconds with KVM gue=
-st IP
-   using ns6 from ipv6toolkit: http://www.si6networks.com/tools/ipv6too=
-lkit/
-   with parameters:
-   --src-address=3D2620:52:0:1040:221:5aff:fe47:931c --dst-address=3Dff=
-02::1:ff00:0029
-   -t 2620:52:0:1040:5056:ff:fe00:29 --link-src-address=3D00:21:5a:47:9=
-3:1c
-   --source-lla-opt=3D00:21:5a:47:93:1c --link-dst-address=3D33:33:ff:0=
-0:00:29
-   tcpdump running on guest can see both solicit and advertisement pack=
-ets
-2. wait ~5 minutes
-3. host B sends Multicast Listener Query packet described above
-4. tcpdump running on guest is no longer seeing any neigh solicit packe=
-ts
-
-I also found out that issue goes away if I do any of following:
-1. disable CONFIG_BRIDGE_IGMP_SNOOPING=3Dy
-2. echo 0 > /sys/devices/virtual/net/br1/bridge/multicast_snooping
-3. make following change:
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index ef66365..8ccc0bf 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -1562,8 +1562,8 @@ static int br_multicast_ipv6_rcv(struct net_bridg=
-e *br,
-                return 0;
-
-        /* Prevent flooding this packet if there is no listener present=
- */
--       if (!ipv6_addr_is_ll_all_nodes(&ip6h->daddr))
--               BR_INPUT_SKB_CB(skb)->mrouters_only =3D 1;
-+/*     if (!ipv6_addr_is_ll_all_nodes(&ip6h->daddr))
-+               BR_INPUT_SKB_CB(skb)->mrouters_only =3D 1;*/
-
-        if (ip6h->nexthdr !=3D IPPROTO_HOPOPTS ||
-            ip6h->payload_len =3D=3D 0)
-
-Change above makes me suspect following patch:
-  commit 3c3769e63301fd92fcaf51870c371583dd0282ce
-  Author: Linus L=C3=83=C2=BCssing <linus.luessing@web.de>
-  Date:   Wed Sep 4 02:13:39 2013 +0200
-    bridge: apply multicast snooping to IPv6 link-local, too
-
-Please let me know if I can assist in any way to help resolve this.
-
-Regards,
-Jan
+> +	(NETIF_F_SG | NETIF_F_GEN_CSUM | NETIF_F_GSO_SOFTWARE | NETIF_F_LLTX)
+> +
+>  #define MACVLAN_FEATURES \
+>  	(NETIF_F_SG | NETIF_F_ALL_CSUM | NETIF_F_HIGHDMA | NETIF_F_FRAGLIST | \
+>  	 NETIF_F_GSO | NETIF_F_TSO | NETIF_F_UFO | NETIF_F_GSO_ROBUST | \
+> @@ -539,7 +542,7 @@ static int macvlan_init(struct net_device *dev)
+>  	dev->state		= (dev->state & ~MACVLAN_STATE_MASK) |
+>  				  (lowerdev->state & MACVLAN_STATE_MASK);
+>  	dev->features 		= lowerdev->features & MACVLAN_FEATURES;
+> -	dev->features		|= NETIF_F_LLTX;
+> +	dev->features		|= ALWAYS_ON_FEATURES;
+>  	dev->gso_max_size	= lowerdev->gso_max_size;
+>  	dev->iflink		= lowerdev->ifindex;
+>  	dev->hard_header_len	= lowerdev->hard_header_len;
+> @@ -699,7 +702,7 @@ static netdev_features_t macvlan_fix_features(struct net_device *dev,
+>  	features = netdev_increment_features(vlan->lowerdev->features,
+>  					     features,
+>  					     mask);
+> -	features |= NETIF_F_LLTX;
+> +	features |= ALWAYS_ON_FEATURES;
+> 
+>  	return features;
+>  }
+> 
