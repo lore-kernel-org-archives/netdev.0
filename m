@@ -1,7 +1,7 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 6/8] can: flexcan: flexcan_remove(): add missing netif_napi_del()
-Date: Mon,  3 Mar 2014 14:54:33 +0100
-Message-ID: <1393854875-8171-7-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 1/8] can: flexcan: fix shutdown: first disable chip, then all interrupts
+Date: Mon,  3 Mar 2014 14:54:28 +0100
+Message-ID: <1393854875-8171-2-git-send-email-mkl@pengutronix.de>
 References: <1393854875-8171-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
 	kernel@pengutronix.de, Marc Kleine-Budde <mkl@pengutronix.de>,
@@ -12,29 +12,41 @@ In-Reply-To: <1393854875-8171-1-git-send-email-mkl@pengutronix.de>
 Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds the missing netif_napi_del() to the flexcan_remove() function.
+When shutting down the CAN interface (ifconfig canX down) during high CAN bus
+loads, the CAN core might hang and freeze the whole CPU.
+
+This patch fixes the shutdown sequence by first disabling the CAN core then
+disabling all interrupts.
 
 Cc: linux-stable <stable@vger.kernel.org>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/flexcan.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/can/flexcan.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
-index 330b5b9..dff4fa4 100644
+index 320bef2..dcd69c9 100644
 --- a/drivers/net/can/flexcan.c
 +++ b/drivers/net/can/flexcan.c
-@@ -1184,9 +1184,10 @@ static int flexcan_probe(struct platform_device *pdev)
- static int flexcan_remove(struct platform_device *pdev)
- {
- 	struct net_device *dev = platform_get_drvdata(pdev);
-+	struct flexcan_priv *priv = netdev_priv(dev);
+@@ -827,14 +827,16 @@ static void flexcan_chip_stop(struct net_device *dev)
+ 	struct flexcan_regs __iomem *regs = priv->base;
+ 	u32 reg;
  
- 	unregister_flexcandev(dev);
+-	/* Disable all interrupts */
+-	flexcan_write(0, &regs->imask1);
 -
-+	netif_napi_del(&priv->napi);
- 	free_candev(dev);
+ 	/* Disable + halt module */
+ 	reg = flexcan_read(&regs->mcr);
+ 	reg |= FLEXCAN_MCR_MDIS | FLEXCAN_MCR_HALT;
+ 	flexcan_write(reg, &regs->mcr);
  
- 	return 0;
++	/* Disable all interrupts */
++	flexcan_write(0, &regs->imask1);
++	flexcan_write(priv->reg_ctrl_default & ~FLEXCAN_CTRL_ERR_ALL,
++		      &regs->ctrl);
++
+ 	if (priv->reg_xceiver)
+ 		regulator_disable(priv->reg_xceiver);
+ 	priv->can.state = CAN_STATE_STOPPED;
 -- 
 1.9.0
