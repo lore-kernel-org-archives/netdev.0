@@ -1,79 +1,95 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH] net: fix for a race condition in the inet frag code
-Date: Mon, 03 Mar 2014 16:34:32 +0100
-Message-ID: <5314A108.5070509@redhat.com>
-References: <1393855520-18334-1-git-send-email-nikolay@redhat.com>	<20140303144026.GH9965@breakpoint.cc>	<53149694.6070603@redhat.com> <20140303163133.25b24121@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Simon Wunderlich <sw@simonwunderlich.de>
+Subject: [net-next v4 2/3] UAPI: add MPLS label stack definition
+Date: Mon,  3 Mar 2014 17:23:11 +0100
+Message-ID: <1393863792-18172-3-git-send-email-sw@simonwunderlich.de>
+References: <1393863792-18172-1-git-send-email-sw@simonwunderlich.de>
+Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
+	mathias.kretschmer@fokus.fraunhofer.de,
+	Simon Wunderlich <sw@simonwunderlich.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28546 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754099AbaCCPjC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Mar 2014 10:39:02 -0500
-In-Reply-To: <20140303163133.25b24121@redhat.com>
+Received: from packetmixer.de ([79.140.42.25]:55038 "EHLO
+	mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754598AbaCCQXR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 11:23:17 -0500
+In-Reply-To: <1393863792-18172-1-git-send-email-sw@simonwunderlich.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/03/2014 04:31 PM, Jesper Dangaard Brouer wrote:
-> On Mon, 03 Mar 2014 15:49:56 +0100
-> Nikolay Aleksandrov <nikolay@redhat.com> wrote:
-> 
->> On 03/03/2014 03:40 PM, Florian Westphal wrote:
->>> Nikolay Aleksandrov <nikolay@redhat.com> wrote:
->>>> I stumbled upon this very serious bug while hunting for another one,
->>>> it's a very subtle race condition between inet_frag_evictor,
->>>> inet_frag_intern and the IPv4/6 frag_queue and expire functions (basically
->>>> the users of inet_frag_kill/inet_frag_put).
->>>> What happens is that after a fragment has been added to the hash chain but
->>>> before it's been added to the lru_list (inet_frag_lru_add), it may get
->>>> deleted (either by an expired timer if the system load is high or the
->>>> timer sufficiently low, or by the fraq_queue function for different
->>>> reasons) before it's added to the lru_list
->>>
->>> Sorry.  Not following here, see below.
->>>
->>>> diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
->>>> index bb075fc9a14f..322dcebfc588 100644
->>>> --- a/net/ipv4/inet_fragment.c
->>>> +++ b/net/ipv4/inet_fragment.c
->>>> @@ -278,9 +278,10 @@ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
->>>>  
->>>>  	atomic_inc(&qp->refcnt);
->>>>  	hlist_add_head(&qp->list, &hb->chain);
->>>> +	inet_frag_lru_add(nf, qp);
->>>>  	spin_unlock(&hb->chain_lock);
->>>>  	read_unlock(&f->lock);
->>>
->>> If I understand correctly your're saying that qp can be free'd on
->>> another/cpu timer right after dropping the locks.  But how is it
->>> possible?
->>>
->>> ->refcnt is bumped above when arming the timer (before dropping chain
->>> lock), so even if the frag_expire timer fires instantly it should not
->>> free qp.
->>>
->>> What am I missing?
->>>
->>> Thanks,
->>> Florian
->>>
->> An important point is that inet_frag_kill removes both the timer's refcnt and
->> has an unconditional atomic_dec to remove the original/guarding refcnt, so it
->> basically removes everything that's in the way.
->  
-> It sound like we might have a refcnt problem...
-> Do we need an extra refcnt for maintaining elements the LRU list?
-> 
-I don't think so, if you keep the lru_add separated from the chain addition as
-before you still got a race condition when frags are seen by the fq_find
-functions but are not in the LRU list yet unless you add the refcnt before
-adding to the lru list while holding the chain lock (or before that) which will
-alter the behaviour, but still if inet_frag_kill gets called it should remove
-that refcnt and thus put us in the same position as now if we want to keep the
-behaviour as it's now.
+Labels for the Multiprotocol Label Switching are defined in RFC 3032
+which was superseded by RFC 5462. Add the definition to UAPI and a stub
+header for include/linux.
 
-Nik
+Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
+Signed-off-by: Mathias Kretschmer <mathias.kretschmer@fokus.fraunhofer.de>
+---
+Changes to third version:
+
+ * rename mpls_label_stack to mpls_label, as it describes just one of
+   possibly multiple label stack entries (see RFC 3032).
+
+Changes to first version:
+
+ * add stub mpls header in include/linux/mpls.h for users inside the
+   kernel
+---
+ include/linux/mpls.h      |    6 ++++++
+ include/uapi/linux/mpls.h |   34 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 40 insertions(+)
+ create mode 100644 include/linux/mpls.h
+ create mode 100644 include/uapi/linux/mpls.h
+
+diff --git a/include/linux/mpls.h b/include/linux/mpls.h
+new file mode 100644
+index 0000000..9999145
+--- /dev/null
++++ b/include/linux/mpls.h
+@@ -0,0 +1,6 @@
++#ifndef _LINUX_MPLS_H
++#define _LINUX_MPLS_H
++
++#include <uapi/linux/mpls.h>
++
++#endif  /* _LINUX_MPLS_H */
+diff --git a/include/uapi/linux/mpls.h b/include/uapi/linux/mpls.h
+new file mode 100644
+index 0000000..bc9abfe
+--- /dev/null
++++ b/include/uapi/linux/mpls.h
+@@ -0,0 +1,34 @@
++#ifndef _UAPI_MPLS_H
++#define _UAPI_MPLS_H
++
++#include <linux/types.h>
++#include <asm/byteorder.h>
++
++/* Reference: RFC 5462, RFC 3032
++ *
++ *  0                   1                   2                   3
++ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |                Label                  | TC  |S|       TTL     |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ *
++ *	Label:  Label Value, 20 bits
++ *	TC:     Traffic Class field, 3 bits
++ *	S:      Bottom of Stack, 1 bit
++ *	TTL:    Time to Live, 8 bits
++ */
++
++struct mpls_label {
++	__be32 entry;
++};
++
++#define MPLS_LS_LABEL_MASK      0xFFFFF000
++#define MPLS_LS_LABEL_SHIFT     12
++#define MPLS_LS_TC_MASK         0x00000E00
++#define MPLS_LS_TC_SHIFT        9
++#define MPLS_LS_S_MASK          0x00000100
++#define MPLS_LS_S_SHIFT         8
++#define MPLS_LS_TTL_MASK        0x000000FF
++#define MPLS_LS_TTL_SHIFT       0
++
++#endif /* _UAPI_MPLS_H */
+-- 
+1.7.10.4
