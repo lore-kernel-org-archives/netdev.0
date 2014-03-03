@@ -1,43 +1,92 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv2 net-next 14/31] iw_cxgb4: default peer2peer mode to 1.
-Date: Mon,  3 Mar 2014 12:10:58 +0530
-Message-ID: <1393828875-13452-15-git-send-email-hariprasad@chelsio.com>
-References: <1393828875-13452-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, roland@purestorage.com, kumaras@chelsio.com,
-	dm@chelsio.com, swise@opengridcomputing.com, leedom@chelsio.com,
-	santosh@chelsio.com, hariprasad@chelsio.com, nirranjan@chelsio.com
-To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
+From: Sathya Perla <Sathya.Perla@Emulex.Com>
+Subject: RE: [PATCH] be2net: Bugfix for packet drop with kernel param
+ swiotlb=force
+Date: Mon, 3 Mar 2014 07:24:40 +0000
+Message-ID: <006eeee3-f0de-4b72-8afe-4aff3a6e4c26@CMEXHTCAS2.ad.emulex.com>
+References: <OF1C38716E.D9F528E0-ON48257C85.000A026B-48257C85.000AA8C9@zte.com.cn>
+	 <e57b63ae-b1a8-47f3-8f2b-71cb6d8ab4fc@CMEXHTCAS1.ad.emulex.com>
+	 <1393033796.15717.90.camel@deadeye.wl.decadent.org.uk>
+	 <8ecfc5a6-7cb7-46ff-847e-4b081522eb9b@CMEXHTCAS1.ad.emulex.com>
+	 <1393347489.14067.5.camel@deadeye.wl.decadent.org.uk>
+	 <ae566d8f-6535-4c6c-9c4e-463617b92a65@CMEXHTCAS2.ad.emulex.com>
+ <1393635652.14067.104.camel@deadeye.wl.decadent.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "jiang.biao2@zte.com.cn" <jiang.biao2@zte.com.cn>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Subramanian Seetharaman <subbu.seetharaman@emulex.com>,
+	Ajit Khaparde <Ajit.Khaparde@Emulex.Com>,
+	"wang.liang82@zte.com.cn" <wang.liang82@zte.com.cn>,
+	"cai.qu@zte.com.cn" <cai.qu@zte.com.cn>,
+	"li.fengmao@zte.com.cn" <li.fengmao@zte.com.cn>,
+	"long.chun@zte.com.cn" <long.chun@zte.com.cn>,
+	David Miller <davem@davemloft.net>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:11224 "EHLO
-	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753835AbaCCGnU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 01:43:20 -0500
-In-Reply-To: <1393828875-13452-1-git-send-email-hariprasad@chelsio.com>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:57322 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753835AbaCCHYq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 02:24:46 -0500
+In-Reply-To: <1393635652.14067.104.camel@deadeye.wl.decadent.org.uk>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Wise <swise@opengridcomputing.com>
-
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
----
- drivers/infiniband/hw/cxgb4/cm.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index 9387f74..d21ac15 100644
---- a/drivers/infiniband/hw/cxgb4/cm.c
-+++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -98,9 +98,9 @@ int c4iw_debug;
- module_param(c4iw_debug, int, 0644);
- MODULE_PARM_DESC(c4iw_debug, "Enable debug logging (default=0)");
- 
--static int peer2peer;
-+static int peer2peer = 1;
- module_param(peer2peer, int, 0644);
--MODULE_PARM_DESC(peer2peer, "Support peer2peer ULPs (default=0)");
-+MODULE_PARM_DESC(peer2peer, "Support peer2peer ULPs (default=1)");
- 
- static int p2p_type = FW_RI_INIT_P2PTYPE_READ_REQ;
- module_param(p2p_type, int, 0644);
--- 
-1.7.1
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
+dG86YmVuQGRlY2FkZW50Lm9yZy51a10NCj4gDQo+IE9uIFdlZCwgMjAxNC0wMi0yNiBhdCAwNDo1
+NCArMDAwMCwgU2F0aHlhIFBlcmxhIHdyb3RlOg0KPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdl
+LS0tLS0NCj4gPiA+IEZyb206IEJlbiBIdXRjaGluZ3MgW21haWx0bzpiZW5AZGVjYWRlbnQub3Jn
+LnVrXQ0KPiA+ID4NCj4gPiAuLi4NCj4gPiA+ID4gPiA+ID4NCj4gPiA+ID4gPiA+ID4gRnJvbTog
+TGkgRmVuZ21hbyA8bGkuZmVuZ21hb0B6dGUuY29tLmNuPg0KPiA+ID4gPiA+ID4gPg0KPiA+ID4g
+PiA+ID4gPiBUaGVyZSB3aWxsIGJlIHBhY2tldCBkcm9wIHdpdGgga2VybmVsIHBhcmFtICJzd2lv
+dGxiID0gZm9yY2UiIG9uDQo+ID4gPiA+ID4gPiA+IEVtdWxleCAxMEdiIE5JQyB1c2luZyBiZTJu
+ZXQgZHJpdmVyLiBUaGUgcHJvYmxlbSBpcyBjYXVzZWQgYnkNCj4gPiA+ID4gPiA+ID4gcmVjZWl2
+aW5nIHNrYiB3aXRob3V0IGNhbGxpbmcgcGNpX3VubWFwX3BhZ2UoKSBpbiBnZXRfcnhfcGFnZV9p
+bmZvKCkuDQo+ID4gPiA+ID4gPiA+IHJ4X3BhZ2VfaW5mby0+bGFzdF9wYWdlX3VzZXIgaXMgaW5p
+dGlhbGl6ZWQgdG8gZmFsc2UgaW4NCj4gPiA+ID4gPiA+ID4gYmVfcG9zdF9yeF9mcmFncygpIHdo
+ZW4gY3VycmVudCBmcmFnIGFyZSBtYXBwZWQgaW4gdGhlIGZpcnN0IGhhbGYgb2YNCj4gPiA+ID4g
+PiA+ID4gdGhlIHNhbWUgcGFnZSB3aXRoIGFub3RoZXIgZnJhZy4gQnV0IGluIHRoYXQgY2FzZSB3
+aXRoDQo+ID4gPiA+ID4gPiA+ICJzd2lvdGxiID0gZm9yY2UiIHBhcmFtLCBkYXRhIGNhbiBub3Qg
+YmUgY29waWVkIGludG8gdGhlIHBhZ2Ugb2YNCj4gPiA+ID4gPiA+ID4gcnhfcGFnZV9pbmZvIHdp
+dGhvdXQgY2FsbGluZyBwY2lfdW5tYXBfcGFnZSwgc28gdGhlIGRhdGEgZnJhZyBtYXBwZWQNCj4g
+PiA+ID4gPiA+ID4gaW4gdGhlIGZpcnN0IGhhbGYgb2YgdGhlIHBhZ2Ugd2lsbCBiZSBkcm9wcGVk
+Lg0KPiA+ID4gPiA+ID4gPg0KPiA+ID4gPiA+ID4gPiBJdCBjYW4gYmUgc29sdmVkIGJ5IGNyZWF0
+aW5nIG9ubHkgYSBtYXBwaW5nIHJlbGF0aW9uIGJldHdlZW4gZnJhZw0KPiA+ID4gPiA+ID4gPiBh
+bmQgcGFnZSwgYW5kIGRlbGV0aW5nIHJ4X3BhZ2VfaW5mby0+bGFzdF9wYWdlX3VzZXIgdG8gZW5z
+dXJlDQo+ID4gPiA+ID4gPiA+IGNhbGxpbmcgcGNpX3VubWFwX3BhZ2Ugd2hlbiBoYW5kbGluZyBl
+YWNoIHJlY2VpdmluZyBmcmFnLg0KPiA+ID4gPiA+ID4NCj4gPiA+ID4gPiA+IFRoaXMgcGF0Y2gg
+dXNlcyBhbiBlbnRpcmUgcGFnZSBmb3IgZWFjaCBSWCBmcmFnICh3aG9zZSBkZWZhdWx0IHNpemUg
+aXMgMjA0OCkuDQo+ID4gPiA+ID4gPiBDb25zZXF1ZW50bHksIG9uIHBsYXRmb3JtcyBsaWtlIHBw
+YzY0IHdoZXJlIHRoZSBkZWZhdWx0IFBBR0VfU0laRSBpcyA2NEssDQo+ID4gPiA+ID4gPiBtZW1v
+cnkgdXNhZ2UgYmVjb21lcyB2ZXJ5IGluZWZmaWNpZW50Lg0KPiA+ID4gPiA+ID4NCj4gPiA+ID4g
+PiA+IEluc3RlYWQsIEkndmUgdHJpZWQgYSBwYXJ0aWFsLXBhZ2UgbWFwcGluZyBzY2hlbWUuIFRo
+aXMgcmV0YWlucyB0aGUNCj4gPiA+ID4gPiA+IHBhZ2Ugc2hhcmluZyBsb2dpYywgYnV0IHVuLW1h
+cHMgZWFjaCBmcmFnIHNlcGFyYXRlbHkgc28gdGhhdA0KPiA+ID4gPiA+ID4gdGhlIGRhdGEgaXMg
+Y29waWVkIGZyb20gdGhlIGJvdW5jZSBidWZmZXJzLg0KPiA+ID4gPiA+IFsuLi5dDQo+ID4gPiA+
+ID4NCj4gPiA+ID4gPiBZb3UgZG9uJ3QgbmVlZCB0byBtYXAvdW5tYXAgZWFjaCBmcmFnbWVudCBz
+ZXBhcmF0ZWx5OyB5b3UgY2FuIHN5bmMgYQ0KPiA+ID4gPiA+IHN1Yi1wYWdlIHJhbmdlIHdpdGgg
+ZG1hX3N5bmNfc2luZ2xlX2Zvcl9jcHUoKS4NCj4gPiA+ID4gPg0KPiA+ID4gPg0KPiA+ID4gPiBC
+ZW4sIGFmdGVyIHN5bmNpbmcgZWFjaCBmcmFnIHdpdGggYSBkbWFfc3luY19zaW5nbGVfZm9yX2Nw
+dSgpIGNhbGwsDQo+ID4gPiA+IHdvdWxkIEkgc3RpbGwgbmVlZCB0byBkbWFfdW5tYXBfcGFnZSgp
+IGFmdGVyIERNQSBpcyBkb25lIG9uIGFsbCB0aGUgZnJhZ3MNCj4gPiA+ID4gb2YgdGhlIHBhZ2U/
+IEkgdGhvdWdodCBJIG5lZWRlZCB0by4NCj4gPiA+DQo+ID4gPiBZZXMuDQo+ID4gPg0KPiA+ID4g
+PiBJJ20gY29uZnVzZWQgdG8gc2VlIHRoYXQgc3dpb3RsYl9ib3VuY2UoKSAodGhhdCBjb3BpZXMg
+ZGF0YSBmcm9tIHRoZSBib3VuY2UgYnVmZmVycykNCj4gPiA+ID4gaXMgY2FsbGVkIGZyb20gYm90
+aCBzd2lvdGxiX3N5bmNfc2luZ2xlX2Zvcl9jcHUoKSBhbmQgc3dpb3RsYl91bm1hcF9wYWdlKCku
+DQo+ID4gPiA+IEkgb2Zjb3Vyc2UgZG9uJ3Qgd2FudCB0aGUgZGF0YSB0byBiZSBjb3BpZWQgZnJv
+bSB0aGUgYm91bmNlIGJ1ZmZlcnMgdHdpY2UhDQo+ID4gPg0KPiA+ID4gUmlnaHQsIHVubWFwIGlu
+Y2x1ZGVzIGEgc3luYyBzbyB5b3Ugc2hvdWxkOg0KPiA+ID4gLSBmb3IgdGhlIGxhc3QgZnJhZyBw
+ZXIgcGFnZSwgZG1hX3VubWFwX3BhZ2UoKSBvbmx5DQo+ID4gPiAtIGZvciBldmVyeSBvdGhlciBm
+cmFnLCBkbWFfc3luY19zaW5nbGVfZm9yX2NwdSgpIG9ubHkNCj4gPg0KPiA+IEJlbiwgdGhlIGRt
+YV91bm1hcF9wYWdlKCkgcmVxdWlyZXMgdXMgdG8gcGFzcyB0aGUgc2FtZSBkbWFfYWRkciBhbmQg
+c2l6ZSByZXR1cm5lZA0KPiBieQ0KPiA+IChhbmQgcGFzc2VkIHRvKSB0aGUgZG1hX21hcF9wYWdl
+KCkgY2FsbC4NCj4gPiBTbywgZm9yIHRoZSBsYXN0IGZyYWcsIHdoZW4gSSBjYWxsIGRtYV9tYXBf
+cGFnZSgpIHdpdGggdGhlIHBhZ2VfYWRkciAoYW5kIG5vdCB0aGUNCj4gZnJhZ19hZGRyKSBhbmQg
+dGhlDQo+ID4gcGFnZSBzaXplLCB3b24ndCBpdCB0cnkgdG8gY29weSB0aGUgZGF0YSBiZWxvbmdp
+bmcgdG8gYWxsIHRoZSBwcmV2aW91cyBmcmFncyBvZiBwYWdlIGFnYWluPyEhDQo+IA0KPiBXaGVu
+IHVzaW5nIGJvdW5jZSBidWZmZXJzIChlLmcuIHN3aW90bGIpLCB5ZXMgdGhpcyByZXN1bHRzIGlu
+IGFub3RoZXINCj4gY29weSwgd2hpY2ggaXMgaW5lZmZpY2llbnQuICBCdXQgd2hlbiB1c2luZyBh
+IHJlYWwgSU9NTVUgbmVpdGhlcg0KPiBmdW5jdGlvbiB3aWxsIGNvcHkuICBJIHdvdWxkIG9wdGlt
+aXNlIGZvciBJT01NVXMuDQoNCk9rLCB0aGF0IHNvdW5kcyByaWdodC4uLi4udGhhbmtzIGZvciB0
+aGUgaGVscCENCi1TYXRoeWENCg==
