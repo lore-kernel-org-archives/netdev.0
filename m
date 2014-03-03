@@ -1,69 +1,83 @@
-From: "'gregkh@linuxfoundation.org'" <gregkh@linuxfoundation.org>
-Subject: Re: change kmalloc into vmalloc for large memory
-	allocations
-Date: Sun, 2 Mar 2014 19:08:21 -0800
-Message-ID: <20140303030821.GA16732@kroah.com>
-References: <35FD53F367049845BC99AC72306C23D102844605F38C@CNBJMBX05.corpusers.net>
- <53104ECA.4010702@freescale.com>
- <35FD53F367049845BC99AC72306C23D102844605F38D@CNBJMBX05.corpusers.net>
- <20140228163304.GA15614@kroah.com>
- <35FD53F367049845BC99AC72306C23D102844605F38F@CNBJMBX05.corpusers.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] vlan: use ether_addr_equal_64bits to instead
+ of ether_addr_equal
+Date: Sun, 02 Mar 2014 20:36:47 -0800
+Message-ID: <1393821407.13719.65.camel@joe-AO722>
+References: <5313D77F.3090508@huawei.com>
+	 <1393811384.13719.47.camel@joe-AO722> <5313EDC0.6020701@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "'alsa-devel@alsa-project.org'" <alsa-devel@alsa-project.org>,
- "'broonie@opensource.wolfsonmicro.com'"
- <broonie@opensource.wolfsonmicro.com>, "'tiwai@suse.de'" <tiwai@suse.de>,
- "'fweisbec@gmail.com'" <fweisbec@gmail.com>,
- "'mingo@redhat.com'" <mingo@redhat.com>,
- "'linux-input@vger.kernel.org'" <linux-input@vger.kernel.org>,
- "'rydberg@euromail.se'" <rydberg@euromail.se>, "'lrg@ti.com'" <lrg@ti.com>,
- "'pablo@netfilter.org'" <pablo@netfilter.org>,
- "'coreteam@netfilter.org'" <coreteam@netfilter.org>,
- "'linux-arm-msm@vger.kernel.org'" <linux-arm-msm@vger.kernel.org>,
- "'rostedt@goodmis.org'" <rostedt@goodmis.org>,
- "'netfilter@vger.kernel.org'" <netfilter@vger.kernel.org>,
- "'linux-arm-kernel@lists.infradead.org'"
- <linux-arm-kernel@lists.infradead.org>,
- "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
- "'dmitry.torokhov@gmail.com'" <dmitry.torokhov@gmail.com>,
- "'linux-kern
-To: "Wang, Yalin" <Yalin.Wang@sonymobile.com>
-Return-path: <alsa-devel-bounces@alsa-project.org>
-Content-Disposition: inline
-In-Reply-To: <35FD53F367049845BC99AC72306C23D102844605F38F@CNBJMBX05.corpusers.net>
-List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
-List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
-List-Post: <mailto:alsa-devel@alsa-project.org>
-List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
-List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
-Errors-To: alsa-devel-bounces@alsa-project.org
-Sender: alsa-devel-bounces@alsa-project.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Julia Lawall <julia.lawall@lip6.fr>,
+	Netdev <netdev@vger.kernel.org>, Jiri Pirko <jpirko@redhat.com>
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0248.hostedemail.com ([216.40.44.248]:60004 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752093AbaCCEgv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2014 23:36:51 -0500
+In-Reply-To: <5313EDC0.6020701@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCBNYXIgMDMsIDIwMTQgYXQgMTA6NTE6MjNBTSArMDgwMCwgV2FuZywgWWFsaW4gd3Jv
-dGU6Cj4gSGkgIGdyZWcsCj4gCj4gSSBhbSBzb3JyeSwKPiBJIG1ha2UgYSBtaXN0YWtlICwKPiBZ
-b3UgYXJlIHJpZ2h0ICwKPiBodHRwczovL2dpdC5rZXJuZWwub3JnL2NnaXQvbGludXgva2VybmVs
-L2dpdC93aWxsL2xpbnV4LmdpdC90cmVlL2RyaXZlcnMvdXNiL2dhZGdldC9mX21hc3Nfc3RvcmFn
-ZS5jP2g9bWFzdGVyI24yNzI0Cj4gCj4gdGhpcyBvbmUgc2hvdWxkIG5vdCBjaGFuZ2VkIHRvIHVz
-ZSB2bWFsbG9jLAo+IHRoZSBidWZmZXIgd2lsbCBiZSB1c2VkIGJ5IERNQe+8jAoKV2hpY2ggaXMg
-d2h5IGEgd3JhcHBlciBmdW5jdGlvbiB3aWxsIG5ldmVyIHdvcmsuCgo+IG90aGVycyBzaG91bGQg
-YmUgc2FmZSB0byBjaGFuZ2U6Cj4gCj4gaHR0cHM6Ly9naXQua2VybmVsLm9yZy9jZ2l0L2xpbnV4
-L2tlcm5lbC9naXQvd2lsbC9saW51eC5naXQvdHJlZS9zb3VuZC9zb2Mvc29jLWNvcmUuYz9oPW1h
-c3RlciNuMzc3Mgo+IAo+IGh0dHBzOi8vZ2l0Lmtlcm5lbC5vcmcvY2dpdC9saW51eC9rZXJuZWwv
-Z2l0L3dpbGwvbGludXguZ2l0L3RyZWUvbmV0L25ldGZpbHRlci9uZl9jb25udHJhY2tfZnRwLmM/
-aD1tYXN0ZXIjbjYwMwo+IGh0dHBzOi8vZ2l0Lmtlcm5lbC5vcmcvY2dpdC9saW51eC9rZXJuZWwv
-Z2l0L3dpbGwvbGludXguZ2l0L3RyZWUvbmV0L25ldGZpbHRlci9uZl9jb25udHJhY2tfaDMyM19t
-YWluLmM/aD1tYXN0ZXIjbjE4NDkKPiBodHRwczovL2dpdC5rZXJuZWwub3JnL2NnaXQvbGludXgv
-a2VybmVsL2dpdC93aWxsL2xpbnV4LmdpdC90cmVlL25ldC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNr
-X2lyYy5jP2g9bWFzdGVyI24yNDcKPiBodHRwczovL2dpdC5rZXJuZWwub3JnL2NnaXQvbGludXgv
-a2VybmVsL2dpdC93aWxsL2xpbnV4LmdpdC90cmVlL25ldC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNr
-X3NhbmUuYz9oPW1hc3RlciNuMTk1Cj4gCj4gaHR0cHM6Ly9naXQua2VybmVsLm9yZy9jZ2l0L2xp
-bnV4L2tlcm5lbC9naXQvd2lsbC9saW51eC5naXQvdHJlZS9kcml2ZXJzL2lucHV0L2V2ZGV2LmM/
-aD1tYXN0ZXIjbjQwMwoKVGhlbiBzZW5kIGluZGl2aWR1YWwgcGF0Y2hlcyBmb3IgdGhlc2UgYW5k
-IHNlZSB3aGF0IGhhcHBlbnMuCgpncmVnIGstaApfX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fXwpBbHNhLWRldmVsIG1haWxpbmcgbGlzdApBbHNhLWRldmVsQGFs
-c2EtcHJvamVjdC5vcmcKaHR0cDovL21haWxtYW4uYWxzYS1wcm9qZWN0Lm9yZy9tYWlsbWFuL2xp
-c3RpbmZvL2Fsc2EtZGV2ZWwK
+(adding Jiri Pirko to cc's)
+
+On Mon, 2014-03-03 at 10:49 +0800, Ding Tianhong wrote:
+> On 2014/3/3 9:49, Joe Perches wrote:
+> > On Mon, 2014-03-03 at 09:14 +0800, Ding Tianhong wrote:
+> >> Ether_addr_equal_64bits is more efficient than ether_addr_equal, and
+> >> can be used when each argument is an array within a structure that
+> >> contains at least two bytes of data beyond the array, so it is safe
+> >> to use it for vlan.
+> > []
+> >> diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+> > []
+> >> @@ -26,7 +26,7 @@ bool vlan_do_receive(struct sk_buff **skbp)
+> >>  		/* Our lower layer thinks this is not local, let's make sure.
+> >>  		 * This allows the VLAN to have a different MAC than the
+> >>  		 * underlying device, and still route correctly. */
+> >> -		if (ether_addr_equal(eth_hdr(skb)->h_dest, vlan_dev->dev_addr))
+> >> +		if (ether_addr_equal_64bits(eth_hdr(skb)->h_dest, vlan_dev->dev_addr))
+> >>  			skb->pkt_type = PACKET_HOST;
+> >>  	}
+> > 
+> > Hi again Ding
+> > 
+> > If you do have performance numbers:
+> > 
+> > The lines above this ether_addr_equal_64 are:
+> > 
+> > 	if (skb->pkt_type == PACKET_OTHERHOST) {
+> > 		/* Our lower layer thinks this is not local, let's make sure.
+> > 		 * This allows the VLAN to have a different MAC than the
+> > 		 * underlying device, and still route correctly. */
+> > 		if (ether_addr_equal(eth_hdr(skb)->h_dest, vlan_dev->dev_addr))
+> > 			skb->pkt_type = PACKET_HOST;
+> > 	}
+> > 
+> > Maybe it'd be faster overall to add an unlikely
+> > to the == test
+> > 
+> > 	if (unlikely(skb->pkt_type == PACKET_OTHERHOST)) {
+>
+> Sorry, I can't understand it clearly, do you mean that if the skb deliver to the vlan dev,
+> it is impossible that the pkt_type is PACKET_OTHERHOST at most time?
+
+No, just that it's maybe better to add an unlikely
+to the test.
+
+Jiri Pirko's commit 0b5c9db1b modified the code
+from a switch/case to a specific test.
+
+I don't know how likely it is in normal uses for
+a packet to be delivered as PACKET_OTHERHOST.
+
+I just hoped that if you in fact had performance
+numbers for your suggested ether_addr_equal_64bits
+test, you might be able to run those same tests
+with if (unlikely(skb->pkt_type == PACKET_OTHERHOST))
+and see if that was better or worse for performance.
+
+cheers, Joe
