@@ -1,35 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sch_tbf: Remove holes in struct
- tbf_sched_data.
-Date: Mon, 03 Mar 2014 15:44:08 -0500 (EST)
-Message-ID: <20140303.154408.69108434699163216.davem@davemloft.net>
-References: <20140302173026.ad5cd8c8447ddf8806b03651@gmail.com>
+Subject: Re: [PATCH net v2 0/4] be2net fixes
+Date: Mon, 03 Mar 2014 15:48:36 -0500 (EST)
+Message-ID: <20140303.154836.1238922177486347244.davem@davemloft.net>
+References: <07564252-a4d2-43fa-b3b1-41df316f706d@CMEXHTCAS1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: shimoda.hiroaki@gmail.com
+To: somnath.kotur@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54909 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54953 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753241AbaCCUoJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 15:44:09 -0500
-In-Reply-To: <20140302173026.ad5cd8c8447ddf8806b03651@gmail.com>
+	with ESMTP id S1755151AbaCCUsi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 15:48:38 -0500
+In-Reply-To: <07564252-a4d2-43fa-b3b1-41df316f706d@CMEXHTCAS1.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-Date: Sun, 2 Mar 2014 17:30:26 +0900
+From: Somnath Kotur <somnath.kotur@emulex.com>
+Date: Mon, 3 Mar 2014 14:24:05 +0530
 
-> On x86_64 we have 3 holes in struct tbf_sched_data.
+> Please apply.
 > 
-> The member peak_present can be replaced with peak.rate_bytes_ps,
-> because peak.rate_bytes_ps is set only when peak is specified in
-> tbf_change(). tbf_peak_present() is introduced to test
-> peak.rate_bytes_ps.
+> Somnath Kotur (1):
+>   be2net: Fix to reset transparent vlan tagging
 > 
-> The member max_size is moved to fill 32bit hole.
+> Somnath kotur (1):
+>   be2net: clear promiscuous bits in adapter->flags while disabling
+>     promiscuous mode
 > 
-> Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+> Vasundhara Volam (2):
+>   be2net: Fix skb double free in be_xmit_wrokarounds() failure path
+>   be2net: isolate TX workarounds not applicable to Skyhawk-R
 
-This looks fine, applied, thanks.
+Series applied, thank you.
