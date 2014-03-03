@@ -1,57 +1,106 @@
-From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCHv2 net-next 08/31] iw_cxgb4: release neigh entry in error paths.
-Date: Mon,  3 Mar 2014 12:10:52 +0530
-Message-ID: <1393828875-13452-9-git-send-email-hariprasad@chelsio.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCHv2 net-next 09/31] iw_cxgb4: Treat CPL_ERR_KEEPALV_NEG_ADVICE as negative advice.
+Date: Mon,  3 Mar 2014 12:10:53 +0530
+Message-ID: <1393828875-13452-10-git-send-email-hariprasad@chelsio.com>
 References: <1393828875-13452-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1393828875-13452-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, roland@purestorage.com, kumaras@chelsio.com,
+	dm@chelsio.com, swise@opengridcomputing.com, leedom@chelsio.com,
+	santosh@chelsio.com, hariprasad@chelsio.com, nirranjan@chelsio.com
+To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:16297 "EHLO
+	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753798AbaCCGm7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 01:42:59 -0500
+In-Reply-To: <1393828875-13452-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+From: Steve Wise <swise@opengridcomputing.com>
 
-Always release the neigh entry in rx_pkt().
+Based on original work by Anand Priyadarshee <anandp@chelsio.com>.
 
-Based on original work by Santosh Rastapur <santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>.
-
-Signed-off-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
- drivers/infiniband/hw/cxgb4/cm.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+ drivers/infiniband/hw/cxgb4/cm.c            |   25 +++++++++++++------------
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h |    1 +
+ 2 files changed, 14 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index 360807e..74a2250 100644
+index 74a2250..9387f74 100644
 --- a/drivers/infiniband/hw/cxgb4/cm.c
 +++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -3350,10 +3350,9 @@ static int rx_pkt(struct c4iw_dev *dev, struct sk_buff *skb)
- 	if (!e) {
- 		pr_err("%s - failed to allocate l2t entry!\n",
- 		       __func__);
--		goto free_dst;
-+		goto free_neigh;
- 	}
+@@ -1648,6 +1648,16 @@ static inline int act_open_has_tid(int status)
+ 	       status != CPL_ERR_ARP_MISS;
+ }
  
--	neigh_release(neigh);
- 	step = dev->rdev.lldi.nrxq / dev->rdev.lldi.nchan;
- 	rss_qid = dev->rdev.lldi.rxq_ids[pi->port_id * step];
- 	window = (__force u16) htons((__force u16)tcph->window);
-@@ -3373,6 +3372,8 @@ static int rx_pkt(struct c4iw_dev *dev, struct sk_buff *skb)
- 			      tcph->source, ntohl(tcph->seq), filter, window,
- 			      rss_qid, pi->port_id);
- 	cxgb4_l2t_release(e);
-+free_neigh:
-+	neigh_release(neigh);
- free_dst:
- 	dst_release(dst);
- reject:
++/*
++ * Returns whether a CPL status conveys negative advice.
++ */
++static int is_neg_adv(unsigned int status)
++{
++	return status == CPL_ERR_RTX_NEG_ADVICE ||
++	       status == CPL_ERR_PERSIST_NEG_ADVICE ||
++	       status == CPL_ERR_KEEPALV_NEG_ADVICE;
++}
++
+ #define ACT_OPEN_RETRY_COUNT 2
+ 
+ static int import_ep(struct c4iw_ep *ep, int iptype, __u8 *peer_ip,
+@@ -1836,7 +1846,7 @@ static int act_open_rpl(struct c4iw_dev *dev, struct sk_buff *skb)
+ 	PDBG("%s ep %p atid %u status %u errno %d\n", __func__, ep, atid,
+ 	     status, status2errno(status));
+ 
+-	if (status == CPL_ERR_RTX_NEG_ADVICE) {
++	if (is_neg_adv(status)) {
+ 		printk(KERN_WARNING MOD "Connection problems for atid %u\n",
+ 			atid);
+ 		return 0;
+@@ -2266,15 +2276,6 @@ static int peer_close(struct c4iw_dev *dev, struct sk_buff *skb)
+ 	return 0;
+ }
+ 
+-/*
+- * Returns whether an ABORT_REQ_RSS message is a negative advice.
+- */
+-static int is_neg_adv_abort(unsigned int status)
+-{
+-	return status == CPL_ERR_RTX_NEG_ADVICE ||
+-	       status == CPL_ERR_PERSIST_NEG_ADVICE;
+-}
+-
+ static int peer_abort(struct c4iw_dev *dev, struct sk_buff *skb)
+ {
+ 	struct cpl_abort_req_rss *req = cplhdr(skb);
+@@ -2288,7 +2289,7 @@ static int peer_abort(struct c4iw_dev *dev, struct sk_buff *skb)
+ 	unsigned int tid = GET_TID(req);
+ 
+ 	ep = lookup_tid(t, tid);
+-	if (is_neg_adv_abort(req->status)) {
++	if (is_neg_adv(req->status)) {
+ 		PDBG("%s neg_adv_abort ep %p tid %u\n", __func__, ep,
+ 		     ep->hwtid);
+ 		return 0;
+@@ -3572,7 +3573,7 @@ static int peer_abort_intr(struct c4iw_dev *dev, struct sk_buff *skb)
+ 		kfree_skb(skb);
+ 		return 0;
+ 	}
+-	if (is_neg_adv_abort(req->status)) {
++	if (is_neg_adv(req->status)) {
+ 		PDBG("%s neg_adv_abort ep %p tid %u\n", __func__, ep,
+ 		     ep->hwtid);
+ 		kfree_skb(skb);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+index cd6874b..f2738c7 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+@@ -116,6 +116,7 @@ enum CPL_error {
+ 	CPL_ERR_KEEPALIVE_TIMEDOUT = 34,
+ 	CPL_ERR_RTX_NEG_ADVICE     = 35,
+ 	CPL_ERR_PERSIST_NEG_ADVICE = 36,
++	CPL_ERR_KEEPALV_NEG_ADVICE = 37,
+ 	CPL_ERR_ABORT_FAILED       = 42,
+ 	CPL_ERR_IWARP_FLM          = 50,
+ };
 -- 
 1.7.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
