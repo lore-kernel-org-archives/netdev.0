@@ -1,67 +1,69 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: ax88179_178a problems on AMD platform with ASMedia xhci controller
-Date: Mon, 3 Mar 2014 17:08:05 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6CF469@AcuExch.aculab.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH] net: fix for a race condition in the inet frag code
+Date: Mon, 3 Mar 2014 18:13:40 +0100
+Message-ID: <20140303181340.25d38bd4@redhat.com>
+References: <1393855520-18334-1-git-send-email-nikolay@redhat.com>
+	<20140303144026.GH9965@breakpoint.cc>
+	<531494F4.4030909@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	USB list <linux-usb@vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, brouer@redhat.com
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:40598 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752636AbaCCRI3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 12:08:29 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 04633-03 for <netdev@vger.kernel.org>;
- Mon,  3 Mar 2014 17:08:25 +0000 (GMT)
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:7763 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752726AbaCCRNq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Mar 2014 12:13:46 -0500
+In-Reply-To: <531494F4.4030909@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I've just installed the latest 3.14.0-rc5 kernel on an AMD box that
-has the ASMedia 1042 xhci controller and an ASX ax88179 USB3 Ge card.
 
-This is still working as badly as it did last time I tried it.
-(When I added a lot of diagnostics to try to find out what was wrong.)
+On Mon, 03 Mar 2014 15:43:00 +0100
+Nikolay Aleksandrov <nikolay@redhat.com> wrote:
 
-When I ran 'ifconfig eth1 192.168.x.x' the kernel message buffer
-is spammed with messages from the generic ethernet code reporting:
-    "kevent 4 may have been missed".
-This is because ax88179_status(...) contains:
-	if (netif_carrier_ok() != link) {
-		usbnet_link_change(...);
-		...
-but the corresponding netif_carrier_on() doesn't happen until
-much later (possibly for the same reason that transmits are delayed).
-I think the hardware reports its status every 128ms.
+> On 03/03/2014 03:40 PM, Florian Westphal wrote:
+> > Nikolay Aleksandrov <nikolay@redhat.com> wrote:
 
-If I ping the interface (from the only other system on that ethernet
-network), the ping times vary, but are typically larger than 20ms and
-anything upto 200ms (some outward ones are faster).
-I did add some diagnostics a while ago (rc2 ish) and thought the delays
-were in the transmit path.
+[...]
+> >> diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+> >> index bb075fc9a14f..322dcebfc588 100644
+> >> --- a/net/ipv4/inet_fragment.c
+> >> +++ b/net/ipv4/inet_fragment.c
+> >> @@ -278,9 +278,10 @@ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
+> >>  
+> >>  	atomic_inc(&qp->refcnt);
+> >>  	hlist_add_head(&qp->list, &hb->chain);
+> >> +	inet_frag_lru_add(nf, qp);
+> >>  	spin_unlock(&hb->chain_lock);
+> >>  	read_unlock(&f->lock);
+> > 
+[...]
+> > 
+> inet_frag_kill when called from the IPv4/6 frag_queue function will remove the
+> timer refcount, then inet_frag_put afterwards will drop it to 0 and free it and
+> all of this could happen before the frag was ever added to the LRU list, then it
+> gets added. This happens much easier for IPv6 because of the dropping of
+> overlapping fragments in its frag_queue function, the point is we need to have
+> the timer's refcount removed in any way (it could be the timer itself - there's
+> an inet_frag_put in the end, or much easier by the frag_queue function).
+> I think I've explained it badly, I hope this makes it clearer :-)
 
-dmesg also gets spammed with "ERROR Transfer event TRB DMA ptr not part of
-current TD". I don't remember looking at why (for this case).
+I like this desc better.
 
-I've just looked t the ping timings closely. The elapsed times (ms) are:
-7, 30, 53, 76, 99, 122, 18, 41, 64, 87, 110, 5, 28 ...
-So each response is about 22ms later than the previous on - until the delay
-would exceed 128ms, when 128ms is removed.
-So something is only looking at something every 128ms.
+After some IRC discussions with Nik and Florian, I acknowledge this is
+real race condition.
 
-This might be related to the status indications every 128ms, but I
-thought I'd determined that the delay was between the tx setup and
-end of tx interrupt.
+The real solution is the remove the LRU list system (which will also
+solve a scalability problem), but short-term we need Nik's fix, which I
+guess should be a stable fix.
 
-I don't have a USB3 monitor, and the USB2 one I have has an unusable
-graphical interface.
-
-In any case this all makes this combination completely unusable.
-
-I was planning on doing some tests for link TRBs - but it doesn't
-work well enough to even attempt those.
-
-	David
+Thanks Nik!
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
