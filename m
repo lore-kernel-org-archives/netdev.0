@@ -1,7 +1,7 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
 Subject: Re: [PATCH] net: fix for a race condition in the inet frag code
-Date: Mon, 03 Mar 2014 15:43:00 +0100
-Message-ID: <531494F4.4030909@redhat.com>
+Date: Mon, 03 Mar 2014 15:49:56 +0100
+Message-ID: <53149694.6070603@redhat.com>
 References: <1393855520-18334-1-git-send-email-nikolay@redhat.com> <20140303144026.GH9965@breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -10,10 +10,10 @@ Cc: netdev@vger.kernel.org, Jesper Dangaard Brouer <brouer@redhat.com>,
 	"David S. Miller" <davem@davemloft.net>
 To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:19506 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:39683 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754358AbaCCOrc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Mar 2014 09:47:32 -0500
+	id S1755077AbaCCOya (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Mar 2014 09:54:30 -0500
 In-Reply-To: <20140303144026.GH9965@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -57,14 +57,6 @@ On 03/03/2014 03:40 PM, Florian Westphal wrote:
 > Thanks,
 > Florian
 > 
-inet_frag_kill when called from the IPv4/6 frag_queue function will remove the
-timer refcount, then inet_frag_put afterwards will drop it to 0 and free it and
-all of this could happen before the frag was ever added to the LRU list, then it
-gets added. This happens much easier for IPv6 because of the dropping of
-overlapping fragments in its frag_queue function, the point is we need to have
-the timer's refcount removed in any way (it could be the timer itself - there's
-an inet_frag_put in the end, or much easier by the frag_queue function).
-I think I've explained it badly, I hope this makes it clearer :-)
-
-Cheers,
-Nik
+An important point is that inet_frag_kill removes both the timer's refcnt and
+has an unconditional atomic_dec to remove the original/guarding refcnt, so it
+basically removes everything that's in the way.
