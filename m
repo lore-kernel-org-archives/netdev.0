@@ -1,57 +1,65 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCHv3 net-next 03/31] cxgb4: Rectify emitting messages about
- SGE Ingress DMA channels being potentially stuck
-Date: Tue, 04 Mar 2014 23:22:12 +0300
-Message-ID: <531635F4.9050208@cogentembedded.com>
-References: <1393936917-25847-1-git-send-email-hariprasad@chelsio.com>	 <1393936917-25847-4-git-send-email-hariprasad@chelsio.com> <1393955035.20435.40.camel@joe-AO722>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: TCP being hoodwinked into spurious retransmissions by lack of
+ timestamps?
+Date: Tue, 04 Mar 2014 11:33:02 -0800
+Message-ID: <53162A6E.2010907@hp.com>
+References: <53151E55.9000503@hp.com> <CABrhC0=hHpZSdE5-dLqysuFn_d_VK7r1jKb0kGZF9hn1+UHjDw@mail.gmail.com> <53162093.1040208@hp.com> <CABrhC0k5-x=qJgH4izXtRR=9+cLJh_emAy9Yt=+xrY6K5982Fg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-	Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1393955035.20435.40.camel@joe-AO722>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Netdev <netdev@vger.kernel.org>
+To: John Heffner <johnwheffner@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t3427.houston.hp.com ([15.201.208.55]:22331 "EHLO
+	g4t3427.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751792AbaCDTdF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 14:33:05 -0500
+In-Reply-To: <CABrhC0k5-x=qJgH4izXtRR=9+cLJh_emAy9Yt=+xrY6K5982Fg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+>>> There is some other strangeness just before that, where the SACK
+>>> block shrinks then grows again.
+>>
+>>
+>> That would be this yes?
+>>
+>> 15:20:46.798816 IP 91.216.86.7.56064 > 75.236.145.7.443: Flags [.], seq
+>> 3660468:3661928, ack 4262, win 297, length 1460
+>> 15:20:46.799027 IP 75.236.145.7.443 > 91.216.86.7.56064: Flags [.], ack
+>> 3168256, win 32081, options [nop,nop,sack 1 {3171368:3172828}], length 0
+>> 15:20:46.799042 IP 91.216.86.7.56064 > 75.236.145.7.443: Flags [.], seq
+>> 3661928:3664848, ack 4262, win 297, length 2920
+>> 15:20:46.799465 IP 75.236.145.7.443 > 91.216.86.7.56064: Flags [.], ack
+>> 3169716, win 32241, options [nop,nop,sack 1 {3171368:3172828}], length 0
+>> 15:20:46.799479 IP 91.216.86.7.56064 > 75.236.145.7.443: Flags [.], seq
+>> 3664848:3666308, ack 4262, win 297, length 1460
+>> 15:20:46.799497 IP 75.236.145.7.443 > 91.216.86.7.56064: Flags [.], ack
+>> 3169716, win 32241, options [nop,nop,sack 1 {3171368:3174288}], length 0
+>> 15:20:46.799504 IP 75.236.145.7.443 > 91.216.86.7.56064: Flags [.], ack
+>> 3169716, win 32241, options [nop,nop,sack 1 {3171368:3175748}], length 0
+>> 15:20:46.799509 IP 91.216.86.7.56064 > 75.236.145.7.443: Flags [.], seq
+>> 3666308:3667768, ack 4262, win 297, length 1460
+>> 15:20:46.799773 IP 75.236.145.7.443 > 91.216.86.7.56064: Flags [.], ack
+>> 3171176, win 32491, options [nop,nop,sack 1 {3171368:3172828}], length 0
+>> 15:20:46.799787 IP 91.216.86.7.56064 > 75.236.145.7.443: Flags [.], seq
+>> 3667768:3669228, ack 4262, win 297, length 1460
+>> 15:20:46.800063 IP 75.236.145.7.443 > 91.216.86.7.56064: Flags [.], ack
+>> 3171368, win 32716, options [nop,nop,sack 1 {3171368:3177208}], length 0
+>> 15:20:46.800081 IP 91.216.86.7.56064 > 75.236.145.7.443: Flags [.], seq
+>> 3171368:3172828, ack 4262, win 297, length 1460
+>>
+>> Might that be packet-reordering in the other direction?  Sadly, I don't have
+>> good "both sides" traces as the receiving system doesn't seem to capture
+>> traffic terribly well.  I suppose TCP timestamps might have helped answer
+>> that question.
+>
+> Regardless of any possible reordering, in this case we know something
+> odd is going on in the receiver because ACK advances at the same time
+> the SACK block shrinks.
 
-On 03/04/2014 08:43 PM, Joe Perches wrote:
+Ah yes, I'd not picked-up on that.
 
->> From: Kumar Sanghvi <kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+thanks,
 
->> Based on original work by Casey Leedom <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-
-> trivial comments:
-
->> diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-
->> @@ -2031,21 +2041,65 @@ static void sge_rx_timer_cb(unsigned long data)
-> []
->> +		if (idma_same_state_cnt[i] < s->idma_1s_thresh) {
->> +			if (s->idma_stalled[i] >= SGE_IDMA_WARN_THRESH)
->> +				CH_WARN(adap, "SGE idma%d, queue%u,resumed after %d sec",
-
-> Missing terminating '\n', probably better as:
-
-> 				CH_WARN(adap, "SGE idma%d, queue%u, resumed after %d sec\n",
-
->> +		CH_WARN(adap, "SGE idma%u, queue%u, maybe stuck state%u %dsecs"
->> +			" (debug0=%#x, debug11=%#x)\n",
-
-> Probably better with the format coalesced:
-
-> 		CH_WARN(adap, "SGE idma%u, queue%u, maybe stuck state%u %dsecs (debug0=%#x, debug11=%#x)\n",
-
-    Surely better, as otherwise it shouldn't pass scripts/checkpatch.pl.
-
-WBR, Sergei
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+rick jones
