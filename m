@@ -1,35 +1,49 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: What is SOF_TIMESTAMPING_RX_HARDWARE?
-Date: Tue, 4 Mar 2014 18:42:01 +0100
-Message-ID: <20140304174200.GB4279@netboy>
-References: <CALCETrULL_QJqSLSCcySdUdj5sGgh8A7gyEn=vpgCC4LDjPHFA@mail.gmail.com>
- <20140304101030.GA8532@netboy>
- <CALCETrWa5NcTD+fAz1-Xf4hJPoQ=cG6Z44WMUukaWxe=kGB3kQ@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCHv3 net-next 03/31] cxgb4: Rectify emitting messages about
+ SGE Ingress DMA channels being potentially stuck
+Date: Tue, 04 Mar 2014 09:43:55 -0800
+Message-ID: <1393955035.20435.40.camel@joe-AO722>
+References: <1393936917-25847-1-git-send-email-hariprasad@chelsio.com>
+	 <1393936917-25847-4-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Network Development <netdev@vger.kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+	davem@davemloft.net, roland@purestorage.com, kumaras@chelsio.com,
+	dm@chelsio.com, swise@opengridcomputing.com, leedom@chelsio.com,
+	santosh@chelsio.com, nirranjan@chelsio.com
+To: Hariprasad Shenai <hariprasad@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f50.google.com ([74.125.83.50]:49119 "EHLO
-	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751464AbaCDRmM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 12:42:12 -0500
-Received: by mail-ee0-f50.google.com with SMTP id c13so3030002eek.9
-        for <netdev@vger.kernel.org>; Tue, 04 Mar 2014 09:42:11 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CALCETrWa5NcTD+fAz1-Xf4hJPoQ=cG6Z44WMUukaWxe=kGB3kQ@mail.gmail.com>
+Received: from smtprelay0006.hostedemail.com ([216.40.44.6]:55912 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750990AbaCDRoB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 12:44:01 -0500
+In-Reply-To: <1393936917-25847-4-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 04, 2014 at 09:21:47AM -0800, Andy Lutomirski wrote:
+On Tue, 2014-03-04 at 18:11 +0530, Hariprasad Shenai wrote:
+> From: Kumar Sanghvi <kumaras@chelsio.com>
 > 
-> In theory, the driver could stop reporting timestamps if
-> SOF_TIMESTAMPING_RAW_HARDWARE: and SOF_TIMESTAMPING_SYS_HARDWARE
-> aren't set.  I don't see why SOF_TIMESTAMPING_RX_HARDWARE would make
-> any sense in this context.
+> Based on original work by Casey Leedom <leedom@chelsio.com>
 
-AFAICT, the intent was that the former are handled by the stack, while
-the latter is handled by the driver.
+trivial comments:
 
-Thanks,
-Richard
+> diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+
+> @@ -2031,21 +2041,65 @@ static void sge_rx_timer_cb(unsigned long data)
+[]
+> +		if (idma_same_state_cnt[i] < s->idma_1s_thresh) {
+> +			if (s->idma_stalled[i] >= SGE_IDMA_WARN_THRESH)
+> +				CH_WARN(adap, "SGE idma%d, queue%u,resumed after %d sec",
+
+Missing terminating '\n', probably better as:
+
+				CH_WARN(adap, "SGE idma%d, queue%u, resumed after %d sec\n",
+
+> +		CH_WARN(adap, "SGE idma%u, queue%u, maybe stuck state%u %dsecs"
+> +			" (debug0=%#x, debug11=%#x)\n",
+
+Probably better with the format coalesced:
+
+		CH_WARN(adap, "SGE idma%u, queue%u, maybe stuck state%u %dsecs (debug0=%#x, debug11=%#x)\n",
