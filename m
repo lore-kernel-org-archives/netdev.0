@@ -1,139 +1,87 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next] vlan: slight optimization for vlan
-Date: Tue, 4 Mar 2014 18:47:30 +0800
-Message-ID: <5315AF42.8030905@huawei.com>
+From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@web.de>
+Subject: Re: bridge is not forwaring ICMP6 neighbor solicitation to
+	KVM guest
+Date: Tue, 4 Mar 2014 11:52:54 +0100
+Message-ID: <20140304105253.GC5090@Linus-Debian>
+References: <1566805413.12693479.1393872931017.JavaMail.zimbra@redhat.com>
+	<2107636851.12713862.1393876035292.JavaMail.zimbra@redhat.com>
+	<20140303212759.GW5090@Linus-Debian>
+	<1808019554.12748658.1393886749190.JavaMail.zimbra@redhat.com>
+	<20140304000041.GY5090@Linus-Debian>
+	<624414844.12834668.1393920156458.JavaMail.zimbra@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Joe Perches <joe@perches.com>,
-	Julia Lawall <julia.lawall@lip6.fr>,
-	Netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:43825 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756239AbaCDKsJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 05:48:09 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="r7tUYVWcdYzDJoZW"
+Cc: netdev@vger.kernel.org, Florian Westphal <fwestpha@redhat.com>,
+	bridge@lists.linux-foundation.org
+To: Jan Stancek <jstancek@redhat.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <624414844.12834668.1393920156458.JavaMail.zimbra@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Ether_addr_equal_64bits is more efficient than ether_addr_equal, and
-can be used when each argument is an array within a structure that
-contains at least two bytes of data beyond the array, so it is safe
-to use it for vlan.
 
-On a simple test by iperf, it reduces the CPU %system time from 14% to 12%.
+--r7tUYVWcdYzDJoZW
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-According Joe's suggestion, maybe it'd be faster to add an unlikely to
-the test for PCKET_OTHERHOST, so I add it and see whether the performance
-could be better, but the differences is so small and negligible, maybe my
-test case is not effective enough, but I still add the unlikely and wait to
-hear more opinions.:)
+Hi Jan,
 
-Cc: Joe Perches <joe@perches.com>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- net/8021q/vlan.c      | 10 +++++-----
- net/8021q/vlan_core.c |  4 ++--
- net/8021q/vlan_dev.c  | 10 +++++-----
- 3 files changed, 12 insertions(+), 12 deletions(-)
+On Tue, Mar 04, 2014 at 03:02:36AM -0500, Jan Stancek wrote:
+> > For the broken query, ok, it's your manually crafted query. But
+> > did you see a query with such a bogus source address "in the
+> > wild", too? (I'm curious how urgent this sanity check is)
+>=20
+> It's real packet I managed to capture during one such occurrence.
+> I'm sending it with small C program over raw socket, but it's byte
+> by byte exact copy of what I captured with tcpdump previously.
+>=20
+> I'm not sure how that packet came to existence. Based on IPv6 address
+> it came from host B, but all host B was doing at the time
+> was running RHEL6 with couple qemu-kvm instances. KVM guests were
+> set up to use bridge, so I'm assuming if any of them crafted
+> this packet, source IPv6 address would be different.
+>=20
 
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index ec99099..16fb0f4 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -286,19 +286,19 @@ static void vlan_sync_address(struct net_device *dev,
- 	struct vlan_dev_priv *vlan = vlan_dev_priv(vlandev);
- 
- 	/* May be called without an actual change */
--	if (ether_addr_equal(vlan->real_dev_addr, dev->dev_addr))
-+	if (ether_addr_equal_64bits(vlan->real_dev_addr, dev->dev_addr))
- 		return;
- 
- 	/* vlan address was different from the old address and is equal to
- 	 * the new address */
--	if (!ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr) &&
--	    ether_addr_equal(vlandev->dev_addr, dev->dev_addr))
-+	if (!ether_addr_equal_64bits(vlandev->dev_addr, vlan->real_dev_addr) &&
-+	    ether_addr_equal_64bits(vlandev->dev_addr, dev->dev_addr))
- 		dev_uc_del(dev, vlandev->dev_addr);
- 
- 	/* vlan address was equal to the old address and is different from
- 	 * the new address */
--	if (ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr) &&
--	    !ether_addr_equal(vlandev->dev_addr, dev->dev_addr))
-+	if (ether_addr_equal_64bits(vlandev->dev_addr, vlan->real_dev_addr) &&
-+	    !ether_addr_equal_64bits(vlandev->dev_addr, dev->dev_addr))
- 		dev_uc_add(dev, vlandev->dev_addr);
- 
- 	ether_addr_copy(vlan->real_dev_addr, dev->dev_addr);
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index 6ee48aa..35b3c19 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -22,11 +22,11 @@ bool vlan_do_receive(struct sk_buff **skbp)
- 		return false;
- 
- 	skb->dev = vlan_dev;
--	if (skb->pkt_type == PACKET_OTHERHOST) {
-+	if (unlikely(skb->pkt_type == PACKET_OTHERHOST)) {
- 		/* Our lower layer thinks this is not local, let's make sure.
- 		 * This allows the VLAN to have a different MAC than the
- 		 * underlying device, and still route correctly. */
--		if (ether_addr_equal(eth_hdr(skb)->h_dest, vlan_dev->dev_addr))
-+		if (ether_addr_equal_64bits(eth_hdr(skb)->h_dest, vlan_dev->dev_addr))
- 			skb->pkt_type = PACKET_HOST;
- 	}
- 
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 76d8fab..5e1edd6 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -286,7 +286,7 @@ static int vlan_dev_open(struct net_device *dev)
- 	    !(vlan->flags & VLAN_FLAG_LOOSE_BINDING))
- 		return -ENETDOWN;
- 
--	if (!ether_addr_equal(dev->dev_addr, real_dev->dev_addr)) {
-+	if (!ether_addr_equal_64bits(dev->dev_addr, real_dev->dev_addr)) {
- 		err = dev_uc_add(real_dev, dev->dev_addr);
- 		if (err < 0)
- 			goto out;
-@@ -319,7 +319,7 @@ clear_allmulti:
- 	if (dev->flags & IFF_ALLMULTI)
- 		dev_set_allmulti(real_dev, -1);
- del_unicast:
--	if (!ether_addr_equal(dev->dev_addr, real_dev->dev_addr))
-+	if (!ether_addr_equal_64bits(dev->dev_addr, real_dev->dev_addr))
- 		dev_uc_del(real_dev, dev->dev_addr);
- out:
- 	netif_carrier_off(dev);
-@@ -338,7 +338,7 @@ static int vlan_dev_stop(struct net_device *dev)
- 	if (dev->flags & IFF_PROMISC)
- 		dev_set_promiscuity(real_dev, -1);
- 
--	if (!ether_addr_equal(dev->dev_addr, real_dev->dev_addr))
-+	if (!ether_addr_equal_64bits(dev->dev_addr, real_dev->dev_addr))
- 		dev_uc_del(real_dev, dev->dev_addr);
- 
- 	netif_carrier_off(dev);
-@@ -357,13 +357,13 @@ static int vlan_dev_set_mac_address(struct net_device *dev, void *p)
- 	if (!(dev->flags & IFF_UP))
- 		goto out;
- 
--	if (!ether_addr_equal(addr->sa_data, real_dev->dev_addr)) {
-+	if (!ether_addr_equal_64bits(addr->sa_data, real_dev->dev_addr)) {
- 		err = dev_uc_add(real_dev, addr->sa_data);
- 		if (err < 0)
- 			return err;
- 	}
- 
--	if (!ether_addr_equal(dev->dev_addr, real_dev->dev_addr))
-+	if (!ether_addr_equal_64bits(dev->dev_addr, real_dev->dev_addr))
- 		dev_uc_del(real_dev, dev->dev_addr);
- 
- out:
--- 
-1.8.0
+Ah, okay. Can you check whether it maybe came from the querier
+code in the Linux bridge on host B? Is
+"cat /sys/class/net/br0/bridge/multicast_querier" 1? Can you
+isolate host B and disable any multicast router daemon on it? Then
+check again, if you still see these queries. What kernel version
+is running on host B?
+
+Cheers, Linus
+
+--r7tUYVWcdYzDJoZW
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJTFbCFAAoJELxyPiAAt6Uv4TAP/0AnI6uTtEOMLabSy11P7qFT
+Pge2dJTPDKju5qCfrEQqDDeOk5c/wDjWS6xgA59yKYV+KFAMCsFEx/UUsP+LFavT
+6oRy250c8F1QguPZ8jPD1prW7D4iONb+gndkiYuX/pr68VmRrFGA+lXXFc+2sUXJ
+UGO+EIE7njyg6XE3eY6KsYXXPmJlIEmvopIh8lC8k/BjWiqc7a2ma6OtwEus4JEL
+ZAOBR5iTIfo96Jo5MgRiTtwwN/dAaBcuEdv8y3GXa5GY8k++DLCffulZ1ldeMUA9
+4e0iI5ScqHoMT3ZccoJHYvgsdcpK1Zt+9DDspu4BM9oCptpePsFi9i0t/WDcTdDB
+V89DndrDqkfxxENg8ijAOYYliHBzbfmX99jI8c0Vd/rMDWJsZQ581+L3ZpNITotc
+8ATTeMOVkKgR7WrEcniZNaoqAOdwDj3rc9/C0G1WAh2lMydcszF/WouVrUcJRd7f
+AoRQkmQIEjjxJb9JaaFAKus4YAjOoPWu3XeeDV+SjboJi/u54Ww0BraUcXUv5gWl
+VmID4FFdoApntIc5S0Z++AIuL0CasAS9kMamLsmWO7vTfTbntqoJofjRTy//Bgo1
+WwrwRoc7bvvGiXxSQh5HxC504drIOQ51O2AdGk9rD5e/1y2DS0ET1Fjo+c/y+wX3
+AJxb0/C6FZ5wdqimCnUH
+=TZvM
+-----END PGP SIGNATURE-----
+
+--r7tUYVWcdYzDJoZW--
