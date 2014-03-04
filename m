@@ -1,29 +1,64 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: What is SOF_TIMESTAMPING_RX_HARDWARE?
-Date: Mon, 3 Mar 2014 18:20:33 -0800
-Message-ID: <CALCETrULL_QJqSLSCcySdUdj5sGgh8A7gyEn=vpgCC4LDjPHFA@mail.gmail.com>
+From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>
+Subject: [PATCH] bridge: multicast: add sanity check for query
+	source addresses
+Date: Tue,  4 Mar 2014 03:57:35 +0100
+Message-ID: <1393901855-18231-1-git-send-email-linus.luessing@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Network Development <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f173.google.com ([209.85.128.173]:38821 "EHLO
-	mail-ve0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754241AbaCDCUy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 21:20:54 -0500
-Received: by mail-ve0-f173.google.com with SMTP id oy12so2592244veb.18
-        for <netdev@vger.kernel.org>; Mon, 03 Mar 2014 18:20:53 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Florian Westphal <fwestpha@redhat.com>, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>,
+	Jan Stancek <jstancek@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-AFAICT is sets SOCK_TIMESTAMPING_RX_HARDWARE, which appears to do
-exactly nothing.  If I'm right, should I submit a patch documenting
-that fact and removing the getsockopt/setsockopt implementations?
+MLD queries are supposed to have an IPv6 link-local source address
+according to RFC2710, section 4 and RFC3810, section 5.1.14. This patch
+adds a sanity check to ignore such broken MLD queries.
 
-On the other hand, SOCK_TIMESTAMPING_SYS_HARDWARE and
-SOCK_TIMESTAMPING_RAW_HARDWARE actually work.
+Without this check, such malformed MLD queries can result in a
+denial of service: The queries are ignored by any MLD listener
+therefore they will not respond with an MLD report. However,
+without this patch these malformed MLD queries would enable the
+snooping part in the bridge code, potentially shutting down the
+according ports towards these hosts for multicast traffic as the
+bridge did not learn about these listeners.
 
---Andy
+Reported-by: Jan Stancek <jstancek@redhat.com>
+Signed-off-by: Linus L=C3=BCssing <linus.luessing@web.de>
+---
+ net/bridge/br_multicast.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
 
--- 
-Andy Lutomirski
-AMA Capital Management, LLC
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index ef66365..fb0e36f 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1235,6 +1235,12 @@ static int br_ip6_multicast_query(struct net_bridg=
+e *br,
+ 	    (port && port->state =3D=3D BR_STATE_DISABLED))
+ 		goto out;
+=20
++	/* RFC2710+RFC3810 (MLDv1+MLDv2) require link-local source addresses */
++	if (!(ipv6_addr_type(&ip6h->saddr) & IPV6_ADDR_LINKLOCAL)) {
++		err =3D -EINVAL;
++		goto out;
++	}
++
+ 	if (skb->len =3D=3D sizeof(*mld)) {
+ 		if (!pskb_may_pull(skb, sizeof(*mld))) {
+ 			err =3D -EINVAL;
+--=20
+1.7.10.4
