@@ -1,42 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] unix: add read side socket memory
- accounting for dgram sockets
-Date: Tue, 04 Mar 2014 15:37:32 -0500 (EST)
-Message-ID: <20140304.153732.1314382655798460205.davem@davemloft.net>
-References: <20140226202154.GA9626@order.stressinduktion.org>
-	<20140226.154232.1642777813885536970.davem@davemloft.net>
-	<20140304201336.GB26307@order.stressinduktion.org>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: TX timestamping for ICMP (sfc and core)?
+Date: Tue, 4 Mar 2014 12:43:34 -0800
+Message-ID: <CALCETrXpaD4i9V2Qv_0xfouGRb_y27-R6fOQ5v4Q97jNwgecFA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yannick@koehler.name,
-	eric.dumazet@gmail.com, xiyou.wangcong@gmail.com, dan@mindstab.net
-To: hannes@stressinduktion.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: Network Development <netdev@vger.kernel.org>,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36752 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932623AbaCDUhe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 15:37:34 -0500
-In-Reply-To: <20140304201336.GB26307@order.stressinduktion.org>
+Received: from mail-vc0-f181.google.com ([209.85.220.181]:50977 "EHLO
+	mail-vc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932355AbaCDUnz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 15:43:55 -0500
+Received: by mail-vc0-f181.google.com with SMTP id lg15so66338vcb.40
+        for <netdev@vger.kernel.org>; Tue, 04 Mar 2014 12:43:54 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Tue, 4 Mar 2014 21:13:36 +0100
+I'm trying to get tx timestamping working on ping sockets.  My program
+works fine (with hardware TX timestamps) if I send my "pings" on the
+PTP UDP ports.  I want to send real ICMP pings, though.
 
-> Just a small followup:
-> 
-> Because of the additional sock_wfree during skb handover in unix_dgram_sendmsg
-> the spinlock in __wake_up_sync_key is hit more often thus more cacheline
-> bouncing.
-> 
-> Deferring the POLLOUT notification after the sock_rfree in unix_dgram_recvmsg
-> already halfed the number of context switches with the new patch.
-> 
-> I try to play with some other ideas this week and will submit new patch with
-> performance numbers.
-> 
-> Haven't noticed any problems with the additional atomic operations
-> performance-wise so far.
+It looks like there are two problems:
 
-Ok, thanks for the update.
+ - Something in the core code seems to eat SKBTX_HW_STAMP on ping
+sockets.  At least, this code in efx_hard_start_xmit triggers for
+IPPROTO_UDP on PTP ports but not for IPPROTO_ICMP:
+
+        if (unlikely(efx_xmit_with_hwtstamp(skb)))
+                printk(KERN_DEBUG "sfc: trying to do a TX timestamp\n");
+
+ - The sfc driver refuses to timestamp non-PTP packets.  There's a
+check in efx_hard_start_xmit and another in ptp.c.  I suspect that the
+hardware can support timestamping any outgoing packet, but I'm not
+really sure.  (I'm using an SFN7322F.)
+
+Thanks,
+Andy
