@@ -1,7 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv3 2/4] net: phy: extend fixed driver with fixed_phy_register()
-Date: Tue,  4 Mar 2014 11:58:22 +0100
-Message-ID: <1393930704-24374-3-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv3 4/4] net: mvneta: add support for fixed links
+Date: Tue,  4 Mar 2014 11:58:24 +0100
+Message-ID: <1393930704-24374-5-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1393930704-24374-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Florian Fainelli <florian@openwrt.org>,
 	Lior Amsalem <alior@marvell.com>,
@@ -16,144 +16,57 @@ To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from top.free-electrons.com ([176.31.233.9]:40112 "EHLO
 	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756848AbaCDK63 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 05:58:29 -0500
+	with ESMTP id S1756871AbaCDK6b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 05:58:31 -0500
 In-Reply-To: <1393930704-24374-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The existing fixed_phy_add() function has several drawbacks that
-prevents it from being used as is for OF-based declaration of fixed
-PHYs:
-
- * The address of the PHY on the fake bus needs to be passed, while a
-   dynamic allocation is desired.
-
- * Since the phy_device instantiation is post-poned until the next
-   mdiobus scan, there is no way to associate the fixed PHY with its
-   OF node, which later prevents of_phy_connect() from finding this
-   fixed PHY from a given OF node.
-
-To solve this, this commit introduces fixed_phy_register(), which will
-allocate an available PHY address, add the PHY using fixed_phy_add()
-and instantiate the phy_device structure associated with the provided
-OF node.
+Following the introduction of of_phy_register_fixed_link(), this patch
+introduces fixed link support in the mvneta driver, for Marvell Armada
+370/XP SOCs.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/phy/fixed.c   | 61 +++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/phy_fixed.h | 11 +++++++++
- 2 files changed, 72 insertions(+)
+ .../devicetree/bindings/net/marvell-armada-370-neta.txt        |  4 ++--
+ drivers/net/ethernet/marvell/mvneta.c                          | 10 ++++++----
+ 2 files changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/phy/fixed.c b/drivers/net/phy/fixed.c
-index 0f02403..82095cc 100644
---- a/drivers/net/phy/fixed.c
-+++ b/drivers/net/phy/fixed.c
-@@ -21,6 +21,7 @@
- #include <linux/phy_fixed.h>
- #include <linux/err.h>
- #include <linux/slab.h>
-+#include <linux/of.h>
+diff --git a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
+index 859a6fa..4d07d4e 100644
+--- a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
++++ b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
+@@ -4,8 +4,8 @@ Required properties:
+ - compatible: should be "marvell,armada-370-neta".
+ - reg: address and length of the register set for the device.
+ - interrupts: interrupt for the device
+-- phy: A phandle to a phy node defining the PHY address (as the reg
+-  property, a single integer).
++- phy: A phandle to the PHY node describing the PHY to which this
++  Ethernet controller is connected to.
+ - phy-mode: The interface between the SoC and the PHY (a string that
+   of_get_phy_mode() can understand)
+ - clocks: a pointer to the reference clock for this device.
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index f418f4f..053a650 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -2805,10 +2805,12 @@ static int mvneta_probe(struct platform_device *pdev)
+ 	}
  
- #define MII_REGS_NUM 29
- 
-@@ -203,6 +204,66 @@ err_regs:
- }
- EXPORT_SYMBOL_GPL(fixed_phy_add);
- 
-+void fixed_phy_del(int phy_addr)
-+{
-+	struct fixed_mdio_bus *fmb = &platform_fmb;
-+	struct fixed_phy *fp, *tmp;
-+
-+	list_for_each_entry_safe(fp, tmp, &fmb->phys, node) {
-+		if (fp->addr == phy_addr) {
-+			list_del(&fp->node);
-+			kfree(fp);
-+			return;
+ 	phy_node = of_parse_phandle(dn, "phy", 0);
+-	if (!phy_node) {
+-		dev_err(&pdev->dev, "no associated PHY\n");
+-		err = -ENODEV;
+-		goto err_free_irq;
++	if (of_phy_is_fixed_link(phy_node)) {
++		err = of_phy_register_fixed_link(phy_node);
++		if (err < 0) {
++			dev_err(&pdev->dev, "cannot register fixed PHY\n");
++			goto err_free_irq;
 +		}
-+	}
-+}
-+EXPORT_SYMBOL_GPL(fixed_phy_del);
-+
-+static int phy_fixed_addr;
-+static DEFINE_SPINLOCK(phy_fixed_addr_lock);
-+
-+int fixed_phy_register(unsigned int irq,
-+		       struct fixed_phy_status *status,
-+		       struct device_node *np)
-+{
-+	struct fixed_mdio_bus *fmb = &platform_fmb;
-+	struct phy_device *phy;
-+	int phy_addr;
-+	int ret;
-+
-+	/* Get the next available PHY address, up to PHY_MAX_ADDR */
-+	spin_lock(&phy_fixed_addr_lock);
-+	if (phy_fixed_addr == PHY_MAX_ADDR) {
-+		spin_unlock(&phy_fixed_addr_lock);
-+		return -ENOSPC;
-+	}
-+	phy_addr = phy_fixed_addr++;
-+	spin_unlock(&phy_fixed_addr_lock);
-+
-+	ret = fixed_phy_add(PHY_POLL, phy_addr, status);
-+	if (ret < 0)
-+		return ret;
-+
-+	phy = get_phy_device(fmb->mii_bus, phy_addr, false);
-+	if (!phy || IS_ERR(phy)) {
-+		fixed_phy_del(phy_addr);
-+		return -EINVAL;
-+	}
-+
-+	of_node_get(np);
-+	phy->dev.of_node = np;
-+
-+	ret = phy_device_register(phy);
-+	if (ret) {
-+		phy_device_free(phy);
-+		of_node_put(np);
-+		fixed_phy_del(phy_addr);
-+		return ret;
-+	}
-+
-+	return 0;
-+}
-+
- static int __init fixed_mdio_bus_init(void)
- {
- 	struct fixed_mdio_bus *fmb = &platform_fmb;
-diff --git a/include/linux/phy_fixed.h b/include/linux/phy_fixed.h
-index 509d8f5..902e8a1 100644
---- a/include/linux/phy_fixed.h
-+++ b/include/linux/phy_fixed.h
-@@ -9,15 +9,26 @@ struct fixed_phy_status {
- 	int asym_pause;
- };
+ 	}
  
-+struct device_node;
-+
- #ifdef CONFIG_FIXED_PHY
- extern int fixed_phy_add(unsigned int irq, int phy_id,
- 			 struct fixed_phy_status *status);
-+extern int fixed_phy_register(unsigned int irq,
-+			      struct fixed_phy_status *status,
-+			      struct device_node *np);
- #else
- static inline int fixed_phy_add(unsigned int irq, int phy_id,
- 				struct fixed_phy_status *status)
- {
- 	return -ENODEV;
- }
-+extern int fixed_phy_register(unsigned int irq,
-+			      struct fixed_phy_status *status,
-+			      struct device_node *np)
-+{
-+	return -ENODEV;
-+}
- #endif /* CONFIG_FIXED_PHY */
- 
- /*
+ 	phy_mode = of_get_phy_mode(dn);
 -- 
 1.8.3.2
