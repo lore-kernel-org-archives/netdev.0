@@ -1,50 +1,45 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: TCP being hoodwinked into spurious retransmissions by lack of timestamps?
-Date: Mon, 03 Mar 2014 16:29:09 -0800
-Message-ID: <53151E55.9000503@hp.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC v3 4/6] bridge: enable root block during device
+ registration
+Date: Mon, 3 Mar 2014 16:31:59 -0800
+Message-ID: <20140303163159.365d763b@nehalam.linuxnetplumber.net>
+References: <1393886825-24323-1-git-send-email-mcgrof@do-not-panic.com>
+	<1393886825-24323-5-git-send-email-mcgrof@do-not-panic.com>
+	<20140303154330.238a20bc@nehalam.linuxnetplumber.net>
+	<CAB=NE6VpjebGrqFe7Q4L-uM0rrKitY3fB2kq5qGko+C1Fivm0w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3425.houston.hp.com ([15.201.208.53]:10007 "EHLO
-	g4t3425.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755530AbaCDA3L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 19:29:11 -0500
-Received: from g9t2301.houston.hp.com (g9t2301.houston.hp.com [16.216.185.78])
-	by g4t3425.houston.hp.com (Postfix) with ESMTP id 25674D1
-	for <netdev@vger.kernel.org>; Tue,  4 Mar 2014 00:29:11 +0000 (UTC)
-Received: from [16.103.148.51] (tardy.usa.hp.com [16.103.148.51])
-	by g9t2301.houston.hp.com (Postfix) with ESMTP id E81DA64
-	for <netdev@vger.kernel.org>; Tue,  4 Mar 2014 00:29:10 +0000 (UTC)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	bridge@lists.linux-foundation.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	kvm@vger.kernel.org, xen-devel@lists.xenproject.org
+To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <CAB=NE6VpjebGrqFe7Q4L-uM0rrKitY3fB2kq5qGko+C1Fivm0w@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-I've been looking at some packet traces of an application looking to 
-upload a Large Quantity (tm) of data to a server across the Big Bad 
-Internet (tm).  They've been Linux senders, and the destination while 
-supporting SACK and window scaling does not support TCP timestamps. 
-(TCP timestamp support was requested of the supplier of said server many 
-many months ago now.)
+On Mon, 3 Mar 2014 15:58:50 -0800
+"Luis R. Rodriguez" <mcgrof@do-not-panic.com> wrote:
 
-This destination system has been issuing RSTs at seemingly random points 
-in the middle of a large fraction of the attempted transfers.  In 
-looking at the traces, they all seem to be variations on the theme of 
-what is shown by:
+> On Mon, Mar 3, 2014 at 3:43 PM, Stephen Hemminger
+> <stephen@networkplumber.org> wrote:
+> > Doing this in priv flags bloats what is a limited resource (# of bits).  
+> 
+> Agreed. I tried to avoid it but saw no other option for addressing
+> this during initialization properly without requirng a userspace
+> upgrade.
 
-ftp://netperf.org/retrans_question/for_netdev.png
-
-which is a passing of ftp://netperf.org/retrans_question/for_netdev.pcap 
-through tcptrace -nG and zoomed-in to the end.  I've seen this with a 
-3.2.0 kernel as the sender, have reports of it happening with whatever 
-is in Fedora Core 20, and the traces above are from a 3.11.0 kernel as 
-the sender.
-
-The large quantity of (likely) unnecessary retransmissions shouldn't be 
-triggering a RST by the receiver, but the failures consistently show 
-that and I was wondering if the (spurious) retransmissions were perhaps 
-"encouraged" (so to speak) by the lack of TCP Timestamps.
-
-happy benchmarking,
-
-rick jones
+Replacing one Xen hack for another doesn't seem like great progress.
+I would rather see an API change as needed because there are other
+things like setting STP parameters which might also want to be part
+of initial device add.
