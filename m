@@ -1,164 +1,118 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next v6 2/10] xen-netback: Minor refactoring
-	of netback code
-Date: Tue, 4 Mar 2014 22:32:13 +0000
-Message-ID: <1393972341-21135-3-git-send-email-zoltan.kiss@citrix.com>
-References: <1393972341-21135-1-git-send-email-zoltan.kiss@citrix.com>
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Subject: Re: [PATCH] net-gre-gro: Fix a bug that breaks the forwarding path
+Date: Tue, 4 Mar 2014 14:53:58 -0800 (PST)
+Message-ID: <alpine.LFD.2.03.1403041439230.7122@intel.com>
+References: <1393536377-32243-1-git-send-email-hkchu@google.com> <CAJZOPZKy7w-q5+pp=FgCs8LdQL6e16zAiJr89VMkh+h7obAArg@mail.gmail.com> <CAPshTCgLo8ycMTtoa+D14+7pPxJaiC-jUzyR3PJcrMKFw9V0zA@mail.gmail.com> <20140228.165614.1112789771887381245.davem@davemloft.net>
+ <5315FBAA.3030809@mellanox.com> <CAPshTCgT4sYp7KtPazrJNMBvK0HcSWeDT_EdvSdjv4C0qrueqw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Zoltan Kiss <zoltan.kiss@citrix.com>, jonathan.davies@citrix.com
-To: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1393972341-21135-1-git-send-email-zoltan.kiss@citrix.com>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	David Miller <davem@davemloft.net>,
+	Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>
+To: Jerry Chu <hkchu@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:18844 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757240AbaCDWeX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Mar 2014 17:34:23 -0500
+In-Reply-To: <CAPshTCgT4sYp7KtPazrJNMBvK0HcSWeDT_EdvSdjv4C0qrueqw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch contains a few bits of refactoring before introducing the grant
-mapping changes:
-- introducing xenvif_tx_pending_slots_available(), as this is used several
-  times, and will be used more often
-- rename the thread to vifX.Y-guest-rx, to signify it does RX work from the
-  guest point of view
 
-Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
----
- drivers/net/xen-netback/common.h    |   24 +++++++++++++++++++++++-
- drivers/net/xen-netback/interface.c |    4 ++--
- drivers/net/xen-netback/netback.c   |   22 +++-------------------
- 3 files changed, 28 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index ae413a2..f514818 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -108,6 +108,16 @@ struct xenvif_rx_meta {
-  */
- #define MAX_GRANT_COPY_OPS (MAX_SKB_FRAGS * XEN_NETIF_RX_RING_SIZE)
- 
-+#define NETBACK_INVALID_HANDLE -1
-+
-+/*
-+ * To avoid confusion, we define XEN_NETBK_LEGACY_SLOTS_MAX indicating
-+ * the maximum slots a valid packet can use. Now this value is defined
-+ * to be XEN_NETIF_NR_SLOTS_MIN, which is supposed to be supported by
-+ * all backend.
-+ */
-+#define XEN_NETBK_LEGACY_SLOTS_MAX XEN_NETIF_NR_SLOTS_MIN
-+
- struct xenvif {
- 	/* Unique identifier for this interface. */
- 	domid_t          domid;
-@@ -216,7 +226,7 @@ void xenvif_carrier_off(struct xenvif *vif);
- 
- int xenvif_tx_action(struct xenvif *vif, int budget);
- 
--int xenvif_kthread(void *data);
-+int xenvif_kthread_guest_rx(void *data);
- void xenvif_kick_thread(struct xenvif *vif);
- 
- /* Determine whether the needed number of slots (req) are available,
-@@ -226,6 +236,18 @@ bool xenvif_rx_ring_slots_available(struct xenvif *vif, int needed);
- 
- void xenvif_stop_queue(struct xenvif *vif);
- 
-+static inline pending_ring_idx_t nr_pending_reqs(struct xenvif *vif)
-+{
-+	return MAX_PENDING_REQS -
-+		vif->pending_prod + vif->pending_cons;
-+}
-+
-+static inline bool xenvif_tx_pending_slots_available(struct xenvif *vif)
-+{
-+	return (nr_pending_reqs(vif) + XEN_NETBK_LEGACY_SLOTS_MAX
-+		< MAX_PENDING_REQS);
-+}
-+
- extern bool separate_tx_rx_irq;
- 
- #endif /* __XEN_NETBACK__COMMON_H__ */
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 7669d49..bc32627 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -421,8 +421,8 @@ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
- 		disable_irq(vif->rx_irq);
- 	}
- 
--	task = kthread_create(xenvif_kthread,
--			      (void *)vif, "%s", vif->dev->name);
-+	task = kthread_create(xenvif_kthread_guest_rx,
-+			      (void *)vif, "%s-guest-rx", vif->dev->name);
- 	if (IS_ERR(task)) {
- 		pr_warn("Could not allocate kthread for %s\n", vif->dev->name);
- 		err = PTR_ERR(task);
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 5944f87..e600119 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -63,14 +63,6 @@ static unsigned int fatal_skb_slots = FATAL_SKB_SLOTS_DEFAULT;
- module_param(fatal_skb_slots, uint, 0444);
- 
- /*
-- * To avoid confusion, we define XEN_NETBK_LEGACY_SLOTS_MAX indicating
-- * the maximum slots a valid packet can use. Now this value is defined
-- * to be XEN_NETIF_NR_SLOTS_MIN, which is supposed to be supported by
-- * all backend.
-- */
--#define XEN_NETBK_LEGACY_SLOTS_MAX XEN_NETIF_NR_SLOTS_MIN
--
--/*
-  * If head != INVALID_PENDING_RING_IDX, it means this tx request is head of
-  * one or more merged tx requests, otherwise it is the continuation of
-  * previous tx request.
-@@ -131,12 +123,6 @@ static inline pending_ring_idx_t pending_index(unsigned i)
- 	return i & (MAX_PENDING_REQS-1);
- }
- 
--static inline pending_ring_idx_t nr_pending_reqs(struct xenvif *vif)
--{
--	return MAX_PENDING_REQS -
--		vif->pending_prod + vif->pending_cons;
--}
--
- bool xenvif_rx_ring_slots_available(struct xenvif *vif, int needed)
- {
- 	RING_IDX prod, cons;
-@@ -1108,8 +1094,7 @@ static unsigned xenvif_tx_build_gops(struct xenvif *vif, int budget)
- 	struct sk_buff *skb;
- 	int ret;
- 
--	while ((nr_pending_reqs(vif) + XEN_NETBK_LEGACY_SLOTS_MAX
--		< MAX_PENDING_REQS) &&
-+	while (xenvif_tx_pending_slots_available(vif) &&
- 	       (skb_queue_len(&vif->tx_queue) < budget)) {
- 		struct xen_netif_tx_request txreq;
- 		struct xen_netif_tx_request txfrags[XEN_NETBK_LEGACY_SLOTS_MAX];
-@@ -1479,8 +1464,7 @@ static inline int tx_work_todo(struct xenvif *vif)
- {
- 
- 	if (likely(RING_HAS_UNCONSUMED_REQUESTS(&vif->tx)) &&
--	    (nr_pending_reqs(vif) + XEN_NETBK_LEGACY_SLOTS_MAX
--	     < MAX_PENDING_REQS))
-+	    xenvif_tx_pending_slots_available(vif))
- 		return 1;
- 
- 	return 0;
-@@ -1543,7 +1527,7 @@ static void xenvif_start_queue(struct xenvif *vif)
- 		netif_wake_queue(vif->dev);
- }
- 
--int xenvif_kthread(void *data)
-+int xenvif_kthread_guest_rx(void *data)
- {
- 	struct xenvif *vif = data;
- 	struct sk_buff *skb;
+On Tue, 4 Mar 2014, Jerry Chu wrote:
+
+> Hi Or,
+> 
+> Thanks for writing this up.
+> 
+> On Tue, Mar 4, 2014 at 8:13 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
+> > On 28/02/2014 23:56, David Miller wrote:
+> >>
+> >> The topic of the skb->encapsulation semantics has come up several times in
+> >> the past few weeks. We cannot move forward on any changes in this area until
+> >> the semantics are well defined, and documented. Can someone work on a patch
+> >> which documents skb->encapsulation properly, and then we can come back to
+> >> fixing this bug? Thanks.
+> >
+> >
+> > Lets try... the skb->encapsulation flag was introduced and used in 3.8 by
+> > the
+> > sequence of these three commits
+> >
+> > 0afb166 vxlan: Add capability of Rx checksum offload for inner packet
+> > d6727fe vxlan: capture inner headers during encapsulation
+> > 6a674e9 net: Add support for hardware-offloaded encapsulation
+> >
+> > When discussed earlier on the list in the context of the skb->ip_summed
+> > field,
+> > Tom Herbert came with the following interpretation for the semantics which
+> > Joseph confirmed
+> >
+> > "when skb->encapsulation is set the ip_summed is valid for both the inner
+> > and outer header
+> > (e.g. CHECKSUM_COMPLETE is always assumed okay for both layers). If
+> > skb->encapsulation is not set then ip_summed is only valid for outer header"
+> 
+> For GRE encapped pkts is the following interpretation correct?
+> 
+> 1) ip_summed == CHECKSUM_COMPLETE
+>     => csum covers IP payload csum of the outer IP datagram
+> 
+> 2) ip_summed == CHECKSUM_UNNECESSARY
+> 2.1. skb->encapsulation is on => both GRE csum (if one is present) and TCP/UDP
+> csum have been validated (assuming inner is a TCP or UDP pkt)
+
+i40e also supports SCTP csumming for the inner packet, too.
+
+> 
+> 2.2. skb->encapsulation is off => only GRE csum (if one is present) is
+> validated.
+> 
+
+Apart for the SCTP request for inclusion, it looks reasonable to me.
+
+> >
+> > As for the TX side of things, the change-log of commit 6a674e9 states
+> >
+> > "For Tx encapsulation offload, the driver will need to set the right bits in
+> > netdev->hw_enc_features. The protocol driver will have to set the
+> > skb->encapsulation bit and populate the inner headers, so the NIC driver
+> > will use those inner headers to calculate the csum in hardware."
+> 
+> So we only support/care about csum offload for the inner pkts, which
+> makes sense.
+
+Well, we care about outer too. It is just that the inner headers are for 
+the inner csum, the outer headers are for the outer csum. The outer 
+headers will be always there anyway, so the patch introduced the inner 
+ones. But I guess this is what you meant, right?
+
+> 
+> >
+> > So in higher level, it seems that the role of the skb->encapsulation field
+> > is to mark the skb to carry encapsulated packet for the code path between
+> > the time the packet is encapsulated by the protocol driver (e.g vxlan/ipip)
+> > to the time driver xmit is called. Or from the time driver rx code runs till
+> > the the time the packet is decapsulated.
+> >
+> > Further, my personal interpretation was that on the rx path, skb should
+> > carry the encapsulation flag **only** if the HW was able to offload the
+> > inner checksum.
+> 
+> SGTM.
+> 
+> Jerry
+> 
+> >
+> > Joseph, what's your thinking here?
+> >
+> > Or.
+> >
+> >
+> 
