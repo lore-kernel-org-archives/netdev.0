@@ -1,56 +1,60 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH] net-gre-gro: Fix a bug that breaks the forwarding path
-Date: Tue, 4 Mar 2014 18:13:30 +0200
-Message-ID: <5315FBAA.3030809@mellanox.com>
-References: <1393536377-32243-1-git-send-email-hkchu@google.com>	<CAJZOPZKy7w-q5+pp=FgCs8LdQL6e16zAiJr89VMkh+h7obAArg@mail.gmail.com>	<CAPshTCgLo8ycMTtoa+D14+7pPxJaiC-jUzyR3PJcrMKFw9V0zA@mail.gmail.com> <20140228.165614.1112789771887381245.davem@davemloft.net>
+From: Arvid Brodin <arvid.brodin@alten.se>
+Subject: Re: out of bounds writes in net/hsr/
+Date: Tue, 4 Mar 2014 17:07:23 +0100
+Message-ID: <5315FA3B.8020700@alten.se>
+References: <20140304032757.GA19048@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <hkchu@google.com>, <edumazet@google.com>,
-	<netdev@vger.kernel.org>, Tom Herbert <therbert@google.com>
-To: David Miller <davem@davemloft.net>,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	Pravin B Shelar <pshelar@nicira.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>
+To: Dave Jones <davej@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:51513 "EHLO
-	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751464AbaCDQOa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 11:14:30 -0500
-In-Reply-To: <20140228.165614.1112789771887381245.davem@davemloft.net>
+Received: from spam1.webland.se ([91.207.112.90]:61529 "EHLO spam1.webland.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753696AbaCDQQJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Mar 2014 11:16:09 -0500
+In-Reply-To: <20140304032757.GA19048@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 28/02/2014 23:56, David Miller wrote:
-> The topic of the skb->encapsulation semantics has come up several 
-> times in the past few weeks. We cannot move forward on any changes in 
-> this area until the semantics are well defined, and documented. Can 
-> someone work on a patch which documents skb->encapsulation properly, 
-> and then we can come back to fixing this bug? Thanks. 
+On 2014-03-04 04:27, Dave Jones wrote:
+> I found this in coverity, and I think it's a real bug..
+>=20
+> hsr_register_frame_in does a check that dev_idx is between 0 and 2,
+> therefore, a dev_idx of 2 is possible when it gets to the array write=
+s
+> at the end of the function.=20
 
-Lets try... the skb->encapsulation flag was introduced and used in 3.8 
-by the
-sequence of these three commits
+Thanks for finding this; it is a bug (although I don't think it has=20
+actually lead to any out of bound accesses).=20
 
-0afb166 vxlan: Add capability of Rx checksum offload for inner packet
-d6727fe vxlan: capture inner headers during encapsulation
-6a674e9 net: Add support for hardware-offloaded encapsulation
+However, I think you are a bit late - I believe this was fixed in a pat=
+ch=20
+from Dan Carpenter just a few days ago. See
 
-When discussed earlier on the list in the context of the skb->ip_summed 
-field,
-Tom Herbert came with the following interpretation for the semantics 
-which Joseph confirmed
+http://www.spinics.net/lists/netdev/msg272815.html
 
-"when skb->encapsulation is set the ip_summed is valid for both the inner and outer header
-(e.g. CHECKSUM_COMPLETE is always assumed okay for both layers). If skb->encapsulation is not set then ip_summed is only valid for outer header"
 
-As for the TX side of things, the change-log of commit 6a674e9 states
+> #define HSR_MAX_DEV     (HSR_DEV_MASTER + 1)
+>=20
+> The + 1 seems odd, and looking at the other uses of HSR_MAX_DEV, I ca=
+n't
+> figure out why it's there.
+>=20
+> 	Dave
+>=20
 
-"For Tx encapsulation offload, the driver will need to set the right bits in netdev->hw_enc_features. The protocol driver will have to set the skb->encapsulation bit and populate the inner headers, so the NIC driver will use those inner headers to calculate the csum in hardware."
+Yes, maybe the names are a bit misleading, and they should be called so=
+mething=20
+like HSR_DEVS and HSR_SLAVES instead. I.e.:
 
-So in higher level, it seems that the role of the skb->encapsulation field is to mark the skb to carry encapsulated packet for the code path between the time the packet is encapsulated by the protocol driver (e.g vxlan/ipip) to the time driver xmit is called. Or from the time driver rx code runs till the the time the packet is decapsulated.
+	some-type array-name[HSR_DEVS];
 
-Further, my personal interpretation was that on the rx path, skb should carry the encapsulation flag **only** if the HW was able to offload the inner checksum.
+=2E.. where the last element is accessed by array-name[HSR_MAX_DEV].
 
-Joseph, what's your thinking here?
 
-Or.
+
+--=20
+Arvid Brodin | Consultant (Linux)
+ALTEN | Knarrarn=E4sgatan 7 | SE-164 40 Kista | Sweden
+arvid.brodin@alten.se | www.alten.se/en/
