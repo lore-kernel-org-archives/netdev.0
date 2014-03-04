@@ -1,39 +1,28 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: unix socket code abuses csum_partial
-Date: Tue, 04 Mar 2014 13:55:09 -0800
-Message-ID: <1393970109.26794.129.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140304210104.42ef3dd8@kryten>
-	 <20140304.134141.1732220919806520941.davem@davemloft.net>
-	 <1393959053.26794.126.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140304.162329.504474868666088316.davem@davemloft.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: TCP being hoodwinked into spurious retransmissions by lack of
+ timestamps?
+Date: Tue, 04 Mar 2014 13:56:08 -0800
+Message-ID: <53164BF8.7010403@hp.com>
+References: <53151E55.9000503@hp.com> <CABrhC0=hHpZSdE5-dLqysuFn_d_VK7r1jKb0kGZF9hn1+UHjDw@mail.gmail.com> <53162093.1040208@hp.com> <CABrhC0k5-x=qJgH4izXtRR=9+cLJh_emAy9Yt=+xrY6K5982Fg@mail.gmail.com> <53162A6E.2010907@hp.com> <CADVnQyn7qqAZn5ZF8wQP_Hn-9s84uc4DUC6r8_ne7bY5Kexycg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: anton@samba.org, edumazet@google.com, gustavold@linux.vnet.ibm.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: John Heffner <johnwheffner@gmail.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f42.google.com ([209.85.213.42]:39295 "EHLO
-	mail-yh0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753299AbaCDVzN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 16:55:13 -0500
-Received: by mail-yh0-f42.google.com with SMTP id a41so169838yho.1
-        for <netdev@vger.kernel.org>; Tue, 04 Mar 2014 13:55:12 -0800 (PST)
-In-Reply-To: <20140304.162329.504474868666088316.davem@davemloft.net>
+Received: from g4t3425.houston.hp.com ([15.201.208.53]:30479 "EHLO
+	g4t3425.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756245AbaCDV4J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 16:56:09 -0500
+In-Reply-To: <CADVnQyn7qqAZn5ZF8wQP_Hn-9s84uc4DUC6r8_ne7bY5Kexycg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-03-04 at 16:23 -0500, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
+On 03/04/2014 12:35 PM, Neal Cardwell wrote:
+> What's the receiver OS in this trace?
 
-> > Or simply use full_name_hash()
-> 
-> I would prefer not, because this would be a performance regression
-> on platforms other than x86 and ARM, because only they implement
-> the optimized load_unaligned_zeropad().
-> 
-> Other architectures would end up with a byte-by-byte hash computation.
+It is my understanding that the receiver has a FreeBSD-based stack.
 
-Oh right, I missed this was fast only on x86 and ARM.
-
-Sound like a project for arches maintainers then ;)
+rick
