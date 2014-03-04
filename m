@@ -1,85 +1,90 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: What is SOF_TIMESTAMPING_RX_HARDWARE?
-Date: Tue, 4 Mar 2014 09:21:47 -0800
-Message-ID: <CALCETrWa5NcTD+fAz1-Xf4hJPoQ=cG6Z44WMUukaWxe=kGB3kQ@mail.gmail.com>
-References: <CALCETrULL_QJqSLSCcySdUdj5sGgh8A7gyEn=vpgCC4LDjPHFA@mail.gmail.com>
- <20140304101030.GA8532@netboy>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v4 net-next 1/3] Extended BPF interpreter and converter
+Date: Tue, 4 Mar 2014 09:53:01 -0800
+Message-ID: <CAMEtUuxHgcroQBPLFa9U=df6KznwkjARin8a3RfH4MdbB2rc7g@mail.gmail.com>
+References: <1393910304-4004-1-git-send-email-ast@plumgrid.com>
+	<1393910304-4004-2-git-send-email-ast@plumgrid.com>
+	<20140304142824.GA1083@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Network Development <netdev@vger.kernel.org>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f177.google.com ([209.85.220.177]:55996 "EHLO
-	mail-vc0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751288AbaCDRoF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 12:44:05 -0500
-Received: by mail-vc0-f177.google.com with SMTP id if11so4625476vcb.36
-        for <netdev@vger.kernel.org>; Tue, 04 Mar 2014 09:44:05 -0800 (PST)
-In-Reply-To: <20140304101030.GA8532@netboy>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>, Jesse Gross <jesse@nicira.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	Tom Zanussi <tom.zanussi@linux.intel.com>,
+	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Pekka Enberg <penberg@iki.fi>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Hagen Paul Pfeifer <hagen@jauu.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140304142824.GA1083@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 4, 2014 at 2:10 AM, Richard Cochran
-<richardcochran@gmail.com> wrote:
-> On Mon, Mar 03, 2014 at 06:20:33PM -0800, Andy Lutomirski wrote:
->> AFAICT is sets SOCK_TIMESTAMPING_RX_HARDWARE, which appears to do
->> exactly nothing.  If I'm right, should I submit a patch documenting
->> that fact and removing the getsockopt/setsockopt implementations?
+On Tue, Mar 4, 2014 at 6:28 AM, Hagen Paul Pfeifer <hagen@jauu.net> wrote:
+> If all issues raised by Daniel are addresed:
 >
-> Have you seen Documentation/networking/timestamping.txt?
+> Acked-by: Hagen Paul Pfeifer <hagen@jauu.net>
+
+Thanks!
+
+> But ...
 >
->   SOF_TIMESTAMPING_TX/RX determine how time stamps are generated.
->   SOF_TIMESTAMPING_RAW/SYS determine how they are reported in the
->   following control message:
+>>Future work:
+>>
+>>0. seccomp
+>>
+>>1. add extended BPF JIT for x86_64
+>>
+>>2. add inband old/new demux and extended BPF verifier, so that new programs
+>>   can be loaded through old sk_attach_filter() and sk_unattached_filter_create()
+>>   interfaces
+>>
+>>3. tracing filters systemtap-like with extended BPF
+>>
+>>4. OVS with extended BPF
+>>
+>>5. nftables with extended BPF
+>
+> ... this is shit (not your fault). (Jitted) BPF envolved into a direction
+> which is just not the right way to do it. You try to fix things, bypass
+> architectural shortcomings of BPF, perf issues because and so on.
+>
+> The right direction is to write a new general purpose in-kernel interpreter
+> from scratch. Capability layers should provide an compatible API for BPF and
+> seccomp. You have the knowledge to do exactly this, you nearly already did
+> this - you should start this undertake!
 
-I read it and focused on this part:
+this insn set evolved over few years.
+Initially we had nft-like high level state machine, but it wasn't fast,
+then kprobe-like pure x86_64 which was fast, but very hard to analyze
+from safety point of view. Then reduced x86-64 insn set and finally ebpf.
+I think any brand new instruction set will have steep learning curve,
+just because
+it's all new. ebpf tries to reuse as much as possible. opcode encoding
+is the same,
+instruction size is fixed at 8 bytes and so on. Yeah, these
+restrictions make few
+things not 100% optimal, but imo common look and feel is more important.
+What ebpf has already should be enough to do all of the above 'future work'.
+Built-in JIT-ability of ebpf is the key to performance.
+Ability to call some kernel functions from ebpf make it ultimately extensible.
+socket filters and seccomp don't use this feature yet, but tracing filters will.
 
-SOF_TIMESTAMPING_RX_HARDWARE:  return the original, unmodified time stamp
-                               as generated by the hardware
-SOF_TIMESTAMPING_RX_SOFTWARE:  if SOF_TIMESTAMPING_RX_HARDWARE is off or
-                               fails, then do it in software
-SOF_TIMESTAMPING_RAW_HARDWARE: return original raw hardware time stamp
-SOF_TIMESTAMPING_SYS_HARDWARE: return hardware time stamp transformed to
-                               the system time base
-
-which is somewhere between useless and incorrect.
+Regards,
+Alexei
 
 >
-> This is the API that was invented (not by me) to support HW time stamp
-> reporting. I agree that it is confusing and complicated, but I don't
-> think you can remove the flag as it is a firmly established API.
-> Drivers do use this to advertise whether they support receive time
-> stamps in hardware.
-
-Huh?  It may well be firmly established that
-SOF_TIMESTAMPING_RX_HARDWARE exists as a flag and gets returned by
-getsockopt after being set by setsockopt.  But I can't find any
-evidence at all that drivers indicate *via getsockopt* anything
-whatsoever.
-
-So maybe the documentation should change to:
-
-SOF_TIMESTAMPING_RX_HARDWARE and SOF_TIMESTAMPING_RX_SOFTWARE do
-nothing at all when set using setsockopt.  (setsockopt will allow them
-to be set for backwards compatibility.)  Theese are only used by
-ETHTOOL_GET_TS_INFO.
-
-or something like that.
-
-I'd write a patch to get rid of SOCK_TIMESTAMPING_RX_HARDWARE, etc,
-but that might break a program that sets the flag in setsockopt and
-expects it to be returned by getsockopt.
-
-->
-> AFAICT, the reason why setting this socket option is a noop is
-> this. Once receive time stamping is enabled at the driver level,
-> eligible skbs will get the information whether they want it or not.
-> It would be more work to hide this from sockets which haven't enabled
-> the option, and so we don't do it.
-
-In theory, the driver could stop reporting timestamps if
-SOF_TIMESTAMPING_RAW_HARDWARE: and SOF_TIMESTAMPING_SYS_HARDWARE
-aren't set.  I don't see why SOF_TIMESTAMPING_RX_HARDWARE would make
-any sense in this context.
-
---Andy
+> --
+> Hagen Paul Pfeifer
