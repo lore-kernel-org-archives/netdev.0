@@ -1,85 +1,57 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: Re: [PATCH] mlx4: Use GFP_NOFS calls during the ipoib TX path when
- creating the QP
-Date: Tue, 4 Mar 2014 23:48:43 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1403042348050.30402@pobox.suse.cz>
-References: <CAJZOPZKLcFC5Wqv7VS7AyovaeHw3PYSWEz9t9sZ4AMhG+dS1+A@mail.gmail.com> <alpine.LNX.2.00.1402271042240.21399@pobox.suse.cz> <530F0C4F.9030200@mellanox.com> <alpine.LNX.2.00.1402271123410.21399@pobox.suse.cz>
+From: "Phoebe Buckheister" <phoebe.buckheister@itwm.fraunhofer.de>
+Subject: Re: [PATCH net-next v4 1/4] ieee802154: add generic header
+ handling routines
+Date: Tue, 4 Mar 2014 23:49:33 +0100
+Message-ID: <a23fcc368f1421286c1115c2365942ce.squirrel@webmail.itwm.fhg.de>
+References: <1393943688-24221-2-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+    <20140304.170050.2058599034902221847.davem@davemloft.net>
+    <cc9ba7943aebff9ba87b60778b62f1a8.squirrel@webmail.itwm.fhg.de>
+    <20140304.172025.2034977449200344617.davem@davemloft.net>
+Reply-To: phoebe.buckheister@itwm.fraunhofer.de
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Or Gerlitz <or.gerlitz@gmail.com>,
-	Roland Dreier <roland@kernel.org>,
-	Amir Vadai <amirv@mellanox.com>,
-	Eli Cohen <eli@dev.mellanox.co.il>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Mel Gorman <mgorman@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Or Gerlitz <ogerlitz@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1402271123410.21399@pobox.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: phoebe.buckheister@itwm.fraunhofer.de, netdev@vger.kernel.org,
+	linux-zigbee-devel@lists.sourceforge.net
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw1.uni-kl.de ([131.246.120.220]:44233 "EHLO
+	mailgw1.uni-kl.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754034AbaCDWtg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 17:49:36 -0500
+Received: from itwm1.itwm.fhg.de (itwm1.itwm.fhg.de [131.246.191.4])
+	by mailgw1.uni-kl.de (8.14.3/8.14.3/Debian-9.4) with ESMTP id s24MnYGc027324
+	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 4 Mar 2014 23:49:35 +0100
+In-Reply-To: <20140304.172025.2034977449200344617.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 27 Feb 2014, Jiri Kosina wrote:
+> Why have an intermediate copy when that's not necessary at all?  It
+> seems like pure overhead to be.
+>
+> Furthermore, cpu's have byte-shifting load and store instructions
+> which will be used if you make use of the 'p' versions of the endian
+> swap functions, such as cpu_to_le16p().
+>
+> So it's going to cost basically nothing.
 
-> On Thu, 27 Feb 2014, Or Gerlitz wrote:
-> 
-> > ipoib is coded over the verbs API (include/rdma/ib_verbs.h)  --- so tracking
-> > the path from ipoib through the verbs api into mlx4 should be similar exercise
-> > as doing so for mlx5, but let's 1st treat the higher level elements involved
-> > with this patch.
-> > 
-> > Can you shed some light why the problem happens only for NFS, and not for
-> > example with other IP/TCP storage protocols?
-> >
-> > For example, do you expect it to happen with iSCSI/TCP too? the Linux 
-> > iSCSI initiator 1st open a TCP socket from user space to the target, 
-> > next they do login exchange over this socket and later provide the 
-> > socket to the kernel iscsi code to use as the back-end of a SCSI block 
-> > device registered with the SCSI midlayer
-> 
-> Frankly, no idea. There was a problem with swapping over NFS, as writeback 
-> was deadlocked with memory reclaim (memory needs to be allocated so that 
-> swap could be accessed to reclaim memory). That's fixed by allocating the 
-> buffers from PF_MEMALLOC reserve, introduced by Mel's and Peter's patchset 
-> back in 3.9 or so. Oh, and the same has been done for swapping over NBD, 
-> btw. Maybe iSCSI needs similar treatment, maybe it has it already, I 
-> haven't checked. We haven't seen a bugreport for that though.
-> 
-> > > I don't think we have, and it indeed should be rather easy to add. The 
-> > > more challenging part of the problem is where (and based on which 
-> > > data) the flag would actually be set up on the netdevice so that it's 
-> > > not horrible layering violation.
-> > 
-> > I assume that in the same manner netdevices advertize features to the 
-> > networking core, the core can provide them operating directives after 
-> > they register themselves.
-> 
-> Whatever suits you best. To sum it up:
-> 
-> - mlx4 is confirmed to have this problem, and we know how that problem 
->   happens -- see the paragraph in the changelog explaining the dependency 
->   between memory reclaim and allocation of TX ring
-> 
-> - we have a work around which requires human interaction in order 
->   to provide the information whether GFP_NOFS should be used or not
-> 
-> - I can very well understand why Mellanox would see that as a hack, but if 
->   more comprehensive fix is necessary, I'd expect those who understand 
->   the code the best to come up with a solution/proposal. I'd assume that 
->   you don't  want to keep the code with known and easily triggerable 
->   deadlock out there unfixed.
-> 
-> - where I see the potential for layering violation in any 'general' 
->   solution is that it's the filesystem that has to be "talking" to the 
->   underlying netdevice, i.e. you'll have to make filesystem 
->   netdevice-aware, right?
+I didn't mean the runtime cost of any conversion that might happen, I was
+thinking about how much these conversions would affect the code that uses
+these header structs. While for the u16/u32 fields this might be not much,
+it will be more for the hardware address fields since these are stored as
+the little endian encoding of u64 field you get when reading the u8[8] as
+a __be64. If I understand you correctly, these fields would also have to
+be in network byte order in the header struct, introducing copy-and-swaps
+in every upper layer that uses those addresses and making address matching
+harder since memcmp won't work anymore.
 
-Mellanox folks, do you have any plan how to proceed here please?
+What would be better here? Explicit endianness on all fields for
+consistency and thus __le64 for EUI64 members with copy-swap functions to
+convert those addresses into u8[8] where required, explicit endianness on
+everything except addresses, or keeping it as is? I'm honestly not sure.
 
-Thanks,
-
--- 
-Jiri Kosina
-SUSE Labs
+I want to note here that struct ieee802154_addr, which holds the address
+information and is also used by BSD socket calls, has always used host
+byte order for its own fields. This might itself be a huge mistake, but it
+is relevant to this discussion.
