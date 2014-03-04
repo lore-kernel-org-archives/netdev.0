@@ -1,60 +1,138 @@
-From: Arvid Brodin <arvid.brodin@alten.se>
-Subject: Re: out of bounds writes in net/hsr/
-Date: Tue, 4 Mar 2014 17:07:23 +0100
-Message-ID: <5315FA3B.8020700@alten.se>
-References: <20140304032757.GA19048@redhat.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net] net: sctp: fix skb leakage in COOKIE ECHO path of
+ chunk->auth_chunk
+Date: Tue, 4 Mar 2014 11:17:37 -0500
+Message-ID: <20140304161737.GA12496@hmsreliant.think-freely.org>
+References: <1393947351-11664-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: Dave Jones <davej@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, Vlad Yasevich <yasevich@gmail.com>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spam1.webland.se ([91.207.112.90]:61529 "EHLO spam1.webland.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753696AbaCDQQJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Mar 2014 11:16:09 -0500
-In-Reply-To: <20140304032757.GA19048@redhat.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:42810 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753269AbaCDQRu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 11:17:50 -0500
+Content-Disposition: inline
+In-Reply-To: <1393947351-11664-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014-03-04 04:27, Dave Jones wrote:
-> I found this in coverity, and I think it's a real bug..
->=20
-> hsr_register_frame_in does a check that dev_idx is between 0 and 2,
-> therefore, a dev_idx of 2 is possible when it gets to the array write=
-s
-> at the end of the function.=20
-
-Thanks for finding this; it is a bug (although I don't think it has=20
-actually lead to any out of bound accesses).=20
-
-However, I think you are a bit late - I believe this was fixed in a pat=
-ch=20
-from Dan Carpenter just a few days ago. See
-
-http://www.spinics.net/lists/netdev/msg272815.html
-
-
-> #define HSR_MAX_DEV     (HSR_DEV_MASTER + 1)
->=20
-> The + 1 seems odd, and looking at the other uses of HSR_MAX_DEV, I ca=
-n't
-> figure out why it's there.
->=20
-> 	Dave
->=20
-
-Yes, maybe the names are a bit misleading, and they should be called so=
-mething=20
-like HSR_DEVS and HSR_SLAVES instead. I.e.:
-
-	some-type array-name[HSR_DEVS];
-
-=2E.. where the last element is accessed by array-name[HSR_MAX_DEV].
-
-
-
---=20
-Arvid Brodin | Consultant (Linux)
-ALTEN | Knarrarn=E4sgatan 7 | SE-164 40 Kista | Sweden
-arvid.brodin@alten.se | www.alten.se/en/
+On Tue, Mar 04, 2014 at 04:35:51PM +0100, Daniel Borkmann wrote:
+> While working on ec0223ec48a9 ("net: sctp: fix sctp_sf_do_5_1D_ce to
+> verify if we/peer is AUTH capable"), we noticed that there's a skb
+> memory leakage in the error path.
+> 
+> Running the same reproducer as in ec0223ec48a9 and by unconditionally
+> jumping to the error label (to simulate an error condition) in
+> sctp_sf_do_5_1D_ce() receive path lets kmemleak detector bark about
+> the unfreed chunk->auth_chunk skb clone:
+> 
+> Unreferenced object 0xffff8800b8f3a000 (size 256):
+>   comm "softirq", pid 0, jiffies 4294769856 (age 110.757s)
+>   hex dump (first 32 bytes):
+>     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+>     89 ab 75 5e d4 01 58 13 00 00 00 00 00 00 00 00  ..u^..X.........
+>   backtrace:
+>     [<ffffffff816660be>] kmemleak_alloc+0x4e/0xb0
+>     [<ffffffff8119f328>] kmem_cache_alloc+0xc8/0x210
+>     [<ffffffff81566929>] skb_clone+0x49/0xb0
+>     [<ffffffffa0467459>] sctp_endpoint_bh_rcv+0x1d9/0x230 [sctp]
+>     [<ffffffffa046fdbc>] sctp_inq_push+0x4c/0x70 [sctp]
+>     [<ffffffffa047e8de>] sctp_rcv+0x82e/0x9a0 [sctp]
+>     [<ffffffff815abd38>] ip_local_deliver_finish+0xa8/0x210
+>     [<ffffffff815a64af>] nf_reinject+0xbf/0x180
+>     [<ffffffffa04b4762>] nfqnl_recv_verdict+0x1d2/0x2b0 [nfnetlink_queue]
+>     [<ffffffffa04aa40b>] nfnetlink_rcv_msg+0x14b/0x250 [nfnetlink]
+>     [<ffffffff815a3269>] netlink_rcv_skb+0xa9/0xc0
+>     [<ffffffffa04aa7cf>] nfnetlink_rcv+0x23f/0x408 [nfnetlink]
+>     [<ffffffff815a2bd8>] netlink_unicast+0x168/0x250
+>     [<ffffffff815a2fa1>] netlink_sendmsg+0x2e1/0x3f0
+>     [<ffffffff8155cc6b>] sock_sendmsg+0x8b/0xc0
+>     [<ffffffff8155d449>] ___sys_sendmsg+0x369/0x380
+> 
+> What happens is that commit bbd0d59809f9 clones the skb containing
+> the AUTH chunk in sctp_endpoint_bh_rcv() when having the edge case
+> that an endpoint requires COOKIE-ECHO chunks to be authenticated:
+> 
+>   ---------- INIT[RANDOM; CHUNKS; HMAC-ALGO] ---------->
+>   <------- INIT-ACK[RANDOM; CHUNKS; HMAC-ALGO] ---------
+>   ------------------ AUTH; COOKIE-ECHO ---------------->
+>   <-------------------- COOKIE-ACK ---------------------
+> 
+> When we enter sctp_sf_do_5_1D_ce() and before we actually get to
+> the point where we process (and subsequently free) a non-NULL
+> chunk->auth_chunk, we could hit the "goto nomem_init" path from
+> an error condition and thus leave the cloned skb around w/o
+> freeing it.
+> 
+> The fix is to centrally free such clones in sctp_chunk_destroy()
+> handler that is invoked from sctp_chunk_free() after all refs have
+> dropped; and also move both kfree_skb(chunk->auth_chunk) there,
+> so that chunk->auth_chunk is either NULL (since sctp_chunkify()
+> allocs new chunks through kmem_cache_zalloc()) or non-NULL with
+> a valid skb pointer. chunk->skb and chunk->auth_chunk are the
+> only skbs in the sctp_chunk structure that need to be handeled.
+> 
+> While at it, we should use consume_skb() for both. It is the same
+> as dev_kfree_skb() but more appropriately named as we are not
+> a device but a protocol. Also, this effectively replaces the
+> kfree_skb() from both invocations into consume_skb(). Functions
+> are the same only that kfree_skb() assumes that the frame was
+> being dropped after a failure (e.g. for tools like drop monitor),
+> usage of consume_skb() seems more appropriate in function
+> sctp_chunk_destroy() though.
+> 
+> Fixes: bbd0d59809f9 ("[SCTP]: Implement the receive and verification of AUTH chunk")
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Vlad Yasevich <yasevich@gmail.com>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+> ---
+>  net/sctp/sm_make_chunk.c | 4 ++--
+>  net/sctp/sm_statefuns.c  | 5 -----
+>  2 files changed, 2 insertions(+), 7 deletions(-)
+> 
+> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+> index 632090b..3a1767e 100644
+> --- a/net/sctp/sm_make_chunk.c
+> +++ b/net/sctp/sm_make_chunk.c
+> @@ -1421,8 +1421,8 @@ static void sctp_chunk_destroy(struct sctp_chunk *chunk)
+>  	BUG_ON(!list_empty(&chunk->list));
+>  	list_del_init(&chunk->transmitted_list);
+>  
+> -	/* Free the chunk skb data and the SCTP_chunk stub itself. */
+> -	dev_kfree_skb(chunk->skb);
+> +	consume_skb(chunk->skb);
+> +	consume_skb(chunk->auth_chunk);
+>  
+>  	SCTP_DBG_OBJCNT_DEC(chunk);
+>  	kmem_cache_free(sctp_chunk_cachep, chunk);
+> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+> index ae65b6b..01e0024 100644
+> --- a/net/sctp/sm_statefuns.c
+> +++ b/net/sctp/sm_statefuns.c
+> @@ -760,7 +760,6 @@ sctp_disposition_t sctp_sf_do_5_1D_ce(struct net *net,
+>  
+>  		/* Make sure that we and the peer are AUTH capable */
+>  		if (!net->sctp.auth_enable || !new_asoc->peer.auth_capable) {
+> -			kfree_skb(chunk->auth_chunk);
+>  			sctp_association_free(new_asoc);
+>  			return sctp_sf_pdiscard(net, ep, asoc, type, arg, commands);
+>  		}
+> @@ -775,10 +774,6 @@ sctp_disposition_t sctp_sf_do_5_1D_ce(struct net *net,
+>  		auth.transport = chunk->transport;
+>  
+>  		ret = sctp_sf_authenticate(net, ep, new_asoc, type, &auth);
+> -
+> -		/* We can now safely free the auth_chunk clone */
+> -		kfree_skb(chunk->auth_chunk);
+> -
+>  		if (ret != SCTP_IERROR_NO_ERROR) {
+>  			sctp_association_free(new_asoc);
+>  			return sctp_sf_pdiscard(net, ep, asoc, type, arg, commands);
+> -- 
+> 1.7.11.7
+> 
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
