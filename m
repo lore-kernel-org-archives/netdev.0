@@ -1,70 +1,46 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH RFC 3/3] Altera TSE: Add Altera Triple Speed Ethernet
- (TSE) Driver
-Date: Tue, 4 Mar 2014 10:06:13 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6CFE20@AcuExch.aculab.com>
-References: <1393792922-2381-1-git-send-email-vbridgers2013@gmail.com>
-	<1393792922-2381-4-git-send-email-vbridgers2013@gmail.com>
-	<5313D3DE.3030907@gmail.com>
- <CAOwfj2OjxyCNwgxWLjv5asDQYKD2Mcd3N_3Wn+jankK-pa35Fw@mail.gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: What is SOF_TIMESTAMPING_RX_HARDWARE?
+Date: Tue, 4 Mar 2014 11:10:30 +0100
+Message-ID: <20140304101030.GA8532@netboy>
+References: <CALCETrULL_QJqSLSCcySdUdj5sGgh8A7gyEn=vpgCC4LDjPHFA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"pawel.moll@arm.com" <pawel.moll@arm.com>,
-	"mark.rutland@arm.com" <mark.rutland@arm.com>,
-	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Rob Landley <rob@landley.net>
-To: 'Vince Bridgers' <vbridgers2013@gmail.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Network Development <netdev@vger.kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:39747 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1756842AbaCDKGk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 05:06:40 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 09219-09 for <netdev@vger.kernel.org>;
- Tue,  4 Mar 2014 10:06:37 +0000 (GMT)
-In-Reply-To: <CAOwfj2OjxyCNwgxWLjv5asDQYKD2Mcd3N_3Wn+jankK-pa35Fw@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-ee0-f42.google.com ([74.125.83.42]:58290 "EHLO
+	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756661AbaCDKKg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 05:10:36 -0500
+Received: by mail-ee0-f42.google.com with SMTP id d17so4706412eek.29
+        for <netdev@vger.kernel.org>; Tue, 04 Mar 2014 02:10:35 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CALCETrULL_QJqSLSCcySdUdj5sGgh8A7gyEn=vpgCC4LDjPHFA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Of Vince Bridgers
-> Hello Florian, thank you for taking the time to comments. My responses inline.
-> 
-> On Sun, Mar 2, 2014 at 6:59 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> > Hello Vince,
-> >
-> > It might help reviewing the patches by breaking the patches into:
-> >
-> > - the SGDMA bits
-> > - the MSGDMA bits
-> > - the Ethernet MAC driver per-se
-> 
-> I'll break down the next submission.
-> 
-> >
-> > BTW, it does look like the SGDMA code could/should be a dmaengine driver?
-> 
-> I did consider this, but after studying the dmaengine api I found the
-> API definitions and semantics were not a match to the way the SGDMA
-> and MSGDMA behave collectively. Moreover, I could not find an example
-> of an Ethernet driver that made use of the dmaengine API - only the
-> Micrel driver seems to use it. When studying what components actually
-> used the dmaengine API I concluded the dmaengine API was defined for
-> use cases different than Ethernet.
+On Mon, Mar 03, 2014 at 06:20:33PM -0800, Andy Lutomirski wrote:
+> AFAICT is sets SOCK_TIMESTAMPING_RX_HARDWARE, which appears to do
+> exactly nothing.  If I'm right, should I submit a patch documenting
+> that fact and removing the getsockopt/setsockopt implementations?
 
-It is probably reasonable to expect that the SGDMA is instantiated for the
-sole use of the ethernet block - it probably wants two of them, and then
-treat it as part of the ethernet hardware.
-I've not looked at the TSE or SGDMA, but I suspect you could require that
-they be placed at adjacent Avalon addresses. So that they are effectively
-a single device. Qsys might even let you define such a beast.
+Have you seen Documentation/networking/timestamping.txt?
 
-	David
+  SOF_TIMESTAMPING_TX/RX determine how time stamps are generated.
+  SOF_TIMESTAMPING_RAW/SYS determine how they are reported in the
+  following control message:
+
+This is the API that was invented (not by me) to support HW time stamp
+reporting. I agree that it is confusing and complicated, but I don't
+think you can remove the flag as it is a firmly established API.
+Drivers do use this to advertise whether they support receive time
+stamps in hardware.
+
+AFAICT, the reason why setting this socket option is a noop is
+this. Once receive time stamping is enabled at the driver level,
+eligible skbs will get the information whether they want it or not.
+It would be more work to hide this from sockets which haven't enabled
+the option, and so we don't do it.
+
+HTH,
+Richard
