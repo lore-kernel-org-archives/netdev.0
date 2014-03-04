@@ -1,52 +1,77 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [RFC][PATCH] audit: Simplify by assuming the callers socket
- buffer is large enough
-Date: Tue, 4 Mar 2014 14:50:37 -0800
-Message-ID: <20140304145037.d46ee775d293dd1ad60aa8e3@linux-foundation.org>
-References: <874n3ir0uw.fsf_-_@xmission.com>
-	<87mwhaplo4.fsf_-_@xmission.com>
-	<20140304133004.b565820f60f595a48e621e58@linux-foundation.org>
-	<20140304.165122.445822929490466603.davem@davemloft.net>
-	<87mwh5d1tf.fsf@xmission.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: TCP being hoodwinked into spurious retransmissions by lack of
+ timestamps?
+Date: Tue, 04 Mar 2014 15:14:10 -0800
+Message-ID: <53165E42.8070904@hp.com>
+References: <53151E55.9000503@hp.com> <CABrhC0=hHpZSdE5-dLqysuFn_d_VK7r1jKb0kGZF9hn1+UHjDw@mail.gmail.com> <53162093.1040208@hp.com> <CABrhC0k5-x=qJgH4izXtRR=9+cLJh_emAy9Yt=+xrY6K5982Fg@mail.gmail.com> <53162A6E.2010907@hp.com> <CADVnQyn7qqAZn5ZF8wQP_Hn-9s84uc4DUC6r8_ne7bY5Kexycg@mail.gmail.com> <CAK6E8=eBUUx4v11VTVQMKHWZdbCsut4zzr-LXJWd=fJTYsb39A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, rgb@redhat.com,
-	eparis@redhat.com, linux-audit@redhat.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: ebiederm@xmission.com (Eric W. Biederman)
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87mwh5d1tf.fsf@xmission.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: John Heffner <johnwheffner@gmail.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t3426.houston.hp.com ([15.201.208.54]:50002 "EHLO
+	g4t3426.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755209AbaCDXOM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 18:14:12 -0500
+In-Reply-To: <CAK6E8=eBUUx4v11VTVQMKHWZdbCsut4zzr-LXJWd=fJTYsb39A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 04 Mar 2014 14:41:16 -0800 ebiederm@xmission.com (Eric W. Biederman) wrote:
+On 03/04/2014 02:23 PM, Yuchung Cheng wrote:
+> On Tue, Mar 4, 2014 at 12:35 PM, Neal Cardwell <ncardwell@google.com> wrote:
+>> What's the receiver OS in this trace? It's reneging on SACKs. :-) Take
+>> a look at this ACK:
+>>
+>> 18:20:46.800063 IP 75.236.145.7.443 > 91.216.86.7.56064: .
+>> 4262:4262(0) ack 3171368 win 32716 <nop,nop,sack 1 {3171368:3177208}>
+>>
+>> Note that it's ACKing 3171368 and SACKing the adjacent sequence range:
+>> {3171368:3177208}. That's not cool.
+>>
+>> I think that's causing the Linux sender to enter the
+>> tcp_check_sack_reneging() code path, which calls tcp_enter_loss().
+>>
+>> It seems that the Linux sender did not enable FRTO for that
+>> tcp_enter_loss() invocation. Maybe there is some way we can revise the
+>> logic to enable FRTO in cases like this, so we can detect that the
+>> retransmission was not needed, and abort the stream of spurious
+>> retransmissions...
+> Sure we can try:
+>
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 6e48093..735ece6 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -1972,7 +1972,7 @@ void tcp_enter_loss(struct sock *sk, int how)
+>           * the same SND.UNA (sec 3.2). Disable F-RTO on path MTU probing
+>           */
+>          tp->frto = sysctl_tcp_frto &&
+> -                  (new_recovery || icsk->icsk_retransmits) &&
+> +                  (new_recovery || icsk->icsk_retransmits || how) &&
+>                     !inet_csk(sk)->icsk_mtup.probe_size;
+>   }
+>
+>
+> However that only works if we got new data to send. For a better
+> solution, with the lack of TS option or DSACK support, we can
+> 1) use Neal's neat idea to send a different size packet on the first
+> retransmission after timeout, and use that to distinguish if the ACK
+> is for the original or retry.
 
-> David Miller <davem@davemloft.net> writes:
-> 
-> > From: Andrew Morton <akpm@linux-foundation.org>
-> > Date: Tue, 4 Mar 2014 13:30:04 -0800
-> >
-> >> On Fri, 28 Feb 2014 20:50:19 -0800 ebiederm@xmission.com (Eric W. Biederman) wrote:
-> >> 
-> >>> 
-> >>> Modify audit_send_reply to directly use a non-blocking send and
-> >>> to return an error on failure (if anyone cares).
-> >>> 
-> >>> Modify audit_list_rules_send to use audit_send_reply and give up
-> >>> if we can not send a packet.
-> >>> 
-> >>> Merge audit_list_rules into iaudit_list_rules_send as the code
-> >>> is now sufficiently simple to not justify to callers.
-> >>> 
-> >>> Kill audit_send_list, audit_send_reply_thread because using
-> >>> a separate thread for replies is not needed when sending
-> >>> packets syncrhonously.
-> >> 
-> >> Nothing much seems to be happening here?
-> 
-> Well you picked up the patch that fixes the worst of the bugs that I was
-> complaining about.  Beyond that I don't know what makes sense.
+What would one do if the ACK arriving after the short retransmission was 
+farther to the right than the end of the original packet?  Won't that be 
+ambiguous?
 
-Oh, so I did.  I wasn't planning on merging it myself, hoping that
-someone who hasaclue will step in.  Help.
+> 2) Do not blindly marked any packet unsacked lost in tcp_enter_loss;
+> My idea would be to do that only if the packet was sent min_rtt ago;
+>
+> I can try to implement these ideas if people are interested.
+
+If these near-heroics are unnecessary if timestamps are present, I'm not 
+sure I'd push too hard.  Unless you think that timestamps not being 
+present is sufficiently common.
+
+rick
