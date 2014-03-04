@@ -1,107 +1,98 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv3 net-next 29/31] iw_cxgb4: minor fixes
-Date: Tue,  4 Mar 2014 18:11:55 +0530
-Message-ID: <1393936917-25847-30-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCHv3 net-next 05/31] cxgb4: use spinlock_irqsave/spinlock_irqrestore for db lock.
+Date: Tue,  4 Mar 2014 18:11:31 +0530
+Message-ID: <1393936917-25847-6-git-send-email-hariprasad@chelsio.com>
 References: <1393936917-25847-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com, kumaras@chelsio.com,
 	dm@chelsio.com, swise@opengridcomputing.com, leedom@chelsio.com,
 	santosh@chelsio.com, hariprasad@chelsio.com, nirranjan@chelsio.com
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:15782 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:12637 "EHLO
 	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932298AbaCDMp0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 07:45:26 -0500
+	by vger.kernel.org with ESMTP id S932121AbaCDMnW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 07:43:22 -0500
 In-Reply-To: <1393936917-25847-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Wise <swise@opengridcomputing.com>
+From: Kumar Sanghvi <kumaras@chelsio.com>
 
-Added some missing debug stats.
+Currently ring_tx_db() can deadlock if a db_full interrupt fires and is
+run on the same while ring_tx_db() has the db lock held.  It needs to
+disable interrupts since it serializes with an interrupt handler.
 
-Use uninitialized_var().
+Based on original work by Steve Wise <swise@opengridcomputing.com>
 
-Initialize reserved fields in a FW work request.
-
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
 ---
- drivers/infiniband/hw/cxgb4/cq.c       | 2 +-
- drivers/infiniband/hw/cxgb4/mem.c      | 6 +++++-
- drivers/infiniband/hw/cxgb4/qp.c       | 2 ++
- drivers/infiniband/hw/cxgb4/resource.c | 8 ++++++--
- 4 files changed, 14 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 11 +++++++----
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        |  5 +++--
+ 2 files changed, 10 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb4/cq.c b/drivers/infiniband/hw/cxgb4/cq.c
-index 121ad07..a47b845 100644
---- a/drivers/infiniband/hw/cxgb4/cq.c
-+++ b/drivers/infiniband/hw/cxgb4/cq.c
-@@ -672,7 +672,7 @@ skip_cqe:
- static int c4iw_poll_cq_one(struct c4iw_cq *chp, struct ib_wc *wc)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index da4edc1..73dbf81 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -3585,9 +3585,11 @@ static void disable_txq_db(struct sge_txq *q)
+ 
+ static void enable_txq_db(struct sge_txq *q)
  {
- 	struct c4iw_qp *qhp = NULL;
--	struct t4_cqe cqe = {0, 0}, *rd_cqe;
-+	struct t4_cqe uninitialized_var(cqe), *rd_cqe;
- 	struct t4_wq *wq;
- 	u32 credit = 0;
- 	u8 cqe_flushed;
-diff --git a/drivers/infiniband/hw/cxgb4/mem.c b/drivers/infiniband/hw/cxgb4/mem.c
-index cdaf257..ecdee18 100644
---- a/drivers/infiniband/hw/cxgb4/mem.c
-+++ b/drivers/infiniband/hw/cxgb4/mem.c
-@@ -259,8 +259,12 @@ static int write_tpt_entry(struct c4iw_rdev *rdev, u32 reset_tpt_entry,
+-	spin_lock_irq(&q->db_lock);
++	unsigned long flags;
++
++	spin_lock_irqsave(&q->db_lock, flags);
+ 	q->db_disabled = 0;
+-	spin_unlock_irq(&q->db_lock);
++	spin_unlock_irqrestore(&q->db_lock, flags);
+ }
  
- 	if ((!reset_tpt_entry) && (*stag == T4_STAG_UNSET)) {
- 		stag_idx = c4iw_get_resource(&rdev->resource.tpt_table);
--		if (!stag_idx)
-+		if (!stag_idx) {
-+			mutex_lock(&rdev->stats.lock);
-+			rdev->stats.stag.fail++;
-+			mutex_unlock(&rdev->stats.lock);
- 			return -ENOMEM;
-+		}
- 		mutex_lock(&rdev->stats.lock);
- 		rdev->stats.stag.cur += 32;
- 		if (rdev->stats.stag.cur > rdev->stats.stag.max)
-diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
-index 9e11618..6b0a25a 100644
---- a/drivers/infiniband/hw/cxgb4/qp.c
-+++ b/drivers/infiniband/hw/cxgb4/qp.c
-@@ -440,6 +440,8 @@ static int build_rdma_send(struct t4_sq *sq, union t4_wr *wqe,
- 	default:
- 		return -EINVAL;
+ static void disable_dbs(struct adapter *adap)
+@@ -3617,9 +3619,10 @@ static void enable_dbs(struct adapter *adap)
+ static void sync_txq_pidx(struct adapter *adap, struct sge_txq *q)
+ {
+ 	u16 hw_pidx, hw_cidx;
++	unsigned long flags;
+ 	int ret;
+ 
+-	spin_lock_bh(&q->db_lock);
++	spin_lock_irqsave(&q->db_lock, flags);
+ 	ret = read_eq_indices(adap, (u16)q->cntxt_id, &hw_pidx, &hw_cidx);
+ 	if (ret)
+ 		goto out;
+@@ -3636,7 +3639,7 @@ static void sync_txq_pidx(struct adapter *adap, struct sge_txq *q)
  	}
-+	wqe->send.r3 = 0;
-+	wqe->send.r4 = 0;
+ out:
+ 	q->db_disabled = 0;
+-	spin_unlock_bh(&q->db_lock);
++	spin_unlock_irqrestore(&q->db_lock, flags);
+ 	if (ret)
+ 		CH_WARN(adap, "DB drop recovery failed.\n");
+ }
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index e0376cd..392baee 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -860,9 +860,10 @@ static void cxgb_pio_copy(u64 __iomem *dst, u64 *src)
+ static inline void ring_tx_db(struct adapter *adap, struct sge_txq *q, int n)
+ {
+ 	unsigned int *wr, index;
++	unsigned long flags;
  
- 	plen = 0;
- 	if (wr->num_sge) {
-diff --git a/drivers/infiniband/hw/cxgb4/resource.c b/drivers/infiniband/hw/cxgb4/resource.c
-index cdef4d7..16982f2 100644
---- a/drivers/infiniband/hw/cxgb4/resource.c
-+++ b/drivers/infiniband/hw/cxgb4/resource.c
-@@ -179,8 +179,12 @@ u32 c4iw_get_qpid(struct c4iw_rdev *rdev, struct c4iw_dev_ucontext *uctx)
- 		kfree(entry);
- 	} else {
- 		qid = c4iw_get_resource(&rdev->resource.qid_table);
--		if (!qid)
-+		if (!qid) {
-+			mutex_lock(&rdev->stats.lock);
-+			rdev->stats.qid.fail++;
-+			mutex_unlock(&rdev->stats.lock);
- 			goto out;
-+		}
- 		mutex_lock(&rdev->stats.lock);
- 		rdev->stats.qid.cur += rdev->qpmask + 1;
- 		mutex_unlock(&rdev->stats.lock);
-@@ -323,7 +327,7 @@ u32 c4iw_rqtpool_alloc(struct c4iw_rdev *rdev, int size)
- 	PDBG("%s addr 0x%x size %d\n", __func__, (u32)addr, size << 6);
- 	if (!addr)
- 		printk_ratelimited(KERN_WARNING MOD "%s: Out of RQT memory\n",
--		       pci_name(rdev->lldi.pdev));
-+			pci_name(rdev->lldi.pdev));
- 	mutex_lock(&rdev->stats.lock);
- 	if (addr) {
- 		rdev->stats.rqt.cur += roundup(size << 6, 1 << MIN_RQT_SHIFT);
+ 	wmb();            /* write descriptors before telling HW */
+-	spin_lock(&q->db_lock);
++	spin_lock_irqsave(&q->db_lock, flags);
+ 	if (!q->db_disabled) {
+ 		if (is_t4(adap->params.chip)) {
+ 			t4_write_reg(adap, MYPF_REG(SGE_PF_KDOORBELL),
+@@ -880,7 +881,7 @@ static inline void ring_tx_db(struct adapter *adap, struct sge_txq *q, int n)
+ 		}
+ 	}
+ 	q->db_pidx = q->pidx;
+-	spin_unlock(&q->db_lock);
++	spin_unlock_irqrestore(&q->db_lock, flags);
+ }
+ 
+ /**
 -- 
 1.8.4
