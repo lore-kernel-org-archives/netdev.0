@@ -1,39 +1,52 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 08/12] r8152: support TSO
-Date: Tue, 4 Mar 2014 12:11:44 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6CFFE0@AcuExch.aculab.com>
-References: <1393934464-23675-1-git-send-email-hayeswang@realtek.com>
- <1393934464-23675-9-git-send-email-hayeswang@realtek.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "nic_swsd@realtek.com" <nic_swsd@realtek.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: 'Hayes Wang' <hayeswang@realtek.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1393934464-23675-9-git-send-email-hayeswang@realtek.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH 0/2] af_key: fixes for sleeping while atomic
+Date: Tue,  4 Mar 2014 13:26:22 +0100
+Message-ID: <1393935984-8733-1-git-send-email-nikolay@redhat.com>
+References: <20140227151954.GA30946@redhat.com>
+Cc: Nikolay Aleksandrov <nikolay@redhat.com>,
+	Paul Moore <paul@paul-moore.com>,
+	Dave Jones <davej@redhat.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Fan Du <fan.du@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:61914 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756971AbaCDMbI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Mar 2014 07:31:08 -0500
+In-Reply-To: <20140227151954.GA30946@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang
-> Support scatter gather and TSO.
-> 
-> Adjust the tx checksum function and set the max gso size to fix the
-> size of the tx aggregation buffer.
+Hi,
+The first patch takes care of the issue on the af_key side, and the second
+one fixes it on the selinux side (security_xfrm_policy_alloc).
+There're a few lines >80 but they were already long, I'm not sure if breaking
+them above the limit would make them more readable than they already are.
 
-There is little point supporting TSO unless the usb host controller
-supports arbitrary aligned scatter-gather.
-All you do is require that a large skb be allocated (that may well
-fail), and add it another data copy.
+Best regards,
+ Nikolay Aleksandrov
 
-The xhci controller is almost capable of arbitrary scatter-gather,
-but it is currently disabled because the data must be aligned at
-the end of the transfer ring (the hardware designers have made it
-almost impossible to write efficient software).
+CC: Paul Moore <paul@paul-moore.com>
+CC: Dave Jones <davej@redhat.com>
+CC: Steffen Klassert <steffen.klassert@secunet.com>
+CC: Fan Du <fan.du@windriver.com>
+CC: David S. Miller <davem@davemloft.net>
 
-Note that the various xhci controllers behave subtly differently.
+Nikolay Aleksandrov (2):
+  net: af_key: fix sleeping under rcu
+  selinux: add gfp argument to security_xfrm_policy_alloc and fix
+    callers
 
-	David
+ include/linux/security.h        | 10 +++++++---
+ net/key/af_key.c                | 19 ++++++++++---------
+ net/xfrm/xfrm_user.c            |  6 +++---
+ security/capability.c           |  3 ++-
+ security/security.c             |  6 ++++--
+ security/selinux/include/xfrm.h |  3 ++-
+ security/selinux/xfrm.c         | 12 +++++++-----
+ 7 files changed, 35 insertions(+), 24 deletions(-)
+
+-- 
+1.8.5.3
