@@ -1,135 +1,79 @@
-From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCHv3 net-next 28/31] iw_cxgb4: SQ flush fix.
-Date: Tue,  4 Mar 2014 18:11:54 +0530
-Message-ID: <1393936917-25847-29-git-send-email-hariprasad@chelsio.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCHv3 net-next 30/31] iw_cxgb4: Max fastreg depth depends on DSGL support.
+Date: Tue,  4 Mar 2014 18:11:56 +0530
+Message-ID: <1393936917-25847-31-git-send-email-hariprasad@chelsio.com>
 References: <1393936917-25847-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1393936917-25847-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, roland@purestorage.com, kumaras@chelsio.com,
+	dm@chelsio.com, swise@opengridcomputing.com, leedom@chelsio.com,
+	santosh@chelsio.com, hariprasad@chelsio.com, nirranjan@chelsio.com
+To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:23828 "EHLO
+	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932183AbaCDMo7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 07:44:59 -0500
+In-Reply-To: <1393936917-25847-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+From: Steve Wise <swise@opengridcomputing.com>
 
-There is a race when moving a QP from RTS->CLOSING where a SQ work
-request could be posted after the FW receives the RDMA_RI/FINI WR.
-The SQ work request will never get processed, and should be completed
-with FLUSHED status.  Function c4iw_flush_sq(), however was dropping
-the oldest SQ work request when in CLOSING or IDLE states, instead of
-completing the pending work request. If that oldest pending work request
-was actually complete and has a CQE in the CQ, then when that CQE is
-proceessed in poll_cq, we'll BUG_ON() due to the inconsistent SQ/CQ state.
+The max depth of a fastreg mr depends on  whether the device supports DSGL or not.  So
+compute it dynamically based on the device support and the module use_dsgl option.
 
-This is a very small timing hole and has only been hit once so far.
-
-The fix is two-fold:
-
-1) c4iw_flush_sq() MUST always flush all non-completed WRs with FLUSHED
-status regardless of the QP state.
-
-2) In c4iw_modify_rc_qp(), always set the "in error" bit on the queue
-before moving the state out of RTS.  This ensures that the state
-transition will not happen while another thread is in post_rc_send(),
-because set_state() and post_rc_send() both aquire the qp spinlock.
-Also, once we transition the state out of RTS, subsequent calls to
-post_rc_send() will fail because the "in error" bit is set.  I don't
-think this fully closes the race where the FW can get a FINI followed a
-SQ work request being posted (because they are posted to differente EQs),
-but the #1 fix will handle the issue by flushing the SQ work request.
-
-Signed-off-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
- drivers/infiniband/hw/cxgb4/cq.c | 22 ++++++++--------------
- drivers/infiniband/hw/cxgb4/qp.c |  6 +++---
- 2 files changed, 11 insertions(+), 17 deletions(-)
+ drivers/infiniband/hw/cxgb4/provider.c | 2 +-
+ drivers/infiniband/hw/cxgb4/qp.c       | 3 ++-
+ drivers/infiniband/hw/cxgb4/t4.h       | 9 ++++++++-
+ 3 files changed, 11 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb4/cq.c b/drivers/infiniband/hw/cxgb4/cq.c
-index 55f7157..121ad07 100644
---- a/drivers/infiniband/hw/cxgb4/cq.c
-+++ b/drivers/infiniband/hw/cxgb4/cq.c
-@@ -235,27 +235,21 @@ int c4iw_flush_sq(struct c4iw_qp *qhp)
- 	struct t4_cq *cq = &chp->cq;
- 	int idx;
- 	struct t4_swsqe *swsqe;
--	int error = (qhp->attr.state != C4IW_QP_STATE_CLOSING &&
--			qhp->attr.state != C4IW_QP_STATE_IDLE);
+diff --git a/drivers/infiniband/hw/cxgb4/provider.c b/drivers/infiniband/hw/cxgb4/provider.c
+index d1565a4..9e1a409 100644
+--- a/drivers/infiniband/hw/cxgb4/provider.c
++++ b/drivers/infiniband/hw/cxgb4/provider.c
+@@ -327,7 +327,7 @@ static int c4iw_query_device(struct ib_device *ibdev,
+ 	props->max_mr = c4iw_num_stags(&dev->rdev);
+ 	props->max_pd = T4_MAX_NUM_PD;
+ 	props->local_ca_ack_delay = 0;
+-	props->max_fast_reg_page_list_len = T4_MAX_FR_DEPTH;
++	props->max_fast_reg_page_list_len = t4_max_fr_depth(use_dsgl);
  
- 	if (wq->sq.flush_cidx == -1)
- 		wq->sq.flush_cidx = wq->sq.cidx;
- 	idx = wq->sq.flush_cidx;
- 	BUG_ON(idx >= wq->sq.size);
- 	while (idx != wq->sq.pidx) {
--		if (error) {
--			swsqe = &wq->sq.sw_sq[idx];
--			BUG_ON(swsqe->flushed);
--			swsqe->flushed = 1;
--			insert_sq_cqe(wq, cq, swsqe);
--			if (wq->sq.oldest_read == swsqe) {
--				BUG_ON(swsqe->opcode != FW_RI_READ_REQ);
--				advance_oldest_read(wq);
--			}
--			flushed++;
--		} else {
--			t4_sq_consume(wq);
-+		swsqe = &wq->sq.sw_sq[idx];
-+		BUG_ON(swsqe->flushed);
-+		swsqe->flushed = 1;
-+		insert_sq_cqe(wq, cq, swsqe);
-+		if (wq->sq.oldest_read == swsqe) {
-+			BUG_ON(swsqe->opcode != FW_RI_READ_REQ);
-+			advance_oldest_read(wq);
- 		}
-+		flushed++;
- 		if (++idx == wq->sq.size)
- 			idx = 0;
- 	}
+ 	return 0;
+ }
 diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
-index c8cc299..9e11618 100644
+index 6b0a25a..40bfa26 100644
 --- a/drivers/infiniband/hw/cxgb4/qp.c
 +++ b/drivers/infiniband/hw/cxgb4/qp.c
-@@ -1371,6 +1371,7 @@ int c4iw_modify_qp(struct c4iw_dev *rhp, struct c4iw_qp *qhp,
- 		switch (attrs->next_state) {
- 		case C4IW_QP_STATE_CLOSING:
- 			BUG_ON(atomic_read(&qhp->ep->com.kref.refcount) < 2);
-+			t4_set_wq_in_error(&qhp->wq);
- 			set_state(qhp, C4IW_QP_STATE_CLOSING);
- 			ep = qhp->ep;
- 			if (!internal) {
-@@ -1378,16 +1379,15 @@ int c4iw_modify_qp(struct c4iw_dev *rhp, struct c4iw_qp *qhp,
- 				disconnect = 1;
- 				c4iw_get_ep(&qhp->ep->com);
- 			}
--			t4_set_wq_in_error(&qhp->wq);
- 			ret = rdma_fini(rhp, qhp, ep);
- 			if (ret)
- 				goto err;
- 			break;
- 		case C4IW_QP_STATE_TERMINATE:
-+			t4_set_wq_in_error(&qhp->wq);
- 			set_state(qhp, C4IW_QP_STATE_TERMINATE);
- 			qhp->attr.layer_etype = attrs->layer_etype;
- 			qhp->attr.ecode = attrs->ecode;
--			t4_set_wq_in_error(&qhp->wq);
- 			ep = qhp->ep;
- 			disconnect = 1;
- 			if (!internal)
-@@ -1400,8 +1400,8 @@ int c4iw_modify_qp(struct c4iw_dev *rhp, struct c4iw_qp *qhp,
- 			c4iw_get_ep(&qhp->ep->com);
- 			break;
- 		case C4IW_QP_STATE_ERROR:
--			set_state(qhp, C4IW_QP_STATE_ERROR);
- 			t4_set_wq_in_error(&qhp->wq);
-+			set_state(qhp, C4IW_QP_STATE_ERROR);
- 			if (!internal) {
- 				abort = 1;
- 				disconnect = 1;
+@@ -572,7 +572,8 @@ static int build_fastreg(struct t4_sq *sq, union t4_wr *wqe,
+ 	int pbllen = roundup(wr->wr.fast_reg.page_list_len * sizeof(u64), 32);
+ 	int rem;
+ 
+-	if (wr->wr.fast_reg.page_list_len > T4_MAX_FR_DEPTH)
++	if (wr->wr.fast_reg.page_list_len >
++	    t4_max_fr_depth(use_dsgl))
+ 		return -EINVAL;
+ 
+ 	wqe->fr.qpbinde_to_dcacpu = 0;
+diff --git a/drivers/infiniband/hw/cxgb4/t4.h b/drivers/infiniband/hw/cxgb4/t4.h
+index ace3154..1543d6b 100644
+--- a/drivers/infiniband/hw/cxgb4/t4.h
++++ b/drivers/infiniband/hw/cxgb4/t4.h
+@@ -84,7 +84,14 @@ struct t4_status_page {
+ 			sizeof(struct fw_ri_isgl)) / sizeof(struct fw_ri_sge))
+ #define T4_MAX_FR_IMMD ((T4_SQ_NUM_BYTES - sizeof(struct fw_ri_fr_nsmr_wr) - \
+ 			sizeof(struct fw_ri_immd)) & ~31UL)
+-#define T4_MAX_FR_DEPTH (1024 / sizeof(u64))
++#define T4_MAX_FR_IMMD_DEPTH (T4_MAX_FR_IMMD / sizeof(u64))
++#define T4_MAX_FR_DSGL 1024
++#define T4_MAX_FR_DSGL_DEPTH (T4_MAX_FR_DSGL / sizeof(u64))
++
++static inline int t4_max_fr_depth(int use_dsgl)
++{
++	return use_dsgl ? T4_MAX_FR_DSGL_DEPTH : T4_MAX_FR_IMMD_DEPTH;
++}
+ 
+ #define T4_RQ_NUM_SLOTS 2
+ #define T4_RQ_NUM_BYTES (T4_EQ_ENTRY_SIZE * T4_RQ_NUM_SLOTS)
 -- 
 1.8.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
