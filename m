@@ -1,129 +1,56 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net] net: sctp: fix skb leakage in COOKIE ECHO path of chunk->auth_chunk
-Date: Tue,  4 Mar 2014 16:35:51 +0100
-Message-ID: <1393947351-11664-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Vlad Yasevich <yasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>
-To: davem@davemloft.net
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] vlan: slight optimization for vlan
+Date: Tue, 04 Mar 2014 07:50:05 -0800
+Message-ID: <1393948205.20435.28.camel@joe-AO722>
+References: <5315AF42.8030905@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Julia Lawall <julia.lawall@lip6.fr>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48929 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751494AbaCDPgF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Mar 2014 10:36:05 -0500
+Received: from smtprelay0111.hostedemail.com ([216.40.44.111]:37419 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753010AbaCDPuM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 10:50:12 -0500
+In-Reply-To: <5315AF42.8030905@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While working on ec0223ec48a9 ("net: sctp: fix sctp_sf_do_5_1D_ce to
-verify if we/peer is AUTH capable"), we noticed that there's a skb
-memory leakage in the error path.
+On Tue, 2014-03-04 at 18:47 +0800, Ding Tianhong wrote:
+> Ether_addr_equal_64bits is more efficient than ether_addr_equal, and
+> can be used when each argument is an array within a structure that
+> contains at least two bytes of data beyond the array, so it is safe
+> to use it for vlan.
 
-Running the same reproducer as in ec0223ec48a9 and by unconditionally
-jumping to the error label (to simulate an error condition) in
-sctp_sf_do_5_1D_ce() receive path lets kmemleak detector bark about
-the unfreed chunk->auth_chunk skb clone:
+Perhaps I wasn't clear or perhaps you simply disagree,
+(which is certainly your right), but I think that
+ether_addr_equal_64bits should _only_ be used in
+performance sensitive paths because using it requires
+a person/script to analyze surrounding structures to
+ensure 2 bytes exist after the address.
 
-Unreferenced object 0xffff8800b8f3a000 (size 256):
-  comm "softirq", pid 0, jiffies 4294769856 (age 110.757s)
-  hex dump (first 32 bytes):
-    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-    89 ab 75 5e d4 01 58 13 00 00 00 00 00 00 00 00  ..u^..X.........
-  backtrace:
-    [<ffffffff816660be>] kmemleak_alloc+0x4e/0xb0
-    [<ffffffff8119f328>] kmem_cache_alloc+0xc8/0x210
-    [<ffffffff81566929>] skb_clone+0x49/0xb0
-    [<ffffffffa0467459>] sctp_endpoint_bh_rcv+0x1d9/0x230 [sctp]
-    [<ffffffffa046fdbc>] sctp_inq_push+0x4c/0x70 [sctp]
-    [<ffffffffa047e8de>] sctp_rcv+0x82e/0x9a0 [sctp]
-    [<ffffffff815abd38>] ip_local_deliver_finish+0xa8/0x210
-    [<ffffffff815a64af>] nf_reinject+0xbf/0x180
-    [<ffffffffa04b4762>] nfqnl_recv_verdict+0x1d2/0x2b0 [nfnetlink_queue]
-    [<ffffffffa04aa40b>] nfnetlink_rcv_msg+0x14b/0x250 [nfnetlink]
-    [<ffffffff815a3269>] netlink_rcv_skb+0xa9/0xc0
-    [<ffffffffa04aa7cf>] nfnetlink_rcv+0x23f/0x408 [nfnetlink]
-    [<ffffffff815a2bd8>] netlink_unicast+0x168/0x250
-    [<ffffffff815a2fa1>] netlink_sendmsg+0x2e1/0x3f0
-    [<ffffffff8155cc6b>] sock_sendmsg+0x8b/0xc0
-    [<ffffffff8155d449>] ___sys_sendmsg+0x369/0x380
+I don't think that vlan_dev_(open|stop|set_mac_address)
+are performance sensitive paths.
 
-What happens is that commit bbd0d59809f9 clones the skb containing
-the AUTH chunk in sctp_endpoint_bh_rcv() when having the edge case
-that an endpoint requires COOKIE-ECHO chunks to be authenticated:
+vlan_do_receive, absolutely yes.
 
-  ---------- INIT[RANDOM; CHUNKS; HMAC-ALGO] ---------->
-  <------- INIT-ACK[RANDOM; CHUNKS; HMAC-ALGO] ---------
-  ------------------ AUTH; COOKIE-ECHO ---------------->
-  <-------------------- COOKIE-ACK ---------------------
+Is the vlan_device_event:NETDEV_CHANGEADDR:vlan_sync_address
+path that frequent?  Maybe.
 
-When we enter sctp_sf_do_5_1D_ce() and before we actually get to
-the point where we process (and subsequently free) a non-NULL
-chunk->auth_chunk, we could hit the "goto nomem_init" path from
-an error condition and thus leave the cloned skb around w/o
-freeing it.
+> On a simple test by iperf, it reduces the CPU %system time from 14% to 12%.
 
-The fix is to centrally free such clones in sctp_chunk_destroy()
-handler that is invoked from sctp_chunk_free() after all refs have
-dropped; and also move both kfree_skb(chunk->auth_chunk) there,
-so that chunk->auth_chunk is either NULL (since sctp_chunkify()
-allocs new chunks through kmem_cache_zalloc()) or non-NULL with
-a valid skb pointer. chunk->skb and chunk->auth_chunk are the
-only skbs in the sctp_chunk structure that need to be handeled.
+> According Joe's suggestion, maybe it'd be faster to add an unlikely to
+> the test for PCKET_OTHERHOST, so I add it and see whether the performance
+> could be better, but the differences is so small and negligible, maybe my
+> test case is not effective enough, but I still add the unlikely and wait to
+> hear more opinions.:)
 
-While at it, we should use consume_skb() for both. It is the same
-as dev_kfree_skb() but more appropriately named as we are not
-a device but a protocol. Also, this effectively replaces the
-kfree_skb() from both invocations into consume_skb(). Functions
-are the same only that kfree_skb() assumes that the frame was
-being dropped after a failure (e.g. for tools like drop monitor),
-usage of consume_skb() seems more appropriate in function
-sctp_chunk_destroy() though.
+A separate patch for the unlikely would likely be better,
+but I wonder what your test case is.
 
-Fixes: bbd0d59809f9 ("[SCTP]: Implement the receive and verification of AUTH chunk")
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Cc: Vlad Yasevich <yasevich@gmail.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>
----
- net/sctp/sm_make_chunk.c | 4 ++--
- net/sctp/sm_statefuns.c  | 5 -----
- 2 files changed, 2 insertions(+), 7 deletions(-)
-
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 632090b..3a1767e 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -1421,8 +1421,8 @@ static void sctp_chunk_destroy(struct sctp_chunk *chunk)
- 	BUG_ON(!list_empty(&chunk->list));
- 	list_del_init(&chunk->transmitted_list);
- 
--	/* Free the chunk skb data and the SCTP_chunk stub itself. */
--	dev_kfree_skb(chunk->skb);
-+	consume_skb(chunk->skb);
-+	consume_skb(chunk->auth_chunk);
- 
- 	SCTP_DBG_OBJCNT_DEC(chunk);
- 	kmem_cache_free(sctp_chunk_cachep, chunk);
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index ae65b6b..01e0024 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -760,7 +760,6 @@ sctp_disposition_t sctp_sf_do_5_1D_ce(struct net *net,
- 
- 		/* Make sure that we and the peer are AUTH capable */
- 		if (!net->sctp.auth_enable || !new_asoc->peer.auth_capable) {
--			kfree_skb(chunk->auth_chunk);
- 			sctp_association_free(new_asoc);
- 			return sctp_sf_pdiscard(net, ep, asoc, type, arg, commands);
- 		}
-@@ -775,10 +774,6 @@ sctp_disposition_t sctp_sf_do_5_1D_ce(struct net *net,
- 		auth.transport = chunk->transport;
- 
- 		ret = sctp_sf_authenticate(net, ep, new_asoc, type, &auth);
--
--		/* We can now safely free the auth_chunk clone */
--		kfree_skb(chunk->auth_chunk);
--
- 		if (ret != SCTP_IERROR_NO_ERROR) {
- 			sctp_association_free(new_asoc);
- 			return sctp_sf_pdiscard(net, ep, asoc, type, arg, commands);
--- 
-1.7.11.7
+I presume a single stream of identical vlan PACKET_OTHERHOST
+packets is atypical.
