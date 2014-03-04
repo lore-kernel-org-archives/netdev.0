@@ -1,39 +1,45 @@
-From: "Luis R. Rodriguez" <mcgrof@suse.com>
-Subject: Re: [RFC v3 0/6] networking: address root block upon initialization
-Date: Mon, 3 Mar 2014 17:05:18 -0800
-Message-ID: <CAB=NE6XLe0jkMTP=SkFDhMaWiubHTj7zyJwbbOcoCkkhYpBpdA@mail.gmail.com>
-References: <1393886825-24323-1-git-send-email-mcgrof@do-not-panic.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: bond failover doesn't happen when active slave link is up, but
+ there is no connectivity
+Date: Tue, 4 Mar 2014 09:40:29 +0800
+Message-ID: <53152F0D.2050500@huawei.com>
+References: <62EB227014B44F00A9ACC9C781887FC8@alyakaslap>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	kvm@vger.kernel.org, xen-devel@lists.xenproject.org,
-	"Luis R. Rodriguez" <mcgrof@suse.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1393886825-24323-1-git-send-email-mcgrof@do-not-panic.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Alex Lyakas <alex@zadarastorage.com>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:6279 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755147AbaCDBk5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 20:40:57 -0500
+In-Reply-To: <62EB227014B44F00A9ACC9C781887FC8@alyakaslap>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 3, 2014 at 2:46 PM, Luis R. Rodriguez
-<mcgrof@do-not-panic.com> wrote:
-> From: "Luis R. Rodriguez" <mcgrof@suse.com>
+On 2014/3/4 0:49, Alex Lyakas wrote:
+> Greetings all,
+> We are using bonding interfaces in active-backup (1) mode, with "fail_over_mac" set to "active" (1), with miimon=100 and two slaves. The slaves are "either regular" network interfaces, or vlan interfaces created with "vconfig" over "regular" interfaces. One of the slaves is defined as primary. The purpose of this config is to ensure failover in case one of the interfaces dies. This config usually works as expected.
+> 
+> One scenario that doesn't work for us, is when link status of the active slave is up, but all the packets sent to it are dropped, e.g., because of
+> incorrect switch configuration. In that case bond failover doesn't happen. Can this scenario be addressed with bonding?
+> 
+> Thanks,
+> Alex.
+> 
+> I found a discussion, which looks relevant, labeled "How to check an inactive slave in a bond?" in http://www.spinics.net/lists/lartc/msg21434.html". But this discussion considers the inactive slave, while in my case, I would like to better handle problems with the active slave.
+> 
+Hi Alex:
 
-<-- snip -->
+I don't understand your problem clearly, normally the fail_over_mac could work well, but in some strange situation, just like the active slave down and up, but
+it could not work back again, can you explain your steps to reproduction the problem, I think I can meet the same problem?
 
-> As I tested using the root block preference I noticed that if a net_device
-> slave under the bridge gets the designated root port prior to setting in
-> userspace the root_block feature enabling the feature won't kick the
-> bridge to remove that net_device from the designated port. I addressed
-> that issue and also upkeeping the initial random MAC address given to
-> the bridge as if othwerwise we'd end up with a zero MAC address bridge
-> if we root block all ports. I have only done local tests I'd appreciate a
-> bit more wide test coverage and review.
+Regards
+Ding
 
-
-Stephen,
-
-I should note that even if we discard patches 4-6 patches for an
-alternative implementation patches 1-3 should still be applicable for
-review. Let me know what you think of those.
-
-  Luis
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
