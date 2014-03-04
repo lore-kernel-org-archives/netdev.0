@@ -1,64 +1,32 @@
-From: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
-Subject: Re: [PATCH 10/15] irda: sh_irda: Enable driver compilation with COMPILE_TEST
-Date: Tue, 04 Mar 2014 19:19:34 +0100
-Message-ID: <4876025.BhmDicoI5K@avalon>
-References: <1385515117-23664-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com> <2434798.8bvsZzgdNb@avalon> <63153015.VK19yFZrrS@avalon>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCHv3 net-next 00/31] Misc. fixes for cxgb4 and iw_cxgb4
+Date: Tue, 04 Mar 2014 13:22:26 -0500 (EST)
+Message-ID: <20140304.132226.75524344104026791.davem@davemloft.net>
+References: <1393936917-25847-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-sh@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org
-To: Samuel Ortiz <samuel@sortiz.org>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <63153015.VK19yFZrrS@avalon>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1393936917-25847-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Samuel,
 
-On Tuesday 07 January 2014 16:13:49 Laurent Pinchart wrote:
-> On Wednesday 11 December 2013 13:49:15 Laurent Pinchart wrote:
-> > Hi Samuel,
-> > 
-> > Could you please pick this patch up for v3.14 ?
-> 
-> Ping ?
+BTW, if you're frustrated from having to send these patches so many
+times because of changes being requested, this is the main reason
+why you shouldn't queue up such enormous numbers of patches at one
+time.
 
-PING ?
+Please try to keep your future submissions sizes more reasonable,
+perhaps ~10 patches or so at most.
 
-> > On Wednesday 27 November 2013 02:18:32 Laurent Pinchart wrote:
-> > > This helps increasing build testing coverage.
-> > > 
-> > > Cc: Samuel Ortiz <samuel@sortiz.org>
-> > > Cc: netdev@vger.kernel.org
-> > > Signed-off-by: Laurent Pinchart
-> > > <laurent.pinchart+renesas@ideasonboard.com>
-> > > Acked-by: Simon Horman <horms@verge.net.au>
-> > > ---
-> > > 
-> > >  drivers/net/irda/Kconfig | 3 ++-
-> > >  1 file changed, 2 insertions(+), 1 deletion(-)
-> > > 
-> > > diff --git a/drivers/net/irda/Kconfig b/drivers/net/irda/Kconfig
-> > > index 2a30193..cae5ee2 100644
-> > > --- a/drivers/net/irda/Kconfig
-> > > +++ b/drivers/net/irda/Kconfig
-> > > @@ -403,7 +403,8 @@ config MCS_FIR
-> > > 
-> > >  config SH_IRDA
-> > >  
-> > >  	tristate "SuperH IrDA driver"
-> > > 
-> > > -	depends on IRDA && ARCH_SHMOBILE
-> > > +	depends on IRDA
-> > > +	depends on ARCH_SHMOBILE || COMPILE_TEST
-> > > 
-> > >  	help
-> > >  	
-> > >  	  Say Y here if your want to enable SuperH IrDA devices.
-
--- 
-Regards,
-
-Laurent Pinchart
-
+Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
