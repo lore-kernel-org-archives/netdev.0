@@ -1,58 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] be2net: dma_sync each RX frag before passing
- it to the stack
-Date: Tue, 04 Mar 2014 16:19:55 -0500 (EST)
-Message-ID: <20140304.161955.131076054982575581.davem@davemloft.net>
-References: <1393915478-8433-1-git-send-email-sathya.perla@emulex.com>
+Subject: Re: [PATCH] net: unix socket code abuses csum_partial
+Date: Tue, 04 Mar 2014 16:23:29 -0500 (EST)
+Message-ID: <20140304.162329.504474868666088316.davem@davemloft.net>
+References: <20140304210104.42ef3dd8@kryten>
+	<20140304.134141.1732220919806520941.davem@davemloft.net>
+	<1393959053.26794.126.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sathya.perla@emulex.com
+Cc: anton@samba.org, edumazet@google.com, gustavold@linux.vnet.ibm.com,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37137 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37169 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933329AbaCDVT5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 16:19:57 -0500
-In-Reply-To: <1393915478-8433-1-git-send-email-sathya.perla@emulex.com>
+	with ESMTP id S1757001AbaCDVXb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 16:23:31 -0500
+In-Reply-To: <1393959053.26794.126.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sathya Perla <sathya.perla@emulex.com>
-Date: Tue, 4 Mar 2014 12:14:38 +0530
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 04 Mar 2014 10:50:53 -0800
 
-> The driver currently maps a page for DMA, divides the page into multiple
-> frags and posts them to the HW. It un-maps the page after data is received
-> on all the frags of the page. This scheme doesn't work when bounce buffers
-> are used for DMA (swiotlb=force kernel param).
+> On Tue, 2014-03-04 at 13:41 -0500, David Miller wrote:
 > 
-> This patch fixes this problem by calling dma_sync_single_for_cpu() for each
-> frag (excepting the last one) so that the data is copied from the bounce
-> buffers. The page is un-mapped only when DMA finishes on the last frag of
-> the page.
-> (Thanks Ben H. for suggesting the dma_sync API!)
+>> Alternatively you could just make unix_hash_fold() use csum_fold(),
+>> right?
+>> 
+>> static inline unsigned int unix_hash_fold(__wsum n)
+>> {
+>> 	unsigned int hash = (__force unsigned int) csum_fold(n);
+>> 
+>> 	hash ^= hash>>8;
+>> 	return hash&(UNIX_HASH_SIZE-1);
+>> }
 > 
-> This patch also renames the "last_page_user" field of be_rx_page_info{}
-> struct to "last_frag" to improve readability of the fixed code.
-> 
-> Reported-by: Li Fengmao <li.fengmao@zte.com.cn>
-> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
-> ---
-> 
-> Dave, I'm guessing the swiotlb option is not used much(?). So, this patch
-> is not a critical fix and is a better fit for the net-next tree. Thanks.
+> Or simply use full_name_hash()
 
-It matters on platforms where dma sync'ing is necessary to achieve
-hardware coherence.
+I would prefer not, because this would be a performance regression
+on platforms other than x86 and ARM, because only they implement
+the optimized load_unaligned_zeropad().
 
-All of Sparc64 PCI implementations fall into this category, because
-there is a prefetching cache that sits on the front end of the PCI
-complex, working in concert with the IOMMU.
-
-Some PowerPC embedded platforms need to do DMA synchronization flushes
-too for a similar reason.
-
-But yes these are uncommon configurations so I agree this should go
-to net-next.
-
-Applied, thanks.
+Other architectures would end up with a byte-by-byte hash computation.
