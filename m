@@ -1,44 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 07/12] r8152: support rx checksum
-Date: Tue, 04 Mar 2014 16:32:42 -0500 (EST)
-Message-ID: <20140304.163242.1756502150027525045.davem@davemloft.net>
-References: <1393934464-23675-1-git-send-email-hayeswang@realtek.com>
-	<1393934464-23675-8-git-send-email-hayeswang@realtek.com>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: [PATCH 2/2] l2tp: fix userspace reception on plain L2TP sockets
+Date: Tue, 4 Mar 2014 22:25:54 +0100
+Message-ID: <4347b41434e02e6303362c91f1839692186edb8f.1393966618.git.g.nault@alphalink.fr>
+References: <cover.1393966618.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1393934464-23675-8-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: James Chapman <jchapman@katalix.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:49236 "EHLO
+	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1757531AbaCDVgC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 16:36:02 -0500
+Content-Disposition: inline
+In-Reply-To: <cover.1393966618.git.g.nault@alphalink.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Tue, 4 Mar 2014 20:00:59 +0800
+As pppol2tp_recv() never queues up packets to plain L2TP sockets,
+pppol2tp_recvmsg() never returns data to userspace, thus making
+the recv*() system calls unusable.
 
-> @@ -1453,11 +1491,19 @@ static void rx_bottom(struct r8152 *tp)
->  			pkt_len -= CRC_SIZE;
->  			rx_data += sizeof(struct rx_desc);
->  
-> +			checksum = r8152_rx_csum(tp, rx_desc);
-> +			if (checksum == RTL_CHECKSUM_FAIL) {
-> +				stats->rx_errors++;
-> +				goto find_next_rx;
-> +			}
-> +
+Instead of dropping packets when the L2TP socket isn't bound to a PPP
+channel, this patch adds them to its reception queue.
 
-It is not for the driver to make this policy decision and drop the
-packet.  It is not a device RX error event.
+Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+---
+ net/l2tp/l2tp_ppp.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
-In fact you do not know what corrupted the checksum, or even if
-the device verified it correctly.  Anything is possible.
-
-You must therefore still pass the packet up into the networking
-stack using CHECKSUM_NONE, and let the protocols double-check
-the checksum(s) in software and bump the appropriate statistic
-counter if the checksum is really bad.
-
-This allows allows network taps to see the packet, so that the
-administrator can analyze the situation.
+diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
+index 6bfeaa7..5990919 100644
+--- a/net/l2tp/l2tp_ppp.c
++++ b/net/l2tp/l2tp_ppp.c
+@@ -254,12 +254,14 @@ static void pppol2tp_recv(struct l2tp_session *session, struct sk_buff *skb, int
+ 		po = pppox_sk(sk);
+ 		ppp_input(&po->chan, skb);
+ 	} else {
+-		l2tp_info(session, PPPOL2TP_MSG_DATA, "%s: socket not bound\n",
+-			  session->name);
++		l2tp_dbg(session, PPPOL2TP_MSG_DATA,
++			 "%s: recv %d byte data frame, passing to L2TP socket\n",
++			 session->name, data_len);
+ 
+-		/* Not bound. Nothing we can do, so discard. */
+-		atomic_long_inc(&session->stats.rx_errors);
+-		kfree_skb(skb);
++		if (sock_queue_rcv_skb(sk, skb) < 0) {
++			atomic_long_inc(&session->stats.rx_errors);
++			kfree_skb(skb);
++		}
+ 	}
+ 
+ 	return;
+-- 
+1.9.0
