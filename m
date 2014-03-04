@@ -1,66 +1,103 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH v2 net] macvlan: Add support for 'always_on' offload features
-Date: Tue, 04 Mar 2014 08:44:29 -0500
-Message-ID: <5315D8BD.1000001@redhat.com>
-References: <1393878833-17667-1-git-send-email-vyasevic@redhat.com> <53151514.4080906@candelatech.com>
-Reply-To: vyasevic@redhat.com
+From: Christian Riesch <christian.riesch@omicron.at>
+Subject: Re: Fwd: Ethernet controller not starting
+Date: Tue, 04 Mar 2014 15:06:16 +0100
+Message-ID: <09FBC53C1B46AC96B6483AA4@[172.22.2.41]>
+References: <71F7AD3B89A7BF1E126CB3B1@C9882B18C00BA04428877CD4>
+ <CAMwGMjwtZVPVaENWqNODPqkM4jAAOsLPrz8_xzRBgGP6_-_usQ@mail.gmail.com>
+ <CAMwGMjxO3eV1t9VrBbL3SecwOJPs2rESGS6VEH60tne4Dx8tVw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>,
-	Christian Borntraeger <borntraeger@de.ibm.com>,
-	Jason Wang <jasowang@redhat.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34263 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757193AbaCDNol (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Mar 2014 08:44:41 -0500
-In-Reply-To: <53151514.4080906@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-omap@vger.kernel.org, linux-kernel@vger.kernel.org,
+	rafael.j.wysocki@intel.com, netdev@vger.kernel.org,
+	davinci-linux-open-source@linux.davincidsp.com,
+	Prabhakar Lad <prabhakar.csengg@gmail.com>
+To: Jon Ringle <jon@ringle.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAMwGMjxO3eV1t9VrBbL3SecwOJPs2rESGS6VEH60tne4Dx8tVw@mail.gmail.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/03/2014 06:49 PM, Ben Greear wrote:
-> On 03/03/2014 12:33 PM, Vlad Yasevich wrote:
->> Macvlan currently inherits all of its features from the lower
->> device.  When lower device disables offload support, this causes
->> macvlan to disable offload support as well.  This causes
->> performance regression when using macvlan/macvtap in bridge
->> mode.
+Hi Jon,
+
+[Now also cc'ed Prabhakar Lad]
+
+--On March 04, 2014 07:34 -0500 Jon Ringle <jon@ringle.org> wrote:
+
+> On Tue, Mar 4, 2014 at 4:06 AM, Christian Riesch
+> <christian.riesch@omicron.at> wrote:
+>> [cc'ed netdev and davinci-linux-open-source]
 >>
->> It can be easily demonstrated by creating 2 namespaces using
->> macvlan in bridge mode and running netperf between them:
 >>
->> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.0.0.1 () port 0 AF_INET
->> Recv   Send    Send
->> Socket Socket  Message  Elapsed
->> Size   Size    Size     Time     Throughput
->> bytes  bytes   bytes    secs.    10^6bits/sec
+>> --On March 03, 2014 19:39 -0500 Jon Ringle <jon@ringle.org> wrote:
 >>
->>  87380  16384  16384    20.00    1204.61
+>>> On Mon, Mar 3, 2014 at 6:43 PM, Rafael J. Wysocki <rjw@rjwysocki.net>
+>>> wrote:
+>>>>
+>>>> On Monday, March 03, 2014 02:41:01 PM Jon Ringle wrote:
+>>>>>
+>>>>> I'm working on porting an ARM board from linux-3.10 to linux-3.12 (now
+>>>>> the latest LTS kernel).
+>>>>> I found that Ethernet controller on the board no longer comes up on
+>>>>> linux-3.12. I was able to bisect the issue I'm having to the following
+>>>>> commit:
+>>>>>
+>>>>> >   45f0a85c8258741d11bda25c0a5669c06267204a is the first bad commit
+>>>>> >   commit 45f0a85c8258741d11bda25c0a5669c06267204a
+>>>>> >   Author: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
+>>>>> >   Date:   Mon Jun 3 21:49:52 2013 +0200
+>>>>> >
+[...]
+>>>>>
+>>>>> Can anyone offer any suggestions on what I should be looking for to
+>>>>> fix this on my board?
+>>>>
+>>>>
+>>>> Any pointers to the driver in question?
+>>>
+>>>
+>>> drivers/net/ethernet/ti/davinci_emac.c
+>>>
 >>
->> To restore the performance, we add software offload features
->> to the list of "always_on" features for macvlan.  This way
->> when a namespace or a guest using macvtap initially sends a
->> packet, this packet will not be segmented at macvlan level.
->> It will only be segmented when macvlan sends the packet
->> to the lower device.
-> 
-> If users specifically disable the offload features on the macvlan using ethtool,
-> will they be turned off?  If not, then I think that logic should
-> be kept somehow?
+>> Hi Jon,
+>> I have successfully used the davinci_emac driver on a custom board with
+>> an AM1808 SoC with Kernel 3.13 a few weeks ago. So at least 3.13 should
+>> work. Did you try more recent kernel versions than 3.12?
+>
+> I have not tried 3.13, but will do so today. Could I get a copy of
+> your .config for comparison purposes?
+>
 
-Just looked and offloads on macvlan are fixed even before this patch,
-so a user can't disable them.
+I would like to apologize, apparently my testing with 3.13 was quite bad. 
+Ethernet comes up on my board and works fine after booting, but I can 
+easily reproduce your problem by just doing ifconfig eth0 down /ifconfig 
+eth0 up (which should call emac_dev_stop/emac_dev_open).
 
-Looks like the only way to disable them prior to this patch was to
-change the features of the lower device.  However, that introduces
-an issue when running in bridged mode that this patch fixes.
+# ifconfig eth0 up
+genirq: Flags mismatch irq 33. .....
 
--vlad
+So probably one of your start scripts (or dhcp or similar) does some 
+ifconfig down/up, which then fails.
 
-> 
-> Thanks,
-> Ben
-> 
+I had a look at the code again, emac_dev_open requests the interrupts, 
+whereas emac_dev_stop does not free them. If emac_dev_open is then called 
+again by ifconfig eth0 up, it tries to request the interrupts again, 
+resulting in the error above.
+
+I think the problem is a regression caused by
+
+Commit	6892b41d9701283085b655c6086fb57a5d63fa47
+net: davinci: emac: Convert to devm_* api
+Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+
+This patch replaces request_irq() by devm_request_irq() in emac_dev_open 
+and removes free_irq() from emac_dev_stop. But since emac_dev_open is 
+called every time we do an ifconfig eth0 up, it tries to request the 
+interrupts again and again and again (and fails).
+
+So I guess the correct solution would be to move the calls of 
+devm_request_irq() to davinci_emac_probe(). I will send a patch to netdev, 
+it solves the problem on my board.
+
+Christian
