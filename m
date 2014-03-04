@@ -1,7 +1,7 @@
 From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next v6 1/10] xen-netback: Use skb->cb for pending_idx
-Date: Tue, 4 Mar 2014 22:32:12 +0000
-Message-ID: <1393972341-21135-2-git-send-email-zoltan.kiss@citrix.com>
+Subject: [PATCH net-next v6 3/10] xen-netback: Handle foreign mapped pages on the guest RX path
+Date: Tue, 4 Mar 2014 22:32:14 +0000
+Message-ID: <1393972341-21135-4-git-send-email-zoltan.kiss@citrix.com>
 References: <1393972341-21135-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,62 +14,145 @@ In-Reply-To: <1393972341-21135-1-git-send-email-zoltan.kiss@citrix.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Storing the pending_idx at the first byte of the linear buffer never looked
-good, skb->cb is a more proper place for this. It also prevents the header to
-be directly grant copied there, and we don't have the pending_idx after we
-copied the header here, so it's time to change it.
+RX path need to know if the SKB fragments are stored on pages from another
+domain.
+Logically this patch should be after introducing the grant mapping itself, as
+it makes sense only after that. But to keep bisectability, I moved it here. It
+shouldn't change any functionality here. xenvif_zerocopy_callback and
+ubuf_to_vif are just stubs here, they will be introduced properly later on.
 
 Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 ---
- drivers/net/xen-netback/netback.c |   10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+v4:
+- indentation fixes
 
+v6:
+- use ubuf_to_vif helper
+- move the patch earlier in the series due to bisectability
+
+ drivers/net/xen-netback/common.h  |    3 +++
+ drivers/net/xen-netback/netback.c |   48 +++++++++++++++++++++++++++++++++----
+ 2 files changed, 46 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index f514818..2f6d772 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -248,6 +248,9 @@ static inline bool xenvif_tx_pending_slots_available(struct xenvif *vif)
+ 		< MAX_PENDING_REQS);
+ }
+ 
++/* Callback from stack when TX packet can be released */
++void xenvif_zerocopy_callback(struct ubuf_info *ubuf, bool zerocopy_success);
++
+ extern bool separate_tx_rx_irq;
+ 
+ #endif /* __XEN_NETBACK__COMMON_H__ */
 diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index e5284bc..5944f87 100644
+index e600119..91d7375 100644
 --- a/drivers/net/xen-netback/netback.c
 +++ b/drivers/net/xen-netback/netback.c
-@@ -779,7 +779,7 @@ static struct gnttab_copy *xenvif_get_requests(struct xenvif *vif,
+@@ -101,6 +101,10 @@ static inline unsigned long idx_to_kaddr(struct xenvif *vif,
+ 	return (unsigned long)pfn_to_kaddr(idx_to_pfn(vif, idx));
+ }
+ 
++static inline struct xenvif * ubuf_to_vif(struct ubuf_info *ubuf)
++{
++	return NULL;
++}
+ /* This is a miniumum size for the linear area to avoid lots of
+  * calls to __pskb_pull_tail() as we set up checksum offsets. The
+  * value 128 was chosen as it covers all IPv4 and most likely
+@@ -221,7 +225,9 @@ static struct xenvif_rx_meta *get_next_rx_buffer(struct xenvif *vif,
+ static void xenvif_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
+ 				 struct netrx_pending_operations *npo,
+ 				 struct page *page, unsigned long size,
+-				 unsigned long offset, int *head)
++				 unsigned long offset, int *head,
++				 struct xenvif *foreign_vif,
++				 grant_ref_t foreign_gref)
  {
- 	struct skb_shared_info *shinfo = skb_shinfo(skb);
- 	skb_frag_t *frags = shinfo->frags;
--	u16 pending_idx = *((u16 *)skb->data);
-+	u16 pending_idx = *((u16 *)skb->cb);
- 	u16 head_idx = 0;
- 	int slot, start;
- 	struct page *page;
-@@ -897,7 +897,7 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
- 			       struct gnttab_copy **gopp)
+ 	struct gnttab_copy *copy_gop;
+ 	struct xenvif_rx_meta *meta;
+@@ -263,8 +269,15 @@ static void xenvif_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
+ 		copy_gop->flags = GNTCOPY_dest_gref;
+ 		copy_gop->len = bytes;
+ 
+-		copy_gop->source.domid = DOMID_SELF;
+-		copy_gop->source.u.gmfn = virt_to_mfn(page_address(page));
++		if (foreign_vif) {
++			copy_gop->source.domid = foreign_vif->domid;
++			copy_gop->source.u.ref = foreign_gref;
++			copy_gop->flags |= GNTCOPY_source_gref;
++		} else {
++			copy_gop->source.domid = DOMID_SELF;
++			copy_gop->source.u.gmfn =
++				virt_to_mfn(page_address(page));
++		}
+ 		copy_gop->source.offset = offset;
+ 
+ 		copy_gop->dest.domid = vif->domid;
+@@ -325,6 +338,9 @@ static int xenvif_gop_skb(struct sk_buff *skb,
+ 	int old_meta_prod;
+ 	int gso_type;
+ 	int gso_size;
++	struct ubuf_info *ubuf = skb_shinfo(skb)->destructor_arg;
++	grant_ref_t foreign_grefs[MAX_SKB_FRAGS];
++	struct xenvif *foreign_vif = NULL;
+ 
+ 	old_meta_prod = npo->meta_prod;
+ 
+@@ -365,6 +381,19 @@ static int xenvif_gop_skb(struct sk_buff *skb,
+ 	npo->copy_off = 0;
+ 	npo->copy_gref = req->gref;
+ 
++	if ((skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) &&
++		 (ubuf->callback == &xenvif_zerocopy_callback)) {
++		int i = 0;
++		foreign_vif = ubuf_to_vif(ubuf);
++
++		do {
++			u16 pending_idx = ubuf->desc;
++			foreign_grefs[i++] =
++				foreign_vif->pending_tx_info[pending_idx].req.gref;
++			ubuf = (struct ubuf_info *) ubuf->ctx;
++		} while (ubuf);
++	}
++
+ 	data = skb->data;
+ 	while (data < skb_tail_pointer(skb)) {
+ 		unsigned int offset = offset_in_page(data);
+@@ -374,7 +403,9 @@ static int xenvif_gop_skb(struct sk_buff *skb,
+ 			len = skb_tail_pointer(skb) - data;
+ 
+ 		xenvif_gop_frag_copy(vif, skb, npo,
+-				     virt_to_page(data), len, offset, &head);
++				     virt_to_page(data), len, offset, &head,
++				     NULL,
++				     0);
+ 		data += len;
+ 	}
+ 
+@@ -383,7 +414,9 @@ static int xenvif_gop_skb(struct sk_buff *skb,
+ 				     skb_frag_page(&skb_shinfo(skb)->frags[i]),
+ 				     skb_frag_size(&skb_shinfo(skb)->frags[i]),
+ 				     skb_shinfo(skb)->frags[i].page_offset,
+-				     &head);
++				     &head,
++				     foreign_vif,
++				     foreign_grefs[i]);
+ 	}
+ 
+ 	return npo->meta_prod - old_meta_prod;
+@@ -1343,6 +1376,11 @@ static int xenvif_tx_submit(struct xenvif *vif)
+ 	return work_done;
+ }
+ 
++void xenvif_zerocopy_callback(struct ubuf_info *ubuf, bool zerocopy_success)
++{
++	return;
++}
++
+ /* Called after netfront has transmitted */
+ int xenvif_tx_action(struct xenvif *vif, int budget)
  {
- 	struct gnttab_copy *gop = *gopp;
--	u16 pending_idx = *((u16 *)skb->data);
-+	u16 pending_idx = *((u16 *)skb->cb);
- 	struct skb_shared_info *shinfo = skb_shinfo(skb);
- 	struct pending_tx_info *tx_info;
- 	int nr_frags = shinfo->nr_frags;
-@@ -944,7 +944,7 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
- 			continue;
- 
- 		/* First error: invalidate header and preceding fragments. */
--		pending_idx = *((u16 *)skb->data);
-+		pending_idx = *((u16 *)skb->cb);
- 		xenvif_idx_release(vif, pending_idx, XEN_NETIF_RSP_OKAY);
- 		for (j = start; j < i; j++) {
- 			pending_idx = frag_get_pending_idx(&shinfo->frags[j]);
-@@ -1236,7 +1236,7 @@ static unsigned xenvif_tx_build_gops(struct xenvif *vif, int budget)
- 		memcpy(&vif->pending_tx_info[pending_idx].req,
- 		       &txreq, sizeof(txreq));
- 		vif->pending_tx_info[pending_idx].head = index;
--		*((u16 *)skb->data) = pending_idx;
-+		*((u16 *)skb->cb) = pending_idx;
- 
- 		__skb_put(skb, data_len);
- 
-@@ -1283,7 +1283,7 @@ static int xenvif_tx_submit(struct xenvif *vif)
- 		u16 pending_idx;
- 		unsigned data_len;
- 
--		pending_idx = *((u16 *)skb->data);
-+		pending_idx = *((u16 *)skb->cb);
- 		txp = &vif->pending_tx_info[pending_idx].req;
- 
- 		/* Check the remap error code. */
