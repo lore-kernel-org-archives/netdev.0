@@ -1,91 +1,139 @@
-From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@web.de>
-Subject: Re: [PATCH] bridge: multicast: add sanity check for query
- source addresses
-Date: Tue, 4 Mar 2014 11:43:55 +0100
-Message-ID: <20140304104032.GB5090@Linus-Debian>
-References: <1393901855-18231-1-git-send-email-linus.luessing@web.de>
-	<20140304090614.GA3952@order.stressinduktion.org>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next] vlan: slight optimization for vlan
+Date: Tue, 4 Mar 2014 18:47:30 +0800
+Message-ID: <5315AF42.8030905@huawei.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="tuFXEhzhBeitrIAu"
-Cc: netdev@vger.kernel.org, Florian Westphal <fwestpha@redhat.com>,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Patrick McHardy <kaber@trash.net>,
 	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Jan Stancek <jstancek@redhat.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20140304090614.GA3952@order.stressinduktion.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+	Joe Perches <joe@perches.com>,
+	Julia Lawall <julia.lawall@lip6.fr>,
+	Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:43825 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756239AbaCDKsJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 05:48:09 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Ether_addr_equal_64bits is more efficient than ether_addr_equal, and
+can be used when each argument is an array within a structure that
+contains at least two bytes of data beyond the array, so it is safe
+to use it for vlan.
 
---tuFXEhzhBeitrIAu
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On a simple test by iperf, it reduces the CPU %system time from 14% to 12%.
 
-On Tue, Mar 04, 2014 at 10:06:14AM +0100, Hannes Frederic Sowa wrote:
-> > diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-> > index ef66365..fb0e36f 100644
-> > --- a/net/bridge/br_multicast.c
-> > +++ b/net/bridge/br_multicast.c
-> > @@ -1235,6 +1235,12 @@ static int br_ip6_multicast_query(struct net_bri=
-dge *br,
-> >  	    (port && port->state =3D=3D BR_STATE_DISABLED))
-> >  		goto out;
-> > =20
-> > +	/* RFC2710+RFC3810 (MLDv1+MLDv2) require link-local source addresses =
-*/
-> > +	if (!(ipv6_addr_type(&ip6h->saddr) & IPV6_ADDR_LINKLOCAL)) {
-> > +		err =3D -EINVAL;
-> > +		goto out;
-> > +	}
-> > +
->=20
-> Shouldn't we allow empty source address, here?
->=20
-> Routers are supposed to drop them but bridges care. Linux uses ::
-> as source address as long as no valid LL addresses are available,
-> e.g. at boot-up (RFC3810 5.2.13.).
+According Joe's suggestion, maybe it'd be faster to add an unlikely to
+the test for PCKET_OTHERHOST, so I add it and see whether the performance
+could be better, but the differences is so small and negligible, maybe my
+test case is not effective enough, but I still add the unlikely and wait to
+hear more opinions.:)
 
-RFC3810, 5.2.13. refers to MLD reports, not queries, so that
-shouldn't be relevant, section 5.1.14 should apply. Also the
-bridge code only issues queries with a valid link-local source
-address (see br_ip6_multicast_alloc_query() in
-net/bridge/br_multicast.c). Where does Linux use :: for queries?
+Cc: Joe Perches <joe@perches.com>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ net/8021q/vlan.c      | 10 +++++-----
+ net/8021q/vlan_core.c |  4 ++--
+ net/8021q/vlan_dev.c  | 10 +++++-----
+ 3 files changed, 12 insertions(+), 12 deletions(-)
 
-Cheers, Linus
-
---tuFXEhzhBeitrIAu
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJTFa5qAAoJELxyPiAAt6Uvl1oP+QGdd0aPIJICqYOB0ai007x/
-12t0FZGUs/LRfRjPQA2oHuCgnuoLoWEZ06wxZhmrWnb64KgqWsuIYGLAZfOT2M3a
-TRkQ9FAGZqxf0386BrnPwL3HI+tHo1QOud2vIJ5Y6Q/4RLwi7aAfkJiyhr+Yi1vs
-tORPX+0p7gshIdhNvDF7FsVBN+S2Id0swM00I80KBXcB139MsdVybaWr4eEsvV3d
-8K8WmCbH3aSmmmnvkVcr97RZaYtxKhQWDuLucXNmacyTg2MOGoytVK8x0dt+lKBb
-C0u+pGF3W7AM16rmqY5Xfiei+IsQeG87xCo0cGFSYUorkh1SqYBvBrLXYRn2U2wT
-8odhUfYpupuESUl0D+8jmZx8u8bLAnuT1xop47N43kKOgFo6PNnCy1w2lyWWultE
-rh2dY7FiRWWrtug7w+PB3ohxxfcfO0w/MHyK5ebdP7vgIpG4SvgnGA2JdnBC1uiO
-EfIpx1HYjqqIuc3MyqVYJOymIxQGJyKm5U4N1GePoBk9RTGGrNF0Laj+2vY11eet
-kNfUs169V7m7R6z93FIjsgO+ZQGCbH/w2gHx4kHG8+uKA1mdTW6law2YIzdzpGxJ
-XmG+ZPPKVdiM+NTo2PRXqmYPGb6f8b/wzg6tdqP9XPPr0O/0NLMPVDj17+cFqrOR
-tXFAwfA2q7ca4atv8IvL
-=wzfl
------END PGP SIGNATURE-----
-
---tuFXEhzhBeitrIAu--
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index ec99099..16fb0f4 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -286,19 +286,19 @@ static void vlan_sync_address(struct net_device *dev,
+ 	struct vlan_dev_priv *vlan = vlan_dev_priv(vlandev);
+ 
+ 	/* May be called without an actual change */
+-	if (ether_addr_equal(vlan->real_dev_addr, dev->dev_addr))
++	if (ether_addr_equal_64bits(vlan->real_dev_addr, dev->dev_addr))
+ 		return;
+ 
+ 	/* vlan address was different from the old address and is equal to
+ 	 * the new address */
+-	if (!ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr) &&
+-	    ether_addr_equal(vlandev->dev_addr, dev->dev_addr))
++	if (!ether_addr_equal_64bits(vlandev->dev_addr, vlan->real_dev_addr) &&
++	    ether_addr_equal_64bits(vlandev->dev_addr, dev->dev_addr))
+ 		dev_uc_del(dev, vlandev->dev_addr);
+ 
+ 	/* vlan address was equal to the old address and is different from
+ 	 * the new address */
+-	if (ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr) &&
+-	    !ether_addr_equal(vlandev->dev_addr, dev->dev_addr))
++	if (ether_addr_equal_64bits(vlandev->dev_addr, vlan->real_dev_addr) &&
++	    !ether_addr_equal_64bits(vlandev->dev_addr, dev->dev_addr))
+ 		dev_uc_add(dev, vlandev->dev_addr);
+ 
+ 	ether_addr_copy(vlan->real_dev_addr, dev->dev_addr);
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index 6ee48aa..35b3c19 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -22,11 +22,11 @@ bool vlan_do_receive(struct sk_buff **skbp)
+ 		return false;
+ 
+ 	skb->dev = vlan_dev;
+-	if (skb->pkt_type == PACKET_OTHERHOST) {
++	if (unlikely(skb->pkt_type == PACKET_OTHERHOST)) {
+ 		/* Our lower layer thinks this is not local, let's make sure.
+ 		 * This allows the VLAN to have a different MAC than the
+ 		 * underlying device, and still route correctly. */
+-		if (ether_addr_equal(eth_hdr(skb)->h_dest, vlan_dev->dev_addr))
++		if (ether_addr_equal_64bits(eth_hdr(skb)->h_dest, vlan_dev->dev_addr))
+ 			skb->pkt_type = PACKET_HOST;
+ 	}
+ 
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 76d8fab..5e1edd6 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -286,7 +286,7 @@ static int vlan_dev_open(struct net_device *dev)
+ 	    !(vlan->flags & VLAN_FLAG_LOOSE_BINDING))
+ 		return -ENETDOWN;
+ 
+-	if (!ether_addr_equal(dev->dev_addr, real_dev->dev_addr)) {
++	if (!ether_addr_equal_64bits(dev->dev_addr, real_dev->dev_addr)) {
+ 		err = dev_uc_add(real_dev, dev->dev_addr);
+ 		if (err < 0)
+ 			goto out;
+@@ -319,7 +319,7 @@ clear_allmulti:
+ 	if (dev->flags & IFF_ALLMULTI)
+ 		dev_set_allmulti(real_dev, -1);
+ del_unicast:
+-	if (!ether_addr_equal(dev->dev_addr, real_dev->dev_addr))
++	if (!ether_addr_equal_64bits(dev->dev_addr, real_dev->dev_addr))
+ 		dev_uc_del(real_dev, dev->dev_addr);
+ out:
+ 	netif_carrier_off(dev);
+@@ -338,7 +338,7 @@ static int vlan_dev_stop(struct net_device *dev)
+ 	if (dev->flags & IFF_PROMISC)
+ 		dev_set_promiscuity(real_dev, -1);
+ 
+-	if (!ether_addr_equal(dev->dev_addr, real_dev->dev_addr))
++	if (!ether_addr_equal_64bits(dev->dev_addr, real_dev->dev_addr))
+ 		dev_uc_del(real_dev, dev->dev_addr);
+ 
+ 	netif_carrier_off(dev);
+@@ -357,13 +357,13 @@ static int vlan_dev_set_mac_address(struct net_device *dev, void *p)
+ 	if (!(dev->flags & IFF_UP))
+ 		goto out;
+ 
+-	if (!ether_addr_equal(addr->sa_data, real_dev->dev_addr)) {
++	if (!ether_addr_equal_64bits(addr->sa_data, real_dev->dev_addr)) {
+ 		err = dev_uc_add(real_dev, addr->sa_data);
+ 		if (err < 0)
+ 			return err;
+ 	}
+ 
+-	if (!ether_addr_equal(dev->dev_addr, real_dev->dev_addr))
++	if (!ether_addr_equal_64bits(dev->dev_addr, real_dev->dev_addr))
+ 		dev_uc_del(real_dev, dev->dev_addr);
+ 
+ out:
+-- 
+1.8.0
