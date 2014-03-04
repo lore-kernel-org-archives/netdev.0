@@ -1,59 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sfc: Use ether_addr_copy and
- eth_broadcast_addr
-Date: Tue, 04 Mar 2014 15:36:53 -0500 (EST)
-Message-ID: <20140304.153653.263004778768283059.davem@davemloft.net>
-References: <alpine.LFD.2.03.1403041449370.13034@solarflare.com>
+Subject: Re: [PATCH net-next v2] unix: add read side socket memory
+ accounting for dgram sockets
+Date: Tue, 04 Mar 2014 15:37:32 -0500 (EST)
+Message-ID: <20140304.153732.1314382655798460205.davem@davemloft.net>
+References: <20140226202154.GA9626@order.stressinduktion.org>
+	<20140226.154232.1642777813885536970.davem@davemloft.net>
+	<20140304201336.GB26307@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sshah@solarflare.com
-To: ecree@solarflare.com
+Cc: netdev@vger.kernel.org, yannick@koehler.name,
+	eric.dumazet@gmail.com, xiyou.wangcong@gmail.com, dan@mindstab.net
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36746 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36752 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932618AbaCDUg4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 15:36:56 -0500
-In-Reply-To: <alpine.LFD.2.03.1403041449370.13034@solarflare.com>
+	with ESMTP id S932623AbaCDUhe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 15:37:34 -0500
+In-Reply-To: <20140304201336.GB26307@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Edward Cree <ecree@solarflare.com>
-Date: Tue, 4 Mar 2014 20:11:34 +0000
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Tue, 4 Mar 2014 21:13:36 +0100
 
-> Faster than memcpy/memset on some architectures.
+> Just a small followup:
 > 
-> Signed-off-by: Edward Cree <ecree@solarflare.com>
-> ---
->  drivers/net/ethernet/sfc/ef10.c        | 13 +++++--------
->  drivers/net/ethernet/sfc/efx.c         |  4 ++--
->  drivers/net/ethernet/sfc/ethtool.c     | 17 ++++++++---------
->  drivers/net/ethernet/sfc/falcon.c      |  2 +-
->  drivers/net/ethernet/sfc/filter.h      |  2 +-
->  drivers/net/ethernet/sfc/mcdi.c        | 14 ++++++++------
->  drivers/net/ethernet/sfc/mcdi_port.c   |  4 ++--
->  drivers/net/ethernet/sfc/selftest.c    |  6 +++---
->  drivers/net/ethernet/sfc/siena_sriov.c | 13 ++++++-------
->  9 files changed, 36 insertions(+), 39 deletions(-)
+> Because of the additional sock_wfree during skb handover in unix_dgram_sendmsg
+> the spinlock in __wake_up_sync_key is hit more often thus more cacheline
+> bouncing.
 > 
-> diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-> index 3b39798..de0c815 100644
-> --- a/drivers/net/ethernet/sfc/ef10.c
-> +++ b/drivers/net/ethernet/sfc/ef10.c
-> @@ -162,8 +162,8 @@ static int efx_ef10_get_mac_address(struct efx_nic *efx, u8 *mac_address)
->  	if (outlen < MC_CMD_GET_MAC_ADDRESSES_OUT_LEN)
->  		return -EIO;
->  
-> -	memcpy(mac_address,
-> -	       MCDI_PTR(outbuf, GET_MAC_ADDRESSES_OUT_MAC_ADDR_BASE), ETH_ALEN);
-> +	ether_addr_copy(mac_address,
-> +	       MCDI_PTR(outbuf, GET_MAC_ADDRESSES_OUT_MAC_ADDR_BASE));
+> Deferring the POLLOUT notification after the sock_rfree in unix_dgram_recvmsg
+> already halfed the number of context switches with the new patch.
+> 
+> I try to play with some other ideas this week and will submit new patch with
+> performance numbers.
+> 
+> Haven't noticed any problems with the additional atomic operations
+> performance-wise so far.
 
-This is not indented correctly, the original code was.
-
-When a function call spans multiple lines, the arguments on the second
-and subsequent lines must start at the first column after the openning
-parenthesis of the function call.
-
-You must use the appropriate number of TAB and space characters necessary
-to achieve this.
+Ok, thanks for the update.
