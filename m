@@ -1,57 +1,61 @@
 From: <erik.hugne@ericsson.com>
-Subject: [PATCH net-next 0/6] tipc: refcount and memory leak fixes
-Date: Tue, 4 Mar 2014 09:05:37 +0100
-Message-ID: <1393920343-4134-1-git-send-email-erik.hugne@ericsson.com>
+Subject: [PATCH net-next 3/6] tipc: avoid to unnecessary process switch under non-block mode
+Date: Tue, 4 Mar 2014 09:05:40 +0100
+Message-ID: <1393920343-4134-4-git-send-email-erik.hugne@ericsson.com>
+References: <1393920343-4134-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <ying.xue@windriver.com>, <paul.gortmaker@windriver.com>,
-	<richard.alpe@ericsson.com>, Erik Hugne <erik.hugne@ericsson.com>
+	<richard.alpe@ericsson.com>
 To: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
 	<jon.maloy@ericsson.com>, <maloy@donjonn.com>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mailgw2.ericsson.se ([193.180.251.37]:46744 "EHLO
 	mailgw2.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752195AbaCDIFL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 03:05:11 -0500
+	with ESMTP id S1756505AbaCDIFO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 03:05:14 -0500
+In-Reply-To: <1393920343-4134-1-git-send-email-erik.hugne@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+From: Ying Xue <ying.xue@windriver.com>
 
-In addition to the fix for refcount leak and memory leak during
-module removal, we also fix a problem where the topology server
-listening socket where unexpectedly closed. We also eliminate an
-unnecessary context switch during accept()/recvmsg() for nonblocking
-sockets.
+When messages are received via tipc socket under non-block mode,
+schedule_timeout() is called in tipc_wait_for_rcvmsg(), that is,
+the process of receiving messages will be scheduled once although
+timeout value passed to schedule_timeout() is 0. The same issue
+exists in accept()/wait_for_accept(). To avoid this unnecessary
+process switch, we only call schedule_timeout() if the timeout
+value is non-zero.
 
-The following should be applied on stable aswell:
-tipc: allow connection shutdown callback to be invoked in advance
-tipc: fix connection refcount leak
-tipc: drop subscriber connection id invalidation
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
+Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/socket.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-We'd also like to have the fixes for memleak during module removal
-in stable aswell, but unfortunately they won't apply cleanly on the
-net tree:
-tipc: fix memory leak during module removal
-tipc: don't log disabled tasklet handler errors
-
-Erik Hugne (3):
-  tipc: drop subscriber connection id invalidation
-  tipc: fix memory leak during module removal
-  tipc: don't log disabled tasklet handler errors
-
-Ying Xue (3):
-  tipc: allow connection shutdown callback to be invoked in advance
-  tipc: fix connection refcount leak
-  tipc: avoid to unnecessary process switch under non-block mode
-
- net/tipc/config.c     |  2 +-
- net/tipc/handler.c    |  1 -
- net/tipc/name_table.c | 37 ++++++++++++++++++++++++++++++++++---
- net/tipc/server.c     | 14 +++++++-------
- net/tipc/socket.c     |  4 ++--
- net/tipc/subscr.c     | 13 +------------
- 6 files changed, 45 insertions(+), 26 deletions(-)
-
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index fb88597..96978fb 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -1001,7 +1001,7 @@ static int tipc_wait_for_rcvmsg(struct socket *sock, long timeo)
+ 
+ 	for (;;) {
+ 		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+-		if (skb_queue_empty(&sk->sk_receive_queue)) {
++		if (timeo && skb_queue_empty(&sk->sk_receive_queue)) {
+ 			if (sock->state == SS_DISCONNECTING) {
+ 				err = -ENOTCONN;
+ 				break;
+@@ -1627,7 +1627,7 @@ static int tipc_wait_for_accept(struct socket *sock, long timeo)
+ 	for (;;) {
+ 		prepare_to_wait_exclusive(sk_sleep(sk), &wait,
+ 					  TASK_INTERRUPTIBLE);
+-		if (skb_queue_empty(&sk->sk_receive_queue)) {
++		if (timeo && skb_queue_empty(&sk->sk_receive_queue)) {
+ 			release_sock(sk);
+ 			timeo = schedule_timeout(timeo);
+ 			lock_sock(sk);
 -- 
 1.8.3.2
