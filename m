@@ -1,130 +1,123 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next] be2net: dma_sync each RX frag before passing it to the stack
-Date: Tue, 4 Mar 2014 12:14:38 +0530
-Message-ID: <1393915478-8433-1-git-send-email-sathya.perla@emulex.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH (net.git) 2/4] stmmac: fix and better tune the default
+ buffer sizes
+Date: Tue, 4 Mar 2014 08:20:49 +0100
+Message-ID: <53157ED1.2010505@st.com>
+References: <1393497340-8013-1-git-send-email-peppe.cavallaro@st.com> <1393497340-8013-3-git-send-email-peppe.cavallaro@st.com> <063D6719AE5E284EB5DD2968C1650D6D0F6CC945@AcuExch.aculab.com> <530F3784.5050304@st.com> <063D6719AE5E284EB5DD2968C1650D6D0F6CCBB2@AcuExch.aculab.com> <530F4389.8060309@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: David Laight <David.Laight@ACULAB.COM>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:35901 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751584AbaCDGk1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 01:40:27 -0500
+Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:58841 "EHLO
+	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756137AbaCDHVD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 02:21:03 -0500
+In-Reply-To: <530F4389.8060309@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver currently maps a page for DMA, divides the page into multiple
-frags and posts them to the HW. It un-maps the page after data is received
-on all the frags of the page. This scheme doesn't work when bounce buffers
-are used for DMA (swiotlb=force kernel param).
+Hello David
 
-This patch fixes this problem by calling dma_sync_single_for_cpu() for each
-frag (excepting the last one) so that the data is copied from the bounce
-buffers. The page is un-mapped only when DMA finishes on the last frag of
-the page.
-(Thanks Ben H. for suggesting the dma_sync API!)
+Sorry, can you tell me what is the final your opinion about
+this patch?
 
-This patch also renames the "last_page_user" field of be_rx_page_info{}
-struct to "last_frag" to improve readability of the fixed code.
+I think that it not good to keep 4KiB as default and your main concern
+was about the default buffer size that depended on VLAN ifconfig.
 
-Reported-by: Li Fengmao <li.fengmao@zte.com.cn>
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
----
+So I could adopt 1536bytes as default and remove ifdef.
 
-Dave, I'm guessing the swiotlb option is not used much(?). So, this patch
-is not a critical fix and is a better fit for the net-next tree. Thanks.
+I'd like to resubmit these first patches that add some relevant fixes
+in the driver especially for EEE and chained mode that doesn't work
+after latest reworks.
 
- drivers/net/ethernet/emulex/benet/be.h      |    3 +-
- drivers/net/ethernet/emulex/benet/be_main.c |   32 ++++++++++++++++++--------
- 2 files changed, 24 insertions(+), 11 deletions(-)
+Best Regards
+Peppe
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index a150401..bf5ca71 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -261,9 +261,10 @@ struct be_tx_obj {
- /* Struct to remember the pages posted for rx frags */
- struct be_rx_page_info {
- 	struct page *page;
-+	/* set to page-addr for last frag of the page & frag-addr otherwise */
- 	DEFINE_DMA_UNMAP_ADDR(bus);
- 	u16 page_offset;
--	bool last_page_user;
-+	bool last_frag;		/* last frag of the page */
- };
- 
- struct be_rx_stats {
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 4f87f5c..3464496 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1448,11 +1448,15 @@ static struct be_rx_page_info *get_rx_page_info(struct be_rx_obj *rxo)
- 	rx_page_info = &rxo->page_info_tbl[frag_idx];
- 	BUG_ON(!rx_page_info->page);
- 
--	if (rx_page_info->last_page_user) {
-+	if (rx_page_info->last_frag) {
- 		dma_unmap_page(&adapter->pdev->dev,
- 			       dma_unmap_addr(rx_page_info, bus),
- 			       adapter->big_page_size, DMA_FROM_DEVICE);
--		rx_page_info->last_page_user = false;
-+		rx_page_info->last_frag = false;
-+	} else {
-+		dma_sync_single_for_cpu(&adapter->pdev->dev,
-+					dma_unmap_addr(rx_page_info, bus),
-+					rx_frag_size, DMA_FROM_DEVICE);
- 	}
- 
- 	queue_tail_inc(rxq);
-@@ -1786,17 +1790,16 @@ static void be_post_rx_frags(struct be_rx_obj *rxo, gfp_t gfp)
- 				rx_stats(rxo)->rx_post_fail++;
- 				break;
- 			}
--			page_info->page_offset = 0;
-+			page_offset = 0;
- 		} else {
- 			get_page(pagep);
--			page_info->page_offset = page_offset + rx_frag_size;
-+			page_offset += rx_frag_size;
- 		}
--		page_offset = page_info->page_offset;
-+		page_info->page_offset = page_offset;
- 		page_info->page = pagep;
--		dma_unmap_addr_set(page_info, bus, page_dmaaddr);
--		frag_dmaaddr = page_dmaaddr + page_info->page_offset;
- 
- 		rxd = queue_head_node(rxq);
-+		frag_dmaaddr = page_dmaaddr + page_info->page_offset;
- 		rxd->fragpa_lo = cpu_to_le32(frag_dmaaddr & 0xFFFFFFFF);
- 		rxd->fragpa_hi = cpu_to_le32(upper_32_bits(frag_dmaaddr));
- 
-@@ -1804,15 +1807,24 @@ static void be_post_rx_frags(struct be_rx_obj *rxo, gfp_t gfp)
- 		if ((page_offset + rx_frag_size + rx_frag_size) >
- 					adapter->big_page_size) {
- 			pagep = NULL;
--			page_info->last_page_user = true;
-+			page_info->last_frag = true;
-+			dma_unmap_addr_set(page_info, bus, page_dmaaddr);
-+		} else {
-+			dma_unmap_addr_set(page_info, bus, frag_dmaaddr);
- 		}
- 
- 		prev_page_info = page_info;
- 		queue_head_inc(rxq);
- 		page_info = &rxo->page_info_tbl[rxq->head];
- 	}
--	if (pagep)
--		prev_page_info->last_page_user = true;
-+
-+	/* Mark the last frag of a page when we break out of the above loop
-+	 * with no more slots available in the RXQ
-+	 */
-+	if (pagep) {
-+		prev_page_info->last_frag = true;
-+		dma_unmap_addr_set(prev_page_info, bus, page_dmaaddr);
-+	}
- 
- 	if (posted) {
- 		atomic_add(posted, &rxq->used);
--- 
-1.7.1
+On 2/27/2014 2:54 PM, Giuseppe CAVALLARO wrote:
+> Hi David
+>
+> On 2/27/2014 2:31 PM, David Laight wrote:
+>> From: Giuseppe CAVALLARO
+>> ...
+>>>> Also (provided the hardware supports it) the rx buffers (are these
+>>>> the ones being sized?) need to be aligned on a 4n+2 boundary in
+>>>> order to avoid a realignment copy later on.
+>>>
+>>> This is true and indeed I had added the STMMAC_ALIGN to align all.
+>>> In the past to get the right alignment for SH4.
+>>>
+>>>> So I'm not sure that some of these sizes are right and/or optimal.
+>>>
+>>> What do you suggest?
+>>>
+>>> Maybe, I can use a default for sure < 4KiB suitable to be used for =
+VLAN
+>>> frames (it will be aligned later).
+>>
+>> Dunno... It rather depends on what the length is actually used for!
+>> What you don=92t want to be doing is adding 2 (for the 4n+2) and the=
+n
+>> mallocing a 4096+2 byte buffer somewhere.
+>
+> thanks for your support.
+>
+> What do you mean for 4n+2?
+>
+> we reserve 2 more when allocate the skb.
+> I had seen that, When I used 2KiB as default this pushes us to alloca=
+te
+> from the next larger slab on old SH4 platforms and sometime forcing m=
+e
+> to increment the min_free_kbytes also when we work with the std
+> Ethernet MTU :-(.
+>
+> So for sure 4KiB is really big and not good especially for embedded
+> system where this driver lives.
+>
+>>
+>> If the hardware does receive desegmentation, then you need to handle
+>> the 64k+ receives somewhere.
+>> If it doesn't then it doesn't matter if the hardware rx buffer size =
+is
+>> slightly too large (eg for VLAN or encapsulation full sized frames i=
+n
+>> PPoE).
+>> 1536 bytes for the memory buffer avoids cache line sharing (read to
+>> offset 2).
+>
+> IIUC, so what you finally suggest is to use a default value w/o Kopti=
+on
+> and 1536bytes is suitable for vlan etc. This is ok and can be managed
+> w/o breaking the compatibility with old mac where the rx hw buffer
+> are limited in size and where jumbo is not supported.
+>
+>> The last ethernet driver I wrote from scratch (maybe 20 years ago) s=
+et
+>> the rx-ring to point to an array of 512 byte buffers (last was short=
+er
+>> to avoid an extra page) and did an aligned copy into the message buf=
+fer.
+>> Only frames that crossed the ring end needed two copies.
+>> ISTR making the copy be cache line aligned so that a special cache l=
+ine
+>> copy function could be used (I don't know if it ever was).
+>> For that system the cost of the aligned data copies was less that th=
+e
+>> complexity and cost of setting up the iommu.
+>
+> ok
+>
+> peppe
+>>
+>>     David
+>>
+>>
+>>
+>>
+>>
+>
+>
+>
