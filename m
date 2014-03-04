@@ -1,105 +1,73 @@
-From: Jerry Chu <hkchu@google.com>
-Subject: Re: [PATCH] net-gre-gro: Fix a bug that breaks the forwarding path
-Date: Tue, 4 Mar 2014 14:13:20 -0800
-Message-ID: <CAPshTCgT4sYp7KtPazrJNMBvK0HcSWeDT_EdvSdjv4C0qrueqw@mail.gmail.com>
-References: <1393536377-32243-1-git-send-email-hkchu@google.com>
-	<CAJZOPZKy7w-q5+pp=FgCs8LdQL6e16zAiJr89VMkh+h7obAArg@mail.gmail.com>
-	<CAPshTCgLo8ycMTtoa+D14+7pPxJaiC-jUzyR3PJcrMKFw9V0zA@mail.gmail.com>
-	<20140228.165614.1112789771887381245.davem@davemloft.net>
-	<5315FBAA.3030809@mellanox.com>
+From: "Phoebe Buckheister" <phoebe.buckheister@itwm.fraunhofer.de>
+Subject: Re: [PATCH net-next v4 1/4] ieee802154: add generic header
+ handling routines
+Date: Tue, 4 Mar 2014 23:16:31 +0100
+Message-ID: <cc9ba7943aebff9ba87b60778b62f1a8.squirrel@webmail.itwm.fhg.de>
+References: <1393943688-24221-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+    <1393943688-24221-2-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+    <20140304.170050.2058599034902221847.davem@davemloft.net>
+Reply-To: phoebe.buckheister@itwm.fraunhofer.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Content-Type: text/plain;charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: phoebe.buckheister@itwm.fraunhofer.de, netdev@vger.kernel.org,
+	linux-zigbee-devel@lists.sourceforge.net
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f50.google.com ([209.85.213.50]:56763 "EHLO
-	mail-yh0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755138AbaCDWNV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 17:13:21 -0500
-Received: by mail-yh0-f50.google.com with SMTP id t59so190584yho.9
-        for <netdev@vger.kernel.org>; Tue, 04 Mar 2014 14:13:20 -0800 (PST)
-In-Reply-To: <5315FBAA.3030809@mellanox.com>
+Received: from mailgw1.uni-kl.de ([131.246.120.220]:43082 "EHLO
+	mailgw1.uni-kl.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751625AbaCDWQe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 17:16:34 -0500
+Received: from itwm1.itwm.fhg.de (itwm1.itwm.fhg.de [131.246.191.4])
+	by mailgw1.uni-kl.de (8.14.3/8.14.3/Debian-9.4) with ESMTP id s24MGWKB012461
+	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 4 Mar 2014 23:16:32 +0100
+In-Reply-To: <20140304.170050.2058599034902221847.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Or,
+>> +struct ieee802154_sechdr {
+>> +	u8 sc;
+>> +	u32 frame_ctr;
+>> +	union {
+>> +		struct {
+>> +			u16 pan_id;
+>> +			u16 short_addr;
+>> +		} pan;
+>> +		u8 hw[IEEE802154_ADDR_LEN];
+>> +	} key_source;
+>> +	u8 key_id;
+>> +};
+>> +
+>> +struct ieee802154_hdr {
+>> +	u16 fc;
+>> +	u8 seq;
+>> +	struct ieee802154_addr source;
+>> +	struct ieee802154_addr dest;
+>> +	struct ieee802154_sechdr sec;
+>> +};
+>
+> You're going to have to address endianness both in these structure
+> definitions and the code.
+>
+> For types larger than u8 you'll need to use __be16, __le16, __be32,
+> __le32 etc. as appropriate.
+>
+> When setting/loading values, you'll need to use cpu_to_be16(),
+> cpu_to_le16() etc.  as appropriate.
 
-Thanks for writing this up.
+The intention here was to explicitly not do that, and have this
+representation of the header be completely in host byte order. This is due
+to the fact that an easily accessible (i.e. no bitshifts/pointer
+arithmetic all over the place) representation will differ wildly from the
+actual packet MAC header contents, so I went with host byte order there
+instead. The header operations will convert them to/from the correct byte
+order for the actual MAC header.
 
-On Tue, Mar 4, 2014 at 8:13 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
-> On 28/02/2014 23:56, David Miller wrote:
->>
->> The topic of the skb->encapsulation semantics has come up several times in
->> the past few weeks. We cannot move forward on any changes in this area until
->> the semantics are well defined, and documented. Can someone work on a patch
->> which documents skb->encapsulation properly, and then we can come back to
->> fixing this bug? Thanks.
->
->
-> Lets try... the skb->encapsulation flag was introduced and used in 3.8 by
-> the
-> sequence of these three commits
->
-> 0afb166 vxlan: Add capability of Rx checksum offload for inner packet
-> d6727fe vxlan: capture inner headers during encapsulation
-> 6a674e9 net: Add support for hardware-offloaded encapsulation
->
-> When discussed earlier on the list in the context of the skb->ip_summed
-> field,
-> Tom Herbert came with the following interpretation for the semantics which
-> Joseph confirmed
->
-> "when skb->encapsulation is set the ip_summed is valid for both the inner
-> and outer header
-> (e.g. CHECKSUM_COMPLETE is always assumed okay for both layers). If
-> skb->encapsulation is not set then ip_summed is only valid for outer header"
+I see some value in being able to memcpy() to/from those fields directly
+when building/reading headers, but I also think that not having to do
+endianness conversion everywhere for a struct that cannot ever be a valid
+header as is outweighs this.
 
-For GRE encapped pkts is the following interpretation correct?
-
-1) ip_summed == CHECKSUM_COMPLETE
-    => csum covers IP payload csum of the outer IP datagram
-
-2) ip_summed == CHECKSUM_UNNECESSARY
-2.1. skb->encapsulation is on => both GRE csum (if one is present) and TCP/UDP
-csum have been validated (assuming inner is a TCP or UDP pkt)
-
-2.2. skb->encapsulation is off => only GRE csum (if one is present) is
-validated.
-
->
-> As for the TX side of things, the change-log of commit 6a674e9 states
->
-> "For Tx encapsulation offload, the driver will need to set the right bits in
-> netdev->hw_enc_features. The protocol driver will have to set the
-> skb->encapsulation bit and populate the inner headers, so the NIC driver
-> will use those inner headers to calculate the csum in hardware."
-
-So we only support/care about csum offload for the inner pkts, which
-makes sense.
-
->
-> So in higher level, it seems that the role of the skb->encapsulation field
-> is to mark the skb to carry encapsulated packet for the code path between
-> the time the packet is encapsulated by the protocol driver (e.g vxlan/ipip)
-> to the time driver xmit is called. Or from the time driver rx code runs till
-> the the time the packet is decapsulated.
->
-> Further, my personal interpretation was that on the rx path, skb should
-> carry the encapsulation flag **only** if the HW was able to offload the
-> inner checksum.
-
-SGTM.
-
-Jerry
-
->
-> Joseph, what's your thinking here?
->
-> Or.
->
->
+If explicit endianness is required for this case nonetheless, I will of
+course change it.
