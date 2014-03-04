@@ -1,65 +1,62 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: TCP being hoodwinked into spurious retransmissions by lack of
- timestamps?
-Date: Tue, 04 Mar 2014 11:33:02 -0800
-Message-ID: <53162A6E.2010907@hp.com>
-References: <53151E55.9000503@hp.com> <CABrhC0=hHpZSdE5-dLqysuFn_d_VK7r1jKb0kGZF9hn1+UHjDw@mail.gmail.com> <53162093.1040208@hp.com> <CABrhC0k5-x=qJgH4izXtRR=9+cLJh_emAy9Yt=+xrY6K5982Fg@mail.gmail.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net-next] hyperv: Move state setting for link query
+Date: Tue, 4 Mar 2014 19:36:04 +0000
+Message-ID: <2f61f102bf3d4185b31c5020caab5464@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+References: <1393890875-1420-1-git-send-email-haiyangz@microsoft.com>
+ <531543FD.7090907@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: John Heffner <johnwheffner@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3427.houston.hp.com ([15.201.208.55]:22331 "EHLO
-	g4t3427.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751792AbaCDTdF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 14:33:05 -0500
-In-Reply-To: <CABrhC0k5-x=qJgH4izXtRR=9+cLJh_emAy9Yt=+xrY6K5982Fg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>, "olaf@aepfle.de" <olaf@aepfle.de>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Jason Wang <jasowang@redhat.com>, "davem@davemloft.net"
+ <davem@davemloft.net>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <531543FD.7090907@redhat.com>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
->>> There is some other strangeness just before that, where the SACK
->>> block shrinks then grows again.
->>
->>
->> That would be this yes?
->>
->> 15:20:46.798816 IP 91.216.86.7.56064 > 75.236.145.7.443: Flags [.], seq
->> 3660468:3661928, ack 4262, win 297, length 1460
->> 15:20:46.799027 IP 75.236.145.7.443 > 91.216.86.7.56064: Flags [.], ack
->> 3168256, win 32081, options [nop,nop,sack 1 {3171368:3172828}], length 0
->> 15:20:46.799042 IP 91.216.86.7.56064 > 75.236.145.7.443: Flags [.], seq
->> 3661928:3664848, ack 4262, win 297, length 2920
->> 15:20:46.799465 IP 75.236.145.7.443 > 91.216.86.7.56064: Flags [.], ack
->> 3169716, win 32241, options [nop,nop,sack 1 {3171368:3172828}], length 0
->> 15:20:46.799479 IP 91.216.86.7.56064 > 75.236.145.7.443: Flags [.], seq
->> 3664848:3666308, ack 4262, win 297, length 1460
->> 15:20:46.799497 IP 75.236.145.7.443 > 91.216.86.7.56064: Flags [.], ack
->> 3169716, win 32241, options [nop,nop,sack 1 {3171368:3174288}], length 0
->> 15:20:46.799504 IP 75.236.145.7.443 > 91.216.86.7.56064: Flags [.], ack
->> 3169716, win 32241, options [nop,nop,sack 1 {3171368:3175748}], length 0
->> 15:20:46.799509 IP 91.216.86.7.56064 > 75.236.145.7.443: Flags [.], seq
->> 3666308:3667768, ack 4262, win 297, length 1460
->> 15:20:46.799773 IP 75.236.145.7.443 > 91.216.86.7.56064: Flags [.], ack
->> 3171176, win 32491, options [nop,nop,sack 1 {3171368:3172828}], length 0
->> 15:20:46.799787 IP 91.216.86.7.56064 > 75.236.145.7.443: Flags [.], seq
->> 3667768:3669228, ack 4262, win 297, length 1460
->> 15:20:46.800063 IP 75.236.145.7.443 > 91.216.86.7.56064: Flags [.], ack
->> 3171368, win 32716, options [nop,nop,sack 1 {3171368:3177208}], length 0
->> 15:20:46.800081 IP 91.216.86.7.56064 > 75.236.145.7.443: Flags [.], seq
->> 3171368:3172828, ack 4262, win 297, length 1460
->>
->> Might that be packet-reordering in the other direction?  Sadly, I don't have
->> good "both sides" traces as the receiving system doesn't seem to capture
->> traffic terribly well.  I suppose TCP timestamps might have helped answer
->> that question.
->
-> Regardless of any possible reordering, in this case we know something
-> odd is going on in the receiver because ACK advances at the same time
-> the SACK block shrinks.
 
-Ah yes, I'd not picked-up on that.
 
-thanks,
+> -----Original Message-----
+> From: Jason Wang [mailto:jasowang@redhat.com]
+> Sent: Monday, March 3, 2014 10:10 PM
+> To: Haiyang Zhang; davem@davemloft.net; netdev@vger.kernel.org
+> Cc: KY Srinivasan; olaf@aepfle.de; linux-kernel@vger.kernel.org; driverdev-
+> devel@linuxdriverproject.org
+> Subject: Re: [PATCH net-next] hyperv: Move state setting for link query
+> 
+> On 03/04/2014 07:54 AM, Haiyang Zhang wrote:
+> > It moves the state setting for query into rndis_filter_receive_response().
+> > All callbacks including query-complete and status-callback are
+> > synchronized by channel->inbound_lock. This prevents pentential race
+> between them.
+> 
+> This still looks racy to me. The problem is workqueue is not synchronized with
+> those here.
+> 
+> Consider the following case in netvsc_link_change():
+> 
+>     if (rdev->link_state) {
+>     ... receive interrupt ...
+>     rndis_filter_receice_response() which changes rdev->link_state
+>     ...
+>         netif_carrier_off()
+>     }
+> 
+> And also it need to schedule a work otherwise the link status is out of sync.
 
-rick jones
+I will update this patch to schedule a work by the end of probe function.
+
+Thanks,
+- Haiyang
