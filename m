@@ -1,7 +1,7 @@
 From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next v6 5/10] xen-netback: Remove old TX grant copy definitons and fix indentations
-Date: Tue, 4 Mar 2014 22:32:16 +0000
-Message-ID: <1393972341-21135-6-git-send-email-zoltan.kiss@citrix.com>
+Subject: [PATCH net-next v6 9/10] xen-netback: Timeout packets in RX path
+Date: Tue, 4 Mar 2014 22:32:20 +0000
+Message-ID: <1393972341-21135-10-git-send-email-zoltan.kiss@citrix.com>
 References: <1393972341-21135-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,226 +14,195 @@ In-Reply-To: <1393972341-21135-1-git-send-email-zoltan.kiss@citrix.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-These became obsolete with grant mapping. I've left intentionally the
-indentations in this way, to improve readability of previous patches.
-
-NOTE: if bisect brought you here, you should apply the series up until #9,
-otherwise Windows guests can't work properly and malicious guests can block
-other guests by not releasing their sent packets.
+A malicious or buggy guest can leave its queue filled indefinitely, in which
+case qdisc start to queue packets for that VIF. If those packets came from an
+another guest, it can block its slots and prevent shutdown. To avoid that, we
+make sure the queue is drained in every 10 seconds.
+The QDisc queue in worst case takes 3 round to flush usually.
 
 Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 ---
-v2:
-- move the indentation fixup patch here
+v3:
+- remove stale debug log
+- tie unmap timeout in xenvif_free to this timeout
 
 v4:
-- indentation fixes
+- due to RX flow control changes now start_xmit doesn't drop the packets but
+  place them on the internal queue. So the timer set rx_queue_purge and kick in
+  the thread to drop the packets there
+- we shoot down the timer if a previously filled internal queue drains
+- adjust the teardown timeout as in worst case it can take more time now
 
- drivers/net/xen-netback/common.h  |   37 +------------------
- drivers/net/xen-netback/netback.c |   72 ++++++++-----------------------------
- 2 files changed, 15 insertions(+), 94 deletions(-)
+v5:
+- create separate variable worst_case_skb_lifetime and add an explanation about
+  why is it so long
+
+ drivers/net/xen-netback/common.h    |    6 ++++++
+ drivers/net/xen-netback/interface.c |   37 +++++++++++++++++++++++++++++++++--
+ drivers/net/xen-netback/netback.c   |   23 +++++++++++++++++++---
+ 3 files changed, 61 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index f35a3ce..2b1cd83 100644
+index 109c29f..d1cd8ce 100644
 --- a/drivers/net/xen-netback/common.h
 +++ b/drivers/net/xen-netback/common.h
-@@ -46,39 +46,9 @@
- #include <xen/xenbus.h>
+@@ -129,6 +129,9 @@ struct xenvif {
+ 	struct xen_netif_rx_back_ring rx;
+ 	struct sk_buff_head rx_queue;
+ 	RING_IDX rx_last_skb_slots;
++	bool rx_queue_purge;
++
++	struct timer_list wake_queue;
  
- typedef unsigned int pending_ring_idx_t;
--#define INVALID_PENDING_RING_IDX (~0U)
+ 	/* This array is allocated seperately as it is large */
+ 	struct gnttab_copy *grant_copy_op;
+@@ -225,4 +228,7 @@ void xenvif_idx_unmap(struct xenvif *vif, u16 pending_idx);
  
--/* For the head field in pending_tx_info: it is used to indicate
-- * whether this tx info is the head of one or more coalesced requests.
-- *
-- * When head != INVALID_PENDING_RING_IDX, it means the start of a new
-- * tx requests queue and the end of previous queue.
-- *
-- * An example sequence of head fields (I = INVALID_PENDING_RING_IDX):
-- *
-- * ...|0 I I I|5 I|9 I I I|...
-- * -->|<-INUSE----------------
-- *
-- * After consuming the first slot(s) we have:
-- *
-- * ...|V V V V|5 I|9 I I I|...
-- * -----FREE->|<-INUSE--------
-- *
-- * where V stands for "valid pending ring index". Any number other
-- * than INVALID_PENDING_RING_IDX is OK. These entries are considered
-- * free and can contain any number other than
-- * INVALID_PENDING_RING_IDX. In practice we use 0.
-- *
-- * The in use non-INVALID_PENDING_RING_IDX (say 0, 5 and 9 in the
-- * above example) number is the index into pending_tx_info and
-- * mmap_pages arrays.
-- */
- struct pending_tx_info {
--	struct xen_netif_tx_request req; /* coalesced tx request */
--	pending_ring_idx_t head; /* head != INVALID_PENDING_RING_IDX
--				  * if it is head of one or more tx
--				  * reqs
--				  */
-+	struct xen_netif_tx_request req; /* tx request */
- 	/* callback data for released SKBs. The	callback is always
- 	 * xenvif_zerocopy_callback, ctx points to the next fragment, desc
- 	 * contains the pending_idx
-@@ -135,11 +105,6 @@ struct xenvif {
- 	struct pending_tx_info pending_tx_info[MAX_PENDING_REQS];
- 	grant_handle_t grant_tx_handle[MAX_PENDING_REQS];
+ extern bool separate_tx_rx_irq;
  
--	/* Coalescing tx requests before copying makes number of grant
--	 * copy ops greater or equal to number of slots required. In
--	 * worst case a tx request consumes 2 gnttab_copy.
--	 */
--	struct gnttab_copy tx_copy_ops[2*MAX_PENDING_REQS];
- 	struct gnttab_map_grant_ref tx_map_ops[MAX_PENDING_REQS];
- 	struct gnttab_unmap_grant_ref tx_unmap_ops[MAX_PENDING_REQS];
++extern unsigned int rx_drain_timeout_msecs;
++extern unsigned int rx_drain_timeout_jiffies;
++
+ #endif /* __XEN_NETBACK__COMMON_H__ */
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index af6b3e1..40aa500 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -114,6 +114,18 @@ static irqreturn_t xenvif_interrupt(int irq, void *dev_id)
+ 	return IRQ_HANDLED;
+ }
  
++static void xenvif_wake_queue(unsigned long data)
++{
++	struct xenvif *vif = (struct xenvif *)data;
++
++	if (netif_queue_stopped(vif->dev)) {
++		netdev_err(vif->dev, "draining TX queue\n");
++		vif->rx_queue_purge = true;
++		xenvif_kick_thread(vif);
++		netif_wake_queue(vif->dev);
++	}
++}
++
+ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct xenvif *vif = netdev_priv(dev);
+@@ -143,8 +155,13 @@ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 * then turn off the queue to give the ring a chance to
+ 	 * drain.
+ 	 */
+-	if (!xenvif_rx_ring_slots_available(vif, min_slots_needed))
++	if (!xenvif_rx_ring_slots_available(vif, min_slots_needed)) {
++		vif->wake_queue.function = xenvif_wake_queue;
++		vif->wake_queue.data = (unsigned long)vif;
+ 		xenvif_stop_queue(vif);
++		mod_timer(&vif->wake_queue,
++			jiffies + rx_drain_timeout_jiffies);
++	}
+ 
+ 	skb_queue_tail(&vif->rx_queue, skb);
+ 	xenvif_kick_thread(vif);
+@@ -352,6 +369,8 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+ 	init_timer(&vif->credit_timeout);
+ 	vif->credit_window_start = get_jiffies_64();
+ 
++	init_timer(&vif->wake_queue);
++
+ 	dev->netdev_ops	= &xenvif_netdev_ops;
+ 	dev->hw_features = NETIF_F_SG |
+ 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+@@ -532,6 +551,7 @@ void xenvif_disconnect(struct xenvif *vif)
+ 		xenvif_carrier_off(vif);
+ 
+ 	if (vif->task) {
++		del_timer_sync(&vif->wake_queue);
+ 		kthread_stop(vif->task);
+ 		vif->task = NULL;
+ 	}
+@@ -557,12 +577,25 @@ void xenvif_disconnect(struct xenvif *vif)
+ void xenvif_free(struct xenvif *vif)
+ {
+ 	int i, unmap_timeout = 0;
++	/* Here we want to avoid timeout messages if an skb can be legitimatly
++	 * stucked somewhere else. Realisticly this could be an another vif's
++	 * internal or QDisc queue. That another vif also has this
++	 * rx_drain_timeout_msecs timeout, but the timer only ditches the
++	 * internal queue. After that, the QDisc queue can put in worst case
++	 * XEN_NETIF_RX_RING_SIZE / MAX_SKB_FRAGS skbs into that another vif's
++	 * internal queue, so we need several rounds of such timeouts until we
++	 * can be sure that no another vif should have skb's from us. We are
++	 * not sending more skb's, so newly stucked packets are not interesting
++	 * for us here.
++	 */
++	unsigned int worst_case_skb_lifetime = (rx_drain_timeout_msecs/1000) *
++		DIV_ROUND_UP(XENVIF_QUEUE_LENGTH, (XEN_NETIF_RX_RING_SIZE / MAX_SKB_FRAGS));
+ 
+ 	for (i = 0; i < MAX_PENDING_REQS; ++i) {
+ 		if (vif->grant_tx_handle[i] != NETBACK_INVALID_HANDLE) {
+ 			unmap_timeout++;
+ 			schedule_timeout(msecs_to_jiffies(1000));
+-			if (unmap_timeout > 9 &&
++			if (unmap_timeout > worst_case_skb_lifetime &&
+ 			    net_ratelimit())
+ 				netdev_err(vif->dev,
+ 					   "Page still granted! Index: %x\n",
 diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 5724468..f74fa92 100644
+index 560950e..bb65c7c 100644
 --- a/drivers/net/xen-netback/netback.c
 +++ b/drivers/net/xen-netback/netback.c
-@@ -71,16 +71,6 @@ module_param(fatal_skb_slots, uint, 0444);
-  */
- #define XEN_NETBK_LEGACY_SLOTS_MAX XEN_NETIF_NR_SLOTS_MIN
+@@ -63,6 +63,13 @@ module_param(separate_tx_rx_irq, bool, 0644);
+ static unsigned int fatal_skb_slots = FATAL_SKB_SLOTS_DEFAULT;
+ module_param(fatal_skb_slots, uint, 0444);
  
--/*
-- * If head != INVALID_PENDING_RING_IDX, it means this tx request is head of
-- * one or more merged tx requests, otherwise it is the continuation of
-- * previous tx request.
-- */
--static inline int pending_tx_is_head(struct xenvif *vif, RING_IDX idx)
--{
--	return vif->pending_tx_info[idx].head != INVALID_PENDING_RING_IDX;
--}
--
- static void xenvif_idx_release(struct xenvif *vif, u16 pending_idx,
- 			       u8 status);
++/* When guest ring is filled up, qdisc queues the packets for us, but we have
++ * to timeout them, otherwise other guests' packets can get stucked there
++ */
++unsigned int rx_drain_timeout_msecs = 10000;
++module_param(rx_drain_timeout_msecs, uint, 0444);
++unsigned int rx_drain_timeout_jiffies;
++
+ /*
+  * To avoid confusion, we define XEN_NETBK_LEGACY_SLOTS_MAX indicating
+  * the maximum slots a valid packet can use. Now this value is defined
+@@ -1909,8 +1916,9 @@ static struct xen_netif_rx_response *make_rx_response(struct xenvif *vif,
  
-@@ -762,19 +752,6 @@ static int xenvif_count_requests(struct xenvif *vif,
- 	return slots;
- }
- 
--static struct page *xenvif_alloc_page(struct xenvif *vif,
--				      u16 pending_idx)
--{
--	struct page *page;
--
--	page = alloc_page(GFP_ATOMIC|__GFP_COLD);
--	if (!page)
--		return NULL;
--	vif->mmap_pages[pending_idx] = page;
--
--	return page;
--}
--
- static inline void xenvif_tx_create_gop(struct xenvif *vif,
- 					u16 pending_idx,
- 					struct xen_netif_tx_request *txp,
-@@ -797,13 +774,9 @@ static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif *vif,
- 	struct skb_shared_info *shinfo = skb_shinfo(skb);
- 	skb_frag_t *frags = shinfo->frags;
- 	u16 pending_idx = *((u16 *)skb->cb);
--	u16 head_idx = 0;
--	int slot, start;
--	struct page *page;
--	pending_ring_idx_t index, start_idx = 0;
--	uint16_t dst_offset;
-+	int start;
-+	pending_ring_idx_t index;
- 	unsigned int nr_slots;
--	struct pending_tx_info *first = NULL;
- 
- 	/* At this point shinfo->nr_frags is in fact the number of
- 	 * slots, which can be as large as XEN_NETBK_LEGACY_SLOTS_MAX.
-@@ -815,8 +788,8 @@ static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif *vif,
- 
- 	for (shinfo->nr_frags = start; shinfo->nr_frags < nr_slots;
- 	     shinfo->nr_frags++, txp++, gop++) {
--				index = pending_index(vif->pending_cons++);
--				pending_idx = vif->pending_ring[index];
-+		index = pending_index(vif->pending_cons++);
-+		pending_idx = vif->pending_ring[index];
- 		xenvif_tx_create_gop(vif, pending_idx, txp, gop);
- 		frag_set_pending_idx(&frags[shinfo->nr_frags], pending_idx);
- 	}
-@@ -824,18 +797,6 @@ static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif *vif,
- 	BUG_ON(shinfo->nr_frags > MAX_SKB_FRAGS);
- 
- 	return gop;
--err:
--	/* Unwind, freeing all pages and sending error responses. */
--	while (shinfo->nr_frags-- > start) {
--		xenvif_idx_release(vif,
--				frag_get_pending_idx(&frags[shinfo->nr_frags]),
--				XEN_NETIF_RSP_ERROR);
--	}
--	/* The head too, if necessary. */
--	if (start)
--		xenvif_idx_release(vif, pending_idx, XEN_NETIF_RSP_ERROR);
--
--	return NULL;
- }
- 
- static int xenvif_tx_check_gop(struct xenvif *vif,
-@@ -848,7 +809,6 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
- 	struct pending_tx_info *tx_info;
- 	int nr_frags = shinfo->nr_frags;
- 	int i, err, start;
--	u16 peek; /* peek into next tx request */
- 
- 	/* Check status of header. */
- 	err = gop->status;
-@@ -873,14 +833,12 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
- 
- 	for (i = start; i < nr_frags; i++) {
- 		int j, newerr;
--		pending_ring_idx_t head;
- 
- 		pending_idx = frag_get_pending_idx(&shinfo->frags[i]);
- 		tx_info = &vif->pending_tx_info[pending_idx];
--		head = tx_info->head;
- 
- 		/* Check error status: if okay then remember grant handle. */
--			newerr = (++gop)->status;
-+		newerr = (++gop)->status;
- 
- 		if (likely(!newerr)) {
- 			if (vif->grant_tx_handle[pending_idx] !=
-@@ -1353,7 +1311,6 @@ static unsigned xenvif_tx_build_gops(struct xenvif *vif, int budget)
- 	       (skb_queue_len(&vif->tx_queue) < budget)) {
- 		struct xen_netif_tx_request txreq;
- 		struct xen_netif_tx_request txfrags[XEN_NETBK_LEGACY_SLOTS_MAX];
--		struct page *page;
- 		struct xen_netif_extra_info extras[XEN_NETIF_EXTRA_TYPE_MAX-1];
- 		u16 pending_idx;
- 		RING_IDX idx;
-@@ -1728,18 +1685,17 @@ static void xenvif_idx_release(struct xenvif *vif, u16 pending_idx,
+ static inline int rx_work_todo(struct xenvif *vif)
  {
- 	struct pending_tx_info *pending_tx_info;
- 	pending_ring_idx_t index;
--	u16 peek; /* peek into next tx request */
- 	unsigned long flags;
- 
--		pending_tx_info = &vif->pending_tx_info[pending_idx];
--		spin_lock_irqsave(&vif->response_lock, flags);
--		make_tx_response(vif, &pending_tx_info->req, status);
--		index = pending_index(vif->pending_prod);
--		vif->pending_ring[index] = pending_idx;
--		/* TX shouldn't use the index before we give it back here */
--		mb();
--		vif->pending_prod++;
--		spin_unlock_irqrestore(&vif->response_lock, flags);
-+	pending_tx_info = &vif->pending_tx_info[pending_idx];
-+	spin_lock_irqsave(&vif->response_lock, flags);
-+	make_tx_response(vif, &pending_tx_info->req, status);
-+	index = pending_index(vif->pending_prod);
-+	vif->pending_ring[index] = pending_idx;
-+	/* TX shouldn't use the index before we give it back here */
-+	mb();
-+	vif->pending_prod++;
-+	spin_unlock_irqrestore(&vif->response_lock, flags);
+-	return !skb_queue_empty(&vif->rx_queue) &&
+-	       xenvif_rx_ring_slots_available(vif, vif->rx_last_skb_slots);
++	return (!skb_queue_empty(&vif->rx_queue) &&
++	       xenvif_rx_ring_slots_available(vif, vif->rx_last_skb_slots)) ||
++	       vif->rx_queue_purge;
  }
  
- void xenvif_idx_unmap(struct xenvif *vif, u16 pending_idx)
+ static inline int tx_work_todo(struct xenvif *vif)
+@@ -1998,12 +2006,19 @@ int xenvif_kthread(void *data)
+ 		if (kthread_should_stop())
+ 			break;
+ 
++		if (vif->rx_queue_purge) {
++			skb_queue_purge(&vif->rx_queue);
++			vif->rx_queue_purge = false;
++		}
++
+ 		if (!skb_queue_empty(&vif->rx_queue))
+ 			xenvif_rx_action(vif);
+ 
+ 		if (skb_queue_empty(&vif->rx_queue) &&
+-		    netif_queue_stopped(vif->dev))
++		    netif_queue_stopped(vif->dev)) {
++			del_timer_sync(&vif->wake_queue);
+ 			xenvif_start_queue(vif);
++		}
+ 
+ 		cond_resched();
+ 	}
+@@ -2054,6 +2069,8 @@ static int __init netback_init(void)
+ 	if (rc)
+ 		goto failed_init;
+ 
++	rx_drain_timeout_jiffies = msecs_to_jiffies(rx_drain_timeout_msecs);
++
+ 	return 0;
+ 
+ failed_init:
