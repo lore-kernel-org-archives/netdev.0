@@ -1,78 +1,131 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: davinci_emac: Move call of devm_request_irq to emac_dev_open
-Date: Tue, 4 Mar 2014 09:53:59 -0800
-Message-ID: <CAGVrzcbDRPDvjf=6_BHATmXJUzXB_20yvoYgujgp_rYOemJZPA@mail.gmail.com>
-References: <5dd177ee-f4e8-47b0-aeb8-d2fa64d3725b@mary.at.omicron.at> <CA+V-a8v9qx4Q37ux+uuqzSSNXengYn=97Uq+5x4awPK01TaOKQ@mail.gmail.com>
+From: Jagan Teki <jagannadh.teki@gmail.com>
+Subject: Re: sblk->status_tag on drivers/net/ethernet/broadcom/tg3.c
+Date: Tue, 4 Mar 2014 23:25:15 +0530
+Message-ID: <CAD6G_RQ130TunwZDL+8vwx__8NsfzE0AfcfnS7z5OXtZF5T8xQ@mail.gmail.com>
+References: <CAD6G_RQVD7=v7b6S-muiZBYV7PEykTHOTM23i-BL=wcA5z=4Qg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Christian Riesch <christian.riesch@omicron.at>,
-	netdev <netdev@vger.kernel.org>, Jon Ringle <jon@ringle.org>,
-	dlos <davinci-linux-open-source@linux.davincidsp.com>,
-	stable <stable@vger.kernel.org>
-To: Prabhakar Lad <prabhakar.csengg@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <CA+V-a8v9qx4Q37ux+uuqzSSNXengYn=97Uq+5x4awPK01TaOKQ@mail.gmail.com>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Nithin Nayak Sujir <nsujir@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	Bjorn Helgaas <bhelgaas@google.com>
+To: netdev@vger.kernel.org,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <CAD6G_RQVD7=v7b6S-muiZBYV7PEykTHOTM23i-BL=wcA5z=4Qg@mail.gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2014-03-04 9:30 GMT-08:00 Prabhakar Lad <prabhakar.csengg@gmail.com>:
-> Hi Christian,
->
-> Thanks for the patch.
->
->
-> On Tue, Mar 4, 2014 at 7:37 PM, Christian Riesch
-> <christian.riesch@omicron.at> wrote:
->> In commit 6892b41d9701283085b655c6086fb57a5d63fa47
->>
->> Author: Lad, Prabhakar <prabhakar.csengg@gmail.com>
->> Date:   Tue Jun 25 21:24:51 2013 +0530
->> net: davinci: emac: Convert to devm_* api
->>
->> the call of request_irq is replaced by devm_request_irq and the call
->> of free_irq is removed. But since interrupts are requested in
->> emac_dev_open, doing ifconfig up/down on the board requests the
->> interrupts again each time, causing devm_request_irq to fail.
->>
->> This patch moves the interrupt requests to emac_dev_open and thus
->> fixes this regression.
->>
->> Reported-by: Jon Ringle <jon@ringle.org>
->> Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
->> Cc: Lad, Prabhakar <prabhakar.csengg@gmail.com>
->> Cc: <stable@vger.kernel.org>
->
-> This patch fixes issue pointed at
-> http://comments.gmane.org/gmane.linux.davinci/28135
-> tested on Logic PD.
->
->  Reported-and-tested-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
->
-> Assuming you will respin the patch fixing the header.
->> ---
->>
->> Hi,
->> This is an attempt to fix the bug discussed in
->> https://lkml.org/lkml/2014/3/4/218
->>
->> Since I am not really familiar with interrupts I am not sure if this is the right way to
->> do it. I am looking forward to your comments.
->>
-> Looks OK.
+Hi All,
 
-I think a plain revert of Prabhakar patch would bring us in an "usual"
-situation where the drivers's ndo_open():
+I have a board setup with PCIe host bridge links to BCRM NIC/tg3 EP.
 
-- masks all interrupts bits at the Ethernet MAC level
-- calls request_irq()
-- unmask relevant interrupts bits at the Ethernet Mac level
+I'm verifying legacy INT# for ifconfig up operation, typically for
+link up EP trigger an interrupt as Assert_INT# and PCIe RC driver
+ISR will called and then EP ISR will clear and send Dessert_INT#
 
-just in case some uncontrolled interrupt bit triggers an interrupt
-while the interface is down for instance...
+But I got the continues interrupts from EP which will keep ISR's in
+both PCIe RC and EP in busy loop.
 
-On a wider note, it would be good to get some tool to notify people
-that attempting to replace devm_request_irq() in a network driver's
-ndo_open() function is not going to produce the expected results as
-the two are not strictly identical.
--- 
-Florian
+Log dump:
+# ifconfig eth0 172.16.0.2 up
+RC: handler
+tg3_interrupt_tagged: write status = 0x1
+RC: handler
+tg3_interrupt_tagged: write status = 0x1
+RC: handler
+tg3_interrupt_tagged: write status = 0x1
+RC: handler
+tg3_interrupt_tagged: write status = 0x1
+............................
+..............
+
+I debugged further on EP driver where I could see interrupt
+re-enabling is happening continuously by writing 0x0 to onto
+MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW
+
+Debug code:
+static irqreturn_t tg3_interrupt_tagged(int irq, void *dev_id)
+{
+      ...................
+      printk(" ++status_tag = 0x%x", sblk->status_tag);
+      .......................
+
+      tw32_mailbox_f(MAILBOX_
+INTERRUPT_0 + TG3_64BIT_REG_LOW, 0x00000001);
+      printk(" write status = 0x%x", tr32(MAILBOX_INTERRUPT_0 +
+TG3_64BIT_REG_LOW));
+      ..................
+      tnapi->last_irq_tag = sblk->status_tag;
+      printk(" --status_tag = 0x%x\n", tnapi->last_irq_tag);
+}
+
+static int tg3_poll(struct napi_struct *napi, int budget)
+{
+               printk("%s: ", __func__);
+               if (tg3_flag(tp, TAGGED_STATUS)) {
+                        /* tp->last_tag is used in tg3_int_reenable() below
+                         * to tell the hw how much work has been processed,
+                         * so we must read it before checking for more work.
+                         */
+                        tnapi->last_tag = sblk->status_tag;
+                        tnapi->last_irq_tag = tnapi->last_tag;
+                        rmb();
+                } else
+                        sblk->status &= ~SD_STATUS_UPDATED;
+
+                printk(" tag = 0x%x\n", sblk->status_tag);
+                if (likely(!tg3_has_work(tnapi))) {
+                        napi_complete(napi);
+                        printk("calling tg3_int_reenable\n");
+                        tg3_int_reenable(tnapi);
+                        break;
+              }
+}
+
+static void tg3_int_reenable(struct tg3_napi *tnapi)
+{
+        struct tg3 *tp = tnapi->tp;
+
+        printk("%s val = 0x%x\n", __func__, tnapi->last_tag << 24);
+        tw32_mailbox(tnapi->int_mbox, tnapi->last_tag << 24);
+        ..............................
+}
+
+Log dump:
+# ifconfig eth0 172.16.0.2 up
+RC: handler
+tg3_interrupt_tagged: ++status_tag = 0x0 write status = 0x1
+--status_tag = 0x0 tg3_poll: tag = 0x0 calling tg3_int_reenable val =
+0x0
+RC: handler
+tg3_interrupt_tagged: ++status_tag = 0x0 write status = 0x1
+--status_tag = 0x0 tg3_poll: tag = 0x0 calling tg3_int_reenable val =
+0x0
+RC: handler
+tg3_interrupt_tagged: ++status_tag = 0x0 write status = 0x1
+--status_tag = 0x0 tg3_poll: tag = 0x0 calling tg3_int_reenable val =
+0x0
+RC: handler
+tg3_interrupt_tagged: ++status_tag = 0x0 write status = 0x1
+--status_tag = 0x0 tg3_poll: tag = 0x0 calling tg3_int_reenable val =
+0x0
+............................
+..............
+
+>From the comments in ISR any non-zero value to intr-mbox-0 clear
+the interrupt ie write status as 1 so I assume interrupt is clear and then
+in tg3_int_reenable is going to write 0x0 on to intr-mbox-0
+which again reenables the interrupt, was my guess is true?
+
+And sblk->status_tag is always 0 in ISR and BH(poll) why is that so?
+If it's is 1(unsigned non-zero) then possibly tg3_int_reenable will write
+non-zero value on intr-mbox-0 which will clear the interrupt.
+
+Request for any help who updates sblk->status_tag value and
+how many time the ISR in PCIe RC and ISR in EP will call for link up?
+
+thanks!
+--
+Jagan.
