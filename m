@@ -1,72 +1,49 @@
-From: John Heffner <johnwheffner@gmail.com>
-Subject: Re: TCP being hoodwinked into spurious retransmissions by lack of timestamps?
-Date: Mon, 3 Mar 2014 22:22:32 -0500
-Message-ID: <CABrhC0=hHpZSdE5-dLqysuFn_d_VK7r1jKb0kGZF9hn1+UHjDw@mail.gmail.com>
-References: <53151E55.9000503@hp.com>
+From: Dave Jones <davej@redhat.com>
+Subject: out of bounds writes in net/hsr/
+Date: Mon, 3 Mar 2014 22:27:57 -0500
+Message-ID: <20140304032757.GA19048@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Netdev <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: arvid.brodin@xdin.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f178.google.com ([209.85.128.178]:53099 "EHLO
-	mail-ve0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756049AbaCDDWd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 22:22:33 -0500
-Received: by mail-ve0-f178.google.com with SMTP id jw12so1988284veb.23
-        for <netdev@vger.kernel.org>; Mon, 03 Mar 2014 19:22:32 -0800 (PST)
-In-Reply-To: <53151E55.9000503@hp.com>
+Received: from mx1.redhat.com ([209.132.183.28]:61480 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756022AbaCDD2O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Mar 2014 22:28:14 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Running with such a large window scale and no timestamps (PAWS
-protection) is generally not a great idea, but I don't think is part
-of the issue here.
+I found this in coverity, and I think it's a real bug..
 
-If you look where things really go wrong, the receiver is sending
-anomalous SACK blocks that will trigger the SACK renege handling path.
- Reneging triggers go-back-n behavior, so we see the spurious
-retransmits from there on.
+hsr_register_frame_in does a check that dev_idx is between 0 and 2,
+therefore, a dev_idx of 2 is possible when it gets to the array writes
+at the end of the function.  The arrays are defined such..
 
-The most notable bad segment is this one:
-18:20:46.800063 IP 75.236.145.7.443 > 91.216.86.7.56064: Flags [.],
-ack 3171368, win 32716, options [nop,nop,sack 1 {3171368:3177208}],
-length 0
-It contains a SACK block contiguous with the acked seqno.  There is
-some other strangeness just before that, where the SACK block shrinks
-then grows again.
+ 26 struct node_entry {
+...
+ 33         unsigned long   time_in[HSR_MAX_SLAVE];
+ 34         bool            time_in_stale[HSR_MAX_SLAVE];
 
-One other thing that jumped out at me is there is no actual loss, just
-reordering.
+and HSR_MAX_SLAVE is...
 
-  -John
+139 enum hsr_dev_idx {
+140         HSR_DEV_NONE = -1,
+141         HSR_DEV_SLAVE_A = 0,
+142         HSR_DEV_SLAVE_B,
+143         HSR_DEV_MASTER,
+144 };
+145 #define HSR_MAX_SLAVE   (HSR_DEV_SLAVE_B + 1)
 
-On Mon, Mar 3, 2014 at 7:29 PM, Rick Jones <rick.jones2@hp.com> wrote:
-> I've been looking at some packet traces of an application looking to upload
-> a Large Quantity (tm) of data to a server across the Big Bad Internet (tm).
-> They've been Linux senders, and the destination while supporting SACK and
-> window scaling does not support TCP timestamps. (TCP timestamp support was
-> requested of the supplier of said server many many months ago now.)
->
-> This destination system has been issuing RSTs at seemingly random points in
-> the middle of a large fraction of the attempted transfers.  In looking at
-> the traces, they all seem to be variations on the theme of what is shown by:
->
-> ftp://netperf.org/retrans_question/for_netdev.png
->
-> which is a passing of ftp://netperf.org/retrans_question/for_netdev.pcap
-> through tcptrace -nG and zoomed-in to the end.  I've seen this with a 3.2.0
-> kernel as the sender, have reports of it happening with whatever is in
-> Fedora Core 20, and the traces above are from a 3.11.0 kernel as the sender.
->
-> The large quantity of (likely) unnecessary retransmissions shouldn't be
-> triggering a RST by the receiver, but the failures consistently show that
-> and I was wondering if the (spurious) retransmissions were perhaps
-> "encouraged" (so to speak) by the lack of TCP Timestamps.
->
-> happy benchmarking,
->
-> rick jones
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+So we have arrays of 2 bytes, and we can try to write to the 3rd byte.
+
+The problem seems to be that the checking in hsr_register_frame is on
+HSR_MAX_DEV which is defined as..
+
+#define HSR_MAX_DEV     (HSR_DEV_MASTER + 1)
+
+The + 1 seems odd, and looking at the other uses of HSR_MAX_DEV, I can't
+figure out why it's there.
+
+	Dave
