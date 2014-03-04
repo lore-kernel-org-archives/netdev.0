@@ -1,95 +1,72 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next] hyperv: Move state setting for link query
-Date: Tue, 04 Mar 2014 11:09:49 +0800
-Message-ID: <531543FD.7090907@redhat.com>
-References: <1393890875-1420-1-git-send-email-haiyangz@microsoft.com>
+From: John Heffner <johnwheffner@gmail.com>
+Subject: Re: TCP being hoodwinked into spurious retransmissions by lack of timestamps?
+Date: Mon, 3 Mar 2014 22:22:32 -0500
+Message-ID: <CABrhC0=hHpZSdE5-dLqysuFn_d_VK7r1jKb0kGZF9hn1+UHjDw@mail.gmail.com>
+References: <53151E55.9000503@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: driverdev-devel@linuxdriverproject.org, olaf@aepfle.de,
- linux-kernel@vger.kernel.org
-To: Haiyang Zhang <haiyangz@microsoft.com>, davem@davemloft.net,
- netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1393890875-1420-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Netdev <netdev@vger.kernel.org>
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ve0-f178.google.com ([209.85.128.178]:53099 "EHLO
+	mail-ve0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756049AbaCDDWd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 22:22:33 -0500
+Received: by mail-ve0-f178.google.com with SMTP id jw12so1988284veb.23
+        for <netdev@vger.kernel.org>; Mon, 03 Mar 2014 19:22:32 -0800 (PST)
+In-Reply-To: <53151E55.9000503@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/04/2014 07:54 AM, Haiyang Zhang wrote:
-> It moves the state setting for query into rndis_filter_receive_response().
-> All callbacks including query-complete and status-callback are synchronized
-> by channel->inbound_lock. This prevents pentential race between them.
+Running with such a large window scale and no timestamps (PAWS
+protection) is generally not a great idea, but I don't think is part
+of the issue here.
 
-This still looks racy to me. The problem is workqueue is not
-synchronized with those here.
+If you look where things really go wrong, the receiver is sending
+anomalous SACK blocks that will trigger the SACK renege handling path.
+ Reneging triggers go-back-n behavior, so we see the spurious
+retransmits from there on.
 
-Consider the following case in netvsc_link_change():
+The most notable bad segment is this one:
+18:20:46.800063 IP 75.236.145.7.443 > 91.216.86.7.56064: Flags [.],
+ack 3171368, win 32716, options [nop,nop,sack 1 {3171368:3177208}],
+length 0
+It contains a SACK block contiguous with the acked seqno.  There is
+some other strangeness just before that, where the SACK block shrinks
+then grows again.
 
-    if (rdev->link_state) {
-    ... receive interrupt ...
-    rndis_filter_receice_response() which changes rdev->link_state
-    ...
-        netif_carrier_off()
-    }
+One other thing that jumped out at me is there is no actual loss, just
+reordering.
 
-And also it need to schedule a work otherwise the link status is out of
-sync.
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> ---
->  drivers/net/hyperv/rndis_filter.c |   21 ++++++++++++++++++++-
->  1 files changed, 20 insertions(+), 1 deletions(-)
+  -John
+
+On Mon, Mar 3, 2014 at 7:29 PM, Rick Jones <rick.jones2@hp.com> wrote:
+> I've been looking at some packet traces of an application looking to upload
+> a Large Quantity (tm) of data to a server across the Big Bad Internet (tm).
+> They've been Linux senders, and the destination while supporting SACK and
+> window scaling does not support TCP timestamps. (TCP timestamp support was
+> requested of the supplier of said server many many months ago now.)
 >
-> diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-> index f0cc8ef..6a9f602 100644
-> --- a/drivers/net/hyperv/rndis_filter.c
-> +++ b/drivers/net/hyperv/rndis_filter.c
-> @@ -240,6 +240,22 @@ static int rndis_filter_send_request(struct rndis_device *dev,
->  	return ret;
->  }
->  
-> +static void rndis_set_link_state(struct rndis_device *rdev,
-> +				 struct rndis_request *request)
-> +{
-> +	u32 link_status;
-> +	struct rndis_query_complete *query_complete;
-> +
-> +	query_complete = &request->response_msg.msg.query_complete;
-> +
-> +	if (query_complete->status == RNDIS_STATUS_SUCCESS &&
-> +	    query_complete->info_buflen == sizeof(u32)) {
-> +		memcpy(&link_status, (void *)((unsigned long)query_complete +
-> +		       query_complete->info_buf_offset), sizeof(u32));
-> +		rdev->link_state = link_status != 0;
-> +	}
-> +}
-> +
->  static void rndis_filter_receive_response(struct rndis_device *dev,
->  				       struct rndis_message *resp)
->  {
-> @@ -269,6 +285,10 @@ static void rndis_filter_receive_response(struct rndis_device *dev,
->  		    sizeof(struct rndis_message) + RNDIS_EXT_LEN) {
->  			memcpy(&request->response_msg, resp,
->  			       resp->msg_len);
-> +			if (request->request_msg.ndis_msg_type ==
-> +			    RNDIS_MSG_QUERY && request->request_msg.msg.
-> +			    query_req.oid == RNDIS_OID_GEN_MEDIA_CONNECT_STATUS)
-> +				rndis_set_link_state(dev, request);
->  		} else {
->  			netdev_err(ndev,
->  				"rndis response buffer overflow "
-> @@ -617,7 +637,6 @@ static int rndis_filter_query_device_link_status(struct rndis_device *dev)
->  	ret = rndis_filter_query_device(dev,
->  				      RNDIS_OID_GEN_MEDIA_CONNECT_STATUS,
->  				      &link_status, &size);
-> -	dev->link_state = (link_status != 0) ? true : false;
->  
->  	return ret;
->  }
+> This destination system has been issuing RSTs at seemingly random points in
+> the middle of a large fraction of the attempted transfers.  In looking at
+> the traces, they all seem to be variations on the theme of what is shown by:
+>
+> ftp://netperf.org/retrans_question/for_netdev.png
+>
+> which is a passing of ftp://netperf.org/retrans_question/for_netdev.pcap
+> through tcptrace -nG and zoomed-in to the end.  I've seen this with a 3.2.0
+> kernel as the sender, have reports of it happening with whatever is in
+> Fedora Core 20, and the traces above are from a 3.11.0 kernel as the sender.
+>
+> The large quantity of (likely) unnecessary retransmissions shouldn't be
+> triggering a RST by the receiver, but the failures consistently show that
+> and I was wondering if the (spurious) retransmissions were perhaps
+> "encouraged" (so to speak) by the lack of TCP Timestamps.
+>
+> happy benchmarking,
+>
+> rick jones
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
