@@ -1,50 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: af_key: fix sleeping under rcu
-Date: Tue, 04 Mar 2014 16:40:14 -0500 (EST)
-Message-ID: <20140304.164014.2134736768960109055.davem@davemloft.net>
-References: <1393935984-8733-1-git-send-email-nikolay@redhat.com>
-	<1393935984-8733-2-git-send-email-nikolay@redhat.com>
-	<063D6719AE5E284EB5DD2968C1650D6D0F6D0092@AcuExch.aculab.com>
+Subject: Re: [RFC][PATCH] audit: Simplify by assuming the callers socket
+ buffer is large enough
+Date: Tue, 04 Mar 2014 16:51:22 -0500 (EST)
+Message-ID: <20140304.165122.445822929490466603.davem@davemloft.net>
+References: <874n3ir0uw.fsf_-_@xmission.com>
+	<87mwhaplo4.fsf_-_@xmission.com>
+	<20140304133004.b565820f60f595a48e621e58@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nikolay@redhat.com, netdev@vger.kernel.org, davej@redhat.com,
-	steffen.klassert@secunet.com, fan.du@windriver.com
-To: David.Laight@ACULAB.COM
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37325 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756776AbaCDVkR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 16:40:17 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6D0092@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ebiederm@xmission.com, rgb@redhat.com, eparis@redhat.com,
+	linux-audit@redhat.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: akpm@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140304133004.b565820f60f595a48e621e58@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Laight <David.Laight@ACULAB.COM>
-Date: Tue, 4 Mar 2014 12:46:48 +0000
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Tue, 4 Mar 2014 13:30:04 -0800
 
-> From: Nikolay Aleksandrov
->> There's a kmalloc with GFP_KERNEL in a helper
->> (pfkey_sadb2xfrm_user_sec_ctx) used in pfkey_compile_policy which is
->> called under rcu_read_lock. Adjust pfkey_sadb2xfrm_user_sec_ctx to have
->> a gfp argument and adjust the users.
-> ...
->> @@ -3239,7 +3240,7 @@ static struct xfrm_policy *pfkey_compile_policy(struct sock *sk, int opt,
->>  		}
->>  		if ((*dir = verify_sec_ctx_len(p)))
->>  			goto out;
->> -		uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
->> +		uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_ATOMIC);
->>  		*dir = security_xfrm_policy_alloc(&xp->security, uctx);
->>  		kfree(uctx);
+> On Fri, 28 Feb 2014 20:50:19 -0800 ebiederm@xmission.com (Eric W. Biederman) wrote:
 > 
-> This looks like the only one that isn't passed GFP_KERNEL.
-> It looks as though it is missing the check for the allocation failing
-> (there might be a check inside security_xfrm_policy_alloc()).
+>> 
+>> Modify audit_send_reply to directly use a non-blocking send and
+>> to return an error on failure (if anyone cares).
+>> 
+>> Modify audit_list_rules_send to use audit_send_reply and give up
+>> if we can not send a packet.
+>> 
+>> Merge audit_list_rules into iaudit_list_rules_send as the code
+>> is now sufficiently simple to not justify to callers.
+>> 
+>> Kill audit_send_list, audit_send_reply_thread because using
+>> a separate thread for replies is not needed when sending
+>> packets syncrhonously.
 > 
-> In any case it looks as though this ought to be codeable without
-> the allocation of 'uctx' - since it is freed a line later.
+> Nothing much seems to be happening here?
+> 
+> In an earlier email you said "While reading through 3.14-rc1 I found a
+> pretty siginficant mishandling of network namespaces in the recent
+> audit changes." Were those recent audit changes a post-3.14 thing?  And
+> what is the user-visible effect of the mishandling?
 
-Unfortunately, it is not possible to avoid allocations.  The uctx is
-of a variable size, because it is a base struct, with a variable
-length part afterwards.
+I took a quick look at this patch yesterday, and my only suspicion is
+that threads are created currently by this code purely to cons up a
+blockable context for the netlink code.
+
+Perhaps it wants to avoid any netlink packet drops from being possible.
+
+I'm not so sure.
+
+Anyways, some investigation into perhaps figuring out the intentions of
+the original implementation would be nice.
