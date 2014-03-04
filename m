@@ -1,74 +1,47 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net-next] hyperv: Move state setting for link query
-Date: Tue, 4 Mar 2014 16:57:00 +0000
-Message-ID: <856c5dedc14a458b8100dcb2d3a2f9e6@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <1393890875-1420-1-git-send-email-haiyangz@microsoft.com>
- <531543FD.7090907@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 09/12] r8152: support IPv6
+Date: Tue, 04 Mar 2014 08:58:48 -0800
+Message-ID: <1393952328.26794.123.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1393934464-23675-1-git-send-email-hayeswang@realtek.com>
+	 <1393934464-23675-10-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>, "olaf@aepfle.de" <olaf@aepfle.de>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Jason Wang <jasowang@redhat.com>, "davem@davemloft.net"
- <davem@davemloft.net>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <531543FD.7090907@redhat.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: Hayes Wang <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1393934464-23675-10-git-send-email-hayeswang@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 2014-03-04 at 20:01 +0800, Hayes Wang wrote:
+> Support hw IPv6 checksum for TCP and UDP packets.
 
 
-> -----Original Message-----
-> From: Jason Wang [mailto:jasowang@redhat.com]
-> Sent: Monday, March 3, 2014 10:10 PM
-> To: Haiyang Zhang; davem@davemloft.net; netdev@vger.kernel.org
-> Cc: KY Srinivasan; olaf@aepfle.de; linux-kernel@vger.kernel.org; driverdev-
-> devel@linuxdriverproject.org
-> Subject: Re: [PATCH net-next] hyperv: Move state setting for link query
-> 
-> On 03/04/2014 07:54 AM, Haiyang Zhang wrote:
-> > It moves the state setting for query into rndis_filter_receive_response().
-> > All callbacks including query-complete and status-callback are
-> > synchronized by channel->inbound_lock. This prevents pentential race
-> between them.
-> 
-> This still looks racy to me. The problem is workqueue is not synchronized with
-> those here.
-> 
-> Consider the following case in netvsc_link_change():
-> 
->     if (rdev->link_state) {
->     ... receive interrupt ...
->     rndis_filter_receice_response() which changes rdev->link_state
->     ...
->         netif_carrier_off()
->     }
-> 
-> And also it need to schedule a work otherwise the link status is out of sync.
+> +/*
+> + * r8152_csum_workaround()
+> + * The hw limites the value the transport offset. When the offset is out of the
+> + * range, calculate the checksum by sw.
+> + */
+> +static void r8152_csum_workaround(struct r8152 *tp, struct sk_buff *skb,
+> +				  struct sk_buff_head *list)
+> +{
+> +	if (skb_shinfo(skb)->gso_size) {
+> +		netdev_features_t features = tp->netdev->features;
+> +		struct sk_buff *segs, *nskb;
+> +
+> +		features &= ~(NETIF_F_IP_CSUM | NETIF_F_SG | NETIF_F_TSO);
+> +		segs = skb_gso_segment(skb, features);
+> +		if (IS_ERR(segs) || !segs)
+> +			goto drop;
+> +
+> +		do {
+> +			nskb = segs;
+> +			segs = segs->next;
+> +			nskb->next = NULL;
+> +			__skb_queue_head(list, nskb);
 
-The rndis_filter_query_device_link_status() makes the query and wait for the
-complete message, including set state, before returning.
+This introduces TCP reordering.
 
-The rndis_filter_query_device_link_status() is called from rndis_filter_device_add(),
-which is called from either netvsc_change_mtu() or netvsc_probe().
-
-The change_mtu() and netvsc_link_change() are synchronized by rtnl_lock().
-In netvsc_probe(), the status query & complete happens before register_netdev(), and
-the netvsc_linkstatus_callback() schedules the work only after netdevice is registered.
-So, there are no race in either case.
-
-The carrier_on/off work will be scheduled when netvsc_open() is called. Then,
-the status will be updated based on the latest link_state.
-
-Thanks,
-- Haiyang
+You should use some kind of skb_queue_splice()
