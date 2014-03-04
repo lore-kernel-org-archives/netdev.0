@@ -1,113 +1,146 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH 1/2] l2tp: fix manual sequencing (de)activation in L2TPv2
-Date: Tue, 4 Mar 2014 22:25:23 +0100
-Message-ID: <7badd5856e70fd63f8b74b361fb499cc8ed7f065.1393966618.git.g.nault@alphalink.fr>
-References: <cover.1393966618.git.g.nault@alphalink.fr>
+From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@web.de>
+Subject: Re: bridge is not forwaring ICMP6 neighbor solicitation to
+	KVM guest
+Date: Tue, 4 Mar 2014 22:37:57 +0100
+Message-ID: <20140304213757.GJ5090@Linus-Debian>
+References: <1566805413.12693479.1393872931017.JavaMail.zimbra@redhat.com>
+	<2107636851.12713862.1393876035292.JavaMail.zimbra@redhat.com>
+	<20140303212759.GW5090@Linus-Debian>
+	<1808019554.12748658.1393886749190.JavaMail.zimbra@redhat.com>
+	<20140304000041.GY5090@Linus-Debian>
+	<624414844.12834668.1393920156458.JavaMail.zimbra@redhat.com>
+	<20140304105253.GC5090@Linus-Debian>
+	<1663332249.12962360.1393931189285.JavaMail.zimbra@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: James Chapman <jchapman@katalix.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:49237 "EHLO
-	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1757532AbaCDVgC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 16:36:02 -0500
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="zu8lIfFVzXMVnfzp"
+Cc: netdev@vger.kernel.org, Florian Westphal <fwestpha@redhat.com>,
+	bridge@lists.linux-foundation.org
+To: Jan Stancek <jstancek@redhat.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <cover.1393966618.git.g.nault@alphalink.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1663332249.12962360.1393931189285.JavaMail.zimbra@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Commit e0d4435f "l2tp: Update PPP-over-L2TP driver to work over L2TPv3"
-broke the PPPOL2TP_SO_SENDSEQ setsockopt. The L2TP header length was
-previously computed by pppol2tp_l2t_header_len() before each call to
-l2tp_xmit_skb(). Now that header length is retrieved from the hdr_len
-session field, this field must be updated every time the L2TP header
-format is modified, or l2tp_xmit_skb() won't push the right amount of
-data for the L2TP header.
 
-This patch uses l2tp_session_set_header_len() to adjust hdr_len every
-time sequencing is (de)activated from userspace (either by the
-PPPOL2TP_SO_SENDSEQ setsockopt or the L2TP_ATTR_SEND_SEQ netlink
-attribute).
+--zu8lIfFVzXMVnfzp
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
----
- net/l2tp/l2tp_core.c    | 5 +++--
- net/l2tp/l2tp_core.h    | 1 +
- net/l2tp/l2tp_netlink.c | 4 +++-
- net/l2tp/l2tp_ppp.c     | 1 +
- 4 files changed, 8 insertions(+), 3 deletions(-)
+On Tue, Mar 04, 2014 at 06:06:29AM -0500, Jan Stancek wrote:
+>=20
+>=20
+> ----- Original Message -----
+> > From: "Linus L=C3=BCssing" <linus.luessing@web.de>
+> > To: "Jan Stancek" <jstancek@redhat.com>
+> > Cc: netdev@vger.kernel.org, "Florian Westphal" <fwestpha@redhat.com>, b=
+ridge@lists.linux-foundation.org
+> > Sent: Tuesday, 4 March, 2014 11:52:54 AM
+> > Subject: Re: bridge is not forwaring ICMP6 neighbor solicitation to KVM=
+ guest
+> >=20
+> > Hi Jan,
+> >=20
+> > On Tue, Mar 04, 2014 at 03:02:36AM -0500, Jan Stancek wrote:
+> > > > For the broken query, ok, it's your manually crafted query. But
+> > > > did you see a query with such a bogus source address "in the
+> > > > wild", too? (I'm curious how urgent this sanity check is)
+> > >=20
+> > > It's real packet I managed to capture during one such occurrence.
+> > > I'm sending it with small C program over raw socket, but it's byte
+> > > by byte exact copy of what I captured with tcpdump previously.
+> > >=20
+> > > I'm not sure how that packet came to existence. Based on IPv6 address
+> > > it came from host B, but all host B was doing at the time
+> > > was running RHEL6 with couple qemu-kvm instances. KVM guests were
+> > > set up to use bridge, so I'm assuming if any of them crafted
+> > > this packet, source IPv6 address would be different.
+> > >=20
+> >=20
+> > Ah, okay. Can you check whether it maybe came from the querier
+> > code in the Linux bridge on host B? Is
+> > "cat /sys/class/net/br0/bridge/multicast_querier" 1?
+>=20
+> # cat /sys/class/net/br0/bridge/multicast_querier
+> cat: /sys/class/net/br0/bridge/multicast_querier: No such file or directo=
+ry
 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index 735d0f6..735750f 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -112,7 +112,7 @@ struct l2tp_net {
- 	spinlock_t l2tp_session_hlist_lock;
- };
- 
--static void l2tp_session_set_header_len(struct l2tp_session *session, int version);
-+void l2tp_session_set_header_len(struct l2tp_session *session, int version);
- static void l2tp_tunnel_free(struct l2tp_tunnel *tunnel);
- 
- static inline struct l2tp_tunnel *l2tp_tunnel(struct sock *sk)
-@@ -1863,7 +1863,7 @@ EXPORT_SYMBOL_GPL(l2tp_session_delete);
- /* We come here whenever a session's send_seq, cookie_len or
-  * l2specific_len parameters are set.
-  */
--static void l2tp_session_set_header_len(struct l2tp_session *session, int version)
-+void l2tp_session_set_header_len(struct l2tp_session *session, int version)
- {
- 	if (version == L2TP_HDR_VER_2) {
- 		session->hdr_len = 6;
-@@ -1876,6 +1876,7 @@ static void l2tp_session_set_header_len(struct l2tp_session *session, int versio
- 	}
- 
- }
-+EXPORT_SYMBOL_GPL(l2tp_session_set_header_len);
- 
- struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunnel *tunnel, u32 session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg)
- {
-diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
-index 1f01ba3..3f93ccd 100644
---- a/net/l2tp/l2tp_core.h
-+++ b/net/l2tp/l2tp_core.h
-@@ -263,6 +263,7 @@ void l2tp_recv_common(struct l2tp_session *session, struct sk_buff *skb,
- 		      int length, int (*payload_hook)(struct sk_buff *skb));
- int l2tp_session_queue_purge(struct l2tp_session *session);
- int l2tp_udp_encap_recv(struct sock *sk, struct sk_buff *skb);
-+void l2tp_session_set_header_len(struct l2tp_session *session, int version);
- 
- int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb,
- 		  int hdr_len);
-diff --git a/net/l2tp/l2tp_netlink.c b/net/l2tp/l2tp_netlink.c
-index 4cfd722..bd7387a 100644
---- a/net/l2tp/l2tp_netlink.c
-+++ b/net/l2tp/l2tp_netlink.c
-@@ -578,8 +578,10 @@ static int l2tp_nl_cmd_session_modify(struct sk_buff *skb, struct genl_info *inf
- 	if (info->attrs[L2TP_ATTR_RECV_SEQ])
- 		session->recv_seq = nla_get_u8(info->attrs[L2TP_ATTR_RECV_SEQ]);
- 
--	if (info->attrs[L2TP_ATTR_SEND_SEQ])
-+	if (info->attrs[L2TP_ATTR_SEND_SEQ]) {
- 		session->send_seq = nla_get_u8(info->attrs[L2TP_ATTR_SEND_SEQ]);
-+		l2tp_session_set_header_len(session, session->tunnel->version);
-+	}
- 
- 	if (info->attrs[L2TP_ATTR_LNS_MODE])
- 		session->lns_mode = nla_get_u8(info->attrs[L2TP_ATTR_LNS_MODE]);
-diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
-index be5fadf..6bfeaa7 100644
---- a/net/l2tp/l2tp_ppp.c
-+++ b/net/l2tp/l2tp_ppp.c
-@@ -1312,6 +1312,7 @@ static int pppol2tp_session_setsockopt(struct sock *sk,
- 			po->chan.hdrlen = val ? PPPOL2TP_L2TP_HDR_SIZE_SEQ :
- 				PPPOL2TP_L2TP_HDR_SIZE_NOSEQ;
- 		}
-+		l2tp_session_set_header_len(session, session->tunnel->version);
- 		l2tp_info(session, PPPOL2TP_MSG_CONTROL,
- 			  "%s: set send_seq=%d\n",
- 			  session->name, session->send_seq);
--- 
-1.9.0
+Ok, that's not present on such old kernels, there it is actually
+enabled by default.
+
+>=20
+> > Can you isolate host B and disable any multicast router daemon on it? T=
+hen
+> > check again, if you still see these queries.
+>=20
+> Besides those cases where I sent it by myself, I haven't seen host B send
+> that query for couple days now.
+>=20
+> > What kernel version is running on host B?
+>=20
+> 2.6.32-279.42.1.el6.x86_64
+> It's a RHEL6.3.z kernel.
+>=20
+> > Where does Linux use :: for queries?
+>=20
+> I'm not sure if it's Linux (I'm trying to locate that system by MAC), but=
+ I see
+> packets like these on my network every ~125 seconds:
+>=20
+> No.     Time        Source                Destination           Protocol =
+Length Info
+>   22675 1334.751135 ::                    ff02::1               ICMPv6   =
+86     Multicast Listener Query
+
+It's probably the bridge on this ancient kernel, you might want to
+backport the following patch:
+
+"bridge: Use IPv6 link-local address for multicast listener queries"
+(fe29ec41aaa51902aebd63658dfb04fe6fea8be5)
+
+And it's follow-up fixes:
+
+"bridge: Fix possibly wrong MLD queries' ethernet source address"
+(a7bff75b087e7a355838a32efe61707cfa73c194)
+"bridge: check return value of ipv6_dev_get_saddr()"
+(d1d81d4c3dd886d5fa25a2c4fa1e39cb89613712)
+
+If these patches on host B xor the sanity check I just submitted applied
+on your host A / VM host fix your issue, then they might be worth
+considering for the stable queue.
+
+Cheers, Linus
+
+--zu8lIfFVzXMVnfzp
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJTFke0AAoJELxyPiAAt6UvBHQQAKB12mQXGqpyVYNcfIEcXgAg
+dCjZ+LlQt/lOG2Asei+Z+DSwecY0b0c+qlOezDeJ7klWUNFe3TjP2YzsvlgPq7TU
+X1X7/+ztHdrh4sOaxuI5RNR/3Fq4Pb9vX88rRbTH7+nZh1+ZaSZw6rM3SKthQ6rQ
+zFSRNQz5XUuqE4Ntfq7sqHXRnPJZrVSAycxrrNfdbLRexxiUVD3oevLNxs7UYwxB
+48Du9JOFoVHpWpCM7qrw/nSQb8y067ciaVd4azpKyrUHiizUj8ARhILbWbFBfpW6
+fYRrSum3c61ZV6nOkR9rWUieEbqysnIMkIWoPI/+tLxZRYMWnqz9Cxymj78MBJL2
+1LwQf0jUiRl9P67ja52scHX+4XML8PFMtrztHhPDB2PlUyn7su7VpS33ytIPzmbN
+pGHShVEa4xMML4tK06r9e3gPc9ECnrnVhiCnzoofT+mLDmhgQZFjAuhkTgSXC1s7
+cwVjZbjyDHAK6YgYO7I90Jgh303guMgHDEq2qV6v0o3C+Wk8F4LU49ZbfGdi8mT/
+xu9y4vGtwPsCgDSc0QJ2X5YOVVVphzsjH3JOcIdvhHC+EG6DzlbAcv7GihJqhgiU
+DSNcSn9Rt/2mW5fINFEztcSJQDgfg1PiW4Qj70t+8orwMGBxrUYPZNOfRWAI218g
+uKN1rSQogEQL82mUd2N8
+=zND/
+-----END PGP SIGNATURE-----
+
+--zu8lIfFVzXMVnfzp--
