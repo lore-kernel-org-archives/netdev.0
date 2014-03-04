@@ -1,174 +1,40 @@
-From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCHv3 net-next 03/31] cxgb4: Rectify emitting messages about SGE Ingress DMA channels being potentially stuck
-Date: Tue,  4 Mar 2014 18:11:29 +0530
-Message-ID: <1393936917-25847-4-git-send-email-hariprasad@chelsio.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCHv3 net-next 06/31] iw_cxgb4: cap CQ size at T4_MAX_IQ_SIZE.
+Date: Tue,  4 Mar 2014 18:11:32 +0530
+Message-ID: <1393936917-25847-7-git-send-email-hariprasad@chelsio.com>
 References: <1393936917-25847-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1393936917-25847-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, roland@purestorage.com, kumaras@chelsio.com,
+	dm@chelsio.com, swise@opengridcomputing.com, leedom@chelsio.com,
+	santosh@chelsio.com, hariprasad@chelsio.com, nirranjan@chelsio.com
+To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:15339 "EHLO
+	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932125AbaCDMnZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 07:43:25 -0500
+In-Reply-To: <1393936917-25847-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kumar Sanghvi <kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+From: Steve Wise <swise@opengridcomputing.com>
 
-Based on original work by Casey Leedom <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-
-Signed-off-by: Kumar Sanghvi <kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h |  9 ++-
- drivers/net/ethernet/chelsio/cxgb4/sge.c   | 91 ++++++++++++++++++++++++------
- 2 files changed, 80 insertions(+), 20 deletions(-)
+ drivers/infiniband/hw/cxgb4/cq.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 509c976..50abe1d 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -556,8 +556,13 @@ struct sge {
- 	u32 pktshift;               /* padding between CPL & packet data */
- 	u32 fl_align;               /* response queue message alignment */
- 	u32 fl_starve_thres;        /* Free List starvation threshold */
--	unsigned int starve_thres;
--	u8 idma_state[2];
-+
-+	/* State variables for detecting an SGE Ingress DMA hang */
-+	unsigned int idma_1s_thresh;/* SGE same State Counter 1s threshold */
-+	unsigned int idma_stalled[2];/* SGE synthesized stalled timers in HZ */
-+	unsigned int idma_state[2]; /* SGE IDMA Hang detect state */
-+	unsigned int idma_qid[2];   /* SGE IDMA Hung Ingress Queue ID */
-+
- 	unsigned int egr_start;
- 	unsigned int ingr_start;
- 	void *egr_map[MAX_EGRQ];    /* qid->queue egress queue map */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 3a2ecd8..809ab60 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -93,6 +93,16 @@
-  */
- #define TX_QCHECK_PERIOD (HZ / 2)
+diff --git a/drivers/infiniband/hw/cxgb4/cq.c b/drivers/infiniband/hw/cxgb4/cq.c
+index 88de3aa..c0673ac 100644
+--- a/drivers/infiniband/hw/cxgb4/cq.c
++++ b/drivers/infiniband/hw/cxgb4/cq.c
+@@ -881,7 +881,7 @@ struct ib_cq *c4iw_create_cq(struct ib_device *ibdev, int entries,
+ 	/*
+ 	 * Make actual HW queue 2x to avoid cdix_inc overflows.
+ 	 */
+-	hwentries = entries * 2;
++	hwentries = min(entries * 2, T4_MAX_IQ_SIZE);
  
-+/* SGE Hung Ingress DMA Threshold Warning time (in Hz) and Warning Repeat Rate
-+ * (in RX_QCHECK_PERIOD multiples).  If we find one of the SGE Ingress DMA
-+ * State Machines in the same state for this amount of time (in HZ) then we'll
-+ * issue a warning about a potential hang.  We'll repeat the warning as the
-+ * SGE Ingress DMA Channel appears to be hung every N RX_QCHECK_PERIODs till
-+ * the situation clears.  If the situation clears, we'll note that as well.
-+ */
-+#define SGE_IDMA_WARN_THRESH (1 * HZ)
-+#define SGE_IDMA_WARN_REPEAT (20 * RX_QCHECK_PERIOD)
-+
- /*
-  * Max number of Tx descriptors to be reclaimed by the Tx timer.
-  */
-@@ -2008,7 +2018,7 @@ irq_handler_t t4_intr_handler(struct adapter *adap)
- static void sge_rx_timer_cb(unsigned long data)
- {
- 	unsigned long m;
--	unsigned int i, cnt[2];
-+	unsigned int i, idma_same_state_cnt[2];
- 	struct adapter *adap = (struct adapter *)data;
- 	struct sge *s = &adap->sge;
- 
-@@ -2031,21 +2041,65 @@ static void sge_rx_timer_cb(unsigned long data)
- 		}
- 
- 	t4_write_reg(adap, SGE_DEBUG_INDEX, 13);
--	cnt[0] = t4_read_reg(adap, SGE_DEBUG_DATA_HIGH);
--	cnt[1] = t4_read_reg(adap, SGE_DEBUG_DATA_LOW);
--
--	for (i = 0; i < 2; i++)
--		if (cnt[i] >= s->starve_thres) {
--			if (s->idma_state[i] || cnt[i] == 0xffffffff)
--				continue;
--			s->idma_state[i] = 1;
--			t4_write_reg(adap, SGE_DEBUG_INDEX, 11);
--			m = t4_read_reg(adap, SGE_DEBUG_DATA_LOW) >> (i * 16);
--			dev_warn(adap->pdev_dev,
--				 "SGE idma%u starvation detected for "
--				 "queue %lu\n", i, m & 0xffff);
--		} else if (s->idma_state[i])
--			s->idma_state[i] = 0;
-+	idma_same_state_cnt[0] = t4_read_reg(adap, SGE_DEBUG_DATA_HIGH);
-+	idma_same_state_cnt[1] = t4_read_reg(adap, SGE_DEBUG_DATA_LOW);
-+
-+	for (i = 0; i < 2; i++) {
-+		u32 debug0, debug11;
-+
-+		/* If the Ingress DMA Same State Counter ("timer") is less
-+		 * than 1s, then we can reset our synthesized Stall Timer and
-+		 * continue.  If we have previously emitted warnings about a
-+		 * potential stalled Ingress Queue, issue a note indicating
-+		 * that the Ingress Queue has resumed forward progress.
-+		 */
-+		if (idma_same_state_cnt[i] < s->idma_1s_thresh) {
-+			if (s->idma_stalled[i] >= SGE_IDMA_WARN_THRESH)
-+				CH_WARN(adap, "SGE idma%d, queue%u,resumed after %d sec",
-+					i, s->idma_qid[i],
-+					s->idma_stalled[i]/HZ);
-+			s->idma_stalled[i] = 0;
-+			continue;
-+		}
-+
-+		/* Synthesize an SGE Ingress DMA Same State Timer in the Hz
-+		 * domain.  The first time we get here it'll be because we
-+		 * passed the 1s Threshold; each additional time it'll be
-+		 * because the RX Timer Callback is being fired on its regular
-+		 * schedule.
-+		 *
-+		 * If the stall is below our Potential Hung Ingress Queue
-+		 * Warning Threshold, continue.
-+		 */
-+		if (s->idma_stalled[i] == 0)
-+			s->idma_stalled[i] = HZ;
-+		else
-+			s->idma_stalled[i] += RX_QCHECK_PERIOD;
-+
-+		if (s->idma_stalled[i] < SGE_IDMA_WARN_THRESH)
-+			continue;
-+
-+		/* We'll issue a warning every SGE_IDMA_WARN_REPEAT Hz */
-+		if (((s->idma_stalled[i] - HZ) % SGE_IDMA_WARN_REPEAT) != 0)
-+			continue;
-+
-+		/* Read and save the SGE IDMA State and Queue ID information.
-+		 * We do this every time in case it changes across time ...
-+		 */
-+		t4_write_reg(adap, SGE_DEBUG_INDEX, 0);
-+		debug0 = t4_read_reg(adap, SGE_DEBUG_DATA_LOW);
-+		s->idma_state[i] = (debug0 >> (i * 9)) & 0x3f;
-+
-+		t4_write_reg(adap, SGE_DEBUG_INDEX, 11);
-+		debug11 = t4_read_reg(adap, SGE_DEBUG_DATA_LOW);
-+		s->idma_qid[i] = (debug11 >> (i * 16)) & 0xffff;
-+
-+		CH_WARN(adap, "SGE idma%u, queue%u, maybe stuck state%u %dsecs"
-+			" (debug0=%#x, debug11=%#x)\n",
-+			i, s->idma_qid[i], s->idma_state[i],
-+			s->idma_stalled[i]/HZ, debug0, debug11);
-+		t4_sge_decode_idma_state(adap, s->idma_state[i]);
-+	}
- 
- 	mod_timer(&s->rx_timer, jiffies + RX_QCHECK_PERIOD);
- }
-@@ -2756,8 +2810,9 @@ int t4_sge_init(struct adapter *adap)
- 
- 	setup_timer(&s->rx_timer, sge_rx_timer_cb, (unsigned long)adap);
- 	setup_timer(&s->tx_timer, sge_tx_timer_cb, (unsigned long)adap);
--	s->starve_thres = core_ticks_per_usec(adap) * 1000000;  /* 1 s */
--	s->idma_state[0] = s->idma_state[1] = 0;
-+	s->idma_1s_thresh = core_ticks_per_usec(adap) * 1000000;  /* 1 s */
-+	s->idma_stalled[0] = 0;
-+	s->idma_stalled[1] = 0;
- 	spin_lock_init(&s->intrq_lock);
- 
- 	return 0;
+ 	/*
+ 	 * Make HW queue at least 64 entries so GTS updates aren't too
 -- 
 1.8.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
