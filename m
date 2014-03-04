@@ -1,48 +1,80 @@
-From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
-Subject: RE: [PATCH v3 net-next 1/2] ethtool: Support for configurable RSS
- hash key
-Date: Tue, 4 Mar 2014 10:53:57 +0000
-Message-ID: <BF3270C86E8B1349A26C34E4EC1C44CB2C88806E@CMEXMB1.ad.emulex.com>
-References: <1393589141-10597-1-git-send-email-VenkatKumar.Duvvuru@Emulex.com>
-	<0e1d7b54-dcbd-446d-b1c9-644086da138f@CMEXHTCAS2.ad.emulex.com>
- <20140303.151946.537238190479739067.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv3 0/4] Add DT support for fixed PHYs
+Date: Tue,  4 Mar 2014 11:58:20 +0100
+Message-ID: <1393930704-24374-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Cc: Florian Fainelli <florian@openwrt.org>,
+	Lior Amsalem <alior@marvell.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Mark Rutland <mark.rutland@arm.com>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Christian Gmeiner <christian.gmeiner@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:51792 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932086AbaCDKx6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 05:53:58 -0500
-In-Reply-To: <20140303.151946.537238190479739067.davem@davemloft.net>
-Content-Language: en-US
+Received: from top.free-electrons.com ([176.31.233.9]:40091 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756631AbaCDK61 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 05:58:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> >   *	Returns a negative error code or zero.
-> >   * @set_rxfh_indir: Set the contents of the RX flow hash indirection table.
-> >   *	Will not be called if @get_rxfh_indir_size returns zero.
-> > + * @set_rxfh: Set the contents of the RX flow hash indirection table and
-> > + *	hash key.
-> > + *	Will not be called if @get_rxfh_indir_size and @get_rxfh_key_size
-> > + *	returns zero.
->  ...
-> > +	if (!(dev->ethtool_ops->get_rxfh_indir_size ||
-> > +	      dev->ethtool_ops->get_rxfh_key_size ||
-> > +	      dev->ethtool_ops->get_rxfh))
-> > +		return -EOPNOTSUPP;
-> 
-> This may be just my taste but I prefer it if all the operations have to be non-
-> NULL to support the new feature.  The code is so much easier to validate that
-> way.
+Hello,
 
-The intention was to have zero changes to the existing drivers those support indirection table configuration.
-> 
-> Even if you have to make generic "ethtool_get_rxfh_indir_size_zero"
-> etc. routines that implementations hook up if they don't support the particular
-> aspect, I prefer that to "NULL means this".
-> 
-> Could you make this change and resubmit?
-I can make the proposed changes. Shall I submit all the NIC drivers patches as part of this patchset?
+Here is a third version of the patch set that adds a Device Tree
+binding and the related code to support fixed PHYs.
+
+Since the second version, the changes have been:
+
+ * Rebased on top of v3.14-rc1, and re-tested on hardware.
+
+ * Removed the RFC tag, since there seems to be some real interest in
+   this feature, and the code has gone through several iterations
+   already.
+
+ * The error handling in fixed_phy_register() has been fixed.
+
+Since the first version, the changes have been:
+
+ * Instead of using a 'fixed-link' property inside the Ethernet device
+   DT node, with a fairly cryptic succession of integer values, we now
+   use a PHY subnode under the Ethernet device DT node, with explicit
+   properties to configure the duplex, speed, pause and other PHY
+   properties.
+
+ * The PHY address is automatically allocated by the kernel and no
+   longer visible in the Device Tree binding.
+
+ * The PHY device is created directly when the network driver calls
+   of_phy_connect_fixed_link(), and associated to the PHY DT node,
+   which allows the existing of_phy_connect() function to work,
+   without the need to use the deprecated of_phy_connect_fixed_link().
+
+Posts of previous versions:
+
+  RFCv1: http://www.spinics.net/lists/netdev/msg243253.html
+  RFCv2: http://lists.infradead.org/pipermail/linux-arm-kernel/2013-September/196919.html
+
+Thanks,
+
+Thomas
+
+Thomas Petazzoni (4):
+  net: phy: decouple PHY id and PHY address in fixed PHY driver
+  net: phy: extend fixed driver with fixed_phy_register()
+  of: provide a binding for fixed link PHYs
+  net: mvneta: add support for fixed links
+
+ .../devicetree/bindings/net/fixed-link.txt         | 34 +++++++++
+ .../bindings/net/marvell-armada-370-neta.txt       |  4 +-
+ drivers/net/ethernet/marvell/mvneta.c              | 10 +--
+ drivers/net/phy/fixed.c                            | 81 +++++++++++++++++++---
+ drivers/of/of_mdio.c                               | 24 +++++++
+ include/linux/of_mdio.h                            | 15 ++++
+ include/linux/phy_fixed.h                          | 11 +++
+ 7 files changed, 163 insertions(+), 16 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/fixed-link.txt
+
+-- 
+1.8.3.2
