@@ -1,64 +1,95 @@
-From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>
-Subject: [PATCH] bridge: multicast: add sanity check for query
-	source addresses
-Date: Tue,  4 Mar 2014 03:57:35 +0100
-Message-ID: <1393901855-18231-1-git-send-email-linus.luessing@web.de>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next] hyperv: Move state setting for link query
+Date: Tue, 04 Mar 2014 11:09:49 +0800
+Message-ID: <531543FD.7090907@redhat.com>
+References: <1393890875-1420-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Florian Westphal <fwestpha@redhat.com>, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>,
-	Jan Stancek <jstancek@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: driverdev-devel@linuxdriverproject.org, olaf@aepfle.de,
+ linux-kernel@vger.kernel.org
+To: Haiyang Zhang <haiyangz@microsoft.com>, davem@davemloft.net,
+ netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1393890875-1420-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-MLD queries are supposed to have an IPv6 link-local source address
-according to RFC2710, section 4 and RFC3810, section 5.1.14. This patch
-adds a sanity check to ignore such broken MLD queries.
+On 03/04/2014 07:54 AM, Haiyang Zhang wrote:
+> It moves the state setting for query into rndis_filter_receive_response().
+> All callbacks including query-complete and status-callback are synchronized
+> by channel->inbound_lock. This prevents pentential race between them.
 
-Without this check, such malformed MLD queries can result in a
-denial of service: The queries are ignored by any MLD listener
-therefore they will not respond with an MLD report. However,
-without this patch these malformed MLD queries would enable the
-snooping part in the bridge code, potentially shutting down the
-according ports towards these hosts for multicast traffic as the
-bridge did not learn about these listeners.
+This still looks racy to me. The problem is workqueue is not
+synchronized with those here.
 
-Reported-by: Jan Stancek <jstancek@redhat.com>
-Signed-off-by: Linus L=C3=BCssing <linus.luessing@web.de>
----
- net/bridge/br_multicast.c |    6 ++++++
- 1 file changed, 6 insertions(+)
+Consider the following case in netvsc_link_change():
 
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index ef66365..fb0e36f 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -1235,6 +1235,12 @@ static int br_ip6_multicast_query(struct net_bridg=
-e *br,
- 	    (port && port->state =3D=3D BR_STATE_DISABLED))
- 		goto out;
-=20
-+	/* RFC2710+RFC3810 (MLDv1+MLDv2) require link-local source addresses */
-+	if (!(ipv6_addr_type(&ip6h->saddr) & IPV6_ADDR_LINKLOCAL)) {
-+		err =3D -EINVAL;
-+		goto out;
-+	}
-+
- 	if (skb->len =3D=3D sizeof(*mld)) {
- 		if (!pskb_may_pull(skb, sizeof(*mld))) {
- 			err =3D -EINVAL;
---=20
-1.7.10.4
+    if (rdev->link_state) {
+    ... receive interrupt ...
+    rndis_filter_receice_response() which changes rdev->link_state
+    ...
+        netif_carrier_off()
+    }
+
+And also it need to schedule a work otherwise the link status is out of
+sync.
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> ---
+>  drivers/net/hyperv/rndis_filter.c |   21 ++++++++++++++++++++-
+>  1 files changed, 20 insertions(+), 1 deletions(-)
+>
+> diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+> index f0cc8ef..6a9f602 100644
+> --- a/drivers/net/hyperv/rndis_filter.c
+> +++ b/drivers/net/hyperv/rndis_filter.c
+> @@ -240,6 +240,22 @@ static int rndis_filter_send_request(struct rndis_device *dev,
+>  	return ret;
+>  }
+>  
+> +static void rndis_set_link_state(struct rndis_device *rdev,
+> +				 struct rndis_request *request)
+> +{
+> +	u32 link_status;
+> +	struct rndis_query_complete *query_complete;
+> +
+> +	query_complete = &request->response_msg.msg.query_complete;
+> +
+> +	if (query_complete->status == RNDIS_STATUS_SUCCESS &&
+> +	    query_complete->info_buflen == sizeof(u32)) {
+> +		memcpy(&link_status, (void *)((unsigned long)query_complete +
+> +		       query_complete->info_buf_offset), sizeof(u32));
+> +		rdev->link_state = link_status != 0;
+> +	}
+> +}
+> +
+>  static void rndis_filter_receive_response(struct rndis_device *dev,
+>  				       struct rndis_message *resp)
+>  {
+> @@ -269,6 +285,10 @@ static void rndis_filter_receive_response(struct rndis_device *dev,
+>  		    sizeof(struct rndis_message) + RNDIS_EXT_LEN) {
+>  			memcpy(&request->response_msg, resp,
+>  			       resp->msg_len);
+> +			if (request->request_msg.ndis_msg_type ==
+> +			    RNDIS_MSG_QUERY && request->request_msg.msg.
+> +			    query_req.oid == RNDIS_OID_GEN_MEDIA_CONNECT_STATUS)
+> +				rndis_set_link_state(dev, request);
+>  		} else {
+>  			netdev_err(ndev,
+>  				"rndis response buffer overflow "
+> @@ -617,7 +637,6 @@ static int rndis_filter_query_device_link_status(struct rndis_device *dev)
+>  	ret = rndis_filter_query_device(dev,
+>  				      RNDIS_OID_GEN_MEDIA_CONNECT_STATUS,
+>  				      &link_status, &size);
+> -	dev->link_state = (link_status != 0) ? true : false;
+>  
+>  	return ret;
+>  }
