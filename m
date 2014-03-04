@@ -1,49 +1,52 @@
-From: Dave Jones <davej@redhat.com>
-Subject: out of bounds writes in net/hsr/
-Date: Mon, 3 Mar 2014 22:27:57 -0500
-Message-ID: <20140304032757.GA19048@redhat.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] netpoll: Don't call driver methods from interrupt context.
+Date: Mon, 3 Mar 2014 20:23:03 -0800
+Message-ID: <CAM_iQpUo7LDcXqKxpZwKjx_KX6R2hVcyHx3GJnYxEg+9Nez0Rg@mail.gmail.com>
+References: <874n3fow2i.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: arvid.brodin@xdin.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Matt Mackall <mpm@selenic.com>,
+	Satyam Sharma <satyam.sharma@gmail.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61480 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756022AbaCDD2O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Mar 2014 22:28:14 -0500
-Content-Disposition: inline
+Received: from mail-oa0-f42.google.com ([209.85.219.42]:51439 "EHLO
+	mail-oa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755944AbaCDEXG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2014 23:23:06 -0500
+Received: by mail-oa0-f42.google.com with SMTP id i4so4260319oah.15
+        for <netdev@vger.kernel.org>; Mon, 03 Mar 2014 20:23:04 -0800 (PST)
+In-Reply-To: <874n3fow2i.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I found this in coverity, and I think it's a real bug..
+On Mon, Mar 3, 2014 at 12:40 PM, Eric W. Biederman
+<ebiederm@xmission.com> wrote:
+>  net/core/netpoll.c |    6 +++---
+>  1 files changed, 3 insertions(+), 3 deletions(-)
+>
+> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+> index a664f7829a6d..a1877621bf31 100644
+> --- a/net/core/netpoll.c
+> +++ b/net/core/netpoll.c
+> @@ -330,7 +330,7 @@ repeat:
+>                 skb = skb_dequeue(&skb_pool);
+>
+>         if (!skb) {
+> -               if (++count < 10) {
+> +               if (++count < 10 && !in_irq()) {
+>                         netpoll_poll_dev(np->dev);
 
-hsr_register_frame_in does a check that dev_idx is between 0 and 2,
-therefore, a dev_idx of 2 is possible when it gets to the array writes
-at the end of the function.  The arrays are defined such..
+This looks like a workaround.
 
- 26 struct node_entry {
-...
- 33         unsigned long   time_in[HSR_MAX_SLAVE];
- 34         bool            time_in_stale[HSR_MAX_SLAVE];
+Here ou are trying to avoid calling netpoll_poll_dev()
+in IRQ context, but it has a side effect for netpoll_send_udp()
+which could possibly return early after find_skb().
 
-and HSR_MAX_SLAVE is...
+Also, netpoll_poll_dev() does more than just calling driver
+poll method, I am not sure if it is safe to skip it either.
 
-139 enum hsr_dev_idx {
-140         HSR_DEV_NONE = -1,
-141         HSR_DEV_SLAVE_A = 0,
-142         HSR_DEV_SLAVE_B,
-143         HSR_DEV_MASTER,
-144 };
-145 #define HSR_MAX_SLAVE   (HSR_DEV_SLAVE_B + 1)
+netpoll code needs to rewrite.
 
-So we have arrays of 2 bytes, and we can try to write to the 3rd byte.
-
-The problem seems to be that the checking in hsr_register_frame is on
-HSR_MAX_DEV which is defined as..
-
-#define HSR_MAX_DEV     (HSR_DEV_MASTER + 1)
-
-The + 1 seems odd, and looking at the other uses of HSR_MAX_DEV, I can't
-figure out why it's there.
-
-	Dave
+Thanks.
