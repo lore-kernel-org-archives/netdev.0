@@ -1,97 +1,79 @@
-From: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-Subject: [PATCH net-next v4 4/4] ieee802154: remove seq
-	member of mac_cb
-Date: Tue,  4 Mar 2014 15:34:48 +0100
-Message-ID: <1393943688-24221-5-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
-References: <1393943688-24221-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: [PATCH net-next 08/12] r8152: support TSO
+Date: Tue, 4 Mar 2014 14:35:54 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6D0284@AcuExch.aculab.com>
+References: <1393934464-23675-1-git-send-email-hayeswang@realtek.com>
+ <1393934464-23675-9-git-send-email-hayeswang@realtek.com>
+ <063D6719AE5E284EB5DD2968C1650D6D0F6CFFE0@AcuExch.aculab.com>
+ <CF9EF717568D49DB858D5363B1099FC0@realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1393943688-24221-1-git-send-email-phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org" <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: 'hayeswang' <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CF9EF717568D49DB858D5363B1099FC0-Rasf1IRRPZGoECsaD+WFmw@public.gmane.org>
+Content-Language: en-US
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The seq member is only used to initialize the sequence number field of
-the 802.15.4 header. This field has relevance only for low-level
-functionality like frame acknowledgement and is of no importance to
-upper layers. Upper layers should not be allowed to set this field at
-all.
+From: hayeswang 
+>  David Laight [mailto:David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org]
+> > Sent: Tuesday, March 04, 2014 8:12 PM
+> > To: 'Hayes Wang'; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> > Cc: nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org; linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
+> > linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> > Subject: RE: [PATCH net-next 08/12] r8152: support TSO
+> >
+> > From: Hayes Wang
+> > > Support scatter gather and TSO.
+> > >
+> > > Adjust the tx checksum function and set the max gso size to fix the
+> > > size of the tx aggregation buffer.
+> >
+> > There is little point supporting TSO unless the usb host controller
+> > supports arbitrary aligned scatter-gather.
+> > All you do is require that a large skb be allocated (that may well
+> > fail), and add it another data copy.
+> 
+> I think I have done it. For also working for EHCI usb host controller,
+> I allocate 16 KB continuous buffer and copy the fragmented packets to
+> it and bulk out the buffer.
 
-Signed-off-by: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-Tested-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- include/net/ieee802154_netdev.h |    1 -
- net/ieee802154/6lowpan_rtnl.c   |    1 -
- net/ieee802154/dgram.c          |    1 -
- net/mac802154/wpan.c            |    2 +-
- 4 files changed, 1 insertion(+), 4 deletions(-)
+Does that mean you are splitting the 64k 'ethernet packet' from TCP
+is software? I've looked at the ax88179 where the hardware can do it.
 
-diff --git a/include/net/ieee802154_netdev.h b/include/net/ieee802154_netdev.h
-index d23a300..cee7f22 100644
---- a/include/net/ieee802154_netdev.h
-+++ b/include/net/ieee802154_netdev.h
-@@ -85,7 +85,6 @@ struct ieee802154_frag_info {
- struct ieee802154_mac_cb {
- 	u8 lqi;
- 	u8 flags;
--	u8 seq;
- 	struct ieee802154_frag_info frag_info;
- };
- 
-diff --git a/net/ieee802154/6lowpan_rtnl.c b/net/ieee802154/6lowpan_rtnl.c
-index b413e4e..7ebc300 100644
---- a/net/ieee802154/6lowpan_rtnl.c
-+++ b/net/ieee802154/6lowpan_rtnl.c
-@@ -117,7 +117,6 @@ static int lowpan_header_create(struct sk_buff *skb,
- 	 * this isn't implemented in mainline yet, so currently we assign 0xff
- 	 */
- 	mac_cb(skb)->flags = IEEE802154_FC_TYPE_DATA;
--	mac_cb(skb)->seq = ieee802154_mlme_ops(dev)->get_dsn(dev);
- 
- 	/* prepare wpan address data */
- 	sa.addr_type = IEEE802154_ADDR_LONG;
-diff --git a/net/ieee802154/dgram.c b/net/ieee802154/dgram.c
-index 5fcb817..6480510 100644
---- a/net/ieee802154/dgram.c
-+++ b/net/ieee802154/dgram.c
-@@ -253,7 +253,6 @@ static int dgram_sendmsg(struct kiocb *iocb, struct sock *sk,
- 	if (ro->want_ack)
- 		mac_cb(skb)->flags |= MAC_CB_FLAG_ACKREQ;
- 
--	mac_cb(skb)->seq = ieee802154_mlme_ops(dev)->get_dsn(dev);
- 	err = dev_hard_header(skb, dev, ETH_P_IEEE802154, &ro->dst_addr,
- 			ro->bound ? &ro->src_addr : NULL, size);
- 	if (err < 0)
-diff --git a/net/mac802154/wpan.c b/net/mac802154/wpan.c
-index 9077c6f..5845503 100644
---- a/net/mac802154/wpan.c
-+++ b/net/mac802154/wpan.c
-@@ -111,7 +111,7 @@ static int mac802154_header_create(struct sk_buff *skb,
- 		return -EINVAL;
- 
- 	hdr.fc = mac_cb_type(skb);
--	hdr.seq = mac_cb(skb)->seq;
-+	hdr.seq = ieee802154_mlme_ops(dev)->get_dsn(dev);
- 	if (mac_cb_is_ackreq(skb))
- 		hdr.fc |= IEEE802154_FC_ACK_REQ;
- 	if (mac_cb_is_secen(skb))
--- 
-1.7.9.5
+Is there really a gain doing segmentation here if you have to do the
+extra data copy?
+
+It might be worth packing multiple short packets into a single USB bulk
+data packet, but that might require a CBU (crystal ball unit).
+
+I did measure a maximum transmit ethernet frame rate of (IIRC) 250000
+frames/sec for the ax88179 - probably limited by the USB3 frame rate.
+Exceeding that would probably require putting multiple tx packets into
+a single URB. OTOH that limit probably doesn't matter
+
+What might be more useful is to set the rx side up to receive into
+page-aligned 2k (or 4k) buffers and then separate out the ethernet
+frames into the required skb - probably as page list fragments
+(I'm not entirely sure how such skb can be created).
+
+I don't know what the r8152 does, but the usbnet code encourages it to
+allocate long skb, pass them to the usb stack to fill, and then clone
+them if they contain multiple frames.
+
+This isn't really good use of memory or cpu cycles.
+The ax88179 driver also lies badly about the skb's truesize.
+
+	David
 
 
-------------------------------------------------------------------------------
-Subversion Kills Productivity. Get off Subversion & Make the Move to Perforce.
-With Perforce, you get hassle-free workflows. Merge that actually works. 
-Faster operations. Version large binaries.  Built-in WAN optimization and the
-freedom to use Git, Perforce or both. Make the move to Perforce.
-http://pubads.g.doubleclick.net/gampad/clk?id=122218951&iu=/4140/ostg.clktrk
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
