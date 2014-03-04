@@ -1,77 +1,134 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: TCP being hoodwinked into spurious retransmissions by lack of
- timestamps?
-Date: Tue, 04 Mar 2014 15:14:10 -0800
-Message-ID: <53165E42.8070904@hp.com>
-References: <53151E55.9000503@hp.com> <CABrhC0=hHpZSdE5-dLqysuFn_d_VK7r1jKb0kGZF9hn1+UHjDw@mail.gmail.com> <53162093.1040208@hp.com> <CABrhC0k5-x=qJgH4izXtRR=9+cLJh_emAy9Yt=+xrY6K5982Fg@mail.gmail.com> <53162A6E.2010907@hp.com> <CADVnQyn7qqAZn5ZF8wQP_Hn-9s84uc4DUC6r8_ne7bY5Kexycg@mail.gmail.com> <CAK6E8=eBUUx4v11VTVQMKHWZdbCsut4zzr-LXJWd=fJTYsb39A@mail.gmail.com>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: [PATCH] net-gre-gro: Fix a bug that breaks the forwarding path
+Date: Tue, 4 Mar 2014 15:11:34 -0800
+Message-ID: <CAPshTChzL5f5SD2ofH4frhX8QJBgbkw9+qStCMdg2u=WQ8Trqg@mail.gmail.com>
+References: <1393536377-32243-1-git-send-email-hkchu@google.com>
+	<CAJZOPZKy7w-q5+pp=FgCs8LdQL6e16zAiJr89VMkh+h7obAArg@mail.gmail.com>
+	<CAPshTCgLo8ycMTtoa+D14+7pPxJaiC-jUzyR3PJcrMKFw9V0zA@mail.gmail.com>
+	<20140228.165614.1112789771887381245.davem@davemloft.net>
+	<5315FBAA.3030809@mellanox.com>
+	<CAPshTCgT4sYp7KtPazrJNMBvK0HcSWeDT_EdvSdjv4C0qrueqw@mail.gmail.com>
+	<alpine.LFD.2.03.1403041439230.7122@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Heffner <johnwheffner@gmail.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	David Miller <davem@davemloft.net>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>
+To: Joseph Gasparakis <joseph.gasparakis@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3426.houston.hp.com ([15.201.208.54]:50002 "EHLO
-	g4t3426.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755209AbaCDXOM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 18:14:12 -0500
-In-Reply-To: <CAK6E8=eBUUx4v11VTVQMKHWZdbCsut4zzr-LXJWd=fJTYsb39A@mail.gmail.com>
+Received: from mail-yh0-f41.google.com ([209.85.213.41]:37768 "EHLO
+	mail-yh0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753552AbaCDXSO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 18:18:14 -0500
+Received: by mail-yh0-f41.google.com with SMTP id f73so264136yha.0
+        for <netdev@vger.kernel.org>; Tue, 04 Mar 2014 15:18:14 -0800 (PST)
+In-Reply-To: <alpine.LFD.2.03.1403041439230.7122@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/04/2014 02:23 PM, Yuchung Cheng wrote:
-> On Tue, Mar 4, 2014 at 12:35 PM, Neal Cardwell <ncardwell@google.com> wrote:
->> What's the receiver OS in this trace? It's reneging on SACKs. :-) Take
->> a look at this ACK:
->>
->> 18:20:46.800063 IP 75.236.145.7.443 > 91.216.86.7.56064: .
->> 4262:4262(0) ack 3171368 win 32716 <nop,nop,sack 1 {3171368:3177208}>
->>
->> Note that it's ACKing 3171368 and SACKing the adjacent sequence range:
->> {3171368:3177208}. That's not cool.
->>
->> I think that's causing the Linux sender to enter the
->> tcp_check_sack_reneging() code path, which calls tcp_enter_loss().
->>
->> It seems that the Linux sender did not enable FRTO for that
->> tcp_enter_loss() invocation. Maybe there is some way we can revise the
->> logic to enable FRTO in cases like this, so we can detect that the
->> retransmission was not needed, and abort the stream of spurious
->> retransmissions...
-> Sure we can try:
->
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 6e48093..735ece6 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -1972,7 +1972,7 @@ void tcp_enter_loss(struct sock *sk, int how)
->           * the same SND.UNA (sec 3.2). Disable F-RTO on path MTU probing
->           */
->          tp->frto = sysctl_tcp_frto &&
-> -                  (new_recovery || icsk->icsk_retransmits) &&
-> +                  (new_recovery || icsk->icsk_retransmits || how) &&
->                     !inet_csk(sk)->icsk_mtup.probe_size;
->   }
+On Tue, Mar 4, 2014 at 2:53 PM, Joseph Gasparakis
+<joseph.gasparakis@intel.com> wrote:
 >
 >
-> However that only works if we got new data to send. For a better
-> solution, with the lack of TS option or DSACK support, we can
-> 1) use Neal's neat idea to send a different size packet on the first
-> retransmission after timeout, and use that to distinguish if the ACK
-> is for the original or retry.
-
-What would one do if the ACK arriving after the short retransmission was 
-farther to the right than the end of the original packet?  Won't that be 
-ambiguous?
-
-> 2) Do not blindly marked any packet unsacked lost in tcp_enter_loss;
-> My idea would be to do that only if the packet was sent min_rtt ago;
+> On Tue, 4 Mar 2014, Jerry Chu wrote:
 >
-> I can try to implement these ideas if people are interested.
+>> Hi Or,
+>>
+>> Thanks for writing this up.
+>>
+>> On Tue, Mar 4, 2014 at 8:13 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
+>> > On 28/02/2014 23:56, David Miller wrote:
+>> >>
+>> >> The topic of the skb->encapsulation semantics has come up several times in
+>> >> the past few weeks. We cannot move forward on any changes in this area until
+>> >> the semantics are well defined, and documented. Can someone work on a patch
+>> >> which documents skb->encapsulation properly, and then we can come back to
+>> >> fixing this bug? Thanks.
+>> >
+>> >
+>> > Lets try... the skb->encapsulation flag was introduced and used in 3.8 by
+>> > the
+>> > sequence of these three commits
+>> >
+>> > 0afb166 vxlan: Add capability of Rx checksum offload for inner packet
+>> > d6727fe vxlan: capture inner headers during encapsulation
+>> > 6a674e9 net: Add support for hardware-offloaded encapsulation
+>> >
+>> > When discussed earlier on the list in the context of the skb->ip_summed
+>> > field,
+>> > Tom Herbert came with the following interpretation for the semantics which
+>> > Joseph confirmed
+>> >
+>> > "when skb->encapsulation is set the ip_summed is valid for both the inner
+>> > and outer header
+>> > (e.g. CHECKSUM_COMPLETE is always assumed okay for both layers). If
+>> > skb->encapsulation is not set then ip_summed is only valid for outer header"
+>>
+>> For GRE encapped pkts is the following interpretation correct?
+>>
+>> 1) ip_summed == CHECKSUM_COMPLETE
+>>     => csum covers IP payload csum of the outer IP datagram
+>>
+>> 2) ip_summed == CHECKSUM_UNNECESSARY
+>> 2.1. skb->encapsulation is on => both GRE csum (if one is present) and TCP/UDP
+>> csum have been validated (assuming inner is a TCP or UDP pkt)
+>
+> i40e also supports SCTP csumming for the inner packet, too.
+>
+>>
+>> 2.2. skb->encapsulation is off => only GRE csum (if one is present) is
+>> validated.
+>>
+>
+> Apart for the SCTP request for inclusion, it looks reasonable to me.
+>
+>> >
+>> > As for the TX side of things, the change-log of commit 6a674e9 states
+>> >
+>> > "For Tx encapsulation offload, the driver will need to set the right bits in
+>> > netdev->hw_enc_features. The protocol driver will have to set the
+>> > skb->encapsulation bit and populate the inner headers, so the NIC driver
+>> > will use those inner headers to calculate the csum in hardware."
+>>
+>> So we only support/care about csum offload for the inner pkts, which
+>> makes sense.
+>
+> Well, we care about outer too. It is just that the inner headers are for
+> the inner csum, the outer headers are for the outer csum. The outer
+> headers will be always there anyway, so the patch introduced the inner
+> ones. But I guess this is what you meant, right?
 
-If these near-heroics are unnecessary if timestamps are present, I'm not 
-sure I'd push too hard.  Unless you think that timestamps not being 
-present is sufficiently common.
+Actually i was wondering that since there is only one set csum_start/csum_offset
+fields per skb, which would you support CHECKSUM_PARTIAL for both inner
+and outer? You can only support one, right? (I haven't checked the UDP encap
+code to see how this works though.)
 
-rick
+Jerry
+
+>
+>>
+>> >
+>> > So in higher level, it seems that the role of the skb->encapsulation field
+>> > is to mark the skb to carry encapsulated packet for the code path between
+>> > the time the packet is encapsulated by the protocol driver (e.g vxlan/ipip)
+>> > to the time driver xmit is called. Or from the time driver rx code runs till
+>> > the the time the packet is decapsulated.
+>> >
+>> > Further, my personal interpretation was that on the rx path, skb should
+>> > carry the encapsulation flag **only** if the HW was able to offload the
+>> > inner checksum.
+>>
+>> SGTM.
+>>
+>> Jerry
+>>
+>> >
+>> > Joseph, what's your thinking here?
+>> >
+>> > Or.
+>> >
+>> >
+>>
