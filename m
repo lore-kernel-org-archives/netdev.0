@@ -1,86 +1,60 @@
-From: Soren Brinkmann <soren.brinkmann@xilinx.com>
-Subject: [PATCH v3 2/2] net: macb: DMA-unmap full rx-buffer
-Date: Tue,  4 Mar 2014 08:46:40 -0800
-Message-ID: <1393951600-26039-2-git-send-email-soren.brinkmann@xilinx.com>
-References: <1393951600-26039-1-git-send-email-soren.brinkmann@xilinx.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Vinod Koul <vinod.koul@intel.com>,
-	Dan Williams <dan.j.williams@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Michal Simek <michal.simek@xilinx.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Soren Brinkmann <soren.brinkmann@xilinx.com>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1393951600-26039-1-git-send-email-soren.brinkmann@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCHv3 net-next 09/31] iw_cxgb4: Treat CPL_ERR_KEEPALV_NEG_ADVICE
+ as negative advice.
+Date: Tue, 04 Mar 2014 20:48:44 +0300
+Message-ID: <531611FC.4000202@cogentembedded.com>
+References: <1393936917-25847-1-git-send-email-hariprasad@chelsio.com> <1393936917-25847-10-git-send-email-hariprasad@chelsio.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, roland@purestorage.com, kumaras@chelsio.com,
+	dm@chelsio.com, swise@opengridcomputing.com, leedom@chelsio.com,
+	santosh@chelsio.com, nirranjan@chelsio.com
+To: Hariprasad Shenai <hariprasad@chelsio.com>, netdev@vger.kernel.org,
+	linux-rdma@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f54.google.com ([209.85.215.54]:49838 "EHLO
+	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755321AbaCDQso (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 11:48:44 -0500
+Received: by mail-la0-f54.google.com with SMTP id mc6so5853346lab.13
+        for <netdev@vger.kernel.org>; Tue, 04 Mar 2014 08:48:43 -0800 (PST)
+In-Reply-To: <1393936917-25847-10-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When allocating RX buffers a fixed size is used, while freeing is based
-on actually received bytes, resulting in the following kernel warning
-when CONFIG_DMA_API_DEBUG is enabled:
- WARNING: CPU: 0 PID: 0 at lib/dma-debug.c:1051 check_unmap+0x258/0x894()
- macb e000b000.ethernet: DMA-API: device driver frees DMA memory with different size [device address=0x000000002d170040] [map size=1536 bytes] [unmap size=60 bytes]
- Modules linked in:
- CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.14.0-rc3-xilinx-00220-g49f84081ce4f #65
- [<c001516c>] (unwind_backtrace) from [<c0011df8>] (show_stack+0x10/0x14)
- [<c0011df8>] (show_stack) from [<c03c775c>] (dump_stack+0x7c/0xc8)
- [<c03c775c>] (dump_stack) from [<c00245cc>] (warn_slowpath_common+0x60/0x84)
- [<c00245cc>] (warn_slowpath_common) from [<c0024670>] (warn_slowpath_fmt+0x2c/0x3c)
- [<c0024670>] (warn_slowpath_fmt) from [<c0227d44>] (check_unmap+0x258/0x894)
- [<c0227d44>] (check_unmap) from [<c0228588>] (debug_dma_unmap_page+0x64/0x70)
- [<c0228588>] (debug_dma_unmap_page) from [<c02ab78c>] (gem_rx+0x118/0x170)
- [<c02ab78c>] (gem_rx) from [<c02ac4d4>] (macb_poll+0x24/0x94)
- [<c02ac4d4>] (macb_poll) from [<c031222c>] (net_rx_action+0x6c/0x188)
- [<c031222c>] (net_rx_action) from [<c0028a28>] (__do_softirq+0x108/0x280)
- [<c0028a28>] (__do_softirq) from [<c0028e8c>] (irq_exit+0x84/0xf8)
- [<c0028e8c>] (irq_exit) from [<c000f360>] (handle_IRQ+0x68/0x8c)
- [<c000f360>] (handle_IRQ) from [<c0008528>] (gic_handle_irq+0x3c/0x60)
- [<c0008528>] (gic_handle_irq) from [<c0012904>] (__irq_svc+0x44/0x78)
- Exception stack(0xc056df20 to 0xc056df68)
- df20: 00000001 c0577430 00000000 c0577430 04ce8e0d 00000002 edfce238 00000000
- df40: 04e20f78 00000002 c05981f4 00000000 00000008 c056df68 c0064008 c02d7658
- df60: 20000013 ffffffff
- [<c0012904>] (__irq_svc) from [<c02d7658>] (cpuidle_enter_state+0x54/0xf8)
- [<c02d7658>] (cpuidle_enter_state) from [<c02d77dc>] (cpuidle_idle_call+0xe0/0x138)
- [<c02d77dc>] (cpuidle_idle_call) from [<c000f660>] (arch_cpu_idle+0x8/0x3c)
- [<c000f660>] (arch_cpu_idle) from [<c006bec4>] (cpu_startup_entry+0xbc/0x124)
- [<c006bec4>] (cpu_startup_entry) from [<c053daec>] (start_kernel+0x350/0x3b0)
- ---[ end trace d5fdc38641bd3a11 ]---
- Mapped at:
-  [<c0227184>] debug_dma_map_page+0x48/0x11c
-  [<c02ab32c>] gem_rx_refill+0x154/0x1f8
-  [<c02ac7b4>] macb_open+0x270/0x3e0
-  [<c03152e0>] __dev_open+0x7c/0xfc
-  [<c031554c>] __dev_change_flags+0x8c/0x140
+On 03/04/2014 03:41 PM, Hariprasad Shenai wrote:
 
-Fixing this by passing the same size which is passed during mapping the
-memory to the unmap function as well.
+> From: Steve Wise <swise@opengridcomputing.com>
 
-Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
----
-v3:
- - no changes
-v2:
- - no changes
+> Based on original work by Anand Priyadarshee <anandp@chelsio.com>.
 
-Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
----
- drivers/net/ethernet/cadence/macb.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+[...]
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 1f03e2041e86..d0c38e01e99f 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -730,7 +730,7 @@ static int gem_rx(struct macb *bp, int budget)
- 		skb_put(skb, len);
- 		addr = MACB_BF(RX_WADDR, MACB_BFEXT(RX_WADDR, addr));
- 		dma_unmap_single(&bp->pdev->dev, addr,
--				 len, DMA_FROM_DEVICE);
-+				 bp->rx_buffer_size, DMA_FROM_DEVICE);
- 
- 		skb->protocol = eth_type_trans(skb, bp->dev);
- 		skb_checksum_none_assert(skb);
--- 
-1.9.0.1.g4196000
+> diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
+> index 74a2250..c63dfe5 100644
+> --- a/drivers/infiniband/hw/cxgb4/cm.c
+> +++ b/drivers/infiniband/hw/cxgb4/cm.c
+> @@ -1648,6 +1648,15 @@ static inline int act_open_has_tid(int status)
+>   	       status != CPL_ERR_ARP_MISS;
+>   }
+>
+> +/* Returns whether a CPL status conveys negative advice.
+> + */
+
+    Hm, why not just make this one-line comment? Sorry that I haven't said 
+that before.
+
+> +static int is_neg_adv(unsigned int status)
+> +{
+> +	return status == CPL_ERR_RTX_NEG_ADVICE ||
+> +	       status == CPL_ERR_PERSIST_NEG_ADVICE ||
+> +	       status == CPL_ERR_KEEPALV_NEG_ADVICE;
+> +}
+> +
+>   #define ACT_OPEN_RETRY_COUNT 2
+>
+>   static int import_ep(struct c4iw_ep *ep, int iptype, __u8 *peer_ip,
+
+WBR, Sergei
