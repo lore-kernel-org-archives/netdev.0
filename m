@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 08/12] r8152: support TSO
-Date: Tue, 4 Mar 2014 20:01:00 +0800
-Message-ID: <1393934464-23675-9-git-send-email-hayeswang@realtek.com>
+Subject: [PATCH net-next 06/12] r8152: up the priority of the transmission
+Date: Tue, 4 Mar 2014 20:00:58 +0800
+Message-ID: <1393934464-23675-7-git-send-email-hayeswang@realtek.com>
 References: <1393934464-23675-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,241 +13,139 @@ In-Reply-To: <1393934464-23675-1-git-send-email-hayeswang@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Support scatter gather and TSO.
-
-Adjust the tx checksum function and set the max gso size to fix the
-size of the tx aggregation buffer.
+move the tx_bottom() from delayed_work to tasklet. It makes the rx
+and tx balanced. If the device is in runtime suspend when getting
+the tx packet, wakeup the device before trasmitting.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 133 +++++++++++++++++++++++++++++++++++++-----------
- 1 file changed, 103 insertions(+), 30 deletions(-)
+ drivers/net/usb/r8152.c | 45 +++++++++++++++++++++++++++------------------
+ 1 file changed, 27 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 5fdf0af..774a19a 100644
+index 00b3192..f1eaa18 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -23,7 +23,7 @@
- #include <linux/ipv6.h>
- 
- /* Version Information */
--#define DRIVER_VERSION "v1.05.0 (2014/02/18)"
-+#define DRIVER_VERSION "v1.06.0 (2014/03/03)"
- #define DRIVER_AUTHOR "Realtek linux nic maintainers <nic_swsd@realtek.com>"
- #define DRIVER_DESC "Realtek RTL8152/RTL8153 Based USB Ethernet Adapters"
- #define MODULENAME "r8152"
-@@ -490,13 +490,18 @@ struct tx_desc {
- 	__le32 opts1;
- #define TX_FS			(1 << 31) /* First segment of a packet */
- #define TX_LS			(1 << 30) /* Final segment of a packet */
--#define TX_LEN_MASK		0x3ffff
-+#define GTSENDV4		(1 << 28)
-+#define GTTCPHO_SHIFT		18
-+#define TX_LEN_MAX		0x3ffffU
- 
- 	__le32 opts2;
- #define UDP_CS			(1 << 31) /* Calculate UDP/IP checksum */
- #define TCP_CS			(1 << 30) /* Calculate TCP/IP checksum */
- #define IPV4_CS			(1 << 29) /* Calculate IPv4 checksum */
- #define IPV6_CS			(1 << 28) /* Calculate IPv6 checksum */
-+#define MSS_SHIFT		17
-+#define MSS_MAX			0x7ffU
-+#define TCPHO_SHIFT		17
+@@ -447,6 +447,7 @@ enum rtl8152_flags {
+ 	RTL8152_LINK_CHG,
+ 	SELECTIVE_SUSPEND,
+ 	PHY_RESET,
++	SCHEDULE_TASKLET,
  };
  
- struct r8152;
-@@ -563,12 +568,21 @@ enum rtl_version {
- 	RTL_VER_MAX
- };
+ /* Define these values to match your device */
+@@ -1071,7 +1072,7 @@ static void write_bulk_callback(struct urb *urb)
+ 		return;
  
-+enum tx_csum_stat {
-+	TX_CSUM_SUCCESS = 0,
-+	TX_CSUM_TSO,
-+	TX_CSUM_NONE
-+};
-+
- /* Maximum number of multicast addresses to filter (vs. Rx-all-multicast).
-  * The RTL chips use a 64 element hash table based on the Ethernet CRC.
-  */
- static const int multicast_filter_limit = 32;
- static unsigned int rx_buf_sz = 16384;
+ 	if (!skb_queue_empty(&tp->tx_queue))
+-		schedule_delayed_work(&tp->schedule, 0);
++		tasklet_schedule(&tp->tl);
+ }
  
-+#define RTL_LIMITED_TSO_SIZE	(rx_buf_sz - sizeof(struct tx_desc) - \
-+				 VLAN_ETH_HLEN - VLAN_HLEN)
-+
+ static void intr_callback(struct urb *urb)
+@@ -1335,9 +1336,9 @@ static int r8152_tx_agg_fill(struct r8152 *tp, struct tx_agg *agg)
+ 	u8 *tx_data;
+ 
+ 	__skb_queue_head_init(&skb_head);
+-	spin_lock_bh(&tx_queue->lock);
++	spin_lock(&tx_queue->lock);
+ 	skb_queue_splice_init(tx_queue, &skb_head);
+-	spin_unlock_bh(&tx_queue->lock);
++	spin_unlock(&tx_queue->lock);
+ 
+ 	tx_data = agg->head;
+ 	agg->skb_num = agg->skb_len = 0;
+@@ -1374,20 +1375,20 @@ static int r8152_tx_agg_fill(struct r8152 *tp, struct tx_agg *agg)
+ 	}
+ 
+ 	if (!skb_queue_empty(&skb_head)) {
+-		spin_lock_bh(&tx_queue->lock);
++		spin_lock(&tx_queue->lock);
+ 		skb_queue_splice(&skb_head, tx_queue);
+-		spin_unlock_bh(&tx_queue->lock);
++		spin_unlock(&tx_queue->lock);
+ 	}
+ 
+-	netif_tx_lock_bh(tp->netdev);
++	netif_tx_lock(tp->netdev);
+ 
+ 	if (netif_queue_stopped(tp->netdev) &&
+ 	    skb_queue_len(&tp->tx_queue) < tp->tx_qlen)
+ 		netif_wake_queue(tp->netdev);
+ 
+-	netif_tx_unlock_bh(tp->netdev);
++	netif_tx_unlock(tp->netdev);
+ 
+-	ret = usb_autopm_get_interface(tp->intf);
++	ret = usb_autopm_get_interface_async(tp->intf);
+ 	if (ret < 0)
+ 		goto out_tx_fill;
+ 
+@@ -1395,9 +1396,9 @@ static int r8152_tx_agg_fill(struct r8152 *tp, struct tx_agg *agg)
+ 			  agg->head, (int)(tx_data - (u8 *)agg->head),
+ 			  (usb_complete_t)write_bulk_callback, agg);
+ 
+-	ret = usb_submit_urb(agg->urb, GFP_KERNEL);
++	ret = usb_submit_urb(agg->urb, GFP_ATOMIC);
+ 	if (ret < 0)
+-		usb_autopm_put_interface(tp->intf);
++		usb_autopm_put_interface_async(tp->intf);
+ 
+ out_tx_fill:
+ 	return ret;
+@@ -1535,6 +1536,7 @@ static void bottom_half(unsigned long data)
+ 		return;
+ 
+ 	rx_bottom(tp);
++	tx_bottom(tp);
+ }
+ 
  static
- int get_registers(struct r8152 *tp, u16 value, u16 index, u16 size, void *data)
- {
-@@ -1295,24 +1309,46 @@ static struct tx_agg *r8152_get_tx_agg(struct r8152 *tp)
- 	return agg;
+@@ -1630,7 +1632,7 @@ static void _rtl8152_set_rx_mode(struct net_device *netdev)
  }
  
--static void
--r8152_tx_csum(struct r8152 *tp, struct tx_desc *desc, struct sk_buff *skb)
-+static inline __be16 get_protocol(struct sk_buff *skb)
+ static netdev_tx_t rtl8152_start_xmit(struct sk_buff *skb,
+-					    struct net_device *netdev)
++					struct net_device *netdev)
  {
--	memset(desc, 0, sizeof(*desc));
-+	__be16 protocol;
+ 	struct r8152 *tp = netdev_priv(netdev);
  
--	desc->opts1 = cpu_to_le32((skb->len & TX_LEN_MASK) | TX_FS | TX_LS);
-+	if (skb->protocol == htons(ETH_P_8021Q))
-+		protocol = vlan_eth_hdr(skb)->h_vlan_encapsulated_proto;
-+	else
-+		protocol = skb->protocol;
+@@ -1638,13 +1640,17 @@ static netdev_tx_t rtl8152_start_xmit(struct sk_buff *skb,
  
--	if (skb->ip_summed == CHECKSUM_PARTIAL) {
--		__be16 protocol;
--		u8 ip_protocol;
--		u32 opts2 = 0;
-+	return protocol;
-+}
+ 	skb_queue_tail(&tp->tx_queue, skb);
  
--		if (skb->protocol == htons(ETH_P_8021Q))
--			protocol = vlan_eth_hdr(skb)->h_vlan_encapsulated_proto;
--		else
--			protocol = skb->protocol;
-+static int r8152_tx_csum(struct r8152 *tp, struct tx_desc *desc,
-+			 struct sk_buff *skb, u32 len, u32 transport_offset)
-+{
-+	u32 mss = skb_shinfo(skb)->gso_size;
-+	u32 opts1, opts2 = 0;
-+	int ret = TX_CSUM_SUCCESS;
-+
-+	WARN_ON_ONCE(len > TX_LEN_MAX);
-+
-+	opts1 = len | TX_FS | TX_LS;
-+
-+	if (mss) {
-+		switch (get_protocol(skb)) {
-+		case htons(ETH_P_IP):
-+			opts1 |= GTSENDV4;
-+			break;
- 
--		switch (protocol) {
-+		default:
-+			WARN_ON_ONCE(1);
-+			break;
+-	if (list_empty(&tp->tx_free) &&
+-	    skb_queue_len(&tp->tx_queue) > tp->tx_qlen)
++	if (!list_empty(&tp->tx_free)) {
++		if (test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
++			set_bit(SCHEDULE_TASKLET, &tp->flags);
++			schedule_delayed_work(&tp->schedule, 0);
++		} else {
++			usb_mark_last_busy(tp->udev);
++			tasklet_schedule(&tp->tl);
 +		}
-+
-+		opts1 |= transport_offset << GTTCPHO_SHIFT;
-+		opts2 |= min(mss, MSS_MAX) << MSS_SHIFT;
-+	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+		u8 ip_protocol;
-+
-+		switch (get_protocol(skb)) {
- 		case htons(ETH_P_IP):
- 			opts2 |= IPV4_CS;
- 			ip_protocol = ip_hdr(skb)->protocol;
-@@ -1328,17 +1364,44 @@ r8152_tx_csum(struct r8152 *tp, struct tx_desc *desc, struct sk_buff *skb)
- 			break;
- 		}
++	} else if (skb_queue_len(&tp->tx_queue) > tp->tx_qlen)
+ 		netif_stop_queue(netdev);
  
--		if (ip_protocol == IPPROTO_TCP) {
-+		if (ip_protocol == IPPROTO_TCP)
- 			opts2 |= TCP_CS;
--			opts2 |= (skb_transport_offset(skb) & 0x7fff) << 17;
--		} else if (ip_protocol == IPPROTO_UDP) {
-+		else if (ip_protocol == IPPROTO_UDP)
- 			opts2 |= UDP_CS;
--		} else {
-+		else
- 			WARN_ON_ONCE(1);
--		}
- 
--		desc->opts2 = cpu_to_le32(opts2);
-+		opts2 |= transport_offset << TCPHO_SHIFT;
-+	}
-+
-+	desc->opts2 = cpu_to_le32(opts2);
-+	desc->opts1 = cpu_to_le32(opts1);
-+
-+	return ret;
-+}
-+
-+static u32 r8152_xmit_frags(struct r8152 *tp, struct sk_buff *skb, u8 *data)
-+{
-+	struct skb_shared_info *info = skb_shinfo(skb);
-+	unsigned int cur_frag;
-+	u32 total = skb_headlen(skb);
-+
-+	memcpy(data, skb->data, total);
-+	data += total;
-+
-+	for (cur_frag = 0; cur_frag < info->nr_frags; cur_frag++) {
-+		const skb_frag_t *frag = info->frags + cur_frag;
-+		void *addr;
-+		u32 len;
-+
-+		len = skb_frag_size(frag);
-+		addr = skb_frag_address(frag);
-+		memcpy(data, addr, len);
-+		data += len;
-+		total += len;
- 	}
-+
-+	return total;
+-	if (!list_empty(&tp->tx_free))
+-		schedule_delayed_work(&tp->schedule, 0);
+-
+ 	return NETDEV_TX_OK;
  }
  
- static int r8152_tx_agg_fill(struct r8152 *tp, struct tx_agg *agg)
-@@ -1360,29 +1423,36 @@ static int r8152_tx_agg_fill(struct r8152 *tp, struct tx_agg *agg)
- 		struct tx_desc *tx_desc;
- 		struct sk_buff *skb;
- 		unsigned int len;
-+		u32 offset;
+@@ -2523,8 +2529,11 @@ static void rtl_work_func_t(struct work_struct *work)
+ 	if (test_bit(RTL8152_SET_RX_MODE, &tp->flags))
+ 		_rtl8152_set_rx_mode(tp->netdev);
  
- 		skb = __skb_dequeue(&skb_head);
- 		if (!skb)
- 			break;
+-	if (tp->speed & LINK_STATUS)
+-		tx_bottom(tp);
++	if (test_bit(SCHEDULE_TASKLET, &tp->flags) &&
++	    (tp->speed & LINK_STATUS)) {
++		clear_bit(SCHEDULE_TASKLET, &tp->flags);
++		tasklet_schedule(&tp->tl);
++	}
  
--		remain -= sizeof(*tx_desc);
--		len = skb->len;
--		if (remain < len) {
-+		len = skb->len + sizeof(*tx_desc);
-+
-+		if (len > remain) {
- 			__skb_queue_head(&skb_head, skb);
- 			break;
- 		}
- 
- 		tx_data = tx_agg_align(tx_data);
- 		tx_desc = (struct tx_desc *)tx_data;
-+
-+		offset = (u32)skb_transport_offset(skb);
-+
-+		r8152_tx_csum(tp, tx_desc, skb, skb->len, offset);
-+
- 		tx_data += sizeof(*tx_desc);
- 
--		r8152_tx_csum(tp, tx_desc, skb);
--		memcpy(tx_data, skb->data, len);
--		agg->skb_num++;
-+		len = r8152_xmit_frags(tp, skb, tx_data);
-+
-+		tx_data += len;
- 		agg->skb_len += len;
-+		agg->skb_num++;
-+
- 		dev_kfree_skb_any(skb);
- 
--		tx_data += len;
- 		remain = rx_buf_sz - (int)(tx_agg_align(tx_data) - agg->head);
- 	}
- 
-@@ -3149,10 +3219,13 @@ static int rtl8152_probe(struct usb_interface *intf,
- 	netdev->netdev_ops = &rtl8152_netdev_ops;
- 	netdev->watchdog_timeo = RTL8152_TX_TIMEOUT;
- 
--	netdev->features |= NETIF_F_RXCSUM | NETIF_F_IP_CSUM;
--	netdev->hw_features = NETIF_F_RXCSUM | NETIF_F_IP_CSUM;
-+	netdev->features |= NETIF_F_RXCSUM | NETIF_F_IP_CSUM | NETIF_F_SG |
-+			    NETIF_F_TSO;
-+	netdev->hw_features = NETIF_F_RXCSUM | NETIF_F_IP_CSUM | NETIF_F_SG |
-+			      NETIF_F_TSO;
- 
- 	SET_ETHTOOL_OPS(netdev, &ops);
-+	netif_set_gso_max_size(netdev, RTL_LIMITED_TSO_SIZE);
- 
- 	tp->mii.dev = netdev;
- 	tp->mii.mdio_read = read_mii_word;
+ 	if (test_bit(PHY_RESET, &tp->flags))
+ 		rtl_phy_reset(tp);
 -- 
 1.8.4.2
