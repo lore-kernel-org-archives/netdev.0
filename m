@@ -1,46 +1,64 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH net-next] be2net: do external loopback test only when it is requested
-Date: Tue,  4 Mar 2014 19:04:55 +0100
-Message-ID: <1393956295-25436-1-git-send-email-ivecera@redhat.com>
-Cc: sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
-	ajit.khaparde@emulex.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:25472 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753356AbaCDSFA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Mar 2014 13:05:00 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+Subject: Re: [PATCH 10/15] irda: sh_irda: Enable driver compilation with COMPILE_TEST
+Date: Tue, 04 Mar 2014 19:19:34 +0100
+Message-ID: <4876025.BhmDicoI5K@avalon>
+References: <1385515117-23664-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com> <2434798.8bvsZzgdNb@avalon> <63153015.VK19yFZrrS@avalon>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-sh@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org
+To: Samuel Ortiz <samuel@sortiz.org>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <63153015.VK19yFZrrS@avalon>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Cc: sathya.perla@emulex.com
-Cc: subbu.seetharaman@emulex.com
-Cc: ajit.khaparde@emulex.com
+Hi Samuel,
 
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
----
- drivers/net/ethernet/emulex/benet/be_ethtool.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+On Tuesday 07 January 2014 16:13:49 Laurent Pinchart wrote:
+> On Wednesday 11 December 2013 13:49:15 Laurent Pinchart wrote:
+> > Hi Samuel,
+> > 
+> > Could you please pick this patch up for v3.14 ?
+> 
+> Ping ?
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-index cf09d8f..957848f 100644
---- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
-+++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-@@ -809,9 +809,12 @@ be_self_test(struct net_device *netdev, struct ethtool_test *test, u64 *data)
- 						&data[1]) != 0) {
- 			test->flags |= ETH_TEST_FL_FAILED;
- 		}
--		if (be_loopback_test(adapter, BE_ONE_PORT_EXT_LOOPBACK,
--						&data[2]) != 0) {
--			test->flags |= ETH_TEST_FL_FAILED;
-+		if (test->flags & ETH_TEST_FL_EXTERNAL_LB) {
-+			if (be_loopback_test(adapter, BE_ONE_PORT_EXT_LOOPBACK,
-+					     &data[2]) != 0) {
-+				test->flags |= ETH_TEST_FL_FAILED;
-+			}
-+			test->flags |= ETH_TEST_FL_EXTERNAL_LB_DONE;
- 		}
- 	}
- 
+PING ?
+
+> > On Wednesday 27 November 2013 02:18:32 Laurent Pinchart wrote:
+> > > This helps increasing build testing coverage.
+> > > 
+> > > Cc: Samuel Ortiz <samuel@sortiz.org>
+> > > Cc: netdev@vger.kernel.org
+> > > Signed-off-by: Laurent Pinchart
+> > > <laurent.pinchart+renesas@ideasonboard.com>
+> > > Acked-by: Simon Horman <horms@verge.net.au>
+> > > ---
+> > > 
+> > >  drivers/net/irda/Kconfig | 3 ++-
+> > >  1 file changed, 2 insertions(+), 1 deletion(-)
+> > > 
+> > > diff --git a/drivers/net/irda/Kconfig b/drivers/net/irda/Kconfig
+> > > index 2a30193..cae5ee2 100644
+> > > --- a/drivers/net/irda/Kconfig
+> > > +++ b/drivers/net/irda/Kconfig
+> > > @@ -403,7 +403,8 @@ config MCS_FIR
+> > > 
+> > >  config SH_IRDA
+> > >  
+> > >  	tristate "SuperH IrDA driver"
+> > > 
+> > > -	depends on IRDA && ARCH_SHMOBILE
+> > > +	depends on IRDA
+> > > +	depends on ARCH_SHMOBILE || COMPILE_TEST
+> > > 
+> > >  	help
+> > >  	
+> > >  	  Say Y here if your want to enable SuperH IrDA devices.
+
 -- 
-1.8.3.2
+Regards,
+
+Laurent Pinchart
+
