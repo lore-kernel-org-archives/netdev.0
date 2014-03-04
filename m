@@ -1,107 +1,130 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH bluetooth-next] bluetooth: make bluetooth 6lowpan as an option
-Date: Tue,  4 Mar 2014 10:23:02 +0100
-Message-ID: <1393924982-14001-1-git-send-email-alex.aring@gmail.com>
-Cc: gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org, johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Anton Blanchard <anton@samba.org>
+Subject: [PATCH] net: unix socket code abuses csum_partial
+Date: Tue, 4 Mar 2014 21:01:04 +1100
+Message-ID: <20140304210104.42ef3dd8@kryten>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, edumazet@google.com,
+	gustavold@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:50701 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756511AbaCDKBG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Mar 2014 05:01:06 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently you can have bluetooth 6lowpan without ipv6 enabled. This
-doesn't make any sense. With this patch you can disable/enable bluetooth
-6lowpan support at compile time.
 
-The current bluetooth 6lowpan implementation doesn't check the return
-value of 6lowpan function. Nevertheless I added -EOPNOTSUPP as return value
-if 6lowpan bluetooth is disabled.
+The unix socket code is using the result of csum_partial to
+hash into a lookup table:
 
-Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+	unix_hash_fold(csum_partial(sunaddr, len, 0));
+
+csum_partial is only guaranteed to produce something that can be
+folded into a checksum, as its prototype explains:
+
+ * returns a 32-bit number suitable for feeding into itself
+ * or csum_tcpudp_magic
+
+The 32bit value should not be used directly.
+
+Depending on the alignment the ppc64 csum_partial will return
+different 32bit values that will fold into the same checksum.
+
+This difference causes the following testcase (courtesy of
+Gustavo) to sometimes fail:
+
+
+#include <sys/socket.h>
+#include <stdio.h>
+
+int main()
+{
+	int fd = socket(PF_LOCAL, SOCK_STREAM|SOCK_CLOEXEC, 0);
+
+	int i = 1;
+	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &i, 4);
+
+	struct sockaddr addr;
+	addr.sa_family = AF_LOCAL;
+	bind(fd, &addr, 2);
+
+	listen(fd, 128);
+
+	struct sockaddr_storage ss;
+	socklen_t sslen = (socklen_t)sizeof(ss);
+	getsockname(fd, (struct sockaddr*)&ss, &sslen);
+
+	fd = socket(PF_LOCAL, SOCK_STREAM|SOCK_CLOEXEC, 0);
+
+	if (connect(fd, (struct sockaddr*)&ss, sslen) == -1){
+		perror(NULL);
+		return 1;
+	}
+	printf("OK\n");
+	return 0;
+}
+
+
+Use jhash instead of the current hand crafted csum_partial +
+xor based hash.
+
+Signed-off-by: Anton Blanchard <anton@samba.org>
+Cc: stable@vger.kernel.org
 ---
- net/bluetooth/6lowpan.h | 21 +++++++++++++++++++++
- net/bluetooth/Kconfig   |  8 +++++++-
- net/bluetooth/Makefile  |  3 ++-
- 3 files changed, 30 insertions(+), 2 deletions(-)
 
-diff --git a/net/bluetooth/6lowpan.h b/net/bluetooth/6lowpan.h
-index 680eac8..5d281f1 100644
---- a/net/bluetooth/6lowpan.h
-+++ b/net/bluetooth/6lowpan.h
-@@ -14,13 +14,34 @@
- #ifndef __6LOWPAN_H
- #define __6LOWPAN_H
+Would appreciate a sanity check here. Are there other users that
+expect a stable 32bit value out of csum_partial?
+
+Is this performance critical enough that jhash is going to hurt?
+Another option would be to csum_fold the 32bit intermediate value
+and just hash based on the result.
+
+Index: b/net/unix/af_unix.c
+===================================================================
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -117,6 +117,7 @@
+ #include <net/checksum.h>
+ #include <linux/security.h>
+ #include <linux/freezer.h>
++#include <linux/jhash.h>
  
-+#include <linux/errno.h>
- #include <linux/skbuff.h>
- #include <net/bluetooth/l2cap.h>
+ struct hlist_head unix_socket_table[2 * UNIX_HASH_SIZE];
+ EXPORT_SYMBOL_GPL(unix_socket_table);
+@@ -161,13 +162,9 @@ static inline void unix_set_secdata(stru
+  *    each socket state is protected by separate spin lock.
+  */
  
-+#if IS_ENABLED(CONFIG_BT_6LOWPAN)
- int bt_6lowpan_recv(struct l2cap_conn *conn, struct sk_buff *skb);
- int bt_6lowpan_add_conn(struct l2cap_conn *conn);
- int bt_6lowpan_del_conn(struct l2cap_conn *conn);
- int bt_6lowpan_init(void);
- void bt_6lowpan_cleanup(void);
-+#else
-+static int bt_6lowpan_recv(struct l2cap_conn *conn, struct sk_buff *skb)
-+{
-+	return -EOPNOTSUPP;
-+}
-+static int bt_6lowpan_add_conn(struct l2cap_conn *conn)
-+{
-+	return -EOPNOTSUPP;
-+}
-+int bt_6lowpan_del_conn(struct l2cap_conn *conn)
-+{
-+	return -EOPNOTSUPP;
-+}
-+static int bt_6lowpan_init(void)
-+{
-+	return -EOPNOTSUPP;
-+}
-+static void bt_6lowpan_cleanup(void) { }
-+#endif
+-static inline unsigned int unix_hash_fold(__wsum n)
++static inline unsigned int unix_hash(void *data, unsigned int len)
+ {
+-	unsigned int hash = (__force unsigned int)n;
+-
+-	hash ^= hash>>16;
+-	hash ^= hash>>8;
+-	return hash&(UNIX_HASH_SIZE-1);
++	return jhash(data, len, 0) & (UNIX_HASH_SIZE - 1);
+ }
  
- #endif /* __6LOWPAN_H */
-diff --git a/net/bluetooth/Kconfig b/net/bluetooth/Kconfig
-index 985b560..10c752f 100644
---- a/net/bluetooth/Kconfig
-+++ b/net/bluetooth/Kconfig
-@@ -12,7 +12,6 @@ menuconfig BT
- 	select CRYPTO_AES
- 	select CRYPTO_ECB
- 	select CRYPTO_SHA256
--	select 6LOWPAN_IPHC
- 	help
- 	  Bluetooth is low-cost, low-power, short-range wireless technology.
- 	  It was designed as a replacement for cables and other short-range
-@@ -40,6 +39,13 @@ menuconfig BT
- 	  to Bluetooth kernel modules are provided in the BlueZ packages.  For
- 	  more information, see <http://www.bluez.org/>.
+ #define unix_peer(sk) (unix_sk(sk)->peer)
+@@ -232,7 +229,7 @@ static int unix_mkname(struct sockaddr_u
+ 		return len;
+ 	}
  
-+config BT_6LOWPAN
-+	bool "Bluetooth 6LoWPAN support"
-+	depends on BT && IPV6
-+	select 6LOWPAN_IPHC
-+	help
-+	  IPv6 compression over Bluetooth.
-+
- source "net/bluetooth/rfcomm/Kconfig"
+-	*hashp = unix_hash_fold(csum_partial(sunaddr, len, 0));
++	*hashp = unix_hash(sunaddr, len);
+ 	return len;
+ }
  
- source "net/bluetooth/bnep/Kconfig"
-diff --git a/net/bluetooth/Makefile b/net/bluetooth/Makefile
-index 80cb215..ca51246 100644
---- a/net/bluetooth/Makefile
-+++ b/net/bluetooth/Makefile
-@@ -10,6 +10,7 @@ obj-$(CONFIG_BT_HIDP)	+= hidp/
+@@ -738,7 +735,7 @@ static int unix_autobind(struct socket *
  
- bluetooth-y := af_bluetooth.o hci_core.o hci_conn.o hci_event.o mgmt.o \
- 	hci_sock.o hci_sysfs.o l2cap_core.o l2cap_sock.o smp.o sco.o lib.o \
--	a2mp.o amp.o 6lowpan.o
-+	a2mp.o amp.o
-+bluetooth-$(CONFIG_BT_6LOWPAN) += 6lowpan.o
+ retry:
+ 	addr->len = sprintf(addr->name->sun_path+1, "%05x", ordernum) + 1 + sizeof(short);
+-	addr->hash = unix_hash_fold(csum_partial(addr->name, addr->len, 0));
++	addr->hash = unix_hash(addr->name, addr->len);
  
- subdir-ccflags-y += -D__CHECK_ENDIAN__
--- 
-1.9.0
+ 	spin_lock(&unix_table_lock);
+ 	ordernum = (ordernum+1)&0xFFFFF;
