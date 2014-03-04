@@ -1,7 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv3 1/4] net: phy: decouple PHY id and PHY address in fixed PHY driver
-Date: Tue,  4 Mar 2014 11:58:21 +0100
-Message-ID: <1393930704-24374-2-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv3 2/4] net: phy: extend fixed driver with fixed_phy_register()
+Date: Tue,  4 Mar 2014 11:58:22 +0100
+Message-ID: <1393930704-24374-3-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1393930704-24374-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Florian Fainelli <florian@openwrt.org>,
 	Lior Amsalem <alior@marvell.com>,
@@ -14,112 +14,146 @@ Cc: Florian Fainelli <florian@openwrt.org>,
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:40102 "EHLO
+Received: from top.free-electrons.com ([176.31.233.9]:40112 "EHLO
 	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756807AbaCDK62 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 05:58:28 -0500
+	with ESMTP id S1756848AbaCDK63 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 05:58:29 -0500
 In-Reply-To: <1393930704-24374-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Until now, the fixed_phy_add() function was taking as argument
-'phy_id', which was used both as the PHY address on the fake fixed
-MDIO bus, and as the PHY id, as available in the MII_PHYSID1 and
-MII_PHYSID2 registers. However, those two informations are completely
-unrelated.
+The existing fixed_phy_add() function has several drawbacks that
+prevents it from being used as is for OF-based declaration of fixed
+PHYs:
 
-This patch decouples them. The PHY id of fixed PHYs is hardcoded to be
-0xdeadbeef. Ideally, a really reserved value would be nicer, but there
-doesn't seem to be an easy of making sure a dummy value can be
-assigned to the Linux kernel for such usage.
+ * The address of the PHY on the fake bus needs to be passed, while a
+   dynamic allocation is desired.
 
-The PHY address remains passed by the caller of phy_fixed_add().
+ * Since the phy_device instantiation is post-poned until the next
+   mdiobus scan, there is no way to associate the fixed PHY with its
+   OF node, which later prevents of_phy_connect() from finding this
+   fixed PHY from a given OF node.
+
+To solve this, this commit introduces fixed_phy_register(), which will
+allocate an available PHY address, add the PHY using fixed_phy_add()
+and instantiate the phy_device structure associated with the provided
+OF node.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/phy/fixed.c | 20 ++++++++++----------
- 1 file changed, 10 insertions(+), 10 deletions(-)
+ drivers/net/phy/fixed.c   | 61 +++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/phy_fixed.h | 11 +++++++++
+ 2 files changed, 72 insertions(+)
 
 diff --git a/drivers/net/phy/fixed.c b/drivers/net/phy/fixed.c
-index ba55adf..0f02403 100644
+index 0f02403..82095cc 100644
 --- a/drivers/net/phy/fixed.c
 +++ b/drivers/net/phy/fixed.c
-@@ -31,7 +31,7 @@ struct fixed_mdio_bus {
+@@ -21,6 +21,7 @@
+ #include <linux/phy_fixed.h>
+ #include <linux/err.h>
+ #include <linux/slab.h>
++#include <linux/of.h>
+ 
+ #define MII_REGS_NUM 29
+ 
+@@ -203,6 +204,66 @@ err_regs:
+ }
+ EXPORT_SYMBOL_GPL(fixed_phy_add);
+ 
++void fixed_phy_del(int phy_addr)
++{
++	struct fixed_mdio_bus *fmb = &platform_fmb;
++	struct fixed_phy *fp, *tmp;
++
++	list_for_each_entry_safe(fp, tmp, &fmb->phys, node) {
++		if (fp->addr == phy_addr) {
++			list_del(&fp->node);
++			kfree(fp);
++			return;
++		}
++	}
++}
++EXPORT_SYMBOL_GPL(fixed_phy_del);
++
++static int phy_fixed_addr;
++static DEFINE_SPINLOCK(phy_fixed_addr_lock);
++
++int fixed_phy_register(unsigned int irq,
++		       struct fixed_phy_status *status,
++		       struct device_node *np)
++{
++	struct fixed_mdio_bus *fmb = &platform_fmb;
++	struct phy_device *phy;
++	int phy_addr;
++	int ret;
++
++	/* Get the next available PHY address, up to PHY_MAX_ADDR */
++	spin_lock(&phy_fixed_addr_lock);
++	if (phy_fixed_addr == PHY_MAX_ADDR) {
++		spin_unlock(&phy_fixed_addr_lock);
++		return -ENOSPC;
++	}
++	phy_addr = phy_fixed_addr++;
++	spin_unlock(&phy_fixed_addr_lock);
++
++	ret = fixed_phy_add(PHY_POLL, phy_addr, status);
++	if (ret < 0)
++		return ret;
++
++	phy = get_phy_device(fmb->mii_bus, phy_addr, false);
++	if (!phy || IS_ERR(phy)) {
++		fixed_phy_del(phy_addr);
++		return -EINVAL;
++	}
++
++	of_node_get(np);
++	phy->dev.of_node = np;
++
++	ret = phy_device_register(phy);
++	if (ret) {
++		phy_device_free(phy);
++		of_node_put(np);
++		fixed_phy_del(phy_addr);
++		return ret;
++	}
++
++	return 0;
++}
++
+ static int __init fixed_mdio_bus_init(void)
+ {
+ 	struct fixed_mdio_bus *fmb = &platform_fmb;
+diff --git a/include/linux/phy_fixed.h b/include/linux/phy_fixed.h
+index 509d8f5..902e8a1 100644
+--- a/include/linux/phy_fixed.h
++++ b/include/linux/phy_fixed.h
+@@ -9,15 +9,26 @@ struct fixed_phy_status {
+ 	int asym_pause;
  };
  
- struct fixed_phy {
--	int id;
-+	int addr;
- 	u16 regs[MII_REGS_NUM];
- 	struct phy_device *phydev;
- 	struct fixed_phy_status status;
-@@ -104,8 +104,8 @@ static int fixed_phy_update_regs(struct fixed_phy *fp)
- 	if (fp->status.asym_pause)
- 		lpa |= LPA_PAUSE_ASYM;
- 
--	fp->regs[MII_PHYSID1] = fp->id >> 16;
--	fp->regs[MII_PHYSID2] = fp->id;
-+	fp->regs[MII_PHYSID1] = 0xdead;
-+	fp->regs[MII_PHYSID2] = 0xbeef;
- 
- 	fp->regs[MII_BMSR] = bmsr;
- 	fp->regs[MII_BMCR] = bmcr;
-@@ -115,7 +115,7 @@ static int fixed_phy_update_regs(struct fixed_phy *fp)
- 	return 0;
- }
- 
--static int fixed_mdio_read(struct mii_bus *bus, int phy_id, int reg_num)
-+static int fixed_mdio_read(struct mii_bus *bus, int phy_addr, int reg_num)
++struct device_node;
++
+ #ifdef CONFIG_FIXED_PHY
+ extern int fixed_phy_add(unsigned int irq, int phy_id,
+ 			 struct fixed_phy_status *status);
++extern int fixed_phy_register(unsigned int irq,
++			      struct fixed_phy_status *status,
++			      struct device_node *np);
+ #else
+ static inline int fixed_phy_add(unsigned int irq, int phy_id,
+ 				struct fixed_phy_status *status)
  {
- 	struct fixed_mdio_bus *fmb = bus->priv;
- 	struct fixed_phy *fp;
-@@ -124,7 +124,7 @@ static int fixed_mdio_read(struct mii_bus *bus, int phy_id, int reg_num)
- 		return -1;
- 
- 	list_for_each_entry(fp, &fmb->phys, node) {
--		if (fp->id == phy_id) {
-+		if (fp->addr == phy_addr) {
- 			/* Issue callback if user registered it. */
- 			if (fp->link_update) {
- 				fp->link_update(fp->phydev->attached_dev,
-@@ -138,7 +138,7 @@ static int fixed_mdio_read(struct mii_bus *bus, int phy_id, int reg_num)
- 	return 0xFFFF;
+ 	return -ENODEV;
  }
++extern int fixed_phy_register(unsigned int irq,
++			      struct fixed_phy_status *status,
++			      struct device_node *np)
++{
++	return -ENODEV;
++}
+ #endif /* CONFIG_FIXED_PHY */
  
--static int fixed_mdio_write(struct mii_bus *bus, int phy_id, int reg_num,
-+static int fixed_mdio_write(struct mii_bus *bus, int phy_addr, int reg_num,
- 			    u16 val)
- {
- 	return 0;
-@@ -160,7 +160,7 @@ int fixed_phy_set_link_update(struct phy_device *phydev,
- 		return -EINVAL;
- 
- 	list_for_each_entry(fp, &fmb->phys, node) {
--		if (fp->id == phydev->phy_id) {
-+		if (fp->addr == phydev->addr) {
- 			fp->link_update = link_update;
- 			fp->phydev = phydev;
- 			return 0;
-@@ -171,7 +171,7 @@ int fixed_phy_set_link_update(struct phy_device *phydev,
- }
- EXPORT_SYMBOL_GPL(fixed_phy_set_link_update);
- 
--int fixed_phy_add(unsigned int irq, int phy_id,
-+int fixed_phy_add(unsigned int irq, int phy_addr,
- 		  struct fixed_phy_status *status)
- {
- 	int ret;
-@@ -184,9 +184,9 @@ int fixed_phy_add(unsigned int irq, int phy_id,
- 
- 	memset(fp->regs, 0xFF,  sizeof(fp->regs[0]) * MII_REGS_NUM);
- 
--	fmb->irqs[phy_id] = irq;
-+	fmb->irqs[phy_addr] = irq;
- 
--	fp->id = phy_id;
-+	fp->addr = phy_addr;
- 	fp->status = *status;
- 
- 	ret = fixed_phy_update_regs(fp);
+ /*
 -- 
 1.8.3.2
