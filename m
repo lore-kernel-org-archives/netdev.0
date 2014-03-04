@@ -1,47 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 09/12] r8152: support IPv6
-Date: Tue, 04 Mar 2014 08:58:48 -0800
-Message-ID: <1393952328.26794.123.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1393934464-23675-1-git-send-email-hayeswang@realtek.com>
-	 <1393934464-23675-10-git-send-email-hayeswang@realtek.com>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: out of bounds writes in net/hsr/
+Date: Tue, 4 Mar 2014 11:30:02 -0500
+Message-ID: <20140304163002.GA32328@redhat.com>
+References: <20140304032757.GA19048@redhat.com>
+ <5315FA3B.8020700@alten.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: Hayes Wang <hayeswang@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1393934464-23675-10-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Arvid Brodin <arvid.brodin@alten.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:21298 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751065AbaCDREp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Mar 2014 12:04:45 -0500
+Content-Disposition: inline
+In-Reply-To: <5315FA3B.8020700@alten.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-03-04 at 20:01 +0800, Hayes Wang wrote:
-> Support hw IPv6 checksum for TCP and UDP packets.
+On Tue, Mar 04, 2014 at 05:07:23PM +0100, Arvid Brodin wrote:
+ > On 2014-03-04 04:27, Dave Jones wrote:
+ > > I found this in coverity, and I think it's a real bug..
+ > > 
+ > > hsr_register_frame_in does a check that dev_idx is between 0 and 2,
+ > > therefore, a dev_idx of 2 is possible when it gets to the array writes
+ > > at the end of the function. 
+ > 
+ > Thanks for finding this; it is a bug (although I don't think it has 
+ > actually lead to any out of bound accesses). 
+ > 
+ > However, I think you are a bit late - I believe this was fixed in a patch 
+ > from Dan Carpenter just a few days ago. See
+ > 
+ > http://www.spinics.net/lists/netdev/msg272815.html
 
+excellent, thanks for checking.
 
-> +/*
-> + * r8152_csum_workaround()
-> + * The hw limites the value the transport offset. When the offset is out of the
-> + * range, calculate the checksum by sw.
-> + */
-> +static void r8152_csum_workaround(struct r8152 *tp, struct sk_buff *skb,
-> +				  struct sk_buff_head *list)
-> +{
-> +	if (skb_shinfo(skb)->gso_size) {
-> +		netdev_features_t features = tp->netdev->features;
-> +		struct sk_buff *segs, *nskb;
-> +
-> +		features &= ~(NETIF_F_IP_CSUM | NETIF_F_SG | NETIF_F_TSO);
-> +		segs = skb_gso_segment(skb, features);
-> +		if (IS_ERR(segs) || !segs)
-> +			goto drop;
-> +
-> +		do {
-> +			nskb = segs;
-> +			segs = segs->next;
-> +			nskb->next = NULL;
-> +			__skb_queue_head(list, nskb);
-
-This introduces TCP reordering.
-
-You should use some kind of skb_queue_splice()
+	Dave
