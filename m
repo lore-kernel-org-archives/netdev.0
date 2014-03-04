@@ -1,45 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: unix socket code abuses csum_partial
-Date: Tue, 04 Mar 2014 16:23:29 -0500 (EST)
-Message-ID: <20140304.162329.504474868666088316.davem@davemloft.net>
-References: <20140304210104.42ef3dd8@kryten>
-	<20140304.134141.1732220919806520941.davem@davemloft.net>
-	<1393959053.26794.126.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net-next] vlan: slight optimization for vlan
+Date: Tue, 04 Mar 2014 16:24:36 -0500 (EST)
+Message-ID: <20140304.162436.1110716815887069100.davem@davemloft.net>
+References: <5315AF42.8030905@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: anton@samba.org, edumazet@google.com, gustavold@linux.vnet.ibm.com,
+Cc: kaber@trash.net, joe@perches.com, julia.lawall@lip6.fr,
 	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: dingtianhong@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37169 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37191 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757001AbaCDVXb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 16:23:31 -0500
-In-Reply-To: <1393959053.26794.126.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1756070AbaCDVYj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 16:24:39 -0500
+In-Reply-To: <5315AF42.8030905@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 04 Mar 2014 10:50:53 -0800
+From: Ding Tianhong <dingtianhong@huawei.com>
+Date: Tue, 4 Mar 2014 18:47:30 +0800
 
-> On Tue, 2014-03-04 at 13:41 -0500, David Miller wrote:
+> Ether_addr_equal_64bits is more efficient than ether_addr_equal, and
+> can be used when each argument is an array within a structure that
+> contains at least two bytes of data beyond the array, so it is safe
+> to use it for vlan.
 > 
->> Alternatively you could just make unix_hash_fold() use csum_fold(),
->> right?
->> 
->> static inline unsigned int unix_hash_fold(__wsum n)
->> {
->> 	unsigned int hash = (__force unsigned int) csum_fold(n);
->> 
->> 	hash ^= hash>>8;
->> 	return hash&(UNIX_HASH_SIZE-1);
->> }
+> On a simple test by iperf, it reduces the CPU %system time from 14% to 12%.
 > 
-> Or simply use full_name_hash()
+> According Joe's suggestion, maybe it'd be faster to add an unlikely to
+> the test for PCKET_OTHERHOST, so I add it and see whether the performance
+> could be better, but the differences is so small and negligible, maybe my
+> test case is not effective enough, but I still add the unlikely and wait to
+> hear more opinions.:)
+> 
+> Cc: Joe Perches <joe@perches.com>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 
-I would prefer not, because this would be a performance regression
-on platforms other than x86 and ARM, because only they implement
-the optimized load_unaligned_zeropad().
-
-Other architectures would end up with a byte-by-byte hash computation.
+I agree with Joe that we should only use the optimized routine in
+performance critical paths.
