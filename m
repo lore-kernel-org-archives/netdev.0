@@ -1,103 +1,58 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net-next,v2] hyperv: Move state setting for link query
-Date: Tue,  4 Mar 2014 14:11:06 -0800
-Message-ID: <1393971066-6491-1-git-send-email-haiyangz@microsoft.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] be2net: dma_sync each RX frag before passing
+ it to the stack
+Date: Tue, 04 Mar 2014 16:19:55 -0500 (EST)
+Message-ID: <20140304.161955.131076054982575581.davem@davemloft.net>
+References: <1393915478-8433-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
- linux-kernel@vger.kernel.org, haiyangz@microsoft.com
-To: davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: sathya.perla@emulex.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37137 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933329AbaCDVT5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 16:19:57 -0500
+In-Reply-To: <1393915478-8433-1-git-send-email-sathya.perla@emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It moves the state setting for query into rndis_filter_receive_response().
-All callbacks including query-complete and status-callback are synchronized
-by channel->inbound_lock. This prevents pentential race between them.
+From: Sathya Perla <sathya.perla@emulex.com>
+Date: Tue, 4 Mar 2014 12:14:38 +0530
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
----
- drivers/net/hyperv/netvsc_drv.c   |    4 ++++
- drivers/net/hyperv/rndis_filter.c |   21 ++++++++++++++++++++-
- 2 files changed, 24 insertions(+), 1 deletions(-)
+> The driver currently maps a page for DMA, divides the page into multiple
+> frags and posts them to the HW. It un-maps the page after data is received
+> on all the frags of the page. This scheme doesn't work when bounce buffers
+> are used for DMA (swiotlb=force kernel param).
+> 
+> This patch fixes this problem by calling dma_sync_single_for_cpu() for each
+> frag (excepting the last one) so that the data is copied from the bounce
+> buffers. The page is un-mapped only when DMA finishes on the last frag of
+> the page.
+> (Thanks Ben H. for suggesting the dma_sync API!)
+> 
+> This patch also renames the "last_page_user" field of be_rx_page_info{}
+> struct to "last_frag" to improve readability of the fixed code.
+> 
+> Reported-by: Li Fengmao <li.fengmao@zte.com.cn>
+> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+> ---
+> 
+> Dave, I'm guessing the swiotlb option is not used much(?). So, this patch
+> is not a critical fix and is a better fit for the net-next tree. Thanks.
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 9ef6be9..bb27b3e 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -442,6 +442,8 @@ static int netvsc_probe(struct hv_device *dev,
- 	if (!net)
- 		return -ENOMEM;
- 
-+	netif_carrier_off(net);
-+
- 	net_device_ctx = netdev_priv(net);
- 	net_device_ctx->device_ctx = dev;
- 	hv_set_drvdata(dev, net);
-@@ -473,6 +475,8 @@ static int netvsc_probe(struct hv_device *dev,
- 		pr_err("Unable to register netdev.\n");
- 		rndis_filter_device_remove(dev);
- 		free_netdev(net);
-+	} else {
-+		schedule_delayed_work(&net_device_ctx->dwork, 0);
- 	}
- 
- 	return ret;
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index f0cc8ef..6a9f602 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -240,6 +240,22 @@ static int rndis_filter_send_request(struct rndis_device *dev,
- 	return ret;
- }
- 
-+static void rndis_set_link_state(struct rndis_device *rdev,
-+				 struct rndis_request *request)
-+{
-+	u32 link_status;
-+	struct rndis_query_complete *query_complete;
-+
-+	query_complete = &request->response_msg.msg.query_complete;
-+
-+	if (query_complete->status == RNDIS_STATUS_SUCCESS &&
-+	    query_complete->info_buflen == sizeof(u32)) {
-+		memcpy(&link_status, (void *)((unsigned long)query_complete +
-+		       query_complete->info_buf_offset), sizeof(u32));
-+		rdev->link_state = link_status != 0;
-+	}
-+}
-+
- static void rndis_filter_receive_response(struct rndis_device *dev,
- 				       struct rndis_message *resp)
- {
-@@ -269,6 +285,10 @@ static void rndis_filter_receive_response(struct rndis_device *dev,
- 		    sizeof(struct rndis_message) + RNDIS_EXT_LEN) {
- 			memcpy(&request->response_msg, resp,
- 			       resp->msg_len);
-+			if (request->request_msg.ndis_msg_type ==
-+			    RNDIS_MSG_QUERY && request->request_msg.msg.
-+			    query_req.oid == RNDIS_OID_GEN_MEDIA_CONNECT_STATUS)
-+				rndis_set_link_state(dev, request);
- 		} else {
- 			netdev_err(ndev,
- 				"rndis response buffer overflow "
-@@ -617,7 +637,6 @@ static int rndis_filter_query_device_link_status(struct rndis_device *dev)
- 	ret = rndis_filter_query_device(dev,
- 				      RNDIS_OID_GEN_MEDIA_CONNECT_STATUS,
- 				      &link_status, &size);
--	dev->link_state = (link_status != 0) ? true : false;
- 
- 	return ret;
- }
--- 
-1.7.4.1
+It matters on platforms where dma sync'ing is necessary to achieve
+hardware coherence.
+
+All of Sparc64 PCI implementations fall into this category, because
+there is a prefetching cache that sits on the front end of the PCI
+complex, working in concert with the IOMMU.
+
+Some PowerPC embedded platforms need to do DMA synchronization flushes
+too for a similar reason.
+
+But yes these are uncommon configurations so I agree this should go
+to net-next.
+
+Applied, thanks.
