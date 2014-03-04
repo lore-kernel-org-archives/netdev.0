@@ -1,7 +1,8 @@
 From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next v6 0/10] xen-netback: TX grant mapping with SKBTX_DEV_ZEROCOPY instead of copy
-Date: Tue, 4 Mar 2014 22:32:11 +0000
-Message-ID: <1393972341-21135-1-git-send-email-zoltan.kiss@citrix.com>
+Subject: [PATCH net-next v6 1/10] xen-netback: Use skb->cb for pending_idx
+Date: Tue, 4 Mar 2014 22:32:12 +0000
+Message-ID: <1393972341-21135-2-git-send-email-zoltan.kiss@citrix.com>
+References: <1393972341-21135-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
@@ -9,69 +10,66 @@ Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 To: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
 	<xen-devel@lists.xenproject.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1393972341-21135-1-git-send-email-zoltan.kiss@citrix.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A long known problem of the upstream netback implementation that on the TX
-path (from guest to Dom0) it copies the whole packet from guest memory into
-Dom0. That simply became a bottleneck with 10Gb NICs, and generally it's a
-huge perfomance penalty. The classic kernel version of netback used grant
-mapping, and to get notified when the page can be unmapped, it used page
-destructors. Unfortunately that destructor is not an upstreamable solution.
-Ian Campbell's skb fragment destructor patch series [1] tried to solve this
-problem, however it seems to be very invasive on the network stack's code,
-and therefore haven't progressed very well.
-This patch series use SKBTX_DEV_ZEROCOPY flags to tell the stack it needs to
-know when the skb is freed up. That is the way KVM solved the same problem,
-and based on my initial tests it can do the same for us. Avoiding the extra
-copy boosted up TX throughput from 6.8 Gbps to 7.9 (I used a slower AMD
-Interlagos box, both Dom0 and guest on upstream kernel, on the same NUMA node,
-running iperf 2.0.5, and the remote end was a bare metal box on the same 10Gb
-switch)
-Based on my investigations the packet get only copied if it is delivered to
-Dom0 IP stack through deliver_skb, which is due to this [2] patch. This affects
-DomU->Dom0 IP traffic and when Dom0 does routing/NAT for the guest. That's a bit
-unfortunate, but luckily it doesn't cause a major regression for this usecase.
-In the future we should try to eliminate that copy somehow.
-There are a few spinoff tasks which will be addressed in separate patches:
-- grant copy the header directly instead of map and memcpy. This should help
-  us avoiding TLB flushing
-- use something else than ballooned pages
-- fix grant map to use page->index properly
-I've tried to broke it down to smaller patches, with mixed results, so I
-welcome suggestions on that part as well:
-1: Use skb->cb to store pending_idx
-2: Some refactoring
-3: Change RX path for mapped SKB fragments (moved here to keep bisectability,
-review it after #4)
-4: Introduce TX grant mapping
-5: Remove old TX grant copy definitons and fix indentations
-6: Add stat counters for zerocopy
-7: Handle guests with too many frags
-8: Add stat counters for frag_list skbs
-9: Timeout packets in RX path
-10: Aggregate TX unmap operations
-
-v2: I've fixed some smaller things, see the individual patches. I've added a
-few new stat counters, and handling the important use case when an older guest
-sends lots of slots. Instead of delayed copy now we timeout packets on the RX
-path, based on the assumption that otherwise packets should get stucked
-anywhere else. Finally some unmap batching to avoid too much TLB flush
-
-v3: Apart from fixing a few things mentioned in responses the important change
-is the use the hypercall directly for grant [un]mapping, therefore we can
-avoid m2p override.
-
-v4: Now we are using a new grant mapping API to avoid m2p_override. The RX queue
-timeout logic changed also.
-
-v5: Only minor fixes based on Wei's comments
-
-v6: Important bugfixes for xenvif_poll exit path and zerocopy callback, see
-first 2 patches. Also rework of handling packets with too many slots, and
-reorder the series a bit.
-
-[1] http://lwn.net/Articles/491522/
-[2] https://lkml.org/lkml/2012/7/20/363
+Storing the pending_idx at the first byte of the linear buffer never looked
+good, skb->cb is a more proper place for this. It also prevents the header to
+be directly grant copied there, and we don't have the pending_idx after we
+copied the header here, so it's time to change it.
 
 Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+---
+ drivers/net/xen-netback/netback.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index e5284bc..5944f87 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -779,7 +779,7 @@ static struct gnttab_copy *xenvif_get_requests(struct xenvif *vif,
+ {
+ 	struct skb_shared_info *shinfo = skb_shinfo(skb);
+ 	skb_frag_t *frags = shinfo->frags;
+-	u16 pending_idx = *((u16 *)skb->data);
++	u16 pending_idx = *((u16 *)skb->cb);
+ 	u16 head_idx = 0;
+ 	int slot, start;
+ 	struct page *page;
+@@ -897,7 +897,7 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
+ 			       struct gnttab_copy **gopp)
+ {
+ 	struct gnttab_copy *gop = *gopp;
+-	u16 pending_idx = *((u16 *)skb->data);
++	u16 pending_idx = *((u16 *)skb->cb);
+ 	struct skb_shared_info *shinfo = skb_shinfo(skb);
+ 	struct pending_tx_info *tx_info;
+ 	int nr_frags = shinfo->nr_frags;
+@@ -944,7 +944,7 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
+ 			continue;
+ 
+ 		/* First error: invalidate header and preceding fragments. */
+-		pending_idx = *((u16 *)skb->data);
++		pending_idx = *((u16 *)skb->cb);
+ 		xenvif_idx_release(vif, pending_idx, XEN_NETIF_RSP_OKAY);
+ 		for (j = start; j < i; j++) {
+ 			pending_idx = frag_get_pending_idx(&shinfo->frags[j]);
+@@ -1236,7 +1236,7 @@ static unsigned xenvif_tx_build_gops(struct xenvif *vif, int budget)
+ 		memcpy(&vif->pending_tx_info[pending_idx].req,
+ 		       &txreq, sizeof(txreq));
+ 		vif->pending_tx_info[pending_idx].head = index;
+-		*((u16 *)skb->data) = pending_idx;
++		*((u16 *)skb->cb) = pending_idx;
+ 
+ 		__skb_put(skb, data_len);
+ 
+@@ -1283,7 +1283,7 @@ static int xenvif_tx_submit(struct xenvif *vif)
+ 		u16 pending_idx;
+ 		unsigned data_len;
+ 
+-		pending_idx = *((u16 *)skb->data);
++		pending_idx = *((u16 *)skb->cb);
+ 		txp = &vif->pending_tx_info[pending_idx].req;
+ 
+ 		/* Check the remap error code. */
