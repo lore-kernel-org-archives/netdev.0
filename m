@@ -1,52 +1,30 @@
-From: "Phoebe Buckheister" <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-Subject: Re: [PATCH net-next v4 1/4] ieee802154: add
- generic header handling routines
-Date: Wed, 5 Mar 2014 02:01:52 +0100
-Message-ID: <0049a78200f573d8acc64aa879d4412c.squirrel@webmail.itwm.fhg.de>
-References: <cc9ba7943aebff9ba87b60778b62f1a8.squirrel@webmail.itwm.fhg.de>
-	<20140304.172025.2034977449200344617.davem@davemloft.net>
-	<a23fcc368f1421286c1115c2365942ce.squirrel@webmail.itwm.fhg.de>
-	<20140304.192309.337489223683931299.davem@davemloft.net>
-Reply-To: phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 -next 2/3] include/linux: update xfrm.h
+Date: Tue, 4 Mar 2014 17:03:29 -0800
+Message-ID: <20140304170329.51de98ab@nehalam.linuxnetplumber.net>
+References: <1393857367-15016-1-git-send-email-nicolas.dichtel@6wind.com>
+	<1393857367-15016-2-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <20140304.192309.337489223683931299.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:52148 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754243AbaCEBDd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 20:03:33 -0500
+Received: by mail-pd0-f173.google.com with SMTP id z10so312200pdj.32
+        for <netdev@vger.kernel.org>; Tue, 04 Mar 2014 17:03:32 -0800 (PST)
+In-Reply-To: <1393857367-15016-2-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> SUre it would, store the addresses in your internal data structures
-> as a __be64 too.  That's what IPV4/IPV6 do, we store addresses and
-> ports in the socket in network byte order.  Comparisons just work.
+On Mon,  3 Mar 2014 15:36:06 +0100
+Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
 
-That's the thing - there are so many different byte orders floating around
-at the moment. Network byte order is little endian. Hardware addresses are
-big endian in the network layer and 6lowpan though, and our sockaddrs are
-host byte order for some parts and big endian for others. It's a real
-mess. The solution in my patch seemed the cleanest option to me.
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> ---
 
-Storing *everything* in network byte order would require a small adaption
-layer at every interaction with userspace to fix byte ordering, but that's
-doable. 6lowpan would have to do an extra byteswap for the address that I
-currently do in the header ops.
-
-I'll change everything that might come in contact with the network to __le
-variants and add explicit swaps where required.
-
-
-------------------------------------------------------------------------------
-Subversion Kills Productivity. Get off Subversion & Make the Move to Perforce.
-With Perforce, you get hassle-free workflows. Merge that actually works. 
-Faster operations. Version large binaries.  Built-in WAN optimization and the
-freedom to use Git, Perforce or both. Make the move to Perforce.
-http://pubads.g.doubleclick.net/gampad/clk?id=122218951&iu=/4140/ostg.clktrk
+Sigh. couldn't you have chosen another variable name.
+As it is new kernel headers with old iproute2 source will break.
