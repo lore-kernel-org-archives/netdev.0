@@ -1,191 +1,101 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v5 net-next 1/3] filter: add Extended BPF interpreter and converter
-Date: Wed, 5 Mar 2014 10:13:41 -0800
-Message-ID: <CAMEtUuxo0A_25ceGLWQOf+X1VeG5=NetaGALrzMAztypwjOBXw@mail.gmail.com>
-References: <1393971437-4129-1-git-send-email-ast@plumgrid.com>
-	<1393971437-4129-2-git-send-email-ast@plumgrid.com>
-	<5316ED4C.9080402@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net_sched: htb: do not acquire qdisc lock in dump
+ operations
+Date: Wed, 05 Mar 2014 10:14:34 -0800
+Message-ID: <1394043274.27473.5.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Hagen Paul Pfeifer <hagen@jauu.net>,
-	Jesse Gross <jesse@nicira.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	Tom Zanussi <tom.zanussi@linux.intel.com>,
-	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Pekka Enberg <penberg@iki.fi>,
-	Arjan van de Ven <arjan@infradead.org>,
-	Christoph Hellwig <hch@infradead.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:53764 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754571AbaCESNm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 13:13:42 -0500
-Received: by mail-wg0-f45.google.com with SMTP id l18so1224191wgh.28
-        for <netdev@vger.kernel.org>; Wed, 05 Mar 2014 10:13:41 -0800 (PST)
-In-Reply-To: <5316ED4C.9080402@redhat.com>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:56497 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750850AbaCESOk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 13:14:40 -0500
+Received: by mail-pa0-f42.google.com with SMTP id fb1so1453824pad.1
+        for <netdev@vger.kernel.org>; Wed, 05 Mar 2014 10:14:40 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 5, 2014 at 1:24 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> On 03/04/2014 11:17 PM, Alexei Starovoitov wrote:
->>
->> Extended BPF extends old BPF in the following ways:
->> - from 2 to 10 registers
->>    Original BPF has two registers (A and X) and hidden frame pointer.
->>    Extended BPF has ten registers and read-only frame pointer.
->> - from 32-bit registers to 64-bit registers
->>    semantics of old 32-bit ALU operations are preserved via 32-bit
->>    subregisters
->> - if (cond) jump_true; else jump_false;
->>    old BPF insns are replaced with:
->>    if (cond) jump_true; /* else fallthrough */
->> - adds signed > and >= insns
->> - 16 4-byte stack slots for register spill-fill replaced with
->>    up to 512 bytes of multi-use stack space
->> - introduces bpf_call insn and register passing convention for zero
->>    overhead calls from/to other kernel functions (not part of this patch)
->> - adds arithmetic right shift insn
->> - adds swab32/swab64 insns
->> - adds atomic_add insn
->> - old tax/txa insns are replaced with 'mov dst,src' insn
->>
->> Extended BPF is designed to be JITed with one to one mapping, which
->> allows GCC/LLVM backends to generate optimized BPF code that performs
->> almost as fast as natively compiled code
->>
->> sk_convert_filter() remaps old style insns into extended:
->> 'sock_filter' instructions are remapped on the fly to
->> 'sock_filter_ext' extended instructions when
->> sysctl net.core.bpf_ext_enable=1
->>
->> Old filter comes through sk_attach_filter() or
->> sk_unattached_filter_create()
->>   if (bpf_ext_enable) {
->>      convert to new
->>      sk_chk_filter() - check old bpf
->>      use sk_run_filter_ext() - new interpreter
->>   } else {
->>      sk_chk_filter() - check old bpf
->>      if (bpf_jit_enable)
->>          use old jit
->>      else
->>          use sk_run_filter() - old interpreter
->>   }
->>
->> sk_run_filter_ext() interpreter is noticeably faster
->> than sk_run_filter() for two reasons:
->>
->> 1.fall-through jumps
->>    Old BPF jump instructions are forced to go either 'true' or 'false'
->>    branch which causes branch-miss penalty.
->>    Extended BPF jump instructions have one branch and fall-through,
->>    which fit CPU branch predictor logic better.
->>    'perf stat' shows drastic difference for branch-misses.
->>
->> 2.jump-threaded implementation of interpreter vs switch statement
->>    Instead of single tablejump at the top of 'switch' statement, GCC will
->>    generate multiple tablejump instructions, which helps CPU branch
->> predictor
->>
->> Performance of two BPF filters generated by libpcap was measured
->> on x86_64, i386 and arm32.
->>
->> fprog #1 is taken from Documentation/networking/filter.txt:
->> tcpdump -i eth0 port 22 -dd
->>
->> fprog #2 is taken from 'man tcpdump':
->> tcpdump -i eth0 'tcp port 22 and (((ip[2:2] - ((ip[0]&0xf)<<2)) -
->>     ((tcp[12]&0xf0)>>2)) != 0)' -dd
->>
->> Other libpcap programs have similar performance differences.
->>
->> Raw performance data from BPF micro-benchmark:
->> SK_RUN_FILTER on same SKB (cache-hit) or 10k SKBs (cache-miss)
->> time in nsec per call, smaller is better
->> --x86_64--
->>           fprog #1  fprog #1   fprog #2  fprog #2
->>           cache-hit cache-miss cache-hit cache-miss
->> old BPF     90       101       192       202
->> ext BPF     31        71       47         97
->> old BPF jit 12        34       17         44
->> ext BPF jit TBD
->>
->> --i386--
->>           fprog #1  fprog #1   fprog #2  fprog #2
->>           cache-hit cache-miss cache-hit cache-miss
->> old BPF    107        136      227       252
->> ext BPF     40        119       69       172
->>
->> --arm32--
->>           fprog #1  fprog #1   fprog #2  fprog #2
->>           cache-hit cache-miss cache-hit cache-miss
->> old BPF    202        300      475       540
->> ext BPF    139        270      296       470
->> old BPF jit 26        182       37       202
->> new BPF jit TBD
->>
->> Tested with trinify BPF fuzzer
->>
->> Future work:
->>
->> 0. seccomp
->>
->> 1. add extended BPF JIT for x86_64
->>
->> 2. add inband old/new demux and extended BPF verifier, so that new
->> programs
->>     can be loaded through old sk_attach_filter() and
->> sk_unattached_filter_create()
->>     interfaces
->>
->> 3. tracing filters systemtap-like with extended BPF
->>
->> 4. OVS with extended BPF
->>
->> 5. nftables with extended BPF
->>
->> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
->> Acked-by: Hagen Paul Pfeifer <hagen@jauu.net>
->
->
-> From what I can tell, looks good to me:
->
-> Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
+From: Eric Dumazet <edumazet@google.com>
 
-Thanks!
+htb_dump() and htb_dump_class() do not strictly need to acquire
+qdisc lock to fetch qdisc and/or class parameters.
 
-> So next step would be to add selftests and then after that JIT?
+We hold RTNL and no changes can occur.
 
-yes. that's the plan.
-Will probably split selftest into few patches to simplify review.
+This reduces by 50% qdisc lock pressure while doing tc qdisc|class dump
+operations.
 
-JIT should go into the existing bpf_jit_comp.c and call it
-bpf_ext_jit_compile(), right?
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+Google-Bug-Id: 13305844
 
->> +#undef LOAD_IMM
->> +}
->> +EXPORT_SYMBOL(sk_run_filter_ext);
->> +
->
->
-> One minor thing I noticed when I git-am'ed your patch is the newline at
-> the end of file, but perhaps this can be fixed up in directly patchwork.
+ net/sched/sch_htb.c |   20 ++++++++------------
+ 1 file changed, 8 insertions(+), 12 deletions(-)
 
-oops. Too bad checkpatch.pl didn't complain about that... will address
-in the future.
-
-Thanks!
-Alexei
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 722e137df244..9f949abcacef 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1062,12 +1062,13 @@ static int htb_init(struct Qdisc *sch, struct nlattr *opt)
+ 
+ static int htb_dump(struct Qdisc *sch, struct sk_buff *skb)
+ {
+-	spinlock_t *root_lock = qdisc_root_sleeping_lock(sch);
+ 	struct htb_sched *q = qdisc_priv(sch);
+ 	struct nlattr *nest;
+ 	struct tc_htb_glob gopt;
+ 
+-	spin_lock_bh(root_lock);
++	/* Its safe to not acquire qdisc lock. As we hold RTNL,
++	 * no change can happen on the qdisc parameters.
++	 */
+ 
+ 	gopt.direct_pkts = q->direct_pkts;
+ 	gopt.version = HTB_VER;
+@@ -1081,13 +1082,10 @@ static int htb_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	if (nla_put(skb, TCA_HTB_INIT, sizeof(gopt), &gopt) ||
+ 	    nla_put_u32(skb, TCA_HTB_DIRECT_QLEN, q->direct_qlen))
+ 		goto nla_put_failure;
+-	nla_nest_end(skb, nest);
+ 
+-	spin_unlock_bh(root_lock);
+-	return skb->len;
++	return nla_nest_end(skb, nest);
+ 
+ nla_put_failure:
+-	spin_unlock_bh(root_lock);
+ 	nla_nest_cancel(skb, nest);
+ 	return -1;
+ }
+@@ -1096,11 +1094,12 @@ static int htb_dump_class(struct Qdisc *sch, unsigned long arg,
+ 			  struct sk_buff *skb, struct tcmsg *tcm)
+ {
+ 	struct htb_class *cl = (struct htb_class *)arg;
+-	spinlock_t *root_lock = qdisc_root_sleeping_lock(sch);
+ 	struct nlattr *nest;
+ 	struct tc_htb_opt opt;
+ 
+-	spin_lock_bh(root_lock);
++	/* Its safe to not acquire qdisc lock. As we hold RTNL,
++	 * no change can happen on the class parameters.
++	 */
+ 	tcm->tcm_parent = cl->parent ? cl->parent->common.classid : TC_H_ROOT;
+ 	tcm->tcm_handle = cl->common.classid;
+ 	if (!cl->level && cl->un.leaf.q)
+@@ -1128,12 +1127,9 @@ static int htb_dump_class(struct Qdisc *sch, unsigned long arg,
+ 	    nla_put_u64(skb, TCA_HTB_CEIL64, cl->ceil.rate_bytes_ps))
+ 		goto nla_put_failure;
+ 
+-	nla_nest_end(skb, nest);
+-	spin_unlock_bh(root_lock);
+-	return skb->len;
++	return nla_nest_end(skb, nest);
+ 
+ nla_put_failure:
+-	spin_unlock_bh(root_lock);
+ 	nla_nest_cancel(skb, nest);
+ 	return -1;
+ }
