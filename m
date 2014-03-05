@@ -1,39 +1,46 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [PATCH net-next] sfc: Use ether_addr_copy and eth_broadcast_addr
-Date: Wed, 5 Mar 2014 11:48:05 +0000
-Message-ID: <53170EF5.1030809@solarflare.com>
-References: <alpine.LFD.2.03.1403041449370.13034@solarflare.com> <20140304.153653.263004778768283059.davem@davemloft.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH 0/2] af_key: fixes for sleeping while atomic
+Date: Wed, 5 Mar 2014 13:07:01 +0100
+Message-ID: <20140305120701.GQ32371@secunet.com>
+References: <20140227151954.GA30946@redhat.com>
+ <1393935984-8733-1-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <sshah@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, Paul Moore <paul@paul-moore.com>,
+	Dave Jones <davej@redhat.com>, Fan Du <fan.du@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:39334 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755203AbaCELsK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 06:48:10 -0500
-In-Reply-To: <20140304.153653.263004778768283059.davem@davemloft.net>
+Received: from a.mx.secunet.com ([195.81.216.161]:52453 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756790AbaCEMHF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Mar 2014 07:07:05 -0500
+Content-Disposition: inline
+In-Reply-To: <1393935984-8733-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/03/14 20:36, David Miller wrote:
->> diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
->> index 3b39798..de0c815 100644
->> --- a/drivers/net/ethernet/sfc/ef10.c
->> +++ b/drivers/net/ethernet/sfc/ef10.c
->> @@ -162,8 +162,8 @@ static int efx_ef10_get_mac_address(struct efx_nic *efx, u8 *mac_address)
->>  	if (outlen < MC_CMD_GET_MAC_ADDRESSES_OUT_LEN)
->>  		return -EIO;
->>  
->> -	memcpy(mac_address,
->> -	       MCDI_PTR(outbuf, GET_MAC_ADDRESSES_OUT_MAC_ADDR_BASE), ETH_ALEN);
->> +	ether_addr_copy(mac_address,
->> +	       MCDI_PTR(outbuf, GET_MAC_ADDRESSES_OUT_MAC_ADDR_BASE));
-> This is not indented correctly, the original code was.
-Oops, yes.
-After fixing that, checkpatch also complains about a couple of long
-lines (mcdi.c:1207-8).  Am I right in thinking that it's being
-overzealous and is best ignored in this case?  Alternatively I suppose
-the expression starting 'port_num ? ' could go in a local variable;
-would that be clearer?
+On Tue, Mar 04, 2014 at 01:26:22PM +0100, Nikolay Aleksandrov wrote:
+> Hi,
+> The first patch takes care of the issue on the af_key side, and the second
+> one fixes it on the selinux side (security_xfrm_policy_alloc).
+> There're a few lines >80 but they were already long, I'm not sure if breaking
+> them above the limit would make them more readable than they already are.
+> 
+> Best regards,
+>  Nikolay Aleksandrov
+> 
+> CC: Paul Moore <paul@paul-moore.com>
+> CC: Dave Jones <davej@redhat.com>
+> CC: Steffen Klassert <steffen.klassert@secunet.com>
+> CC: Fan Du <fan.du@windriver.com>
+> CC: David S. Miller <davem@davemloft.net>
+> 
+> Nikolay Aleksandrov (2):
+>   net: af_key: fix sleeping under rcu
+>   selinux: add gfp argument to security_xfrm_policy_alloc and fix
+>     callers
+> 
+
+Looks ok. I'd take both patches into the ipsec tree, but I want to see
+an ack from Paul because this touches IPsec and selinux code.
