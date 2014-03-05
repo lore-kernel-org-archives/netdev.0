@@ -1,139 +1,191 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC][PATCH] audit: Simplify by assuming the callers socket buffer is large enough
-Date: Wed, 05 Mar 2014 10:06:23 -0800
-Message-ID: <87wqg8zfj4.fsf@xmission.com>
-References: <20140304133004.b565820f60f595a48e621e58@linux-foundation.org>
-	<87mwh5d1tf.fsf@xmission.com>
-	<20140304.192152.1234652192226780071.davem@davemloft.net>
-	<7457128.6VP2v68V93@x2>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v5 net-next 1/3] filter: add Extended BPF interpreter and converter
+Date: Wed, 5 Mar 2014 10:13:41 -0800
+Message-ID: <CAMEtUuxo0A_25ceGLWQOf+X1VeG5=NetaGALrzMAztypwjOBXw@mail.gmail.com>
+References: <1393971437-4129-1-git-send-email-ast@plumgrid.com>
+	<1393971437-4129-2-git-send-email-ast@plumgrid.com>
+	<5316ED4C.9080402@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-audit@redhat.com, David Miller <davem@davemloft.net>,
-	rgb@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, akpm@linux-foundation.org
-To: Steve Grubb <sgrubb@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7457128.6VP2v68V93@x2> (Steve Grubb's message of "Wed, 05 Mar
-	2014 11:59:01 -0500")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	Jesse Gross <jesse@nicira.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	Tom Zanussi <tom.zanussi@linux.intel.com>,
+	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Pekka Enberg <penberg@iki.fi>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:53764 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754571AbaCESNm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 13:13:42 -0500
+Received: by mail-wg0-f45.google.com with SMTP id l18so1224191wgh.28
+        for <netdev@vger.kernel.org>; Wed, 05 Mar 2014 10:13:41 -0800 (PST)
+In-Reply-To: <5316ED4C.9080402@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Steve Grubb <sgrubb@redhat.com> writes:
-
-> On Tuesday, March 04, 2014 07:21:52 PM David Miller wrote:
->> From: ebiederm@xmission.com (Eric W. Biederman)
->> Date: Tue, 04 Mar 2014 14:41:16 -0800
->> 
->> > If we really want the ability to always appened to the queue of skb's
->> > is to just have a version of netlink_send_skb that ignores the queued
->> > limits.  Of course an evil program then could force the generation of
->> > enough audit records to DOS the kernel, but we seem to be in that
->> > situation now.  Shrug.
->> 
->> There is never a valid reason to bypass the socket limits.
->> 
->> It protects the system from things going out of control.
->> 
->> Netlink packet sends can fail, and audit should cope with that
->> event instead of trying to bludgeon it into not happening.
+On Wed, Mar 5, 2014 at 1:24 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> On 03/04/2014 11:17 PM, Alexei Starovoitov wrote:
+>>
+>> Extended BPF extends old BPF in the following ways:
+>> - from 2 to 10 registers
+>>    Original BPF has two registers (A and X) and hidden frame pointer.
+>>    Extended BPF has ten registers and read-only frame pointer.
+>> - from 32-bit registers to 64-bit registers
+>>    semantics of old 32-bit ALU operations are preserved via 32-bit
+>>    subregisters
+>> - if (cond) jump_true; else jump_false;
+>>    old BPF insns are replaced with:
+>>    if (cond) jump_true; /* else fallthrough */
+>> - adds signed > and >= insns
+>> - 16 4-byte stack slots for register spill-fill replaced with
+>>    up to 512 bytes of multi-use stack space
+>> - introduces bpf_call insn and register passing convention for zero
+>>    overhead calls from/to other kernel functions (not part of this patch)
+>> - adds arithmetic right shift insn
+>> - adds swab32/swab64 insns
+>> - adds atomic_add insn
+>> - old tax/txa insns are replaced with 'mov dst,src' insn
+>>
+>> Extended BPF is designed to be JITed with one to one mapping, which
+>> allows GCC/LLVM backends to generate optimized BPF code that performs
+>> almost as fast as natively compiled code
+>>
+>> sk_convert_filter() remaps old style insns into extended:
+>> 'sock_filter' instructions are remapped on the fly to
+>> 'sock_filter_ext' extended instructions when
+>> sysctl net.core.bpf_ext_enable=1
+>>
+>> Old filter comes through sk_attach_filter() or
+>> sk_unattached_filter_create()
+>>   if (bpf_ext_enable) {
+>>      convert to new
+>>      sk_chk_filter() - check old bpf
+>>      use sk_run_filter_ext() - new interpreter
+>>   } else {
+>>      sk_chk_filter() - check old bpf
+>>      if (bpf_jit_enable)
+>>          use old jit
+>>      else
+>>          use sk_run_filter() - old interpreter
+>>   }
+>>
+>> sk_run_filter_ext() interpreter is noticeably faster
+>> than sk_run_filter() for two reasons:
+>>
+>> 1.fall-through jumps
+>>    Old BPF jump instructions are forced to go either 'true' or 'false'
+>>    branch which causes branch-miss penalty.
+>>    Extended BPF jump instructions have one branch and fall-through,
+>>    which fit CPU branch predictor logic better.
+>>    'perf stat' shows drastic difference for branch-misses.
+>>
+>> 2.jump-threaded implementation of interpreter vs switch statement
+>>    Instead of single tablejump at the top of 'switch' statement, GCC will
+>>    generate multiple tablejump instructions, which helps CPU branch
+>> predictor
+>>
+>> Performance of two BPF filters generated by libpcap was measured
+>> on x86_64, i386 and arm32.
+>>
+>> fprog #1 is taken from Documentation/networking/filter.txt:
+>> tcpdump -i eth0 port 22 -dd
+>>
+>> fprog #2 is taken from 'man tcpdump':
+>> tcpdump -i eth0 'tcp port 22 and (((ip[2:2] - ((ip[0]&0xf)<<2)) -
+>>     ((tcp[12]&0xf0)>>2)) != 0)' -dd
+>>
+>> Other libpcap programs have similar performance differences.
+>>
+>> Raw performance data from BPF micro-benchmark:
+>> SK_RUN_FILTER on same SKB (cache-hit) or 10k SKBs (cache-miss)
+>> time in nsec per call, smaller is better
+>> --x86_64--
+>>           fprog #1  fprog #1   fprog #2  fprog #2
+>>           cache-hit cache-miss cache-hit cache-miss
+>> old BPF     90       101       192       202
+>> ext BPF     31        71       47         97
+>> old BPF jit 12        34       17         44
+>> ext BPF jit TBD
+>>
+>> --i386--
+>>           fprog #1  fprog #1   fprog #2  fprog #2
+>>           cache-hit cache-miss cache-hit cache-miss
+>> old BPF    107        136      227       252
+>> ext BPF     40        119       69       172
+>>
+>> --arm32--
+>>           fprog #1  fprog #1   fprog #2  fprog #2
+>>           cache-hit cache-miss cache-hit cache-miss
+>> old BPF    202        300      475       540
+>> ext BPF    139        270      296       470
+>> old BPF jit 26        182       37       202
+>> new BPF jit TBD
+>>
+>> Tested with trinify BPF fuzzer
+>>
+>> Future work:
+>>
+>> 0. seccomp
+>>
+>> 1. add extended BPF JIT for x86_64
+>>
+>> 2. add inband old/new demux and extended BPF verifier, so that new
+>> programs
+>>     can be loaded through old sk_attach_filter() and
+>> sk_unattached_filter_create()
+>>     interfaces
+>>
+>> 3. tracing filters systemtap-like with extended BPF
+>>
+>> 4. OVS with extended BPF
+>>
+>> 5. nftables with extended BPF
+>>
+>> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+>> Acked-by: Hagen Paul Pfeifer <hagen@jauu.net>
 >
-> I am not sure what exactly is the problem with the code that was being 
-> patched. The audit code has been stable and working pretty well for everyone 
-> for the last 5-6 years. But lately there has been a lot of kernel code churn 
-> and I am concerned that the changes are being made without a complete 
-> understanding of the design goals.
-
-The problem is that the audit code in the kernel is not using netlink
-correctly and which leads to mistakes when the code is updated because
-the code in the kernel is unnecessarily complex, and inefficient.
-
-> The audit system has to be very reliable. It can't lose any event or record. 
-> The people that really depend on it would rather have access denied to the 
-> system than lose any event. This is the reason it goes to such
-> lengths.
-
-But the designers of the code didn't really go to any lengths at all.
-There are enormous and cumbersome hacks to avoid fixing the kernel
-interfaces to do what audit wants to use the kernel interfaces for.
-That is the audit code for transmitting replies is stupid and is causing
-serious maintenance issues, by growing hacks upon hacks instead of
-dealing with the core issues.
-
-The first approximation of what you want should have been be to set the
-netlink socket recvbuf to as large as the can be:
-setsockopt(sk, SOL_SOCKET, SO_RCVBUFFORCE, INTMAX);
-
-If/when 2GiB is shown to be not enough people should should have worked
-on the netlink layer to allow even larger piles of audit messages to be
-in flight, assuming you really do want to bring down the system when the
-audit client is just too slow.
-
-> If I understand the patch, it looks like its affecting code that adds, deletes, 
-> or lists audit rules. This code is quite old and working well. It didn't at 
-> first. We found a lot of problems by writing scripts like:
-
-Working well does not mean implemented well, and for a security feature
-not implemented well means broken.  And frankly since I can't see a
-single setsockopt to set the received buffer size for audit netlink
-sockets I have to stronlgy suspect that people were working around
-userpsace bugs with stupid kernel code.
-
-> #!/bin/bash
-> while [ 1 ] ;
-> do
->         echo "Inserting syscalls..."
->         sys=1
->         while [ $sys -lt 100 ]
->         do
->                 sys=`expr $sys + 1`
->                 echo "$sys"
->                 auditctl -a entry,always -S $sys
->         done
 >
->         echo "Listing..."
->         auditctl -l
->         echo "Deleting..."
->         auditctl -D
-> done
+> From what I can tell, looks good to me:
 >
-> with another shell running:
->
-> #!/bin/bash
-> while [ 1 ] ; 
-> do
-> 	echo "Listing..."
-> 	auditctl -l
-> done
->
-> and another shell running:
->
-> #!/bin/bash
-> while [ 1 ] ; 
-> do
-> 	echo "Disabling..."
-> 	auditctl -e 0
-> 	echo "Enabling..."
-> 	auditctl -e 1
-> done
->
-> You can probably imagine more stress tests. But the proposed code should be 
-> well tested similar to this.
+> Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
 
-Honestly since no one cares enough to maintain the kernel code properly
-I really think we should just rip audit out instead trying to present
-userspace with the delusion that the code works, and will continue to
-work properly.
+Thanks!
 
-My apologies for being grumpy.  I have no intention of breaking
-userspace (which is why my last patch was an rfc) but at the same time
-I care absolutely nothing about audit.  It solves none of my problems
-and works at all of the wrong layers to be interesting for me.
+> So next step would be to add selftests and then after that JIT?
 
-I just happened to notice that the code has been broken since 3.14-rc1
-and no one understands or cares enough about audit to even accept
-trivial kernel patches to fix the bugs.  No offense but I am not
-interested in testing code I care nothing about, especially when there
-is no one to pick up the patches.  My RFC patch was supposed to be a
-word to the wise.
+yes. that's the plan.
+Will probably split selftest into few patches to simplify review.
 
-Eric
+JIT should go into the existing bpf_jit_comp.c and call it
+bpf_ext_jit_compile(), right?
+
+>> +#undef LOAD_IMM
+>> +}
+>> +EXPORT_SYMBOL(sk_run_filter_ext);
+>> +
+>
+>
+> One minor thing I noticed when I git-am'ed your patch is the newline at
+> the end of file, but perhaps this can be fixed up in directly patchwork.
+
+oops. Too bad checkpatch.pl didn't complain about that... will address
+in the future.
+
+Thanks!
+Alexei
