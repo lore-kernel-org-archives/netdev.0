@@ -1,58 +1,61 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH (net.git) 2/4] stmmac: fix and better tune the default
- buffer sizes
-Date: Wed, 5 Mar 2014 11:26:10 +0100
-Message-ID: <5316FBC2.6060501@st.com>
-References: <1393497340-8013-1-git-send-email-peppe.cavallaro@st.com> <1393497340-8013-3-git-send-email-peppe.cavallaro@st.com> <063D6719AE5E284EB5DD2968C1650D6D0F6CC945@AcuExch.aculab.com> <530F3784.5050304@st.com> <063D6719AE5E284EB5DD2968C1650D6D0F6CCBB2@AcuExch.aculab.com> <530F4389.8060309@st.com> <53157ED1.2010505@st.com> <063D6719AE5E284EB5DD2968C1650D6D0F6D14A3@AcuExch.aculab.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next V2 0/2] net: Affinity hint helper function
+Date: Wed,  5 Mar 2014 12:09:17 +0200
+Message-ID: <1394014159-18801-1-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: David Laight <David.Laight@ACULAB.COM>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:38662 "EHLO
-	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752331AbaCEK0V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 05:26:21 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6D14A3@AcuExch.aculab.com>
+Received: from mailp.voltaire.com ([193.47.165.129]:43063 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751459AbaCEK1b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Mar 2014 05:27:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/5/2014 10:33 AM, David Laight wrote:
-> From: Giuseppe CAVALLARO
->> Hello David
->>
->> Sorry, can you tell me what is the final your opinion about
->> this patch?
->>
->> I think that it not good to keep 4KiB as default and your main concern
->> was about the default buffer size that depended on VLAN ifconfig.
->>
->> So I could adopt 1536bytes as default and remove ifdef.
->
-> If the rx buffer size has to match the mtu then the minimum
-> size needs to be that for non-vlan packets.
->
-> OTOH if the rx buffer size only has to be 'long enough' and
-> a frame length check is done in software then you can always
-> use the vlan length and save reconfig is someone enables vlans.
+Hi,
 
-yes this is what I wanted to have.
+This patchset will set affinity hint to influence IRQs to be allocated on the
+same NUMA node as the one where the card resides. As discussed in
+http://www.spinics.net/lists/netdev/msg271497.html
 
-> My real concern was that you were setting the minimum buffer
-> size based on a vlan config option - which really didn't seem
-> right at all.
+If number of IRQs allocated is greater than the number of local NUMA cores, all
+local cores will be used first, and the rest of the IRQs will be on a remote
+NUMA node.
+If no NUMA support - IRQ's and cores will be mapped 1:1
 
-ok, so I'll re-send a patch using as default 1536 and w/o surrounding
-the code with ifdef (vlan).
+The patch was tested and applied on top of commit 750f679 "Merge branch '6lowpan'"
 
-thx
-peppe
+Amir
 
->
-> 	David
->
->
->
->
->
+Changes from V1:
+- Patch 1/2: net: Utility function to get affinity_hint by policy
+  - Fixed error flow to return -EINVAL on error (thanks govind)
+- Patch 2/2: net/mlx4_en: Use affinity hint
+  - Set ring->affinity_hint to NULL on error
+
+Changes from V0:
+- Fixed small style issues
+
+Amir Vadai (1):
+  net: Utility function to get affinity_hint by policy
+
+Yuval Atias (1):
+  net/mlx4_en: Use affinity hint
+
+ drivers/infiniband/hw/mlx4/main.c              |  2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_cq.c     |  6 ++-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 30 ++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/eq.c        | 14 ++++++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |  1 +
+ include/linux/mlx4/device.h                    |  2 +-
+ include/linux/netdevice.h                      |  3 ++
+ net/core/dev.c                                 | 56 ++++++++++++++++++++++++++
+ 8 files changed, 110 insertions(+), 4 deletions(-)
+
+-- 
+1.8.3.4
