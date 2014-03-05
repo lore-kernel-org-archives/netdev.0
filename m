@@ -1,43 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netpoll: Don't call driver methods from interrupt
- context.
-Date: Tue, 04 Mar 2014 19:26:16 -0500 (EST)
-Message-ID: <20140304.192616.918758436987378525.davem@davemloft.net>
-References: <874n3fow2i.fsf@xmission.com>
-	<20140304.160825.893718566461536483.davem@davemloft.net>
-	<87d2i17bq8.fsf@xmission.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Subject: [PATCH] phy: fix compiler array bounds warning on settings[]
+Date: Tue, 04 Mar 2014 17:35:44 -0700
+Message-ID: <20140305003544.23016.55079.stgit@bhelgaas-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com, mpm@selenic.com,
-	satyam.sharma@gmail.com
-To: ebiederm@xmission.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38948 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756241AbaCEA0S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 19:26:18 -0500
-In-Reply-To: <87d2i17bq8.fsf@xmission.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Tue, 04 Mar 2014 16:03:43 -0800
+With -Werror=array-bounds, gcc v4.7.x warns that in phy_find_valid(), the
+settings[] "array subscript is above array bounds", I think because idx is
+a signed integer and if the caller supplied idx < 0, we pass the guard but
+still reference out of bounds.
 
-> So I would like some clear guidance.  Will you accept patches to make
-> it safe to call the napi poll routines from hard irq context, or should
-> we simply defer messages prented with netconsole in hard irq context
-> into another context where we can run the napi code?
-> 
-> If there is not a clear way to fix the problems that crop up we should
-> just delete all of the netpoll code altogether, as it seems deadly in
-> it's current form.
+Fix this by making idx unsigned here and elsewhere.
 
-Clearly to make netconsole most useful we should synchronously emit
-log messages.
+Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+---
+ drivers/net/phy/phy.c |   11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-Because what if the system hangs right after this event, but before
-we get back to a "safe" context.
-
-That's one bug that will be a billion times harder to diagnose if
-we defer.
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 19c9eca0ef26..76d96b9ebcdb 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -164,9 +164,9 @@ static const struct phy_setting settings[] = {
+  *   of that setting.  Returns the index of the last setting if
+  *   none of the others match.
+  */
+-static inline int phy_find_setting(int speed, int duplex)
++static inline unsigned int phy_find_setting(int speed, int duplex)
+ {
+-	int idx = 0;
++	unsigned int idx = 0;
+ 
+ 	while (idx < ARRAY_SIZE(settings) &&
+ 	       (settings[idx].speed != speed || settings[idx].duplex != duplex))
+@@ -185,7 +185,7 @@ static inline int phy_find_setting(int speed, int duplex)
+  *   the mask in features.  Returns the index of the last setting
+  *   if nothing else matches.
+  */
+-static inline int phy_find_valid(int idx, u32 features)
++static inline unsigned int phy_find_valid(unsigned int idx, u32 features)
+ {
+ 	while (idx < MAX_NUM_SETTINGS && !(settings[idx].setting & features))
+ 		idx++;
+@@ -204,7 +204,7 @@ static inline int phy_find_valid(int idx, u32 features)
+ static void phy_sanitize_settings(struct phy_device *phydev)
+ {
+ 	u32 features = phydev->supported;
+-	int idx;
++	unsigned int idx;
+ 
+ 	/* Sanitize settings based on PHY capabilities */
+ 	if ((features & SUPPORTED_Autoneg) == 0)
+@@ -954,7 +954,8 @@ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
+ 	    (phydev->interface == PHY_INTERFACE_MODE_RGMII))) {
+ 		int eee_lp, eee_cap, eee_adv;
+ 		u32 lp, cap, adv;
+-		int idx, status;
++		int status;
++		unsigned int idx;
+ 
+ 		/* Read phy status to properly get the right settings */
+ 		status = phy_read_status(phydev);
