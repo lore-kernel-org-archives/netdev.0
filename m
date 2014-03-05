@@ -1,38 +1,43 @@
-From: Michael Chan <mchan@broadcom.com>
-Subject: Re: sblk->status_tag on drivers/net/ethernet/broadcom/tg3.c
-Date: Tue, 4 Mar 2014 20:12:18 -0800
-Message-ID: <1393992738.4632.15.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <CAD6G_RQVD7=v7b6S-muiZBYV7PEykTHOTM23i-BL=wcA5z=4Qg@mail.gmail.com>
-	 <CAD6G_RQ130TunwZDL+8vwx__8NsfzE0AfcfnS7z5OXtZF5T8xQ@mail.gmail.com>
-	 <1393975344.4632.10.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	 <CAD6G_RTVVb2qdU43PqKm3BAD2-pvVcs_O=Wck2SCBhRRV-d+Lw@mail.gmail.com>
+From: Hariprasad S <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCHv3 net-next 00/31] Misc. fixes for cxgb4 and iw_cxgb4
+Date: Wed, 5 Mar 2014 11:00:25 +0530
+Message-ID: <20140305053024.GA23862@hariprasad-pc>
+References: <1393936917-25847-1-git-send-email-hariprasad@chelsio.com>
+ <20140304.132226.75524344104026791.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="cp1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	Nithin Nayak Sujir <nsujir@broadcom.com>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <robh+dt@kernel.org>,
-	Bjorn Helgaas <bhelgaas@google.com>
-To: Jagan Teki <jagannadh.teki@gmail.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <CAD6G_RTVVb2qdU43PqKm3BAD2-pvVcs_O=Wck2SCBhRRV-d+Lw@mail.gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>, <kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
+	<swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>, <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
+	<santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20140304.132226.75524344104026791.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-03-05 at 09:33 +0530, Jagan Teki wrote:
-> The driver is not seeing the status block mean - tg3.c driver?
+On Tue, Mar 04, 2014 at 13:22:26 -0500, David Miller wrote:
+> 
+> BTW, if you're frustrated from having to send these patches so many
+> times because of changes being requested, this is the main reason
+> why you shouldn't queue up such enormous numbers of patches at one
+> time.
+> 
+> Please try to keep your future submissions sizes more reasonable,
+> perhaps ~10 patches or so at most.
+> 
+> Thanks.
 
-Yes, tg3 driver.  All IRQ events (link change, rx, tx) are in status
-block.  If tg3 does not see the correct bits and indexes in the status
-block, it won't know what to do.  In this case, it doesn't see the link
-change bit in status block (I suspect), so it is not acknowledging and
-clearing the link change event.  Status block is DMA'ed from the NIC to
-memory.
+Sure, thanks for the suggestion.
+I will just re-post the revert patch on cxgb4 now, part of this series, which is 
+causing regression.
+And, I will split the rest of patch-series into 8-10 patches and re-submit.
 
-> Does it relates to ISR or addressing of PCIe RC driver, I'm doing
-> nothing on my PCIe RC driver just read the legacy INT# status and
-> return.
 
-RC stands for what?  Root Complex?  I don't know what an RC driver does.
+Thanks for the review comments!
+-Hari.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
