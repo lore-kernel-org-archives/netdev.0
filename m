@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC v2 06/12] vti6: Remove dst_entry caching
-Date: Wed, 5 Mar 2014 13:41:10 +0100
-Message-ID: <1394023276-2591-7-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH RFC v2 01/12] xfrm: Introduce xfrm_input_afinfo to access the the callbacks properly
+Date: Wed, 5 Mar 2014 13:41:05 +0100
+Message-ID: <1394023276-2591-2-git-send-email-steffen.klassert@secunet.com>
 References: <1394023276-2591-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,108 +9,208 @@ Cc: Steffen Klassert <steffen.klassert@secunet.com>,
 	Christophe Gouault <christophe.gouault@6wind.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:53180 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:53170 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752623AbaCEMla (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Mar 2014 07:41:30 -0500
+	id S1752623AbaCEMl1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Mar 2014 07:41:27 -0500
 In-Reply-To: <1394023276-2591-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Unlike ip6_tunnel, vti6 can lookup multiple different dst entries,
-dependent of the configured xfrm states. Therefore it does not make
-sense to cache a dst_entry.
+IPv6 can be build as a module, so we need mechanism to access
+the address family dependent callback functions properly.
+Therefore we introduce xfrm_input_afinfo, similar to that
+what we have for the address family dependent part of
+policies and states.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/ipv6/ip6_vti.c |   42 ++++++++++++++++++------------------------
- 1 file changed, 18 insertions(+), 24 deletions(-)
+ include/net/xfrm.h        |   23 +++++++-------
+ net/ipv4/xfrm4_policy.c   |    1 +
+ net/ipv4/xfrm4_protocol.c |   13 +++++++-
+ net/xfrm/xfrm_input.c     |   75 +++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 99 insertions(+), 13 deletions(-)
 
-diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-index 8649143..f5ba4d4 100644
---- a/net/ipv6/ip6_vti.c
-+++ b/net/ipv6/ip6_vti.c
-@@ -278,7 +278,6 @@ static void vti6_dev_uninit(struct net_device *dev)
- 		RCU_INIT_POINTER(ip6n->tnls_wc[0], NULL);
- 	else
- 		vti6_tnl_unlink(ip6n, t);
--	ip6_tnl_dst_reset(t);
- 	dev_put(dev);
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 8b92528..4cdc9fa 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -349,6 +349,16 @@ int xfrm_state_unregister_afinfo(struct xfrm_state_afinfo *afinfo);
+ struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned int family);
+ void xfrm_state_put_afinfo(struct xfrm_state_afinfo *afinfo);
+ 
++struct xfrm_input_afinfo {
++	unsigned int		family;
++	struct module		*owner;
++	int			(*callback)(struct sk_buff *skb, u8 protocol,
++					    int err);
++};
++
++int xfrm_input_register_afinfo(struct xfrm_input_afinfo *afinfo);
++int xfrm_input_unregister_afinfo(struct xfrm_input_afinfo *afinfo);
++
+ void xfrm_state_delete_tunnel(struct xfrm_state *x);
+ 
+ struct xfrm_type {
+@@ -1392,6 +1402,7 @@ void xfrm4_init(void);
+ int xfrm_state_init(struct net *net);
+ void xfrm_state_fini(struct net *net);
+ void xfrm4_state_init(void);
++void xfrm4_protocol_init(void);
+ #ifdef CONFIG_XFRM
+ int xfrm6_init(void);
+ void xfrm6_fini(void);
+@@ -1773,18 +1784,6 @@ static inline int xfrm_mark_put(struct sk_buff *skb, const struct xfrm_mark *m)
+ 	return ret;
  }
  
-@@ -356,11 +355,10 @@ vti6_addr_conflict(const struct ip6_tnl *t, const struct ipv6hdr *hdr)
-  **/
- static int vti6_xmit(struct sk_buff *skb, struct net_device *dev)
- {
--	struct net *net = dev_net(dev);
- 	struct ip6_tnl *t = netdev_priv(dev);
- 	struct net_device_stats *stats = &t->dev->stats;
--	struct dst_entry *dst = NULL, *ndst = NULL;
--	struct flowi6 fl6;
-+	struct dst_entry *dst = skb_dst(skb);
-+	struct flowi fl;
- 	struct ipv6hdr *ipv6h = ipv6_hdr(skb);
- 	struct net_device *tdev;
- 	int err = -1;
-@@ -369,21 +367,19 @@ static int vti6_xmit(struct sk_buff *skb, struct net_device *dev)
- 	    !ip6_tnl_xmit_ctl(t) || vti6_addr_conflict(t, ipv6h))
- 		return err;
- 
--	dst = ip6_tnl_dst_check(t);
--	if (!dst) {
--		memcpy(&fl6, &t->fl.u.ip6, sizeof(fl6));
-+	memset(&fl, 0, sizeof(fl));
-+	skb->mark = be32_to_cpu(t->parms.o_key);
-+	xfrm_decode_session(skb, &fl, AF_INET6);
- 
--		ndst = ip6_route_output(net, NULL, &fl6);
-+	if (!dst)
-+		goto tx_err_link_failure;
- 
--		if (ndst->error)
--			goto tx_err_link_failure;
--		ndst = xfrm_lookup(net, ndst, flowi6_to_flowi(&fl6), NULL, 0);
--		if (IS_ERR(ndst)) {
--			err = PTR_ERR(ndst);
--			ndst = NULL;
--			goto tx_err_link_failure;
--		}
--		dst = ndst;
-+	dst_hold(dst);
-+	dst = xfrm_lookup(t->net, dst, &fl, NULL, 0);
-+	if (IS_ERR(dst)) {
-+		err = PTR_ERR(dst);
-+		dst = NULL;
-+		goto tx_err_link_failure;
- 	}
- 
- 	if (!dst->xfrm || dst->xfrm->props.mode != XFRM_MODE_TUNNEL)
-@@ -399,21 +395,19 @@ static int vti6_xmit(struct sk_buff *skb, struct net_device *dev)
- 	}
- 
- 
--	skb_dst_drop(skb);
--	skb_dst_set_noref(skb, dst);
-+	memset(IP6CB(skb), 0, sizeof(*IP6CB(skb)));
-+	skb_scrub_packet(skb, !net_eq(t->net, dev_net(dev)));
-+	skb_dst_set(skb, dst);
-+	skb->dev = skb_dst(skb)->dev;
- 
- 	ip6tunnel_xmit(skb, dev);
--	if (ndst) {
--		dev->mtu = dst_mtu(ndst);
--		ip6_tnl_dst_store(t, ndst);
+-static inline int xfrm_rcv_cb(struct sk_buff *skb, unsigned int family,
+-			      u8 protocol, int err)
+-{
+-	switch(family) {
+-#ifdef CONFIG_INET
+-	case AF_INET:
+-		return xfrm4_rcv_cb(skb, protocol, err);
+-#endif
 -	}
+-	return 0;
+-}
+-
+ static inline int xfrm_tunnel_check(struct sk_buff *skb, struct xfrm_state *x,
+ 				    unsigned int family)
+ {
+diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+index e1a6393..6156f68 100644
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -325,6 +325,7 @@ void __init xfrm4_init(void)
  
- 	return 0;
- tx_err_link_failure:
- 	stats->tx_carrier_errors++;
- 	dst_link_failure(skb);
- tx_err_dst_release:
--	dst_release(ndst);
-+	dst_release(dst);
- 	return err;
+ 	xfrm4_state_init();
+ 	xfrm4_policy_init();
++	xfrm4_protocol_init();
+ #ifdef CONFIG_SYSCTL
+ 	register_pernet_subsys(&xfrm4_net_ops);
+ #endif
+diff --git a/net/ipv4/xfrm4_protocol.c b/net/ipv4/xfrm4_protocol.c
+index cdc09ef..7f7b243 100644
+--- a/net/ipv4/xfrm4_protocol.c
++++ b/net/ipv4/xfrm4_protocol.c
+@@ -179,6 +179,12 @@ static const struct net_protocol ipcomp4_protocol = {
+ 	.netns_ok	=	1,
+ };
+ 
++static struct xfrm_input_afinfo xfrm4_input_afinfo = {
++	.family		=	AF_INET,
++	.owner		=	THIS_MODULE,
++	.callback	=	xfrm4_rcv_cb,
++};
++
+ static inline const struct net_protocol *netproto(unsigned char protocol)
+ {
+ 	switch (protocol) {
+@@ -199,7 +205,6 @@ int xfrm4_protocol_register(struct xfrm4_protocol *handler,
+ 	struct xfrm4_protocol __rcu **pprev;
+ 	struct xfrm4_protocol *t;
+ 	bool add_netproto = false;
+-
+ 	int ret = -EEXIST;
+ 	int priority = handler->priority;
+ 
+@@ -273,3 +278,9 @@ int xfrm4_protocol_deregister(struct xfrm4_protocol *handler,
+ 	return ret;
  }
+ EXPORT_SYMBOL(xfrm4_protocol_deregister);
++
++void __init xfrm4_protocol_init(void)
++{
++	xfrm_input_register_afinfo(&xfrm4_input_afinfo);
++}
++EXPORT_SYMBOL(xfrm4_protocol_init);
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index 4218164..85d1d47 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -16,6 +16,81 @@
  
+ static struct kmem_cache *secpath_cachep __read_mostly;
+ 
++static DEFINE_SPINLOCK(xfrm_input_afinfo_lock);
++static struct xfrm_input_afinfo __rcu *xfrm_input_afinfo[NPROTO];
++
++int xfrm_input_register_afinfo(struct xfrm_input_afinfo *afinfo)
++{
++	int err = 0;
++
++	if (unlikely(afinfo == NULL))
++		return -EINVAL;
++	if (unlikely(afinfo->family >= NPROTO))
++		return -EAFNOSUPPORT;
++	spin_lock_bh(&xfrm_input_afinfo_lock);
++	if (unlikely(xfrm_input_afinfo[afinfo->family] != NULL))
++		err = -ENOBUFS;
++	else
++		rcu_assign_pointer(xfrm_input_afinfo[afinfo->family], afinfo);
++	spin_unlock_bh(&xfrm_input_afinfo_lock);
++	return err;
++}
++EXPORT_SYMBOL(xfrm_input_register_afinfo);
++
++int xfrm_input_unregister_afinfo(struct xfrm_input_afinfo *afinfo)
++{
++	int err = 0;
++
++	if (unlikely(afinfo == NULL))
++		return -EINVAL;
++	if (unlikely(afinfo->family >= NPROTO))
++		return -EAFNOSUPPORT;
++	spin_lock_bh(&xfrm_input_afinfo_lock);
++	if (likely(xfrm_input_afinfo[afinfo->family] != NULL)) {
++		if (unlikely(xfrm_input_afinfo[afinfo->family] != afinfo))
++			err = -EINVAL;
++		else
++			RCU_INIT_POINTER(xfrm_input_afinfo[afinfo->family], NULL);
++	}
++	spin_unlock_bh(&xfrm_input_afinfo_lock);
++	synchronize_rcu();
++	return err;
++}
++EXPORT_SYMBOL(xfrm_input_unregister_afinfo);
++
++static struct xfrm_input_afinfo *xfrm_input_get_afinfo(unsigned int family)
++{
++	struct xfrm_input_afinfo *afinfo;
++
++	if (unlikely(family >= NPROTO))
++		return NULL;
++	rcu_read_lock();
++	afinfo = rcu_dereference(xfrm_input_afinfo[family]);
++	if (unlikely(!afinfo))
++		rcu_read_unlock();
++	return afinfo;
++}
++
++static void xfrm_input_put_afinfo(struct xfrm_input_afinfo *afinfo)
++{
++	rcu_read_unlock();
++}
++
++static int xfrm_rcv_cb(struct sk_buff *skb, unsigned int family, u8 protocol,
++		       int err)
++{
++	int ret;
++	struct xfrm_input_afinfo *afinfo = xfrm_input_get_afinfo(family);
++
++	if (!afinfo)
++		return -EAFNOSUPPORT;
++
++	ret = afinfo->callback(skb, protocol, err);
++	xfrm_input_put_afinfo(afinfo);
++
++	return ret;
++}
++
+ void __secpath_destroy(struct sec_path *sp)
+ {
+ 	int i;
 -- 
 1.7.9.5
