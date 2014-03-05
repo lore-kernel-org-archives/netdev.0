@@ -1,39 +1,62 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: [PATCH 0/2] L2TP fixes
-Date: Wed, 05 Mar 2014 07:23:49 +0000
-Message-ID: <5316D105.5030407@katalix.com>
-References: <cover.1393966618.git.g.nault@alphalink.fr>
+From: <erik.hugne@ericsson.com>
+Subject: [PATCH net-next v2 0/6] tipc: refcount and memory leak fixes
+Date: Wed, 5 Mar 2014 08:56:12 +0100
+Message-ID: <1394006178-23966-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>
-To: Guillaume Nault <g.nault@alphalink.fr>, netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: <ying.xue@windriver.com>, <paul.gortmaker@windriver.com>,
+	<richard.alpe@ericsson.com>, Erik Hugne <erik.hugne@ericsson.com>
+To: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
+	<jon.maloy@ericsson.com>, <maloy@donjonn.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:49303 "EHLO bert.katalix.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751441AbaCEHbx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Mar 2014 02:31:53 -0500
-In-Reply-To: <cover.1393966618.git.g.nault@alphalink.fr>
+Received: from mailgw2.ericsson.se ([193.180.251.37]:54930 "EHLO
+	mailgw2.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751381AbaCEHzj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 02:55:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/03/14 21:24, Guillaume Nault wrote:
-> Here's a small series, to fix some (probably not widely used) L2TPv2
-> features:
->   -toggling L2TP sequencing option from userspace was broken because
->    of missing header length update,
->   -no data was ever returned to userspace when reading from L2TP
->    sockets, because pppol2tp_recv() did only handle the case of
->    L2TP sockets bound to a PPP channel.
-> 
-> Guillaume Nault (2):
->   l2tp: fix manual sequencing (de)activation in L2TPv2
->   l2tp: fix userspace reception on plain L2TP sockets
-> 
->  net/l2tp/l2tp_core.c    |  5 +++--
->  net/l2tp/l2tp_core.h    |  1 +
->  net/l2tp/l2tp_netlink.c |  4 +++-
->  net/l2tp/l2tp_ppp.c     | 13 ++++++++-----
->  4 files changed, 15 insertions(+), 8 deletions(-)
+From: Erik Hugne <erik.hugne@ericsson.com>
 
-Acked-by: James Chapman <jchapman@katalix.com>
+v2: Drop specific -ENOMEM logging in patch #1 (tipc: allow connection
+    shutdown callback to be invoked in advance) And add a general error
+    message if an internal server tries to send a message on a
+    closed/nonexisting connection.
+
+In addition to the fix for refcount leak and memory leak during
+module removal, we also fix a problem where the topology server
+listening socket where unexpectedly closed. We also eliminate an
+unnecessary context switch during accept()/recvmsg() for nonblocking
+sockets.
+
+The following should be applied on stable aswell:
+tipc: allow connection shutdown callback to be invoked in advance
+tipc: fix connection refcount leak
+tipc: drop subscriber connection id invalidation
+
+We'd also like to have the fixes for memleak during module removal
+in stable aswell, but unfortunately they won't apply cleanly on the
+net tree:
+tipc: fix memory leak during module removal
+tipc: don't log disabled tasklet handler errors
+
+Erik Hugne (3):
+  tipc: drop subscriber connection id invalidation
+  tipc: fix memory leak during module removal
+  tipc: don't log disabled tasklet handler errors
+
+Ying Xue (3):
+  tipc: allow connection shutdown callback to be invoked in advance
+  tipc: fix connection refcount leak
+  tipc: avoid to unnecessary process switch under non-block mode
+
+ net/tipc/config.c     |  9 ++-------
+ net/tipc/handler.c    |  1 -
+ net/tipc/name_table.c | 37 ++++++++++++++++++++++++++++++++++---
+ net/tipc/server.c     | 19 +++++++++++--------
+ net/tipc/socket.c     |  4 ++--
+ net/tipc/subscr.c     | 19 ++-----------------
+ 6 files changed, 51 insertions(+), 38 deletions(-)
+
+-- 
+1.8.3.2
