@@ -1,34 +1,121 @@
-From: Christian Engelmayer <christian.engelmayer@frequentis.com>
-Subject: [RFC] CPSW: dual standalone emac mode / bonding
-Date: Wed, 5 Mar 2014 18:33:18 +0100
-Message-ID: <20140305183318.16f5dafa@frequentis.com>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [Xen-devel] [PATCH V6 net-next 0/5] xen-net{back, front}:
+ Multiple transmit and receive queues
+Date: Wed, 5 Mar 2014 12:46:27 -0500
+Message-ID: <20140305174627.GA10263@phenom.dumpdata.com>
+References: <1393847269-6981-1-git-send-email-andrew.bennieston@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
+	paul.durrant@citrix.com, wei.liu2@citrix.com,
+	ian.campbell@citrix.com, david.vrabel@citrix.com,
+	Adnan Misherfi <adnan.misherfi@oracle.com>
+To: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.frequentis.com ([195.20.158.50]:20742 "EHLO
-	mail1.frequentis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751967AbaCERnm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 12:43:42 -0500
+Received: from userp1040.oracle.com ([156.151.31.81]:27431 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753932AbaCERqg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 12:46:36 -0500
+Content-Disposition: inline
+In-Reply-To: <1393847269-6981-1-git-send-email-andrew.bennieston@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Has anybody successfuly setup ethernet bonding on a TI AM335x based system using
-the CPSW in dual standalone emac mode?
+On Mon, Mar 03, 2014 at 11:47:44AM +0000, Andrew J. Bennieston wrote:
+> 
+> This patch series implements multiple transmit and receive queues (i.e.
+> multiple shared rings) for the xen virtual network interfaces.
+> 
+> The series is split up as follows:
+>  - Patches 1 and 3 factor out the queue-specific data for netback and
+>     netfront respectively, and modify the rest of the code to use these
+>     as appropriate.
+>  - Patches 2 and 4 introduce new XenStore keys to negotiate and use
+>    multiple shared rings and event channels, and code to connect these
+>    as appropriate.
+>  - Patch 5 documents the XenStore keys required for the new feature
+>    in include/xen/interface/io/netif.h
 
-I am running an active-backup test setup - momentarily still running Linux 3.2 -
-and experience repeated loss of ethernet connectivity. That happens eg. after
-the board is idle and receives an own ARP request on the backup slave interface.
-It seems that the corresponding reply does not reach the CPU and I can see via
-SysFs that the host's address entry got associated with the external backup port.
+It looks like you got all the Acks from the Xen tree maintainers (David or
+Boris or me) - so that is all set.
 
-   index 2, raw: 00000000 10000018 31e00669, type: addr(1), addr: 00:18:31:e0:06:69,
-      uctype: persistant(0), port: 0 --> uctype: persistant(0), port: 2
-
-As expected, triggering a unicast from the board or bypassing the ALE recovers
-the situation.
-
-Regards,
-Christian
+It should probably go through David Miller's tree - and the mechanics of which
+tree it should go escapes me (And I think you need have him on your 'To:')
+part of the email.
+> 
+> All other transmit and receive processing remains unchanged, i.e. there
+> is a kthread per queue and a NAPI context per queue.
+> 
+> The performance of these patches has been analysed in detail, with
+> results available at:
+> 
+> http://wiki.xenproject.org/wiki/Xen-netback_and_xen-netfront_multi-queue_performance_testing
+> 
+> To summarise:
+>   * Using multiple queues allows a VM to transmit at line rate on a 10
+>     Gbit/s NIC, compared with a maximum aggregate throughput of 6 Gbit/s
+>     with a single queue.
+>   * For intra-host VM--VM traffic, eight queues provide 171% of the
+>     throughput of a single queue; almost 12 Gbit/s instead of 6 Gbit/s.
+>   * There is a corresponding increase in total CPU usage, i.e. this is a
+>     scaling out over available resources, not an efficiency improvement.
+>   * Results depend on the availability of sufficient CPUs, as well as the
+>     distribution of interrupts and the distribution of TCP streams across
+>     the queues.
+> 
+> Queue selection is currently achieved via an L4 hash on the packet (i.e.
+> TCP src/dst port, IP src/dst address) and is not negotiated between the
+> frontend and backend, since only one option exists. Future patches to
+> support other frontends (particularly Windows) will need to add some
+> capability to negotiate not only the hash algorithm selection, but also
+> allow the frontend to specify some parameters to this.
+> 
+> Note that queue selection is a decision by the transmitting system about
+> which queue to use for a particular packet. In general, the algorithm
+> may differ between the frontend and the backend with no adverse effects.
+> 
+> Queue-specific XenStore entries for ring references and event channels
+> are stored hierarchically, i.e. under .../queue-N/... where N varies
+> from 0 to one less than the requested number of queues (inclusive). If
+> only one queue is requested, it falls back to the flat structure where
+> the ring references and event channels are written at the same level as
+> other vif information.
+> 
+> V6:
+> - Use 'max_queues' as the module param. name for both netback and netfront.
+> 
+> V5:
+> - Fix bug in xenvif_free() that could lead to an attempt to transmit an
+>   skb after the queue structures had been freed.
+> - Improve the XenStore protocol documentation in netif.h.
+> - Fix IRQ_NAME_SIZE double-accounting for null terminator.
+> - Move rx_gso_checksum_fixup stat into struct xenvif_stats (per-queue).
+> - Don't initialise a local variable that is set in both branches (xspath).
+> 
+> V4:
+> - Add MODULE_PARM_DESC() for the multi-queue parameters for netback
+>   and netfront modules.
+> - Move del_timer_sync() in netfront to after unregister_netdev, which
+>   restores the order in which these functions were called before applying
+>   these patches.
+> 
+> V3:
+> - Further indentation and style fixups.
+> 
+> V2:
+> - Rebase onto net-next.
+> - Change queue->number to queue->id.
+> - Add atomic operations around the small number of stats variables that
+>   are not queue-specific or per-cpu.
+> - Fixup formatting and style issues.
+> - XenStore protocol changes documented in netif.h.
+> - Default max. number of queues to num_online_cpus().
+> - Check requested number of queues does not exceed maximum.
+> 
+> --
+> Andrew J. Bennieston
+> 
+> _______________________________________________
+> Xen-devel mailing list
+> Xen-devel@lists.xen.org
+> http://lists.xen.org/xen-devel
