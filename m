@@ -1,76 +1,53 @@
-From: Casey Leedom <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCHv3 net-next 00/31] Misc. fixes for cxgb4 and iw_cxgb4
-Date: Wed, 5 Mar 2014 11:59:35 -0800
-Message-ID: <DB7B3A5C-9674-44C2-8AA4-2C468F09DFF5@chelsio.com>
-References: <1393936917-25847-1-git-send-email-hariprasad@chelsio.com> <20140304.132226.75524344104026791.davem@davemloft.net> <20140305053024.GA23862@hariprasad-pc> <9E6E5D92-7F25-49A3-BEB5-424CCE2F725D@chelsio.com> <CAJZOPZL05TY6qSdBDoS6aCj=_uepkZTX5+fVvnHTsCsKKMqgSQ@mail.gmail.com> <F598A76E-C6C1-4183-B4B9-DF78FD1FE73A@chelsio.com> <CAJZOPZL6U7csoTvF8wzJBK+Whknv4dqNbkO8nC=LrXoUMXhoUQ@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.2 \(1874\))
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hariprasad S <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAJZOPZL6U7csoTvF8wzJBK+Whknv4dqNbkO8nC=LrXoUMXhoUQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jagan Teki <jagannadh.teki@gmail.com>
+Subject: Re: sblk->status_tag on drivers/net/ethernet/broadcom/tg3.c
+Date: Thu, 6 Mar 2014 01:32:54 +0530
+Message-ID: <CAD6G_RQ=Zomytu+CAd0Os1ZZokJQiju-LvpABHdRRaQGSVC7FQ@mail.gmail.com>
+References: <CAD6G_RQVD7=v7b6S-muiZBYV7PEykTHOTM23i-BL=wcA5z=4Qg@mail.gmail.com>
+	<CAD6G_RQ130TunwZDL+8vwx__8NsfzE0AfcfnS7z5OXtZF5T8xQ@mail.gmail.com>
+	<1393975344.4632.10.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	<CAD6G_RTVVb2qdU43PqKm3BAD2-pvVcs_O=Wck2SCBhRRV-d+Lw@mail.gmail.com>
+	<1393992738.4632.15.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	<CAD6G_RR=y+myvtEpa3YKiOx_8LR=Ad_nHUxuaXKakfKKyjuEaw@mail.gmail.com>
+	<1394002230.4632.28.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	Nithin Nayak Sujir <nsujir@broadcom.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	Bjorn Helgaas <bhelgaas@google.com>
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f43.google.com ([209.85.213.43]:50249 "EHLO
+	mail-yh0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757036AbaCEUCy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 15:02:54 -0500
+In-Reply-To: <1394002230.4632.28.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, Mar 5, 2014 at 12:20 PM, Michael Chan <mchan@broadcom.com> wrote:
+> On Wed, 2014-03-05 at 11:43 +0530, Jagan Teki wrote:
+>> As per your point I've a question here like - the status block is not properly
+>> updated (DMA'ed), does this depends on the address range we are advertised
+>> on PCIe ranges filed to make sure to use EP-
+>> http://devicetree.org/Device_Tree_Usage#PCI_Host_Bridge
+>
+> The status block is in host memory (CPU memory).  This memory is
+> allocated by the driver.  The DMA address of the status block is then
+> programmed into the NIC register HOSTCC_STATUS_BLK_HOST_ADDR so that the
+> NIC knows where to DMA the status block.  When there is an event, the
+> NIC DMAs a new status block and then generates IRQ.
+>
+> The status block is not in PCI memory.  PCI memory is where the
+> registers are mapped.  Hope this helps.
 
-On Mar 5, 2014, at 11:52 AM, Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+Thanks this really help my understanding.
 
-> On Wed, Mar 5, 2014 at 9:46 PM, Casey Leedom <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org> wro=
-te:
->> On Mar 5, 2014, at 11:39 AM, Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote=
-:
->>> On Wed, Mar 5, 2014 at 9:15 PM, Casey Leedom <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org> w=
-rote:
->>>> Yes, thanks mightily for your help and advice and sorry for the si=
-ze of the updates.  Hari has taken on the very difficult task of synchr=
-onizing our out-of-kernel development branch with the in-kernel code.  =
-These two code bases have drifted apart quite a bit because of the diff=
-iculty of translating our out-of-kernel changes into the in-kernel driv=
-er which uses completely different symbolic register constants.
->>>=20
->>> Can you explain this in a little bit more details? what's the sourc=
-e
->>> of the need to use two different sets of symbolic register constant=
-s?
->>=20
->>  When our cxgb4 driver was first submitted for inclusion in kernel.o=
-rg someone objected to the format of our symbolic register constants an=
-d forced us to change them.
->=20
-> are you referring to constants defined in
-> drivers/net/ethernet/chelsio/cxgb4/t4_hw.h or other/more headers?
+BTW: I got all 0's on tnapi->hw_status, looks like host memory contents were
+violated or not-been updated properly I guess.
 
-  t4_regs.h.  Strangely, when we submitted the driver, the very similar=
- symbolic constant formats in t4_msg.h and t4fw_api.h weren=92t targete=
-d; just the ones in t4_regs.h.
-
-Casey
-
-> Unfortunately these constants are generated directly from our hardwar=
-e
-> design and we can't change them internally -- it would significantly
-> increase development/debugging time with our hardware team if we had
-> to constantly help the hardware team member translate back and forth
-> between the confusingly similar but different names.  Additionally,
-> though I know that this isn't a concern of kernel.org, every other OS
-> driver for our adapters use the hardware-derived symbolic register
-> constants and our software team internally often work on several
-> different OS Drivers as we work out better ways to do various things.
-> All of this means that our in-house/out-of-kernel driver uses the
-> hardware-derived symbolic constants and every time we need to push a
-> change into kernel.org we need to go through a very careful
-> translation of the symbolic register constants.
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+thanks!
+-- 
+Jagan.
