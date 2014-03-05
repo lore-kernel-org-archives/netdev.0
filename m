@@ -1,137 +1,85 @@
-From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Subject: Re: [PATCH] net-gre-gro: Fix a bug that breaks the forwarding path
-Date: Tue, 4 Mar 2014 17:01:06 -0800 (PST)
-Message-ID: <alpine.LFD.2.03.1403041641430.19558@intel.com>
-References: <1393536377-32243-1-git-send-email-hkchu@google.com> <CAJZOPZKy7w-q5+pp=FgCs8LdQL6e16zAiJr89VMkh+h7obAArg@mail.gmail.com> <CAPshTCgLo8ycMTtoa+D14+7pPxJaiC-jUzyR3PJcrMKFw9V0zA@mail.gmail.com> <20140228.165614.1112789771887381245.davem@davemloft.net>
- <5315FBAA.3030809@mellanox.com> <CAPshTCgT4sYp7KtPazrJNMBvK0HcSWeDT_EdvSdjv4C0qrueqw@mail.gmail.com> <alpine.LFD.2.03.1403041439230.7122@intel.com> <CAPshTChzL5f5SD2ofH4frhX8QJBgbkw9+qStCMdg2u=WQ8Trqg@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] phy: fix compiler array bounds warning on settings[]
+Date: Tue, 4 Mar 2014 16:43:59 -0800
+Message-ID: <CAGVrzcYpAS9cn66P4rTmTDwKZVcryfA7Hq_H=wA-i+9vTeTxxg@mail.gmail.com>
+References: <20140305003544.23016.55079.stgit@bhelgaas-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	David Miller <davem@davemloft.net>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>
-To: Jerry Chu <hkchu@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:3167 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755753AbaCEAla (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Mar 2014 19:41:30 -0500
-In-Reply-To: <CAPshTChzL5f5SD2ofH4frhX8QJBgbkw9+qStCMdg2u=WQ8Trqg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Bjorn Helgaas <bhelgaas@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140305003544.23016.55079.stgit@bhelgaas-glaptop.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+2014-03-04 16:35 GMT-08:00 Bjorn Helgaas <bhelgaas@google.com>:
+> With -Werror=array-bounds, gcc v4.7.x warns that in phy_find_valid(), the
+> settings[] "array subscript is above array bounds", I think because idx is
+> a signed integer and if the caller supplied idx < 0, we pass the guard but
+> still reference out of bounds.
+>
+> Fix this by making idx unsigned here and elsewhere.
+>
+> Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+
+> ---
+>  drivers/net/phy/phy.c |   11 ++++++-----
+>  1 file changed, 6 insertions(+), 5 deletions(-)
+>
+> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+> index 19c9eca0ef26..76d96b9ebcdb 100644
+> --- a/drivers/net/phy/phy.c
+> +++ b/drivers/net/phy/phy.c
+> @@ -164,9 +164,9 @@ static const struct phy_setting settings[] = {
+>   *   of that setting.  Returns the index of the last setting if
+>   *   none of the others match.
+>   */
+> -static inline int phy_find_setting(int speed, int duplex)
+> +static inline unsigned int phy_find_setting(int speed, int duplex)
+>  {
+> -       int idx = 0;
+> +       unsigned int idx = 0;
+>
+>         while (idx < ARRAY_SIZE(settings) &&
+>                (settings[idx].speed != speed || settings[idx].duplex != duplex))
+> @@ -185,7 +185,7 @@ static inline int phy_find_setting(int speed, int duplex)
+>   *   the mask in features.  Returns the index of the last setting
+>   *   if nothing else matches.
+>   */
+> -static inline int phy_find_valid(int idx, u32 features)
+> +static inline unsigned int phy_find_valid(unsigned int idx, u32 features)
+>  {
+>         while (idx < MAX_NUM_SETTINGS && !(settings[idx].setting & features))
+>                 idx++;
+> @@ -204,7 +204,7 @@ static inline int phy_find_valid(int idx, u32 features)
+>  static void phy_sanitize_settings(struct phy_device *phydev)
+>  {
+>         u32 features = phydev->supported;
+> -       int idx;
+> +       unsigned int idx;
+>
+>         /* Sanitize settings based on PHY capabilities */
+>         if ((features & SUPPORTED_Autoneg) == 0)
+> @@ -954,7 +954,8 @@ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
+>             (phydev->interface == PHY_INTERFACE_MODE_RGMII))) {
+>                 int eee_lp, eee_cap, eee_adv;
+>                 u32 lp, cap, adv;
+> -               int idx, status;
+> +               int status;
+> +               unsigned int idx;
+>
+>                 /* Read phy status to properly get the right settings */
+>                 status = phy_read_status(phydev);
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
 
 
-On Tue, 4 Mar 2014, Jerry Chu wrote:
-
-> On Tue, Mar 4, 2014 at 2:53 PM, Joseph Gasparakis
-> <joseph.gasparakis@intel.com> wrote:
-> >
-> >
-> > On Tue, 4 Mar 2014, Jerry Chu wrote:
-> >
-> >> Hi Or,
-> >>
-> >> Thanks for writing this up.
-> >>
-> >> On Tue, Mar 4, 2014 at 8:13 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
-> >> > On 28/02/2014 23:56, David Miller wrote:
-> >> >>
-> >> >> The topic of the skb->encapsulation semantics has come up several times in
-> >> >> the past few weeks. We cannot move forward on any changes in this area until
-> >> >> the semantics are well defined, and documented. Can someone work on a patch
-> >> >> which documents skb->encapsulation properly, and then we can come back to
-> >> >> fixing this bug? Thanks.
-> >> >
-> >> >
-> >> > Lets try... the skb->encapsulation flag was introduced and used in 3.8 by
-> >> > the
-> >> > sequence of these three commits
-> >> >
-> >> > 0afb166 vxlan: Add capability of Rx checksum offload for inner packet
-> >> > d6727fe vxlan: capture inner headers during encapsulation
-> >> > 6a674e9 net: Add support for hardware-offloaded encapsulation
-> >> >
-> >> > When discussed earlier on the list in the context of the skb->ip_summed
-> >> > field,
-> >> > Tom Herbert came with the following interpretation for the semantics which
-> >> > Joseph confirmed
-> >> >
-> >> > "when skb->encapsulation is set the ip_summed is valid for both the inner
-> >> > and outer header
-> >> > (e.g. CHECKSUM_COMPLETE is always assumed okay for both layers). If
-> >> > skb->encapsulation is not set then ip_summed is only valid for outer header"
-> >>
-> >> For GRE encapped pkts is the following interpretation correct?
-> >>
-> >> 1) ip_summed == CHECKSUM_COMPLETE
-> >>     => csum covers IP payload csum of the outer IP datagram
-> >>
-> >> 2) ip_summed == CHECKSUM_UNNECESSARY
-> >> 2.1. skb->encapsulation is on => both GRE csum (if one is present) and TCP/UDP
-> >> csum have been validated (assuming inner is a TCP or UDP pkt)
-> >
-> > i40e also supports SCTP csumming for the inner packet, too.
-> >
-> >>
-> >> 2.2. skb->encapsulation is off => only GRE csum (if one is present) is
-> >> validated.
-> >>
-> >
-> > Apart for the SCTP request for inclusion, it looks reasonable to me.
-> >
-> >> >
-> >> > As for the TX side of things, the change-log of commit 6a674e9 states
-> >> >
-> >> > "For Tx encapsulation offload, the driver will need to set the right bits in
-> >> > netdev->hw_enc_features. The protocol driver will have to set the
-> >> > skb->encapsulation bit and populate the inner headers, so the NIC driver
-> >> > will use those inner headers to calculate the csum in hardware."
-> >>
-> >> So we only support/care about csum offload for the inner pkts, which
-> >> makes sense.
-> >
-> > Well, we care about outer too. It is just that the inner headers are for
-> > the inner csum, the outer headers are for the outer csum. The outer
-> > headers will be always there anyway, so the patch introduced the inner
-> > ones. But I guess this is what you meant, right?
-> 
-> Actually i was wondering that since there is only one set csum_start/csum_offset
-> fields per skb, which would you support CHECKSUM_PARTIAL for both inner
-> and outer? You can only support one, right? (I haven't checked the UDP encap
-> code to see how this works though.)
-> 
-> Jerry
-
-I am not sure I understand the question, Jerry... Are you asking in Tx 
-path if the ip_summed==CHECKSUM_PARTIAL, which headers will the 
-csum_start/csum_offset refer to?
-
-> >
-> >>
-> >> >
-> >> > So in higher level, it seems that the role of the skb->encapsulation field
-> >> > is to mark the skb to carry encapsulated packet for the code path between
-> >> > the time the packet is encapsulated by the protocol driver (e.g vxlan/ipip)
-> >> > to the time driver xmit is called. Or from the time driver rx code runs till
-> >> > the the time the packet is decapsulated.
-> >> >
-> >> > Further, my personal interpretation was that on the rx path, skb should
-> >> > carry the encapsulation flag **only** if the HW was able to offload the
-> >> > inner checksum.
-> >>
-> >> SGTM.
-> >>
-> >> Jerry
-> >>
-> >> >
-> >> > Joseph, what's your thinking here?
-> >> >
-> >> > Or.
-> >> >
-> >> >
-> >>
-> 
+-- 
+Florian
