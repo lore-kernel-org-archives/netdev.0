@@ -1,109 +1,98 @@
-From: Tim Harvey <tharvey@gateworks.com>
-Subject: Re: [PATCH] net: sky2: allow mac to come from dt
-Date: Wed, 5 Mar 2014 07:38:22 -0800
-Message-ID: <CAJ+vNU2Uzsriq6e1ef6iH7omTkGGSxz=ox=XquUTw5MFvQDFCA@mail.gmail.com>
-References: <1394000535-25559-1-git-send-email-tharvey@gateworks.com>
-	<5317318B.5020406@cogentembedded.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH] mlx4: Use GFP_NOFS calls during the ipoib TX path when
+ creating the QP
+Date: Wed, 5 Mar 2014 17:57:01 +0200
+Message-ID: <5317494D.5010907@mellanox.com>
+References: <CAJZOPZKLcFC5Wqv7VS7AyovaeHw3PYSWEz9t9sZ4AMhG+dS1+A@mail.gmail.com> <alpine.LNX.2.00.1402271042240.21399@pobox.suse.cz> <530F0C4F.9030200@mellanox.com> <alpine.LNX.2.00.1402271123410.21399@pobox.suse.cz> <alpine.LNX.2.00.1403042348050.30402@pobox.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <robh+dt@kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f176.google.com ([74.125.82.176]:45576 "EHLO
-	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752134AbaCEPiX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 10:38:23 -0500
-Received: by mail-we0-f176.google.com with SMTP id x48so1431660wes.35
-        for <netdev@vger.kernel.org>; Wed, 05 Mar 2014 07:38:22 -0800 (PST)
-In-Reply-To: <5317318B.5020406@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Or Gerlitz <or.gerlitz@gmail.com>,
+	Roland Dreier <roland@kernel.org>,
+	Amir Vadai <amirv@mellanox.com>,
+	Eli Cohen <eli@dev.mellanox.co.il>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Mel Gorman <mgorman@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: Jiri Kosina <jkosina@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1403042348050.30402@pobox.suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 5, 2014 at 6:15 AM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> Hello.
-
-Hi Sergei,
-
+On 05/03/2014 00:48, Jiri Kosina wrote:
+> On Thu, 27 Feb 2014, Jiri Kosina wrote:
 >
->
-> On 05-03-2014 10:22, Tim Harvey wrote:
->
->> The driver reads the mac address from the device registers which would
->> need to have been programmed by the bootloader.  This patch adds
->> the ability to pull the mac from devicetree via the pci device dt node.
->
->
->    I highly doubt that "[local-]mac-address" prop would be added to
-> (autodiscovered) PCI device node.
-
-I wouldn't have done this if I didn't need it ;)
-
-The u-boot bootloader will do this for boards supporting devicetree.
-Specifically, it will take the ethaddr/eth<n<addr/etc env vars and
-apply a local-mac-address property to the devicetree using ethernet<n>
-devicetree aliases.  This is to support MAC addresses coming from
-EEPROM, eFUSE, etc.  The key here is that it doesn't need to know
-where in the tree the eth devices are because it makes use of the
-aliases node.
-
-This of course requires that you do have an ethernet<n> alias to your
-PCI based network device in your dt which I agree may seem strange for
-an auto-probed bus, but in the case of a bootloader without PCI
-support and/or sky2 support this seems the proper way to get the MAC
-address from the bootloader to the driver.
-
->
-> [...]
->
->> @@ -4805,8 +4808,27 @@ static struct net_device *sky2_init_netdev(struct
->> sky2_hw *hw, unsigned port,
+>> On Thu, 27 Feb 2014, Or Gerlitz wrote:
 >>
->>         dev->features |= dev->hw_features;
+>>> ipoib is coded over the verbs API (include/rdma/ib_verbs.h)  --- so tracking
+>>> the path from ipoib through the verbs api into mlx4 should be similar exercise
+>>> as doing so for mlx5, but let's 1st treat the higher level elements involved
+>>> with this patch.
+>>>
+>>> Can you shed some light why the problem happens only for NFS, and not for
+>>> example with other IP/TCP storage protocols?
+>>>
+>>> For example, do you expect it to happen with iSCSI/TCP too? the Linux
+>>> iSCSI initiator 1st open a TCP socket from user space to the target,
+>>> next they do login exchange over this socket and later provide the
+>>> socket to the kernel iscsi code to use as the back-end of a SCSI block
+>>> device registered with the SCSI midlayer
+>> Frankly, no idea. There was a problem with swapping over NFS, as writeback
+>> was deadlocked with memory reclaim (memory needs to be allocated so that
+>> swap could be accessed to reclaim memory). That's fixed by allocating the
+>> buffers from PF_MEMALLOC reserve, introduced by Mel's and Peter's patchset
+>> back in 3.9 or so. Oh, and the same has been done for swapping over NBD,
+>> btw. Maybe iSCSI needs similar treatment, maybe it has it already, I
+>> haven't checked. We haven't seen a bugreport for that though.
 >>
->> +       /* try to get mac address in the following order:
->> +        * 1) from device tree data
->> +        * 2) from internal registers set by bootloader
->> +        */
->> +       iap = NULL;
->> +       if (IS_ENABLED(CONFIG_OF)) {
->> +               struct device_node *np = hw->pdev->dev.of_node;
->> +               if (np)
->> +                       iap = (unsigned char *) of_get_mac_address(np);
->> +       }
->> +
->> +       /* 2) mac registers set by bootloader
->> +        */
->> +       if (!iap || !is_valid_ether_addr(iap)) {
->> +               memcpy_fromio(&tmpaddr, hw->regs + B2_MAC_1 + port * 8,
->> +                       ETH_ALEN);
->
->
->    This line should start right under & on the previous line.
-
-agreed - not sure why checkpatch.pl didn't catch that
-
->
->
->> +               iap = &tmpaddr[0];
-
-agreed - I will change this as its more readable
-
->
->
->    Why not just 'tmpaddr'?
->
->> +       }
->> +
->
->
-> WBR, Sergei
+>>>> I don't think we have, and it indeed should be rather easy to add. The
+>>>> more challenging part of the problem is where (and based on which
+>>>> data) the flag would actually be set up on the netdevice so that it's
+>>>> not horrible layering violation.
+>>> I assume that in the same manner netdevices advertize features to the
+>>> networking core, the core can provide them operating directives after
+>>> they register themselves.
+>> Whatever suits you best. To sum it up:
+>>
+>> - mlx4 is confirmed to have this problem, and we know how that problem
+>>    happens -- see the paragraph in the changelog explaining the dependency
+>>    between memory reclaim and allocation of TX ring
+>>
+>> - we have a work around which requires human interaction in order
+>>    to provide the information whether GFP_NOFS should be used or not
+>>
+>> - I can very well understand why Mellanox would see that as a hack, but if
+>>    more comprehensive fix is necessary, I'd expect those who understand
+>>    the code the best to come up with a solution/proposal. I'd assume that
+>>    you don't  want to keep the code with known and easily triggerable
+>>    deadlock out there unfixed.
+>>
+>> - where I see the potential for layering violation in any 'general'
+>>    solution is that it's the filesystem that has to be "talking" to the
+>>    underlying netdevice, i.e. you'll have to make filesystem
+>>    netdevice-aware, right?
+> Mellanox folks, do you have any plan how to proceed here please?
 >
 
-Thanks for the review!
+Hi Jiri,
 
-Tim
+Yep, we will look on that. I think we still have few directions to 
+resolve here
+
+1. (our task) deeper understanding of the problem
+
+2. if the solution goes in the way you took it, look for
+
+2.1 a more generic verbs interface, e.g QP creation flag  that dictates 
+the GFP_YYY to use when allocating memory
+for that QP, e.g NOIO, NOFS, ATOMIC, etc
+
+2.2 a more programmable interface for the file-system to let the NIC 
+know they are under constraint YYY for their memory
+allocations, maybe per nieghbour? maybe use netdevice private flags?
+
+Or.
