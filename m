@@ -1,57 +1,334 @@
-From: Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>
-Subject: Re: [PATCHv2 3/5] net: rfkill: gpio: remove gpio names
-Date: Tue, 04 Mar 2014 19:59:16 -0700
-Message-ID: <53169304.9080002@wwwdotorg.org>
-References: <1393330950-7283-1-git-send-email-heikki.krogerus@linux.intel.com>	<1393330950-7283-4-git-send-email-heikki.krogerus@linux.intel.com>	<530D218E.9010007@wwwdotorg.org>	<CACRpkdZF4-rWs1WkOp3t0x77fgSCE71E=wdrxiDuGZ8eBu_p_Q@mail.gmail.com>	<53168976.7000008@wwwdotorg.org> <CACRpkdYfQoDmPX0He4J2Sn2wgQn2hHoHyPqnStLRVqrvi=M+-w@mail.gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v5 net-next 2/3] [RFC] seccomp: convert seccomp to use
+ extended BPF
+Date: Tue, 4 Mar 2014 19:11:49 -0800
+Message-ID: <CAMEtUux+sQLbz4AO=T9==FmOFVf6M=hHQyigmUBvsW=qLXP6GQ@mail.gmail.com>
+References: <1393971437-4129-1-git-send-email-ast@plumgrid.com>
+	<1393971437-4129-3-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
-	Rhyland Klein <rklein-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
-	Marc Dietrich <marvin24-Mmb7MZpHnFY@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	"linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CACRpkdYfQoDmPX0He4J2Sn2wgQn2hHoHyPqnStLRVqrvi=M+-w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	Jesse Gross <jesse@nicira.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	Tom Zanussi <tom.zanussi@linux.intel.com>,
+	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Pekka Enberg <penberg@iki.fi>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>,
+	Kees Cook <keescook@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1393971437-4129-3-git-send-email-ast@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/04/2014 07:37 PM, Linus Walleij wrote:
-> On Wed, Mar 5, 2014 at 10:18 AM, Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org> wrote:
->> On 03/04/2014 06:43 PM, Linus Walleij wrote:
-> 
->>> If I understand the situation correctly it's like ACPI does not have named
->>> GPIOs so keeping specifying this in DT GPIO bindings is counter-productive
->>> to the work of abstracting the access to GPIO handlers so that drivers
->>> need not know whether ACPI or DT is used for describing the hardware.
->>
->> For devices that already have both ACPI and DT bindings, we can't
->> pretend they can be the same; they are already potentially different. We
->> simply need to parse DT and ACPI differently, since that's the sway
->> their bindings are defined.
->>
->> For any devices that don't have both ACPI and DT bindings, I agree we
->> should certainly strive to make any new bindings aligned so we don't
->> have to deal with this for them.
->>
->> However, we can't change the past.
-> 
-> Yeah, right, so for this very driver there are no bindings defined (yet)
-> and the only device tree I can find referencing it is the Tegra20-paz00
-> and it just use gpios = <>;
-> 
-> So in this case I think this patch is the right way forward, but I admit
-> I'm really uncertain in the general case.
+On Tue, Mar 4, 2014 at 2:17 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+> use sk_convert_filter() to convert seccomp BPF into extended BPF
+>
+> 05-sim-long_jumps.c of libseccomp was used as micro-benchmark:
+>   seccomp_rule_add_exact(ctx,...
+>   seccomp_rule_add_exact(ctx,...
+>   rc = seccomp_load(ctx);
+>   for (i = 0; i < 10000000; i++)
+>      syscall(199, 100);
+>
+> --x86_64--
+> old BPF: 8.6 seconds
+>     73.38%    bench  [kernel.kallsyms]  [k] sk_run_filter
+>     10.70%    bench  libc-2.15.so       [.] syscall
+>      5.09%    bench  [kernel.kallsyms]  [k] seccomp_bpf_load
+>      1.97%    bench  [kernel.kallsyms]  [k] system_call
+> ext BPF: 5.7 seconds
+>     66.20%    bench  [kernel.kallsyms]  [k] sk_run_filter_ext
+>     16.75%    bench  libc-2.15.so       [.] syscall
+>      3.31%    bench  [kernel.kallsyms]  [k] system_call
+>      2.88%    bench  [kernel.kallsyms]  [k] __secure_computing
+>
+> --i386---
+> old BPF: 5.4 sec
+> ext BPF: 3.8 sec
+>
+> BPF filters generated by seccomp are very branchy, so ext BPF
+> performance is better than old BPF.
+>
+> Performance gains will be even higher when extended BPF JIT
+> is committed.
+>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+>
+> ---
+> This patch is an RFC to use extended BPF in seccomp.
+> Change it to do it conditionally with bpf_ext_enable knob ?
 
-If there are no bindings defined at all yet, then we can define both DT
-and ACPI bindings to use name-based GPIOs. Index-based lookups aren't a
-good way forward.
+Kees, Will,
+
+I've played with libseccomp to test this patch and just found
+your other testsuite for bpf+seccomp:
+https://github.com/redpig/seccomp
+It passes as well on x86_64 and i386.
+
+Not sure how real all 'seccomp' and libseccomp' bpf filters.
+Some of them are very short, some very long.
+If average number of filtered syscalls is > 10, then upcoming
+'ebpf table' will give another performance boost, since single table
+lookup will be faster than long sequence of 'if' conditions.
+
+Please review.
+
+Thanks
+Alexei
+
+> ---
+>  include/linux/seccomp.h |    1 -
+>  kernel/seccomp.c        |  112 +++++++++++++++++++++--------------------------
+>  net/core/filter.c       |    5 ---
+>  3 files changed, 51 insertions(+), 67 deletions(-)
+>
+> diff --git a/include/linux/seccomp.h b/include/linux/seccomp.h
+> index 6f19cfd1840e..4054b0994071 100644
+> --- a/include/linux/seccomp.h
+> +++ b/include/linux/seccomp.h
+> @@ -76,7 +76,6 @@ static inline int seccomp_mode(struct seccomp *s)
+>  #ifdef CONFIG_SECCOMP_FILTER
+>  extern void put_seccomp_filter(struct task_struct *tsk);
+>  extern void get_seccomp_filter(struct task_struct *tsk);
+> -extern u32 seccomp_bpf_load(int off);
+>  #else  /* CONFIG_SECCOMP_FILTER */
+>  static inline void put_seccomp_filter(struct task_struct *tsk)
+>  {
+> diff --git a/kernel/seccomp.c b/kernel/seccomp.c
+> index b7a10048a32c..346c597b44cc 100644
+> --- a/kernel/seccomp.c
+> +++ b/kernel/seccomp.c
+> @@ -55,60 +55,27 @@ struct seccomp_filter {
+>         atomic_t usage;
+>         struct seccomp_filter *prev;
+>         unsigned short len;  /* Instruction count */
+> -       struct sock_filter insns[];
+> +       struct sock_filter_ext insns[];
+>  };
+>
+>  /* Limit any path through the tree to 256KB worth of instructions. */
+>  #define MAX_INSNS_PER_PATH ((1 << 18) / sizeof(struct sock_filter))
+>
+> -/**
+> - * get_u32 - returns a u32 offset into data
+> - * @data: a unsigned 64 bit value
+> - * @index: 0 or 1 to return the first or second 32-bits
+> - *
+> - * This inline exists to hide the length of unsigned long.  If a 32-bit
+> - * unsigned long is passed in, it will be extended and the top 32-bits will be
+> - * 0. If it is a 64-bit unsigned long, then whatever data is resident will be
+> - * properly returned.
+> - *
+> +/*
+>   * Endianness is explicitly ignored and left for BPF program authors to manage
+>   * as per the specific architecture.
+>   */
+> -static inline u32 get_u32(u64 data, int index)
+> -{
+> -       return ((u32 *)&data)[index];
+> -}
+> -
+> -/* Helper for bpf_load below. */
+> -#define BPF_DATA(_name) offsetof(struct seccomp_data, _name)
+> -/**
+> - * bpf_load: checks and returns a pointer to the requested offset
+> - * @off: offset into struct seccomp_data to load from
+> - *
+> - * Returns the requested 32-bits of data.
+> - * seccomp_check_filter() should assure that @off is 32-bit aligned
+> - * and not out of bounds.  Failure to do so is a BUG.
+> - */
+> -u32 seccomp_bpf_load(int off)
+> +static void populate_seccomp_data(struct seccomp_data *sd)
+>  {
+>         struct pt_regs *regs = task_pt_regs(current);
+> -       if (off == BPF_DATA(nr))
+> -               return syscall_get_nr(current, regs);
+> -       if (off == BPF_DATA(arch))
+> -               return syscall_get_arch(current, regs);
+> -       if (off >= BPF_DATA(args[0]) && off < BPF_DATA(args[6])) {
+> -               unsigned long value;
+> -               int arg = (off - BPF_DATA(args[0])) / sizeof(u64);
+> -               int index = !!(off % sizeof(u64));
+> -               syscall_get_arguments(current, regs, arg, 1, &value);
+> -               return get_u32(value, index);
+> -       }
+> -       if (off == BPF_DATA(instruction_pointer))
+> -               return get_u32(KSTK_EIP(current), 0);
+> -       if (off == BPF_DATA(instruction_pointer) + sizeof(u32))
+> -               return get_u32(KSTK_EIP(current), 1);
+> -       /* seccomp_check_filter should make this impossible. */
+> -       BUG();
+> +       int i;
+> +
+> +       sd->nr = syscall_get_nr(current, regs);
+> +       sd->arch = syscall_get_arch(current, regs);
+> +       for (i = 0; i < 6; i++)
+> +               syscall_get_arguments(current, regs, i, 1,
+> +                                     (unsigned long *)&sd->args[i]);
+> +       sd->instruction_pointer = KSTK_EIP(current);
+>  }
+>
+>  /**
+> @@ -133,17 +100,17 @@ static int seccomp_check_filter(struct sock_filter *filter, unsigned int flen)
+>
+>                 switch (code) {
+>                 case BPF_S_LD_W_ABS:
+> -                       ftest->code = BPF_S_ANC_SECCOMP_LD_W;
+> +                       ftest->code = BPF_LDX | BPF_W | BPF_ABS;
+>                         /* 32-bit aligned and not out of bounds. */
+>                         if (k >= sizeof(struct seccomp_data) || k & 3)
+>                                 return -EINVAL;
+>                         continue;
+>                 case BPF_S_LD_W_LEN:
+> -                       ftest->code = BPF_S_LD_IMM;
+> +                       ftest->code = BPF_LD | BPF_IMM;
+>                         ftest->k = sizeof(struct seccomp_data);
+>                         continue;
+>                 case BPF_S_LDX_W_LEN:
+> -                       ftest->code = BPF_S_LDX_IMM;
+> +                       ftest->code = BPF_LDX | BPF_IMM;
+>                         ftest->k = sizeof(struct seccomp_data);
+>                         continue;
+>                 /* Explicitly include allowed calls. */
+> @@ -185,6 +152,7 @@ static int seccomp_check_filter(struct sock_filter *filter, unsigned int flen)
+>                 case BPF_S_JMP_JGT_X:
+>                 case BPF_S_JMP_JSET_K:
+>                 case BPF_S_JMP_JSET_X:
+> +                       sk_decode_filter(ftest, ftest);
+>                         continue;
+>                 default:
+>                         return -EINVAL;
+> @@ -202,18 +170,21 @@ static int seccomp_check_filter(struct sock_filter *filter, unsigned int flen)
+>  static u32 seccomp_run_filters(int syscall)
+>  {
+>         struct seccomp_filter *f;
+> +       struct seccomp_data sd;
+>         u32 ret = SECCOMP_RET_ALLOW;
+>
+>         /* Ensure unexpected behavior doesn't result in failing open. */
+>         if (WARN_ON(current->seccomp.filter == NULL))
+>                 return SECCOMP_RET_KILL;
+>
+> +       populate_seccomp_data(&sd);
+> +
+>         /*
+>          * All filters in the list are evaluated and the lowest BPF return
+>          * value always takes priority (ignoring the DATA).
+>          */
+>         for (f = current->seccomp.filter; f; f = f->prev) {
+> -               u32 cur_ret = sk_run_filter(NULL, f->insns);
+> +               u32 cur_ret = sk_run_filter_ext(&sd, f->insns);
+>                 if ((cur_ret & SECCOMP_RET_ACTION) < (ret & SECCOMP_RET_ACTION))
+>                         ret = cur_ret;
+>         }
+> @@ -231,6 +202,8 @@ static long seccomp_attach_filter(struct sock_fprog *fprog)
+>         struct seccomp_filter *filter;
+>         unsigned long fp_size = fprog->len * sizeof(struct sock_filter);
+>         unsigned long total_insns = fprog->len;
+> +       struct sock_filter *fp;
+> +       int new_len;
+>         long ret;
+>
+>         if (fprog->len == 0 || fprog->len > BPF_MAXINSNS)
+> @@ -252,28 +225,42 @@ static long seccomp_attach_filter(struct sock_fprog *fprog)
+>                                      CAP_SYS_ADMIN) != 0)
+>                 return -EACCES;
+>
+> -       /* Allocate a new seccomp_filter */
+> -       filter = kzalloc(sizeof(struct seccomp_filter) + fp_size,
+> -                        GFP_KERNEL|__GFP_NOWARN);
+> -       if (!filter)
+> +       fp = kzalloc(fp_size, GFP_KERNEL|__GFP_NOWARN);
+> +       if (!fp)
+>                 return -ENOMEM;
+> -       atomic_set(&filter->usage, 1);
+> -       filter->len = fprog->len;
+>
+>         /* Copy the instructions from fprog. */
+>         ret = -EFAULT;
+> -       if (copy_from_user(filter->insns, fprog->filter, fp_size))
+> -               goto fail;
+> +       if (copy_from_user(fp, fprog->filter, fp_size))
+> +               goto free_prog;
+>
+>         /* Check and rewrite the fprog via the skb checker */
+> -       ret = sk_chk_filter(filter->insns, filter->len);
+> +       ret = sk_chk_filter(fp, fprog->len);
+>         if (ret)
+> -               goto fail;
+> +               goto free_prog;
+>
+>         /* Check and rewrite the fprog for seccomp use */
+> -       ret = seccomp_check_filter(filter->insns, filter->len);
+> +       ret = seccomp_check_filter(fp, fprog->len);
+>         if (ret)
+> -               goto fail;
+> +               goto free_prog;
+> +
+> +       /* convert 'sock_filter' insns to 'sock_filter_ext' insns */
+> +       ret = sk_convert_filter(fp, fprog->len, NULL, &new_len);
+> +       if (ret)
+> +               goto free_prog;
+> +
+> +       /* Allocate a new seccomp_filter */
+> +       filter = kzalloc(sizeof(struct seccomp_filter) +
+> +                        sizeof(struct sock_filter_ext) * new_len,
+> +                        GFP_KERNEL|__GFP_NOWARN);
+> +       if (!filter)
+> +               goto free_prog;
+> +
+> +       ret = sk_convert_filter(fp, fprog->len, filter->insns, &new_len);
+> +       if (ret)
+> +               goto free_filter;
+> +       atomic_set(&filter->usage, 1);
+> +       filter->len = new_len;
+>
+>         /*
+>          * If there is an existing filter, make it the prev and don't drop its
+> @@ -282,8 +269,11 @@ static long seccomp_attach_filter(struct sock_fprog *fprog)
+>         filter->prev = current->seccomp.filter;
+>         current->seccomp.filter = filter;
+>         return 0;
+> -fail:
+> +
+> +free_filter:
+>         kfree(filter);
+> +free_prog:
+> +       kfree(fp);
+>         return ret;
+>  }
+>
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index 1494421486b7..f144a6a7d939 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -388,11 +388,6 @@ load_b:
+>                                 A = 0;
+>                         continue;
+>                 }
+> -#ifdef CONFIG_SECCOMP_FILTER
+> -               case BPF_S_ANC_SECCOMP_LD_W:
+> -                       A = seccomp_bpf_load(fentry->k);
+> -                       continue;
+> -#endif
+>                 default:
+>                         WARN_RATELIMIT(1, "Unknown code:%u jt:%u tf:%u k:%u\n",
+>                                        fentry->code, fentry->jt,
+> --
+> 1.7.9.5
+>
