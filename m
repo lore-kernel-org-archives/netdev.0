@@ -1,82 +1,43 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net-next v6 8/10] xen-netback: Add stat counters
- for frag_list skbs
-Date: Wed, 5 Mar 2014 19:17:33 +0000
-Message-ID: <5317784D.7090306@citrix.com>
-References: <201403050217.s252HoVa004730@userz7021.oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
-	<wei.liu2@citrix.com>, <ian.campbell@citrix.com>,
-	<jonathan.davies@citrix.com>, <linux-kernel@vger.kernel.org>
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201403050217.s252HoVa004730@userz7021.oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 0/5] samsung: xgmac:
+Date: Wed,  5 Mar 2014 11:20:14 -0800
+Message-ID: <cover.1394046997.git.joe@perches.com>
+Cc: linux-samsung-soc@vger.kernel.org, davem@davemloft.net,
+	siva.kallam@samsung.com, vipul.pandya@samsung.com,
+	ks.giri@samsung.com, ilho215.lee@samsung.com,
+	netdev@vger.kernel.org
+To: Byungho An <bh74.an@samsung.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0238.hostedemail.com ([216.40.44.238]:44796 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756338AbaCETUX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 14:20:23 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Mostly neatening and logging cleanups on top of the initial submittal.
 
-I've changed the numbers to actual patch names, thanks. Btw. your 
-replies doesn't have In-reply-to header, it breaks sorting into threads.
+Joe Perches (5):
+  samsung: xgmac: Neatening
+  samsung: xgmac: Fix pr_<level> uses
+  samsung: xgmac: Use more current logging style
+  samsung: xgmac: Neaten comments
+  samsung: xgmac: Mostly whitespace neatening
 
-Zoli
+ drivers/net/ethernet/samsung/xgmac_common.h   |  56 ++--
+ drivers/net/ethernet/samsung/xgmac_core.c     |  28 +-
+ drivers/net/ethernet/samsung/xgmac_desc.c     |  39 ++-
+ drivers/net/ethernet/samsung/xgmac_desc.h     |  16 +-
+ drivers/net/ethernet/samsung/xgmac_dma.c      |  49 ++--
+ drivers/net/ethernet/samsung/xgmac_dma.h      |  12 +-
+ drivers/net/ethernet/samsung/xgmac_ethtool.c  |  95 ++++---
+ drivers/net/ethernet/samsung/xgmac_main.c     | 389 +++++++++++++-------------
+ drivers/net/ethernet/samsung/xgmac_mdio.c     |  58 ++--
+ drivers/net/ethernet/samsung/xgmac_mtl.c      |  15 +-
+ drivers/net/ethernet/samsung/xgmac_mtl.h      |  14 +-
+ drivers/net/ethernet/samsung/xgmac_platform.c |  45 +--
+ drivers/net/ethernet/samsung/xgmac_reg.h      | 190 ++++++-------
+ 13 files changed, 502 insertions(+), 504 deletions(-)
 
-On 05/03/14 02:17, Konrad Rzeszutek Wilk wrote:
->
-> On Mar 4, 2014 5:32 PM, Zoltan Kiss <zoltan.kiss@citrix.com> wrote:
->>
->> These counters help determine how often the guest sends a packet with more
->> than MAX_SKB_FRAGS frags.
->>
->> NOTE: if bisect brought you here, you should apply the series up until #9,
->
-> s/#9/"the name of the patch.."
->
->> otherwise malicious guests can block other guests by not releasing their sent
->> packets.
->>
->> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
->> ---
->> drivers/net/xen-netback/common.h    |    1 +
->> drivers/net/xen-netback/interface.c |    7 +++++++
->> drivers/net/xen-netback/netback.c   |    1 +
->> 3 files changed, 9 insertions(+)
->>
->> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
->> index eac171e..d8a2298 100644
->> --- a/drivers/net/xen-netback/common.h
->> +++ b/drivers/net/xen-netback/common.h
->> @@ -170,6 +170,7 @@ struct xenvif {
->> unsigned long tx_zerocopy_sent;
->> unsigned long tx_zerocopy_success;
->> unsigned long tx_zerocopy_fail;
->> + unsigned long tx_frag_overflow;
->>
->> /* Miscellaneous private stuff. */
->> struct net_device *dev;
->> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
->> index adfed30..ba5be2f 100644
->> --- a/drivers/net/xen-netback/interface.c
->> +++ b/drivers/net/xen-netback/interface.c
->> @@ -252,6 +252,13 @@ static const struct xenvif_stat {
->> "tx_zerocopy_fail",
->> offsetof(struct xenvif, tx_zerocopy_fail)
->> },
->> + /* Number of packets exceeding MAX_SKB_FRAG slots. You should use
->> + * a guest with the same MAX_SKB_FRAG
->> + */
->> + {
->> + "tx_frag_overflow",
->> + offsetof(struct xenvif, tx_frag_overflow)
->> + },
->> };
->>
->> static int xenvif_get_sset_count(struct net_device *dev, int string_set)
->>
->>
->> _______________________________________________
->> Xen-devel mailing list
->> Xen-devel@lists.xen.org
->> http://lists.xen.org/xen-devel
+-- 
+1.8.1.2.459.gbcd45b4.dirty
