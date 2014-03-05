@@ -1,98 +1,80 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH] mlx4: Use GFP_NOFS calls during the ipoib TX path when
- creating the QP
-Date: Wed, 5 Mar 2014 17:57:01 +0200
-Message-ID: <5317494D.5010907@mellanox.com>
-References: <CAJZOPZKLcFC5Wqv7VS7AyovaeHw3PYSWEz9t9sZ4AMhG+dS1+A@mail.gmail.com> <alpine.LNX.2.00.1402271042240.21399@pobox.suse.cz> <530F0C4F.9030200@mellanox.com> <alpine.LNX.2.00.1402271123410.21399@pobox.suse.cz> <alpine.LNX.2.00.1403042348050.30402@pobox.suse.cz>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/7] net: xgmac: add basic framework for Samsung 10Gb
+ ethernet driver
+Date: Wed, 05 Mar 2014 08:11:58 -0800
+Message-ID: <1394035918.3271.67.camel@joe-AO722>
+References: <007b01cf3866$009f1900$01dd4b00$%an@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <or.gerlitz@gmail.com>,
-	Roland Dreier <roland@kernel.org>,
-	Amir Vadai <amirv@mellanox.com>,
-	Eli Cohen <eli@dev.mellanox.co.il>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Mel Gorman <mgorman@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: Jiri Kosina <jkosina@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1403042348050.30402@pobox.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-samsung-soc@vger.kernel.org, davem@davemloft.net,
+	siva.kallam@samsung.com, vipul.pandya@samsung.com,
+	ks.giri@samsung.com, ilho215.lee@samsung.com
+To: Byungho An <bh74.an@samsung.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0023.hostedemail.com ([216.40.44.23]:48963 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751630AbaCEQMJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 11:12:09 -0500
+In-Reply-To: <007b01cf3866$009f1900$01dd4b00$%an@samsung.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/03/2014 00:48, Jiri Kosina wrote:
-> On Thu, 27 Feb 2014, Jiri Kosina wrote:
->
->> On Thu, 27 Feb 2014, Or Gerlitz wrote:
->>
->>> ipoib is coded over the verbs API (include/rdma/ib_verbs.h)  --- so tracking
->>> the path from ipoib through the verbs api into mlx4 should be similar exercise
->>> as doing so for mlx5, but let's 1st treat the higher level elements involved
->>> with this patch.
->>>
->>> Can you shed some light why the problem happens only for NFS, and not for
->>> example with other IP/TCP storage protocols?
->>>
->>> For example, do you expect it to happen with iSCSI/TCP too? the Linux
->>> iSCSI initiator 1st open a TCP socket from user space to the target,
->>> next they do login exchange over this socket and later provide the
->>> socket to the kernel iscsi code to use as the back-end of a SCSI block
->>> device registered with the SCSI midlayer
->> Frankly, no idea. There was a problem with swapping over NFS, as writeback
->> was deadlocked with memory reclaim (memory needs to be allocated so that
->> swap could be accessed to reclaim memory). That's fixed by allocating the
->> buffers from PF_MEMALLOC reserve, introduced by Mel's and Peter's patchset
->> back in 3.9 or so. Oh, and the same has been done for swapping over NBD,
->> btw. Maybe iSCSI needs similar treatment, maybe it has it already, I
->> haven't checked. We haven't seen a bugreport for that though.
->>
->>>> I don't think we have, and it indeed should be rather easy to add. The
->>>> more challenging part of the problem is where (and based on which
->>>> data) the flag would actually be set up on the netdevice so that it's
->>>> not horrible layering violation.
->>> I assume that in the same manner netdevices advertize features to the
->>> networking core, the core can provide them operating directives after
->>> they register themselves.
->> Whatever suits you best. To sum it up:
->>
->> - mlx4 is confirmed to have this problem, and we know how that problem
->>    happens -- see the paragraph in the changelog explaining the dependency
->>    between memory reclaim and allocation of TX ring
->>
->> - we have a work around which requires human interaction in order
->>    to provide the information whether GFP_NOFS should be used or not
->>
->> - I can very well understand why Mellanox would see that as a hack, but if
->>    more comprehensive fix is necessary, I'd expect those who understand
->>    the code the best to come up with a solution/proposal. I'd assume that
->>    you don't  want to keep the code with known and easily triggerable
->>    deadlock out there unfixed.
->>
->> - where I see the potential for layering violation in any 'general'
->>    solution is that it's the filesystem that has to be "talking" to the
->>    underlying netdevice, i.e. you'll have to make filesystem
->>    netdevice-aware, right?
-> Mellanox folks, do you have any plan how to proceed here please?
->
+On Wed, 2014-03-05 at 20:28 +0900, Byungho An wrote:
+> From: Siva Reddy <siva.kallam@samsung.com>
 
-Hi Jiri,
+Just a few trivial comments on a brief scan.
 
-Yep, we will look on that. I think we still have few directions to 
-resolve here
+> +/* Context descriptor structure */
+> +struct xgmac_tx_ctxt_desc {
+> +	u32 tstamp_lo:32;
+> +	u32 tstamp_hi:32;
 
-1. (our task) deeper understanding of the problem
+I think u32 foo:32; is odd at best
+and may cause compiler oddities.
 
-2. if the solution goes in the way you took it, look for
+> diff --git a/drivers/net/ethernet/samsung/xgmac_main.c b/drivers/net/ethernet/samsung/xgmac_main.c
+[]
+> +static void print_pkt(unsigned char *buf, int len)
+> +{
+> +	int j;
+> +	pr_debug("len = %d byte, buf addr: 0x%p", len, buf);
+> +	for (j = 0; j < len; j++) {
+> +		if ((j % 16) == 0)
+> +			pr_debug("\n %03x:", j);
+> +		pr_debug(" %02x", buf[j]);
+> +	}
+> +	pr_debug("\n");
+> +}
 
-2.1 a more generic verbs interface, e.g QP creation flag  that dictates 
-the GFP_YYY to use when allocating memory
-for that QP, e.g NOIO, NOFS, ATOMIC, etc
+This will make a mess.  Use print_hex_dump_debug.
 
-2.2 a more programmable interface for the file-system to let the NIC 
-know they are under constraint YYY for their memory
-allocations, maybe per nieghbour? maybe use netdevice private flags?
+> +static int xgmac_open(struct net_device *dev)
+> +{
+[]
+> 	if (ret) {
+> +		pr_err("%s: Cannot attach to PHY (error: %d)\n",
+> +				__func__, ret);
 
-Or.
+A lot of the message logging would be better using
+more verbose forms like;
+
+	netdev_<level>(dev, etc...)
+
+[]
+
+> +/* xgmac_config - entry point for changing configuration mode passed on by
+> + * ifconfig
+> + * @dev : pointer to the device structure
+> + * @map : pointer to the device mapping structure
+> + * Description:
+> + * This function is a driver entry point which gets called by the kernel
+> + * whenever some device configuration is changed.
+> + * Return value:
+> + * This function returns 0 if success and appropriate error otherwise.
+> + */
+
+It might be nicer if you used kernel-doc forms startig with
+/**
+for these comments everywhere.
