@@ -1,38 +1,37 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: Possible fix
-Date: Wed, 5 Mar 2014 13:20:09 +0100
-Message-ID: <20140305122009.GR32371@secunet.com>
-References: <20140227151954.GA30946@redhat.com>
- <20140228072333.GP32371@secunet.com>
- <5310607F.7030401@redhat.com>
- <8608950.OLpq4oFFJB@sifl>
+Subject: Re: [PATCH RFC 01/12] xfrm: Introduce xfrm_input_afinfo to access
+ the the callbacks properly
+Date: Wed, 5 Mar 2014 13:24:40 +0100
+Message-ID: <20140305122440.GS32371@secunet.com>
+References: <1393583483-12480-1-git-send-email-steffen.klassert@secunet.com>
+ <1393583483-12480-2-git-send-email-steffen.klassert@secunet.com>
+ <20140302.200923.1500412807288633496.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: Nikolay Aleksandrov <nikolay@redhat.com>, <netdev@vger.kernel.org>,
-	Dave Jones <davej@redhat.com>, Fan Du <fan.du@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	<linux-security-module@vger.kernel.org>
-To: Paul Moore <paul@paul-moore.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <christophe.gouault@6wind.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:52747 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752100AbaCEMYm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Mar 2014 07:24:42 -0500
 Content-Disposition: inline
-In-Reply-To: <8608950.OLpq4oFFJB@sifl>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20140302.200923.1500412807288633496.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 28, 2014 at 05:10:47PM -0500, Paul Moore wrote:
-> On Friday, February 28, 2014 11:10:07 AM Nikolay Aleksandrov wrote:
-> > On 02/28/2014 08:23 AM, Steffen Klassert wrote:
-> > > 
-> > > Looking at the git history, it seems that this bug is about nine
-> > > years old. I guess noone is actually using this.
+On Sun, Mar 02, 2014 at 08:09:23PM -0500, David Miller wrote:
+> From: Steffen Klassert <steffen.klassert@secunet.com>
+> Date: Fri, 28 Feb 2014 11:31:11 +0100
 > 
-> Most (all?) of the labeled IPsec users use the netlink interface and not pfkey 
-> so it isn't surprising that this has gone unnoticed for some time.
+> > +	int err = 0;
+> > +	if (unlikely(afinfo == NULL))
+> > +		return -EINVAL;
+> 
+> A newline between local variable declarations and code, please.
+> 
 
-Right, that's not really surprising. But it is a bit surprising that
-we care for the security context only if we add a socket policy via
-the pfkey key manager. The security context is not handled if we do
-that with the netlink key manager, see xfrm_compile_policy().
+This was a copy and paste from xfrm_state_register_afinfo :)
 
-I'm not that familiar with selinux and labeled IPsec, but maybe this
-needs to be implemented in xfrm_compile_policy() too.
+I've incorporated your feedback into the next version of
+this patchset. Thanks for the review!
