@@ -1,135 +1,80 @@
-From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@web.de>
-Subject: Re: bridge is not forwaring ICMP6 neighbor solicitation to
-	KVM guest
-Date: Wed, 5 Mar 2014 15:27:07 +0100
-Message-ID: <20140305142706.GL5090@Linus-Debian>
-References: <1566805413.12693479.1393872931017.JavaMail.zimbra@redhat.com>
-	<20140303212759.GW5090@Linus-Debian>
-	<1808019554.12748658.1393886749190.JavaMail.zimbra@redhat.com>
-	<20140304000041.GY5090@Linus-Debian>
-	<624414844.12834668.1393920156458.JavaMail.zimbra@redhat.com>
-	<20140304105253.GC5090@Linus-Debian>
-	<1663332249.12962360.1393931189285.JavaMail.zimbra@redhat.com>
-	<20140304213757.GJ5090@Linus-Debian>
-	<521731164.13535687.1394021407825.JavaMail.zimbra@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next V2 1/2] net: Utility function to get affinity_hint
+ by policy
+Date: Wed, 05 Mar 2014 18:42:30 +0400
+Message-ID: <531737D6.6070604@cogentembedded.com>
+References: <1394014159-18801-1-git-send-email-amirv@mellanox.com> <1394014159-18801-2-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, Florian Westphal <fwestpha@redhat.com>,
-	bridge@lists.linux-foundation.org
-To: Jan Stancek <jstancek@redhat.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <521731164.13535687.1394021407825.JavaMail.zimbra@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Prarit Bhargava <prarit@redhat.com>,
+	Govindarajulu Varadarajan <gvaradar@cisco.com>
+To: Amir Vadai <amirv@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:61250 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754340AbaCEOm2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 09:42:28 -0500
+Received: by mail-lb0-f174.google.com with SMTP id u14so750463lbd.19
+        for <netdev@vger.kernel.org>; Wed, 05 Mar 2014 06:42:27 -0800 (PST)
+In-Reply-To: <1394014159-18801-2-git-send-email-amirv@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hello.
 
+On 05-03-2014 14:09, Amir Vadai wrote:
 
-On Wed, Mar 05, 2014 at 07:10:07AM -0500, Jan Stancek wrote:
->=20
->=20
-> ----- Original Message -----
-> > From: "Linus L=C3=BCssing" <linus.luessing@web.de>
-> > To: "Jan Stancek" <jstancek@redhat.com>
-> > Cc: netdev@vger.kernel.org, "Florian Westphal" <fwestpha@redhat.com>,=
- bridge@lists.linux-foundation.org
-> > Sent: Tuesday, 4 March, 2014 10:37:57 PM
-> > Subject: Re: bridge is not forwaring ICMP6 neighbor solicitation to K=
-VM guest
-> > > I'm not sure if it's Linux (I'm trying to locate that system by MAC=
-), but I
-> > > see
-> > > packets like these on my network every ~125 seconds:
-> > >=20
-> > > No.     Time        Source                Destination           Pro=
-tocol
-> > > Length Info
-> > >   22675 1334.751135 ::                    ff02::1               ICM=
-Pv6   86
-> > >   Multicast Listener Query
-> >=20
-> > It's probably the bridge on this ancient kernel, you might want to
-> > backport the following patch:
->=20
-> Hi,
->=20
-> The example above was from box, which turned out not be running Linux.
+> This function sets the affinity_mask according to a numa aware policy.
+> affinity_mask could be used as an affinity hint for the IRQ related to
+> this rx queue.
+> Current policy is to spread rx queues accross cores - local cores first.
+> It could be extended in the future.
 
-Okay, yeah, there's somehow the misconception flying around, that
-a snooping switch could use "::" as a source address. Even the
-informational RFC4541 writes about "proxy IGMP queries"
-disregarding the source address requirements for MLDv1/2, feeding
-this misconception. I just skimmed RFC4605 ("IGMP/MLD Proxying")
-briefly, but couldn't find any note for "0.0.0.0" or "::" there.
-But I think we could see with your practical example, that "::"
-MLD query source addresses should be considered broken.
+> CC: Prarit Bhargava <prarit@redhat.com>
+> CC: Govindarajulu Varadarajan <gvaradar@cisco.com>
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+[...]
 
->=20
-> >=20
-> > If these patches on host B xor the sanity check I just submitted appl=
-ied
-> > on your host A / VM host fix your issue, then they might be worth
-> > considering for the stable queue.
->=20
-> Is it necessary to apply same patch also on any (older) kernel running =
-in VM?
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index b1b0c8d..0b22f67 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2116,6 +2116,62 @@ int netif_set_real_num_rx_queues(struct net_device *dev, unsigned int rxq)
+>   EXPORT_SYMBOL(netif_set_real_num_rx_queues);
+>   #endif
+>
+> +/* netif_set_rx_queue_affinity_hint - set affinity hint of rx queue
 
-The source address patches are only required on boxes where the
-internal MLD querier code of the bridge is used. Afaik tell the
-source address patch is present on all kernels since v2.6.38 and
-all kernels listed on the kernel.org frontpage, except 2.6.34.15
-and 2.6.32.61.
+    This should be a comment in the kernel-doc style, starting with /** on a 
+line of its own.
 
-For the sanity check patch, it should probably be added to any
-kernel having a bridge (though in your particular scenario and
-what we are currently debugging at, having it on host A should
-be sufficient).
+> + * @rxq: index of rx queue
+> + * @numa_node: prefered numa_node
+> + * @affinity_mask: the relevant cpu bit is set according to the policy
+> + *
+> + * This function sets the affinity_mask according to a numa aware policy.
+> + * affinity_mask coulbe used as an affinity hint for the IRQ related to this
+> + * rx queue.
+> + * The policy is to spread rx queues accross cores - local cores first.
+> + *
+> + * Returns 0 on success, or a negative error code.
+> + */
+> +int netif_set_rx_queue_affinity_hint(int rxq, int numa_node,
+> +				     cpumask_var_t affinity_mask)
+> +{
+> +	const struct cpumask *p_numa_cores_mask;
+> +	cpumask_var_t non_numa_cores_mask = NULL;
+> +	int affinity_cpu;
+> +	int ret = 0;
+> +
+> +	rxq = rxq % num_online_cpus();
 
-> I hand-crafted one new packet from malformed one used in previous tests=
-.
-> I modified source address from :: to host B link-scope address and chan=
-ged
-> dst address from ff02::1 to ff02::1:ffaa:aaaa
+    Why not:
 
-Okay, again according to your capture the guest is receiving the
-MLD query on its interface but does not react with an MLD report.
+	rxq %= num_online_cpus();
 
-Two things I'd like to know:
-
-Is using the link-scope address as a source and "ff02::1" as the
-destination address for the MLD query work for you?
-
-Is using the link-scope address as a source and "ff02::1:ff00:29"
-as the destination address for the MLD query "work" for you (do
-we see an MLD report from the guest and keep on seeing neighbor
-solicitations from host B then?).
-
-For the latter, I don't see anything in particular filtering these
-for a general MLD query wrong destination address in the IPv6
-code from igmp6_event_query() on. But I suspect that the query
-doesn't even get that far on the kernel of the guest, as it is not
-listening on ff02::1:ffaa:aaaa. Therefore the test with
-"ff02::1:ff00:29", an address the guest is listening on, would be
-interesting.
-
-If that works, then I'm going to make a patch ignore General MLD
-Queries without ff02::1 as their destination address, too.
-
-
-Hm, looking at more checks in igmp6_event_query(), I'm currently
-wondering whether we should only enable the snooping behaviour in
-the bridge when receiving a General MLD Query, so one with "::" in
-the multicast field of the MLD message, instead of activating it
-upon a Multicast-Address-Specific Query, too. That'd seem more
-sane to me, I'm going to make a patch for that tomorrow.
-
-Cheers, Linus
+WBR, Sergei
