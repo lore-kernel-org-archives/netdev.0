@@ -1,8 +1,8 @@
 From: <erik.hugne@ericsson.com>
-Subject: [PATCH net-next v2 2/6] tipc: fix connection
-	refcount leak
-Date: Wed, 5 Mar 2014 08:56:14 +0100
-Message-ID: <1394006178-23966-3-git-send-email-erik.hugne@ericsson.com>
+Subject: [PATCH net-next v2 4/6] tipc: drop subscriber
+	connection id invalidation
+Date: Wed, 5 Mar 2014 08:56:16 +0100
+Message-ID: <1394006178-23966-5-git-send-email-erik.hugne@ericsson.com>
 References: <1394006178-23966-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,46 +22,53 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-From: Ying Xue <ying.xue@windriver.com>
+From: Erik Hugne <erik.hugne@ericsson.com>
 
-When tipc_conn_sendmsg() calls tipc_conn_lookup() to query a
-connection instance, its reference count value is increased if
-it's found. But subsequently if it's found that the connection is
-closed, the work of sending message is not queued into its server
-send workqueue, and the connection reference count is not decreased.
-This will cause a reference count leak. To reproduce this problem,
-an application would need to open and closes topology server
-connections with high intensity.
+When a topology server subscriber is disconnected, the associated
+connection id is set to zero. A check vs zero is then done in the
+subscription timeout function to see if the subscriber have been
+shut down. This is unnecessary, because all subscription timers
+will be cancelled when a subscriber terminates. Setting the
+connection id to zero is actually harmful because id zero is the
+identity of the topology server listening socket, and can cause a
+race that leads to this socket being closed instead.
 
-We fix this by immediately decrementing the connection reference
-count if a send fails due to the connection being closed.
-
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Acked-by: Erik Hugne <erik.hugne@ericsson.com>
+Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+Acked-by: Ying Xue <ying.xue@windriver.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/server.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ net/tipc/subscr.c | 11 -----------
+ 1 file changed, 11 deletions(-)
 
-diff --git a/net/tipc/server.c b/net/tipc/server.c
-index 91423ca..0eb6301 100644
---- a/net/tipc/server.c
-+++ b/net/tipc/server.c
-@@ -430,10 +430,12 @@ int tipc_conn_sendmsg(struct tipc_server *s, int conid,
- 	list_add_tail(&e->list, &con->outqueue);
- 	spin_unlock_bh(&con->outqueue_lock);
+diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
+index a6ce3bb..11c9ae0 100644
+--- a/net/tipc/subscr.c
++++ b/net/tipc/subscr.c
+@@ -149,14 +149,6 @@ static void subscr_timeout(struct tipc_subscription *sub)
+ 	/* The spin lock per subscriber is used to protect its members */
+ 	spin_lock_bh(&subscriber->lock);
  
--	if (test_bit(CF_CONNECTED, &con->flags))
-+	if (test_bit(CF_CONNECTED, &con->flags)) {
- 		if (!queue_work(s->send_wq, &con->swork))
- 			conn_put(con);
+-	/* Validate if the connection related to the subscriber is
+-	 * closed (in case subscriber is terminating)
+-	 */
+-	if (subscriber->conid == 0) {
+-		spin_unlock_bh(&subscriber->lock);
+-		return;
+-	}
 -
-+	} else {
-+		conn_put(con);
-+	}
- 	return 0;
- }
+ 	/* Validate timeout (in case subscription is being cancelled) */
+ 	if (sub->timeout == TIPC_WAIT_FOREVER) {
+ 		spin_unlock_bh(&subscriber->lock);
+@@ -211,9 +203,6 @@ static void subscr_release(struct tipc_subscriber *subscriber)
  
+ 	spin_lock_bh(&subscriber->lock);
+ 
+-	/* Invalidate subscriber reference */
+-	subscriber->conid = 0;
+-
+ 	/* Destroy any existing subscriptions for subscriber */
+ 	list_for_each_entry_safe(sub, sub_temp, &subscriber->subscription_list,
+ 				 subscription_list) {
 -- 
 1.8.3.2
 
