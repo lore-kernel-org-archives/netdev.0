@@ -1,54 +1,41 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: [PATCH 0/2] af_key: fixes for sleeping while atomic
-Date: Wed, 05 Mar 2014 17:21:14 -0500
-Message-ID: <22489243.QXrM05WUdr@sifl>
-References: <20140227151954.GA30946@redhat.com> <1393935984-8733-1-git-send-email-nikolay@redhat.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH net-next 2/2] 6lowpan: reassembly: fix kernel oops while
+ unloading
+Date: Wed, 5 Mar 2014 23:32:46 +0100
+Message-ID: <20140305223246.GA17526@breakpoint.cc>
+References: <1394052211-6976-1-git-send-email-alex.aring@gmail.com>
+ <1394052211-6976-3-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, Dave Jones <davej@redhat.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Fan Du <fan.du@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Alexander Aring <alex.aring@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f177.google.com ([209.85.216.177]:40822 "EHLO
-	mail-qc0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751931AbaCEWVS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 17:21:18 -0500
-Received: by mail-qc0-f177.google.com with SMTP id w7so1924835qcr.22
-        for <netdev@vger.kernel.org>; Wed, 05 Mar 2014 14:21:18 -0800 (PST)
-In-Reply-To: <1393935984-8733-1-git-send-email-nikolay@redhat.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:37272 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932478AbaCEWcu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 17:32:50 -0500
+Content-Disposition: inline
+In-Reply-To: <1394052211-6976-3-git-send-email-alex.aring@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, March 04, 2014 01:26:22 PM Nikolay Aleksandrov wrote:
-> Hi,
-> The first patch takes care of the issue on the af_key side, and the second
-> one fixes it on the selinux side (security_xfrm_policy_alloc).
-> There're a few lines >80 but they were already long, I'm not sure if
-> breaking them above the limit would make them more readable than they
-> already are.
+Alexander Aring <alex.aring@gmail.com> wrote:
+> It seems that the inet_frag_queue is deleted but the timer is running. This
+> patch adds a for loop to iterate over all frag_queue entries in the
+> frag_bucket and calling del_timer for each frag_queue entry while
+> unloading the 6lowpan module.
 > 
-> Best regards,
->  Nikolay Aleksandrov
-> 
-> CC: Paul Moore <paul@paul-moore.com>
-> CC: Dave Jones <davej@redhat.com>
-> CC: Steffen Klassert <steffen.klassert@secunet.com>
-> CC: Fan Du <fan.du@windriver.com>
-> CC: David S. Miller <davem@davemloft.net>
-> 
-> Nikolay Aleksandrov (2):
->   net: af_key: fix sleeping under rcu
->   selinux: add gfp argument to security_xfrm_policy_alloc and fix
->     callers
+> Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+> Reported-by: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+> ---
+> I am not sure about that I can do that in this simply way without hold
+> any lock of the inet_frag_queue or inet_frag_bucket. Please help there.
+> The kernel oops never occurs afterwards, but this isn't simple to test.
+> I can't test all cases.
 
-My apologies, I had hoped to review this today but other bugs got the better 
-of me.  This is top of my list for tomorrow.
+I find it hard to believe that this is a 6lowpan specific problem,
+most likely this needs a fix in inet_fragment code.
 
-Thank you for putting this patchset together.
-
--- 
-paul moore
-www.paul-moore.com
+I am currently looking at that code for different reasons anyway and can
+investigate tomorrow if you do not have time for it.
