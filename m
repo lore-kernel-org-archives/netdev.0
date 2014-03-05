@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC v2 01/12] xfrm: Introduce xfrm_input_afinfo to access the the callbacks properly
-Date: Wed, 5 Mar 2014 13:41:05 +0100
-Message-ID: <1394023276-2591-2-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH RFC v2 05/12] ipcomp6: Use the IPsec protocol multiplexer API
+Date: Wed, 5 Mar 2014 13:41:09 +0100
+Message-ID: <1394023276-2591-6-git-send-email-steffen.klassert@secunet.com>
 References: <1394023276-2591-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,208 +9,102 @@ Cc: Steffen Klassert <steffen.klassert@secunet.com>,
 	Christophe Gouault <christophe.gouault@6wind.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:53170 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:53187 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752623AbaCEMl1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Mar 2014 07:41:27 -0500
+	id S1753865AbaCEMl3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Mar 2014 07:41:29 -0500
 In-Reply-To: <1394023276-2591-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IPv6 can be build as a module, so we need mechanism to access
-the address family dependent callback functions properly.
-Therefore we introduce xfrm_input_afinfo, similar to that
-what we have for the address family dependent part of
-policies and states.
+Switch ipcomp6 to use the new IPsec protocol multiplexer.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/net/xfrm.h        |   23 +++++++-------
- net/ipv4/xfrm4_policy.c   |    1 +
- net/ipv4/xfrm4_protocol.c |   13 +++++++-
- net/xfrm/xfrm_input.c     |   75 +++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 99 insertions(+), 13 deletions(-)
+ net/ipv6/ipcomp6.c |   22 +++++++++++++++-------
+ 1 file changed, 15 insertions(+), 7 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 8b92528..4cdc9fa 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -349,6 +349,16 @@ int xfrm_state_unregister_afinfo(struct xfrm_state_afinfo *afinfo);
- struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned int family);
- void xfrm_state_put_afinfo(struct xfrm_state_afinfo *afinfo);
+diff --git a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
+index da9becb..d1c793c 100644
+--- a/net/ipv6/ipcomp6.c
++++ b/net/ipv6/ipcomp6.c
+@@ -53,7 +53,7 @@
+ #include <linux/icmpv6.h>
+ #include <linux/mutex.h>
  
-+struct xfrm_input_afinfo {
-+	unsigned int		family;
-+	struct module		*owner;
-+	int			(*callback)(struct sk_buff *skb, u8 protocol,
-+					    int err);
-+};
-+
-+int xfrm_input_register_afinfo(struct xfrm_input_afinfo *afinfo);
-+int xfrm_input_unregister_afinfo(struct xfrm_input_afinfo *afinfo);
-+
- void xfrm_state_delete_tunnel(struct xfrm_state *x);
+-static void ipcomp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
++static int ipcomp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 				u8 type, u8 code, int offset, __be32 info)
+ {
+ 	struct net *net = dev_net(skb->dev);
+@@ -65,19 +65,21 @@ static void ipcomp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
  
- struct xfrm_type {
-@@ -1392,6 +1402,7 @@ void xfrm4_init(void);
- int xfrm_state_init(struct net *net);
- void xfrm_state_fini(struct net *net);
- void xfrm4_state_init(void);
-+void xfrm4_protocol_init(void);
- #ifdef CONFIG_XFRM
- int xfrm6_init(void);
- void xfrm6_fini(void);
-@@ -1773,18 +1784,6 @@ static inline int xfrm_mark_put(struct sk_buff *skb, const struct xfrm_mark *m)
- 	return ret;
+ 	if (type != ICMPV6_PKT_TOOBIG &&
+ 	    type != NDISC_REDIRECT)
+-		return;
++		return 0;
+ 
+ 	spi = htonl(ntohs(ipcomph->cpi));
+ 	x = xfrm_state_lookup(net, skb->mark, (const xfrm_address_t *)&iph->daddr,
+ 			      spi, IPPROTO_COMP, AF_INET6);
+ 	if (!x)
+-		return;
++		return 0;
+ 
+ 	if (type == NDISC_REDIRECT)
+ 		ip6_redirect(skb, net, skb->dev->ifindex, 0);
+ 	else
+ 		ip6_update_pmtu(skb, net, info, 0, 0);
+ 	xfrm_state_put(x);
++
++	return 0;
  }
  
--static inline int xfrm_rcv_cb(struct sk_buff *skb, unsigned int family,
--			      u8 protocol, int err)
--{
--	switch(family) {
--#ifdef CONFIG_INET
--	case AF_INET:
--		return xfrm4_rcv_cb(skb, protocol, err);
--#endif
--	}
--	return 0;
--}
--
- static inline int xfrm_tunnel_check(struct sk_buff *skb, struct xfrm_state *x,
- 				    unsigned int family)
- {
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index e1a6393..6156f68 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -325,6 +325,7 @@ void __init xfrm4_init(void)
+ static struct xfrm_state *ipcomp6_tunnel_create(struct xfrm_state *x)
+@@ -174,6 +176,11 @@ out:
+ 	return err;
+ }
  
- 	xfrm4_state_init();
- 	xfrm4_policy_init();
-+	xfrm4_protocol_init();
- #ifdef CONFIG_SYSCTL
- 	register_pernet_subsys(&xfrm4_net_ops);
- #endif
-diff --git a/net/ipv4/xfrm4_protocol.c b/net/ipv4/xfrm4_protocol.c
-index cdc09ef..7f7b243 100644
---- a/net/ipv4/xfrm4_protocol.c
-+++ b/net/ipv4/xfrm4_protocol.c
-@@ -179,6 +179,12 @@ static const struct net_protocol ipcomp4_protocol = {
- 	.netns_ok	=	1,
++static int ipcomp6_rcv_cb(struct sk_buff *skb, int err)
++{
++	return 0;
++}
++
+ static const struct xfrm_type ipcomp6_type =
+ {
+ 	.description	= "IPCOMP6",
+@@ -186,11 +193,12 @@ static const struct xfrm_type ipcomp6_type =
+ 	.hdr_offset	= xfrm6_find_1stfragopt,
  };
  
-+static struct xfrm_input_afinfo xfrm4_input_afinfo = {
-+	.family		=	AF_INET,
-+	.owner		=	THIS_MODULE,
-+	.callback	=	xfrm4_rcv_cb,
-+};
-+
- static inline const struct net_protocol *netproto(unsigned char protocol)
+-static const struct inet6_protocol ipcomp6_protocol =
++static struct xfrm6_protocol ipcomp6_protocol =
  {
- 	switch (protocol) {
-@@ -199,7 +205,6 @@ int xfrm4_protocol_register(struct xfrm4_protocol *handler,
- 	struct xfrm4_protocol __rcu **pprev;
- 	struct xfrm4_protocol *t;
- 	bool add_netproto = false;
--
- 	int ret = -EEXIST;
- 	int priority = handler->priority;
+ 	.handler	= xfrm6_rcv,
++	.cb_handler	= ipcomp6_rcv_cb,
+ 	.err_handler	= ipcomp6_err,
+-	.flags		= INET6_PROTO_NOPOLICY,
++	.priority	= 0,
+ };
  
-@@ -273,3 +278,9 @@ int xfrm4_protocol_deregister(struct xfrm4_protocol *handler,
- 	return ret;
- }
- EXPORT_SYMBOL(xfrm4_protocol_deregister);
-+
-+void __init xfrm4_protocol_init(void)
-+{
-+	xfrm_input_register_afinfo(&xfrm4_input_afinfo);
-+}
-+EXPORT_SYMBOL(xfrm4_protocol_init);
-diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-index 4218164..85d1d47 100644
---- a/net/xfrm/xfrm_input.c
-+++ b/net/xfrm/xfrm_input.c
-@@ -16,6 +16,81 @@
+ static int __init ipcomp6_init(void)
+@@ -199,7 +207,7 @@ static int __init ipcomp6_init(void)
+ 		pr_info("%s: can't add xfrm type\n", __func__);
+ 		return -EAGAIN;
+ 	}
+-	if (inet6_add_protocol(&ipcomp6_protocol, IPPROTO_COMP) < 0) {
++	if (xfrm6_protocol_register(&ipcomp6_protocol, IPPROTO_COMP) < 0) {
+ 		pr_info("%s: can't add protocol\n", __func__);
+ 		xfrm_unregister_type(&ipcomp6_type, AF_INET6);
+ 		return -EAGAIN;
+@@ -209,7 +217,7 @@ static int __init ipcomp6_init(void)
  
- static struct kmem_cache *secpath_cachep __read_mostly;
- 
-+static DEFINE_SPINLOCK(xfrm_input_afinfo_lock);
-+static struct xfrm_input_afinfo __rcu *xfrm_input_afinfo[NPROTO];
-+
-+int xfrm_input_register_afinfo(struct xfrm_input_afinfo *afinfo)
-+{
-+	int err = 0;
-+
-+	if (unlikely(afinfo == NULL))
-+		return -EINVAL;
-+	if (unlikely(afinfo->family >= NPROTO))
-+		return -EAFNOSUPPORT;
-+	spin_lock_bh(&xfrm_input_afinfo_lock);
-+	if (unlikely(xfrm_input_afinfo[afinfo->family] != NULL))
-+		err = -ENOBUFS;
-+	else
-+		rcu_assign_pointer(xfrm_input_afinfo[afinfo->family], afinfo);
-+	spin_unlock_bh(&xfrm_input_afinfo_lock);
-+	return err;
-+}
-+EXPORT_SYMBOL(xfrm_input_register_afinfo);
-+
-+int xfrm_input_unregister_afinfo(struct xfrm_input_afinfo *afinfo)
-+{
-+	int err = 0;
-+
-+	if (unlikely(afinfo == NULL))
-+		return -EINVAL;
-+	if (unlikely(afinfo->family >= NPROTO))
-+		return -EAFNOSUPPORT;
-+	spin_lock_bh(&xfrm_input_afinfo_lock);
-+	if (likely(xfrm_input_afinfo[afinfo->family] != NULL)) {
-+		if (unlikely(xfrm_input_afinfo[afinfo->family] != afinfo))
-+			err = -EINVAL;
-+		else
-+			RCU_INIT_POINTER(xfrm_input_afinfo[afinfo->family], NULL);
-+	}
-+	spin_unlock_bh(&xfrm_input_afinfo_lock);
-+	synchronize_rcu();
-+	return err;
-+}
-+EXPORT_SYMBOL(xfrm_input_unregister_afinfo);
-+
-+static struct xfrm_input_afinfo *xfrm_input_get_afinfo(unsigned int family)
-+{
-+	struct xfrm_input_afinfo *afinfo;
-+
-+	if (unlikely(family >= NPROTO))
-+		return NULL;
-+	rcu_read_lock();
-+	afinfo = rcu_dereference(xfrm_input_afinfo[family]);
-+	if (unlikely(!afinfo))
-+		rcu_read_unlock();
-+	return afinfo;
-+}
-+
-+static void xfrm_input_put_afinfo(struct xfrm_input_afinfo *afinfo)
-+{
-+	rcu_read_unlock();
-+}
-+
-+static int xfrm_rcv_cb(struct sk_buff *skb, unsigned int family, u8 protocol,
-+		       int err)
-+{
-+	int ret;
-+	struct xfrm_input_afinfo *afinfo = xfrm_input_get_afinfo(family);
-+
-+	if (!afinfo)
-+		return -EAFNOSUPPORT;
-+
-+	ret = afinfo->callback(skb, protocol, err);
-+	xfrm_input_put_afinfo(afinfo);
-+
-+	return ret;
-+}
-+
- void __secpath_destroy(struct sec_path *sp)
+ static void __exit ipcomp6_fini(void)
  {
- 	int i;
+-	if (inet6_del_protocol(&ipcomp6_protocol, IPPROTO_COMP) < 0)
++	if (xfrm6_protocol_deregister(&ipcomp6_protocol, IPPROTO_COMP) < 0)
+ 		pr_info("%s: can't remove protocol\n", __func__);
+ 	if (xfrm_unregister_type(&ipcomp6_type, AF_INET6) < 0)
+ 		pr_info("%s: can't remove xfrm type\n", __func__);
 -- 
 1.7.9.5
