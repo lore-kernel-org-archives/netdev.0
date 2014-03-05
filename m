@@ -1,68 +1,43 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next] bonding: make slave status notifications GFP_ATOMIC
-Date: Wed,  5 Mar 2014 14:15:53 +0100
-Message-ID: <1394025353-5496-1-git-send-email-vfalico@redhat.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Thomas Glanzmann <thomas@glanzmann.de>,
-	Ding Tianhong <dingtianhong@huawei.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: netdev@vger.kernel.org
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: [PATCH net-next 1/2] 6lowpan: add missing include of net/ipv6.h
+Date: Wed,  5 Mar 2014 14:29:04 +0100
+Message-ID: <1394026145-18981-2-git-send-email-alex.aring@gmail.com>
+References: <1394026145-18981-1-git-send-email-alex.aring@gmail.com>
+Cc: gustavo@padovan.org, johan.hedberg@gmail.com, davem@davemloft.net,
+	alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	Alexander Aring <alex.aring@gmail.com>
+To: marcel@holtmann.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:23021 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752232AbaCENZZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Mar 2014 08:25:25 -0500
+Received: from mail-ee0-f53.google.com ([74.125.83.53]:55999 "EHLO
+	mail-ee0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751630AbaCEN3Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 08:29:24 -0500
+In-Reply-To: <1394026145-18981-1-git-send-email-alex.aring@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently we're using GFP_KERNEL, however there are some path(s) where we
-can hold some spinlocks, specifically bond->curr_slave_lock:
+The 6lowpan.h file contains some static inline function which use
+internal ipv6 api structs. Add a include of ipv6.h to be sure that it's
+known before.
 
-[    4.722916] BUG: sleeping function called from invalid context at mm/slub.c:965
-[    4.724438] in_atomic(): 1, irqs_disabled(): 0, pid: 940, name: ifup-eth
-[    4.726034] 5 locks held by ifup-eth/940:
-...snip...
-[    4.734646]  #4:  (&bond->curr_slave_lock){+...+.}, at: [<ffffffffa00badc6>] bond_enslave+0xda6/0xdd0 [bonding]
-...snip...
-[    4.759081]  [<ffffffffa00b6f11>] bond_change_active_slave+0x191/0x3b0 [bonding]
-[    4.760917]  [<ffffffffa00b7227>] bond_select_active_slave+0xf7/0x1d0 [bonding]
-[    4.762751]  [<ffffffffa00badce>] bond_enslave+0xdae/0xdd0 [bonding]
-...snip...
-
-As it's out of hot path and is a really rare event - change the gfp_t flags
-to GFP_ATOMIC to avoid sleeping under spinlock.
-
-CC: Thomas Glanzmann <thomas@glanzmann.de>
-CC: Ding Tianhong <dingtianhong@huawei.com>
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+Signed-off-by: Alexander Aring <alex.aring@gmail.com>
 ---
- drivers/net/bonding/bonding.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/ieee802154/6lowpan.h | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 4303628..4cd451d 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -292,7 +292,7 @@ static inline void bond_set_active_slave(struct slave *slave)
- {
- 	if (slave->backup) {
- 		slave->backup = 0;
--		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_KERNEL);
-+		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_ATOMIC);
- 	}
- }
+diff --git a/net/ieee802154/6lowpan.h b/net/ieee802154/6lowpan.h
+index 0dccf62..f7d372b 100644
+--- a/net/ieee802154/6lowpan.h
++++ b/net/ieee802154/6lowpan.h
+@@ -53,6 +53,8 @@
+ #ifndef __6LOWPAN_H__
+ #define __6LOWPAN_H__
  
-@@ -300,7 +300,7 @@ static inline void bond_set_backup_slave(struct slave *slave)
- {
- 	if (!slave->backup) {
- 		slave->backup = 1;
--		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_KERNEL);
-+		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_ATOMIC);
- 	}
- }
- 
++#include <net/ipv6.h>
++
+ #define UIP_802154_SHORTADDR_LEN	2  /* compressed ipv6 address length */
+ #define UIP_IPH_LEN			40 /* ipv6 fixed header size */
+ #define UIP_PROTO_UDP			17 /* ipv6 next header value for UDP */
 -- 
-1.8.4
+1.9.0
