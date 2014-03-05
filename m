@@ -1,62 +1,109 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC v2 0/12] vti6: prepare namespace and interfamily support.
-Date: Wed, 5 Mar 2014 13:41:04 +0100
-Message-ID: <1394023276-2591-1-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH RFC v2 03/12] esp6: Use the IPsec protocol multiplexer API
+Date: Wed, 5 Mar 2014 13:41:07 +0100
+Message-ID: <1394023276-2591-4-git-send-email-steffen.klassert@secunet.com>
+References: <1394023276-2591-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Steffen Klassert <steffen.klassert@secunet.com>,
 	Christophe Gouault <christophe.gouault@6wind.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:53164 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:53180 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751604AbaCEMl0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Mar 2014 07:41:26 -0500
+	id S1752392AbaCEMl2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Mar 2014 07:41:28 -0500
+In-Reply-To: <1394023276-2591-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset prepares vti6 for proper namespace and interfamily support.
+Switch esp6 to use the new IPsec protocol multiplexer.
 
-With this patchset vti6 uses the new IPsec protocol multiplexer to
-register it's own receive side hooks for ESP, AH and IPCOMP exactly
-like the ipv4 side does that now.
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/ipv6/esp6.c |   24 ++++++++++++++++--------
+ 1 file changed, 16 insertions(+), 8 deletions(-)
 
-Vti6 does the following on receive side:
-
-1. Do an input policy check for the IPsec packet we received.
-   This is required because this packet could be already
-   processed by IPsec (tunnel in tunnel or a block policy
-   is present), so an inbound policy check is needed.
-
-2. Mark the packet with the i_key. The policy and the state
-   must match this key now. Policy and state belong to the vti
-   namespace and policy enforcement is done at the further layers.
-
-3. Call the generic xfrm layer to do decryption and decapsulation.
-
-4. Wait for a callback from the xfrm layer to do an inbound policy check
-   on the vti policy, properly clean the skb to not leak informations on
-   namespace transitions and to update the device statistics.
-
-On transmit side:
-
-1. Mark the packet with the o_key. The policy and the state
-   must match this key now.
-
-2. Do a xfrm_lookup on the original packet with the mark applied.
-
-3. Check if we got an IPsec route.
-
-4. Clean the skb to not leak informations on namespace
-   transitions.
-
-5. Attach the dst_enty we got from the xfrm_lookup to the skb.
-
-6. Call dst_output to do the IPsec processing.
-
-7. Do the device statistics.
-
-Changes from v1:
-
-- Incorporated feedback from David and Nicolas.
-- Codingstyle cleanups.
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index 6eef8a7..ec6971f 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -421,7 +421,7 @@ static u32 esp6_get_mtu(struct xfrm_state *x, int mtu)
+ 		 net_adj) & ~(blksize - 1)) + net_adj - 2;
+ }
+ 
+-static void esp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
++static int esp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 		     u8 type, u8 code, int offset, __be32 info)
+ {
+ 	struct net *net = dev_net(skb->dev);
+@@ -431,18 +431,20 @@ static void esp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 
+ 	if (type != ICMPV6_PKT_TOOBIG &&
+ 	    type != NDISC_REDIRECT)
+-		return;
++		return 0;
+ 
+ 	x = xfrm_state_lookup(net, skb->mark, (const xfrm_address_t *)&iph->daddr,
+ 			      esph->spi, IPPROTO_ESP, AF_INET6);
+ 	if (!x)
+-		return;
++		return 0;
+ 
+ 	if (type == NDISC_REDIRECT)
+ 		ip6_redirect(skb, net, skb->dev->ifindex, 0);
+ 	else
+ 		ip6_update_pmtu(skb, net, info, 0, 0);
+ 	xfrm_state_put(x);
++
++	return 0;
+ }
+ 
+ static void esp6_destroy(struct xfrm_state *x)
+@@ -614,6 +616,11 @@ error:
+ 	return err;
+ }
+ 
++static int esp6_rcv_cb(struct sk_buff *skb, int err)
++{
++	return 0;
++}
++
+ static const struct xfrm_type esp6_type =
+ {
+ 	.description	= "ESP6",
+@@ -628,10 +635,11 @@ static const struct xfrm_type esp6_type =
+ 	.hdr_offset	= xfrm6_find_1stfragopt,
+ };
+ 
+-static const struct inet6_protocol esp6_protocol = {
+-	.handler 	=	xfrm6_rcv,
++static struct xfrm6_protocol esp6_protocol = {
++	.handler	=	xfrm6_rcv,
++	.cb_handler	=	esp6_rcv_cb,
+ 	.err_handler	=	esp6_err,
+-	.flags		=	INET6_PROTO_NOPOLICY,
++	.priority	=	0,
+ };
+ 
+ static int __init esp6_init(void)
+@@ -640,7 +648,7 @@ static int __init esp6_init(void)
+ 		pr_info("%s: can't add xfrm type\n", __func__);
+ 		return -EAGAIN;
+ 	}
+-	if (inet6_add_protocol(&esp6_protocol, IPPROTO_ESP) < 0) {
++	if (xfrm6_protocol_register(&esp6_protocol, IPPROTO_ESP) < 0) {
+ 		pr_info("%s: can't add protocol\n", __func__);
+ 		xfrm_unregister_type(&esp6_type, AF_INET6);
+ 		return -EAGAIN;
+@@ -651,7 +659,7 @@ static int __init esp6_init(void)
+ 
+ static void __exit esp6_fini(void)
+ {
+-	if (inet6_del_protocol(&esp6_protocol, IPPROTO_ESP) < 0)
++	if (xfrm6_protocol_deregister(&esp6_protocol, IPPROTO_ESP) < 0)
+ 		pr_info("%s: can't remove protocol\n", __func__);
+ 	if (xfrm_unregister_type(&esp6_type, AF_INET6) < 0)
+ 		pr_info("%s: can't remove xfrm type\n", __func__);
+-- 
+1.7.9.5
