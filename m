@@ -1,47 +1,74 @@
 From: <erik.hugne@ericsson.com>
-Subject: [PATCH net-next v2 6/6] tipc: don't log disabled tasklet handler errors
-Date: Wed, 5 Mar 2014 08:56:18 +0100
-Message-ID: <1394006178-23966-7-git-send-email-erik.hugne@ericsson.com>
+Subject: [PATCH net-next v2 2/6] tipc: fix connection
+	refcount leak
+Date: Wed, 5 Mar 2014 08:56:14 +0100
+Message-ID: <1394006178-23966-3-git-send-email-erik.hugne@ericsson.com>
 References: <1394006178-23966-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <ying.xue@windriver.com>, <paul.gortmaker@windriver.com>,
-	<richard.alpe@ericsson.com>, Erik Hugne <erik.hugne@ericsson.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: richard.alpe@ericsson.com
 To: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
 	<jon.maloy@ericsson.com>, <maloy@donjonn.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg20.ericsson.net ([193.180.251.56]:56394 "EHLO
-	sesbmg20.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752661AbaCEHzw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 02:55:52 -0500
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
 In-Reply-To: <1394006178-23966-1-git-send-email-erik.hugne@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+From: Ying Xue <ying.xue@windriver.com>
 
-Failure to schedule a TIPC tasklet with tipc_k_signal because the
-tasklet handler is disabled is not an error. It means TIPC is
-currently in the process of shutting down. We remove the error
-logging in this case.
+When tipc_conn_sendmsg() calls tipc_conn_lookup() to query a
+connection instance, its reference count value is increased if
+it's found. But subsequently if it's found that the connection is
+closed, the work of sending message is not queued into its server
+send workqueue, and the connection reference count is not decreased.
+This will cause a reference count leak. To reproduce this problem,
+an application would need to open and closes topology server
+connections with high intensity.
 
-Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+We fix this by immediately decrementing the connection reference
+count if a send fails due to the connection being closed.
+
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Acked-by: Erik Hugne <erik.hugne@ericsson.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/handler.c | 1 -
- 1 file changed, 1 deletion(-)
+ net/tipc/server.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/net/tipc/handler.c b/net/tipc/handler.c
-index e4bc8a2..1fabf16 100644
---- a/net/tipc/handler.c
-+++ b/net/tipc/handler.c
-@@ -58,7 +58,6 @@ unsigned int tipc_k_signal(Handler routine, unsigned long argument)
+diff --git a/net/tipc/server.c b/net/tipc/server.c
+index 91423ca..0eb6301 100644
+--- a/net/tipc/server.c
++++ b/net/tipc/server.c
+@@ -430,10 +430,12 @@ int tipc_conn_sendmsg(struct tipc_server *s, int conid,
+ 	list_add_tail(&e->list, &con->outqueue);
+ 	spin_unlock_bh(&con->outqueue_lock);
  
- 	spin_lock_bh(&qitem_lock);
- 	if (!handler_enabled) {
--		pr_err("Signal request ignored by handler\n");
- 		spin_unlock_bh(&qitem_lock);
- 		return -ENOPROTOOPT;
- 	}
+-	if (test_bit(CF_CONNECTED, &con->flags))
++	if (test_bit(CF_CONNECTED, &con->flags)) {
+ 		if (!queue_work(s->send_wq, &con->swork))
+ 			conn_put(con);
+-
++	} else {
++		conn_put(con);
++	}
+ 	return 0;
+ }
+ 
 -- 
 1.8.3.2
+
+
+------------------------------------------------------------------------------
+Subversion Kills Productivity. Get off Subversion & Make the Move to Perforce.
+With Perforce, you get hassle-free workflows. Merge that actually works. 
+Faster operations. Version large binaries.  Built-in WAN optimization and the
+freedom to use Git, Perforce or both. Make the move to Perforce.
+http://pubads.g.doubleclick.net/gampad/clk?id=122218951&iu=/4140/ostg.clktrk
