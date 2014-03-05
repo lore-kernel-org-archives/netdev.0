@@ -1,33 +1,39 @@
-From: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCHv3 net-next 00/31] Misc. fixes for cxgb4 and iw_cxgb4
-Date: Wed, 5 Mar 2014 21:39:20 +0200
-Message-ID: <CAJZOPZL05TY6qSdBDoS6aCj=_uepkZTX5+fVvnHTsCsKKMqgSQ@mail.gmail.com>
-References: <1393936917-25847-1-git-send-email-hariprasad@chelsio.com>
-	<20140304.132226.75524344104026791.davem@davemloft.net>
-	<20140305053024.GA23862@hariprasad-pc>
-	<9E6E5D92-7F25-49A3-BEB5-424CCE2F725D@chelsio.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH] mlx4: Use GFP_NOFS calls during the ipoib TX path when
+ creating the QP
+Date: Wed, 5 Mar 2014 21:46:26 +0200
+Message-ID: <CAJZOPZ+xKFwjrpWnBQDU=CU2XbjP00Qfgj8AYJ1SGHhf8U9O-A@mail.gmail.com>
+References: <alpine.LNX.2.00.1402211450410.1192@pobox.suse.cz>
+	<CAJZOPZK4Ah+nKPWnX3=yM43jbf586GYJ+fh0-OL4bOnqKK8v8A@mail.gmail.com>
+	<alpine.LNX.2.00.1402252307130.5180@pobox.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Hariprasad S <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: Casey Leedom <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <9E6E5D92-7F25-49A3-BEB5-424CCE2F725D-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Roland Dreier <roland@kernel.org>, Amir Vadai <amirv@mellanox.com>,
+	Eli Cohen <eli@dev.mellanox.co.il>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Mel Gorman <mgorman@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Jiri Kosina <jkosina@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1402252307130.5180@pobox.suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 5, 2014 at 9:15 PM, Casey Leedom <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org> wrote:
->   Yes, thanks mightily for your help and advice and sorry for the size of the updates.  Hari has taken on the very difficult task of synchronizing our out-of-kernel development branch with the in-kernel code.  These two code bases have drifted apart quite a bit because of the difficulty of translating our out-of-kernel changes into the in-kernel driver which uses completely different symbolic register constants.
+On Wed, Feb 26, 2014 at 12:11 AM, Jiri Kosina <jkosina@suse.cz> wrote:
+> The problem encountered was described as follows:
+>         It's not memory reclamation that is the problem as such. There is
+>         an indirect dependency between network filesystems writing back
+>         pages and ipoib_cm_tx_init() due to how a kworker is used. Page
+>         reclaim cannot make forward progress until ipoib_cm_tx_init()
+>         succeeds and it is stuck in page reclaim itself waiting for network
+>         transmission. Ordinarily this sitaution may be avoided by having
+>         the caller use GFP_NOFS but ipoib_cm_tx_init() does not have
+>         that information.
 
-Can you explain this in a little bit more details? what's the source
-of the need to use two different sets of symbolic register constants?
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+So to hit the bug, one just needs to attempt doing NFS client mount
+over an IP subnet served by IPoIB NIC that uses connected-mode and
+runs over mlx4 device?  Or this happens when  the connection is going
+through teardown/re-establishment or something else?
