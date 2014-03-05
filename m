@@ -1,102 +1,100 @@
-From: Lars Persson <lars.persson@axis.com>
-Subject: RE: [BUG] Deadlock on sk->sk_lock.slock
-Date: Wed, 5 Mar 2014 16:01:38 +0100
-Message-ID: <771471B8871B5044A6CA7CCD9C26EEE10117E265C985@xmail2.se.axis.com>
-References: <771471B8871B5044A6CA7CCD9C26EEE10117E265C59B@xmail2.se.axis.com>
- <1393942583.26794.107.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net-next] hyperv: Move state setting for link query
+Date: Wed, 5 Mar 2014 15:06:13 +0000
+Message-ID: <ca6e88ec74af496383d25d0c29730d4c@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+References: <1393890875-1420-1-git-send-email-haiyangz@microsoft.com>
+ <531543FD.7090907@redhat.com>
+ <856c5dedc14a458b8100dcb2d3a2f9e6@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+ <5316BCC3.50408@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: KY Srinivasan <kys@microsoft.com>,
+	"olaf@aepfle.de" <olaf@aepfle.de>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"driverdev-devel@linuxdriverproject.org"
+	<driverdev-devel@linuxdriverproject.org>
+To: Jason Wang <jasowang@redhat.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bastet.se.axis.com ([195.60.68.11]:34604 "EHLO
-	bastet.se.axis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932652AbaCEPBm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 10:01:42 -0500
-In-Reply-To: <1393942583.26794.107.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from na01-by1-obe.ptr.o365filtering.com ([64.4.22.90]:7312 "EHLO
+	na01-by1-obe.outbound.o365filtering.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757707AbaCEPGo convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Mar 2014 10:06:44 -0500
+In-Reply-To: <5316BCC3.50408@redhat.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpUaGFua3MsIHRoaXMgcGF0Y2ggaGFzIHN1cnZpdmVkIGEgMjQgaG91ciB0ZXN0IHNlc3Npb24u
-IEkgd2lsbCBub3cgc3RhcnQgYSB0ZXN0IHdpdGggdGhlIG5ldyBzb2NrX3JlbGVhc2Vfb3duZXJz
-aGlwIHBhdGNoLg0KDQotIExhcnMNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBG
-cm9tOiBFcmljIER1bWF6ZXQgW21haWx0bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50
-OiBkZW4gNCBtYXJzIDIwMTQgMTU6MTYNCj4gVG86IExhcnMgUGVyc3Nvbg0KPiBDYzogbmV0ZGV2
-QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW0JVR10gRGVhZGxvY2sgb24gc2stPnNr
-X2xvY2suc2xvY2sNCj4gDQo+IE9uIFR1ZSwgMjAxNC0wMy0wNCBhdCAwOTo1OSArMDEwMCwgTGFy
-cyBQZXJzc29uIHdyb3RlOg0KPiA+IEhpDQo+ID4NCj4gPiBXZSBjYW4gdHJpZ2dlciBhbiByY3Ug
-c3RhbGwgYnkgc3RyZXNzaW5nIHRoZSBlcnJvciBoYW5kbGluZyBpbiB0aGUNCj4gQ0lGUyBmaWxl
-IHN5c3RlbS4gVGhlIHRlc3QgY2FzZSBpbmR1Y2VzIG5ldHdvcmsgb3V0YWdlcyBvZiB2YXJ5aW5n
-DQo+IGxlbmd0aCB3aGlsZSBkYXRhIGlzIHdyaXR0ZW4gdG8gdGhlIGZpbGUgc3lzdGVtLiBKdWRn
-aW5nIGJ5IHRoZSBzdGFjaw0KPiBkdW1wIGl0IG1pZ2h0IGJlIGEgZGVhZGxvY2sgaW4gdGhlIHRj
-cHY0IGNvZGUuIFNvIGZhciBzZWVuIG9uIHN0YWJsZQ0KPiAzLjEwLjMyLg0KPiA+DQo+ID4gTXkg
-aW5pdGlhbCBpbnRlcnByZXRhdGlvbiBvZiB0aGUgc3RhY2sgdHJhY2U6DQo+ID4gQXQgZnJhbWUg
-OSBiaCBpcyBlbmFibGVkIHdoaWxlIGhvbGRpbmcgdGhlIHNvY2tldCBzcGlubG9jay4gVGhpcw0K
-PiBoYXBwZW5zIGZyb20gX190Y3BfY2hlY2tzdW1fY29tcGxldGVfdXNlciwgd2hpY2ggaXMgaW5s
-aW5lZCBpbg0KPiB0Y3BfcmN2X2VzdGFibGlzaGVkLg0KPiA+DQo+IA0KPiANCj4gVGhhbmtzIGEg
-bG90IGZvciB0aGlzIHJlcG9ydC4NCj4gDQo+IA0KPiA+IEF0IGZyYW1lIDEgd2UgdHJ5IHRvIGdy
-YWIgdGhlIHNhbWUgbG9jayBmcm9tIGJoIGNvbnRleHQgd2l0aA0KPiByZXN1bHRpbmcgZGVhZGxv
-Y2suDQo+ID4NCj4gPiAtMDAwIHxNOjB4MDoweDgwMkI2QUY4KGFzbSkgPC0tIGFyY2hfc3Bpbl9s
-b2NrDQo+ID4gLTAwMSB8dGNwX3Y0X3Jjdihza2IgPSAweDhCRDUyN0EwKSA8LS0gc2sgPSAweDhC
-RTZCMkEwDQo+ID4gLTAwMiB8aXBfbG9jYWxfZGVsaXZlcl9maW5pc2goc2tiID0gMHg4QkQ1MjdB
-MCkNCj4gPiAtMDAzIHxfX25ldGlmX3JlY2VpdmVfc2tiX2NvcmUoc2tiID0gMHg4QkQ1MjdBMCwg
-PykNCj4gPiAtMDA0IHxuZXRpZl9yZWNlaXZlX3NrYihza2IgPSAweDhCRDUyN0EwKQ0KPiA+IC0w
-MDUgfGVsa19wb2xsKG5hcGkgPSAweDhDNzcwNTAwLCBidWRnZXQgPSA2NCkNCj4gPiAtMDA2IHxu
-ZXRfcnhfYWN0aW9uKD8pDQo+ID4gLTAwNyB8X19kb19zb2Z0aXJxKCkNCj4gPiAtMDA4IHxkb19z
-b2Z0aXJxKCkNCj4gPiAtMDA5IHxsb2NhbF9iaF9lbmFibGUoKQ0KPiA+IC0wMTAgfHRjcF9yY3Zf
-ZXN0YWJsaXNoZWQoc2sgPSAweDhCRTZCMkEwLCBza2IgPSAweDg3RDNBOUUwLCB0aCA9DQo+ID4g
-MHg4MTRFQkUxNCwgPykNCj4gPiAtMDExIHx0Y3BfdjRfZG9fcmN2KHNrID0gMHg4QkU2QjJBMCwg
-c2tiID0gMHg4N0QzQTlFMCkNCj4gPiAtMDEyIHx0Y3BfZGVsYWNrX3RpbWVyX2hhbmRsZXIoc2sg
-PSAweDhCRTZCMkEwKQ0KPiA+IC0wMTMgfHRjcF9yZWxlYXNlX2NiKHNrID0gMHg4QkU2QjJBMCkN
-Cj4gPiAtMDE0IHxyZWxlYXNlX3NvY2soc2sgPSAweDhCRTZCMkEwKQ0KPiA+IC0wMTUgfHRjcF9z
-ZW5kbXNnKD8sIHNrID0gMHg4QkU2QjJBMCwgPywgPykNCj4gPiAtMDE2IHxzb2NrX3NlbmRtc2co
-c29jayA9IDB4ODUxOEM0QzAsIG1zZyA9IDB4ODdEOERBQTgsIHNpemUgPSA0MDk2KQ0KPiA+IC0w
-MTcgfGtlcm5lbF9zZW5kbXNnKD8sID8sID8sID8sIHNpemUgPSA0MDk2KQ0KPiA+IC0wMTggfHNt
-Yl9zZW5kX2t2ZWMoc2VydmVyID0gMHg4N0M0RDQwMCwgaW92ID0gMHg4N0Q4REIxMCwgbl92ZWMg
-PSAxLA0KPiA+IHNlbnQgPSAweDg3RDhEQjFDKQ0KPiA+IC0wMTkgfHNtYl9zZW5kX3Jxc3Qoc2Vy
-dmVyID0gMHg4N0M0RDQwMCwgcnFzdCA9IDB4ODdEOERCQTApDQo+ID4gLTAyMCB8Y2lmc19jYWxs
-X2FzeW5jKHNlcnZlciA9IDB4ODdDNEQ0MDAsIHJxc3QgPSAweDg3RDhEQkEwLCByZWNlaXZlDQo+
-ID4gPSAweDAsIGNhbGxiYWNrID0gMHg4MDIxOTUxNCwNCj4gPiAtMDIxIHxjaWZzX2FzeW5jX3dy
-aXRldih3ZGF0YSA9IDB4ODdGRDY1ODApDQo+ID4gLTAyMiB8Y2lmc193cml0ZXBhZ2VzKG1hcHBp
-bmcgPSAweDg1MjA5NkU0LCB3YmMgPSAweDg3RDhEQzg4KQ0KPiA+IC0wMjMgfF9fd3JpdGViYWNr
-X3NpbmdsZV9pbm9kZShpbm9kZSA9IDB4ODUyMDk1RDAsIHdiYyA9IDB4ODdEOERDODgpDQo+ID4g
-LTAyNCB8d3JpdGViYWNrX3NiX2lub2RlcyhzYiA9IDB4ODdENkQ4MDAsIHdiID0gMHg4N0U0QTlD
-MCwgd29yayA9DQo+ID4gMHg4N0Q4REQ4OCkNCj4gPiAtMDI1IHxfX3dyaXRlYmFja19pbm9kZXNf
-d2Iod2IgPSAweDg3RTRBOUMwLCB3b3JrID0gMHg4N0Q4REQ4OCkNCj4gPiAtMDI2IHx3Yl93cml0
-ZWJhY2sod2IgPSAweDg3RTRBOUMwLCB3b3JrID0gMHg4N0Q4REQ4OCkNCj4gPiAtMDI3IHx3Yl9k
-b193cml0ZWJhY2sod2IgPSAweDg3RTRBOUMwLCBmb3JjZV93YWl0ID0gMCkNCj4gPiAtMDI4IHxi
-ZGlfd3JpdGViYWNrX3dvcmtmbih3b3JrID0gMHg4N0U0QTlDQykNCj4gPiAtMDI5IHxwcm9jZXNz
-X29uZV93b3JrKHdvcmtlciA9IDB4OEIwNDU4ODAsIHdvcmsgPSAweDg3RTRBOUNDKQ0KPiA+IC0w
-MzAgfHdvcmtlcl90aHJlYWQoX193b3JrZXIgPSAweDhCMDQ1ODgwKQ0KPiA+IC0wMzEgfGt0aHJl
-YWQoX2NyZWF0ZSA9IDB4ODdDQUREOTApDQo+ID4gLTAzMiB8cmV0X2Zyb21fa2VybmVsX3RocmVh
-ZChhc20pDQo+IA0KPiBTbyB0aGUgY2FsbGNoYWluIGlzDQo+IA0KPiByZWxlYXNlX3NvY2soKQ0K
-PiB7DQo+ICBzcGluX2xvY2tfYmgoJnNrLT5za19sb2NrLnNsb2NrKTsNCj4gDQo+ICBzay0+c2tf
-cHJvdC0+cmVsZWFzZV9jYihzayk7IC8vDQo+IA0KPiAgc2stPnNrX2xvY2sub3duZWQgPSAwOw0K
-PiB9DQo+IA0KPiBNZWFuaW5nIHdlIGhhdmUgdGhlIHNvY2tldCBzcGlubG9jayBsb2NrZWQgYnkg
-dXMsIGFuZCB3ZSBkaXNhYmxlZCBCSC4NCj4gDQo+IFByb2JsZW0gaXMgdGNwX2RlbGFja190aW1l
-cl9oYW5kbGVyKCkgYXNzdW1lcyBpdCB3YXMgY2FsbGVkIGZyb20gdGltZXINCj4gaGFuZGxlciBh
-bmQgc29jayB3YXMgbm90IG93bmVkIGJ5IHVzZXIuDQo+IA0KPiBCdWcgd2FzIGFkZGVkIGluIGNv
-bW1pdCA2ZjQ1OGRmYjQwOTI3MjA4MmM5YmZhNDEyZjc3ZmYyZmMyMWM2MjZmDQo+ICgidGNwOiBp
-bXByb3ZlIGxhdGVuY2llcyBvZiB0aW1lciB0cmlnZ2VyZWQgZXZlbnRzIikNCj4gDQo+IGFuZCB0
-cmlnZ2VycyBpZiBOSUMgbGFja3MgUlggY2hlY2tzdW0gc3VwcG9ydC4NCj4gDQo+IA0KPiBDb3Vs
-ZCB5b3UgdHJ5IGZvbGxvd2luZyBoYWNrL3BhdGNoID8NCj4gDQo+IGRpZmYgLS1naXQgYS9uZXQv
-aXB2NC90Y3BfaW5wdXQuYyBiL25ldC9pcHY0L3RjcF9pbnB1dC5jIGluZGV4DQo+IDZlNDgwOTM4
-OWNiZi4uZWQxN2UxY2FjYWUyIDEwMDY0NA0KPiAtLS0gYS9uZXQvaXB2NC90Y3BfaW5wdXQuYw0K
-PiArKysgYi9uZXQvaXB2NC90Y3BfaW5wdXQuYw0KPiBAQCAtNDk0NSw3ICs0OTQ1LDEwIEBAIHN0
-YXRpYyBfX3N1bTE2DQo+IF9fdGNwX2NoZWNrc3VtX2NvbXBsZXRlX3VzZXIoc3RydWN0IHNvY2sg
-KnNrLCAgew0KPiAgCV9fc3VtMTYgcmVzdWx0Ow0KPiANCj4gLQlpZiAoc29ja19vd25lZF9ieV91
-c2VyKHNrKSkgew0KPiArCS8qIElmIHdlIGFyZSBjYWxsZWQgZnJvbSB0Y3BfcmVsZWFzZV9jYigp
-LA0KPiArCSAqIHdlIGRvIG5vdCB3YW50IHRvIGVuYWJsZSBCSA0KPiArCSAqLw0KPiArCWlmIChz
-ay0+c2tfbG9jay5vd25lZCA9PSAxKSB7DQo+ICAJCWxvY2FsX2JoX2VuYWJsZSgpOw0KPiAgCQly
-ZXN1bHQgPSBfX3RjcF9jaGVja3N1bV9jb21wbGV0ZShza2IpOw0KPiAgCQlsb2NhbF9iaF9kaXNh
-YmxlKCk7DQo+IGRpZmYgLS1naXQgYS9uZXQvaXB2NC90Y3Bfb3V0cHV0LmMgYi9uZXQvaXB2NC90
-Y3Bfb3V0cHV0LmMgaW5kZXgNCj4gYWFhNjhmNWIxMDU1Li41ODg4MzdkMDZjNjAgMTAwNjQ0DQo+
-IC0tLSBhL25ldC9pcHY0L3RjcF9vdXRwdXQuYw0KPiArKysgYi9uZXQvaXB2NC90Y3Bfb3V0cHV0
-LmMNCj4gQEAgLTc4NSw2ICs3ODUsOCBAQCB2b2lkIHRjcF9yZWxlYXNlX2NiKHN0cnVjdCBzb2Nr
-ICpzaykNCj4gIAkJX19zb2NrX3B1dChzayk7DQo+ICAJfQ0KPiAgCWlmIChmbGFncyAmICgxVUwg
-PDwgVENQX0RFTEFDS19USU1FUl9ERUZFUlJFRCkpIHsNCj4gKwkJLyogTWFrZSBzdXJlIF9fdGNw
-X2NoZWNrc3VtX2NvbXBsZXRlX3VzZXIoKSB3b250IGVuYWJsZSBCSCAqLw0KPiArCQlzay0+c2tf
-bG9jay5vd25lZCA9IDI7DQo+ICAJCXRjcF9kZWxhY2tfdGltZXJfaGFuZGxlcihzayk7DQo+ICAJ
-CV9fc29ja19wdXQoc2spOw0KPiAgCX0NCj4gDQoNCg==
+
+
+> -----Original Message-----
+> From: Jason Wang [mailto:jasowang@redhat.com]
+> Sent: Wednesday, March 5, 2014 12:57 AM
+> To: Haiyang Zhang; davem@davemloft.net; netdev@vger.kernel.org
+> Cc: KY Srinivasan; olaf@aepfle.de; linux-kernel@vger.kernel.org; driverdev-
+> devel@linuxdriverproject.org
+> Subject: Re: [PATCH net-next] hyperv: Move state setting for link query
+> 
+> On 03/05/2014 12:57 AM, Haiyang Zhang wrote:
+> >
+> >> -----Original Message-----
+> >> From: Jason Wang [mailto:jasowang@redhat.com]
+> >> Sent: Monday, March 3, 2014 10:10 PM
+> >> To: Haiyang Zhang; davem@davemloft.net; netdev@vger.kernel.org
+> >> Cc: KY Srinivasan; olaf@aepfle.de; linux-kernel@vger.kernel.org;
+> >> driverdev- devel@linuxdriverproject.org
+> >> Subject: Re: [PATCH net-next] hyperv: Move state setting for link
+> >> query
+> >>
+> >> On 03/04/2014 07:54 AM, Haiyang Zhang wrote:
+> >>> It moves the state setting for query into rndis_filter_receive_response().
+> >>> All callbacks including query-complete and status-callback are
+> >>> synchronized by channel->inbound_lock. This prevents pentential race
+> >> between them.
+> >>
+> >> This still looks racy to me. The problem is workqueue is not
+> >> synchronized with those here.
+> >>
+> >> Consider the following case in netvsc_link_change():
+> >>
+> >>     if (rdev->link_state) {
+> >>     ... receive interrupt ...
+> >>     rndis_filter_receice_response() which changes rdev->link_state
+> >>     ...
+> >>         netif_carrier_off()
+> >>     }
+> >>
+> >> And also it need to schedule a work otherwise the link status is out of sync.
+> > The rndis_filter_query_device_link_status() makes the query and wait
+> > for the complete message, including set state, before returning.
+> >
+> > The rndis_filter_query_device_link_status() is called from
+> > rndis_filter_device_add(), which is called from either netvsc_change_mtu()
+> or netvsc_probe().
+> >
+> > The change_mtu() and netvsc_link_change() are synchronized by
+> rtnl_lock().
+> > In netvsc_probe(), the status query & complete happens before
+> > register_netdev(), and the netvsc_linkstatus_callback() schedules the work
+> only after netdevice is registered.
+> > So, there are no race in either case.
+> >
+> > The carrier_on/off work will be scheduled when netvsc_open() is
+> > called. Then, the status will be updated based on the latest link_state.
+> >
+> > Thanks,
+> > - Haiyang
+> >
+> 
+> I see. Then if the link status is changing during mtu changing in guest.
+> Looks like we may miss a link status updating?
+
+When changing mtu, rndis_filter_device_add() is called, and host will send a link
+status call back immediately after connect-to-netvsp, no matter the link is changing
+or not. This will schedule a work to update the status.
+
+Thanks,
+- Haiyang
