@@ -1,99 +1,69 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] netpoll: Don't call driver methods from interrupt context.
-Date: Wed, 05 Mar 2014 11:24:33 -0800
-Message-ID: <87ha7cwiry.fsf@xmission.com>
-References: <874n3fow2i.fsf@xmission.com>
-	<20140304.160825.893718566461536483.davem@davemloft.net>
-	<87d2i17bq8.fsf@xmission.com>
-	<20140304.192616.918758436987378525.davem@davemloft.net>
+From: Roland Dreier <roland@kernel.org>
+Subject: Re: [PATCH] mlx4: Use GFP_NOFS calls during the ipoib TX path when
+ creating the QP
+Date: Wed, 5 Mar 2014 11:25:34 -0800
+Message-ID: <CAG4TOxMw4siOqtjXrgUDaw8yWqYgSG4d8PqGuJ62AZBrC2O2AA@mail.gmail.com>
+References: <CAJZOPZKLcFC5Wqv7VS7AyovaeHw3PYSWEz9t9sZ4AMhG+dS1+A@mail.gmail.com>
+ <alpine.LNX.2.00.1402271042240.21399@pobox.suse.cz> <530F0C4F.9030200@mellanox.com>
+ <alpine.LNX.2.00.1402271123410.21399@pobox.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com, mpm@selenic.com,
-	satyam.sharma@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:38811 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756996AbaCETYk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 14:24:40 -0500
-In-Reply-To: <20140304.192616.918758436987378525.davem@davemloft.net> (David
-	Miller's message of "Tue, 04 Mar 2014 19:26:16 -0500 (EST)")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Eli Cohen <eli@dev.mellanox.co.il>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Mel Gorman <mgorman@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Jiri Kosina <jkosina@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1402271123410.21399@pobox.suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
-
-> From: ebiederm@xmission.com (Eric W. Biederman)
-> Date: Tue, 04 Mar 2014 16:03:43 -0800
+On Thu, Feb 27, 2014 at 2:42 AM, Jiri Kosina <jkosina@suse.cz> wrote:
+> Whatever suits you best. To sum it up:
 >
->> So I would like some clear guidance.  Will you accept patches to make
->> it safe to call the napi poll routines from hard irq context, or should
->> we simply defer messages prented with netconsole in hard irq context
->> into another context where we can run the napi code?
->> 
->> If there is not a clear way to fix the problems that crop up we should
->> just delete all of the netpoll code altogether, as it seems deadly in
->> it's current form.
+> - mlx4 is confirmed to have this problem, and we know how that problem
+>   happens -- see the paragraph in the changelog explaining the dependency
+>   between memory reclaim and allocation of TX ring
 >
-> Clearly to make netconsole most useful we should synchronously emit
-> log messages.
+> - we have a work around which requires human interaction in order
+>   to provide the information whether GFP_NOFS should be used or not
 >
-> Because what if the system hangs right after this event, but before
-> we get back to a "safe" context.
+> - I can very well understand why Mellanox would see that as a hack, but if
+>   more comprehensive fix is necessary, I'd expect those who understand
+>   the code the best to come up with a solution/proposal. I'd assume that
+>   you don't  want to keep the code with known and easily triggerable
+>   deadlock out there unfixed.
 >
-> That's one bug that will be a billion times harder to diagnose if
-> we defer.
+> - where I see the potential for layering violation in any 'general'
+>   solution is that it's the filesystem that has to be "talking" to the
+>   underlying netdevice, i.e. you'll have to make filesystem
+>   netdevice-aware, right?
 
-In general I agree.  
+It's quite clear that this is a general problem with IPoIB connected
+mode on any IB device.  In connected mode, a packet send can trigger
+establishing a new connection, which will allocate a new QP, which in
+particular will allocate memory for the QP in the low-level IB device
+driver.  Currently I'm positive that every driver will do GFP_KERNEL
+allocations when allocating a QP (ehca does both a GFP_KERNEL
+kmem_cache allocation and vmalloc in internal_create_qp(), mlx5 and
+mthca are similar to mlx4 and qib does vmalloc() in qib_create_qp()).
+So this patch needs to be extended to the other 4 IB device drivers in
+the tree.
 
-The gripping hand for me is kernel/rcu/tree.c:print_cpu_stall() that
-generates a warning from irq context on every cpu simultaneously.
+Also, I don't think GFP_NOFS is enough -- it seems we need GFP_NOIO,
+since we could be swapping to a block device over iSCSI over IPoIB-CM,
+so even non-FS stuff could deadlock.
 
-Which without netpoll I can debug by just logging into the machine and
-dumping dmesg, but with netpoll machine die when the warning is
-generarted because of the after the first few messages each additional
-message generates a new message.
+I don't think it makes any sense to have a "do_not_deadlock" module
+parameter, especially one that defaults to "false."  If this is the
+right thing to do, then we should just unconditionally do it.
 
-Now that I have looked closer the printk generating a printk problem
-seems to be something that is best solved at the printk level.  So if
-you will accept the patches I will proceed to shore up the existing
-netpoll implementations.
-
-I am thinking pretty seriously about forcing hard irq context during
-netconsole's use of netpoll to ensure that the hard irq context case
-actually get's tested.  I need to do some audit's to see if that would
-cause any side effects beyond leaving irq's disabled.
-
-diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index ba2f5e710af1..aaa9062061c8 100644
---- a/drivers/net/netconsole.c
-+++ b/drivers/net/netconsole.c
-@@ -734,6 +734,7 @@ static void write_msg(struct console *con, const char *msg, unsigned int len)
-        unsigned long flags;
-        struct netconsole_target *nt;
-        const char *tmp;
-+       bool hard_irq;
- 
-        if (oops_only && !oops_in_progress)
-                return;
-@@ -742,6 +743,9 @@ static void write_msg(struct console *con, const char *msg, unsigned int len)
-                return;
- 
-        spin_lock_irqsave(&target_list_lock, flags);
-+       hard_irq = in_irq();
-+       if (!hard_irq)
-+               irq_enter();
-        list_for_each_entry(nt, &target_list, list) {
-                netconsole_target_get(nt);
-                if (nt->enabled && netif_running(nt->np.dev)) {
-@@ -761,6 +765,8 @@ static void write_msg(struct console *con, const char *msg, unsigned int len)
-                }
-                netconsole_target_put(nt);
-        }
-+       if (!hard_irq)
-+               irq_exit();
-        spin_unlock_irqrestore(&target_list_lock, flags);
- }
-
-
-Eric
+It does seem that only using GFP_NOIO when we really need to would be
+a very difficult problem--how can we carry information about whether a
+particular packet is involved in freeing memory through all the layers
+of, say, NFS, TCP, IPSEC, bonding, &c?
