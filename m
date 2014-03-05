@@ -1,76 +1,110 @@
-From: Hariprasad S <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH net-next 10/31] cxgb4/iw_cxgb4: Doorbell Drop Avoidance
- Bug Fixes.
-Date: Wed, 5 Mar 2014 11:04:14 +0530
-Message-ID: <20140305053413.GB23862@hariprasad-pc>
-References: <1393427230-14532-11-git-send-email-hariprasad@chelsio.com>
- <20140226.181216.1563503549713890339.davem@davemloft.net>
- <005101cf33df$00749e40$015ddac0$@opengridcomputing.com>
- <20140227.130544.1892840202381139797.davem@davemloft.net>
- <1393975366.16256.23.camel@deadeye.wl.decadent.org.uk>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: RCU stalls when running out of memory on 3.14-rc4 w/ NFS and
+ kernel threads priorities changed
+Date: Tue, 4 Mar 2014 21:34:40 -0800
+Message-ID: <20140305053440.GD3334@linux.vnet.ibm.com>
+References: <CAGVrzcbsSV7h3qA3KuCTwKNFEeww_kSNcfUkfw3PPjeXQXBo6g@mail.gmail.com>
+ <1393980534.26794.147.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CAGVrzcaekM51hme_tquaT6e22fV1_cocpn1kDUsYfFce=F+o4g@mail.gmail.com>
+ <CAGVrzcbRycBy0w64R9pV=JG6M3aJeARbOnh-xRrumYzzVDgWGQ@mail.gmail.com>
+ <20140305014310.GC3334@linux.vnet.ibm.com>
+ <CAGVrzcae0XPXpue_+n-O+EBzK92JqXHNftTPGt+5SRzroTSF3Q@mail.gmail.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>,
-	<kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-	<santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-To: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        linux-mm <linux-mm@kvack.org>, linux-nfs <linux-nfs@vger.kernel.org>,
+        "trond.myklebust" <trond.myklebust@primarydata.com>,
+        netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <1393975366.16256.23.camel-nDn/Rdv9kqW9Jme8/bJn5UCKIB8iOfG2tUK59QYPAWc@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <CAGVrzcae0XPXpue_+n-O+EBzK92JqXHNftTPGt+5SRzroTSF3Q@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 04, 2014 at 23:22:46 +0000, Ben Hutchings wrote:
-> On Thu, 2014-02-27 at 13:05 -0500, David Miller wrote:
-> > From: "Steve Wise" <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-> > Date: Thu, 27 Feb 2014 11:11:49 -0600
-> > 
-> > >> 
-> > >> > -static int allow_db_fc_on_t5;
-> > >> > -module_param(allow_db_fc_on_t5, int, 0644);
-> > >> > -MODULE_PARM_DESC(allow_db_fc_on_t5,
-> > >> > -           "Allow DB Flow Control on T5 (default = 0)");
-> > >> > -
-> > >> > -static int allow_db_coalescing_on_t5;
-> > >> > -module_param(allow_db_coalescing_on_t5, int, 0644);
-> > >> > -MODULE_PARM_DESC(allow_db_coalescing_on_t5,
-> > >> > -           "Allow DB Coalescing on T5 (default = 0)");
-> > >> 
-> > >> Module parameters are a user facing interface.
-> > >> 
-> > >> You cannot just delete, or change the semantics of, the ones you feel
-> > >> like doing so to.
-> > > 
-> > > I see your point on user facing interfaces.   These module params were
-> > > added initially to allow tweaking the db drop recovery for T5 devices in
-> > > the thought that we might need it.  It turns out T5 doesn't suffer from
-> > > this issue.  These params default to 0 anyway, and I doubt anyone has
-> > > changed them.  Disabling the hw db coalescing feature proved problematic
-> > > and it turned out to even make the issue worse, so I removed it totally
-> > > at the recommendation from the HW engineers, and put in place the new
-> > > design which better rate controls things under heavy load.
-> > 
-> > You have to keep the old ones around.
+On Tue, Mar 04, 2014 at 07:55:03PM -0800, Florian Fainelli wrote:
+> 2014-03-04 17:43 GMT-08:00 Paul E. McKenney <paulmck@linux.vnet.ibm.com>:
+> > On Tue, Mar 04, 2014 at 05:16:27PM -0800, Florian Fainelli wrote:
+> >> 2014-03-04 17:03 GMT-08:00 Florian Fainelli <f.fainelli@gmail.com>:
+> >> > 2014-03-04 16:48 GMT-08:00 Eric Dumazet <eric.dumazet@gmail.com>:
+> >> >> On Tue, 2014-03-04 at 15:55 -0800, Florian Fainelli wrote:
+> >> >>> Hi all,
+> >> >>>
+> >> >>> I am seeing the following RCU stalls messages appearing on an ARMv7
+> >> >>> 4xCPUs system running 3.14-rc4:
+> >> >>>
+> >> >>> [   42.974327] INFO: rcu_sched detected stalls on CPUs/tasks:
+> >> >>> [   42.979839]  (detected by 0, t=2102 jiffies, g=4294967082,
+> >> >>> c=4294967081, q=516)
+> >> >>> [   42.987169] INFO: Stall ended before state dump start
+> >> >>>
+> >> >>> this is happening under the following conditions:
+> >> >>>
+> >> >>> - the attached bumper.c binary alters various kernel thread priorities
+> >> >>> based on the contents of bumpup.cfg and
+> >> >>> - malloc_crazy is running from a NFS share
+> >> >>> - malloc_crazy.c is running in a loop allocating chunks of memory but
+> >> >>> never freeing it
+> >> >>>
+> >> >>> when the priorities are altered, instead of getting the OOM killer to
+> >> >>> be invoked, the RCU stalls are happening. Taking NFS out of the
+> >> >>> equation does not allow me to reproduce the problem even with the
+> >> >>> priorities altered.
+> >> >>>
+> >> >>> This "problem" seems to have been there for quite a while now since I
+> >> >>> was able to get 3.8.13 to trigger that bug as well, with a slightly
+> >> >>> more detailed RCU debugging trace which points the finger at kswapd0.
+> >> >>>
+> >> >>> You should be able to get that reproduced under QEMU with the
+> >> >>> Versatile Express platform emulating a Cortex A15 CPU and the attached
+> >> >>> files.
+> >> >>>
+> >> >>> Any help or suggestions would be greatly appreciated. Thanks!
+> >> >>
+> >> >> Do you have a more complete trace, including stack traces ?
+> >> >
+> >> > Attatched is what I get out of SysRq-t, which is the only thing I have
+> >> > (note that the kernel is built with CONFIG_RCU_CPU_STALL_INFO=y):
+> >>
+> >> QEMU for Versatile Express w/ 2 CPUs yields something slightly
+> >> different than the real HW platform this is happening with, but it
+> >> does produce the RCU stall anyway:
+> >>
+> >> [  125.762946] BUG: soft lockup - CPU#1 stuck for 53s! [malloc_crazy:91]
+> >
+> > This soft-lockup condition can result in RCU CPU stall warnings.  Fix
+> > the problem causing the soft lockup, and I bet that your RCU CPU stall
+> > warnings go away.
 > 
-> Setting an unknown module parameter now results in a warning (since
-> 3.11), so removing a parameter isn't so disruptive as it used to be.
-> 
-> Obviously this is removing a feature, but as the feature sounds like it
-> was only marginally useful I think it's a perfectly valid change.
-> 
-> Ben.
+> I definitively agree, which is why I was asking for help, as I think
+> the kernel thread priority change is what is causing the soft lockup
+> to appear, but nothing obvious jumps to mind when looking at the
+> trace.
 
-Thanks Ben for letting us know that things have changed post 3.11 kernel.
+Is your hardware able to make the malloc_crazy CPU periodically dump
+its stack, perhaps in response to an NMI?  If not, another approach is
+to use ftrace -- though this will require a very high-priority task to
+turn tracing on and off reasonably quickly, unless you happen to have
+a very large amount of storage to hold the trace.
 
-Hi David,
-Would you be OK if we remove the unused module_param now when we re-submit the series ?
+What happens if you malloc() less intensively?  Does that avoid this
+problem?  The reason I ask is that you mentioned that avoiding NFS helped,
+and it is possible that NFS is increasing storage-access latencies and
+thus triggering another problem.  It is quite possible that slowing
+down the malloc()s would also help, and might allow you to observe what
+is happening more easily than when the system is driven fully to the
+lockup condition.
 
+Finally, what are you trying to achieve with this workload?  Does your
+production workload behave in this way?  Or is this an experimental
+investigation of some sort?
 
-Thanks,
--Hari.
+							Thanx, Paul
+
 --
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
