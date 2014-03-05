@@ -1,69 +1,83 @@
-From: Jagan Teki <jagannadh.teki@gmail.com>
-Subject: Re: sblk->status_tag on drivers/net/ethernet/broadcom/tg3.c
-Date: Wed, 5 Mar 2014 11:43:26 +0530
-Message-ID: <CAD6G_RR=y+myvtEpa3YKiOx_8LR=Ad_nHUxuaXKakfKKyjuEaw@mail.gmail.com>
-References: <CAD6G_RQVD7=v7b6S-muiZBYV7PEykTHOTM23i-BL=wcA5z=4Qg@mail.gmail.com>
-	<CAD6G_RQ130TunwZDL+8vwx__8NsfzE0AfcfnS7z5OXtZF5T8xQ@mail.gmail.com>
-	<1393975344.4632.10.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	<CAD6G_RTVVb2qdU43PqKm3BAD2-pvVcs_O=Wck2SCBhRRV-d+Lw@mail.gmail.com>
-	<1393992738.4632.15.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	Nithin Nayak Sujir <nsujir@broadcom.com>,
+From: Tim Harvey <tharvey@gateworks.com>
+Subject: [PATCH] net: sky2: allow mac to come from dt
+Date: Tue,  4 Mar 2014 22:22:15 -0800
+Message-ID: <1394000535-25559-1-git-send-email-tharvey@gateworks.com>
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
 	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <robh+dt@kernel.org>,
-	Bjorn Helgaas <bhelgaas@google.com>
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1393992738.4632.15.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Rob Herring <robh+dt@kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:59982 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753325AbaCEGW2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 01:22:28 -0500
+Received: by mail-pd0-f182.google.com with SMTP id g10so627794pdj.13
+        for <netdev@vger.kernel.org>; Tue, 04 Mar 2014 22:22:27 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Michael,
+The driver reads the mac address from the device registers which would
+need to have been programmed by the bootloader.  This patch adds
+the ability to pull the mac from devicetree via the pci device dt node.
 
-Thanks for your inputs.
+Signed-off-by: Tim Harvey <tharvey@gateworks.com>
+Cc: netdev@vger.kernel.org
+Cc: devicetree@vger.kernel.org
+Cc: Grant Likely <grant.likely@linaro.org>
+Cc: Rob Herring <robh+dt@kernel.org>
+---
+ drivers/net/ethernet/marvell/sky2.c | 24 +++++++++++++++++++++++-
+ 1 file changed, 23 insertions(+), 1 deletion(-)
 
-On Wed, Mar 5, 2014 at 9:42 AM, Michael Chan <mchan@broadcom.com> wrote:
-> On Wed, 2014-03-05 at 09:33 +0530, Jagan Teki wrote:
->> The driver is not seeing the status block mean - tg3.c driver?
->
-> Yes, tg3 driver.  All IRQ events (link change, rx, tx) are in status
-> block.  If tg3 does not see the correct bits and indexes in the status
-> block, it won't know what to do.  In this case, it doesn't see the link
-> change bit in status block (I suspect), so it is not acknowledging and
-> clearing the link change event.  Status block is DMA'ed from the NIC to
-> memory.
-
-OK.
-
-As per your point I've a question here like - the status block is not properly
-updated (DMA'ed), does this depends on the address range we are advertised
-on PCIe ranges filed to make sure to use EP-
-http://devicetree.org/Device_Tree_Usage#PCI_Host_Bridge
-
-The reason for asking this is we have two kind of PCIe bridge in separate
-boards where one is working fine by showing below log, and other
-we could see this issue.
-
-# ifconfig eth0 172.16.0.2 up
-RC: handler
-tg3_interrupt_tagged: ++status_tag = 0x1 write status = 0x1
---status_tag = 0x1
-RC: handler
-tg3_interrupt_tagged: ++status_tag = 0x1 write status = 0x1
---status_tag = 0x1 tg3_poll: tag = 0x1 calling tg3_int_reenable val =
-0x01000000
-
->
->> Does it relates to ISR or addressing of PCIe RC driver, I'm doing
->> nothing on my PCIe RC driver just read the legacy INT# status and
->> return.
->
-> RC stands for what?  Root Complex?  I don't know what an RC driver does.
-
-Yes, Root Complex driver in PCIe bridge.
-
+diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+index 55a37ae..bff493a 100644
+--- a/drivers/net/ethernet/marvell/sky2.c
++++ b/drivers/net/ethernet/marvell/sky2.c
+@@ -44,6 +44,8 @@
+ #include <linux/prefetch.h>
+ #include <linux/debugfs.h>
+ #include <linux/mii.h>
++#include <linux/of_device.h>
++#include <linux/of_net.h>
+ 
+ #include <asm/irq.h>
+ 
+@@ -4748,6 +4750,7 @@ static struct net_device *sky2_init_netdev(struct sky2_hw *hw, unsigned port,
+ {
+ 	struct sky2_port *sky2;
+ 	struct net_device *dev = alloc_etherdev(sizeof(*sky2));
++	unsigned char *iap, tmpaddr[ETH_ALEN];
+ 
+ 	if (!dev)
+ 		return NULL;
+@@ -4805,8 +4808,27 @@ static struct net_device *sky2_init_netdev(struct sky2_hw *hw, unsigned port,
+ 
+ 	dev->features |= dev->hw_features;
+ 
++	/* try to get mac address in the following order:
++	 * 1) from device tree data
++	 * 2) from internal registers set by bootloader
++	 */
++	iap = NULL;
++	if (IS_ENABLED(CONFIG_OF)) {
++		struct device_node *np = hw->pdev->dev.of_node;
++		if (np)
++			iap = (unsigned char *) of_get_mac_address(np);
++	}
++
++	/* 2) mac registers set by bootloader
++	 */
++	if (!iap || !is_valid_ether_addr(iap)) {
++		memcpy_fromio(&tmpaddr, hw->regs + B2_MAC_1 + port * 8,
++			ETH_ALEN);
++		iap = &tmpaddr[0];
++	}
++
+ 	/* read the mac address */
+-	memcpy_fromio(dev->dev_addr, hw->regs + B2_MAC_1 + port * 8, ETH_ALEN);
++	ether_addr_copy(dev->dev_addr, iap);
+ 
+ 	return dev;
+ }
 -- 
-Jagan.
+1.8.3.2
