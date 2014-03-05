@@ -1,85 +1,127 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] phy: fix compiler array bounds warning on settings[]
-Date: Tue, 4 Mar 2014 16:43:59 -0800
-Message-ID: <CAGVrzcYpAS9cn66P4rTmTDwKZVcryfA7Hq_H=wA-i+9vTeTxxg@mail.gmail.com>
-References: <20140305003544.23016.55079.stgit@bhelgaas-glaptop.roam.corp.google.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next v6 9/9] xen-netback: Aggregate TX unmap operations
+Date: Wed, 5 Mar 2014 00:45:49 +0000
+Message-ID: <531673BD.3070309@citrix.com>
+References: <1393972341-21135-1-git-send-email-zoltan.kiss@citrix.com> <1393972341-21135-11-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Bjorn Helgaas <bhelgaas@google.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<jonathan.davies@citrix.com>
+To: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
+	<xen-devel@lists.xenproject.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140305003544.23016.55079.stgit@bhelgaas-glaptop.roam.corp.google.com>
+In-Reply-To: <1393972341-21135-11-git-send-email-zoltan.kiss@citrix.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2014-03-04 16:35 GMT-08:00 Bjorn Helgaas <bhelgaas@google.com>:
-> With -Werror=array-bounds, gcc v4.7.x warns that in phy_find_valid(), the
-> settings[] "array subscript is above array bounds", I think because idx is
-> a signed integer and if the caller supplied idx < 0, we pass the guard but
-> still reference out of bounds.
->
-> Fix this by making idx unsigned here and elsewhere.
->
-> Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+Despite all my efforts to do renumbering right, this subject still shows 
+9/9 instead of 10/10.
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
-
+On 04/03/14 22:32, Zoltan Kiss wrote:
+> Unmapping causes TLB flushing, therefore we should make it in the largest
+> possible batches. However we shouldn't starve the guest for too long. So if
+> the guest has space for at least two big packets and we don't have at least a
+> quarter ring to unmap, delay it for at most 1 milisec.
+>
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 > ---
->  drivers/net/phy/phy.c |   11 ++++++-----
->  1 file changed, 6 insertions(+), 5 deletions(-)
+> v4:
+> - use bool for tx_dealloc_work_todo
 >
-> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-> index 19c9eca0ef26..76d96b9ebcdb 100644
-> --- a/drivers/net/phy/phy.c
-> +++ b/drivers/net/phy/phy.c
-> @@ -164,9 +164,9 @@ static const struct phy_setting settings[] = {
->   *   of that setting.  Returns the index of the last setting if
->   *   none of the others match.
->   */
-> -static inline int phy_find_setting(int speed, int duplex)
-> +static inline unsigned int phy_find_setting(int speed, int duplex)
->  {
-> -       int idx = 0;
-> +       unsigned int idx = 0;
+> v6:
+> - rebase tx_dealloc_work_todo due to missing ;
 >
->         while (idx < ARRAY_SIZE(settings) &&
->                (settings[idx].speed != speed || settings[idx].duplex != duplex))
-> @@ -185,7 +185,7 @@ static inline int phy_find_setting(int speed, int duplex)
->   *   the mask in features.  Returns the index of the last setting
->   *   if nothing else matches.
->   */
-> -static inline int phy_find_valid(int idx, u32 features)
-> +static inline unsigned int phy_find_valid(unsigned int idx, u32 features)
->  {
->         while (idx < MAX_NUM_SETTINGS && !(settings[idx].setting & features))
->                 idx++;
-> @@ -204,7 +204,7 @@ static inline int phy_find_valid(int idx, u32 features)
->  static void phy_sanitize_settings(struct phy_device *phydev)
->  {
->         u32 features = phydev->supported;
-> -       int idx;
-> +       unsigned int idx;
+>   drivers/net/xen-netback/common.h    |    2 ++
+>   drivers/net/xen-netback/interface.c |    2 ++
+>   drivers/net/xen-netback/netback.c   |   34 +++++++++++++++++++++++++++++++++-
+>   3 files changed, 37 insertions(+), 1 deletion(-)
 >
->         /* Sanitize settings based on PHY capabilities */
->         if ((features & SUPPORTED_Autoneg) == 0)
-> @@ -954,7 +954,8 @@ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
->             (phydev->interface == PHY_INTERFACE_MODE_RGMII))) {
->                 int eee_lp, eee_cap, eee_adv;
->                 u32 lp, cap, adv;
-> -               int idx, status;
-> +               int status;
-> +               unsigned int idx;
+> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+> index d1cd8ce..95498c8 100644
+> --- a/drivers/net/xen-netback/common.h
+> +++ b/drivers/net/xen-netback/common.h
+> @@ -118,6 +118,8 @@ struct xenvif {
+>   	u16 dealloc_ring[MAX_PENDING_REQS];
+>   	struct task_struct *dealloc_task;
+>   	wait_queue_head_t dealloc_wq;
+> +	struct timer_list dealloc_delay;
+> +	bool dealloc_delay_timed_out;
 >
->                 /* Read phy status to properly get the right settings */
->                 status = phy_read_status(phydev);
+>   	/* Use kthread for guest RX */
+>   	struct task_struct *task;
+> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+> index 40aa500..f925af5 100644
+> --- a/drivers/net/xen-netback/interface.c
+> +++ b/drivers/net/xen-netback/interface.c
+> @@ -407,6 +407,7 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+>   			  .desc = i };
+>   		vif->grant_tx_handle[i] = NETBACK_INVALID_HANDLE;
+>   	}
+> +	init_timer(&vif->dealloc_delay);
 >
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
-
--- 
-Florian
+>   	/*
+>   	 * Initialise a dummy MAC address. We choose the numerically
+> @@ -557,6 +558,7 @@ void xenvif_disconnect(struct xenvif *vif)
+>   	}
+>
+>   	if (vif->dealloc_task) {
+> +		del_timer_sync(&vif->dealloc_delay);
+>   		kthread_stop(vif->dealloc_task);
+>   		vif->dealloc_task = NULL;
+>   	}
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index bb65c7c..c098276 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -135,6 +135,11 @@ static inline pending_ring_idx_t nr_pending_reqs(struct xenvif *vif)
+>   		vif->pending_prod + vif->pending_cons;
+>   }
+>
+> +static inline pending_ring_idx_t nr_free_slots(struct xen_netif_tx_back_ring *ring)
+> +{
+> +	return ring->nr_ents -	(ring->sring->req_prod - ring->rsp_prod_pvt);
+> +}
+> +
+>   bool xenvif_rx_ring_slots_available(struct xenvif *vif, int needed)
+>   {
+>   	RING_IDX prod, cons;
+> @@ -1932,9 +1937,36 @@ static inline int tx_work_todo(struct xenvif *vif)
+>   	return 0;
+>   }
+>
+> +static void xenvif_dealloc_delay(unsigned long data)
+> +{
+> +	struct xenvif *vif = (struct xenvif *)data;
+> +
+> +	vif->dealloc_delay_timed_out = true;
+> +	wake_up(&vif->dealloc_wq);
+> +}
+> +
+>   static inline bool tx_dealloc_work_todo(struct xenvif *vif)
+>   {
+> -	return vif->dealloc_cons != vif->dealloc_prod;
+> +	if (vif->dealloc_cons != vif->dealloc_prod) {
+> +		if ((nr_free_slots(&vif->tx) > 2 * XEN_NETBK_LEGACY_SLOTS_MAX) &&
+> +		    (vif->dealloc_prod - vif->dealloc_cons < MAX_PENDING_REQS / 4) &&
+> +		    !vif->dealloc_delay_timed_out) {
+> +			if (!timer_pending(&vif->dealloc_delay)) {
+> +				vif->dealloc_delay.function =
+> +					xenvif_dealloc_delay;
+> +				vif->dealloc_delay.data = (unsigned long)vif;
+> +				mod_timer(&vif->dealloc_delay,
+> +					  jiffies + msecs_to_jiffies(1));
+> +
+> +			}
+> +			return false;
+> +		}
+> +		del_timer_sync(&vif->dealloc_delay);
+> +		vif->dealloc_delay_timed_out = false;
+> +		return true;
+> +	}
+> +
+> +	return false;
+>   }
+>
+>   void xenvif_unmap_frontend_rings(struct xenvif *vif)
+>
