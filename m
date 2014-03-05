@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC v2 04/12] ah6: Use the IPsec protocol multiplexer API
-Date: Wed, 5 Mar 2014 13:41:08 +0100
-Message-ID: <1394023276-2591-5-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH RFC v2 09/12] xfrm6: Remove xfrm_tunnel_notifier
+Date: Wed, 5 Mar 2014 13:41:13 +0100
+Message-ID: <1394023276-2591-10-git-send-email-steffen.klassert@secunet.com>
 References: <1394023276-2591-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,97 +11,134 @@ To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from a.mx.secunet.com ([195.81.216.161]:53184 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753752AbaCEMl3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Mar 2014 07:41:29 -0500
+	id S1753985AbaCEMlb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Mar 2014 07:41:31 -0500
 In-Reply-To: <1394023276-2591-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Switch ah6 to use the new IPsec protocol multiplexer.
+This was used from vti and is replaced by the IPsec protocol
+multiplexer hooks. It is now unused, so remove it.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/ipv6/ah6.c |   22 +++++++++++++++-------
- 1 file changed, 15 insertions(+), 7 deletions(-)
+ include/net/xfrm.h           |    8 ------
+ net/ipv6/xfrm6_mode_tunnel.c |   63 ------------------------------------------
+ 2 files changed, 71 deletions(-)
 
-diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
-index 6c5f094..f35911e 100644
---- a/net/ipv6/ah6.c
-+++ b/net/ipv6/ah6.c
-@@ -643,7 +643,7 @@ out:
- 	return err;
- }
- 
--static void ah6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
-+static int ah6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 		    u8 type, u8 code, int offset, __be32 info)
- {
- 	struct net *net = dev_net(skb->dev);
-@@ -653,17 +653,19 @@ static void ah6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 
- 	if (type != ICMPV6_PKT_TOOBIG &&
- 	    type != NDISC_REDIRECT)
--		return;
-+		return 0;
- 
- 	x = xfrm_state_lookup(net, skb->mark, (xfrm_address_t *)&iph->daddr, ah->spi, IPPROTO_AH, AF_INET6);
- 	if (!x)
--		return;
-+		return 0;
- 
- 	if (type == NDISC_REDIRECT)
- 		ip6_redirect(skb, net, skb->dev->ifindex, 0);
- 	else
- 		ip6_update_pmtu(skb, net, info, 0, 0);
- 	xfrm_state_put(x);
-+
-+	return 0;
- }
- 
- static int ah6_init_state(struct xfrm_state *x)
-@@ -748,6 +750,11 @@ static void ah6_destroy(struct xfrm_state *x)
- 	kfree(ahp);
- }
- 
-+static int ah6_rcv_cb(struct sk_buff *skb, int err)
-+{
-+	return 0;
-+}
-+
- static const struct xfrm_type ah6_type =
- {
- 	.description	= "AH6",
-@@ -761,10 +768,11 @@ static const struct xfrm_type ah6_type =
- 	.hdr_offset	= xfrm6_find_1stfragopt,
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 60df20a..cb795f1 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1393,12 +1393,6 @@ struct xfrm_tunnel {
+ 	int priority;
  };
  
--static const struct inet6_protocol ah6_protocol = {
-+static struct xfrm6_protocol ah6_protocol = {
- 	.handler	=	xfrm6_rcv,
-+	.cb_handler	=	ah6_rcv_cb,
- 	.err_handler	=	ah6_err,
--	.flags		=	INET6_PROTO_NOPOLICY,
-+	.priority	=	0,
- };
+-struct xfrm_tunnel_notifier {
+-	int (*handler)(struct sk_buff *skb);
+-	struct xfrm_tunnel_notifier __rcu *next;
+-	int priority;
+-};
+-
+ struct xfrm6_tunnel {
+ 	int (*handler)(struct sk_buff *skb);
+ 	int (*err_handler)(struct sk_buff *skb, struct inet6_skb_parm *opt,
+@@ -1554,8 +1548,6 @@ int xfrm4_protocol_deregister(struct xfrm4_protocol *handler, unsigned char prot
+ int xfrm4_tunnel_register(struct xfrm_tunnel *handler, unsigned short family);
+ int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler, unsigned short family);
+ void xfrm4_local_error(struct sk_buff *skb, u32 mtu);
+-int xfrm6_mode_tunnel_input_register(struct xfrm_tunnel_notifier *handler);
+-int xfrm6_mode_tunnel_input_deregister(struct xfrm_tunnel_notifier *handler);
+ int xfrm6_extract_header(struct sk_buff *skb);
+ int xfrm6_extract_input(struct xfrm_state *x, struct sk_buff *skb);
+ int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi);
+diff --git a/net/ipv6/xfrm6_mode_tunnel.c b/net/ipv6/xfrm6_mode_tunnel.c
+index cb04f7a..901ef6f 100644
+--- a/net/ipv6/xfrm6_mode_tunnel.c
++++ b/net/ipv6/xfrm6_mode_tunnel.c
+@@ -18,65 +18,6 @@
+ #include <net/ipv6.h>
+ #include <net/xfrm.h>
  
- static int __init ah6_init(void)
-@@ -774,7 +782,7 @@ static int __init ah6_init(void)
- 		return -EAGAIN;
- 	}
- 
--	if (inet6_add_protocol(&ah6_protocol, IPPROTO_AH) < 0) {
-+	if (xfrm6_protocol_register(&ah6_protocol, IPPROTO_AH) < 0) {
- 		pr_info("%s: can't add protocol\n", __func__);
- 		xfrm_unregister_type(&ah6_type, AF_INET6);
- 		return -EAGAIN;
-@@ -785,7 +793,7 @@ static int __init ah6_init(void)
- 
- static void __exit ah6_fini(void)
+-/* Informational hook. The decap is still done here. */
+-static struct xfrm_tunnel_notifier __rcu *rcv_notify_handlers __read_mostly;
+-static DEFINE_MUTEX(xfrm6_mode_tunnel_input_mutex);
+-
+-int xfrm6_mode_tunnel_input_register(struct xfrm_tunnel_notifier *handler)
+-{
+-	struct xfrm_tunnel_notifier __rcu **pprev;
+-	struct xfrm_tunnel_notifier *t;
+-	int ret = -EEXIST;
+-	int priority = handler->priority;
+-
+-	mutex_lock(&xfrm6_mode_tunnel_input_mutex);
+-
+-	for (pprev = &rcv_notify_handlers;
+-	     (t = rcu_dereference_protected(*pprev,
+-	     lockdep_is_held(&xfrm6_mode_tunnel_input_mutex))) != NULL;
+-	     pprev = &t->next) {
+-		if (t->priority > priority)
+-			break;
+-		if (t->priority == priority)
+-			goto err;
+-
+-	}
+-
+-	handler->next = *pprev;
+-	rcu_assign_pointer(*pprev, handler);
+-
+-	ret = 0;
+-
+-err:
+-	mutex_unlock(&xfrm6_mode_tunnel_input_mutex);
+-	return ret;
+-}
+-EXPORT_SYMBOL_GPL(xfrm6_mode_tunnel_input_register);
+-
+-int xfrm6_mode_tunnel_input_deregister(struct xfrm_tunnel_notifier *handler)
+-{
+-	struct xfrm_tunnel_notifier __rcu **pprev;
+-	struct xfrm_tunnel_notifier *t;
+-	int ret = -ENOENT;
+-
+-	mutex_lock(&xfrm6_mode_tunnel_input_mutex);
+-	for (pprev = &rcv_notify_handlers;
+-	     (t = rcu_dereference_protected(*pprev,
+-	     lockdep_is_held(&xfrm6_mode_tunnel_input_mutex))) != NULL;
+-	     pprev = &t->next) {
+-		if (t == handler) {
+-			*pprev = handler->next;
+-			ret = 0;
+-			break;
+-		}
+-	}
+-	mutex_unlock(&xfrm6_mode_tunnel_input_mutex);
+-	synchronize_net();
+-
+-	return ret;
+-}
+-EXPORT_SYMBOL_GPL(xfrm6_mode_tunnel_input_deregister);
+-
+ static inline void ipip6_ecn_decapsulate(struct sk_buff *skb)
  {
--	if (inet6_del_protocol(&ah6_protocol, IPPROTO_AH) < 0)
-+	if (xfrm6_protocol_deregister(&ah6_protocol, IPPROTO_AH) < 0)
- 		pr_info("%s: can't remove protocol\n", __func__);
+ 	const struct ipv6hdr *outer_iph = ipv6_hdr(skb);
+@@ -130,7 +71,6 @@ static int xfrm6_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
  
- 	if (xfrm_unregister_type(&ah6_type, AF_INET6) < 0)
+ static int xfrm6_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
+ {
+-	struct xfrm_tunnel_notifier *handler;
+ 	int err = -EINVAL;
+ 
+ 	if (XFRM_MODE_SKB_CB(skb)->protocol != IPPROTO_IPV6)
+@@ -138,9 +78,6 @@ static int xfrm6_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
+ 		goto out;
+ 
+-	for_each_input_rcu(rcv_notify_handlers, handler)
+-		handler->handler(skb);
+-
+ 	err = skb_unclone(skb, GFP_ATOMIC);
+ 	if (err)
+ 		goto out;
 -- 
 1.7.9.5
