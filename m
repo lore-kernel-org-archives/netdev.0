@@ -1,673 +1,486 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 1/5] samsung: xgmac: Neatening
-Date: Wed,  5 Mar 2014 11:20:15 -0800
-Message-ID: <5c9d68da4f153eaea52ff5d84c56c2749704fc4a.1394046997.git.joe@perches.com>
+Subject: [PATCH 2/5] samsung: xgmac: Fix pr_<level> uses
+Date: Wed,  5 Mar 2014 11:20:16 -0800
+Message-ID: <401c4764c78a7bf8807f73f8a0502bd3f48a23ca.1394046997.git.joe@perches.com>
 References: <cover.1394046997.git.joe@perches.com>
 Cc: linux-samsung-soc@vger.kernel.org, davem@davemloft.net,
 	siva.kallam@samsung.com, vipul.pandya@samsung.com,
 	ks.giri@samsung.com, ilho215.lee@samsung.com,
 	netdev@vger.kernel.org
 To: Byungho An <bh74.an@samsung.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0054.hostedemail.com ([216.40.44.54]:44197 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756496AbaCETU0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 14:20:26 -0500
+Return-path: <linux-samsung-soc-owner@vger.kernel.org>
 In-Reply-To: <cover.1394046997.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-samsung-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Quiet checkpatch noise:
-o Multi-line statement alignment
-o Add braces
-o Move logical continuations
-o Remove externs from .h
-o Remove unnecessary blank lines around braces
-
-Typo fixes where noticed.
-Change logic to return first to reduce indentation.
+Use pr_fmt to prefix messages consistently with "samsung_xgmac: ".
+Add missing newlines.
+Use print_hex_dump_debug.
+Alignment neatening of pr_<level> uses.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/ethernet/samsung/xgmac_common.h  | 24 ++++----
- drivers/net/ethernet/samsung/xgmac_desc.c    |  4 --
- drivers/net/ethernet/samsung/xgmac_dma.c     | 32 +++++-----
- drivers/net/ethernet/samsung/xgmac_ethtool.c | 67 ++++++++++----------
- drivers/net/ethernet/samsung/xgmac_main.c    | 92 +++++++++++++---------------
- drivers/net/ethernet/samsung/xgmac_mdio.c    | 13 ++--
- drivers/net/ethernet/samsung/xgmac_mtl.c     |  4 +-
- 7 files changed, 115 insertions(+), 121 deletions(-)
+ drivers/net/ethernet/samsung/xgmac_core.c     |  8 ++--
+ drivers/net/ethernet/samsung/xgmac_desc.c     | 11 +++--
+ drivers/net/ethernet/samsung/xgmac_ethtool.c  |  5 +-
+ drivers/net/ethernet/samsung/xgmac_main.c     | 69 +++++++++++++--------------
+ drivers/net/ethernet/samsung/xgmac_mdio.c     |  5 +-
+ drivers/net/ethernet/samsung/xgmac_mtl.c      |  7 ++-
+ drivers/net/ethernet/samsung/xgmac_platform.c | 15 +++---
+ 7 files changed, 67 insertions(+), 53 deletions(-)
 
-diff --git a/drivers/net/ethernet/samsung/xgmac_common.h b/drivers/net/ethernet/samsung/xgmac_common.h
-index 4932824..4c46504 100644
---- a/drivers/net/ethernet/samsung/xgmac_common.h
-+++ b/drivers/net/ethernet/samsung/xgmac_common.h
-@@ -544,24 +544,24 @@ struct xgmac_priv_data {
- };
+diff --git a/drivers/net/ethernet/samsung/xgmac_core.c b/drivers/net/ethernet/samsung/xgmac_core.c
+index 8fa2241..c5afba4 100644
+--- a/drivers/net/ethernet/samsung/xgmac_core.c
++++ b/drivers/net/ethernet/samsung/xgmac_core.c
+@@ -11,6 +11,8 @@
+  * published by the Free Software Foundation.
+  */
  
- /* Function prototypes */
--extern struct xgmac_priv_data *xgmac_dvr_probe(struct device *device,
-+struct xgmac_priv_data *xgmac_dvr_probe(struct device *device,
- 					struct xgmac_plat_data *plat_dat,
- 					void __iomem *addr);
--extern int xgmac_dvr_remove(struct net_device *ndev);
--extern void xgmac_set_ethtool_ops(struct net_device *netdev);
--extern int xgmac_mdio_unregister(struct net_device *ndev);
--extern int xgmac_mdio_register(struct net_device *ndev);
--extern int xgmac_register_platform(void);
--extern void xgmac_unregister_platform(void);
-+int xgmac_dvr_remove(struct net_device *ndev);
-+void xgmac_set_ethtool_ops(struct net_device *netdev);
-+int xgmac_mdio_unregister(struct net_device *ndev);
-+int xgmac_mdio_register(struct net_device *ndev);
-+int xgmac_register_platform(void);
-+void xgmac_unregister_platform(void);
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
+ #include <linux/export.h>
+ #include <linux/io.h>
+ #include <linux/netdevice.h>
+@@ -92,15 +94,15 @@ static void xgmac_core_pmt(void __iomem *ioaddr, unsigned long mode)
+ 	unsigned int pmt = 0;
  
- #ifdef CONFIG_PM
--extern int xgmac_suspend(struct net_device *ndev);
--extern int xgmac_resume(struct net_device *ndev);
--extern int xgmac_freeze(struct net_device *ndev);
--extern int xgmac_restore(struct net_device *ndev);
-+int xgmac_suspend(struct net_device *ndev);
-+int xgmac_resume(struct net_device *ndev);
-+int xgmac_freeze(struct net_device *ndev);
-+int xgmac_restore(struct net_device *ndev);
- #endif /* CONFIG_PM */
+ 	if (mode & WAKE_MAGIC) {
+-		pr_debug("GMAC: WOL Magic frame\n");
++		pr_debug("WOL Magic frame\n");
+ 		pmt |= PMT_MGPKT_EN;
+ 	}
+ 	if (mode & WAKE_UCAST) {
+-		pr_debug("GMAC: WOL on global unicast\n");
++		pr_debug("WOL on global unicast\n");
+ 		pmt |= PMT_GUCAST_EN;
+ 	}
+ 	if (mode & (WAKE_MCAST | WAKE_BCAST)) {
+-		pr_debug("GMAC: WOL on any other packet\n");
++		pr_debug("WOL on any other packet\n");
+ 		pmt |= PMT_RWKPKT_EN;
+ 	}
  
--extern const struct xgmac_mtl_ops *xgmac_get_mtl_ops(void);
-+const struct xgmac_mtl_ops *xgmac_get_mtl_ops(void);
- 
- void xgmac_disable_eee_mode(struct xgmac_priv_data * const priv);
- bool xgmac_eee_init(struct xgmac_priv_data * const priv);
 diff --git a/drivers/net/ethernet/samsung/xgmac_desc.c b/drivers/net/ethernet/samsung/xgmac_desc.c
-index c5417de..ddf3e94 100644
+index ddf3e94..ef25efd 100644
 --- a/drivers/net/ethernet/samsung/xgmac_desc.c
 +++ b/drivers/net/ethernet/samsung/xgmac_desc.c
-@@ -196,7 +196,6 @@ static void xgmac_tx_ctxt_desc_set_tstamp(struct xgmac_tx_ctxt_desc *p,
- 		p->tstamp_lo = (u32) tstamp;
- 		p->tstamp_hi = (u32) (tstamp>>32);
- 	}
--
- }
- /* Close TX context descriptor */
- static void xgmac_tx_ctxt_desc_close(struct xgmac_tx_ctxt_desc *p)
-@@ -217,7 +216,6 @@ static void xgmac_init_rx_desc(struct xgmac_rx_norm_desc *p, int disable_rx_ic,
- 	p->rdes23.rx_rd_des23.own_bit = 1;
- 	if (disable_rx_ic)
- 		p->rdes23.rx_rd_des23.int_on_com = disable_rx_ic;
--
- }
- 
- /* Get RX own bit */
-@@ -337,7 +335,6 @@ static int xgmac_rx_wbstatus(struct xgmac_rx_norm_desc *p,
- 			pr_err("\tInvalid L2 Packet type\n");
+@@ -9,6 +9,9 @@
+  * it under the terms of the GNU General Public License version 2 as
+  * published by the Free Software Foundation.
+  */
++
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
+ #include <linux/bitops.h>
+ #include <linux/export.h>
+ #include <linux/io.h>
+@@ -287,7 +290,7 @@ static int xgmac_rx_wbstatus(struct xgmac_rx_norm_desc *p,
+ 			x->overflow_error++;
+ 			break;
+ 		default:
+-			pr_err("\tInvalid Error type\n");
++			pr_err("Invalid Error type\n");
  			break;
  		}
--
+ 	} else {
+@@ -332,7 +335,7 @@ static int xgmac_rx_wbstatus(struct xgmac_rx_norm_desc *p,
+ 			x->dvlan_ocvlan_icvlan_pkt++;
+ 			break;
+ 		default:
+-			pr_err("\tInvalid L2 Packet type\n");
++			pr_err("Invalid L2 Packet type\n");
+ 			break;
+ 		}
+ 	}
+@@ -367,7 +370,7 @@ static int xgmac_rx_wbstatus(struct xgmac_rx_norm_desc *p,
+ 		x->ip6_unknown_pkt++;
+ 		break;
+ 	default:
+-		pr_err("\tInvalid L3/L4 Packet type\n");
++		pr_err("Invalid L3/L4 Packet type\n");
+ 		break;
  	}
  
- 	/* L3/L4 Pkt type */
-@@ -443,7 +440,6 @@ static void xgmac_rx_ctxt_wbstatus(struct xgmac_rx_ctxt_desc *p,
- 		x->rx_ptp_signal++;
- 	else if (p->ptp_msgtype == RX_PTP_RESV_MSG)
- 		x->rx_ptp_resv_msg_type++;
--
- }
- 
- /* get rx timestamp status */
-diff --git a/drivers/net/ethernet/samsung/xgmac_dma.c b/drivers/net/ethernet/samsung/xgmac_dma.c
-index 47945a3..384866c 100644
---- a/drivers/net/ethernet/samsung/xgmac_dma.c
-+++ b/drivers/net/ethernet/samsung/xgmac_dma.c
-@@ -85,14 +85,14 @@ static void xgmac_dma_channel_init(void __iomem *ioaddr, int cha_num,
- 
- 	/* program desc registers */
- 	writel((dma_tx >> 32),
--			ioaddr + XGMAC_DMA_CHA_TXDESC_HADD_REG(cha_num));
-+	       ioaddr + XGMAC_DMA_CHA_TXDESC_HADD_REG(cha_num));
- 	writel((dma_tx & 0xFFFFFFFF),
--			ioaddr + XGMAC_DMA_CHA_TXDESC_LADD_REG(cha_num));
-+	       ioaddr + XGMAC_DMA_CHA_TXDESC_LADD_REG(cha_num));
- 
- 	writel((dma_rx >> 32),
--			ioaddr + XGMAC_DMA_CHA_RXDESC_HADD_REG(cha_num));
-+	       ioaddr + XGMAC_DMA_CHA_RXDESC_HADD_REG(cha_num));
- 	writel((dma_rx & 0xFFFFFFFF),
--			ioaddr + XGMAC_DMA_CHA_RXDESC_LADD_REG(cha_num));
-+	       ioaddr + XGMAC_DMA_CHA_RXDESC_LADD_REG(cha_num));
- 
- 	/* program tail pointers */
- 	/* assumption: upper 32 bits are constant and
-@@ -100,18 +100,18 @@ static void xgmac_dma_channel_init(void __iomem *ioaddr, int cha_num,
- 	 */
- 	dma_addr = dma_tx + ((t_rsize-1) * XGMAC_DESC_SIZE_BYTES);
- 	writel((dma_addr & 0xFFFFFFFF),
--			ioaddr + XGMAC_DMA_CHA_TXDESC_TAILPTR_REG(cha_num));
-+	       ioaddr + XGMAC_DMA_CHA_TXDESC_TAILPTR_REG(cha_num));
- 
- 	dma_addr = dma_rx + ((r_rsize-1) * XGMAC_DESC_SIZE_BYTES);
- 	writel((dma_addr & 0xFFFFFFFF),
--			ioaddr + XGMAC_DMA_CHA_RXDESC_LADD_REG(cha_num));
-+	       ioaddr + XGMAC_DMA_CHA_RXDESC_LADD_REG(cha_num));
- 	/* program the ring sizes */
- 	writel(t_rsize-1, ioaddr + XGMAC_DMA_CHA_TXDESC_RINGLEN_REG(cha_num));
- 	writel(r_rsize-1, ioaddr + XGMAC_DMA_CHA_RXDESC_RINGLEN_REG(cha_num));
- 
- 	/* Enable TX/RX interrupts */
- 	writel(XGMAC_DMA_ENA_INT,
--			ioaddr + XGMAC_DMA_CHA_INT_ENABLE_REG(cha_num));
-+	       ioaddr + XGMAC_DMA_CHA_INT_ENABLE_REG(cha_num));
- }
- 
- static void xgmac_enable_dma_transmission(void __iomem *ioaddr, int cha_num)
-@@ -126,7 +126,7 @@ static void xgmac_enable_dma_irq(void __iomem *ioaddr, int dma_cnum)
+@@ -446,7 +449,7 @@ static void xgmac_rx_ctxt_wbstatus(struct xgmac_rx_ctxt_desc *p,
+ static int xgmac_get_rx_ctxt_tstamp_status(struct xgmac_rx_ctxt_desc *p)
  {
- 	/* Enable TX/RX interrupts */
- 	writel(XGMAC_DMA_ENA_INT,
--			ioaddr + XGMAC_DMA_CHA_INT_ENABLE_REG(dma_cnum));
-+	       ioaddr + XGMAC_DMA_CHA_INT_ENABLE_REG(dma_cnum));
- }
- 
- static void xgmac_disable_dma_irq(void __iomem *ioaddr, int dma_cnum)
-@@ -144,7 +144,7 @@ static void xgmac_dma_start_tx(void __iomem *ioaddr, int tchannels)
- 		tx_ctl_reg = readl(ioaddr + XGMAC_DMA_CHA_TXCTL_REG(cnum));
- 		tx_ctl_reg |= XGMAC_TX_ENABLE;
- 		writel(tx_ctl_reg,
--			ioaddr + XGMAC_DMA_CHA_TXCTL_REG(cnum));
-+		       ioaddr + XGMAC_DMA_CHA_TXCTL_REG(cnum));
+ 	if ((p->tstamp_hi == 0xffffffff) && (p->tstamp_lo == 0xffffffff)) {
+-		pr_err("\tTime stamp corrupted\n");
++		pr_err("Time stamp corrupted\n");
+ 		return 0;
  	}
- }
  
-@@ -187,7 +187,7 @@ static void xgmac_dma_start_rx(void __iomem *ioaddr, int rchannels)
- 		rx_ctl_reg = readl(ioaddr + XGMAC_DMA_CHA_RXCTL_REG(cnum));
- 		rx_ctl_reg |= XGMAC_RX_ENABLE;
- 		writel(rx_ctl_reg,
--			ioaddr + XGMAC_DMA_CHA_RXCTL_REG(cnum));
-+		       ioaddr + XGMAC_DMA_CHA_RXCTL_REG(cnum));
- 	}
- }
- 
-@@ -245,14 +245,16 @@ static int xgmac_tx_dma_int_status(void __iomem *ioaddr, int channel_no,
- 			if (int_status & XGMAC_DMA_INT_STATUS_TEB0) {
- 				x->tx_read_transfer_err++;
- 				clear_val |= XGMAC_DMA_INT_STATUS_TEB0;
--			} else
-+			} else {
- 				x->tx_write_transfer_err++;
-+			}
- 
- 			if (int_status & XGMAC_DMA_INT_STATUS_TEB1) {
- 				x->tx_desc_access_err++;
- 				clear_val |= XGMAC_DMA_INT_STATUS_TEB1;
--			} else
-+			} else {
- 				 x->tx_buffer_access_err++;
-+			}
- 
- 			if (int_status & XGMAC_DMA_INT_STATUS_TEB2) {
- 				x->tx_data_transfer_err++;
-@@ -315,14 +317,16 @@ static int xgmac_rx_dma_int_status(void __iomem *ioaddr, int channel_no,
- 			if (int_status & XGMAC_DMA_INT_STATUS_REB0) {
- 				x->rx_read_transfer_err++;
- 				clear_val |= XGMAC_DMA_INT_STATUS_REB0;
--			} else
-+			} else {
- 				x->rx_write_transfer_err++;
-+			}
- 
- 			if (int_status & XGMAC_DMA_INT_STATUS_REB1) {
- 				x->rx_desc_access_err++;
- 				clear_val |= XGMAC_DMA_INT_STATUS_REB1;
--			} else
-+			} else {
- 				 x->rx_buffer_access_err++;
-+			}
- 
- 			if (int_status & XGMAC_DMA_INT_STATUS_REB2) {
- 				x->rx_data_transfer_err++;
 diff --git a/drivers/net/ethernet/samsung/xgmac_ethtool.c b/drivers/net/ethernet/samsung/xgmac_ethtool.c
-index 74af3865..3f0698a 100644
+index 3f0698a..576b23e 100644
 --- a/drivers/net/ethernet/samsung/xgmac_ethtool.c
 +++ b/drivers/net/ethernet/samsung/xgmac_ethtool.c
-@@ -152,9 +152,9 @@ static int xgmac_set_eee(struct net_device *dev,
- 
- 	priv->eee_enabled = edata->eee_enabled;
- 
--	if (!priv->eee_enabled)
-+	if (!priv->eee_enabled) {
- 		xgmac_disable_eee_mode(priv);
--	else {
-+	} else {
- 		/* We are asking for enabling the EEE but it is safe
- 		 * to verify all by invoking the eee_init function.
- 		 * In case of failure it will return an error.
-@@ -251,7 +251,6 @@ static void xgmac_setmsglevel(struct net_device *dev, u32 level)
- {
- 	struct xgmac_priv_data *priv = netdev_priv(dev);
- 	priv->msg_enable = level;
--
- }
- 
- static int xgmac_get_ts_info(struct net_device *dev,
-@@ -259,38 +258,38 @@ static int xgmac_get_ts_info(struct net_device *dev,
- {
- 	struct xgmac_priv_data *priv = netdev_priv(dev);
- 
--	if (priv->hw_cap.atime_stamp) {
--
--		info->so_timestamping = SOF_TIMESTAMPING_TX_SOFTWARE |
--					SOF_TIMESTAMPING_RX_SOFTWARE |
--					SOF_TIMESTAMPING_SOFTWARE |
--					SOF_TIMESTAMPING_TX_HARDWARE |
--					SOF_TIMESTAMPING_RX_HARDWARE |
--					SOF_TIMESTAMPING_RAW_HARDWARE;
--
--		if (priv->ptp_clock)
--			info->phc_index = ptp_clock_index(priv->ptp_clock);
--
--		info->tx_types = (1 << HWTSTAMP_TX_OFF) | (1 << HWTSTAMP_TX_ON)
--				 | (1 << HWTSTAMP_TX_ONESTEP_SYNC);
--
--		info->rx_filters = ((1 << HWTSTAMP_FILTER_NONE) |
--				    (1 << HWTSTAMP_FILTER_PTP_V1_L4_EVENT) |
--				    (1 << HWTSTAMP_FILTER_PTP_V1_L4_SYNC) |
--				    (1 << HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ) |
--				    (1 << HWTSTAMP_FILTER_PTP_V2_L4_EVENT) |
--				    (1 << HWTSTAMP_FILTER_PTP_V2_L4_SYNC) |
--				    (1 << HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ) |
--				    (1 << HWTSTAMP_FILTER_PTP_V2_L2_EVENT) |
--				    (1 << HWTSTAMP_FILTER_PTP_V2_L2_SYNC) |
--				    (1 << HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ) |
--				    (1 << HWTSTAMP_FILTER_PTP_V2_EVENT) |
--				    (1 << HWTSTAMP_FILTER_PTP_V2_SYNC) |
--				    (1 << HWTSTAMP_FILTER_PTP_V2_DELAY_REQ) |
--				    (1 << HWTSTAMP_FILTER_ALL));
--		return 0;
--	} else
-+	if (!priv->hw_cap.atime_stamp)
- 		return ethtool_op_get_ts_info(dev, info);
+@@ -9,6 +9,9 @@
+  * it under the terms of the GNU General Public License version 2 as
+  * published by the Free Software Foundation.
+  */
 +
-+	info->so_timestamping = (SOF_TIMESTAMPING_TX_SOFTWARE |
-+				 SOF_TIMESTAMPING_RX_SOFTWARE |
-+				 SOF_TIMESTAMPING_SOFTWARE |
-+				 SOF_TIMESTAMPING_TX_HARDWARE |
-+				 SOF_TIMESTAMPING_RX_HARDWARE |
-+				 SOF_TIMESTAMPING_RAW_HARDWARE);
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 +
-+	if (priv->ptp_clock)
-+		info->phc_index = ptp_clock_index(priv->ptp_clock);
-+
-+	info->tx_types = ((1 << HWTSTAMP_TX_OFF) |
-+			  (1 << HWTSTAMP_TX_ON) |
-+			  (1 << HWTSTAMP_TX_ONESTEP_SYNC));
-+
-+	info->rx_filters = ((1 << HWTSTAMP_FILTER_NONE) |
-+			    (1 << HWTSTAMP_FILTER_PTP_V1_L4_EVENT) |
-+			    (1 << HWTSTAMP_FILTER_PTP_V1_L4_SYNC) |
-+			    (1 << HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ) |
-+			    (1 << HWTSTAMP_FILTER_PTP_V2_L4_EVENT) |
-+			    (1 << HWTSTAMP_FILTER_PTP_V2_L4_SYNC) |
-+			    (1 << HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ) |
-+			    (1 << HWTSTAMP_FILTER_PTP_V2_L2_EVENT) |
-+			    (1 << HWTSTAMP_FILTER_PTP_V2_L2_SYNC) |
-+			    (1 << HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ) |
-+			    (1 << HWTSTAMP_FILTER_PTP_V2_EVENT) |
-+			    (1 << HWTSTAMP_FILTER_PTP_V2_SYNC) |
-+			    (1 << HWTSTAMP_FILTER_PTP_V2_DELAY_REQ) |
-+			    (1 << HWTSTAMP_FILTER_ALL));
-+	return 0;
- }
+ #include <linux/clk.h>
+ #include <linux/interrupt.h>
+ #include <linux/kernel.h>
+@@ -200,7 +203,7 @@ static int xgmac_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+ 		return -EOPNOTSUPP;
  
- int xgmac_set_flow_ctrl(struct xgmac_priv_data *priv, int rx, int tx)
+ 	if (wol->wolopts) {
+-		pr_info("xgmac: wakeup enable\n");
++		pr_info("wakeup enable\n");
+ 		device_set_wakeup_enable(priv->device, true);
+ 		enable_irq_wake(priv->wol_irq);
+ 	} else {
 diff --git a/drivers/net/ethernet/samsung/xgmac_main.c b/drivers/net/ethernet/samsung/xgmac_main.c
-index 1eae636..05853d2 100644
+index 05853d2..a212abf 100644
 --- a/drivers/net/ethernet/samsung/xgmac_main.c
 +++ b/drivers/net/ethernet/samsung/xgmac_main.c
-@@ -212,9 +212,8 @@ static void xgmac_clk_csr_set(struct xgmac_priv_data *priv)
- 		 (clk_rate <= XGMAC_CSR_F_400M))
- 		priv->clk_csr = XGMAC_CSR_350_400M;
- 	else if ((clk_rate >= XGMAC_CSR_F_400M) &&
--		(clk_rate <= XGMAC_CSR_F_500M))
-+		 (clk_rate <= XGMAC_CSR_F_500M))
- 		priv->clk_csr = XGMAC_CSR_400_500M;
--
- }
+@@ -9,6 +9,9 @@
+  * it under the terms of the GNU General Public License version 2 as
+  * published by the Free Software Foundation.
+  */
++
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
+ #include <linux/clk.h>
+ #include <linux/crc32.h>
+ #include <linux/dma-mapping.h>
+@@ -166,7 +169,7 @@ bool xgmac_eee_init(struct xgmac_priv_data * const priv)
+ 					     XGMAC_DEFAULT_LPI_TIMER,
+ 					     priv->tx_lpi_timer);
+ 
+-		pr_info("xgmac: Energy-Efficient Ethernet initialized\n");
++		pr_info("Energy-Efficient Ethernet initialized\n");
+ 
+ 		ret = true;
+ 	}
+@@ -218,14 +221,9 @@ static void xgmac_clk_csr_set(struct xgmac_priv_data *priv)
  
  static void print_pkt(unsigned char *buf, int len)
-@@ -271,8 +270,8 @@ static void xgmac_adjust_link(struct net_device *dev)
- 				break;
- 			default:
- 				if (netif_msg_link(priv))
--					pr_err("%s: Speed (%d) not suppoted\n",
--						dev->name, phydev->speed);
-+					pr_err("%s: Speed (%d) not supported\n",
-+					       dev->name, phydev->speed);
- 			}
+ {
+-	int j;
+-	pr_debug("len = %d byte, buf addr: 0x%p", len, buf);
+-	for (j = 0; j < len; j++) {
+-		if ((j % 16) == 0)
+-			pr_debug("\n %03x:", j);
+-		pr_debug(" %02x", buf[j]);
+-	}
+-	pr_debug("\n");
++	pr_debug("len = %d byte, buf addr: 0x%p\n", len, buf);
++	print_hex_dump_debug(KBUILD_MODNAME ": ", DUMP_PREFIX_OFFSET, 16, 1,
++			     buf, len, true);
+ }
  
- 			priv->speed = phydev->speed;
-@@ -346,7 +345,7 @@ static int xgmac_init_phy(struct net_device *ndev)
+ /* minimum number of free TX descriptors required to wake up TX process */
+@@ -325,7 +323,7 @@ static int xgmac_init_phy(struct net_device *ndev)
+ 
+ 	snprintf(phy_id_fmt, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, bus_id,
+ 		 priv->plat->phy_addr);
+-	pr_debug("xgmac_init_phy:  trying to attach to %s\n", phy_id_fmt);
++	pr_debug("%s: trying to attach to %s\n", __func__, phy_id_fmt);
+ 
+ 	phydev = phy_connect(ndev, phy_id_fmt, &xgmac_adjust_link, phy_iface);
+ 
+@@ -344,8 +342,8 @@ static int xgmac_init_phy(struct net_device *ndev)
+ 		return -ENODEV;
  	}
  
- 	pr_debug("xgmac_init_phy: %s: attached to PHY (UID 0x%x) Link = %d\n",
--			ndev->name, phydev->phy_id, phydev->link);
-+		 ndev->name, phydev->phy_id, phydev->link);
+-	pr_debug("xgmac_init_phy: %s: attached to PHY (UID 0x%x) Link = %d\n",
+-		 ndev->name, phydev->phy_id, phydev->link);
++	pr_debug("%s: %s: attached to PHY (UID 0x%x) Link = %d\n",
++		 __func__, ndev->name, phydev->phy_id, phydev->link);
  
  	/* save phy device in private structure */
  	priv->phydev = phydev;
-@@ -554,7 +553,6 @@ static int init_rx_ring(struct net_device *dev, u8 queue_no,
- 		rx_ring->cur_rx = 0;
- 		rx_ring->dirty_rx = (unsigned int)(desc_index - rx_rsize);
- 		priv->dma_buf_sz = bfsize;
--
- 	}
+@@ -506,7 +504,7 @@ static int init_rx_ring(struct net_device *dev, u8 queue_no,
  
- 	return 0;
-@@ -656,9 +654,9 @@ static void tx_free_ring_skbufs(struct xgmac_tx_queue *txqueue)
+ 	/* RX ring is not allcoated */
+ 	if (rx_ring == NULL) {
+-		pr_err("No memory for RX queue of XGMAC\n");
++		pr_err("No memory for RX queue\n");
+ 		goto error;
+ 	} else {
+ 		/* assign queue number */
+@@ -518,7 +516,7 @@ static int init_rx_ring(struct net_device *dev, u8 queue_no,
+ 				&rx_ring->dma_rx_phy, GFP_KERNEL);
  
- 		if (txqueue->tx_skbuff_dma[dma_desc])
- 			dma_unmap_single(priv->device,
--					txqueue->tx_skbuff_dma[dma_desc],
--					priv->hw->desc->get_tx_len(tdesc),
--					DMA_TO_DEVICE);
-+					 txqueue->tx_skbuff_dma[dma_desc],
-+					 priv->hw->desc->get_tx_len(tdesc),
-+					 DMA_TO_DEVICE);
+ 		if (rx_ring->dma_rx == NULL) {
+-			pr_err("No memory for RX desc of XGMAC\n");
++			pr_err("No memory for RX desc\n");
+ 			goto error;
+ 		}
  
- 		dev_kfree_skb_any(txqueue->tx_skbuff[dma_desc]);
- 		txqueue->tx_skbuff[dma_desc] = NULL;
-@@ -745,25 +743,26 @@ static void xgmac_mtl_operation_mode(struct xgmac_priv_data *priv)
- 		/* set TC mode for TX QUEUES */
- 		XGMAC_FOR_EACH_QUEUE(priv->hw_cap.tx_mtl_queues, queue_num)
- 			priv->hw->mtl->set_tx_mtl_mode(priv->ioaddr, queue_num,
--					XGMAC_MTL_SFMODE);
-+						       XGMAC_MTL_SFMODE);
- 		tx_tc = XGMAC_MTL_SFMODE;
+@@ -527,7 +525,7 @@ static int init_rx_ring(struct net_device *dev, u8 queue_no,
+ 					sizeof(dma_addr_t), GFP_KERNEL);
  
- 		/* set TC mode for RX QUEUES */
- 		XGMAC_FOR_EACH_QUEUE(priv->hw_cap.rx_mtl_queues, queue_num)
- 			priv->hw->mtl->set_rx_mtl_mode(priv->ioaddr, queue_num,
--					XGMAC_MTL_SFMODE);
-+						       XGMAC_MTL_SFMODE);
- 		rx_tc = XGMAC_MTL_SFMODE;
- 	} else if (unlikely(priv->plat->force_thresh_dma_mode)) {
- 		/* set TC mode for TX QUEUES */
- 		XGMAC_FOR_EACH_QUEUE(priv->hw_cap.tx_mtl_queues, queue_num)
- 			priv->hw->mtl->set_tx_mtl_mode(priv->ioaddr, queue_num,
--						   tx_tc);
-+						       tx_tc);
- 		/* set TC mode for RX QUEUES */
- 		XGMAC_FOR_EACH_QUEUE(priv->hw_cap.rx_mtl_queues, queue_num)
- 			priv->hw->mtl->set_rx_mtl_mode(priv->ioaddr, queue_num,
--						   rx_tc);
--	} else
-+						       rx_tc);
-+	} else {
- 		pr_err("ERROR: %s: Invalid TX threshold mode\n", __func__);
-+	}
- }
+ 		if (rx_ring->rx_skbuff_dma == NULL) {
+-			pr_err("No memory for RX skbuffs DMA of XGMAC\n");
++			pr_err("No memory for RX skbuffs DMA\n");
+ 			goto dmamem_err;
+ 		}
  
- /**
-@@ -796,13 +795,13 @@ static void xgmac_tx_queue_clean(struct xgmac_tx_queue *tqueue)
+@@ -535,7 +533,7 @@ static int init_rx_ring(struct net_device *dev, u8 queue_no,
+ 					sizeof(struct sk_buff *), GFP_KERNEL);
+ 
+ 		if (rx_ring->rx_skbuff == NULL) {
+-			pr_err("No memory for RX skbuffs of XGMAC\n");
++			pr_err("No memory for RX skbuffs\n");
+ 			goto rxbuff_err;
+ 		}
+ 
+@@ -794,8 +792,8 @@ static void xgmac_tx_queue_clean(struct xgmac_tx_queue *tqueue)
+ 			break;
  
  		if (netif_msg_tx_done(priv))
- 			pr_debug("%s: curr %d, dirty %d\n", __func__,
--					tqueue->cur_tx, tqueue->dirty_tx);
-+				 tqueue->cur_tx, tqueue->dirty_tx);
+-			pr_debug("%s: curr %d, dirty %d\n", __func__,
+-				 tqueue->cur_tx, tqueue->dirty_tx);
++			pr_debug("%s: curr %d, dirty %d\n",
++				 __func__, tqueue->cur_tx, tqueue->dirty_tx);
  
  		if (likely(tqueue->tx_skbuff_dma[entry])) {
  			dma_unmap_single(priv->device,
--					tqueue->tx_skbuff_dma[entry],
--					priv->hw->desc->get_tx_len(p),
--					DMA_TO_DEVICE);
-+					 tqueue->tx_skbuff_dma[entry],
-+					 priv->hw->desc->get_tx_len(p),
-+					 DMA_TO_DEVICE);
- 			tqueue->tx_skbuff_dma[entry] = 0;
- 		}
- 
-@@ -818,10 +817,10 @@ static void xgmac_tx_queue_clean(struct xgmac_tx_queue *tqueue)
- 
- 	/* wake up queue */
- 	if (unlikely(netif_tx_queue_stopped(dev_txq) &&
--		xgmac_tx_avail(tqueue, tx_rsize) > XGMAC_TX_THRESH(priv))) {
-+		     xgmac_tx_avail(tqueue, tx_rsize) > XGMAC_TX_THRESH(priv))) {
- 		netif_tx_lock(priv->dev);
- 		if (netif_tx_queue_stopped(dev_txq) &&
--		xgmac_tx_avail(tqueue, tx_rsize) > XGMAC_TX_THRESH(priv)) {
-+		    xgmac_tx_avail(tqueue, tx_rsize) > XGMAC_TX_THRESH(priv)) {
- 			if (netif_msg_tx_done(priv))
- 				pr_debug("%s: restart transmit\n", __func__);
- 			netif_tx_wake_queue(dev_txq);
-@@ -984,8 +983,7 @@ static void xgmac_check_ether_addr(struct xgmac_priv_data *priv)
- 			eth_hw_addr_random(priv->dev);
- 	}
- 	dev_info(priv->device, "device MAC address %pM\n",
--			priv->dev->dev_addr);
--
-+		 priv->dev->dev_addr);
- }
- 
- /**
-@@ -1035,7 +1033,6 @@ static void xgmac_init_mtl_engine(struct xgmac_priv_data *priv)
- 				priv->hw_cap.tx_mtl_qsize);
- 		priv->hw->mtl->mtl_enable_txqueue(priv->ioaddr, queue_num);
- 	}
--
- }
- 
- /**
-@@ -1121,7 +1118,7 @@ static int xgmac_open(struct net_device *dev)
+@@ -1117,8 +1115,7 @@ static int xgmac_open(struct net_device *dev)
+ 	/* Init the phy */
  	ret = xgmac_init_phy(dev);
  	if (ret) {
- 		pr_err("%s: Cannot attach to PHY (error: %d)\n",
--				__func__, ret);
-+		       __func__, ret);
+-		pr_err("%s: Cannot attach to PHY (error: %d)\n",
+-		       __func__, ret);
++		pr_err("%s: Cannot attach to PHY (error: %d)\n", __func__, ret);
  		goto phy_error;
  	}
  
-@@ -1190,7 +1187,7 @@ static int xgmac_open(struct net_device *dev)
- 					dev->name, priv->txq[queue_num]);
- 		if (unlikely(ret < 0)) {
- 			pr_err("%s: ERROR: allocating TX IRQ %d (error: %d)\n",
--				__func__, dev->irq, ret);
-+			       __func__, dev->irq, ret);
- 			goto init_error;
- 		}
- 	}
-@@ -1203,7 +1200,7 @@ static int xgmac_open(struct net_device *dev)
- 					dev->name, priv->rxq[queue_num]);
- 		if (unlikely(ret < 0)) {
- 			pr_err("%s: ERROR: allocating TX IRQ %d (error: %d)\n",
--				__func__, dev->irq, ret);
-+			       __func__, dev->irq, ret);
- 			goto init_error;
- 		}
- 	}
-@@ -1301,7 +1298,6 @@ static int xgmac_release(struct net_device *dev)
- 	clk_disable_unprepare(priv->xgmac_clk);
+@@ -1401,8 +1398,8 @@ static netdev_tx_t xgmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			tx_desc->tdes01 = dma_map_single(priv->device,
+ 					skb->data, no_pagedlen, DMA_TO_DEVICE);
+ 			if (dma_mapping_error(priv->device, tx_desc->tdes01))
+-				pr_err("%s: TX dma mapping failed!!\n"
+-						, __func__);
++				pr_err("%s: TX dma mapping failed!!\n",
++				       __func__);
  
- 	return 0;
--
- }
+ 			priv->hw->desc->prepare_tx_desc(tx_desc, 1, no_pagedlen,
+ 					no_pagedlen, cksum_flag);
+@@ -1456,12 +1453,12 @@ static netdev_tx_t xgmac_xmit(struct sk_buff *skb, struct net_device *dev)
  
- /* Prepare first Tx descriptor for doing TSO operation */
-@@ -1324,7 +1320,6 @@ void xgmac_tso_prepare(struct xgmac_priv_data *priv,
- 	priv->hw->desc->tx_desc_enable_tse(first_desc, 1, total_hdr_len,
- 					   tcp_hdr_len,
- 					   skb->len - total_hdr_len);
--
- }
- 
- /**
-@@ -1355,10 +1350,10 @@ static netdev_tx_t xgmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 	/* get the TX queue handle */
- 	dev_txq = netdev_get_tx_queue(dev, txq_index);
- 
--	if (likely(skb_is_gso(skb)
--	    || vlan_tx_tag_present(skb)
--	    || ((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP)
--		 && tqueue->hwts_tx_en)))
-+	if (likely(skb_is_gso(skb) ||
-+		   vlan_tx_tag_present(skb) ||
-+		   ((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
-+		    tqueue->hwts_tx_en)))
- 		ctxt_desc_req = 1;
- 
- 	/* get the spinlock */
-@@ -1371,7 +1366,7 @@ static netdev_tx_t xgmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 		if (!netif_tx_queue_stopped(dev_txq)) {
- 			netif_tx_stop_queue(dev_txq);
- 			pr_err("%s: Tx Ring is full when %d queue is awake\n",
--				__func__, txq_index);
-+			       __func__, txq_index);
- 		}
- 		/* release the spin lock in case of BUSY */
- 		spin_unlock(&tqueue->tx_lock);
-@@ -1446,9 +1441,10 @@ static netdev_tx_t xgmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 		priv->hw->desc->clear_tx_ic(tx_desc);
- 		priv->xstats.tx_reset_ic_bit++;
- 		mod_timer(&tqueue->txtimer,
--			 XGMAC_COAL_TIMER(tqueue->tx_coal_timer));
--	} else
-+			  XGMAC_COAL_TIMER(tqueue->tx_coal_timer));
-+	} else {
- 		tqueue->tx_count_frames = 0;
-+	}
- 
- 	/* set owner for first desc */
- 	priv->hw->desc->set_tx_owner(first_desc);
-@@ -1461,9 +1457,9 @@ static netdev_tx_t xgmac_xmit(struct sk_buff *skb, struct net_device *dev)
  	/* display current ring */
  	if (netif_msg_pktdata(priv)) {
- 		pr_debug("%s: curr %d dirty=%d entry=%d, first=%p, nfrags=%d",
--			__func__, (tqueue->cur_tx % tx_rsize),
--			(tqueue->dirty_tx % tx_rsize), entry,
--			first_desc, nr_frags);
-+			 __func__, (tqueue->cur_tx % tx_rsize),
-+			 (tqueue->dirty_tx % tx_rsize), entry,
-+			 first_desc, nr_frags);
+-		pr_debug("%s: curr %d dirty=%d entry=%d, first=%p, nfrags=%d",
++		pr_debug("%s: curr %d dirty=%d entry=%d, first=%p, nfrags=%d\n",
+ 			 __func__, (tqueue->cur_tx % tx_rsize),
+ 			 (tqueue->dirty_tx % tx_rsize), entry,
+ 			 first_desc, nr_frags);
  
- 		pr_debug(">>> xgmac: tx frame to be transmitted: ");
+-		pr_debug(">>> xgmac: tx frame to be transmitted: ");
++		pr_debug(">>> xgmac: tx frame to be transmitted:\n");
  		print_pkt(skb->data, skb->len);
-@@ -1587,7 +1583,7 @@ static int xgmac_rx(struct xgmac_priv_data *priv, int limit)
+ 	}
  
- 		if (unlikely(!skb)) {
- 			pr_err("%s: rx descriptor is not in consistent\n",
--				priv->dev->name);
-+			       priv->dev->name);
- 		}
+@@ -1858,8 +1855,8 @@ static int xgmac_change_mtu(struct net_device *dev, int new_mtu)
+ 	 * a datagram of 68 octets without further fragmentation."
+ 	 */
+ 	if (new_mtu < MIN_MTU || (new_mtu > MAX_MTU)) {
+-		pr_err("%s: invalid MTU, MTU should be in between %d and %d\n"
+-		       , dev->name, MIN_MTU, MAX_MTU);
++		pr_err("%s: invalid MTU, MTU should be in between %d and %d\n",
++		       dev->name, MIN_MTU, MAX_MTU);
+ 		return -EINVAL;
+ 	}
  
- 		prefetch(skb->data - NET_IP_ALIGN);
-@@ -1921,10 +1917,10 @@ static void xgmac_set_rx_mode(struct net_device *dev)
- 	pr_debug("%s: # mcasts %d, # unicast %d\n", __func__,
- 		 netdev_mc_count(dev), netdev_uc_count(dev));
+@@ -1914,8 +1911,8 @@ static void xgmac_set_rx_mode(struct net_device *dev)
+ 	struct netdev_hw_addr *ha;
+ 	int reg = 1;
  
--	if (dev->flags & IFF_PROMISC)
-+	if (dev->flags & IFF_PROMISC) {
+-	pr_debug("%s: # mcasts %d, # unicast %d\n", __func__,
+-		 netdev_mc_count(dev), netdev_uc_count(dev));
++	pr_debug("%s: # mcasts %d, # unicast %d\n",
++		 __func__, netdev_mc_count(dev), netdev_uc_count(dev));
+ 
+ 	if (dev->flags & IFF_PROMISC) {
  		value = XGMAC_FRAME_FILTER_PR;
--	else if ((netdev_mc_count(dev) > XGMAC_HASH_TABLE_SIZE)
--		 || (dev->flags & IFF_ALLMULTI)) {
-+	} else if ((netdev_mc_count(dev) > XGMAC_HASH_TABLE_SIZE) ||
-+		   (dev->flags & IFF_ALLMULTI)) {
- 		value = XGMAC_FRAME_FILTER_PM;	/* pass all multi */
- 		writel(0xffffffff, ioaddr + XGMAC_HASH_HIGH);
- 		writel(0xffffffff, ioaddr + XGMAC_HASH_LOW);
-@@ -1967,7 +1963,7 @@ static void xgmac_set_rx_mode(struct net_device *dev)
+@@ -1962,7 +1959,7 @@ static void xgmac_set_rx_mode(struct net_device *dev)
+ #endif
  	writel(value, ioaddr + XGMAC_FRAME_FILTER);
  
- 	pr_debug("\tFilter: 0x%08x\n\tHash: HI 0x%08x, LO 0x%08x\n",
--	readl(ioaddr + XGMAC_FRAME_FILTER),
-+		 readl(ioaddr + XGMAC_FRAME_FILTER),
+-	pr_debug("\tFilter: 0x%08x\n\tHash: HI 0x%08x, LO 0x%08x\n",
++	pr_debug("Filter: 0x%08x\n\tHash: HI 0x%08x, LO 0x%08x\n",
+ 		 readl(ioaddr + XGMAC_FRAME_FILTER),
  	readl(ioaddr + XGMAC_HASH_HIGH), readl(ioaddr + XGMAC_HASH_LOW));
  }
- 
-@@ -2106,7 +2102,7 @@ static int xgmac_hw_init(struct xgmac_priv_data * const priv)
- 	priv->hw->ctrl_uid = (ctrl_ids & 0x00ff0000) >> 16;
- 	priv->hw->ctrl_id = (ctrl_ids & 0x000000ff);
- 	pr_info("xgmac - user ID: 0x%x, Controller ID: 0x%x\n",
--			priv->hw->ctrl_uid, priv->hw->ctrl_id);
-+		priv->hw->ctrl_uid, priv->hw->ctrl_id);
+@@ -2106,13 +2103,13 @@ static int xgmac_hw_init(struct xgmac_priv_data * const priv)
  
  	/* get the H/W features */
  	if (!xgmac_get_hw_features(priv))
-@@ -2267,8 +2263,8 @@ struct xgmac_priv_data *xgmac_dvr_probe(struct device *device,
- 	/* MDIO bus Registration */
- 	ret = xgmac_mdio_register(ndev);
- 	if (ret < 0) {
--		pr_debug("%s: MDIO bus (id: %d) registration failed",
--				__func__, priv->plat->bus_id);
-+		pr_debug("%s: MDIO bus (id: %d) registration failed\n",
-+			 __func__, priv->plat->bus_id);
- 		goto error_mdio_register;
+-		pr_info("XGMAC Hardware features not found\n");
++		pr_info("Hardware features not found\n");
+ 
+ 	if (priv->hw_cap.tx_csum_offload)
+-		pr_info("XGMAC: TX Checksum offload supported\n");
++		pr_info("TX Checksum offload supported\n");
+ 
+ 	if (priv->hw_cap.rx_csum_offload)
+-		pr_info("XGMAC: RX Checksum offload supported\n");
++		pr_info("RX Checksum offload supported\n");
+ 
+ 	return 0;
+ }
+@@ -2230,7 +2227,7 @@ struct xgmac_priv_data *xgmac_dvr_probe(struct device *device,
+ 	/* Rx Watchdog is available, enable depend on platform data */
+ 	if (!priv->plat->riwt_off) {
+ 		priv->use_riwt = 1;
+-		pr_info(" Enable RX Mitigation via HW Watchdog Timer\n");
++		pr_info("Enable RX Mitigation via HW Watchdog Timer\n");
  	}
  
-@@ -2337,9 +2333,9 @@ int xgmac_suspend(struct net_device *ndev)
- 		priv->hw->mtl->mtl_readout_rxqueue(priv->ioaddr, queue_num);
+ 	netif_napi_add(ndev, &priv->napi, xgmac_poll, 64);
+@@ -2295,7 +2292,7 @@ int xgmac_dvr_remove(struct net_device *ndev)
+ {
+ 	struct xgmac_priv_data *priv = netdev_priv(ndev);
  
- 	/* Enable Power down mode by programming the PMT regs */
--	if (device_may_wakeup(priv->device))
-+	if (device_may_wakeup(priv->device)) {
- 		priv->hw->mac->pmt(priv->ioaddr, priv->wolopts);
--	else {
-+	} else {
- 		netdev_for_each_uc_addr(ha, ndev)
- 			priv->hw->mac->set_umac_addr(priv->ioaddr, ha->addr,
- 						     reg++);
+-	pr_info("%s:\n\tremoving driver", __func__);
++	pr_info("%s: removing driver\n", __func__);
+ 
+ 	priv->hw->dma->stop_rx(priv->ioaddr, XGMAC_RX_QUEUES);
+ 	priv->hw->dma->stop_tx(priv->ioaddr, XGMAC_TX_QUEUES);
+@@ -2384,7 +2381,7 @@ static int __init xgmac_init(void)
+ 		goto err;
+ 	return 0;
+ err:
+-	pr_err("xgmac: driver registration failed\n");
++	pr_err("driver registration failed\n");
+ 	return ret;
+ }
+ 
+@@ -2412,7 +2409,7 @@ static int __init xgmac_cmdline_opt(char *str)
+ 	return 0;
+ 
+ err:
+-	pr_err("%s: ERROR broken module parameter conversion", __func__);
++	pr_err("%s: ERROR broken module parameter conversion\n", __func__);
+ 	return -EINVAL;
+ }
+ 
 diff --git a/drivers/net/ethernet/samsung/xgmac_mdio.c b/drivers/net/ethernet/samsung/xgmac_mdio.c
-index 647a7bd..568c2fb 100644
+index 568c2fb..98cd311 100644
 --- a/drivers/net/ethernet/samsung/xgmac_mdio.c
 +++ b/drivers/net/ethernet/samsung/xgmac_mdio.c
-@@ -78,7 +78,7 @@ static int xgmac_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
- 		 */
- 		if (phyaddr < 4)
- 			writel((1 << phyaddr),
--				priv->ioaddr + XGMAC_MDIO_CLAUSE22_PORT_REG);
-+			       priv->ioaddr + XGMAC_MDIO_CLAUSE22_PORT_REG);
- 		else
- 			return -ENODEV;
- 		/* set mdio address register */
-@@ -137,12 +137,12 @@ static int xgmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
- 		/* configure the port for C22
- 		 * ports 0-3 only supports C22
- 		 */
--		if (phyaddr < 4)
--			writel((1 << phyaddr),
--				priv->ioaddr + XGMAC_MDIO_CLAUSE22_PORT_REG);
--		else
-+		if (phyaddr >= 4)
- 			return -ENODEV;
- 
-+		writel((1 << phyaddr),
-+		       priv->ioaddr + XGMAC_MDIO_CLAUSE22_PORT_REG);
+@@ -9,6 +9,9 @@
+  * it under the terms of the GNU General Public License version 2 as
+  * published by the Free Software Foundation.
+  */
 +
- 		/* set mdio address register */
- 		reg_val = (phyaddr << 16) | (phyreg & 0x1F);
- 		writel(reg_val, priv->ioaddr + mii_addr);
-@@ -173,8 +173,7 @@ int xgmac_mdio_register(struct net_device *ndev)
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
+ #include <linux/io.h>
+ #include <linux/mii.h>
+ #include <linux/netdevice.h>
+@@ -173,7 +176,7 @@ int xgmac_mdio_register(struct net_device *ndev)
  	/* allocate the new mdio bus */
  	mdio_bus = mdiobus_alloc();
  	if (!mdio_bus) {
--		pr_err("%s : mii bus allocation failed\n",
--			__func__);
-+		pr_err("%s : mii bus allocation failed\n", __func__);
+-		pr_err("%s : mii bus allocation failed\n", __func__);
++		pr_err("%s: mii bus allocation failed\n", __func__);
  		return -ENOMEM;
  	}
  
 diff --git a/drivers/net/ethernet/samsung/xgmac_mtl.c b/drivers/net/ethernet/samsung/xgmac_mtl.c
-index 85e0132..82d275b 100644
+index 82d275b..2edad0f 100644
 --- a/drivers/net/ethernet/samsung/xgmac_mtl.c
 +++ b/drivers/net/ethernet/samsung/xgmac_mtl.c
-@@ -208,9 +208,9 @@ static void xgmac_set_tx_mtl_mode(void __iomem *ioaddr, int queue_num,
+@@ -9,6 +9,9 @@
+  * it under the terms of the GNU General Public License version 2 as
+  * published by the Free Software Foundation.
+  */
++
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
+ #include <linux/io.h>
+ #include <linux/errno.h>
+ #include <linux/export.h>
+@@ -172,7 +175,7 @@ static int xgmac_mtl_flush_txqueue(void __iomem *ioaddr, int queue_num)
+ 	while ((reg_val &
+ 		(XGMAC_MTL_TXQ_EMPTY_STAT | XGMAC_MTL_TXQ_WRITE_STAT))) {
+ 		if (time_after(jiffies, timeout)) {
+-			pr_err("cannot flush tx queue - timeout");
++			pr_err("cannot flush tx queue - timeout\n");
+ 			return -ETIMEDOUT;
+ 		}
+ 		reg_val = readl(ioaddr + XGMAC_MTL_TXQ_OPMODE_REG(queue_num));
+@@ -192,7 +195,7 @@ static int xgmac_mtl_readout_rxqueue(void __iomem *ioaddr, int queue_num)
+ 	while ((reg_val &
+ 		(XGMAC_MTL_TXQ_EMPTY_STAT | XGMAC_MTL_TXQ_WRITE_STAT))) {
+ 		if (time_after(jiffies, timeout)) {
+-			pr_err("cannot flush tx queue - timeout");
++			pr_err("cannot flush tx queue - timeout\n");
+ 			return -ETIMEDOUT;
+ 		}
+ 		reg_val = readl(ioaddr + XGMAC_MTL_TXQ_OPMODE_REG(queue_num));
+diff --git a/drivers/net/ethernet/samsung/xgmac_platform.c b/drivers/net/ethernet/samsung/xgmac_platform.c
+index d0cf6cf..f6b3d20 100644
+--- a/drivers/net/ethernet/samsung/xgmac_platform.c
++++ b/drivers/net/ethernet/samsung/xgmac_platform.c
+@@ -9,6 +9,9 @@
+  * it under the terms of the GNU General Public License version 2 as
+  * published by the Free Software Foundation.
+  */
++
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
+ #include <linux/etherdevice.h>
+ #include <linux/io.h>
+ #include <linux/module.h>
+@@ -69,7 +72,7 @@ static int xgmac_probe_config_dt(struct platform_device *pdev,
+ 					"samsung,force_thresh_dma_mode");
+ 	if (plat->force_thresh_dma_mode) {
+ 		plat->force_sf_dma_mode = 0;
+-		pr_warn("force_sf_dma_mode is ignored as force_thresh_dma_mode is set.");
++		pr_warn("force_sf_dma_mode is ignored as force_thresh_dma_mode is set\n");
+ 	}
  
- 	reg_val = readl(ioaddr + XGMAC_MTL_TXQ_OPMODE_REG(queue_num));
- 	/* TX specific MTL mode settings */
--	if (tx_mode == XGMAC_MTL_SFMODE)
-+	if (tx_mode == XGMAC_MTL_SFMODE) {
- 		reg_val |= XGMAC_MTL_SFMODE;
--	else {
-+	} else {
- 		/* set the TTC values */
- 		if (tx_mode <= 64)
- 			reg_val |= MTL_CONTROL_TTC_64;
+ 	return 0;
+@@ -119,20 +122,20 @@ static int xgmac_platform_probe(struct platform_device *pdev)
+ 					sizeof(struct xgmac_plat_data),
+ 					GFP_KERNEL);
+ 		if (!plat_dat) {
+-			pr_err("%s: ERROR: no memory", __func__);
++			pr_err("%s: ERROR: no memory\n", __func__);
+ 			return  -ENOMEM;
+ 		}
+ 
+ 		ret = xgmac_probe_config_dt(pdev, plat_dat, &mac);
+ 		if (ret) {
+-			pr_err("%s: main dt probe failed", __func__);
++			pr_err("%s: main dt probe failed\n", __func__);
+ 			return ret;
+ 		}
+ 	}
+ 
+ 	priv = xgmac_dvr_probe(&(pdev->dev), plat_dat, addr);
+ 	if (!priv) {
+-		pr_err("%s: main driver probe failed", __func__);
++		pr_err("%s: main driver probe failed\n", __func__);
+ 		return -ENODEV;
+ 	}
+ 
+@@ -176,7 +179,7 @@ static int xgmac_platform_probe(struct platform_device *pdev)
+ 
+ 	platform_set_drvdata(pdev, priv->dev);
+ 
+-	pr_debug("XGMAC platform driver registration completed");
++	pr_debug("platform driver registration completed\n");
+ 
+ 	return 0;
+ }
+@@ -261,7 +264,7 @@ int xgmac_register_platform(void)
+ 
+ 	err = platform_driver_register(&xgmac_platform_driver);
+ 	if (err)
+-		pr_err("xgmac: failed to register the platform driver\n");
++		pr_err("failed to register the platform driver\n");
+ 
+ 	return err;
+ }
 -- 
 1.8.1.2.459.gbcd45b4.dirty
