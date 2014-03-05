@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next v2 02/13] r8152: replace tp->netdev with netdev
-Date: Wed, 5 Mar 2014 14:49:17 +0800
-Message-ID: <1394002168-3193-3-git-send-email-hayeswang@realtek.com>
+Subject: [PATCH net-next v2 11/13] r8152: reduce the numbers of the bulks
+Date: Wed, 5 Mar 2014 14:49:26 +0800
+Message-ID: <1394002168-3193-12-git-send-email-hayeswang@realtek.com>
 References: <1393934464-23675-1-git-send-email-hayeswang@realtek.com>
  <1394002168-3193-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
@@ -14,47 +14,27 @@ In-Reply-To: <1394002168-3193-1-git-send-email-hayeswang@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Replace some tp->netdev with netdev.
+Reduce the numbers of tx and rx aggregation buffers.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/usb/r8152.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index c8bad62..151398b 100644
+index 8e208f30..ddb5200 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -1037,6 +1037,7 @@ static void read_bulk_callback(struct urb *urb)
- static void write_bulk_callback(struct urb *urb)
- {
- 	struct net_device_stats *stats;
-+	struct net_device *netdev;
- 	unsigned long flags;
- 	struct tx_agg *agg;
- 	struct r8152 *tp;
-@@ -1050,10 +1051,11 @@ static void write_bulk_callback(struct urb *urb)
- 	if (!tp)
- 		return;
+@@ -416,8 +416,8 @@ enum rtl_register_content {
+ 	FULL_DUP	= 0x01,
+ };
  
--	stats = rtl8152_get_stats(tp->netdev);
-+	netdev = tp->netdev;
-+	stats = rtl8152_get_stats(netdev);
- 	if (status) {
- 		if (net_ratelimit())
--			netdev_warn(tp->netdev, "Tx status %d\n", status);
-+			netdev_warn(netdev, "Tx status %d\n", status);
- 		stats->tx_errors += agg->skb_num;
- 	} else {
- 		stats->tx_packets += agg->skb_num;
-@@ -1066,7 +1068,7 @@ static void write_bulk_callback(struct urb *urb)
- 
- 	usb_autopm_put_interface_async(tp->intf);
- 
--	if (!netif_carrier_ok(tp->netdev))
-+	if (!netif_carrier_ok(netdev))
- 		return;
- 
- 	if (!test_bit(WORK_ENABLE, &tp->flags))
+-#define RTL8152_MAX_TX		10
+-#define RTL8152_MAX_RX		10
++#define RTL8152_MAX_TX		4
++#define RTL8152_MAX_RX		4
+ #define INTBUFSIZE		2
+ #define CRC_SIZE		4
+ #define TX_ALIGN		4
 -- 
 1.8.4.2
