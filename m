@@ -1,65 +1,66 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-Subject: Re: [PATCH net-next v2] ipv6: enable anycast addresses as source addresses in ICMPv6 error messages
-Date: Thu, 6 Feb 2014 04:38:49 -0800 (PST)
-Message-ID: <1391690329.62545.YahooMailNeo@web125506.mail.ne1.yahoo.com>
-References: <1390147236-3660-1-git-send-email-fx.lebail@yahoo.com> <52F357C3.9060406@6wind.com>
-Reply-To: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
+From: Tim Harvey <tharvey@gateworks.com>
+Subject: Re: [PATCH] net: sky2: allow mac to come from dt
+Date: Wed, 5 Mar 2014 07:38:01 -0800
+Message-ID: <CAJ+vNU1-LFxC+fNiwO+Jiyzp0PZMM7h4xA2wYCrgasY9vXg5aA@mail.gmail.com>
+References: <1394000535-25559-1-git-send-email-tharvey@gateworks.com>
+	<CAL_JsqLUOzGW7u2FqUKQQ8gu2m8ksBR48oHkfLZmbkUNtzxpSg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Stevens <dlstevens@us.ibm.com>,
-	Bill Fink <billfink@mindspring.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: "nicolas.dichtel@6wind.com" <nicolas.dichtel@6wind.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>
+To: Rob Herring <robherring2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm46.bullet.mail.ne1.yahoo.com ([98.138.120.53]:22190 "EHLO
-	nm46.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758922AbaCEPRi convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Mar 2014 10:17:38 -0500
-In-Reply-To: <52F357C3.9060406@6wind.com>
+Received: from mail-we0-f181.google.com ([74.125.82.181]:44234 "EHLO
+	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754222AbaCEPiD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 10:38:03 -0500
+Received: by mail-we0-f181.google.com with SMTP id q58so1412398wes.40
+        for <netdev@vger.kernel.org>; Wed, 05 Mar 2014 07:38:01 -0800 (PST)
+In-Reply-To: <CAL_JsqLUOzGW7u2FqUKQQ8gu2m8ksBR48oHkfLZmbkUNtzxpSg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+On Tue, Mar 4, 2014 at 10:32 PM, Rob Herring <robherring2@gmail.com> wrote:
+<snip>
+>> @@ -4805,8 +4808,27 @@ static struct net_device *sky2_init_netdev(struct sky2_hw *hw, unsigned port,
+>>
+>>         dev->features |= dev->hw_features;
+>>
+>> +       /* try to get mac address in the following order:
+>> +        * 1) from device tree data
+>> +        * 2) from internal registers set by bootloader
+>> +        */
+>> +       iap = NULL;
+>> +       if (IS_ENABLED(CONFIG_OF)) {
+>
+> This shouldn't be needed.
+>
+>> +               struct device_node *np = hw->pdev->dev.of_node;
+>> +               if (np)
+>> +                       iap = (unsigned char *) of_get_mac_address(np);
+>> +       }
+>
+> This should all just be 1 line. of_get_mac_address should just return
+> NULL if !CONFIG_OF or np == NULL.
 
+agreed - I verified this is true
 
-> Subject: Re: [PATCH net-next v2] ipv6: enable anycast addresses as so=
-urce addresses in ICMPv6 error messages
->=20
-> Le 19/01/2014 17:00, Francois-Xavier Le Bail a =E9crit :
->=20
->>  - Uses ipv6_anycast_destination() in icmp6_send().
->>=20
->>  Suggested-by: Bill Fink <billfink@mindspring.com>
->>  Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
-> This patch causes an Oops on my target.
+>
+>> +
+>> +       /* 2) mac registers set by bootloader
+>> +        */
+>> +       if (!iap || !is_valid_ether_addr(iap)) {
+>
+> Perhaps is_valid_ether_addr check should also be moved into of_get_mac_address.
+>
 
-What is your target ?
+looks like it already does that - I'll simplify the above
 
-> Here is the step to reproduce it:
-> modprobe sit
-> ip link add sit1 type sit remote 10.16.0.121 local 10.16.0.249
-> ip l s sit1 up
-> ip -6 a a dev sit1 2001:1234::123 remote 2001:1234::121
-> ping6 2001:1234::121
+> Rob
 
-I cannot reproduce this in my target (updated net-next x86_64) and
-iproute2 from git.
-Can you send me your config file ?
+Thanks for the review!
 
-> The problem is that ipv6_anycast_destination() uses unconditionally
-> skb_dst(skb), which is NULL in this case.
->=20
-> Not sure what is the best way to fix this, any suggestions?
-
-I will try to reproduce first and see.
-
-Greetings,
-=46rancois-Xavier
+Tim
