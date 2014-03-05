@@ -1,38 +1,43 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH v5 net-next 3/3] doc: filter: add Extended BPF documentation
-Date: Wed, 05 Mar 2014 10:25:50 +0100
-Message-ID: <5316ED9E.9030600@redhat.com>
-References: <1393971437-4129-1-git-send-email-ast@plumgrid.com> <1393971437-4129-4-git-send-email-ast@plumgrid.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [RFC 1/2] net: Add support to configure SR-IOV VF minimum and
+ maximum Tx rate through ip tool.
+Date: Wed, 5 Mar 2014 10:33:13 +0100
+Message-ID: <20140305093312.GA27992@unicorn.suse.cz>
+References: <1394004816-23436-1-git-send-email-sucheta.chakraborty@qlogic.com>
+ <1394004816-23436-2-git-send-email-sucheta.chakraborty@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Hagen Paul Pfeifer <hagen@jauu.net>,
-	Jesse Gross <jesse@nicira.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	Tom Zanussi <tom.zanussi@linux.intel.com>,
-	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Pekka Enberg <penberg@iki.fi>,
-	Arjan van de Ven <arjan@infradead.org>,
-	Christoph Hellwig <hch@infradead.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1393971437-4129-4-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Dept-HSGLinuxNICDev@qlogic.com
+To: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:55917 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751574AbaCEJdP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Mar 2014 04:33:15 -0500
+Content-Disposition: inline
+In-Reply-To: <1394004816-23436-2-git-send-email-sucheta.chakraborty@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/04/2014 11:17 PM, Alexei Starovoitov wrote:
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+On Wed, Mar 05, 2014 at 02:33:35AM -0500, Sucheta Chakraborty wrote:
+> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+> index 16410b6..fce6437 100644
+> --- a/include/uapi/linux/if_link.h
+> +++ b/include/uapi/linux/if_link.h
+> @@ -398,7 +398,8 @@ enum {
+>  	IFLA_VF_UNSPEC,
+>  	IFLA_VF_MAC,		/* Hardware queue specific attributes */
+>  	IFLA_VF_VLAN,
+> -	IFLA_VF_TX_RATE,	/* TX Bandwidth Allocation */
+> +	IFLA_VF_TX_RATE,	/* Max TX Bandwidth Allocation */
+> +	IFLA_VF_RATE,		/* Min and Max TX Bandwidth Allocation */
+>  	IFLA_VF_SPOOFCHK,	/* Spoof Checking on/off switch */
+>  	IFLA_VF_LINK_STATE,	/* link state enable/disable/auto switch */
+>  	__IFLA_VF_MAX,
 
-Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
+This would change the values of IFLA_VF_SPOOFCHK and IFLA_VF_LINK_STATE,
+making "old" (including current) iproute2 incompatible with future
+kernels and vice versa.
+
+                                                         Michal Kubecek
