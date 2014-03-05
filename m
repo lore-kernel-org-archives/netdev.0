@@ -1,155 +1,52 @@
-From: Jerry Chu <hkchu@google.com>
-Subject: Re: [PATCH] net-gre-gro: Fix a bug that breaks the forwarding path
-Date: Tue, 4 Mar 2014 16:54:21 -0800
-Message-ID: <CAPshTCi515brk2mR=im9CYJUHWEFT2=wcT=VCR_VwkS1RV2BbQ@mail.gmail.com>
-References: <1393536377-32243-1-git-send-email-hkchu@google.com>
-	<CAJZOPZKy7w-q5+pp=FgCs8LdQL6e16zAiJr89VMkh+h7obAArg@mail.gmail.com>
-	<CAPshTCgLo8ycMTtoa+D14+7pPxJaiC-jUzyR3PJcrMKFw9V0zA@mail.gmail.com>
-	<20140228.165614.1112789771887381245.davem@davemloft.net>
-	<5315FBAA.3030809@mellanox.com>
-	<CAPshTCgT4sYp7KtPazrJNMBvK0HcSWeDT_EdvSdjv4C0qrueqw@mail.gmail.com>
-	<alpine.LFD.2.03.1403041439230.7122@intel.com>
-	<CAPshTChzL5f5SD2ofH4frhX8QJBgbkw9+qStCMdg2u=WQ8Trqg@mail.gmail.com>
-	<alpine.LFD.2.03.1403041641430.19558@intel.com>
+From: "Phoebe Buckheister" <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
+Subject: Re: [PATCH net-next v4 1/4] ieee802154: add
+ generic header handling routines
+Date: Wed, 5 Mar 2014 02:01:52 +0100
+Message-ID: <0049a78200f573d8acc64aa879d4412c.squirrel@webmail.itwm.fhg.de>
+References: <cc9ba7943aebff9ba87b60778b62f1a8.squirrel@webmail.itwm.fhg.de>
+	<20140304.172025.2034977449200344617.davem@davemloft.net>
+	<a23fcc368f1421286c1115c2365942ce.squirrel@webmail.itwm.fhg.de>
+	<20140304.192309.337489223683931299.davem@davemloft.net>
+Reply-To: phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	David Miller <davem@davemloft.net>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>
-To: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f171.google.com ([209.85.160.171]:40344 "EHLO
-	mail-yk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751805AbaCEAyW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 19:54:22 -0500
-Received: by mail-yk0-f171.google.com with SMTP id q9so903564ykb.2
-        for <netdev@vger.kernel.org>; Tue, 04 Mar 2014 16:54:21 -0800 (PST)
-In-Reply-To: <alpine.LFD.2.03.1403041641430.19558@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <20140304.192309.337489223683931299.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 4, 2014 at 5:01 PM, Joseph Gasparakis
-<joseph.gasparakis@intel.com> wrote:
->
->
-> On Tue, 4 Mar 2014, Jerry Chu wrote:
->
->> On Tue, Mar 4, 2014 at 2:53 PM, Joseph Gasparakis
->> <joseph.gasparakis@intel.com> wrote:
->> >
->> >
->> > On Tue, 4 Mar 2014, Jerry Chu wrote:
->> >
->> >> Hi Or,
->> >>
->> >> Thanks for writing this up.
->> >>
->> >> On Tue, Mar 4, 2014 at 8:13 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
->> >> > On 28/02/2014 23:56, David Miller wrote:
->> >> >>
->> >> >> The topic of the skb->encapsulation semantics has come up several times in
->> >> >> the past few weeks. We cannot move forward on any changes in this area until
->> >> >> the semantics are well defined, and documented. Can someone work on a patch
->> >> >> which documents skb->encapsulation properly, and then we can come back to
->> >> >> fixing this bug? Thanks.
->> >> >
->> >> >
->> >> > Lets try... the skb->encapsulation flag was introduced and used in 3.8 by
->> >> > the
->> >> > sequence of these three commits
->> >> >
->> >> > 0afb166 vxlan: Add capability of Rx checksum offload for inner packet
->> >> > d6727fe vxlan: capture inner headers during encapsulation
->> >> > 6a674e9 net: Add support for hardware-offloaded encapsulation
->> >> >
->> >> > When discussed earlier on the list in the context of the skb->ip_summed
->> >> > field,
->> >> > Tom Herbert came with the following interpretation for the semantics which
->> >> > Joseph confirmed
->> >> >
->> >> > "when skb->encapsulation is set the ip_summed is valid for both the inner
->> >> > and outer header
->> >> > (e.g. CHECKSUM_COMPLETE is always assumed okay for both layers). If
->> >> > skb->encapsulation is not set then ip_summed is only valid for outer header"
->> >>
->> >> For GRE encapped pkts is the following interpretation correct?
->> >>
->> >> 1) ip_summed == CHECKSUM_COMPLETE
->> >>     => csum covers IP payload csum of the outer IP datagram
->> >>
->> >> 2) ip_summed == CHECKSUM_UNNECESSARY
->> >> 2.1. skb->encapsulation is on => both GRE csum (if one is present) and TCP/UDP
->> >> csum have been validated (assuming inner is a TCP or UDP pkt)
->> >
->> > i40e also supports SCTP csumming for the inner packet, too.
->> >
->> >>
->> >> 2.2. skb->encapsulation is off => only GRE csum (if one is present) is
->> >> validated.
->> >>
->> >
->> > Apart for the SCTP request for inclusion, it looks reasonable to me.
->> >
->> >> >
->> >> > As for the TX side of things, the change-log of commit 6a674e9 states
->> >> >
->> >> > "For Tx encapsulation offload, the driver will need to set the right bits in
->> >> > netdev->hw_enc_features. The protocol driver will have to set the
->> >> > skb->encapsulation bit and populate the inner headers, so the NIC driver
->> >> > will use those inner headers to calculate the csum in hardware."
->> >>
->> >> So we only support/care about csum offload for the inner pkts, which
->> >> makes sense.
->> >
->> > Well, we care about outer too. It is just that the inner headers are for
->> > the inner csum, the outer headers are for the outer csum. The outer
->> > headers will be always there anyway, so the patch introduced the inner
->> > ones. But I guess this is what you meant, right?
->>
->> Actually i was wondering that since there is only one set csum_start/csum_offset
->> fields per skb, which would you support CHECKSUM_PARTIAL for both inner
->> and outer? You can only support one, right? (I haven't checked the UDP encap
->> code to see how this works though.)
->>
->> Jerry
->
-> I am not sure I understand the question, Jerry... Are you asking in Tx
-> path if the ip_summed==CHECKSUM_PARTIAL, which headers will the
-> csum_start/csum_offset refer to?
+> SUre it would, store the addresses in your internal data structures
+> as a __be64 too.  That's what IPV4/IPV6 do, we store addresses and
+> ports in the socket in network byte order.  Comparisons just work.
 
-Yes (if the question makes sense since i haven't read any UDP encap
-code - will the outer (UDP) csum be enabled?).
+That's the thing - there are so many different byte orders floating around
+at the moment. Network byte order is little endian. Hardware addresses are
+big endian in the network layer and 6lowpan though, and our sockaddrs are
+host byte order for some parts and big endian for others. It's a real
+mess. The solution in my patch seemed the cleanest option to me.
 
-Thanks,
+Storing *everything* in network byte order would require a small adaption
+layer at every interaction with userspace to fix byte ordering, but that's
+doable. 6lowpan would have to do an extra byteswap for the address that I
+currently do in the header ops.
 
-Jerry
+I'll change everything that might come in contact with the network to __le
+variants and add explicit swaps where required.
 
->
->> >
->> >>
->> >> >
->> >> > So in higher level, it seems that the role of the skb->encapsulation field
->> >> > is to mark the skb to carry encapsulated packet for the code path between
->> >> > the time the packet is encapsulated by the protocol driver (e.g vxlan/ipip)
->> >> > to the time driver xmit is called. Or from the time driver rx code runs till
->> >> > the the time the packet is decapsulated.
->> >> >
->> >> > Further, my personal interpretation was that on the rx path, skb should
->> >> > carry the encapsulation flag **only** if the HW was able to offload the
->> >> > inner checksum.
->> >>
->> >> SGTM.
->> >>
->> >> Jerry
->> >>
->> >> >
->> >> > Joseph, what's your thinking here?
->> >> >
->> >> > Or.
->> >> >
->> >> >
->> >>
->>
+
+------------------------------------------------------------------------------
+Subversion Kills Productivity. Get off Subversion & Make the Move to Perforce.
+With Perforce, you get hassle-free workflows. Merge that actually works. 
+Faster operations. Version large binaries.  Built-in WAN optimization and the
+freedom to use Git, Perforce or both. Make the move to Perforce.
+http://pubads.g.doubleclick.net/gampad/clk?id=122218951&iu=/4140/ostg.clktrk
