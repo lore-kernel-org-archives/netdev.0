@@ -1,61 +1,49 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH 2/3] rtlwifi: rtl8723be: Fix sparse errors
-Date: Wed,  5 Mar 2014 17:26:00 -0600
-Message-ID: <1394061961-11682-3-git-send-email-Larry.Finger@lwfinger.net>
-References: <1394061961-11682-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1394061961-11682-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v2] sky2: allow mac to come from dt
+Date: Wed, 5 Mar 2014 15:45:32 -0800
+Message-ID: <20140305154532.331faba8@nehalam.linuxnetplumber.net>
+References: <1394059512-1691-1-git-send-email-tharvey@gateworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>
+To: Tim Harvey <tharvey@gateworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:59880 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754957AbaCEXpg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 18:45:36 -0500
+Received: by mail-pd0-f174.google.com with SMTP id y13so1697169pdi.19
+        for <netdev@vger.kernel.org>; Wed, 05 Mar 2014 15:45:36 -0800 (PST)
+In-Reply-To: <1394059512-1691-1-git-send-email-tharvey@gateworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sparse reports the following:
+On Wed,  5 Mar 2014 14:45:12 -0800
+Tim Harvey <tharvey@gateworks.com> wrote:
 
-drivers/net/wireless/rtlwifi/rtl8723be/sw.c:374:14: sparse: duplicate const
+> +	unsigned char *iap, tmpaddr[ETH_ALEN];
+>  
+>  	if (!dev)
+>  		return NULL;
+> @@ -4805,8 +4808,17 @@ static struct net_device *sky2_init_netdev(struct sky2_hw *hw, unsigned port,
+>  
+>  	dev->features |= dev->hw_features;
+>  
+> -	/* read the mac address */
+> -	memcpy_fromio(dev->dev_addr, hw->regs + B2_MAC_1 + port * 8, ETH_ALEN);
+> +	/* try to get mac address in the following order:
+> +	 * 1) from device tree data
+> +	 * 2) from internal registers set by bootloader
+> +	 */
+> +	iap = of_get_mac_address(hw->pdev->dev.of_node);
+> +	if (!iap) {
+> +		memcpy_fromio(&tmpaddr, hw->regs + B2_MAC_1 + port * 8,
+> +			      ETH_ALEN);
+> +		iap = tmpaddr;
+> +	}
+> +	ether_addr_copy(dev->dev_addr, iap);
 
-drivers/net/wireless/rtlwifi/rtl8723be/hw.c:2214:30: sparse: cast to restricted __le32
-
-Reported-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
----
- drivers/net/wireless/rtlwifi/rtl8723be/hw.c | 3 +--
- drivers/net/wireless/rtlwifi/rtl8723be/sw.c | 2 +-
- 2 files changed, 2 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/wireless/rtlwifi/rtl8723be/hw.c b/drivers/net/wireless/rtlwifi/rtl8723be/hw.c
-index fc2af71..7e70c71 100644
---- a/drivers/net/wireless/rtlwifi/rtl8723be/hw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8723be/hw.c
-@@ -2210,8 +2210,7 @@ static void rtl8723be_update_hal_rate_mask(struct ieee80211_hw *hw,
- 
- 	RT_TRACE(rtlpriv, COMP_RATR, DBG_DMESG,
- 		 "ratr_bitmap :%x\n", ratr_bitmap);
--	*(u32 *)&rate_mask = EF4BYTE((ratr_bitmap & 0x0fffffff) |
--				     (ratr_index << 28));
-+	*(u32 *)&rate_mask = (ratr_bitmap & 0x0fffffff) | (ratr_index << 28);
- 	rate_mask[0] = macid;
- 	rate_mask[1] = _rtl8723be_mrate_idx_to_arfr_id(hw, ratr_index) |
- 						       (shortgi ? 0x80 : 0x00);
-diff --git a/drivers/net/wireless/rtlwifi/rtl8723be/sw.c b/drivers/net/wireless/rtlwifi/rtl8723be/sw.c
-index cc4ab3f..b4577eb 100644
---- a/drivers/net/wireless/rtlwifi/rtl8723be/sw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8723be/sw.c
-@@ -370,7 +370,7 @@ MODULE_PARM_DESC(ips, "using no link power save (default 1 is open)\n");
- MODULE_PARM_DESC(fwlps, "using linked fw control power save (default 1 is open)\n");
- MODULE_PARM_DESC(debug, "Set debug level (0-5) (default 0)");
- 
--static const SIMPLE_DEV_PM_OPS(rtlwifi_pm_ops, rtl_pci_suspend, rtl_pci_resume);
-+static SIMPLE_DEV_PM_OPS(rtlwifi_pm_ops, rtl_pci_suspend, rtl_pci_resume);
- 
- static struct pci_driver rtl8723be_driver = {
- 	.name = KBUILD_MODNAME,
--- 
-1.8.4.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Can be done without stack tmpaddr.
