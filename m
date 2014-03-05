@@ -1,88 +1,62 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: RCU stalls when running out of memory on 3.14-rc4 w/ NFS and
- kernel threads priorities changed
-Date: Tue, 4 Mar 2014 19:55:03 -0800
-Message-ID: <CAGVrzcae0XPXpue_+n-O+EBzK92JqXHNftTPGt+5SRzroTSF3Q@mail.gmail.com>
-References: <CAGVrzcbsSV7h3qA3KuCTwKNFEeww_kSNcfUkfw3PPjeXQXBo6g@mail.gmail.com>
- <1393980534.26794.147.camel@edumazet-glaptop2.roam.corp.google.com>
- <CAGVrzcaekM51hme_tquaT6e22fV1_cocpn1kDUsYfFce=F+o4g@mail.gmail.com>
- <CAGVrzcbRycBy0w64R9pV=JG6M3aJeARbOnh-xRrumYzzVDgWGQ@mail.gmail.com> <20140305014310.GC3334@linux.vnet.ibm.com>
+From: Jagan Teki <jagannadh.teki@gmail.com>
+Subject: Re: sblk->status_tag on drivers/net/ethernet/broadcom/tg3.c
+Date: Wed, 5 Mar 2014 09:33:52 +0530
+Message-ID: <CAD6G_RTVVb2qdU43PqKm3BAD2-pvVcs_O=Wck2SCBhRRV-d+Lw@mail.gmail.com>
+References: <CAD6G_RQVD7=v7b6S-muiZBYV7PEykTHOTM23i-BL=wcA5z=4Qg@mail.gmail.com>
+	<CAD6G_RQ130TunwZDL+8vwx__8NsfzE0AfcfnS7z5OXtZF5T8xQ@mail.gmail.com>
+	<1393975344.4632.10.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>,
-	linux-nfs <linux-nfs@vger.kernel.org>,
-	"trond.myklebust" <trond.myklebust@primarydata.com>, netdev <netdev@vger.kernel.org>
-To: Paul McKenney <paulmck@linux.vnet.ibm.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20140305014310.GC3334@linux.vnet.ibm.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	Nithin Nayak Sujir <nsujir@broadcom.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	Bjorn Helgaas <bhelgaas@google.com>
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1393975344.4632.10.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2014-03-04 17:43 GMT-08:00 Paul E. McKenney <paulmck@linux.vnet.ibm.com>:
-> On Tue, Mar 04, 2014 at 05:16:27PM -0800, Florian Fainelli wrote:
->> 2014-03-04 17:03 GMT-08:00 Florian Fainelli <f.fainelli@gmail.com>:
->> > 2014-03-04 16:48 GMT-08:00 Eric Dumazet <eric.dumazet@gmail.com>:
->> >> On Tue, 2014-03-04 at 15:55 -0800, Florian Fainelli wrote:
->> >>> Hi all,
->> >>>
->> >>> I am seeing the following RCU stalls messages appearing on an ARMv7
->> >>> 4xCPUs system running 3.14-rc4:
->> >>>
->> >>> [   42.974327] INFO: rcu_sched detected stalls on CPUs/tasks:
->> >>> [   42.979839]  (detected by 0, t=2102 jiffies, g=4294967082,
->> >>> c=4294967081, q=516)
->> >>> [   42.987169] INFO: Stall ended before state dump start
->> >>>
->> >>> this is happening under the following conditions:
->> >>>
->> >>> - the attached bumper.c binary alters various kernel thread priorities
->> >>> based on the contents of bumpup.cfg and
->> >>> - malloc_crazy is running from a NFS share
->> >>> - malloc_crazy.c is running in a loop allocating chunks of memory but
->> >>> never freeing it
->> >>>
->> >>> when the priorities are altered, instead of getting the OOM killer to
->> >>> be invoked, the RCU stalls are happening. Taking NFS out of the
->> >>> equation does not allow me to reproduce the problem even with the
->> >>> priorities altered.
->> >>>
->> >>> This "problem" seems to have been there for quite a while now since I
->> >>> was able to get 3.8.13 to trigger that bug as well, with a slightly
->> >>> more detailed RCU debugging trace which points the finger at kswapd0.
->> >>>
->> >>> You should be able to get that reproduced under QEMU with the
->> >>> Versatile Express platform emulating a Cortex A15 CPU and the attached
->> >>> files.
->> >>>
->> >>> Any help or suggestions would be greatly appreciated. Thanks!
->> >>
->> >> Do you have a more complete trace, including stack traces ?
->> >
->> > Attatched is what I get out of SysRq-t, which is the only thing I have
->> > (note that the kernel is built with CONFIG_RCU_CPU_STALL_INFO=y):
->>
->> QEMU for Versatile Express w/ 2 CPUs yields something slightly
->> different than the real HW platform this is happening with, but it
->> does produce the RCU stall anyway:
->>
->> [  125.762946] BUG: soft lockup - CPU#1 stuck for 53s! [malloc_crazy:91]
+On Wed, Mar 5, 2014 at 4:52 AM, Michael Chan <mchan@broadcom.com> wrote:
+> On Tue, 2014-03-04 at 23:25 +0530, Jagan Teki wrote:
+>> From the comments in ISR any non-zero value to intr-mbox-0 clear
+>> the interrupt ie write status as 1 so I assume interrupt is clear and then
+>> in tg3_int_reenable is going to write 0x0 on to intr-mbox-0
+>> which again reenables the interrupt, was my guess is true?
 >
-> This soft-lockup condition can result in RCU CPU stall warnings.  Fix
-> the problem causing the soft lockup, and I bet that your RCU CPU stall
-> warnings go away.
+> Yes, the (last_tag << 24) is also written to the intr-mbox-0 to
+> acknowledge the status block.
 
-I definitively agree, which is why I was asking for help, as I think
-the kernel thread priority change is what is causing the soft lockup
-to appear, but nothing obvious jumps to mind when looking at the
-trace.
+Yes, I saw it.
 
-Thanks!
+>
+>> And sblk->status_tag is always 0 in ISR and BH(poll) why is that so?
+>> If it's is 1(unsigned non-zero) then possibly tg3_int_reenable will write
+>> non-zero value on intr-mbox-0 which will clear the interrupt.
+>
+> You should print out the entire status block.  It shouldn't be zero.
+> The status tag should be incrementing for each interrupt.
+
+I see the status_tag is 0, at starting of ISR.
+OK will try to print entire block members.
+
+>> Request for any help who updates sblk->status_tag value and
+>> how many time the ISR in PCIe RC and ISR in EP will call for link up?
+>>
+>>
+> If you are expecting link up, the first 32-bit word of the status block
+> should have bit 1 set (bit 0 should also be set).  I think the driver is
+> not seeing the status block correctly, so it is not acknowledging the
+> link change interrupt and the status_tag.
+
+The driver is not seeing the status block mean - tg3.c driver?
+Does it relates to ISR or addressing of PCIe RC driver, I'm doing
+nothing on my PCIe RC driver just read the legacy INT# status and return.
+
+Any inputs if you see it on PCIe RC, let me know.
+
+thanks!
 -- 
-Florian
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Jagan.
