@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC v2 10/12] vti6: Support inter address family tunneling.
-Date: Wed, 5 Mar 2014 13:41:14 +0100
-Message-ID: <1394023276-2591-11-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH RFC v2 04/12] ah6: Use the IPsec protocol multiplexer API
+Date: Wed, 5 Mar 2014 13:41:08 +0100
+Message-ID: <1394023276-2591-5-git-send-email-steffen.klassert@secunet.com>
 References: <1394023276-2591-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,124 +9,99 @@ Cc: Steffen Klassert <steffen.klassert@secunet.com>,
 	Christophe Gouault <christophe.gouault@6wind.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:53206 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:53184 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754320AbaCEMld (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Mar 2014 07:41:33 -0500
+	id S1753752AbaCEMl3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Mar 2014 07:41:29 -0500
 In-Reply-To: <1394023276-2591-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With this patch we can tunnel ipv4 traffic via a vti6
-interface. A vti6 interface can now have an ipv4 address
-and ipv4 traffic can be routed via a vti6 interface.
-The resulting traffic is xfrm transformed and tunneled
-through ipv6 if matching IPsec policies and states are
-present.
+Switch ah6 to use the new IPsec protocol multiplexer.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/ipv6/ip6_vti.c |   49 ++++++++++++++++++++++++++++++++++---------------
- 1 file changed, 34 insertions(+), 15 deletions(-)
+ net/ipv6/ah6.c |   22 +++++++++++++++-------
+ 1 file changed, 15 insertions(+), 7 deletions(-)
 
-diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-index 226854a..8d189aa 100644
---- a/net/ipv6/ip6_vti.c
-+++ b/net/ipv6/ip6_vti.c
-@@ -380,30 +380,22 @@ vti6_addr_conflict(const struct ip6_tnl *t, const struct ipv6hdr *hdr)
-  * vti6_xmit - send a packet
-  *   @skb: the outgoing socket buffer
-  *   @dev: the outgoing tunnel device
-+ *   @fl: the flow informations for the xfrm_lookup
-  **/
--static int vti6_xmit(struct sk_buff *skb, struct net_device *dev)
-+static int
-+vti6_xmit(struct sk_buff *skb, struct net_device *dev, struct flowi *fl)
+diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+index 6c5f094..f35911e 100644
+--- a/net/ipv6/ah6.c
++++ b/net/ipv6/ah6.c
+@@ -643,7 +643,7 @@ out:
+ 	return err;
+ }
+ 
+-static void ah6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
++static int ah6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 		    u8 type, u8 code, int offset, __be32 info)
  {
- 	struct ip6_tnl *t = netdev_priv(dev);
- 	struct net_device_stats *stats = &t->dev->stats;
- 	struct dst_entry *dst = skb_dst(skb);
--	struct flowi fl;
--	struct ipv6hdr *ipv6h = ipv6_hdr(skb);
- 	struct net_device *tdev;
- 	int err = -1;
+ 	struct net *net = dev_net(skb->dev);
+@@ -653,17 +653,19 @@ static void ah6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
  
--	if ((t->parms.proto != IPPROTO_IPV6 && t->parms.proto != 0) ||
--	    !ip6_tnl_xmit_ctl(t) || vti6_addr_conflict(t, ipv6h))
--		return err;
--
--	memset(&fl, 0, sizeof(fl));
--	skb->mark = be32_to_cpu(t->parms.o_key);
--	xfrm_decode_session(skb, &fl, AF_INET6);
--
- 	if (!dst)
- 		goto tx_err_link_failure;
+ 	if (type != ICMPV6_PKT_TOOBIG &&
+ 	    type != NDISC_REDIRECT)
+-		return;
++		return 0;
  
- 	dst_hold(dst);
--	dst = xfrm_lookup(t->net, dst, &fl, NULL, 0);
-+	dst = xfrm_lookup(t->net, dst, fl, NULL, 0);
- 	if (IS_ERR(dst)) {
- 		err = PTR_ERR(dst);
- 		dst = NULL;
-@@ -422,12 +414,22 @@ static int vti6_xmit(struct sk_buff *skb, struct net_device *dev)
- 		goto tx_err_dst_release;
+ 	x = xfrm_state_lookup(net, skb->mark, (xfrm_address_t *)&iph->daddr, ah->spi, IPPROTO_AH, AF_INET6);
+ 	if (!x)
+-		return;
++		return 0;
+ 
+ 	if (type == NDISC_REDIRECT)
+ 		ip6_redirect(skb, net, skb->dev->ifindex, 0);
+ 	else
+ 		ip6_update_pmtu(skb, net, info, 0, 0);
+ 	xfrm_state_put(x);
++
++	return 0;
+ }
+ 
+ static int ah6_init_state(struct xfrm_state *x)
+@@ -748,6 +750,11 @@ static void ah6_destroy(struct xfrm_state *x)
+ 	kfree(ahp);
+ }
+ 
++static int ah6_rcv_cb(struct sk_buff *skb, int err)
++{
++	return 0;
++}
++
+ static const struct xfrm_type ah6_type =
+ {
+ 	.description	= "AH6",
+@@ -761,10 +768,11 @@ static const struct xfrm_type ah6_type =
+ 	.hdr_offset	= xfrm6_find_1stfragopt,
+ };
+ 
+-static const struct inet6_protocol ah6_protocol = {
++static struct xfrm6_protocol ah6_protocol = {
+ 	.handler	=	xfrm6_rcv,
++	.cb_handler	=	ah6_rcv_cb,
+ 	.err_handler	=	ah6_err,
+-	.flags		=	INET6_PROTO_NOPOLICY,
++	.priority	=	0,
+ };
+ 
+ static int __init ah6_init(void)
+@@ -774,7 +782,7 @@ static int __init ah6_init(void)
+ 		return -EAGAIN;
  	}
  
--	memset(IP6CB(skb), 0, sizeof(*IP6CB(skb)));
- 	skb_scrub_packet(skb, !net_eq(t->net, dev_net(dev)));
- 	skb_dst_set(skb, dst);
- 	skb->dev = skb_dst(skb)->dev;
+-	if (inet6_add_protocol(&ah6_protocol, IPPROTO_AH) < 0) {
++	if (xfrm6_protocol_register(&ah6_protocol, IPPROTO_AH) < 0) {
+ 		pr_info("%s: can't add protocol\n", __func__);
+ 		xfrm_unregister_type(&ah6_type, AF_INET6);
+ 		return -EAGAIN;
+@@ -785,7 +793,7 @@ static int __init ah6_init(void)
  
--	ip6tunnel_xmit(skb, dev);
-+	err = dst_output(skb);
-+	if (net_xmit_eval(err) == 0) {
-+		struct pcpu_sw_netstats *tstats = this_cpu_ptr(dev->tstats);
-+
-+		u64_stats_update_begin(&tstats->syncp);
-+		tstats->tx_bytes += skb->len;
-+		tstats->tx_packets++;
-+		u64_stats_update_end(&tstats->syncp);
-+	} else {
-+		stats->tx_errors++;
-+		stats->tx_aborted_errors++;
-+	}
- 
- 	return 0;
- tx_err_link_failure:
-@@ -443,16 +445,33 @@ vti6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+ static void __exit ah6_fini(void)
  {
- 	struct ip6_tnl *t = netdev_priv(dev);
- 	struct net_device_stats *stats = &t->dev->stats;
-+	struct ipv6hdr *ipv6h;
-+	struct flowi fl;
- 	int ret;
+-	if (inet6_del_protocol(&ah6_protocol, IPPROTO_AH) < 0)
++	if (xfrm6_protocol_deregister(&ah6_protocol, IPPROTO_AH) < 0)
+ 		pr_info("%s: can't remove protocol\n", __func__);
  
-+	memset(&fl, 0, sizeof(fl));
-+	skb->mark = be32_to_cpu(t->parms.o_key);
-+
- 	switch (skb->protocol) {
- 	case htons(ETH_P_IPV6):
--		ret = vti6_xmit(skb, dev);
-+		ipv6h = ipv6_hdr(skb);
-+
-+		if ((t->parms.proto != IPPROTO_IPV6 && t->parms.proto != 0) ||
-+		    !ip6_tnl_xmit_ctl(t) || vti6_addr_conflict(t, ipv6h))
-+			goto tx_err;
-+
-+		xfrm_decode_session(skb, &fl, AF_INET6);
-+		memset(IP6CB(skb), 0, sizeof(*IP6CB(skb)));
-+		break;
-+	case htons(ETH_P_IP):
-+		xfrm_decode_session(skb, &fl, AF_INET);
-+		memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
- 		break;
- 	default:
- 		goto tx_err;
- 	}
- 
-+	ret = vti6_xmit(skb, dev, &fl);
- 	if (ret < 0)
- 		goto tx_err;
- 
+ 	if (xfrm_unregister_type(&ah6_type, AF_INET6) < 0)
 -- 
 1.7.9.5
