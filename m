@@ -1,81 +1,69 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next] vlan: slight optimization for vlan
-Date: Wed, 5 Mar 2014 14:11:07 +0800
-Message-ID: <5316BFFB.9090502@huawei.com>
-References: <5315AF42.8030905@huawei.com> <1393948205.20435.28.camel@joe-AO722> <53167A3A.1050407@huawei.com>
+From: Jagan Teki <jagannadh.teki@gmail.com>
+Subject: Re: sblk->status_tag on drivers/net/ethernet/broadcom/tg3.c
+Date: Wed, 5 Mar 2014 11:43:26 +0530
+Message-ID: <CAD6G_RR=y+myvtEpa3YKiOx_8LR=Ad_nHUxuaXKakfKKyjuEaw@mail.gmail.com>
+References: <CAD6G_RQVD7=v7b6S-muiZBYV7PEykTHOTM23i-BL=wcA5z=4Qg@mail.gmail.com>
+	<CAD6G_RQ130TunwZDL+8vwx__8NsfzE0AfcfnS7z5OXtZF5T8xQ@mail.gmail.com>
+	<1393975344.4632.10.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	<CAD6G_RTVVb2qdU43PqKm3BAD2-pvVcs_O=Wck2SCBhRRV-d+Lw@mail.gmail.com>
+	<1393992738.4632.15.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Julia Lawall <julia.lawall@lip6.fr>,
-	Netdev <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:25335 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751719AbaCEGMS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 01:12:18 -0500
-In-Reply-To: <53167A3A.1050407@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	Nithin Nayak Sujir <nsujir@broadcom.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	Bjorn Helgaas <bhelgaas@google.com>
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1393992738.4632.15.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/3/5 9:13, Ding Tianhong wrote:
-> On 2014/3/4 23:50, Joe Perches wrote:
->> On Tue, 2014-03-04 at 18:47 +0800, Ding Tianhong wrote:
->>> Ether_addr_equal_64bits is more efficient than ether_addr_equal, and
->>> can be used when each argument is an array within a structure that
->>> contains at least two bytes of data beyond the array, so it is safe
->>> to use it for vlan.
->>
->> Perhaps I wasn't clear or perhaps you simply disagree,
->> (which is certainly your right), but I think that
->> ether_addr_equal_64bits should _only_ be used in
->> performance sensitive paths because using it requires
->> a person/script to analyze surrounding structures to
->> ensure 2 bytes exist after the address.
->>
->> I don't think that vlan_dev_(open|stop|set_mac_address)
->> are performance sensitive paths.
->>
->> vlan_do_receive, absolutely yes.
->>
->> Is the vlan_device_event:NETDEV_CHANGEADDR:vlan_sync_address
->> path that frequent?  Maybe.
->>
->>> On a simple test by iperf, it reduces the CPU %system time from 14% to 12%.
->>
-> 
-> Totally agree with you, use the XXX_64bits in slow path make no sense, thanks a lot.
-> 
-> 
-> 
->>> According Joe's suggestion, maybe it'd be faster to add an unlikely to
->>> the test for PCKET_OTHERHOST, so I add it and see whether the performance
->>> could be better, but the differences is so small and negligible, maybe my
->>> test case is not effective enough, but I still add the unlikely and wait to
->>> hear more opinions.:)
->>
->> A separate patch for the unlikely would likely be better,
->> but I wonder what your test case is.
->>
-Hi Joe:
+Hi Michael,
 
-My test case is very simple, use iperf to test the vlan dev, and compare the %system time that
-add unlikely or not, do you have any suggestion for that, or gave me some advise, thanks a  lot.
+Thanks for your inputs.
 
-Regards
-Ding
+On Wed, Mar 5, 2014 at 9:42 AM, Michael Chan <mchan@broadcom.com> wrote:
+> On Wed, 2014-03-05 at 09:33 +0530, Jagan Teki wrote:
+>> The driver is not seeing the status block mean - tg3.c driver?
+>
+> Yes, tg3 driver.  All IRQ events (link change, rx, tx) are in status
+> block.  If tg3 does not see the correct bits and indexes in the status
+> block, it won't know what to do.  In this case, it doesn't see the link
+> change bit in status block (I suspect), so it is not acknowledging and
+> clearing the link change event.  Status block is DMA'ed from the NIC to
+> memory.
 
->> I presume a single stream of identical vlan PACKET_OTHERHOST
->> packets is atypical.
->>
-> 
-> OK
-> 
-> Regards
-> Ding
->>
->>
->>
-> 
+OK.
+
+As per your point I've a question here like - the status block is not properly
+updated (DMA'ed), does this depends on the address range we are advertised
+on PCIe ranges filed to make sure to use EP-
+http://devicetree.org/Device_Tree_Usage#PCI_Host_Bridge
+
+The reason for asking this is we have two kind of PCIe bridge in separate
+boards where one is working fine by showing below log, and other
+we could see this issue.
+
+# ifconfig eth0 172.16.0.2 up
+RC: handler
+tg3_interrupt_tagged: ++status_tag = 0x1 write status = 0x1
+--status_tag = 0x1
+RC: handler
+tg3_interrupt_tagged: ++status_tag = 0x1 write status = 0x1
+--status_tag = 0x1 tg3_poll: tag = 0x1 calling tg3_int_reenable val =
+0x01000000
+
+>
+>> Does it relates to ISR or addressing of PCIe RC driver, I'm doing
+>> nothing on my PCIe RC driver just read the legacy INT# status and
+>> return.
+>
+> RC stands for what?  Root Complex?  I don't know what an RC driver does.
+
+Yes, Root Complex driver in PCIe bridge.
+
+-- 
+Jagan.
