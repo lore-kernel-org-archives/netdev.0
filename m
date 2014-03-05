@@ -1,53 +1,40 @@
-From: Jagan Teki <jagannadh.teki@gmail.com>
-Subject: Re: sblk->status_tag on drivers/net/ethernet/broadcom/tg3.c
-Date: Thu, 6 Mar 2014 01:32:54 +0530
-Message-ID: <CAD6G_RQ=Zomytu+CAd0Os1ZZokJQiju-LvpABHdRRaQGSVC7FQ@mail.gmail.com>
-References: <CAD6G_RQVD7=v7b6S-muiZBYV7PEykTHOTM23i-BL=wcA5z=4Qg@mail.gmail.com>
-	<CAD6G_RQ130TunwZDL+8vwx__8NsfzE0AfcfnS7z5OXtZF5T8xQ@mail.gmail.com>
-	<1393975344.4632.10.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	<CAD6G_RTVVb2qdU43PqKm3BAD2-pvVcs_O=Wck2SCBhRRV-d+Lw@mail.gmail.com>
-	<1393992738.4632.15.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	<CAD6G_RR=y+myvtEpa3YKiOx_8LR=Ad_nHUxuaXKakfKKyjuEaw@mail.gmail.com>
-	<1394002230.4632.28.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	Nithin Nayak Sujir <nsujir@broadcom.com>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <robh+dt@kernel.org>,
-	Bjorn Helgaas <bhelgaas@google.com>
-To: Michael Chan <mchan@broadcom.com>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: [PATCH net-next 0/2] 6lowpan: fixes for new reassembly implementation
+Date: Wed,  5 Mar 2014 21:43:29 +0100
+Message-ID: <1394052211-6976-1-git-send-email-alex.aring@gmail.com>
+Cc: dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, Alexander Aring <alex.aring@gmail.com>
+To: alex.bluesman.smirnov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f43.google.com ([209.85.213.43]:50249 "EHLO
-	mail-yh0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757036AbaCEUCy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 15:02:54 -0500
-In-Reply-To: <1394002230.4632.28.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Received: from mail-ea0-f175.google.com ([209.85.215.175]:40046 "EHLO
+	mail-ea0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755556AbaCEUog (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 15:44:36 -0500
+Received: by mail-ea0-f175.google.com with SMTP id d10so1278919eaj.6
+        for <netdev@vger.kernel.org>; Wed, 05 Mar 2014 12:44:35 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 5, 2014 at 12:20 PM, Michael Chan <mchan@broadcom.com> wrote:
-> On Wed, 2014-03-05 at 11:43 +0530, Jagan Teki wrote:
->> As per your point I've a question here like - the status block is not properly
->> updated (DMA'ed), does this depends on the address range we are advertised
->> on PCIe ranges filed to make sure to use EP-
->> http://devicetree.org/Device_Tree_Usage#PCI_Host_Bridge
->
-> The status block is in host memory (CPU memory).  This memory is
-> allocated by the driver.  The DMA address of the status block is then
-> programmed into the NIC register HOSTCC_STATUS_BLK_HOST_ADDR so that the
-> NIC knows where to DMA the status block.  When there is an event, the
-> NIC DMAs a new status block and then generates IRQ.
->
-> The status block is not in PCI memory.  PCI memory is where the
-> registers are mapped.  Hope this helps.
+Hi all,
 
-Thanks this really help my understanding.
+I detected a embarrassing mistake of registering sysctl interface while
+init fragmentation. This is fixed in Patch 1/2
+(6lowpan: reassembly: fix return of init function).
 
-BTW: I got all 0's on tnapi->hw_status, looks like host memory contents were
-violated or not-been updated properly I guess.
+The second issue occurs while reassembly and unloading 6lowpan module.
+I am definitively sure about if I fixed it correctly in this case.
+The problem is there are some running timers which are not deleted after
+unloading the 6lowpan module. This issue is fixed in Patch 2/2
+(6lowpan: reassembly: fix kernel oops while unloading).
 
-thanks!
+- Alex
+
+Alexander Aring (2):
+  6lowpan: reassembly: fix return of init function
+  6lowpan: reassembly: fix kernel oops while unloading
+
+ net/ieee802154/reassembly.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
 -- 
-Jagan.
+1.9.0
