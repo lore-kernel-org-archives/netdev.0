@@ -1,66 +1,82 @@
-From: "Phoebe Buckheister" <phoebe.buckheister@itwm.fraunhofer.de>
-Subject: Re: [PATCH net-next v4 1/4] ieee802154: add generic header
- handling routines
-Date: Wed, 5 Mar 2014 20:15:56 +0100
-Message-ID: <7c9810ea21990e7e239b101f548818f7.squirrel@webmail.itwm.fhg.de>
-References: <1393943688-24221-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
-    <1393943688-24221-2-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
-    <20140304.170050.2058599034902221847.davem@davemloft.net>
-Reply-To: phoebe.buckheister@itwm.fraunhofer.de
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next v6 8/10] xen-netback: Add stat counters
+ for frag_list skbs
+Date: Wed, 5 Mar 2014 19:17:33 +0000
+Message-ID: <5317784D.7090306@citrix.com>
+References: <201403050217.s252HoVa004730@userz7021.oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain;charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: phoebe.buckheister@itwm.fraunhofer.de, netdev@vger.kernel.org,
-	linux-zigbee-devel@lists.sourceforge.net
-To: "David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw1.uni-kl.de ([131.246.120.220]:49224 "EHLO
-	mailgw1.uni-kl.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751967AbaCETQO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 14:16:14 -0500
-Received: from itwm2.itwm.fhg.de (itwm2.itwm.fhg.de [131.246.191.3])
-	by mailgw1.uni-kl.de (8.14.3/8.14.3/Debian-9.4) with ESMTP id s25JFv2Z019426
-	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 5 Mar 2014 20:16:13 +0100
-In-Reply-To: <20140304.170050.2058599034902221847.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
+	<wei.liu2@citrix.com>, <ian.campbell@citrix.com>,
+	<jonathan.davies@citrix.com>, <linux-kernel@vger.kernel.org>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201403050217.s252HoVa004730@userz7021.oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
-> Date: Tue,  4 Mar 2014 15:34:45 +0100
->
->> +struct ieee802154_sechdr {
->> +	u8 sc;
->> +	u32 frame_ctr;
->> +	union {
->> +		struct {
->> +			u16 pan_id;
->> +			u16 short_addr;
->> +		} pan;
->> +		u8 hw[IEEE802154_ADDR_LEN];
->> +	} key_source;
->> +	u8 key_id;
->> +};
->> +
->> +struct ieee802154_hdr {
->> +	u16 fc;
->> +	u8 seq;
->> +	struct ieee802154_addr source;
->> +	struct ieee802154_addr dest;
->> +	struct ieee802154_sechdr sec;
->> +};
->
-> You're going to have to address endianness both in these structure
-> definitions and the code.
->
-> For types larger than u8 you'll need to use __be16, __le16, __be32,
-> __le32 etc. as appropriate.
->
-> When setting/loading values, you'll need to use cpu_to_be16(),
-> cpu_to_le16() etc.  as appropriate.
+Hi,
 
-The fc field in struct ieee802154_hdr is a bitfield with many subfields,
-the sc field of struct ieee802154_sec_hdr is also a bitfield. Would it be
-acceptable to represent them as bitfields in the header struct? I expect
-the code to be just as efficient in every respect, but more readable since
-we wouldn't need explicit shifts and masks everywhere.
+I've changed the numbers to actual patch names, thanks. Btw. your 
+replies doesn't have In-reply-to header, it breaks sorting into threads.
+
+Zoli
+
+On 05/03/14 02:17, Konrad Rzeszutek Wilk wrote:
+>
+> On Mar 4, 2014 5:32 PM, Zoltan Kiss <zoltan.kiss@citrix.com> wrote:
+>>
+>> These counters help determine how often the guest sends a packet with more
+>> than MAX_SKB_FRAGS frags.
+>>
+>> NOTE: if bisect brought you here, you should apply the series up until #9,
+>
+> s/#9/"the name of the patch.."
+>
+>> otherwise malicious guests can block other guests by not releasing their sent
+>> packets.
+>>
+>> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+>> ---
+>> drivers/net/xen-netback/common.h    |    1 +
+>> drivers/net/xen-netback/interface.c |    7 +++++++
+>> drivers/net/xen-netback/netback.c   |    1 +
+>> 3 files changed, 9 insertions(+)
+>>
+>> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+>> index eac171e..d8a2298 100644
+>> --- a/drivers/net/xen-netback/common.h
+>> +++ b/drivers/net/xen-netback/common.h
+>> @@ -170,6 +170,7 @@ struct xenvif {
+>> unsigned long tx_zerocopy_sent;
+>> unsigned long tx_zerocopy_success;
+>> unsigned long tx_zerocopy_fail;
+>> + unsigned long tx_frag_overflow;
+>>
+>> /* Miscellaneous private stuff. */
+>> struct net_device *dev;
+>> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+>> index adfed30..ba5be2f 100644
+>> --- a/drivers/net/xen-netback/interface.c
+>> +++ b/drivers/net/xen-netback/interface.c
+>> @@ -252,6 +252,13 @@ static const struct xenvif_stat {
+>> "tx_zerocopy_fail",
+>> offsetof(struct xenvif, tx_zerocopy_fail)
+>> },
+>> + /* Number of packets exceeding MAX_SKB_FRAG slots. You should use
+>> + * a guest with the same MAX_SKB_FRAG
+>> + */
+>> + {
+>> + "tx_frag_overflow",
+>> + offsetof(struct xenvif, tx_frag_overflow)
+>> + },
+>> };
+>>
+>> static int xenvif_get_sset_count(struct net_device *dev, int string_set)
+>>
+>>
+>> _______________________________________________
+>> Xen-devel mailing list
+>> Xen-devel@lists.xen.org
+>> http://lists.xen.org/xen-devel
