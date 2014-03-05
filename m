@@ -1,60 +1,75 @@
-From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-Subject: RE: [RFC 1/2] net: Add support to configure SR-IOV VF minimum and
- maximum Tx rate through ip tool.
-Date: Wed, 5 Mar 2014 09:36:26 +0000
-Message-ID: <290BEC245535C3449143D5D84900EEF78CDFAB7A@avmb3.qlogic.org>
-References: <1394004816-23436-1-git-send-email-sucheta.chakraborty@qlogic.com>
- <1394004816-23436-2-git-send-email-sucheta.chakraborty@qlogic.com>
- <20140305093312.GA27992@unicorn.suse.cz>
+From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: ax88179_178a problems on AMD platform with ASMedia xhci
+ controller
+Date: Wed, 5 Mar 2014 09:40:11 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6D14D1@AcuExch.aculab.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D0F6CF469@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="Windows-1252"
 Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Dept-HSG Linux NIC Dev <Dept-HSGLinuxNICDev@qlogic.com>
-To: Michal Kubecek <mkubecek@suse.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:16337 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751574AbaCEJgb convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Mar 2014 04:36:31 -0500
-In-Reply-To: <20140305093312.GA27992@unicorn.suse.cz>
+To: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6CF469-VkEWCZq2GCInGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Michal Kubecek [mailto:mkubecek@suse.cz]
-> Sent: Wednesday, March 05, 2014 3:03 PM
-> To: Sucheta Chakraborty
-> Cc: David Miller; netdev; Dept-HSG Linux NIC Dev
-> Subject: Re: [RFC 1/2] net: Add support to configure SR-IOV VF minimum
-> and maximum Tx rate through ip tool.
+From: Of David Laight
+> I've just installed the latest 3.14.0-rc5 kernel on an AMD box that
+> has the ASMedia 1042 xhci controller and an ASX ax88179 USB3 Ge card.
 > 
-> On Wed, Mar 05, 2014 at 02:33:35AM -0500, Sucheta Chakraborty wrote:
-> > diff --git a/include/uapi/linux/if_link.h
-> > b/include/uapi/linux/if_link.h index 16410b6..fce6437 100644
-> > --- a/include/uapi/linux/if_link.h
-> > +++ b/include/uapi/linux/if_link.h
-> > @@ -398,7 +398,8 @@ enum {
-> >  	IFLA_VF_UNSPEC,
-> >  	IFLA_VF_MAC,		/* Hardware queue specific attributes */
-> >  	IFLA_VF_VLAN,
-> > -	IFLA_VF_TX_RATE,	/* TX Bandwidth Allocation */
-> > +	IFLA_VF_TX_RATE,	/* Max TX Bandwidth Allocation */
-> > +	IFLA_VF_RATE,		/* Min and Max TX Bandwidth Allocation */
-> >  	IFLA_VF_SPOOFCHK,	/* Spoof Checking on/off switch */
-> >  	IFLA_VF_LINK_STATE,	/* link state enable/disable/auto switch
-> */
-> >  	__IFLA_VF_MAX,
+> This is still working as badly as it did last time I tried it.
+> (When I added a lot of diagnostics to try to find out what was wrong.)
 > 
-> This would change the values of IFLA_VF_SPOOFCHK and
-> IFLA_VF_LINK_STATE, making "old" (including current) iproute2
-> incompatible with future kernels and vice versa.
-> 
->                                                          Michal Kubecek
+> When I ran 'ifconfig eth1 192.168.x.x' the kernel message buffer
+> is spammed with messages from the generic ethernet code reporting:
+>     "kevent 4 may have been missed".
+> This is because ax88179_status(...) contains:
+> 	if (netif_carrier_ok() != link) {
+> 		usbnet_link_change(...);
+> 		...
+> but the corresponding netif_carrier_on() doesn't happen until
+> much later (possibly for the same reason that transmits are delayed).
 
-Thanks Michal for pointing this out. I will move the new enum "IFLA_VF_RATE" to the end of the list.
+Actually I remember debugging that.
+The problem seemed to be that the controller only actions one control
+transfer each time the doorbell was rung.
+I didn't get as far as re-ringing the bell in the completion routine.
+Doing so might make it work a lot better.
 
-- Sucheta.
+> I think the hardware reports its status every 128ms.
+> 
+> If I ping the interface (from the only other system on that ethernet
+> network), the ping times vary, but are typically larger than 20ms and
+> anything upto 200ms (some outward ones are faster).
+> I did add some diagnostics a while ago (rc2 ish) and thought the delays
+> were in the transmit path.
+> 
+> dmesg also gets spammed with "ERROR Transfer event TRB DMA ptr not part of
+> current TD". I don't remember looking at why (for this case).
+> 
+> I've just looked t the ping timings closely. The elapsed times (ms) are:
+> 7, 30, 53, 76, 99, 122, 18, 41, 64, 87, 110, 5, 28 ...
+> So each response is about 22ms later than the previous on - until the delay
+> would exceed 128ms, when 128ms is removed.
+> So something is only looking at something every 128ms.
+> 
+> This might be related to the status indications every 128ms, but I
+> thought I'd determined that the delay was between the tx setup and
+> end of tx interrupt.
+
+It might be that the wrong doorbell is being rung.
+Maybe the 'tx' doorbell is actually rung when the rx interrupt packet
+is resupplied in response to the 128ms status poll.
+
+	David
+
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
