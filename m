@@ -1,7 +1,8 @@
 From: <erik.hugne@ericsson.com>
-Subject: [PATCH net-next v2 0/6] tipc: refcount and memory leak fixes
-Date: Wed, 5 Mar 2014 08:56:12 +0100
-Message-ID: <1394006178-23966-1-git-send-email-erik.hugne@ericsson.com>
+Subject: [PATCH net-next v2 1/6] tipc: allow connection shutdown callback to be invoked in advance
+Date: Wed, 5 Mar 2014 08:56:13 +0100
+Message-ID: <1394006178-23966-2-git-send-email-erik.hugne@ericsson.com>
+References: <1394006178-23966-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <ying.xue@windriver.com>, <paul.gortmaker@windriver.com>,
@@ -11,52 +12,145 @@ To: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mailgw2.ericsson.se ([193.180.251.37]:54930 "EHLO
 	mailgw2.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751381AbaCEHzj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 02:55:39 -0500
+	with ESMTP id S1751871AbaCEHzl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 02:55:41 -0500
+In-Reply-To: <1394006178-23966-1-git-send-email-erik.hugne@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+From: Ying Xue <ying.xue@windriver.com>
 
-v2: Drop specific -ENOMEM logging in patch #1 (tipc: allow connection
-    shutdown callback to be invoked in advance) And add a general error
-    message if an internal server tries to send a message on a
-    closed/nonexisting connection.
+Currently connection shutdown callback function is called when
+connection instance is released in tipc_conn_kref_release(), and
+receiving packets and sending packets are running in different
+threads. Even if connection is closed by the thread of receiving
+packets, its shutdown callback may not be called immediately as
+the connection reference count is non-zero at that moment. So,
+although the connection is shut down by the thread of receiving
+packets, the thread of sending packets doesn't know it. Before
+its shutdown callback is invoked to tell the sending thread its
+connection has been closed, the sending thread may deliver
+messages by tipc_conn_sendmsg(), this is why the following error
+information appears:
 
-In addition to the fix for refcount leak and memory leak during
-module removal, we also fix a problem where the topology server
-listening socket where unexpectedly closed. We also eliminate an
-unnecessary context switch during accept()/recvmsg() for nonblocking
-sockets.
+"Sending subscription event failed, no memory"
 
-The following should be applied on stable aswell:
-tipc: allow connection shutdown callback to be invoked in advance
-tipc: fix connection refcount leak
-tipc: drop subscriber connection id invalidation
+To eliminate it, allow connection shutdown callback function to
+be called before connection id is removed in tipc_close_conn(),
+which makes the sending thread know the truth in time that its
+socket is closed so that it doesn't send message to it. We also
+replace the specific error reporting from topology/config service
+with a general one if either service tries to send a message on
+a nonexisting/closed connection.
 
-We'd also like to have the fixes for memleak during module removal
-in stable aswell, but unfortunately they won't apply cleanly on the
-net tree:
-tipc: fix memory leak during module removal
-tipc: don't log disabled tasklet handler errors
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/config.c |  9 ++-------
+ net/tipc/server.c | 13 +++++++------
+ net/tipc/subscr.c |  8 ++------
+ 3 files changed, 11 insertions(+), 19 deletions(-)
 
-Erik Hugne (3):
-  tipc: drop subscriber connection id invalidation
-  tipc: fix memory leak during module removal
-  tipc: don't log disabled tasklet handler errors
-
-Ying Xue (3):
-  tipc: allow connection shutdown callback to be invoked in advance
-  tipc: fix connection refcount leak
-  tipc: avoid to unnecessary process switch under non-block mode
-
- net/tipc/config.c     |  9 ++-------
- net/tipc/handler.c    |  1 -
- net/tipc/name_table.c | 37 ++++++++++++++++++++++++++++++++++---
- net/tipc/server.c     | 19 +++++++++++--------
- net/tipc/socket.c     |  4 ++--
- net/tipc/subscr.c     | 19 ++-----------------
- 6 files changed, 51 insertions(+), 38 deletions(-)
-
+diff --git a/net/tipc/config.c b/net/tipc/config.c
+index c301a9a..5afe633 100644
+--- a/net/tipc/config.c
++++ b/net/tipc/config.c
+@@ -376,7 +376,6 @@ static void cfg_conn_msg_event(int conid, struct sockaddr_tipc *addr,
+ 	struct tipc_cfg_msg_hdr *req_hdr;
+ 	struct tipc_cfg_msg_hdr *rep_hdr;
+ 	struct sk_buff *rep_buf;
+-	int ret;
+ 
+ 	/* Validate configuration message header (ignore invalid message) */
+ 	req_hdr = (struct tipc_cfg_msg_hdr *)buf;
+@@ -398,12 +397,8 @@ static void cfg_conn_msg_event(int conid, struct sockaddr_tipc *addr,
+ 		memcpy(rep_hdr, req_hdr, sizeof(*rep_hdr));
+ 		rep_hdr->tcm_len = htonl(rep_buf->len);
+ 		rep_hdr->tcm_flags &= htons(~TCM_F_REQUEST);
+-
+-		ret = tipc_conn_sendmsg(&cfgsrv, conid, addr, rep_buf->data,
+-					rep_buf->len);
+-		if (ret < 0)
+-			pr_err("Sending cfg reply message failed, no memory\n");
+-
++		tipc_conn_sendmsg(&cfgsrv, conid, addr, rep_buf->data,
++				  rep_buf->len);
+ 		kfree_skb(rep_buf);
+ 	}
+ }
+diff --git a/net/tipc/server.c b/net/tipc/server.c
+index b635ca3..91423ca 100644
+--- a/net/tipc/server.c
++++ b/net/tipc/server.c
+@@ -87,7 +87,6 @@ static void tipc_clean_outqueues(struct tipc_conn *con);
+ static void tipc_conn_kref_release(struct kref *kref)
+ {
+ 	struct tipc_conn *con = container_of(kref, struct tipc_conn, kref);
+-	struct tipc_server *s = con->server;
+ 
+ 	if (con->sock) {
+ 		tipc_sock_release_local(con->sock);
+@@ -95,10 +94,6 @@ static void tipc_conn_kref_release(struct kref *kref)
+ 	}
+ 
+ 	tipc_clean_outqueues(con);
+-
+-	if (con->conid)
+-		s->tipc_conn_shutdown(con->conid, con->usr_data);
+-
+ 	kfree(con);
+ }
+ 
+@@ -181,6 +176,9 @@ static void tipc_close_conn(struct tipc_conn *con)
+ 	struct tipc_server *s = con->server;
+ 
+ 	if (test_and_clear_bit(CF_CONNECTED, &con->flags)) {
++		if (con->conid)
++			s->tipc_conn_shutdown(con->conid, con->usr_data);
++
+ 		spin_lock_bh(&s->idr_lock);
+ 		idr_remove(&s->conn_idr, con->conid);
+ 		s->idr_in_use--;
+@@ -413,8 +411,11 @@ int tipc_conn_sendmsg(struct tipc_server *s, int conid,
+ 	struct tipc_conn *con;
+ 
+ 	con = tipc_conn_lookup(s, conid);
+-	if (!con)
++	if (!con) {
++		pr_err("Connection %d not found on server %s\n", conid,
++		       s->name);
+ 		return -EINVAL;
++	}
+ 
+ 	e = tipc_alloc_entry(data, len);
+ 	if (!e) {
+diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
+index 7cb0bd5..a6ce3bb 100644
+--- a/net/tipc/subscr.c
++++ b/net/tipc/subscr.c
+@@ -96,20 +96,16 @@ static void subscr_send_event(struct tipc_subscription *sub, u32 found_lower,
+ {
+ 	struct tipc_subscriber *subscriber = sub->subscriber;
+ 	struct kvec msg_sect;
+-	int ret;
+ 
+ 	msg_sect.iov_base = (void *)&sub->evt;
+ 	msg_sect.iov_len = sizeof(struct tipc_event);
+-
+ 	sub->evt.event = htohl(event, sub->swap);
+ 	sub->evt.found_lower = htohl(found_lower, sub->swap);
+ 	sub->evt.found_upper = htohl(found_upper, sub->swap);
+ 	sub->evt.port.ref = htohl(port_ref, sub->swap);
+ 	sub->evt.port.node = htohl(node, sub->swap);
+-	ret = tipc_conn_sendmsg(&topsrv, subscriber->conid, NULL,
+-				msg_sect.iov_base, msg_sect.iov_len);
+-	if (ret < 0)
+-		pr_err("Sending subscription event failed, no memory\n");
++	tipc_conn_sendmsg(&topsrv, subscriber->conid, NULL, msg_sect.iov_base,
++			  msg_sect.iov_len);
+ }
+ 
+ /**
 -- 
 1.8.3.2
