@@ -1,78 +1,89 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH v3 1/2] net: macb: Check DMA mappings for error
-Date: Wed, 05 Mar 2014 23:25:17 +0000
-Message-ID: <1394061917.2861.0.camel@deadeye.wl.decadent.org.uk>
+Subject: Re: [PATCH v3 2/2] net: macb: DMA-unmap full rx-buffer
+Date: Wed, 05 Mar 2014 23:25:49 +0000
+Message-ID: <1394061949.2861.1.camel@deadeye.wl.decadent.org.uk>
 References: <1393951600-26039-1-git-send-email-soren.brinkmann@xilinx.com>
+	 <1393951600-26039-2-git-send-email-soren.brinkmann@xilinx.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-MbNiiJsVZKY6odZERLd5"
+	protocol="application/pgp-signature"; boundary="=-ymGjDS8j123qs3E5gZhf"
 Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, Vinod Koul <vinod.koul@intel.com>,
 	Dan Williams <dan.j.williams@intel.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Michal Simek <michal.simek@xilinx.com>
 To: Soren Brinkmann <soren.brinkmann@xilinx.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1393951600-26039-1-git-send-email-soren.brinkmann@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:39187 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757025AbaCEXZu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 18:25:50 -0500
+In-Reply-To: <1393951600-26039-2-git-send-email-soren.brinkmann@xilinx.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---=-MbNiiJsVZKY6odZERLd5
+--=-ymGjDS8j123qs3E5gZhf
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 On Tue, 2014-03-04 at 08:46 -0800, Soren Brinkmann wrote:
-> With CONFIG_DMA_API_DEBUG enabled the following warning is printed:
->  WARNING: CPU: 0 PID: 619 at lib/dma-debug.c:1101 check_unmap+0x758/0x894=
-()
->  macb e000b000.ethernet: DMA-API: device driver failed to check map error=
-[device address=3D0x000000002d171c02] [size=3D322 bytes] [mapped as single]
+> When allocating RX buffers a fixed size is used, while freeing is based
+> on actually received bytes, resulting in the following kernel warning
+> when CONFIG_DMA_API_DEBUG is enabled:
+>  WARNING: CPU: 0 PID: 0 at lib/dma-debug.c:1051 check_unmap+0x258/0x894()
+>  macb e000b000.ethernet: DMA-API: device driver frees DMA memory with dif=
+ferent size [device address=3D0x000000002d170040] [map size=3D1536 bytes] [=
+unmap size=3D60 bytes]
 >  Modules linked in:
->  CPU: 0 PID: 619 Comm: udhcpc Not tainted 3.14.0-rc3-xilinx-00219-gd158fc=
-7f36a2 #63
+>  CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.14.0-rc3-xilinx-00220-g49f84=
+081ce4f #65
 >  [<c001516c>] (unwind_backtrace) from [<c0011df8>] (show_stack+0x10/0x14)
->  [<c0011df8>] (show_stack) from [<c03c7714>] (dump_stack+0x7c/0xc8)
->  [<c03c7714>] (dump_stack) from [<c00245cc>] (warn_slowpath_common+0x60/0=
+>  [<c0011df8>] (show_stack) from [<c03c775c>] (dump_stack+0x7c/0xc8)
+>  [<c03c775c>] (dump_stack) from [<c00245cc>] (warn_slowpath_common+0x60/0=
 x84)
 >  [<c00245cc>] (warn_slowpath_common) from [<c0024670>] (warn_slowpath_fmt=
 +0x2c/0x3c)
->  [<c0024670>] (warn_slowpath_fmt) from [<c0228244>] (check_unmap+0x758/0x=
+>  [<c0024670>] (warn_slowpath_fmt) from [<c0227d44>] (check_unmap+0x258/0x=
 894)
->  [<c0228244>] (check_unmap) from [<c0228588>] (debug_dma_unmap_page+0x64/=
+>  [<c0227d44>] (check_unmap) from [<c0228588>] (debug_dma_unmap_page+0x64/=
 0x70)
->  [<c0228588>] (debug_dma_unmap_page) from [<c02aba64>] (macb_interrupt+0x=
-1f8/0x2dc)
->  [<c02aba64>] (macb_interrupt) from [<c006c6e4>] (handle_irq_event_percpu=
-+0x2c/0x178)
->  [<c006c6e4>] (handle_irq_event_percpu) from [<c006c86c>] (handle_irq_eve=
-nt+0x3c/0x5c)
->  [<c006c86c>] (handle_irq_event) from [<c006f548>] (handle_fasteoi_irq+0x=
-b8/0x100)
->  [<c006f548>] (handle_fasteoi_irq) from [<c006c148>] (generic_handle_irq+=
-0x20/0x30)
->  [<c006c148>] (generic_handle_irq) from [<c000f35c>] (handle_IRQ+0x64/0x8=
-c)
->  [<c000f35c>] (handle_IRQ) from [<c0008528>] (gic_handle_irq+0x3c/0x60)
+>  [<c0228588>] (debug_dma_unmap_page) from [<c02ab78c>] (gem_rx+0x118/0x17=
+0)
+>  [<c02ab78c>] (gem_rx) from [<c02ac4d4>] (macb_poll+0x24/0x94)
+>  [<c02ac4d4>] (macb_poll) from [<c031222c>] (net_rx_action+0x6c/0x188)
+>  [<c031222c>] (net_rx_action) from [<c0028a28>] (__do_softirq+0x108/0x280=
+)
+>  [<c0028a28>] (__do_softirq) from [<c0028e8c>] (irq_exit+0x84/0xf8)
+>  [<c0028e8c>] (irq_exit) from [<c000f360>] (handle_IRQ+0x68/0x8c)
+>  [<c000f360>] (handle_IRQ) from [<c0008528>] (gic_handle_irq+0x3c/0x60)
 >  [<c0008528>] (gic_handle_irq) from [<c0012904>] (__irq_svc+0x44/0x78)
->  Exception stack(0xed197f60 to 0xed197fa8)
->  7f60: 00000134 60000013 bd94362e bd94362e be96b37c 00000014 fffffd72 000=
-00122
->  7f80: c000ebe4 ed196000 00000000 00000011 c032c0d8 ed197fa8 c0064008 c00=
-0ea20
->  7fa0: 60000013 ffffffff
->  [<c0012904>] (__irq_svc) from [<c000ea20>] (ret_fast_syscall+0x0/0x48)
->  ---[ end trace 478f921d0d542d1e ]---
+>  Exception stack(0xc056df20 to 0xc056df68)
+>  df20: 00000001 c0577430 00000000 c0577430 04ce8e0d 00000002 edfce238 000=
+00000
+>  df40: 04e20f78 00000002 c05981f4 00000000 00000008 c056df68 c0064008 c02=
+d7658
+>  df60: 20000013 ffffffff
+>  [<c0012904>] (__irq_svc) from [<c02d7658>] (cpuidle_enter_state+0x54/0xf=
+8)
+>  [<c02d7658>] (cpuidle_enter_state) from [<c02d77dc>] (cpuidle_idle_call+=
+0xe0/0x138)
+>  [<c02d77dc>] (cpuidle_idle_call) from [<c000f660>] (arch_cpu_idle+0x8/0x=
+3c)
+>  [<c000f660>] (arch_cpu_idle) from [<c006bec4>] (cpu_startup_entry+0xbc/0=
+x124)
+>  [<c006bec4>] (cpu_startup_entry) from [<c053daec>] (start_kernel+0x350/0=
+x3b0)
+>  ---[ end trace d5fdc38641bd3a11 ]---
 >  Mapped at:
 >   [<c0227184>] debug_dma_map_page+0x48/0x11c
->   [<c02aaca0>] macb_start_xmit+0x184/0x2a8
->   [<c03143c0>] dev_hard_start_xmit+0x334/0x470
->   [<c032c09c>] sch_direct_xmit+0x78/0x2f8
->   [<c0314814>] __dev_queue_xmit+0x318/0x708
+>   [<c02ab32c>] gem_rx_refill+0x154/0x1f8
+>   [<c02ac7b4>] macb_open+0x270/0x3e0
+>   [<c03152e0>] __dev_open+0x7c/0xfc
+>   [<c031554c>] __dev_change_flags+0x8c/0x140
 >=20
-> due to missing checks of the dma mapping. Add the appropriate checks to f=
-ix
-> this.
+> Fixing this by passing the same size which is passed during mapping the
+> memory to the unmap function as well.
 >=20
 > Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
 
@@ -80,90 +91,55 @@ Reviewed-by: Ben Hutchings <ben@decadent.org.uk>
 
 > ---
 > v3:
->  - move tx_head pointer increment to after the DMA error check
+>  - no changes
 > v2:
->  - unlock spinlock when mapping error is detected in start_xmit()
->  - use kfree_skb() instead of dev_kfree_skb in start_xmit()
+>  - no changes
+>=20
+> Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
 > ---
->  drivers/net/ethernet/cadence/macb.c | 14 ++++++++++++--
->  1 file changed, 12 insertions(+), 2 deletions(-)
+>  drivers/net/ethernet/cadence/macb.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 >=20
 > diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/c=
 adence/macb.c
-> index 3190d38e16fb..1f03e2041e86 100644
+> index 1f03e2041e86..d0c38e01e99f 100644
 > --- a/drivers/net/ethernet/cadence/macb.c
 > +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -632,11 +632,16 @@ static void gem_rx_refill(struct macb *bp)
->  					   "Unable to allocate sk_buff\n");
->  				break;
->  			}
-> -			bp->rx_skbuff[entry] =3D skb;
+> @@ -730,7 +730,7 @@ static int gem_rx(struct macb *bp, int budget)
+>  		skb_put(skb, len);
+>  		addr =3D MACB_BF(RX_WADDR, MACB_BFEXT(RX_WADDR, addr));
+>  		dma_unmap_single(&bp->pdev->dev, addr,
+> -				 len, DMA_FROM_DEVICE);
+> +				 bp->rx_buffer_size, DMA_FROM_DEVICE);
 > =20
->  			/* now fill corresponding descriptor entry */
->  			paddr =3D dma_map_single(&bp->pdev->dev, skb->data,
->  					       bp->rx_buffer_size, DMA_FROM_DEVICE);
-> +			if (dma_mapping_error(&bp->pdev->dev, paddr)) {
-> +				dev_kfree_skb(skb);
-> +				break;
-> +			}
-> +
-> +			bp->rx_skbuff[entry] =3D skb;
-> =20
->  			if (entry =3D=3D RX_RING_SIZE - 1)
->  				paddr |=3D MACB_BIT(RX_WRAP);
-> @@ -1036,11 +1041,15 @@ static int macb_start_xmit(struct sk_buff *skb, s=
-truct net_device *dev)
->  	}
-> =20
->  	entry =3D macb_tx_ring_wrap(bp->tx_head);
-> -	bp->tx_head++;
->  	netdev_vdbg(bp->dev, "Allocated ring entry %u\n", entry);
->  	mapping =3D dma_map_single(&bp->pdev->dev, skb->data,
->  				 len, DMA_TO_DEVICE);
-> +	if (dma_mapping_error(&bp->pdev->dev, mapping)) {
-> +		kfree_skb(skb);
-> +		goto unlock;
-> +	}
-> =20
-> +	bp->tx_head++;
->  	tx_skb =3D &bp->tx_skb[entry];
->  	tx_skb->skb =3D skb;
->  	tx_skb->mapping =3D mapping;
-> @@ -1066,6 +1075,7 @@ static int macb_start_xmit(struct sk_buff *skb, str=
-uct net_device *dev)
->  	if (CIRC_SPACE(bp->tx_head, bp->tx_tail, TX_RING_SIZE) < 1)
->  		netif_stop_queue(dev);
-> =20
-> +unlock:
->  	spin_unlock_irqrestore(&bp->lock, flags);
-> =20
->  	return NETDEV_TX_OK;
+>  		skb->protocol =3D eth_type_trans(skb, bp->dev);
+>  		skb_checksum_none_assert(skb);
 
 --=20
 Ben Hutchings
 For every complex problem
 there is a solution that is simple, neat, and wrong.
 
---=-MbNiiJsVZKY6odZERLd5
+--=-ymGjDS8j123qs3E5gZhf
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIVAwUAUxeyXee/yOyVhhEJAQoxtxAAk80/QUDDa9JS/teeNC7HvktNpiwBOB4e
-tv9m2BeY91lP2bF+z0xpfHddvn8e06koB2VqwAzd+4X1Rcm4xZLaEomA1NXHhBSY
-3AF2DWW9XUZWvNZ1XQt91N6whOiLAcQUC0rbhptlYHmYc4YWtc/+eq+rqArBE5pf
-RsMV6NsNdyCLnsMwRENyZTURTzi8hbSuZw+D6JFk6o43DN4/hh4m0e6t8wxu1RJq
-2Eox2ylTb5MEv8HgcB9DmF97vQGK0fQjxOjO7z3X8EZhTThiNFCq1tuSxho1h9lo
-DSKTCTKPpusaXr4x6dNcbHYFL7UQ8o4BBqofmEkQxEFZs16NMtYLoEi4eWAUl5zY
-TLgaLlabKSgKb/MmLEpoSY3jMk72w24F90PI718d2f/E/dmOGo0YAlkZl7E/Xrik
-JBGPdYg3FDrlZgyjr/j3s21/x74DopG5oSF6q1nOb7ClUsZ7LdmgqJW4XFyB/T5t
-PsJUO2kjJgHswBuMr9+uBbMl6DLJJmaVs1GmDgajJZ5NtQSO/Qmpc21DV4qPBfjt
-9VHfu79RWzlVoneQJyh3Orq6EIY6ov9pMXZ2bkJh2hYZ7LRrcsZ10uJ+vjtVma6H
-K8DFqdPpFYFyaFVJvKyyCoE3Fd+f5hvmF8JAoiVA8ZNHR8M19OglXSxo6E+/7RFt
-IUH8akvlKz4=
-=NOER
+iQIVAwUAUxeyfee/yOyVhhEJAQqMBBAAqklZDNlttZSQjBmOrDacPt702ryP1q7q
+F6Ri02vSNml0AmwPXoCputvpD3Zcah+yNtj+FjgXoO60n1gp0ECUFIPuNlwScZoD
+xW+ofC+O6w4wjKFSc+w6VLx0mvhadvlWoq5esNXhyYZXXfU4oT+JFQueZIdAGLe+
+YztAsr+74LmyRsgEg16THZTeMmNVkSgy8qwTaWUzMXnxTsVnqYitxI5QIl5tT3hG
+usyDmPhJE2VEfDr+ufgl7fRGxOLBdn+9k2a7ZWj3zEs9rv8y/jS6UmQ32ZC1hfhW
+tlVdmib+UtJhSlqSp94q5DmrJ0tWzCqQ2AZlIocXLptdoZTo62SH23JKMDGdYbNn
+ODriV7aJAFNjKv58BpfAGiVuQHr+Z3WMZNUrQ+71MMHniNdFi1opU252nDR2FKFR
+W9Meov0x+HSXeAukZCwUyvThhNuzuqYwVBKJ2zec3QY6HY3bbwIjdpA0B2o8JElt
+fHEd/FAtrBrsz9khGxekR9lyPAkwIHKJtBeF6BZ7dRFVzTg7ozmWTxRBlpalHh9p
+MLaHyE/dnjX0vUNGRmhkoSfBOHLo+7ICpb3rcd9Yd4fMgDgQejeFlgvlxtDTwWeK
+nhbacWSqPDA39/aNR1K4sjPTM7yCdDSeH4Y1JsKnWuOomJN0ByJheZBBw9lGDJqK
+y16WoSZJ020=
+=Qlab
 -----END PGP SIGNATURE-----
 
---=-MbNiiJsVZKY6odZERLd5--
+--=-ymGjDS8j123qs3E5gZhf--
