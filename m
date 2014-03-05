@@ -1,62 +1,57 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: Re: [PATCH net-next] be2net: do external loopback test only when
- it is requested
-Date: Wed, 05 Mar 2014 11:56:16 +0100
-Message-ID: <531702D0.8020205@redhat.com>
-References: <1393956295-25436-1-git-send-email-ivecera@redhat.com> <531634F1.4070109@cogentembedded.com>
+From: Byungho An <bh74.an@samsung.com>
+Subject: [PATCH 0/7] add new Samsung xgmac driver
+Date: Wed, 05 Mar 2014 20:28:13 +0900
+Message-ID: <007a01cf3865$fefc1760$fcf44620$%an@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
-	ajit.khaparde@emulex.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22412 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754872AbaCEK4W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Mar 2014 05:56:22 -0500
-In-Reply-To: <531634F1.4070109@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, ilho215.lee@samsung.com
+To: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org
+Return-path: <linux-samsung-soc-owner@vger.kernel.org>
+Content-language: ko
+Sender: linux-samsung-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/04/2014 09:17 PM, Sergei Shtylyov wrote:
-> Hello.
->
-> On 03/04/2014 09:04 PM, Ivan Vecera wrote:
->
->> Cc: sathya.perla@emulex.com
->> Cc: subbu.seetharaman@emulex.com
->> Cc: ajit.khaparde@emulex.com
->
->> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
->> ---
->>   drivers/net/ethernet/emulex/benet/be_ethtool.c | 9 ++++++---
->>   1 file changed, 6 insertions(+), 3 deletions(-)
->
->> diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c
->> b/drivers/net/ethernet/emulex/benet/be_ethtool.c
->> index cf09d8f..957848f 100644
->> --- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
->> +++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
->> @@ -809,9 +809,12 @@ be_self_test(struct net_device *netdev, struct
->> ethtool_test *test, u64 *data)
->>                           &data[1]) != 0) {
->>               test->flags |= ETH_TEST_FL_FAILED;
->>           }
->> -        if (be_loopback_test(adapter, BE_ONE_PORT_EXT_LOOPBACK,
->> -                        &data[2]) != 0) {
->> -            test->flags |= ETH_TEST_FL_FAILED;
->> +        if (test->flags & ETH_TEST_FL_EXTERNAL_LB) {
->> +            if (be_loopback_test(adapter, BE_ONE_PORT_EXT_LOOPBACK,
->> +                         &data[2]) != 0) {
->> +                test->flags |= ETH_TEST_FL_FAILED;
->> +            }
->
->     {} not needed here, according to Documentation/CodingStyle. I'm
-> surprised scripts/checkpatch.pl passed, it used to catch those.
->
-I wanted to preserve the same look as for other prior loopback 
-if-blocks. I will fix them all and resend v2.
+Hi all,
 
-Ivan
+This series adds Samsung xgmac driver.
+
+
+Byungho An (1):
+      MAINTAINERS: add maintainer for Samsung xgmac driver
+
+Girish K S (2):
+      net: xgmac: add EEE(Energy Efficient Ethernet) for Samsung xgmac
+      net: xgmac: add WOL(Wakeup-On-Lan)support for Samsung xgmac
+
+Siva Reddy (1):
+      net: xgmac: add basic framework for Samsung 10Gb ethernet driver
+
+Vipul Pandya (3):
+      net: xgmac: add TSO support for Samsung xgmac
+      net: xgmac: add Checksum offload support for Samsung xgmac
+      net: xgmac: add ethtool related functions support Samsung xgmac
+
+ .../devicetree/bindings/net/samsung-xgmac.txt      |   39 +
+ MAINTAINERS                                        |    9 +
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/samsung/Kconfig               |    7 +
+ drivers/net/ethernet/samsung/Makefile              |    4 +
+ drivers/net/ethernet/samsung/xgmac_common.h        |  571 +++++
+ drivers/net/ethernet/samsung/xgmac_core.c          |  290 +++
+ drivers/net/ethernet/samsung/xgmac_desc.c          |  515 ++++
+ drivers/net/ethernet/samsung/xgmac_desc.h          |  298 +++
+ drivers/net/ethernet/samsung/xgmac_dma.c           |  381 +++
+ drivers/net/ethernet/samsung/xgmac_dma.h           |   51 +
+ drivers/net/ethernet/samsung/xgmac_ethtool.c       |  628 +++++
+ drivers/net/ethernet/samsung/xgmac_main.c          | 2447 ++++++++++++++++++++
+ drivers/net/ethernet/samsung/xgmac_mdio.c          |  274 +++
+ drivers/net/ethernet/samsung/xgmac_mtl.c           |  279 +++
+ drivers/net/ethernet/samsung/xgmac_mtl.h           |  108 +
+ drivers/net/ethernet/samsung/xgmac_platform.c      |  272 +++
+ drivers/net/ethernet/samsung/xgmac_reg.h           |  491 ++++
+ drivers/net/ethernet/samsung/xgmac_xpcs.c          |   92 +
+ drivers/net/ethernet/samsung/xgmac_xpcs.h          |   38 +
+ include/linux/xgmac_platform.h                     |   54 +
+ 22 files changed, 6850 insertions(+)
