@@ -1,49 +1,38 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH RFC v2 04/12] ah6: Use the IPsec protocol multiplexer
- API
-Date: Wed, 05 Mar 2014 18:54:01 +0400
-Message-ID: <53173A89.40405@cogentembedded.com>
-References: <1394023276-2591-1-git-send-email-steffen.klassert@secunet.com> <1394023276-2591-5-git-send-email-steffen.klassert@secunet.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Subject: Re: [PATCH] phy: fix compiler array bounds warning on settings[]
+Date: Wed, 5 Mar 2014 07:54:53 -0700
+Message-ID: <CAErSpo5Pb2bABmnQZ04KRqjU=38=Pcr2OQv8hUJd_hv69QVc-A@mail.gmail.com>
+References: <20140305003544.23016.55079.stgit@bhelgaas-glaptop.roam.corp.google.com>
+ <063D6719AE5E284EB5DD2968C1650D6D0F6D1440@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Christophe Gouault <christophe.gouault@6wind.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:64825 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932495AbaCEOx6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 09:53:58 -0500
-Received: by mail-la0-f54.google.com with SMTP id mc6so758452lab.41
-        for <netdev@vger.kernel.org>; Wed, 05 Mar 2014 06:53:57 -0800 (PST)
-In-Reply-To: <1394023276-2591-5-git-send-email-steffen.klassert@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6D1440@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
-
-On 05-03-2014 16:41, Steffen Klassert wrote:
-
-> Switch ah6 to use the new IPsec protocol multiplexer.
-
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> ---
->   net/ipv6/ah6.c |   22 +++++++++++++++-------
->   1 file changed, 15 insertions(+), 7 deletions(-)
+On Wed, Mar 5, 2014 at 2:10 AM, David Laight <David.Laight@aculab.com> wrote:
+> From: Bjorn Helgaas
+>> With -Werror=array-bounds, gcc v4.7.x warns that in phy_find_valid(), the
+>> settings[] "array subscript is above array bounds", I think because idx is
+>> a signed integer and if the caller supplied idx < 0, we pass the guard but
+>> still reference out of bounds.
 >
-> diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
-> index 6c5f094..f35911e 100644
-> --- a/net/ipv6/ah6.c
-> +++ b/net/ipv6/ah6.c
-> @@ -643,7 +643,7 @@ out:
->   	return err;
->   }
+> Not rejecting the patch but...
 >
-> -static void ah6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
-> +static int ah6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
->   		    u8 type, u8 code, int offset, __be32 info)
+> Just indexing an array with 'int' shouldn't cause this warning,
+> so somewhere a caller must actually be passing an idx < 0.
+>
+> While changing the type to unsigned will make the comparison
+> against the array bound reject the -1, I suspect that the
+> specific call path didn't really intend passing a hard-coded -1.
+>
+> It might be worth trying to locate the call site that passes -1.
 
-    You should realign this line to start under *struct*.
+I agree 100%.  If that's the case, we definitely should find that
+caller rather than apply this patch.  I'll look more today.
 
-WBR, Sergei
+Bjorn
