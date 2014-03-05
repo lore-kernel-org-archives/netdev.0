@@ -1,145 +1,35 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH v3 2/2] net: macb: DMA-unmap full rx-buffer
-Date: Wed, 05 Mar 2014 23:25:49 +0000
-Message-ID: <1394061949.2861.1.camel@deadeye.wl.decadent.org.uk>
-References: <1393951600-26039-1-git-send-email-soren.brinkmann@xilinx.com>
-	 <1393951600-26039-2-git-send-email-soren.brinkmann@xilinx.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-ymGjDS8j123qs3E5gZhf"
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Vinod Koul <vinod.koul@intel.com>,
-	Dan Williams <dan.j.williams@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Michal Simek <michal.simek@xilinx.com>
-To: Soren Brinkmann <soren.brinkmann@xilinx.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH 0/3] rtlwifi: Miscellaneous fixups
+Date: Wed,  5 Mar 2014 17:25:58 -0600
+Message-ID: <1394061961-11682-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:39187 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757025AbaCEXZu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 18:25:50 -0500
-In-Reply-To: <1393951600-26039-2-git-send-email-soren.brinkmann@xilinx.com>
+Received: from mail-ob0-f175.google.com ([209.85.214.175]:35192 "EHLO
+	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757235AbaCEX0M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 18:26:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This set of patches fixes a logged warning of a switch case that is not
+handled, and some Sparse/Smatch warnings for rtl8723be.
 
---=-ymGjDS8j123qs3E5gZhf
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 
-On Tue, 2014-03-04 at 08:46 -0800, Soren Brinkmann wrote:
-> When allocating RX buffers a fixed size is used, while freeing is based
-> on actually received bytes, resulting in the following kernel warning
-> when CONFIG_DMA_API_DEBUG is enabled:
->  WARNING: CPU: 0 PID: 0 at lib/dma-debug.c:1051 check_unmap+0x258/0x894()
->  macb e000b000.ethernet: DMA-API: device driver frees DMA memory with dif=
-ferent size [device address=3D0x000000002d170040] [map size=3D1536 bytes] [=
-unmap size=3D60 bytes]
->  Modules linked in:
->  CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.14.0-rc3-xilinx-00220-g49f84=
-081ce4f #65
->  [<c001516c>] (unwind_backtrace) from [<c0011df8>] (show_stack+0x10/0x14)
->  [<c0011df8>] (show_stack) from [<c03c775c>] (dump_stack+0x7c/0xc8)
->  [<c03c775c>] (dump_stack) from [<c00245cc>] (warn_slowpath_common+0x60/0=
-x84)
->  [<c00245cc>] (warn_slowpath_common) from [<c0024670>] (warn_slowpath_fmt=
-+0x2c/0x3c)
->  [<c0024670>] (warn_slowpath_fmt) from [<c0227d44>] (check_unmap+0x258/0x=
-894)
->  [<c0227d44>] (check_unmap) from [<c0228588>] (debug_dma_unmap_page+0x64/=
-0x70)
->  [<c0228588>] (debug_dma_unmap_page) from [<c02ab78c>] (gem_rx+0x118/0x17=
-0)
->  [<c02ab78c>] (gem_rx) from [<c02ac4d4>] (macb_poll+0x24/0x94)
->  [<c02ac4d4>] (macb_poll) from [<c031222c>] (net_rx_action+0x6c/0x188)
->  [<c031222c>] (net_rx_action) from [<c0028a28>] (__do_softirq+0x108/0x280=
-)
->  [<c0028a28>] (__do_softirq) from [<c0028e8c>] (irq_exit+0x84/0xf8)
->  [<c0028e8c>] (irq_exit) from [<c000f360>] (handle_IRQ+0x68/0x8c)
->  [<c000f360>] (handle_IRQ) from [<c0008528>] (gic_handle_irq+0x3c/0x60)
->  [<c0008528>] (gic_handle_irq) from [<c0012904>] (__irq_svc+0x44/0x78)
->  Exception stack(0xc056df20 to 0xc056df68)
->  df20: 00000001 c0577430 00000000 c0577430 04ce8e0d 00000002 edfce238 000=
-00000
->  df40: 04e20f78 00000002 c05981f4 00000000 00000008 c056df68 c0064008 c02=
-d7658
->  df60: 20000013 ffffffff
->  [<c0012904>] (__irq_svc) from [<c02d7658>] (cpuidle_enter_state+0x54/0xf=
-8)
->  [<c02d7658>] (cpuidle_enter_state) from [<c02d77dc>] (cpuidle_idle_call+=
-0xe0/0x138)
->  [<c02d77dc>] (cpuidle_idle_call) from [<c000f660>] (arch_cpu_idle+0x8/0x=
-3c)
->  [<c000f660>] (arch_cpu_idle) from [<c006bec4>] (cpu_startup_entry+0xbc/0=
-x124)
->  [<c006bec4>] (cpu_startup_entry) from [<c053daec>] (start_kernel+0x350/0=
-x3b0)
->  ---[ end trace d5fdc38641bd3a11 ]---
->  Mapped at:
->   [<c0227184>] debug_dma_map_page+0x48/0x11c
->   [<c02ab32c>] gem_rx_refill+0x154/0x1f8
->   [<c02ac7b4>] macb_open+0x270/0x3e0
->   [<c03152e0>] __dev_open+0x7c/0xfc
->   [<c031554c>] __dev_change_flags+0x8c/0x140
->=20
-> Fixing this by passing the same size which is passed during mapping the
-> memory to the unmap function as well.
->=20
-> Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
+Larry Finger (3):
+  rtlwifi: rtl8192ce: Handle unused switch case
+  rtlwifi: rtl8723be: Fix sparse errors
+  rtlwifi: rtl8723be: Fix smatch warnings
 
-Reviewed-by: Ben Hutchings <ben@decadent.org.uk>
+ drivers/net/wireless/rtlwifi/rtl8192ce/hw.c | 4 +++-
+ drivers/net/wireless/rtlwifi/rtl8723be/fw.c | 8 --------
+ drivers/net/wireless/rtlwifi/rtl8723be/hw.c | 3 +--
+ drivers/net/wireless/rtlwifi/rtl8723be/sw.c | 2 +-
+ drivers/net/wireless/rtlwifi/wifi.h         | 2 +-
+ 5 files changed, 6 insertions(+), 13 deletions(-)
 
-> ---
-> v3:
->  - no changes
-> v2:
->  - no changes
->=20
-> Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
-> ---
->  drivers/net/ethernet/cadence/macb.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->=20
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/c=
-adence/macb.c
-> index 1f03e2041e86..d0c38e01e99f 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -730,7 +730,7 @@ static int gem_rx(struct macb *bp, int budget)
->  		skb_put(skb, len);
->  		addr =3D MACB_BF(RX_WADDR, MACB_BFEXT(RX_WADDR, addr));
->  		dma_unmap_single(&bp->pdev->dev, addr,
-> -				 len, DMA_FROM_DEVICE);
-> +				 bp->rx_buffer_size, DMA_FROM_DEVICE);
-> =20
->  		skb->protocol =3D eth_type_trans(skb, bp->dev);
->  		skb_checksum_none_assert(skb);
-
---=20
-Ben Hutchings
-For every complex problem
-there is a solution that is simple, neat, and wrong.
-
---=-ymGjDS8j123qs3E5gZhf
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAUxeyfee/yOyVhhEJAQqMBBAAqklZDNlttZSQjBmOrDacPt702ryP1q7q
-F6Ri02vSNml0AmwPXoCputvpD3Zcah+yNtj+FjgXoO60n1gp0ECUFIPuNlwScZoD
-xW+ofC+O6w4wjKFSc+w6VLx0mvhadvlWoq5esNXhyYZXXfU4oT+JFQueZIdAGLe+
-YztAsr+74LmyRsgEg16THZTeMmNVkSgy8qwTaWUzMXnxTsVnqYitxI5QIl5tT3hG
-usyDmPhJE2VEfDr+ufgl7fRGxOLBdn+9k2a7ZWj3zEs9rv8y/jS6UmQ32ZC1hfhW
-tlVdmib+UtJhSlqSp94q5DmrJ0tWzCqQ2AZlIocXLptdoZTo62SH23JKMDGdYbNn
-ODriV7aJAFNjKv58BpfAGiVuQHr+Z3WMZNUrQ+71MMHniNdFi1opU252nDR2FKFR
-W9Meov0x+HSXeAukZCwUyvThhNuzuqYwVBKJ2zec3QY6HY3bbwIjdpA0B2o8JElt
-fHEd/FAtrBrsz9khGxekR9lyPAkwIHKJtBeF6BZ7dRFVzTg7ozmWTxRBlpalHh9p
-MLaHyE/dnjX0vUNGRmhkoSfBOHLo+7ICpb3rcd9Yd4fMgDgQejeFlgvlxtDTwWeK
-nhbacWSqPDA39/aNR1K4sjPTM7yCdDSeH4Y1JsKnWuOomJN0ByJheZBBw9lGDJqK
-y16WoSZJ020=
-=Qlab
------END PGP SIGNATURE-----
-
---=-ymGjDS8j123qs3E5gZhf--
+-- 
+1.8.4.5
