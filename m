@@ -1,88 +1,108 @@
-From: Appana Durga Kedareswara Rao <appana.durga.rao-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Subject: RE: [PATCH v5] can: xilinx CAN controller support.
-Date: Wed, 5 Mar 2014 07:04:21 +0000
-Message-ID: <c6cf1c12-8e7b-4f5e-a495-0f23c04ddc5d@TX2EHSMHS013.ehs.local>
-References: <5254bfec-c6fd-4681-a34d-706d51e60fbb@VA3EHSMHS004.ehs.local>
- <1b9f22ac-4dde-4ecc-885a-3d8081157081@AM1EHSMHS012.ehs.local>
- <5316CB29.7040200@hartkopp.net>
+From: Christian Riesch <christian.riesch@omicron.at>
+Subject: Re: [PATCH] net: davinci_emac: Move call of devm_request_irq to
+ emac_dev_open
+Date: Wed, 05 Mar 2014 08:12:41 +0100
+Message-ID: <1178CE306BD3D17142544A7E@[172.22.2.41]>
+References: <5dd177ee-f4e8-47b0-aeb8-d2fa64d3725b@mary.at.omicron.at>
+ <CA+V-a8v9qx4Q37ux+uuqzSSNXengYn=97Uq+5x4awPK01TaOKQ@mail.gmail.com>
+ <CAGVrzcbDRPDvjf=6_BHATmXJUzXB_20yvoYgujgp_rYOemJZPA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Soren Brinkmann <sorenb-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	"wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-	"mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	Michal Simek <michals-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	"grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org" <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	"robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5316CB29.7040200-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Content-Language: en-US
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Jon Ringle <jon@ringle.org>,
+	dlos <davinci-linux-open-source@linux.davincidsp.com>,
+	stable <stable@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Prabhakar Lad <prabhakar.csengg@gmail.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <CAGVrzcbDRPDvjf=6_BHATmXJUzXB_20yvoYgujgp_rYOemJZPA@mail.gmail.com>
+Content-Disposition: inline
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SGkgT2xpdmVyLA0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IE9saXZl
-ciBIYXJ0a29wcCBbbWFpbHRvOnNvY2tldGNhbkBoYXJ0a29wcC5uZXRdDQo+IFNlbnQ6IFdlZG5l
-c2RheSwgTWFyY2ggMDUsIDIwMTQgMTI6MjkgUE0NCj4gVG86IEFwcGFuYSBEdXJnYSBLZWRhcmVz
-d2FyYSBSYW8NCj4gQ2M6IFNvcmVuIEJyaW5rbWFubjsgd2dAZ3JhbmRlZ2dlci5jb207IG1rbEBw
-ZW5ndXRyb25peC5kZTsgTWljaGFsDQo+IFNpbWVrOyBncmFudC5saWtlbHlAbGluYXJvLm9yZzsg
-cm9iaCtkdEBrZXJuZWwub3JnOyBsaW51eC0NCj4gY2FuQHZnZXIua2VybmVsLm9yZzsgbmV0ZGV2
-QHZnZXIua2VybmVsLm9yZzsgbGludXgtYXJtLQ0KPiBrZXJuZWxAbGlzdHMuaW5mcmFkZWFkLm9y
-ZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsNCj4gZGV2aWNldHJlZUB2Z2VyLmtlcm5l
-bC5vcmc7IEFwcGFuYSBEdXJnYSBLZWRhcmVzd2FyYSBSYW8NCj4gU3ViamVjdDogUmU6IFtQQVRD
-SCB2NV0gY2FuOiB4aWxpbnggQ0FOIGNvbnRyb2xsZXIgc3VwcG9ydC4NCj4NCj4NCj4NCj4gT24g
-MDUuMDMuMjAxNCAwMDo1MSwgU8O2cmVuIEJyaW5rbWFubiB3cm90ZToNCj4gPiBIaSBLZWRhciwN
-Cj4gPg0KPiA+IE9uIFR1ZSwgMjAxNC0wMy0wNCBhdCAwNjo1MFBNICswNTMwLCBLZWRhcmVzd2Fy
-YSByYW8gQXBwYW5hIHdyb3RlOg0KPiA+PiBUaGlzIHBhdGNoIGFkZHMgeGlsaW54IENBTiBjb250
-cm9sbGVyIHN1cHBvcnQuDQo+ID4+IFRoaXMgZHJpdmVyIHN1cHBvcnRzIGJvdGggWllOUSBDQU5Q
-UyBhbmQgU29mdCBJUCBBWEkgQ0FOIGNvbnRyb2xsZXIuDQo+ID4+DQo+ID4gWy4uLl0NCj4gPj4g
-ZGlmZiAtLWdpdCBhL0RvY3VtZW50YXRpb24vZGV2aWNldHJlZS9iaW5kaW5ncy9uZXQvY2FuL3hp
-bGlueF9jYW4udHh0DQo+ID4+IGIvRG9jdW1lbnRhdGlvbi9kZXZpY2V0cmVlL2JpbmRpbmdzL25l
-dC9jYW4veGlsaW54X2Nhbi50eHQNCj4gPj4gbmV3IGZpbGUgbW9kZSAxMDA2NDQNCj4gPj4gaW5k
-ZXggMDAwMDAwMC4uMGU1NzEwMw0KPiA+PiAtLS0gL2Rldi9udWxsDQo+ID4+ICsrKyBiL0RvY3Vt
-ZW50YXRpb24vZGV2aWNldHJlZS9iaW5kaW5ncy9uZXQvY2FuL3hpbGlueF9jYW4udHh0DQo+ID4+
-IEBAIC0wLDAgKzEsNDUgQEANCj4gPj4gK1hpbGlueCBBeGkgQ0FOL1p5bnEgQ0FOUFMgY29udHJv
-bGxlciBEZXZpY2UgVHJlZSBCaW5kaW5ncw0KPiA+PiArLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQo+ID4+ICsNCj4gPj4gK1JlcXVpcmVk
-IHByb3BlcnRpZXM6DQo+ID4+ICstIGNvbXBhdGlibGUgICAgICAgICAgICAgIDogU2hvdWxkIGJl
-ICJ4bG54LHp5bnEtY2FuLTEuMDAuYSIgZm9yIFp5bnENCj4gQ0FODQo+ID4+ICsgICAgICAgICAg
-ICAgICAgICAgIGNvbnRyb2xsZXJzIGFuZCAieGxueCxheGktY2FuLTEuMDAuYSIgZm9yIEF4aSBD
-QU4NCj4gPj4gKyAgICAgICAgICAgICAgICAgICAgY29udHJvbGxlcnMuDQo+ID4+ICstIHJlZyAg
-ICAgICAgICAgICAgICAgICAgIDogUGh5c2ljYWwgYmFzZSBhZGRyZXNzIGFuZCBzaXplIG9mIHRo
-ZSBBeGkNCj4gQ0FOL1p5bnENCj4gPj4gKyAgICAgICAgICAgICAgICAgICAgQ0FOUFMgcmVnaXN0
-ZXJzIG1hcC4NCj4gPj4gKy0gaW50ZXJydXB0cyAgICAgICAgICAgICAgOiBQcm9wZXJ0eSB3aXRo
-IGEgdmFsdWUgZGVzY3JpYmluZyB0aGUgaW50ZXJydXB0DQo+ID4+ICsgICAgICAgICAgICAgICAg
-ICAgIG51bWJlci4NCj4gPj4gKy0gaW50ZXJydXB0LXBhcmVudCAgICAgICAgOiBNdXN0IGJlIGNv
-cmUgaW50ZXJydXB0IGNvbnRyb2xsZXINCj4gPj4gKy0gY2xvY2stbmFtZXMgICAgICAgICAgICAg
-OiBMaXN0IG9mIGlucHV0IGNsb2NrIG5hbWVzIC0gInJlZl9jbGsiLA0KPiAiYXBlcl9jbGsiDQo+
-ID4NCj4gPiBMZXQncyByZWNvbnNpZGVyIHRoZXNlIG5hbWVzLiBUaGVzZSBhcmUgcmF0aGVyIFp5
-bnEgc3BlY2lmaWMgbmFtZXMuDQo+ID4gRG9lcyB0aGUgSVAgZG9jdW1lbnRhdGlvbiB1c2UgdGhl
-c2UgYXMgd2VsbD8gVGhlIG5hbWVzIHNob3VsZCBtYXRjaA0KPiA+IHRoZSBuYW1pbmcgdXNlZCBm
-b3IgdGhlIElQLCByYXRoZXIgdGhhbiB0aGUgU09DLiBJcyB0aGlzIHRoZSBjb3JyZWN0IGRhdGEN
-Cj4gc2hlZXQ6DQo+ID4NCj4gaHR0cDovL3d3dy54aWxpbnguY29tL3N1cHBvcnQvZG9jdW1lbnRh
-dGlvbi9pcF9kb2N1bWVudGF0aW9uL2F4aV9jYW4NCj4gL3YNCj4gPiAxXzAzX2EvZHM3OTFfYXhp
-X2Nhbi5wZGYgPyBBY2NvcmRpbmcgdG8gdGhhdCB0aGUgbmFtZXMgc2hvdWxkIHJhdGhlcg0KPiA+
-IGJlICdzX2F4aV9hY2xrJyBhbmQgJ2Nhbl9jbGsnLCBJTUhPLg0KPiA+DQo+ID4gICAgIFPDtnJl
-bg0KPiA+DQo+DQo+IEFuZCB3aGVuIHJlbmFtaW5nIHN0dWZmIGFueXdheToNCj4NCj4gKw0KPiAr
-I2RlZmluZSBEUklWRVJfTkFNRSAgIlhJTElOWF9DQU4iDQo+ICsNCj4NCj4gc2hvdWxkIGJlIGNo
-YW5nZWQgdG8NCg0KT2sgV2lsbCBkbw0KDQpSZWdhcmRzLA0KS2VkYXIuDQoNCj4NCj4gKw0KPiAr
-I2RlZmluZSBEUklWRVJfTkFNRSAgInhpbGlueF9jYW4iDQo+ICsNCj4NCj4gUmVnYXJkcywNCj4g
-T2xpdmVyDQo+DQoNCg0KDQpUaGlzIGVtYWlsIGFuZCBhbnkgYXR0YWNobWVudHMgYXJlIGludGVu
-ZGVkIGZvciB0aGUgc29sZSB1c2Ugb2YgdGhlIG5hbWVkIHJlY2lwaWVudChzKSBhbmQgY29udGFp
-bihzKSBjb25maWRlbnRpYWwgaW5mb3JtYXRpb24gdGhhdCBtYXkgYmUgcHJvcHJpZXRhcnksIHBy
-aXZpbGVnZWQgb3IgY29weXJpZ2h0ZWQgdW5kZXIgYXBwbGljYWJsZSBsYXcuIElmIHlvdSBhcmUg
-bm90IHRoZSBpbnRlbmRlZCByZWNpcGllbnQsIGRvIG5vdCByZWFkLCBjb3B5LCBvciBmb3J3YXJk
-IHRoaXMgZW1haWwgbWVzc2FnZSBvciBhbnkgYXR0YWNobWVudHMuIERlbGV0ZSB0aGlzIGVtYWls
-IG1lc3NhZ2UgYW5kIGFueSBhdHRhY2htZW50cyBpbW1lZGlhdGVseS4NCg0KCgo=
 
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--On March 04, 2014 09:53 -0800 Florian Fainelli <f.fainelli@gmail.com> 
+wrote:
+
+> 2014-03-04 9:30 GMT-08:00 Prabhakar Lad <prabhakar.csengg@gmail.com>:
+>> Hi Christian,
+>>
+>> Thanks for the patch.
+>>
+>>
+>> On Tue, Mar 4, 2014 at 7:37 PM, Christian Riesch
+>> <christian.riesch@omicron.at> wrote:
+>>> In commit 6892b41d9701283085b655c6086fb57a5d63fa47
+>>>
+>>> Author: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+>>> Date:   Tue Jun 25 21:24:51 2013 +0530
+>>> net: davinci: emac: Convert to devm_* api
+>>>
+>>> the call of request_irq is replaced by devm_request_irq and the call
+>>> of free_irq is removed. But since interrupts are requested in
+>>> emac_dev_open, doing ifconfig up/down on the board requests the
+>>> interrupts again each time, causing devm_request_irq to fail.
+>>>
+>>> This patch moves the interrupt requests to emac_dev_open and thus
+>>> fixes this regression.
+>>>
+>>> Reported-by: Jon Ringle <jon@ringle.org>
+>>> Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
+>>> Cc: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+>>> Cc: <stable@vger.kernel.org>
+>>
+>> This patch fixes issue pointed at
+>> http://comments.gmane.org/gmane.linux.davinci/28135
+>> tested on Logic PD.
+>>
+>>  Reported-and-tested-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+>>
+>> Assuming you will respin the patch fixing the header.
+>>> ---
+>>>
+>>> Hi,
+>>> This is an attempt to fix the bug discussed in
+>>> https://lkml.org/lkml/2014/3/4/218
+>>>
+>>> Since I am not really familiar with interrupts I am not sure if this is
+>>> the right way to do it. I am looking forward to your comments.
+>>>
+>> Looks OK.
+>
+> I think a plain revert of Prabhakar patch would bring us in an "usual"
+> situation where the drivers's ndo_open():
+>
+> - masks all interrupts bits at the Ethernet MAC level
+> - calls request_irq()
+> - unmask relevant interrupts bits at the Ethernet Mac level
+>
+> just in case some uncontrolled interrupt bit triggers an interrupt
+> while the interface is down for instance...
+
+I am fine with either solution and I will be happy to prepare a patch if we 
+agree that we should revert the patch. What was the reason for commit 
+6892b41d9701283085b655c6086fb57a5d63fa47 in the first place? Does it fix a 
+problem?
+
+Should the full commit 6892b41d9701283085b655c6086fb57a5d63fa47 be 
+reverted? Actually it consists of two parts, the first part replaces 
+request_irq with devm_request_irq and throws out free_irq, the second part 
+replaces devm_request_mem_region/devm_ioremap with devm_ioremap_resource. 
+The first part causes the problem. Shall we keep the second part or shall 
+this be reverted as well?
+
+Christian
+
+
+>
+> On a wider note, it would be good to get some tool to notify people
+> that attempting to replace devm_request_irq() in a network driver's
+> ndo_open() function is not going to produce the expected results as
+> the two are not strictly identical.
+> --
+> Florian
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
