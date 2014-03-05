@@ -1,69 +1,91 @@
-From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCHv3 net-next 00/31] Misc. fixes for cxgb4 and iw_cxgb4
-Date: Wed, 5 Mar 2014 13:30:45 +0200
-Message-ID: <53170AE5.1030602@mellanox.com>
-References: <1393936917-25847-1-git-send-email-hariprasad@chelsio.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH net-next 2/2] bonding: options handling cleanup
+Date: Wed, 05 Mar 2014 12:39:09 +0100
+Message-ID: <53170CDD.4040202@redhat.com>
+References: <20140304163425.44995c59@nehalam.linuxnetplumber.net> <20140304163644.432f60d0@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>,
-	<kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-	<swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>, <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-	<santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-To: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1393936917-25847-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53274 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754806AbaCELnp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Mar 2014 06:43:45 -0500
+In-Reply-To: <20140304163644.432f60d0@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/03/2014 14:41, Hariprasad Shenai wrote:
-> Hariprasad Shenai (1):
->    Revert "cxgb4: Don't assume LSO only uses SGL path in t4_eth_xmit()"
->
-> Kumar Sanghvi (5):
->    cxgb4: Fix some small bugs in t4_sge_init_soft() when our Page Size is
->      64KB
->    cxgb4: Add code to dump SGE registers when hitting idma hangs
->    cxgb4: Rectify emitting messages about SGE Ingress DMA channels being
->      potentially stuck
->    cxgb4: Updates for T5 SGE's Egress Congestion Threshold
->    cxgb4: use spinlock_irqsave/spinlock_irqrestore for db lock.
->
-> Steve Wise (25):
->    iw_cxgb4: cap CQ size at T4_MAX_IQ_SIZE.
->    iw_cxgb4: Allow loopback connections.
->    iw_cxgb4: release neigh entry in error paths.
->    iw_cxgb4: Treat CPL_ERR_KEEPALV_NEG_ADVICE as negative advice.
->    cxgb4/iw_cxgb4: Doorbell Drop Avoidance Bug Fixes.
->    iw_cxgb4: use the BAR2/WC path for kernel QPs and T5 devices.
->    iw_cxgb4: Fix incorrect BUG_ON conditions.
->    iw_cxgb4: Mind the sq_sig_all/sq_sig_type QP attributes.
->    iw_cxgb4: default peer2peer mode to 1.
->    iw_cxgb4: save the correct map length for fast_reg_page_lists.
->    iw_cxgb4: don't leak skb in c4iw_uld_rx_handler().
->    iw_cxgb4: fix possible memory leak in RX_PKT processing.
->    iw_cxgb4: ignore read reponse type 1 CQEs.
->    iw_cxgb4: connect_request_upcall fixes.
->    iw_cxgb4: adjust tcp snd/rcv window based on link speed.
->    iw_cxgb4: update snd_seq when sending MPA messages.
->    iw_cxgb4: lock around accept/reject downcalls.
->    iw_cxgb4: drop RX_DATA packets if the endpoint is gone.
->    iw_cxgb4: rx_data() needs to hold the ep mutex.
->    iw_cxgb4: endpoint timeout fixes.
->    iw_cxgb4: rmb() after reading valid gen bit.
->    iw_cxgb4: wc_wmb() needed after DB writes.
->    iw_cxgb4: SQ flush fix.
->    iw_cxgb4: minor fixes
->    iw_cxgb4: Max fastreg depth depends on DSGL support.
+On 03/05/2014 01:36 AM, Stephen Hemminger wrote:
+> Make local functions static (ie. only used in bond_options.c)
+> Make bond options parsing tables constant.
+>=20
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+>=20
+>=20
+> ---
+>  drivers/net/bonding/bond_main.c    |    3=20
+>  drivers/net/bonding/bond_options.c |  190 ++++++++++++++++++++++++--=
+-----------
+>  drivers/net/bonding/bond_options.h |   57 +----------
+>  drivers/net/bonding/bond_sysfs.c   |   16 +--
+>  drivers/net/bonding/bonding.h      |    2=20
+>  5 files changed, 141 insertions(+), 127 deletions(-)
+>=20
 
-Also, not sure if this is addressed by the coding style or patch 
-submission guide, but I think the common/proper way to set subject 
-(title) line for kernel patches is to avoid a period in the end of the 
-sentence, since this is single line. Anyway, you were not consistent 
-about this tiny detail... some patches subject line end with period some 
-don't, I vote to remove...
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Hi Stephen,
+Thanks for doing this, it was one of the items on my todo list for a lo=
+ng time.
+However there're a few more places that need cleaning up after the patc=
+h is applied:
+drivers/net/bonding//bond_options.c: In function =91bond_opt_dep_print=92=
+:
+drivers/net/bonding//bond_options.c:511:10: warning: assignment discard=
+s =91const=92
+qualifier from pointer target type [enabled by default]
+  modeval =3D bond_opt_get_val(BOND_OPT_MODE, params->mode);
+          ^
+drivers/net/bonding//bond_options.c: In function =91bond_opt_error_inte=
+rpret=92:
+drivers/net/bonding//bond_options.c:540:10: warning: assignment discard=
+s =91const=92
+qualifier from pointer target type [enabled by default]
+   minval =3D bond_opt_get_flags(opt, BOND_VALFLAG_MIN);
+          ^
+drivers/net/bonding//bond_options.c:541:10: warning: assignment discard=
+s =91const=92
+qualifier from pointer target type [enabled by default]
+   maxval =3D bond_opt_get_flags(opt, BOND_VALFLAG_MAX);
+          ^
+drivers/net/bonding//bond_options.c: In function =91__bond_opt_set=92:
+drivers/net/bonding//bond_options.c:589:9: warning: assignment discards=
+ =91const=92
+qualifier from pointer target type [enabled by default]
+  retval =3D bond_opt_parse(opt, val);
+         ^
+drivers/net/bonding//bond_procfs.c: In function =91bond_info_show_maste=
+r=92:
+drivers/net/bonding//bond_procfs.c:79:10: warning: assignment discards =
+=91const=92
+qualifier from pointer target type [enabled by default]
+   optval =3D bond_opt_get_val(BOND_OPT_FAIL_OVER_MAC,
+          ^
+drivers/net/bonding//bond_procfs.c:88:10: warning: assignment discards =
+=91const=92
+qualifier from pointer target type [enabled by default]
+   optval =3D bond_opt_get_val(BOND_OPT_XMIT_HASH,
+          ^
+drivers/net/bonding//bond_procfs.c:99:11: warning: assignment discards =
+=91const=92
+qualifier from pointer target type [enabled by default]
+    optval =3D bond_opt_get_val(BOND_OPT_PRIMARY_RESELECT,
+           ^
+drivers/net/bonding//bond_procfs.c:144:10: warning: assignment discards=
+ =91const=92
+qualifier from pointer target type [enabled by default]
+   optval =3D bond_opt_get_val(BOND_OPT_AD_SELECT,
