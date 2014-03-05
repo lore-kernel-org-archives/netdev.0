@@ -1,158 +1,45 @@
-From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Subject: Re: [PATCH] net-gre-gro: Fix a bug that breaks the forwarding path
-Date: Tue, 4 Mar 2014 17:27:43 -0800 (PST)
-Message-ID: <alpine.LFD.2.03.1403041725370.19558@intel.com>
-References: <1393536377-32243-1-git-send-email-hkchu@google.com> <CAJZOPZKy7w-q5+pp=FgCs8LdQL6e16zAiJr89VMkh+h7obAArg@mail.gmail.com> <CAPshTCgLo8ycMTtoa+D14+7pPxJaiC-jUzyR3PJcrMKFw9V0zA@mail.gmail.com> <20140228.165614.1112789771887381245.davem@davemloft.net>
- <5315FBAA.3030809@mellanox.com> <CAPshTCgT4sYp7KtPazrJNMBvK0HcSWeDT_EdvSdjv4C0qrueqw@mail.gmail.com> <alpine.LFD.2.03.1403041439230.7122@intel.com> <CAPshTChzL5f5SD2ofH4frhX8QJBgbkw9+qStCMdg2u=WQ8Trqg@mail.gmail.com> <alpine.LFD.2.03.1403041641430.19558@intel.com>
- <CAPshTCi515brk2mR=im9CYJUHWEFT2=wcT=VCR_VwkS1RV2BbQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v4 1/4] ieee802154: add generic header
+ handling routines
+Date: Tue, 04 Mar 2014 20:09:47 -0500 (EST)
+Message-ID: <20140304.200947.355879073064420434.davem@davemloft.net>
+References: <a23fcc368f1421286c1115c2365942ce.squirrel@webmail.itwm.fhg.de>
+	<20140304.192309.337489223683931299.davem@davemloft.net>
+	<0049a78200f573d8acc64aa879d4412c.squirrel@webmail.itwm.fhg.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	David Miller <davem@davemloft.net>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>
-To: Jerry Chu <hkchu@google.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net
+To: phoebe.buckheister@itwm.fraunhofer.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:7604 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755102AbaCEBII (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Mar 2014 20:08:08 -0500
-In-Reply-To: <CAPshTCi515brk2mR=im9CYJUHWEFT2=wcT=VCR_VwkS1RV2BbQ@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39427 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754243AbaCEBJt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2014 20:09:49 -0500
+In-Reply-To: <0049a78200f573d8acc64aa879d4412c.squirrel@webmail.itwm.fhg.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: "Phoebe Buckheister" <phoebe.buckheister@itwm.fraunhofer.de>
+Date: Wed, 5 Mar 2014 02:01:52 +0100
 
+> That's the thing - there are so many different byte orders floating around
+> at the moment. Network byte order is little endian. Hardware addresses are
+> big endian in the network layer and 6lowpan though, and our sockaddrs are
+> host byte order for some parts and big endian for others. It's a real
+> mess. The solution in my patch seemed the cleanest option to me.
+> 
+> Storing *everything* in network byte order would require a small adaption
+> layer at every interaction with userspace to fix byte ordering, but that's
+> doable. 6lowpan would have to do an extra byteswap for the address that I
+> currently do in the header ops.
 
-On Tue, 4 Mar 2014, Jerry Chu wrote:
+That's an odd choice, since ipv4/ipv6 universally put things in network
+byte order in the sockaddrs.
 
-> On Tue, Mar 4, 2014 at 5:01 PM, Joseph Gasparakis
-> <joseph.gasparakis@intel.com> wrote:
-> >
-> >
-> > On Tue, 4 Mar 2014, Jerry Chu wrote:
-> >
-> >> On Tue, Mar 4, 2014 at 2:53 PM, Joseph Gasparakis
-> >> <joseph.gasparakis@intel.com> wrote:
-> >> >
-> >> >
-> >> > On Tue, 4 Mar 2014, Jerry Chu wrote:
-> >> >
-> >> >> Hi Or,
-> >> >>
-> >> >> Thanks for writing this up.
-> >> >>
-> >> >> On Tue, Mar 4, 2014 at 8:13 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
-> >> >> > On 28/02/2014 23:56, David Miller wrote:
-> >> >> >>
-> >> >> >> The topic of the skb->encapsulation semantics has come up several times in
-> >> >> >> the past few weeks. We cannot move forward on any changes in this area until
-> >> >> >> the semantics are well defined, and documented. Can someone work on a patch
-> >> >> >> which documents skb->encapsulation properly, and then we can come back to
-> >> >> >> fixing this bug? Thanks.
-> >> >> >
-> >> >> >
-> >> >> > Lets try... the skb->encapsulation flag was introduced and used in 3.8 by
-> >> >> > the
-> >> >> > sequence of these three commits
-> >> >> >
-> >> >> > 0afb166 vxlan: Add capability of Rx checksum offload for inner packet
-> >> >> > d6727fe vxlan: capture inner headers during encapsulation
-> >> >> > 6a674e9 net: Add support for hardware-offloaded encapsulation
-> >> >> >
-> >> >> > When discussed earlier on the list in the context of the skb->ip_summed
-> >> >> > field,
-> >> >> > Tom Herbert came with the following interpretation for the semantics which
-> >> >> > Joseph confirmed
-> >> >> >
-> >> >> > "when skb->encapsulation is set the ip_summed is valid for both the inner
-> >> >> > and outer header
-> >> >> > (e.g. CHECKSUM_COMPLETE is always assumed okay for both layers). If
-> >> >> > skb->encapsulation is not set then ip_summed is only valid for outer header"
-> >> >>
-> >> >> For GRE encapped pkts is the following interpretation correct?
-> >> >>
-> >> >> 1) ip_summed == CHECKSUM_COMPLETE
-> >> >>     => csum covers IP payload csum of the outer IP datagram
-> >> >>
-> >> >> 2) ip_summed == CHECKSUM_UNNECESSARY
-> >> >> 2.1. skb->encapsulation is on => both GRE csum (if one is present) and TCP/UDP
-> >> >> csum have been validated (assuming inner is a TCP or UDP pkt)
-> >> >
-> >> > i40e also supports SCTP csumming for the inner packet, too.
-> >> >
-> >> >>
-> >> >> 2.2. skb->encapsulation is off => only GRE csum (if one is present) is
-> >> >> validated.
-> >> >>
-> >> >
-> >> > Apart for the SCTP request for inclusion, it looks reasonable to me.
-> >> >
-> >> >> >
-> >> >> > As for the TX side of things, the change-log of commit 6a674e9 states
-> >> >> >
-> >> >> > "For Tx encapsulation offload, the driver will need to set the right bits in
-> >> >> > netdev->hw_enc_features. The protocol driver will have to set the
-> >> >> > skb->encapsulation bit and populate the inner headers, so the NIC driver
-> >> >> > will use those inner headers to calculate the csum in hardware."
-> >> >>
-> >> >> So we only support/care about csum offload for the inner pkts, which
-> >> >> makes sense.
-> >> >
-> >> > Well, we care about outer too. It is just that the inner headers are for
-> >> > the inner csum, the outer headers are for the outer csum. The outer
-> >> > headers will be always there anyway, so the patch introduced the inner
-> >> > ones. But I guess this is what you meant, right?
-> >>
-> >> Actually i was wondering that since there is only one set csum_start/csum_offset
-> >> fields per skb, which would you support CHECKSUM_PARTIAL for both inner
-> >> and outer? You can only support one, right? (I haven't checked the UDP encap
-> >> code to see how this works though.)
-> >>
-> >> Jerry
-> >
-> > I am not sure I understand the question, Jerry... Are you asking in Tx
-> > path if the ip_summed==CHECKSUM_PARTIAL, which headers will the
-> > csum_start/csum_offset refer to?
-> 
-> Yes (if the question makes sense since i haven't read any UDP encap
-> code - will the outer (UDP) csum be enabled?).
-> 
-> Thanks,
-> 
-> Jerry
+But since it's been made already, you want to still use network byte
+order internally in the stack.  Because you're going to process more
+packets than you are going to be handling user sockaddrs.
 
-I believe they will refer to the inner headers as csum_start and 
-csum_offset do not get changed during encapsulation and they refer to the 
-original (inner) packet, but please verify this.
-
-> 
-> >
-> >> >
-> >> >>
-> >> >> >
-> >> >> > So in higher level, it seems that the role of the skb->encapsulation field
-> >> >> > is to mark the skb to carry encapsulated packet for the code path between
-> >> >> > the time the packet is encapsulated by the protocol driver (e.g vxlan/ipip)
-> >> >> > to the time driver xmit is called. Or from the time driver rx code runs till
-> >> >> > the the time the packet is decapsulated.
-> >> >> >
-> >> >> > Further, my personal interpretation was that on the rx path, skb should
-> >> >> > carry the encapsulation flag **only** if the HW was able to offload the
-> >> >> > inner checksum.
-> >> >>
-> >> >> SGTM.
-> >> >>
-> >> >> Jerry
-> >> >>
-> >> >> >
-> >> >> > Joseph, what's your thinking here?
-> >> >> >
-> >> >> > Or.
-> >> >> >
-> >> >> >
-> >> >>
-> >>
-> 
+Translate the values to network byte order on bind() etc. calls and
+just be done with it.
