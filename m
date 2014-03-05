@@ -1,53 +1,56 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Subject: Re: [PATCH] phy: fix compiler array bounds warning on settings[]
-Date: Wed, 5 Mar 2014 13:54:09 -0700
-Message-ID: <CAErSpo6hUVc_2MP85CM3-qvOmdSBUJ1bxn+RiXqymJpTwQLzfg@mail.gmail.com>
-References: <20140305003544.23016.55079.stgit@bhelgaas-glaptop.roam.corp.google.com>
- <063D6719AE5E284EB5DD2968C1650D6D0F6D1440@AcuExch.aculab.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 1/2] 6lowpan: reassembly: fix return of init
+ function
+Date: Thu, 06 Mar 2014 01:04:20 +0300
+Message-ID: <53179F64.4060501@cogentembedded.com>
+References: <1394052211-6976-1-git-send-email-alex.aring@gmail.com> <1394052211-6976-2-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: David Laight <David.Laight@aculab.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6D1440@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: Alexander Aring <alex.aring@gmail.com>,
+	alex.bluesman.smirnov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:51861 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755867AbaCEVET (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 16:04:19 -0500
+Received: by mail-lb0-f175.google.com with SMTP id w7so1091128lbi.6
+        for <netdev@vger.kernel.org>; Wed, 05 Mar 2014 13:04:16 -0800 (PST)
+In-Reply-To: <1394052211-6976-2-git-send-email-alex.aring@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[+cc Florian]
+Hello.
 
-On Wed, Mar 5, 2014 at 2:10 AM, David Laight <David.Laight@aculab.com> wrote:
-> From: Bjorn Helgaas
->> With -Werror=array-bounds, gcc v4.7.x warns that in phy_find_valid(), the
->> settings[] "array subscript is above array bounds", I think because idx is
->> a signed integer and if the caller supplied idx < 0, we pass the guard but
->> still reference out of bounds.
->
-> Not rejecting the patch but...
->
-> Just indexing an array with 'int' shouldn't cause this warning,
-> so somewhere a caller must actually be passing an idx < 0.
->
-> While changing the type to unsigned will make the comparison
-> against the array bound reject the -1, I suspect that the
-> specific call path didn't really intend passing a hard-coded -1.
->
-> It might be worth trying to locate the call site that passes -1.
+On 03/05/2014 11:43 PM, Alexander Aring wrote:
 
-I'm stumped.  phy_find_valid() is static and only called from one
-place.  The 'idx' argument is always the result of phy_find_setting(),
-which should always return something between 0 and
-ARRAY_SIZE(settings), so I don't see any way idx can be < 0.
+> This patch adds a missing return after fragmentation init. Otherwise we
+> register a sysctl interface and deregister it afterwards which makes no
+> sense.
 
-I stripped this down as far as I could; the resulting test code is at
-http://pastebin.com/pp1zMEWu if anybody else wants to look at it.  I'm
-using gcc 4.8.x 20131105 (prerelease), with "-Warray-bounds -O2"
-flags.
+> Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+> ---
+>   net/ieee802154/reassembly.c | 2 ++
+>   1 file changed, 2 insertions(+)
 
-I hesitate to suspect a compiler bug, but it is very strange.  For
-example, in my test code, replacing "MAX_NUM_SETTINGS" with "2" gets
-rid of the warnings.  MAX_NUM_SETTINGS is known to be 2 at
-compile-time, so I don't know why this should make a difference.
+> diff --git a/net/ieee802154/reassembly.c b/net/ieee802154/reassembly.c
+> index 4511fc2..59db7b5 100644
+> --- a/net/ieee802154/reassembly.c
+> +++ b/net/ieee802154/reassembly.c
+> @@ -550,6 +550,8 @@ int __init lowpan_net_frag_init(void)
+>   	lowpan_frags.frag_expire = lowpan_frag_expire;
+>   	lowpan_frags.secret_interval = 10 * 60 * HZ;
+>   	inet_frags_init(&lowpan_frags);
+> +
+> +	return 0;
 
-Bjorn
+    Perhaps 'goto out' for "consistency" with the code above? (I don't know 
+why they used "goto out' in the first place.)
+
+>   err_pernet:
+>   	lowpan_frags_sysctl_unregister();
+>   out:
+
+WBR, Sergei
