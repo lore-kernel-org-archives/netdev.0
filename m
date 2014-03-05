@@ -1,9 +1,9 @@
 From: Tim Harvey <tharvey@gateworks.com>
 Subject: Re: [PATCH] net: sky2: allow mac to come from dt
-Date: Wed, 5 Mar 2014 07:38:01 -0800
-Message-ID: <CAJ+vNU1-LFxC+fNiwO+Jiyzp0PZMM7h4xA2wYCrgasY9vXg5aA@mail.gmail.com>
+Date: Wed, 5 Mar 2014 07:38:22 -0800
+Message-ID: <CAJ+vNU2Uzsriq6e1ef6iH7omTkGGSxz=ox=XquUTw5MFvQDFCA@mail.gmail.com>
 References: <1394000535-25559-1-git-send-email-tharvey@gateworks.com>
-	<CAL_JsqLUOzGW7u2FqUKQQ8gu2m8ksBR48oHkfLZmbkUNtzxpSg@mail.gmail.com>
+	<5317318B.5020406@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Cc: Stephen Hemminger <stephen@networkplumber.org>,
@@ -11,21 +11,57 @@ Cc: Stephen Hemminger <stephen@networkplumber.org>,
 	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
 	Grant Likely <grant.likely@linaro.org>,
 	Rob Herring <robh+dt@kernel.org>
-To: Rob Herring <robherring2@gmail.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f181.google.com ([74.125.82.181]:44234 "EHLO
-	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754222AbaCEPiD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 10:38:03 -0500
-Received: by mail-we0-f181.google.com with SMTP id q58so1412398wes.40
-        for <netdev@vger.kernel.org>; Wed, 05 Mar 2014 07:38:01 -0800 (PST)
-In-Reply-To: <CAL_JsqLUOzGW7u2FqUKQQ8gu2m8ksBR48oHkfLZmbkUNtzxpSg@mail.gmail.com>
+Received: from mail-we0-f176.google.com ([74.125.82.176]:45576 "EHLO
+	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752134AbaCEPiX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 10:38:23 -0500
+Received: by mail-we0-f176.google.com with SMTP id x48so1431660wes.35
+        for <netdev@vger.kernel.org>; Wed, 05 Mar 2014 07:38:22 -0800 (PST)
+In-Reply-To: <5317318B.5020406@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 4, 2014 at 10:32 PM, Rob Herring <robherring2@gmail.com> wrote:
-<snip>
->> @@ -4805,8 +4808,27 @@ static struct net_device *sky2_init_netdev(struct sky2_hw *hw, unsigned port,
+On Wed, Mar 5, 2014 at 6:15 AM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> Hello.
+
+Hi Sergei,
+
+>
+>
+> On 05-03-2014 10:22, Tim Harvey wrote:
+>
+>> The driver reads the mac address from the device registers which would
+>> need to have been programmed by the bootloader.  This patch adds
+>> the ability to pull the mac from devicetree via the pci device dt node.
+>
+>
+>    I highly doubt that "[local-]mac-address" prop would be added to
+> (autodiscovered) PCI device node.
+
+I wouldn't have done this if I didn't need it ;)
+
+The u-boot bootloader will do this for boards supporting devicetree.
+Specifically, it will take the ethaddr/eth<n<addr/etc env vars and
+apply a local-mac-address property to the devicetree using ethernet<n>
+devicetree aliases.  This is to support MAC addresses coming from
+EEPROM, eFUSE, etc.  The key here is that it doesn't need to know
+where in the tree the eth devices are because it makes use of the
+aliases node.
+
+This of course requires that you do have an ethernet<n> alias to your
+PCI based network device in your dt which I agree may seem strange for
+an auto-probed bus, but in the case of a bootloader without PCI
+support and/or sky2 support this seems the proper way to get the MAC
+address from the bootloader to the driver.
+
+>
+> [...]
+>
+>> @@ -4805,8 +4808,27 @@ static struct net_device *sky2_init_netdev(struct
+>> sky2_hw *hw, unsigned port,
 >>
 >>         dev->features |= dev->hw_features;
 >>
@@ -35,31 +71,38 @@ On Tue, Mar 4, 2014 at 10:32 PM, Rob Herring <robherring2@gmail.com> wrote:
 >> +        */
 >> +       iap = NULL;
 >> +       if (IS_ENABLED(CONFIG_OF)) {
->
-> This shouldn't be needed.
->
 >> +               struct device_node *np = hw->pdev->dev.of_node;
 >> +               if (np)
 >> +                       iap = (unsigned char *) of_get_mac_address(np);
 >> +       }
->
-> This should all just be 1 line. of_get_mac_address should just return
-> NULL if !CONFIG_OF or np == NULL.
-
-agreed - I verified this is true
-
->
 >> +
 >> +       /* 2) mac registers set by bootloader
 >> +        */
 >> +       if (!iap || !is_valid_ether_addr(iap)) {
+>> +               memcpy_fromio(&tmpaddr, hw->regs + B2_MAC_1 + port * 8,
+>> +                       ETH_ALEN);
 >
-> Perhaps is_valid_ether_addr check should also be moved into of_get_mac_address.
 >
+>    This line should start right under & on the previous line.
 
-looks like it already does that - I'll simplify the above
+agreed - not sure why checkpatch.pl didn't catch that
 
-> Rob
+>
+>
+>> +               iap = &tmpaddr[0];
+
+agreed - I will change this as its more readable
+
+>
+>
+>    Why not just 'tmpaddr'?
+>
+>> +       }
+>> +
+>
+>
+> WBR, Sergei
+>
 
 Thanks for the review!
 
