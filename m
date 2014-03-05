@@ -1,36 +1,30 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH iproute2 -next 2/3] include/linux: update xfrm.h
-Date: Wed, 05 Mar 2014 09:41:23 +0100
-Message-ID: <5316E333.3060700@6wind.com>
-References: <1393857367-15016-1-git-send-email-nicolas.dichtel@6wind.com>	<1393857367-15016-2-git-send-email-nicolas.dichtel@6wind.com> <20140304170329.51de98ab@nehalam.linuxnetplumber.net>
-Reply-To: nicolas.dichtel@6wind.com
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] phy: fix compiler array bounds warning on settings[]
+Date: Wed, 5 Mar 2014 09:10:52 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6D1440@AcuExch.aculab.com>
+References: <20140305003544.23016.55079.stgit@bhelgaas-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f180.google.com ([74.125.82.180]:62106 "EHLO
-	mail-we0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751622AbaCEIla (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 03:41:30 -0500
-Received: by mail-we0-f180.google.com with SMTP id p61so785026wes.11
-        for <netdev@vger.kernel.org>; Wed, 05 Mar 2014 00:41:27 -0800 (PST)
-In-Reply-To: <20140304170329.51de98ab@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Bjorn Helgaas' <bhelgaas@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140305003544.23016.55079.stgit@bhelgaas-glaptop.roam.corp.google.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 05/03/2014 02:03, Stephen Hemminger a =E9crit :
-> On Mon,  3 Mar 2014 15:36:06 +0100
-> Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
->
->> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->> ---
->
-> Sigh. couldn't you have chosen another variable name.
-> As it is new kernel headers with old iproute2 source will break.
->
-I noticed this after finishing the kernel part.
-I have not thought about this because kernel headers are embedded in ip=
-route2.
+RnJvbTogQmpvcm4gSGVsZ2Fhcw0KPiBXaXRoIC1XZXJyb3I9YXJyYXktYm91bmRzLCBnY2MgdjQu
+Ny54IHdhcm5zIHRoYXQgaW4gcGh5X2ZpbmRfdmFsaWQoKSwgdGhlDQo+IHNldHRpbmdzW10gImFy
+cmF5IHN1YnNjcmlwdCBpcyBhYm92ZSBhcnJheSBib3VuZHMiLCBJIHRoaW5rIGJlY2F1c2UgaWR4
+IGlzDQo+IGEgc2lnbmVkIGludGVnZXIgYW5kIGlmIHRoZSBjYWxsZXIgc3VwcGxpZWQgaWR4IDwg
+MCwgd2UgcGFzcyB0aGUgZ3VhcmQgYnV0DQo+IHN0aWxsIHJlZmVyZW5jZSBvdXQgb2YgYm91bmRz
+Lg0KDQpOb3QgcmVqZWN0aW5nIHRoZSBwYXRjaCBidXQuLi4NCg0KSnVzdCBpbmRleGluZyBhbiBh
+cnJheSB3aXRoICdpbnQnIHNob3VsZG4ndCBjYXVzZSB0aGlzIHdhcm5pbmcsDQpzbyBzb21ld2hl
+cmUgYSBjYWxsZXIgbXVzdCBhY3R1YWxseSBiZSBwYXNzaW5nIGFuIGlkeCA8IDAuDQoNCldoaWxl
+IGNoYW5naW5nIHRoZSB0eXBlIHRvIHVuc2lnbmVkIHdpbGwgbWFrZSB0aGUgY29tcGFyaXNvbg0K
+YWdhaW5zdCB0aGUgYXJyYXkgYm91bmQgcmVqZWN0IHRoZSAtMSwgSSBzdXNwZWN0IHRoYXQgdGhl
+DQpzcGVjaWZpYyBjYWxsIHBhdGggZGlkbid0IHJlYWxseSBpbnRlbmQgcGFzc2luZyBhIGhhcmQt
+Y29kZWQgLTEuDQoNCkl0IG1pZ2h0IGJlIHdvcnRoIHRyeWluZyB0byBsb2NhdGUgdGhlIGNhbGwg
+c2l0ZSB0aGF0IHBhc3NlcyAtMS4NCg0KCURhdmlkDQoNCg==
