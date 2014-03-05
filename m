@@ -1,133 +1,81 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next v2 04/13] r8152: replace spin_lock_irqsave and spin_unlock_irqrestore
-Date: Wed, 5 Mar 2014 14:49:19 +0800
-Message-ID: <1394002168-3193-5-git-send-email-hayeswang@realtek.com>
-References: <1393934464-23675-1-git-send-email-hayeswang@realtek.com>
- <1394002168-3193-1-git-send-email-hayeswang@realtek.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH v5] can: xilinx CAN controller support.
+Date: Wed, 05 Mar 2014 07:58:49 +0100
+Message-ID: <5316CB29.7040200@hartkopp.net>
+References: <5254bfec-c6fd-4681-a34d-706d51e60fbb@VA3EHSMHS004.ehs.local> <1b9f22ac-4dde-4ecc-885a-3d8081157081@AM1EHSMHS012.ehs.local>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394002168-3193-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?U8O2cmVuIEJyaW5rbWFubg==?= <soren.brinkmann@xilinx.com>,
+	wg@grandegger.com, mkl@pengutronix.de, michal.simek@xilinx.com,
+	grant.likely@linaro.org, robh+dt@kernel.org,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	devicetree@vger.kernel.org,
+	Kedareswara rao Appana <appanad@xilinx.com>
+To: Kedareswara rao Appana <appana.durga.rao@xilinx.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1b9f22ac-4dde-4ecc-885a-3d8081157081@AM1EHSMHS012.ehs.local>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use spin_lock and spin_unlock in interrupt context.
 
-The ndo_start_xmit would not be called in interrupt context, so
-replace the relative spin_lock_irqsave and spin_unlock_irqrestore
-with spin_lock_bh and spin_unlock_bh.
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 28 ++++++++++++----------------
- 1 file changed, 12 insertions(+), 16 deletions(-)
+On 05.03.2014 00:51, S=C3=B6ren Brinkmann wrote:
+> Hi Kedar,
+>=20
+> On Tue, 2014-03-04 at 06:50PM +0530, Kedareswara rao Appana wrote:
+>> This patch adds xilinx CAN controller support.
+>> This driver supports both ZYNQ CANPS and Soft IP
+>> AXI CAN controller.
+>>
+> [...]
+>> diff --git a/Documentation/devicetree/bindings/net/can/xilinx_can.tx=
+t b/Documentation/devicetree/bindings/net/can/xilinx_can.txt
+>> new file mode 100644
+>> index 0000000..0e57103
+>> --- /dev/null
+>> +++ b/Documentation/devicetree/bindings/net/can/xilinx_can.txt
+>> @@ -0,0 +1,45 @@
+>> +Xilinx Axi CAN/Zynq CANPS controller Device Tree Bindings
+>> +---------------------------------------------------------
+>> +
+>> +Required properties:
+>> +- compatible		: Should be "xlnx,zynq-can-1.00.a" for Zynq CAN
+>> +			  controllers and "xlnx,axi-can-1.00.a" for Axi CAN
+>> +			  controllers.
+>> +- reg			: Physical base address and size of the Axi CAN/Zynq
+>> +			  CANPS registers map.
+>> +- interrupts		: Property with a value describing the interrupt
+>> +			  number.
+>> +- interrupt-parent	: Must be core interrupt controller
+>> +- clock-names		: List of input clock names - "ref_clk", "aper_clk"
+>=20
+> Let's reconsider these names. These are rather Zynq specific names. D=
+oes
+> the IP documentation use these as well? The names should match the
+> naming used for the IP, rather than the SOC. Is this the correct data=
+ sheet:
+> http://www.xilinx.com/support/documentation/ip_documentation/axi_can/=
+v1_03_a/ds791_axi_can.pdf
+> ? According to that the names should rather be 's_axi_aclk' and
+> 'can_clk', IMHO.
+>=20
+> 	S=C3=B6ren
+>=20
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index b8eee36..8ecb41b 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -963,7 +963,6 @@ static int rtl8152_set_mac_address(struct net_device *netdev, void *p)
- static void read_bulk_callback(struct urb *urb)
- {
- 	struct net_device *netdev;
--	unsigned long flags;
- 	int status = urb->status;
- 	struct rx_agg *agg;
- 	struct r8152 *tp;
-@@ -997,9 +996,9 @@ static void read_bulk_callback(struct urb *urb)
- 		if (urb->actual_length < ETH_ZLEN)
- 			break;
- 
--		spin_lock_irqsave(&tp->rx_lock, flags);
-+		spin_lock(&tp->rx_lock);
- 		list_add_tail(&agg->list, &tp->rx_done);
--		spin_unlock_irqrestore(&tp->rx_lock, flags);
-+		spin_unlock(&tp->rx_lock);
- 		tasklet_schedule(&tp->tl);
- 		return;
- 	case -ESHUTDOWN:
-@@ -1022,9 +1021,9 @@ static void read_bulk_callback(struct urb *urb)
- 	if (result == -ENODEV) {
- 		netif_device_detach(tp->netdev);
- 	} else if (result) {
--		spin_lock_irqsave(&tp->rx_lock, flags);
-+		spin_lock(&tp->rx_lock);
- 		list_add_tail(&agg->list, &tp->rx_done);
--		spin_unlock_irqrestore(&tp->rx_lock, flags);
-+		spin_unlock(&tp->rx_lock);
- 		tasklet_schedule(&tp->tl);
- 	}
- }
-@@ -1033,7 +1032,6 @@ static void write_bulk_callback(struct urb *urb)
- {
- 	struct net_device_stats *stats;
- 	struct net_device *netdev;
--	unsigned long flags;
- 	struct tx_agg *agg;
- 	struct r8152 *tp;
- 	int status = urb->status;
-@@ -1057,9 +1055,9 @@ static void write_bulk_callback(struct urb *urb)
- 		stats->tx_bytes += agg->skb_len;
- 	}
- 
--	spin_lock_irqsave(&tp->tx_lock, flags);
-+	spin_lock(&tp->tx_lock);
- 	list_add_tail(&agg->list, &tp->tx_free);
--	spin_unlock_irqrestore(&tp->tx_lock, flags);
-+	spin_unlock(&tp->tx_lock);
- 
- 	usb_autopm_put_interface_async(tp->intf);
- 
-@@ -1330,14 +1328,13 @@ r8152_tx_csum(struct r8152 *tp, struct tx_desc *desc, struct sk_buff *skb)
- static int r8152_tx_agg_fill(struct r8152 *tp, struct tx_agg *agg)
- {
- 	struct sk_buff_head skb_head, *tx_queue = &tp->tx_queue;
--	unsigned long flags;
- 	int remain, ret;
- 	u8 *tx_data;
- 
- 	__skb_queue_head_init(&skb_head);
--	spin_lock_irqsave(&tx_queue->lock, flags);
-+	spin_lock_bh(&tx_queue->lock);
- 	skb_queue_splice_init(tx_queue, &skb_head);
--	spin_unlock_irqrestore(&tx_queue->lock, flags);
-+	spin_unlock_bh(&tx_queue->lock);
- 
- 	tx_data = agg->head;
- 	agg->skb_num = agg->skb_len = 0;
-@@ -1374,9 +1371,9 @@ static int r8152_tx_agg_fill(struct r8152 *tp, struct tx_agg *agg)
- 	}
- 
- 	if (!skb_queue_empty(&skb_head)) {
--		spin_lock_irqsave(&tx_queue->lock, flags);
-+		spin_lock_bh(&tx_queue->lock);
- 		skb_queue_splice(&skb_head, tx_queue);
--		spin_unlock_irqrestore(&tx_queue->lock, flags);
-+		spin_unlock_bh(&tx_queue->lock);
- 	}
- 
- 	netif_tx_lock_bh(tp->netdev);
-@@ -1551,16 +1548,15 @@ static void rtl_drop_queued_tx(struct r8152 *tp)
- {
- 	struct net_device_stats *stats = &tp->netdev->stats;
- 	struct sk_buff_head skb_head, *tx_queue = &tp->tx_queue;
--	unsigned long flags;
- 	struct sk_buff *skb;
- 
- 	if (skb_queue_empty(tx_queue))
- 		return;
- 
- 	__skb_queue_head_init(&skb_head);
--	spin_lock_irqsave(&tx_queue->lock, flags);
-+	spin_lock_bh(&tx_queue->lock);
- 	skb_queue_splice_init(tx_queue, &skb_head);
--	spin_unlock_irqrestore(&tx_queue->lock, flags);
-+	spin_unlock_bh(&tx_queue->lock);
- 
- 	while ((skb = __skb_dequeue(&skb_head))) {
- 		dev_kfree_skb(skb);
--- 
-1.8.4.2
+And when renaming stuff anyway:
+
++
++#define DRIVER_NAME	"XILINX_CAN"
++
+
+should be changed to
+
++
++#define DRIVER_NAME	"xilinx_can"
++
+
+Regards,
+Oliver
+
