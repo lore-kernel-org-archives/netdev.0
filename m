@@ -1,81 +1,48 @@
-From: <erik.hugne@ericsson.com>
-Subject: [PATCH net-next v2 4/6] tipc: drop subscriber
-	connection id invalidation
-Date: Wed, 5 Mar 2014 08:56:16 +0100
-Message-ID: <1394006178-23966-5-git-send-email-erik.hugne@ericsson.com>
-References: <1394006178-23966-1-git-send-email-erik.hugne@ericsson.com>
+From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Subject: [RFC 0/2]: Add minimum bandwidth support in IP tool.
+Date: Wed, 5 Mar 2014 02:33:34 -0500
+Message-ID: <1394004816-23436-1-git-send-email-sucheta.chakraborty@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: richard.alpe@ericsson.com
-To: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
-	<jon.maloy@ericsson.com>, <maloy@donjonn.com>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1394006178-23966-1-git-send-email-erik.hugne@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:23431 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751249AbaCEIJf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 03:09:35 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+Today IP tool allows configuring only maximum bandwidth.
+Likewise minimum bandwidth can also be configured for a VF. It puts
+lower limit on the VF bandwidth. VF is guaranteed to have a bandwidth
+of at least this value.
 
-When a topology server subscriber is disconnected, the associated
-connection id is set to zero. A check vs zero is then done in the
-subscription timeout function to see if the subscriber have been
-shut down. This is unnecessary, because all subscription timers
-will be cancelled when a subscriber terminates. Setting the
-connection id to zero is actually harmful because id zero is the
-identity of the topology server listening socket, and can cause a
-race that leads to this socket being closed instead.
+With this change, user can alter minimum bandwidth rate.
 
-Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-Acked-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/subscr.c | 11 -----------
- 1 file changed, 11 deletions(-)
+This change will also require change in IP tool. I am also sending that
+patch separately.
 
-diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-index a6ce3bb..11c9ae0 100644
---- a/net/tipc/subscr.c
-+++ b/net/tipc/subscr.c
-@@ -149,14 +149,6 @@ static void subscr_timeout(struct tipc_subscription *sub)
- 	/* The spin lock per subscriber is used to protect its members */
- 	spin_lock_bh(&subscriber->lock);
- 
--	/* Validate if the connection related to the subscriber is
--	 * closed (in case subscriber is terminating)
--	 */
--	if (subscriber->conid == 0) {
--		spin_unlock_bh(&subscriber->lock);
--		return;
--	}
--
- 	/* Validate timeout (in case subscription is being cancelled) */
- 	if (sub->timeout == TIPC_WAIT_FOREVER) {
- 		spin_unlock_bh(&subscriber->lock);
-@@ -211,9 +203,6 @@ static void subscr_release(struct tipc_subscriber *subscriber)
- 
- 	spin_lock_bh(&subscriber->lock);
- 
--	/* Invalidate subscriber reference */
--	subscriber->conid = 0;
--
- 	/* Destroy any existing subscriptions for subscriber */
- 	list_for_each_entry_safe(sub, sub_temp, &subscriber->subscription_list,
- 				 subscription_list) {
--- 
-1.8.3.2
+The below patch series has 2 patches:
+1st patch is a kernel patch that adds required support in kernel.
+2nd patch adds support in qlcnic driver.
+
+Please comment.
+
+Thanks,
+Sucheta.
+
+Sucheta Chakraborty (2):
+  net: Add support to configure SR-IOV VF minimum and maximum Tx rate through ip tool.
+  qlcnic: Add support to configure SR-IOV VF minimum and maximum Tx rate through ip tool.
 
 
-------------------------------------------------------------------------------
-Subversion Kills Productivity. Get off Subversion & Make the Move to Perforce.
-With Perforce, you get hassle-free workflows. Merge that actually works. 
-Faster operations. Version large binaries.  Built-in WAN optimization and the
-freedom to use Git, Perforce or both. Make the move to Perforce.
-http://pubads.g.doubleclick.net/gampad/clk?id=122218951&iu=/4140/ostg.clktrk
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |   1 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h  |   1 +
+ .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   | 102 +++++++++++++++++++--
+ include/linux/if_link.h      |  2 ++
+ include/linux/netdevice.h    |  5 +++++
+ include/uapi/linux/if_link.h |  9 ++++++++-
+ net/core/rtnetlink.c         | 29 +++++++++++++++++++++++++++++
+ 7 files changed, 138 insertions(+), 11 deletions(-)
