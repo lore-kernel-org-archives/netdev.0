@@ -1,32 +1,38 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net-next v6 1/10] xen-netback: Use skb->cb for pending_idx
-Date: Wed, 5 Mar 2014 12:16:37 +0000
-Message-ID: <20140305121637.GF19620@zion.uk.xensource.com>
-References: <1393972341-21135-1-git-send-email-zoltan.kiss@citrix.com>
- <1393972341-21135-2-git-send-email-zoltan.kiss@citrix.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: Possible fix
+Date: Wed, 5 Mar 2014 13:20:09 +0100
+Message-ID: <20140305122009.GR32371@secunet.com>
+References: <20140227151954.GA30946@redhat.com>
+ <20140228072333.GP32371@secunet.com>
+ <5310607F.7030401@redhat.com>
+ <8608950.OLpq4oFFJB@sifl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Nikolay Aleksandrov <nikolay@redhat.com>, <netdev@vger.kernel.org>,
+	Dave Jones <davej@redhat.com>, Fan Du <fan.du@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	<linux-security-module@vger.kernel.org>
+To: Paul Moore <paul@paul-moore.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1393972341-21135-2-git-send-email-zoltan.kiss@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <8608950.OLpq4oFFJB@sifl>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 04, 2014 at 10:32:12PM +0000, Zoltan Kiss wrote:
-> Storing the pending_idx at the first byte of the linear buffer never looked
-> good, skb->cb is a more proper place for this. It also prevents the header to
-> be directly grant copied there, and we don't have the pending_idx after we
-> copied the header here, so it's time to change it.
+On Fri, Feb 28, 2014 at 05:10:47PM -0500, Paul Moore wrote:
+> On Friday, February 28, 2014 11:10:07 AM Nikolay Aleksandrov wrote:
+> > On 02/28/2014 08:23 AM, Steffen Klassert wrote:
+> > > 
+> > > Looking at the git history, it seems that this bug is about nine
+> > > years old. I guess noone is actually using this.
 > 
+> Most (all?) of the labeled IPsec users use the netlink interface and not pfkey 
+> so it isn't surprising that this has gone unnoticed for some time.
 
-I think this is a valid change. But I would like you to define a
-skb_cb_overlay just like the receive path does.
+Right, that's not really surprising. But it is a bit surprising that
+we care for the security context only if we add a socket policy via
+the pfkey key manager. The security context is not handled if we do
+that with the netlink key manager, see xfrm_compile_policy().
 
-You can rename skb_cb_overlay in current code to skb_cb_overlay_rx and
-add your skb_cb_overlay_tx.
-
-Wei.
+I'm not that familiar with selinux and labeled IPsec, but maybe this
+needs to be implemented in xfrm_compile_policy() too.
