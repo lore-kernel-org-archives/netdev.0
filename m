@@ -1,109 +1,71 @@
-From: Christian Engelmayer <christian.engelmayer@frequentis.com>
-Subject: Re: [RFC] CPSW: dual standalone emac mode / bonding
-Date: Thu, 6 Mar 2014 18:15:27 +0100
-Message-ID: <20140306181527.3b436153@frequentis.com>
-References: <20140305183318.16f5dafa@frequentis.com>
-	<53183051.7080801@ti.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: davinci_emac: Replace devm_request_irq with request_irq
+Date: Thu, 6 Mar 2014 09:16:05 -0800
+Message-ID: <CAGVrzcb6hM6N6qLz_r3Y4j57=n3U_Du1Ls5KdDJE4cCoVbx4RQ@mail.gmail.com>
+References: <2ec3bb89-89db-48e8-b360-369545a2546f@mary.at.omicron.at>
+ <5318318E.8030402@ti.com> <A8464B1127B9570790254336@172.22.2.41>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.frequentis.com ([195.20.158.50]:51006 "EHLO
-	mail1.frequentis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751169AbaCFRP3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 12:15:29 -0500
-In-Reply-To: <53183051.7080801@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Mugunthan V N <mugunthanvnm@ti.com>,
+	netdev <netdev@vger.kernel.org>, stable <stable@vger.kernel.org>,
+	dlos <davinci-linux-open-source@linux.davincidsp.com>,
+	Jon Ringle <jon@ringle.org>
+To: Christian Riesch <christian.riesch@omicron.at>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <A8464B1127B9570790254336@172.22.2.41>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 6 Mar 2014 13:52:41 +0530, Mugunthan V N <mugunthanvnm@ti.com> wrote:
-> It seems that some other system in the network is using the same mac in
-> your EVM or there is a loop detected in your network which leads that
-> ALE is learning that there is  system with your MAC and updating the ALE
-> table that the mac is there and which leads your own packet will be
-> forwarded to that port and not to host port.
-> 
-> When ever you start a transmission the ALE learns the host port MAC is x
-> and updates ALE table with that port number and so there in your network
-> is working.
+2014-03-06 0:51 GMT-08:00 Christian Riesch <christian.riesch@omicron.at>:
+> --On March 06, 2014 13:57 +0530 Mugunthan V N <mugunthanvnm@ti.com> wrote:
+>>
+>> On Wednesday 05 March 2014 03:55 PM, Christian Riesch wrote:
+>>>
+>>> In commit 6892b41d9701283085b655c6086fb57a5d63fa47
+>>>
+>>> Author: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+>>> Date:   Tue Jun 25 21:24:51 2013 +0530
+>>> net: davinci: emac: Convert to devm_* api
+>>>
+>>> the call of request_irq is replaced by devm_request_irq and the call
+>>> of free_irq is removed. But since interrupts are requested in
+>>> emac_dev_open, doing ifconfig up/down on the board requests the
+>>> interrupts again each time, causing devm_request_irq to fail.
+>>>
+>>> This patch reverts said commit partially: It changes the driver back
+>>> to use request_irq instead of devm_request_irq, puts free_irq back in
+>>> place, but keeps the remaining changes of the original patch.
+>>>
+>>> Reported-by: Jon Ringle <jon@ringle.org>
+>>> Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
+>>> Cc: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+>>> Cc: <stable@vger.kernel.org>
+>>
+>>
+>> Instead of moving back to request irq. can you move the devm interrupt
+>> request code from open to probe so that the issue is fixed, IRQ will be
+>> requested on module insert and IRQ will be free in module remove and
+>> there will not be any failures in devm request irq while repeating
+>> ifup/ifdown and also during module insert/remove.
+>
+>
+> This is exactly what I tried first, please have a look at my first patch and
+> the discussion [1]. Florian Fainelli asked me to revert Prabhakar's patch
+> instead to bring back the "usual situation", "just in case some uncontrolled
+> interrupt bit triggers an interrupt while the interface is down for
+> instance..."
+>
+> Florian Fainelli, Mugunthan VN, which solution is better?
 
-Regarding the duplicate mac address please consider the following scenario:
-2 switches are interconnected via a single crosslink. There is no loop
-in the system. The EVM is configured for dual emac mode and each external
-port is connected to one of the 2 switches.
+I think the solution that does:
 
-The 2 ethernet interfaces are enslaved by the bonding driver and setup in
-active-backup mode - from Documentation/networking/bonding.txt:
+- request_irq() in ndo_open()
+- free_irq() in ndo_stop()
 
-    "Active-backup policy: Only one slave in the bond is
-    active.  A different slave becomes active if, and only
-    if, the active slave fails.  The bond's MAC address is
-    externally visible on only one port (network adapter)
-    to avoid confusing the switch."
-
-The default mac failover is used - all slave interfaces are set to the
-same mac address, so in case of a failure of the active slave the switches
-have to relearn ports due to issued gratuitous arp, but device caches are
-not affected.
-
-In case the EVM generates an arp request from the active interface the
-frame is also propagated through the system and received by the backup
-interfaces as it is a broadcast. Where an actual NIC would not be affected
-and the stack drops frames received on backup interfaces, I understood
-from You that the CPSW in dual emac mode is still a switch and relearns.
-
->From some of the TI wikis one might assume that that is not the case
-
-    http://processors.wiki.ti.com/index.php/SK_ETH
-
-    "MAC mode disables the ALE in the AM335x and each of the external
-     Ethernet ports communicates using different MAC addresses."
-
-However, the following seems to be more correct and resemble the implementation:
-
-    http://processors.wiki.ti.com/index.php/AM335x_CPSW_(Ethernet)_Driver's_Guide
-    http://processors.wiki.ti.com/index.php/Linux_Core_CPSW_User's_Guide
-
-    "Both the interfaces should not be connected to the same subnet
-     unless only configuring bridging, and not doing IP routing, then
-     you can configure the two interfaces on the same subnet."
-
-Whereas from the observed behaviour I would assume that both interfaces
-should not only be in different subnets, but also connected to different
-broadcast domains.
-
-It is not obvious to me why the CPSW learns per vlan, but got the persistant
-addresses configured differently - eg. snippet from /sys/class/net/eth0/ale_table
-
-    type: vlan+addr(3), vlan: 3, addr: 00:12:3f:5d:96:17, uctype: touched(3), port: 2
-    type: vlan+addr(3), vlan: 2, addr: 00:12:3f:5d:96:17, uctype: touched(3), port: 1
-    type: vlan+addr(3), vlan: 3, addr: 34:db:fd:76:7f:be, uctype: untouched(1), port: 2
-    type: vlan+addr(3), vlan: 2, addr: 34:db:fd:76:7f:be, uctype: untouched(1), port: 1
-
-    type: addr(1), addr: 00:18:31:e0:06:69, uctype: persistant(0), port: 0
-    type: addr(1), addr: 00:18:31:e0:06:6a, uctype: persistant(0), port: 0
-
-Due to this I currently see no change in the behaviour in case I configure the
-bond to use the interface assigned mac addresses without change or swap the
-macs just in case of a failover.
-
-It might be a solution to this setup if the CPSW would not be able to
-relearn it's own host macs, or if the learning would be completly separated
-per port/vlan.
-
-I admit that the affected EVM is still on the TI 3.2 Kernel and I have
-to upgrade the scenario, but as both pieces of code are from You: I
-saw that the setup of mac addresses has been changed in the current
-mainline version. cpsw_ale_add_ucast() seems to be merged with the
-previously split functionality of cpsw_ale_vlan_add_ucast() and in case
-of priv->data.dual_emac I see vid handling eg. in function
-cpsw_ndo_set_mac_address() and others.
-
-Could this result in a different setup of the ALE that allows relearning of
-the mac address set on both interfaces on the VLAN used for external backup
-port 2 without affecting the communication on external active port 1?
-
-Regards,
-Christian
+is the safest option because it ensure that the various interrupt
+lines are masked at the interrupt controller level, and not just at
+Ethernet MAC level, and as such gives you more control over what the
+hardware does. It also mimics what 99% of the Ethernet drivers do,
+which will help identifying those common patterns programmatically.
+-- 
+Florian
