@@ -1,50 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4 1/4] ieee802154: add generic header
- handling routines
-Date: Thu, 06 Mar 2014 13:07:46 -0500 (EST)
-Message-ID: <20140306.130746.1333492573211031660.davem@davemloft.net>
-References: <7c9810ea21990e7e239b101f548818f7.squirrel@webmail.itwm.fhg.de>
-	<20140305.193913.470467212827707623.davem@redhat.com>
-	<20140306111139.2b7b6b8b@zoidberg>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: Can I limit the number of active tx per TCP socket?
+Date: Thu, 6 Mar 2014 13:09:59 -0500
+Message-ID: <CADVnQyn1+WRqS9HQmMn9JgpBz0Wajg=40yVhdyqv_AAo4tpWUA@mail.gmail.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D0F6D3B91@AcuExch.aculab.com>
+	<5318ADB1.5050107@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net
-To: phoebe.buckheister@itwm.fraunhofer.de
+Content-Type: text/plain; charset=UTF-8
+Cc: David Laight <David.Laight@aculab.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59603 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750829AbaCFSHs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 13:07:48 -0500
-In-Reply-To: <20140306111139.2b7b6b8b@zoidberg>
+Received: from mail-ee0-f48.google.com ([74.125.83.48]:48078 "EHLO
+	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751440AbaCFSKA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 13:10:00 -0500
+Received: by mail-ee0-f48.google.com with SMTP id e51so1262366eek.35
+        for <netdev@vger.kernel.org>; Thu, 06 Mar 2014 10:09:59 -0800 (PST)
+In-Reply-To: <5318ADB1.5050107@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
-Date: Thu, 6 Mar 2014 11:11:39 +0100
+Eric's recent "auto corking" feature may be helpful in this context:
 
-> On Wed, 05 Mar 2014 19:39:13 -0500 (EST)
-> David Miller <davem@redhat.com> wrote:
-> 
->> This is how we handle some fields of struct iphdr, and it's fine with
->> me.
-> 
-> Wonderful, this will unclutter everything that concerns itself with
-> some degree of header handling.
-> 
->> Be sure to use __LITTLE_ENDIAN_BITFIELD and __BIG_ENDIAN_BITFIELD for
->> your CPP checks.
-> 
-> I looked at struct iphdr now that you mentioned it, and i was a little
-> surprised to see that this header is often pointer-cast from an
-> skb_network_header.
+  http://lwn.net/Articles/576263/
 
-Why is that surprising?  It's the network header.
+neal
 
-> As far as I can see, declaring all subfields (say)
-> u16 in the bitfield endianness order when the entire bitfield is a u16
-> in the header will result in correct behaviour for cast/memcpy. Is this
-> correct? If not, I'll write out explicit operations for each bitfield
-> member.
-
-memcpy() "just works"
+On Thu, Mar 6, 2014 at 12:17 PM, Rick Jones <rick.jones2@hp.com> wrote:
+> On 03/06/2014 04:28 AM, David Laight wrote:
+>>
+>> Is it possible to stop a TCP connection having more than one
+>> tx skb (in the ethernet tx ring) at any one time?
+>> The idea is to allow time for short sends from the application
+>> to accumulate so that the transmitted frames are longer.
+>
+>
+> That is precisely what Nagle is supposed to be doing - at least where the
+> definition of "time" is the round-trip-time rather than "time it takes to
+> get transmitted out the NIC."
+>
+>
+>> Basically I have a TCP connection which carries a lot of separate
+>> short 'user buffers'. These are not command-response so
+>> TCP_NODELAY has to be set to avoid long delays.
+>
+>
+> When you are saturating the receiver and/or the 64K line, are you certain
+> that not setting TCP_NODELAY means long delays?
+>
+> From a later message:
+>
+>
+>> The data is sent out on a 64k line so 1ms is only 8 byte times.
+>
+>
+> Are you still using a 1460 byte MSS on such a connection?
+>
+> Perhaps you can set the MSS (or drop the MTU on the 64K line and use PTMU)
+> to something less to trigger window updates a bit sooner and so get
+> piggy-backed ACKs rather than delayed ACKs and so not have to set
+> TCP_NODELAY?  Yes, you will have a question of headers versus headers+data
+> but with TCP_NODELAY set as you have it you are (probably) already trashing
+> that.
+>
+> Setting TCP_NODELAY to avoid "long delays" and then having a 64Kbyte/s link
+> seems a trifle, well, contradictory.
+>
+> rick jones
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
