@@ -1,52 +1,47 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net-next 2/2] 6lowpan: reassembly: fix kernel oops while
- unloading
-Date: Thu, 6 Mar 2014 17:41:35 +0100
-Message-ID: <20140306164135.GD17526@breakpoint.cc>
-References: <1394052211-6976-1-git-send-email-alex.aring@gmail.com>
- <1394052211-6976-3-git-send-email-alex.aring@gmail.com>
- <20140305223246.GA17526@breakpoint.cc>
- <20140306060943.GB13676@omega>
- <20140306133851.GC17526@breakpoint.cc>
- <20140306163635.GA21460@omega>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Bug 71591 - Temporary address re-generated when it should not (public address about to expire)
+Date: Thu, 6 Mar 2014 17:43:09 +0100
+Message-ID: <20140306164309.GB3092@order.stressinduktion.org>
+References: <5318A47D.2020204@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, alex.bluesman.smirnov@gmail.com,
-	dbaryshkov@gmail.com, netdev@vger.kernel.org
-To: Alexander Aring <alex.aring@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Heiner Kallweit <heiner.kallweit@web.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:40884 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751276AbaCFQlg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 11:41:36 -0500
+Received: from order.stressinduktion.org ([87.106.68.36]:45754 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750828AbaCFQnK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 11:43:10 -0500
 Content-Disposition: inline
-In-Reply-To: <20140306163635.GA21460@omega>
+In-Reply-To: <5318A47D.2020204@web.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alexander Aring <alex.aring@gmail.com> wrote:
-> ah, ok.
+On Thu, Mar 06, 2014 at 05:38:21PM +0100, Heiner Kallweit wrote:
+> Recently I faced the issue that a public address was about to expire and 
+> 3s before expiry a new temporary address was generated which instantly 
+> went into deprecated state.
+> This didn't do any harm however it's wrong IMHO. Problem seems to be in 
+> function ipv6_create_tempaddr in addrconf.c.
+> A new temporary address is generated if this condition is met: 
+> tmp_prefered_lft > regen_advance
+> tmp_prefered_lft however is an offset from tstamp, not from now.
+> This condition only checks that the new address is preferred until more 
+> than regen_advance from tstamp,
+> but it should check that the new address is preferred until more than 
+> regen_advance from now.
 > 
-> > I am currently testing this fix:
-> > 
-> > diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-> > index 322dceb..3b01959 100644
-> > --- a/net/ipv4/inet_fragment.c
-> > +++ b/net/ipv4/inet_fragment.c
-> > @@ -208,7 +208,7 @@ int inet_frag_evictor(struct netns_frags *nf, struct
-> > 		inet_frags *f, bool force)
-> >         }
-> >  
-> >         work = frag_mem_limit(nf) - nf->low_thresh;
-> > -       while (work > 0) {
-> > +       while (work > 0 || force) {
-> > 
-> > 
-> 
-> I looked at this and try my little testscript and I don't get the kernel
-> oops also. What's the next step?
+> I submitted this issue to kernel bugzilla -> 71591
+> Hannes asked me to propose a patch, here it comes.
 
-Thanks for testing!
+You would need to follow Documentation/SubmittingPatches and provide a proper
+signed-off-by.
 
-I'll make official submit soon, adding proper changelog and your
-tested-by tag.
+Basically if scripts/checkpatch.pl --strict doesn't complain on your patch any
+more, then you're ready to submit.
+
+Otherwise the patch looks good to me.
+
+Thanks,
+
+  Hannes
