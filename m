@@ -1,41 +1,100 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: tcp_release_cb() should release socket ownership
-Date: Wed, 05 Mar 2014 21:15:30 -0500 (EST)
-Message-ID: <20140305.211530.2206817902037251680.davem@davemloft.net>
-References: <1393972752.26794.145.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140305.205938.287751582220842351.davem@davemloft.net>
-	<1394071601.27473.17.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] l2tp: keep original skb ownership
+Date: Wed, 05 Mar 2014 18:19:34 -0800
+Message-ID: <1394072374.27473.23.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: lars.persson@axis.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev <netdev@vger.kernel.org>,
+	James Chapman <jchapman@katalix.com>,
+	Tom Parkin <tparkin@katalix.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51988 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755704AbaCFCPb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 21:15:31 -0500
-In-Reply-To: <1394071601.27473.17.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pb0-f53.google.com ([209.85.160.53]:40078 "EHLO
+	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755512AbaCFCTm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 21:19:42 -0500
+Received: by mail-pb0-f53.google.com with SMTP id rp16so1908807pbb.40
+        for <netdev@vger.kernel.org>; Wed, 05 Mar 2014 18:19:42 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 05 Mar 2014 18:06:41 -0800
+From: Eric Dumazet <edumazet@google.com>
 
-> On Wed, 2014-03-05 at 20:59 -0500, David Miller wrote:
-> 
->> It really means that sk_lock.owned cannot ever be accessed without the
->> sk_lock spinlock held.
->> 
->> Most of this is easy to hand audit, except sock_owned_by_user() which
->> has call sites everywhere.
->> 
->> Consider adding a locking assertion to it.
-> 
-> We can do that, but would it be a stable candidate ?
-> 
-> What about I send a followup for net-next ?
+There is no reason to orphan skb in l2tp.
 
-Targetting net-next for the assertion is fine.
+This breaks things like per socket memory limits, TCP Small queues...
 
-Did you get test results back yet?
+Fix this before more people copy/paste it.
+
+This is very similar to commit 8f646c922d550
+("vxlan: keep original skb ownership")
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: James Chapman <jchapman@katalix.com>
+---
+ net/l2tp/l2tp_core.c |   23 ++---------------------
+ 1 file changed, 2 insertions(+), 21 deletions(-)
+
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index 735d0f60c83a..a523eb2191bd 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -1108,6 +1108,7 @@ static int l2tp_xmit_core(struct l2tp_session *session, struct sk_buff *skb,
+ 			  struct flowi *fl, size_t data_len)
+ {
+ 	struct l2tp_tunnel *tunnel = session->tunnel;
++	struct sock *sk = tunnel->sock;
+ 	unsigned int len = skb->len;
+ 	int error;
+ 
+@@ -1131,7 +1132,7 @@ static int l2tp_xmit_core(struct l2tp_session *session, struct sk_buff *skb,
+ 	/* Queue the packet to IP for output */
+ 	skb->local_df = 1;
+ #if IS_ENABLED(CONFIG_IPV6)
+-	if (skb->sk->sk_family == PF_INET6 && !tunnel->v4mapped)
++	if (sk->sk_family == PF_INET6 && !tunnel->v4mapped)
+ 		error = inet6_csk_xmit(skb, NULL);
+ 	else
+ #endif
+@@ -1151,23 +1152,6 @@ static int l2tp_xmit_core(struct l2tp_session *session, struct sk_buff *skb,
+ 	return 0;
+ }
+ 
+-/* Automatically called when the skb is freed.
+- */
+-static void l2tp_sock_wfree(struct sk_buff *skb)
+-{
+-	sock_put(skb->sk);
+-}
+-
+-/* For data skbs that we transmit, we associate with the tunnel socket
+- * but don't do accounting.
+- */
+-static inline void l2tp_skb_set_owner_w(struct sk_buff *skb, struct sock *sk)
+-{
+-	sock_hold(sk);
+-	skb->sk = sk;
+-	skb->destructor = l2tp_sock_wfree;
+-}
+-
+ #if IS_ENABLED(CONFIG_IPV6)
+ static void l2tp_xmit_ipv6_csum(struct sock *sk, struct sk_buff *skb,
+ 				int udp_len)
+@@ -1221,7 +1205,6 @@ int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb, int hdr_len
+ 		return NET_XMIT_DROP;
+ 	}
+ 
+-	skb_orphan(skb);
+ 	/* Setup L2TP header */
+ 	session->build_header(session, __skb_push(skb, hdr_len));
+ 
+@@ -1287,8 +1270,6 @@ int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb, int hdr_len
+ 		break;
+ 	}
+ 
+-	l2tp_skb_set_owner_w(skb, sk);
+-
+ 	l2tp_xmit_core(session, skb, fl, data_len);
+ out_unlock:
+ 	bh_unlock_sock(sk);
