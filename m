@@ -1,79 +1,46 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next] inet: remove now unused flag DST_NOPEER
-Date: Thu, 6 Mar 2014 09:11:07 +0100
-Message-ID: <20140306081107.GD26307@order.stressinduktion.org>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [RFC] CPSW: dual standalone emac mode / bonding
+Date: Thu, 6 Mar 2014 13:52:41 +0530
+Message-ID: <53183051.7080801@ti.com>
+References: <20140305183318.16f5dafa@frequentis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: eric.dumazet@gmail.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Christian Engelmayer <christian.engelmayer@frequentis.com>,
+	<netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:44711 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752142AbaCFILJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 03:11:09 -0500
-Content-Disposition: inline
+Received: from comal.ext.ti.com ([198.47.26.152]:58958 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751811AbaCFIWn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Mar 2014 03:22:43 -0500
+In-Reply-To: <20140305183318.16f5dafa@frequentis.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit e688a604807647 ("net: introduce DST_NOPEER dst flag") introduced
-DST_NOPEER because because of crashes in ipv6_select_ident called from
-udp6_ufo_fragment.
+On Wednesday 05 March 2014 11:03 PM, Christian Engelmayer wrote:
+> Has anybody successfuly setup ethernet bonding on a TI AM335x based system using
+> the CPSW in dual standalone emac mode?
+>
+> I am running an active-backup test setup - momentarily still running Linux 3.2 -
+> and experience repeated loss of ethernet connectivity. That happens eg. after
+> the board is idle and receives an own ARP request on the backup slave interface.
+> It seems that the corresponding reply does not reach the CPU and I can see via
+> SysFs that the host's address entry got associated with the external backup port.
+>
+>    index 2, raw: 00000000 10000018 31e00669, type: addr(1), addr: 00:18:31:e0:06:69,
+>       uctype: persistant(0), port: 0 --> uctype: persistant(0), port: 2
+>
+> As expected, triggering a unicast from the board or bypassing the ALE recovers
 
-Since commit 916e4cf46d0204 ("ipv6: reuse ip6_frag_id from
-ip6_ufo_append_data") we don't call ipv6_select_ident any more from
-ip6_ufo_append_data, thus this flag lost its purpose and can be removed.
+It seems that some other system in the network is using the same mac in
+your EVM or there is a loop detected in your network which leads that
+ALE is learning that there is  system with your MAC and updating the ALE
+table that the mac is there and which leads your own packet will be
+forwarded to that port and not to host port.
 
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- include/net/dst.h         | 7 +++----
- net/bridge/br_netfilter.c | 2 +-
- net/ipv6/output_core.c    | 2 +-
- 3 files changed, 5 insertions(+), 6 deletions(-)
+When ever you start a transmission the ALE learns the host port MAC is x
+and updates ALE table with that port number and so there in your network
+is working.
 
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 77eb53f..e01a826 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -54,10 +54,9 @@ struct dst_entry {
- #define DST_NOHASH		0x0008
- #define DST_NOCACHE		0x0010
- #define DST_NOCOUNT		0x0020
--#define DST_NOPEER		0x0040
--#define DST_FAKE_RTABLE		0x0080
--#define DST_XFRM_TUNNEL		0x0100
--#define DST_XFRM_QUEUE		0x0200
-+#define DST_FAKE_RTABLE		0x0040
-+#define DST_XFRM_TUNNEL		0x0080
-+#define DST_XFRM_QUEUE		0x0100
- 
- 	unsigned short		pending_confirm;
- 
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index df0f114..80e1b0f 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -167,7 +167,7 @@ void br_netfilter_rtable_init(struct net_bridge *br)
- 	rt->dst.dev = br->dev;
- 	rt->dst.path = &rt->dst;
- 	dst_init_metrics(&rt->dst, br_dst_default_metrics, true);
--	rt->dst.flags	= DST_NOXFRM | DST_NOPEER | DST_FAKE_RTABLE;
-+	rt->dst.flags	= DST_NOXFRM | DST_FAKE_RTABLE;
- 	rt->dst.ops = &fake_dst_ops;
- }
- 
-diff --git a/net/ipv6/output_core.c b/net/ipv6/output_core.c
-index 827f795..d1b35d3 100644
---- a/net/ipv6/output_core.c
-+++ b/net/ipv6/output_core.c
-@@ -13,7 +13,7 @@ void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt)
- 	int old, new;
- 
- #if IS_ENABLED(CONFIG_IPV6)
--	if (rt && !(rt->dst.flags & DST_NOPEER)) {
-+	if (rt) {
- 		struct inet_peer *peer;
- 		struct net *net;
- 
--- 
-1.8.5.3
+Regards
+Mugunthan V N
