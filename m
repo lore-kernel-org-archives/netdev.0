@@ -1,8 +1,9 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 1/2] net: macb: Check DMA mappings for error
-Date: Wed, 05 Mar 2014 20:47:47 -0500 (EST)
-Message-ID: <20140305.204747.1926579810397332616.davem@davemloft.net>
+Subject: Re: [PATCH v3 2/2] net: macb: DMA-unmap full rx-buffer
+Date: Wed, 05 Mar 2014 20:47:57 -0500 (EST)
+Message-ID: <20140305.204757.2283708731367425686.davem@davemloft.net>
 References: <1393951600-26039-1-git-send-email-soren.brinkmann@xilinx.com>
+	<1393951600-26039-2-git-send-email-soren.brinkmann@xilinx.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -12,17 +13,19 @@ Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
 	ben@decadent.org.uk
 To: soren.brinkmann@xilinx.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1393951600-26039-1-git-send-email-soren.brinkmann@xilinx.com>
+In-Reply-To: <1393951600-26039-2-git-send-email-soren.brinkmann@xilinx.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Soren Brinkmann <soren.brinkmann@xilinx.com>
-Date: Tue,  4 Mar 2014 08:46:39 -0800
+Date: Tue,  4 Mar 2014 08:46:40 -0800
 
-> With CONFIG_DMA_API_DEBUG enabled the following warning is printed:
+> When allocating RX buffers a fixed size is used, while freeing is based
+> on actually received bytes, resulting in the following kernel warning
+> when CONFIG_DMA_API_DEBUG is enabled:
  ...
-> due to missing checks of the dma mapping. Add the appropriate checks to fix
-> this.
+> Fixing this by passing the same size which is passed during mapping the
+> memory to the unmap function as well.
 > 
 > Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
 
