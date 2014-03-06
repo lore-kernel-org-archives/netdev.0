@@ -1,212 +1,57 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next v7 8/9] xen-netback: Timeout packets in
-	RX path
-Date: Thu, 6 Mar 2014 21:48:30 +0000
-Message-ID: <1394142511-14827-9-git-send-email-zoltan.kiss@citrix.com>
-References: <1394142511-14827-1-git-send-email-zoltan.kiss@citrix.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 2/2] gianfar: Make multi-queue polling optional
+Date: Thu, 06 Mar 2014 16:52:36 -0500 (EST)
+Message-ID: <20140306.165236.1656673150420499957.davem@davemloft.net>
+References: <1394008119-27899-1-git-send-email-claudiu.manoil@freescale.com>
+	<1394008119-27899-3-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Zoltan Kiss <zoltan.kiss@citrix.com>, jonathan.davies@citrix.com
-To: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1394142511-14827-1-git-send-email-zoltan.kiss@citrix.com>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: claudiu.manoil@freescale.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33834 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751612AbaCFVwi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 16:52:38 -0500
+In-Reply-To: <1394008119-27899-3-git-send-email-claudiu.manoil@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-A malicious or buggy guest can leave its queue filled indefinitely, in which
-case qdisc start to queue packets for that VIF. If those packets came from an
-another guest, it can block its slots and prevent shutdown. To avoid that, we
-make sure the queue is drained in every 10 seconds.
-The QDisc queue in worst case takes 3 round to flush usually.
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Date: Wed, 5 Mar 2014 10:28:39 +0200
 
-Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
----
-v3:
-- remove stale debug log
-- tie unmap timeout in xenvif_free to this timeout
+> For the newer controllers (etsec2 models) the driver currently
+> supports 8 Tx and Rx DMA rings (aka HW queues).  However, there
+> are only 2 pairs of Rx/Tx interrupt lines, as these controllers
+> are integrated in low power SoCs with 2 CPUs at most.  As a result,
+> there are at most 2 NAPI instances that have to service multiple
+> Tx and Rx queues for these devices.  This complicates the NAPI
+> polling routine having to iterate over the mutiple Rx/Tx queues
+> hooked to the same interrupt lines.  And there's also an overhead
+> at HW level, as the controller needs to service all the 8 Tx rings
+> in a round robin manner.  The cumulated overhead shows up for mutiple
+> parrallel Tx flows transmitted by the kernel stack, when the driver
+> usually starts returning NETDEV_TX_BUSY and leading to NETDEV WATCHDOG
+> Tx timeout triggering if the Tx path is congested for too long.
+> 
+> As an alternative, this patch makes the driver support only one
+> Tx/Rx DMA ring per NAPI instace (per interrupt group or pair
+> of Tx/Rx interrupt lines) by default.  The simplified single queue
+> polling routine (gfar_poll_sq) will be the default napi poll routine
+> for the etsec2 devices too.  Only small adjustments needed to be made
+> to link the Tx/Rx HW queues with each NAPI instance (2 in this case).
+> The gfar_poll_sq() is already succefully used by older SQ_SG (single
+> interrupt group) controllers.  And there's also a significat memory
+> footprint reduction by supporting 2 Rx/Tx DMA rings (at most), instead
+> of 8.
+> 
+> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
 
-v4:
-- due to RX flow control changes now start_xmit doesn't drop the packets but
-  place them on the internal queue. So the timer set rx_queue_purge and kick in
-  the thread to drop the packets there
-- we shoot down the timer if a previously filled internal queue drains
-- adjust the teardown timeout as in worst case it can take more time now
+This patch is not OK.
 
-v5:
-- create separate variable worst_case_skb_lifetime and add an explanation about
-  why is it so long
+First of all, you are disabling multi-queue for other devices.
 
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index 109c29f..d1cd8ce 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -129,6 +129,9 @@ struct xenvif {
- 	struct xen_netif_rx_back_ring rx;
- 	struct sk_buff_head rx_queue;
- 	RING_IDX rx_last_skb_slots;
-+	bool rx_queue_purge;
-+
-+	struct timer_list wake_queue;
- 
- 	/* This array is allocated seperately as it is large */
- 	struct gnttab_copy *grant_copy_op;
-@@ -225,4 +228,7 @@ void xenvif_idx_unmap(struct xenvif *vif, u16 pending_idx);
- 
- extern bool separate_tx_rx_irq;
- 
-+extern unsigned int rx_drain_timeout_msecs;
-+extern unsigned int rx_drain_timeout_jiffies;
-+
- #endif /* __XEN_NETBACK__COMMON_H__ */
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index af6b3e1..40aa500 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -114,6 +114,18 @@ static irqreturn_t xenvif_interrupt(int irq, void *dev_id)
- 	return IRQ_HANDLED;
- }
- 
-+static void xenvif_wake_queue(unsigned long data)
-+{
-+	struct xenvif *vif = (struct xenvif *)data;
-+
-+	if (netif_queue_stopped(vif->dev)) {
-+		netdev_err(vif->dev, "draining TX queue\n");
-+		vif->rx_queue_purge = true;
-+		xenvif_kick_thread(vif);
-+		netif_wake_queue(vif->dev);
-+	}
-+}
-+
- static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct xenvif *vif = netdev_priv(dev);
-@@ -143,8 +155,13 @@ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	 * then turn off the queue to give the ring a chance to
- 	 * drain.
- 	 */
--	if (!xenvif_rx_ring_slots_available(vif, min_slots_needed))
-+	if (!xenvif_rx_ring_slots_available(vif, min_slots_needed)) {
-+		vif->wake_queue.function = xenvif_wake_queue;
-+		vif->wake_queue.data = (unsigned long)vif;
- 		xenvif_stop_queue(vif);
-+		mod_timer(&vif->wake_queue,
-+			jiffies + rx_drain_timeout_jiffies);
-+	}
- 
- 	skb_queue_tail(&vif->rx_queue, skb);
- 	xenvif_kick_thread(vif);
-@@ -352,6 +369,8 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
- 	init_timer(&vif->credit_timeout);
- 	vif->credit_window_start = get_jiffies_64();
- 
-+	init_timer(&vif->wake_queue);
-+
- 	dev->netdev_ops	= &xenvif_netdev_ops;
- 	dev->hw_features = NETIF_F_SG |
- 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
-@@ -532,6 +551,7 @@ void xenvif_disconnect(struct xenvif *vif)
- 		xenvif_carrier_off(vif);
- 
- 	if (vif->task) {
-+		del_timer_sync(&vif->wake_queue);
- 		kthread_stop(vif->task);
- 		vif->task = NULL;
- 	}
-@@ -557,12 +577,25 @@ void xenvif_disconnect(struct xenvif *vif)
- void xenvif_free(struct xenvif *vif)
- {
- 	int i, unmap_timeout = 0;
-+	/* Here we want to avoid timeout messages if an skb can be legitimatly
-+	 * stucked somewhere else. Realisticly this could be an another vif's
-+	 * internal or QDisc queue. That another vif also has this
-+	 * rx_drain_timeout_msecs timeout, but the timer only ditches the
-+	 * internal queue. After that, the QDisc queue can put in worst case
-+	 * XEN_NETIF_RX_RING_SIZE / MAX_SKB_FRAGS skbs into that another vif's
-+	 * internal queue, so we need several rounds of such timeouts until we
-+	 * can be sure that no another vif should have skb's from us. We are
-+	 * not sending more skb's, so newly stucked packets are not interesting
-+	 * for us here.
-+	 */
-+	unsigned int worst_case_skb_lifetime = (rx_drain_timeout_msecs/1000) *
-+		DIV_ROUND_UP(XENVIF_QUEUE_LENGTH, (XEN_NETIF_RX_RING_SIZE / MAX_SKB_FRAGS));
- 
- 	for (i = 0; i < MAX_PENDING_REQS; ++i) {
- 		if (vif->grant_tx_handle[i] != NETBACK_INVALID_HANDLE) {
- 			unmap_timeout++;
- 			schedule_timeout(msecs_to_jiffies(1000));
--			if (unmap_timeout > 9 &&
-+			if (unmap_timeout > worst_case_skb_lifetime &&
- 			    net_ratelimit())
- 				netdev_err(vif->dev,
- 					   "Page still granted! Index: %x\n",
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 560950e..bb65c7c 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -63,6 +63,13 @@ module_param(separate_tx_rx_irq, bool, 0644);
- static unsigned int fatal_skb_slots = FATAL_SKB_SLOTS_DEFAULT;
- module_param(fatal_skb_slots, uint, 0444);
- 
-+/* When guest ring is filled up, qdisc queues the packets for us, but we have
-+ * to timeout them, otherwise other guests' packets can get stucked there
-+ */
-+unsigned int rx_drain_timeout_msecs = 10000;
-+module_param(rx_drain_timeout_msecs, uint, 0444);
-+unsigned int rx_drain_timeout_jiffies;
-+
- /*
-  * To avoid confusion, we define XEN_NETBK_LEGACY_SLOTS_MAX indicating
-  * the maximum slots a valid packet can use. Now this value is defined
-@@ -1909,8 +1916,9 @@ static struct xen_netif_rx_response *make_rx_response(struct xenvif *vif,
- 
- static inline int rx_work_todo(struct xenvif *vif)
- {
--	return !skb_queue_empty(&vif->rx_queue) &&
--	       xenvif_rx_ring_slots_available(vif, vif->rx_last_skb_slots);
-+	return (!skb_queue_empty(&vif->rx_queue) &&
-+	       xenvif_rx_ring_slots_available(vif, vif->rx_last_skb_slots)) ||
-+	       vif->rx_queue_purge;
- }
- 
- static inline int tx_work_todo(struct xenvif *vif)
-@@ -1998,12 +2006,19 @@ int xenvif_kthread(void *data)
- 		if (kthread_should_stop())
- 			break;
- 
-+		if (vif->rx_queue_purge) {
-+			skb_queue_purge(&vif->rx_queue);
-+			vif->rx_queue_purge = false;
-+		}
-+
- 		if (!skb_queue_empty(&vif->rx_queue))
- 			xenvif_rx_action(vif);
- 
- 		if (skb_queue_empty(&vif->rx_queue) &&
--		    netif_queue_stopped(vif->dev))
-+		    netif_queue_stopped(vif->dev)) {
-+			del_timer_sync(&vif->wake_queue);
- 			xenvif_start_queue(vif);
-+		}
- 
- 		cond_resched();
- 	}
-@@ -2054,6 +2069,8 @@ static int __init netback_init(void)
- 	if (rc)
- 		goto failed_init;
- 
-+	rx_drain_timeout_jiffies = msecs_to_jiffies(rx_drain_timeout_msecs);
-+
- 	return 0;
- 
- failed_init:
+You're adding a CPP check for a macro that is set by nothing.
+
+Determine the condition to limit the number of queues at run-time.
