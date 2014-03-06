@@ -1,65 +1,57 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: brcmfmac: fix txglomming scatter-gather packet transfers
-Date: Thu, 6 Mar 2014 09:51:46 +0100
-Message-ID: <53183722.7000301@broadcom.com>
-References: <20140305192636.D06AA660D72@gitolite.kernel.org> <20140306060936.GB26578@redhat.com>
+From: Luca Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>
+Subject: Re: [PATCH] Drivers:net:wireless:ti:wl1251: Fixed Sparse invalid
+ assignment warning
+Date: Thu, 06 Mar 2014 10:55:12 +0200
+Message-ID: <1394096112.26326.1.camel@dubbel>
+References: <1393921132-15950-1-git-send-email-surendra.tux@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <linville@tuxdriver.com>, <linux-coverity@vger.kernel.org>
-To: Dave Jones <davej@redhat.com>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:35742 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752147AbaCFIvu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 03:51:50 -0500
-In-Reply-To: <20140306060936.GB26578@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, pavel-+ZI9xUNit7I@public.gmane.org, pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	david.gnedt-rFfgOQFw6VLk7+2FdBfRIA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Surendra Patil <surendra.tux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1393921132-15950-1-git-send-email-surendra.tux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 03/06/2014 07:09 AM, Dave Jones wrote:
-> On Wed, Mar 05, 2014 at 07:26:36PM +0000, Linux Kernel wrote:
->  
->  > Commit:     1eb43018673e735ea9cd756970f4e71ca01a5f21
->  > Parent:     21f8aaee0c62708654988ce092838aa7df4d25d8
->  > Author:     Arend van Spriel <arend@broadcom.com>
->  > AuthorDate: Thu Feb 20 18:55:55 2014 +0100
->  > Committer:  John W. Linville <linville@tuxdriver.com>
->  > CommitDate: Thu Feb 20 15:53:20 2014 -0500
->  > 
->  >     brcmfmac: fix txglomming scatter-gather packet transfers
+On Tue, 2014-03-04 at 00:18 -0800, Surendra Patil wrote:
+> Sparse warns about invalid assignment in
+> drivers/net/wireless/ti/wl1251/cmd.c:451:42: warning: invalid assignment: |=
+> drivers/net/wireless/ti/wl1251/cmd.c:451:42:    left side has type restricted __le16
+> drivers/net/wireless/ti/wl1251/cmd.c:451:42:    right side has type int
+> Hence type converted right side to __le16.
 > 
-> Coverity just flagged this code.
+> Signed-off-by: Surendra Patil <surendra.tux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>  drivers/net/wireless/ti/wl1251/cmd.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
->  >  	if (skb_tailroom(pkt) < tail_pad && pkt->len > blksize) {
->  > +		pkt_pad = brcmu_pkt_buf_get_skb(tail_pad + tail_chop +
->  > +						bus->head_align);
->  >  		if (pkt_pad == NULL)
->  >  			return -ENOMEM;
->  >  		ret = brcmf_sdio_txpkt_hdalign(bus, pkt_pad);
-> 
-> Right after this, I think we need the diff below or we leak pkt_pad.
-> If this looks right, I'll submit it properly tomorrow.
+> diff --git a/drivers/net/wireless/ti/wl1251/cmd.c b/drivers/net/wireless/ti/wl1251/cmd.c
+> index 223649b..bf1fa18 100644
+> --- a/drivers/net/wireless/ti/wl1251/cmd.c
+> +++ b/drivers/net/wireless/ti/wl1251/cmd.c
+> @@ -448,7 +448,7 @@ int wl1251_cmd_scan(struct wl1251 *wl, u8 *ssid, size_t ssid_len,
+>  	 * Note: This bug may be caused by the fw's DTIM handling.
+>  	 */
+>  	if (is_zero_ether_addr(wl->bssid))
+> -		cmd->params.scan_options |= WL1251_SCAN_OPT_PRIORITY_HIGH;
+> +		cmd->params.scan_options |= cpu_to_le16(WL1251_SCAN_OPT_PRIORITY_HIGH);
+>  	cmd->params.num_channels = n_channels;
+>  	cmd->params.num_probe_requests = n_probes;
+>  	cmd->params.tx_rate = cpu_to_le16(1 << 1); /* 2 Mbps */
 
-Looks right to me so go ahead.
+AFAIR wl1251 is not really endianess-safe.  I think there are lots of
+other places where endianess macros should be added.
 
-Regards,
-Arend
+Nothing wrong with this patch, I'm just saying that while at it, maybe
+someone could take care of all the endianess issues with wl1251? ;)
 
-> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c b/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
-> index 119ee6eaf1c3..ddaa9efd053d 100644
-> --- a/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
-> +++ b/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
-> @@ -1948,8 +1948,10 @@ static int brcmf_sdio_txpkt_prep_sg(struct brcmf_sdio *bus,
->  		if (pkt_pad == NULL)
->  			return -ENOMEM;
->  		ret = brcmf_sdio_txpkt_hdalign(bus, pkt_pad);
-> -		if (unlikely(ret < 0))
-> +		if (unlikely(ret < 0)) {
-> +			kfree_skb(pkt_pad);
->  			return ret;
-> +		}
->  		memcpy(pkt_pad->data,
->  		       pkt->data + pkt->len - tail_chop,
->  		       tail_chop);
-> 
+--
+Luca.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
