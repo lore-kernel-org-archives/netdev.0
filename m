@@ -1,43 +1,41 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: Can I limit the number of active tx per TCP socket?
-Date: Thu, 6 Mar 2014 15:03:11 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6D3F7B@AcuExch.aculab.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D0F6D3B91@AcuExch.aculab.com>
- <CABrhC0kpuuHFxgr8BsJA3rTcoo49mb6nOYcuomwsRMPq=p1wQA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: use raw_cpu ops in snmp stats bh
+Date: Thu, 06 Mar 2014 07:04:32 -0800
+Message-ID: <1394118272.27473.36.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1394110536-4532-1-git-send-email-sergey.senozhatsky@gmail.com>
+	 <1394117074.27473.29.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'John Heffner' <johnwheffner@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:53611 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750794AbaCFPDw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 10:03:52 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 29140-05 for <netdev@vger.kernel.org>;
- Thu,  6 Mar 2014 15:03:44 +0000 (GMT)
-In-Reply-To: <CABrhC0kpuuHFxgr8BsJA3rTcoo49mb6nOYcuomwsRMPq=p1wQA@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394117074.27473.29.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: John Heffner 
-> On Thu, Mar 6, 2014 at 7:28 AM, David Laight <David.Laight@aculab.com> wrote:
-> > Is it possible to stop a TCP connection having more than one
-> > tx skb (in the ethernet tx ring) at any one time?
-> > The idea is to allow time for short sends from the application
-> > to accumulate so that the transmitted frames are longer.
->
-> Is TCP_CORK what you're looking for?
+On Thu, 2014-03-06 at 06:44 -0800, Eric Dumazet wrote:
 
-No - TCP_CORK requires that you know you have more data to send.
-In which case you are better off saving the system calls and
-sending it with sendv() or writev().
+> I think you missed a lot of mails sent by Chrisoph Lameter recently...
 
-I may well write the code to sit on the data for up to a ms
-before sending it.  The data is sent out on a 64k line so
-1ms is only 8 byte times.
+s/Chrisoph/Christoph/
 
-	David
+Appropriate fix would be the following one, please submit this formally.
+
+
+Fixes: f19c29e3e391 ("tcp: snmp stats for Fast Open, SYN rtx, and data pkts")
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 5286228679bd..df063a32a177 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -87,7 +87,7 @@ static void tcp_event_new_data_sent(struct sock *sk, const struct sk_buff *skb)
+ 		tcp_rearm_rto(sk);
+ 	}
+ 
+-	NET_ADD_STATS_BH(sock_net(sk), LINUX_MIB_TCPORIGDATASENT,
++	NET_ADD_STATS(sock_net(sk), LINUX_MIB_TCPORIGDATASENT,
+ 			 tcp_skb_pcount(skb));
+ }
+ 
