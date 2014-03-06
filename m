@@ -1,53 +1,117 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Can I limit the number of active tx per TCP socket?
-Date: Thu, 06 Mar 2014 09:17:37 -0800
-Message-ID: <5318ADB1.5050107@hp.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D0F6D3B91@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: David Laight <David.Laight@ACULAB.COM>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next V3 1/2] net: Utility function to get affinity_hint by policy
+Date: Thu,  6 Mar 2014 19:18:51 +0200
+Message-ID: <1394126332-11110-2-git-send-email-amirv@mellanox.com>
+References: <1394126332-11110-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>, prarit@redhat.com,
+	Govindarajulu Varadarajan <gvaradar@cisco.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3426.houston.hp.com ([15.201.208.54]:36597 "EHLO
-	g4t3426.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752081AbaCFRRk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 12:17:40 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6D3B91@AcuExch.aculab.com>
+Received: from mailp.voltaire.com ([193.47.165.129]:38024 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751548AbaCFRTL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Mar 2014 12:19:11 -0500
+In-Reply-To: <1394126332-11110-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/06/2014 04:28 AM, David Laight wrote:
-> Is it possible to stop a TCP connection having more than one
-> tx skb (in the ethernet tx ring) at any one time?
-> The idea is to allow time for short sends from the application
-> to accumulate so that the transmitted frames are longer.
+This function sets the affinity_mask according to a numa aware policy.
+affinity_mask could be used as an affinity hint for the IRQ related to
+this rx queue.
+Current policy is to spread rx queues accross cores - local cores first.
+It could be extended in the future.
 
-That is precisely what Nagle is supposed to be doing - at least where 
-the definition of "time" is the round-trip-time rather than "time it 
-takes to get transmitted out the NIC."
+CC: Prarit Bhargava <prarit@redhat.com>
+CC: Govindarajulu Varadarajan <gvaradar@cisco.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ include/linux/netdevice.h |  3 +++
+ net/core/dev.c            | 57 +++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 60 insertions(+)
 
-> Basically I have a TCP connection which carries a lot of separate
-> short 'user buffers'. These are not command-response so
-> TCP_NODELAY has to be set to avoid long delays.
-
-When you are saturating the receiver and/or the 64K line, are you 
-certain that not setting TCP_NODELAY means long delays?
-
- From a later message:
-
-> The data is sent out on a 64k line so 1ms is only 8 byte times.
-
-Are you still using a 1460 byte MSS on such a connection?
-
-Perhaps you can set the MSS (or drop the MTU on the 64K line and use 
-PTMU) to something less to trigger window updates a bit sooner and so 
-get piggy-backed ACKs rather than delayed ACKs and so not have to set 
-TCP_NODELAY?  Yes, you will have a question of headers versus 
-headers+data but with TCP_NODELAY set as you have it you are (probably) 
-already trashing that.
-
-Setting TCP_NODELAY to avoid "long delays" and then having a 64Kbyte/s 
-link seems a trifle, well, contradictory.
-
-rick jones
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 1a86948..db4fd12 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2526,6 +2526,9 @@ static inline int netif_set_real_num_rx_queues(struct net_device *dev,
+ }
+ #endif
+ 
++int netif_set_rx_queue_affinity_hint(int rxq, int numa_node,
++				     cpumask_var_t affinity_mask);
++
+ static inline int netif_copy_real_num_queues(struct net_device *to_dev,
+ 					     const struct net_device *from_dev)
+ {
+diff --git a/net/core/dev.c b/net/core/dev.c
+index b1b0c8d..72a46c2 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2117,6 +2117,63 @@ EXPORT_SYMBOL(netif_set_real_num_rx_queues);
+ #endif
+ 
+ /**
++ * netif_set_rx_queue_affinity_hint - set affinity hint of rx queue
++ * @rxq: index of rx queue
++ * @numa_node: prefered numa_node
++ * @affinity_mask: the relevant cpu bit is set according to the policy
++ *
++ * This function sets the affinity_mask according to a numa aware policy.
++ * affinity_mask coulbe used as an affinity hint for the IRQ related to this
++ * rx queue.
++ * The policy is to spread rx queues accross cores - local cores first.
++ *
++ * Returns 0 on success, or a negative error code.
++ */
++int netif_set_rx_queue_affinity_hint(int rxq, int numa_node,
++				     cpumask_var_t affinity_mask)
++{
++	const struct cpumask *p_numa_cores_mask;
++	cpumask_var_t non_numa_cores_mask = NULL;
++	int affinity_cpu;
++	int ret = 0;
++
++	rxq %= num_online_cpus();
++
++	p_numa_cores_mask = cpumask_of_node(numa_node);
++	if (!p_numa_cores_mask)
++		p_numa_cores_mask = cpu_online_mask;
++
++	for_each_cpu(affinity_cpu, p_numa_cores_mask) {
++		if (--rxq < 0)
++			goto out;
++	}
++
++	if (!zalloc_cpumask_var(&non_numa_cores_mask, GFP_KERNEL)) {
++		ret = -ENOMEM;
++		goto err;
++	}
++
++	cpumask_xor(non_numa_cores_mask, cpu_online_mask, p_numa_cores_mask);
++
++	for_each_cpu(affinity_cpu, non_numa_cores_mask) {
++		if (--rxq < 0)
++			goto out;
++	}
++
++	ret = -EINVAL;
++	goto err;
++
++out:
++	cpumask_set_cpu(affinity_cpu, affinity_mask);
++
++err:
++	free_cpumask_var(non_numa_cores_mask);
++
++	return ret;
++}
++EXPORT_SYMBOL(netif_set_rx_queue_affinity_hint);
++
++/**
+  * netif_get_num_default_rss_queues - default number of RSS queues
+  *
+  * This routine should set an upper limit on the number of RSS queues
+-- 
+1.8.3.4
