@@ -1,68 +1,87 @@
-From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Subject: Re: [PATCH] net-gre-gro: Fix a bug that breaks the forwarding path
-Date: Thu, 6 Mar 2014 08:42:32 -0800 (PST)
-Message-ID: <alpine.LFD.2.03.1403060841260.2472@intel.com>
-References: <1393536377-32243-1-git-send-email-hkchu@google.com> <CAJZOPZKy7w-q5+pp=FgCs8LdQL6e16zAiJr89VMkh+h7obAArg@mail.gmail.com> <CAPshTCgLo8ycMTtoa+D14+7pPxJaiC-jUzyR3PJcrMKFw9V0zA@mail.gmail.com> <20140228.165614.1112789771887381245.davem@davemloft.net>
- <5315FBAA.3030809@mellanox.com> <alpine.LFD.2.03.1403041359350.7122@intel.com> <CA+mtBx9i1tOTzgjCfoxXjzjkJyFWCoQDYdvQAejWXketUf8VYQ@mail.gmail.com> <CAJZOPZKoUm_uAc_8r14oF08C2+f_-tp33rLv6bG=_2n4=KaF7Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Tom Herbert <therbert@google.com>,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	Jerry Chu <hkchu@google.com>,
-	David Miller <davem@davemloft.net>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net 2/2] net/mlx4_core: mlx4_init_slave() shouldn't access comm channel before PF is ready
+Date: Thu,  6 Mar 2014 18:28:17 +0200
+Message-ID: <1394123297-7878-3-git-send-email-amirv@mellanox.com>
+References: <1394123297-7878-1-git-send-email-amirv@mellanox.com>
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>, Narendra_K@Dell.com,
+	Sreekanth_Reddy@Dell.com, Amir Vadai <amirv@mellanox.com>,
+	netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:55847 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751052AbaCFQY1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Mar 2014 11:24:27 -0500
-In-Reply-To: <CAJZOPZKoUm_uAc_8r14oF08C2+f_-tp33rLv6bG=_2n4=KaF7Q@mail.gmail.com>
+Received: from mailp.voltaire.com ([193.47.165.129]:43416 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752508AbaCFQ2c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Mar 2014 11:28:32 -0500
+In-Reply-To: <1394123297-7878-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Currently, the PF call to pci_enable_sriov from the PF probe function
+stalls for 10 seconds times the number of VFs probed on the host. This
+happens because the way for such VFs to determine of the PF
+initialization finished, is by attempting to issue reset on the
+comm-channel and get timeout (after 10s).
 
+The PF probe function is called from a kenernel workqueue, and therefore
+during that time, rcu lock is being held and kernel's workqueue is
+stalled. This blocks other processes that try to use the workqueue
+or rcu lock.  For example, interface renaming which is calling
+rcu_synchronize is blocked, and timedout by systemd.
 
-On Wed, 5 Mar 2014, Or Gerlitz wrote:
+Changed mlx4_init_slave() to allow VF probed on the host to immediatly
+detect that the PF is not ready, and return EPROBE_DEFER instantly.
 
-> On Wed, Mar 5, 2014 at 2:50 AM, Tom Herbert <therbert@google.com> wrote:
-> > I am concerned that we are overloading the skb->encpasulation
-> 
-> Guys, so to sum up yesterday's messages on this thread -- do folks
-> think we can come up with better/proper definition for the
-> skb->encapsulation bit, or we have to make this multiple bits, or we
-> have (hopefully not too non linear) dependancy on proper
-> definitions/usage of the skb->ip_summed field?
-> 
-> 
-> Or.
->
+Only when the PF finishes the initialization, allow such VFs to
+access the comm channel.
 
->From my perspective I do not see a gap with the mentioned fields, but I am 
-open if anyone has something to suggest.
+This issue and fix are relevant only for probed VFs on the hypervisor,
+there is no way to pass this information to a VM until comm channel is
+ready, so in a VM, if PF is not ready, the first command will be timedout
+after 10 seconds and return EPROBE_DEFER.
 
-Joseph
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/main.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 5a6105f..30a08a6 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -150,6 +150,8 @@ struct mlx4_port_config {
+ 	struct pci_dev *pdev;
+ };
  
-> > for instance if this is set in TX path meaning inner headers are valid,
-> > this should also be true of RX. It might be better if this field
-> > indicated characteristics of the packet independent of being in RX or
-> > TX path. For checksum, maybe we should have a separate encap_checksum
-> > field. Also, to be future proof may this should be two bits for the
-> > devices that can verify checksums in multiple levels of encapsulations
-> > (yes, I know this sounds absurd, but it's no more absurd than devices
-> > vendors taking it upon themselves to parse to some restricted set of
-> > encapsulations instead of just giving us the full packet checksum! :-)).
-> 
-> > I hope to have patches soon on fixing CHECKSUM_COMPLETE, I think it
-> > entails some more state in skb indicating offset and extent of
-> > checksum value in the packet. An like a said, we need to get out of
-> > the habit of stashing pseudo csums there (unless CHECKSUM_PARTIAL is
-> > set).
-> >
-> >> Also for Tx, skb->encapsulation should be the indication to the
-> >> driver that it can use the inner headers (i.e. they are valid) in the skb
-> >> in order to offload the inner csum.
-> 
++static atomic_t pf_loading = ATOMIC_INIT(0);
++
+ int mlx4_check_port_params(struct mlx4_dev *dev,
+ 			   enum mlx4_port_type *port_type)
+ {
+@@ -1407,6 +1409,11 @@ static int mlx4_init_slave(struct mlx4_dev *dev)
+ 	u32 slave_read;
+ 	u32 cmd_channel_ver;
+ 
++	if (atomic_read(&pf_loading)) {
++		mlx4_warn(dev, "PF is not ready. Deferring probe\n");
++		return -EPROBE_DEFER;
++	}
++
+ 	mutex_lock(&priv->cmd.slave_cmd_mutex);
+ 	priv->cmd.max_cmds = 1;
+ 	mlx4_warn(dev, "Sending reset\n");
+@@ -2319,7 +2326,11 @@ static int __mlx4_init_one(struct pci_dev *pdev, int pci_dev_data)
+ 
+ 		if (num_vfs) {
+ 			mlx4_warn(dev, "Enabling SR-IOV with %d VFs\n", num_vfs);
++
++			atomic_inc(&pf_loading);
+ 			err = pci_enable_sriov(pdev, num_vfs);
++			atomic_dec(&pf_loading);
++
+ 			if (err) {
+ 				mlx4_err(dev, "Failed to enable SR-IOV, continuing without SR-IOV (err = %d).\n",
+ 					 err);
+-- 
+1.8.3.4
