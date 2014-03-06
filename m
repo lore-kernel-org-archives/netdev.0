@@ -1,38 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net/mlx4_en: mlx4_en_verify_params() can be
- static
-Date: Thu, 06 Mar 2014 16:54:21 -0500 (EST)
-Message-ID: <20140306.165421.316751944344722461.davem@davemloft.net>
-References: <1394013443-17153-1-git-send-email-amirv@mellanox.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yevgenyp@mellanox.com,
-	ogerlitz@mellanox.com, fengguang.wu@intel.com,
-	linux-kernel@vger.kernel.org, eugenia@mellanox.com
-To: amirv@mellanox.com
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: [PATCH v2] bonding: correctly handle out of range parameters for lp_interval
+Date: Thu,  6 Mar 2014 16:53:11 -0500
+Message-ID: <1394142791-11142-1-git-send-email-sasha.levin@oracle.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, nikolay@redhat.com,
+	Sasha Levin <sasha.levin@oracle.com>
+To: fubar@us.ibm.com, vfalico@redhat.com, andy@greyhouse.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394013443-17153-1-git-send-email-amirv@mellanox.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Amir Vadai <amirv@mellanox.com>
-Date: Wed,  5 Mar 2014 11:57:23 +0200
+We didn't correctly check cases where the value for lp_interval is not
+within the legal range due to a missing table terminator.
 
-> From: Fengguang Wu <fengguang.wu@intel.com>
-> 
-> Fix static error introduced by commit:
-> b97b33a3df0439401f80f041eda507d4fffa0dbf [645/653] net/mlx4_en: Verify
-> mlx4_en module parameters
-> 
-> sparse warnings:
-> drivers/net/ethernet/mellanox/mlx4/en_main.c:335:6: sparse: symbol
-> 'mlx4_en_verify_params' was not declared. Should it be static?
-> 
-> CC: netdev@vger.kernel.org
-> CC: linux-kernel@vger.kernel.org
-> CC: Eugenia Emantayev <eugenia@mellanox.com>
-> Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
-> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+This would let userspace trigger a kernel panic by specifying a value out
+of range:
 
-Applied, thanks.
+	echo -1 > /sys/devices/virtual/net/bond0/bonding/lp_interval
+
+Introduced by commit 4325b374f84 ("bonding: convert lp_interval to use
+the new option API").
+
+Acked-by: Nikolay Aleksandrov <nikolay@redhat.com>
+Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+---
+ drivers/net/bonding/bond_options.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+index 23f3655..4d35cdc 100644
+--- a/drivers/net/bonding/bond_options.c
++++ b/drivers/net/bonding/bond_options.c
+@@ -124,6 +124,7 @@ static struct bond_opt_value bond_resend_igmp_tbl[] = {
+ static struct bond_opt_value bond_lp_interval_tbl[] = {
+ 	{ "minval",  1,       BOND_VALFLAG_MIN | BOND_VALFLAG_DEFAULT},
+ 	{ "maxval",  INT_MAX, BOND_VALFLAG_MAX},
++	{ NULL,      -1,      0},	
+ };
+ 
+ static struct bond_option bond_opts[] = {
+-- 
+1.7.2.5
