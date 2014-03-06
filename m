@@ -1,81 +1,51 @@
-From: Heiner Kallweit <heiner.kallweit@web.de>
-Subject: Re: Bug 71591 - Temporary address re-generated when it should not
- (public address about to expire)
-Date: Thu, 06 Mar 2014 18:02:16 +0100
-Message-ID: <5318AA18.6040705@web.de>
-References: <5318A47D.2020204@web.de> <20140306164309.GB3092@order.stressinduktion.org>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH] openvswitch: Orphan frags before sending to userspace
+ via Netlink to avoid guest stall
+Date: Thu, 6 Mar 2014 17:09:20 +0000
+Message-ID: <5318ABC0.4040307@citrix.com>
+References: <1393615016-9187-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([212.227.17.11]:61688 "EHLO mout.web.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750848AbaCFRCW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Mar 2014 12:02:22 -0500
-Received: from [192.168.178.101] ([84.153.198.61]) by smtp.web.de (mrweb102)
- with ESMTPSA (Nemesis) id 0LyUgM-1XIN0l0oHG-015rwL for
- <netdev@vger.kernel.org>; Thu, 06 Mar 2014 18:02:21 +0100
-In-Reply-To: <20140306164309.GB3092@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <kvm@vger.kernel.org>
+To: Jesse Gross <jesse@nicira.com>, <pshelar@nicira.com>,
+	<tgraf@redhat.com>, <dev@openvswitch.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1393615016-9187-1-git-send-email-zoltan.kiss@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thanks for the hint on the correct procedure. Next try ..
-Output from checkpatch.p --strict
-total: 0 errors, 0 warnings, 0 checks, 10 lines checked
-patch-3.10.32-ipv6_create_tempaddr has no obvious style problems and is 
-ready for submission.
+Do you have any feedback on this? I'm also adding KVM list as they might 
+be interested in this.
 
-diff -upNr linux-3.10.32.vanilla/net/ipv6/addrconf.c 
-linux-3.10.32.patched/net/ipv6/addrconf.c
---- linux-3.10.32.vanilla/net/ipv6/addrconf.c    2014-02-22 
-14:41:54.000000000 -0600
-+++ linux-3.10.32.patched/net/ipv6/addrconf.c    2014-03-06 
-17:07:12.953699438 -0600
-@@ -1111,8 +1111,9 @@ retry:
-       * Lifetime is greater than REGEN_ADVANCE time units.  In particular,
-       * an implementation must not create a temporary address with a zero
-       * Preferred Lifetime.
-+     * Note that tmp_prefered_lft is relative to ifp->tstamp not now.
-       */
--    if (tmp_prefered_lft <= regen_advance) {
-+    if (tmp_prefered_lft <= regen_advance + age) {
-          in6_ifa_put(ifp);
-          in6_dev_put(idev);
-          ret = -1;
-Signed-off-by: Heiner Kallweit <heiner.kallweit@web.de>
+Zoli
 
-Rgds,
-Heiner
-
-
-Am 06.03.2014 17:43, schrieb Hannes Frederic Sowa:
-> On Thu, Mar 06, 2014 at 05:38:21PM +0100, Heiner Kallweit wrote:
->> Recently I faced the issue that a public address was about to expire and
->> 3s before expiry a new temporary address was generated which instantly
->> went into deprecated state.
->> This didn't do any harm however it's wrong IMHO. Problem seems to be in
->> function ipv6_create_tempaddr in addrconf.c.
->> A new temporary address is generated if this condition is met:
->> tmp_prefered_lft > regen_advance
->> tmp_prefered_lft however is an offset from tstamp, not from now.
->> This condition only checks that the new address is preferred until more
->> than regen_advance from tstamp,
->> but it should check that the new address is preferred until more than
->> regen_advance from now.
->>
->> I submitted this issue to kernel bugzilla -> 71591
->> Hannes asked me to propose a patch, here it comes.
-> You would need to follow Documentation/SubmittingPatches and provide a proper
-> signed-off-by.
+On 28/02/14 19:16, Zoltan Kiss wrote:
+> The kernel datapath now switched to zerocopy Netlink messages, but that also
+> means that the pages on frags array are sent straight to userspace. If those
+> pages came outside the kernel, we have to swap them out with local copies.
 >
-> Basically if scripts/checkpatch.pl --strict doesn't complain on your patch any
-> more, then you're ready to submit.
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> ---
+>   net/openvswitch/datapath.c |    6 ++++++
+>   1 file changed, 6 insertions(+)
 >
-> Otherwise the patch looks good to me.
+> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+> index 36f8872..ffb563c 100644
+> --- a/net/openvswitch/datapath.c
+> +++ b/net/openvswitch/datapath.c
+> @@ -464,6 +464,12 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
+>   	}
+>   	nla->nla_len = nla_attr_size(skb->len);
 >
-> Thanks,
+> +	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC))) {
+> +		err = -ENOMEM;
+> +		skb_tx_error(skb);
+> +		goto out;
+> +	}
+> +
+>   	skb_zerocopy(user_skb, skb, skb->len, hlen);
 >
->    Hannes
->
+>   	/* Pad OVS_PACKET_ATTR_PACKET if linear copy was performed */
 >
