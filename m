@@ -1,7 +1,7 @@
 From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH 6/6] Drivers: net: hyperv: Enable large send offload
-Date: Thu,  6 Mar 2014 03:13:10 -0800
-Message-ID: <1394104390-23477-6-git-send-email-kys@microsoft.com>
+Subject: [PATCH 5/6] Drivers: net: hyperv: Enable send side checksum offload
+Date: Thu,  6 Mar 2014 03:13:09 -0800
+Message-ID: <1394104390-23477-5-git-send-email-kys@microsoft.com>
 References: <1394104358-23438-1-git-send-email-kys@microsoft.com>
  <1394104390-23477-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
@@ -23,147 +23,113 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-Enable segmentation offload.
+Enable send side checksum offload.
 
 Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
 ---
- drivers/net/hyperv/hyperv_net.h |   40 +++++++++++++++++++++++++++++++++++++++
- drivers/net/hyperv/netvsc_drv.c |   38 +++++++++++++++++++++++++++++++++---
- 2 files changed, 74 insertions(+), 4 deletions(-)
+ drivers/net/hyperv/netvsc_drv.c |   70 +++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 68 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index faeb746..ae5a899 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -742,6 +742,10 @@ struct ndis_oject_header {
- #define NDIS_OFFLOAD_PARAMETERS_RX_ENABLED_TX_DISABLED 3
- #define NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED 4
- 
-+#define NDIS_TCP_LARGE_SEND_OFFLOAD_V2_TYPE	1
-+#define NDIS_TCP_LARGE_SEND_OFFLOAD_IPV4	0
-+#define NDIS_TCP_LARGE_SEND_OFFLOAD_IPV6	1
-+
- /*
-  * New offload OIDs for NDIS 6
-  */
-@@ -804,12 +808,48 @@ struct ndis_tcp_ip_checksum_info {
- 	};
- };
- 
-+struct ndis_tcp_lso_info {
-+	union {
-+		struct {
-+			u32 unused:30;
-+			u32 type:1;
-+			u32 reserved2:1;
-+		} transmit;
-+		struct {
-+			u32 mss:20;
-+			u32 tcp_header_offset:10;
-+			u32 type:1;
-+			u32 reserved2:1;
-+		} lso_v1_transmit;
-+		struct {
-+			u32 tcp_payload:30;
-+			u32 type:1;
-+			u32 reserved2:1;
-+		} lso_v1_transmit_complete;
-+		struct {
-+			u32 mss:20;
-+			u32 tcp_header_offset:10;
-+			u32 type:1;
-+			u32 ip_version:1;
-+		} lso_v2_transmit;
-+		struct {
-+			u32 reserved:30;
-+			u32 type:1;
-+			u32 reserved2:1;
-+		} lso_v2_transmit_complete;
-+		u32  value;
-+	};
-+};
-+
- #define NDIS_VLAN_PPI_SIZE (sizeof(struct rndis_per_packet_info) + \
- 		sizeof(struct ndis_pkt_8021q_info))
- 
- #define NDIS_CSUM_PPI_SIZE (sizeof(struct rndis_per_packet_info) + \
- 		sizeof(struct ndis_tcp_ip_checksum_info))
- 
-+#define NDIS_LSO_PPI_SIZE (sizeof(struct rndis_per_packet_info) + \
-+		sizeof(struct ndis_tcp_lso_info))
-+
- /* Format of Information buffer passed in a SetRequest for the OID */
- /* OID_GEN_RNDIS_CONFIG_PARAMETER. */
- struct rndis_config_parameter_info {
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index e8159a8..9f1f995 100644
+index 98562fc..e8159a8 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -301,6 +301,7 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+@@ -259,6 +259,36 @@ static int netvsc_get_slots(struct sk_buff *skb)
+ 	return slots + frag_slots;
+ }
+ 
++bool get_net_transport_info(struct sk_buff *skb, bool *is_v4,
++				bool *is_tcp, bool *is_udp, u32 *trans_off)
++{
++	*is_tcp = false;
++	*is_udp = false;
++
++	if ((eth_hdr(skb)->h_proto != htons(ETH_P_IP)) &&
++		(eth_hdr(skb)->h_proto != htons(ETH_P_IPV6))) {
++		return false;
++	}
++
++	*trans_off = skb_transport_offset(skb);
++
++	if ((eth_hdr(skb)->h_proto == htons(ETH_P_IP))) {
++		struct iphdr *iphdr = ip_hdr(skb);
++		*is_v4 = true;
++		if (iphdr->protocol == IPPROTO_TCP)
++			*is_tcp = true;
++		else if (iphdr->protocol == IPPROTO_UDP)
++			*is_udp = true;
++	} else {
++		*is_v4 = false;
++		if (ipv6_hdr(skb)->nexthdr == IPPROTO_TCP)
++			*is_tcp = true;
++		else if (ipv6_hdr(skb)->nexthdr == IPPROTO_UDP)
++			*is_udp = true;
++	}
++	return true;
++}
++
+ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ {
+ 	struct net_device_context *net_device_ctx = netdev_priv(net);
+@@ -270,6 +300,12 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	u32 rndis_msg_size;
  	bool isvlan;
  	struct rndis_per_packet_info *ppi;
- 	struct ndis_tcp_ip_checksum_info *csum_info;
-+	struct ndis_tcp_lso_info *lso_info;
- 	int  hdr_offset;
- 	bool is_v4;
- 	bool is_tcp;
-@@ -381,7 +382,7 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	 * GSO packet.
- 	 */
- 	if (skb_is_gso(skb))
--		goto do_send;
-+		goto do_lso;
++	struct ndis_tcp_ip_checksum_info *csum_info;
++	int  hdr_offset;
++	bool is_v4;
++	bool is_tcp;
++	bool is_udp;
++
  
- 	rndis_msg_size += NDIS_CSUM_PPI_SIZE;
- 	ppi = init_ppi_data(rndis_msg, NDIS_CSUM_PPI_SIZE,
-@@ -401,6 +402,35 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	} else if (is_udp) {
- 		csum_info->transmit.udp_checksum = 1;
+ 	/*
+ 	 * We will atmost need two pages to describe the rndis
+@@ -338,6 +374,35 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 				VLAN_PRIO_SHIFT;
  	}
-+	goto do_send;
+ 
++	if (!get_net_transport_info(skb, &is_v4, &is_tcp, &is_udp, &hdr_offset))
++		goto do_send;
++	/*
++	 * Setup the sendside checksum offload only if this is not a
++	 * GSO packet.
++	 */
++	if (skb_is_gso(skb))
++		goto do_send;
 +
-+do_lso:
-+	rndis_msg_size += NDIS_LSO_PPI_SIZE;
-+	ppi = init_ppi_data(rndis_msg, NDIS_LSO_PPI_SIZE,
-+				TCP_LARGESEND_PKTINFO);
++	rndis_msg_size += NDIS_CSUM_PPI_SIZE;
++	ppi = init_ppi_data(rndis_msg, NDIS_CSUM_PPI_SIZE,
++				TCPIP_CHKSUM_PKTINFO);
 +
-+	lso_info = (struct ndis_tcp_lso_info *)((ulong)ppi +
++	csum_info = (struct ndis_tcp_ip_checksum_info *)((ulong)ppi +
 +			ppi->ppi_offset);
 +
-+	lso_info->lso_v2_transmit.type = NDIS_TCP_LARGE_SEND_OFFLOAD_V2_TYPE;
-+	if (is_v4) {
-+		lso_info->lso_v2_transmit.ip_version =
-+			NDIS_TCP_LARGE_SEND_OFFLOAD_IPV4;
-+		ip_hdr(skb)->tot_len = 0;
-+		ip_hdr(skb)->check = 0;
-+		tcp_hdr(skb)->check =
-+		~csum_tcpudp_magic(ip_hdr(skb)->saddr,
-+				ip_hdr(skb)->daddr, 0, IPPROTO_TCP, 0);
-+	} else {
-+		lso_info->lso_v2_transmit.ip_version =
-+			NDIS_TCP_LARGE_SEND_OFFLOAD_IPV6;
-+		ipv6_hdr(skb)->payload_len = 0;
-+		tcp_hdr(skb)->check =
-+		~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
-+				&ipv6_hdr(skb)->daddr, 0, IPPROTO_TCP, 0);
++	if (is_v4)
++		csum_info->transmit.is_ipv4 = 1;
++	else
++		csum_info->transmit.is_ipv6 = 1;
++
++	if (is_tcp) {
++		csum_info->transmit.tcp_checksum = 1;
++		csum_info->transmit.tcp_header_offset = hdr_offset;
++	} else if (is_udp) {
++		csum_info->transmit.udp_checksum = 1;
 +	}
-+	lso_info->lso_v2_transmit.tcp_header_offset = hdr_offset;
-+	lso_info->lso_v2_transmit.mss = skb_shinfo(skb)->gso_size;
- 
- do_send:
++
++do_send:
  	/* Start filling in the page buffers with the rndis hdr */
-@@ -657,10 +687,10 @@ static int netvsc_probe(struct hv_device *dev,
- 
+ 	rndis_msg->msg_len += rndis_msg_size;
+ 	packet->page_buf_cnt = init_page_array(rndis_msg, rndis_msg_size,
+@@ -593,8 +658,9 @@ static int netvsc_probe(struct hv_device *dev,
  	net->netdev_ops = &device_ops;
  
--	/* TODO: Add GSO and Checksum offload */
--	net->hw_features = NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_IP_CSUM;
-+	net->hw_features = NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_IP_CSUM |
-+				NETIF_F_TSO;
- 	net->features = NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_SG | NETIF_F_RXCSUM |
--			NETIF_F_IP_CSUM;
-+			NETIF_F_IP_CSUM | NETIF_F_TSO;
+ 	/* TODO: Add GSO and Checksum offload */
+-	net->hw_features = NETIF_F_RXCSUM | NETIF_F_SG;
+-	net->features = NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_SG | NETIF_F_RXCSUM;
++	net->hw_features = NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_IP_CSUM;
++	net->features = NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_SG | NETIF_F_RXCSUM |
++			NETIF_F_IP_CSUM;
  
  	SET_ETHTOOL_OPS(net, &ethtool_ops);
  	SET_NETDEV_DEV(net, &dev->device);
