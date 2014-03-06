@@ -1,60 +1,79 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 2/3] r8152: replace tp->netdev with netdev
-Date: Thu, 6 Mar 2014 15:07:17 +0800
-Message-ID: <1394089638-1580-3-git-send-email-hayeswang@realtek.com>
-References: <1393934464-23675-1-git-send-email-hayeswang@realtek.com>
- <1394089638-1580-1-git-send-email-hayeswang@realtek.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net-next] inet: remove now unused flag DST_NOPEER
+Date: Thu, 6 Mar 2014 09:11:07 +0100
+Message-ID: <20140306081107.GD26307@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394089638-1580-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:44711 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752142AbaCFILJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 03:11:09 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Replace some tp->netdev with netdev.
+Commit e688a604807647 ("net: introduce DST_NOPEER dst flag") introduced
+DST_NOPEER because because of crashes in ipv6_select_ident called from
+udp6_ufo_fragment.
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+Since commit 916e4cf46d0204 ("ipv6: reuse ip6_frag_id from
+ip6_ufo_append_data") we don't call ipv6_select_ident any more from
+ip6_ufo_append_data, thus this flag lost its purpose and can be removed.
+
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- drivers/net/usb/r8152.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ include/net/dst.h         | 7 +++----
+ net/bridge/br_netfilter.c | 2 +-
+ net/ipv6/output_core.c    | 2 +-
+ 3 files changed, 5 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index c8bad62..151398b 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -1037,6 +1037,7 @@ static void read_bulk_callback(struct urb *urb)
- static void write_bulk_callback(struct urb *urb)
- {
- 	struct net_device_stats *stats;
-+	struct net_device *netdev;
- 	unsigned long flags;
- 	struct tx_agg *agg;
- 	struct r8152 *tp;
-@@ -1050,10 +1051,11 @@ static void write_bulk_callback(struct urb *urb)
- 	if (!tp)
- 		return;
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 77eb53f..e01a826 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -54,10 +54,9 @@ struct dst_entry {
+ #define DST_NOHASH		0x0008
+ #define DST_NOCACHE		0x0010
+ #define DST_NOCOUNT		0x0020
+-#define DST_NOPEER		0x0040
+-#define DST_FAKE_RTABLE		0x0080
+-#define DST_XFRM_TUNNEL		0x0100
+-#define DST_XFRM_QUEUE		0x0200
++#define DST_FAKE_RTABLE		0x0040
++#define DST_XFRM_TUNNEL		0x0080
++#define DST_XFRM_QUEUE		0x0100
  
--	stats = rtl8152_get_stats(tp->netdev);
-+	netdev = tp->netdev;
-+	stats = rtl8152_get_stats(netdev);
- 	if (status) {
- 		if (net_ratelimit())
--			netdev_warn(tp->netdev, "Tx status %d\n", status);
-+			netdev_warn(netdev, "Tx status %d\n", status);
- 		stats->tx_errors += agg->skb_num;
- 	} else {
- 		stats->tx_packets += agg->skb_num;
-@@ -1066,7 +1068,7 @@ static void write_bulk_callback(struct urb *urb)
+ 	unsigned short		pending_confirm;
  
- 	usb_autopm_put_interface_async(tp->intf);
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index df0f114..80e1b0f 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -167,7 +167,7 @@ void br_netfilter_rtable_init(struct net_bridge *br)
+ 	rt->dst.dev = br->dev;
+ 	rt->dst.path = &rt->dst;
+ 	dst_init_metrics(&rt->dst, br_dst_default_metrics, true);
+-	rt->dst.flags	= DST_NOXFRM | DST_NOPEER | DST_FAKE_RTABLE;
++	rt->dst.flags	= DST_NOXFRM | DST_FAKE_RTABLE;
+ 	rt->dst.ops = &fake_dst_ops;
+ }
  
--	if (!netif_carrier_ok(tp->netdev))
-+	if (!netif_carrier_ok(netdev))
- 		return;
+diff --git a/net/ipv6/output_core.c b/net/ipv6/output_core.c
+index 827f795..d1b35d3 100644
+--- a/net/ipv6/output_core.c
++++ b/net/ipv6/output_core.c
+@@ -13,7 +13,7 @@ void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt)
+ 	int old, new;
  
- 	if (!test_bit(WORK_ENABLE, &tp->flags))
+ #if IS_ENABLED(CONFIG_IPV6)
+-	if (rt && !(rt->dst.flags & DST_NOPEER)) {
++	if (rt) {
+ 		struct inet_peer *peer;
+ 		struct net *net;
+ 
 -- 
-1.8.4.2
+1.8.5.3
