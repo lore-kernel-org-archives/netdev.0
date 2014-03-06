@@ -1,43 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: don't set DST_NOCOUNT for remotely added
- routes
-Date: Thu, 06 Mar 2014 15:27:15 -0500 (EST)
-Message-ID: <20140306.152715.1223513898002005603.davem@davemloft.net>
-References: <1394124717-1957-1-git-send-email-sd@queasysnail.net>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH 5/6] Drivers: net: hyperv: Enable send side checksum
+ offload
+Date: Thu, 6 Mar 2014 20:29:13 +0000
+Message-ID: <d51892af73814794972736463a686a09@BY2PR03MB299.namprd03.prod.outlook.com>
+References: <1394104358-23438-1-git-send-email-kys@microsoft.com>
+	<1394104390-23477-1-git-send-email-kys@microsoft.com>
+	<1394104390-23477-5-git-send-email-kys@microsoft.com>
+ <20140306.143354.1296864763659469552.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
-To: sd@queasysnail.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32784 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753162AbaCFU1R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 15:27:17 -0500
-In-Reply-To: <1394124717-1957-1-git-send-email-sd@queasysnail.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	"olaf@aepfle.de" <olaf@aepfle.de>,
+	"apw@canonical.com" <apw@canonical.com>,
+	"jasowang@redhat.com" <jasowang@redhat.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140306.143354.1296864763659469552.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sabrina Dubroca <sd@queasysnail.net>
-Date: Thu,  6 Mar 2014 17:51:57 +0100
 
-> DST_NOCOUNT should only be used if an authorized user adds routes
-> locally. In case of routes which are added on behalf of router
-> advertisments this flag must not get used as it allows an unlimited
-> number of routes getting added remotely.
+
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Friday, March 7, 2014 1:04 AM
+> To: KY Srinivasan
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
+> devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
+> jasowang@redhat.com
+> Subject: Re: [PATCH 5/6] Drivers: net: hyperv: Enable send side checksum
+> offload
 > 
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
+> From: "K. Y. Srinivasan" <kys@microsoft.com>
+> Date: Thu,  6 Mar 2014 03:13:09 -0800
 > 
-> Hannes suggested this for stable
+> > +bool get_net_transport_info(struct sk_buff *skb, bool *is_v4,
+> > +				bool *is_tcp, bool *is_udp, u32 *trans_off) {
+> 
+> Returning so many values like this is awkward, at best.
+> 
+> Why not return a well defined bitmask:
+> 
+> #define TRANSPORT_INFO_SUCCESS	0x00000001
+> #define TRANSPORT_INFO_TCP	0x00000002
+> #define TRANSPORT_INFO_UDP	0x00000004
+> 
+> Then the only value you have to return by reference is trans_off.
 
-This seems to conflict with the intentions of:
+I also need information on the IP version as well. If it is ok with you, I will use the return
+value to get information on the network protocol and return information on transport via
+reference - protocol and the offset.
+ 
+Regards,
 
-commit a3300ef4bbb1f1e33ff0400e1e6cf7733d988f4f
-Author: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date:   Sat Dec 7 03:33:45 2013 +0100
-
-    ipv6: don't count addrconf generated routes against gc limit
-
-If not, why not?
+K. Y
