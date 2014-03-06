@@ -1,7 +1,9 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 0/3] AF_RXRPC fixes [ver #3]
-Date: Thu, 06 Mar 2014 23:18:36 +0000
-Message-ID: <20140306231835.11431.50147.stgit@warthog.procyon.org.uk>
+Subject: [PATCH 3/3] af_rxrpc: Fix UDP MTU calculation from ICMP_FRAG_NEEDED
+ [ver #3]
+Date: Thu, 06 Mar 2014 23:18:56 +0000
+Message-ID: <20140306231856.11431.39694.stgit@warthog.procyon.org.uk>
+References: <20140306231835.11431.50147.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,48 +11,48 @@ Cc: dhowells@redhat.com, tim@electronghost.co.uk,
 	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140306231835.11431.50147.stgit@warthog.procyon.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+AF_RXRPC sends UDP packets with the "Don't Fragment" bit set in an attempt to
+determine the maximum packet size between the local socket and the peer by
+invoking the generation of ICMP_FRAG_NEEDED packets.
 
-Hi Dave,
+Once a packet is sent with the "Don't Fragment" bit set, it is then
+inconvenient to break it up as that requires recalculating all the rxrpc serial
+and sequence numbers and reencrypting all the fragments, so we switch off the
+"Don't Fragment" service temporarily and send the bounced packet again.  Future
+packets then use the new MTU.
 
-Here are some AF_RXRPC fixes:
+That's all fine.  The problem lies in rxrpc_UDP_error_report() where the code
+that deals with ICMP_FRAG_NEEDED packets lives.  Packets of this type have a
+field (ee_info) to indicate the maximum packet size at the reporting node - but
+sometimes ee_info isn't filled in and is just left as 0 and the code must allow
+for this.
 
- (1) Fix to remove incorrect checksum calculation made during recvmsg().  It's
-     unnecessary to try to do this there since we check the checksum before
-     reading the RxRPC header from the packet.
+When ee_info is 0, the code should take the MTU size we're currently using and
+reduce it for the next packet we want to send.  However, it takes ee_info
+(which is known to be 0) and tries to reduce that instead.
 
- (2) Fix to prevent the sending of an ABORT packet in response to another
-     ABORT packet and inducing a storm.
+This was discovered by Coverity.
 
- (3) Fix UDP MTU calculation from parsing ICMP_FRAG_NEEDED packets where we
-     don't handle the ICMP packet not specifying an MTU size.
-
+Reported-by: Dave Jones <davej@redhat.com>
+Signed-off-by: David Howells <dhowells@redhat.com>
 ---
-The above changes since commit c88507fbad8055297c1d1e21e599f46960cbee39:
 
-  ipv6: don't set DST_NOCOUNT for remotely added routes (2014-03-06 17:29:27 -0500)
+ net/rxrpc/ar-error.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git tags/rxrpc-fixes-20140306
-
-for you to fetch changes up to ddc348e1c88d705b70f8aba0c42876100277c829:
-
-  af_rxrpc: Fix UDP MTU calculation from ICMP_FRAG_NEEDED (2014-03-06 23:01:50 +0000)
-
-David
----
-David Howells (1):
-      af_rxrpc: Fix UDP MTU calculation from ICMP_FRAG_NEEDED
-
-Tim Smith (2):
-      af_rxrpc: Remove incorrect checksum calculation from rxrpc_recvmsg()
-      af_rxrpc: Prevent RxRPC peers from ABORT-storming one another
-
-
- net/rxrpc/ar-error.c   |    1 +
- net/rxrpc/ar-input.c   |   12 ++++++++----
- net/rxrpc/ar-recvmsg.c |   25 +------------------------
- 3 files changed, 10 insertions(+), 28 deletions(-)
+diff --git a/net/rxrpc/ar-error.c b/net/rxrpc/ar-error.c
+index a9206087b4d7..db57458c824c 100644
+--- a/net/rxrpc/ar-error.c
++++ b/net/rxrpc/ar-error.c
+@@ -83,6 +83,7 @@ void rxrpc_UDP_error_report(struct sock *sk)
+ 
+ 		if (mtu == 0) {
+ 			/* they didn't give us a size, estimate one */
++			mtu = peer->if_mtu;
+ 			if (mtu > 1500) {
+ 				mtu >>= 1;
+ 				if (mtu < 1500)
