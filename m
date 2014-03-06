@@ -1,73 +1,63 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH net] ipv6: do not overwrite inetpeer metrics prematurely
-Date: Thu, 6 Mar 2014 21:06:58 +0100
-Message-ID: <20140306200658.GA32699@unicorn.suse.cz>
-References: <20140306095054.EEC5EE6E04@unicorn.suse.cz>
- <20140306.142425.1675660751208500651.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 2/2] net/mlx4_core: mlx4_init_slave() shouldn't
+ access comm channel before PF is ready
+Date: Thu, 06 Mar 2014 15:12:54 -0500 (EST)
+Message-ID: <20140306.151254.914568962698409365.davem@davemloft.net>
+References: <1394123297-7878-1-git-send-email-amirv@mellanox.com>
+	<1394123297-7878-3-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ogerlitz@mellanox.com, yevgenyp@mellanox.com, Narendra_K@Dell.com,
+	Sreekanth_Reddy@Dell.com, netdev@vger.kernel.org
+To: amirv@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:33930 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750924AbaCFUHA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Mar 2014 15:07:00 -0500
-Content-Disposition: inline
-In-Reply-To: <20140306.142425.1675660751208500651.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60789 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752580AbaCFUM4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 15:12:56 -0500
+In-Reply-To: <1394123297-7878-3-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 06, 2014 at 02:24:25PM -0500, David Miller wrote:
-> 
-> > +static void rt6_metrics_to_peer(struct rt6_info *rt)
-> > +{
-> > +	struct inet_peer *peer = rt6_has_peer(rt) ? rt6_peer_ptr(rt) : NULL;
-> > +	struct dst_entry *dst = &rt->dst;
-> > +	unsigned long old = dst->_metrics;
-> > +
-> > +	if (!(rt->dst.flags & DST_HOST) || dst_metrics_read_only(dst))
-> > +		return;
-> > +	if (peer && dst_metrics_ptr(dst) == peer->metrics)
-> > +		return;
-> > +
-> > +	dst->ops->cow_metrics(dst, old);
-> > +	if (dst->_metrics != old) {
-> > +		u32 *old_p = __DST_METRICS_PTR(old);
-> > +
-> > +		memcpy(dst_metrics_ptr(dst), old_p, RTAX_MAX * sizeof(u32));
-> > +		kfree(old_p);
-> > +	}
-> > +}
-> 
-> Hmmm...  if inet_metrics_new() is true then ->cow_metrics() will copy the
-> metrics from old to new.  So you therefore shouldn't have to do the copy
-> explicitly here.
+From: Amir Vadai <amirv@mellanox.com>
+Date: Thu,  6 Mar 2014 18:28:17 +0200
 
-If we are replacing an existing host route with metrics, e.g.
+> @@ -150,6 +150,8 @@ struct mlx4_port_config {
+>  	struct pci_dev *pdev;
+>  };
+>  
+> +static atomic_t pf_loading = ATOMIC_INIT(0);
+> +
+>  int mlx4_check_port_params(struct mlx4_dev *dev,
+>  			   enum mlx4_port_type *port_type)
+>  {
+> @@ -1407,6 +1409,11 @@ static int mlx4_init_slave(struct mlx4_dev *dev)
+>  	u32 slave_read;
+>  	u32 cmd_channel_ver;
+>  
+> +	if (atomic_read(&pf_loading)) {
+> +		mlx4_warn(dev, "PF is not ready. Deferring probe\n");
+> +		return -EPROBE_DEFER;
+> +	}
+> +
+ ...
+> @@ -2319,7 +2326,11 @@ static int __mlx4_init_one(struct pci_dev *pdev, int pci_dev_data)
+>  
+>  		if (num_vfs) {
+>  			mlx4_warn(dev, "Enabling SR-IOV with %d VFs\n", num_vfs);
+> +
+> +			atomic_inc(&pf_loading);
+>  			err = pci_enable_sriov(pdev, num_vfs);
+> +			atomic_dec(&pf_loading);
+> +
 
-  ip route add fec0::1 dev eth0 rto_min 1000
-  ip route change fec0::1 dev eth0 rto_min 1500
+This synchronization scheme doesn't look right to me at all.
 
-then peer will be the existing inetpeer and inet_metrics_new() will be
-false. However, we still need to copy the new metrics from the netlink
-message over the old ones.
+It's global, so VF's for _any_ PF will probe defer while one is enabling
+SRIOV.
 
-> If inet_metrics_new() is not true, you are overwriting non-new metrics.
+It doesn't seem correct to cause unrelated VF's to defer the probe.
 
-The only problem with this is IMHO that if inet_metrics_new() is true,
-i.e. when adding a new route with new inetpeer (or old inetpeer whose
-metrics were not used before), the memcpy() is done twice, once in
-ipv6_cow_metrics() and once in rt6_metrics_to_peer(). We are copying the
-same data twice so that the result is correct but it's not efficient and
-it's not nice.
-
-The only way I can see to avoid this (except using own metrics always
-instead of those in struct inetpeer as we do for non-host routes) would
-be not to call ipv6_cow_metrics() at all and write a special function
-for this purpose in net/ipv6/route.c which would duplicate the parts of
-ipv6_cow_metrics() we really need (and add the free()). Do you think
-this is the way to go?
-
-                                                        Michal Kubecek
+You have absolutely have to maintain this state at least on a per-PF
+level.
