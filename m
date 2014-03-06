@@ -1,78 +1,80 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH] mlx4: Use GFP_NOFS calls during the ipoib TX path when
- creating the QP
-Date: Thu, 6 Mar 2014 15:31:07 +0200
-Message-ID: <5318789B.1040402@mellanox.com>
-References: <alpine.LNX.2.00.1402211450410.1192@pobox.suse.cz>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH net-next 2/2] 6lowpan: reassembly: fix kernel oops while
+ unloading
+Date: Thu, 6 Mar 2014 14:38:51 +0100
+Message-ID: <20140306133851.GC17526@breakpoint.cc>
+References: <1394052211-6976-1-git-send-email-alex.aring@gmail.com>
+ <1394052211-6976-3-git-send-email-alex.aring@gmail.com>
+ <20140305223246.GA17526@breakpoint.cc>
+ <20140306060943.GB13676@omega>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <roland@kernel.org>, Amir Vadai <amirv@mellanox.com>,
-	Eli Cohen <eli@dev.mellanox.co.il>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Mel Gorman <mgorman@suse.de>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Sagi Grimberg <sagig@mellanox.com>,
-	Shlomo Pongratz <shlomop@mellanox.com>
-To: Jiri Kosina <jkosina@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1402211450410.1192@pobox.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, alex.bluesman.smirnov@gmail.com,
+	dbaryshkov@gmail.com, netdev@vger.kernel.org
+To: Alexander Aring <alex.aring@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:40061 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751444AbaCFNix (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 08:38:53 -0500
+Content-Disposition: inline
+In-Reply-To: <20140306060943.GB13676@omega>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 21/02/2014 23:53, Jiri Kosina wrote:
-> This was originally a patch from Matthew Finlay<matt@mellanox.com>  that
-> addressed a problem whereby NFS writes would enter uninterruptible sleep
-> forever.  The issue happened when using NFS over IPoIB. This is not a
-> recommended configuration as RDMA is preferred but it is still a valid
-> configuration and is important to have in situations where the NFS server
-> does not support RDMA. The problem encountered was described as follows:
->
-> 	It's not memory reclamation that is the problem as such. There is
-> 	an indirect dependency between network filesystems writing back
-> 	pages and ipoib_cm_tx_init() due to how a kworker is used. Page
-> 	reclaim cannot make forward progress until ipoib_cm_tx_init()
-> 	succeeds and it is stuck in page reclaim itself waiting for network
-> 	transmission. Ordinarily this sitaution may be avoided by having
-> 	the caller use GFP_NOFS but ipoib_cm_tx_init() does not have that information.
->
+Alexander Aring <alex.aring@gmail.com> wrote:
+> On Wed, Mar 05, 2014 at 11:32:46PM +0100, Florian Westphal wrote:
+> > Alexander Aring <alex.aring@gmail.com> wrote:
+> > > It seems that the inet_frag_queue is deleted but the timer is running. This
+> > > patch adds a for loop to iterate over all frag_queue entries in the
+> > > frag_bucket and calling del_timer for each frag_queue entry while
+> > > unloading the 6lowpan module.
+> > > 
+> > > Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+> > > Reported-by: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+> > > ---
+> > > I am not sure about that I can do that in this simply way without hold
+> > > any lock of the inet_frag_queue or inet_frag_bucket. Please help there.
+> > > The kernel oops never occurs afterwards, but this isn't simple to test.
+> > > I can't test all cases.
+> > 
+> > I find it hard to believe that this is a 6lowpan specific problem,
+> > most likely this needs a fix in inet_fragment code.
+> > 
+> I thought that too, maybe it's a problem in the inet_fragment code.
+> 
+> 
+> There are two function which I call on exit:
+> 
+> inet_frags_fini(&lowpan_frags); - which deletes the secret_timer.
+> inet_frags_exit_net(&net->ieee802154_lowpan.frags, &lowpan_frags);
+>  - which runs a force inet_frag_evictor
+> 
+> maybe I forgot to call some other function to cleanup the fragmentation.
 
-Hi Jiri,
+No, it looks correct.
 
-Reading again (*) the problem description, the team here would be happy 
-to clarify with you some details (possibly
-few MM newbie questions, but it will help us):
+> I don't saw any other exit function and I do a similar cleanup like ipv4/ipv6
+> and they don't have a module_exit function which is called for the
+> inet_fragment code. 
 
-1. just to make sure, the problem happen on the NFS client, not the NFS 
-server, right? so writing-back means client
-writing over the NFS mount --> network
+net/ipv6/netfilter/nf_defrag_ipv6_hooks.c has one (calls
+nf_ct_frag6_cleanup).
 
-2. you wrote "due to how a kworker is used", can you clarify if/why 
-things go wrong b/c of the kworker usage, or this is matter of phrasing?
+I am currently testing this fix:
 
-in earlier post over this thread you wrote "There was a problem with 
-swapping over NFS, as writeback was deadlocked with memory reclaim 
-(memory needs to be allocated so that > swap could be accessed to 
-reclaim memory). That's fixed by allocating the buffers from PF_MEMALLOC 
-reserve, introduced by Mel's and Peter's patchset back in 3.9 or so. Oh, 
-and the same has been done for swapping over NBD, btw", in that respect:
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index 322dceb..3b01959 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -208,7 +208,7 @@ int inet_frag_evictor(struct netns_frags *nf, struct
+		inet_frags *f, bool force)
+        }
+ 
+        work = frag_mem_limit(nf) - nf->low_thresh;
+-       while (work > 0) {
++       while (work > 0 || force) {
 
-3. you mentioned that the memory allocations in ipoib_cm_tx_init() and 
-ib_create_qp() --> mlx4 driver requires
-page reclaim and waits for network transmission, so this client node put 
-their swap over that NFS partition?
 
-4. Can you shed more light, why the problem hits also for kmalloc based 
-allocations and not only for vmalloc
-based allocation e.g not only b/c of the vzalloc call in 
-ipoib_cm_tx_init but rather also b/c of misc kmalloc calls within
-the HW (here mlx4) driver?
-
-thanks,
-
-Or.
-
-(*) and sorry for my stupid question from yesterday, sometimes it's bad 
-idea to ask questions on mailing lists when you are very tired
+frag_mem_limit() may be inaccurate which causes evictor to terminate
+earlier than it should.
