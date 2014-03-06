@@ -1,102 +1,136 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: Re: [PATCH] mlx4: Use GFP_NOFS calls during the ipoib TX path when
- creating the QP
-Date: Thu, 6 Mar 2014 14:47:08 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1403061438080.3690@pobox.suse.cz>
-References: <alpine.LNX.2.00.1402211450410.1192@pobox.suse.cz> <5318789B.1040402@mellanox.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next] vlan: Fix lockdep warning when vlan dev handle notification
+Date: Thu, 6 Mar 2014 22:13:33 +0800
+Message-ID: <5318828D.3090308@huawei.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Roland Dreier <roland@kernel.org>, Amir Vadai <amirv@mellanox.com>,
-	Eli Cohen <eli@dev.mellanox.co.il>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Ben Hutchings <ben@decadent.org.uk>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Patrick McHardy <kaber@trash.net>,
 	"David S. Miller" <davem@davemloft.net>,
-	Mel Gorman <mgorman@suse.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
-	Sagi Grimberg <sagig@mellanox.com>,
-	Shlomo Pongratz <shlomop@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5318789B.1040402@mellanox.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Netdev <netdev@vger.kernel.org>,
+	"Florian Fainelli" <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:12944 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750972AbaCFOOU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 09:14:20 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 6 Mar 2014, Or Gerlitz wrote:
+When I open the LOCKDEP config and run these steps:
 
-> > This was originally a patch from Matthew Finlay<matt@mellanox.com>  that
-> > addressed a problem whereby NFS writes would enter uninterruptible sleep
-> > forever.  The issue happened when using NFS over IPoIB. This is not a
-> > recommended configuration as RDMA is preferred but it is still a valid
-> > configuration and is important to have in situations where the NFS server
-> > does not support RDMA. The problem encountered was described as follows:
-> > 
-> > 	It's not memory reclamation that is the problem as such. There is
-> > 	an indirect dependency between network filesystems writing back
-> > 	pages and ipoib_cm_tx_init() due to how a kworker is used. Page
-> > 	reclaim cannot make forward progress until ipoib_cm_tx_init()
-> > 	succeeds and it is stuck in page reclaim itself waiting for network
-> > 	transmission. Ordinarily this sitaution may be avoided by having
-> > 	the caller use GFP_NOFS but ipoib_cm_tx_init() does not have that
-> > information.
-> > 
-> 
-> Hi Jiri,
->
-> Reading again (*) the problem description, the team here would be happy 
-> to clarify with you some details (possibly few MM newbie questions, but 
-> it will help us):
+modprobe 8021q
+vconfig add eth2 20
+vconfig add eth2.20 30
+ifconfig eth2 xx.xx.xx.xx
 
-Hi Or,
+then the Call Trace happened:
 
-thanks for getting back to me. I am sure there are better people to ask 
-MM-related questions, but here we go.
+[32524.386288] =============================================
+[32524.386293] [ INFO: possible recursive locking detected ]
+[32524.386298] 3.14.0-rc2-0.7-default+ #35 Tainted: G           O
+[32524.386302] ---------------------------------------------
+[32524.386306] ifconfig/3103 is trying to acquire lock:
+[32524.386310]  (&vlan_netdev_addr_lock_key/1){+.....}, at: [<ffffffff814275f4>] dev_mc_sync+0x64/0xb0
+[32524.386326]
+[32524.386326] but task is already holding lock:
+[32524.386330]  (&vlan_netdev_addr_lock_key/1){+.....}, at: [<ffffffff8141af83>] dev_set_rx_mode+0x23/0x40
+[32524.386341]
+[32524.386341] other info that might help us debug this:
+[32524.386345]  Possible unsafe locking scenario:
+[32524.386345]
+[32524.386350]        CPU0
+[32524.386352]        ----
+[32524.386354]   lock(&vlan_netdev_addr_lock_key/1);
+[32524.386359]   lock(&vlan_netdev_addr_lock_key/1);
+[32524.386364]
+[32524.386364]  *** DEADLOCK ***
+[32524.386364]
+[32524.386368]  May be due to missing lock nesting notation
+[32524.386368]
+[32524.386373] 2 locks held by ifconfig/3103:
+[32524.386376]  #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81431d42>] rtnl_lock+0x12/0x20
+[32524.386387]  #1:  (&vlan_netdev_addr_lock_key/1){+.....}, at: [<ffffffff8141af83>] dev_set_rx_mode+0x23/0x40
+[32524.386398]
+[32524.386398] stack backtrace:
+[32524.386403] CPU: 1 PID: 3103 Comm: ifconfig Tainted: G           O 3.14.0-rc2-0.7-default+ #35
+[32524.386409] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
+[32524.386414]  ffffffff81ffae40 ffff8800d9625ae8 ffffffff814f68a2 ffff8800d9625bc8
+[32524.386421]  ffffffff810a35fb ffff8800d8a8d9d0 00000000d9625b28 ffff8800d8a8e5d0
+[32524.386428]  000003cc00000000 0000000000000002 ffff8800d8a8e5f8 0000000000000000
+[32524.386435] Call Trace:
+[32524.386441]  [<ffffffff814f68a2>] dump_stack+0x6a/0x78
+[32524.386448]  [<ffffffff810a35fb>] __lock_acquire+0x7ab/0x1940
+[32524.386454]  [<ffffffff810a323a>] ? __lock_acquire+0x3ea/0x1940
+[32524.386459]  [<ffffffff810a4874>] lock_acquire+0xe4/0x110
+[32524.386464]  [<ffffffff814275f4>] ? dev_mc_sync+0x64/0xb0
+[32524.386471]  [<ffffffff814fc07a>] _raw_spin_lock_nested+0x2a/0x40
+[32524.386476]  [<ffffffff814275f4>] ? dev_mc_sync+0x64/0xb0
+[32524.386481]  [<ffffffff814275f4>] dev_mc_sync+0x64/0xb0
+[32524.386489]  [<ffffffffa0500cab>] vlan_dev_set_rx_mode+0x2b/0x50 [8021q]
+[32524.386495]  [<ffffffff8141addf>] __dev_set_rx_mode+0x5f/0xb0
+[32524.386500]  [<ffffffff8141af8b>] dev_set_rx_mode+0x2b/0x40
+[32524.386506]  [<ffffffff8141b3cf>] __dev_open+0xef/0x150
+[32524.386511]  [<ffffffff8141b177>] __dev_change_flags+0xa7/0x190
+[32524.386516]  [<ffffffff8141b292>] dev_change_flags+0x32/0x80
+[32524.386524]  [<ffffffff8149ca56>] devinet_ioctl+0x7d6/0x830
+[32524.386532]  [<ffffffff81437b0b>] ? dev_ioctl+0x34b/0x660
+[32524.386540]  [<ffffffff814a05b0>] inet_ioctl+0x80/0xa0
+[32524.386550]  [<ffffffff8140199d>] sock_do_ioctl+0x2d/0x60
+[32524.386558]  [<ffffffff81401a52>] sock_ioctl+0x82/0x2a0
+[32524.386568]  [<ffffffff811a7123>] do_vfs_ioctl+0x93/0x590
+[32524.386578]  [<ffffffff811b2705>] ? rcu_read_lock_held+0x45/0x50
+[32524.386586]  [<ffffffff811b39e5>] ? __fget_light+0x105/0x110
+[32524.386594]  [<ffffffff811a76b1>] SyS_ioctl+0x91/0xb0
+[32524.386604]  [<ffffffff815057e2>] system_call_fastpath+0x16/0x1b
 
-Oh, and by the way, the very original version of the patch is coming from 
-a Mellanox employee Matthew Finlay, so perhaps it might be much more 
-efficient if you would be able to contact him and discuss the details with 
-him.
+========================================================================
 
-> 1. just to make sure, the problem happen on the NFS client, not the NFS 
-> server, right? so writing-back means client writing over the NFS mount 
-> --> network
+The reason is that all of the vlan dev have the same class key for dev_lock_list,
+if we up or down the real dev, the notification will change the state for every
+vlan dev in the vlan group, then the vlan dev will hold netif_addr_lock and the
+real dev also hold its own netif_addr_lock together, so the warning happened.
 
-Yes, that is the case.
+The best way to fix the problem is add a new class key for the vlan dev if its
+real dev is a vlan dev too.
 
-> 2. you wrote "due to how a kworker is used", can you clarify if/why things go
-> wrong b/c of the kworker usage, or this is matter of phrasing?
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ net/8021q/vlan_dev.c | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
 
-The mlx kworker trying to allocate memory with GFP_KERNEL will eventually 
-get stuck; if the system is under memory pressure, performing memory 
-reclaim is needed in order to free occupied memory and use it for the 
-GFP_KERNEL allocation.
-
-Writeback can't however proceed, as the mlx kworker is stuck waiting 
-exactly on the writeback to eventually happen.
-
-> in earlier post over this thread you wrote "There was a problem with swapping
-> over NFS, as writeback was deadlocked with memory reclaim (memory needs to be
-> allocated so that > swap could be accessed to reclaim memory). That's fixed by
-> allocating the buffers from PF_MEMALLOC reserve, introduced by Mel's and
-> Peter's patchset back in 3.9 or so. Oh, and the same has been done for
-> swapping over NBD, btw", in that respect:
->
-> 3. you mentioned that the memory allocations in ipoib_cm_tx_init() and 
-> ib_create_qp() --> mlx4 driver requires page reclaim and waits for 
-> network transmission, so this client node put their swap over that NFS 
-> partition?
-
-They need memory reclaim to happen in low-memory situations. GFP_KERNEL 
-allocation is allowed to go to sleep and wait for the reclaim to succeed.
-
-> 4. Can you shed more light, why the problem hits also for kmalloc based 
-> allocations and not only for vmalloc based allocation e.g not only b/c 
-> of the vzalloc call in ipoib_cm_tx_init but rather also b/c of misc 
-> kmalloc calls within the HW (here mlx4) driver?
-
-The GFP_KERNEL is the key here -- allocation using GFP_KERNEL allocation 
-is allowed to sleep until memory reclamation has succeeded.
-
-Thanks again,
-
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 566adbf..4632ec8 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -506,6 +506,7 @@ static void vlan_dev_set_rx_mode(struct net_device *vlan_dev)
+  */
+ static struct lock_class_key vlan_netdev_xmit_lock_key;
+ static struct lock_class_key vlan_netdev_addr_lock_key;
++static struct lock_class_key vlan_netdev_addr_lock_subkey;
+ 
+ static void vlan_dev_set_lockdep_one(struct net_device *dev,
+ 				     struct netdev_queue *txq,
+@@ -518,9 +519,15 @@ static void vlan_dev_set_lockdep_one(struct net_device *dev,
+ 
+ static void vlan_dev_set_lockdep_class(struct net_device *dev, int subclass)
+ {
+-	lockdep_set_class_and_subclass(&dev->addr_list_lock,
+-				       &vlan_netdev_addr_lock_key,
+-				       subclass);
++	if (subclass)
++		lockdep_set_class_and_subclass(&dev->addr_list_lock,
++					       &vlan_netdev_addr_lock_subkey,
++					       subclass);
++	else
++		lockdep_set_class_and_subclass(&dev->addr_list_lock,
++					       &vlan_netdev_addr_lock_key,
++					       subclass);
++
+ 	netdev_for_each_tx_queue(dev, vlan_dev_set_lockdep_one, &subclass);
+ }
+ 
 -- 
-Jiri Kosina
-SUSE Labs
+1.8.0
