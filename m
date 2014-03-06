@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 2/2] net: macb: DMA-unmap full rx-buffer
-Date: Wed, 05 Mar 2014 20:47:57 -0500 (EST)
-Message-ID: <20140305.204757.2283708731367425686.davem@davemloft.net>
-References: <1393951600-26039-1-git-send-email-soren.brinkmann@xilinx.com>
-	<1393951600-26039-2-git-send-email-soren.brinkmann@xilinx.com>
+Subject: Re: [PATCH net-next,v2] hyperv: Move state setting for link query
+Date: Wed, 05 Mar 2014 20:48:14 -0500 (EST)
+Message-ID: <20140305.204814.1986539104864076428.davem@davemloft.net>
+References: <1393971066-6491-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, vinod.koul@intel.com,
-	dan.j.williams@intel.com, michal.simek@xilinx.com,
-	ben@decadent.org.uk
-To: soren.brinkmann@xilinx.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1393951600-26039-2-git-send-email-soren.brinkmann@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1393971066-6491-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-From: Soren Brinkmann <soren.brinkmann@xilinx.com>
-Date: Tue,  4 Mar 2014 08:46:40 -0800
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Tue,  4 Mar 2014 14:11:06 -0800
 
-> When allocating RX buffers a fixed size is used, while freeing is based
-> on actually received bytes, resulting in the following kernel warning
-> when CONFIG_DMA_API_DEBUG is enabled:
- ...
-> Fixing this by passing the same size which is passed during mapping the
-> memory to the unmap function as well.
+> It moves the state setting for query into rndis_filter_receive_response().
+> All callbacks including query-complete and status-callback are synchronized
+> by channel->inbound_lock. This prevents pentential race between them.
 > 
-> Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
 
 Applied.
