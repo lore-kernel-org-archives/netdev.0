@@ -1,48 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: multicast: add sanity check for query
- source addresses
-Date: Wed, 05 Mar 2014 20:46:01 -0500 (EST)
-Message-ID: <20140305.204601.621108199680054921.davem@davemloft.net>
-References: <1393901855-18231-1-git-send-email-linus.luessing@web.de>
+Subject: Re: [PATCH net] net: sctp: fix skb leakage in COOKIE ECHO path of
+ chunk->auth_chunk
+Date: Wed, 05 Mar 2014 20:47:01 -0500 (EST)
+Message-ID: <20140305.204701.2006215043535025759.davem@davemloft.net>
+References: <1393947351-11664-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, fwestpha@redhat.com,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	stephen@networkplumber.org, jstancek@redhat.com
-To: linus.luessing@web.de
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1393901855-18231-1-git-send-email-linus.luessing@web.de>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	yasevich@gmail.com, nhorman@tuxdriver.com
+To: dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51768 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756397AbaCFBrD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 20:47:03 -0500
+In-Reply-To: <1393947351-11664-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Linus L=FCssing <linus.luessing@web.de>
-Date: Tue,  4 Mar 2014 03:57:35 +0100
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Tue,  4 Mar 2014 16:35:51 +0100
 
-> MLD queries are supposed to have an IPv6 link-local source address
-> according to RFC2710, section 4 and RFC3810, section 5.1.14. This pat=
-ch
-> adds a sanity check to ignore such broken MLD queries.
-> =
+> While working on ec0223ec48a9 ("net: sctp: fix sctp_sf_do_5_1D_ce to
+> verify if we/peer is AUTH capable"), we noticed that there's a skb
+> memory leakage in the error path.
+ ...
+> Fixes: bbd0d59809f9 ("[SCTP]: Implement the receive and verification of AUTH chunk")
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-> Without this check, such malformed MLD queries can result in a
-> denial of service: The queries are ignored by any MLD listener
-> therefore they will not respond with an MLD report. However,
-> without this patch these malformed MLD queries would enable the
-> snooping part in the bridge code, potentially shutting down the
-> according ports towards these hosts for multicast traffic as the
-> bridge did not learn about these listeners.
-> =
-
-> Reported-by: Jan Stancek <jstancek@redhat.com>
-> Signed-off-by: Linus L=FCssing <linus.luessing@web.de>
-
-Applied.
+Applied and queued up for -stable, thanks.
