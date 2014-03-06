@@ -1,34 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next,v2] hyperv: Move state setting for link query
-Date: Wed, 05 Mar 2014 20:48:14 -0500 (EST)
-Message-ID: <20140305.204814.1986539104864076428.davem@davemloft.net>
-References: <1393971066-6491-1-git-send-email-haiyangz@microsoft.com>
+Subject: Re: [PATCH] tcp: tcp_release_cb() should release socket ownership
+Date: Wed, 05 Mar 2014 20:59:38 -0500 (EST)
+Message-ID: <20140305.205938.287751582220842351.davem@davemloft.net>
+References: <1393942583.26794.107.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140304.134811.86791174090638790.davem@davemloft.net>
+	<1393972752.26794.145.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1393971066-6491-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: lars.persson@axis.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51874 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755769AbaCFB7k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 20:59:40 -0500
+In-Reply-To: <1393972752.26794.145.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Tue,  4 Mar 2014 14:11:06 -0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 04 Mar 2014 14:39:12 -0800
 
-> It moves the state setting for query into rndis_filter_receive_response().
-> All callbacks including query-complete and status-callback are synchronized
-> by channel->inbound_lock. This prevents pentential race between them.
-> 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> @@ -767,6 +767,17 @@ void tcp_release_cb(struct sock *sk)
+>  	if (flags & (1UL << TCP_TSQ_DEFERRED))
+>  		tcp_tsq_handler(sk);
+>  
+> +	/* Here begins the tricky part :
+> +	 * We are called from release_sock() with :
+> +	 * 1) BH disabled
+> +	 * 2) sk_lock.slock spinlock held
+> +	 * 3) socket owned by us (sk->sk_lock.owned == 1)
+> +	 *
+> +	 * But following code is meant to be called from BH handlers,
+> +	 * so we should keep BH disabled, but early release socket ownership
+> +	 */
+> +	sock_release_ownership(sk);
+> +
 
-Applied.
+It really means that sk_lock.owned cannot ever be accessed without the
+sk_lock spinlock held.
+
+Most of this is easy to hand audit, except sock_owned_by_user() which
+has call sites everywhere.
+
+Consider adding a locking assertion to it.
