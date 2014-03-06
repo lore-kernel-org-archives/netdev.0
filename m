@@ -1,51 +1,61 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH] openvswitch: Orphan frags before sending to userspace
- via Netlink to avoid guest stall
-Date: Thu, 6 Mar 2014 17:09:20 +0000
-Message-ID: <5318ABC0.4040307@citrix.com>
-References: <1393615016-9187-1-git-send-email-zoltan.kiss@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <kvm@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>, <pshelar@nicira.com>,
-	<tgraf@redhat.com>, <dev@openvswitch.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1393615016-9187-1-git-send-email-zoltan.kiss@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH net] inet: frag: make sure forced eviction removes all frags
+Date: Thu,  6 Mar 2014 18:06:41 +0100
+Message-ID: <1394125601-27685-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:40975 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752512AbaCFRKp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 12:10:45 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Do you have any feedback on this? I'm also adding KVM list as they might 
-be interested in this.
+Quoting Alexander Aring:
+  While fragmentation and unloading of 6lowpan module I got this kernel Oops
+  after few seconds:
 
-Zoli
+  BUG: unable to handle kernel paging request at f88bbc30
+  [..]
+  Modules linked in: ipv6 [last unloaded: 6lowpan]
+  Call Trace:
+   [<c012af4c>] ? call_timer_fn+0x54/0xb3
+   [<c012aef8>] ? process_timeout+0xa/0xa
+   [<c012b66b>] run_timer_softirq+0x140/0x15f
 
-On 28/02/14 19:16, Zoltan Kiss wrote:
-> The kernel datapath now switched to zerocopy Netlink messages, but that also
-> means that the pages on frags array are sent straight to userspace. If those
-> pages came outside the kernel, we have to swap them out with local copies.
->
-> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-> ---
->   net/openvswitch/datapath.c |    6 ++++++
->   1 file changed, 6 insertions(+)
->
-> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-> index 36f8872..ffb563c 100644
-> --- a/net/openvswitch/datapath.c
-> +++ b/net/openvswitch/datapath.c
-> @@ -464,6 +464,12 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
->   	}
->   	nla->nla_len = nla_attr_size(skb->len);
->
-> +	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC))) {
-> +		err = -ENOMEM;
-> +		skb_tx_error(skb);
-> +		goto out;
-> +	}
-> +
->   	skb_zerocopy(user_skb, skb, skb->len, hlen);
->
->   	/* Pad OVS_PACKET_ATTR_PACKET if linear copy was performed */
->
+Problem is that incomplete frags are still around after unload; when
+their frag expire timer fires, we get crash.
+
+When a netns is removed (also done when unloading module), inet_frag
+calls the evictor with 'force' argument to purge remaining frags.
+
+The evictor loop terminates when accounted memory ('work') drops to 0
+or the lru-list becomes empty.  However, the mem accounting is done
+via percpu counters and may not be accurate, i.e. loop may terminate
+prematurely.
+
+Alter evictor to only stop once the lru list is empty when force is
+requested.
+
+Reported-by: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+Reported-by: Alexander Aring <alex.aring@gmail.com>
+Tested-by: Alexander Aring <alex.aring@gmail.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index 322dceb..3b01959 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -208,7 +208,7 @@ int inet_frag_evictor(struct netns_frags *nf, struct inet_frags *f, bool force)
+ 	}
+ 
+ 	work = frag_mem_limit(nf) - nf->low_thresh;
+-	while (work > 0) {
++	while (work > 0 || force) {
+ 		spin_lock(&nf->lru_lock);
+ 
+ 		if (list_empty(&nf->lru_list)) {
+-- 
+1.8.1.5
