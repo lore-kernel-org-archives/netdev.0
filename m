@@ -1,41 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: use raw_cpu ops in snmp stats bh
-Date: Thu, 06 Mar 2014 07:04:32 -0800
-Message-ID: <1394118272.27473.36.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1394110536-4532-1-git-send-email-sergey.senozhatsky@gmail.com>
-	 <1394117074.27473.29.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Kumar Sanghvi <kumaras@chelsio.com>
+Subject: Re: [PATCH net-next] Revert "cxgb4: Don't assume LSO only uses SGL
+ path in t4_eth_xmit()"
+Date: Thu, 6 Mar 2014 20:51:42 +0600
+Message-ID: <20140306145141.GF29631@kumar-pc.asicdesigners.com>
+References: <1394016556-12358-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394117074.27473.29.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <dm@chelsio.com>, <leedom@chelsio.com>,
+	<santosh@chelsio.com>, <nirranjan@chelsio.com>,
+	Hariprasad S <hariprasad@chelsio.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:25063 "EHLO
+	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750828AbaCFPUa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 10:20:30 -0500
+Content-Disposition: inline
+In-Reply-To: <1394016556-12358-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-03-06 at 06:44 -0800, Eric Dumazet wrote:
+Hi David,
 
-> I think you missed a lot of mails sent by Chrisoph Lameter recently...
+On Wednesday, March 03/05/14, 2014 at 16:19:16 +0530, Hariprasad Shenai wrote:
+> Commit 0034b29 (cxgb4: Don't assume LSO only uses SGL path in t4_eth_xmit())
+> introduced a regression causing chip-hang. This patch needs more debugging and
+> more work. So reverting for now.
+> 
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+> ---
+[...]
+> 
 
-s/Chrisoph/Christoph/
+I was finally able to root-cause issue, and have prepared a proper fix.
+Turns out, the len calculation was not done properly. So, this revert patch is 
+now no longer required.
 
-Appropriate fix would be the following one, please submit this formally.
+If this revert patch is not yet merged in net-next, and if its OK with you then,
+could you please drop this revert patch from your patch-queue ?
+I will get the proper fix submitted for this regression.
 
+Sorry for the trouble caused by this LSO related patch.
 
-Fixes: f19c29e3e391 ("tcp: snmp stats for Fast Open, SYN rtx, and data pkts")
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 5286228679bd..df063a32a177 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -87,7 +87,7 @@ static void tcp_event_new_data_sent(struct sock *sk, const struct sk_buff *skb)
- 		tcp_rearm_rto(sk);
- 	}
- 
--	NET_ADD_STATS_BH(sock_net(sk), LINUX_MIB_TCPORIGDATASENT,
-+	NET_ADD_STATS(sock_net(sk), LINUX_MIB_TCPORIGDATASENT,
- 			 tcp_skb_pcount(skb));
- }
- 
+Thanks,
+Kumar.
