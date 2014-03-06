@@ -1,46 +1,49 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [RFC] CPSW: dual standalone emac mode / bonding
-Date: Thu, 6 Mar 2014 13:52:41 +0530
-Message-ID: <53183051.7080801@ti.com>
-References: <20140305183318.16f5dafa@frequentis.com>
+Subject: Re: [PATCH] net: davinci_emac: Replace devm_request_irq with request_irq
+Date: Thu, 6 Mar 2014 13:57:58 +0530
+Message-ID: <5318318E.8030402@ti.com>
+References: <2ec3bb89-89db-48e8-b360-369545a2546f@mary.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-To: Christian Engelmayer <christian.engelmayer@frequentis.com>,
-	<netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:58958 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751811AbaCFIWn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Mar 2014 03:22:43 -0500
-In-Reply-To: <20140305183318.16f5dafa@frequentis.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jon Ringle <jon@ringle.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	<davinci-linux-open-source@linux.davincidsp.com>,
+	"Lad, Prabhakar" <prabhakar.csengg@gmail.com>,
+	<stable@vger.kernel.org>
+To: Christian Riesch <christian.riesch@omicron.at>,
+	<netdev@vger.kernel.org>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <2ec3bb89-89db-48e8-b360-369545a2546f@mary.at.omicron.at>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday 05 March 2014 11:03 PM, Christian Engelmayer wrote:
-> Has anybody successfuly setup ethernet bonding on a TI AM335x based system using
-> the CPSW in dual standalone emac mode?
+On Wednesday 05 March 2014 03:55 PM, Christian Riesch wrote:
+> In commit 6892b41d9701283085b655c6086fb57a5d63fa47
 >
-> I am running an active-backup test setup - momentarily still running Linux 3.2 -
-> and experience repeated loss of ethernet connectivity. That happens eg. after
-> the board is idle and receives an own ARP request on the backup slave interface.
-> It seems that the corresponding reply does not reach the CPU and I can see via
-> SysFs that the host's address entry got associated with the external backup port.
+> Author: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+> Date:   Tue Jun 25 21:24:51 2013 +0530
+> net: davinci: emac: Convert to devm_* api
 >
->    index 2, raw: 00000000 10000018 31e00669, type: addr(1), addr: 00:18:31:e0:06:69,
->       uctype: persistant(0), port: 0 --> uctype: persistant(0), port: 2
+> the call of request_irq is replaced by devm_request_irq and the call
+> of free_irq is removed. But since interrupts are requested in
+> emac_dev_open, doing ifconfig up/down on the board requests the
+> interrupts again each time, causing devm_request_irq to fail.
 >
-> As expected, triggering a unicast from the board or bypassing the ALE recovers
+> This patch reverts said commit partially: It changes the driver back
+> to use request_irq instead of devm_request_irq, puts free_irq back in
+> place, but keeps the remaining changes of the original patch.
+>
+> Reported-by: Jon Ringle <jon@ringle.org>
+> Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
+> Cc: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+> Cc: <stable@vger.kernel.org>
 
-It seems that some other system in the network is using the same mac in
-your EVM or there is a loop detected in your network which leads that
-ALE is learning that there is  system with your MAC and updating the ALE
-table that the mac is there and which leads your own packet will be
-forwarded to that port and not to host port.
-
-When ever you start a transmission the ALE learns the host port MAC is x
-and updates ALE table with that port number and so there in your network
-is working.
+Instead of moving back to request irq. can you move the devm interrupt
+request code from open to probe so that the issue is fixed, IRQ will be
+requested on module insert and IRQ will be free in module remove and
+there will not be any failures in devm request irq while repeating
+ifup/ifdown and also during module insert/remove.
 
 Regards
 Mugunthan V N
