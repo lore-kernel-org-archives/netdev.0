@@ -1,87 +1,74 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 0/8] AF_RXRPC fixes and development [ver #2]
-Date: Thu, 06 Mar 2014 12:46:15 +0000
-Message-ID: <20140306124614.16645.50744.stgit@warthog.procyon.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, tim@electronghost.co.uk,
-	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+From: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Subject: [PATCH] net: use raw_cpu ops in snmp stats bh
+Date: Thu,  6 Mar 2014 15:55:36 +0300
+Message-ID: <1394110536-4532-1-git-send-email-sergey.senozhatsky@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Commit a25982c15ae52 ("percpu: add preemption checks to __this_cpu
+ops") added preemption checks to __this_cpu ops, which are used in
+SNMP_INC_STATS_BH() and SNMP_ADD_STATS_BH(), resulting in following
+warnings:
 
-Hi Dave,
+BUG: using __this_cpu_add() in preemptible [00000000] code: ssh/4661
+caller is __this_cpu_preempt_check+0x2b/0x2d
+CPU: 3 PID: 4661 Comm: ssh Not tainted 3.14.0-rc5-next-20140306-dbg-dirty #162
+Hardware name: Acer             Aspire 5741G    /Aspire 5741G    , BIOS V1.20 02/08/2011
+ 0000000000000000 ffff880094939be0 ffffffff813b8305 0000000000000003
+ ffff880094939c00 ffffffff8121221f ffff88015130a8c0 0000000000000000
+ ffff880094939c38 ffffffff8121226b 635f736968745f5f 29286464615f7570
+Call Trace:
+ [<ffffffff813b8305>] dump_stack+0x4e/0x7a
+ [<ffffffff8121221f>] check_preemption_disabled+0xce/0xdd
+ [<ffffffff8121226b>] __this_cpu_preempt_check+0x2b/0x2d
+ [<ffffffff81370b5a>] ? tcp_rearm_rto+0x9f/0xa1
+ [<ffffffff81373456>] tcp_event_new_data_sent+0x6d/0x91
+ [<ffffffff81374dc6>] tcp_write_xmit+0x3f1/0x935
+ [<ffffffff813754e4>] __tcp_push_pending_frames+0x28/0x82
+ [<ffffffff81368109>] tcp_push+0xcc/0x102
+ [<ffffffff8136a0c1>] tcp_sendmsg+0x8c5/0xb7a
+ [<ffffffff81207d59>] ? string.isra.6+0x3b/0x9f
+ [<ffffffff8138a10a>] inet_sendmsg+0x75/0xa0
+ [<ffffffff81320fb6>] sock_aio_write+0xe7/0xfe
+ [<ffffffff81207d59>] ? string.isra.6+0x3b/0x9f
+ [<ffffffff810e08ab>] do_sync_write+0x54/0x73
+ [<ffffffff810e0df7>] vfs_write+0xc6/0x17c
+ [<ffffffff810e1603>] SyS_write+0x44/0x78
+ [<ffffffff813be0a1>] tracesys+0xd4/0xd9
 
-Here are some AF_RXRPC fixes (to tag rxrpc-20140226):
+use raw_cpu_inc() and raw_cpu_add() instead of __this_cpu_inc()
+and __this_cpu_add().
 
- (1) Fix to remove incorrect checksum calculation made during recvmsg().  It's
-     unnecessary to try to do this there since we check the checksum before
-     reading the RxRPC header from the packet.
-
- (2) Fix to prevent the sending of an ABORT packet in response to another
-     ABORT packet and inducing a storm.
-
- (3) Fix UDP MTU calculation from parsing ICMP_FRAG_NEEDED packets where we
-     don't handle the ICMP packet not specifying an MTU size.
-
-And development patches (to tag rxrpc-devel-20140304):
-
- (4) Add sysctls for configuring RxRPC parameters, specifically various delays
-     pertaining to ACK generation, the time before we resend a packet for
-     which we don't receive an ACK, the maximum time a call is permitted to
-     live and the amount of time transport, connection and dead call
-     information is cached.
-
- (5) Improve ACK packet production by adjusting the handling of ACK_REQUESTED
-     packets, ignoring the MORE_PACKETS flag, delaying the production of
-     otherwise immediate ACK_IDLE packets and delaying all ACK_IDLE production
-     (barring the call termination) to half a second.
-
- (6) Add more sysctl parameters to expose the Rx window size, the maximum
-     packet size that we're willing to receive and the number of jumbo rxrpc
-     packets we're willing to handle in a single UDP packet.
-
- (7) Request ACKs on alternate DATA packets so that the other side doesn't
-     wait till we fill up the Tx window.
-
- (8) Use a RCU hash table to look up the rxrpc_call for an incoming packet
-     rather than stepping through a hierarchy involving several spinlocks.
-
-They can be found in this git branch:
-
-	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc
-
-David
+Signed-off-by: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
 ---
-David Howells (5):
-      af_rxrpc: Fix UDP MTU calculation from ICMP_FRAG_NEEDED
-      af_rxrpc: Add sysctls for configuring RxRPC parameters
-      af_rxrpc: Improve ACK production
-      af_rxrpc: Expose more RxRPC parameters via sysctls
-      af_rxrpc: Request an ACK for every alternate DATA packet
+ include/net/snmp.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Tim Smith (3):
-      af_rxrpc: Remove incorrect checksum calculation from rxrpc_recvmsg()
-      af_rxrpc: Prevent RxRPC peers from ABORT-storming one another
-      af_rxrpc: Keep rxrpc_call pointers in a hashtable
-
-
- Documentation/networking/rxrpc.txt |   81 ++++++++++++++
- net/rxrpc/Makefile                 |    5 -
- net/rxrpc/af_rxrpc.c               |    9 ++
- net/rxrpc/ar-ack.c                 |   61 +++++++++-
- net/rxrpc/ar-call.c                |  213 +++++++++++++++++++++++++++++++++++-
- net/rxrpc/ar-connection.c          |   10 +-
- net/rxrpc/ar-error.c               |    1 
- net/rxrpc/ar-input.c               |  190 ++++++++++++++------------------
- net/rxrpc/ar-internal.h            |   40 ++++++-
- net/rxrpc/ar-output.c              |   15 ++-
- net/rxrpc/ar-recvmsg.c             |   25 ----
- net/rxrpc/ar-skbuff.c              |    7 +
- net/rxrpc/ar-transport.c           |   10 +-
- net/rxrpc/sysctl.c                 |  146 +++++++++++++++++++++++++
- 14 files changed, 645 insertions(+), 168 deletions(-)
- create mode 100644 net/rxrpc/sysctl.c
+diff --git a/include/net/snmp.h b/include/net/snmp.h
+index 36ab852..b549ad6 100644
+--- a/include/net/snmp.h
++++ b/include/net/snmp.h
+@@ -126,7 +126,7 @@ struct linux_xfrm_mib {
+ 	extern __typeof__(type) __percpu *name[SNMP_ARRAY_SZ]
+ 
+ #define SNMP_INC_STATS_BH(mib, field)	\
+-			__this_cpu_inc(mib[0]->mibs[field])
++			raw_cpu_inc(mib[0]->mibs[field])
+ 
+ #define SNMP_INC_STATS_USER(mib, field)	\
+ 			this_cpu_inc(mib[0]->mibs[field])
+@@ -141,7 +141,7 @@ struct linux_xfrm_mib {
+ 			this_cpu_dec(mib[0]->mibs[field])
+ 
+ #define SNMP_ADD_STATS_BH(mib, field, addend)	\
+-			__this_cpu_add(mib[0]->mibs[field], addend)
++			raw_cpu_add(mib[0]->mibs[field], addend)
+ 
+ #define SNMP_ADD_STATS_USER(mib, field, addend)	\
+ 			this_cpu_add(mib[0]->mibs[field], addend)
+-- 
+1.9.0.382.g7f3562c
