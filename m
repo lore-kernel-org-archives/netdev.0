@@ -1,8 +1,8 @@
 From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next v7 1/9] xen-netback: Use skb->cb for
-	pending_idx
-Date: Thu, 6 Mar 2014 21:48:23 +0000
-Message-ID: <1394142511-14827-2-git-send-email-zoltan.kiss@citrix.com>
+Subject: [PATCH net-next v7 5/9] xen-netback: Remove old TX
+	grant copy definitons and fix indentations
+Date: Thu, 6 Mar 2014 21:48:27 +0000
+Message-ID: <1394142511-14827-6-git-send-email-zoltan.kiss@citrix.com>
 References: <1394142511-14827-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,161 +23,219 @@ Sender: xen-devel-bounces@lists.xen.org
 Errors-To: xen-devel-bounces@lists.xen.org
 List-Id: netdev.vger.kernel.org
 
-Storing the pending_idx at the first byte of the linear buffer never looked
-good, skb->cb is a more proper place for this. It also prevents the header to
-be directly grant copied there, and we don't have the pending_idx after we
-copied the header here, so it's time to change it.
-It also introduces helpers for the RX side
+These became obsolete with grant mapping. I've left intentionally the
+indentations in this way, to improve readability of previous patches.
+
+NOTE: if bisect brought you here, you should apply the series up until
+"xen-netback: Timeout packets in RX path", otherwise Windows guests can't work
+properly and malicious guests can block other guests by not releasing their sent
+packets.
 
 Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 ---
-v7:
-- using helpers to access skb->cb, on RX side too
+v2:
+- move the indentation fixup patch here
 
+v4:
+- indentation fixes
+
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index 8719500..8e59b14 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -48,37 +48,8 @@
+ typedef unsigned int pending_ring_idx_t;
+ #define INVALID_PENDING_RING_IDX (~0U)
+ 
+-/* For the head field in pending_tx_info: it is used to indicate
+- * whether this tx info is the head of one or more coalesced requests.
+- *
+- * When head != INVALID_PENDING_RING_IDX, it means the start of a new
+- * tx requests queue and the end of previous queue.
+- *
+- * An example sequence of head fields (I = INVALID_PENDING_RING_IDX):
+- *
+- * ...|0 I I I|5 I|9 I I I|...
+- * -->|<-INUSE----------------
+- *
+- * After consuming the first slot(s) we have:
+- *
+- * ...|V V V V|5 I|9 I I I|...
+- * -----FREE->|<-INUSE--------
+- *
+- * where V stands for "valid pending ring index". Any number other
+- * than INVALID_PENDING_RING_IDX is OK. These entries are considered
+- * free and can contain any number other than
+- * INVALID_PENDING_RING_IDX. In practice we use 0.
+- *
+- * The in use non-INVALID_PENDING_RING_IDX (say 0, 5 and 9 in the
+- * above example) number is the index into pending_tx_info and
+- * mmap_pages arrays.
+- */
+ struct pending_tx_info {
+-	struct xen_netif_tx_request req; /* coalesced tx request */
+-	pending_ring_idx_t head; /* head != INVALID_PENDING_RING_IDX
+-				  * if it is head of one or more tx
+-				  * reqs
+-				  */
++	struct xen_netif_tx_request req; /* tx request */
+ 	/* Callback data for released SKBs. The callback is always
+ 	 * xenvif_zerocopy_callback, desc contains the pending_idx, which is
+ 	 * also an index in pending_tx_info array. It is initialized in
+@@ -149,11 +120,6 @@ struct xenvif {
+ 	struct pending_tx_info pending_tx_info[MAX_PENDING_REQS];
+ 	grant_handle_t grant_tx_handle[MAX_PENDING_REQS];
+ 
+-	/* Coalescing tx requests before copying makes number of grant
+-	 * copy ops greater or equal to number of slots required. In
+-	 * worst case a tx request consumes 2 gnttab_copy.
+-	 */
+-	struct gnttab_copy tx_copy_ops[2*MAX_PENDING_REQS];
+ 	struct gnttab_map_grant_ref tx_map_ops[MAX_PENDING_REQS];
+ 	struct gnttab_unmap_grant_ref tx_unmap_ops[MAX_PENDING_REQS];
+ 	/* passed to gnttab_[un]map_refs with pages under (un)mapping */
 diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index e5284bc..43ae4ba 100644
+index 763d49a..bd09028 100644
 --- a/drivers/net/xen-netback/netback.c
 +++ b/drivers/net/xen-netback/netback.c
-@@ -455,10 +455,12 @@ static void xenvif_add_frag_responses(struct xenvif *vif, int status,
- 	}
+@@ -62,16 +62,6 @@ module_param(separate_tx_rx_irq, bool, 0644);
+ static unsigned int fatal_skb_slots = FATAL_SKB_SLOTS_DEFAULT;
+ module_param(fatal_skb_slots, uint, 0444);
+ 
+-/*
+- * If head != INVALID_PENDING_RING_IDX, it means this tx request is head of
+- * one or more merged tx requests, otherwise it is the continuation of
+- * previous tx request.
+- */
+-static inline int pending_tx_is_head(struct xenvif *vif, RING_IDX idx)
+-{
+-	return vif->pending_tx_info[idx].head != INVALID_PENDING_RING_IDX;
+-}
+-
+ static void xenvif_idx_release(struct xenvif *vif, u16 pending_idx,
+ 			       u8 status);
+ 
+@@ -790,19 +780,6 @@ static int xenvif_count_requests(struct xenvif *vif,
+ 	return slots;
  }
  
--struct skb_cb_overlay {
-+struct xenvif_rx_cb {
- 	int meta_slots_used;
- };
+-static struct page *xenvif_alloc_page(struct xenvif *vif,
+-				      u16 pending_idx)
+-{
+-	struct page *page;
+-
+-	page = alloc_page(GFP_ATOMIC|__GFP_COLD);
+-	if (!page)
+-		return NULL;
+-	vif->mmap_pages[pending_idx] = page;
+-
+-	return page;
+-}
+-
  
-+#define XENVIF_RX_CB(skb) ((struct xenvif_rx_cb *)(skb)->cb)
-+
- void xenvif_kick_thread(struct xenvif *vif)
- {
- 	wake_up(&vif->wq);
-@@ -474,7 +476,6 @@ static void xenvif_rx_action(struct xenvif *vif)
- 	LIST_HEAD(notify);
- 	int ret;
- 	unsigned long offset;
--	struct skb_cb_overlay *sco;
- 	bool need_to_notify = false;
- 
- 	struct netrx_pending_operations npo = {
-@@ -513,9 +514,8 @@ static void xenvif_rx_action(struct xenvif *vif)
- 		} else
- 			vif->rx_last_skb_slots = 0;
- 
--		sco = (struct skb_cb_overlay *)skb->cb;
--		sco->meta_slots_used = xenvif_gop_skb(skb, &npo);
--		BUG_ON(sco->meta_slots_used > max_slots_needed);
-+		XENVIF_RX_CB(skb)->meta_slots_used = xenvif_gop_skb(skb, &npo);
-+		BUG_ON(XENVIF_RX_CB(skb)->meta_slots_used > max_slots_needed);
- 
- 		__skb_queue_tail(&rxq, skb);
- 	}
-@@ -529,7 +529,6 @@ static void xenvif_rx_action(struct xenvif *vif)
- 	gnttab_batch_copy(vif->grant_copy_op, npo.copy_prod);
- 
- 	while ((skb = __skb_dequeue(&rxq)) != NULL) {
--		sco = (struct skb_cb_overlay *)skb->cb;
- 
- 		if ((1 << vif->meta[npo.meta_cons].gso_type) &
- 		    vif->gso_prefix_mask) {
-@@ -540,19 +539,21 @@ static void xenvif_rx_action(struct xenvif *vif)
- 
- 			resp->offset = vif->meta[npo.meta_cons].gso_size;
- 			resp->id = vif->meta[npo.meta_cons].id;
--			resp->status = sco->meta_slots_used;
-+			resp->status = XENVIF_RX_CB(skb)->meta_slots_used;
- 
- 			npo.meta_cons++;
--			sco->meta_slots_used--;
-+			XENVIF_RX_CB(skb)->meta_slots_used--;
- 		}
- 
- 
- 		vif->dev->stats.tx_bytes += skb->len;
- 		vif->dev->stats.tx_packets++;
- 
--		status = xenvif_check_gop(vif, sco->meta_slots_used, &npo);
-+		status = xenvif_check_gop(vif,
-+					  XENVIF_RX_CB(skb)->meta_slots_used,
-+					  &npo);
- 
--		if (sco->meta_slots_used == 1)
-+		if (XENVIF_RX_CB(skb)->meta_slots_used == 1)
- 			flags = 0;
- 		else
- 			flags = XEN_NETRXF_more_data;
-@@ -589,13 +590,13 @@ static void xenvif_rx_action(struct xenvif *vif)
- 
- 		xenvif_add_frag_responses(vif, status,
- 					  vif->meta + npo.meta_cons + 1,
--					  sco->meta_slots_used);
-+					  XENVIF_RX_CB(skb)->meta_slots_used);
- 
- 		RING_PUSH_RESPONSES_AND_CHECK_NOTIFY(&vif->rx, ret);
- 
- 		need_to_notify |= !!ret;
- 
--		npo.meta_cons += sco->meta_slots_used;
-+		npo.meta_cons += XENVIF_RX_CB(skb)->meta_slots_used;
- 		dev_kfree_skb(skb);
- 	}
- 
-@@ -772,6 +773,13 @@ static struct page *xenvif_alloc_page(struct xenvif *vif,
- 	return page;
- }
- 
-+
-+struct xenvif_tx_cb {
-+	u16 pending_idx;
-+};
-+
-+#define XENVIF_TX_CB(skb) ((struct xenvif_tx_cb *)(skb)->cb)
-+
- static struct gnttab_copy *xenvif_get_requests(struct xenvif *vif,
- 					       struct sk_buff *skb,
- 					       struct xen_netif_tx_request *txp,
-@@ -779,7 +787,7 @@ static struct gnttab_copy *xenvif_get_requests(struct xenvif *vif,
- {
+ struct xenvif_tx_cb {
+ 	u16 pending_idx;
+@@ -832,13 +809,9 @@ static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif *vif,
  	struct skb_shared_info *shinfo = skb_shinfo(skb);
  	skb_frag_t *frags = shinfo->frags;
--	u16 pending_idx = *((u16 *)skb->data);
-+	u16 pending_idx = XENVIF_TX_CB(skb)->pending_idx;
- 	u16 head_idx = 0;
- 	int slot, start;
- 	struct page *page;
-@@ -897,7 +905,7 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
- 			       struct gnttab_copy **gopp)
- {
- 	struct gnttab_copy *gop = *gopp;
--	u16 pending_idx = *((u16 *)skb->data);
-+	u16 pending_idx = XENVIF_TX_CB(skb)->pending_idx;
- 	struct skb_shared_info *shinfo = skb_shinfo(skb);
+ 	u16 pending_idx = XENVIF_TX_CB(skb)->pending_idx;
+-	u16 head_idx = 0;
+-	int slot, start;
+-	struct page *page;
+-	pending_ring_idx_t index, start_idx = 0;
+-	uint16_t dst_offset;
++	int start;
++	pending_ring_idx_t index;
+ 	unsigned int nr_slots;
+-	struct pending_tx_info *first = NULL;
+ 
+ 	/* At this point shinfo->nr_frags is in fact the number of
+ 	 * slots, which can be as large as XEN_NETBK_LEGACY_SLOTS_MAX.
+@@ -850,8 +823,8 @@ static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif *vif,
+ 
+ 	for (shinfo->nr_frags = start; shinfo->nr_frags < nr_slots;
+ 	     shinfo->nr_frags++, txp++, gop++) {
+-				index = pending_index(vif->pending_cons++);
+-				pending_idx = vif->pending_ring[index];
++		index = pending_index(vif->pending_cons++);
++		pending_idx = vif->pending_ring[index];
+ 		xenvif_tx_create_gop(vif, pending_idx, txp, gop);
+ 		frag_set_pending_idx(&frags[shinfo->nr_frags], pending_idx);
+ 	}
+@@ -859,18 +832,6 @@ static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif *vif,
+ 	BUG_ON(shinfo->nr_frags > MAX_SKB_FRAGS);
+ 
+ 	return gop;
+-err:
+-	/* Unwind, freeing all pages and sending error responses. */
+-	while (shinfo->nr_frags-- > start) {
+-		xenvif_idx_release(vif,
+-				frag_get_pending_idx(&frags[shinfo->nr_frags]),
+-				XEN_NETIF_RSP_ERROR);
+-	}
+-	/* The head too, if necessary. */
+-	if (start)
+-		xenvif_idx_release(vif, pending_idx, XEN_NETIF_RSP_ERROR);
+-
+-	return NULL;
+ }
+ 
+ static inline void xenvif_grant_handle_set(struct xenvif *vif,
+@@ -910,7 +871,6 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
  	struct pending_tx_info *tx_info;
  	int nr_frags = shinfo->nr_frags;
-@@ -944,7 +952,7 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
- 			continue;
+ 	int i, err, start;
+-	u16 peek; /* peek into next tx request */
  
- 		/* First error: invalidate header and preceding fragments. */
--		pending_idx = *((u16 *)skb->data);
-+		pending_idx = XENVIF_TX_CB(skb)->pending_idx;
- 		xenvif_idx_release(vif, pending_idx, XEN_NETIF_RSP_OKAY);
- 		for (j = start; j < i; j++) {
- 			pending_idx = frag_get_pending_idx(&shinfo->frags[j]);
-@@ -1236,7 +1244,7 @@ static unsigned xenvif_tx_build_gops(struct xenvif *vif, int budget)
- 		memcpy(&vif->pending_tx_info[pending_idx].req,
- 		       &txreq, sizeof(txreq));
- 		vif->pending_tx_info[pending_idx].head = index;
--		*((u16 *)skb->data) = pending_idx;
-+		XENVIF_TX_CB(skb)->pending_idx = pending_idx;
+ 	/* Check status of header. */
+ 	err = gop->status;
+@@ -924,14 +884,12 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
  
- 		__skb_put(skb, data_len);
+ 	for (i = start; i < nr_frags; i++) {
+ 		int j, newerr;
+-		pending_ring_idx_t head;
  
-@@ -1283,7 +1291,7 @@ static int xenvif_tx_submit(struct xenvif *vif)
+ 		pending_idx = frag_get_pending_idx(&shinfo->frags[i]);
+ 		tx_info = &vif->pending_tx_info[pending_idx];
+-		head = tx_info->head;
+ 
+ 		/* Check error status: if okay then remember grant handle. */
+-			newerr = (++gop)->status;
++		newerr = (++gop)->status;
+ 
+ 		if (likely(!newerr)) {
+ 			xenvif_grant_handle_set(vif, pending_idx , gop->handle);
+@@ -1136,7 +1094,6 @@ static unsigned xenvif_tx_build_gops(struct xenvif *vif, int budget)
+ 	       (skb_queue_len(&vif->tx_queue) < budget)) {
+ 		struct xen_netif_tx_request txreq;
+ 		struct xen_netif_tx_request txfrags[XEN_NETBK_LEGACY_SLOTS_MAX];
+-		struct page *page;
+ 		struct xen_netif_extra_info extras[XEN_NETIF_EXTRA_TYPE_MAX-1];
  		u16 pending_idx;
- 		unsigned data_len;
+ 		RING_IDX idx;
+@@ -1507,18 +1464,17 @@ static void xenvif_idx_release(struct xenvif *vif, u16 pending_idx,
+ {
+ 	struct pending_tx_info *pending_tx_info;
+ 	pending_ring_idx_t index;
+-	u16 peek; /* peek into next tx request */
+ 	unsigned long flags;
  
--		pending_idx = *((u16 *)skb->data);
-+		pending_idx = XENVIF_TX_CB(skb)->pending_idx;
- 		txp = &vif->pending_tx_info[pending_idx].req;
- 
- 		/* Check the remap error code. */
+-		pending_tx_info = &vif->pending_tx_info[pending_idx];
+-		spin_lock_irqsave(&vif->response_lock, flags);
+-		make_tx_response(vif, &pending_tx_info->req, status);
+-		index = pending_index(vif->pending_prod);
+-		vif->pending_ring[index] = pending_idx;
+-		/* TX shouldn't use the index before we give it back here */
+-		mb();
+-		vif->pending_prod++;
+-		spin_unlock_irqrestore(&vif->response_lock, flags);
++	pending_tx_info = &vif->pending_tx_info[pending_idx];
++	spin_lock_irqsave(&vif->response_lock, flags);
++	make_tx_response(vif, &pending_tx_info->req, status);
++	index = pending_index(vif->pending_prod);
++	vif->pending_ring[index] = pending_idx;
++	/* TX shouldn't use the index before we give it back here */
++	mb();
++	vif->pending_prod++;
++	spin_unlock_irqrestore(&vif->response_lock, flags);
+ }
