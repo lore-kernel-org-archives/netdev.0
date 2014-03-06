@@ -1,80 +1,58 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net-next 2/2] 6lowpan: reassembly: fix kernel oops while
- unloading
-Date: Thu, 6 Mar 2014 14:38:51 +0100
-Message-ID: <20140306133851.GC17526@breakpoint.cc>
-References: <1394052211-6976-1-git-send-email-alex.aring@gmail.com>
- <1394052211-6976-3-git-send-email-alex.aring@gmail.com>
- <20140305223246.GA17526@breakpoint.cc>
- <20140306060943.GB13676@omega>
+From: <erik.hugne@ericsson.com>
+Subject: [PATCH net-next v3 0/6] tipc: refcount and memory leak fixes
+Date: Thu, 6 Mar 2014 14:40:15 +0100
+Message-ID: <1394113221-30100-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, alex.bluesman.smirnov@gmail.com,
-	dbaryshkov@gmail.com, netdev@vger.kernel.org
-To: Alexander Aring <alex.aring@gmail.com>
+Content-Type: text/plain
+Cc: <ying.xue@windriver.com>, <paul.gortmaker@windriver.com>,
+	<richard.alpe@ericsson.com>, Erik Hugne <erik.hugne@ericsson.com>
+To: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
+	<jon.maloy@ericsson.com>, <maloy@donjonn.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:40061 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751444AbaCFNix (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 08:38:53 -0500
-Content-Disposition: inline
-In-Reply-To: <20140306060943.GB13676@omega>
+Received: from sessmg20.ericsson.net ([193.180.251.50]:63600 "EHLO
+	sessmg20.mgmt.ericsson.se" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751531AbaCFNjn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 08:39:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alexander Aring <alex.aring@gmail.com> wrote:
-> On Wed, Mar 05, 2014 at 11:32:46PM +0100, Florian Westphal wrote:
-> > Alexander Aring <alex.aring@gmail.com> wrote:
-> > > It seems that the inet_frag_queue is deleted but the timer is running. This
-> > > patch adds a for loop to iterate over all frag_queue entries in the
-> > > frag_bucket and calling del_timer for each frag_queue entry while
-> > > unloading the 6lowpan module.
-> > > 
-> > > Signed-off-by: Alexander Aring <alex.aring@gmail.com>
-> > > Reported-by: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
-> > > ---
-> > > I am not sure about that I can do that in this simply way without hold
-> > > any lock of the inet_frag_queue or inet_frag_bucket. Please help there.
-> > > The kernel oops never occurs afterwards, but this isn't simple to test.
-> > > I can't test all cases.
-> > 
-> > I find it hard to believe that this is a 6lowpan specific problem,
-> > most likely this needs a fix in inet_fragment code.
-> > 
-> I thought that too, maybe it's a problem in the inet_fragment code.
-> 
-> 
-> There are two function which I call on exit:
-> 
-> inet_frags_fini(&lowpan_frags); - which deletes the secret_timer.
-> inet_frags_exit_net(&net->ieee802154_lowpan.frags, &lowpan_frags);
->  - which runs a force inet_frag_evictor
-> 
-> maybe I forgot to call some other function to cleanup the fragmentation.
+From: Erik Hugne <erik.hugne@ericsson.com>
 
-No, it looks correct.
+v3: Remove error logging from data path completely. Rebased on top of
+    latest net merge.
 
-> I don't saw any other exit function and I do a similar cleanup like ipv4/ipv6
-> and they don't have a module_exit function which is called for the
-> inet_fragment code. 
+v2: Drop specific -ENOMEM logging in patch #1 (tipc: allow connection
+    shutdown callback to be invoked in advance) And add a general error
+    message if an internal server tries to send a message on a
+    closed/nonexisting connection.
 
-net/ipv6/netfilter/nf_defrag_ipv6_hooks.c has one (calls
-nf_ct_frag6_cleanup).
+In addition to the fix for refcount leak and memory leak during
+module removal, we also fix a problem where the topology server
+listening socket where unexpectedly closed. We also eliminate an
+unnecessary context switch during accept()/recvmsg() for nonblocking
+sockets.
 
-I am currently testing this fix:
+It might be good to include this patchset in stable aswell. After the 
+v3 rebase on latest merge from net all patches apply cleanly on that
+tree.
 
-diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index 322dceb..3b01959 100644
---- a/net/ipv4/inet_fragment.c
-+++ b/net/ipv4/inet_fragment.c
-@@ -208,7 +208,7 @@ int inet_frag_evictor(struct netns_frags *nf, struct
-		inet_frags *f, bool force)
-        }
- 
-        work = frag_mem_limit(nf) - nf->low_thresh;
--       while (work > 0) {
-+       while (work > 0 || force) {
+Erik Hugne (3):
+  tipc: drop subscriber connection id invalidation
+  tipc: fix memory leak during module removal
+  tipc: don't log disabled tasklet handler errors
 
+Ying Xue (3):
+  tipc: allow connection shutdown callback to be invoked in advance
+  tipc: fix connection refcount leak
+  tipc: avoid to unnecessary process switch under non-block mode
 
-frag_mem_limit() may be inaccurate which causes evictor to terminate
-earlier than it should.
+ net/tipc/config.c     |  9 ++-------
+ net/tipc/handler.c    |  1 -
+ net/tipc/name_table.c | 37 ++++++++++++++++++++++++++++++++++---
+ net/tipc/server.c     | 14 +++++++-------
+ net/tipc/socket.c     |  4 ++--
+ net/tipc/subscr.c     | 19 ++-----------------
+ 6 files changed, 47 insertions(+), 37 deletions(-)
+
+-- 
+1.8.3.2
