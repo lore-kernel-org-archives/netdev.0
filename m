@@ -1,32 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/8] AF_RXRPC fixes and development [ver #2]
-Date: Thu, 06 Mar 2014 17:38:45 -0500 (EST)
-Message-ID: <20140306.173845.733270648823204984.davem@davemloft.net>
-References: <20140306124614.16645.50744.stgit@warthog.procyon.org.uk>
-	<8007.1394144113@warthog.procyon.org.uk>
-	<8493.1394145149@warthog.procyon.org.uk>
+Subject: Re: [PATCH net-next] bonding: fix const in options processing
+Date: Thu, 06 Mar 2014 17:39:41 -0500 (EST)
+Message-ID: <20140306.173941.1229272841319793823.davem@davemloft.net>
+References: <20140306142017.2af2b894@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tim@electronghost.co.uk,
-	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8493.1394145149@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nikolay@redhat.com
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34252 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751169AbaCFWjn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 17:39:43 -0500
+In-Reply-To: <20140306142017.2af2b894@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Howells <dhowells@redhat.com>
-Date: Thu, 06 Mar 2014 22:32:29 +0000
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Thu, 6 Mar 2014 14:20:17 -0800
 
-> David Miller <davem@davemloft.net> wrote:
+> This is a fixup patch to resolve issues with const from my earlier patch.
+> Make all the setter functions use const on input parameter.
 > 
->> If you do, submit just the bug fixes against 'net'
-> 
-> One more question:  When you say "against 'net'", do you mean a particular
-> branch of a git tree?  If so, disregard the pull request I just sent you and
-> I'll rebase.
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-I do not use branches.
-
-I instead have just two trees, 'net' and 'net-next'
+Applied, thanks Stephen.
