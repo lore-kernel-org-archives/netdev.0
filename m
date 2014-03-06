@@ -1,20 +1,20 @@
 From: Heiner Kallweit <heiner.kallweit@web.de>
 Subject: Bug 71591 - Temporary address re-generated when it should not (public
  address about to expire)
-Date: Thu, 06 Mar 2014 17:38:21 +0100
-Message-ID: <5318A47D.2020204@web.de>
+Date: Thu, 06 Mar 2014 17:41:21 +0100
+Message-ID: <5318A531.4060900@web.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([212.227.15.4]:60712 "EHLO mout.web.de"
+Received: from mout.web.de ([212.227.15.14]:62251 "EHLO mout.web.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750988AbaCFQib (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Mar 2014 11:38:31 -0500
-Received: from [192.168.178.101] ([84.153.198.61]) by smtp.web.de (mrweb103)
- with ESMTPSA (Nemesis) id 0LsyRS-1XJSF21GqQ-012ax4 for
- <netdev@vger.kernel.org>; Thu, 06 Mar 2014 17:38:30 +0100
+	id S1750794AbaCFQl0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Mar 2014 11:41:26 -0500
+Received: from [192.168.178.101] ([84.153.198.61]) by smtp.web.de (mrweb102)
+ with ESMTPSA (Nemesis) id 0MJkxE-1WMhHs44XM-0018T3 for
+ <netdev@vger.kernel.org>; Thu, 06 Mar 2014 17:41:25 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
