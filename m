@@ -1,58 +1,40 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCHv2 net 2/2] l2tp: fix userspace reception on plain L2TP sockets
-Date: Thu, 6 Mar 2014 11:15:10 +0100
-Message-ID: <bf7ad9b2fdf97c35d2c07488eea09e5280627b74.1394100210.git.g.nault@alphalink.fr>
-References: <cover.1393966618.git.g.nault@alphalink.fr>
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Subject: [PATCH 0/6] Drivers: net: hyperv: Enable various offloads
+Date: Thu,  6 Mar 2014 03:12:38 -0800
+Message-ID: <1394104358-23438-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: James Chapman <jchapman@katalix.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:53520 "EHLO
-	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751095AbaCFKPO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 05:15:14 -0500
-Content-Disposition: inline
-In-Reply-To: <cover.1393966618.git.g.nault@alphalink.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
+ jasowang@redhat.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-As pppol2tp_recv() never queues up packets to plain L2TP sockets,
-pppol2tp_recvmsg() never returns data to userspace, thus making
-the recv*() system calls unusable.
+This patch set enables both checksum as well as segmentation offload.
+As part of this effort I have enabled scatter gather I/O a well.
 
-Instead of dropping packets when the L2TP socket isn't bound to a PPP
-channel, this patch adds them to its reception queue.
+K. Y. Srinivasan (6):
+  Drivers: net: hyperv: Enable scatter gather I/O
+  Drivers: net: hyperv: Cleanup the send path
+  Drivers: net: hyperv: Enable offloads on the host
+  Drivers: net: hyperv: Enable receive side IP checksum offload
+  Drivers: net: hyperv: Enable send side checksum offload
+  Drivers: net: hyperv: Enable large send offload
 
-Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
----
- net/l2tp/l2tp_ppp.c | 12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+ drivers/net/hyperv/hyperv_net.h   |  135 ++++++++++++++-
+ drivers/net/hyperv/netvsc_drv.c   |  336 +++++++++++++++++++++++++++++++------
+ drivers/net/hyperv/rndis_filter.c |  153 ++++++++++--------
+ 3 files changed, 501 insertions(+), 123 deletions(-)
 
-diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
-index 6bfeaa7..5990919 100644
---- a/net/l2tp/l2tp_ppp.c
-+++ b/net/l2tp/l2tp_ppp.c
-@@ -254,12 +254,14 @@ static void pppol2tp_recv(struct l2tp_session *session, struct sk_buff *skb, int
- 		po = pppox_sk(sk);
- 		ppp_input(&po->chan, skb);
- 	} else {
--		l2tp_info(session, PPPOL2TP_MSG_DATA, "%s: socket not bound\n",
--			  session->name);
-+		l2tp_dbg(session, PPPOL2TP_MSG_DATA,
-+			 "%s: recv %d byte data frame, passing to L2TP socket\n",
-+			 session->name, data_len);
- 
--		/* Not bound. Nothing we can do, so discard. */
--		atomic_long_inc(&session->stats.rx_errors);
--		kfree_skb(skb);
-+		if (sock_queue_rcv_skb(sk, skb) < 0) {
-+			atomic_long_inc(&session->stats.rx_errors);
-+			kfree_skb(skb);
-+		}
- 	}
- 
- 	return;
 -- 
-1.9.0
+1.7.4.1
