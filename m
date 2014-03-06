@@ -1,95 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: use raw_cpu ops in snmp stats bh
-Date: Thu, 06 Mar 2014 15:03:37 -0500 (EST)
-Message-ID: <20140306.150337.187768633462445082.davem@davemloft.net>
-References: <1394110536-4532-1-git-send-email-sergey.senozhatsky@gmail.com>
-	<1394117074.27473.29.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1394118272.27473.36.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH net] ipv6: do not overwrite inetpeer metrics prematurely
+Date: Thu, 6 Mar 2014 21:06:58 +0100
+Message-ID: <20140306200658.GA32699@unicorn.suse.cz>
+References: <20140306095054.EEC5EE6E04@unicorn.suse.cz>
+ <20140306.142425.1675660751208500651.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sergey.senozhatsky@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394118272.27473.36.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:33930 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750924AbaCFUHA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Mar 2014 15:07:00 -0500
+Content-Disposition: inline
+In-Reply-To: <20140306.142425.1675660751208500651.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 06 Mar 2014 07:04:32 -0800
-
-> On Thu, 2014-03-06 at 06:44 -0800, Eric Dumazet wrote:
+On Thu, Mar 06, 2014 at 02:24:25PM -0500, David Miller wrote:
 > 
->> I think you missed a lot of mails sent by Chrisoph Lameter recently...
+> > +static void rt6_metrics_to_peer(struct rt6_info *rt)
+> > +{
+> > +	struct inet_peer *peer = rt6_has_peer(rt) ? rt6_peer_ptr(rt) : NULL;
+> > +	struct dst_entry *dst = &rt->dst;
+> > +	unsigned long old = dst->_metrics;
+> > +
+> > +	if (!(rt->dst.flags & DST_HOST) || dst_metrics_read_only(dst))
+> > +		return;
+> > +	if (peer && dst_metrics_ptr(dst) == peer->metrics)
+> > +		return;
+> > +
+> > +	dst->ops->cow_metrics(dst, old);
+> > +	if (dst->_metrics != old) {
+> > +		u32 *old_p = __DST_METRICS_PTR(old);
+> > +
+> > +		memcpy(dst_metrics_ptr(dst), old_p, RTAX_MAX * sizeof(u32));
+> > +		kfree(old_p);
+> > +	}
+> > +}
 > 
-> s/Chrisoph/Christoph/
-> 
-> Appropriate fix would be the following one, please submit this formally.
-> 
-> 
-> Fixes: f19c29e3e391 ("tcp: snmp stats for Fast Open, SYN rtx, and data pkts")
-> 
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index 5286228679bd..df063a32a177 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -87,7 +87,7 @@ static void tcp_event_new_data_sent(struct sock *sk, const struct sk_buff *skb)
->  		tcp_rearm_rto(sk);
->  	}
->  
-> -	NET_ADD_STATS_BH(sock_net(sk), LINUX_MIB_TCPORIGDATASENT,
-> +	NET_ADD_STATS(sock_net(sk), LINUX_MIB_TCPORIGDATASENT,
->  			 tcp_skb_pcount(skb));
->  }
+> Hmmm...  if inet_metrics_new() is true then ->cow_metrics() will copy the
+> metrics from old to new.  So you therefore shouldn't have to do the copy
+> explicitly here.
 
-I'll take care of this, as follows:
+If we are replacing an existing host route with metrics, e.g.
 
-====================
->From 2997439191bc16340abcf51b18a7152b372a057e Mon Sep 17 00:00:00 2001
-From: "David S. Miller" <davem@davemloft.net>
-Date: Thu, 6 Mar 2014 15:03:17 -0500
-Subject: [PATCH] tcp: Use NET_ADD_STATS instead of NET_ADD_STATS_BH in
- tcp_event_new_data_sent()
+  ip route add fec0::1 dev eth0 rto_min 1000
+  ip route change fec0::1 dev eth0 rto_min 1500
 
-Can be invoked from non-BH context.
+then peer will be the existing inetpeer and inet_metrics_new() will be
+false. However, we still need to copy the new metrics from the netlink
+message over the old ones.
 
-Based upon a patch by Eric Dumazet.
+> If inet_metrics_new() is not true, you are overwriting non-new metrics.
 
-Fixes: f19c29e3e391 ("tcp: snmp stats for Fast Open, SYN rtx, and data pkts")
-Reported-by: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/net/ip.h      | 1 +
- net/ipv4/tcp_output.c | 4 ++--
- 2 files changed, 3 insertions(+), 2 deletions(-)
+The only problem with this is IMHO that if inet_metrics_new() is true,
+i.e. when adding a new route with new inetpeer (or old inetpeer whose
+metrics were not used before), the memcpy() is done twice, once in
+ipv6_cow_metrics() and once in rt6_metrics_to_peer(). We are copying the
+same data twice so that the result is correct but it's not efficient and
+it's not nice.
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index b885d75..25064c2 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -187,6 +187,7 @@ void ip_send_unicast_reply(struct net *net, struct sk_buff *skb, __be32 daddr,
- #define NET_INC_STATS(net, field)	SNMP_INC_STATS((net)->mib.net_statistics, field)
- #define NET_INC_STATS_BH(net, field)	SNMP_INC_STATS_BH((net)->mib.net_statistics, field)
- #define NET_INC_STATS_USER(net, field) 	SNMP_INC_STATS_USER((net)->mib.net_statistics, field)
-+#define NET_ADD_STATS(net, field, adnd)	SNMP_ADD_STATS((net)->mib.net_statistics, field, adnd)
- #define NET_ADD_STATS_BH(net, field, adnd) SNMP_ADD_STATS_BH((net)->mib.net_statistics, field, adnd)
- #define NET_ADD_STATS_USER(net, field, adnd) SNMP_ADD_STATS_USER((net)->mib.net_statistics, field, adnd)
- 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 5286228..a02c884 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -87,8 +87,8 @@ static void tcp_event_new_data_sent(struct sock *sk, const struct sk_buff *skb)
- 		tcp_rearm_rto(sk);
- 	}
- 
--	NET_ADD_STATS_BH(sock_net(sk), LINUX_MIB_TCPORIGDATASENT,
--			 tcp_skb_pcount(skb));
-+	NET_ADD_STATS(sock_net(sk), LINUX_MIB_TCPORIGDATASENT,
-+		      tcp_skb_pcount(skb));
- }
- 
- /* SND.NXT, if window was not shrunk.
--- 
-1.7.11.7
+The only way I can see to avoid this (except using own metrics always
+instead of those in struct inetpeer as we do for non-host routes) would
+be not to call ipv6_cow_metrics() at all and write a special function
+for this purpose in net/ipv6/route.c which would duplicate the parts of
+ipv6_cow_metrics() we really need (and add the free()). Do you think
+this is the way to go?
+
+                                                        Michal Kubecek
