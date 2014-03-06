@@ -1,8 +1,7 @@
 From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCHv2 net 1/2] l2tp: fix manual sequencing (de)activation in
- L2TPv2
-Date: Thu, 6 Mar 2014 11:14:30 +0100
-Message-ID: <4a93fa220e4041046b490ba5957b60a244ebcb44.1394100210.git.g.nault@alphalink.fr>
+Subject: [PATCHv2 net 2/2] l2tp: fix userspace reception on plain L2TP sockets
+Date: Thu, 6 Mar 2014 11:15:10 +0100
+Message-ID: <bf7ad9b2fdf97c35d2c07488eea09e5280627b74.1394100210.git.g.nault@alphalink.fr>
 References: <cover.1393966618.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -10,106 +9,50 @@ Cc: James Chapman <jchapman@katalix.com>,
 	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:50097 "EHLO
+Received: from zimbra.alphalink.fr ([217.15.80.77]:53520 "EHLO
 	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751638AbaCFKOm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 05:14:42 -0500
+	by vger.kernel.org with ESMTP id S1751095AbaCFKPO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 05:15:14 -0500
 Content-Disposition: inline
 In-Reply-To: <cover.1393966618.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit e0d4435f "l2tp: Update PPP-over-L2TP driver to work over L2TPv3"
-broke the PPPOL2TP_SO_SENDSEQ setsockopt. The L2TP header length was
-previously computed by pppol2tp_l2t_header_len() before each call to
-l2tp_xmit_skb(). Now that header length is retrieved from the hdr_len
-session field, this field must be updated every time the L2TP header
-format is modified, or l2tp_xmit_skb() won't push the right amount of
-data for the L2TP header.
+As pppol2tp_recv() never queues up packets to plain L2TP sockets,
+pppol2tp_recvmsg() never returns data to userspace, thus making
+the recv*() system calls unusable.
 
-This patch uses l2tp_session_set_header_len() to adjust hdr_len every
-time sequencing is (de)activated from userspace (either by the
-PPPOL2TP_SO_SENDSEQ setsockopt or the L2TP_ATTR_SEND_SEQ netlink
-attribute).
+Instead of dropping packets when the L2TP socket isn't bound to a PPP
+channel, this patch adds them to its reception queue.
 
 Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
 ---
-v2: remove l2tp_session_set_header_len() prototype from l2tp_core.c
+ net/l2tp/l2tp_ppp.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
- net/l2tp/l2tp_core.c    | 4 ++--
- net/l2tp/l2tp_core.h    | 1 +
- net/l2tp/l2tp_netlink.c | 4 +++-
- net/l2tp/l2tp_ppp.c     | 1 +
- 4 files changed, 7 insertions(+), 3 deletions(-)
-
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index 735d0f6..85d9d94 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -112,7 +112,6 @@ struct l2tp_net {
- 	spinlock_t l2tp_session_hlist_lock;
- };
- 
--static void l2tp_session_set_header_len(struct l2tp_session *session, int version);
- static void l2tp_tunnel_free(struct l2tp_tunnel *tunnel);
- 
- static inline struct l2tp_tunnel *l2tp_tunnel(struct sock *sk)
-@@ -1863,7 +1862,7 @@ EXPORT_SYMBOL_GPL(l2tp_session_delete);
- /* We come here whenever a session's send_seq, cookie_len or
-  * l2specific_len parameters are set.
-  */
--static void l2tp_session_set_header_len(struct l2tp_session *session, int version)
-+void l2tp_session_set_header_len(struct l2tp_session *session, int version)
- {
- 	if (version == L2TP_HDR_VER_2) {
- 		session->hdr_len = 6;
-@@ -1876,6 +1875,7 @@ static void l2tp_session_set_header_len(struct l2tp_session *session, int versio
- 	}
- 
- }
-+EXPORT_SYMBOL_GPL(l2tp_session_set_header_len);
- 
- struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunnel *tunnel, u32 session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg)
- {
-diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
-index 1f01ba3..3f93ccd 100644
---- a/net/l2tp/l2tp_core.h
-+++ b/net/l2tp/l2tp_core.h
-@@ -263,6 +263,7 @@ void l2tp_recv_common(struct l2tp_session *session, struct sk_buff *skb,
- 		      int length, int (*payload_hook)(struct sk_buff *skb));
- int l2tp_session_queue_purge(struct l2tp_session *session);
- int l2tp_udp_encap_recv(struct sock *sk, struct sk_buff *skb);
-+void l2tp_session_set_header_len(struct l2tp_session *session, int version);
- 
- int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb,
- 		  int hdr_len);
-diff --git a/net/l2tp/l2tp_netlink.c b/net/l2tp/l2tp_netlink.c
-index 4cfd722..bd7387a 100644
---- a/net/l2tp/l2tp_netlink.c
-+++ b/net/l2tp/l2tp_netlink.c
-@@ -578,8 +578,10 @@ static int l2tp_nl_cmd_session_modify(struct sk_buff *skb, struct genl_info *inf
- 	if (info->attrs[L2TP_ATTR_RECV_SEQ])
- 		session->recv_seq = nla_get_u8(info->attrs[L2TP_ATTR_RECV_SEQ]);
- 
--	if (info->attrs[L2TP_ATTR_SEND_SEQ])
-+	if (info->attrs[L2TP_ATTR_SEND_SEQ]) {
- 		session->send_seq = nla_get_u8(info->attrs[L2TP_ATTR_SEND_SEQ]);
-+		l2tp_session_set_header_len(session, session->tunnel->version);
-+	}
- 
- 	if (info->attrs[L2TP_ATTR_LNS_MODE])
- 		session->lns_mode = nla_get_u8(info->attrs[L2TP_ATTR_LNS_MODE]);
 diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
-index be5fadf..6bfeaa7 100644
+index 6bfeaa7..5990919 100644
 --- a/net/l2tp/l2tp_ppp.c
 +++ b/net/l2tp/l2tp_ppp.c
-@@ -1312,6 +1312,7 @@ static int pppol2tp_session_setsockopt(struct sock *sk,
- 			po->chan.hdrlen = val ? PPPOL2TP_L2TP_HDR_SIZE_SEQ :
- 				PPPOL2TP_L2TP_HDR_SIZE_NOSEQ;
- 		}
-+		l2tp_session_set_header_len(session, session->tunnel->version);
- 		l2tp_info(session, PPPOL2TP_MSG_CONTROL,
- 			  "%s: set send_seq=%d\n",
- 			  session->name, session->send_seq);
+@@ -254,12 +254,14 @@ static void pppol2tp_recv(struct l2tp_session *session, struct sk_buff *skb, int
+ 		po = pppox_sk(sk);
+ 		ppp_input(&po->chan, skb);
+ 	} else {
+-		l2tp_info(session, PPPOL2TP_MSG_DATA, "%s: socket not bound\n",
+-			  session->name);
++		l2tp_dbg(session, PPPOL2TP_MSG_DATA,
++			 "%s: recv %d byte data frame, passing to L2TP socket\n",
++			 session->name, data_len);
+ 
+-		/* Not bound. Nothing we can do, so discard. */
+-		atomic_long_inc(&session->stats.rx_errors);
+-		kfree_skb(skb);
++		if (sock_queue_rcv_skb(sk, skb) < 0) {
++			atomic_long_inc(&session->stats.rx_errors);
++			kfree_skb(skb);
++		}
+ 	}
+ 
+ 	return;
 -- 
 1.9.0
