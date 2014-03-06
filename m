@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net: Utility function to get affinity_hint by policy
-Date: Thu, 06 Mar 2014 17:34:49 -0500 (EST)
-Message-ID: <20140306.173449.1703210385202256497.davem@davemloft.net>
-References: <1394126332-11110-2-git-send-email-amirv@mellanox.com>
-	<20140306.153835.2248996436618700806.davem@davemloft.net>
-	<20140306222441.GA17512@mtl-eit-vdi-22.mtl.labs.mlnx>
+Subject: Re: [PATCH 0/8] AF_RXRPC fixes and development [ver #2]
+Date: Thu, 06 Mar 2014 17:38:45 -0500 (EST)
+Message-ID: <20140306.173845.733270648823204984.davem@davemloft.net>
+References: <20140306124614.16645.50744.stgit@warthog.procyon.org.uk>
+	<8007.1394144113@warthog.procyon.org.uk>
+	<8493.1394145149@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yevgenyp@mellanox.com,
-	ogerlitz@mellanox.com, prarit@redhat.com, gvaradar@cisco.com
-To: amirv@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34206 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750790AbaCFWev (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 17:34:51 -0500
-In-Reply-To: <20140306222441.GA17512@mtl-eit-vdi-22.mtl.labs.mlnx>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, tim@electronghost.co.uk,
+	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8493.1394145149@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Amir Vadai <amirv@mellanox.com>
-Date: Fri, 7 Mar 2014 00:24:43 +0200
+From: David Howells <dhowells@redhat.com>
+Date: Thu, 06 Mar 2014 22:32:29 +0000
 
-> All these could be changed dynamically, and since there is no
-> protection on this block of code, it is possible that local + non-local
-> at point of time t1 will exceed num_online_cpus() at t2.
-> Since this is very rare and the fix for that is very complicated, I
-> decided not set affinity hint in this scenario, and only return an
-> error code.
+> David Miller <davem@davemloft.net> wrote:
+> 
+>> If you do, submit just the bug fixes against 'net'
+> 
+> One more question:  When you say "against 'net'", do you mean a particular
+> branch of a git tree?  If so, disregard the pull request I just sent you and
+> I'll rebase.
 
-Ok, fair enough.
+I do not use branches.
+
+I instead have just two trees, 'net' and 'net-next'
