@@ -1,8 +1,8 @@
 From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next v7 6/9] xen-netback: Add stat counters
-	for zerocopy
-Date: Thu, 6 Mar 2014 21:48:28 +0000
-Message-ID: <1394142511-14827-7-git-send-email-zoltan.kiss@citrix.com>
+Subject: [PATCH net-next v7 8/9] xen-netback: Timeout packets in
+	RX path
+Date: Thu, 6 Mar 2014 21:48:30 +0000
+Message-ID: <1394142511-14827-9-git-send-email-zoltan.kiss@citrix.com>
 References: <1394142511-14827-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,83 +23,190 @@ Sender: xen-devel-bounces@lists.xen.org
 Errors-To: xen-devel-bounces@lists.xen.org
 List-Id: netdev.vger.kernel.org
 
-These counters help determine how often the buffers had to be copied. Also
-they help find out if packets are leaked, as if "sent != success + fail",
-there are probably packets never freed up properly.
-
-NOTE: if bisect brought you here, you should apply the series up until
-"xen-netback: Timeout packets in RX path", otherwise Windows guests can't work
-properly and malicious guests can block other guests by not releasing their sent
-packets.
+A malicious or buggy guest can leave its queue filled indefinitely, in which
+case qdisc start to queue packets for that VIF. If those packets came from an
+another guest, it can block its slots and prevent shutdown. To avoid that, we
+make sure the queue is drained in every 10 seconds.
+The QDisc queue in worst case takes 3 round to flush usually.
 
 Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 ---
+v3:
+- remove stale debug log
+- tie unmap timeout in xenvif_free to this timeout
+
+v4:
+- due to RX flow control changes now start_xmit doesn't drop the packets but
+  place them on the internal queue. So the timer set rx_queue_purge and kick in
+  the thread to drop the packets there
+- we shoot down the timer if a previously filled internal queue drains
+- adjust the teardown timeout as in worst case it can take more time now
+
+v5:
+- create separate variable worst_case_skb_lifetime and add an explanation about
+  why is it so long
 
 diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index 79ba456..eac171e 100644
+index 109c29f..d1cd8ce 100644
 --- a/drivers/net/xen-netback/common.h
 +++ b/drivers/net/xen-netback/common.h
-@@ -167,6 +167,9 @@ struct xenvif {
+@@ -129,6 +129,9 @@ struct xenvif {
+ 	struct xen_netif_rx_back_ring rx;
+ 	struct sk_buff_head rx_queue;
+ 	RING_IDX rx_last_skb_slots;
++	bool rx_queue_purge;
++
++	struct timer_list wake_queue;
  
- 	/* Statistics */
- 	unsigned long rx_gso_checksum_fixup;
-+	unsigned long tx_zerocopy_sent;
-+	unsigned long tx_zerocopy_success;
-+	unsigned long tx_zerocopy_fail;
+ 	/* This array is allocated seperately as it is large */
+ 	struct gnttab_copy *grant_copy_op;
+@@ -225,4 +228,7 @@ void xenvif_idx_unmap(struct xenvif *vif, u16 pending_idx);
  
- 	/* Miscellaneous private stuff. */
- 	struct net_device *dev;
+ extern bool separate_tx_rx_irq;
+ 
++extern unsigned int rx_drain_timeout_msecs;
++extern unsigned int rx_drain_timeout_jiffies;
++
+ #endif /* __XEN_NETBACK__COMMON_H__ */
 diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 408ab57..adfed30 100644
+index af6b3e1..40aa500 100644
 --- a/drivers/net/xen-netback/interface.c
 +++ b/drivers/net/xen-netback/interface.c
-@@ -237,6 +237,21 @@ static const struct xenvif_stat {
- 		"rx_gso_checksum_fixup",
- 		offsetof(struct xenvif, rx_gso_checksum_fixup)
- 	},
-+	/* If (sent != success + fail), there are probably packets never
-+	 * freed up properly!
-+	 */
-+	{
-+		"tx_zerocopy_sent",
-+		offsetof(struct xenvif, tx_zerocopy_sent),
-+	},
-+	{
-+		"tx_zerocopy_success",
-+		offsetof(struct xenvif, tx_zerocopy_success),
-+	},
-+	{
-+		"tx_zerocopy_fail",
-+		offsetof(struct xenvif, tx_zerocopy_fail)
-+	},
- };
- 
- static int xenvif_get_sset_count(struct net_device *dev, int string_set)
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index bc91965..44e6988 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -1554,8 +1554,10 @@ static int xenvif_tx_submit(struct xenvif *vif)
- 		 * do a skb_copy_ubufs while we are still in control of the
- 		 * skb. E.g. the __pskb_pull_tail earlier can do such thing.
- 		 */
--		if (skb_shinfo(skb)->destructor_arg)
-+		if (skb_shinfo(skb)->destructor_arg) {
- 			skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
-+			vif->tx_zerocopy_sent++;
-+		}
- 
- 		netif_receive_skb(skb);
- 	}
-@@ -1595,6 +1597,11 @@ void xenvif_zerocopy_callback(struct ubuf_info *ubuf, bool zerocopy_success)
- 		napi_schedule(&vif->napi);
- 		local_bh_enable();
- 	}
-+
-+	if (likely(zerocopy_success))
-+		vif->tx_zerocopy_success++;
-+	else
-+		vif->tx_zerocopy_fail++;
+@@ -114,6 +114,18 @@ static irqreturn_t xenvif_interrupt(int irq, void *dev_id)
+ 	return IRQ_HANDLED;
  }
  
- static inline void xenvif_tx_dealloc_action(struct xenvif *vif)
++static void xenvif_wake_queue(unsigned long data)
++{
++	struct xenvif *vif = (struct xenvif *)data;
++
++	if (netif_queue_stopped(vif->dev)) {
++		netdev_err(vif->dev, "draining TX queue\n");
++		vif->rx_queue_purge = true;
++		xenvif_kick_thread(vif);
++		netif_wake_queue(vif->dev);
++	}
++}
++
+ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct xenvif *vif = netdev_priv(dev);
+@@ -143,8 +155,13 @@ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 * then turn off the queue to give the ring a chance to
+ 	 * drain.
+ 	 */
+-	if (!xenvif_rx_ring_slots_available(vif, min_slots_needed))
++	if (!xenvif_rx_ring_slots_available(vif, min_slots_needed)) {
++		vif->wake_queue.function = xenvif_wake_queue;
++		vif->wake_queue.data = (unsigned long)vif;
+ 		xenvif_stop_queue(vif);
++		mod_timer(&vif->wake_queue,
++			jiffies + rx_drain_timeout_jiffies);
++	}
+ 
+ 	skb_queue_tail(&vif->rx_queue, skb);
+ 	xenvif_kick_thread(vif);
+@@ -352,6 +369,8 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+ 	init_timer(&vif->credit_timeout);
+ 	vif->credit_window_start = get_jiffies_64();
+ 
++	init_timer(&vif->wake_queue);
++
+ 	dev->netdev_ops	= &xenvif_netdev_ops;
+ 	dev->hw_features = NETIF_F_SG |
+ 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+@@ -532,6 +551,7 @@ void xenvif_disconnect(struct xenvif *vif)
+ 		xenvif_carrier_off(vif);
+ 
+ 	if (vif->task) {
++		del_timer_sync(&vif->wake_queue);
+ 		kthread_stop(vif->task);
+ 		vif->task = NULL;
+ 	}
+@@ -557,12 +577,25 @@ void xenvif_disconnect(struct xenvif *vif)
+ void xenvif_free(struct xenvif *vif)
+ {
+ 	int i, unmap_timeout = 0;
++	/* Here we want to avoid timeout messages if an skb can be legitimatly
++	 * stucked somewhere else. Realisticly this could be an another vif's
++	 * internal or QDisc queue. That another vif also has this
++	 * rx_drain_timeout_msecs timeout, but the timer only ditches the
++	 * internal queue. After that, the QDisc queue can put in worst case
++	 * XEN_NETIF_RX_RING_SIZE / MAX_SKB_FRAGS skbs into that another vif's
++	 * internal queue, so we need several rounds of such timeouts until we
++	 * can be sure that no another vif should have skb's from us. We are
++	 * not sending more skb's, so newly stucked packets are not interesting
++	 * for us here.
++	 */
++	unsigned int worst_case_skb_lifetime = (rx_drain_timeout_msecs/1000) *
++		DIV_ROUND_UP(XENVIF_QUEUE_LENGTH, (XEN_NETIF_RX_RING_SIZE / MAX_SKB_FRAGS));
+ 
+ 	for (i = 0; i < MAX_PENDING_REQS; ++i) {
+ 		if (vif->grant_tx_handle[i] != NETBACK_INVALID_HANDLE) {
+ 			unmap_timeout++;
+ 			schedule_timeout(msecs_to_jiffies(1000));
+-			if (unmap_timeout > 9 &&
++			if (unmap_timeout > worst_case_skb_lifetime &&
+ 			    net_ratelimit())
+ 				netdev_err(vif->dev,
+ 					   "Page still granted! Index: %x\n",
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 560950e..bb65c7c 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -63,6 +63,13 @@ module_param(separate_tx_rx_irq, bool, 0644);
+ static unsigned int fatal_skb_slots = FATAL_SKB_SLOTS_DEFAULT;
+ module_param(fatal_skb_slots, uint, 0444);
+ 
++/* When guest ring is filled up, qdisc queues the packets for us, but we have
++ * to timeout them, otherwise other guests' packets can get stucked there
++ */
++unsigned int rx_drain_timeout_msecs = 10000;
++module_param(rx_drain_timeout_msecs, uint, 0444);
++unsigned int rx_drain_timeout_jiffies;
++
+ /*
+  * To avoid confusion, we define XEN_NETBK_LEGACY_SLOTS_MAX indicating
+  * the maximum slots a valid packet can use. Now this value is defined
+@@ -1909,8 +1916,9 @@ static struct xen_netif_rx_response *make_rx_response(struct xenvif *vif,
+ 
+ static inline int rx_work_todo(struct xenvif *vif)
+ {
+-	return !skb_queue_empty(&vif->rx_queue) &&
+-	       xenvif_rx_ring_slots_available(vif, vif->rx_last_skb_slots);
++	return (!skb_queue_empty(&vif->rx_queue) &&
++	       xenvif_rx_ring_slots_available(vif, vif->rx_last_skb_slots)) ||
++	       vif->rx_queue_purge;
+ }
+ 
+ static inline int tx_work_todo(struct xenvif *vif)
+@@ -1998,12 +2006,19 @@ int xenvif_kthread(void *data)
+ 		if (kthread_should_stop())
+ 			break;
+ 
++		if (vif->rx_queue_purge) {
++			skb_queue_purge(&vif->rx_queue);
++			vif->rx_queue_purge = false;
++		}
++
+ 		if (!skb_queue_empty(&vif->rx_queue))
+ 			xenvif_rx_action(vif);
+ 
+ 		if (skb_queue_empty(&vif->rx_queue) &&
+-		    netif_queue_stopped(vif->dev))
++		    netif_queue_stopped(vif->dev)) {
++			del_timer_sync(&vif->wake_queue);
+ 			xenvif_start_queue(vif);
++		}
+ 
+ 		cond_resched();
+ 	}
+@@ -2054,6 +2069,8 @@ static int __init netback_init(void)
+ 	if (rc)
+ 		goto failed_init;
+ 
++	rx_drain_timeout_jiffies = msecs_to_jiffies(rx_drain_timeout_msecs);
++
+ 	return 0;
+ 
+ failed_init:
