@@ -1,71 +1,53 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: davinci_emac: Replace devm_request_irq with request_irq
-Date: Thu, 6 Mar 2014 09:16:05 -0800
-Message-ID: <CAGVrzcb6hM6N6qLz_r3Y4j57=n3U_Du1Ls5KdDJE4cCoVbx4RQ@mail.gmail.com>
-References: <2ec3bb89-89db-48e8-b360-369545a2546f@mary.at.omicron.at>
- <5318318E.8030402@ti.com> <A8464B1127B9570790254336@172.22.2.41>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Can I limit the number of active tx per TCP socket?
+Date: Thu, 06 Mar 2014 09:17:37 -0800
+Message-ID: <5318ADB1.5050107@hp.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D0F6D3B91@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Mugunthan V N <mugunthanvnm@ti.com>,
-	netdev <netdev@vger.kernel.org>, stable <stable@vger.kernel.org>,
-	dlos <davinci-linux-open-source@linux.davincidsp.com>,
-	Jon Ringle <jon@ringle.org>
-To: Christian Riesch <christian.riesch@omicron.at>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <A8464B1127B9570790254336@172.22.2.41>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: David Laight <David.Laight@ACULAB.COM>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t3426.houston.hp.com ([15.201.208.54]:36597 "EHLO
+	g4t3426.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752081AbaCFRRk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 12:17:40 -0500
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6D3B91@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2014-03-06 0:51 GMT-08:00 Christian Riesch <christian.riesch@omicron.at>:
-> --On March 06, 2014 13:57 +0530 Mugunthan V N <mugunthanvnm@ti.com> wrote:
->>
->> On Wednesday 05 March 2014 03:55 PM, Christian Riesch wrote:
->>>
->>> In commit 6892b41d9701283085b655c6086fb57a5d63fa47
->>>
->>> Author: Lad, Prabhakar <prabhakar.csengg@gmail.com>
->>> Date:   Tue Jun 25 21:24:51 2013 +0530
->>> net: davinci: emac: Convert to devm_* api
->>>
->>> the call of request_irq is replaced by devm_request_irq and the call
->>> of free_irq is removed. But since interrupts are requested in
->>> emac_dev_open, doing ifconfig up/down on the board requests the
->>> interrupts again each time, causing devm_request_irq to fail.
->>>
->>> This patch reverts said commit partially: It changes the driver back
->>> to use request_irq instead of devm_request_irq, puts free_irq back in
->>> place, but keeps the remaining changes of the original patch.
->>>
->>> Reported-by: Jon Ringle <jon@ringle.org>
->>> Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
->>> Cc: Lad, Prabhakar <prabhakar.csengg@gmail.com>
->>> Cc: <stable@vger.kernel.org>
->>
->>
->> Instead of moving back to request irq. can you move the devm interrupt
->> request code from open to probe so that the issue is fixed, IRQ will be
->> requested on module insert and IRQ will be free in module remove and
->> there will not be any failures in devm request irq while repeating
->> ifup/ifdown and also during module insert/remove.
->
->
-> This is exactly what I tried first, please have a look at my first patch and
-> the discussion [1]. Florian Fainelli asked me to revert Prabhakar's patch
-> instead to bring back the "usual situation", "just in case some uncontrolled
-> interrupt bit triggers an interrupt while the interface is down for
-> instance..."
->
-> Florian Fainelli, Mugunthan VN, which solution is better?
+On 03/06/2014 04:28 AM, David Laight wrote:
+> Is it possible to stop a TCP connection having more than one
+> tx skb (in the ethernet tx ring) at any one time?
+> The idea is to allow time for short sends from the application
+> to accumulate so that the transmitted frames are longer.
 
-I think the solution that does:
+That is precisely what Nagle is supposed to be doing - at least where 
+the definition of "time" is the round-trip-time rather than "time it 
+takes to get transmitted out the NIC."
 
-- request_irq() in ndo_open()
-- free_irq() in ndo_stop()
+> Basically I have a TCP connection which carries a lot of separate
+> short 'user buffers'. These are not command-response so
+> TCP_NODELAY has to be set to avoid long delays.
 
-is the safest option because it ensure that the various interrupt
-lines are masked at the interrupt controller level, and not just at
-Ethernet MAC level, and as such gives you more control over what the
-hardware does. It also mimics what 99% of the Ethernet drivers do,
-which will help identifying those common patterns programmatically.
--- 
-Florian
+When you are saturating the receiver and/or the 64K line, are you 
+certain that not setting TCP_NODELAY means long delays?
+
+ From a later message:
+
+> The data is sent out on a 64k line so 1ms is only 8 byte times.
+
+Are you still using a 1460 byte MSS on such a connection?
+
+Perhaps you can set the MSS (or drop the MTU on the 64K line and use 
+PTMU) to something less to trigger window updates a bit sooner and so 
+get piggy-backed ACKs rather than delayed ACKs and so not have to set 
+TCP_NODELAY?  Yes, you will have a question of headers versus 
+headers+data but with TCP_NODELAY set as you have it you are (probably) 
+already trashing that.
+
+Setting TCP_NODELAY to avoid "long delays" and then having a 64Kbyte/s 
+link seems a trifle, well, contradictory.
+
+rick jones
