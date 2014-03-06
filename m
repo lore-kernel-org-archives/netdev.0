@@ -1,55 +1,52 @@
-From: Heiner Kallweit <heiner.kallweit@web.de>
-Subject: Bug 71591 - Temporary address re-generated when it should not (public
- address about to expire)
-Date: Thu, 06 Mar 2014 17:41:21 +0100
-Message-ID: <5318A531.4060900@web.de>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH net-next 2/2] 6lowpan: reassembly: fix kernel oops while
+ unloading
+Date: Thu, 6 Mar 2014 17:41:35 +0100
+Message-ID: <20140306164135.GD17526@breakpoint.cc>
+References: <1394052211-6976-1-git-send-email-alex.aring@gmail.com>
+ <1394052211-6976-3-git-send-email-alex.aring@gmail.com>
+ <20140305223246.GA17526@breakpoint.cc>
+ <20140306060943.GB13676@omega>
+ <20140306133851.GC17526@breakpoint.cc>
+ <20140306163635.GA21460@omega>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, alex.bluesman.smirnov@gmail.com,
+	dbaryshkov@gmail.com, netdev@vger.kernel.org
+To: Alexander Aring <alex.aring@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([212.227.15.14]:62251 "EHLO mout.web.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750794AbaCFQl0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Mar 2014 11:41:26 -0500
-Received: from [192.168.178.101] ([84.153.198.61]) by smtp.web.de (mrweb102)
- with ESMTPSA (Nemesis) id 0MJkxE-1WMhHs44XM-0018T3 for
- <netdev@vger.kernel.org>; Thu, 06 Mar 2014 17:41:25 +0100
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:40884 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751276AbaCFQlg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 11:41:36 -0500
+Content-Disposition: inline
+In-Reply-To: <20140306163635.GA21460@omega>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Recently I faced the issue that a public address was about to expire and 
-3s before expiry a new temporary address was generated which instantly 
-went into deprecated state.
-This didn't do any harm however it's wrong IMHO. Problem seems to be in 
-function ipv6_create_tempaddr in addrconf.c.
-A new temporary address is generated if this condition is met: 
-tmp_prefered_lft > regen_advance
-tmp_prefered_lft however is an offset from tstamp, not from now.
-This condition only checks that the new address is preferred until more 
-than regen_advance from tstamp,
-but it should check that the new address is preferred until more than 
-regen_advance from now.
+Alexander Aring <alex.aring@gmail.com> wrote:
+> ah, ok.
+> 
+> > I am currently testing this fix:
+> > 
+> > diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+> > index 322dceb..3b01959 100644
+> > --- a/net/ipv4/inet_fragment.c
+> > +++ b/net/ipv4/inet_fragment.c
+> > @@ -208,7 +208,7 @@ int inet_frag_evictor(struct netns_frags *nf, struct
+> > 		inet_frags *f, bool force)
+> >         }
+> >  
+> >         work = frag_mem_limit(nf) - nf->low_thresh;
+> > -       while (work > 0) {
+> > +       while (work > 0 || force) {
+> > 
+> > 
+> 
+> I looked at this and try my little testscript and I don't get the kernel
+> oops also. What's the next step?
 
-I submitted this issue to kernel bugzilla -> 71591
-Hannes asked me to propose a patch, here it comes.
+Thanks for testing!
 
-Rgds, Heiner
-
-diff -uNr linux-3.10.32.vanilla/net/ipv6/addrconf.c 
-linux-3.10.32.patched/net/ipv6/addrconf.c
---- linux-3.10.32.vanilla/net/ipv6/addrconf.c    2014-02-22 
-14:41:54.000000000 -0600
-+++ linux-3.10.32.patched/net/ipv6/addrconf.c    2014-03-06 
-17:07:12.953699438 -0600
-@@ -1111,8 +1111,9 @@
-       * Lifetime is greater than REGEN_ADVANCE time units.  In particular,
-       * an implementation must not create a temporary address with a zero
-       * Preferred Lifetime.
-+     * Note that tmp_prefered_lft is relative to ifp->tstamp not now.
-       */
--    if (tmp_prefered_lft <= regen_advance) {
-+    if (tmp_prefered_lft <= regen_advance + age) {
-          in6_ifa_put(ifp);
-          in6_dev_put(idev);
-          ret = -1;
+I'll make official submit soon, adding proper changelog and your
+tested-by tag.
