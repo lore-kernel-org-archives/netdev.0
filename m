@@ -1,84 +1,54 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH 5/6] Drivers: net: hyperv: Enable send side checksum
- offload
-Date: Thu, 6 Mar 2014 21:00:39 +0000
-Message-ID: <5102a3e2fdc14815a4c4df0ea3c3f763@BY2PR03MB299.namprd03.prod.outlook.com>
-References: <1394104390-23477-5-git-send-email-kys@microsoft.com>
-	<20140306.143354.1296864763659469552.davem@davemloft.net>
-	<d51892af73814794972736463a686a09@BY2PR03MB299.namprd03.prod.outlook.com>
- <20140306.154842.1612603056023919814.davem@davemloft.net>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH net] ipv6: don't set DST_NOCOUNT for remotely added routes
+Date: Thu, 6 Mar 2014 22:03:17 +0100
+Message-ID: <20140306210317.GA9952@kria>
+References: <1394124717-1957-1-git-send-email-sd@queasysnail.net>
+ <20140306.152715.1223513898002005603.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"jasowang@redhat.com" <jasowang@redhat.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140306.154842.1612603056023919814.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1-g21.free.fr ([212.27.42.1]:43067 "EHLO smtp1-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750924AbaCFVD3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Mar 2014 16:03:29 -0500
+Content-Disposition: inline
+In-Reply-To: <20140306.152715.1223513898002005603.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Friday, March 7, 2014 2:19 AM
-> To: KY Srinivasan
-> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-> devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
-> jasowang@redhat.com
-> Subject: Re: [PATCH 5/6] Drivers: net: hyperv: Enable send side checksum
-> offload
+2014-03-06, 15:27:15 -0500, David Miller wrote:
+> From: Sabrina Dubroca <sd@queasysnail.net>
+> Date: Thu,  6 Mar 2014 17:51:57 +0100
 > 
-> From: KY Srinivasan <kys@microsoft.com>
-> Date: Thu, 6 Mar 2014 20:29:13 +0000
+> > DST_NOCOUNT should only be used if an authorized user adds routes
+> > locally. In case of routes which are added on behalf of router
+> > advertisments this flag must not get used as it allows an unlimited
+> > number of routes getting added remotely.
+> > 
+> > Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> > Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> > ---
+> > 
+> > Hannes suggested this for stable
 > 
-> >
-> >
-> >> -----Original Message-----
-> >> From: David Miller [mailto:davem@davemloft.net]
-> >> Sent: Friday, March 7, 2014 1:04 AM
-> >> To: KY Srinivasan
-> >> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-> >> devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
-> >> jasowang@redhat.com
-> >> Subject: Re: [PATCH 5/6] Drivers: net: hyperv: Enable send side
-> >> checksum offload
-> >>
-> >> From: "K. Y. Srinivasan" <kys@microsoft.com>
-> >> Date: Thu,  6 Mar 2014 03:13:09 -0800
-> >>
-> >> > +bool get_net_transport_info(struct sk_buff *skb, bool *is_v4,
-> >> > +				bool *is_tcp, bool *is_udp, u32 *trans_off) {
-> >>
-> >> Returning so many values like this is awkward, at best.
-> >>
-> >> Why not return a well defined bitmask:
-> >>
-> >> #define TRANSPORT_INFO_SUCCESS	0x00000001
-> >> #define TRANSPORT_INFO_TCP	0x00000002
-> >> #define TRANSPORT_INFO_UDP	0x00000004
-> >>
-> >> Then the only value you have to return by reference is trans_off.
-> >
-> > I also need information on the IP version as well. If it is ok with
-> > you, I will use the return value to get information on the network
-> > protocol and return information on transport via reference - protocol and
-> the offset.
+> This seems to conflict with the intentions of:
 > 
-> Just add "TRANSPORT_INFO_IPv4" as another bitmask in the return value.
+> commit a3300ef4bbb1f1e33ff0400e1e6cf7733d988f4f
+> Author: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date:   Sat Dec 7 03:33:45 2013 +0100
+> 
+>     ipv6: don't count addrconf generated routes against gc limit
+> 
+> If not, why not?
 
-The network information is independent of the transport information - I can partition the
-return value to encode all the possible network and transport combination and subsequently
-parse the network and transport information. I will go ahead and code it up this way.
+These are not the same routes. The commit you mention is for the
+routes added to the loopback device in the local table (limited by
+max_addresses as the log says).
 
-Regards,
+This patch limits the number of "real" routes that can be added,
+which is currently unlimited.
 
-K. Y
-
- 
+-- 
+Sabrina
