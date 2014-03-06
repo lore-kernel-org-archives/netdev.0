@@ -1,90 +1,70 @@
-From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-Subject: Re: [PATCH net-next 0/5] net_sched: Adjust qdisc_change() for
- command "#tc qdisc change/replace ..."
-Date: Fri, 7 Mar 2014 06:08:18 +0900
-Message-ID: <20140307060818.fa549a2981b601bcec517227@gmail.com>
-References: <1394111321-11192-1-git-send-email-yangyingliang@huawei.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH net 2/2] net/mlx4_core: mlx4_init_slave() shouldn't access
+ comm channel before PF is ready
+Date: Thu, 6 Mar 2014 23:08:36 +0200
+Message-ID: <CAJZOPZKdxmZ1NBKxnSeAnQv-F=e0zQBsjTON64RE67EitkySLQ@mail.gmail.com>
+References: <1394123297-7878-3-git-send-email-amirv@mellanox.com>
+	<20140306.151254.914568962698409365.davem@davemloft.net>
+	<CAJZOPZLbmnaS_7mnOrMhp4ZrgehF+rgqnef0TEkJ3q8551OXDA@mail.gmail.com>
+	<20140306.154804.999275744020224288.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	stephen@networkplumber.org, eric.dumazet@gmail.com
-To: yangyingliang@huawei.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>, Narendra_K@dell.com,
+	Sreekanth_Reddy@dell.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:40495 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753506AbaCFVIW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 16:08:22 -0500
-Received: by mail-pa0-f51.google.com with SMTP id kq14so3171039pab.24
-        for <netdev@vger.kernel.org>; Thu, 06 Mar 2014 13:08:21 -0800 (PST)
-In-Reply-To: <1394111321-11192-1-git-send-email-yangyingliang@huawei.com>
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:59436 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752991AbaCFVIg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 16:08:36 -0500
+Received: by mail-pb0-f51.google.com with SMTP id uo5so3159426pbc.38
+        for <netdev@vger.kernel.org>; Thu, 06 Mar 2014 13:08:36 -0800 (PST)
+In-Reply-To: <20140306.154804.999275744020224288.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 6 Mar 2014 21:08:36 +0800
-Yang Yingliang <yangyingliang@huawei.com> wrote:
+On Thu, Mar 6, 2014 at 10:48 PM, David Miller <davem@davemloft.net> wrote:
+> From: Or Gerlitz <or.gerlitz@gmail.com>
+> Date: Thu, 6 Mar 2014 22:19:48 +0200
+>> On Thu, Mar 6, 2014 at 10:12 PM, David Miller <davem@davemloft.net> wrote:
 
-> Current commands "#tc qdisc replace..." and "#tc qdisc change..."
-> are not doing what they're supposed to do.
-> 
-> E.g.
-> 
-> With "#tc qdisc replace ...", it won't clear old option if not specified in
-> qdisc of netem.
-> 
->    # tc qdisc add dev eth4 handle 1: root netem rate 10mbit
->    # tc qdisc show
->      qdisc netem 1: dev eth4 root refcnt 2 limit 1000 rate 10Mbit
-> 
->    # tc qdisc replace dev eth4 handle 1: root netem latency 10ms
->    # tc qdisc show
->      qdisc netem 1: dev eth4 root refcnt 2 limit 1000 delay 10.0ms rate 10Mbit
-> The old option "rate" is still there.
+>>> > +static atomic_t pf_loading = ATOMIC_INIT(0);
+>>> > @@ -1407,6 +1409,11 @@ static int mlx4_init_slave(struct mlx4_dev *dev)
+>>> > +     if (atomic_read(&pf_loading)) {
+>>> > +             mlx4_warn(dev, "PF is not ready. Deferring probe\n");
+>>> > +             return -EPROBE_DEFER;
+>>> > +     }
+>>> > +
+>>> > @@ -2319,7 +2326,11 @@ static int __mlx4_init_one(struct pci_dev *pdev, int pci_dev_data)
+>>> >
+>>> >               if (num_vfs) {
+>>> >                       mlx4_warn(dev, "Enabling SR-IOV with %d VFs\n",num_vfs);
+>>> > +
+>>> > +                     atomic_inc(&pf_loading);
+>>> >                       err = pci_enable_sriov(pdev, num_vfs);
+>>> > +                     atomic_dec(&pf_loading);
+>>> > +
 
-It looks like you are trying to replace existing qdisc 1: with
-the same qdisc 1:. So the effect is the same as change.
-If you want to do replace the existing qdisc, you should specify
-other handle or different qdisc.
+>>> This synchronization scheme doesn't look right to me at all.
+>>> It's global, so VF's for _any_ PF will probe defer while one is enabling SRIOV.
+>>> It doesn't seem correct to cause unrelated VF's to defer the probe.
 
-> With "#tc qdisc change ... ", it will clear old options if not specified in
-> qdisc of tbf.
-> 
->   # tc qdisc add dev eth4 handle 1: root tbf rate 10mbit burst 10kb latency 50ms mtu 64kb peakrate 20mbit
->   # tc qdisc show
->     qdisc tbf 1: dev eth4 root refcnt 2 rate 10Mbit burst 10Kb peakrate 20Mbit minburst 64Kb lat 50.0ms
->   # tc qdisc change dev eth4 handle 1: root tbf rate 20mbit burst 10kb latency 50ms
->   # tc qdisc show
->     qdisc tbf 1: dev eth4 root refcnt 2 rate 20Mbit burst 10Kb lat 50.0ms
-> The old peakrate and minburst are cleared.
+>> Can you please elaborate a bit why you find this approach to be
+>> incorrect? basically, these nested VF probed are a bit headache
+>> anyway, so we didn't find such global deferring to be problematic.
 
-You are assumed to implicitly specify "peakrate 0" at change.
-It seems that you are arguing the tc command, not kernel code.
-There would exist userland commmand whose rate and peakrate
-command options are always mandatory.
-How they support its command options is up to userland I think.
+> What if a second PF starts to init and call pci_enable_sriov(), while the VFs
+> from a previous PF probed call mlx4_init_slave()?
+> It will increment pf_loading() and force those unreladed VFs to defer.
 
-> This patchset adds a flag parameter in qdisc_change and a replace func in struct Qdisc_ops.
-> If the flag has NLM_F_REPLACE, we call the replace function, or call the change function in
-> qdisc_change(). And, add tbf_replace() and netem_replace() needed by tbf and netem.
-> 
-> Yang Yingliang (5):
->   net_sched: add flag parameter in qdisc_change
->   net_sched: add replace func in struct Qdisc_ops
->   sch_tbf: change name "tbf_change" to "tbf_replace"
->   sch_tbf: add tbf_change for #tc qdisc change ...
->   sch_netem: add netem_replace for #tc qdisc replace ...
-> 
->  include/net/sch_generic.h |   1 +
->  net/sched/sch_api.c       |  16 ++++--
->  net/sched/sch_netem.c     | 127 ++++++++++++++++++++++++++++++++++++++++++++++
->  net/sched/sch_tbf.c       | 120 ++++++++++++++++++++++++++++++++++++++++++-
->  4 files changed, 258 insertions(+), 6 deletions(-)
-> 
-> -- 
-> 1.8.0
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+By "unreladed VFs" I assume you mean unrelated VFs that belong to the
+1st VF, which is OK for them to probe, right? so yes, this is sort of
+conservative approach that wait till all PFs are fully ready, and I
+understand you don't like it, but still, I would be happy to know
+what's wrong in doing so..
+
+> You must have a per-PF value to block the underlying VFs, rather than a global
+> one.
