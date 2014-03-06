@@ -1,43 +1,38 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: [PATCH v2] bonding: correctly handle out of range parameters for lp_interval
-Date: Thu,  6 Mar 2014 16:53:11 -0500
-Message-ID: <1394142791-11142-1-git-send-email-sasha.levin@oracle.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, nikolay@redhat.com,
-	Sasha Levin <sasha.levin@oracle.com>
-To: fubar@us.ibm.com, vfalico@redhat.com, andy@greyhouse.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: davinci_emac: Replace devm_request_irq with
+ request_irq
+Date: Thu, 06 Mar 2014 16:57:36 -0500 (EST)
+Message-ID: <20140306.165736.154818699714315258.davem@davemloft.net>
+References: <2ec3bb89-89db-48e8-b360-369545a2546f@mary.at.omicron.at>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jon@ringle.org, f.fainelli@gmail.com,
+	davinci-linux-open-source@linux.davincidsp.com,
+	prabhakar.csengg@gmail.com, stable@vger.kernel.org
+To: christian.riesch@omicron.at
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <2ec3bb89-89db-48e8-b360-369545a2546f@mary.at.omicron.at>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We didn't correctly check cases where the value for lp_interval is not
-within the legal range due to a missing table terminator.
+From: Christian Riesch <christian.riesch@omicron.at>
+Date: Wed, 5 Mar 2014 11:25:28 +0100
 
-This would let userspace trigger a kernel panic by specifying a value out
-of range:
+> @@ -1641,7 +1640,15 @@ static int emac_dev_open(struct net_device *ndev)
+>  
+>  rollback:
+>  
+> -	dev_err(emac_dev, "DaVinci EMAC: devm_request_irq() failed");
+> +	dev_err(emac_dev, "DaVinci EMAC: request_irq() failed");
+> +
+> +	for (q = k; k >= 0; k--) {
+> +		for (m = i; m >= res->start; m--)
+> +			free_irq(m, ndev);
+> +		res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, k-1);
+> +		m = res->end;
+> +	}
 
-	echo -1 > /sys/devices/virtual/net/bond0/bonding/lp_interval
+This final assignment in the loop of 'm' is unused?
 
-Introduced by commit 4325b374f84 ("bonding: convert lp_interval to use
-the new option API").
-
-Acked-by: Nikolay Aleksandrov <nikolay@redhat.com>
-Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
----
- drivers/net/bonding/bond_options.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 23f3655..4d35cdc 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -124,6 +124,7 @@ static struct bond_opt_value bond_resend_igmp_tbl[] = {
- static struct bond_opt_value bond_lp_interval_tbl[] = {
- 	{ "minval",  1,       BOND_VALFLAG_MIN | BOND_VALFLAG_DEFAULT},
- 	{ "maxval",  INT_MAX, BOND_VALFLAG_MAX},
-+	{ NULL,      -1,      0},	
- };
- 
- static struct bond_option bond_opts[] = {
--- 
-1.7.2.5
+The inner for() loop always started with "m = i;"
