@@ -1,65 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 12/13] r8152: add additional parameter for
- non x86 platform
-Date: Thu, 06 Mar 2014 00:05:18 -0500 (EST)
-Message-ID: <20140306.000518.449808421540608140.davem@davemloft.net>
-References: <1393934464-23675-1-git-send-email-hayeswang@realtek.com>
-	<1394002168-3193-1-git-send-email-hayeswang@realtek.com>
-	<1394002168-3193-13-git-send-email-hayeswang@realtek.com>
+From: Prabhakar Lad <prabhakar.csengg@gmail.com>
+Subject: Re: [PATCH] net: davinci_emac: Replace devm_request_irq with request_irq
+Date: Thu, 6 Mar 2014 11:08:18 +0530
+Message-ID: <CA+V-a8u3HChveLMuncWmXpeMhFgj1Bj4urLK1-gCOafAd0JxVg@mail.gmail.com>
+References: <2ec3bb89-89db-48e8-b360-369545a2546f@mary.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394002168-3193-13-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>, Jon Ringle <jon@ringle.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	dlos <davinci-linux-open-source@linux.davincidsp.com>,
+	stable@vger.kernel.org
+To: Christian Riesch <christian.riesch@omicron.at>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <2ec3bb89-89db-48e8-b360-369545a2546f@mary.at.omicron.at>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Wed, 5 Mar 2014 14:49:27 +0800
+Hi Christian,
 
-> Add additional parameter for non x86 platform for better throughput.
-> 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+Thanks for the patch.
 
-This commit message tells me absolutely nothing.
+On Wed, Mar 5, 2014 at 3:55 PM, Christian Riesch
+<christian.riesch@omicron.at> wrote:
+> In commit 6892b41d9701283085b655c6086fb57a5d63fa47
+>
+> Author: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+> Date:   Tue Jun 25 21:24:51 2013 +0530
+> net: davinci: emac: Convert to devm_* api
+>
+> the call of request_irq is replaced by devm_request_irq and the call
+> of free_irq is removed. But since interrupts are requested in
+> emac_dev_open, doing ifconfig up/down on the board requests the
+> interrupts again each time, causing devm_request_irq to fail.
+>
+> This patch reverts said commit partially: It changes the driver back
+> to use request_irq instead of devm_request_irq, puts free_irq back in
+> place, but keeps the remaining changes of the original patch.
+>
+> Reported-by: Jon Ringle <jon@ringle.org>
+> Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
+> Cc: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+> Cc: <stable@vger.kernel.org>
 
-First of all, it doesn't say what the issue is, why is the chip
-slower on non-x86 platforms with the current way it is programmed?
+Acked-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
 
-And in particular, which non-x86 platform?  You can't possibly mean
-all of them.
-
-I can almost guarentee if you actually explain the issue, I'm going
-to tell you to use a more meaningful test for the condition or
-property an architecture has which makes the alternative setting
-more desirable.
-
->  /* USB_RX_EARLY_AGG */
-> -#define EARLY_AGG_SUPPER	0x0e832981
-> +#if defined(__i386__) || defined(__x86_64__)
-> +	#define EARLY_AGG_SUPPER	0x0e832981
-> +#else
-> +	#define EARLY_AGG_SUPPER	0x0e835000
-> +#endif
-
-And this value is completely magic, you must document what this
-register value means.
-
-I find this patch series extremely frustrating.
-
-You are combining so many things all at once, so if one aspect
-requires changes or to be removed, it invalidates the rest of
-the series and you have to respin it all over again.
-
-Why don't you re-submit this in pieces?  First the cleanups
-(first three patches) would be one series.
-
-Once I apply that, perhaps submit the locking changes and
-tso/checksum support.
-
-Then finally, after I apply that, submit the tweaks at the end.
-
-Thank you.
+Regards,
+--Prabhakar lad
