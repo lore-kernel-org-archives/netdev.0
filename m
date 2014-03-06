@@ -1,217 +1,102 @@
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH 3/6] Drivers: net: hyperv: Enable offloads on the host
-Date: Thu,  6 Mar 2014 03:13:07 -0800
-Message-ID: <1394104390-23477-3-git-send-email-kys@microsoft.com>
-References: <1394104358-23438-1-git-send-email-kys@microsoft.com>
- <1394104390-23477-1-git-send-email-kys@microsoft.com>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [Bug] net/fec on i.MX28: promiscuous mode lost after reconnecting
+ network cable
+Date: Thu, 6 Mar 2014 07:30:34 -0300
+Message-ID: <CAOMZO5B-1koJdQRdE7SQU07K9McZZaiPAa+rookdxVL5vvPJvA@mail.gmail.com>
+References: <5318400C.8060508@i2se.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
- jasowang@redhat.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1394104390-23477-1-git-send-email-kys@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-arm-kernel@lists.arm.linux.org.uk,
+	Shawn Guo <shawn.guo@linaro.org>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>,
+	Duan Fugang-B38611 <B38611@freescale.com>,
+	Sascha Hauer <kernel@pengutronix.de>
+To: Stefan Wahren <stefan.wahren@i2se.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vc0-f181.google.com ([209.85.220.181]:60016 "EHLO
+	mail-vc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751506AbaCFKaf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 05:30:35 -0500
+Received: by mail-vc0-f181.google.com with SMTP id lg15so2327519vcb.26
+        for <netdev@vger.kernel.org>; Thu, 06 Mar 2014 02:30:34 -0800 (PST)
+In-Reply-To: <5318400C.8060508@i2se.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Prior to enabling guest side offloads, enable the offloads on the host.
+Adding some more folks on Cc.
 
-Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
----
- drivers/net/hyperv/hyperv_net.h   |   55 ++++++++++++++++++++++++
- drivers/net/hyperv/rndis_filter.c |   83 +++++++++++++++++++++++++++++++++++++
- 2 files changed, 138 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 694bf7c..8bc4e76 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -721,6 +721,61 @@ struct ndis_pkt_8021q_info {
- 	};
- };
- 
-+struct ndis_oject_header {
-+	u8 type;
-+	u8 revision;
-+	u16 size;
-+};
-+
-+#define NDIS_OBJECT_TYPE_DEFAULT	0x80
-+#define NDIS_OFFLOAD_PARAMETERS_REVISION_3 3
-+#define NDIS_OFFLOAD_PARAMETERS_NO_CHANGE 0
-+#define NDIS_OFFLOAD_PARAMETERS_LSOV2_DISABLED 1
-+#define NDIS_OFFLOAD_PARAMETERS_LSOV2_ENABLED  2
-+#define NDIS_OFFLOAD_PARAMETERS_LSOV1_ENABLED  2
-+#define NDIS_OFFLOAD_PARAMETERS_RSC_DISABLED 1
-+#define NDIS_OFFLOAD_PARAMETERS_RSC_ENABLED 2
-+#define NDIS_OFFLOAD_PARAMETERS_TX_RX_DISABLED 1
-+#define NDIS_OFFLOAD_PARAMETERS_TX_ENABLED_RX_DISABLED 2
-+#define NDIS_OFFLOAD_PARAMETERS_RX_ENABLED_TX_DISABLED 3
-+#define NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED 4
-+
-+/*
-+ * New offload OIDs for NDIS 6
-+ */
-+#define OID_TCP_OFFLOAD_CURRENT_CONFIG 0xFC01020B /* query only */
-+#define OID_TCP_OFFLOAD_PARAMETERS 0xFC01020C		/* set only */
-+#define OID_TCP_OFFLOAD_HARDWARE_CAPABILITIES 0xFC01020D/* query only */
-+#define OID_TCP_CONNECTION_OFFLOAD_CURRENT_CONFIG 0xFC01020E /* query only */
-+#define OID_TCP_CONNECTION_OFFLOAD_HARDWARE_CAPABILITIES 0xFC01020F /* query */
-+#define OID_OFFLOAD_ENCAPSULATION 0x0101010A /* set/query */
-+
-+struct ndis_offload_params {
-+	struct ndis_oject_header header;
-+	u8 ip_v4_csum;
-+	u8 tcp_ip_v4_csum;
-+	u8 udp_ip_v4_csum;
-+	u8 tcp_ip_v6_csum;
-+	u8 udp_ip_v6_csum;
-+	u8 lso_v1;
-+	u8 ip_sec_v1;
-+	u8 lso_v2_ipv4;
-+	u8 lso_v2_ipv6;
-+	u8 tcp_connection_ip_v4;
-+	u8 tcp_connection_ip_v6;
-+	u32 flags;
-+	u8 ip_sec_v2;
-+	u8 ip_sec_v2_ip_v4;
-+	struct {
-+		u8 rsc_ip_v4;
-+		u8 rsc_ip_v6;
-+	};
-+	struct {
-+		u8 encapsulated_packet_task_offload;
-+		u8 encapsulation_types;
-+	};
-+};
-+
- #define NDIS_VLAN_PPI_SIZE (sizeof(struct rndis_per_packet_info) + \
- 		sizeof(struct ndis_pkt_8021q_info))
- 
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index dcbf144e..9e257ac 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -627,6 +627,62 @@ cleanup:
- 	return ret;
- }
- 
-+int rndis_filter_set_offload_params(struct hv_device *hdev,
-+				struct ndis_offload_params *req_offloads)
-+{
-+	struct netvsc_device *nvdev = hv_get_drvdata(hdev);
-+	struct rndis_device *rdev = nvdev->extension;
-+	struct net_device *ndev = nvdev->ndev;
-+	struct rndis_request *request;
-+	struct rndis_set_request *set;
-+	struct ndis_offload_params *offload_params;
-+	struct rndis_set_complete *set_complete;
-+	u32 extlen = sizeof(struct ndis_offload_params);
-+	int ret, t;
-+
-+	request = get_rndis_request(rdev, RNDIS_MSG_SET,
-+		RNDIS_MESSAGE_SIZE(struct rndis_set_request) + extlen);
-+	if (!request)
-+		return -ENOMEM;
-+
-+	set = &request->request_msg.msg.set_req;
-+	set->oid = OID_TCP_OFFLOAD_PARAMETERS;
-+	set->info_buflen = extlen;
-+	set->info_buf_offset = sizeof(struct rndis_set_request);
-+	set->dev_vc_handle = 0;
-+
-+	offload_params = (struct ndis_offload_params *)((ulong)set +
-+				set->info_buf_offset);
-+	*offload_params = *req_offloads;
-+	offload_params->header.type = NDIS_OBJECT_TYPE_DEFAULT;
-+	offload_params->header.revision = NDIS_OFFLOAD_PARAMETERS_REVISION_3;
-+	offload_params->header.size = extlen;
-+
-+	ret = rndis_filter_send_request(rdev, request);
-+	if (ret != 0)
-+		goto cleanup;
-+
-+	t = wait_for_completion_timeout(&request->wait_event, 5*HZ);
-+	if (t == 0) {
-+		netdev_err(ndev, "timeout before we got aOFFLOAD set response...\n");
-+		/*
-+		 * can't put_rndis_request, since we may still receive a
-+		 * send-completion.
-+		 */
-+		return -EBUSY;
-+	} else {
-+		set_complete = &request->response_msg.msg.set_complete;
-+		if (set_complete->status != RNDIS_STATUS_SUCCESS) {
-+			netdev_err(ndev, "Fail to set MAC on host side:0x%x\n",
-+				   set_complete->status);
-+			ret = -EINVAL;
-+		}
-+	}
-+
-+cleanup:
-+	put_rndis_request(rdev, request);
-+	return ret;
-+}
- 
- static int rndis_filter_query_device_link_status(struct rndis_device *dev)
- {
-@@ -826,6 +882,7 @@ int rndis_filter_device_add(struct hv_device *dev,
- 	struct netvsc_device *net_device;
- 	struct rndis_device *rndis_device;
- 	struct netvsc_device_info *device_info = additional_info;
-+	struct ndis_offload_params offloads;
- 
- 	rndis_device = get_rndis_device();
- 	if (!rndis_device)
-@@ -865,6 +922,28 @@ int rndis_filter_device_add(struct hv_device *dev,
- 
- 	memcpy(device_info->mac_adr, rndis_device->hw_mac_adr, ETH_ALEN);
- 
-+	/*
-+	 * Turn on the offloads; the host supports all of the relevant
-+	 * offloads.
-+	 */
-+	memset(&offloads, 0, sizeof(struct ndis_offload_params));
-+	/*
-+	 * A value of zero means "no change"; now turn on what we
-+	 * want.
-+	 */
-+	offloads.ip_v4_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
-+	offloads.tcp_ip_v4_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
-+	offloads.udp_ip_v4_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
-+	offloads.tcp_ip_v6_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
-+	offloads.udp_ip_v6_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
-+	offloads.lso_v2_ipv4 = NDIS_OFFLOAD_PARAMETERS_LSOV2_ENABLED;
-+
-+
-+	ret = rndis_filter_set_offload_params(dev, &offloads);
-+	if (ret)
-+		goto err_dev_remv;
-+
-+
- 	rndis_filter_query_device_link_status(rndis_device);
- 
- 	device_info->link_state = rndis_device->link_state;
-@@ -874,6 +953,10 @@ int rndis_filter_device_add(struct hv_device *dev,
- 		 device_info->link_state ? "down" : "up");
- 
- 	return ret;
-+
-+err_dev_remv:
-+	rndis_filter_device_remove(dev);
-+	return ret;
- }
- 
- void rndis_filter_device_remove(struct hv_device *dev)
--- 
-1.7.4.1
+On Thu, Mar 6, 2014 at 6:29 AM, Stefan Wahren <stefan.wahren@i2se.com> wrote:
+> Hello,
+>
+> i'm using a i.MX28 custom board (I2SE Duckbill) with 2 different Ethernet
+> interfaces. Both interfaces should be used as bridge using bridge utils. One
+> Ethernet interface is the buildin fec and the other is connect by spi. The
+> board runs under Linux mainline 3.10. But the following problem still occurs
+> on 3.14-rc4.
+>
+> Here is the problem, if i disconnect and reconnect the Ethernet cable on the
+> buildin fec (eth0), the bridge says the port comes up, but it doesn't work.
+> After that any traffic to the fec is okay, but traffic "through" the bridge
+> is lost. But i expect no traffic is lost, after reconnect the network cable.
+>
+> If i reset the board without disconnecting the cables, the traffic "through"
+> the bridge works. If i force the promiscuous mode on the fec (eth0) after
+> the reconnect, the bridge works too:
+>
+> ifconfig eth0 promisc
+>
+> After that, i made some research and probably found the cause of the
+> problem. In the case that the bridge works (link state connected since
+> reboot) the register HW_ENET_MAC_RCR of the i.MX28 returns 0x45EE011C
+> (PROM=1, promiscuous mode on). Then I disconnect the ethernet cable and
+> reconnect it. After that the register returns 0x45EE0114 (PROM=0,
+> promiscuous mode off) and the bridge doesn't work.
+>
+> Based on this information, i created a patch against Linux 3.10. I'm not
+> sure it's a good solution but it works. After a fec reset all register
+> values of HW_ENET_MAC_RCR must be restored, but fec_restart do not handle
+> them at all. So set_multicast_list is called after fec_restart to restore
+> the promiscuous mode of the fec.
+>
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c
+> b/drivers/net/ethernet/freescale/fec_main.c
+> index d48099f..cb6b66e 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -1063,6 +1063,8 @@ static void fec_get_mac(struct net_device *ndev)
+>
+>  /*
+> ------------------------------------------------------------------------- */
+>
+> +static void set_multicast_list(struct net_device *ndev);
+> +
+>  /*
+>   * Phy section
+>   */
+> @@ -1093,8 +1095,10 @@ static void fec_enet_adjust_link(struct net_device
+> *ndev)
+>          }
+>
+>          /* if any of the above changed restart the FEC */
+> -        if (status_change)
+> +        if (status_change) {
+>              fec_restart(ndev, phy_dev->duplex);
+> +            set_multicast_list(ndev);
+> +        }
+>      } else {
+>          if (fep->link) {
+>              fec_stop(ndev);
+>
+> Is this solution correct?
+>
+> Do you need more information?
+>
+> Best regards
+> Stefan Wahren
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
