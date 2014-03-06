@@ -1,38 +1,33 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH 3/6] Drivers: net: hyperv: Enable offloads on the host
-Date: Thu, 6 Mar 2014 22:36:55 +0300
-Message-ID: <20140306193655.GL26722@mwanda>
-References: <1394104358-23438-1-git-send-email-kys@microsoft.com>
- <1394104390-23477-1-git-send-email-kys@microsoft.com>
- <1394104390-23477-3-git-send-email-kys@microsoft.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/8] AF_RXRPC fixes and development [ver #2]
+Date: Thu, 06 Mar 2014 14:37:19 -0500 (EST)
+Message-ID: <20140306.143719.2217501178599478723.davem@davemloft.net>
+References: <20140306124614.16645.50744.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- linux-kernel@vger.kernel.org, apw@canonical.com, devel@linuxdriverproject.org,
- davem@davemloft.net
-To: "K. Y. Srinivasan" <kys@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <1394104390-23477-3-git-send-email-kys@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Cc: netdev@vger.kernel.org, tim@electronghost.co.uk,
+	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140306124614.16645.50744.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 06, 2014 at 03:13:07AM -0800, K. Y. Srinivasan wrote:
-> +	offload_params = (struct ndis_offload_params *)((ulong)set +
-> +				set->info_buf_offset);
+From: David Howells <dhowells@redhat.com>
+Date: Thu, 06 Mar 2014 12:46:15 +0000
 
-It's a bit simpler to do pointer math like this:
+> Here are some AF_RXRPC fixes (to tag rxrpc-20140226):
+ ...
+> And development patches (to tag rxrpc-devel-20140304):
 
-	offload_params = (void *)set + set->info_buf_offset;
+A mix of both bug fixes and new features....
 
-regards,
-dan carpenter
+You don't say at all what tree you are targetting this at, 'net' or
+'net-next'.
+
+> They can be found in this git branch:
+> 
+> 	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc
+
+This is not a git URL I can pull from.
