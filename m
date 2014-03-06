@@ -1,57 +1,51 @@
-From: Luca Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>
-Subject: Re: [PATCH] Drivers:net:wireless:ti:wl1251: Fixed Sparse invalid
- assignment warning
-Date: Thu, 06 Mar 2014 10:55:12 +0200
-Message-ID: <1394096112.26326.1.camel@dubbel>
-References: <1393921132-15950-1-git-send-email-surendra.tux@gmail.com>
+From: Erik Hugne <erik.hugne@ericsson.com>
+Subject: Re: [PATCH net-next v2 1/6] tipc: allow connection shutdown callback
+ to be invoked in advance
+Date: Thu, 6 Mar 2014 10:06:34 +0100
+Message-ID: <20140306090634.GA6630@eerihug-hybrid.rnd.ki.sw.ericsson.se>
+References: <1394006178-23966-1-git-send-email-erik.hugne@ericsson.com>
+ <1394006178-23966-2-git-send-email-erik.hugne@ericsson.com>
+ <20140305.235618.31002872977881096.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, pavel-+ZI9xUNit7I@public.gmane.org, pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	david.gnedt-rFfgOQFw6VLk7+2FdBfRIA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Surendra Patil <surendra.tux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1393921132-15950-1-git-send-email-surendra.tux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
+	<jon.maloy@ericsson.com>, <maloy@donjonn.com>,
+	<ying.xue@windriver.com>, <paul.gortmaker@windriver.com>,
+	<richard.alpe@ericsson.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw1.ericsson.se ([193.180.251.45]:47026 "EHLO
+	mailgw1.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750988AbaCFJGg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 04:06:36 -0500
+Content-Disposition: inline
+In-Reply-To: <20140305.235618.31002872977881096.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-03-04 at 00:18 -0800, Surendra Patil wrote:
-> Sparse warns about invalid assignment in
-> drivers/net/wireless/ti/wl1251/cmd.c:451:42: warning: invalid assignment: |=
-> drivers/net/wireless/ti/wl1251/cmd.c:451:42:    left side has type restricted __le16
-> drivers/net/wireless/ti/wl1251/cmd.c:451:42:    right side has type int
-> Hence type converted right side to __le16.
+On Wed, Mar 05, 2014 at 11:56:18PM -0500, David Miller wrote:
+> From: <erik.hugne@ericsson.com>
+> Date: Wed, 5 Mar 2014 08:56:13 +0100
 > 
-> Signed-off-by: Surendra Patil <surendra.tux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->  drivers/net/wireless/ti/wl1251/cmd.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> > @@ -413,8 +411,11 @@ int tipc_conn_sendmsg(struct tipc_server *s, int conid,
+> >  	struct tipc_conn *con;
+> >  
+> >  	con = tipc_conn_lookup(s, conid);
+> > -	if (!con)
+> > +	if (!con) {
+> > +		pr_err("Connection %d not found on server %s\n", conid,
+> > +		       s->name);
+> >  		return -EINVAL;
+> > +	}
+> >  
+> >  	e = tipc_alloc_entry(data, len);
+> >  	if (!e) {
 > 
-> diff --git a/drivers/net/wireless/ti/wl1251/cmd.c b/drivers/net/wireless/ti/wl1251/cmd.c
-> index 223649b..bf1fa18 100644
-> --- a/drivers/net/wireless/ti/wl1251/cmd.c
-> +++ b/drivers/net/wireless/ti/wl1251/cmd.c
-> @@ -448,7 +448,7 @@ int wl1251_cmd_scan(struct wl1251 *wl, u8 *ssid, size_t ssid_len,
->  	 * Note: This bug may be caused by the fw's DTIM handling.
->  	 */
->  	if (is_zero_ether_addr(wl->bssid))
-> -		cmd->params.scan_options |= WL1251_SCAN_OPT_PRIORITY_HIGH;
-> +		cmd->params.scan_options |= cpu_to_le16(WL1251_SCAN_OPT_PRIORITY_HIGH);
->  	cmd->params.num_channels = n_channels;
->  	cmd->params.num_probe_requests = n_probes;
->  	cmd->params.tx_rate = cpu_to_le16(1 << 1); /* 2 Mbps */
+> You really don't want to add kernel log messages which might be easily
+> triggerable by the user.  Please remove this.
 
-AFAIR wl1251 is not really endianess-safe.  I think there are lots of
-other places where endianess macros should be added.
+Ok i'll remove it, but i'd anyway like to mention that this cannot be triggered
+by users. This function is only invoked from the TIPC internal services
+(subscriber and config) as a response from network events.
 
-Nothing wrong with this patch, I'm just saying that while at it, maybe
-someone could take care of all the endianess issues with wl1251? ;)
-
---
-Luca.
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+//E
