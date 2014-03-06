@@ -1,53 +1,77 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: RTL8153 fails to get link after applying c7de7dec2 to 3.8 kernel
-Date: Thu, 6 Mar 2014 10:57:28 +0800
-Message-ID: <ABDC71BA1D664CE2AC25DC45DC8BEBCD@realtek.com.tw>
-References: <CANEJEGtzUF+rdSqgTHL0BmsDbCeoWki=aAWZwSx-dZ24jQ=nVg@mail.gmail.com><B88F103D217C4AF0B5D7AD58214655C6@realtek.com.tw><CANEJEGtvY1v0AC7j+uo7-ZzN9YMOaE9JOtismt0ESxpVWkvHyQ@mail.gmail.com><6929A44AB95D46C6B919DDD537CDD37B@realtek.com.tw><CANEJEGtj5b6z3L1AeiqTPgVs0qCe=pv=cyRHYi04_yNXpPMOCA@mail.gmail.com><FD21003FF7E540DCA7F8F39A2BC046B4@realtek.com.tw><CANEJEGtGSHAACM=Bk0BAHrM=-1q4pHoboO5FYN7YM4wquMMmXA@mail.gmail.com><65183A93811745C58958ECBAD0B8E00F@realtek.com.tw><CANEJEGtGbVajk+GOSkRk1QXDkOOPCM8vO8VA8Zc=TEOfZDjwNQ@mail.gmail.com><CANEJEGsMafeZQDfnmdgmf2VN0CKrTkjVHwKTX9JHTDUUqwx0Mg@mail.gmail.com><FB59F84B1E5E42AA98F0906286C444DF@realtek.com.tw><CANEJEGvMPMT3OroMGLJaR65uEz0+JVYkd5rxcPMMGT_wzvds+w@mail.gmail.com><D7709D6F234143CDB4D0B6B27C53D3F4@realtek.com.tw><CANEJEGuCWZSBNppE
- +W2_UW8mDZYQCBpsJTjfwuizjPMpY+wZzw@mail.gmail.com><6055EBDEF51C4CDDBE25766ED5CACA67@realtek.com.tw><CANEJEGuuJ=Jt2gAY_LCURk4hg1XvPL_Er0G0mTHSY-YVt0On4g@mail.gmail.com><8BAC0B4EC07D4C7DA6F45A61DF846689!
- @realtek.
- c	om.tw> <CANEJEGu0_7Vv_y7hfxag28=k7uEJzOJxHTz_wywcSDmAHN4nNw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: 'Inki Yoo' <inky.yoo@samsung.com>,
-	'netdev' <netdev@vger.kernel.org>
-To: 'Grant Grundler' <grundler@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:42519 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756229AbaCFC5b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 21:57:31 -0500
-In-Reply-To: <CANEJEGu0_7Vv_y7hfxag28=k7uEJzOJxHTz_wywcSDmAHN4nNw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH v6 net-next 0/3] filter: add Extended BPF interpreter and converter, seccomp
+Date: Wed,  5 Mar 2014 19:30:14 -0800
+Message-ID: <1394076617-8108-1-git-send-email-ast@plumgrid.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	Jesse Gross <jesse@nicira.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	Tom Zanussi <tom.zanussi@linux.intel.com>,
+	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Pekka Enberg <penberg@iki.fi>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Grant Grundler [mailto:grundler@google.com] 
-> Sent: Wednesday, March 05, 2014 5:28 AM
-> To: hayeswang
-> Cc: Inki Yoo; netdev
-> Subject: Re: RTL8153 fails to get link after applying 
-> c7de7dec2 to 3.8 kernel
-[...]
-> I now slightly better understand your previous "Windows settings"
-> comment. And I'm under the impression questions about any HW vendor
-> shipping devices with "Windows Settings" will land in this forum again
-> with "WTF? link doesn't come up". Am I judging this correctly?
+Hi All,
 
-Excuse me. I don't sure what is your question. I hope the followings
-could answer you. The action of setting the configuration for Windows
-is done, when the driver is loaded. Therefore, the driver could determine
-which config to set, and could avoid this situation. However, the config
-is set before loading the the device driver for Linux. Besides, for
-keeping the config switchable, the driver wouldn't change the config.
-Additionally, the default config which would be set is the ECM mode.
-All of them result in the problem you find.
+V1 patches:
+http://thread.gmane.org/gmane.linux.kernel/1605783
+V2 patches:
+http://thread.gmane.org/gmane.linux.kernel/1642325
+V3 patches:
+http://thread.gmane.org/gmane.linux.kernel/1656538
 
-I think the settings is for power saving, because it could save the power
-before loading the driver. However, it is not suitable for Linux platform.
+V4 summary:
+- addressed Daniel comments
+- RFC for seccomp with extended BPF
+- added extended BPF design doc
 
-> I think it's Realtek's responsibility to advise those HW vendors more
-> carefully to make sure what happened to Samsung doesn't happen again.
-> Either by removing the settings or by adding the support (if possible
-> for a given setting) to the ECM mode linux driver.
+V5 summary:
+- fixed commit one-liner, removed empty line
+- added Hagen's ack
 
-Thanks for you suggestions. I would report them to the relative people.
+V6 summary:
+- unrolled loop in populate_seccomp_data() to help gcc on arm
+- removed empty line at the end of the file
+- removed redundant (u32) cast in JSET
+- fixed BPF_RVAL instead of BPF_SRC for BPF_RET in sk_convert_filter()
+- updated commit log
+- added Daniel's Reviewed-by
+- added Kees's Reviewed-by
+
+x86_64, i386 and arm32 look clean.
+
+Thanks!
+
+Alexei Starovoitov (3):
+  filter: add Extended BPF interpreter and converter
+  seccomp: convert seccomp to use extended BPF
+  doc: filter: add Extended BPF documentation
+
+ Documentation/networking/filter.txt |  181 ++++++++
+ include/linux/filter.h              |    6 +-
+ include/linux/netdevice.h           |    1 +
+ include/linux/seccomp.h             |    1 -
+ include/uapi/linux/filter.h         |   33 +-
+ kernel/seccomp.c                    |  118 +++--
+ net/core/filter.c                   |  806 ++++++++++++++++++++++++++++++++++-
+ net/core/sysctl_net_core.c          |    7 +
+ 8 files changed, 1063 insertions(+), 90 deletions(-)
+
+-- 
+1.7.9.5
