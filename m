@@ -1,49 +1,132 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vlan: Fix lockdep warning when vlan dev
- handle notification
-Date: Thu, 06 Mar 2014 14:51:26 -0500 (EST)
-Message-ID: <20140306.145126.497070034648321818.davem@davemloft.net>
-References: <5318828D.3090308@huawei.com>
+From: behanw@converseincode.com
+Subject: [PATCH] mac80211: LLVMLinux: Remove VLAIS usage from mac80211
+Date: Thu,  6 Mar 2014 11:52:50 -0800
+Message-ID: <1394135570-26730-1-git-send-email-behanw@converseincode.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ben@decadent.org.uk, john.r.fastabend@intel.com, kaber@trash.net,
-	netdev@vger.kernel.org, f.fainelli@gmail.com
-To: dingtianhong@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60486 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752921AbaCFTv3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 14:51:29 -0500
-In-Reply-To: <5318828D.3090308@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
+	dwmw2@infradead.org, pageexec@freemail.hu,
+	=?UTF-8?q?Jan-Simon=20M=C3=B6ller?= <dl9pf@gmx.de>,
+	Behan Webster <behanw@converseincode.com>,
+	=?UTF-8?q?Vin=C3=ADcius=20Tinti?= <viniciustinti@gmail.com>,
+	Mark Charlebois <charlebm@gmail.com>
+To: linville@tuxdriver.com, johannes@sipsolutions.net,
+	davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Thu, 6 Mar 2014 22:13:33 +0800
+=46rom: Jan-Simon M=C3=B6ller <dl9pf@gmx.de>
 
-> When I open the LOCKDEP config and run these steps:
-> 
-> modprobe 8021q
-> vconfig add eth2 20
-> vconfig add eth2.20 30
-> ifconfig eth2 xx.xx.xx.xx
-> 
-> then the Call Trace happened:
- ...
-> The reason is that all of the vlan dev have the same class key for dev_lock_list,
-> if we up or down the real dev, the notification will change the state for every
-> vlan dev in the vlan group, then the vlan dev will hold netif_addr_lock and the
-> real dev also hold its own netif_addr_lock together, so the warning happened.
-> 
-> The best way to fix the problem is add a new class key for the vlan dev if its
-> real dev is a vlan dev too.
-> 
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+Replaced the use of a Variable Length Array In Struct (VLAIS) with a C9=
+9
+compliant equivalent. This is the original VLAIS struct.
 
-So what happens when one does:
+struct {
+	struct aead_request     req;
+	u8                      priv[crypto_aead_reqsize(tfm)];
+} aead_req;
 
-vconfig add eth2 20
-vconfig add eth2.20 30
-vconfig add eth2.30 40
-ifconfig eth2 xx.xx.xx.xx
+This patch instead allocates the appropriate amount of memory using an =
+char
+array.
+
+The new code can be compiled with both gcc and clang.
+
+Signed-off-by: Jan-Simon M=C3=B6ller <dl9pf@gmx.de>
+Signed-off-by: Behan Webster <behanw@converseincode.com>
+Signed-off-by: Vin=C3=ADcius Tinti <viniciustinti@gmail.com>
+Signed-off-by: Mark Charlebois <charlebm@gmail.com>
+---
+ net/mac80211/aes_ccm.c | 44 ++++++++++++++++++++++++++----------------=
+--
+ 1 file changed, 26 insertions(+), 18 deletions(-)
+
+diff --git a/net/mac80211/aes_ccm.c b/net/mac80211/aes_ccm.c
+index 7c7df47..9612e95 100644
+--- a/net/mac80211/aes_ccm.c
++++ b/net/mac80211/aes_ccm.c
+@@ -23,12 +23,16 @@ void ieee80211_aes_ccm_encrypt(struct crypto_aead *=
+tfm, u8 *b_0, u8 *aad,
+ 			       u8 *data, size_t data_len, u8 *mic)
+ {
+ 	struct scatterlist assoc, pt, ct[2];
+-	struct {
+-		struct aead_request	req;
+-		u8			priv[crypto_aead_reqsize(tfm)];
+-	} aead_req;
+=20
+-	memset(&aead_req, 0, sizeof(aead_req));
++	char aead_req_data[sizeof(struct aead_request)
++				+ crypto_aead_reqsize(tfm)
++				+ CRYPTO_MINALIGN] CRYPTO_MINALIGN_ATTR;
++
++	struct aead_request *aead_req
++		=3D (struct aead_request *) aead_req_data;
++
++	memset(&aead_req_data, 0, (sizeof(struct aead_request)+
++		crypto_aead_reqsize(tfm) + CRYPTO_MINALIGN));
+=20
+ 	sg_init_one(&pt, data, data_len);
+ 	sg_init_one(&assoc, &aad[2], be16_to_cpup((__be16 *)aad));
+@@ -36,23 +40,27 @@ void ieee80211_aes_ccm_encrypt(struct crypto_aead *=
+tfm, u8 *b_0, u8 *aad,
+ 	sg_set_buf(&ct[0], data, data_len);
+ 	sg_set_buf(&ct[1], mic, IEEE80211_CCMP_MIC_LEN);
+=20
+-	aead_request_set_tfm(&aead_req.req, tfm);
+-	aead_request_set_assoc(&aead_req.req, &assoc, assoc.length);
+-	aead_request_set_crypt(&aead_req.req, &pt, ct, data_len, b_0);
++	aead_request_set_tfm(aead_req, tfm);
++	aead_request_set_assoc(aead_req, &assoc, assoc.length);
++	aead_request_set_crypt(aead_req, &pt, ct, data_len, b_0);
+=20
+-	crypto_aead_encrypt(&aead_req.req);
++	crypto_aead_encrypt(aead_req);
+ }
+=20
+ int ieee80211_aes_ccm_decrypt(struct crypto_aead *tfm, u8 *b_0, u8 *aa=
+d,
+ 			      u8 *data, size_t data_len, u8 *mic)
+ {
+ 	struct scatterlist assoc, pt, ct[2];
+-	struct {
+-		struct aead_request	req;
+-		u8			priv[crypto_aead_reqsize(tfm)];
+-	} aead_req;
+=20
+-	memset(&aead_req, 0, sizeof(aead_req));
++	char aead_req_data[sizeof(struct aead_request)
++				+ crypto_aead_reqsize(tfm)
++				+ CRYPTO_MINALIGN] CRYPTO_MINALIGN_ATTR;
++
++	struct aead_request *aead_req
++		=3D (struct aead_request *) aead_req_data;
++
++	memset(&aead_req_data, 0, (sizeof(struct aead_request)+
++		crypto_aead_reqsize(tfm) + CRYPTO_MINALIGN));
+=20
+ 	sg_init_one(&pt, data, data_len);
+ 	sg_init_one(&assoc, &aad[2], be16_to_cpup((__be16 *)aad));
+@@ -60,12 +68,12 @@ int ieee80211_aes_ccm_decrypt(struct crypto_aead *t=
+fm, u8 *b_0, u8 *aad,
+ 	sg_set_buf(&ct[0], data, data_len);
+ 	sg_set_buf(&ct[1], mic, IEEE80211_CCMP_MIC_LEN);
+=20
+-	aead_request_set_tfm(&aead_req.req, tfm);
+-	aead_request_set_assoc(&aead_req.req, &assoc, assoc.length);
+-	aead_request_set_crypt(&aead_req.req, ct, &pt,
++	aead_request_set_tfm(aead_req, tfm);
++	aead_request_set_assoc(aead_req, &assoc, assoc.length);
++	aead_request_set_crypt(aead_req, ct, &pt,
+ 			       data_len + IEEE80211_CCMP_MIC_LEN, b_0);
+=20
+-	return crypto_aead_decrypt(&aead_req.req);
++	return crypto_aead_decrypt(aead_req);
+ }
+=20
+ struct crypto_aead *ieee80211_aes_key_setup_encrypt(const u8 key[])
+--=20
+1.8.3.2
