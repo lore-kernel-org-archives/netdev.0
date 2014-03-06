@@ -1,38 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/mlx4: Support shutdown() interface
-Date: Wed, 05 Mar 2014 20:45:50 -0500 (EST)
-Message-ID: <20140305.204550.930739914330776862.davem@davemloft.net>
-References: <1393918520-3268-1-git-send-email-shangw@linux.vnet.ibm.com>
+Subject: Re: [PATCH] bridge: multicast: add sanity check for query
+ source addresses
+Date: Wed, 05 Mar 2014 20:46:01 -0500 (EST)
+Message-ID: <20140305.204601.621108199680054921.davem@davemloft.net>
+References: <1393901855-18231-1-git-send-email-linus.luessing@web.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	amirv@mellanox.com, weiyang@linux.vnet.ibm.com,
-	benh@kernel.crashing.org
-To: shangw@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51746 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757611AbaCFBpw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2014 20:45:52 -0500
-In-Reply-To: <1393918520-3268-1-git-send-email-shangw@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, fwestpha@redhat.com,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	stephen@networkplumber.org, jstancek@redhat.com
+To: linus.luessing@web.de
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1393901855-18231-1-git-send-email-linus.luessing@web.de>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Gavin Shan <shangw@linux.vnet.ibm.com>
-Date: Tue,  4 Mar 2014 15:35:20 +0800
+From: Linus L=FCssing <linus.luessing@web.de>
+Date: Tue,  4 Mar 2014 03:57:35 +0100
 
-> In kexec scenario, we failed to load the mlx4 driver in the
-> second kernel because the ownership bit was hold by the first
-> kernel without release correctly.
-> 
-> The patch adds shutdown() interface so that the ownership can
-> be released correctly in the first kernel. It also helps avoiding
-> EEH error happened during boot stage of the second kernel because
-> of undesired traffic, which can't be handled by hardware during
-> that stage on Power platform.
-> 
-> Signed-off-by: Gavin Shan <shangw@linux.vnet.ibm.com>
-> Tested-by: Wei Yang <weiyang@linux.vnet.ibm.com>
+> MLD queries are supposed to have an IPv6 link-local source address
+> according to RFC2710, section 4 and RFC3810, section 5.1.14. This pat=
+ch
+> adds a sanity check to ignore such broken MLD queries.
+> =
+
+> Without this check, such malformed MLD queries can result in a
+> denial of service: The queries are ignored by any MLD listener
+> therefore they will not respond with an MLD report. However,
+> without this patch these malformed MLD queries would enable the
+> snooping part in the bridge code, potentially shutting down the
+> according ports towards these hosts for multicast traffic as the
+> bridge did not learn about these listeners.
+> =
+
+> Reported-by: Jan Stancek <jstancek@redhat.com>
+> Signed-off-by: Linus L=FCssing <linus.luessing@web.de>
 
 Applied.
