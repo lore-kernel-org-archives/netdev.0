@@ -1,66 +1,63 @@
-From: Hariprasad S <hariprasad@chelsio.com>
-Subject: Re: [PATCH net-next] chelsio: Use more current logging style
-Date: Thu, 6 Mar 2014 11:50:21 +0530
-Message-ID: <20140306062020.GC23862@hariprasad-pc>
-References: <1393936917-25847-1-git-send-email-hariprasad@chelsio.com>
- <1393936917-25847-4-git-send-email-hariprasad@chelsio.com>
- <1393955035.20435.40.camel@joe-AO722>
- <531635F4.9050208@cogentembedded.com>
- <1393961805.20435.49.camel@joe-AO722>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Link-local source IPv6 address in unicast Neighbor Solicitation towards global destination
+Date: Thu, 6 Mar 2014 08:02:50 +0100
+Message-ID: <20140306070250.GC26307@order.stressinduktion.org>
+References: <trinity-07b36174-6d20-4edd-b2f3-553cf69a5ac7-1394028029667@3capp-gmx-bs51>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	<netdev@vger.kernel.org>, <kumaras@chelsio.com>, <dm@chelsio.com>,
-	<swise@opengridcomputing.com>, <leedom@chelsio.com>,
-	<santosh@chelsio.com>, <nirranjan@chelsio.com>
-To: Joe Perches <joe@perches.com>, <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Simon Schneider <simon-schneider@gmx.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:29304 "EHLO
-	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751147AbaCFGPW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 01:15:22 -0500
+Received: from order.stressinduktion.org ([87.106.68.36]:44517 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751785AbaCFHCw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 02:02:52 -0500
 Content-Disposition: inline
-In-Reply-To: <1393961805.20435.49.camel@joe-AO722>
+In-Reply-To: <trinity-07b36174-6d20-4edd-b2f3-553cf69a5ac7-1394028029667@3capp-gmx-bs51>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 04, 2014 at 11:36:45 -0800, Joe Perches wrote:
-> On Tue, 2014-03-04 at 23:22 +0300, Sergei Shtylyov wrote:
-> > On 03/04/2014 08:43 PM, Joe Perches wrote:
-> > >> From: Kumar Sanghvi <kumaras@chelsio.com>
-> > >> +		CH_WARN(adap, "SGE idma%u, queue%u, maybe stuck state%u %dsecs"
-> > >> +			" (debug0=%#x, debug11=%#x)\n",
-> > > Probably better with the format coalesced:
-> > > 		CH_WARN(adap, "SGE idma%u, queue%u, maybe stuck state%u %dsecs (debug0=%#x, debug11=%#x)\n",
-> >     Surely better, as otherwise it shouldn't pass scripts/checkpatch.pl.
-> 
-> It'd complain in any case as CH_<LEVEL> macros are 
-> uppercase and checkpatch doesn't know that those are
-> logging uses.
-> 
-> Maybe renaming all the CH_<LEVEL> macros to lower
-> case like this would help.
-> 
-> This also can now use dynamic_debug for the ch_dbg
-> statements and removes the CH_MSG function as it's
-> unused.
-> 
-> From: Joe Perches <joe@perches.com>
-> 
-> Use more standard style lower case logging macros.
-> 
-> Coalesce formats
-> Remove unnecessary periods
-> Enable dynamic debugging and verify debug format/arguments
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
-[...] 
-> 
+Hi Simon!
 
-I don't see this patch in net-next or in the netdev patchwork queue.
-Is the patch lost by any chance? Or I missed something ?
+On Wed, Mar 05, 2014 at 03:00:29PM +0100, Simon Schneider wrote:
+> I noticed something I don't quite understand in a very basic scenario.
+> 
+> Two machines connected to each other, say A and B.
+> 
+> Both have their automatically configured link-local IPv6 addresses on the interface, plus one global IPv6 interface address.
+> 
+> A pings the global address of B.
+> 
+> What happens:
+> 1) Address resolution from A to B. B creates a neighbor cache entry for A's address in STALE state. Since B sends Neighbor Advertisement back to A, the entry moves to DELAY and the delay_first_probe_time timer (5s) is started.
+> 
+> 2) After successful resolution, echo request / reply are exchanged.
+> 
+> 3) After delay_first_probe_time at B expires, B transmits a unicast Neighbor Solicitation to A's global address (reachability check). 
+> 
+> All good so far.
+> 
+> However, although the destination address of the NS has global scope, B uses its link-local address as source.
+> 
+> I don't think this is correct. According to the source address selection rules in RFC3484, chapter 5, Rule 2 should match and B's global interface address should be used as source.
 
+Plain RFC3484 cannot be used to select source address for NS, as we
+must be sure to select an IPv6 address belonging to the interface and
+RFC3484 does not gurantee that (Rule 2 would filter out link-local address
+in case of global scope while only Rule 5 later would prefer to select
+an address belonging to the interface). It would be possible to try RFC3484
+source selection, check if the address belongs to the interface and fallback
+to LL address in case it does not. I'll test if it improves things.
 
-Thanks,
--Hari.
+> In this simple example, it leads to a sequence of further reachability checks for the link-local addresses of A and B. I don't think these are necessary and they could be avoided if B had used its global interface address as source in the first NS.
+> 
+> Observed under kernel version 3.11.
+> 
+> Is this a bug or do I miss something?
+
+Always using link-local address in this scenario is in my opinion totally
+valid but maybe not the best choice.
+
+Greetings,
+
+  Hannes
