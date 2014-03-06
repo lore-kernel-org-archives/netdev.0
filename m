@@ -1,46 +1,115 @@
-From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
-Subject: Re: [PATCH net-next v4 1/4] ieee802154: add generic header handling
- routines
-Date: Thu, 6 Mar 2014 11:11:39 +0100
-Message-ID: <20140306111139.2b7b6b8b@zoidberg>
-References: <1393943688-24221-2-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
-	<20140304.170050.2058599034902221847.davem@davemloft.net>
-	<7c9810ea21990e7e239b101f548818f7.squirrel@webmail.itwm.fhg.de>
-	<20140305.193913.470467212827707623.davem@redhat.com>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: [PATCHv2 net 1/2] l2tp: fix manual sequencing (de)activation in
+ L2TPv2
+Date: Thu, 6 Mar 2014 11:14:30 +0100
+Message-ID: <4a93fa220e4041046b490ba5957b60a244ebcb44.1394100210.git.g.nault@alphalink.fr>
+References: <cover.1393966618.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net
-To: David Miller <davem@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: James Chapman <jchapman@katalix.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw1.uni-kl.de ([131.246.120.220]:36808 "EHLO
-	mailgw1.uni-kl.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751276AbaCFKLz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 05:11:55 -0500
-Received: from itwm2.itwm.fhg.de (itwm2.itwm.fhg.de [131.246.191.3])
-	by mailgw1.uni-kl.de (8.14.3/8.14.3/Debian-9.4) with ESMTP id s26ABqhn025800
-	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 6 Mar 2014 11:11:53 +0100
-In-Reply-To: <20140305.193913.470467212827707623.davem@redhat.com>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:50097 "EHLO
+	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751638AbaCFKOm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 05:14:42 -0500
+Content-Disposition: inline
+In-Reply-To: <cover.1393966618.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 05 Mar 2014 19:39:13 -0500 (EST)
-David Miller <davem@redhat.com> wrote:
+Commit e0d4435f "l2tp: Update PPP-over-L2TP driver to work over L2TPv3"
+broke the PPPOL2TP_SO_SENDSEQ setsockopt. The L2TP header length was
+previously computed by pppol2tp_l2t_header_len() before each call to
+l2tp_xmit_skb(). Now that header length is retrieved from the hdr_len
+session field, this field must be updated every time the L2TP header
+format is modified, or l2tp_xmit_skb() won't push the right amount of
+data for the L2TP header.
 
-> This is how we handle some fields of struct iphdr, and it's fine with
-> me.
+This patch uses l2tp_session_set_header_len() to adjust hdr_len every
+time sequencing is (de)activated from userspace (either by the
+PPPOL2TP_SO_SENDSEQ setsockopt or the L2TP_ATTR_SEND_SEQ netlink
+attribute).
 
-Wonderful, this will unclutter everything that concerns itself with
-some degree of header handling.
+Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+---
+v2: remove l2tp_session_set_header_len() prototype from l2tp_core.c
 
-> Be sure to use __LITTLE_ENDIAN_BITFIELD and __BIG_ENDIAN_BITFIELD for
-> your CPP checks.
+ net/l2tp/l2tp_core.c    | 4 ++--
+ net/l2tp/l2tp_core.h    | 1 +
+ net/l2tp/l2tp_netlink.c | 4 +++-
+ net/l2tp/l2tp_ppp.c     | 1 +
+ 4 files changed, 7 insertions(+), 3 deletions(-)
 
-I looked at struct iphdr now that you mentioned it, and i was a little
-surprised to see that this header is often pointer-cast from an
-skb_network_header. As far as I can see, declaring all subfields (say)
-u16 in the bitfield endianness order when the entire bitfield is a u16
-in the header will result in correct behaviour for cast/memcpy. Is this
-correct? If not, I'll write out explicit operations for each bitfield
-member.
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index 735d0f6..85d9d94 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -112,7 +112,6 @@ struct l2tp_net {
+ 	spinlock_t l2tp_session_hlist_lock;
+ };
+ 
+-static void l2tp_session_set_header_len(struct l2tp_session *session, int version);
+ static void l2tp_tunnel_free(struct l2tp_tunnel *tunnel);
+ 
+ static inline struct l2tp_tunnel *l2tp_tunnel(struct sock *sk)
+@@ -1863,7 +1862,7 @@ EXPORT_SYMBOL_GPL(l2tp_session_delete);
+ /* We come here whenever a session's send_seq, cookie_len or
+  * l2specific_len parameters are set.
+  */
+-static void l2tp_session_set_header_len(struct l2tp_session *session, int version)
++void l2tp_session_set_header_len(struct l2tp_session *session, int version)
+ {
+ 	if (version == L2TP_HDR_VER_2) {
+ 		session->hdr_len = 6;
+@@ -1876,6 +1875,7 @@ static void l2tp_session_set_header_len(struct l2tp_session *session, int versio
+ 	}
+ 
+ }
++EXPORT_SYMBOL_GPL(l2tp_session_set_header_len);
+ 
+ struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunnel *tunnel, u32 session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg)
+ {
+diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
+index 1f01ba3..3f93ccd 100644
+--- a/net/l2tp/l2tp_core.h
++++ b/net/l2tp/l2tp_core.h
+@@ -263,6 +263,7 @@ void l2tp_recv_common(struct l2tp_session *session, struct sk_buff *skb,
+ 		      int length, int (*payload_hook)(struct sk_buff *skb));
+ int l2tp_session_queue_purge(struct l2tp_session *session);
+ int l2tp_udp_encap_recv(struct sock *sk, struct sk_buff *skb);
++void l2tp_session_set_header_len(struct l2tp_session *session, int version);
+ 
+ int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb,
+ 		  int hdr_len);
+diff --git a/net/l2tp/l2tp_netlink.c b/net/l2tp/l2tp_netlink.c
+index 4cfd722..bd7387a 100644
+--- a/net/l2tp/l2tp_netlink.c
++++ b/net/l2tp/l2tp_netlink.c
+@@ -578,8 +578,10 @@ static int l2tp_nl_cmd_session_modify(struct sk_buff *skb, struct genl_info *inf
+ 	if (info->attrs[L2TP_ATTR_RECV_SEQ])
+ 		session->recv_seq = nla_get_u8(info->attrs[L2TP_ATTR_RECV_SEQ]);
+ 
+-	if (info->attrs[L2TP_ATTR_SEND_SEQ])
++	if (info->attrs[L2TP_ATTR_SEND_SEQ]) {
+ 		session->send_seq = nla_get_u8(info->attrs[L2TP_ATTR_SEND_SEQ]);
++		l2tp_session_set_header_len(session, session->tunnel->version);
++	}
+ 
+ 	if (info->attrs[L2TP_ATTR_LNS_MODE])
+ 		session->lns_mode = nla_get_u8(info->attrs[L2TP_ATTR_LNS_MODE]);
+diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
+index be5fadf..6bfeaa7 100644
+--- a/net/l2tp/l2tp_ppp.c
++++ b/net/l2tp/l2tp_ppp.c
+@@ -1312,6 +1312,7 @@ static int pppol2tp_session_setsockopt(struct sock *sk,
+ 			po->chan.hdrlen = val ? PPPOL2TP_L2TP_HDR_SIZE_SEQ :
+ 				PPPOL2TP_L2TP_HDR_SIZE_NOSEQ;
+ 		}
++		l2tp_session_set_header_len(session, session->tunnel->version);
+ 		l2tp_info(session, PPPOL2TP_MSG_CONTROL,
+ 			  "%s: set send_seq=%d\n",
+ 			  session->name, session->send_seq);
+-- 
+1.9.0
