@@ -1,82 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: do not overwrite inetpeer metrics prematurely
-Date: Thu, 06 Mar 2014 14:24:25 -0500 (EST)
-Message-ID: <20140306.142425.1675660751208500651.davem@davemloft.net>
-References: <20140306095054.EEC5EE6E04@unicorn.suse.cz>
+Subject: Re: [PATCHv2 net 1/2] l2tp: fix manual sequencing (de)activation
+ in L2TPv2
+Date: Thu, 06 Mar 2014 14:26:02 -0500 (EST)
+Message-ID: <20140306.142602.1265342336657169924.davem@davemloft.net>
+References: <cover.1393966618.git.g.nault@alphalink.fr>
+	<4a93fa220e4041046b490ba5957b60a244ebcb44.1394100210.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: mkubecek@suse.cz
+Cc: netdev@vger.kernel.org, jchapman@katalix.com
+To: g.nault@alphalink.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60035 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60045 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752275AbaCFTYb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 14:24:31 -0500
-In-Reply-To: <20140306095054.EEC5EE6E04@unicorn.suse.cz>
+	with ESMTP id S1750924AbaCFT0F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 14:26:05 -0500
+In-Reply-To: <4a93fa220e4041046b490ba5957b60a244ebcb44.1394100210.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michal Kubecek <mkubecek@suse.cz>
-Date: Thu,  6 Mar 2014 10:50:54 +0100 (CET)
+From: Guillaume Nault <g.nault@alphalink.fr>
+Date: Thu, 6 Mar 2014 11:14:30 +0100
 
-> If an IPv6 host route with metrics exists, an attempt to add a
-> new route for the same target with different metrics fails but
-> rewrites the metrics anyway:
+> Commit e0d4435f "l2tp: Update PPP-over-L2TP driver to work over L2TPv3"
+> broke the PPPOL2TP_SO_SENDSEQ setsockopt. The L2TP header length was
+> previously computed by pppol2tp_l2t_header_len() before each call to
+> l2tp_xmit_skb(). Now that header length is retrieved from the hdr_len
+> session field, this field must be updated every time the L2TP header
+> format is modified, or l2tp_xmit_skb() won't push the right amount of
+> data for the L2TP header.
 > 
-> 12sp0:~ # ip route add fec0::1 dev eth0 rto_min 1000
-> 12sp0:~ # ip -6 route show
-> fe80::/64 dev eth0  proto kernel  metric 256
-> fec0::1 dev eth0  metric 1024  rto_min lock 1s
-> 12sp0:~ # ip route add fec0::1 dev eth0 rto_min 1500
-> RTNETLINK answers: File exists
-> 12sp0:~ # ip -6 route show
-> fe80::/64 dev eth0  proto kernel  metric 256
-> fec0::1 dev eth0  metric 1024  rto_min lock 1.5s
+> This patch uses l2tp_session_set_header_len() to adjust hdr_len every
+> time sequencing is (de)activated from userspace (either by the
+> PPPOL2TP_SO_SENDSEQ setsockopt or the L2TP_ATTR_SEND_SEQ netlink
+> attribute).
 > 
-> This is caused by all IPv6 host routes using the metrics in
-> their inetpeer (or the shared default). This also holds for the
-> new route created in ip6_route_add() which shares the metrics
-> with the already existing route and thus ip6_route_add()
-> rewrites the metrics even if the new route ends up not being
-> used at all.
-> 
-> Allocate separate metrics in ip6_route_add() and copy them into
-> inetpeer (and update dst->_metrics) just before the new route is
-> actually inserted in fib6_add_rt2node().
-> 
-> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
 
-Thanks for working on this.
-
-> +static void rt6_metrics_to_peer(struct rt6_info *rt)
-> +{
-> +	struct inet_peer *peer = rt6_has_peer(rt) ? rt6_peer_ptr(rt) : NULL;
-> +	struct dst_entry *dst = &rt->dst;
-> +	unsigned long old = dst->_metrics;
-> +
-> +	if (!(rt->dst.flags & DST_HOST) || dst_metrics_read_only(dst))
-> +		return;
-> +	if (peer && dst_metrics_ptr(dst) == peer->metrics)
-> +		return;
-> +
-> +	dst->ops->cow_metrics(dst, old);
-> +	if (dst->_metrics != old) {
-> +		u32 *old_p = __DST_METRICS_PTR(old);
-> +
-> +		memcpy(dst_metrics_ptr(dst), old_p, RTAX_MAX * sizeof(u32));
-> +		kfree(old_p);
-> +	}
-> +}
-
-Hmmm...  if inet_metrics_new() is true then ->cow_metrics() will copy the
-metrics from old to new.  So you therefore shouldn't have to do the copy
-explicitly here.
-
-If inet_metrics_new() is not true, you are overwriting non-new metrics.
-
-If there is some reason why what rt6_metrics_to_peer() is doing is OK, I'd
-like you to explain this in the commit message.
-
-Thanks!
+Applied.
