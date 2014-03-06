@@ -1,78 +1,78 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 1/3] af_rxrpc: Remove incorrect checksum calculation from
- rxrpc_recvmsg() [ver #3]
-Date: Thu, 06 Mar 2014 23:18:43 +0000
-Message-ID: <20140306231843.11431.66661.stgit@warthog.procyon.org.uk>
-References: <20140306231835.11431.50147.stgit@warthog.procyon.org.uk>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] checkpatch: net and drivers/net: Warn on missing blank line
+ after variable declaration
+Date: Thu, 06 Mar 2014 15:28:40 -0800
+Message-ID: <1394148520.16156.8.camel@joe-AO722>
+References: <1394104358-23438-1-git-send-email-kys@microsoft.com>
+	 <1394104390-23477-1-git-send-email-kys@microsoft.com>
+	 <20140306.142919.763823800315842610.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, tim@electronghost.co.uk,
-	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, kys@microsoft.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	devel@linuxdriverproject.org, apw@canonical.com
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140306231835.11431.50147.stgit@warthog.procyon.org.uk>
+In-Reply-To: <20140306.142919.763823800315842610.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Tim Smith <tim@electronghost.co.uk>
+Networking prefers this style, so warn when it's not used.
 
-The UDP checksum was already verified in rxrpc_data_ready() - which calls
-skb_checksum_complete() - as the RxRPC packet header contains no checksum of
-its own.  Subsequent calls to skb_copy_and_csum_datagram_iovec() are thus
-redundant and are, in any case, being passed only a subset of the UDP payload -
-so the checksum will always fail if that path is taken.
+Networking uses:
 
-So there is no need to check skb->ip_summed in rxrpc_recvmsg(), and no need for
-the csum_copy_error: exit path.
+void foo(int bar)
+{
+	int baz;
 
-Signed-off-by: Tim Smith <tim@electronghost.co.uk>
-Signed-off-by: David Howells <dhowells@redhat.com>
+	code...
+}
+
+not
+
+void foo(int bar)
+{
+	int baz;
+	code...
+}
+
+There are a limited number of false positives when using
+macros to declare variables like:
+
+WARNING: networking uses a blank line after declarations
+#330: FILE: net/ipv4/inet_hashtables.c:330:
++	int dif = sk->sk_bound_dev_if;
++	INET_ADDR_COOKIE(acookie, saddr, daddr)
+
+Signed-off-by: Joe Perches <joe@perches.com>
 ---
+ scripts/checkpatch.pl | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
 
- net/rxrpc/ar-recvmsg.c |   25 +------------------------
- 1 file changed, 1 insertion(+), 24 deletions(-)
-
-diff --git a/net/rxrpc/ar-recvmsg.c b/net/rxrpc/ar-recvmsg.c
-index 34b5490dde65..e9aaa65c0778 100644
---- a/net/rxrpc/ar-recvmsg.c
-+++ b/net/rxrpc/ar-recvmsg.c
-@@ -180,16 +180,7 @@ int rxrpc_recvmsg(struct kiocb *iocb, struct socket *sock,
- 		if (copy > len - copied)
- 			copy = len - copied;
+diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+index 3d3ef2f..a6e3048 100755
+--- a/scripts/checkpatch.pl
++++ b/scripts/checkpatch.pl
+@@ -2248,6 +2248,21 @@ sub process {
+ 			     "networking block comments put the trailing */ on a separate line\n" . $herecurr);
+ 		}
  
--		if (skb->ip_summed == CHECKSUM_UNNECESSARY ||
--		    skb->ip_summed == CHECKSUM_PARTIAL) {
--			ret = skb_copy_datagram_iovec(skb, offset,
--						      msg->msg_iov, copy);
--		} else {
--			ret = skb_copy_and_csum_datagram_iovec(skb, offset,
--							       msg->msg_iov);
--			if (ret == -EINVAL)
--				goto csum_copy_error;
--		}
-+		ret = skb_copy_datagram_iovec(skb, offset, msg->msg_iov, copy);
- 
- 		if (ret < 0)
- 			goto copy_error;
-@@ -348,20 +339,6 @@ copy_error:
- 	_leave(" = %d", ret);
- 	return ret;
- 
--csum_copy_error:
--	_debug("csum error");
--	release_sock(&rx->sk);
--	if (continue_call)
--		rxrpc_put_call(continue_call);
--	rxrpc_kill_skb(skb);
--	if (!(flags & MSG_PEEK)) {
--		if (skb_dequeue(&rx->sk.sk_receive_queue) != skb)
--			BUG();
--	}
--	skb_kill_datagram(&rx->sk, skb, flags);
--	rxrpc_put_call(call);
--	return -EAGAIN;
--
- wait_interrupted:
- 	ret = sock_intr_errno(timeo);
- wait_error:
++# check for missing blank lines after declarations
++		if ($realfile =~ m@^(drivers/net/|net/)@ &&
++		    $prevline =~ /^\+\s+$Declare\s+$Ident/ &&
++		    !($prevline =~ /(?:$Compare|$Assignment|$Operators)\s*$/ ||
++		      $prevline =~ /(?:\{\s*|\\)$/) &&		#extended lines
++		    $sline =~ /^\+\s+/ &&			#Not at char 1
++		    !($sline =~ /^\+\s+$Declare/ ||
++		      $sline =~ /^\+\s+$Ident\s+$Ident/ ||	#eg: typedef foo
++		      $sline =~ /^\+\s+(?:union|struct|enum|typedef)\b/ ||
++		      $sline =~ /^\+\s+(?:$|[\{\}\.\#\"\?\:\(])/ ||
++		      $sline =~ /^\+\s+\(?\s*(?:$Compare|$Assignment|$Operators)/)) {
++			WARN("SPACING",
++			     "networking uses a blank line after declarations\n" . $hereprev);
++		}
++
+ # check for spaces at the beginning of a line.
+ # Exceptions:
+ #  1) within comments
