@@ -1,37 +1,36 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: brcmfmac: fix skb leak in brcmf_sdio_txpkt_prep_sg error path.
-Date: Fri, 07 Mar 2014 00:41:50 +0300
-Message-ID: <5318EB9E.808@cogentembedded.com>
-References: <20140305192636.D06AA660D72@gitolite.kernel.org> <20140306060936.GB26578@redhat.com> <53183722.7000301@broadcom.com> <20140306170354.GA31372@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 01/13] i40e: use ether_addr_equal_64bits
+Date: Thu, 06 Mar 2014 15:45:15 -0500 (EST)
+Message-ID: <20140306.154515.1690277406415963400.davem@davemloft.net>
+References: <1394080845.2214.1.camel@jtkirshe-mobl>
+	<CAP-MU4Nf=T-BZDpHnBzq8xcPf7CG3v2oMSD3fitAKXp=fP4XPw@mail.gmail.com>
+	<1394134409.2214.27.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linville@tuxdriver.com,
-	linux-coverity@vger.kernel.org
-To: Dave Jones <davej@redhat.com>,
-	Arend van Spriel <arend@broadcom.com>
+Cc: shannon.nelson@intel.com, joe@perches.com, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com, kavindya.s.deegala@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f53.google.com ([209.85.215.53]:43799 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751548AbaCFUlp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 15:41:45 -0500
-Received: by mail-la0-f53.google.com with SMTP id b8so2182056lan.12
-        for <netdev@vger.kernel.org>; Thu, 06 Mar 2014 12:41:43 -0800 (PST)
-In-Reply-To: <20140306170354.GA31372@redhat.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33050 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752120AbaCFUpS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 15:45:18 -0500
+In-Reply-To: <1394134409.2214.27.camel@jtkirshe-mobl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 06 Mar 2014 11:33:29 -0800
 
-On 03/06/2014 08:03 PM, Dave Jones wrote:
+> On Thu, 2014-03-06 at 10:10 -0800, Shannon Nelson wrote:
+>> No, none of those uses are fast path.  I'd prefer we drop this patch.
+>> sln
+>> 
+> 
+> Ok based on Joe's and Shannon's responses, I will drop this patch from
+> the series.
+> 
+> Dave- v2 of the series will be coming shortly.
 
-> Commit 1eb4301867 added an allocation of an skb via brcmu_pkt_buf_get_skb()
-
-    Please also specify that commit's summary line is parens.
-
-> but forgot to free it on one of the error paths.
-
-> Cc: Arend van Spriel <arend@broadcom.com>
-> Signed-off-by: Dave Jones <davej@fedoraproject.org>
-
-WBR, Sergei
+Ok.
