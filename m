@@ -1,88 +1,82 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v2 net-next] bonding: make slave status notifications GFP_ATOMIC
-Date: Thu,  6 Mar 2014 15:33:22 +0100
-Message-ID: <1394116402-5585-1-git-send-email-vfalico@redhat.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Thomas Glanzmann <thomas@glanzmann.de>,
-	Ding Tianhong <dingtianhong@huawei.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Can I limit the number of active tx per TCP socket?
+Date: Thu, 06 Mar 2014 06:38:11 -0800
+Message-ID: <1394116691.27473.28.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D0F6D3B91@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58363 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751082AbaCFOiB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Mar 2014 09:38:01 -0500
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:43247 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751082AbaCFOiN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 09:38:13 -0500
+Received: by mail-pa0-f54.google.com with SMTP id lf10so2755097pab.27
+        for <netdev@vger.kernel.org>; Thu, 06 Mar 2014 06:38:13 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6D3B91@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently we're using GFP_KERNEL, however there are some path(s) where we
-can hold some spinlocks, specifically bond->curr_slave_lock:
+On Thu, 2014-03-06 at 12:28 +0000, David Laight wrote:
+> Is it possible to stop a TCP connection having more than one
+> tx skb (in the ethernet tx ring) at any one time?
+> The idea is to allow time for short sends from the application
+> to accumulate so that the transmitted frames are longer.
+> 
+> Basically I have a TCP connection which carries a lot of separate
+> short 'user buffers'. These are not command-response so
+> TCP_NODELAY has to be set to avoid long delays. But this means
+> that the ethernet packet rate is very high - with 3.14 about
+> 2000/sec even though the data rate is well under 1MB/sec.
+> 
+> Anything that reduces this packet rate will help the poor little
+> embedded ppc that has to receive them!
+> 
+> From the descriptions I've found I suspect that setting a very
+> low TCP_NOTSENT_LOWAT (like 1 byte) might have other side effects.
+> I think that limits the writes into kernel memory - which isn't
+> really what I'm trying to do.
+> 
+> With a 3.14.0-rc5 kernel reducing the network speed to 10M (from Ge)
+> halves the number of transmitted packets (with the same aggregate
+> data rate). But I suspect it could still be reduced further.
+> 
+> Limiting the number of tx packets per TCP connection might also
+> help stop bulk transfers affecting low-latency connections,
+> especially if the throughput of individual connections isn't
+> especially important - as it may not be on a big ftp/web server.
+> 
+> Limiting the window size offered by the remote system won't help me.
+> The window needs to be large enough several full-sized packets, and
+> I'm trying to stop large numbers of very short packets being sent.
+> 
+> In this particular case the connection is local, but we have a similar
+> problem with sigtran m3ua traffic over sctp.
+> If we are sending 15000 sctp data chunks every second, with an average size
+> under 300 bytes (possibly nearer 150) then we really want to fill the
+> ethernet packets.
+> (That is a real data pattern, not a development test.)
 
-[    4.722916] BUG: sleeping function called from invalid context at mm/slub.c:965
-[    4.724438] in_atomic(): 1, irqs_disabled(): 0, pid: 940, name: ifup-eth
-[    4.726034] 5 locks held by ifup-eth/940:
-...snip...
-[    4.734646]  #4:  (&bond->curr_slave_lock){+...+.}, at: [<ffffffffa00badc6>] bond_enslave+0xda6/0xdd0 [bonding]
-...snip...
-[    4.759081]  [<ffffffffa00b6f11>] bond_change_active_slave+0x191/0x3b0 [bonding]
-[    4.760917]  [<ffffffffa00b7227>] bond_select_active_slave+0xf7/0x1d0 [bonding]
-[    4.762751]  [<ffffffffa00badce>] bond_enslave+0xdae/0xdd0 [bonding]
-...snip...
+This is the intent of TCP small queue, but it was somehow broken by
+latest patch.
 
-As it's out of hot path and is a really rare event - change the gfp_t flags
-to GFP_ATOMIC to avoid sleeping under spinlock.
+Also try FQ pacing
 
-v2: convert new notify calls to GFP_ATOMIC.
+tc qdisc replace dev eth0 root fq
 
-CC: Thomas Glanzmann <thomas@glanzmann.de>
-CC: Ding Tianhong <dingtianhong@huawei.com>
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
----
- drivers/net/bonding/bonding.h | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index b7127a1..63ee116 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -293,7 +293,7 @@ static inline void bond_set_active_slave(struct slave *slave)
- {
- 	if (slave->backup) {
- 		slave->backup = 0;
--		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_KERNEL);
-+		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_ATOMIC);
- 	}
- }
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 5286228679bd..6e1db9889a8f 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1909,8 +1909,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+ 		 * of queued bytes to ensure line rate.
+ 		 * One example is wifi aggregation (802.11 AMPDU)
+ 		 */
+-		limit = max_t(unsigned int, sysctl_tcp_limit_output_bytes,
+-			      sk->sk_pacing_rate >> 10);
++		limit = 2 * skb->truesize;
  
-@@ -301,7 +301,7 @@ static inline void bond_set_backup_slave(struct slave *slave)
- {
- 	if (!slave->backup) {
- 		slave->backup = 1;
--		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_KERNEL);
-+		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_ATOMIC);
- 	}
- }
- 
-@@ -313,7 +313,7 @@ static inline void bond_set_slave_state(struct slave *slave,
- 
- 	slave->backup = slave_state;
- 	if (notify) {
--		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_KERNEL);
-+		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_ATOMIC);
- 		slave->should_notify = 0;
- 	} else {
- 		if (slave->should_notify)
-@@ -343,7 +343,7 @@ static inline void bond_slave_state_notify(struct bonding *bond)
- 
- 	bond_for_each_slave(bond, tmp, iter) {
- 		if (tmp->should_notify) {
--			rtmsg_ifinfo(RTM_NEWLINK, tmp->dev, 0, GFP_KERNEL);
-+			rtmsg_ifinfo(RTM_NEWLINK, tmp->dev, 0, GFP_ATOMIC);
- 			tmp->should_notify = 0;
- 		}
- 	}
--- 
-1.8.4
+ 		if (atomic_read(&sk->sk_wmem_alloc) > limit) {
+ 			set_bit(TSQ_THROTTLED, &tp->tsq_flags);
