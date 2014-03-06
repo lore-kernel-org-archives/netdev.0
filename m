@@ -1,51 +1,37 @@
-From: Erik Hugne <erik.hugne@ericsson.com>
-Subject: Re: [PATCH net-next v2 1/6] tipc: allow connection shutdown callback
- to be invoked in advance
-Date: Thu, 6 Mar 2014 10:06:34 +0100
-Message-ID: <20140306090634.GA6630@eerihug-hybrid.rnd.ki.sw.ericsson.se>
-References: <1394006178-23966-1-git-send-email-erik.hugne@ericsson.com>
- <1394006178-23966-2-git-send-email-erik.hugne@ericsson.com>
- <20140305.235618.31002872977881096.davem@davemloft.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] phy: fix compiler array bounds warning on settings[]
+Date: Thu, 6 Mar 2014 09:13:09 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6D38E1@AcuExch.aculab.com>
+References: <20140305003544.23016.55079.stgit@bhelgaas-glaptop.roam.corp.google.com>
+ <063D6719AE5E284EB5DD2968C1650D6D0F6D1440@AcuExch.aculab.com>
+ <CAErSpo6hUVc_2MP85CM3-qvOmdSBUJ1bxn+RiXqymJpTwQLzfg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
-	<jon.maloy@ericsson.com>, <maloy@donjonn.com>,
-	<ying.xue@windriver.com>, <paul.gortmaker@windriver.com>,
-	<richard.alpe@ericsson.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw1.ericsson.se ([193.180.251.45]:47026 "EHLO
-	mailgw1.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750988AbaCFJGg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 04:06:36 -0500
-Content-Disposition: inline
-In-Reply-To: <20140305.235618.31002872977881096.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Florian Fainelli" <f.fainelli@gmail.com>
+To: 'Bjorn Helgaas' <bhelgaas@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAErSpo6hUVc_2MP85CM3-qvOmdSBUJ1bxn+RiXqymJpTwQLzfg@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 05, 2014 at 11:56:18PM -0500, David Miller wrote:
-> From: <erik.hugne@ericsson.com>
-> Date: Wed, 5 Mar 2014 08:56:13 +0100
-> 
-> > @@ -413,8 +411,11 @@ int tipc_conn_sendmsg(struct tipc_server *s, int conid,
-> >  	struct tipc_conn *con;
-> >  
-> >  	con = tipc_conn_lookup(s, conid);
-> > -	if (!con)
-> > +	if (!con) {
-> > +		pr_err("Connection %d not found on server %s\n", conid,
-> > +		       s->name);
-> >  		return -EINVAL;
-> > +	}
-> >  
-> >  	e = tipc_alloc_entry(data, len);
-> >  	if (!e) {
-> 
-> You really don't want to add kernel log messages which might be easily
-> triggerable by the user.  Please remove this.
-
-Ok i'll remove it, but i'd anyway like to mention that this cannot be triggered
-by users. This function is only invoked from the TIPC internal services
-(subscriber and config) as a response from network events.
-
-//E
+RnJvbTogQmpvcm4gSGVsZ2Fhcw0KPiBJJ20gc3R1bXBlZC4gIHBoeV9maW5kX3ZhbGlkKCkgaXMg
+c3RhdGljIGFuZCBvbmx5IGNhbGxlZCBmcm9tIG9uZQ0KPiBwbGFjZS4gIFRoZSAnaWR4JyBhcmd1
+bWVudCBpcyBhbHdheXMgdGhlIHJlc3VsdCBvZiBwaHlfZmluZF9zZXR0aW5nKCksDQo+IHdoaWNo
+IHNob3VsZCBhbHdheXMgcmV0dXJuIHNvbWV0aGluZyBiZXR3ZWVuIDAgYW5kDQo+IEFSUkFZX1NJ
+WkUoc2V0dGluZ3MpLCBzbyBJIGRvbid0IHNlZSBhbnkgd2F5IGlkeCBjYW4gYmUgPCAwLg0KPiAN
+Cj4gSSBzdHJpcHBlZCB0aGlzIGRvd24gYXMgZmFyIGFzIEkgY291bGQ7IHRoZSByZXN1bHRpbmcg
+dGVzdCBjb2RlIGlzIGF0DQo+IGh0dHA6Ly9wYXN0ZWJpbi5jb20vcHAxek1FV3UgaWYgYW55Ym9k
+eSBlbHNlIHdhbnRzIHRvIGxvb2sgYXQgaXQuICBJJ20NCj4gdXNpbmcgZ2NjIDQuOC54IDIwMTMx
+MTA1IChwcmVyZWxlYXNlKSwgd2l0aCAiLVdhcnJheS1ib3VuZHMgLU8yIg0KPiBmbGFncy4NCj4g
+DQo+IEkgaGVzaXRhdGUgdG8gc3VzcGVjdCBhIGNvbXBpbGVyIGJ1ZywgYnV0IGl0IGlzIHZlcnkg
+c3RyYW5nZS4gIEZvcg0KPiBleGFtcGxlLCBpbiBteSB0ZXN0IGNvZGUsIHJlcGxhY2luZyAiTUFY
+X05VTV9TRVRUSU5HUyIgd2l0aCAiMiIgZ2V0cw0KPiByaWQgb2YgdGhlIHdhcm5pbmdzLiAgTUFY
+X05VTV9TRVRUSU5HUyBpcyBrbm93biB0byBiZSAyIGF0DQo+IGNvbXBpbGUtdGltZSwgc28gSSBk
+b24ndCBrbm93IHdoeSB0aGlzIHNob3VsZCBtYWtlIGEgZGlmZmVyZW5jZS4NCg0KSSBjYW4ndCBn
+ZXQgYW4gYXJyYXkgYm91bmRzIGVycm9yIGZyb20gdGhlIGdjYyA0LjguMS0xMHVidW50dTkgYXQg
+YWxsLg0KTm90IGV2ZW4gd2hlbiBJIGluZGV4IHRoZSBhcnJheSB3aXRoIGEgY29uc3RhbnQgMy4N
+Ckkgd29uZGVyIGlmIHRoZXkgY29tcGlsZWQgaXQgb3V0IQ0KDQoJRGF2aWQNCg0K
