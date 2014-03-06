@@ -1,71 +1,56 @@
-From: John Heffner <johnwheffner@gmail.com>
-Subject: Re: Can I limit the number of active tx per TCP socket?
-Date: Thu, 6 Mar 2014 09:15:37 -0500
-Message-ID: <CABrhC0kpuuHFxgr8BsJA3rTcoo49mb6nOYcuomwsRMPq=p1wQA@mail.gmail.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D0F6D3B91@AcuExch.aculab.com>
+From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
+Subject: RE: [PATCH v3 net-next 1/2] ethtool: Support for configurable RSS
+ hash key
+Date: Thu, 6 Mar 2014 14:23:44 +0000
+Message-ID: <BF3270C86E8B1349A26C34E4EC1C44CB2C889D94@CMEXMB1.ad.emulex.com>
+References: <1393589141-10597-1-git-send-email-VenkatKumar.Duvvuru@Emulex.com>
+	 <0e1d7b54-dcbd-446d-b1c9-644086da138f@CMEXHTCAS2.ad.emulex.com>
+ <1394063979.2861.25.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@aculab.com>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f177.google.com ([209.85.220.177]:40201 "EHLO
-	mail-vc0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751444AbaCFOPi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 09:15:38 -0500
-Received: by mail-vc0-f177.google.com with SMTP id if11so2559238vcb.8
-        for <netdev@vger.kernel.org>; Thu, 06 Mar 2014 06:15:37 -0800 (PST)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6D3B91@AcuExch.aculab.com>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:14948 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752262AbaCFOXq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 09:23:46 -0500
+In-Reply-To: <1394063979.2861.25.camel@deadeye.wl.decadent.org.uk>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Is TCP_CORK what you're looking for?
-
-
-On Thu, Mar 6, 2014 at 7:28 AM, David Laight <David.Laight@aculab.com> wrote:
-> Is it possible to stop a TCP connection having more than one
-> tx skb (in the ethernet tx ring) at any one time?
-> The idea is to allow time for short sends from the application
-> to accumulate so that the transmitted frames are longer.
->
-> Basically I have a TCP connection which carries a lot of separate
-> short 'user buffers'. These are not command-response so
-> TCP_NODELAY has to be set to avoid long delays. But this means
-> that the ethernet packet rate is very high - with 3.14 about
-> 2000/sec even though the data rate is well under 1MB/sec.
->
-> Anything that reduces this packet rate will help the poor little
-> embedded ppc that has to receive them!
->
-> From the descriptions I've found I suspect that setting a very
-> low TCP_NOTSENT_LOWAT (like 1 byte) might have other side effects.
-> I think that limits the writes into kernel memory - which isn't
-> really what I'm trying to do.
->
-> With a 3.14.0-rc5 kernel reducing the network speed to 10M (from Ge)
-> halves the number of transmitted packets (with the same aggregate
-> data rate). But I suspect it could still be reduced further.
->
-> Limiting the number of tx packets per TCP connection might also
-> help stop bulk transfers affecting low-latency connections,
-> especially if the throughput of individual connections isn't
-> especially important - as it may not be on a big ftp/web server.
->
-> Limiting the window size offered by the remote system won't help me.
-> The window needs to be large enough several full-sized packets, and
-> I'm trying to stop large numbers of very short packets being sent.
->
-> In this particular case the connection is local, but we have a similar
-> problem with sigtran m3ua traffic over sctp.
-> If we are sending 15000 sctp data chunks every second, with an average size
-> under 300 bytes (possibly nearer 150) then we really want to fill the
-> ethernet packets.
-> (That is a real data pattern, not a development test.)
->
->         David
->
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+PiA+ICsgKiBAZ2V0X3J4Zmg6IEdldCB0aGUgY29udGVudHMgb2YgdGhlIFJYIGZsb3cgaGFzaCBp
+bmRpcmVjdGlvbiB0YWJsZSBhbmQNCj4gaGFzaA0KPiA+ICsgKglrZXkuDQo+ID4gKyAqCVdpbGwg
+bm90IGJlIGNhbGxlZCBpZiBAZ2V0X3J4ZmhfaW5kaXJfc2l6ZSBhbmQgQGdldF9yeGZoX2tleV9z
+aXplDQo+ID4gKyAqCXJldHVybnMgemVyby4NCj4gDQo+IFNob3VsZG4ndCB0aGF0ICdhbmQnIGJl
+IGFuICdvcic/ICBJLmUuIHRoaXMgaXMgb25seSBjYWxsZWQgaWYgdGhlIGRyaXZlciBleHBvc2Vz
+IGJvdGgNCj4gdGhlIGtleSBhbmQgdGhlIGluZGlyZWN0aW9uIHRhYmxlLg0KV2hhdCBhYm91dCB0
+aGUgZXhpc3RpbmcgZHJpdmVycyB0aG9zZSBzdXBwb3J0IG9ubHkgaW5kaXJlY3Rpb24gY29uZmln
+dXJhdGlvbi4NCg0KPiANCj4gWy4uLl0NCj4gPiArCWluZGlyX2J5dGVzID0gdXNlcl9pbmRpcl9z
+aXplICogc2l6ZW9mKHJzc19pbmZvLT5yc3NfY29uZmlnWzBdKTsNCj4gPiArCXRvdGFsX3NpemUg
+PSBpbmRpcl9ieXRlcyArIHVzZXJfa2V5X3NpemU7DQo+ID4gKwlyc3NfaW5mbyA9IGt6YWxsb2Mo
+dG90YWxfc2l6ZSwgR0ZQX1VTRVIpOw0KPiA+ICsJaWYgKCFyc3NfaW5mbykNCj4gPiArCQlyZXR1
+cm4gLUVOT01FTTsNCj4gDQo+IFRoaXMgZG9lc24ndCBtYWtlIHNlbnNlLiAgWW91IGFsbG9jYXRl
+IGEgYnVmZmVyIGJpZyBlbm91Z2ggdG8gaG9sZCBqdXN0IHRoZQ0KPiBpbmRpcmVjdGlvbiB0YWJs
+ZSBhbmQga2V5LCBidXQgdGhlbiB0cmVhdCB0aGUgcG9pbnRlciBhcyBwb2ludGluZyB0byBhIGZ1
+bGwNCj4gY29tbWFuZCBzdHJ1Y3R1cmUuDQpUaGlzIGlzIGEgYmx1bmRlci4gTXkgdGVzdGluZyBk
+aWRuJ3QgY2F0Y2ggaXQgYnkgY2hhbmNlLg0KDQo+IA0KPiA+ICsJcnNzX2luZm8tPmluZGlyX3Np
+emUgPSB1c2VyX2luZGlyX3NpemU7DQo+ID4gKwlyc3NfaW5mby0+a2V5X3NpemUgPSB1c2VyX2tl
+eV9zaXplOw0KPiA+ICsJcmV0ID0gZGV2LT5ldGh0b29sX29wcy0+Z2V0X3J4ZmgoZGV2LCByc3Nf
+aW5mbyk7DQo+IA0KPiBJIHRoaW5rIGl0IHdvdWxkIGJlIGJldHRlciB0byBwYXNzIHRoZSBkcml2
+ZXIgdHdvIHNlcGFyYXRlIHBvaW50ZXJzIGludG8gdGhlDQo+IGJ1ZmZlciwgb25lIGZvciB0aGUg
+aW5kaXJlY3Rpb24gdGFibGUgYW5kIG9uZSBmb3IgdGhlIGtleS4NClRoZSBpbnRlbnRpb24gaXMg
+dG8gYXZvaWQgY2hhbmdpbmcgImdldF9yeGZoL3NldF9yeGZoIiBpbnRlcmZhY2UgZXZlcnkgdGlt
+ZSBhIG5ldyBjb25maWd1cmFibGUgcGFyYW1ldGVyIGlzIGludHJvZHVjZWQuDQoNCj4gPiArCWlm
+ICgodXNlcl9pbmRpcl9zaXplICYmICgodXNlcl9pbmRpcl9zaXplICE9IDB4REVBREJFRUYpICYm
+DQo+ID4gKwkJCQkgdXNlcl9pbmRpcl9zaXplICE9IGRldl9pbmRpcl9zaXplKSkgfHwNCj4gPiAr
+CSAgICAodXNlcl9rZXlfc2l6ZSAmJiAodXNlcl9rZXlfc2l6ZSAhPSBkZXZfa2V5X3NpemUpKSkN
+Cj4gPiArCQlyZXR1cm4gLUVJTlZBTDsNCj4gPiArDQo+ID4gKwlpZiAodXNlcl9pbmRpcl9zaXpl
+ICYmIHVzZXJfaW5kaXJfc2l6ZSAhPSAweERFQURCRUVGKQ0KPiA+ICsJCWluZGlyX2J5dGVzID0g
+dXNlcl9pbmRpcl9zaXplICogc2l6ZW9mKHJzc19pbmZvLT5yc3NfY29uZmlnWzBdKTsNCj4gDQo+
+IFdoeSBpcyAweERFQURCRUVGIHNwZWNpYWw/DQpTaW5jZSAwIGlzIHVzZWQgYXMgYSBoaW50IHRv
+IHJlc2V0IHRvIGRlZmF1bHQsIHdlIHNob3VsZCBoYXZlIGEgd2F5IHRvIGhpbnQgdGhhdCBpbmRp
+cmVjdGlvbiB0YWJsZSBjb25maWd1cmF0aW9uIGlzIG5vdCByZXF1ZXN0ZWQgaW4gdGhpcyBjb250
+ZXh0Lg0KDQoNCg==
