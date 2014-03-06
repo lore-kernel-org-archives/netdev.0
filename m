@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v6 net-next 2/3] seccomp: convert seccomp to use extended BPF
-Date: Wed,  5 Mar 2014 19:30:16 -0800
-Message-ID: <1394076617-8108-3-git-send-email-ast@plumgrid.com>
+Subject: [PATCH v6 net-next 1/3] filter: add Extended BPF interpreter and converter
+Date: Wed,  5 Mar 2014 19:30:15 -0800
+Message-ID: <1394076617-8108-2-git-send-email-ast@plumgrid.com>
 References: <1394076617-8108-1-git-send-email-ast@plumgrid.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
@@ -29,335 +29,1142 @@ In-Reply-To: <1394076617-8108-1-git-send-email-ast@plumgrid.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-use sk_convert_filter() to convert seccomp BPF into extended BPF
+Extended BPF extends old BPF in the following ways:
+- from 2 to 10 registers
+  Original BPF has two registers (A and X) and hidden frame pointer.
+  Extended BPF has ten registers and read-only frame pointer.
+- from 32-bit registers to 64-bit registers
+  semantics of old 32-bit ALU operations are preserved via 32-bit
+  subregisters
+- if (cond) jump_true; else jump_false;
+  old BPF insns are replaced with:
+  if (cond) jump_true; /* else fallthrough */
+- adds signed > and >= insns
+- 16 4-byte stack slots for register spill-fill replaced with
+  up to 512 bytes of multi-use stack space
+- introduces bpf_call insn and register passing convention for zero
+  overhead calls from/to other kernel functions (not part of this patch)
+- adds arithmetic right shift insn
+- adds swab32/swab64 insns
+- adds atomic_add insn
+- old tax/txa insns are replaced with 'mov dst,src' insn
 
-05-sim-long_jumps.c of libseccomp was used as micro-benchmark:
-  seccomp_rule_add_exact(ctx,...
-  seccomp_rule_add_exact(ctx,...
-  rc = seccomp_load(ctx);
-  for (i = 0; i < 10000000; i++)
-     syscall(199, 100);
+Extended BPF is designed to be JITed with one to one mapping, which
+allows GCC/LLVM backends to generate optimized BPF code that performs
+almost as fast as natively compiled code
 
-'short filter' has 2 rules
-'large filter' has 200 rules
+sk_convert_filter() remaps old style insns into extended:
+'sock_filter' instructions are remapped on the fly to
+'sock_filter_ext' extended instructions when
+sysctl net.core.bpf_ext_enable=1
 
-'short filter' performance is slightly better on x86_64,i386,arm32
-'large filter' is much faster on x86_64 and i386
-and shows no difference on arm32
+Old filter comes through sk_attach_filter() or sk_unattached_filter_create()
+ if (bpf_ext_enable) {
+    convert to new
+    sk_chk_filter() - check old bpf
+    use sk_run_filter_ext() - new interpreter
+ } else {
+    sk_chk_filter() - check old bpf
+    if (bpf_jit_enable)
+        use old jit
+    else
+        use sk_run_filter() - old interpreter
+ }
 
---x86_64-- short filter
-old BPF: 2.7 sec
- 39.12%  bench  libc-2.15.so       [.] syscall
-  8.10%  bench  [kernel.kallsyms]  [k] sk_run_filter
-  6.31%  bench  [kernel.kallsyms]  [k] system_call
-  5.59%  bench  [kernel.kallsyms]  [k] trace_hardirqs_on_caller
-  4.37%  bench  [kernel.kallsyms]  [k] trace_hardirqs_off_caller
-  3.70%  bench  [kernel.kallsyms]  [k] __secure_computing
-  3.67%  bench  [kernel.kallsyms]  [k] lock_is_held
-  3.03%  bench  [kernel.kallsyms]  [k] seccomp_bpf_load
-new BPF: 2.58 sec
- 42.05%  bench  libc-2.15.so       [.] syscall
-  6.91%  bench  [kernel.kallsyms]  [k] system_call
-  6.25%  bench  [kernel.kallsyms]  [k] trace_hardirqs_on_caller
-  6.07%  bench  [kernel.kallsyms]  [k] __secure_computing
-  5.08%  bench  [kernel.kallsyms]  [k] sk_run_filter_ext
+sk_run_filter_ext() interpreter is noticeably faster
+than sk_run_filter() for two reasons:
 
---arm32-- short filter
-old BPF: 4.0 sec
- 39.92%  bench  [kernel.kallsyms]  [k] vector_swi
- 16.60%  bench  [kernel.kallsyms]  [k] sk_run_filter
- 14.66%  bench  libc-2.17.so       [.] syscall
-  5.42%  bench  [kernel.kallsyms]  [k] seccomp_bpf_load
-  5.10%  bench  [kernel.kallsyms]  [k] __secure_computing
-new BPF: 3.7 sec
- 35.93%  bench  [kernel.kallsyms]  [k] vector_swi
- 21.89%  bench  libc-2.17.so       [.] syscall
- 13.45%  bench  [kernel.kallsyms]  [k] sk_run_filter_ext
-  6.25%  bench  [kernel.kallsyms]  [k] __secure_computing
-  3.96%  bench  [kernel.kallsyms]  [k] syscall_trace_exit
+1.fall-through jumps
+  Old BPF jump instructions are forced to go either 'true' or 'false'
+  branch which causes branch-miss penalty.
+  Extended BPF jump instructions have one branch and fall-through,
+  which fit CPU branch predictor logic better.
+  'perf stat' shows drastic difference for branch-misses.
 
---x86_64-- large filter
-old BPF: 8.6 seconds
-    73.38%    bench  [kernel.kallsyms]  [k] sk_run_filter
-    10.70%    bench  libc-2.15.so       [.] syscall
-     5.09%    bench  [kernel.kallsyms]  [k] seccomp_bpf_load
-     1.97%    bench  [kernel.kallsyms]  [k] system_call
-ext BPF: 5.7 seconds
-    66.20%    bench  [kernel.kallsyms]  [k] sk_run_filter_ext
-    16.75%    bench  libc-2.15.so       [.] syscall
-     3.31%    bench  [kernel.kallsyms]  [k] system_call
-     2.88%    bench  [kernel.kallsyms]  [k] __secure_computing
+2.jump-threaded implementation of interpreter vs switch statement
+  Instead of single tablejump at the top of 'switch' statement, GCC will
+  generate multiple tablejump instructions, which helps CPU branch predictor
 
---i386-- large filter
-old BPF: 5.4 sec
-ext BPF: 3.8 sec
+Performance of two BPF filters generated by libpcap was measured
+on x86_64, i386 and arm32.
 
---arm32-- large filter
-old BPF: 13.5 sec
- 73.88%  bench  [kernel.kallsyms]  [k] sk_run_filter
- 10.29%  bench  [kernel.kallsyms]  [k] vector_swi
-  6.46%  bench  libc-2.17.so       [.] syscall
-  2.94%  bench  [kernel.kallsyms]  [k] seccomp_bpf_load
-  1.19%  bench  [kernel.kallsyms]  [k] __secure_computing
-  0.87%  bench  [kernel.kallsyms]  [k] sys_getuid
-new BPF: 13.5 sec
- 76.08%  bench  [kernel.kallsyms]  [k] sk_run_filter_ext
- 10.98%  bench  [kernel.kallsyms]  [k] vector_swi
-  5.87%  bench  libc-2.17.so       [.] syscall
-  1.77%  bench  [kernel.kallsyms]  [k] __secure_computing
-  0.93%  bench  [kernel.kallsyms]  [k] sys_getuid
+fprog #1 is taken from Documentation/networking/filter.txt:
+tcpdump -i eth0 port 22 -dd
 
-BPF filters generated by seccomp are very branchy, so ext BPF
-performance is better than old BPF.
+fprog #2 is taken from 'man tcpdump':
+tcpdump -i eth0 'tcp port 22 and (((ip[2:2] - ((ip[0]&0xf)<<2)) -
+   ((tcp[12]&0xf0)>>2)) != 0)' -dd
 
-Performance gains will be even higher when extended BPF JIT
-is committed.
+Other libpcap programs have similar performance differences.
+
+Raw performance data from BPF micro-benchmark:
+SK_RUN_FILTER on same SKB (cache-hit) or 10k SKBs (cache-miss)
+time in nsec per call, smaller is better
+--x86_64--
+         fprog #1  fprog #1   fprog #2  fprog #2
+         cache-hit cache-miss cache-hit cache-miss
+old BPF     90       101       192       202
+ext BPF     31        71       47         97
+old BPF jit 12        34       17         44
+ext BPF jit TBD
+
+--i386--
+         fprog #1  fprog #1   fprog #2  fprog #2
+         cache-hit cache-miss cache-hit cache-miss
+old BPF    107        136      227       252
+ext BPF     40        119       69       172
+
+--arm32--
+         fprog #1  fprog #1   fprog #2  fprog #2
+         cache-hit cache-miss cache-hit cache-miss
+old BPF    202        300      475       540
+ext BPF    139        270      296       470
+old BPF jit 26        182       37       202
+new BPF jit TBD
+
+Tested with trinify BPF fuzzer
+
+Future work:
+
+0. add bpf/ebpf testsuite to tools/testing/selftests/net/bpf
+
+1. add extended BPF JIT for x86_64
+
+2. add inband old/new demux and extended BPF verifier, so that new programs
+   can be loaded through old sk_attach_filter() and sk_unattached_filter_create()
+   interfaces
+
+3. tracing filters systemtap-like with extended BPF
+
+4. OVS with extended BPF
+
+5. nftables with extended BPF
 
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-Reviewed-by: Kees Cook <keescook@chromium.org>
+Acked-by: Hagen Paul Pfeifer <hagen@jauu.net>
+Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- include/linux/seccomp.h |    1 -
- kernel/seccomp.c        |  118 ++++++++++++++++++++++-------------------------
- net/core/filter.c       |    5 --
- 3 files changed, 56 insertions(+), 68 deletions(-)
+ include/linux/filter.h      |    6 +-
+ include/linux/netdevice.h   |    1 +
+ include/uapi/linux/filter.h |   33 +-
+ net/core/filter.c           |  801 ++++++++++++++++++++++++++++++++++++++++++-
+ net/core/sysctl_net_core.c  |    7 +
+ 5 files changed, 826 insertions(+), 22 deletions(-)
 
-diff --git a/include/linux/seccomp.h b/include/linux/seccomp.h
-index 6f19cfd1840e..4054b0994071 100644
---- a/include/linux/seccomp.h
-+++ b/include/linux/seccomp.h
-@@ -76,7 +76,6 @@ static inline int seccomp_mode(struct seccomp *s)
- #ifdef CONFIG_SECCOMP_FILTER
- extern void put_seccomp_filter(struct task_struct *tsk);
- extern void get_seccomp_filter(struct task_struct *tsk);
--extern u32 seccomp_bpf_load(int off);
- #else  /* CONFIG_SECCOMP_FILTER */
- static inline void put_seccomp_filter(struct task_struct *tsk)
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index e568c8ef896b..beaba8580862 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -52,7 +52,11 @@ extern int sk_detach_filter(struct sock *sk);
+ extern int sk_chk_filter(struct sock_filter *filter, unsigned int flen);
+ extern int sk_get_filter(struct sock *sk, struct sock_filter __user *filter, unsigned len);
+ extern void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to);
++int sk_convert_filter(struct sock_filter *old_prog, int len,
++		      struct sock_filter_ext *new_prog,	int *p_new_len);
++unsigned int sk_run_filter_ext(void *ctx, const struct sock_filter_ext *insn);
+ 
++#define SK_RUN_FILTER(FILTER, SKB) (*FILTER->bpf_func)(SKB, FILTER->insns)
+ #ifdef CONFIG_BPF_JIT
+ #include <stdarg.h>
+ #include <linux/linkage.h>
+@@ -70,7 +74,6 @@ static inline void bpf_jit_dump(unsigned int flen, unsigned int proglen,
+ 		print_hex_dump(KERN_ERR, "JIT code: ", DUMP_PREFIX_OFFSET,
+ 			       16, 1, image, proglen, false);
+ }
+-#define SK_RUN_FILTER(FILTER, SKB) (*FILTER->bpf_func)(SKB, FILTER->insns)
+ #else
+ #include <linux/slab.h>
+ static inline void bpf_jit_compile(struct sk_filter *fp)
+@@ -80,7 +83,6 @@ static inline void bpf_jit_free(struct sk_filter *fp)
  {
-diff --git a/kernel/seccomp.c b/kernel/seccomp.c
-index b7a10048a32c..2a18f43acbd6 100644
---- a/kernel/seccomp.c
-+++ b/kernel/seccomp.c
-@@ -55,60 +55,31 @@ struct seccomp_filter {
- 	atomic_t usage;
- 	struct seccomp_filter *prev;
- 	unsigned short len;  /* Instruction count */
--	struct sock_filter insns[];
-+	struct sock_filter_ext insns[];
+ 	kfree(fp);
+ }
+-#define SK_RUN_FILTER(FILTER, SKB) sk_run_filter(SKB, FILTER->insns)
+ #endif
+ 
+ static inline int bpf_tell_extensions(void)
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 1a869488b8ae..2c13d000389c 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3054,6 +3054,7 @@ extern int		netdev_max_backlog;
+ extern int		netdev_tstamp_prequeue;
+ extern int		weight_p;
+ extern int		bpf_jit_enable;
++extern int		bpf_ext_enable;
+ 
+ bool netdev_has_upper_dev(struct net_device *dev, struct net_device *upper_dev);
+ struct net_device *netdev_all_upper_get_next_dev_rcu(struct net_device *dev,
+diff --git a/include/uapi/linux/filter.h b/include/uapi/linux/filter.h
+index 8eb9ccaa5b48..4e98fe16ba88 100644
+--- a/include/uapi/linux/filter.h
++++ b/include/uapi/linux/filter.h
+@@ -1,5 +1,6 @@
+ /*
+  * Linux Socket Filter Data Structures
++ * Extended BPF is Copyright (c) 2011-2014, PLUMgrid, http://plumgrid.com
+  */
+ 
+ #ifndef _UAPI__LINUX_FILTER_H__
+@@ -19,7 +20,7 @@
+  *	Try and keep these values and structures similar to BSD, especially
+  *	the BPF code definitions which need to match so you can share filters
+  */
+- 
++
+ struct sock_filter {	/* Filter block */
+ 	__u16	code;   /* Actual filter code */
+ 	__u8	jt;	/* Jump true */
+@@ -27,6 +28,14 @@ struct sock_filter {	/* Filter block */
+ 	__u32	k;      /* Generic multiuse field */
  };
  
- /* Limit any path through the tree to 256KB worth of instructions. */
- #define MAX_INSNS_PER_PATH ((1 << 18) / sizeof(struct sock_filter))
++struct sock_filter_ext {
++	__u8	code;    /* opcode */
++	__u8    a_reg:4; /* dest register */
++	__u8    x_reg:4; /* source register */
++	__s16	off;     /* signed offset */
++	__s32	imm;     /* signed immediate constant */
++};
++
+ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
+ 	unsigned short		len;	/* Number of filter blocks */
+ 	struct sock_filter __user *filter;
+@@ -45,12 +54,14 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
+ #define         BPF_JMP         0x05
+ #define         BPF_RET         0x06
+ #define         BPF_MISC        0x07
++#define         BPF_ALU64       0x07
  
--/**
-- * get_u32 - returns a u32 offset into data
-- * @data: a unsigned 64 bit value
-- * @index: 0 or 1 to return the first or second 32-bits
-- *
-- * This inline exists to hide the length of unsigned long.  If a 32-bit
-- * unsigned long is passed in, it will be extended and the top 32-bits will be
-- * 0. If it is a 64-bit unsigned long, then whatever data is resident will be
-- * properly returned.
-- *
-+/*
-  * Endianness is explicitly ignored and left for BPF program authors to manage
-  * as per the specific architecture.
-  */
--static inline u32 get_u32(u64 data, int index)
-+static void populate_seccomp_data(struct seccomp_data *sd)
- {
--	return ((u32 *)&data)[index];
--}
+ /* ld/ldx fields */
+ #define BPF_SIZE(code)  ((code) & 0x18)
+ #define         BPF_W           0x00
+ #define         BPF_H           0x08
+ #define         BPF_B           0x10
++#define         BPF_DW          0x18
+ #define BPF_MODE(code)  ((code) & 0xe0)
+ #define         BPF_IMM         0x00
+ #define         BPF_ABS         0x20
+@@ -58,6 +69,7 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
+ #define         BPF_MEM         0x60
+ #define         BPF_LEN         0x80
+ #define         BPF_MSH         0xa0
++#define         BPF_XADD        0xc0 /* exclusive add */
+ 
+ /* alu/jmp fields */
+ #define BPF_OP(code)    ((code) & 0xf0)
+@@ -68,16 +80,24 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
+ #define         BPF_OR          0x40
+ #define         BPF_AND         0x50
+ #define         BPF_LSH         0x60
+-#define         BPF_RSH         0x70
++#define         BPF_RSH         0x70 /* logical shift right */
+ #define         BPF_NEG         0x80
+ #define		BPF_MOD		0x90
+ #define		BPF_XOR		0xa0
++#define		BPF_MOV		0xb0 /* mov reg to reg */
++#define		BPF_ARSH	0xc0 /* sign extending arithmetic shift right */
++#define		BPF_BSWAP32	0xd0 /* swap lower 4 bytes of 64-bit register */
++#define		BPF_BSWAP64	0xe0 /* swap all 8 bytes of 64-bit register */
+ 
+ #define         BPF_JA          0x00
+-#define         BPF_JEQ         0x10
+-#define         BPF_JGT         0x20
+-#define         BPF_JGE         0x30
+-#define         BPF_JSET        0x40
++#define         BPF_JEQ         0x10 /* jump == */
++#define         BPF_JGT         0x20 /* GT is unsigned '>', JA in x86 */
++#define         BPF_JGE         0x30 /* GE is unsigned '>=', JAE in x86 */
++#define         BPF_JSET        0x40 /* if (A & X) */
++#define         BPF_JNE         0x50 /* jump != */
++#define         BPF_JSGT        0x60 /* SGT is signed '>', GT in x86 */
++#define         BPF_JSGE        0x70 /* SGE is signed '>=', GE in x86 */
++#define         BPF_CALL        0x80 /* function call */
+ #define BPF_SRC(code)   ((code) & 0x08)
+ #define         BPF_K           0x00
+ #define         BPF_X           0x08
+@@ -134,5 +154,4 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
+ #define SKF_NET_OFF   (-0x100000)
+ #define SKF_LL_OFF    (-0x200000)
+ 
 -
--/* Helper for bpf_load below. */
--#define BPF_DATA(_name) offsetof(struct seccomp_data, _name)
--/**
-- * bpf_load: checks and returns a pointer to the requested offset
-- * @off: offset into struct seccomp_data to load from
-- *
-- * Returns the requested 32-bits of data.
-- * seccomp_check_filter() should assure that @off is 32-bit aligned
-- * and not out of bounds.  Failure to do so is a BUG.
-- */
--u32 seccomp_bpf_load(int off)
--{
--	struct pt_regs *regs = task_pt_regs(current);
--	if (off == BPF_DATA(nr))
--		return syscall_get_nr(current, regs);
--	if (off == BPF_DATA(arch))
--		return syscall_get_arch(current, regs);
--	if (off >= BPF_DATA(args[0]) && off < BPF_DATA(args[6])) {
--		unsigned long value;
--		int arg = (off - BPF_DATA(args[0])) / sizeof(u64);
--		int index = !!(off % sizeof(u64));
--		syscall_get_arguments(current, regs, arg, 1, &value);
--		return get_u32(value, index);
--	}
--	if (off == BPF_DATA(instruction_pointer))
--		return get_u32(KSTK_EIP(current), 0);
--	if (off == BPF_DATA(instruction_pointer) + sizeof(u32))
--		return get_u32(KSTK_EIP(current), 1);
--	/* seccomp_check_filter should make this impossible. */
--	BUG();
-+	struct task_struct *task = current;
-+	struct pt_regs *regs = task_pt_regs(task);
-+
-+	sd->nr = syscall_get_nr(task, regs);
-+	sd->arch = syscall_get_arch(task, regs);
-+	/* unroll syscall_get_args to help gcc on arm */
-+	syscall_get_arguments(task, regs, 0, 1, (unsigned long *)&sd->args[0]);
-+	syscall_get_arguments(task, regs, 1, 1, (unsigned long *)&sd->args[1]);
-+	syscall_get_arguments(task, regs, 2, 1, (unsigned long *)&sd->args[2]);
-+	syscall_get_arguments(task, regs, 3, 1, (unsigned long *)&sd->args[3]);
-+	syscall_get_arguments(task, regs, 4, 1, (unsigned long *)&sd->args[4]);
-+	syscall_get_arguments(task, regs, 5, 1, (unsigned long *)&sd->args[5]);
-+	sd->instruction_pointer = KSTK_EIP(task);
- }
- 
- /**
-@@ -133,17 +104,17 @@ static int seccomp_check_filter(struct sock_filter *filter, unsigned int flen)
- 
- 		switch (code) {
- 		case BPF_S_LD_W_ABS:
--			ftest->code = BPF_S_ANC_SECCOMP_LD_W;
-+			ftest->code = BPF_LDX | BPF_W | BPF_ABS;
- 			/* 32-bit aligned and not out of bounds. */
- 			if (k >= sizeof(struct seccomp_data) || k & 3)
- 				return -EINVAL;
- 			continue;
- 		case BPF_S_LD_W_LEN:
--			ftest->code = BPF_S_LD_IMM;
-+			ftest->code = BPF_LD | BPF_IMM;
- 			ftest->k = sizeof(struct seccomp_data);
- 			continue;
- 		case BPF_S_LDX_W_LEN:
--			ftest->code = BPF_S_LDX_IMM;
-+			ftest->code = BPF_LDX | BPF_IMM;
- 			ftest->k = sizeof(struct seccomp_data);
- 			continue;
- 		/* Explicitly include allowed calls. */
-@@ -185,6 +156,7 @@ static int seccomp_check_filter(struct sock_filter *filter, unsigned int flen)
- 		case BPF_S_JMP_JGT_X:
- 		case BPF_S_JMP_JSET_K:
- 		case BPF_S_JMP_JSET_X:
-+			sk_decode_filter(ftest, ftest);
- 			continue;
- 		default:
- 			return -EINVAL;
-@@ -202,18 +174,21 @@ static int seccomp_check_filter(struct sock_filter *filter, unsigned int flen)
- static u32 seccomp_run_filters(int syscall)
- {
- 	struct seccomp_filter *f;
-+	struct seccomp_data sd;
- 	u32 ret = SECCOMP_RET_ALLOW;
- 
- 	/* Ensure unexpected behavior doesn't result in failing open. */
- 	if (WARN_ON(current->seccomp.filter == NULL))
- 		return SECCOMP_RET_KILL;
- 
-+	populate_seccomp_data(&sd);
-+
- 	/*
- 	 * All filters in the list are evaluated and the lowest BPF return
- 	 * value always takes priority (ignoring the DATA).
- 	 */
- 	for (f = current->seccomp.filter; f; f = f->prev) {
--		u32 cur_ret = sk_run_filter(NULL, f->insns);
-+		u32 cur_ret = sk_run_filter_ext(&sd, f->insns);
- 		if ((cur_ret & SECCOMP_RET_ACTION) < (ret & SECCOMP_RET_ACTION))
- 			ret = cur_ret;
- 	}
-@@ -231,6 +206,8 @@ static long seccomp_attach_filter(struct sock_fprog *fprog)
- 	struct seccomp_filter *filter;
- 	unsigned long fp_size = fprog->len * sizeof(struct sock_filter);
- 	unsigned long total_insns = fprog->len;
-+	struct sock_filter *fp;
-+	int new_len;
- 	long ret;
- 
- 	if (fprog->len == 0 || fprog->len > BPF_MAXINSNS)
-@@ -252,28 +229,42 @@ static long seccomp_attach_filter(struct sock_fprog *fprog)
- 				     CAP_SYS_ADMIN) != 0)
- 		return -EACCES;
- 
--	/* Allocate a new seccomp_filter */
--	filter = kzalloc(sizeof(struct seccomp_filter) + fp_size,
--			 GFP_KERNEL|__GFP_NOWARN);
--	if (!filter)
-+	fp = kzalloc(fp_size, GFP_KERNEL|__GFP_NOWARN);
-+	if (!fp)
- 		return -ENOMEM;
--	atomic_set(&filter->usage, 1);
--	filter->len = fprog->len;
- 
- 	/* Copy the instructions from fprog. */
- 	ret = -EFAULT;
--	if (copy_from_user(filter->insns, fprog->filter, fp_size))
--		goto fail;
-+	if (copy_from_user(fp, fprog->filter, fp_size))
-+		goto free_prog;
- 
- 	/* Check and rewrite the fprog via the skb checker */
--	ret = sk_chk_filter(filter->insns, filter->len);
-+	ret = sk_chk_filter(fp, fprog->len);
- 	if (ret)
--		goto fail;
-+		goto free_prog;
- 
- 	/* Check and rewrite the fprog for seccomp use */
--	ret = seccomp_check_filter(filter->insns, filter->len);
-+	ret = seccomp_check_filter(fp, fprog->len);
- 	if (ret)
--		goto fail;
-+		goto free_prog;
-+
-+	/* convert 'sock_filter' insns to 'sock_filter_ext' insns */
-+	ret = sk_convert_filter(fp, fprog->len, NULL, &new_len);
-+	if (ret)
-+		goto free_prog;
-+
-+	/* Allocate a new seccomp_filter */
-+	filter = kzalloc(sizeof(struct seccomp_filter) +
-+			 sizeof(struct sock_filter_ext) * new_len,
-+			 GFP_KERNEL|__GFP_NOWARN);
-+	if (!filter)
-+		goto free_prog;
-+
-+	ret = sk_convert_filter(fp, fprog->len, filter->insns, &new_len);
-+	if (ret)
-+		goto free_filter;
-+	atomic_set(&filter->usage, 1);
-+	filter->len = new_len;
- 
- 	/*
- 	 * If there is an existing filter, make it the prev and don't drop its
-@@ -282,8 +273,11 @@ static long seccomp_attach_filter(struct sock_fprog *fprog)
- 	filter->prev = current->seccomp.filter;
- 	current->seccomp.filter = filter;
- 	return 0;
--fail:
-+
-+free_filter:
- 	kfree(filter);
-+free_prog:
-+	kfree(fp);
- 	return ret;
- }
- 
+ #endif /* _UAPI__LINUX_FILTER_H__ */
 diff --git a/net/core/filter.c b/net/core/filter.c
-index d04156e88a90..2eb340e34d06 100644
+index ad30d626a5bd..d04156e88a90 100644
 --- a/net/core/filter.c
 +++ b/net/core/filter.c
-@@ -388,11 +388,6 @@ load_b:
- 				A = 0;
- 			continue;
- 		}
--#ifdef CONFIG_SECCOMP_FILTER
--		case BPF_S_ANC_SECCOMP_LD_W:
--			A = seccomp_bpf_load(fentry->k);
--			continue;
--#endif
- 		default:
- 			WARN_RATELIMIT(1, "Unknown code:%u jt:%u tf:%u k:%u\n",
- 				       fentry->code, fentry->jt,
+@@ -1,5 +1,6 @@
+ /*
+  * Linux Socket Filter - Kernel level socket filtering
++ * Extended BPF is Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
+  *
+  * Author:
+  *     Jay Schulist <jschlst@samba.org>
+@@ -40,6 +41,8 @@
+ #include <linux/seccomp.h>
+ #include <linux/if_vlan.h>
+ 
++int bpf_ext_enable __read_mostly;
++
+ /* No hurry in this branch
+  *
+  * Exported for the bpf jit load helper.
+@@ -399,6 +402,7 @@ load_b:
+ 	}
+ 
+ 	return 0;
++#undef K
+ }
+ EXPORT_SYMBOL(sk_run_filter);
+ 
+@@ -637,6 +641,10 @@ void sk_filter_release_rcu(struct rcu_head *rcu)
+ {
+ 	struct sk_filter *fp = container_of(rcu, struct sk_filter, rcu);
+ 
++	if ((void *)fp->bpf_func == (void *)sk_run_filter_ext)
++		/* arch specific jit_free are expecting this value */
++		fp->bpf_func = sk_run_filter;
++
+ 	bpf_jit_free(fp);
+ }
+ EXPORT_SYMBOL(sk_filter_release_rcu);
+@@ -655,6 +663,81 @@ static int __sk_prepare_filter(struct sk_filter *fp)
+ 	return 0;
+ }
+ 
++static int sk_prepare_filter_ext(struct sk_filter **pfp,
++				 struct sock_fprog *fprog, struct sock *sk)
++{
++	unsigned int fsize = sizeof(struct sock_filter) * fprog->len;
++	struct sock_filter *old_prog;
++	unsigned int sk_fsize;
++	struct sk_filter *fp;
++	int new_len;
++	int err;
++
++	/* store old program into buffer, since chk_filter will remap opcodes */
++	old_prog = kmalloc(fsize, GFP_KERNEL);
++	if (!old_prog)
++		return -ENOMEM;
++
++	if (sk) {
++		if (copy_from_user(old_prog, fprog->filter, fsize)) {
++			err = -EFAULT;
++			goto free_prog;
++		}
++	} else {
++		memcpy(old_prog, fprog->filter, fsize);
++	}
++
++	/* calculate bpf_ext program length */
++	err = sk_convert_filter(fprog->filter, fprog->len, NULL, &new_len);
++	if (err)
++		goto free_prog;
++
++	sk_fsize = sk_filter_size(new_len);
++	/* allocate sk_filter to store bpf_ext program */
++	if (sk)
++		fp = sock_kmalloc(sk, sk_fsize, GFP_KERNEL);
++	else
++		fp = kmalloc(sk_fsize, GFP_KERNEL);
++	if (!fp) {
++		err = -ENOMEM;
++		goto free_prog;
++	}
++
++	/* remap sock_filter insns into sock_filter_ext insns */
++	err = sk_convert_filter(old_prog, fprog->len,
++				(struct sock_filter_ext *)fp->insns, &new_len);
++	if (err)
++		/* 2nd sk_convert_filter() can fail only if it fails
++		 * to allocate memory, remapping must succeed
++		 */
++		goto free_fp;
++
++	/* now chk_filter can overwrite old_prog while checking */
++	err = sk_chk_filter(old_prog, fprog->len);
++	if (err)
++		goto free_fp;
++
++	/* discard old prog */
++	kfree(old_prog);
++
++	atomic_set(&fp->refcnt, 1);
++	fp->len = new_len;
++
++	/* sock_filter_ext insns must be executed by sk_run_filter_ext */
++	fp->bpf_func = (typeof(fp->bpf_func))sk_run_filter_ext;
++
++	*pfp = fp;
++	return 0;
++free_fp:
++	if (sk)
++		sock_kfree_s(sk, fp, sk_fsize);
++	else
++		kfree(fp);
++free_prog:
++	kfree(old_prog);
++	return err;
++}
++
+ /**
+  *	sk_unattached_filter_create - create an unattached filter
+  *	@fprog: the filter program
+@@ -676,6 +759,9 @@ int sk_unattached_filter_create(struct sk_filter **pfp,
+ 	if (fprog->filter == NULL)
+ 		return -EINVAL;
+ 
++	if (bpf_ext_enable)
++		return sk_prepare_filter_ext(pfp, fprog, NULL);
++
+ 	fp = kmalloc(sk_filter_size(fprog->len), GFP_KERNEL);
+ 	if (!fp)
+ 		return -ENOMEM;
+@@ -726,21 +812,27 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
+ 	if (fprog->filter == NULL)
+ 		return -EINVAL;
+ 
+-	fp = sock_kmalloc(sk, sk_fsize, GFP_KERNEL);
+-	if (!fp)
+-		return -ENOMEM;
+-	if (copy_from_user(fp->insns, fprog->filter, fsize)) {
+-		sock_kfree_s(sk, fp, sk_fsize);
+-		return -EFAULT;
+-	}
++	if (bpf_ext_enable) {
++		err = sk_prepare_filter_ext(&fp, fprog, sk);
++		if (err)
++			return err;
++	} else {
++		fp = sock_kmalloc(sk, sk_fsize, GFP_KERNEL);
++		if (!fp)
++			return -ENOMEM;
++		if (copy_from_user(fp->insns, fprog->filter, fsize)) {
++			sock_kfree_s(sk, fp, sk_fsize);
++			return -EFAULT;
++		}
+ 
+-	atomic_set(&fp->refcnt, 1);
+-	fp->len = fprog->len;
++		atomic_set(&fp->refcnt, 1);
++		fp->len = fprog->len;
+ 
+-	err = __sk_prepare_filter(fp);
+-	if (err) {
+-		sk_filter_uncharge(sk, fp);
+-		return err;
++		err = __sk_prepare_filter(fp);
++		if (err) {
++			sk_filter_uncharge(sk, fp);
++			return err;
++		}
+ 	}
+ 
+ 	old_fp = rcu_dereference_protected(sk->sk_filter,
+@@ -882,3 +974,686 @@ out:
+ 	release_sock(sk);
+ 	return ret;
+ }
++
++/**
++ *	sk_convert_filter - convert filter program
++ *	@old_prog: the filter program
++ *	@len: the length of filter program
++ *	@new_prog: buffer where converted program will be stored
++ *	@p_new_len: pointer to store length of converted program
++ *
++ * remap 'sock_filter' style BPF instruction set to 'sock_filter_ext' style
++ *
++ * first, call sk_convert_filter(old_prog, len, NULL, &new_len) to calculate new
++ * program length in one pass
++ *
++ * then new_prog = kmalloc(sizeof(struct sock_filter_ext) * new_len);
++ *
++ * and call it again: sk_convert_filter(old_prog, len, new_prog, &new_len);
++ * to remap in two passes: 1st pass finds new jump offsets, 2nd pass remaps
++ */
++int sk_convert_filter(struct sock_filter *old_prog, int len,
++		      struct sock_filter_ext *new_prog, int *p_new_len)
++{
++	struct sock_filter_ext *new_insn;
++	struct sock_filter *fp;
++	int *addrs = NULL;
++	int new_len = 0;
++	int pass = 0;
++	int tgt, i;
++	u8 bpf_src;
++
++	if (len <= 0 || len >= BPF_MAXINSNS)
++		return -EINVAL;
++
++	if (new_prog) {
++		addrs = kzalloc(len * sizeof(*addrs), GFP_KERNEL);
++		if (!addrs)
++			return -ENOMEM;
++	}
++
++do_pass:
++	new_insn = new_prog;
++	fp = old_prog;
++	for (i = 0; i < len; fp++, i++) {
++		struct sock_filter_ext tmp_insns[3] = {};
++		struct sock_filter_ext *insn = tmp_insns;
++
++		if (addrs)
++			addrs[i] = new_insn - new_prog;
++
++		switch (fp->code) {
++		/* all arithmetic insns and skb loads map as-is */
++		case BPF_ALU | BPF_ADD | BPF_X:
++		case BPF_ALU | BPF_ADD | BPF_K:
++		case BPF_ALU | BPF_SUB | BPF_X:
++		case BPF_ALU | BPF_SUB | BPF_K:
++		case BPF_ALU | BPF_AND | BPF_X:
++		case BPF_ALU | BPF_AND | BPF_K:
++		case BPF_ALU | BPF_OR | BPF_X:
++		case BPF_ALU | BPF_OR | BPF_K:
++		case BPF_ALU | BPF_LSH | BPF_X:
++		case BPF_ALU | BPF_LSH | BPF_K:
++		case BPF_ALU | BPF_RSH | BPF_X:
++		case BPF_ALU | BPF_RSH | BPF_K:
++		case BPF_ALU | BPF_XOR | BPF_X:
++		case BPF_ALU | BPF_XOR | BPF_K:
++		case BPF_ALU | BPF_MUL | BPF_X:
++		case BPF_ALU | BPF_MUL | BPF_K:
++		case BPF_ALU | BPF_DIV | BPF_X:
++		case BPF_ALU | BPF_DIV | BPF_K:
++		case BPF_ALU | BPF_MOD | BPF_X:
++		case BPF_ALU | BPF_MOD | BPF_K:
++		case BPF_ALU | BPF_NEG:
++		case BPF_LD | BPF_ABS | BPF_W:
++		case BPF_LD | BPF_ABS | BPF_H:
++		case BPF_LD | BPF_ABS | BPF_B:
++		case BPF_LD | BPF_IND | BPF_W:
++		case BPF_LD | BPF_IND | BPF_H:
++		case BPF_LD | BPF_IND | BPF_B:
++			insn->code = fp->code;
++			insn->a_reg = 6;
++			insn->x_reg = 7;
++			insn->imm = fp->k;
++			break;
++
++		/* jump opcodes map as-is, but offsets need adjustment */
++		case BPF_JMP | BPF_JA:
++			tgt = i + fp->k + 1;
++			insn->code = fp->code;
++#define EMIT_JMP \
++	do { \
++		if (tgt >= len || tgt < 0) \
++			goto err; \
++		insn->off = addrs ? addrs[tgt] - addrs[i] - 1 : 0; \
++		/* adjust pc relative offset for 2nd or 3rd insn */ \
++		insn->off -= insn - tmp_insns; \
++	} while (0)
++
++			EMIT_JMP;
++			break;
++
++		case BPF_JMP | BPF_JEQ | BPF_K:
++		case BPF_JMP | BPF_JEQ | BPF_X:
++		case BPF_JMP | BPF_JSET | BPF_K:
++		case BPF_JMP | BPF_JSET | BPF_X:
++		case BPF_JMP | BPF_JGT | BPF_K:
++		case BPF_JMP | BPF_JGT | BPF_X:
++		case BPF_JMP | BPF_JGE | BPF_K:
++		case BPF_JMP | BPF_JGE | BPF_X:
++			if (BPF_SRC(fp->code) == BPF_K &&
++			    (int)fp->k < 0) {
++				/* extended BPF immediates are signed,
++				 * zero extend immediate into tmp register
++				 * and use it in compare insn
++				 */
++				insn->code = BPF_ALU | BPF_MOV | BPF_K;
++				insn->a_reg = 2;
++				insn->imm = fp->k;
++				insn++;
++
++				insn->a_reg = 6;
++				insn->x_reg = 2;
++				bpf_src = BPF_X;
++			} else {
++				insn->a_reg = 6;
++				insn->x_reg = 7;
++				insn->imm = fp->k;
++				bpf_src = BPF_SRC(fp->code);
++			}
++			/* common case where 'jump_false' is next insn */
++			if (fp->jf == 0) {
++				insn->code = BPF_JMP | BPF_OP(fp->code) |
++					bpf_src;
++				tgt = i + fp->jt + 1;
++				EMIT_JMP;
++				break;
++			}
++			/* convert JEQ into JNE when 'jump_true' is next insn */
++			if (fp->jt == 0 && BPF_OP(fp->code) == BPF_JEQ) {
++				insn->code = BPF_JMP | BPF_JNE | bpf_src;
++				tgt = i + fp->jf + 1;
++				EMIT_JMP;
++				break;
++			}
++			/* other jumps are mapped into two insns: Jxx and JA */
++			tgt = i + fp->jt + 1;
++			insn->code = BPF_JMP | BPF_OP(fp->code) | bpf_src;
++			EMIT_JMP;
++
++			insn++;
++			insn->code = BPF_JMP | BPF_JA;
++			tgt = i + fp->jf + 1;
++			EMIT_JMP;
++			break;
++
++		/* ldxb 4*([14]&0xf) is remaped into 3 insns */
++		case BPF_LDX | BPF_MSH | BPF_B:
++			insn->code = BPF_LD | BPF_ABS | BPF_B;
++			insn->a_reg = 7;
++			insn->imm = fp->k;
++
++			insn++;
++			insn->code = BPF_ALU | BPF_AND | BPF_K;
++			insn->a_reg = 7;
++			insn->imm = 0xf;
++
++			insn++;
++			insn->code = BPF_ALU | BPF_LSH | BPF_K;
++			insn->a_reg = 7;
++			insn->imm = 2;
++			break;
++
++		/* RET_K, RET_A are remaped into 2 insns */
++		case BPF_RET | BPF_A:
++		case BPF_RET | BPF_K:
++			insn->code = BPF_ALU | BPF_MOV |
++				(BPF_RVAL(fp->code) == BPF_K ? BPF_K : BPF_X);
++			insn->a_reg = 0;
++			insn->x_reg = 6;
++			insn->imm = fp->k;
++
++			insn++;
++			insn->code = BPF_RET | BPF_K;
++			break;
++
++		/* store to stack */
++		case BPF_ST:
++		case BPF_STX:
++			insn->code = BPF_STX | BPF_MEM | BPF_W;
++			insn->a_reg = 10;
++			insn->x_reg = fp->code == BPF_ST ? 6 : 7;
++			insn->off = -(BPF_MEMWORDS - fp->k) * 4;
++			break;
++
++		/* load from stack */
++		case BPF_LD | BPF_MEM:
++		case BPF_LDX | BPF_MEM:
++			insn->code = BPF_LDX | BPF_MEM | BPF_W;
++			insn->a_reg = BPF_CLASS(fp->code) == BPF_LD ? 6 : 7;
++			insn->x_reg = 10;
++			insn->off = -(BPF_MEMWORDS - fp->k) * 4;
++			break;
++
++		/* A = K or X = K */
++		case BPF_LD | BPF_IMM:
++		case BPF_LDX | BPF_IMM:
++			insn->code = BPF_ALU | BPF_MOV | BPF_K;
++			insn->a_reg = BPF_CLASS(fp->code) == BPF_LD ? 6 : 7;
++			insn->imm = fp->k;
++			break;
++
++		/* X = A */
++		case BPF_MISC | BPF_TAX:
++			insn->code = BPF_ALU64 | BPF_MOV | BPF_X;
++			insn->a_reg = 7;
++			insn->x_reg = 6;
++			break;
++
++		/* A = X */
++		case BPF_MISC | BPF_TXA:
++			insn->code = BPF_ALU64 | BPF_MOV | BPF_X;
++			insn->a_reg = 6;
++			insn->x_reg = 7;
++			break;
++
++		/* A = skb->len or X = skb->len */
++		case BPF_LD | BPF_W | BPF_LEN:
++		case BPF_LDX | BPF_W | BPF_LEN:
++			insn->code = BPF_LDX | BPF_MEM | BPF_W;
++			insn->a_reg = BPF_CLASS(fp->code) == BPF_LD ? 6 : 7;
++			insn->x_reg = 1;
++			insn->off = offsetof(struct sk_buff, len);
++			break;
++
++		/* access seccomp_data fields */
++		case BPF_LDX | BPF_ABS | BPF_W:
++			insn->code = BPF_LDX | BPF_MEM | BPF_W;
++			insn->a_reg = 6;
++			insn->x_reg = 1;
++			insn->off = fp->k;
++			break;
++
++		default:
++			/* pr_err("unknown opcode %02x\n", fp->code); */
++			goto err;
++		}
++
++		insn++;
++		if (new_prog) {
++			memcpy(new_insn, tmp_insns,
++			       sizeof(*insn) * (insn - tmp_insns));
++		}
++		new_insn += insn - tmp_insns;
++	}
++
++	if (!new_prog) {
++		/* only calculating new length */
++		*p_new_len = new_insn - new_prog;
++		return 0;
++	}
++
++	pass++;
++	if (new_len != new_insn - new_prog) {
++		new_len = new_insn - new_prog;
++		if (pass > 2)
++			goto err;
++		goto do_pass;
++	}
++	kfree(addrs);
++	if (*p_new_len != new_len)
++		/* inconsistent new program length */
++		pr_err("sk_convert_filter() usage error\n");
++	return 0;
++err:
++	kfree(addrs);
++	return -EINVAL;
++}
++
++/**
++ *	sk_run_filter_ext - run an extended filter
++ *	@ctx: buffer to run the filter on
++ *	@insn: filter to apply
++ *
++ * Decode and execute extended BPF instructions.
++ * @ctx is the data we are operating on.
++ * @filter is the array of filter instructions.
++ */
++notrace u32 sk_run_filter_ext(void *ctx, const struct sock_filter_ext *insn)
++{
++	u64 stack[64];
++	u64 regs[16];
++	void *ptr;
++	u64 tmp;
++	int off;
++
++#ifdef __x86_64
++#define LOAD_IMM /**/
++#define K insn->imm
++#else
++#define LOAD_IMM (K = insn->imm)
++	s32 K = insn->imm;
++#endif
++
++#define A regs[insn->a_reg]
++#define X regs[insn->x_reg]
++
++#define CONT ({insn++; LOAD_IMM; goto select_insn; })
++#define CONT_JMP ({insn++; LOAD_IMM; goto select_insn; })
++/* some compilers may need help:
++ * #define CONT_JMP ({insn++; LOAD_IMM; goto *jumptable[insn->code]; })
++ */
++
++	static const void *jumptable[256] = {
++		[0 ... 255] = &&default_label,
++#define DL(A, B, C) [A|B|C] = &&A##_##B##_##C,
++		DL(BPF_ALU, BPF_ADD, BPF_X)
++		DL(BPF_ALU, BPF_ADD, BPF_K)
++		DL(BPF_ALU, BPF_SUB, BPF_X)
++		DL(BPF_ALU, BPF_SUB, BPF_K)
++		DL(BPF_ALU, BPF_AND, BPF_X)
++		DL(BPF_ALU, BPF_AND, BPF_K)
++		DL(BPF_ALU, BPF_OR, BPF_X)
++		DL(BPF_ALU, BPF_OR, BPF_K)
++		DL(BPF_ALU, BPF_LSH, BPF_X)
++		DL(BPF_ALU, BPF_LSH, BPF_K)
++		DL(BPF_ALU, BPF_RSH, BPF_X)
++		DL(BPF_ALU, BPF_RSH, BPF_K)
++		DL(BPF_ALU, BPF_XOR, BPF_X)
++		DL(BPF_ALU, BPF_XOR, BPF_K)
++		DL(BPF_ALU, BPF_MUL, BPF_X)
++		DL(BPF_ALU, BPF_MUL, BPF_K)
++		DL(BPF_ALU, BPF_MOV, BPF_X)
++		DL(BPF_ALU, BPF_MOV, BPF_K)
++		DL(BPF_ALU, BPF_DIV, BPF_X)
++		DL(BPF_ALU, BPF_DIV, BPF_K)
++		DL(BPF_ALU, BPF_MOD, BPF_X)
++		DL(BPF_ALU, BPF_MOD, BPF_K)
++		DL(BPF_ALU64, BPF_ADD, BPF_X)
++		DL(BPF_ALU64, BPF_ADD, BPF_K)
++		DL(BPF_ALU64, BPF_SUB, BPF_X)
++		DL(BPF_ALU64, BPF_SUB, BPF_K)
++		DL(BPF_ALU64, BPF_AND, BPF_X)
++		DL(BPF_ALU64, BPF_AND, BPF_K)
++		DL(BPF_ALU64, BPF_OR, BPF_X)
++		DL(BPF_ALU64, BPF_OR, BPF_K)
++		DL(BPF_ALU64, BPF_LSH, BPF_X)
++		DL(BPF_ALU64, BPF_LSH, BPF_K)
++		DL(BPF_ALU64, BPF_RSH, BPF_X)
++		DL(BPF_ALU64, BPF_RSH, BPF_K)
++		DL(BPF_ALU64, BPF_XOR, BPF_X)
++		DL(BPF_ALU64, BPF_XOR, BPF_K)
++		DL(BPF_ALU64, BPF_MUL, BPF_X)
++		DL(BPF_ALU64, BPF_MUL, BPF_K)
++		DL(BPF_ALU64, BPF_MOV, BPF_X)
++		DL(BPF_ALU64, BPF_MOV, BPF_K)
++		DL(BPF_ALU64, BPF_ARSH, BPF_X)
++		DL(BPF_ALU64, BPF_ARSH, BPF_K)
++		DL(BPF_ALU64, BPF_DIV, BPF_X)
++		DL(BPF_ALU64, BPF_DIV, BPF_K)
++		DL(BPF_ALU64, BPF_MOD, BPF_X)
++		DL(BPF_ALU64, BPF_MOD, BPF_K)
++		DL(BPF_ALU64, BPF_BSWAP32, BPF_X)
++		DL(BPF_ALU64, BPF_BSWAP64, BPF_X)
++		DL(BPF_ALU, BPF_NEG, 0)
++		DL(BPF_JMP, BPF_CALL, 0)
++		DL(BPF_JMP, BPF_JA, 0)
++		DL(BPF_JMP, BPF_JEQ, BPF_X)
++		DL(BPF_JMP, BPF_JEQ, BPF_K)
++		DL(BPF_JMP, BPF_JNE, BPF_X)
++		DL(BPF_JMP, BPF_JNE, BPF_K)
++		DL(BPF_JMP, BPF_JGT, BPF_X)
++		DL(BPF_JMP, BPF_JGT, BPF_K)
++		DL(BPF_JMP, BPF_JGE, BPF_X)
++		DL(BPF_JMP, BPF_JGE, BPF_K)
++		DL(BPF_JMP, BPF_JSGT, BPF_X)
++		DL(BPF_JMP, BPF_JSGT, BPF_K)
++		DL(BPF_JMP, BPF_JSGE, BPF_X)
++		DL(BPF_JMP, BPF_JSGE, BPF_K)
++		DL(BPF_JMP, BPF_JSET, BPF_X)
++		DL(BPF_JMP, BPF_JSET, BPF_K)
++		DL(BPF_STX, BPF_MEM, BPF_B)
++		DL(BPF_STX, BPF_MEM, BPF_H)
++		DL(BPF_STX, BPF_MEM, BPF_W)
++		DL(BPF_STX, BPF_MEM, BPF_DW)
++		DL(BPF_ST, BPF_MEM, BPF_B)
++		DL(BPF_ST, BPF_MEM, BPF_H)
++		DL(BPF_ST, BPF_MEM, BPF_W)
++		DL(BPF_ST, BPF_MEM, BPF_DW)
++		DL(BPF_LDX, BPF_MEM, BPF_B)
++		DL(BPF_LDX, BPF_MEM, BPF_H)
++		DL(BPF_LDX, BPF_MEM, BPF_W)
++		DL(BPF_LDX, BPF_MEM, BPF_DW)
++		DL(BPF_STX, BPF_XADD, BPF_W)
++#ifdef CONFIG_64BIT
++		DL(BPF_STX, BPF_XADD, BPF_DW)
++#endif
++		DL(BPF_LD, BPF_ABS, BPF_W)
++		DL(BPF_LD, BPF_ABS, BPF_H)
++		DL(BPF_LD, BPF_ABS, BPF_B)
++		DL(BPF_LD, BPF_IND, BPF_W)
++		DL(BPF_LD, BPF_IND, BPF_H)
++		DL(BPF_LD, BPF_IND, BPF_B)
++		DL(BPF_RET, BPF_K, 0)
++#undef DL
++	};
++
++	regs[10/* BPF R10 */] = (u64)(ulong)&stack[64];
++	regs[1/* BPF R1 */] = (u64)(ulong)ctx;
++
++	/* execute 1st insn */
++select_insn:
++	goto *jumptable[insn->code];
++
++	/* ALU */
++#define ALU(OPCODE, OP) \
++	BPF_ALU64_##OPCODE##_BPF_X: \
++		A = A OP X; \
++		CONT; \
++	BPF_ALU_##OPCODE##_BPF_X: \
++		A = (u32)A OP (u32)X; \
++		CONT; \
++	BPF_ALU64_##OPCODE##_BPF_K: \
++		A = A OP K; \
++		CONT; \
++	BPF_ALU_##OPCODE##_BPF_K: \
++		A = (u32)A OP (u32)K; \
++		CONT;
++
++	ALU(BPF_ADD, +)
++	ALU(BPF_SUB, -)
++	ALU(BPF_AND, &)
++	ALU(BPF_OR, |)
++	ALU(BPF_LSH, <<)
++	ALU(BPF_RSH, >>)
++	ALU(BPF_XOR, ^)
++	ALU(BPF_MUL, *)
++#undef ALU
++
++BPF_ALU_BPF_NEG_0:
++	A = (u32)-A;
++	CONT;
++BPF_ALU_BPF_MOV_BPF_X:
++	A = (u32)X;
++	CONT;
++BPF_ALU_BPF_MOV_BPF_K:
++	A = (u32)K;
++	CONT;
++BPF_ALU64_BPF_MOV_BPF_X:
++	A = X;
++	CONT;
++BPF_ALU64_BPF_MOV_BPF_K:
++	A = K;
++	CONT;
++BPF_ALU64_BPF_ARSH_BPF_X:
++	(*(s64 *) &A) >>= X;
++	CONT;
++BPF_ALU64_BPF_ARSH_BPF_K:
++	(*(s64 *) &A) >>= K;
++	CONT;
++BPF_ALU64_BPF_MOD_BPF_X:
++	tmp = A;
++	if (X)
++		A = do_div(tmp, X);
++	CONT;
++BPF_ALU_BPF_MOD_BPF_X:
++	tmp = (u32)A;
++	if (X)
++		A = do_div(tmp, (u32)X);
++	CONT;
++BPF_ALU64_BPF_MOD_BPF_K:
++	tmp = A;
++	if (K)
++		A = do_div(tmp, K);
++	CONT;
++BPF_ALU_BPF_MOD_BPF_K:
++	tmp = (u32)A;
++	if (K)
++		A = do_div(tmp, (u32)K);
++	CONT;
++BPF_ALU64_BPF_DIV_BPF_X:
++	if (X)
++		do_div(A, X);
++	CONT;
++BPF_ALU_BPF_DIV_BPF_X:
++	tmp = (u32)A;
++	if (X)
++		do_div(tmp, (u32)X);
++	A = (u32)tmp;
++	CONT;
++BPF_ALU64_BPF_DIV_BPF_K:
++	if (K)
++		do_div(A, K);
++	CONT;
++BPF_ALU_BPF_DIV_BPF_K:
++	tmp = (u32)A;
++	if (K)
++		do_div(tmp, (u32)K);
++	A = (u32)tmp;
++	CONT;
++BPF_ALU64_BPF_BSWAP32_BPF_X:
++	A = swab32(A);
++	CONT;
++BPF_ALU64_BPF_BSWAP64_BPF_X:
++	A = swab64(A);
++	CONT;
++
++	/* CALL */
++BPF_JMP_BPF_CALL_0:
++	return 0; /* not implemented yet */
++
++	/* JMP */
++BPF_JMP_BPF_JA_0:
++	insn += insn->off;
++	CONT;
++BPF_JMP_BPF_JEQ_BPF_X:
++	if (A == X) {
++		insn += insn->off;
++		CONT_JMP;
++	}
++	CONT;
++BPF_JMP_BPF_JEQ_BPF_K:
++	if (A == K) {
++		insn += insn->off;
++		CONT_JMP;
++	}
++	CONT;
++BPF_JMP_BPF_JNE_BPF_X:
++	if (A != X) {
++		insn += insn->off;
++		CONT_JMP;
++	}
++	CONT;
++BPF_JMP_BPF_JNE_BPF_K:
++	if (A != K) {
++		insn += insn->off;
++		CONT_JMP;
++	}
++	CONT;
++BPF_JMP_BPF_JGT_BPF_X:
++	if (A > X) {
++		insn += insn->off;
++		CONT_JMP;
++	}
++	CONT;
++BPF_JMP_BPF_JGT_BPF_K:
++	if (A > K) {
++		insn += insn->off;
++		CONT_JMP;
++	}
++	CONT;
++BPF_JMP_BPF_JGE_BPF_X:
++	if (A >= X) {
++		insn += insn->off;
++		CONT_JMP;
++	}
++	CONT;
++BPF_JMP_BPF_JGE_BPF_K:
++	if (A >= K) {
++		insn += insn->off;
++		CONT_JMP;
++	}
++	CONT;
++BPF_JMP_BPF_JSGT_BPF_X:
++	if (((s64)A) > ((s64)X)) {
++		insn += insn->off;
++		CONT_JMP;
++	}
++	CONT;
++BPF_JMP_BPF_JSGT_BPF_K:
++	if (((s64)A) > ((s64)K)) {
++		insn += insn->off;
++		CONT_JMP;
++	}
++	CONT;
++BPF_JMP_BPF_JSGE_BPF_X:
++	if (((s64)A) >= ((s64)X)) {
++		insn += insn->off;
++		CONT_JMP;
++	}
++	CONT;
++BPF_JMP_BPF_JSGE_BPF_K:
++	if (((s64)A) >= ((s64)K)) {
++		insn += insn->off;
++		CONT_JMP;
++	}
++	CONT;
++BPF_JMP_BPF_JSET_BPF_X:
++	if (A & X) {
++		insn += insn->off;
++		CONT_JMP;
++	}
++	CONT;
++BPF_JMP_BPF_JSET_BPF_K:
++	if (A & K) {
++		insn += insn->off;
++		CONT_JMP;
++	}
++	CONT;
++
++	/* STX and ST and LDX*/
++#define LDST(SIZEOP, SIZE) \
++	BPF_STX_BPF_MEM_##SIZEOP: \
++		*(SIZE *)(ulong)(A + insn->off) = X; \
++		CONT; \
++	BPF_ST_BPF_MEM_##SIZEOP: \
++		*(SIZE *)(ulong)(A + insn->off) = K; \
++		CONT; \
++	BPF_LDX_BPF_MEM_##SIZEOP: \
++		A = *(SIZE *)(ulong)(X + insn->off); \
++		CONT;
++
++	LDST(BPF_B, u8)
++	LDST(BPF_H, u16)
++	LDST(BPF_W, u32)
++	LDST(BPF_DW, u64)
++#undef LDST
++
++BPF_STX_BPF_XADD_BPF_W: /* lock xadd *(u32 *)(A + insn->off) += X */
++	atomic_add((u32)X, (atomic_t *)(ulong)(A + insn->off));
++	CONT;
++#ifdef CONFIG_64BIT
++BPF_STX_BPF_XADD_BPF_DW: /* lock xadd *(u64 *)(A + insn->off) += X */
++	atomic64_add((u64)X, (atomic64_t *)(ulong)(A + insn->off));
++	CONT;
++#endif
++
++BPF_LD_BPF_ABS_BPF_W: /* A = *(u32 *)(SKB + K) */
++	off = K;
++load_word:
++	ptr = load_pointer((struct sk_buff *)ctx, off, 4, &tmp);
++	if (likely(ptr != NULL)) {
++		A = get_unaligned_be32(ptr);
++		CONT;
++	}
++	return 0;
++
++BPF_LD_BPF_ABS_BPF_H: /* A = *(u16 *)(SKB + K) */
++	off = K;
++load_half:
++	ptr = load_pointer((struct sk_buff *)ctx, off, 2, &tmp);
++	if (likely(ptr != NULL)) {
++		A = get_unaligned_be16(ptr);
++		CONT;
++	}
++	return 0;
++
++BPF_LD_BPF_ABS_BPF_B: /* A = *(u8 *)(SKB + K) */
++	off = K;
++load_byte:
++	ptr = load_pointer((struct sk_buff *)ctx, off, 1, &tmp);
++	if (likely(ptr != NULL)) {
++		A = *(u8 *)ptr;
++		CONT;
++	}
++	return 0;
++
++BPF_LD_BPF_IND_BPF_W: /* A = *(u32 *)(SKB + X + K) */
++	off = K + X;
++	goto load_word;
++
++BPF_LD_BPF_IND_BPF_H: /* A = *(u16 *)(SKB + X + K) */
++	off = K + X;
++	goto load_half;
++
++BPF_LD_BPF_IND_BPF_B: /* A = *(u8 *)(SKB + X + K) */
++	off = K + X;
++	goto load_byte;
++
++	/* RET */
++BPF_RET_BPF_K_0:
++	return regs[0/* R0 */];
++
++default_label:
++	/* sk_chk_filter_ext() and sk_convert_filter() guarantee
++	 * that we never reach here
++	 */
++	WARN_RATELIMIT(1, "unknown opcode %02x\n", insn->code);
++	return 0;
++#undef CONT
++#undef A
++#undef X
++#undef K
++#undef LOAD_IMM
++}
++EXPORT_SYMBOL(sk_run_filter_ext);
+diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+index cf9cd13509a7..e1b979312588 100644
+--- a/net/core/sysctl_net_core.c
++++ b/net/core/sysctl_net_core.c
+@@ -273,6 +273,13 @@ static struct ctl_table net_core_table[] = {
+ 	},
+ #endif
+ 	{
++		.procname	= "bpf_ext_enable",
++		.data		= &bpf_ext_enable,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec
++	},
++	{
+ 		.procname	= "netdev_tstamp_prequeue",
+ 		.data		= &netdev_tstamp_prequeue,
+ 		.maxlen		= sizeof(int),
 -- 
 1.7.9.5
