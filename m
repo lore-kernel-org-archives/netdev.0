@@ -1,56 +1,88 @@
-From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
-Subject: RE: [PATCH v3 net-next 1/2] ethtool: Support for configurable RSS
- hash key
-Date: Thu, 6 Mar 2014 14:23:44 +0000
-Message-ID: <BF3270C86E8B1349A26C34E4EC1C44CB2C889D94@CMEXMB1.ad.emulex.com>
-References: <1393589141-10597-1-git-send-email-VenkatKumar.Duvvuru@Emulex.com>
-	 <0e1d7b54-dcbd-446d-b1c9-644086da138f@CMEXHTCAS2.ad.emulex.com>
- <1394063979.2861.25.camel@deadeye.wl.decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH v2 net-next] bonding: make slave status notifications GFP_ATOMIC
+Date: Thu,  6 Mar 2014 15:33:22 +0100
+Message-ID: <1394116402-5585-1-git-send-email-vfalico@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	Thomas Glanzmann <thomas@glanzmann.de>,
+	Ding Tianhong <dingtianhong@huawei.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:14948 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752262AbaCFOXq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 09:23:46 -0500
-In-Reply-To: <1394063979.2861.25.camel@deadeye.wl.decadent.org.uk>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:58363 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751082AbaCFOiB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Mar 2014 09:38:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+ICsgKiBAZ2V0X3J4Zmg6IEdldCB0aGUgY29udGVudHMgb2YgdGhlIFJYIGZsb3cgaGFzaCBp
-bmRpcmVjdGlvbiB0YWJsZSBhbmQNCj4gaGFzaA0KPiA+ICsgKglrZXkuDQo+ID4gKyAqCVdpbGwg
-bm90IGJlIGNhbGxlZCBpZiBAZ2V0X3J4ZmhfaW5kaXJfc2l6ZSBhbmQgQGdldF9yeGZoX2tleV9z
-aXplDQo+ID4gKyAqCXJldHVybnMgemVyby4NCj4gDQo+IFNob3VsZG4ndCB0aGF0ICdhbmQnIGJl
-IGFuICdvcic/ICBJLmUuIHRoaXMgaXMgb25seSBjYWxsZWQgaWYgdGhlIGRyaXZlciBleHBvc2Vz
-IGJvdGgNCj4gdGhlIGtleSBhbmQgdGhlIGluZGlyZWN0aW9uIHRhYmxlLg0KV2hhdCBhYm91dCB0
-aGUgZXhpc3RpbmcgZHJpdmVycyB0aG9zZSBzdXBwb3J0IG9ubHkgaW5kaXJlY3Rpb24gY29uZmln
-dXJhdGlvbi4NCg0KPiANCj4gWy4uLl0NCj4gPiArCWluZGlyX2J5dGVzID0gdXNlcl9pbmRpcl9z
-aXplICogc2l6ZW9mKHJzc19pbmZvLT5yc3NfY29uZmlnWzBdKTsNCj4gPiArCXRvdGFsX3NpemUg
-PSBpbmRpcl9ieXRlcyArIHVzZXJfa2V5X3NpemU7DQo+ID4gKwlyc3NfaW5mbyA9IGt6YWxsb2Mo
-dG90YWxfc2l6ZSwgR0ZQX1VTRVIpOw0KPiA+ICsJaWYgKCFyc3NfaW5mbykNCj4gPiArCQlyZXR1
-cm4gLUVOT01FTTsNCj4gDQo+IFRoaXMgZG9lc24ndCBtYWtlIHNlbnNlLiAgWW91IGFsbG9jYXRl
-IGEgYnVmZmVyIGJpZyBlbm91Z2ggdG8gaG9sZCBqdXN0IHRoZQ0KPiBpbmRpcmVjdGlvbiB0YWJs
-ZSBhbmQga2V5LCBidXQgdGhlbiB0cmVhdCB0aGUgcG9pbnRlciBhcyBwb2ludGluZyB0byBhIGZ1
-bGwNCj4gY29tbWFuZCBzdHJ1Y3R1cmUuDQpUaGlzIGlzIGEgYmx1bmRlci4gTXkgdGVzdGluZyBk
-aWRuJ3QgY2F0Y2ggaXQgYnkgY2hhbmNlLg0KDQo+IA0KPiA+ICsJcnNzX2luZm8tPmluZGlyX3Np
-emUgPSB1c2VyX2luZGlyX3NpemU7DQo+ID4gKwlyc3NfaW5mby0+a2V5X3NpemUgPSB1c2VyX2tl
-eV9zaXplOw0KPiA+ICsJcmV0ID0gZGV2LT5ldGh0b29sX29wcy0+Z2V0X3J4ZmgoZGV2LCByc3Nf
-aW5mbyk7DQo+IA0KPiBJIHRoaW5rIGl0IHdvdWxkIGJlIGJldHRlciB0byBwYXNzIHRoZSBkcml2
-ZXIgdHdvIHNlcGFyYXRlIHBvaW50ZXJzIGludG8gdGhlDQo+IGJ1ZmZlciwgb25lIGZvciB0aGUg
-aW5kaXJlY3Rpb24gdGFibGUgYW5kIG9uZSBmb3IgdGhlIGtleS4NClRoZSBpbnRlbnRpb24gaXMg
-dG8gYXZvaWQgY2hhbmdpbmcgImdldF9yeGZoL3NldF9yeGZoIiBpbnRlcmZhY2UgZXZlcnkgdGlt
-ZSBhIG5ldyBjb25maWd1cmFibGUgcGFyYW1ldGVyIGlzIGludHJvZHVjZWQuDQoNCj4gPiArCWlm
-ICgodXNlcl9pbmRpcl9zaXplICYmICgodXNlcl9pbmRpcl9zaXplICE9IDB4REVBREJFRUYpICYm
-DQo+ID4gKwkJCQkgdXNlcl9pbmRpcl9zaXplICE9IGRldl9pbmRpcl9zaXplKSkgfHwNCj4gPiAr
-CSAgICAodXNlcl9rZXlfc2l6ZSAmJiAodXNlcl9rZXlfc2l6ZSAhPSBkZXZfa2V5X3NpemUpKSkN
-Cj4gPiArCQlyZXR1cm4gLUVJTlZBTDsNCj4gPiArDQo+ID4gKwlpZiAodXNlcl9pbmRpcl9zaXpl
-ICYmIHVzZXJfaW5kaXJfc2l6ZSAhPSAweERFQURCRUVGKQ0KPiA+ICsJCWluZGlyX2J5dGVzID0g
-dXNlcl9pbmRpcl9zaXplICogc2l6ZW9mKHJzc19pbmZvLT5yc3NfY29uZmlnWzBdKTsNCj4gDQo+
-IFdoeSBpcyAweERFQURCRUVGIHNwZWNpYWw/DQpTaW5jZSAwIGlzIHVzZWQgYXMgYSBoaW50IHRv
-IHJlc2V0IHRvIGRlZmF1bHQsIHdlIHNob3VsZCBoYXZlIGEgd2F5IHRvIGhpbnQgdGhhdCBpbmRp
-cmVjdGlvbiB0YWJsZSBjb25maWd1cmF0aW9uIGlzIG5vdCByZXF1ZXN0ZWQgaW4gdGhpcyBjb250
-ZXh0Lg0KDQoNCg==
+Currently we're using GFP_KERNEL, however there are some path(s) where we
+can hold some spinlocks, specifically bond->curr_slave_lock:
+
+[    4.722916] BUG: sleeping function called from invalid context at mm/slub.c:965
+[    4.724438] in_atomic(): 1, irqs_disabled(): 0, pid: 940, name: ifup-eth
+[    4.726034] 5 locks held by ifup-eth/940:
+...snip...
+[    4.734646]  #4:  (&bond->curr_slave_lock){+...+.}, at: [<ffffffffa00badc6>] bond_enslave+0xda6/0xdd0 [bonding]
+...snip...
+[    4.759081]  [<ffffffffa00b6f11>] bond_change_active_slave+0x191/0x3b0 [bonding]
+[    4.760917]  [<ffffffffa00b7227>] bond_select_active_slave+0xf7/0x1d0 [bonding]
+[    4.762751]  [<ffffffffa00badce>] bond_enslave+0xdae/0xdd0 [bonding]
+...snip...
+
+As it's out of hot path and is a really rare event - change the gfp_t flags
+to GFP_ATOMIC to avoid sleeping under spinlock.
+
+v2: convert new notify calls to GFP_ATOMIC.
+
+CC: Thomas Glanzmann <thomas@glanzmann.de>
+CC: Ding Tianhong <dingtianhong@huawei.com>
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+---
+ drivers/net/bonding/bonding.h | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index b7127a1..63ee116 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -293,7 +293,7 @@ static inline void bond_set_active_slave(struct slave *slave)
+ {
+ 	if (slave->backup) {
+ 		slave->backup = 0;
+-		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_KERNEL);
++		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_ATOMIC);
+ 	}
+ }
+ 
+@@ -301,7 +301,7 @@ static inline void bond_set_backup_slave(struct slave *slave)
+ {
+ 	if (!slave->backup) {
+ 		slave->backup = 1;
+-		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_KERNEL);
++		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_ATOMIC);
+ 	}
+ }
+ 
+@@ -313,7 +313,7 @@ static inline void bond_set_slave_state(struct slave *slave,
+ 
+ 	slave->backup = slave_state;
+ 	if (notify) {
+-		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_KERNEL);
++		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_ATOMIC);
+ 		slave->should_notify = 0;
+ 	} else {
+ 		if (slave->should_notify)
+@@ -343,7 +343,7 @@ static inline void bond_slave_state_notify(struct bonding *bond)
+ 
+ 	bond_for_each_slave(bond, tmp, iter) {
+ 		if (tmp->should_notify) {
+-			rtmsg_ifinfo(RTM_NEWLINK, tmp->dev, 0, GFP_KERNEL);
++			rtmsg_ifinfo(RTM_NEWLINK, tmp->dev, 0, GFP_ATOMIC);
+ 			tmp->should_notify = 0;
+ 		}
+ 	}
+-- 
+1.8.4
