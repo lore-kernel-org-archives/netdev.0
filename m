@@ -1,28 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bonding: fix const in options processing
-Date: Thu, 06 Mar 2014 17:39:41 -0500 (EST)
-Message-ID: <20140306.173941.1229272841319793823.davem@davemloft.net>
-References: <20140306142017.2af2b894@nehalam.linuxnetplumber.net>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [nf-next PATCH V3 0/5] netfilter: conntrack: optimization,
+ remove central spinlock
+Date: Thu, 6 Mar 2014 23:53:39 +0100
+Message-ID: <20140306225339.GE17526@breakpoint.cc>
+References: <20140303134319.2615.9293.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nikolay@redhat.com
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34252 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751169AbaCFWjn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 17:39:43 -0500
-In-Reply-To: <20140306142017.2af2b894@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Florian Westphal <fw@strlen.de>,
+	Patrick McHardy <kaber@trash.net>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140303134319.2615.9293.stgit@dragon>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Thu, 6 Mar 2014 14:20:17 -0800
+Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+> This patchset is based upon Eric Dumazet's proposed patch:
+>   http://thread.gmane.org/gmane.linux.network/268758/focus=47306
+> I have in agreement with Eric Dumazet, taken over this patch (and
+> turned it into a entire patchset).
 
-> This is a fixup patch to resolve issues with const from my earlier patch.
-> Make all the setter functions use const on input parameter.
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+FWIW I think that this series should be merged for 3.15, thus:
 
-Applied, thanks Stephen.
+Reviewed-by: Florian Westphal <fw@strlen.de>
+
+I see no more issues with these patches, thanks Jesper for resurrecting
+Erics work.
