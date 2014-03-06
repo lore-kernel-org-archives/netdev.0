@@ -1,47 +1,44 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Bug 71591 - Temporary address re-generated when it should not (public address about to expire)
-Date: Thu, 6 Mar 2014 17:43:09 +0100
-Message-ID: <20140306164309.GB3092@order.stressinduktion.org>
-References: <5318A47D.2020204@web.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Heiner Kallweit <heiner.kallweit@web.de>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH net] ipv6: don't set DST_NOCOUNT for remotely added routes
+Date: Thu,  6 Mar 2014 17:51:57 +0100
+Message-ID: <1394124717-1957-1-git-send-email-sd@queasysnail.net>
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
+	Sabrina Dubroca <sd@queasysnail.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:45754 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750828AbaCFQnK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 11:43:10 -0500
-Content-Disposition: inline
-In-Reply-To: <5318A47D.2020204@web.de>
+Received: from smtp3-g21.free.fr ([212.27.42.3]:47581 "EHLO smtp3-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752782AbaCFQwd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Mar 2014 11:52:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 06, 2014 at 05:38:21PM +0100, Heiner Kallweit wrote:
-> Recently I faced the issue that a public address was about to expire and 
-> 3s before expiry a new temporary address was generated which instantly 
-> went into deprecated state.
-> This didn't do any harm however it's wrong IMHO. Problem seems to be in 
-> function ipv6_create_tempaddr in addrconf.c.
-> A new temporary address is generated if this condition is met: 
-> tmp_prefered_lft > regen_advance
-> tmp_prefered_lft however is an offset from tstamp, not from now.
-> This condition only checks that the new address is preferred until more 
-> than regen_advance from tstamp,
-> but it should check that the new address is preferred until more than 
-> regen_advance from now.
-> 
-> I submitted this issue to kernel bugzilla -> 71591
-> Hannes asked me to propose a patch, here it comes.
+DST_NOCOUNT should only be used if an authorized user adds routes
+locally. In case of routes which are added on behalf of router
+advertisments this flag must not get used as it allows an unlimited
+number of routes getting added remotely.
 
-You would need to follow Documentation/SubmittingPatches and provide a proper
-signed-off-by.
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
 
-Basically if scripts/checkpatch.pl --strict doesn't complain on your patch any
-more, then you're ready to submit.
+Hannes suggested this for stable
 
-Otherwise the patch looks good to me.
+ net/ipv6/route.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks,
-
-  Hannes
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 11dac21e6586..fba54a407bb2 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1513,7 +1513,7 @@ int ip6_route_add(struct fib6_config *cfg)
+ 	if (!table)
+ 		goto out;
+ 
+-	rt = ip6_dst_alloc(net, NULL, DST_NOCOUNT, table);
++	rt = ip6_dst_alloc(net, NULL, (cfg->fc_flags & RTF_ADDRCONF) ? 0 : DST_NOCOUNT, table);
+ 
+ 	if (!rt) {
+ 		err = -ENOMEM;
+-- 
+1.9.0
