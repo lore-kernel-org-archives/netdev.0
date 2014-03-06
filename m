@@ -1,88 +1,76 @@
-From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: [Bug] net/fec on i.MX28: promiscuous mode lost after reconnecting
- network cable
-Date: Thu, 06 Mar 2014 10:29:48 +0100
-Message-ID: <5318400C.8060508@i2se.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] chelsio: Use more current logging style
+Date: Thu, 06 Mar 2014 01:39:08 -0800
+Message-ID: <1394098748.12070.60.camel@joe-AO722>
+References: <1393936917-25847-1-git-send-email-hariprasad@chelsio.com>
+	 <1393936917-25847-4-git-send-email-hariprasad@chelsio.com>
+	 <1393955035.20435.40.camel@joe-AO722> <531635F4.9050208@cogentembedded.com>
+	 <1393961805.20435.49.camel@joe-AO722>
+	 <20140306062020.GC23862@hariprasad-pc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk,
-	Shawn Guo <shawn.guo@linaro.org>,
-	Fabio Estevam <fabio.estevam@freescale.com>
-To: David Miller <davem@davemloft.net>
+Cc: davem@davemloft.net,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org, kumaras@chelsio.com, dm@chelsio.com,
+	swise@opengridcomputing.com, leedom@chelsio.com,
+	santosh@chelsio.com, nirranjan@chelsio.com
+To: Hariprasad S <hariprasad@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.10]:59688 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751469AbaCFJ3n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 04:29:43 -0500
+Received: from smtprelay0073.hostedemail.com ([216.40.44.73]:54735 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751040AbaCFJjN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 04:39:13 -0500
+In-Reply-To: <20140306062020.GC23862@hariprasad-pc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Thu, 2014-03-06 at 11:50 +0530, Hariprasad S wrote:
+> On Tue, Mar 04, 2014 at 11:36:45 -0800, Joe Perches wrote:
+> > On Tue, 2014-03-04 at 23:22 +0300, Sergei Shtylyov wrote:
+> > > On 03/04/2014 08:43 PM, Joe Perches wrote:
+> > > >> From: Kumar Sanghvi <kumaras@chelsio.com>
+> > > >> +		CH_WARN(adap, "SGE idma%u, queue%u, maybe stuck state%u %dsecs"
+> > > >> +			" (debug0=%#x, debug11=%#x)\n",
+> > > > Probably better with the format coalesced:
+> > > > 		CH_WARN(adap, "SGE idma%u, queue%u, maybe stuck state%u %dsecs (debug0=%#x, debug11=%#x)\n",
+> > >     Surely better, as otherwise it shouldn't pass scripts/checkpatch.pl.
+> > 
+> > It'd complain in any case as CH_<LEVEL> macros are 
+> > uppercase and checkpatch doesn't know that those are
+> > logging uses.
+> > 
+> > Maybe renaming all the CH_<LEVEL> macros to lower
+> > case like this would help.
+> > 
+> > This also can now use dynamic_debug for the ch_dbg
+> > statements and removes the CH_MSG function as it's
+> > unused.
+> > 
+> > From: Joe Perches <joe@perches.com>
+> > 
+> > Use more standard style lower case logging macros.
+> > 
+> > Coalesce formats
+> > Remove unnecessary periods
+> > Enable dynamic debugging and verify debug format/arguments
+> > 
+> > Signed-off-by: Joe Perches <joe@perches.com>
+> > ---
+> [...] 
+> > 
+> 
+> I don't see this patch in net-next or in the netdev patchwork queue.
+> Is the patch lost by any chance? Or I missed something ?
 
-i'm using a i.MX28 custom board (I2SE Duckbill) with 2 different 
-Ethernet interfaces. Both interfaces should be used as bridge using 
-bridge utils. One Ethernet interface is the buildin fec and the other is 
-connect by spi. The board runs under Linux mainline 3.10. But the 
-following problem still occurs on 3.14-rc4.
+Maybe an ack by someone from Chelsio?
 
-Here is the problem, if i disconnect and reconnect the Ethernet cable on 
-the buildin fec (eth0), the bridge says the port comes up, but it 
-doesn't work. After that any traffic to the fec is okay, but traffic 
-"through" the bridge is lost. But i expect no traffic is lost, after 
-reconnect the network cable.
+Likely David thought it RFC because of the ongoing
+patches from Chelsio with "changes requested".
 
-If i reset the board without disconnecting the cables, the traffic 
-"through" the bridge works. If i force the promiscuous mode on the fec 
-(eth0) after the reconnect, the bridge works too:
+http://patchwork.ozlabs.org/patch/326462/
 
-ifconfig eth0 promisc
+It's a trivial bit of code to redo if necessary or
+desired after the larger patch set done by you all.
 
-After that, i made some research and probably found the cause of the 
-problem. In the case that the bridge works (link state connected since 
-reboot) the register HW_ENET_MAC_RCR of the i.MX28 returns 0x45EE011C 
-(PROM=1, promiscuous mode on). Then I disconnect the ethernet cable and 
-reconnect it. After that the register returns 0x45EE0114 (PROM=0, 
-promiscuous mode off) and the bridge doesn't work.
-
-Based on this information, i created a patch against Linux 3.10. I'm not 
-sure it's a good solution but it works. After a fec reset all register 
-values of HW_ENET_MAC_RCR must be restored, but fec_restart do not 
-handle them at all. So set_multicast_list is called after fec_restart to 
-restore the promiscuous mode of the fec.
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c 
-b/drivers/net/ethernet/freescale/fec_main.c
-index d48099f..cb6b66e 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1063,6 +1063,8 @@ static void fec_get_mac(struct net_device *ndev)
-
-  /* 
-------------------------------------------------------------------------- */
-
-+static void set_multicast_list(struct net_device *ndev);
-+
-  /*
-   * Phy section
-   */
-@@ -1093,8 +1095,10 @@ static void fec_enet_adjust_link(struct 
-net_device *ndev)
-          }
-
-          /* if any of the above changed restart the FEC */
--        if (status_change)
-+        if (status_change) {
-              fec_restart(ndev, phy_dev->duplex);
-+            set_multicast_list(ndev);
-+        }
-      } else {
-          if (fep->link) {
-              fec_stop(ndev);
-
-Is this solution correct?
-
-Do you need more information?
-
-Best regards
-Stefan Wahren
+cheers, Joe
