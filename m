@@ -1,8 +1,8 @@
 From: <erik.hugne@ericsson.com>
-Subject: [PATCH net-next v3 4/6] tipc: drop subscriber
-	connection id invalidation
-Date: Thu, 6 Mar 2014 14:40:19 +0100
-Message-ID: <1394113221-30100-5-git-send-email-erik.hugne@ericsson.com>
+Subject: [PATCH net-next v3 6/6] tipc: don't log disabled
+	tasklet handler errors
+Date: Thu, 6 Mar 2014 14:40:21 +0100
+Message-ID: <1394113221-30100-7-git-send-email-erik.hugne@ericsson.com>
 References: <1394113221-30100-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,51 +24,29 @@ List-Id: netdev.vger.kernel.org
 
 From: Erik Hugne <erik.hugne@ericsson.com>
 
-When a topology server subscriber is disconnected, the associated
-connection id is set to zero. A check vs zero is then done in the
-subscription timeout function to see if the subscriber have been
-shut down. This is unnecessary, because all subscription timers
-will be cancelled when a subscriber terminates. Setting the
-connection id to zero is actually harmful because id zero is the
-identity of the topology server listening socket, and can cause a
-race that leads to this socket being closed instead.
+Failure to schedule a TIPC tasklet with tipc_k_signal because the
+tasklet handler is disabled is not an error. It means TIPC is
+currently in the process of shutting down. We remove the error
+logging in this case.
 
 Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-Acked-by: Ying Xue <ying.xue@windriver.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/subscr.c | 11 -----------
- 1 file changed, 11 deletions(-)
+ net/tipc/handler.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-index a6ce3bb..11c9ae0 100644
---- a/net/tipc/subscr.c
-+++ b/net/tipc/subscr.c
-@@ -149,14 +149,6 @@ static void subscr_timeout(struct tipc_subscription *sub)
- 	/* The spin lock per subscriber is used to protect its members */
- 	spin_lock_bh(&subscriber->lock);
+diff --git a/net/tipc/handler.c b/net/tipc/handler.c
+index e4bc8a2..1fabf16 100644
+--- a/net/tipc/handler.c
++++ b/net/tipc/handler.c
+@@ -58,7 +58,6 @@ unsigned int tipc_k_signal(Handler routine, unsigned long argument)
  
--	/* Validate if the connection related to the subscriber is
--	 * closed (in case subscriber is terminating)
--	 */
--	if (subscriber->conid == 0) {
--		spin_unlock_bh(&subscriber->lock);
--		return;
--	}
--
- 	/* Validate timeout (in case subscription is being cancelled) */
- 	if (sub->timeout == TIPC_WAIT_FOREVER) {
- 		spin_unlock_bh(&subscriber->lock);
-@@ -211,9 +203,6 @@ static void subscr_release(struct tipc_subscriber *subscriber)
- 
- 	spin_lock_bh(&subscriber->lock);
- 
--	/* Invalidate subscriber reference */
--	subscriber->conid = 0;
--
- 	/* Destroy any existing subscriptions for subscriber */
- 	list_for_each_entry_safe(sub, sub_temp, &subscriber->subscription_list,
- 				 subscription_list) {
+ 	spin_lock_bh(&qitem_lock);
+ 	if (!handler_enabled) {
+-		pr_err("Signal request ignored by handler\n");
+ 		spin_unlock_bh(&qitem_lock);
+ 		return -ENOPROTOOPT;
+ 	}
 -- 
 1.8.3.2
 
