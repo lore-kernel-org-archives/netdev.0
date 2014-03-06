@@ -1,109 +1,55 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: Can I limit the number of active tx per TCP socket?
-Date: Thu, 6 Mar 2014 14:09:38 -0500
-Message-ID: <CADVnQykxbFQPV67w7Wp6bt0H2bUgdDt5iyGSfvjRfY44p+1Ejw@mail.gmail.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D0F6D3B91@AcuExch.aculab.com>
-	<5318ADB1.5050107@hp.com>
-	<CADVnQyn1+WRqS9HQmMn9JgpBz0Wajg=40yVhdyqv_AAo4tpWUA@mail.gmail.com>
-	<5318C71C.1020807@hp.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH] bonding: correctly handle out of range parameters for
+ lp_interval
+Date: Thu, 06 Mar 2014 20:15:45 +0100
+Message-ID: <5318C961.4000606@redhat.com>
+References: <1394129030-9947-1-git-send-email-sasha.levin@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Laight <David.Laight@aculab.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f169.google.com ([209.85.215.169]:59906 "EHLO
-	mail-ea0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752053AbaCFTJk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 14:09:40 -0500
-Received: by mail-ea0-f169.google.com with SMTP id h14so1904069eaj.14
-        for <netdev@vger.kernel.org>; Thu, 06 Mar 2014 11:09:38 -0800 (PST)
-In-Reply-To: <5318C71C.1020807@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sasha Levin <sasha.levin@oracle.com>, fubar@us.ibm.com,
+	vfalico@redhat.com, andy@greyhouse.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394129030-9947-1-git-send-email-sasha.levin@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 6, 2014 at 2:06 PM, Rick Jones <rick.jones2@hp.com> wrote:
-> On 03/06/2014 10:09 AM, Neal Cardwell wrote:
->>
->> Eric's recent "auto corking" feature may be helpful in this context:
->>
->>    http://lwn.net/Articles/576263/
->
->
-> Doesn't that depend on the bottleneck being local to the sending side?
-> Perhaps I've mis-understood David's setup, but I get the impression the
-> bottleneck is not at the sending side but either in the middle or at the
-> end, so tx completions will still be happening quickly.
+On 03/06/2014 07:03 PM, Sasha Levin wrote:
+> We didn't correctly check cases where the value for lp_interval is not
+> within the legal range due to a missing table terminator.
+> 
+> This would let userspace trigger a kernel panic by specifying a value out
+> of range:
+> 
+> 	echo -1 > /sys/devices/virtual/net/bond0/bonding/lp_interval
+> 
+> Introduced by commit "bonding: add infrastructure for an option API".
+> 
+> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+> ---
+>  drivers/net/bonding/bond_options.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+> index 23f3655..4d35cdc 100644
+> --- a/drivers/net/bonding/bond_options.c
+> +++ b/drivers/net/bonding/bond_options.c
+> @@ -124,6 +124,7 @@ static struct bond_opt_value bond_resend_igmp_tbl[] = {
+>  static struct bond_opt_value bond_lp_interval_tbl[] = {
+>  	{ "minval",  1,       BOND_VALFLAG_MIN | BOND_VALFLAG_DEFAULT},
+>  	{ "maxval",  INT_MAX, BOND_VALFLAG_MAX},
+> +	{ NULL,      -1,      0},	
+>  };
+>  
+>  static struct bond_option bond_opts[] = {
+> 
+Thanks!
 
-Yes, I think auto corking works well if you are using the fq/pacing
-qdisc, and otherwise may not buy much.
+One note though, the commit that introduces the problem is not that one.
+It's 4325b374f84e59226851636df946f2500d0bfeba ("bonding: convert
+lp_interval to use the new option API"), after that's corrected you
+can add my:
 
-neal
-
-> rick
->
->
->> neal
->>
->> On Thu, Mar 6, 2014 at 12:17 PM, Rick Jones <rick.jones2@hp.com> wrote:
->>>
->>> On 03/06/2014 04:28 AM, David Laight wrote:
->>>>
->>>>
->>>> Is it possible to stop a TCP connection having more than one
->>>> tx skb (in the ethernet tx ring) at any one time?
->>>> The idea is to allow time for short sends from the application
->>>> to accumulate so that the transmitted frames are longer.
->>>
->>>
->>>
->>> That is precisely what Nagle is supposed to be doing - at least where the
->>> definition of "time" is the round-trip-time rather than "time it takes to
->>> get transmitted out the NIC."
->>>
->>>
->>>> Basically I have a TCP connection which carries a lot of separate
->>>> short 'user buffers'. These are not command-response so
->>>> TCP_NODELAY has to be set to avoid long delays.
->>>
->>>
->>>
->>> When you are saturating the receiver and/or the 64K line, are you certain
->>> that not setting TCP_NODELAY means long delays?
->>>
->>>  From a later message:
->>>
->>>
->>>> The data is sent out on a 64k line so 1ms is only 8 byte times.
->>>
->>>
->>>
->>> Are you still using a 1460 byte MSS on such a connection?
->>>
->>> Perhaps you can set the MSS (or drop the MTU on the 64K line and use
->>> PTMU)
->>> to something less to trigger window updates a bit sooner and so get
->>> piggy-backed ACKs rather than delayed ACKs and so not have to set
->>> TCP_NODELAY?  Yes, you will have a question of headers versus
->>> headers+data
->>> but with TCP_NODELAY set as you have it you are (probably) already
->>> trashing
->>> that.
->>>
->>> Setting TCP_NODELAY to avoid "long delays" and then having a 64Kbyte/s
->>> link
->>> seems a trifle, well, contradictory.
->>>
->>> rick jones
->>>
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->
+Acked-by: Nikolay Aleksandrov <nikolay@redhat.com>
