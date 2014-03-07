@@ -1,63 +1,73 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the wireless-next tree with the
- net-next tree
-Date: Fri, 7 Mar 2014 12:07:27 +1100
-Message-ID: <20140307120727.a4436ad2afc4b834db6b0641@canb.auug.org.au>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next] vlan: Fix lockdep warning when vlan dev handle
+ notification
+Date: Fri, 7 Mar 2014 09:55:25 +0800
+Message-ID: <5319270D.4030602@huawei.com>
+References: <5318828D.3090308@huawei.com> <20140306.145126.497070034648321818.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Fri__7_Mar_2014_12_07_27_+1100_cL0D6DlT5Ejy393+"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <ben@decadent.org.uk>, <john.r.fastabend@intel.com>,
+	<kaber@trash.net>, <netdev@vger.kernel.org>, <f.fainelli@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:49017 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751359AbaCGBHd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Mar 2014 20:07:33 -0500
+Received: from szxga02-in.huawei.com ([119.145.14.65]:56364 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751440AbaCGBzy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 20:55:54 -0500
+In-Reply-To: <20140306.145126.497070034648321818.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Signature=_Fri__7_Mar_2014_12_07_27_+1100_cL0D6DlT5Ejy393+
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On 2014/3/7 3:51, David Miller wrote:
+> From: Ding Tianhong <dingtianhong@huawei.com>
+> Date: Thu, 6 Mar 2014 22:13:33 +0800
+> 
+>> When I open the LOCKDEP config and run these steps:
+>>
+>> modprobe 8021q
+>> vconfig add eth2 20
+>> vconfig add eth2.20 30
+>> ifconfig eth2 xx.xx.xx.xx
+>>
+>> then the Call Trace happened:
+>  ...
+>> The reason is that all of the vlan dev have the same class key for dev_lock_list,
+>> if we up or down the real dev, the notification will change the state for every
+>> vlan dev in the vlan group, then the vlan dev will hold netif_addr_lock and the
+>> real dev also hold its own netif_addr_lock together, so the warning happened.
+>>
+>> The best way to fix the problem is add a new class key for the vlan dev if its
+>> real dev is a vlan dev too.
+>>
+>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> 
+> So what happens when one does:
+> 
+> vconfig add eth2 20
+> vconfig add eth2.20 30
+> vconfig add eth2.30 40
+> ifconfig eth2 xx.xx.xx.xx
+> 
+> 
 
-Hi John,
+the old vlan list:
 
-Today's linux-next merge of the wireless-next tree got a conflict in
-drivers/net/wireless/ath/ath9k/recv.c between commit 67ddc87f162e ("Merge
-git://git.kernel.org/pub/scm/linux/kernel/git/davem/net") from the
-net-next tree and commit f3b6a488a670 ("Merge branch 'master' of
-git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless") from
-the wireless-next tree.
+eth2---------------------->eth2.20-------------------->eth2.20.30 (xxx_addr_lock_key)
+			(xxx_addr_lock_key)|
+					    ---------->eth2.20.50 (xxx_addr_lock_key)
 
-I fixed it up (I used the version from the wireless-next tree) and can
-carry the fix as necessary (no action is required).
+after this patch:
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+eth2---------------------->eth2.20-------------------->eth2.20.30 (xxx_addr_lock_subkey)
+			(xxx_addr_lock_key)|
+					    ---------->eth2.20.50 (xxx_addr_lock_subkey)
 
---Signature=_Fri__7_Mar_2014_12_07_27_+1100_cL0D6DlT5Ejy393+
-Content-Type: application/pgp-signature
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
+The eth2.20 will only sync mc ddress with eth2.20.30 or eth2.20.50, and
+the eth2.20.30 would never sync mc with eth2.20.50, so the xxx_addr_lock_subkey
+will not meet each other.
 
-iQIcBAEBCAAGBQJTGRvTAAoJEMDTa8Ir7ZwVzR0QAIwZyZ65Jtk+rdkYEqU7XURH
-VA8SDW9SE5GfZKFFaZQ1mcU6ii2R1GsbNLbeBp9FYwcKdy9zOLsCR1n7rhLNKPqV
-e5ZfU7WyyRJrYaSRJ0dQBba3GQnWe7pLcUTFkQ3KEj9zMOPUGQLijkWoZxDRHEir
-Xxuzr3ZJF78McmxD76+IpdOwq9nf8+cm01Jh2BxXL0YGBzRaeWNeZXSRWHtnnlgi
-DwLFNr7W/h0zX2MMP4riymK2Kx0VniV9CUPZQsC9wIV2InhAlqRImdK9eSQHsqGD
-bwL6Sqz3lveCq9EaoWl97ks25E9N3bZ21LSqs0hGC3uIFdrZdW4EgHhSib3Gr7B+
-344aGjqWSaXC3u/QxGuTwv3nsw05P75M1UJvVu2l06W3cHEhWdB2g1387NVBZ45v
-gvztO/gfVAuxiOL82OnRg0hB3xDrZ6e9WzACFX6KjNPkinZvxwYVboBGkOnvim58
-zNdClG0MZKyibP4dCGTbYvMTWbGYqTX+8Su9hElbzRpQwBq1J1d+o5Zu7d+nKtav
-dEpRCP3nmx31icR0Vkto72kUMm1pW6lUqye//Ue0cTlcGW9hGRMPrWcW7HZjGE3e
-auPTeTF/Jt4D++i7CfYWi19deoJXOAswnpL/bNWk8zwkjps0/Rtv+Jp5c2eEtbe2
-S1saqFOPinxLabxeM4Cs
-=QyYm
------END PGP SIGNATURE-----
-
---Signature=_Fri__7_Mar_2014_12_07_27_+1100_cL0D6DlT5Ejy393+--
+But I think if I vconfig add eth2.20.30 50, the warning would happen again, but till now
+I could not find any scene that use 3 vlan id on a virtual device, so I think it is not a 
+problem.
