@@ -1,214 +1,166 @@
 From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH V3 3/6] Drivers: net: hyperv: Enable offloads on the host
-Date: Thu,  6 Mar 2014 21:32:38 -0800
-Message-ID: <1394170361-1043-3-git-send-email-kys@microsoft.com>
+Subject: [PATCH V2 6/6] Drivers: net: hyperv: Enable large send offload
+Date: Thu,  6 Mar 2014 21:32:41 -0800
+Message-ID: <1394170361-1043-6-git-send-email-kys@microsoft.com>
 References: <1394170320-1002-1-git-send-email-kys@microsoft.com>
  <1394170361-1043-1-git-send-email-kys@microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
- jasowang@redhat.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+	olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from p3plsmtps2ded03.prod.phx3.secureserver.net ([208.109.80.60]:58137
+	"EHLO p3plsmtps2ded03.prod.phx3.secureserver.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751655AbaCGEkS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Mar 2014 23:40:18 -0500
 In-Reply-To: <1394170361-1043-1-git-send-email-kys@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Prior to enabling guest side offloads, enable the offloads on the host.
+Enable segmentation offload.
 
 Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
 ---
- drivers/net/hyperv/hyperv_net.h   |   55 +++++++++++++++++++++++++
- drivers/net/hyperv/rndis_filter.c |   80 +++++++++++++++++++++++++++++++++++++
- 2 files changed, 135 insertions(+), 0 deletions(-)
+ drivers/net/hyperv/hyperv_net.h |   40 +++++++++++++++++++++++++++++++++++++++
+ drivers/net/hyperv/netvsc_drv.c |   38 +++++++++++++++++++++++++++++++++---
+ 2 files changed, 74 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 694bf7c..8bc4e76 100644
+index 4cf2382..7d06b49 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
-@@ -721,6 +721,61 @@ struct ndis_pkt_8021q_info {
+@@ -742,6 +742,10 @@ struct ndis_oject_header {
+ #define NDIS_OFFLOAD_PARAMETERS_RX_ENABLED_TX_DISABLED 3
+ #define NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED 4
+ 
++#define NDIS_TCP_LARGE_SEND_OFFLOAD_V2_TYPE	1
++#define NDIS_TCP_LARGE_SEND_OFFLOAD_IPV4	0
++#define NDIS_TCP_LARGE_SEND_OFFLOAD_IPV6	1
++
+ /*
+  * New offload OIDs for NDIS 6
+  */
+@@ -804,12 +808,48 @@ struct ndis_tcp_ip_checksum_info {
  	};
  };
  
-+struct ndis_oject_header {
-+	u8 type;
-+	u8 revision;
-+	u16 size;
-+};
-+
-+#define NDIS_OBJECT_TYPE_DEFAULT	0x80
-+#define NDIS_OFFLOAD_PARAMETERS_REVISION_3 3
-+#define NDIS_OFFLOAD_PARAMETERS_NO_CHANGE 0
-+#define NDIS_OFFLOAD_PARAMETERS_LSOV2_DISABLED 1
-+#define NDIS_OFFLOAD_PARAMETERS_LSOV2_ENABLED  2
-+#define NDIS_OFFLOAD_PARAMETERS_LSOV1_ENABLED  2
-+#define NDIS_OFFLOAD_PARAMETERS_RSC_DISABLED 1
-+#define NDIS_OFFLOAD_PARAMETERS_RSC_ENABLED 2
-+#define NDIS_OFFLOAD_PARAMETERS_TX_RX_DISABLED 1
-+#define NDIS_OFFLOAD_PARAMETERS_TX_ENABLED_RX_DISABLED 2
-+#define NDIS_OFFLOAD_PARAMETERS_RX_ENABLED_TX_DISABLED 3
-+#define NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED 4
-+
-+/*
-+ * New offload OIDs for NDIS 6
-+ */
-+#define OID_TCP_OFFLOAD_CURRENT_CONFIG 0xFC01020B /* query only */
-+#define OID_TCP_OFFLOAD_PARAMETERS 0xFC01020C		/* set only */
-+#define OID_TCP_OFFLOAD_HARDWARE_CAPABILITIES 0xFC01020D/* query only */
-+#define OID_TCP_CONNECTION_OFFLOAD_CURRENT_CONFIG 0xFC01020E /* query only */
-+#define OID_TCP_CONNECTION_OFFLOAD_HARDWARE_CAPABILITIES 0xFC01020F /* query */
-+#define OID_OFFLOAD_ENCAPSULATION 0x0101010A /* set/query */
-+
-+struct ndis_offload_params {
-+	struct ndis_oject_header header;
-+	u8 ip_v4_csum;
-+	u8 tcp_ip_v4_csum;
-+	u8 udp_ip_v4_csum;
-+	u8 tcp_ip_v6_csum;
-+	u8 udp_ip_v6_csum;
-+	u8 lso_v1;
-+	u8 ip_sec_v1;
-+	u8 lso_v2_ipv4;
-+	u8 lso_v2_ipv6;
-+	u8 tcp_connection_ip_v4;
-+	u8 tcp_connection_ip_v6;
-+	u32 flags;
-+	u8 ip_sec_v2;
-+	u8 ip_sec_v2_ip_v4;
-+	struct {
-+		u8 rsc_ip_v4;
-+		u8 rsc_ip_v6;
-+	};
-+	struct {
-+		u8 encapsulated_packet_task_offload;
-+		u8 encapsulation_types;
++struct ndis_tcp_lso_info {
++	union {
++		struct {
++			u32 unused:30;
++			u32 type:1;
++			u32 reserved2:1;
++		} transmit;
++		struct {
++			u32 mss:20;
++			u32 tcp_header_offset:10;
++			u32 type:1;
++			u32 reserved2:1;
++		} lso_v1_transmit;
++		struct {
++			u32 tcp_payload:30;
++			u32 type:1;
++			u32 reserved2:1;
++		} lso_v1_transmit_complete;
++		struct {
++			u32 mss:20;
++			u32 tcp_header_offset:10;
++			u32 type:1;
++			u32 ip_version:1;
++		} lso_v2_transmit;
++		struct {
++			u32 reserved:30;
++			u32 type:1;
++			u32 reserved2:1;
++		} lso_v2_transmit_complete;
++		u32  value;
 +	};
 +};
 +
  #define NDIS_VLAN_PPI_SIZE (sizeof(struct rndis_per_packet_info) + \
  		sizeof(struct ndis_pkt_8021q_info))
  
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index dcbf144e..9b02f21 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -627,6 +627,61 @@ cleanup:
- 	return ret;
- }
+ #define NDIS_CSUM_PPI_SIZE (sizeof(struct rndis_per_packet_info) + \
+ 		sizeof(struct ndis_tcp_ip_checksum_info))
  
-+int rndis_filter_set_offload_params(struct hv_device *hdev,
-+				struct ndis_offload_params *req_offloads)
-+{
-+	struct netvsc_device *nvdev = hv_get_drvdata(hdev);
-+	struct rndis_device *rdev = nvdev->extension;
-+	struct net_device *ndev = nvdev->ndev;
-+	struct rndis_request *request;
-+	struct rndis_set_request *set;
-+	struct ndis_offload_params *offload_params;
-+	struct rndis_set_complete *set_complete;
-+	u32 extlen = sizeof(struct ndis_offload_params);
-+	int ret, t;
++#define NDIS_LSO_PPI_SIZE (sizeof(struct rndis_per_packet_info) + \
++		sizeof(struct ndis_tcp_lso_info))
 +
-+	request = get_rndis_request(rdev, RNDIS_MSG_SET,
-+		RNDIS_MESSAGE_SIZE(struct rndis_set_request) + extlen);
-+	if (!request)
-+		return -ENOMEM;
+ /* Format of Information buffer passed in a SetRequest for the OID */
+ /* OID_GEN_RNDIS_CONFIG_PARAMETER. */
+ struct rndis_config_parameter_info {
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index affee1b..6774baf 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -298,6 +298,7 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	bool isvlan;
+ 	struct rndis_per_packet_info *ppi;
+ 	struct ndis_tcp_ip_checksum_info *csum_info;
++	struct ndis_tcp_lso_info *lso_info;
+ 	int  hdr_offset;
+ 	u32 net_trans_info;
+ 
+@@ -377,7 +378,7 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	 * GSO packet.
+ 	 */
+ 	if (skb_is_gso(skb))
+-		goto do_send;
++		goto do_lso;
+ 
+ 	rndis_msg_size += NDIS_CSUM_PPI_SIZE;
+ 	ppi = init_ppi_data(rndis_msg, NDIS_CSUM_PPI_SIZE,
+@@ -397,6 +398,35 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	} else if (net_trans_info & INFO_UDP) {
+ 		csum_info->transmit.udp_checksum = 1;
+ 	}
++	goto do_send;
 +
-+	set = &request->request_msg.msg.set_req;
-+	set->oid = OID_TCP_OFFLOAD_PARAMETERS;
-+	set->info_buflen = extlen;
-+	set->info_buf_offset = sizeof(struct rndis_set_request);
-+	set->dev_vc_handle = 0;
++do_lso:
++	rndis_msg_size += NDIS_LSO_PPI_SIZE;
++	ppi = init_ppi_data(rndis_msg, NDIS_LSO_PPI_SIZE,
++			    TCP_LARGESEND_PKTINFO);
 +
-+	offload_params = (struct ndis_offload_params *)((ulong)set +
-+				set->info_buf_offset);
-+	*offload_params = *req_offloads;
-+	offload_params->header.type = NDIS_OBJECT_TYPE_DEFAULT;
-+	offload_params->header.revision = NDIS_OFFLOAD_PARAMETERS_REVISION_3;
-+	offload_params->header.size = extlen;
++	lso_info = (struct ndis_tcp_lso_info *)((void *)ppi +
++			ppi->ppi_offset);
 +
-+	ret = rndis_filter_send_request(rdev, request);
-+	if (ret != 0)
-+		goto cleanup;
-+
-+	t = wait_for_completion_timeout(&request->wait_event, 5*HZ);
-+	if (t == 0) {
-+		netdev_err(ndev, "timeout before we got aOFFLOAD set response...\n");
-+		/* can't put_rndis_request, since we may still receive a
-+		 * send-completion.
-+		 */
-+		return -EBUSY;
++	lso_info->lso_v2_transmit.type = NDIS_TCP_LARGE_SEND_OFFLOAD_V2_TYPE;
++	if (net_trans_info & (INFO_IPV4 << 16)) {
++		lso_info->lso_v2_transmit.ip_version =
++			NDIS_TCP_LARGE_SEND_OFFLOAD_IPV4;
++		ip_hdr(skb)->tot_len = 0;
++		ip_hdr(skb)->check = 0;
++		tcp_hdr(skb)->check =
++		~csum_tcpudp_magic(ip_hdr(skb)->saddr,
++				   ip_hdr(skb)->daddr, 0, IPPROTO_TCP, 0);
 +	} else {
-+		set_complete = &request->response_msg.msg.set_complete;
-+		if (set_complete->status != RNDIS_STATUS_SUCCESS) {
-+			netdev_err(ndev, "Fail to set MAC on host side:0x%x\n",
-+				   set_complete->status);
-+			ret = -EINVAL;
-+		}
++		lso_info->lso_v2_transmit.ip_version =
++			NDIS_TCP_LARGE_SEND_OFFLOAD_IPV6;
++		ipv6_hdr(skb)->payload_len = 0;
++		tcp_hdr(skb)->check =
++		~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
++				&ipv6_hdr(skb)->daddr, 0, IPPROTO_TCP, 0);
 +	}
-+
-+cleanup:
-+	put_rndis_request(rdev, request);
-+	return ret;
-+}
++	lso_info->lso_v2_transmit.tcp_header_offset = hdr_offset;
++	lso_info->lso_v2_transmit.mss = skb_shinfo(skb)->gso_size;
  
- static int rndis_filter_query_device_link_status(struct rndis_device *dev)
- {
-@@ -826,6 +881,7 @@ int rndis_filter_device_add(struct hv_device *dev,
- 	struct netvsc_device *net_device;
- 	struct rndis_device *rndis_device;
- 	struct netvsc_device_info *device_info = additional_info;
-+	struct ndis_offload_params offloads;
+ do_send:
+ 	/* Start filling in the page buffers with the rndis hdr */
+@@ -652,10 +682,10 @@ static int netvsc_probe(struct hv_device *dev,
  
- 	rndis_device = get_rndis_device();
- 	if (!rndis_device)
-@@ -865,6 +921,26 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 	net->netdev_ops = &device_ops;
  
- 	memcpy(device_info->mac_adr, rndis_device->hw_mac_adr, ETH_ALEN);
+-	/* TODO: Add GSO and Checksum offload */
+-	net->hw_features = NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_IP_CSUM;
++	net->hw_features = NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_IP_CSUM |
++				NETIF_F_TSO;
+ 	net->features = NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_SG | NETIF_F_RXCSUM |
+-			NETIF_F_IP_CSUM;
++			NETIF_F_IP_CSUM | NETIF_F_TSO;
  
-+	/* Turn on the offloads; the host supports all of the relevant
-+	 * offloads.
-+	 */
-+	memset(&offloads, 0, sizeof(struct ndis_offload_params));
-+	/* A value of zero means "no change"; now turn on what we
-+	 * want.
-+	 */
-+	offloads.ip_v4_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
-+	offloads.tcp_ip_v4_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
-+	offloads.udp_ip_v4_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
-+	offloads.tcp_ip_v6_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
-+	offloads.udp_ip_v6_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
-+	offloads.lso_v2_ipv4 = NDIS_OFFLOAD_PARAMETERS_LSOV2_ENABLED;
-+
-+
-+	ret = rndis_filter_set_offload_params(dev, &offloads);
-+	if (ret)
-+		goto err_dev_remv;
-+
-+
- 	rndis_filter_query_device_link_status(rndis_device);
- 
- 	device_info->link_state = rndis_device->link_state;
-@@ -874,6 +950,10 @@ int rndis_filter_device_add(struct hv_device *dev,
- 		 device_info->link_state ? "down" : "up");
- 
- 	return ret;
-+
-+err_dev_remv:
-+	rndis_filter_device_remove(dev);
-+	return ret;
- }
- 
- void rndis_filter_device_remove(struct hv_device *dev)
+ 	SET_ETHTOOL_OPS(net, &ethtool_ops);
+ 	SET_NETDEV_DEV(net, &dev->device);
 -- 
 1.7.4.1
