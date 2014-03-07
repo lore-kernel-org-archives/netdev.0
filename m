@@ -1,61 +1,75 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: Can I limit the number of active tx per TCP socket?
-Date: Fri, 7 Mar 2014 14:35:35 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6D7699@AcuExch.aculab.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D0F6D3B91@AcuExch.aculab.com>
-	 <5318ADB1.5050107@hp.com>
-	 <CADVnQyn1+WRqS9HQmMn9JgpBz0Wajg=40yVhdyqv_AAo4tpWUA@mail.gmail.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D0F6D727E@AcuExch.aculab.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D0F6D755C@AcuExch.aculab.com>
- <1394202127.20149.14.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCH RFC] net: davinci_emac: Fix rollback of emac_dev_open()
+Date: Fri, 7 Mar 2014 20:15:00 +0530
+Message-ID: <5319DB6C.8080203@ti.com>
+References: <35CC5396F7326DBE44C9C624@[172.22.2.41]>
+	<130fa9cb-7e94-4698-ac3f-f987a03c0604@mary.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: 'Neal Cardwell' <ncardwell@google.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Eric Dumazet' <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:60611 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752191AbaCGOgN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Mar 2014 09:36:13 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 29791-10 for <netdev@vger.kernel.org>;
- Fri,  7 Mar 2014 14:36:11 +0000 (GMT)
-In-Reply-To: <1394202127.20149.14.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>,
+        Florian Fainelli
+	<f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Jon Ringle <jon-7zJyie9iPacdnm+yROfE0A@public.gmane.org>
+To: Christian Riesch <christian.riesch-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+In-Reply-To: <130fa9cb-7e94-4698-ac3f-f987a03c0604-2Q1zT/7oKKveau+zUrS5eLNldLUNz+W/@public.gmane.org>
+List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
+List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
+List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
+Sender: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogRXJpYyBEdW1hemV0IA0KPiBPbiBGcmksIDIwMTQtMDMtMDcgYXQgMTI6MjkgKzAwMDAs
-IERhdmlkIExhaWdodCB3cm90ZToNCj4gDQo+ID4gSSdsbCBwcm9iYWJseSBsb29rIGF0IGRlbGF5
-aW5nIHRoZSBzZW5kcyB3aXRoaW4gb3VyIG93biBjb2RlLg0KPiANCj4gVGhhdCB3b3VsZCBiZSBi
-YWQuDQoNClRoZSBzZW5kaW5nIGNvZGUgY2FuIGJlIHRvbGQgd2hldGhlciB0aGUgcGFja2V0cyBh
-cmUgY29udHJvbA0KKHdoaWNoIHdhbnQgc2VuZGluZyBpbW1lZGlhdGVseSkgb3IgZGF0YSAod2hp
-Y2ggY2FuIGJlIGRlbGF5ZWQNCmJhc2VkIG9uIGtub3dsZWRnZSBvZiBob3cgbXVjaCBkYXRhIGhh
-cyBiZWVuIHNlbnQgcmVjZW50bHkpLg0KDQpJIGFsc28gcHJvYmFibHkgb3VnaHQgdG8gbWFrZSB0
-aGlzIHdvcmsgb24gdGhlIHdpbmRvdydzIHZlcnNpb24NCm9mIG91ciBjb2RlIC0gYnV0IG1vc3Qg
-b2YgdGhlIGhpZ2ggdGhyb3VnaHB1dCBzeXN0ZW1zIGFyZSBsaW51eC4NClRoZSBvdmVyaGVhZHMg
-dGhyb3VnaCB0aGUgTSQgSVAgc3RhY2sgYXJlIGhvcnJpZC4NCg0KPiBKdXN0IHVzZSBmcS9wYWNp
-bmcsIHRoaXMgaXMgd2F5IGJldHRlci4gSXRzIGRlc2lnbmVkIGZvciB0aGlzIHVzYWdlLg0KPiB0
-cmljayBpcyB0byByZWR1Y2UgJ3F1YW50dW0nIGFzIHlvdSBtdHUgaXMgMjczKzE0IGJ5dGVzLg0K
-PiANCj4gUVVBTlRVTT0kKCgyNzMrMTQpKQ0KPiB0YyBxZGlzYyByZXBsYWNlIGRldiBldGgwIHJv
-b3QgZnEgcXVhbnR1bSAkUVVBTlRVTSBpbml0aWFsX3F1YW50dW0gJFFVQU5UVU0NCj4gDQo+IFRo
-aXMgd2lsbCBfcGVyZmVjdGx5XyBwYWNlIHBhY2tldHMgZXZlcnkgMzQgbXMuDQoNClVuZm9ydHVu
-YXRlbHkgdGhhdCBpc24ndCB3aGF0IEkgbmVlZCB0byBkby4NClRoZSA2NGsgbGlua3MgcnVuIGEg
-cmVsaWFibGUgcHJvdG9jb2wgYW5kIHdlIHVzZSBhcHBsaWNhdGlvbiBsZXZlbA0KZmxvdyBjb250
-cm9sIHRvIGxpbWl0IHRoZSBudW1iZXIgb2YgcGFja2V0cyBiZWluZyBzZW50Lg0KDQpTbyBub3Qg
-YWxsIHRoZSBkYXRhIG9uIHRoZSB0Y3AgY29ubmVjdGlvbiBpcyBkZXN0aW5lZCB0byBiZSBzZW50
-DQpvdmVyIHRoZSBzbG93IGxpbmsocykuDQoNCkV2ZXJ5dGhpbmcgd29ya3MgZmluZSAtIGV4Y2Vw
-dCB0aGF0IEknZCBsaWtlIHRoZSB0cmFmZmljIHRvIGZpbGwNCmV0aGVybmV0IHBhY2tldHMgdW5k
-ZXIgaGVhdnkgbG9hZC4NCklmIEkgY291bGQgc2V0IHRoZSBOYWdsZSB0aW1lb3V0IHRvIDEtMm1z
-IChvbiBhIHBlci1zb2NrZXQgYmFzaXMpDQpJIGNvdWxkIGVuYWJsZSBOYWdsZSBhbmQgdGhhdCB3
-b3VsZCBwcm9iYWJseSBzdWZmaWNlLg0KDQo+IElmIHlvdSBzaGFyZSB5b3VyIGV0aGVybmV0IGRl
-dmljZSB3aXRoIHRoaXMgNjRrIGRlc3RpbmF0aW9uLCBhbmQgb3RoZXINCj4gdXNlcywgdGhlbiB5
-b3UgbmVlZCBhIG1vcmUgY29tcGxleCBzZXR1cCB3aXRoIEhUQiBwbHVzIHR3byBjbGFzc2VzLCBh
-bmQNCj4gZnEgcnVubmluZyBhdCB0aGUgaHRiIGxlYWYNCg0KT25seSB0aGUgb25lIGNvbm5lY3Rp
-b24gYmV0d2VlbiB0aGUgdHdvIElQIGFkZHJlc3NlcyBpcyBjYXJyeWluZyB0aGlzIGRhdGEuDQpP
-dGhlciBjb25uZWN0aW9ucyBjYXJyeSBvdGhlciB0cmFmZmljIHRoYXQgaGFzIGVudGlyZWx5IGRp
-ZmZlcmVudA0KY2hhcmFjdGVyaXN0aWNzLg0K
+On Friday 07 March 2014 07:37 PM, Christian Riesch wrote:
+> Signed-off-by: Christian Riesch <christian.riesch-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+> Cc: Prabhakar Lad <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Cc: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+> Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>
+> Hi again,
+>
+> How about this solution for fixing the rollback of emac_dev_open()?
+> Especially the change in davinci_cpdma.c, would this break anything?
+>
+> The patch applies on top of 
+> [PATCH] net: davinci_emac: Replace devm_request_irq with request_irq
+>
+> Regards,
+> Christian
+>
+>  drivers/net/ethernet/ti/davinci_cpdma.c |    4 +--
+>  drivers/net/ethernet/ti/davinci_emac.c  |   44 ++++++++++++++++++++-----------
+>  2 files changed, 31 insertions(+), 17 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+> index 364d0c7..88ef270 100644
+> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
+> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+> @@ -355,7 +355,7 @@ int cpdma_ctlr_stop(struct cpdma_ctlr *ctlr)
+>  	int i;
+>  
+>  	spin_lock_irqsave(&ctlr->lock, flags);
+> -	if (ctlr->state != CPDMA_STATE_ACTIVE) {
+> +	if (ctlr->state == CPDMA_STATE_TEARDOWN) {
+>  		spin_unlock_irqrestore(&ctlr->lock, flags);
+>  		return -EINVAL;
+>  	}
+> @@ -891,7 +891,7 @@ int cpdma_chan_stop(struct cpdma_chan *chan)
+>  	unsigned		timeout;
+>  
+>  	spin_lock_irqsave(&chan->lock, flags);
+> -	if (chan->state != CPDMA_STATE_ACTIVE) {
+> +	if (chan->state == CPDMA_STATE_TEARDOWN) {
+>  		spin_unlock_irqrestore(&chan->lock, flags);
+>  		return -EINVAL;
+>  	}
+
+Even when in idle mode chan stop should return error.
+
+Regards
+Mugunthan V N
