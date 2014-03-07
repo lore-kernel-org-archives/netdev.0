@@ -1,88 +1,54 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH net-next 1/2] vlan: add proto for proc interface
-Date: Fri, 7 Mar 2014 13:15:22 +0100
-Message-ID: <20140307121522.GA11396@macbook.localnet>
-References: <1394194251-11656-1-git-send-email-dingtianhong@huawei.com>
- <1394194251-11656-2-git-send-email-dingtianhong@huawei.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: Can I limit the number of active tx per TCP socket?
+Date: Fri, 7 Mar 2014 12:29:00 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6D755C@AcuExch.aculab.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D0F6D3B91@AcuExch.aculab.com>
+	<5318ADB1.5050107@hp.com>
+ <CADVnQyn1+WRqS9HQmMn9JgpBz0Wajg=40yVhdyqv_AAo4tpWUA@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6D0F6D727E@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Ding Tianhong <dingtianhong@huawei.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>,
+	'Neal Cardwell' <ncardwell@google.com>,
+	Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:37228 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751645AbaCGMPZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 07:15:25 -0500
-Content-Disposition: inline
-In-Reply-To: <1394194251-11656-2-git-send-email-dingtianhong@huawei.com>
+Received: from mx0.aculab.com ([213.249.233.131]:57619 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751082AbaCGM3i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Mar 2014 07:29:38 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 25366-10 for <netdev@vger.kernel.org>;
+ Fri,  7 Mar 2014 12:29:35 +0000 (GMT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6D727E@AcuExch.aculab.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 07, 2014 at 08:10:50PM +0800, Ding Tianhong wrote:
-> The vlan could support 2 proto: 802.1q and 802.1ad, so add it to
-> proc interface, the user could easily distinguish the proto for
-> each vlan dev.
-> 
-> And the dev->priv_flags seems inappropriate, modify to Priv_Flags,
-> looks more comfortable.
-
-The proc interface is obsolete, but this doesn't mean you're allowed
-to break it. This information is available through netlink. The proc
-interface should not be touched.
-
-Nacked-by: Patrick McHardy <kaber@trash.net>
-
-> 
-> ---------------------- the old format: --------------------------
-> 
-> eth2.10  VID: 10         REORDER_HDR: 1  dev->priv_flags: 1
->          total frames received            5
->           total bytes received          336
->       Broadcast/Multicast Rcvd            0
-> 
->       total frames transmitted           13
->        total bytes transmitted         1026
-> Device: eth2
-> INGRESS priority mappings: 0:0  1:0  2:0  3:0  4:0  5:0  6:0 7:0
->  EGRESS priority mappings:
-> 
-> ----------------------- the new format: -------------------------
-> 
-> eth2.20  Proto: 802.1q  VID: 20  REORDER_HDR: 1  Priv_Flags: 1
->          total frames received            0
->           total bytes received            0
->       Broadcast/Multicast Rcvd            0
-> 
->       total frames transmitted            0
->        total bytes transmitted            0
-> Device: eth2
-> INGRESS priority mappings: 0:0  1:0  2:0  3:0  4:0  5:0  6:0 7:0
->  EGRESS priority mappings:
-> 
-> ----------------------------------------------------------------
-> 
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> ---
->  net/8021q/vlanproc.c | 6 ++++--
->  1 file changed, 4 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/8021q/vlanproc.c b/net/8021q/vlanproc.c
-> index 1d0e8921..a40abbc 100644
-> --- a/net/8021q/vlanproc.c
-> +++ b/net/8021q/vlanproc.c
-> @@ -285,8 +285,10 @@ static int vlandev_seq_show(struct seq_file *seq, void *offset)
->  
->  	stats = dev_get_stats(vlandev, &temp);
->  	seq_printf(seq,
-> -		   "%s  VID: %d	 REORDER_HDR: %i  dev->priv_flags: %hx\n",
-> -		   vlandev->name, vlan->vlan_id,
-> +		   "%s  Proto: %s  VID: %d  REORDER_HDR: %i  Priv_Flags: %hx\n",
-> +		   vlandev->name,
-> +		   vlan->vlan_proto == htons(ETH_P_8021Q) ? "802.1q" : "802.1ad",
-> +		   vlan->vlan_id,
->  		   (int)(vlan->flags & 1), vlandev->priv_flags);
->  
->  	seq_printf(seq, fmt64, "total frames received", stats->rx_packets);
-> -- 
-> 1.8.0
-> 
+RnJvbTogRGF2aWQgTGFpZ2h0DQo+IEZyb206IE5lYWwgQ2FyZHdlbGwNCj4gPiBFcmljJ3MgcmVj
+ZW50ICJhdXRvIGNvcmtpbmciIGZlYXR1cmUgbWF5IGJlIGhlbHBmdWwgaW4gdGhpcyBjb250ZXh0
+Og0KPiA+DQo+ID4gICBodHRwOi8vbHduLm5ldC9BcnRpY2xlcy81NzYyNjMvDQo+IA0KPiBZZXMs
+IEkgd2FzIHJ1bm5pbmcgc29tZSB0ZXN0cyB0byBtYWtlIHN1cmUgdGhpcyBkaWRuJ3QgY2F1c2Ug
+dXMNCj4gYW55IGdyaWVmLg0KPiANCj4gSW4gZmFjdCB2ZXJ5IGFnZ3Jlc3NpdmUgImF1dG8gY29y
+a2luZyIgd291bGQgaGVscCBteSB0cmFmZmljIGZsb3cuDQo+IEkgaGF2ZW4ndCB5ZXQgdHJpZWQg
+bG9jYWxseSByZXZlcnRpbmcgdGhlIHBhdGNoIHRoYXQgc3RvcHBlZA0KPiBhdXRvIGNvcmtpbmcg
+YmVpbmcgcXVpdGUgYXMgZWZmZWN0aXZlLg0KPiAoSSBtaWdodCBldmVuIHRyeSBzZXR0aW5nIHRo
+ZSBsaW1pdCBsb3dlciB0aGFuIDIqc2tiX3RydWVfc2l6ZS4pDQoNCkFncmVzc2l2ZSBhdXRvIGNv
+cmtpbmcgaGVscHMgKHJlZHVjZXMgdGhlIGNwdSBsb2FkIG9mIHRoZSBwcGMgZnJvbQ0KNjAlIHRv
+IDMwJSBmb3IgdGhlIHNhbWUgdHJhZmZpYyBmbG93KSAtIGJ1dCBvbmx5IGlmIEkgcmVkdWNlIHRo
+ZQ0KZXRoZXJuZXQgc3BlZWQgdG8gMTBNLg0KKEFjdHVhbGx5IEkgb25seSBoYXZlIHRoZSBwcm9j
+ZXNzIGNwdSBsb2FkIGZvciB0aGUgcHBjLCBpdCBwcm9iYWJseQ0KZXhjbHVkZXMgYSBsb3Qgb2Yg
+dGhlIHRjcCByeCBjb2RlLikNCg0KSSBndWVzcyB0aGF0IHRoZSB0cmFuc21pdCBpcyBjb21wbGV0
+aW5nIGJlZm9yZSB0aGUgb3RoZXIgYWN0aXZlDQpwcm9jZXNzZXMva2VybmVsIHRocmVhZHMgbWFu
+YWdlIHRvIHJlcXVlc3QgdGhlIG5leHQgdHJhbnNtaXQuDQpUaGlzIHdvbid0IGJlIGhlbHBlZCBi
+eSB0aGUgZmlyc3QgcGFja2V0IGJlaW5nIHNob3J0Lg0KDQpTcGlubmluZyBhbGwgYnV0IG9uZSBv
+ZiB0aGUgY3B1cyB3aXRoICd3aGlsZSA6OyBkbyA6OyBkb25lJw0KaGFzIGFuIGludGVyZXN0aW5n
+IGVmZmVjdCBvbiB0aGUgd29ya2xvYWQvdGhyb3VnaHB1dC4NClRoZSBhZ2dyZWdhdGUgbWVzc2Fn
+ZSByYXRlIGdvZXMgZnJvbSA1MjAwL3NlYyB0byA5MDAwL3NlYyAobm93DQpsaW1pdGVkIGJ5IHRo
+ZSA2NGsgbGlua3MpLg0KSSB0aGluayB0aGlzIGhhcHBlbnMgYmVjYXVzZSB0aGUgc2NoZWR1bGVy
+ICdyZXNpc3RzJyBwcmUtZW1wdGluZw0KcnVubmluZyBwcm9jZXNzZXMgLSBzbyB0aGUgVENQIHNl
+bmQgcHJvY2Vzc2luZyBoYXBwZW5zIGluIGJ1cnN0cy4NClRoZSBwcGMgcHJvY2VzcyBpcyB0aGVu
+IHVzaW5nIGFib3V0IDg1JSAoZnJvbSB0b3ApLg0KDQpJJ2xsIHByb2JhYmx5IGxvb2sgYXQgZGVs
+YXlpbmcgdGhlIHNlbmRzIHdpdGhpbiBvdXIgb3duIGNvZGUuDQoNCglEYXZpZA0KDQoNCg==
