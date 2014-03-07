@@ -1,133 +1,111 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 1/7] r8152: replace spin_lock_irqsave and spin_unlock_irqrestore
-Date: Fri, 7 Mar 2014 11:04:34 +0800
-Message-ID: <1394161480-2918-2-git-send-email-hayeswang@realtek.com>
-References: <1393934464-23675-1-git-send-email-hayeswang@realtek.com>
- <1394161480-2918-1-git-send-email-hayeswang@realtek.com>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: [PATCH 2/2] selinux: add gfp argument to security_xfrm_policy_alloc and fix callers
+Date: Thu, 06 Mar 2014 22:22:02 -0500
+Message-ID: <3932171.ispFyGS1cS@sifl>
+References: <20140227151954.GA30946@redhat.com> <1393935984-8733-1-git-send-email-nikolay@redhat.com> <1393935984-8733-3-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394161480-2918-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, Dave Jones <davej@redhat.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Fan Du <fan.du@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	LSM list <linux-security-module@vger.kernel.org>,
+	selinux@tycho.nsa.gov
+To: Nikolay Aleksandrov <nikolay@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f49.google.com ([209.85.216.49]:40677 "EHLO
+	mail-qa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750924AbaCGDWH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 22:22:07 -0500
+Received: by mail-qa0-f49.google.com with SMTP id cm18so3377227qab.22
+        for <netdev@vger.kernel.org>; Thu, 06 Mar 2014 19:22:05 -0800 (PST)
+In-Reply-To: <1393935984-8733-3-git-send-email-nikolay@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use spin_lock and spin_unlock in interrupt context.
+On Tuesday, March 04, 2014 01:26:24 PM Nikolay Aleksandrov wrote:
+> security_xfrm_policy_alloc can be called in atomic context so the
+> allocation should be done with GFP_ATOMIC. Add an argument to let the
+> callers choose the appropriate way. In order to do so a gfp argument
+> needs to be added to the method xfrm_policy_alloc_security in struct
+> security_operations and to the internal function
+> selinux_xfrm_alloc_user. After that switch to GFP_ATOMIC in the atomic
+> callers and leave GFP_KERNEL as before for the rest.
+> The path that needed the gfp argument addition is:
+> security_xfrm_policy_alloc -> security_ops.xfrm_policy_alloc_security ->
+> all users of xfrm_policy_alloc_security (e.g. selinux_xfrm_policy_alloc) ->
+> selinux_xfrm_alloc_user (here the allocation used to be GFP_KERNEL only)
+> 
+> CC: Paul Moore <paul@paul-moore.com>
+> CC: Dave Jones <davej@redhat.com>
+> CC: Steffen Klassert <steffen.klassert@secunet.com>
+> CC: Fan Du <fan.du@windriver.com>
+> CC: David S. Miller <davem@davemloft.net>
+> CC: LSM list <linux-security-module@vger.kernel.org>
+> 
+> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 
-The ndo_start_xmit would not be called in interrupt context, so
-replace the relative spin_lock_irqsave and spin_unlock_irqrestore
-with spin_lock_bh and spin_unlock_bh.
+[NOTE: added the SELinux list to the CC list above]
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 28 ++++++++++++----------------
- 1 file changed, 12 insertions(+), 16 deletions(-)
+In general, the patch is pretty simple with the obvious necessary changes, 
+just one gotcha, see below.
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index b8eee36..8ecb41b 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -963,7 +963,6 @@ static int rtl8152_set_mac_address(struct net_device *netdev, void *p)
- static void read_bulk_callback(struct urb *urb)
- {
- 	struct net_device *netdev;
--	unsigned long flags;
- 	int status = urb->status;
- 	struct rx_agg *agg;
- 	struct r8152 *tp;
-@@ -997,9 +996,9 @@ static void read_bulk_callback(struct urb *urb)
- 		if (urb->actual_length < ETH_ZLEN)
- 			break;
- 
--		spin_lock_irqsave(&tp->rx_lock, flags);
-+		spin_lock(&tp->rx_lock);
- 		list_add_tail(&agg->list, &tp->rx_done);
--		spin_unlock_irqrestore(&tp->rx_lock, flags);
-+		spin_unlock(&tp->rx_lock);
- 		tasklet_schedule(&tp->tl);
- 		return;
- 	case -ESHUTDOWN:
-@@ -1022,9 +1021,9 @@ static void read_bulk_callback(struct urb *urb)
- 	if (result == -ENODEV) {
- 		netif_device_detach(tp->netdev);
- 	} else if (result) {
--		spin_lock_irqsave(&tp->rx_lock, flags);
-+		spin_lock(&tp->rx_lock);
- 		list_add_tail(&agg->list, &tp->rx_done);
--		spin_unlock_irqrestore(&tp->rx_lock, flags);
-+		spin_unlock(&tp->rx_lock);
- 		tasklet_schedule(&tp->tl);
- 	}
- }
-@@ -1033,7 +1032,6 @@ static void write_bulk_callback(struct urb *urb)
- {
- 	struct net_device_stats *stats;
- 	struct net_device *netdev;
--	unsigned long flags;
- 	struct tx_agg *agg;
- 	struct r8152 *tp;
- 	int status = urb->status;
-@@ -1057,9 +1055,9 @@ static void write_bulk_callback(struct urb *urb)
- 		stats->tx_bytes += agg->skb_len;
- 	}
- 
--	spin_lock_irqsave(&tp->tx_lock, flags);
-+	spin_lock(&tp->tx_lock);
- 	list_add_tail(&agg->list, &tp->tx_free);
--	spin_unlock_irqrestore(&tp->tx_lock, flags);
-+	spin_unlock(&tp->tx_lock);
- 
- 	usb_autopm_put_interface_async(tp->intf);
- 
-@@ -1330,14 +1328,13 @@ r8152_tx_csum(struct r8152 *tp, struct tx_desc *desc, struct sk_buff *skb)
- static int r8152_tx_agg_fill(struct r8152 *tp, struct tx_agg *agg)
- {
- 	struct sk_buff_head skb_head, *tx_queue = &tp->tx_queue;
--	unsigned long flags;
- 	int remain, ret;
- 	u8 *tx_data;
- 
- 	__skb_queue_head_init(&skb_head);
--	spin_lock_irqsave(&tx_queue->lock, flags);
-+	spin_lock_bh(&tx_queue->lock);
- 	skb_queue_splice_init(tx_queue, &skb_head);
--	spin_unlock_irqrestore(&tx_queue->lock, flags);
-+	spin_unlock_bh(&tx_queue->lock);
- 
- 	tx_data = agg->head;
- 	agg->skb_num = agg->skb_len = 0;
-@@ -1374,9 +1371,9 @@ static int r8152_tx_agg_fill(struct r8152 *tp, struct tx_agg *agg)
- 	}
- 
- 	if (!skb_queue_empty(&skb_head)) {
--		spin_lock_irqsave(&tx_queue->lock, flags);
-+		spin_lock_bh(&tx_queue->lock);
- 		skb_queue_splice(&skb_head, tx_queue);
--		spin_unlock_irqrestore(&tx_queue->lock, flags);
-+		spin_unlock_bh(&tx_queue->lock);
- 	}
- 
- 	netif_tx_lock_bh(tp->netdev);
-@@ -1551,16 +1548,15 @@ static void rtl_drop_queued_tx(struct r8152 *tp)
- {
- 	struct net_device_stats *stats = &tp->netdev->stats;
- 	struct sk_buff_head skb_head, *tx_queue = &tp->tx_queue;
--	unsigned long flags;
- 	struct sk_buff *skb;
- 
- 	if (skb_queue_empty(tx_queue))
- 		return;
- 
- 	__skb_queue_head_init(&skb_head);
--	spin_lock_irqsave(&tx_queue->lock, flags);
-+	spin_lock_bh(&tx_queue->lock);
- 	skb_queue_splice_init(tx_queue, &skb_head);
--	spin_unlock_irqrestore(&tx_queue->lock, flags);
-+	spin_unlock_bh(&tx_queue->lock);
- 
- 	while ((skb = __skb_dequeue(&skb_head))) {
- 		dev_kfree_skb(skb);
+> diff --git a/security/selinux/xfrm.c b/security/selinux/xfrm.c
+> index 0462cb3ff0a7..7ae773f4fe38 100644
+> --- a/security/selinux/xfrm.c
+> +++ b/security/selinux/xfrm.c
+> @@ -78,7 +78,8 @@ static inline int selinux_authorizable_xfrm(struct
+> xfrm_state *x) * xfrm_user_sec_ctx context.
+>   */
+>  static int selinux_xfrm_alloc_user(struct xfrm_sec_ctx **ctxp,
+> -				   struct xfrm_user_sec_ctx *uctx)
+> +				   struct xfrm_user_sec_ctx *uctx,
+> +				   gfp_t gfp)
+>  {
+>  	int rc;
+>  	const struct task_security_struct *tsec = current_security();
+> @@ -94,7 +95,7 @@ static int selinux_xfrm_alloc_user(struct xfrm_sec_ctx
+> **ctxp, if (str_len >= PAGE_SIZE)
+>  		return -ENOMEM;
+> 
+> -	ctx = kmalloc(sizeof(*ctx) + str_len + 1, GFP_KERNEL);
+> +	ctx = kmalloc(sizeof(*ctx) + str_len + 1, gfp);
+>  	if (!ctx)
+>  		return -ENOMEM;
+
+Also located in selinux_xfrm_alloc_user() is a call to 
+security_context_to_sid() which calls security_context_to_sid_core() which in 
+some cases does allocate memory.  The good news is that to_sid_core() does 
+accept a gfp_t flag, the bad news is that to_sid() always passes GFP_KERNEL.
+
+It looks like we need to extend this patch a bit, or add another.  Sorry about 
+that.  If you're getting tired of playing with the LSM/SELinux code let me 
+know :)
+
+> @@ -282,9 +283,10 @@ int selinux_xfrm_skb_sid(struct sk_buff *skb, u32 *sid)
+> * LSM hook implementation that allocs and transfers uctx spec to
+> xfrm_policy. */
+>  int selinux_xfrm_policy_alloc(struct xfrm_sec_ctx **ctxp,
+> -			      struct xfrm_user_sec_ctx *uctx)
+> +			      struct xfrm_user_sec_ctx *uctx,
+> +			      gfp_t gfp)
+>  {
+> -	return selinux_xfrm_alloc_user(ctxp, uctx);
+> +	return selinux_xfrm_alloc_user(ctxp, uctx, gfp);
+>  }
+> 
+>  /*
+> @@ -332,7 +334,7 @@ int selinux_xfrm_policy_delete(struct xfrm_sec_ctx *ctx)
+> int selinux_xfrm_state_alloc(struct xfrm_state *x,
+>  			     struct xfrm_user_sec_ctx *uctx)
+>  {
+> -	return selinux_xfrm_alloc_user(&x->security, uctx);
+> +	return selinux_xfrm_alloc_user(&x->security, uctx, GFP_KERNEL);
+>  }
+> 
+>  /*
+
 -- 
-1.8.4.2
+paul moore
+www.paul-moore.com
