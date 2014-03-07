@@ -1,118 +1,99 @@
-From: Werner Almesberger <werner@almesberger.net>
-Subject: Re: [Linux-zigbee-devel] Simplifying the 802.15.4 stack
-Date: Fri, 7 Mar 2014 16:38:20 -0300
-Message-ID: <20140307193820.GA25736@ws>
-References: <20140307133924.21165955@zoidberg>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] netlink: autosize skb lengthes
+Date: Fri, 07 Mar 2014 12:02:33 -0800
+Message-ID: <1394222553.20149.40.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-zigbee-devel@lists.sourceforge.net,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Thomas Graf <tgraf@suug.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.almesberger.net ([204.10.140.10]:45776 "EHLO
-	host.almesberger.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751011AbaCGTug (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 14:50:36 -0500
-Content-Disposition: inline
-In-Reply-To: <20140307133924.21165955@zoidberg>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:60508 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751197AbaCGUCf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 15:02:35 -0500
+Received: by mail-pb0-f41.google.com with SMTP id jt11so4609507pbb.14
+        for <netdev@vger.kernel.org>; Fri, 07 Mar 2014 12:02:35 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Phoebe Buckheister wrote:
-> the 802.15.4/6LoWPAN stack on Linux is pretty usable as it is now, much
-> due to the recent 6lowpan fixes by Alex.
+From: Eric Dumazet <edumazet@google.com>
 
-Indeed, thanks to the work both of you did !
+One known problem with netlink is the fact that NLMSG_GOODSIZE is
+really small on PAGE_SIZE==4096 architectures, and it is difficult
+to know in advance what buffer size is used by the application.
 
-Regarding the proposed massive changes, I think everyone who had
-a closer look at the stack knows that (too) much of it is still a
-smoldering mess, and that most of the remaining problems are
-caused by design issues that also touch APIs.
+This patch adds an automatic learning of the size.
 
-> 1) header handling in the stack
-> 2) endianness in the stack
+First netlink message will still be limited to ~4K, but if user used
+bigger buffers, then following messages will be able to use up to 16KB.
 
-I don't care much about these, but jumping between byte orders is
-certainly confusing. As long as an API user can tell easily and
-unambiguously what was or will be in the air, I won't complain.
+This speedups dump() operations by a large factor and should be safe
+for legacy applications.
 
-> 3) the mac802154_priv slave list
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Thomas Graf <tgraf@suug.ch>
+---
+Google-Bug-Id: 13305844
 
-Yes, weird and of dubious use. Ironically, support for the only
-piece of code that could have a chance to actually use this
-without devastation - the coordinator - was dropped when 802.15.4
-support originally went mainline.
+ net/netlink/af_netlink.c |   27 ++++++++++++++++++++++++++-
+ net/netlink/af_netlink.h |    1 +
+ 2 files changed, 27 insertions(+), 1 deletion(-)
 
-And even if someone was to resurrect the coordinator and made it
-multi-PAN, there are probably easier ways to accomplish all that.
-So I don't see a problem with this sort of change, as long as
-there is some way to set up the matching rules of 802.15.4-2011
-section 5.1.6.2 (page 42), specifically the broadcast PAN ID
-match.
-
-This API has of course a non-negligible installed base since the
-administrative tools touch it and everyone who uses 802.15.4 in
-any way, including through 6LoWPAN, has to use the administrative
-tools.
-
-But then that very same installed base barely noticed that a few
-months ago not even a ping really worked, so I wouldn't be overly
-concerned about continuity.
-
-In practical terms, it will be impossible to perfectly synchronize
-kernel API changes and user space tools or documentation. Thus,
-the sooner the change is made, the better.
-
-Furthermore, if you could think of a way to preserve the old API
-for a while, possibly reduced to just supporting the only
-real-life case of having exactly one slave, that would ease the
-transition.
-
-This leads us to the heart of evil, ...
-
-> 4) our *drivers* are expected to *sleep*
-
-Linux has a perfectly good network device API that avoids such
-perversions and also has a sane concept of flow control. Making
-802.15.4 use that API will of course break every existing
-802.15.4 driver, but there are few enough of them in mainline and
-probably not a lot in active use out of mainline.
-
-Specifically, we have in mainline:
-
-- at86rf230.c which you are using yourself, so I'd assume you'd
-  adapt is when such a change is made,
-- mrf24j40.c by Alan Ott. Not sure what he thinks of the idea,
-- fake*.c which should be fairly straightforward to adapt,
-
-Outside mainline I know of atben which reuses at86rf230, so there
-is nothing to do there, and atusb, which I'll be happy to adapt
-(and should finally beat into shape for mainline anyway.)
-
-Maybe one could also come up with a smooth transition strategy for
-the driver API change, but I'd be careful not to waste time going
-through the motions if nobody really needs that.
-
-
-So to gauge the impact of the changes you're proposing, we'd need
-to know:
-
-1) whether there are any major users of AF_IEEE802154 (if you're
-   planning to change that API),
-
-2) whether anyone depends on the 802.15.4 administrative interface
-   beyond having compiled a variant of
-   http://sourceforge.net/apps/trac/linux-zigbee/wiki/GettingStarted-0.2
-
-3) and whether there are any other 802.15.4 device drivers in active
-   use with recent kernels besides the ones I mentioned above.
-
-I don't think the sleepy driver API change needs to happen at the
-same time as the rest so it may make sense to do all this in at
-least two phases.
-
-This brings us to the next question: when do you plan to do all
-this ? :)
-
-- Werner
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 9db8bab27fa2..c2d585c4f7c5 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -2343,6 +2343,11 @@ static int netlink_recvmsg(struct kiocb *kiocb, struct socket *sock,
+ 	}
+ #endif
+ 
++	/* Record the max length of recvmsg() calls for future allocations */
++	nlk->max_recvmsg_len = max(nlk->max_recvmsg_len, len);
++	nlk->max_recvmsg_len = min_t(size_t, nlk->max_recvmsg_len,
++				     16384);
++
+ 	copied = data_skb->len;
+ 	if (len < copied) {
+ 		msg->msg_flags |= MSG_TRUNC;
+@@ -2587,7 +2592,27 @@ static int netlink_dump(struct sock *sk)
+ 	if (!netlink_rx_is_mmaped(sk) &&
+ 	    atomic_read(&sk->sk_rmem_alloc) >= sk->sk_rcvbuf)
+ 		goto errout_skb;
+-	skb = netlink_alloc_skb(sk, alloc_size, nlk->portid, GFP_KERNEL);
++
++	/* NLMSG_GOODSIZE is small to avoid high order allocations being
++	 * required, but it makes sense to _attempt_ a 16K bytes allocation
++	 * to reduce number of system calls on dump operations, if user
++	 * ever provided a big enough buffer.
++	 */
++	if (alloc_size < nlk->max_recvmsg_len) {
++		skb = netlink_alloc_skb(sk,
++					nlk->max_recvmsg_len,
++					nlk->portid,
++					GFP_KERNEL |
++					__GFP_NOWARN |
++					__GFP_NORETRY);
++		/* available room should be exact amount to avoid MSG_TRUNC */
++		if (skb)
++			skb_reserve(skb, skb_tailroom(skb) -
++					 nlk->max_recvmsg_len);
++	}
++	if (!skb)
++		skb = netlink_alloc_skb(sk, alloc_size, nlk->portid,
++					GFP_KERNEL);
+ 	if (!skb)
+ 		goto errout_skb;
+ 	netlink_skb_set_owner_r(skb, sk);
+diff --git a/net/netlink/af_netlink.h b/net/netlink/af_netlink.h
+index acbd774eeb7c..ed13a790b00e 100644
+--- a/net/netlink/af_netlink.h
++++ b/net/netlink/af_netlink.h
+@@ -31,6 +31,7 @@ struct netlink_sock {
+ 	u32			ngroups;
+ 	unsigned long		*groups;
+ 	unsigned long		state;
++	size_t			max_recvmsg_len;
+ 	wait_queue_head_t	wait;
+ 	bool			cb_running;
+ 	struct netlink_callback	cb;
