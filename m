@@ -1,99 +1,53 @@
-From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCHv4 net-next 05/32] cxgb4: use spinlock_irqsave/spinlock_irqrestore for db lock
-Date: Fri,  7 Mar 2014 16:03:02 +0530
-Message-ID: <1394188409-9739-6-git-send-email-hariprasad@chelsio.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCHv4 net-next 06/32] cxgb4: Calculate len properly for LSO path
+Date: Fri,  7 Mar 2014 16:03:03 +0530
+Message-ID: <1394188409-9739-7-git-send-email-hariprasad@chelsio.com>
 References: <1394188409-9739-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org,
-	leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1394188409-9739-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, roland@purestorage.com, santosh@chelsio.com,
+	dm@chelsio.com, kumaras@chelsio.com, swise@opengridcomputing.com,
+	leedom@chelsio.com, nirranjan@chelsio.com, hariprasad@chelsio.com
+To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:18600 "EHLO
+	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751011AbaCGKlz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 05:41:55 -0500
+In-Reply-To: <1394188409-9739-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kumar Sanghvi <kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+From: Kumar Sanghvi <kumaras@chelsio.com>
 
-Currently ring_tx_db() can deadlock if a db_full interrupt fires and is
-run on the same while ring_tx_db() has the db lock held.  It needs to
-disable interrupts since it serializes with an interrupt handler.
+Commit 0034b29 ("cxgb4: Don't assume LSO only uses SGL path in t4_eth_xmit()")
+introduced a regression where-in length was calculated wrongly for LSO path,
+causing chip hangs.
+So, correct the calculation of len.
 
-Based on original work by Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-
-Signed-off-by: Kumar Sanghvi <kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Fixes: 0034b29 ("cxgb4: Don't assume LSO only uses SGL path in t4_eth_xmit()")
+Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 11 +++++++----
- drivers/net/ethernet/chelsio/cxgb4/sge.c        |  5 +++--
- 2 files changed, 10 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/sge.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 0ac53dd..a95668e 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -3585,9 +3585,11 @@ static void disable_txq_db(struct sge_txq *q)
- 
- static void enable_txq_db(struct sge_txq *q)
- {
--	spin_lock_irq(&q->db_lock);
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&q->db_lock, flags);
- 	q->db_disabled = 0;
--	spin_unlock_irq(&q->db_lock);
-+	spin_unlock_irqrestore(&q->db_lock, flags);
- }
- 
- static void disable_dbs(struct adapter *adap)
-@@ -3617,9 +3619,10 @@ static void enable_dbs(struct adapter *adap)
- static void sync_txq_pidx(struct adapter *adap, struct sge_txq *q)
- {
- 	u16 hw_pidx, hw_cidx;
-+	unsigned long flags;
- 	int ret;
- 
--	spin_lock_bh(&q->db_lock);
-+	spin_lock_irqsave(&q->db_lock, flags);
- 	ret = read_eq_indices(adap, (u16)q->cntxt_id, &hw_pidx, &hw_cidx);
- 	if (ret)
- 		goto out;
-@@ -3636,7 +3639,7 @@ static void sync_txq_pidx(struct adapter *adap, struct sge_txq *q)
- 	}
- out:
- 	q->db_disabled = 0;
--	spin_unlock_bh(&q->db_lock);
-+	spin_unlock_irqrestore(&q->db_lock, flags);
- 	if (ret)
- 		CH_WARN(adap, "DB drop recovery failed.\n");
- }
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index a7c56b3..c6fa96a 100644
+index c6fa96a..366c991 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -860,9 +860,10 @@ static void cxgb_pio_copy(u64 __iomem *dst, u64 *src)
- static inline void ring_tx_db(struct adapter *adap, struct sge_txq *q, int n)
- {
- 	unsigned int *wr, index;
-+	unsigned long flags;
+@@ -1052,7 +1052,6 @@ out_free:	dev_kfree_skb(skb);
+ 	end = (u64 *)wr + flits;
  
- 	wmb();            /* write descriptors before telling HW */
--	spin_lock(&q->db_lock);
-+	spin_lock_irqsave(&q->db_lock, flags);
- 	if (!q->db_disabled) {
- 		if (is_t4(adap->params.chip)) {
- 			t4_write_reg(adap, MYPF_REG(SGE_PF_KDOORBELL),
-@@ -880,7 +881,7 @@ static inline void ring_tx_db(struct adapter *adap, struct sge_txq *q, int n)
- 		}
- 	}
- 	q->db_pidx = q->pidx;
--	spin_unlock(&q->db_lock);
-+	spin_unlock_irqrestore(&q->db_lock, flags);
- }
- 
- /**
+ 	len = immediate ? skb->len : 0;
+-	len += sizeof(*cpl);
+ 	ssi = skb_shinfo(skb);
+ 	if (ssi->gso_size) {
+ 		struct cpl_tx_pkt_lso *lso = (void *)wr;
+@@ -1080,6 +1079,7 @@ out_free:	dev_kfree_skb(skb);
+ 		q->tso++;
+ 		q->tx_cso += ssi->gso_segs;
+ 	} else {
++		len += sizeof(*cpl);
+ 		wr->op_immdlen = htonl(FW_WR_OP(FW_ETH_TX_PKT_WR) |
+ 				       FW_WR_IMMDLEN(len));
+ 		cpl = (void *)(wr + 1);
 -- 
 1.8.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
