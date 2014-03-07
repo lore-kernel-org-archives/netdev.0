@@ -1,96 +1,74 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCHv2 1/2] net: af_key: fix sleeping under rcu
-Date: Fri,  7 Mar 2014 12:44:18 +0100
-Message-ID: <1394192659-10764-2-git-send-email-nikolay@redhat.com>
-References: <20140227151954.GA30946@redhat.com>
- <1394192659-10764-1-git-send-email-nikolay@redhat.com>
-Cc: Nikolay Aleksandrov <nikolay@redhat.com>,
-	Dave Jones <davej@redhat.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Fan Du <fan.du@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next 2/2] vlan: add proto and regulate the /proc/net/vlan/config
+Date: Fri, 7 Mar 2014 20:10:51 +0800
+Message-ID: <1394194251-11656-3-git-send-email-dingtianhong@huawei.com>
+References: <1394194251-11656-1-git-send-email-dingtianhong@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: <kaber@trash.net>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2189 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751457AbaCGLtA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Mar 2014 06:49:00 -0500
-In-Reply-To: <1394192659-10764-1-git-send-email-nikolay@redhat.com>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:32482 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751457AbaCGMLT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 07:11:19 -0500
+In-Reply-To: <1394194251-11656-1-git-send-email-dingtianhong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There's a kmalloc with GFP_KERNEL in a helper
-(pfkey_sadb2xfrm_user_sec_ctx) used in pfkey_compile_policy which is
-called under rcu_read_lock. Adjust pfkey_sadb2xfrm_user_sec_ctx to have
-a gfp argument and adjust the users.
+The vlan support 2 proto: 802.1q and 802.1ad, so add it
+to /proc/net/vlan/config, and the old format seems inappropriate,
+regulate it.
 
-CC: Dave Jones <davej@redhat.com>
-CC: Steffen Klassert <steffen.klassert@secunet.com>
-CC: Fan Du <fan.du@windriver.com>
-CC: David S. Miller <davem@davemloft.net>
+---------------------- the old format: --------------------------
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+VLAN Dev name    | VLAN ID
+Name-Type: VLAN_NAME_TYPE_RAW_PLUS_VID_NO_PAD
+eth2.5         | 5  | eth2
+eth2.5.100     | 100  | eth2.5
+eth2.5.20      | 20  | eth2.5
+
+----------------------- the new format: -------------------------
+
+VLAN Dev Name  | Proto   | VID  | Real Dev
+Name-Type: VLAN_NAME_TYPE_RAW_PLUS_VID_NO_PAD
+eth2.1000      | 802.1ad | 1000 | eth2
+eth2.5         | 802.1ad | 5    | eth2
+eth2.5.20      | 802.1ad | 20   | eth2.5
+
+-----------------------------------------------------------------
+
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
-v2: No change
+ net/8021q/vlanproc.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
- net/key/af_key.c | 13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
-
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 1a04c1329362..1526023f99ed 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -433,12 +433,13 @@ static inline int verify_sec_ctx_len(const void *p)
+diff --git a/net/8021q/vlanproc.c b/net/8021q/vlanproc.c
+index a40abbc..e571347 100644
+--- a/net/8021q/vlanproc.c
++++ b/net/8021q/vlanproc.c
+@@ -254,7 +254,7 @@ static int vlan_seq_show(struct seq_file *seq, void *v)
+ 	if (v == SEQ_START_TOKEN) {
+ 		const char *nmtype = NULL;
+ 
+-		seq_puts(seq, "VLAN Dev name	 | VLAN ID\n");
++		seq_puts(seq, "VLAN Dev Name  | Proto   | VID  | Real Dev\n");
+ 
+ 		if (vn->name_type < ARRAY_SIZE(vlan_name_type_str))
+ 		    nmtype =  vlan_name_type_str[vn->name_type];
+@@ -265,8 +265,11 @@ static int vlan_seq_show(struct seq_file *seq, void *v)
+ 		const struct net_device *vlandev = v;
+ 		const struct vlan_dev_priv *vlan = vlan_dev_priv(vlandev);
+ 
+-		seq_printf(seq, "%-15s| %d  | %s\n",  vlandev->name,
+-			   vlan->vlan_id,    vlan->real_dev->name);
++		seq_printf(seq, "%-15s| %s | %-4d | %s\n",
++			   vlandev->name,
++			   vlan->vlan_proto == htons(ETH_P_8021Q) ?
++			   "802.1q" : "802.1ad",
++			   vlan->vlan_id, vlan->real_dev->name);
+ 	}
  	return 0;
  }
- 
--static inline struct xfrm_user_sec_ctx *pfkey_sadb2xfrm_user_sec_ctx(const struct sadb_x_sec_ctx *sec_ctx)
-+static inline struct xfrm_user_sec_ctx *pfkey_sadb2xfrm_user_sec_ctx(const struct sadb_x_sec_ctx *sec_ctx,
-+								     gfp_t gfp)
- {
- 	struct xfrm_user_sec_ctx *uctx = NULL;
- 	int ctx_size = sec_ctx->sadb_x_ctx_len;
- 
--	uctx = kmalloc((sizeof(*uctx)+ctx_size), GFP_KERNEL);
-+	uctx = kmalloc((sizeof(*uctx)+ctx_size), gfp);
- 
- 	if (!uctx)
- 		return NULL;
-@@ -1124,7 +1125,7 @@ static struct xfrm_state * pfkey_msg2xfrm_state(struct net *net,
- 
- 	sec_ctx = ext_hdrs[SADB_X_EXT_SEC_CTX - 1];
- 	if (sec_ctx != NULL) {
--		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
-+		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_KERNEL);
- 
- 		if (!uctx)
- 			goto out;
-@@ -2231,7 +2232,7 @@ static int pfkey_spdadd(struct sock *sk, struct sk_buff *skb, const struct sadb_
- 
- 	sec_ctx = ext_hdrs[SADB_X_EXT_SEC_CTX - 1];
- 	if (sec_ctx != NULL) {
--		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
-+		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_KERNEL);
- 
- 		if (!uctx) {
- 			err = -ENOBUFS;
-@@ -2335,7 +2336,7 @@ static int pfkey_spddelete(struct sock *sk, struct sk_buff *skb, const struct sa
- 
- 	sec_ctx = ext_hdrs[SADB_X_EXT_SEC_CTX - 1];
- 	if (sec_ctx != NULL) {
--		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
-+		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_KERNEL);
- 
- 		if (!uctx)
- 			return -ENOMEM;
-@@ -3239,7 +3240,7 @@ static struct xfrm_policy *pfkey_compile_policy(struct sock *sk, int opt,
- 		}
- 		if ((*dir = verify_sec_ctx_len(p)))
- 			goto out;
--		uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
-+		uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_ATOMIC);
- 		*dir = security_xfrm_policy_alloc(&xp->security, uctx);
- 		kfree(uctx);
- 
 -- 
-1.8.5.3
+1.8.0
