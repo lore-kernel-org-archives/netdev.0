@@ -1,78 +1,53 @@
-From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: Re: [PATCHv2 3/5] net: rfkill: gpio: remove gpio names
-Date: Fri, 7 Mar 2014 11:43:52 +0800
-Message-ID: <CAGb2v65UQZoDJhjpX+kfa6HppXdhrCHG=A5m_WaQ_DimW-Lsbg@mail.gmail.com>
-References: <1393330950-7283-1-git-send-email-heikki.krogerus@linux.intel.com>
- <1393330950-7283-4-git-send-email-heikki.krogerus@linux.intel.com>
- <530D218E.9010007@wwwdotorg.org> <CACRpkdZF4-rWs1WkOp3t0x77fgSCE71E=wdrxiDuGZ8eBu_p_Q@mail.gmail.com>
- <53168976.7000008@wwwdotorg.org> <CACRpkdYfQoDmPX0He4J2Sn2wgQn2hHoHyPqnStLRVqrvi=M+-w@mail.gmail.com>
- <53169304.9080002@wwwdotorg.org> <CACRpkdaYuZ5bXo7djOv04oyHPAFbO=pKfR7L7UBY+kZqZUHfmQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>,
-	Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Rhyland Klein <rklein-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
-	Marc Dietrich <marvin24-Mmb7MZpHnFY@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	"linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CACRpkdaYuZ5bXo7djOv04oyHPAFbO=pKfR7L7UBY+kZqZUHfmQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Simon Horman <horms@verge.net.au>
+Subject: [GIT PULL nf-next 0/2] IPVS Updates for v3.15
+Date: Fri,  7 Mar 2014 12:46:12 +0900
+Message-ID: <1394163974-25877-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 7, 2014 at 11:41 AM, Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org> wrote:
-> On Wed, Mar 5, 2014 at 10:59 AM, Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org> wrote:
->> On 03/04/2014 07:37 PM, Linus Walleij wrote:
->>> On Wed, Mar 5, 2014 at 10:18 AM, Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org> wrote:
->>>> On 03/04/2014 06:43 PM, Linus Walleij wrote:
->>>
->>>>> If I understand the situation correctly it's like ACPI does not have named
->>>>> GPIOs so keeping specifying this in DT GPIO bindings is counter-productive
->>>>> to the work of abstracting the access to GPIO handlers so that drivers
->>>>> need not know whether ACPI or DT is used for describing the hardware.
->>>>
->>>> For devices that already have both ACPI and DT bindings, we can't
->>>> pretend they can be the same; they are already potentially different. We
->>>> simply need to parse DT and ACPI differently, since that's the sway
->>>> their bindings are defined.
->>>>
->>>> For any devices that don't have both ACPI and DT bindings, I agree we
->>>> should certainly strive to make any new bindings aligned so we don't
->>>> have to deal with this for them.
->>>>
->>>> However, we can't change the past.
->>>
->>> Yeah, right, so for this very driver there are no bindings defined (yet)
->>> and the only device tree I can find referencing it is the Tegra20-paz00
->>> and it just use gpios = <>;
->>>
->>> So in this case I think this patch is the right way forward, but I admit
->>> I'm really uncertain in the general case.
->>
->> If there are no bindings defined at all yet, then we can define both DT
->> and ACPI bindings to use name-based GPIOs. Index-based lookups aren't a
->> good way forward.
->
-> After Mark clarifying that ACPI is going to have named GPIOs I'm
-> totally aligned on this, so OK!
+Hi Pablo,
 
-Glad to hear this, but is it possible to get rid of the index in current
-drivers? Or change the behavior to name-based OR index-based lookups.
-This might break any DTs that have multiple GPIOs defined under one
-property though.
+please consider the following updates for IPVS for v3.15.
+
+It consists of two cleanups.
+* Whitespace cleanup from Tingwei Liu
+* Section conflict cleanup from Andi Kleen
+
+Please feel free to put Andi's patch into nf instead of nf-next if
+you think that is appropriate.
 
 
-Cheers
-ChenYu
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The following changes since commit 0768b3b3d228c5acf2075f40f3d25cda30011d4f:
+
+  netfilter: nf_tables: add optional user data area to rules (2014-02-27 16:56:00 +0100)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git tags/ipvs-for-v3.15
+
+for you to fetch changes up to 411fd527bc3f8357b499c760f7cd03633a0c7de2:
+
+  ipvs: Reduce checkpatch noise in ip_vs_lblc.c (2014-03-07 12:36:21 +0900)
+
+----------------------------------------------------------------
+IPVS Updates for v3.15
+
+* Cleanup from Tingwei Liu to correct whitespace
+* Cleanup from Andi Kleen to avoid a LTO section conflict compile problem
+
+----------------------------------------------------------------
+Andi Kleen (1):
+      sections, ipvs: Remove useless __read_mostly for ipvs genl_ops
+
+Tingwei Liu (1):
+      ipvs: Reduce checkpatch noise in ip_vs_lblc.c
+
+ net/netfilter/ipvs/ip_vs_ctl.c  |  2 +-
+ net/netfilter/ipvs/ip_vs_lblc.c | 13 ++++++-------
+ 2 files changed, 7 insertions(+), 8 deletions(-)
