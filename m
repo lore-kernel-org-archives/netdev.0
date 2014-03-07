@@ -1,228 +1,55 @@
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH V2 1/6] Drivers: net: hyperv: Enable scatter gather I/O
-Date: Thu,  6 Mar 2014 21:32:36 -0800
-Message-ID: <1394170361-1043-1-git-send-email-kys@microsoft.com>
-References: <1394170320-1002-1-git-send-email-kys@microsoft.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH] openvswitch: Orphan frags before sending to userspace via
+ Netlink to avoid guest stall
+Date: Thu, 6 Mar 2014 20:46:15 -0800
+Message-ID: <CALnjE+rWc=n_F+1jSLQtPrgKSvvxONEkkYxWEHon2_KVNG9z3Q@mail.gmail.com>
+References: <1393615016-9187-1-git-send-email-zoltan.kiss@citrix.com>
+	<5318ABC0.4040307@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
- jasowang@redhat.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1394170320-1002-1-git-send-email-kys@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Jesse Gross <jesse@nicira.com>, Thomas Graf <tgraf@redhat.com>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	xen-devel@lists.xenproject.org, netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, kvm@vger.kernel.org
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog117.obsmtp.com ([74.125.149.242]:43495 "HELO
+	na3sys009aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751013AbaCGEqQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 23:46:16 -0500
+Received: by mail-ve0-f180.google.com with SMTP id jz11so3582245veb.25
+        for <netdev@vger.kernel.org>; Thu, 06 Mar 2014 20:46:15 -0800 (PST)
+In-Reply-To: <5318ABC0.4040307@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Cleanup the code and enable scatter gather I/O.
+On Thu, Mar 6, 2014 at 9:09 AM, Zoltan Kiss <zoltan.kiss@citrix.com> wrote:
+> Do you have any feedback on this? I'm also adding KVM list as they might be
+> interested in this.
+>
+> Zoli
+>
+>
+> On 28/02/14 19:16, Zoltan Kiss wrote:
+>>
+>> The kernel datapath now switched to zerocopy Netlink messages, but that
+>> also
+>> means that the pages on frags array are sent straight to userspace. If
+>> those
+>> pages came outside the kernel, we have to swap them out with local copies.
+>>
+>> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 
-Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
----
- drivers/net/hyperv/netvsc_drv.c |  153 +++++++++++++++++++++++++++++----------
- 1 files changed, 114 insertions(+), 39 deletions(-)
+I do not think this is required, netlink zero copy only maps
+pre-allocated buffers to user-space.
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 9ef6be9..94271bf 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -140,21 +140,123 @@ static void netvsc_xmit_completion(void *context)
- 		dev_kfree_skb_any(skb);
- }
- 
-+static u32 fill_pg_buf(struct page *page, u32 offset, u32 len,
-+			struct hv_page_buffer *pb)
-+{
-+	int j = 0;
-+
-+	/* Deal with compund pages by ignoring unused part
-+	 * of the page.
-+	 */
-+	page += offset  >> PAGE_SHIFT;
-+	offset &= ~PAGE_MASK;
-+
-+	while (len > 0) {
-+		unsigned long bytes;
-+
-+		bytes = PAGE_SIZE - offset;
-+		if (bytes > len)
-+			bytes = len;
-+		pb[j].pfn = page_to_pfn(page);
-+		pb[j].offset = offset;
-+		pb[j].len = bytes;
-+
-+		offset += bytes;
-+		len -= bytes;
-+
-+		if (offset == PAGE_SIZE && len) {
-+			page++;
-+			offset = 0;
-+			j++;
-+		}
-+	}
-+
-+	return j + 1;
-+}
-+
-+static void init_page_array(void *hdr, u32 len, struct sk_buff *skb,
-+			    struct hv_page_buffer *pb)
-+{
-+	u32 slots_used = 0;
-+	char *data = skb->data;
-+	int frags = skb_shinfo(skb)->nr_frags;
-+	int i;
-+
-+	/* The packet is laid out thus:
-+	 * 1. hdr
-+	 * 2. skb linear data
-+	 * 3. skb fragment data
-+	 */
-+	if (hdr != NULL)
-+		slots_used += fill_pg_buf(virt_to_page(hdr),
-+					offset_in_page(hdr),
-+					len, &pb[slots_used]);
-+
-+	slots_used += fill_pg_buf(virt_to_page(data),
-+				offset_in_page(data),
-+				skb_headlen(skb), &pb[slots_used]);
-+
-+	for (i = 0; i < frags; i++) {
-+		skb_frag_t *frag = skb_shinfo(skb)->frags + i;
-+
-+		slots_used += fill_pg_buf(skb_frag_page(frag),
-+					frag->page_offset,
-+					skb_frag_size(frag), &pb[slots_used]);
-+	}
-+}
-+
-+static int count_skb_frag_slots(struct sk_buff *skb)
-+{
-+	int i, frags = skb_shinfo(skb)->nr_frags;
-+	int pages = 0;
-+
-+	for (i = 0; i < frags; i++) {
-+		skb_frag_t *frag = skb_shinfo(skb)->frags + i;
-+		unsigned long size = skb_frag_size(frag);
-+		unsigned long offset = frag->page_offset;
-+
-+		/* Skip unused frames from start of page */
-+		offset &= ~PAGE_MASK;
-+		pages += PFN_UP(offset + size);
-+	}
-+	return pages;
-+}
-+
-+static int netvsc_get_slots(struct sk_buff *skb)
-+{
-+	char *data = skb->data;
-+	unsigned int offset = offset_in_page(data);
-+	unsigned int len = skb_headlen(skb);
-+	int slots;
-+	int frag_slots;
-+
-+	slots = DIV_ROUND_UP(offset + len, PAGE_SIZE);
-+	frag_slots = count_skb_frag_slots(skb);
-+	return slots + frag_slots;
-+}
-+
- static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- {
- 	struct net_device_context *net_device_ctx = netdev_priv(net);
- 	struct hv_netvsc_packet *packet;
- 	int ret;
--	unsigned int i, num_pages, npg_data;
-+	unsigned int num_data_pages;
- 
--	/* Add multipages for skb->data and additional 2 for RNDIS */
--	npg_data = (((unsigned long)skb->data + skb_headlen(skb) - 1)
--		>> PAGE_SHIFT) - ((unsigned long)skb->data >> PAGE_SHIFT) + 1;
--	num_pages = skb_shinfo(skb)->nr_frags + npg_data + 2;
-+	/* We will atmost need two pages to describe the rndis
-+	 * header. We can only transmit MAX_PAGE_BUFFER_COUNT number
-+	 * of pages in a single packet.
-+	 */
-+	num_data_pages = netvsc_get_slots(skb) + 2;
-+	if (num_data_pages > MAX_PAGE_BUFFER_COUNT) {
-+		netdev_err(net, "Packet too big: %u\n", skb->len);
-+		dev_kfree_skb(skb);
-+		net->stats.tx_dropped++;
-+		return NETDEV_TX_OK;
-+	}
- 
- 	/* Allocate a netvsc packet based on # of frags. */
- 	packet = kzalloc(sizeof(struct hv_netvsc_packet) +
--			 (num_pages * sizeof(struct hv_page_buffer)) +
-+			 (num_data_pages * sizeof(struct hv_page_buffer)) +
- 			 sizeof(struct rndis_message) +
- 			 NDIS_VLAN_PPI_SIZE, GFP_ATOMIC);
- 	if (!packet) {
-@@ -169,44 +271,17 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	packet->vlan_tci = skb->vlan_tci;
- 
- 	packet->extension = (void *)(unsigned long)packet +
--				sizeof(struct hv_netvsc_packet) +
--				    (num_pages * sizeof(struct hv_page_buffer));
-+			sizeof(struct hv_netvsc_packet) +
-+			(num_data_pages * sizeof(struct hv_page_buffer));
- 
- 	/* If the rndis msg goes beyond 1 page, we will add 1 later */
--	packet->page_buf_cnt = num_pages - 1;
-+	packet->page_buf_cnt = num_data_pages - 1;
- 
- 	/* Initialize it from the skb */
- 	packet->total_data_buflen = skb->len;
- 
- 	/* Start filling in the page buffers starting after RNDIS buffer. */
--	packet->page_buf[1].pfn = virt_to_phys(skb->data) >> PAGE_SHIFT;
--	packet->page_buf[1].offset
--		= (unsigned long)skb->data & (PAGE_SIZE - 1);
--	if (npg_data == 1)
--		packet->page_buf[1].len = skb_headlen(skb);
--	else
--		packet->page_buf[1].len = PAGE_SIZE
--			- packet->page_buf[1].offset;
--
--	for (i = 2; i <= npg_data; i++) {
--		packet->page_buf[i].pfn = virt_to_phys(skb->data
--			+ PAGE_SIZE * (i-1)) >> PAGE_SHIFT;
--		packet->page_buf[i].offset = 0;
--		packet->page_buf[i].len = PAGE_SIZE;
--	}
--	if (npg_data > 1)
--		packet->page_buf[npg_data].len = (((unsigned long)skb->data
--			+ skb_headlen(skb) - 1) & (PAGE_SIZE - 1)) + 1;
--
--	/* Additional fragments are after SKB data */
--	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
--		const skb_frag_t *f = &skb_shinfo(skb)->frags[i];
--
--		packet->page_buf[i+npg_data+1].pfn =
--			page_to_pfn(skb_frag_page(f));
--		packet->page_buf[i+npg_data+1].offset = f->page_offset;
--		packet->page_buf[i+npg_data+1].len = skb_frag_size(f);
--	}
-+	init_page_array(NULL, 0, skb, &packet->page_buf[1]);
- 
- 	/* Set the completion routine */
- 	packet->completion.send.send_completion = netvsc_xmit_completion;
-@@ -451,8 +526,8 @@ static int netvsc_probe(struct hv_device *dev,
- 	net->netdev_ops = &device_ops;
- 
- 	/* TODO: Add GSO and Checksum offload */
--	net->hw_features = 0;
--	net->features = NETIF_F_HW_VLAN_CTAG_TX;
-+	net->hw_features = NETIF_F_SG;
-+	net->features = NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_SG;
- 
- 	SET_ETHTOOL_OPS(net, &ethtool_ops);
- 	SET_NETDEV_DEV(net, &dev->device);
--- 
-1.7.4.1
+But I found bug in datapath user-space queue code. I am not sure how
+this can work with skb fragments and MMAP-netlink socket.
+Here is what happens, OVS allocates netlink skb and adds fragments to
+skb using skb_zero_copy(), then calls genlmsg_unicast().
+But if netlink sock is mmped then netlink-send queues netlink
+allocated skb->head (linear data of skb) and ignore skb frags.
+
+Currently this is not problem with OVS vswitchd since it does not use
+netlink MMAP sockets. But if vswitchd stats using MMAP-netlink socket,
+it can break it.
