@@ -1,51 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: Can I limit the number of active tx per TCP socket?
-Date: Fri, 07 Mar 2014 07:00:02 -0800
-Message-ID: <1394204402.20149.29.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D0F6D3B91@AcuExch.aculab.com>
-	 <5318ADB1.5050107@hp.com>
-	 <CADVnQyn1+WRqS9HQmMn9JgpBz0Wajg=40yVhdyqv_AAo4tpWUA@mail.gmail.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D0F6D727E@AcuExch.aculab.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D0F6D755C@AcuExch.aculab.com>
-	 <1394202127.20149.14.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D0F6D7699@AcuExch.aculab.com>
+From: Marcelo Tosatti <mtosatti@redhat.com>
+Subject: Re: [PATCH] e1000: do not allow watchdog to reenable
+ transmits on shutdown
+Date: Fri, 7 Mar 2014 12:14:35 -0300
+Message-ID: <20140307151435.GB26026@amt.cnet>
+References: <20140307020420.GA10797@amt.cnet>
+	<1394162671.2214.36.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: 'Neal Cardwell' <ncardwell@google.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:42237 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752860AbaCGPAG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 10:00:06 -0500
-Received: by mail-pa0-f49.google.com with SMTP id lj1so4232897pab.22
-        for <netdev@vger.kernel.org>; Fri, 07 Mar 2014 07:00:05 -0800 (PST)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6D7699@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Vladimir Davydov <VDavydov@parallels.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <1394162671.2214.36.camel@jtkirshe-mobl>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-03-07 at 14:35 +0000, David Laight wrote:
+On Thu, Mar 06, 2014 at 07:24:31PM -0800, Jeff Kirsher wrote:
+> On Thu, 2014-03-06 at 23:04 -0300, Marcelo Tosatti wrote:
+> > 
+> > There is a race on the shutdown path of the e1000 driver
+> > that allows the card to DMA into free'd memory.
+> > 
+> > The symptoms are similar to those described at 
+> > commit d5bc77a223b0e9b9dfb002048d2b34a79e7d0b48,
+> > "e1000: don't enable dma receives until after dma address has been
+> > setup", where memory corruption is visible due to E1000_RXD_STAT_DD
+> > being written to the DMA transfer descriptor.
+> > 
+> > Fix by not allowing the watchdog and tx fifo stall detector
+> > to re-enable E1000_TCTL_EN.
+> > 
+> > Signed-off-by: Marcelo Tosatti <mtosatti@redhat.com>
+> 
+> Thanks I will add this to the queue.
+> 
+> Note- there are trailing whitespace issues and 2 comments are not
+> formatted correctly.  I can fix these up if there are no other issues
+> with the patch, if you want.
 
-> Only the one connection between the two IP addresses is carrying this data.
-> Other connections carry other traffic that has entirely different
-> characteristics.
+checkpatch.pl did not complain about those - feel free to fix them,
+thanks.
 
-You can adapt the filter to match _this_ connection.
 
-Other traffic will just use a different path (other qdisc if you prefer)
 
-You can match things like source port, destination port, or fw marks
-(using iptables or a socket option)
-
-By letting the stack doing optimal aggregation, you'll have no overhead
-an perfect pacing (using high resolution timer)
-
-fq has the maxrate parameter so that you can avoid using
-SO_MAX_PACING_RATE in the application.
-
-By shaping the flow, you'll allow TCP stack to build efficient packets,
-because tcp_sendmsg() will append data to the last skb in write queue,
-thanks to auto corking.
+------------------------------------------------------------------------------
+Subversion Kills Productivity. Get off Subversion & Make the Move to Perforce.
+With Perforce, you get hassle-free workflows. Merge that actually works. 
+Faster operations. Version large binaries.  Built-in WAN optimization and the
+freedom to use Git, Perforce or both. Make the move to Perforce.
+http://pubads.g.doubleclick.net/gampad/clk?id=122218951&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
