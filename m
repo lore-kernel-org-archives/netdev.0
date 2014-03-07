@@ -1,111 +1,75 @@
-From: Marcelo Tosatti <mtosatti@redhat.com>
-Subject: [PATCH] e1000: do not allow watchdog to reenable
- transmits on shutdown (v2)
-Date: Fri, 7 Mar 2014 17:59:26 -0300
-Message-ID: <20140307205926.GA5041@amt.cnet>
-References: <20140307020420.GA10797@amt.cnet>
-	<1394162671.2214.36.camel@jtkirshe-mobl>
+From: Joe Perches <joe@perches.com>
+Subject: Re: rfc: checkpatch logical line continuations (was IBM Akebono:
+ Add support for a new PHY interface to the IBM emac driver)
+Date: Fri, 07 Mar 2014 13:45:25 -0800
+Message-ID: <1394228725.16156.102.camel@joe-AO722>
+References: <1394077948-8395-1-git-send-email-alistair@popple.id.au>
+	 <1394077948-8395-3-git-send-email-alistair@popple.id.au>
+	 <20140307.154142.488351276799532264.davem@davemloft.net>
+	 <1394226164.16156.96.camel@joe-AO722> <20140307213017.GA18769@cloud>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Vladimir Davydov <VDavydov@parallels.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <1394162671.2214.36.camel@jtkirshe-mobl>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: David Miller <davem@davemloft.net>, alistair@popple.id.au,
+	netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Dan Carpenter <error27@gmail.com>,
+	Randy Dunlap <rdunlap@infradead.org>
+To: josh@joshtriplett.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140307213017.GA18769@cloud>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, 2014-03-07 at 13:30 -0800, josh@joshtriplett.org wrote:
+> On Fri, Mar 07, 2014 at 01:02:44PM -0800, Joe Perches wrote:
+> > On Fri, 2014-03-07 at 15:41 -0500, David Miller wrote:
+> > > From: Alistair Popple <alistair@popple.id.au>
+> > > Date: Thu,  6 Mar 2014 14:52:25 +1100
+> > > 
+> > > > +	out_be32(dev->reg, in_be32(dev->reg) | WKUP_ETH_RGMIIEN
+> > > > +		 | WKUP_ETH_TX_OE | WKUP_ETH_RX_IE);
+> > > 
+> > > When an expression spans multiple lines, the lines should end with
+> > > operators rather than begin with them.
+> > 
+> > That's not in CodingStyle currently.
+> 
+> It's also not even remotely consistent across existing kernel code, and
+> it isn't obvious that there's a general developer consensus on the
+> "right" way to write it.
 
-There is a race on the shutdown path of the e1000 driver
-that allows the card to DMA into free'd memory.
+I agree with that.  Stuff that's not in CodingStyle generally
+doesn't have a developer consensus.
 
-The symptoms are similar to those described at
-commit d5bc77a223b0e9b9dfb002048d2b34a79e7d0b48,
-"e1000: don't enable dma receives until after dma address has been
-setup", where memory corruption is visible due to E1000_RXD_STAT_DD
-being written to the DMA transfer descriptor.
+> > Right now, checkpatch emits a --strict only warning on "&&" or "||"
+> > at the beginning of line but that could be changed to any "$Operators"
+> > 
+> > our $Arithmetic = qr{\+|-|\*|\/|%};
+> > our $Operators	= qr{
+> > 			<=|>=|==|!=|
+> > 			=>|->|<<|>>|<|>|!|~|
+> > 			&&|\|\||,|\^|\+\+|--|&|\||$Arithmetic
+> > 		  }x;
+> > 
+> > The ones that likely have a too high false positive rates
+> > are the negation "!" and bitwise "~".
+> 
+> I don't think warning about operators at start of line seems like a good
+> idea at all.  There are plenty of cases where putting the operator at
+> the start of the line will produce a better result.  (I'd actually
+> suggest that in *most* cases.)
+> 
+> > Also, using perl, it's hard to distinguish between a
+> > logical "&" and the address-of "&" as well as the
+> > multiplication "*" and indirection "*" so maybe those
+> > should be excluded too.
+> > 
+> > And I think it should only be added as a --strict test.
+> 
+> Agreed, if even that.
 
-Fix by not allowing the watchdog and tx fifo stall detector
-to re-enable E1000_TCTL_EN.
-
-Signed-off-by: Marcelo Tosatti <mtosatti@redhat.com>
-
-diff --git a/drivers/net/ethernet/intel/e1000/e1000.h b/drivers/net/ethernet/intel/e1000/e1000.h
-index 10a0f22..bb5dc1a 100644
---- a/drivers/net/ethernet/intel/e1000/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000/e1000.h
-@@ -321,7 +321,8 @@ struct e1000_adapter {
- enum e1000_state_t {
- 	__E1000_TESTING,
- 	__E1000_RESETTING,
--	__E1000_DOWN
-+	__E1000_DOWN,
-+	__E1000_NOTX = 4,
- };
- 
- #undef pr_fmt
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 46e6544..a39484f 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -414,6 +414,7 @@ int e1000_up(struct e1000_adapter *adapter)
- 	e1000_configure(adapter);
- 
- 	clear_bit(__E1000_DOWN, &adapter->flags);
-+	clear_bit(__E1000_NOTX, &adapter->flags);
- 
- 	napi_enable(&adapter->napi);
- 
-@@ -524,6 +525,11 @@ void e1000_down(struct e1000_adapter *adapter)
- 
- 	netif_tx_disable(netdev);
- 
-+	/* do not allow watchdog to reenable transmits between
-+	 * clearing E1000_TCTL_EN below and setting E1000_DOWN
-+	 */
-+	set_bit(__E1000_NOTX, &adapter->flags);
-+
- 	/* disable transmits in the hardware */
- 	tctl = er32(TCTL);
- 	tctl &= ~E1000_TCTL_EN;
-@@ -2339,6 +2345,9 @@ static void e1000_82547_tx_fifo_stall_task(struct work_struct *work)
- 	struct net_device *netdev = adapter->netdev;
- 	u32 tctl;
- 
-+	if (test_bit(__E1000_NOTX, &adapter->flags))
-+		return;
-+
- 	if (atomic_read(&adapter->tx_fifo_stall)) {
- 		if ((er32(TDT) == er32(TDH)) &&
- 		   (er32(TDFT) == er32(TDFH)) &&
-@@ -2412,6 +2421,9 @@ static void e1000_watchdog(struct work_struct *work)
- 	struct e1000_tx_ring *txdr = adapter->tx_ring;
- 	u32 link, tctl;
- 
-+	if (test_bit(__E1000_NOTX, &adapter->flags))
-+		return;
-+
- 	link = e1000_has_link(adapter);
- 	if ((netif_carrier_ok(netdev)) && link)
- 		goto link_up;
-
-------------------------------------------------------------------------------
-Subversion Kills Productivity. Get off Subversion & Make the Move to Perforce.
-With Perforce, you get hassle-free workflows. Merge that actually works. 
-Faster operations. Version large binaries.  Built-in WAN optimization and the
-freedom to use Git, Perforce or both. Make the move to Perforce.
-http://pubads.g.doubleclick.net/gampad/clk?id=122218951&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+And probably made specific to net/ and drivers/net like
+a few other comment style tests until such time as a
+consensus exists.
