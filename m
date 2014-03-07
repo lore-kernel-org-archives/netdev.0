@@ -1,75 +1,87 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: rfc: checkpatch logical line continuations (was IBM Akebono:
- Add support for a new PHY interface to the IBM emac driver)
-Date: Fri, 07 Mar 2014 13:45:25 -0800
-Message-ID: <1394228725.16156.102.camel@joe-AO722>
-References: <1394077948-8395-1-git-send-email-alistair@popple.id.au>
-	 <1394077948-8395-3-git-send-email-alistair@popple.id.au>
-	 <20140307.154142.488351276799532264.davem@davemloft.net>
-	 <1394226164.16156.96.camel@joe-AO722> <20140307213017.GA18769@cloud>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V2 1/6] Drivers: net: hyperv: Enable scatter gather I/O
+Date: Fri, 07 Mar 2014 16:47:56 -0500 (EST)
+Message-ID: <20140307.164756.1488071770631289333.davem@davemloft.net>
+References: <1394170320-1002-1-git-send-email-kys@microsoft.com>
+ <1394170361-1043-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, alistair@popple.id.au,
-	netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dan Carpenter <error27@gmail.com>,
-	Randy Dunlap <rdunlap@infradead.org>
-To: josh@joshtriplett.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140307213017.GA18769@cloud>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ linux-kernel@vger.kernel.org, apw@canonical.com, devel@linuxdriverproject.org
+To: kys@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1394170361-1043-1-git-send-email-kys@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-03-07 at 13:30 -0800, josh@joshtriplett.org wrote:
-> On Fri, Mar 07, 2014 at 01:02:44PM -0800, Joe Perches wrote:
-> > On Fri, 2014-03-07 at 15:41 -0500, David Miller wrote:
-> > > From: Alistair Popple <alistair@popple.id.au>
-> > > Date: Thu,  6 Mar 2014 14:52:25 +1100
-> > > 
-> > > > +	out_be32(dev->reg, in_be32(dev->reg) | WKUP_ETH_RGMIIEN
-> > > > +		 | WKUP_ETH_TX_OE | WKUP_ETH_RX_IE);
-> > > 
-> > > When an expression spans multiple lines, the lines should end with
-> > > operators rather than begin with them.
-> > 
-> > That's not in CodingStyle currently.
-> 
-> It's also not even remotely consistent across existing kernel code, and
-> it isn't obvious that there's a general developer consensus on the
-> "right" way to write it.
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Date: Thu,  6 Mar 2014 21:32:36 -0800
 
-I agree with that.  Stuff that's not in CodingStyle generally
-doesn't have a developer consensus.
+> +static u32 fill_pg_buf(struct page *page, u32 offset, u32 len,
+> +			struct hv_page_buffer *pb)
+> +{
+> +	int j = 0;
+> +
+> +	/* Deal with compund pages by ignoring unused part
+> +	 * of the page.
+> +	 */
+> +	page += offset  >> PAGE_SHIFT;
 
-> > Right now, checkpatch emits a --strict only warning on "&&" or "||"
-> > at the beginning of line but that could be changed to any "$Operators"
-> > 
-> > our $Arithmetic = qr{\+|-|\*|\/|%};
-> > our $Operators	= qr{
-> > 			<=|>=|==|!=|
-> > 			=>|->|<<|>>|<|>|!|~|
-> > 			&&|\|\||,|\^|\+\+|--|&|\||$Arithmetic
-> > 		  }x;
-> > 
-> > The ones that likely have a too high false positive rates
-> > are the negation "!" and bitwise "~".
-> 
-> I don't think warning about operators at start of line seems like a good
-> idea at all.  There are plenty of cases where putting the operator at
-> the start of the line will produce a better result.  (I'd actually
-> suggest that in *most* cases.)
-> 
-> > Also, using perl, it's hard to distinguish between a
-> > logical "&" and the address-of "&" as well as the
-> > multiplication "*" and indirection "*" so maybe those
-> > should be excluded too.
-> > 
-> > And I think it should only be added as a --strict test.
-> 
-> Agreed, if even that.
+Please only one space between "offset" and ">>"
 
-And probably made specific to net/ and drivers/net like
-a few other comment style tests until such time as a
-consensus exists.
+> +	offset &= ~PAGE_MASK;
+> +
+> +	while (len > 0) {
+> +		unsigned long bytes;
+> +
+> +		bytes = PAGE_SIZE - offset;
+> +		if (bytes > len)
+> +			bytes = len;
+> +		pb[j].pfn = page_to_pfn(page);
+> +		pb[j].offset = offset;
+> +		pb[j].len = bytes;
+> +
+> +		offset += bytes;
+> +		len -= bytes;
+> +
+> +		if (offset == PAGE_SIZE && len) {
+> +			page++;
+> +			offset = 0;
+> +			j++;
+> +		}
+> +	}
+> +
+> +	return j + 1;
+> +}
+
+I think this function has some edge case errors.
+
+As I understand it, this function returns how many page buffer entries
+were filled in.
+
+But if we fill exactly the end of a page, we will report one too many
+in the return value.
+
+Consider an "offset" of X, where X is smaller than PAGE_SIZE.  And a
+"len" which is exactly "PAGE_SIZE - offset".
+
+We will fill in exactly one page buffer entry, however we will
+erroneously return 2 from this function.
+
+I believe the fix is to first replace the test at the end of the loop
+with:
+
+	page++;
+	offset = 0;
+	j++;
+
+And subsequently change the function to just return plain "j".
