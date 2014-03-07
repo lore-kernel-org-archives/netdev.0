@@ -1,61 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v7 0/9] xen-netback: TX grant mapping with
- SKBTX_DEV_ZEROCOPY instead of copy
-Date: Fri, 07 Mar 2014 16:05:52 -0500 (EST)
-Message-ID: <20140307.160552.282750558679341658.davem@davemloft.net>
-References: <1394142511-14827-1-git-send-email-zoltan.kiss@citrix.com>
+From: Marcelo Tosatti <mtosatti@redhat.com>
+Subject: Re: [PATCH] e1000: do not allow watchdog to reenable
+ transmits on shutdown
+Date: Fri, 7 Mar 2014 18:00:09 -0300
+Message-ID: <20140307210009.GB5041@amt.cnet>
+References: <20140307020420.GA10797@amt.cnet>
+	<1394162671.2214.36.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: ian.campbell@citrix.com, wei.liu2@citrix.com,
-	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jonathan.davies@citrix.com
-To: zoltan.kiss@citrix.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394142511-14827-1-git-send-email-zoltan.kiss@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Vladimir Davydov <VDavydov@parallels.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <1394162671.2214.36.camel@jtkirshe-mobl>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Date: Thu, 6 Mar 2014 21:48:22 +0000
+On Thu, Mar 06, 2014 at 07:24:31PM -0800, Jeff Kirsher wrote:
+> On Thu, 2014-03-06 at 23:04 -0300, Marcelo Tosatti wrote:
+> > 
+> > There is a race on the shutdown path of the e1000 driver
+> > that allows the card to DMA into free'd memory.
+> > 
+> > The symptoms are similar to those described at 
+> > commit d5bc77a223b0e9b9dfb002048d2b34a79e7d0b48,
+> > "e1000: don't enable dma receives until after dma address has been
+> > setup", where memory corruption is visible due to E1000_RXD_STAT_DD
+> > being written to the DMA transfer descriptor.
+> > 
+> > Fix by not allowing the watchdog and tx fifo stall detector
+> > to re-enable E1000_TCTL_EN.
+> > 
+> > Signed-off-by: Marcelo Tosatti <mtosatti@redhat.com>
+> 
+> Thanks I will add this to the queue.
+> 
+> Note- there are trailing whitespace issues and 2 comments are not
+> formatted correctly.  I can fix these up if there are no other issues
+> with the patch, if you want.
 
-> A long known problem of the upstream netback implementation that on the TX
-> path (from guest to Dom0) it copies the whole packet from guest memory into
-> Dom0. That simply became a bottleneck with 10Gb NICs, and generally it's a
-> huge perfomance penalty. The classic kernel version of netback used grant
-> mapping, and to get notified when the page can be unmapped, it used page
-> destructors. Unfortunately that destructor is not an upstreamable solution.
-> Ian Campbell's skb fragment destructor patch series [1] tried to solve this
-> problem, however it seems to be very invasive on the network stack's code,
-> and therefore haven't progressed very well.
-> This patch series use SKBTX_DEV_ZEROCOPY flags to tell the stack it needs to
-> know when the skb is freed up. That is the way KVM solved the same problem,
-> and based on my initial tests it can do the same for us. Avoiding the extra
-> copy boosted up TX throughput from 6.8 Gbps to 7.9 (I used a slower AMD
-> Interlagos box, both Dom0 and guest on upstream kernel, on the same NUMA node,
-> running iperf 2.0.5, and the remote end was a bare metal box on the same 10Gb
-> switch)
-> Based on my investigations the packet get only copied if it is delivered to
-> Dom0 IP stack through deliver_skb, which is due to this [2] patch. This affects
-> DomU->Dom0 IP traffic and when Dom0 does routing/NAT for the guest. That's a bit
-> unfortunate, but luckily it doesn't cause a major regression for this usecase.
-> In the future we should try to eliminate that copy somehow.
-> There are a few spinoff tasks which will be addressed in separate patches:
-> - grant copy the header directly instead of map and memcpy. This should help
->   us avoiding TLB flushing
-> - use something else than ballooned pages
-> - fix grant map to use page->index properly
-> I've tried to broke it down to smaller patches, with mixed results, so I
-> welcome suggestions on that part as well:
-> 1: Use skb->cb to store pending_idx
-> 2: Some refactoring
-> 3: Change RX path for mapped SKB fragments (moved here to keep bisectability,
-> review it after #4)
-> 4: Introduce TX grant mapping
-> 5: Remove old TX grant copy definitons and fix indentations
-> 6: Add stat counters for zerocopy
-> 7: Handle guests with too many frags
-> 8: Timeout packets in RX path
-> 9: Aggregate TX unmap operations
+Ok, resent v2 with those fixed, must have inlined an older patch
+in the message, sorry.
 
-Series applied, thanks.
+
+------------------------------------------------------------------------------
+Subversion Kills Productivity. Get off Subversion & Make the Move to Perforce.
+With Perforce, you get hassle-free workflows. Merge that actually works. 
+Faster operations. Version large binaries.  Built-in WAN optimization and the
+freedom to use Git, Perforce or both. Make the move to Perforce.
+http://pubads.g.doubleclick.net/gampad/clk?id=122218951&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
